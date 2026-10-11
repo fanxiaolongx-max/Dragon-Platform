@@ -153,7 +153,7 @@
     async function previewSource(payload){
         try{await window.MonthlySourceTableEditor.open({...payload,request,t,escape,onSaved:async()=>{cache.clear();blockResources.clear();await refresh();status(t('原始表已更新；已保存的历史月报结果保持原样，需要时检查数据更新','Source updated; saved historical reports retain their results. Check updates when needed.'));}});}catch(error){status(error.message);}
     }
-    function mountEditor(block,host,tab){if(tab==='layout'){mountLayoutEditor(block,host);return;}editBlock(findBlock(block.id),host);host.dataset.inspectorEditorTab=tab;host.querySelectorAll('form [name]').forEach(input=>input.closest('label')?.setAttribute('data-inspector-name',input.name));}
+    function mountEditor(block,host,tab){if(tab==='layout'){mountLayoutEditor(block,host);return;}editBlock(findBlock(block.id),host);host.dataset.inspectorEditorTab=tab;if(tab==='processing')host.querySelector('h3').textContent=t('数据处理与指标绑定','Data processing & metric binding');host.querySelectorAll('form [name]').forEach(input=>input.closest('label')?.setAttribute('data-inspector-name',input.name));}
     // Layout edits only geometry. Do not build hidden source pickers or read worksheet data.
     function mountLayoutEditor(block,host){
         const found=findBlock(block.id);host.dataset.inspectorEditorTab='layout';
@@ -180,9 +180,10 @@
     }
     async function configure(action,block,panel){
         try{
+            if(action==='advanced'){await window.MonthlyPivotPanel.open(block.id,'processing');const details=panel.querySelector('[data-processing-binding]');if(details)details.open=true;return;}
             if(action==='presets'){const host=panel.querySelector('[data-component-presets-host]'),button=panel.querySelector('[data-inspector-action=presets]');host.hidden=!host.hidden;button.setAttribute('aria-expanded',String(!host.hidden));if(!host.hidden&&!host.children.length)try{await componentPresets(block,host);}catch(error){host.replaceChildren();throw error;}return;}
             let host=panel.querySelector('[data-inspector-editor]');if(!host){host=document.createElement('div');host.setAttribute('data-inspector-editor','');panel.querySelector('.inspector-body').append(host);}
-            if(action==='advanced')mountEditor(block,host,'source');if(action==='mapping')await window.MonthlyMappingEditor.open(block,host);if(action==='format')await window.MonthlyDataFormatEditor.open(block,host);
+            if(action==='mapping')await window.MonthlyMappingEditor.open(block,host);if(action==='format')await window.MonthlyDataFormatEditor.open(block,host);
             if(action==='pivot'){await window.MonthlyCharts.enablePivot(block);await window.MonthlyPivotPanel.open(block.id,'processing');}
             if(action==='retry'){cache.clear();blockResources.delete(block.id);if(block.savedData)block.previousData=block.savedData;delete block.savedData;await render();}
         }catch(error){status(error.message);}
@@ -1114,7 +1115,7 @@
             clone.style.width=root.getBoundingClientRect().width+'px';clone.style.maxWidth='none';clone.style.flex='none';
             const typography=getComputedStyle(root);clone.style.fontFamily=typography.fontFamily;clone.style.fontSize=typography.fontSize;
             clone.querySelectorAll('.document-meta-cell,.document-section,.document-block').forEach(element=>{const original=root.querySelector(element.dataset.metaId?`[data-meta-id="${element.dataset.metaId}"].document-meta-cell`:element.dataset.cardId?`[data-card-id="${element.dataset.cardId}"]`:`#${element.id}`);if(original){const style=getComputedStyle(original);element.style.setProperty('grid-column',style.gridColumn,'important');element.style.padding=style.padding;}});
-            clone.querySelectorAll('.inline-metric').forEach(element=>element.replaceWith(document.createTextNode(element.textContent)));clone.querySelectorAll('.document-source-note').forEach(note=>{note.textContent=note.dataset.sourceDate||'';note.removeAttribute('data-source-date');});clone.querySelectorAll('[data-controls]').forEach(el=>el.remove());clone.querySelectorAll('[contenteditable]').forEach(el=>{el.removeAttribute('contenteditable');el.removeAttribute('data-placeholder');el.removeAttribute('data-field');});const logo=clone.querySelector('.document-masthead img');if(logo&&current.logo){logo.src=await exportLogo(current.logo);logo.removeAttribute('hidden');}const css=await fetch('/css/monthly-designer.css?v=20261011-29').then(res=>res.text());
+            clone.querySelectorAll('.inline-metric').forEach(element=>element.replaceWith(document.createTextNode(element.textContent)));clone.querySelectorAll('.document-source-note').forEach(note=>{note.textContent=note.dataset.sourceDate||'';note.removeAttribute('data-source-date');});clone.querySelectorAll('[data-controls]').forEach(el=>el.remove());clone.querySelectorAll('[contenteditable]').forEach(el=>{el.removeAttribute('contenteditable');el.removeAttribute('data-placeholder');el.removeAttribute('data-field');});const logo=clone.querySelector('.document-masthead img');if(logo&&current.logo){logo.src=await exportLogo(current.logo);logo.removeAttribute('hidden');}const css=await fetch('/css/monthly-designer.css?v=20261011-30').then(res=>res.text());
         clone.style.padding=typography.padding;
         await alignExportCards(clone,css);
         return {clone,css};
