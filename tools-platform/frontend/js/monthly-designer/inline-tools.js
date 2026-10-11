@@ -31,7 +31,8 @@
   function openMetric(field,range,existing=null){
    close();const toolbar=document.querySelector('.rich-text-toolbar');if(toolbar)toolbar.hidden=true;const input=field.matches('input,textarea'),selection=getSelection();
    const rect=existing?.getBoundingClientRect?.()||(input?field.getBoundingClientRect():range.getBoundingClientRect()),fallback=field.getBoundingClientRect();
-   const options=MonthlyDocumentEngine.metricOptions(api.getCatalog());let selectedKey='';
+   const pickerCatalog=api.getPickerCatalog?.()||api.getCatalog();
+   const options=MonthlyDocumentEngine.metricOptions(pickerCatalog);let selectedKey='';
    try{selectedKey=decodeURIComponent(existing?.dataset.metricToken?.slice(10,-2)||'');}catch(_){}
    const selected=options.find(metric=>metric.key===selectedKey||metric.keyAliases?.includes(selectedKey));
    menu=document.createElement('div');menu.className='metric-mention-menu';menu.setAttribute('role','dialog');menu.setAttribute('aria-label',t(existing?'编辑指标引用':'引用指标',existing?'Edit metric reference':'Insert metric'));
@@ -59,7 +60,7 @@
     field.focus();
     if(input){field.setRangeText(token,range.start,range.end,'end');field.dispatchEvent(new Event('input',{bubbles:true}));}
     else{
-     const holder=document.createElement('span');holder.innerHTML=renderText(token,api.getCatalog(),api.metricLabel);const chip=holder.firstChild;
+     const holder=document.createElement('span');holder.innerHTML=renderText(token,pickerCatalog,api.metricLabel);const chip=holder.firstChild;
      if(existing){chip.style.cssText=existing.style.cssText;existing.replaceWith(chip);range.setStartAfter(chip);}
      else{range.deleteContents();range.insertNode(chip);const space=document.createTextNode(' ');chip.after(space);range.setStartAfter(space);}
      range.collapse(true);selection.removeAllRanges();selection.addRange(range);api.commitText(field);

@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Privacy Policy for the Question Bank & Answer Assistant browser extension.">
+  <meta name="description" content="Unified Privacy Policy for Tools Platform browser extensions: Question Bank & Answer Assistant and NetCare RFC Plan & AI Audit Assistant.">
   <meta name="robots" content="index,follow">
-  <title>Privacy Policy · Question Bank & Answer Assistant</title>
+  <title>Privacy Policy · Tools Platform Extensions (Question Bank & NetCare Audit)</title>
   <style>
     :root {
       color-scheme: light;
@@ -21,6 +21,8 @@
       --green-soft: #e8f8f1;
       --amber: #9a5b00;
       --amber-soft: #fff5df;
+      --purple: #6c63e8;
+      --purple-soft: #f1f0ff;
       --radius: 20px;
       --shadow: 0 22px 70px rgba(32, 59, 94, .13);
     }
@@ -32,6 +34,7 @@
       color: var(--ink);
       background:
         radial-gradient(circle at 8% 0%, rgba(23, 105, 224, .12), transparent 25rem),
+        radial-gradient(circle at 92% 10%, rgba(108, 99, 232, .08), transparent 30rem),
         linear-gradient(180deg, #edf4fb 0, #f7f9fc 420px, #f3f7fb 100%);
       font: 16px/1.75 Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     }
@@ -63,28 +66,33 @@
     .print-btn { border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; color: var(--navy); background: white; cursor: pointer; }
 
     .hero { padding: 72px 0 38px; }
-    .hero-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(270px, .65fr); gap: 42px; align-items: end; }
+    .hero-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(290px, .65fr); gap: 42px; align-items: end; }
     .kicker { color: var(--blue); font-size: 12px; font-weight: 850; letter-spacing: .16em; text-transform: uppercase; }
-    h1 { max-width: 780px; margin: 14px 0 17px; color: var(--navy); font-size: clamp(38px, 6vw, 66px); line-height: 1.04; letter-spacing: -.055em; }
-    .lead { max-width: 780px; margin: 0; color: #4f6278; font-size: 18px; }
-    .meta-card { padding: 21px; border: 1px solid rgba(23,105,224,.18); border-radius: 18px; background: rgba(255,255,255,.68); box-shadow: var(--shadow); }
-    .meta-card dl { display: grid; grid-template-columns: 92px 1fr; gap: 7px 10px; margin: 0; }
-    .meta-card dt { color: var(--muted); }
-    .meta-card dd { margin: 0; color: var(--navy); font-weight: 700; }
+    h1 { max-width: 820px; margin: 14px 0 17px; color: var(--navy); font-size: clamp(34px, 5.5vw, 60px); line-height: 1.08; letter-spacing: -.05em; }
+    .lead { max-width: 820px; margin: 0; color: #4f6278; font-size: 17px; }
+    .product-pills { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 0; }
+    .product-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .product-pill.exam { color: #1769e0; background: var(--blue-soft); border: 1px solid rgba(23,105,224,.25); }
+    .product-pill.netcare { color: #6c63e8; background: var(--purple-soft); border: 1px solid rgba(108,99,232,.25); }
+    
+    .meta-card { padding: 21px; border: 1px solid rgba(23,105,224,.18); border-radius: 18px; background: rgba(255,255,255,.78); box-shadow: var(--shadow); }
+    .meta-card dl { display: grid; grid-template-columns: 96px 1fr; gap: 8px 10px; margin: 0; }
+    .meta-card dt { color: var(--muted); font-size: 13px; }
+    .meta-card dd { margin: 0; color: var(--navy); font-weight: 700; font-size: 13px; }
 
-    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; margin: 24px auto 42px; }
-    .summary-card { min-height: 150px; padding: 21px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.82); box-shadow: 0 10px 30px rgba(32,59,94,.07); }
-    .summary-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; background: var(--blue-soft); }
+    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 24px auto 42px; }
+    .summary-card { min-height: 155px; padding: 22px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.85); box-shadow: 0 10px 30px rgba(32,59,94,.07); }
+    .summary-icon { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 11px; background: var(--blue-soft); font-size: 18px; }
     .summary-card h2 { margin: 14px 0 4px; color: var(--navy); font-size: 16px; }
     .summary-card p { margin: 0; color: var(--muted); font-size: 13px; }
 
-    .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 28px; align-items: start; padding-bottom: 64px; }
-    .toc { position: sticky; top: 90px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.72); }
+    .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 28px; align-items: start; padding-bottom: 64px; }
+    .toc { position: sticky; top: 90px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.75); }
     .toc b { display: block; margin-bottom: 9px; color: var(--navy); font-size: 13px; }
     .toc a { display: block; padding: 6px 8px; border-radius: 7px; color: var(--muted); font-size: 13px; text-decoration: none; }
     .toc a:hover { color: var(--blue); background: var(--blue-soft); }
     .policy { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); box-shadow: var(--shadow); }
-    .policy-section { padding: 30px clamp(22px, 5vw, 48px); border-bottom: 1px solid var(--line); scroll-margin-top: 88px; }
+    .policy-section { padding: 32px clamp(22px, 5vw, 48px); border-bottom: 1px solid var(--line); scroll-margin-top: 88px; }
     .policy-section:last-child { border-bottom: 0; }
     .section-num { color: var(--blue); font-size: 11px; font-weight: 850; letter-spacing: .14em; text-transform: uppercase; }
     .policy h2 { margin: 5px 0 14px; color: var(--navy); font-size: 25px; line-height: 1.25; letter-spacing: -.025em; }
@@ -96,6 +104,10 @@
     .callout { margin: 18px 0 4px; padding: 16px 18px; border-radius: 13px; color: #28516f; background: var(--blue-soft); }
     .callout.green { color: #17674e; background: var(--green-soft); }
     .callout.amber { color: #765018; background: var(--amber-soft); }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 5px; font-size: 11px; font-weight: 750; margin-right: 6px; }
+    .badge.exam { background: #e0ecff; color: #1769e0; }
+    .badge.netcare { background: #eceaff; color: #6c63e8; }
+    .badge.common { background: #e2f4eb; color: #087f5b; }
     .data-table { width: 100%; margin: 15px 0; border-spacing: 0; border-collapse: separate; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; font-size: 14px; }
     .data-table th, .data-table td { padding: 13px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
     .data-table tr:last-child td { border-bottom: 0; }
@@ -118,7 +130,7 @@
       .shell { width: min(100% - 22px, 1120px); }
       .brand small, .print-btn { display: none; }
       .hero { padding-top: 45px; }
-      h1 { font-size: 39px; }
+      h1 { font-size: 36px; }
       .summary { grid-template-columns: 1fr; }
       .summary-card { min-height: auto; }
       .meta-card dl { grid-template-columns: 1fr; }
@@ -139,9 +151,9 @@
 <body data-lang="both">
   <header class="topbar">
     <div class="shell topbar-inner">
-      <a class="brand" href="#top" aria-label="Question Bank and Answer Assistant Privacy Policy">
-        <span class="brand-mark">Q</span>
-        <span><span class="zh">题库与答题助手</span><span class="en">Question Bank & Answer Assistant</span><small>Privacy Center</small></span>
+      <a class="brand" href="#top" aria-label="Tools Platform Extensions Privacy Policy">
+        <span class="brand-mark">TP</span>
+        <span><span class="zh">Tools Platform 扩展隐私中心</span><span class="en">Tools Platform Extensions Privacy Center</span><small>Browser Extension Privacy Policy</small></span>
       </a>
       <div class="actions">
         <div class="segmented" role="group" aria-label="Language display mode">
@@ -158,46 +170,322 @@
     <section class="hero">
       <div class="shell hero-grid">
         <div>
-          <div class="kicker">Privacy · Transparency · Local First</div>
-          <h1><span class="zh">隐私政策</span><span class="en">Privacy Policy</span></h1>
-          <p class="lead zh">本政策说明题库与答题助手如何处理网页题目、保存加密题库、调用用户配置的 AI 服务，以及在启用时进行 License 校验。</p><p class="lead en">This policy explains how the Question Bank &amp; Answer Assistant handles page questions, stores encrypted banks, calls user-configured AI services, and validates a License when enabled.</p>
+          <div class="kicker">Privacy · Transparency · Local-First Architecture</div>
+          <h1><span class="zh">浏览器扩展隐私政策</span><span class="en">Browser Extensions Privacy Policy</span></h1>
+          <p class="lead zh">本隐私政策统一适用于 Tools Platform 开发并发布的浏览器扩展。政策详细说明了扩展如何处理网页内容、如何通过本地加密与 IndexedDB 存储数据、如何调用用户自主配置的 AI 模型，以及如何保障用户数据完全私有与安全。</p>
+          <p class="lead en">This unified policy applies to browser extensions published under Tools Platform. It transparently explains how extensions process web content, isolate data in local storage and IndexedDB, communicate with user-configured AI models, and guarantee zero unauthorized collection.</p>
+          <div class="product-pills">
+            <span class="product-pill exam">📘 <span class="zh">题库与答题助手</span><span class="en">Question Bank & Answer Assistant</span></span>
+            <span class="product-pill netcare">🛡️ <span class="zh">NetCare RFC 方案与 AI 审计</span><span class="en">NetCare RFC Plan & AI Audit Assistant</span></span>
+          </div>
         </div>
         <aside class="meta-card" aria-label="Policy metadata">
           <dl>
-            <dt><span class="zh">适用产品</span><span class="en">Product</span></dt><dd><span class="zh">题库与答题助手</span><span class="en">Question Bank & Answer Assistant</span></dd>
-            <dt><span class="zh">生效日期</span><span class="en">Effective</span></dt><dd>August 6, 2026</dd>
-            <dt><span class="zh">更新日期</span><span class="en">Updated</span></dt><dd>October 3, 2026</dd>
-            <dt><span class="zh">运营方</span><span class="en">Operator</span></dt><dd>Tools Platform Administrator</dd>
+            <dt><span class="zh">覆盖产品</span><span class="en">Products</span></dt>
+            <dd><span class="zh">题库助手 · NetCare 方案审计</span><span class="en">Question Bank · NetCare Audit</span></dd>
+            <dt><span class="zh">生效日期</span><span class="en">Effective</span></dt>
+            <dd>August 6, 2026</dd>
+            <dt><span class="zh">最新更新</span><span class="en">Updated</span></dt>
+            <dd>October 11, 2026</dd>
+            <dt><span class="zh">运营主体</span><span class="en">Operator</span></dt>
+            <dd>Tools Platform Open-Source & Developer Team</dd>
           </dl>
         </aside>
       </div>
     </section>
 
     <section class="shell summary" aria-label="Privacy summary">
-<article class="summary-card"><div class="summary-icon">🔐</div><h2><span class="zh">本地加密题库</span><span class="en">Local encrypted banks</span></h2><p class="zh">题库存入扩展加密保险库；普通 JSON、Excel、HTML 导出为明文。</p><p class="en">Banks are stored in an encrypted extension vault; ordinary JSON, Excel and HTML exports are plaintext.</p></article>
-<article class="summary-card"><div class="summary-icon">◎</div><h2><span class="zh">可选 AI 联网</span><span class="en">Optional AI requests</span></h2><p class="zh">AI 思考默认关闭。思考、学习解析和模型测试会按用户操作请求模型服务。</p><p class="en">AI thinking is off by default. Thinking, study explanations and model tests contact providers following user actions.</p></article>
-<article class="summary-card"><div class="summary-icon">◇</div><h2><span class="zh">无广告与出售</span><span class="en">No ads or data sale</span></h2><p class="zh">发布者不出售题库数据，不用于广告或信用判断；模型服务适用其自身政策。</p><p class="en">The publisher does not sell bank data or use it for advertising or credit decisions. Model providers have their own policies.</p></article></section>
+      <article class="summary-card">
+        <div class="summary-icon">🔐</div>
+        <h2><span class="zh">本地优先与加密隔离</span><span class="en">Local-First & Encrypted Vault</span></h2>
+        <p class="zh">题库由 AES-256-GCM 密码保险库保护；RFC 方案材料与快照存于本地 IndexedDB。凭据在会话内存中隔离，明文绝不上传。</p>
+        <p class="en">Question banks are AES-256-GCM encrypted; NetCare solution files and audit snapshots reside in local IndexedDB. Zero unencrypted upload.</p>
+      </article>
+      <article class="summary-card">
+        <div class="summary-icon">🧠</div>
+        <h2><span class="zh">自主配置 AI 端点 (BYOK)</span><span class="en">User-Configured AI (BYOK)</span></h2>
+        <p class="zh">AI 功能默认关闭。仅在用户明确操作时向用户自行配置的模型端点发送选定文本，密码/密钥等凭据自动在请求前脱敏。</p>
+        <p class="en">AI is disabled by default. Transmits selected text strictly to user-configured endpoints upon explicit user action; credentials are auto-redacted.</p>
+      </article>
+      <article class="summary-card">
+        <div class="summary-icon">🛡️</div>
+        <h2><span class="zh">零收集 · 零出售 · 零监控</span><span class="en">Zero Tracking, Sale, or Ads</span></h2>
+        <p class="zh">开发者无中心化收集服务器，绝不记录网页浏览历史、不读取 Cookie、不出售数据，严格恪守 Chrome/Edge Limited Use 要求。</p>
+        <p class="en">No central tracking servers. We never read full browsing history or login cookies, never sell data, and strictly follow Limited Use policies.</p>
+      </article>
+    </section>
+
     <div class="shell layout">
       <nav class="toc" aria-label="Table of contents">
         <b><span class="zh">目录</span><span class="en">Contents</span></b>
-        <a href="#scope"><span class="zh">1. 适用范围</span><span class="en">1. Scope</span></a>
-        <a href="#data"><span class="zh">2. 处理的数据</span><span class="en">2. Data processed</span></a>
-        <a href="#use"><span class="zh">3. 数据用途</span><span class="en">3. How data is used</span></a>
-        <a href="#permissions"><span class="zh">4. 权限说明</span><span class="en">4. Permissions</span></a>
-        <a href="#sharing"><span class="zh">5. 共享与出售</span><span class="en">5. Sharing and sale</span></a>
-        <a href="#retention"><span class="zh">6. 保存与删除</span><span class="en">6. Retention and deletion</span></a>
-        <a href="#security"><span class="zh">7. 安全措施</span><span class="en">7. Security</span></a>
-        <a href="#rights"><span class="zh">8. 用户控制</span><span class="en">8. User controls</span></a>
-        <a href="#changes"><span class="zh">9. 政策更新</span><span class="en">9. Changes</span></a>
-        <a href="#contact"><span class="zh">10. 联系我们</span><span class="en">10. Contact</span></a>
+        <a href="#scope"><span class="zh">1. 适用范围与产品定位</span><span class="en">1. Scope & Products</span></a>
+        <a href="#data"><span class="zh">2. 我们处理的数据</span><span class="en">2. Data We Process</span></a>
+        <a href="#use"><span class="zh">3. 数据用途与 AI 传输机制</span><span class="en">3. Data Use & AI Requests</span></a>
+        <a href="#permissions"><span class="zh">4. 扩展权限详细说明</span><span class="en">4. Permissions Breakdown</span></a>
+        <a href="#sharing"><span class="zh">5. 共享、出售与 Limited Use</span><span class="en">5. Sharing, Sale & Limited Use</span></a>
+        <a href="#retention"><span class="zh">6. 存储期限、备份与删除</span><span class="en">6. Retention & Deletion</span></a>
+        <a href="#security"><span class="zh">7. 数据安全与加密技术</span><span class="en">7. Security & Encryption</span></a>
+        <a href="#rights"><span class="zh">8. 用户控制与权限管理</span><span class="en">8. User Rights & Controls</span></a>
+        <a href="#changes"><span class="zh">9. 政策变更与历史版本</span><span class="en">9. Policy Updates</span></a>
+        <a href="#contact"><span class="zh">10. 开发者联系与技术支持</span><span class="en">10. Contact Us</span></a>
       </nav>
 
-      <article class="policy"><section class="policy-section" id="scope"><div class="section-num">01 · Scope</div><h2><span class="zh">适用范围</span><span class="en">Scope</span></h2><p class="zh">本政策适用于 Tools Platform 提供的题库与答题助手浏览器扩展。网站、浏览器商店及用户配置的模型服务适用各自政策。仅在自有或已授权、允许辅助工具的练习场景使用；不保证 AI 答案正确或考试结果。</p><p class="en">This policy applies to the Question Bank &amp; Answer Assistant extension provided through Tools Platform. Websites, browser stores and user-configured model providers have their own policies. Use only with your own or authorized practice content where assistance is permitted. AI accuracy and examination outcomes are not guaranteed.</p><p class="zh">新版扩展将题库保存在扩展的加密保险库中。历史 F12 脚本或旧版扩展可能在网站 localStorage 留有明文题库；新版仅在加密写入验证成功后删除成功迁移且未变化的旧记录。无法迁移、格式异常或迁移期间变化的旧记录可能继续保留。</p><p class="en">The current extension stores banks in its encrypted vault. Older versions or F12 scripts may leave plaintext banks in website localStorage. The current version removes successfully migrated, unchanged legacy records only after verified encrypted persistence. Unmigratable, malformed or concurrently changed records may remain.</p></section><section class="policy-section" id="data"><div class="section-num">02 · Data</div><h2><span class="zh">我们处理的数据</span><span class="en">Data we process</span></h2><table class="data-table"><thead><tr><th><span class="zh">类别</span><span class="en">Category</span></th><th><span class="zh">内容</span><span class="en">Details</span></th><th><span class="zh">处理位置与用途</span><span class="en">Handling</span></th></tr></thead><tbody><tr><td><span class="zh">网站内容</span><span class="en">Website content</span></td><td><span class="zh">题干、题型、题号、选项、答题反馈、标注、错误答案组合、学习翻译和解释。</span><span class="en">Question text, types, IDs, options, feedback, annotations, failed combinations, translations and explanations.</span></td><td><span class="zh">本地保险库；使用 AI 时相关内容发送给启用的模型服务。</span><span class="en">Local vault; relevant content is sent to enabled providers when AI is used.</span></td></tr><tr><td><span class="zh">身份验证信息</span><span class="en">Authentication information</span></td><td><span class="zh">用户输入的密码/PIN、派生密钥、AI API Key；如启用 License，还有许可凭据。</span><span class="en">Entered password/PIN, derived key, AI API keys and, if licensing is enabled, License credentials.</span></td><td><span class="zh">密码在扩展内处理；解锁密钥和模型凭据保存在可信扩展会话中。API Key 仅向对应模型服务鉴权；License 用于许可验证。</span><span class="en">Passwords are handled inside the extension; unlock keys and model credentials are held in trusted session storage. API keys authenticate with their respective providers; License credentials are used for licensing.</span></td></tr><tr><td><span class="zh">来源与请求记录</span><span class="en">Origins and requests</span></td><td><span class="zh">网站来源（origin）、用于默认题库名称的页面标题、模型端点、请求/响应与时间及用量。</span><span class="en">Website origin, page title used for a default bank name, model endpoints, requests/responses, timing and reported usage.</span></td><td><span class="zh">用于按网站隔离题库、配置服务和本地诊断；不读取浏览器全部历史。</span><span class="en">Used for origin isolation, service configuration and local diagnostics; the extension does not read full browser history.</span></td></tr><tr><td><span class="zh">相关使用记录</span><span class="en">Related activity</span></td><td><span class="zh">答题结果、错误记录、出现次数、AI 请求耗时及返回的 token 用量。</span><span class="en">Answer results, mistakes, occurrence counts, AI request duration and reported token usage.</span></td><td><span class="zh">本地题库与日志；相关错误经验可随 AI 请求发送。不持续记录全局鼠标或键盘行为。</span><span class="en">Local banks and logs; relevant mistakes may be sent with AI requests. No continuous global mouse or keyboard tracking.</span></td></tr><tr><td><span class="zh">偏好与配置</span><span class="en">Preferences</span></td><td><span class="zh">界面语言、缩放、透明度、延迟、模型协议和优先策略等。</span><span class="en">Language, scale, opacity, delays, model protocols and priority preferences.</span></td><td><span class="zh">本地或扩展会话存储；非敏感语言等偏好可明文保存。</span><span class="en">Local or session storage; non-sensitive preferences such as language may be stored in plaintext.</span></td></tr><tr><td><span class="zh">可选许可验证</span><span class="en">Optional licensing</span></td><td><span class="zh">License、产品标识、随机 nonce；许可服务还接收 IP、User-Agent、请求时间和验证结果。</span><span class="en">License, product identifier and random nonce; the licensing service also receives IP address, User-Agent, request time and validation results.</span></td><td><span class="zh">仅在发行包启用 License 时连接其配置的许可验证服务器；服务器可能保存必要的许可与安全日志。</span><span class="en">Only builds with licensing enabled contact the configured validation service; it may retain necessary licensing and security logs.</span></td></tr></tbody></table><p class="zh">本扩展不专门采集姓名、邮箱、健康、支付、私人通讯、GPS 或通讯录，也不读取 Cookie 或完整浏览历史。题目、导入文件或用户配置若包含个人或保密信息，相关内容仍可能被保存或随 AI 请求发送。发送前请自行检查，不导入或发送无权处理的信息。AI/许可服务器可从连接中获得 IP 等常规网络信息，这不等于插件读取 GPS。</p><p class="en">The extension does not specifically collect names, email addresses, health, payment, private communications, GPS or contacts, and does not read cookies or full browser history. Questions, imported files or configuration may nevertheless contain personal or confidential information, which could be stored or sent in AI requests. Review content before sending and do not process information without authorization. AI/licensing servers can receive standard connection information such as IP addresses; this is not GPS collection.</p></section><section class="policy-section" id="use"><div class="section-num">03 · Use</div><h2><span class="zh">数据用途与 AI 请求</span><span class="en">Data use and AI requests</span></h2><ul><li><span class="zh">用户手动启动后识别支持页面的题目和反馈，维护题库、标注与错误经验；可根据题库或 AI 推荐自动选择答案、翻页。</span><span class="en">After manual launch, recognize questions and feedback on supported pages and maintain banks, annotations and mistakes; optionally select answers and navigate based on bank or AI recommendations.</span></li><li><span class="zh">AI 思考默认关闭。用户开启后，将题干、题型、选项和相关错误经验发送到所有启用的模型，可能同时请求多个服务。</span><span class="en">AI thinking is off by default. When enabled, question text, types, options and relevant mistakes are sent to all enabled models, potentially to multiple providers concurrently.</span></li><li><span class="zh">点击“解析与翻译”也会发送所选题库中的相关题目和答案信息，用于翻译、考点和解释；不要求先开启自动答题的 AI 思考。模型测试发送测试请求与鉴权信息。</span><span class="en">Study translation/explanation sends relevant questions and answer information from selected banks for translations and explanations, independently of the automatic-answer AI thinking switch. Model testing sends a test request and authentication information.</span></li><li><span class="zh">使用 API Key 向对应服务鉴权。模型响应只作为答案、翻译或解释数据处理，不作为远程 JavaScript 执行。</span><span class="en">Use API keys for authentication with their respective services. Model responses are handled as answer, translation or explanation data, not executed as remote JavaScript.</span></li></ul><p class="zh">模型服务由用户配置，不限于某一厂商。开启 AI 前请核对端点、所有启用模型、提供者隐私政策、数据地区、保存期限与训练用途；模型服务可能收费。不将题目发送到许可验证服务器；若用户将平台 AI 服务配置为模型端点，该服务也将接收必要请求。</p><p class="en">Users configure model services, which are not limited to one vendor. Before using AI, check endpoints, all enabled models, provider policies, processing regions, retention and training practices. Fees may apply. Question content is not sent to the licensing server; a platform AI service receives necessary requests if configured by the user as a model endpoint.</p></section><section class="policy-section" id="permissions"><div class="section-num">04 · Permissions</div><h2><span class="zh">权限说明</span><span class="en">Permissions</span></h2><ul><li><span class="zh"><code>storage</code>：保存加密题库、偏好、日志和可信会话状态；如启用许可还保存相关状态。</span><span class="en"><code>storage</code>: stores encrypted banks, preferences, logs and trusted session state, plus licensing state when enabled.</span></li><li><span class="zh"><code>unlimitedStorage</code>：支持较大题库和学习解析的本地扩展存储。</span><span class="en"><code>unlimitedStorage</code>: supports larger local banks and study explanations.</span></li><li><span class="zh"><code>activeTab</code> 与 <code>scripting</code>：用户点击并启动后，在当前普通页面注入包内助手。匹配网址不是手动启动的唯一访问来源，activeTab 提供临时授权；是否识别题目取决于页面结构。</span><span class="en"><code>activeTab</code> and <code>scripting</code>: inject the bundled assistant into the current ordinary page following user launch. Match patterns are not the sole source of access for manual launch; activeTab grants temporary access. Question recognition depends on page structure.</span></li><li><span class="zh">主机权限包含配置的网站，以及 AI 包的 <code>https://*/*</code>、<code>http://localhost/*</code>、<code>http://127.0.0.1/*</code>，用于用户配置的模型服务；不意味着持续扫描所有网站。浏览器设置可限制权限，限制后对应功能可能无法使用。</span><span class="en">Host permissions include configured sites plus <code>https://*/*</code>, <code>http://localhost/*</code> and <code>http://127.0.0.1/*</code> for user-configured models. They do not imply continuous scanning of all sites. Browser restrictions may prevent corresponding features from working.</span></li></ul><p class="zh">本政策说明内置助手的基础发行包。自定义额外权限、自动注入、许可服务或代码改动可能改变处理方式，发布者需同步更新政策和商店披露。</p><p class="en">This policy describes the built-in assistant’s base package. Added permissions, automatic injection, licensing services or code changes may alter data practices; the publisher must update policy and store disclosures accordingly.</p></section><section class="policy-section" id="sharing"><div class="section-num">05 · Sharing</div><h2><span class="zh">共享、出售与 Limited Use</span><span class="en">Sharing, sales and Limited Use</span></h2><p class="zh">本地题库不自动同步至发布者服务器。AI 功能按用户操作向所有启用的模型服务传输必要内容；这些提供者有独立的数据保存、训练和访问政策，发布者不能保证其不保留或不训练，请只选择可信且符合您要求的服务。用户自行导出的文件可被接收者读取，分享前请检查。</p><p class="en">Local banks are not automatically synchronized to the publisher’s servers. AI features transmit necessary content to all enabled providers following user actions. Providers have independent retention, training and access policies; the publisher cannot guarantee that they do not retain data or train on it. Choose trusted services that meet your requirements. Recipients can read ordinary exported files; review before sharing.</p><p class="zh">发布者不出售用户数据，不用于个性化广告、无关画像、信用评估或贷款决策。发布者对数据的使用与传输仅限已披露的题库学习功能及相关安全运营，并遵守 Chrome Web Store User Data Policy，包括 Limited Use 要求。不会为无关目的提供数据给经纪商或广告平台。</p><p class="en">The publisher does not sell user data or use it for personalized advertising, unrelated profiling, creditworthiness or lending decisions. Publisher use and transfers are limited to the disclosed question-bank study functions and related security operations and adhere to the Chrome Web Store User Data Policy, including Limited Use requirements. Data is not provided to brokers or advertising platforms for unrelated purposes.</p><p class="zh">如发行包启用 License，许可基础设施及管理员处理验证数据，用于授权、防滥用和必要排障；可按法律要求、安全需要或用户请求披露必要信息。</p><p class="en">If the build enables licensing, its infrastructure and administrators process validation data for authorization, abuse prevention and necessary troubleshooting. Necessary information may be disclosed as required by law, for security, or at the user’s request.</p></section><section class="policy-section" id="retention"><div class="section-num">06 · Retention</div><h2><span class="zh">保存、导出与删除</span><span class="en">Retention, exports and deletion</span></h2><ul><li><span class="zh">题库及学习解析以加密记录保留在 chrome.storage.local，直到用户通过题库管理删除、重置对应题库、清除扩展数据或卸载。重置一库不清除其他库、会话凭据或磁盘备份；仅清除网站浏览数据不一定清除扩展保险库。</span><span class="en">Banks and study explanations are retained as encrypted records in chrome.storage.local until managed/deleted, the corresponding bank is reset, extension data is cleared or the extension is uninstalled. Resetting one bank does not remove other banks, session credentials or disk backups; clearing website data alone may not clear the extension vault.</span></li><li><span class="zh">解锁密钥和模型 API Key 保存在可信扩展会话存储中；锁定或浏览器会话结束后清除。锁定不删除持久化加密题库，关闭助手窗口不等于锁定。</span><span class="en">Unlock keys and model API keys are held in trusted extension session storage and cleared on locking or browser-session end. Locking does not delete persisted encrypted banks; closing the assistant is not equivalent to locking.</span></li><li><span class="zh">最近一场 AI 请求与响应日志保存在本地，并在新的答题任务建立日志时替换旧场次，容量限制可能删去较早条目。包含题目、模型输出、地址、时间和用量；鉴权信息脱敏。请勿随意分享可能含敏感题目的日志。</span><span class="en">The latest run’s AI request/response log is stored locally and replaced when a new answer task creates its log; capacity limits may remove older entries. It contains questions, model outputs, endpoints, timing and usage with authentication information redacted. Do not indiscriminately share logs containing sensitive questions.</span></li><li><span class="zh">普通 JSON、Excel、HTML 导出包含明文题库和已保存解析。加密备份需要原密码恢复，不包含模型 API Key 或解锁密钥。磁盘文件、接收者副本和模型服务保存的数据不会因卸载扩展自动删除。</span><span class="en">Ordinary JSON, Excel and HTML exports contain plaintext banks and saved explanations. Encrypted backups require the original password and do not include model API keys or unlock keys. Disk files, recipients’ copies and provider-held data are not automatically deleted by uninstalling the extension.</span></li><li><span class="zh">许可签发、状态与必要安全日志按照运营方安全和运维策略保留；请求查询或删除请联系下方邮箱。模型服务数据的保留与删除须按其政策向对应服务申请。</span><span class="en">License issuance/status and necessary security logs are retained under operator security and operational policies; use the contact below to request access or deletion. Provider-held data is retained/deleted under the provider’s own policies and request channels.</span></li></ul></section><section class="policy-section" id="security"><div class="section-num">07 · Security</div><h2><span class="zh">安全措施</span><span class="en">Security</span></h2><p class="zh">保险库采用 AES-256-GCM，加密密钥由密码经 PBKDF2-SHA256（600,000 次迭代与随机盐）派生。提供默认 6 位数字 PIN 和可选复杂密码（至少 16 位，含字母、数字、符号）。PIN 离线猜测防护较弱，敏感题库建议使用复杂密码。密码在扩展页面输入，不交给考试网页；实体键盘和屏幕键盘均可使用。</p><p class="en">The vault uses AES-256-GCM with a key derived through PBKDF2-SHA256 (600,000 iterations and random salt). Choose a six-digit PIN or a complex password of at least 16 characters including a letter, digit and symbol. PINs offer weaker resistance to offline guessing; use complex passwords for sensitive banks. Passwords are entered in an extension page, not supplied to the exam website; physical and on-screen keyboards are supported.</p><p class="zh">模型请求使用 HTTPS，或同一设备 localhost/127.0.0.1 的 HTTP 模型服务。可信会话限制、来源隔离、写入验证和凭据脱敏降低风险。如启用许可，可使用本地验签与配置的在线校验。</p><p class="en">Model requests use HTTPS or local HTTP model services on localhost/127.0.0.1. Trusted session access, origin isolation, write verification and credential redaction reduce risk. Licensed builds can use local signature verification and configured online validation.</p><p class="zh">不承诺加密无法破解、免受键盘监控或受控设备上的恶意软件保护。源码不包含您的个人密码，但弱 PIN 仍可被离线猜测。忘记密码无法保证找回题库；请保管密码和备份，并留意旧版残留明文及普通导出文件。</p><p class="en">Encryption does not promise unbreakability or protection against keylogging or malware on a compromised device. Source code does not contain your personal password, but weak PINs remain susceptible to offline guessing. Recovery is not guaranteed if the password is lost. Protect passwords/backups and check for legacy plaintext and ordinary exports.</p></section><section class="policy-section" id="rights"><div class="section-num">08 · Rights</div><h2><span class="zh">用户控制</span><span class="en">User controls</span></h2><ul><li><span class="zh">您可停止自动答题、关闭 AI 思考、停用或删除模型配置。关闭 AI 思考只停止对应的自动答题 AI 功能；不要再点击学习解析或模型测试，若不希望这些功能发出请求。</span><span class="en">You can stop automated answering, disable AI thinking and disable/remove model configurations. Turning off AI thinking affects that automatic-answer feature; avoid invoking study explanations or model tests if you do not want their requests.</span></li><li><span class="zh">您可查看、搜索、标注、导入、导出、删除或重置题库，并手动锁定保险库。删除本地数据不会删除先前发给第三方或导出的副本。</span><span class="en">You can view, search, annotate, import, export, delete/reset banks and manually lock the vault. Local deletion does not delete data previously sent to third parties or exported copies.</span></li><li><span class="zh">您可通过浏览器限制网站权限、停用或卸载扩展；涉及服务器数据的访问、更正或删除请求，请联系运营方或对应模型提供者。</span><span class="en">You can restrict site permissions, disable or uninstall the extension. Contact the operator or respective model provider for server-side access, correction or deletion requests.</span></li></ul><p class="zh">本扩展面向获授权的学习、业务或培训场景，并非面向儿童设计，不故意收集儿童个人信息。</p><p class="en">The extension is intended for authorized study, business or training, is not directed to children, and does not knowingly collect children’s personal information.</p></section><section class="policy-section" id="changes"><div class="section-num">09 · Changes</div><h2><span class="zh">政策更新</span><span class="en">Policy updates</span></h2><p class="zh">本次更新说明新增 AI 功能、加密保险库、会话凭据、日志与导出方式。功能、权限或数据处理方式变化时，我们会在本页更新日期并通过合理的产品内提示说明重大变化。商店数据披露应与本政策及实际发行包保持一致。</p><p class="en">This update describes AI features, the encrypted vault, session credentials, logs and exports. When features, permissions or data practices change, we update this page’s date and communicate material changes through appropriate in-product notices. Store disclosures must match this policy and the actual release.</p></section><section class="policy-section" id="contact"><div class="section-num">10 · Contact</div><h2><span class="zh">联系我们</span><span class="en">Contact</span></h2><p class="zh">如对本政策、许可记录或数据请求有疑问，请联系 Tools Platform 管理员。涉及用户自行配置的模型服务，请同时联系该服务提供者。</p><p class="en">For policy, licensing-record or data-request questions, contact the Tools Platform administrator. For a user-configured model service, also contact its provider.</p><a class="contact" href="mailto:fanxiaolongx@gmail.com">✉ fanxiaolongx@gmail.com</a></section></article>
+      <article class="policy">
+        <!-- 01 Scope -->
+        <section class="policy-section" id="scope">
+          <div class="section-num">01 · Scope</div>
+          <h2><span class="zh">适用范围与产品定位</span><span class="en">Scope & Product Definitions</span></h2>
+          <p class="zh">本隐私政策统一适用于 Tools Platform 提供并发布的以下浏览器扩展程序：</p>
+          <p class="en">This Privacy Policy applies to the following browser extensions developed and distributed via Tools Platform:</p>
+          <ul>
+            <li>
+              <strong><span class="zh">题库与答题助手 (Question Bank & Answer Assistant)</span><span class="en">Question Bank & Answer Assistant</span></strong>：
+              <span class="zh">用于在自有或获授权的练习页面中管理题目、记录错题、学习翻译解析，并在用户手动启动后提供辅助自动作答。</span>
+              <span class="en">Designed for authorized practice sites to manage question banks, review mistake histories, study AI explanations, and provide optional automated answer assistance following user command.</span>
+            </li>
+            <li>
+              <strong><span class="zh">NetCare RFC 方案与 AI 审计助手 (NetCare RFC Plan & AI Audit Assistant)</span><span class="en">NetCare RFC Plan & AI Audit Assistant</span></strong>：
+              <span class="zh">用于在授权的 NetCare 方案页面中批量查询并导出 RFC 数字化 DOCX 方案、扫描目录提取章节与附件打包 ZIP，并利用用户自主配置的模型进行离线式合规三态复核与导出带原图的 Excel 报表。</span>
+              <span class="en">Designed for authorized NetCare portals to batch retrieve and export RFC digital change plans (DOCX), archive chapter attachments (ZIP), and perform client-side AI compliance audits using user-configured models.</span>
+            </li>
+          </ul>
+          <p class="zh"><strong>合规边界声明</strong>：上述工具均为客户端辅助生产力工具。两款扩展均不保证 AI 生成答案或审计结论的绝对正确性，亦不替代人工技术复核或站点官方审批流程。用户仅应在获得授权的内部环境或练习场景中使用。</p>
+          <p class="en"><strong>Compliance Notice</strong>: All extensions are client-side productivity aids. Neither tool guarantees the 100% accuracy of AI answers or audit judgments, nor do they replace manual review or official approval processes. Use only in authorized environments.</p>
+        </section>
+
+        <!-- 02 Data -->
+        <section class="policy-section" id="data">
+          <div class="section-num">02 · Data</div>
+          <h2><span class="zh">我们处理的数据</span><span class="en">Data We Process</span></h2>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th><span class="zh">数据类别</span><span class="en">Category</span></th>
+                <th><span class="zh">具体内容</span><span class="en">Details</span></th>
+                <th><span class="zh">处理位置与用途</span><span class="en">Handling & Purpose</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong><span class="zh">网站内容</span><span class="en">Website Content</span></strong></td>
+                <td>
+                  <span class="badge exam">题库助手</span><span class="zh">题干、题型、选项文字、判题反馈、标注及错题记录。</span><span class="en">Question text, types, options, test feedback, and mistake notes.</span><br>
+                  <span class="badge netcare">NetCare 审计</span><span class="zh">RFC 单号、方案目录结构、章节文本正文、附件文件（TXT/Word/ZIP/PDF等）、DOM 区域原图截图。</span><span class="en">RFC numbers, section trees, chapter texts, attachments, and DOM canvas evidence captures.</span>
+                </td>
+                <td>
+                  <span class="zh">保存在本地浏览器隔离存储/IndexedDB 中；仅在用户主动启用 AI 时，将当前处理的文本证据发送至用户配置的模型端点。开发者服务器不上传或保留任何方案/考题数据。</span>
+                  <span class="en">Stored inside local browser storage/IndexedDB. Selected texts are forwarded to user-configured model endpoints only upon explicit user AI action. Never uploaded to publisher servers.</span>
+                </td>
+              </tr>
+              <tr>
+                <td><strong><span class="zh">身份验证信息</span><span class="en">Authentication Information</span></strong></td>
+                <td>
+                  <span class="badge exam">题库助手</span><span class="zh">用户设定的保险库密码/PIN、PBKDF2 派生密钥、用户配置的 AI API Key、可选 License 凭据。</span><span class="en">User vault PIN/password, derived keys, model API keys, optional License keys.</span><br>
+                  <span class="badge netcare">NetCare 审计</span><span class="zh">用户配置的第三方大模型 API Key（OpenAI / Anthropic / Gemini / 自建端点 Token）、配置加密备份密码。</span><span class="en">User-supplied AI API keys, private gateway tokens, and AES configuration backup password.</span>
+                </td>
+                <td>
+                  <span class="zh">密码与 API Key 仅保留在受限的扩展会话或本地加密存储中，直接由浏览器向对应模型服务发起认证请求；绝对不发送给开发者服务器，亦不写入明文导出文件或运行日志中。</span>
+                  <span class="en">Kept strictly in restricted session storage or local encrypted vault. Used purely to authenticate direct browser-to-model requests. Never transmitted to developer servers.</span>
+                </td>
+              </tr>
+              <tr>
+                <td><strong><span class="zh">来源与请求记录</span><span class="en">Origins & Requests</span></strong></td>
+                <td>
+                  <span class="badge common">通用</span><span class="zh">当前访问站点的 Origin 域名（用于数据隔离）、多区域站点路由跳转记录、用户自定义的模型服务 URL、模型响应耗时与 Token 用量统计。</span>
+                  <span class="en">Current site origins, multi-region routing navigation, custom model endpoint URLs, latency, and reported token usages.</span>
+                </td>
+                <td>
+                  <span class="zh">用于支持多站点路由接续、站点数据隔离以及本地运行性能诊断；扩展不读取用户的全局浏览历史（Web History）。</span>
+                  <span class="en">Used for cross-region route continuation, data isolation, and performance diagnostics. The extensions do NOT read global browser history.</span>
+                </td>
+              </tr>
+              <tr>
+                <td><strong><span class="zh">使用与诊断日志</span><span class="en">Activity & Diagnostics</span></strong></td>
+                <td>
+                  <span class="badge exam">题库助手</span><span class="zh">最近一场考试的 AI 思考日志、作答时间戳、错误排除记录。</span><span class="en">Recent exam thinking log, timestamps, and error elimination records.</span><br>
+                  <span class="badge netcare">NetCare 审计</span><span class="zh">章节匹配与纠错记录、AI 三态审计结论 (pass/fail/needs_review)、JS 堆与长任务压力采样指标。</span><span class="en">Section matching logs, AI verdicts, and non-sensitive performance samples.</span>
+                </td>
+                <td>
+                  <span class="zh">保存在本地 IndexedDB，采用滚动覆盖机制（容量受限并自动淘汰）；日志写入前强制通过正则脱敏过滤密码、Token、Cookie 和私钥。</span>
+                  <span class="en">Saved in local IndexedDB with rolling capacity limits. All logged payloads strictly redact passwords, tokens, cookies, and secret keys before persistence.</span>
+                </td>
+              </tr>
+              <tr>
+                <td><strong><span class="zh">配置与偏好设置</span><span class="en">Preferences</span></strong></td>
+                <td>
+                  <span class="badge common">通用</span><span class="zh">界面中英文语言偏好、窗体缩放与透明度、请求节流间隔、章节提取规则模板、模型协议选择。</span>
+                  <span class="en">Language preference, scale/opacity, request throttling, section hierarchy templates, and protocol preferences.</span>
+                </td>
+                <td><span class="zh">保存在 chrome.storage.local 中，随浏览器保留，支持用户导出 JSON 配置备份。</span><span class="en">Persisted in chrome.storage.local, exportable as JSON.</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="zh"><strong>重要承诺</strong>：扩展不收集用户的任何个人身份数据（PII，如身份证号、姓名、真实邮箱）、健康数据、财务支付信息、地理位置（GPS）或全局网页浏览历史。扩展绝不拦截、保存或窃取用户企业账号的登录 Cookie 或 SSO Token。</p>
+          <p class="en"><strong>Core Guarantee</strong>: The extensions do NOT collect PII (names, emails, IDs), health, financial, location (GPS), or global web browsing history. They never intercept or transmit login cookies or enterprise SSO credentials.</p>
+        </section>
+
+        <!-- 03 Use -->
+        <section class="policy-section" id="use">
+          <div class="section-num">03 · Use</div>
+          <h2><span class="zh">数据用途与 AI 传输机制</span><span class="en">Data Use & AI Requests</span></h2>
+          <ul>
+            <li>
+              <strong><span class="zh">纯客户端本地运行</span><span class="en">Purely Client-Side Execution</span></strong>：
+              <span class="zh">所有文档导出、目录解析、章节纠错、ZIP 打包、截图生成与 Excel 表格排版，均由扩展内置的纯静态离线代码在浏览器本地沙箱中直接完成，无需云端依赖。</span>
+              <span class="en">All document exports, directory scans, ZIP bundling, canvas screenshots, and Excel generation are processed locally via offline-bundled JavaScript within the browser.</span>
+            </li>
+            <li>
+              <strong><span class="zh">AI 交互默认关闭与按需发起</span><span class="en">AI Features Off By Default</span></strong>：
+              <span class="zh">两款扩展的 AI 模块默认均处于停用状态。只有在用户主动在设置中添加模型、填写 API Key 并明确启动时，才会发起模型通信。关闭 AI 开关后，所有网络请求立即终止。</span>
+              <span class="en">All AI modules are disabled by default. Network requests are made strictly after the user adds endpoints, provides credentials, and clicks execution. Toggling AI off ceases all model requests.</span>
+            </li>
+            <li>
+              <strong><span class="zh">传输内容最小化与自动脱敏</span><span class="en">Minimization & Automated Redaction</span></strong>：
+              <span class="zh">发送往 AI 模型的请求仅包含所选题目文本或章节正文证据。在发起网络请求前，扩展内置脱敏引擎会自动扫描并抹除密码、Bearer Token、Cookie、私钥及 Authorization 头。</span>
+              <span class="en">Requests transmit strictly the selected question texts or chapter evidence. The built-in redaction engine automatically strips passwords, bearer tokens, cookies, and secret keys prior to dispatch.</span>
+            </li>
+            <li>
+              <strong><span class="zh">响应数据安全求值</span><span class="en">Safe Data Evaluation</span></strong>：
+              <span class="zh">大模型返回的内容仅被作为纯文本或 JSON 数据反序列化，提取答案选项或复核结论，绝对不当作远程 JavaScript 代码执行（无 <code>eval()</code>，无动态注入）。</span>
+              <span class="en">Model responses are processed strictly as text/JSON data and never executed as dynamic code (no <code>eval()</code> or script injection).</span>
+            </li>
+          </ul>
+        </section>
+
+        <!-- 04 Permissions -->
+        <section class="policy-section" id="permissions">
+          <div class="section-num">04 · Permissions</div>
+          <h2><span class="zh">扩展权限详细说明</span><span class="en">Permissions Breakdown</span></h2>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th><span class="zh">声明权限</span><span class="en">Permission</span></th>
+                <th><span class="zh">技术用途与最小化原则说明</span><span class="en">Technical Justification</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>storage</code></td>
+                <td><span class="zh">在浏览器本地保存用户配置、章节规则模板、模型端点配置、界面语言及本地缓存。</span><span class="en">Stores preferences, rule templates, model configs, and language settings locally.</span></td>
+              </tr>
+              <tr>
+                <td><code>unlimitedStorage</code></td>
+                <td><span class="zh">允许存储较大体积的题库解析、多批次 RFC 审计快照、Excel 报表和离线截图，防止被浏览器默认配额截断。</span><span class="en">Permits storage of comprehensive bank data, audit snapshots, Excel sheets, and screenshot caches without quota clipping.</span></td>
+              </tr>
+              <tr>
+                <td><code>activeTab</code></td>
+                <td><span class="zh">在用户点击扩展图标并点击“启动脚本”后，授予扩展操作当前活动标签页的临时权限，用于加载辅助浮窗。</span><span class="en">Grants temporary access to the active tab upon explicit user launch to mount the assistant UI.</span></td>
+              </tr>
+              <tr>
+                <td><code>scripting</code></td>
+                <td><span class="zh">在用户启动后，将扩展包内预封装的本地界面及文档导出逻辑注入当前活动页面中执行。</span><span class="en">Injects packaged offline assistant scripts into the user-selected active page.</span></td>
+              </tr>
+              <tr>
+                <td><code>webNavigation</code></td>
+                <td><span class="zh">（NetCare 专用）用于监听并关联跨区域系统（中国站、德国站、埃及站）之间的原生标签页跳转，维持批次导出连续性。</span><span class="en">(NetCare) Tracks native cross-region tab jumps between regional portals to preserve batch continuity.</span></td>
+              </tr>
+              <tr>
+                <td><code>Host Permissions</code></td>
+                <td>
+                  <span class="zh">1. 访问指定受支持的业务/练习站点，以读取可见内容并调用原生导出入口；<br>2. 访问 <code>https://*/*</code> 与 <code>http://*/*</code>（含 <code>localhost</code>/<code>127.0.0.1</code>），以支持用户自主配置的大模型端点（包含私有内网 HTTP 模型服务器及自定义端口）。请求由后台发出，不携带网站 Cookie。</span>
+                  <span class="en">1. Accesses authorized practice/NetCare sites to read content and invoke native downloads;<br>2. Connects to <code>https://*/*</code> and <code>http://*/*</code> to reach user-configured cloud and self-hosted AI gateways. Requests omit cookies.</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- 05 Sharing -->
+        <section class="policy-section" id="sharing">
+          <div class="section-num">05 · Sharing</div>
+          <h2><span class="zh">共享、出售与 Limited Use 合规</span><span class="en">Sharing, Sale & Limited Use Compliance</span></h2>
+          <div class="callout green">
+            <strong><span class="zh">Limited Use 承诺</span><span class="en">Limited Use Certification</span></strong>：
+            <p class="zh">发布者承诺：本扩展对任何用户数据的使用与传输，均严格遵守 Chrome Web Store 用户数据政策及 Microsoft Edge 开发者政策中的 <strong>Limited Use</strong> 限制要求。</p>
+            <p class="en">The developer certifies that the use and transfer of user data strictly adhere to the Chrome Web Store User Data Policy and Microsoft Edge Developer Policy, including <strong>Limited Use</strong> restrictions.</p>
+          </div>
+          <ul>
+            <li><strong><span class="zh">禁止出售数据</span><span class="en">No Data Sale</span></strong>：<span class="zh">我们绝不向数据经纪商、广告商或任何第三方出售、出租或交易用户的数据。</span><span class="en">We never sell, rent, or trade user data to data brokers or third parties.</span></li>
+            <li><strong><span class="zh">禁止无关商业用途</span><span class="en">No Unrelated Commercialization</span></strong>：<span class="zh">数据绝不用于个性化广告投放、市场推广、用户信用评估或贷款资质审批。</span><span class="en">Data is never used for personalized advertising, profiling, credit assessment, or lending.</span></li>
+            <li><strong><span class="zh">第三方模型服务商边界</span><span class="en">Third-Party Model Boundaries</span></strong>：<span class="zh">当用户配置并开启第三方 AI 服务时，数据由浏览器直接发送至该服务商。服务商对数据的存储与训练政策受其各自隐私条款约束。建议用户核验并选用满足自身安全合规要求的模型供应商。</span><span class="en">When users configure external AI services, data flows directly from browser to provider. Provider data handling is governed by their independent policies.</span></li>
+          </ul>
+        </section>
+
+        <!-- 06 Retention -->
+        <section class="policy-section" id="retention">
+          <div class="section-num">06 · Retention</div>
+          <h2><span class="zh">存储期限、备份与删除</span><span class="en">Retention, Exports & Deletion</span></h2>
+          <ul>
+            <li>
+              <strong><span class="zh">本地持久化与容量控制</span><span class="en">Local Storage Lifecycle</span></strong>：
+              <span class="zh">题库数据与 NetCare 审计快照持久保存在本地存储中。NetCare 材料缓存（二进制附件）设有 24 小时生命周期及 500MB 安全上限，到期或超额将按 LRU 机制自动淘汰旧快照。</span>
+              <span class="en">Data persists in local browser storage. Binary material caches have a 24-hour expiration and 500MB ceiling, pruning aged items automatically.</span>
+            </li>
+            <li>
+              <strong><span class="zh">凭据会话存储</span><span class="en">Credential Session Isolation</span></strong>：
+              <span class="zh">解锁密钥与大模型 API Key 仅暂存于受限的浏览器扩展会话存储中，关闭浏览器或手动点击锁定后立即销毁，不持久化至磁盘。</span>
+              <span class="en">Unlock keys and API keys reside in browser extension session memory, cleared immediately upon browser closure or manual locking.</span>
+            </li>
+            <li>
+              <strong><span class="zh">导出与删除控制</span><span class="en">Export & User Deletion</span></strong>：
+              <span class="zh">用户可随时在界面中重置题库、清理材料快照或清空日志。卸载浏览器扩展将立即物理清除扩展自身在浏览器中创建的所有存储空间。</span>
+              <span class="en">Users can reset banks, delete snapshots, or flush logs at any time. Uninstalling the extension completely purges all local storage.</span>
+            </li>
+          </ul>
+        </section>
+
+        <!-- 07 Security -->
+        <section class="policy-section" id="security">
+          <div class="section-num">07 · Security</div>
+          <h2><span class="zh">数据安全与加密技术</span><span class="en">Security & Encryption Standards</span></h2>
+          <p class="zh">扩展采用现代密码学标准保障用户本地数据安全：</p>
+          <p class="en">Extensions employ robust cryptography to protect local data:</p>
+          <ul>
+            <li><span class="zh"><strong>AES-256-GCM 高强度加密</strong>：题库保险库与配置导出备份均采用 AES-256-GCM 认证加密算法，具备强防篡改性。</span><span class="en"><strong>AES-256-GCM</strong>: Encrypted vaults and backups utilize AES-256-GCM authenticated encryption.</span></li>
+            <li><span class="zh"><strong>PBKDF2-SHA256 密钥派生</strong>：采用至少 210,000 ~ 600,000 次哈希迭代及高熵随机盐，有效防御离线彩虹表与暴力破解。</span><span class="en"><strong>PBKDF2-SHA256</strong>: Derives keys using 210,000 to 600,000 iterations with random salt.</span></li>
+            <li><span class="zh"><strong>环境隔离 (World Isolation)</strong>：敏感跨域网络通道与配置管理运行于独立扩展上下文中，阻断宿主网页恶意脚本的直接访问。</span><span class="en"><strong>World Isolation</strong>: Secure network pipelines and settings operate in isolated extension worlds to block hostile page scripts.</span></li>
+          </ul>
+        </section>
+
+        <!-- 08 Rights -->
+        <section class="policy-section" id="rights">
+          <div class="section-num">08 · Rights</div>
+          <h2><span class="zh">用户控制与权限管理</span><span class="en">User Rights & Controls</span></h2>
+          <p class="zh">用户对自身数据享有完全的掌控权：</p>
+          <p class="en">Users retain full authority over their data:</p>
+          <ul>
+            <li><span class="zh">随时启停自动提取、AI 思考或模型审计开关；</span><span class="en">Toggle automatic processing, AI thinking, and audit switches at will;</span></li>
+            <li><span class="zh">随时查看、修改、导出或一键删除本地题库、审计快照与排障日志；</span><span class="en">View, edit, export, or permanently delete local banks, snapshots, and diagnostic logs;</span></li>
+            <li><span class="zh">通过浏览器“扩展程序管理”随时撤销网站访问权限或彻底卸载扩展。</span><span class="en">Revoke site access permissions or uninstall the extension through browser management.</span></li>
+          </ul>
+        </section>
+
+        <!-- 09 Changes -->
+        <section class="policy-section" id="changes">
+          <div class="section-num">09 · Changes</div>
+          <h2><span class="zh">政策变更与历史版本</span><span class="en">Policy Updates</span></h2>
+          <p class="zh">当扩展功能演进、新增权限或数据处理机制调整时，本政策将同步修订并在顶部更新生效日期。重大变更将通过扩展内弹窗或更新说明进行提示。各应用商店提交的数据使用声明将与本政策保持严格一致。</p>
+          <p class="en">This policy is updated when features, permissions, or processing workflows evolve. Material changes will be communicated via in-product notices. Store submission disclosures remain strictly synchronized with this document.</p>
+        </section>
+
+        <!-- 10 Contact -->
+        <section class="policy-section" id="contact">
+          <div class="section-num">10 · Contact</div>
+          <h2><span class="zh">开发者联系与技术支持</span><span class="en">Contact Us</span></h2>
+          <p class="zh">如果您对本隐私政策、数据处理实践或扩展安全有任何疑问，请通过以下方式联系开发者支持团队：</p>
+          <p class="en">For inquiries regarding this privacy policy or data security practices, please contact our support team:</p>
+          <a class="contact" href="mailto:fanxiaolongx@gmail.com">✉ fanxiaolongx@gmail.com</a>
+        </section>
+      </article>
     </div>
   </main>
 
   <footer>
-    <div class="shell">© 2026 Tools Platform · Question Bank & Answer Assistant · <span class="zh">本地题库 · 可选 AI</span><span class="en">Local banks · Optional AI</span></div>
+    <div class="shell">
+      © 2026 Tools Platform · Question Bank Assistant & NetCare RFC AI Audit · 
+      <span class="zh">本地优先 · 零隐私泄漏 · 开发者效能工具</span>
+      <span class="en">Local-First · Zero Privacy Leakage · Developer Productivity Tools</span>
+    </div>
   </footer>
 
   <script>
@@ -206,11 +494,11 @@
       document.body.dataset.lang = mode;
       document.documentElement.lang = mode === "zh" ? "zh-CN" : "en";
       buttons.forEach(button => button.classList.toggle("active", button.dataset.langBtn === mode));
-      try { localStorage.setItem("question-bank-privacy-language", mode); } catch (_) {}
+      try { localStorage.setItem("tools-platform-extensions-privacy-language", mode); } catch (_) {}
     }
     buttons.forEach(button => button.addEventListener("click", () => setLanguage(button.dataset.langBtn)));
     try {
-      const saved = localStorage.getItem("question-bank-privacy-language");
+      const saved = localStorage.getItem("tools-platform-extensions-privacy-language") || localStorage.getItem("question-bank-privacy-language");
       if (["zh", "both", "en"].includes(saved)) setLanguage(saved);
     } catch (_) {}
   </script>

@@ -1,7 +1,7 @@
 (function(){
     'use strict';
     // This stamp identifies the executing script, even if an older copy was cached.
-    const scriptVersion='20261011-53';
+    const scriptVersion='20261011-55';
     const versionBadge=document.createElement('span');versionBadge.id='monthlyScriptVersion';versionBadge.className='monthly-script-version';versionBadge.setAttribute('data-controls','');versionBadge.dataset.version=scriptVersion;document.body.append(versionBadge);
     const engine=window.MonthlyDocumentEngine;
     const view=window.MonthlyCatalogView,S=window.MonthlySourceRules,W=window.MonthlyWorkspace;
@@ -117,13 +117,16 @@
     function fileDisplayName(file,withMerged=false){
         if(!file)return "";
         const batchFiles=engine.mergeFiles(catalog.files.filter(item=>item.batch_id===file.batch_id));
-        const labels=view.fileDisplayMetrics(file,batchFiles);
-        const title=!view.isExpiringTicketFile(file)&&labels.length?labels.map(metricLabel).join('、'):metricLabel(view.fileTitle(file,batchFiles,language));
+        const title=metricLabel(view.fileTitle(file,batchFiles,language));
         const count=file.mergedFiles?.length||1;
         return title+(withMerged&&count>1?` [${t('合并','Merged')} ${count}]`:'');
     }
     window.MonthlyCharts.init({root,library:document.getElementById('sourceLibrary'),catalog:reportCatalog,effective:effectiveBlock,load:blockCached,externalPanel:true,t,escape,metricLabel,fileName:fileDisplayName,block:id=>findBlock(id)?.block,change:()=>{checkpoint();},render:()=>{const pending=render();status(t('图表配置已更新，请保存月报','Chart configuration updated; save the report'));return pending;},status});
     function inlineCatalog(){return {...(current.inlineData||catalog),inlineFormulas:current.inlineFormulas||[],reportMonth:current.inlineData&&Object.hasOwn(current.inlineData,'month')?current.inlineData.month:current.dataRulesVersion===1?engine.documentMonth(current):''};}
+    function inlinePickerCatalog(){
+        const saved=current.inlineData?.snapshots||[];
+        return {...catalog,snapshots:[...catalog.snapshots,...saved.filter(snapshot=>!catalog.snapshots.some(item=>item.id===snapshot.id))],inlineFormulas:current.inlineFormulas||[],reportMonth:engine.documentMonth(current)};
+    }
     function captureInlineData(){
         if(initializing&&libraryLoading||current.dataRulesVersion!==1||current.inlineData)return;const tokens=new Set();
         for(const text of [current.title,current.footer,...current.meta.flatMap(item=>[item.label,item.value]),...current.sections.flatMap(section=>[section.title,...section.blocks.flatMap(block=>[block.title,block.text,block.rule])])])for(const value of Object.values(text||{}))for(const part of engine.metricTextParts(value,inlineCatalog()))if(part.key)tokens.add(part.key);
@@ -1657,7 +1660,7 @@
         inspector:W.inspector,inspectorDrop:W.inspectorDrop,inspectorClick:W.inspectorClick,inspectorChange:W.inspectorChange,mountInspector:W.mountInspector,syncSelection:W.syncSelection,
         targets:()=>current.sections.flatMap(section=>section.blocks.map(block=>({id:block.id,label:pair(section.title)+' / '+(pair(block.title)||typeName(block.type))})))
     });
-    const inlineTools=window.MonthlyInlineTools.start({root,dialog,t,request,getCatalog:inlineCatalog,metricLabel,
+    const inlineTools=window.MonthlyInlineTools.start({root,dialog,t,request,getCatalog:inlineCatalog,getPickerCatalog:inlinePickerCatalog,metricLabel,
         setLogo,
         commitText,commitFormula:(field,definition)=>{checkpoint();if(definition){current.inlineFormulas||=[];current.inlineFormulas.push(definition);}commitText(field,{recordHistory:false,preserveInline:true});}
     });

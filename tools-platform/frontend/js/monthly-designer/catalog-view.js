@@ -105,9 +105,9 @@
     }
 
     function fileTitle(file,allBatchFiles=[],language='zh'){
-        if(isExpiringTicketFile(file))return sourceFileTitle(file,language);
-        const specific=fileDisplayMetrics(file,allBatchFiles);
-        return specific.length?specific.join('、'):sourceFileTitle(file,language);
+        // Metric associations describe provenance, not the identity of a source table.
+        // Legacy snapshots can associate batch-wide metrics with every imported file.
+        return sourceFileTitle(file,language);
     }
 
     function fileReportRank(file,allBatchFiles=[]){

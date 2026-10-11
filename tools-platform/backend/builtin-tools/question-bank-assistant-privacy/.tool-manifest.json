@@ -2,25 +2,26 @@
   "version": 1,
   "tool": {
     "slug": "question-bank-assistant-privacy",
-    "name": "题库助手隐私政策",
+    "name": "浏览器扩展统一隐私政策",
     "icon": "🔏",
-    "description": "题库与答题助手中英文隐私政策，说明 AI 数据传输、加密保险库、凭据与日志、导入导出、可选 License 和用户数据控制。",
+    "description": "题库与答题助手、NetCare RFC 方案与 AI 审计扩展中英文统一隐私政策，说明数据处理、本地隔离存储、大模型通信脱敏与用户控制。",
     "tags": [
       "隐私政策",
       "浏览器扩展",
-      "题库与答题助手"
+      "题库与答题助手",
+      "NetCare"
     ],
     "href": "/tools/question-bank-assistant-privacy",
     "filePath": "/custom-tools/question-bank-assistant-privacy/index.html",
     "publicAccess": true,
     "createdAt": "2026-08-06T00:00:00.000Z",
-    "updatedAt": "2026-10-03T00:00:00.000Z"
+    "updatedAt": "2026-10-11T00:00:00.000Z"
   },
   "history": {
-    "id": "builtin-question-bank-assistant-privacy-v1",
+    "id": "builtin-question-bank-assistant-privacy-v2",
     "tool": "custom",
-    "action": "安装系统工具",
-    "detail": "题库助手隐私政策 (question-bank-assistant-privacy)",
-    "time": "2026-08-06T00:00:00.000Z"
+    "action": "更新系统工具",
+    "detail": "浏览器扩展统一隐私政策 (question-bank-assistant-privacy)",
+    "time": "2026-10-11T00:00:00.000Z"
   }
 }

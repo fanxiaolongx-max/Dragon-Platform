@@ -197,8 +197,14 @@ function hydrateNavigationFromCache() {
     return true;
 }
 
-function navT(key, params) {
-    return window.ToolsI18n ? window.ToolsI18n.t(key, params) : key;
+let navbarI18nEntries;
+function navT(key, params = {}) {
+    const translated = window.ToolsI18n?.t(key, params);
+    if (translated && translated !== key) return translated;
+    let lang = 'zh-CN';
+    try { lang = window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || localStorage.getItem('tools_language') || lang; } catch (_) {}
+    const fallback = navbarI18nEntries?.[lang]?.[key] ?? navbarI18nEntries?.['zh-CN']?.[key] ?? key;
+    return String(fallback).replace(/\{(\w+)\}/g, (match, name) => Object.prototype.hasOwnProperty.call(params, name) ? params[name] : match);
 }
 
 function navLocaleText(zh, en) {
@@ -355,8 +361,8 @@ function matchesNavSearch(searchIndex, query) {
 }
 
 function registerNavbarI18n() {
-    if (!window.ToolsI18n) return;
-    window.ToolsI18n.register('navbar', {
+    // Keep the same dictionary available during asynchronous language initialization.
+    navbarI18nEntries ||= {
         'zh-CN': {
             'nav.home': '工具中台',
             'nav.uivf12': '数据抓取',
@@ -1277,7 +1283,8 @@ function registerNavbarI18n() {
             'nav.alert.object': 'Object',
             'nav.alert.failLoad': 'Failed to load alerts: '
         }
-    });
+    };
+    window.ToolsI18n?.register('navbar', navbarI18nEntries);
 }
 
 function navEscape(value) {
@@ -8998,6 +9005,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     await ensureToolsI18nLoaded();
     registerNavbarI18n();
+    // Repaint the entire bar, including action labels and titles, after language loading.
+    renderNavbar();
     const navigationCacheReady = hydrateNavigationFromCache();
     if (!navigationCacheReady) await loadNavigationData();
     renderNavLinksFromState();

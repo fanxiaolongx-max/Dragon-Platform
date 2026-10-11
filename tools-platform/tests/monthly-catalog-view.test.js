@@ -23,7 +23,7 @@ test('download tooltips show per-sheet dimensions and byte size without treating
     assert.match(view.fileDownloadInfo({name:'Pending.csv'},'en'),/Unknown size\nWorksheets not parsed/);
     assert.match(view.fileDownloadInfo({name:'x',size:5,sheets:[{name:'x'}]}),/未知 行 × 未知 列/);
 });
-test('source library groups a single import with extraction and assessment by import date and target month',()=>{const catalog=fixture();const groups=view.groups(catalog);assert.equal(groups.length,2);assert.equal(groups[0].period,'2026-09');assert.equal(groups[0].snapshots.length,2);assert.deepEqual(groups[0].fileIds,['f']);assert.equal(groups[0].importedAt,catalog.snapshots[0].captured_at);assert.deepEqual(groups[1].fileIds,['n']);assert.equal(view.fileTitle(catalog.files[0]),'TOPN 风险');assert.equal(view.fileTitle(catalog.files[1]),'没有指标');});
+test('source library groups a single import with extraction and assessment by import date and target month',()=>{const catalog=fixture();const groups=view.groups(catalog);assert.equal(groups.length,2);assert.equal(groups[0].period,'2026-09');assert.equal(groups[0].snapshots.length,2);assert.deepEqual(groups[0].fileIds,['f']);assert.equal(groups[0].importedAt,catalog.snapshots[0].captured_at);assert.deepEqual(groups[1].fileIds,['n']);assert.equal(view.fileTitle(catalog.files[0]),'风险表');assert.equal(view.fileTitle(catalog.files[1]),'没有指标');});
 test('pinned options show only the selected metric data definition; processed sections omit assessment duplicates',()=>{const catalog=fixture();assert.deepEqual(view.eligibleSnapshots({kind:'metric',metricKey:'risk'},catalog).map(s=>s.id),['raw']);assert.deepEqual(view.eligibleSnapshots({kind:'metric',metricKey:'assessment:A:Risk'},catalog).map(s=>s.id),['assessment:raw@@9']);assert.deepEqual(view.eligibleSnapshots({kind:'section',sectionKey:'risk'},catalog).map(s=>s.id),['raw']);assert.equal(engine.resolve({kind:'file',mode:'latest',sourceKey:'old-corrupted-key'},catalog).file.id,'f');});
 test('legacy missing target month inherits its linked single saved assessment period, separate targets remain separate',()=>{const catalog=fixture();catalog.snapshots[0].target_month=null;assert.equal(view.groups(catalog)[0].snapshots.length,2);assert.equal(view.snapshotPeriod(catalog.snapshots[0],catalog),'2026-09');catalog.snapshots.push({...catalog.snapshots[1],id:'assessment:raw@@10',target_month:10});assert.equal(view.groups(catalog).filter(g=>g.batchIds.includes('b')).length,2);assert.equal(view.period('2026-01-10T00:00:00Z',12),'2025-12');});
 test('expiring ticket files are correctly identified',()=>{
@@ -113,4 +113,15 @@ test('expiring ticket sections are correctly identified and prioritized by left 
     assert.equal(keys[8],'sec_lithium');
     // Followed by other tables
     assert.equal(keys[9],'sec_other');
+});
+
+test('source titles remain file names regardless of batch-wide metric associations',()=>{
+    const labels=['SR-CNBG','SR-CNBG-同比去年变化率','IBMS','月度例会','Jam服务专刊/季度','服务峰会/半年','维保订单','业务收入'];
+    const file={name:'SR-CNBG-Netwok-monthly_Latest_2026年09月.csv',metricLabels:labels};
+    for(const size of [1,2,8]){
+        const batch=Array.from({length:size},(_,index)=>({...file,id:String(index)}));
+        for(const lang of ['zh','en'])assert.equal(view.fileTitle(file,batch,lang),'SR-CNBG-Netwok-monthly_2026年09月');
+    }
+    assert.deepEqual(view.fileDisplayMetrics(file,[file]),labels);
+    assert.equal(view.fileTitle({name:'PBI_自动抓取-整改率_Latest.csv',metricLabels:labels}),'整改率');
 });

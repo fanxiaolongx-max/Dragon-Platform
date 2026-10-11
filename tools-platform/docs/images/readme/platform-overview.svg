@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="410" viewBox="0 0 1200 410" role="img" aria-labelledby="title desc">
+<title id="title">Tools Platform — 从数据采集到月报交付</title><desc id="desc">采集与导入、规则与分析、展示与交付三阶段，连接浏览器、桌面客户端和移动端工程。</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#102b47"/><stop offset="1" stop-color="#203b62"/></linearGradient></defs>
+<rect width="1200" height="410" rx="22" fill="url(#bg)"/>
+<g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Microsoft YaHei, sans-serif">
+<text x="44" y="54" font-size="13" letter-spacing="3" fill="#95cbd8">TOOLS PLATFORM</text>
+<text x="44" y="104" font-size="34" font-weight="700" fill="#fff">让数据、报表与日常工作连起来</text>
+<text x="44" y="138" font-size="17" fill="#c5d6e6">本地 / 内网工具中台 · 浏览器与桌面客户端 · 中英双语</text>
+<rect x="44" y="176" width="344" height="156" rx="14" fill="#f1f7fc"/>
+<rect x="428" y="176" width="344" height="156" rx="14" fill="#edf8f4"/>
+<rect x="812" y="176" width="344" height="156" rx="14" fill="#f5f1fc"/>
+<g font-size="12" font-weight="600"><text x="66" y="205" fill="#577c9d">01 / INPUT</text><text x="450" y="205" fill="#558372">02 / PROCESS</text><text x="834" y="205" fill="#806b9f">03 / DELIVER</text></g>
+<g font-size="23" font-weight="700" fill="#203b56"><text x="66" y="243">采集与导入</text><text x="450" y="243">规则与分析</text><text x="834" y="243">展示与交付</text></g>
+<g font-size="15" fill="#526b83"><text x="66" y="277">抓取脚本 · Excel / CSV · 快照</text><text x="66" y="303">UI.Vision / F12 · 自动导入</text><text x="450" y="277">指标规则 · 透视汇总 · 专题治理</text><text x="450" y="303">目标月份 · 来源版本 · 租户隔离</text><text x="834" y="277">通用月报 · 看板 · 大屏 · 催办</text><text x="834" y="303">PDF / HTML / Excel / MSG</text></g>
+<g fill="none" stroke="#a8c5da" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M397 254h21m-7-7 7 7-7 7"/><path d="M781 254h21m-7-7 7 7-7 7"/></g>
+<text x="44" y="374" font-size="14" fill="#bfd2e3">Node.js + Express　 /　原生 HTML · CSS · JavaScript　 /　SQLite　 /　Electron</text>
+</g></svg>
