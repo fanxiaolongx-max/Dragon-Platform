@@ -25,9 +25,37 @@ function tables(item,key){
     const id=fileId(item.id,key),batchId=`ts-${item.id}-${month}`,name=`专题月报-${definition.title.replace(' · ','-')}-${month}.xlsx`;
     return {file:{id,batch_id:batchId,name,source_key:`专题月报:${key}`,kind:'topic_monthly',size:item.payloadBytes,parse_status:'ready',parse_error:'',created_at:item.importedAt,target_period:month,topic_key:key,source_snapshot_id:item.id,metricLabels:[definition.title]},batch:{id:batchId,created_at:item.importedAt,source:'topic_analysis',target_month:Number(month.slice(5)),target_period:month},sheets:sheets.map((sheet,index)=>({...sheet,id:`${id}-s${index}`,fileId:id}))};
 }
+const catalogCache = new Map();
 async function catalog(){
     const files=[],batches=new Map();let offset=0;
-    while(true){const page=await topics.listSnapshots({limit:200,offset,metadataOnly:true});for(const meta of page.items){const item=await topics.getSnapshot(meta.id);if(!item?.snapshot)continue;for(const definition of engine.list){const source=tables(item,definition.key);if(!source)continue;batches.set(source.batch.id,source.batch);files.push({...source.file,sheets:source.sheets.map(sheet=>({id:sheet.id,name:sheet.name,headers:sheet.headers,rowCount:sheet.rows.length}))});}}offset+=page.items.length;if(offset>=page.total||!page.items.length)break;}
+    const currentKeys=new Set();
+    const tenantId=(require('./tenant-context').getTenantId)?require('./tenant-context').getTenantId():'default';
+    while(true){
+        const page=await topics.listSnapshots({limit:200,offset,metadataOnly:true});
+        for(const meta of page.items){
+            const cacheKey=`${tenantId}:${meta.id}`;
+            currentKeys.add(cacheKey);
+            let cached=catalogCache.get(cacheKey);
+            if(!cached){
+                const item=await topics.getSnapshot(meta.id);
+                if(!item?.snapshot)continue;
+                const itemBatches=[],itemFiles=[];
+                for(const definition of engine.list){
+                    const source=tables(item,definition.key);
+                    if(!source)continue;
+                    itemBatches.push(source.batch);
+                    itemFiles.push({...source.file,sheets:source.sheets.map(sheet=>({id:sheet.id,name:sheet.name,headers:sheet.headers,rowCount:sheet.rows.length}))});
+                }
+                cached={batches:itemBatches,files:itemFiles};
+                catalogCache.set(cacheKey,cached);
+            }
+            for(const b of cached.batches) batches.set(b.id,b);
+            for(const f of cached.files) files.push(f);
+        }
+        offset+=page.items.length;
+        if(offset>=page.total||!page.items.length)break;
+    }
+    for(const key of catalogCache.keys()) if(key.startsWith(tenantId+':') && !currentKeys.has(key)) catalogCache.delete(key);
     return {files:files.sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)),batches:[...batches.values()]};
 }
 async function source(value){const parsed=parseId(value);if(!parsed)return null;const item=await topics.getSnapshot(parsed.snapshotId);return item?.snapshot?{...tables(item,parsed.key),index:parsed.index}:null;}

@@ -59,11 +59,23 @@ async function requestPetStories(id, language) {
             headers: { Authorization: 'Bearer ' + token }, signal: controller.signal
         });
         if (!response.ok) throw new Error('PET_STORY_REQUEST_FAILED');
-        const contentType = response.headers?.get ? (response.headers.get('content-type') || '') : 'application/json';
+        const contentType = response.headers?.get ? (response.headers.get('content-type') || '') : '';
         if (contentType && !contentType.includes('application/json')) {
             throw new Error('PET_STORY_INVALID_CONTENT_TYPE: ' + contentType);
         }
-        const data = await response.json();
+        let data;
+        if (typeof response.text === 'function') {
+            const text = await response.text();
+            try {
+                data = JSON.parse(text);
+            } catch (parseError) {
+                throw new Error('PET_STORY_INVALID_JSON: ' + parseError.message);
+            }
+        } else if (typeof response.json === 'function') {
+            data = await response.json();
+        } else {
+            throw new Error('PET_STORY_INVALID_RESPONSE');
+        }
         return id ? data.story : data.stories;
     } finally { clearTimeout(timeout); }
 }
@@ -467,7 +479,10 @@ function registerIpc() {
     ipcMain.on('pet-request-environment', event => { if (isPetSender(event)) sendPetEnvironment(); });
     ipcMain.handle('pet-get-stories', (event, language) => {
         if (!isPetSender(event) && !isChatSender(event)) throw new Error('PET_STORY_WINDOW_REQUIRED');
-        return requestPetStories(null, language || desktopLanguage.getLanguage());
+        return requestPetStories(null, language || desktopLanguage.getLanguage()).then(list => (Array.isArray(list) ? list : [])).catch(err => {
+            console.warn('[PetManager] Stories fetch suppressed:', err.message || err);
+            return [];
+        });
     });
     ipcMain.handle('pet-get-story', (event, id, language) => {
         if (!isChatSender(event)) throw new Error('PET_STORY_WINDOW_REQUIRED');

@@ -18,10 +18,17 @@ router.put('/source-files/:id/sheets',handle(async(req,res)=>{await repo.saveShe
 router.get('/source-catalog',handle(async(req,res)=>{
     // Existing snapshots remain usable as indicators even when their original files predate archiving.
     const snapshots = (await require('../models/sla-snapshots-repository').listSnapshots()).items;
-    const catalog = await repo.catalog();
+    let catalog = await repo.catalog();
     const existing = new Set(catalog.snapshots.map(item=>item.id));
-    for(const snapshot of snapshots)if(!existing.has(snapshot.id))await repo.registerSnapshot(snapshot,{allowMissingBatch:true});
-    res.json(await repo.catalog());
+    let registeredAny = false;
+    for(const snapshot of snapshots){
+        if(!existing.has(snapshot.id)){
+            await repo.registerSnapshot(snapshot,{allowMissingBatch:true});
+            registeredAny = true;
+        }
+    }
+    if(registeredAny) catalog = await repo.catalog();
+    res.json(catalog);
 }));
 router.get('/source-files/:id/download',handle(async(req,res)=>{
     const file=await repo.getFile(req.params.id,true);if(!file)return res.status(404).json({error:'Source file not found'});

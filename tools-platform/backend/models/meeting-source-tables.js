@@ -84,18 +84,32 @@ function tables(item, period, category) {
     const created = item.updatedAt || item.createdAt;
     return { batch: { id: batchId, created_at: created, source: 'meeting_attendance', target_month: Number(period.slice(5)), target_period: period }, file: { id, batch_id: batchId, name: `会议考勤-${labels[category]}-${period}-${item.id}.xlsx`, source_key: `会议考勤:${category}`, kind: 'meeting_attendance', size: Buffer.byteLength(JSON.stringify(item.payload)), created_at: created, target_period: period, source_snapshot_id: item.id, snapshot_title: item.title, category, filter_scope: filterScope, unknown_date_rows: unknownCount, unknown_dates_retained: !['offline', 'online'].includes(category) && windows.length > 0, original_row_count: originalRowCount, parse_status: 'ready', parse_error: '', metricLabels: [labels[category]] }, sheets: output };
 }
+const meetingCatalogCache = new Map();
 async function catalog() {
     const files = [], batches = new Map();
+    const currentKeys = new Set();
+    const tenantId = (require('./tenant-context').getTenantId) ? require('./tenant-context').getTenantId() : 'default';
     for (const item of await meetings.listSnapshots({ includePayload: true })) {
-        const sheets = (Array.isArray(item.payload?.sheets) ? item.payload.sheets : []).filter(sheet => labels[sheet.category] && Array.isArray(sheet.headers) && Array.isArray(sheet.rows));
-        const periods = new Set(meetingDates(item, sheets).map(date => date.slice(0, 7)));
-        for (const sheet of sheets) for (const row of sheet.rows) { const date = ['offline', 'online'].includes(sheet.category) ? attendanceDate(sheet, row) : orderDate(sheet, row);if (date) periods.add(date.slice(0, 7)); }
-        for (const period of periods) for (const category of Object.keys(labels)) {
-            const source = tables(item, period, category);if (!source) continue;
-            batches.set(source.batch.id, source.batch);
-            files.push({ ...source.file, sheets: source.sheets.map(sheet => ({ id: sheet.id, name: sheet.name, headers: sheet.headers, rowCount: sheet.rows.length })) });
+        const cacheKey = `${tenantId}:${item.id}:${item.updatedAt || item.createdAt}`;
+        currentKeys.add(cacheKey);
+        let cached = meetingCatalogCache.get(cacheKey);
+        if (!cached) {
+            const sheets = (Array.isArray(item.payload?.sheets) ? item.payload.sheets : []).filter(sheet => labels[sheet.category] && Array.isArray(sheet.headers) && Array.isArray(sheet.rows));
+            const periods = new Set(meetingDates(item, sheets).map(date => date.slice(0, 7)));
+            for (const sheet of sheets) for (const row of sheet.rows) { const date = ['offline', 'online'].includes(sheet.category) ? attendanceDate(sheet, row) : orderDate(sheet, row);if (date) periods.add(date.slice(0, 7)); }
+            const itemBatches = [], itemFiles = [];
+            for (const period of periods) for (const category of Object.keys(labels)) {
+                const source = tables(item, period, category);if (!source) continue;
+                itemBatches.push(source.batch);
+                itemFiles.push({ ...source.file, sheets: source.sheets.map(sheet => ({ id: sheet.id, name: sheet.name, headers: sheet.headers, rowCount: sheet.rows.length })) });
+            }
+            cached = { batches: itemBatches, files: itemFiles };
+            meetingCatalogCache.set(cacheKey, cached);
         }
+        for (const b of cached.batches) batches.set(b.id, b);
+        for (const f of cached.files) files.push(f);
     }
+    for (const k of meetingCatalogCache.keys()) if (k.startsWith(tenantId + ':') && !currentKeys.has(k)) meetingCatalogCache.delete(k);
     return { files, batches: [...batches.values()] };
 }
 async function source(value) { const parsed = parseId(value);if (!parsed) return null;const item = await meetings.getSnapshot(parsed.snapshotId);return item ? { ...tables(item, parsed.period, parsed.category), index: parsed.index } : null; }

@@ -1204,7 +1204,11 @@
         if(action==='language'){language=language==='zh'?'en':'zh';library();await render();await listDocuments();return;}
         if(action==='undo'){if(history.length){current=history.pop();dirty=true;restoreLibrary();render();}return;}
         if(action==='template')return window.MonthlyTemplateControls.open({request,t,status,capture:()=>window.MonthlyTemplates.capture(current,catalog)});
-        if(action==='new'){const saved=await request('/api/upload/monthly-default-template');checkpoint();current=window.MonthlyTemplates.create(saved.template,catalog);window.MonthlyCharts.resetPanels();restoreLibrary();await render();document.getElementById('documentList').value='';status(t('已使用默认模板新建月报，尚未保存','New report created from the default template; unsaved'));return;}
+        if(action==='new'){
+            let template=null;
+            try{const saved=await request('/api/upload/monthly-default-template');template=saved?.template;}catch(error){console.warn('[MonthlyDesigner] Failed to fetch default template:',error);}
+            checkpoint();current=window.MonthlyTemplates?window.MonthlyTemplates.create(template,catalog):engine.defaults();window.MonthlyCharts.resetPanels();restoreLibrary();await render();document.getElementById('documentList').value='';status(t('已使用默认模板新建月报，尚未保存','New report created from the default template; unsaved'));return;
+        }
         if(action==='save'){
             if(saving)return;
             const toolbar=document.querySelector('.designer-toolbar'),button=toolbar.querySelector('[data-action=save]');
@@ -1262,7 +1266,11 @@
                 current=engine.normalize(result.document);window.MonthlyCharts.resetPanels();dirty=false;history.length=0;
                 const opened=current;restoreLibrary();const rendering=render();root.inert=false;toolbar.inert=false;await rendering;if(initializationCancelled||current!==opened)return;document.getElementById('documentList').value=current.id;
                 status(t('已自动载入最近保存的服务器月报','Latest saved server report loaded automatically'));
-            }else{const saved=await request('/api/upload/monthly-default-template');if(initializationCancelled)return;current=window.MonthlyTemplates.create(saved.template,catalog);window.MonthlyCharts.resetPanels();const opened=current;restoreLibrary();const rendering=render();dirty=false;root.inert=false;toolbar.inert=false;await rendering;if(initializationCancelled||current!==opened)return;status(t('服务器暂无已保存月报，已打开默认模板','No saved server reports; opened the default template'));}
+            }else{
+                let template=null;
+                try{const saved=await request('/api/upload/monthly-default-template');if(initializationCancelled)return;template=saved?.template;}catch(error){console.warn('[MonthlyDesigner] Failed to fetch default template on startup:',error);}
+                if(initializationCancelled)return;
+                current=window.MonthlyTemplates?window.MonthlyTemplates.create(template,catalog):engine.defaults();window.MonthlyCharts.resetPanels();const opened=current;restoreLibrary();const rendering=render();dirty=false;root.inert=false;toolbar.inert=false;await rendering;if(initializationCancelled||current!==opened)return;status(t('服务器暂无已保存月报，已打开默认模板','No saved server reports; opened the default template'));}
             if(sources.status==='rejected')status(t('月报已打开，但数据资料库读取失败：','Report opened, but data sources could not be loaded: ')+sources.reason.message);
         }catch(error){if(!initializationCancelled)status(error.message);}
         finally{initializing=false;root.inert=false;toolbar.inert=false;loading.remove();const placeholder=sourceLibrary.querySelector('[data-source-loading]');if(placeholder)placeholder.textContent=document.getElementById('designerStatus').textContent;}
