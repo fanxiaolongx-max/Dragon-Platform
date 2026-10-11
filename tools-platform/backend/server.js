@@ -458,6 +458,9 @@ app.get('/expedite', (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'pages/expedite.html'));
 });
 app.get('/monthly', (req, res) => {
+    res.sendFile(path.join(FRONTEND_DIR, 'pages/monthly-designer.html'));
+});
+app.get('/monthly/legacy', (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'pages/monthly.html'));
 });
 app.get(['/duty-roster', '/duty-roster.html'], (req, res) => {

@@ -2,7 +2,7 @@
     'use strict';
     const engine=window.MonthlyDocumentEngine;
     const view=window.MonthlyCatalogView,S=window.MonthlySourceRules,W=window.MonthlyWorkspace;
-    const blockResources=new Map(),dataStates=new Map(),lastResults=new Map();
+    const blockResources=new Map(),dataStates=new Map(),lastResults=new Map(),pendingBlocks=new Map(),pendingBlockUrls=new Map();
     let libraryDays=90,loadedDays=90,catalogComplete=false,directoryCatalog=null,libraryError='',libraryLoading=false,libraryRefreshId=0;try{const saved=Number(localStorage.getItem("monthly-library-days"));if(localStorage.getItem("monthly-library-days")!==null&&Number.isInteger(saved)&&saved>=0&&saved<=36500)libraryDays=saved;}catch(_){}
     let libraryPeriod=null,libraryDate=null,libraryGroup=null,libraryLimit=80,librarySearchTimer;
     let language=window.ToolsI18n?.getLanguage()==='en-US'?'en':'zh';
@@ -18,10 +18,10 @@
     const clone=value=>JSON.parse(JSON.stringify(value));
     function checkpoint(){history.push(clone(current));if(history.length>30)history.shift();dirty=true;}
     const transport=window.MonthlyRequestClient.create({fetch:(...args)=>fetch(...args),parse:handleResponse});
-    async function request(url,options={}){const {timeoutMs,onResponse,...init}=options,headers={...getAuthHeaders(),...init.headers};if(init.body instanceof FormData)for(const key of Object.keys(headers))if(key.toLowerCase()==='content-type')delete headers[key];return transport.request(url,{credentials:'same-origin',...init,headers},{timeoutMs:timeoutMs??(init.method&&init.method!=='GET'?60000:15000),onResponse,timeoutMessage:t('读取超时：','Request timed out: ')+url+t('。请重试或检查桌面端运行日志。','. Retry or check the desktop runtime logs.')});}
+    async function request(url,options={}){const {timeoutMs,onResponse,...init}=options,headers={...getAuthHeaders(),...init.headers};if(init.body instanceof FormData)for(const key of Object.keys(headers))if(key.toLowerCase()==='content-type')delete headers[key];return transport.request(url,{credentials:'same-origin',...init,headers},{timeoutMs:timeoutMs??(init.method&&init.method!=='GET'?60000:15000),onResponse,queued:/^\/api\/(?:upload\/source-(?:sheets|snapshots)\/|duty-roster\?)/.test(url),timeoutMessage:t('读取超时：','Request timed out: ')+url+t('。请重试或检查桌面端运行日志。','. Retry or check the desktop runtime logs.')});}
     function cached(url){if(!cache.has(url))cache.set(url,request(url).catch(error=>{cache.delete(url);throw error;}));return cache.get(url);}
     function edit(value,key='value',placeholder=''){
-        const field=`field-${fieldIndex++}`;fields.set(field,{value,key});return `<div class="document-edit" contenteditable="true" data-field="${field}" style="${value.fieldAlign?.[key]?.[language]?'text-align:'+value.fieldAlign[key][language]:''}" data-placeholder="${escape(placeholder)}">${window.MonthlyInlineTools.renderText(pair(value[key]),inlineCatalog(),metricLabel,key==='text'?value.textRuns?.[language]:value.fieldRuns?.[key]?.[language])}</div>`;
+        const field=`field-${fieldIndex++}`;fields.set(field,{value,key});return `<div class="document-edit" contenteditable="true" ${key==='value'&&value.label?.zh==='数据月份'&&current.dataRulesVersion===1?'aria-readonly="true"':''} data-field="${field}" aria-description="${t('输入 @ 引用指标；单击指标设置文字格式，双击更换引用','Type @ to insert a metric; click it to format, double-click to change the reference')}" style="${value.fieldAlign?.[key]?.[language]?'text-align:'+value.fieldAlign[key][language]:''}" data-placeholder="${escape(placeholder)}">${window.MonthlyInlineTools.renderText(pair(value[key]),inlineCatalog(),metricLabel,key==='text'?value.textRuns?.[language]:value.fieldRuns?.[key]?.[language])}</div>`;
     }
     const logoPresets=[
         {url:'/assets/logo.png',zh:'原默认 Logo',en:'Original default logo'},
@@ -39,11 +39,57 @@
         select.innerHTML=choices.map(item=>`<option value="${escape(item.url)}">${escape(item[language])}</option>`).join('')+`<option value="gallery">${t('选择 / 上传其他 Logo…','Choose / upload other logo…')}</option>`;
         select.value=current.logo;
     }
+    function syncDefaultFontSizeSelect(){
+        const select=document.getElementById('defaultFontSizeSelect');
+        if(!select)return;
+        const currentSize=current.defaultFontSize||16;
+        if(!Array.from(select.options).some(opt=>Number(opt.value)===currentSize)){
+            const option=document.createElement('option');option.value=String(currentSize);option.textContent=`${currentSize}px`;
+            const next=Array.from(select.options).find(opt=>Number(opt.value)>currentSize);
+            if(next)select.insertBefore(option,next);else select.appendChild(option);
+        }
+        select.value=String(currentSize);
+    }
+    function updateDefaultFontSize(size){
+        const nextSize=Number(size);
+        if(!Number.isInteger(nextSize)||nextSize<8||nextSize>72)return;
+        const oldSize=current.defaultFontSize||16;
+        if(nextSize===oldSize)return;
+        checkpoint();
+        current.defaultFontSize=nextSize;
+        for(const section of current.sections||[]){
+            for(const block of section.blocks||[]){
+                if(block.textRuns){
+                    for(const lang of ['zh','en']){
+                        const runs=block.textRuns[lang];
+                        if(Array.isArray(runs)){
+                            for(const run of runs){
+                                if(run.style&&(run.style.fontSize===oldSize||run.style.fontSize===10)){
+                                    run.style.fontSize=nextSize;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        render();
+        status(t(`默认文本大小已更新为 ${nextSize}px，请保存月报`,`Default font size updated to ${nextSize}px; save the report`));
+    }
+    let templateWarning='';
+    function createFromDefault(template){
+        templateWarning='';
+        if(window.MonthlyTemplates&&template)try{return window.MonthlyTemplates.create(template,catalog);}catch(_){templateWarning=t('默认模板格式不兼容；已打开基础模板，服务器模板未改动。','Default template is incompatible; opened a basic template without changing the server template.');}
+        else templateWarning=t('默认模板未能读取；已打开基础模板，可重试载入。','Default template unavailable; opened a basic template. Retry loading it.');
+        return window.MonthlyTemplates?window.MonthlyTemplates.create(window.MonthlyTemplates.capture(engine.defaults()),catalog):engine.defaults();
+    }
     function setLogo(url){checkpoint();current.logo=url;render();status(t('Logo 已更换，请保存月报','Logo changed; save the report'));}
     function actions(){
         const names={load:t('载入','Load'),new:t('新建月报','New report'),template:t('设为默认模板','Set default template'),save:t('保存到服务器','Save to server'),refresh:t('刷新资料库','Refresh library'),'check-updates':t('检查月报数据更新','Check report updates'), 'add-section':t('＋模块','＋ Module'),layout:t('页面与信息栏','Page & metadata'),html:t('导出 HTML','Export HTML'),msg:t('导出 MSG 邮件','Export MSG email'),print:t('打印 / PDF','Print / PDF'),pdf:t('导出 PDF','Export PDF'),image:t('导出图片','Export image'),project:t('导出工程','Export project'),language:language==='zh'?'English':'中文',undo:t('撤销','Undo')};
         document.querySelectorAll('.designer-toolbar [data-action]').forEach(el=>el.textContent=names[el.dataset.action]);
-        document.getElementById('designerName').textContent=t('护网与网络安全月报编辑器','Network security report designer');
+        document.getElementById('designerName').textContent=t('通用月报编辑器','Universal monthly report editor');
+        document.title=t('通用月报编辑器','Universal monthly report editor')+' - Tools Platform';
+        document.getElementById('legacyMonthlyLink').textContent=t('旧月报','Legacy monthly report');
         document.getElementById('projectImportLabel').textContent=t('导入工程','Import project');
         const monthInput=document.getElementById('reportMonth');monthInput.value=engine.documentMonth(current);document.getElementById('reportMonthLabel').textContent=t('报告月份','Report month');
         logoChoices();window.MonthlyStudioUI?.sync();
@@ -73,15 +119,15 @@
         return title+(withMerged&&count>1?` [${t('合并','Merged')} ${count}]`:'');
     }
     window.MonthlyCharts.init({root,library:document.getElementById('sourceLibrary'),catalog:reportCatalog,effective:effectiveBlock,load:blockCached,externalPanel:true,t,escape,metricLabel,fileName:fileDisplayName,block:id=>findBlock(id)?.block,change:()=>{checkpoint();},render:()=>{const pending=render();status(t('图表配置已更新，请保存月报','Chart configuration updated; save the report'));return pending;},status});
-    function inlineCatalog(){return {...(current.inlineData||catalog),reportMonth:current.inlineData&&Object.hasOwn(current.inlineData,'month')?current.inlineData.month:current.dataRulesVersion===1?engine.documentMonth(current):''};}
+    function inlineCatalog(){return {...(current.inlineData||catalog),inlineFormulas:current.inlineFormulas||[],reportMonth:current.inlineData&&Object.hasOwn(current.inlineData,'month')?current.inlineData.month:current.dataRulesVersion===1?engine.documentMonth(current):''};}
     function captureInlineData(){
-        if(current.dataRulesVersion!==1||current.inlineData)return;const tokens=new Set();
-        for(const text of [current.title,current.footer,...current.meta.map(item=>item.value),...current.sections.flatMap(section=>[section.title,...section.blocks.flatMap(block=>[block.title,block.text,block.rule])])])for(const value of Object.values(text||{}))for(const part of engine.metricTextParts(value,inlineCatalog()))if(part.key)tokens.add(part.key);
+        if(initializing&&libraryLoading||current.dataRulesVersion!==1||current.inlineData)return;const tokens=new Set();
+        for(const text of [current.title,current.footer,...current.meta.flatMap(item=>[item.label,item.value]),...current.sections.flatMap(section=>[section.title,...section.blocks.flatMap(block=>[block.title,block.text,block.rule])])])for(const value of Object.values(text||{}))for(const part of engine.metricTextParts(value,inlineCatalog()))if(part.key)tokens.add(part.key);
         if(!tokens.size)return;const data=inlineCatalog();current.inlineData={month:engine.documentMonth(current),files:[],batches:data.batches,snapshots:data.snapshots.filter(snapshot=>S.snapshotMonth(snapshot,data)===engine.documentMonth(current)).map(snapshot=>({...snapshot,sections:(snapshot.sections||[]).map(section=>({key:section.key})),metrics:clone(snapshot.metrics)}))};
     }
     function reportCatalog(block){return {...(block?.dataUpdateMode==='live'?catalog:block?.savedData?.catalog||catalog),reportMonth:block?.dataUpdateMode==='live'?engine.documentMonth(current):block?.savedData?.month||engine.documentMonth(current)};}
     async function blockCached(url,block){
-        const saved=block?.dataUpdateMode==='live'?null:block?.savedData?.resources.find(item=>item.url===url),data=saved?saved.data:await cached(url);
+        const saved=block?.dataUpdateMode==='live'?null:block?.savedData?.resources.find(item=>item.url===url),data=saved?saved.data:await (async()=>{if(block?._savedOnly)throw new Error('Saved resource unavailable');if(block){if(!pendingBlockUrls.has(block.id))pendingBlockUrls.set(block.id,new Set());pendingBlockUrls.get(block.id).add(url);}try{return await cached(url);}finally{pendingBlockUrls.get(block?.id)?.delete(url);}})();
         if(block&&block._renderToken===generation){if(!blockResources.has(block.id))blockResources.set(block.id,new Map());blockResources.get(block.id).set(url,data);}return data;
     }
     function effectiveBlock(block,sourceCatalog=reportCatalog(block),month=sourceCatalog.reportMonth){
@@ -104,6 +150,7 @@
         return {files:data.files.filter(file=>fileIds.has(file.id)),snapshots:data.snapshots.filter(item=>snapshotIds.has(item.id)),batches:data.batches.filter(batch=>data.files.some(file=>fileIds.has(file.id)&&file.batch_id===batch.id)||data.snapshots.some(item=>snapshotIds.has(item.id)&&item.batch_id===batch.id))};
     }
     function saveBlockData(block){
+        if(initializing&&libraryLoading)return;
         if(block.dataUpdateMode==='live'||!block.savedData&&block.dataUpdateMode!=='snapshot'&&current.dataRulesVersion!==1&&!S.references(block).some(item=>item.value.reference))return;
         if(block.type==='text'||![t('正常','Ready'),t('无匹配记录','No matching records')].includes(dataStates.get(block.id))||!S.references(block).length)return;
         const resources=[...(blockResources.get(block.id)||new Map())].map(([url,data])=>({url,data:clone(data)}));
@@ -125,7 +172,7 @@
         const period=S.targetMonth(rule,engine.documentMonth(current));return catalog.files.filter(file=>S.identity(file.source_key||file.name)===rule.sourceKey&&(file.kind||'original')===rule.sourceKind&&(!period||S.fileMonth(file,catalog)===period)).map(file=>({id:file.id,label:view.timeLabel(file.created_at)+' · '+file.name}));
     }
     async function referenceChange(block,key,option,value){
-        if(!catalogComplete){const logId=MonthlyLoadLog.start(t("载入可选来源版本","Loading source versions"));try{catalog=await loadCatalog(0,logId);catalogComplete=true;MonthlyLoadLog.finish(logId);}catch(error){MonthlyLoadLog.finish(logId,error.message);throw error;}}
+        if(!catalogComplete){const logId=MonthlyLoadLog.start(t("载入可选来源版本","Loading source versions"));try{catalog=await loadCatalog(0,logId,{history:true});catalogComplete=!catalog.failedGroups?.length;MonthlyLoadLog.finish(logId);}catch(error){MonthlyLoadLog.finish(logId,error.message);throw error;}}
         const draft=clone(current),target=draft.sections.flatMap(section=>section.blocks).find(item=>item.id===block.id),entry=S.references(target).find(item=>item.key===key)?.value;if(!entry)return;
         const oldData=reportCatalog(block),old=key==='binding'?engine.resolve(block.binding,oldData):{file:oldData.files.find(file=>file.id===entry.fileId||file.sheets.some(sheet=>sheet.id===entry.sheetId))};
         let rule=entry.reference;
@@ -173,7 +220,7 @@
         const draw=()=>{host.innerHTML=`<h3>${t('组件复用配置','Reusable component settings')}</h3><p>${t('保存当前组件已应用的整套配置：来源规则、数据处理、展示样式和布局，供其他月报或模板中的单个组件主动采用。不会更新默认模板，不携带业务数据。','Saves all applied source, processing, style and layout settings for reuse by one component in another report or template. Does not update the default template or include business rows.')}</p><select data-component-preset><option value="">${t('新建配置','New preset')}</option>${presets.map(preset=>`<option value="${preset.id}" ${selected===preset.id?'selected':''}>${escape(preset.name)}</option>`).join('')}</select><input data-component-name maxlength="200" value="${escape(presets.find(preset=>preset.id===selected)?.name||pair(block.title)||typeName(block.type))}" aria-label="${t('配置名称','Preset name')}"><button data-component-load>${t('采用此配置','Use this preset')}</button><button data-component-save>${t('保存复用配置到服务器','Save reusable preset')}</button><button data-component-delete>${t('删除复用配置','Delete preset')}</button><p role="status"></p>`;};draw();
         host.onchange=event=>{if(event.target.matches('[data-component-preset]')){selected=event.target.value;draw();}};
         host.onclick=async event=>{const button=event.target.closest('[data-component-load],[data-component-save],[data-component-delete]');if(!button)return;button.disabled=true;try{
-            if(button.hasAttribute('data-component-load')){const preset=presets.find(item=>item.id===selected);if(!preset)throw new Error(t('请选择配置','Select a preset'));const generated=window.MonthlyTemplates.create(preset.rules,catalog,engine.documentMonth(current)),replacement=generated.sections[0].blocks[0],draft=clone(current);replacement.id=block.id;const section=draft.sections.find(section=>section.blocks.some(item=>item.id===block.id));section.blocks[section.blocks.findIndex(item=>item.id===block.id)]=replacement;engine.normalize(draft);checkpoint();current=draft;blockResources.delete(block.id);await render();return;}
+            if(button.hasAttribute('data-component-load')){const preset=presets.find(item=>item.id===selected);if(!preset)throw new Error(t('请选择配置','Select a preset'));const generated=window.MonthlyTemplates.create(preset.rules,catalog,engine.documentMonth(current)),generatedBlock=generated.sections[0].blocks[0],draft=clone(current),imported=window.MonthlyMetricFormulas.importBlock(generatedBlock,generated.inlineFormulas||[],draft.inlineFormulas||[],engine.uid),replacement=imported.block;if(imported.definitions.length)draft.inlineFormulas=imported.definitions;replacement.id=block.id;const section=draft.sections.find(section=>section.blocks.some(item=>item.id===block.id));section.blocks[section.blocks.findIndex(item=>item.id===block.id)]=replacement;engine.normalize(draft);checkpoint();current=draft;blockResources.delete(block.id);await render();return;}
             if(button.hasAttribute('data-component-save')){const name=host.querySelector('[data-component-name]').value.trim();if(!name)throw new Error(t('请填写配置名称','Enter a preset name'));const draft=clone(current),found=findBlock(block.id);draft.sections=[{...clone(found.section),blocks:[clone(found.block)]}];const rules=window.MonthlyTemplates.capture(draft,catalog),preset=await request('/api/upload/monthly-component-presets'+(selected?'/'+encodeURIComponent(selected):''),{method:selected?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,rules})});presets=presets.filter(item=>item.id!==preset.id).concat(preset);selected=preset.id;draw();host.querySelector('[role=status]').textContent=t('配置已保存，可在其他月份主动载入','Saved; explicitly load this preset in another month');return;}
             if(selected){await request('/api/upload/monthly-component-presets/'+encodeURIComponent(selected),{method:'DELETE'});presets=presets.filter(item=>item.id!==selected);selected='';draw();}
         }catch(error){host.querySelector('[role=status]').textContent=error.message;button.disabled=false;}};
@@ -185,7 +232,7 @@
             let host=panel.querySelector('[data-inspector-editor]');if(!host){host=document.createElement('div');host.setAttribute('data-inspector-editor','');panel.querySelector('.inspector-body').append(host);}
             if(action==='mapping')await window.MonthlyMappingEditor.open(block,host);if(action==='format')await window.MonthlyDataFormatEditor.open(block,host);
             if(action==='pivot'){await window.MonthlyCharts.enablePivot(block);await window.MonthlyPivotPanel.open(block.id,'processing');}
-            if(action==='retry'){cache.clear();blockResources.delete(block.id);if(block.savedData)block.previousData=block.savedData;delete block.savedData;await render();}
+            if(action==='retry'){if(pendingBlocks.has(block.id))return;for(const url of blockResources.get(block.id)?.keys()||[])cache.delete(url);blockResources.delete(block.id);if(block.savedData)block.previousData=block.savedData;delete block.savedData;const job=renderBlock(block,generation);renderPromise=Promise.all([renderPromise,job]).then(()=>{syncReportDataState();window.MonthlyPivotPanel?.sync();});await job;}
         }catch(error){status(error.message);}
     }
     async function checkUpdates(nextMonth=engine.documentMonth(current)){
@@ -194,7 +241,7 @@
         dialog.innerHTML=`<h3>${t('检查月报数据更新','Check report updates')}</h3><p>${t('正在检查来源匹配与字段…','Checking sources and fields…')}</p><button data-update-stop>${t('取消检查','Cancel check')}</button>`;dialog.showModal();
         let checking=true;const cancel=()=>{if(checking)controller.abort();};dialog.addEventListener('close',cancel,{once:true});dialog.querySelector('[data-update-stop]').onclick=()=>{dialog.close();actions();};
         const read=url=>{if(!reads.has(url))reads.set(url,request(url,{signal:controller.signal}));return reads.get(url);};
-        status(t('正在检查来源匹配与字段…','Checking sources and fields…'));let fresh;try{fresh=await read('/api/upload/source-catalog');}catch(error){checking=false;dialog.close();actions();throw error;}catalog=fresh;catalogComplete=true;library();
+        status(t('正在检查来源匹配与字段…','Checking sources and fields…'));let fresh;const updateLog=MonthlyLoadLog.start(t('检查数据更新','Checking data updates'));try{fresh=await loadCatalog(0,updateLog,{meetingFileIds:meetingReferences(),signal:controller.signal});}catch(error){MonthlyLoadLog.finish(updateLog,error.message);checking=false;dialog.close();actions();throw error;}MonthlyLoadLog.finish(updateLog,fresh.failedGroups.length?fresh.failedGroups.join(', '):undefined);catalog=fresh;catalogComplete=false;library();
         const plans=[],blocks=current.sections.flatMap(section=>section.blocks.filter(block=>block.type!=='text').map(block=>({section,block})));let cursor=0;
         await Promise.all(Array.from({length:Math.min(4,blocks.length)},async()=>{while(cursor<blocks.length&&!controller.signal.aborted){const {section,block}=blocks[cursor++];let changed=nextMonth!==engine.documentMonth(current),candidate=clone(block),error='',resources=new Map();delete candidate.savedData;
             try{
@@ -223,10 +270,10 @@
             const proposed=S.references(candidate).map(({key,value})=>{try{const resolved=key==='binding'?engine.resolve(value,{...catalog,reportMonth:nextMonth}):S.resolve(value.reference||S.create(catalog.files.find(file=>file.id===value.fileId),null,catalog,nextMonth,true),catalog,nextMonth);const item=resolved?.file||resolved?.snapshot;return item?(item.target_period||S.targetMonth(value.reference||{monthMode:'fixed',month:nextMonth},nextMonth))+' · '+view.timeLabel(item.created_at||item.captured_at):'';}catch(_){return '';}}).filter(Boolean).join('；');
             plans.push({proposed,id:block.id,label:pair(section.title)+' / '+(pair(block.title)||typeName(block.type)),current:S.references(block).map(item=>actualSource(block,item.key)).filter(Boolean).join('；'),candidate,changed,error,resources});
         }}));checking=false;dialog.removeEventListener('close',cancel);if(controller.signal.aborted){actions();status(t('已取消检查','Check cancelled'));return;}plans.sort((a,b)=>blocks.findIndex(item=>item.block.id===a.id)-blocks.findIndex(item=>item.block.id===b.id));
-        const texts=[current.title,current.footer,...current.meta.map(item=>item.value),...current.sections.flatMap(section=>[section.title,...section.blocks.flatMap(block=>[block.title,block.text,block.rule])])].flatMap(value=>Object.values(value||{})),freshInline={...catalog,reportMonth:current.dataRulesVersion===1||nextMonth!==engine.documentMonth(current)?nextMonth:''},tokens=new Map();
+        const texts=[current.title,current.footer,...current.meta.flatMap(item=>[item.label,item.value]),...current.sections.flatMap(section=>[section.title,...section.blocks.flatMap(block=>[block.title,block.text,block.rule])])].flatMap(value=>Object.values(value||{})),freshInline={...catalog,inlineFormulas:current.inlineFormulas||[],reportMonth:current.dataRulesVersion===1||nextMonth!==engine.documentMonth(current)?nextMonth:''},tokens=new Map();
         for(const text of texts)for(const part of engine.metricTextParts(text,oldInline))if(part.key)tokens.set(part.token,part);
-        if(tokens.size){const next=new Map();for(const text of texts)for(const part of engine.metricTextParts(text,freshInline))if(part.key)next.set(part.token,part);const missing=[...next.values()].filter(part=>part.missing),changed=[...tokens].some(([token,part])=>String(inlineValues.get(token)??part.value)!==String(next.get(token)?.value));plans.push({id:'inline',label:t('动态指标（正文 / 信息栏）','Dynamic metrics (text / metadata)'),current:[...tokens].map(([token,part])=>part.label+': '+(inlineValues.get(token)??part.value)).join('；'),proposed:[...next.values()].map(part=>part.label+': '+part.value).join('；'),changed:changed||nextMonth!==engine.documentMonth(current),error:missing.length?t('缺少指标：','Missing metrics: ')+missing.map(part=>part.label).join('、'):'',resources:new Map()});}
-        const targetMonth=nextMonth,manual=current.sections.flatMap(section=>section.blocks).filter(block=>block.type==='text'&&pair(block.text).trim()&&!pair(block.text).includes('[[@metric:')).length;
+        if(tokens.size){const next=new Map();for(const text of texts)for(const part of engine.metricTextParts(text,freshInline))if(part.key)next.set(part.token,part);const missing=[...next.values()].filter(part=>part.missing||part.error),changed=[...tokens].some(([token,part])=>String(inlineValues.get(token)??part.value)!==String(next.get(token)?.value)||JSON.stringify(part.operandValues)!==JSON.stringify(next.get(token)?.operandValues));plans.push({id:'inline',label:t('动态指标（正文 / 信息栏）','Dynamic metrics (text / metadata)'),current:[...tokens].map(([token,part])=>part.label+': '+(inlineValues.get(token)??part.value)).join('；'),proposed:[...next.values()].map(part=>part.label+': '+part.value).join('；'),changed:changed||nextMonth!==engine.documentMonth(current),error:missing.length?t('指标引用或公式异常：','Metric or formula unavailable: ')+missing.map(part=>part.label).join('、'):'',resources:new Map()});}
+        const targetMonth=nextMonth,manual=current.sections.flatMap(section=>section.blocks).filter(block=>block.type==='text'&&pair(block.text).trim()&&!/\[\[@(?:metric|formula):/.test(pair(block.text))).length;
         dialog.innerHTML=`<h3>${t('月报数据更新预览','Report data update preview')} · ${escape(targetMonth)}</h3><p>${t('刷新资料库不修改报告。勾选后统一应用，可撤销；固定版本保持锁定。','Refreshing the library does not change the report. Select updates to apply; Undo is available. Pinned versions stay pinned.')}</p>${targetMonth!==engine.documentMonth(current)?`<p>${t('新月份有 '+manual+' 个手填文字组件，请核对数字和月份。',manual+' manual text components require checking numbers and months.')}</p>`:''}<table class="update-preview"><thead><tr><th></th><th>${t('组件','Component')}</th><th>${t('当前来源','Current source')}</th><th>${t('更新 / 状态','Update / status')}</th></tr></thead><tbody>${plans.map(plan=>`<tr><td><input type="checkbox" data-update-id="${plan.id}" ${plan.changed&&!plan.error?'checked':''} ${plan.error?'disabled':''}></td><td>${escape(plan.label)}</td><td>${escape(plan.current)}</td><td>${escape(plan.error||t(plan.changed?'可更新':'保持',plan.changed?'Update available':'Unchanged'))}<br>${escape(plan.proposed)}</td></tr>`).join('')}</tbody></table><p role="status"></p><footer><button data-update-cancel>${t('取消','Cancel')}</button><button data-update-all>${t('选择全部可用更新','Select all available')}</button><button data-update-apply>${t('应用选中更新','Apply selected')}</button></footer>`;
         dialog.querySelector('[data-update-cancel]').onclick=()=>{dialog.close();actions();};dialog.querySelector('[data-update-all]').onclick=()=>dialog.querySelectorAll('[data-update-id]:not(:disabled)').forEach(input=>input.checked=true);
         dialog.querySelector('[data-update-apply]').onclick=async()=>{
@@ -261,12 +308,12 @@
         const searchFocused=document.activeElement?.id==='sourceSearch',cursor=document.activeElement?.selectionStart;
         const directory=directoryCatalog||catalog,cutoff=libraryDays?Date.now()-libraryDays*86400000:0;const sourceCatalog={...directory,files:directory.files.filter(file=>!cutoff||S.time(file.created_at)>=cutoff),snapshots:directory.snapshots.filter(snapshot=>!cutoff||S.time(snapshot.captured_at)>=cutoff)};const groups=view.groups(sourceCatalog);
         const periods=[...new Set([...groups.map(group=>group.period),...sourceCatalog.files.map(file=>S.fileMonth(file,sourceCatalog)).filter(Boolean)])].sort((a,b)=>b.localeCompare(a));
-        if(!periods.includes(libraryPeriod))libraryPeriod=periods[0]??'';
+        if(!periods.includes(libraryPeriod)&&(!libraryLoading||libraryPeriod===null))libraryPeriod=periods[0]??'';
         const inPeriod=groups.filter(group=>group.period===libraryPeriod);
         const dates=[...new Set(inPeriod.map(group=>group.date))];
-        if(!dates.includes(libraryDate))libraryDate=dates[0]??'';
+        if(!dates.includes(libraryDate)&&(!libraryLoading||libraryDate===null))libraryDate=dates[0]??'';
         const dated=inPeriod.filter(group=>group.date===libraryDate);
-        if(!dated.some(group=>group.id===libraryGroup))libraryGroup=dated.find(group=>group.fileIds.length)?.id ?? dated[0]?.id;
+        if(!dated.some(group=>group.id===libraryGroup)&&(!libraryLoading||libraryGroup===null))libraryGroup=dated.find(group=>group.fileIds.length)?.id ?? dated[0]?.id;
         const selected=dated.find(group=>group.id===libraryGroup);
         current.libraryPrefs={loadDays:libraryDays,search:'',expandedFileIds:[],expandedSheetIds:[],...current.libraryPrefs,period:libraryPeriod,date:libraryDate,group:libraryGroup||''};
         if(!engine.documentMonth(current))current.reportMonth=libraryPeriod||new Date().toISOString().slice(0,7);
@@ -300,7 +347,7 @@
             const prefs=current.libraryPrefs,key=JSON.stringify([file.kind||'original',S.identity(file.source_key||file.name)]),query=prefs.search.trim().toLowerCase();
             return (!prefs.category||prefs.category===category)&&(!prefs.kind||prefs.kind===(file.kind||'original'))&&(prefs.view!=='favorites'||(prefs.favorites||[]).includes(key))&&(prefs.view!=='recent'||(prefs.recent||[]).includes(key))&&(!query||[file.name,...file.metricLabels||[],...file.sheets.map(sheet=>sheet.name),...file.mergedFiles?.map(item=>item.name)||[]].concat((file.metricLabels||[]).map(metricLabel)).join(' ').toLowerCase().includes(query));
         }).slice(0,libraryLimit).map(renderFileItem).join('');
-        document.getElementById('sourceLibrary').innerHTML=`<div class="library-heading"><h3>${t('数据资料库','Data library')}</h3><a href="/sla" class="source-action">${t('导入','Import')}</a></div><div class="library-content"><section class="library-loading-settings"><h4>${t('加载范围','Load scope')}</h4><form class="library-range"><label for="libraryLoadDays">${t('最近','Last')}</label><input id="libraryLoadDays" type="number" min="0" max="36500" step="1" value="${libraryDays}" required aria-label="${t('加载天数，0为全部','Load days; 0 means all')}"><span>${t('天','days')}</span><button ${libraryLoading?'disabled':''} type="submit">${t('加载','Load')}</button><button type="button" data-library-all>${t('全部','All')}</button></form><p class="library-range-hint">${libraryDays?t('按导入时间 · 最近 '+libraryDays+' 天','By import time · Last '+libraryDays+' days'):t('全部历史 · 数据量较大时可能需要等待','All history · Large catalogs may take longer')} · ${sourceCatalog.files.length} ${t('张表','tables')}</p></section>${libraryError?`<p class="library-warning">${t('加载失败，显示上次目录；请重试。','Load failed; showing previous directory. Retry.')}</p>`:''}
+        document.getElementById('sourceLibrary').innerHTML=`<div class="library-heading"><h3>${t('数据资料库','Data library')}</h3><a href="/sla" class="source-action">${t('导入','Import')}</a></div><div class="library-content"><section class="library-loading-settings"><h4>${t('加载范围','Load scope')}</h4><form class="library-range"><label for="libraryLoadDays">${t('最近','Last')}</label><input id="libraryLoadDays" type="number" min="0" max="36500" step="1" value="${libraryDays}" required aria-label="${t('加载天数，0为全部','Load days; 0 means all')}"><span>${t('天','days')}</span><button ${libraryLoading?'disabled':''} type="submit">${t('加载','Load')}</button><button type="button" data-library-all>${t('全部','All')}</button></form><p class="library-range-hint">${libraryDays?t('按导入时间 · 最近 '+libraryDays+' 天','By import time · Last '+libraryDays+' days'):t('全部历史 · 数据量较大时可能需要等待','All history · Large catalogs may take longer')} · ${sourceCatalog.files.length} ${t('张表','tables')}</p><p class="library-range-hint">${current.libraryPrefs.advanced?t('会议考勤历史版本已启用。','Meeting attendance history is enabled.'):t('会议考勤仅显示最新导入快照；高级筛选可载入历史。','Meeting attendance uses the latest imported snapshot; advanced filters load history.')}</p></section>${libraryError?`<p class="library-warning">${escape(t('部分来源不可用；其他数据可使用。','Some sources unavailable; other data usable.')+' '+libraryError)}</p>`:''}
         <label>${t('浏览数据月份','Browse data month')}<select id="libraryTargetPeriod">${options(periods,libraryPeriod,targetLabel)||`<option value="">${t('没有已标记的业务月份','No labeled business month')}</option>`}</select></label><details class="library-advanced" ${current.libraryPrefs.advanced?'open':''}><summary>${t('历史版本 / 高级筛选','History / advanced filters')}</summary><label>${t('快照导入日期','Snapshot import date')}<select id="libraryImportDate">${options(dates,libraryDate,value=>value||'—')}</select></label><label>${t('导入批次','Import batch')}<select id="libraryImportBatch">${dated.map(group=>`<option value="${escape(group.id)}" ${group.id===libraryGroup?'selected':''}>${escape(view.timeLabel(group.importedAt))} · ${group.fileIds.length} ${t('个源表','sources')}</option>`).join('')}</select></label></details>
         <input id="sourceSearch" maxlength="2000" value="${escape(current.libraryPrefs.search)}" placeholder="${t('搜索指标或表格名称','Search metric or table name')}">
         <nav class="library-view-tabs" aria-label="${t('显示范围','View')}">${[['all','全部','All'],['favorites','常用','Favorites'],['recent','最近使用','Recent']].map(([key,zh,en])=>`<button type="button" data-library-view="${key}" aria-pressed="${(current.libraryPrefs.view||'all')===key}">${t(zh,en)}</button>`).join('')}</nav><select hidden id="libraryView" aria-label="${t('显示范围','View')}"><option value="all">${t('全部','All')}</option><option value="favorites">${t('常用','Favorites')}</option><option value="recent">${t('最近使用','Recently used')}</option></select><details class="library-filters" ${current.libraryPrefs.kind||current.libraryPrefs.category?'open':''}><summary>${t('来源与分类筛选','Source / category filters')}</summary><div class="library-views"><select id="libraryKind" aria-label="${t('来源类型','Source type')}"><option value="">${t('全部来源类型','All source types')}</option>${[...new Set(files.map(file=>file.kind||'original'))].map(kind=>`<option value="${escape(kind)}">${escape({original:t('上传原表','Uploaded originals'),structured:t('结构化抓取','Structured capture'),topic_monthly:t('专题分析','Topic reports'),meeting_attendance:t('会议考勤','Meeting attendance'),duty_roster:t('夜间值班','Duty roster')}[kind]||kind)}</option>`).join('')}</select><select id="libraryCategory" aria-label="${t('业务分类','Category')}"><option value="">${t('全部业务分类','All categories')}</option>${[['tickets','临期详单','Expiry tickets'],['metrics','指标与关键数据表','Metrics & priority'],['topic','专题分析','Topic analysis'],['meeting','会议考勤','Meeting attendance'],['raw','其他原始表','Other originals']].map(([value,zh,en])=>`<option value="${value}">${t(zh,en)}</option>`).join('')}</select></div><button type="button" data-library-reset>${t('清除筛选','Clear filters')}</button></details><div data-selection-bar hidden><strong></strong><button data-selection="clear">${t('清除选择','Clear selection')}</button><button data-selection="add">${t('加入当前组件','Add to current')}</button><button data-selection="table">${t('新建表格','New table')}</button><button data-selection="chart">${t('新建图表 / 透视','New chart / pivot')}</button></div><div class="source-section-header"><span>${t('临期详单','Expiry tickets')}</span><span class="source-section-count">${ticketFiles.length} ${t('个','items')}</span></div>
@@ -323,7 +370,7 @@
         document.getElementById('libraryCategory').value=current.libraryPrefs.category||'';document.getElementById('libraryCategory').onchange=event=>{current.libraryPrefs.category=event.target.value;dirty=true;libraryLimit=80;library();};
         document.getElementById('libraryView').value=current.libraryPrefs.view||'all';document.getElementById('libraryKind').value=current.libraryPrefs.kind||'';
         document.getElementById('libraryView').onchange=event=>{current.libraryPrefs.view=event.target.value;dirty=true;libraryLimit=80;library();};document.getElementById('libraryKind').onchange=event=>{current.libraryPrefs.kind=event.target.value;dirty=true;libraryLimit=80;library();};
-        document.querySelector('.library-advanced').addEventListener('toggle',event=>{if(current.libraryPrefs.advanced!==event.target.open){current.libraryPrefs.advanced=event.target.open;library();}});
+        document.querySelector('.library-advanced').addEventListener('toggle',event=>{if(current.libraryPrefs.advanced!==event.target.open){current.libraryPrefs.advanced=event.target.open;library();refresh().catch(()=>{});}});
         document.querySelector('[data-library-more]')?.addEventListener('click',()=>{libraryLimit+=80;library();});
         if(searchFocused){document.getElementById('sourceSearch').focus();document.getElementById('sourceSearch').setSelectionRange(cursor,cursor);}
         W.syncSelection();const panel=document.getElementById('pivotFieldsPanel');if(!panel?.querySelector('[data-inspector-editor]')?.children.length)window.MonthlyPivotPanel?.sync();
@@ -331,7 +378,7 @@
     function sectionControls(section,index){return `<div class="document-controls" data-controls><button data-op="section-up" data-section="${section.id}" ${index===0?'disabled':''}>↑</button><button data-op="section-down" data-section="${section.id}" ${index===current.sections.length-1?'disabled':''}>↓</button><select data-section-width="${section.id}" aria-label="${t('模块宽度','Module width')}">${[3,4,6,8,12].map(span=>`<option value="${span}" ${span===section.span?'selected':''}>${span}/12</option>`).join('')}</select><select data-add-kind="${section.id}" aria-label="${t('添加内容','Add content')}"><option value="">${t('＋添加内容位置','＋ Add content slot')}</option>${['text','metric','table','chart','summary'].map(type=>`<option value="${type}">${typeName(type)}</option>`).join('')}</select><button data-op="copy-section" data-section="${section.id}">⧉</button><button data-op="remove-section" data-section="${section.id}">${t('删除模块','Delete module')}</button></div>`;}
     function navigationRows(){
         const rows=current.navRows||2;const sections=current.sections.filter(item=>!item.overview);const count=sections.length;let start=0;
-        return Array.from({length:rows},(_,row)=>{const length=Math.floor(count/rows)+(row<count%rows?1:0);const offset=start;const items=sections.slice(start,start+length);start+=length;return `<div class="document-nav-row">${items.map((item,index)=>`<a href="#section-${item.id}">${String(offset+index+1).padStart(2,'0')}　${escape(pair(item.title))}</a>`).join('')}</div>`;}).join('');
+        return Array.from({length:rows},(_,row)=>{const length=Math.floor(count/rows)+(row<count%rows?1:0);const offset=start;const items=sections.slice(start,start+length);start+=length;return `<div class="document-nav-row">${items.map((item,index)=>`<a href="#section-${item.id}">${String(offset+index+1).padStart(2,'0')}　${escape(engine.metricTextParts(pair(item.title),inlineCatalog()).map(part=>part.token?part.value:part.text).join(''))}</a>`).join('')}</div>`;}).join('');
     }
     function navigationMarkup(){
         return `<div class="document-nav-wrapper" style="width:${current.navWidth?current.navWidth+'px':'100%'};--nav-row-height:${current.navRowHeight||36}px;--nav-font-size:${current.navFontSize||14}px"><div class="document-meta-toolbar document-nav-toolbar" data-controls><span class="document-meta-toolbar-title">↪ ${t('快捷跳转布局','Quick navigation layout')}</span><div class="document-meta-toolbar-actions"><label>${t('行数','Rows')} <select data-nav-setting="navRows">${Array.from({length:12},(_,index)=>`<option value="${index+1}" ${(current.navRows||2)===index+1?'selected':''}>${index+1}</option>`).join('')}</select></label><label>${t('行高','Row height')} <input data-nav-setting="navRowHeight" type="number" min="24" max="120" value="${current.navRowHeight||36}" aria-label="${t('快捷跳转行高（像素）','Navigation row height (px)')}"> px</label><label>${t('整体宽','Overall width')} <input data-nav-setting="navWidth" type="number" min="0" max="2000" value="${current.navWidth||0}" aria-label="${t('快捷跳转宽度（像素，0=满宽）','Navigation width (px, 0 = full width)')}"> <small>${t('px，0=满宽','px, 0 = full')}</small></label><label>${t('字号','Font size')} <input data-nav-setting="navFontSize" type="number" min="10" max="24" value="${current.navFontSize||14}" aria-label="${t('快捷跳转字号（像素）','Navigation font size (px)')}"> px</label></div></div><nav class="document-nav">${navigationRows()}</nav></div>`;
@@ -394,9 +441,10 @@
         const index=current.sections.filter(item=>!item.overview).indexOf(entry.value);
         if(index<0)return;
         const link=root.querySelectorAll('.document-nav a')[index];
-        if(link)link.textContent=`${String(index+1).padStart(2,'0')}　${title}`;
+        if(link)link.textContent=`${String(index+1).padStart(2,'0')}　${engine.metricTextParts(title,inlineCatalog()).map(part=>part.token?part.value:part.text).join('')}`;
     }
     function render(){
+        pendingBlocks.clear();pendingBlockUrls.clear();
         if(current.dataRulesVersion===1){const month=current.meta.find(item=>item.label.zh==='数据月份');if(month)month.autoFill='period';}
         engine.applyReportDefaults(current,engine.documentMonth(current),'');
         if(engine.formatOverview(current))dirty=true;
@@ -406,17 +454,22 @@
         }));
         captureInlineData();const token=++generation;fields.clear();fieldIndex=0;actions();
         root.style.width=`${current.pageWidth}px`;root.parentElement.style.setProperty('--report-page-width',`${current.pageWidth}px`);
+        root.style.setProperty('--document-default-font-size',`${current.defaultFontSize||16}px`);
         const metaWidthVal = current.metaWidth ? `${current.metaWidth}px` : '100%';
         const metaRowHeightVal = current.metaRowHeight ? `${current.metaRowHeight}px` : '38px';
         const metaLabelWidthVal = current.metaLabelWidth ? `${current.metaLabelWidth}px` : '90px';
         const metaLayoutItems = metadataLayout(current.meta, current.metaAlignMode || 'grid');
         const metaHtml = `<div class="document-meta-wrapper" data-controls-container style="width:${metaWidthVal};"><div class="document-meta-toolbar" data-controls><span class="document-meta-toolbar-title">📋 ${t('报告信息栏','Report metadata')} <small style="font-weight:normal;color:#64748b;">(${current.meta.length}${t('项',' items')})</small></span><div class="document-meta-toolbar-actions"><span class="meta-tool-group"><span class="meta-tool-label">${t('竖线对齐:','Align:')}</span><button type="button" data-meta-op="align-3" class="${(current.metaAlignMode||'grid')==='col-3'?'active':''}" aria-pressed="${(current.metaAlignMode||'grid')==='col-3'}" title="${t('整齐三列对齐 (4-4-4)，末尾自动补齐','3-col aligned (4-4-4)')}">📐 ${t('三列对齐','3-col')}</button><button type="button" data-meta-op="align-2" class="${(current.metaAlignMode||'grid')==='col-2'?'active':''}" aria-pressed="${(current.metaAlignMode||'grid')==='col-2'}" title="${t('整齐两列对齐 (6-6)','2-col aligned (6-6)')}">📐 ${t('两列对齐','2-col')}</button><button type="button" data-meta-op="align-auto" class="${(current.metaAlignMode||'grid')==='grid'?'active':''}" aria-pressed="${(current.metaAlignMode||'grid')==='grid'}" title="${t('智能对齐竖线','Auto-align lines')}">📐 ${t('自动对齐','Auto')}</button></span><span class="meta-tool-group"><span class="meta-tool-label">${t('行高:','Height:')}</span><button type="button" data-meta-op="height-32" class="${current.metaRowHeight===32?'active':''}" title="${t('紧凑 (32px)','Compact')}">${t('紧凑','Compact')}</button><button type="button" data-meta-op="height-38" class="${(!current.metaRowHeight||current.metaRowHeight===38)?'active':''}" title="${t('标准 (38px)','Standard')}">${t('标准','Standard')}</button><button type="button" data-meta-op="height-48" class="${current.metaRowHeight===48?'active':''}" title="${t('舒适 (48px)','Comfortable')}">${t('舒适','Comfy')}</button></span><span class="meta-tool-group"><span class="meta-tool-label">${t('整体宽:','Width:')}</span><button type="button" data-meta-op="width-100" class="${!current.metaWidth?'active':''}">100%</button><button type="button" data-meta-op="width-90" class="${current.metaWidth===1150?'active':''}">90%</button></span><button type="button" data-meta-op="open-layout" data-action="layout" class="btn-meta-settings" title="${t('打开完整布局与高级尺寸弹窗','Open layout & sizing dialog')}">⚙️ ${t('布局与尺寸','Layout & size')}</button><button type="button" data-meta-op="add-item" title="${t('增加新信息项','Add field')}">＋ ${t('信息项','Field')}</button></div></div><div class="document-meta" style="--meta-container-width:100%;--meta-min-height:${metaRowHeightVal};--meta-label-width:${metaLabelWidthVal};">${metaLayoutItems.map((layout,index)=>{const item=current.meta[index];const cellHeightStyle=item.heightUnits?`min-height:calc(${item.heightUnits} * var(--meta-min-height, 38px));`:'';return `<div class="document-meta-cell" data-meta-id="${item.id}" style="grid-column:span ${layout.displaySpan};${cellHeightStyle}"><div class="meta-cell-controls" data-controls><button type="button" data-meta-cell-op="move-prev" ${index===0?'disabled':''} data-meta-id="${item.id}" title="${t('向前移动信息项','Move field earlier')}">◀</button><span class="meta-cell-badge" data-meta-cell-op="span-cycle" data-meta-id="${item.id}" title="${t('点击循环切换预设宽度','Cycle width')}" style="cursor:pointer;">${layout.displaySpan}${t('格',' cols')}</span><button type="button" data-meta-cell-op="move-next" ${index===current.meta.length-1?'disabled':''} data-meta-id="${item.id}" title="${t('向后移动信息项','Move field later')}">▶</button><button type="button" data-meta-cell-op="height-toggle" data-meta-id="${item.id}" title="${t('切换高度 (单行 / 双倍 / 三倍)','Toggle height')}">↕ ${item.heightUnits?item.heightUnits+'x':'1x'}</button><button type="button" data-meta-cell-op="span-full" data-meta-id="${item.id}" title="${t('一键设为整行全宽 (12格)','Full width')}">↔</button><button type="button" data-meta-cell-op="remove" data-meta-id="${item.id}" title="${t('删除此项','Delete field')}">×</button></div><div class="document-meta-label">${edit(item,'label')}</div><div class="document-meta-value">${edit(item,'value')}</div><div class="meta-cell-resize-handle" data-controls data-meta-resize="${item.id}" title="${t('拖动调整宽度与高度','Drag to resize width and height')}">◢</div></div>`;}).join('')}</div></div>`;
         root.innerHTML=`<header class="document-masthead"><img data-edit-logo title="${t('点击更换 Logo','Click to change logo')}" src="${escape(current.logo)}" alt="" style="width:${current.logoWidth}px;align-self:${{left:'flex-start',center:'center',right:'flex-end'}[current.logoAlign]};${current.logo?'':'display:none'}"><h1>${edit(current,'title',t('输入月报总标题','Enter report title'))}</h1></header>${metaHtml}${navigationMarkup()}<div class="document-sections">${current.sections.map((section,index)=>`<section id="section-${section.id}" class="document-section" style="grid-column:span ${section.span}"><div class="document-section-head"><span>${section.overview?'':String(current.sections.filter(item=>!item.overview).indexOf(section)+1).padStart(2,'0')}</span><h2>${edit(section,'title',t('模块标题','Module title'))}</h2></div>${sectionControls(section,index)}<div class="document-blocks" data-card-section="${section.id}">${section.blocks.map((block,index)=>`<article class="document-block" data-card-id="${block.id}" style="grid-column:span ${block.span};text-align:${block.align};${block.heightUnits?`min-height:calc(${block.heightUnits} * (var(--card-grid-unit,40px) + 12px) - 12px)`:""}"><div class="document-controls" data-controls><button type="button" class="card-drag-handle" data-card-drag="${block.id}" aria-label="${t("拖动卡片","Drag card")}" title="${t("拖动排序或移至其他模块","Drag to reorder or move to another module")}">⠿</button><span>${typeName(block.type)}</span>${[['source','数据来源','Data sources'],['processing','数据处理','Processing'],['style','展示样式','Appearance'],['layout','布局','Layout']].map(([tab,zh,en])=>`<button type="button" class="component-config-shortcut" data-op="configure-block" data-config-tab="${tab}" data-block="${block.id}" title="${t(zh,en)}" aria-label="${t(zh,en)}">${window.MonthlyWorkspace.icon(tab)}</button>`).join('')}<button data-op="data-state" data-block="${block.id}" title="${escape(dataStates.get(block.id)||t('数据状态','Data status'))}" aria-label="${t('数据状态','Data status')}">${window.MonthlyWorkspace.icon('state')}</button><button data-op="block-up" data-block="${block.id}" ${index===0?'disabled':''}>←</button><button data-op="block-down" data-block="${block.id}" ${index===section.blocks.length-1?'disabled':''}>→</button><button data-op="copy-block" data-block="${block.id}">⧉</button><button data-op="remove-block" data-block="${block.id}">${t('删除','Delete')}</button></div><h3>${edit(block,'title',t('内容标题（可留空）','Content title (optional)'))}</h3>${block.type==='text'?`<div class="document-block-text">${edit(block,'text',t('点击填写正文，可粘贴纯文本','Click to edit or paste plain text'))}</div>`:`<div class="document-block-data" id="data-${block.id}">${t('读取数据库数据…','Loading database data…')}</div>`}<button type="button" class="card-resize-handle" data-card-resize="${block.id}" data-controls aria-label="${t('调整卡片宽度与高度','Resize card width and height')}" title="${t('按网格调整宽高','Resize in grid units')}">◢</button></article>`).join('')}</div></section>`).join('')}</div><footer class="document-footer">${edit(current,'footer',t('页脚（可自定义）','Custom footer'))}</footer>`;
-        compactControls();observeCardGrids();
+        compactControls();observeCardGrids();syncDefaultFontSizeSelect();
         root.querySelector('img').onerror=event=>event.target.hidden=true;
-        const jobs=current.sections.flatMap(section=>section.blocks.filter(block=>block.type!=='text').map(async block=>{const target=document.getElementById(`data-${block.id}`);try{blockResources.set(block.id,new Map());const result=await renderData({...block,_renderToken:token});if(generation===token&&target?.isConnected){target.innerHTML=result;lastResults.set(block.id,result);dataStates.set(block.id,!block.binding&&!block.chart.pivot?.sources.length&&!block.chart.series?.length?t('尚未绑定来源','Source not bound'):target.querySelector('tbody tr,.document-chart,.document-metric')||block.type==='summary'&&target.textContent.trim()?t('正常','Ready'):t('无匹配记录','No matching records'));window.MonthlyNameMappings.apply(block,target,metricLabel);window.MonthlyDataFormats.apply(block,target);formatTableCells(block,target);saveBlockData(block);if(block.savedData&&block.savedData.catalog.files.some(file=>!catalog.files.some(current=>current.id===file.id)))dataStates.set(block.id,t('来源不可用，正在显示保存结果','Source unavailable; showing saved result'));syncDataState(block);}}catch(error){if(generation===token&&target?.isConnected){const fallback=block.previousData||block.savedData;if(fallback?.definition){try{const restored=await renderData({...block,...fallback.definition,savedData:fallback,previousData:undefined,dataUpdateMode:'snapshot',_renderToken:token});if(generation===token)lastResults.set(block.id,restored);}catch(_){}}if(generation!==token||!target.isConnected)return;if(lastResults.has(block.id)){target.innerHTML=lastResults.get(block.id);window.MonthlyNameMappings.apply(block,target,metricLabel);window.MonthlyDataFormats.apply(block,target);formatTableCells(block,target);}else target.textContent=error.message;dataStates.set(block.id,error.message+(lastResults.has(block.id)?t('；显示上次成功结果','; showing last successful result'):''));syncDataState(block);}}}));
+        const jobs=current.sections.flatMap(section=>section.blocks.filter(block=>block.type!=='text').map(block=>renderBlock(block,token)));
         updateEmptyState();
         renderPromise=Promise.all(jobs).then(()=>{if(generation===token){updateEmptyState();captureInlineData();window.MonthlyPivotPanel?.sync();syncReportDataState();}});return renderPromise;
+    }
+    async function renderBlock(block,token){
+        pendingBlocks.set(block.id,block);dataStates.set(block.id,t('正在读取','Loading'));syncDataState(block);
+        const target=document.getElementById(`data-${block.id}`);try{blockResources.set(block.id,new Map());const result=await renderData({...block,_renderToken:token});if(generation===token&&target?.isConnected){target.innerHTML=result;lastResults.set(block.id,result);dataStates.set(block.id,!block.binding&&!block.chart.pivot?.sources.length&&!block.chart.series?.length?t('尚未绑定来源','Source not bound'):target.querySelector('tbody tr,.document-chart,.document-metric')||block.type==='summary'&&target.textContent.trim()?t('正常','Ready'):t('无匹配记录','No matching records'));window.MonthlyNameMappings.apply(block,target,metricLabel);window.MonthlyDataFormats.apply(block,target);formatTableCells(block,target);saveBlockData(block);if(block.savedData&&block.savedData.catalog.files.some(file=>!catalog.files.some(current=>current.id===file.id)))dataStates.set(block.id,t('来源不可用，正在显示保存结果','Source unavailable; showing saved result'));syncDataState(block);}}catch(error){if(generation===token&&target?.isConnected){const fallback=block.previousData||block.savedData;if(fallback?.definition){try{const restored=await renderData({...block,...fallback.definition,savedData:fallback,previousData:undefined,dataUpdateMode:'snapshot',_savedOnly:true,_renderToken:token});if(generation===token){lastResults.set(block.id,restored);block.savedData=fallback;}}catch(_){}}if(generation!==token||!target.isConnected)return;if(lastResults.has(block.id)){target.innerHTML=lastResults.get(block.id);window.MonthlyNameMappings.apply(block,target,metricLabel);window.MonthlyDataFormats.apply(block,target);formatTableCells(block,target);}else target.textContent=error.message;dataStates.set(block.id,error.message+(lastResults.has(block.id)?t('；显示上次成功结果','; showing last successful result'):''));syncDataState(block);}}finally{if(pendingBlocks.get(block.id)===block)pendingBlocks.delete(block.id);}
     }
     // Empty editor slots remain editable; only presentation output collapses them.
     function updateEmptyState(){
@@ -629,7 +682,7 @@
         if(block.type==='metric')return resolved?.metric?`<div class="document-metric"><span>${escape(metricLabel(resolved.metric.label))}</span><strong>${escape(resolved.metric.value)}</strong></div>${sourceNote(snapshotLabel(resolved.snapshot,sourceCatalog),resolved,sourceCatalog)}`:escape(t('选择“绑定与布局”引用数据库指标','Choose Bind & layout to reference a stored metric'));
         if(block.type==='chart'&&(block.chart.pivot||block.chart.series?.length))return window.MonthlyCharts.render(block);
         const data=await sourceRows(block,resolved);const missing=[...block.columns,...block.filters.map(item=>item.column)].filter(field=>!data.headers.includes(field));if(missing.length)throw new Error(t('缺少字段：','Missing fields: ')+[...new Set(missing)].join('、'));const rows=engine.filterRows(data.rows,block.filters);
-        if(block.type==='summary')return `<div class="document-block-text">${escape(engine.summary(block,resolved?.metric?{...resolved,metric:{...resolved.metric,label:metricLabel(resolved.metric.label)}}:resolved,rows,language))}</div>${sourceNote(data.note,resolved,sourceCatalog)}`;
+        if(block.type==='summary')return `<div class="document-block-text">${window.MonthlyInlineTools.renderText(engine.summary(block,resolved?.metric?{...resolved,metric:{...resolved.metric,label:metricLabel(resolved.metric.label)}}:resolved,rows,language),inlineCatalog(),metricLabel)}</div>${sourceNote(data.note,resolved,sourceCatalog)}`;
         if(block.type==='chart'){
             let values;
             if(resolved?.metric){values=sourceCatalog.snapshots.filter(snapshot=>block.binding.mode!=='pinned'||snapshot.captured_at<=resolved.snapshot.captured_at).slice().reverse().map(snapshot=>({snapshot,metric:engine.resolve({...block.binding,mode:'pinned',snapshotId:snapshot.id},sourceCatalog)?.metric})).filter(item=>item.metric).map(({snapshot,metric})=>({label:snapshot.captured_at.slice(0,10),value:number(metric.value),displayLabel:String(metric.value)})).filter(item=>item.value!==null);}
@@ -778,7 +831,7 @@
             });
         });
     }
-    function commitText(element){
+    function commitText(element,options={}){
         const entry=fields.get(element.dataset.field);if(!entry)return;
         const {value:owner,key}=entry,runs=window.MonthlyRichText.read(element),value=runs.map(run=>run.text).join('');
         if(entry.cellBlock&&value!==entry.baseText)return;
@@ -786,10 +839,10 @@
         const previousRuns=entry.initialRuns||oldRuns?.[language]||(owner[key][language]?[{text:owner[key][language],style:{}}]:[]);
         const comparable=items=>JSON.stringify(items.map(run=>({...run,style:Object.fromEntries(Object.entries(run.style).sort(([a],[b])=>a.localeCompare(b)))})));
         const alignment=element.style.textAlign,previousAlignment=owner.fieldAlign?.[key]?.[language]||'';
-        if(value!==owner[key][language]&&(value.includes('[[@metric:')||owner[key][language].includes('[[@metric:')))delete current.inlineData;
+        if(!options?.preserveInline&&value!==owner[key][language]&&(/\[\[@(?:metric|formula):/.test(value)||/\[\[@(?:metric|formula):/.test(owner[key][language])))delete current.inlineData;
         if(value!==owner[key][language]||comparable(runs)!==comparable(previousRuns)||alignment!==previousAlignment){
             if(entry.cellBlock&&!entry.cellBlock.tableFormats?.some(item=>item.key===owner.key)&&entry.cellBlock.tableFormats?.length>=2000){status(t('单元格格式数量已达上限','Cell formatting limit reached'));return;}
-            checkpoint();if(key==='value'&&owner.autoFill&&value!==owner[key][language])owner.autoFill=false;
+            if(options?.recordHistory!==false)checkpoint();if(key==='value'&&owner.autoFill&&value!==owner[key][language])owner.autoFill=false;
             owner[key][language]=value;
             const pairRuns=oldRuns||{zh:owner[key].zh?[{text:owner[key].zh,style:{}}]:[],en:owner[key].en?[{text:owner[key].en,style:{}}]:[]};pairRuns[language]=runs;
             if(key==='text')owner.textRuns=pairRuns;else{owner.fieldRuns||={};owner.fieldRuns[key]=pairRuns;}
@@ -800,7 +853,7 @@
     }
     root.addEventListener('beforeinput',event=>{if(event.target.closest('.table-cell-edit')&&!event.inputType?.startsWith('format'))event.preventDefault();});
     root.addEventListener('focusout',event=>commitText(event.target));
-    root.addEventListener('paste',event=>{if(!event.target.closest('[contenteditable]'))return;event.preventDefault();if(event.target.closest('.table-cell-edit'))return;document.execCommand('insertText',false,event.clipboardData.getData('text/plain'));});
+    root.addEventListener('paste',event=>{if(metricClipboard.paste(event))return;if(!event.target.closest('[contenteditable]'))return;event.preventDefault();if(event.target.closest('.table-cell-edit'))return;document.execCommand('insertText',false,event.clipboardData.getData('text/plain'));});
     root.addEventListener('click',event=>{
         const metaInput=event.target.closest('.document-meta-label,.document-meta-value');
         if(metaInput&&!event.target.closest('[contenteditable]'))metaInput.querySelector('[contenteditable]')?.focus();
@@ -1064,23 +1117,33 @@
         request('/api/sla/prefs/i18nMap',{timeoutMs:5000}).then(mapping=>{metricTranslations=readMetricTranslations(mapping);if(language==='en'&&!initializing){library();render();}}).catch(()=>{});
         request('/api/sla/categories',{timeoutMs:5000}).then(categories=>{globalCategories=Array.isArray(categories)?categories:[];}).catch(()=>{});
     }
-    async function loadCatalog(days,logId){
-        const url='/api/upload/source-catalog'+(days?'?days='+days:'');MonthlyLoadLog.step(logId,'GET '+url+' · '+t('等待服务器目录，不读取工作表行','Waiting for directory; no worksheet rows'));
-        const started=performance.now(),data=await request(url,{onResponse:response=>MonthlyLoadLog.step(logId,'HTTP '+response.status+' · '+t('请求ID','Request ID')+': '+(response.headers.get('X-Request-ID')||'—'))});MonthlyLoadLog.step(logId,t('服务器目录已返回','Directory received')+' · '+Math.round(performance.now()-started)+'ms');
-        if(!Array.isArray(data.files)||!Array.isArray(data.snapshots)||!Array.isArray(data.batches))throw new Error(t('目录响应格式错误','Invalid directory response'));
-        const names={originals:t('原始表索引','Original index'),extraction:t('提取快照','Extraction snapshots'),assessment:t('考核指标','Assessment metrics'),topic:t('专题数据','Topic data'),meeting:t('会议考勤','Meeting attendance')};
-        for(const stage of data.diagnostics?.stages||[])MonthlyLoadLog.step(logId,(names[stage.stage]||stage.stage)+' · '+stage.count+' · '+stage.durationMs+'ms');
-        MonthlyLoadLog.step(logId,t('目录统计','Directory counts')+': '+data.files.length+' '+t('表','tables')+' / '+data.snapshots.length+' '+t('快照','snapshots')+' / '+data.batches.length+' '+t('批次','batches'));return data;
+    const directoryNames=()=>({core:t('原始表与指标','Originals & metrics'),topic:t('专题数据','Topic data'),meeting:t('会议考勤','Meeting attendance')});
+    async function loadCatalog(days,logId,options={}){
+        const names=directoryNames();
+        return window.MonthlyCatalogLoader.load({request,days,...options,onEvent:event=>{
+            const title=names[event.group];if(initializing)window.MonthlyStartupScreen?.step(event.group,event.state==='ready'?'ready':event.state==='error'?'error':'loading');
+            if(event.state==='loading')MonthlyLoadLog.step(logId,title+' · GET '+event.url);
+            if(event.state==='response')MonthlyLoadLog.step(logId,title+' · HTTP '+event.status+' · '+t('请求ID','Request ID')+': '+(event.requestId||'—'));
+            if(event.state==='ready'){MonthlyLoadLog.step(logId,title+' · '+event.count+' '+t('张表，已可使用','tables ready'));for(const stage of event.stages)MonthlyLoadLog.step(logId,stage.stage+' · '+stage.count+' · '+stage.durationMs+'ms');for(const error of event.errors)MonthlyLoadLog.step(logId,title+' · '+error.code+' · '+(error.id||''));}
+            if(event.state==='error')MonthlyLoadLog.step(logId,title+' · '+t('失败：','Failed: ')+event.message);
+        }});
     }
-    async function refresh(){
-        const refreshId=++libraryRefreshId,days=libraryDays,logId=MonthlyLoadLog.start(t('资料库加载 · ','Library loading · ')+(days?t('最近 '+days+' 天','Last '+days+' days'):t('全部历史','All history')));libraryLoading=true;document.getElementById('sourceLibrary').setAttribute('aria-busy','true');document.querySelectorAll('.library-range button').forEach(button=>button.disabled=true);status(t('正在刷新资料库…','Refreshing source library…'));loadAuxiliaryConfig();
-        try{const data=await loadCatalog(days,logId);if(refreshId!==libraryRefreshId)return;directoryCatalog=data;libraryError='';loadedDays=days;if(!catalogComplete||!days)catalog=data;else{const merge=(old,next)=>[...new Map([...old,...next].map(item=>[item.id,item])).values()];catalog={...catalog,files:merge(catalog.files,data.files),batches:merge(catalog.batches,data.batches),snapshots:merge(catalog.snapshots,data.snapshots)};}catalogComplete=catalogComplete||days===0;libraryLoading=false;document.getElementById('sourceLibrary').setAttribute('aria-busy','false');library();MonthlyLoadLog.step(logId,t('资料库视图就绪，当前月报结果未变更','Library view ready; report results unchanged'));MonthlyLoadLog.finish(logId);status(t('资料库已刷新；当前月报数据保持不变。可检查月报数据更新。','Library refreshed; report data retained. Check report updates to apply new versions.'));}
-        catch(error){if(refreshId===libraryRefreshId){libraryLoading=false;libraryError=error.message;document.getElementById('sourceLibrary').setAttribute('aria-busy','false');MonthlyLoadLog.finish(logId,error.message);status(t('资料库加载失败：','Library load failed: ')+error.message);if(directoryCatalog)library();}throw error;}
+    async function refresh(retryGroups){
+        const initialLoad=initializing,refreshId=++libraryRefreshId,days=libraryDays,logId=MonthlyLoadLog.start(t('资料库加载 · ','Library loading · ')+(days?t('最近 '+days+' 天','Last '+days+' days'):t('全部历史','All history')));libraryLoading=true;document.getElementById('sourceLibrary').setAttribute('aria-busy','true');status(t('正在刷新资料库…','Refreshing source library…'));loadAuxiliaryConfig();
+        const apply=data=>{if(refreshId!==libraryRefreshId)return;directoryCatalog=data;catalog=window.MonthlyCatalogLoader.combine([catalog,data]);library();document.getElementById('sourceLibrary').setAttribute('aria-busy','true');};
+        try{
+            const data=await loadCatalog(days,logId,{previous:directoryCatalog,history:!!current.libraryPrefs?.advanced,retryGroups:retryGroups||window.MonthlyCatalogLoader.groups,onProgress:apply});if(initialLoad&&initializationCancelled)throw new Error(t('已停止加载，可重新载入月报或刷新数据库数据','Loading stopped; load a report or refresh the database to retry'));if(refreshId!==libraryRefreshId)return;
+            directoryCatalog=data;loadedDays=days;catalog=!catalogComplete||!days?data:window.MonthlyCatalogLoader.combine([catalog,data]);catalogComplete=catalogComplete||days===0&&current.libraryPrefs?.advanced&&!data.failedGroups.length;
+            libraryError=data.failedGroups.length?data.failedGroups.map(group=>directoryNames()[group]).join('、'):(data.diagnostics.errors.length?t('部分记录无法读取','Some records could not be read'):'');
+            libraryLoading=false;library();document.getElementById('sourceLibrary').setAttribute('aria-busy','false');
+            MonthlyLoadLog.finish(logId,libraryError||undefined);status(libraryError?t('部分来源加载失败，其他数据可正常使用：','Some sources failed; other data remains usable: ')+libraryError:t('资料库已刷新；当前月报数据保持不变。可检查月报数据更新。','Library refreshed; report data retained. Check report updates to apply new versions.'));return data;
+        }catch(error){if(refreshId===libraryRefreshId){libraryLoading=false;libraryError=initialLoad&&initializationCancelled?'':error.message;document.getElementById('sourceLibrary').setAttribute('aria-busy','false');MonthlyLoadLog.finish(logId,error.message);status(initialLoad&&initializationCancelled?t('已停止加载，可重新载入月报或刷新数据库数据','Loading stopped; load a report or refresh the database to retry'):t('资料库加载失败：','Library load failed: ')+error.message);library();}throw error;}
     }
+    function meetingReferences(){return [...new Set(current.sections.flatMap(section=>section.blocks.flatMap(block=>S.references(block).flatMap(({value})=>[value.fileId,value.reference?.versionId]))).filter(id=>typeof id==='string'&&/^ms-[\w-]+-\d{4}-\d{2}-(qr|rfc|wfm|offline|online)$/.test(id)))].slice(0,64);}
     async function ensureReferencedCatalog(){
         if(catalogComplete||initializing&&!directoryCatalog)return;const missing=current.sections.some(section=>section.blocks.some(block=>!block.savedData&&(S.references(block).some(({key,value})=>{try{return key==='binding'?(()=>{const match=engine.resolve(value,{...catalog,reportMonth:engine.documentMonth(current)});return !match||block.type!=='metric'&&match.metric?.fileIds?.some(id=>!catalog.files.some(file=>file.id===id));})():value.reference?!S.resolve(value.reference,catalog,engine.documentMonth(current)):!catalog.files.some(file=>file.id===value.fileId);}catch(_){return true;}}))));
-        const inlineMissing=!current.inlineData&&[current.title,current.footer,...current.meta.map(item=>item.value),...current.sections.flatMap(section=>[section.title,...section.blocks.flatMap(block=>[block.title,block.text])])].some(pair=>Object.values(pair||{}).some(text=>engine.metricTextParts(text,inlineCatalog()).some(part=>part.missing)));
-        if(!missing&&!inlineMissing)return;const logId=MonthlyLoadLog.start(t('补充月报引用索引','Loading report reference index'));try{catalog=await loadCatalog(0,logId);catalogComplete=true;MonthlyLoadLog.step(logId,t('历史索引仅用于解析月报引用，左侧仍按加载天数展示','History index resolves report references; sidebar still uses its day range'));MonthlyLoadLog.finish(logId);}catch(error){MonthlyLoadLog.finish(logId,error.message);status(error.message);}
+        const inlineMissing=!current.inlineData&&[current.title,current.footer,...current.meta.flatMap(item=>[item.label,item.value]),...current.sections.flatMap(section=>[section.title,...section.blocks.flatMap(block=>[block.title,block.text,block.rule])])].some(pair=>Object.values(pair||{}).some(text=>engine.metricTextParts(text,inlineCatalog()).some(part=>part.missing||part.error)));
+        if(!missing&&!inlineMissing)return;const logId=MonthlyLoadLog.start(t('补充月报引用索引','Loading report reference index'));try{catalog=await loadCatalog(0,logId,{meetingFileIds:meetingReferences()});catalogComplete=false;MonthlyLoadLog.step(logId,t('历史索引仅用于解析月报引用，左侧仍按加载天数展示','History index resolves report references; sidebar still uses its day range'));MonthlyLoadLog.finish(logId);}catch(error){MonthlyLoadLog.finish(logId,error.message);status(error.message);}
     }
 
 
@@ -1109,13 +1172,28 @@
             for(const ids of groups){const elements=ids.map(id=>doc.querySelector(`[data-card-id="${id}"]`)).filter(element=>element&&getComputedStyle(element).display!=='none');if(elements.length<2)continue;const height=Math.max(...elements.map(element=>element.getBoundingClientRect().height));for(const element of elements){const target=clone.querySelector(`[data-card-id="${element.dataset.cardId}"]`);target.style.minHeight=height+'px';}}
         }finally{frame.remove();}
     }
+    async function waitForOutput(){
+        if(!pendingBlocks.size){await renderPromise;return;}
+        const waiting=renderPromise,blocks=[...pendingBlocks.values()],canUse=blocks.every(block=>lastResults.has(block.id)||block.savedData||block.previousData);
+        dialog.innerHTML=`<h3>${t('部分组件仍在读取数据','Some components are still loading')}</h3><p>${t('可继续等待；有保存结果时，也可以停止读取并使用上次结果。','Continue waiting, or stop reading and use saved results when available.')}</p><ul>${blocks.map(block=>`<li>${escape(pair(block.title)||typeName(block.type))}</li>`).join('')}</ul><footer><button data-output-cancel>${t('取消本次操作','Cancel this action')}</button><button data-output-saved ${canUse?'':'disabled'}>${t('停止读取，使用保存结果','Stop reading; use saved results')}</button></footer>`;
+        dialog.showModal();
+        let cancelled=false;
+        await new Promise(resolve=>{
+            const close=()=>{cancelled=true;resolve();};dialog.addEventListener('cancel',close,{once:true});
+            dialog.querySelector('[data-output-cancel]').onclick=()=>{cancelled=true;resolve();};
+            dialog.querySelector('[data-output-saved]').onclick=()=>{const urls=new Set(blocks.flatMap(block=>[...(pendingBlockUrls.get(block.id)||[])]));transport.cancelReads(t('已停止读取，使用保存结果','Reading stopped; using saved results'),url=>urls.has(url));waiting.then(()=>{for(const block of blocks)for(const item of (block.savedData||block.previousData)?.resources||[])cache.set(item.url,Promise.resolve(item.data));});};
+            waiting.finally(()=>{dialog.removeEventListener('cancel',close);resolve();});
+        });
+        dialog.close();if(cancelled)throw new Error(t('已取消本次操作，数据仍在后台加载','Action cancelled; data continues loading'));
+    }
     async function exportDocument(){
-        await renderPromise;updateEmptyState();const clone=root.cloneNode(true);clone.classList.add('document-export');
+        await waitForOutput();updateEmptyState();const clone=root.cloneNode(true);clone.classList.add('document-export');
             // Export the rendered page width, including any editor shrinkage on narrow screens.
             clone.style.width=root.getBoundingClientRect().width+'px';clone.style.maxWidth='none';clone.style.flex='none';
             const typography=getComputedStyle(root);clone.style.fontFamily=typography.fontFamily;clone.style.fontSize=typography.fontSize;
+            clone.style.setProperty('--document-default-font-size',`${current.defaultFontSize||16}px`);
             clone.querySelectorAll('.document-meta-cell,.document-section,.document-block').forEach(element=>{const original=root.querySelector(element.dataset.metaId?`[data-meta-id="${element.dataset.metaId}"].document-meta-cell`:element.dataset.cardId?`[data-card-id="${element.dataset.cardId}"]`:`#${element.id}`);if(original){const style=getComputedStyle(original);element.style.setProperty('grid-column',style.gridColumn,'important');element.style.padding=style.padding;}});
-            clone.querySelectorAll('.inline-metric').forEach(element=>element.replaceWith(document.createTextNode(element.textContent)));clone.querySelectorAll('.document-source-note').forEach(note=>{note.textContent=note.dataset.sourceDate||'';note.removeAttribute('data-source-date');});clone.querySelectorAll('[data-controls]').forEach(el=>el.remove());clone.querySelectorAll('[contenteditable]').forEach(el=>{el.removeAttribute('contenteditable');el.removeAttribute('data-placeholder');el.removeAttribute('data-field');});const logo=clone.querySelector('.document-masthead img');if(logo&&current.logo){logo.src=await exportLogo(current.logo);logo.removeAttribute('hidden');}const css=await fetch('/css/monthly-designer.css?v=20261011-30').then(res=>res.text());
+            clone.querySelectorAll('.inline-metric').forEach(element=>{element.replaceChildren(document.createTextNode(element.textContent));element.removeAttribute('data-metric-token');element.removeAttribute('title');element.classList.remove('inline-metric','inline-formula');element.removeAttribute('data-formula-id');});clone.querySelectorAll('.document-source-note').forEach(note=>{note.textContent=note.dataset.sourceDate||'';note.removeAttribute('data-source-date');});clone.querySelectorAll('[data-controls]').forEach(el=>el.remove());clone.querySelectorAll('[contenteditable]').forEach(el=>{el.removeAttribute('contenteditable');el.removeAttribute('data-placeholder');el.removeAttribute('data-field');});const logo=clone.querySelector('.document-masthead img');if(logo&&current.logo){logo.src=await exportLogo(current.logo);logo.removeAttribute('hidden');}const css=await fetch('/css/monthly-designer.css?v=20261011-39').then(res=>res.text());
         clone.style.padding=typography.padding;
         await alignExportCards(clone,css);
         return {clone,css};
@@ -1384,6 +1462,21 @@
             if(!table.hasAttribute('cellpadding'))table.setAttribute('cellpadding','0');
         });
 
+        clone.querySelectorAll('.document-block-text').forEach(el=>{
+            if(!el.style.fontSize)el.style.fontSize=`${current.defaultFontSize||16}px`;
+            el.style.lineHeight='1.8';
+        });
+        clone.querySelectorAll('.document-block h3, td > h3').forEach(el=>{
+            if(!el.style.fontSize)el.style.fontSize=`${current.defaultFontSize||16}px`;
+            if(!el.style.fontWeight)el.style.fontWeight='700';
+            if(!el.style.color)el.style.color='#233f5c';
+            if(!el.style.margin)el.style.margin='0 0 8px';
+            el.style.lineHeight='1.5';
+        });
+        clone.querySelectorAll('.document-section h2, .document-section-head h2').forEach(el=>{
+            if(!el.style.fontSize)el.style.fontSize=`${Math.max(18,(current.defaultFontSize||16)+2)}px`;
+        });
+
         const footer = document.createElement('div');
         footer.style.cssText = 'margin-top:28px;padding:12px 16px;background:#f8fafc;border-left:4px solid #3b82f6;border-radius:4px;font-size:12px;color:#64748b;line-height:1.6;';
         footer.innerHTML = `<strong>${t('说明：', 'Note: ')}</strong>${t('若您对此报告数据有疑问或需进一步分析，请联系网络安全与运维保障项目组。原始数据见附件 Excel。<br>本邮件由 Tools Platform 护网与网络安全月报平台自动封装生成。', 'If you have questions regarding this report, please contact the Cyber Security & Assurance Operations team. Raw data is attached in Excel.<br>Automatically generated by Tools Platform.')}`;
@@ -1424,7 +1517,7 @@
         if(action==='new'){
             let template=null;
             try{const saved=await request('/api/upload/monthly-default-template');template=saved?.template;}catch(error){console.warn('[MonthlyDesigner] Failed to fetch default template:',error);}
-            checkpoint();current=window.MonthlyTemplates?window.MonthlyTemplates.create(template,catalog):engine.defaults();window.MonthlyCharts.resetPanels();await ensureReferencedCatalog();restoreLibrary();await render();document.getElementById('documentList').value='';status(t('已使用默认模板新建月报，尚未保存','New report created from the default template; unsaved'));return;
+            checkpoint();current=createFromDefault(template);window.MonthlyCharts.resetPanels();await ensureReferencedCatalog();restoreLibrary();await render();document.getElementById('documentList').value='';status(templateWarning||t('已使用默认模板新建月报，尚未保存','New report created from the default template; unsaved'));return;
         }
         if(action==='save'){
             if(saving)return;
@@ -1432,7 +1525,7 @@
             saving=true;root.inert=true;toolbar.inert=true;button.disabled=true;
             button.textContent=t('正在保存…','Saving…');status(t('正在保存到服务器…','Saving to server…'));
             try{
-                await renderPromise;captureData();let draft=engine.normalize(engine.prepareMonthlySave(current,engine.documentMonth(current))),previous=null;
+                await waitForOutput();captureData();let draft=engine.normalize(engine.prepareMonthlySave(current,engine.documentMonth(current))),previous=null;
                 if(draft.id){
                     const stored=await request(`/api/upload/monthly-documents/${encodeURIComponent(draft.id)}`);
                     if(draft.reportMonth&&engine.documentMonth(stored.document)!==draft.reportMonth)delete draft.id;else previous=stored.document;
@@ -1464,36 +1557,44 @@
     window.addEventListener('tools:languagechange',()=>{language=window.ToolsI18n?.getLanguage()==='en-US'?'en':'zh';library();render();listDocuments().catch(error=>status(error.message));});
     window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
     window.MonthlyDesigner={getDocument:()=>clone(current),getCatalog:()=>clone(catalog),applyDocument:async document=>{current=engine.normalize(document);await ensureReferencedCatalog();window.MonthlyCharts.resetPanels();restoreLibrary();return render();},refresh,whenRendered:()=>renderPromise};
+    async function waitStartupAssets(){
+        const image=root.querySelector('.document-masthead img'),cleanup=[];
+        const logo=image&&!image.complete?new Promise(resolve=>{const loaded=()=>resolve(true),failed=()=>resolve(false);image.addEventListener('load',loaded,{once:true});image.addEventListener('error',failed,{once:true});cleanup.push(()=>{image.removeEventListener('load',loaded);image.removeEventListener('error',failed);});}):Promise.resolve(!image||!image.getAttribute('src')||image.naturalWidth>0);
+        let timer;try{return await Promise.race([Promise.allSettled([logo,document.fonts?.ready||Promise.resolve()]).then(results=>results.every(item=>item.status==='fulfilled'&&item.value!==false)),new Promise(resolve=>timer=setTimeout(()=>resolve(false),5000))]);}finally{clearTimeout(timer);cleanup.forEach(fn=>fn());}
+    }
     async function initialize(){
         const toolbar=document.querySelector('.designer-toolbar');
         initializing=true;initializationCancelled=false;
         root.inert=true;toolbar.inert=true;
         const sourceLibrary=document.getElementById('sourceLibrary');
         sourceLibrary.innerHTML=`<h3>${t('服务器数据资料库','Server source library')}</h3><p data-source-loading>${t('正在载入月报与资料库…','Loading report and source library…')}</p>`;
-        const loading=document.createElement('div');loading.className='designer-loading';loading.setAttribute('data-controls','');loading.setAttribute('role','status');loading.innerHTML=`<span>${t('正在载入月报与资料库…','Loading report and source library…')}</span><button type="button" data-cancel-loading>${t('停止等待','Stop waiting')}</button>`;document.querySelector('.designer-layout').before(loading);
+        const startup=window.MonthlyStartupScreen;let startupError='';
         const cancel=()=>{initializationCancelled=true;transport.cancelReads(t('已停止加载，可重新载入月报或刷新数据库数据','Loading stopped; load a report or refresh the database to retry'));root.inert=false;toolbar.inert=false;status(t('已停止加载，可重新载入月报或刷新数据库数据','Loading stopped; load a report or refresh the database to retry'));};
-        loading.querySelector('[data-cancel-loading]').onclick=cancel;
+        startup.start({t,onCancel:cancel});startup.step('reports','loading');
         try{
-            const [sources,documents]=await Promise.allSettled([refresh(),listDocuments()]);
+            const sourcesPromise=refresh().then(value=>({status:'fulfilled',value}),reason=>({status:'rejected',reason}));
+            const documents=await listDocuments().then(value=>({status:'fulfilled',value}),reason=>({status:'rejected',reason}));
             if(initializationCancelled)return;
-            if(documents.status==='rejected')throw documents.reason;
+            startup.step('reports',documents.status==='fulfilled'?'ready':'error');if(documents.status==='rejected')throw documents.reason;startup.step('document','loading');
             const latest=documents.value[0];
             if(latest){
                 const result=await request(`/api/upload/monthly-documents/${encodeURIComponent(latest.id)}`);
                 if(initializationCancelled)return;
-                current=engine.normalize(result.document);window.MonthlyCharts.resetPanels();dirty=false;history.length=0;
-                await ensureReferencedCatalog();const opened=current;restoreLibrary();const rendering=render();root.inert=false;toolbar.inert=false;await rendering;if(initializationCancelled||current!==opened)return;document.getElementById('documentList').value=current.id;
+                current=engine.normalize(result.document);startup.step('document');window.MonthlyCharts.resetPanels();dirty=false;history.length=0;
+                await ensureReferencedCatalog();const opened=current;restoreLibrary();startup.step('render','loading');const rendering=render();root.inert=false;toolbar.inert=false;await rendering;if(initializationCancelled||current!==opened)return;document.getElementById('documentList').value=current.id;
                 status(t('已自动载入最近保存的服务器月报','Latest saved server report loaded automatically'));
             }else{
                 let template=null;
                 try{const saved=await request('/api/upload/monthly-default-template');if(initializationCancelled)return;template=saved?.template;}catch(error){console.warn('[MonthlyDesigner] Failed to fetch default template on startup:',error);}
                 if(initializationCancelled)return;
-                current=window.MonthlyTemplates?window.MonthlyTemplates.create(template,catalog):engine.defaults();window.MonthlyCharts.resetPanels();await ensureReferencedCatalog();const opened=current;restoreLibrary();const rendering=render();dirty=false;root.inert=false;toolbar.inert=false;await rendering;if(initializationCancelled||current!==opened)return;status(t('服务器暂无已保存月报，已打开默认模板','No saved server reports; opened the default template'));}
-            if(sources.status==='rejected')status(t('月报已打开，但数据资料库读取失败：','Report opened, but data sources could not be loaded: ')+sources.reason.message);
-        }catch(error){if(!initializationCancelled)status(error.message);}
-        finally{initializing=false;root.inert=false;toolbar.inert=false;loading.remove();const placeholder=sourceLibrary.querySelector('[data-source-loading]');if(placeholder)placeholder.textContent=document.getElementById('designerStatus').textContent;}
+                current=createFromDefault(template);startup.step('document');window.MonthlyCharts.resetPanels();await ensureReferencedCatalog();const opened=current;restoreLibrary();startup.step('render','loading');const rendering=render();dirty=false;root.inert=false;toolbar.inert=false;await rendering;if(initializationCancelled||current!==opened)return;status(templateWarning||t('服务器暂无已保存月报，已打开默认模板','No saved server reports; opened the default template'));}
+            const sources=await sourcesPromise;
+            if(!initializationCancelled){startup.step('references','loading');await ensureReferencedCatalog();startup.step('references');startup.step('render','loading');await render();startup.step('render');startup.step('assets','loading');const assetsReady=await waitStartupAssets();if(!initializationCancelled)startup.step('assets',assetsReady?'ready':'error');}
+            if(!initializationCancelled&&sources.status==='rejected')status(t('月报已打开，但数据资料库读取失败：','Report opened, but data sources could not be loaded: ')+sources.reason.message);
+        }catch(error){if(!initializationCancelled){startupError=error.message;status(error.message);}}
+        finally{initializing=false;root.inert=false;toolbar.inert=false;startup.finish({error:startupError,cancelled:initializationCancelled});const placeholder=sourceLibrary.querySelector('[data-source-loading]');if(placeholder)placeholder.textContent=document.getElementById('designerStatus').textContent;}
     }
-    MonthlyLoadLog.init({t,status,retry:()=>refresh().catch(()=>{})});MonthlyStudioUI.init({t});
+    MonthlyLoadLog.init({t,status,retry:()=>refresh(directoryCatalog?.failedGroups?.length?directoryCatalog.failedGroups:undefined).catch(()=>{})});MonthlyStudioUI.init({t});
     W.init({root,library:document.getElementById('sourceLibrary'),t,escape,metricLabel,status,find:findBlock,pair,typeName,catalog:()=>catalog,month:()=>engine.documentMonth(current),fileName:fileDisplayName,updateMode:async(block,mode)=>{checkpoint();if(mode==='legacy')delete block.dataUpdateMode;else block.dataUpdateMode=mode;if(mode==='live')delete block.savedData;cache.clear();await render();},actual:actualSource,versions:referenceVersions,referenceChange,useSelection,preview:previewSource,configure,mountEditor,state:block=>dataStates.get(block.id)||t('尚未加载','Not loaded'),favorite:key=>{current.libraryPrefs.favorites||=[];const index=current.libraryPrefs.favorites.indexOf(key);if(index>=0)current.libraryPrefs.favorites.splice(index,1);else current.libraryPrefs.favorites.push(key);dirty=true;library();}});
     document.getElementById('reportMonth').onchange=event=>{const month=event.target.value;if(S.validMonth(month))checkUpdates(month).catch(error=>{status(error.message);actions();});};
     window.MonthlyPivotPanel.init({root,library:document.getElementById('sourceLibrary'),t,escape,metricLabel,status,block:id=>findBlock(id)?.block,
@@ -1502,13 +1603,18 @@
     });
     const inlineTools=window.MonthlyInlineTools.start({root,dialog,t,request,getCatalog:inlineCatalog,metricLabel,
         setLogo,
-        commitText
+        commitText,commitFormula:(field,definition)=>{checkpoint();if(definition){current.inlineFormulas||=[];current.inlineFormulas.push(definition);}commitText(field,{recordHistory:false,preserveInline:true});}
     });
     document.getElementById('logoSelect').onchange=event=>{
         const value=event.target.value;
         if(value==='gallery'){logoChoices();inlineTools.chooseLogo();}
         else if(value!==current.logo)setLogo(value);
     };
-    window.MonthlyRichText.start({root,t,commitText});
+    const fontSelect=document.getElementById('defaultFontSizeSelect');
+    if(fontSelect){
+        fontSelect.onchange=event=>updateDefaultFontSize(event.target.value);
+    }
+    const metricClipboard=window.MonthlyClipboard.start({root,getCatalog:inlineCatalog,render:(text,runs,data)=>window.MonthlyInlineTools.renderText(text,data,metricLabel,runs),commit:(definitions,mutate,field)=>{checkpoint();if(definitions.length){current.inlineFormulas||=[];current.inlineFormulas.push(...definitions);}mutate();commitText(field,{recordHistory:false,preserveInline:true});updateEmptyState();}});
+    window.MonthlyRichText.start({root,t,commitText,formula:inlineTools,renderText:(text,runs)=>window.MonthlyInlineTools.renderText(text,inlineCatalog(),metricLabel,runs)});
     actions();render();initialize();
 })();

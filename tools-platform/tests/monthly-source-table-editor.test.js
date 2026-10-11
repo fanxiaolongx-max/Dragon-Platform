@@ -23,3 +23,10 @@ test('legacy Latin-1 source identities recover saved rules when reopening and wh
  const reopened=await repo.sheetEditor(sheet.id);assert.equal(reopened.typeKey,'旧编码整改');assert.deepEqual(reopened.rules,config);
  const next=await source('PBI_自动抓取-旧编码整改_Latest_2026年10月.csv');assert.deepEqual((await repo.getSheet(next.sheets[0].id)).rows,[{客户:'A',value:1},{客户:'B',value:2}]);
 });
+test('saving header rules without explicit operations updates the current table and survives reopening without repeating value replacements',async()=>{
+ const file=await source('仅保存表头.csv'),sheet=file.sheets[0],state=await repo.sheetEditor(sheet.id),saved=await repo.updateSheet(sheet.id,{confirmed:true,revision:state.revision,operations:[],rules:config,saveRules:true});
+ assert.deepEqual(saved.table.headers,['客户','value']);assert.equal(saved.table.rows[0]['客户'],'EG-A');
+ const reopened=await repo.sheetEditor(sheet.id);assert.deepEqual(reopened.table.headers,['客户','value']);assert.deepEqual(reopened.rules,config);
+ await repo.updateSheet(sheet.id,{confirmed:true,revision:reopened.revision,operations:[],rules:config,saveRules:true});assert.equal((await repo.getSheet(sheet.id)).rows[0]['客户'],'EG-A');
+ const next=await source('仅保存表头_Latest.csv');assert.equal((await repo.getSheet(next.sheets[0].id)).rows[0]['客户'],'A');
+});

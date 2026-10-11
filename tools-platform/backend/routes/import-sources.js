@@ -19,10 +19,15 @@ router.put('/source-files/:id/sheets',handle(async(req,res)=>{await repo.saveShe
 router.get('/source-catalog',handle(async(req,res)=>{
     const days=req.query.days===undefined?0:Number(req.query.days);
     if(!Number.isInteger(days)||days<0||days>36500)return res.status(400).json({error:'days must be an integer between 0 and 36500',code:'IMPORT_SOURCE_ERROR'});
-    const options=days?{since:new Date(Date.now()-days*86400000).toISOString()}:{};
+    const stage=req.query.stage;
+    if(stage!==undefined&&!['core','topic','meeting'].includes(stage))return res.status(400).json({error:'Unknown directory stage',code:'IMPORT_SOURCE_ERROR'});
+    if(req.query.meetingHistory!==undefined&&!['0','1'].includes(req.query.meetingHistory))return res.status(400).json({error:'Invalid meeting history option',code:'IMPORT_SOURCE_ERROR'});
+    let meetingFileIds=[];
+    if(req.query.meetingFiles!==undefined){try{meetingFileIds=JSON.parse(req.query.meetingFiles);if(!Array.isArray(meetingFileIds)||meetingFileIds.length>64||meetingFileIds.some(id=>typeof id!=='string'||id.length>500||!/^ms-[\w-]+-\d{4}-\d{2}-(qr|rfc|wfm|offline|online)$/.test(id)))throw new Error();}catch(_){return res.status(400).json({error:'Invalid meeting reference IDs',code:'IMPORT_SOURCE_ERROR'});}}
+    const options={meetingFileIds,...(req.query.meetingHistory==='0'?{latestOnly:true}:{}),...(days?{since:new Date(Date.now()-days*86400000).toISOString()}:{}),...(stage?{stage}:{})};
     res.setHeader('Cache-Control','no-store');
     // Existing snapshots remain usable as indicators even when their original files predate archiving.
-    const snapshots = (await require('../models/sla-snapshots-repository').listSnapshots(options)).items;
+    const snapshots = !stage||stage==='core'?(await require('../models/sla-snapshots-repository').listSnapshots(options)).items:[];
     let catalog = await repo.catalog(options);
     const existing = new Set(catalog.snapshots.map(item=>item.id));
     let registeredAny = false;

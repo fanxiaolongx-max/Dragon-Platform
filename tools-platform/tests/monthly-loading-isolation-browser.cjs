@@ -1,0 +1,31 @@
+/* node_modules/.bin/electron tests/monthly-loading-isolation-browser.cjs */
+const {app,BrowserWindow}=require('electron'),assert=require('node:assert/strict'),express=require('express'),path=require('node:path'),fs=require('node:fs'),os=require('node:os');
+const E=require('../frontend/js/monthly-designer/document-engine'),T=require('../frontend/js/monthly-designer/templates');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'monthly-loading-isolation-'));app.setPath('userData',path.join(temp,'profile'));let win,server,saved=null,meetingError=true,holdTopic=true,topicResponse,holdSheet=false;
+const requests=[],sheetReads=[];const files=['bad','good'].map(id=>({id,name:id+'.csv',source_key:id,kind:'original',created_at:new Date().toISOString(),target_period:'2026-10',batch_id:'batch',sheets:[{id:'s'+id,name:'Sheet1',headers:['Name','Value'],rowCount:1}]}));
+const catalog={files,batches:[{id:'batch',created_at:new Date().toISOString(),target_month:10}],snapshots:[]};
+const data=id=>({id:'s'+id,headers:['Name','Value'],rows:[{Name:id,Value:id==='good'?8:5}]});
+const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));const evaluate=(fn,...args)=>win.webContents.executeJavaScript(`(${fn.toString()})(...${JSON.stringify(args)})`,true);async function until(fn){for(let i=0;i<200;i++){if(await evaluate(fn))return;await wait(25);}throw Error('Timeout: '+fn);}
+app.whenReady().then(async()=>{
+ const web=express();web.use(express.json({limit:'50mb'}));web.get('/js/shared/navbar.js',(_,res)=>res.type('js').send(''));web.get('/api/sla/prefs/i18nMap',(_,res)=>res.json({}));web.get('/api/sla/categories',(_,res)=>res.json([]));
+ web.get('/api/upload/source-catalog',(req,res)=>{requests.push(req.query.stage);res.setHeader('X-Request-ID','isolation-test');if(req.query.stage==='meeting'&&meetingError)return res.status(503).json({error:'Meeting unavailable'});if(req.query.stage==='topic'&&holdTopic){topicResponse=res;return;}res.json(req.query.stage==='core'?catalog:{files:[],batches:[],snapshots:[]});});
+ web.get('/api/upload/monthly-default-template',(_,res)=>res.status(503).json({error:'Template temporarily unavailable'}));web.get('/api/upload/monthly-documents',(_,res)=>res.json([]));web.post('/api/upload/monthly-documents',(req,res)=>{saved=E.normalize({...req.body,id:'saved'});res.json({document:saved});});
+ web.get('/api/upload/source-sheets/:id',(req,res)=>{sheetReads.push(req.params.id);if(req.params.id==='sbad'&&holdSheet)return;res.json(data(req.params.id.slice(1)));});for(const name of ['component','mapping','data-format'])web.get('/api/upload/monthly-'+name+'-presets',(_,res)=>res.json([]));web.use(express.static(path.join(__dirname,'../frontend')));
+ server=await new Promise(resolve=>{const listener=web.listen(0,'127.0.0.1',()=>resolve(listener));});win=new BrowserWindow({show:false,width:1900,height:1000,webPreferences:{contextIsolation:true,nodeIntegration:false}});
+ await win.loadURL(`http://127.0.0.1:${server.address().port}/pages/monthly-designer.html`);
+ // A slow virtual directory doesn't prevent editing or displaying the originals that are ready.
+ await until(()=>!!document.getElementById('sourceSearch')&&!document.getElementById('monthlyDocument').inert);assert.ok(await evaluate(()=>!!document.querySelector('[data-file-id=good]')));assert.ok(await evaluate(()=>document.getElementById('designerStatus').textContent.includes('基础模板')));
+ holdTopic=false;topicResponse.json({files:[],batches:[],snapshots:[]});await until(()=>!document.querySelector('.designer-loading'));assert.ok(await evaluate(()=>document.querySelector('.library-load-log').dataset.state==='error'));
+ const before=requests.length;meetingError=false;await evaluate(()=>document.querySelector('[data-log-retry]').click());await until(()=>document.querySelector('.library-load-log').dataset.state==='success');assert.deepEqual(requests.slice(before),['meeting']);
+ const doc=E.defaults();doc.reportMonth='2026-10';doc.dataRulesVersion=1;doc.sections=doc.sections.slice(0,1);doc.sections[0].blocks=files.map(file=>{const block=E.block('table');block.title=E.bilingual(file.id);block.binding={kind:'file',mode:'pinned',fileId:file.id,sheetName:'Sheet1'};return block;});await evaluate(doc=>MonthlyDesigner.applyDocument(doc),doc);
+ const snapshot=await evaluate(()=>MonthlyDesigner.getDocument());assert.ok(snapshot.sections[0].blocks.every(block=>block.savedData));const bad=snapshot.sections[0].blocks[0],good=snapshot.sections[0].blocks[1];bad.dataUpdateMode='live';holdSheet=true;
+ // Clear reads through explicit document refresh; the live source now stalls while the saved peer renders.
+ await evaluate(doc=>{MonthlyDesigner.applyDocument(doc);},snapshot); // cached previous success would bypass the network, so use retry to invalidate this source only.
+ await evaluate(async id=>{await MonthlyPivotPanel.open(id,'source');document.querySelector('[data-inspector-action=retry]').click();},bad.id);
+ await until(()=>document.querySelector('[data-card-id="'+document.querySelectorAll('[data-card-id]')[1].dataset.cardId+'"] tbody')?.textContent.includes('good8'));
+ await until(()=>document.getElementById('reportDataStatus').textContent.length>0);const goodReads=sheetReads.filter(id=>id==='sgood').length;
+ await evaluate(()=>document.querySelector('[data-action=save]').click());await until(()=>!!document.querySelector('[data-output-saved]'));assert.equal(await evaluate(()=>document.querySelector('[data-output-saved]').disabled),false);await evaluate(()=>document.querySelector('[data-output-saved]').click());await until(()=>document.getElementById('designerStatus').textContent.includes('成功保存'));
+ assert.ok(saved.sections[0].blocks[0].savedData);assert.equal(saved.sections[0].blocks[0].savedData.resources[0].data.rows[0].Value,5);assert.equal(sheetReads.filter(id=>id==='sgood').length,goodReads);assert.ok(await evaluate(()=>document.querySelectorAll('tbody').length>=2));
+ console.log('Loading isolation: progressive directory, single-source retry, missing-template recovery, healthy peer and explicit saved-result save passed.');
+ win.destroy();server.closeAllConnections?.();await new Promise(resolve=>server.close(resolve));app.quit();
+}).catch(error=>{console.error(error.stack||error);win?.destroy();server?.closeAllConnections?.();server?.close();app.exit(1);});

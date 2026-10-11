@@ -166,9 +166,10 @@ test('NetCare EOS planning UI keeps its calculation and input constraints', () =
     assert.match(source, /function normalizeSrRow/);
     assert.match(source, /function aggregateSrRows/);
     assert.match(source, /function renderSr/);
-    assert.match(source, /年度同期与 BG 对比/);
-    assert.match(source, /完整季度同比/);
-    assert.match(source, /月度 SR 明细/);
+    assert.match(source, /for \(const scope of \['TOTAL', 'CNBG', 'EBG'\]\) \{\s+jobs\.push\(\{ kind: 'month'/);
+    assert.match(source, /分 BG · 仅完整季度/);
+    assert.match(source, /分 BG · 本年逐月与上年同月对比/);
+    assert.match(source, /分 BG · 操作量、成功率、回退及高危核心/);
     assert.match(source, /uivf12-netcare-sr-types-v1/);
     assert.match(source, /sr_type_name: selectedSrTypes\.length \? selectedSrTypes : SR_TYPE_NAMES/);
     assert.match(source, /bu_name: \[\]/);
@@ -181,6 +182,7 @@ test('NetCare EOS planning UI keeps its calculation and input constraints', () =
     assert.match(source, /年度 SR 数量同比/);
     assert.match(source, /季度 SR 数量同比 \/ 环比/);
     assert.match(source, /月度 SR 数量详表/);
+    assert.match(source, /辅助质量与风险指标/);
     assert.match(source, /function renderVolumeChange/);
     assert.match(source, /function renderSrBarChart/);
     assert.match(source, /function renderSrLineChart/);
@@ -288,30 +290,17 @@ test('NetCare SR metrics preserve source fields and weight ratio metrics', () =>
     assert.ok(Math.abs(aggregate.e2e_report_to_resolve_dura - 69554.04 / 6648) < 1e-10);
 });
 
-test('NetCare monthly report topic embeds clean framework and supports export/fill', () => {
+test('NetCare monthly report topic has been cleanly removed per user request', () => {
     const source = fs.readFileSync(runtimePath, 'utf8');
-    assert.match(source, /data-view="monthly"/);
-    assert.match(source, /月报专题/);
-    assert.match(source, /Monthly Report/);
-    assert.match(source, /function renderMonthlyReport/);
-    assert.match(source, /function exportMonthlyReportProject/);
-    assert.match(source, /function copyMonthlyReportOutline/);
-    assert.match(source, /sec-overview/);
-    assert.match(source, /sec-change/);
-    assert.match(source, /sec-sr/);
-    assert.match(source, /sec-risk/);
-    assert.match(source, /sec-license/);
-    assert.match(source, /sec-eos/);
-    assert.match(source, /sec-third/);
-    assert.match(source, /sec-audit/);
-    assert.match(source, /sec-meeting/);
-    assert.match(source, /护网与网络安全月报/);
-    assert.match(source, /nc-monthly-fill-btn/);
-    assert.match(source, /nc-monthly-reset-btn/);
-    assert.match(source, /nc-monthly-export-btn/);
+    assert.doesNotMatch(source, /data-view="monthly"/);
+    assert.doesNotMatch(source, /月报专题/);
+    assert.doesNotMatch(source, /function renderMonthlyReport/);
+    assert.doesNotMatch(source, /function exportMonthlyReportProject/);
+    assert.doesNotMatch(source, /function copyMonthlyReportOutline/);
+    assert.doesNotMatch(source, /nc-monthly-/);
 });
 
 test('UIVF12 page cache-busts the enhanced NetCare runtime', () => {
     const html = fs.readFileSync(pagePath, 'utf8');
-    assert.match(html, /netcare-analysis\.js\?v=20261011-01/);
+    assert.match(html, /netcare-analysis\.js\?v=20261011-02/);
 });

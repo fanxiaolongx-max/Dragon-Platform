@@ -27,12 +27,14 @@ function tables(item,key){
 }
 const catalogCache = new Map();
 async function catalog(options={}){
-    const files=[],batches=new Map();let offset=0;
+    const files=[],batches=new Map(),errors=[];let offset=0;
     const currentKeys=new Set();
     const tenantId=(require('./tenant-context').getTenantId)?require('./tenant-context').getTenantId():'default';
     while(true){
         const page=await topics.listSnapshots({limit:200,offset,metadataOnly:true,since:options.since});
         for(const meta of page.items){
+            await new Promise(resolve=>setImmediate(resolve));
+            try{
             const cacheKey=`${tenantId}:${meta.id}`;
             currentKeys.add(cacheKey);
             let cached=catalogCache.get(cacheKey);
@@ -51,12 +53,13 @@ async function catalog(options={}){
             }
             for(const b of cached.batches) batches.set(b.id,b);
             for(const f of cached.files) files.push(f);
+            }catch(_){errors.push({stage:"topic",id:meta.id,code:"INVALID_TOPIC_SOURCE"});}
         }
         offset+=page.items.length;
         if(offset>=page.total||!page.items.length)break;
     }
     for(const key of catalogCache.keys()) if(!options.since && key.startsWith(tenantId+':') && !currentKeys.has(key)) catalogCache.delete(key);
-    return {files:files.sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)),batches:[...batches.values()]};
+    return {files:files.sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)),batches:[...batches.values()],errors};
 }
 async function source(value){const parsed=parseId(value);if(!parsed)return null;const item=await topics.getSnapshot(parsed.snapshotId);return item?.snapshot?{...tables(item,parsed.key),index:parsed.index}:null;}
 async function getSheet(value){const result=await source(value);return result?.sheets?.[result.index]||null;}

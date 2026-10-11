@@ -1,4 +1,4 @@
-const test=require('node:test');const assert=require('node:assert/strict');const engine=require('../frontend/js/monthly-designer/document-engine');
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');const engine=require('../frontend/js/monthly-designer/document-engine');
 test('reference document has editable overall and eight security modules, with movable content slots',()=>{const document=engine.defaults();assert.equal(document.sections.length,9);assert.match(document.sections[1].title.zh,/网络变更/);const block=engine.block('table');block.span=6;document.sections[1].blocks.push(block);document.sections.reverse();document.meta[0].label.zh='自定义部门';assert.deepEqual(engine.normalize(document),document);});
 test('stored data filters retain zeros and grouping/summary rules do not modify sources',()=>{const rows=[{network:'A',count:0},{network:'A',count:2},{network:'B',count:4},{network:'B',count:''}];const original=JSON.stringify(rows);assert.equal(engine.filterRows(rows,[{column:'count',op:'eq',value:'0'}]).length,1);assert.deepEqual(engine.group(rows,{x:'network',y:'count',aggregation:'sum'}),[{label:'A',value:2},{label:'B',value:4}]);const block=engine.block('summary');block.rule.zh='{label}={value}，{rows} 条，目标 {target}';assert.equal(engine.summary(block,{metric:{label:'风险',value:0,savedTarget:0},snapshot:{captured_at:'2026-09'}},rows,'zh'),'风险=0，4 条，目标 0');assert.equal(JSON.stringify(rows),original);});
 test('document validation rejects executable logos, malformed layouts and unknown summary fields',()=>{const document=engine.defaults();assert.throws(()=>engine.normalize({...document,logo:'javascript:alert(1)'}));document.sections[0].span=13;assert.throws(()=>engine.normalize(document));document.sections[0].span=12;document.sections[0].blocks[0].rule.zh='{password}';assert.throws(()=>engine.normalize(document),/Unknown/);});
@@ -132,3 +132,53 @@ test('field alignment and table-cell presentation persist with safe properties a
  assert.deepEqual(engine.normalize(doc).sections[0].blocks[0].tableFormats,block.tableFormats);
  for(const mutate of [doc=>doc.fieldAlign.title.zh='url(javascript:alert(1))',doc=>doc.fieldAlign.logo={zh:'center'},doc=>doc.fieldAlign.title.fr='center',doc=>doc.sections[0].blocks[0].tableFormats[0].fieldRuns.value.zh[0].style.color='red',doc=>doc.sections[0].blocks[0].tableFormats.push(structuredClone(doc.sections[0].blocks[0].tableFormats[0])),doc=>doc.sections[0].blocks[0].tableFormats[0].fieldAlign.value.zh='top']){const invalid=structuredClone(doc);mutate(invalid);assert.throws(()=>engine.normalize(invalid),/Invalid monthly document/);}
 });
+
+test('default font size defaults to 16, validates within [8, 72], and guides sample overview runs',()=>{
+ const doc=engine.defaults();
+ assert.equal(doc.defaultFontSize,16);
+ const normalized=engine.normalize(doc);
+ assert.equal(normalized.defaultFontSize,16);
+
+ const block=doc.sections[0].blocks[0];
+ block.text.zh='本月372个问题单。\n1. 风险治理：完成268项。';
+ assert.equal(engine.sampleOverview(doc),true);
+ assert.equal(block.textRuns.zh[0].style.fontSize,16);
+
+ const customDoc=engine.defaults();
+ customDoc.defaultFontSize=18;
+ const customBlock=customDoc.sections[0].blocks[0];
+ customBlock.text.zh='本月372个问题单。\n1. 风险治理：完成268项。';
+ assert.equal(engine.sampleOverview(customDoc),true);
+ assert.equal(customBlock.textRuns.zh[0].style.fontSize,18);
+
+ const missing=engine.defaults();
+ delete missing.defaultFontSize;
+ assert.equal(engine.normalize(missing).defaultFontSize,16);
+
+ for(const invalid of [0, 7, 73, 100, 16.5, '16', null, true]){
+  const bad=structuredClone(doc);
+  bad.defaultFontSize=invalid;
+  assert.throws(()=>engine.normalize(bad),/Invalid monthly document/);
+ }
+});
+
+test('designer page and styles provide default font size setting and CSS variable',()=>{
+ const html=fs.readFileSync(path.join(__dirname,'../frontend/pages/monthly-designer.html'),'utf8');
+ const css=fs.readFileSync(path.join(__dirname,'../frontend/css/monthly-designer.css'),'utf8');
+ const studioUi=fs.readFileSync(path.join(__dirname,'../frontend/js/monthly-designer/studio-ui.js'),'utf8');
+ const designerJs=fs.readFileSync(path.join(__dirname,'../frontend/js/monthly-designer/designer.js'),'utf8');
+
+ assert.match(html, /id="defaultFontSizeSetting"/);
+ assert.match(html, /id="defaultFontSizeSelect"/);
+ assert.match(html, /value="16"/);
+ assert.match(css, /--document-default-font-size:\s*16px/);
+ assert.match(css, /var\(--document-default-font-size,\s*16px\)/);
+ assert.match(css, /\.document-block h3[^{]*\{[^}]*var\(--document-default-font-size,\s*16px\)/);
+ assert.match(css, /\.document-section h2[^{]*\{[^}]*var\(--document-default-font-size,\s*16px\)/);
+ assert.match(css, /\.studio-menu-setting/);
+ assert.match(studioUi, /#defaultFontSizeSetting/);
+ assert.match(designerJs, /defaultFontSizeSelect/);
+ assert.match(designerJs, /updateDefaultFontSize/);
+ assert.match(designerJs, /clone\.querySelectorAll\('\.document-block h3, td > h3'\)/);
+});
+

@@ -110,26 +110,32 @@ async function registerSnapshot(snapshot, { allowMissingBatch = false } = {}) {
     return payload;
 }
 async function catalog(options = {}) {
+    // Virtual directories can be requested independently; a slow source must not hold originals.
+    if(['topic','meeting'].includes(options.stage)){
+        const started=Date.now(),result=await require('./'+(options.stage==='topic'?'topic':'meeting')+'-source-tables').catalog(options);
+        return {...result,snapshots:[],diagnostics:{stages:[{stage:options.stage,count:result.files.length,durationMs:Date.now()-started}],errors:result.errors||[]}};
+    }
     const since=options.since||null,params=since?[since]:[],where=column=>since?` WHERE julianday(${column}) >= julianday(?)`:"";
-    const stages=[],started=Date.now();let stageStart=started;const mark=(stage,count)=>{stages.push({stage,count,durationMs:Date.now()-stageStart});stageStart=Date.now();};
+    const errors=[],stages=[],started=Date.now();let stageStart=started;const mark=(stage,count)=>{stages.push({stage,count,durationMs:Date.now()-stageStart});stageStart=Date.now();};
     await ensureReady();
     const batches = await all(`SELECT id,created_at,source,target_month FROM import_source_batches${where('created_at')} ORDER BY created_at DESC,rowid DESC`,params);
     const files = (await all(`SELECT id,batch_id,name,source_key,kind,size,sha256,parse_status,parse_error,created_at FROM import_source_files${where('created_at')} ORDER BY created_at DESC,rowid DESC`,params)).map(file=>({...file,name:normalizeFileName(file.name),source_key:normalizeFileName(file.source_key),source_key_aliases:[file.source_key]}));
     const sheets = await all(`SELECT id,file_id,name,headers_json,row_count FROM import_source_sheets${since?' WHERE file_id IN (SELECT id FROM import_source_files'+where('created_at')+')':''} ORDER BY rowid`,params);mark('originals',files.length);
     const snapshots = await all(`SELECT id,batch_id,captured_at,target_month,payload_json FROM import_source_snapshots${where('captured_at')} ORDER BY captured_at DESC,rowid DESC`,params);
     if(since){const linkedIds=[...new Set([...files,...snapshots].map(item=>item.batch_id).filter(id=>id&&!batches.some(batch=>batch.id===id)))];for(const id of linkedIds){const batch=await get('SELECT id,created_at,source,target_month FROM import_source_batches WHERE id=?',[id]);if(batch)batches.push(batch);}}
-    const archived = snapshots.map(row => {
-        const payload=JSON.parse(row.payload_json);
+    const archived = snapshots.map(row => {try{
+        const payload=JSON.parse(row.payload_json);if(!Array.isArray(payload.sourceSections)||!Array.isArray(payload.topMetrics))throw new Error('Invalid snapshot');
         const linked=(names,ids=[])=>[...new Set([...ids,...files.filter(file=>file.batch_id===row.batch_id&&(names||[]).map(normalizeFileName).includes(file.name)).map(file=>file.id)])];
         const sections=payload.sourceSections.map(section=>({...section,fileIds:linked(section.sourceFiles,section.fileIds)}));
         return {...row,kind:'extraction',payload_json:undefined,metrics:payload.topMetrics.map(metric=>({...metric,fileIds:linked(metric.sourceFiles || sections.find(section=>section.key===metric.sourceSection)?.sourceFiles || payload.files,metric.fileIds),sourceSelections:undefined})),sections:sections.map(section=>({key:section.key,title:section.title,fileIds:section.fileIds,headers:section.headers,rowCount:section.rows?.length || 0}))};
-    });
+        }catch(_){errors.push({stage:'extraction',id:row.id,code:'INVALID_SNAPSHOT'});return null;}
+    }).filter(Boolean);
     mark('extraction',archived.length);const savedReports = await reportMetrics(files, archived,options);mark('assessment',savedReports.length);
-    const topicSources=await require('./topic-source-tables').catalog(options);mark('topic',topicSources.files.length);
-    const meetingSources=await require('./meeting-source-tables').catalog(options);mark('meeting',meetingSources.files.length);
-    return { diagnostics:{stages,elapsedMs:Date.now()-started,since},batches:[...batches,...topicSources.batches,...meetingSources.batches], files:[...files.map(file => {
+    const virtual=async stage=>{if(options.stage==='core')return {files:[],batches:[]};try{const result=await require('./'+stage+'-source-tables').catalog(options);errors.push(...(result.errors||[]));mark(stage,result.files.length);return result;}catch(_){errors.push({stage,code:'SOURCE_DIRECTORY_FAILED'});return {files:[],batches:[]};}};
+    const [topicSources,meetingSources]=await Promise.all([virtual('topic'),virtual('meeting')]);
+    return { diagnostics:{stages,errors,elapsedMs:Date.now()-started,since},batches:[...batches,...topicSources.batches,...meetingSources.batches], files:[...files.map(file => {
         const dutyLabels = (file.kind === 'duty_roster' || file.source_key === '夜间运维值班表') ? ['夜间运维值班表', '值班人次'] : [];
-        return {...file,metricLabels:[...new Set([...dutyLabels,...archived.flatMap(snapshot=>snapshot.metrics.filter(metric=>metric.fileIds.includes(file.id)).map(metric=>metric.label)).filter(Boolean)])],sheets:sheets.filter(sheet=>sheet.file_id===file.id).map(sheet=>({id:sheet.id,name:sheet.name,headers:JSON.parse(sheet.headers_json),rowCount:sheet.row_count}))};
+        return {...file,metricLabels:[...new Set([...dutyLabels,...archived.flatMap(snapshot=>snapshot.metrics.filter(metric=>metric.fileIds.includes(file.id)).map(metric=>metric.label)).filter(Boolean)])],sheets:sheets.filter(sheet=>sheet.file_id===file.id).flatMap(sheet=>{try{const headers=JSON.parse(sheet.headers_json);if(!Array.isArray(headers))throw new Error();return [{id:sheet.id,name:sheet.name,headers,rowCount:sheet.row_count}];}catch(_){errors.push({stage:'originals',id:sheet.id,code:'INVALID_HEADERS'});return [];}})};
     }),...topicSources.files,...meetingSources.files], snapshots:[...archived,...savedReports].sort((a,b)=>snapshotTime(b.captured_at)-snapshotTime(a.captured_at)) };
 }
 function snapshotTime(value) { const text=String(value||'');return Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)?text.replace(' ','T')+'Z':text)||0; }
@@ -180,6 +186,10 @@ async function updateSheet(sheetId,input){
     if(input.revision!==state.revision)fail('Source changed; reopen the preview',409);
     let rules;try{rules=tableRules.validate(input.rules);}catch(error){fail(error.message);}
     let table;try{table=Array.isArray(input.operations)?tableRules.applyOperations(state.table,input.operations):{name:state.table.name,headers:input.headers,rows:input.rows};}catch(error){fail(error.message);}
+    // Saving reusable header rules must also update this sheet, even for older clients
+    // that submitted only the rules. Value replacements are never implicitly replayed.
+    const headersApplied=Array.isArray(input.operations)&&input.operations.some(op=>op?.kind==='rules'&&Array.isArray(op.rules)&&op.rules.some(rule=>rule.kind==='header'))||json(table.headers)!==json(state.table.headers);
+    if(input.saveRules===true&&!headersApplied)try{table=tableRules.apply(table,rules.filter(rule=>rule.kind==='header'));}catch(error){fail(error.message);}
     table=validateSheets([{...table,name:state.table.name}])[0];
     if(new Set(table.headers).size!==table.headers.length||table.headers.some(h=>!h.trim()))fail('Headers must be unique and nonempty');
     const oldHeaders=json(state.table.headers),oldRows=json(state.table.rows);

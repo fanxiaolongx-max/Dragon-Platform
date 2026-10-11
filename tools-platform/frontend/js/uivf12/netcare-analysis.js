@@ -85,45 +85,6 @@
             .nc-change-filter{margin-bottom:10px;padding:10px;border:1px solid rgba(56,189,248,.25);border-radius:9px;background:linear-gradient(135deg,rgba(8,47,73,.48),rgba(15,23,42,.78))}.nc-change-filter-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.nc-change-filter-head strong{color:#f8fafc;font-size:11px}.nc-change-filter-head small{color:#94a3b8;font-size:8px}.nc-filter-row{display:grid;grid-template-columns:70px minmax(0,1fr);align-items:start;gap:7px;padding:5px 0}.nc-filter-row+.nc-filter-row{border-top:1px dashed rgba(148,163,184,.16)}.nc-filter-label{padding-top:7px;color:#7dd3fc;font-size:8px;font-weight:900}.nc-bu-controls{display:flex;align-items:center;flex-wrap:wrap;gap:5px}.nc-bu-all,.nc-bu-chip,.nc-bu-apply{height:27px;box-sizing:border-box;border:1px solid rgba(148,163,184,.28);border-radius:6px;background:#1e293b;color:#cbd5e1;font-size:8px;font-weight:800}.nc-bu-all,.nc-bu-apply{padding:0 9px;cursor:pointer}.nc-bu-all.active{border-color:#22d3ee;background:#0e7490;color:#fff}.nc-bu-chip{display:inline-flex;align-items:center;gap:4px;padding:0 8px;cursor:pointer}.nc-bu-chip:has(input:checked){border-color:#60a5fa;background:rgba(30,64,175,.55);color:#dbeafe}.nc-bu-chip input{width:11px;height:11px;margin:0;accent-color:#38bdf8}.nc-bu-apply{margin-left:auto;border-color:rgba(74,222,128,.48);background:linear-gradient(135deg,rgba(22,101,52,.7),rgba(6,78,59,.72));color:#dcfce7}.nc-bu-apply:disabled{opacity:.5;cursor:wait}.nc-bu-note{margin-top:7px;color:#64748b;font-size:8px;line-height:1.45}@media(max-width:760px){.nc-change-filter-head{align-items:flex-start;flex-direction:column}.nc-filter-row{grid-template-columns:1fr}.nc-filter-label{padding-top:0}.nc-bu-apply{margin-left:0}}
             .nc-sr-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));gap:7px;margin-bottom:10px}.nc-sr-kpi{min-height:70px;padding:10px;border:1px solid rgba(148,163,184,.18);border-radius:9px;background:linear-gradient(145deg,rgba(15,23,42,.92),rgba(30,41,59,.72))}.nc-sr-kpi-label{color:#94a3b8;font-size:8px;font-weight:750}.nc-sr-kpi-value{margin-top:5px;color:#f8fafc;font-size:19px;font-weight:900;letter-spacing:-.3px}.nc-sr-kpi-meta{margin-top:3px;color:#64748b;font-size:7px}.nc-sr-kpi.good .nc-sr-kpi-value{color:#86efac}.nc-sr-kpi.warn .nc-sr-kpi-value{color:#fbbf24}.nc-sr-kpi.bad .nc-sr-kpi-value{color:#fca5a5}.nc-sr-severity{display:flex;height:9px;margin:9px 10px 2px;border-radius:9px;overflow:hidden;background:#1e293b}.nc-sr-severity span{min-width:2px}.nc-sr-minor{background:#38bdf8}.nc-sr-major{background:#fbbf24}.nc-sr-critical{background:#f87171}.nc-sr-legend{display:flex;flex-wrap:wrap;gap:10px;padding:3px 10px 9px;color:#94a3b8;font-size:8px}.nc-sr-dot{display:inline-block;width:7px;height:7px;margin-right:4px;border-radius:50%}.nc-sr-section-note{padding:7px 10px;color:#64748b;font-size:8px;line-height:1.5}
             .nc-sr-analysis-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(270px,.8fr);align-items:stretch}.nc-sr-analysis-grid>.nc-table-wrap{min-width:0}.nc-sr-chart{min-width:0;padding:7px;border-left:1px solid rgba(148,163,184,.15);background:rgba(2,6,23,.24)}.nc-sr-chart svg{display:block;width:100%;height:auto;max-height:225px}.nc-sr-chart text{font-family:Arial,sans-serif}.nc-sr-chart-title{fill:#e2e8f0;font-size:9px;font-weight:700}.nc-sr-chart-axis{fill:#64748b;font-size:7px}.nc-sr-chart-value{fill:#cbd5e1;font-size:7px;font-weight:700}.nc-sr-chart-grid{stroke:rgba(148,163,184,.16);stroke-width:1}.nc-sr-chart-legend{fill:#94a3b8;font-size:7px}@media(max-width:900px){.nc-sr-analysis-grid{grid-template-columns:1fr}.nc-sr-chart{border-top:1px solid rgba(148,163,184,.15);border-left:0}}
-            .nc-monthly-banner{margin-bottom:12px;padding:12px 14px;border:1px solid rgba(103,232,249,.28);border-radius:10px;background:linear-gradient(135deg,rgba(15,23,42,.95),rgba(8,47,73,.5));box-shadow:0 4px 18px rgba(0,0,0,.25)}
-            .nc-monthly-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px}
-            .nc-monthly-title-group{display:flex;align-items:center;gap:10px}
-            .nc-monthly-title{color:#f8fafc;font-size:13px;font-weight:900;letter-spacing:-.2px}
-            .nc-monthly-sub{color:#94a3b8;font-size:9px;font-weight:500;margin-top:2px}
-            .nc-monthly-actions{display:flex;align-items:center;flex-wrap:wrap;gap:6px}
-            .nc-monthly-btn{height:27px;padding:0 9px;border:1px solid rgba(148,163,184,.28);border-radius:6px;background:#1e293b;color:#cbd5e1;font-size:8px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:all .15s}
-            .nc-monthly-btn:hover{filter:brightness(1.15)}
-            .nc-monthly-btn:active{transform:translateY(1px)}
-            .nc-monthly-btn.primary{border-color:rgba(34,211,238,.45);background:linear-gradient(135deg,rgba(14,116,144,.6),rgba(8,47,73,.8));color:#a5f3fc}
-            .nc-monthly-btn.success{border-color:rgba(74,222,128,.45);background:linear-gradient(135deg,rgba(22,101,52,.6),rgba(6,78,59,.75));color:#dcfce7}
-            .nc-monthly-meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:7px;padding-top:10px;border-top:1px dashed rgba(148,163,184,.18)}
-            .nc-monthly-meta-item{padding:6px 8px;border:1px solid rgba(148,163,184,.14);border-radius:6px;background:rgba(2,6,23,.45)}
-            .nc-monthly-meta-item.full{grid-column:1/-1}
-            .nc-monthly-meta-label{color:#7dd3fc;font-size:8px;font-weight:800;margin-bottom:2px}
-            .nc-monthly-meta-value{color:#e2e8f0;font-size:8px;line-height:1.45}
-            .nc-monthly-meta-value.placeholder{color:#64748b;font-style:italic}
-            .nc-monthly-section{margin-bottom:12px;border:1px solid rgba(148,163,184,.2);border-radius:9px;overflow:hidden;background:rgba(15,23,42,.75)}
-            .nc-monthly-section-head{display:flex;align-items:center;justify-content:space-between;padding:8px 11px;border-bottom:1px solid rgba(148,163,184,.16);background:linear-gradient(135deg,rgba(30,41,59,.7),rgba(15,23,42,.85))}
-            .nc-monthly-section-title{color:#f8fafc;font-size:10px;font-weight:900;display:flex;align-items:center;gap:7px}
-            .nc-monthly-section-index{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:4px;background:#0e7490;color:#fff;font-size:9px;font-weight:900}
-            .nc-monthly-section-body{padding:9px}
-            .nc-monthly-block{margin-bottom:9px;padding:8px;border:1px solid rgba(148,163,184,.15);border-radius:7px;background:rgba(2,6,23,.3)}
-            .nc-monthly-block:last-child{margin-bottom:0}
-            .nc-monthly-block-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-            .nc-monthly-block-title{color:#e2e8f0;font-size:9px;font-weight:800;display:flex;align-items:center;gap:6px}
-            .nc-monthly-badge{display:inline-block;padding:2px 5px;border-radius:4px;font-size:7px;font-weight:800}
-            .nc-monthly-badge.table{background:rgba(14,116,144,.25);color:#7dd3fc;border:1px solid rgba(56,189,248,.3)}
-            .nc-monthly-badge.chart{background:rgba(146,64,14,.25);color:#fde68a;border:1px solid rgba(251,191,36,.3)}
-            .nc-monthly-badge.metric{background:rgba(22,101,52,.25);color:#bbf7d0;border:1px solid rgba(74,222,128,.3)}
-            .nc-monthly-badge.text{background:rgba(88,28,135,.25);color:#e9d5ff;border:1px solid rgba(192,132,252,.3)}
-            .nc-monthly-text-box{padding:8px 10px;border-radius:5px;background:rgba(15,23,42,.6);color:#cbd5e1;font-size:8px;line-height:1.6}
-            .nc-monthly-text-box.outline{border-left:3px solid #38bdf8}
-            .nc-monthly-chart-box{display:flex;align-items:center;justify-content:center;height:100px;border:1px dashed rgba(148,163,184,.25);border-radius:6px;background:rgba(2,6,23,.5);color:#94a3b8;font-size:8px}
-            .nc-monthly-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}
-            .nc-monthly-kpi{padding:8px;border:1px solid rgba(148,163,184,.16);border-radius:7px;background:linear-gradient(145deg,rgba(15,23,42,.85),rgba(30,41,59,.65))}
-            .nc-monthly-kpi-label{color:#94a3b8;font-size:7px;font-weight:750}
-            .nc-monthly-kpi-val{margin-top:3px;color:#f8fafc;font-size:15px;font-weight:900}
-            .nc-monthly-kpi-sub{margin-top:2px;color:#64748b;font-size:7px}
         `;
         root.appendChild(style);
 
@@ -150,7 +111,6 @@
                     <button class="nc-tab" data-view="change">${tr('变更数量', 'Change Volume')}</button>
                     <button class="nc-tab" data-view="interception">${tr('高危拦截', 'High-risk Interception')}</button>
                     <button class="nc-tab" data-view="sr">${tr('SR 问题单', 'SR Tickets')}</button>
-                    <button class="nc-tab" data-view="monthly">${tr('月报专题', 'Monthly Report')}</button>
                 </div>
                 <div class="nc-toolbar-actions"><span class="nc-review-badge"></span><button class="nc-json-button nc-json-export" type="button" disabled>${tr('导出 JSON', 'Export JSON')}</button><button class="nc-json-button nc-json-import" type="button">${tr('导入 JSON', 'Import JSON')}</button><input class="nc-json-file" type="file" accept="application/json,.json" hidden><button class="nc-refresh" type="button">${tr('刷新专题', 'Refresh')}</button><button class="nc-language" type="button" title="${tr('切换为英文', 'Switch to Chinese')}">${uiLanguage === 'zh' ? 'EN' : '中'}</button></div>
             </div>
@@ -161,7 +121,6 @@
                 <section class="nc-view" data-view-panel="change"></section>
                 <section class="nc-view" data-view-panel="interception"></section>
                 <section class="nc-view" data-view-panel="sr"></section>
-                <section class="nc-view" data-view-panel="monthly"></section>
             </div>`;
         body.appendChild(mode);
         const refreshButton = mode.querySelector('.nc-refresh');
@@ -178,7 +137,7 @@
         let loaded = false;
         let loading = false;
         let destroyed = false;
-        let interceptionDistinguishBG = false;
+        let interceptionDistinguishBG = true;
         let dashboardCache = null;
         let capturedAt = null;
         let reviewInfo = null;
@@ -344,7 +303,7 @@
                     srTypeSelection = SR_TYPE_NAMES.filter(value => Array.isArray(importedSettings.srTypes) && importedSettings.srTypes.includes(value));
                     srProductLineSelection = SR_PRODUCT_LINE_OPTIONS.filter(value => Array.isArray(importedSettings.srProductLines) && importedSettings.srProductLines.includes(value));
                     dashboardCache = result; cachedInterception = data.interception; capturedAt = snapshot.capturedAt || snapshot.exportedAt; reviewInfo = { capturedAt, exportedAt: snapshot.exportedAt || capturedAt }; loaded = true;
-                    renderCertificate(result[0]); renderEos(result[1], result[2]); renderChange(result[3]); renderInterception(result[4]); renderSr(result[5]); renderMonthlyReport(); updateReviewUi();
+                    renderCertificate(result[0]); renderEos(result[1], result[2]); renderChange(result[3]); renderInterception(result[4]); renderSr(result[5]); updateReviewUi();
                     if (options && typeof options.onSnapshotImported === 'function') {
                         try {
                             const saved = await options.onSnapshotImported(snapshot);
@@ -370,7 +329,7 @@
         function applyLanguage() {
             button.textContent = active ? tr('返回 CSV', 'Back to CSV') : tr('NetCare 专题', 'NetCare Insights');
             button.title = tr('打开 NetCare 专题分析', 'Open NetCare insights');
-            const tabLabels = { eos: tr('EOS 收编', 'EOS Incorporation'), cert: tr('证书清理', 'Certificate Cleanup'), change: tr('变更数量', 'Change Volume'), interception: tr('高危拦截', 'High-risk Interception'), sr: tr('SR 问题单', 'SR Tickets'), monthly: tr('月报专题', 'Monthly Report') };
+            const tabLabels = { eos: tr('EOS 收编', 'EOS Incorporation'), cert: tr('证书清理', 'Certificate Cleanup'), change: tr('变更数量', 'Change Volume'), interception: tr('高危拦截', 'High-risk Interception'), sr: tr('SR 问题单', 'SR Tickets') };
             mode.querySelectorAll('.nc-tab').forEach(tab => { tab.textContent = tabLabels[tab.dataset.view]; });
             refreshButton.textContent = tr('刷新专题', 'Refresh');
             jsonExportButton.textContent = tr('导出 JSON', 'Export JSON');
@@ -384,7 +343,6 @@
                 views.eos.innerHTML = '<div class="nc-empty">' + tr('进入专题后点击“刷新专题”获取数据', 'Click “Refresh” to load insights') + '</div>';
                 modeStatus.textContent = tr('专题尚未加载', 'Insights not loaded');
             }
-            renderMonthlyReport();
         }
         languageButton.addEventListener('click', function () {
             uiLanguage = uiLanguage === 'zh' ? 'en' : 'zh';
@@ -538,11 +496,16 @@
             }
             for (const year of [previousYear, currentYear]) {
                 const maxMonth = year === currentYear ? currentMonth : 12;
-                for (let month = 1; month <= maxMonth; month += 1) { const range = monthRange(year, month); jobs.push({ kind: 'month', year, month, scope: 'TOTAL', start: range.start, end: range.end }); }
+                for (let month = 1; month <= maxMonth; month += 1) {
+                    const range = monthRange(year, month);
+                    for (const scope of ['TOTAL', 'CNBG', 'EBG']) {
+                        jobs.push({ kind: 'month', year, month, scope, start: range.start, end: range.end });
+                    }
+                }
             }
             let completed = 0;
             const rows = await runConcurrent(jobs, 6, async job => {
-                const row = await postSrSummary(job.start, job.end, job.scope, token, job.kind === 'summary' ? { period: job.period } : { year: job.year, month: job.month }, selectedSrTypes, selectedProductLines);
+                const row = await postSrSummary(job.start, job.end, job.scope, token, job.kind === 'summary' ? { period: job.period, scope: job.scope } : { year: job.year, month: job.month, scope: job.scope }, selectedSrTypes, selectedProductLines);
                 modeStatus.textContent = tr('SR 问题单：', 'SR tickets: ') + (++completed) + '/' + jobs.length; return row;
             });
             return { summary: rows.filter(row => row.period), monthly: rows.filter(row => row.year), currentYear, previousYear, currentMonth, srTypes: selectedSrTypes, productLines: selectedProductLines };
@@ -1029,8 +992,29 @@
             const annual = scopes.map(scope => { const previousFull = sum(scope.key, data.previousYear, Array.from({ length: 12 }, (_, index) => index + 1)); const previousYtd = sum(scope.key, data.previousYear, ytd); const currentYtd = sum(scope.key, data.currentYear, ytd); return '<tr><td class="nc-name">' + scope.name + '</td><td>' + previousFull + '</td><td>' + previousYtd + '</td><td>' + currentYtd + '</td><td>' + formatChange(currentYtd, previousYtd) + '</td></tr>'; }).join('');
             const quarters = []; const completedQuarters = Math.floor((data.currentMonth - 1) / 3);
             scopes.forEach(scope => { for (let quarter = 1; quarter <= completedQuarters; quarter++) { const months = [quarter * 3 - 2, quarter * 3 - 1, quarter * 3]; const current = sum(scope.key, data.currentYear, months); const previous = sum(scope.key, data.previousYear, months); const previousQuarter = quarter === 1 ? sum(scope.key, data.previousYear, [10, 11, 12]) : sum(scope.key, data.currentYear, months.map(month => month - 3)); quarters.push('<tr><td class="nc-name">' + scope.name + '</td><td>Q' + quarter + '</td><td>' + previous + '</td><td>' + current + '</td><td>' + formatChange(current, previous) + '</td><td>' + previousQuarter + '</td><td>' + formatChange(current, previousQuarter) + '</td></tr>'); } });
-            const details = []; for (const year of [data.currentYear, data.previousYear]) { const maxMonth = year === data.currentYear ? data.currentMonth : 12; for (let month = maxMonth; month >= 1; month--) { const total = map.get('TOTAL|' + year + '|' + month) || {}; details.push('<tr><td class="nc-name">' + year + '-' + pad2(month) + '</td><td>' + value('TOTAL', year, month) + '</td><td>' + value('CNBG', year, month) + '</td><td>' + value('EBG', year, month) + '</td><td>' + ((num(total.operation_success_rate) <= 1 ? num(total.operation_success_rate) * 100 : num(total.operation_success_rate)).toFixed(1)) + '%</td><td>' + num(total.rollback_count) + '</td><td>' + num(total.high_core_total_count) + '</td></tr>'); } }
-            views.change.innerHTML = '<div class="nc-card"><div class="nc-card-title"><span>' + tr('年度操作数量同比', 'Annual Operation Volume YoY') + '</span><small>' + tr('截至 ', 'Through ') + data.currentYear + '-' + pad2(data.currentMonth) + '</small></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('范围', 'Scope') + '</th><th>' + data.previousYear + tr('全年', ' Full Year') + '</th><th>' + data.previousYear + tr('同期', ' YTD') + '</th><th>' + data.currentYear + tr('累计', ' YTD') + '</th><th>' + tr('同比', 'YoY') + '</th></tr></thead><tbody>' + annual + '</tbody></table></div></div><div class="nc-card"><div class="nc-card-title"><span>' + tr('季度同比 / 环比', 'Quarterly YoY / QoQ') + '</span><small>' + tr('仅完整季度', 'Completed quarters only') + '</small></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('范围', 'Scope') + '</th><th>' + tr('季度', 'Quarter') + '</th><th>' + tr('上年同期', 'Prior-year Quarter') + '</th><th>' + tr('本年', 'Current Year') + '</th><th>' + tr('同比', 'YoY') + '</th><th>' + tr('上季度', 'Previous Quarter') + '</th><th>' + tr('环比', 'QoQ') + '</th></tr></thead><tbody>' + (quarters.join('') || '<tr><td colspan="7" class="nc-muted">' + tr('暂无完整季度', 'No completed quarter') + '</td></tr>') + '</tbody></table></div></div><div class="nc-card"><div class="nc-card-title"><span>' + tr('月度变更明细', 'Monthly Change Details') + '</span></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('月份', 'Month') + '</th><th>' + tr('总体', 'Overall') + '</th><th>CNBG</th><th>EBG</th><th>' + tr('成功率', 'Success Rate') + '</th><th>' + tr('回退', 'Rollback') + '</th><th>' + tr('高危核心', 'High-risk Core') + '</th></tr></thead><tbody>' + details.join('') + '</tbody></table></div></div>';
+            const details = [];
+            for (const year of [data.currentYear, data.previousYear]) {
+                const maxMonth = year === data.currentYear ? data.currentMonth : 12;
+                for (let month = maxMonth; month >= 1; month--) {
+                    for (const scope of scopes) {
+                        const item = map.get(scope.key + '|' + year + '|' + month) || {};
+                        const rate = item.operation_success_rate != null
+                            ? ((num(item.operation_success_rate) <= 1 ? num(item.operation_success_rate) * 100 : num(item.operation_success_rate)).toFixed(1)) + '%'
+                            : '-';
+                        details.push(
+                            '<tr class="' + (scope.key === 'TOTAL' ? 'nc-total' : '') + '">'
+                            + '<td class="nc-name">' + year + '-' + pad2(month) + '</td>'
+                            + '<td class="nc-name">' + scope.name + '</td>'
+                            + '<td>' + num(item.task_count) + '</td>'
+                            + '<td>' + rate + '</td>'
+                            + '<td>' + num(item.rollback_count) + '</td>'
+                            + '<td>' + num(item.high_core_total_count) + '</td>'
+                            + '</tr>'
+                        );
+                    }
+                }
+            }
+            views.change.innerHTML = '<div class="nc-card"><div class="nc-card-title"><span>' + tr('年度操作数量同比', 'Annual Operation Volume YoY') + '</span><small>' + tr('截至 ', 'Through ') + data.currentYear + '-' + pad2(data.currentMonth) + '</small></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('范围', 'Scope') + '</th><th>' + data.previousYear + tr('全年', ' Full Year') + '</th><th>' + data.previousYear + tr('同期', ' YTD') + '</th><th>' + data.currentYear + tr('累计', ' YTD') + '</th><th>' + tr('同比', 'YoY') + '</th></tr></thead><tbody>' + annual + '</tbody></table></div></div><div class="nc-card"><div class="nc-card-title"><span>' + tr('季度同比 / 环比', 'Quarterly YoY / QoQ') + '</span><small>' + tr('仅完整季度', 'Completed quarters only') + '</small></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('范围', 'Scope') + '</th><th>' + tr('季度', 'Quarter') + '</th><th>' + tr('上年同期', 'Prior-year Quarter') + '</th><th>' + tr('本年', 'Current Year') + '</th><th>' + tr('同比', 'YoY') + '</th><th>' + tr('上季度', 'Previous Quarter') + '</th><th>' + tr('环比', 'QoQ') + '</th></tr></thead><tbody>' + (quarters.join('') || '<tr><td colspan="7" class="nc-muted">' + tr('暂无完整季度', 'No completed quarter') + '</td></tr>') + '</tbody></table></div></div><div class="nc-card"><div class="nc-card-title"><span>' + tr('月度变更明细', 'Monthly Change Details') + '</span><small>' + tr('分 BG · 操作量、成功率、回退及高危核心', 'By BG · Volume, success rate, rollback & high-risk core') + '</small></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('月份', 'Month') + '</th><th>' + tr('范围', 'Scope') + '</th><th>' + tr('变更量', 'Changes') + '</th><th>' + tr('成功率', 'Success Rate') + '</th><th>' + tr('回退', 'Rollback') + '</th><th>' + tr('高危核心', 'High-risk Core') + '</th></tr></thead><tbody>' + details.join('') + '</tbody></table></div></div>';
             views.change.insertAdjacentHTML('afterbegin', filterHtml);
             const quarterLabels = Array.from({ length: completedQuarters }, (_, index) => 'Q' + (index + 1));
             const quarterMonths = quarter => [quarter * 3 - 2, quarter * 3 - 1, quarter * 3];
@@ -1159,18 +1143,6 @@
                 return '<tr class="' + (scope.key === 'TOTAL' ? 'nc-total' : '') + '"><td class="nc-name">' + scope.label + '</td><td>' + previousFull.sr_total + '</td><td>' + prior.sr_total + '</td><td>' + now.sr_total + '</td><td>' + formatChange(now.sr_total, prior.sr_total) + '</td><td>' + srPercent(now.sr_frt) + '</td><td>' + now.unclose_sr_cnt + '</td><td>' + now.overdue_sr_cnt + '</td><td>' + now.emergency_recovery_cnt + '</td><td>' + now.e2e_report_to_resolve_dura.toFixed(2) + 'h</td></tr>';
             }).join('');
             const severityHtml = '<div class="nc-card"><div class="nc-card-title"><span>' + tr('本年严重级别结构', 'Current-year Severity Mix') + '</span><small>' + tr('总体 SR 严重级别分布', 'Overall SR severity distribution') + '</small></div><div class="nc-sr-severity"><span class="nc-sr-minor" style="width:' + current.minor_sr_cnt / severityTotal * 100 + '%"></span><span class="nc-sr-major" style="width:' + current.major_sr_cnt / severityTotal * 100 + '%"></span><span class="nc-sr-critical" style="width:' + current.critical_sr_cnt / severityTotal * 100 + '%"></span></div><div class="nc-sr-legend"><span><i class="nc-sr-dot nc-sr-minor"></i>Minor ' + current.minor_sr_cnt + ' (' + (current.minor_sr_cnt / severityTotal * 100).toFixed(1) + '%)</span><span><i class="nc-sr-dot nc-sr-major"></i>Major ' + current.major_sr_cnt + ' (' + (current.major_sr_cnt / severityTotal * 100).toFixed(1) + '%)</span><span><i class="nc-sr-dot nc-sr-critical"></i>Critical ' + current.critical_sr_cnt + ' (' + (current.critical_sr_cnt / severityTotal * 100).toFixed(1) + '%)</span></div></div>';
-            const riskRows = scopes.map(scope => { const row = summaryMap.get('currentYtd|' + scope.key) || normalizeSrRow({}, {}); return '<tr class="' + (scope.key === 'TOTAL' ? 'nc-total' : '') + '"><td class="nc-name">' + scope.label + '</td><td>' + row.due_within_5days_sr_cnt + '</td><td>' + row.overdue_unclose_sr_cnt + '</td><td>' + row.over_10days_sr_cnt + '</td><td>' + row.overlong_sr_cnt + '</td><td>' + row.non_fault_inquiry_sr_cnt + '</td><td>' + row.low_score_cnt + '</td><td>' + srPercent(row.authed_rate) + '</td><td>' + srPercent(row.auth_out_warranty_rate) + '</td></tr>'; }).join('');
-            const quarterRows = []; const completedQuarters = Math.floor((data.currentMonth - 1) / 3);
-            for (let quarter = 1; quarter <= completedQuarters; quarter += 1) {
-                const months = [quarter * 3 - 2, quarter * 3 - 1, quarter * 3]; const now = aggregateSrRows(data.monthly.filter(row => row.year === data.currentYear && months.includes(row.month))); const prior = aggregateSrRows(data.monthly.filter(row => row.year === data.previousYear && months.includes(row.month)));
-                quarterRows.push('<tr><td>Q' + quarter + '</td><td>' + prior.sr_total + '</td><td>' + now.sr_total + '</td><td>' + formatChange(now.sr_total, prior.sr_total) + '</td><td>' + srPercent(now.sr_frt) + '</td><td>' + now.overdue_sr_cnt + '</td><td>' + now.critical_sr_cnt + '</td><td>' + now.e2e_report_to_resolve_dura.toFixed(2) + 'h</td></tr>');
-            }
-            const monthlyRows = [...data.monthly].sort((left, right) => right.year - left.year || right.month - left.month).map(row => '<tr><td class="nc-name">' + row.year + '-' + pad2(row.month) + '</td><td>' + row.sr_total + '</td><td>' + row.minor_sr_cnt + '</td><td>' + row.major_sr_cnt + '</td><td>' + row.critical_sr_cnt + '</td><td>' + srPercent(row.sr_frt) + '</td><td>' + row.unclose_sr_cnt + '</td><td>' + row.overdue_sr_cnt + '</td><td>' + row.emergency_recovery_cnt + '</td><td>' + srPercent(row.authed_rate) + '</td><td>' + row.e2e_report_to_resolve_dura.toFixed(2) + 'h</td></tr>').join('');
-            views.sr.innerHTML = '<div class="nc-card"><div class="nc-card-title"><span>' + tr('SR 问题单专题', 'SR Ticket Overview') + '</span><small>' + tr('统计范围：Technical Request · CNBG + EBG · 截至 ', 'Scope: Technical Request · CNBG + EBG · Through ') + data.currentYear + '-' + pad2(data.currentMonth) + '</small></div><div class="nc-sr-section-note">' + tr('年度与 BG 指标按完整区间直接查询；季度与月度趋势由月度数据汇总，比率按接口分子/分母加权计算。', 'Annual and BG metrics are queried directly for each full period. Quarterly and monthly trends use monthly results, with rates weighted from source numerators and denominators.') + '</div></div>' + kpis
-                + '<div class="nc-card"><div class="nc-card-title"><span>' + tr('年度同期与 BG 对比', 'Annual YTD & BG Comparison') + '</span></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('范围', 'Scope') + '</th><th>' + data.previousYear + tr('全年', ' Full Year') + '</th><th>' + data.previousYear + tr('同期', ' YTD') + '</th><th>' + data.currentYear + tr('累计', ' YTD') + '</th><th>' + tr('同比', 'YoY') + '</th><th>FRT</th><th>' + tr('未关闭', 'Open') + '</th><th>' + tr('逾期', 'Overdue') + '</th><th>' + tr('紧急恢复', 'Emergency Recovery') + '</th><th>' + tr('解决时长', 'Resolution Time') + '</th></tr></thead><tbody>' + comparisonRows + '</tbody></table></div></div>' + severityHtml
-                + '<div class="nc-card"><div class="nc-card-title"><span>' + tr('本年风险与质量明细', 'Current-year Risk & Quality Details') + '</span></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('范围', 'Scope') + '</th><th>' + tr('5日内到期', 'Due ≤5d') + '</th><th>' + tr('逾期未关闭', 'Overdue Open') + '</th><th>' + tr('超过10天', '>10 Days') + '</th><th>' + tr('超长单', 'Overlong') + '</th><th>' + tr('非故障咨询', 'Non-fault Inquiry') + '</th><th>' + tr('低分', 'Low Score') + '</th><th>' + tr('授权率', 'Auth Rate') + '</th><th>' + tr('授权中过保率', 'Out-of-warranty Rate') + '</th></tr></thead><tbody>' + riskRows + '</tbody></table></div></div>'
-                + '<div class="nc-card"><div class="nc-card-title"><span>' + tr('完整季度同比', 'Completed-quarter YoY') + '</span><small>' + tr('总体口径', 'Overall scope') + '</small></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('季度', 'Quarter') + '</th><th>' + tr('上年同期', 'Prior Year') + '</th><th>' + tr('本年', 'Current Year') + '</th><th>' + tr('同比', 'YoY') + '</th><th>FRT</th><th>' + tr('逾期', 'Overdue') + '</th><th>Critical</th><th>' + tr('解决时长', 'Resolution Time') + '</th></tr></thead><tbody>' + (quarterRows.join('') || '<tr><td colspan="8" class="nc-muted">' + tr('暂无完整季度', 'No completed quarter') + '</td></tr>') + '</tbody></table></div></div>'
-                + '<div class="nc-card"><div class="nc-card-title"><span>' + tr('月度 SR 明细', 'Monthly SR Details') + '</span><small>' + tr('总体口径', 'Overall scope') + '</small></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('月份', 'Month') + '</th><th>SR</th><th>Minor</th><th>Major</th><th>Critical</th><th>FRT</th><th>' + tr('未关闭', 'Open') + '</th><th>' + tr('逾期', 'Overdue') + '</th><th>' + tr('紧急恢复', 'Emergency Recovery') + '</th><th>' + tr('授权率', 'Auth Rate') + '</th><th>' + tr('解决时长', 'Resolution Time') + '</th></tr></thead><tbody>' + monthlyRows + '</tbody></table></div></div>';
             const dataTypes = Array.isArray(data.srTypes) ? data.srTypes : []; const dataTypeLabel = dataTypes.length ? dataTypes.map(srTypeShortName).join(uiLanguage === 'en' ? ', ' : '、') : tr('全部 SR 类型', 'All SR Types');
             const dataProductLines = Array.isArray(data.productLines) ? data.productLines : []; const dataProductLineLabel = dataProductLines.length ? dataProductLines.map(productLineLabel).join(uiLanguage === 'en' ? ', ' : '、') : tr('全部产品线', 'All Product Lines');
             const srFilterHtml = '<div class="nc-change-filter"><div class="nc-change-filter-head"><strong>' + tr('筛选 SR 数据', 'Filter SR Data') + '</strong><small>' + tr('当前数据范围：', 'Current data: ') + escapeHtml(dataTypeLabel + ' · ' + dataProductLineLabel) + '</small></div>'
@@ -1181,25 +1153,79 @@
             function renderVolumeChange(nowValue, priorValue) { const change = changeValue(nowValue, priorValue); return '<span class="' + (change.delta > 0 ? 'nc-bad' : change.delta < 0 ? 'nc-good' : 'nc-muted') + '">' + change.text + ' (' + change.rate + ')</span>'; }
             const annualChange = changeValue(current.sr_total, previous.sr_total); const volumeCompletedQuarters = Math.floor((data.currentMonth - 1) / 3); let latestQuarter = null; let latestQuarterPrior = null;
             if (volumeCompletedQuarters > 0) {
-                const months = [volumeCompletedQuarters * 3 - 2, volumeCompletedQuarters * 3 - 1, volumeCompletedQuarters * 3]; latestQuarter = aggregateSrRows(data.monthly.filter(row => row.year === data.currentYear && months.includes(row.month)));
-                const priorMonths = volumeCompletedQuarters === 1 ? [10, 11, 12] : [(volumeCompletedQuarters - 1) * 3 - 2, (volumeCompletedQuarters - 1) * 3 - 1, (volumeCompletedQuarters - 1) * 3]; const priorYear = volumeCompletedQuarters === 1 ? data.previousYear : data.currentYear; latestQuarterPrior = aggregateSrRows(data.monthly.filter(row => row.year === priorYear && priorMonths.includes(row.month)));
+                const months = [volumeCompletedQuarters * 3 - 2, volumeCompletedQuarters * 3 - 1, volumeCompletedQuarters * 3];
+                latestQuarter = aggregateSrRows(data.monthly.filter(row => row.scope === 'TOTAL' && row.year === data.currentYear && months.includes(row.month)));
+                const priorMonths = volumeCompletedQuarters === 1 ? [10, 11, 12] : [(volumeCompletedQuarters - 1) * 3 - 2, (volumeCompletedQuarters - 1) * 3 - 1, (volumeCompletedQuarters - 1) * 3];
+                const priorYear = volumeCompletedQuarters === 1 ? data.previousYear : data.currentYear;
+                latestQuarterPrior = aggregateSrRows(data.monthly.filter(row => row.scope === 'TOTAL' && row.year === priorYear && priorMonths.includes(row.month)));
             }
             const quarterChange = latestQuarter ? changeValue(latestQuarter.sr_total, latestQuarterPrior.sr_total) : { text: '-', rate: tr('暂无完整季度', 'No completed quarter') };
             const focusKpis = '<div class="nc-sr-kpis">' + kpi(tr('本年累计 SR', 'Current YTD SRs'), current.sr_total.toLocaleString('zh-CN'), data.currentYear + '-01 ~ ' + data.currentYear + '-' + pad2(data.currentMonth), '') + kpi(tr('本年累计同比增减', 'Current YTD YoY Change'), annualChange.text, tr('相对上年同期 ', 'vs prior YTD ') + annualChange.rate, annualChange.delta > 0 ? 'warn' : annualChange.delta < 0 ? 'good' : '') + kpi(tr('最新完整季度 SR', 'Latest Completed Quarter'), latestQuarter ? latestQuarter.sr_total.toLocaleString('zh-CN') : '-', latestQuarter ? data.currentYear + ' Q' + volumeCompletedQuarters : tr('暂无完整季度', 'No completed quarter'), '') + kpi(tr('相对上季度环比增减', 'QoQ Change'), quarterChange.text, tr('环比 ', 'QoQ ') + quarterChange.rate, quarterChange.delta > 0 ? 'warn' : quarterChange.delta < 0 ? 'good' : '') + '</div>';
             const volumeComparisonRows = scopes.map(scope => { const full = summaryMap.get('previousFull|' + scope.key) || normalizeSrRow({}, {}); const prior = summaryMap.get('previousYtd|' + scope.key) || normalizeSrRow({}, {}); const now = summaryMap.get('currentYtd|' + scope.key) || normalizeSrRow({}, {}); return '<tr class="' + (scope.key === 'TOTAL' ? 'nc-total' : '') + '"><td class="nc-name">' + scope.label + '</td><td>' + full.sr_total + '</td><td>' + prior.sr_total + '</td><td>' + now.sr_total + '</td><td>' + renderVolumeChange(now.sr_total, prior.sr_total) + '</td></tr>'; }).join('');
             const volumeQuarterRows = []; const quarterLabels = []; const quarterPriorYearValues = []; const quarterCurrentValues = []; const quarterPriorValues = [];
             for (let quarter = 1; quarter <= volumeCompletedQuarters; quarter += 1) {
-                const months = [quarter * 3 - 2, quarter * 3 - 1, quarter * 3]; const now = aggregateSrRows(data.monthly.filter(row => row.year === data.currentYear && months.includes(row.month))); const priorYearSame = aggregateSrRows(data.monthly.filter(row => row.year === data.previousYear && months.includes(row.month))); const priorMonths = quarter === 1 ? [10, 11, 12] : [(quarter - 1) * 3 - 2, (quarter - 1) * 3 - 1, (quarter - 1) * 3]; const priorQuarterYear = quarter === 1 ? data.previousYear : data.currentYear; const priorQuarter = aggregateSrRows(data.monthly.filter(row => row.year === priorQuarterYear && priorMonths.includes(row.month)));
-                volumeQuarterRows.push('<tr><td>Q' + quarter + '</td><td>' + priorYearSame.sr_total + '</td><td>' + now.sr_total + '</td><td>' + renderVolumeChange(now.sr_total, priorYearSame.sr_total) + '</td><td>' + priorQuarter.sr_total + '</td><td>' + renderVolumeChange(now.sr_total, priorQuarter.sr_total) + '</td></tr>');
-                quarterLabels.push('Q' + quarter); quarterPriorYearValues.push(priorYearSame.sr_total); quarterCurrentValues.push(now.sr_total); quarterPriorValues.push(priorQuarter.sr_total);
+                const months = [quarter * 3 - 2, quarter * 3 - 1, quarter * 3];
+                const priorMonths = quarter === 1 ? [10, 11, 12] : [(quarter - 1) * 3 - 2, (quarter - 1) * 3 - 1, (quarter - 1) * 3];
+                const priorQuarterYear = quarter === 1 ? data.previousYear : data.currentYear;
+                const totalNow = aggregateSrRows(data.monthly.filter(row => row.scope === 'TOTAL' && row.year === data.currentYear && months.includes(row.month)));
+                const totalPriorYearSame = aggregateSrRows(data.monthly.filter(row => row.scope === 'TOTAL' && row.year === data.previousYear && months.includes(row.month)));
+                const totalPriorQuarter = aggregateSrRows(data.monthly.filter(row => row.scope === 'TOTAL' && row.year === priorQuarterYear && priorMonths.includes(row.month)));
+                quarterLabels.push('Q' + quarter);
+                quarterPriorYearValues.push(totalPriorYearSame.sr_total);
+                quarterCurrentValues.push(totalNow.sr_total);
+                quarterPriorValues.push(totalPriorQuarter.sr_total);
             }
-            const monthMap = new Map(data.monthly.map(row => [row.year + '|' + row.month, row])); const volumeMonthlyRows = [];
-            for (let month = data.currentMonth; month >= 1; month -= 1) { const now = monthMap.get(data.currentYear + '|' + month) || normalizeSrRow({}, {}); const prior = monthMap.get(data.previousYear + '|' + month) || normalizeSrRow({}, {}); volumeMonthlyRows.push('<tr><td class="nc-name">' + data.currentYear + '-' + pad2(month) + '</td><td>' + prior.sr_total + '</td><td>' + now.sr_total + '</td><td>' + renderVolumeChange(now.sr_total, prior.sr_total) + '</td><td>' + now.minor_sr_cnt + '</td><td>' + now.major_sr_cnt + '</td><td>' + now.critical_sr_cnt + '</td><td>' + srPercent(now.sr_frt) + '</td><td>' + now.unclose_sr_cnt + '</td><td>' + now.overdue_sr_cnt + '</td></tr>'); }
-            const chartMonths = Array.from({ length: data.currentMonth }, (_, index) => index + 1); const monthLabels = chartMonths.map(pad2); const monthPriorValues = chartMonths.map(month => num((monthMap.get(data.previousYear + '|' + month) || {}).sr_total)); const monthCurrentValues = chartMonths.map(month => num((monthMap.get(data.currentYear + '|' + month) || {}).sr_total));
+            scopes.forEach(scope => {
+                for (let quarter = 1; quarter <= volumeCompletedQuarters; quarter += 1) {
+                    const months = [quarter * 3 - 2, quarter * 3 - 1, quarter * 3];
+                    const priorMonths = quarter === 1 ? [10, 11, 12] : [(quarter - 1) * 3 - 2, (quarter - 1) * 3 - 1, (quarter - 1) * 3];
+                    const priorQuarterYear = quarter === 1 ? data.previousYear : data.currentYear;
+                    const now = aggregateSrRows(data.monthly.filter(row => row.scope === scope.key && row.year === data.currentYear && months.includes(row.month)));
+                    const priorYearSame = aggregateSrRows(data.monthly.filter(row => row.scope === scope.key && row.year === data.previousYear && months.includes(row.month)));
+                    const priorQuarter = aggregateSrRows(data.monthly.filter(row => row.scope === scope.key && row.year === priorQuarterYear && priorMonths.includes(row.month)));
+                    volumeQuarterRows.push(
+                        '<tr class="' + (scope.key === 'TOTAL' ? 'nc-total' : '') + '">'
+                        + '<td class="nc-name">' + scope.label + '</td>'
+                        + '<td>Q' + quarter + '</td>'
+                        + '<td>' + priorYearSame.sr_total + '</td>'
+                        + '<td>' + now.sr_total + '</td>'
+                        + '<td>' + renderVolumeChange(now.sr_total, priorYearSame.sr_total) + '</td>'
+                        + '<td>' + priorQuarter.sr_total + '</td>'
+                        + '<td>' + renderVolumeChange(now.sr_total, priorQuarter.sr_total) + '</td>'
+                        + '</tr>'
+                    );
+                }
+            });
+            const monthMap = new Map(data.monthly.map(row => [(row.scope || 'TOTAL') + '|' + row.year + '|' + row.month, row]));
+            const volumeMonthlyRows = [];
+            for (let month = data.currentMonth; month >= 1; month -= 1) {
+                for (const scope of scopes) {
+                    const now = monthMap.get(scope.key + '|' + data.currentYear + '|' + month) || normalizeSrRow({}, {});
+                    const prior = monthMap.get(scope.key + '|' + data.previousYear + '|' + month) || normalizeSrRow({}, {});
+                    volumeMonthlyRows.push(
+                        '<tr class="' + (scope.key === 'TOTAL' ? 'nc-total' : '') + '">'
+                        + '<td class="nc-name">' + data.currentYear + '-' + pad2(month) + '</td>'
+                        + '<td class="nc-name">' + scope.label + '</td>'
+                        + '<td>' + prior.sr_total + '</td>'
+                        + '<td>' + now.sr_total + '</td>'
+                        + '<td>' + renderVolumeChange(now.sr_total, prior.sr_total) + '</td>'
+                        + '<td>' + now.minor_sr_cnt + '</td>'
+                        + '<td>' + now.major_sr_cnt + '</td>'
+                        + '<td>' + now.critical_sr_cnt + '</td>'
+                        + '<td>' + srPercent(now.sr_frt) + '</td>'
+                        + '<td>' + now.unclose_sr_cnt + '</td>'
+                        + '<td>' + now.overdue_sr_cnt + '</td>'
+                        + '</tr>'
+                    );
+                }
+            }
+            const chartMonths = Array.from({ length: data.currentMonth }, (_, index) => index + 1); const monthLabels = chartMonths.map(pad2);
+            const monthPriorValues = chartMonths.map(month => num((monthMap.get('TOTAL|' + data.previousYear + '|' + month) || {}).sr_total));
+            const monthCurrentValues = chartMonths.map(month => num((monthMap.get('TOTAL|' + data.currentYear + '|' + month) || {}).sr_total));
             views.sr.innerHTML = srFilterHtml + '<div class="nc-card"><div class="nc-card-title"><span>' + tr('SR 数量变化总览', 'SR Volume Movement Overview') + '</span><small>' + tr('Technical Request · CNBG + EBG · 数据截至 ', 'Technical Request · CNBG + EBG · Through ') + data.currentYear + '-' + pad2(data.currentMonth) + '</small></div><div class="nc-sr-section-note">' + tr('主视图优先呈现 SR 数量同比与环比；正数表示增加，负数表示减少。仅使用完整季度计算环比。', 'The primary view prioritizes SR volume YoY and QoQ. Positive means an increase and negative means a decrease. QoQ uses completed quarters only.') + '</div></div>' + focusKpis
                 + '<div class="nc-card"><div class="nc-card-title"><span>' + tr('年度 SR 数量同比', 'Annual SR Volume YoY') + '</span></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('范围', 'Scope') + '</th><th>' + data.previousYear + tr('全年', ' Full Year') + '</th><th>' + data.previousYear + tr('同期', ' YTD') + '</th><th>' + data.currentYear + tr('累计', ' YTD') + '</th><th>' + tr('同比增减量 / 增减率', 'YoY Change / Rate') + '</th></tr></thead><tbody>' + volumeComparisonRows + '</tbody></table></div></div>'
-                + '<div class="nc-card"><div class="nc-card-title"><span>' + tr('季度 SR 数量同比 / 环比', 'Quarterly SR Volume YoY / QoQ') + '</span><small>' + tr('总体 · 仅完整季度', 'Overall · Completed quarters only') + '</small></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('季度', 'Quarter') + '</th><th>' + tr('上年同期', 'Prior-year Quarter') + '</th><th>' + tr('本年', 'Current Year') + '</th><th>' + tr('同比增减', 'YoY Change') + '</th><th>' + tr('上季度', 'Previous Quarter') + '</th><th>' + tr('环比增减', 'QoQ Change') + '</th></tr></thead><tbody>' + (volumeQuarterRows.join('') || '<tr><td colspan="6" class="nc-muted">' + tr('暂无完整季度', 'No completed quarter') + '</td></tr>') + '</tbody></table></div></div>'
-                + '<div class="nc-card"><div class="nc-card-title"><span>' + tr('月度 SR 数量详表', 'Monthly SR Volume Details') + '</span><small>' + tr('总体 · 本年逐月与上年同月对比', 'Overall · Current months vs prior-year months') + '</small></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('月份', 'Month') + '</th><th>' + tr('上年同月', 'Prior-year Month') + '</th><th>' + tr('本月 SR', 'Current SR') + '</th><th>' + tr('同比增减量 / 增减率', 'YoY Change / Rate') + '</th><th>Minor</th><th>Major</th><th>Critical</th><th>FRT</th><th>' + tr('未关闭', 'Open') + '</th><th>' + tr('逾期', 'Overdue') + '</th></tr></thead><tbody>' + volumeMonthlyRows.join('') + '</tbody></table></div></div>'
+                + '<div class="nc-card"><div class="nc-card-title"><span>' + tr('季度 SR 数量同比 / 环比', 'Quarterly SR Volume YoY / QoQ') + '</span><small>' + tr('分 BG · 仅完整季度', 'By BG · Completed quarters only') + '</small></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('范围', 'Scope') + '</th><th>' + tr('季度', 'Quarter') + '</th><th>' + tr('上年同期', 'Prior-year Quarter') + '</th><th>' + tr('本年', 'Current Year') + '</th><th>' + tr('同比增减', 'YoY Change') + '</th><th>' + tr('上季度', 'Previous Quarter') + '</th><th>' + tr('环比增减', 'QoQ Change') + '</th></tr></thead><tbody>' + (volumeQuarterRows.join('') || '<tr><td colspan="7" class="nc-muted">' + tr('暂无完整季度', 'No completed quarter') + '</td></tr>') + '</tbody></table></div></div>'
+                + '<div class="nc-card"><div class="nc-card-title"><span>' + tr('月度 SR 数量详表', 'Monthly SR Volume Details') + '</span><small>' + tr('分 BG · 本年逐月与上年同月对比', 'By BG · Current months vs prior-year months') + '</small></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('月份', 'Month') + '</th><th>' + tr('范围', 'Scope') + '</th><th>' + tr('上年同月', 'Prior-year Month') + '</th><th>' + tr('本月 SR', 'Current SR') + '</th><th>' + tr('同比增减量 / 增减率', 'YoY Change / Rate') + '</th><th>Minor</th><th>Major</th><th>Critical</th><th>FRT</th><th>' + tr('未关闭', 'Open') + '</th><th>' + tr('逾期', 'Overdue') + '</th></tr></thead><tbody>' + volumeMonthlyRows.join('') + '</tbody></table></div></div>'
                 + severityHtml + '<div class="nc-card"><div class="nc-card-title"><span>' + tr('辅助质量与风险指标', 'Supporting Quality & Risk Metrics') + '</span><small>' + tr('弱化展示 · 本年累计', 'Secondary · Current YTD') + '</small></div><div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>' + tr('范围', 'Scope') + '</th><th>FRT</th><th>' + tr('未关闭', 'Open') + '</th><th>' + tr('5日内到期', 'Due ≤5d') + '</th><th>' + tr('逾期未关闭', 'Overdue Open') + '</th><th>' + tr('逾期', 'Overdue') + '</th><th>' + tr('超过10天', '>10 Days') + '</th><th>' + tr('紧急恢复', 'Emergency') + '</th><th>' + tr('未恢复紧急', 'Unrecovered') + '</th><th>' + tr('解决时长', 'Resolution Time') + '</th><th>' + tr('授权率', 'Auth Rate') + '</th><th>' + tr('授权中过保率', 'Out-of-warranty') + '</th><th>' + tr('超长单', 'Overlong') + '</th><th>' + tr('非故障咨询', 'Non-fault') + '</th><th>' + tr('低分', 'Low Score') + '</th></tr></thead><tbody>' + scopes.map(scope => { const row = summaryMap.get('currentYtd|' + scope.key) || normalizeSrRow({}, {}); return '<tr class="' + (scope.key === 'TOTAL' ? 'nc-total' : '') + '"><td class="nc-name">' + scope.label + '</td><td>' + srPercent(row.sr_frt) + '</td><td>' + row.unclose_sr_cnt + '</td><td>' + row.due_within_5days_sr_cnt + '</td><td>' + row.overdue_unclose_sr_cnt + '</td><td>' + row.overdue_sr_cnt + '</td><td>' + row.over_10days_sr_cnt + '</td><td>' + row.emergency_recovery_cnt + '</td><td>' + row.unrecovered_emergency_cnt + '</td><td>' + row.e2e_report_to_resolve_dura.toFixed(2) + 'h</td><td>' + srPercent(row.authed_rate) + '</td><td>' + srPercent(row.auth_out_warranty_rate) + '</td><td>' + row.overlong_sr_cnt + '</td><td>' + row.non_fault_inquiry_sr_cnt + '</td><td>' + row.low_score_cnt + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
             const srCards = [...views.sr.querySelectorAll('.nc-card')];
             const annualChart = renderSrBarChart(tr('年度同期 SR 对比', 'Annual YTD SR Comparison'), scopes.map(scope => scope.label), [{ name: String(data.previousYear), color: '#64748b', values: scopes.map(scope => num((summaryMap.get('previousYtd|' + scope.key) || {}).sr_total)) }, { name: String(data.currentYear), color: '#38bdf8', values: scopes.map(scope => num((summaryMap.get('currentYtd|' + scope.key) || {}).sr_total)) }]);
@@ -1225,568 +1251,8 @@
             finally { srLoading = false; const currentButton = views.sr.querySelector('.nc-bu-apply'); if (currentButton) { currentButton.disabled = false; currentButton.textContent = tr('按所选条件查询', 'Query Selected Filters'); } }
         }
         let cachedInterception = null;
-        let monthlyFilled = false;
 
-        function copyMonthlyReportOutline() {
-            const outline = `# ${tr('护网与网络安全月报 · 模板框架大纲', 'Network Security Monthly Report · Outline')}
-## ${tr('报告基础信息', 'Report Metadata')}
-- ${tr('部门：埃及网络保障与运维服务部', 'Department: Egypt Network Assurance & Operations Services Department')}
-- ${tr('密级：内部公开', 'Classification: Internal')}
-- ${tr('审核人：于祥 00877023', 'Reviewer: Yu Xiang 00877023')}
-- ${tr('报告目标：强化问题与事件管理，确保变更与操作可信，推进主动风险治理。', 'Objectives: Standardize issue & incident recovery, ensure credible changes, and drive proactive risk governance.')}
 
-## ${tr('九大标准章节框架', 'Nine Standard Section Frameworks')}
-1. ${tr('整体情况：整体运行态势概括与8项核心管理举措', 'Overall Situation: Summary and 8 key management actions')}
-2. ${tr('网络变更：核心管理举措、分客户变更操作统计、高危月度趋势、高危夜间值班表、高危命令拦截、图形化拦截、工程师TOP10、项目TOP10', 'Network Changes: Key measures, customer change operations, high-risk trends, night duty roster, command/GUI interceptions, engineer & project TOP 10')}
-3. ${tr('SR与事件：SR态势分析、本年累计SR总量、同比增减率、FRT达标率、未关闭单数、逾期单数、紧急恢复', 'SR & Incidents: SR posture, YTD total, YoY rate, FRT compliance, unclosed/overdue counts, emergency recovery')}
-4. ${tr('风险治理：现网整改推进表、产品TOP N风险表、安全漏洞排查治理表', 'Risk Governance: Network remediation progress, Product TOP N risks, Vulnerability governance')}
-5. ${tr('License管理：License合规与连续运行保障', 'License Management: Compliance and continuity')}
-6. ${tr('EOS退网收编：产品收编率、版本收编率、超期网元治理推进', 'EOS Retirement: Product/version incorporation rates and overdue NE closure')}
-7. ${tr('第三方软件：第三方软件专项排查与治理清单', 'Third-party Software: Investigation & governance inventory')}
-8. ${tr('内控与稽查：内控、PR自检与质量稽查情况', 'Controls & Audits: Internal controls, PR checks and quality audits')}
-9. ${tr('网络安全例会：网络安全例会与决议跟踪闭环', 'Security Meetings: Meetings and resolution tracking')}`;
-
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(outline).then(() => {
-                    modeStatus.textContent = tr('已复制月报框架大纲到剪贴板！', 'Monthly report outline copied to clipboard!');
-                }).catch(() => {
-                    modeStatus.textContent = tr('复制失败，请重试。', 'Failed to copy to clipboard.');
-                });
-            } else {
-                modeStatus.textContent = tr('浏览器不支持直接剪贴板写入', 'Clipboard API unavailable');
-            }
-        }
-
-        function exportMonthlyReportProject() {
-            const now = new Date();
-            const yearMonth = now.toISOString().slice(0, 7);
-            const dateStr = now.toISOString().slice(0, 10);
-            const project = {
-                version: 1,
-                document: {
-                    version: 1,
-                    name: '护网与网络安全月报',
-                    title: {
-                        zh: '埃及代表处交付与服务维护月报',
-                        en: 'Network protection & cyber security monthly report'
-                    },
-                    subtitle: { zh: '', en: '' },
-                    logo: '/assets/monthly-logos/02.svg',
-                    logoWidth: 120,
-                    logoAlign: 'center',
-                    pageWidth: 1280,
-                    meta: [
-                        { id: 'meta-dept', label: { zh: '部门', en: 'Department' }, value: { zh: '埃及网络保障与运维服务部', en: 'Egypt Network Assurance & Operations Services Department' }, span: 4, heightUnits: 0 },
-                        { id: 'meta-period', label: { zh: '报告时间', en: 'Reporting period' }, value: { zh: monthlyFilled ? dateStr : '', en: monthlyFilled ? dateStr : '' }, span: 4, heightUnits: 0, autoFill: 'source' },
-                        { id: 'meta-sec', label: { zh: '密级', en: 'Classification' }, value: { zh: '内部公开', en: 'Internal' }, span: 4, heightUnits: 0 },
-                        { id: 'meta-num', label: { zh: '报告编号', en: 'Report number' }, value: { zh: monthlyFilled ? 'EGY-CS-' + yearMonth.replace('-', '') + '-V1.0' : '', en: monthlyFilled ? 'EGY-CS-' + yearMonth.replace('-', '') + '-V1.0' : '' }, span: 4, heightUnits: 0, autoFill: 'number' },
-                        { id: 'meta-month', label: { zh: '数据月份', en: 'Data month' }, value: { zh: monthlyFilled ? yearMonth : '', en: monthlyFilled ? yearMonth : '' }, span: 4, heightUnits: 0, autoFill: 'period' },
-                        { id: 'meta-reviewer', label: { zh: '审核人', en: 'Reviewer' }, value: { zh: '于祥 00877023', en: 'Yu Xiang 00877023' }, span: 4, heightUnits: 0 },
-                        { id: 'meta-obj', label: { zh: '报告目标', en: 'Report objectives' }, value: {
-                            zh: '强化问题与事件管理：规范 SR 处理、事件升级及紧急业务恢复流程，提升问题及时解决率和事故发生后 60 分钟内的业务恢复及时率，保障客户网络稳定运行。确保变更与操作可信：推动适用的变更操作 100% 纳入 IT 管道管理，落实 RFC/MOP 审批、高风险操作拦截、操作日志稽查及业务比对，确保操作合规、过程可追溯、结果可验证。推进主动风险治理：统筹 TOPN、网络整改、巡检、License、EOS及第三方软件风险闭环，完善应急演练、预案拓扑和内控稽查，防范已知风险引发现网重大业务中断与事故。',
-                            en: 'Standardize SR handling, incident escalation and emergency recovery; improve timely resolution and service recovery within 60 minutes. Ensure all applicable changes follow IT pipeline governance, RFC/MOP approval, high-risk operation interception, log audits and business verification. Close TOPN, remediation, inspection, License, EOS and third-party software risks, strengthen emergency drills, contingency plans, topology and internal audits, and prevent major service interruptions.'
-                        }, span: 12, heightUnits: 2 }
-                    ],
-                    sections: [
-                        {
-                            id: 'sec-overview',
-                            title: { zh: '整体情况', en: 'Overall situation' },
-                            span: 12,
-                            overview: true,
-                            blocks: [
-                                { id: 'blk-ov-1', type: 'text', title: { zh: '', en: '' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } }
-                            ]
-                        },
-                        {
-                            id: 'sec-change',
-                            title: { zh: '网络变更', en: 'Network changes' },
-                            span: 12,
-                            blocks: [
-                                { id: 'blk-ch-1', type: 'text', title: { zh: '核心管理举措', en: 'Key management actions' }, text: { zh: '集中开展网络变更评审，对例外情况实施专项审批，严格执行变更管理规范，加强变更管理及信息收集。通过专项审批流程管控白天变更操作，并定期组织月度培训，确保工程师规范作业。', en: 'Centralize network change reviews, implement special approvals for exceptions, strictly enforce change management rules, and strengthen information collection. Control daytime changes via specialized approval workflows and conduct regular monthly training.' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } },
-                                { id: 'blk-ch-2', type: 'table', title: { zh: '分业务范围 · 客户维度变更操作统计', en: 'Change Operations by Customer & Scope' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [{ key: 'customer', label: '客户' }, { key: 'high', label: '高危' }, { key: 'medium', label: '中危' }, { key: 'low', label: '低危' }, { key: 'total', label: '总计' }], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } },
-                                { id: 'blk-ch-3', type: 'table', title: { zh: '高危操作变更月度趋势', en: 'Monthly Trend of High-risk Operations' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [{ key: 'month', label: '月份' }, { key: 'count', label: '高危操作数' }, { key: 'mom', label: '环比变化' }, { key: 'ratio', label: '占比' }], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } },
-                                { id: 'blk-ch-4', type: 'table', title: { zh: '高危操作夜间值班表', en: 'Night Duty Roster for High-risk Operations' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [{ key: 'period', label: '值班时段' }, { key: 'engineer', label: '值班人员' }, { key: 'reviewer', label: '审批人' }, { key: 'network', label: '操作网络' }, { key: 'rfc', label: '变更单号' }, { key: 'status', label: '状态' }], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } },
-                                { id: 'blk-ch-5', type: 'chart', title: { zh: '高危命令拦截 上月 VS 本月', en: 'High-risk Command Interceptions: Prior Month vs Current Month' }, text: { zh: '', en: '' }, span: 6, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { type: 'bar', x: 'network', y: 'count', aggregation: 'sum', series: [] }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } },
-                                { id: 'blk-ch-6', type: 'chart', title: { zh: '图形化拦截 上月 VS 本月', en: 'GUI Interceptions: Prior Month vs Current Month' }, text: { zh: '', en: '' }, span: 6, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { type: 'bar', x: 'network', y: 'count', aggregation: 'sum', series: [] }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } },
-                                { id: 'blk-ch-7', type: 'table', title: { zh: '工程师维度的中高危变更 TOP 10', en: 'Top 10 Engineers by Medium/High-risk Changes' }, text: { zh: '', en: '' }, span: 6, heightUnits: 0, align: 'left', binding: null, columns: [{ key: 'rank', label: '排名' }, { key: 'engineer', label: '工程师' }, { key: 'medium', label: '中危' }, { key: 'high', label: '高危' }, { key: 'total', label: '总计' }], filters: [], limit: 10, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } },
-                                { id: 'blk-ch-8', type: 'table', title: { zh: '项目名称维度的中高危变更 TOP 10', en: 'Top 10 Projects by Medium/High-risk Changes' }, text: { zh: '', en: '' }, span: 6, heightUnits: 0, align: 'left', binding: null, columns: [{ key: 'rank', label: '排名' }, { key: 'project', label: '项目名称' }, { key: 'medium', label: '中危' }, { key: 'high', label: '高危' }, { key: 'total', label: '总计' }], filters: [], limit: 10, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } }
-                            ]
-                        },
-                        {
-                            id: 'sec-sr',
-                            title: { zh: 'SR与事件', en: 'SR & incidents' },
-                            span: 12,
-                            blocks: [
-                                { id: 'blk-sr-1', type: 'text', title: { zh: 'SR 与事件管理态势', en: 'SR & Incident Management Posture' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } },
-                                { id: 'blk-sr-2', type: 'metric', title: { zh: 'SR 核心运行指标', en: 'Core SR Metrics' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } }
-                            ]
-                        },
-                        {
-                            id: 'sec-risk',
-                            title: { zh: '风险治理', en: 'Risk governance' },
-                            span: 12,
-                            blocks: [
-                                { id: 'blk-rk-1', type: 'table', title: { zh: '现网整改推进表', en: 'Network Remediation Progress' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [{ key: 'network_name', label: '网络名称' }, { key: 'h2_plan_nes', label: 'H2计划网元数' }, { key: 'h2_uncompleted_nes', label: 'H2未完成网元数' }, { key: 'uncomplete_task_h2', label: '未完成任务数' }, { key: 'due_completion_rate', label: 'H2到期整改完成率' }, { key: 'total_uncompleted', label: '未完成网元总数' }, { key: 'total_rate', label: '总完成率' }], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } },
-                                { id: 'blk-rk-2', type: 'table', title: { zh: '产品 TOP N 风险表', en: 'Product Top N Risk Inventory' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [{ key: 'network', label: '网络' }, { key: 'total_risk', label: '预警任务及风险总数' }, { key: 'cloud_core', label: '云核' }, { key: 'wireless', label: '无线' }, { key: 'optical', label: '光' }, { key: 'datacom', label: '数通' }, { key: 'software', label: '软件' }, { key: 'rate', label: '完成率' }, { key: 'closed', label: '已闭环' }, { key: 'pending', label: '待处理' }], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } },
-                                { id: 'blk-rk-3', type: 'table', title: { zh: '安全漏洞排查治理表', en: 'Vulnerability Investigation & Governance' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [{ key: 'repoffice_cn_name', label: '代表处' }, { key: 'completed_tasks', label: '完成排查任务数' }, { key: 'uncompleted_tasks', label: '未完成排查任务数' }, { key: 'total_tasks', label: '排查任务总数' }, { key: 'check_rate', label: '排查完成率' }, { key: 'check_timeliness', label: '排查及时率' }, { key: 'comm_rate', label: '沟通完成率' }, { key: 'comm_timeliness', label: '沟通及时率' }, { key: 'impl_rate', label: '实施完成率' }], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } }
-                            ]
-                        },
-                        {
-                            id: 'sec-license',
-                            title: { zh: 'License管理', en: 'License' },
-                            span: 12,
-                            blocks: [
-                                { id: 'blk-lic-1', type: 'text', title: { zh: 'License 合规与连续运行保障', en: 'License Compliance & Business Continuity' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } }
-                            ]
-                        },
-                        {
-                            id: 'sec-eos',
-                            title: { zh: 'EOS退网收编', en: 'EOS retirement' },
-                            span: 12,
-                            blocks: [
-                                { id: 'blk-eos-1', type: 'text', title: { zh: 'EOS 退网收编整体推进', en: 'EOS Retirement Overall Progress' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } },
-                                { id: 'blk-eos-2', type: 'metric', title: { zh: 'EOS 产品与版本收编核心指标', en: 'Core EOS Product & Version Metrics' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } }
-                            ]
-                        },
-                        {
-                            id: 'sec-third',
-                            title: { zh: '第三方软件', en: 'Third-party software' },
-                            span: 12,
-                            blocks: [
-                                { id: 'blk-tp-1', type: 'text', title: { zh: '第三方软件专项排查与治理', en: 'Third-party Software Investigation & Governance' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } }
-                            ]
-                        },
-                        {
-                            id: 'sec-audit',
-                            title: { zh: '内控与稽查', en: 'Controls & audits' },
-                            span: 12,
-                            blocks: [
-                                { id: 'blk-aud-1', type: 'text', title: { zh: '内控、PR自检与质量稽查', en: 'Internal Controls, PR Checks & Quality Audits' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } }
-                            ]
-                        },
-                        {
-                            id: 'sec-meeting',
-                            title: { zh: '网络安全例会', en: 'Security meetings' },
-                            span: 12,
-                            blocks: [
-                                { id: 'blk-mt-1', type: 'text', title: { zh: '网络安全例会与决议跟踪', en: 'Security Meetings & Action Tracking' }, text: { zh: '', en: '' }, span: 12, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: { zh: '{label}：{value}。', en: '{label}: {value}.' } }
-                            ]
-                        }
-                    ],
-                    footer: { zh: '', en: '' }
-                },
-                sources: []
-            };
-
-            const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json;charset=utf-8' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = (uiLanguage === 'en' ? 'Security_Monthly_Report_Project_' : '护网与网络安全月报_模板工程_') + (yearMonth || 'template') + '.json';
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-            modeStatus.textContent = tr('月报工程 JSON 已成功导出！可随时导入平台编辑器。', 'Monthly report project JSON exported successfully! Ready for the designer.');
-        }
-
-        function renderMonthlyReport() {
-            if (!views.monthly) return;
-            const now = new Date();
-            const yearMonth = now.toISOString().slice(0, 7);
-            const dateStr = now.toISOString().slice(0, 10);
-            const reportNo = 'EGY-CS-' + yearMonth.replace('-', '') + '-V1.0';
-
-            const hasData = Boolean(dashboardCache && dashboardCache.length >= 6);
-            let changeSummaryTotal = 0;
-            let changeScopesData = [];
-            let changeMonthlyTrend = [];
-            let srKpis = { total: '—', yoy: '—', frt: '—', unclose: '—', overdue: '—', emergency: '—' };
-            let eosKpis = { productRate: '—', productPending: '—', versionRate: '—', versionPending: '—' };
-            let interpKpis = { cmdLast: 0, cmdNow: 0, guiLast: 0, guiNow: 0 };
-
-            if (monthlyFilled && hasData) {
-                const changeData = dashboardCache[3];
-                if (changeData && Array.isArray(changeData.rows)) {
-                    const changeMap = new Map(changeData.rows.map(r => [r.scope + '|' + r.year + '|' + r.month, r]));
-                    const curMonth = changeData.currentMonth;
-                    const curYear = changeData.currentYear;
-                    const ytdMonths = Array.from({ length: curMonth }, (_, i) => i + 1);
-                    const sumScope = scope => ytdMonths.reduce((sum, m) => sum + num((changeMap.get(scope + '|' + curYear + '|' + m) || {}).task_count), 0);
-                    const totalCount = sumScope('TOTAL');
-                    const cnbgCount = sumScope('CNBG');
-                    const ebgCount = sumScope('EBG');
-                    changeSummaryTotal = totalCount;
-                    changeScopesData = [
-                        { name: tr('总体 (TOTAL)', 'Overall (TOTAL)'), high: Math.round(totalCount * 0.15), med: Math.round(totalCount * 0.35), low: Math.round(totalCount * 0.5), total: totalCount },
-                        { name: 'CNBG', high: Math.round(cnbgCount * 0.15), med: Math.round(cnbgCount * 0.35), low: Math.round(cnbgCount * 0.5), total: cnbgCount },
-                        { name: 'EBG', high: Math.round(ebgCount * 0.15), med: Math.round(ebgCount * 0.35), low: Math.round(ebgCount * 0.5), total: ebgCount }
-                    ];
-
-                    for (let m = curMonth; m >= Math.max(1, curMonth - 5); m--) {
-                        const totalCur = num((changeMap.get('TOTAL|' + curYear + '|' + m) || {}).task_count);
-                        const prevM = m === 1 ? 12 : m - 1;
-                        const prevY = m === 1 ? curYear - 1 : curYear;
-                        const totalPrev = num((changeMap.get('TOTAL|' + prevY + '|' + prevM) || {}).task_count);
-                        const mom = formatChange(totalCur, totalPrev);
-                        const highCount = Math.round(totalCur * 0.15);
-                        changeMonthlyTrend.push({ month: curYear + '-' + pad2(m), high: highCount, mom, ratio: '15.0%' });
-                    }
-                }
-
-                const srData = dashboardCache[5];
-                if (srData && Array.isArray(srData.summary)) {
-                    const srSummaryMap = new Map(srData.summary.map(r => [r.snapshot_scope + '|' + r.scope_dimension_val, r]));
-                    const curYtd = srSummaryMap.get('currentYtd|TOTAL') || {};
-                    const prevYtd = srSummaryMap.get('previousYtd|TOTAL') || {};
-                    srKpis.total = curYtd.sr_total ? String(curYtd.sr_total) : '—';
-                    srKpis.yoy = formatChange(curYtd.sr_total, prevYtd.sr_total);
-                    srKpis.frt = curYtd.sr_frt ? srPercent(curYtd.sr_frt) : '—';
-                    srKpis.unclose = curYtd.unclose_sr_cnt != null ? String(curYtd.unclose_sr_cnt) : '—';
-                    srKpis.overdue = curYtd.overdue_sr_cnt != null ? String(curYtd.overdue_sr_cnt) : '—';
-                    srKpis.emergency = curYtd.emergency_recovery_cnt != null ? String(curYtd.emergency_recovery_cnt) : '0';
-                }
-
-                const prodRows = dashboardCache[1] || [];
-                const verRows = dashboardCache[2] || [];
-                if (prodRows.length || verRows.length) {
-                    const pItems = buildEosItems(prodRows, 'product');
-                    const vItems = buildEosItems(verRows, 'version');
-                    const eosSum = buildEos(pItems, vItems);
-                    const pTot = eosSum.TOTAL.product;
-                    const vTot = eosSum.TOTAL.version;
-                    eosKpis.productRate = pTot.quantity ? eosRate(pTot, false).toFixed(1) + '%' : '—';
-                    eosKpis.productPending = String(pTot.pending || 0);
-                    eosKpis.versionRate = vTot.quantity ? eosRate(vTot, false).toFixed(1) + '%' : '—';
-                    eosKpis.versionPending = String(vTot.pending || 0);
-                }
-
-                const interpData = dashboardCache[4];
-                if (interpData && Array.isArray(interpData.rows)) {
-                    const interpMap = new Map(interpData.rows.map(r => [r.scope + '|' + r.year + '|' + r.month, r]));
-                    const cMonth = interpData.currentMonth;
-                    const cYear = interpData.currentYear;
-                    const pMonth = cMonth === 1 ? 12 : cMonth - 1;
-                    const pYear = cMonth === 1 ? cYear - 1 : cYear;
-                    const curRow = interpMap.get('TOTAL|' + cYear + '|' + cMonth) || {};
-                    const prevRow = interpMap.get('TOTAL|' + pYear + '|' + pMonth) || {};
-                    interpKpis.cmdNow = num(curRow.high_risk_cmd_cnt);
-                    interpKpis.cmdLast = num(prevRow.high_risk_cmd_cnt);
-                    interpKpis.guiNow = num(curRow.high_risk_gui_cnt);
-                    interpKpis.guiLast = num(prevRow.high_risk_gui_cnt);
-                }
-            }
-
-            const overviewText = monthlyFilled && hasData
-                ? (tr('本月现网各项运维与网络保障工作整体保持平稳推进：', 'Network maintenance and assurance operations progressed steadily this month:')
-                    + '\n' + tr('1. 变更操作管理：本年累计完成变更操作 ', '1. Change operations: YTD completed change operations ') + (changeSummaryTotal || '—') + tr(' 次，严格落实高危操作夜间集中评审与值班机制。', ', strictly enforcing night reviews and duty rosters.')
-                    + '\n' + tr('2. 紧急变更管理：严格管控白天变更与紧急操作，落实专项审批与复核。', '2. Emergency changes: strictly control daytime operations with special approval.')
-                    + '\n' + tr('3. 风险治理：持续推进现网整改、产品 TOPN 风险与漏洞治理闭环。', '3. Risk governance: advance remediation, TOP N, and vulnerability closure.')
-                    + '\n' + tr('4. 应急预案及拓扑治理：完善重大应急预案演练与拓扑更新。', '4. Contingency plans: refine emergency drills and topology updates.')
-                    + '\n' + tr('5. 高价值网络巡检：落实关键高价值网络深度专项巡检。', '5. High-value network inspections: conduct in-depth inspections.')
-                    + '\n' + tr('6. 账号管理：强化现网维护账号权限最小化与定期清理。', '6. Account management: enforce least privilege and regular cleanup.')
-                    + '\n' + tr('7. License风险管理：定期核查 License 到期与授权合规情况。', '7. License risks: verify expiration and commercial license compliance.')
-                    + '\n' + tr('8. 客户例会机制：健全网络安全例会制度，决议闭环跟踪。', '8. Customer meetings: maintain security meeting mechanism and track resolutions.'))
-                : (tr('【整体运行态势框架结构 · 待在线采集数据汇总】', '[Overall Situation Framework · Pending Live Data Summary]')
-                    + '\n1. ' + tr('变更操作管理：[规范变更操作流程，本月变更执行与审批合规率]', 'Change operations: [standardize operations, execution and approval compliance]')
-                    + '\n2. ' + tr('紧急变更管理：[强化紧急变更事前审批与事后复盘]', 'Emergency changes: [pre-approval and post-review of emergency changes]')
-                    + '\n3. ' + tr('风险治理：[持续推动现网已知风险、隐患及隐形故障清零]', 'Risk governance: [drive closure of network risks, hazards, and implicit faults]')
-                    + '\n4. ' + tr('应急预案及拓扑治理：[完善重大应急预案演练与拓扑更新]', 'Contingency plans & topology: [emergency drills and topology updates]')
-                    + '\n5. ' + tr('高价值网络巡检：[落实关键高价值网络深度专项巡检]', 'High-value inspections: [in-depth inspections of key networks]')
-                    + '\n6. ' + tr('账号管理：[强化现网维护账号权限最小化与定期清理]', 'Account management: [least privilege and periodic cleanup]')
-                    + '\n7. ' + tr('License风险管理：[定期核查License到期与授权合规情况]', 'License risk: [regular audit of expiration and compliance]')
-                    + '\n8. ' + tr('客户例会机制：[健全网络安全例会制度，决议闭环跟踪]', 'Customer meetings: [sound security meeting mechanisms and resolution tracking]'));
-
-            const changeScopesRows = changeScopesData.length
-                ? changeScopesData.map(item => '<tr><td class="nc-name">' + escapeHtml(item.name) + '</td><td>' + item.high + '</td><td>' + item.med + '</td><td>' + item.low + '</td><td class="nc-target">' + item.total + '</td></tr>').join('')
-                : '<tr><td colspan="5" class="nc-muted" style="text-align:center;padding:12px;">' + tr('【表格框架占位】在线直接采集或导入变更数据后自动透视呈现', '[Table Framework Placeholder] Will aggregate once live change data is fetched') + '</td></tr>';
-
-            const changeTrendRows = changeMonthlyTrend.length
-                ? changeMonthlyTrend.map(item => '<tr><td class="nc-name">' + item.month + '</td><td>' + item.high + '</td><td>' + item.mom + '</td><td>' + item.ratio + '</td></tr>').join('')
-                : '<tr><td colspan="4" class="nc-muted" style="text-align:center;padding:12px;">' + tr('【表格框架占位】在线直接采集近半年高危月度趋势数据', '[Table Framework Placeholder] Will show 6-month high-risk trends') + '</td></tr>';
-
-            const cmdInterpHtml = monthlyFilled && hasData
-                ? renderSrBarChart(tr('高危命令拦截 对比', 'High-risk Command Interceptions'), [tr('上月', 'Prior Month'), tr('本月', 'Current Month')], [{ name: tr('拦截次数', 'Count'), color: '#f87171', values: [interpKpis.cmdLast, interpKpis.cmdNow] }])
-                : '<div class="nc-monthly-chart-box">📊 ' + tr('【图表框架占位】高危命令拦截 上月 VS 本月 柱状对比图', '[Chart Placeholder] Command Interceptions: Prior Month vs Current Month') + '</div>';
-
-            const guiInterpHtml = monthlyFilled && hasData
-                ? renderSrBarChart(tr('图形化拦截 对比', 'GUI Interceptions'), [tr('上月', 'Prior Month'), tr('本月', 'Current Month')], [{ name: tr('拦截次数', 'Count'), color: '#38bdf8', values: [interpKpis.guiLast, interpKpis.guiNow] }])
-                : '<div class="nc-monthly-chart-box">📊 ' + tr('【图表框架占位】图形化拦截 上月 VS 本月 柱状对比图', '[Chart Placeholder] GUI Interceptions: Prior Month vs Current Month') + '</div>';
-
-            views.monthly.innerHTML = `
-                <div class="nc-monthly-banner">
-                    <div class="nc-monthly-head">
-                        <div class="nc-monthly-title-group">
-                            <div>
-                                <div class="nc-monthly-title">${tr('埃及代表处交付与服务维护月报', 'Network protection & cyber security monthly report')}</div>
-                                <div class="nc-monthly-sub">${tr('护网与网络安全月报 · 在线模板框架', 'Network Security Monthly Report · Online Template Framework')} · <span style="color:${monthlyFilled ? '#86efac' : '#38bdf8'};font-weight:800;">${monthlyFilled ? tr('⚡ 现网数据已注入', '⚡ Live Data Injected') : tr('📋 纯框架骨架模式', '📋 Pure Skeleton Mode')}</span></div>
-                            </div>
-                        </div>
-                        <div class="nc-monthly-actions">
-                            <button class="nc-monthly-btn primary nc-monthly-fill-btn" type="button" title="${tr('从当前已抓取/导入的专题数据一键提取填充框架', 'Inject fetched topic data into the template framework')}">⚡ ${tr('在线填充数据', 'Inject Live Data')}</button>
-                            <button class="nc-monthly-btn nc-monthly-reset-btn" type="button" title="${tr('清空具体内容，恢复为纯净的标准模板框架', 'Clear data and return to clean skeleton')}">↺ ${tr('重置纯框架', 'Reset Framework')}</button>
-                            <button class="nc-monthly-btn success nc-monthly-export-btn" type="button" title="${tr('导出为可在月报编辑器直接打开的工程 JSON', 'Export project JSON for monthly designer')}">📥 ${tr('导出月报工程 (JSON)', 'Export Project (JSON)')}</button>
-                            <button class="nc-monthly-btn nc-monthly-copy-btn" type="button" title="${tr('复制完整框架大纲到剪贴板', 'Copy framework outline to clipboard')}">📋 ${tr('复制框架大纲', 'Copy Outline')}</button>
-                        </div>
-                    </div>
-                    <div class="nc-monthly-meta-grid">
-                        <div class="nc-monthly-meta-item"><div class="nc-monthly-meta-label">${tr('部门', 'Department')}</div><div class="nc-monthly-meta-value">${tr('埃及网络保障与运维服务部', 'Egypt Network Assurance & Operations Services Department')}</div></div>
-                        <div class="nc-monthly-meta-item"><div class="nc-monthly-meta-label">${tr('报告时间', 'Reporting Period')}</div><div class="nc-monthly-meta-value ${monthlyFilled ? '' : 'placeholder'}">${monthlyFilled ? dateStr : tr('[待在线生成]', '[Pending generation]')}</div></div>
-                        <div class="nc-monthly-meta-item"><div class="nc-monthly-meta-label">${tr('密级', 'Classification')}</div><div class="nc-monthly-meta-value">${tr('内部公开', 'Internal')}</div></div>
-                        <div class="nc-monthly-meta-item"><div class="nc-monthly-meta-label">${tr('报告编号', 'Report Number')}</div><div class="nc-monthly-meta-value ${monthlyFilled ? '' : 'placeholder'}">${monthlyFilled ? reportNo : tr('[待在线生成]', '[Pending generation]')}</div></div>
-                        <div class="nc-monthly-meta-item"><div class="nc-monthly-meta-label">${tr('数据月份', 'Data Month')}</div><div class="nc-monthly-meta-value ${monthlyFilled ? '' : 'placeholder'}">${monthlyFilled ? yearMonth : tr('[待在线生成]', '[Pending generation]')}</div></div>
-                        <div class="nc-monthly-meta-item"><div class="nc-monthly-meta-label">${tr('审核人', 'Reviewer')}</div><div class="nc-monthly-meta-value">${tr('于祥 00877023', 'Yu Xiang 00877023')}</div></div>
-                        <div class="nc-monthly-meta-item full"><div class="nc-monthly-meta-label">${tr('报告目标', 'Report Objectives')}</div><div class="nc-monthly-meta-value" style="color:#cbd5e1;line-height:1.55;">${tr('强化问题与事件管理：规范 SR 处理、事件升级及紧急业务恢复流程，提升问题及时解决率和事故发生后 60 分钟内的业务恢复及时率，保障客户网络稳定运行。确保变更与操作可信：推动适用的变更操作 100% 纳入 IT 管道管理，落实 RFC/MOP 审批、高风险操作拦截、操作日志稽查及业务比对，确保操作合规、过程可追溯、结果可验证。推进主动风险治理：统筹 TOPN、网络整改、巡检、License、EOS及第三方软件风险闭环，完善应急演练、预案拓扑和内控稽查，防范已知风险引发现网重大业务中断与事故。', 'Standardize SR handling, incident escalation and emergency recovery; improve timely resolution and service recovery within 60 minutes. Ensure all applicable changes follow IT pipeline governance, RFC/MOP approval, high-risk operation interception, log audits and business verification. Close TOPN, remediation, inspection, License, EOS and third-party software risks, strengthen emergency drills, contingency plans, topology and internal audits, and prevent major service interruptions.')}</div></div>
-                    </div>
-                </div>
-
-                <div class="nc-monthly-section">
-                    <div class="nc-monthly-section-head">
-                        <div class="nc-monthly-section-title"><span class="nc-monthly-section-index">1</span> <span>${tr('整体情况', 'Overall Situation')}</span></div>
-                        <span class="nc-monthly-badge text">${tr('核心概览', 'Overview')}</span>
-                    </div>
-                    <div class="nc-monthly-section-body">
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge text">${tr('文本 Text', 'Text')}</span> <span>${tr('整体运行态势概括与关键结论', 'Overall Posture Overview')}</span></div>
-                            </div>
-                            <div class="nc-monthly-text-box outline" style="white-space:pre-line;">${overviewText}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="nc-monthly-section">
-                    <div class="nc-monthly-section-head">
-                        <div class="nc-monthly-section-title"><span class="nc-monthly-section-index">2</span> <span>${tr('网络变更', 'Network Changes')}</span></div>
-                        <span class="nc-monthly-badge table">${tr('8个子模块', '8 Modules')}</span>
-                    </div>
-                    <div class="nc-monthly-section-body">
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge text">${tr('文本 Text', 'Text')}</span> <span>${tr('核心管理举措', 'Core Management Actions')}</span></div>
-                            </div>
-                            <div class="nc-monthly-text-box">${tr('集中开展网络变更评审，对例外情况实施专项审批，严格执行变更管理规范，加强变更管理及信息收集。通过专项审批流程管控白天变更操作，并定期组织月度培训，确保工程师规范作业。', 'Centralize network change reviews, implement special approvals for exceptions, strictly enforce change management rules, and strengthen information collection. Control daytime changes via specialized approval workflows and conduct regular monthly training.')}</div>
-                        </div>
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge table">${tr('表格 Table', 'Table')}</span> <span>${tr('分业务范围 · 客户维度变更操作统计', 'Change Operations by Customer & Scope')}</span></div>
-                            </div>
-                            <div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>${tr('客户 / 范围', 'Customer / Scope')}</th><th>${tr('高危', 'High Risk')}</th><th>${tr('中危', 'Medium Risk')}</th><th>${tr('低危', 'Low Risk')}</th><th>${tr('总计', 'Total')}</th></tr></thead><tbody>${changeScopesRows}</tbody></table></div>
-                        </div>
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge table">${tr('表格 Table', 'Table')}</span> <span>${tr('高危操作变更月度趋势', 'Monthly Trend of High-risk Operations')}</span></div>
-                            </div>
-                            <div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>${tr('月份', 'Month')}</th><th>${tr('高危操作数', 'High-risk Count')}</th><th>${tr('环比变化', 'MoM Change')}</th><th>${tr('高危占比', 'Share')}</th></tr></thead><tbody>${changeTrendRows}</tbody></table></div>
-                        </div>
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge table">${tr('表格 Table', 'Table')}</span> <span>${tr('高危操作夜间值班表', 'Night Duty Roster for High-risk Operations')}</span></div>
-                            </div>
-                            <div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>${tr('值班时段', 'Shift Period')}</th><th>${tr('值班人员', 'Duty Engineer')}</th><th>${tr('审批人', 'Reviewer')}</th><th>${tr('操作网络', 'Target Network')}</th><th>${tr('变更单号', 'RFC / MOP')}</th><th>${tr('状态', 'Status')}</th></tr></thead><tbody><tr><td colspan="6" class="nc-muted" style="text-align:center;padding:12px;">${tr('【表格框架占位】直接关联夜间运维值班表在线数据呈现', '[Table Framework Placeholder] Will link night duty roster records')}</td></tr></tbody></table></div>
-                        </div>
-                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;">
-                            <div class="nc-monthly-block">
-                                <div class="nc-monthly-block-head">
-                                    <div class="nc-monthly-block-title"><span class="nc-monthly-badge chart">${tr('图表 Chart', 'Chart')}</span> <span>${tr('高危命令拦截 上月 VS 本月', 'Command Interceptions: Prior Month vs Current Month')}</span></div>
-                                </div>
-                                <div>${cmdInterpHtml}</div>
-                            </div>
-                            <div class="nc-monthly-block">
-                                <div class="nc-monthly-block-head">
-                                    <div class="nc-monthly-block-title"><span class="nc-monthly-badge chart">${tr('图表 Chart', 'Chart')}</span> <span>${tr('图形化拦截 上月 VS 本月', 'GUI Interceptions: Prior Month vs Current Month')}</span></div>
-                                </div>
-                                <div>${guiInterpHtml}</div>
-                            </div>
-                        </div>
-                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;margin-top:8px;">
-                            <div class="nc-monthly-block">
-                                <div class="nc-monthly-block-head">
-                                    <div class="nc-monthly-block-title"><span class="nc-monthly-badge table">${tr('表格 Table', 'Table')}</span> <span>${tr('工程师维度的中高危变更 TOP 10', 'Top 10 Engineers by Medium/High-risk Changes')}</span></div>
-                                </div>
-                                <div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>${tr('排名', 'Rank')}</th><th>${tr('工程师', 'Engineer')}</th><th>${tr('中危', 'Medium')}</th><th>${tr('高危', 'High')}</th><th>${tr('总计', 'Total')}</th></tr></thead><tbody><tr><td colspan="5" class="nc-muted" style="text-align:center;padding:10px;">${tr('【表格框架占位】工程师维度中高危变更排名', '[Table Placeholder] Engineer ranking')}</td></tr></tbody></table></div>
-                            </div>
-                            <div class="nc-monthly-block">
-                                <div class="nc-monthly-block-head">
-                                    <div class="nc-monthly-block-title"><span class="nc-monthly-badge table">${tr('表格 Table', 'Table')}</span> <span>${tr('项目名称维度的中高危变更 TOP 10', 'Top 10 Projects by Medium/High-risk Changes')}</span></div>
-                                </div>
-                                <div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>${tr('排名', 'Rank')}</th><th>${tr('项目名称', 'Project Name')}</th><th>${tr('中危', 'Medium')}</th><th>${tr('高危', 'High')}</th><th>${tr('总计', 'Total')}</th></tr></thead><tbody><tr><td colspan="5" class="nc-muted" style="text-align:center;padding:10px;">${tr('【表格框架占位】项目维度中高危变更排名', '[Table Placeholder] Project ranking')}</td></tr></tbody></table></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="nc-monthly-section">
-                    <div class="nc-monthly-section-head">
-                        <div class="nc-monthly-section-title"><span class="nc-monthly-section-index">3</span> <span>${tr('SR与事件', 'SR & Incidents')}</span></div>
-                        <span class="nc-monthly-badge metric">${tr('运行指标', 'Metrics')}</span>
-                    </div>
-                    <div class="nc-monthly-section-body">
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge text">${tr('文本 Text', 'Text')}</span> <span>${tr('SR 与事件管理态势', 'SR & Incident Posture')}</span></div>
-                            </div>
-                            <div class="nc-monthly-text-box outline">${tr('规范 SR 处理、事件升级及紧急业务恢复流程，提升问题及时解决率和事故发生后 60 分钟内的业务恢复及时率，保障客户网络稳定运行。', 'Standardize SR handling, incident escalation and emergency recovery; improve timely resolution and service recovery within 60 minutes.')}</div>
-                        </div>
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge metric">${tr('指标 KPI', 'KPI Cards')}</span> <span>${tr('SR 运行核心指标卡', 'Core SR Metric Cards')}</span></div>
-                            </div>
-                            <div class="nc-monthly-kpis">
-                                <div class="nc-monthly-kpi"><div class="nc-monthly-kpi-label">${tr('本年累计 SR', 'YTD SR Total')}</div><div class="nc-monthly-kpi-val" style="color:#38bdf8;">${srKpis.total}</div><div class="nc-monthly-kpi-sub">${tr('Technical Request', 'Technical Request')}</div></div>
-                                <div class="nc-monthly-kpi"><div class="nc-monthly-kpi-label">${tr('同比增减率', 'YoY Rate')}</div><div class="nc-monthly-kpi-val" style="color:#fbbf24;">${srKpis.yoy}</div><div class="nc-monthly-kpi-sub">${tr('与去年同期对比', 'vs Prior YTD')}</div></div>
-                                <div class="nc-monthly-kpi"><div class="nc-monthly-kpi-label">${tr('FRT 解决及时率', 'FRT Rate')}</div><div class="nc-monthly-kpi-val" style="color:#86efac;">${srKpis.frt}</div><div class="nc-monthly-kpi-sub">${tr('目标 ≥99.0%', 'Target ≥99.0%')}</div></div>
-                                <div class="nc-monthly-kpi"><div class="nc-monthly-kpi-label">${tr('未关闭单据', 'Unclosed')}</div><div class="nc-monthly-kpi-val" style="color:#cbd5e1;">${srKpis.unclose}</div><div class="nc-monthly-kpi-sub">${tr('当前遗留在途', 'Open tickets')}</div></div>
-                                <div class="nc-monthly-kpi"><div class="nc-monthly-kpi-label">${tr('逾期单据数', 'Overdue')}</div><div class="nc-monthly-kpi-val" style="color:#f87171;">${srKpis.overdue}</div><div class="nc-monthly-kpi-sub">${tr('需优先闭环', 'Priority focus')}</div></div>
-                                <div class="nc-monthly-kpi"><div class="nc-monthly-kpi-label">${tr('紧急恢复事件', 'Emergency')}</div><div class="nc-monthly-kpi-val" style="color:#a78bfa;">${srKpis.emergency}</div><div class="nc-monthly-kpi-sub">${tr('60分钟内恢复', 'Recovered ≤60m')}</div></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="nc-monthly-section">
-                    <div class="nc-monthly-section-head">
-                        <div class="nc-monthly-section-title"><span class="nc-monthly-section-index">4</span> <span>${tr('风险治理', 'Risk Governance')}</span></div>
-                        <span class="nc-monthly-badge table">${tr('整改 / TOPN / 漏洞', '3 Tables')}</span>
-                    </div>
-                    <div class="nc-monthly-section-body">
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge table">${tr('表格 Table', 'Table')}</span> <span>${tr('现网整改推进表', 'Network Remediation Progress')}</span></div>
-                            </div>
-                            <div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>${tr('网络名称', 'Network')}</th><th>${tr('H2计划网元数', 'H2 Planned NEs')}</th><th>${tr('H2未完成网元数', 'H2 Uncompleted NEs')}</th><th>${tr('未完成任务数', 'Open Tasks')}</th><th>${tr('H2到期整改完成率', 'H2 Due Completion Rate')}</th><th>${tr('未完成网元总数', 'Total Uncompleted')}</th><th>${tr('总完成率', 'Overall Rate')}</th></tr></thead><tbody><tr><td colspan="7" class="nc-muted" style="text-align:center;padding:12px;">${tr('【表格框架占位】现网整改任务及网元完成率推进表', '[Table Placeholder] Network remediation tasks & NE completion rates')}</td></tr></tbody></table></div>
-                        </div>
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge table">${tr('表格 Table', 'Table')}</span> <span>${tr('产品 TOP N 风险表', 'Product Top N Risk Inventory')}</span></div>
-                            </div>
-                            <div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>${tr('网络', 'Network')}</th><th>${tr('预警任务及风险总数', 'Total Risks')}</th><th>${tr('云核', 'Cloud Core')}</th><th>${tr('无线', 'Wireless')}</th><th>${tr('光', 'Optical')}</th><th>${tr('数通', 'Datacom')}</th><th>${tr('软件', 'Software')}</th><th>${tr('完成率', 'Completion Rate')}</th><th>${tr('已闭环', 'Closed')}</th><th>${tr('待处理', 'Pending')}</th></tr></thead><tbody><tr><td colspan="10" class="nc-muted" style="text-align:center;padding:12px;">${tr('【表格框架占位】产品 TOP N 风险及各产品线分布表', '[Table Placeholder] Product Top N risks and product line breakdown')}</td></tr></tbody></table></div>
-                        </div>
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge table">${tr('表格 Table', 'Table')}</span> <span>${tr('安全漏洞排查治理表', 'Vulnerability Investigation & Governance')}</span></div>
-                            </div>
-                            <div class="nc-table-wrap"><table class="nc-table"><thead><tr><th>${tr('代表处', 'Rep Office')}</th><th>${tr('完成排查任务数', 'Completed Tasks')}</th><th>${tr('未完成排查任务数', 'Open Tasks')}</th><th>${tr('排查任务总数', 'Total Tasks')}</th><th>${tr('排查完成率', 'Check Rate')}</th><th>${tr('排查及时率', 'Timeliness Rate')}</th><th>${tr('沟通完成率', 'Comm Rate')}</th><th>${tr('沟通及时率', 'Comm Timeliness')}</th><th>${tr('实施完成率', 'Impl Rate')}</th></tr></thead><tbody><tr><td colspan="9" class="nc-muted" style="text-align:center;padding:12px;">${tr('【表格框架占位】漏洞排查、沟通及实施治理进展表', '[Table Placeholder] Vulnerability investigation, communication & implementation')}</td></tr></tbody></table></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="nc-monthly-section">
-                    <div class="nc-monthly-section-head">
-                        <div class="nc-monthly-section-title"><span class="nc-monthly-section-index">5</span> <span>${tr('License管理', 'License Management')}</span></div>
-                        <span class="nc-monthly-badge text">${tr('合规与连续运行', 'Compliance')}</span>
-                    </div>
-                    <div class="nc-monthly-section-body">
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge text">${tr('文本 Text', 'Text')}</span> <span>${tr('License 合规与连续运行保障', 'License Compliance & Continuity')}</span></div>
-                            </div>
-                            <div class="nc-monthly-text-box outline">${tr('【框架占位】统筹现网 License 授权到期预警、超容风险核查、商业许可合规性稽查以及应急授权容灾预案，确保现网业务连续稳定运行。', '[Framework Placeholder] Oversee license expiration warnings, capacity risks, commercial compliance audits, and emergency license plans to ensure business continuity.')}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="nc-monthly-section">
-                    <div class="nc-monthly-section-head">
-                        <div class="nc-monthly-section-title"><span class="nc-monthly-section-index">6</span> <span>${tr('EOS退网收编', 'EOS Retirement & Consolidation')}</span></div>
-                        <span class="nc-monthly-badge metric">${tr('收编目标', 'Targets')}</span>
-                    </div>
-                    <div class="nc-monthly-section-body">
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge text">${tr('文本 Text', 'Text')}</span> <span>${tr('EOS 退网收编整体推进', 'Overall Retirement Progress')}</span></div>
-                            </div>
-                            <div class="nc-monthly-text-box outline">${tr('加快老旧设备退网与高危版本收编，统筹年度基线收编计划，压降现网已知高危风险存量，推动客户达成年度退网收编考核目标。', 'Accelerate the retirement of legacy equipment and incorporation of high-risk versions, reducing operational risks and meeting annual KPI targets.')}</div>
-                        </div>
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge metric">${tr('指标 KPI', 'KPI Cards')}</span> <span>${tr('EOS 产品与版本收编核心指标', 'EOS Product & Version Metrics')}</span></div>
-                            </div>
-                            <div class="nc-monthly-kpis">
-                                <div class="nc-monthly-kpi"><div class="nc-monthly-kpi-label">${tr('产品收编达成率', 'Product Rate')}</div><div class="nc-monthly-kpi-val" style="color:#22d3ee;">${eosKpis.productRate}</div><div class="nc-monthly-kpi-sub">${tr('考核目标 30%', 'Target 30%')}</div></div>
-                                <div class="nc-monthly-kpi"><div class="nc-monthly-kpi-label">${tr('产品待收编网元', 'Product Pending')}</div><div class="nc-monthly-kpi-val" style="color:#cbd5e1;">${eosKpis.productPending}</div><div class="nc-monthly-kpi-sub">${tr('重点跟进无计划项', 'Follow up No Plan')}</div></div>
-                                <div class="nc-monthly-kpi"><div class="nc-monthly-kpi-label">${tr('版本收编达成率', 'Version Rate')}</div><div class="nc-monthly-kpi-val" style="color:#a78bfa;">${eosKpis.versionRate}</div><div class="nc-monthly-kpi-sub">${tr('考核目标 80%', 'Target 80%')}</div></div>
-                                <div class="nc-monthly-kpi"><div class="nc-monthly-kpi-label">${tr('版本待收编网元', 'Version Pending')}</div><div class="nc-monthly-kpi-val" style="color:#cbd5e1;">${eosKpis.versionPending}</div><div class="nc-monthly-kpi-sub">${tr('重点跟进无计划项', 'Follow up No Plan')}</div></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="nc-monthly-section">
-                    <div class="nc-monthly-section-head">
-                        <div class="nc-monthly-section-title"><span class="nc-monthly-section-index">7</span> <span>${tr('第三方软件', 'Third-party Software')}</span></div>
-                        <span class="nc-monthly-badge text">${tr('专项治理', 'Governance')}</span>
-                    </div>
-                    <div class="nc-monthly-section-body">
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge text">${tr('文本 Text', 'Text')}</span> <span>${tr('第三方软件专项排查与治理', 'Third-party Software Investigation & Governance')}</span></div>
-                            </div>
-                            <div class="nc-monthly-text-box outline">${tr('【框架占位】落实第三方商用软件、开源组件及操作系统安全基线排查，强化 CVE 漏洞扫描与已知缺陷补丁修补，建立第三方软件台账并闭环治理。', '[Framework Placeholder] Perform third-party software, open-source component, and OS baseline checks. Strengthen CVE patch management and inventory control.')}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="nc-monthly-section">
-                    <div class="nc-monthly-section-head">
-                        <div class="nc-monthly-section-title"><span class="nc-monthly-section-index">8</span> <span>${tr('内控与稽查', 'Controls & Audits')}</span></div>
-                        <span class="nc-monthly-badge text">${tr('质量与合规', 'Compliance')}</span>
-                    </div>
-                    <div class="nc-monthly-section-body">
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge text">${tr('文本 Text', 'Text')}</span> <span>${tr('内控、PR自检与质量稽查', 'Internal Controls, PR Checks & Quality Audits')}</span></div>
-                            </div>
-                            <div class="nc-monthly-text-box outline">${tr('【框架占位】执行现网维护作业合规性抽检、PR（问题单/求助单）自查及双人复核制度，实施操作日志月度深度审计，确保维护作业过程可追溯、行为合规、风险可控。', '[Framework Placeholder] Conduct maintenance operation compliance sampling, PR self-inspections, dual-person verification, and monthly log audits.')}</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="nc-monthly-section">
-                    <div class="nc-monthly-section-head">
-                        <div class="nc-monthly-section-title"><span class="nc-monthly-section-index">9</span> <span>${tr('网络安全例会', 'Security Meetings')}</span></div>
-                        <span class="nc-monthly-badge text">${tr('例会与决议', 'Tracking')}</span>
-                    </div>
-                    <div class="nc-monthly-section-body">
-                        <div class="nc-monthly-block">
-                            <div class="nc-monthly-block-head">
-                                <div class="nc-monthly-block-title"><span class="nc-monthly-badge text">${tr('文本 Text', 'Text')}</span> <span>${tr('网络安全例会与决议跟踪', 'Security Meetings & Resolution Tracking')}</span></div>
-                            </div>
-                            <div class="nc-monthly-text-box outline">${tr('【框架占位】定期组织代表处与客户网络安全月度例会，汇报现网安全态势与风险整改进展；建立例会决议待办清单，明确责任人与闭环周期，确保各项安全要求落地见效。', '[Framework Placeholder] Organize regular monthly network security meetings, report posture and progress, maintain action item lists, and track closures.')}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            const fillBtn = views.monthly.querySelector('.nc-monthly-fill-btn');
-            const resetBtn = views.monthly.querySelector('.nc-monthly-reset-btn');
-            const exportBtn = views.monthly.querySelector('.nc-monthly-export-btn');
-            const copyBtn = views.monthly.querySelector('.nc-monthly-copy-btn');
-
-            if (fillBtn) {
-                fillBtn.addEventListener('click', () => {
-                    if (!dashboardCache) {
-                        modeStatus.textContent = tr('请先点击右上角【刷新专题】或导入 JSON 获取现网数据后，再进行在线填充。', 'Please refresh insights or import JSON before injecting live data.');
-                        return;
-                    }
-                    monthlyFilled = true;
-                    renderMonthlyReport();
-                    modeStatus.textContent = tr('已将当前现网专题数据注入月报框架！', 'Injected live topic data into the monthly report framework!');
-                });
-            }
-            if (resetBtn) {
-                resetBtn.addEventListener('click', () => {
-                    monthlyFilled = false;
-                    renderMonthlyReport();
-                    modeStatus.textContent = tr('已重置为纯净月报模板框架。', 'Reset to clean template framework.');
-                });
-            }
-            if (exportBtn) {
-                exportBtn.addEventListener('click', exportMonthlyReportProject);
-            }
-            if (copyBtn) {
-                copyBtn.addEventListener('click', copyMonthlyReportOutline);
-            }
-        }
 
         async function loadDashboard() {
             if (loading || changeLoading || srLoading || destroyed) return;
@@ -1806,7 +1272,6 @@
                 if (destroyed) return;
                 dashboardCache = result; capturedAt = new Date().toISOString();
                 renderCertificate(result[0]); renderEos(result[1], result[2]); renderChange(result[3]); cachedInterception = result[4]; renderInterception(cachedInterception); renderSr(result[5]);
-                renderMonthlyReport();
                 loaded = true;
                 modeStatus.textContent = dashboardStatus(result);
             } catch (error) {
@@ -1817,7 +1282,6 @@
             } finally { loading = false; refreshButton.disabled = false; jsonExportButton.disabled = !dashboardCache; }
         }
         refreshButton.addEventListener('click', loadDashboard);
-        renderMonthlyReport();
         return {
             showCsv: function () { if (active) setMode(false); },
             isLoading: function () { return loading || changeLoading || srLoading; },
