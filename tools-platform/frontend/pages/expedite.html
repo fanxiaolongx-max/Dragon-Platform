@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>一键催办 - Tools Platform</title>
-    <link rel="stylesheet" href="/css/shared.css?v=20261010-01">
+    <link rel="stylesheet" href="/css/shared.css?v=20261011-02">
     <style>
         body {
             background: #f4f6f8;
@@ -600,9 +600,11 @@
             cursor: pointer;
         }
     </style>
+    <link rel="stylesheet" href="/css/startup-screen.css?v=20261011-45">
 </head>
 
 <body>
+    <script src="/js/shared/startup-screen.js?v=20261011-45" data-startup-page="expedite"></script>
     <div class="page-container">
         <div class="controls">
             <h2><span data-i18n="title">一键催办</span> <span
@@ -1368,6 +1370,7 @@
             } catch (e) {
                 console.error(e);
                 renderExpediteSourcePanel();
+                window.ToolsPageStartup?.issue('data',e);
                 showToast('初始化失败', 'error');
                 document.getElementById('loading-state').innerHTML = '<h3>加载失败</h3><p>无法获取配置或数据</p>';
             }
@@ -1395,6 +1398,7 @@
             } catch (e) {
                 console.error(e);
                 renderExpediteSourcePanel();
+                window.ToolsPageStartup?.issue('data',e);
                 showToast('数据加载失败', 'error');
                 document.getElementById('loading-state').innerHTML = '<h3>加载失败</h3><p>无法连接到数据库或接口报错</p>';
             }
@@ -1616,6 +1620,7 @@
                 }
                 renderExpediteSourcePanel();
             } catch (e) {
+                window.ToolsPageStartup?.issue('policy',e);
                 console.error('Failed to fetch welink policy', e);
                 renderExpediteSourcePanel();
             }
@@ -1633,6 +1638,7 @@
                 if (latestFailingData) renderBriefText();
                 renderExpediteSourcePanel();
             } catch (e) {
+                window.ToolsPageStartup?.issue('categories',e);
                 console.warn('Failed to load global categories', e);
                 renderExpediteSourcePanel();
             }
@@ -2268,7 +2274,7 @@ ${excelUrl ? 'Remove-Item $tempXlsx -ErrorAction SilentlyContinue' : ''}
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             updateI18n();
             renderExpediteFrontendVersion();
             const modeSelect = document.getElementById('expediteSourceMode');
@@ -2281,9 +2287,9 @@ ${excelUrl ? 'Remove-Item $tempXlsx -ErrorAction SilentlyContinue' : ''}
                 });
             }
             renderExpediteSourcePanel();
-            initExpedite();
-            fetchDistributionPolicy();
-            fetchGlobalCategories();
+            const startup=window.ToolsPageStartup,load=(key,work)=>startup?startup.run(key,work):work();
+            const results=await Promise.allSettled([load('data',()=>initExpedite()),load('policy',()=>fetchDistributionPolicy()),load('categories',()=>fetchGlobalCategories())]);
+            const error=results.find(result=>result.status==='rejected');if(error)startup?.fail(error.reason);else await startup?.finish();
         });
 
         window.addEventListener('tools:languagechange', () => {

@@ -1,0 +1,14 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),express=require('express');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'monthly-delete-'));process.env.TOOLS_DATA_DIR=path.join(temp,'tools');process.env.TOOLS_REPORT_DATA_DIR=path.join(temp,'reports');
+const repo=require('../backend/models/import-source-repository'),engine=require('../frontend/js/monthly-designer/document-engine'),{runWithTenant}=require('../backend/models/tenant-context');
+test.after(async()=>{await require('../backend/models/app-db').closeDatabase();await require('../backend/models/tenant-sqlite-pool').closeAll();fs.rmSync(temp,{recursive:true,force:true});});
+test('bulk deletion validates IDs and affects only reports in the current tenant',async()=>{
+ const a=await repo.saveDocument(engine.defaults()),b=await repo.saveDocument({...engine.defaults(),name:'Another'});const batch=await repo.createBatch();
+ for(const ids of [[],['bad id'],['x',null],Array(501).fill('x')])await assert.rejects(repo.deleteDocuments(ids),/valid monthly document/);
+ await runWithTenant('other',async()=>{const other=await repo.saveDocument({...engine.defaults(),id:a.id});assert.equal(other.id,a.id);assert.equal((await repo.deleteDocuments([a.id,b.id])).deletedCount,1);assert.equal(await repo.getDocument(a.id),null);});
+ assert.ok(await repo.getDocument(a.id));const result=await repo.deleteDocuments([a.id,b.id,a.id]);assert.equal(result.deletedCount,2);assert.deepEqual(new Set(result.deletedIds),new Set([a.id,b.id]));assert.equal(await repo.getDocument(a.id),null);assert.equal(await repo.getDocument(b.id),null);assert.ok((await repo.catalog()).batches.some(item=>item.id===batch.id));assert.equal((await repo.deleteDocuments([a.id])).deletedCount,0);
+});
+test('HTTP deletion requires admin role and explicit confirmation',async()=>{
+ const doc=await repo.saveDocument(engine.defaults()),app=express();app.use(express.json());app.use((req,res,next)=>{req.user={role:req.headers['x-test-role']||'user'};next();});app.use(require('../backend/routes/import-sources'));const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));const url=`http://127.0.0.1:${server.address().port}/monthly-documents`,del=body=>({method:'DELETE',headers:{'Content-Type':'application/json','x-test-role':'admin'},body:JSON.stringify(body)});
+ try{assert.equal((await fetch(url,{...del({ids:[doc.id],confirmed:true}),headers:{'Content-Type':'application/json'}})).status,403);assert.equal((await fetch(url,del({ids:[doc.id]}))).status,400);assert.ok(await repo.getDocument(doc.id));assert.equal((await fetch(url,del({ids:['invalid id'],confirmed:true}))).status,400);const response=await fetch(url,del({ids:[doc.id],confirmed:true}));assert.equal(response.status,200);assert.equal((await response.json()).deletedCount,1);}finally{await new Promise(resolve=>server.close(resolve));}
+});

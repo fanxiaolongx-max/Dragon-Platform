@@ -1491,6 +1491,7 @@ async function initReport() {
         loadSelectedSnapshot();
         if (window.renderReportSourcePanel) window.renderReportSourcePanel();
     } catch (e) {
+        window.ToolsPageStartup?.issue('data',e);
         showToast(rt('report.toast.loadFailed'), 'error');
         console.error(e);
         if (window.renderReportSourcePanel) window.renderReportSourcePanel();
@@ -5095,7 +5096,7 @@ window.saveI18nMap = async function () {
     }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const modeSelect = document.getElementById('reportSourceMode');
     if (modeSelect) {
         modeSelect.value = API.getSourceMode('report_sla_data');
@@ -5105,7 +5106,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     if (window.renderReportSourcePanel) window.renderReportSourcePanel();
-    initReport();
+    const startup=window.ToolsPageStartup;
+    try{if(startup)await startup.run('data',()=>initReport());else await initReport();await startup?.finish();}catch(error){startup?.fail(error);console.error(error);}
 });
 
 window.addEventListener('tools:languagechange', () => {

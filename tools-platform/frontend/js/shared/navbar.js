@@ -2082,7 +2082,17 @@ function renderNavbar() {
             </button>
         </div>
     `;
-    document.body.prepend(nav);
+    const existingNav = document.getElementById('app-navbar');
+    if (existingNav) {
+        existingNav.replaceWith(nav);
+    } else {
+        const container = document.getElementById('navbar-container');
+        if (container) {
+            container.appendChild(nav);
+        } else if (document.body) {
+            document.body.prepend(nav);
+        }
+    }
 
     // Automatically extract resource cache version from navbar.js script tag
     const versionDisplay = document.getElementById('nav-resource-version-display');
@@ -8968,13 +8978,29 @@ window.addEventListener('scroll', () => {
     }, 900);
 }, { passive: true });
 
-document.addEventListener('DOMContentLoaded', async () => {
+let navbarMounted = false;
+
+function mountNavbarEarly() {
+    if (navbarMounted) return;
+    const hasTarget = document.getElementById('navbar-container') || document.getElementById('app-navbar') || document.body;
+    if (!hasTarget) return;
+
     ensureMigrationStatusLoaded();
+    registerNavbarI18n();
+    hydrateNavigationFromCache();
+    renderNavbar();
+    navbarMounted = true;
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    if (!navbarMounted) {
+        mountNavbarEarly();
+    }
     await ensureToolsI18nLoaded();
     registerNavbarI18n();
     const navigationCacheReady = hydrateNavigationFromCache();
     if (!navigationCacheReady) await loadNavigationData();
-    renderNavbar();
+    renderNavLinksFromState();
     syncNavUserSession();
     initBackToTopButton();
     if (navigationCacheReady) loadNavigationData();
@@ -8988,6 +9014,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof requestIdleCallback === 'function') requestIdleCallback(scheduleBuiltinToolsSync, { timeout: 12000 });
     else scheduleBuiltinToolsSync();
 });
+
+mountNavbarEarly();
 
 async function syncNavUserSession() {
     try {

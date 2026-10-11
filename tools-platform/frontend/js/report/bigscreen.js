@@ -2456,6 +2456,7 @@
             state.refreshStatus = '';
             renderAll();
         } catch (error) {
+            if(source==='initial')window.ToolsPageStartup?.issue('data',error);
             console.error('[bigscreen] load failed:', error);
             const hasRenderedData = Boolean(state.lastRefreshSignature);
             state.refreshStatusKey = hasRenderedData ? 'statusFailedKeep' : '';
@@ -2721,36 +2722,40 @@
         }
     };
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
+        const startup=window.ToolsPageStartup,load=(key,work)=>startup?startup.run(key,work):work();
         loadRankScoreTheme();
         const savedLanguageSeconds = Number.parseInt(localStorage.getItem(AUTO_LANGUAGE_SECONDS_KEY), 10);
         if ($('autoLanguageSeconds') && Number.isFinite(savedLanguageSeconds)) {
             $('autoLanguageSeconds').value = Math.max(5, Math.min(300, savedLanguageSeconds));
         }
-        window.API.get('/api/db/config/bigscreen_title').then(res => {
+        const titleLoading=load('title',()=>window.API.get('/api/db/config/bigscreen_title').then(res => {
             state.dashboardTitle = normalizeDashboardTitle(res);
             renderDashboardTitle();
         }).catch(err => {
+            startup?.issue('title',err);
             console.error('Failed to load dashboard title', err);
             state.dashboardTitle = defaultDashboardTitle();
             renderDashboardTitle();
-        });
+        }));
 
-        window.API.get('/api/db/config/bigscreen_contact_info').then(res => {
+        const contactLoading=load('contact',()=>window.API.get('/api/db/config/bigscreen_contact_info').then(res => {
             state.contactInfo = normalizeContactInfo(res);
             renderContactInfo();
         }).catch(err => {
+            startup?.issue('contact',err);
             console.error('Failed to load contact info', err);
             state.contactInfo = defaultContactInfo();
             renderContactInfo();
-        });
+        }));
 
         initControls();
         applyStaticI18n();
         renderScriptVersion();
-        loadBigscreenData({ source: 'initial' });
+        const dataLoading=load('data',()=>loadBigscreenData({ source: 'initial' }));
         state.refreshTimer = setInterval(() => {
             loadBigscreenData({ silent: true, source: 'auto' });
         }, 5 * 60 * 1000);
+        const results=await Promise.allSettled([titleLoading,contactLoading,dataLoading]);const error=results.find(result=>result.status==='rejected');if(error)startup?.fail(error.reason);else await startup?.finish();
     });
 })();

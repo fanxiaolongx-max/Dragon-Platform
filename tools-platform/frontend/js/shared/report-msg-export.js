@@ -376,7 +376,14 @@
     }
 
     function copyForEmail(source, isRoot = false) {
-        if (source.nodeType === Node.TEXT_NODE) return document.createTextNode(source.textContent || '');
+        if (source.nodeType === Node.TEXT_NODE) {
+            const text=source.textContent||'',whiteSpace=source.parentElement?getComputedStyle(source.parentElement).whiteSpace:'';
+            // Word/WPS may ignore pre-wrap: store displayed newlines as real HTML breaks.
+            if(/^(pre|pre-wrap|pre-line|break-spaces)$/.test(whiteSpace)&&/[\r\n]/.test(text)){
+                const fragment=document.createDocumentFragment();text.split(/\r\n|\r|\n/).forEach((line,index)=>{if(index)fragment.append(document.createElement('br'));fragment.append(document.createTextNode(line));});return fragment;
+            }
+            return document.createTextNode(text);
+        }
         if (source.nodeType !== Node.ELEMENT_NODE) return null;
         if (source.hasAttribute && source.hasAttribute('data-html2canvas-ignore')) return null;
         if (source.classList && (source.classList.contains('print-hide') || source.classList.contains('topic-sync-chip') || source.classList.contains('topic-gutter-badge') || source.classList.contains('topic-ai-translate-btn') || source.classList.contains('topic-diff-popover'))) return null;
@@ -556,6 +563,7 @@
 
             // [STEP 2/7] 提取样式
             logger.step(2, 7, '正在提取排版样式并转为自适应邮件内联样式...');
+            const reportWidth=Math.round(parseFloat(root.style.width));const emailWidth=Number.isFinite(reportWidth)&&reportWidth>=320&&reportWidth<=3000?reportWidth:1320;
             const theme = document.documentElement.getAttribute('data-theme');
             let content;
             try {
@@ -580,7 +588,16 @@
             // [STEP 3/7] 封装 HTML & 纯文本 (宽屏适配，100% 充满容器，文案与表格对齐)
             logger.step(3, 7, '正在封装完整 HTML 正文与纯文本降级备份...');
             const inlineImages = content ? embedImages(content) : [];
-            const bodyInner = content ? content.outerHTML : (root ? root.outerHTML : '');
+            let framedContent=content;
+            const pageBorder=getComputedStyle(root);
+            if(content&&pageBorder.borderTopStyle==='double'){
+                // Two native table-cell borders survive email clients without CSS double support.
+                for(const gap of [0,3]){
+                    const frame=document.createElement('table');frame.setAttribute('role','presentation');frame.setAttribute('width','100%');frame.setAttribute('cellpadding','0');frame.setAttribute('cellspacing','0');frame.setAttribute('border','0');frame.style.cssText='width:100%;border-collapse:separate;border-spacing:0;';
+                    const cell=frame.insertRow().insertCell();cell.setAttribute('data-email-page-border','');cell.style.cssText=`border:1px solid ${pageBorder.borderTopColor};padding:${gap===0?'0px 0px 24px':gap+'px'};background:#ffffff;vertical-align:top;`;cell.append(framedContent);framedContent=frame;
+                }
+            }
+            const bodyInner = framedContent ? framedContent.outerHTML : (root ? root.outerHTML : '');
             const html = `<!doctype html>
 <html>
 <head>
@@ -595,11 +612,11 @@
 </head>
 <body style="margin:0;padding:16px 8px;background:#f8fafc;color:#0f172a;font-family:'Microsoft YaHei',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
   <!--[if (gte mso 9)|(IE)]>
-  <table role="presentation" width="1320" align="center" cellpadding="0" cellspacing="0" border="0" style="width:1320px;">
+  <table role="presentation" width="${emailWidth}" align="center" cellpadding="0" cellspacing="0" border="0" style="width:${emailWidth}px;">
     <tr>
       <td style="padding:0;background:#ffffff;">
   <![endif]-->
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;max-width:1320px;margin:0 auto;background:#ffffff;box-sizing:border-box;">
+  <table role="presentation" width="${emailWidth}" align="center" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:${emailWidth}px;max-width:none;margin:0 auto;background:#ffffff;box-sizing:border-box;">
     <tr>
       <td style="width:100%;padding:0;margin:0;vertical-align:top;">
         ${bodyInner}

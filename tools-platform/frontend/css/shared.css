@@ -70,7 +70,7 @@ html.is-page-scrolling::-webkit-scrollbar-thumb {
 /* ── 顶部导航栏 ───────────────────────────────────────── */
 #app-navbar {
     position: fixed;
-    top: 0; left: 0; right: 8px;
+    top: 0; left: 0; right: 0;
     height: var(--navbar-h);
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
     border-bottom: 1px solid #2a3a5a;

@@ -8,8 +8,8 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261006">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png?v=20261006">
     <link rel="apple-touch-icon" href="/assets/icon-mac.png?v=20261006">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="/css/shared.css?v=20261010-01">
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="/css/shared.css?v=20261011-02">
     <link rel="stylesheet" href="/css/sla.css?v=20261010-03">
     <style>
         .sla-source-wrapper {
@@ -63,8 +63,10 @@
             color: #0f172a;
         }
     </style>
+    <link rel="stylesheet" href="/css/startup-screen.css?v=20261011-45">
 </head>
 <body class="sla-page">
+    <script src="/js/shared/startup-screen.js?v=20261011-45" data-startup-page="sla"></script>
 
     <div id="metric-rule-mapping-modal" class="modal-overlay" style="display: none; z-index: 100000;">
         <div class="modal-content metric-rule-mapping-modal-content">
@@ -533,11 +535,11 @@
         async function initSLASourceMeta() {
             const mode = API.getSourceMode('sla_data');
             const query = mode === 'auto' ? '' : `?mode=${encodeURIComponent(mode)}`;
-            try { await API.get(`/api/sla/config${query}`); } catch (e) {}
-            try { await API.get(`/api/sla/targets${query}`); } catch (e) {}
-            try { await API.get(`/api/sla/categories${query}`); } catch (e) {}
-            try { await API.get(`/api/sla/groups${query}`); } catch (e) {}
-            try { await API.get(`/api/sla/snapshots${query}`); } catch (e) {}
+            try { await API.get(`/api/sla/config${query}`); } catch (e) {window.ToolsPageStartup?.issue('meta',e);}
+            try { await API.get(`/api/sla/targets${query}`); } catch (e) {window.ToolsPageStartup?.issue('meta',e);}
+            try { await API.get(`/api/sla/categories${query}`); } catch (e) {window.ToolsPageStartup?.issue('meta',e);}
+            try { await API.get(`/api/sla/groups${query}`); } catch (e) {window.ToolsPageStartup?.issue('meta',e);}
+            try { await API.get(`/api/sla/snapshots${query}`); } catch (e) {window.ToolsPageStartup?.issue('meta',e);}
             renderSLASourcePanel();
         }
 
@@ -545,6 +547,8 @@
 
         // 初始化：从服务端加载预警目标和分类
         document.addEventListener('DOMContentLoaded', async () => {
+            const startup=window.ToolsPageStartup,load=(key,work)=>startup?startup.run(key,work):work();
+            try {
             if (window.SLAI18n) window.SLAI18n.applyPage();
             renderSLAFrontendVersion();
             const modeSelect = document.getElementById('slaSourceMode');
@@ -558,13 +562,14 @@
                     if (window.initCategories) await window.initCategories();
                 });
             }
-            await initSLASourceMeta();
-            if (window.refreshMetricRulePrefsCache) await window.refreshMetricRulePrefsCache();
-            await SLASection.initGlobalTargets();
-            if (window.initCategories) await window.initCategories();
+            await load('meta',()=>initSLASourceMeta());
+            if (window.refreshMetricRulePrefsCache) await load('rules',()=>window.refreshMetricRulePrefsCache());
+            await load('targets',()=>SLASection.initGlobalTargets());
+            if (window.initCategories) await load('categories',()=>window.initCategories());
             if (window.SLATargetMonth && window.SLATargetMonth.init) {
                 window.SLATargetMonth.init();
             }
+            await load('workspace',async()=>{
             let autoImported = false;
             if (window.SLAUpload && window.SLAUpload.importUivAutoSession) {
                 autoImported = await window.SLAUpload.importUivAutoSession();
@@ -572,9 +577,12 @@
             if (!autoImported && window.SLAUpload && window.SLAUpload.restoreCachedWorkspace) {
                 await window.SLAUpload.restoreCachedWorkspace();
             }
+            });
             if (window.SLAMetrics && window.SLAMetrics.renderTopStickyBar) {
                 window.SLAMetrics.renderTopStickyBar();
             }
+            await startup?.finish();
+            } catch(error){startup?.fail(error);console.error(error);}
         });
         // 文件上传事件绑定
         document.getElementById('batch-upload').addEventListener('change', SLAUpload.handleBatchUpload, false);

@@ -10,7 +10,7 @@
     function block(){return api?.block(activeId);}
     function sourceChecks(){api?.syncSelection?.();}
     function position(){
-        if(!visible)return;document.body.classList.add('component-inspector-open');const rect=api.root.getBoundingClientRect(),toolbar=document.querySelector('.designer-toolbar').getBoundingClientRect(),left=rect.right+12,available=innerWidth-left-12,top=Math.max(12,Math.min(innerHeight-200,toolbar.bottom+12));
+        if(!visible)return;document.body.classList.add('component-inspector-open');const rect=api.root.getBoundingClientRect(),toolbar=document.querySelector('.designer-toolbar').getBoundingClientRect(),left=rect.right+12,available=innerWidth-left-12,top=Math.max(12,Math.min(innerHeight-200,toolbar.bottom+18));
         if(available>=150){panel.classList.remove('pivot-panel-below');panel.style.cssText=`position:fixed;left:${left}px;top:${top}px;width:${Math.min(600,available)}px;height:${Math.max(200,innerHeight-top-12)}px;max-height:${Math.max(200,innerHeight-top-12)}px`;document.body.style.removeProperty('padding-bottom');}
         else{panel.classList.add('pivot-panel-below');panel.style.cssText=`position:absolute;left:${Math.max(12,rect.left)}px;top:${scrollY+rect.bottom+12}px;width:${Math.min(480,innerWidth-24)}px;height:700px;max-height:700px`;document.body.style.paddingBottom='720px';}
     }

@@ -9,7 +9,7 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261006">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png?v=20261006">
     <link rel="apple-touch-icon" href="/assets/icon-mac.png?v=20261006">
-    <link rel="stylesheet" href="/css/shared.css?v=20261010-01">
+    <link rel="stylesheet" href="/css/shared.css?v=20261011-02">
     <link rel="stylesheet" href="/css/uivf12.css?v=20261010-01">
     <style>
         .repo-source-panel {
@@ -53,9 +53,11 @@
             color: var(--text);
         }
     </style>
+    <link rel="stylesheet" href="/css/startup-screen.css?v=20261011-45">
 </head>
 
 <body id="uiv-page">
+    <script src="/js/shared/startup-screen.js?v=20261011-45" data-startup-page="uivf12"></script>
     <div class="page-content">
         <div class="uiv-title">
             <div class="uiv-title-left">
@@ -791,7 +793,7 @@
         }
 
         // 页面初始化
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             if (window.UIVI18n) window.UIVI18n.applyPage();
             renderUIVFrontendVersion();
             const modeSelect = document.getElementById('repoSourceMode');
@@ -802,7 +804,11 @@
                     UIVSidebar.loadSavedScripts();
                 });
             }
-            UIVSidebar.loadSavedScripts();
+            const startup=window.ToolsPageStartup;
+            try {
+                if(startup)await startup.run('repository',()=>UIVSidebar.loadSavedScripts());else await UIVSidebar.loadSavedScripts();
+                await startup?.finish();
+            } catch(error) {startup?.fail(error);console.error(error);}
         });
     </script>
 </body>

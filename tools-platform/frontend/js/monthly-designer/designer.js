@@ -1,5 +1,8 @@
 (function(){
     'use strict';
+    // This stamp identifies the executing script, even if an older copy was cached.
+    const scriptVersion='20261011-53';
+    const versionBadge=document.createElement('span');versionBadge.id='monthlyScriptVersion';versionBadge.className='monthly-script-version';versionBadge.setAttribute('data-controls','');versionBadge.dataset.version=scriptVersion;document.body.append(versionBadge);
     const engine=window.MonthlyDocumentEngine;
     const view=window.MonthlyCatalogView,S=window.MonthlySourceRules,W=window.MonthlyWorkspace;
     const blockResources=new Map(),dataStates=new Map(),lastResults=new Map(),pendingBlocks=new Map(),pendingBlockUrls=new Map();
@@ -85,9 +88,10 @@
     }
     function setLogo(url){checkpoint();current.logo=url;render();status(t('Logo 已更换，请保存月报','Logo changed; save the report'));}
     function actions(){
-        const names={load:t('载入','Load'),new:t('新建月报','New report'),template:t('设为默认模板','Set default template'),save:t('保存到服务器','Save to server'),refresh:t('刷新资料库','Refresh library'),'check-updates':t('检查月报数据更新','Check report updates'), 'add-section':t('＋模块','＋ Module'),layout:t('页面与信息栏','Page & metadata'),html:t('导出 HTML','Export HTML'),msg:t('导出 MSG 邮件','Export MSG email'),print:t('打印 / PDF','Print / PDF'),pdf:t('导出 PDF','Export PDF'),image:t('导出图片','Export image'),project:t('导出工程','Export project'),language:language==='zh'?'English':'中文',undo:t('撤销','Undo')};
+        const names={'delete-reports':t('删除月报','Delete reports'),new:t('新建月报','New report'),template:t('设为默认模板','Set default template'),save:t('保存到服务器','Save to server'),refresh:t('刷新资料库','Refresh library'),'check-updates':t('检查月报数据更新','Check report updates'), 'add-section':t('＋模块','＋ Module'),layout:t('页面与信息栏','Page & metadata'),html:t('导出 HTML','Export HTML'),msg:t('导出 MSG 邮件','Export MSG email'),print:t('打印 / PDF','Print / PDF'),pdf:t('导出 PDF','Export PDF'),image:t('导出图片','Export image'),project:t('导出工程','Export project'),language:language==='zh'?'English':'中文',undo:t('撤销','Undo')};
         document.querySelectorAll('.designer-toolbar [data-action]').forEach(el=>el.textContent=names[el.dataset.action]);
         document.getElementById('designerName').textContent=t('通用月报编辑器','Universal monthly report editor');
+        versionBadge.textContent=t('脚本 v','Script v')+scriptVersion;versionBadge.title=t('当前实际执行的月报编辑器脚本版本','Currently executing monthly editor script version');
         document.title=t('通用月报编辑器','Universal monthly report editor')+' - Tools Platform';
         document.getElementById('legacyMonthlyLink').textContent=t('旧月报','Legacy monthly report');
         document.getElementById('projectImportLabel').textContent=t('导入工程','Import project');
@@ -157,7 +161,7 @@
         const definition=Object.fromEntries(['type','binding','chart','columns','filters','limit','rule'].map(key=>[key,clone(block[key])]));const saved={month:reportCatalog(block).reportMonth,catalog:snapshotCatalog(block),resources,definition};S.validateSaved(saved);block.savedData=saved;delete block.previousData;
     }
     function captureData(){for(const section of current.sections)for(const block of section.blocks)if(block.type!=='text'&&blockResources.has(block.id))saveBlockData(block);captureInlineData();}
-    function syncDataState(block){const button=root.querySelector(`[data-op="data-state"][data-block="${block.id}"]`);if(button){button.title=dataStates.get(block.id)||'';button.style.color=button.title===t('正常','Ready')?'#397c66':'#b58134';}}
+    function syncDataState(block){const button=root.querySelector(`[data-op="configure-block"][data-config-tab="source"][data-block="${block.id}"]`);if(button){const state=dataStates.get(block.id)||t('尚未加载','Not loaded');button.title=t('数据来源','Data sources')+' · '+state;button.dataset.dataState=state;}}
     function syncReportDataState(){const states=current.sections.flatMap(section=>section.blocks).filter(block=>block.type!=='text').map(block=>dataStates.get(block.id)),ready=states.filter(state=>state===t('正常','Ready')).length;const control=document.getElementById('reportDataStatus');if(control)control.textContent=t('数据：'+ready+' 项正常、'+(states.length-ready)+' 项待处理','Data: '+ready+' ready, '+(states.length-ready)+' need attention');}
     function rememberSource(file,document=current){
         const key=JSON.stringify([file.kind||'original',S.identity(file.source_key||file.name)]);document.libraryPrefs||={period:libraryPeriod||'',date:libraryDate||'',group:libraryGroup||'',search:'',expandedFileIds:[],expandedSheetIds:[]};document.libraryPrefs.recent=[key,...(document.libraryPrefs.recent||[]).filter(item=>item!==key)].slice(0,30);
@@ -274,7 +278,7 @@
         for(const text of texts)for(const part of engine.metricTextParts(text,oldInline))if(part.key)tokens.set(part.token,part);
         if(tokens.size){const next=new Map();for(const text of texts)for(const part of engine.metricTextParts(text,freshInline))if(part.key)next.set(part.token,part);const missing=[...next.values()].filter(part=>part.missing||part.error),changed=[...tokens].some(([token,part])=>String(inlineValues.get(token)??part.value)!==String(next.get(token)?.value)||JSON.stringify(part.operandValues)!==JSON.stringify(next.get(token)?.operandValues));plans.push({id:'inline',label:t('动态指标（正文 / 信息栏）','Dynamic metrics (text / metadata)'),current:[...tokens].map(([token,part])=>part.label+': '+(inlineValues.get(token)??part.value)).join('；'),proposed:[...next.values()].map(part=>part.label+': '+part.value).join('；'),changed:changed||nextMonth!==engine.documentMonth(current),error:missing.length?t('指标引用或公式异常：','Metric or formula unavailable: ')+missing.map(part=>part.label).join('、'):'',resources:new Map()});}
         const targetMonth=nextMonth,manual=current.sections.flatMap(section=>section.blocks).filter(block=>block.type==='text'&&pair(block.text).trim()&&!/\[\[@(?:metric|formula):/.test(pair(block.text))).length;
-        dialog.innerHTML=`<h3>${t('月报数据更新预览','Report data update preview')} · ${escape(targetMonth)}</h3><p>${t('刷新资料库不修改报告。勾选后统一应用，可撤销；固定版本保持锁定。','Refreshing the library does not change the report. Select updates to apply; Undo is available. Pinned versions stay pinned.')}</p>${targetMonth!==engine.documentMonth(current)?`<p>${t('新月份有 '+manual+' 个手填文字组件，请核对数字和月份。',manual+' manual text components require checking numbers and months.')}</p>`:''}<table class="update-preview"><thead><tr><th></th><th>${t('组件','Component')}</th><th>${t('当前来源','Current source')}</th><th>${t('更新 / 状态','Update / status')}</th></tr></thead><tbody>${plans.map(plan=>`<tr><td><input type="checkbox" data-update-id="${plan.id}" ${plan.changed&&!plan.error?'checked':''} ${plan.error?'disabled':''}></td><td>${escape(plan.label)}</td><td>${escape(plan.current)}</td><td>${escape(plan.error||t(plan.changed?'可更新':'保持',plan.changed?'Update available':'Unchanged'))}<br>${escape(plan.proposed)}</td></tr>`).join('')}</tbody></table><p role="status"></p><footer><button data-update-cancel>${t('取消','Cancel')}</button><button data-update-all>${t('选择全部可用更新','Select all available')}</button><button data-update-apply>${t('应用选中更新','Apply selected')}</button></footer>`;
+        dialog.innerHTML=`<h3>${t('月报数据更新预览','Report data update preview')} · ${escape(targetMonth)}</h3><p>${t('刷新资料库不修改报告。勾选后统一应用，可撤销；固定版本保持锁定。','Refreshing the library does not change the report. Select updates to apply; Undo is available. Pinned versions stay pinned.')}</p>${targetMonth!==engine.documentMonth(current)?`<p>${t('新月份有 '+manual+' 个手填文字组件，请核对数字和月份。',manual+' manual text components require checking numbers and months.')}</p>`:''}<div class="update-preview-scroll"><table class="update-preview"><colgroup><col style="width:36px"><col style="width:20%"><col><col><col style="width:140px"></colgroup><thead><tr><th></th><th>${t('组件','Component')}</th><th>${t('当前来源','Current source')}</th><th>${t('更新后来源','Proposed source')}</th><th>${t('状态','Status')}</th></tr></thead><tbody>${plans.map(plan=>`<tr><td><input type="checkbox" data-update-id="${plan.id}" aria-label="${escape(t('更新：','Update: ')+plan.label)}" ${plan.changed&&!plan.error?'checked':''} ${plan.error?'disabled':''}></td><td>${escape(plan.label)}</td><td>${escape(plan.current)}</td><td>${escape(plan.proposed||'—')}</td><td class="update-preview-state"><span class="update-state-badge" data-update-state="${plan.error?'error':plan.changed?'changed':'same'}">${plan.error?t('待处理','Needs attention'):t(plan.changed?'有更新':'数据一致',plan.changed?'Update available':'Unchanged')}</span>${plan.error?`<small>${escape(plan.error)}</small>`:''}</td></tr>`).join('')}</tbody></table></div><p role="status"></p><footer><button data-update-cancel>${t('取消','Cancel')}</button><button data-update-all>${t('选择全部可用更新','Select all available')}</button><button data-update-apply>${t('应用选中更新','Apply selected')}</button></footer>`;
         dialog.querySelector('[data-update-cancel]').onclick=()=>{dialog.close();actions();};dialog.querySelector('[data-update-all]').onclick=()=>dialog.querySelectorAll('[data-update-id]:not(:disabled)').forEach(input=>input.checked=true);
         dialog.querySelector('[data-update-apply]').onclick=async()=>{
             const selected=new Set([...dialog.querySelectorAll('[data-update-id]:checked')].map(input=>input.dataset.updateId));
@@ -460,7 +464,7 @@
         const metaLabelWidthVal = current.metaLabelWidth ? `${current.metaLabelWidth}px` : '90px';
         const metaLayoutItems = metadataLayout(current.meta, current.metaAlignMode || 'grid');
         const metaHtml = `<div class="document-meta-wrapper" data-controls-container style="width:${metaWidthVal};"><div class="document-meta-toolbar" data-controls><span class="document-meta-toolbar-title">📋 ${t('报告信息栏','Report metadata')} <small style="font-weight:normal;color:#64748b;">(${current.meta.length}${t('项',' items')})</small></span><div class="document-meta-toolbar-actions"><span class="meta-tool-group"><span class="meta-tool-label">${t('竖线对齐:','Align:')}</span><button type="button" data-meta-op="align-3" class="${(current.metaAlignMode||'grid')==='col-3'?'active':''}" aria-pressed="${(current.metaAlignMode||'grid')==='col-3'}" title="${t('整齐三列对齐 (4-4-4)，末尾自动补齐','3-col aligned (4-4-4)')}">📐 ${t('三列对齐','3-col')}</button><button type="button" data-meta-op="align-2" class="${(current.metaAlignMode||'grid')==='col-2'?'active':''}" aria-pressed="${(current.metaAlignMode||'grid')==='col-2'}" title="${t('整齐两列对齐 (6-6)','2-col aligned (6-6)')}">📐 ${t('两列对齐','2-col')}</button><button type="button" data-meta-op="align-auto" class="${(current.metaAlignMode||'grid')==='grid'?'active':''}" aria-pressed="${(current.metaAlignMode||'grid')==='grid'}" title="${t('智能对齐竖线','Auto-align lines')}">📐 ${t('自动对齐','Auto')}</button></span><span class="meta-tool-group"><span class="meta-tool-label">${t('行高:','Height:')}</span><button type="button" data-meta-op="height-32" class="${current.metaRowHeight===32?'active':''}" title="${t('紧凑 (32px)','Compact')}">${t('紧凑','Compact')}</button><button type="button" data-meta-op="height-38" class="${(!current.metaRowHeight||current.metaRowHeight===38)?'active':''}" title="${t('标准 (38px)','Standard')}">${t('标准','Standard')}</button><button type="button" data-meta-op="height-48" class="${current.metaRowHeight===48?'active':''}" title="${t('舒适 (48px)','Comfortable')}">${t('舒适','Comfy')}</button></span><span class="meta-tool-group"><span class="meta-tool-label">${t('整体宽:','Width:')}</span><button type="button" data-meta-op="width-100" class="${!current.metaWidth?'active':''}">100%</button><button type="button" data-meta-op="width-90" class="${current.metaWidth===1150?'active':''}">90%</button></span><button type="button" data-meta-op="open-layout" data-action="layout" class="btn-meta-settings" title="${t('打开完整布局与高级尺寸弹窗','Open layout & sizing dialog')}">⚙️ ${t('布局与尺寸','Layout & size')}</button><button type="button" data-meta-op="add-item" title="${t('增加新信息项','Add field')}">＋ ${t('信息项','Field')}</button></div></div><div class="document-meta" style="--meta-container-width:100%;--meta-min-height:${metaRowHeightVal};--meta-label-width:${metaLabelWidthVal};">${metaLayoutItems.map((layout,index)=>{const item=current.meta[index];const cellHeightStyle=item.heightUnits?`min-height:calc(${item.heightUnits} * var(--meta-min-height, 38px));`:'';return `<div class="document-meta-cell" data-meta-id="${item.id}" style="grid-column:span ${layout.displaySpan};${cellHeightStyle}"><div class="meta-cell-controls" data-controls><button type="button" data-meta-cell-op="move-prev" ${index===0?'disabled':''} data-meta-id="${item.id}" title="${t('向前移动信息项','Move field earlier')}">◀</button><span class="meta-cell-badge" data-meta-cell-op="span-cycle" data-meta-id="${item.id}" title="${t('点击循环切换预设宽度','Cycle width')}" style="cursor:pointer;">${layout.displaySpan}${t('格',' cols')}</span><button type="button" data-meta-cell-op="move-next" ${index===current.meta.length-1?'disabled':''} data-meta-id="${item.id}" title="${t('向后移动信息项','Move field later')}">▶</button><button type="button" data-meta-cell-op="height-toggle" data-meta-id="${item.id}" title="${t('切换高度 (单行 / 双倍 / 三倍)','Toggle height')}">↕ ${item.heightUnits?item.heightUnits+'x':'1x'}</button><button type="button" data-meta-cell-op="span-full" data-meta-id="${item.id}" title="${t('一键设为整行全宽 (12格)','Full width')}">↔</button><button type="button" data-meta-cell-op="remove" data-meta-id="${item.id}" title="${t('删除此项','Delete field')}">×</button></div><div class="document-meta-label">${edit(item,'label')}</div><div class="document-meta-value">${edit(item,'value')}</div><div class="meta-cell-resize-handle" data-controls data-meta-resize="${item.id}" title="${t('拖动调整宽度与高度','Drag to resize width and height')}">◢</div></div>`;}).join('')}</div></div>`;
-        root.innerHTML=`<header class="document-masthead"><img data-edit-logo title="${t('点击更换 Logo','Click to change logo')}" src="${escape(current.logo)}" alt="" style="width:${current.logoWidth}px;align-self:${{left:'flex-start',center:'center',right:'flex-end'}[current.logoAlign]};${current.logo?'':'display:none'}"><h1>${edit(current,'title',t('输入月报总标题','Enter report title'))}</h1></header>${metaHtml}${navigationMarkup()}<div class="document-sections">${current.sections.map((section,index)=>`<section id="section-${section.id}" class="document-section" style="grid-column:span ${section.span}"><div class="document-section-head"><span>${section.overview?'':String(current.sections.filter(item=>!item.overview).indexOf(section)+1).padStart(2,'0')}</span><h2>${edit(section,'title',t('模块标题','Module title'))}</h2></div>${sectionControls(section,index)}<div class="document-blocks" data-card-section="${section.id}">${section.blocks.map((block,index)=>`<article class="document-block" data-card-id="${block.id}" style="grid-column:span ${block.span};text-align:${block.align};${block.heightUnits?`min-height:calc(${block.heightUnits} * (var(--card-grid-unit,40px) + 12px) - 12px)`:""}"><div class="document-controls" data-controls><button type="button" class="card-drag-handle" data-card-drag="${block.id}" aria-label="${t("拖动卡片","Drag card")}" title="${t("拖动排序或移至其他模块","Drag to reorder or move to another module")}">⠿</button><span>${typeName(block.type)}</span>${[['source','数据来源','Data sources'],['processing','数据处理','Processing'],['style','展示样式','Appearance'],['layout','布局','Layout']].map(([tab,zh,en])=>`<button type="button" class="component-config-shortcut" data-op="configure-block" data-config-tab="${tab}" data-block="${block.id}" title="${t(zh,en)}" aria-label="${t(zh,en)}">${window.MonthlyWorkspace.icon(tab)}</button>`).join('')}<button data-op="data-state" data-block="${block.id}" title="${escape(dataStates.get(block.id)||t('数据状态','Data status'))}" aria-label="${t('数据状态','Data status')}">${window.MonthlyWorkspace.icon('state')}</button><button data-op="block-up" data-block="${block.id}" ${index===0?'disabled':''}>←</button><button data-op="block-down" data-block="${block.id}" ${index===section.blocks.length-1?'disabled':''}>→</button><button data-op="copy-block" data-block="${block.id}">⧉</button><button data-op="remove-block" data-block="${block.id}">${t('删除','Delete')}</button></div><h3>${edit(block,'title',t('内容标题（可留空）','Content title (optional)'))}</h3>${block.type==='text'?`<div class="document-block-text">${edit(block,'text',t('点击填写正文，可粘贴纯文本','Click to edit or paste plain text'))}</div>`:`<div class="document-block-data" id="data-${block.id}">${t('读取数据库数据…','Loading database data…')}</div>`}<button type="button" class="card-resize-handle" data-card-resize="${block.id}" data-controls aria-label="${t('调整卡片宽度与高度','Resize card width and height')}" title="${t('按网格调整宽高','Resize in grid units')}">◢</button></article>`).join('')}</div></section>`).join('')}</div><footer class="document-footer">${edit(current,'footer',t('页脚（可自定义）','Custom footer'))}</footer>`;
+        root.innerHTML=`<header class="document-masthead"><img data-edit-logo title="${t('点击更换 Logo','Click to change logo')}" src="${escape(current.logo)}" alt="" style="width:${current.logoWidth}px;align-self:${{left:'flex-start',center:'center',right:'flex-end'}[current.logoAlign]};${current.logo?'':'display:none'}"><h1>${edit(current,'title',t('输入月报总标题','Enter report title'))}</h1></header>${metaHtml}${navigationMarkup()}<div class="document-sections">${current.sections.map((section,index)=>`<section id="section-${section.id}" class="document-section" style="grid-column:span ${section.span}"><div class="document-section-head"><span>${section.overview?'':String(current.sections.filter(item=>!item.overview).indexOf(section)+1).padStart(2,'0')}</span><h2>${edit(section,'title',t('模块标题','Module title'))}</h2></div>${sectionControls(section,index)}<div class="document-blocks" data-card-section="${section.id}">${section.blocks.map((block,index)=>`<article class="document-block" data-card-id="${block.id}" style="grid-column:span ${block.span};text-align:${block.align};${block.heightUnits?`min-height:calc(${block.heightUnits} * (var(--card-grid-unit,40px) + 12px) - 12px)`:""}"><div class="document-controls" data-controls><button type="button" class="card-drag-handle" data-card-drag="${block.id}" aria-label="${t("拖动卡片","Drag card")}" title="${t("拖动排序或移至其他模块","Drag to reorder or move to another module")}">⠿</button><span>${typeName(block.type)}</span>${[['source','数据来源','Data sources'],['processing','数据处理','Processing'],['style','展示样式','Appearance'],['layout','布局','Layout']].map(([tab,zh,en])=>`<button type="button" class="component-config-shortcut" data-op="configure-block" data-config-tab="${tab}" data-block="${block.id}" title="${t(zh,en)}" aria-label="${t(zh,en)}">${window.MonthlyWorkspace.icon(tab)}</button>`).join('')}<button type="button" data-op="inspect-references" data-block="${block.id}" aria-pressed="false" title="${t('查看本组件指标引用','Inspect component references')}" aria-label="${t('查看本组件指标引用','Inspect component references')}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 .2l3-3a5 5 0 0 0-7-7l-1.5 1.5M14 11a5 5 0 0 0-7-.2l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg><span>${t('引用','Refs')}</span></button><button data-op="block-up" data-block="${block.id}" ${index===0?'disabled':''}>←</button><button data-op="block-down" data-block="${block.id}" ${index===section.blocks.length-1?'disabled':''}>→</button><button data-op="copy-block" data-block="${block.id}">⧉</button><button data-op="remove-block" data-block="${block.id}">${t('删除','Delete')}</button></div><h3>${edit(block,'title',t('内容标题（可留空）','Content title (optional)'))}</h3>${block.type==='text'?`<div class="document-block-text">${edit(block,'text',t('点击填写正文，可粘贴纯文本','Click to edit or paste plain text'))}</div>`:`<div class="document-block-data" id="data-${block.id}">${t('读取数据库数据…','Loading database data…')}</div>`}<button type="button" class="card-resize-handle" data-card-resize="${block.id}" data-controls aria-label="${t('调整卡片宽度与高度','Resize card width and height')}" title="${t('按网格调整宽高','Resize in grid units')}">◢</button></article>`).join('')}</div></section>`).join('')}</div><footer class="document-footer">${edit(current,'footer',t('页脚（可自定义）','Custom footer'))}</footer>`;
         compactControls();observeCardGrids();syncDefaultFontSizeSelect();
         root.querySelector('img').onerror=event=>event.target.hidden=true;
         const jobs=current.sections.flatMap(section=>section.blocks.filter(block=>block.type!=='text').map(block=>renderBlock(block,token)));
@@ -899,7 +903,7 @@
         if(op==='configure-block'&&found){window.MonthlyPivotPanel.open(found.block.id,button.dataset.configTab);return;}
         if(op==='data-formats'&&found){window.MonthlyPivotPanel.open(found.block.id,'style').then(()=>configure('format',found.block,document.getElementById('pivotFieldsPanel')));return;}
         if(op==='name-mappings'&&found){window.MonthlyPivotPanel.open(found.block.id,'style').then(()=>configure('mapping',found.block,document.getElementById('pivotFieldsPanel')));return;}
-        if(op==='data-state'&&found){window.MonthlyPivotPanel.open(found.block.id);return;}
+        if(op==='inspect-references'){referenceInspector.toggle(button.dataset.block);return;}
         if(op==='block-edit'){window.MonthlyPivotPanel.open(found.block.id);return;}
         if(op==='copy-block'||op==='copy-section'){
             const source=op==='copy-section'?section:found?.block;if(!source)return;
@@ -1187,13 +1191,13 @@
         dialog.close();if(cancelled)throw new Error(t('已取消本次操作，数据仍在后台加载','Action cancelled; data continues loading'));
     }
     async function exportDocument(){
-        await waitForOutput();updateEmptyState();const clone=root.cloneNode(true);clone.classList.add('document-export');
+        await waitForOutput();updateEmptyState();const clone=root.cloneNode(true);clone.querySelectorAll('.metric-inspected').forEach(node=>{node.classList.remove('metric-inspected');node.removeAttribute('data-inspect-color');});clone.classList.add('document-export');
             // Export the rendered page width, including any editor shrinkage on narrow screens.
             clone.style.width=root.getBoundingClientRect().width+'px';clone.style.maxWidth='none';clone.style.flex='none';
             const typography=getComputedStyle(root);clone.style.fontFamily=typography.fontFamily;clone.style.fontSize=typography.fontSize;
             clone.style.setProperty('--document-default-font-size',`${current.defaultFontSize||16}px`);
             clone.querySelectorAll('.document-meta-cell,.document-section,.document-block').forEach(element=>{const original=root.querySelector(element.dataset.metaId?`[data-meta-id="${element.dataset.metaId}"].document-meta-cell`:element.dataset.cardId?`[data-card-id="${element.dataset.cardId}"]`:`#${element.id}`);if(original){const style=getComputedStyle(original);element.style.setProperty('grid-column',style.gridColumn,'important');element.style.padding=style.padding;}});
-            clone.querySelectorAll('.inline-metric').forEach(element=>{element.replaceChildren(document.createTextNode(element.textContent));element.removeAttribute('data-metric-token');element.removeAttribute('title');element.classList.remove('inline-metric','inline-formula');element.removeAttribute('data-formula-id');});clone.querySelectorAll('.document-source-note').forEach(note=>{note.textContent=note.dataset.sourceDate||'';note.removeAttribute('data-source-date');});clone.querySelectorAll('[data-controls]').forEach(el=>el.remove());clone.querySelectorAll('[contenteditable]').forEach(el=>{el.removeAttribute('contenteditable');el.removeAttribute('data-placeholder');el.removeAttribute('data-field');});const logo=clone.querySelector('.document-masthead img');if(logo&&current.logo){logo.src=await exportLogo(current.logo);logo.removeAttribute('hidden');}const css=await fetch('/css/monthly-designer.css?v=20261011-39').then(res=>res.text());
+            clone.querySelectorAll('.inline-metric').forEach(element=>{element.replaceChildren(document.createTextNode(element.textContent));element.removeAttribute('data-metric-token');element.removeAttribute('title');element.classList.remove('inline-metric','inline-formula');element.removeAttribute('data-formula-id');});clone.querySelectorAll('.document-source-note').forEach(note=>{note.textContent=note.dataset.sourceDate||'';note.removeAttribute('data-source-date');});clone.querySelectorAll('[data-controls]').forEach(el=>el.remove());clone.querySelectorAll('[contenteditable]').forEach(el=>{el.removeAttribute('contenteditable');el.removeAttribute('data-placeholder');el.removeAttribute('data-field');});const logo=clone.querySelector('.document-masthead img');if(logo&&current.logo){logo.src=await exportLogo(current.logo);logo.removeAttribute('hidden');}const css=await fetch('/css/monthly-designer.css?v=20261011-53').then(res=>res.text());
         clone.style.padding=typography.padding;
         await alignExportCards(clone,css);
         return {clone,css};
@@ -1298,9 +1302,27 @@
         }
     }
     async function prepareEmailClone(clone) {
+        const sectionGrid=clone.querySelector('.document-sections');if(sectionGrid){sectionGrid.style.display='block';sectionGrid.style.width='100%';}
         window.ReportMsgExport.preserveStyles(clone);
         const masthead=clone.querySelector('.document-masthead');
-        if(masthead){masthead.style.textAlign='center';masthead.querySelectorAll('img').forEach(img=>{img.style.display='inline-block';});}
+        if(masthead){
+            // Flex alignment is not carried into Word/WPS HTML: encode each row explicitly.
+            const table=document.createElement('table');table.setAttribute('role','presentation');table.setAttribute('width','100%');table.setAttribute('cellpadding','0');table.setAttribute('cellspacing','0');table.style.cssText=masthead.style.cssText;table.style.display='table';table.style.width='100%';table.style.borderCollapse='collapse';table.style.padding='0';
+            for(const child of Array.from(masthead.children)){
+                const cell=table.insertRow().insertCell();cell.setAttribute('align',child.tagName==='IMG'?current.logoAlign||'center':'center');cell.style.textAlign=cell.getAttribute('align');cell.style.padding=child.tagName==='IMG'?'18px 0 12px':'0 0 18px';cell.style.width='100%';
+                if(child.tagName==='IMG'){child.style.display='inline-block';child.style.margin='0';child.style.width=current.logoWidth+'px';child.setAttribute('width',String(current.logoWidth));child.style.height='auto';}else{child.style.width='100%';child.style.margin='0';child.style.height='auto';}
+                cell.append(child);
+            }
+            masthead.replaceWith(table);
+        }
+        clone.querySelectorAll('.document-section-head').forEach(head=>{
+            const table=document.createElement('table');table.setAttribute('role','presentation');table.setAttribute('width','100%');table.setAttribute('cellpadding','0');table.setAttribute('cellspacing','0');table.style.cssText=head.style.cssText;table.style.display='table';table.style.width='100%';table.style.height='auto';table.style.tableLayout='fixed';table.style.borderCollapse='collapse';table.style.padding='0';
+            const row=table.insertRow(),number=row.insertCell(),title=row.insertCell(),balance=row.insertCell();
+            for(const cell of [number,balance]){cell.setAttribute('width','36');cell.style.width='36px';cell.style.padding='10px 6px';cell.style.verticalAlign='middle';}
+            const heading=head.querySelector('h2');number.textContent=head.querySelector(':scope > span')?.textContent||'';number.style.fontSize='12px';title.setAttribute('align','center');title.style.textAlign='center';title.style.padding='10px 0';title.style.verticalAlign='middle';
+            if(heading){heading.style.width='100%';heading.style.maxWidth='none';heading.style.height='auto';heading.style.margin='0';heading.style.textAlign='center';heading.style.whiteSpace='normal';heading.querySelectorAll('.document-edit').forEach(el=>{el.style.width='100%';el.style.height='auto';el.style.textAlign=el.style.textAlign||'center';});title.append(heading);}
+            head.replaceWith(table);
+        });
         const chartSvgs = Array.from(clone.querySelectorAll('svg.document-chart, svg'));
         for (const svg of chartSvgs) {
             try {
@@ -1359,7 +1381,7 @@
                 table.setAttribute('cellpadding', '0');
                 table.setAttribute('cellspacing', '0');
                 table.setAttribute('border', '0');
-                table.style.cssText = 'width:100%;border-collapse:separate;border-spacing:8px 8px;margin:12px 0;box-sizing:border-box;';
+                table.style.cssText = 'width:100%;border-collapse:collapse;border-spacing:0;margin:14px 0;box-sizing:border-box;';
                 const tbody = document.createElement('tbody');
                 table.appendChild(tbody);
                 const columns=document.createElement('colgroup');for(let index=0;index<12;index++){const col=document.createElement('col');col.setAttribute('width','8.333%');columns.appendChild(col);}table.prepend(columns);table.style.tableLayout='fixed';
@@ -1385,7 +1407,7 @@
                     for(const selector of ['.document-meta-label','.document-meta-value']){
                         const original=cell.querySelector(selector);if(!original)continue;
                         const valueCell=row.insertCell();
-                        if(selector==='.document-meta-label'){const width=Math.round(parseFloat(getComputedStyle(original).width))||90;valueCell.setAttribute('width',String(width));valueCell.style.width=width+'px';}
+                        if(selector==='.document-meta-label'){const width=Math.round(parseFloat(getComputedStyle(original).width))||90;valueCell.setAttribute('width',String(width));valueCell.style.width=width+'px';valueCell.style.backgroundColor=original.style.backgroundColor;valueCell.style.verticalAlign='middle';}
                         original.style.display='block';valueCell.appendChild(original);
                     }
                     td.appendChild(inner);
@@ -1397,6 +1419,13 @@
                 wrapperParent.replaceWith(table);
             }
         }
+
+        // Named bookmarks are understood by email editors that ignore IDs on tables.
+        const emailTargets=new Map();clone.querySelectorAll('.document-section').forEach((section,index)=>{
+            const id=section.id,name='mr_section_'+(index+1),bookmark=document.createElement('a');bookmark.name=name;bookmark.id=name;bookmark.style.cssText='font-size:1px;line-height:0;text-decoration:none;';
+            (section.querySelector('h2 .document-edit')||section.querySelector('h2')||section).prepend(bookmark);emailTargets.set('#'+id,'#'+name);section.removeAttribute('id');
+        });
+        clone.querySelectorAll('a[href]').forEach(link=>{const target=emailTargets.get(link.getAttribute('href'));if(target)link.setAttribute('href',target);});
 
         const navigation=clone.querySelector('.document-nav');
         if(navigation){
@@ -1410,7 +1439,7 @@
 
         const sections = Array.from(clone.querySelectorAll('.document-section'));
         sections.forEach(section => {
-            section.style.cssText = 'display:block;width:100%;margin-bottom:20px;';
+            section.style.cssText = 'display:block;width:100%;margin-bottom:12px;';
             const blocksContainer = section.querySelector('.document-blocks');
             if (blocksContainer) {
                 const blocks = Array.from(blocksContainer.querySelectorAll(':scope > .document-block:not(.export-empty)'));
@@ -1421,7 +1450,7 @@
                     table.setAttribute('cellpadding', '0');
                     table.setAttribute('cellspacing', '0');
                     table.setAttribute('border', '0');
-                    table.style.cssText = 'width:100%;border-collapse:separate;border-spacing:10px 10px;margin:8px 0;box-sizing:border-box;';
+                    table.style.cssText = 'width:100%;border-collapse:separate;border-spacing:12px 12px;margin:0;box-sizing:border-box;';
                     const tbody = document.createElement('tbody');
                     table.appendChild(tbody);
                     const columns=document.createElement('colgroup');for(let index=0;index<12;index++){const col=document.createElement('col');col.setAttribute('width','8.333%');columns.appendChild(col);}table.prepend(columns);table.style.tableLayout='fixed';
@@ -1443,7 +1472,7 @@
                         const td = document.createElement('td');
                         const widthPct = Math.round((span / 12) * 100);
                         td.setAttribute('width', `${widthPct}%`);td.colSpan=span;
-                        td.style.cssText = `width:${widthPct}%;vertical-align:top;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;box-sizing:border-box;`;
+                        td.style.cssText = `width:${widthPct}%;vertical-align:top;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:${block.style.padding||'10px'};box-sizing:border-box;height:${block.style.minHeight||'auto'};`;
 
                         while (block.firstChild) {
                             td.appendChild(block.firstChild);
@@ -1464,23 +1493,18 @@
 
         clone.querySelectorAll('.document-block-text').forEach(el=>{
             if(!el.style.fontSize)el.style.fontSize=`${current.defaultFontSize||16}px`;
-            el.style.lineHeight='1.8';
+            // Keep the captured page line height instead of adding mail-only typography.
         });
         clone.querySelectorAll('.document-block h3, td > h3').forEach(el=>{
             if(!el.style.fontSize)el.style.fontSize=`${current.defaultFontSize||16}px`;
             if(!el.style.fontWeight)el.style.fontWeight='700';
             if(!el.style.color)el.style.color='#233f5c';
             if(!el.style.margin)el.style.margin='0 0 8px';
-            el.style.lineHeight='1.5';
+            // Preserve the page's title line height.
         });
         clone.querySelectorAll('.document-section h2, .document-section-head h2').forEach(el=>{
             if(!el.style.fontSize)el.style.fontSize=`${Math.max(18,(current.defaultFontSize||16)+2)}px`;
         });
-
-        const footer = document.createElement('div');
-        footer.style.cssText = 'margin-top:28px;padding:12px 16px;background:#f8fafc;border-left:4px solid #3b82f6;border-radius:4px;font-size:12px;color:#64748b;line-height:1.6;';
-        footer.innerHTML = `<strong>${t('说明：', 'Note: ')}</strong>${t('若您对此报告数据有疑问或需进一步分析，请联系网络安全与运维保障项目组。原始数据见附件 Excel。<br>本邮件由 Tools Platform 护网与网络安全月报平台自动封装生成。', 'If you have questions regarding this report, please contact the Cyber Security & Assurance Operations team. Raw data is attached in Excel.<br>Automatically generated by Tools Platform.')}`;
-        clone.appendChild(footer);
 
         return clone;
     }
@@ -1488,9 +1512,9 @@
         if (!window.ReportMsgExport) throw new Error(t('MSG 邮件导出组件未就绪，请刷新页面后重试', 'MSG export helper not loaded; please refresh'));
         status(t('正在准备月报 MSG 邮件导出…', 'Preparing MSG email export…'));
         const { clone } = await exportDocument();
-        clone.style.cssText = 'display:block;width:100%;max-width:1240px;margin:0 auto;background:#ffffff;color:#0f172a;visibility:visible;';
+        const emailWidth=parseFloat(clone.style.width)||current.pageWidth||1280;clone.style.display='block';clone.style.maxWidth='none';clone.style.margin='0 auto';clone.style.visibility='visible';
         const wrapper = document.createElement('div');
-        wrapper.style.cssText = 'position:fixed;left:-100000px;top:0;width:1240px;background:#ffffff;pointer-events:none;';
+        wrapper.style.cssText = `position:fixed;left:-100000px;top:0;width:${emailWidth}px;background:#ffffff;pointer-events:none;`;
         wrapper.appendChild(clone);
         document.body.appendChild(wrapper);
         try {
@@ -1513,6 +1537,12 @@
         document.activeElement?.blur();
         if(action==='language'){language=language==='zh'?'en':'zh';library();await render();await listDocuments();return;}
         if(action==='undo'){if(history.length){current=history.pop();dirty=true;restoreLibrary();render();}return;}
+        if(action==='delete-reports')return window.MonthlyReportManager.open({request,t,escape,currentId:current.id,onDeleted:async ids=>{
+            if(ids.includes(current.id)){delete current.id;dirty=true;}
+            for(const entry of history)if(ids.includes(entry.id))delete entry.id;
+            const message=t('已删除 '+ids.length+' 份服务器月报；当前编辑内容保留','Deleted '+ids.length+' server reports; current editing content retained');
+            try{await listDocuments();status(message);}catch(error){document.getElementById('documentList').value=current.id||'';status(message+t('；列表刷新失败，请重试刷新：','; list refresh failed; retry refreshing: ')+error.message);}
+        }});
         if(action==='template')return window.MonthlyTemplateControls.open({request,t,status,capture:()=>window.MonthlyTemplates.capture(current,catalog)});
         if(action==='new'){
             let template=null;
@@ -1520,7 +1550,7 @@
             checkpoint();current=createFromDefault(template);window.MonthlyCharts.resetPanels();await ensureReferencedCatalog();restoreLibrary();await render();document.getElementById('documentList').value='';status(templateWarning||t('已使用默认模板新建月报，尚未保存','New report created from the default template; unsaved'));return;
         }
         if(action==='save'){
-            if(saving)return;
+            if(saving)return false;
             const toolbar=document.querySelector('.designer-toolbar'),button=toolbar.querySelector('[data-action=save]');
             saving=true;root.inert=true;toolbar.inert=true;button.disabled=true;
             button.textContent=t('正在保存…','Saving…');status(t('正在保存到服务器…','Saving to server…'));
@@ -1536,13 +1566,14 @@
                 const message=t('月报已成功保存到服务器','Report saved successfully to server');
                 status(message);window.showToast(message,'success');
                 try{await listDocuments();}catch(error){status(message+t('；月报列表刷新失败：','; report list refresh failed: ')+error.message);}
+                return true;
             }catch(error){
                 const message=t('保存失败：','Save failed: ')+error.message;
                 status(message);window.showToast(message,'error');
+                return false;
             }finally{saving=false;root.inert=false;toolbar.inert=false;button.disabled=false;actions();}
             return;
         }
-        if(action==='load'){const id=document.getElementById('documentList').value;if(!id)return;const result=await request(`/api/upload/monthly-documents/${encodeURIComponent(id)}`);checkpoint();current=engine.normalize(result.document);window.MonthlyCharts.resetPanels();dirty=false;await ensureReferencedCatalog();restoreLibrary();await render();status(t('已载入服务器月报','Stored report loaded'));return;}
         if(action==='refresh')return refresh();
         if(action==='check-updates')return checkUpdates();
         if(action==='add-section'){checkpoint();current.sections.push(engine.section());return render();}
@@ -1553,6 +1584,31 @@
         if(['print','pdf','image'].includes(action))await visualExport(action);
     }
     document.querySelector('.designer-toolbar').onclick=event=>{const action=event.target.closest('[data-action]')?.dataset.action;if(action)runAction(action).catch(error=>status(error.message));};
+    function confirmReportSwitch(name){
+        const prompt=document.createElement('dialog');prompt.className='report-switch-dialog';prompt.setAttribute('aria-labelledby','reportSwitchTitle');prompt.setAttribute('aria-describedby','reportSwitchDescription');
+        prompt.innerHTML=`<span class="report-switch-eyebrow">${t('切换月报','SWITCH REPORT')}</span><h3 id="reportSwitchTitle">${t('保存当前月报的修改？','Save changes to this report?')}</h3><p id="reportSwitchDescription">${t('当前月报有未保存的修改。保存后即可切换，或放弃修改直接打开所选月报。','This report has unsaved changes. Save before switching, or discard them to open the selected report.')}</p><div class="report-switch-target"><small>${t('即将打开','Opening next')}</small><strong>${escape(name)}</strong></div><footer><button type="button" data-switch-choice="cancel" autofocus>${t('取消','Cancel')}</button><button type="button" data-switch-choice="discard">${t('不保存切换','Discard & switch')}</button><button type="button" data-switch-choice="save">${t('保存并切换','Save & switch')}</button></footer>`;
+        document.body.append(prompt);prompt.showModal();
+        return new Promise(resolve=>{const finish=choice=>{prompt.close();prompt.remove();resolve(choice);};prompt.addEventListener('cancel',event=>{event.preventDefault();finish('cancel');},{once:true});prompt.onclick=event=>{const choice=event.target.closest('[data-switch-choice]')?.dataset.switchChoice;if(choice)finish(choice);};});
+    }
+    let switchingReport=false;
+    document.getElementById('documentList').onchange=async event=>{
+        const select=event.target,id=select.value,name=select.selectedOptions[0]?.textContent||'';
+        select.value=current.id||'';
+        if(!id||id===current.id||switchingReport||saving)return;
+        switchingReport=true;select.disabled=true;
+        try{
+            root.querySelectorAll('.document-edit').forEach(commitText);document.activeElement?.blur();
+            if(dirty){const choice=await confirmReportSwitch(name);if(choice==='cancel')return;if(choice==='save'&&!await runAction('save'))return;}
+            root.inert=true;document.querySelector('.designer-toolbar').inert=true;status(t('正在载入所选月报…','Loading selected report…'));
+            const result=await request(`/api/upload/monthly-documents/${encodeURIComponent(id)}`),next=engine.normalize(result.document);
+            const previous=current,previousDirty=dirty,previousHistory=history.slice();
+            checkpoint();current=next;window.MonthlyCharts.resetPanels();dirty=false;
+            try{await ensureReferencedCatalog();restoreLibrary();await render();}
+            catch(error){current=previous;dirty=previousDirty;history.splice(0,history.length,...previousHistory);window.MonthlyCharts.resetPanels();restoreLibrary();await render();throw error;}
+            select.value=current.id;status(t('已载入服务器月报','Stored report loaded'));
+        }catch(error){status(t('切换月报失败：','Report switch failed: ')+error.message);window.showToast(error.message,'error');}
+        finally{select.value=current.id||'';select.disabled=false;root.inert=false;document.querySelector('.designer-toolbar').inert=false;switchingReport=false;}
+    };
     document.getElementById('projectImport').onchange=async event=>{try{const project=JSON.parse(await event.target.files[0].text());if(project.fileType!=='monthly-document-project')throw new Error(t('无效的工程文件','Invalid project file'));const document=engine.normalize(project.document);checkpoint();delete document.id;current=document;window.MonthlyCharts.resetPanels();await ensureReferencedCatalog();restoreLibrary();await render();status(t('工程已载入，引用数据按当前租户资料库解析','Project loaded; bindings resolve in this tenant'));}catch(error){status(error.message);}finally{event.target.value='';}};
     window.addEventListener('tools:languagechange',()=>{language=window.ToolsI18n?.getLanguage()==='en-US'?'en':'zh';library();render();listDocuments().catch(error=>status(error.message));});
     window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
@@ -1614,6 +1670,23 @@
     if(fontSelect){
         fontSelect.onchange=event=>updateDefaultFontSize(event.target.value);
     }
+    const referenceInspector=window.MonthlyReferenceInspector.start({root,t,status,describe:token=>{
+        const data=inlineCatalog(),part=engine.metricTextParts(token,data)[0];if(!part)return {title:t('无法识别引用','Unrecognized reference'),notes:[]};
+        function details(key){
+            const scoped=data.reportMonth?{...data,snapshots:data.snapshots.filter(snapshot=>S.snapshotMonth(snapshot,data)===data.reportMonth).sort((a,b)=>S.time(b.captured_at)-S.time(a.captured_at)||String(b.id).localeCompare(String(a.id)))}:data;
+            const sectionKey=data.reportMonth?engine.metricOptions(scoped).find(metric=>metric.keyAliases.includes(key))?.sourceSection:'';
+            const resolved=engine.resolve({kind:'metric',mode:'latest',metricKey:key,...(sectionKey?{sectionKey}:{})},scoped);
+            if(!resolved)return {name:t('来源缺失','Missing source'),time:t('无可用快照','No available snapshot')};
+            const raw=resolved.snapshot.captured_at||'',date=new Date(raw);let time=t('未记录时间','Time not recorded');
+            if(/^\d{4}-\d{2}-\d{2}$/.test(raw))time=raw;
+            else if(raw&&!Number.isNaN(date.getTime()))time=date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')+' '+[date.getHours(),date.getMinutes(),date.getSeconds()].map(value=>String(value).padStart(2,'0')).join(':');
+            return {name:metricLabel(resolved.metric.label),time};
+        }
+        if(!part.formulaId){const source=details(part.key);return {title:source.name,notes:[t('快照：','Snapshot: ')+source.time]};}
+        const formula=data.inlineFormulas.find(item=>item.id===part.formulaId);if(!formula)return {title:t('公式缺失','Formula missing'),notes:[]};
+        const expression=formula.expression.replace(/\b[AB]\b/g,key=>'('+part.operandValues[key==='A'?0:1]+')').replace(/\*/g,'×').replace(/\//g,'÷');
+        return {title:expression+' = '+part.value,notes:formula.keys.map((key,index)=>{const source=details(key);return (index?'B':'A')+' · '+source.name+' · '+source.time;})};
+    }});
     const metricClipboard=window.MonthlyClipboard.start({root,getCatalog:inlineCatalog,render:(text,runs,data)=>window.MonthlyInlineTools.renderText(text,data,metricLabel,runs),commit:(definitions,mutate,field)=>{checkpoint();if(definitions.length){current.inlineFormulas||=[];current.inlineFormulas.push(...definitions);}mutate();commitText(field,{recordHistory:false,preserveInline:true});updateEmptyState();}});
     window.MonthlyRichText.start({root,t,commitText,formula:inlineTools,renderText:(text,runs)=>window.MonthlyInlineTools.renderText(text,inlineCatalog(),metricLabel,runs)});
     actions();render();initialize();

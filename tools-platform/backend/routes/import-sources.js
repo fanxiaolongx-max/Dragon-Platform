@@ -73,6 +73,7 @@ router.get('/monthly-default-template',handle(async(req,res)=>{res.setHeader('Ca
 router.put('/monthly-default-template',handle(async(req,res)=>res.json(await monthlyTemplates.saveDefault(req.body))));
 router.post('/monthly-default-template/sync-repository',handle(async(req,res)=>res.json(await monthlyTemplates.syncRepository(req))));
 router.get('/monthly-documents',handle(async(req,res)=>res.json(await repo.listDocuments())));
+router.delete('/monthly-documents',requireAdmin,handle(async(req,res)=>{if(req.body?.confirmed!==true)return res.status(400).json({error:'Confirm monthly report deletion',code:'IMPORT_SOURCE_ERROR'});res.json(await repo.deleteDocuments(req.body.ids));}));
 router.get('/monthly-documents/:id',handle(async(req,res)=>{const document=await repo.getDocument(req.params.id);res.status(document?200:404).json(document || {error:'Monthly document not found'});}));
 router.post('/monthly-documents',handle(async(req,res)=>{let document;try{document=engine.normalize(req.body);}catch(error){return res.status(400).json({error:error.message,code:'INVALID_MONTHLY_DOCUMENT'});}res.json(await repo.saveDocument(document));}));
 module.exports=router;

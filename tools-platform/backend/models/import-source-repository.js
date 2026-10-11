@@ -246,6 +246,17 @@ async function saveDocumentUnlocked(document) {
     await run(`INSERT INTO monthly_documents (id,name,payload_json,created_at,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,payload_json=excluded.payload_json,updated_at=excluded.updated_at`,[documentId,document.name,json({...document,id:documentId}),now,now]);
     return getDocument(documentId);
 }
+async function deleteDocuments(input) {
+    if(!Array.isArray(input)||!input.length||input.length>500||input.some(value=>typeof value!=='string'||!(/^[\w-]{1,80}$/).test(value)))fail('Select between 1 and 500 valid monthly document IDs',400);
+    const ids=[...new Set(input)],key=getDataDir();
+    const pending=(documentSaves.get(key)||Promise.resolve()).catch(()=>{}).then(async()=>{
+        await ensureReady();const placeholders=ids.map(()=>'?').join(',');
+        const existing=await all(`SELECT id FROM monthly_documents WHERE id IN (${placeholders})`,ids);
+        await run(`DELETE FROM monthly_documents WHERE id IN (${placeholders})`,ids);
+        return {success:true,deletedIds:existing.map(row=>row.id),deletedCount:existing.length};
+    });
+    documentSaves.set(key,pending);try{return await pending;}finally{if(documentSaves.get(key)===pending)documentSaves.delete(key);}
+}
 async function listLogos(){await ensureReady();return all('SELECT id,name,created_at FROM monthly_logos ORDER BY created_at DESC,rowid DESC');}
 async function getLogo(logoId){await ensureReady();return get('SELECT * FROM monthly_logos WHERE id=?',[logoId]);}
 async function saveLogo(file){
@@ -261,4 +272,4 @@ async function saveDocument(document){
     documentSaves.set(key,pending);
     try{return await pending;}finally{if(documentSaves.get(key)===pending)documentSaves.delete(key);}
 }
-module.exports={sheetEditor,updateSheet,listComponentPresets,saveComponentPreset,deleteComponentPreset,listDataFormatPresets,saveDataFormatPreset,deleteDataFormatPreset,listMappingPresets,saveMappingPreset,deleteMappingPreset,listLogos,getLogo,saveLogo,ensureReady,getImportSettings,saveImportSettings,createBatch,saveFile,saveSheets,getFile,registerSnapshot,catalog,getSheet,getSection,getArchivedSnapshot,getMetricTable,listDocuments,getDocument,saveDocument};
+module.exports={sheetEditor,updateSheet,listComponentPresets,saveComponentPreset,deleteComponentPreset,listDataFormatPresets,saveDataFormatPreset,deleteDataFormatPreset,listMappingPresets,saveMappingPreset,deleteMappingPreset,listLogos,getLogo,saveLogo,ensureReady,getImportSettings,saveImportSettings,createBatch,saveFile,saveSheets,getFile,registerSnapshot,catalog,getSheet,getSection,getArchivedSnapshot,getMetricTable,listDocuments,getDocument,saveDocument,deleteDocuments};
