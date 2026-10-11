@@ -47,6 +47,7 @@ router.post('/export', async (req, res) => {
     const html = String(body?.html || '');
     const text = String(body?.text || '').trim();
     const attachment = body?.attachment;
+    const inlineImages = body?.inlineImages ?? [];
     const htmlBytes = Buffer.byteLength(html, 'utf8');
     const textBytes = Buffer.byteLength(text, 'utf8');
     const attachmentData = String(attachment?.data || '');
@@ -59,7 +60,14 @@ router.post('/export', async (req, res) => {
     if (htmlBytes > 20_000_000) {
         return res.status(400).json({ error: 'HTML_TOO_LARGE', message: '月报 HTML 正文超过 20 MB', htmlBytes, limitBytes: 20_000_000 });
     }
-    const requestDataBytes = htmlBytes + textBytes + attachmentData.length;
+    if (!Array.isArray(inlineImages) || inlineImages.length > 100 || inlineImages.some(image =>
+        !image || typeof image.cid !== 'string' || typeof image.filename !== 'string' || typeof image.data !== 'string' || !/^report-image-\d+@tools-platform$/.test(image.cid || '') ||
+        !/^report-image-\d+\.(png|jpg|gif|webp)$/.test(image.filename || '') ||
+        !/^[A-Za-z0-9+/]+={0,2}$/.test(image.data || '') || image.data.length > 10_000_000) ||
+        new Set(inlineImages.map(image => image.cid)).size !== inlineImages.length) {
+        return res.status(400).json({ error: 'INVALID_INLINE_IMAGE', message: '邮件内嵌图片无效或过大' });
+    }
+    const requestDataBytes = htmlBytes + textBytes + attachmentData.length + inlineImages.reduce((size,image)=>size+image.data.length,0);
     if (requestDataBytes > 46_000_000) {
         return res.status(400).json({ error: 'REPORT_TOO_LARGE', message: '月报正文、纯文本和附件合计超过 46 MB', requestDataBytes, limitBytes: 46_000_000 });
     }
@@ -93,6 +101,10 @@ router.post('/export', async (req, res) => {
 
         if (attachment) {
             message.attach(new Attachment(Buffer.from(attachment.data, 'base64'), attachment.filename));
+        }
+
+        for (const image of inlineImages) {
+            message.attach(new Attachment(Buffer.from(image.data, 'base64'), image.filename, image.cid));
         }
 
         const compound = CFB.read(Buffer.from(message.msg()), { type: 'buffer' });

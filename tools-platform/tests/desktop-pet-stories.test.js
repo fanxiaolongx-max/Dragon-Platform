@@ -220,4 +220,28 @@ test('manager restricts story IPC and delivers queued story once without togglin
     listeners['pet-chat-generating']({ sender:chat.webContents }, true);
     assert.equal(pet.webContents.sent.at(-1).value, true);
     module.exports.cleanupDesktopPet();
+
+    // Verify baseUrl normalization when launched with welcome/update query params
+    module.exports.initDesktopPet({
+        port: 3030,
+        baseUrl: 'http://127.0.0.1:3030/?welcome=update&version=1.0.354&from=1.0.353'
+    });
+    const windowsCount = windows.length;
+    listeners['pet-open-story']({ sender: windows[windowsCount - 1].webContents }, 'moon-days');
+    const newChat = windows[windowsCount];
+    await handles['pet-get-story']({ sender: newChat.webContents }, 'moon-days', 'zh-CN');
+    const latestRequest = requests.at(-1);
+    assert.equal(latestRequest.url, 'http://127.0.0.1:3030/api/desktop-pet/stories/moon-days?language=zh-CN');
+    module.exports.cleanupDesktopPet();
+});
+
+test('pet chat renders markdown tables with friendly structure and alignments', async () => {
+    const r = chat(async () => jsonReply('| 标题1 | 达成率 |\n| :--- | ---: |\n| 巡检任务 | 100% |'));
+    await r.context.handleSendMessage('请汇报');
+    const bubble = r.rows.filter(row => row.className === 'msg-bubble').at(-1);
+    assert.match(bubble.innerHTML, /<div class="ai-table-wrap"/);
+    assert.match(bubble.innerHTML, /<table class="ai-markdown-table"/);
+    assert.match(bubble.innerHTML, /<th scope="col" class="align-left">标题1<\/th>/);
+    assert.match(bubble.innerHTML, /<th scope="col" class="align-right">达成率<\/th>/);
+    assert.match(bubble.innerHTML, /<td class="align-right numeric">100%<\/td>/);
 });

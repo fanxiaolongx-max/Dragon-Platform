@@ -1877,7 +1877,7 @@ async function startTrayApp() {
 
         // 启动桌面宠物组件
         try {
-            petManager.initDesktopPet({ port: PORT, baseUrl: launchUrl });
+            petManager.initDesktopPet({ port: PORT, baseUrl: `http://127.0.0.1:${PORT}` });
         } catch (petErr) {
             console.warn('[Electron] Failed to initialize desktop pet:', petErr.message || petErr);
         }

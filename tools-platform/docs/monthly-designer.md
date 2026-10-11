@@ -152,3 +152,30 @@ API：`GET/POST /api/upload/monthly-mapping-presets`、`PUT/DELETE /api/upload/m
 规则在组件 `dataFormats` 中随月报保存；顶部目标月份切换后继续保留。窗口中的“保存复用配置到服务器”写入当前租户 SQLite 的 `monthly_data_format_presets`，与名称映射复用配置分开保存，没有月份限制。其他月份或新建月报可载入、修改、删除，历史月报保留自己的配置副本。新增 API：`GET/POST /api/upload/monthly-data-format-presets`，`PUT/DELETE /api/upload/monthly-data-format-presets/:id`，沿用平台鉴权及管理员写操作限制。名称映射与数据规整共用 `preset-editor.js` 窗口流程和后端预设持久化逻辑。
 
 验证：`node --test tests/monthly-data-formats.test.js`，`node_modules/.bin/electron tests/monthly-designer-data-formats-browser.cjs`；覆盖精度、百分比、已有百分号、零值、规则优先级、映射联用、数值元数据、源值透视汇总、跨月预设、租户边界和导出。
+
+### 默认模板与随程序分发
+
+顶部“设为默认模板”保存当前月报的布局、正文、文字样式、Logo、模块、绑定配置、图表 / 透视、名称映射和数据规整规则。服务器默认模板保存在当前租户 SQLite 的 `monthly_default_template`，各租户互不影响，历史月报保持原样。打开编辑器仍优先载入最近保存的月报；“新建月报”及没有历史月报时使用服务器默认模板，没有服务器配置则使用程序内置模板。
+
+模板清除报告 ID、保存次数、历史月份及自动填充的信息栏值，新建报告重新生成组件 ID、选用最新目标月份并从 V1.0 开始。保留配置副本，移除仅在旧服务器有效的映射 / 数据规整预设 ID。资料库搜索习惯保留，批次、月份、展开项重置。源表记录不写入模板：文件按来源名称、工作表名、类型和相对目标月份重新绑定（例如上月与本月比较）；缺少对应月份的数据源时显示未绑定状态，避免借用旧月份数据。指标及提取区域转为最新来源。正文中手动填写的数字、月份和筛选条件保留，需按业务修改。
+
+本机 Mac 从 Git 仓库运行并通过 `localhost` / `127.0.0.1` 访问时，窗口可勾选“同时同步到代码仓库，随程序打包”。同步当前租户默认模板到 `backend/builtin-templates/monthly-report.json`，上传 Logo 则复制为 `frontend/assets/monthly-template/<sha256>.png` 并替换内置模板地址；内置 Logo 沿用仓库资产，外部 URL 必须先改为上传或内置 Logo。保存服务器模板成功但同步失败时单独提示，可重试。
+
+同步完成后正常提交、推送该 JSON 与 Logo 资产，再打包。Electron 的 `backend/**/*`、`frontend/**/*` 已包含这些资源；`release:verify-assets` 会检查模板格式与 Logo 是否随包存在。全新安装 / 无服务器配置的租户直接使用这份内置模板，无需复制本机数据库。已有服务器默认模板优先于新版内置模板；应用升级不覆盖已有设置。仓库同步不自动提交或推送 Git；发布后的程序和远程服务不提供源代码写入功能。
+
+API：`GET/PUT /api/upload/monthly-default-template`，`POST /api/upload/monthly-default-template/sync-repository`。继承登录、租户上下文与管理员写权限；同步额外检查 Mac、Git 开发环境、请求来源地址、Host 与 Origin。代码中的 JSON 是版本化分发资源，运行配置仅写 SQLite。
+
+验证：`node --test tests/monthly-default-template.test.js`；`node_modules/.bin/electron tests/monthly-designer-default-template-browser.cjs` 覆盖默认保存、新建月份 / 编号、历史保护、配置与样式、测试包同步与 Logo、失败提示、语言、主题和窄屏。相关回归包括月报自动载入 / 保存、document-engine、catalog-view、租户隔离与备份边界测试。
+
+### 桌面端启动等待与超时
+
+月报资料库读取不再等待 SLA 翻译 / 分类辅助配置。辅助配置在后台独立加载，5 秒未返回时保留现有配置；失败不阻塞月报、资料库或工具栏。月报请求通过 `request-client.js` 处理，读取请求 15 秒、写入请求 60 秒截止，覆盖响应体解析，并中止超时请求。错误提示包含 API 路径，便于通过桌面运行日志排查。
+
+启动时显示读取状态及“停止等待”，按钮独立于被锁定的编辑区和工具栏，也不会在左侧资料库更新时消失。停止等待只取消读取请求，释放编辑区，可继续编辑、载入月报或刷新资料库。月报结构载入后即可操作，组件数据在后台继续读取；某一源表未返回不会继续锁住整个页面，也不会将加载期间用户编辑的内容重置为未修改状态。布局观察仅在网格宽度实际变化时写入尺寸，避免重复样式写入。
+
+验证：`node --test tests/monthly-request-client.test.js`；`node_modules/.bin/electron tests/monthly-designer-startup-browser.cjs` 覆盖辅助配置、资料库、月报列表、组件源表分别不返回、响应体等待、取消、超时提示及重试；Electron 测试使用关闭 Node 集成、开启 contextIsolation 与 sandbox 的页面。
+
+
+### MSG 邮件排版兼容
+
+MSG 正文使用邮件表格布局，保留模块标题背景、信息栏的文字格式、组件列宽和快捷跳转。Logo 与图表转换为内嵌图片附件（Content-ID），不依赖客户端读取网页图片或 data URL；办公网代理拦截时的本地 EML 降级也包含这些图片。编辑工具条不进入邮件。浏览器回归验证正文和 MSG 附件，Windows Outlook/WPS 的实际显示仍需在对应客户端检查。

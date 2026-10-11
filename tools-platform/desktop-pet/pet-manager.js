@@ -5,6 +5,7 @@ const screen = electron && electron.screen ? electron.screen : null;
 const ipcMain = electron && electron.ipcMain ? electron.ipcMain : null;
 const path = require('path');
 const fs = require('fs');
+const { URL } = require('url');
 const desktopLanguage = require('../backend/models/desktop-language');
 desktopLanguage.events.on('change', (language) => {
     for (const win of [petWin, chatWin, settingsWin]) {
@@ -33,6 +34,16 @@ let storyChatReady = false;
 let pendingStoryRequest = null;
 let storyRequestSequence = 0;
 
+function normalizeBaseUrl(input, port = 3030) {
+    try {
+        if (!input) return `http://127.0.0.1:${port}`;
+        const parsed = new URL(input);
+        return parsed.origin;
+    } catch (_) {
+        return `http://127.0.0.1:${port}`;
+    }
+}
+
 async function requestPetStories(id, language) {
     const token = await getOrCreateDesktopPetToken();
     if (!token) throw new Error('PET_STORY_AUTH_UNAVAILABLE');
@@ -41,10 +52,17 @@ async function requestPetStories(id, language) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
     try {
-        const response = await fetch(localBaseUrl + '/api/desktop-pet/stories' + suffix + '?language=' + lang, {
+        const base = normalizeBaseUrl(localBaseUrl, localServerPort);
+        const targetUrl = new URL('/api/desktop-pet/stories' + suffix, base);
+        targetUrl.searchParams.set('language', lang);
+        const response = await fetch(targetUrl.toString(), {
             headers: { Authorization: 'Bearer ' + token }, signal: controller.signal
         });
         if (!response.ok) throw new Error('PET_STORY_REQUEST_FAILED');
+        const contentType = response.headers?.get ? (response.headers.get('content-type') || '') : 'application/json';
+        if (contentType && !contentType.includes('application/json')) {
+            throw new Error('PET_STORY_INVALID_CONTENT_TYPE: ' + contentType);
+        }
         const data = await response.json();
         return id ? data.story : data.stories;
     } finally { clearTimeout(timeout); }
@@ -729,7 +747,7 @@ function isPetVisible() {
  */
 function initDesktopPet({ port = 3030, baseUrl = 'http://localhost:3030' } = {}) {
     localServerPort = port;
-    localBaseUrl = baseUrl;
+    localBaseUrl = normalizeBaseUrl(baseUrl, port);
     registerIpc();
 
     const cfg = loadPetConfig();

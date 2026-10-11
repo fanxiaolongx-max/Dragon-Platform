@@ -85,6 +85,11 @@ async function assertTemplateContainsNoGoogleApiKeys() {
 }
 
 async function main() {
+    assertReleaseFile(path.join(projectRoot,'backend/builtin-templates/monthly-report.json'));
+    const monthlyTemplate=await require('../backend/models/monthly-template-repository').readBundled();
+    const monthlyLogo=monthlyTemplate.document.logo;
+    if(monthlyLogo&&!monthlyLogo.startsWith('/assets/'))throw new Error('Bundled monthly template logo must be included in frontend assets.');
+    if(monthlyLogo)assertReleaseFile(path.join(projectRoot,'frontend',monthlyLogo.slice(1)));
     await assertZipHasFiles(offlinePackagePath);
     await assertZipHasFiles(arabicAudioBundlePath);
     assertBundlesContainNoGoogleApiKeys();

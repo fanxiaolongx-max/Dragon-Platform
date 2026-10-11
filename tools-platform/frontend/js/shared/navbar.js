@@ -9,7 +9,7 @@ const NAV_BUILTIN_LINKS = [
     { id: 'report', href: '/report', icon: '📈', label: '报表看板', labelKey: 'nav.report', defaultCategory: 'business', match: p => p.startsWith('/report') },
     { id: 'expedite', href: '/expedite', icon: '⚡', label: '一键催办', labelKey: 'nav.expedite', defaultCategory: 'business', match: p => p.startsWith('/expedite') },
     { id: 'monthly', href: '/monthly', icon: '📅', label: '月报页面', labelKey: 'nav.monthly', defaultCategory: 'business', match: p => p.startsWith('/monthly') },
-    { id: 'duty-roster', href: '/duty-roster', icon: '🌙', label: '值班表', labelKey: 'nav.dutyRoster', defaultCategory: 'business', match: p => p.startsWith('/duty-roster') },
+    { id: 'duty-roster', href: '/duty-roster', icon: '🌙', label: '值班表', labelEn: 'Duty Roster', labelKey: 'nav.dutyRoster', defaultCategory: 'business', match: p => p.startsWith('/duty-roster') },
     { id: 'bigscreen', href: '/bigscreen', icon: '🖥️', label: '大屏看板', labelKey: 'nav.bigscreen', defaultCategory: 'business', match: p => p.startsWith('/bigscreen') },
     { id: 'topic-analysis', href: '/topic-analysis', icon: '📊', label: '专题分析', labelKey: 'nav.topicAnalysis', defaultCategory: 'cat_mshv1h0m', match: p => p.startsWith('/topic-analysis') },
     { id: 'frt', href: '/frt', icon: '📊', label: 'FRT核算', labelKey: 'nav.frt', defaultCategory: 'audit', match: p => p.startsWith('/frt') },
@@ -208,8 +208,13 @@ function navLocaleText(zh, en) {
 let lastBuiltinToolsSyncPreview = null;
 
 function getNavLabel(item) {
+    if (!item) return '';
     if (window.ToolsI18n?.getLanguage?.() === 'en-US' && item.labelEn) return item.labelEn;
-    return item.labelKey && window.ToolsI18n ? navT(item.labelKey) : item.label;
+    if (item.labelKey && window.ToolsI18n) {
+        const translated = navT(item.labelKey);
+        if (translated && translated !== item.labelKey) return translated;
+    }
+    return item.label || '';
 }
 
 function getNavCategoryName(cat) {
@@ -359,6 +364,7 @@ function registerNavbarI18n() {
             'nav.report': '报表看板',
             'nav.expedite': '一键催办',
             'nav.monthly': '月报页面',
+            'nav.dutyRoster': '值班表',
             'nav.bigscreen': '大屏看板',
             'nav.topicAnalysis': '专题分析',
             'nav.frt': 'FRT核算',
@@ -818,6 +824,7 @@ function registerNavbarI18n() {
             'nav.report': 'Reports',
             'nav.expedite': 'Expedite',
             'nav.monthly': 'Monthly',
+            'nav.dutyRoster': 'Duty Roster',
             'nav.bigscreen': 'Big Screen',
             'nav.topicAnalysis': 'Topic Analysis',
             'nav.frt': 'FRT KPI',
@@ -2329,6 +2336,7 @@ function getNavSettingsSubtitle() {
     if (navState.settingsTab.startsWith('page:')) {
         const pageId = navState.settingsTab.slice(5);
         if (pageId === 'report') return navT('nav.set.sub.report');
+        if (pageId === 'duty-roster') return navLocaleText('夜间运维值班表服务端持久化及月报资料库互通说明。', 'Night operation duty roster server persistence and report library overview.');
         return navT('nav.set.sub.pageFallback');
     }
     if (navState.settingsTab === 'accounts') return navT('nav.set.sub.accounts');
@@ -6550,6 +6558,7 @@ function renderPageSettings(content, pageId) {
     if (pageId === 'f12-extension') return renderF12PageSettings(content);
     if (pageId === 'home') return renderHomePageSettings(content);
     if (pageId === 'report') return renderReportPageSettings(content);
+    if (pageId === 'duty-roster') return renderDutyRosterPageSettings(content);
     const item = NAV_BUILTIN_LINKS.find(link => link.id === pageId);
     content.innerHTML = `
         <div class="nav-page-config-placeholder">
@@ -6557,6 +6566,27 @@ function renderPageSettings(content, pageId) {
             <div>
                 <div class="nav-page-config-title">${navEscape(navT('nav.page.placeholderTitle', { page: getNavLabel(item) || '页面' }))}</div>
                 <div class="nav-page-config-desc">${navEscape(navT('nav.page.placeholderDesc'))}</div>
+            </div>
+        </div>
+    `;
+}
+
+function renderDutyRosterPageSettings(content) {
+    const text = navLocaleText;
+    content.innerHTML = `
+        <div class="nav-settings-help">
+            ${navEscape(text('夜间运维值班表支持按目标月份自动计算自然周并标记埃及周末（周五/周六高亮），排班数据直接保存在服务端数据库，并已打通至“护网与网络安全月报编辑器”数据资料库。', 'The night operation duty roster calculates weekly intervals and Egyptian weekends (Fri/Sat highlighted), with persistence to server database and direct integration with the Monthly Report Designer data library.'))}
+        </div>
+        <div class="nav-page-config-placeholder" style="margin-top: 16px;">
+            <div class="nav-page-config-icon">🌙</div>
+            <div>
+                <div class="nav-page-config-title">${navEscape(text('夜间运维值班表管理', 'Night Operation Duty Roster Management'))}</div>
+                <div class="nav-page-config-desc">${navEscape(text('值班表采用专属独立编辑工作区，支持月份切换、一键引入上月人员、中英文切换及快捷保存。', 'The duty roster has a dedicated editing workspace supporting month switching, last-month import, bilingual toggles, and server sync.'))}</div>
+                <div style="margin-top: 14px;">
+                    <a href="/duty-roster" target="_blank" class="nav-settings-add" style="display:inline-flex;align-items:center;text-decoration:none;padding:6px 14px;font-size:13px;font-weight:600;border-radius:6px;background:#312e81;color:#fff;border:none;">
+                        🌙 ${navEscape(text('打开夜间运维值班表编辑器 ↗', 'Open Duty Roster Editor ↗'))}
+                    </a>
+                </div>
             </div>
         </div>
     `;

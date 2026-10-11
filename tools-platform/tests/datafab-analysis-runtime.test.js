@@ -266,5 +266,5 @@ test('floating launcher installs DataFab insights only on the DataFab origin', (
     assert.match(copy, /dataFabController\.destroy/);
     assert.match(copy, /dataFabController\.showCsv/);
     assert.match(page, /datafab-analysis\.js\?v=20260911-03/);
-    assert.match(page, /copy\.js\?v=20261007-01/);
+    assert.match(page, /copy\.js\?v=20261010-01/);
 });

@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const repo = require('../models/import-source-repository');
 const engine = require('../../frontend/js/monthly-designer/document-engine');
+const monthlyTemplates = require('../models/monthly-template-repository');
 const router = express.Router();
 const upload = multer({storage:multer.memoryStorage(),limits:{files:1,fileSize:128*1024*1024,fields:2,fieldSize:2000}});
 // Parent router is mounted after authentication, tenant context and admin write guard.
@@ -41,6 +42,9 @@ router.get('/monthly-data-format-presets',handle(async(req,res)=>res.json(await 
 router.post('/monthly-data-format-presets',handle(async(req,res)=>res.json(await repo.saveDataFormatPreset(req.body))));
 router.put('/monthly-data-format-presets/:id',handle(async(req,res)=>res.json(await repo.saveDataFormatPreset(req.body,req.params.id))));
 router.delete('/monthly-data-format-presets/:id',handle(async(req,res)=>res.json(await repo.deleteDataFormatPreset(req.params.id))));
+router.get('/monthly-default-template',handle(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json({...await monthlyTemplates.getDefault(),canSyncRepository:monthlyTemplates.canSyncRepository()&&monthlyTemplates.localRequest(req)});}));
+router.put('/monthly-default-template',handle(async(req,res)=>res.json(await monthlyTemplates.saveDefault(req.body))));
+router.post('/monthly-default-template/sync-repository',handle(async(req,res)=>res.json(await monthlyTemplates.syncRepository(req))));
 router.get('/monthly-documents',handle(async(req,res)=>res.json(await repo.listDocuments())));
 router.get('/monthly-documents/:id',handle(async(req,res)=>{const document=await repo.getDocument(req.params.id);res.status(document?200:404).json(document || {error:'Monthly document not found'});}));
 router.post('/monthly-documents',handle(async(req,res)=>{let document;try{document=engine.normalize(req.body);}catch(error){return res.status(400).json({error:error.message,code:'INVALID_MONTHLY_DOCUMENT'});}res.json(await repo.saveDocument(document));}));

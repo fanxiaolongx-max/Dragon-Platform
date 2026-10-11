@@ -258,6 +258,55 @@
       color: #ffffff;
     }
 
+    /* Markdown 表格渲染支持 (客服助手同款沉浸式友好表格) */
+    .msg-row:has(.ai-table-wrap) {
+      max-width: 98% !important;
+    }
+    .ai-table-wrap {
+      width: 100%;
+      margin: 8px 0 10px;
+      overflow-x: auto;
+      border: 1px solid rgba(20, 125, 122, 0.25);
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 0 4px 14px rgba(18, 55, 67, 0.05);
+      scrollbar-width: thin;
+    }
+    .ai-markdown-table {
+      width: 100%;
+      min-width: max(100%, calc(var(--ai-table-columns, 2) * 100px));
+      border-collapse: separate;
+      border-spacing: 0;
+      font-size: 11.5px;
+      line-height: 1.45;
+    }
+    .ai-markdown-table th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      padding: 7px 10px;
+      border-bottom: 1px solid rgba(20, 125, 122, 0.25);
+      background: linear-gradient(180deg, #f0f9f7, #e3f2ef);
+      color: #105d61;
+      font-weight: 700;
+      text-align: left;
+      white-space: nowrap;
+    }
+    .ai-markdown-table td {
+      padding: 7px 10px;
+      border-bottom: 1px solid rgba(20, 125, 122, 0.09);
+      color: #123743;
+      vertical-align: top;
+      font-size: 11.5px;
+    }
+    .ai-markdown-table tbody tr:last-child td { border-bottom: 0; }
+    .ai-markdown-table tbody tr:nth-child(even) td { background: rgba(240, 250, 248, 0.55); }
+    .ai-markdown-table tbody tr:hover td { background: rgba(131, 216, 206, 0.16); }
+    .ai-markdown-table .align-center { text-align: center; }
+    .ai-markdown-table .align-right { text-align: right; }
+    .ai-markdown-table .align-left { text-align: left; }
+    .ai-markdown-table td.numeric { font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; color: #0d5d59; }
+
     /* 错误与原始请求/响应调试卡片 (优雅折叠交互) */
     .error-container {
       display: flex;
@@ -675,29 +724,163 @@
       });
     };
 
-    // 简单轻量 Markdown 解析器
+    // 沉浸式 Markdown 与结构化表格解析器 (客服助手同款能力)
     function renderMarkdown(text) {
       if (!text) return '';
-      let html = String(text)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
+      const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+      const blocks = [];
 
-      // 代码块 ```code```
-      html = html.replace(/```([\s\S]*?)```/g, (m, code) => {
-        return `<pre><code>${code.trim()}</code></pre>`;
-      });
+      function inline(value) {
+        const codeTokens = [];
+        let source = String(value || '').replace(/`([^`]+)`/g, (_m, code) => {
+          const token = `\u0000CODE${codeTokens.length}\u0000`;
+          codeTokens.push(`<code>${escapeHtml(code)}</code>`);
+          return token;
+        });
+        source = escapeHtml(source)
+          .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+          .replace(/__([^_]+)__/g, '<b>$1</b>')
+          .replace(/~~([^~]+)~~/g, '<del>$1</del>');
+        codeTokens.forEach((html, i) => {
+          source = source.replace(`\u0000CODE${i}\u0000`, html);
+        });
+        return source;
+      }
 
-      // 行内代码 `code`
-      html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+      function splitTableRow(line) {
+        let source = String(line || '').trim();
+        if (source.startsWith('|')) source = source.slice(1);
+        if (source.endsWith('|')) source = source.slice(0, -1);
+        const cells = [];
+        let current = '';
+        let escaped = false;
+        for (const char of source) {
+          if (escaped) { current += char; escaped = false; }
+          else if (char === '\\') { escaped = true; }
+          else if (char === '|') { cells.push(current.trim()); current = ''; }
+          else { current += char; }
+        }
+        cells.push(current.trim());
+        return cells;
+      }
 
-      // 粗体 **bold**
-      html = html.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+      function tableAlignment(cell) {
+        const value = String(cell || '').trim();
+        if (/^:-{3,}:$/.test(value)) return 'align-center';
+        if (/^-{3,}:$/.test(value)) return 'align-right';
+        return 'align-left';
+      }
 
-      // 换行
-      html = html.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+      function isTableSeparator(line) {
+        const cells = splitTableRow(line);
+        return cells.length > 1 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
+      }
 
-      return html;
+      let index = 0;
+      while (index < lines.length) {
+        const line = lines[index];
+        if (!line.trim()) { index++; continue; }
+
+        // 代码块 ```code```
+        if (/^```/.test(line.trim())) {
+          const language = line.trim().slice(3).trim();
+          const code = [];
+          index++;
+          while (index < lines.length && !/^```/.test(lines[index].trim())) code.push(lines[index++]);
+          if (index < lines.length) index++;
+          blocks.push(`<pre data-language="${escapeHtml(language)}"><code>${escapeHtml(code.join('\n'))}</code></pre>`);
+          continue;
+        }
+
+        // 表格 | 表头1 | 表头2 |
+        if (line.includes('|') && isTableSeparator(lines[index + 1] || '')) {
+          const headers = splitTableRow(line);
+          const alignments = splitTableRow(lines[index + 1]).map(tableAlignment);
+          const rows = [];
+          index += 2;
+          while (index < lines.length && lines[index].trim() && lines[index].includes('|')) {
+            const cells = splitTableRow(lines[index]);
+            while (cells.length < headers.length) cells.push('');
+            rows.push(cells.slice(0, headers.length));
+            index++;
+          }
+          const head = headers.map((cell, ci) => `<th scope="col" class="${alignments[ci] || 'align-left'}">${inline(cell)}</th>`).join('');
+          const body = rows.map(row => `<tr>${row.map((cell, ci) => {
+            const numeric = /^[-+]?\d[\d,.]*(?:%|分|条|个)?$/.test(cell.trim()) ? ' numeric' : '';
+            return `<td class="${alignments[ci] || 'align-left'}${numeric}">${inline(cell)}</td>`;
+          }).join('')}</tr>`).join('');
+          blocks.push(`<div class="ai-table-wrap" role="region" aria-label="数据表格" tabindex="0"><table class="ai-markdown-table" style="--ai-table-columns:${headers.length}"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`);
+          continue;
+        }
+
+        // 标题 # ## ###
+        const heading = line.match(/^(#{1,4})\s+(.+)$/);
+        if (heading) {
+          const level = heading[1].length;
+          blocks.push(`<h${level} style="margin:6px 0 4px;font-size:${15 - level}px;font-weight:700;">${inline(heading[2])}</h${level}>`);
+          index++;
+          continue;
+        }
+
+        // 无序列表 - * +
+        if (/^\s*[-*+]\s+/.test(line)) {
+          const items = [];
+          while (index < lines.length && /^\s*[-*+]\s+/.test(lines[index])) {
+            items.push(lines[index].replace(/^\s*[-*+]\s+/, ''));
+            index++;
+          }
+          blocks.push(`<ul style="margin:4px 0;padding-left:18px;">${items.map(item => `<li>${inline(item)}</li>`).join('')}</ul>`);
+          continue;
+        }
+
+        // 有序列表 1. 2.
+        if (/^\s*\d+[.)]\s+/.test(line)) {
+          const items = [];
+          while (index < lines.length && /^\s*\d+[.)]\s+/.test(lines[index])) {
+            items.push(lines[index].replace(/^\s*\d+[.)]\s+/, ''));
+            index++;
+          }
+          blocks.push(`<ol style="margin:4px 0;padding-left:18px;">${items.map(item => `<li>${inline(item)}</li>`).join('')}</ol>`);
+          continue;
+        }
+
+        // 引用 >
+        if (/^\s*>\s?/.test(line)) {
+          const quote = [];
+          while (index < lines.length && /^\s*>\s?/.test(lines[index])) {
+            quote.push(lines[index++].replace(/^\s*>\s?/, ''));
+          }
+          blocks.push(`<blockquote style="margin:4px 0;padding-left:8px;border-left:3px solid rgba(20,125,122,0.4);color:var(--pet-muted);">${quote.map(inline).join('<br>')}</blockquote>`);
+          continue;
+        }
+
+        // 普通段落
+        const paragraph = [];
+        while (index < lines.length && lines[index].trim()) {
+          const next = lines[index];
+          if (/^```/.test(next.trim()) || (next.includes('|') && isTableSeparator(lines[index + 1] || '')) ||
+              /^#{1,4}\s+/.test(next) || /^\s*[-*+]\s+/.test(next) || /^\s*\d+[.)]\s+/.test(next) || /^\s*>\s?/.test(next)) {
+            break;
+          }
+          paragraph.push(lines[index++]);
+        }
+        if (paragraph.length) {
+          blocks.push(paragraph.map(inline).join('<br>'));
+        }
+      }
+
+      let result = '';
+      for (let i = 0; i < blocks.length; i++) {
+        const curr = blocks[i];
+        const isCurrBlockTag = curr.startsWith('<div') || curr.startsWith('<pre') || curr.startsWith('<ul') || curr.startsWith('<ol') || curr.startsWith('<blockquote') || curr.startsWith('<h');
+        const prev = i > 0 ? blocks[i - 1] : '';
+        const isPrevBlockTag = prev.startsWith('<div') || prev.startsWith('<pre') || prev.startsWith('<ul') || prev.startsWith('<ol') || prev.startsWith('<blockquote') || prev.startsWith('<h');
+        if (i > 0 && !isCurrBlockTag && !isPrevBlockTag) {
+          result += '<br><br>';
+        }
+        result += curr;
+      }
+      return result;
     }
 
     function appendMessage(text, role) {

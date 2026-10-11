@@ -288,7 +288,30 @@ test('NetCare SR metrics preserve source fields and weight ratio metrics', () =>
     assert.ok(Math.abs(aggregate.e2e_report_to_resolve_dura - 69554.04 / 6648) < 1e-10);
 });
 
+test('NetCare monthly report topic embeds clean framework and supports export/fill', () => {
+    const source = fs.readFileSync(runtimePath, 'utf8');
+    assert.match(source, /data-view="monthly"/);
+    assert.match(source, /月报专题/);
+    assert.match(source, /Monthly Report/);
+    assert.match(source, /function renderMonthlyReport/);
+    assert.match(source, /function exportMonthlyReportProject/);
+    assert.match(source, /function copyMonthlyReportOutline/);
+    assert.match(source, /sec-overview/);
+    assert.match(source, /sec-change/);
+    assert.match(source, /sec-sr/);
+    assert.match(source, /sec-risk/);
+    assert.match(source, /sec-license/);
+    assert.match(source, /sec-eos/);
+    assert.match(source, /sec-third/);
+    assert.match(source, /sec-audit/);
+    assert.match(source, /sec-meeting/);
+    assert.match(source, /护网与网络安全月报/);
+    assert.match(source, /nc-monthly-fill-btn/);
+    assert.match(source, /nc-monthly-reset-btn/);
+    assert.match(source, /nc-monthly-export-btn/);
+});
+
 test('UIVF12 page cache-busts the enhanced NetCare runtime', () => {
     const html = fs.readFileSync(pagePath, 'utf8');
-    assert.match(html, /netcare-analysis\.js\?v=20260917-01/);
+    assert.match(html, /netcare-analysis\.js\?v=20261011-01/);
 });

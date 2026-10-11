@@ -6,7 +6,7 @@
     let language=window.ToolsI18n?.getLanguage()==='en-US'?'en':'zh';
     let current=engine.defaults(),catalog={files:[],snapshots:[],batches:[]},generation=0,renderPromise=Promise.resolve(),dirty=false;
     let metricTranslations=Object.create(null),globalCategories=[];
-    let cardGesture=null,metaGesture=null,cardGridObserver=null,saving=false;
+    let cardGesture=null,metaGesture=null,cardGridObserver=null,saving=false,initializing=false,initializationCancelled=false;
     const history=[],cache=new Map(),fields=new Map();let fieldIndex=0;
     const root=document.getElementById('monthlyDocument'),dialog=document.getElementById('blockEditor');
     const t=(zh,en)=>language==='en'?en:zh;
@@ -15,7 +15,8 @@
     const pair=value=>value?.[language]||'';
     const clone=value=>JSON.parse(JSON.stringify(value));
     function checkpoint(){history.push(clone(current));if(history.length>30)history.shift();dirty=true;}
-    async function request(url,options){const headers={...getAuthHeaders(),...options?.headers};if(options?.body instanceof FormData)for(const key of Object.keys(headers))if(key.toLowerCase()==='content-type')delete headers[key];const res=await fetch(url,{credentials:'same-origin',...options,headers});return handleResponse(res,{method:options?.method || 'GET',path:url});}
+    const transport=window.MonthlyRequestClient.create({fetch:(...args)=>fetch(...args),parse:handleResponse});
+    async function request(url,options={}){const {timeoutMs,...init}=options,headers={...getAuthHeaders(),...init.headers};if(init.body instanceof FormData)for(const key of Object.keys(headers))if(key.toLowerCase()==='content-type')delete headers[key];return transport.request(url,{credentials:'same-origin',...init,headers},{timeoutMs:timeoutMs??(init.method&&init.method!=='GET'?60000:15000),timeoutMessage:t('读取超时：','Request timed out: ')+url+t('。请重试或检查桌面端运行日志。','. Retry or check the desktop runtime logs.')});}
     function cached(url){if(!cache.has(url))cache.set(url,request(url).catch(error=>{cache.delete(url);throw error;}));return cache.get(url);}
     function edit(value,key='value',placeholder=''){
         const field=`field-${fieldIndex++}`;fields.set(field,{value,key});return `<div class="document-edit" contenteditable="true" data-field="${field}" style="${value.fieldAlign?.[key]?.[language]?'text-align:'+value.fieldAlign[key][language]:''}" data-placeholder="${escape(placeholder)}">${window.MonthlyInlineTools.renderText(pair(value[key]),catalog,metricLabel,key==='text'?value.textRuns?.[language]:value.fieldRuns?.[key]?.[language])}</div>`;
@@ -38,7 +39,7 @@
     }
     function setLogo(url){checkpoint();current.logo=url;render();status(t('Logo 已更换，请保存月报','Logo changed; save the report'));}
     function actions(){
-        const names={load:t('载入','Load'),new:t('新建月报','New report'),save:t('保存到服务器','Save to server'),refresh:t('刷新数据库数据','Refresh database'), 'add-section':t('＋模块','＋ Module'),layout:t('页面与信息栏','Page & metadata'),html:t('导出 HTML','Export HTML'),print:t('打印 / PDF','Print / PDF'),pdf:t('导出 PDF','Export PDF'),image:t('导出图片','Export image'),project:t('导出工程','Export project'),language:language==='zh'?'English':'中文',undo:t('撤销','Undo')};
+        const names={load:t('载入','Load'),new:t('新建月报','New report'),template:t('设为默认模板','Set default template'),save:t('保存到服务器','Save to server'),refresh:t('刷新数据库数据','Refresh database'), 'add-section':t('＋模块','＋ Module'),layout:t('页面与信息栏','Page & metadata'),html:t('导出 HTML','Export HTML'),msg:t('导出 MSG 邮件','Export MSG email'),print:t('打印 / PDF','Print / PDF'),pdf:t('导出 PDF','Export PDF'),image:t('导出图片','Export image'),project:t('导出工程','Export project'),language:language==='zh'?'English':'中文',undo:t('撤销','Undo')};
         document.querySelectorAll('.designer-toolbar [data-action]').forEach(el=>el.textContent=names[el.dataset.action]);
         document.getElementById('designerName').textContent=t('护网与网络安全月报编辑器','Network security report designer');
         document.getElementById('projectImportLabel').textContent=t('导入工程','Import project');
@@ -267,7 +268,7 @@
     }
     function observeCardGrids(){
         cardGridObserver?.disconnect();
-        const update=grid=>{const style=getComputedStyle(grid);const width=grid.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);grid.style.setProperty('--card-grid-unit',`${Math.max(1,(width-11*12)/12)}px`);};
+        const update=grid=>{const style=getComputedStyle(grid);const width=grid.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),unit=`${Math.max(1,(width-11*12)/12)}px`;if(grid.style.getPropertyValue('--card-grid-unit')!==unit)grid.style.setProperty('--card-grid-unit',unit);};
         cardGridObserver=new ResizeObserver(entries=>entries.forEach(entry=>update(entry.target)));
         root.querySelectorAll('.document-blocks').forEach(grid=>{update(grid);cardGridObserver.observe(grid);});
     }
@@ -859,7 +860,12 @@
     }
     function download(blob,name){const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),2000);}
     async function listDocuments(){const items=await request('/api/upload/monthly-documents');document.getElementById('documentList').innerHTML=`<option value="">${t('选择已保存月报','Select saved report')}</option>`+items.map(item=>`<option value="${escape(item.id)}" ${item.id===current.id?'selected':''}>${escape(item.name)}</option>`).join('');return items;}
-    async function refresh(){status(t('正在读取服务器原始表与指标…','Reading server originals and metrics…'));const [sources,mapping,categories]=await Promise.all([request('/api/upload/source-catalog'),request('/api/sla/prefs/i18nMap').catch(()=>metricTranslations),request('/api/sla/categories').catch(()=>[])]);catalog=sources;globalCategories=Array.isArray(categories)?categories:[];metricTranslations=readMetricTranslations(mapping);cache.clear();library();await render();status(t('数据库数据已刷新；模板保持当前配置','Database refreshed; document layout retained'));}
+    function loadAuxiliaryConfig(){
+        // Optional translations and categories must never hold the source library or editor hostage.
+        request('/api/sla/prefs/i18nMap',{timeoutMs:5000}).then(mapping=>{metricTranslations=readMetricTranslations(mapping);if(language==='en'&&!initializing&&!dirty)render();}).catch(()=>{});
+        request('/api/sla/categories',{timeoutMs:5000}).then(categories=>{globalCategories=Array.isArray(categories)?categories:[];}).catch(()=>{});
+    }
+    async function refresh(){status(t('正在读取服务器原始表与指标…','Reading server originals and metrics…'));loadAuxiliaryConfig();const sources=await request('/api/upload/source-catalog');catalog=sources;cache.clear();library();await render();status(t('数据库数据已刷新；模板保持当前配置','Database refreshed; document layout retained'));}
 
     async function exportLogo(source){
         const response=await fetch(source,{credentials:'same-origin'});if(!response.ok)throw new Error(t('Logo 读取失败，请重试','Logo could not be loaded; please retry'));
@@ -892,7 +898,7 @@
             clone.style.width=root.getBoundingClientRect().width+'px';clone.style.maxWidth='none';clone.style.flex='none';
             const typography=getComputedStyle(root);clone.style.fontFamily=typography.fontFamily;clone.style.fontSize=typography.fontSize;
             clone.querySelectorAll('.document-meta-cell,.document-section,.document-block').forEach(element=>{const original=root.querySelector(element.dataset.metaId?`[data-meta-id="${element.dataset.metaId}"].document-meta-cell`:element.dataset.cardId?`[data-card-id="${element.dataset.cardId}"]`:`#${element.id}`);if(original){const style=getComputedStyle(original);element.style.setProperty('grid-column',style.gridColumn,'important');element.style.padding=style.padding;}});
-            clone.querySelectorAll('.inline-metric').forEach(element=>element.replaceWith(document.createTextNode(element.textContent)));clone.querySelectorAll('.document-source-note').forEach(note=>{note.textContent=note.dataset.sourceDate||'';note.removeAttribute('data-source-date');});clone.querySelectorAll('[data-controls]').forEach(el=>el.remove());clone.querySelectorAll('[contenteditable]').forEach(el=>{el.removeAttribute('contenteditable');el.removeAttribute('data-placeholder');el.removeAttribute('data-field');});const logo=clone.querySelector('.document-masthead img');if(logo&&current.logo){logo.src=await exportLogo(current.logo);logo.removeAttribute('hidden');}const css=await fetch('/css/monthly-designer.css?v=20261010-53').then(res=>res.text());
+            clone.querySelectorAll('.inline-metric').forEach(element=>element.replaceWith(document.createTextNode(element.textContent)));clone.querySelectorAll('.document-source-note').forEach(note=>{note.textContent=note.dataset.sourceDate||'';note.removeAttribute('data-source-date');});clone.querySelectorAll('[data-controls]').forEach(el=>el.remove());clone.querySelectorAll('[contenteditable]').forEach(el=>{el.removeAttribute('contenteditable');el.removeAttribute('data-placeholder');el.removeAttribute('data-field');});const logo=clone.querySelector('.document-masthead img');if(logo&&current.logo){logo.src=await exportLogo(current.logo);logo.removeAttribute('hidden');}const css=await fetch('/css/monthly-designer.css?v=20261011-04').then(res=>res.text());
         clone.style.padding=typography.padding;
         await alignExportCards(clone,css);
         return {clone,css};
@@ -931,12 +937,274 @@
             status(t('导出成功','Export complete'));
         }finally{if(action!=='print')output.frame.remove();}
     }
+    async function buildEmailWorkbook(reportName) {
+        if (typeof window.ExcelJS === 'undefined') return null;
+        try {
+            const workbook = new window.ExcelJS.Workbook();
+            workbook.creator = 'Tools Platform · 护网与网络安全月报';
+            workbook.created = new Date();
+            const metaSheet = workbook.addWorksheet(t('月报概览', 'Overview'));
+            metaSheet.addRow([t('报告名称', 'Report Name'), pair(current.title) || current.name]);
+            if (current.meta && current.meta.length) {
+                current.meta.forEach(m => {
+                    const label = pair(m.label);
+                    const val = pair(m.value);
+                    if (label || val) metaSheet.addRow([label, val]);
+                });
+            }
+            metaSheet.getRow(1).font = { bold: true };
+            metaSheet.getColumn(1).width = 24;
+            metaSheet.getColumn(2).width = 65;
+
+            let sheetIdx = 1;
+            const tables = root.querySelectorAll('table.document-table, table.document-pivot-table, table.document-duty-table, .document-block table');
+            const usedNames = new Set([t('月报概览', 'Overview')]);
+            tables.forEach(table => {
+                const block = table.closest('.document-block');
+                const blockTitle = block?.querySelector(':scope > h3')?.textContent?.trim() || `${t('数据表', 'Table')}_${sheetIdx}`;
+                let sheetName = blockTitle.replace(/[\\/*?:\[\]]/g, '').slice(0, 28) || `${t('数据表', 'Table')}_${sheetIdx}`;
+                if (usedNames.has(sheetName)) sheetName = `${sheetName}_${sheetIdx}`;
+                usedNames.add(sheetName);
+                sheetIdx++;
+
+                const sheet = workbook.addWorksheet(sheetName);
+                const headerRow = [];
+                table.querySelectorAll('thead tr th, thead tr td, tr:first-child th').forEach(cell => {
+                    headerRow.push(cell.textContent.trim());
+                });
+                if (headerRow.length) {
+                    sheet.addRow(headerRow);
+                    sheet.getRow(1).font = { bold: true };
+                    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+                }
+                const bodyRows = table.querySelectorAll('tbody tr');
+                const rowElements = bodyRows.length ? bodyRows : Array.from(table.querySelectorAll('tr')).slice(headerRow.length ? 1 : 0);
+                rowElements.forEach(tr => {
+                    const rowData = [];
+                    tr.querySelectorAll('td, th').forEach(cell => {
+                        const text = cell.textContent.trim();
+                        const rawNum = text.replace(/[,，%]/g, '');
+                        const num = Number(rawNum);
+                        rowData.push(Number.isFinite(num) && rawNum !== '' && !/^0\d+/.test(rawNum) ? num : text);
+                    });
+                    if (rowData.some(v => v !== '')) sheet.addRow(rowData);
+                });
+                headerRow.forEach((_, i) => { sheet.getColumn(i + 1).width = Math.max(16, Math.min(45, (headerRow[i]?.length || 10) * 2 + 4)); });
+                if (headerRow.length) {
+                    sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: headerRow.length } };
+                }
+            });
+
+            const bytes = await workbook.xlsx.writeBuffer();
+            return { filename: `${reportName}_原始数据.xlsx`, bytes };
+        } catch (err) {
+            console.warn('[buildEmailWorkbook error]', err);
+            return null;
+        }
+    }
+    async function prepareEmailClone(clone) {
+        window.ReportMsgExport.preserveStyles(clone);
+        const masthead=clone.querySelector('.document-masthead');
+        if(masthead){masthead.style.textAlign='center';masthead.querySelectorAll('img').forEach(img=>{img.style.display='inline-block';});}
+        const chartSvgs = Array.from(clone.querySelectorAll('svg.document-chart, svg'));
+        for (const svg of chartSvgs) {
+            try {
+                const block = svg.closest('.document-block');
+                const cardId = block?.dataset?.cardId;
+                const liveSvg = cardId ? root.querySelector(`[data-card-id="${cardId}"] svg`) : null;
+                const targetSvg = liveSvg || svg;
+                const bbox = targetSvg.getBoundingClientRect ? targetSvg.getBoundingClientRect() : {};
+                const width = Math.max(320, Math.ceil(bbox.width || targetSvg.viewBox?.baseVal?.width || 640));
+                const height = Math.max(160, Math.ceil(bbox.height || targetSvg.viewBox?.baseVal?.height || 260));
+
+                let dataUrl = null;
+                if (typeof window.html2canvas === 'function' && targetSvg.parentElement) {
+                    const canvas = await window.html2canvas(targetSvg.parentElement, {
+                        scale: 2,
+                        backgroundColor: '#ffffff',
+                        logging: false
+                    }).catch(() => null);
+                    if (canvas) dataUrl = canvas.toDataURL('image/png');
+                }
+                if (!dataUrl) {
+                    const xml = new XMLSerializer().serializeToString(targetSvg);
+                    const svgBlob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+                    const url = URL.createObjectURL(svgBlob);
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width * 2; canvas.height = height * 2;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(url);
+                    dataUrl = canvas.toDataURL('image/png');
+                }
+                if (dataUrl) {
+                    const imgTag = document.createElement('img');
+                    imgTag.src = dataUrl;
+                    imgTag.setAttribute('width', String(width));
+                    imgTag.style.cssText = `display:block;width:100%;max-width:${width}px;height:auto;margin:8px auto;border:none;`;
+                    svg.replaceWith(imgTag);
+                }
+            } catch (e) {
+                console.warn('[SVG conversion to img]', e);
+            }
+        }
+
+        const metaGrid = clone.querySelector('.document-meta, .document-meta-grid');
+        if (metaGrid) {
+            clone.querySelectorAll('.document-meta-toolbar, [data-controls]').forEach(el => el.remove());
+            const cells = Array.from(metaGrid.querySelectorAll('.document-meta-cell'));
+            if (cells.length) {
+                const table = document.createElement('table');
+                table.setAttribute('role', 'presentation');
+                table.setAttribute('width', '100%');
+                table.setAttribute('cellpadding', '0');
+                table.setAttribute('cellspacing', '0');
+                table.setAttribute('border', '0');
+                table.style.cssText = 'width:100%;border-collapse:separate;border-spacing:8px 8px;margin:12px 0;box-sizing:border-box;';
+                const tbody = document.createElement('tbody');
+                table.appendChild(tbody);
+                const columns=document.createElement('colgroup');for(let index=0;index<12;index++){const col=document.createElement('col');col.setAttribute('width','8.333%');columns.appendChild(col);}table.prepend(columns);table.style.tableLayout='fixed';
+
+                let currentRow = document.createElement('tr');
+                let currentSpan = 0;
+                cells.forEach(cell => {
+                    const metaId = cell.dataset.metaId;
+                    const metaDef = current.meta?.find(m => m.id === metaId);
+                    const span = Number(cell.style.gridColumn.match(/span\s+(\d+)/)?.[1]) || metaDef?.span || 4;
+                    if (currentSpan + span > 12 && currentSpan > 0) {
+                        tbody.appendChild(currentRow);
+                        currentRow = document.createElement('tr');
+                        currentSpan = 0;
+                    }
+                    const td = document.createElement('td');
+                    const widthPct = Math.round((span / 12) * 100);
+                    td.setAttribute('width', `${widthPct}%`);td.colSpan=span;
+                    td.style.cssText = `width:${widthPct}%;vertical-align:top;background:#f8fafc;border:1px solid #cbd5e1;border-radius:6px;padding:8px 12px;box-sizing:border-box;`;
+                    td.style.padding='0';td.style.backgroundColor='#ffffff';
+                    const inner=document.createElement('table');inner.setAttribute('role','presentation');inner.setAttribute('width','100%');inner.setAttribute('cellpadding','0');inner.setAttribute('cellspacing','0');inner.style.cssText='width:100%;border-collapse:collapse;';
+                    const row=inner.insertRow();
+                    for(const selector of ['.document-meta-label','.document-meta-value']){
+                        const original=cell.querySelector(selector);if(!original)continue;
+                        const valueCell=row.insertCell();
+                        if(selector==='.document-meta-label'){const width=Math.round(parseFloat(getComputedStyle(original).width))||90;valueCell.setAttribute('width',String(width));valueCell.style.width=width+'px';}
+                        original.style.display='block';valueCell.appendChild(original);
+                    }
+                    td.appendChild(inner);
+                    currentRow.appendChild(td);
+                    currentSpan += span;
+                });
+                if (currentRow.childNodes.length) tbody.appendChild(currentRow);
+                const wrapperParent = metaGrid.closest('.document-meta-wrapper') || metaGrid;
+                wrapperParent.replaceWith(table);
+            }
+        }
+
+        const navigation=clone.querySelector('.document-nav');
+        if(navigation){
+            const table=document.createElement('table');table.setAttribute('role','presentation');table.setAttribute('width','100%');table.setAttribute('cellpadding','0');table.setAttribute('cellspacing','0');table.style.cssText='width:100%;table-layout:fixed;border-collapse:collapse;margin:14px 0;';
+            for(const row of navigation.querySelectorAll('.document-nav-row')){
+                const links=Array.from(row.querySelectorAll('a'));const tr=table.insertRow();
+                for(const link of links){const td=tr.insertCell();td.setAttribute('width',(100/links.length)+'%');td.style.padding='3px';link.style.display='block';link.style.width='auto';link.style.textAlign='center';link.style.lineHeight=link.style.height || '36px';td.appendChild(link);}
+            }
+            navigation.replaceWith(table);
+        }
+
+        const sections = Array.from(clone.querySelectorAll('.document-section'));
+        sections.forEach(section => {
+            section.style.cssText = 'display:block;width:100%;margin-bottom:20px;';
+            const blocksContainer = section.querySelector('.document-blocks');
+            if (blocksContainer) {
+                const blocks = Array.from(blocksContainer.querySelectorAll(':scope > .document-block:not(.export-empty)'));
+                if (blocks.length) {
+                    const table = document.createElement('table');
+                    table.setAttribute('role', 'presentation');
+                    table.setAttribute('width', '100%');
+                    table.setAttribute('cellpadding', '0');
+                    table.setAttribute('cellspacing', '0');
+                    table.setAttribute('border', '0');
+                    table.style.cssText = 'width:100%;border-collapse:separate;border-spacing:10px 10px;margin:8px 0;box-sizing:border-box;';
+                    const tbody = document.createElement('tbody');
+                    table.appendChild(tbody);
+                    const columns=document.createElement('colgroup');for(let index=0;index<12;index++){const col=document.createElement('col');col.setAttribute('width','8.333%');columns.appendChild(col);}table.prepend(columns);table.style.tableLayout='fixed';
+
+                    let currentRow = document.createElement('tr');
+                    let currentSpan = 0;
+                    blocks.forEach(block => {
+                        const cardId = block.dataset.cardId;
+                        let span = 12;
+                        for (const s of current.sections) {
+                            const b = s.blocks.find(item => item.id === cardId);
+                            if (b) { span = b.span || 12; break; }
+                        }
+                        if (currentSpan + span > 12 && currentSpan > 0) {
+                            tbody.appendChild(currentRow);
+                            currentRow = document.createElement('tr');
+                            currentSpan = 0;
+                        }
+                        const td = document.createElement('td');
+                        const widthPct = Math.round((span / 12) * 100);
+                        td.setAttribute('width', `${widthPct}%`);td.colSpan=span;
+                        td.style.cssText = `width:${widthPct}%;vertical-align:top;background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;box-sizing:border-box;`;
+
+                        while (block.firstChild) {
+                            td.appendChild(block.firstChild);
+                        }
+                        currentRow.appendChild(td);
+                        currentSpan += span;
+                    });
+                    if (currentRow.childNodes.length) tbody.appendChild(currentRow);
+                    blocksContainer.replaceWith(table);
+                }
+            }
+        });
+
+        clone.querySelectorAll('table').forEach(table=>{
+            if(!table.hasAttribute('cellspacing'))table.setAttribute('cellspacing','0');
+            if(!table.hasAttribute('cellpadding'))table.setAttribute('cellpadding','0');
+        });
+
+        const footer = document.createElement('div');
+        footer.style.cssText = 'margin-top:28px;padding:12px 16px;background:#f8fafc;border-left:4px solid #3b82f6;border-radius:4px;font-size:12px;color:#64748b;line-height:1.6;';
+        footer.innerHTML = `<strong>${t('说明：', 'Note: ')}</strong>${t('若您对此报告数据有疑问或需进一步分析，请联系网络安全与运维保障项目组。原始数据见附件 Excel。<br>本邮件由 Tools Platform 护网与网络安全月报平台自动封装生成。', 'If you have questions regarding this report, please contact the Cyber Security & Assurance Operations team. Raw data is attached in Excel.<br>Automatically generated by Tools Platform.')}`;
+        clone.appendChild(footer);
+
+        return clone;
+    }
+    async function exportMsg(){
+        if (!window.ReportMsgExport) throw new Error(t('MSG 邮件导出组件未就绪，请刷新页面后重试', 'MSG export helper not loaded; please refresh'));
+        status(t('正在准备月报 MSG 邮件导出…', 'Preparing MSG email export…'));
+        const { clone } = await exportDocument();
+        clone.style.cssText = 'display:block;width:100%;max-width:1240px;margin:0 auto;background:#ffffff;color:#0f172a;visibility:visible;';
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = 'position:fixed;left:-100000px;top:0;width:1240px;background:#ffffff;pointer-events:none;';
+        wrapper.appendChild(clone);
+        document.body.appendChild(wrapper);
+        try {
+            await prepareEmailClone(clone);
+            const rawName = current.name.replace(/[\\/:*?"<>|]/g, '_');
+            const titleText = pair(current.title) || current.name;
+            const monthMeta = current.meta?.find(m => m.id === 'meta-month' || m.id === 'meta-period');
+            const month = pair(monthMeta?.value) || '';
+            const subject = month ? `${titleText}（${month}）` : titleText;
+            const filename = `${rawName}.msg`;
+            const attachment = await buildEmailWorkbook(rawName);
+            await window.ReportMsgExport.download(clone, subject, filename, attachment);
+            status(t('月报 MSG 邮件导出完成！', 'Monthly report MSG email exported successfully!'));
+        } finally {
+            wrapper.remove();
+        }
+    }
     async function runAction(action){
         root.querySelectorAll('.document-edit').forEach(commitText);
         document.activeElement?.blur();
         if(action==='language'){language=language==='zh'?'en':'zh';library();await render();await listDocuments();return;}
         if(action==='undo'){if(history.length){current=history.pop();dirty=true;restoreLibrary();render();}return;}
-        if(action==='new'){checkpoint();current=engine.defaults();window.MonthlyCharts.resetPanels();restoreLibrary();await render();status(t('新月报尚未保存','New report is unsaved'));return;}
+        if(action==='template')return window.MonthlyTemplateControls.open({request,t,status,capture:()=>window.MonthlyTemplates.capture(current,catalog)});
+        if(action==='new'){const saved=await request('/api/upload/monthly-default-template');checkpoint();current=window.MonthlyTemplates.create(saved.template,catalog);window.MonthlyCharts.resetPanels();restoreLibrary();await render();document.getElementById('documentList').value='';status(t('已使用默认模板新建月报，尚未保存','New report created from the default template; unsaved'));return;}
         if(action==='save'){
             if(saving)return;
             const toolbar=document.querySelector('.designer-toolbar'),button=toolbar.querySelector('[data-action=save]');
@@ -966,6 +1234,7 @@
         if(action==='layout')return editLayout();
         if(action==='project'){download(new Blob([JSON.stringify({fileType:'monthly-document-project',document:engine.normalize(current)},null,2)],{type:'application/json'}),`${current.name.replace(/[\\/:*?"<>|]/g,'_')}.json`);return;}
         if(action==='html'){const {clone,css}=await exportDocument();download(new Blob([outputHtml(clone,css)],{type:'text/html'}),`${current.name.replace(/[\\/:*?"<>|]/g,'_')}.html`);return;}
+        if(action==='msg')return exportMsg();
         if(['print','pdf','image'].includes(action))await visualExport(action);
     }
     document.querySelector('.designer-toolbar').onclick=event=>{const action=event.target.closest('[data-action]')?.dataset.action;if(action)runAction(action).catch(error=>status(error.message));};
@@ -975,20 +1244,28 @@
     window.MonthlyDesigner={getDocument:()=>clone(current),getCatalog:()=>clone(catalog),applyDocument:async document=>{current=engine.normalize(document);window.MonthlyCharts.resetPanels();restoreLibrary();return render();},refresh,whenRendered:()=>renderPromise};
     async function initialize(){
         const toolbar=document.querySelector('.designer-toolbar');
+        initializing=true;initializationCancelled=false;
         root.inert=true;toolbar.inert=true;
+        const sourceLibrary=document.getElementById('sourceLibrary');
+        sourceLibrary.innerHTML=`<h3>${t('服务器数据资料库','Server source library')}</h3><p data-source-loading>${t('正在载入月报与资料库…','Loading report and source library…')}</p>`;
+        const loading=document.createElement('div');loading.className='designer-loading';loading.setAttribute('data-controls','');loading.setAttribute('role','status');loading.innerHTML=`<span>${t('正在载入月报与资料库…','Loading report and source library…')}</span><button type="button" data-cancel-loading>${t('停止等待','Stop waiting')}</button>`;document.querySelector('.designer-layout').before(loading);
+        const cancel=()=>{initializationCancelled=true;transport.cancelReads(t('已停止加载，可重新载入月报或刷新数据库数据','Loading stopped; load a report or refresh the database to retry'));root.inert=false;toolbar.inert=false;status(t('已停止加载，可重新载入月报或刷新数据库数据','Loading stopped; load a report or refresh the database to retry'));};
+        loading.querySelector('[data-cancel-loading]').onclick=cancel;
         try{
             const [sources,documents]=await Promise.allSettled([refresh(),listDocuments()]);
+            if(initializationCancelled)return;
             if(documents.status==='rejected')throw documents.reason;
             const latest=documents.value[0];
             if(latest){
                 const result=await request(`/api/upload/monthly-documents/${encodeURIComponent(latest.id)}`);
+                if(initializationCancelled)return;
                 current=engine.normalize(result.document);window.MonthlyCharts.resetPanels();dirty=false;history.length=0;
-                restoreLibrary();await render();document.getElementById('documentList').value=current.id;
+                const opened=current;restoreLibrary();const rendering=render();root.inert=false;toolbar.inert=false;await rendering;if(initializationCancelled||current!==opened)return;document.getElementById('documentList').value=current.id;
                 status(t('已自动载入最近保存的服务器月报','Latest saved server report loaded automatically'));
-            }else status(t('服务器暂无已保存月报，已打开新建模板','No saved server reports; opened a new template'));
+            }else{const saved=await request('/api/upload/monthly-default-template');if(initializationCancelled)return;current=window.MonthlyTemplates.create(saved.template,catalog);window.MonthlyCharts.resetPanels();const opened=current;restoreLibrary();const rendering=render();dirty=false;root.inert=false;toolbar.inert=false;await rendering;if(initializationCancelled||current!==opened)return;status(t('服务器暂无已保存月报，已打开默认模板','No saved server reports; opened the default template'));}
             if(sources.status==='rejected')status(t('月报已打开，但数据资料库读取失败：','Report opened, but data sources could not be loaded: ')+sources.reason.message);
-        }catch(error){status(error.message);}
-        finally{root.inert=false;toolbar.inert=false;}
+        }catch(error){if(!initializationCancelled)status(error.message);}
+        finally{initializing=false;root.inert=false;toolbar.inert=false;loading.remove();const placeholder=sourceLibrary.querySelector('[data-source-loading]');if(placeholder)placeholder.textContent=document.getElementById('designerStatus').textContent;}
     }
     window.MonthlyPivotPanel.init({root,library:document.getElementById('sourceLibrary'),t,escape,status,block:id=>findBlock(id)?.block,targets:()=>current.sections.flatMap(section=>section.blocks.filter(block=>block.type==='chart'&&block.chart.pivot).map((block,index)=>({id:block.id,label:(pair(section.title)||t('模块','Module'))+' / '+(pair(block.title)||t('透视 '+(index+1),'Pivot '+(index+1)))}))),selectSource:async(id,payload,selected)=>{
         const file=catalog.files.find(file=>file.id===payload.fileId&&file.sheets.some(sheet=>sheet.id===payload.sheetId))||catalog.files.find(file=>file.sheets.some(sheet=>sheet.id===payload.sheetId)),sheet=file?.sheets.find(sheet=>sheet.id===payload.sheetId);if(!sheet)throw new Error(t('源表不存在','Source table not found'));

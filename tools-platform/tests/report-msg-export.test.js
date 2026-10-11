@@ -124,3 +124,43 @@ test('report-msg-export.js defines buildLocalOutlookEml with X-Unsent draft supp
     assert.match(source, /multipart\/mixed/);
     assert.match(source, /isProxyBlock/);
 });
+
+test('monthly designer offers the MSG export action with Excel attachment and email table conversion', () => {
+    const designerHtml = fs.readFileSync(path.join(__dirname, '../frontend/pages/monthly-designer.html'), 'utf8');
+    const designerJs = fs.readFileSync(path.join(__dirname, '../frontend/js/monthly-designer/designer.js'), 'utf8');
+    assert.match(designerHtml, /data-action="msg"/);
+    assert.match(designerHtml, /report-msg-export\.js/);
+    assert.match(designerHtml, /exceljs\.min\.js/);
+    assert.match(designerJs, /msg:\s*t\('导出 MSG 邮件',\s*'Export MSG email'\)/);
+    assert.match(designerJs, /function exportMsg\(/);
+    assert.match(designerJs, /function buildEmailWorkbook\(/);
+    assert.match(designerJs, /function prepareEmailClone\(/);
+    assert.match(designerJs, /if\(action==='msg'\)return exportMsg\(\)/);
+    assert.match(designerJs, /window\.ReportMsgExport\.download/);
+});
+
+test('report-msg-export.js preserves img tags, attributes, and styles for email rendering', () => {
+    const source = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/report-msg-export.js'), 'utf8');
+    assert.match(source, /'IMG'/);
+    assert.match(source, /if\s*\(tag === 'img'\)/);
+    assert.match(source, /target\.setAttribute\('src', src\)/);
+});
+
+
+test('MSG embeds images with matching Content-ID and MIME type', async () => {
+    const cid='report-image-0@tools-platform';
+    const response=await request(app).post('/api/report-msg/export').send({subject:'内嵌 Logo',html:`<html><body><img src="cid:${cid}"></body></html>`,inlineImages:[{cid,filename:'report-image-0.png',data:Buffer.from('png-fixture').toString('base64')}]}).buffer(true).parse((res,callback)=>{const chunks=[];res.on('data',chunk=>chunks.push(chunk));res.on('end',()=>callback(null,Buffer.concat(chunks)));});
+    assert.equal(response.status,200);
+    const compound=CFB.read(response.body,{type:'buffer'}),prefix='/__attach_version1.0_#00000000/';
+    assert.equal(Buffer.from(CFB.find(compound,prefix+'__substg1.0_3712001F').content).toString('utf16le').replace(/\0+$/,''),cid);
+    assert.equal(Buffer.from(CFB.find(compound,prefix+'__substg1.0_370E001F').content).toString('utf16le').replace(/\0+$/,''),'image/png');
+    assert.equal(Buffer.from(CFB.find(compound,prefix+'__substg1.0_37010102').content).toString(),'png-fixture');
+});
+
+test('MSG rejects malformed or duplicate inline image declarations', async () => {
+    const image={cid:'report-image-0@tools-platform',filename:'report-image-0.png',data:'cG5n'};
+    for(const inlineImages of [{},[null],[{...image,data:{}}],[{...image,filename:'script.html'}],[image,image]]){
+        const response=await request(app).post('/api/report-msg/export').send({subject:'图片校验',html:'<p>test</p>',inlineImages});
+        assert.equal(response.status,400);assert.equal(response.body.error,'INVALID_INLINE_IMAGE');
+    }
+});

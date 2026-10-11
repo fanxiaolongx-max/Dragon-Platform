@@ -1,0 +1,470 @@
+{
+  "version": 1,
+  "document": {
+    "version": 1,
+    "name": "护网与网络安全月报",
+    "title": {
+      "zh": "埃及代表处交付与服务维护月报",
+      "en": "Network protection & cyber security monthly report"
+    },
+    "subtitle": {
+      "zh": "",
+      "en": ""
+    },
+    "logo": "/assets/logo.png",
+    "logoWidth": 120,
+    "logoAlign": "center",
+    "pageWidth": 1280,
+    "navRows": 2,
+    "navRowHeight": 44,
+    "navWidth": 0,
+    "navFontSize": 16,
+    "metaWidth": 0,
+    "metaRowHeight": 0,
+    "metaLabelWidth": 0,
+    "metaAlignMode": "grid",
+    "meta": [
+      {
+        "id": "ebe07198-f580-49c4-b438-c7722a263050",
+        "label": {
+          "zh": "部门",
+          "en": "Department"
+        },
+        "value": {
+          "zh": "埃及网络保障与运维服务部",
+          "en": "Egypt Network Assurance & Operations Services Department"
+        },
+        "span": 4,
+        "heightUnits": 0
+      },
+      {
+        "id": "95d8c235-f466-4004-b7eb-6f4636d20c7c",
+        "label": {
+          "zh": "报告时间",
+          "en": "Reporting period"
+        },
+        "value": {
+          "zh": "",
+          "en": ""
+        },
+        "span": 4,
+        "heightUnits": 0
+      },
+      {
+        "id": "42beff85-51fe-4afb-9fc8-dd645936dc49",
+        "label": {
+          "zh": "密级",
+          "en": "Classification"
+        },
+        "value": {
+          "zh": "内部公开",
+          "en": "Internal"
+        },
+        "span": 4,
+        "heightUnits": 0
+      },
+      {
+        "id": "14a4e285-7741-46a4-80ba-64a213c0b129",
+        "label": {
+          "zh": "报告编号",
+          "en": "Report number"
+        },
+        "value": {
+          "zh": "",
+          "en": ""
+        },
+        "span": 4,
+        "heightUnits": 0
+      },
+      {
+        "id": "e3e7dedf-e8a3-4848-be61-f3e9e4c811bd",
+        "label": {
+          "zh": "数据月份",
+          "en": "Data month"
+        },
+        "value": {
+          "zh": "",
+          "en": ""
+        },
+        "span": 4,
+        "heightUnits": 0
+      },
+      {
+        "id": "7f652506-5f9c-4d43-94ed-d4501bf1b3e3",
+        "label": {
+          "zh": "审核人",
+          "en": "Reviewer"
+        },
+        "value": {
+          "zh": "于祥 00877023",
+          "en": "Yu Xiang 00877023"
+        },
+        "span": 4,
+        "heightUnits": 0
+      },
+      {
+        "id": "ce17a1ba-8089-41f8-b0e9-80dd21412919",
+        "label": {
+          "zh": "报告目标",
+          "en": "Report objectives"
+        },
+        "value": {
+          "zh": "强化问题与事件管理：规范 SR 处理、事件升级及紧急业务恢复流程，提升问题及时解决率和事故发生后 60 分钟内的业务恢复及时率，保障客户网络稳定运行。确保变更与操作可信：推动适用的变更操作 100% 纳入 IT 管道管理，落实 RFC/MOP 审批、高风险操作拦截、操作日志稽查及业务比对，确保操作合规、过程可追溯、结果可验证。推进主动风险治理：统筹 TOPN、网络整改、巡检、License、EOS及第三方软件风险闭环，完善应急演练、预案拓扑和内控稽查，防范已知风险引发现网重大业务中断与事故。",
+          "en": "Standardize SR handling, incident escalation and emergency recovery; improve timely resolution and service recovery within 60 minutes. Ensure all applicable changes follow IT pipeline governance, RFC/MOP approval, high-risk operation interception, log audits and business verification. Close TOPN, remediation, inspection, License, EOS and third-party software risks, strengthen emergency drills, contingency plans, topology and internal audits, and prevent major service interruptions."
+        },
+        "span": 12,
+        "heightUnits": 2
+      }
+    ],
+    "sections": [
+      {
+        "id": "4bc305be-690e-4064-b0b1-507cdbfafb12",
+        "title": {
+          "zh": "整体情况",
+          "en": "Overall situation"
+        },
+        "span": 12,
+        "blocks": [
+          {
+            "id": "79a7fa80-f5b0-4c6b-8b7e-f671f2e4477a",
+            "type": "text",
+            "title": {
+              "zh": "",
+              "en": ""
+            },
+            "text": {
+              "zh": "",
+              "en": ""
+            },
+            "span": 12,
+            "heightUnits": 0,
+            "align": "left",
+            "binding": null,
+            "columns": [],
+            "filters": [],
+            "limit": 50,
+            "chart": {
+              "x": "",
+              "y": "",
+              "aggregation": "count"
+            },
+            "rule": {
+              "zh": "{label}：{value}。",
+              "en": "{label}: {value}."
+            }
+          }
+        ],
+        "overview": true
+      },
+      {
+        "id": "026d4308-53e0-4da4-833f-47f111c09a7f",
+        "title": {
+          "zh": "网络变更",
+          "en": "Network changes"
+        },
+        "span": 12,
+        "blocks": [
+          {
+            "id": "8f28eac9-bb67-41f4-a8f2-d2e186000772",
+            "type": "text",
+            "title": {
+              "zh": "",
+              "en": ""
+            },
+            "text": {
+              "zh": "",
+              "en": ""
+            },
+            "span": 12,
+            "heightUnits": 0,
+            "align": "left",
+            "binding": null,
+            "columns": [],
+            "filters": [],
+            "limit": 50,
+            "chart": {
+              "x": "",
+              "y": "",
+              "aggregation": "count"
+            },
+            "rule": {
+              "zh": "{label}：{value}。",
+              "en": "{label}: {value}."
+            }
+          }
+        ]
+      },
+      {
+        "id": "389b742b-cd2c-4273-87fa-014f8a3b6414",
+        "title": {
+          "zh": "SR与事件",
+          "en": "SR & incidents"
+        },
+        "span": 12,
+        "blocks": [
+          {
+            "id": "b56e6aff-5345-4ff9-ba30-875eac293fbb",
+            "type": "text",
+            "title": {
+              "zh": "",
+              "en": ""
+            },
+            "text": {
+              "zh": "",
+              "en": ""
+            },
+            "span": 12,
+            "heightUnits": 0,
+            "align": "left",
+            "binding": null,
+            "columns": [],
+            "filters": [],
+            "limit": 50,
+            "chart": {
+              "x": "",
+              "y": "",
+              "aggregation": "count"
+            },
+            "rule": {
+              "zh": "{label}：{value}。",
+              "en": "{label}: {value}."
+            }
+          }
+        ]
+      },
+      {
+        "id": "724523a7-3c8a-4f12-b739-38f116121e42",
+        "title": {
+          "zh": "风险治理",
+          "en": "Risk governance"
+        },
+        "span": 12,
+        "blocks": [
+          {
+            "id": "896de63c-e5e4-49b5-aaa4-99de6dbbee38",
+            "type": "text",
+            "title": {
+              "zh": "",
+              "en": ""
+            },
+            "text": {
+              "zh": "",
+              "en": ""
+            },
+            "span": 12,
+            "heightUnits": 0,
+            "align": "left",
+            "binding": null,
+            "columns": [],
+            "filters": [],
+            "limit": 50,
+            "chart": {
+              "x": "",
+              "y": "",
+              "aggregation": "count"
+            },
+            "rule": {
+              "zh": "{label}：{value}。",
+              "en": "{label}: {value}."
+            }
+          }
+        ]
+      },
+      {
+        "id": "7e86b043-0d36-45e7-9871-c6bcd725c1a9",
+        "title": {
+          "zh": "License",
+          "en": "License"
+        },
+        "span": 12,
+        "blocks": [
+          {
+            "id": "856e95f8-14dc-4f10-bdb9-ea14994b61cc",
+            "type": "text",
+            "title": {
+              "zh": "",
+              "en": ""
+            },
+            "text": {
+              "zh": "",
+              "en": ""
+            },
+            "span": 12,
+            "heightUnits": 0,
+            "align": "left",
+            "binding": null,
+            "columns": [],
+            "filters": [],
+            "limit": 50,
+            "chart": {
+              "x": "",
+              "y": "",
+              "aggregation": "count"
+            },
+            "rule": {
+              "zh": "{label}：{value}。",
+              "en": "{label}: {value}."
+            }
+          }
+        ]
+      },
+      {
+        "id": "1f57323f-3edb-495a-83dc-fc64b5d94faf",
+        "title": {
+          "zh": "EOS退网收编",
+          "en": "EOS retirement"
+        },
+        "span": 12,
+        "blocks": [
+          {
+            "id": "99aafafb-d10e-4095-b16d-ebc52dbd9095",
+            "type": "text",
+            "title": {
+              "zh": "",
+              "en": ""
+            },
+            "text": {
+              "zh": "",
+              "en": ""
+            },
+            "span": 12,
+            "heightUnits": 0,
+            "align": "left",
+            "binding": null,
+            "columns": [],
+            "filters": [],
+            "limit": 50,
+            "chart": {
+              "x": "",
+              "y": "",
+              "aggregation": "count"
+            },
+            "rule": {
+              "zh": "{label}：{value}。",
+              "en": "{label}: {value}."
+            }
+          }
+        ]
+      },
+      {
+        "id": "68dbd8fb-8c1f-44a7-af0f-aaa0c0ebb3f1",
+        "title": {
+          "zh": "第三方软件",
+          "en": "Third-party software"
+        },
+        "span": 12,
+        "blocks": [
+          {
+            "id": "3212dd54-f2c3-4817-aeb8-4b032abf1b5d",
+            "type": "text",
+            "title": {
+              "zh": "",
+              "en": ""
+            },
+            "text": {
+              "zh": "",
+              "en": ""
+            },
+            "span": 12,
+            "heightUnits": 0,
+            "align": "left",
+            "binding": null,
+            "columns": [],
+            "filters": [],
+            "limit": 50,
+            "chart": {
+              "x": "",
+              "y": "",
+              "aggregation": "count"
+            },
+            "rule": {
+              "zh": "{label}：{value}。",
+              "en": "{label}: {value}."
+            }
+          }
+        ]
+      },
+      {
+        "id": "578f1532-7a26-41fc-878e-04a5a3d041e2",
+        "title": {
+          "zh": "内控与稽查",
+          "en": "Controls & audits"
+        },
+        "span": 12,
+        "blocks": [
+          {
+            "id": "ddc5bc17-c984-4fb8-8ad6-6de36f48fe0c",
+            "type": "text",
+            "title": {
+              "zh": "",
+              "en": ""
+            },
+            "text": {
+              "zh": "",
+              "en": ""
+            },
+            "span": 12,
+            "heightUnits": 0,
+            "align": "left",
+            "binding": null,
+            "columns": [],
+            "filters": [],
+            "limit": 50,
+            "chart": {
+              "x": "",
+              "y": "",
+              "aggregation": "count"
+            },
+            "rule": {
+              "zh": "{label}：{value}。",
+              "en": "{label}: {value}."
+            }
+          }
+        ]
+      },
+      {
+        "id": "ff9bfdc2-029c-4129-83bb-7788b75dbcc4",
+        "title": {
+          "zh": "网络安全例会",
+          "en": "Security meetings"
+        },
+        "span": 12,
+        "blocks": [
+          {
+            "id": "7f0e435b-afc2-4ec7-9da6-fe31d0f19556",
+            "type": "text",
+            "title": {
+              "zh": "",
+              "en": ""
+            },
+            "text": {
+              "zh": "",
+              "en": ""
+            },
+            "span": 12,
+            "heightUnits": 0,
+            "align": "left",
+            "binding": null,
+            "columns": [],
+            "filters": [],
+            "limit": 50,
+            "chart": {
+              "x": "",
+              "y": "",
+              "aggregation": "count"
+            },
+            "rule": {
+              "zh": "{label}：{value}。",
+              "en": "{label}: {value}."
+            }
+          }
+        ]
+      }
+    ],
+    "footer": {
+      "zh": "",
+      "en": ""
+    }
+  },
+  "sources": []
+}

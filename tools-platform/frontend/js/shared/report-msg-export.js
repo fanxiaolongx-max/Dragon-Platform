@@ -1,8 +1,8 @@
 (function () {
     'use strict';
 
-    const allowedTags = new Set(['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH', 'SPAN', 'STRONG', 'B', 'EM', 'I', 'BR', 'UL', 'OL', 'LI', 'A']);
-    const styleNames = ['color', 'background-color', 'font-family', 'font-size', 'font-weight', 'font-style', 'text-decoration', 'text-align', 'line-height', 'padding', 'margin', 'border-radius', 'border-top', 'border-right', 'border-bottom', 'border-left'];
+    const allowedTags = new Set(['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH', 'SPAN', 'STRONG', 'B', 'EM', 'I', 'BR', 'UL', 'OL', 'LI', 'A', 'IMG', 'COLGROUP', 'COL']);
+    const styleNames = ['color', 'background-color', 'font-family', 'font-size', 'font-weight', 'font-style', 'text-decoration', 'text-align', 'line-height', 'padding', 'margin', 'border-radius', 'border-top', 'border-right', 'border-bottom', 'border-left', 'max-width', 'max-height', 'display', 'vertical-align', 'box-sizing', 'width', 'height', 'border-collapse', 'border-spacing', 'table-layout', 'white-space'];
 
     function formatBytes(bytes) {
         if (!bytes || bytes <= 0) return '0 B';
@@ -375,14 +375,14 @@
         }
     }
 
-    function copyForEmail(source) {
+    function copyForEmail(source, isRoot = false) {
         if (source.nodeType === Node.TEXT_NODE) return document.createTextNode(source.textContent || '');
         if (source.nodeType !== Node.ELEMENT_NODE) return null;
         if (source.hasAttribute && source.hasAttribute('data-html2canvas-ignore')) return null;
         if (source.classList && (source.classList.contains('print-hide') || source.classList.contains('topic-sync-chip') || source.classList.contains('topic-gutter-badge') || source.classList.contains('topic-ai-translate-btn') || source.classList.contains('topic-diff-popover'))) return null;
         const style = typeof getComputedStyle === 'function' ? getComputedStyle(source) : { display: 'block', visibility: 'visible', getPropertyValue: () => '' };
         const isAnchorTarget = source.tagName === 'A' && ((source.getAttribute && (source.getAttribute('name') || source.getAttribute('id'))) || source.name || source.id);
-        if (!isAnchorTarget && (style.display === 'none' || style.visibility === 'hidden')) return null;
+        if (!isRoot && !isAnchorTarget && (style.display === 'none' || style.visibility === 'hidden')) return null;
         const tag = allowedTags.has(source.tagName) ? source.tagName.toLowerCase() : 'div';
         const target = document.createElement(tag);
         if (tag === 'a') {
@@ -396,20 +396,40 @@
         if (source.getAttribute && source.getAttribute('id')) {
             target.setAttribute('id', source.getAttribute('id'));
         }
+        if (tag === 'img') {
+            const src = source.getAttribute ? source.getAttribute('src') : source.src;
+            if (src) target.setAttribute('src', src);
+            const alt = source.getAttribute ? source.getAttribute('alt') : source.alt;
+            if (alt) target.setAttribute('alt', alt);
+            const width = source.getAttribute ? source.getAttribute('width') : (source.width || '');
+            if (width) target.setAttribute('width', width);
+            const height = source.getAttribute ? source.getAttribute('height') : (source.height || '');
+            if (height) target.setAttribute('height', height);
+        }
         const inline = styleNames.map(name => {
             const value = style.getPropertyValue(name);
             return value && value !== 'none' && value !== 'normal' && value !== 'rgba(0, 0, 0, 0)' ? `${name}:${value}` : '';
         }).filter(Boolean);
-        if (tag === 'table') {
-            inline.push('border-collapse:collapse', 'width:100%');
-            target.setAttribute('width', '100%');
+        for (const name of ['width','height','align','valign','bgcolor','cellpadding','cellspacing','border','bordercolor','role','span']) {
+            if (source.hasAttribute(name)) target.setAttribute(name, source.getAttribute(name));
         }
-        if (tag === 'td' || tag === 'th') inline.push('vertical-align:top');
         if (inline.length) target.setAttribute('style', inline.join(';'));
+        // Percentages and explicit dimensions take precedence over measured pixel sizes.
+        for (const name of ['width','height']) {
+            const value=source.style?.[name] || source.getAttribute(name);
+            if (value) target.style[name]=/^\d+$/.test(value)?value+'px':value;
+        }
+        if (tag === 'table') {
+            if (!target.hasAttribute('width')) target.setAttribute('width', '100%');
+            if (!source.style.width) target.style.width=target.getAttribute('width');
+            target.style.borderCollapse=style.borderCollapse || 'collapse';
+        }
         if (tag === 'td' || tag === 'th') {
             if (source.colSpan > 1) target.colSpan = source.colSpan;
             if (source.rowSpan > 1) target.rowSpan = source.rowSpan;
         }
+        if (['table','td','th'].includes(tag) && target.style.backgroundColor) target.setAttribute('bgcolor',emailColor(target.style.backgroundColor));
+        if (['flex','inline-flex','grid','inline-grid'].includes(target.style.display)) target.style.display='block';
         Array.from(source.childNodes).forEach(child => {
             const copied = copyForEmail(child);
             if (copied) target.appendChild(copied);
@@ -417,70 +437,54 @@
         return target;
     }
 
+    function emailColor(value){
+        const rgb=String(value).match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        return rgb?'#'+rgb.slice(1).map(channel=>Number(channel).toString(16).padStart(2,'0')).join(''):value;
+    }
+
+    function embedImages(content){
+        const images=[],sources=new Map();
+        for(const img of content.querySelectorAll('img')){
+            const match=img.getAttribute('src')?.match(/^data:image\/(png|jpe?g|gif|webp);base64,([A-Za-z0-9+/]+={0,2})$/i);
+            if(!match)continue;
+            const source=img.getAttribute('src');let image=sources.get(source);
+            if(!image){const extension=match[1].toLowerCase().replace('jpeg','jpg');const cid='report-image-'+images.length+'@tools-platform';image={cid,filename:'report-image-'+images.length+'.'+extension,data:match[2],mimeType:extension==='jpg'?'image/jpeg':'image/'+extension};sources.set(source,image);images.push(image);}
+            img.setAttribute('src','cid:'+image.cid);
+        }
+        return images;
+    }
+
+    function preserveStyles(root) {
+        // Capture inherited styles while the original report classes still apply.
+        for (const element of [root,...root.querySelectorAll('*')]) {
+            const computed=getComputedStyle(element);
+            for (const name of styleNames) {
+                if (['display','width','height','max-width','max-height','box-sizing'].includes(name)) continue;
+                const value=computed.getPropertyValue(name);
+                if (value) element.style.setProperty(name,value);
+            }
+        }
+    }
+
     function convertBlocksToEmailTables(node) {
-        if (!node || !node.childNodes) return node;
-        const children = Array.from(node.childNodes);
-        for (const child of children) {
+        for (const child of Array.from(node.childNodes || [])) {
             if (child.nodeType !== Node.ELEMENT_NODE) continue;
-
-            if (child.tagName === 'TABLE') {
-                child.setAttribute('width', '100%');
-                child.style.width = '100%';
-                child.style.borderCollapse = 'collapse';
-                continue;
-            }
-
-            if (child.querySelector && child.querySelector('table')) {
-                convertBlocksToEmailTables(child);
-                continue;
-            }
-
-            const isBlock = ['DIV', 'SECTION', 'P', 'H1', 'H2', 'H3', 'H4'].includes(child.tagName);
-            if (isBlock) {
-                const subBlocks = Array.from(child.children).filter(c =>
-                    ['DIV', 'P', 'H1', 'H2', 'H3', 'H4', 'SECTION'].includes(c.tagName)
-                );
-
-                const tbl = document.createElement('table');
-                tbl.setAttribute('role', 'presentation');
-                tbl.setAttribute('width', '100%');
-                tbl.setAttribute('cellpadding', '0');
-                tbl.setAttribute('cellspacing', '0');
-                tbl.setAttribute('border', '0');
-                tbl.style.cssText = 'width:100%;border-collapse:collapse;margin:0 auto;';
-                if (child.id) tbl.id = child.id;
-
-                const tbody = document.createElement('tbody');
-                tbl.appendChild(tbody);
-
-                if (subBlocks.length > 0) {
-                    for (const sub of subBlocks) {
-                        const tr = document.createElement('tr');
-                        const td = document.createElement('td');
-                        td.setAttribute('width', '100%');
-                        let subStyle = sub.style ? sub.style.cssText : '';
-                        td.style.cssText = (subStyle ? subStyle + ';' : '') + 'width:100%;box-sizing:border-box;vertical-align:top;';
-                        while (sub.firstChild) {
-                            td.appendChild(sub.firstChild);
-                        }
-                        tr.appendChild(td);
-                        tbody.appendChild(tr);
-                    }
-                } else {
-                    const tr = document.createElement('tr');
-                    const td = document.createElement('td');
-                    td.setAttribute('width', '100%');
-                    let childStyle = child.style ? child.style.cssText : '';
-                    td.style.cssText = (childStyle ? childStyle + ';' : '') + 'width:100%;box-sizing:border-box;vertical-align:top;';
-                    while (child.firstChild) {
-                        td.appendChild(child.firstChild);
-                    }
-                    tr.appendChild(td);
-                    tbody.appendChild(tr);
-                }
-
-                node.replaceChild(tbl, child);
-            }
+            convertBlocksToEmailTables(child);
+            if (child.tagName !== 'DIV') continue;
+            const table=document.createElement('table');
+            table.setAttribute('role','presentation');
+            table.setAttribute('width',child.getAttribute('width') || '100%');
+            table.setAttribute('cellpadding','0');table.setAttribute('cellspacing','0');table.setAttribute('border','0');
+            table.style.cssText='width:100%;border-collapse:collapse;';
+            table.style.margin=child.style.margin;
+            if (child.id) table.id=child.id;
+            const row=table.insertRow(),cell=row.insertCell();
+            cell.style.cssText=child.style.cssText;
+            cell.style.display='table-cell';cell.style.width='100%';cell.style.margin='0';
+            if (cell.style.backgroundColor) cell.setAttribute('bgcolor',emailColor(cell.style.backgroundColor));
+            // Move every node, including images, links and text between block elements.
+            while (child.firstChild) cell.appendChild(child.firstChild);
+            node.replaceChild(table,child);
         }
         return node;
     }
@@ -495,7 +499,7 @@
         return `=?UTF-8?B?${btoa(unescape(encodeURIComponent(str)))}?=`;
     }
 
-    function buildLocalOutlookEml(subject, html, text, attachment) {
+    function buildLocalOutlookEml(subject, html, text, attachment, inlineImages = []) {
         const boundary = '----=_Part_' + Math.random().toString(36).substring(2) + '_' + Date.now();
         const lines = [];
         lines.push('MIME-Version: 1.0');
@@ -512,6 +516,12 @@
             lines.push(htmlBase64.substring(i, i + 76));
         }
         lines.push('');
+
+        for(const image of inlineImages){
+            lines.push(`--${boundary}`,`Content-Type: ${image.mimeType}; name="${image.filename}"`,`Content-ID: <${image.cid}>`,`Content-Disposition: inline; filename="${image.filename}"`,'Content-Transfer-Encoding: base64','');
+            for(let index=0;index<image.data.length;index+=76)lines.push(image.data.substring(index,index+76));
+            lines.push('');
+        }
 
         if (attachment && attachment.data) {
             lines.push(`--${boundary}`);
@@ -550,9 +560,13 @@
             let content;
             try {
                 if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'light');
-                content = copyForEmail(root);
+                content = copyForEmail(root, true);
             } finally {
                 if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+            }
+            if (!content) {
+                logger.log('warn', 'copyForEmail 未返回节点，启用 root.cloneNode 作为安全降级');
+                content = root.cloneNode(true);
             }
             if (content) {
                 content.style.maxWidth = 'none';
@@ -565,6 +579,8 @@
 
             // [STEP 3/7] 封装 HTML & 纯文本 (宽屏适配，100% 充满容器，文案与表格对齐)
             logger.step(3, 7, '正在封装完整 HTML 正文与纯文本降级备份...');
+            const inlineImages = content ? embedImages(content) : [];
+            const bodyInner = content ? content.outerHTML : (root ? root.outerHTML : '');
             const html = `<!doctype html>
 <html>
 <head>
@@ -586,7 +602,7 @@
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;width:100%;max-width:1320px;margin:0 auto;background:#ffffff;box-sizing:border-box;">
     <tr>
       <td style="width:100%;padding:0;margin:0;vertical-align:top;">
-        ${content.outerHTML}
+        ${bodyInner}
       </td>
     </tr>
   </table>
@@ -622,7 +638,7 @@
             const reqStart = Date.now();
             let response = null;
             try {
-                const payload = { subject, html, text, attachment: file };
+                const payload = { subject, html, text, attachment: file, inlineImages };
                 const envelope = btoa(encodeURIComponent(JSON.stringify(payload)));
                 response = await fetch('/api/report-msg/export', {
                     method: 'POST',
@@ -650,7 +666,7 @@
                     logger.step(6, 7, '正在本地打包生成 Outlook 邮件...');
                 }
 
-                const emlBlob = buildLocalOutlookEml(subject, html, text, file);
+                const emlBlob = buildLocalOutlookEml(subject, html, text, file, inlineImages);
                 const emlFilename = filename.replace(/\.msg$/i, '.eml');
                 const url = URL.createObjectURL(emlBlob);
                 const link = document.createElement('a');
@@ -708,6 +724,6 @@
         }
     }
 
-    window.ReportMsgExport = { download, showError, copyForEmail };
+    window.ReportMsgExport = { download, showError, copyForEmail, preserveStyles, convertBlocksToEmailTables, embedImages };
 })();
 

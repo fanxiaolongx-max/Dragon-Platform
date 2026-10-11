@@ -463,7 +463,7 @@
     var lastHintText = null;
     var costBubbleActive = false;
     var costBubbleTimer = null;
-    var agentWorking = true;
+    var agentWorking = false;
     var workStateMode = 'auto'; // 'auto' | 'working' | 'idle'
     var inHappyReaction = false;
     var isAntigravityConnected = false;
@@ -1033,15 +1033,16 @@
     }
 
     function getBaseSprite() {
-      if (inTypingMode || workStateMode === 'typing') return IMAGES.typing;
+      // 打字时优先使用正视肖像配合连击动效与眼神注视
+      if (inTypingMode || workStateMode === 'typing') return (life && life.frontSprite()) || IMAGES.typing;
       if (workStateMode === 'chill' || workStateMode === 'working') return IMAGES.chill;
-      if (workStateMode === 'idle') return life && life.frontSprite() || IMAGES.idle;
+      if (workStateMode === 'idle') return (life && life.frontSprite()) || IMAGES.idle;
       if (workStateMode === 'happy') return IMAGES.happy;
       if (workStateMode === 'dragged') return IMAGES.dragged;
       if (workStateMode === 'fall') return IMAGES.fall;
       if (workStateMode === 'pat') return IMAGES.pat;
-      // 'auto' 模式：根据 Agent 状态自动切换（工作思考，空闲站立）
-      return agentWorking ? IMAGES.chill : life && life.frontSprite() || IMAGES.idle;
+      // 'auto' 模式：主要常驻正视肖像（眼神注视+自然眨眼）；仅在 Agent 正在回复工作时呈现托腮思考
+      return (agentWorking && workStateMode !== 'idle') ? IMAGES.chill : ((life && life.frontSprite()) || IMAGES.idle);
     }
 
     function syncSprite() {
@@ -1052,7 +1053,7 @@
       } else if (inHappyReaction) {
         targetSrc = IMAGES.happy;
       } else if (inTypingMode || workStateMode === 'typing') {
-        targetSrc = IMAGES.typing;
+        targetSrc = (life && life.frontSprite()) || IMAGES.typing;
       }
       if (img.dataset.curSrc !== targetSrc) {
         img.dataset.curSrc = targetSrc;
@@ -2257,6 +2258,9 @@
       ipcRenderer.on('pet-agent-work-state', function (e, isWorking) {
         setAgentWorking(isWorking);
       });
+      ipcRenderer.on('pet-chat-generating', function (e, active) {
+        setAgentWorking(!!active);
+      });
       ipcRenderer.on('pet-turn-cost', function (e, data) {
         if (data && (data.amount !== undefined || data.isLive)) {
           showCostBubble(data.amount, data.unit || 'tokens', !!data.isLive);
@@ -2322,7 +2326,7 @@
     setupHitTest();
     if (window.ThothPresence) presence = window.ThothPresence.create({
       img:img, ipc:ipcRenderer,
-      busy:function () { return !!drag || pressing || inTypingMode || inHappyReaction || !!gravityAnimId || img.classList.contains('gpet-typing-anim'); },
+      busy:function () { return !!drag || pressing || inHappyReaction || !!gravityAnimId; },
       onSourceChange:updateHitTestProbe
     });
     if (window.ThothLife) life = window.ThothLife.create({
