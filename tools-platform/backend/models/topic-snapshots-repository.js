@@ -308,8 +308,7 @@ async function listSnapshots(options = {}) {
     if (platform && !SUPPORTED_PLATFORMS.has(platform)) throw topicSnapshotError('不支持的专题平台');
     const limit = Math.min(200, Math.max(1, Number(options.limit) || 50));
     const offset = Math.max(0, Number(options.offset) || 0);
-    const where = platform ? 'WHERE platform = ?' : '';
-    const params = platform ? [platform] : [];
+    const conditions=platform?['platform = ?']:[],params=platform?[platform]:[];if(options.since){conditions.push('julianday(imported_at)>=julianday(?)');params.push(options.since);}const where=conditions.length?'WHERE '+conditions.join(' AND '):'';
     const [rows, count] = await Promise.all([
         all(`SELECT ${options.metadataOnly?'id,platform,name,captured_at,exported_at,imported_at,period_label,summary_json,payload_bytes,created_at,updated_at':'*'} FROM topic_snapshots ${where} ORDER BY captured_at DESC, imported_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]),
         get(`SELECT COUNT(1) AS count FROM topic_snapshots ${where}`, params)

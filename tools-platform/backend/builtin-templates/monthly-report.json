@@ -5,7 +5,7 @@
     "name": "护网与网络安全月报",
     "title": {
       "zh": "埃及代表处交付与服务维护月报",
-      "en": "Network protection & cyber security monthly report"
+      "en": "Egypt Representative Office Monthly Delivery & Maintenance Report"
     },
     "subtitle": {
       "zh": "",
@@ -41,7 +41,7 @@
         "id": "95d8c235-f466-4004-b7eb-6f4636d20c7c",
         "label": {
           "zh": "报告时间",
-          "en": "Reporting period"
+          "en": "Report date"
         },
         "value": {
           "zh": "",
@@ -121,7 +121,7 @@
         "id": "4bc305be-690e-4064-b0b1-507cdbfafb12",
         "title": {
           "zh": "整体情况",
-          "en": "Overall situation"
+          "en": "Overview"
         },
         "span": 12,
         "blocks": [
@@ -312,7 +312,7 @@
         "id": "1f57323f-3edb-495a-83dc-fc64b5d94faf",
         "title": {
           "zh": "EOS退网收编",
-          "en": "EOS retirement"
+          "en": "EOS retirement & consolidation"
         },
         "span": 12,
         "blocks": [

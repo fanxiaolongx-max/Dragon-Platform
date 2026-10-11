@@ -85,11 +85,11 @@ function tables(item, period, category) {
     return { batch: { id: batchId, created_at: created, source: 'meeting_attendance', target_month: Number(period.slice(5)), target_period: period }, file: { id, batch_id: batchId, name: `会议考勤-${labels[category]}-${period}-${item.id}.xlsx`, source_key: `会议考勤:${category}`, kind: 'meeting_attendance', size: Buffer.byteLength(JSON.stringify(item.payload)), created_at: created, target_period: period, source_snapshot_id: item.id, snapshot_title: item.title, category, filter_scope: filterScope, unknown_date_rows: unknownCount, unknown_dates_retained: !['offline', 'online'].includes(category) && windows.length > 0, original_row_count: originalRowCount, parse_status: 'ready', parse_error: '', metricLabels: [labels[category]] }, sheets: output };
 }
 const meetingCatalogCache = new Map();
-async function catalog() {
+async function catalog(options={}) {
     const files = [], batches = new Map();
     const currentKeys = new Set();
     const tenantId = (require('./tenant-context').getTenantId) ? require('./tenant-context').getTenantId() : 'default';
-    for (const item of await meetings.listSnapshots({ includePayload: true })) {
+    for (const item of await meetings.listSnapshots({ includePayload: true,since:options.since })) {
         const cacheKey = `${tenantId}:${item.id}:${item.updatedAt || item.createdAt}`;
         currentKeys.add(cacheKey);
         let cached = meetingCatalogCache.get(cacheKey);
@@ -109,7 +109,7 @@ async function catalog() {
         for (const b of cached.batches) batches.set(b.id, b);
         for (const f of cached.files) files.push(f);
     }
-    for (const k of meetingCatalogCache.keys()) if (k.startsWith(tenantId + ':') && !currentKeys.has(k)) meetingCatalogCache.delete(k);
+    for (const k of meetingCatalogCache.keys()) if (!options.since && k.startsWith(tenantId + ':') && !currentKeys.has(k)) meetingCatalogCache.delete(k);
     return { files, batches: [...batches.values()] };
 }
 async function source(value) { const parsed = parseId(value);if (!parsed) return null;const item = await meetings.getSnapshot(parsed.snapshotId);return item ? { ...tables(item, parsed.period, parsed.category), index: parsed.index } : null; }

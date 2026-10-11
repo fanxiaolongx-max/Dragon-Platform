@@ -18,21 +18,21 @@
         const walker=document.createTreeWalker(element,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
         if(nodes.length){nodes[0].nodeValue=text;nodes.slice(1).forEach(node=>node.nodeValue='');}else element.textContent=text;
     }
-    function apply(block,target){
-        const rules=block.nameMappings||[];if(!rules.length)return;
+    function apply(block,target,translate=value=>value){
+        const rules=block.nameMappings||[];
         target.querySelectorAll('table').forEach(table=>{
             const cells=Array.from(table.tHead?.rows[0]?.cells||[]),headers=cells.map(cell=>cell.dataset.mappingOriginal??cell.textContent);
-            for(const row of table.tHead?.rows||[])for(const cell of row.cells){const original=cell.textContent;cell.dataset.mappingOriginal=original;const display=columnLabel(original,rules);if(display!==original)replaceText(cell,display);}
+            for(const row of table.tHead?.rows||[])for(const cell of row.cells){const original=cell.dataset.mappingOriginal??cell.textContent;cell.dataset.mappingOriginal=original;const display=translate(columnLabel(original,rules));if(display!==original)replaceText(cell,display);}
             for(const row of table.tBodies[0]?.rows||[]){
                 if(!row.dataset.formatRow)row.dataset.formatRow=row.cells[0]?.textContent||'';
                 Array.from(row.cells).forEach((cell,index)=>{
-                    const field=headers[index]||'',original=cell.textContent;cell.dataset.mappingOriginal=original;
+                    const field=headers[index]||'',original=cell.dataset.mappingOriginal??cell.textContent;cell.dataset.mappingOriginal=original;
                     const applicable=rules.filter(rule=>rule.kind==='row'&&(rule.field?rule.field===field:index<(block.chart?.pivot?.rows?.length||1)));
-                    const display=label(original,applicable,'row',field);if(display!==original)replaceText(cell,display);
+                    const display=applicable.length?translate(label(original,applicable,'row',field)):index<(block.chart?.pivot?.rows?.length||1)?translate(original):original;if(display!==original)replaceText(cell,display);
                 });
             }
         });
-        target.querySelectorAll('svg text').forEach(element=>{const original=element.textContent,display=label(original,rules,'row');if(display!==original)replaceText(element,display);else{const column=columnLabel(original,rules);if(column!==original)replaceText(element,column);}});
+        target.querySelectorAll('svg text').forEach(element=>{const original=element.dataset.mappingOriginal??element.textContent;element.dataset.mappingOriginal=original;const row=label(original,rules,'row'),display=translate(row!==original?row:columnLabel(original,rules));if(display!==original)replaceText(element,display);});
     }
     return {validate,label,columnLabel,apply};
 });

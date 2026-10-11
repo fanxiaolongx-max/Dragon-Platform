@@ -8,7 +8,7 @@
             const stop=error=>{rejectRequest(error);controller.abort();};
             const entry={method,stop};pending.add(entry);
             timer=setTimeout(()=>{const error=new Error(config.timeoutMessage||'Request timed out: '+url);error.name='TimeoutError';stop(error);},config.timeoutMs??15000);
-            try{return await Promise.race([Promise.resolve().then(()=>fetch(url,{...options,signal:controller.signal})).then(res=>parse(res,{method,path:url})),interrupted]);}
+            try{return await Promise.race([Promise.resolve().then(()=>fetch(url,{...options,signal:controller.signal})).then(res=>{config.onResponse?.(res);return parse(res,{method,path:url});}),interrupted]);}
             finally{clearTimeout(timer);pending.delete(entry);}
         }
         function cancelReads(message='Loading cancelled'){

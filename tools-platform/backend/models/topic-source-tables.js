@@ -26,12 +26,12 @@ function tables(item,key){
     return {file:{id,batch_id:batchId,name,source_key:`专题月报:${key}`,kind:'topic_monthly',size:item.payloadBytes,parse_status:'ready',parse_error:'',created_at:item.importedAt,target_period:month,topic_key:key,source_snapshot_id:item.id,metricLabels:[definition.title]},batch:{id:batchId,created_at:item.importedAt,source:'topic_analysis',target_month:Number(month.slice(5)),target_period:month},sheets:sheets.map((sheet,index)=>({...sheet,id:`${id}-s${index}`,fileId:id}))};
 }
 const catalogCache = new Map();
-async function catalog(){
+async function catalog(options={}){
     const files=[],batches=new Map();let offset=0;
     const currentKeys=new Set();
     const tenantId=(require('./tenant-context').getTenantId)?require('./tenant-context').getTenantId():'default';
     while(true){
-        const page=await topics.listSnapshots({limit:200,offset,metadataOnly:true});
+        const page=await topics.listSnapshots({limit:200,offset,metadataOnly:true,since:options.since});
         for(const meta of page.items){
             const cacheKey=`${tenantId}:${meta.id}`;
             currentKeys.add(cacheKey);
@@ -55,7 +55,7 @@ async function catalog(){
         offset+=page.items.length;
         if(offset>=page.total||!page.items.length)break;
     }
-    for(const key of catalogCache.keys()) if(key.startsWith(tenantId+':') && !currentKeys.has(key)) catalogCache.delete(key);
+    for(const key of catalogCache.keys()) if(!options.since && key.startsWith(tenantId+':') && !currentKeys.has(key)) catalogCache.delete(key);
     return {files:files.sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)),batches:[...batches.values()]};
 }
 async function source(value){const parsed=parseId(value);if(!parsed)return null;const item=await topics.getSnapshot(parsed.snapshotId);return item?.snapshot?{...tables(item,parsed.key),index:parsed.index}:null;}

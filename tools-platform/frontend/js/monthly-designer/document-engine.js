@@ -1,14 +1,15 @@
 (function (root, factory) { const api = factory(); if (typeof module === 'object' && module.exports) module.exports = api; else root.MonthlyDocumentEngine = api; })(typeof window === 'object' ? window : globalThis, function () {
     'use strict';
+    const sourceRules=typeof module==='object'&&module.exports?require('./source-rules'):window.MonthlySourceRules;
     const pivot=typeof module==='object'&&module.exports?require('./pivot'):window.MonthlyPivot;
     const titles = [['网络变更与操作保障', 'Network changes & operations'], ['SR、重大问题与事件恢复', 'SR, major issues & recovery'], ['风险治理与网络韧性', 'Risk governance & resilience'], ['License合规与连续运行', 'License compliance & continuity'], ['EOS退网与收编', 'EOS retirement & consolidation'], ['第三方软件专项清单', 'Third-party software inventory'], ['内控、PR自检与质量稽查', 'Internal controls, PR checks & audits'], ['网络安全例会与决议跟踪', 'Security meetings & action tracking']];
     const uid = () => typeof crypto === 'object' && crypto.randomUUID ? crypto.randomUUID() : `item-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const bilingual = (zh, en = '') => ({ zh, en });
     function block(type = 'text') { return { id: uid(), type, title: bilingual('', ''), text: bilingual('', ''), span: 12, heightUnits: 0, align: 'left', binding: null, columns: [], filters: [], limit: 50, chart: { x: '', y: '', aggregation: 'count' }, rule: bilingual('{label}：{value}。', '{label}: {value}.') }; }
     function section(zh = '新模块', en = 'New module') { return { id: uid(), title: bilingual(zh, en), span: 12, blocks: [block()] }; }
-    function defaults() { return applyReportDefaults({ version: 1, name: '护网与网络安全月报', title: bilingual('埃及代表处交付与服务维护月报', 'Network protection & cyber security monthly report'), subtitle: bilingual('', ''), logo: '/assets/logo.png', logoWidth: 120, logoAlign: 'center', pageWidth: 1280, navRows: 2, navRowHeight: 44, navWidth: 0, navFontSize: 16, metaWidth: 0, metaRowHeight: 0, metaLabelWidth: 0, metaAlignMode: 'grid', meta: [['部门', 'Department'], ['报告时间', 'Reporting period'], ['密级', 'Classification'], ['报告编号', 'Report number'], ['审核人', 'Reviewer'], ['报告目标', 'Report objectives']].map(([zh, en], index) => ({ id: uid(), label: bilingual(zh, en), value: bilingual(index === 2 ? '内部公开' : '', index === 2 ? 'Internal' : ''), span: index === 3 ? 4 : (index === 4 ? 8 : (index === 5 ? 12 : 4)), heightUnits: index === 5 ? 2 : 0 })), sections: [section('整体情况', 'Overall situation'), ...titles.map(([zh, en]) => section(zh, en))], footer: bilingual('', '') }); }
+    function defaults() { return applyReportDefaults({ version: 1, name: '护网与网络安全月报', title: bilingual('埃及代表处交付与服务维护月报', 'Egypt Representative Office Monthly Delivery & Maintenance Report'), subtitle: bilingual('', ''), logo: '/assets/logo.png', logoWidth: 120, logoAlign: 'center', pageWidth: 1280, navRows: 2, navRowHeight: 44, navWidth: 0, navFontSize: 16, metaWidth: 0, metaRowHeight: 0, metaLabelWidth: 0, metaAlignMode: 'grid', meta: [['部门', 'Department'], ['报告时间', 'Report date'], ['密级', 'Classification'], ['报告编号', 'Report number'], ['审核人', 'Reviewer'], ['报告目标', 'Report objectives']].map(([zh, en], index) => ({ id: uid(), label: bilingual(zh, en), value: bilingual(index === 2 ? '内部公开' : '', index === 2 ? 'Internal' : ''), span: index === 3 ? 4 : (index === 4 ? 8 : (index === 5 ? 12 : 4)), heightUnits: index === 5 ? 2 : 0 })), sections: [section('整体情况', 'Overall situation'), ...titles.map(([zh, en]) => section(zh, en))], footer: bilingual('', '') }); }
     const objectives = '强化问题与事件管理：规范 SR 处理、事件升级及紧急业务恢复流程，提升问题及时解决率和事故发生后 60 分钟内的业务恢复及时率，保障客户网络稳定运行。确保变更与操作可信：推动适用的变更操作 100% 纳入 IT 管道管理，落实 RFC/MOP 审批、高风险操作拦截、操作日志稽查及业务比对，确保操作合规、过程可追溯、结果可验证。推进主动风险治理：统筹 TOPN、网络整改、巡检、License、EOS及第三方软件风险闭环，完善应急演练、预案拓扑和内控稽查，防范已知风险引发现网重大业务中断与事故。';
-    const shortTitles = [['网络变更','Network changes'],['SR与事件','SR & incidents'],['风险治理','Risk governance'],['License','License'],['EOS退网收编','EOS retirement'],['第三方软件','Third-party software'],['内控与稽查','Controls & audits'],['网络安全例会','Security meetings']];
+    const shortTitles = [['网络变更','Network changes'],['SR与事件','SR & incidents'],['风险治理','Risk governance'],['License','License'],['EOS退网收编','EOS retirement & consolidation'],['第三方软件','Third-party software'],['内控与稽查','Controls & audits'],['网络安全例会','Security meetings']];
     function applyReportDefaults(document, period='', importDate='') {
         const find=label=>document.meta.find(item=>item.label.zh===label);
         if(!find('数据月份')){
@@ -22,7 +23,7 @@
         fill('审核人','于祥 00877023','Yu Xiang 00877023');
         fill('报告目标',objectives,'Standardize SR handling, incident escalation and emergency recovery; improve timely resolution and service recovery within 60 minutes. Ensure all applicable changes follow IT pipeline governance, RFC/MOP approval, high-risk operation interception, log audits and business verification. Close TOPN, remediation, inspection, License, EOS and third-party software risks, strengthen emergency drills, contingency plans, topology and internal audits, and prevent major service interruptions.');
         const month=value=>/^\d{4}-\d{2}/.test(value)?value.slice(0,7):'';
-        const setAuto=(label,key,value,en)=>{const item=find(label);if(!item)return;if(item.autoFill===undefined&&!item.value.zh.trim())item.autoFill=key;if(item.autoFill===key&&value)item.value=bilingual(value,en);};
+        const setAuto=(label,key,value,en)=>{const item=find(label);if(!item)return;if(item.autoFill===undefined&&!item.value.zh.trim())item.autoFill=key;if(item.autoFill===key&&value){const next=bilingual(value,en);for(const language of ['zh','en']){const runs=item.fieldRuns?.value?.[language];if(runs&&item.value[language]!==next[language]){let start=0;item.fieldRuns.value[language]=runs.map(run=>{const text=next[language].slice(start,start+run.text.length);start+=run.text.length;return {...run,text};}).filter(run=>run.text);if(start<next[language].length)item.fieldRuns.value[language].push({text:next[language].slice(start),style:runs.at(-1)?.style||{}});}}item.value=next;}};
         const target=month(period),source=month(importDate);
         if(find('报告时间')?.autoFill==='period')find('报告时间').autoFill='source';
         if(find('数据月份')?.autoFill==='source')find('数据月份').autoFill='period';
@@ -63,7 +64,9 @@
         for(const match of String(text).matchAll(pattern)){
             if(match.index>start)parts.push({text:String(text).slice(start,match.index)});
             let key;try{key=decodeURIComponent(match[1]);}catch(_){key='';}
-            const resolved=key?resolve({kind:'metric',mode:'latest',metricKey:key},catalog):null;
+            const metricCatalog=catalog.reportMonth?{...catalog,snapshots:catalog.snapshots.filter(snapshot=>sourceRules.snapshotMonth(snapshot,catalog)===catalog.reportMonth).sort((a,b)=>sourceRules.time(b.captured_at)-sourceRules.time(a.captured_at)||String(b.id).localeCompare(String(a.id)))}:catalog;
+            const sectionKey=catalog.reportMonth&&key?metricOptions(metricCatalog).find(metric=>metric.keyAliases.includes(key))?.sourceSection||'':'';
+            const resolved=key?resolve({kind:'metric',mode:'latest',metricKey:key,...(sectionKey?{sectionKey}:{})},metricCatalog):null;
             parts.push({token:match[0],key,label:resolved?.metric.label||key,value:resolved?.metric.value??'—',missing:!resolved});start=match.index+match[0].length;
         }
         if(start<String(text).length)parts.push({text:String(text).slice(start)});
@@ -158,12 +161,22 @@
             }
         }
         function span(value) { if (!Number.isInteger(value) || value < 1 || value > 12) error(); }
+        if(clone.inlineData!==undefined){sourceRules.validateSaved({catalog:clone.inlineData,resources:[]});if(clone.inlineData.month!==undefined&&clone.inlineData.month!==''&&!sourceRules.validMonth(clone.inlineData.month))error();}
+        if(clone.dataRulesVersion!==undefined&&clone.dataRulesVersion!==1)error();
+        if(JSON.stringify(clone).length>40000000)throw new Error('Monthly report is too large to save (40 MB maximum)');
+        if(clone.reportMonth!==undefined&&clone.reportMonth!==''&&!sourceRules.validMonth(clone.reportMonth))error();
         if (clone.id && !/^[\w-]{1,80}$/.test(clone.id)) error();
         if(clone.libraryPrefs!==undefined){
             const prefs=clone.libraryPrefs;
             if(!prefs||typeof prefs!=='object'||Array.isArray(prefs))error();
             if(typeof prefs.period!=='string'||prefs.period&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(prefs.period)||typeof prefs.date!=='string'||prefs.date&&!/^\d{4}-\d{2}-\d{2}$/.test(prefs.date)||typeof prefs.group!=='string'||prefs.group.length>500||typeof prefs.search!=='string'||prefs.search.length>2000)error();
             if(prefs.rowNameColumns!==undefined&&(!prefs.rowNameColumns||typeof prefs.rowNameColumns!=='object'||Array.isArray(prefs.rowNameColumns)||Object.keys(prefs.rowNameColumns).length>5000||Object.entries(prefs.rowNameColumns).some(([id,column])=>!/^[\w-]{1,80}$/.test(id)||['__proto__','constructor','prototype'].includes(id)||typeof column!=='string'||column.length>2000)))error();
+            if(prefs.loadDays!==undefined&&(!Number.isInteger(prefs.loadDays)||prefs.loadDays<0||prefs.loadDays>36500))error();
+            for(const key of ['favorites','recent'])if(prefs[key]!==undefined&&(!Array.isArray(prefs[key])||prefs[key].length>5000||prefs[key].some(value=>typeof value!=='string'||value.length>4000)))error();
+            if(prefs.view!==undefined&&!['all','favorites','recent'].includes(prefs.view))error();
+            if(prefs.category!==undefined&&!['','tickets','metrics','topic','meeting','raw'].includes(prefs.category))error();
+            if(prefs.kind!==undefined&&(typeof prefs.kind!=='string'||prefs.kind.length>80))error();
+            if(prefs.advanced!==undefined&&typeof prefs.advanced!=='boolean')error();
             for(const key of ['expandedFileIds','expandedSheetIds'])if(!Array.isArray(prefs[key])||prefs[key].length>5000||prefs[key].some(id=>typeof id!=='string'||!/^[\w-]{1,80}$/.test(id)))error();
         }
         pair(clone.title, 500); pair(clone.subtitle, 2000); pair(clone.footer);fieldRuns(clone,['title','footer']);
@@ -205,7 +218,10 @@
                 if(item.mappingPresetId!==undefined&&(typeof item.mappingPresetId!=='string'||!/^[\w-]{1,80}$/.test(item.mappingPresetId)))error();
                 if (item.heightUnits === undefined) item.heightUnits = 0;
                 if (!Number.isInteger(item.heightUnits) || item.heightUnits < 0 || item.heightUnits > 100) error();
-                if (item.binding) { const b = item.binding; if (!['metric', 'file', 'section'].includes(b.kind) || !['latest', 'pinned'].includes(b.mode) || Object.values(b).some(v => typeof v !== 'string' || v.length > 500)) error(); }
+                if(item.dataUpdateMode!==undefined&&!['live','snapshot'].includes(item.dataUpdateMode))error();
+                for(const saved of [item.savedData,item.previousData].filter(value=>value!==undefined)){sourceRules.validateSaved(saved);if(saved.definition){const shell=defaults();shell.sections=[{...section(),blocks:[{...block(saved.definition.type),...saved.definition}]}];normalize(shell);}}
+                for(const reference of sourceRules.references(item))if(reference.value.reference)sourceRules.validate(reference.value.reference);
+                if (item.binding) { const b = item.binding; if (!['metric', 'file', 'section'].includes(b.kind) || !['latest', 'pinned'].includes(b.mode) || Object.entries(b).some(([key,v]) => key!=='reference'&&(typeof v !== 'string' || v.length > 500))) error(); }
                 if (!Array.isArray(item.columns) || item.columns.length > 200 || item.columns.some(v => typeof v !== 'string' || v.length > 2000) || !Array.isArray(item.filters) || item.filters.length > 20) error();
                 item.filters.forEach(f => { if (typeof f.column !== 'string' || f.column.length > 2000 || !['contains', 'eq', 'neq', 'gt', 'lt', 'empty', 'notEmpty'].includes(f.op) || typeof f.value !== 'string' || f.value.length > 2000) error(); });
                 if (!item.chart || !['count', 'sum'].includes(item.chart.aggregation) || typeof item.chart.x !== 'string' || typeof item.chart.y !== 'string') error();
@@ -269,6 +285,12 @@
 
     function resolve(binding, catalog) {
         if (!binding) return null;
+        if(binding.reference){
+            const {reference,...legacy}=binding;
+            const found=sourceRules.resolve(reference,catalog,catalog.reportMonth,binding.kind==='file'?'file':'snapshot');
+            if(binding.kind==='file'){if(!found)return null;const file=mergeFiles(catalog.files).find(file=>file.mergedFiles.some(item=>item.id===found.file.id));return file?{file,sheet:file.sheets.find(sheet=>sheet.name===found.sheet.name)}:null;}
+            return resolve({...legacy,mode:reference.versionMode==='pinned'?'pinned':'latest',snapshotId:reference.versionId},{...catalog,snapshots:found||[]});
+        }
         const snapshots = catalog.snapshots || [];
         if (binding.kind === 'metric' || binding.kind === 'section') {
             const aliases = binding.kind === 'metric' ? metricOptions(catalog).find(metric => metric.keyAliases.includes(binding.metricKey))?.keyAliases || [binding.metricKey] : [binding.metricKey];

@@ -61,18 +61,19 @@ async function ensureReady() {
     return initPromise;
 }
 
-async function listFromDb() {
+async function listFromDb(options={}) {
     await ensureReady();
     const rows = await all(`
         SELECT payload_json
         FROM sla_snapshots
+        ${options.since?'WHERE julianday(timestamp)>=julianday(?)':''}
         ORDER BY timestamp DESC, id DESC
-    `);
+    `,options.since?[options.since]:[]);
     return rows.map(row => JSON.parse(row.payload_json));
 }
 
-async function listSnapshots() {
-    const items = await listFromDb();
+async function listSnapshots(options={}) {
+    const items = await listFromDb(options);
     return { items, source: 'sqlite' };
 }
 

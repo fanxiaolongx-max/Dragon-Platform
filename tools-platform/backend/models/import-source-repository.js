@@ -25,8 +25,10 @@ async function ensureReady() {
         await run(`CREATE TABLE IF NOT EXISTS monthly_logos (id TEXT PRIMARY KEY, name TEXT NOT NULL, image_blob BLOB NOT NULL, created_at TEXT NOT NULL)`);
         await run(`CREATE TABLE IF NOT EXISTS monthly_data_format_presets (id TEXT PRIMARY KEY, name TEXT NOT NULL, rules_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
         await run(`CREATE TABLE IF NOT EXISTS monthly_mapping_presets (id TEXT PRIMARY KEY, name TEXT NOT NULL, rules_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+        await run(`CREATE TABLE IF NOT EXISTS monthly_component_presets (id TEXT PRIMARY KEY, name TEXT NOT NULL, rules_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
         await run(`CREATE TABLE IF NOT EXISTS monthly_documents (id TEXT PRIMARY KEY, name TEXT NOT NULL, payload_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
         await run(`CREATE TABLE IF NOT EXISTS import_source_settings (id INTEGER PRIMARY KEY CHECK(id=1), upload_originals INTEGER NOT NULL DEFAULT 1 CHECK(upload_originals IN (0,1)))`);
+        await run(`CREATE TABLE IF NOT EXISTS source_table_rules (type_key TEXT PRIMARY KEY, rules_json TEXT NOT NULL, updated_at TEXT NOT NULL)`);
     })().catch(error => { ready.delete(key); throw error; }));
     await ready.get(key);
 }
@@ -75,17 +77,19 @@ function validateSheets(sheets) {
 async function saveSheets(fileId, sheets, parseError = '') {
     await ensureReady(); if (!await get('SELECT id FROM import_source_files WHERE id=?',[fileId])) fail('Source file not found',404);
     const valid = validateSheets(sheets);
+    const file=await getFile(fileId),rules=await getTableRules(file);
     // Sheets are immutable after successful parsing; a retry may safely repeat the request.
     const current = await get('SELECT parse_status FROM import_source_files WHERE id=?',[fileId]);
     if (current.parse_status === 'ready') return;
-    for (const sheet of valid) await run(`INSERT INTO import_source_sheets (id,file_id,name,headers_json,rows_json,row_count) VALUES (?,?,?,?,?,?) ON CONFLICT(file_id,name) DO UPDATE SET headers_json=excluded.headers_json,rows_json=excluded.rows_json,row_count=excluded.row_count`,[id(),fileId,sheet.name,json(sheet.headers),json(sheet.rows),sheet.rows.length]);
+    const transformed=valid.map(sheet=>tableRules.apply(sheet,rules.rules));
+    for (const sheet of transformed) await run(`INSERT INTO import_source_sheets (id,file_id,name,headers_json,rows_json,row_count) VALUES (?,?,?,?,?,?) ON CONFLICT(file_id,name) DO UPDATE SET headers_json=excluded.headers_json,rows_json=excluded.rows_json,row_count=excluded.row_count`,[id(),fileId,sheet.name,json(sheet.headers),json(sheet.rows),sheet.rows.length]);
     await run('UPDATE import_source_files SET parse_status=?, parse_error=? WHERE id=?',[parseError?'error':'ready',String(parseError).slice(0,500),fileId]);
 }
 async function getFile(fileId, original = false) {
     if(String(fileId).startsWith('ms-'))return require('./meeting-source-tables').getFile(fileId,original);
     if(String(fileId).startsWith('ts-'))return require('./topic-source-tables').getFile(fileId,original);
     await ensureReady(); const file=await get(`SELECT id,batch_id,name,source_key,kind,size,sha256,parse_status,parse_error${original?',original_blob':''} FROM import_source_files WHERE id=?`,[fileId]);
-    return file ? {...file,name:normalizeFileName(file.name)} : file;
+    return file ? {...file,name:normalizeFileName(file.name),source_key:normalizeFileName(file.source_key)} : file;
 }
 async function registerSnapshot(snapshot, { allowMissingBatch = false } = {}) {
     await ensureReady();
@@ -105,35 +109,38 @@ async function registerSnapshot(snapshot, { allowMissingBatch = false } = {}) {
     await run(`INSERT INTO import_source_snapshots (id,batch_id,captured_at,target_month,payload_json) VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET batch_id=excluded.batch_id,captured_at=excluded.captured_at,target_month=excluded.target_month,payload_json=excluded.payload_json`,[snapshot.id,batchId,snapshot.timestamp || new Date().toISOString(),snapshot.selectedTargetMonth || null,json(payload)]);
     return payload;
 }
-async function catalog() {
+async function catalog(options = {}) {
+    const since=options.since||null,params=since?[since]:[],where=column=>since?` WHERE julianday(${column}) >= julianday(?)`:"";
+    const stages=[],started=Date.now();let stageStart=started;const mark=(stage,count)=>{stages.push({stage,count,durationMs:Date.now()-stageStart});stageStart=Date.now();};
     await ensureReady();
-    const batches = await all('SELECT id,created_at,source,target_month FROM import_source_batches ORDER BY created_at DESC,rowid DESC');
-    const files = (await all('SELECT id,batch_id,name,source_key,kind,size,sha256,parse_status,parse_error,created_at FROM import_source_files ORDER BY created_at DESC,rowid DESC')).map(file=>({...file,name:normalizeFileName(file.name),source_key:normalizeFileName(file.source_key),source_key_aliases:[file.source_key]}));
-    const sheets = await all('SELECT id,file_id,name,headers_json,row_count FROM import_source_sheets ORDER BY rowid');
-    const snapshots = await all('SELECT id,batch_id,captured_at,target_month,payload_json FROM import_source_snapshots ORDER BY captured_at DESC,rowid DESC');
+    const batches = await all(`SELECT id,created_at,source,target_month FROM import_source_batches${where('created_at')} ORDER BY created_at DESC,rowid DESC`,params);
+    const files = (await all(`SELECT id,batch_id,name,source_key,kind,size,sha256,parse_status,parse_error,created_at FROM import_source_files${where('created_at')} ORDER BY created_at DESC,rowid DESC`,params)).map(file=>({...file,name:normalizeFileName(file.name),source_key:normalizeFileName(file.source_key),source_key_aliases:[file.source_key]}));
+    const sheets = await all(`SELECT id,file_id,name,headers_json,row_count FROM import_source_sheets${since?' WHERE file_id IN (SELECT id FROM import_source_files'+where('created_at')+')':''} ORDER BY rowid`,params);mark('originals',files.length);
+    const snapshots = await all(`SELECT id,batch_id,captured_at,target_month,payload_json FROM import_source_snapshots${where('captured_at')} ORDER BY captured_at DESC,rowid DESC`,params);
+    if(since){const linkedIds=[...new Set([...files,...snapshots].map(item=>item.batch_id).filter(id=>id&&!batches.some(batch=>batch.id===id)))];for(const id of linkedIds){const batch=await get('SELECT id,created_at,source,target_month FROM import_source_batches WHERE id=?',[id]);if(batch)batches.push(batch);}}
     const archived = snapshots.map(row => {
         const payload=JSON.parse(row.payload_json);
         const linked=(names,ids=[])=>[...new Set([...ids,...files.filter(file=>file.batch_id===row.batch_id&&(names||[]).map(normalizeFileName).includes(file.name)).map(file=>file.id)])];
         const sections=payload.sourceSections.map(section=>({...section,fileIds:linked(section.sourceFiles,section.fileIds)}));
         return {...row,kind:'extraction',payload_json:undefined,metrics:payload.topMetrics.map(metric=>({...metric,fileIds:linked(metric.sourceFiles || sections.find(section=>section.key===metric.sourceSection)?.sourceFiles || payload.files,metric.fileIds),sourceSelections:undefined})),sections:sections.map(section=>({key:section.key,title:section.title,fileIds:section.fileIds,headers:section.headers,rowCount:section.rows?.length || 0}))};
     });
-    const savedReports = await reportMetrics(files, archived);
-    const topicSources=await require('./topic-source-tables').catalog();
-    const meetingSources=await require('./meeting-source-tables').catalog();
-    return { batches:[...batches,...topicSources.batches,...meetingSources.batches], files:[...files.map(file => {
+    mark('extraction',archived.length);const savedReports = await reportMetrics(files, archived,options);mark('assessment',savedReports.length);
+    const topicSources=await require('./topic-source-tables').catalog(options);mark('topic',topicSources.files.length);
+    const meetingSources=await require('./meeting-source-tables').catalog(options);mark('meeting',meetingSources.files.length);
+    return { diagnostics:{stages,elapsedMs:Date.now()-started,since},batches:[...batches,...topicSources.batches,...meetingSources.batches], files:[...files.map(file => {
         const dutyLabels = (file.kind === 'duty_roster' || file.source_key === '夜间运维值班表') ? ['夜间运维值班表', '值班人次'] : [];
         return {...file,metricLabels:[...new Set([...dutyLabels,...archived.flatMap(snapshot=>snapshot.metrics.filter(metric=>metric.fileIds.includes(file.id)).map(metric=>metric.label)).filter(Boolean)])],sheets:sheets.filter(sheet=>sheet.file_id===file.id).map(sheet=>({id:sheet.id,name:sheet.name,headers:JSON.parse(sheet.headers_json),rowCount:sheet.row_count}))};
     }),...topicSources.files,...meetingSources.files], snapshots:[...archived,...savedReports].sort((a,b)=>snapshotTime(b.captured_at)-snapshotTime(a.captured_at)) };
 }
 function snapshotTime(value) { const text=String(value||'');return Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)?text.replace(' ','T')+'Z':text)||0; }
 // Read saved assessment results as-is; never apply current SLA targets to history.
-async function reportMetrics(files, archived) {
+async function reportMetrics(files, archived,options={}) {
     const connection=getConnection('report.db','report');
     const query=(sql,params=[])=>new Promise((resolve,reject)=>connection.all(sql,params,(error,rows)=>error?reject(error):resolve(rows)));
     const schema=await query("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('ReportSnapshots','ReportMetricData')");
     if(schema.length!==2)return [];
-    const reports=await query('SELECT snapshot_id,month,created_at,raw_data_json FROM ReportSnapshots ORDER BY id DESC');
-    const metrics=await query('SELECT snapshot_id,month,cat_name,metric_label,raw_val,target_val,gap,earned_score,is_failing FROM ReportMetricData');
+    const reports=await query(`SELECT snapshot_id,month,created_at,raw_data_json FROM ReportSnapshots${options.since?' WHERE julianday(created_at)>=julianday(?)':''} ORDER BY id DESC`,options.since?[options.since]:[]);
+    const metrics=await query(`SELECT snapshot_id,month,cat_name,metric_label,raw_val,target_val,gap,earned_score,is_failing FROM ReportMetricData${options.since?' WHERE snapshot_id IN (SELECT snapshot_id FROM ReportSnapshots WHERE julianday(created_at)>=julianday(?))':''}`,options.since?[options.since]:[]);
     const seen=new Set();const result=[];
     for(const report of reports){const identity=`${report.snapshot_id}@@${report.month}`;if(seen.has(identity))continue;seen.add(identity);
         let raw={};try{raw=JSON.parse(report.raw_data_json||'{}');}catch(_){}
@@ -152,6 +159,34 @@ async function getSheet(sheetId) {
     if(String(sheetId).startsWith('ts-'))return require('./topic-source-tables').getSheet(sheetId);
     await ensureReady(); const row = await get('SELECT id,file_id,name,headers_json,rows_json FROM import_source_sheets WHERE id=?',[sheetId]);
     return row ? {id:row.id,fileId:row.file_id,name:row.name,headers:JSON.parse(row.headers_json),rows:JSON.parse(row.rows_json)} : null;
+}
+const tableRules=require('../../frontend/js/monthly-designer/source-table-rules');
+async function getTableRules(file){
+    await ensureReady();const typeKey=tableRules.typeKey({...file,source_key:normalizeFileName(file.source_key),name:normalizeFileName(file.name)});
+    let row=await get('SELECT rules_json FROM source_table_rules WHERE type_key=?',[typeKey]);
+    // Older archives used Latin-1-decoded Chinese source keys. Recover their rules without rewriting the archive.
+    if(!row)row=(await all('SELECT type_key,rules_json FROM source_table_rules ORDER BY updated_at DESC')).find(item=>tableRules.typeKey({source_key:normalizeFileName(item.type_key)})===typeKey);
+    return {typeKey,rules:row?JSON.parse(row.rules_json):[]};
+}
+async function sheetEditor(sheetId){
+    const table=await getSheet(sheetId);if(!table)fail('Worksheet not found',404);
+    const file=await getFile(table.fileId||table.file_id);if(!file)fail('Source file not found',404);
+    const editable=!!await get('SELECT id FROM import_source_sheets WHERE id=?',[sheetId]);
+    return {table,file:{id:file.id,name:file.name},editable,...await getTableRules(file),revision:crypto.createHash('sha256').update(json([table.headers,table.rows])).digest('hex')};
+}
+async function updateSheet(sheetId,input){
+    if(input?.confirmed!==true)fail('Confirm source table changes');
+    const state=await sheetEditor(sheetId);if(!state.editable)fail('This snapshot is read-only',409);
+    if(input.revision!==state.revision)fail('Source changed; reopen the preview',409);
+    let rules;try{rules=tableRules.validate(input.rules);}catch(error){fail(error.message);}
+    let table;try{table=Array.isArray(input.operations)?tableRules.applyOperations(state.table,input.operations):{name:state.table.name,headers:input.headers,rows:input.rows};}catch(error){fail(error.message);}
+    table=validateSheets([{...table,name:state.table.name}])[0];
+    if(new Set(table.headers).size!==table.headers.length||table.headers.some(h=>!h.trim()))fail('Headers must be unique and nonempty');
+    const oldHeaders=json(state.table.headers),oldRows=json(state.table.rows);
+    const result=await run('UPDATE import_source_sheets SET headers_json=?,rows_json=?,row_count=? WHERE id=? AND headers_json=? AND rows_json=?',[json(table.headers),json(table.rows),table.rows.length,sheetId,oldHeaders,oldRows]);
+    if(!result.changes)fail('Source changed; reopen the preview',409);
+    if(input.saveRules===true)await run('INSERT INTO source_table_rules (type_key,rules_json,updated_at) VALUES (?,?,?) ON CONFLICT(type_key) DO UPDATE SET rules_json=excluded.rules_json,updated_at=excluded.updated_at',[state.typeKey,json(rules),new Date().toISOString()]);
+    return sheetEditor(sheetId);
 }
 async function getSection(snapshotId, key) {
     await ensureReady(); const row=await get('SELECT payload_json FROM import_source_snapshots WHERE id=?',[snapshotId]);
@@ -172,11 +207,11 @@ async function getMetricTable(snapshotId, metricKey) {
     return {headers:[...headers],rows:result,title:metric.label,hasSelections:Array.isArray(metric.sourceSelections)};
 }
 // Table and validator names are internal constants, never request parameters.
-const presetTypes={mapping:{table:'monthly_mapping_presets',module:'name-mappings'},dataFormat:{table:'monthly_data_format_presets',module:'data-formats'}};
+const presetTypes={component:{table:'monthly_component_presets',module:'templates'},mapping:{table:'monthly_mapping_presets',module:'name-mappings'},dataFormat:{table:'monthly_data_format_presets',module:'data-formats'}};
 async function listPresets(type){await ensureReady();return (await all(`SELECT * FROM ${presetTypes[type].table} ORDER BY updated_at DESC,id`)).map(row=>({...row,rules:JSON.parse(row.rules_json),rules_json:undefined}));}
 async function savePreset(type,input,presetId){
     if(!input||typeof input.name!=='string'||!input.name.trim()||input.name.length>200)fail('Invalid preset name');
-    const config=presetTypes[type];try{require('../../frontend/js/monthly-designer/'+config.module).validate(input.rules);}catch(error){fail(error.message);}
+    const config=presetTypes[type];try{const validator=require('../../frontend/js/monthly-designer/'+config.module);if(type==='component'){input={...input,rules:validator.normalize(input.rules)};if(input.rules.document.sections.length!==1||input.rules.document.sections[0].blocks.length!==1)fail('A component preset requires exactly one component');}else validator.validate(input.rules);}catch(error){fail(error.message);}
     if(presetId&&!/^[\w-]{1,80}$/.test(presetId))fail('Invalid preset ID');
     await ensureReady();if(presetId&&!await get(`SELECT id FROM ${config.table} WHERE id=?`,[presetId]))fail('Preset not found',404);
     const key=presetId||id(),now=new Date().toISOString(),name=input.name.trim();
@@ -184,6 +219,7 @@ async function savePreset(type,input,presetId){
     return {id:key,name,rules:input.rules,updated_at:now};
 }
 async function deletePreset(type,presetId){await ensureReady();const table=presetTypes[type].table;if(!await get(`SELECT id FROM ${table} WHERE id=?`,[presetId]))fail('Preset not found',404);await run(`DELETE FROM ${table} WHERE id=?`,[presetId]);return {success:true};}
+const listComponentPresets=()=>listPresets('component'),saveComponentPreset=(input,id)=>savePreset('component',input,id),deleteComponentPreset=id=>deletePreset('component',id);
 const listMappingPresets=()=>listPresets('mapping'),saveMappingPreset=(input,id)=>savePreset('mapping',input,id),deleteMappingPreset=id=>deletePreset('mapping',id);
 const listDataFormatPresets=()=>listPresets('dataFormat'),saveDataFormatPreset=(input,id)=>savePreset('dataFormat',input,id),deleteDataFormatPreset=id=>deletePreset('dataFormat',id);
 async function listDocuments() { await ensureReady(); return all('SELECT id,name,created_at,updated_at FROM monthly_documents ORDER BY updated_at DESC,rowid DESC'); }
@@ -215,4 +251,4 @@ async function saveDocument(document){
     documentSaves.set(key,pending);
     try{return await pending;}finally{if(documentSaves.get(key)===pending)documentSaves.delete(key);}
 }
-module.exports={listDataFormatPresets,saveDataFormatPreset,deleteDataFormatPreset,listMappingPresets,saveMappingPreset,deleteMappingPreset,listLogos,getLogo,saveLogo,ensureReady,getImportSettings,saveImportSettings,createBatch,saveFile,saveSheets,getFile,registerSnapshot,catalog,getSheet,getSection,getArchivedSnapshot,getMetricTable,listDocuments,getDocument,saveDocument};
+module.exports={sheetEditor,updateSheet,listComponentPresets,saveComponentPreset,deleteComponentPreset,listDataFormatPresets,saveDataFormatPreset,deleteDataFormatPreset,listMappingPresets,saveMappingPreset,deleteMappingPreset,listLogos,getLogo,saveLogo,ensureReady,getImportSettings,saveImportSettings,createBatch,saveFile,saveSheets,getFile,registerSnapshot,catalog,getSheet,getSection,getArchivedSnapshot,getMetricTable,listDocuments,getDocument,saveDocument};

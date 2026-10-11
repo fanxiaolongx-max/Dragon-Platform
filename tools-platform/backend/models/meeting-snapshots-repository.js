@@ -41,7 +41,7 @@ function parseJson(str, fallback = {}) {
     }
 }
 
-async function listSnapshots({ search, startDate, endDate, includePayload = false } = {}) {
+async function listSnapshots({ search, startDate, endDate, since, includePayload = false } = {}) {
     await ensureReady();
     const conditions = [];
     const params = [];
@@ -60,6 +60,7 @@ async function listSnapshots({ search, startDate, endDate, includePayload = fals
         params.push(String(endDate).trim());
     }
 
+    if(since){conditions.push('julianday(COALESCE(updated_at,created_at))>=julianday(?)');params.push(since);}
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const query = `
         SELECT id, title, meeting_date, created_at, updated_at, summary_json

@@ -70,9 +70,25 @@
         return specific.length>0;
     }
 
+    function compactFileName(name){
+        const original=String(name||'');
+        const stem=original.replace(/\.[a-z0-9]{1,10}$/i,'');
+        return stem.replace(/^PBI_自动抓取[\s_-]*/i,'')
+            .replace(/(^|[^a-z])latest(?=$|[^a-z])/gi,'$1')
+            .replace(/([_-])[\s_-]+/g,'$1').replace(/[_-]+(?=\(\d+\)$)/,' ').replace(/\s{2,}/g,' ')
+            .replace(/^[\s_-]+|[\s_-]+$/g,'')||stem||original;
+    }
+
+    function fileDownloadInfo(file,language='zh'){
+        const en=language==='en'||language==='en-US',size=Number(file.size);
+        const bytes=Number.isFinite(size)&&size>=0?(size<1024?size+' B':size<1048576?(size/1024).toFixed(1)+' KB':(size/1048576).toFixed(1)+' MB'):(en?'Unknown size':'大小未知');
+        const sheets=(file.sheets||[]).map(sheet=>`${sheet.name}: ${Number.isFinite(sheet.rowCount)?sheet.rowCount:(en?'unknown':'未知')} ${en?'rows':'行'} × ${Array.isArray(sheet.headers)?sheet.headers.length:(en?'unknown':'未知')} ${en?'columns':'列'}`);
+        return [file.name,(en?'File size: ':'文件大小：')+bytes,...(sheets.length?sheets:[en?'Worksheets not parsed':'工作表尚未解析'])].join('\n');
+    }
+
     function sourceFileTitle(file,language='zh'){
         const name=String(file?.name||'');
-        if(!isExpiringTicketFile({name}))return name;
+        if(!isExpiringTicketFile({name}))return compactFileName(name);
         const types=[
             [/整改详单/i,'整改','Rectification'],
             [/CPT风险详表/i,'专项风险','Special risk'],
@@ -253,5 +269,5 @@
     }
 
     function eligibleSnapshots(binding,catalog){return catalog.snapshots.filter(snapshot=>binding.kind==='metric'?!!binding.metricKey&&snapshot.metrics.some(metric=>metric.key===binding.metricKey):binding.kind==='section'?snapshot.kind!=='assessment'&&snapshot.sections.some(section=>!binding.sectionKey||section.key===binding.sectionKey):false);}
-    return {date,dateKey,timeLabel,period,importTime,snapshotPeriod,groups,fileTitle,sourceFileTitle,isExpiringTicketFile,hasExtractedMetrics,fileDisplayMetrics,fileReportRank,sortPriorityFiles,eligibleSnapshots,REPORT_METRIC_ORDER,isExpiringTicketSection,sectionReportRank,sortPrioritySections};
+    return {date,dateKey,timeLabel,period,importTime,snapshotPeriod,groups,fileTitle,sourceFileTitle,compactFileName,fileDownloadInfo,isExpiringTicketFile,hasExtractedMetrics,fileDisplayMetrics,fileReportRank,sortPriorityFiles,eligibleSnapshots,REPORT_METRIC_ORDER,isExpiringTicketSection,sectionReportRank,sortPrioritySections};
 });
