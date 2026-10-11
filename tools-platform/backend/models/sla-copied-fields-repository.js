@@ -40,6 +40,14 @@ function normalizeFieldName(fieldName) {
     return String(fieldName).trim();
 }
 
+const DEFAULT_FREQUENT_FIELDS = {
+    rectification: ['task_id', 'task_owner', 'fullname', 'product_line_name', 'network_name'],
+    special: ['task_id', 'network_name', 'owner_show'],
+    risk: ['task_id', 'network', 'product_level_l1', 'product', 'current_handler', 'current_handler_name'],
+    sr: ['sr_num', 't1_operator', 'product_line_map', 'product', 'sr_owner'],
+    vulnerability: ['task_id', 'task_status', 'network_customer_name', 'task_owner_name']
+};
+
 /**
  * 记录字段复制事件（频次自增，更新最后复制时间）
  */
@@ -90,7 +98,8 @@ async function getCopiedFieldStats(tableTypeInput = null) {
             tableType,
             items: rows,
             frequentFields,
-            fieldCounts
+            fieldCounts,
+            defaultFrequentFields: DEFAULT_FREQUENT_FIELDS[tableType] || []
         };
     }
 
@@ -208,5 +217,6 @@ module.exports = {
     getCopiedFieldStats,
     deleteCopiedField,
     replaceCopiedFields,
-    getAllForExport
+    getAllForExport,
+    DEFAULT_FREQUENT_FIELDS
 };

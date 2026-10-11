@@ -10,6 +10,7 @@ async function loadPrefs(secId) {
         const query = mode === 'auto' ? '' : `?mode=${encodeURIComponent(mode)}`;
         const path = `/api/sla/prefs/${encodeURIComponent(state.schemaHash)}${query}`;
         const saved = await API.get(path);
+        state.hasSavedPrefs = !!saved;
         window.__lastSLAPrefsPath = path;
         if (saved) {
             const hasVisibleHeaders = Object.prototype.hasOwnProperty.call(saved, 'visibleHeaders')

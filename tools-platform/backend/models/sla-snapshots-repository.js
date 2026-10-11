@@ -1,8 +1,11 @@
 const { run, get, all } = require('./app-db');
+const { randomUUID } = require('node:crypto');
+const { getDataDir } = require('./tenant-context');
+const sources = require('./import-source-repository');
 
 const MAX_SNAPSHOTS = 50;
 
-let initPromise = null;
+const initPromises = new Map();
 
 function normalizeSnapshots(items) {
     return Array.isArray(items) ? items : [];
@@ -31,6 +34,8 @@ async function replaceSnapshotsInDbRaw(items) {
 }
 
 async function ensureReady() {
+    const key = getDataDir();
+    let initPromise = initPromises.get(key);
     if (!initPromise) {
         initPromise = (async () => {
             await run(`
@@ -47,9 +52,10 @@ async function ensureReady() {
 
             
         })().catch(err => {
-            initPromise = null;
+            initPromises.delete(key);
             throw err;
         });
+        initPromises.set(key, initPromise);
     }
 
     return initPromise;
@@ -109,8 +115,9 @@ async function trimDbSnapshots() {
 }
 
 async function addSnapshot(payload) {
-    const item = { id: Date.now().toString(36), ...payload };
+    const item = { ...payload, id: payload?.id || randomUUID() };
 
+    await sources.registerSnapshot(item);
     await upsertSnapshotInDb(item);
     await trimDbSnapshots();
 
@@ -130,6 +137,7 @@ async function updateSnapshot(id, patch) {
 
     items[idx] = { ...items[idx], ...patch };
 
+    await sources.registerSnapshot(items[idx]);
     await upsertSnapshotInDb(items[idx]);
 
     return items[idx];

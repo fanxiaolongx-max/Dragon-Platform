@@ -1,0 +1,26 @@
+/* Run: node_modules/.bin/electron tests/monthly-designer-autoload-browser.cjs */
+const {app,BrowserWindow}=require('electron');
+const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const express=require('express');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'monthly-autoload-'));process.env.TOOLS_DATA_DIR=path.join(temp,'tools');process.env.TOOLS_REPORT_DATA_DIR=path.join(temp,'reports');app.setPath('userData',path.join(temp,'profile'));
+const repo=require('../backend/models/import-source-repository');const engine=require('../frontend/js/monthly-designer/document-engine');const {runWithTenant}=require('../backend/models/tenant-context');
+let win,server,activeTenant='default';const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const evaluate=(fn,...args)=>win.webContents.executeJavaScript(`(${fn.toString()})(...${JSON.stringify(args)})`,true);
+async function until(fn){for(let i=0;i<120;i++){if(await evaluate(fn))return;await wait(50);}throw new Error('Page initialization timed out');}
+app.whenReady().then(async()=>{
+ const first=await repo.saveDocument({...engine.defaults(),name:'First report'});await wait(20);await repo.saveDocument({...engine.defaults(),name:'Later created report'});await wait(20);
+ const latest=await repo.saveDocument({...first.document,name:'Most recently saved report',title:{zh:'最近保存的月报',en:'Latest saved report'},navRows:3});
+ const web=express();web.use(express.json());web.get('/js/shared/navbar.js',(_,res)=>res.type('js').send(''));web.get('/api/sla/prefs/i18nMap',(_,res)=>res.json({}));web.get('/api/sla/categories',(_,res)=>res.json([]));web.use((req,res,next)=>runWithTenant(activeTenant,next));web.get('/api/upload/source-catalog',(_,res)=>res.json({files:[],snapshots:[],batches:[{id:'oct',created_at:'2026-10-10T12:38:28Z',target_month:9},{id:'sep',created_at:'2026-09-03T11:46:18Z',target_month:8}]}));web.use('/api/upload',require('../backend/routes/import-sources'));web.use(express.static(path.join(__dirname,'../frontend')));
+ server=await new Promise(resolve=>{const listener=web.listen(0,'127.0.0.1',()=>resolve(listener));});win=new BrowserWindow({show:false,width:1450,height:1100,webPreferences:{contextIsolation:true,nodeIntegration:false}});
+ const url=`http://127.0.0.1:${server.address().port}/pages/monthly-designer.html`;await win.loadURL(url);await until(()=>window.MonthlyDesigner&&!document.getElementById('monthlyDocument').inert);
+ assert.equal(await evaluate(()=>MonthlyDesigner.getDocument().id),latest.id);assert.equal(await evaluate(()=>document.getElementById('documentList').value),latest.id);assert.equal(await evaluate(()=>MonthlyDesigner.getDocument().title.zh),'最近保存的月报');assert.equal(await evaluate(()=>document.querySelectorAll('.document-nav-row').length),3);
+ assert.deepEqual(await evaluate(()=>Array.from(document.querySelectorAll('.document-nav-row')).map(row=>row.children.length)),[3,3,2]);
+ assert.equal(await evaluate(()=>MonthlyDesigner.getDocument().meta.find(item=>item.label.zh==='报告时间').value.zh),'2026-10-10');
+ assert.equal(await evaluate(()=>MonthlyDesigner.getDocument().meta.find(item=>item.label.zh==='数据月份').value.zh),'2026-09');
+ await evaluate(()=>{const el=document.getElementById('libraryTargetPeriod');el.value='2026-08';el.dispatchEvent(new Event('change'));});
+ assert.equal(await evaluate(()=>MonthlyDesigner.getDocument().meta.find(item=>item.label.zh==='报告编号').value.zh),'EGY-CS-202608-V1.0');
+ assert.equal(await evaluate(()=>MonthlyDesigner.getDocument().meta.find(item=>item.label.zh==='数据月份').value.zh),'2026-08');
+ await evaluate(()=>document.querySelector('[data-action=new]').click());await until(()=>!MonthlyDesigner.getDocument().id);assert.deepEqual(await evaluate(()=>Array.from(document.querySelectorAll('.document-nav-row')).map(row=>row.children.length)),[4,4]);assert.equal(await evaluate(()=>document.querySelector('.document-nav a').textContent),'01　网络变更');await evaluate(()=>document.querySelector('[data-action=refresh]').click());await until(()=>document.getElementById('designerStatus').textContent.includes('数据库数据已刷新'));assert.equal(await evaluate(()=>MonthlyDesigner.getDocument().id),undefined);
+ win.webContents.once('will-prevent-unload',event=>event.preventDefault());await win.loadURL(url);await until(()=>window.MonthlyDesigner&&!document.getElementById('monthlyDocument').inert);assert.equal(await evaluate(()=>MonthlyDesigner.getDocument().id),latest.id);
+ activeTenant='empty-tenant';await win.loadURL(url);await until(()=>window.MonthlyDesigner&&!document.getElementById('monthlyDocument').inert);assert.equal(await evaluate(()=>MonthlyDesigner.getDocument().id),undefined);assert.equal(await evaluate(()=>document.getElementById('documentList').options.length),1);assert.match(await evaluate(()=>document.getElementById('designerStatus').textContent),/服务器暂无已保存月报/);
+ console.log('Automatic latest saved report, refresh behavior and empty tenant isolation passed.');
+}).catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{win?.destroy();if(server)await new Promise(resolve=>server.close(resolve));await require('../backend/models/app-db').closeDatabase();await require('../backend/models/tenant-sqlite-pool').closeAll();app.exit(process.exitCode||0);});

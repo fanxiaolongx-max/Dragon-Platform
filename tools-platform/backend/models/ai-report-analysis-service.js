@@ -455,6 +455,23 @@ async function enrichProactiveAlertWithDeepContext(items = [], options = {}) {
     }
 }
 
+function normalizeProactiveAiAnalysis(result) {
+    const finishReason = String(result?.finishReason || '').toLowerCase();
+    // Providers report exhausted generation budgets differently. Never present
+    // their partial output as a completed analysis, even if it ends a sentence.
+    if (finishReason && !['stop', 'end_turn', 'stop_sequence'].includes(finishReason)) {
+        throw new Error('AI 预警分析未完整生成');
+    }
+    const message = String(result?.text || '').replace(/\s+/g, ' ').trim();
+    // Some compatible providers omit finishReason; also catch title-only and
+    // mid-sentence responses. Reject oversized output rather than slicing it.
+    if (Array.from(message).length < 40 || message.length > 1200
+        || !/[。！？.!?][”’"')）\]]*$/.test(message)) {
+        throw new Error('AI 预警分析内容不完整');
+    }
+    return message;
+}
+
 function generateRuleBasedDeepAnalysis(enrichedContext, language = 'zh') {
     const isEn = String(language).toLowerCase().startsWith('en');
     const { kpiDetails, taskDetails } = enrichedContext || {};
@@ -1316,5 +1333,6 @@ module.exports = {
     parseRequestedHistoryCount,
     loadMatchedMetricHistory,
     enrichProactiveAlertWithDeepContext,
-    generateRuleBasedDeepAnalysis
+    generateRuleBasedDeepAnalysis,
+    normalizeProactiveAiAnalysis
 };

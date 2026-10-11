@@ -8,7 +8,7 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261006">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png?v=20261006">
     <link rel="apple-touch-icon" href="/assets/icon-mac.png?v=20261006">
-    <link rel="stylesheet" href="/css/shared.css?v=20261006-02">
+    <link rel="stylesheet" href="/css/shared.css?v=20261010-01">
     <link rel="stylesheet" href="/css/home-promotions.css?v=20261007-01">
     <style>
         body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; }
@@ -818,6 +818,10 @@
             line-height: 1.5;
         }
         .tool-import-error.visible { display: block; }
+        .tool-import-progress { margin-top:16px; color:#94a3b8; font-size:11px; line-height:1.6; }
+        .tool-import-progress[hidden] { display:none; }
+        .tool-import-progress progress { width:100%; height:6px; accent-color:#64ffda; }
+        .tool-import-log { max-height:120px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; margin-top:5px; }
         .tool-import-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
         .tool-import-btn {
             min-width: 96px;
@@ -1094,6 +1098,19 @@
                     <span class="feature-tag">📈 跨月趋势对比</span>
                     <span class="feature-tag">🔍 同比环比分析</span>
                     <span class="feature-tag">📥 月报快速归档</span>
+                </div>
+                <div class="card-arrow">进入工具 →</div>
+            </a>
+
+            <a href="/duty-roster" class="tool-card" style="--card-accent: #8b5cf6;">
+                <div class="card-icon">🌙</div>
+                <div class="card-title">夜间运维值班表</div>
+                <div class="card-desc">按月在线编辑夜间运维值班表，严格遵循埃及工作制（周日开始，周五周六为埃及周末并高亮），自动按自然周切分日期区间，并支持一键同步至月报编辑器直接引用。</div>
+                <div class="card-features">
+                    <span class="feature-tag">🇪🇬 埃及周末排班规则</span>
+                    <span class="feature-tag">📅 目标月自动分周</span>
+                    <span class="feature-tag">👥 人员快捷填入/统计</span>
+                    <span class="feature-tag">📑 月报资料库直接调用</span>
                 </div>
                 <div class="card-arrow">进入工具 →</div>
             </a>
@@ -1475,6 +1492,11 @@
                     </div>
                 </div>
                 <div class="tool-import-error" id="customToolImportError" role="alert"></div>
+                <div class="tool-import-progress" id="customToolImportProgress" hidden>
+                    <div id="customToolImportStatus" role="status" aria-live="polite"></div>
+                    <progress id="customToolImportBar" aria-labelledby="customToolImportStatus" max="100" value="0"></progress>
+                    <div class="tool-import-log" id="customToolImportLog"></div>
+                </div>
                 <div class="tool-import-actions">
                     <button type="button" class="tool-import-btn" id="customToolImportCancel">取消</button>
                     <button type="submit" class="tool-import-btn primary" id="customToolImportSubmit">导入工具</button>
@@ -1526,13 +1548,14 @@
     </div>
 
     <script src="/js/shared/api.js?v=20260824-01"></script>
+    <script src="/js/shared/custom-tool-upload.js?v=20261010-02"></script>
     <script src="/js/shared/migration-status.js?v=20260626-01"></script>
     <script src="/js/shared/toast.js?v=20260530-03"></script>
     <script src="/js/shared/i18n.js?v=20261005-01"></script>
     <script src="/js/home/promotions.js?v=20261007-01"></script>
     <script src="/js/shared/f12-quick-downloads.js?v=20261006-01"></script>
     <script src="/js/shared/platform-logo-upload.js?v=20261006-02"></script>
-    <script src="/js/shared/navbar.js?v=20261006-04"></script>
+    <script src="/js/shared/navbar.js?v=20261010-04"></script>
     <script src="/js/shared/jszip.min.js?v=3.10.1"></script>
     <script>
         const historyState = {
@@ -1640,6 +1663,7 @@
                 'home.import.tags': '标签',
                 'home.import.tagsPlaceholder': '用逗号分隔，最多 8 个',
                 'home.import.cancel': '取消',
+                'home.import.done': '完成',
                 'home.import.submit': '导入工具',
                 'home.import.submitting': '正在导入…',
                 'home.import.fileRequired': '请先选择 HTML 或 ZIP 文件',
@@ -1838,6 +1862,7 @@
                 'home.import.tags': 'Tags',
                 'home.import.tagsPlaceholder': 'Comma-separated, up to 8 tags',
                 'home.import.cancel': 'Cancel',
+                'home.import.done': 'Done',
                 'home.import.submit': 'Import Tool',
                 'home.import.submitting': 'Importing…',
                 'home.import.fileRequired': 'Choose an HTML or ZIP file first',
@@ -2581,7 +2606,7 @@
             setText('#customToolTagsLabel', t('home.import.tags'));
             setText('#customToolImportCancel', t('home.import.cancel'));
             const importSubmit = document.getElementById('customToolImportSubmit');
-            if (importSubmit && !importSubmit.disabled) importSubmit.textContent = t('home.import.submit');
+            if (importSubmit && !importSubmit.disabled) importSubmit.textContent = t(importSubmit.dataset.completed === 'true' ? 'home.import.done' : 'home.import.submit');
             const importTags = document.getElementById('customToolTags');
             if (importTags) importTags.placeholder = t('home.import.tagsPlaceholder');
             document.querySelectorAll('#toolsGrid > a.tool-card:not([data-custom-tool-card="1"])').forEach(card => {
@@ -2880,6 +2905,20 @@
             const errorBox = document.getElementById('customToolImportError');
             const submitBtn = document.getElementById('customToolImportSubmit');
             const aiStatus = document.getElementById('customToolAiStatus');
+            const progressBox = document.getElementById('customToolImportProgress');
+            const progressBar = document.getElementById('customToolImportBar');
+            const progressStatus = document.getElementById('customToolImportStatus');
+            const progressLog = document.getElementById('customToolImportLog');
+            const uploadLogs = [];
+            const logUpload = ({ percent, message }) => {
+                progressBox.hidden = false;
+                if (Number.isFinite(percent)) progressBar.value = percent;
+                progressStatus.textContent = `${Math.round(progressBar.value)}% · ${message}`;
+                uploadLogs.push(`[${new Date().toLocaleTimeString()}] ${message}`);
+                if (uploadLogs.length > 500) uploadLogs.shift();
+                progressLog.textContent = uploadLogs.join('\n');
+                progressLog.scrollTop = progressLog.scrollHeight;
+            };
             if (!panel || !btn || !modal || !form || !input) return;
             panel.style.display = role === 'admin' ? 'flex' : 'none';
             let metadataGeneration = 0;
@@ -2963,6 +3002,12 @@
                 }
             };
             const resetImportForm = () => {
+                delete submitBtn.dataset.completed;
+                submitBtn.textContent = t('home.import.submit');
+                progressBox.hidden = true;
+                progressBar.value = 0;
+                progressLog.textContent = '';
+                uploadLogs.length = 0;
                 metadataGeneration += 1;
                 form.reset();
                 input.value = '';
@@ -3021,6 +3066,7 @@
 
             form.addEventListener('submit', async event => {
                 event.preventDefault();
+                if (submitBtn.dataset.completed === 'true') { closeImportModal(); return; }
                 clearImportError();
                 const file = input.files && input.files[0];
                 try {
@@ -3053,18 +3099,18 @@
                     } else {
                         payload.htmlContent = await file.text();
                     }
-                    await API.post('/api/custom-tools', payload);
-                    modal.classList.remove('open');
-                    document.body.style.overflow = '';
+                    uploadLogs.length = 0;
+                    await CustomToolUpload.upload(payload, { onProgress: logUpload });
+                    submitBtn.dataset.completed = 'true';
                     showToast(t('home.toast.imported'));
                     await loadCustomTools();
                     if (window.refreshCustomToolNavLinks) await window.refreshCustomToolNavLinks();
-                    resetImportForm();
                 } catch (e) {
+                    logUpload({ message: t('home.alert.importFailed', { message: e.message }) });
                     showImportError(t('home.alert.importFailed', { message: e.message }));
                 } finally {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = t('home.import.submit');
+                    submitBtn.textContent = t(submitBtn.dataset.completed === 'true' ? 'home.import.done' : 'home.import.submit');
                 }
             });
         }

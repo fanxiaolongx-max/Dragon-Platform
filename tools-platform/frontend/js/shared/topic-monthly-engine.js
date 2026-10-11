@@ -17,10 +17,11 @@
     const get = key => list.find(item => item.key === key);
     const number = value => value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(value);
     const n = value => number(value) ?? 0;
+    const round2 = value => value === null || value === undefined || value === '' || !Number.isFinite(Number(value)) ? null : Number(Number(value).toFixed(2));
     const sum = (rows, key) => rows.length && rows.some(row => number(row[key]) !== null) ? rows.reduce((total, row) => total + n(row[key]), 0) : null;
-    const percent = value => number(value) === null ? null : Math.abs(Number(value)) <= 1 ? Number(value) * 100 : Number(value);
-    const ratio = (a, b) => number(a) === null || !n(b) ? null : Number(a) / Number(b) * 100;
-    const yoy = (a, b) => number(a) === null || !n(b) ? null : (Number(a) - Number(b)) / Number(b) * 100;
+    const percent = value => number(value) === null ? null : round2(Math.abs(Number(value)) <= 1 ? Number(value) * 100 : Number(value));
+    const ratio = (a, b) => number(a) === null || !n(b) ? null : round2(Number(a) / Number(b) * 100);
+    const yoy = (a, b) => number(a) === null || !n(b) ? null : round2((Number(a) - Number(b)) / Number(b) * 100);
     const text = (zh, en) => ({ zh, en });
     const column = (key, zh, en, unit = '') => ({ key, ...text(zh, en), unit });
     const section = (id, zh, en, columns, rows) => ({ id, ...text(zh, en), columns, rows });
@@ -45,7 +46,7 @@
     function weightedRate(rows) {
         const relevant = rows.filter(row => n(row.task_count) > 0);
         if (!relevant.length || relevant.some(row => number(row.operation_success_rate) === null)) return null;
-        return relevant.reduce((total, row) => total + n(row.task_count) * percent(row.operation_success_rate), 0) / sum(relevant, 'task_count');
+        return round2(relevant.reduce((total, row) => total + n(row.task_count) * percent(row.operation_success_rate), 0) / sum(relevant, 'task_count'));
     }
     function aggregate(rows, key) {
         return key === 'change' ? { count: sum(rows, 'task_count'), rate: weightedRate(rows), rollback: sum(rows, 'rollback_count'), highRisk: sum(rows, 'high_core_total_count') }
@@ -109,7 +110,7 @@
         } else {
             const settings = snapshot.settings || {};
             const months = (data.months || []).filter(row => n(row.month) <= lastMonth && (!row.year || n(row.year) === year)).slice().sort((a, b) => n(a.month) - n(b.month));
-            const normalize = row => { const required = number(row.required ?? row.needReturn ?? row.shouldReturn); const returned = number(row.returned ?? row.actualReturn); const recorded = number(row.recorded ?? row.actualRecord); return { label: `${year}-${String(row.month).padStart(2, '0')}`, required, returned, recorded, pending: number(row.pending) ?? (required === null || returned === null ? null : Math.max(0, required - returned)), returnRate: required === 0 ? null : number(row.returnRate) ?? ratio(returned, required), recordRate: required === 0 ? null : number(row.recordRate) ?? ratio(recorded, required) }; };
+            const normalize = row => { const required = number(row.required ?? row.needReturn ?? row.shouldReturn); const returned = number(row.returned ?? row.actualReturn); const recorded = number(row.recorded ?? row.actualRecord); return { label: `${year}-${String(row.month).padStart(2, '0')}`, required, returned, recorded, pending: number(row.pending) ?? (required === null || returned === null ? null : Math.max(0, required - returned)), returnRate: required === 0 ? null : (number(row.returnRate) !== null ? round2(percent(row.returnRate)) : ratio(returned, required)), recordRate: required === 0 ? null : (number(row.recordRate) !== null ? round2(percent(row.recordRate)) : ratio(recorded, required)) }; };
             const currentRaw = months.find(row => n(row.month) === lastMonth);
             const current = currentRaw ? normalize(currentRaw) : {};
             const target = number(settings.targets?.[key === 'return' ? 'returnRate' : 'recordRate']);
@@ -118,7 +119,7 @@
             const cols = [column('label', '月份', 'Month'), column('required', '需回传', 'Required'), column('returned', '已回传', 'Returned'), column('pending', '待回传', 'Pending'), column('returnRate', '回传率', 'Return Rate', '%'), column('recorded', '备案量', 'Filed'), column('recordRate', '备案率', 'Filing Rate', '%')];
             add('overview', '当月概览', 'Current Month', cols, currentRaw ? [current] : []);
             add('trend', '月度趋势', 'Monthly Trend', cols, months.map(normalize));
-            if (key === 'return') add('products', '产品线回传表现', 'Return by Product Line', [column('label', '产品线', 'Product Line'), ...cols.slice(1, 5)], (currentRaw?.productLines || []).filter(row => !settings.excludeIct || row.key !== 'ICT').map(row => ({ ...row, label: text(row.labelZh || row.label || row.key, row.labelEn || row.label || row.key), returnRate: n(row.required) ? number(row.rate) ?? ratio(row.returned, row.required) : null })).sort((a, b) => n(b.pending) - n(a.pending)));
+            if (key === 'return') add('products', '产品线回传表现', 'Return by Product Line', [column('label', '产品线', 'Product Line'), ...cols.slice(1, 5)], (currentRaw?.productLines || []).filter(row => !settings.excludeIct || row.key !== 'ICT').map(row => ({ ...row, label: text(row.labelZh || row.label || row.key, row.labelEn || row.label || row.key), returnRate: n(row.required) ? (number(row.rate) !== null ? round2(percent(row.rate)) : ratio(row.returned, row.required)) : null })).sort((a, b) => n(b.pending) - n(a.pending)));
             const detail = data.detailsByMonth?.[String(lastMonth)] || (n(settings.month) === lastMonth ? data.detail : []) || [];
             report.overview.push(text(`本月${key === 'return' ? '回传率' : '备案率'} ${fmt(rate, '%')}，${key === 'return' ? '目标 ≥' : '上限 ≤'} ${fmt(target, '%')}；${good === null ? '暂无完整数据判断达标情况' : good ? '符合目标要求' : '尚未满足目标要求'}。${key === 'return' ? `待回传 ${fmt(current.pending)} 笔。` : `备案 ${fmt(current.recorded)} 笔。`}`, `${key === 'return' ? 'Return' : 'Filing'} rate: ${fmt(rate, '%')}; ${key === 'return' ? 'target ≥' : 'limit ≤'} ${fmt(target, '%')}. ${good === null ? 'Target assessment unavailable.' : good ? 'Within target.' : 'Outside target.'} ${key === 'return' ? `Pending: ${fmt(current.pending)}.` : `Filed: ${fmt(current.recorded)}.`}`));
             report.notes.push(text(`沿用快照保存的汇总和目标；ICT服务与软件：${settings.excludeIct ? '剔除' : '保留'}；待评分任务：${settings.excludePendingScore ? '剔除' : '保留'}。原始明细保留原口径，可能包含被剔除记录。`, `Uses saved summaries and targets. ICT Services & Software: ${settings.excludeIct ? 'excluded' : 'included'}; pending-rating tasks: ${settings.excludePendingScore ? 'excluded' : 'included'}. Raw detail may include excluded records.`));
@@ -157,5 +158,5 @@
         if (key !== 'eos' && project.reportData.detailSheets.some(sheet => !sheet || typeof sheet.name !== 'string' || !Array.isArray(sheet.rows) || sheet.rows.some(row => !row || typeof row !== 'object' || Array.isArray(row)))) throw new Error('工程文件原始数据表结构无效');
         return key;
     }
-    return Object.freeze({ list: Object.freeze(list), get, period, available, build, fmt, storageKey, validateProject });
+    return Object.freeze({ list: Object.freeze(list), get, period, available, build, fmt, round2, storageKey, validateProject });
 }));

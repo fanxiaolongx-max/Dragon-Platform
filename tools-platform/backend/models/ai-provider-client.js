@@ -84,6 +84,12 @@ function isJsonMode(options = {}) {
     return options.responseMimeType === 'application/json' || options.json === true;
 }
 
+function isGeminiThinkingCapable(model = '') {
+    const m = String(model || '').toLowerCase();
+    if (/gemini-1\./i.test(m)) return false;
+    return /gemini-(?:2\.|[3-9]\.|\d{2,}\.|.*thinking)/i.test(m);
+}
+
 async function parseErrorResponse(res) {
     let body = '';
     try {
@@ -290,7 +296,7 @@ class AiProviderClient {
                 temperature: Number(temperature ?? this.settings.temperature ?? 0.7)
             }
         };
-        if (Number.isFinite(Number(thinkingBudget)) && /gemini-2\.5/i.test(this.model)) {
+        if (Number.isFinite(Number(thinkingBudget)) && isGeminiThinkingCapable(this.model)) {
             body.generationConfig.thinkingConfig = { thinkingBudget: Math.max(0, Math.round(Number(thinkingBudget))) };
         }
         if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
@@ -423,7 +429,7 @@ class AiProviderClient {
                 temperature: Number(temperature ?? this.settings.temperature ?? 0.7)
             }
         };
-        if (Number.isFinite(Number(thinkingBudget)) && /gemini-2\.5/i.test(this.model)) {
+        if (Number.isFinite(Number(thinkingBudget)) && isGeminiThinkingCapable(this.model)) {
             body.generationConfig.thinkingConfig = { thinkingBudget: Math.max(0, Math.round(Number(thinkingBudget))) };
         }
         if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };

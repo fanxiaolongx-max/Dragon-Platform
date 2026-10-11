@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>夜间运维值班表编辑器 - Tools Platform</title>
+    <link rel="stylesheet" href="/css/shared.css?v=20261010-01">
+    <link rel="stylesheet" href="/css/duty-roster.css?v=20261010-09">
+</head>
+<body>
+    <div id="navbar-container"></div>
+
+    <div class="duty-page-container">
+        <!-- 顶部操作栏 -->
+        <div class="duty-toolbar">
+            <div class="toolbar-group">
+                <span class="toolbar-title" data-i18n="duty.toolbar_title">🌙 夜间运维值班表</span>
+                <div class="month-picker-wrap">
+                    <button id="prevMonthBtn" type="button" title="上个月" data-i18n-title="duty.prev_month">◀</button>
+                    <input id="targetMonth" type="month" aria-label="目标月份" data-i18n-aria-label="duty.target_month">
+                    <button id="nextMonthBtn" type="button" title="下个月" data-i18n-title="duty.next_month">▶</button>
+                </div>
+                <label class="toolbar-label">
+                    <span data-i18n="duty.annual_total_label">年度累计总人次:</span>
+                    <input id="annualTotalInput" type="number" min="0" value="353" style="width: 75px;" title="在表尾展示的年度或累计人次基数" data-i18n-title="duty.annual_total_title">
+                </label>
+            </div>
+
+            <div class="toolbar-group">
+                <span id="statusMsg" class="status-badge" role="status" data-i18n="duty.status_ready">已就绪</span>
+                <button id="importPrevBtn" class="btn btn-secondary" type="button" title="一键引入上月值班表排班名单快速填写本月" data-i18n="duty.btn_import_prev" data-i18n-title="duty.btn_import_prev_title">⏮️ 引入上月</button>
+                <button id="copyTableBtn" class="btn btn-secondary" type="button" title="一键复制当前值班表到剪贴板（TSV / 邮件友好格式）" data-i18n="duty.btn_copy_table" data-i18n-title="duty.btn_copy_table_title">📋 复制表格</button>
+                <button id="sampleBtn" class="btn btn-secondary" type="button" title="载入参考图示的标准排班人员名单" data-i18n="duty.btn_sample" data-i18n-title="duty.btn_sample_title">✨ 载入示例</button>
+                <button id="clearBtn" class="btn btn-secondary" type="button" title="清空当月所有排班输入" data-i18n="duty.btn_clear" data-i18n-title="duty.btn_clear_title">🧹 清空当月</button>
+                <button id="exportCsvBtn" class="btn btn-secondary" type="button" title="导出当前值班表为 CSV 表格" data-i18n="duty.btn_export_csv" data-i18n-title="duty.btn_export_csv_title">📥 导出 CSV</button>
+                <button id="openDesignerBtn" class="btn btn-secondary" type="button" title="前往护网与网络安全月报编辑器调用此表" data-i18n="duty.btn_open_designer" data-i18n-title="duty.btn_open_designer_title">📑 月报设计器</button>
+                <button id="saveBtn" class="btn btn-primary" type="button" title="保存到服务器并同步至月报编辑器数据资料库" data-i18n="duty.btn_save" data-i18n-title="duty.btn_save_title">💾 保存到服务器</button>
+            </div>
+        </div>
+
+        <!-- 埃及周末规则提示横幅 -->
+        <div class="egypt-weekend-banner">
+            <div>
+                <span class="egypt-flag-icon">🇪🇬</span>
+                <strong data-i18n="duty.banner_rule_title">埃及周末排班规则：</strong>
+                <span data-i18n-html="duty.banner_rule_desc">
+                    纵轴排班从 <strong>周日</strong> 开始，以 <strong>周五</strong> 与 <strong>周六</strong> 结尾。在埃及，法定工作日为周日~周四，<strong>周五、周六为法定周末</strong>（表中已标金黄色高亮）。
+                    表头根据目标月份自动按周划分（周日~周六分段）。保存后可在<strong>月报设计器</strong>的<strong>“指标与关键数据表”</strong>中直接引用，并随报告月份自动调整周日期！
+                </span>
+            </div>
+        </div>
+
+        <!-- 主值班表卡片（像素对齐参考图示） -->
+        <main class="duty-sheet-canvas">
+            <div class="sheet-header-area">
+                <h1 class="sheet-title" data-i18n="duty.sheet_main_title">夜间运维值班表</h1>
+                <div class="sheet-subtitle">
+                    <span id="monthTitleDisplay">2026年08月</span> · <span data-i18n="duty.sheet_dept">埃及代表处交付与服务运维支持中心</span>
+                </div>
+            </div>
+
+            <div class="duty-table-wrapper">
+                <table id="rosterTable" class="roster-grid">
+                    <!-- 由 js 动态渲染 -->
+                </table>
+            </div>
+        </main>
+
+        <!-- 辅助工具与快捷面板 -->
+        <div class="duty-bottom-grid">
+            <div class="card-box">
+                <h3 data-i18n="duty.quick_person_title">👥 常用值班人员快捷点击填入 / 复制</h3>
+                <p data-i18n="duty.quick_person_desc" style="font-size: 12px; color: #64748b; margin: 0 0 10px;">点击下方人员姓名：若当前有单元格获得焦点则直接填入，否则自动复制到剪贴板。</p>
+                <div id="personTagsContainer" class="person-tags-wrap">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+
+            <div class="card-box">
+                <h3 data-i18n="duty.stats_title">📊 当月值班频次统计 (TOP 10)</h3>
+                <div id="statsList" class="stats-list">
+                    <!-- 动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/shared/toast.js?v=20260530-01"></script>
+    <script src="/js/shared/api.js?v=20260824-01"></script>
+    <script src="/js/shared/i18n.js?v=20261005-01"></script>
+    <script src="/js/shared/navbar.js?v=20261010-04"></script>
+    <script src="/js/duty-roster.js?v=20261010-09"></script>
+</body>
+</html>

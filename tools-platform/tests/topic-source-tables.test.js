@@ -1,0 +1,23 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'topic-source-tables-'));process.env.TOOLS_DATA_DIR=path.join(temp,'tools');process.env.TOOLS_REPORT_DATA_DIR=path.join(temp,'reports');
+const topics=require('../backend/models/topic-snapshots-repository'),sources=require('../backend/models/import-source-repository'),{runWithTenant}=require('../backend/models/tenant-context');
+const fixtures=require('./fixtures/topic-monthly'),view=require('../frontend/js/monthly-designer/catalog-view'),documentEngine=require('../frontend/js/monthly-designer/document-engine');
+test.after(async()=>{await require('../backend/models/app-db').closeDatabase();await require('../backend/models/tenant-sqlite-pool').closeAll();});
+test('topic snapshots supply month-specific report and raw sheets with stable bindings and numeric values',async()=>{
+ const snapshot=fixtures.netcare();snapshot.settings.year=2020;snapshot.settings.month=9;snapshot.data.change.currentYear=2020;snapshot.data.change.currentMonth=8;
+ const saved=await topics.saveSnapshot(snapshot,{name:'Historical NetCare'});await topics.saveSnapshot(fixtures.datafab());
+ const catalog=await sources.catalog();assert.deepEqual(new Set(catalog.files.filter(file=>file.kind==='topic_monthly').map(file=>file.topic_key)),new Set(['eos','certificate','change','interception','sr','return','filing']));
+ const certificate=catalog.files.find(file=>file.topic_key==='certificate');assert.equal(certificate.target_period,'2020-09');assert.equal(view.groups(catalog).find(group=>group.fileIds.includes(certificate.id)).period,'2020-09','Explicit historical year does not follow the latest import year');
+ const detail=certificate.sheets.find(sheet=>sheet.name==='证书风险原始明细'),data=await sources.getSheet(detail.id);assert.equal(data.rows[0].need_reduce_cnt,20);assert.equal(typeof data.rows[0].need_reduce_cnt,'number');assert.equal(data.rows[0].customer_name,'Customer A');
+ const overview=await sources.getSheet(certificate.sheets[0].id);assert.equal(overview.rows[0]['需消减'],50);assert.equal(overview.rows[0]['已消减'],30);assert.equal(overview.rows[0]['完成率（%）'],60);
+ const eos=catalog.files.find(file=>file.topic_key==='eos');assert.ok(eos.sheets.some(sheet=>sheet.name==='产品EOS原始明细'));assert.equal((await sources.getSheet(eos.sheets.find(sheet=>sheet.name==='产品EOS原始明细').id)).rows[0].incorporation_total_nes,20);
+ const binding={kind:'file',mode:'pinned',fileId:certificate.id,sheetName:detail.name};assert.equal(documentEngine.resolve(binding,catalog).sheet.id,detail.id);
+ assert.deepEqual((await sources.catalog()).files.map(file=>file.id).sort(),catalog.files.map(file=>file.id).sort());assert.equal((await topics.getSnapshot(saved.item.id)).snapshot.data.certificate[0].need_reduce_cnt,20);
+ await runWithTenant('other-tenant',async()=>{assert.equal((await sources.catalog()).files.length,0);assert.equal(await sources.getSheet(detail.id),null);assert.equal(await sources.getFile(certificate.id,true),null);});
+});
+test('worksheet download reconstructs all sheets, endpoints retain tenant isolation and missing IDs return 404',async t=>{
+ const express=require('express'),app=express();app.use(express.json());app.use((req,res,next)=>runWithTenant(req.headers['x-test-tenant']||'default',next));app.use('/api/upload',require('../backend/routes/import-sources'));const server=await new Promise(resolve=>{const listener=app.listen(0,'127.0.0.1',()=>resolve(listener));});t.after(()=>new Promise(resolve=>server.close(resolve)));const base=`http://127.0.0.1:${server.address().port}/api/upload`;
+ const catalog=await (await fetch(base+'/source-catalog')).json(),file=catalog.files.find(file=>file.topic_key==='certificate'),sheet=file.sheets.find(sheet=>sheet.name==='证书风险原始明细');
+ const response=await fetch(base+'/source-files/'+file.id+'/download');assert.equal(response.status,200);assert.ok(response.headers.get('content-disposition').includes('.xlsx'));const ExcelJS=require('../backend/node_modules/exceljs'),book=new ExcelJS.Workbook();await book.xlsx.load(Buffer.from(await response.arrayBuffer()));assert.equal(book.worksheets.length,file.sheets.length);const raw=book.worksheets.find(sheet=>sheet.name.startsWith('证书风险原始明细'));assert.equal(raw.getCell(2,1).value,'Customer A');
+ assert.equal((await fetch(base+'/source-sheets/'+sheet.id,{headers:{'x-test-tenant':'other-tenant'}})).status,404);assert.equal((await fetch(base+'/source-files/'+file.id+'/download',{headers:{'x-test-tenant':'other-tenant'}})).status,404);assert.equal((await fetch(base+'/source-sheets/'+file.id+'-s999')).status,404);
+});

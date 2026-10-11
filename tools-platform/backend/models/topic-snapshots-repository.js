@@ -97,9 +97,15 @@ function number(value) {
     return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function round2(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Number(parsed.toFixed(2)) : 0;
+}
+
 function ratePercent(value) {
     const parsed = number(value);
-    return Math.abs(parsed) <= 1 ? parsed * 100 : parsed;
+    return round2(Math.abs(parsed) <= 1 ? parsed * 100 : parsed);
 }
 
 function sumField(rows, field) {
@@ -142,9 +148,9 @@ function buildEosTopic(rows, type, settings) {
         result.annualPlan += annualPlan; result.noPlan += Math.max(0, item.pending - annualPlan);
         return result;
     }, { quantity: 0, incorporated: 0, pending: 0, annualPlan: 0, noPlan: 0 });
-    totals.currentRate = totals.quantity ? Math.min(totals.quantity, totals.incorporated) / totals.quantity * 100 : 0;
-    totals.plannedRate = totals.quantity ? Math.min(totals.quantity, totals.incorporated + totals.annualPlan) / totals.quantity * 100 : 0;
-    totals.targetRate = number(settings?.eos?.targets?.[type]);
+    totals.currentRate = totals.quantity ? round2(Math.min(totals.quantity, totals.incorporated) / totals.quantity * 100) : 0;
+    totals.plannedRate = totals.quantity ? round2(Math.min(totals.quantity, totals.incorporated + totals.annualPlan) / totals.quantity * 100) : 0;
+    totals.targetRate = number(settings?.eos?.targets?.[type]) !== null ? round2(number(settings?.eos?.targets?.[type])) : null;
     return totals;
 }
 
@@ -157,15 +163,15 @@ function changeTopic(data) {
     const taskCount = sumField(current, 'task_count'); const priorTaskCount = sumField(previous, 'task_count');
     const weightedBase = sumField(current, 'task_count');
     const operationSuccessRate = weightedBase
-        ? current.reduce((sum, row) => sum + ratePercent(row?.operation_success_rate) * number(row?.task_count), 0) / weightedBase
+        ? round2(current.reduce((sum, row) => sum + ratePercent(row?.operation_success_rate) * number(row?.task_count), 0) / weightedBase)
         : 0;
-    return { taskCount, priorTaskCount, yoyRate: priorTaskCount ? (taskCount - priorTaskCount) / priorTaskCount * 100 : 0, rollbackCount: sumField(current, 'rollback_count'), highRiskCount: sumField(current, 'high_core_total_count'), operationSuccessRate };
+    return { taskCount, priorTaskCount, yoyRate: priorTaskCount ? round2((taskCount - priorTaskCount) / priorTaskCount * 100) : 0, rollbackCount: sumField(current, 'rollback_count'), highRiskCount: sumField(current, 'high_core_total_count'), operationSuccessRate };
 }
 
 function interceptionTopic(data) {
     const current = ytdRows(data, data?.currentYear); const previous = ytdRows(data, data?.previousYear);
     const total = sumField(current, 'interception_cnt'); const priorTotal = sumField(previous, 'interception_cnt');
-    return { total, priorTotal, yoyRate: priorTotal ? (total - priorTotal) / priorTotal * 100 : 0, commandCount: sumField(current, 'commands_interception_cnt'), graphicalCount: sumField(current, 'graphical_interception_cnt') };
+    return { total, priorTotal, yoyRate: priorTotal ? round2((total - priorTotal) / priorTotal * 100) : 0, commandCount: sumField(current, 'commands_interception_cnt'), graphicalCount: sumField(current, 'graphical_interception_cnt') };
 }
 
 function srTopic(data) {
@@ -173,8 +179,8 @@ function srTopic(data) {
     const previous = (data?.summary || []).find(row => row?.scope === 'TOTAL' && row?.period === 'previousYtd') || {};
     const total = number(current.sr_total); const priorTotal = number(previous.sr_total);
     return {
-        total, priorTotal, yoyRate: priorTotal ? (total - priorTotal) / priorTotal * 100 : 0,
-        frtRate: ratePercent(current.sr_frt), openCount: number(current.unclose_sr_cnt), overdueCount: number(current.overdue_sr_cnt),
+        total, priorTotal, yoyRate: priorTotal ? round2((total - priorTotal) / priorTotal * 100) : 0,
+        frtRate: round2(ratePercent(current.sr_frt)), openCount: number(current.unclose_sr_cnt), overdueCount: number(current.overdue_sr_cnt),
         minorCount: number(current.minor_sr_cnt), majorCount: number(current.major_sr_cnt), criticalCount: number(current.critical_sr_cnt)
     };
 }
@@ -201,7 +207,7 @@ function buildSummary(snapshot) {
             totalRows: Object.values(metrics).reduce((sum, value) => sum + value, 0),
             metrics,
             topics: {
-                certificate: { total: certificateTotal, reduced: certificateReduced, pending: Math.max(0, certificateTotal - certificateReduced), completionRate: certificateTotal ? certificateReduced / certificateTotal * 100 : 0 },
+                certificate: { total: certificateTotal, reduced: certificateReduced, pending: Math.max(0, certificateTotal - certificateReduced), completionRate: certificateTotal ? round2(certificateReduced / certificateTotal * 100) : 0 },
                 eosProduct: buildEosTopic(data.eosProduct, 'product', snapshot.settings),
                 eosVersion: buildEosTopic(data.eosVersion, 'version', snapshot.settings),
                 change: changeTopic(data.change),
@@ -305,7 +311,7 @@ async function listSnapshots(options = {}) {
     const where = platform ? 'WHERE platform = ?' : '';
     const params = platform ? [platform] : [];
     const [rows, count] = await Promise.all([
-        all(`SELECT * FROM topic_snapshots ${where} ORDER BY captured_at DESC, imported_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]),
+        all(`SELECT ${options.metadataOnly?'id,platform,name,captured_at,exported_at,imported_at,period_label,summary_json,payload_bytes,created_at,updated_at':'*'} FROM topic_snapshots ${where} ORDER BY captured_at DESC, imported_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]),
         get(`SELECT COUNT(1) AS count FROM topic_snapshots ${where}`, params)
     ]);
     return { items: rows.map(metadataFromRow), total: Number(count?.count) || 0, limit, offset };
@@ -343,6 +349,11 @@ async function getEosMonthlyReport(month) {
     if (month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw topicSnapshotError('月份格式应为 YYYY-MM');
     if (!selected) return { months: months.map(row => row.period), report: null };
     const item = await getSnapshot(selected.id);
+    return { months: months.map(row => row.period), report: buildEosMonthlyReport(item, selected.period) };
+}
+
+// Reuse the same historical calculation for source-library tables.
+function buildEosMonthlyReport(item, month) {
     const snapshot = item.snapshot;
     const aliases = { 'NILE ON LINE (NOL)': 'Etisalat Misr' };
     const customerName = row => aliases[String(row?.customer_name || '').trim()] || String(row?.customer_name || '').trim() || '未分类客户';
@@ -391,9 +402,9 @@ async function getEosMonthlyReport(month) {
             .map(({ customer, label, noPlan }) => ({ customer, label, noPlan }));
         return { accounts, total, priorities };
     };
-    return { months: months.map(row => row.period), report: { month: selected.period, snapshot: {
+    return { month, snapshot: {
         id: item.id, name: item.name, capturedAt: item.capturedAt, importedAt: item.importedAt
-    }, product: buildSection('product'), version: buildSection('version') } };
+    }, product: buildSection('product'), version: buildSection('version') };
 }
 
 async function deleteSnapshot(id) {
@@ -462,6 +473,7 @@ module.exports = {
     getLatestSnapshot,
     getSeries,
     getEosMonthlyReport,
+    buildEosMonthlyReport,
     getMonthlyReport,
     getSnapshot,
     getMappingConfig,

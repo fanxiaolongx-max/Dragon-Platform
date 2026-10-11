@@ -47,6 +47,8 @@ test('SLARowDetail client-side logic tests', async t => {
                     this._listeners[evt].push(fn);
                 },
                 setAttribute(k, v) { this[k] = v; },
+                focus() {},
+                select() {},
                 matches() { return false; },
                 querySelector(sel) {
                     return this._children ? this._children.find(c => sel.includes(c.className)) : null;
@@ -58,10 +60,12 @@ test('SLARowDetail client-side logic tests', async t => {
         getElementById(id) {
             return elements[id] || null;
         },
+        execCommand() { return true; },
         body: {
             appendChild(el) {
                 if (el.id) elements[el.id] = el;
-            }
+            },
+            removeChild() {}
         },
         addEventListener(evt, fn) {
             if (!documentListeners[evt]) documentListeners[evt] = [];
@@ -156,4 +160,20 @@ test('SLARowDetail client-side logic tests', async t => {
     assert.ok(!bodyEl.innerHTML.includes('empty_col_1'), 'Empty fields should be automatically hidden by default');
     assert.ok(bodyEl.innerHTML.includes('>Orange E Egypt for Telecommunications</div>'), 'Imported whitespace should be compact in the detail view');
     assert.equal(mockWindow.AppState.rectification.currentDisplayData[0].source_name, '  Orange E\n  Egypt for Telecommunications  ', 'Original value should remain available for copying');
+
+    // Test copy button feedback
+    const mockBtn = mockDocument.createElement('button');
+    mockBtn.innerHTML = '📋';
+    mockBtn.closest = () => null;
+    mockWindow.navigator = { clipboard: { writeText: async () => {} } };
+    await SLARowDetail.handleCopy('task_id', mockBtn);
+    assert.ok(mockBtn.innerHTML.includes('已复制'), 'Button text should display copy feedback');
+    assert.ok(mockBtn.innerHTML.includes('sla-copy-check'), 'Button should include checkmark element');
+    assert.ok(mockBtn.classList.contains('copied'), 'Button should have copied class');
+
+    // Verify sla.css contains auto grid and nowrap for copy button
+    const css = fs.readFileSync(path.join(__dirname, '../frontend/css/sla.css'), 'utf8');
+    assert.ok(css.includes('grid-template-columns: minmax(95px, 130px) minmax(0, 1fr) auto;'), 'sla-detail-field-item grid should end with auto');
+    assert.ok(css.includes('.sla-detail-copy-btn.copied') && css.includes('white-space: nowrap;'), 'copied button must have white-space: nowrap');
 });
+

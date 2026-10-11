@@ -5,8 +5,32 @@ const {
     buildProactiveAlertCandidates,
     buildProactiveTaskCandidates,
     enrichProactiveAlertWithDeepContext,
-    generateRuleBasedDeepAnalysis
+    generateRuleBasedDeepAnalysis,
+    normalizeProactiveAiAnalysis
 } = require('../backend/models/ai-report-analysis-service');
+
+test('proactive analysis rejects token-limited responses even with sentence punctuation', () => {
+    const text = 'ET 当前完成率为11%，低于50%的目标，需结合历史快照与其他客户群核对变化并优先推进整改。';
+    for (const finishReason of ['length', 'MAX_TOKENS', 'max_output_tokens']) {
+        assert.throws(() => normalizeProactiveAiAnalysis({ text, finishReason }), /未完整生成/);
+    }
+});
+
+test('proactive analysis rejects title-only and unfinished responses without finish metadata', () => {
+    for (const text of ['', '收编2025 (ET)*:', 'ET 当前完成率为11%，低于50%的目标。结合其他客户群与历史快照，本月需要优先关注的主要原因是']) {
+        assert.throws(() => normalizeProactiveAiAnalysis({ text }), /内容不完整/);
+    }
+});
+
+test('proactive analysis preserves complete Chinese and English output without slicing sentences', () => {
+    const text = 'ET 当前完成率为11%，低于50%的目标，需核对历史快照并优先安排整改。'.repeat(10);
+    assert.ok(text.length > 320);
+    for (const finishReason of ['STOP', 'end_turn', 'stop_sequence', undefined]) {
+        assert.equal(normalizeProactiveAiAnalysis({ text, finishReason }), text);
+    }
+    const english = 'ET is below target. Review the previous snapshot and assign an owner to close the largest gap.';
+    assert.equal(normalizeProactiveAiAnalysis({ text: english, finishReason: 'stop' }), english);
+});
 
 test('matches a uniquely identifying shortened Chinese metric name', () => {
     const labels = ['存储整改', '路由器', '重疾EOS预案覆盖率'];

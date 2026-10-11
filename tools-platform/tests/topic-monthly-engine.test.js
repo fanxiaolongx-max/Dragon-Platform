@@ -9,6 +9,7 @@ const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'monthly-engine-'));
 process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
 process.env.TOOLS_REPORT_DATA_DIR = path.join(sandbox, 'reports');
 const repo = require('../backend/models/topic-snapshots-repository');
+const sources = require('../backend/models/import-source-repository');
 const appDb = require('../backend/models/app-db');
 const { runWithTenant } = require('../backend/models/tenant-context');
 
@@ -120,3 +121,37 @@ test('HTTP monthly endpoint returns SQLite reports, empty months and structured 
     const empty = await fetch(`${base}?topic=sr&month=2025-01`);
     assert.equal((await empty.json()).report, null);
 });
+
+test('percentages in topic monthly reports and source tables are rounded to at most 2 decimal places at source', async () => {
+    const snapshot = netcare();
+    // CNBG count 4248 vs prior 6144 => yoy -30.859375 => -30.86
+    // EBG count 210 vs prior 196 => yoy 7.142857142857142 => 7.14
+    // Operation success rate 99.52357142857143% => 99.52%
+    snapshot.data.change.rows = [
+        { scope: 'CNBG', year: 2026, month: 8, task_count: 4248, rollback_count: 0, high_core_total_count: 0, operation_success_rate: 100 },
+        { scope: 'CNBG', year: 2025, month: 8, task_count: 6144, rollback_count: 0, high_core_total_count: 0, operation_success_rate: 100 },
+        { scope: 'EBG', year: 2026, month: 8, task_count: 210, rollback_count: 0, high_core_total_count: 0, operation_success_rate: 0.9952357142857143 },
+        { scope: 'EBG', year: 2025, month: 8, task_count: 196, rollback_count: 0, high_core_total_count: 0, operation_success_rate: 100 }
+    ];
+    const report = engine.build(snapshot, 'change');
+    const scopes = section(report, 'scopes').rows;
+    const cnbg = scopes.find(r => r.label === 'CNBG');
+    const ebg = scopes.find(r => r.label === 'EBG');
+    assert.equal(cnbg.yoy, -30.86);
+    assert.equal(cnbg.rate, 100);
+    assert.equal(ebg.yoy, 7.14);
+    assert.equal(ebg.rate, 99.52);
+
+    const saved = await repo.saveSnapshot(snapshot);
+    const catalog = await sources.catalog();
+    const changeFile = catalog.files.find(f => f.topic_key === 'change' && f.source_snapshot_id === saved.item.id);
+    const scopeSheet = changeFile.sheets.find(s => s.name.includes('分业务范围'));
+    const sheetData = await sources.getSheet(scopeSheet.id);
+    const cnbgRow = sheetData.rows.find(r => r['范围'] === 'CNBG');
+    const ebgRow = sheetData.rows.find(r => r['范围'] === 'EBG');
+    assert.equal(cnbgRow['同比（%）'], -30.86);
+    assert.equal(cnbgRow['操作成功率（%）'], 100);
+    assert.equal(ebgRow['同比（%）'], 7.14);
+    assert.equal(ebgRow['操作成功率（%）'], 99.52);
+});
+

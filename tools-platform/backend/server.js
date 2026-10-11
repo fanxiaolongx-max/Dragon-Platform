@@ -119,6 +119,8 @@ const app = express();
 // 中间件
 // ============================================================
 app.use(cors());
+app.use('/api/custom-tools/import-upload', express.json({ limit: 850000 }));
+app.use('/api/topic-snapshots/import-upload', express.json({ limit: 850000 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -244,7 +246,7 @@ app.use((req, res, next) => {
             statusCode: status,
             durationMs: dur,
             requestId: req.requestId,
-            requestBody: JSON.stringify(redactForLog(req.body || {})).slice(0, 16000),
+            requestBody: req.suppressBodyLog ? '[omitted]' : JSON.stringify(redactForLog(req.body || {})).slice(0, 16000),
             responseBody: res.locals.serviceStatusResponseBody || ''
         }).catch(error => console.warn(`[service-status] 请求指标记录失败：${error.message}`));
         if (status >= 400 && !req.suppressBodyLog) {
@@ -365,6 +367,7 @@ app.use('/api', (req, res, next) => {
     if (req.path.startsWith('/surveys')) return next(); // 调查模板和提交由模块内部控制权限
     if (req.method === 'POST' && req.path === '/db/config/monthly_report_titles') return next(); // 登录用户可编辑月报中英文标题，路由内继续校验数据
     if (/^\/monthly-snapshots(?:\/[^/]+)?$/.test(req.path)) return next(); // 登录用户可维护各月份月报快照
+    if (/^\/duty-roster(?:\/.*)?$/.test(req.path)) return next(); // 登录用户可维护各月份值班表
     if (/^\/meeting-snapshots(?:\/.*)?$/.test(req.path)) return next(); // 登录用户可维护会议考勤历史快照与名单设置
     if (/^\/(?:operation-incentive-snapshots|incentive-snapshots)(?:\/[^/]+)?$/.test(req.path)) return next(); // 登录用户可维护操作激励历史快照
     if (/^\/custom-tools\/[^/]+\/(?:state(?:\/restore)?|history(?:\/[^/]+)?|snapshots(?:\/[^/]+)?)$/.test(req.path)) return next(); // 登录用户可维护自定义工具业务数据及快照
@@ -420,6 +423,7 @@ app.use('/api/alert-center', alertCenterRoutes); // 系统告警台 API
 app.use('/api/platform-metrics', platformMetricsRoutes); // 首页效能与使用量统计
 app.use('/api/friend-links', friendLinksRoutes); // 首页友情链接配置与轻量可用性探测
 app.use('/api/onboarding', onboardingRoutes); // 首次启动默认脚本/指标规则可选导入
+app.use('/api/duty-roster', require('./routes/duty-roster')); // 夜间运维值班表 API
 app.use('/api/tenants', tenantsRoutes); // 租户清单、切换与管理
 if (desktopLicenseAdminRoutes) app.use('/api/desktop-licenses', requireAdmin, desktopLicenseAdminRoutes);
 
@@ -455,6 +459,9 @@ app.get('/expedite', (req, res) => {
 });
 app.get('/monthly', (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'pages/monthly.html'));
+});
+app.get(['/duty-roster', '/duty-roster.html'], (req, res) => {
+    res.sendFile(path.join(FRONTEND_DIR, 'pages/duty-roster.html'));
 });
 app.get('/bigscreen', (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'pages/bigscreen.html'));

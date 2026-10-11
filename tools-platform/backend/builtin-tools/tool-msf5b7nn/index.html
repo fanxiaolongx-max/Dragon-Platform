@@ -6382,7 +6382,7 @@
           attendees,
           sessionAttendees,
           anomalies,
-          sessions: (cache.sessions && cache.sessions.length > 1) ? cache.sessions.map(s => ({ name: s.name, date: s.date, rowCount: s.rowCount, required: cache.sessionStats?.[s.name]?.total, counts: cache.sessionStats?.[s.name]?.counts })) : undefined,
+          sessions: cache.sessions?.length ? cache.sessions.map(s => ({ name: s.name, date: s.date, rowCount: s.rowCount, required: cache.sessionStats?.[s.name]?.total, counts: cache.sessionStats?.[s.name]?.counts })) : undefined,
           savedAt: new Date().toISOString()
         };
 

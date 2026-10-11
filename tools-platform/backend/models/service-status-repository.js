@@ -460,10 +460,23 @@ async function getHistory(daysInput = 90) {
         };
     });
     const overall = summarizeRows(rows);
-    const todayStates = services.map(service => service.currentState);
-    overall.currentState = todayStates.includes('incident') ? 'incident'
-        : todayStates.includes('degraded') ? 'degraded'
-            : todayStates.includes('operational') ? 'operational' : 'no-data';
+    const incidentServices = services.filter(service => service.currentState === 'incident');
+    const degradedServices = services.filter(service => service.currentState === 'degraded');
+    const activeServices = services.filter(service => service.currentState !== 'no-data');
+
+    overall.incidentServices = incidentServices.map(s => s.id);
+    overall.degradedServices = degradedServices.map(s => s.id);
+
+    if (activeServices.length > 0 && incidentServices.length === activeServices.length) {
+        overall.currentState = 'incident';
+    } else if (incidentServices.length > 0 || degradedServices.length > 0) {
+        overall.currentState = 'operational';
+        overall.partialIssue = true;
+    } else if (activeServices.length > 0) {
+        overall.currentState = 'operational';
+    } else {
+        overall.currentState = 'no-data';
+    }
 
     return {
         generatedAt: new Date().toISOString(),

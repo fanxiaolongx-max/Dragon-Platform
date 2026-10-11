@@ -1,0 +1,140 @@
+(function(){
+ 'use strict';
+ const color=value=>/^#[0-9a-f]{6}$/i.test(value)?value.toLowerCase():null;
+ function cssColor(value){const match=String(value).match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);return color(value)|| (match?'#'+match.slice(1).map(v=>Number(v).toString(16).padStart(2,'0')).join(''):null);}
+ function read(element){
+  const runs=[];
+  function add(text,style){if(!text)return;const last=runs.at(-1);if(last&&JSON.stringify(last.style)===JSON.stringify(style))last.text+=text;else runs.push({text,style:{...style}});}
+  function walk(node,inherited={},ignoreBreak=false){
+   if(node.nodeType===3){if(node.previousSibling?.nodeType===1&&/^(DIV|P|LI|UL|OL|BLOCKQUOTE)$/.test(node.previousSibling.tagName)&&!node.textContent.startsWith('\n'))add('\n',inherited);add(node.textContent,inherited);return;}
+   const style={...inherited};if(node.nodeType!==1)return;
+   if(['B','STRONG'].includes(node.tagName))style.bold=true;if(node.tagName==='U')style.underline=true;
+   const css=node.style;if(css.fontWeight)style.bold=css.fontWeight==='bold'||Number(css.fontWeight)>=600;if(css.textDecoration)style.underline=css.textDecoration.includes('underline');
+   const size=Number.parseFloat(css.fontSize);if(size>=8&&size<=72)style.fontSize=Math.round(size);
+   const foreground=cssColor(css.color||node.getAttribute('color')),background=cssColor(css.backgroundColor);if(foreground)style.color=foreground;if(background)style.background=background;
+   if(node.dataset.metricToken){add(node.dataset.metricToken,inherited);return;}
+   if(node.tagName==='BR'){if(!ignoreBreak)add('\n',style);return;}
+   const block=/^(DIV|P|LI|UL|OL|BLOCKQUOTE|H[1-6])$/.test(node.tagName)||node.style.display==='block';
+   if(block&&node.previousSibling)add('\n',style);
+   const placeholder=block&&!node.textContent&&!node.querySelector('[data-metric-token]')&&node.querySelectorAll('br').length===1;
+   Array.from(node.childNodes).forEach(child=>walk(child,style,ignoreBreak||placeholder));
+  }
+  Array.from(element.childNodes).forEach(node=>walk(node));return runs;
+ }
+ function start(api){
+  let toolbar=null,field=null,range=null,brush=null;
+  const t=api.t,palette=['#203044','#173c60','#2563eb','#15803d','#b91c1c','#7e22ce','#64748b','#ffffff'],backgrounds=['#ffffff','#dbeafe','#fef3c7','#dcfce7','#fee2e2','#f3e8ff'];
+  const alignmentOptions=[['left','左对齐','Align left'],['center','居中','Center'],['right','右对齐','Align right'],['justify','两端对齐','Justify']];
+  const hide=()=>{if(toolbar)toolbar.hidden=true;};
+  function apply(style,command){
+     if(!range||!field?.isConnected)return;
+     field.focus();getSelection().removeAllRanges();getSelection().addRange(range);
+     if(style?.textAlign){field.style.textAlign=style.textAlign;field.querySelectorAll('[style]').forEach(element=>element.style.removeProperty('text-align'));style={...style};delete style.textAlign;}
+     if(command==='removeFormat'){field.style.removeProperty('text-align');field.querySelectorAll('[style]').forEach(element=>element.style.removeProperty('text-align'));}
+     if(command)document.execCommand(command,false,null);
+     else if(Object.keys(style||{}).length){
+      const span=document.createElement('span'),fragment=range.extractContents();
+      // Replace the selected property inside existing runs so nested formatting cannot override it.
+      fragment.querySelectorAll('*').forEach(element=>{
+       for(const property of Object.keys(style))element.style[property]=['fontWeight','textDecoration'].includes(property)?style[property]:'';
+       if(style.fontSize)element.removeAttribute('size');
+       if(style.color)element.removeAttribute('color');
+      });
+      Object.assign(span.style,style);span.append(fragment);range.insertNode(span);range.selectNodeContents(span);getSelection().removeAllRanges();getSelection().addRange(range);
+     }
+     api.commitText(field);range=getSelection().getRangeAt(0).cloneRange();syncToolbar();
+    }
+  function selectionStyles(){
+   if(!range||!field)return [];
+   const walker=document.createTreeWalker(field,NodeFilter.SHOW_TEXT),styles=[];let node;
+   while(node=walker.nextNode()){
+    if(!range.intersectsNode(node))continue;
+    const start=node===range.startContainer?range.startOffset:0,end=node===range.endContainer?range.endOffset:node.length;
+    if(!node.textContent.slice(start,end).length)continue;
+    const element=node.parentElement,css=getComputedStyle(element);let background='',underline=false;
+    for(let ancestor=element;ancestor&&api.root.contains(ancestor);ancestor=ancestor.parentElement){
+     const computed=getComputedStyle(ancestor);
+     if(!background&&computed.backgroundColor!=='rgba(0, 0, 0, 0)'&&computed.backgroundColor!=='transparent')background=cssColor(computed.backgroundColor)||'';
+     if(computed.textDecorationLine.includes('underline'))underline=true;
+     if(ancestor===api.root)break;
+    }
+    styles.push({size:parseFloat(css.fontSize),color:cssColor(css.color),background,bold:Number(css.fontWeight)>=600,underline});
+   }
+   return styles;
+  }
+  function syncToolbar(){
+   if(!toolbar)return;
+   const styles=selectionStyles();if(!styles.length)return;
+   const uniform=key=>styles.every(style=>style[key]===styles[0][key])?styles[0][key]:null;
+   const alignment=getComputedStyle(field).textAlign.replace('start','left').replace('end','right');
+   toolbar.querySelectorAll('[data-align]').forEach(button=>{const selected=button.dataset.align===alignment;const option=alignmentOptions.find(item=>item[0]===button.dataset.align);button.title=t(option[1],option[2]);button.setAttribute('aria-label',button.title);button.setAttribute('aria-pressed',String(selected));button.classList.toggle('format-selected',selected);});
+   const size=toolbar.querySelector('[data-size]'),actualSize=uniform('size');
+   size.querySelectorAll('[data-selection-size]').forEach(option=>option.remove());
+   const value=actualSize===null?'':String(actualSize);
+   if(!Array.from(size.options).some(option=>option.value===value)){
+    const option=document.createElement('option');option.value=value;option.textContent=actualSize===null?t('混合字号','Mixed sizes'):actualSize+'px';option.dataset.selectionSize='';size.prepend(option);
+   }
+   size.value=value;
+   for(const key of ['bold','underline']){
+    const button=toolbar.querySelector(`[data-format=${key}]`),state=uniform(key);
+    button.setAttribute('aria-pressed',state===null?'mixed':String(state));button.classList.toggle('format-selected',state===true);button.classList.toggle('format-mixed',state===null);
+   }
+   for(const key of ['color','background']){
+    const state=uniform(key),indicator=toolbar.querySelector(`[data-current-${key}]`);
+    indicator.style.background=state||'transparent';indicator.textContent=state===null?t('混合','Mixed'):!state?t('无','None'):'';
+    indicator.title=state===null?t('选区包含多种颜色','Selection has mixed colors'):state||t('无背景色','No background');
+    toolbar.querySelectorAll(`[data-${key}]`).forEach(button=>{const selected=state!==null&&state===button.dataset[key];button.setAttribute('aria-pressed',String(selected));button.classList.toggle('format-selected',selected);});
+   }
+  }
+  function cancelBrush(){
+   brush=null;api.root.classList.remove('format-brush-active');
+   const button=toolbar?.querySelector('[data-format=brush]');if(button){button.setAttribute('aria-pressed','false');button.textContent=t('格式刷','Format painter');}
+  }
+  function captureBrush(){
+   if(!range||range.collapsed||!field?.isConnected)return;
+   let node=range.startContainer;
+   if(node.nodeType===1)node=node.childNodes[range.startOffset]||node;
+   while(node.firstChild)node=node.firstChild;
+   const element=node.nodeType===1?node:node.parentElement,css=getComputedStyle(element);
+   let background=null,underline=false;
+   for(let ancestor=element;ancestor&&api.root.contains(ancestor);ancestor=ancestor.parentElement){
+    const computed=getComputedStyle(ancestor);
+    if(!background&&computed.backgroundColor!=='rgba(0, 0, 0, 0)'&&computed.backgroundColor!=='transparent')background=cssColor(computed.backgroundColor);
+    if(computed.textDecorationLine.includes('underline'))underline=true;
+   }
+   brush={textAlign:getComputedStyle(field).textAlign.replace('start','left').replace('end','right'),fontSize:css.fontSize,color:css.color,backgroundColor:background||'#ffffff',fontWeight:Number(css.fontWeight)>=600?'700':'400',textDecoration:underline?'underline':'none'};
+   api.root.classList.add('format-brush-active');
+   const button=toolbar.querySelector('[data-format=brush]');button.setAttribute('aria-pressed','true');button.textContent=t('请选择目标文字…','Select target text…');
+  }
+  function paintSelection(){
+   if(!brush)return;
+   const selection=getSelection();if(!selection?.rangeCount||selection.isCollapsed)return;
+   const target=selection.getRangeAt(0),node=target.commonAncestorContainer.nodeType===1?target.commonAncestorContainer:target.commonAncestorContainer.parentElement;
+   const editable=node.closest('.document-edit[contenteditable=true]');
+   if(!editable||!api.root.contains(editable)||!editable.contains(target.startContainer)||!editable.contains(target.endContainer))return;
+   field=editable;range=target.cloneRange();const style=brush;cancelBrush();apply(style);hide();
+  }
+  api.root.addEventListener('pointerup',paintSelection);
+  api.root.addEventListener('keyup',event=>{if(event.key==='Shift'||event.key.startsWith('Arrow'))paintSelection();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape')cancelBrush();});
+  document.addEventListener('selectionchange',()=>{
+   if(toolbar?.contains(document.activeElement))return;
+   const selection=getSelection();if(!selection?.rangeCount||selection.isCollapsed){hide();return;}
+   const next=selection.getRangeAt(0),node=next.commonAncestorContainer.nodeType===1?next.commonAncestorContainer:next.commonAncestorContainer.parentElement;
+   const editable=node.closest('.document-edit[contenteditable=true]');if(!editable||!api.root.contains(editable)||!editable.contains(next.startContainer)||!editable.contains(next.endContainer)){hide();return;}
+   field=editable;range=next.cloneRange();
+   if(!toolbar){
+    toolbar=document.createElement('div');toolbar.className='rich-text-toolbar';toolbar.setAttribute('role','toolbar');toolbar.setAttribute('aria-label',t('文字格式','Text formatting'));
+    toolbar.innerHTML=`<button type="button" data-format="bold" title="${t('粗体','Bold')}"><b>B</b></button><button type="button" data-format="underline" title="${t('下划线','Underline')}"><u>U</u></button><select data-size aria-label="${t('字号','Font size')}">${[8,10,12,14,16,18,20,24,28,32].map(size=>`<option value="${size}" ${size===10?'selected':''}>${size}px</option>`).join('')}</select>${alignmentOptions.map(([value,zh,en])=>`<button type="button" data-align="${value}" title="${t(zh,en)}" aria-label="${t(zh,en)}"><span class="format-align-icon" style="align-items:${{left:'flex-start',center:'center',right:'flex-end',justify:'stretch'}[value]}"><i></i><i></i><i></i></span></button>`).join('')}<span>${t('文字','Text')}</span><span class="format-current-color" data-current-color></span>${palette.map(value=>`<button type="button" class="format-swatch" data-color="${value}" style="background:${value}" title="${value}" aria-label="${t('文字颜色','Text color')} ${value}"></button>`).join('')}<span>${t('背景','Background')}</span><span class="format-current-color" data-current-background></span>${backgrounds.map(value=>`<button type="button" class="format-swatch" data-background="${value}" style="background:${value}" title="${value}" aria-label="${t('背景色','Background')} ${value}"></button>`).join('')}<button type="button" data-format="brush" aria-pressed="false" title="${t('复制格式后选择目标文字，Esc 取消','Copy formatting, then select target text; Esc cancels')}">${t('格式刷','Format painter')}</button><button type="button" data-format="clear">${t('清除格式','Clear format')}</button>`;
+    document.body.append(toolbar);
+    toolbar.onpointerdown=event=>{if(!event.target.closest('select'))event.preventDefault();};
+    toolbar.onclick=event=>{const button=event.target.closest('button');if(!button)return;if(button.dataset.format==='brush'){if(brush)cancelBrush();else captureBrush();return;}if(button.dataset.align)apply({textAlign:button.dataset.align});else if(button.dataset.color)apply({color:button.dataset.color});else if(button.dataset.background)apply({backgroundColor:button.dataset.background});else if(button.dataset.format==='clear')apply(null,'removeFormat');else if(button.dataset.format)apply(null,button.dataset.format);};
+    toolbar.querySelector('[data-size]').onchange=event=>{if(event.target.value)apply({fontSize:event.target.value+'px'});};
+   }
+   syncToolbar();toolbar.hidden=false;const rect=next.getBoundingClientRect();toolbar.style.left=Math.max(8,Math.min(rect.left,innerWidth-toolbar.offsetWidth-8))+'px';toolbar.style.top=Math.max(8,rect.top-toolbar.offsetHeight-8)+'px';
+  });
+  document.addEventListener('pointerdown',event=>{if(toolbar&&!toolbar.contains(event.target)&&!field?.contains(event.target))hide();});
+  window.addEventListener('scroll',hide,true);
+ }
+ window.MonthlyRichText={read,start};
+})();

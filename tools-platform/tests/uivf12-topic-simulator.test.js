@@ -23,7 +23,7 @@ test('topic simulator reuses the production renderers in offline-only mode', () 
     assert.match(copySource, /function openTopicFloatingSimulator/);
     assert.match(copySource, /config\.api\.installForSimulation/);
     assert.match(copySource, /离线模拟模式不会请求正式站点/);
-    assert.match(copySource, /onSnapshotImported: archiveImportedTopicSnapshot/);
+    assert.match(copySource, /archiveImportedTopicSnapshot\(snapshot, onUploadProgress\)/);
     assert.match(copySource, /\/api\/topic-snapshots/);
     assert.match(netcareSource, /const simulationMode = Boolean\(options && options\.simulation\)/);
     assert.match(datafabSource, /const simulationMode = Boolean\(options && options\.simulation\)/);
@@ -35,8 +35,9 @@ test('topic simulator reuses the production renderers in offline-only mode', () 
 });
 
 test('simulator assets are cache-busted on the UIVF12 page', () => {
-    assert.match(pageSource, /uivf12\.css\?v=(?:20260911-02|20261005-03|20261005-04)/);
+    assert.match(pageSource, /uivf12\.css\?v=20261010-01/);
     assert.match(pageSource, /netcare-analysis\.js\?v=20260917-01/);
     assert.match(pageSource, /datafab-analysis\.js\?v=20260911-03/);
-    assert.match(pageSource, /copy\.js\?v=20261007-01/);
+    assert.match(pageSource, /copy\.js\?v=20261010-01/);
+    assert.match(pageSource, /custom-tool-upload\.js\?v=20261010-02/);
 });

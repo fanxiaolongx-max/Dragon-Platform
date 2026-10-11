@@ -1,7 +1,21 @@
 const express = require('express');
 const topicSnapshotsRepo = require('../models/topic-snapshots-repository');
+const createChunkUploadRouter = require('./custom-tool-chunk-upload');
 
 const router = express.Router();
+
+async function importSnapshot(payload) {
+    const result = await topicSnapshotsRepo.saveSnapshot(payload?.snapshot, { name: payload?.name });
+    return {
+        message: result.created ? '专题快照已保存到服务器' : '相同专题快照已存在，已更新导入时间',
+        ...result
+    };
+}
+
+router.use('/import-upload', (req, res, next) => {
+    res.setHeader('X-Data-Source', 'sqlite');
+    next();
+}, createChunkUploadRouter(importSnapshot, { scope: 'topics', formatResult: result => result }));
 
 function sendError(res, error, fallback) {
     const status = Number(error?.status) || 500;
@@ -92,13 +106,11 @@ router.get('/:id', async (req, res) => {
 });
 
 router.post('/', async (req, res) => {
+    req.suppressBodyLog = true;
     try {
-        const result = await topicSnapshotsRepo.saveSnapshot(req.body?.snapshot, { name: req.body?.name });
+        const result = await importSnapshot(req.body || {});
         res.setHeader('X-Data-Source', 'sqlite');
-        res.status(result.created ? 201 : 200).json({
-            message: result.created ? '专题快照已保存到服务器' : '相同专题快照已存在，已更新导入时间',
-            ...result
-        });
+        res.status(result.created ? 201 : 200).json(result);
     } catch (error) {
         sendError(res, error, '保存专题快照失败');
     }

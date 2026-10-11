@@ -70,6 +70,7 @@ const DEFAULT_SETTINGS = {
         'custom-report',
         'expedite',
         'monthly',
+        'duty-roster',
         'bigscreen',
         'custom:network_safety_meeting_summary'
     ],

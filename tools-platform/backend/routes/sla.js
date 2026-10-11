@@ -495,8 +495,8 @@ router.post('/snapshot', async (req, res) => {
                 `original=${req.body.transport.originalBytes || '-'}, compressed=${req.body.transport.compressedBytes || '-'}`
             );
         }
-        await snapshotsRepo.addSnapshot(snapshot);
-        res.json({ success: true });
+        const item = await snapshotsRepo.addSnapshot(snapshot);
+        res.json({ success: true, id: item.id, sourceBatchId: item.sourceBatchId || null });
     } catch (err) {
         console.error('[POST /api/sla/snapshot] failed:', err);
         res.status(500).json({ error: '保存历史快照失败' });

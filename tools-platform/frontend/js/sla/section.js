@@ -382,10 +382,11 @@ async function initSection(secId, mode, title, rawData, themeColor, baseName = '
     }
     const nonFrequentOtherCols = otherCols.filter(col => !frequentCols.includes(col));
     const orderedHeadersLocal = [...foundPriorityCols, ...frequentCols, ...nonFrequentOtherCols];
-    const schemaHashStr = (mode === 'other' && baseName) ? 'sla_prefs_other_' + SLAUpload.generateSchemaHash(baseName) : 'sla_prefs_' + mode + '_' + SLAUpload.generateSchemaHash(orderedHeadersLocal.slice().sort().join('|'));
+    const schemaHashStr = options.originalSchemaHash || ((mode === 'other' && baseName) ? 'sla_prefs_other_' + SLAUpload.generateSchemaHash(baseName) : 'sla_prefs_' + mode + '_' + SLAUpload.generateSchemaHash(orderedHeadersLocal.slice().sort().join('|')));
 
     AppState[secId] = {
         mode, title, schemaHash: schemaHashStr,
+        archiveSupplementary: !!options.archiveSupplementary,
         baseName: baseName || '',
         sourceData: rawData,
         riskRuleConfig,
@@ -400,7 +401,8 @@ async function initSection(secId, mode, title, rawData, themeColor, baseName = '
     };
 
     await SLAPrefs.loadPrefs(secId);
-    if (window.SLAPrefs && typeof window.SLAPrefs.saveSourceMeta === 'function') {
+    if (options.reviewOnly && !AppState[secId].hasSavedPrefs && Array.isArray(options.savedRules)) AppState[secId].customMetrics = JSON.parse(JSON.stringify(options.savedRules));
+    if (!options.reviewOnly && window.SLAPrefs && typeof window.SLAPrefs.saveSourceMeta === 'function') {
         await window.SLAPrefs.saveSourceMeta(secId);
     }
     preprocessData(secId, rawData);

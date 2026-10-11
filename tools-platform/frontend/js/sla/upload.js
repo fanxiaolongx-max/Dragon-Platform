@@ -3,15 +3,16 @@
  * 完整移植原版：XLSX 解析、智能分流（整改/常规/专项/其他）、版本标识注入
  */
 
-const RECT_PRIORITY_COLS    = ['task_status', 'task_create_time', 'rectify_plan_end_time'];
-const RISK_PRIORITY_COLS    = ['风险状态', 'risk_status', '创单时间', 'create_time', '期望关闭时间', 'ticket_close_due_date', '期望关闭时间-挂起'];
-const SPECIAL_PRIORITY_COLS = ['状态-Status', 'task_status_en', 'task_status', 'task_status_cn', '创建日期-Create Date', 'create_time', '要求完成日期-Required Completion Date', 'required_completion_time', 'plan_complete_date'];
-const SR_PRIORITY_COLS      = ['hw_sev_name', 'urgency', 'sr_status_name', 'open_date', 'exp_close_date', 'sus_exp_close_date', 'act_close_date', 'overdue', 'sr_num', 'sr_id', 'customer_name', 'country_name_cn', 'repoffice_name_cn'];
-const VULN_PRIORITY_COLS    = ['task_status', 'create_time', 'task_create_time', 'vuln_id', 'vulnerability_id', '漏洞编号', '漏洞名称', 'vulnerability_name', 'customer_name', 'network_name'];
+const RECT_PRIORITY_COLS    = ['task_id', 'task_owner', 'fullname', 'product_line_name', 'network_name', 'task_status', 'task_create_time', 'rectify_plan_end_time'];
+const RISK_PRIORITY_COLS    = ['task_id', 'network', 'product_level_l1', 'product', 'current_handler', 'current_handler_name', '风险状态', 'risk_status', '创单时间', 'create_time', '期望关闭时间', 'ticket_close_due_date', '期望关闭时间-挂起'];
+const SPECIAL_PRIORITY_COLS = ['task_id', 'network_name', 'owner_show', '状态-Status', 'task_status_en', 'task_status', 'task_status_cn', '创建日期-Create Date', 'create_time', '要求完成日期-Required Completion Date', 'required_completion_time', 'plan_complete_date'];
+const SR_PRIORITY_COLS      = ['sr_num', 't1_operator', 'product_line_map', 'product', 'sr_owner', 'hw_sev_name', 'urgency', 'sr_status_name', 'open_date', 'exp_close_date', 'sus_exp_close_date', 'act_close_date', 'overdue', 'sr_id', 'customer_name', 'country_name_cn', 'repoffice_name_cn'];
+const VULN_PRIORITY_COLS    = ['task_id', 'task_status', 'network_customer_name', 'task_owner_name', 'create_time', 'task_create_time', 'vuln_id', 'vulnerability_id', '漏洞编号', '漏洞名称', 'vulnerability_name', 'customer_name', 'network_name'];
+const SLA_MONITORING_SECTION_ORDER = ['rectification', 'special', 'risk', 'sr', 'vulnerability'];
 const SLA_WORKSPACE_CACHE_KEY = 'sla_last_import_workspace_v1';
 const SLA_WORKSPACE_CACHE_STATUS_KEY = 'sla_last_import_workspace_status_v1';
 const SLA_RUNTIME_FIELDS = new Set([
-    '_slaRuleMatched', '_slaDays', '_slaText', '_slaCleanText', '_rowClass',
+    '_slaDeadline', '_slaRuleMatched', '_slaDays', '_slaText', '_slaCleanText', '_rowClass',
     '_alertSeverity', '_rawStringForSearch', '_srDisposition', '_srStatus',
     '_srSeverity', '_srConsumeRate', '_srRemainingHours', '_srRemainingDays'
 ]);
@@ -98,6 +99,9 @@ function persistWorkspaceCache(sections, meta = {}) {
             themeColor: section.themeColor,
             baseName: section.baseName || '',
             sourceFiles: Array.isArray(section.sourceFiles) ? section.sourceFiles : [],
+            originalSchemaHash: section.originalSchemaHash || '',
+            savedRules: section.savedRules || [],
+            archiveSupplementary: !!section.archiveSupplementary,
             data: sanitizeWorkspaceRows(section.data)
         }))
     };
@@ -256,6 +260,15 @@ function activateSectionTab(secId) {
     if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+function sortArchiveReviewSections(sections) {
+    const rank = section => {
+        if (section.archiveSupplementary) return SLA_MONITORING_SECTION_ORDER.length + 1;
+        const monitoringIndex = SLA_MONITORING_SECTION_ORDER.indexOf(section.mode);
+        return monitoringIndex >= 0 ? monitoringIndex : SLA_MONITORING_SECTION_ORDER.length;
+    };
+    return sections.sort((a, b) => rank(a) - rank(b));
+}
+
 function activateInitialSection(sections) {
     const first = Array.isArray(sections) && sections.length ? sections[0] : null;
     if (first && first.secId) activateSectionTab(first.secId);
@@ -278,7 +291,16 @@ function clearWorkspaceCache({ skipConfirm = false } = {}) {
     return true;
 }
 
-async function restoreCachedWorkspace() {
+let workspaceRestorePromise = null;
+let archiveReviewRequested = false;
+function restoreCachedWorkspace() {
+    if (archiveReviewRequested && !workspaceRestorePromise) return Promise.resolve(false);
+    if (!workspaceRestorePromise) {
+        workspaceRestorePromise = restoreCachedWorkspaceInternal().finally(() => { workspaceRestorePromise = null; });
+    }
+    return workspaceRestorePromise;
+}
+async function restoreCachedWorkspaceInternal() {
     if (window.AppState && Object.keys(window.AppState).length > 0) return false;
     let payload = null;
     try {
@@ -292,8 +314,40 @@ async function restoreCachedWorkspace() {
             .filter(s => s && s.secId && Array.isArray(s.data) && s.data.length)
             .map(section => ({ ...section, data: sanitizeWorkspaceRows(section.data) }))
         : [];
+    if (payload?.meta?.type === 'archive-review') sortArchiveReviewSections(sections);
     if (!sections.length || !window.SLASection || typeof window.SLASection.initSection !== 'function') {
         return renderWorkspaceCacheNotice(readWorkspaceCacheStatus());
+    }
+    if (payload.meta?.type === 'archive-review' && payload.meta.reviewMonitoringVersion !== 1 && payload.meta.sourceSnapshotId) {
+        try {
+            const snapshot = await API.get('/api/upload/source-snapshots/' + encodeURIComponent(payload.meta.sourceSnapshotId));
+            await loadArchivedSnapshot(snapshot, { fromCacheRestore: true });
+            return true;
+        } catch (error) { logSLAUploadError('恢复历史导入监控', error); }
+    }
+
+    if (payload.meta?.type === 'archive-review' && payload.meta.archiveNamesVersion !== 1) {
+        try {
+            const catalog = await API.get('/api/upload/source-catalog');
+            const originals = new Map();
+            for (const file of catalog.files || []) for (const sheet of file.sheets || []) {
+                originals.set('other_archive_' + generateSchemaHash(file.id + '@@' + sheet.name), { file, sheet });
+            }
+            for (const section of sections) {
+                const original = originals.get(section.secId);
+                if (!original) continue;
+                section.title = original.file.name + ' / ' + original.sheet.name;
+                section.baseName = section.title;
+                section.sourceFiles = [original.file.name];
+            }
+            payload.sections = sections;
+            payload.meta.files = [...new Set(sections.flatMap(section => section.sourceFiles || []))];
+            payload.meta.archiveNamesVersion = sections.every(section => originals.has(section.secId)) ? 1 : undefined;
+            localStorage.setItem(SLA_WORKSPACE_CACHE_KEY, JSON.stringify(payload));
+        } catch (error) {
+            // Keep the cached rows available offline; retry name repair on the next reload.
+            logSLAUploadError('修复历史回顾缓存文件名', error);
+        }
     }
 
     const mainWrapper = document.getElementById('main-wrapper');
@@ -303,8 +357,9 @@ async function restoreCachedWorkspace() {
 
     try {
         if (mainWrapper) mainWrapper.innerHTML = '';
+        if (payload.meta?.selectedTargetMonth) window.SLATargetMonth?.set?.(payload.meta.selectedTargetMonth);
         const initPromises = sections.map((section, index) =>
-            window.SLASection.initSection(section.secId, section.mode, section.title, section.data, section.themeColor || '#555', section.baseName || '', section.sourceFiles || [], { deferTableRender: index > 0 })
+            window.SLASection.initSection(section.secId, section.mode, section.title, section.data, section.themeColor || '#555', section.baseName || '', section.sourceFiles || [], { deferTableRender: index > 0, reviewOnly: payload.meta?.type === 'archive-review', originalSchemaHash:section.originalSchemaHash, savedRules:section.savedRules, archiveSupplementary:section.archiveSupplementary })
         );
         if (summaryNav) {
             const navHtml = buildCachedSectionNav(sections, payload.meta && payload.meta.summaryTitle);
@@ -313,6 +368,7 @@ async function restoreCachedWorkspace() {
         }
         await Promise.all(initPromises);
         activateInitialSection(sections);
+        if (payload.meta?.type === 'archive-review') renderArchiveReviewNotice(payload.meta);
         setGlobalRuleBoxCollapsed(true);
         logSLAUploadStep('已恢复上次导入工作区', {
             savedAt: payload.savedAt,
@@ -501,9 +557,10 @@ async function readSources(sources) {
     return out;
 }
 
-async function handleSpecificUpload(e, forceMode) {
+async function handleSpecificUploadInternal(e, forceMode) {
     let files = Array.from(e.target.files);
     if (!files.length) return;
+    const sourceBatchId = await window.SLASourceArchive.archive(files, { source: 'manual' });
     const monthFilter = filterSourcesByTargetMonth(files);
     files = monthFilter.kept;
     if (!files.length) {
@@ -541,7 +598,8 @@ async function handleSpecificUpload(e, forceMode) {
     e.target.value = '';
 
     // 触发快照抓取
-    setTimeout(() => captureAndUploadSnapshot(files.map(f => f.name), { source: 'manual' }), 300);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    await captureAndUploadSnapshot(files.map(f => f.name), { source: 'manual', sourceBatchId });
 }
 
 async function handleBatchUpload(e) {
@@ -551,9 +609,10 @@ async function handleBatchUpload(e) {
     e.target.value = '';
 }
 
-async function processBatchFiles(files, meta = {}) {
+async function processBatchFilesInternal(files, meta = {}) {
     files = Array.from(files || []).filter(Boolean);
     if (!files.length) return;
+    const sourceBatchId = await window.SLASourceArchive.archive(files, meta);
     const monthFilter = filterSourcesByTargetMonth(files);
     files = monthFilter.kept;
     if (!files.length) {
@@ -609,7 +668,7 @@ async function processBatchFiles(files, meta = {}) {
     const batchTitle = SLAT('sla.upload.batchSuccess', { count: files.length });
     const initPromises = [];
     const cacheSections = [];
-    for (const key of ['rectification', 'special', 'risk', 'sr', 'vulnerability']) {
+    for (const key of SLA_MONITORING_SECTION_ORDER) {
         const g = groups[key];
         if (g.data.length > 0) {
             const sourceFiles = getSourceNames(g.files);
@@ -640,7 +699,8 @@ async function processBatchFiles(files, meta = {}) {
     API.logHistory('sla', meta.historyAction || '批量导入', `${files.length} 个文件`);
     
     // 所有表格渲染完后，触发快照抓取 (稍微等一下让浏览器重绘)
-    setTimeout(() => captureAndUploadSnapshot(files.map(f => f.name), { source: meta.source || 'manual' }), 300);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    await captureAndUploadSnapshot(files.map(f => f.name), { source: meta.source || 'manual', sourceBatchId });
 }
 
 function getUivAutoImportParams() {
@@ -711,9 +771,12 @@ async function importUivAutoSession() {
 
 async function captureAndUploadSnapshot(fileNames, meta = {}) {
     const snapshot = {
+        id: window.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
         timestamp: new Date().toISOString(),
         files: fileNames,
         importSource: meta.source || 'manual',
+        sourceBatchId: meta.sourceBatchId || null,
+        sourceSections: Object.entries(window.AppState || {}).filter(([,state]) => state && Array.isArray(state.globalData)).map(([key,state]) => ({ key, mode:state.mode, baseName:state.baseName, schemaHash:state.schemaHash, title:state.title, sourceFiles:state.sourceFiles || [], headers:state.orderedHeaders || [], rows:state.globalData, rules:state.customMetrics || [] })),
         selectedTargetMonth: window.SLATargetMonth && window.SLATargetMonth.get ? window.SLATargetMonth.get() : (new Date().getMonth() + 1),
         summary: [], 
         topMetrics: [],
@@ -747,7 +810,7 @@ async function captureAndUploadSnapshot(fileNames, meta = {}) {
             console.log(`Found ${snapshot.expiringTickets.length} expiring tickets so far.`);
         }
     });
-    const collectionOrder = ['rectification', 'special', 'risk', 'sr', 'vulnerability'];
+    const collectionOrder = SLA_MONITORING_SECTION_ORDER;
     snapshot.expiringTickets.sort((a, b) => {
         const rankA = collectionOrder.indexOf(String(a && a.collection || ''));
         const rankB = collectionOrder.indexOf(String(b && b.collection || ''));
@@ -819,7 +882,23 @@ async function captureAndUploadSnapshot(fileNames, meta = {}) {
                     });
                 }
                 
-                snapshot.topMetrics.push({ label, value, gap, isWarn, color, subMetrics });
+                const entry = item.dataset.metricKey && window.GlobalMetrics?.[item.dataset.metricKey] ? [item.dataset.metricKey, window.GlobalMetrics[item.dataset.metricKey]] : Object.entries(window.GlobalMetrics || {}).find(([,metric]) => metric.label === label);
+                const metricKey = entry?.[0];
+                const sectionEntry = Object.entries(window.AppState || {}).find(([secId,state]) => (state.customMetrics || []).some(rule => `${secId}_${rule.id}` === metricKey));
+                const sectionKey = sectionEntry?.[0];
+                const state = sectionEntry?.[1];
+                const rule = (state?.customMetrics || []).find(rule => `${sectionKey}_${rule.id}` === metricKey);
+                const sourceFiles = rule?.scope === 'all' ? fileNames : (state?.sourceFiles || fileNames);
+                const target = window.GlobalTargets?.[metricKey];
+                const sourceSections = state ? [snapshot.sourceSections.find(section => section.key === sectionKey), ...(rule?.scope === 'all' ? snapshot.sourceSections.filter(section => section.key !== sectionKey) : [])].filter(Boolean) : [];
+                let firstRowFound = false;
+                const sourceSelections = sourceSections.map(section => ({ sectionKey:section.key, indexes:section.rows.flatMap((row,index) => {
+                    if (!rule || typeof metricRuleRowMatches !== 'function' || !metricRuleRowMatches(row, rule, true)) return [];
+                    if (rule.type === 'count' && !metricRuleCellMatches(row[rule.colZ], rule.valK)) return [];
+                    if (!['count','ratio','extract_multi'].includes(rule.type)) { if (firstRowFound) return []; firstRowFound = true; }
+                    return [index];
+                }) }));
+                snapshot.topMetrics.push({ key:metricKey || `legacy:${label}`, label, value, gap, isWarn, color, subMetrics, sourceSection:sectionKey || '', sourceFiles, rule:rule || null, sourceSelections, savedTarget:target?.[snapshot.selectedTargetMonth] ?? null });
             }
         });
     }
@@ -843,7 +922,7 @@ async function captureAndUploadSnapshot(fileNames, meta = {}) {
 
         if (!isSLACompressionSupported()) {
             showToast('❌ 历史快照上传失败，当前浏览器不支持压缩重试', 'error');
-            return;
+            throw e;
         }
 
         try {
@@ -867,8 +946,102 @@ async function captureAndUploadSnapshot(fileNames, meta = {}) {
                 expiringTicketCount: snapshot.expiringTickets.length
             });
             showToast('❌ 历史快照上传失败，压缩重试也未成功', 'error');
+            throw retryError;
         }
     }
 }
 
-window.SLAUpload = { handleBatchUpload, handleSpecificUpload, processBatchFiles, importUivAutoSession, readFiles, generateSchemaHash, restoreCachedWorkspace, clearWorkspaceCache, dismissWorkspaceCacheNotice, activateSectionTab, isRuntimeField, sanitizeWorkspaceRow, sanitizeWorkspaceRows, RECT_PRIORITY_COLS, RISK_PRIORITY_COLS, SPECIAL_PRIORITY_COLS, SR_PRIORITY_COLS, VULN_PRIORITY_COLS };
+async function handleSpecificUpload(e, mode) { return window.SLASourceArchive.withLock(() => handleSpecificUploadInternal(e, mode)); }
+async function processBatchFiles(files, meta = {}) { return window.SLASourceArchive.withLock(() => processBatchFilesInternal(files, meta)); }
+
+function renderArchiveReviewNotice(meta) {
+    const nav = document.getElementById('summary-nav-area');
+    if (!nav) return;
+    const savedAt = new Date(meta.sourceTimestamp).toLocaleString(window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'en-US' : 'zh-CN', { hour12:false });
+    const heading = nav.querySelector('.sla-section-tabs-title');
+    if (heading) heading.textContent = SLAT('sla.history.reviewTitle', { time:savedAt });
+    let note = nav.querySelector('.sla-archive-review-note');
+    if (!note) {
+        note = document.createElement('div');
+        note.className = 'sla-archive-review-note';
+        note.style.cssText = 'padding:10px 14px;margin-bottom:10px;border:1px solid #93c5fd;border-radius:8px;color:var(--text-color,#1565c0);background:var(--bg-secondary,#eff6ff);line-height:1.6;font-size:13px';
+        nav.prepend(note);
+    }
+    note._reviewMeta = meta;
+    note.textContent = SLAT('sla.history.reviewNote', { files:meta.originalFileCount, sheets:meta.worksheetCount });
+}
+window.addEventListener?.('tools:languagechange', () => {
+    const note = document.querySelector('.sla-archive-review-note');
+    if (note?._reviewMeta) renderArchiveReviewNotice(note._reviewMeta);
+});
+
+function archivedImportDescriptor(file, saved) {
+    const known = ['rectification','risk','special','sr','vulnerability'];
+    let mode = saved?.mode || (known.includes(saved?.key) ? saved.key : '');
+    if (!mode) {
+        const patterns = [['PBI_自动抓取-整改详单_整改_Latest','rectification'],['PBI_自动抓取-CPT风险详表_Latest','special'],['PBI_自动抓取-风险详单_Latest','risk'],['PBI_自动抓取-详单-SR_Latest','sr'],['PBI_自动抓取-详单漏洞_漏洞预警_Latest','vulnerability']];
+        mode = patterns.find(([prefix])=>file.name.startsWith(prefix))?.[1] || 'other';
+    }
+    const baseName = mode==='other' ? (saved?.baseName || file.name.match(/(.*?Latest)/i)?.[1] || file.name.replace(/\.[a-zA-Z0-9]+$/, '').replace(/\s*\(\d+\)$/, '')) : '';
+    const titles = {rectification:'sla.section.title.rectBatch',risk:'sla.section.title.riskBatch',special:'sla.section.title.specialBatch',sr:'sla.section.title.sr',vulnerability:'sla.section.title.vulnBatch'};
+    return {secId:saved?.key || (mode==='other'?'other_'+generateSchemaHash(baseName):mode),mode,title:saved?.title || (mode==='other'?SLAT('sla.section.title.other',{name:baseName}):SLAT(titles[mode])),themeColor:{rectification:'#1976d2',risk:'#7b1fa2',special:'#00796b',sr:'#d9480f',vulnerability:'#c2410c'}[mode]||'#555',baseName,originalSchemaHash:saved?.schemaHash||'',savedRules:saved?.rules||[],sourceFiles:[],data:[]};
+}
+
+async function loadArchivedSnapshot(snapshot, options = {}) {
+    if (!options.fromCacheRestore) archiveReviewRequested = true;
+    if (!options.fromCacheRestore && workspaceRestorePromise) await workspaceRestorePromise;
+    return window.SLASourceArchive.withLock(async () => {
+        if (!Array.isArray(snapshot.sourceSections) && snapshot.id) {
+            const archived = await API.get('/api/upload/source-snapshots/' + encodeURIComponent(snapshot.id)).catch(() => null);
+            if (archived?.sourceBatchId) snapshot = {...snapshot,...archived};
+        }
+        const catalog = await API.get('/api/upload/source-catalog');
+        const files = (catalog.files || []).filter(file => file.batch_id === snapshot.sourceBatchId);
+        if (!snapshot.sourceBatchId || !files.length) throw new Error(SLAT('sla.history.noOriginals'));
+        // Read everything first so a download/parse error leaves the current workspace intact.
+        const primary=new Map(),supplementary=[];
+        let worksheetCount=0;
+        for (const file of files) {
+            const sheets = await window.SLASourceArchive.readArchivedWorksheets(file);
+            worksheetCount+=sheets.length;
+            const saved=(snapshot.sourceSections||[]).find(section=>(section.sourceFiles||[]).includes(file.name));
+            const included=saved || !(snapshot.files||[]).length || snapshot.files.includes(file.name);
+            for (const [index,sheet] of sheets.entries()) {
+                if (index===0 && included) {
+                    const descriptor=archivedImportDescriptor(file,saved);
+                    if (!primary.has(descriptor.secId)) primary.set(descriptor.secId,descriptor);
+                    const section=primary.get(descriptor.secId);
+                    section.sourceFiles.push(file.name);
+                    section.data.push(...normalizeStructuredRows(file.name,sanitizeWorkspaceRows(sheet.rows)));
+                } else supplementary.push({
+                    secId:'other_archive_'+generateSchemaHash(file.id+'@@'+sheet.name),
+                    mode:'other',title:file.name+' / '+sheet.name,data:sanitizeWorkspaceRows(sheet.rows),themeColor:'#1565c0',
+                    baseName:file.name+' / '+sheet.name,sourceFiles:[file.name],archiveSupplementary:true
+                });
+            }
+        }
+        const sections=sortArchiveReviewSections([...primary.values(),...supplementary]);
+        if (!sections.length) throw new Error(SLAT('sla.history.noWorksheets'));
+        const main = document.getElementById('main-wrapper');
+        const nav = document.getElementById('summary-nav-area');
+        main.innerHTML = '';
+        resetRuntimeWorkspace();
+        await Promise.all(sections.map((section, index) => window.SLASection.initSection(section.secId, section.mode, section.title, section.data, section.themeColor, section.baseName, section.sourceFiles, { deferTableRender: index > 0, reviewOnly: true, originalSchemaHash:section.originalSchemaHash, savedRules:section.savedRules, archiveSupplementary:section.archiveSupplementary })));
+        if (snapshot.selectedTargetMonth) window.SLATargetMonth?.set?.(snapshot.selectedTargetMonth);
+        if (typeof evaluateAllMetrics==='function') evaluateAllMetrics();
+        const savedAt = new Date(snapshot.timestamp).toLocaleString(window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'en-US' : 'zh-CN', { hour12: false });
+        const title = SLAT('sla.history.reviewTitle', { time: savedAt });
+        nav.innerHTML = buildSectionTabs(sections, title);
+        nav.style.display = 'block';
+        const reviewMeta = { type:'archive-review', archiveNamesVersion:1, reviewMonitoringVersion:1, selectedTargetMonth:snapshot.selectedTargetMonth, summaryTitle:title, files:files.map(file=>file.name), sourceSnapshotId:snapshot.id, sourceTimestamp:snapshot.timestamp, originalFileCount:files.length, worksheetCount };
+        renderArchiveReviewNotice(reviewMeta);
+        const archiveStatus = document.getElementById('sourceArchiveStatus');
+        if (archiveStatus) archiveStatus.textContent = SLAT('sla.history.originalsLoaded');
+        activateInitialSection(sections);
+        setGlobalRuleBoxCollapsed(true);
+        persistWorkspaceCache(sections, reviewMeta);
+        return { files:files.length, sheets:worksheetCount };
+    });
+}
+
+window.SLAUpload = { handleBatchUpload, handleSpecificUpload, processBatchFiles, loadArchivedSnapshot, importUivAutoSession, readFiles, generateSchemaHash, restoreCachedWorkspace, clearWorkspaceCache, dismissWorkspaceCacheNotice, activateSectionTab, isRuntimeField, sanitizeWorkspaceRow, sanitizeWorkspaceRows, RECT_PRIORITY_COLS, RISK_PRIORITY_COLS, SPECIAL_PRIORITY_COLS, SR_PRIORITY_COLS, VULN_PRIORITY_COLS };

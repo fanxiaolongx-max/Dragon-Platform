@@ -1,6 +1,7 @@
 const { readKV, writeKV } = require('./kv-store');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const JSZip = require('jszip');
 const { ensureDataDir, getDataDir } = require('./store');
 const { run, get, all } = require('./app-db');
@@ -11,7 +12,7 @@ function getCustomToolsDir() { return path.join(getDataDir(), 'custom-tools'); }
 const BUILTIN_TOOLS_DIR = path.join(__dirname, '../builtin-tools');
 const TOOL_MANIFEST_FILE = '.tool-manifest.json';
 let registryMutationQueue = Promise.resolve();
-let registryReadyPromise = null;
+const registryReadyPromises = new Map();
 
 function withRegistryMutation(task) {
     const operation = registryMutationQueue.then(task, task);
@@ -141,6 +142,8 @@ async function syncLegacyRegistryMirror() {
 }
 
 async function ensureRegistryReady() {
+    const registryKey = getDataDir();
+    let registryReadyPromise = registryReadyPromises.get(registryKey);
     if (!registryReadyPromise) {
         registryReadyPromise = (async () => {
             await run(`CREATE TABLE IF NOT EXISTS custom_tools (
@@ -162,6 +165,9 @@ async function ensureRegistryReady() {
             const columnNames = new Set(columns.map(column => column.name));
             if (!columnNames.has('name_en')) await run("ALTER TABLE custom_tools ADD COLUMN name_en TEXT NOT NULL DEFAULT ''");
             if (!columnNames.has('description_en')) await run("ALTER TABLE custom_tools ADD COLUMN description_en TEXT NOT NULL DEFAULT ''");
+            if (!columnNames.has('import_request_id')) await run('ALTER TABLE custom_tools ADD COLUMN import_request_id TEXT');
+            if (!columnNames.has('import_request_hash')) await run('ALTER TABLE custom_tools ADD COLUMN import_request_hash TEXT');
+            await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_custom_tools_import_request ON custom_tools(import_request_id)');
             await run('CREATE INDEX IF NOT EXISTS idx_custom_tools_sort_order ON custom_tools(sort_order, created_at, slug)');
             const countRow = await get('SELECT COUNT(*) AS count FROM custom_tools');
             if (Number(countRow && countRow.count || 0) === 0) {
@@ -176,9 +182,10 @@ async function ensureRegistryReady() {
             }
             await syncLegacyRegistryMirror();
         })().catch(err => {
-            registryReadyPromise = null;
+            registryReadyPromises.delete(registryKey);
             throw err;
         });
+        registryReadyPromises.set(registryKey, registryReadyPromise);
     }
     return registryReadyPromise;
 }
@@ -617,6 +624,12 @@ async function verifyCreatedTool(tool, expectedHtmlContent) {
 }
 
 async function createTool(payload) {
+    const importRequestId = String(payload.importRequestId || '');
+    if (importRequestId && !/^[a-f0-9]{32}$/.test(importRequestId)) {
+        throw Object.assign(new Error('导入请求标识无效'), { status: 400 });
+    }
+    const importRequestHash = importRequestId
+        ? crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex') : null;
     const name = String(payload.name || '').trim();
     const nameEn = String(payload.nameEn || '').trim();
     const htmlContent = String(payload.htmlContent || '');
@@ -649,6 +662,15 @@ async function createTool(payload) {
 
     return withRegistryMutation(async () => {
         const tools = await listTools();
+        if (importRequestId) {
+            const existing = await get('SELECT * FROM custom_tools WHERE import_request_id = ?', [importRequestId]);
+            if (existing) {
+                if (existing.import_request_hash !== importRequestHash) {
+                    throw Object.assign(new Error('导入请求标识已用于其他内容'), { status: 409 });
+                }
+                return rowToTool(existing);
+            }
+        }
         const existingSlugs = new Set([
             ...tools.map(item => item.slug),
             ...listToolDirs()
@@ -681,6 +703,7 @@ async function createTool(payload) {
             saveToolFiles(slug, files);
             writeToolManifest(tool, { history });
             await insertOrReplaceToolRow(tool, tools.length);
+            if (importRequestId) await run('UPDATE custom_tools SET import_request_id = ?, import_request_hash = ? WHERE slug = ?', [importRequestId, importRequestHash, slug]);
             await syncLegacyRegistryMirror();
             const expectedIndex = files.find(([filePath]) => filePath.toLowerCase() === 'index.html');
             await verifyCreatedTool(tool, expectedIndex ? expectedIndex[1].toString('utf8') : '');

@@ -64,6 +64,9 @@ async function main() {
     assert.strictEqual(history.overall.clientErrors, 1);
     assert.strictEqual(history.overall.serverErrors, 1);
     assert.strictEqual(history.overall.availability, 75);
+    assert.strictEqual(history.overall.currentState, 'operational');
+    assert.strictEqual(history.overall.partialIssue, true);
+    assert.deepStrictEqual(history.overall.incidentServices, ['ai']);
 
     const failures = await repo.getFailures({ limit: 10 });
     assert.strictEqual(failures.failures.length, 2);

@@ -4028,8 +4028,12 @@ body.service-status-open { overflow: hidden; }
 .service-status-clickable { position: relative; appearance: none; width: 100%; font: inherit; text-align: left; cursor: pointer; }
 .service-status-clickable:hover { border-color: #aab7c5; box-shadow: 0 4px 14px rgba(15, 23, 42, .07); transform: translateY(-1px); }
 .service-status-clickable em { color: #8a93a3; font-size: 9px; font-style: normal; }
+.service-status-current > div,
 .service-status-license > div { min-width: 0; display: grid; gap: 1px; }
+.service-status-current em,
 .service-status-license em { overflow: hidden; color: #748091; font-size: 9px; font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+.service-status-current em.warning { color: #b86e08; font-weight: 500; }
+.service-status-current em.danger { color: #c62e3a; font-weight: 500; }
 .service-status-license.operational { border-color: #b9e4c4; background: #f3fbf5; }
 .service-status-license.degraded { border-color: #efd49b; background: #fff9e9; }
 .service-status-license.incident { border-color: #f0b6bc; background: #fff3f4; }
@@ -4039,6 +4043,7 @@ body.service-status-open { overflow: hidden; }
 .service-status-current strong,
 .service-status-license strong,
 .service-status-stat strong { color: #26303c; font-size: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.service-status-current strong { font-size: 17px; }
 .service-status-license strong { font-size: 14px; }
 .service-status-license.operational strong { color: #21833e; }
 .service-status-license.degraded strong { color: #a86400; }

@@ -8,7 +8,8 @@ const zlib = require('zlib');
 const multer = require('multer');
 
 const { ensureReportDataDir, getReportDataDir } = require('../models/report-store');
-const { createDatabaseProxy } = require('../models/tenant-sqlite-pool');
+const { createDatabaseProxy, getConnection } = require('../models/tenant-sqlite-pool');
+const { AsyncLocalStorage } = require('node:async_hooks');
 const configChangeMonitor = require('../models/config-change-monitor');
 const { selectLatestSnapshotPerMonth } = require('../models/report-trend-utils');
 const reportDataTransfer = require('../models/report-data-transfer-repository');
@@ -433,7 +434,9 @@ router.post('/config/:key', (req, res) => {
     }
 
     const valueJson = JSON.stringify(configValue);
-    db.get('SELECT value_json FROM PlatformConfig WHERE key_name = ?', [req.params.key], (beforeErr, beforeRow) => {
+    // Keep the request tenant through native SQLite callbacks.
+    const configDb = getConnection('report.db', 'report');
+    configDb.get('SELECT value_json FROM PlatformConfig WHERE key_name = ?', [req.params.key], AsyncLocalStorage.bind((beforeErr, beforeRow) => {
         if (beforeErr) return res.status(500).json({ error: beforeErr.message });
         let beforeValue = {};
         try {
@@ -441,9 +444,9 @@ router.post('/config/:key', (req, res) => {
         } catch (_err) {
             beforeValue = {};
         }
-        db.run('INSERT INTO PlatformConfig (key_name, value_json) VALUES (?, ?) ON CONFLICT(key_name) DO UPDATE SET value_json = ?, updated_at = CURRENT_TIMESTAMP',
+        configDb.run('INSERT INTO PlatformConfig (key_name, value_json) VALUES (?, ?) ON CONFLICT(key_name) DO UPDATE SET value_json = ?, updated_at = CURRENT_TIMESTAMP',
             [req.params.key, valueJson, valueJson],
-            function(err) {
+            AsyncLocalStorage.bind(function(err) {
             if (err) return res.status(500).json({ error: err.message });
             configChangeMonitor.recordConfigChangeAlert({
                 req,
@@ -454,9 +457,9 @@ router.post('/config/:key', (req, res) => {
                 objectId: req.params.key
             });
             res.json({ success: true });
-            }
+            })
         );
-    });
+    }));
 });
 
 router.get('/monthly_report_data', (req, res) => {

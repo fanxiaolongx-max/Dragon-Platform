@@ -1,0 +1,27 @@
+/* Run: node_modules/.bin/electron tests/monthly-designer-export-layout-browser.cjs */
+const {app,BrowserWindow}=require('electron');
+const assert=require('node:assert/strict');const fs=require('node:fs');const os=require('node:os');const path=require('node:path');const express=require('express');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'monthly-inline-'));process.env.TOOLS_DATA_DIR=path.join(temp,'tools');process.env.TOOLS_REPORT_DATA_DIR=path.join(temp,'reports');app.setPath('userData',path.join(temp,'profile'));
+const repo=require('../backend/models/import-source-repository');const engine=require('../frontend/js/monthly-designer/document-engine');const {runWithTenant}=require('../backend/models/tenant-context');
+let win,server,activeTenant='default',metricValue=10;const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const evaluate=(fn,...args)=>win.webContents.executeJavaScript(`(${fn.toString()})(...${JSON.stringify(args)})`,true);
+async function until(fn){for(let i=0;i<120;i++){if(await evaluate(fn))return;await wait(50);}throw new Error('Page initialization timed out');}
+app.whenReady().then(async()=>{
+ const first=await repo.saveDocument({...engine.defaults(),name:'First report'});await wait(20);await repo.saveDocument({...engine.defaults(),name:'Later created report'});await wait(20);
+ const latest=await repo.saveDocument({...first.document,name:'Most recently saved report',title:{zh:'最近保存的月报',en:'Latest saved report'},navRows:3});
+ const web=express();web.use(express.json());web.get('/js/shared/navbar.js',(_,res)=>res.type('js').send(''));web.get('/api/sla/prefs/i18nMap',(_,res)=>res.json({}));web.get('/api/sla/categories',(_,res)=>res.json([]));web.use((req,res,next)=>runWithTenant(activeTenant,next));web.get('/api/upload/source-catalog',(_,res)=>res.json({files:[],snapshots:[{id:'metrics',captured_at:'2026-10-10T12:38:28Z',target_month:9,kind:'extraction',metrics:[{key:'risk',label:'风险',value:metricValue,subMetrics:[{category:'TE',value:2}]}],sections:[]}],batches:[{id:'oct',created_at:'2026-10-10T12:38:28Z',target_month:9},{id:'sep',created_at:'2026-09-03T11:46:18Z',target_month:8}]}));web.use('/api/upload',require('../backend/routes/import-sources'));web.use(express.static(path.join(__dirname,'../frontend')));
+ server=await new Promise(resolve=>{const listener=web.listen(0,'127.0.0.1',()=>resolve(listener));});win=new BrowserWindow({show:false,width:1450,height:1100,webPreferences:{contextIsolation:true,nodeIntegration:false}});
+ const url=`http://127.0.0.1:${server.address().port}/pages/monthly-designer.html`;await win.loadURL(url);await until(()=>window.MonthlyDesigner&&!document.getElementById('monthlyDocument').inert);
+ const report=engine.defaults();const block=report.sections[0].blocks[0];
+ block.text.zh='本月现网整体运行情况保持平稳。\n　　7. License管理： 当前现网仍存在 3个过期License 及 1,471个临时License。其中 e&、Vodafone 需重点关注，应及时推进正式License申请、临时license清理和替换，降低业务风险。\n　　8. 客户例会机制： 持续开展网络运行情况沟通。';
+ block.textRuns={zh:[{text:block.text.zh,style:{fontSize:14,color:'#203044'}}],en:[]};
+ const measure=()=>evaluate(()=>{const root=document.getElementById('monthlyDocument'),field=root.querySelector('.document-block-text .document-edit'),css=getComputedStyle(field),range=document.createRange();range.selectNodeContents(field);return {page:root.getBoundingClientRect().width,width:field.getBoundingClientRect().width,height:field.getBoundingClientRect().height,font:css.fontFamily,size:css.fontSize,lineHeight:css.lineHeight,rects:Array.from(range.getClientRects(),rect=>({width:rect.width,height:rect.height}))};});
+ for(const screenWidth of [1900,1200]){
+  win.setSize(screenWidth,1100);await win.loadURL(url);await until(()=>window.MonthlyDesigner&&!document.getElementById('monthlyDocument').inert);await evaluate(doc=>MonthlyDesigner.applyDocument(doc),report);await wait(120);
+  const before=await measure();assert.ok(before.page<=report.pageWidth,'Editor never stretches beyond configured page width');
+  if(screenWidth===1900){const stretched=await evaluate(()=>{const root=document.getElementById('monthlyDocument');root.style.flex='1';const width=root.getBoundingClientRect().width;root.style.flex='';return width;});assert.ok(stretched>report.pageWidth,'Former flex layout reproduced excess editor width');}
+  const exported=path.join(temp,`layout-${screenWidth}.html`);const downloaded=new Promise(resolve=>win.webContents.session.once('will-download',(_,item)=>{item.setSavePath(exported);item.once('done',resolve);}));await evaluate(()=>document.querySelector('[data-action=html]').click());await downloaded;
+  await win.loadFile(exported);const after=await measure();assert.equal(after.page,before.page);assert.equal(after.width,before.width);assert.equal(after.height,before.height);assert.equal(after.font,before.font);assert.equal(after.size,before.size);assert.equal(after.lineHeight,before.lineHeight);assert.deepEqual(after.rects,before.rects);
+ }
+ console.log('Former flex stretch reproduced; wide/narrow editor and actual exported HTML have identical page/body width, font, size, line height and wrapped text rectangles.');
+}).catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{win?.destroy();if(server)await new Promise(resolve=>server.close(resolve));await require('../backend/models/app-db').closeDatabase();await require('../backend/models/tenant-sqlite-pool').closeAll();app.exit(process.exitCode||0);});

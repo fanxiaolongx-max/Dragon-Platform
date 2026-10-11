@@ -46,4 +46,6 @@ router.delete('/history', async (req, res) => {
     }
 });
 
+router.use(require('./import-sources'));
+
 module.exports = router;

@@ -1,8 +1,9 @@
 const { run, get, all } = require('./app-db');
+const { getDataDir } = require('./tenant-context');
 
 const MAX_HISTORY = 200;
 
-let initPromise = null;
+const initPromises = new Map();
 
 function buildHistoryItem({ id, tool, action, detail = '', time }) {
     return {
@@ -15,6 +16,8 @@ function buildHistoryItem({ id, tool, action, detail = '', time }) {
 }
 
 async function ensureReady() {
+    const key = getDataDir();
+    let initPromise = initPromises.get(key);
     if (!initPromise) {
         initPromise = (async () => {
             await run(`
@@ -28,9 +31,10 @@ async function ensureReady() {
                 )
             `);
         })().catch(err => {
-            initPromise = null;
+            initPromises.delete(key);
             throw err;
         });
+        initPromises.set(key, initPromise);
     }
 
     return initPromise;

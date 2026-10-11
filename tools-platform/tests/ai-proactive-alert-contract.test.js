@@ -9,6 +9,49 @@ const routes = fs.readFileSync(path.join(root, 'backend/routes/ai.js'), 'utf8');
 const server = fs.readFileSync(path.join(root, 'backend/server.js'), 'utf8');
 const navbar = fs.readFileSync(path.join(root, 'frontend/js/shared/navbar.js'), 'utf8');
 
+async function runProactiveMessageRoute(result) {
+    const vm = require('node:vm');
+    const { normalizeProactiveAiAnalysis } = require('../backend/models/ai-report-analysis-service');
+    let handler;
+    let requestOptions;
+    let response;
+    const start = routes.indexOf("router.post('/proactive-alert-message'");
+    const end = routes.indexOf("router.get('/knowledge/document'", start);
+    vm.runInNewContext(routes.slice(start, end), {
+        router: { post: (_path, _auth, callback) => { handler = callback; } },
+        checkAuth() {},
+        aiReportAnalysisService: {
+            enrichProactiveAlertWithDeepContext: async () => ({}),
+            normalizeProactiveAiAnalysis,
+            generateRuleBasedDeepAnalysis: () => '完整的规则分析。'
+        },
+        aiSettingsRepo: { getRuntimeSettings: async () => ({ hasApiKey: true, keyLooksValid: true }) },
+        aiProviderClient: { createClient: () => ({ generateChat: async options => { requestOptions = options; return result; } }) },
+        runAiWithRetry: callback => callback(),
+        console: { warn() {} }
+    });
+    const res = { json: body => { response = body; }, status: () => res };
+    await handler({ body: { items: [{ customerGroup: 'ET', metric: '收编2025' }] } }, res);
+    return { response, requestOptions };
+}
+
+test('proactive message API falls back to full rule analysis for truncated AI output', async () => {
+    for (const result of [{ text: '收编2025 (ET)*:', finishReason: 'MAX_TOKENS' }, { text: '收编2025 (ET)*:' }]) {
+        const { response, requestOptions } = await runProactiveMessageRoute(result);
+        assert.equal(response.source, 'rule');
+        assert.equal(response.message, '完整的规则分析。');
+        assert.equal(requestOptions.maxOutputTokens, 4096);
+        assert.equal(requestOptions.thinkingBudget, 512);
+    }
+});
+
+test('proactive message API returns complete AI analysis without cutting its final sentence', async () => {
+    const text = 'ET 当前完成率为11%，低于50%的目标，需核对历史快照并优先安排整改。'.repeat(10);
+    const { response } = await runProactiveMessageRoute({ text, finishReason: 'stop' });
+    assert.equal(response.source, 'ai');
+    assert.equal(response.message, text);
+});
+
 test('global assistant schedules, displays, and opens proactive KPI alerts', () => {
     assert.match(assistant, /PROACTIVE_MIN_DELAY_MS = 5 \* 60 \* 1000/);
     assert.match(assistant, /PROACTIVE_MAX_DELAY_MS = 60 \* 60 \* 1000/);

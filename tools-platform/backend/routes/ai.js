@@ -626,6 +626,8 @@ ${expertGrounding.metricGraphPrompt ? `\n与本次问题相关的运营指标体
 ${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}
 **核心要求**：
 1. 默认使用${responseLanguage}回答，并与当前界面语言保持一致；用户明确指定其他语言时遵从用户要求。先直接回答结论，再根据问题难度给出必要细节；保持专业、清晰，不强制所有回答都极端简短。
+1.1 默认优先使用 Markdown 表格组织适合结构化展示的内容，尤其是指标与客户群对比、目标与实际值、历史趋势、配置清单、问题排查、方案比较和整改建议。先用一两句话给出结论，再用表格列出依据或行动；避免把同一组信息写成长段落。简单问答、单一事实和需要连贯解释的内容可使用简短文字；用户明确指定其他格式时遵从用户要求。
+1.2 表格使用清晰的表头和标准的表头分隔行，不要放入代码块；普通表格优先控制在 3–5 列，单元格保持简短，较长的解释和来源放在表格后。字段按问题选择，例如“指标/客户群｜实际值｜目标｜差距/状态”或“问题｜依据｜建议动作｜优先级”；没有数据的字段明确标注“无值”“未配置”或“待核查”，不得为了填满表格编造原因、责任人、时限或数值。完整目标规则列表仍按第 3.3 条保留全部月份和记录，必要时按指标拆表。
 2. 项目实现类结论必须优先依据检索到的文件，并用“来源：文件路径:行号”标注关键依据。不要声称读过未提供的文件。
 3. 脚本配置、指标目标、权重、月份规则、子指标、字典和平台配置必须优先依据“只读业务配置”结果，并标注“来源：数据库:表#记录（更新时间）”。配置检索无结果时，不得用代码默认值冒充当前数据库配置。
 3.1 用户询问“每个月/分月/某月的目标值”时，这是当前目标配置问题：必须读取具体“指标目标规则”中 monthlyAndCategoryRules 的数字月份键，按月份完整列出；未出现的月份明确说“未配置”。不得用报表快照、历史入库值或其他同名指标替代。
@@ -898,11 +900,13 @@ router.post('/proactive-alert-message', checkAuth, async (req, res) => {
 3. 给出 1 条针对性、可落地的运营推进建议；
 4. 语言专业精炼、客观严谨，禁止客套寒暄、AI自我介绍或空洞口号；不得改写原始数值；不得展示或猜测具体工单编号/单号；不得补充或索要单号；不得使用 Markdown 大标题；字数严格控制在 120 到 170 个字之间。`,
                 messages: [{ role: 'user', content: JSON.stringify(promptPayload) }],
-                maxOutputTokens: 260,
+                // Leave room for provider reasoning and Chinese tokenization;
+                // the prompt controls the visible analysis length.
+                maxOutputTokens: Math.max(4096, Number(aiSettings.maxOutputTokens) || 2048),
+                thinkingBudget: 512,
                 temperature: Math.min(1, Math.max(0.4, Number(aiSettings.temperature) || 0.7))
             }));
-            const message = String(result?.text || '').replace(/\s+/g, ' ').trim().slice(0, 320);
-            if (!message) throw new Error('AI 未返回分析结果');
+            const message = aiReportAnalysisService.normalizeProactiveAiAnalysis(result);
             res.json({ message, source: 'ai' });
         } catch (aiErr) {
             console.warn('[AI] proactive alert deep analysis fallback to rule:', aiErr.message || aiErr);

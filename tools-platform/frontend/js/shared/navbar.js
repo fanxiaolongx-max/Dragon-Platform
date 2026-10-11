@@ -9,6 +9,7 @@ const NAV_BUILTIN_LINKS = [
     { id: 'report', href: '/report', icon: '📈', label: '报表看板', labelKey: 'nav.report', defaultCategory: 'business', match: p => p.startsWith('/report') },
     { id: 'expedite', href: '/expedite', icon: '⚡', label: '一键催办', labelKey: 'nav.expedite', defaultCategory: 'business', match: p => p.startsWith('/expedite') },
     { id: 'monthly', href: '/monthly', icon: '📅', label: '月报页面', labelKey: 'nav.monthly', defaultCategory: 'business', match: p => p.startsWith('/monthly') },
+    { id: 'duty-roster', href: '/duty-roster', icon: '🌙', label: '值班表', labelKey: 'nav.dutyRoster', defaultCategory: 'business', match: p => p.startsWith('/duty-roster') },
     { id: 'bigscreen', href: '/bigscreen', icon: '🖥️', label: '大屏看板', labelKey: 'nav.bigscreen', defaultCategory: 'business', match: p => p.startsWith('/bigscreen') },
     { id: 'topic-analysis', href: '/topic-analysis', icon: '📊', label: '专题分析', labelKey: 'nav.topicAnalysis', defaultCategory: 'cat_mshv1h0m', match: p => p.startsWith('/topic-analysis') },
     { id: 'frt', href: '/frt', icon: '📊', label: 'FRT核算', labelKey: 'nav.frt', defaultCategory: 'audit', match: p => p.startsWith('/frt') },
@@ -20,7 +21,7 @@ const NAV_BUILTIN_LINKS = [
 const NAV_DEFAULT_SETTINGS = {
     // 与服务端首次安装预设保持一致；接口返回已有配置后会立即替换此启动默认值。
     primaryIds: [
-        'home', 'uivf12', 'sla', 'report', 'custom-report', 'expedite', 'monthly', 'bigscreen',
+        'home', 'uivf12', 'sla', 'report', 'custom-report', 'expedite', 'monthly', 'duty-roster', 'bigscreen',
         'custom:network_safety_meeting_summary'
     ],
     categories: [
@@ -6545,6 +6546,7 @@ async function renderF12PageSettings(content) {
 }
 
 function renderPageSettings(content, pageId) {
+    if (pageId === 'sla') return renderDataImportPageSettings(content);
     if (pageId === 'f12-extension') return renderF12PageSettings(content);
     if (pageId === 'home') return renderHomePageSettings(content);
     if (pageId === 'report') return renderReportPageSettings(content);
@@ -6558,6 +6560,44 @@ function renderPageSettings(content, pageId) {
             </div>
         </div>
     `;
+}
+
+async function renderDataImportPageSettings(content) {
+    const text = navLocaleText;
+    content.innerHTML = `<div class="nav-settings-help">${navEscape(text('正在读取导入设置…', 'Loading import settings…'))}</div>`;
+    try {
+        const response = await fetch('/api/upload/import-settings', { headers: getAuthHeaderForNav(), cache: 'no-store' });
+        const settings = await response.json();
+        if (!response.ok) throw new Error(settings.error || `HTTP ${response.status}`);
+        if (navState.settingsTab !== 'page:sla' || !content.isConnected) return;
+        content.innerHTML = `
+            <div class="nav-settings-help">${navEscape(text('开启时，先保存所有选中文件的完整原表，包括全部月份、全部工作表，再按目标月份筛选、清洗和提取指标。没有提取规则的表格也会保存。', 'When enabled, all selected original files, months and worksheets are saved before target-month filtering, cleaning and metric extraction. Tables without extraction rules are also archived.'))}</div>
+            <div class="nav-settings-row" style="flex-wrap:wrap;gap:12px">
+                <label class="nav-settings-check"><input id="navUploadOriginals" type="checkbox" ${settings.uploadOriginals ? 'checked' : ''}><span>${navEscape(text('原始数据上传到服务器（默认开启）', 'Upload original data to the server (on by default)'))}</span></label>
+            </div>
+            <div class="nav-settings-help" style="margin-top:12px">${navEscape(text('关闭后仍正常提取指标并保存快照，只停止新增原文件及全部工作表存档。已保存的原始表不会删除。此设置作用于当前租户，自动保存。', 'When disabled, metric extraction and snapshots continue; new original files and full worksheets are not archived. Existing archives are retained. This setting is saved automatically for the current tenant.'))}</div>`;
+        content.querySelector('#navUploadOriginals').addEventListener('change', async event => {
+            const checkbox = event.target;
+            const enabled = checkbox.checked;
+            const indicator = document.getElementById('navSettingsSaveState');
+            checkbox.disabled = true;
+            if (indicator) indicator.textContent = navT('nav.set.saving');
+            try {
+                const saved = await fetch('/api/upload/import-settings', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() }, body: JSON.stringify({ uploadOriginals: enabled }) });
+                const data = await saved.json();
+                if (!saved.ok) throw new Error(data.error || `HTTP ${saved.status}`);
+                checkbox.checked = data.uploadOriginals;
+                if (indicator) indicator.textContent = navT('nav.set.saved');
+            } catch (error) {
+                checkbox.checked = !enabled;
+                if (indicator) indicator.textContent = navT('nav.set.saveFail') + error.message;
+            } finally { checkbox.disabled = false; }
+        });
+    } catch (error) {
+        if (navState.settingsTab !== 'page:sla' || !content.isConnected) return;
+        content.innerHTML = `<div class="nav-settings-help">${navEscape(text('导入设置读取失败：', 'Unable to load import settings: ') + error.message)}</div><button type="button" class="nav-settings-add" data-retry-import-settings>${navEscape(text('重试', 'Retry'))}</button>`;
+        content.querySelector('[data-retry-import-settings]').addEventListener('click', () => renderDataImportPageSettings(content));
+    }
 }
 
 function renderHomePageSettings(content) {
@@ -7935,6 +7975,94 @@ function serviceStateMeta(state) {
     return states[state] || states['no-data'];
 }
 
+function resolveOverallServiceStatusMeta(data = {}) {
+    const services = Array.isArray(data.services) ? data.services : [];
+    const overall = data.overall || {};
+    const isEn = window.ToolsI18n?.getLanguage?.() === 'en-US';
+
+    const incidentServices = services.filter(service => service.currentState === 'incident');
+    const degradedServices = services.filter(service => service.currentState === 'degraded');
+    const activeServices = services.filter(service => service.currentState !== 'no-data');
+
+    if (!activeServices.length && overall.currentState === 'no-data') {
+        return {
+            state: 'no-data',
+            icon: '·',
+            label: serviceStatusBi('暂无数据', 'No data'),
+            detail: serviceStatusBi('暂无请求数据', 'No request data available'),
+            hasIssue: false
+        };
+    }
+
+    if (activeServices.length > 0 && incidentServices.length === activeServices.length) {
+        return {
+            state: 'incident',
+            icon: '!',
+            label: serviceStatusBi('服务异常', 'Incident'),
+            detail: serviceStatusBi('全部服务出现异常', 'All services experiencing incidents'),
+            hasIssue: true
+        };
+    }
+
+    if (incidentServices.length > 0) {
+        const names = incidentServices.map(service => isEn ? (service.nameEn || service.name) : (service.name || service.id));
+        let detail = '';
+        if (isEn) {
+            detail = names.length === 1
+                ? `${names[0]} may experience issues`
+                : names.length === 2
+                    ? `${names[0]} & ${names[1]} may experience issues`
+                    : `${names[0]} and ${names.length - 1} other services may experience issues`;
+        } else {
+            detail = names.length === 1
+                ? `${names[0]}部分可能存在异常`
+                : names.length === 2
+                    ? `${names[0]}、${names[1]}部分可能存在异常`
+                    : `${names[0]}等 ${names.length} 个服务可能存在异常`;
+        }
+        return {
+            state: 'operational',
+            icon: '✓',
+            label: serviceStatusBi('正常', 'Operational'),
+            detail,
+            hasIssue: true
+        };
+    }
+
+    if (degradedServices.length > 0) {
+        const names = degradedServices.map(service => isEn ? (service.nameEn || service.name) : (service.name || service.id));
+        let detail = '';
+        if (isEn) {
+            detail = names.length === 1
+                ? `${names[0]} may experience issues`
+                : names.length === 2
+                    ? `${names[0]} & ${names[1]} may experience issues`
+                    : `${names[0]} and ${names.length - 1} other services may experience issues`;
+        } else {
+            detail = names.length === 1
+                ? `${names[0]}部分可能存在异常`
+                : names.length === 2
+                    ? `${names[0]}、${names[1]}部分可能存在异常`
+                    : `${names[0]}等 ${names.length} 个服务可能存在异常`;
+        }
+        return {
+            state: 'operational',
+            icon: '✓',
+            label: serviceStatusBi('正常', 'Operational'),
+            detail,
+            hasIssue: true
+        };
+    }
+
+    return {
+        state: 'operational',
+        icon: '✓',
+        label: serviceStatusBi('正常', 'Operational'),
+        detail: serviceStatusBi('全部服务运行正常', 'All services operational'),
+        hasIssue: false
+    };
+}
+
 function licenseStatusMeta(license = {}) {
     if (!license.enabled) {
         return {
@@ -8250,7 +8378,7 @@ function renderServiceStatusHistory(data) {
     if (!content || !range) return;
     range.innerHTML = [30, 90, 180].map(days => `<button type="button" class="${days === data.days ? 'active' : ''}" onclick="setServiceStatusDays(${days})">${days} ${serviceStatusBi('天', 'days')}</button>`).join('');
     const overall = data.overall || {};
-    const overallMeta = serviceStateMeta(overall.currentState);
+    const overallMeta = resolveOverallServiceStatusMeta(data);
     const licenseMeta = licenseStatusMeta(data.license || {});
     const availability = overall.availability == null ? '—' : `${Number(overall.availability).toFixed(2)}%`;
     const canInspectFailures = canInspectServiceFailures();
@@ -8281,7 +8409,7 @@ function renderServiceStatusHistory(data) {
     }).join('');
     content.innerHTML = `
         <section class="service-status-overview">
-            <div class="service-status-current ${navEscape(overall.currentState)}"><span class="service-state-icon ${navEscape(overall.currentState)}">${overallMeta.icon}</span><div><small>${serviceStatusBi('当前状态', 'Current status')}</small><strong>${navEscape(overallMeta.label)}</strong></div></div>
+            <div class="service-status-current ${navEscape(overallMeta.state)}"><span class="service-state-icon ${navEscape(overallMeta.state)}">${overallMeta.icon}</span><div><small>${serviceStatusBi('当前状态', 'Current status')}</small><strong>${navEscape(overallMeta.label)}</strong><em class="${overallMeta.hasIssue ? 'warning' : ''}" title="${navEscape(overallMeta.detail)}">${navEscape(overallMeta.detail)}</em></div></div>
             <div class="service-status-license ${navEscape(licenseMeta.state)}"><span class="service-state-icon ${navEscape(licenseMeta.state)}">${licenseMeta.icon}</span><div><small>${serviceStatusBi('License 可用状态', 'License availability')}</small><strong>${navEscape(licenseMeta.label)}</strong><em title="${navEscape(licenseMeta.detail)}">${navEscape(licenseMeta.detail)}</em></div></div>
             <div class="service-status-stat"><small>${serviceStatusBi('可用率', 'Availability')}</small><strong>${availability}</strong></div>
             <div class="service-status-stat"><small>${serviceStatusBi('成功返回', 'Successful')}</small><strong>${Number(overall.successes || 0).toLocaleString()}</strong></div>

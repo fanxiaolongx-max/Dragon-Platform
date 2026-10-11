@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const router = express.Router();
+const createChunkUploadRouter = require('./custom-tool-chunk-upload');
 const repo = require('../models/custom-tools-repository');
 const backupRepo = require('../models/custom-tools-backup-repository');
 const historyRepo = require('../models/upload-history-repository');
@@ -582,14 +583,22 @@ router.delete('/:slug/history/:historyId', async (req, res) => {
     }
 });
 
+async function importTool(payload) {
+    const tool = await repo.createTool(payload);
+    customToolI18nGenerator.generateToolTranslations(tool).then(result => {
+        console.log(`[custom-tools] bilingual resource ready: ${result.slug} (${result.generated} generated)`);
+    }).catch(error => {
+        console.warn(`[custom-tools] bilingual resource generation skipped for ${tool.slug}: ${error.message}`);
+    });
+    return tool;
+}
+
+router.use('/import-upload', createChunkUploadRouter(importTool));
+
 router.post('/', async (req, res) => {
+    req.suppressBodyLog = true;
     try {
-        const tool = await repo.createTool(req.body || {});
-        customToolI18nGenerator.generateToolTranslations(tool).then(result => {
-            console.log(`[custom-tools] bilingual resource ready: ${result.slug} (${result.generated} generated)`);
-        }).catch(error => {
-            console.warn(`[custom-tools] bilingual resource generation skipped for ${tool.slug}: ${error.message}`);
-        });
+        const tool = await importTool(req.body || {});
         res.json({ success: true, tool });
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || '保存自定义工具失败' });

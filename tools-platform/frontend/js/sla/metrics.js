@@ -21,7 +21,7 @@ function evaluateAllMetrics() {
     };
     Object.keys(AppState).forEach(secId => {
         const state = AppState[secId];
-        if (!state.customMetrics || !state.customMetrics.length) return;
+        if (state.archiveSupplementary || !state.customMetrics || !state.customMetrics.length) return;
         state.customMetrics.forEach(rule => {
             const displayLabel = typeof getMetricRuleDisplayLabel === 'function'
                 ? getMetricRuleDisplayLabel(rule)
@@ -74,7 +74,7 @@ function evaluateAllMetrics() {
                 if (!r || r.scope !== 'all') return defaultRows || [];
                 const rows = [...(defaultRows || [])];
                 Object.keys(AppState || {}).forEach(otherSecId => {
-                    if (otherSecId !== currentSecId && AppState[otherSecId] && Array.isArray(AppState[otherSecId].globalData)) {
+                    if (otherSecId !== currentSecId && AppState[otherSecId] && !AppState[otherSecId].archiveSupplementary && Array.isArray(AppState[otherSecId].globalData)) {
                         rows.push(...AppState[otherSecId].globalData);
                     }
                 });
@@ -146,6 +146,8 @@ function getSLATargetMonth() {
 function setSLATargetMonth(month) {
     const normalized = parseInt(month, 10);
     if (normalized >= 1 && normalized <= 12) {
+        const select = document.getElementById('slaTargetMonthSelect');
+        if (select && select.dataset.ready === 'true') select.value = String(normalized);
         localStorage.setItem(SLA_TARGET_MONTH_KEY, JSON.stringify({
             month: normalized,
             date: getTodayKey()
@@ -177,6 +179,51 @@ function initSLATargetMonthSelect() {
     };
 }
 
+window.expandedSubMetrics = window.expandedSubMetrics || new Set();
+
+function toggleMetricSub(btn, explicitKey) {
+    const item = btn ? btn.closest('.info-item') : null;
+    const group = btn ? btn.closest('.info-group') : null;
+    const list = item ? item.querySelector('.sub-metrics-list') : (btn && btn.parentNode ? btn.parentNode.nextElementSibling : null);
+    if (!list) return;
+
+    const metricKey = explicitKey || (item && item.dataset ? item.dataset.metricKey : null);
+    const isOpening = list.style.display === 'none' || !list.classList.contains('open');
+    if (isOpening) {
+        list.style.display = 'block';
+        list.classList.add('open');
+        if (item) item.classList.add('sub-open');
+        if (group) group.classList.add('sub-open');
+        btn.innerHTML = '🔼';
+        btn.title = '收起子指标';
+        if (metricKey) window.expandedSubMetrics.add(metricKey);
+        if (item && typeof item.scrollIntoView === 'function') {
+            try { item.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' }); } catch (e) {}
+        }
+    } else {
+        list.style.display = 'none';
+        list.classList.remove('open');
+        if (item) item.classList.remove('sub-open');
+        if (group) group.classList.remove('sub-open');
+        btn.innerHTML = '🔽';
+        btn.title = '展开子指标';
+        if (metricKey) window.expandedSubMetrics.delete(metricKey);
+    }
+    syncStickyBarSubExpandedState();
+}
+
+function syncStickyBarSubExpandedState() {
+    const bar = document.getElementById('global-sticky-bar');
+    if (!bar) return;
+    const openLists = bar.querySelectorAll('.sub-metrics-list.open, .sub-metrics-list[style*="display: block"]');
+    const hasAnyOpen = (window.expandedSubMetrics && window.expandedSubMetrics.size > 0) || (openLists && openLists.length > 0);
+    if (hasAnyOpen) {
+        bar.classList.add('sub-expanded');
+    } else {
+        bar.classList.remove('sub-expanded');
+    }
+}
+
 function renderTopStickyBar() {
     const content = document.getElementById('sticky-bar-content');
     const btnExpand = document.getElementById('btn-expand-metrics');
@@ -202,11 +249,21 @@ function renderTopStickyBar() {
     btnTarget.style.display = 'inline-block';
     
     if (!keys.length) {
+        if (window.expandedSubMetrics) window.expandedSubMetrics.clear();
+        syncStickyBarSubExpandedState();
         content.innerHTML = `<span style="color:#888;">${SLAT('sla.sticky.noData')}</span>`;
         btnExpand.style.display = 'none'; 
         return;
     }
     btnExpand.style.display = 'inline-block';
+
+    if (window.expandedSubMetrics) {
+        const keySet = new Set(keys);
+        for (const ek of Array.from(window.expandedSubMetrics)) {
+            if (!keySet.has(ek)) window.expandedSubMetrics.delete(ek);
+        }
+    }
+
     let html = '';
     keys.forEach(k => {
         const m = window.GlobalMetrics[k];
@@ -233,18 +290,24 @@ function renderTopStickyBar() {
         const highlightClass = isWarn ? 'metric-warn-highlight' : '';
         const colorClass = isWarn ? 'danger' : m.color;
 
+        const isSubOpen = Boolean(window.expandedSubMetrics && window.expandedSubMetrics.has(k));
         let subHtml = '';
         if (m.subMetrics && m.subMetrics.length > 0) {
-            subHtml = `<div class="sub-metrics-list" style="display:none; margin-top:4px; padding-top:4px; border-top:1px dashed rgba(255,255,255,0.2); font-size:11px;">`;
+            const displayStyle = isSubOpen ? 'display:block;' : 'display:none;';
+            const openClass = isSubOpen ? 'open' : '';
+            subHtml = `<div class="sub-metrics-list ${openClass}" style="${displayStyle} margin-top:4px; padding-top:4px; border-top:1px dashed rgba(255,255,255,0.2); font-size:11px;">`;
             const subItems = m.subMetrics.map(sm => {
                 return `<span style="display:inline-block; margin-right:8px; white-space:nowrap; cursor:help;" title="${escapeHTML(m.label)} (${escapeHTML(sm.category)})">${escapeHTML(sm.category)}: <strong style="color:#ffb74d">${escapeHTML(String(sm.value))}</strong></span>`;
             });
             subHtml += subItems.join(' | ') + `</div>`;
         }
 
-        const expandBtn = (m.subMetrics && m.subMetrics.length > 0) ? `<span onclick="this.parentNode.nextElementSibling.style.display = this.parentNode.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.innerHTML = this.innerHTML === '🔽' ? '🔼' : '🔽';" style="cursor:pointer; font-size:10px; margin-left:8px; background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:4px;">🔽</span>` : '';
+        const expandBtn = (m.subMetrics && m.subMetrics.length > 0)
+            ? `<span onclick="toggleMetricSub(this)" class="metric-sub-toggle-btn" title="${isSubOpen ? '收起子指标' : '展开子指标'}">${isSubOpen ? '🔼' : '🔽'}</span>`
+            : '';
 
-        html += `<div class="info-group"><div class="info-item ${highlightClass}" style="flex-direction:column; align-items:flex-start;">
+        const itemSubClass = isSubOpen ? 'sub-open' : '';
+        html += `<div class="info-group ${itemSubClass}"><div class="info-item ${highlightClass} ${itemSubClass}" data-metric-key="${escapeHTML(k)}" style="flex-direction:column; align-items:flex-start;">
             <div style="display:flex; align-items:center; width:100%;">
                 <span class="info-label">${escapeHTML(m.label)}:</span>
                 <span class="info-value ${colorClass}">${escapeHTML(String(m.value))}</span>${gapHtml}${expandBtn}
@@ -253,6 +316,7 @@ function renderTopStickyBar() {
         </div></div>`;
     });
     content.innerHTML = html;
+    syncStickyBarSubExpandedState();
 }
 
 // ── 预警目标弹窗 ──────────────────────────────────────────
@@ -659,9 +723,12 @@ document.addEventListener('DOMContentLoaded', () => {
         stickyExpanded = !stickyExpanded;
         if (stickyExpanded) { bar.classList.add('expanded'); btn.innerHTML = SLAT('sla.sticky.collapse'); content.scrollLeft = 0; }
         else { bar.classList.remove('expanded'); btn.innerHTML = SLAT('sla.sticky.expand'); }
+        syncStickyBarSubExpandedState();
     });
     (function step() {
-        if (!stickyHovered && !stickyExpanded && content.scrollWidth > content.clientWidth) {
+        const hasSubExpanded = (window.expandedSubMetrics && window.expandedSubMetrics.size > 0) ||
+            (bar && bar.classList.contains('sub-expanded'));
+        if (!stickyHovered && !stickyExpanded && !hasSubExpanded && content.scrollWidth > content.clientWidth) {
             currentScroll += scrollDirection * 0.4;
             if (currentScroll <= 0) { currentScroll = 0; scrollDirection = 1; }
             else if (currentScroll >= content.scrollWidth - content.clientWidth) { currentScroll = content.scrollWidth - content.clientWidth; scrollDirection = -1; }
@@ -671,6 +738,8 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
 });
 
+window.toggleMetricSub = toggleMetricSub;
+window.syncStickyBarSubExpandedState = syncStickyBarSubExpandedState;
 window.evaluateAllMetrics = evaluateAllMetrics;
-window.SLAMetrics = { evaluateAllMetrics, renderTopStickyBar };
+window.SLAMetrics = { evaluateAllMetrics, renderTopStickyBar, toggleMetricSub, syncStickyBarSubExpandedState };
 window.SLATargetMonth = { get: getSLATargetMonth, set: setSLATargetMonth, init: initSLATargetMonthSelect };

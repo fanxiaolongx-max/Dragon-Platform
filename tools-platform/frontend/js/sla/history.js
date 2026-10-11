@@ -1,6 +1,8 @@
 let latestSLAHistorySnapshots = [];
 let latestSLAHistoryI18nMap = {};
 let latestSLAHistoryMetricFormatMap = {};
+let latestSLAHistorySourceFiles = [];
+let loadingSLAHistorySource = false;
 
 function getHistorySecIdFromPrefKey(prefKey) {
     const normalized = String(prefKey || '');
@@ -78,11 +80,13 @@ async function openHistoryModal() {
     try {
         const mode = API.getSourceMode('sla_data');
         const query = mode === 'auto' ? '' : `?mode=${encodeURIComponent(mode)}`;
-        const [data, configData] = await Promise.all([
+        const [data, configData, catalog] = await Promise.all([
             API.get(`/api/sla/snapshots${query}`),
-            API.get(`/api/sla/config${query}`).catch(() => null)
+            API.get(`/api/sla/config${query}`).catch(() => null),
+            API.get('/api/upload/source-catalog').catch(() => null)
         ]);
         latestSLAHistorySnapshots = Array.isArray(data) ? data : [];
+        latestSLAHistorySourceFiles = catalog?.files || [];
         latestSLAHistoryI18nMap = (configData && configData.prefs && configData.prefs.i18nMap) || {};
         latestSLAHistoryMetricFormatMap = buildHistoryMetricFormatMap(configData);
         if (window.renderSLASourcePanel) window.renderSLASourcePanel();
@@ -144,6 +148,9 @@ function renderHistory(data) {
         .history-auto-import-badge { display:inline-flex; align-items:center; padding:3px 8px; border-radius:999px; background:#ecfeff; border:1px solid #67e8f9; color:#0369a1; font-size:10px; font-weight:800; line-height:1.35; }
         .history-delete-btn { display:inline-flex; align-items:center; justify-content:center; min-height:24px; padding:3px 8px; font-size:11px; background:#fff; border:1px solid #fecaca; color:#dc2626; border-radius:6px; cursor:pointer; line-height:1.2; }
         .history-delete-btn:hover { background:#fff1f2; border-color:#fca5a5; }
+        .history-actions { display:flex;flex-wrap:wrap;gap:6px; }
+        .history-load-btn { display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:3px 8px;font-size:11px;background:var(--bg-secondary,#eff6ff);border:1px solid #93c5fd;color:var(--text-color,#1565c0);border-radius:6px;cursor:pointer;line-height:1.2; }
+        .history-load-btn:disabled { opacity:.6;cursor:wait; }
     </style>
     <div class="history-table-wrapper">
     <table class="history-table">
@@ -227,7 +234,8 @@ function renderHistory(data) {
                     <div class="history-import-cell">
                         <div class="history-import-time">${escapeHTML(d)}</div>
                         <div class="history-import-badges">${targetMonthBadge}${autoImportBadge}</div>
-                        <button class="history-delete-btn" onclick="deleteHistorySnapshot('${item.id}')" title="${SLAT('sla.history.deleteTitle')}">${SLAT('sla.history.delete')}</button>
+                        <div class="history-actions"><button class="history-delete-btn" onclick="deleteHistorySnapshot('${item.id}')" title="${SLAT('sla.history.deleteTitle')}">${SLAT('sla.history.delete')}</button>
+                        ${item.sourceBatchId && latestSLAHistorySourceFiles.some(file=>file.batch_id===item.sourceBatchId) ? `<button type="button" class="history-load-btn" data-source-snapshot="${escapeHTML(item.id)}" ${loadingSLAHistorySource?'disabled':''} title="${escapeHTML(SLAT('sla.history.loadOriginalsTitle'))}">${SLAT('sla.history.loadOriginals')}</button>` : ''}</div>
                     </div>
                 </td>
                 <td><span style="background:#e3f2fd; padding:2px 6px; border-radius:10px; color:#1565c0;">${item.files.length}</span></td>
@@ -239,6 +247,25 @@ function renderHistory(data) {
     
     html += `</tbody></table></div>`;
     list.innerHTML = html;
+    list.querySelectorAll('[data-source-snapshot]').forEach(button=>button.addEventListener('click',()=>loadHistoryOriginals(button.dataset.sourceSnapshot)));
+}
+
+async function loadHistoryOriginals(id) {
+    if (loadingSLAHistorySource) return;
+    const snapshot = latestSLAHistorySnapshots.find(item=>String(item.id)===String(id));
+    if (!snapshot) return;
+    loadingSLAHistorySource = true;
+    document.querySelectorAll('.history-load-btn').forEach(button=>{button.disabled=true;button.textContent=SLAT('sla.history.loadingOriginals');});
+    try {
+        await window.SLAUpload.loadArchivedSnapshot(snapshot);
+        closeHistoryModal();
+        showToast(SLAT('sla.history.originalsLoaded'));
+    } catch (error) {
+        showToast(SLAT('sla.history.originalsLoadFail', { message:error.message }), 'error');
+    } finally {
+        loadingSLAHistorySource = false;
+        renderHistory(latestSLAHistorySnapshots);
+    }
 }
 
 window.deleteHistorySnapshot = async function(id) {

@@ -550,11 +550,18 @@ function closeTopicFloatingSimulator() {
     overlay.remove();
 }
 
-async function archiveImportedTopicSnapshot(snapshot) {
+async function archiveImportedTopicSnapshot(snapshot, onProgress = () => {}) {
     if (!window.API || typeof window.API.post !== 'function') throw new Error('服务器 API 不可用');
-    const result = await window.API.post('/api/topic-snapshots', { snapshot });
+    if (!window.EncryptedChunkUpload) throw new Error(topicUploadText('加密上传组件未加载，请刷新页面后重试', 'Encrypted upload component is unavailable; refresh and retry'));
+    const result = await window.EncryptedChunkUpload.upload({ snapshot }, {
+        endpoint: '/api/topic-snapshots', chunkAboveBytes: 800000, onProgress
+    });
     showToast(result.message || '专题快照已保存到服务器');
     return result;
+}
+
+function topicUploadText(zh, en) {
+    return document.documentElement.lang.toLowerCase().startsWith('en') ? en : zh;
 }
 
 function openTopicFloatingSimulator(origin) {
@@ -577,15 +584,47 @@ function openTopicFloatingSimulator(origin) {
                     <div class="notice">模拟浮窗已就绪，请进入专题并导入 JSON。</div><div class="status"></div><div class="actions"></div><div class="results"></div>
                 </div>
             </div>
+            <div class="uiv-topic-upload-progress" hidden>
+                <div class="uiv-topic-upload-status" role="status" aria-live="polite"></div>
+                <progress max="100" value="0" aria-label="上传进度 / Upload progress"></progress>
+                <div class="uiv-topic-upload-log"></div>
+            </div>
         </div>`;
     overlay.addEventListener('click', event => { if (event.target === overlay || event.target.closest('.uiv-topic-simulator-close')) closeTopicFloatingSimulator(); });
     overlay.addEventListener('keydown', event => { if (event.key === 'Escape') closeTopicFloatingSimulator(); });
     document.body.appendChild(overlay);
     const root = overlay.querySelector('.uiv-topic-simulator-root');
+    const uploadPanel = overlay.querySelector('.uiv-topic-upload-progress');
+    const uploadBar = uploadPanel.querySelector('progress');
+    const uploadStatus = uploadPanel.querySelector('.uiv-topic-upload-status');
+    const uploadLog = uploadPanel.querySelector('.uiv-topic-upload-log');
+    let uploading = false;
+    const uploadLogs = [];
+    const onUploadProgress = ({ percent, message }) => {
+        uploadPanel.hidden = false;
+        if (Number.isFinite(percent)) uploadBar.value = percent;
+        uploadStatus.textContent = `${Math.round(uploadBar.value)}% · ${message}`;
+        uploadLogs.push(`[${new Date().toLocaleTimeString()}] ${message}`);
+        if (uploadLogs.length > 500) uploadLogs.shift();
+        uploadLog.textContent = uploadLogs.join('\n');
+        uploadLog.scrollTop = uploadLog.scrollHeight;
+    };
     try {
         overlay.topicController = config.api.installForSimulation(root, {
             isCaptureActive: () => false,
-            onSnapshotImported: archiveImportedTopicSnapshot
+            onSnapshotImported: async snapshot => {
+                if (uploading) throw new Error(topicUploadText('已有专题正在归档，请等待完成后再导入', 'A topic is being archived; wait before importing another'));
+                uploading = true;
+                uploadLogs.length = 0;
+                uploadBar.value = 0;
+                try { return await archiveImportedTopicSnapshot(snapshot, onUploadProgress); }
+                catch (error) {
+                    onUploadProgress({ message: error.status === 403
+                        ? topicUploadText('服务器拒绝归档（403），请核查管理员权限或网关规则；该状态码不能单独证明文件过大。', 'Archive rejected (403). Check admin permissions or gateway rules; this status alone does not establish a file-size limit.')
+                        : topicUploadText(`归档失败：${error.message}`, `Archive failed: ${error.message}`) });
+                    throw error;
+                } finally { uploading = false; }
+            }
         });
         if (!overlay.topicController) throw new Error('专题运行时未能初始化');
         installFloatingCaptureTheme(root);

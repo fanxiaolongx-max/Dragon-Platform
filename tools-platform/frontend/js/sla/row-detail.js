@@ -81,13 +81,25 @@
         }
     }
 
+    // 项目内置各表常用复制字段默认值（整改/CPT专项/常规风险/SR/漏洞预警）
+    const DEFAULT_FREQUENT_FIELDS = {
+        rectification: ['task_id', 'task_owner', 'fullname', 'product_line_name', 'network_name'],
+        special: ['task_id', 'network_name', 'owner_show'],
+        risk: ['task_id', 'network', 'product_level_l1', 'product', 'current_handler', 'current_handler_name'],
+        sr: ['sr_num', 't1_operator', 'product_line_map', 'product', 'sr_owner'],
+        vulnerability: ['task_id', 'task_status', 'network_customer_name', 'task_owner_name']
+    };
+
     /**
      * 同步获取当前缓存的常用字段列表
      */
     function getCachedFrequentFields(tableType) {
         const normalized = String(tableType || 'general').trim().toLowerCase();
         const cached = copiedFieldsCache[normalized];
-        return cached ? (cached.frequentFields || []) : [];
+        if (cached && Array.isArray(cached.frequentFields) && cached.frequentFields.length > 0) {
+            return cached.frequentFields;
+        }
+        return DEFAULT_FREQUENT_FIELDS[normalized] || [];
     }
 
     /**
@@ -96,7 +108,11 @@
     function getFieldCopyCount(tableType, fieldName) {
         const normalized = String(tableType || 'general').trim().toLowerCase();
         const cached = copiedFieldsCache[normalized];
-        return cached && cached.fieldCounts ? (cached.fieldCounts[fieldName] || 0) : 0;
+        if (cached && cached.fieldCounts && cached.fieldCounts[fieldName] !== undefined) {
+            return cached.fieldCounts[fieldName];
+        }
+        const defaults = DEFAULT_FREQUENT_FIELDS[normalized] || [];
+        return defaults.includes(fieldName) ? 1 : 0;
     }
 
     /**
@@ -445,6 +461,7 @@
         // 6. 渲染竖排紧凑字段详情
         const bodyEl = document.getElementById('sla-row-detail-body');
         if (!bodyEl) return;
+        const prevScrollTop = bodyEl.scrollTop;
 
         if (!orderedDisplayKeys.length) {
             bodyEl.innerHTML = `
@@ -452,6 +469,7 @@
                     ${searchQuery ? '没有找到匹配该搜索条件的字段 🔍' : '当前行所有字段均为空'}
                 </div>
             `;
+            bodyEl.scrollTop = prevScrollTop;
             const statsEl = document.getElementById('sla-detail-footer-stats');
             if (statsEl) statsEl.innerText = `显示 0 / ${allKeys.length} 个字段`;
             return;
@@ -497,6 +515,7 @@
 
         html += '</div>';
         bodyEl.innerHTML = html;
+        bodyEl.scrollTop = prevScrollTop;
 
         // 7. 更新底部统计
         const statsEl = document.getElementById('sla-detail-footer-stats');
@@ -526,12 +545,20 @@
 
             // 按钮动效反馈
             if (btnEl) {
+                const rowEl = btnEl.closest('.sla-detail-field-item');
+                const valEl = rowEl ? rowEl.querySelector('.sla-detail-field-value-col') : null;
                 const originalText = btnEl.innerHTML;
-                btnEl.innerHTML = '✅ 已复制';
+                btnEl.innerHTML = '<span class="sla-copy-check">✓</span> 已复制';
                 btnEl.classList.add('copied');
+                if (valEl) valEl.classList.add('copied-flash');
                 setTimeout(() => {
-                    btnEl.innerHTML = originalText;
-                    btnEl.classList.remove('copied');
+                    if (btnEl && btnEl.isConnected) {
+                        btnEl.innerHTML = originalText;
+                        btnEl.classList.remove('copied');
+                    }
+                    if (valEl && valEl.isConnected) {
+                        valEl.classList.remove('copied-flash');
+                    }
                     // 重新刷新以更新右上角 ⭐ 常用(X次) 频次徽章
                     renderDetailModal();
                 }, 1200);

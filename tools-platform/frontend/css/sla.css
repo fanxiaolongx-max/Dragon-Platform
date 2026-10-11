@@ -31,7 +31,37 @@ body.sla-page {
 }
 #global-sticky-bar.expanded { align-items: flex-start; max-height: 50vh; overflow-y: auto; padding-bottom: 12px; }
 
-.sla-content { padding-top: calc(38px + 20px); }
+/* 展开子指标时默认自动增加一倍高度（38px -> 76px） */
+#global-sticky-bar.sub-expanded {
+    min-height: 76px;
+    align-items: flex-start;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+#global-sticky-bar.sub-expanded .sticky-bar-title {
+    margin-top: 2px;
+}
+#global-sticky-bar.sub-expanded .sticky-actions {
+    margin-top: 2px;
+}
+#global-sticky-bar.sub-expanded #sticky-bar-content {
+    min-height: 60px;
+    align-items: flex-start;
+}
+#global-sticky-bar.sub-expanded .info-group {
+    height: auto;
+    min-height: 26px;
+    align-items: flex-start;
+}
+
+.sla-content {
+    padding: 15px;
+    padding-top: calc(38px + 20px);
+    transition: padding-top 0.3s ease;
+}
+#global-sticky-bar.sub-expanded ~ .sla-content {
+    padding-top: calc(76px + 20px);
+}
 
 .sticky-bar-title { font-weight: bold; color: #ffb74d; flex: 0 0 auto; min-width: 150px; margin-right: 15px; display: flex; align-items: center; height: 26px; }
 #sticky-bar-content { display: flex; align-items: center; overflow-x: auto; white-space: nowrap; flex: 1; scrollbar-width: none; height: 100%; min-height: 26px; }
@@ -41,6 +71,10 @@ body.sla-page {
 .info-group { display: flex; align-items: center; gap: 15px; border-right: 1px solid #444; padding-right: 15px; height: 26px; }
 #global-sticky-bar.expanded .info-group { border-right: none; background: #2a2a2a; padding: 4px 12px; border-radius: 6px; margin-right: 10px; height: auto; border: 1px solid #333; }
 .info-item { display: flex; align-items: center; gap: 6px; padding: 2px 6px; border-radius: 4px; transition: all 0.3s; }
+.info-item.sub-open { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 6px; padding: 3px 8px; }
+.sub-metrics-list { color: #e0e0e0; line-height: 1.4; white-space: nowrap; }
+.metric-sub-toggle-btn { cursor: pointer; font-size: 10px; margin-left: 8px; background: rgba(255, 255, 255, 0.12); padding: 2px 5px; border-radius: 4px; transition: background 0.2s, transform 0.15s; user-select: none; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.metric-sub-toggle-btn:hover { background: rgba(255, 255, 255, 0.25); }
 .info-label { color: #aaa; }
 .info-value { font-weight: bold; color: #4fc3f7; font-family: monospace; font-size: 14px; }
 .info-value.warn { color: #ffb74d; }
@@ -1848,7 +1882,7 @@ td.frequent-copied-cell {
     border-radius: 5px;
     padding: 2px 6px;
     display: grid;
-    grid-template-columns: minmax(95px, 130px) minmax(0, 1fr) 26px;
+    grid-template-columns: minmax(95px, 130px) minmax(0, 1fr) auto;
     align-items: center;
     gap: 6px;
     min-height: 28px;
@@ -1955,8 +1989,10 @@ td.frequent-copied-cell {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all 0.15s ease;
     flex-shrink: 0;
+    box-sizing: border-box;
+    white-space: nowrap;
 }
 .sla-detail-copy-btn:hover {
     background: #e2e8f0;
@@ -1964,10 +2000,27 @@ td.frequent-copied-cell {
     border-color: #94a3b8;
 }
 .sla-detail-copy-btn.copied {
+    width: auto;
+    min-width: 60px;
+    padding: 0 6px;
     background: #dcfce7 !important;
     border-color: #86efac !important;
-    color: #166534 !important;
+    color: #15803d !important;
+    font-weight: 600;
+    font-size: 10.5px;
+    gap: 3px;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(22, 101, 52, 0.1);
+}
+.sla-detail-copy-btn .sla-copy-check {
+    font-size: 11px;
+    line-height: 1;
     font-weight: 700;
+}
+.sla-detail-field-value-col.copied-flash {
+    background: #ecfdf5 !important;
+    color: #15803d !important;
+    outline: 1px solid #86efac;
 }
 
 /* 底部状态栏 */
