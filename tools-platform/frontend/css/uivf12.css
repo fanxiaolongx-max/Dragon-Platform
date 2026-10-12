@@ -35,7 +35,7 @@
 
 /* ── 侧边栏 ──────────────────────────────────────────── */
 .sidebar {
-    width: 265px;
+    width: 310px;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 8px;
@@ -3730,6 +3730,99 @@ body.uiv-modal-open { overflow: hidden; }
 }
 .uiv-ext-fallback-link:hover { color: #c084fc; text-decoration: underline; }
 
+.uiv-ext-hero-sublinks {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    margin-top: 2px;
+}
+.uiv-ext-switch-link {
+    color: #93c5fd;
+    text-decoration: none;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+.uiv-ext-switch-link:hover {
+    color: #bfdbfe;
+    text-decoration: underline;
+}
+.uiv-ext-sep {
+    color: #475569;
+}
+
+/* 精简两栏指引卡片 */
+.uiv-ext-guide-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+@media (max-width: 680px) {
+    .uiv-ext-guide-grid {
+        grid-template-columns: 1fr;
+    }
+}
+.uiv-ext-guide-box {
+    background: #1c2233;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color 0.2s, background-color 0.2s;
+}
+.uiv-ext-guide-box.primary {
+    border-color: rgba(99, 102, 241, 0.4);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.6), rgba(28, 34, 51, 0.8));
+}
+.uiv-ext-guide-box:hover {
+    background: #20273a;
+    border-color: rgba(147, 51, 234, 0.35);
+}
+.uiv-ext-guide-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.uiv-ext-guide-badge {
+    font-size: 11px;
+    line-height: 1.2;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-weight: 700;
+    background: rgba(16, 185, 129, 0.18);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: #34d399;
+}
+.uiv-ext-guide-badge.secondary {
+    background: rgba(148, 163, 184, 0.15);
+    border-color: rgba(148, 163, 184, 0.3);
+    color: #cbd5e1;
+}
+.uiv-ext-guide-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: #f1f5f9;
+}
+.uiv-ext-simple-list {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.5;
+}
+.uiv-ext-simple-list li {
+    word-break: break-word;
+}
+.uiv-ext-simple-list b {
+    color: #e2e8f0;
+}
+
 /* 步骤区域 */
 .uiv-ext-steps-wrap {
     flex-shrink: 0;
@@ -3922,6 +4015,30 @@ body.uiv-modal-open { overflow: hidden; }
     border-color: #cbd5e1;
 }
 #uiv-page.uiv-light-theme .uiv-ext-hero-title { color: #0f172a; }
+#uiv-page.uiv-light-theme .uiv-ext-switch-link { color: #4f46e5; }
+#uiv-page.uiv-light-theme .uiv-ext-switch-link:hover { color: #3730a3; }
+#uiv-page.uiv-light-theme .uiv-ext-fallback-link { color: #64748b; }
+#uiv-page.uiv-light-theme .uiv-ext-fallback-link:hover { color: #334155; }
+#uiv-page.uiv-light-theme .uiv-ext-guide-box {
+    background: #ffffff;
+    border-color: #e2e8f0;
+}
+#uiv-page.uiv-light-theme .uiv-ext-guide-box.primary {
+    background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+    border-color: #c7d2fe;
+}
+#uiv-page.uiv-light-theme .uiv-ext-guide-box:hover {
+    background: #f8fafc;
+    border-color: #a5b4fc;
+}
+#uiv-page.uiv-light-theme .uiv-ext-guide-title { color: #0f172a; }
+#uiv-page.uiv-light-theme .uiv-ext-simple-list { color: #475569; }
+#uiv-page.uiv-light-theme .uiv-ext-simple-list b { color: #0f172a; }
+#uiv-page.uiv-light-theme .uiv-ext-tip-box {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #3730a3;
+}
 #uiv-page.uiv-light-theme .uiv-ext-step-card {
     background: #f8fafc;
     border-color: #e2e8f0;

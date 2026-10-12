@@ -76,6 +76,7 @@ async function packagePage(scriptId, target, quick = true, failure = '') {
         F12BuiltinScripts: presets, F12ExtensionPacker: packer, JSZip,
         createTPExamVault: require(path.join(toolDir, 'exam-vault')),
         TPExamStoreGuide: { mount() {}, setVisible() {}, matchesScript() { return false; } },
+        TPNetcareStoreGuide: { mount() {}, setVisible() {}, matchesScript() { return false; } },
         saveAs: (blob, filename) => saved.push({ blob, filename }),
         fetch: async (url, options) => {
             requests.push({ url, options });

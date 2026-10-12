@@ -28,4 +28,16 @@ test('extension-guide.js exports UIVExtensionGuide controller', () => {
     assert.ok(js.includes('download,'), 'Should expose download method');
     assert.ok(js.includes('copyUrl,'), 'Should expose copyUrl method');
     assert.ok(js.includes('copyAllSteps,'), 'Should expose copyAllSteps method');
+    assert.ok(js.includes('openOfficialStore,'), 'Should expose openOfficialStore method');
+    assert.ok(js.includes('switchStore,'), 'Should expose switchStore method');
 });
+
+test('extension-guide supports official Chrome & Edge stores and browser detection', () => {
+    const jsPath = path.join(__dirname, '../frontend/js/uivf12/extension-guide.js');
+    const js = fs.readFileSync(jsPath, 'utf8');
+    assert.ok(js.includes('CHROME_STORE_URL'), 'Should define CHROME_STORE_URL');
+    assert.ok(js.includes('EDGE_STORE_URL'), 'Should define EDGE_STORE_URL');
+    assert.ok(js.includes('https://chromewebstore.google.com/detail/uivision/gcbalfbdmfieckjlnblleoemohcganoc'), 'Must include exact Chrome store URL');
+    assert.ok(js.includes('https://microsoftedge.microsoft.com/addons/detail/uivision-rpa-'), 'Must include Edge Add-ons store URL');
+});
+

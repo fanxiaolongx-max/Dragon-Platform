@@ -676,9 +676,9 @@
                 <div class="uiv-extension-header-left">
                     <div class="uiv-extension-header-icon" aria-hidden="true">🧩</div>
                     <div>
-                        <div class="uiv-extension-eyebrow">扩展生态 · 离线增强版</div>
+                        <div class="uiv-extension-eyebrow">官方扩展 · 快捷安装</div>
                         <h3 id="uivExtensionModalTitle" class="uiv-extension-title">🧩 UI.Vision RPA 插件下载与安装指南</h3>
-                        <p id="uivExtensionModalSubtitle" class="uiv-extension-subtitle">版本 v9.6.1 离线纯净增强包 · 适用于 Chrome / Edge / 360 / 统信等 Chromium 内核浏览器</p>
+                        <p id="uivExtensionModalSubtitle" class="uiv-extension-subtitle">优先推荐官方应用商店一键安装 · 支持 Chrome / Edge 浏览器</p>
                     </div>
                 </div>
                 <button class="uiv-extension-close" onclick="UIVExtensionGuide.close()" aria-label="关闭">×</button>
@@ -689,86 +689,69 @@
                 <div class="uiv-ext-download-hero">
                     <div class="uiv-ext-hero-info">
                         <div class="uiv-ext-hero-title">
-                            <span id="uivExtDownloadCardTitle">UI.Vision RPA 离线安装包 (v9.6.1)</span>
-                            <span class="uiv-ext-hero-tag">免魔法直装</span>
-                            <span class="uiv-ext-hero-tag">已优化兼容</span>
+                            <span id="uivExtDownloadCardTitle">UI.Vision RPA 官方扩展</span>
+                            <span class="uiv-ext-hero-tag" id="uivExtBrowserBadge">Chrome 商店</span>
+                            <span class="uiv-ext-hero-tag">官方正版</span>
                         </div>
-                        <div id="uivExtDownloadCardMeta" class="uiv-ext-hero-meta">大小：约 8.1 MB · 格式：ZIP 压缩包 · 解压后直接加载文件夹</div>
+                        <div id="uivExtDownloadCardMeta" class="uiv-ext-hero-meta">点击大按钮前往官方应用商店一键添加扩展；若网络受限可使用备用本地包</div>
                     </div>
                     <div class="uiv-ext-hero-actions">
-                        <button id="uivExtDownloadDirectBtn" type="button" class="btn-download-primary" onclick="UIVExtensionGuide.download()">
-                            <span>⚡ 立即下载离线安装包 (.zip)</span>
+                        <button id="uivExtDownloadDirectBtn" type="button" class="btn-download-primary" onclick="UIVExtensionGuide.openOfficialStore()">
+                            <span id="uivExtPrimaryBtnText">🌐 前往 Chrome 商店官方安装</span>
                         </button>
-                        <a id="uivExtDownloadFallbackBtn" href="https://github.com/fanxiaolongx-max/privacy-policy/releases/latest/download/uivision-extension-9.6.1.zip" class="uiv-ext-fallback-link" download="uivision-extension-9.6.1.zip">备用直接下载</a>
+                        <div class="uiv-ext-hero-sublinks">
+                            <a id="uivExtSwitchStoreLink" href="javascript:void(0)" class="uiv-ext-switch-link" onclick="UIVExtensionGuide.switchStore()">切换 Edge 商店</a>
+                            <span class="uiv-ext-sep">·</span>
+                            <a id="uivExtDownloadFallbackBtn" href="/downloads/uivision-extension-9.6.1.zip" class="uiv-ext-fallback-link" download="uivision-extension-9.6.1.zip" onclick="UIVExtensionGuide.download()">📦 备用：本地下载 (.zip)</a>
+                        </div>
                     </div>
                 </div>
 
-                <!-- 5 步详细图文指引 -->
-                <div class="uiv-ext-steps-wrap">
-                    <h4 id="uivExtStepsHeading" class="uiv-ext-section-heading">📋 浏览器加载插件简易 5 步指引</h4>
-
-                    <!-- 步骤 1 -->
-                    <div class="uiv-ext-step-card">
-                        <div class="uiv-ext-step-badge">1</div>
-                        <div class="uiv-ext-step-content">
-                            <h5 id="uivExtStep1Title" class="uiv-ext-step-title">下载离线安装包</h5>
-                            <p id="uivExtStep1Desc" class="uiv-ext-step-desc">点击上方「立即下载离线安装包」按钮，将 <code>uivision-extension-9.6.1.zip</code> 文件保存到本地磁盘。</p>
+                <!-- 精简引导两栏卡片 -->
+                <div class="uiv-ext-guide-grid">
+                    <!-- 方式一：官方商店直接安装（最推荐） -->
+                    <div class="uiv-ext-guide-box primary">
+                        <div class="uiv-ext-guide-header">
+                            <span class="uiv-ext-guide-badge" id="uivExtBadge1">推荐</span>
+                            <h4 class="uiv-ext-guide-title" id="uivExtMethod1Title">官方商店安装（1 步搞定）</h4>
                         </div>
+                        <ul class="uiv-ext-simple-list">
+                            <li id="uivExtMethod1Desc1">点击上方大按钮进入官方商店，点击<b>「添加至 Chrome」</b>（Edge 浏览器为<b>「获取」</b>）即可安装。</li>
+                            <li id="uivExtMethod1Desc2">安装后在浏览器右上角 🧩 栏<b>钉选 UI.Vision</b>，建议右键插件详情开启<b>「允许访问文件网址」</b>。</li>
+                        </ul>
                     </div>
 
-                    <!-- 步骤 2 -->
-                    <div class="uiv-ext-step-card">
-                        <div class="uiv-ext-step-badge">2</div>
-                        <div class="uiv-ext-step-content">
-                            <h5 id="uivExtStep2Title" class="uiv-ext-step-title">解压到本地固定文件夹</h5>
-                            <p id="uivExtStep2Desc" class="uiv-ext-step-desc">使用系统的解压功能将 <code>.zip</code> 压缩包解压为一个独立的文件夹（例如解压到 <code>D:\Extensions\uivision-extension-9.6.1</code> 或 <code>~/Documents/uivision-extension-9.6.1</code>）。</p>
-                            <span id="uivExtStep2Warning" class="uiv-ext-step-warning">⚠️ 温馨提醒：浏览器加载该文件夹后，请保留该目录，不要删除或随意移动，否则插件会失效。</span>
+                    <!-- 方式二：本地离线安装包（备用） -->
+                    <div class="uiv-ext-guide-box">
+                        <div class="uiv-ext-guide-header">
+                            <span class="uiv-ext-guide-badge secondary" id="uivExtBadge2">备用</span>
+                            <h4 class="uiv-ext-guide-title" id="uivExtMethod2Title">本地离线安装（无法访问商店时）</h4>
                         </div>
-                    </div>
-
-                    <!-- 步骤 3 -->
-                    <div class="uiv-ext-step-card">
-                        <div class="uiv-ext-step-badge">3</div>
-                        <div class="uiv-ext-step-content">
-                            <h5 id="uivExtStep3Title" class="uiv-ext-step-title">打开扩展管理并开启「开发者模式」</h5>
-                            <p id="uivExtStep3Desc" class="uiv-ext-step-desc">在浏览器地址栏直接输入扩展管理地址，并在页面<b>右上角找到并开启「开发者模式」（Developer mode）</b>开关：</p>
-                            <div class="uiv-ext-btn-row">
-                                <button id="uivExtCopyChromeBtn" type="button" class="uiv-ext-btn-copy" onclick="UIVExtensionGuide.copyUrl('chrome://extensions/', this)">
-                                    📋 复制 chrome://extensions/
-                                </button>
-                                <button id="uivExtCopyEdgeBtn" type="button" class="uiv-ext-btn-copy" onclick="UIVExtensionGuide.copyUrl('edge://extensions/', this)">
-                                    📋 复制 edge://extensions/
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 步骤 4 -->
-                    <div class="uiv-ext-step-card">
-                        <div class="uiv-ext-step-badge">4</div>
-                        <div class="uiv-ext-step-content">
-                            <h5 id="uivExtStep4Title" class="uiv-ext-step-title">点击「加载已解压的扩展程序」</h5>
-                            <p id="uivExtStep4Desc" class="uiv-ext-step-desc">开启开发者模式后，点击扩展页面左上角的<b>「加载已解压的扩展程序」</b>（Edge 浏览器为「加载解压缩的扩展」），在文件选择器中<b>选中刚才解压出的插件根目录</b>（即包含 <code>manifest.json</code> 的文件夹）并确认。</p>
-                        </div>
-                    </div>
-
-                    <!-- 步骤 5 -->
-                    <div class="uiv-ext-step-card">
-                        <div class="uiv-ext-step-badge">5</div>
-                        <div class="uiv-ext-step-content">
-                            <h5 id="uivExtStep5Title" class="uiv-ext-step-title">固定插件并开启必要权限 (推荐)</h5>
-                            <p id="uivExtStep5Desc" class="uiv-ext-step-desc">点击浏览器右上角拼图 🧩 图标将 <b>UI.Vision RPA</b> 钉选到工具栏。进入插件「详细信息」，建议开启<b>「允许访问文件网址」</b>，即可在本页面畅享一键运行自动化抓取！</p>
-                        </div>
+                        <ul class="uiv-ext-simple-list">
+                            <li id="uivExtMethod2Desc1">点击上方「备用：本地下载」获取 <code>uivision-extension-9.6.1.zip</code> 并解压到本地文件夹。</li>
+                            <li>
+                                <span id="uivExtMethod2Desc2">地址栏打开扩展管理并开启右上角<b>「开发者模式」</b>：</span>
+                                <div class="uiv-ext-btn-row">
+                                    <button id="uivExtCopyChromeBtn" type="button" class="uiv-ext-btn-copy" onclick="UIVExtensionGuide.copyUrl('chrome://extensions/', this)">
+                                        📋 复制 chrome://extensions/
+                                    </button>
+                                    <button id="uivExtCopyEdgeBtn" type="button" class="uiv-ext-btn-copy" onclick="UIVExtensionGuide.copyUrl('edge://extensions/', this)">
+                                        📋 复制 edge://extensions/
+                                    </button>
+                                </div>
+                            </li>
+                            <li id="uivExtMethod2Desc3">点击左上角<b>「加载已解压的扩展程序」</b>，选中解压出的文件夹即可。</li>
+                        </ul>
                     </div>
                 </div>
 
                 <div id="uivExtTipBox" class="uiv-ext-tip-box">
-                    💡 <b>小技巧</b>：安装完成后，回到当前数据抓取工作台，点击左侧智能调度仓库底部的「🚀 运行批脚本」（或「🚀 运行测试批脚本」），即可直接调用 UI.Vision 插件自动抓取与全流程执行！
+                    💡 <b>小提示</b>：安装完成后，回到数据抓取工作台点击左侧智能调度仓库底部的<b>「🚀 运行批脚本」</b>，即可直接驱动 UI.Vision 插件自动化抓取与执行！
                 </div>
             </div>
 
             <div class="uiv-extension-footer">
-                <button id="uivExtCopyGuideBtn" type="button" class="btn-ext-footer-action" onclick="UIVExtensionGuide.copyAllSteps(this)">📋 复制完整安装步骤文本</button>
+                <button id="uivExtCopyGuideBtn" type="button" class="btn-ext-footer-action" onclick="UIVExtensionGuide.copyAllSteps(this)">📋 复制安装指南文本</button>
                 <div class="uiv-extension-footer-actions">
                     <button id="uivExtDoneBtn" type="button" class="btn-ext-footer-action btn-ext-footer-primary" onclick="UIVExtensionGuide.close()">我已安装完成</button>
                 </div>

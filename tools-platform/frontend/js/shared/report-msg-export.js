@@ -377,7 +377,7 @@
 
     function copyForEmail(source, isRoot = false) {
         if (source.nodeType === Node.TEXT_NODE) {
-            const text=source.textContent||'',whiteSpace=source.parentElement?getComputedStyle(source.parentElement).whiteSpace:'';
+            const text=source.textContent||'',whiteSpace=source.parentElement&&typeof getComputedStyle==='function'?getComputedStyle(source.parentElement).whiteSpace:'';
             // Word/WPS may ignore pre-wrap: store displayed newlines as real HTML breaks.
             if(/^(pre|pre-wrap|pre-line|break-spaces)$/.test(whiteSpace)&&/[\r\n]/.test(text)){
                 const fragment=document.createDocumentFragment();text.split(/\r\n|\r|\n/).forEach((line,index)=>{if(index)fragment.append(document.createElement('br'));fragment.append(document.createTextNode(line));});return fragment;

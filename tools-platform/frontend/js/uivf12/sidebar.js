@@ -571,6 +571,7 @@ function buildScriptItem(script) {
     const itemTitle = document.createElement('div');
     itemTitle.className = 'script-item-title';
     itemTitle.innerText = '📄 ' + script.name;
+    itemTitle.title = script.name;
 
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'sidebar-actions';

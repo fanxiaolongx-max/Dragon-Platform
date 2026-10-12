@@ -311,7 +311,7 @@
     }
     const packerAlert=message=>packerDialog(message),packerConfirm=message=>packerDialog(message,'confirm'),packerPrompt=(message,value='')=>packerDialog(message,'prompt',value);
     TPExamStoreGuide.mount(document.getElementById('examStoreGuideActions'));
-    TPNetcareStoreGuide.mount(document.getElementById('netcareStoreGuideActions'));
+    if (typeof TPNetcareStoreGuide !== 'undefined') TPNetcareStoreGuide.mount(document.getElementById('netcareStoreGuideActions'));
     const BUILTIN_SCRIPTS = F12BuiltinScripts;
     const quickRequest = new URLSearchParams(location.search);
     const quickMode = window.parent !== window && quickRequest.get('quickPack') === '1';
@@ -343,7 +343,7 @@
     function updateStoreGuideUI() {
       const code = document.getElementById('extCode').value;
       TPExamStoreGuide.setVisible(document.getElementById('examStoreGuideActions'), { code });
-      TPNetcareStoreGuide.setVisible(document.getElementById('netcareStoreGuideActions'), { code });
+      if (typeof TPNetcareStoreGuide !== 'undefined') TPNetcareStoreGuide.setVisible(document.getElementById('netcareStoreGuideActions'), { code });
     }
 
     document.getElementById('extCode').addEventListener('input', updateStoreGuideUI);
@@ -1161,8 +1161,8 @@
           const targetSuffix = options.packageTarget === 'store' ? '-edge-store' : '-local';
           const fileName = "extension-" + options.name.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() + "-v" + options.version + targetSuffix + ".zip";
           deliverPackage(content, fileName);
-          if (!quickMode && TPExamStoreGuide.matchesScript(options) && generated.files[TPExamStoreGuide.filename]) TPExamStoreGuide.download();
-          if (!quickMode && TPNetcareStoreGuide.matchesScript(options) && generated.files[TPNetcareStoreGuide.filename]) TPNetcareStoreGuide.download();
+          if (!quickMode && typeof TPExamStoreGuide !== 'undefined' && TPExamStoreGuide.matchesScript(options) && generated.files[TPExamStoreGuide.filename]) TPExamStoreGuide.download();
+          if (!quickMode && typeof TPNetcareStoreGuide !== 'undefined' && TPNetcareStoreGuide.matchesScript(options) && generated.files[TPNetcareStoreGuide.filename]) TPNetcareStoreGuide.download();
           await refreshVersionPreview();
           packedSuccessfully = true;
         }
