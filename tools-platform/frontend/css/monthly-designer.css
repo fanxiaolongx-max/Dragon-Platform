@@ -700,3 +700,9 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 .document-block[data-adaptive-chart] .document-source-note{font-size:10px;line-height:1.5}
 .document-block[data-adaptive-chart] .pivot-axis-caption{margin:0 0 3px;font-size:10px}
 .document-block[data-adaptive-chart] .pivot-filter-trigger{margin-bottom:3px;padding:2px 7px}
+/* Explicit grid heights constrain the card; content scrolls instead of enlarging the row. */
+.document-block[data-sized-card]{display:flex;flex-direction:column;align-self:start;min-height:0;overflow:hidden}
+.document-block[data-sized-card]>.document-controls,.document-block[data-sized-card]>h3{flex-shrink:0}
+.document-block[data-sized-card]>.document-block-data,.document-block[data-sized-card]>.document-block-text{flex:1;min-height:0;overflow:auto}
+.document-block[data-adaptive-chart]:not([data-sized-card]){align-self:stretch}
+.document-block:not([data-sized-card]){align-self:stretch}
