@@ -664,3 +664,20 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 :is(#pivotFieldsPanel,#blockEditor) .monthly-choice-menu .monthly-choice-items>label{display:flex;align-items:center;gap:7px;margin:0;padding:5px 6px;font-size:11px;line-height:1.5;font-weight:400;color:inherit}
 :is(#pivotFieldsPanel,#blockEditor) .monthly-choice-menu .monthly-choice-items input[type=checkbox]{width:14px;height:14px;min-height:0;margin:0;padding:0;flex:none}
 #sourceLibrary .monthly-choice>summary{min-height:30px;padding:5px 8px;background:var(--library-card);color:var(--source-ink);border:1px solid var(--source-line);font-size:11px;font-weight:400;margin:5px 0 0}
+/* Content filters and chart totals remain separate from field placement. */
+.pivot-content-filter{width:340px;max-width:calc(100vw - 32px);max-height:75vh;overflow:auto;padding:16px;border:1px solid #bfd1e0;border-radius:12px;background:#f8fbfe;color:#29445f;box-shadow:0 14px 50px #18354a44;font-size:12px}
+.pivot-content-filter::backdrop{background:#142d491c}
+.pivot-content-filter header,.pivot-content-filter footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.pivot-content-filter label{display:block;margin:10px 0;font-size:11px}
+.pivot-content-filter select,.pivot-content-filter input{width:100%;box-sizing:border-box;padding:7px;border:1px solid #c7d8e7;border-radius:6px;background:transparent;color:inherit}
+.pivot-content-filter button{padding:6px 10px;border:1px solid #bfd1e0;border-radius:6px;background:#edf4fa;color:inherit;font-size:11px;cursor:pointer}
+.pivot-content-filter footer{margin-top:16px;margin-bottom:8px}.pivot-content-filter [data-filter-apply]{background:#386882;color:white;border-color:#386882}
+.pivot-content-filter .monthly-choice>summary{padding:7px 9px;border:1px solid #c7d8e7;border-radius:6px;font-size:12px}
+.pivot-filter-trigger{padding:4px 9px;margin:0 0 6px;border:1px solid #c4d6e4;border-radius:6px;background:#f1f6fa;color:#456880;font-size:11px;cursor:pointer}
+.pivot-axis-caption{font-size:11px;color:#55728c;margin:2px 0 8px}.pivot-chart-totals{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.pivot-chart-totals>span{display:grid;gap:4px;padding:8px 12px;border:1px solid #c9dddF;border-radius:8px;background:#f0f7f7;min-width:100px}.pivot-chart-totals small{font-size:10px;color:#507579}.pivot-chart-totals strong{font-size:17px;color:#32666b}
+[data-theme=dark] .pivot-content-filter{background:#243e51;color:#e0edf5;border-color:#59778c}[data-theme=dark] .pivot-content-filter button,[data-theme=dark] .pivot-filter-trigger{background:#304d62;color:#d1e5ef;border-color:#5a7a90}
+[data-theme=dark] .pivot-chart-totals>span{background:#244347;border-color:#52757a}[data-theme=dark] .pivot-chart-totals small,[data-theme=dark] .pivot-axis-caption{color:#b4d0d5}[data-theme=dark] .pivot-chart-totals strong{color:#d1efea}
+.pivot-content-filter{position:fixed;inset:auto;margin:0;box-sizing:border-box}
+.pivot-content-filter .monthly-choice-items input[type=checkbox]{width:14px;height:14px;min-height:0;padding:0;margin:0}
+.pivot-content-filter .monthly-choice-items label{margin:0;padding:5px 6px;display:flex;align-items:center;gap:7px}

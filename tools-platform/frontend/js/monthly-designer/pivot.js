@@ -32,7 +32,7 @@
         const update=(map,key,row)=>{if(!map.has(key))map.set(key,pivot.values.map(accumulator));map.get(key).forEach((state,index)=>add(state,row[pivot.values[index].field],pivot.values[index].field));};
         tables.forEach((table,index)=>{const source=pivot.sources[index];if(!source)return;for(const original of table.rows||[]){
             const row=Object.assign(Object.create(null),original);for(const [canonical,field] of Object.entries(source.mapping||{}))row[canonical]=original[field];row[SOURCE]=source.label;row[RECORD]=1;
-            if(pivot.excludeTotals!==false&&[...pivot.rows,...pivot.columns].filter(field=>field!==SOURCE).some(field=>total(row[field])))continue;
+            if(pivot.excludeTotals!==false&&(table.headers||Object.keys(original)).some(field=>total(original[field])))continue;
             if(pivot.filters.length&&!pivot.filters[pivot.filterLogic==='or'?'some':'every'](filter=>matches(row,filter)))continue;
             const parts=tuple(row,pivot.rows),columns=tuple(row,pivot.columns),rowKey=JSON.stringify(parts),colKey=JSON.stringify(columns);
             categories.set(rowKey,parts);groups.set(colKey,columns);update(cells,JSON.stringify([rowKey,colKey]),row);update(rowTotals,rowKey,row);update(colTotals,colKey,row);grand.forEach((state,i)=>add(state,row[pivot.values[i].field],pivot.values[i].field));rowCount++;

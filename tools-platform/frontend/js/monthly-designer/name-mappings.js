@@ -32,7 +32,8 @@
                 });
             }
         });
-        target.querySelectorAll('svg text').forEach(element=>{const original=element.dataset.mappingOriginal??element.textContent;element.dataset.mappingOriginal=original;const row=label(original,rules,'row'),display=translate(row!==original?row:columnLabel(original,rules));if(display!==original)replaceText(element,display);});
+        target.querySelectorAll('[data-mapping-column]').forEach(element=>{const original=element.dataset.mappingOriginal??element.textContent;element.dataset.mappingOriginal=original;element.textContent=translate(columnLabel(original,rules));});
+        target.querySelectorAll('svg text').forEach(element=>{const original=element.dataset.mappingOriginal??element.textContent;element.dataset.mappingOriginal=original;const row=element.hasAttribute('data-number-value')?original:original.split(' / ').map((part,index)=>label(part,rules,'row',block.chart?.pivot?.rows?.[index]||block.chart?.x||'')).join(' / '),display=translate(row!==original?row:columnLabel(original,rules));if(display!==original)replaceText(element,display);});
     }
     return {validate,label,columnLabel,apply};
 });
