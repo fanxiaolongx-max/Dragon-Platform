@@ -1,12 +1,41 @@
 (function(){
  'use strict';
  window.MonthlySourceTableEditor={open};
+ function bindWindow(dialog,t){
+  const header=dialog.querySelector('header');
+  const controls=document.createElement('div');controls.className='source-table-window-controls';
+  const restore=document.createElement('button');restore.type='button';restore.dataset.windowRestore='';restore.title=t('恢复默认大小与位置','Restore default size and position');restore.setAttribute('aria-label',restore.title);
+  restore.innerHTML='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5M3 3l6 6m12-6-6 6M3 21l6-6m12 6-6-6"/></svg>';
+  controls.append(restore,header.querySelector('[data-close]'));header.append(controls);header.title=t('拖动标题栏移动；双击恢复默认窗口','Drag the title bar to move; double-click to restore the window');
+  const handles=[];for(const edge of ['n','e','s','w','ne','se','sw','nw']){const handle=document.createElement('span');handle.className='source-window-resize source-window-resize-'+edge;handle.dataset.windowResize=edge;handle.setAttribute('aria-hidden','true');dialog.append(handle);handles.push(handle);}
+  let gesture=null;
+  const limits=()=>{const margin=innerWidth<700?16:32;return {margin,width:Math.max(1,innerWidth-margin*2),height:Math.max(1,innerHeight-margin*2)};};
+  const rect=()=>{const r=dialog.getBoundingClientRect();return {left:r.left,top:r.top,width:r.width,height:r.height};};
+  const clamp=(value,min,max)=>Math.min(max,Math.max(min,value));
+  function apply(next){const bound=limits(),width=clamp(next.width,Math.min(640,bound.width),bound.width),height=clamp(next.height,Math.min(460,bound.height),bound.height);Object.assign(dialog.style,{inset:'auto',margin:'0',left:clamp(next.left,bound.margin,innerWidth-bound.margin-width)+'px',top:clamp(next.top,bound.margin,innerHeight-bound.margin-height)+'px',width:width+'px',height:height+'px'});}
+  function restoreWindow(){const bound=limits();apply({left:bound.margin,top:bound.margin,width:bound.width,height:bound.height});}
+  function finish(){if(!gesture)return;const {target,id}=gesture;gesture=null;dialog.classList.remove('source-window-moving');if(target.hasPointerCapture?.(id))target.releasePointerCapture(id);}
+  function start(event,edge){if(event.button!==0||event.target.closest('button,input,select,textarea,a'))return;event.preventDefault();finish();gesture={target:event.currentTarget,id:event.pointerId,x:event.clientX,y:event.clientY,edge,start:rect()};dialog.classList.add('source-window-moving');event.currentTarget.setPointerCapture(event.pointerId);}
+  function move(event){if(!gesture||event.pointerId!==gesture.id)return;const {start,edge}=gesture,dx=event.clientX-gesture.x,dy=event.clientY-gesture.y;if(!edge){apply({...start,left:start.left+dx,top:start.top+dy});return;}
+   const bound=limits(),minWidth=Math.min(640,bound.width),minHeight=Math.min(460,bound.height),next={...start};
+   if(edge.includes('e'))next.width=clamp(start.width+dx,minWidth,innerWidth-bound.margin-start.left);
+   if(edge.includes('s'))next.height=clamp(start.height+dy,minHeight,innerHeight-bound.margin-start.top);
+   if(edge.includes('w')){const right=start.left+start.width;next.left=clamp(start.left+dx,bound.margin,right-minWidth);next.width=right-next.left;}
+   if(edge.includes('n')){const bottom=start.top+start.height;next.top=clamp(start.top+dy,bound.margin,bottom-minHeight);next.height=bottom-next.top;}
+   apply(next);
+  }
+  const drag=event=>start(event,''),resize=event=>start(event,event.currentTarget.dataset.windowResize),double=event=>{if(!event.target.closest('button,input,select,textarea,a'))restoreWindow();},viewport=()=>{finish();apply(rect());};
+  header.addEventListener('pointerdown',drag);header.addEventListener('dblclick',double);handles.forEach(handle=>handle.addEventListener('pointerdown',resize));dialog.addEventListener('pointermove',move);dialog.addEventListener('pointerup',finish);dialog.addEventListener('pointercancel',finish);dialog.addEventListener('lostpointercapture',finish);restore.onclick=restoreWindow;window.addEventListener('resize',viewport);
+  restoreWindow();
+  return ()=>{finish();header.removeEventListener('pointerdown',drag);header.removeEventListener('dblclick',double);handles.forEach(handle=>handle.removeEventListener('pointerdown',resize));dialog.removeEventListener('pointermove',move);dialog.removeEventListener('pointerup',finish);dialog.removeEventListener('pointercancel',finish);dialog.removeEventListener('lostpointercapture',finish);window.removeEventListener('resize',viewport);};
+ }
  async function open({sheetId,request,t,escape:esc,onSaved}){
   const state=await request('/api/upload/source-sheets/'+encodeURIComponent(sheetId)+'/editor',{cache:'no-store'});
   let table=structuredClone(state.table),rules=structuredClone(state.rules),page=0,sort=null,dirty=false,review=false,operations=[],failureMeta=null,rulesPending=false;
   const dialog=document.createElement('dialog');dialog.className='source-table-dialog';
   dialog.innerHTML=`<header><div><h2>${t('原始表 · 数据工作台','Source table · Data workspace')}</h2><p>${esc(state.file.name)} · ${esc(table.name)}</p></div><button data-close aria-label="${t('关闭','Close')}">×</button></header><div class="source-table-tools"><input data-search placeholder="${t('查找全部列…','Search all columns…')}" aria-label="${t('查找','Search')}"><label>${t('每页','Page size')} <select data-size><option>100</option><option selected>200</option><option>500</option><option>1000</option></select></label><button data-reset>${t('清除筛选排序','Reset filters and sorting')}</button><button data-rules>${t('替换与表头规则','Replacement & header rules')}</button><span>${t('点击表头排序；双击单元格编辑','Click headers to sort; double-click cells to edit')}</span></div><section class="source-table-rule-panel" hidden><h3>${t('同类型导入规则','Rules for this source type')} <small>${esc(state.typeKey)}</small></h3><p>${t('规则从上到下执行，可修改或删除。修改规则后，检查并保存会先应用到当前表。已保存的表头映射会自动预览，确认保存后写入当前表；打开预览不重复执行值替换。','Rules run in order. Edited rules are applied before reviewing and saving. Saved header mappings are automatically previewed and persisted on confirmation. Opening the preview does not repeat value replacements.')}</p><div data-rule-list></div><button data-add-header>${t('＋表头重命名','＋Rename header')}</button> <button data-add-replace>${t('＋批量替换','＋Replace values')}</button> <button data-apply>${t('应用到当前表','Apply to current table')}</button><label><input type="checkbox" data-save-rules checked> ${t('保存规则，今后同类型导入自动应用','Save rules for future imports of this type')}</label><datalist id="source-editor-fields"></datalist></section><div class="source-table-grid"><table><thead></thead><tbody></tbody></table></div><footer><span data-count></span><button data-prev>‹ ${t('上一页','Previous')}</button><button data-next>${t('下一页','Next')} ›</button><span data-message role="status"></span><button data-save>${t('检查并保存','Review & save')}</button></footer>`;
   document.body.append(dialog);dialog.showModal();
+  const detachWindow=bindWindow(dialog,t);dialog.addEventListener('close',detachWindow,{once:true});
   const q=s=>dialog.querySelector(s),headers=q('thead'),body=q('tbody');
   function message(text){q('[data-message]').textContent=text;}
   function changed(){dirty=true;review=false;q('[data-save]').textContent=t('检查并保存','Review & save');}
@@ -17,7 +46,7 @@
    if(sort){const h=table.headers[sort.i];entries.sort((a,b)=>{const x=a.row[h]??'',y=b.row[h]??'',numeric=String(x).trim()&&String(y).trim()&&Number.isFinite(Number(x))&&Number.isFinite(Number(y));return sort.dir*(numeric?Number(x)-Number(y):String(x).localeCompare(String(y),undefined,{numeric:true}));});}
    const size=Number(q('[data-size]').value),pages=Math.max(1,Math.ceil(entries.length/size));page=Math.min(page,pages-1);body.innerHTML=entries.slice(page*size,(page+1)*size).map(({row,index})=>`<tr><td class="source-row-number">${index+1}</td>${table.headers.map((h,i)=>`<td data-row="${index}" data-col="${i}" title="${esc(row[h])}">${esc(row[h])}</td>`).join('')}</tr>`).join('');q('[data-count]').textContent=t(`匹配 ${entries.length} / ${table.rows.length} 行 · ${page+1}/${pages} 页`,`Matched ${entries.length} / ${table.rows.length} rows · Page ${page+1}/${pages}`);q('[data-prev]').disabled=page===0;q('[data-next]').disabled=page>=pages-1;
   }
-  function close(){if(dirty&&!window.confirm(t('尚有未保存修改，确定关闭？','Discard unsaved changes?')))return;dialog.close();dialog.remove();}
+  function close(){if(dirty&&!window.confirm(t('尚有未保存修改，确定关闭？','Discard unsaved changes?')))return;detachWindow();dialog.close();dialog.remove();}
   dialog.addEventListener('cancel',event=>{event.preventDefault();close();});q('[data-close]').onclick=close;
   q('[data-save]').hidden=!state.editable;q('[data-apply]').disabled=!state.editable;q('[data-add-header]').disabled=!state.editable;q('[data-add-replace]').disabled=!state.editable;
   if(!state.editable)message(state.readOnlyReason==='admin_required'?t('当前账号只读：修改原始表及自动替换规则需要超级管理员账号；可筛选、排序和查找。','Read-only account: editing source data and import rules requires an administrator. Filtering, sorting and searching are available.'):t('业务快照只读，可筛选、排序和查找','Business snapshot is read-only; filtering, sorting and searching are available'));
