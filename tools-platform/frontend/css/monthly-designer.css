@@ -523,3 +523,10 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 [data-theme=dark] .component-result-preview small,body.dark-mode .component-result-preview small{color:#a8c4be}
 [data-theme=dark] :is(#pivotFieldsPanel,#blockEditor) .component-metric-results button,body.dark-mode :is(#pivotFieldsPanel,#blockEditor) .component-metric-results button{background:#24394d;color:#d9e6f1;border-color:#435c72}
 [data-theme=dark] :is(#pivotFieldsPanel,#blockEditor) .component-metric-results button[aria-pressed=true],body.dark-mode :is(#pivotFieldsPanel,#blockEditor) .component-metric-results button[aria-pressed=true]{background:#264b48;color:#d6f0e7;border-color:#639b91}
+#pivotFieldsPanel .inspector-pinned-tools{position:sticky;top:0;z-index:12;background:var(--pane-soft);padding-bottom:8px;isolation:isolate;display:flex;flex-direction:column;flex:none;max-height:55%;min-height:42px}
+#pivotFieldsPanel .inspector-head-actions{display:flex;align-items:center;gap:6px;margin-left:auto}
+#pivotFieldsPanel .inspector-head-actions button{display:inline-flex;align-items:center;justify-content:center;flex:none;width:30px;height:30px;margin:0;padding:5px}
+#pivotFieldsPanel .inspector-head-actions [aria-expanded=true]{background:var(--pane-accent);color:var(--pane-card)}
+#pivotFieldsPanel .inspector-pinned-tools [data-component-presets-host]{min-height:0;flex-shrink:1;margin:5px 0 0;max-height:min(46vh,360px);overflow:auto;overscroll-behavior:contain;box-shadow:0 5px 16px #153b6012}
+
+#pivotFieldsPanel .inspector-pinned-tools>.pivot-panel-head{flex-shrink:0;width:100%;margin:0;padding:0 0 8px}

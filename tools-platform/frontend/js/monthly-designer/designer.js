@@ -1,7 +1,7 @@
 (function(){
     'use strict';
     // This stamp identifies the executing script, even if an older copy was cached.
-    const scriptVersion='20261012-13';
+    const scriptVersion='20261012-14';
     const versionBadge=document.createElement('span');versionBadge.id='monthlyScriptVersion';versionBadge.className='monthly-script-version';versionBadge.setAttribute('data-controls','');versionBadge.dataset.version=scriptVersion;document.body.append(versionBadge);
     const engine=window.MonthlyDocumentEngine;
     const view=window.MonthlyCatalogView,S=window.MonthlySourceRules,W=window.MonthlyWorkspace;
@@ -223,6 +223,7 @@
         }catch(error){host.querySelector('[role=status]').textContent=error.message;}};
     }
     async function componentPresets(block,host){
+        host.presetBlock=block;
         host.innerHTML=`<p role="status">${t('读取复用配置…','Loading component presets…')}</p>`;
         let presets=await request('/api/upload/monthly-component-presets'),selected='';if(!host.isConnected)return;
         const draw=()=>{host.innerHTML=`<h3>${t('组件复用配置','Reusable component settings')}</h3><p>${t('保存当前组件已应用的整套配置：来源规则、数据处理、展示样式和布局，供其他月报或模板中的单个组件主动采用。不会更新默认模板，不携带业务数据。','Saves all applied source, processing, style and layout settings for reuse by one component in another report or template. Does not update the default template or include business rows.')}</p><select data-component-preset><option value="">${t('新建配置','New preset')}</option>${presets.map(preset=>`<option value="${preset.id}" ${selected===preset.id?'selected':''}>${escape(preset.name)}</option>`).join('')}</select><input data-component-name maxlength="200" value="${escape(presets.find(preset=>preset.id===selected)?.name||pair(block.title)||typeName(block.type))}" aria-label="${t('配置名称','Preset name')}"><button data-component-load>${t('采用此配置','Use this preset')}</button><button data-component-save>${t('保存复用配置到服务器','Save reusable preset')}</button><button data-component-delete>${t('删除复用配置','Delete preset')}</button><p role="status"></p>`;};draw();
@@ -1085,7 +1086,7 @@
         function simplify(){const f=form.elements;const type=f.type.value;const kind=f.kind.value;const show=(name,value)=>{const el=f[name];if(el)el.closest('label').hidden=!value;};
             for(const name of ['kind','mode'])show(name,type!=='text');
             for(const name of ['pinTargetPeriod','pinImportDate'])show(name,type!=='text'&&f.mode.value==='pinned');
-            for(const name of ['metricOrigin','metricLevel'])show(name,type!=='text'&&kind==='metric');show('metricCategory',type!=='text'&&kind==='metric');show('metricKey',type!=='text'&&kind==='metric');show('sourceKey',type!=='text'&&kind==='file');show('sectionKey',type!=='text'&&kind==='section');show('tableMode',type!=='text'&&type!=='metric'&&kind==='metric');show('snapshotId',type!=='text'&&kind!=='file'&&f.mode.value==='pinned');show('fileId',type!=='text'&&kind==='file'&&f.mode.value==='pinned');show('sheetName',type!=='text'&&type!=='metric'&&kind!=='section'&&(kind!=='metric'||f.tableMode.value!=='processed'));for(const name of ['columns','limit'])show(name,type==='table');for(const name of ['chartX','chartY','aggregation'])show(name,type==='chart'&&kind!=='metric');for(const name of ['ruleZh','ruleEn'])show(name,type==='summary');
+            for(const name of ['metricOrigin','metricLevel'])show(name,type!=='text'&&kind==='metric');show('metricCategory',type!=='text'&&kind==='metric'&&f.metricLevel.value==='sub');show('metricKey',type!=='text'&&kind==='metric');show('sourceKey',type!=='text'&&kind==='file');show('sectionKey',type!=='text'&&kind==='section');show('tableMode',type!=='text'&&type!=='metric'&&kind==='metric');show('snapshotId',type!=='text'&&kind!=='file'&&f.mode.value==='pinned');show('fileId',type!=='text'&&kind==='file'&&f.mode.value==='pinned');show('sheetName',type!=='text'&&type!=='metric'&&kind!=='section'&&(kind!=='metric'||f.tableMode.value!=='processed'));for(const name of ['columns','limit'])show(name,type==='table');for(const name of ['chartX','chartY','aggregation'])show(name,type==='chart'&&kind!=='metric');for(const name of ['ruleZh','ruleEn'])show(name,type==='summary');
             dialog.querySelector('.editor-column-picker').hidden=type!=='table';dialog.querySelector('.editor-filters').hidden=!['table','chart','summary'].includes(type);dialog.querySelector('[data-add-filter]').hidden=dialog.querySelector('.editor-filters').hidden;
             dialog.querySelector('[data-editor-note=source]').hidden=type==='text';
             dialog.querySelector('[data-editor-note=filters]').hidden=dialog.querySelector('.editor-filters').hidden;

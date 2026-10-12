@@ -38,7 +38,7 @@
         form.addEventListener('input',event=>{if(event.target===f.ruleZh||event.target===f.ruleEn)sync();});
         function sync(){
             const type=f.type.value,metric=type!=='text'&&f.kind.value==='metric';
-            picker.hidden=!metric;field('metricKey').hidden=true;if(metric)f.mode.options[0].textContent=versionLabel();
+            picker.hidden=!metric;field('metricKey').hidden=true;const childCategories=metric&&f.metricLevel.value==='sub';field('metricCategory').hidden=!childCategories;f.metricCategory.disabled=!childCategories;if(!childCategories)f.metricCategory.value='';if(metric)f.mode.options[0].textContent=versionLabel();
             // A metric card has a single source kind. There is no decision to expose here.
             if(type==='metric')field('kind').hidden=true;
             filters.hidden=!['table','chart','summary'].includes(type)||(type==='chart'&&metric);
