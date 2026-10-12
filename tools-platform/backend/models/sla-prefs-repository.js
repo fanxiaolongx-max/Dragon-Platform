@@ -121,8 +121,21 @@ async function getPrefsObject() {
 
 async function getPrefItem(prefKey, { mode = 'auto' } = {}) {
     const { items, source } = await getPrefsObject({ mode });
+    if (items[prefKey]) {
+        return {
+            item: items[prefKey],
+            source
+        };
+    }
+    const fallback = Object.values(items).find(pref => {
+        const meta = pref && pref._sourceMeta;
+        if (!meta) return false;
+        if (Array.isArray(meta.previousHashes) && meta.previousHashes.includes(prefKey)) return true;
+        if (Array.isArray(meta.aliases) && meta.aliases.includes(prefKey)) return true;
+        return false;
+    });
     return {
-        item: items[prefKey] || null,
+        item: fallback || null,
         source
     };
 }

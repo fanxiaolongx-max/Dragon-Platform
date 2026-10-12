@@ -1,5 +1,5 @@
 // Read-only, month-scoped worksheets over complete tenant meeting snapshots.
-const meetings = require('./meeting-snapshots-repository');
+const meetings = ()=>require('./meeting-snapshots-repository');
 const sourceTime = require('../../frontend/js/monthly-designer/source-rules').time;
 const labels = { qr: 'QR', rfc: 'RFC', wfm: 'WFM', offline: '现场签到', online: '在线参会' };
 const normalize = value => String(value ?? '').replace(/^\uFEFF/, '').trim();
@@ -98,14 +98,14 @@ async function catalog(options={}) {
     const currentKeys = new Set();
     const tenantId = (require('./tenant-context').getTenantId) ? require('./tenant-context').getTenantId() : 'default';
     // Pick by import/update time, not meeting business date. Load payload only for selected versions.
-    let versions=await meetings.listSnapshots({since:options.since});
+    let versions=await meetings().listSnapshots({since:options.since});
     if(options.latestOnly){
         const required=new Set((options.meetingFileIds||[]).map(id=>parseId(id)?.snapshotId).filter(Boolean));
         versions.sort((a,b)=>sourceTime(b.updatedAt||b.createdAt)-sourceTime(a.updatedAt||a.createdAt)||String(b.id).localeCompare(String(a.id)));
         const latest=versions[0]?.id;versions=versions.filter(item=>item.id===latest||required.has(item.id));
     }
     for (const version of versions) {
-        const item=await meetings.getSnapshot(version.id);if(!item)continue;
+        const item=await meetings().getSnapshot(version.id);if(!item)continue;
         await new Promise(resolve=>setImmediate(resolve));
         try{
         if(!item.payload||!Array.isArray(item.payload.sheets))throw new Error('Invalid source payload');
@@ -132,7 +132,7 @@ async function catalog(options={}) {
     for (const k of meetingCatalogCache.keys()) if (!options.since && k.startsWith(tenantId + ':') && !currentKeys.has(k)) meetingCatalogCache.delete(k);
     return { files, batches: [...batches.values()],errors };
 }
-async function source(value) { const parsed = parseId(value);if (!parsed) return null;const item = await meetings.getSnapshot(parsed.snapshotId);return item ? { ...tables(item, parsed.period, parsed.category), index: parsed.index } : null; }
+async function source(value) { const parsed = parseId(value);if (!parsed) return null;const item = await meetings().getSnapshot(parsed.snapshotId);return item ? { ...tables(item, parsed.period, parsed.category), index: parsed.index } : null; }
 async function getSheet(value) { const result = await source(value);return result?.sheets?.find(sheet => sheet.id === value) || null; }
 async function getFile(value, original = false) {
     const result = await source(value);if (!result?.file || result.index !== null) return null;
@@ -141,4 +141,4 @@ async function getFile(value, original = false) {
     result.sheets.forEach((sheet, i) => { const target = workbook.addWorksheet(`${sheet.name.replace(/[\\/?*\[\]:]/g, ' ').slice(0, 25)}-${i + 1}`);target.addRow(sheet.headers);for (const row of sheet.rows) target.addRow(sheet.headers.map(header => row[header]));target.getRow(1).font = { bold: true }; });
     const bytes = Buffer.from(await workbook.xlsx.writeBuffer());return { ...result.file, size: bytes.length, original_blob: bytes };
 }
-module.exports = { catalog, getFile, getSheet, orderDate, attendanceDate, windowStart };
+module.exports = { catalog, getFile, getSheet, parseId, tables, orderDate, attendanceDate, windowStart };

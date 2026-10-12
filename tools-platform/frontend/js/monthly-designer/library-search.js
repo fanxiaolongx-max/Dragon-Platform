@@ -1,0 +1,30 @@
+(function(root){
+ 'use strict';
+ function create({request,t,escape,render}){
+  let scope=[],query='',key='',enabled=false,phase='idle',active=false,cursor=null,offset=0,end=0,checked=0,rows=0,generation=0,controller=null,error='',batchRows=0,lastRequest=0,lastStart=0;const matches=new Map(),warnings=new Map();
+  function reset(){generation++;controller?.abort();controller=null;if(cursor)request('/api/upload/source-search?cursor='+encodeURIComponent(cursor)+'&cancel=1',{keepalive:true}).catch(()=>{});cursor=null;offset=checked=rows=batchRows=0;phase='idle';active=false;matches.clear();warnings.clear();error='';}
+  function configure(options){const next=JSON.stringify([options.query.trim(),options.files]);if(key!==next){reset();key=next;}query=options.query.trim();scope=options.files;enabled=options.enabled&&[...query].length>=1&&query.length<=120&&options.ordinaryCount<=5&&scope.length>0;}
+  const has=file=>(file.mergedFiles||[file]).some(item=>matches.has(item.id));
+  function matchMarkup(file){const hit=(file.mergedFiles||[file]).map(item=>matches.get(item.id)).find(Boolean);if(!hit)return '';const kind={column:t('列名','Column'),content:t('内容','Content'),'original-column':t('原始列名','Original column'),'original-content':t('原始内容','Original content'),mapping:t('映射规则','Mapping rule')}[hit.kind]||t('内容','Content');return `<small class="library-deep-match">${escape(kind)} · ${escape(hit.sheetName)}${hit.field?' · '+escape(hit.field):''}${hit.rowNumber?' · '+t('第 '+hit.rowNumber+' 行','Row '+hit.rowNumber):''}</small>`;}
+  function buttonMarkup(){return enabled||active?`<button type="button" class="library-deep-trigger" data-deep-start ${phase==='running'?'disabled':''} title="${t('分批搜索当前范围内表格的列名、内容及映射前后数据','Search columns, content and original/mapped data in the current scope, in batches')}">${t('深度搜索','Deep search')}</button>`:'';}
+  function statusMarkup(){if(!active)return '';const more=!!cursor||offset<scope.length,failed=phase==='error';let label=phase==='running'?t('正在分批搜索…','Searching a bounded batch…'):phase==='stopped'?t('搜索已停止，已找到的表保留','Search stopped; matches are retained'):failed?error:more?t('已显示命中的表，尚有数据未检查','Matches shown; more data remains unchecked'):warnings.size?t('检索已结束，部分数据未完整检查','Search ended; some data was not fully checked'):t('本次范围检索完成','Current scope checked');return `<section class="library-deep-status" aria-live="polite"><strong>${escape(label)}</strong><small>${t('深度命中 '+matches.size+' 张表 · 已检查 '+checked+'/'+scope.length+' 张表','Deep matches: '+matches.size+' tables · Checked '+checked+'/'+scope.length+' tables')}${rows?' · '+t('已扫描 '+rows+' 行','Scanned '+rows+' rows'):''}</small>${warnings.size?`<small class="library-deep-warning">${t(warnings.size+' 项未完整检查（大文件、未解析或读取失败）',warnings.size+' items were not fully checked (large, unparsed or unavailable)')}</small>`:''}${phase==='running'?`<button type="button" data-deep-stop>${t('停止','Stop')}</button>`:more?`<button type="button" data-deep-more>${t(failed?'重试 / 加载更多':'加载更多',failed?'Retry / load more':'Load more')}</button>`:''}</section>`;}
+  async function load(restart=false){
+   if(phase==='running')return;if(restart){reset();active=true;}if(!active)return;const token=generation;phase='running';error='';controller=new AbortController();render();
+   try{
+    let url;if(cursor)url='/api/upload/source-search?cursor='+encodeURIComponent(cursor);else{end=offset;while(end<scope.length&&end-offset<128){if(end>offset&&encodeURIComponent(JSON.stringify(scope.slice(offset,end+1))).length>5000)break;end++;}url='/api/upload/source-search?q='+encodeURIComponent(query)+'&files='+encodeURIComponent(JSON.stringify(scope.slice(offset,end)));}
+    await new Promise(resolve=>setTimeout(resolve,Math.max(0,220-(Date.now()-lastRequest),cursor?0:450-(Date.now()-lastStart))));if(token!==generation)return;lastRequest=Date.now();if(!cursor)lastStart=lastRequest;let responseStatus=0;
+    const result=await request(url,{signal:controller.signal,onResponse:response=>{responseStatus=response.status;}}).catch(issue=>{issue.searchStatus=responseStatus;throw issue;});if(token!==generation)return;
+    for(const hit of result.results)matches.set(hit.fileId,hit);for(const warning of result.warnings||[])warnings.set(warning.fileId+warning.code,warning);
+    checked=offset+result.scannedFiles;rows+=Math.max(0,result.scannedRows-batchRows);batchRows=result.cursor?result.scannedRows:0;
+    cursor=result.cursor;if(!cursor)offset=end;phase=cursor||offset<scope.length?'paused':'done';
+   }catch(issue){if(token!==generation)return;phase=issue.name==='AbortError'?'stopped':'error';error=issue.searchStatus===429?t('深度搜索正在忙，请稍后重试','Deep search is busy; retry shortly'):t('搜索暂未完成，请重试或稍后加载更多','Search incomplete; retry or load more shortly');if(issue.searchStatus===410||issue.code==='SOURCE_SEARCH_EXPIRED'){cursor=null;batchRows=0;}}
+   finally{if(token===generation){controller=null;render();}}
+  }
+  function stop(){generation++;controller?.abort();controller=null;if(cursor)request('/api/upload/source-search?cursor='+encodeURIComponent(cursor)+'&cancel=1',{keepalive:true}).catch(()=>{});cursor=null;batchRows=0;phase='stopped';render();}
+  function footerMarkup(){if(!active||!cursor&&offset>=scope.length)return '';return `<button type="button" class="library-deep-more" data-deep-more ${phase==='running'?'disabled':''}>${t(phase==='running'?'正在搜索…':'加载更多搜索结果',phase==='running'?'Searching…':'Load more search results')}</button>`;}
+  function bind(container){container.querySelector('[data-deep-start]')?.addEventListener('click',()=>{render();if(enabled||active)load(true);});container.querySelectorAll('[data-deep-more]').forEach(button=>button.addEventListener('click',()=>load()));container.querySelector('[data-deep-stop]')?.addEventListener('click',stop);}
+  root.addEventListener('pagehide',reset);
+  return {configure,reset,has,matchMarkup,buttonMarkup,statusMarkup,footerMarkup,bind,count:()=>matches.size,isActive:()=>active};
+ }
+ root.MonthlyLibrarySearch={create};
+})(window);

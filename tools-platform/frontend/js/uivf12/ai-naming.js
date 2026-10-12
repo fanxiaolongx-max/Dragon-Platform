@@ -4,6 +4,8 @@
 (function () {
     let requestSequence = 0;
     let pendingRequest = Promise.resolve(null);
+    let hasSavedCurrent = false;
+    let isRequestInProgress = false;
 
     function t(key) {
         return typeof window.UIVT === 'function' ? window.UIVT(key) : key;
@@ -129,6 +131,7 @@
 
         if (elements.suggestions) elements.suggestions.hidden = true;
         setGuideState('loading', t('uiv.input.fileAiAnalyzing'), t('uiv.input.fileAiAnalyzingHint'));
+        isRequestInProgress = true;
 
         try {
             const result = await API.post('/api/uiv-ai-adapter/name-script', {
@@ -147,23 +150,34 @@
 
             const combinedName = `${zhName}_${enName}`;
             const userEditedWhileWaiting = elements.input.value.trim() !== startingValue;
-            if (!userEditedWhileWaiting) applyCandidate(combinedName);
+            if (!userEditedWhileWaiting && !hasSavedCurrent) {
+                applyCandidate(combinedName);
+            }
             showSuggestions(zhName, enName);
             setGuideState(
                 'ready',
-                userEditedWhileWaiting ? t('uiv.input.fileAiSuggestionsReady') : t('uiv.input.fileAiApplied'),
-                userEditedWhileWaiting ? t('uiv.input.fileAiKeptManual') : combinedName
+                hasSavedCurrent
+                    ? (t('uiv.input.fileAiSuggestionsReady') || 'AI建议名称已就绪')
+                    : (userEditedWhileWaiting ? t('uiv.input.fileAiSuggestionsReady') : t('uiv.input.fileAiApplied')),
+                hasSavedCurrent
+                    ? `${t('uiv.input.fileAiSuggestionsReady') || 'AI候选'}: ${combinedName}`
+                    : (userEditedWhileWaiting ? t('uiv.input.fileAiKeptManual') : combinedName)
             );
-            return { zhName, enName, combinedName, applied: !userEditedWhileWaiting };
+            return { zhName, enName, combinedName, applied: !userEditedWhileWaiting && !hasSavedCurrent };
         } catch (error) {
             if (sequence !== requestSequence) return null;
             console.warn('[UIVF12 AI Naming] unavailable:', error);
             setGuideState('error', t('uiv.input.fileAiUnavailable'), t('uiv.input.fileAiUnavailableHint'));
             return null;
+        } finally {
+            if (sequence === requestSequence) {
+                isRequestInProgress = false;
+            }
         }
     }
 
     function generateForCurrentScript(options = {}) {
+        hasSavedCurrent = false;
         pendingRequest = requestName(options.source).catch(() => null);
         return pendingRequest;
     }
@@ -172,8 +186,18 @@
         return pendingRequest.catch(() => null);
     }
 
+    function markSaved() {
+        hasSavedCurrent = true;
+    }
+
+    function isPending() {
+        return Boolean(isRequestInProgress);
+    }
+
     function reset() {
         requestSequence += 1;
+        hasSavedCurrent = false;
+        isRequestInProgress = false;
         pendingRequest = Promise.resolve(null);
         const elements = getElements();
         if (elements.suggestions) elements.suggestions.hidden = true;
@@ -190,6 +214,8 @@
     window.UIVAINaming = {
         generateForCurrentScript,
         waitForPending,
+        markSaved,
+        isPending,
         reset
     };
 })();

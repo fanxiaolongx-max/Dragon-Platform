@@ -34,3 +34,8 @@ test('dynamic metrics choose latest within the report month regardless of catalo
  assert.equal(E.metricTextParts('[[@metric:m]]',{files:[],batches:[],snapshots,reportMonth:'2026-10'})[0].value,8);
  assert.equal(E.metricTextParts('[[@metric:m]]',{files:[],batches:[],snapshots,reportMonth:'2026-11'})[0].missing,true);
 });
+
+test('library groups identical filenames across original and structured archives by month and time, preserving reference identities',()=>{
+ const catalog={batches:[],files:[{...file('upload','2026-09','2026-10-12T12:00:00Z'),name:'SR_Latest_2026年09月.csv'},{...file('capture','2026-09','2026-10-12T11:00:00Z','structured'),name:'SR_Latest_2026年09月.csv'},{...file('other-month','2026-08','2026-10-12T13:00:00Z'),name:'SR_Latest_2026年09月.csv'},{...file('other-name','2026-09','2026-10-12T10:00:00Z'),name:'SR_2026年09月.csv'}]};
+ const groups=S.libraryGroups(catalog,'2026-09');assert.equal(groups.length,2);assert.equal(groups.find(group=>group.file.id==='upload').versions.length,2);assert.equal(S.catalogGroups(catalog,'2026-09').length,2);const rule=S.create(catalog.files[1],catalog.files[1].sheets[0],catalog,'2026-09',true);assert.equal(S.resolve(rule,catalog,'2026-09').file.id,'capture');assert.equal(S.libraryGroups(catalog,'').length,3);
+});

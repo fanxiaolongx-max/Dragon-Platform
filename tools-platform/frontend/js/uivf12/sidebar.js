@@ -247,6 +247,150 @@ function showCategoryCreateDialog() {
     });
 }
 
+function showScriptRenameDialog(script) {
+    const overlay = document.getElementById('uivScriptRenameOverlay');
+    const input = document.getElementById('uivScriptRenameInput');
+    const countEl = document.getElementById('uivScriptRenameCount');
+    const errorEl = document.getElementById('uivScriptRenameError');
+    const cancelBtn = document.getElementById('uivScriptRenameCancel');
+    const confirmBtn = document.getElementById('uivScriptRenameSubmit');
+
+    if (!overlay || !input || !cancelBtn || !confirmBtn) {
+        const promptResult = window.prompt(UIVT('uiv.script.renamePrompt') || '请输入新的脚本名称：', script?.name || '');
+        return Promise.resolve(promptResult ? promptResult.trim() : null);
+    }
+
+    const currentName = String(script?.name || '').trim();
+    const maxLength = Number(input.maxLength) || 100;
+    const previousFocus = document.activeElement;
+    input.value = currentName;
+    if (countEl) countEl.textContent = `${input.value.length}/${maxLength}`;
+    if (errorEl) {
+        errorEl.textContent = '';
+        errorEl.classList.remove('visible');
+    }
+    input.setAttribute('aria-invalid', 'false');
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden', 'false');
+
+    return new Promise(resolve => {
+        let settled = false;
+        const setError = message => {
+            if (errorEl) {
+                errorEl.textContent = message || '';
+                errorEl.classList.toggle('visible', Boolean(message));
+            }
+            input.setAttribute('aria-invalid', message ? 'true' : 'false');
+        };
+        const validate = () => {
+            const name = input.value.trim();
+            if (!name) {
+                setError(UIVT('uiv.renameDialog.required') || '请先输入脚本名称');
+                return null;
+            }
+            if (name === currentName) {
+                return name;
+            }
+            const duplicate = (lastScripts || []).some(s =>
+                s.id !== script.id &&
+                String(s.name || '').trim().toLowerCase() === name.toLowerCase() &&
+                s.category === script.category
+            );
+            if (duplicate) {
+                setError(UIVT('uiv.renameDialog.duplicate') || '该分类下已存在同名脚本，请换一个名称');
+                return null;
+            }
+            setError('');
+            return name;
+        };
+        const finish = name => {
+            if (settled) return;
+            settled = true;
+            overlay.classList.remove('open');
+            overlay.setAttribute('aria-hidden', 'true');
+            overlay.removeEventListener('click', handleOverlayClick);
+            document.removeEventListener('keydown', handleKeydown);
+            input.removeEventListener('input', handleInput);
+            cancelBtn.onclick = null;
+            confirmBtn.onclick = null;
+            if (previousFocus && typeof previousFocus.focus === 'function') previousFocus.focus();
+            resolve(name);
+        };
+        const submit = () => {
+            const name = validate();
+            if (name) finish(name);
+            else input.focus({ preventScroll: true });
+        };
+        const handleInput = () => {
+            if (countEl) countEl.textContent = `${input.value.length}/${maxLength}`;
+            if (errorEl && errorEl.classList.contains('visible')) validate();
+        };
+        const handleOverlayClick = event => {
+            if (event.target === overlay) finish(null);
+        };
+        const handleKeydown = event => {
+            if (event.key === 'Escape') finish(null);
+            if (event.key === 'Enter' && document.activeElement === input) {
+                event.preventDefault();
+                submit();
+                return;
+            }
+            if (event.key !== 'Tab') return;
+            if (event.shiftKey && document.activeElement === input) {
+                event.preventDefault();
+                confirmBtn.focus();
+            } else if (!event.shiftKey && document.activeElement === confirmBtn) {
+                event.preventDefault();
+                input.focus();
+            }
+        };
+
+        cancelBtn.onclick = () => finish(null);
+        confirmBtn.onclick = submit;
+        input.addEventListener('input', handleInput);
+        overlay.addEventListener('click', handleOverlayClick);
+        document.addEventListener('keydown', handleKeydown);
+        setTimeout(() => {
+            if (!settled) {
+                input.focus({ preventScroll: true });
+                input.select();
+            }
+        }, 50);
+    });
+}
+
+async function renameScript(script) {
+    if (!script || !script.id) return;
+    const newName = await showScriptRenameDialog(script);
+    if (!newName || newName === script.name) return;
+
+    try {
+        const res = await API.patch(`/api/uiv/scripts/${encodeURIComponent(script.id)}/rename`, { name: newName });
+
+        const currentTitle = window.UIVWorkbench?.getCurrentTitle?.() || '';
+        const baseOld = script.name.replace(/(_CN|_AE|_DE)$/, '');
+        if (currentTitle === script.name || currentTitle === baseOld) {
+            const baseNew = newName.replace(/(_CN|_AE|_DE)$/, '');
+            window.UIVWorkbench?.setCurrentTitle?.(baseNew, baseNew);
+            const fileNameInput = document.getElementById('fileName');
+            if (fileNameInput && (fileNameInput.value === script.name || fileNameInput.value === baseOld)) {
+                fileNameInput.value = baseNew;
+            }
+        }
+
+        await loadSavedScripts({ reason: 'renameScript', scriptId: script.id, newName });
+        if (res?.item?.ruleSyncCount > 0) {
+            showToast(UIVT('uiv.toast.scriptRenamedWithRules', { name: newName, count: res.item.ruleSyncCount }));
+        } else {
+            showToast(UIVT('uiv.toast.scriptRenamed', { name: newName }));
+        }
+        API.logHistory('uiv', '重命名脚本', `${script.name} -> ${newName}`);
+    } catch (err) {
+        logSidebarError('脚本重命名失败', err, { id: script.id, name: script.name });
+        showToast(UIVT('uiv.toast.renameFail'), 'error');
+    }
+}
+
 function renderRepositorySource() {
     const panel = document.getElementById('repoSourcePanel');
     if (!panel) return;
@@ -291,6 +435,7 @@ async function loadSavedScripts(options = {}) {
         });
         renderRepositorySource();
         renderSidebar(lastScripts, lastCategories);
+        window.UIVSave?.syncCategorySelect?.(lastCategories);
         logSidebarStep('侧边栏渲染完成', {
             expandedCategories: [...expandedCategories]
         });
@@ -446,6 +591,22 @@ function buildScriptItem(script) {
         else alert(UIVT('uiv.alert.legacyScript'));
     };
 
+    const rightActions = document.createElement('div');
+    rightActions.style.cssText = 'display:flex;gap:4px;align-items:center;';
+
+    const renBtn = document.createElement('button');
+    renBtn.className = 'mini-btn ren';
+    renBtn.type = 'button';
+    renBtn.innerText = '✏️';
+    renBtn.title = UIVT('uiv.script.renameTitle', { name: script.name });
+    renBtn.setAttribute('aria-label', renBtn.title);
+    renBtn.draggable = false;
+    renBtn.addEventListener('mousedown', event => event.stopPropagation());
+    renBtn.onclick = async event => {
+        event.stopPropagation();
+        await renameScript(script);
+    };
+
     const delBtn = document.createElement('button');
     delBtn.className = 'mini-btn del';
     delBtn.type = 'button';
@@ -470,8 +631,10 @@ function buildScriptItem(script) {
 
     btnGroup.appendChild(uivBtn);
     btnGroup.appendChild(conBtn);
+    rightActions.appendChild(renBtn);
+    rightActions.appendChild(delBtn);
     actionsDiv.appendChild(btnGroup);
-    actionsDiv.appendChild(delBtn);
+    actionsDiv.appendChild(rightActions);
     item.appendChild(itemTitle);
     item.appendChild(actionsDiv);
     return item;
@@ -580,5 +743,7 @@ window.UIVSidebar = {
     refreshI18n,
     getScripts,
     getCategories,
-    refillScript
+    refillScript,
+    renameScript,
+    showScriptRenameDialog
 };

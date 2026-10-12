@@ -268,16 +268,29 @@ async function loadHistoryOriginals(id) {
     }
 }
 
+const historyDeleteText=(zh,en)=>window.ToolsI18n?.getLanguage()==='en-US'?en:zh;
+const historyFileSize=value=>{const bytes=Number(value)||0;return bytes<1024?bytes+' B':bytes<1048576?(bytes/1024).toFixed(1)+' KB':(bytes/1048576).toFixed(1)+' MB';};
 window.deleteHistorySnapshot = async function(id) {
-    if (!confirm(SLAT('sla.history.confirmDelete'))) return;
-    try {
-        await API.delete('/api/sla/snapshots/' + encodeURIComponent(id));
-        showToast(SLAT('sla.history.deleted'));
-        // 重新加载快照列表
-        openHistoryModal();
-    } catch(e) {
-        showToast(SLAT('sla.history.deleteFail', { message: e.message }), 'error');
-    }
+    if(document.getElementById('history-delete-dialog'))return;
+    const dialog=document.createElement('dialog');dialog.id='history-delete-dialog';dialog.className='history-delete-dialog';
+    dialog.innerHTML=`<header><div><small>${historyDeleteText('历史导入预警快照','Historical import snapshot')}</small><h3>${historyDeleteText('删除快照','Delete snapshot')}</h3></div><button type="button" data-close aria-label="${historyDeleteText('关闭','Close')}">×</button></header><div data-impact><p>${historyDeleteText('正在读取关联原始文件…','Loading associated original files…')}</p></div><p data-error role="alert"></p><footer><button type="button" data-close>${historyDeleteText('取消','Cancel')}</button></footer>`;
+    document.body.append(dialog);let busy=false;
+    dialog.addEventListener('close',()=>dialog.remove());dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
+    const bindClose=()=>dialog.querySelectorAll('[data-close]').forEach(button=>button.onclick=()=>{if(!busy)dialog.close();});bindClose();dialog.showModal();
+    try{
+        const impact=await API.get('/api/sla/snapshots/'+encodeURIComponent(id)+'/delete-preview');if(!dialog.isConnected||!dialog.open)return;
+        const snapshot=latestSLAHistorySnapshots.find(item=>String(item.id)===String(id));
+        dialog.querySelector('[data-impact]').innerHTML=`<p>${escapeHTML(snapshot?.timestamp||'')}</p><p>${historyDeleteText('请选择删除范围。仅删除快照会保留历史原始文件；一并删除会永久移除文件及已解析工作表。','Choose the deletion scope. Snapshot-only deletion keeps original archives; deleting both permanently removes files and parsed worksheets.')}</p><div class="history-delete-summary">${historyDeleteText('关联原始文件','Associated original files')} · ${impact.files.length} · ${historyFileSize(impact.totalBytes)}</div>${impact.files.length?`<div class="history-delete-files"><table><thead><tr><th>${historyDeleteText('原始文件','Original file')}</th><th>${historyDeleteText('存档方式','Archive format')}</th><th>${historyDeleteText('文件大小','File size')}</th></tr></thead><tbody>${impact.files.map(file=>`<tr><td title="${escapeHTML(file.name)}">${escapeHTML(file.name)}<small>${escapeHTML(file.created_at)} · ${file.sheetCount} ${historyDeleteText('个工作表','worksheets')}</small></td><td>${file.kind==='structured'?historyDeleteText('结构化行','Structured rows'):historyDeleteText('原文件','Original file')}</td><td>${historyFileSize(file.size)}</td></tr>`).join('')}</tbody></table></div>`:`<p>${historyDeleteText('没有关联原始文件。','No associated original files.')}</p>`}${impact.sharedSnapshotCount?`<p class="history-delete-warning">${historyDeleteText('这些文件所在批次还被 '+impact.sharedSnapshotCount+' 份快照引用。一并删除后，其他快照的已保存指标会保留，但原始文件将无法读取。','This batch is referenced by '+impact.sharedSnapshotCount+' other snapshots. Their saved metrics remain, but the original files will no longer be available.')}</p>`:''}`;
+        dialog.querySelector('footer').innerHTML=`<button type="button" data-close>${historyDeleteText('取消','Cancel')}</button><button type="button" data-delete="snapshot">${historyDeleteText('仅删除快照','Delete snapshot only')}</button>${impact.files.length?`<button type="button" data-delete="all" class="history-delete-danger">${historyDeleteText('删除快照及原始文件','Delete snapshot and originals')}</button>`:''}`;bindClose();
+        dialog.querySelectorAll('[data-delete]').forEach(button=>button.onclick=async()=>{
+            if(busy)return;busy=true;dialog.querySelectorAll('button').forEach(item=>item.disabled=true);dialog.querySelector('[data-error]').textContent='';
+            try{
+                await API.deleteWithBody('/api/sla/snapshots/'+encodeURIComponent(id),{deleteOriginals:button.dataset.delete==='all',confirmed:true,previewToken:impact.previewToken});
+                dialog.close();showToast(SLAT('sla.history.deleted'));await openHistoryModal();
+            }catch(error){dialog.querySelector('[data-error]').textContent=error.status===409?historyDeleteText('文件清单已变化，请关闭此窗口后重新查看并确认。','The file list changed. Close this window and review the updated list.'):SLAT('sla.history.deleteFail',{message:error.message});}
+            finally{busy=false;dialog.querySelectorAll('button').forEach(item=>item.disabled=false);}
+        });
+    }catch(error){if(dialog.isConnected)dialog.querySelector('[data-error]').textContent=SLAT('sla.history.deleteFail',{message:error.message});}
 };
 
 window.openHistoryModal = openHistoryModal;

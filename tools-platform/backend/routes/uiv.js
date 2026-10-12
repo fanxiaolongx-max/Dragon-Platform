@@ -426,6 +426,30 @@ router.patch('/scripts/:id/category', async (req, res) => {
     }
 });
 
+// PATCH /api/uiv/scripts/:id/rename  → 重命名脚本
+router.patch('/scripts/:id/rename', async (req, res) => {
+    const { name } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: '脚本名称不能为空' });
+    try {
+        const updated = await scriptsRepo.renameScript(req.params.id, name.trim());
+        if (!updated) return res.status(404).json({ error: '脚本不存在' });
+        configChangeMonitor.recordConfigChangeAlert({
+            req,
+            scope: 'uiv',
+            action: '重命名抓取脚本',
+            before: { script_id: req.params.id, name: updated.oldName },
+            after: { script_id: req.params.id, name: updated.name },
+            objectType: 'uiv_scripts',
+            objectId: req.params.id,
+            message: `将脚本 ${updated.oldName || req.params.id} 重命名为 ${updated.name}`
+        });
+        res.json({ success: true, script: updated });
+    } catch (err) {
+        console.error('[PATCH /api/uiv/scripts/:id/rename] failed:', err);
+        res.status(500).json({ error: '重命名脚本失败' });
+    }
+});
+
 // ──────────────────────────────────────────────────────────
 // 分类管理
 // ──────────────────────────────────────────────────────────

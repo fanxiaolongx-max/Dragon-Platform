@@ -138,6 +138,24 @@
             'uiv.category.copyTitle': '仅打包提取此组脚本',
             'uiv.category.deleteTitle': '删除此分类',
             'uiv.script.itemTitle': '双击回填配置至工作台',
+            'uiv.script.renameAction': '重命名',
+            'uiv.script.renameTitle': '重命名脚本：{name}',
+            'uiv.script.renamePrompt': '请输入新的脚本名称：',
+            'uiv.renameDialog.eyebrow': '脚本管理 · 重命名',
+            'uiv.renameDialog.title': '重命名脚本',
+            'uiv.renameDialog.message': '修改脚本在智能调度仓库中的名称，不影响脚本自动化执行与历史数据关联。',
+            'uiv.renameDialog.label': '新脚本名称',
+            'uiv.renameDialog.placeholder': '输入新的脚本名称',
+            'uiv.renameDialog.hint': '支持中文、英文、数字与下划线',
+            'uiv.renameDialog.cancel': '取消',
+            'uiv.renameDialog.confirm': '💾 确认重命名',
+            'uiv.renameDialog.required': '请先输入脚本名称',
+            'uiv.renameDialog.duplicate': '该分类下已存在同名脚本，请换一个名称',
+            'uiv.toast.scriptRenamed': '✅ 脚本已重命名为 [{name}]',
+            'uiv.toast.scriptRenamedWithRules': '✅ 脚本已重命名为 [{name}]，已自动同步更新 {count} 项数据导入规则',
+            'uiv.toast.renameFail': '❌ 重命名失败',
+            'uiv.save.autoCategory': '📂 自动判断分类',
+            'uiv.save.categorySelectTitle': '选择保存的目标分类（默认自动判断，支持浏览器记忆）',
             'uiv.script.deleteAction': '删除',
             'uiv.script.deleteTitle': '删除脚本：{name}',
             'uiv.deleteDialog.eyebrow': '危险操作',
@@ -594,6 +612,24 @@
             'uiv.category.copyTitle': 'Package only this category',
             'uiv.category.deleteTitle': 'Delete this category',
             'uiv.script.itemTitle': 'Double-click to refill the workbench',
+            'uiv.script.renameAction': 'Rename',
+            'uiv.script.renameTitle': 'Rename script: {name}',
+            'uiv.script.renamePrompt': 'Enter new script name:',
+            'uiv.renameDialog.eyebrow': 'Script Management · Rename',
+            'uiv.renameDialog.title': 'Rename Script',
+            'uiv.renameDialog.message': 'Modify the script name in the smart repository without affecting automation execution or historical data associations.',
+            'uiv.renameDialog.label': 'New Script Name',
+            'uiv.renameDialog.placeholder': 'Enter new script name',
+            'uiv.renameDialog.hint': 'Letters, numbers, underscores, and Chinese characters are supported',
+            'uiv.renameDialog.cancel': 'Cancel',
+            'uiv.renameDialog.confirm': '💾 Confirm Rename',
+            'uiv.renameDialog.required': 'Please enter a script name first',
+            'uiv.renameDialog.duplicate': 'A script with the same name already exists in this category. Choose another name.',
+            'uiv.toast.scriptRenamed': '✅ Script renamed to [{name}]',
+            'uiv.toast.scriptRenamedWithRules': '✅ Script renamed to [{name}] and synced {count} data import rule(s)',
+            'uiv.toast.renameFail': '❌ Rename failed',
+            'uiv.save.autoCategory': '📂 Auto Category',
+            'uiv.save.categorySelectTitle': 'Select target category to save (default: auto detect, saved in browser)',
             'uiv.script.deleteAction': 'Delete',
             'uiv.script.deleteTitle': 'Delete script: {name}',
             'uiv.deleteDialog.eyebrow': 'Dangerous Action',
@@ -1111,6 +1147,14 @@
         setText('.uiv-category-create-hint', t('uiv.categoryDialog.hint'));
         setText('#uivCategoryCreateCancel', t('uiv.categoryDialog.cancel'));
         setText('#uivCategoryCreateSubmit', t('uiv.categoryDialog.confirm'));
+
+        const catSelect = document.getElementById('saveCategorySelect');
+        if (catSelect) {
+            catSelect.title = t('uiv.save.categorySelectTitle');
+            const autoOpt = catSelect.querySelector('option[value=""]');
+            if (autoOpt) autoOpt.textContent = t('uiv.save.autoCategory');
+        }
+        setPlaceholder('#uivScriptRenameInput', t('uiv.renameDialog.placeholder'));
 
         // Generic data attribute internationalization
         document.querySelectorAll('[data-uiv-i18n]').forEach(node => {

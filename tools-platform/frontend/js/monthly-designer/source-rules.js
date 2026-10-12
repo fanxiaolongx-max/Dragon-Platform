@@ -40,11 +40,23 @@
         const groups=new Map();for(const file of catalog.files||[]){if(period&&fileMonth(file,catalog)!==period)continue;const key=JSON.stringify([file.kind||'original',identity(file.source_key||file.name)]);if(!groups.has(key))groups.set(key,{key,versions:[]});groups.get(key).versions.push(file);}
         return [...groups.values()].map(group=>{group.versions.sort((a,b)=>time(b.created_at)-time(a.created_at)||String(b.id).localeCompare(String(a.id)));return {...group,file:group.versions[0]};});
     }
+    // Directory grouping is independent of saved reference identities and file IDs.
+    function libraryGroups(catalog,period){
+        const groups=new Map();
+        for(const file of catalog.files||[]){
+            const month=fileMonth(file,catalog);if(period&&month!==period)continue;
+            const kind=['original','structured'].includes(file.kind||'original')?'source-table':file.kind;
+            const name=String(file.name||'');
+            const key=JSON.stringify([kind,month,name]);
+            if(!groups.has(key))groups.set(key,{key,versions:[]});groups.get(key).versions.push(file);
+        }
+        return [...groups.values()].map(group=>{group.versions.sort((a,b)=>time(b.created_at)-time(a.created_at));return {...group,file:group.versions[0]};});
+    }
     function references(block){return [...(block.binding?[{key:'binding',value:block.binding}]:[]),...(block.chart?.pivot?.sources||[]).map((value,index)=>({key:'pivot:'+index,value})),...(block.chart?.series||[]).map((value,index)=>({key:'series:'+index,value}))];}
     function validateSaved(saved){
         if(!saved||typeof saved!=='object'||saved.month!==undefined&&!validMonth(saved.month)||!saved.catalog||!Array.isArray(saved.catalog.files)||!Array.isArray(saved.catalog.snapshots)||!Array.isArray(saved.catalog.batches)||!Array.isArray(saved.resources)||saved.resources.length>32||JSON.stringify(saved).length>12000000)throw new Error('Invalid monthly saved data');
         if(saved.definition&&(!saved.definition||Array.isArray(saved.definition)||typeof saved.definition!=='object'||Object.keys(saved.definition).some(key=>!['type','binding','chart','columns','filters','limit','rule'].includes(key))))throw new Error('Invalid monthly saved definition');
         for(const item of saved.resources){if(!item||typeof item.url!=='string'||!/^\/api\/(?:upload\/source-(?:sheets|snapshots)\/[\w%./:-]+|duty-roster\?month=\d{4}-\d{2})$/.test(item.url)||!item.data||typeof item.data!=='object')throw new Error('Invalid monthly saved resource');}
     }
-    return {validMonth,shift,time,identity,fileMonth,snapshotMonth,validate,targetMonth,create,resolve,catalogGroups,references,validateSaved};
+    return {validMonth,shift,time,identity,fileMonth,snapshotMonth,validate,targetMonth,create,resolve,catalogGroups,libraryGroups,references,validateSaved};
 });

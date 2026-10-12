@@ -503,15 +503,14 @@ router.post('/snapshot', async (req, res) => {
     }
 });
 
-// DELETE /api/sla/snapshots/:id
+// Read-only impact preview; originals are deleted only after explicit confirmation.
+router.get('/snapshots/:id/delete-preview', async (req, res) => {
+    try { res.setHeader('Cache-Control','no-store'); res.json(await require('../models/sla-snapshot-delete').preview(req.params.id)); }
+    catch (err) { res.status(err.status || 500).json({ error: err.message, code: err.code || 'SNAPSHOT_DELETE_ERROR' }); }
+});
 router.delete('/snapshots/:id', async (req, res) => {
-    try {
-        await snapshotsRepo.deleteSnapshot(req.params.id);
-        res.json({ success: true });
-    } catch (err) {
-        console.error('[DELETE /api/sla/snapshots/:id] failed:', err);
-        res.status(500).json({ error: '删除历史快照失败' });
-    }
+    try { res.json(await snapshotsRepo.deleteSnapshot(req.params.id, req.body || {})); }
+    catch (err) { res.status(err.status || 500).json({ error: err.message, code: err.code || 'SNAPSHOT_DELETE_ERROR' }); }
 });
 
 // PUT /api/sla/snapshots/:id

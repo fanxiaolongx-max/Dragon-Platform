@@ -1,5 +1,6 @@
 // Read-only worksheets over tenant-owned topic snapshots; no duplicate database.
-const topics=require('./topic-snapshots-repository');
+const topics=()=>require('./topic-snapshots-repository');
+const {buildEosMonthlyReport}=require('./topic-eos-report');
 const engine=require('../../frontend/js/shared/topic-monthly-engine');
 const fileId=(snapshotId,key)=>`ts-${snapshotId}-${key}`;
 function parseId(value){const match=String(value||'').match(/^ts-(topic_[\w]+)-(eos|certificate|change|interception|sr|return|filing)(?:-s(\d+))?$/);return match?{snapshotId:match[1],key:match[2],index:match[3]===undefined?null:Number(match[3])}:null;}
@@ -14,7 +15,7 @@ function tables(item,key){
     let sheets;
     if(key==='eos'){
         if(!snapshot.data.eosProduct.length&&!snapshot.data.eosVersion.length)return null;
-        const report=topics.buildEosMonthlyReport(item,month),columns={customer:'客户',quantity:'总量',incorporated:'已收编',pending:'待收编',annualPlan:'年度计划',noPlan:'无计划',currentRate:'当前完成率（%）',plannedRate:'计划完成率（%）',targetRate:'目标（%）'};
+        const report=buildEosMonthlyReport(item,month),columns={customer:'客户',quantity:'总量',incorporated:'已收编',pending:'待收编',annualPlan:'年度计划',noPlan:'无计划',currentRate:'当前完成率（%）',plannedRate:'计划完成率（%）',targetRate:'目标（%）'};
         sheets=['product','version'].map(type=>{const rows=[...report[type].accounts,{customer:'【总计】',...report[type].total}].map(row=>Object.fromEntries(Object.entries(row).filter(([field,value])=>typeof value!=='object').map(([field,value])=>{const colName=columns[field]||field;const isPercent=['currentRate','plannedRate','targetRate'].includes(field)||isPercentCol(null,colName);return [colName,cell(value,isPercent)];})));return rawSheet(type==='product'?'产品收编客户汇总':'版本收编客户汇总',rows);});
         sheets.push(rawSheet('产品EOS原始明细',snapshot.data.eosProduct),rawSheet('版本EOS原始明细',snapshot.data.eosVersion));
     }else{
@@ -31,7 +32,7 @@ async function catalog(options={}){
     const currentKeys=new Set();
     const tenantId=(require('./tenant-context').getTenantId)?require('./tenant-context').getTenantId():'default';
     while(true){
-        const page=await topics.listSnapshots({limit:200,offset,metadataOnly:true,since:options.since});
+        const page=await topics().listSnapshots({limit:200,offset,metadataOnly:true,since:options.since});
         for(const meta of page.items){
             await new Promise(resolve=>setImmediate(resolve));
             try{
@@ -39,7 +40,7 @@ async function catalog(options={}){
             currentKeys.add(cacheKey);
             let cached=catalogCache.get(cacheKey);
             if(!cached){
-                const item=await topics.getSnapshot(meta.id);
+                const item=await topics().getSnapshot(meta.id);
                 if(!item?.snapshot)continue;
                 const itemBatches=[],itemFiles=[];
                 for(const definition of engine.list){
@@ -61,7 +62,7 @@ async function catalog(options={}){
     for(const key of catalogCache.keys()) if(!options.since && key.startsWith(tenantId+':') && !currentKeys.has(key)) catalogCache.delete(key);
     return {files:files.sort((a,b)=>Date.parse(b.created_at)-Date.parse(a.created_at)),batches:[...batches.values()],errors};
 }
-async function source(value){const parsed=parseId(value);if(!parsed)return null;const item=await topics.getSnapshot(parsed.snapshotId);return item?.snapshot?{...tables(item,parsed.key),index:parsed.index}:null;}
+async function source(value){const parsed=parseId(value);if(!parsed)return null;const item=await topics().getSnapshot(parsed.snapshotId);return item?.snapshot?{...tables(item,parsed.key),index:parsed.index}:null;}
 async function getSheet(value){const result=await source(value);return result?.sheets?.[result.index]||null;}
 async function getFile(value,original=false){
     const result=await source(value);if(!result?.file||result.index!==null)return null;
@@ -70,4 +71,4 @@ async function getFile(value,original=false){
     result.sheets.forEach((sheet,index)=>{const name=(sheet.name.replace(/[\\/?*\[\]:]/g,' ').slice(0,26)||'Sheet')+`-${index+1}`,target=workbook.addWorksheet(name);target.addRow(sheet.headers);sheet.rows.forEach(row=>target.addRow(sheet.headers.map(header=>row[header])));target.getRow(1).font={bold:true};});
     const bytes=Buffer.from(await workbook.xlsx.writeBuffer());return {...result.file,size:bytes.length,original_blob:bytes};
 }
-module.exports={catalog,getSheet,getFile};
+module.exports={catalog,getSheet,getFile,parseId,tables};

@@ -6,56 +6,41 @@ const API_BASE = window.location.origin;
 const lastDataSourceByPath = {};
 const DATA_SOURCE_MODE_KEY = 'tools_data_source_modes';
 
+const dataSourceEvents = [];
+let dataSourcePinned = false;
+const dataSourceText = (zh,en) => window.ToolsI18n?.getLanguage()==='en-US'?en:zh;
+function formatSourceLabel(source) {
+    if (!source) return 'unknown';
+    return source==='sqlite'?'SQLite':source==='json'?'JSON':String(source).toUpperCase();
+}
 function ensureDataSourceBadge() {
     let badge = document.getElementById('dataSourceBadge');
     if (badge) return badge;
-
-    badge = document.createElement('div');
-    badge.id = 'dataSourceBadge';
-    badge.style.cssText = [
-        'position:fixed',
-        'left:16px',
-        'bottom:16px',
-        'z-index:99999',
-        'padding:8px 10px',
-        'border-radius:10px',
-        'background:rgba(15,23,42,0.88)',
-        'color:#e2e8f0',
-        'font-size:12px',
-        'line-height:1.45',
-        'box-shadow:0 8px 24px rgba(0,0,0,0.2)',
-        'backdrop-filter:blur(10px)',
-        'max-width:280px',
-        'opacity:0',
-        'visibility:hidden',
-        'transition:opacity 0.45s ease, visibility 0.45s ease',
-        'pointer-events:none'
-    ].join(';');
-    document.body.appendChild(badge);
+    const style=document.createElement('style');style.textContent=`
+    #dataSourceBadge{position:fixed;left:16px;bottom:16px;z-index:99999;max-width:min(260px,calc(100vw - 32px));padding:7px 11px;border:1px solid #7891ab66;border-radius:10px;background:#172b40ed;color:#e2e8f0;font:11px/1.5 system-ui,sans-serif;box-shadow:0 5px 20px #0002;backdrop-filter:blur(12px);text-align:left;cursor:pointer;transition:opacity .25s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #dataSourceBadge[hidden]{display:none}\n    #dataSourceBadge:hover,#dataSourceBadge:focus-visible{background:#26425d;color:#fff}
+    #dataSourceDetail{position:fixed;left:16px;bottom:54px;z-index:100000;box-sizing:border-box;width:min(480px,calc(100vw - 32px));max-height:min(540px,calc(100vh - 100px));padding:16px;border:1px solid #809ab466;border-radius:14px;background:#172b40f5;color:#e2e8f0;font:12px/1.6 system-ui,sans-serif;box-shadow:0 10px 32px #0003;backdrop-filter:blur(16px);overflow:auto;overflow-wrap:anywhere}
+    #dataSourceDetail header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px}#dataSourceDetail button{border:1px solid #8ba2ba66;border-radius:7px;background:#26425d;color:#fff;padding:3px 9px;cursor:pointer}#dataSourceDetail ol{margin:0;padding:0;list-style:none}#dataSourceDetail li{border-top:1px solid #809ab433;padding:9px 0}#dataSourceDetail small{display:block;color:#b8cadc}#dataSourceDetail code{display:block;font-size:11px;white-space:normal}
+    `;document.head.append(style);
+    badge=document.createElement('button');badge.id='dataSourceBadge';badge.type='button';badge.hidden=true;badge.setAttribute('aria-expanded','false');badge.onclick=()=>{dataSourcePinned=true;clearTimeout(badge._fadeTimer);renderDataSourceDetails();};document.body.append(badge);
     return badge;
 }
-
-function formatSourceLabel(source) {
-    if (!source) return 'unknown';
-    if (source === 'sqlite') return 'SQLite';
-    if (source === 'json') return 'JSON';
-    return String(source).toUpperCase();
+function closeDataSourceDetails(){dataSourcePinned=false;document.getElementById('dataSourceDetail')?.remove();const badge=document.getElementById('dataSourceBadge');if(badge){clearTimeout(badge._fadeTimer);badge.hidden=true;badge.setAttribute('aria-expanded','false');}}
+function renderDataSourceDetails(){
+    let panel=document.getElementById('dataSourceDetail');if(!panel){panel=document.createElement('section');panel.id='dataSourceDetail';panel.setAttribute('aria-label',dataSourceText('数据来源详情','Data source details'));document.body.append(panel);}panel.replaceChildren();
+    const head=document.createElement('header'),title=document.createElement('strong'),close=document.createElement('button');title.textContent=dataSourceText('数据来源 · 最近请求','Data sources · Recent requests');close.textContent='×';close.setAttribute('aria-label',dataSourceText('关闭','Close'));close.onclick=closeDataSourceDetails;head.append(title,close);panel.append(head);
+    const list=document.createElement('ol');for(const item of dataSourceEvents.slice().reverse()){const row=document.createElement('li'),source=document.createElement('strong'),url=document.createElement('code'),time=document.createElement('small');source.textContent=formatSourceLabel(item.source);url.textContent=item.path;time.textContent='GET · '+item.time;row.append(source,time,url);for(const [key,value]of Object.entries(item.extras)){const detail=document.createElement('small');detail.textContent=key+': '+String(value).slice(0,300);row.append(detail);}list.append(row);}panel.append(list);document.getElementById('dataSourceBadge').setAttribute('aria-expanded','true');
 }
-
 function updateDataSourceHint(path, source) {
     if (!source || !document.body) return;
-    const badge = ensureDataSourceBadge();
-    const now = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-    badge.innerHTML = `数据来源: <strong>${formatSourceLabel(source)}</strong><br><span style="color:#94a3b8;">${path} · ${now}</span>`;
-    badge.style.visibility = 'visible';
-    badge.style.opacity = '1';
-    clearTimeout(badge._fadeTimer);
-    badge._fadeTimer = setTimeout(() => {
-        badge.style.opacity = '0';
-        badge.style.visibility = 'hidden';
-    }, 3600);
-    console.info(`[DATA SOURCE] ${path} <- ${formatSourceLabel(source)}`);
+    const badge=ensureDataSourceBadge(),safePath=String(path||'').split('?')[0],now=new Date().toLocaleTimeString(undefined,{hour12:false});
+    dataSourceEvents.push({path:safePath,source,time:now,extras:lastDataSourceByPath[path]?.extras||{}});if(dataSourceEvents.length>8)dataSourceEvents.shift();
+    badge.textContent=dataSourceText('来源：','Source: ')+formatSourceLabel(source)+' · '+now;badge.title=dataSourceText('点击展开来源详情并保持显示','Click to open and keep source details visible');badge.hidden=false;clearTimeout(badge._fadeTimer);
+    if(dataSourcePinned)renderDataSourceDetails();else badge._fadeTimer=setTimeout(()=>{badge.hidden=true;},3600);
+    console.info(`[DATA SOURCE] ${safePath} <- ${formatSourceLabel(source)}`);
 }
+window.addEventListener('keydown',event=>{if(event.key==='Escape'&&dataSourcePinned)closeDataSourceDetails();});
+window.addEventListener('tools:languagechange',()=>{if(dataSourcePinned)renderDataSourceDetails();});
 
 function readSourceModeMap() {
     try {

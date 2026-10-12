@@ -475,3 +475,21 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 [data-theme=dark] #sourceLibrary .library-file-item[data-source-state=single]{--provenance-bg:#25384b;--provenance-line:#49637c;--provenance-ink:#bdd3e7}
 [data-theme=dark] #sourceLibrary .library-file-item[data-source-state=cross]{--provenance-bg:#263d36;--provenance-line:#4a6e61;--provenance-ink:#b9dbcd}
 [data-theme=dark] #sourceLibrary .library-file-item[data-source-state=unconfirmed]{--provenance-bg:#40382c;--provenance-line:#756245;--provenance-ink:#e2d0ae}
+
+#sourceLibrary .library-search-shell{position:relative;margin-bottom:10px}
+#sourceLibrary .library-search-shell #sourceSearch{margin:0;min-height:40px}
+#sourceLibrary .library-search-shell[data-has-deep=true] #sourceSearch{padding-right:108px}
+#sourceLibrary .library-deep-trigger{position:absolute;right:5px;top:5px;min-height:30px;padding:3px 10px;overflow:hidden;background:linear-gradient(110deg,#eaf2ff,#f0ebff,#e8f8f1);border-color:#c6d5e9;color:#365378;font-size:11px;border-radius:5px}
+#sourceLibrary .library-deep-trigger:after{content:'';position:absolute;left:5px;right:5px;bottom:1px;height:2px;border-radius:2px;background:linear-gradient(90deg,#79b4db,#b6a0de,#dfa8bf,#86c8b2);background-size:200% 100%}
+#sourceLibrary .library-deep-trigger:hover:after,#sourceLibrary .library-deep-trigger:focus-visible:after{animation:library-search-band 2s linear infinite}
+@keyframes library-search-band{to{background-position:200% 0}}
+#sourceLibrary .library-deep-status{padding:10px;margin:-3px 0 12px;border:1px solid var(--source-line);border-radius:7px;background:var(--source-surface);color:var(--source-ink);font-size:11px;line-height:1.7}
+#sourceLibrary .library-deep-status strong,#sourceLibrary .library-deep-status small{display:block}
+#sourceLibrary .library-deep-status small{color:var(--source-muted)}
+#sourceLibrary .library-deep-status button{margin-top:7px}
+#sourceLibrary .library-deep-match{display:block;padding:5px 8px;margin-bottom:8px;border-radius:5px;background:#edf4fc;color:#41688d;font-size:11px;overflow-wrap:anywhere}
+[data-theme=dark] #sourceLibrary .library-deep-trigger{background:linear-gradient(110deg,#2a425c,#3c3552,#294b42);border-color:#53667d;color:#d7e7f7}
+[data-theme=dark] #sourceLibrary .library-deep-match{background:#2b435b;color:#c1d8ed}
+@media(prefers-reduced-motion:reduce){#sourceLibrary .library-deep-trigger:after{animation:none!important}}
+
+#sourceLibrary .library-deep-more{width:100%;margin-top:8px;color:var(--source-accent);background:var(--source-surface)}

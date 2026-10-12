@@ -172,11 +172,11 @@ async function getSheet(sheetId) {
     return row ? {id:row.id,fileId:row.file_id,name:row.name,headers:JSON.parse(row.headers_json),rows:JSON.parse(row.rows_json)} : null;
 }
 const tableRules=require('../../frontend/js/monthly-designer/source-table-rules');
-async function getTableRules(file){
+async function getTableRules(file,{legacy=true}={}){
     await ensureReady();const typeKey=tableRules.typeKey({...file,source_key:normalizeFileName(file.source_key),name:normalizeFileName(file.name)});
     let row=await get('SELECT rules_json FROM source_table_rules WHERE type_key=?',[typeKey]);
     // Older archives used Latin-1-decoded Chinese source keys. Recover their rules without rewriting the archive.
-    if(!row)row=(await all('SELECT type_key,rules_json FROM source_table_rules ORDER BY updated_at DESC')).find(item=>tableRules.typeKey({source_key:normalizeFileName(item.type_key)})===typeKey);
+    if(!row&&legacy)row=(await all('SELECT type_key,rules_json FROM source_table_rules ORDER BY updated_at DESC')).find(item=>tableRules.typeKey({source_key:normalizeFileName(item.type_key)})===typeKey);
     return {typeKey,rules:row?JSON.parse(row.rules_json):[]};
 }
 async function sheetEditor(sheetId){
@@ -277,4 +277,4 @@ async function saveDocument(document){
     documentSaves.set(key,pending);
     try{return await pending;}finally{if(documentSaves.get(key)===pending)documentSaves.delete(key);}
 }
-module.exports={sheetEditor,updateSheet,listComponentPresets,saveComponentPreset,deleteComponentPreset,listDataFormatPresets,saveDataFormatPreset,deleteDataFormatPreset,listMappingPresets,saveMappingPreset,deleteMappingPreset,listLogos,getLogo,saveLogo,ensureReady,getImportSettings,saveImportSettings,createBatch,saveFile,saveSheets,getFile,registerSnapshot,catalog,getSheet,getSection,getArchivedSnapshot,getMetricTable,listDocuments,getDocument,saveDocument,deleteDocuments};
+module.exports={getTableRules,sheetEditor,updateSheet,listComponentPresets,saveComponentPreset,deleteComponentPreset,listDataFormatPresets,saveDataFormatPreset,deleteDataFormatPreset,listMappingPresets,saveMappingPreset,deleteMappingPreset,listLogos,getLogo,saveLogo,ensureReady,getImportSettings,saveImportSettings,createBatch,saveFile,saveSheets,getFile,registerSnapshot,catalog,getSheet,getSection,getArchivedSnapshot,getMetricTable,listDocuments,getDocument,saveDocument,deleteDocuments};

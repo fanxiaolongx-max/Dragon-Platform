@@ -16,6 +16,12 @@ router.post('/source-batches/:id/files',(req,res,next)=>upload.single('file')(re
     res.json(await repo.saveFile(req.params.id,{...req.file,originalName:req.body.originalName},req.body.kind==='structured'?'structured':'original'));
 }));
 router.put('/source-files/:id/sheets',handle(async(req,res)=>{await repo.saveSheets(req.params.id,req.body.sheets,req.body.parseError);res.json({success:true});}));
+router.get('/source-search',async(req,res)=>{
+    const controller=new AbortController(),stop=()=>{if(!res.writableEnded)controller.abort();};res.once('close',stop);if(res.destroyed)controller.abort();res.setHeader('Cache-Control','no-store');res.setHeader('X-Data-Source','sqlite');
+    try{const result=await require('../models/source-content-search').search(req.query,req.sessionID||String(req.user?.id||'local'),controller.signal);if(!res.destroyed)res.json(result);}
+    catch(error){if(!res.destroyed)res.status(error.status||503).json({error:error.message,code:error.code||'SOURCE_SEARCH_ERROR'});}
+    finally{res.removeListener('close',stop);}
+});
 router.get('/source-catalog',handle(async(req,res)=>{
     const days=req.query.days===undefined?0:Number(req.query.days);
     if(!Number.isInteger(days)||days<0||days>36500)return res.status(400).json({error:'days must be an integer between 0 and 36500',code:'IMPORT_SOURCE_ERROR'});

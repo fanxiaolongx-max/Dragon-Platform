@@ -125,10 +125,8 @@ async function addSnapshot(payload) {
     return item;
 }
 
-async function deleteSnapshot(id) {
-    await ensureReady();
-    await run('DELETE FROM sla_snapshots WHERE id = ?', [id]);
-    return [];
+async function deleteSnapshot(id, options = {}) {
+    return require('./sla-snapshot-delete').remove(id, options);
 }
 
 async function updateSnapshot(id, patch) {

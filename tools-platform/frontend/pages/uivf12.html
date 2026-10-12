@@ -314,9 +314,14 @@
             <div class="right-panel">
                 <div class="output-header">
                     <label class="output-label">🤖 生产级 UI.Vision 宏代码:</label>
-                    <div class="btn-group" style="gap:8px; margin:0; flex:none;">
+                    <div class="btn-group" style="gap:8px; margin:0; flex:none; align-items:center;">
                         <button id="saveBtn" class="btn btn-secondary btn-action" style="white-space:nowrap;"
                             onclick="UIVSave.saveCurrentScript()">💾 加入侧边栏</button>
+                        <select id="saveCategorySelect" class="save-category-select"
+                            title="选择保存的目标分类（默认自动判断，支持浏览器记忆）"
+                            onchange="UIVSave.onCategorySelectChange(this.value)">
+                            <option value="" data-uiv-i18n="uiv.save.autoCategory">📂 自动分类</option>
+                        </select>
                         <button id="btnCopyUIV" class="btn btn-action"
                             style="background:var(--accent); white-space:nowrap;"
                             onclick="UIVCopy.copyCodeText('codeOutput', 'btnCopyUIV', 'UIV')">📋 复制 UIV</button>
@@ -394,7 +399,7 @@
                         </tr>
                     </thead>
                     <tbody id="scriptAnalysisRows">
-                        <tr><td colspan="12" class="script-analysis-empty">等待分析...</td></tr>
+                        <tr><td colspan="13" class="script-analysis-empty">等待分析...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -638,6 +643,32 @@
         </div>
     </div>
 
+    <!-- ── 脚本重命名弹窗 ── -->
+    <div id="uivScriptRenameOverlay" class="uiv-category-create-overlay" aria-hidden="true">
+        <div class="uiv-category-create-dialog" role="dialog" aria-modal="true"
+            aria-labelledby="uivScriptRenameTitle" aria-describedby="uivScriptRenameMessage">
+            <div class="uiv-category-create-icon" aria-hidden="true">✏️</div>
+            <div class="uiv-category-create-eyebrow" data-uiv-i18n="uiv.renameDialog.eyebrow">脚本管理 · 重命名</div>
+            <h3 id="uivScriptRenameTitle" data-uiv-i18n="uiv.renameDialog.title">重命名脚本</h3>
+            <p id="uivScriptRenameMessage" data-uiv-i18n="uiv.renameDialog.message">修改脚本在智能调度仓库中的名称，不影响脚本自动化执行与历史数据关联。</p>
+            <label class="uiv-category-create-label" for="uivScriptRenameInput" data-uiv-i18n="uiv.renameDialog.label">新脚本名称</label>
+            <div class="uiv-category-create-input-wrap">
+                <span aria-hidden="true">📄</span>
+                <input id="uivScriptRenameInput" type="text" maxlength="100" autocomplete="off"
+                    placeholder="输入新的脚本名称" aria-describedby="uivScriptRenameHelp uivScriptRenameError">
+            </div>
+            <div id="uivScriptRenameHelp" class="uiv-category-create-meta">
+                <span class="uiv-category-create-hint" data-uiv-i18n="uiv.renameDialog.hint">支持中文、英文、数字与下划线</span>
+                <span id="uivScriptRenameCount">0/100</span>
+            </div>
+            <div id="uivScriptRenameError" class="uiv-category-create-error" role="alert"></div>
+            <div class="uiv-category-create-actions">
+                <button id="uivScriptRenameCancel" type="button" class="uiv-category-create-cancel" data-uiv-i18n="uiv.renameDialog.cancel">取消</button>
+                <button id="uivScriptRenameSubmit" type="button" class="uiv-category-create-submit" data-uiv-i18n="uiv.renameDialog.confirm">💾 确认重命名</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ── UI.Vision 插件下载与安装指南弹窗 ── -->
     <div id="uivExtensionGuideOverlay" class="uiv-extension-overlay" aria-hidden="true" onclick="if(event.target===this) UIVExtensionGuide.close()">
         <div class="uiv-extension-dialog" role="dialog" aria-modal="true" aria-labelledby="uivExtensionModalTitle">
@@ -746,7 +777,7 @@
     </div>
 
     <!-- 共享脚本 -->
-    <script src="/js/shared/api.js?v=20260824-01"></script>
+    <script src="/js/shared/api.js?v=20261012-05"></script>
     <script src="/js/shared/custom-tool-upload.js?v=20261010-02"></script>
     <script src="/js/shared/toast.js?v=20260628-19"></script>
     <script src="/js/shared/i18n.js?v=20261005-01"></script>
@@ -762,11 +793,11 @@
     <script src="/js/uivf12/auth-probe.js?v=20260720-01"></script>
     <script src="/js/uivf12/generator.js?v=20261005-04"></script>
     <script src="/js/uivf12/ai-adapter.js?v=20260729-01"></script>
-    <script src="/js/uivf12/ai-naming.js?v=20260729-02"></script>
+    <script src="/js/uivf12/ai-naming.js?v=20261012-01"></script>
     <script src="/js/uivf12/save.js?v=20261005-04"></script>
-    <script src="/js/uivf12/sidebar.js?v=20260817-01"></script>
+    <script src="/js/uivf12/sidebar.js?v=20261012-01"></script>
     <script src="/js/uivf12/url-assist.js?v=20260729-01"></script>
-    <script src="/js/uivf12/analysis.js?v=20260628-19"></script>
+    <script src="/js/uivf12/analysis.js?v=20261012-01"></script>
     <script src="/js/uivf12/extension-guide.js?v=20260817-01"></script>
     <script>
         function renderUIVFrontendVersion() {

@@ -144,6 +144,68 @@ function syncGeneratedOutputFileName() {
     return true;
 }
 
+const PREFERRED_CATEGORY_STORAGE_KEY = 'uiv_preferred_save_category';
+
+function getPreferredSaveCategory() {
+    try {
+        return localStorage.getItem(PREFERRED_CATEGORY_STORAGE_KEY) || '';
+    } catch (_) {
+        return '';
+    }
+}
+
+function setPreferredSaveCategory(category) {
+    try {
+        if (category) {
+            localStorage.setItem(PREFERRED_CATEGORY_STORAGE_KEY, category);
+        } else {
+            localStorage.removeItem(PREFERRED_CATEGORY_STORAGE_KEY);
+        }
+    } catch (_) {}
+}
+
+function onCategorySelectChange(value) {
+    setPreferredSaveCategory(value);
+    logSaveStep('已更新记忆的脚本保存分类', { category: value || '(自动判断)' });
+}
+
+function syncCategorySelect(categories = []) {
+    const select = document.getElementById('saveCategorySelect');
+    if (!select) return;
+
+    const savedValue = getPreferredSaveCategory();
+    const currentVal = select.value || savedValue;
+
+    const allCategories = [];
+    const pushCat = (cat) => {
+        const c = String(cat || '').trim();
+        if (c && !allCategories.includes(c)) allCategories.push(c);
+    };
+
+    const defaultCats = ['DataFab', 'NetCare中国', 'NetCare中东', 'NetCare德国', '默认分类'];
+    defaultCats.forEach(pushCat);
+    (Array.isArray(categories) ? categories : []).forEach(pushCat);
+
+    const autoLabel = typeof window.UIVT === 'function' ? window.UIVT('uiv.save.autoCategory') : '📂 自动判断分类';
+    select.innerHTML = `<option value="">${autoLabel}</option>`;
+
+    allCategories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        const displayLabel = window.UIVI18n ? window.UIVI18n.categoryLabel(cat) : cat;
+        opt.textContent = `📁 ${displayLabel}`;
+        select.appendChild(opt);
+    });
+
+    if (currentVal && allCategories.includes(currentVal)) {
+        select.value = currentVal;
+    } else if (savedValue && allCategories.includes(savedValue)) {
+        select.value = savedValue;
+    } else {
+        select.value = '';
+    }
+}
+
 function findNameConflicts(items, existingScripts) {
     return items.filter(item => existingScripts.some(s => s.name === item.name));
 }
@@ -153,11 +215,9 @@ async function saveCurrentScript() {
     let codeConsole = document.getElementById('consoleOutput').value;
     const url = document.getElementById('requestUrl').value.trim();
     if (!codeUIV || !codeConsole) { alert(UIVT('uiv.save.needGenerate')); return; }
-    if (window.UIVAINaming?.waitForPending) {
-        await window.UIVAINaming.waitForPending();
-        codeUIV = document.getElementById('codeOutput').value;
-        codeConsole = document.getElementById('consoleOutput').value;
-    }
+
+    // 不管 AI 命名当前处于何种状态（分析中、生成中或就绪），都支持立即保存当前脚本，不阻断保存流程
+    window.UIVAINaming?.markSaved?.();
 
     logSaveStep('开始保存脚本到侧边栏', {
         url,
@@ -196,7 +256,26 @@ async function saveCurrentScript() {
     const isNetCare = url.toLowerCase().includes('netcare');
     let itemsToSave = [];
 
-    if (isNetCare && configOptions.autoNetCareTriplicate) {
+    // 快捷下拉分类判断：如果用户选择了分类，使用用户指定的分类；默认空则由原有逻辑自动判断
+    const selectEl = document.getElementById('saveCategorySelect');
+    const chosenCategory = ((selectEl ? selectEl.value : getPreferredSaveCategory()) || '').trim();
+
+    if (chosenCategory) {
+        itemsToSave.push({
+            name: baseName,
+            code: codeUIV,
+            consoleCode: codeConsole,
+            category: chosenCategory,
+            url,
+            payload: rawJson,
+            originalFileName,
+            configOptions,
+            responseSample,
+            responseFocusKeyword,
+            responseFocusPath,
+            responseFocusConfig
+        });
+    } else if (isNetCare && configOptions.autoNetCareTriplicate) {
         let urlObj;
         try { urlObj = new URL(url); } catch (e) {}
         if (urlObj && urlObj.pathname) {
@@ -344,5 +423,19 @@ async function saveCurrentScript() {
 }
 
 document.getElementById('fileName')?.addEventListener('input', syncGeneratedOutputFileName);
+if (typeof document !== 'undefined') {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => syncCategorySelect());
+    } else {
+        syncCategorySelect();
+    }
+}
 
-window.UIVSave = { saveCurrentScript, syncGeneratedOutputFileName };
+window.UIVSave = {
+    saveCurrentScript,
+    syncGeneratedOutputFileName,
+    onCategorySelectChange,
+    syncCategorySelect,
+    getPreferredSaveCategory,
+    setPreferredSaveCategory
+};

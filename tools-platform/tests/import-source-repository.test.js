@@ -7,7 +7,7 @@ test('original bytes and all sheets survive without rules, parsing failures and 
  await repo.saveSheets(file.id,[{name:'Sheet1',headers:['x','y'],rows:[{x:'a,b',y:0}]},{name:'Sheet2',headers:['name'],rows:[]}]);
  const catalog=await repo.catalog();assert.equal(catalog.files[0].sheets.length,2);assert.equal(catalog.snapshots.length,0);assert.equal((await repo.getSheet(catalog.files[0].sheets[0].id)).rows[0].y,0);
  const broken=await repo.saveFile(batch.id,{name:'broken.xls',buffer:Buffer.from('broken')});await repo.saveSheets(broken.id,[],'Invalid workbook');assert.equal((await repo.getFile(broken.id)).parse_status,'error');assert.deepEqual((await repo.getFile(broken.id,true)).original_blob,Buffer.from('broken'));
- const snapshot=await snapshots.addSnapshot({id:'no-rule',timestamp:'2026-09-01T10:00:00Z',sourceBatchId:batch.id,files:['unknown.csv'],topMetrics:[]});await snapshots.deleteSnapshot(snapshot.id);assert.equal((await repo.catalog()).snapshots.length,1);assert.deepEqual((await repo.getFile(file.id,true)).original_blob,bytes);
+ const snapshot=await snapshots.addSnapshot({id:'no-rule',timestamp:'2026-09-01T10:00:00Z',sourceBatchId:batch.id,files:['unknown.csv'],topMetrics:[]});await snapshots.deleteSnapshot(snapshot.id);assert.equal((await repo.catalog()).snapshots.length,0);assert.deepEqual((await repo.getFile(file.id,true)).original_blob,bytes);
 });
 test('metric lineage freezes original files, rules and matched cleaned rows; latest bindings follow reimport',async()=>{
  const first=await repo.createBatch();const file=await repo.saveFile(first.id,{name:'Risk_Latest_2026-09.csv',buffer:Buffer.from('a\n1')});await repo.saveSheets(file.id,[{name:'Raw',headers:['a'],rows:[{a:1},{a:2}]}]);
