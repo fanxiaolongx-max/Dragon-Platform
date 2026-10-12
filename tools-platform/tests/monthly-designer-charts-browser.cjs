@@ -34,7 +34,7 @@ assert.equal(await evaluate(()=>document.querySelectorAll('[data-chart-bar]').le
  await evaluate(()=>{const doc=MonthlyDesigner.getDocument();doc.sections[0].blocks[0].chart.customers=['Orange'];MonthlyDesigner.applyDocument(doc);});await until(()=>document.querySelectorAll('[data-chart-bar]').length===2);
  await evaluate(()=>document.querySelector('[data-chart-toggle]').click());await evaluate(()=>document.querySelector('[data-chart-clear]').click());await until(()=>document.querySelectorAll('[data-chart-bar]').length===6);
  await evaluate(()=>{const input=document.querySelector('[data-chart-setting="y"]');input.value='其它数值';input.dispatchEvent(new Event('change',{bubbles:true}));});await until(()=>MonthlyDesigner.getDocument().sections[0].blocks[0].chart.series[0].y==='其它数值');
- await until(()=>document.querySelector('.grouped-chart')?.dataset.axisMode==='sqrt');assert.ok(await evaluate(()=>document.querySelector('[data-axis-note]').textContent.includes('刻度为原值')));
+ await until(()=>document.querySelector('.grouped-chart')?.dataset.axisMode==='sqrt');assert.equal(await evaluate(()=>document.querySelector('[data-axis-note]')),null);
  const compressedHeight=await evaluate(()=>Number(document.querySelector('[data-chart-bar="2-0"]').getAttribute('height')));
  await evaluate(()=>{const select=document.querySelector('[data-chart-option="axisMode"]');select.value='linear';select.dispatchEvent(new Event('change',{bubbles:true}));});await until(()=>document.querySelector('.grouped-chart')?.dataset.axisMode==='linear');
  assert.ok(compressedHeight>await evaluate(()=>Number(document.querySelector('[data-chart-bar="2-0"]').getAttribute('height')))*3);
