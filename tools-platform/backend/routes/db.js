@@ -433,6 +433,14 @@ router.post('/config/:key', (req, res) => {
         configValue = { zh, en };
     }
 
+    if (req.params.key === 'report_snapshot_filter') {
+        const filter = require('../../frontend/js/report/snapshot-filter');
+        if (!configValue || typeof configValue !== 'object' || Array.isArray(configValue) || !filter.valid(configValue.minSourceTables)) {
+            return res.status(400).json({ error: '最少表源数必须为 0–10000 的整数', code: 'INVALID_SNAPSHOT_FILTER' });
+        }
+        configValue = { minSourceTables: configValue.minSourceTables };
+    }
+
     const valueJson = JSON.stringify(configValue);
     // Keep the request tenant through native SQLite callbacks.
     const configDb = getConnection('report.db', 'report');

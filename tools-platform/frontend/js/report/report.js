@@ -1,4 +1,6 @@
 let snapshots = [];
+let reportSourceSnapshots = [];
+let reportMinSourceTables = window.ReportSnapshotFilter.DEFAULT_MIN_SOURCES;
 let categories = [];
 let globalConfig = { targets: {}, prefs: {} };
 let labelToTargetMap = {};
@@ -24,7 +26,7 @@ function rt(key, params = {}) {
 }
 
 function isReportEligibleSnapshot(snapshot) {
-    return Array.isArray(snapshot && snapshot.topMetrics) && snapshot.topMetrics.length > 0;
+    return window.ReportSnapshotFilter.eligible(snapshot, reportMinSourceTables);
 }
 
 let i18nMap = {
@@ -1397,6 +1399,31 @@ function renderReportMonthOptions(preserveValue = true) {
     if (!monthSel.value) monthSel.value = getDefaultTargetMonth();
 }
 
+function renderSnapshotFilterSetting() {
+    const input=document.getElementById('report-min-source-tables');if(!input)return;
+    input.value=reportMinSourceTables;input.disabled=localStorage.getItem('tools_role')!=='admin';
+    document.getElementById('report-snapshot-filter-label').textContent=rt('report.snapshot.minSources');
+    const ready=reportSourceSnapshots.filter(window.ReportSnapshotFilter.hasMetrics),hidden=ready.length-snapshots.length;
+    const hint=rt('report.snapshot.filterHelp')+(hidden?' · '+rt('report.snapshot.hiddenCount',{count:hidden}):'');
+    document.getElementById('report-snapshot-filter-setting').title=hint+(input.disabled?' · '+rt('report.snapshot.filterAdmin'):'');
+    input.setAttribute('aria-label',rt('report.snapshot.minSources'));input.setAttribute('aria-describedby','report-snapshot-filter-help');
+    document.getElementById('report-snapshot-filter-help').textContent=hint;
+}
+window.updateReportSnapshotFilter=async function(){
+    const input=document.getElementById('report-min-source-tables'),minimum=Number(input.value);
+    if(!input.value.trim()||!window.ReportSnapshotFilter.valid(minimum)){input.value=reportMinSourceTables;showToast(rt('report.snapshot.filterInvalid'),'error');return;}
+    if(minimum===reportMinSourceTables)return;input.disabled=true;
+    try{
+        await API.post('/api/db/config/report_snapshot_filter',{minSourceTables:minimum});
+        reportMinSourceTables=minimum;snapshots=reportSourceSnapshots.filter(isReportEligibleSnapshot);
+        renderSnapshotOptions();renderSnapshotFilterSetting();
+        const selected=snapshots.find(snapshot=>snapshot.id===currentSnapshot?.id);
+        if(selected){document.getElementById('snapshot-select').value=selected.id;window._preserveMatrixFilters=true;try{renderCurrentSnapshot();}finally{window._preserveMatrixFilters=false;}}else if(snapshots.length){loadSelectedSnapshot();}else{currentSnapshot=null;renderNoReportReadyState();}
+        showToast(rt('report.snapshot.filterSaved'),'success');
+    }catch(error){showToast(rt('report.toast.saveFailed')+': '+error.message,'error');}
+    finally{renderSnapshotFilterSetting();}
+};
+
 function renderSnapshotOptions() {
     const sel = document.getElementById('snapshot-select');
     if (!sel) return;
@@ -1408,7 +1435,7 @@ function renderSnapshotOptions() {
     sel.innerHTML = snapshots.map(s => {
         const d = new Date(s.timestamp);
         const tsStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-        const fileCount = s.files ? (Array.isArray(s.files) ? s.files.length : 1) : 0;
+        const fileCount = window.ReportSnapshotFilter.sourceCount(s);
         return `<option value="${s.id}">${tsStr} (${rt('report.snapshot.optionSourceCount', { count: fileCount })})</option>`;
     }).join('');
     sel.value = snapshots.find(s => s.id === previousValue) ? previousValue : snapshots[0].id;
@@ -1417,7 +1444,7 @@ function renderSnapshotOptions() {
 function renderNoReportReadyState() {
     const content = document.getElementById('report-content');
     if (!content) return;
-    content.innerHTML = `<div class="empty-state"><h3>${rt('report.empty.noReadyTitle')}</h3><p>${rt('report.empty.noReadyBody')}</p></div>`;
+    content.innerHTML = `<div class="empty-state"><h3>${rt('report.empty.noReadyTitle')}</h3><p>${rt(reportSourceSnapshots.some(window.ReportSnapshotFilter.hasMetrics)?'report.empty.filteredBody':'report.empty.noReadyBody',{count:reportMinSourceTables})}</p></div>`;
 }
 
 function renderReportLoadFailedState() {
@@ -1430,15 +1457,19 @@ async function initReport() {
     try {
         const mode = API.getSourceMode('report_sla_data');
         const query = mode === 'auto' ? '' : `?mode=${encodeURIComponent(mode)}`;
-        const [snapData, catData, configData, groupData] = await Promise.all([
+        const [snapData, catData, configData, groupData, filterConfig] = await Promise.all([
             API.get(`/api/sla/snapshots${query}`),
             API.get(`/api/sla/categories${query}`),
             API.get(`/api/sla/config${query}`),
-            API.get(`/api/sla/groups${query}`)
+            API.get(`/api/sla/groups${query}`),
+            API.get('/api/db/config/report_snapshot_filter')
         ]);
 
-        const allSnapshots = snapData || [];
-        snapshots = allSnapshots.filter(isReportEligibleSnapshot);
+        reportSourceSnapshots = Array.isArray(snapData)?snapData:[];
+        reportMinSourceTables = window.ReportSnapshotFilter.normalize(filterConfig?.minSourceTables);
+        snapshots = reportSourceSnapshots.filter(isReportEligibleSnapshot);
+        currentSnapshot = null;
+        renderSnapshotFilterSetting();
         categories = catData || ['TE', 'ORG', 'ET', 'VDF'];
         globalConfig = configData || { targets: {}, prefs: {} };
         metricGroups = groupData || [];
@@ -5116,6 +5147,7 @@ window.addEventListener('tools:languagechange', () => {
     }
     renderReportMonthOptions(true);
     renderSnapshotOptions();
+    renderSnapshotFilterSetting();
     if (currentSnapshot) {
         window._preserveMatrixFilters = true;
         renderReport(currentSnapshot);

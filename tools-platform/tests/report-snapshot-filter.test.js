@@ -1,0 +1,19 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const filter=require('../frontend/js/report/snapshot-filter');
+test('default threshold excludes partial snapshots, includes the exact boundary and zero restores all metric snapshots',()=>{
+ const snapshot=n=>({files:Array.from({length:n},(_,i)=>'table'+i),topMetrics:[{label:'SR',value:1}]}),items=[snapshot(1),snapshot(19),snapshot(20),snapshot(41),{...snapshot(40),topMetrics:[]}];assert.deepEqual(items.filter(item=>filter.eligible(item)),[items[2],items[3]]);assert.equal(items.filter(item=>filter.eligible(item,0)).length,4);assert.equal(filter.eligible(items[1],19),true);assert.equal(filter.eligible(items[3],42),false);assert.equal(filter.sourceCount({files:'legacy.csv'}),1);assert.equal(filter.sourceCount({}),0);assert.equal(items[0].files.length,1);
+});
+test('threshold validation rejects fractions, negative values and invalid strings instead of treating missing config as zero',()=>{
+ for(const value of [undefined,null,'20',NaN,1.5,-1,10001]){assert.equal(filter.valid(value),false);assert.equal(filter.normalize(value),20);}assert.equal(filter.normalize(0),0);assert.equal(filter.normalize(10000),10000);
+});
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'report-filter-'));process.env.TOOLS_DATA_DIR=path.join(temp,'tools');process.env.TOOLS_REPORT_DATA_DIR=path.join(temp,'reports');
+const pool=require('../backend/models/tenant-sqlite-pool'),appDb=require('../backend/models/app-db'),{runWithTenant}=require('../backend/models/tenant-context');
+test.after(async()=>{await appDb.closeDatabase();await pool.closeAll();fs.rmSync(temp,{recursive:true,force:true});});
+test('server config persists per tenant, validates numbers, requires admin and leaves SLA snapshots available',async t=>{
+ const express=require('express'),web=express();web.use(express.json());web.use((req,res,next)=>runWithTenant(req.headers['x-test-tenant']||'default',()=>{req.user={role:req.headers['x-test-role']||'admin'};next();}));web.use('/api/db',require('../backend/routes/db'));web.use('/api/sla',require('../backend/routes/sla'));const server=await new Promise(r=>{const s=web.listen(0,'127.0.0.1',()=>r(s));});t.after(()=>new Promise(r=>server.close(r)));const base='http://127.0.0.1:'+server.address().port,key='/api/db/config/report_snapshot_filter';
+ await require('../backend/models/sla-snapshots-repository').addSnapshot({id:'small',files:['one.csv'],topMetrics:[{label:'SR',value:2}],timestamp:'2026-10-12T10:00:00Z'});
+ const post=(body,headers={})=>fetch(base+key,{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
+ assert.equal((await post({minSourceTables:2})).status,200);assert.deepEqual(await (await fetch(base+key)).json(),{minSourceTables:2});assert.equal((await post({minSourceTables:0})).status,200);assert.equal((await post({minSourceTables:-1})).status,400);assert.equal((await post({minSourceTables:'20'})).status,400);assert.equal((await post({minSourceTables:20},{'x-test-role':'member'})).status,403);assert.equal((await (await fetch(base+'/api/sla/snapshots')).json()).find(item=>item.id==='small').files.length,1);
+ await runWithTenant('other',async()=>{const connection=pool.getConnection('report.db','report');await new Promise((r,j)=>connection.run('CREATE TABLE IF NOT EXISTS PlatformConfig (key_name TEXT PRIMARY KEY,value_json TEXT,updated_at TEXT DEFAULT CURRENT_TIMESTAMP)',e=>e?j(e):r()));});
+ assert.deepEqual(await (await fetch(base+key,{headers:{'x-test-tenant':'other'}})).json(),{});assert.equal((await post({minSourceTables:30},{'x-test-tenant':'other'})).status,200);assert.deepEqual(await (await fetch(base+key)).json(),{minSourceTables:0});assert.deepEqual(await (await fetch(base+key,{headers:{'x-test-tenant':'other'}})).json(),{minSourceTables:30});
+});

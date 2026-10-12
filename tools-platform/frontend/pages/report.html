@@ -867,6 +867,10 @@
         .btn-add-group:hover {
             background: #e8eaf6;
         }
+        .report-snapshot-filter-setting{display:inline-flex;align-items:center;gap:7px;margin:0;padding:5px 9px;min-height:34px;box-sizing:border-box;border:1px solid #ccd9e6;border-radius:8px;background:#f5f8fc;color:#49627c;font-size:12px;position:relative}
+        .report-snapshot-filter-setting input{width:54px;min-width:54px;box-sizing:border-box;padding:3px 5px;border:1px solid #c4d4e5;border-radius:5px;background:#fff;color:#233f5a;font:inherit}
+        .report-snapshot-filter-info{color:#8499ae}.report-snapshot-filter-help{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+        [data-theme=dark] .report-snapshot-filter-setting{background:#26394f;color:#ccdcee;border-color:#4f6984}[data-theme=dark] .report-snapshot-filter-setting input{background:#203246;color:#e1edfa;border-color:#5c7690}
     </style>
     <link rel="stylesheet" href="/css/startup-screen.css?v=20261011-45">
 </head>
@@ -888,6 +892,12 @@
                     <span style="font-size:14px;color:#666;margin-right:6px;">历史快照：</span>
                     <select id="snapshot-select" onchange="loadSelectedSnapshot()"></select>
                 </div>
+                <label id="report-snapshot-filter-setting" class="report-snapshot-filter-setting">
+                    <span id="report-snapshot-filter-label">最少表源</span>
+                    <input type="number" id="report-min-source-tables" min="0" max="10000" step="1" value="20" required onchange="updateReportSnapshotFilter()" aria-label="最少表源">
+                    <span class="report-snapshot-filter-info" aria-hidden="true">ⓘ</span>
+                    <span id="report-snapshot-filter-help" class="report-snapshot-filter-help"></span>
+                </label>
                 <div
                     style="display: flex; align-items: center; border: 1px solid #ccc; padding: 6px 12px; border-radius: 8px; background: #fff; gap: 8px; height: 34px; box-sizing: border-box;">
                     <label style="font-size:13px;color:#333;cursor:pointer;display:flex;align-items:center;margin:0;">
@@ -1084,7 +1094,7 @@
     <script src="/js/shared/i18n.js?v=20261005-01"></script>
     <script src="/js/shared/platform-logo-upload.js?v=20261006-02"></script>
     <script src="/js/shared/navbar.js?v=20261011-03"></script>
-    <script src="/js/report/i18n.js?v=20260911-04"></script>
+    <script src="/js/report/i18n.js?v=20261012-07"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <script>
         function formatReportSourceLabel(source) {
@@ -1227,7 +1237,8 @@
     <script src="/js/report/manual-adjust-autofill.js?v=20261004-01"></script>
     <script src="/js/report/snapshot-target-month.js?v=20260813-01"></script>
     <script src="/js/report/export-filenames.js?v=20260810-01"></script>
-    <script src="/js/report/report.js?v=20261011-45"></script>
+    <script src="/js/report/snapshot-filter.js?v=20261012-07"></script>
+    <script src="/js/report/report.js?v=20261012-07"></script>
 </body>
 
 </html>
