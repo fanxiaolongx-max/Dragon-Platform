@@ -172,11 +172,12 @@ body.dark-mode .inspector-reference,body.dark-mode [data-selection-bar],body.dar
 #pivotFieldsPanel select,#pivotFieldsPanel input:not([type=checkbox]):not([type=radio]),#pivotFieldsPanel textarea{padding:7px 9px;min-height:34px;width:100%;margin:5px 0 0}
 #pivotFieldsPanel input[type=checkbox],#pivotFieldsPanel input[type=radio]{width:14px;height:14px;padding:0;margin:0 5px 0 0;min-height:0;accent-color:var(--pane-accent);flex-shrink:0}
 #pivotFieldsPanel .pivot-panel-head button{width:28px;height:28px;min-height:28px;padding:0;background:transparent;color:var(--pane-muted)}
-#pivotFieldsPanel .inspector-current{flex-shrink:0;padding:12px 0 4px;margin:0;color:var(--pane-ink);overflow-wrap:anywhere}
-#pivotFieldsPanel .inspector-current>span{display:block;font-size:11px;color:var(--pane-muted);margin-bottom:2px}
-#pivotFieldsPanel .inspector-current>strong{display:block;font-size:13px;font-weight:600}
-#pivotFieldsPanel .inspector-tabs{flex-shrink:0;padding:4px;background:#eaf0f6;border-radius:6px;gap:2px;margin:12px 0}
-#pivotFieldsPanel .inspector-tabs button{font-size:11px;background:transparent;border-color:transparent;padding:7px 2px;min-height:34px;color:var(--pane-muted)}
+#pivotFieldsPanel .inspector-current{display:flex;align-items:center;gap:7px;margin:5px 0;min-width:0;flex-shrink:0;color:var(--pane-ink)}
+#pivotFieldsPanel .inspector-current>span{flex:none;font-size:10px;color:var(--pane-muted)}
+#pivotFieldsPanel .inspector-current>strong{font-size:11px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pivotFieldsPanel .inspector-tabs{flex-shrink:0;padding:3px;background:#eaf0f6;border-radius:6px;gap:2px;margin:4px 0 8px}
+#pivotFieldsPanel .inspector-tabs button{font-size:10px;background:transparent;border-color:transparent;padding:3px 1px;min-height:30px;color:var(--pane-muted);display:flex;flex-direction:row;align-items:center;justify-content:center;gap:4px}
+#pivotFieldsPanel .inspector-tabs svg{width:13px;height:13px}
 #pivotFieldsPanel .inspector-tabs button.active{background:var(--pane-card);color:var(--pane-accent);box-shadow:0 1px 4px #183b6015;font-weight:600;border-color:var(--pane-border)}
 #pivotFieldsPanel .inspector-body{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 3px 16px 0;scrollbar-gutter:stable}
 #pivotFieldsPanel .inspector-section-intro{margin:0 0 16px}
@@ -410,7 +411,8 @@ body.dark-mode .source-table-dialog,body[data-theme=dark] .source-table-dialog{b
 .monthly-control-icon{display:block;flex:none;pointer-events:none}
 .document-block>.document-controls [data-config-tab=source]{margin-left:4px}
 .document-block>.document-controls [data-op=block-up]{margin-left:auto}
-#pivotFieldsPanel .inspector-tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:52px}
+#pivotFieldsPanel .inspector-tabs button{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:4px;min-height:30px;padding:3px 1px;font-size:10px}
+#pivotFieldsPanel .inspector-tabs svg{width:13px;height:13px}
 [data-theme=dark] .document-block>.document-controls button{color:#b6c9dc}
 [data-theme=dark] .document-block>.document-controls button:hover:not(:disabled){background:#243a50;border-color:#52718f;color:#fff}
 
