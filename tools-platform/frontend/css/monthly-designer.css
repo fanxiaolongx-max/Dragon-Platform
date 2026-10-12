@@ -530,3 +530,24 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 #pivotFieldsPanel .inspector-pinned-tools [data-component-presets-host]{min-height:0;flex-shrink:1;margin:5px 0 0;max-height:min(46vh,360px);overflow:auto;overscroll-behavior:contain;box-shadow:0 5px 16px #153b6012}
 
 #pivotFieldsPanel .inspector-pinned-tools>.pivot-panel-head{flex-shrink:0;width:100%;margin:0;padding:0 0 8px}
+/* Compact import-time selection; cumulative metadata counts form soft waves. */
+#sourceLibrary .import-range{position:relative;padding:10px 10px 8px;margin-bottom:12px;border-radius:12px;background:linear-gradient(135deg,var(--library-card),var(--source-surface));border:1px solid var(--source-line)}
+#sourceLibrary .import-range .library-range{display:block}
+#sourceLibrary .import-range header{display:flex;align-items:center;justify-content:space-between;gap:8px}
+#sourceLibrary .import-range h4{margin:0;font-size:11px}
+#sourceLibrary .import-range output{font-size:11px;font-weight:700;color:var(--source-accent);background:var(--library-card);padding:2px 7px;border-radius:12px}
+#sourceLibrary .import-range-track{position:relative;margin-top:5px}
+#sourceLibrary .import-range-waves{display:flex;align-items:end;justify-content:space-between;height:39px;padding:0;gap:2px}
+#sourceLibrary .import-range-waves span{display:flex;flex-direction:column;align-items:center;justify-content:end;flex:1;min-width:0;height:100%;color:var(--source-muted)}
+#sourceLibrary .import-range-waves small{font-size:9px;line-height:12px}
+#sourceLibrary .import-range-waves i{display:block;width:100%;height:2px;border-radius:100% 100% 0 0;background:linear-gradient(0deg,#46b6b129,#5a9edb75);transition:height .35s ease}
+#sourceLibrary .import-range input[type=range]{display:block;appearance:none;width:calc(100% - 100% / var(--range-points) + 17px);height:5px;min-height:0;min-width:0;margin:2px calc(50% / var(--range-points) - 8.5px) 0;padding:0;border:0;border-radius:8px;background:linear-gradient(to right,#55bdb8 0%,#4c89c9 var(--range-progress,0%),var(--source-line) var(--range-progress,0%));cursor:ew-resize;touch-action:pan-y}
+#sourceLibrary .import-range input[type=range]::-webkit-slider-thumb{appearance:none;width:17px;height:17px;border:3px solid var(--library-card);border-radius:50%;background:#439cac;box-shadow:0 0 0 1px #439cac66,0 2px 7px #256a8733;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+#sourceLibrary .import-range input[type=range]::-moz-range-thumb{width:12px;height:12px;border:3px solid var(--library-card);border-radius:50%;background:#439cac}
+#sourceLibrary .range-dragging input[type=range]::-webkit-slider-thumb{transform:scale(1.2,1.12)}
+#sourceLibrary .import-range-ticks{display:flex;justify-content:space-between;margin-top:7px;gap:0}
+#sourceLibrary .import-range-ticks button{flex:1;min-width:0;min-height:24px;padding:3px 0;border:0;background:transparent;font-size:10px;color:var(--source-muted);border-radius:7px}
+#sourceLibrary .import-range-ticks button[aria-pressed=true]{color:var(--source-accent);background:#50aaa51a;font-weight:700}
+#sourceLibrary .import-range [data-range-note]{display:block;font-size:9px;line-height:1.6;color:var(--source-muted);margin-top:4px;padding-right:38px}
+#sourceLibrary .import-range-apply{position:absolute;bottom:6px;right:10px;min-height:20px;padding:2px 5px!important;font-size:10px;margin:0}
+@media(prefers-reduced-motion:reduce){#sourceLibrary .import-range *{transition:none!important}}

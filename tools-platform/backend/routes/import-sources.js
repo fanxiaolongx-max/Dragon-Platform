@@ -22,6 +22,11 @@ router.get('/source-search',async(req,res)=>{
     catch(error){if(!res.destroyed)res.status(error.status||503).json({error:error.message,code:error.code||'SOURCE_SEARCH_ERROR'});}
     finally{res.removeListener('close',stop);}
 });
+router.get('/source-range-counts',handle(async(req,res)=>{
+    const days=Number(req.query.days||0);
+    if(!Number.isInteger(days)||days<0||days>36500)return res.status(400).json({error:'Invalid days',code:'IMPORT_SOURCE_ERROR'});
+    res.setHeader('Cache-Control','no-store');res.json(await repo.rangeCounts(days));
+}));
 router.get('/source-catalog',handle(async(req,res)=>{
     const days=req.query.days===undefined?0:Number(req.query.days);
     if(!Number.isInteger(days)||days<0||days>36500)return res.status(400).json({error:'days must be an integer between 0 and 36500',code:'IMPORT_SOURCE_ERROR'});

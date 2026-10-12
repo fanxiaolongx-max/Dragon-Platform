@@ -277,4 +277,11 @@ async function saveDocument(document){
     documentSaves.set(key,pending);
     try{return await pending;}finally{if(documentSaves.get(key)===pending)documentSaves.delete(key);}
 }
-module.exports={normalizeFileName,getTableRules,sheetEditor,updateSheet,listComponentPresets,saveComponentPreset,deleteComponentPreset,listDataFormatPresets,saveDataFormatPreset,deleteDataFormatPreset,listMappingPresets,saveMappingPreset,deleteMappingPreset,listLogos,getLogo,saveLogo,ensureReady,getImportSettings,saveImportSettings,createBatch,saveFile,saveSheets,getFile,registerSnapshot,catalog,getSheet,getSection,getArchivedSnapshot,getMetricTable,listDocuments,getDocument,saveDocument,deleteDocuments};
+// Count file metadata in one query; never read original blobs or worksheet rows.
+async function rangeCounts(days=0){
+    await ensureReady();
+    const ranges=[...new Set([7,30,90,180,365,0,days])];
+    const row=await get('SELECT '+ranges.map((day,index)=>day?`COALESCE(SUM(CASE WHEN julianday(created_at)>=julianday('now')-? THEN 1 ELSE 0 END),0) AS n${index}`:`COUNT(*) AS n${index}`).join(', ')+' FROM import_source_files',ranges.filter(Boolean));
+    return {capturedAt:new Date().toISOString(),counts:ranges.map((day,index)=>({days:day,count:row['n'+index]}))};
+}
+module.exports={rangeCounts,normalizeFileName,getTableRules,sheetEditor,updateSheet,listComponentPresets,saveComponentPreset,deleteComponentPreset,listDataFormatPresets,saveDataFormatPreset,deleteDataFormatPreset,listMappingPresets,saveMappingPreset,deleteMappingPreset,listLogos,getLogo,saveLogo,ensureReady,getImportSettings,saveImportSettings,createBatch,saveFile,saveSheets,getFile,registerSnapshot,catalog,getSheet,getSection,getArchivedSnapshot,getMetricTable,listDocuments,getDocument,saveDocument,deleteDocuments};
