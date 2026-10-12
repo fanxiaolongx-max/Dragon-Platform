@@ -606,3 +606,29 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 .source-table-horizontal input:disabled{opacity:.45;cursor:default}
 [data-theme=dark] .source-table-horizontal{background:#23394e;border-color:#405a70}
 [data-theme=dark] .source-table-dialog .source-table-horizontal input{background:#344f66}
+/* Keep field sources and all four drop areas visible in the pivot inspector. */
+#pivotFieldsPanel.component-pivot-processing{padding:10px 12px}
+#pivotFieldsPanel.component-pivot-processing .inspector-pinned-tools{padding-bottom:3px;min-height:32px}
+#pivotFieldsPanel.component-pivot-processing .inspector-current{display:flex;align-items:center;gap:7px;margin:5px 0;min-width:0}
+#pivotFieldsPanel.component-pivot-processing .inspector-current span{flex:none;font-size:10px}
+#pivotFieldsPanel.component-pivot-processing .inspector-current strong{font-size:11px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pivotFieldsPanel.component-pivot-processing .inspector-tabs{margin:4px 0 8px;padding:3px}
+#pivotFieldsPanel.component-pivot-processing .inspector-tabs button{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:4px;min-height:30px;padding:3px 1px;font-size:10px}
+#pivotFieldsPanel.component-pivot-processing .inspector-tabs svg{width:13px;height:13px}
+#pivotFieldsPanel.component-pivot-processing .inspector-section-intro{display:none}
+#pivotFieldsPanel.component-pivot-processing .pane-source-count{margin:0 0 6px;font-size:10px;line-height:1.5}
+#pivotFieldsPanel.component-pivot-processing .pane-field-section>strong{font-size:11px}
+#pivotFieldsPanel.component-pivot-processing .pane-field-section>input{margin:4px 0;min-height:27px;padding:4px 7px}
+#pivotFieldsPanel.component-pivot-processing .pane-field-list{height:clamp(90px,18vh,155px);max-height:155px;margin:4px 0 7px;padding:3px;overscroll-behavior:contain}
+#pivotFieldsPanel.component-pivot-processing .pane-field{padding:4px;font-size:11px;line-height:1.4;min-height:25px}
+#pivotFieldsPanel.component-pivot-processing .pane-areas-label{display:block;font-size:11px;margin:4px 0}
+#pivotFieldsPanel.component-pivot-processing .pane-roles{gap:6px}
+#pivotFieldsPanel.component-pivot-processing .pane-role>header{padding:5px 6px;font-size:10px}
+#pivotFieldsPanel.component-pivot-processing .pane-role-drop{min-height:65px;max-height:115px;overflow:auto;padding:5px;overscroll-behavior:contain}
+#pivotFieldsPanel.component-pivot-processing .pane-help{font-size:10px;margin:5px 0}
+#pivotFieldsPanel.component-pivot-processing .inspector-footer{padding-top:6px}
+#pivotFieldsPanel.component-pivot-processing .inspector-state{font-size:10px;margin-bottom:4px}
+.document-block-data .document-chart{width:100%;height:auto;max-height:360px;margin-inline:auto}
+#sourceLibrary .selection-pivot-create{background:linear-gradient(120deg,#eaf4f8,#e7f3f0);border-color:#a6c9d3;color:#35657a}
+#sourceLibrary .selection-pivot-create svg{width:13px;height:13px;opacity:.85}
+[data-theme=dark] #sourceLibrary .selection-pivot-create{background:linear-gradient(120deg,#2b465b,#2b4a4b);color:#c8e2e9;border-color:#597c8e}

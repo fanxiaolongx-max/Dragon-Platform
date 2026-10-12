@@ -11,7 +11,7 @@
     function toggleButton(block){if(api.externalPanel)return '';if(block.chart.pivot)return '';const open=panelOpen(block);return `<button type="button" data-chart-toggle="${block.id}" aria-controls="chart-config-${block.id}" aria-expanded="${open}" title="${t(open?'收起图表配置':'展开图表配置',open?'Hide chart settings':'Show chart settings')}" aria-label="${t(open?'收起图表配置':'展开图表配置',open?'Hide chart settings':'Show chart settings')}">${open?'▴':'▾'}</button>`;}
     function resetPanels(){panelStates.clear();}
     const mime='application/x-monthly-field';
-    const colors=['#bd635b','#527899','#b59a53','#719980','#8c78a0','#c18e62','#539fa5','#ae7390'];
+    const colors=['#729fbd','#80b3a5','#aca0c5','#cfad82','#8eb5c6','#ba9caf','#9ab087','#c4918b'];
     const chartTypes=[['column','纵向柱状图','Column'],['bar','横向柱状图','Horizontal bar'],['line','折线图','Line'],['area','面积图','Area'],['pie','饼图','Pie'],['donut','环形图','Donut']];
     const chartType=block=>block.chart.type||(block.chart.series?.length?'column':'bar');
     const isCircular=block=>['pie','donut'].includes(chartType(block));

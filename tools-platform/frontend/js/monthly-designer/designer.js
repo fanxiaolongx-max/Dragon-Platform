@@ -1,7 +1,7 @@
 (function(){
     'use strict';
     // This stamp identifies the executing script, even if an older copy was cached.
-    const scriptVersion='20261012-19';
+    const scriptVersion='20261012-20';
     const versionBadge=document.createElement('span');versionBadge.id='monthlyScriptVersion';versionBadge.className='monthly-script-version';versionBadge.setAttribute('data-controls','');versionBadge.dataset.version=scriptVersion;document.body.append(versionBadge);
     const engine=window.MonthlyDocumentEngine;
     const view=window.MonthlyCatalogView,S=window.MonthlySourceRules,W=window.MonthlyWorkspace;
@@ -203,10 +203,10 @@
         }else{
             for(const [index,payload] of payloads.entries()){const file=catalog.files.find(item=>item.id===payload.fileId),sheet=file?.sheets.find(item=>item.id===payload.sheetId);if(!sheet)throw new Error(t('源表不存在','Source not found'));const table=engine.block('table');if(action==='add'&&index===0){for(const key of ['id','title','span','heightUnits','align'])table[key]=clone(existing[key]);if(existing.fieldRuns?.title)table.fieldRuns={title:clone(existing.fieldRuns.title)};if(existing.fieldAlign?.title)table.fieldAlign={title:clone(existing.fieldAlign.title)};section.blocks[section.blocks.indexOf(existing)]=table;}else section.blocks.push(table);table.title.zh||=fileDisplayName(file)+' / '+sheet.name;table.title.en||=file.name+' / '+sheet.name;table.binding={kind:'file',mode:'pinned',fileId:file.id,sourceKey:file.source_key||'',sheetName:sheet.name,tableMode:'original',reference:S.create(file,sheet,catalog,engine.documentMonth(current))};target=table;rememberSource(file,draft);}
         }
-        if(action==='pivot'){
+        if(['chart','pivot'].includes(action)){
             const source=target.chart.pivot.sources[0],data=await cached('/api/upload/source-sheets/'+encodeURIComponent(source.sheetId));
             const rows=(data.rows||[]).slice(0,100),field=data.headers.find(header=>rows.some(row=>String(row[header]??'').trim()&&number(row[header])===null))||data.headers[0];
-            target.chart.pivot.rows=field?[field]:[];target.chart.pivot.values=[{field:window.MonthlyPivot.RECORD,aggregation:'count',label:t('记录数','Record count')}];
+            const numeric=action==='chart'?data.headers.find(header=>header!==field&&!/(^|[_\W])(id|code|序号|编号)($|[_\W])/i.test(header)&&rows.some(row=>String(row[header]??'').trim()&&number(row[header])!==null)):null;target.chart.pivot.rows=field?[field]:[];target.chart.pivot.columns=action==='chart'&&target.chart.pivot.sources.length>1?[window.MonthlyPivot.SOURCE]:[];target.chart.pivot.values=[{field:numeric||window.MonthlyPivot.RECORD,aggregation:numeric?'sum':'count',label:numeric?'':t('记录数','Record count')}];
             if(placement.beforeId){const index=section.blocks.findIndex(block=>block.id===placement.beforeId);if(index>=0){section.blocks.splice(section.blocks.indexOf(target),1);section.blocks.splice(index,0,target);}}
         }
         if(target.savedData)target.previousData=target.savedData;delete target.savedData;engine.normalize(draft);checkpoint();current=draft;await render();await window.MonthlyPivotPanel.open(target.id,['chart','pivot'].includes(action)?'processing':'source');status(t('数据已加入月报；可以撤销','Data added to report; Undo is available'));
