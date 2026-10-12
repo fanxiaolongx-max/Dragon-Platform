@@ -294,17 +294,20 @@
         return [...groups.values()];
     }
 
-    function resolve(binding, catalog) {
+    function resolve(binding, catalog, metricAliases) {
         if (!binding) return null;
         if(binding.reference){
             const {reference,...legacy}=binding;
             const found=sourceRules.resolve(reference,catalog,catalog.reportMonth,binding.kind==='file'?'file':'snapshot');
             if(binding.kind==='file'){if(!found)return null;const file=mergeFiles(catalog.files).find(file=>file.mergedFiles.some(item=>item.id===found.file.id));return file?{file,sheet:file.sheets.find(sheet=>sheet.name===found.sheet.name)}:null;}
-            return resolve({...legacy,mode:reference.versionMode==='pinned'?'pinned':'latest',snapshotId:reference.versionId},{...catalog,snapshots:found||[]});
+            // Recover renamed import keys before narrowing the catalog to a month/version.
+            // The restricted snapshots still decide the value; aliases never bypass that scope.
+            const aliases=binding.kind==='metric'?metricOptions(catalog).find(metric=>metric.keyAliases.includes(binding.metricKey))?.keyAliases:undefined;
+            return resolve({...legacy,mode:reference.versionMode==='pinned'?'pinned':'latest',snapshotId:reference.versionId},{...catalog,snapshots:found||[]},aliases);
         }
         const snapshots = catalog.snapshots || [];
         if (binding.kind === 'metric' || binding.kind === 'section') {
-            const aliases = binding.kind === 'metric' ? metricOptions(catalog).find(metric => metric.keyAliases.includes(binding.metricKey))?.keyAliases || [binding.metricKey] : [binding.metricKey];
+            const aliases = binding.kind === 'metric' ? metricAliases || metricOptions(catalog).find(metric => metric.keyAliases.includes(binding.metricKey))?.keyAliases || [binding.metricKey] : [binding.metricKey];
             for (const snapshot of snapshots) {
                 if (binding.kind === 'metric' && Boolean(binding.metricKey?.startsWith('assessment:')) !== Boolean(snapshot.kind === 'assessment')) continue; if (binding.mode === 'pinned' && snapshot.id !== binding.snapshotId) continue;
                 const metric = expandMetrics(snapshot).find(m => aliases.includes(m.key));

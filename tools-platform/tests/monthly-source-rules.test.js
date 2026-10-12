@@ -39,3 +39,19 @@ test('library groups identical filenames across original and structured archives
  const catalog={batches:[],files:[{...file('upload','2026-09','2026-10-12T12:00:00Z'),name:'SR_Latest_2026年09月.csv'},{...file('capture','2026-09','2026-10-12T11:00:00Z','structured'),name:'SR_Latest_2026年09月.csv'},{...file('other-month','2026-08','2026-10-12T13:00:00Z'),name:'SR_Latest_2026年09月.csv'},{...file('other-name','2026-09','2026-10-12T10:00:00Z'),name:'SR_2026年09月.csv'}]};
  const groups=S.libraryGroups(catalog,'2026-09');assert.equal(groups.length,2);assert.equal(groups.find(group=>group.file.id==='upload').versions.length,2);assert.equal(S.catalogGroups(catalog,'2026-09').length,2);const rule=S.create(catalog.files[1],catalog.files[1].sheets[0],catalog,'2026-09',true);assert.equal(S.resolve(rule,catalog,'2026-09').file.id,'capture');assert.equal(S.libraryGroups(catalog,'').length,3);
 });
+
+test('month and pinned references retain renamed main/child metric aliases without mixing categories or assessment sources',()=>{
+ const old={id:'old-alias',kind:'extraction',target_period:'2025-09',captured_at:'2025-10-01',sections:[],metrics:[{key:'legacy-risk',label:'Risk',value:5,subMetrics:[{category:'TE',value:40},{category:'ORG',value:60}]}]};
+ const fresh={id:'new-alias',kind:'extraction',target_period:'2026-09',captured_at:'2026-10-01',sections:[],metrics:[{key:'new-risk',label:'Risk',value:9,subMetrics:[{category:'TE',value:88},{category:'ORG',value:92}]}]};
+ const assessment={...old,id:'assessment-alias',kind:'assessment',metrics:[{key:'assessment:risk',label:'Risk / TE',category:'TE',value:777}]};
+ const data={files:[],batches:[],snapshots:[fresh,old,assessment],reportMonth:'2026-09'};
+ const reference={monthMode:'fixed',offset:0,month:'2025-09',versionMode:'pinned',versionId:old.id,sourceKind:'extraction',sourceKey:'',sheetName:''};
+ const binding={kind:'metric',metricKey:'submetric:new-risk:TE',reference};
+ assert.equal(E.resolve(binding,data).metric.value,40);assert.equal(E.resolve(binding,data).snapshot.id,old.id);
+ assert.equal(E.resolve({...binding,metricKey:'new-risk'},data).metric.value,5);
+ assert.equal(E.resolve({...binding,reference:{...reference,versionMode:'latest',versionId:''}},data).metric.value,40);
+ assert.equal(E.resolve({...binding,metricKey:'submetric:new-risk:ORG'},data).metric.value,60);
+ assert.equal(E.resolve({...binding,metricKey:'submetric:new-risk:VDF'},data),null);
+ assert.equal(E.resolve({...binding,reference:{...reference,month:'2024-09'}},data),null);
+ assert.equal(E.resolve({...binding,reference:{...reference,versionId:assessment.id}},data),null);
+});
