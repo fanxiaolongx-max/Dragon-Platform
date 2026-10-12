@@ -367,6 +367,8 @@ async function renameScript(script) {
     try {
         const res = await API.patch(`/api/uiv/scripts/${encodeURIComponent(script.id)}/rename`, { name: newName });
 
+        const updatedScript = res?.script || res?.item;
+
         const currentTitle = window.UIVWorkbench?.getCurrentTitle?.() || '';
         const baseOld = script.name.replace(/(_CN|_AE|_DE)$/, '');
         if (currentTitle === script.name || currentTitle === baseOld) {
@@ -376,11 +378,28 @@ async function renameScript(script) {
             if (fileNameInput && (fileNameInput.value === script.name || fileNameInput.value === baseOld)) {
                 fileNameInput.value = baseNew;
             }
+            const codeOutput = document.getElementById('codeOutput');
+            const consoleOutput = document.getElementById('consoleOutput');
+            if (codeOutput) {
+                if (updatedScript?.code) {
+                    codeOutput.value = updatedScript.code;
+                } else if (window.UIVSave?.replaceGeneratedOutputFileName) {
+                    codeOutput.value = window.UIVSave.replaceGeneratedOutputFileName(codeOutput.value, baseNew);
+                }
+            }
+            if (consoleOutput) {
+                if (updatedScript?.consoleCode) {
+                    consoleOutput.value = updatedScript.consoleCode;
+                } else if (window.UIVSave?.replaceGeneratedOutputFileName) {
+                    consoleOutput.value = window.UIVSave.replaceGeneratedOutputFileName(consoleOutput.value, baseNew);
+                }
+            }
         }
 
         await loadSavedScripts({ reason: 'renameScript', scriptId: script.id, newName });
-        if (res?.item?.ruleSyncCount > 0) {
-            showToast(UIVT('uiv.toast.scriptRenamedWithRules', { name: newName, count: res.item.ruleSyncCount }));
+        const syncCount = res?.item?.ruleSyncCount ?? res?.script?.ruleSyncCount ?? 0;
+        if (syncCount > 0) {
+            showToast(UIVT('uiv.toast.scriptRenamedWithRules', { name: newName, count: syncCount }));
         } else {
             showToast(UIVT('uiv.toast.scriptRenamed', { name: newName }));
         }

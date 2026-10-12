@@ -613,7 +613,7 @@
         const boardIdMatch = raw.match(/"boardId"\s*:\s*"([^"]+)"/);
         const tenantMatch = raw.match(/"srcTenantId"\s*:\s*"([^"]+)"/);
         const componentMatch = raw.match(/"id"\s*:\s*"([^"]+)"/);
-        const outputMatch = raw.match(/let finalOutputName = "([^"]+)"/);
+        const outputMatch = raw.match(/(?:let|const|var)?\s*finalOutputName\s*=\s*(["'`])(.*?)\1/);
         const url = urlMatch ? urlMatch[1] : '';
         const endpoint = url ? url.split('?')[0].replace(/\/+$/, '').split('/').pop() : '';
         const serviceMatch = url.match(/\/services\/+([^/?]+)|\/legacy\/services\/+([^/?]+)/);
@@ -1179,10 +1179,31 @@
     }
 
     function renameScriptArtifacts(script, newName) {
-        const outputName = `${newName}_Latest.csv`;
+        const clean = String(newName || '').trim().replace(/\.csv$/i, '');
+        const outputName = /_Latest$/i.test(clean) ? `${clean}.csv` : `${clean}_Latest.csv`;
         const replaceOutput = code => {
             if (!code || typeof code !== 'string') return code || '';
-            return code.replace(/let finalOutputName = "([^"]+)";/g, `let finalOutputName = "${outputName}";`);
+            try {
+                const parsed = JSON.parse(code);
+                if (parsed && typeof parsed === 'object') {
+                    parsed.Name = newName;
+                    if (Array.isArray(parsed.Commands)) {
+                        parsed.Commands.forEach(cmd => {
+                            if (cmd.Target && typeof cmd.Target === 'string') {
+                                cmd.Target = cmd.Target.replace(
+                                    /((?:let|const|var)?\s*finalOutputName\s*=\s*)(["'`])(?:\\.|(?!\2)[^\\])*\2/g,
+                                    `$1${JSON.stringify(outputName)}`
+                                );
+                            }
+                        });
+                    }
+                    return JSON.stringify(parsed, null, 2);
+                }
+            } catch (_) {}
+            return code.replace(
+                /((?:let|const|var)?\s*finalOutputName\s*=\s*)(["'`])(?:\\.|(?!\2)[^\\])*\2/g,
+                `$1${JSON.stringify(outputName)}`
+            );
         };
         return {
             ...script,

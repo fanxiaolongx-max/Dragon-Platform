@@ -271,3 +271,104 @@ test('script analysis modal styles are wider, taller, and optimize 13 columns la
     assert.match(pageSource, /<td colspan="13" class="script-analysis-empty">等待分析\.\.\.<\/td>/, 'Empty row should span 13 columns');
 });
 
+test('renameScript automatically updates download filenames in both JavaScript code and UI.Vision JSON macros', async () => {
+    await scriptsRepo.ensureReady();
+    const testId = 'script_js_test_' + Date.now();
+    const oldName = 'OldJsScript';
+    const newName = 'NewJsScript';
+
+    // Standard workbench script: code is a JS async function string
+    const sampleJsCode = `return (async function() {
+        let finalOutputName = "OldJsScript_Latest.csv";
+        const link = document.createElement("a");
+        link.download = finalOutputName;
+        // 📦 队列 [1/1]: OldJsScript
+        const taskName = "OldJsScript";
+        console.log("Audit download result: OldJsScript");
+    })();`;
+
+    const sampleConsoleCode = `(async function() {
+        let finalOutputName = 'OldJsScript_Latest.csv';
+        const link = document.createElement("a");
+        link.download = finalOutputName;
+        const taskName = 'OldJsScript';
+    })();`;
+
+    const script = {
+        id: testId,
+        name: oldName,
+        category: 'TestCategory',
+        url: 'https://example.com/api',
+        code: sampleJsCode,
+        consoleCode: sampleConsoleCode,
+        payload: '{}',
+        originalFileName: oldName
+    };
+
+    await scriptsRepo.saveScripts([script]);
+
+    const renamed = await scriptsRepo.renameScript(testId, newName);
+    assert.ok(renamed, 'renameScript should succeed');
+    assert.strictEqual(renamed.name, newName);
+    assert.strictEqual(renamed.originalFileName, newName);
+    assert.strictEqual(renamed.newOutputFileName, 'NewJsScript_Latest.csv');
+
+    // Assert code has updated finalOutputName and taskName
+    assert.match(renamed.code, /let finalOutputName = "NewJsScript_Latest\.csv"/, 'JS code finalOutputName must be updated');
+    assert.match(renamed.code, /taskName = "NewJsScript"/, 'JS code taskName must be updated');
+    assert.match(renamed.code, /\/\/ 📦 队列 \[1\/1\]: NewJsScript/, 'JS code queue comment must be updated');
+    assert.match(renamed.code, /Audit download result: NewJsScript/, 'JS code audit comment must be updated');
+
+    // Assert consoleCode has updated finalOutputName and taskName
+    assert.match(renamed.consoleCode, /finalOutputName = "NewJsScript_Latest\.csv"/, 'consoleCode finalOutputName must be updated');
+    assert.match(renamed.consoleCode, /taskName = "NewJsScript"/, 'consoleCode taskName must be updated');
+
+    // Clean up
+    await scriptsRepo.deleteScriptById(testId);
+});
+
+test('renameScript updates UI.Vision macro Commands targets, exports, and descriptions', async () => {
+    await scriptsRepo.ensureReady();
+    const testId = 'script_macro_test_' + Date.now();
+    const oldName = 'OldMacroScript';
+    const newName = 'NewMacroScript';
+
+    const macroObj = {
+        Name: oldName,
+        CreationDate: '2026-10-12',
+        Commands: [
+            { Command: 'echo', Target: '[1/1] Run OldMacroScript', Value: '' },
+            { Command: 'executeScript', Target: 'let finalOutputName = "OldMacroScript_Latest.csv"; const taskName = "OldMacroScript";', Value: '' },
+            { Command: 'localStorageExport', Target: 'OldMacroScript_Latest.csv', Value: '' },
+            { Command: 'executeScript', Target: 'return "ok";', Value: '', Description: 'Run controllable UIVF12 script: OldMacroScript' }
+        ]
+    };
+
+    const script = {
+        id: testId,
+        name: oldName,
+        category: 'TestCategory',
+        url: 'https://example.com/api',
+        code: JSON.stringify(macroObj, null, 2),
+        consoleCode: `let finalOutputName = "OldMacroScript_Latest.csv";`,
+        payload: '{}',
+        originalFileName: oldName
+    };
+
+    await scriptsRepo.saveScripts([script]);
+
+    const renamed = await scriptsRepo.renameScript(testId, newName);
+    assert.ok(renamed, 'renameScript should succeed');
+
+    const parsed = JSON.parse(renamed.code);
+    assert.strictEqual(parsed.Name, newName);
+    assert.strictEqual(parsed.Commands[0].Target, '[1/1] Run NewMacroScript');
+    assert.match(parsed.Commands[1].Target, /finalOutputName = "NewMacroScript_Latest\.csv"/);
+    assert.match(parsed.Commands[1].Target, /taskName = "NewMacroScript"/);
+    assert.strictEqual(parsed.Commands[2].Target, 'NewMacroScript_Latest.csv');
+    assert.strictEqual(parsed.Commands[3].Description, 'Run controllable UIVF12 script: NewMacroScript');
+
+    // Clean up
+    await scriptsRepo.deleteScriptById(testId);
+});
+

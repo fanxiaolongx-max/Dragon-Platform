@@ -127,8 +127,25 @@ function buildRenamedOutputFileName(baseName) {
 function replaceGeneratedOutputFileName(code, baseName) {
     const outputFileName = buildRenamedOutputFileName(baseName);
     if (!outputFileName || typeof code !== 'string') return code;
+    try {
+        const parsed = JSON.parse(code);
+        if (parsed && typeof parsed === 'object') {
+            parsed.Name = baseName;
+            if (Array.isArray(parsed.Commands)) {
+                parsed.Commands.forEach(cmd => {
+                    if (cmd.Target && typeof cmd.Target === 'string') {
+                        cmd.Target = cmd.Target.replace(
+                            /((?:let|const|var)?\s*finalOutputName\s*=\s*)(["'`])(?:\\.|(?!\2)[^\\])*\2/g,
+                            `$1${JSON.stringify(outputFileName)}`
+                        );
+                    }
+                });
+            }
+            return JSON.stringify(parsed, null, 2);
+        }
+    } catch (_) {}
     return code.replace(
-        /((?:let|const|var)\s+finalOutputName\s*=\s*)("(?:\\.|[^"\\])*")/g,
+        /((?:let|const|var)?\s*finalOutputName\s*=\s*)(["'`])(?:\\.|(?!\2)[^\\])*\2/g,
         (match, assignment) => `${assignment}${JSON.stringify(outputFileName)}`
     );
 }

@@ -443,7 +443,7 @@ router.patch('/scripts/:id/rename', async (req, res) => {
             objectId: req.params.id,
             message: `将脚本 ${updated.oldName || req.params.id} 重命名为 ${updated.name}`
         });
-        res.json({ success: true, script: updated });
+        res.json({ success: true, script: updated, item: updated });
     } catch (err) {
         console.error('[PATCH /api/uiv/scripts/:id/rename] failed:', err);
         res.status(500).json({ error: '重命名脚本失败' });

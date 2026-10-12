@@ -43,6 +43,8 @@ async function ensureReady() {
                 )
             `);
 
+            await repairMismatchedScripts();
+
             const row = await get('SELECT COUNT(1) AS count FROM uiv_scripts');
             if (row && row.count > 0) return;
 
@@ -359,6 +361,170 @@ async function syncRulesOnScriptRename(oldName, cleanNewName) {
     return { synced: syncedCount > 0, count: syncedCount, newBaseName, newPrefKey, newSecId };
 }
 
+function computeOutputFileName(name) {
+    const clean = String(name || '').trim().replace(/\.csv$/i, '');
+    if (!clean) return '';
+    return /_Latest$/i.test(clean) ? `${clean}.csv` : `${clean}_Latest.csv`;
+}
+
+function escapeRegExp(str) {
+    return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function updateCodeArtifacts(code, oldName, newName, oldOutputFileName, newOutputFileName) {
+    if (!code || typeof code !== 'string') return code || '';
+
+    // 1. Try parsing as JSON UI.Vision macro
+    try {
+        const parsed = JSON.parse(code);
+        if (parsed && typeof parsed === 'object') {
+            parsed.Name = newName;
+            if (Array.isArray(parsed.Commands)) {
+                parsed.Commands.forEach(cmd => {
+                    // Update localStorageExport / csvSave
+                    if (cmd.Command === 'localStorageExport' || cmd.Command === 'csvSave') {
+                        if (cmd.Target && typeof cmd.Target === 'string') {
+                            if (oldOutputFileName && cmd.Target.includes(oldOutputFileName)) {
+                                cmd.Target = cmd.Target.split(oldOutputFileName).join(newOutputFileName);
+                            } else if (oldName && cmd.Target.includes(oldName)) {
+                                cmd.Target = cmd.Target.split(oldName).join(newName);
+                            } else {
+                                cmd.Target = newOutputFileName;
+                            }
+                        }
+                        if (cmd.Value && typeof cmd.Value === 'string') {
+                            if (oldOutputFileName && cmd.Value.includes(oldOutputFileName)) {
+                                cmd.Value = cmd.Value.split(oldOutputFileName).join(newOutputFileName);
+                            } else if (oldName && cmd.Value.includes(oldName)) {
+                                cmd.Value = cmd.Value.split(oldName).join(newName);
+                            }
+                        }
+                    }
+                    // Update executeScript / executeScript_Sandbox
+                    if (cmd.Target && typeof cmd.Target === 'string') {
+                        cmd.Target = cmd.Target.replace(
+                            /((?:let|const|var)?\s*finalOutputName\s*=\s*)(["'`])(?:\\.|(?!\2)[^\\])*\2/g,
+                            `$1${JSON.stringify(newOutputFileName)}`
+                        );
+                        if (oldOutputFileName) {
+                            cmd.Target = cmd.Target.replace(
+                                new RegExp(`((?:link|a)\\.download\\s*=\\s*)(["'\`])${escapeRegExp(oldOutputFileName)}\\2`, 'g'),
+                                `$1${JSON.stringify(newOutputFileName)}`
+                            );
+                        }
+                        if (oldName) {
+                            cmd.Target = cmd.Target.replace(
+                                new RegExp(`((?:let|const|var)?\\s*taskName\\s*=\\s*)(["'\`])${escapeRegExp(oldName)}\\2`, 'g'),
+                                `$1${JSON.stringify(newName)}`
+                            );
+                        }
+                    }
+                    // Update echo
+                    if (cmd.Command === 'echo' && cmd.Target && typeof cmd.Target === 'string' && oldName) {
+                        cmd.Target = cmd.Target.split(oldName).join(newName);
+                    }
+                    // Update Description
+                    if (cmd.Description && typeof cmd.Description === 'string' && oldName) {
+                        cmd.Description = cmd.Description.split(oldName).join(newName);
+                    }
+                });
+            }
+            return JSON.stringify(parsed, null, 2);
+        }
+    } catch (_) {}
+
+    // 2. JavaScript code string
+    let updated = code;
+
+    // A. Replace finalOutputName assignment (handles let/const/var, spaces, double/single quotes, backticks)
+    updated = updated.replace(
+        /((?:let|const|var)?\s*finalOutputName\s*=\s*)(["'`])(?:\\.|(?!\2)[^\\])*\2/g,
+        `$1${JSON.stringify(newOutputFileName)}`
+    );
+
+    // B. Replace hardcoded download assignments if any: link.download = "..." / a.download = "..."
+    if (oldOutputFileName) {
+        updated = updated.replace(
+            new RegExp(`((?:link|a)\\.download\\s*=\\s*)(["'\`])${escapeRegExp(oldOutputFileName)}\\2`, 'g'),
+            `$1${JSON.stringify(newOutputFileName)}`
+        );
+    }
+
+    // C. Replace taskName if present: const taskName = "..." / taskName = "..."
+    if (oldName) {
+        updated = updated.replace(
+            new RegExp(`((?:let|const|var)?\\s*taskName\\s*=\\s*)(["'\`])${escapeRegExp(oldName)}\\2`, 'g'),
+            `$1${JSON.stringify(newName)}`
+        );
+        // Replace queue header comment: // 📦 队列 [...]: oldName
+        updated = updated.replace(
+            new RegExp(`(//\\s*📦\\s*队列\\s*\\[[^\\]]+\\]:\\s*)${escapeRegExp(oldName)}`, 'g'),
+            `$1${newName}`
+        );
+        // Replace audit script references: Audit download result: oldName
+        updated = updated.replace(
+            new RegExp(`(Audit download result:\\s*)${escapeRegExp(oldName)}`, 'g'),
+            `$1${newName}`
+        );
+        // Replace console log task name: 开始注入执行: "oldName"
+        updated = updated.replace(
+            new RegExp(`(开始注入执行:\\s*["'\`])${escapeRegExp(oldName)}(["'\`])`, 'g'),
+            `$1${newName}$2`
+        );
+    }
+
+    return updated;
+}
+
+let repairedOnce = false;
+async function repairMismatchedScripts() {
+    if (repairedOnce) return;
+    repairedOnce = true;
+    try {
+        const rows = await all('SELECT id, name, category, url, payload_json FROM uiv_scripts');
+        if (!rows || rows.length === 0) return;
+        for (const row of rows) {
+            let script;
+            try {
+                script = JSON.parse(row.payload_json);
+            } catch (_) {
+                continue;
+            }
+            if (!script || !script.name) continue;
+
+            const targetOutputName = computeOutputFileName(script.name);
+            let needsUpdate = false;
+
+            if (script.code && typeof script.code === 'string') {
+                const codeMatch = script.code.match(/(?:let|const|var)?\s*finalOutputName\s*=\s*(["'`])(.*?)\1/);
+                if (codeMatch && codeMatch[2] !== targetOutputName) {
+                    script.code = updateCodeArtifacts(script.code, script.name, script.name, codeMatch[2], targetOutputName);
+                    needsUpdate = true;
+                }
+            }
+
+            if (script.consoleCode && typeof script.consoleCode === 'string') {
+                const consoleMatch = script.consoleCode.match(/(?:let|const|var)?\s*finalOutputName\s*=\s*(["'`])(.*?)\1/);
+                if (consoleMatch && consoleMatch[2] !== targetOutputName) {
+                    script.consoleCode = updateCodeArtifacts(script.consoleCode, script.name, script.name, consoleMatch[2], targetOutputName);
+                    needsUpdate = true;
+                }
+            }
+
+            if (needsUpdate) {
+                script.originalFileName = script.name;
+                script.updatedAt = new Date().toISOString();
+                await run(
+                    `UPDATE uiv_scripts SET payload_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+                    [JSON.stringify(script), script.id]
+                );
+            }
+        }
+    } catch (err) {
+        console.warn('[uiv-scripts] repairMismatchedScripts error:', err.message);
+    }
+}
+
 async function renameScript(id, newName) {
     await ensureReady();
     const row = await get('SELECT payload_json FROM uiv_scripts WHERE id = ?', [id]);
@@ -374,27 +540,19 @@ async function renameScript(id, newName) {
     const cleanNewName = String(newName || '').trim();
     if (!cleanNewName) return null;
 
+    const oldOutputFileName = computeOutputFileName(oldName);
+    const newOutputFileName = computeOutputFileName(cleanNewName);
+
     script.name = cleanNewName;
     script.originalFileName = cleanNewName;
     script.updatedAt = new Date().toISOString();
 
-    if (script.code && typeof script.code === 'string') {
-        try {
-            const parsed = JSON.parse(script.code);
-            if (parsed && typeof parsed === 'object' && parsed.Name) {
-                parsed.Name = cleanNewName;
-                script.code = JSON.stringify(parsed, null, 2);
-            }
-        } catch (_) {}
+    if (script.code) {
+        script.code = updateCodeArtifacts(script.code, oldName, cleanNewName, oldOutputFileName, newOutputFileName);
     }
 
-    if (script.consoleCode && typeof script.consoleCode === 'string') {
-        const baseWithoutCsv = cleanNewName.replace(/\.csv$/i, '');
-        const outputFileName = /_Latest$/i.test(baseWithoutCsv) ? `${baseWithoutCsv}.csv` : `${baseWithoutCsv}_Latest.csv`;
-        script.consoleCode = script.consoleCode.replace(
-            /((?:let|const|var)\s+finalOutputName\s*=\s*)("(?:\\.|[^"\\])*")/g,
-            `$1${JSON.stringify(outputFileName)}`
-        );
+    if (script.consoleCode) {
+        script.consoleCode = updateCodeArtifacts(script.consoleCode, oldName, cleanNewName, oldOutputFileName, newOutputFileName);
     }
 
     await upsertScriptInDb(script);
@@ -405,6 +563,8 @@ async function renameScript(id, newName) {
     return {
         ...script,
         oldName,
+        newOutputFileName,
+        oldOutputFileName,
         ruleSyncCount: syncResult.count,
         ruleSyncResult: syncResult
     };
@@ -438,5 +598,8 @@ module.exports = {
     deleteScriptsByCategory,
     replaceAllScripts,
     syncRulesOnScriptRename,
-    generateSchemaHash
+    generateSchemaHash,
+    computeOutputFileName,
+    updateCodeArtifacts,
+    repairMismatchedScripts
 };

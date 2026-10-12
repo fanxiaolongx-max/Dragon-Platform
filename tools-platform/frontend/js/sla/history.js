@@ -3,6 +3,8 @@ let latestSLAHistoryI18nMap = {};
 let latestSLAHistoryMetricFormatMap = {};
 let latestSLAHistorySourceFiles = [];
 let loadingSLAHistorySource = false;
+let historyCurrentPage = 1;
+let historyPageSize = 10;
 
 function getHistorySecIdFromPrefKey(prefKey) {
     const normalized = String(prefKey || '');
@@ -97,49 +99,245 @@ function syncHistoryScrollbar(){
     cleanupHistoryScroll=()=>{observer.disconnect();if(frame)cancelAnimationFrame(frame);wrapper?.removeEventListener('scroll',schedule);range.oninput=left.onclick=right.onclick=null;};update();
 }
 
+function renderFeatherArt(container) {
+    if (!container) return;
+    const featherEl = container.querySelector('[data-startup-feather]');
+    if (!featherEl) return;
+    if (featherEl.querySelector('svg')) return;
+    if (window.ToolsStartup && typeof window.ToolsStartup.feather === 'function') {
+        window.ToolsStartup.feather(container);
+        return;
+    }
+    const body = 'M45 157 C3 128 14 58 62 35 C85 24 117 12 146 13 C155 44 142 83 114 112 C95 133 72 146 45 157Z';
+    const barbs = Array.from({length:36},(_,i)=>{const f=i/35,x=46+99*f,y=153-139*f,w=Math.sin(Math.PI*f)*40,j=Math.sin(i*1.7)*2;return `<path d="M${x} ${y} Q${x-w*.6} ${y-7} ${x-w} ${y-24+j} M${x} ${y} Q${x+w*.55} ${y+2} ${x+w*.78} ${y+16+j}"/>`;}).join('');
+    featherEl.innerHTML = `<svg viewBox="0 0 180 205" aria-hidden="true"><defs><linearGradient id="historyBootFeather" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset=".48" stop-color="#ecf3f8"/><stop offset="1" stop-color="#9db5c9"/></linearGradient><linearGradient id="historyBootQuill"><stop stop-color="#d8c6a1"/><stop offset="1" stop-color="#fffdf5"/></linearGradient><clipPath id="historyBootFeatherClip"><path d="${body}"/></clipPath></defs><path d="${body}" fill="url(#historyBootFeather)" stroke="#a9bccb" stroke-width=".65"/><g clip-path="url(#historyBootFeatherClip)" stroke="#708da5" stroke-opacity=".42" stroke-width=".55" fill="none">${barbs}</g><path d="M29 189 Q76 91 146 13" fill="none" stroke="url(#historyBootQuill)" stroke-width="2.3" stroke-linecap="round"/><path d="M46 156 Q93 120 121 95" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width=".7"/></svg>`;
+}
+
+const HISTORY_LOADING_STEPS = [
+    { key: 'snapshots', label: () => SLAT('sla.history.stepSnapshots') },
+    { key: 'config', label: () => SLAT('sla.history.stepConfig') },
+    { key: 'catalog', label: () => SLAT('sla.history.stepCatalog') },
+    { key: 'render', label: () => SLAT('sla.history.stepRender') }
+];
+
+function renderHistoryLoadingState(container, activeStepKey, percent) {
+    if (!container) return;
+    const clampedPercent = Math.max(0, Math.min(100, Math.round(percent)));
+    let loader = container.querySelector('#history-feather-loader');
+    
+    if (!loader) {
+        container.innerHTML = `
+            <div class="history-feather-loader" id="history-feather-loader">
+                <div class="history-feather-card">
+                    <div class="startup-art" aria-hidden="true">
+                        <div class="startup-halo"></div>
+                        <div class="startup-feather" data-startup-feather></div>
+                    </div>
+                    <p class="startup-eyebrow">TOOLS PLATFORM · SNAPSHOTS</p>
+                    <h3 class="history-feather-title">${escapeHTML(SLAT('sla.history.featherLoading'))}</h3>
+                    <p class="history-feather-msg" id="history-feather-msg"></p>
+                    <div class="startup-track" id="history-feather-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="--startup-progress: 0%;">
+                        <span></span>
+                    </div>
+                    <div class="startup-progress-label">
+                        <span id="history-feather-step-count">0 / 4 个步骤</span>
+                        <strong id="history-feather-percent">0%</strong>
+                    </div>
+                    <div class="history-feather-steps" id="history-feather-steps">
+                        ${HISTORY_LOADING_STEPS.map((s, idx) => `
+                            <div class="history-feather-step-item" data-step="${s.key}" data-state="waiting">
+                                <span>${idx + 1}. ${escapeHTML(s.label())}</span>
+                                <small>${escapeHTML(SLAT('sla.history.stepWaiting'))}</small>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+        loader = container.querySelector('#history-feather-loader');
+        renderFeatherArt(loader);
+    }
+    
+    const track = loader.querySelector('#history-feather-track');
+    if (track) {
+        track.style.setProperty('--startup-progress', `${clampedPercent}%`);
+        track.setAttribute('aria-valuenow', String(clampedPercent));
+    }
+    const percentEl = loader.querySelector('#history-feather-percent');
+    if (percentEl) percentEl.textContent = `${clampedPercent}%`;
+
+    const activeIndex = HISTORY_LOADING_STEPS.findIndex(s => s.key === activeStepKey);
+    let settledCount = 0;
+    HISTORY_LOADING_STEPS.forEach((s, idx) => {
+        const itemEl = loader.querySelector(`[data-step="${s.key}"]`);
+        if (!itemEl) return;
+        const smallEl = itemEl.querySelector('small');
+        if (clampedPercent >= 100 || idx < activeIndex) {
+            itemEl.dataset.state = 'ready';
+            if (smallEl) smallEl.textContent = SLAT('sla.history.stepReady');
+            settledCount++;
+        } else if (idx === activeIndex) {
+            itemEl.dataset.state = 'loading';
+            if (smallEl) smallEl.textContent = SLAT('sla.history.stepRunning');
+        } else {
+            itemEl.dataset.state = 'waiting';
+            if (smallEl) smallEl.textContent = SLAT('sla.history.stepWaiting');
+        }
+    });
+
+    if (clampedPercent >= 100) settledCount = HISTORY_LOADING_STEPS.length;
+    const countEl = loader.querySelector('#history-feather-step-count');
+    if (countEl) countEl.textContent = SLAT('sla.history.stepCount', { settled: settledCount, total: HISTORY_LOADING_STEPS.length });
+
+    const msgEl = loader.querySelector('#history-feather-msg');
+    if (msgEl) {
+        const activeStep = HISTORY_LOADING_STEPS[activeIndex];
+        msgEl.textContent = clampedPercent >= 100
+            ? SLAT('sla.history.ready')
+            : (activeStep ? `${activeStep.label()}…` : SLAT('sla.history.loadingShort'));
+    }
+}
+
 async function openHistoryModal() {
     const modal = document.getElementById('history-modal');
     if(modal) modal.style.display = 'flex';
     const list = document.getElementById('history-modal-list');
-    if(list) list.innerHTML = `<div class="loading-text">${SLAT('sla.history.loadingShort')}</div>`;
+    const paginationBar = document.getElementById('history-pagination-bar');
+    if (paginationBar) paginationBar.style.display = 'none';
+
+    renderHistoryLoadingState(list, 'snapshots', 15);
     syncHistoryScrollbar();
+
     try {
         const mode = API.getSourceMode('sla_data');
         const query = mode === 'auto' ? '' : `?mode=${encodeURIComponent(mode)}`;
-        const [data, configData, catalog] = await Promise.all([
-            API.get(`/api/sla/snapshots${query}`),
-            API.get(`/api/sla/config${query}`).catch(() => null),
-            API.get('/api/upload/source-catalog').catch(() => null)
-        ]);
+
+        renderHistoryLoadingState(list, 'snapshots', 25);
+        const dataPromise = API.get(`/api/sla/snapshots${query}`);
+        const data = await dataPromise;
+        renderHistoryLoadingState(list, 'config', 50);
+
+        const configPromise = API.get(`/api/sla/config${query}`).catch(() => null);
+        const configData = await configPromise;
+        renderHistoryLoadingState(list, 'catalog', 75);
+
+        const catalogPromise = API.get('/api/upload/source-catalog').catch(() => null);
+        const catalog = await catalogPromise;
+        renderHistoryLoadingState(list, 'render', 92);
+
         latestSLAHistorySnapshots = Array.isArray(data) ? data : [];
         latestSLAHistorySourceFiles = catalog?.files || [];
         latestSLAHistoryI18nMap = (configData && configData.prefs && configData.prefs.i18nMap) || {};
         latestSLAHistoryMetricFormatMap = buildHistoryMetricFormatMap(configData);
         if (window.renderSLASourcePanel) window.renderSLASourcePanel();
+
+        renderHistoryLoadingState(list, 'render', 100);
+        await new Promise(r => setTimeout(r, 160));
+
         renderHistory(latestSLAHistorySnapshots);
     } catch(e) {
         if (window.renderSLASourcePanel) window.renderSLASourcePanel();
-        if(list) list.innerHTML = `<div style="color:red;padding:20px;">${SLAT('sla.history.loadFail', { message: e.message })}</div>`;
+        if(list) list.innerHTML = `<div style="color:red;padding:24px;text-align:center;">${SLAT('sla.history.loadFail', { message: e.message })}</div>`;
     }
 }
 
 function closeHistoryModal() {
     const modal = document.getElementById('history-modal');
     if(modal) modal.style.display = 'none';
+    const paginationBar = document.getElementById('history-pagination-bar');
+    if (paginationBar) paginationBar.style.display = 'none';
     cleanupHistoryScroll();
 }
 
+function renderHistoryPaginationBar(barEl, { totalCount, totalPages, currentPage, pageSize, startIndex, endIndex }) {
+    if (!barEl) return;
+    const summaryText = pageSize === 'all'
+        ? SLAT('sla.history.paginationSummaryAll', { total: totalCount })
+        : SLAT('sla.history.paginationSummary', { total: totalCount, start: startIndex, end: endIndex });
+
+    const pageNumbers = [];
+    if (totalPages <= 7) {
+        for (let i = 1; i <= totalPages; i++) pageNumbers.push(i);
+    } else {
+        if (currentPage <= 4) {
+            pageNumbers.push(1, 2, 3, 4, 5, '...', totalPages);
+        } else if (currentPage >= totalPages - 3) {
+            pageNumbers.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+        } else {
+            pageNumbers.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+        }
+    }
+
+    barEl.innerHTML = `
+        <div class="history-pagination-left">
+            <span class="history-pagination-summary">${escapeHTML(summaryText)}</span>
+            <label class="history-page-size-wrap">
+                <span>${escapeHTML(SLAT('sla.history.pageSizeLabel'))}</span>
+                <select class="history-page-size-select" onchange="window.setHistoryPageSize(this.value)">
+                    <option value="10" ${pageSize == 10 ? 'selected' : ''}>${escapeHTML(SLAT('sla.history.pageSizeDefault'))}</option>
+                    <option value="20" ${pageSize == 20 ? 'selected' : ''}>${escapeHTML(SLAT('sla.history.pageSizeUnit', { size: '20' }))}</option>
+                    <option value="50" ${pageSize == 50 ? 'selected' : ''}>${escapeHTML(SLAT('sla.history.pageSizeUnit', { size: '50' }))}</option>
+                    <option value="100" ${pageSize == 100 ? 'selected' : ''}>${escapeHTML(SLAT('sla.history.pageSizeUnit', { size: '100' }))}</option>
+                    <option value="all" ${pageSize === 'all' ? 'selected' : ''}>${escapeHTML(SLAT('sla.history.pageSizeAll'))}</option>
+                </select>
+            </label>
+        </div>
+        <div class="history-pagination-right">
+            <button type="button" class="history-page-btn" ${currentPage <= 1 ? 'disabled' : ''} onclick="window.gotoHistoryPage(1)" title="${escapeHTML(SLAT('sla.history.firstPage'))}">«</button>
+            <button type="button" class="history-page-btn" ${currentPage <= 1 ? 'disabled' : ''} onclick="window.gotoHistoryPage(${currentPage - 1})" title="${escapeHTML(SLAT('sla.history.prevPage'))}">‹</button>
+            <div class="history-page-numbers">
+                ${pageNumbers.map(p => p === '...'
+                    ? `<span class="history-page-ellipsis">…</span>`
+                    : `<button type="button" class="history-page-btn ${p === currentPage ? 'active' : ''}" onclick="window.gotoHistoryPage(${p})">${p}</button>`
+                ).join('')}
+            </div>
+            <button type="button" class="history-page-btn" ${currentPage >= totalPages ? 'disabled' : ''} onclick="window.gotoHistoryPage(${currentPage + 1})" title="${escapeHTML(SLAT('sla.history.nextPage'))}">›</button>
+            <button type="button" class="history-page-btn" ${currentPage >= totalPages ? 'disabled' : ''} onclick="window.gotoHistoryPage(${totalPages})" title="${escapeHTML(SLAT('sla.history.lastPage'))}">»</button>
+            <div class="history-page-jump-wrap">
+                <span>${escapeHTML(SLAT('sla.history.jumpTo'))}</span>
+                <input type="number" min="1" max="${totalPages}" value="${currentPage}" class="history-page-jump-input" id="history-page-jump-input" onkeydown="if(event.key==='Enter')window.gotoHistoryPage(this.value)">
+                <span>${escapeHTML(SLAT('sla.history.pageUnit'))}</span>
+                <button type="button" class="history-page-jump-btn" onclick="window.gotoHistoryPage(document.getElementById('history-page-jump-input').value)">${escapeHTML(SLAT('sla.history.jumpTo'))}</button>
+            </div>
+        </div>
+    `;
+}
+
+window.gotoHistoryPage = function(page) {
+    const p = parseInt(page, 10);
+    if (isNaN(p)) return;
+    const totalCount = latestSLAHistorySnapshots.length;
+    const totalPages = historyPageSize === 'all' ? 1 : Math.max(1, Math.ceil(totalCount / historyPageSize));
+    const target = Math.max(1, Math.min(p, totalPages));
+    if (target === historyCurrentPage) return;
+    historyCurrentPage = target;
+    renderHistory(latestSLAHistorySnapshots);
+    const wrapper = document.getElementById('history-table-scroll');
+    if (wrapper) wrapper.scrollTop = 0;
+};
+
+window.setHistoryPageSize = function(size) {
+    historyPageSize = size === 'all' ? 'all' : (parseInt(size, 10) || 10);
+    historyCurrentPage = 1;
+    renderHistory(latestSLAHistorySnapshots);
+    const wrapper = document.getElementById('history-table-scroll');
+    if (wrapper) wrapper.scrollTop = 0;
+};
+
 function renderHistory(data) {
+    if (Array.isArray(data)) latestSLAHistorySnapshots = data;
     const list = document.getElementById('history-modal-list');
+    const paginationBar = document.getElementById('history-pagination-bar');
     if(!list) return;
     
     if(!data || !data.length) {
         list.innerHTML = `<div style="padding:40px;text-align:center;color:#666;">${SLAT('sla.history.empty')}</div>`;
+        if (paginationBar) paginationBar.style.display = 'none';
         syncHistoryScrollbar();
         return;
     }
 
-    // 1. 收集所有出现过的核心指标名称作为表头
+    // 1. 收集所有出现过的核心指标名称作为表头（按全量快照，保证列对齐）
     const metricKeys = new Set();
     data.forEach(item => {
         if (item.topMetrics) {
@@ -147,6 +345,21 @@ function renderHistory(data) {
         }
     });
     const metricHeaders = Array.from(metricKeys);
+
+    // 2. 分页计算与渐进式按需切片渲染
+    const totalCount = data.length;
+    const totalPages = historyPageSize === 'all' ? 1 : Math.max(1, Math.ceil(totalCount / historyPageSize));
+    if (historyCurrentPage > totalPages) historyCurrentPage = totalPages;
+    if (historyCurrentPage < 1) historyCurrentPage = 1;
+
+    let startIndex = 0;
+    let endIndex = totalCount;
+    let pageItems = data;
+    if (historyPageSize !== 'all') {
+        startIndex = (historyCurrentPage - 1) * historyPageSize;
+        endIndex = Math.min(startIndex + historyPageSize, totalCount);
+        pageItems = data.slice(startIndex, endIndex);
+    }
 
     let html = `
     <style>
@@ -193,7 +406,7 @@ function renderHistory(data) {
         <tbody>
     `;
 
-    data.forEach(item => {
+    pageItems.forEach(item => {
         const d = new Date(item.timestamp).toLocaleString('zh-CN', { hour12: false });
         const isAutoImport = item.importSource === 'uivf12' || item.source === 'uivf12';
         const autoImportBadge = isAutoImport ? '<span class="history-auto-import-badge">自动导入</span>' : '';
@@ -202,7 +415,6 @@ function renderHistory(data) {
             ? `<span class="history-target-month-badge">🎯 ${escapeHTML(SLAT('sla.history.targetMonth', { month: targetMonth }))}</span>`
             : '';
         
-        // 构建当前行的指标 map
         const mMap = {};
         if (item.topMetrics) {
             item.topMetrics.forEach(m => {
@@ -236,7 +448,6 @@ function renderHistory(data) {
             }
         });
 
-        // 区块汇总渲染
         let summaryHtml = '';
         let summaryMetricCount = 0;
         if(item.summary && item.summary.length) {
@@ -276,6 +487,19 @@ function renderHistory(data) {
     html += `</tbody></table></div>`;
     list.innerHTML = html;
     list.querySelectorAll('[data-source-snapshot]').forEach(button=>button.addEventListener('click',()=>loadHistoryOriginals(button.dataset.sourceSnapshot)));
+
+    if (paginationBar) {
+        paginationBar.style.display = 'flex';
+        renderHistoryPaginationBar(paginationBar, {
+            totalCount,
+            totalPages,
+            currentPage: historyCurrentPage,
+            pageSize: historyPageSize,
+            startIndex: startIndex + 1,
+            endIndex
+        });
+    }
+
     syncHistoryScrollbar();
 }
 
@@ -313,10 +537,63 @@ window.deleteHistorySnapshot = async function(id) {
         dialog.querySelector('footer').innerHTML=`<button type="button" data-close>${historyDeleteText('取消','Cancel')}</button><button type="button" data-delete="snapshot">${historyDeleteText('仅删除快照','Delete snapshot only')}</button>${impact.files.length?`<button type="button" data-delete="all" class="history-delete-danger">${historyDeleteText('删除快照及原始文件','Delete snapshot and originals')}</button>`:''}`;bindClose();
         dialog.querySelectorAll('[data-delete]').forEach(button=>button.onclick=async()=>{
             if(busy)return;busy=true;dialog.querySelectorAll('button').forEach(item=>item.disabled=true);dialog.querySelector('[data-error]').textContent='';
+            
+            const isDeleteAll = button.dataset.delete === 'all';
+            const impactEl = dialog.querySelector('[data-impact]');
+            const footerEl = dialog.querySelector('footer');
+            if (footerEl) footerEl.style.display = 'none';
+            if (impactEl) {
+                impactEl.innerHTML = `
+                    <div class="history-delete-progress-card">
+                        <div class="startup-art" aria-hidden="true">
+                            <div class="startup-halo"></div>
+                            <div class="startup-feather" data-startup-feather></div>
+                        </div>
+                        <h4>${escapeHTML(SLAT('sla.history.deleteProgressTitle'))}</h4>
+                        <p class="history-delete-progress-msg" id="history-delete-step-msg">${escapeHTML(SLAT('sla.history.deleteStepRequest'))}</p>
+                        <div class="startup-track" id="history-delete-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="25" style="--startup-progress: 25%;">
+                            <span></span>
+                        </div>
+                        <div class="startup-progress-label">
+                            <span>${isDeleteAll ? escapeHTML(historyDeleteText('清理快照与关联原始文件', 'Deleting snapshot and associated files')) : escapeHTML(historyDeleteText('清理快照记录', 'Deleting snapshot record'))}</span>
+                            <strong id="history-delete-percent">25%</strong>
+                        </div>
+                    </div>
+                `;
+                renderFeatherArt(impactEl);
+            }
+
+            const updateDeleteProgress = (stepMsg, percent) => {
+                const track = dialog.querySelector('#history-delete-track');
+                const pEl = dialog.querySelector('#history-delete-percent');
+                const mEl = dialog.querySelector('#history-delete-step-msg');
+                if (track) track.style.setProperty('--startup-progress', `${percent}%`);
+                if (pEl) pEl.textContent = `${percent}%`;
+                if (mEl) mEl.textContent = stepMsg;
+            };
+
             try{
-                await API.deleteWithBody('/api/sla/snapshots/'+encodeURIComponent(id),{deleteOriginals:button.dataset.delete==='all',confirmed:true,previewToken:impact.previewToken});
-                dialog.close();showToast(SLAT('sla.history.deleted'));await openHistoryModal();
-            }catch(error){dialog.querySelector('[data-error]').textContent=error.status===409?historyDeleteText('文件清单已变化，请关闭此窗口后重新查看并确认。','The file list changed. Close this window and review the updated list.'):SLAT('sla.history.deleteFail',{message:error.message});}
+                updateDeleteProgress(SLAT('sla.history.deleteStepClean'), 55);
+                await API.deleteWithBody('/api/sla/snapshots/'+encodeURIComponent(id),{deleteOriginals:isDeleteAll,confirmed:true,previewToken:impact.previewToken});
+                updateDeleteProgress(isDeleteAll ? SLAT('sla.history.deleteStepFiles') : SLAT('sla.history.deleteStepFinish'), 90);
+                await new Promise(r => setTimeout(r, 180));
+                updateDeleteProgress(SLAT('sla.history.deleteStepFinish'), 100);
+                await new Promise(r => setTimeout(r, 120));
+                dialog.close();
+                showToast(SLAT('sla.history.deleted'));
+                
+                if (latestSLAHistorySnapshots.length > 1 && historyPageSize !== 'all') {
+                    const remainingTotal = latestSLAHistorySnapshots.length - 1;
+                    const maxPage = Math.max(1, Math.ceil(remainingTotal / historyPageSize));
+                    if (historyCurrentPage > maxPage) {
+                        historyCurrentPage = maxPage;
+                    }
+                }
+                await openHistoryModal();
+            }catch(error){
+                if (footerEl) footerEl.style.display = 'flex';
+                dialog.querySelector('[data-error]').textContent=error.status===409?historyDeleteText('文件清单已变化，请关闭此窗口后重新查看并确认。','The file list changed. Close this window and review the updated list.'):SLAT('sla.history.deleteFail',{message:error.message});
+            }
             finally{busy=false;dialog.querySelectorAll('button').forEach(item=>item.disabled=false);}
         });
     }catch(error){if(dialog.isConnected)dialog.querySelector('[data-error]').textContent=SLAT('sla.history.deleteFail',{message:error.message});}
@@ -324,6 +601,8 @@ window.deleteHistorySnapshot = async function(id) {
 
 window.openHistoryModal = openHistoryModal;
 window.closeHistoryModal = closeHistoryModal;
+window.renderHistory = renderHistory;
+window.renderHistoryLoadingState = renderHistoryLoadingState;
 
 window.addEventListener('tools:languagechange', () => {
     const modal = document.getElementById('history-modal');
@@ -331,3 +610,4 @@ window.addEventListener('tools:languagechange', () => {
         renderHistory(latestSLAHistorySnapshots);
     }
 });
+
