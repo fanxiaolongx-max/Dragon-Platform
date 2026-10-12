@@ -592,3 +592,10 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 #pivotFieldsPanel .component-choice-versions>summary{color:var(--pane-accent);cursor:pointer;overflow-wrap:anywhere}
 #pivotFieldsPanel .component-choice-versions button{display:block;width:100%;margin:6px 0;padding:8px;text-align:left;border-radius:7px}
 #pivotFieldsPanel .component-choice-difference{color:var(--pane-accent);font-size:10px;line-height:1.6}
+#sourceLibrary .import-range>summary{display:flex;min-height:22px;align-items:center;gap:8px;padding:2px 18px 2px 0;border:0;background:transparent;font-size:11px;color:var(--source-ink);cursor:pointer}
+#sourceLibrary .import-range>summary output{background:transparent;color:var(--source-muted);font-weight:400;margin:0;padding:0;font-size:10px}
+#sourceLibrary .import-range[open]>summary output{display:none}
+#sourceLibrary .import-range>summary:after{margin-left:auto}
+#sourceLibrary .import-range:not([open]){padding:8px 10px;margin-bottom:10px}
+#sourceLibrary .import-range:not([open])>form{display:none}
+#sourceLibrary .import-range [data-range-note]{padding-right:0;margin-top:6px}

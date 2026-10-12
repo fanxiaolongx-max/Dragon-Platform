@@ -9,5 +9,11 @@ test('metadata counts use import time, include versions, support custom days and
 });
 test('range count API validates input and returns no raw file contents',async t=>{
  const express=require('express'),app=express();app.use('/api/upload',require('../backend/routes/import-sources'));const server=await new Promise(resolve=>{const instance=app.listen(0,'127.0.0.1',()=>resolve(instance));});t.after(()=>new Promise(resolve=>server.close(resolve)));const url=`http://127.0.0.1:${server.address().port}/api/upload/source-range-counts`;
- const response=await fetch(url+'?days=12');assert.equal(response.status,200);const data=await response.json();assert.deepEqual(Object.keys(data).sort(),['capturedAt','counts']);assert.equal(data.counts.find(item=>item.days===12).count,2);for(const days of ['-1','1.5','NaN','36501'])assert.equal((await fetch(url+'?days='+days)).status,400);
+ const response=await fetch(url+'?days=12');assert.equal(response.status,200);const data=await response.json();assert.deepEqual(Object.keys(data).sort(),['capturedAt','counts']);assert.equal(data.counts.find(item=>item.days===12).count,2);for(const period of ['2026-13','bad','2026-9'])assert.equal((await fetch(url+'?period='+period)).status,400);for(const days of ['-1','1.5','NaN','36501'])assert.equal((await fetch(url+'?days='+days)).status,400);
+});
+
+test('month statistics follow filename before batch month and count only that business month',async()=>{
+ const batch=await repo.createBatch({targetMonth:9});await db.run("UPDATE import_source_batches SET created_at='2026-10-12T00:00:00Z' WHERE id=?",[batch.id]);
+ for(const [name,age] of [['原始表_2026年09月.csv',2],['原始表_2026-10.csv',2],['没有月份.csv',60]]){const file=await repo.saveFile(batch.id,{name,buffer:Buffer.from('not parsed')});await db.run("UPDATE import_source_files SET created_at=datetime('now',?) WHERE id=?",['-'+age+' days',file.id]);}
+ const sep=await repo.rangeCounts(0,'2026-09'),oct=await repo.rangeCounts(0,'2026-10');assert.equal(sep.counts.find(item=>item.days===7).count,1);assert.equal(sep.counts.find(item=>item.days===90).count,2);assert.equal(oct.counts.find(item=>item.days===0).count,1);assert.ok((await repo.rangeCounts(0,'2026-11')).counts.every(item=>item.count===0));await runWithTenant('range-other',async()=>assert.ok((await repo.rangeCounts(0,'2026-09')).counts.every(item=>item.count===0)));
 });

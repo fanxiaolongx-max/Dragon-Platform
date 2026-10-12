@@ -278,9 +278,16 @@ async function saveDocument(document){
     try{return await pending;}finally{if(documentSaves.get(key)===pending)documentSaves.delete(key);}
 }
 // Count file metadata in one query; never read original blobs or worksheet rows.
-async function rangeCounts(days=0){
+async function rangeCounts(days=0,period=''){
     await ensureReady();
     const ranges=[...new Set([7,30,90,180,365,0,days])];
+    if(period){
+        const rules=require('../../frontend/js/monthly-designer/source-rules');
+        // Filename/month metadata uses the same precedence as the library; no blobs or sheets.
+        const files=await all("SELECT f.name,f.created_at,f.batch_id,b.target_month,b.created_at AS batch_created_at,julianday('now')-julianday(f.created_at) AS age_days FROM import_source_files f LEFT JOIN import_source_batches b ON b.id=f.batch_id");
+        const matched=files.filter(file=>rules.fileMonth({...file,name:normalizeFileName(file.name)},{batches:[{id:file.batch_id,target_month:file.target_month,created_at:file.batch_created_at}]})===period);
+        return {capturedAt:new Date().toISOString(),period,counts:ranges.map(day=>({days:day,count:matched.filter(file=>!day||file.age_days!==null&&file.age_days<=day).length}))};
+    }
     const row=await get('SELECT '+ranges.map((day,index)=>day?`COALESCE(SUM(CASE WHEN julianday(created_at)>=julianday('now')-? THEN 1 ELSE 0 END),0) AS n${index}`:`COUNT(*) AS n${index}`).join(', ')+' FROM import_source_files',ranges.filter(Boolean));
     return {capturedAt:new Date().toISOString(),counts:ranges.map((day,index)=>({days:day,count:row['n'+index]}))};
 }

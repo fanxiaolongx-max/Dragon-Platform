@@ -25,7 +25,7 @@ router.get('/source-search',async(req,res)=>{
 router.get('/source-range-counts',handle(async(req,res)=>{
     const days=Number(req.query.days||0);
     if(!Number.isInteger(days)||days<0||days>36500)return res.status(400).json({error:'Invalid days',code:'IMPORT_SOURCE_ERROR'});
-    res.setHeader('Cache-Control','no-store');res.json(await repo.rangeCounts(days));
+    const period=String(req.query.period||'');if(period&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(period))return res.status(400).json({error:'Invalid period',code:'IMPORT_SOURCE_ERROR'});res.setHeader('Cache-Control','no-store');res.json(await repo.rangeCounts(days,period));
 }));
 router.get('/source-catalog',handle(async(req,res)=>{
     const days=req.query.days===undefined?0:Number(req.query.days);
