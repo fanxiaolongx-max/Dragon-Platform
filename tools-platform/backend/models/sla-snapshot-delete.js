@@ -29,7 +29,9 @@ async function plan(id, read = get, list = all) {
     const previewToken = crypto.createHash('sha256').update(JSON.stringify([
         getDbPath(), id, row.payload_json, row.updated_at, files, shared
     ])).digest('hex');
-    return { snapshotId: id, files, totalBytes: files.reduce((total, file) => total + Number(file.size), 0),
+    // Normalize only the display name. Hash the stored identities above so deletion
+    // confirmation remains tied to the exact archive, without rewriting legacy rows.
+    return { snapshotId: id, files: files.map(file => ({ ...file, name: sources.normalizeFileName(file.name) })), totalBytes: files.reduce((total, file) => total + Number(file.size), 0),
         sharedSnapshotCount: shared.length, previewToken };
 }
 async function preview(id) {
