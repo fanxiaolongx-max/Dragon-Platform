@@ -694,3 +694,9 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 #pivotFieldsPanel [data-inspector-action=mapping],#pivotFieldsPanel [data-inspector-action=format]{text-align:left;padding:9px 12px;font-size:11px}
 #pivotFieldsPanel .format-options small{white-space:normal;overflow-wrap:anywhere}
 #pivotFieldsPanel .format-rules-table [data-format-choice]{max-width:none}
+/* Sized charts consume the actual card budget instead of enforcing a natural SVG height. */
+.document-block[data-adaptive-chart]{align-self:start}
+.document-block[data-adaptive-chart] .document-chart{height:var(--chart-display-height);max-height:none;width:100%;display:block}
+.document-block[data-adaptive-chart] .document-source-note{font-size:10px;line-height:1.5}
+.document-block[data-adaptive-chart] .pivot-axis-caption{margin:0 0 3px;font-size:10px}
+.document-block[data-adaptive-chart] .pivot-filter-trigger{margin-bottom:3px;padding:2px 7px}

@@ -1,7 +1,7 @@
 (function(){
     'use strict';
     // This stamp identifies the executing script, even if an older copy was cached.
-    const scriptVersion='20261012-23';
+    const scriptVersion='20261012-24';
     const versionBadge=document.createElement('span');versionBadge.id='monthlyScriptVersion';versionBadge.className='monthly-script-version';versionBadge.setAttribute('data-controls','');versionBadge.dataset.version=scriptVersion;document.body.append(versionBadge);
     const engine=window.MonthlyDocumentEngine;
     const view=window.MonthlyCatalogView,S=window.MonthlySourceRules,W=window.MonthlyWorkspace;
@@ -596,7 +596,7 @@
             gesture.nextHeight=Math.max(1,Math.min(100,Math.round((gesture.startHeight+dy+12)/(gesture.unit+12))));
             gesture.card.style.gridColumn=`span ${gesture.nextSpan}`;
             gesture.card.style.minHeight=`${gesture.nextHeight*(gesture.unit+12)-12}px`;
-            gesture.card.classList.add('card-resizing');
+            gesture.card.classList.add('card-resizing');if(gesture.found.block.type==='chart'&&gesture.found.block.chart.type!=='table')window.MonthlyCharts.fitHeight(gesture.found.block,gesture.nextHeight*(gesture.unit+12)-12,gesture.card);
         }else{
             gesture.card.classList.add('card-dragging');
             root.querySelectorAll('.card-drop-target').forEach(card=>card.classList.remove('card-drop-target'));
@@ -634,7 +634,7 @@
         cardGesture=null;gesture.card.querySelector(':scope>.size-guides')?.remove();
         if(gesture.handle.hasPointerCapture(event.pointerId))gesture.handle.releasePointerCapture(event.pointerId);
         root.querySelectorAll('.card-drop-target,.card-dragging,.card-resizing').forEach(el=>el.classList.remove('card-drop-target','card-dragging','card-resizing'));
-        if(cancel||!gesture.moved){if(gesture.resize){gesture.card.style.gridColumn=`span ${gesture.span}`;gesture.card.style.minHeight=gesture.height?`${gesture.height*(gesture.unit+12)-12}px`:'';}return;}
+        if(cancel||!gesture.moved){if(gesture.resize){gesture.card.style.gridColumn=`span ${gesture.span}`;gesture.card.style.minHeight=gesture.height?`${gesture.height*(gesture.unit+12)-12}px`:'';if(gesture.found.block.type==='chart')window.MonthlyCharts.fitHeight(gesture.found.block,undefined,gesture.card);}return;}
         const movementSelector=[...new Set([gesture.found.section.id,gesture.target?.section].filter(Boolean))].map(id=>`#section-${id} .document-block`).join(',');
         const before=gesture.resize?null:layoutPositions(movementSelector,[gesture.found.block.id,gesture.target?.block].filter(Boolean));
         const {block,section}=gesture.found;
