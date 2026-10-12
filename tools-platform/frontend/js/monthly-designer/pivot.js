@@ -14,6 +14,7 @@
         if(!pivot||typeof pivot!=='object'||!Array.isArray(pivot.sources)||pivot.sources.length>8||!fields(pivot.rows)||!fields(pivot.columns)||!Array.isArray(pivot.values)||pivot.values.length>8||!Array.isArray(pivot.filters)||pivot.filters.length>20)fail();
         for(const source of pivot.sources){if(!source||['fileId','sheetId','label'].some(key=>!field(source[key])))fail();if(source.mapping!==undefined&&(!source.mapping||Array.isArray(source.mapping)||typeof source.mapping!=='object'||Object.keys(source.mapping).length>200||Object.entries(source.mapping).some(([key,value])=>!field(key)||!field(value)||['__proto__','constructor','prototype'].includes(key))))fail();}
         for(const value of pivot.values)if(!value||!field(value.field)||!field(value.label)||!aggregations.includes(value.aggregation))fail();
+        if(pivot.filterLogic!==undefined&&!['and','or'].includes(pivot.filterLogic))fail();
         for(const filter of pivot.filters){if(!filter||!field(filter.field)||!operations.includes(filter.op)||!field(filter.value))fail();if(filter.values!==undefined&&(!Array.isArray(filter.values)||filter.values.length>500||filter.values.some(value=>!field(value))))fail();}
         if(pivot.sort!==undefined&&!['source','label','valueAsc','valueDesc'].includes(pivot.sort))fail();
         if(pivot.showTotals!==undefined&&typeof pivot.showTotals!=='boolean')fail();
@@ -32,7 +33,7 @@
         tables.forEach((table,index)=>{const source=pivot.sources[index];if(!source)return;for(const original of table.rows||[]){
             const row=Object.assign(Object.create(null),original);for(const [canonical,field] of Object.entries(source.mapping||{}))row[canonical]=original[field];row[SOURCE]=source.label;row[RECORD]=1;
             if(pivot.excludeTotals!==false&&[...pivot.rows,...pivot.columns].filter(field=>field!==SOURCE).some(field=>total(row[field])))continue;
-            if(!pivot.filters.every(filter=>matches(row,filter)))continue;
+            if(pivot.filters.length&&!pivot.filters[pivot.filterLogic==='or'?'some':'every'](filter=>matches(row,filter)))continue;
             const parts=tuple(row,pivot.rows),columns=tuple(row,pivot.columns),rowKey=JSON.stringify(parts),colKey=JSON.stringify(columns);
             categories.set(rowKey,parts);groups.set(colKey,columns);update(cells,JSON.stringify([rowKey,colKey]),row);update(rowTotals,rowKey,row);update(colTotals,colKey,row);grand.forEach((state,i)=>add(state,row[pivot.values[i].field],pivot.values[i].field));rowCount++;
         }});

@@ -55,7 +55,7 @@
     function references(block){return [...(block.binding?[{key:'binding',value:block.binding}]:[]),...(block.chart?.pivot?.sources||[]).map((value,index)=>({key:'pivot:'+index,value})),...(block.chart?.series||[]).map((value,index)=>({key:'series:'+index,value}))];}
     function validateSaved(saved){
         if(!saved||typeof saved!=='object'||saved.month!==undefined&&!validMonth(saved.month)||!saved.catalog||!Array.isArray(saved.catalog.files)||!Array.isArray(saved.catalog.snapshots)||!Array.isArray(saved.catalog.batches)||!Array.isArray(saved.resources)||saved.resources.length>32||JSON.stringify(saved).length>12000000)throw new Error('Invalid monthly saved data');
-        if(saved.definition&&(!saved.definition||Array.isArray(saved.definition)||typeof saved.definition!=='object'||Object.keys(saved.definition).some(key=>!['type','binding','chart','columns','filters','limit','rule'].includes(key))))throw new Error('Invalid monthly saved definition');
+        if(saved.definition&&(!saved.definition||Array.isArray(saved.definition)||typeof saved.definition!=='object'||Object.keys(saved.definition).some(key=>!['type','binding','chart','columns','filters','filterLogic','limit','rule'].includes(key))))throw new Error('Invalid monthly saved definition');
         for(const item of saved.resources){if(!item||typeof item.url!=='string'||!/^\/api\/(?:upload\/source-(?:sheets|snapshots)\/[\w%./:-]+|duty-roster\?month=\d{4}-\d{2})$/.test(item.url)||!item.data||typeof item.data!=='object')throw new Error('Invalid monthly saved resource');}
     }
     return {validMonth,shift,time,identity,fileMonth,snapshotMonth,validate,targetMonth,create,resolve,catalogGroups,libraryGroups,references,validateSaved};

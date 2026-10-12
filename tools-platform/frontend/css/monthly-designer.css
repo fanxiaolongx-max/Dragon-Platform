@@ -632,3 +632,35 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 #sourceLibrary .selection-pivot-create{background:linear-gradient(120deg,#eaf4f8,#e7f3f0);border-color:#a6c9d3;color:#35657a}
 #sourceLibrary .selection-pivot-create svg{width:13px;height:13px;opacity:.85}
 [data-theme=dark] #sourceLibrary .selection-pivot-create{background:linear-gradient(120deg,#2b465b,#2b4a4b);color:#c8e2e9;border-color:#597c8e}
+/* Searchable choices use the top layer so narrow sidebars never clip their menus. */
+.monthly-choice{min-width:0;position:relative;margin:0;font-size:11px;line-height:1.5}
+:is(#pivotFieldsPanel,#blockEditor) .monthly-choice>summary{min-height:30px;padding:5px 8px;background:var(--pane-card,#fff);border:1px solid var(--pane-border,#c4d5e5);font-weight:400;font-size:11px;gap:6px;box-sizing:border-box}
+.monthly-choice>summary span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.monthly-choice-menu{position:fixed;inset:auto;margin:0;max-height:min(300px,75vh);padding:9px;border:1px solid #b8ccde;border-radius:10px;background:#fff;color:#28435a;box-shadow:0 12px 36px #16365433;font:11px/1.5 -apple-system,BlinkMacSystemFont,"Microsoft YaHei",sans-serif;overflow:hidden}
+.monthly-choice-menu input[type=search]{display:block;width:100%;min-width:0;padding:6px 8px;border:1px solid #b8ccde;border-radius:6px;background:transparent;color:inherit;font:inherit;box-sizing:border-box}
+.monthly-choice-actions{display:flex;gap:5px;margin:6px 0}
+.monthly-choice-menu button{font:inherit;color:inherit;background:#f3f7fa;border:1px solid #d6e1ec;border-radius:5px;padding:5px 7px;cursor:pointer}
+.monthly-choice-items{max-height:170px;overflow:auto;overscroll-behavior:contain;display:grid;gap:3px}
+.monthly-choice-items>button{display:block;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.monthly-choice-items>button[aria-pressed=true]{background:#e7f3f3;border-color:#91bfc3}
+.monthly-choice-items label{display:flex;align-items:center;gap:7px;margin:0;padding:5px 6px;border-radius:5px;font-weight:400;cursor:pointer}
+.monthly-choice-items label:hover{background:#edf4f8}
+.monthly-choice-items label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.monthly-choice-items input[type=checkbox]{width:14px;height:14px;flex:none;accent-color:#588ba3;margin:0}
+.monthly-choice-menu>small{display:block;color:#876b3e;font-size:10px;margin-top:4px}
+#pivotFieldsPanel .pane-role>header>.monthly-choice{width:32px;flex:none}
+#pivotFieldsPanel .pane-role>header>.monthly-choice>summary{min-height:26px;padding:3px;font-size:10px}
+#pivotFieldsPanel .editor-filters>.component-filter-row,#blockEditor .editor-filters>.component-filter-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 26px;gap:7px;padding:9px;border:1px solid #d3e0ec;border-radius:8px;background:var(--pane-card,#fff);margin:7px 0}
+#pivotFieldsPanel .component-filter-row>label,#blockEditor .component-filter-row>label{margin:0;font-size:10px;min-width:0;display:block}
+.component-filter-row .filter-column-field{grid-column:1/-1}
+.component-filter-row .filter-op-field{grid-column:1}
+.component-filter-row .filter-value-field{grid-column:2}
+.component-filter-row>[data-remove-filter]{grid-column:3;grid-row:2;align-self:end;width:26px;height:30px;padding:0}
+#pivotFieldsPanel .component-filter-row select,#pivotFieldsPanel .component-filter-row input[data-filter-value]{width:100%;min-width:0;min-height:30px;padding:4px 6px;font-size:11px;margin:3px 0 0}
+#pivotFieldsPanel .filter-logic-field{font-size:10px;margin:8px 0}
+[data-theme=dark] .monthly-choice-menu{background:#263d51;color:#dfebf3;border-color:#5a758a}
+[data-theme=dark] .monthly-choice-menu button{background:#304c61;border-color:#56748b}
+[data-theme=dark] .monthly-choice-items label:hover,[data-theme=dark] .monthly-choice-items>button[aria-pressed=true]{background:#36586a}
+:is(#pivotFieldsPanel,#blockEditor) .monthly-choice-menu .monthly-choice-items>label{display:flex;align-items:center;gap:7px;margin:0;padding:5px 6px;font-size:11px;line-height:1.5;font-weight:400;color:inherit}
+:is(#pivotFieldsPanel,#blockEditor) .monthly-choice-menu .monthly-choice-items input[type=checkbox]{width:14px;height:14px;min-height:0;margin:0;padding:0;flex:none}
+#sourceLibrary .monthly-choice>summary{min-height:30px;padding:5px 8px;background:var(--library-card);color:var(--source-ink);border:1px solid var(--source-line);font-size:11px;font-weight:400;margin:5px 0 0}

@@ -9,7 +9,7 @@
         for(const name of ['type','columns','limit','pinTargetPeriod','pinImportDate',otherSummaryField])if(field(name))advanced.lastElementChild.append(field(name));
         const sourceNote=form.querySelector('[data-editor-note=source]');advanced.lastElementChild.append(sourceNote);
         const filters=details(t('筛选数据（可选）','Filter data (optional)'),'component-editor-filters');
-        filters.lastElementChild.append(form.querySelector('.editor-filters'),form.querySelector('[data-add-filter]'));
+        filters.lastElementChild.append(form.querySelector('.filter-logic-field'),form.querySelector('.editor-filters'),form.querySelector('[data-add-filter]'));
         form.querySelector('[data-editor-note=filters]').hidden=true;
         filters.open=!!filters.querySelector('.editor-filters').children.length;
         const picker=document.createElement('section');picker.className='component-metric-picker';
