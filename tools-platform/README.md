@@ -45,6 +45,8 @@ Tools Platform 是一个面向运维数据抓取、SLA 指标合控、质量看�
 
 ## 1. 系统架构与全景数据流
 
+![Tools Platform 全景技术架构与关键技术栈](docs/images/readme/technology-architecture.svg)
+
 平台整体架构以“数据采集自动化、指标计算规则化、报告呈现多维化、治理工具标准化”为核心原则设计，全链路数据流转如下图所示：
 
 ```mermaid

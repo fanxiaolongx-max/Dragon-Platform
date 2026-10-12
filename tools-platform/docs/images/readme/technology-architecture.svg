@@ -1,0 +1,253 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="780" viewBox="0 0 1200 780" role="img" aria-labelledby="title desc">
+  <title id="title">Tools Platform 全景技术架构与关键技术栈</title>
+  <desc id="desc">展示 Tools Platform 前端、后端、桌面宿主与存储引擎的核心技术点与架构设计。</desc>
+
+  <defs>
+    <!-- Background Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#08111e"/>
+      <stop offset="50%" stop-color="#0d1b2e"/>
+      <stop offset="100%" stop-color="#11223b"/>
+    </linearGradient>
+
+    <!-- Card Background Gradients -->
+    <linearGradient id="cardGradDark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#162740" stop-opacity="0.85"/>
+      <stop offset="100%" stop-color="#0e1d32" stop-opacity="0.85"/>
+    </linearGradient>
+
+    <linearGradient id="pillHost" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#ec4899" stop-opacity="0.15"/>
+    </linearGradient>
+
+    <linearGradient id="pillFrontend" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.15"/>
+    </linearGradient>
+
+    <linearGradient id="pillBackend" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0.15"/>
+    </linearGradient>
+
+    <linearGradient id="pillData" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#a855f7" stop-opacity="0.15"/>
+    </linearGradient>
+
+    <!-- Subtle Glow / Filter -->
+    <filter id="cardShadow" x="-2%" y="-2%" width="104%" height="106%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#020813" flood-opacity="0.5"/>
+    </filter>
+
+    <pattern id="gridPattern" width="30" height="30" patternUnits="userSpaceOnUse">
+      <path d="M 30 0 L 0 0 0 30" fill="none" stroke="#253a56" stroke-width="0.5" stroke-opacity="0.3"/>
+    </pattern>
+  </defs>
+
+  <style>
+    .title-tag { font: 700 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; letter-spacing: 2.5px; fill: #38bdf8; text-transform: uppercase; }
+    .main-title { font: 800 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #ffffff; letter-spacing: 0.5px; }
+    .sub-title { font: 400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #94a3b8; }
+    .section-title { font: 700 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; letter-spacing: 0.8px; }
+    .sub-badge { font: 600 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; letter-spacing: 0.4px; }
+    .card-title { font: 700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #e2e8f0; }
+    .card-desc { font: 400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #94a3b8; line-height: 1.6; }
+    .pill-text { font: 600 10.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    .footer-text { font: 500 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; fill: #64748b; }
+  </style>
+
+  <!-- Canvas Outer Background -->
+  <rect width="1200" height="780" rx="20" fill="url(#bgGrad)"/>
+  <rect width="1200" height="780" rx="20" fill="url(#gridPattern)"/>
+  <rect width="1198" height="778" x="1" y="1" rx="19" fill="none" stroke="#334e68" stroke-width="1.2" stroke-opacity="0.6"/>
+
+  <!-- ==================== HEADER ==================== -->
+  <g transform="translate(48, 32)">
+    <!-- Header Badge -->
+    <rect width="215" height="22" rx="11" fill="#0369a1" fill-opacity="0.3" stroke="#38bdf8" stroke-width="0.8" stroke-opacity="0.6"/>
+    <text x="12" y="15" class="title-tag">FULL-STACK ARCHITECTURE</text>
+    
+    <!-- Title & Subtitle -->
+    <text x="0" y="54" class="main-title">Tools Platform 全景架构与开发技术栈</text>
+    <text x="0" y="76" class="sub-title">纯原生轻量化 · 零打包构建 · 多页面领域驱动 · 双模数据自愈 · 跨平台桌面与 Web 中台</text>
+    
+    <!-- Tech summary badges on the right -->
+    <g transform="translate(680, 18)">
+      <rect width="128" height="26" rx="6" fill="#0f2942" stroke="#38bdf8" stroke-width="0.8"/>
+      <text x="12" y="17" class="pill-text" fill="#38bdf8">⚡ 零打包 (No-Build)</text>
+
+      <rect x="136" width="134" height="26" rx="6" fill="#06322b" stroke="#10b981" stroke-width="0.8"/>
+      <text x="148" y="17" class="pill-text" fill="#34d399">📦 原生多页 (MPA)</text>
+
+      <rect x="278" width="146" height="26" rx="6" fill="#1e1e47" stroke="#818cf8" stroke-width="0.8"/>
+      <text x="290" y="17" class="pill-text" fill="#a5b4fc">🧪 65+ 核心业务测试</text>
+    </g>
+  </g>
+
+  <!-- ==================== LAYER 1: HOST & DISTRIBUTION (y: 128) ==================== -->
+  <g transform="translate(48, 126)">
+    <rect width="1104" height="96" rx="12" fill="url(#cardGradDark)" stroke="#f43f5e" stroke-width="1" stroke-opacity="0.4" filter="url(#cardShadow)"/>
+    
+    <!-- Section Label -->
+    <path d="M16 14 h4 v14 h-4 Z" fill="#f43f5e"/>
+    <text x="28" y="26" class="section-title" fill="#fda4af">1. 跨端宿主与分发矩阵 (HOST &amp; DISTRIBUTION RUNTIME)</text>
+    <text x="430" y="26" class="sub-badge" fill="#fb7185">跨平台客户端 · Web 浏览器 · 自动更新与热补丁</text>
+
+    <!-- Host Pillars -->
+    <!-- Col 1: Electron Desktop -->
+    <g transform="translate(24, 40)">
+      <rect width="340" height="42" rx="8" fill="url(#pillHost)" stroke="#f43f5e" stroke-width="0.6"/>
+      <text x="14" y="18" class="card-title">🖥️ Electron 28 桌面客户端</text>
+      <text x="14" y="33" class="card-desc">Main / Preload / Renderer 进程隔离 · 托盘驻留 · 离线开机自启</text>
+    </g>
+
+    <!-- Col 2: Web Browser -->
+    <g transform="translate(382, 40)">
+      <rect width="340" height="42" rx="8" fill="url(#pillHost)" stroke="#f43f5e" stroke-width="0.6"/>
+      <text x="14" y="18" class="card-title">🌐 浏览器内网 Web 部署</text>
+      <text x="14" y="33" class="card-desc">Chromium / Safari / Edge 极速直访 · 无需安装 · 多用户局域网协同</text>
+    </g>
+
+    <!-- Col 3: Dual OS Release -->
+    <g transform="translate(740, 40)">
+      <rect width="340" height="42" rx="8" fill="url(#pillHost)" stroke="#f43f5e" stroke-width="0.6"/>
+      <text x="14" y="18" class="card-title">🍎 macOS 签名公证 / 🪟 Windows 便携版</text>
+      <text x="14" y="33" class="card-desc">Apple Silicon + x64 DMG/ZIP · Windows NSIS 安装包 + 免安装单文件</text>
+    </g>
+  </g>
+
+  <!-- ==================== LAYER 2: FRONTEND ARCHITECTURE (y: 234) ==================== -->
+  <g transform="translate(48, 234)">
+    <rect width="1104" height="206" rx="12" fill="url(#cardGradDark)" stroke="#06b6d4" stroke-width="1" stroke-opacity="0.4" filter="url(#cardShadow)"/>
+    
+    <!-- Section Label -->
+    <path d="M16 14 h4 v14 h-4 Z" fill="#06b6d4"/>
+    <text x="28" y="26" class="section-title" fill="#67e8f9">2. 前端架构：原生轻量化多页应用 (FRONTEND: VANILLA ZERO-BUILD MPA)</text>
+    <text x="560" y="26" class="sub-badge" fill="#34d399">❌ 无 Vue / React 重型框架依赖 · ⚡ 零打包构建 · 原生毫秒级启动</text>
+
+    <!-- 4 Modular Sub-Cards -->
+    <!-- Card 1: Core Stack & No-Build -->
+    <g transform="translate(20, 42)">
+      <rect width="254" height="150" rx="8" fill="#0f2338" stroke="#0891b2" stroke-width="0.7"/>
+      <text x="14" y="22" class="card-title" fill="#38bdf8">⚡ 原生纯粹与零构建</text>
+      <text x="14" y="44" class="card-desc">• 纯原生 Vanilla JavaScript (ES6+)</text>
+      <text x="14" y="64" class="card-desc">• 零 Webpack / Vite 编译耗时</text>
+      <text x="14" y="84" class="card-desc">• 多页静态架构 (MPA: pages/*.html)</text>
+      <text x="14" y="104" class="card-desc">• 原生 DOM 操作，杜绝虚DOM开销</text>
+      <text x="14" y="124" class="card-desc">• 代码修改即刷新，极致调试体验</text>
+    </g>
+
+    <!-- Card 2: Modern Native UI & Styles -->
+    <g transform="translate(290, 42)">
+      <rect width="254" height="150" rx="8" fill="#0f2338" stroke="#0891b2" stroke-width="0.7"/>
+      <text x="14" y="22" class="card-title" fill="#38bdf8">🎨 原生 CSS3 视觉体系</text>
+      <text x="14" y="44" class="card-desc">• 现代 CSS Variables 全局主题变量</text>
+      <text x="14" y="64" class="card-desc">• Glassmorphism 毛玻璃拟态特效</text>
+      <text x="14" y="84" class="card-desc">• 原生 Flexbox / Grid 响应式栅格</text>
+      <text x="14" y="104" class="card-desc">• 深色暗黑模式 (Dark Mode) 深度适配</text>
+      <text x="14" y="124" class="card-desc">• 矢量羽毛浮动与呼吸灯原生动效</text>
+    </g>
+
+    <!-- Card 3: Domain Driven Subsystems -->
+    <g transform="translate(560, 42)">
+      <rect width="254" height="150" rx="8" fill="#0f2338" stroke="#0891b2" stroke-width="0.7"/>
+      <text x="14" y="22" class="card-title" fill="#38bdf8">🧩 业务领域驱动分层</text>
+      <text x="14" y="44" class="card-desc">• js/sla/：SLA合控、预警与渐进分页</text>
+      <text x="14" y="64" class="card-desc">• js/uivf12/：脚本抓取与双向代码同步</text>
+      <text x="14" y="84" class="card-desc">• js/monthly-designer/：月报画布设计</text>
+      <text x="14" y="104" class="card-desc">• js/shared/：API网关/双语引擎/AI</text>
+      <text x="14" y="124" class="card-desc">• 领域命名空间隔离，模块完全解耦</text>
+    </g>
+
+    <!-- Card 4: Specialized Libraries -->
+    <g transform="translate(830, 42)">
+      <rect width="254" height="150" rx="8" fill="#0f2338" stroke="#0891b2" stroke-width="0.7"/>
+      <text x="14" y="22" class="card-title" fill="#38bdf8">📊 专项轻量级专业生态</text>
+      <text x="14" y="44" class="card-desc">• Apache ECharts 5：趋势与大屏图表</text>
+      <text x="14" y="64" class="card-desc">• SheetJS / ExcelJS：多工作表解析导出</text>
+      <text x="14" y="84" class="card-desc">• html2canvas &amp; jsPDF：报表长图生成</text>
+      <text x="14" y="104" class="card-desc">• LocalForage：本地大文件离线持久化</text>
+      <text x="14" y="124" class="card-desc">• ToolsI18n：中英全量双语热切换</text>
+    </g>
+  </g>
+
+  <!-- ==================== LAYER 3: BACKEND ARCHITECTURE (y: 452) ==================== -->
+  <g transform="translate(48, 452)">
+    <rect width="1104" height="186" rx="12" fill="url(#cardGradDark)" stroke="#3b82f6" stroke-width="1" stroke-opacity="0.4" filter="url(#cardShadow)"/>
+    
+    <!-- Section Label -->
+    <path d="M16 14 h4 v14 h-4 Z" fill="#3b82f6"/>
+    <text x="28" y="26" class="section-title" fill="#93c5fd">3. 后端服务与领域引擎 (BACKEND: NODE.JS &amp; EXPRESS ENGINE)</text>
+    <text x="510" y="26" class="sub-badge" fill="#818cf8">RESTful API 网关 · 仓储解耦 · 智能宏生成 · 开机自愈</text>
+
+    <!-- 4 Backend Sub-Cards -->
+    <!-- Card 1: Express API Gateway -->
+    <g transform="translate(20, 40)">
+      <rect width="254" height="132" rx="8" fill="#0f2038" stroke="#2563eb" stroke-width="0.7"/>
+      <text x="14" y="20" class="card-title" fill="#60a5fa">🚀 RESTful API 路由网关</text>
+      <text x="14" y="40" class="card-desc">• Node.js + Express 模块化分层</text>
+      <text x="14" y="60" class="card-desc">• 业务路由解耦 (/routes/*.js)</text>
+      <text x="14" y="80" class="card-desc">• 统一响应协议与异常容灾拦截</text>
+      <text x="14" y="100" class="card-desc">• 数据源元数据追踪 (X-Data-Source)</text>
+    </g>
+
+    <!-- Card 2: Core Domain Engines -->
+    <g transform="translate(290, 40)">
+      <rect width="254" height="132" rx="8" fill="#0f2038" stroke="#2563eb" stroke-width="0.7"/>
+      <text x="14" y="20" class="card-title" fill="#60a5fa">🧠 核心业务计算引擎</text>
+      <text x="14" y="40" class="card-desc">• AST / 正则 UI.Vision 宏生成引擎</text>
+      <text x="14" y="60" class="card-desc">• SLA 多表分流合并与指标规则运算</text>
+      <text x="14" y="80" class="card-desc">• 跨表维度透视、占比、加减分核算</text>
+      <text x="14" y="100" class="card-desc">• 结构化快照沉淀与按需恢复流水线</text>
+    </g>
+
+    <!-- Card 3: Storage Engine & Doctor -->
+    <g transform="translate(560, 40)">
+      <rect width="254" height="132" rx="8" fill="#0f2038" stroke="#2563eb" stroke-width="0.7"/>
+      <text x="14" y="20" class="card-title" fill="#60a5fa">🗄️ 双模读源与自愈体系</text>
+      <text x="14" y="40" class="card-desc">• SQLite 3 关系型核心引擎 (WAL并发)</text>
+      <text x="14" y="60" class="card-desc">• JSON 本地扁平文件自动平滑降级</text>
+      <text x="14" y="80" class="card-desc">• 开机自愈检修 (Doctor &amp; Auto-Repair)</text>
+      <text x="14" y="100" class="card-desc">• 历史存量数据一致性自动纠偏校验</text>
+    </g>
+
+    <!-- Card 4: Multi-Tenancy & Quality -->
+    <g transform="translate(830, 40)">
+      <rect width="254" height="132" rx="8" fill="#0f2038" stroke="#2563eb" stroke-width="0.7"/>
+      <text x="14" y="20" class="card-title" fill="#60a5fa">🛡️ 租户隔离与质量保障</text>
+      <text x="14" y="40" class="card-desc">• 多租户分目录沙箱物理数据隔离</text>
+      <text x="14" y="60" class="card-desc">• 内置 Node 原生测试 (node --test)</text>
+      <text x="14" y="80" class="card-desc">• 65+ 核心业务与界面自动化测试</text>
+      <text x="14" y="100" class="card-desc">• 纯本地/局域网私有化，数据不外传</text>
+    </g>
+  </g>
+
+  <!-- ==================== LAYER 4: DATA & REPOSITORIES (y: 650) ==================== -->
+  <g transform="translate(48, 650)">
+    <rect width="1104" height="80" rx="12" fill="url(#cardGradDark)" stroke="#8b5cf6" stroke-width="1" stroke-opacity="0.4" filter="url(#cardShadow)"/>
+    
+    <!-- Section Label -->
+    <path d="M16 12 h4 v14 h-4 Z" fill="#8b5cf6"/>
+    <text x="28" y="24" class="section-title" fill="#c4b5fd">4. 数据存储与持久化矩阵 (DATA STORAGE &amp; REPOSITORIES)</text>
+    
+    <!-- 3 Data Blocks -->
+    <g transform="translate(20, 36)">
+      <!-- Block 1 -->
+      <rect width="340" height="34" rx="6" fill="url(#pillData)" stroke="#8b5cf6" stroke-width="0.6"/>
+      <text x="12" y="21" class="card-desc" fill="#e9d5ff"><b>SQLite 核心库：</b>tools.db · report.db (WAL 模式 · 事务锁)</text>
+
+      <!-- Block 2 -->
+      <rect x="360" width="340" height="34" rx="6" fill="url(#pillData)" stroke="#8b5cf6" stroke-width="0.6"/>
+      <text x="372" y="21" class="card-desc" fill="#e9d5ff"><b>多租户数据隔离：</b>data/tenants/{tenantId}/ 独立沙箱目录</text>
+
+      <!-- Block 3 -->
+      <rect x="720" width="344" height="34" rx="6" fill="url(#pillData)" stroke="#8b5cf6" stroke-width="0.6"/>
+      <text x="732" y="21" class="card-desc" fill="#e9d5ff"><b>原始存档与快照：</b>Excel/CSV 批次无损备份 · 计算与归档解耦</text>
+    </g>
+  </g>
+
+  <!-- Footer Info Line -->
+  <text x="48" y="756" class="footer-text">Tools Platform Architecture Blueprint © 2026 · Native Performance First · Enterprise Self-Hosted Solution</text>
+</svg>
