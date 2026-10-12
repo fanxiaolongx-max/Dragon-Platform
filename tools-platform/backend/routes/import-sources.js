@@ -46,6 +46,7 @@ router.get('/source-catalog',handle(async(req,res)=>{
     if(registeredAny) catalog = await repo.catalog(options);
     catalog.diagnostics={...catalog.diagnostics,days};res.json(catalog);
 }));
+router.put('/source-files/:id/category',requireAdmin,handle(async(req,res)=>res.json(await require('../models/source-category-repository').save(req.params.id,req.body?.category))));
 router.get('/source-files/:id/download',handle(async(req,res)=>{
     const file=await repo.getFile(req.params.id,true);if(!file)return res.status(404).json({error:'Source file not found'});
     res.setHeader('Content-Type','application/octet-stream');res.setHeader('Content-Disposition',`attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`);res.send(file.original_blob);

@@ -110,7 +110,7 @@ async function catalog(options = {}) {
     // Virtual directories can be requested independently; a slow source must not hold originals.
     if(['topic','meeting'].includes(options.stage)){
         const started=Date.now(),result=await require('./'+(options.stage==='topic'?'topic':'meeting')+'-source-tables').catalog(options);
-        return {...result,snapshots:[],diagnostics:{stages:[{stage:options.stage,count:result.files.length,durationMs:Date.now()-started}],errors:result.errors||[]}};
+        return require('./source-category-repository').annotate({...result,snapshots:[],diagnostics:{stages:[{stage:options.stage,count:result.files.length,durationMs:Date.now()-started}],errors:result.errors||[]}});
     }
     const since=options.since||null,params=since?[since]:[],where=column=>since?` WHERE julianday(${column}) >= julianday(?)`:"";
     const errors=[],stages=[],started=Date.now();let stageStart=started;const mark=(stage,count)=>{stages.push({stage,count,durationMs:Date.now()-stageStart});stageStart=Date.now();};
@@ -135,12 +135,12 @@ async function catalog(options = {}) {
     const [topicSources,meetingSources]=await Promise.all([virtual('topic'),virtual('meeting')]);
     const latest=new Map();for(const snapshot of archived){const key=JSON.stringify([snapshot.batch_id,snapshot.target_month]);if(!latest.has(key)||snapshotTime(snapshot.captured_at)>snapshotTime(latest.get(key).captured_at))latest.set(key,snapshot);}
     const fileMetrics=[...latest.values()].flatMap(snapshot=>snapshot.metrics.flatMap(metric=>[metric,...(metric.subMetrics||[]).map(child=>({...child,label:`${metric.label} / ${child.category}`}))].map(item=>({...item,sourceBatchId:snapshot.batch_id}))));
-    return { diagnostics:{stages,errors,elapsedMs:Date.now()-started,since},batches:[...batches,...topicSources.batches,...meetingSources.batches], files:[...files.map(file => {
+    return require('./source-category-repository').annotate({ diagnostics:{stages,errors,elapsedMs:Date.now()-started,since},batches:[...batches,...topicSources.batches,...meetingSources.batches], files:[...files.map(file => {
         const dutyLabels = (file.kind === 'duty_roster' || file.source_key === '夜间运维值班表') ? ['夜间运维值班表', '值班人次'] : [];
         const related=fileMetrics.filter(metric=>metric.fileIds.includes(file.id)),unresolvedMetricCount=fileMetrics.filter(metric=>metric.sourceBatchId===file.batch_id&&metric.sourceLinkStatus==='unresolved').length;
         const metricSourceState=related.some(metric=>metric.rule?.scope==='all'||metric.sourceSectionKeys?.length>1)?'cross':related.length?'single':unresolvedMetricCount?'unconfirmed':'original';
         return {...file,metricSourceState,unresolvedMetricCount,metricLabels:[...new Set([...dutyLabels,...fileMetrics.filter(metric=>metric.fileIds.includes(file.id)).map(metric=>metric.label).filter(Boolean)])],sheets:sheets.filter(sheet=>sheet.file_id===file.id).flatMap(sheet=>{try{const headers=JSON.parse(sheet.headers_json);if(!Array.isArray(headers))throw new Error();return [{id:sheet.id,name:sheet.name,headers,rowCount:sheet.row_count}];}catch(_){errors.push({stage:'originals',id:sheet.id,code:'INVALID_HEADERS'});return [];}})};
-    }),...topicSources.files,...meetingSources.files], snapshots:[...archived,...savedReports].sort((a,b)=>snapshotTime(b.captured_at)-snapshotTime(a.captured_at)) };
+    }),...topicSources.files,...meetingSources.files], snapshots:[...archived,...savedReports].sort((a,b)=>snapshotTime(b.captured_at)-snapshotTime(a.captured_at)) });
 }
 function snapshotTime(value) { const text=String(value||'');return Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)?text.replace(' ','T')+'Z':text)||0; }
 // Read saved assessment results as-is; never apply current SLA targets to history.

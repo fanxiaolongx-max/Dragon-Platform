@@ -1,5 +1,7 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.MonthlyCatalogView=api;})(typeof window==='object'?window:globalThis,function(){
     'use strict';
+    const sourceCategories=typeof module==='object'&&module.exports?require('./source-category-rules'):window.MonthlySourceCategories;
+    const fileCategory=file=>sourceCategories.category(file);
     function date(value){const text=String(value||'');const parsed=new Date(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)?text.replace(' ','T')+'Z':text);return Number.isNaN(parsed.getTime())?null:parsed;}
     function dateKey(value){const d=date(value);if(!d)return '';return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
     function timeLabel(value){const d=date(value);if(!d)return '—';return `${dateKey(value)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;}
@@ -47,12 +49,7 @@
         'ET成本控制(GPR提升10%)'
     ];
 
-    function isExpiringTicketFile(file){
-        if(!file)return false;
-        const text=(String(file.name||'')+' '+(Array.isArray(file.metricLabels)?file.metricLabels.join(' '):'')).toLowerCase();
-        if(text.includes('值班'))return false;
-        return /(整改详单|风险详单|巡检详单|详单|详表|工单|临期|超期|逾期|待办|清单|ticket|expir)/i.test(text);
-    }
+    function isExpiringTicketFile(file){return !!file&&fileCategory(file)==='tickets';}
 
     function fileDisplayMetrics(file,allBatchFiles=[]){
         return Array.isArray(file?.metricLabels)?file.metricLabels:[];
@@ -262,5 +259,5 @@
     }
 
     function eligibleSnapshots(binding,catalog){return catalog.snapshots.filter(snapshot=>binding.kind==='metric'?!!binding.metricKey&&snapshot.metrics.some(metric=>metric.key===binding.metricKey):binding.kind==='section'?snapshot.kind!=='assessment'&&snapshot.sections.some(section=>!binding.sectionKey||section.key===binding.sectionKey):false);}
-    return {date,dateKey,timeLabel,period,importTime,snapshotPeriod,groups,fileTitle,sourceFileTitle,compactFileName,fileDownloadInfo,isExpiringTicketFile,hasExtractedMetrics,fileDisplayMetrics,fileReportRank,sortPriorityFiles,eligibleSnapshots,REPORT_METRIC_ORDER,isExpiringTicketSection,sectionReportRank,sortPrioritySections};
+    return {date,dateKey,timeLabel,period,importTime,snapshotPeriod,groups,fileTitle,sourceFileTitle,compactFileName,fileDownloadInfo,fileCategory,isExpiringTicketFile,hasExtractedMetrics,fileDisplayMetrics,fileReportRank,sortPriorityFiles,eligibleSnapshots,REPORT_METRIC_ORDER,isExpiringTicketSection,sectionReportRank,sortPrioritySections};
 });
