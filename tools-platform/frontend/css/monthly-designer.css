@@ -706,3 +706,7 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 .document-block[data-sized-card]>.document-block-data,.document-block[data-sized-card]>.document-block-text{flex:1;min-height:0;overflow:auto}
 .document-block[data-adaptive-chart]:not([data-sized-card]){align-self:stretch}
 .document-block:not([data-sized-card]){align-self:stretch}
+/* Keep resize badges inside fixed-height cards so overflow clipping cannot cut their text. */
+.document-block>.size-guides .size-guide-width{top:4px;transform:translateX(-50%)}
+.document-block>.size-guides .size-guide-height{right:4px;transform:translateY(-50%)}
+.document-block>.size-guides span{max-width:calc(100% - 8px);white-space:normal;overflow-wrap:anywhere;text-align:center}
