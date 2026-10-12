@@ -10,6 +10,9 @@
         if(!/^[+-]?(?:(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\s*[%％]?$/.test(text))return null;
         const percent=/[%％]$/.test(text),number=Number(text.replace(/,/g,'').replace(/\s*[%％]$/,''));return Number.isFinite(number)?{value:number,percent}:null;
     }
+    function numericFields(tables){return [...new Set(tables.flatMap(table=>(table.headers||[]).filter(field=>(table.rows||[]).some(row=>numeric(row[field])!==null))))];}
+    function numericRowNames(tables,field=''){return [...new Set(tables.flatMap(table=>{const key=field||table.headers?.[0];return (table.rows||[]).filter(row=>(table.headers||[]).some(header=>header!==key&&numeric(row[header])!==null)).map(row=>String(row[key]??'')).filter(Boolean);} ))];}
+    function validateContext(rules,tables){validate(rules);const fields=numericFields(tables);for(const rule of rules){if(rule.scope==='column'&&!fields.includes(rule.target)||rule.scope==='row'&&!numericRowNames(tables,rule.field).includes(rule.target)||rule.scope==='all'&&!fields.length)throw new Error('Target has no numeric values');}return rules;}
     function format(value,rule){
         const parsed=numeric(value);if(!parsed||!rule)return String(value??'');
         let number=parsed.value;if(rule.zeroAsBlank&&number===0)return '';
@@ -37,12 +40,12 @@
                 }
             }
         });
-        target.querySelectorAll('svg [data-number-value]').forEach(element=>{
+        target.querySelectorAll('svg [data-number-value],.pivot-chart-totals [data-number-value]').forEach(element=>{
             const field=element.dataset.numberField||'',row=element.dataset.numberRow||'',labels=new Map([['',row],[element.dataset.numberRowField||'',row]]);
             const active=element.hasAttribute('data-number-axis')?rules.filter(rule=>rule.scope!=='row'):rules;
             const rule=ruleFor(active,field,labels);if(rule)replace(element,format(element.dataset.numberValue,rule));
         });
         const metric=target.querySelector('.document-metric');if(metric){const value=metric.querySelector('strong'),name=metric.querySelector('span')?.textContent||'',rule=rules.find(rule=>rule.scope==='column'&&rule.target===name)||rules.find(rule=>rule.scope==='all');if(value&&rule)replace(value,format(value.textContent,rule));}
     }
-    return {validate,numeric,format,matchesColumn,ruleFor,apply};
+    return {validate,validateContext,numericFields,numericRowNames,numeric,format,matchesColumn,ruleFor,apply};
 });

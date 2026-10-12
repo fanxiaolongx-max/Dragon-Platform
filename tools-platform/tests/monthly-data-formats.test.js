@@ -20,3 +20,11 @@ test('independent server format presets reuse across months, do not rewrite hist
 test('format API rejects invalid rules and isolates tenant operations',async t=>{
  const express=require('express'),web=express();web.use(express.json());web.use((req,res,next)=>runWithTenant(req.headers['x-test-tenant']||'default',next));web.use('/api/upload',require('../backend/routes/import-sources'));const server=await new Promise(resolve=>{const listener=web.listen(0,'127.0.0.1',()=>resolve(listener));});t.after(()=>new Promise(resolve=>server.close(resolve)));const base=`http://127.0.0.1:${server.address().port}/api/upload/monthly-data-format-presets`,options={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'API',rules:[rule]})};const response=await fetch(base,options);assert.equal(response.status,200);const saved=await response.json();assert.equal((await (await fetch(base)).json()).length,1);assert.equal((await fetch(base,{...options,body:JSON.stringify({name:'bad',rules:[{...rule,decimals:99}]})})).status,400);assert.equal((await fetch(base+'/'+saved.id,{...options,method:'PUT',headers:{...options.headers,'x-test-tenant':'format-other'}})).status,404);
 });
+
+test('numeric choices exclude text-only columns and rows and reject invalid local targets',()=>{const F=formats;
+ const tables=[{headers:['客户','金额','比例','备注'],rows:[{客户:'A',金额:0,比例:'25%',备注:'处理中'},{客户:'B',金额:'',比例:'',备注:'无数值'}]}];
+ assert.deepEqual(F.numericFields(tables),['金额','比例']);assert.deepEqual(F.numericRowNames(tables,'客户'),['A']);
+ const rule={scope:'column',target:'金额',field:'',format:'number',decimals:2,thousands:false,zeroAsBlank:false};assert.doesNotThrow(()=>F.validateContext([rule],tables));
+ assert.throws(()=>F.validateContext([{...rule,target:'备注'}],tables),/no numeric values/);assert.throws(()=>F.validateContext([{...rule,scope:'row',field:'客户',target:'B'}],tables),/no numeric values/);
+ assert.equal(F.format('处理中',rule),'处理中');assert.equal(F.format('25%',{...rule,format:'percent'}),'25.00%');
+});

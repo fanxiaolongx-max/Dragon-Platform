@@ -1,7 +1,7 @@
 (function(){
     'use strict';
     // This stamp identifies the executing script, even if an older copy was cached.
-    const scriptVersion='20261012-22';
+    const scriptVersion='20261012-23';
     const versionBadge=document.createElement('span');versionBadge.id='monthlyScriptVersion';versionBadge.className='monthly-script-version';versionBadge.setAttribute('data-controls','');versionBadge.dataset.version=scriptVersion;document.body.append(versionBadge);
     const engine=window.MonthlyDocumentEngine;
     const view=window.MonthlyCatalogView,S=window.MonthlySourceRules,W=window.MonthlyWorkspace;
@@ -228,22 +228,10 @@
             engine.normalize(draft);checkpoint();current=draft;await render();status(t('布局已应用，请保存月报','Layout applied; save the report'));
         }catch(error){host.querySelector('[role=status]').textContent=error.message;}};
     }
-    async function componentPresets(block,host){
-        host.presetBlock=block;
-        host.innerHTML=`<p role="status">${t('读取复用配置…','Loading component presets…')}</p>`;
-        let presets=await request('/api/upload/monthly-component-presets'),selected='';if(!host.isConnected)return;
-        const draw=()=>{host.innerHTML=`<h3>${t('组件复用配置','Reusable component settings')}</h3><p>${t('保存当前组件已应用的整套配置：来源规则、数据处理、展示样式和布局，供其他月报或模板中的单个组件主动采用。不会更新默认模板，不携带业务数据。','Saves all applied source, processing, style and layout settings for reuse by one component in another report or template. Does not update the default template or include business rows.')}</p><select data-component-preset><option value="">${t('新建配置','New preset')}</option>${presets.filter(preset=>preset.rules?.document?.sections?.[0]?.blocks?.[0]?.type===block.type).map(preset=>`<option value="${preset.id}" ${selected===preset.id?'selected':''}>${escape(preset.name)}</option>`).join('')}</select><input data-component-name maxlength="200" value="${escape(presets.find(preset=>preset.id===selected)?.name||pair(block.title)||typeName(block.type))}" aria-label="${t('配置名称','Preset name')}"><button data-component-load>${t('采用此配置','Use this preset')}</button><button data-component-save>${t('保存复用配置到服务器','Save reusable preset')}</button><button data-component-delete>${t('删除复用配置','Delete preset')}</button><p role="status"></p>`;};draw();
-        host.onchange=event=>{if(event.target.matches('[data-component-preset]')){selected=event.target.value;draw();}};
-        host.onclick=async event=>{const button=event.target.closest('[data-component-load],[data-component-save],[data-component-delete]');if(!button)return;button.disabled=true;try{
-            if(button.hasAttribute('data-component-load')){const preset=presets.find(item=>item.id===selected);if(!preset)throw new Error(t('请选择配置','Select a preset'));const generated=window.MonthlyTemplates.create(preset.rules,catalog,engine.documentMonth(current)),generatedBlock=generated.sections[0].blocks[0],draft=clone(current),imported=window.MonthlyMetricFormulas.importBlock(generatedBlock,generated.inlineFormulas||[],draft.inlineFormulas||[],engine.uid),replacement=imported.block;if(replacement.type!==block.type)throw new Error(t('复用配置必须与当前组件类型相同','Preset must match the component type'));if(imported.definitions.length)draft.inlineFormulas=imported.definitions;replacement.id=block.id;const section=draft.sections.find(section=>section.blocks.some(item=>item.id===block.id));section.blocks[section.blocks.findIndex(item=>item.id===block.id)]=replacement;engine.normalize(draft);checkpoint();current=draft;blockResources.delete(block.id);await render();return;}
-            if(button.hasAttribute('data-component-save')){const name=host.querySelector('[data-component-name]').value.trim();if(!name)throw new Error(t('请填写配置名称','Enter a preset name'));const draft=clone(current),found=findBlock(block.id);draft.sections=[{...clone(found.section),blocks:[clone(found.block)]}];const rules=window.MonthlyTemplates.capture(draft,catalog),preset=await request('/api/upload/monthly-component-presets'+(selected?'/'+encodeURIComponent(selected):''),{method:selected?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,rules})});presets=presets.filter(item=>item.id!==preset.id).concat(preset);selected=preset.id;draw();host.querySelector('[role=status]').textContent=t('配置已保存，可在其他月份主动载入','Saved; explicitly load this preset in another month');return;}
-            if(selected){await request('/api/upload/monthly-component-presets/'+encodeURIComponent(selected),{method:'DELETE'});presets=presets.filter(item=>item.id!==selected);selected='';draw();}
-        }catch(error){host.querySelector('[role=status]').textContent=error.message;button.disabled=false;}};
-    }
     async function configure(action,block,panel){
         try{
             if(action==='advanced'){await window.MonthlyPivotPanel.open(block.id,'processing');const details=panel.querySelector('[data-processing-binding]');if(details)details.open=true;return;}
-            if(action==='presets'){const host=panel.querySelector('[data-component-presets-host]'),button=panel.querySelector('[data-inspector-action=presets]');host.hidden=!host.hidden;button.setAttribute('aria-expanded',String(!host.hidden));if(!host.hidden&&!host.children.length)try{await componentPresets(block,host);}catch(error){host.replaceChildren();throw error;}return;}
+
             let host=panel.querySelector('[data-inspector-editor]');if(!host){host=document.createElement('div');host.setAttribute('data-inspector-editor','');panel.querySelector('.inspector-body').append(host);}
             if(action==='mapping')await window.MonthlyMappingEditor.open(block,host);if(action==='format')await window.MonthlyDataFormatEditor.open(block,host);
             if(action==='pivot'){await window.MonthlyCharts.enablePivot(block);await window.MonthlyPivotPanel.open(block.id,'processing');}
@@ -985,6 +973,8 @@
         if(block.binding)tables.push(await sourceRows(block,engine.resolve(block.binding,reportCatalog(block))));
         const target=document.getElementById('data-'+block.id);
         target?.querySelectorAll('table').forEach(table=>{const headers=Array.from(table.tHead?.rows[0]?.cells||[],cell=>cell.dataset.mappingOriginal??cell.textContent);const rows=Array.from(table.tBodies[0]?.rows||[],row=>Object.fromEntries(Array.from(row.cells,(cell,index)=>[headers[index]||String(index),cell.dataset.numberValue??cell.dataset.formatOriginal??cell.dataset.mappingOriginal??cell.textContent])));tables.push({headers,rows});});
+        const pivot=resolved.chart?.pivot;if(pivot){const result=window.MonthlyCharts.pivotMetadata(block),headers=pivot.values.map(value=>value.field);if(result)tables.push({headers,rows:[Object.fromEntries(headers.map((field,index)=>[field,result.grandTotals[index]]))]});}
+        const metric=resolved.binding?.kind==='metric'?engine.resolve(resolved.binding,reportCatalog(block))?.metric:null;if(metric)tables.push({headers:[metric.label],rows:[{[metric.label]:metric.value}]});
         return tables;
     }};
     window.MonthlyMappingEditor.init(presetEditorApi);window.MonthlyDataFormatEditor.init(presetEditorApi);
