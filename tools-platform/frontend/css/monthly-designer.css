@@ -586,3 +586,9 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 #pivotFieldsPanel .pivot-number-unit{position:relative;display:block;min-width:0}
 #pivotFieldsPanel .pivot-number-unit input{padding-right:28px}
 #pivotFieldsPanel .pivot-number-unit>span{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--pane-muted);pointer-events:none}
+#pivotFieldsPanel .component-metric-choice{min-width:0;border:1px solid var(--pane-border);border-radius:9px;overflow:hidden;background:var(--pane-card)}
+#pivotFieldsPanel .component-metric-choice>button{width:100%;margin:0;border:0;border-radius:0}
+#pivotFieldsPanel .component-choice-versions{margin:0;padding:6px 9px;border-top:1px solid var(--pane-border);background:var(--pane-soft);font-size:10px;line-height:1.7}
+#pivotFieldsPanel .component-choice-versions>summary{color:var(--pane-accent);cursor:pointer;overflow-wrap:anywhere}
+#pivotFieldsPanel .component-choice-versions button{display:block;width:100%;margin:6px 0;padding:8px;text-align:left;border-radius:7px}
+#pivotFieldsPanel .component-choice-difference{color:var(--pane-accent);font-size:10px;line-height:1.6}
