@@ -24,7 +24,8 @@
   function footerMarkup(){if(!active||!cursor&&offset>=scope.length)return '';return `<button type="button" class="library-deep-more" data-deep-more ${phase==='running'?'disabled':''}>${t(phase==='running'?'正在搜索…':'加载更多搜索结果',phase==='running'?'Searching…':'Load more search results')}</button>`;}
   function bind(container){container.querySelector('[data-deep-start]')?.addEventListener('click',()=>{render();if(enabled||active)load(true);});container.querySelectorAll('[data-deep-more]').forEach(button=>button.addEventListener('click',()=>load()));container.querySelector('[data-deep-stop]')?.addEventListener('click',stop);}
   root.addEventListener('pagehide',reset);
-  return {configure,reset,has,matchMarkup,buttonMarkup,statusMarkup,footerMarkup,bind,count:()=>matches.size,isActive:()=>active};
+  function previewMatch(payload){const hit=matches.get(payload.fileId);return hit&&hit.sheetId===payload.sheetId?{query,hit:{...hit}}:null;}
+  return {configure,reset,has,matchMarkup,previewMatch,buttonMarkup,statusMarkup,footerMarkup,bind,count:()=>matches.size,isActive:()=>active};
  }
  root.MonthlyLibrarySearch={create};
 })(window);

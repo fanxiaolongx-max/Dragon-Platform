@@ -1,7 +1,7 @@
 (function(){
     'use strict';
     // This stamp identifies the executing script, even if an older copy was cached.
-    const scriptVersion='20261012-09';
+    const scriptVersion='20261012-10';
     const versionBadge=document.createElement('span');versionBadge.id='monthlyScriptVersion';versionBadge.className='monthly-script-version';versionBadge.setAttribute('data-controls','');versionBadge.dataset.version=scriptVersion;document.body.append(versionBadge);
     const engine=window.MonthlyDocumentEngine;
     const view=window.MonthlyCatalogView,S=window.MonthlySourceRules,W=window.MonthlyWorkspace;
@@ -206,7 +206,7 @@
         if(target.savedData)target.previousData=target.savedData;delete target.savedData;engine.normalize(draft);checkpoint();current=draft;await render();await window.MonthlyPivotPanel.open(target.id,action==='chart'?'processing':'source');status(t('数据已加入月报；可以撤销','Data added to report; Undo is available'));
     }
     async function previewSource(payload){
-        try{await window.MonthlySourceTableEditor.open({...payload,request,t,escape,onSaved:async()=>{cache.clear();blockResources.clear();await refresh();status(t('原始表已更新；已保存的历史月报结果保持原样，需要时检查数据更新','Source updated; saved historical reports retain their results. Check updates when needed.'));}});}catch(error){status(error.message);}
+        try{await window.MonthlySourceTableEditor.open({...payload,searchContext:librarySearch.previewMatch?.(payload),request,t,escape,onSaved:async()=>{cache.clear();blockResources.clear();await refresh();status(t('原始表已更新；已保存的历史月报结果保持原样，需要时检查数据更新','Source updated; saved historical reports retain their results. Check updates when needed.'));}});}catch(error){status(error.message);}
     }
     function mountEditor(block,host,tab){if(tab==='layout'){mountLayoutEditor(block,host);return;}editBlock(findBlock(block.id),host);host.dataset.inspectorEditorTab=tab;if(tab==='processing')host.querySelector('h3').textContent=t('数据处理与指标绑定','Data processing & metric binding');host.querySelectorAll('form [name]').forEach(input=>input.closest('label')?.setAttribute('data-inspector-name',input.name));}
     // Layout edits only geometry. Do not build hidden source pickers or read worksheet data.
