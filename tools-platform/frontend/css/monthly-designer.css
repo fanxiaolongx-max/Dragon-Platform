@@ -599,3 +599,10 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 #sourceLibrary .import-range:not([open]){padding:8px 10px;margin-bottom:10px}
 #sourceLibrary .import-range:not([open])>form{display:none}
 #sourceLibrary .import-range [data-range-note]{padding-right:0;margin-top:6px}
+.source-table-horizontal{flex:none;padding:6px 18px;background:#f1f6fa;border-top:1px solid #ccd9e5}
+.source-table-dialog .source-table-horizontal input{appearance:none;display:block;width:100%;height:10px;min-height:0;padding:0;margin:0;border:0;border-radius:6px;background:#d9e5ee;cursor:ew-resize}
+.source-table-horizontal input::-webkit-slider-thumb{appearance:none;width:var(--horizontal-thumb,60px);height:10px;border-radius:6px;background:#739ab9}
+.source-table-horizontal input::-moz-range-thumb{width:var(--horizontal-thumb,60px);height:10px;border:0;border-radius:6px;background:#739ab9}
+.source-table-horizontal input:disabled{opacity:.45;cursor:default}
+[data-theme=dark] .source-table-horizontal{background:#23394e;border-color:#405a70}
+[data-theme=dark] .source-table-dialog .source-table-horizontal input{background:#344f66}
