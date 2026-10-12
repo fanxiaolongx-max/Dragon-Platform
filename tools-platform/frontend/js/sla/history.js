@@ -72,11 +72,37 @@ function getHistoryTargetMonth(item) {
     return Number.isInteger(month) && month >= 1 && month <= 12 ? month : null;
 }
 
+let cleanupHistoryScroll=()=>{};
+function syncHistoryScrollbar(){
+    cleanupHistoryScroll();
+    const footer=document.getElementById('history-horizontal-scroll');if(!footer)return;
+    const wrapper=document.querySelector('#history-modal-list .history-table-wrapper'),range=footer.querySelector('[data-history-scroll-range]'),left=footer.querySelector('[data-history-scroll-left]'),right=footer.querySelector('[data-history-scroll-right]');
+    const text=(zh,en)=>window.ToolsI18n?.getLanguage()==='en-US'?en:zh;
+    footer.querySelector('[data-history-scroll-label]').textContent=text('横向浏览','Horizontal scroll');
+    left.setAttribute('aria-label',text('向左滚动','Scroll left'));right.setAttribute('aria-label',text('向右滚动','Scroll right'));range.setAttribute('aria-label',text('横向滚动历史快照表格','Scroll the snapshot table horizontally'));
+    let frame=0;
+    const update=()=>{
+        frame=0;const max=wrapper?Math.max(0,wrapper.scrollWidth-wrapper.clientWidth):0,value=wrapper?Math.min(max,Math.max(0,wrapper.scrollLeft)):0;
+        range.max=String(max);range.value=String(value);range.disabled=max<1;left.disabled=value<1;right.disabled=value>=max-1;
+        const progress=max?Math.round(value/max*100):0,label=max?progress+'%':text('所有列已展示','All columns visible');
+        footer.querySelector('[data-history-scroll-position]').textContent=label;range.setAttribute('aria-valuetext',label);
+        range.style.setProperty('--scroll-thumb-width',Math.max(28,Math.min(160,range.clientWidth*(wrapper?wrapper.clientWidth/wrapper.scrollWidth:1)))+'px');
+    };
+    const schedule=()=>{if(!frame)frame=requestAnimationFrame(update);};
+    range.oninput=()=>{if(wrapper)wrapper.scrollLeft=Number(range.value);update();};
+    left.onclick=()=>{if(wrapper){wrapper.scrollLeft-=Math.max(120,wrapper.clientWidth*.7);update();}};
+    right.onclick=()=>{if(wrapper){wrapper.scrollLeft+=Math.max(120,wrapper.clientWidth*.7);update();}};
+    wrapper?.addEventListener('scroll',schedule,{passive:true});
+    const observer=new ResizeObserver(schedule);observer.observe(footer);if(wrapper){observer.observe(wrapper);const table=wrapper.querySelector('table');if(table)observer.observe(table);}
+    cleanupHistoryScroll=()=>{observer.disconnect();if(frame)cancelAnimationFrame(frame);wrapper?.removeEventListener('scroll',schedule);range.oninput=left.onclick=right.onclick=null;};update();
+}
+
 async function openHistoryModal() {
     const modal = document.getElementById('history-modal');
     if(modal) modal.style.display = 'flex';
     const list = document.getElementById('history-modal-list');
     if(list) list.innerHTML = `<div class="loading-text">${SLAT('sla.history.loadingShort')}</div>`;
+    syncHistoryScrollbar();
     try {
         const mode = API.getSourceMode('sla_data');
         const query = mode === 'auto' ? '' : `?mode=${encodeURIComponent(mode)}`;
@@ -100,6 +126,7 @@ async function openHistoryModal() {
 function closeHistoryModal() {
     const modal = document.getElementById('history-modal');
     if(modal) modal.style.display = 'none';
+    cleanupHistoryScroll();
 }
 
 function renderHistory(data) {
@@ -108,6 +135,7 @@ function renderHistory(data) {
     
     if(!data || !data.length) {
         list.innerHTML = `<div style="padding:40px;text-align:center;color:#666;">${SLAT('sla.history.empty')}</div>`;
+        syncHistoryScrollbar();
         return;
     }
 
@@ -124,7 +152,7 @@ function renderHistory(data) {
     <style>
         .history-table-wrapper { overflow: auto; max-width: 100%; height: 100%; border-radius: 4px; position: relative; }
         .history-table { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
-        .history-table th { background: #f1f3f4; padding: 10px; text-align: left; border-bottom: 2px solid #ccc; border-right: 1px solid #ddd; position: sticky; top: 0; z-index: 10; font-weight: bold; white-space: nowrap; }
+        .history-table th { color: #344b62; background: #f1f3f4; padding: 10px; text-align: left; border-bottom: 2px solid #ccc; border-right: 1px solid #ddd; position: sticky; top: 0; z-index: 10; font-weight: bold; white-space: nowrap; }
         .history-table td { padding: 10px 12px; border-bottom: 1px solid #eee; border-right: 1px solid #eee; vertical-align: middle; white-space: nowrap; }
         .history-table tr:hover td { background: #f9f9f9; }
         .history-table td.warn-cell { background: #ffebee; border-left: 2px solid #ef5350; }
@@ -152,7 +180,7 @@ function renderHistory(data) {
         .history-load-btn { display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:3px 8px;font-size:11px;background:var(--bg-secondary,#eff6ff);border:1px solid #93c5fd;color:var(--text-color,#1565c0);border-radius:6px;cursor:pointer;line-height:1.2; }
         .history-load-btn:disabled { opacity:.6;cursor:wait; }
     </style>
-    <div class="history-table-wrapper">
+    <div class="history-table-wrapper" id="history-table-scroll">
     <table class="history-table">
         <thead>
             <tr>
@@ -248,6 +276,7 @@ function renderHistory(data) {
     html += `</tbody></table></div>`;
     list.innerHTML = html;
     list.querySelectorAll('[data-source-snapshot]').forEach(button=>button.addEventListener('click',()=>loadHistoryOriginals(button.dataset.sourceSnapshot)));
+    syncHistoryScrollbar();
 }
 
 async function loadHistoryOriginals(id) {

@@ -10,7 +10,7 @@
     <link rel="apple-touch-icon" href="/assets/icon-mac.png?v=20261006">
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link rel="stylesheet" href="/css/shared.css?v=20261011-02">
-    <link rel="stylesheet" href="/css/sla.css?v=20261012-05">
+    <link rel="stylesheet" href="/css/sla.css?v=20261012-06">
     <style>
         .sla-source-wrapper {
             display: flex;
@@ -333,13 +333,20 @@
 
     <!-- 历史导入看板弹窗 -->
     <div id="history-modal" class="modal-overlay">
-        <div class="modal-content" style="width: 96vw; max-width: 1800px; height: 90vh; max-height: 90vh; display: flex; flex-direction: column; resize: both; overflow: hidden; min-width: 800px; min-height: 400px; padding-bottom: 0;">
+        <div class="modal-content history-modal-content">
             <div class="modal-header" style="flex-shrink: 0; padding-bottom: 10px;">
                 <h3 style="margin: 0; color: #1976d2;">📈 历史导入预警快照</h3>
                 <button class="modal-close" onclick="closeHistoryModal()">✖</button>
             </div>
-            <div class="modal-body" id="history-modal-list" style="overflow-y: auto; overflow-x: auto; flex: 1; padding: 0; background: #f8f9fa;">
+            <div class="modal-body" id="history-modal-list">
                 <div class="loading-text">正在加载历史快照...</div>
+            </div>
+            <div id="history-horizontal-scroll" class="history-horizontal-scroll">
+                <span data-history-scroll-label>横向浏览</span>
+                <button type="button" data-history-scroll-left aria-label="向左滚动" disabled>‹</button>
+                <input type="range" data-history-scroll-range min="0" max="0" value="0" step="1" aria-label="横向滚动历史快照表格" aria-controls="history-table-scroll" disabled>
+                <button type="button" data-history-scroll-right aria-label="向右滚动" disabled>›</button>
+                <small data-history-scroll-position>所有列已展示</small>
             </div>
         </div>
     </div>
@@ -476,7 +483,7 @@
     <script src="/js/sla/table.js?v=20260914-01"></script>
     <script src="/js/sla/events.js?v=20260915-02"></script>
     <script src="/js/sla/metrics.js?v=20261010-09"></script>
-    <script src="/js/sla/history.js?v=20261012-05"></script>
+    <script src="/js/sla/history.js?v=20261012-06"></script>
     <script src="/js/sla/categories.js?v=20260802-01"></script>
     <script>
         function formatSLASourceLabel(source) {
