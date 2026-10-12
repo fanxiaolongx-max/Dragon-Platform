@@ -125,3 +125,5 @@ test('source titles remain file names regardless of batch-wide metric associatio
     assert.deepEqual(view.fileDisplayMetrics(file,[file]),labels);
     assert.equal(view.fileTitle({name:'PBI_自动抓取-整改率_Latest.csv',metricLabels:labels}),'整改率');
 });
+
+test('confirmed shared source metrics are not hidden by batch-size heuristics',()=>{const files=Array.from({length:6},(_,i)=>({name:'表'+i+'.csv',metricLabels:['跨表统计']}));assert.deepEqual(view.fileDisplayMetrics(files[0],files),['跨表统计']);});

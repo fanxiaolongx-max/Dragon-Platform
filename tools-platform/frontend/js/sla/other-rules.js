@@ -359,7 +359,7 @@
     }
     function prepareEditor(mode, config) { editorMode=mode;workingConfig=normalizeConfig(mode,config);refresh(); }
     async function saveFromEditor() {
-        try { const config=collectEditor();validate(config);show('正在保存并重算当前数据…');await API.put(`/api/sla/prefs/${encodeURIComponent(prefKey(editorMode))}`,config);cache[editorMode]=normalizeConfig(editorMode,config);workingConfig=clone(cache[editorMode]);if(window.SLASection?.applySectionRuleConfig)window.SLASection.applySectionRuleConfig(editorMode,cache[editorMode]);prepareEditor(editorMode,cache[editorMode]);show(`已保存，当前${MODE_META[editorMode].name}已按新规则重算`);if(window.showToast)window.showToast(`✅ ${MODE_META[editorMode].name}规则已保存并应用`); } catch(error){show(error.message||'保存失败',true);}
+        try { const config=collectEditor();validate(config);show('正在保存并重算当前数据…');await API.put(`/api/sla/prefs/${encodeURIComponent(prefKey(editorMode))}`,config);cache[editorMode]=normalizeConfig(editorMode,config);workingConfig=clone(cache[editorMode]);if(window.SLASection?.applySectionRuleConfig)window.SLASection.applySectionRuleConfig(editorMode,cache[editorMode]);window.SLAMetricSnapshotSync?.schedule();prepareEditor(editorMode,cache[editorMode]);show(`已保存，当前${MODE_META[editorMode].name}已按新规则重算`);if(window.showToast)window.showToast(`✅ ${MODE_META[editorMode].name}规则已保存并应用`); } catch(error){show(error.message||'保存失败',true);}
     }
     function resetEditor() { if(!confirm(`确定将${MODE_META[editorMode].name}规则恢复为默认值吗？\n点击“保存并应用”后才会写入服务端。`))return;workingConfig=defaultConfig(editorMode);refresh();show('已恢复默认值，尚未保存'); }
     function describeConfig(mode, config) {

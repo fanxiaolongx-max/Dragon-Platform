@@ -476,6 +476,7 @@
             if (window.SLASection && typeof window.SLASection.applyRiskRuleConfig === 'function') {
                 window.SLASection.applyRiskRuleConfig(cachedConfig);
             }
+            window.SLAMetricSnapshotSync?.schedule();
             prepareEditor(cachedConfig);
             showMessage('已保存，当前常规风险表已按新规则重算');
             if (typeof window.showToast === 'function') window.showToast('✅ 常规风险规则已保存并应用');

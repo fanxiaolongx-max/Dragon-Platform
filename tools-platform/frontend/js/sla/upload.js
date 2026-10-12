@@ -211,6 +211,7 @@ function dismissWorkspaceCacheNotice() {
 }
 
 function resetRuntimeWorkspace() {
+    window.SLAMetricSnapshotSync?.reset();
     if (window.AppState) {
         Object.keys(window.AppState).forEach(key => { delete window.AppState[key]; });
     }
@@ -375,6 +376,8 @@ async function restoreCachedWorkspaceInternal() {
             sections: sections.length,
             rows: sections.reduce((sum, section) => sum + section.data.length, 0)
         });
+        window.SLAMetricSnapshotSync?.bind(payload.meta?.metricSnapshotContext);
+        window.SLAMetricSnapshotSync?.schedule();
         if (typeof showToast === 'function') showToast(SLAT('sla.upload.restoreSuccess'));
         return true;
     } catch (err) {
@@ -771,12 +774,12 @@ async function importUivAutoSession() {
 
 async function captureAndUploadSnapshot(fileNames, meta = {}) {
     const snapshot = {
-        id: window.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
+        id: meta.updateId || window.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
         timestamp: new Date().toISOString(),
         files: fileNames,
         importSource: meta.source || 'manual',
         sourceBatchId: meta.sourceBatchId || null,
-        sourceSections: Object.entries(window.AppState || {}).filter(([,state]) => state && Array.isArray(state.globalData)).map(([key,state]) => ({ key, mode:state.mode, baseName:state.baseName, schemaHash:state.schemaHash, title:state.title, sourceFiles:state.sourceFiles || [], headers:state.orderedHeaders || [], rows:state.globalData, rules:state.customMetrics || [] })),
+        sourceSections: Object.entries(window.AppState || {}).filter(([,state]) => state && Array.isArray(state.globalData)).map(([key,state]) => ({ key, mode:state.mode, baseName:state.baseName, schemaHash:state.schemaHash, archiveSupplementary:!!state.archiveSupplementary, title:state.title, sourceFiles:state.sourceFiles || [], headers:state.orderedHeaders || [], rows:state.globalData, rules:state.customMetrics || [] })),
         selectedTargetMonth: window.SLATargetMonth && window.SLATargetMonth.get ? window.SLATargetMonth.get() : (new Date().getMonth() + 1),
         summary: [], 
         topMetrics: [],
@@ -882,15 +885,15 @@ async function captureAndUploadSnapshot(fileNames, meta = {}) {
                     });
                 }
                 
-                const entry = item.dataset.metricKey && window.GlobalMetrics?.[item.dataset.metricKey] ? [item.dataset.metricKey, window.GlobalMetrics[item.dataset.metricKey]] : Object.entries(window.GlobalMetrics || {}).find(([,metric]) => metric.label === label);
+                const entry = item.dataset.metricKey && window.GlobalMetrics?.[item.dataset.metricKey] ? [item.dataset.metricKey, window.GlobalMetrics[item.dataset.metricKey]] : (() => {const matches=Object.entries(window.GlobalMetrics||{}).filter(([,metric])=>metric.label===label);return matches.length===1?matches[0]:null;})();
                 const metricKey = entry?.[0];
                 const sectionEntry = Object.entries(window.AppState || {}).find(([secId,state]) => (state.customMetrics || []).some(rule => `${secId}_${rule.id}` === metricKey));
                 const sectionKey = sectionEntry?.[0];
                 const state = sectionEntry?.[1];
                 const rule = (state?.customMetrics || []).find(rule => `${sectionKey}_${rule.id}` === metricKey);
-                const sourceFiles = rule?.scope === 'all' ? fileNames : (state?.sourceFiles || fileNames);
+                const sourceSections = state ? (rule?.scope==='all'?snapshot.sourceSections.filter(section=>!section.archiveSupplementary):snapshot.sourceSections.filter(section=>section.key===sectionKey)) : [];
+                const sourceFiles = [...new Set(sourceSections.flatMap(section=>section.sourceFiles||[]))];
                 const target = window.GlobalTargets?.[metricKey];
-                const sourceSections = state ? [snapshot.sourceSections.find(section => section.key === sectionKey), ...(rule?.scope === 'all' ? snapshot.sourceSections.filter(section => section.key !== sectionKey) : [])].filter(Boolean) : [];
                 let firstRowFound = false;
                 const sourceSelections = sourceSections.map(section => ({ sectionKey:section.key, indexes:section.rows.flatMap((row,index) => {
                     if (!rule || typeof metricRuleRowMatches !== 'function' || !metricRuleRowMatches(row, rule, true)) return [];
@@ -898,7 +901,14 @@ async function captureAndUploadSnapshot(fileNames, meta = {}) {
                     if (!['count','ratio','extract_multi'].includes(rule.type)) { if (firstRowFound) return []; firstRowFound = true; }
                     return [index];
                 }) }));
-                snapshot.topMetrics.push({ key:metricKey || `legacy:${label}`, label, value, gap, isWarn, color, subMetrics, sourceSection:sectionKey || '', sourceFiles, rule:rule || null, sourceSelections, savedTarget:target?.[snapshot.selectedTargetMonth] ?? null });
+                for(const child of subMetrics){
+                    const childRule=(rule?.subMetrics||[]).find(item=>item.category===child.category);
+                    const cross=childRule?.scope==='all'||(!childRule?.scope&&rule?.scope==='all');
+                    const childSection=childRule?.sourceSecId||sectionKey;
+                    const childSources=childRule?snapshot.sourceSections.filter(section=>cross?!section.archiveSupplementary:section.key===childSection):[];
+                    child.sourceLinkVersion=2;child.sourceSection=childSection||'';child.sourceSectionKeys=childSources.map(section=>section.key);child.sourceFiles=[...new Set(childSources.flatMap(section=>section.sourceFiles||[]))];
+                }
+                snapshot.topMetrics.push({ key:metricKey || `legacy:${label}`, label, value, gap, isWarn, color, subMetrics, sourceSection:sectionKey || '', sourceLinkVersion:2,sourceSectionKeys:sourceSections.map(section=>section.key),sourceFiles, rule:rule || null, sourceSelections, savedTarget:target?.[snapshot.selectedTargetMonth] ?? null });
             }
         });
     }
@@ -913,9 +923,9 @@ async function captureAndUploadSnapshot(fileNames, meta = {}) {
 
     try {
         logSLAUploadStep('开始上传历史快照', snapshotStats);
-        await API.post('/api/sla/snapshot', snapshot);
+        await API[meta.updateId?'put':'post'](meta.updateId?'/api/sla/snapshots/'+encodeURIComponent(meta.updateId):'/api/sla/snapshot', snapshot);
         logSLAUploadStep('历史快照上传成功', snapshotStats);
-        showToast('✅ 预警结果已生成历史快照并存档');
+        if(!meta.ruleRefresh)showToast('✅ 预警结果已生成历史快照并存档');
     } catch (e) {
         logSLAUploadError('普通历史快照上传链路', e, snapshotStats);
         console.error('Snapshot upload failed', e);
@@ -937,9 +947,9 @@ async function captureAndUploadSnapshot(fileNames, meta = {}) {
             };
             logSLAUploadStep('gzip 压缩快照请求已构建', compressedStats);
 
-            await API.post('/api/sla/snapshot', compressedBody);
+            await API[meta.updateId?'put':'post'](meta.updateId?'/api/sla/snapshots/'+encodeURIComponent(meta.updateId):'/api/sla/snapshot', compressedBody);
             logSLAUploadStep('gzip 压缩快照重试成功', compressedStats);
-            showToast('✅ 预警结果已通过压缩重试生成历史快照并存档');
+            if(!meta.ruleRefresh)showToast('✅ 预警结果已通过压缩重试生成历史快照并存档');
         } catch (retryError) {
             logSLAUploadError('gzip 压缩快照重试链路', retryError, {
                 files: snapshot.files.length,
@@ -949,6 +959,12 @@ async function captureAndUploadSnapshot(fileNames, meta = {}) {
             throw retryError;
         }
     }
+    if(!meta.ruleRefresh){
+        const context={files:fileNames,source:meta.source||'manual',sourceBatchId:snapshot.sourceBatchId,month:snapshot.selectedTargetMonth};
+        window.SLAMetricSnapshotSync?.bind(context);
+        try{const cached=JSON.parse(localStorage.getItem(SLA_WORKSPACE_CACHE_KEY)||'null');if(cached){cached.meta.metricSnapshotContext={...context,fingerprint:window.SLAMetricSnapshotSync?.fingerprint()};localStorage.setItem(SLA_WORKSPACE_CACHE_KEY,JSON.stringify(cached));}}catch(_){}
+    }
+    return snapshot;
 }
 
 async function handleSpecificUpload(e, mode) { return window.SLASourceArchive.withLock(() => handleSpecificUploadInternal(e, mode)); }
@@ -1039,9 +1055,12 @@ async function loadArchivedSnapshot(snapshot, options = {}) {
         if (archiveStatus) archiveStatus.textContent = SLAT('sla.history.originalsLoaded');
         activateInitialSection(sections);
         setGlobalRuleBoxCollapsed(true);
+        reviewMeta.metricSnapshotContext={files:files.map(file=>file.name),source:'archive-review',sourceBatchId:snapshot.sourceBatchId,month:snapshot.selectedTargetMonth};
+        window.SLAMetricSnapshotSync?.bind(reviewMeta.metricSnapshotContext);
+        reviewMeta.metricSnapshotContext.fingerprint=window.SLAMetricSnapshotSync?.fingerprint();
         persistWorkspaceCache(sections, reviewMeta);
         return { files:files.length, sheets:worksheetCount };
     });
 }
 
-window.SLAUpload = { handleBatchUpload, handleSpecificUpload, processBatchFiles, loadArchivedSnapshot, importUivAutoSession, readFiles, generateSchemaHash, restoreCachedWorkspace, clearWorkspaceCache, dismissWorkspaceCacheNotice, activateSectionTab, isRuntimeField, sanitizeWorkspaceRow, sanitizeWorkspaceRows, RECT_PRIORITY_COLS, RISK_PRIORITY_COLS, SPECIAL_PRIORITY_COLS, SR_PRIORITY_COLS, VULN_PRIORITY_COLS };
+window.SLAUpload = { captureAndUploadSnapshot, handleBatchUpload, handleSpecificUpload, processBatchFiles, loadArchivedSnapshot, importUivAutoSession, readFiles, generateSchemaHash, restoreCachedWorkspace, clearWorkspaceCache, dismissWorkspaceCacheNotice, activateSectionTab, isRuntimeField, sanitizeWorkspaceRow, sanitizeWorkspaceRows, RECT_PRIORITY_COLS, RISK_PRIORITY_COLS, SPECIAL_PRIORITY_COLS, SR_PRIORITY_COLS, VULN_PRIORITY_COLS };

@@ -55,14 +55,7 @@
     }
 
     function fileDisplayMetrics(file,allBatchFiles=[]){
-        if(!file||!Array.isArray(file.metricLabels)||!file.metricLabels.length)return [];
-        if(!Array.isArray(allBatchFiles)||allBatchFiles.length<=2)return file.metricLabels;
-        const threshold=Math.max(3,Math.floor(allBatchFiles.length*0.5));
-        const specific=file.metricLabels.filter(label=>{
-            const matches=allBatchFiles.filter(f=>Array.isArray(f.metricLabels)&&f.metricLabels.includes(label));
-            return matches.length<=threshold;
-        });
-        return specific;
+        return Array.isArray(file?.metricLabels)?file.metricLabels:[];
     }
 
     function hasExtractedMetrics(file,allBatchFiles=[]){

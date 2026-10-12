@@ -3,6 +3,7 @@ const path = require('node:path');
 const { run, get, all } = require('./app-db');
 const { getDataDir } = require('./tenant-context');
 const { getConnection } = require('./tenant-sqlite-pool');
+const {linkMetric,resolveMetricSource}=require('./import-metric-lineage');
 const ready = new Map();
 const id = () => crypto.randomUUID();
 const json = value => JSON.stringify(value);
@@ -100,11 +101,7 @@ async function registerSnapshot(snapshot, { allowMissingBatch = false } = {}) {
     }
     const files = batchId ? (await all('SELECT id,name FROM import_source_files WHERE batch_id=?',[batchId])).map(file=>({...file,name:normalizeFileName(file.name)})) : [];
     const sourceSections = (Array.isArray(snapshot.sourceSections) ? snapshot.sourceSections : []).map(section => ({ ...section, fileIds:files.filter(file => (section.sourceFiles || []).includes(file.name)).map(file => file.id) }));
-    const metrics = (Array.isArray(snapshot.topMetrics)?snapshot.topMetrics:[]).map((metric,index) => {
-        const section = sourceSections.find(section => section.key === metric.sourceSection);
-        const names = metric.sourceFiles || section?.sourceFiles || snapshot.files || [];
-        return { ...metric, key:metric.key || `legacy:${metric.label || index}`, fileIds:files.filter(file => names.includes(file.name)).map(file => file.id) };
-    });
+    const metrics = (Array.isArray(snapshot.topMetrics)?snapshot.topMetrics:[]).map((metric,index) => linkMetric({...metric,key:metric.key || `legacy:${metric.label || index}`},sourceSections,files,snapshot.files||[],normalizeFileName));
     const payload = { id:snapshot.id, timestamp:snapshot.timestamp, sourceBatchId:batchId, files:snapshot.files || [], topMetrics:metrics, sourceSections, expiringTickets:snapshot.expiringTickets || [] };
     await run(`INSERT INTO import_source_snapshots (id,batch_id,captured_at,target_month,payload_json) VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET batch_id=excluded.batch_id,captured_at=excluded.captured_at,target_month=excluded.target_month,payload_json=excluded.payload_json`,[snapshot.id,batchId,snapshot.timestamp || new Date().toISOString(),snapshot.selectedTargetMonth || null,json(payload)]);
     return payload;
@@ -123,19 +120,26 @@ async function catalog(options = {}) {
     const sheets = await all(`SELECT id,file_id,name,headers_json,row_count FROM import_source_sheets${since?' WHERE file_id IN (SELECT id FROM import_source_files'+where('created_at')+')':''} ORDER BY rowid`,params);mark('originals',files.length);
     const snapshots = await all(`SELECT id,batch_id,captured_at,target_month,payload_json FROM import_source_snapshots${where('captured_at')} ORDER BY captured_at DESC,rowid DESC`,params);
     if(since){const linkedIds=[...new Set([...files,...snapshots].map(item=>item.batch_id).filter(id=>id&&!batches.some(batch=>batch.id===id)))];for(const id of linkedIds){const batch=await get('SELECT id,created_at,source,target_month FROM import_source_batches WHERE id=?',[id]);if(batch)batches.push(batch);}}
+    // Load lightweight identities for complete referenced batches even when the visible directory is date-limited.
+    const lineageFiles=since?(await all('SELECT id,batch_id,name FROM import_source_files WHERE batch_id IN (SELECT batch_id FROM import_source_snapshots WHERE julianday(captured_at)>=julianday(?))',params)).map(file=>({...file,name:normalizeFileName(file.name)})):files;
     const archived = snapshots.map(row => {try{
         const payload=JSON.parse(row.payload_json);if(!Array.isArray(payload.sourceSections)||!Array.isArray(payload.topMetrics))throw new Error('Invalid snapshot');
-        const linked=(names,ids=[])=>[...new Set([...ids,...files.filter(file=>file.batch_id===row.batch_id&&(names||[]).map(normalizeFileName).includes(file.name)).map(file=>file.id)])];
-        const sections=payload.sourceSections.map(section=>({...section,fileIds:linked(section.sourceFiles,section.fileIds)}));
-        return {...row,kind:'extraction',payload_json:undefined,metrics:payload.topMetrics.map(metric=>({...metric,fileIds:linked(metric.sourceFiles || sections.find(section=>section.key===metric.sourceSection)?.sourceFiles || payload.files,metric.fileIds),sourceSelections:undefined})),sections:sections.map(section=>({key:section.key,title:section.title,fileIds:section.fileIds,headers:section.headers,rowCount:section.rows?.length || 0}))};
+        const batchFiles=lineageFiles.filter(file=>file.batch_id===row.batch_id);
+        const linked=names=>batchFiles.filter(file=>(names||[]).map(normalizeFileName).includes(file.name)).map(file=>file.id);
+        const sections=payload.sourceSections.map(section=>({...section,fileIds:linked(section.sourceFiles)}));
+        return {...row,kind:'extraction',payload_json:undefined,metrics:payload.topMetrics.map(metric=>({...linkMetric(metric,sections,batchFiles,payload.files||[],normalizeFileName),sourceSelections:undefined})),sections:sections.map(section=>({key:section.key,title:section.title,fileIds:section.fileIds,headers:section.headers,rowCount:section.rows?.length || 0}))};
         }catch(_){errors.push({stage:'extraction',id:row.id,code:'INVALID_SNAPSHOT'});return null;}
     }).filter(Boolean);
     mark('extraction',archived.length);const savedReports = await reportMetrics(files, archived,options);mark('assessment',savedReports.length);
     const virtual=async stage=>{if(options.stage==='core')return {files:[],batches:[]};try{const result=await require('./'+stage+'-source-tables').catalog(options);errors.push(...(result.errors||[]));mark(stage,result.files.length);return result;}catch(_){errors.push({stage,code:'SOURCE_DIRECTORY_FAILED'});return {files:[],batches:[]};}};
     const [topicSources,meetingSources]=await Promise.all([virtual('topic'),virtual('meeting')]);
+    const latest=new Map();for(const snapshot of archived){const key=JSON.stringify([snapshot.batch_id,snapshot.target_month]);if(!latest.has(key)||snapshotTime(snapshot.captured_at)>snapshotTime(latest.get(key).captured_at))latest.set(key,snapshot);}
+    const fileMetrics=[...latest.values()].flatMap(snapshot=>snapshot.metrics.flatMap(metric=>[metric,...(metric.subMetrics||[]).map(child=>({...child,label:`${metric.label} / ${child.category}`}))].map(item=>({...item,sourceBatchId:snapshot.batch_id}))));
     return { diagnostics:{stages,errors,elapsedMs:Date.now()-started,since},batches:[...batches,...topicSources.batches,...meetingSources.batches], files:[...files.map(file => {
         const dutyLabels = (file.kind === 'duty_roster' || file.source_key === '夜间运维值班表') ? ['夜间运维值班表', '值班人次'] : [];
-        return {...file,metricLabels:[...new Set([...dutyLabels,...archived.flatMap(snapshot=>snapshot.metrics.filter(metric=>metric.fileIds.includes(file.id)).map(metric=>metric.label)).filter(Boolean)])],sheets:sheets.filter(sheet=>sheet.file_id===file.id).flatMap(sheet=>{try{const headers=JSON.parse(sheet.headers_json);if(!Array.isArray(headers))throw new Error();return [{id:sheet.id,name:sheet.name,headers,rowCount:sheet.row_count}];}catch(_){errors.push({stage:'originals',id:sheet.id,code:'INVALID_HEADERS'});return [];}})};
+        const related=fileMetrics.filter(metric=>metric.fileIds.includes(file.id)),unresolvedMetricCount=fileMetrics.filter(metric=>metric.sourceBatchId===file.batch_id&&metric.sourceLinkStatus==='unresolved').length;
+        const metricSourceState=related.some(metric=>metric.rule?.scope==='all'||metric.sourceSectionKeys?.length>1)?'cross':related.length?'single':unresolvedMetricCount?'unconfirmed':'original';
+        return {...file,metricSourceState,unresolvedMetricCount,metricLabels:[...new Set([...dutyLabels,...fileMetrics.filter(metric=>metric.fileIds.includes(file.id)).map(metric=>metric.label).filter(Boolean)])],sheets:sheets.filter(sheet=>sheet.file_id===file.id).flatMap(sheet=>{try{const headers=JSON.parse(sheet.headers_json);if(!Array.isArray(headers))throw new Error();return [{id:sheet.id,name:sheet.name,headers,rowCount:sheet.row_count}];}catch(_){errors.push({stage:'originals',id:sheet.id,code:'INVALID_HEADERS'});return [];}})};
     }),...topicSources.files,...meetingSources.files], snapshots:[...archived,...savedReports].sort((a,b)=>snapshotTime(b.captured_at)-snapshotTime(a.captured_at)) };
 }
 function snapshotTime(value) { const text=String(value||'');return Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)?text.replace(' ','T')+'Z':text)||0; }
@@ -156,7 +160,8 @@ async function reportMetrics(files, archived,options={}) {
         result.push({id:`assessment:${identity}`,kind:'assessment',batch_id:raw.sourceBatchId||source?.batch_id||null,sourceImportId:report.snapshot_id,sourceSnapshotId:source?.id||'',captured_at:report.created_at,target_month:report.month,sections:source?.sections||[],metrics:rows.map(row=>{
             const candidates=(raw.topMetrics||[]).filter(metric=>metric.label===row.metric_label);const original=candidates.length===1?candidates[0]:null;
             const linked=source?.metrics.filter(metric=>metric.label===row.metric_label)||[];const extracted=linked.length===1?linked[0]:null;
-            return {key:`assessment:${row.cat_name}:${row.metric_label}`,label:`${row.cat_name} / ${row.metric_label}`,value:row.raw_val,savedTarget:row.target_val,gap:row.gap,isWarn:row.is_failing===1,earnedScore:row.earned_score,sourceMetricKey:original?.key||extracted?.key||'',sourceSection:original?.sourceSection||extracted?.sourceSection||'',rule:original?.rule||extracted?.rule||null,fileIds:extracted?.fileIds|| (original?files.filter(file=>file.batch_id===(raw.sourceBatchId||source?.batch_id)&&(original.sourceFiles||raw.files||[]).map(normalizeFileName).includes(file.name)).map(file=>file.id):[])};
+            const lineage=extracted||(original?resolveMetricSource(original,raw.sourceSections||[],files.filter(file=>file.batch_id===(raw.sourceBatchId||source?.batch_id)),raw.files||[],normalizeFileName):{fileIds:[],sourceSectionKeys:[],sourceLinkStatus:'unresolved'});
+            return {key:`assessment:${row.cat_name}:${row.metric_label}`,label:`${row.cat_name} / ${row.metric_label}`,value:row.raw_val,savedTarget:row.target_val,gap:row.gap,isWarn:row.is_failing===1,earnedScore:row.earned_score,sourceMetricKey:original?.key||extracted?.key||'',sourceSection:original?.sourceSection||extracted?.sourceSection||'',rule:original?.rule||extracted?.rule||null,fileIds:lineage.fileIds,sourceSectionKeys:lineage.sourceSectionKeys,sourceLinkStatus:lineage.sourceLinkStatus};
         })});
     }return result;
 }

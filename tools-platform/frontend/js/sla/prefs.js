@@ -69,10 +69,13 @@ function buildPrefsPayload(secId) {
 
 async function savePrefs(secId) {
     const state = AppState[secId];
+    const metricSignature=window.SLAMetricSnapshotSync?.fingerprint();
     try {
         await API.put(`/api/sla/prefs/${encodeURIComponent(state.schemaHash)}`, buildPrefsPayload(secId));
+        if(metricSignature===window.SLAMetricSnapshotSync?.fingerprint())window.SLAMetricSnapshotSync?.schedule();
     } catch (e) {
-        // 保存失败静默处理（不影响主流程）
+        window.SLAMetricSnapshotSync?.rulesFailed();
+        // Display-only preference failures do not interrupt the main workflow.
     }
 }
 
