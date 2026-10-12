@@ -493,3 +493,5 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 @media(prefers-reduced-motion:reduce){#sourceLibrary .library-deep-trigger:after{animation:none!important}}
 
 #sourceLibrary .library-deep-more{width:100%;margin-top:8px;color:var(--source-accent);background:var(--source-surface)}
+
+#sourceLibrary .source-secondary summary .source-history-count{display:inline-block;flex:none;margin:0 24px 0 auto;padding:1px 6px;border-radius:9px;background:var(--source-surface);color:var(--source-muted);font-size:10px;font-weight:500;line-height:1.6;white-space:nowrap}
