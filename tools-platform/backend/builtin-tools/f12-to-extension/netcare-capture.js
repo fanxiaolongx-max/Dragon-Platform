@@ -32,16 +32,46 @@
   function navigate(doc,topic){
     const node=directoryTarget(directoryNodes(doc),topic);if(!node)return false;node.click();return true;
   }
+  const compareSection=(a,b)=>{const pa=String(a||'').split('.').map(Number),pb=String(b||'').split('.').map(Number),len=Math.max(pa.length,pb.length);for(let i=0;i<len;i++){const va=Number.isFinite(pa[i])?pa[i]:0,vb=Number.isFinite(pb[i])?pb[i]:0;if(va!==vb)return va-vb;}return 0;};
+  function scrollTarget(doc){
+    try{
+      const pipScroller=globalThis.createNetcarePip?.()?.scrollTarget?.(doc);
+      if(pipScroller&&pipScroller.scrollHeight>pipScroller.clientHeight+10)return pipScroller;
+      const candidates=[doc.scrollingElement,doc.documentElement,doc.body,...(doc.querySelectorAll?.('div,main,section')||[])].filter(el=>el&&el.clientHeight>80&&el.scrollHeight>el.clientHeight+10);
+      candidates.sort((a,b)=>(b.scrollHeight-b.clientHeight)-(a.scrollHeight-a.clientHeight));
+      return candidates[0]||null;
+    }catch{return null;}
+  }
+  function stepScrollToward(doc,topic){
+    try{
+      const scroller=scrollTarget(doc);if(!scroller)return false;
+      const nums=[...doc.querySelectorAll('article')].map(el=>el.querySelector('h1,h2,h3,h4,h5,h6')?.textContent?.trim()?.match(/^\s*(\d+(?:\.\d+)*)(?=\s|[.、):]|[A-Za-z\u3400-\u9fff])/i)?.[1]).filter(Boolean);
+      const maxScroll=Math.max(0,scroller.scrollHeight-scroller.clientHeight);if(maxScroll<=10)return false;
+      const step=Math.max(240,Math.round((scroller.clientHeight||600)*0.7));
+      let dir=1;
+      if(nums.length&&topic?.number){
+        const cmpFirst=compareSection(topic.number,nums[0]),cmpLast=compareSection(topic.number,nums[nums.length-1]);
+        if(cmpFirst<0)dir=-1;else if(cmpLast>0)dir=1;
+      }
+      const nextTop=dir>0?(scroller.scrollTop>=maxScroll-10?0:Math.min(maxScroll,scroller.scrollTop+step)):(scroller.scrollTop<=10?maxScroll:Math.max(0,scroller.scrollTop-step));
+      if(typeof scroller.scrollTo==='function')scroller.scrollTo({top:nextTop,behavior:'instant'});
+      else scroller.scrollTop=nextTop;
+      scroller.dispatchEvent?.(new Event('scroll',{bubbles:true}));
+      doc.defaultView?.dispatchEvent?.(new Event('scroll'));
+      return true;
+    }catch{return false;}
+  }
   async function reveal(doc,topic,signal,sleep,notify){
     const expanded=new Set();let clicked=false;
     for(let poll=0;poll<40;poll++){
       if(signal.aborted)throw fail('STOPPED','已停止 / Stopped');
       const nodes=directoryNodes(doc),target=directoryTarget(nodes,topic);
-      if(target){target.click();notify?.({action:'target.click',number:topic.number,title:topic.title,clicked:true,message:'已点击目标章节目录 / Clicked target directory entry'});return true;}
+      if(target){try{target.scrollIntoView?.({block:'nearest',behavior:'instant'});}catch{}target.click();notify?.({action:'target.click',number:topic.number,title:topic.title,clicked:true,message:'已点击目标章节目录 / Clicked target directory entry'});return true;}
       const parents=nodes.filter(el=>{const n=numberOf(el);return n&&topic.number.startsWith(n+'.')&&!expanded.has(n);});
       parents.sort((a,b)=>numberOf(b).split('.').length-numberOf(a).split('.').length);
       const parent=parents[0],number=parent&&numberOf(parent);
       if(parent&&parents.filter(el=>numberOf(el)===number).length===1){
+        try{parent.scrollIntoView?.({block:'nearest',behavior:'instant'});}catch{}
         parent.click();expanded.add(number);clicked=true;notify?.({action:'ancestor.click',number,title:String(parent.textContent).trim(),clicked:true,message:'已点击父章节，展开并加载子目录 / Clicked parent to reveal child directory'});
       }else if(!clicked){notify?.({action:'target.missing',number:topic.number,title:topic.title,clicked:false,entries:nodes.length,message:'未找到唯一目标章节或父章节目录 / Unique target or parent directory not found'});return false;}
       await sleep(120,signal);
@@ -59,7 +89,7 @@
         const next=[element.innerHTML||element.textContent||'',Math.round(bounds.width),Math.round(bounds.height)].join('|');
         stable=element===previous&&next===signature?stable+1:0;previous=element;signature=next;
         if(stable>=2)return element;
-      }else{previous=null;stable=0;}
+      }else{if(!element)stepScrollToward(doc,shot.topic);previous=null;stable=0;}
       await sleep(120,signal);
     }
     throw fail('REGION_NOT_STABLE','章节未在等待时间内完成挂载或稳定布局 / Section did not mount or settle within the wait period');
@@ -78,7 +108,7 @@
     }
     clone.querySelectorAll('script,style,iframe,object,embed,link,meta,base,form,input,button,textarea,select').forEach(el=>el.remove());
     for(const el of [clone,...clone.querySelectorAll('*')]){for(const a of [...el.attributes])if(/^on/i.test(a.name)||['id','srcdoc','srcset','poster','ping','xlink:href','autofocus','contenteditable','action','formaction','href','data-hd-href'].includes(a.name)||a.name==='style'&&/url\s*\(|expression|@import/i.test(a.value))el.removeAttribute(a.name);
-      if(el.hasAttribute('src')){try{const u=new URL(el.getAttribute('src'),doc.location.href);if(u.origin!==doc.location.origin||u.username||u.password)el.removeAttribute('src');}catch{el.removeAttribute('src');}}
+      if(el.hasAttribute('src')){try{const u=new URL(el.getAttribute('src'),doc.location.href);if(u.origin!==doc.location.origin||u.username||u.password)el.removeAttribute(a.name);}catch{el.removeAttribute('src');}}
     }
     if(!clone.contains(region))throw fail('UNSAFE_ATTACHMENT_REGION','附件区域不可安全重建 / Attachment region cannot be safely reconstructed');
     const box=doc.createElement('div');box.setAttribute('data-netcare-reconstructed','true');box.style.cssText='position:fixed;left:-20000px;top:0;width:'+Math.max(320,Math.min(1400,doc.defaultView.innerWidth||1000))+'px;background:#fff;color:#243149;padding:20px;font:12px/1.6 Arial;pointer-events:none;z-index:-1;';
@@ -94,9 +124,10 @@
       if(n>1)await sleep(n===2?400:1000,signal);
       let element;
       try{
-        const clicked=await reveal(doc,shot.topic,signal,sleep,event=>options.navigation?.({attempt:n,...event}));
+        let ancestorClicked=false;
+        const clicked=await reveal(doc,shot.topic,signal,sleep,event=>{if(event.clicked)ancestorClicked=true;options.navigation?.({attempt:n,...event});});
         element=locate(doc,shot);
-        if(!element&&!clicked)throw fail('REGION_NOT_RENDERED','未定位到章节目录入口或原始区域 / Native directory and live region not found');
+        if(!element&&!clicked&&!ancestorClicked&&!scrollTarget(doc))throw fail('REGION_NOT_RENDERED','未定位到章节目录入口或原始区域 / Native directory and live region not found');
         // Never retain a node across scroll-driven virtual DOM replacement.
         element=await ready(doc,shot,signal,sleep);
         try{

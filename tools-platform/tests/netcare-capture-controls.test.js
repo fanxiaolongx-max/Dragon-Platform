@@ -109,3 +109,12 @@ test('a numbered directory entry with the wrong number is not clicked by title f
  let clicks=0;const wrong={textContent:'3.3 Test and Verification',closest:()=>null,getBoundingClientRect:()=>({width:30}),click:()=>clicks++};
  assert.equal(capture.navigate({querySelectorAll:()=>[wrong]},topic),false);assert.equal(clicks,0);
 });
+test('progressive virtual scroll mounts target chapter when directory only clicked parent or tree entry is absent',async()=>{
+ const early=region('3.1 Preparation'),targetRegion=region('3.4 Test and Verification');
+ let scrollTop=0,scrollEvents=0;
+ const scroller={clientHeight:600,scrollHeight:4000,get scrollTop(){return scrollTop;},set scrollTop(v){scrollTop=v;},scrollTo({top}){scrollTop=top;},dispatchEvent(){scrollEvents++;}};
+ const d={scrollingElement:scroller,querySelectorAll:selector=>selector==='article'?(scrollTop>=800?[early,targetRegion]:[early]):[]};
+ const result=await capture.capture(d,shot,{signal:new AbortController().signal,sleep:async()=>{},render:async el=>{assert.equal(el,targetRegion);return ['png'];}});
+ assert.equal(result.method,'live');assert.ok(scrollTop>=800);assert.ok(scrollEvents>=2);
+});
+

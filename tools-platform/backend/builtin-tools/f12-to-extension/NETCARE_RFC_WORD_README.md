@@ -56,7 +56,7 @@ cd backend && npm run doctor
 
 ## 域名与启动方式
 
-三个入口域名均在匹配网址和网站权限中。当前实际观察到三个入口均使用 `de.kdp.gts.huawei.com` 导出服务；匹配 `https://*.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*` 同时覆盖该主机及同一 KDP 域下其他区域主机，连接仍使用每单原生授权入口返回的实际地址。
+三个入口域名均在匹配网址和网站权限中。海外及德国入口使用 `de.kdp.gts.huawei.com` 等 `*.kdp.gts.huawei.com` 服务，中国区入口（`netcare.huawei.com`）使用 `kdp.idp.huawei.com` 服务；匹配 `https://*.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*` 与 `https://*.kdp.idp.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*`（及对应 `OwsPage.html*`）同时覆盖两套 KDP 域名，连接仍使用每单原生授权入口返回的实际地址。
 
 点击启动模式只对 KDP 导出页声明自动 content script，主站浮窗由 Popup 的“启动脚本”注入。这让之后新建的跨域导出 iframe 自动初始化，用户无需再次粘贴。不要将 Chrome 的“网站访问权限”设为仅点击时：导出 iframe 需要扩展已有的 KDP 网站权限。可以使用“在特定网站上”，确认主站和 KDP 域名都获准访问。
 

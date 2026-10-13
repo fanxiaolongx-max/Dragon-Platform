@@ -20,8 +20,18 @@ test('RFC package restricts page injection and permits configured AI API origins
     assert.equal(content.world, 'MAIN');
     assert.equal(content.all_frames, true);
     assert.equal(content.run_at, 'document_idle');
-    assert.deepEqual(content.matches, options.matches.split('\n'));
-    assert.deepEqual(result.manifest.host_permissions, [...content.matches, 'https://*.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html*', 'https://*/*', 'http://*/*']);
+    assert.deepEqual(content.matches, [
+        ...options.matches.split('\n'),
+        'https://*.kdp.idp.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*'
+    ]);
+    assert.deepEqual(result.manifest.host_permissions, [
+        ...options.matches.split('\n'),
+        'https://*.kdp.idp.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*',
+        'https://*.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html*',
+        'https://*.kdp.idp.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html*',
+        'https://*/*',
+        'http://*/*'
+    ]);
     assert.ok(!result.manifest.permissions.includes('cookies'));
     assert.equal(result.files['content.js'], code);
     for (const change of [{ world: 'ISOLATED' }, { allFrames: false },
@@ -34,7 +44,7 @@ test('RFC package restricts page injection and permits configured AI API origins
     assert.match(require(path.join(dir, 'builtin-catalog.js'))['netcare-rfc-word'].file, /netcare-rfc-word\.js\?v=/);
 });
 
-function workerHarness(fileBytes = [0x50, 0x4b, 0x03, 0x04, 0x00], parentOrigin = 'https://netcare-ae.gts.huawei.com') {
+function workerHarness(fileBytes = [0x50, 0x4b, 0x03, 0x04, 0x00], parentOrigin = 'https://netcare-ae.gts.huawei.com', workerHost = 'https://de.kdp.gts.huawei.com') {
     const messages = [], requests = [], saved = [], listeners = new Map();
     const parent = { postMessage: (message, target) => messages.push({ message, target }) };
     const window = {
@@ -69,7 +79,7 @@ function workerHarness(fileBytes = [0x50, 0x4b, 0x03, 0x04, 0x00], parentOrigin 
         send() { this.status = 200; this.response = new Blob([new Uint8Array(fileBytes)]); queueMicrotask(() => this.onload()); }
         abort() { this.onabort(); }
     }
-    const location = new URL('https://de.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html?id=NC20261001000381');
+    const location = new URL(`${workerHost}/ows1/static/editor/IdpLiteView/PublishLiteView.html?id=NC20261001000381`);
     location.ancestorOrigins = [parentOrigin];
     const context = { window, parent, location,
         URL: class extends URL { static createObjectURL() { return 'blob:test'; } static revokeObjectURL() {} },
@@ -216,10 +226,20 @@ test('manual RFC package uses the standard start/stop popup while future KDP wor
     assert.equal(result.manifest.content_scripts.length, 5);
     assert.equal(result.manifest.content_scripts[1].world, "ISOLATED");
     assert.deepEqual(result.manifest.content_scripts[1].js, ["netcare-online-relay.js"]);
-    assert.deepEqual(result.manifest.content_scripts[0].matches, [options.matches.split('\n')[3]]);
+    assert.deepEqual(result.manifest.content_scripts[0].matches, [
+        options.matches.split('\n')[3],
+        'https://*.kdp.idp.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*'
+    ]);
     assert.equal(result.manifest.content_scripts[0].all_frames, true);
     assert.equal(result.manifest.content_scripts[0].world, 'MAIN');
-    assert.deepEqual(result.manifest.host_permissions, [...options.matches.split('\n'), 'https://*.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html*', 'https://*/*', 'http://*/*']);
+    assert.deepEqual(result.manifest.host_permissions, [
+        ...options.matches.split('\n'),
+        'https://*.kdp.idp.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*',
+        'https://*.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html*',
+        'https://*.kdp.idp.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html*',
+        'https://*/*',
+        'http://*/*'
+    ]);
     assert.match(result.files['popup.html'], /id="startButton"/);
     assert.match(result.files['popup.html'], /id="stopButton"/);
     assert.doesNotMatch(result.files['popup.html'], /id="licensePanel"/);
@@ -271,7 +291,10 @@ test('local packaging preserves the RFC worker registration marker after obfusca
     const obfuscated = context.obfuscateCode(code);
     assert.match(obfuscated, /TP_NETCARE_RFC_WORD_V1/);
     const result = packer.buildPackage({ ...options, code: obfuscated, manualLaunch: true });
-    assert.deepEqual(result.manifest.content_scripts[0].matches, [options.matches.split('\n')[3]]);
+    assert.deepEqual(result.manifest.content_scripts[0].matches, [
+        options.matches.split('\n')[3],
+        'https://*.kdp.idp.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*'
+    ]);
 });
 
 
@@ -635,6 +658,106 @@ test('saved audit and draft test use identical authentication; audit 401 details
     const page={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,page);
     const reports=await page.netcareRunAudits([{section:'3.4',kind:'text',filename:'3.4.txt',text:'KPI service test'}],settings,async()=>failed,new AbortController().signal,()=>{});
     assert.equal(reports[0].status,'needs_review');assert.equal(reports[0].diagnostics.httpStatus,401);assert.match(reports[0].diagnostics.response,/invalid_api_key/);
+});
+
+test('RFC AI background retries HTTP 429 gateway rate-limits with backoff and succeeds on subsequent attempt', async () => {
+    const pkg = packer.buildPackage({ ...options, manualLaunch: true });
+    const callbacks = [], requests = [], logs = [];
+    const model = { id: 'saved', name: 'Gateway', protocol: 'openai', url: 'https://aigateway.huawei.com/v1/chat/completions', model: 'dfa_glm-52', key: 'test-gw-key' };
+    const settings = { aiAuditEnabled: true, sections: [{ number: '3.4', textPrompt: 'Check KPIs' }] };
+    const stored = { netcareAiModels: [model], netcareAiSelectedModel: 'saved', netcareExtractionSettings: settings };
+    let attemptCount = 0;
+    const ctx = {
+      URL, AbortController, TextDecoder, setTimeout, clearTimeout, __tpFastRetry: true,
+      chrome: {
+        runtime: { id: 'test', getURL: p => 'chrome-extension://test/' + p, onInstalled: { addListener() {} }, onMessage: { addListener: fn => callbacks.push(fn) } },
+        storage: { local: { get: async () => stored } }
+      },
+      tpNetcareArtifactCache: { log: async event => logs.push(event) },
+      fetch: async (url, request) => {
+        attemptCount++;
+        requests.push({ url, request, attempt: attemptCount });
+        if (attemptCount === 1) {
+          return new Response(JSON.stringify({ time: '2026-10-13 15:14:01', message: 'Maximum limit connection for user group [122] is [30]', status: 429, source: 'AI-Gateway' }), { status: 429 });
+        }
+        const text = JSON.stringify({ status: 'pass', summary: { zh: '通过', en: 'Pass' }, findings: [] });
+        return new Response(JSON.stringify({ choices: [{ message: { content: text } }] }), { status: 200 });
+      }
+    };
+    vm.runInNewContext(pkg.files['background.js'], ctx);
+    ctx.tpNetcareArtifactCache.log = async event => { logs.push(event); };
+    const audit = callbacks[1];
+    const sender = { id: 'test', tab: { id: 1 }, frameId: 0, url: onlineUrl };
+    const res = await new Promise(reply => audit({ type: 'TP_RFC_AI_AUDIT', id: crypto.randomUUID(), order: onlineOrder, section: '3.4', kind: 'text', filename: 'kpi.txt', text: 'KPI Evidence' }, sender, reply));
+    assert.equal(res.ok, true);
+    assert.equal(res.report.status, 'pass');
+    assert.equal(attemptCount, 2);
+    assert.ok(logs.some(l => l.action === 'model.request.retrying' && l.data?.status === 429));
+});
+
+test('RFC AI background throttles concurrent audits to maximum 3 and processes queue', async () => {
+    const pkg = packer.buildPackage({ ...options, manualLaunch: true });
+    const callbacks = [], stored = {};
+    const model = { id: 'saved', name: 'Gateway', protocol: 'openai', url: 'https://aigateway.huawei.com/v1', model: 'm1', key: 'k1' };
+    stored.netcareAiModels = [model];
+    stored.netcareAiSelectedModel = 'saved';
+    stored.netcareExtractionSettings = { aiAuditEnabled: true, sections: [{ number: '1.1', textPrompt: 'Rule' }] };
+    let activeFetches = 0, peakActive = 0;
+    const ctx = {
+      URL, AbortController, TextDecoder, setTimeout, clearTimeout, __tpFastRetry: true,
+      chrome: {
+        runtime: { id: 'test', getURL: p => 'chrome-extension://test/' + p, onInstalled: { addListener() {} }, onMessage: { addListener: fn => callbacks.push(fn) } },
+        storage: { local: { get: async () => stored } }
+      },
+      fetch: async () => {
+        activeFetches++;
+        if (activeFetches > peakActive) peakActive = activeFetches;
+        await new Promise(r => setTimeout(r, 20));
+        activeFetches--;
+        const text = JSON.stringify({ status: 'pass', summary: { zh: '通过', en: 'Pass' }, findings: [] });
+        return new Response(JSON.stringify({ choices: [{ message: { content: text } }] }), { status: 200 });
+      }
+    };
+    vm.runInNewContext(pkg.files['background.js'], ctx);
+    const audit = callbacks[1];
+    const sender = { id: 'test', tab: { id: 1 }, frameId: 0, url: onlineUrl };
+    const promises = Array.from({ length: 6 }, () => new Promise(reply => audit({ type: 'TP_RFC_AI_AUDIT', id: crypto.randomUUID(), order: onlineOrder, section: '1.1', kind: 'text', filename: 't.txt', text: 'test' }, sender, reply)));
+    const results = await Promise.all(promises);
+    assert.ok(results.every(r => r.ok === true));
+    assert.equal(peakActive, 3);
+});
+
+test('RFC AI cancellation removes queued jobs and aborts in-flight audits', async () => {
+    const pkg = packer.buildPackage({ ...options, manualLaunch: true });
+    const callbacks = [], stored = {};
+    const model = { id: 'saved', name: 'Gateway', protocol: 'openai', url: 'https://aigateway.huawei.com/v1', model: 'm1', key: 'k1' };
+    stored.netcareAiModels = [model];
+    stored.netcareAiSelectedModel = 'saved';
+    stored.netcareExtractionSettings = { aiAuditEnabled: true, sections: [{ number: '1.1', textPrompt: 'Rule' }] };
+    let fetchAborted = false;
+    const ctx = {
+      URL, AbortController, TextDecoder, setTimeout, clearTimeout, __tpFastRetry: true,
+      chrome: {
+        runtime: { id: 'test', getURL: p => 'chrome-extension://test/' + p, onInstalled: { addListener() {} }, onMessage: { addListener: fn => callbacks.push(fn) } },
+        storage: { local: { get: async () => stored } }
+      },
+      fetch: async (url, { signal }) => {
+        return new Promise((resolve, reject) => {
+          signal.addEventListener('abort', () => { fetchAborted = true; reject(new Error('Aborted')); });
+        });
+      }
+    };
+    vm.runInNewContext(pkg.files['background.js'], ctx);
+    const audit = callbacks[1];
+    const sender = { id: 'test', tab: { id: 1 }, frameId: 0, url: onlineUrl };
+    const id1 = crypto.randomUUID();
+    const p1 = new Promise(reply => audit({ type: 'TP_RFC_AI_AUDIT', id: id1, order: onlineOrder, section: '1.1', kind: 'text', filename: 't.txt', text: 'test' }, sender, reply));
+    await new Promise(r => setTimeout(r, 5));
+    const cancelRes = await new Promise(reply => audit({ type: 'TP_RFC_AI_CANCEL', id: id1, order: onlineOrder }, sender, reply));
+    assert.equal(cancelRes.ok, true);
+    const r1 = await p1;
+    assert.equal(r1.ok, false);
+    assert.ok(fetchAborted);
 });
 
 test('configuration backup roundtrips models and rules, excludes evidence, and rejects wrong passwords or tampering', async()=>{
@@ -1237,3 +1360,69 @@ test('legacy generic missing-evidence placeholders are hidden but attachment dow
     assert.equal(ctx.netcareAuditRows([make('未提取到该章节内容或附件，需人工检查 / Missing evidence')]).length,0);
     for(const error of ['附件下载失败 / Download failed','未定位到章节 / Section not located'])assert.equal(ctx.netcareAuditRows([make(error)]).length,1);
 });
+
+test('collector bridge pushes storage changes immediately to background solution tabs without polling',async()=>{
+    const pack=packer.buildPackage({...options,manualLaunch:true}),messages=[],stored={};
+    let onStorageChanged;
+    const window={addEventListener(){},removeEventListener(){},postMessage:m=>messages.push(m)};window.top=window;
+    const context={window,location:new URL(onlineUrl),URL,chrome:{runtime:{sendMessage:async()=>({ok:true})},storage:{onChanged:{addListener:fn=>{onStorageChanged=fn;},removeListener(){}},local:{get:async keys=>Object.fromEntries(keys.map(k=>[k,stored[k]]))}}}};
+    vm.runInNewContext(pack.files['netcare-collector-bridge.js'],context);
+    assert.equal(typeof onStorageChanged,'function');
+    stored['netcareWordName:'+onlineOrder]=onlineOrder+'_LargePlan.docx';
+    onStorageChanged({['netcareWordName:'+onlineOrder]:{newValue:stored['netcareWordName:'+onlineOrder]}},'local');
+    await new Promise(r=>setImmediate(r));
+    assert.equal(messages.length,1);
+    assert.equal(messages[0].source,'TP_RFC_COLLECTOR_NAME');
+    assert.equal(messages[0].filename,onlineOrder+'_LargePlan.docx');
+});
+
+test('online background serializes tab activation leases across concurrent solution tabs and restores opener only when queue empties',async()=>{
+    const pack=packer.buildPackage({...options,manualLaunch:true});
+    const listeners=[],activated=[],stored={'netcareOwnedTab:11':{order:onlineOrder,openerTabId:1},'netcareOwnedTab:12':{order:'NC20261013001000',openerTabId:1}};
+    const send=(msg,sender)=>new Promise(reply=>listeners.forEach(fn=>fn(msg,sender,reply)));
+    vm.runInNewContext(pack.files['background.js'],{URL,Promise,setTimeout:()=>1,clearTimeout(){},chrome:{runtime:{id:'ext',onInstalled:{addListener(){}},onMessage:{addListener:fn=>listeners.push(fn)}},tabs:{onRemoved:{addListener(){}},update:async(tabId,props)=>{activated.push({tabId,active:props.active});return {id:tabId};}},storage:{local:{get:async k=>typeof k==='string'?{[k]:stored[k]}:stored,set:async()=>{},remove:async()=>{}}}}});
+    const sender1={id:'ext',tab:{id:11},frameId:0,url:onlineUrl};
+    const sender2={id:'ext',tab:{id:12},frameId:0,url:onlineUrl.replaceAll(onlineOrder,'NC20261013001000')};
+    const r1=await send({type:'TP_RFC_ACTIVATE_TAB',order:onlineOrder,mode:'acquire',durationMs:15000,restoreOpener:false},sender1);
+    assert.equal(r1.ok,true);
+    assert.deepEqual(activated.map(a=>a.tabId),[11]);
+    let tab2Resolved=false;
+    const p2=send({type:'TP_RFC_ACTIVATE_TAB',order:'NC20261013001000',mode:'acquire',durationMs:15000,restoreOpener:false},sender2).then(r=>{tab2Resolved=true;return r;});
+    await new Promise(r=>setImmediate(r));
+    assert.equal(tab2Resolved,false);
+    assert.deepEqual(activated.map(a=>a.tabId),[11]);
+    // Tab 1 releases its lease -> Tab 2 is immediately activated without jumping to openerTabId (1) in between
+    const rel1=await send({type:'TP_RFC_ACTIVATE_TAB',order:onlineOrder,mode:'release',restoreOpener:true},sender1);
+    assert.equal(rel1.ok,true);
+    const r2=await p2;
+    assert.equal(r2.ok,true);
+    assert.deepEqual(activated.map(a=>a.tabId),[11,12]);
+    // Tab 2 releases its lease -> queue is now empty, so openerTabId (1) is restored
+    const rel2=await send({type:'TP_RFC_ACTIVATE_TAB',order:'NC20261013001000',mode:'release',restoreOpener:true},sender2);
+    assert.equal(rel2.ok,true);
+    await new Promise(r=>setImmediate(r));
+    assert.deepEqual(activated.map(a=>a.tabId),[11,12,1]);
+});
+
+test('China station kdp.idp.huawei.com export worker, online background, and artifact storage work end-to-end', async () => {
+    const cnWorker = workerHarness(undefined, 'https://netcare.huawei.com', 'https://kdp.idp.huawei.com');
+    const order = 'NC20260624001106';
+    cnWorker.receive({ type: 'run', job: 'cn-test', order });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(cnWorker.saved.length, 1);
+    assert.ok(cnWorker.saved[0].startsWith(order + '_'));
+    cnWorker.window.__rfcWordWorkerCleanup();
+
+    const harness = onlineBackgroundHarness(), replies = [];
+    const cnOnlineUrl = `https://kdp.idp.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html?docId=${order}&order_id=${order}&type=NCReadOnly`;
+    const cnSender = { tab: { id: 88 }, frameId: 0, url: 'https://netcare.huawei.com/p/netcare/index.html#/rfc' };
+    assert.equal(harness.receive({ type: 'TP_RFC_OPEN_ONLINE', order, url: cnOnlineUrl }, cnSender, r => replies.push(r)), true);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(replies[0].ok, true);
+    assert.equal(harness.created[0].url, cnOnlineUrl);
+
+    const catalogEntry = require(path.join(dir, 'builtin-catalog.js'))['netcare-rfc-word'];
+    assert.match(catalogEntry.matches, /kdp\.idp\.huawei\.com\/ows1\/static\/editor\/IdpLiteView\/PublishLiteView\.html\*/);
+});
+
+
