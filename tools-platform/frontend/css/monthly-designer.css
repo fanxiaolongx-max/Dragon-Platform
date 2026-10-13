@@ -712,3 +712,5 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 .document-block>.size-guides .size-guide-width{top:4px;transform:translateX(-50%)}
 .document-block>.size-guides .size-guide-height{right:4px;transform:translateY(-50%)}
 .document-block>.size-guides span{max-width:calc(100% - 8px);white-space:normal;overflow-wrap:anywhere;text-align:center}
+/* Pivot counts have their own footer space, outside the scrollable data viewport. */
+.document-block>.document-source-note{flex:none;margin-top:6px;font-size:10px;line-height:1.5;padding-right:20px;min-width:0;white-space:normal;overflow-wrap:anywhere}
