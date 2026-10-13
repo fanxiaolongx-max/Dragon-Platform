@@ -1181,6 +1181,19 @@ privacy-policy/
 
 推荐运行环境为 **Node.js 20 LTS** 与 **npm 9+**。
 
+> [!IMPORTANT]
+> ### 华为内网源码安装特别强调 (Huawei Intranet Environment)
+> 如果在**华为内网环境**进行源码安装或拉取依赖，在执行任何 `npm install` 前**必须先设置华为内部 npm 镜像源**，否则由于网络隔离无法连接公共 npm 仓库，会导致依赖下载失败或连接超时：
+> ```powershell
+> # 1. 切换至华为内网镜像源
+> npm config set registry http://mirrors.tools.huawei.com/npm/
+> 
+> # 2. 检查验证当前生效镜像源
+> npm config get registry
+> # 正确输出应为: http://mirrors.tools.huawei.com/npm/
+> ```
+> 确认输出为 `http://mirrors.tools.huawei.com/npm/` 后，再执行后续各系统的依赖安装命令。
+
 全局设置 → **平台标识** 可修改平台显示名称（最多 80 字符，留空恢复 Tools Platform），同步应用到当前租户首页、顶部导航和页面标题。名称保存在现有 SQLite 配置中，旧客户端保存导航或恢复默认导航不会覆盖它。
 
 平台标识中的 Logo 使用纯 JavaScript 编解码与后台线程处理，不需要 Python 或系统图片处理环境。支持在设置页上传 PNG、JPG、JPEG、WEBP；WEBP 由浏览器无损转为 PNG 后处理。源码服务上传会更新打包源图标；也可在项目根目录执行 `npm run logo:generate -- <图片.png或.jpg路径>`，使用 `--root <临时目录>` 验证而不覆盖当前图标。EXE、DMG 客户端的新图标保存到用户数据目录的 `branding/`，页面、浏览器图标和运行中的托盘图标优先读取它，应用升级不覆盖该目录。EXE 文件、macOS 应用包及安装包的固定图标在重新打包后更新。
@@ -1191,14 +1204,17 @@ privacy-policy/
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs build-essential
 
-# 2. 拉取代码并安装后端依赖
+# 2. 华为内网先配置镜像源 (外网环境可跳过)
+npm config set registry http://mirrors.tools.huawei.com/npm/
+
+# 3. 拉取代码并安装后端依赖
 cd /opt/tools-platform/backend
 npm install --production
 
-# 3. 运行环境与启动自检
+# 4. 运行环境与启动自检
 npm run doctor
 
-# 4. 独立启动 (默认 3030 端口)
+# 5. 独立启动 (默认 3030 端口)
 PORT=3030 npm start
 ```
 
@@ -1210,7 +1226,10 @@ macOS Electron DMG 的本地构建、Developer ID 签名、公证与桌宠验收
 brew install node@20
 brew link node@20
 
-# 2. 安装依赖并启动
+# 2. 华为内网先配置镜像源 (外网环境可跳过)
+npm config set registry http://mirrors.tools.huawei.com/npm/
+
+# 3. 安装依赖并启动
 cd tools-platform/backend
 npm install
 npm run doctor
@@ -1220,7 +1239,11 @@ npm start
 #### 3. Windows (Node.js 原生运行)
 ```powershell
 # 1. 确保安装 Visual Studio Build Tools (勾选 Desktop development with C++)
-# 2. 在 PowerShell 中进入后端目录安装依赖并启动
+# 2. 华为内网先配置镜像源 (外网环境可跳过)
+npm config set registry http://mirrors.tools.huawei.com/npm/
+npm config get registry # 确认输出: http://mirrors.tools.huawei.com/npm/
+
+# 3. 在 PowerShell 中进入后端目录安装依赖并启动
 cd tools-platform\backend
 npm install
 npm run doctor

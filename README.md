@@ -49,6 +49,18 @@
 
 ## 快速启动
 
+> [!IMPORTANT]
+> **华为内网环境部署必读**：  
+> 如果在**华为内网环境**进行源码安装与拉取依赖，执行 `npm install` 前**必须先切换为华为内部 npm 镜像源**，否则公共 npm 源将无法访问或连接超时：
+> ```powershell
+> # 1. 切换至华为内网镜像源
+> npm config set registry http://mirrors.tools.huawei.com/npm/
+> 
+> # 2. 验证当前镜像源配置
+> npm config get registry
+> # 正确输出应为: http://mirrors.tools.huawei.com/npm/
+> ```
+
 在仓库根目录执行：
 
 ```bash
