@@ -203,6 +203,32 @@ test('upload route enforces admin rights and returns structured errors without o
     assert.ok(archive.file('README.txt'));
     const readmeContent = await archive.file('README.txt').async('string');
     assert.match(readmeContent, /Brand & Icon Assets Bundle/);
+    assert.ok(archive.file('store-assets/store-icon-128x128.png'));
+    const storeIcon = PNG.sync.read(await archive.file('store-assets/store-icon-128x128.png').async('nodebuffer'));
+    assert.equal(storeIcon.width, 128); assert.equal(storeIcon.height, 128); assert.equal(storeIcon.data[3], 0);
+    for (const [name, width, height] of [['small-promo-440x280.png', 440, 280], ['marquee-1400x560.png', 1400, 560]]) {
+        const bytes = await archive.file('store-assets/' + name).async('nodebuffer');
+        assert.equal(bytes[24], 8); assert.equal(bytes[25], 2, 'RGB PNG has no alpha channel');
+        const png = PNG.sync.read(bytes); assert.equal(png.width, width); assert.equal(png.height, height);
+    }
+    assert.equal((await request(app).post('/api/platform-logo/download-bundle').attach('screenshots', image.encodePng(fixture()), 'screen.png')).status, 403);
+    const submit = () => request(app).post('/api/platform-logo/download-bundle').set('x-test-admin', '1');
+    assert.equal((await submit()).status, 400);
+    assert.equal((await submit().attach('screenshots', Buffer.from('not an image'), 'fake.png')).status, 400);
+    let tooMany = submit();
+    for (let i = 0; i < 6; i++) tooMany = tooMany.attach('screenshots', image.encodePng(fixture()), 'screen.png');
+    assert.equal((await tooMany).status, 400);
+    const fullBundle = await submit().attach('screenshots', image.encodePng(fixture(100, 64)), 'screen.png')
+        .attach('screenshots', jpeg.encode(fixture(), 95).data, 'screen.jpg').buffer().parse(binaryParser);
+    assert.equal(fullBundle.status, 200);
+    const fullArchive = await JSZip.loadAsync(fullBundle.body);
+    for (let i = 1; i <= 2; i++) {
+        const bytes = await fullArchive.file(`store-assets/screenshot-0${i}-1280x800.png`).async('nodebuffer');
+        assert.equal(bytes[25], 2); const png = PNG.sync.read(bytes);
+        assert.equal(png.width, 1280); assert.equal(png.height, 800);
+        assert.ok(png.data.every((value, index) => index % 4 !== 3 || value === 255));
+    }
+    assert.equal(fullArchive.file('store-assets/screenshot-03-1280x800.png'), null);
 });
 
 test('concurrent logo uploads are rejected while the event loop remains responsive', async () => {

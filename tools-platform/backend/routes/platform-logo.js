@@ -3,10 +3,24 @@ const fs = require('node:fs');
 const path = require('node:path');
 const multer = require('multer');
 const JSZip = require('jszip');
+const { Worker } = require('node:worker_threads');
 const { requireAdmin } = require('../middleware/auth');
 const navSettingsRepo = require('../models/nav-settings-repository');
 const authSessionsRepo = require('../models/auth-sessions-repository');
 const { logoStorage, resolveLogoAsset, generateAndSaveLogo, ASSET_NAMES } = require('../models/platform-logo-runtime');
+
+function storeAssets(logo, screenshots) {
+    return new Promise((resolve, reject) => {
+        const worker = new Worker(path.join(__dirname, '../workers/platform-store-assets-worker.js'), {
+            workerData: { logo, screenshots }, resourceLimits: { maxOldGenerationSizeMb: 256 }
+        });
+        let received = false;
+        const timer = setTimeout(() => { worker.terminate(); reject(new Error('Store assets processing timed out')); }, 90000);
+        worker.once('message', result => { received = true; clearTimeout(timer); result.error ? reject(Object.assign(new Error(result.error), { code: 'STORE_ASSETS_INVALID' })) : resolve(result.assets); });
+        worker.once('error', error => { clearTimeout(timer); reject(error); });
+        worker.once('exit', code => { clearTimeout(timer); if (!received || code !== 0) reject(new Error(`Store assets worker exited: ${code}`)); });
+    });
+}
 
 function buildAssetsManifest(platformName, current, files) {
     const timestamp = new Date().toISOString().replace('T', ' ').substring(0, 19);
@@ -62,6 +76,16 @@ function buildAssetsManifest(platformName, current, files) {
         '    • 用途: 网页快捷方式、移动端书签图标',
         '',
         '【使用建议 / Instructions】',
+        'store-assets/store-icon-128x128.png: 128×128 PNG，96×96 主体与 16px 透明留白。',
+        'store-assets/small-promo-440x280.png: 440×280，24 位 RGB PNG，无 alpha。',
+        'store-assets/marquee-1400x560.png: 1400×560，24 位 RGB PNG，无 alpha。',
+        'store-assets/screenshot-*-1280x800.png: 1–5 张真实界面截图，24 位 RGB PNG，无 alpha。',
+        '截图按 16:10 居中裁切，不拉伸；请检查裁切内容及是否含需移除的个人/业务信息。',
+        'Screenshots are center-cropped to 16:10. Review content before publishing.',
+        '本包使用平台 Logo；若用于其他插件，请确认品牌图标和截图对应所提交的产品。',
+        'Use the correct product branding and screenshots for your store submission.',
+        '宣传视频需另行上传 YouTube，再填写实际视频 URL；图片包不会自动发布视频。',
+        'Upload promotional videos to YouTube separately; this bundle does not publish videos.',
         '------------------------------------------------------------------------',
         '• 若用于二次开发或修改源码，可将本压缩包内的图标文件直接解压覆盖到源码工程的',
         '  frontend/assets/ 目录下，然后执行 git commit 并推送到 main 分支，',
@@ -75,8 +99,9 @@ function createLogoRouter(options = {}) {
     const router = express.Router();
     const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, files: 1 } });
     const storage = () => logoStorage(options);
+    const screenshotUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 5, fields: 0 } });
 
-    router.get('/download-bundle', async (req, res) => {
+    const downloadBundle = async (req, res) => {
         let user = req.user;
         if (!user && req.query.token) {
             try {
@@ -106,6 +131,11 @@ function createLogoRouter(options = {}) {
             if (includedFiles.length === 0) {
                 return res.status(404).json({ error: '未找到可下载的运营物料或图标资产' });
             }
+            const logoPath = resolveLogoAsset('logo.png', current);
+            if (logoPath && fs.existsSync(logoPath)) {
+                const assets = await storeAssets(fs.readFileSync(logoPath), (req.files || []).map(file => file.buffer));
+                for (const [name, bytes] of Object.entries(assets)) { zip.file(name, Buffer.from(bytes)); includedFiles.push(name); }
+            }
             let platformName = 'Tools Platform';
             try {
                 platformName = (await navSettingsRepo.getSettings()).platformName || 'Tools Platform';
@@ -123,9 +153,15 @@ function createLogoRouter(options = {}) {
             res.send(buffer);
         } catch (error) {
             console.error('[platform-logo] Failed to build brand assets bundle:', error.message);
-            res.status(500).json({ error: '生成运营物料资产包失败: ' + error.message });
+            res.status(error.code === 'STORE_ASSETS_INVALID' ? 400 : 500).json({ ok: false, code: error.code || 'STORE_ASSETS_FAILED', error: '生成运营物料资产包失败: ' + error.message, requestId: req.requestId });
         }
-    });
+    };
+    router.get('/download-bundle', downloadBundle);
+    router.post('/download-bundle', requireAdmin, (req, res, next) => screenshotUpload.array('screenshots', 5)(req, res, error => {
+        if (error) return res.status(400).json({ ok: false, code: 'STORE_ASSETS_INVALID', error: error.message, requestId: req.requestId });
+        if (!req.files?.length) return res.status(400).json({ ok: false, code: 'STORE_SCREENSHOT_REQUIRED', error: '请提供至少一张真实界面截图 / Provide at least one screenshot', requestId: req.requestId });
+        next();
+    }), downloadBundle);
 
     router.get('/status', (req, res) => {
         const current = storage();

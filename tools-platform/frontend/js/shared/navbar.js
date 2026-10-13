@@ -2747,6 +2747,9 @@ async function renderLogoSettings(content) {
                     <button type="button" id="logoDownloadBundleBtn" onclick="downloadLogoBundle()" ${statusData.hasLogo ? '' : 'disabled'}>📦 ${text('一键下载全部运营物料资产包 (.zip)', 'Download brand assets bundle (.zip)')}</button>
                     <span id="logoUploadStatus" role="status" style="font-size:12px">${text('最近更新：', 'Last updated: ')}${navEscape(timestamp)}</span>
                 </div>
+                <label for="logoStoreScreenshots" style="display:block;margin-top:14px;font-size:12px">${text('商店截图（可选，1–5 张 PNG/JPEG，每张不超过 10 MB）', 'Store screenshots (optional, 1–5 PNG/JPEG files, up to 10 MB each)')}</label>
+                <input id="logoStoreScreenshots" type="file" accept="image/png,image/jpeg" multiple style="display:block;margin-top:8px;max-width:100%">
+                <p style="font-size:12px;margin-top:8px">${text('资产包新增商店图标 128×128、小型宣传图 440×280、顶部宣传图 1400×560 和无透明层的截图 1280×800。未选择截图时自动生成平台登录页截图；若用于插件上架，请选择该插件的真实截图。视频需自行上传 YouTube 后填写网址。', 'Includes a 128×128 store icon, 440×280 small promo, 1400×560 marquee and opaque 1280×800 screenshots. With no selected images, captures the platform login page. For an extension listing, select actual screenshots of that extension. Upload videos to YouTube separately.')}</p>
                 <div id="logoUploadResultDetail" style="margin-top:12px;font-size:11px;white-space:pre-wrap;display:none"></div>
             </div>
         </div>`;
@@ -2890,7 +2893,16 @@ window.downloadLogoBundle = async function () {
     }
     if (status) status.textContent = navLocaleText('正在打包全套运营物料与各端徽标，请稍候…', 'Packaging brand and icon assets, please wait…');
     try {
+        if (!window.ToolsStoreAssets) await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = '/js/shared/store-assets.js?v=20261013-02';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error(navLocaleText('无法加载商店物料组件', 'Store assets component could not load')));
+            document.head.appendChild(script);
+        });
+        const body = await window.ToolsStoreAssets.form(Array.from(document.getElementById('logoStoreScreenshots')?.files || []));
         const response = await fetch('/api/platform-logo/download-bundle', {
+            method: 'POST', body,
             headers: getAuthHeaderForNav()
         });
         if (!response.ok) {
