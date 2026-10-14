@@ -162,7 +162,7 @@ test('read-only accounts, binary changes and the sidebar search box render prope
     assert.doesNotMatch(js, /工作目录内全部自动执行，不再询问/, 'full access no longer claims commands are confined to the folder');
     const home = read('frontend/css/home-workspace.css');
     assert.match(home, /\.home-sidebar > \* \{ flex-shrink: 0; \}/);
-    assert.match(home, /\.home-search \{[^}]*height: 40px;/);
+    assert.match(home, /\.home-search \{[^}]*height: 44px;/);
 });
 
 test('risky commands show their reasons without "always allow", and undo conflicts ask first', () => {
