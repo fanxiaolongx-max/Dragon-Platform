@@ -825,10 +825,10 @@ test('Excel keeps five columns, merged RFC and chapter cells, full error details
     assert.match(sheet,/mergeCell ref="A2:A3"/);assert.match(sheet,/mergeCell ref="B2:B3"/);assert.match(sheet,/&lt;literal&gt;/);assert.match(sheet,/inlineStr/);assert.ok(!sheet.includes('<f>'));assert.match(sheet,/Invalid token/);
 });
 
-test('audit language selects structured translations and legacy bilingual results without changing source text',()=>{
+test('audit rows provide bilingual reason and localized error text without changing source text',()=>{
     const ctx={URL,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
     const record={order:'RFC',items:[{section:'3',kind:'text',filename:'source.txt',text:'原文 / Original source = 1/2'}],reports:[{section:'3',kind:'text',filename:'source.txt',summary:'旧摘要 / Legacy summary',summaryI18n:{zh:'缺少指标',en:'Metrics missing'},findingsI18n:[{zh:'补充阈值',en:'Add thresholds'}]}]};
-    const zh=ctx.netcareAuditRows([record],'zh')[0],en=ctx.netcareAuditRows([record],'en')[0];assert.equal(zh.summary,'缺少指标');assert.equal(en.summary,'Metrics missing');assert.equal(zh.findings[0],'补充阈值');assert.equal(en.findings[0],'Add thresholds');assert.equal(zh.text,en.text);assert.equal(zh.text,'原文 / Original source = 1/2');
+    const zh=ctx.netcareAuditRows([record],'zh')[0],en=ctx.netcareAuditRows([record],'en')[0];assert.equal(zh.summary,'缺少指标 / Metrics missing');assert.equal(en.summary,'缺少指标 / Metrics missing');assert.equal(zh.findings[0],'补充阈值 / Add thresholds');assert.equal(en.findings[0],'补充阈值 / Add thresholds');assert.equal(zh.text,en.text);assert.equal(zh.text,'原文 / Original source = 1/2');
     assert.equal(ctx.netcareAuditLocalized('位置：3.4；缺少阈值 / Location: 3.4; thresholds missing','en'),'Location: 3.4; thresholds missing');assert.equal(ctx.netcareAuditLocalized('缺少阈值 / Thresholds missing','zh'),'缺少阈值');assert.match(ctx.netcareAuditLocalized('旧中文结果','en'),/Run the audit again/);
 });
 
@@ -839,10 +839,10 @@ test('screenshots follow actual parent evidence, separate attachments, and exclu
     assert.deepEqual(Array.from(ctx.netcareAuditScreenshots(record,text),m=>m.name),['source.png','3.2.1-Script-章节原图-001.png']);assert.deepEqual(Array.from(ctx.netcareAuditScreenshots(record,attachment),m=>m.name),['attach.png']);attachment.sources[0].filename='b.pdf';assert.equal(ctx.netcareAuditScreenshots(record,attachment).length,0);
 });
 
-test('Excel embeds source PNGs in evidence rows, preserves grouping and exports only the selected report language',async()=>{
+test('Excel embeds source PNGs in evidence rows, preserves grouping and exports English verdicts with bilingual reasons',async()=>{
     const ctx={URL,Blob,TextEncoder,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
     const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jvXkAAAAASUVORK5CYII=','base64'),shot={name:'shot.png',section:'3.2',kind:'text',role:'screenshot',sourceFilename:'source.txt'},report={section:'3.3',kind:'text',filename:'source.txt',sources:[{section:'3.2',kind:'text',filename:'source.txt'}],status:'fail',summaryI18n:{zh:'缺少指标',en:'Metrics missing'},findingsI18n:[{zh:'补充阈值',en:'Add thresholds'}]},record={order:'RFC',materials:[shot],items:[{section:'3.2',kind:'text',filename:'source.txt',text:'original literal'}],reports:[report,{...report,kind:'attachments',sources:undefined,filename:'a.txt',status:'pass'}]},images=new Map([[ctx.netcareAuditImageKey('RFC','shot.png'),new Blob([png])]]),JSZip=require('../backend/node_modules/jszip');
-    for(const language of ['zh','en']){const zip=await JSZip.loadAsync(await (await ctx.netcareAuditExcel([record],language,images)).arrayBuffer()),sheet=await zip.file('xl/worksheets/sheet1.xml').async('string'),drawing=await zip.file('xl/drawings/drawing1.xml').async('string');assert.deepEqual(await zip.file('xl/media/image1.png').async('nodebuffer'),png);assert.match(sheet,/mergeCell ref="A2:A4"/);assert.match(sheet,/mergeCell ref="B2:B4"/);assert.match(sheet,/mergeCell ref="D2:D3"/);assert.match(sheet,/<drawing r:id="rId1"/);assert.match(drawing,/<xdr:col>2<\/xdr:col>/);assert.match(drawing,/<xdr:row>2<\/xdr:row>/);assert.match(drawing,/noChangeAspect="1"/);assert.match(sheet,language==='zh'?/缺少指标/:/Metrics missing/);assert.doesNotMatch(sheet,language==='zh'?/Metrics missing|Add thresholds|Evidence|Source screenshot/:/缺少指标|补充阈值|审计点|结论|原始区域截图/);assert.match(await zip.file('xl/workbook.xml').async('string'),language==='zh'?/审计结果/:/Audit results/);}
+    for(const language of ['zh','en']){const zip=await JSZip.loadAsync(await (await ctx.netcareAuditExcel([record],language,images)).arrayBuffer()),sheet=await zip.file('xl/worksheets/sheet1.xml').async('string'),drawing=await zip.file('xl/drawings/drawing1.xml').async('string');assert.deepEqual(await zip.file('xl/media/image1.png').async('nodebuffer'),png);assert.match(sheet,/mergeCell ref="A2:A4"/);assert.match(sheet,/mergeCell ref="B2:B4"/);assert.match(sheet,/mergeCell ref="D2:D3"/);assert.match(sheet,/<drawing r:id="rId1"/);assert.match(drawing,/<xdr:col>2<\/xdr:col>/);assert.match(drawing,/<xdr:row>2<\/xdr:row>/);assert.match(drawing,/noChangeAspect="1"/);assert.match(sheet,/缺少指标 \/ Metrics missing/);assert.match(sheet,/补充阈值 \/ Add thresholds/);assert.match(sheet,/<t xml:space="preserve">Fail<\/t>/);assert.match(sheet,/<t xml:space="preserve">Pass<\/t>/);assert.doesNotMatch(sheet,/<t xml:space="preserve">(?:通过|不通过|需人工核查)<\/t>/);assert.match(sheet,language==='zh'?/原始区域截图/:/Source screenshot/);assert.match(await zip.file('xl/workbook.xml').async('string'),language==='zh'?/审计结果/:/Audit results/);}
     const missing=await JSZip.loadAsync(await (await ctx.netcareAuditExcel([record],'en')).arrayBuffer());assert.equal(missing.file('xl/drawings/drawing1.xml'),null);assert.match(await missing.file('xl/worksheets/sheet1.xml').async('string'),/Screenshots unavailable/);
     const bundle=await ctx.netcareAuditMaterials([record],[{order:'RFC',name:'shot.png'}],async()=>new Blob([png]),()=>{},'en');const bundled=await JSZip.loadAsync(await (await bundle.entries.find(e=>e.name==='Audit results.xlsx').blob).arrayBuffer());assert.ok(bundled.file('xl/media/image1.png'));
 });
@@ -2168,6 +2168,50 @@ test('embedScreenshotsInExcel defaults to false, avoids squashing images in Exce
     const bundledExcelBlob = bundle.entries.find(e => e.name === '审计结果.xlsx').blob;
     const bundledZip = await JSZip.loadAsync(await bundledExcelBlob.arrayBuffer());
     assert.equal(bundledZip.file('xl/drawings/drawing1.xml'), null);
+});
+
+test('AI audit requires bilingual prompt, English verdict column and bilingual reason column', async () => {
+    const pkg = packer.buildPackage({ ...options, manualLaunch: true });
+    assert.match(pkg.files['background.js'], /bilingual inspection results in both Chinese and English/);
+    assert.match(pkg.files['background.js'], /MANDATORY BILINGUAL REQUIREMENT: Always return BOTH Chinese \(zh\) and English \(en\)/);
+
+    const ctx = { URL, URLSearchParams, Blob, TextEncoder, location: new URL('https://unrelated.example'), window: {} };
+    vm.runInNewContext(code, ctx);
+
+    const reports = [
+        { section: '1.1', kind: 'text', filename: '1.1.txt', status: 'pass', summary: '变更目的已明确 / Change purpose specified', summaryI18n: { zh: '变更目的已明确', en: 'Change purpose specified' }, findings: [], findingsI18n: [] },
+        { section: '3.2', kind: 'text', filename: '3.2.txt', status: 'fail', summary: '缺少回退步骤 / Rollback steps missing', summaryI18n: { zh: '缺少回退步骤', en: 'Rollback steps missing' }, findings: ['未说明回退命令 / Specify rollback commands'], findingsI18n: [{ zh: '未说明回退命令', en: 'Specify rollback commands' }] },
+        { section: '3.4', kind: 'text', filename: '3.4.txt', status: 'needs_review', summary: '源材料无法读取 / Source unavailable', summaryI18n: { zh: '源材料无法读取', en: 'Source unavailable' }, findings: [], findingsI18n: [] }
+    ];
+    const record = { order: 'NC20261015000001', wordFilename: 'test.docx', items: [], reports };
+
+    // 1. Verify netcareAuditRows produces bilingual reasons in all UI languages
+    for (const lang of ['zh', 'en']) {
+        const rows = ctx.netcareAuditRows([record], lang);
+        assert.equal(rows[0].summary, '变更目的已明确 / Change purpose specified');
+        assert.equal(rows[1].summary, '缺少回退步骤 / Rollback steps missing');
+        assert.equal(rows[1].findings[0], '未说明回退命令 / Specify rollback commands');
+        assert.equal(rows[2].summary, '源材料无法读取 / Source unavailable');
+    }
+
+    // 2. Verify netcareAuditExcel outputs English verdicts in Column D and bilingual reasons in Column E
+    const JSZip = require('../backend/node_modules/jszip');
+    for (const lang of ['zh', 'en']) {
+        const excelBlob = await ctx.netcareAuditExcel([record], lang);
+        const zip = await JSZip.loadAsync(await excelBlob.arrayBuffer());
+        const sheet = await zip.file('xl/worksheets/sheet1.xml').async('string');
+
+        // Column D verdicts MUST be in English only
+        assert.match(sheet, /<t xml:space="preserve">Pass<\/t>/);
+        assert.match(sheet, /<t xml:space="preserve">Fail<\/t>/);
+        assert.match(sheet, /<t xml:space="preserve">Needs review<\/t>/);
+        assert.doesNotMatch(sheet, /<t xml:space="preserve">(?:通过|不通过|需人工核查)<\/t>/);
+
+        // Column E reasons MUST be bilingual
+        assert.match(sheet, /变更目的已明确 \/ Change purpose specified/);
+        assert.match(sheet, /缺少回退步骤 \/ Rollback steps missing/);
+        assert.match(sheet, /未说明回退命令 \/ Specify rollback commands/);
+    }
 });
 
 

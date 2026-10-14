@@ -119,6 +119,23 @@ function netcareAuditLocalized(value,language='zh',localized){
     return en?'This saved result has no English translation. Run the audit again.':'该历史结果缺少中文译文，请重新审计。';
   }).join('\n');
 }
+function netcareAuditBilingualReason(value, localized) {
+  if (localized && typeof localized === 'object') {
+    const zh = String(localized.zh || '').trim();
+    const en = String(localized.en || '').trim();
+    if (zh && en) return zh === en ? zh : `${zh} / ${en}`;
+    if (zh) return zh;
+    if (en) return en;
+  }
+  if (value && typeof value === 'object') {
+    const zh = String(value.zh || '').trim();
+    const en = String(value.en || '').trim();
+    if (zh && en) return zh === en ? zh : `${zh} / ${en}`;
+    if (zh) return zh;
+    if (en) return en;
+  }
+  return String(value || '').trim();
+}
 function netcareAuditMissingBundles(records,files){
   return records.filter(record=>record.bundleFilename?!files.some(file=>file.order===record.order&&file.name===record.bundleFilename):!files.some(file=>file.order===record.order&&file.name===record.wordFilename));
 }
@@ -147,13 +164,16 @@ function netcareAuditRows(records,language='zh'){
     const noAttachments=(record.reports||[]).some(r=>r.section===report.section&&r.kind==='attachments'&&netcareAuditNotApplicable(record,r));
     const sources=report.sources?.length?report.sources:[report];
     const text=sources.map(source=>{const item=(record.items||[]).find(i=>i.section===source.section&&i.kind===source.kind&&i.filename===source.filename);return (sources.length>1?'['+source.section+' · '+source.filename+']\n':'')+(item?.text||netcareAuditLocalized(item?.error||'未提取到可展示文本 / No text available',language));}).join('\n\n');
-    rows.push({...report,noAttachments,summary:netcareAuditLocalized(report.summary,language,report.summaryI18n),findings:(report.findingsI18n?.length?report.findingsI18n:report.findings||[]).map(f=>netcareAuditLocalized(typeof f==='string'?f:'',language,typeof f==='object'?f:undefined)),order:record.order,wordFilename:record.wordFilename||'',text,screenshots:netcareAuditScreenshots(record,report)});
+    const summary=netcareAuditBilingualReason(report.summary,report.summaryI18n);
+    const rawFindings=report.findingsI18n?.length?report.findingsI18n:(report.findings||[]);
+    const findings=rawFindings.map(f=>typeof f==='object'?netcareAuditBilingualReason('',f):netcareAuditBilingualReason(f));
+    rows.push({...report,noAttachments,summary,findings,order:record.order,wordFilename:record.wordFilename||'',text,screenshots:netcareAuditScreenshots(record,report)});
   }
   return rows;
 }
 async function netcareAuditExcel(records,language='zh',images=new Map(),embedScreenshots=undefined){
   const shouldEmbed=embedScreenshots!==false;
-  const rows=netcareAuditRows(records,language),tr=(zh,en)=>language==='en'?en:zh,escape=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c])).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,''),labels={pass:tr('通过','Pass'),fail:tr('不通过','Fail'),needs_review:tr('需人工核查','Needs review')};
+  const rows=netcareAuditRows(records,language),tr=(zh,en)=>language==='en'?en:zh,escape=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c])).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,''),labels={pass:'Pass',fail:'Fail',needs_review:'Needs review'};
   const values=[{cells:[tr('方案','RFC'),tr('章节','Section'),tr('审计点与内容','Evidence'),tr('结论','Result'),tr('原因','Reason')],height:28}],ranges=[],merges=[],media=new Map(),pictures=[];
   for(const r of rows){
     const first=values.length+1,missing=[];
@@ -813,7 +833,7 @@ function netcareEvaluateLocalRule(settings, item) {
   const status = isPass ? 'pass' : 'fail';
   const summaryZh = `[本地规则回退] ${rule.name}: ${isPass ? (rule.passSummary || '符合要求') : (rule.failSummary || '未满足关键词要求，需人工核查')}`;
   const summaryEn = `[Local rule fallback] ${rule.name}: ${isPass ? 'Passed local rule' : 'Failed local rule'}`;
-  const findings = isPass ? [] : [summaryZh];
+  const findings = isPass ? [] : [`${summaryZh} / ${summaryEn}`];
   const findingsI18n = isPass ? [] : [{ zh: summaryZh, en: summaryEn }];
   return {
     status,
@@ -2167,7 +2187,7 @@ function mountNetcareCollector() {
   function updatePreferenceSummary(){$('configSummary').textContent = tr(`并发 ${extractionSettings.concurrency} · 在线${extractionSettings.openOnline || extractionSettings.attachmentsEnabled || extractionSettings.textEnabled ? '开启' : '关闭'} · 自动提取${extractionSettings.attachmentsEnabled || extractionSettings.textEnabled ? '开启' : '关闭'}`,`Concurrency ${extractionSettings.concurrency} · Online ${extractionSettings.openOnline || extractionSettings.attachmentsEnabled || extractionSettings.textEnabled ? 'on' : 'off'} · Extraction ${extractionSettings.attachmentsEnabled || extractionSettings.textEnabled ? 'on' : 'off'}`);}
   $('languageButton').onclick=()=>{setLanguage(uiLanguage==='zh'?'en':'zh');window.postMessage({source:'TP_RFC_LANGUAGE_SET',language:uiLanguage},location.origin);renderAudits();};
   window.postMessage({source:'TP_RFC_LANGUAGE_GET'},location.origin);
-  const auditStatusLabel=value=>({pass:tr('通过','Pass'),fail:tr('不通过','Fail'),needs_review:tr('需人工核查','Needs review')})[value]||tr('需人工核查','Needs review');
+  const auditStatusLabel=value=>({pass:'Pass',fail:'Fail',needs_review:'Needs review'})[value]||'Needs review';
   const imageDialog=$('auditImageDialog'),imageURLs=new Set();let auditRenderGeneration=0,shotObserver;
   const clearAuditImages=()=>{auditRenderGeneration++;shotObserver?.disconnect();if(imageDialog.open)imageDialog.close();$('auditImage').removeAttribute('src');for(const url of imageURLs)URL.revokeObjectURL(url);imageURLs.clear();};
   $('auditImageClose').onclick=()=>imageDialog.close();$('auditImage').onclick=()=>{$('auditImage').classList.toggle('actual-size');};

@@ -1,6 +1,6 @@
 # NetCare RFC 方案与 AI 审计 · Chrome / Edge 上架指南
 
-核对日期：2026-10-11。本文依据当前内置脚本与打包器（基线 v1.0.18）编写，参考题库与答题助手上架指南的结构与合规标准。本指南用于开发者准备向应用商店提交扩展，不代表已获得平台豁免或承诺包必定通过审核。发布前请根据最终生成的发布 ZIP 包和实时官方政策进行逐项复核。
+核对日期：2026-10-15。本文依据当前内置脚本与打包器（基线 v1.0.18）编写，参考题库与答题助手上架指南的结构与合规标准，已根据 Chrome Web Store 最新审查反馈（Yellow Argon 关键字反垃圾规则）完成描述合规修订。本指南用于开发者准备向应用商店提交扩展，不代表已获得平台豁免或承诺包必定通过审核。发布前请根据最终生成的发布 ZIP 包和实时官方政策进行逐项复核。
 
 ---
 
@@ -98,11 +98,11 @@ NetCare RFC 方案与 AI 审计助手是一款专为网络运维与工程技术�
 
 【核心功能】
 1. 方案一键导出与在线预览：支持输入一个或多个 RFC 变更单号，自动对接 NetCare 原生导出入口生成标准 DOCX 数字化方案，并可在后台联动打开在线原页进行画中画浏览。
-2. 章节结构扫描与全附件归档：自动扫描方案完整目录树，精准识别 TXT、Word、ZIP、RAR、MSG、PDF 等附件文件及章节正文；支持按规则提取指定章节并打包生成标准 RFC ZIP 归档。
+2. 章节结构扫描与全附件归档：自动扫描方案完整目录树，智能识别各章节中的各类离线附件及正文内容；支持按规则提取指定章节并打包生成标准 RFC 归档材料压缩包。
 3. 章节规则模板与名称纠错：内置章节模板，支持层级继承匹配；当实际方案章节编号缺失或变更时，可按章节完整标题自动纠错定位，保证提取完整性。
 4. 多模型 AI 辅助合规审计：支持用户自主接入 OpenAI（Chat / Responses）、Anthropic（Messages）、Gemini 及兼容协议模型（含私有内网模型与自定义端口）。系统按章节针对性提示词执行三态判定（通过 / 不通过 / 需人工核查），提供中英双语摘要与风险发现。
 5. 原始区域截图与证据留存：内置离线渲染组件，对提取章节与关键附件所在 DOM 区域捕获清晰 PNG 原图证据，避免纯文本还原失真。
-6. 结构化报告与材料导出：一键导出带合并单元格、详细原因与原图排版的五列标准 XLSX 审计报表，支持下载包含原始 Word、附件、截图与审计结论的完整材料 ZIP。
+6. 结构化报告与材料导出：一键导出带合并单元格、详细原因与原图排版的标准审计表格，支持下载包含原始方案、附件、截图与审计结论的完整材料压缩包。
 7. 本地安全与配置备份：所有模型 API Key、审计记录与快照均保存在本地浏览器 IndexedDB 及加密存储中；支持通过 AES-256-GCM 密码加密导出与恢复完整配置。
 
 【安全与隐私声明】
@@ -121,11 +121,11 @@ NetCare RFC Plan & AI Audit Assistant is a professional productivity extension d
 
 Key Features:
 1. One-Click Document Export: Batch retrieve and export standard DOCX digital plans by RFC change ticket numbers, with optional background picture-in-picture tabs for native online review.
-2. Full Directory Scan & Attachment Packaging: Automatically parse native section structures and identify attachments (TXT, Word, ZIP, RAR, MSG, PDF). Extract designated sections and bundle them into organized ZIP packages.
+2. Full Directory Scan & Attachment Packaging: Automatically parse native section structures, recognize associated offline attachments and body content, and bundle designated sections into organized archive packages.
 3. Hierarchy Templates & Title Correction: Match sections with hierarchical templates. If section numbers vary, smart title-based matching accurately identifies targets without manual intervention.
 4. Flexible BYOK AI Audit: Bring your own API keys for OpenAI (Chat/Responses), Anthropic (Messages), Google Gemini, or compatible self-hosted private models. Perform three-state compliance checks (Pass, Fail, Needs Review) with dual-language summaries and findings.
 5. High-Fidelity Visual Evidence Capture: Utilizes offline-bundled canvas components to capture screenshot evidence of exact DOM elements and attachment tables, preserving the visual integrity of original plans.
-6. Professional Excel & Materials Export: Generate structured XLSX audit tables with merged cells and embedded screenshot rows. Download complete audit dossiers including source DOCX, attachments, PNG captures, and audit JSON.
+6. Professional Audit Spreadsheet & Materials Export: Generate structured audit spreadsheets with merged cells and embedded screenshot rows. Download complete audit dossiers including source plans, attachments, screenshot evidence, and audit conclusions.
 7. Local Isolation & Encrypted Backup: All credentials, audit snapshots, and logs are kept strictly within local browser storage (IndexedDB). Full configurations can be exported and restored using AES-256-GCM encryption.
 
 Security & Privacy Standards:
@@ -264,11 +264,13 @@ NetCare RFC 方案与 AI 审计助手（以下简称“本扩展”）是一款�
    - 权限说明：为 `storage`、`activeTab`、`scripting`、`webNavigation` 及 Host permissions 逐项填写第 9 节理由。
    - 数据使用声明：按第 10.2 节准确勾选，并勾选“我保证遵守开发者计划政策”及“Limited Use”合规承诺。
    - 填写隐私权政策网页 URL。
-5. **提供给审核人员的说明 (Notes for Reviewer)**：在后台测试说明字段中填入第 14 节英文文本，附带演示说明与模拟指引后点击提交。
+5. **提供给审核人员的说明 (Notes for Reviewer)**：在后台测试说明字段中填入第 14 节英文文本（首次提交参考 14.1，若遇 Yellow Argon 重新提交参考 14.2），附带演示说明与模拟指引后点击提交。
 
 ---
 
 ## 14. 可复制：审核测试说明（Reviewer Notes）
+
+### 14.1 首次提交审核说明 (Standard Notes for Reviewer)
 
 ```text
 Dear Review Team,
@@ -299,6 +301,31 @@ Support & Privacy Policy:
 Please let us know if any further clarification or simulated test data is needed.
 ```
 
+### 14.2 针对 Yellow Argon 拒审的专用申诉 / 重审说明 (Notes for Reviewer / Appeal Notes for Yellow Argon Fix)
+
+> **使用场景**：当收到 `Yellow Argon`（关键字垃圾内容 / Keyword Stuffing）拒审通知后，在 Chrome 开发者信息中心修改商品详情后，在「提供给审核人员的说明 (Notes for Reviewer)」或「申诉 (Appeal)」输入框中粘贴以下内容：
+
+```text
+Dear Chrome Web Store Review Team,
+
+Thank you for your feedback regarding our extension "NetCare RFC 方案与 AI 审计" (ID: pbfmjlfgfhbkogpljlpdkfjmboogldje).
+
+In response to the Yellow Argon keyword-stuffing notice:
+1. Keyword Removal: We have completely removed all file extension listings (specifically "TXT, Word, ZIP, RAR, MSG, PDF") from both the Chinese (China) and English detailed descriptions.
+2. Natural Functional Descriptions: The descriptions have been revised to use clean, natural, and context-specific functional descriptions explaining how attachments and sections are archived without enumerating file format keywords.
+3. Policy Compliance: The store metadata strictly complies with the Chrome Web Store Program Policies regarding keyword spam and misleading metadata.
+
+Testing Instructions & Verification:
+- The updated descriptions can be found under the Store Listing tab for both Chinese (China) and English.
+- The extension remains fully client-side (no remote servers or telemetry).
+- Functional verification instructions remain as described in our original notes (open options/floating panel -> verify connection test and rule hierarchy).
+
+Thank you for re-evaluating our submission.
+
+Sincerely,
+NetCare Extension Development Team
+```
+
 ---
 
 ## 15. 常见拒审风险与过审应对技巧
@@ -321,6 +348,24 @@ Please let us know if any further clarification or simulated test data is needed
 - **应对方案**：
   - 避免使用“NetCare 官方插件”等误导性词汇；
   - 始终标明“用于 NetCare 系统的第三方辅助效能工具”。
+
+### 15.4 关键字垃圾内容拒审处理 (Yellow Argon / Keyword Stuffing)
+- **拒审原因**：Google 商店严格禁止在扩展的标题、简介或详细描述中出现格式或标签枚举（例如 `'TXT, Word, ZIP, RAR, MSG, PDF'`）。即便这些是工具支持解析的文件格式，直接作为词组枚举仍会被判定为“过多和/或不相关的关键字 (Keyword Stuffing / Keyword Spam)”。
+- **整改要点**：
+  1. 彻底移除所有用逗号或斜杠隔开的文件后缀/格式枚举列表；
+  2. 使用“各类离线附件”、“相关工程附件”、“标准归档压缩包”等自然中文短语；英文使用“associated offline attachments”、“body content”、“organized archive packages”；
+  3. 同步检查其他字段（包括单一用途说明、权限理由），确保均无任何死板的关键词堆砌。
+- **控制台申诉与重新提交操作步骤**：
+  1. 登录 [Chrome 应用商店开发者信息中心](https://chrome.google.com/webstore/devconsole/)；
+  2. 点击列表中被拒的项目：**NetCare RFC 方案与 AI 审计**（ID: `pbfmjlfgfhbkogpljlpdkfjmboogldje`）；
+  3. 点击左侧菜单中的 **「商品详情 (Store Listing)」**；
+  4. 切换到 **「中文（中国）」** 语言标签，将「详细说明」替换为本指南 **第 6 节** 最新的合规中文描述；
+  5. 切换到 **「英语 (English)」** 语言标签，将「Detailed Description」替换为本指南 **第 7 节** 最新的合规英文描述；
+  6. 点击右上角「保存草稿」；
+  7. 点击左侧菜单进入 **「版本 > 状态」**（或「隐私权规范」/提交页面）；
+  8. 找到 **「提供给审核人员的说明 (Notes for Reviewer)」** 字段（或在被拒版本的状态页面点击 **「申诉 (Appeal)」**）；
+  9. 粘贴本指南 **第 14.2 节** 的专用说明文本；
+  10. 点击 **「提交审核 (Submit for review)」**。
 
 ---
 
