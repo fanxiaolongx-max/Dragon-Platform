@@ -63,9 +63,12 @@ jobs:
       - name: Compile Universal Shell with PyInstaller
         shell: pwsh
         run: |
+          [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $OutputEncoding = [System.Text.Encoding]::UTF8
           cd python-packager
           pyinstaller --noconfirm --onedir --windowed `
-            --name "PR报告抽查工具" `
+            --name "PR-Audit-Sampler" `
             --add-data "core_script.py;." `
             --add-data "version.json;." `
             --add-data "updater_config.json;." `
@@ -74,11 +77,19 @@ jobs:
       - name: Assemble Portable Distribution
         shell: pwsh
         run: |
-          $distDir = "python-packager/dist/PR报告抽查工具"
+          [Console]::InputEncoding = [System.Text.Encoding]::UTF8
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $OutputEncoding = [System.Text.Encoding]::UTF8
+
+          $distDir = "python-packager/dist/PR-Audit-Sampler"
           Copy-Item -Path "python-packager/core_script.py" -Destination $distDir -Force
           Copy-Item -Path "python-packager/version.json" -Destination $distDir -Force
           Copy-Item -Path "python-packager/updater_config.json" -Destination $distDir -Force
           Copy-Item -Path "python-packager/README.md" -Destination $distDir -Force
+          New-Item -ItemType Directory -Force -Path "$distDir/data" | Out-Null
+
+          # 额外复制一份友好命名的执行入口
+          Copy-Item -Path "$distDir/PR-Audit-Sampler.exe" -Destination "$distDir/PR报告抽查工具.exe" -Force
 
           # 制作便携 ZIP
           $zipPath = "python-packager/dist/${{ steps.meta.outputs.ZIP_NAME }}"
@@ -92,17 +103,45 @@ jobs:
           path: python-packager/dist/${{ steps.meta.outputs.ZIP_NAME }}
           retention-days: 30
 
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: github.ref == 'refs/heads/main'
+        with:
+          tag_name: python-sampler-v${{ steps.meta.outputs.VERSION }}
+          name: "PR 报告抽查工具 v${{ steps.meta.outputs.VERSION }} (Windows 独立绿色版)"
+          body: |
+            ### 🚀 PR 报告抽查工具 Windows 独立绿色版 (v${{ steps.meta.outputs.VERSION }})
+
+            - **架构特点**：通用外壳 + 动态业务脚本 (`core_script.py`)
+            - **极速热更新**：支持在线一键秒级更新，后续更新业务代码无需重复下载或重装客户端！
+            - **新版特性 (v1.1.0)**：
+              - 🌟 多文件/多文件夹自动扫描（不限制特定文件夹名称）
+              - 🧠 表头特征列指纹加权智能分类（自动识别风险、整改、RFC、SR 表格）
+              - ⚠️ 模糊表格交互提示手动指派
+              - 🍎 内置美观苹果 macOS 风格交互控制台，直观展示实时进度与彩色 ANSI 报告
+
+            #### 📦 使用说明：
+            1. 下载下方 Assets 中的 `${{ steps.meta.outputs.ZIP_NAME }}` 并解压；
+            2. 双击运行 `PR-Audit-Sampler.exe`（或 `PR报告抽查工具.exe`）即可；
+            3. 将待抽查数据放入 `data/` 目录或点击界面中的 `[📁 数据目录]`；
+            4. 后续有脚本更新只需在界面点击 **【🔄 检查并在线热更新】** 即可一键热替换。
+          files: |
+            python-packager/dist/${{ steps.meta.outputs.ZIP_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Output Job Summary
         shell: pwsh
         run: |
           $summary = @"
-          ## 🚀 Python 通用外壳热更新打包完成！
+          ## 🚀 Python 通用外壳热更新打包并发布完成！
 
           | 项目 | 详情 |
           |---|---|
           | **发布包文件** | `${{ steps.meta.outputs.ZIP_NAME }}` |
           | **核心版本** | `v${{ steps.meta.outputs.VERSION }}` |
           | **架构模式** | 通用外壳框架 + 动态核心逻辑脚本 (`core_script.py`) |
+          | **Release 标签** | `python-sampler-v${{ steps.meta.outputs.VERSION }}` |
           | **热更新源** | 默认 GitHub 官方 Raw，支持国内镜像源与自定义源 |
 
           ### 💡 极速热更新使用说明：
