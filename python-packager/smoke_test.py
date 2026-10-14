@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import struct
 
 
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -22,6 +23,7 @@ import glob
 from pathlib import Path
 import pandas as pd
 import xlrd
+import sys
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font
 from pandas.io.excel import _openpyxl, _xlrd
@@ -45,6 +47,9 @@ frame.to_excel(target, index=False, engine="openpyxl")
 assert load_workbook(target).active["B2"].value == "中文正常"
 assert len(glob.glob(str(data / "*.xlsx"))) == 2
 assert xlrd.__version__
+if sys.platform == 'win32':
+    import ctypes
+    assert ctypes.windll.kernel32.GetConsoleWindow() == 0, 'Worker must run without a console window'
 print("EXCEL_SMOKE_OK 中文读写成功", flush=True)
 '''
 
@@ -71,7 +76,15 @@ def run_core(command, cwd, input_text, markers, timeout):
     return result.stdout
 
 
-def smoke_test(dist_dir=None, exe_name="PR报告抽查工具.exe", source=False, timeout=60):
+def _windows_subsystem(executable):
+    data = Path(executable).read_bytes()
+    header = struct.unpack_from('<I', data, 0x3c)[0]
+    if data[header:header + 4] != b'PE\0\0':
+        raise RuntimeError('Invalid Windows executable')
+    return struct.unpack_from('<H', data, header + 4 + 20 + 68)[0]
+
+
+def smoke_test(dist_dir=None, exe_name="PR-Audit-Worker.exe", source=False, timeout=60, gui_exe="PR报告抽查工具.exe"):
     with tempfile.TemporaryDirectory(prefix="PR 冒烟测试 ") as temp_dir:
         portable_dir = Path(temp_dir) / "中文目录 with spaces" / "PR 报告工具"
         if source:
@@ -79,6 +92,7 @@ def smoke_test(dist_dir=None, exe_name="PR报告抽查工具.exe", source=False,
             for filename in ("universal_shell.py", "core_script.py", "version.json", "updater_config.json"):
                 shutil.copy2(PROJECT_DIR / filename, portable_dir / filename)
             command = [sys.executable, str(portable_dir / "universal_shell.py"), "--run-core"]
+            gui_command = [sys.executable, str(portable_dir / 'universal_shell.py')]
         else:
             if dist_dir is None:
                 raise ValueError("--dist-dir is required for the EXE smoke test")
@@ -87,6 +101,18 @@ def smoke_test(dist_dir=None, exe_name="PR报告抽查工具.exe", source=False,
             if not executable.is_file():
                 raise FileNotFoundError(f"Missing portable executable: {exe_name}")
             command = [str(executable), "--run-core"]
+            gui_command = [str(portable_dir / gui_exe)]
+            if sys.platform == 'win32':
+                if _windows_subsystem(gui_command[0]) != 2 or _windows_subsystem(executable) != 3:
+                    raise RuntimeError('Expected a windowed GUI and console-enabled background worker')
+        gui_result = portable_dir / 'gui-smoke.json'
+        subprocess.run(gui_command + ['--gui-smoke-result', str(gui_result)], cwd=portable_dir,
+                       env={**os.environ, 'PYTHONUTF8': '1', 'PYTHONIOENCODING': 'utf-8'},
+                       timeout=timeout, check=True,
+                       creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0)
+        if not json.loads(gui_result.read_text(encoding='utf-8')).get('passed'):
+            raise RuntimeError(f'GUI smoke failed: {gui_result.read_text(encoding="utf-8")}')
+        print('PASS: windowed GUI, background worker and inline terminal input', flush=True)
         run_core(command, portable_dir, "0\n", ("主菜单", "请选择", "再见"), timeout)
         print("PASS: real core menu, UTF-8 input/output and clean exit", flush=True)
         probe_bytes = EXCEL_PROBE.encode("utf-8")
@@ -109,12 +135,13 @@ def smoke_test(dist_dir=None, exe_name="PR报告抽查工具.exe", source=False,
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dist-dir", type=Path)
-    parser.add_argument("--exe", default="PR报告抽查工具.exe")
+    parser.add_argument("--exe", default="PR-Audit-Worker.exe")
+    parser.add_argument('--gui-exe', default='PR报告抽查工具.exe')
     parser.add_argument("--source", action="store_true")
     parser.add_argument("--timeout", type=float, default=60)
     args = parser.parse_args(argv)
     try:
-        smoke_test(args.dist_dir, args.exe, args.source, args.timeout)
+        smoke_test(args.dist_dir, args.exe, args.source, args.timeout, args.gui_exe)
         return 0
     except (OSError, ValueError, RuntimeError, UnicodeError, subprocess.TimeoutExpired) as error:
         print(f"Smoke test failed: {error}", file=sys.stderr)

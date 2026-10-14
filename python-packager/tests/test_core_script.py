@@ -396,6 +396,33 @@ class SourceAndSamplingTests(unittest.TestCase):
                 self.assertFalse(self.core.need_merge_for_type(name))
                 self.assertEqual(len(self.core._read_source_manifest(info['out'])), 1)
 
+    def test_selected_data_directory_does_not_mix_old_app_data_and_gets_reports(self):
+        old_source = self.source('old.xlsx', ['OLD'])
+        old_merged = Path(self.core.merge_risk([old_source])['out'])
+        original = old_merged.read_bytes()
+        selected = self.root / 'selected'
+        self.source('new.xlsx', ['NEW-1', 'NEW-2'], selected)
+        spec = importlib.util.spec_from_file_location('pr_selected_under_test', self.root / 'core_script.py')
+        core = importlib.util.module_from_spec(spec)
+        with patch.dict(os.environ, {'PR_AUDIT_DATA_DIR': str(selected)}):
+            spec.loader.exec_module(core)
+        self.assertTrue(core.CUSTOM_DATA_DIR)
+        self.assertIsNone(core._find_merged_for_type('风险'))
+        cfg = self.cfg('risk_closed')
+        cfg['auto_merge'] = True
+        results, seed, paths, _ = core.run_sampling(cfg)
+        self.assertEqual(set(results['risk_closed']['sub']['风险ID']), {'NEW-1', 'NEW-2'})
+        report, _ = core.export_results(results, cfg, seed, paths)
+        self.assertEqual(Path(report).parent, selected)
+        self.assertEqual(old_merged.read_bytes(), original)
+
+    def test_clearing_screen_uses_ansi_without_starting_shell_commands(self):
+        output = io.StringIO()
+        with patch.object(self.core.os, 'system') as command, contextlib.redirect_stdout(output):
+            self.core.clear_screen()
+        command.assert_not_called()
+        self.assertEqual(output.getvalue(), '\x1b[2J\x1b[H')
+
 
 if __name__ == '__main__':
     unittest.main()

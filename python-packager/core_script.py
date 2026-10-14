@@ -28,7 +28,7 @@ PR 报告抽查脚本
 """
 
 __script_name__ = "PR 报告抽查脚本"
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 __author__ = "CodeArts 智能体生成"
 
 import os
@@ -54,11 +54,14 @@ warnings.filterwarnings('ignore', message='Workbook contains no default style', 
 # 路径常量与智能扫描
 # ============================================================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(BASE_DIR, 'data')
-RISK_DIR = os.path.join(BASE_DIR, '002【2026年1月-9月】风险-运营商-369单')
-RECT_DIR = os.path.join(BASE_DIR, '003【2025年1月-2026年9月】整改-运营商-178单')
-RFC_DIR = os.path.join(BASE_DIR, '001【2026年1月-9月】RFC-运营商-2098单')
-SR_DIR = os.path.join(BASE_DIR, '004【2026年1月-9月】SR-运营商-3418单')
+DATA_DIR = os.path.abspath(os.path.expanduser(os.environ.get('PR_AUDIT_DATA_DIR') or os.path.join(BASE_DIR, 'data')))
+CUSTOM_DATA_DIR = os.path.normcase(DATA_DIR) != os.path.normcase(os.path.join(BASE_DIR, 'data'))
+SOURCE_SCAN_ROOTS = [DATA_DIR] if CUSTOM_DATA_DIR else [DATA_DIR, BASE_DIR]
+LEGACY_ROOT = DATA_DIR if CUSTOM_DATA_DIR else BASE_DIR
+RISK_DIR = os.path.join(LEGACY_ROOT, '002【2026年1月-9月】风险-运营商-369单')
+RECT_DIR = os.path.join(LEGACY_ROOT, '003【2025年1月-2026年9月】整改-运营商-178单')
+RFC_DIR = os.path.join(LEGACY_ROOT, '001【2026年1月-9月】RFC-运营商-2098单')
+SR_DIR = os.path.join(LEGACY_ROOT, '004【2026年1月-9月】SR-运营商-3418单')
 
 # 确保默认 data 目录存在
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -217,7 +220,7 @@ def _find_merged_for_type(src_type):
         dirs.append(RFC_DIR)
     elif src_type == 'SR':
         dirs.append(SR_DIR)
-    dirs.extend([DATA_DIR, BASE_DIR])
+    dirs.extend(SOURCE_SCAN_ROOTS)
 
     candidates = []
     keyword = src_type
@@ -262,7 +265,7 @@ def get_sources_for_type(src_type):
 
     # 自动指纹扫描
     found = list(legacy_files)
-    candidate_dirs = [d for d in [DATA_DIR, BASE_DIR, dirn] if d and os.path.exists(d)]
+    candidate_dirs = [d for d in SOURCE_SCAN_ROOTS + [dirn] if d and os.path.exists(d)]
     seen = {os.path.abspath(path) for path in legacy_files}
     for d in candidate_dirs:
         for f in sorted(glob.glob(os.path.join(d, '*.xlsx')) + glob.glob(os.path.join(d, '*.xls'))):
@@ -657,14 +660,14 @@ def print_merge_report(done):
 # ANSI 彩色输出
 # ============================================================
 def _enable_ansi():
-    if sys.platform == 'win32':
+    if sys.platform == 'win32' and sys.stdout is not None and sys.stdout.isatty():
         try:
             import ctypes
             kernel32 = ctypes.windll.kernel32
             ENABLE_VT = 0x0001 | 0x0002
             kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), ENABLE_VT)
         except Exception:
-            os.system('')
+            pass
 
 _enable_ansi()
 
@@ -688,7 +691,6 @@ def C(text, *codes):
 
 
 def clear_screen():
-    os.system('cls' if sys.platform == 'win32' else 'clear')
     sys.stdout.write('\033[2J\033[H')
     sys.stdout.flush()
 
@@ -1269,7 +1271,7 @@ def run_sampling(cfg, prog=None):
 # ============================================================
 def export_results(results, cfg, seed, src_paths):
     ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    out_path = os.path.join(BASE_DIR, f'【抽查结果】{ts}.xlsx')
+    out_path = os.path.join(DATA_DIR if CUSTOM_DATA_DIR else BASE_DIR, f'【抽查结果】{ts}.xlsx')
 
     # 统一总表
     rows = []
@@ -1576,6 +1578,8 @@ def _input_bool(prompt, default):
 
 
 def menu_set_ratio(cfg):
+    clear_screen()
+    print_title('设置抽查比例')
     v = _input_float('请输入抽查比例(0-1, 如 0.1=10%)', cfg['ratio'])
     if math.isfinite(v) and 0 < v <= 1:
         cfg['ratio'] = v
@@ -1622,6 +1626,7 @@ def menu_set_scopes(cfg):
 
 
 def menu_set_strategy(cfg):
+    clear_screen()
     print()
     print(C('■ 抽样策略设置', F_CYAN, C_BOLD))
     cfg['priority_high'] = _input_bool('优先高等级/高重要程度?', cfg['priority_high'])
@@ -1647,6 +1652,7 @@ def menu_set_strategy(cfg):
 
 
 def menu_show_cfg(cfg):
+    clear_screen()
     print()
     print(C('■ 当前配置（只读展示，如需修改请用菜单 3 / 4）', F_CYAN, C_BOLD))
     _rp = f'{cfg["ratio"]*100:.0f}%'
@@ -1677,7 +1683,7 @@ def menu_smart_import():
     print(C('  • 遇到未知或模糊表格时，支持交互手动指派归类；', F_WHITE))
     print(C('  • 分类完成后可一键执行多源自动合并，无需重新安装或替换框架。', F_WHITE))
     print()
-    print(C(f'默认扫描目录：{DATA_DIR}、根目录及已有的各业务目录', F_GRAY))
+    print(C(f'当前扫描目录：{"、".join(SOURCE_SCAN_ROOTS)} 及已有的各业务目录', F_GRAY))
     custom_in = input(C('是否指定自定义扫描目录路径 (直接回车使用默认目录，多个目录用分号隔开): ', F_CYAN)).strip()
 
     scan_dirs = []
@@ -1690,7 +1696,7 @@ def menu_smart_import():
                 else:
                     print(C(f'  ⚠️ 路径不存在已忽略: {p}', F_YELLOW))
     if not scan_dirs:
-        scan_dirs = [DATA_DIR, BASE_DIR]
+        scan_dirs = list(SOURCE_SCAN_ROOTS)
         for d in [RISK_DIR, RECT_DIR, RFC_DIR, SR_DIR]:
             if os.path.exists(d):
                 scan_dirs.append(d)
@@ -1800,6 +1806,7 @@ def main():
         prog = None
         try:
             if s == '1':
+                clear_screen()
                 prog = Progress('抽查进度')
                 results, seed, src_paths, done = run_sampling(cfg, prog)
                 if all(v is None for v in results.values()):
@@ -1813,6 +1820,7 @@ def main():
                 prog.done(tid, f'{len(total_df)} 行')
                 prog.finish()
                 print()
+                clear_screen()
                 print_report(results, cfg, seed, out_path, total_df)
                 input(C('按回车返回主菜单...', F_GRAY))
             elif s == '2':
@@ -1825,6 +1833,8 @@ def main():
                 menu_show_cfg(cfg)
                 input(C('按回车返回主菜单...', F_GRAY))
             elif s == '6':
+                clear_screen()
+                print_title('自动合并设置')
                 cfg['auto_merge'] = _input_bool('抽查前自动合并统计（检测到原始表更新则合并）?',
                                                 cfg['auto_merge'])
             elif s == '7':

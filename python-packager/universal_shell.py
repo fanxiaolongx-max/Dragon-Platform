@@ -173,6 +173,16 @@ def configured_data_dir(config):
     return os.path.abspath(os.path.join(APP_DIR, os.path.expanduser(value))) if value else DATA_DIR_PATH
 
 
+def data_dir_setting(directory):
+    directory = os.path.abspath(directory)
+    try:
+        if os.path.normcase(os.path.commonpath([APP_DIR, directory])) == os.path.normcase(APP_DIR):
+            return os.path.relpath(directory, APP_DIR)
+    except ValueError:
+        pass
+    return directory
+
+
 def load_version_info():
     """读取本地核心脚本版本信息"""
     info = {
@@ -583,6 +593,8 @@ class PromptText(tk.Text):
             if args[0] == 'insert':
                 if self.compare(args[1], '<', 'input_start'):
                     args[1] = 'end-1c'
+                    self.mark_set('insert', 'end-1c')
+                    self.tag_remove('sel', '1.0', 'end')
                 args[2] = str(args[2]).replace('\r', ' ').replace('\n', ' ')
             else:
                 start = self.index(args[1])
@@ -687,7 +699,7 @@ class AppleTerminalWidget(tk.Frame):
         # 优先选择美观等宽字体
         font_family = "Menlo" if sys.platform == 'darwin' else "Consolas"
 
-        self.text_area = tk.Text(
+        self.text_area = PromptText(
             body_frame,
             bg="#0d1117",
             fg="#c9d1d9",
@@ -695,22 +707,32 @@ class AppleTerminalWidget(tk.Frame):
             selectbackground="#1f6feb",
             selectforeground="#ffffff",
             font=(font_family, 10),
-            wrap=tk.CHAR,
+            wrap=tk.NONE,
             relief="flat",
             bd=0,
             padx=12,
             pady=10
         )
-        # 回显区只供阅读、选择和复制；所有命令通过底部输入栏发送。
-        self.text_area.configure(state=tk.DISABLED, cursor='arrow', exportselection=False)
+        self.text_area.configure(exportselection=False)
+        self.text_area.bind('<Return>', self._on_enter_pressed)
+        self.text_area.bind('<KP_Enter>', self._on_enter_pressed)
+        self.text_area.bind('<Up>', lambda event: self._history_key(event, -1))
+        self.text_area.bind('<Down>', lambda event: self._history_key(event, 1))
+        self.text_area.bind('<Home>', self._input_home)
+        self.text_area.bind('<Tab>', lambda event: 'break')
         self.text_area.bind('<Control-a>', self._select_output)
         if sys.platform == 'darwin':
             self.text_area.bind('<Command-a>', self._select_output)
-        self.text_area.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.text_area.grid(row=0, column=0, sticky='nsew')
 
         scrollbar = ttk.Scrollbar(body_frame, orient=tk.VERTICAL, command=self.text_area.yview)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        scrollbar.grid(row=0, column=1, sticky='ns')
         self.text_area.configure(yscrollcommand=scrollbar.set)
+        horizontal = ttk.Scrollbar(body_frame, orient=tk.HORIZONTAL, command=self.text_area.xview)
+        horizontal.grid(row=1, column=0, sticky='ew')
+        self.text_area.configure(xscrollcommand=horizontal.set)
+        body_frame.rowconfigure(0, weight=1)
+        body_frame.columnconfigure(0, weight=1)
 
         # 配置 ANSI 颜色标签
         self._config_ansi_tags(font_family)
@@ -750,46 +772,9 @@ class AppleTerminalWidget(tk.Frame):
             pill.pack(side=tk.LEFT, padx=2)
             pill.bind("<Button-1>", lambda e, val=cmd_val: self.send_input_text(val))
 
-        # 4. 底部交互输入栏
-        self.input_bar = tk.Frame(self, bg="#161b22", padx=10, pady=6)
-        self.input_bar.pack(side=tk.BOTTOM, fill=tk.X)
-
-        tk.Label(self.input_bar, text='命令输入', fg='#8b949e', bg='#161b22',
-                 font=('微软雅黑', 8)).pack(side=tk.LEFT, padx=(0, 6))
-
-        # 提示符 ❯
-        self.prompt_lbl = tk.Label(self.input_bar, text="❯", fg="#38bdf8", bg="#161b22", font=("Consolas", 12, "bold"))
-        self.prompt_lbl.pack(side=tk.LEFT, padx=(2, 6))
-
-        # 输入框
-        self.entry_input = tk.Entry(
-            self.input_bar,
-            bg="#0d1117",
-            fg="#f0f6fc",
-            insertbackground="#38bdf8",
-            relief="flat",
-            highlightthickness=1,
-            highlightbackground="#30363d",
-            highlightcolor="#38bdf8",
-            font=(font_family, 10)
-        )
-        self.entry_input.pack(side=tk.LEFT, fill=tk.X, expand=True, ipady=4, padx=(0, 8))
-        self.entry_input.bind("<Return>", lambda e: self._on_enter_pressed())
-
-        # 发送按钮
-        self.btn_send = tk.Button(
-            self.input_bar,
-            text="发送 (Enter)",
-            bg="#238636",
-            fg="#ffffff",
-            activebackground="#2ea043",
-            activeforeground="#ffffff",
-            relief="flat",
-            font=("微软雅黑", 8, "bold"),
-            padx=10,
-            command=self._on_enter_pressed
-        )
-        self.btn_send.pack(side=tk.LEFT)
+        self.input_hint = tk.Label(self, text='在提示后直接输入 · Enter 确认 · ↑↓ 历史 · Ctrl+C 复制',
+                                   bg='#161b22', fg='#8b949e', font=('微软雅黑', 8), anchor='w', padx=12, pady=5)
+        self.input_hint.pack(side=tk.BOTTOM, fill=tk.X)
 
     def _config_ansi_tags(self, font_family):
         self.text_area.tag_configure("ansi_red", foreground="#ff7b72")
@@ -810,93 +795,78 @@ class AppleTerminalWidget(tk.Frame):
         self.text_area.tag_configure("sys_hint", foreground="#6e7681", font=(font_family, 9, "italic"))
 
     def _select_output(self, event=None):
-        self.text_area.tag_add('sel', '1.0', 'end-1c')
+        start = 'input_start' if self.screen.awaiting_input else '1.0'
+        self.text_area.tag_add('sel', start, 'end-1c')
         return 'break'
 
-    def write_ansi(self, text):
-        """程序回显时短暂解锁，完成后恢复只读，保留选择和复制能力。"""
-        if not text:
-            return
-        self.text_area.configure(state=tk.NORMAL)
+    def _input_home(self, event=None):
+        if event is not None and event.state & 5:
+            return None
+        if self.screen.awaiting_input:
+            self.text_area.mark_set('insert', 'input_start')
+            return 'break'
+
+    def _draft(self):
+        return self.text_area.get('input_start', 'end-1c') if self.text_area.allow_input else ''
+
+    def _refresh_view(self, draft=''):
+        area = self.text_area
+        area.program_edit = True
         try:
-            self._render_ansi(text)
+            area.delete('1.0', 'end')
+            for row, line in enumerate(self.screen.lines):
+                if row:
+                    area.insert('end', '\n')
+                chunk, active_tags = '', ()
+                for char, tags in line:
+                    if tags != active_tags and chunk:
+                        area.insert('end', chunk, active_tags)
+                        chunk = ''
+                    active_tags = tags
+                    chunk += char
+                if chunk:
+                    area.insert('end', chunk, active_tags)
+            area.mark_set('input_start', 'end-1c')
+            area.allow_input = self.screen.awaiting_input
+            if area.allow_input and draft:
+                area.insert('end', draft, ('user_input',))
+            area.mark_set('insert', 'end-1c')
+            area.configure(insertontime=600 if area.allow_input else 0)
         finally:
-            self.text_area.configure(state=tk.DISABLED)
+            area.program_edit = False
+        self.input_hint.config(text='在提示后直接输入 · Enter 确认 · ↑↓ 历史 · Ctrl+C 复制' if area.allow_input
+                               else '脚本处理中或已退出 · 回显可选中复制')
+        area.see('end')
 
-    def _render_ansi(self, text):
-        """解析 ANSI 控制序列并安全渲染至终端文本框"""
+    def write_ansi(self, text):
         if not text:
             return
-
-        # Windows 文本输出会把换行转换成 CRLF；不能将其中的 CR 当作进度刷新。
-        text = self._pending_cr + text
-        self._pending_cr = ''
-        if text.endswith('\r'):
-            self._pending_cr = '\r'
-            text = text[:-1]
-        text = text.replace('\r\n', '\n')
-        text = self._pending_ansi + text
-        self._pending_ansi = ''
-        escape_start = text.rfind('\x1b')
-        if escape_start >= 0 and re.fullmatch(r'\x1b(?:\[[0-9;]*)?', text[escape_start:]):
-            self._pending_ansi = text[escape_start:]
-            text = text[:escape_start]
-
-        for tok in self.ANSI_TOKEN_RE.findall(text):
-            if tok == '\r':
-                # 回车：删除当前最后一行内容，支持进度条/Spinner单行刷新
-                self.text_area.delete('end-1c linestart', 'end-1c')
-            elif tok == '\n':
-                self.text_area.insert('end', '\n')
-            elif tok.startswith('\x1b['):
-                cmd = tok[-1]
-                param = tok[2:-1]
-
-                if cmd == 'm':
-                    color_tags = {'31': 'red', '91': 'red', '32': 'green', '92': 'green',
-                                  '33': 'yellow', '93': 'yellow', '34': 'blue', '94': 'blue',
-                                  '35': 'magenta', '95': 'magenta', '36': 'cyan', '96': 'cyan',
-                                  '37': 'white', '97': 'white', '30': 'gray', '90': 'gray'}
-                    for code in (param or '0').split(';'):
-                        if code == '0':
-                            self._active_tags.clear()
-                        elif code == '1':
-                            self._active_tags.add('ansi_bold')
-                        elif code == '22':
-                            self._active_tags.discard('ansi_bold')
-                        elif code in color_tags or code == '39':
-                            self._active_tags.difference_update('ansi_' + color for color in set(color_tags.values()))
-                            if code in color_tags:
-                                self._active_tags.add('ansi_' + color_tags[code])
-                        elif code in ('44', '46', '49'):
-                            self._active_tags.difference_update(('ansi_bg_blue', 'ansi_bg_cyan'))
-                            if code != '49':
-                                self._active_tags.add('ansi_bg_blue' if code == '44' else 'ansi_bg_cyan')
-                elif cmd == 'K':
-                    # 清行
-                    self.text_area.delete('end-1c linestart', 'end-1c')
-                elif cmd == 'A':
-                    # 光标上移 N 行
-                    n = int(param) if param.isdigit() else 1
-                    for _ in range(n):
-                        self.text_area.delete('end-2c linestart', 'end-1c')
-                elif cmd == 'J':
-                    # 清屏 (不完全清除历史，仅追加优雅分割线)
-                    self.text_area.insert('end', '\n─── 屏幕刷新 ───\n', ('sys_hint',))
-            else:
-                self.text_area.insert('end', tok, tuple(self._active_tags))
-
-        self.text_area.see('end')
+        draft = self._draft()
+        self.screen.feed(text)
+        self._refresh_view(draft)
 
     def clear_terminal(self):
-        self.text_area.configure(state=tk.NORMAL)
-        try:
-            self.text_area.delete('1.0', 'end')
-        finally:
-            self.text_area.configure(state=tk.DISABLED)
-        self._active_tags.clear()
-        self._pending_ansi = ''
-        self._pending_cr = ''
+        draft = self._draft()
+        prompt = list(self.screen._line()[:self.screen.column]) if self.screen.awaiting_input else []
+        self.screen.clear()
+        if prompt:
+            self.screen.lines = [prompt]
+            self.screen.column = len(prompt)
+        self._refresh_view(draft)
+
+    def _history_move(self, direction):
+        if self.screen.awaiting_input and self.history:
+            if self.history_position == len(self.history):
+                self.history_draft = self._draft()
+            self.history_position = max(0, min(len(self.history), self.history_position + direction))
+            draft = self.history_draft if self.history_position == len(self.history) else self.history[self.history_position]
+            self._refresh_view(draft)
+        return 'break'
+
+    def _history_key(self, event, direction):
+        if event.state & 5:
+            return None
+        return self._history_move(direction)
 
     def set_running_status(self, is_running, pid=None):
         if is_running:
@@ -906,14 +876,23 @@ class AppleTerminalWidget(tk.Frame):
             self.status_badge.config(text="○ 空闲", fg="#8b949e", bg="#21262d")
 
     def send_input_text(self, text):
-        if self.on_input_send:
-            self.write_ansi(f"❯ {text}\n")
-            self.on_input_send(text + "\n")
+        if not self.screen.awaiting_input or not self.on_input_send:
+            return False
+        text = text.replace('\r', ' ').replace('\n', ' ')
+        if self.on_input_send(text + '\n') is False:
+            return False
+        if text and (not self.history or self.history[-1] != text):
+            self.history.append(text)
+        self.history_position = len(self.history)
+        self.history_draft = ''
+        self.screen.echo_input(text)
+        self._refresh_view()
+        self.text_area.focus_set()
+        return True
 
-    def _on_enter_pressed(self):
-        val = self.entry_input.get()
-        self.entry_input.delete(0, tk.END)
-        self.send_input_text(val)
+    def _on_enter_pressed(self, event=None):
+        self.send_input_text(self._draft())
+        return 'break'
 
 
 # ============================================================
@@ -1020,7 +999,7 @@ class UniversalShellGUI(tk.Tk):
 
         # 左侧：脚本信息与版本
         info_left = tk.Frame(top_bar, bg="#161f30")
-        info_left.pack(side=tk.LEFT, fill=tk.Y)
+        info_left.pack(side=tk.TOP, fill=tk.X, pady=(0, 8))
 
         title_row = tk.Frame(info_left, bg="#161f30")
         title_row.pack(anchor="w")
@@ -1034,13 +1013,16 @@ class UniversalShellGUI(tk.Tk):
 
         self.lbl_script_meta = tk.Label(info_left, text="核心文件: core_script.py · 大小: - KB", fg="#8b949e", bg="#161f30", font=("微软雅黑", 8))
         self.lbl_script_meta.pack(anchor="w", pady=(3, 0))
+        self.lbl_data_dir = tk.Label(info_left, bg='#161f30', fg='#79c0ff', font=('微软雅黑', 8),
+                                     anchor='w', justify=tk.LEFT, wraplength=820)
+        self.lbl_data_dir.pack(anchor='w', pady=(3, 0))
 
         # 中右侧：更新源选择与热更新按钮
         actions_right = tk.Frame(top_bar, bg="#161f30")
-        actions_right.pack(side=tk.RIGHT, fill=tk.Y)
+        actions_right.pack(side=tk.TOP, fill=tk.X)
 
         src_row = tk.Frame(actions_right, bg="#161f30")
-        src_row.pack(anchor="e", pady=(0, 6))
+        src_row.pack(anchor="w", pady=(0, 6))
 
         tk.Label(src_row, text="更新源:", fg="#8b949e", bg="#161f30", font=("微软雅黑", 8)).pack(side=tk.LEFT, padx=(0, 4))
         self.source_names = [s["name"] for s in self.config.get("remote_sources", [])]
@@ -1070,7 +1052,7 @@ class UniversalShellGUI(tk.Tk):
 
         # 辅助操作行
         btn_sub_row = tk.Frame(actions_right, bg="#161f30")
-        btn_sub_row.pack(anchor="e")
+        btn_sub_row.pack(anchor="w")
 
         self.btn_run_script = tk.Button(
             btn_sub_row,
@@ -1104,7 +1086,7 @@ class UniversalShellGUI(tk.Tk):
 
         btn_data = tk.Button(
             btn_sub_row,
-            text="📁 数据目录",
+            text="📁 设置数据目录",
             bg="#21262d",
             fg="#c9d1d9",
             activebackground="#30363d",
@@ -1113,9 +1095,12 @@ class UniversalShellGUI(tk.Tk):
             font=("微软雅黑", 8),
             padx=6,
             pady=1,
-            command=self._on_open_data_dir
+            command=self._on_choose_data_dir
         )
         btn_data.pack(side=tk.LEFT, padx=(0, 4))
+        tk.Button(btn_sub_row, text='打开数据目录', bg='#21262d', fg='#c9d1d9',
+                  activebackground='#30363d', activeforeground='#ffffff', relief='flat',
+                  font=('微软雅黑', 8), padx=6, pady=1, command=self._on_open_data_dir).pack(side=tk.LEFT, padx=(0, 4))
 
         btn_bak = tk.Button(
             btn_sub_row,
@@ -1166,6 +1151,7 @@ class UniversalShellGUI(tk.Tk):
         self.lbl_app_name.config(text=name)
         self.lbl_version_badge.config(text=f"v{ver}")
         self.lbl_script_meta.config(text=f"核心文件: {CORE_SCRIPT_NAME} · 大小: {sz} KB · 修改时间: {mtime}")
+        self.lbl_data_dir.config(text=f'当前数据目录：{configured_data_dir(self.config)}')
 
     def _on_source_changed(self, event=None):
         idx = self.source_combo.current()
@@ -1189,14 +1175,23 @@ class UniversalShellGUI(tk.Tk):
 
         # 启动命令
         if IS_FROZEN:
-            cmd = [sys.executable, '--run-core']
+            worker = os.path.join(APP_DIR, WORKER_EXE_NAME)
+            if not os.path.isfile(worker):
+                self.terminal.write_ansi('[启动失败] 缺少后台运行组件，请重新解压完整绿色包。\n')
+                return
+            cmd = [worker, '--run-core']
         else:
-            cmd = [sys.executable, '-u', CORE_SCRIPT_PATH]
+            cmd = [sys.executable, '-u', os.path.abspath(__file__), '--run-core']
 
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
         env["TERM"] = "xterm-256color"
         env["PYTHONIOENCODING"] = "utf-8"
+        env['PR_TERMINAL_EMBEDDED'] = '1'
+        env['PR_AUDIT_DATA_DIR'] = configured_data_dir(self.config)
+        if not os.path.isdir(env['PR_AUDIT_DATA_DIR']):
+            self.terminal.write_ansi('[启动失败] 数据目录不存在，请点击【设置数据目录】重新选择。\n')
+            return
 
         try:
             process = subprocess.Popen(
@@ -1218,7 +1213,7 @@ class UniversalShellGUI(tk.Tk):
             def reader_worker():
                 try:
                     for text in iter_process_output(process.stdout):
-                        self.ui_events.put((self.terminal.write_ansi, (text,)))
+                        self.ui_events.put((self._write_process_output, (process, text)))
                 finally:
                     ret = process.wait()
                     process.stdout.close()
@@ -1227,9 +1222,14 @@ class UniversalShellGUI(tk.Tk):
 
             self.reader_thread = threading.Thread(target=reader_worker, daemon=True)
             self.reader_thread.start()
+            self.terminal.text_area.focus_set()
 
         except Exception as e:
             self.terminal.write_ansi(f"\033[91m[启动异常] 无法拉起脚本进程: {e}\033[0m\n")
+
+    def _write_process_output(self, process, text):
+        if process is self.process:
+            self.terminal.write_ansi(text)
 
     def _stop_script_process(self):
         """中止当前脚本进程"""
@@ -1256,6 +1256,9 @@ class UniversalShellGUI(tk.Tk):
                 self.after(100, wait_for_exit)
                 return
             self._restart_pending = False
+            self.terminal.screen.awaiting_input = False
+            self.terminal.screen.pending = ''
+            self.terminal.clear_terminal()
             self._start_script_process()
         self.after(100, wait_for_exit)
 
@@ -1263,6 +1266,7 @@ class UniversalShellGUI(tk.Tk):
         if process is not self.process:
             return
         self.terminal.set_running_status(False)
+        self.terminal.screen.awaiting_input = False
         self.terminal.write_ansi(f"\n\033[90m[进程已退出，返回码: {ret_code}] 点击【🚀 重启抽查会话】可重新运行。\033[0m\n")
 
     def _send_to_process(self, text_with_nl):
@@ -1270,10 +1274,12 @@ class UniversalShellGUI(tk.Tk):
             try:
                 self.process.stdin.write(text_with_nl.encode('utf-8'))
                 self.process.stdin.flush()
+                return True
             except Exception as e:
                 self.terminal.write_ansi(f"\033[91m[输入错误] 无法写入进程 stdin: {e}\033[0m\n")
         else:
             self.terminal.write_ansi("\033[90m[提示] 进程未在运行，输入已被忽略。点击【🚀 重启抽查会话】可启动。\033[0m\n")
+        return False
 
     def _on_check_update(self):
         if self.is_updating:
@@ -1326,16 +1332,33 @@ class UniversalShellGUI(tk.Tk):
 
     def _on_open_data_dir(self):
         try:
-            os.makedirs(DATA_DIR_PATH, exist_ok=True)
+            directory = configured_data_dir(self.config)
+            if not os.path.isdir(directory):
+                raise FileNotFoundError('当前数据目录不存在，请先设置数据目录')
             if sys.platform == 'win32':
-                os.startfile(DATA_DIR_PATH)
+                os.startfile(directory)
             elif sys.platform == 'darwin':
-                subprocess.Popen(['open', DATA_DIR_PATH])
+                subprocess.Popen(['open', directory])
             else:
-                subprocess.Popen(['xdg-open', DATA_DIR_PATH])
-            self.terminal.write_ansi(f"\033[90m[系统] 已打开数据表格存放目录: {DATA_DIR_PATH}\033[0m\n")
+                subprocess.Popen(['xdg-open', directory])
         except Exception as e:
             messagebox.showerror("打开数据目录失败", str(e))
+
+    def _on_choose_data_dir(self):
+        if self.process and self.process.poll() is None and not self.terminal.screen.awaiting_input:
+            messagebox.showinfo('数据目录', '正在处理数据，请等待操作完成或停止脚本后再切换目录。')
+            return
+        directory = filedialog.askdirectory(parent=self, title='选择原始 Excel 数据目录',
+                                            initialdir=configured_data_dir(self.config), mustexist=True)
+        if not directory:
+            return
+        config = dict(self.config, data_directory=data_dir_setting(directory))
+        if not save_config(config):
+            messagebox.showerror('数据目录', '配置保存失败，请检查程序目录的写入权限。')
+            return
+        self.config = config
+        self._refresh_status()
+        self._restart_script_process()
 
     def _on_manage_backups(self):
         if self.is_updating:
@@ -1419,15 +1442,76 @@ def main():
         sys.path.insert(0, APP_DIR)
         sys.argv = [CORE_SCRIPT_PATH]
         os.chdir(APP_DIR)
+        original_input = builtins.input
+        if os.environ.get('PR_TERMINAL_EMBEDDED') == '1':
+            def embedded_input(prompt=''):
+                sys.stdout.write(str(prompt) + '\x1b]777;input;on\x07')
+                sys.stdout.flush()
+                try:
+                    line = sys.stdin.readline()
+                    if line == '':
+                        raise EOFError('输入流已关闭')
+                    return line.rstrip('\r\n')
+                finally:
+                    sys.stdout.write('\x1b]777;input;off\x07')
+                    sys.stdout.flush()
+            builtins.input = embedded_input
         try:
             runpy.run_path(CORE_SCRIPT_PATH, run_name='__main__')
         except Exception:
             traceback.print_exc()
             print('\n[运行失败] 若提示缺少模块，请下载新版完整绿色包后重试。', file=sys.stderr)
             return 1
+        finally:
+            builtins.input = original_input
         return 0
 
     app = UniversalShellGUI()
+    if len(sys.argv) == 3 and sys.argv[1] == '--gui-smoke-result':
+        result_path = sys.argv[2]
+        app.withdraw()
+        deadline = time.monotonic() + 20
+        stage = 0
+        redraw = False
+        protected = False
+        def inspect():
+            nonlocal stage, redraw, protected
+            content = app.terminal.screen.text()
+            if stage == 0 and app.terminal.screen.awaiting_input and '请选择' in content:
+                app.terminal.text_area.insert('end-1c', '2')
+                prefix = app.terminal.text_area.get('1.0', 'input_start')
+                app.terminal.text_area.delete('1.0', 'input_start')
+                protected = app.terminal.text_area.get('1.0', 'input_start') == prefix
+                app.terminal._on_enter_pressed()
+                stage = 1
+            elif stage == 1 and app.terminal.screen.awaiting_input and '请输入抽查比例' in content:
+                app.terminal.text_area.insert('end-1c', '0.2')
+                app.terminal._on_enter_pressed()
+                stage = 2
+            elif stage == 2 and app.terminal.screen.awaiting_input and '当前 20%' in content:
+                redraw = content.count('PR 报告抽查脚本') == 1
+                redraw = redraw and app.terminal.text_area.get('1.0', 'end-1c') == content
+                app.terminal.text_area.insert('end-1c', '0')
+                app.terminal._on_enter_pressed()
+                stage = 3
+            if stage == 3 and app.process and app.process.poll() is not None and '再见' in content:
+                console = 0
+                if sys.platform == 'win32':
+                    import ctypes
+                    console = ctypes.windll.kernel32.GetConsoleWindow()
+                with open(result_path, 'w', encoding='utf-8') as stream:
+                    json.dump({'passed': app.process.returncode == 0 and not console and redraw and protected,
+                               'console_window': console, 'inline_input': True,
+                               'menu_redraw': redraw, 'protected_history': protected}, stream)
+                app._on_close()
+                return
+            if time.monotonic() >= deadline:
+                with open(result_path, 'w', encoding='utf-8') as stream:
+                    json.dump({'passed': False, 'reason': 'GUI interaction timed out', 'output': content[-2000:]}, stream)
+                app._on_close()
+                return
+            app.after(50, inspect)
+        app.after(50, inspect)
     app.mainloop()
 
 

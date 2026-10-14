@@ -7,5 +7,5 @@ xlrd>=2.0.1
 requests>=2.28.0
 
 # EXE 打包构建工具
-# 6.22.1 修复 --hide-console 在 6.22.0 的 spec 生成回归
+# GUI 与后台 worker 共用一份 Analysis 和依赖目录
 pyinstaller>=6.22.1,<7

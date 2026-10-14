@@ -19,6 +19,7 @@ import sys
 PROJECT_DIR = Path(__file__).resolve().parent
 PACKAGE_NAME = "PR-Audit-Sampler"
 FRIENDLY_EXE_NAME = "PR报告抽查工具.exe"
+WORKER_EXE_NAME = "PR-Audit-Worker.exe"
 PORTABLE_FILES = ("core_script.py", "version.json", "updater_config.json", "README.md")
 # These Excel engines are loaded dynamically by pandas, rather than by the core.
 EXCEL_HIDDEN_IMPORTS = {"xlrd", "pandas.io.excel._openpyxl", "pandas.io.excel._xlrd"}
@@ -101,41 +102,34 @@ VSVersionInfo(
     return output_path
 
 
-def pyinstaller_args(project_dir, name, dist_dir, work_dir):
+def build_spec(project_dir, name, version_file=None):
+    """GUI 没有控制台；独立 worker 保留标准 IO，两者共享同一依赖目录。"""
     project_dir = Path(project_dir)
-    args = [
-        "--noconfirm", "--clean", "--onedir", "--console",
-        # --windowed sets stdin/stdout/stderr to None in the --run-core process.
-        "--hide-console", "hide-early", "--name", name,
-        "--distpath", str(dist_dir), "--workpath", str(work_dir),
-        "--specpath", str(work_dir),
-    ]
+    scripts = [str(project_dir / 'universal_shell.py')]
+    data = [(str(project_dir / filename), '.') for filename in PORTABLE_FILES[:3]]
+    icon = str(project_dir / 'app.ico') if (project_dir / 'app.ico').is_file() else None
+    if icon:
+        data.append((icon, '.'))
+    version_file = str(version_file) if version_file else None
+    imports = collect_hidden_imports(project_dir / 'core_script.py')
+    return f"""# -*- coding: utf-8 -*-
+a = Analysis({scripts!r}, pathex={[str(project_dir)]!r}, binaries=[],
+             datas={data!r}, hiddenimports={imports!r}, hookspath=[],
+             runtime_hooks=[], excludes=[], noarchive=False)
+pyz = PYZ(a.pure)
+gui = EXE(pyz, a.scripts, [], exclude_binaries=True, name={name!r},
+          console=False, debug=False, strip=False, upx=False,
+          contents_directory='_internal', icon={icon!r}, version={version_file!r})
+worker = EXE(pyz, a.scripts, [], exclude_binaries=True, name='PR-Audit-Worker',
+             console=True, debug=False, strip=False, upx=False,
+             contents_directory='_internal', icon={icon!r}, version={version_file!r})
+coll = COLLECT(gui, worker, a.binaries, a.datas, strip=False, upx=False, name={name!r})
+"""
 
-    icon_path = project_dir / "app.ico"
-    if icon_path.is_file():
-        args.extend(["--icon", str(icon_path)])
 
-    metadata_path = project_dir / "version.json"
-    if metadata_path.is_file():
-        try:
-            metadata = json.loads(metadata_path.read_text(encoding="utf-8-sig"))
-            version_str = metadata.get("version", "1.1.0")
-            work_dir = Path(work_dir)
-            work_dir.mkdir(parents=True, exist_ok=True)
-            vfile = work_dir / "version_info.txt"
-            generate_version_info(version_str, vfile)
-            args.extend(["--version-file", str(vfile)])
-        except Exception:
-            pass
-
-    for filename in PORTABLE_FILES[:3]:
-        args.extend(["--add-data", f"{project_dir / filename}{os.pathsep}."])
-    if icon_path.is_file():
-        args.extend(["--add-data", f"{icon_path}{os.pathsep}."])
-    for module in collect_hidden_imports(project_dir / "core_script.py"):
-        args.extend(["--hidden-import", module])
-    args.append(str(project_dir / "universal_shell.py"))
-    return args
+def pyinstaller_args(project_dir, name, dist_dir, work_dir):
+    return ['--noconfirm', '--clean', '--distpath', str(dist_dir),
+            '--workpath', str(work_dir), str(Path(work_dir) / 'portable.spec')]
 
 
 def assemble_portable(project_dir, package_dir, name):
@@ -143,6 +137,8 @@ def assemble_portable(project_dir, package_dir, name):
     executable = package_dir / f"{name}.exe"
     if not executable.is_file():
         raise FileNotFoundError(f"PyInstaller did not produce {executable}")
+    if not (package_dir / WORKER_EXE_NAME).is_file():
+        raise FileNotFoundError(f'Missing background worker: {WORKER_EXE_NAME}')
     for filename in PORTABLE_FILES:
         shutil.copy2(Path(project_dir) / filename, package_dir / filename)
     icon_path = Path(project_dir) / "app.ico"
@@ -170,10 +166,12 @@ def main(argv=None):
             raise RuntimeError("Windows EXE must be built on Windows; use --check-only on other systems")
         from importlib.metadata import version
         from packaging.version import Version
-        # 6.22.0 regressed --hide-console spec generation; 6.22.1 fixed it.
-        # https://pyinstaller.org/en/stable/CHANGES.html
         if Version(version("pyinstaller")) < Version("6.22.1"):
             raise RuntimeError("PyInstaller >=6.22.1 is required; install requirements.txt")
+        args.workpath.mkdir(parents=True, exist_ok=True)
+        version_file = args.workpath.resolve() / 'version_info.txt'
+        generate_version_info(metadata['version'], version_file)
+        (args.workpath / 'portable.spec').write_text(build_spec(PROJECT_DIR, args.name, version_file), encoding='utf-8')
         command = [sys.executable, "-m", "PyInstaller"] + pyinstaller_args(
             PROJECT_DIR, args.name, args.distpath.resolve(), args.workpath.resolve()
         )
@@ -184,7 +182,8 @@ def main(argv=None):
         # source directories, where existing data or backups could be present.
         subprocess.run([
             sys.executable, str(PROJECT_DIR / "smoke_test.py"),
-            "--dist-dir", str(package_dir), "--exe", FRIENDLY_EXE_NAME,
+            "--dist-dir", str(package_dir), "--exe", WORKER_EXE_NAME,
+            "--gui-exe", FRIENDLY_EXE_NAME,
         ], cwd=PROJECT_DIR, check=True)
         print(f"Build and smoke tests passed: {package_dir}")
         return 0

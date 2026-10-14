@@ -5,6 +5,7 @@ from pathlib import Path
 import queue
 import tempfile
 import unittest
+import tkinter as tk
 from unittest.mock import patch
 
 
@@ -148,56 +149,46 @@ class TerminalTests(unittest.TestCase):
         self.assertEqual(''.join(shell.iter_process_output(ByteStream())), data.decode())
 
     def test_fragmented_ansi_keeps_color_and_combined_bold(self):
-        inserts = []
-
-        class TextArea:
-            def configure(self, **kwargs):
-                pass
-
-            def insert(self, index, text, tags=()):
-                inserts.append((text, tuple(tags)))
-
-            def see(self, index):
-                pass
-
-        terminal = object.__new__(shell.AppleTerminalWidget)
-        terminal._active_tags = set()
-        terminal._pending_ansi = ''
-        terminal._pending_cr = ''
-        terminal.text_area = TextArea()
+        screen = shell.AnsiScreen()
         for chunk in ['\x1b', '[9', '1;1m错误', '\x1b[32m成功', '\x1b[0', 'm普通']:
-            terminal.write_ansi(chunk)
-        self.assertEqual(''.join(text for text, _ in inserts), '错误成功普通')
-        self.assertEqual(set(inserts[0][1]), {'ansi_red', 'ansi_bold'})
-        self.assertEqual(set(inserts[1][1]), {'ansi_green', 'ansi_bold'})
-        self.assertEqual(inserts[2][1], ())
+            screen.feed(chunk)
+        self.assertEqual(screen.text(), '错误成功普通')
+        self.assertEqual(set(screen.lines[0][0][1]), {'ansi_red', 'ansi_bold'})
+        self.assertEqual(set(screen.lines[0][2][1]), {'ansi_green', 'ansi_bold'})
+        self.assertEqual(screen.lines[0][4][1], ())
 
-    def test_windows_crlf_does_not_erase_output_and_carriage_refresh_still_works(self):
-        inserts = []
-        deletes = []
-
-        class TextArea:
-            def configure(self, **kwargs):
-                pass
-
-            def insert(self, index, text, tags=()):
-                inserts.append(text)
-
-            def delete(self, *args):
-                deletes.append(args)
-
-            def see(self, index):
-                pass
-
-        terminal = object.__new__(shell.AppleTerminalWidget)
-        terminal._active_tags = set()
-        terminal._pending_ansi = ''
-        terminal._pending_cr = ''
-        terminal.text_area = TextArea()
+    def test_windows_crlf_preserves_lines_and_carriage_refresh_overwrites(self):
+        screen = shell.AnsiScreen()
         for chunk in ['第一行\r', '\n第二行\r\n', '进度10%\r', '进度20%']:
-            terminal.write_ansi(chunk)
-        self.assertEqual(''.join(inserts), '第一行\n第二行\n进度10%进度20%')
-        self.assertEqual(len(deletes), 1)
+            screen.feed(chunk)
+        self.assertEqual(screen.text(), '第一行\n第二行\n进度20%')
+
+    def test_new_menu_clears_previous_menu_instead_of_appending(self):
+        screen = shell.AnsiScreen()
+        screen.feed('old menu\n请选择: ')
+        for chunk in ['\x1b[2', 'J\x1b', '[Hnew menu\n请选择: ']:
+            screen.feed(chunk)
+        self.assertEqual(screen.text(), 'new menu\n请选择: ')
+
+    def test_progress_cursor_movement_redraws_without_duplicate_lines(self):
+        screen = shell.AnsiScreen()
+        screen.feed('合并 ...\n导出 ...\n')
+        for _ in range(5):
+            screen.feed('\x1b[2A\x1b[2K合并完成\n\x1b[2K导出完成\n')
+        self.assertEqual(screen.text(), '合并完成\n导出完成\n')
+
+    def test_split_input_markers_do_not_show_and_track_prompt_state(self):
+        screen = shell.AnsiScreen()
+        for chunk in ['请选择: \x1b]', '777;input;', 'on\x07']:
+            screen.feed(chunk)
+        self.assertTrue(screen.awaiting_input)
+        self.assertEqual(screen.text(), '请选择: ')
+        screen.echo_input('2')
+        self.assertFalse(screen.awaiting_input)
+        self.assertEqual(screen.text(), '请选择: 2\n')
+        screen.feed('\x1b]777;input;off\x07请输入比例: \x1b]777;input;on\x07')
+        self.assertTrue(screen.awaiting_input)
+        self.assertEqual(screen.text(), '请选择: 2\n请输入比例: ')
 
     def test_update_worker_exception_remains_available_to_ui_callback(self):
         events = queue.Queue()
@@ -229,6 +220,94 @@ class TerminalTests(unittest.TestCase):
         callback, args = events.get_nowait()
         callback(*args)
         self.assertEqual(finished, [(False, 'disk locked', '')])
+
+
+class NativeTerminalTests(unittest.TestCase):
+    def setUp(self):
+        try:
+            self.root = tk.Tk()
+        except tk.TclError as error:
+            self.skipTest(f'Native Tk is unavailable: {error}')
+        self.root.withdraw()
+        self.addCleanup(self.root.destroy)
+        self.commands = []
+        self.terminal = shell.AppleTerminalWidget(self.root)
+        self.terminal.pack(fill=tk.BOTH, expand=True)
+        self.terminal.on_input_send = self.commands.append
+        self.terminal.write_ansi('只读历史\n请输入: \x1b]777;input;on\x07')
+
+    def test_inline_input_preserves_history_and_sends_only_current_line(self):
+        area = self.terminal.text_area
+        area.insert('end-1c', '中文 0.2')
+        area.delete('1.0', 'input_start')
+        self.assertEqual(area.get('1.0', 'input_start'), '只读历史\n请输入: ')
+        self.terminal._on_enter_pressed()
+        self.assertEqual(self.commands, ['中文 0.2\n'])
+        self.assertEqual(area.get('1.0', 'end-1c'), '只读历史\n请输入: 中文 0.2\n')
+        area.insert('end', '处理时不得输入')
+        self.assertNotIn('处理时不得输入', area.get('1.0', 'end-1c'))
+
+    def test_editing_and_pasting_cannot_change_previous_output_or_submit_multiple_lines(self):
+        area = self.terminal.text_area
+        area.mark_set('insert', 'input_start')
+        area.delete('input_start-1c')
+        self.assertEqual(area.get('1.0', 'end-1c'), '只读历史\n请输入: ')
+        area.insert('1.0', '1\n0')
+        self.assertEqual(self.terminal._draft(), '1 0')
+        self.assertEqual(self.commands, [])
+        self.assertEqual(area.get('1.0', 'input_start'), '只读历史\n请输入: ')
+
+    def test_redraw_replaces_old_menu_and_preserves_pending_input(self):
+        self.terminal.text_area.insert('end-1c', '待输入')
+        self.terminal.write_ansi('\r\x1b[2K请输入新值: ')
+        self.assertEqual(self.terminal._draft(), '待输入')
+        self.terminal.clear_terminal()
+        self.assertEqual(self.terminal.text_area.get('1.0', 'end-1c'), '请输入新值: 待输入')
+        self.terminal.write_ansi('\x1b]777;input;off\x07\x1b[2J\x1b[H新菜单\n请选择: \x1b]777;input;on\x07')
+        self.assertEqual(self.terminal.text_area.get('1.0', 'end-1c'), '新菜单\n请选择: 待输入')
+
+    def test_history_and_quick_commands_use_the_same_prompt_input(self):
+        self.terminal.send_input_text('2')
+        self.assertFalse(self.terminal.send_input_text('8'))
+        self.assertEqual(self.commands, ['2\n'])
+        self.terminal.write_ansi('比例: \x1b]777;input;on\x07')
+        self.terminal._history_move(-1)
+        self.assertEqual(self.terminal._draft(), '2')
+        self.terminal._history_move(1)
+        self.assertEqual(self.terminal._draft(), '')
+
+
+class DataDirectoryTests(unittest.TestCase):
+    def test_directory_choice_is_saved_and_restarts_the_session(self):
+        with tempfile.TemporaryDirectory(prefix='PR 配置 ') as directory:
+            root = Path(directory)
+            chosen = root / '自定义目录'
+            chosen.mkdir()
+            calls = []
+            class GUI:
+                process = None
+                config = {'data_directory': ''}
+                def _refresh_status(self):
+                    calls.append('refresh')
+                def _restart_script_process(self):
+                    calls.append('restart')
+            gui = GUI()
+            with patch.object(shell, 'APP_DIR', str(root)), patch.object(shell, 'CONFIG_PATH', str(root / 'config.json')), \
+                 patch.object(shell, 'DATA_DIR_PATH', str(root / 'data')), \
+                 patch.object(shell.filedialog, 'askdirectory', return_value=str(chosen)):
+                shell.UniversalShellGUI._on_choose_data_dir(gui)
+                saved = shell.load_config()
+                self.assertEqual(saved['data_directory'], '自定义目录')
+                self.assertEqual(shell.configured_data_dir(saved), str(chosen))
+            self.assertEqual(calls, ['refresh', 'restart'])
+
+    def test_canceling_directory_choice_does_not_save_or_restart(self):
+        class GUI:
+            process = None
+            config = {'data_directory': ''}
+        with patch.object(shell.filedialog, 'askdirectory', return_value=''), patch.object(shell, 'save_config') as save:
+            shell.UniversalShellGUI._on_choose_data_dir(GUI())
+        save.assert_not_called()
 
 
 if __name__ == '__main__':

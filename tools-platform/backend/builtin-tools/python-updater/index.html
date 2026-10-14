@@ -319,7 +319,7 @@
               <span>💡</span> 通用外壳与动态热更新架构说明
             </h3>
             <p class="text-xs text-slate-300 leading-relaxed">
-              <span>客户端使用完整便携包运行，无需安装 Python。请保留 EXE 同目录的 _internal 文件夹、核心脚本和配置。</span>
+              <span>客户端使用完整便携包运行，无需安装 Python。请保留后台运行组件、_internal 文件夹、核心脚本和配置。</span>
               <span>点击「检查并更新」后，启动器下载最新核心脚本和版本信息，完成语法与 SHA-256 校验、备份后替换。</span>
               <strong>业务脚本可在线更新；新增依赖、外壳修复或旧 EXE 缺少模块时，需要下载新的完整绿色包。</strong>
             </p>
@@ -346,13 +346,19 @@
                 <div class="flex items-center gap-2">
                   <span class="px-2 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800 font-mono font-bold text-xs">v1.0.0</span>
                   <span class="text-slate-300 font-medium">PR 报告抽查脚本</span>
-                  <span class="text-[11px] text-slate-500">· core_script.py (53.4 KB)</span>
+                  <span class="text-[11px] text-slate-500">· core_script.py</span>
                 </div>
                 <div class="flex items-center gap-2">
                   <span class="text-slate-400 text-[11px]">更新源:</span>
                   <span class="px-2 py-1 rounded bg-slate-900 text-sky-300 border border-slate-800 text-[11px]">GitHub 官方源 (Raw)</span>
                   <button type="button" class="px-2.5 py-1 rounded bg-sky-600 text-white font-bold text-[11px]">🔄 检查并在线热更新</button>
                 </div>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
+                <span class="px-2 py-1 rounded bg-slate-800 text-sky-300">设置数据目录</span>
+                <span class="px-2 py-1 rounded bg-slate-800">打开数据目录</span>
+                <span>当前数据目录：所选文件夹</span>
               </div>
 
               <!-- 内置苹果风格终端 (Apple-Style Terminal) -->
@@ -381,7 +387,7 @@
                   <div>  <span class="text-yellow-400 font-bold">3</span>. 设置抽查范围（开关/比例）</div>
                   <div>  <span class="text-yellow-400 font-bold">4</span>. 设置抽样策略（优先级/均匀分布/种子）</div>
                   <div>  <span class="text-yellow-400 font-bold">0</span>. 退出</div>
-                  <div class="text-cyan-400 pt-1">请选择: <span class="text-slate-200">1</span></div>
+                  <div class="text-cyan-400 pt-1">请选择: <span class="text-slate-200">1</span><span class="inline-block h-3 w-1 bg-sky-400 ml-1 align-middle"></span></div>
                   <div class="text-emerald-400">  ✓  合并风险表  <span class="text-slate-500">369行 唯一369</span></div>
                   <div class="text-emerald-400">  ✓  加载合并表  <span class="text-slate-500">4/4 来源就绪</span></div>
                   <div class="text-emerald-400">  ✓  导出 Excel 总表  <span class="text-slate-500">42 行</span></div>
@@ -398,12 +404,8 @@
                   <span class="px-2 py-0.5 rounded bg-slate-800 text-amber-300 font-mono font-bold cursor-pointer hover:bg-amber-900">⏎ 回车确认</span>
                 </div>
 
-                <!-- 底部交互式输入栏 -->
-                <div class="bg-slate-900 px-3 py-2 border-t border-slate-800 flex items-center gap-2">
-                  <span class="text-slate-400 text-[11px]">命令输入</span>
-                  <span class="text-sky-400 font-mono font-bold text-sm">❯</span>
-                  <input type="text" readonly value="1" class="flex-1 bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 font-mono text-xs focus:outline-none">
-                  <button type="button" class="px-3 py-1 rounded bg-emerald-600 text-white font-bold text-xs">发送 (Enter)</button>
+                <div class="bg-slate-900 px-3 py-2 border-t border-slate-800 text-slate-400 text-[11px]">
+                  在提示后直接输入 · Enter 确认 · ↑↓ 历史 · Ctrl+C 复制
                 </div>
               </div>
 

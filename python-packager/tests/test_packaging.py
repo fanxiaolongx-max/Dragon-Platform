@@ -9,7 +9,7 @@ import unittest
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_DIR))
-from build_exe import collect_static_imports, collect_hidden_imports, pyinstaller_args, verify_core_metadata
+from build_exe import collect_static_imports, collect_hidden_imports, pyinstaller_args, verify_core_metadata, build_spec
 from smoke_test import run_core
 
 
@@ -31,13 +31,26 @@ class PackagingTests(unittest.TestCase):
             script.write_text("from __future__ import annotations\nfrom . import local\nfrom .local import value\nfrom xml.etree import ElementTree\n", encoding="utf-8")
             self.assertEqual(collect_static_imports(script), ["xml.etree"])
 
-    def test_build_keeps_console_io_and_hides_windows_console(self):
-        args = pyinstaller_args(PROJECT_DIR, "Sampler", Path("dist"), Path("build"))
-        self.assertIn("--console", args)
-        self.assertEqual(args[args.index("--hide-console") + 1], "hide-early")
-        self.assertNotIn("--windowed", args)
-        self.assertNotIn("--noconsole", args)
-        self.assertIn("glob", args)
+    def test_gui_is_windowed_and_worker_keeps_io_in_shared_distribution(self):
+        from types import SimpleNamespace
+        exes, collections = [], []
+        def exe(*args, **kwargs):
+            exes.append(kwargs)
+            return kwargs['name']
+        namespace = {
+            'Analysis': lambda *args, **kwargs: SimpleNamespace(pure=[], scripts=[], binaries=[], datas=[]),
+            'PYZ': lambda *args: None,
+            'EXE': exe,
+            'COLLECT': lambda *args, **kwargs: collections.append((args, kwargs)),
+        }
+        exec(build_spec(PROJECT_DIR, 'Sampler'), namespace)
+        self.assertEqual([exe['console'] for exe in exes], [False, True])
+        self.assertEqual([exe['name'] for exe in exes], ['Sampler', 'PR-Audit-Worker'])
+        self.assertEqual(collections[0][0][:2], ('Sampler', 'PR-Audit-Worker'))
+        self.assertEqual(collections[0][1]['name'], 'Sampler')
+        args = pyinstaller_args(PROJECT_DIR, 'Sampler', Path('dist'), Path('build'))
+        self.assertEqual(args[-1], str(Path('build/portable.spec')))
+        self.assertNotIn('--hide-console', args)
 
     def test_metadata_checks_exact_bytes_and_lf(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -52,6 +65,28 @@ class PackagingTests(unittest.TestCase):
             (project / "core_script.py").write_bytes(b"import glob\r\n")
             with self.assertRaisesRegex(ValueError, "LF"):
                 verify_core_metadata(project)
+
+    def test_shared_spec_preserves_icon_and_version_resources(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / 'core_script.py').write_text('import glob\n', encoding='utf-8')
+            (root / 'app.ico').write_bytes(b'fixture icon')
+            resources, executables = [], []
+            def analysis(*args, **kwargs):
+                resources.extend(kwargs['datas'])
+                return SimpleNamespace(pure=[], scripts=[], binaries=[], datas=[])
+            def exe(*args, **kwargs):
+                executables.append(kwargs)
+            version_file = root / 'version_info.txt'
+            exec(build_spec(root, 'Sampler', version_file), {
+                'Analysis': analysis, 'PYZ': lambda *args: None,
+                'EXE': exe, 'COLLECT': lambda *args, **kwargs: None,
+            })
+            self.assertIn((str(root / 'app.ico'), '.'), resources)
+            for executable in executables:
+                self.assertEqual(executable['icon'], str(root / 'app.ico'))
+                self.assertEqual(executable['version'], str(version_file))
 
 
 class SmokeHarnessTests(unittest.TestCase):
