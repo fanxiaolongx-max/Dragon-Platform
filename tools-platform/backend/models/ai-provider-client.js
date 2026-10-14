@@ -52,7 +52,8 @@ function normalizeMessages(messages = []) {
                         name: String(call && call.name || ''),
                         args: call && call.args && typeof call.args === 'object' ? call.args : {}
                     };
-                    if (call && typeof call.thoughtSignature === 'string' && call.thoughtSignature) out.thoughtSignature = call.thoughtSignature;
+                    const signature = toolThoughtSignature(call);
+                    if (signature) out.thoughtSignature = signature;
                     return out;
                 })
                 : null;
@@ -85,7 +86,7 @@ function parseToolArgs(raw) {
     }
 }
 
-function toOpenAiMessages(messages, systemInstruction) {
+function toOpenAiMessages(messages, systemInstruction, { model = '' } = {}) {
     const out = [];
     if (systemInstruction) out.push({ role: 'system', content: systemInstruction });
     normalizeMessages(messages).forEach(msg => {
@@ -94,13 +95,17 @@ function toOpenAiMessages(messages, systemInstruction) {
             return;
         }
         if (msg.role === 'model' && msg.toolCalls) {
+            const needsPlaceholder = requiresGeminiThoughtSignature(model) && !msg.toolCalls.some(call => call.thoughtSignature);
             out.push({
                 role: 'assistant',
                 content: msg.content || null,
-                tool_calls: msg.toolCalls.map(call => ({
+                tool_calls: msg.toolCalls.map((call, index) => ({
                     id: call.id,
                     type: 'function',
-                    function: { name: call.name, arguments: JSON.stringify(call.args || {}) }
+                    function: { name: call.name, arguments: JSON.stringify(call.args || {}) },
+                    ...((call.thoughtSignature || (needsPlaceholder && index === 0)) ? {
+                        extra_content: { google: { thought_signature: call.thoughtSignature || GEMINI_PLACEHOLDER_THOUGHT_SIGNATURE } }
+                    } : {})
                 }))
             });
             return;
@@ -117,13 +122,19 @@ function toOpenAiTools(tools) {
     }));
 }
 
+function toolThoughtSignature(call) {
+    const signature = call?.thoughtSignature || call?.thought_signature || call?.extra_content?.google?.thought_signature;
+    return typeof signature === 'string' ? signature : '';
+}
+
 function collectOpenAiToolCalls(toolCalls) {
     return (Array.isArray(toolCalls) ? toolCalls : [])
         .filter(call => call && call.function && call.function.name)
         .map((call, index) => ({
             id: String(call.id || `call_${index}`),
             name: String(call.function.name),
-            args: parseToolArgs(call.function.arguments)
+            args: parseToolArgs(call.function.arguments),
+            ...(toolThoughtSignature(call) ? { thoughtSignature: toolThoughtSignature(call) } : {})
         }));
 }
 
@@ -139,6 +150,9 @@ function createOpenAiToolCallAccumulator() {
                 if (item.id) slot.id = String(item.id);
                 if (item.function && item.function.name) slot.name += String(item.function.name);
                 if (item.function && item.function.arguments) slot.args += String(item.function.arguments);
+                // 签名是独立的不透明字段，可能在只含 extra_content 的末尾分片到达。
+                // 重复发送的完整签名不能像 arguments 一样拼接。
+                if (toolThoughtSignature(item)) slot.thoughtSignature = toolThoughtSignature(item);
                 slots.set(index, slot);
             });
         },
@@ -146,7 +160,7 @@ function createOpenAiToolCallAccumulator() {
             return [...slots.entries()]
                 .sort((a, b) => a[0] - b[0])
                 .filter(([, slot]) => slot.name)
-                .map(([index, slot]) => ({ id: slot.id || `call_${index}`, name: slot.name, args: parseToolArgs(slot.args) }));
+                .map(([index, slot]) => ({ id: slot.id || `call_${index}`, name: slot.name, args: parseToolArgs(slot.args), ...(slot.thoughtSignature ? { thoughtSignature: slot.thoughtSignature } : {}) }));
         }
     };
 }
@@ -599,7 +613,7 @@ class AiProviderClient {
     async generateOpenAi({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, signal, tools, toolChoice }) {
         const body = {
             model: this.model,
-            messages: toOpenAiMessages(messages, systemInstruction),
+            messages: toOpenAiMessages(messages, systemInstruction, { model: this.model }),
             max_tokens: Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048)),
             temperature: Number(temperature ?? this.settings.temperature ?? 0.7)
         };
@@ -639,7 +653,7 @@ class AiProviderClient {
     async generateOpenAiStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, signal, tools, toolChoice }) {
         const body = {
             model: this.model,
-            messages: toOpenAiMessages(messages, systemInstruction),
+            messages: toOpenAiMessages(messages, systemInstruction, { model: this.model }),
             max_tokens: Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048)),
             temperature: Number(temperature ?? this.settings.temperature ?? 0.7),
             stream: true
@@ -752,7 +766,7 @@ class AiProviderClient {
         const configuredLimit = Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048));
         const body = {
             model: this.model,
-            messages: toOpenAiMessages(messages, systemInstruction),
+            messages: toOpenAiMessages(messages, systemInstruction, { model: this.model }),
             max_completion_tokens: Math.min(Math.max(configuredLimit, 8192), 32768),
             temperature: Number(temperature ?? this.settings.temperature ?? 0.7),
             reasoning_split: true,
@@ -809,7 +823,7 @@ class AiProviderClient {
     }
 
     async generateMiniMax({ messages, systemInstruction, maxOutputTokens, temperature, onRetry, signal, tools, toolChoice }) {
-        const bodyMessages = toOpenAiMessages(messages, systemInstruction);
+        const bodyMessages = toOpenAiMessages(messages, systemInstruction, { model: this.model });
         const openAiTools = toOpenAiTools(tools);
 
         // M2.x 的思考内容会占 completion token。首轮给足空间；若仍被截断，

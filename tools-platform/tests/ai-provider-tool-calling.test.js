@@ -10,9 +10,12 @@ process.env.TOOLS_REPORT_DATA_DIR = path.join(sandbox, 'report-data');
 
 const { createClient, normalizeMessages, isAutoSwitchableError } = require('../backend/models/ai-provider-client');
 const tenantPool = require('../backend/models/tenant-sqlite-pool');
+const transcripts = require('../backend/models/agent-transcript-repository');
+const appDb = require('../backend/models/app-db');
 
 test.after(async () => {
     await tenantPool.closeAll();
+    await appDb.closeDatabase();
     fs.rmSync(sandbox, { recursive: true, force: true });
 });
 
@@ -102,6 +105,47 @@ test('openai non-stream response exposes tool_calls and keeps text', async () =>
         const result = await client.generateText({ messages: [{ role: 'user', content: 'x' }], tools: TOOLS });
         assert.equal(result.text, 'Let me look.');
         assert.deepEqual(result.toolCalls, [{ id: 'call_9', name: 'read_file', args: { path: 'a.md' } }]);
+    });
+});
+
+test('a compatible gateway signature survives streaming, SQLite restore and the next tool request', async () => {
+    // 自定义网关模型名也要透传实际签名，不能仅靠模型名字猜供应商。
+    const client = createClient({ ...baseSettings, provider: 'openai-compatible', model: 'gateway-custom', apiBaseUrl: 'http://mock/v1' });
+    await withFetch(({ calls }) => calls.length === 1 ? sseResponse([
+        { choices: [{ delta: { tool_calls: [{ index: 0, id: 'c1', function: { name: 'read_file', arguments: '{"path":"a"}' } }, { index: 1, id: 'c2', function: { name: 'list_directory', arguments: '{}' } }] } }] },
+        { choices: [{ delta: { tool_calls: [{ index: 0, extra_content: { google: { thought_signature: 'opaque-compat-signature' } } }] } }] },
+        { choices: [{ delta: { tool_calls: [{ index: 0, extra_content: { google: { thought_signature: 'opaque-compat-signature' } } }] }, finish_reason: 'tool_calls' }] },
+        '[DONE]'
+    ]) : jsonResponse({ choices: [{ message: { content: 'done' } }] }), async calls => {
+        const result = await client.generateText({ messages: [{ role: 'user', content: 'look' }], tools: TOOLS, onDelta: () => {} });
+        assert.equal(result.toolCalls[0].thoughtSignature, 'opaque-compat-signature');
+        assert.equal(result.toolCalls[1].thoughtSignature, undefined);
+        await transcripts.save({ agentSessionId: 'compat-signature-restore', owner: 'default::alice', root: sandbox, transcript: [
+            { role: 'user', content: 'look' },
+            { role: 'model', content: '', toolCalls: result.toolCalls },
+            { role: 'tool', toolResults: result.toolCalls.map(call => ({ id: call.id, name: call.name, content: 'ok' })) }
+        ] });
+        const restored = await transcripts.load('compat-signature-restore');
+        await client.generateText({ messages: restored.transcript, tools: TOOLS });
+        const sent = calls[1].body.messages[1].tool_calls;
+        assert.deepEqual(sent[0].extra_content, { google: { thought_signature: 'opaque-compat-signature' } });
+        assert.equal(sent[1].extra_content, undefined);
+        assert.equal(calls[1].body.messages[2].tool_call_id, 'c1');
+        assert.equal(calls[1].body.messages[3].tool_call_id, 'c2');
+    });
+});
+
+test('compatible buffered responses retain signatures and old Gemini history gets a first-call placeholder', async () => {
+    const client = createClient({ ...baseSettings, provider: 'openai-compatible', model: 'google/gemini-3-flash', apiBaseUrl: 'http://mock/v1' });
+    await withFetch(() => jsonResponse({ choices: [{ message: { tool_calls: [{ id: 'new', function: { name: 'read_file', arguments: '{}' }, extra_content: { google: { thought_signature: 'buffered-signature' } } }] } }] }), async calls => {
+        const result = await client.generateText({ messages: [
+            { role: 'user', content: 'look' },
+            { role: 'model', content: '', toolCalls: [{ id: 'old1', name: 'read_file', args: {} }, { id: 'old2', name: 'list_directory', args: {} }] },
+            { role: 'tool', toolResults: [{ id: 'old1', name: 'read_file', content: 'ok' }, { id: 'old2', name: 'list_directory', content: 'ok' }] }
+        ], tools: TOOLS });
+        assert.equal(result.toolCalls[0].thoughtSignature, 'buffered-signature');
+        assert.equal(calls[0].body.messages[1].tool_calls[0].extra_content.google.thought_signature, 'skip_thought_signature_validator');
+        assert.equal(calls[0].body.messages[1].tool_calls[1].extra_content, undefined);
     });
 });
 
