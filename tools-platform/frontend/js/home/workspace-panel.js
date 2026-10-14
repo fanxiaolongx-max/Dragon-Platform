@@ -679,11 +679,13 @@
         if (tool === 'search') return `"${args.query || ''}"${args.path && args.path !== '.' ? ` in ${args.path}` : ''}`;
         if (tool === 'rename_path') return `${args.from || ''} → ${args.to || ''}`;
         if (tool === 'list_directory') return args.path || '.';
+        if (tool === 'list_databases') return args.path || '.';
+        if (tool === 'database_schema' || tool === 'read_database_table') return `${args.database || ''}${args.table ? ` / ${args.table}` : ''}`;
         return args.path || '';
     }
 
     function toolIcon(tool) {
-        return { list_directory: '📂', read_file: '📄', search: '🔍', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘' }[tool] || '⚙';
+        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘' }[tool] || '⚙';
     }
 
     function handleEvent(messageEl, event) {

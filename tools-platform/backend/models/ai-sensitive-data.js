@@ -3,6 +3,7 @@
 const REDACTED = '[REDACTED]';
 const FIELD = '(?:api[_-]?key|api[_-]?token|access[_-]?token|refresh[_-]?token|auth[_-]?token|client[_-]?secret|password(?:[_-]?hash)?|passwd|secret(?:[_-]?key)?|token|authorization|cookie|set-cookie|private[_-]?key)';
 const QUOTED_FIELD = new RegExp(`((?:["']?${FIELD}["']?)\\s*[:=]\\s*)(["'])(?:\\\\.|(?!\\2)[^\\r\\n])*?\\2`, 'gi');
+const UNTERMINATED_FIELD = new RegExp(`((?:["']?${FIELD}["']?)\\s*[:=]\\s*)(["'])(?:\\\\.|(?!\\2)[^\\r\\n])*$`, 'gim');
 const BARE_FIELD = new RegExp(`((?:["']?${FIELD}["']?)\\s*[:=]\\s*)(?!["'\\s]|\\[REDACTED\\])([^\\s,;}\\]<>]+)`, 'gi');
 const SENSITIVE_FIELD = new RegExp(`^(?:[a-z0-9]+[_-])*(?:${FIELD})$`, 'i');
 
@@ -17,6 +18,7 @@ function redactText(value, { secrets = [] } = {}) {
         .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+\/-]+=*/gi, match => `${match.split(/\s/)[0]} ${REDACTED}`)
         .replace(/(https?:\/\/|(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?):\/\/)([^\s/@:]+):([^\s/@]+)@/gi, `$1${REDACTED}@`)
         .replace(QUOTED_FIELD, (_match, prefix, quote) => `${prefix}${quote}${REDACTED}${quote}`)
+        .replace(UNTERMINATED_FIELD, (_match, prefix, quote) => `${prefix}${quote}${REDACTED}${quote}`)
         .replace(BARE_FIELD, (_match, prefix) => `${prefix}${REDACTED}`)
         .replace(/\b(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{16,}|AIza[A-Za-z0-9_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16})\b/g, REDACTED);
     return text;

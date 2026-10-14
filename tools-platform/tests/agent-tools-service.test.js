@@ -189,7 +189,7 @@ test('unified diff and tool definitions are well formed', () => {
     assert.equal(diff.removed, 1);
     assert.match(diff.text, /^--- a\/a\.txt\n\+\+\+ b\/a\.txt\n@@/);
     const defs = tools.definitions();
-    assert.deepEqual(defs.map(item => item.name), ['list_directory', 'read_file', 'search', 'write_file', 'edit_file', 'delete_path', 'rename_path', 'run_command']);
+    assert.deepEqual(defs.map(item => item.name), ['list_directory', 'read_file', 'search', 'list_databases', 'database_schema', 'read_database_table', 'write_file', 'edit_file', 'delete_path', 'rename_path', 'run_command']);
     defs.forEach(def => assert.equal(def.parameters.type, 'object'));
     assert.equal(tools.kindOf('run_command'), 'command');
     assert.equal(tools.kindOf('delete_path'), 'destructive');
@@ -232,7 +232,7 @@ test('renaming an existing file can be undone and read-only users only get read 
     fs.rmSync(path.join(ROOT, 'before.txt'));
 
     const readOnly = tools.definitions({ readOnly: true }).map(item => item.name).sort();
-    assert.deepEqual(readOnly, ['list_directory', 'read_file', 'search']);
+    assert.deepEqual(readOnly, ['database_schema', 'list_databases', 'list_directory', 'read_database_table', 'read_file', 'search']);
     assert.ok(tools.definitions().some(item => item.name === 'run_command'));
 });
 

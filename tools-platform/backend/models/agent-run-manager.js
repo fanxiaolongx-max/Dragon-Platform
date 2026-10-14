@@ -272,6 +272,7 @@ function buildAgentAddendum(session, { gitBranch, directoryContext }) {
 - 权限模式：${session.readOnly ? '只读（当前账号不是管理员，只能查看和搜索文件，不能修改、删除、重命名或执行命令；需要改动时请告诉用户联系管理员）' : modeText}
 - 所有路径都相对根目录（如 src/index.js）；不能访问根目录之外的内容。
 - 改文件前先用 read_file 看清上下文；小改动用 edit_file，整文件重写才用 write_file。
+- 涉及平台业务数据或 SQLite 时，先 list_databases，再 database_schema / read_database_table；平台数据库由当前租户解析，与所选目录无关。不要用 Shell 绕过数据库工具的凭据和租户限制。
 - 工具返回的错误要如实告诉用户；被用户拒绝的操作不要换个方式重试。
 - 执行完成后用简洁的 Markdown 总结做了什么、改了哪些文件。
 

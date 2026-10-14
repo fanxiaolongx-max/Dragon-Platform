@@ -10,6 +10,7 @@ const guard = require('./agent-path-guard');
 const { redactText, redactValue } = require('./ai-sensitive-data');
 const { unifiedDiff } = require('./agent-change-log');
 const commandGuard = require('./agent-command-guard');
+const databaseService = require('./agent-database-service');
 
 const LIMITS = {
     listEntries: 500,
@@ -72,6 +73,25 @@ const DEFINITIONS = [
             },
             required: ['query']
         }
+    },
+    {
+        name: 'list_databases', kind: 'read',
+        description: '列出当前租户的平台 SQLite 和所选工作目录内的 SQLite 数据库。后续使用返回的 database 标识；path 可指定更深子目录。',
+        parameters: { type: 'object', properties: { path: { type: 'string' } } }
+    },
+    {
+        name: 'database_schema', kind: 'read',
+        description: '查看 SQLite 可读取的业务表；传 table 查看列。账号、聊天、凭据表和敏感列始终排除。',
+        parameters: { type: 'object', properties: { database: { type: 'string' }, table: { type: 'string' } }, required: ['database'] }
+    },
+    {
+        name: 'read_database_table', kind: 'read',
+        description: '只读分页读取业务表，不接受 SQL。默认前 16 列、20 行，最多 50 行；按 nextOffset 继续。单格最多 1000 字符，敏感字段和凭据被排除或脱敏。',
+        parameters: { type: 'object', properties: {
+            database: { type: 'string' }, table: { type: 'string' }, columns: { type: 'array', items: { type: 'string' } },
+            limit: { type: 'integer' }, offset: { type: 'integer' },
+            filter: { type: 'object', properties: { column: { type: 'string' }, op: { type: 'string', enum: ['eq', 'contains'] }, value: { type: 'string' } }, required: ['column', 'op', 'value'] }
+        }, required: ['database', 'table'] }
     },
     {
         name: 'write_file',
@@ -663,6 +683,9 @@ const EXECUTORS = {
     list_directory: listDirectory,
     read_file: readFile,
     search,
+    list_databases: async (ctx, args) => ({ content: JSON.stringify(await databaseService.listDatabases(ctx, args)), summary: 'SQLite 数据库目录' }),
+    database_schema: async (ctx, args) => ({ content: JSON.stringify(await databaseService.schema(ctx, args)), summary: `${args.database} ${args.table || '业务表'}` }),
+    read_database_table: async (ctx, args) => ({ content: JSON.stringify(await databaseService.readTable(ctx, args)), summary: `${args.database} / ${args.table}` }),
     write_file: writeFile,
     edit_file: editFile,
     delete_path: deletePath,

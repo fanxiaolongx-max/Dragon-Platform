@@ -139,6 +139,7 @@ test('credential filtering is idempotent and preserves opaque model signatures',
     const safe = redactText(text);
     for (const secret of ['synthetic-key', 'synthetic-password', 'synthetic-token', 'a=secret', 'b=other']) assert.equal(safe.includes(secret), false);
     assert.equal(redactText(safe), safe);
+    assert.equal(redactText('{"password":"truncated-private-value').includes('truncated-private-value'), false);
     const structured = redactValue({ apiKey: 'sensitive', nested: { password_hash: 'hash' }, thoughtSignature: 'opaque-signature' });
     assert.equal(structured.apiKey, '[REDACTED]');
     assert.equal(structured.nested.password_hash, '[REDACTED]');
