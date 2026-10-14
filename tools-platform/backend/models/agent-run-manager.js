@@ -106,7 +106,7 @@ function ensureSession({ agentSessionId, user, tenantId, root, permissionMode })
 
 /**
  * 从库里恢复同一 agentSessionId 上次持久化的工具转录（仅首次、且根目录一致时）。
- * 需在请求的租户上下文内调用；读库失败只记日志，不影响本轮对话。
+ * 需在请求的租户上下文内调用；无法确认归属时停止本轮。
  */
 async function hydrateSession(session) {
     if (!session || session.hydrated) return session;
@@ -378,7 +378,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     // 同一会话前几轮的工具转录（按轮保存、含用户消息）替换对应的文字历史，让模型记得自己做过什么，
     // 且工具调用始终紧跟用户消息或工具结果。
     const currentUser = historyMessages[historyMessages.length - 1];
-    const messages = redactValue(transcriptRepo.mergeHistoryWithTranscript(historyMessages, session.transcript), { secrets: sensitiveValues });
+    let messages = redactValue(transcriptRepo.mergeHistoryWithTranscript(historyMessages, session.transcript), { secrets: sensitiveValues });
     const toolCtx = { root: session.root, changeLog: session.changeLog, signal, sensitiveValues, onProcess: child => run.processes.add(child) };
     session.changeLog.sensitiveValues = sensitiveValues;
 
@@ -391,10 +391,17 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     let finalText = '';
     const turnTranscript = currentUser && currentUser.role === 'user' ? [{ role: 'user', content: String(currentUser.content || '') }] : [];
     const toolLog = [];
+    const initialTranscript = session.transcript;
+    const checkpoint = status => transcriptRepo.saveTurn({ runId: run.id, agentSessionId: session.id, owner: session.owner, root: session.root,
+        transcript: redactValue(turnTranscript, { secrets: sensitiveValues }), status });
 
     try {
+        await checkpoint('running');
         for (steps = 1; steps <= MAX_STEPS; steps += 1) {
             if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
+            const compacted = contextStats.fitMessages({ model: model || activeClient?.model, systemPrompt: fullSystem, messages, tools, maxOutputTokens });
+            messages = compacted.messages;
+            if (compacted.droppedTurns) write({ type: 'status', status: `较早的 ${compacted.droppedTurns} 轮已移出模型上下文，完整记录仍保留在会话档案中。` });
             const result = await activeClient.generateText({
                 systemInstruction: fullSystem,
                 messages,
@@ -419,6 +426,9 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
             messages.push(modelMessage);
             turnTranscript.push(modelMessage);
             const toolResults = [];
+            const toolMessage = { role: 'tool', toolResults };
+            turnTranscript.push(toolMessage);
+            await checkpoint('running');
             for (const call of toolCalls) {
                 toolCallCount += 1;
                 const startedAt = Date.now();
@@ -447,18 +457,17 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
                 if (!outcome) outcome = await toolsService.execute(toolCtx, call.name, call.args);
                 const durationMs = Date.now() - startedAt;
                 // 命令输出随事件下发（截断），界面可展开查看，也随会话记录入库
-                const output = call.name === 'run_command' && typeof outcome.content === 'string' ? outcome.content.slice(0, 4000) : undefined;
+                const output = call.name === 'run_command' && typeof outcome.content === 'string' ? outcome.content : undefined;
                 write({ type: 'tool_result', runId: run.id, callId: call.id, tool: call.name, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 200), truncated: Boolean(outcome.truncated), durationMs, ...(output ? { output } : {}) });
                 if (outcome.change) write({ type: 'change', ...outcome.change });
                 (outcome.changes || []).forEach(change => write({ type: 'change', ...change }));
                 if (outcome.mutated || outcome.change || outcome.changes?.length || (!outcome.isError && ['write', 'destructive'].includes(toolsService.kindOf(call.name)))) await persistChanges(session);
                 toolLog.push({ tool: call.name, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 120) });
                 toolResults.push({ id: call.id, name: call.name, content: outcome.content, isError: Boolean(outcome.isError) });
+                await checkpoint('running');
                 if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
             }
-            const toolMessage = { role: 'tool', toolResults };
             messages.push(toolMessage);
-            turnTranscript.push(toolMessage);
         }
         if (!finalText && steps > MAX_STEPS) {
             finalText = `已达到单轮最大工具调用步数（${MAX_STEPS}），请继续提问以接着处理。`;
@@ -477,6 +486,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
             providerPromptTokens: lastPromptTokens
         });
         session.lastContext = context;
+        await checkpoint('completed');
         await persistTranscript(session);
         return {
             text: finalText,
@@ -490,6 +500,19 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
             gitBranch,
             runId: run.id
         };
+    } catch (error) {
+        // 已执行的工具结果即使随后中断/模型出错也要恢复；尚未执行的并行调用补齐失败响应。
+        const last = turnTranscript[turnTranscript.length - 1];
+        const calls = turnTranscript[turnTranscript.length - 2]?.toolCalls;
+        if (last?.role === 'tool' && calls) {
+            const done = new Set(last.toolResults.map(item => item.id));
+            for (const call of calls) if (!done.has(call.id)) last.toolResults.push({ id: call.id, name: call.name, content: '本轮已中断，操作未执行。', isError: true });
+        }
+        turnTranscript.push({ role: 'model', content: signal?.aborted ? '（本轮已停止）' : `（本轮失败：${redactText(error.message, { secrets: sensitiveValues })}）` });
+        session.transcript = transcriptRepo.normalizeTranscript(redactValue([...initialTranscript, ...turnTranscript], { secrets: sensitiveValues }));
+        await checkpoint(signal?.aborted ? 'aborted' : 'failed').catch(saveError => console.warn('[agent] failed to persist turn archive:', redactText(saveError.message)));
+        await persistTranscript(session);
+        throw error;
     } finally {
         run.end();
     }
@@ -500,6 +523,7 @@ function stats() {
 }
 
 module.exports = {
+    ownerKey,
     isAdminUser,
     MAX_STEPS,
     APPROVAL_TIMEOUT_MS,

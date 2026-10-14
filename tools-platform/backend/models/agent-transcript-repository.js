@@ -1,6 +1,6 @@
 // Dragon Claw 工作区：智能体会话的工具调用转录持久化（租户库 agent_session_transcripts）。
 // 转录 = 上几轮的 model(toolCalls) / tool(toolResults) / model(text) 消息，重启后同一 agentSessionId 仍能延续。
-const { run, get } = require('./app-db');
+const { run, get, all } = require('./app-db');
 const { redactValue } = require('./ai-sensitive-data');
 
 const MAX_ENTRIES = 80; // 单轮最多 25 步（约 52 条），至少能完整保住一轮
@@ -37,6 +37,18 @@ function ensureReady() {
                 agent_session_id TEXT PRIMARY KEY,
                 owner TEXT NOT NULL
             )`);
+            // 完整逐轮档案与模型的有限上下文分开保存，裁剪上下文不删除历史。
+            await run(`CREATE TABLE IF NOT EXISTS agent_session_turns (
+                run_id TEXT PRIMARY KEY,
+                agent_session_id TEXT NOT NULL,
+                owner TEXT NOT NULL,
+                root TEXT NOT NULL,
+                transcript TEXT NOT NULL DEFAULT '[]',
+                status TEXT NOT NULL DEFAULT 'running',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`);
+            await run('CREATE INDEX IF NOT EXISTS idx_agent_turns_session ON agent_session_turns(agent_session_id, created_at)');
         })().catch(error => {
             readyByDb.delete(dbKey);
             throw error;
@@ -94,7 +106,8 @@ function normalizeTranscript(transcript) {
     let bytes = 2;
     for (let index = turns.length - 1; index >= 0; index -= 1) {
         const size = Buffer.byteLength(JSON.stringify(turns[index]), 'utf8') + 1;
-        if (count + turns[index].length > MAX_ENTRIES || bytes + size > MAX_JSON_BYTES) break;
+        // 最新一轮即使较大也必须保留，后续请求由上下文预算控制；不能静默变成空转录。
+        if (kept.length && (count + turns[index].length > MAX_ENTRIES || bytes + size > MAX_JSON_BYTES)) break;
         kept.unshift(turns[index]);
         count += turns[index].length;
         bytes += size;
@@ -150,6 +163,27 @@ async function load(agentSessionId) {
     };
 }
 
+async function saveTurn({ runId, agentSessionId, owner, root, transcript, status = 'running' }) {
+    await claimSession(agentSessionId, owner);
+    const entries = redactValue((Array.isArray(transcript) ? transcript : []).map(sanitizeEntry).filter(Boolean));
+    await run(`INSERT INTO agent_session_turns (run_id, agent_session_id, owner, root, transcript, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT(run_id) DO UPDATE SET transcript = excluded.transcript, status = excluded.status, updated_at = CURRENT_TIMESTAMP
+        WHERE agent_session_turns.owner = excluded.owner AND agent_session_turns.agent_session_id = excluded.agent_session_id`,
+    [runId, agentSessionId, owner, root, JSON.stringify(entries), status]);
+}
+
+async function listTurns({ agentSessionId, owner, root, limit = 5, offset = 0 }) {
+    await ensureReady();
+    const record = await get('SELECT owner FROM agent_session_owners WHERE agent_session_id = ?', [agentSessionId]);
+    if (!record || record.owner !== owner) throw Object.assign(new Error('无权访问该智能体会话'), { code: 'AGENT_SESSION_FORBIDDEN', statusCode: 403 });
+    const size = Math.min(20, Math.max(1, Math.floor(Number(limit)) || 5));
+    const skip = Math.max(0, Math.floor(Number(offset)) || 0);
+    const rows = await all(`SELECT run_id, transcript, status, created_at FROM agent_session_turns
+        WHERE agent_session_id = ? AND owner = ? AND root = ? ORDER BY rowid DESC LIMIT ? OFFSET ?`, [agentSessionId, owner, root, size, skip]);
+    return rows.map(row => ({ runId: row.run_id, status: row.status, createdAt: row.created_at, transcript: JSON.parse(row.transcript) }));
+}
+
 async function save({ agentSessionId, owner, root, permissionMode, transcript, turnCount, context = null }) {
     await ensureReady();
     const existing = await load(agentSessionId);
@@ -199,4 +233,4 @@ async function prune(days = 30) {
     return result.changes || 0;
 }
 
-module.exports = { ensureReady, claimSession, load, save, findLatestSessionId, remove, prune, normalizeTranscript, mergeHistoryWithTranscript, MAX_ENTRIES, MAX_JSON_BYTES };
+module.exports = { ensureReady, claimSession, load, save, saveTurn, listTurns, findLatestSessionId, remove, prune, normalizeTranscript, mergeHistoryWithTranscript, MAX_ENTRIES, MAX_JSON_BYTES };

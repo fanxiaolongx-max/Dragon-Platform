@@ -223,7 +223,7 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
     const normalizedPath = normalizePagePath(pagePath);
     const cleanTitle = String(pageTitle || '').slice(0, 200);
     const finalSessionId = await getOrCreateSession({ sessionId, pagePath: normalizedPath, pageTitle: cleanTitle, owner });
-    const eventsJson = Array.isArray(events) && events.length ? JSON.stringify(redactValue(events)).slice(0, 400 * 1024) : '';
+    const eventsJson = Array.isArray(events) && events.length ? JSON.stringify(redactValue(events)) : '';
     await run(
         `INSERT INTO ai_chat_messages (id, session_id, page_path, page_title, role, content, tokens, cost, events)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -233,10 +233,10 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
             normalizedPath,
             cleanTitle,
             role === 'model' ? 'model' : 'user',
-            redactText(content || '').slice(0, 20000),
+            redactText(content || ''),
             Math.max(0, Number(tokens) || 0),
             Math.max(0, Number(cost) || 0),
-            eventsJson.endsWith(']') ? eventsJson : '' // 超长被截断的 JSON 不保存
+            eventsJson
         ]
     );
     await run('UPDATE ai_chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [finalSessionId]);

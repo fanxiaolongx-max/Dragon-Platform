@@ -192,6 +192,18 @@ test('approvals and changes endpoints check existence and ownership', async () =
     assert.equal((await call('POST', '/changes/unknown-session-id/revert', { headers: ownerAdmin, body: { path: 'a.txt' } })).status, 404);
 });
 
+test('complete transcript API is paged and checks the current tenant and account', async () => {
+    const root = fs.realpathSync(path.join(projects, 'alpha'));
+    await runWithTenant('default', () => transcriptRepo.saveTurn({ runId: 'api-archive', agentSessionId: 'api-archive-session', owner: 'default::viewer', root,
+        transcript: [{ role: 'user', content: 'private request' }, { role: 'model', content: 'private answer' }], status: 'completed' }));
+    const query = `?root=${encodeURIComponent(root)}&limit=1`;
+    const mine = await call('GET', `/transcripts/api-archive-session${query}`, { headers: viewerLocal });
+    assert.equal(mine.status, 200);
+    assert.equal((await mine.json()).items[0].transcript[0].content, 'private request');
+    assert.equal((await call('GET', `/transcripts/api-archive-session${query}`, { headers: adminRemote })).status, 403);
+    assert.deepEqual((await (await call('GET', `/transcripts/api-archive-session${query}&offset=1`, { headers: viewerLocal })).json()).items, []);
+});
+
 test('select returns the latest agentSessionId per owner and root so a fresh tab resumes the transcript', async () => {
     const alpha = fs.realpathSync(path.join(projects, 'alpha'));
     const beta = fs.realpathSync(path.join(projects, 'beta'));

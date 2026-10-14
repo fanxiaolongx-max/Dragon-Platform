@@ -11,6 +11,7 @@ const runManager = require('../models/agent-run-manager');
 const guard = require('../models/agent-path-guard');
 const prService = require('../models/agent-pr-service');
 const workspaceChanges = require('../models/agent-workspace-changes');
+const transcripts = require('../models/agent-transcript-repository');
 const { getTenantId } = require('../models/tenant-context');
 
 const router = express.Router();
@@ -30,6 +31,18 @@ router.get('/capability', (req, res) => {
 });
 
 router.use(access.middleware);
+
+// 完整工具档案的只读分页入口，独立于给模型发送的上下文裁剪。
+router.get('/transcripts/:agentSessionId', async (req, res) => {
+    try {
+        const owner = runManager.ownerKey(req.user, getTenantId());
+        const root = guard.normalizeRoot(req.query.root);
+        const items = await transcripts.listTurns({ agentSessionId: req.params.agentSessionId, owner, root, limit: req.query.limit, offset: req.query.offset });
+        res.json({ items });
+    } catch (error) {
+        res.status(error.statusCode || 400).json({ code: error.code, error: error.message });
+    }
+});
 
 function expandHome(input) {
     const text = String(input || '');

@@ -216,6 +216,46 @@ test('context stats scale estimates to provider prompt tokens', () => {
     assert.equal(contextStats.windowFor('gemini-2.5-pro'), 1000000);
 });
 
+test('context budgets remove whole old turns, preserve pairs and keep the source history intact', () => {
+    const calls = [{ id: 'c1', name: 'read_file', args: { path: 'x' }, thoughtSignature: 'keep-signature' }];
+    const history = [{ role: 'user', content: 'old '.repeat(5000) }, { role: 'model', content: 'answer' }, { role: 'user', content: 'current' },
+        { role: 'model', content: '', toolCalls: calls }, { role: 'tool', toolResults: [{ id: 'c1', name: 'read_file', content: 'x'.repeat(10000) }] }];
+    const before = JSON.stringify(history);
+    const fitted = contextStats.fitMessages({ model: 'gpt-4', messages: history });
+    assert.equal(fitted.droppedTurns, 1);
+    assert.equal(fitted.messages[0].content, 'current');
+    assert.deepEqual(fitted.messages[1].toolCalls, calls);
+    assert.equal(fitted.messages[2].toolResults[0].id, 'c1');
+    assert.equal(JSON.stringify(history), before);
+    assert.throws(() => contextStats.fitMessages({ model: 'gpt-4', messages: [{ role: 'user', content: '大'.repeat(20000) }] }), { code: 'AGENT_CONTEXT_LIMIT' });
+});
+
+test('model failures preserve completed tool results in the restart context and complete turn archive', async () => {
+    const id = newSessionId();
+    const session = manager.ensureSession({ agentSessionId: id, user, tenantId: 'default', root, permissionMode: 'full' });
+    const client = scriptedClient([{ toolCalls: [{ id: 'failed-read', name: 'read_file', args: { path: 'README.md' }, thoughtSignature: 'failed-signature' }] }]);
+    await assert.rejects(manager.runAgentTurn({ session, client, systemInstruction: '', historyMessages: [{ role: 'user', content: 'read before failure' }], write: () => {}, signal: new AbortController().signal }), /script exhausted/);
+    manager._internal.sessions.delete(id);
+    const restored = manager.ensureSession({ agentSessionId: id, user, tenantId: 'default', root });
+    await manager.hydrateSession(restored);
+    assert.equal(restored.transcript[1].toolCalls[0].thoughtSignature, 'failed-signature');
+    assert.match(restored.transcript[2].toolResults[0].content, /README/);
+    const archive = await transcriptRepo.listTurns({ agentSessionId: id, owner: 'default::admin', root: session.root });
+    assert.equal(archive[0].status, 'failed');
+    assert.equal(archive[0].transcript[2].toolResults[0].id, 'failed-read');
+    await assert.rejects(transcriptRepo.listTurns({ agentSessionId: id, owner: 'default::other', root }), { code: 'AGENT_SESSION_FORBIDDEN' });
+});
+
+test('complete turn archives retain steps beyond the model transcript entry cap', async () => {
+    const id = newSessionId();
+    const transcript = Array.from({ length: 100 }, (_, i) => [{ role: 'user', content: `question-${i}` }, { role: 'model', content: `answer-${i}` }]).flat();
+    await transcriptRepo.saveTurn({ runId: 'large-archive', agentSessionId: id, owner: 'default::admin', root, transcript, status: 'completed' });
+    const [archive] = await transcriptRepo.listTurns({ agentSessionId: id, owner: 'default::admin', root });
+    assert.equal(archive.transcript.length, 200);
+    assert.equal(transcriptRepo.normalizeTranscript(transcript).length <= transcriptRepo.MAX_ENTRIES, true);
+    assert.equal(archive.transcript[0].content, 'question-0');
+});
+
 async function waitFor(check, timeoutMs = 3000) {
     const started = Date.now();
     while (Date.now() - started < timeoutMs) {

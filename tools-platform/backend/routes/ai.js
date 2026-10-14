@@ -537,15 +537,10 @@ function fallbackPptActions(instruction, operationContext) {
     return null;
 }
 
-// 入库的过程事件：去掉运行时 id，审批 diff / 命令输出截断，控制单条记录体积
+// 入库的过程事件：去掉运行时 id，保留工具已返回的内容，不二次截断。
 function compactRecordedEvent(event) {
     const { runId, ...rest } = event;
     const out = { ...rest };
-    if (out.preview && typeof out.preview === 'object') {
-        out.preview = { ...out.preview };
-        if (typeof out.preview.diff === 'string' && out.preview.diff.length > 8000) out.preview.diff = `${out.preview.diff.slice(0, 8000)}\n…（已截断）`;
-    }
-    if (typeof out.output === 'string' && out.output.length > 4000) out.output = `${out.output.slice(0, 4000)}\n…（已截断）`;
     return out;
 }
 
@@ -568,7 +563,7 @@ router.post('/chat', checkAuth, async (req, res) => {
     const recordEvent = payload => {
         if (!payload) return;
         if (payload.type === 'delta') streamedText += String(payload.delta || '');
-        else if (RECORDED_EVENT_TYPES.has(payload.type) && recordedEvents.length < 400) recordedEvents.push(compactRecordedEvent(payload));
+        else if (RECORDED_EVENT_TYPES.has(payload.type)) recordedEvents.push(compactRecordedEvent(payload));
     };
     const writeStreamEvent = payload => {
         payload = redactValue(payload, { secrets: sensitiveValues });

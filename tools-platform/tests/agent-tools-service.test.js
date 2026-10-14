@@ -235,3 +235,28 @@ test('renaming an existing file can be undone and read-only users only get read 
     assert.deepEqual(readOnly, ['list_directory', 'read_file', 'search']);
     assert.ok(tools.definitions().some(item => item.name === 'run_command'));
 });
+
+test('wide Unicode pages keep a truthful continuation cursor within the outer result limit', async () => {
+    const file = path.join(ROOT, 'paged-unicode.txt');
+    fs.writeFileSync(file, Array.from({ length: 90 }, (_, i) => `row-${i + 1}-${'内容'.repeat(300)}`).join('\n'));
+    let startLine = 1;
+    const seen = [];
+    for (let page = 0; page < 10; page++) {
+        const result = await tools.execute(ctx(), 'read_file', { path: 'paged-unicode.txt', startLine });
+        assert.equal(result.truncated, false, 'the generic clamp must not cut off a page footer');
+        const numbers = [...result.content.matchAll(/^(\d+)│row-/gm)].map(match => Number(match[1]));
+        assert.equal(numbers[0], startLine);
+        seen.push(...numbers);
+        const next = result.content.match(/startLine=(\d+)/);
+        if (!next) break;
+        startLine = Number(next[1]);
+        assert.equal(startLine, numbers.at(-1) + 1);
+    }
+    assert.deepEqual(seen, Array.from({ length: 90 }, (_, i) => i + 1));
+    // 超长单行跨越多个流块；下一行仍有正确编号和完整 UTF-8。
+    fs.writeFileSync(file, `${'a'.repeat(4 * 1024 * 1024)}\n中文尾行\n`);
+    const wide = await tools.execute(ctx(), 'read_file', { path: 'paged-unicode.txt' });
+    assert.match(wide.content, /本行共 4194304 字符/);
+    assert.match(wide.content, /2│中文尾行/);
+    fs.rmSync(file);
+});

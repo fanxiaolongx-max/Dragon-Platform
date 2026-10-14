@@ -4,6 +4,7 @@ const fs = require('fs');
 const fsp = require('fs/promises');
 const path = require('path');
 const os = require('os');
+const { StringDecoder } = require('string_decoder');
 const { spawn } = require('child_process');
 const guard = require('./agent-path-guard');
 const { redactText, redactValue } = require('./ai-sensitive-data');
@@ -227,29 +228,46 @@ const READ_MAX_LINES = 2000;
 const READ_MAX_LINE_CHARS = 2000;
 const READ_COUNT_BUDGET_BYTES = 64 * 1024 * 1024; // 超过这个大小只读到所需位置，不再统计总行数
 
-async function readLineWindow(abs, startLine, maxLines, maxBytes, fileSize) {
+async function readLineWindow(abs, startLine, maxLines, maxBytes, fileSize, protection) {
     const lines = [];
     let lineNo = 1;
-    let pending = Buffer.alloc(0);
+    let prefix = '';
+    let lineLength = 0;
     let bytes = 0;
     let stoppedByBytes = false;
     let scanned = 0;
     let firstChunk = true;
     let binary = false;
+    const decoder = new StringDecoder('utf8');
     const collecting = () => lines.length < maxLines && !stoppedByBytes;
-    const take = buffer => {
+    const take = () => {
         if (lineNo >= startLine && collecting()) {
-            let text = buffer.toString('utf8');
+            let text = prefix;
             if (text.endsWith('\r')) text = text.slice(0, -1);
-            const truncated = text.length > READ_MAX_LINE_CHARS;
-            const shown = truncated ? `${text.slice(0, READ_MAX_LINE_CHARS)}…（本行共 ${text.length} 字符，已截断）` : text;
-            if (bytes + shown.length + 1 > maxBytes && lines.length) stoppedByBytes = true;
+            const shown = redactText(lineLength > READ_MAX_LINE_CHARS
+                ? `${text}…（本行共 ${lineLength} 字符，已截断）` : text, protection);
+            const cost = String(lineNo).length + 2 + shown.length;
+            if (bytes + cost > maxBytes && lines.length) stoppedByBytes = true;
             else {
                 lines.push({ no: lineNo, text: shown });
-                bytes += shown.length + 1;
+                bytes += cost;
             }
         }
         lineNo += 1;
+        prefix = '';
+        lineLength = 0;
+    };
+    const consume = text => {
+        let start = 0;
+        while (start < text.length) {
+            const end = text.indexOf('\n', start);
+            const segment = end === -1 ? text.slice(start) : text.slice(start, end);
+            if (prefix.length < READ_MAX_LINE_CHARS) prefix += segment.slice(0, READ_MAX_LINE_CHARS - prefix.length);
+            lineLength += segment.length;
+            if (end === -1) break;
+            take();
+            start = end + 1;
+        }
     };
     const stream = fs.createReadStream(abs, { highWaterMark: 64 * 1024 });
     try {
@@ -259,21 +277,17 @@ async function readLineWindow(abs, startLine, maxLines, maxBytes, fileSize) {
                 if (guard.isBinaryBuffer(chunk.subarray(0, 8192))) { binary = true; break; }
             }
             scanned += chunk.length;
-            let data = pending.length ? Buffer.concat([pending, chunk]) : chunk;
-            let index;
-            while ((index = data.indexOf(10)) !== -1) {
-                take(data.subarray(0, index));
-                data = data.subarray(index + 1);
-            }
-            pending = Buffer.from(data);
-            // 取够了：小文件继续数完总行数，超大文件就此停止
+            consume(decoder.write(chunk));
             if (!collecting() && fileSize > READ_COUNT_BUDGET_BYTES) break;
         }
     } finally {
         stream.destroy();
     }
     const complete = !binary && scanned >= fileSize;
-    if (complete && pending.length) take(pending);
+    if (complete) {
+        consume(decoder.end());
+        if (lineLength) take();
+    }
     const totalLines = complete ? lineNo - 1 : null;
     return { lines, totalLines, binary, stoppedByBytes };
 }
@@ -291,7 +305,7 @@ async function readFile(ctx, args = {}) {
     let count = Math.floor(Number(args.limit)) || 0;
     if (!count && Number(args.endLine) >= start) count = Math.floor(Number(args.endLine)) - start + 1;
     count = Math.min(READ_MAX_LINES, Math.max(1, count || READ_DEFAULT_LINES));
-    const { lines, totalLines, binary, stoppedByBytes } = await readLineWindow(abs, start, count, LIMITS.readBytes, stat.size);
+    const { lines, totalLines, binary, stoppedByBytes } = await readLineWindow(abs, start, count, Math.min(LIMITS.readBytes, LIMITS.resultChars - display.length - 1024), stat.size, { secrets: ctx.sensitiveValues || [] });
     if (binary) throw toolError('AGENT_BINARY', `${display} 看起来是二进制文件，无法以文本读取`);
     const totalText = totalLines !== null ? `共 ${totalLines} 行` : `文件较大（${formatSize(stat.size)}），未统计总行数`;
     if (!lines.length) {
@@ -302,13 +316,12 @@ async function readFile(ctx, args = {}) {
         };
     }
     const shownEnd = lines[lines.length - 1].no;
-    const width = String(shownEnd).length;
     const more = totalLines === null ? true : shownEnd < totalLines;
     const header = `${display}（第 ${start}-${shownEnd} 行，${totalText}）`;
     const footer = more
         ? `\n…还有后续内容${stoppedByBytes ? '（本次已达单次输出上限）' : ''}：继续读取请用 startLine=${shownEnd + 1}；查找特定内容可先用 search 定位行号。`
         : '';
-    const body = lines.map(item => `${String(item.no).padStart(width)}│${item.text}`);
+    const body = lines.map(item => `${String(item.no)}│${item.text}`);
     return { content: `${[header, ...body].join('\n')}${footer}`, summary: `${display} ${start}-${shownEnd}` };
 }
 
@@ -701,7 +714,7 @@ async function execute(ctx, name, args = {}) {
         const clamped = clampResult(safe.content);
         return { ...safe, content: clamped.content, truncated: clamped.truncated || Boolean(result.truncated) };
     } catch (error) {
-        const message = redactText(error.message);
+        const message = redactText(error.message, { secrets: ctx.sensitiveValues });
         return { content: `错误（${error.code || 'ERROR'}）：${message}`, summary: message, isError: true };
     }
 }

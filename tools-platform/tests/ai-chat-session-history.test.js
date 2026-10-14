@@ -66,3 +66,12 @@ test('chat route records tool events and saves stopped or failed turns', () => {
     assert.match(route, /await saveInterruptedTurn\(`⚠️ 本轮出错：/);
     assert.match(route, /if \(req\.query\.mine === '1'\) \{\n\s+const items = await aiChatRepo\.listOwnedSessions\(\{\n\s+owner: req\.user\?\.username/);
 });
+
+test('long replies and event logs are stored without dropping invalid sliced JSON', async () => {
+    const content = 'long-reply '.repeat(4000);
+    const events = Array.from({ length: 450 }, (_, index) => ({ type: 'tool_result', callId: `call-${index}`, output: `result-${index}-${'a'.repeat(1000)}` }));
+    const id = await repo.addMessage({ pagePath: '/', owner: 'alice', role: 'model', content, events });
+    const messages = await repo.listMessages(id, { owner: 'alice' });
+    assert.equal(messages[0].content, content);
+    assert.deepEqual(messages[0].events, events);
+});
