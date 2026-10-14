@@ -15,8 +15,7 @@ const NAV_BUILTIN_LINKS = [
     { id: 'frt', href: '/frt', icon: '📊', label: 'FRT核算', labelKey: 'nav.frt', defaultCategory: 'audit', match: p => p.startsWith('/frt') },
     { id: 'praudit', href: '/praudit', icon: '📋', label: 'PR稽查', labelKey: 'nav.praudit', defaultCategory: 'audit', match: p => p.startsWith('/praudit') },
     { id: 'storage', href: '/storage', icon: '💽', label: '迁移状态', labelKey: 'nav.storage', defaultCategory: 'system', match: p => p.startsWith('/storage') },
-    { id: 'db-explorer', href: '/db-explorer', icon: '🗄️', label: '数据探索', labelKey: 'nav.dbExplorer', defaultCategory: 'system', match: p => p.startsWith('/db-explorer') },
-    { id: 'python-updater', href: '/tools/python-updater', icon: '🐍', label: 'Python更新', labelEn: 'Python Updater', labelKey: 'nav.pythonUpdater', defaultCategory: 'cat_msbmuup1', match: p => p.startsWith('/tools/python-updater') || p.startsWith('/python-updater') }
+    { id: 'db-explorer', href: '/db-explorer', icon: '🗄️', label: '数据探索', labelKey: 'nav.dbExplorer', defaultCategory: 'system', match: p => p.startsWith('/db-explorer') }
 ];
 
 const NAV_DEFAULT_SETTINGS = {
