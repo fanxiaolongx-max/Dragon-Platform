@@ -319,9 +319,9 @@
               <span>💡</span> 通用外壳与动态热更新架构说明
             </h3>
             <p class="text-xs text-slate-300 leading-relaxed">
-              用户在客户端运行的是经过 PyInstaller 打包生成的单个独立 EXE（内置 Tkinter GUI 与依赖）。
-              当客户端点击「检查并更新」时，启动器直接向 GitHub 远端仓库发起请求，仅拉取几 KB 的最新 <code class="text-sky-300">core_script.py</code> 并就地覆盖。
-              <strong>用户电脑无需安装 Python 环境，无需重复下载 60MB+ 的安装包，即可始终使用最新抽查算法！</strong>
+              <span>客户端使用完整便携包运行，无需安装 Python。请保留 EXE 同目录的 _internal 文件夹、核心脚本和配置。</span>
+              <span>点击「检查并更新」后，启动器下载最新核心脚本和版本信息，完成语法与 SHA-256 校验、备份后替换。</span>
+              <strong>业务脚本可在线更新；新增依赖、外壳修复或旧 EXE 缺少模块时，需要下载新的完整绿色包。</strong>
             </p>
           </div>
 
@@ -359,15 +359,14 @@
               <div class="rounded-lg border border-slate-700/80 bg-slate-950 overflow-hidden shadow-lg">
                 <!-- 终端顶部 macOS 风格标题栏 -->
                 <div class="bg-slate-900 px-3 py-2 flex items-center justify-between border-b border-slate-800 text-[11px]">
-                  <div class="flex items-center gap-1.5">
-                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-rose-500 hover:opacity-80 cursor-pointer" title="终止进程"></span>
-                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 hover:opacity-80 cursor-pointer" title="清屏"></span>
-                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 hover:opacity-80 cursor-pointer" title="重启进程"></span>
-                    <span class="ml-2 font-mono text-slate-400 font-semibold">zsh — 抽查脚本交互终端 (core_script.py)</span>
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-rose-950/80 text-rose-300"><span aria-hidden="true">■</span><span>停止</span></span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-amber-950/80 text-amber-300"><span aria-hidden="true">⌫</span><span>清屏</span></span>
+                    <span class="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-950/80 text-emerald-300"><span aria-hidden="true">↻</span><span>重启</span></span>
+                    <span class="ml-2 font-mono text-slate-400 font-semibold">Python — 抽查脚本交互终端 (core_script.py)</span>
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="px-2 py-0.5 rounded bg-emerald-950/90 text-emerald-400 border border-emerald-800/80 text-[10px] font-bold">● 运行中 (PID: 3204)</span>
-                    <span class="text-sky-400 hover:underline cursor-pointer text-[10px]">🧹 清屏</span>
                   </div>
                 </div>
 
@@ -401,6 +400,7 @@
 
                 <!-- 底部交互式输入栏 -->
                 <div class="bg-slate-900 px-3 py-2 border-t border-slate-800 flex items-center gap-2">
+                  <span class="text-slate-400 text-[11px]">命令输入</span>
                   <span class="text-sky-400 font-mono font-bold text-sm">❯</span>
                   <input type="text" readonly value="1" class="flex-1 bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 font-mono text-xs focus:outline-none">
                   <button type="button" class="px-3 py-1 rounded bg-emerald-600 text-white font-bold text-xs">发送 (Enter)</button>
@@ -1396,7 +1396,7 @@ if __name__ == '__main__':
 
     // 全局状态
     let currentScriptId = 'pr-audit-sampler';
-    let currentCode = BUILTIN_DEFAULT_CODE;
+    let currentCode = '';
     let versionsHistory = [];
 
     // DOM 元素引用
@@ -1414,6 +1414,11 @@ if __name__ == '__main__':
     const diffAddCount = document.getElementById('diffAddCount');
     const diffDelCount = document.getElementById('diffDelCount');
     const diffSameCount = document.getElementById('diffSameCount');
+
+    function setScriptActionsEnabled(enabled) {
+      document.getElementById('btnSaveVersion').disabled = !enabled;
+      document.getElementById('btnSyncRepo').disabled = !enabled;
+    }
 
     // 视图 Tab 切换
     const tabBtnEditor = document.getElementById('tabBtnEditor');
@@ -1474,7 +1479,7 @@ if __name__ == '__main__':
     // 更新代码统计
     function updateCodeMetrics() {
       const code = codeEditor.value;
-      const lines = code.split('\\n').length;
+      const lines = code ? code.split(/\r?\n/).length : 0;
       const bytes = new Blob([code]).size;
       codeLineCount.textContent = `${lines} 行`;
       codeSize.textContent = `${(bytes / 1024).toFixed(1)} KB`;
@@ -1483,6 +1488,7 @@ if __name__ == '__main__':
     codeEditor.addEventListener('input', () => {
       currentCode = codeEditor.value;
       updateCodeMetrics();
+      setScriptActionsEnabled(Boolean(currentCode.trim()));
     });
 
     // 复制与重置按钮
@@ -1498,6 +1504,7 @@ if __name__ == '__main__':
         currentCode = BUILTIN_DEFAULT_CODE;
         scriptVersionInput.value = '1.0.0';
         updateCodeMetrics();
+        setScriptActionsEnabled(true);
         showToast('已重置为初始内置版本', 'info');
       }
     });
@@ -1549,7 +1556,7 @@ if __name__ == '__main__':
     });
 
     function handleFileUpload(file) {
-      if (!file.name.endsWith('.py')) {
+      if (!/\.py$/i.test(file.name)) {
         showToast('请上传 .py 格式的 Python 脚本文件', 'error');
         return;
       }
@@ -1559,13 +1566,14 @@ if __name__ == '__main__':
         codeEditor.value = text;
         currentCode = text;
         updateCodeMetrics();
+        setScriptActionsEnabled(Boolean(text.trim()));
         
         // 尝试从文件名推断
-        const base = file.name.replace(/\\.py$/i, '');
+        const base = file.name.replace(/\.py$/i, '');
         scriptNameInput.value = base;
         
         // 尝试从脚本中提取 __version__
-        const match = text.match(/__version__\\s*=\\s*["']([^"']+)["']/);
+        const match = text.match(/__version__\s*=\s*["']([^"']+)["']/);
         if (match && match[1]) {
           scriptVersionInput.value = match[1];
         }
@@ -1595,32 +1603,40 @@ if __name__ == '__main__':
 
     // 初始化加载
     async function initPage() {
-      codeEditor.value = BUILTIN_DEFAULT_CODE;
-      currentCode = BUILTIN_DEFAULT_CODE;
+      setScriptActionsEnabled(false);
       updateCodeMetrics();
+      const requestedScriptId = currentScriptId;
+      const initialCode = codeEditor.value;
+      try {
+        const data = await apiRequest(`/api/python-updater/scripts/${encodeURIComponent(requestedScriptId)}`);
+        if (!data || !data.script || typeof data.script.code !== 'string' || !data.script.code.trim()) {
+          throw new Error('当前脚本代码为空，请导入本地脚本');
+        }
+        // 请求期间导入或新建的代码保留在编辑器中。
+        if (currentScriptId !== requestedScriptId || codeEditor.value !== initialCode) return;
+        const script = data.script;
+        codeEditor.value = script.code;
+        currentCode = script.code;
+        scriptNameInput.value = script.name;
+        scriptVersionInput.value = script.current_version;
+        scriptChangelogInput.value = '';
+        updateCodeMetrics();
+        setScriptActionsEnabled(true);
+      } catch (err) {
+        if (currentScriptId === requestedScriptId && codeEditor.value === initialCode) {
+          showToast(`当前脚本加载失败，请刷新重试或导入本地脚本: ${err.message}`, 'error');
+        }
+        return;
+      }
 
       try {
-        // 读取已有版本
-        const data = await apiRequest(`/api/python-updater/scripts/${currentScriptId}/versions`);
-        if (data && data.versions) {
-          versionsHistory = data.versions;
-          renderVersionList();
-          populateDiffOptions();
-        }
-      } catch (e) {
-        // 纯前端脱机模式兜底
-        versionsHistory = [
-          {
-            id: 'init_v1',
-            version: '1.0.0',
-            changelog: '初始内置版本：PR 报告抽查脚本',
-            author: 'CodeArts 智能体',
-            created_at: '2026-10-14 12:00:00',
-            code: BUILTIN_DEFAULT_CODE
-          }
-        ];
+        const data = await apiRequest(`/api/python-updater/scripts/${encodeURIComponent(requestedScriptId)}/versions`);
+        if (currentScriptId !== requestedScriptId) return;
+        versionsHistory = data.versions || [];
         renderVersionList();
         populateDiffOptions();
+      } catch (err) {
+        showToast(`历史版本加载失败: ${err.message}`, 'warning');
       }
     }
 
@@ -1676,6 +1692,7 @@ if __name__ == '__main__':
           scriptVersionInput.value = ver.version;
           scriptChangelogInput.value = `基于 v${ver.version} 修改`;
           updateCodeMetrics();
+          setScriptActionsEnabled(true);
           switchTab('editor');
           showToast(`已成功载入历史版本 v${ver.version}`, 'success');
         }
@@ -1690,14 +1707,13 @@ if __name__ == '__main__':
 
     // 客户端简易 Diff 引擎（无需网络也可工作）
     function clientComputeDiff(oldText, newText) {
-      const oldLines = (oldText || '').split(/\\r?\\n/);
-      const newLines = (newText || '').split(/\\r?\\n/);
+      const oldLines = (oldText || '').split(/\r?\n/);
+      const newLines = (newText || '').split(/\r?\n/);
       
       const m = oldLines.length;
       const n = newLines.length;
 
-      // 为性能考虑，超过 2000 行做分块优化
-      const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+      const dp = Array.from({ length: m + 1 }, () => new Uint32Array(n + 1));
       for (let i = 0; i < m; i++) {
         for (let j = 0; j < n; j++) {
           if (oldLines[i] === newLines[j]) {
@@ -1884,9 +1900,13 @@ if __name__ == '__main__':
         scriptNameInput.value = '自定义 Python 工具';
         scriptVersionInput.value = '1.0.0';
         scriptChangelogInput.value = '创建初始版本';
-        codeEditor.value = `# -*- coding: utf-8 -*-\\n"""\\n自定义 Python 工具脚本\\n"""\\n\\ndef main():\\n    print("Hello from Python Universal Shell!")\\n\\nif __name__ == '__main__':\\n    main()\\n`;
+        codeEditor.value = `# -*- coding: utf-8 -*-\n"""\n自定义 Python 工具脚本\n"""\n\ndef main():\n    print("Hello from Python Universal Shell!")\n\nif __name__ == '__main__':\n    main()\n`;
         currentCode = codeEditor.value;
         updateCodeMetrics();
+        setScriptActionsEnabled(true);
+        versionsHistory = [];
+        renderVersionList();
+        populateDiffOptions();
         showToast('已新建空白脚本，编辑后点击【保存为新历史版本】', 'info');
       }
     });

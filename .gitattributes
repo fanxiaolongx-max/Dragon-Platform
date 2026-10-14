@@ -1,1 +1,3 @@
 tools-platform/backend/builtin-tools/** text=auto eol=lf
+python-packager/*.py text eol=lf
+python-packager/tests/**/*.py text eol=lf

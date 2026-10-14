@@ -28,7 +28,7 @@ PR 报告抽查脚本
 """
 
 __script_name__ = "PR 报告抽查脚本"
-__version__ = "1.0.0"
+__version__ = "1.2.0"
 __author__ = "CodeArts 智能体生成"
 
 import os
@@ -40,6 +40,7 @@ import random
 import time
 import threading
 import datetime
+import hashlib
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
@@ -71,27 +72,35 @@ RISK_MERGED_NAME = '【合并后】风险-运营商.xlsx'
 RECT_MERGED_NAME = '【合并后】整改-运营商.xlsx'
 RFC_MERGED_NAME = '【合并后】RFC-运营商.xlsx'
 SR_MERGED_NAME = '【合并后】SR-运营商.xlsx'
+SOURCE_MANIFEST_SHEET = '_PR_source_manifest'
+
+
+class DataValidationError(ValueError):
+    """源表无法读取或缺少业务必需字段。"""
 
 
 def _read_sheet_safely(path, nrows=None):
     """安全读取 Excel 表格，优先读取 'Task List' sheet，不存在则读取首个 sheet"""
-    if not path or not os.path.exists(path):
+    if not path:
         return None
     try:
-        xl = pd.ExcelFile(path)
-        sheet_to_use = 'Task List' if 'Task List' in xl.sheet_names else xl.sheet_names[0]
-        return pd.read_excel(xl, sheet_name=sheet_to_use, nrows=nrows)
+        with pd.ExcelFile(path) as xl:
+            sheet_to_use = 'Task List' if 'Task List' in xl.sheet_names else xl.sheet_names[0]
+            df = pd.read_excel(xl, sheet_name=sheet_to_use, nrows=nrows)
+        df.columns = [str(c).strip() for c in df.columns]
+        if df.columns.duplicated().any():
+            raise DataValidationError('去除表头空格后出现重名列，请检查源表表头')
+        return df
     except Exception as e:
-        print(C(f'  ⚠️ 读取表格失败: {os.path.basename(path)} ({e})', F_RED))
-        return None
+        raise DataValidationError(f'读取表格失败：{os.path.basename(path)}（{e}）') from e
 
 
 def inspect_excel_headers(path):
     """快速读取 Excel 首行获取列名列表与 sheet 名（用于指纹识别）"""
     try:
-        xl = pd.ExcelFile(path)
-        sheet_to_use = 'Task List' if 'Task List' in xl.sheet_names else xl.sheet_names[0]
-        df_head = pd.read_excel(xl, sheet_name=sheet_to_use, nrows=2)
+        with pd.ExcelFile(path) as xl:
+            sheet_to_use = 'Task List' if 'Task List' in xl.sheet_names else xl.sheet_names[0]
+            df_head = pd.read_excel(xl, sheet_name=sheet_to_use, nrows=2)
         cols = [str(c).strip() for c in df_head.columns]
         return cols, sheet_to_use
     except Exception:
@@ -239,8 +248,8 @@ def _find_sources(d, pattern):
 def get_sources_for_type(src_type):
     """
     智能获取指定类型的原始 Excel 文件列表。
-    1. 优先从旧版特定业务目录中按 pattern 查找（兼容原有目录结构）
-    2. 若未找到，则从 data/ 目录与 BASE_DIR 中自动通过指纹识别查找
+    1. 从旧版特定业务目录中按 pattern 查找（兼容原有目录结构）
+    2. 同时从 data/ 目录与 BASE_DIR 中自动通过指纹识别查找
     """
     legacy_map = {
         '风险': (RISK_DIR, RISK_SRC_PATTERN),
@@ -249,15 +258,12 @@ def get_sources_for_type(src_type):
         'SR':   (SR_DIR,   SR_SRC_PATTERN),
     }
     dirn, pattern = legacy_map.get(src_type, (None, None))
-    if dirn and os.path.exists(dirn):
-        legacy_files = _find_sources(dirn, pattern)
-        if legacy_files:
-            return legacy_files
+    legacy_files = _find_sources(dirn, pattern) if dirn and os.path.exists(dirn) else []
 
     # 自动指纹扫描
-    found = []
+    found = list(legacy_files)
     candidate_dirs = [d for d in [DATA_DIR, BASE_DIR, dirn] if d and os.path.exists(d)]
-    seen = set()
+    seen = {os.path.abspath(path) for path in legacy_files}
     for d in candidate_dirs:
         for f in sorted(glob.glob(os.path.join(d, '*.xlsx')) + glob.glob(os.path.join(d, '*.xls'))):
             bn = os.path.basename(f)
@@ -273,16 +279,104 @@ def get_sources_for_type(src_type):
     return found
 
 
+def _source_fingerprints(srcs):
+    """以相对路径和文件内容识别源数据，忽略不可靠的文件修改时间。"""
+    fingerprints = {}
+    for filename in srcs:
+        digest = hashlib.sha256()
+        with open(filename, 'rb') as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                digest.update(chunk)
+        absolute_path = os.path.abspath(filename)
+        try:
+            source_path = os.path.relpath(absolute_path, BASE_DIR)
+        except ValueError:
+            # Windows 的外部导入文件可能位于另一个盘符。
+            source_path = absolute_path
+        relative_path = os.path.normcase(source_path).replace(os.sep, '/')
+        fingerprints[relative_path] = digest.hexdigest()
+    return sorted(fingerprints.items())
+
+
+def _read_source_manifest(merged_path):
+    """来源记录保存在合并 Excel 的隐藏工作表，兼容旧版和手工合并表。"""
+    if not merged_path:
+        return None
+    workbook = load_workbook(merged_path, read_only=True, data_only=True)
+    try:
+        if SOURCE_MANIFEST_SHEET not in workbook.sheetnames:
+            return None
+        sheet = workbook[SOURCE_MANIFEST_SHEET]
+        if sheet.cell(1, 1).value != 'PR source manifest' or sheet.cell(1, 2).value != 1:
+            raise DataValidationError('合并表来源记录无效，请用菜单 7 重新合并')
+        manifest = []
+        for path, digest in sheet.iter_rows(min_row=3, max_col=2, values_only=True):
+            if not isinstance(path, str) or not isinstance(digest, str) or not re.fullmatch('[0-9a-f]{64}', digest):
+                raise DataValidationError('合并表来源记录损坏，请用菜单 7 重新合并')
+            manifest.append((path, digest))
+        return sorted(manifest)
+    finally:
+        workbook.close()
+
+
+def _write_source_manifest(workbook, manifest):
+    sheet = workbook.create_sheet(SOURCE_MANIFEST_SHEET)
+    sheet.append(['PR source manifest', 1])
+    sheet.append(['源文件相对路径', 'SHA-256'])
+    for path, digest in manifest:
+        sheet.append([path, digest])
+    sheet.sheet_state = 'hidden'
+
+
+def _current_sources_for_type(src_type):
+    """同时跟踪默认目录和智能导入时选过的外部源文件。"""
+    sources = {os.path.abspath(path) for path in get_sources_for_type(src_type)}
+    manifest = _read_source_manifest(_find_merged_for_type(src_type))
+    if manifest is not None:
+        known_paths = set()
+        for path, _ in manifest:
+            path = path.replace('/', os.sep)
+            known_paths.add(os.path.abspath(path if os.path.isabs(path) else os.path.join(BASE_DIR, path)))
+        sources.update(path for path in known_paths if os.path.isfile(path))
+        # 外部导入目录也能识别新增文件；手动指定过的模糊文件保持原分类。
+        for directory in {os.path.dirname(path) for path in known_paths}:
+            for path in glob.glob(os.path.join(directory, '*.xlsx')) + glob.glob(os.path.join(directory, '*.xls')):
+                path = os.path.abspath(path)
+                if path in sources or os.path.basename(path).startswith(('~$', '【合并后】')):
+                    continue
+                if classify_excel_file(path, prompt_interactive=False) == src_type:
+                    sources.add(path)
+    return sorted(sources)
+
+
 def need_merge_for_type(src_type, srcs=None):
-    """是否需要合并：无合并文件，或任一原始文件比合并文件新"""
+    """检查源文件增删、改名和内容替换；旧合并表有源文件时首次重建。"""
     if srcs is None:
-        srcs = get_sources_for_type(src_type)
-    if not srcs:
-        return False
+        srcs = _current_sources_for_type(src_type)
     merged = _find_merged_for_type(src_type)
-    if not merged:
-        return True
-    return max(os.path.getmtime(f) for f in srcs) > os.path.getmtime(merged)
+    previous = _read_source_manifest(merged)
+    if not srcs:
+        return previous is not None and bool(previous)
+    return not merged or previous is None or previous != _source_fingerprints(srcs)
+
+
+def _read_merge_sources(src_type, srcs):
+    if srcs is None:
+        srcs = _current_sources_for_type(src_type)
+    if not srcs:
+        if _read_source_manifest(_find_merged_for_type(src_type)):
+            raise DataValidationError(f'{src_type}原始文件已全部移除，已停止操作以避免沿用旧合并数据。请恢复源文件或用菜单 8 重新导入。')
+        return [], [], []
+    manifest = _source_fingerprints(srcs)
+    frames, source_info = [], []
+    for filename in srcs:
+        frame = _read_sheet_safely(filename)
+        frame['数据来源文件'] = os.path.basename(filename)
+        frames.append(frame)
+        source_info.append((os.path.basename(filename), len(frame)))
+    if _source_fingerprints(srcs) != manifest:
+        raise DataValidationError(f'{src_type}源文件在读取过程中发生变化，请等待文件保存完成后重试，原合并表保持不变')
+    return frames, source_info, manifest
 
 
 def load_risk():
@@ -393,19 +487,7 @@ def _beautify_merged_rect(path):
 
 def merge_risk(srcs=None):
     """合并风险原始表，返回 dict 信息"""
-    if srcs is None:
-        srcs = get_sources_for_type('风险')
-    if not srcs:
-        return None
-    dfs = []
-    src_info = []
-    for f in srcs:
-        df = _read_sheet_safely(f)
-        if df is None:
-            continue
-        df['数据来源文件'] = os.path.basename(f)
-        dfs.append(df)
-        src_info.append((os.path.basename(f), len(df)))
+    dfs, src_info, manifest = _read_merge_sources('风险', srcs)
     if not dfs:
         return None
     merged = pd.concat(dfs, ignore_index=True)
@@ -422,6 +504,7 @@ def merge_risk(srcs=None):
     out = os.path.join(out_dir, RISK_MERGED_NAME)
     with pd.ExcelWriter(out, engine='openpyxl') as w:
         merged.to_excel(w, sheet_name='Task List', index=False)
+        _write_source_manifest(w.book, manifest)
     _beautify_merged_risk(out)
     return {'src': '风险', 'out': out, 'total': total, 'unique': unique,
             'dup': total - unique, 'src_info': src_info}
@@ -429,19 +512,7 @@ def merge_risk(srcs=None):
 
 def merge_rect(srcs=None):
     """合并整改原始表，返回 dict 信息"""
-    if srcs is None:
-        srcs = get_sources_for_type('整改')
-    if not srcs:
-        return None
-    dfs = []
-    src_info = []
-    for f in srcs:
-        df = _read_sheet_safely(f)
-        if df is None:
-            continue
-        df['数据来源文件'] = os.path.basename(f)
-        dfs.append(df)
-        src_info.append((os.path.basename(f), len(df)))
+    dfs, src_info, manifest = _read_merge_sources('整改', srcs)
     if not dfs:
         return None
     merged = pd.concat(dfs, ignore_index=True)
@@ -457,6 +528,7 @@ def merge_rect(srcs=None):
     out = os.path.join(out_dir, RECT_MERGED_NAME)
     with pd.ExcelWriter(out, engine='openpyxl') as w:
         merged.to_excel(w, sheet_name='Task List', index=False)
+        _write_source_manifest(w.book, manifest)
     _beautify_merged_rect(out)
     return {'src': '整改', 'out': out, 'total': total, 'unique': unique,
             'dup': total - unique, 'src_info': src_info}
@@ -491,19 +563,7 @@ def _beautify_merged_sr(path):
 
 def merge_rfc(srcs=None):
     """合并 RFC 原始表，返回 dict 信息"""
-    if srcs is None:
-        srcs = get_sources_for_type('RFC')
-    if not srcs:
-        return None
-    dfs = []
-    src_info = []
-    for f in srcs:
-        df = _read_sheet_safely(f)
-        if df is None:
-            continue
-        df['数据来源文件'] = os.path.basename(f)
-        dfs.append(df)
-        src_info.append((os.path.basename(f), len(df)))
+    dfs, src_info, manifest = _read_merge_sources('RFC', srcs)
     if not dfs:
         return None
     merged = pd.concat(dfs, ignore_index=True)
@@ -519,6 +579,7 @@ def merge_rfc(srcs=None):
     out = os.path.join(out_dir, RFC_MERGED_NAME)
     with pd.ExcelWriter(out, engine='openpyxl') as w:
         merged.to_excel(w, sheet_name='Task List', index=False)
+        _write_source_manifest(w.book, manifest)
     _beautify_merged_rfc(out)
     return {'src': 'RFC', 'out': out, 'total': total, 'unique': unique,
             'dup': total - unique, 'src_info': src_info}
@@ -526,19 +587,7 @@ def merge_rfc(srcs=None):
 
 def merge_sr(srcs=None):
     """合并 SR 原始表，返回 dict 信息"""
-    if srcs is None:
-        srcs = get_sources_for_type('SR')
-    if not srcs:
-        return None
-    dfs = []
-    src_info = []
-    for f in srcs:
-        df = _read_sheet_safely(f)
-        if df is None:
-            continue
-        df['数据来源文件'] = os.path.basename(f)
-        dfs.append(df)
-        src_info.append((os.path.basename(f), len(df)))
+    dfs, src_info, manifest = _read_merge_sources('SR', srcs)
     if not dfs:
         return None
     merged = pd.concat(dfs, ignore_index=True)
@@ -554,6 +603,7 @@ def merge_sr(srcs=None):
     out = os.path.join(out_dir, SR_MERGED_NAME)
     with pd.ExcelWriter(out, engine='openpyxl') as w:
         merged.to_excel(w, sheet_name='Task List', index=False)
+        _write_source_manifest(w.book, manifest)
     _beautify_merged_sr(out)
     return {'src': 'SR', 'out': out, 'total': total, 'unique': unique,
             'dup': total - unique, 'src_info': src_info}
@@ -571,10 +621,11 @@ def auto_prepare(cfg, prog=None):
         ('SR',   merge_sr),
     ]:
         tid = prog.add(f'合并{label}表') if prog else None
-        if need_merge_for_type(label):
+        srcs = _current_sources_for_type(label)
+        if need_merge_for_type(label, srcs):
             if prog:
                 prog.start(tid)
-            info = merge_fn()
+            info = merge_fn(srcs)
             if info:
                 done.append(info)
                 if prog:
@@ -592,7 +643,7 @@ def print_merge_report(done):
     """打印自动合并简短报告"""
     if not done:
         return
-    print(C('■ 自动合并统计（检测到原始表更新）', F_YELLOW, C_BOLD))
+    print(C('■ 合并统计（按源文件清单和内容检测变化）', F_YELLOW, C_BOLD))
     for info in done:
         dup_color = F_GREEN if info['dup'] == 0 else F_RED
         print(f'  • {C(info["src"], F_CYAN, C_BOLD)}：'
@@ -842,6 +893,7 @@ DEFAULT_CONFIG = {
     'uniform_operator': True,      # 按运营商均匀分布
     'uniform_productline': True,   # 风险按产品线均匀分布
     'auto_merge': True,            # 抽查前自动合并统计（检测到原始表更新则合并）
+    'duplicate_policy': 'unique',  # unique=按来源类型＋单号去重；records=保留每条记录
     'scopes': {
         'risk_suspend':  {'enable': True,  'ratio': None},  # None=用全局ratio
         'risk_closed':   {'enable': True,  'ratio': None},
@@ -940,6 +992,50 @@ SRC_DETAIL_MAP = {
 }
 
 
+DUPLICATE_POLICIES = {
+    'unique': '按来源类型＋单号去重',
+    'records': '按记录抽查（保留重复）',
+}
+
+
+def _duplicate_policy(cfg):
+    policy = cfg.get('duplicate_policy', 'unique')
+    if policy not in DUPLICATE_POLICIES:
+        raise DataValidationError('重复单号处理配置无效，请在菜单 4 重新设置')
+    return policy
+
+
+def _normalized_cell(value, strip_text=True):
+    if pd.isna(value):
+        return ''
+    if isinstance(value, float) and math.isfinite(value) and value.is_integer():
+        return str(int(value))
+    return str(value).strip() if strip_text else str(value)
+
+
+def _deduplicate_source(df, src, policy):
+    """在范围过滤和配额计算之前去重；同号冲突不得静默选一条。"""
+    if policy == 'records':
+        return df.copy()
+    id_column = SRC_DETAIL_MAP[src]['单号']
+    frame = df.copy().reset_index(drop=True)
+    frame[id_column] = frame[id_column].map(_normalized_cell)
+    missing = frame[id_column].eq('')
+    if missing.any():
+        raise DataValidationError(f'{src}源表有 {int(missing.sum())} 条记录缺少单号，无法按单号去重，请修正源数据')
+    duplicates = frame[frame[id_column].duplicated(keep=False)]
+    business_columns = [column for column in frame.columns if column != '数据来源文件']
+    for ticket_id, group in duplicates.groupby(id_column, sort=False):
+        conflicting = [column for column in business_columns
+                       if group[column].map(lambda value: _normalized_cell(value, strip_text=False)).nunique() > 1]
+        if conflicting:
+            source_files = '、'.join(group['数据来源文件'].dropna().astype(str).unique()) if '数据来源文件' in group else '合并表'
+            raise DataValidationError(
+                f'{src}单号 {ticket_id} 存在冲突记录，字段：{"、".join(conflicting)}；来源：{source_files}。'
+                '已停止抽查，请核对源数据；若需逐条审查不同记录，可在菜单 4 选择按记录抽查。')
+    return frame.drop_duplicates(subset=[id_column], keep='first').reset_index(drop=True)
+
+
 def stratified_sample(df, group_keys, priority_col, priority_map,
                       ratio, priority_high, seed):
     """
@@ -952,6 +1048,8 @@ def stratified_sample(df, group_keys, priority_col, priority_map,
       priority_high: 是否优先高优先级
     返回抽中的 DataFrame
     """
+    if not math.isfinite(ratio) or not 0 < ratio <= 1:
+        raise DataValidationError('抽查比例必须是 (0,1] 范围内的有限数字')
     sub = df.copy()
     n = len(sub)
     if n == 0:
@@ -1063,6 +1161,42 @@ SCOPE_FILTERS = {
 }
 
 
+SCOPE_REQUIRED_COLUMNS = {
+    'risk_suspend': ['风险等级', '风险状态'],
+    'risk_closed': ['风险等级', '风险状态'],
+    'rect_closed': ['任务状态'],
+    'rect_delay': ['是否延期'],
+    'rfc_closed_high': ['状态/RFC Status', '级别/Severity'],
+    'rfc_closed_medium': ['状态/RFC Status', '级别/Severity'],
+    'rfc_closed_low': ['状态/RFC Status', '级别/Severity'],
+    'sr_closed_critical': ['问题单状态/SR Status', '问题级别/Problem Level'],
+    'sr_closed_major': ['问题单状态/SR Status', '问题级别/Problem Level'],
+    'sr_closed_minor': ['问题单状态/SR Status', '问题级别/Problem Level'],
+}
+
+
+def _validate_sampling_columns(src_dfs, cfg):
+    """先校验全部启用范围，避免缺列时生成不完整的抽查报告。"""
+    for sk, meta in SCOPE_META.items():
+        df = src_dfs.get(meta['src'])
+        if not cfg['scopes'][sk]['enable'] or df is None:
+            continue
+        fm = SRC_FIELD_MAP[meta['src']]
+        required = list(SCOPE_REQUIRED_COLUMNS[sk])
+        required.append(SRC_DETAIL_MAP[meta['src']]['单号'])
+        if cfg['uniform_operator']:
+            required.append(fm['op'])
+        if cfg['uniform_productline'] and fm['pl'] is not None:
+            required.append(fm['pl'])
+        if cfg['priority_high']:
+            required.append(fm['prio'])
+        missing = sorted(set(required) - set(df.columns))
+        if missing:
+            raise DataValidationError(
+                f'{meta["name"]}源表缺少必需列：{"、".join(missing)}。'
+                '请检查导出表头；若不需要分层或优先级，可在抽样策略中关闭对应选项。')
+
+
 # ============================================================
 # 执行抽查
 # ============================================================
@@ -1079,6 +1213,13 @@ def run_sampling(cfg, prog=None):
     sr_df, sr_path = load_sr()
     src_dfs = {'风险': risk_df, '整改': rect_df, 'RFC': rfc_df, 'SR': sr_df}
     src_paths = {'风险': risk_path, '整改': rect_path, 'RFC': rfc_path, 'SR': sr_path}
+    _validate_sampling_columns(src_dfs, cfg)
+    policy = _duplicate_policy(cfg)
+    raw_src_dfs = src_dfs.copy()
+    active_sources = {meta['src'] for sk, meta in SCOPE_META.items() if cfg['scopes'][sk]['enable']}
+    for src in active_sources:
+        if src_dfs[src] is not None:
+            src_dfs[src] = _deduplicate_source(src_dfs[src], src, policy)
     n_ready = sum(1 for d in src_dfs.values() if d is not None)
     if prog:
         prog.done(tid, f'{n_ready}/4 来源就绪')
@@ -1115,6 +1256,7 @@ def run_sampling(cfg, prog=None):
         results[sk] = {
             'picked': picked, 'total': len(sub), 'ratio': ratio,
             'src': src, 'name': meta['name'], 'sub': sub,
+            'raw_total': len(SCOPE_FILTERS[sk](raw_src_dfs[src])),
         }
         if prog:
             prog.done(tid, f'{len(picked)}/{len(sub)}')
@@ -1170,6 +1312,7 @@ def export_results(results, cfg, seed, src_paths):
             ['优先高等级/高重要程度', cfg['priority_high']],
             ['按运营商均匀分布', cfg['uniform_operator']],
             ['风险按产品线均匀分布', cfg['uniform_productline']],
+            ['重复单号处理', DUPLICATE_POLICIES[_duplicate_policy(cfg)]],
             ['生成时间', datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
         ]
         for src_name, p in src_paths.items():
@@ -1184,6 +1327,13 @@ def export_results(results, cfg, seed, src_paths):
             else:
                 cfg_rows.append([meta['name'], f"{'开启' if sc['enable'] else '关闭'} / {ratio*100:.0f}% / - / -"])
         pd.DataFrame(cfg_rows, columns=['配置项', '值']).to_excel(writer, sheet_name='抽查配置', index=False)
+        count_rows = [
+            {'抽查范围': meta['name'], '原始候选记录数': results[sk].get('raw_total', results[sk]['total']),
+             '处理后候选数': results[sk]['total'], '抽中记录数': len(results[sk]['picked'])}
+            for sk, meta in SCOPE_META.items() if results.get(sk)
+        ]
+        pd.DataFrame(count_rows, columns=['抽查范围', '原始候选记录数', '处理后候选数', '抽中记录数']).to_excel(
+            writer, sheet_name='候选统计', index=False)
 
     _beautify(out_path)
     return out_path, total_df
@@ -1290,6 +1440,10 @@ def print_report(results, cfg, seed, out_path, total_df):
     ov_colors.append([F_MAGENTA, F_MAGENTA, F_MAGENTA, F_MAGENTA, F_MAGENTA])
     print_table(['抽查范围', '状态', '比例', '候选数', '抽中数'], ov_rows,
                 cell_colors=ov_colors, aligns=['left', 'center', 'right', 'right', 'right'])
+    for sk, meta in SCOPE_META.items():
+        r = results.get(sk)
+        if r and r.get('raw_total', r['total']) != r['total']:
+            print(C(f'  • {meta["name"]}：原始 {r["raw_total"]} 条记录 → 去重后 {r["total"]} 张单子，按去重后数量计算比例。', F_GRAY))
 
     # 各范围分布
     high_levels = {'High', 'Fatal', 'Critical', '严重'}
@@ -1378,6 +1532,7 @@ def print_report(results, cfg, seed, out_path, total_df):
     _rp = f'{cfg["ratio"]*100:.0f}%'
     print(f'  • 全局抽查比例：{C(_rp, F_YELLOW, C_BOLD)}')
     print(f'  • 优先高等级/高重要程度：{C("是", F_GREEN, C_BOLD) if cfg["priority_high"] else C("否", F_GRAY)}')
+    print(f'  • 重复单号处理：{C(DUPLICATE_POLICIES[_duplicate_policy(cfg)], F_CYAN)}')
     print(f'  • 按运营商均匀分布：{C("是", F_GREEN, C_BOLD) if cfg["uniform_operator"] else C("否", F_GRAY)}')
     print(f'  • 按产品线均匀分布(风险/RFC/SR)：{C("是", F_GREEN, C_BOLD) if cfg["uniform_productline"] else C("否", F_GRAY)}')
     print(f'  • 随机种子：{C(str(seed), F_CYAN)}（复现可用此种子）')
@@ -1422,7 +1577,7 @@ def _input_bool(prompt, default):
 
 def menu_set_ratio(cfg):
     v = _input_float('请输入抽查比例(0-1, 如 0.1=10%)', cfg['ratio'])
-    if 0 < v <= 1:
+    if math.isfinite(v) and 0 < v <= 1:
         cfg['ratio'] = v
     else:
         print(C('  ✗ 比例需在 (0,1] 区间', F_RED))
@@ -1445,7 +1600,10 @@ def menu_set_scopes(cfg):
         if s == '0' or s == '':
             return
         try:
-            sk = keys[int(s) - 1]
+            selected = int(s)
+            if not 1 <= selected <= len(keys):
+                raise ValueError('范围编号越界')
+            sk = keys[selected - 1]
         except (ValueError, IndexError):
             print(C('  ✗ 无效编号', F_RED))
             continue
@@ -1456,7 +1614,11 @@ def menu_set_scopes(cfg):
         if use_global:
             sc['ratio'] = None
         else:
-            sc['ratio'] = _input_float('  请输入该范围比例(0-1)', sc['ratio'] if sc['ratio'] is not None else cfg['ratio'])
+            v = _input_float('  请输入该范围比例(0-1)', sc['ratio'] if sc['ratio'] is not None else cfg['ratio'])
+            if math.isfinite(v) and 0 < v <= 1:
+                sc['ratio'] = v
+            else:
+                print(C('  ✗ 比例需为 (0,1] 区间内的有限数字，保留原比例', F_RED))
 
 
 def menu_set_strategy(cfg):
@@ -1470,6 +1632,18 @@ def menu_set_strategy(cfg):
         cfg['seed'] = _input_int('请输入随机种子', cfg['seed'] if cfg['seed'] is not None else 42)
     else:
         cfg['seed'] = None
+    policy = _duplicate_policy(cfg)
+    print(C('重复单号处理（同号冲突不会自动选取一条）：', F_CYAN))
+    print('  1. 按来源类型＋单号去重（默认；冲突时停止抽查）')
+    print('  2. 按记录抽查（保留重复，可用于审查多次记录）')
+    while True:
+        choice = input(C(f'请选择 [1/2，回车保留：{DUPLICATE_POLICIES[policy]}]: ', F_CYAN)).strip()
+        if not choice:
+            break
+        if choice in ('1', '2'):
+            cfg['duplicate_policy'] = 'unique' if choice == '1' else 'records'
+            break
+        print(C('  ✗ 请输入 1 或 2', F_RED))
 
 
 def menu_show_cfg(cfg):
@@ -1481,6 +1655,7 @@ def menu_show_cfg(cfg):
     print(f'  • 按运营商均匀分布：{C("是", F_GREEN) if cfg["uniform_operator"] else C("否", F_GRAY)}')
     print(f'  • 按产品线均匀分布(风险/RFC/SR)：{C("是", F_GREEN) if cfg["uniform_productline"] else C("否", F_GRAY)}')
     print(f'  • 自动合并统计：{C("是", F_GREEN) if cfg["auto_merge"] else C("否", F_GRAY)}')
+    print(f'  • 重复单号处理：{C(DUPLICATE_POLICIES[_duplicate_policy(cfg)], F_CYAN)}')
     print(f'  • 随机种子：{C(str(cfg["seed"]), F_CYAN) if cfg["seed"] is not None else C("随机", F_GRAY)}')
     print(f'  • 抽查范围：')
     for sk, meta in SCOPE_META.items():
@@ -1585,19 +1760,21 @@ def menu_smart_import():
     if do_merge:
         prog = Progress('合并进度')
         done = []
-        for label, fn in [('风险', merge_risk), ('整改', merge_rect),
-                          ('RFC', merge_rfc), ('SR', merge_sr)]:
-            srcs = classified[label]
-            if srcs:
-                tid = prog.add(f'合并{label}表')
-                prog.start(tid)
-                info = fn(srcs)
-                if info:
-                    done.append(info)
-                    prog.done(tid, f'{info["total"]}行 唯一{info["unique"]}')
-                else:
-                    prog.fail(tid, '合并失败')
-        prog.finish()
+        try:
+            for label, fn in [('风险', merge_risk), ('整改', merge_rect),
+                              ('RFC', merge_rfc), ('SR', merge_sr)]:
+                srcs = classified[label]
+                if srcs:
+                    tid = prog.add(f'合并{label}表')
+                    prog.start(tid)
+                    info = fn(srcs)
+                    if info:
+                        done.append(info)
+                        prog.done(tid, f'{info["total"]}行 唯一{info["unique"]}')
+                    else:
+                        prog.fail(tid, '合并失败')
+        finally:
+            prog.finish()
         print()
         print_merge_report(done)
     input(C('按回车返回主菜单...', F_GRAY))
@@ -1612,7 +1789,7 @@ def main():
         print(f'  {C("1", F_YELLOW, C_BOLD)}. 开始抽查（当前配置）')
         print(f'  {C("2", F_YELLOW, C_BOLD)}. 设置抽查比例（当前 {cfg["ratio"]*100:.0f}%）')
         print(f'  {C("3", F_YELLOW, C_BOLD)}. 设置抽查范围（开关/比例）')
-        print(f'  {C("4", F_YELLOW, C_BOLD)}. 设置抽样策略（优先级/均匀分布/种子）')
+        print(f'  {C("4", F_YELLOW, C_BOLD)}. 设置抽样策略（去重/优先级/均匀分布/种子）')
         print(f'  {C("5", F_YELLOW, C_BOLD)}. 查看当前配置（只读）')
         _am = C('开启', F_GREEN) if cfg['auto_merge'] else C('关闭', F_GRAY)
         print(f'  {C("6", F_YELLOW, C_BOLD)}. 自动合并统计（当前 {_am}）')
@@ -1620,62 +1797,75 @@ def main():
         print(f'  {C("8", F_YELLOW, C_BOLD)}. 智能分类导入（多文件/多文件夹自动识别与合并）')
         print(f'  {C("0", F_YELLOW, C_BOLD)}. 退出')
         s = input(C('请选择: ', F_CYAN)).strip()
-        if s == '1':
-            prog = Progress('抽查进度')
-            results, seed, src_paths, done = run_sampling(cfg, prog)
-            if all(v is None for v in results.values()):
-                prog.finish()
-                print(C('✗ 未找到任何数据或范围全部关闭', F_RED, C_BOLD))
-                input(C('按回车返回主菜单...', F_GRAY))
-                continue
-            tid = prog.add('导出 Excel 总表')
-            prog.start(tid)
-            out_path, total_df = export_results(results, cfg, seed, src_paths)
-            prog.done(tid, f'{len(total_df)} 行')
-            prog.finish()
-            print()
-            print_report(results, cfg, seed, out_path, total_df)
-            input(C('按回车返回主菜单...', F_GRAY))
-        elif s == '2':
-            menu_set_ratio(cfg)
-        elif s == '3':
-            menu_set_scopes(cfg)
-        elif s == '4':
-            menu_set_strategy(cfg)
-        elif s == '5':
-            menu_show_cfg(cfg)
-            input(C('按回车返回主菜单...', F_GRAY))
-        elif s == '6':
-            cfg['auto_merge'] = _input_bool('抽查前自动合并统计（检测到原始表更新则合并）?',
-                                            cfg['auto_merge'])
-        elif s == '7':
-            clear_screen()
-            print_title('立即合并统计')
-            prog = Progress('合并进度')
-            done = []
-            for label, fn in [('风险', merge_risk), ('整改', merge_rect),
-                              ('RFC', merge_rfc), ('SR', merge_sr)]:
-                tid = prog.add(f'合并{label}表')
+        prog = None
+        try:
+            if s == '1':
+                prog = Progress('抽查进度')
+                results, seed, src_paths, done = run_sampling(cfg, prog)
+                if all(v is None for v in results.values()):
+                    prog.finish()
+                    print(C('✗ 未找到任何数据或范围全部关闭', F_RED, C_BOLD))
+                    input(C('按回车返回主菜单...', F_GRAY))
+                    continue
+                tid = prog.add('导出 Excel 总表')
                 prog.start(tid)
-                info = fn()
-                if info:
-                    done.append(info)
-                    prog.done(tid, f'{info["total"]}行 唯一{info["unique"]}')
-                else:
-                    prog.fail(tid, '未找到原始表')
-            prog.finish()
-            print()
-            print_merge_report(done)
-            if not done:
-                print(C('  （无原始表可合并）', F_GRAY))
-            input(C('按回车返回主菜单...', F_GRAY))
-        elif s == '8':
-            menu_smart_import()
-        elif s == '0':
-            print(C('再见 👋', F_CYAN))
-            break
-        else:
-            print(C('✗ 无效选择', F_RED))
+                out_path, total_df = export_results(results, cfg, seed, src_paths)
+                prog.done(tid, f'{len(total_df)} 行')
+                prog.finish()
+                print()
+                print_report(results, cfg, seed, out_path, total_df)
+                input(C('按回车返回主菜单...', F_GRAY))
+            elif s == '2':
+                menu_set_ratio(cfg)
+            elif s == '3':
+                menu_set_scopes(cfg)
+            elif s == '4':
+                menu_set_strategy(cfg)
+            elif s == '5':
+                menu_show_cfg(cfg)
+                input(C('按回车返回主菜单...', F_GRAY))
+            elif s == '6':
+                cfg['auto_merge'] = _input_bool('抽查前自动合并统计（检测到原始表更新则合并）?',
+                                                cfg['auto_merge'])
+            elif s == '7':
+                clear_screen()
+                print_title('立即合并统计')
+                prog = Progress('合并进度')
+                done = []
+                for label, fn in [('风险', merge_risk), ('整改', merge_rect),
+                                  ('RFC', merge_rfc), ('SR', merge_sr)]:
+                    tid = prog.add(f'合并{label}表')
+                    prog.start(tid)
+                    info = fn()
+                    if info:
+                        done.append(info)
+                        prog.done(tid, f'{info["total"]}行 唯一{info["unique"]}')
+                    else:
+                        prog.fail(tid, '未找到原始表')
+                prog.finish()
+                print()
+                print_merge_report(done)
+                if not done:
+                    print(C('  （无原始表可合并）', F_GRAY))
+                input(C('按回车返回主菜单...', F_GRAY))
+            elif s == '8':
+                menu_smart_import()
+            elif s == '0':
+                print(C('再见 👋', F_CYAN))
+                break
+            else:
+                print(C('✗ 无效选择', F_RED))
+                input(C('按回车返回主菜单...', F_GRAY))
+
+        except (DataValidationError, OSError, KeyError) as e:
+            if prog is not None:
+                for tid, task in enumerate(prog.tasks):
+                    if task['status'] == 'running':
+                        prog.fail(tid, '操作中止')
+                prog.finish()
+            print(C(f'✗ 操作未完成：{e}', F_RED, C_BOLD))
+            if isinstance(e, PermissionError):
+                print(C('请关闭正在 Excel 中打开的输出文件，并检查目录的写入权限。', F_YELLOW))
             input(C('按回车返回主菜单...', F_GRAY))
 
 

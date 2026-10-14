@@ -27,6 +27,12 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      - name: Preserve LF for hot-update SHA256
+        shell: pwsh
+        run: |
+          git config --global core.autocrlf false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Checkout Code
         uses: actions/checkout@v4
 
@@ -38,43 +44,55 @@ jobs:
           cache-dependency-path: 'python-packager/requirements.txt'
 
       - name: Install Dependencies
+        shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          pip install -r python-packager/requirements.txt
-          pip install pyinstaller
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip install -r python-packager/requirements.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Test Python and Verify Release Metadata
+        shell: pwsh
+        run: |
+          python -m unittest discover -s python-packager/tests -p "test_*.py" -v
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python python-packager/build_exe.py --check-only
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Read Version Metadata
         id: meta
         shell: pwsh
+        env:
+          BUILD_TAG: ${{ github.event.inputs.build_tag }}
         run: |
           $verJson = Get-Content "python-packager/version.json" -Raw | ConvertFrom-Json
-          $version = if ("${{ github.event.inputs.build_tag }}" -ne "") {
-            "${{ github.event.inputs.build_tag }}".TrimStart("v")
+          $version = if ($env:BUILD_TAG) {
+            $env:BUILD_TAG.TrimStart("v")
           } else {
             $verJson.version
           }
-          if (-not $version) { $version = "1.0.0" }
+          if (-not $version -or $version -notmatch '^[0-9A-Za-z][0-9A-Za-z._-]*$') {
+            throw "Invalid release version"
+          }
+          if ($version -ne $verJson.version) {
+            throw "build_tag must match version.json to keep the portable release and hot-update metadata consistent"
+          }
           $zipName = "PR报告抽查工具-v$version-Windows-x64.zip"
           Write-Host "Resolved Version: $version"
           Write-Host "Output Zip Name: $zipName"
           echo "VERSION=$version" >> $env:GITHUB_OUTPUT
           echo "ZIP_NAME=$zipName" >> $env:GITHUB_OUTPUT
 
-      - name: Compile Universal Shell with PyInstaller
+      - name: Build and Smoke Test Portable EXE
         shell: pwsh
         run: |
           [Console]::InputEncoding = [System.Text.Encoding]::UTF8
           [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
           $OutputEncoding = [System.Text.Encoding]::UTF8
-          cd python-packager
-          pyinstaller --noconfirm --onedir --windowed `
-            --name "PR-Audit-Sampler" `
-            --add-data "core_script.py;." `
-            --add-data "version.json;." `
-            --add-data "updater_config.json;." `
-            universal_shell.py
+          python python-packager/build_exe.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Assemble Portable Distribution
+      - name: Archive Verified Portable Distribution
         shell: pwsh
         run: |
           [Console]::InputEncoding = [System.Text.Encoding]::UTF8
@@ -82,16 +100,8 @@ jobs:
           $OutputEncoding = [System.Text.Encoding]::UTF8
 
           $distDir = "python-packager/dist/PR-Audit-Sampler"
-          Copy-Item -Path "python-packager/core_script.py" -Destination $distDir -Force
-          Copy-Item -Path "python-packager/version.json" -Destination $distDir -Force
-          Copy-Item -Path "python-packager/updater_config.json" -Destination $distDir -Force
-          Copy-Item -Path "python-packager/README.md" -Destination $distDir -Force
-          New-Item -ItemType Directory -Force -Path "$distDir/data" | Out-Null
-
-          # 额外复制一份友好命名的执行入口
-          Copy-Item -Path "$distDir/PR-Audit-Sampler.exe" -Destination "$distDir/PR报告抽查工具.exe" -Force
-
-          # 制作便携 ZIP
+          # build_exe.py has assembled both entry names and passed isolated
+          # menu/UTF-8/Excel smoke tests before this archive can be published.
           $zipPath = "python-packager/dist/${{ steps.meta.outputs.ZIP_NAME }}"
           Compress-Archive -Path "$distDir/*" -DestinationPath $zipPath -Force
           Write-Host "Created archive: $zipPath"
@@ -114,7 +124,13 @@ jobs:
 
             - **架构特点**：通用外壳 + 动态业务脚本 (`core_script.py`)
             - **极速热更新**：支持在线一键秒级更新，后续更新业务代码无需重复下载或重装客户端！
-            - **新版特性 (v1.1.0)**：
+            - **本版修复与验证**：
+              - 修复外置核心脚本依赖未进入 EXE 的问题（包括 glob、pandas、openpyxl 和 .xls 引擎 xlrd）
+              - 保留内置终端的标准输入输出，并验证中文及空格路径下的菜单交互和 Excel 读写
+              - 核心脚本与版本 SHA256 校验、Python 测试、真实 EXE 冒烟全部通过后发布
+            - **业务功能**：
+              - 默认按来源类型和单号去重后抽查；菜单 4 可切换按记录抽查，同号冲突时停止并提示核对
+              - 自动合并按源文件清单和内容 SHA256 检测变化，覆盖新增、删除及保留旧时间的替换
               - 🌟 多文件/多文件夹自动扫描（不限制特定文件夹名称）
               - 🧠 表头特征列指纹加权智能分类（自动识别风险、整改、RFC、SR 表格）
               - ⚠️ 模糊表格交互提示手动指派
@@ -146,7 +162,7 @@ jobs:
 
           ### 💡 极速热更新使用说明：
           1. 用户仅需首次下载安装包/绿色包；
-          2. 后续更新核心脚本（如 `core_script.py`）后推送到 GitHub，用户无需重新下载 EXE；
+          2. 后续更新核心脚本（如 `core_script.py`）并同步版本 SHA256 后推送到 GitHub；新增依赖时需要重新下载 EXE；
           3. 用户启动程序后点击 **【🔄 检查并在线热更新】**，即可秒级拉取最新脚本逻辑！
           "@
           $summary | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8

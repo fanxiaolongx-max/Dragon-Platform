@@ -4,7 +4,7 @@ Python 通用脚本启动器 (热更新版 · 苹果风格内置交互终端)
 =========================================================
 架构设计：
   1. 苹果风格内置终端 (Embedded Apple-Style Terminal)：
-     - 采用 macOS 窗口控制红黄绿三色圆点、极简标题栏与深色控制台设计；
+     - 采用明确的停止/清屏/重启按钮、极简标题栏与深色控制台设计；
      - 进程输入/输出直接嵌入于 GUI 主界面内，告别弹出独立外部黑框窗口；
      - 支持完整 ANSI 彩色高亮、多步进度条动态刷新、交互式选项输入与快捷按键条。
   2. 动态核心脚本 (Dynamic Core Logic)：
@@ -25,6 +25,10 @@ import subprocess
 import re
 import urllib.request
 import urllib.error
+import codecs
+import queue
+import tempfile
+import traceback
 from datetime import datetime
 
 # GUI 库 (Python 内置)
@@ -189,6 +193,113 @@ def load_version_info():
 # ============================================================
 # 热更新下载与校验核心
 # ============================================================
+def validate_script(script_bytes):
+    """只编译校验，不执行下载内容。"""
+    script_text = script_bytes.decode('utf-8-sig')
+    if not script_text.strip():
+        raise ValueError("脚本内容为空")
+    compile(script_text, CORE_SCRIPT_NAME, 'exec')
+
+
+def _stage_file(path, content):
+    fd, staged_path = tempfile.mkstemp(prefix='.updater-', dir=os.path.dirname(path))
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(content)
+            stream.flush()
+            os.fsync(stream.fileno())
+        return staged_path
+    except BaseException:
+        os.unlink(staged_path)
+        raise
+
+
+def _atomic_write(path, content):
+    staged_path = _stage_file(path, content)
+    try:
+        os.replace(staged_path, path)
+    finally:
+        if os.path.exists(staged_path):
+            os.unlink(staged_path)
+
+
+def _install_script(script_bytes, version_info):
+    """先完成两个文件的写入，再替换；元数据替换失败时还原原脚本。"""
+    validate_script(script_bytes)
+    metadata_bytes = json.dumps(version_info, ensure_ascii=False, indent=2).encode('utf-8')
+    old_script = None
+    if os.path.exists(CORE_SCRIPT_PATH):
+        with open(CORE_SCRIPT_PATH, 'rb') as stream:
+            old_script = stream.read()
+    staged_core = _stage_file(CORE_SCRIPT_PATH, script_bytes)
+    staged_version = None
+    core_replaced = False
+    try:
+        staged_version = _stage_file(VERSION_PATH, metadata_bytes)
+        os.replace(staged_core, CORE_SCRIPT_PATH)
+        core_replaced = True
+        os.replace(staged_version, VERSION_PATH)
+    except Exception:
+        if core_replaced:
+            if old_script is None:
+                os.unlink(CORE_SCRIPT_PATH)
+            else:
+                _atomic_write(CORE_SCRIPT_PATH, old_script)
+        raise
+    finally:
+        for staged_path in (staged_core, staged_version):
+            if staged_path and os.path.exists(staged_path):
+                os.unlink(staged_path)
+
+
+def _backup_current_script(version_info):
+    if not os.path.exists(CORE_SCRIPT_PATH):
+        return
+    os.makedirs(BACKUP_DIR_PATH, exist_ok=True)
+    version = re.sub(r'[^a-zA-Z0-9._-]', '_', str(version_info.get('version', 'unknown')))
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+    backup_path = os.path.join(BACKUP_DIR_PATH, f'core_script_v{version}_{timestamp}.py.bak')
+    shutil.copy2(CORE_SCRIPT_PATH, backup_path)
+    metadata = dict(version_info, sha256=version_info.get('actual_sha256', ''))
+    _atomic_write(backup_path + '.version.json', json.dumps(metadata, ensure_ascii=False, indent=2).encode('utf-8'))
+
+
+def restore_backup(backup_path):
+    with open(backup_path, 'rb') as stream:
+        script_bytes = stream.read()
+    validate_script(script_bytes)
+    digest = hashlib.sha256(script_bytes).hexdigest()
+    metadata_path = backup_path + '.version.json'
+    if os.path.exists(metadata_path):
+        with open(metadata_path, encoding='utf-8') as stream:
+            metadata = json.load(stream)
+        if metadata.get('sha256') != digest:
+            raise ValueError('备份脚本校验失败，请选择其他备份')
+    else:
+        # 兼容早期只有 .py.bak 的备份，但不沿用新脚本的版本标记。
+        match = re.match(r'core_script_v(.+)_\d{8}_\d{6}\.py\.bak$', os.path.basename(backup_path))
+        metadata = {'name': 'PR 报告抽查脚本', 'version': match.group(1) if match else 'restored',
+                    'changelog': '从历史脚本备份恢复'}
+    metadata.update(sha256=digest, updated_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+    _backup_current_script(load_version_info())
+    _install_script(script_bytes, metadata)
+
+
+def iter_process_output(stream):
+    """保留跨读取块的 UTF-8 字节，且一直读取到 EOF 以保留退出前输出。"""
+    decoder = codecs.getincrementaldecoder('utf-8')(errors='replace')
+    while True:
+        raw = stream.read(4096)
+        if not raw:
+            break
+        text = decoder.decode(raw)
+        if text:
+            yield text
+    tail = decoder.decode(b'', final=True)
+    if tail:
+        yield tail
+
+
 def fetch_url(url, timeout=12):
     req = urllib.request.Request(
         url,
@@ -228,9 +339,13 @@ def perform_update(config, on_progress=None):
     if ver_url:
         try:
             raw_ver = fetch_url(ver_url, timeout=10)
-            remote_ver_data = json.loads(raw_ver.decode('utf-8'))
+            remote_ver_data = json.loads(raw_ver.decode('utf-8-sig'))
+            if not isinstance(remote_ver_data, dict):
+                raise ValueError('version.json 必须是对象')
+            if not re.fullmatch(r'[0-9a-fA-F]{64}', str(remote_ver_data.get('sha256', ''))):
+                raise ValueError('version.json 缺少有效的 SHA-256 校验值')
         except Exception as e:
-            print(f"[Info] 远端 version.json 获取跳过: {e}")
+            return False, f"获取版本校验信息失败，已保留原脚本: {e}", ""
 
     if on_progress:
         on_progress(f"正在从 [{active_src['name']}] 下载最新核心逻辑代码...")
@@ -245,38 +360,14 @@ def perform_update(config, on_progress=None):
         return False, f"下载异常: {str(e)}", ""
 
     try:
-        script_text = new_script_bytes.decode('utf-8')
-    except UnicodeDecodeError:
-        return False, "下载的文件无法以 UTF-8 解码，可能不是有效的 Python 脚本", ""
-
-    if len(script_text.strip()) < 50:
-        return False, "下载的脚本内容过小，可能返回了错误页面", ""
+        validate_script(new_script_bytes)
+    except (UnicodeDecodeError, SyntaxError, ValueError) as e:
+        return False, f"下载的文件不是有效的 UTF-8 Python 脚本，已保留原脚本: {e}", ""
 
     new_sha256 = hashlib.sha256(new_script_bytes).hexdigest()
+    if remote_ver_data and remote_ver_data['sha256'].lower() != new_sha256:
+        return False, "脚本 SHA-256 与版本信息不一致，已保留原脚本，请稍后重试", ""
     current_ver = load_version_info()
-    if current_ver.get("actual_sha256") == new_sha256:
-        return True, "当前本地脚本已是最新代码，无需更新！", current_ver.get("version", "1.0.0")
-
-    if on_progress:
-        on_progress("正在自动备份当前版本...")
-
-    if os.path.exists(CORE_SCRIPT_PATH) and config.get("backup_on_update", True):
-        os.makedirs(BACKUP_DIR_PATH, exist_ok=True)
-        cur_v = current_ver.get("version", "unknown")
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        bak_name = f"core_script_v{cur_v}_{ts}.py.bak"
-        bak_path = os.path.join(BACKUP_DIR_PATH, bak_name)
-        try:
-            shutil.copy2(CORE_SCRIPT_PATH, bak_path)
-        except Exception as e:
-            print(f"[Warn] 备份旧脚本失败: {e}")
-
-    if on_progress:
-        on_progress("正在写入最新核心脚本...")
-
-    with open(CORE_SCRIPT_PATH, "wb") as f:
-        f.write(new_script_bytes)
-
     target_ver = remote_ver_data or {}
     updated_ver_info = {
         "name": target_ver.get("name", current_ver.get("name", "PR 报告抽查脚本")),
@@ -288,10 +379,19 @@ def perform_update(config, on_progress=None):
     }
 
     try:
-        with open(VERSION_PATH, "w", encoding="utf-8") as f:
-            json.dump(updated_ver_info, f, ensure_ascii=False, indent=2)
+        if current_ver.get('actual_sha256') == new_sha256:
+            updated_ver_info['version'] = target_ver.get('version', current_ver.get('version', '1.0.0'))
+            _atomic_write(VERSION_PATH, json.dumps(updated_ver_info, ensure_ascii=False, indent=2).encode('utf-8'))
+            return True, "当前本地脚本已是最新代码，无需更新！", updated_ver_info['version']
+        if config.get('backup_on_update', True):
+            if on_progress:
+                on_progress('正在自动备份当前版本...')
+            _backup_current_script(current_ver)
+        if on_progress:
+            on_progress('正在写入最新核心脚本...')
+        _install_script(new_script_bytes, updated_ver_info)
     except Exception as e:
-        print(f"[Warn] 更新 version.json 失败: {e}")
+        return False, f"更新未完成: {e}", ""
 
     return True, f"热更新成功！最新代码已写入部署，大小: {round(len(new_script_bytes)/1024, 2)} KB", updated_ver_info["version"]
 
@@ -302,7 +402,7 @@ def perform_update(config, on_progress=None):
 class AppleTerminalWidget(tk.Frame):
     """
     优雅、专业、美观的苹果风格内置交互控制台
-    - macOS Traffic Light 3点控制栏 (🔴 关/停  🟡 清屏  🟢 重启)
+    - 明确的停止、清屏、重启操作按钮
     - 完整支持 ANSI 8/16 色与粗体映射
     - 支持 Carriage Return (\\r) 原地刷新与多步任务旋转进度条
     - 底部集成紧凑交互输入栏 (Prompt ❯ + Enter 发送)
@@ -318,6 +418,8 @@ class AppleTerminalWidget(tk.Frame):
         self.on_input_send = None
 
         self._active_tags = set()
+        self._pending_ansi = ''
+        self._pending_cr = ''
         self._build_terminal_ui()
 
     def _build_terminal_ui(self):
@@ -326,26 +428,29 @@ class AppleTerminalWidget(tk.Frame):
         self.title_bar.pack(side=tk.TOP, fill=tk.X)
         self.title_bar.pack_propagate(False)
 
-        # 苹果红黄绿三色小圆点
-        dots_frame = tk.Frame(self.title_bar, bg="#161b22")
-        dots_frame.pack(side=tk.LEFT, fill=tk.Y)
-
-        self.btn_dot_red = tk.Label(dots_frame, text="●", fg="#ff5f56", bg="#161b22", font=("Arial", 12), cursor="hand2")
-        self.btn_dot_red.pack(side=tk.LEFT, padx=(0, 5))
-        self.btn_dot_red.bind("<Button-1>", lambda e: self.on_stop_cb() if self.on_stop_cb else None)
-
-        self.btn_dot_yellow = tk.Label(dots_frame, text="●", fg="#ffbd2e", bg="#161b22", font=("Arial", 12), cursor="hand2")
-        self.btn_dot_yellow.pack(side=tk.LEFT, padx=(0, 5))
-        self.btn_dot_yellow.bind("<Button-1>", lambda e: self.clear_terminal())
-
-        self.btn_dot_green = tk.Label(dots_frame, text="●", fg="#27c93f", bg="#161b22", font=("Arial", 12), cursor="hand2")
-        self.btn_dot_green.pack(side=tk.LEFT, padx=(0, 10))
-        self.btn_dot_green.bind("<Button-1>", lambda e: self.on_restart_cb() if self.on_restart_cb else None)
+        controls_frame = tk.Frame(self.title_bar, bg="#161b22")
+        controls_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 8))
+        controls = [
+            ('btn_stop', '■ 停止', '#ff7b72', '#3b1d25',
+             lambda: self.on_stop_cb() if self.on_stop_cb else None),
+            ('btn_clear', '⌫ 清屏', '#f2cc60', '#312719', self.clear_terminal),
+            ('btn_restart', '↻ 重启', '#7ee787', '#173426',
+             lambda: self.on_restart_cb() if self.on_restart_cb else None),
+        ]
+        for name, label, foreground, background, command in controls:
+            button = tk.Button(
+                controls_frame, text=label, fg=foreground, bg=background,
+                activeforeground=foreground, activebackground='#30363d',
+                font=('微软雅黑', 8), relief='flat', bd=0,
+                padx=7, pady=2, cursor='hand2', command=command
+            )
+            button.pack(side=tk.LEFT, padx=(0, 4), pady=4)
+            setattr(self, name, button)
 
         # 居中标题
         self.lbl_title = tk.Label(
             self.title_bar,
-            text="zsh — 抽查脚本交互终端 (core_script.py)",
+            text="Python — 抽查脚本交互终端 (core_script.py)",
             fg="#8b949e",
             bg="#161b22",
             font=("Consolas", 9, "bold")
@@ -366,10 +471,6 @@ class AppleTerminalWidget(tk.Frame):
             pady=2
         )
         self.status_badge.pack(side=tk.LEFT, padx=(0, 8))
-
-        btn_clear = tk.Label(right_frame, text="🧹 清屏", fg="#58a6ff", bg="#161b22", font=("微软雅黑", 8), cursor="hand2")
-        btn_clear.pack(side=tk.LEFT, padx=(0, 6))
-        btn_clear.bind("<Button-1>", lambda e: self.clear_terminal())
 
         # 2. 终端主体文本框 (Text + Scrollbar)
         body_frame = tk.Frame(self, bg="#0d1117")
@@ -392,6 +493,11 @@ class AppleTerminalWidget(tk.Frame):
             padx=12,
             pady=10
         )
+        # 回显区只供阅读、选择和复制；所有命令通过底部输入栏发送。
+        self.text_area.configure(state=tk.DISABLED, cursor='arrow', exportselection=False)
+        self.text_area.bind('<Control-a>', self._select_output)
+        if sys.platform == 'darwin':
+            self.text_area.bind('<Command-a>', self._select_output)
         self.text_area.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         scrollbar = ttk.Scrollbar(body_frame, orient=tk.VERTICAL, command=self.text_area.yview)
@@ -439,6 +545,9 @@ class AppleTerminalWidget(tk.Frame):
         # 4. 底部交互输入栏
         self.input_bar = tk.Frame(self, bg="#161b22", padx=10, pady=6)
         self.input_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        tk.Label(self.input_bar, text='命令输入', fg='#8b949e', bg='#161b22',
+                 font=('微软雅黑', 8)).pack(side=tk.LEFT, padx=(0, 6))
 
         # 提示符 ❯
         self.prompt_lbl = tk.Label(self.input_bar, text="❯", fg="#38bdf8", bg="#161b22", font=("Consolas", 12, "bold"))
@@ -492,10 +601,38 @@ class AppleTerminalWidget(tk.Frame):
         self.text_area.tag_configure("user_input", foreground="#38bdf8", font=(font_family, 10, "bold"))
         self.text_area.tag_configure("sys_hint", foreground="#6e7681", font=(font_family, 9, "italic"))
 
+    def _select_output(self, event=None):
+        self.text_area.tag_add('sel', '1.0', 'end-1c')
+        return 'break'
+
     def write_ansi(self, text):
+        """程序回显时短暂解锁，完成后恢复只读，保留选择和复制能力。"""
+        if not text:
+            return
+        self.text_area.configure(state=tk.NORMAL)
+        try:
+            self._render_ansi(text)
+        finally:
+            self.text_area.configure(state=tk.DISABLED)
+
+    def _render_ansi(self, text):
         """解析 ANSI 控制序列并安全渲染至终端文本框"""
         if not text:
             return
+
+        # Windows 文本输出会把换行转换成 CRLF；不能将其中的 CR 当作进度刷新。
+        text = self._pending_cr + text
+        self._pending_cr = ''
+        if text.endswith('\r'):
+            self._pending_cr = '\r'
+            text = text[:-1]
+        text = text.replace('\r\n', '\n')
+        text = self._pending_ansi + text
+        self._pending_ansi = ''
+        escape_start = text.rfind('\x1b')
+        if escape_start >= 0 and re.fullmatch(r'\x1b(?:\[[0-9;]*)?', text[escape_start:]):
+            self._pending_ansi = text[escape_start:]
+            text = text[:escape_start]
 
         for tok in self.ANSI_TOKEN_RE.findall(text):
             if tok == '\r':
@@ -508,31 +645,25 @@ class AppleTerminalWidget(tk.Frame):
                 param = tok[2:-1]
 
                 if cmd == 'm':
-                    # 颜色控制
-                    if param in ('', '0'):
-                        self._active_tags.clear()
-                    elif param == '1':
-                        self._active_tags.add('ansi_bold')
-                    elif param in ('91', '31'):
-                        self._active_tags.add('ansi_red')
-                    elif param in ('92', '32'):
-                        self._active_tags.add('ansi_green')
-                    elif param in ('93', '33'):
-                        self._active_tags.add('ansi_yellow')
-                    elif param in ('94', '34'):
-                        self._active_tags.add('ansi_blue')
-                    elif param in ('95', '35'):
-                        self._active_tags.add('ansi_magenta')
-                    elif param in ('96', '36'):
-                        self._active_tags.add('ansi_cyan')
-                    elif param in ('97', '37'):
-                        self._active_tags.add('ansi_white')
-                    elif param in ('90', '30'):
-                        self._active_tags.add('ansi_gray')
-                    elif param == '44':
-                        self._active_tags.add('ansi_bg_blue')
-                    elif param == '46':
-                        self._active_tags.add('ansi_bg_cyan')
+                    color_tags = {'31': 'red', '91': 'red', '32': 'green', '92': 'green',
+                                  '33': 'yellow', '93': 'yellow', '34': 'blue', '94': 'blue',
+                                  '35': 'magenta', '95': 'magenta', '36': 'cyan', '96': 'cyan',
+                                  '37': 'white', '97': 'white', '30': 'gray', '90': 'gray'}
+                    for code in (param or '0').split(';'):
+                        if code == '0':
+                            self._active_tags.clear()
+                        elif code == '1':
+                            self._active_tags.add('ansi_bold')
+                        elif code == '22':
+                            self._active_tags.discard('ansi_bold')
+                        elif code in color_tags or code == '39':
+                            self._active_tags.difference_update('ansi_' + color for color in set(color_tags.values()))
+                            if code in color_tags:
+                                self._active_tags.add('ansi_' + color_tags[code])
+                        elif code in ('44', '46', '49'):
+                            self._active_tags.difference_update(('ansi_bg_blue', 'ansi_bg_cyan'))
+                            if code != '49':
+                                self._active_tags.add('ansi_bg_blue' if code == '44' else 'ansi_bg_cyan')
                 elif cmd == 'K':
                     # 清行
                     self.text_area.delete('end-1c linestart', 'end-1c')
@@ -550,8 +681,14 @@ class AppleTerminalWidget(tk.Frame):
         self.text_area.see('end')
 
     def clear_terminal(self):
-        self.text_area.delete('1.0', 'end')
+        self.text_area.configure(state=tk.NORMAL)
+        try:
+            self.text_area.delete('1.0', 'end')
+        finally:
+            self.text_area.configure(state=tk.DISABLED)
         self._active_tags.clear()
+        self._pending_ansi = ''
+        self._pending_cr = ''
 
     def set_running_status(self, is_running, pid=None):
         if is_running:
@@ -592,6 +729,11 @@ class UniversalShellGUI(tk.Tk):
         # 进程管控
         self.process = None
         self.reader_thread = None
+        self.ui_events = queue.Queue()
+        self._closing = False
+        self._close_requested = False
+        self._restart_pending = False
+        self.protocol('WM_DELETE_WINDOW', self._on_close)
 
         self._apply_styles()
         self._build_ui()
@@ -607,7 +749,35 @@ class UniversalShellGUI(tk.Tk):
         )
 
         # 自动启动核心脚本
+        self.after(30, self._drain_ui_events)
         self.after(300, self._start_script_process)
+
+    def _drain_ui_events(self):
+        if self._closing:
+            return
+        for _ in range(100):
+            try:
+                callback, args = self.ui_events.get_nowait()
+            except queue.Empty:
+                break
+            callback(*args)
+        self.after(30, self._drain_ui_events)
+
+    def _on_close(self):
+        if self.is_updating:
+            if not self._close_requested:
+                self.terminal.write_ansi('\n[提示] 正在完成脚本更新，完成后将自动关闭窗口。\n')
+            self._close_requested = True
+            return
+        self._closing = True
+        if self.process and self.process.poll() is None:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+                self.process.wait(timeout=1)
+        self.destroy()
 
     def _apply_styles(self):
         style = ttk.Style(self)
@@ -786,6 +956,8 @@ class UniversalShellGUI(tk.Tk):
 
     def _start_script_process(self):
         """拉起内置进程并在内置终端中实时收发"""
+        if self._closing:
+            return
         if self.process and self.process.poll() is None:
             self.terminal.write_ansi("\033[93m[提示] 脚本已经在运行中...\033[0m\n")
             return
@@ -806,33 +978,31 @@ class UniversalShellGUI(tk.Tk):
         env["PYTHONIOENCODING"] = "utf-8"
 
         try:
-            self.process = subprocess.Popen(
+            process = subprocess.Popen(
                 cmd,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 cwd=APP_DIR,
                 env=env,
-                bufsize=0
+                bufsize=0,
+                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == 'win32' else 0
             )
+            self.process = process
 
             self.terminal.set_running_status(True, pid=self.process.pid)
             self.btn_run_script.config(text="🔄 重启抽查会话")
 
             # 启动 stdout 读取线程
             def reader_worker():
-                while self.process and self.process.poll() is None:
-                    try:
-                        raw = self.process.stdout.read(1)
-                        if not raw:
-                            break
-                        char = raw.decode('utf-8', errors='replace')
-                        self.after(0, lambda c=char: self.terminal.write_ansi(c))
-                    except Exception:
-                        break
-
-                ret = self.process.poll() if self.process else -1
-                self.after(0, lambda: self._on_process_terminated(ret))
+                try:
+                    for text in iter_process_output(process.stdout):
+                        self.ui_events.put((self.terminal.write_ansi, (text,)))
+                finally:
+                    ret = process.wait()
+                    process.stdout.close()
+                    process.stdin.close()
+                    self.ui_events.put((self._on_process_terminated, (process, ret)))
 
             self.reader_thread = threading.Thread(target=reader_worker, daemon=True)
             self.reader_thread.start()
@@ -853,11 +1023,24 @@ class UniversalShellGUI(tk.Tk):
 
     def _restart_script_process(self):
         """重启脚本进程"""
+        if self._restart_pending or self._closing:
+            return
+        self._restart_pending = True
         self._stop_script_process()
         self.terminal.write_ansi("\n\033[96m[正在重启核心抽查脚本...]\033[0m\n\n")
-        self.after(400, self._start_script_process)
+        def wait_for_exit():
+            if self._closing:
+                return
+            if self.process and self.process.poll() is None:
+                self.after(100, wait_for_exit)
+                return
+            self._restart_pending = False
+            self._start_script_process()
+        self.after(100, wait_for_exit)
 
-    def _on_process_terminated(self, ret_code):
+    def _on_process_terminated(self, process, ret_code):
+        if process is not self.process:
+            return
         self.terminal.set_running_status(False)
         self.terminal.write_ansi(f"\n\033[90m[进程已退出，返回码: {ret_code}] 点击【🚀 重启抽查会话】可重新运行。\033[0m\n")
 
@@ -879,18 +1062,21 @@ class UniversalShellGUI(tk.Tk):
 
         def update_worker():
             def progress_cb(msg):
-                self.after(0, lambda: self.terminal.write_ansi(f"\033[96m[热更新动态] {msg}\033[0m\n"))
+                self.ui_events.put((self.terminal.write_ansi, (f"\033[96m[热更新动态] {msg}\033[0m\n",)))
 
             try:
-                ok, msg, new_ver = perform_update(self.config, on_progress=progress_cb)
-                self.after(0, lambda: self._on_update_finished(ok, msg, new_ver))
+                result = perform_update(dict(self.config), on_progress=progress_cb)
             except Exception as e:
-                self.after(0, lambda: self._on_update_finished(False, str(e), ""))
+                result = (False, str(e), '')
+            self.ui_events.put((self._on_update_finished, result))
 
         threading.Thread(target=update_worker, daemon=True).start()
 
     def _on_update_finished(self, ok, msg, new_ver):
         self.is_updating = False
+        if self._close_requested:
+            self._on_close()
+            return
         self.btn_update.config(state="normal", text="🔄 检查并在线热更新")
         self._refresh_status()
 
@@ -931,8 +1117,12 @@ class UniversalShellGUI(tk.Tk):
             messagebox.showerror("打开数据目录失败", str(e))
 
     def _on_manage_backups(self):
+        if self.is_updating:
+            messagebox.showinfo('备份管理', '正在热更新，请等待更新完成后再恢复备份。')
+            return
         os.makedirs(BACKUP_DIR_PATH, exist_ok=True)
-        files = sorted(os.listdir(BACKUP_DIR_PATH), reverse=True)
+        files = sorted((name for name in os.listdir(BACKUP_DIR_PATH)
+                        if name.endswith('.py.bak') and os.path.isfile(os.path.join(BACKUP_DIR_PATH, name))), reverse=True)
         if not files:
             messagebox.showinfo("备份管理", "当前尚无历史备份文件。\n每次在线热更新前都会在此自动创建安全备份。")
             return
@@ -951,13 +1141,16 @@ class UniversalShellGUI(tk.Tk):
         lb.select_set(0)
 
         def do_restore():
+            if self.is_updating:
+                messagebox.showinfo('备份管理', '正在热更新，请等待更新完成后再恢复备份。')
+                return
             sel = lb.curselection()
             if not sel:
                 return
             fn = lb.get(sel[0])
             src = os.path.join(BACKUP_DIR_PATH, fn)
             try:
-                shutil.copy2(src, CORE_SCRIPT_PATH)
+                restore_backup(src)
                 messagebox.showinfo("恢复成功", f"已成功将核心脚本恢复至备份：\n{fn}")
                 dlg.destroy()
                 self._refresh_status()
@@ -996,17 +1189,26 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == '--run-core':
         # 命令行直跑支持
         import runpy
-        if hasattr(sys.stdout, 'reconfigure'):
-            sys.stdout.reconfigure(line_buffering=True, write_through=True)
-        if hasattr(sys.stderr, 'reconfigure'):
-            sys.stderr.reconfigure(line_buffering=True, write_through=True)
+        for stream in (sys.stdin, sys.stdout, sys.stderr):
+            if hasattr(stream, 'reconfigure'):
+                stream.reconfigure(encoding='utf-8')
+        for stream in (sys.stdout, sys.stderr):
+            if hasattr(stream, 'reconfigure'):
+                stream.reconfigure(line_buffering=True, write_through=True)
         sys.path.insert(0, APP_DIR)
-        runpy.run_path(CORE_SCRIPT_PATH, run_name='__main__')
-        return
+        sys.argv = [CORE_SCRIPT_PATH]
+        os.chdir(APP_DIR)
+        try:
+            runpy.run_path(CORE_SCRIPT_PATH, run_name='__main__')
+        except Exception:
+            traceback.print_exc()
+            print('\n[运行失败] 若提示缺少模块，请下载新版完整绿色包后重试。', file=sys.stderr)
+            return 1
+        return 0
 
     app = UniversalShellGUI()
     app.mainloop()
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main() or 0)

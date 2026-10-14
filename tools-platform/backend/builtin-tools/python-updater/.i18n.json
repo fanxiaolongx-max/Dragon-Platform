@@ -9,5 +9,19 @@
   "保存新版本": "Save New Version",
   "同步到仓库": "Sync to Repo",
   "下载外壳源码包": "Download Shell ZIP",
-  "查看构建状态": "View Build Status"
+  "查看构建状态": "View Build Status",
+  "当前脚本代码为空，请导入本地脚本": "The current script is empty. Import a local script.",
+  "当前脚本加载失败，请刷新重试或导入本地脚本": "Unable to load the current script. Refresh or import a local script.",
+  "历史版本加载失败": "Unable to load version history",
+  "客户端使用完整便携包运行，无需安装 Python。请保留 EXE 同目录的 _internal 文件夹、核心脚本和配置。": "The portable package runs without installing Python. Keep the _internal folder, core script, and configuration beside the EXE.",
+  "点击「检查并更新」后，启动器下载最新核心脚本和版本信息，完成语法与 SHA-256 校验、备份后替换。": "Check for updates downloads the core script and version metadata, verifies syntax and SHA-256, then backs up and replaces the script.",
+  "业务脚本可在线更新；新增依赖、外壳修复或旧 EXE 缺少模块时，需要下载新的完整绿色包。": "Business scripts support online updates. New dependencies, launcher fixes, or missing modules in an old EXE require a new complete portable package.",
+  "共享 Python 仓库仅允许在默认租户中同步，请切换到默认租户后重试": "Only the default tenant can sync to the shared Python repository. Switch to the default tenant and retry.",
+  "未找到 Python 打包源码目录，请在包含 python-packager 的完整项目源码中执行此操作": "Python packager sources were not found. Run this operation from the complete project source containing python-packager.",
+  "Python 打包源码不完整，缺少必需文件": "Python packager sources are incomplete. Required files are missing",
+  "请使用完整项目源码": "Use the complete project source",
+  "停止": "Stop",
+  "清屏": "Clear",
+  "重启": "Restart",
+  "命令输入": "Command input"
 }

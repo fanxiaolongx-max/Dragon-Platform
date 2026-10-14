@@ -1,9 +1,11 @@
 # 核心业务依赖
 pandas>=2.0.0
 openpyxl>=3.1.0
+xlrd>=2.0.1
 
 # 外壳热更新网络依赖
 requests>=2.28.0
 
 # EXE 打包构建工具
-pyinstaller>=6.0.0
+# 6.22.1 修复 --hide-console 在 6.22.0 的 spec 生成回归
+pyinstaller>=6.22.1,<7

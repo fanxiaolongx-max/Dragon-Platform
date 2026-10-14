@@ -81,13 +81,13 @@ router.post('/diff', async (req, res) => {
 router.post('/sync-repo', async (req, res) => {
     try {
         const { scriptId, code, metadata } = req.body || {};
-        if (!code || !code.trim()) {
+        if (typeof code !== 'string' || !code.trim()) {
             return res.status(400).json({ error: '代码不能为空' });
         }
         const syncResult = await repo.syncToPackagerRepo(scriptId, code, metadata || {});
         res.json(syncResult);
     } catch (err) {
-        res.status(500).json({ error: err.message || '同步核心脚本到仓库失败' });
+        res.status(err.statusCode || 500).json({ error: err.message || '同步核心脚本到仓库失败' });
     }
 });
 
@@ -99,7 +99,7 @@ router.get('/export-shell', async (_req, res) => {
         res.setHeader('Content-Disposition', 'attachment; filename="Python-Universal-Shell.zip"');
         res.send(zipBuffer);
     } catch (err) {
-        res.status(500).json({ error: err.message || '打包通用外壳失败' });
+        res.status(err.statusCode || 500).json({ error: err.message || '打包通用外壳失败' });
     }
 });
 

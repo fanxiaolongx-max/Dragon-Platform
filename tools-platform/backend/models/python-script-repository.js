@@ -3,11 +3,17 @@ const fs = require('fs');
 const path = require('path');
 const JSZip = require('jszip');
 const { run, get, all } = require('./app-db');
+const { DEFAULT_TENANT_ID, getTenantId } = require('./tenant-context');
 
 const PACKAGER_DIR = path.resolve(__dirname, '../../../python-packager');
 const CORE_SCRIPT_FILE = path.join(PACKAGER_DIR, 'core_script.py');
 const VERSION_FILE = path.join(PACKAGER_DIR, 'version.json');
-const CONFIG_FILE = path.join(PACKAGER_DIR, 'updater_config.json');
+
+const SHELL_SOURCE_FILES = [
+    'universal_shell.py', 'core_script.py', 'version.json', 'updater_config.json',
+    'requirements.txt', 'build_exe.bat', 'build_exe.py', 'smoke_test.py',
+    'run_launcher.bat', 'README.md', 'tests/fixtures/excel_smoke.xls'
+];
 
 const DEFAULT_SCRIPT_ID = 'pr-audit-sampler';
 
@@ -22,6 +28,22 @@ function getInitialCoreScript() {
         } catch (_) {}
     }
     return '';
+}
+
+function getInitialVersionInfo() {
+    try {
+        const metadata = JSON.parse(fs.readFileSync(VERSION_FILE, 'utf8').replace(/^\uFEFF/, ''));
+        if (metadata && typeof metadata === 'object' && !Array.isArray(metadata)) return metadata;
+    } catch (_) {}
+    return {};
+}
+
+function requirePackagerDirectory() {
+    if (!fs.existsSync(PACKAGER_DIR) || !fs.statSync(PACKAGER_DIR).isDirectory()) {
+        const error = new Error('未找到 Python 打包源码目录，请在包含 python-packager 的完整项目源码中执行此操作');
+        error.statusCode = 503;
+        throw error;
+    }
 }
 
 async function ensureReady() {
@@ -48,21 +70,23 @@ async function ensureReady() {
 
     await run('CREATE INDEX IF NOT EXISTS idx_py_ver_script ON python_script_versions(script_id, created_at DESC)');
 
-    // 种子数据：内置第一版 PR 报告抽查脚本
+    // 只初始化新租户；已有用户脚本及历史版本保持不变。
     const existing = await get('SELECT id FROM python_scripts WHERE id = ?', [DEFAULT_SCRIPT_ID]);
     if (!existing) {
         const initialCode = getInitialCoreScript();
+        const metadata = getInitialVersionInfo();
         const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
         const digest = sha256(initialCode);
+        const version = String(metadata.version || '1.0.0');
 
         await run(
             `INSERT INTO python_scripts (id, name, description, current_version, code, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
                 DEFAULT_SCRIPT_ID,
-                'PR 报告抽查脚本',
-                '从 001 RFC、002 风险、003 整改、004 SR 合并表中按分层均匀分布抽查单子并生成分析报表',
-                '1.0.0',
+                String(metadata.name || 'PR 报告抽查脚本'),
+                String(metadata.description || '从 001 RFC、002 风险、003 整改、004 SR 合并表中按分层均匀分布抽查单子并生成分析报表'),
+                version,
                 initialCode,
                 now,
                 now
@@ -75,9 +99,9 @@ async function ensureReady() {
             [
                 'ver_' + Date.now().toString(36) + '_init',
                 DEFAULT_SCRIPT_ID,
-                '1.0.0',
-                '初始内置版本：支持 RFC/风险/整改/SR 抽查、Hamilton 分配与彩色 ANSI 报告',
-                'CodeArts 智能体',
+                version,
+                String(metadata.changelog || '初始内置版本：支持 RFC/风险/整改/SR 抽查、Hamilton 分配与彩色 ANSI 报告'),
+                String(metadata.author || 'CodeArts 智能体'),
                 initialCode,
                 digest,
                 now
@@ -217,18 +241,22 @@ function computeDiff(oldText = '', newText = '') {
  * 将代码同步写入本地仓库的 python-packager/core_script.py 与 version.json
  */
 async function syncToPackagerRepo(scriptId, code, metadata = {}) {
-    if (!fs.existsSync(PACKAGER_DIR)) {
-        fs.mkdirSync(PACKAGER_DIR, { recursive: true });
+    if (getTenantId() !== DEFAULT_TENANT_ID) {
+        const error = new Error('共享 Python 仓库仅允许在默认租户中同步，请切换到默认租户后重试');
+        error.statusCode = 403;
+        throw error;
     }
+    requirePackagerDirectory();
 
     const version = String(metadata.version || '1.0.0').trim();
     const name = String(metadata.name || 'PR 报告抽查脚本').trim();
     const changelog = String(metadata.changelog || '从平台热更新').trim();
-    const digest = sha256(code);
+    const normalizedCode = String(code || '').replace(/\r\n/g, '\n');
+    const digest = sha256(normalizedCode);
     const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
 
     // 1. 写入 core_script.py
-    fs.writeFileSync(CORE_SCRIPT_FILE, code, 'utf8');
+    fs.writeFileSync(CORE_SCRIPT_FILE, normalizedCode, 'utf8');
 
     // 2. 写入 version.json
     const verData = {
@@ -256,25 +284,35 @@ async function syncToPackagerRepo(scriptId, code, metadata = {}) {
  * 导出包含通用外壳全套源码的 ZIP 包
  */
 async function exportUniversalShellZip() {
+    requirePackagerDirectory();
+    const missing = SHELL_SOURCE_FILES.filter(filename => {
+        const filePath = path.join(PACKAGER_DIR, filename);
+        return !fs.existsSync(filePath) || !fs.statSync(filePath).isFile();
+    });
+    if (missing.length) {
+        const error = new Error(`Python 打包源码不完整，缺少必需文件：${missing.join('、')}。请使用完整项目源码`);
+        error.statusCode = 503;
+        throw error;
+    }
     const zip = new JSZip();
 
-    const filesToInclude = [
-        'universal_shell.py',
-        'core_script.py',
-        'version.json',
-        'updater_config.json',
-        'requirements.txt',
-        'build_exe.bat',
-        'run_launcher.bat',
-        'README.md'
-    ];
+    for (const filename of SHELL_SOURCE_FILES) {
+        zip.file(filename, fs.readFileSync(path.join(PACKAGER_DIR, filename)));
+    }
 
-    for (const filename of filesToInclude) {
-        const filePath = path.join(PACKAGER_DIR, filename);
-        if (fs.existsSync(filePath)) {
-            zip.file(filename, fs.readFileSync(filePath));
+    function addPythonTests(relativeDir) {
+        const directory = path.join(PACKAGER_DIR, relativeDir);
+        if (!fs.existsSync(directory)) return;
+        for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+            if (entry.name.startsWith('.') || entry.name === '__pycache__') continue;
+            const relativePath = `${relativeDir}/${entry.name}`;
+            if (entry.isDirectory()) addPythonTests(relativePath);
+            else if (entry.isFile() && entry.name.endsWith('.py')) {
+                zip.file(relativePath, fs.readFileSync(path.join(PACKAGER_DIR, relativePath)));
+            }
         }
     }
+    addPythonTests('tests');
 
     return await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 }
