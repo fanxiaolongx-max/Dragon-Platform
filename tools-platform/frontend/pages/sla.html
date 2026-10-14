@@ -9,8 +9,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png?v=20261006">
     <link rel="apple-touch-icon" href="/assets/icon-mac.png?v=20261006">
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <link rel="stylesheet" href="/css/shared.css?v=20261011-02">
-    <link rel="stylesheet" href="/css/sla.css?v=20261012-07">
+    <link rel="stylesheet" href="/css/shared.css">
+    <link rel="stylesheet" href="/css/sla.css">
     <style>
         .sla-source-wrapper {
             display: flex;
@@ -63,10 +63,10 @@
             color: #0f172a;
         }
     </style>
-    <link rel="stylesheet" href="/css/startup-screen.css?v=20261011-45">
+    <link rel="stylesheet" href="/css/startup-screen.css">
 </head>
 <body class="sla-page">
-    <script src="/js/shared/startup-screen.js?v=20261011-45" data-startup-page="sla"></script>
+    <script src="/js/shared/startup-screen.js" data-startup-page="sla"></script>
 
     <div id="metric-rule-mapping-modal" class="modal-overlay" style="display: none; z-index: 100000;">
         <div class="modal-content metric-rule-mapping-modal-content">
@@ -464,28 +464,28 @@
     </div>
 
     <!-- 共享脚本 -->
-    <script src="/js/shared/api.js?v=20261012-05"></script>
-    <script src="/js/shared/toast.js?v=20260628-05"></script>
-    <script src="/js/shared/i18n.js?v=20261005-01"></script>
-    <script src="/js/shared/platform-logo-upload.js?v=20261006-02"></script>
-    <script src="/js/shared/navbar.js?v=20261013-02"></script>
+    <script src="/js/shared/api.js"></script>
+    <script src="/js/shared/toast.js"></script>
+    <script src="/js/shared/i18n.js"></script>
+    <script src="/js/shared/platform-logo-upload.js"></script>
+    <script src="/js/shared/navbar.js"></script>
     <!-- SLA 模块（注意加载顺序）-->
-    <script src="/js/sla/i18n.js?v=20261012-02"></script>
-    <script src="/js/sla/config.js?v=20260630-01"></script>
-    <script src="/js/sla/prefs.js?v=20261012-01"></script>
-    <script src="/js/sla/source-archive.js?v=20261010-05"></script>
-    <script src="/js/sla/metric-snapshot-sync.js?v=20261012-01"></script>
-    <script src="/js/sla/upload.js?v=20261012-02"></script>
-    <script src="/js/sla/rule-picker.js?v=20260713-02"></script>
-    <script src="/js/sla/risk-rules.js?v=20261012-01"></script>
-    <script src="/js/sla/other-rules.js?v=20261012-01"></script>
-    <script src="/js/sla/row-detail.js?v=20261010-03"></script>
-    <script src="/js/sla/section.js?v=20261010-08"></script>
-    <script src="/js/sla/table.js?v=20260914-01"></script>
-    <script src="/js/sla/events.js?v=20260915-02"></script>
-    <script src="/js/sla/metrics.js?v=20261010-09"></script>
-    <script src="/js/sla/history.js?v=20261012-07"></script>
-    <script src="/js/sla/categories.js?v=20260802-01"></script>
+    <script src="/js/sla/i18n.js"></script>
+    <script src="/js/sla/config.js"></script>
+    <script src="/js/sla/prefs.js"></script>
+    <script src="/js/sla/source-archive.js"></script>
+    <script src="/js/sla/metric-snapshot-sync.js"></script>
+    <script src="/js/sla/upload.js"></script>
+    <script src="/js/sla/rule-picker.js"></script>
+    <script src="/js/sla/risk-rules.js"></script>
+    <script src="/js/sla/other-rules.js"></script>
+    <script src="/js/sla/row-detail.js"></script>
+    <script src="/js/sla/section.js"></script>
+    <script src="/js/sla/table.js"></script>
+    <script src="/js/sla/events.js"></script>
+    <script src="/js/sla/metrics.js"></script>
+    <script src="/js/sla/history.js"></script>
+    <script src="/js/sla/categories.js"></script>
     <script>
         function formatSLASourceLabel(source) {
             if (window.SLAI18n && typeof window.SLAI18n.sourceLabel === 'function') return window.SLAI18n.sourceLabel(source);
@@ -495,27 +495,12 @@
             return source || '-';
         }
 
-        function renderSLAFrontendVersion() {
+        async function renderSLAFrontendVersion() {
             const versionEl = document.getElementById('slaFrontendVersion');
             if (!versionEl) return;
-            const resourceNodes = [
-                ...document.querySelectorAll('link[href*="/css/sla.css"]'),
-                ...document.querySelectorAll('script[src*="/js/sla/"]')
-            ];
-            const versions = resourceNodes
-                .map(node => node.getAttribute('href') || node.getAttribute('src') || '')
-                .map(url => {
-                    try {
-                        return new URL(url, window.location.origin).searchParams.get('v') || '';
-                    } catch (e) {
-                        const match = url.match(/[?&]v=([^&]+)/);
-                        return match ? match[1] : '';
-                    }
-                })
-                .filter(Boolean)
-                .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-            versionEl.textContent = versions.length ? `v${versions[versions.length - 1]}` : SLAT('sla.version.unmarked');
-            versionEl.title = versions.length ? SLAT('sla.version.title', { version: versions[versions.length - 1] }) : SLAT('sla.version.missing');
+            const version = await window.ToolsAppVersion?.get();
+            versionEl.textContent = version ? `v${version}` : SLAT('sla.version.unmarked');
+            versionEl.title = version ? SLAT('sla.version.title', { version }) : SLAT('sla.version.missing');
         }
 
         function renderSLASourcePanel() {

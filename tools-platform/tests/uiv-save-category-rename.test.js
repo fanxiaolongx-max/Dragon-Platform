@@ -1,7 +1,17 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
+
+// Isolate the SQLite stores in a throwaway data dir so these tests never touch real backend/data.
+const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'tools-platform-uiv-rename-'));
+process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
+process.env.TOOLS_REPORT_DATA_DIR = path.join(sandbox, 'report-data');
+test.after(async () => {
+    await require('../backend/models/app-db').closeDatabase();
+    fs.rmSync(sandbox, { recursive: true, force: true });
+});
 
 const projectRoot = path.resolve(__dirname, '..');
 const pageSource = fs.readFileSync(path.join(projectRoot, 'frontend/pages/uivf12.html'), 'utf8');
@@ -140,6 +150,9 @@ test('uiv-scripts-repository renameScript preserves id and metadata, updates mac
 test('renameScript automatically synchronizes metric extraction rules, targets, and source table rules to new name', async () => {
     const { run, get } = require('../backend/models/app-db');
     const prefsRepo = require('../backend/models/sla-prefs-repository');
+    await prefsRepo.ensureReady();
+    await require('../backend/models/sla-targets-repository').ensureReady();
+    await scriptsRepo.ensureReady();
 
     const testId = 'script_sync_' + Date.now();
     const oldName = 'TestOldScript';

@@ -20,7 +20,7 @@ test('topic snapshot API and analysis page are wired', () => {
     assert.match(routes, /router\.get\('\/:id'/);
     assert.match(routes, /router\.post\('\/'/);
     assert.match(page, /专题分析/);
-    assert.match(page, /topic-analysis\.js\?v=\d{8}-\d+/);
+    assert.match(page, /topic-analysis\.js"/);
     assert.match(page, /eosMonthlyReport/);
     assert.match(page, /topic-report-sheet/);
     assert.match(page, /制定计划/);

@@ -130,10 +130,11 @@ test('esn-check index.html integrates snapshot and diff controls and scripts wit
     const dataPath = path.join(__dirname, '../backend/data/custom-tools/esn-check/index.html');
 
     const builtinHtml = fs.readFileSync(builtinPath, 'utf8');
-    const dataHtml = fs.readFileSync(dataPath, 'utf8');
 
-    // Exact parity
-    assert.equal(builtinHtml, dataHtml, 'builtin-tools and data/custom-tools esn-check index.html must be identical');
+    // Exact parity with the installed runtime copy (absent on clean checkouts such as CI)
+    if (fs.existsSync(dataPath)) {
+        assert.equal(builtinHtml, fs.readFileSync(dataPath, 'utf8'), 'builtin-tools and data/custom-tools esn-check index.html must be identical');
+    }
 
     // Assets & buttons
     assert.match(builtinHtml, /href="\/css\/report-snapshot-diff\.css/);

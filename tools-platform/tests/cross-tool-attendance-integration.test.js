@@ -237,12 +237,15 @@ test('Cross-tool attendance check & roster extraction integration test', async (
     // Subtest 5: Runtime copies may lag source until an administrator applies a managed update.
     await t.test('All 4 integrated tools have versioned sources and managed runtime copies', async () => {
         const tools = ['tool-msf5b7nn', 'reward-program', 'tool-ms4xb66s', 'department-reward-penalty'];
+        // Runtime copies only exist on an installed instance; clean checkouts (CI) verify sources only.
+        const hasRuntime = fs.existsSync(path.join(__dirname, '..', 'backend', 'data', 'custom-tools'));
         for (const tool of tools) {
             const builtinPath = path.join(__dirname, '..', 'backend', 'builtin-tools', tool, 'index.html');
             const customPath = path.join(__dirname, '..', 'backend', 'data', 'custom-tools', tool, 'index.html');
             assert.ok(fs.existsSync(builtinPath), `builtin tool ${tool} exists`);
-            assert.ok(fs.existsSync(customPath), `custom tool ${tool} exists`);
             assert.ok(fs.statSync(builtinPath).size > 0, `builtin tool ${tool} is nonempty`);
+            if (!hasRuntime) continue;
+            assert.ok(fs.existsSync(customPath), `custom tool ${tool} exists`);
             const manifest = JSON.parse(fs.readFileSync(path.join(path.dirname(customPath), '.tool-manifest.json'), 'utf8'));
             assert.equal(manifest.system?.managedBy, 'tools-platform', `runtime tool ${tool} is managed`);
         }

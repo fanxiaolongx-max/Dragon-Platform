@@ -1117,7 +1117,7 @@
         if (!knowledgeGraphLoader) {
             knowledgeGraphLoader = new Promise((resolve, reject) => {
                 const script = document.createElement('script');
-                script.src = '/js/shared/ai-knowledge-graph-spatial-themes-v5.js?v=20260920-02';
+                script.src = '/js/shared/ai-knowledge-graph-spatial-themes-v5.js';
                 script.onload = resolve;
                 script.onerror = () => reject(new Error(aiT('graphLoadFailed')));
                 document.body.appendChild(script);
@@ -1575,6 +1575,13 @@
                 codeTokens.push(`<code>${escapeHtml(code)}</code>`);
                 return token;
             });
+            // [文字](链接)：只允许站内绝对路径和 http(s)，站外链接新窗口打开。
+            source = source.replace(/\[([^\]\n]+)\]\(((?:\/(?!\/)|https?:\/\/)[^\s)]+)\)/g, (_match, label, href) => {
+                const token = `\u0000CODE${codeTokens.length}\u0000`;
+                const external = /^https?:/i.test(href);
+                codeTokens.push(`<a class="ai-md-link" href="${escapeHtml(href)}"${external ? ' target="_blank" rel="noopener noreferrer"' : ''}>${escapeHtml(label)}</a>`);
+                return token;
+            });
             source = escapeHtml(source)
                 .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
                 .replace(/__([^_]+)__/g, '<strong>$1</strong>')
@@ -1749,6 +1756,21 @@
             items.push({
                 text: `📄 ${source.path || aiT('unknownFile')}${line}`,
                 source
+            });
+        });
+        const toolData = grounding.toolData;
+        (Array.isArray(toolData?.tools) ? toolData.tools : []).forEach(tool => {
+            const sources = Array.isArray(tool.sources) ? tool.sources : [];
+            if (!sources.length) {
+                items.push({ text: `📦 ${getAiLang() === 'en' ? 'Tool data' : '工具数据'}: ${tool.name} · ${getAiLang() === 'en' ? 'no readable data' : '无可读取的数据'}` });
+                return;
+            }
+            sources.slice(0, 3).forEach(source => {
+                const picked = (Array.isArray(source.selected) ? source.selected : []).slice(0, 2).map(item => {
+                    const period = item.period ? ` ${item.period.start}~${item.period.end}` : '';
+                    return `${item.name || ''}${period}`.trim();
+                }).filter(Boolean).join('、');
+                items.push({ text: `📦 ${getAiLang() === 'en' ? 'Tool data' : '工具数据'}: ${tool.name} · ${source.label} ${source.count}${picked ? ` · ${picked}` : ''}` });
             });
         });
         const configSources = Array.isArray(grounding.configSources) ? grounding.configSources : [];
@@ -2195,7 +2217,8 @@
         chatBody.scrollTop = chatBody.scrollHeight;
     }
 
-    async function requestStreamingChat(payload, { signal, onDelta, onStatus }) {
+    // onEvent：接收 delta/status/done/error 之外的事件（工作区模式的 approval / tool_start / tool_result / change 等）。
+    async function requestStreamingChat(payload, { signal, onDelta, onStatus, onEvent }) {
         const res = await fetch('/api/ai/chat', {
             method: 'POST',
             headers: { ...getAuthHeaders(), Accept: 'application/x-ndjson' },
@@ -2232,6 +2255,7 @@
             else if (event.type === 'status') onStatus?.(event.status || {});
             else if (event.type === 'done') finalPayload = event;
             else if (event.type === 'error') throw new Error(event.error || 'AI 流式输出失败');
+            else onEvent?.(event);
         };
         while (true) {
             const { value, done } = await reader.read();
@@ -2647,6 +2671,11 @@
     }
 
     window.ToolsAIAssistant = {
+        // 供首页 Dragon Claw 复用的渲染与流式请求能力，避免另起一套实现。
+        renderMarkdown: renderMarkdownLike,
+        renderGrounding,
+        requestStreamingChat,
+        openKnowledgeGraph,
         open: openAssistant,
         ask(prompt, options = {}) {
             return openAssistant({ ...options, prompt });

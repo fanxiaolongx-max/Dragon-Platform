@@ -4,9 +4,9 @@ const { readKV, writeKV } = require('./kv-store');
 const { getTenantId, DEFAULT_TENANT_ID } = require('./tenant-context');
 
 const FALLBACK_PLATFORM_IDENTITY = Object.freeze({
-    platformName: '图特工具平台',
-    platformNameZh: '图特工具平台',
-    platformNameEn: 'Thoth Platform',
+    platformName: 'Dragon 工具平台',
+    platformNameZh: 'Dragon 工具平台',
+    platformNameEn: 'Dragon Platform',
     platformSubtitle: '埃及 CS 工具与知识中心',
     platformSubtitleEn: 'Egypt CS Tools & Knowledge Center',
     platformSlogan: '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”',

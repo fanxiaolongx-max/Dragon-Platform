@@ -1,4 +1,5 @@
-/* Local, short-lived volumetric smoke for the login inscription. */
+/* Local, short-lived stardust reveal for the login inscription: fine gold and
+ * blue-white sparks trace the text left to right over a faint, still nebula halo. */
 (function () {
     'use strict';
     const wrap = document.getElementById('loginSloganWrap');
@@ -8,37 +9,29 @@
     if (!ctx) return;
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const lines = [...wrap.querySelectorAll('p')];
-    let raf = 0, debounce = 0, started = 0, last = 0, emitted = 0;
-    let width = 0, height = 0, contentWidth = 0, padding = 0, particles = [], textures = [], text = '';
-    let visible = false, edgeMask = null;
+    let raf = 0, debounce = 0, started = 0, last = 0;
+    let width = 0, height = 0, contentWidth = 0, padding = 0, sparks = [], text = '';
+    let visible = false, edgeMask = null, halo = null, sprites = null, rows = [], spawnCarry = [0, 0];
     const verticalPadding = 120;
+    const revealSeconds = 2.0, settleAt = 3.0;
     const clamp = v => Math.max(0, Math.min(1, v));
     const smooth = v => { v = clamp(v); return v * v * (3 - 2 * v); };
 
-    function texture(gold) {
-        const size = 192, image = document.createElement('canvas');
+    // Soft round glow sprite, tinted gold or blue-white.
+    function sprite(r, g, b) {
+        const size = 32, image = document.createElement('canvas');
         image.width = image.height = size;
-        const context = image.getContext('2d'), data = context.createImageData(size, size);
-        const grids = [5, 9, 17, 33, 65].map(n => ({ n, values: Float32Array.from({ length:n*n }, () => Math.random()) }));
-        for (let y=0; y<size; y++) for (let x=0; x<size; x++) {
-            let cloud = 0, weight = 0;
-            grids.forEach((grid, octave) => {
-                const gx=x/(size-1)*(grid.n-1), gy=y/(size-1)*(grid.n-1);
-                const ix=Math.min(grid.n-2,Math.floor(gx)), iy=Math.min(grid.n-2,Math.floor(gy));
-                const fx=smooth(gx-ix), fy=smooth(gy-iy), values=grid.values, n=grid.n;
-                const a=values[iy*n+ix]*(1-fx)+values[iy*n+ix+1]*fx;
-                const b=values[(iy+1)*n+ix]*(1-fx)+values[(iy+1)*n+ix+1]*fx;
-                const w=Math.pow(.56,octave); cloud+=(a*(1-fy)+b*fy)*w; weight+=w;
-            });
-            const edge=clamp(1-Math.hypot((x-size/2)/(size/2),(y-size/2)/(size/2)));
-            const density=clamp((cloud/weight-.28)*1.9), i=(y*size+x)*4;
-            data.data[i]=gold?205:125; data.data[i+1]=gold?184:183; data.data[i+2]=gold?139:195;
-            data.data[i+3]=Math.round(210 * smooth(edge / .7) * density * density);
-        }
-        context.putImageData(data,0,0); return image;
+        const context = image.getContext('2d');
+        const glow = context.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+        glow.addColorStop(0, 'rgba(255,255,255,1)');
+        glow.addColorStop(.18, 'rgba(' + r + ',' + g + ',' + b + ',.9)');
+        glow.addColorStop(.45, 'rgba(' + r + ',' + g + ',' + b + ',.25)');
+        glow.addColorStop(1, 'rgba(' + r + ',' + g + ',' + b + ',0)');
+        context.fillStyle = glow; context.fillRect(0, 0, size, size);
+        return image;
     }
     function finish() {
-        cancelAnimationFrame(raf); raf=0; particles=[];
+        cancelAnimationFrame(raf); raf=0; sparks=[];
         wrap.classList.remove('slogan-smoke-active');
         ctx.clearRect(0,0,canvas.width,canvas.height);
     }
@@ -67,6 +60,43 @@
         context.fillRect(0, 0, mask.width, mask.height);
         return mask;
     }
+    // Still nebula halo behind the inscription; rendered once, only faded in.
+    function makeHalo() {
+        const image = document.createElement('canvas');
+        image.width = Math.ceil(width); image.height = Math.ceil(height);
+        const context = image.getContext('2d');
+        const parent = wrap.getBoundingClientRect();
+        const cx = width / 2, cy = verticalPadding + parent.height / 2;
+        const rx = Math.min(contentWidth * .52, 420), ry = Math.max(parent.height * .95, 70);
+        function ellipse(offsetX, offsetY, scale, stops) {
+            context.save();
+            context.translate(cx + offsetX, cy + offsetY); context.scale(1, ry / rx);
+            const glow = context.createRadialGradient(0, 0, 0, 0, 0, rx * scale);
+            stops.forEach(([at, color]) => glow.addColorStop(at, color));
+            context.fillStyle = glow;
+            context.fillRect(-rx * scale, -rx * scale, rx * scale * 2, rx * scale * 2);
+            context.restore();
+        }
+        ellipse(0, 0, 1, [[0, 'rgba(99,102,241,.20)'], [.45, 'rgba(79,70,229,.09)'], [1, 'rgba(49,46,129,0)']]);
+        ellipse(-rx * .28, -ry * .12, .55, [[0, 'rgba(147,197,253,.10)'], [1, 'rgba(147,197,253,0)']]);
+        ellipse(rx * .3, ry * .1, .5, [[0, 'rgba(205,184,139,.09)'], [1, 'rgba(205,184,139,0)']]);
+        context.globalCompositeOperation = 'destination-in';
+        context.drawImage(edgeMask, 0, 0, width, height);
+        return image;
+    }
+    // Rendered text rows of each line (a line may wrap on narrow screens).
+    function measureRows() {
+        const parent = wrap.getBoundingClientRect();
+        rows = lines.map(line => {
+            const range = document.createRange(); range.selectNodeContents(line);
+            const box = line.getBoundingClientRect();
+            const found = [...range.getClientRects()].filter(r => r.width > 2).map(r => ({
+                left: r.left - parent.left + padding, right: r.right - parent.left + padding,
+                top: r.top - parent.top + verticalPadding, height: r.height
+            }));
+            return { left: box.left - parent.left + padding, width: box.width, rows: found };
+        });
+    }
     function size() {
         const rect = wrap.getBoundingClientRect(), dpr=Math.min(window.devicePixelRatio||1,1.5);
         contentWidth=rect.width; padding=Math.max(0,Math.min(80,rect.left,window.innerWidth-rect.right));
@@ -74,55 +104,71 @@
         canvas.style.left=-padding+'px'; canvas.style.width=width+'px';
         canvas.width=Math.ceil(width*dpr); canvas.height=Math.ceil(height*dpr);
         ctx.setTransform(dpr,0,0,dpr,0,0);
-        edgeMask=makeEdgeMask();
+        edgeMask=makeEdgeMask(); halo=makeHalo(); measureRows();
     }
     function start() {
         finish();
         if (!visible || motion.matches || document.hidden || document.getElementById('loginPanel')?.classList.contains('login-success')) return;
         size(); if (!width) return;
-        if (!textures.length) textures=[texture(false),texture(true),texture(false)];
+        if (!sprites) sprites={ gold: sprite(232,200,130), blue: sprite(190,215,255) };
         wrap.classList.add('slogan-smoke-ready','slogan-smoke-active');
-        started=performance.now(); last=0; emitted=0;
+        started=performance.now(); last=0; spawnCarry=[0,0];
         wrap.style.setProperty('--slogan-reveal','-.15');
         wrap.style.setProperty('--slogan-reveal-secondary','-.15');
         raf=requestAnimationFrame(frame);
     }
+    function emit(index, reveal, dt, t) {
+        const line = rows[index];
+        if (!line || !line.rows.length || reveal <= -.1 || reveal >= 1.1) return;
+        // Same front position as the CSS text mask (between -12% and +8%).
+        const front = line.left + line.width * (reveal - .02);
+        const active = line.rows.filter(r => front >= r.left - 6 && front <= r.right + 6);
+        if (!active.length) return;
+        spawnCarry[index] += dt * (index ? 70 : 95);
+        while (spawnCarry[index] >= 1) {
+            spawnCarry[index]--;
+            const row = active[Math.floor(Math.random() * active.length)];
+            const gold = Math.random() < (index ? .35 : .55);
+            sparks.push({ born:t, life:.7+Math.random()*1.1,
+                x:front+(Math.random()-.65)*22, y:row.top+row.height*(.15+Math.random()*.7),
+                vx:(Math.random()-.3)*10, vy:(Math.random()-.5)*8,
+                size:(Math.random()<.12 ? 9 : 4)+Math.random()*4, twinkle:Math.random()*6.28,
+                sprite:gold ? sprites.gold : sprites.blue });
+        }
+    }
     function frame(now) {
         if (document.hidden || motion.matches) { finish(); return; }
-        if (last && now-last<32) { raf=requestAnimationFrame(frame); return; }
+        if (last && now-last<16) { raf=requestAnimationFrame(frame); return; }
+        const dt=last ? Math.min(.05,(now-last)/1000) : 0;
         last=now;
-        const t=(now-started)/1000, progress=smooth((t-.35)/2.8);
-        const secondary=smooth((t-.65)/2.8);
-        wrap.style.setProperty('--slogan-reveal',String(-.15+progress*1.3));
-        wrap.style.setProperty('--slogan-reveal-secondary',String(-.15+secondary*1.3));
+        const t=(now-started)/1000, progress=smooth((t-.2)/revealSeconds);
+        const secondary=smooth((t-.45)/revealSeconds);
+        const primaryReveal=-.15+progress*1.3, secondaryReveal=-.15+secondary*1.3;
+        wrap.style.setProperty('--slogan-reveal',String(primaryReveal));
+        wrap.style.setProperty('--slogan-reveal-secondary',String(secondaryReveal));
         wrap.style.setProperty('--slogan-clarity',String(progress));
-        const target=Math.floor(Math.min(t,3.3)*26);
-        while (emitted<target) {
-            const row=emitted%2, rect=lines[row].getBoundingClientRect(), parent=wrap.getBoundingClientRect();
-            const p=row?secondary:progress;
-            particles.push({born:t, x:padding+contentWidth*(-.06+p*1.1)+(Math.random()-.5)*55,
-                y:verticalPadding+rect.top-parent.top+rect.height/2+(Math.random()-.5)*26,
-                radius:45+Math.random()*55, life:1.8+Math.random()*1.3,
-                vx:8+Math.random()*16, vy:-8-Math.random()*17,
-                angle:Math.random()*6.28, spin:(Math.random()-.5)*.5, texture:emitted%textures.length});
-            emitted++;
-        }
-        ctx.clearRect(0,0,width,height); ctx.globalCompositeOperation='screen';
-        particles=particles.filter(p=>t-p.born<p.life);
-        particles.forEach(p=>{
-            const age=t-p.born, fraction=age/p.life;
-            const radius=p.radius*(.65+fraction*.65);
-            ctx.save();
-            ctx.translate(p.x+p.vx*age+Math.sin(age*1.6+p.angle)*12,p.y+p.vy*age);
-            ctx.rotate(p.angle+p.spin*age); ctx.scale(1,.55+fraction*.3);
-            ctx.globalAlpha=Math.sin(Math.PI*fraction)*.58;
-            ctx.drawImage(textures[p.texture],-radius,-radius,radius*2,radius*2); ctx.restore();
-        });
-        // Feather the rendered smoke's alpha, without blurring or dimming the text.
-        ctx.globalCompositeOperation='destination-in'; ctx.globalAlpha=1;
-        ctx.drawImage(edgeMask,0,0,width,height);
+        emit(0, primaryReveal, dt, t); emit(1, secondaryReveal, dt, t);
+
+        ctx.clearRect(0,0,width,height);
         ctx.globalCompositeOperation='source-over';
-        if (t>6.5) { finish(); return; }
+        ctx.globalAlpha=smooth(t/2.4); ctx.drawImage(halo,0,0,width,height);
+        ctx.globalCompositeOperation='lighter';
+        sparks=sparks.filter(s=>t-s.born<s.life);
+        sparks.forEach(s=>{
+            const age=t-s.born, fraction=age/s.life;
+            const flicker=.75+.25*Math.sin(age*14+s.twinkle);
+            ctx.globalAlpha=Math.sin(Math.PI*Math.min(1,fraction*1.6+.05))*(1-fraction*.4)*flicker*.9;
+            const r=s.size*(1-fraction*.35);
+            ctx.drawImage(s.sprite,s.x+s.vx*age-r/2,s.y+s.vy*age-r/2,r,r);
+        });
+        ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1;
+        if (t>settleAt && !sparks.length) {
+            // Settle: keep the halo still, release the text mask, stop animating.
+            cancelAnimationFrame(raf); raf=0;
+            wrap.classList.remove('slogan-smoke-active');
+            ctx.clearRect(0,0,width,height); ctx.drawImage(halo,0,0,width,height);
+            return;
+        }
         raf=requestAnimationFrame(frame);
     }
     function schedule() { clearTimeout(debounce); debounce=setTimeout(start,160); }
@@ -143,6 +189,6 @@
     if(visibilityObserver)visibilityObserver.observe(wrap);else{visible=true;schedule();}
     window.addEventListener('resize',schedule);
     motion.addEventListener('change',()=>{if(motion.matches)finish();else schedule();});
-    document.addEventListener('visibilitychange',()=>{if(document.hidden)finish();});
+    document.addEventListener('visibilitychange',()=>{if(document.hidden&&raf)finish();});
     window.addEventListener('pagehide',()=>{finish();clearTimeout(debounce);contentObserver.disconnect();panelObserver.disconnect();visibilityObserver?.disconnect();});
 })();

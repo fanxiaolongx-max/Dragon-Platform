@@ -9,6 +9,11 @@ const { getAnalysisCode, runAnalysisWithSizeFallback } = require('../models/ai-c
 const aiReportAnalysisService = require('../models/ai-report-analysis-service');
 const aiMetricGraphService = require('../models/ai-metric-graph-service');
 const aiBusinessConfigService = require('../models/ai-business-config-service');
+const aiToolDataService = require('../models/ai-tool-data-service');
+const customToolsRepo = require('../models/custom-tools-repository');
+const agentRunManager = require('../models/agent-run-manager');
+const agentWorkspaceAccess = require('../models/agent-workspace-access');
+const { getTenantId } = require('../models/tenant-context');
 
 console.log('[AI] AI Assistant route loaded. Runtime config will be read from settings, with provider-specific env fallback.');
 
@@ -160,17 +165,24 @@ async function buildExpertGrounding(question, {
     pageTitle = '',
     pagePath = '',
     contextQuestion = '',
-    contextTimeQuestion = ''
+    contextTimeQuestion = '',
+    toolSlug = '',
+    clientToolData = []
 } = {}) {
     const knowledgePlan = planProjectKnowledgeSearch(question, pagePath);
     const knowledgeQuery = String(question || '').trim();
-    const [knowledgeResult, dataResult, businessConfigResult] = await Promise.allSettled([
+    const [knowledgeResult, dataResult, businessConfigResult, toolDataResult] = await Promise.allSettled([
         knowledgePlan.performed
             ? aiKnowledgeService.search(knowledgeQuery, { limit: 10, pathHints: knowledgePlan.pathHints })
             : Promise.resolve([]),
         aiReportAnalysisService.analyzeQuestion(question, { contextQuestion, contextTimeQuestion }),
-        aiBusinessConfigService.search(question, { limit: 7 })
+        aiBusinessConfigService.search(question, { limit: 7 }),
+        aiToolDataService.analyzeQuestion(question, { contextQuestion, toolSlug, clientToolData })
     ]);
+    const toolData = toolDataResult.status === 'fulfilled' ? toolDataResult.value : null;
+    if (toolDataResult.status === 'rejected') {
+        console.warn('[AI] tool data retrieval skipped:', toolDataResult.reason?.message || toolDataResult.reason);
+    }
     const knowledgeCandidates = knowledgeResult.status === 'fulfilled' ? knowledgeResult.value : [];
     const selectedKnowledge = selectRelevantKnowledge(knowledgeCandidates);
     const knowledge = selectedKnowledge.items;
@@ -205,6 +217,8 @@ async function buildExpertGrounding(question, {
         dataAnalysis,
         businessConfig,
         metricGraph,
+        toolData,
+        toolDataPrompt: toolData?.prompt || '',
         knowledgePrompt: aiKnowledgeService.formatResultsForPrompt(knowledge).slice(0, KNOWLEDGE_CONTEXT_MAX_CHARS),
         dataPrompt: aiReportAnalysisService.formatAnalysisForPrompt(dataAnalysis).slice(0, DATA_CONTEXT_MAX_CHARS),
         businessConfigPrompt: aiBusinessConfigService.formatResultsForPrompt(businessConfig).slice(0, BUSINESS_CONFIG_CONTEXT_MAX_CHARS),
@@ -231,6 +245,10 @@ function buildGroundingMetadata(grounding) {
         })),
         configStatus: grounding.businessConfig?.status || null,
         metricGraph: grounding.metricGraph || null,
+        toolData: grounding.toolData?.tools?.length ? {
+            window: grounding.toolData.window || null,
+            tools: grounding.toolData.tools
+        } : null,
         knowledgeCache: {
             state: !grounding.knowledgeSearch?.performed ? 'not_needed' : (grounding.knowledge.length ? 'hit' : 'miss'),
             hitCount: grounding.knowledge.length,
@@ -518,6 +536,18 @@ function fallbackPptActions(instruction, operationContext) {
     return null;
 }
 
+// 入库的过程事件：去掉运行时 id，审批 diff / 命令输出截断，控制单条记录体积
+function compactRecordedEvent(event) {
+    const { runId, ...rest } = event;
+    const out = { ...rest };
+    if (out.preview && typeof out.preview === 'object') {
+        out.preview = { ...out.preview };
+        if (typeof out.preview.diff === 'string' && out.preview.diff.length > 8000) out.preview.diff = `${out.preview.diff.slice(0, 8000)}\n…（已截断）`;
+    }
+    if (typeof out.output === 'string' && out.output.length > 4000) out.output = `${out.output.slice(0, 4000)}\n…（已截断）`;
+    return out;
+}
+
 /**
  * POST /api/ai/chat
  * 接收对话历史和页面上下文，返回 Gemini 响应
@@ -526,14 +556,45 @@ router.post('/chat', checkAuth, async (req, res) => {
     let streamStarted = false;
     let streamHasDelta = false;
     let providerAbortController = null;
+    // 完整会话记录：流式文本与工具过程（调用、审批、命令输出）随回复一起入库，中止 / 出错的轮次也保存
+    const recordedEvents = [];
+    let streamedText = '';
+    let historyContext = null;
+    let historySaved = false;
+    let agentSession = null;
+    const RECORDED_EVENT_TYPES = new Set(['tool_start', 'tool_result', 'approval', 'approval_result']);
+    const recordEvent = payload => {
+        if (!payload) return;
+        if (payload.type === 'delta') streamedText += String(payload.delta || '');
+        else if (RECORDED_EVENT_TYPES.has(payload.type) && recordedEvents.length < 400) recordedEvents.push(compactRecordedEvent(payload));
+    };
     const writeStreamEvent = payload => {
+        recordEvent(payload);
         if (!streamStarted || res.destroyed || res.writableEnded) return;
         res.write(`${JSON.stringify(payload)}\n`);
     };
+    // 中止或出错时补存本轮：问题 + 已生成的内容 + 工具过程
+    const saveInterruptedTurn = async note => {
+        if (!historyContext || historySaved) return;
+        historySaved = true;
+        try {
+            await aiChatRepo.addMessage({ ...historyContext, role: 'user', content: historyContext.question });
+            await aiChatRepo.addMessage({ ...historyContext, role: 'model', content: `${streamedText.trim()}${streamedText.trim() ? '\n\n' : ''}> ${note}`, events: recordedEvents });
+        } catch (saveErr) {
+            console.warn('[AI] failed to persist interrupted turn:', saveErr.message || saveErr);
+        }
+    };
     try {
-        const aiSettings = await aiSettingsRepo.getRuntimeSettings();
+        // 对话模型选择（如首页 Dragon Claw）：经映射解析到实际方案；未传则保持激活方案。
+        const modelChoice = req.body?.modelId !== undefined
+            ? await aiSettingsRepo.resolveModelChoice(req.body.modelId)
+            : null;
+        let aiSettings = await aiSettingsRepo.getRuntimeSettings({ profileId: modelChoice?.profileId });
+        if (modelChoice && (!aiSettings.hasApiKey || !aiSettings.keyLooksValid)) {
+            aiSettings = await aiSettingsRepo.getRuntimeSettings();
+        }
         if (!aiSettings.hasApiKey) {
-            return res.status(503).json({ 
+            return res.status(503).json({
                 error: '未配置 AI 助手 API Token，当前不可用。请管理员在全局设置中配置，或使用供应商对应环境变量兜底。'
             });
         }
@@ -543,8 +604,31 @@ router.post('/chat', checkAuth, async (req, res) => {
             });
         }
 
-        const { messages, context, pageTitle, pagePath, sessionId, persist, uiLanguage, stream, codeAnalysis } = req.body;
+        const { messages, context, pageTitle, pagePath, sessionId, persist, uiLanguage, stream, codeAnalysis, agent, toolSlug, clientToolData, workspace } = req.body;
+        // 首页 Dragon Claw 是全能智能体：不限于平台问题，context 为平台工具目录而非页面文本。
+        const homeAgent = agent === 'dragon-claw-home';
         const streamRequested = stream === true;
+        // 工作区模式：用户选了本地目录，走工具调用循环（仅流式、仅本机/桌面/管理员）。
+        if (homeAgent && streamRequested && workspace && workspace.root) {
+            if (!agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) {
+                return res.status(403).json({ code: 'AGENT_WORKSPACE_FORBIDDEN', error: '工作区功能仅对本机或管理员开放' });
+            }
+            try {
+                agentSession = agentRunManager.ensureSession({
+                    agentSessionId: workspace.agentSessionId,
+                    user: req.user,
+                    tenantId: getTenantId(),
+                    root: workspace.root,
+                    permissionMode: workspace.permissionMode
+                });
+            } catch (sessionError) {
+                return res.status(sessionError.statusCode || 400).json({ code: sessionError.code, error: sessionError.message });
+            }
+            if (agentSession.activeRun) {
+                return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
+            }
+        }
+        const agentMode = Boolean(agentSession);
         const responseLanguage = String(uiLanguage || '').toLowerCase().startsWith('en') ? 'English' : '简体中文';
         
         if (!messages || !Array.isArray(messages)) {
@@ -560,12 +644,16 @@ router.post('/chat', checkAuth, async (req, res) => {
         let savedSessionId = sessionId || null;
         if (persist !== false) {
             savedSessionId = await aiChatRepo.getOrCreateSession({
+                owner: req.user?.username || '',
                 sessionId,
                 pagePath: normalizedPath,
                 pageTitle
             });
         }
 
+        if (persist !== false && savedSessionId) {
+            historyContext = { sessionId: savedSessionId, pagePath: normalizedPath, pageTitle, owner: req.user?.username || '', question: lastMessage.content };
+        }
         const aiClient = aiProviderClient.createClient(aiSettings);
         if (streamRequested) {
             res.status(200);
@@ -601,18 +689,30 @@ router.post('/chat', checkAuth, async (req, res) => {
             ? getAnalysisCode(lastMessage.content, codeAnalysis.codeStart)
             : null;
         const followUpContext = getFollowUpContext(effectiveMessages, lastMessage.content);
-        const expertGrounding = await buildExpertGrounding(lastMessage.content, {
-            pageTitle,
-            pagePath: normalizedPath,
-            contextQuestion: followUpContext.matchingContext,
-            contextTimeQuestion: followUpContext.timeContext
-        });
+        // 工作区模式下跳过平台知识/报表检索，把上下文留给目录与工具转录。
+        const expertGrounding = agentMode
+            ? { knowledge: [], knowledgeSearch: { performed: false, candidateCount: 0, referencedCount: 0 }, knowledgeStatus: null, dataAnalysis: null, businessConfig: { results: [], status: null }, metricGraph: null, toolData: null, toolDataPrompt: '', knowledgePrompt: '（工作区模式：未检索平台知识）', dataPrompt: '', businessConfigPrompt: '', metricGraphPrompt: '' }
+            : await buildExpertGrounding(lastMessage.content, {
+                pageTitle,
+                pagePath: normalizedPath,
+                contextQuestion: followUpContext.matchingContext,
+                contextTimeQuestion: followUpContext.timeContext,
+                toolSlug: typeof toolSlug === 'string' ? toolSlug.slice(0, 120) : '',
+                clientToolData: Array.isArray(clientToolData) ? clientToolData.slice(0, 12) : []
+            });
 
         // 构造 System Instruction
-        const systemInstruction = `你是一个名为 "Tools Platform 智能助手" 的 AI，被集成在华为的一个工具中台中。
-你同时是项目实现专家、只读数据分析专家、运营分析专家和高级客服助手。
+        const identityPrompt = homeAgent
+            ? `你是 "Dragon Claw"，Tools Platform 工具中台首页的全能 AI 智能体。
+你首先是一个通用的高水平助手，能回答任何领域的问题（编程、写作、翻译、学习、分析、生活常识等）；同时你也是本平台的项目实现专家、只读数据分析专家和工具向导，能解释平台中各工具的用途、使用方法和代码实现逻辑。`
+            : `你是一个名为 "Tools Platform 智能助手" 的 AI，被集成在华为的一个工具中台中。
+你同时是项目实现专家、只读数据分析专家、运营分析专家和高级客服助手。`;
+        const scopeRule = homeAgent
+            ? `8. 不要声称自己只专注于本平台：与平台无关的问题，直接以通用助手身份完整、专业地回答，不必引用项目知识。只有问题涉及本平台时才使用上面的项目知识、业务配置和数据结果。推荐或提到平台工具时，使用 Markdown 链接 [工具名](路径)，路径只能取自“平台工具目录”，不得编造路径。`
+            : `8. 如果用户的提问超出系统功能范畴，礼貌说明你专注于本工具中台。`;
+        const systemInstruction = `${identityPrompt}
 当前页面标题: ${pageTitle || '未知'}
-当前页面核心文本内容:
+${homeAgent ? '平台工具目录与对话上下文' : '当前页面核心文本内容'}:
 ---
 ${context ? context.substring(0, PAGE_CONTEXT_MAX_CHARS) : '未提供'}
 ---
@@ -621,6 +721,7 @@ ${context ? context.substring(0, PAGE_CONTEXT_MAX_CHARS) : '未提供'}
 ${expertGrounding.knowledgePrompt}
 ---
 ${expertGrounding.businessConfigPrompt ? `\n与用户问题相关的只读业务配置（脚本、指标规则、平台配置）：\n---\n${expertGrounding.businessConfigPrompt}\n---\n` : ''}
+${expertGrounding.toolDataPrompt ? `\n平台工具业务数据（只读；来自工具保存的快照、状态、数据库或用户浏览器本地存储，已压缩为字段统计与汇总）：\n---\n${expertGrounding.toolDataPrompt}\n---\n` : ''}
 ${expertGrounding.dataPrompt ? `\n只读报表分析工具结果：\n---\n${expertGrounding.dataPrompt}\n---\n` : ''}
 ${expertGrounding.metricGraphPrompt ? `\n与本次问题相关的运营指标体系图谱节点：\n---\n${expertGrounding.metricGraphPrompt}\n---\n` : ''}
 ${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}
@@ -642,10 +743,11 @@ ${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n
 4.6 用户询问手动加减分项目时，规则说明读取只读业务配置，当前发生次数和实际加减分优先读取只读报表分析 liveDashboard.manualAdjustments；指定月份或日期时读取 current.manualAdjustments。必须说明快照 ID、月份/日期和数据时间。询问某个具体项目时列出各客户群的 count 与 score，包括 0 次/0 分；询问“哪个扣分最多/最频繁/排行”时必须读取 rankings.deductionByOccurrences，询问加分则读取 rankings.bonusByOccurrences，并明确排行按发生次数而不是按规则单次分值。如果对应排行是空数组，应回答“该时间点没有发生扣分/加分”，不得误报为无法读取。不得在 manualAdjustments 已返回时声称“只找到规则、没有当前发生次数”。只有用户明确询问“最近几次、历史、趋势、变化”时才读取 manualAdjustmentHistory；“最近哪个扣分最频繁”表示最新可用快照排行，不等于缺少历史。历史使用各次入库快照当时保存的项目规则、发生次数和客户群汇总分，严禁套用当前规则重算。当前快照和历史入库快照是两个数据状态，回答中应明确区分。
 4.7 用户问题中明确写出的月份、年月或具体日期，优先级高于当前页面所选月份、上一轮回答和会话摘要。只读报表分析的 requestedMonth/requestedDate 与 current.snapshot 是本次时间口径；如果 current.snapshot.targetMonth/month 为 6，就不得引用 7 月目标月份的图谱或数值。createdAt/snapshotCreatedAt 表示快照生成时间，不表示数据所属目标月份。例如 targetMonth=6、snapshotCreatedAt=2026-07-04 时，必须表述为“目标月份：6月；快照生成时间：2026-07-04；这是月末后生成的6月口径快照”，不得笼统写成容易误解的“数据时间：7月4日”。类似“6月数据怎么样”的省略式追问会沿用上一条用户问题的指标主体，但时间必须改为本条明确指定的 6 月。查询无需用户先切换报表页面月份。
 4.8 如果只读报表分析中 current.metricMatch.ambiguous=true，说明用户的指标简称对应多个指标；必须列出 candidates 请用户选择，不得擅自挑选其中一个，也不得退回 topFailures 把异常项冒充用户询问的指标。
+4.9 用户询问某个平台工具里的数据（人次、数量、金额、记录、趋势等）时，必须依据“平台工具业务数据”作答，并写明工具名、快照名或数据来源、数据期间。快照摘要（如 totalTransactions）和“表内合计行”是工具自身算出的口径，回答总数时优先采用；按日/按字段的统计只是辅助拆解，二者不一致时说明差异而不是自行改算。用户要的时间段没有对应快照时，明确说“没有覆盖该期间的数据”，并列出已有快照的期间；工具没有可读数据时如实说明，可建议打开工具导入后保存快照。不得编造任何数值。
 5. 历史报表使用入库时保存的得分和计分状态，不得用当前目标或计分规则重算。
 6. 把事实、基于数据的解读和可能原因分开。没有证据的原因必须标记为“可能”或“建议进一步核查”。
-7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。
-8. 如果用户的提问超出系统功能范畴，礼貌说明你专注于本工具中台。
+${agentMode ? '7. 你没有修改平台业务数据（数据库、报表）的权限；但可以通过工具读写用户选定的本地工作目录。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
+${scopeRule}
 ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.systemPrompt}` : ''}`;
 
         const fullTargetListRequested = expertGrounding.businessConfig?.mode === 'full-target-list';
@@ -676,9 +778,28 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 writeStreamEvent({ type: 'status', status: { kind: 'code-analysis-retry', attempt, limit } });
             })
             : null;
-        const result = analysisResult ? analysisResult.result : await generateResponse();
+        const agentResult = agentMode
+            ? await agentRunManager.runAgentTurn({
+                session: agentSession,
+                client: aiClient,
+                systemInstruction,
+                historyMessages: effectiveMessages,
+                write: event => {
+                    if (event.type === 'delta') streamHasDelta = true;
+                    writeStreamEvent(event);
+                },
+                signal: providerAbortController?.signal,
+                maxOutputTokens: aiSettings.maxOutputTokens,
+                temperature: aiSettings.temperature,
+                model: aiSettings.model
+            })
+            : null;
+        const result = agentResult || (analysisResult ? analysisResult.result : await generateResponse());
         const persistedQuestion = analysisResult ? analysisResult.content : lastMessage.content;
-        const responseText = result.text;
+        // 历史记录只存文本：工作区模式附上工具调用摘要，便于下一轮延续。
+        const responseText = agentResult && agentResult.toolLog.length
+            ? `${result.text}\n\n（本轮调用工具 ${agentResult.toolCallCount} 次：${agentResult.toolLog.slice(0, 8).map(item => `${item.tool}${item.ok ? '' : '✗'}`).join('、')}${agentResult.toolLog.length > 8 ? '…' : ''}）`
+            : result.text;
         
         let totalTokens = 0;
         let promptTokens = 0;
@@ -698,10 +819,12 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
 
         if (persist !== false) {
             try {
+                historySaved = true;
                 await aiChatRepo.addMessage({
                     sessionId: savedSessionId,
                     pagePath: normalizedPath,
                     pageTitle,
+                    owner: req.user?.username || '',
                     role: 'user',
                     content: persistedQuestion
                 });
@@ -709,11 +832,14 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                     sessionId: savedSessionId,
                     pagePath: normalizedPath,
                     pageTitle,
+                    owner: req.user?.username || '',
                     role: 'model',
                     content: responseText,
                     tokens: totalTokens,
-                    cost: costMao
+                    cost: costMao,
+                    events: recordedEvents
                 });
+                if (agentSession) await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root });
                 await aiChatRepo.recordQuestion({
                     pagePath: normalizedPath,
                     question: analysisResult ? String(codeAnalysis?.displayText || '分析知识文件').slice(0, 500) : lastMessage.content
@@ -730,7 +856,22 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             cost: costMao,
             sessionId: savedSessionId,
             conversationCompression,
-            grounding: buildGroundingMetadata(expertGrounding)
+            grounding: buildGroundingMetadata(expertGrounding),
+            ...(modelChoice ? { model: { id: modelChoice.id, name: modelChoice.name } } : {}),
+            ...(agentResult ? {
+                runId: agentResult.runId,
+                agentSessionId: agentSession.id,
+                context: agentResult.context,
+                changes: agentResult.changes,
+                agent: {
+                    steps: agentResult.steps,
+                    toolCalls: agentResult.toolCallCount,
+                    denied: agentResult.denied,
+                    permissionMode: agentSession.permissionMode,
+                    root: agentSession.root,
+                    gitBranch: agentResult.gitBranch
+                }
+            } : {})
         };
         if (streamRequested) {
             writeStreamEvent({ type: 'done', ...responsePayload });
@@ -739,8 +880,15 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             res.json(responsePayload);
         }
     } catch (error) {
-        if (providerAbortController?.signal.aborted && error?.name === 'AbortError') return;
+        if (agentSession && historyContext) {
+            await aiChatRepo.setSessionAgent(historyContext.sessionId, { agentSessionId: agentSession.id, root: agentSession.root }).catch(() => {});
+        }
+        if (providerAbortController?.signal.aborted && error?.name === 'AbortError') {
+            await saveInterruptedTurn('（已停止生成）');
+            return;
+        }
         console.error('[AI] Chat error:', error);
+        await saveInterruptedTurn(`⚠️ 本轮出错：${String(error?.message || error).slice(0, 300)}`);
         if (streamStarted) {
             if (!res.destroyed && !res.writableEnded) {
                 writeStreamEvent({
@@ -759,6 +907,28 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             });
         }
         res.status(500).json({ error: 'AI 思考时出现异常: ' + error.message });
+    }
+});
+
+/**
+ * GET /api/ai/models
+ * 对话界面可选模型：管理员配置的自定义名称，未配置映射时为真实模型名。
+ */
+router.get('/models', checkAuth, async (_req, res) => {
+    try {
+        res.json(aiSettingsRepo.publicModelChoices(await aiSettingsRepo.getModelChoices()));
+    } catch (error) {
+        res.status(500).json({ error: error.message || '读取可选模型失败' });
+    }
+});
+
+// Dragon Claw 读取浏览器本地工具数据时使用：各工具源码中出现的 localStorage 键名。
+router.get('/tool-local-keys', checkAuth, async (_req, res) => {
+    try {
+        const tools = await customToolsRepo.listTools();
+        res.json({ keys: aiToolDataService.listLocalStorageKeys(tools) });
+    } catch (error) {
+        res.status(500).json({ error: error.message || '读取工具本地数据键失败' });
     }
 });
 
@@ -957,6 +1127,17 @@ router.get('/suggestions', checkAuth, async (req, res) => {
 
 router.get('/sessions', checkAuth, async (req, res) => {
     try {
+        // /session：只列当前用户自己的会话（含已自动归档），可按内容搜索
+        if (req.query.mine === '1') {
+            const items = await aiChatRepo.listOwnedSessions({
+                owner: req.user?.username || '',
+                pagePath: req.query.pagePath || '/',
+                query: req.query.query,
+                limit: req.query.limit,
+                offset: req.query.offset
+            });
+            return res.json({ items });
+        }
         const items = await aiChatRepo.listSessions({
             pagePath: req.query.pagePath || req.get('referer') || '',
             limit: req.query.limit

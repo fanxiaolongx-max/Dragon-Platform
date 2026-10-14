@@ -108,8 +108,8 @@ test('proactive KPI APIs are authenticated and the wording route remains read-on
     assert.match(assistant, /alertAiCaption: '深度分析结果'/);
 });
 
-test('navbar loads the current proactive assistant asset version everywhere', () => {
-    const matches = navbar.match(/ai-assistant\.js\?v=20260920-04/g) || [];
+test('navbar loads the proactive assistant without a pinned stale version', () => {
+    const matches = navbar.match(/\.src = '\/js\/shared\/ai-assistant\.js'/g) || [];
     assert.equal(matches.length, 2);
-    assert.doesNotMatch(navbar, /ai-assistant\.js\?v=20260914-10/);
+    assert.doesNotMatch(navbar, /ai-assistant\.js\?v=/);
 });

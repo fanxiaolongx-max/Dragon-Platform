@@ -13,13 +13,17 @@ const DEFAULT_QUESTIONS = [
     '最近规则有没有变化？'
 ];
 
-let initPromise = null;
+// 每个租户是独立的数据库文件：建表要按数据库各做一次（只做一次会让第二个租户缺表）
+const readyByDb = new Map();
+const { getDbPath } = require('./app-db');
 
 function buildId(prefix) {
     return `${prefix}_${uuidv4().replace(/-/g, '').slice(0, 16)}`;
 }
 
 async function ensureReady() {
+    const dbKey = getDbPath();
+    let initPromise = readyByDb.get(dbKey);
     if (!initPromise) {
         initPromise = (async () => {
             await run(`
@@ -39,6 +43,10 @@ async function ensureReady() {
             await addColumnIfMissing('ai_chat_sessions', 'summary_updated_at', 'DATETIME');
             await addColumnIfMissing('ai_chat_sessions', 'is_archived', 'INTEGER NOT NULL DEFAULT 0');
             await addColumnIfMissing('ai_chat_sessions', 'archived_at', 'DATETIME');
+            // 会话归属与工作区：/session 只列出自己的会话，恢复时自动选回当时的目录
+            await addColumnIfMissing('ai_chat_sessions', 'owner', "TEXT NOT NULL DEFAULT ''");
+            await addColumnIfMissing('ai_chat_sessions', 'agent_session_id', "TEXT NOT NULL DEFAULT ''");
+            await addColumnIfMissing('ai_chat_sessions', 'agent_root', "TEXT NOT NULL DEFAULT ''");
             await run(`
                 CREATE TABLE IF NOT EXISTS ai_chat_messages (
                     id TEXT PRIMARY KEY,
@@ -67,14 +75,17 @@ async function ensureReady() {
                     UNIQUE(page_path, normalized_key)
                 )
             `);
+            // 工具调用、审批、命令输出等过程记录（JSON），恢复对话时重放成卡片
+            await addColumnIfMissing('ai_chat_messages', 'events', "TEXT NOT NULL DEFAULT ''");
             await run('CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_session ON ai_chat_messages(session_id, created_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_page ON ai_chat_sessions(page_path, updated_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_archive ON ai_chat_sessions(is_archived, archived_at, updated_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_ai_question_suggestions_page ON ai_question_suggestions(page_path, enabled, hit_count, last_used_at)');
         })().catch(err => {
-            initPromise = null;
+            readyByDb.delete(dbKey);
             throw err;
         });
+        readyByDb.set(dbKey, initPromise);
     }
     return initPromise;
 }
@@ -116,39 +127,91 @@ function isInvalidQuestion(value) {
     return /^\[object\s+\w+Event\]$/i.test(String(value || '').trim());
 }
 
-async function getOrCreateSession({ sessionId, pagePath, pageTitle }) {
+async function getOrCreateSession({ sessionId, pagePath, pageTitle, owner = '' }) {
     await ensureReady();
     const normalizedPath = normalizePagePath(pagePath);
     const cleanTitle = String(pageTitle || '').slice(0, 200);
+    const cleanOwner = String(owner || '').slice(0, 120);
     if (sessionId) {
         const existing = await get('SELECT id FROM ai_chat_sessions WHERE id = ?', [sessionId]);
         if (existing) {
             await run(
                 `UPDATE ai_chat_sessions
-                 SET page_path = ?, page_title = ?, is_archived = 0, archived_at = NULL, updated_at = CURRENT_TIMESTAMP
+                 SET page_path = ?, page_title = ?, is_archived = 0, archived_at = NULL, updated_at = CURRENT_TIMESTAMP,
+                     owner = CASE WHEN owner = '' THEN ? ELSE owner END
                  WHERE id = ?`,
-                [normalizedPath, cleanTitle, sessionId]
+                [normalizedPath, cleanTitle, cleanOwner, sessionId]
             );
             return sessionId;
         }
     }
     const id = buildId('chat');
     await run(
-        `INSERT INTO ai_chat_sessions (id, page_path, page_title)
-         VALUES (?, ?, ?)`,
-        [id, normalizedPath, cleanTitle]
+        `INSERT INTO ai_chat_sessions (id, page_path, page_title, owner)
+         VALUES (?, ?, ?, ?)`,
+        [id, normalizedPath, cleanTitle, cleanOwner]
     );
     return id;
 }
 
-async function addMessage({ sessionId, pagePath, pageTitle, role, content, tokens = 0, cost = 0 }) {
+/** 记录该对话最近使用的工作区智能体会话与目录 */
+async function setSessionAgent(sessionId, { agentSessionId, root }) {
+    await ensureReady();
+    if (!sessionId || !agentSessionId || !root) return;
+    await run('UPDATE ai_chat_sessions SET agent_session_id = ?, agent_root = ? WHERE id = ?', [String(agentSessionId).slice(0, 100), String(root).slice(0, 1000), sessionId]);
+}
+
+/**
+ * /session：列出某用户在某页面（Dragon Claw 为 "/"）的会话，含已自动归档的，按最近更新排序。
+ * query 匹配会话内任意问题或回答。
+ */
+async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offset = 0 } = {}) {
+    await ensureReady();
+    if (!owner) return [];
+    const normalizedPath = normalizePagePath(pagePath);
+    const safeLimit = Math.max(1, Math.min(Number(limit) || 30, 100));
+    const safeOffset = Math.max(0, Number(offset) || 0);
+    const keyword = String(query || '').trim().slice(0, 100);
+    const params = [owner, normalizedPath];
+    let filter = '';
+    if (keyword) {
+        filter = 'AND EXISTS (SELECT 1 FROM ai_chat_messages q WHERE q.session_id = s.id AND q.content LIKE ?)';
+        params.push(`%${keyword.replace(/[%_\\]/g, '')}%`); // 去掉通配符，按普通文本匹配
+    }
+    params.push(safeLimit, safeOffset);
+    const rows = await all(
+        `SELECT s.id, s.created_at, s.updated_at, s.is_archived, s.agent_session_id, s.agent_root,
+                (SELECT COUNT(*) FROM ai_chat_messages m WHERE m.session_id = s.id) AS message_count,
+                (SELECT content FROM ai_chat_messages f WHERE f.session_id = s.id AND f.role = 'user' ORDER BY f.created_at ASC, f.rowid ASC LIMIT 1) AS first_question,
+                (SELECT content FROM ai_chat_messages l WHERE l.session_id = s.id AND l.role = 'user' ORDER BY l.created_at DESC, l.rowid DESC LIMIT 1) AS last_question
+         FROM ai_chat_sessions s
+         WHERE s.owner = ? AND s.page_path = ? ${filter}
+           AND EXISTS (SELECT 1 FROM ai_chat_messages e WHERE e.session_id = s.id)
+         ORDER BY s.updated_at DESC, s.rowid DESC
+         LIMIT ? OFFSET ?`,
+        params
+    );
+    return rows.map(row => ({
+        id: row.id,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        archived: Boolean(row.is_archived),
+        messageCount: Number(row.message_count) || 0,
+        firstQuestion: String(row.first_question || '').slice(0, 160),
+        lastQuestion: String(row.last_question || '').slice(0, 160),
+        agent: row.agent_session_id && row.agent_root ? { agentSessionId: row.agent_session_id, root: row.agent_root } : null
+    }));
+}
+
+async function addMessage({ sessionId, pagePath, pageTitle, role, content, tokens = 0, cost = 0, events = null, owner = '' }) {
     await ensureReady();
     const normalizedPath = normalizePagePath(pagePath);
     const cleanTitle = String(pageTitle || '').slice(0, 200);
-    const finalSessionId = await getOrCreateSession({ sessionId, pagePath: normalizedPath, pageTitle: cleanTitle });
+    const finalSessionId = await getOrCreateSession({ sessionId, pagePath: normalizedPath, pageTitle: cleanTitle, owner });
+    const eventsJson = Array.isArray(events) && events.length ? JSON.stringify(events).slice(0, 400 * 1024) : '';
     await run(
-        `INSERT INTO ai_chat_messages (id, session_id, page_path, page_title, role, content, tokens, cost)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO ai_chat_messages (id, session_id, page_path, page_title, role, content, tokens, cost, events)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             buildId('msg'),
             finalSessionId,
@@ -157,7 +220,8 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
             role === 'model' ? 'model' : 'user',
             String(content || '').slice(0, 20000),
             Math.max(0, Number(tokens) || 0),
-            Math.max(0, Number(cost) || 0)
+            Math.max(0, Number(cost) || 0),
+            eventsJson.endsWith(']') ? eventsJson : '' // 超长被截断的 JSON 不保存
         ]
     );
     await run('UPDATE ai_chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [finalSessionId]);
@@ -363,12 +427,16 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
 async function listMessages(sessionId) {
     await ensureReady();
     return all(
-        `SELECT id, session_id, role, content, tokens, cost, created_at
+        `SELECT id, session_id, role, content, tokens, cost, created_at, events
          FROM ai_chat_messages
          WHERE session_id = ?
          ORDER BY created_at ASC, rowid ASC`,
         [sessionId]
-    );
+    ).then(rows => rows.map(row => {
+        let events = [];
+        try { events = row.events ? JSON.parse(row.events) : []; } catch (_error) { events = []; }
+        return { ...row, events };
+    }));
 }
 
 async function getSession(sessionId) {
@@ -442,6 +510,8 @@ async function getRecentMessagesForContext(sessionId, limit = RECENT_CONTEXT_MES
 module.exports = {
     ensureReady,
     getOrCreateSession,
+    setSessionAgent,
+    listOwnedSessions,
     addMessage,
     recordQuestion,
     listSuggestions,

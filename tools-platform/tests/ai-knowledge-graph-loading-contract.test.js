@@ -63,11 +63,13 @@ test('shared navbar checks built-in tools after page load unless the market was 
             .filter(name => name.endsWith('.html'))
             .map(name => path.join(root, 'frontend/pages', name))
     ];
+    // Versions are appended by the server from file content (backend/models/asset-versioning.js);
+    // pages must reference navbar.js without a hand-maintained ?v=.
     const navbarReferences = htmlFiles
-        .map(filePath => fs.readFileSync(filePath, 'utf8').match(/navbar\.js\?v=([^"']+)/)?.[1])
+        .map(filePath => fs.readFileSync(filePath, 'utf8').match(/navbar\.js(\?[^"']*)?["']/))
         .filter(Boolean);
     assert.ok(navbarReferences.length > 1);
-    assert.deepEqual([...new Set(navbarReferences)], ['20261010-04']);
+    assert.deepEqual(navbarReferences.filter(match => match[1]).map(match => match[0]), []);
 });
 
 test('built-in tool preview worker returns a serializable preview off the main thread', async t => {

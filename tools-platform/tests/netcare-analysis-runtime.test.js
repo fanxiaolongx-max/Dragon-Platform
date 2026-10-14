@@ -302,5 +302,5 @@ test('NetCare monthly report topic has been cleanly removed per user request', (
 
 test('UIVF12 page cache-busts the enhanced NetCare runtime', () => {
     const html = fs.readFileSync(pagePath, 'utf8');
-    assert.match(html, /netcare-analysis\.js\?v=20261011-02/);
+    assert.match(html, /netcare-analysis\.js"/);
 });

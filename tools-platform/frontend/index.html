@@ -8,8 +8,8 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261006">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png?v=20261006">
     <link rel="apple-touch-icon" href="/assets/icon-mac.png?v=20261006">
-    <link rel="stylesheet" href="/css/shared.css?v=20261011-02">
-    <link rel="stylesheet" href="/css/home-promotions.css?v=20261007-01">
+    <link rel="stylesheet" href="/css/shared.css">
+    <link rel="stylesheet" href="/css/home-promotions.css">
     <style>
         body { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; }
         .home-content { padding-top: calc(var(--navbar-h) + 60px); max-width: 1100px; margin: 0 auto; padding-left: 24px; padding-right: 24px; }
@@ -975,34 +975,24 @@
             .tool-market-status { grid-column:3; justify-self:start; }
         }
     </style>
+    <link rel="stylesheet" href="/css/home-workspace.css">
+    <link rel="stylesheet" href="/css/dragon-claw.css">
+    <link rel="stylesheet" href="/css/workspace-panel.css">
 </head>
 <body>
-    <div class="home-content">
-        <div class="hero">
-            <div class="hero-icon">
-                <img src="/assets/logo.png?v=20261006" alt="图特工具平台" class="hero-logo-img" id="homeHeroLogo">
+    <div class="home-content home-workspace">
+        <aside class="home-sidebar" id="homeSidebar" aria-label="工具分类">
+            <label class="home-search">
+                <span class="home-search-icon" aria-hidden="true">⌕</span>
+                <input type="search" id="homeToolSearch" placeholder="搜索工具 / 拼音首字母" autocomplete="off" spellcheck="false">
+                <kbd class="home-search-kbd" aria-hidden="true">/</kbd>
+            </label>
+            <nav class="home-cat-nav" id="homeCategoryNav" aria-label="工具分类"></nav>
+            <div class="custom-tools-panel" id="customToolsPanel" style="display:none;">
+                <span class="custom-tools-note">导入 HTML 或 ZIP 工具包后，会自动生成首页模块和顶部导航入口，并默认支持静态快照与 Pages 推送</span>
+                <button class="custom-tool-upload market" id="toolMarketBtn">🛍️ 工具市场</button>
+                <button class="custom-tool-upload" id="customToolUploadBtn">导入 HTML / ZIP 工具</button>
             </div>
-            <div class="hero-brand-group">
-                <h1 data-platform-name data-platform-main-title class="hero-main-title" style="overflow-wrap:anywhere;margin-bottom:4px;font-size:2.2rem;font-weight:700;letter-spacing:-0.02em;">图特工具平台</h1>
-                <div data-platform-sub-title class="hero-sub-title" style="font-size:1.15rem;font-weight:500;color:rgba(199,210,254,0.9);letter-spacing:0.03em;margin-bottom:6px;">Thoth Platform</div>
-                <div data-platform-page-subtitle class="hero-page-subtitle" style="font-size:0.95rem;color:var(--text-secondary,#94a3b8);margin-bottom:14px;">埃及 CS 工具与知识中心</div>
-            </div>
-            <p>统一工具中台 · 前后端分离架构 · 数据持久化存储<br>让每一个工具都更强大、更稳定、更易扩展</p>
-            <div class="home-recommended-actions"><button type="button" class="home-graph-entry" id="homeKnowledgeGraphEntry" data-open-knowledge-graph>
-                <span class="home-graph-mark" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="2.4"></circle><circle cx="5" cy="6" r="1.7"></circle><circle cx="19" cy="7" r="1.7"></circle><circle cx="6" cy="18" r="1.7"></circle><circle cx="18" cy="18" r="1.7"></circle>
-                        <path d="M10.2 10.4 6.3 7.2M13.9 10.6l3.7-2.4M10.1 13.5l-2.8 3M13.9 13.5l2.8 3M7.6 6.3l9.7.5"></path>
-                    </svg>
-                </span>
-                <span class="home-graph-copy">
-                    <span class="home-graph-title" data-home-i18n="home.graph.title">项目知识图谱</span>
-                    <span class="home-graph-divider" aria-hidden="true"></span>
-                    <span class="home-graph-subtitle" data-home-i18n="home.graph.subtitle">探索模块、工具、代码与数据关系</span>
-                </span>
-                <span class="home-graph-arrow" aria-hidden="true">›</span>
-            </button>
-            <div id="homeF12QuickDownloads" class="home-f12-shortcuts"></div></div>
             <nav class="friend-links" aria-label="友情链接">
                 <button type="button" class="friend-links-label" id="friendLinksManageBtn" data-home-i18n="home.links.title">🔗 友情链接</button>
                 <div class="friend-links-list">
@@ -1027,13 +1017,69 @@
                     <a class="friend-link" href="https://grok-api2.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="grok-api2.fanxiaolong.uk"><span class="friend-link-icon">✦</span><span>Grok API 二站</span></a>
                 </div>
             </nav>
-        </div>
+        </aside>
 
-        <div class="custom-tools-panel" id="customToolsPanel" style="display:none;">
-            <span class="custom-tools-note">导入 HTML 或 ZIP 工具包后，会自动生成首页模块和顶部导航入口，并默认支持静态快照与 Pages 推送</span>
-            <button class="custom-tool-upload market" id="toolMarketBtn">🛍️ 工具市场</button>
-            <button class="custom-tool-upload" id="customToolUploadBtn">导入 HTML / ZIP 工具</button>
-        </div>
+        <main class="home-main">
+        <section class="dc" id="dragonClaw" aria-label="Dragon Claw 智能体">
+            <div class="dc-ambient" aria-hidden="true"><span></span><span></span><span></span></div>
+            <header class="dc-chat-head">
+                <div class="dc-chat-title">
+                    <img src="/assets/dragon-claw-avatar.jpg" alt="" class="dc-chat-avatar">
+                    <span class="dc-chat-name">Dragon Claw</span>
+                    <span class="dc-chat-badge" data-dc-i18n="badge">全能智能体</span>
+                </div>
+                <div class="dc-chat-actions">
+                    <button type="button" class="dc-ghost-btn dc-workspace-toggle" id="dcWorkspaceToggle" hidden aria-pressed="false"><span class="dc-workspace-toggle-dot" aria-hidden="true"></span><span data-dc-i18n="workspace">工作区</span></button>
+                    <button type="button" class="dc-ghost-btn" id="dcNewChat" data-dc-i18n="newChat">新对话</button>
+                    <button type="button" class="dc-ghost-btn" id="dcBackToTools" data-dc-i18n="backToTools">浏览工具</button>
+                </div>
+            </header>
+            <div class="dc-landing">
+                <div class="dc-orb" aria-hidden="true"><span class="dc-orb-ring"></span><img src="/assets/dragon-claw-avatar.jpg" alt=""></div>
+                <h1 class="dc-greeting" id="dcGreeting">你好</h1>
+                <p class="dc-tagline" data-dc-i18n="tagline">我是 Dragon Claw，你的全能智能体。问我任何问题，或者让我带你用好平台里的工具。</p>
+            </div>
+            <div class="dc-thread" id="dcThread" role="log" aria-live="polite"></div>
+            <form class="dc-composer" id="dcComposer" autocomplete="off">
+                <div class="dc-toast" id="dcToast" role="status" aria-live="polite"></div>
+                <!-- 工作区芯片：显示当前本地目录 / 选择目录入口（js/home/workspace-panel.js 渲染） -->
+                <div class="dc-workspace-chip" id="dcWorkspaceChip" hidden></div>
+                <textarea id="dcInput" rows="1" placeholder="给 Dragon Claw 发消息…" aria-label="给 Dragon Claw 发消息"></textarea>
+                <div class="dc-composer-bar">
+                    <div class="dc-model" id="dcModel" hidden>
+                        <button type="button" class="dc-model-btn" id="dcModelBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="dcModelMenu">
+                            <span class="dc-model-name" id="dcModelName">Aragon</span>
+                            <svg class="dc-model-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                        <div class="dc-model-menu" id="dcModelMenu" role="listbox" hidden></div>
+                    </div>
+                    <span class="dc-hint" data-dc-i18n="hint">Enter 发送 · Shift + Enter 换行</span>
+                    <button type="submit" class="dc-send" id="dcSend" aria-label="发送">
+                        <svg class="dc-send-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 15.5V4.5M10 4.5 5.5 9M10 4.5 14.5 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <svg class="dc-stop-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="6" y="6" width="8" height="8" rx="1.5" fill="currentColor"/></svg>
+                    </button>
+                </div>
+            </form>
+            <div class="dc-prompts" id="dcPrompts"></div>
+            <div class="dc-spotlight" id="dcSpotlight" hidden></div>
+            <div class="home-recommended-actions dc-quick"><button type="button" class="home-graph-entry" id="homeKnowledgeGraphEntry" data-open-knowledge-graph>
+                <span class="home-graph-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="2.4"></circle><circle cx="5" cy="6" r="1.7"></circle><circle cx="19" cy="7" r="1.7"></circle><circle cx="6" cy="18" r="1.7"></circle><circle cx="18" cy="18" r="1.7"></circle>
+                        <path d="M10.2 10.4 6.3 7.2M13.9 10.6l3.7-2.4M10.1 13.5l-2.8 3M13.9 13.5l2.8 3M7.6 6.3l9.7.5"></path>
+                    </svg>
+                </span>
+                <span class="home-graph-copy">
+                    <span class="home-graph-title" data-home-i18n="home.graph.title">项目知识图谱</span>
+                    <span class="home-graph-divider" aria-hidden="true"></span>
+                    <span class="home-graph-subtitle" data-home-i18n="home.graph.subtitle">探索模块、工具、代码与数据关系</span>
+                </span>
+                <span class="home-graph-arrow" aria-hidden="true">›</span>
+            </button>
+                <div id="homeF12QuickDownloads" class="home-f12-shortcuts"></div>
+            </div>
+            <button type="button" class="dc-scroll-hint" id="dcScrollHint"><span data-dc-i18n="browseTools">浏览全部工具</span><span aria-hidden="true">↓</span></button>
+        </section>
 
         <div class="tools-grid" id="toolsGrid">
             <a href="/uivf12" class="tool-card uivf12">
@@ -1189,6 +1235,10 @@
                 <div class="card-arrow">进入模块 →</div>
             </a>
         </div>
+        <div class="home-empty" id="homeToolsEmpty" hidden>
+            <div class="home-empty-icon" aria-hidden="true">🔍</div>
+            <div class="home-empty-text" id="homeToolsEmptyText">没有匹配的工具</div>
+        </div>
 
         <div class="stats-bar" id="statsBar">
             <div class="stats-head">
@@ -1322,6 +1372,48 @@
                 </div>
             </div>
         </section>
+        </main>
+        <!-- Dragon Claw 工作区面板：环境 / 上下文 / 更改（js/home/workspace-panel.js） -->
+        <aside class="home-workspace-panel" id="dcWorkspacePanel" aria-label="Dragon Claw 工作区" hidden>
+            <header class="wsp-head">
+                <span class="wsp-head-title" data-wsp-i18n="panelTitle">工作区</span>
+                <button type="button" class="wsp-icon-btn" id="dcWorkspaceClose" aria-label="关闭">×</button>
+            </header>
+            <section class="wsp-card is-open" data-card="env">
+                <button type="button" class="wsp-card-head" aria-expanded="true"><span data-wsp-i18n="envTitle">环境</span><i class="wsp-caret" aria-hidden="true"></i></button>
+                <div class="wsp-card-body" id="wspEnvBody"></div>
+            </section>
+            <section class="wsp-card is-open" data-card="context">
+                <button type="button" class="wsp-card-head" aria-expanded="true"><span data-wsp-i18n="contextTitle">上下文</span><span class="wsp-card-meta" id="wspCtxMeta"></span><i class="wsp-caret" aria-hidden="true"></i></button>
+                <div class="wsp-card-body" id="wspCtxBody"></div>
+            </section>
+            <section class="wsp-card is-open" data-card="changes">
+                <button type="button" class="wsp-card-head" aria-expanded="true"><span data-wsp-i18n="changesTitle">更改</span><span class="wsp-card-meta" id="wspChangesMeta"></span><i class="wsp-caret" aria-hidden="true"></i></button>
+                <div class="wsp-card-body" id="wspChangesBody"></div>
+            </section>
+        </aside>
+        <!-- 目录选择器（路径输入 + 后端联想），由 workspace-panel.js 挂到 body 并定位 -->
+        <div class="wsp-picker" id="wspDirPicker" role="dialog" aria-modal="true" aria-labelledby="wspPickerTitle" hidden>
+            <div class="wsp-picker-card">
+                <div class="wsp-picker-head">
+                    <strong id="wspPickerTitle" data-wsp-i18n="chooseDir">选择本地目录</strong>
+                    <button type="button" class="wsp-icon-btn" id="wspPickerClose" aria-label="关闭">×</button>
+                </div>
+                <p class="wsp-picker-help" data-wsp-i18n="pickerHelp">输入路径即可联想子目录；清空输入框查看根目录与家目录，↑↓ 选择，Tab 补全，Enter 确认。</p>
+                <div class="wsp-picker-input-wrap">
+                    <input type="text" id="wspPickerInput" class="wsp-picker-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" role="combobox" aria-expanded="true" aria-controls="wspPickerList" aria-autocomplete="list">
+                    <button type="button" class="wsp-picker-clear" id="wspPickerClear" aria-label="清空">×</button>
+                </div>
+                <div class="wsp-picker-status" id="wspPickerStatus"></div>
+                <div class="wsp-picker-list" id="wspPickerList" role="listbox"></div>
+                <div class="wsp-picker-recent" id="wspPickerRecent"></div>
+                <div class="wsp-picker-actions">
+                    <label class="wsp-picker-hidden"><input type="checkbox" id="wspPickerHidden"> <span data-wsp-i18n="showHidden">显示隐藏目录</span></label>
+                    <button type="button" class="wsp-btn wsp-btn-primary" id="wspPickerSelect" data-wsp-i18n="selectThisDir">选择此目录</button>
+                </div>
+            </div>
+        </div>
+        <button type="button" class="wsp-fab" id="dcWorkspaceFab" hidden data-wsp-i18n="workspace">工作区</button>
     </div>
 
     <dialog class="home-promotion-dialog" id="homePromotionDialog" aria-labelledby="homePromotionDialogTitle">
@@ -1547,16 +1639,19 @@
         </div>
     </div>
 
-    <script src="/js/shared/api.js?v=20261012-05"></script>
-    <script src="/js/shared/custom-tool-upload.js?v=20261010-02"></script>
-    <script src="/js/shared/migration-status.js?v=20260626-01"></script>
-    <script src="/js/shared/toast.js?v=20260530-03"></script>
-    <script src="/js/shared/i18n.js?v=20261005-01"></script>
-    <script src="/js/home/promotions.js?v=20261007-01"></script>
-    <script src="/js/shared/f12-quick-downloads.js?v=20261006-01"></script>
-    <script src="/js/shared/platform-logo-upload.js?v=20261006-02"></script>
-    <script src="/js/shared/navbar.js?v=20261013-02"></script>
-    <script src="/js/shared/jszip.min.js?v=3.10.1"></script>
+    <script src="/js/shared/api.js"></script>
+    <script src="/js/shared/custom-tool-upload.js"></script>
+    <script src="/js/shared/migration-status.js"></script>
+    <script src="/js/shared/toast.js"></script>
+    <script src="/js/shared/i18n.js"></script>
+    <script src="/js/home/promotions.js"></script>
+    <script src="/js/shared/f12-quick-downloads.js"></script>
+    <script src="/js/shared/platform-logo-upload.js"></script>
+    <script src="/js/shared/navbar.js"></script>
+    <script src="/js/home/workspace.js"></script>
+    <script src="/js/home/workspace-panel.js"></script>
+    <script src="/js/home/dragon-claw.js"></script>
+    <script src="/js/shared/jszip.min.js"></script>
     <script>
         const historyState = {
             items: [],
@@ -1776,7 +1871,7 @@
                 'home.custom.delete': '删除自定义工具'
             },
             'en-US': {
-                'home.title': 'Thoth Platform',
+                'home.title': 'Dragon Platform',
                 'home.description': 'Unified tool hub for data capture, SLA import, reporting, and operations workflows.',
                 'home.hero.desc': 'A unified tool hub · Decoupled frontend/backend · Persistent data storage<br>Make every tool stronger, steadier, and easier to extend',
                 'home.graph.title': 'Project Knowledge Graph',
@@ -2789,7 +2884,8 @@
             }
             const primaryLabel = stat.labelKey ? t(stat.labelKey) : (stat.label || '');
             const secondaryLabel = stat.secondaryLabelKey ? t(stat.secondaryLabelKey) : (stat.secondaryLabel || '');
-            impact.innerHTML = `<strong>${escapeHtml(formatStatNumber(stat.primary))}</strong> ${escapeHtml(primaryLabel)} <span class="card-impact-sep">·</span> <strong>${escapeHtml(formatStatNumber(stat.secondary))}</strong> ${escapeHtml(secondaryLabel)}`;
+            impact.innerHTML = `<span class="card-impact-primary"><strong>${escapeHtml(formatStatNumber(stat.primary))}</strong> ${escapeHtml(primaryLabel)}</span> <span class="card-impact-sep">·</span> <span class="card-impact-secondary"><strong>${escapeHtml(formatStatNumber(stat.secondary))}</strong> ${escapeHtml(secondaryLabel)}</span>`;
+            impact.title = `${formatStatNumber(stat.primary)} ${primaryLabel} · ${formatStatNumber(stat.secondary)} ${secondaryLabel}`;
         }
 
         function renderPlatformStats(summary) {
@@ -2837,7 +2933,8 @@
                 const isEnglish = window.ToolsI18n?.getLanguage?.() === 'en-US';
                 const displayName = isEnglish && tool.nameEn ? tool.nameEn : tool.name;
                 const displayDescription = isEnglish && tool.descriptionEn ? tool.descriptionEn : tool.description;
-                const tags = Array.isArray(tool.tags) && tool.tags.length ? tool.tags : [t('home.custom.defaultTag1'), t('home.custom.defaultTag2')];
+                const hasTags = Array.isArray(tool.tags) && tool.tags.length > 0;
+                const tags = hasTags ? tool.tags : [t('home.custom.defaultTag1'), t('home.custom.defaultTag2')];
                 const card = document.createElement('a');
                 card.href = tool.href;
                 card.className = 'tool-card custom-tool';
@@ -2860,7 +2957,7 @@
                     </div>
                     <div class="card-desc">${escapeHtml(displayDescription || t('home.custom.defaultDesc'))}</div>
                     <div class="card-features">
-                        ${tags.map(tag => `<span class="feature-tag">${escapeHtml(tag)}</span>`).join('')}
+                        ${tags.map(tag => `<span class="feature-tag${hasTags ? '' : ' is-default'}">${escapeHtml(tag)}</span>`).join('')}
                     </div>
                     <div class="card-impact"></div>
                     <div class="card-arrow">${escapeHtml(t('home.arrow.module'))}</div>

@@ -56,6 +56,15 @@ router.put('/', async (req, res) => {
     }
 });
 
+// 对话模型选择的自定义名称映射（整表保存；空数组表示直接暴露真实模型名）
+router.put('/model-aliases', async (req, res) => {
+    try {
+        res.json(await repo.saveModelAliases(req.body && req.body.aliases));
+    } catch (err) {
+        res.status(err.statusCode || 500).json({ error: err.message || '保存模型映射失败' });
+    }
+});
+
 router.post('/profiles', async (req, res) => {
     try {
         res.status(201).json(await repo.createProfile(req.body || {}));

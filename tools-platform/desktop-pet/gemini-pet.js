@@ -35,7 +35,7 @@
   };
 
   var css = [
-    '.gpet-root{position:fixed;right:20px;bottom:20px;--gpet-scale:1.2;--gpet-base:calc(260px * var(--gpet-scale));width:var(--gpet-base);height:calc(var(--gpet-base) * 1.385);pointer-events:none;user-select:none;-webkit-user-select:none;z-index:99999;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;transition:left .16s ease,top .16s ease,transform .3s ease}',
+    '.gpet-root{position:fixed;right:20px;bottom:20px;--gpet-scale:0.75;--gpet-base:calc(260px * var(--gpet-scale));width:var(--gpet-base);height:calc(var(--gpet-base) * 1.385);pointer-events:none;user-select:none;-webkit-user-select:none;z-index:99999;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;transition:left .16s ease,top .16s ease,transform .3s ease}',
 
     '.gpet-root.gpet-scaling, .gpet-root.gpet-scaling *{transition:none !important}',
     '.gpet-root.gpet-dragging{cursor:grabbing;transition:none !important}',
@@ -221,9 +221,9 @@
     scaleInput.type = 'range';
     scaleInput.min = String(MIN_SCALE);
     scaleInput.max = String(MAX_SCALE);
-    scaleInput.step = '0.1';
+    scaleInput.step = '0.05';
     scaleInput.className = 'gpet-range';
-    scaleInput.value = '1.2';
+    scaleInput.value = '0.75';
 
     var scaleNumber = document.createElement('input');
     scaleNumber.type = 'number';
@@ -231,11 +231,11 @@
     scaleNumber.max = '20';
     scaleNumber.step = '1';
     scaleNumber.className = 'gpet-number';
-    scaleNumber.value = '7';
+    scaleNumber.value = '3';
 
     scaleInput.addEventListener('input', function () {
       var raw = Number(scaleInput.value);
-      var clamped = Math.round(Math.min(MAX_SCALE, Math.max(MIN_SCALE, raw)) * 10) / 10;
+      var clamped = Math.round(Math.min(MAX_SCALE, Math.max(MIN_SCALE, raw)) * 100) / 100;
       var lvl = Math.round((clamped - 0.6) * 10) + 1;
       scaleNumber.value = String(Math.max(1, Math.min(20, lvl)));
     });
@@ -254,15 +254,15 @@
         clearTimeout(scaleNumberMiniDebounce);
         scaleNumberMiniDebounce = null;
       }
-      var v = Math.max(1, Math.min(20, Math.round(Number(scaleNumber.value) || 7)));
-      var s = (v - 1) * 0.1 + 0.6;
+      var v = Math.max(1, Math.min(20, Math.round(Number(scaleNumber.value) || 3)));
+      var s = Math.round(((v - 1) * 0.1 + 0.6) * 100) / 100;
       setScale(s, false, true);
       saveConfig(true);
     }
 
     scaleNumber.addEventListener('input', function () {
-      var v = Math.max(1, Math.min(20, Math.round(Number(scaleNumber.value) || 7)));
-      var s = Math.round(((v - 1) * 0.1 + 0.6) * 10) / 10;
+      var v = Math.max(1, Math.min(20, Math.round(Number(scaleNumber.value) || 3)));
+      var s = Math.round(((v - 1) * 0.1 + 0.6) * 100) / 100;
       scaleInput.value = String(s);
 
       if (scaleNumberMiniDebounce) clearTimeout(scaleNumberMiniDebounce);
@@ -429,7 +429,7 @@
 
     // State model with Gemini Quota
     var state = {
-      scale: 1.2,
+      scale: 0.75,
       h: 'right',
       hOff: 20,
       v: 'bottom',
@@ -1109,7 +1109,7 @@
     // Dynamic Scale Adjustment (Electron + Web responsive)
     var scalingClassTimer = null;
     function setScale(v, fromRemote, fromNumberInput) {
-      var next = Math.round(Math.min(MAX_SCALE, Math.max(MIN_SCALE, Number(v))) * 10) / 10;
+      var next = Math.round(Math.min(MAX_SCALE, Math.max(MIN_SCALE, Number(v))) * 100) / 100;
       state.scale = next;
       if (scaleInput && scaleInput.value !== String(next)) {
         scaleInput.value = String(next);

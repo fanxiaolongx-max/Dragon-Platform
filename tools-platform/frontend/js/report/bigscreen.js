@@ -687,20 +687,12 @@
         btn.textContent = loading ? tr('syncing') : tr('refresh');
     }
 
-    function renderScriptVersion() {
+    async function renderScriptVersion() {
         const target = $('scriptVersion');
         if (!target) return;
-        const script = [...document.scripts].find(item => item.src && item.src.includes('/js/report/bigscreen.js'));
-        const src = script ? script.src : '';
-        let version = '-';
-        try {
-            version = new URL(src, window.location.href).searchParams.get('v') || '-';
-        } catch (e) {
-            const match = src.match(/[?&]v=([^&]+)/);
-            version = match ? match[1] : '-';
-        }
-        target.textContent = `v${version}`;
-        target.title = isEn() ? `Current big screen script version: ${version}` : `当前大屏脚本版本: ${version}`;
+        const version = await window.ToolsAppVersion?.get();
+        target.textContent = version ? `v${version}` : 'v-';
+        target.title = isEn() ? `Platform version: ${version || '-'}` : `平台版本: ${version || '-'}`;
     }
 
     function downloadTextFile(filename, content, type = 'text/html;charset=utf-8') {

@@ -6,6 +6,7 @@
   "main": "electron-main.js",
   "scripts": {
     "start": "node backend/server.js",
+    "test": "node --test \"tests/*.test.js\"",
     "start:desktop": "electron .",
     "postinstall": "electron-builder install-app-deps && node scripts/ensure-builtin-assets.js",
     "assets:ensure": "node scripts/ensure-builtin-assets.js",
@@ -26,7 +27,7 @@
   },
   "build": {
     "appId": "com.toolsplatform.app",
-    "productName": "Thoth Platform",
+    "productName": "Dragon Platform",
     "directories": {
       "output": "dist"
     },
@@ -39,6 +40,7 @@
       "electron-preload.js",
       "desktop-license-client.js",
       "desktop-license-preload.js",
+      "desktop-local-port.js",
       "README.md",
       "!backend/{data,backups,factory-reset-archives,logs,tmp,runtime,node_modules}/**/*",
       "!backend/wal_strings.txt",
@@ -68,7 +70,7 @@
       "hardenedRuntime": true,
       "forceCodeSigning": true,
       "notarize": true,
-      "artifactName": "Tools-Platform-${version}-${arch}.${ext}",
+      "artifactName": "Dragon-Platform-${version}-${arch}.${ext}",
       "target": [
         {
           "target": "dmg",
@@ -104,15 +106,15 @@
       ]
     },
     "nsis": {
-      "artifactName": "Tools-Platform-Setup-${version}.${ext}",
+      "artifactName": "Dragon-Platform-Setup-${version}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Tools Platform"
+      "shortcutName": "Dragon Platform"
     },
     "portable": {
-      "artifactName": "Tools-Platform-Portable-${version}.${ext}",
+      "artifactName": "Dragon-Platform-Portable-${version}.${ext}",
       "requestExecutionLevel": "user",
       "splashImage": "frontend/assets/portable-splash.bmp"
     }

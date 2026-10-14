@@ -3,6 +3,10 @@ const { readKV, writeKV } = require('./kv-store');
 
 const PROFILE_STORE_KEY = 'ai_settings_profiles';
 const LEGACY_SETTINGS_KEY = 'ai_settings';
+const MODEL_ALIAS_KEY = 'ai_model_aliases';
+const MAX_MODEL_ALIASES = 20;
+// 从未配置过映射时，对话界面只提供一个品牌模型 Aragon，跟随当前激活方案。
+const DEFAULT_MODEL_ALIASES = [{ id: 'aragon', name: 'Aragon', description: '', profileId: '' }];
 
 const DEFAULT_SETTINGS = {
     provider: 'gemini',
@@ -228,9 +232,10 @@ async function getStoredSettings(profileId) {
     return profileSettings(profile);
 }
 
-async function getRuntimeSettings() {
+async function getRuntimeSettings(options = {}) {
     const store = await getProfileStore();
-    const active = findProfile(store, store.activeProfileId);
+    // 对话模型选择指定的方案存在时作为主模型，否则使用激活方案。
+    const active = (options.profileId && findProfile(store, options.profileId)) || findProfile(store, store.activeProfileId);
     const toRuntime = profile => runtimeSettings({
         ...profileSettings(profile),
         profileId: profile.id,
@@ -261,7 +266,114 @@ async function getPublicSettings() {
         ...publicSettings(runtimeSettings(profileSettings(active))),
         activeProfileId: store.activeProfileId,
         autoSwitchEnabled: store.autoSwitchEnabled === true,
-        profiles: store.profiles.map(item => publicProfile(item, store.activeProfileId))
+        profiles: store.profiles.map(item => publicProfile(item, store.activeProfileId)),
+        modelAliases: await getModelAliases()
+    };
+}
+
+// ── 对话模型选择：自定义名称（如 Aragon）→ 实际配置方案 ─────────────
+function cleanAliasText(value, max) {
+    return String(value || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, max);
+}
+
+function normalizeModelAliases(list) {
+    const usedNames = new Set();
+    const usedIds = new Set();
+    return (Array.isArray(list) ? list : []).map(item => {
+        const name = cleanAliasText(item && item.name, 40);
+        if (!name || usedNames.has(name.toLowerCase())) return null;
+        usedNames.add(name.toLowerCase());
+        let id = cleanAliasText(item && item.id, 60).replace(/[^\w-]/g, '');
+        if (!id || id.startsWith('profile') || usedIds.has(id)) id = crypto.randomUUID();
+        usedIds.add(id);
+        return {
+            id,
+            name,
+            description: cleanAliasText(item && item.description, 120),
+            profileId: cleanAliasText(item && item.profileId, 100)
+        };
+    }).filter(Boolean).slice(0, MAX_MODEL_ALIASES);
+}
+
+async function getModelAliases() {
+    const raw = await readKV('sys', MODEL_ALIAS_KEY, null);
+    if (!raw || !Array.isArray(raw.aliases)) return DEFAULT_MODEL_ALIASES.map(item => ({ ...item }));
+    return normalizeModelAliases(raw.aliases);
+}
+
+async function saveModelAliases(list) {
+    if (!Array.isArray(list)) {
+        const error = new Error('模型映射格式无效');
+        error.statusCode = 400;
+        throw error;
+    }
+    const store = await getProfileStore();
+    const aliases = normalizeModelAliases(list).map(item => ({
+        ...item,
+        profileId: item.profileId && findProfile(store, item.profileId) ? item.profileId : ''
+    }));
+    await writeKV('sys', MODEL_ALIAS_KEY, { version: 1, aliases });
+    return getPublicSettings();
+}
+
+/**
+ * 对话界面可选模型（纯函数）。
+ * - 有映射：只暴露自定义名称；未绑定或绑定方案已删除时跟随激活方案。
+ * - 映射为空：直接暴露各方案的真实模型名，只列 Token 就绪的方案（都未就绪时列激活方案）。
+ */
+function buildModelChoices(store, aliases) {
+    const byId = new Map(store.profiles.map(profile => [profile.id, profile]));
+    if (aliases.length) {
+        const models = aliases.map(alias => {
+            const bound = alias.profileId ? byId.get(alias.profileId) : null;
+            return {
+                id: alias.id,
+                name: alias.name,
+                description: alias.description,
+                profileId: bound ? bound.id : store.activeProfileId,
+                followsActive: !bound
+            };
+        });
+        return { mode: 'alias', defaultId: models[0].id, models };
+    }
+    const ready = store.profiles.filter(profile => {
+        const runtime = runtimeSettings(profileSettings(profile));
+        return runtime.hasApiKey && runtime.keyLooksValid;
+    });
+    const visible = ready.length ? ready : store.profiles.filter(profile => profile.id === store.activeProfileId);
+    const models = visible.map(profile => ({
+        id: `profile:${profile.id}`,
+        name: profile.model,
+        description: profile.name,
+        profileId: profile.id,
+        followsActive: false
+    }));
+    const activeChoice = models.find(item => item.profileId === store.activeProfileId) || models[0];
+    return { mode: 'direct', defaultId: activeChoice ? activeChoice.id : '', models };
+}
+
+// 未知或已失效的选择回退到默认模型。
+function pickModelChoice(choices, modelId) {
+    const id = String(modelId || '');
+    return choices.models.find(item => item.id === id)
+        || choices.models.find(item => item.id === choices.defaultId)
+        || null;
+}
+
+async function getModelChoices() {
+    return buildModelChoices(await getProfileStore(), await getModelAliases());
+}
+
+async function resolveModelChoice(modelId) {
+    return pickModelChoice(await getModelChoices(), modelId);
+}
+
+// 对普通用户只暴露名称与说明，不暴露方案 ID。
+function publicModelChoices(choices) {
+    return {
+        mode: choices.mode,
+        defaultId: choices.defaultId,
+        models: choices.models.map(({ id, name, description }) => ({ id, name, description }))
     };
 }
 
@@ -345,6 +457,14 @@ module.exports = {
     buildRuntimeSettings,
     getPublicSettings,
     saveSettings,
+    getModelAliases,
+    saveModelAliases,
+    getModelChoices,
+    resolveModelChoice,
+    buildModelChoices,
+    pickModelChoice,
+    normalizeModelAliases,
+    publicModelChoices,
     createProfile,
     activateProfile,
     deleteProfile,

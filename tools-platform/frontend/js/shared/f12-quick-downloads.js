@@ -13,7 +13,7 @@
         if (root.F12BuiltinScripts) return Promise.resolve(root.F12BuiltinScripts);
         if (!catalogPromise) catalogPromise = new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = '/custom-tools/f12-to-extension/builtin-catalog.js?v=20261006-01';
+            script.src = '/custom-tools/f12-to-extension/builtin-catalog.js';
             const fail = () => {
                 catalogPromise = null;
                 script.remove();

@@ -393,6 +393,11 @@ function registerNavbarI18n() {
             'nav.settings': '全局导航设置',
             'nav.userPrefix': '👤 {user}',
             'nav.logout': '退出',
+            'nav.relogin.title': '需要重新登录',
+            'nav.relogin.message': '浏览器里的登录信息已丢失（常见于桌面版地址或端口变化后），设置、Dragon Claw 智能体等功能暂时不可用。',
+            'nav.relogin.hint': '重新登录一次即可恢复，账号和数据不受影响。',
+            'nav.relogin.confirm': '重新登录',
+            'nav.relogin.later': '稍后',
             'nav.online': '服务在线',
             'nav.offline': '离线',
             'nav.language': '语言',
@@ -625,6 +630,24 @@ function registerNavbarI18n() {
             'nav.ai.clearModelUsageConfirm': '确定清空该模型的历史 Token 用量与计费统计吗？',
             'nav.ai.clearAllModelUsage': '清空全部模型统计',
             'nav.ai.clearedSuccess': '统计信息已清空',
+            'nav.ai.aliasTitle': '对话模型名称映射',
+            'nav.ai.aliasHelp': '对话界面（如首页 Dragon Claw）显示的模型名称，以及它实际使用的配置方案。清空映射后，对话界面直接列出各方案的真实模型名。',
+            'nav.ai.aliasAdd': '＋ 添加模型',
+            'nav.ai.aliasClear': '清空映射',
+            'nav.ai.aliasClearConfirm': '清空后对话界面将直接显示真实模型名称，确定吗？',
+            'nav.ai.aliasReset': '恢复默认 Aragon',
+            'nav.ai.aliasName': '显示名称',
+            'nav.ai.aliasNamePlh': '例如 Aragon',
+            'nav.ai.aliasDesc': '简短说明',
+            'nav.ai.aliasDescPlh': '例如 均衡、响应快',
+            'nav.ai.aliasProfile': '实际配置',
+            'nav.ai.aliasFollowActive': '跟随激活方案',
+            'nav.ai.aliasDelete': '删除',
+            'nav.ai.aliasDefault': '默认',
+            'nav.ai.aliasEmpty': '未配置映射，对话界面将直接显示：',
+            'nav.ai.aliasSaving': '正在保存模型映射...',
+            'nav.ai.aliasSaved': '模型映射已自动保存',
+            'nav.ai.aliasFail': '模型映射保存失败：',
 
             'nav.up.help': '更新来源为 GitHub Releases。下载完成后可立即重启安装，也可以稍后手动重启。',
             'nav.up.current': '当前版本',
@@ -854,6 +877,11 @@ function registerNavbarI18n() {
             'nav.settings': 'Global navigation settings',
             'nav.userPrefix': '👤 {user}',
             'nav.logout': 'Logout',
+            'nav.relogin.title': 'Please sign in again',
+            'nav.relogin.message': 'The sign-in data stored in this browser is missing (common after the desktop app address or port changes), so Settings and the Dragon Claw agent are unavailable.',
+            'nav.relogin.hint': 'Sign in once to restore them. Your account and data are not affected.',
+            'nav.relogin.confirm': 'Sign in again',
+            'nav.relogin.later': 'Later',
             'nav.online': 'Online',
             'nav.offline': 'Offline',
             'nav.language': 'Language',
@@ -1086,6 +1114,24 @@ function registerNavbarI18n() {
             'nav.ai.clearModelUsageConfirm': 'Clear historical token usage and cost stats for this model?',
             'nav.ai.clearAllModelUsage': 'Clear all models stats',
             'nav.ai.clearedSuccess': 'Statistics cleared',
+            'nav.ai.aliasTitle': 'Chat model names',
+            'nav.ai.aliasHelp': 'Model names shown in chat (such as Dragon Claw on the home page) and the profile each one actually uses. With no mappings, chat lists the real model names of your profiles.',
+            'nav.ai.aliasAdd': '+ Add model',
+            'nav.ai.aliasClear': 'Clear mappings',
+            'nav.ai.aliasClearConfirm': 'Chat will show the real model names after clearing. Continue?',
+            'nav.ai.aliasReset': 'Restore default Aragon',
+            'nav.ai.aliasName': 'Display name',
+            'nav.ai.aliasNamePlh': 'e.g. Aragon',
+            'nav.ai.aliasDesc': 'Short description',
+            'nav.ai.aliasDescPlh': 'e.g. Balanced and fast',
+            'nav.ai.aliasProfile': 'Uses profile',
+            'nav.ai.aliasFollowActive': 'Follow active profile',
+            'nav.ai.aliasDelete': 'Delete',
+            'nav.ai.aliasDefault': 'Default',
+            'nav.ai.aliasEmpty': 'No mappings. Chat will list: ',
+            'nav.ai.aliasSaving': 'Saving model names...',
+            'nav.ai.aliasSaved': 'Model names saved automatically',
+            'nav.ai.aliasFail': 'Failed to save model names: ',
 
             'nav.up.help': 'Updates are delivered from GitHub Releases. After download, restart now to install or restart later manually.',
             'nav.up.current': 'Current Version',
@@ -1328,8 +1374,8 @@ function normalizeNavSettings(settings = {}) {
         platformNameZh = '图特工具平台';
     }
 
-    platformNameZh = platformNameZh || (rawHasNonAscii ? rawName : '图特工具平台');
-    platformNameEn = platformNameEn || (!rawHasNonAscii && rawName ? rawName : 'Thoth Platform');
+    platformNameZh = platformNameZh || (rawHasNonAscii ? rawName : 'Dragon 工具平台');
+    platformNameEn = platformNameEn || (!rawHasNonAscii && rawName ? rawName : 'Dragon Platform');
     const platformSubtitle = clean(settings.platformSubtitle, 120) || '埃及 CS 工具与知识中心';
     const platformSubtitleEn = clean(settings.platformSubtitleEn, 120) || 'Egypt CS Tools & Knowledge Center';
     const platformSlogan = clean(settings.platformSlogan, 200) || '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”';
@@ -1375,6 +1421,8 @@ function applyPlatformTitle() {
         next = next.split('图特工具平台').join(mainName);
     } else if (next.includes('Thoth Platform')) {
         next = next.split('Thoth Platform').join(mainName);
+    } else if (next.includes('Dragon Platform')) {
+        next = next.split('Dragon Platform').join(mainName);
     }
     platformTitleApplied = next;
     if (document.title !== next) document.title = next;
@@ -1388,12 +1436,12 @@ function applyPlatformIdentity() {
     let zhName = navState.settings?.platformNameZh;
     let enName = navState.settings?.platformNameEn;
 
-    if (zhName && enName && zhName.toLowerCase() === enName.toLowerCase() && !/[^\x00-\x7F]/.test(zhName) && (enName.toLowerCase() === 'thoth platform' || enName.toLowerCase() === 'tools platform' || enName.toLowerCase() === 'eg cs hub')) {
-        zhName = '图特工具平台';
+    if (zhName && enName && zhName.toLowerCase() === enName.toLowerCase() && !/[^\x00-\x7F]/.test(zhName) && (enName.toLowerCase() === 'thoth platform' || enName.toLowerCase() === 'dragon platform' || enName.toLowerCase() === 'tools platform' || enName.toLowerCase() === 'eg cs hub')) {
+        zhName = 'Dragon 工具平台';
     }
 
-    zhName = zhName || (rawHasNonAscii ? rawName : (navState.settings?.platformName || '图特工具平台'));
-    enName = enName || (!rawHasNonAscii && rawName ? rawName : 'Thoth Platform');
+    zhName = zhName || (rawHasNonAscii ? rawName : (navState.settings?.platformName || 'Dragon 工具平台'));
+    enName = enName || (!rawHasNonAscii && rawName ? rawName : 'Dragon Platform');
 
     const zhSub = navState.settings?.platformSubtitle || '埃及 CS 工具与知识中心';
     const enSub = navState.settings?.platformSubtitleEn || 'Egypt CS Tools & Knowledge Center';
@@ -2104,20 +2152,14 @@ function renderNavbar() {
         }
     }
 
-    // Automatically extract resource cache version from navbar.js script tag
+    // 显示平台发布版本（/api/app-version）；资源 ?v= 是服务端生成的内容哈希，不代表版本。
     const versionDisplay = document.getElementById('nav-resource-version-display');
     if (versionDisplay) {
-        let detectedVersion = 'v1.1.0';
-        for (const script of document.querySelectorAll('script')) {
-            if (script.src && script.src.includes('/js/shared/navbar.js')) {
-                const match = script.src.match(/\?v=([^&]+)/);
-                if (match) {
-                    detectedVersion = `v${match[1]}`;
-                    break;
-                }
-            }
-        }
-        versionDisplay.textContent = detectedVersion;
+        const getVersion = window.ToolsAppVersion?.get
+            || (() => fetch('/api/app-version', { cache: 'no-store' }).then(res => (res.ok ? res.json() : null)).then(data => data?.version || '').catch(() => ''));
+        getVersion().then(version => {
+            if (version) versionDisplay.textContent = `v${version}`;
+        });
     }
 
     renderNavLinksFromState();
@@ -2675,7 +2717,7 @@ async function renderLogoSettings(content) {
                         </div>
                         <div>
                             <label for="platformNameEnInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">🇬🇧 ${text('主名称 (英文)', 'Main Name (English)')}</label>
-                            <input id="platformNameEnInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="80" value="${navEscape(navState.settings.platformNameEn || (!/[^\x00-\x7F]/.test(navState.settings.platformName || '') && navState.settings.platformName ? navState.settings.platformName : 'Thoth Platform'))}" placeholder="Thoth Platform" autocomplete="off">
+                            <input id="platformNameEnInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="80" value="${navEscape(navState.settings.platformNameEn || (!/[^\x00-\x7F]/.test(navState.settings.platformName || '') && navState.settings.platformName ? navState.settings.platformName : 'Dragon Platform'))}" placeholder="Dragon Platform" autocomplete="off">
                         </div>
                         <div>
                             <label for="platformSubtitleInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">📑 ${text('页面副标题 (中文)', 'Page Subtitle (Chinese)')}</label>
@@ -2787,8 +2829,8 @@ window.savePlatformName = async function () {
         ? (clean(zhInput.value, 80) || rawInput || '图特工具平台')
         : (rawInput || '图特工具平台');
     const platformNameEn = enInput
-        ? (clean(enInput.value, 80) || navState.settings?.platformNameEn || 'Thoth Platform')
-        : (rawInput || 'Thoth Platform');
+        ? (clean(enInput.value, 80) || navState.settings?.platformNameEn || 'Dragon Platform')
+        : (rawInput || 'Dragon Platform');
     const platformSubtitle = (subInput ? clean(subInput.value, 120) : '') || navState.settings?.platformSubtitle || '埃及 CS 工具与知识中心';
     const platformSubtitleEn = (subEnInput ? clean(subEnInput.value, 120) : '') || navState.settings?.platformSubtitleEn || 'Egypt CS Tools & Knowledge Center';
     const platformSlogan = (sloganInput ? clean(sloganInput.value, 200) : '') || navState.settings?.platformSlogan || '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”';
@@ -2898,7 +2940,7 @@ window.downloadLogoBundle = async function () {
     try {
         if (!window.ToolsStoreAssets) await new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = '/js/shared/store-assets.js?v=20261013-02';
+            script.src = '/js/shared/store-assets.js';
             script.onload = resolve;
             script.onerror = () => reject(new Error(navLocaleText('无法加载商店物料组件', 'Store assets component could not load')));
             document.head.appendChild(script);
@@ -3137,6 +3179,7 @@ async function renderAiSettings(content) {
     content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.ai.empty'))}</div>`;
     try {
         const settingsStore = await fetchAiSettingsForNav();
+        if (!aiModelAliasSaveTimer) navState.aiModelAliasDraft = null;
         const profiles = Array.isArray(settingsStore.profiles) ? settingsStore.profiles : [];
         const settings = profiles.find(item => item.id === navState.aiSelectedProfileId) || profiles[0] || settingsStore;
         const isActiveProfile = settings.id === settingsStore.activeProfileId;
@@ -3178,6 +3221,7 @@ async function renderAiSettings(content) {
                     </div>
                 </div>
             </section>
+            <section class="nav-ai-profile-panel nav-ai-alias-panel" id="navAiAliasPanel">${renderAiModelAliasPanel()}</section>
             <div class="nav-ai-status">
                 <span>${isActiveProfile ? '当前业务正在使用此方案' : '正在编辑未激活方案'}</span>
                 <span>${navEscape(navT('nav.ai.sourcePrefix'))}${navEscape(sourceLabelForAiSettings(settings.apiKeySource))}</span>
@@ -3276,6 +3320,118 @@ async function renderAiSettings(content) {
         content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.ai.failLoad'))}${navEscape(e.message)}</div>`;
     }
 }
+
+// ── 对话模型名称映射（Aragon 等自定义名称 → 实际配置方案）──────────
+function renderAiModelAliasPanel() {
+    const profiles = Array.isArray(navState.aiSettings?.profiles) ? navState.aiSettings.profiles : [];
+    if (!Array.isArray(navState.aiModelAliasDraft)) {
+        navState.aiModelAliasDraft = (navState.aiSettings?.modelAliases || []).map(item => ({ ...item }));
+    }
+    const aliases = navState.aiModelAliasDraft;
+    const profileOptions = selected => [
+        `<option value="" ${selected ? '' : 'selected'}>${navEscape(navT('nav.ai.aliasFollowActive'))}</option>`,
+        ...profiles.map(profile => `<option value="${navEscape(profile.id)}" ${profile.id === selected ? 'selected' : ''}>${navEscape(profile.name)} · ${navEscape(profile.model)}</option>`)
+    ].join('');
+    const rows = aliases.map((alias, index) => `
+        <div class="nav-ai-alias-row">
+            <label><span>${navEscape(navT('nav.ai.aliasName'))}${index === 0 ? ` <em>${navEscape(navT('nav.ai.aliasDefault'))}</em>` : ''}</span>
+                <input class="nav-settings-input" maxlength="40" value="${navEscape(alias.name)}" placeholder="${navEscape(navT('nav.ai.aliasNamePlh'))}" oninput="updateAiModelAlias(${index}, 'name', this.value)"></label>
+            <label><span>${navEscape(navT('nav.ai.aliasDesc'))}</span>
+                <input class="nav-settings-input" maxlength="120" value="${navEscape(alias.description || '')}" placeholder="${navEscape(navT('nav.ai.aliasDescPlh'))}" oninput="updateAiModelAlias(${index}, 'description', this.value)"></label>
+            <label><span>${navEscape(navT('nav.ai.aliasProfile'))}</span>
+                <select class="nav-settings-input" onchange="updateAiModelAlias(${index}, 'profileId', this.value)">${profileOptions(profiles.some(item => item.id === alias.profileId) ? alias.profileId : '')}</select></label>
+            <button type="button" class="nav-settings-add danger" onclick="removeAiModelAlias(${index})" aria-label="${navEscape(navT('nav.ai.aliasDelete'))} ${navEscape(alias.name)}">${navEscape(navT('nav.ai.aliasDelete'))}</button>
+        </div>`).join('');
+    const realModels = profiles.filter(item => item.keyLooksValid).map(item => item.model);
+    const fallbackModels = realModels.length ? realModels : profiles.filter(item => item.isActive).map(item => item.model);
+    return `
+        <div class="nav-ai-profile-head">
+            <div><strong>${navEscape(navT('nav.ai.aliasTitle'))}</strong><span>${navEscape(navT('nav.ai.aliasHelp'))}</span></div>
+            <div class="nav-ai-profile-head-actions">
+                <button type="button" class="nav-settings-add" onclick="addAiModelAlias()" ${aliases.length >= 20 ? 'disabled' : ''}>${navEscape(navT('nav.ai.aliasAdd'))}</button>
+                ${aliases.length
+                    ? `<button type="button" class="nav-settings-add secondary" onclick="clearAiModelAliases()">${navEscape(navT('nav.ai.aliasClear'))}</button>`
+                    : `<button type="button" class="nav-settings-add secondary" onclick="resetAiModelAliases()">${navEscape(navT('nav.ai.aliasReset'))}</button>`}
+            </div>
+        </div>
+        ${aliases.length
+            ? `<div class="nav-ai-alias-list">${rows}</div>`
+            : `<div class="nav-ai-alias-empty">${navEscape(navT('nav.ai.aliasEmpty'))}<b>${navEscape([...new Set(fallbackModels)].join(' · ') || '—')}</b></div>`}`;
+}
+
+function rerenderAiModelAliasPanel() {
+    const panel = document.getElementById('navAiAliasPanel');
+    if (panel) panel.innerHTML = renderAiModelAliasPanel();
+}
+
+let aiModelAliasSaveTimer = null;
+function scheduleAiModelAliasSave(delay = 600) {
+    clearTimeout(aiModelAliasSaveTimer);
+    const indicator = document.getElementById('navSettingsSaveState');
+    if (indicator) indicator.textContent = navT('nav.ai.aliasSaving');
+    aiModelAliasSaveTimer = setTimeout(saveAiModelAliasesNow, delay);
+}
+
+async function saveAiModelAliasesNow() {
+    const indicator = document.getElementById('navSettingsSaveState');
+    aiModelAliasSaveTimer = null;
+    const aliases = navState.aiModelAliasDraft;
+    // 有名称为空的行时暂不提交，避免输入中途被服务端丢弃。
+    if (!Array.isArray(aliases) || aliases.some(item => !String(item.name || '').trim())) return;
+    try {
+        const res = await fetch('/api/ai-settings/model-aliases', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() },
+            body: JSON.stringify({ aliases })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        navState.aiSettings = data;
+        // 回填服务端生成的 ID，后续保存保持稳定（用户已选的模型不会失效）。
+        const saved = Array.isArray(data.modelAliases) ? data.modelAliases : [];
+        aliases.forEach((item, index) => { if (saved[index] && saved[index].name === String(item.name).trim()) item.id = saved[index].id; });
+        if (indicator) indicator.textContent = navT('nav.ai.aliasSaved');
+    } catch (e) {
+        if (indicator) indicator.textContent = `${navT('nav.ai.aliasFail')}${e.message}`;
+    }
+}
+
+window.updateAiModelAlias = function (index, field, value) {
+    const alias = navState.aiModelAliasDraft?.[index];
+    if (!alias) return;
+    alias[field] = value;
+    scheduleAiModelAliasSave(field === 'profileId' ? 0 : 600);
+};
+
+window.addAiModelAlias = function () {
+    const draft = navState.aiModelAliasDraft || (navState.aiModelAliasDraft = []);
+    if (draft.length >= 20) return;
+    const used = new Set(draft.map(item => String(item.name).toLowerCase()));
+    let name = draft.length ? `Aragon ${draft.length + 1}` : 'Aragon';
+    for (let n = draft.length + 1; used.has(name.toLowerCase()); n += 1) name = `Aragon ${n + 1}`;
+    draft.push({ id: `m-${Date.now().toString(36)}`, name, description: '', profileId: '' });
+    rerenderAiModelAliasPanel();
+    scheduleAiModelAliasSave(0);
+};
+
+window.removeAiModelAlias = function (index) {
+    navState.aiModelAliasDraft?.splice(index, 1);
+    rerenderAiModelAliasPanel();
+    scheduleAiModelAliasSave(0);
+};
+
+window.clearAiModelAliases = function () {
+    if (!confirm(navT('nav.ai.aliasClearConfirm'))) return;
+    navState.aiModelAliasDraft = [];
+    rerenderAiModelAliasPanel();
+    scheduleAiModelAliasSave(0);
+};
+
+window.resetAiModelAliases = function () {
+    navState.aiModelAliasDraft = [{ id: 'aragon', name: 'Aragon', description: '', profileId: '' }];
+    rerenderAiModelAliasPanel();
+    scheduleAiModelAliasSave(0);
+};
 
 function collectAiSettingsPayload(options = {}) {
     const tokenInput = document.getElementById('navAiApiKey');
@@ -6517,7 +6673,7 @@ async function renderF12PageSettings(content) {
         if (!window.ToolsF12QuickDownloads) {
             if (!f12ShortcutLoader) f12ShortcutLoader = new Promise((resolve, reject) => {
                 const script = document.createElement('script');
-                script.src = '/js/shared/f12-quick-downloads.js?v=20261006-01';
+                script.src = '/js/shared/f12-quick-downloads.js';
                 script.onload = resolve;
                 script.onerror = () => { f12ShortcutLoader = null; script.remove(); reject(new Error(text('无法加载打包服务', 'Unable to load the packager'))); };
                 document.head.append(script);
@@ -7879,7 +8035,7 @@ window.openToolsKnowledgeGraph = function (options = {}) {
             script.addEventListener('load', handleLoad, { once: true });
             script.addEventListener('error', handleError, { once: true });
             if (!existing) {
-                script.src = '/js/shared/ai-knowledge-graph-spatial-themes-v5.js?v=20260920-02';
+                script.src = '/js/shared/ai-knowledge-graph-spatial-themes-v5.js';
                 document.body.appendChild(script);
             }
         }).catch(error => {
@@ -7903,7 +8059,7 @@ window.openToolsAIAssistant = function (options = {}) {
             script.addEventListener('load', resolve, { once: true });
             script.addEventListener('error', () => reject(new Error('AI 助手组件加载失败')), { once: true });
             if (!existing) {
-                script.src = '/js/shared/ai-assistant.js?v=20260920-04';
+                script.src = '/js/shared/ai-assistant.js';
                 document.body.appendChild(script);
             }
         }).catch(error => {
@@ -7926,7 +8082,7 @@ window.openToolsAIAssistant = function (options = {}) {
     // 确保不重复加载
     if (!document.querySelector('script[src^="/js/shared/ai-assistant.js"]')) {
         const aiScript = document.createElement('script');
-        aiScript.src = '/js/shared/ai-assistant.js?v=20260920-04';
+        aiScript.src = '/js/shared/ai-assistant.js';
         document.body.appendChild(aiScript);
     }
 })();
@@ -8513,7 +8669,7 @@ function ensureToolsI18nLoaded() {
             return;
         }
         const script = document.createElement('script');
-        script.src = '/js/shared/i18n.js?v=20261005-01';
+        script.src = '/js/shared/i18n.js';
         script.onload = resolve;
         script.onerror = resolve;
         document.head.appendChild(script);
@@ -8523,7 +8679,7 @@ function ensureToolsI18nLoaded() {
 function ensureMigrationStatusLoaded() {
     if (document.querySelector('script[src^="/js/shared/migration-status.js"]')) return;
     const script = document.createElement('script');
-    script.src = '/js/shared/migration-status.js?v=20260626-01';
+    script.src = '/js/shared/migration-status.js';
     document.head.appendChild(script);
 }
 
@@ -9041,19 +9197,45 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 mountNavbarEarly();
 
+let navReloginPrompted = false;
+
+async function promptNavRelogin() {
+    if (navReloginPrompted) return;
+    navReloginPrompted = true;
+    const confirmed = await showNavbarConfirm({
+        title: navT('nav.relogin.title'),
+        message: navT('nav.relogin.message'),
+        hint: navT('nav.relogin.hint'),
+        confirmText: navT('nav.relogin.confirm'),
+        cancelText: navT('nav.relogin.later'),
+        tone: 'info',
+        icon: '🔑'
+    });
+    if (confirmed) window.location.href = '/login.html';
+}
+
 async function syncNavUserSession() {
     try {
         const res = await fetch('/api/auth/me');
         if (res.ok) {
             const data = await res.json();
             if (data && data.username) {
+                const previousRole = localStorage.getItem('tools_role');
+                const previousUser = localStorage.getItem('tools_user');
                 localStorage.setItem('tools_user', data.username);
                 if (data.role) localStorage.setItem('tools_role', data.role);
                 if (data.tenantId) localStorage.setItem('tools_tenant_id', data.tenantId);
-                const userChipText = document.querySelector('.nav-user-chip .nav-action-text');
-                if (userChipText) {
-                    userChipText.innerHTML = `${navEscape(data.username)} · <span id="navActiveTenantName">${navEscape(activeTenantName())}</span>`;
+                // 导航栏按本地角色渲染管理员入口（设置、租户管理）；服务端角色与渲染时不同就整条重绘。
+                if ((data.role && data.role !== previousRole) || data.username !== previousUser) {
+                    renderNavbar();
+                } else {
+                    const userChipText = document.querySelector('.nav-user-chip .nav-action-text');
+                    if (userChipText) {
+                        userChipText.innerHTML = `${navEscape(data.username)} · <span id="navActiveTenantName">${navEscape(activeTenantName())}</span>`;
+                    }
                 }
+                // 服务端 cookie 仍有效但浏览器本地没有 token（换了端口/清过站点数据）：依赖 token 的功能会失效，引导重新登录。
+                if (!hasNavAuthToken()) promptNavRelogin();
             }
         } else if (res.status === 401) {
             stopAlertCenterPolling();
@@ -9072,7 +9254,7 @@ async function syncNavUserSession() {
 // EXE 授权角标在普通 Web 部署中会自动隐藏，仅桌面版本地服务显示。
 if (!document.querySelector('script[data-desktop-license-badge]')) {
     const desktopLicenseBadgeScript = document.createElement('script');
-    desktopLicenseBadgeScript.src = '/js/shared/desktop-license-badge.js?v=20260805-01';
+    desktopLicenseBadgeScript.src = '/js/shared/desktop-license-badge.js';
     desktopLicenseBadgeScript.dataset.desktopLicenseBadge = '1';
     document.head.appendChild(desktopLicenseBadgeScript);
 }
@@ -9080,7 +9262,7 @@ if (!document.querySelector('script[data-desktop-license-badge]')) {
 // 源码启动、Windows 安装版和绿色版共用同一个服务端首次启动状态。
 if (!document.querySelector('script[data-first-run-onboarding]')) {
     const firstRunOnboardingScript = document.createElement('script');
-    firstRunOnboardingScript.src = '/js/shared/first-run-onboarding.js?v=20260814-02';
+    firstRunOnboardingScript.src = '/js/shared/first-run-onboarding.js';
     firstRunOnboardingScript.dataset.firstRunOnboarding = '1';
     document.head.appendChild(firstRunOnboardingScript);
 }

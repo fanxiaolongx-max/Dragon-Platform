@@ -77,6 +77,8 @@ const surveysRoutes = require('./routes/surveys');
 const externalMetricsRoutes = require('./routes/external-metrics');
 const customToolsRepo = require('./models/custom-tools-repository');
 const customToolI18nService = require('./models/custom-tool-i18n-service');
+const assetVersioning = require('./models/asset-versioning');
+const pageUpdateTimes = require('./models/page-update-times');
 const { initializeBuiltinTools } = require('./models/builtin-tools-sync');
 const { ensureBuiltinToolAssets } = require('./models/builtin-assets-unpacker');
 const { DATA_DIR } = require('./models/store');
@@ -257,6 +259,7 @@ app.use((req, res, next) => {
 });
 
 const FRONTEND_DIR = path.join(__dirname, '../frontend');
+const sendFrontendHtml = assetVersioning.createFrontendHtmlSender(FRONTEND_DIR);
 const PUBLIC_HTML_PATHS = new Set([
     '/login.html',
     '/pages/login.html',
@@ -301,6 +304,8 @@ app.use((req, res, next) => {
 // used by the cinema page while serving files from the writable runtime folder.
 app.use('/assets/videos', mediaAssetGuard, express.static(VIDEOS_DIR, { index: false }));
 app.use(require('./models/platform-logo-runtime').createLogoAssetMiddleware());
+app.use(assetVersioning.createFrontendHtmlMiddleware(FRONTEND_DIR));
+app.use(assetVersioning.createImmutableAssetMiddleware(FRONTEND_DIR));
 app.use(express.static(FRONTEND_DIR, { index: false }));
 app.get('/favicon.ico', (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'assets/icon.ico'));
@@ -359,6 +364,15 @@ app.get('/api/platform-identity', async (req, res) => {
 app.use('/api', checkAuth); // Protect all /api/* (except login, which is handled inside checkAuth)
 app.use('/api', tenantMiddleware);
 
+// 首页卡片「上次更新」时间（内置页面按 HTML 及专属 js/css 的最新修改时间）
+app.get('/api/home/page-updates', async (req, res, next) => {
+    try {
+        res.json(await pageUpdateTimes.getPageUpdateTimes(FRONTEND_DIR));
+    } catch (error) {
+        next(error);
+    }
+});
+
 // Protect modifications: requireAdmin for all non-GET requests under uiv, sla, upload
 app.use('/api', (req, res, next) => {
     if (req.path.startsWith('/auth/')) return next();
@@ -383,7 +397,9 @@ app.use('/api', (req, res, next) => {
     if (req.method === 'POST' && req.path === '/recent-nav') return next(); // 登录用户维护自己的最近使用
     if (req.method === 'POST' && req.path === '/desktop-pet/language') return next(); // 路由内限制本机登录用户
     if (req.method === 'POST' && req.path === '/ai/proactive-alert-message') return next(); // 只读 KPI 提醒文案，不修改业务数据
+    if (req.method === 'POST' && req.path === '/ai/chat') return next(); // 登录用户都可对话；工作区内非管理员只拿到只读工具（路由与 agent-run-manager 内校验）
     if (req.method === 'POST' && req.path === '/report-msg/export') return next(); // 仅生成并返回当前用户的月报文件
+    if (/^\/agent-workspace(?:\/.*)?$/.test(req.path)) return next(); // 路由内按本机/桌面/管理员门禁与会话归属校验
     if (req.method !== 'GET') {
         return requireAdmin(req, res, next);
     }
@@ -417,6 +433,7 @@ app.use('/api/platform-logo', require('./routes/platform-logo')); // 平台 LOGO
 app.use('/api/recent-nav', require('./routes/recent-nav')); // 按租户和账号保存最近使用
 app.use('/api/desktop-pet', require('./routes/desktop-pet'));
 app.use('/api/ai-settings', aiSettingsRoutes); // Dragon Claw 智能体模型配置 API
+app.use('/api/agent-workspace', require('./routes/agent-workspace')); // Dragon Claw 工作区：本地目录联想、审批、变更撤销
 app.use('/api/global-backup', globalBackupRoutes); // 当前租户核心数据备份与恢复 API（保留历史路由名）
 app.use('/api/external/metrics', externalMetricsRoutes); // 外部/移动端只读指标 API
 app.use('/api/alert-center', alertCenterRoutes); // 系统告警台 API
@@ -433,73 +450,73 @@ if (desktopLicenseAdminRoutes) app.use('/api/desktop-licenses', requireAdmin, de
 // 前端路由回退（SPA）
 // ============================================================
 app.get('/', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'index.html'));
+    sendFrontendHtml(res, 'index.html');
 });
 app.get('/login.html', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/login.html'));
+    sendFrontendHtml(res, 'pages/login.html');
 });
 app.get(['/cinema', '/cinema.html'], (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/cinema.html'));
+    sendFrontendHtml(res, 'pages/cinema.html');
 });
 app.get('/uivf12', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/uivf12.html'));
+    sendFrontendHtml(res, 'pages/uivf12.html');
 });
 app.get('/topic-analysis', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/topic-analysis.html'));
+    sendFrontendHtml(res, 'pages/topic-analysis.html');
 });
 app.get('/sla', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/sla.html'));
+    sendFrontendHtml(res, 'pages/sla.html');
 });
 app.get('/report', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/report.html'));
+    sendFrontendHtml(res, 'pages/report.html');
 });
 app.get('/expedite', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/expedite.html'));
+    sendFrontendHtml(res, 'pages/expedite.html');
 });
 app.get('/monthly', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/monthly-designer.html'));
+    sendFrontendHtml(res, 'pages/monthly-designer.html');
 });
 app.get('/monthly/legacy', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/monthly.html'));
+    sendFrontendHtml(res, 'pages/monthly.html');
 });
 app.get(['/duty-roster', '/duty-roster.html'], (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/duty-roster.html'));
+    sendFrontendHtml(res, 'pages/duty-roster.html');
 });
 app.get('/bigscreen', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/bigscreen.html'));
+    sendFrontendHtml(res, 'pages/bigscreen.html');
 });
 app.get('/requirements', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/requirements.html'));
+    sendFrontendHtml(res, 'pages/requirements.html');
 });
 app.get('/praudit', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/praudit.html'));
+    sendFrontendHtml(res, 'pages/praudit.html');
 });
 app.get('/storage', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/storage.html'));
+    sendFrontendHtml(res, 'pages/storage.html');
 });
 app.get('/db-explorer', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/db-explorer.html'));
+    sendFrontendHtml(res, 'pages/db-explorer.html');
 });
 app.get('/privacy', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/privacy.html'));
+    sendFrontendHtml(res, 'pages/privacy.html');
 });
 app.get('/terms', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/terms.html'));
+    sendFrontendHtml(res, 'pages/terms.html');
 });
 app.get('/frt', (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/frt.html'));
+    sendFrontendHtml(res, 'pages/frt.html');
 });
 if (!isDesktopRuntime) app.get('/desktop-license-admin', checkHtmlAuth, (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/desktop-license-admin.html'));
+    sendFrontendHtml(res, 'pages/desktop-license-admin.html');
 });
 app.get('/python-updater', checkHtmlAuth, (req, res) => {
     res.redirect('/tools/python-updater');
 });
 app.get('/tools/:slug', checkHtmlAuth, (req, res) => {
-    res.sendFile(path.join(FRONTEND_DIR, 'pages/custom-tool.html'));
+    sendFrontendHtml(res, 'pages/custom-tool.html');
 });
 app.use('/custom-tools', async (req, res, next) => {
     const hasSessionCookie = String(req.headers.cookie || '').split(';')
@@ -539,11 +556,11 @@ app.get('/custom-tools/:slug/index.html', async (req, res, next) => {
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
         res.setHeader('Pragma', 'no-cache');
         res.setHeader('Expires', '0');
-        res.type('html').send(customToolI18nService.injectLanguageRuntime(html, tool.slug, {
+        res.type('html').send(assetVersioning.versionAssetUrls(customToolI18nService.injectLanguageRuntime(html, tool.slug, {
             mtime: stat ? stat.mtime : null,
             filePath,
             tool
-        }));
+        }), { publicDir: FRONTEND_DIR, baseDir: path.dirname(filePath) }));
     } catch (err) {
         next(err);
     }
@@ -556,10 +573,10 @@ app.use('/custom-tools/:slug', (req, res, next) => {
         try {
             const html = fs.readFileSync(assetPath, 'utf8');
             const stat = fs.existsSync(assetPath) ? fs.statSync(assetPath) : null;
-            return res.type('html').send(customToolI18nService.injectLanguageRuntime(html, req.params.slug, {
+            return res.type('html').send(assetVersioning.versionAssetUrls(customToolI18nService.injectLanguageRuntime(html, req.params.slug, {
                 mtime: stat ? stat.mtime : null,
                 filePath: assetPath
-            }));
+            }), { publicDir: FRONTEND_DIR, baseDir: path.dirname(assetPath) }));
         } catch (error) {
             return next(error);
         }

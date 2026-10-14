@@ -193,7 +193,7 @@ test('upload route enforces admin rights and returns structured errors without o
     const bundleRes = await request(app).get('/api/platform-logo/download-bundle').set('x-test-admin', '1').buffer().parse(binaryParser);
     assert.equal(bundleRes.status, 200);
     assert.equal(bundleRes.headers['content-type'], 'application/zip');
-    assert.match(bundleRes.headers['content-disposition'], /(?:tools-platform|thoth-platform|eg-cs-hub)-brand-assets-.*\.zip/);
+    assert.match(bundleRes.headers['content-disposition'], /(?:tools-platform|thoth-platform|dragon-platform|dragon|eg-cs-hub)-brand-assets-.*\.zip/);
     const archive = await JSZip.loadAsync(bundleRes.body);
     assert.ok(archive.file('logo.png'));
     assert.ok(archive.file('icon-mac.png'));

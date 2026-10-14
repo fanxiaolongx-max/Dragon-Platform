@@ -18,7 +18,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            tools-platform/package-lock.json
+            tools-platform/backend/package-lock.json
+
+      # Skip postinstall (it rebuilds native modules for Electron); tests run on plain Node.
+      - name: Install dependencies
+        working-directory: tools-platform
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm rebuild sqlite3
+          npm ci --prefix backend --no-audit --no-fund
+
+      - name: Run tests
+        working-directory: tools-platform
+        run: npm test
+
   prepare-release:
+    needs: test
     runs-on: ubuntu-latest
     outputs:
       release_version: ${{ steps.version.outputs.release_version }}

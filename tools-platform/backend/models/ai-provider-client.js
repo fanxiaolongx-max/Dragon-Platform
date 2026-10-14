@@ -22,13 +22,276 @@ function getBaseUrl(settings = {}) {
     return trimSlash(settings.apiBaseUrl || DEFAULT_BASE_URLS[provider]);
 }
 
+// 统一消息模型：
+//   { role:'user',  content }
+//   { role:'model', content, toolCalls?: [{ id, name, args, thoughtSignature? }] }
+//   （thoughtSignature 是 Gemini 3 的思考签名，原样回传；其他供应商忽略）
+//   { role:'tool',  toolResults: [{ id, name, content, isError? }] }
+// 旧调用方只传 { role, content }，输出与过去完全一致。
 function normalizeMessages(messages = []) {
     return (Array.isArray(messages) ? messages : [])
-        .map(msg => ({
-            role: msg.role === 'model' || msg.role === 'assistant' ? 'model' : 'user',
-            content: String(msg.content || '')
-        }))
-        .filter(msg => msg.content);
+        .map(msg => {
+            if (!msg) return null;
+            if (msg.role === 'tool') {
+                const toolResults = (Array.isArray(msg.toolResults) ? msg.toolResults : [])
+                    .map(item => ({
+                        id: String(item && item.id || ''),
+                        name: String(item && item.name || ''),
+                        content: String(item && item.content || ''),
+                        isError: Boolean(item && item.isError)
+                    }));
+                return toolResults.length ? { role: 'tool', content: '', toolResults } : null;
+            }
+            const role = msg.role === 'model' || msg.role === 'assistant' ? 'model' : 'user';
+            const content = String(msg.content || '');
+            const toolCalls = role === 'model' && Array.isArray(msg.toolCalls) && msg.toolCalls.length
+                ? msg.toolCalls.map(call => {
+                    const out = {
+                        id: String(call && call.id || ''),
+                        name: String(call && call.name || ''),
+                        args: call && call.args && typeof call.args === 'object' ? call.args : {}
+                    };
+                    if (call && typeof call.thoughtSignature === 'string' && call.thoughtSignature) out.thoughtSignature = call.thoughtSignature;
+                    return out;
+                })
+                : null;
+            if (!content && !toolCalls) return null;
+            return toolCalls ? { role, content, toolCalls } : { role, content };
+        })
+        .filter(Boolean);
+}
+
+// ── 工具调用：统一定义 { name, description, parameters } 映射到各供应商 ──
+function normalizeTools(tools) {
+    return (Array.isArray(tools) ? tools : [])
+        .filter(tool => tool && tool.name)
+        .map(tool => ({
+            name: String(tool.name),
+            description: String(tool.description || ''),
+            parameters: tool.parameters && typeof tool.parameters === 'object' ? tool.parameters : { type: 'object', properties: {} }
+        }));
+}
+
+function parseToolArgs(raw) {
+    if (raw && typeof raw === 'object') return raw;
+    const text = String(raw || '').trim();
+    if (!text) return {};
+    try {
+        const parsed = JSON.parse(text);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_error) {
+        return { __raw: text };
+    }
+}
+
+function toOpenAiMessages(messages, systemInstruction) {
+    const out = [];
+    if (systemInstruction) out.push({ role: 'system', content: systemInstruction });
+    normalizeMessages(messages).forEach(msg => {
+        if (msg.role === 'tool') {
+            msg.toolResults.forEach(result => out.push({ role: 'tool', tool_call_id: result.id, content: result.content }));
+            return;
+        }
+        if (msg.role === 'model' && msg.toolCalls) {
+            out.push({
+                role: 'assistant',
+                content: msg.content || null,
+                tool_calls: msg.toolCalls.map(call => ({
+                    id: call.id,
+                    type: 'function',
+                    function: { name: call.name, arguments: JSON.stringify(call.args || {}) }
+                }))
+            });
+            return;
+        }
+        out.push({ role: msg.role === 'model' ? 'assistant' : 'user', content: msg.content });
+    });
+    return out;
+}
+
+function toOpenAiTools(tools) {
+    return normalizeTools(tools).map(tool => ({
+        type: 'function',
+        function: { name: tool.name, description: tool.description, parameters: tool.parameters }
+    }));
+}
+
+function collectOpenAiToolCalls(toolCalls) {
+    return (Array.isArray(toolCalls) ? toolCalls : [])
+        .filter(call => call && call.function && call.function.name)
+        .map((call, index) => ({
+            id: String(call.id || `call_${index}`),
+            name: String(call.function.name),
+            args: parseToolArgs(call.function.arguments)
+        }));
+}
+
+// 流式 tool_calls 片段按 index 累积，收口时再解析 arguments。
+function createOpenAiToolCallAccumulator() {
+    const slots = new Map();
+    return {
+        push(deltaToolCalls) {
+            (Array.isArray(deltaToolCalls) ? deltaToolCalls : []).forEach((item, position) => {
+                if (!item) return;
+                const index = Number.isInteger(item.index) ? item.index : position;
+                const slot = slots.get(index) || { id: '', name: '', args: '' };
+                if (item.id) slot.id = String(item.id);
+                if (item.function && item.function.name) slot.name += String(item.function.name);
+                if (item.function && item.function.arguments) slot.args += String(item.function.arguments);
+                slots.set(index, slot);
+            });
+        },
+        finish() {
+            return [...slots.entries()]
+                .sort((a, b) => a[0] - b[0])
+                .filter(([, slot]) => slot.name)
+                .map(([index, slot]) => ({ id: slot.id || `call_${index}`, name: slot.name, args: parseToolArgs(slot.args) }));
+        }
+    };
+}
+
+function toAnthropicMessages(messages) {
+    return normalizeMessages(messages).map(msg => {
+        if (msg.role === 'tool') {
+            return {
+                role: 'user',
+                content: msg.toolResults.map(result => ({
+                    type: 'tool_result',
+                    tool_use_id: result.id,
+                    content: result.content,
+                    ...(result.isError ? { is_error: true } : {})
+                }))
+            };
+        }
+        if (msg.role === 'model' && msg.toolCalls) {
+            const blocks = [];
+            if (msg.content) blocks.push({ type: 'text', text: msg.content });
+            msg.toolCalls.forEach(call => blocks.push({ type: 'tool_use', id: call.id, name: call.name, input: call.args || {} }));
+            return { role: 'assistant', content: blocks };
+        }
+        return { role: msg.role === 'model' ? 'assistant' : 'user', content: msg.content };
+    });
+}
+
+function toAnthropicTools(tools) {
+    return normalizeTools(tools).map(tool => ({ name: tool.name, description: tool.description, input_schema: tool.parameters }));
+}
+
+function extractAnthropicToolCalls(data) {
+    const parts = Array.isArray(data && data.content) ? data.content : [];
+    return parts
+        .filter(part => part && part.type === 'tool_use' && part.name)
+        .map((part, index) => ({ id: String(part.id || `toolu_${index}`), name: String(part.name), args: parseToolArgs(part.input) }));
+}
+
+// Gemini 的 schema 不接受部分 JSON Schema 关键字。
+function sanitizeGeminiSchema(schema) {
+    if (Array.isArray(schema)) return schema.map(sanitizeGeminiSchema);
+    if (!schema || typeof schema !== 'object') return schema;
+    const out = {};
+    Object.entries(schema).forEach(([key, value]) => {
+        if (['additionalProperties', '$schema', 'default', 'examples', 'title'].includes(key)) return;
+        out[key] = key === 'properties' && value && typeof value === 'object'
+            ? Object.fromEntries(Object.entries(value).map(([name, sub]) => [name, sanitizeGeminiSchema(sub)]))
+            : sanitizeGeminiSchema(value);
+    });
+    return out;
+}
+
+// Gemini 3 起，历史里的 functionCall 必须带回模型给的 thoughtSignature，否则 400。
+// 旧转录或从其他供应商切换来的历史没有签名：按官方说明，用占位签名跳过校验（每个模型回合只需第一个调用带）。
+const GEMINI_PLACEHOLDER_THOUGHT_SIGNATURE = 'skip_thought_signature_validator';
+
+function requiresGeminiThoughtSignature(model = '') {
+    return /gemini-(?:[3-9]|\d{2,})(?:\.|-|$)/i.test(String(model || ''));
+}
+
+function toGeminiContents(messages, { model = '' } = {}) {
+    const needsSignature = requiresGeminiThoughtSignature(model);
+    const contents = normalizeMessages(messages).map(msg => {
+        if (msg.role === 'tool') {
+            return {
+                role: 'user',
+                parts: msg.toolResults.map(result => ({
+                    functionResponse: { name: result.name, response: { result: result.content, isError: result.isError } }
+                }))
+            };
+        }
+        if (msg.role === 'model' && msg.toolCalls) {
+            const parts = [];
+            if (msg.content) parts.push({ text: msg.content });
+            const hasSignature = msg.toolCalls.some(call => call.thoughtSignature);
+            msg.toolCalls.forEach((call, index) => {
+                const part = { functionCall: { name: call.name, args: call.args || {} } };
+                if (call.thoughtSignature) part.thoughtSignature = call.thoughtSignature;
+                else if (needsSignature && !hasSignature && index === 0) part.thoughtSignature = GEMINI_PLACEHOLDER_THOUGHT_SIGNATURE;
+                parts.push(part);
+            });
+            return { role: 'model', parts };
+        }
+        return { role: msg.role === 'model' ? 'model' : 'user', parts: [{ text: msg.content }] };
+    });
+    // 兜底：Gemini 要求带 functionCall 的模型回合紧跟用户消息或工具结果；相邻的模型回合合并为一个（文字在前、调用在后）。
+    return contents.reduce((merged, content) => {
+        const previous = merged[merged.length - 1];
+        if (previous && previous.role === 'model' && content.role === 'model') previous.parts.push(...content.parts);
+        else merged.push(content);
+        return merged;
+    }, []);
+}
+
+function toGeminiTools(tools) {
+    const declarations = normalizeTools(tools).map(tool => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: sanitizeGeminiSchema(tool.parameters)
+    }));
+    return declarations.length ? [{ functionDeclarations: declarations }] : [];
+}
+
+// Gemini 没有工具调用 id，按 name:index 合成，回传时只看顺序与名称。
+function extractGeminiToolCalls(data, offset = 0) {
+    const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+    return (Array.isArray(parts) ? parts : [])
+        .filter(part => part && part.functionCall && part.functionCall.name)
+        .map((part, index) => {
+            const call = {
+                id: `${part.functionCall.name}:${offset + index}`,
+                name: String(part.functionCall.name),
+                args: parseToolArgs(part.functionCall.args)
+            };
+            const signature = part.thoughtSignature || part.thought_signature;
+            if (typeof signature === 'string' && signature) call.thoughtSignature = signature;
+            return call;
+        });
+}
+
+// 400 类工具调用错误分三种，只有明确表示「不支持工具」的才提示切换模型：
+//   - 缺思考签名 / 工具调用历史顺序不合规：模型支持工具，是请求历史的问题；
+//   - 网关不认识 tools 参数、模型不支持函数调用：提示换模型。
+const TOOL_HISTORY_ERROR = /function call turn|function response turn|tool_use[\s\S]*tool_result|tool_result[\s\S]*tool_use|tool_call_id|must be followed by|immediately after/i;
+const TOOLS_UNSUPPORTED_ERROR = /unknown parameter|unrecognized (?:request )?(?:argument|parameter|field|name)|not support|unsupported|function calling is not|tools? (?:is|are) not (?:enabled|available|allowed)|extra inputs are not permitted/i;
+
+function markToolsUnsupported(error, toolsSent) {
+    if (!toolsSent) return error;
+    const status = Number(error && (error.status || error.statusCode));
+    const message = String(error && error.message || '');
+    if (![400, 404, 422].includes(status)) return error;
+    if (/thought[_ ]?signature/i.test(message)) {
+        error.code = 'AI_TOOL_SIGNATURE_MISSING';
+        error.message = `Gemini 拒绝了工具调用历史：缺少思考签名（thought_signature）。模型支持工具调用，请点「新对话」后重试；若仍出现请反馈。原始错误：${message}`;
+        return error;
+    }
+    if (TOOL_HISTORY_ERROR.test(message)) {
+        error.code = 'AI_TOOL_HISTORY_INVALID';
+        error.message = `模型拒绝了本次工具调用历史的顺序（模型本身支持工具调用）。请点「新对话」后重试；若仍出现请反馈。原始错误：${message}`;
+        return error;
+    }
+    if (TOOLS_UNSUPPORTED_ERROR.test(message)) {
+        error.code = 'AI_TOOLS_UNSUPPORTED';
+        error.message = `当前模型或网关不支持工具调用（function calling），请在模型选择中切换支持工具调用的模型。原始错误：${message}`;
+    }
+    return error;
 }
 
 function extractGeminiText(data) {
@@ -90,7 +353,7 @@ function isGeminiThinkingCapable(model = '') {
     return /gemini-(?:2\.|[3-9]\.|\d{2,}\.|.*thinking)/i.test(m);
 }
 
-async function parseErrorResponse(res) {
+async function parseErrorResponse(res, { toolsSent = false } = {}) {
     let body = '';
     try {
         body = await res.text();
@@ -98,7 +361,7 @@ async function parseErrorResponse(res) {
     const error = new Error(buildProviderErrorMessage(res, body));
     error.status = res.status;
     error.statusCode = res.status;
-    throw error;
+    throw markToolsUnsupported(error, toolsSent);
 }
 
 function buildProviderErrorMessage(res, body = '') {
@@ -168,8 +431,8 @@ function openAiDeltaText(delta) {
     return content.map(item => typeof item === 'string' ? item : (item && (item.text || item.content) || '')).join('');
 }
 
-function assertStreamProducedText(text) {
-    if (String(text || '')) return;
+function assertStreamProducedText(text, toolCalls = []) {
+    if (String(text || '') || (Array.isArray(toolCalls) && toolCalls.length)) return;
     const error = new Error('AI provider accepted the request but did not return streamed text');
     error.code = 'AI_STREAM_UNSUPPORTED';
     throw error;
@@ -209,19 +472,21 @@ class AiProviderClient {
         return headers;
     }
 
-    async generateText({ prompt, systemInstruction = '', messages = null, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onRetry, onDelta, signal } = {}) {
+    async generateText({ prompt, systemInstruction = '', messages = null, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onRetry, onDelta, signal, tools = null, toolChoice } = {}) {
         const finalMessages = messages ? normalizeMessages(messages) : [{ role: 'user', content: String(prompt || '') }];
+        const finalTools = normalizeTools(tools);
+        const toolOptions = finalTools.length ? { tools: finalTools, toolChoice } : {};
         const regularRequest = async () => {
             if (this.usesMiniMaxProtocol) {
-                return this.generateMiniMax({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onRetry, signal });
+                return this.generateMiniMax({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onRetry, signal, ...toolOptions });
             }
             if (this.provider === 'openai' || this.provider === 'openai-compatible') {
-                return this.generateOpenAi({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, signal });
+                return this.generateOpenAi({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, signal, ...toolOptions });
             }
             if (this.provider === 'anthropic') {
-                return this.generateAnthropic({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, signal });
+                return this.generateAnthropic({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, signal, ...toolOptions });
             }
-            return this.generateGemini({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, signal });
+            return this.generateGemini({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, signal, ...toolOptions });
         };
         let result;
         const wantsStream = typeof onDelta === 'function' && !isJsonMode({ responseMimeType, json });
@@ -235,17 +500,18 @@ class AiProviderClient {
             };
             try {
                 if (this.usesMiniMaxProtocol) {
-                    result = await this.generateMiniMaxStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, signal });
+                    result = await this.generateMiniMaxStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, signal, ...toolOptions });
                 } else if (this.provider === 'openai' || this.provider === 'openai-compatible') {
-                    result = await this.generateOpenAiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, signal });
+                    result = await this.generateOpenAiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, signal, ...toolOptions });
                 } else if (this.provider === 'anthropic') {
-                    result = await this.generateAnthropicStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, signal });
+                    result = await this.generateAnthropicStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, signal, ...toolOptions });
                 } else {
-                    result = await this.generateGeminiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, thinkingBudget, onDelta: emit, signal });
+                    result = await this.generateGeminiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, thinkingBudget, onDelta: emit, signal, ...toolOptions });
                 }
             } catch (error) {
                 const status = Number(error && (error.status || error.statusCode));
-                const canFallback = !emitted && !signal?.aborted && ([400, 404, 405, 415, 422, 501].includes(status) || error?.code === 'AI_STREAM_UNSUPPORTED');
+                const canFallback = !emitted && !signal?.aborted && !['AI_TOOLS_UNSUPPORTED', 'AI_TOOL_SIGNATURE_MISSING', 'AI_TOOL_HISTORY_INVALID'].includes(error?.code)
+                    && ([400, 404, 405, 415, 422, 501].includes(status) || error?.code === 'AI_STREAM_UNSUPPORTED');
                 if (!canFallback) throw error;
                 console.warn(`[AI] ${this.provider} stream unavailable; falling back to buffered response: ${error.message}`);
                 result = await regularRequest();
@@ -277,20 +543,20 @@ class AiProviderClient {
         } catch (usageErr) {
             console.warn('[AI] failed to record provider usage:', usageErr.message || usageErr);
         }
+        if (!Array.isArray(result.toolCalls)) result.toolCalls = [];
+        // 工具循环需要在后续步骤固定到实际成功的供应商客户端（AutoSwitch 可能切换过）。
+        result.providerClient = this;
         return result;
     }
 
-    async generateChat({ messages, systemInstruction = '', maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onDelta, signal } = {}) {
-        return this.generateText({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onDelta, signal });
+    async generateChat({ messages, systemInstruction = '', maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onDelta, signal, tools, toolChoice } = {}) {
+        return this.generateText({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onDelta, signal, tools, toolChoice });
     }
 
-    async generateGemini({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, signal }) {
+    async generateGemini({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, signal, tools }) {
         const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
         const body = {
-            contents: normalizeMessages(messages).map(msg => ({
-                role: msg.role === 'model' ? 'model' : 'user',
-                parts: [{ text: msg.content }]
-            })),
+            contents: toGeminiContents(messages, { model: this.model }),
             generationConfig: {
                 maxOutputTokens: Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048)),
                 temperature: Number(temperature ?? this.settings.temperature ?? 0.7)
@@ -301,6 +567,8 @@ class AiProviderClient {
         }
         if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
         if (isJsonMode({ responseMimeType, json })) body.generationConfig.responseMimeType = 'application/json';
+        const geminiTools = toGeminiTools(tools);
+        if (geminiTools.length) body.tools = geminiTools;
 
         const res = await fetch(url, {
             method: 'POST',
@@ -308,12 +576,13 @@ class AiProviderClient {
             body: JSON.stringify(body),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res);
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: geminiTools.length > 0 });
         const data = await readProviderJson(res);
         const usage = data.usageMetadata || {};
         const candidate = data.candidates && data.candidates[0];
         return {
             text: stripReasoningText(extractGeminiText(data)),
+            toolCalls: extractGeminiToolCalls(data),
             usage: {
                 promptTokens: usage.promptTokenCount || 0,
                 outputTokens: usage.candidatesTokenCount || 0,
@@ -324,19 +593,19 @@ class AiProviderClient {
         };
     }
 
-    async generateOpenAi({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, signal }) {
-        const bodyMessages = [];
-        if (systemInstruction) bodyMessages.push({ role: 'system', content: systemInstruction });
-        normalizeMessages(messages).forEach(msg => {
-            bodyMessages.push({ role: msg.role === 'model' ? 'assistant' : 'user', content: msg.content });
-        });
+    async generateOpenAi({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, signal, tools, toolChoice }) {
         const body = {
             model: this.model,
-            messages: bodyMessages,
+            messages: toOpenAiMessages(messages, systemInstruction),
             max_tokens: Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048)),
             temperature: Number(temperature ?? this.settings.temperature ?? 0.7)
         };
         if (isJsonMode({ responseMimeType, json })) body.response_format = { type: 'json_object' };
+        const openAiTools = toOpenAiTools(tools);
+        if (openAiTools.length) {
+            body.tools = openAiTools;
+            body.tool_choice = toolChoice === 'none' ? 'none' : 'auto';
+        }
 
         const res = await fetch(`${this.baseUrl}/chat/completions`, {
             method: 'POST',
@@ -347,12 +616,13 @@ class AiProviderClient {
             body: JSON.stringify(body),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res);
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
         const data = await readProviderJson(res);
         const usage = data.usage || {};
         const choice = data.choices && data.choices[0];
         return {
             text: stripReasoningText(choice && choice.message && choice.message.content),
+            toolCalls: collectOpenAiToolCalls(choice && choice.message && choice.message.tool_calls),
             usage: {
                 promptTokens: usage.prompt_tokens || 0,
                 outputTokens: usage.completion_tokens || 0,
@@ -363,20 +633,20 @@ class AiProviderClient {
         };
     }
 
-    async generateOpenAiStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, signal }) {
-        const bodyMessages = [];
-        if (systemInstruction) bodyMessages.push({ role: 'system', content: systemInstruction });
-        normalizeMessages(messages).forEach(msg => {
-            bodyMessages.push({ role: msg.role === 'model' ? 'assistant' : 'user', content: msg.content });
-        });
+    async generateOpenAiStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, signal, tools, toolChoice }) {
         const body = {
             model: this.model,
-            messages: bodyMessages,
+            messages: toOpenAiMessages(messages, systemInstruction),
             max_tokens: Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048)),
             temperature: Number(temperature ?? this.settings.temperature ?? 0.7),
             stream: true
         };
         if (this.provider === 'openai') body.stream_options = { include_usage: true };
+        const openAiTools = toOpenAiTools(tools);
+        if (openAiTools.length) {
+            body.tools = openAiTools;
+            body.tool_choice = toolChoice === 'none' ? 'none' : 'auto';
+        }
         const res = await fetch(`${this.baseUrl}/chat/completions`, {
             method: 'POST',
             headers: {
@@ -387,10 +657,11 @@ class AiProviderClient {
             body: JSON.stringify(body),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res);
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
         let text = '';
         let finishReason = '';
         let usage = {};
+        const toolCallAccumulator = createOpenAiToolCallAccumulator();
         await readSseResponse(res, payload => {
             if (payload === '[DONE]') return;
             let data;
@@ -398,15 +669,18 @@ class AiProviderClient {
             if (data.usage) usage = data.usage;
             const choice = data.choices && data.choices[0];
             if (choice && choice.finish_reason) finishReason = String(choice.finish_reason);
+            if (choice && choice.delta && choice.delta.tool_calls) toolCallAccumulator.push(choice.delta.tool_calls);
             const delta = openAiDeltaText(choice && choice.delta);
             if (delta) {
                 text += delta;
                 onDelta(delta);
             }
         });
-        assertStreamProducedText(text);
+        const toolCalls = toolCallAccumulator.finish();
+        assertStreamProducedText(text, toolCalls);
         return {
             text: stripReasoningText(text),
+            toolCalls,
             usage: {
                 promptTokens: usage.prompt_tokens || 0,
                 outputTokens: usage.completion_tokens || 0,
@@ -417,13 +691,10 @@ class AiProviderClient {
         };
     }
 
-    async generateGeminiStream({ messages, systemInstruction, maxOutputTokens, temperature, thinkingBudget, onDelta, signal }) {
+    async generateGeminiStream({ messages, systemInstruction, maxOutputTokens, temperature, thinkingBudget, onDelta, signal, tools }) {
         const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(this.apiKey)}`;
         const body = {
-            contents: normalizeMessages(messages).map(msg => ({
-                role: msg.role === 'model' ? 'model' : 'user',
-                parts: [{ text: msg.content }]
-            })),
+            contents: toGeminiContents(messages, { model: this.model }),
             generationConfig: {
                 maxOutputTokens: Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048)),
                 temperature: Number(temperature ?? this.settings.temperature ?? 0.7)
@@ -433,31 +704,37 @@ class AiProviderClient {
             body.generationConfig.thinkingConfig = { thinkingBudget: Math.max(0, Math.round(Number(thinkingBudget))) };
         }
         if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
+        const geminiTools = toGeminiTools(tools);
+        if (geminiTools.length) body.tools = geminiTools;
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
             body: JSON.stringify(body),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res);
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: geminiTools.length > 0 });
         let text = '';
         let finishReason = '';
         let usage = {};
+        const toolCalls = [];
         await readSseResponse(res, payload => {
             let data;
             try { data = JSON.parse(payload); } catch (_error) { return; }
             if (data.usageMetadata) usage = data.usageMetadata;
             const candidate = data.candidates && data.candidates[0];
             if (candidate && candidate.finishReason) finishReason = String(candidate.finishReason);
+            // functionCall 部件整块到达，按出现顺序合成 id。
+            toolCalls.push(...extractGeminiToolCalls(data, toolCalls.length));
             const delta = extractGeminiDeltaText(data);
             if (delta) {
                 text += delta;
                 onDelta(delta);
             }
         });
-        assertStreamProducedText(text);
+        assertStreamProducedText(text, toolCalls);
         return {
             text: stripReasoningText(text),
+            toolCalls,
             usage: {
                 promptTokens: usage.promptTokenCount || 0,
                 outputTokens: usage.candidatesTokenCount || 0,
@@ -468,21 +745,21 @@ class AiProviderClient {
         };
     }
 
-    async generateMiniMaxStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, signal }) {
-        const bodyMessages = [];
-        if (systemInstruction) bodyMessages.push({ role: 'system', content: systemInstruction });
-        normalizeMessages(messages).forEach(msg => {
-            bodyMessages.push({ role: msg.role === 'model' ? 'assistant' : 'user', content: msg.content });
-        });
+    async generateMiniMaxStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, signal, tools, toolChoice }) {
         const configuredLimit = Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048));
         const body = {
             model: this.model,
-            messages: bodyMessages,
+            messages: toOpenAiMessages(messages, systemInstruction),
             max_completion_tokens: Math.min(Math.max(configuredLimit, 8192), 32768),
             temperature: Number(temperature ?? this.settings.temperature ?? 0.7),
             reasoning_split: true,
             stream: true
         };
+        const openAiTools = toOpenAiTools(tools);
+        if (openAiTools.length) {
+            body.tools = openAiTools;
+            body.tool_choice = toolChoice === 'none' ? 'none' : 'auto';
+        }
         const res = await fetch(`${this.baseUrl}/chat/completions`, {
             method: 'POST',
             headers: {
@@ -493,10 +770,11 @@ class AiProviderClient {
             body: JSON.stringify(body),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res);
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
         let text = '';
         let finishReason = '';
         let usage = {};
+        const toolCallAccumulator = createOpenAiToolCallAccumulator();
         await readSseResponse(res, payload => {
             if (payload === '[DONE]') return;
             let data;
@@ -504,15 +782,18 @@ class AiProviderClient {
             if (data.usage) usage = data.usage;
             const choice = data.choices && data.choices[0];
             if (choice && choice.finish_reason) finishReason = String(choice.finish_reason);
+            if (choice && choice.delta && choice.delta.tool_calls) toolCallAccumulator.push(choice.delta.tool_calls);
             const delta = openAiDeltaText(choice && choice.delta);
             if (delta) {
                 text += delta;
                 onDelta(delta);
             }
         });
-        assertStreamProducedText(text);
+        const toolCalls = toolCallAccumulator.finish();
+        assertStreamProducedText(text, toolCalls);
         return {
             text: stripReasoningText(text),
+            toolCalls,
             usage: {
                 promptTokens: usage.prompt_tokens || 0,
                 outputTokens: usage.completion_tokens || 0,
@@ -524,12 +805,9 @@ class AiProviderClient {
         };
     }
 
-    async generateMiniMax({ messages, systemInstruction, maxOutputTokens, temperature, onRetry, signal }) {
-        const bodyMessages = [];
-        if (systemInstruction) bodyMessages.push({ role: 'system', content: systemInstruction });
-        normalizeMessages(messages).forEach(msg => {
-            bodyMessages.push({ role: msg.role === 'model' ? 'assistant' : 'user', content: msg.content });
-        });
+    async generateMiniMax({ messages, systemInstruction, maxOutputTokens, temperature, onRetry, signal, tools, toolChoice }) {
+        const bodyMessages = toOpenAiMessages(messages, systemInstruction);
+        const openAiTools = toOpenAiTools(tools);
 
         // M2.x 的思考内容会占 completion token。首轮给足空间；若仍被截断，
         // 自动把额度扩到 2 倍，并通过 reasoning_split 只向上层返回最终答案。
@@ -548,6 +826,10 @@ class AiProviderClient {
                 temperature: Number(temperature ?? this.settings.temperature ?? 0.7),
                 reasoning_split: true
             };
+            if (openAiTools.length) {
+                body.tools = openAiTools;
+                body.tool_choice = toolChoice === 'none' ? 'none' : 'auto';
+            }
             const res = await fetch(`${this.baseUrl}/chat/completions`, {
                 method: 'POST',
                 headers: {
@@ -557,10 +839,11 @@ class AiProviderClient {
                 body: JSON.stringify(body),
                 signal
             });
-            if (!res.ok) await parseErrorResponse(res);
+            if (!res.ok) await parseErrorResponse(res, { toolsSent: openAiTools.length > 0 });
             const data = await readProviderJson(res);
             const choice = data.choices && data.choices[0];
             const message = choice && choice.message;
+            const toolCalls = collectOpenAiToolCalls(message && message.tool_calls);
             const usage = data.usage || {};
             const reasoningTokens = Number(usage.completion_tokens_details && usage.completion_tokens_details.reasoning_tokens || 0);
             aggregateUsage.promptTokens += Number(usage.prompt_tokens || 0);
@@ -570,11 +853,12 @@ class AiProviderClient {
             lastData = data;
             lastFinishReason = String(choice && choice.finish_reason || '');
             const text = stripReasoningText(message && message.content);
-            const truncated = lastFinishReason === 'length' || !text;
+            const truncated = lastFinishReason === 'length' || (!text && !toolCalls.length);
 
             if (!truncated) {
                 return {
                     text,
+                    toolCalls,
                     usage: aggregateUsage,
                     finishReason: lastFinishReason,
                     reasoningTokens: aggregateUsage.reasoningTokens,
@@ -605,17 +889,19 @@ class AiProviderClient {
         throw error;
     }
 
-    async generateAnthropic({ messages, systemInstruction, maxOutputTokens, temperature, signal }) {
+    async generateAnthropic({ messages, systemInstruction, maxOutputTokens, temperature, signal, tools, toolChoice }) {
         const body = {
             model: this.model,
             max_tokens: Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048)),
             temperature: Number(temperature ?? this.settings.temperature ?? 0.7),
-            messages: normalizeMessages(messages).map(msg => ({
-                role: msg.role === 'model' ? 'assistant' : 'user',
-                content: msg.content
-            }))
+            messages: toAnthropicMessages(messages)
         };
         if (systemInstruction) body.system = systemInstruction;
+        const anthropicTools = toAnthropicTools(tools);
+        if (anthropicTools.length) {
+            body.tools = anthropicTools;
+            if (toolChoice === 'none') body.tool_choice = { type: 'none' };
+        }
 
         const res = await fetch(`${this.baseUrl}/messages`, {
             method: 'POST',
@@ -623,11 +909,12 @@ class AiProviderClient {
             body: JSON.stringify(body),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res);
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: anthropicTools.length > 0 });
         const data = await readProviderJson(res);
         const usage = data.usage || {};
         return {
             text: stripReasoningText(extractAnthropicText(data)),
+            toolCalls: extractAnthropicToolCalls(data),
             usage: {
                 promptTokens: usage.input_tokens || 0,
                 outputTokens: usage.output_tokens || 0,
@@ -638,29 +925,34 @@ class AiProviderClient {
         };
     }
 
-    async generateAnthropicStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, signal }) {
+    async generateAnthropicStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, signal, tools, toolChoice }) {
         const body = {
             model: this.model,
             max_tokens: Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048)),
             temperature: Number(temperature ?? this.settings.temperature ?? 0.7),
             stream: true,
-            messages: normalizeMessages(messages).map(msg => ({
-                role: msg.role === 'model' ? 'assistant' : 'user',
-                content: msg.content
-            }))
+            messages: toAnthropicMessages(messages)
         };
         if (systemInstruction) body.system = systemInstruction;
+        const anthropicTools = toAnthropicTools(tools);
+        if (anthropicTools.length) {
+            body.tools = anthropicTools;
+            if (toolChoice === 'none') body.tool_choice = { type: 'none' };
+        }
         const res = await fetch(`${this.baseUrl}/messages`, {
             method: 'POST',
             headers: this.getAnthropicHeaders(true),
             body: JSON.stringify(body),
             signal
         });
-        if (!res.ok) await parseErrorResponse(res);
+        if (!res.ok) await parseErrorResponse(res, { toolsSent: anthropicTools.length > 0 });
         let text = '';
         let finishReason = '';
         let inputTokens = 0;
         let outputTokens = 0;
+        // tool_use 块：content_block_start 给 id/name，input_json_delta 拼 JSON，content_block_stop 收口。
+        const openBlocks = new Map();
+        const toolCalls = [];
         await readSseResponse(res, payload => {
             let data;
             try { data = JSON.parse(payload); } catch (_error) { return; }
@@ -668,6 +960,17 @@ class AiProviderClient {
             if (data.type === 'message_delta') {
                 outputTokens = Number(data.usage?.output_tokens || outputTokens);
                 if (data.delta?.stop_reason) finishReason = String(data.delta.stop_reason);
+            }
+            if (data.type === 'content_block_start' && data.content_block?.type === 'tool_use') {
+                openBlocks.set(data.index, { id: String(data.content_block.id || `toolu_${toolCalls.length}`), name: String(data.content_block.name || ''), json: '' });
+            }
+            if (data.type === 'content_block_delta' && data.delta?.type === 'input_json_delta' && openBlocks.has(data.index)) {
+                openBlocks.get(data.index).json += String(data.delta.partial_json || '');
+            }
+            if (data.type === 'content_block_stop' && openBlocks.has(data.index)) {
+                const block = openBlocks.get(data.index);
+                openBlocks.delete(data.index);
+                if (block.name) toolCalls.push({ id: block.id, name: block.name, args: parseToolArgs(block.json) });
             }
             const delta = data.type === 'content_block_delta' && data.delta?.type === 'text_delta'
                 ? String(data.delta.text || '')
@@ -677,9 +980,11 @@ class AiProviderClient {
                 onDelta(delta);
             }
         });
-        assertStreamProducedText(text);
+        openBlocks.forEach(block => { if (block.name) toolCalls.push({ id: block.id, name: block.name, args: parseToolArgs(block.json) }); });
+        assertStreamProducedText(text, toolCalls);
         return {
             text: stripReasoningText(text),
+            toolCalls,
             usage: {
                 promptTokens: inputTokens,
                 outputTokens,
@@ -751,6 +1056,7 @@ function createClient(settings = {}) {
 module.exports = {
     DEFAULT_BASE_URLS,
     normalizeProvider,
+    normalizeMessages,
     stripReasoningText,
     isAutoSwitchableError,
     createClient

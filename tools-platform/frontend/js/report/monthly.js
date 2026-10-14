@@ -532,28 +532,12 @@ function updateStaticI18n() {
     renderMonthlyFrontendVersion();
 }
 
-function renderMonthlyFrontendVersion() {
+async function renderMonthlyFrontendVersion() {
     const versionEl = document.getElementById('monthlyFrontendVersion');
     if (!versionEl) return;
-    const resourceNodes = [
-        ...document.querySelectorAll('link[href*="/css/"]'),
-        ...document.querySelectorAll('script[src*="/js/report/monthly.js"]'),
-        ...document.querySelectorAll('script[src*="/js/shared/"]')
-    ];
-    const versions = resourceNodes
-        .map(node => node.getAttribute('href') || node.getAttribute('src') || '')
-        .map(url => {
-            try {
-                return new URL(url, window.location.origin).searchParams.get('v') || '';
-            } catch (e) {
-                const match = url.match(/[?&]v=([^&]+)/);
-                return match ? match[1] : '';
-            }
-        })
-        .filter(Boolean)
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    versionEl.textContent = versions.length ? `v${versions[versions.length - 1]}` : 'v未标记';
-    versionEl.title = versions.length ? `当前页面资源最新版本：${versions[versions.length - 1]}` : '未检测到前端资源版本号';
+    const version = await window.ToolsAppVersion?.get();
+    versionEl.textContent = version ? `v${version}` : 'v未标记';
+    versionEl.title = version ? `平台版本：${version}` : '未能获取平台版本';
 }
 
 let currentTrends = null;

@@ -134,25 +134,10 @@ process.on('uncaughtException', (err) => {
 
 console.log('[Electron] User Data Path:', process.env.TOOLS_DATA_DIR);
 
-const net = require('net');
+const { chooseLocalPort, writePreferredPort } = require('./desktop-local-port');
 const launchStatePath = path.join(userDataPath, 'launch-state.json');
 
-function getFreePort(startingPort) {
-    return new Promise((resolve, reject) => {
-        const server = net.createServer();
-        server.listen(startingPort, () => {
-            const port = server.address().port;
-            server.close(() => resolve(port));
-        });
-        server.on('error', (err) => {
-            if (err.code === 'EADDRINUSE') {
-                resolve(getFreePort(0)); // Let the OS assign a random free port
-            } else {
-                reject(err);
-            }
-        });
-    });
-}
+const localPortStatePath = path.join(userDataPath, 'local-port.json');
 
 let utilityWindow = null;
 let startupWindow = null;
@@ -1847,7 +1832,10 @@ async function startTrayApp() {
 
     try {
         updateStartupProgress(65, '正在分配本地服务', '选择可用端口并准备安全的本地访问地址…', '阶段 2/2 · 网络准备');
-        const PORT = await getFreePort(3030);
+        // 复用上次端口：端口不变，浏览器里的登录信息与 Dragon Claw 会话才不会丢。
+        const { port: PORT, source: portSource } = await chooseLocalPort({ statePath: localPortStatePath });
+        writePreferredPort(localPortStatePath, PORT);
+        console.log(`[Electron] Local server port ${PORT} (${portSource})`);
         process.env.PORT = PORT;
         localPort = PORT;
         writeRuntimeStatusSnapshot();

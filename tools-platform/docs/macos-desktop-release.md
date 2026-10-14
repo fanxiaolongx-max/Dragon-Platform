@@ -39,10 +39,10 @@ APPLE_KEYCHAIN_PROFILE=tools-platform-notary npm run build:mac
 对实际路径检查：
 
 ```bash
-codesign --verify --deep --strict --verbose=2 'dist/<构建目录>/mac-arm64/Tools Platform.app'
-spctl --assess --type execute --verbose=2 'dist/<构建目录>/mac-arm64/Tools Platform.app'
-xcrun stapler validate 'dist/<构建目录>/mac-arm64/Tools Platform.app'
-hdiutil verify 'dist/<构建目录>/Tools-Platform-<版本>-arm64.dmg'
+codesign --verify --deep --strict --verbose=2 'dist/<构建目录>/mac-arm64/Dragon Platform.app'
+spctl --assess --type execute --verbose=2 'dist/<构建目录>/mac-arm64/Dragon Platform.app'
+xcrun stapler validate 'dist/<构建目录>/mac-arm64/Dragon Platform.app'
+hdiutil verify 'dist/<构建目录>/Dragon-Platform-<版本>-arm64.dmg'
 ```
 
 本地未公证包的 `spctl` / `stapler` 不能通过，不能关闭 Gatekeeper 来冒充正式验收。下载后首次打开的系统确认提示可能仍出现。若另外给 DMG 提交公证并附加票据，应在生成/发布更新元数据前完成，避免改变哈希。

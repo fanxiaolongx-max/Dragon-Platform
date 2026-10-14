@@ -1,14 +1,16 @@
-# Tools Platform
+# Dragon Platform
 
-Tools Platform 是一个面向运维数据抓取、SLA 指标合控、质量看板、月报工作区、一键催办、胶片设计/PPT 素材库、专题分析、部门奖惩与负向事件治理、正向激励申报、会议考勤矩阵与花名册体系、智能订单与报价核验、加密考题金库、Dragon Claw 智能体、哈基米桌面宠物伴侣 (Desktop Pet) 与 2D/3D 知识图谱的综合性本地/内网工具中台。
+Dragon Platform（Tools Platform）是一个面向运维数据抓取、SLA 指标合控、质量看板、月报工作区、一键催办、胶片设计/PPT 素材库、专题分析、部门奖惩与负向事件治理、正向激励申报、会议考勤矩阵与花名册体系、智能订单与报价核验、加密考题金库、Dragon Claw 智能体与 Agent Workspace、哈基米桌面宠物伴侣 (Desktop Pet)、Python 独立绿色抽查外壳与 2D/3D 知识图谱的综合性本地/内网工具中台矩阵。
 
-项目采用 **Express + 原生多页面静态前端 + SQLite** 的轻量高效架构，客户端生态原生覆盖 **Windows (NSIS 安装版 / 单文件免安装绿色版)** 与 **macOS (Apple Developer 签名与官方公证 DMG / ZIP 双架构)**，并配套 iOS/KMP 移动端工程生态。
+项目采用 **Express + 原生多页面静态前端 + SQLite** 的轻量高效架构，客户端生态原生覆盖 **Windows (NSIS 安装版 / 单文件免安装绿色版 / PR小助手外壳)** 与 **macOS (Apple Developer 签名与官方公证 DMG / ZIP 双架构)**，并配套 iOS/KMP 移动端工程生态。
 
 ---
 
 ## 目录
 
 1. [系统架构与全景数据流](#1-系统架构与全景数据流)
+   - [1.1 平台全景数据流转架构](#11-平台全景数据流转架构)
+   - [1.2 首页双模工作台体系架构 (Dual-Mode Workspace Architecture)](#12-首页双模工作台体系架构-dual-mode-workspace-architecture)
 2. [核心业务与功能详析 (含业务流程图)](#2-核心业务与功能详析-含业务流程图)
    - [2.1 自动化数据抓取与 UIVF12 AI 网站适配器](#21-自动化数据抓取与-uivf12-ai-网站适配器)
    - [2.2 SLA 数据合控与指标规则引擎](#22-sla-数据合控与指标规则引擎)
@@ -20,9 +22,10 @@ Tools Platform 是一个面向运维数据抓取、SLA 指标合控、质量看�
    - [2.6 专项治理工具链 (专题分析 / 部门奖惩 / 正向激励 / 会议考勤与花名册 / 采购订单核验与报价比对 / 加密考题金库 / 阿拉伯语互动学习 / PR审计 / FRT / 需求广场 / 问卷调研)](#26-专项治理工具链)
    - [2.7 平台效能大盘、服务监控与友情链接](#27-平台效能大盘服务监控与友情链接)
    - [2.8 自定义工具与多源工具市场生态](#28-自定义工具与多源工具市场生态)
-   - [2.9 Dragon Claw 智能体与 2D/3D 双视图知识图谱](#29-dragon-claw-智能体与-2d3d-双视图知识图谱)
+   - [2.9 Dragon Claw 智能体、Agent Workspace 协同工作区与 2D/3D 双视图知识图谱](#29-dragon-claw-智能体agent-workspace-协同工作区与-2d3d-双视图知识图谱)
    - [2.10 光影大厅 (Tools Cinema) 与多媒体生态](#210-光影大厅-tools-cinema-与多媒体生态)
    - [2.11 桌面宠物伴侣 (哈基米 Hajimi Companion) 与智能客服](#211-桌面宠物伴侣-哈基米-hajimi-companion-与智能客服)
+   - [2.12 Python 脚本热更新与 PR 小助手独立生态 (Python Packager)](#212-python-脚本热更新与-pr-小助手独立生态-python-packager)
 3. [安全授权与双轨 License 体系 (含安全基线与脱敏)](#3-安全授权与双轨-license-体系)
 4. [数据存储、启动自愈与 Schema 字典](#4-数据存储启动自愈与迁移治理)
 5. [备份恢复与远端主站同步](#5-备份恢复与远端主站同步)
@@ -47,7 +50,9 @@ Tools Platform 是一个面向运维数据抓取、SLA 指标合控、质量看�
 
 ![Tools Platform 全景技术架构与关键技术栈](docs/images/readme/technology-architecture.svg)
 
-平台整体架构以“数据采集自动化、指标计算规则化、报告呈现多维化、治理工具标准化”为核心原则设计，全链路数据流转如下图所示：
+### 1.1 平台全景数据流转架构
+
+平台整体架构以“数据采集自动化、指标计算规则化、报告呈现多维化、治理工具标准化、AI 协同自治化”为核心设计原则，全链路数据流转如下图所示：
 
 ```mermaid
 flowchart TD
@@ -68,12 +73,13 @@ flowchart TD
     subgraph 展现与应用层["3. 展现与业务应用"]
         B5 --> C1["报表看板 (/report)<br/>(健康度排名/比例计分/手动调整填充)"]
         B5 --> C2["月度质量报告与工作区 (/monthly)<br/>(行内富文本编辑/Diff比对/长图与MSG导出)"]
+        B5 --> C10["通用月报设计器 (/monthly-designer.html)<br/>(组件拖拽/画布排版/多维图表)"]
         B5 --> C3["运营大屏 (/bigscreen)<br/>(会议室态势驾驶舱)"]
         B5 --> C4["一键催办 (/expedite)<br/>(文案组装/全屏截图/Excel导出/网络别名映射)"]
         B5 --> C5["专题分析中心 (/topic-analysis)<br/>(NetCare/DataFab历史快照/EOS收编进展)"]
         B5 --> C6["光影大厅 (/cinema)<br/>(多媒体点播与展厅模式)"]
         B5 --> C7["移动端 API (/api/external/metrics)<br/>(iOS / KMP App 只读查看)"]
-        B5 --> C8["桌面宠物伴侣 (哈基米)<br/>(置顶微件/全局键盘监听/额度探测/避让客服)"]
+        B5 --> C8["桌面宠物伴侣 (哈基米)<br/>(0.75x置顶微件/全局按键监听/额度探测/古埃及故事)"]
         B5 --> C9["桌面系统托盘生态<br/>(Windows Setup/Portable + macOS DMG/ZIP)"]
     end
 
@@ -89,8 +95,54 @@ flowchart TD
         D9["加密考题金库与题库学习 (/exam-question-bank-vault)"]
         D10["阿拉伯语沉浸式口语互动 (/tools/tool-mtakhxqm)"]
         D11["系统告警中心 & AI分析 (/alert-center)"]
-        D12["Dragon Claw 智能体与知识图谱 (/api/ai)"]
+        D12["Dragon Claw 智能体与 Agent Workspace (/api/agent-workspace)"]
         D13["多源工具市场与自定义扩展 (/custom-tools)"]
+        D14["Python 脚本热更新工作台 (/api/python-updater)"]
+        D15["值班考勤与花名册 (/api/duty-roster)"]
+    end
+```
+
+### 1.2 首页双模工作台体系架构 (Dual-Mode Workspace Architecture)
+
+首页（`frontend/index.html`）经历了重大改版，由原本单向的静态工具卡片列表升级为**“Agent 智能体深度协同 + 全功能工具矩阵”双模工作台（Dual-Mode Workspace）**：
+
+```mermaid
+flowchart TD
+    subgraph 首页总架构["主页双模工作台布局 (frontend/index.html)"]
+        TOP["顶部统一导航栏 (navbar.js · 租户切换 / 平台标识 / 语言国际化 / 个人中心)"]
+        SIDE["多维导航侧边栏 (home-sidebar)"]
+        MAIN["动态主工作画布 (home-main)"]
+    end
+
+    subgraph 侧边栏系统["左侧智能侧边栏 (Sidebar Engine)"]
+        SIDE --> S1["⚡ 工具秒搜引擎<br/>(快捷键 '/' 一键聚焦，支持拼音首字母如 'ygcb' 匹配 '一键催办')"]
+        SIDE --> S2["🗂️ 动态分类树导航 (homeCategoryNav)<br/>(根据 nav-settings 实时渲染分类、排序与徽章)"]
+        SIDE --> S3["🛍️ 自定义工具管理与多源市场入口 (customToolsPanel)"]
+        SIDE --> S4["🔗 友情链接与高可用定时探活抽屉 (friend-links)"]
+    end
+
+    subgraph 双模主画布系统["主画布双模态体系 (Dual Modes)"]
+        MAIN -->|默认首屏 / 新对话| M1["Mode A: Dragon Claw Agent 协同工作区"]
+        MAIN -->|浏览工具 / 向下滚动 / 点击卡片| M2["Mode B: 全功能工具矩阵与活跃度视图"]
+        M1 <-->|无缝热切换 (dcBackToTools / dcNewChat)| M2
+    end
+
+    subgraph 智能体协同子系统["Mode A: Agent Workspace 深度协同体系"]
+        M1 --> A1["氛围流动光效 (dc-ambient) & 绿恐龙灵动形象"]
+        M1 --> A2["灵感 Prompt 胶囊卡片与工具智能推荐 (dc-prompts)"]
+        M1 --> A3["多模型在线热切换 (Aragon / Gemini / Claude / MiniMax)"]
+        M1 --> A4["本地代码工作区面板 (workspace-panel.js)"]
+        A4 --> A41["智能路径探测与补全 (POST /api/agent-workspace/suggest)"]
+        A4 --> A42["三级安全权限引擎 (ask 逐项确认 / auto 智能放行 / full 自治执行)"]
+        A4 --> A43["上下文窗口度量仪表盘 (Messages / Directory / Tools / Free)"]
+        A4 --> A44["文件变更 Diff 审查与单点原子回滚 (Revert)"]
+        A4 --> A45["一键自动化 GitHub PR 创建 (创建分支 / 暂存提交 / gh pr create)"]
+    end
+
+    subgraph 工具矩阵子系统["Mode B: 全景工具矩阵 (Tools Matrix)"]
+        M2 --> B1["业务分组流 (采集层 / 合控层 / 报表层 / 专项层 / 治理层)"]
+        M2 --> B2["卡片实时相对更新时间徽章 (刚刚 / 5分钟前 / 3天前)"]
+        M2 --> B3["功能特性标签胶囊 (Feature Tags) 与直接直达入口"]
     end
 ```
 
@@ -608,19 +660,110 @@ flowchart TD
 
 ---
 
-### 2.9 Dragon Claw 智能体与 2D/3D 双视图知识图谱
+### 2.9 Dragon Claw 智能体、Agent Workspace 协同工作区与 2D/3D 双视图知识图谱
+
+![Dragon Claw Agent Workspace 全能智能体与协同工作区](docs/images/readme/dragon-claw-workspace.svg)
 
 ```mermaid
 flowchart TD
-    Q["用户输入问题"] --> INT{"意图识别分类"}
+    Q["用户输入问题 / 指令"] --> INT{"意图识别与上下文探测"}
     INT -->|源码/文档/开发问答| K1["代码与文档向量/BM25 增量知识库"]
     INT -->|指标/月报/排名业务数据| K2["只读数据检索器 (只读访问 report.db)"]
-    K1 --> SEC["敏感数据过滤与脱敏 (密码/Token/私钥)"]
-    K2 --> SEC
-    SEC --> LLM["统一大模型客户端 (Gemini/OpenAI/Claude/MiniMax)"]
-    LLM --> OUT["流式 Chunk 输出 + 前端打字机渲染 + 精准依据来源展示"]
+    INT -->|考勤/SLA/订单等业务工具| K4["动态工具数据嗅探服务 (aiToolDataService)"]
+    INT -->|本地工程协同与代码编辑| K3["Agent Workspace 本地工作区调度引擎"]
+    K1 & K2 & K4 & K3 --> SEC["敏感数据过滤与脱敏 (密码/Token/私钥/Cookie)"]
+    SEC --> LLM["统一多模型客户端 (Gemini/OpenAI/Claude/MiniMax)"]
+    LLM -->|文本生成| OUT["流式 Chunk 输出 + 前端打字机渲染 + 精准依据来源展示"]
+    LLM -->|工具派发| EXEC["8大系统级工具链执行 (agent-tools-service.js)"]
+    EXEC -->|快照落盘与Diff计算| DIFF["变更追踪与单文件撤销 (agent-change-log.js)"]
+    DIFF --> OUT
     OUT --> SESS["跨页面会话归档与恢复 (/api/ai/sessions-archive)"]
 ```
+
+#### 2.9.1 Agent Workspace 本地代码协同工作区深度解析
+
+随着 Dragon Claw 演进为全能编程与协同智能体，系统在首页集成了原生 **Agent Workspace**（基于 `workspace-panel.js`、`home-workspace.css`、`backend/routes/agent-workspace.js` 及系列底层服务）。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Dev as 开发者 (Web/桌面端)
+    participant Panel as 工作区交互面板 (workspace-panel.js)
+    participant Route as 路由网关 (/api/agent-workspace)
+    participant Guard as 路径安全守卫 (agent-path-guard.js)
+    participant CmdGuard as 命令安全守卫 (agent-command-guard.js)
+    participant Exec as 工具调度服务 (agent-tools-service.js)
+    participant Git as PR自动化服务 (agent-pr-service.js)
+
+    Dev->>Panel: 选择/补全本地工作目录 (~/projects/my-repo)
+    Panel->>Route: POST /api/agent-workspace/suggest (路径补全)
+    Route-->>Panel: 返回目录建议列表与 Git 状态
+    Panel->>Route: GET /api/agent-workspace/context-stats
+    Route-->>Panel: 返回上下文预算 (消息/目录/系统/工具/剩余空间)
+
+    Dev->>Panel: 输入指令并指定权限模式 (ask / auto / full)
+    Panel->>Route: 发送用户任务与执行指令
+    Route->>Guard: 校验操作目标路径 (防目录遍历与敏感越权)
+    alt 路径越权或命中系统黑名单
+        Guard-->>Route: 拦截并抛出 EPERM 安全违规异常
+        Route-->>Panel: 拒绝执行并给出告警提示
+    else 路径合法
+        opt 执行终端命令
+            Route->>CmdGuard: 静态语法与风险参数评估 (检测外部路径/破坏性命令)
+        end
+        Guard->>Exec: 派发工具执行 (read_file / write_file / edit_file / run_cmd)
+        alt ask 模式或命令命中敏感边界
+            Exec-->>Panel: 挂起执行，推送工具参数审批卡片 (Approval Modal)
+            Dev->>Panel: 点击批准 (Approve)
+            Panel->>Exec: 确认继续执行
+        end
+        Exec->>Exec: 落盘修改并记录变更历史 (Diff Tracker)
+        Exec-->>Panel: 推送执行结果 Chunk 与差异快照 (Diff List)
+    end
+
+    opt 审查与一键撤销
+        Dev->>Panel: 查看文件增删行并点击“Revert”
+        Panel->>Route: POST /api/agent-workspace/revert
+        Route-->>Panel: 原子还原文件至变更前状态 (含冲突检测)
+    end
+
+    opt 自动化提交与 PR 闭环
+        Dev->>Panel: 输入目标分支名与提交文案，点击“创建 Pull Request”
+        Panel->>Git: POST /api/agent-workspace/create-pr
+        Git->>Git: 自动切换/新建分支 -> git add -> git commit -> git push
+        Git->>Git: 调用 GitHub CLI (gh pr create) 发起 Pull Request
+        Git-->>Panel: 返回 PR 链接与合并状态
+    end
+```
+
+- **三大核心安全权限模式 (Permission Modes)**：
+  - **`ask` (逐项审批模式)**：默认安全防线。任何涉及文件写入、内容替换、文件删除或终端命令调用的操作均会暂停，在界面弹窗展示操作详情与参数，等待用户手动点击“批准”或“拒绝”。
+  - **`auto` (智能安全放行模式)**：只读操作（读取文件、文件搜索、目录探索）及普通安全编辑自动执行；对于破坏性操作（递归删除、执行带危险参数的 Shell 脚本）强制唤起安全确认。
+  - **`full` (完全自治模式)**：面向深度可信的本地工程或批处理任务，智能体拥有全自主读写与脚本执行权限，极速完成复杂的多文件重构与全链路验证。
+  - **非管理员只读保护**：当前登录账号非管理员时，智能体自动锁定为只读模式（仅能查看与检索代码，禁止任何写入、删除与终端调用）。
+- **8 大生产级系统工具链字典 (`agent-tools-service.js`)**：
+  | 工具名称 | 类别 | 参数规范 | 核心职责与安全策略 |
+  | :--- | :--- | :--- | :--- |
+  | `list_directory` | 读取 | `path`, `depth` (1~3), `showHidden` | 列出目录条目，目录优先排序，默认限制返回前 500 项。 |
+  | `read_file` | 读取 | `path`, `startLine`, `limit` (最大2000), `endLine` | 带行号精确读取文本，单次最大 200KB，超长行截断并提示分段继续读取。 |
+  | `search` | 读取 | `query`, `path`, `pattern`, `caseSensitive`, `maxMatches` | 全局正则/关键词代码检索，内置 10s 执行超时与最大 20,000 文件扫描上限。 |
+  | `write_file` | 写入 | `path`, `content` | 完整写入文件（单次最大 1MB），写入前自动留存原文件快照至变更记录。 |
+  | `edit_file` | 写入 | `path`, `edits: [{ old_string, new_string }]` | 精确块级文本替换；要求 `old_string` 在文件中唯一匹配，防范误伤。 |
+  | `delete_path` | 写入 | `path`, `recursive` | 删除文件或目录；递归删除时强制触发安全审批流程。 |
+  | `rename_path` | 写入 | `old_path`, `new_path`, `overwrite` | 安全移动或重命名文件/目录，目标已存在时默认拦截保护。 |
+  | `run_command` | 命令 | `command`, `timeout_ms` (默认60s/最大300s) | 在工作区下执行 Shell 命令，输出最大 32KB；自动剥离敏感环境变量并阻断高危提权。 |
+- **路径沙箱与命令安全防火墙 (`agent-path-guard.js` / `agent-command-guard.js`)**：
+  - 严格限制工作区根目录边界，禁止跨目录越权访问（如 `../../etc/passwd`、`C:\Windows`、敏感系统钥匙串目录等）。
+  - 自动忽略 `.git` 内部对象、`node_modules`、编译临时目录等膨胀文件，保障上下文窗口利用率最大化。
+  - 深度静态扫描命令参数，拦截 `rm -rf /`、格式化磁盘、带密码入参等高危行为；当命令涉及外部非受信路径时，无条件降级要求用户手动确认。
+- **实时上下文用量仪表盘 (Context Usage Bar)**：
+  - 精确统计并以多色度量环呈现当前模型的 Token 预算分布：**对话消息 (Messages)**、**目录树 (Directory, 最多 200 项轻量级投影)**、**系统提示词 (System)**、**可用工具定义 (Tools)** 以及 **剩余可用额度 (Free Space)**，防止上下文溢出截断。
+- **差异审查与单点原子回滚 (Diff Review & Revert)**：
+  - 记录每次工具写操作的前后文件快照；前端可直观查看绿红高亮的代码变更 Diff，并支持一键撤销指定文件的修改，杜绝误操作破坏本地代码；若文件在操作后被外部程序二次篡改，自动提示冲突警告并允许确认覆盖。
+- **GitHub PR 自动化流转服务 (`agent-pr-service.js`)**：
+  - 深度集成本地 Git 与 `gh` CLI 工具链；在工作区修改验证完成后，开发者只需在面板中确认分支名与 Commit 摘要，即可一键自动化完成**本地分支创建、代码暂存、提交、推送到远程仓库并自动发起 GitHub Pull Request**。
+
+#### 2.9.2 智能体品牌形象、跨会话恢复与多模型生态
 
 - **Dragon Claw 智能体专属品牌形象**：
   - 系统 AI 品牌全面定制升级为 **“Dragon Claw 智能体”**，对话弹窗左上角搭载用户专属绿恐龙品牌形象，问候语、思考动效与输入框占位符全链路同步呈现。
@@ -629,6 +772,11 @@ flowchart TD
   - **无缝恢复与续聊**：前端会话浏览器清晰标注“活跃 / 已归档”标签，支持一键切换进入活跃对话或恢复归档历史会话继续深入讨论。
   - **业务数据兼容增强**：完善静态快照考勤工号前缀别名兼容，精准识别提问中的业务实体与人员对象。
 
+- **多模型统一 Tool Calling 与流式转录架构 (`ai-provider-client.js`)**：
+  - 针对 **Google Gemini、Anthropic Claude、OpenAI / Azure OpenAI、MiniMax**，统一将 `{ name, description, parameters }` 抽象转换为各大供应商的原生 Function Calling 格式。
+  - 支持 **Gemini 3 思考签名 (`thoughtSignature`)** 协议回传，支持 Server-Sent Events 流式工具调用 Chunk 解析，与 `agent-run-manager` 形成最多 25 轮的自治推理内循环。
+- **业务工具数据实时动态嗅探回填 (`aiToolDataService`)**：
+  - 突破传统孤立只读问答：当用户在首页向智能体询问“某客户群本月指标”、“昨晚会议考勤结果”或“采购订单差异”时，后端由 `aiToolDataService` 自动嗅探对应业务工具（考勤矩阵、SLA 快照、订单核验器等）最新真实运行数据并结构化注入上下文，使 Dragon Claw 无需人工复制粘贴即可直达真实业务事实。
 - **多模型提供商接入与流式体验**：
   - 原生适配 **Google Gemini、OpenAI / Azure OpenAI、Anthropic Claude、MiniMax** 以及兼容 OpenAI 接口规范的各大内外部大模型。
   - **Anthropic 认证类型定制**：针对 Anthropic/Claude 模型支持配置独立的认证类型（`x-api-key` 或 `Bearer` Token 自由切换），完美兼容官方直连与内网反向代理网关。
@@ -735,9 +883,60 @@ flowchart TD
   - **毛玻璃粉红极简设计**：视窗采用 24px 高斯模糊 backdrop-filter、圆润卡片设计、猫耳头像呼吸动画，支持按住标题栏自由拖动。
   - **本地安全免登凭证**：系统启动时通过 `auth-sessions-repository` 为小宠自动签发 `desktop_pet` 专属长期会话 Token，直接免登调用中台全部 AI 会话与报表接口，支持上下文对话与交互式错误排查。
 - **个性化设置与托盘菜单集成**：
-  - **右键悬浮控制面板**：右键点击小宠即可呼出轻量控制面板，支持体型缩放（0.6x~2.5x 自由滑动）、音量控制（0%~100%）、打字声音开启/关闭、动态气泡开关、打字动作开关及位置重置。
+  - **默认启动尺寸自适应调整 (0.75x)**：桌面端（macOS DMG 与 Windows EXE/安装版）桌宠默认启动缩放比例设定为 **`0.75x`**（自适应主视窗尺寸 `218×293`），相比早期版本更加精致小巧，不遮挡日常编码与业务窗口；旧版本历史配置（如 1.2x 或无版本号）自动平滑治愈升级至 `0.75x`。
+  - **右键悬浮控制面板**：右键点击小宠即可呼出轻量控制面板，支持体型缩放（0.6x~2.5x 自由滑动，精确至 0.05x 步长）、音量控制（0%~100%）、打字声音开启/关闭、动态气泡开关、打字动作开关及位置重置。
   - **配置持久化**：所有个性化参数与最后停放位置自动持久化至用户数据目录下的 `desktop-pet-config.json`，版本升级与重启完全无缝保留。
   - **系统托盘一键调度**：系统托盘右键菜单提供专有“🐾 桌面宠物 (哈基米)”子菜单，包含“开机/启动自动运行桌宠”、“本次隐藏/唤回显示桌宠”以及“呼出桌宠AI客服对话”。
+
+---
+
+### 2.12 Python 脚本热更新与 PR 小助手独立生态 (Python Packager)
+
+针对日常离线办公、快速抽查与网络受限场景，项目构建了配套的 **Python 独立抽查外壳 (PR小助手) 与动态热更新生态**（代码位于 `python-packager/` 及中台 `/python-updater.html`、`/api/python-updater`）。
+
+```mermaid
+flowchart TD
+    subgraph 中台管理端["1. Web 端开发与版本分发 (tools-platform)"]
+        W1["在线 Python 脚本热更新工作台 (/python-updater.html)"]
+        W2["版本比对 Diff 审查与历史版本库 (SQLite python_updater_versions)"]
+        W3["一键同步至代码仓库 (POST /api/python-updater/sync-to-repo)"]
+        W1 --> W2 --> W3
+    end
+
+    subgraph CI自动化构建["2. GitHub Actions 自动化编译流水线"]
+        W3 -->|推送至 main 分支| C1[".github/workflows/package-python-exe.yml"]
+        C1 --> C2["PyInstaller 依赖静态收集与多模块编译"]
+        C2 --> C3["真实环境 EXE 自动化冒烟测试 (smoke_test.py)"]
+        C3 --> C4["发布独立发行版 Artifact: PR小助手-Windows-x64.zip"]
+    end
+
+    subgraph 客户端双进程架构["3. 客户端无控制台双进程架构 (Universal Shell)"]
+        C4 -->|用户解压运行| P1["PR小助手.exe (universal_shell.py 主界面)"]
+        P1 -->|CREATE_NO_WINDOW 隐式唤起| P2["PR-Audit-Worker.exe (业务工作进程)"]
+        P1 <-->|共享 _internal/ 依赖库| P2
+        P1 --> P3["内置伪控制台 (标准输出实时捕获 / 历史指令 ↑↓)"]
+    end
+
+    subgraph 在线热更新体系["4. 零安装脚本秒级热更新 (Hot Updater)"]
+        P1 -->|启动检测 / 手动检查更新| U1{"远端源探活与选择"}
+        U1 -->|官方直连| U2["GitHub Raw 官方源"]
+        U1 -->|国内加速| U3["ghproxy 镜像加速通道"]
+        U1 -->|内网企业| U4["自定义第三方 HTTP/HTTPS 静态源"]
+        U2 & U3 & U4 --> U5["下载 core_script.py + version.json"]
+        U5 --> U6["Python 语法自检 + SHA-256 指纹校验"]
+        U6 -->|校验通过| U7["历史脚本原子备份 (backups/) + 覆盖更新"]
+        U6 -->|校验失败| U8["安全熔断，保留旧脚本继续运行"]
+    end
+```
+
+- **无控制台双进程架构 (Dual-Process Clean GUI)**：
+  - 打包彻底剥离传统黑色 CMD 控制台黑窗闪烁，由 `PR小助手.exe` 提供原生现代化轻量界面；
+  - 核心执行由后台工作进程 `PR-Audit-Worker.exe` 承担，二者共享 `_internal/` 目录下的 Pandas、OpenPyXL 等重型依赖库，避免冗余体积。
+- **免重新打包的秒级热更新机制**：
+  - 传统 PyInstaller 打包导致代码修改 1 行就需重新下载 50~100MB 压缩包；本方案中核心业务脚本 `core_script.py` 为纯 Python 源码外挂形式；
+  - 启动器检测到新版本时，自动在本地 `backups/` 归档备份当前脚本，校验下载代码的 AST 语法正确性与 SHA-256 哈希值后进行原子无感热替换，实现“轻量更新秒级生效”。
+- **Web 端热更新工作台 (`/python-updater.html`)**：
+  - 在中台提供可视化 Python 源码编辑器，支持 Monaco/语法高亮、版本发布记录查看、Git 差异 Diff 比对，以及一键将测试无误的代码同步至 `python-packager/` 工程。
 
 ---
 
@@ -1019,17 +1218,21 @@ flowchart TD
 | **数据导入** | `/sla` | 需登录 (修改需Admin) | SLA 多表数据合并、列映射、指标规则管理与历史快照上传 |
 | **报表看板** | `/report` | 需登录 | 客户群健康度排名、比例计分、入库计算、短板透视矩阵 |
 | **月报工作区** | `/monthly` | 需登录 | 跨月历史指标演进趋势、标准化月报工作区（行内富文本编辑、快照比对 Diff、长图与 MSG 导出） |
+| **通用月报设计器** | `/monthly-designer.html` | 需登录 | 资料库组件自由拖拽、画布排版编辑、跨月指标动态绑定、ECharts 趋势图表定制与多格式交付导出 |
 | **一键催办** | `/expedite` | 需登录 | 基于快照自动生成催办文案、网络别名映射、全屏长截图与 Excel 导出 |
 | **大屏看板** | `/bigscreen` | 需登录 | 全屏运营态势驾驶舱、短板风险分布、雷达巡检 |
 | **专题分析** | `/topic-analysis.html` | 需登录 | NetCare/DataFab 租户级历史快照中心、EOS 收编进展月报、版本 Diff 比对与工程导出导入 |
+| **值班表与考勤** | `/duty-roster.html` | 需登录 | 值班排班日历管理、人员轮值调度、考勤班次统计与花名册联动 |
 | **光影大厅** | `/cinema.html` | 需登录 | Tools Cinema 沉浸式影院播放大厅、运维复盘点播与多媒体展映 |
 | **PR 审计** | `/praudit` | 需登录 | PR 进展附件审计、Excel 导入校验与双语 PDF 报告导出 |
+| **Python 热更新** | `/python-updater.html` | 需登录 (管理需Admin) | Python 业务脚本在线编辑、版本历史查看、Diff 差异比对与一键同步至打包工程 |
 | **FRT 核算** | `/frt` | 需登录 | FRT 动态规则引擎与 KPI 自动化核算平台 |
 | **需求广场** | `/requirements`| 需登录 | 平台功能需求提议、流转状态看板与评论日志追踪 |
 | **存储迁移** | `/storage` | 需登录 (修改需Admin) | SQLite/JSON 迁移进度核对、数据一致性 Parity 校验与安全清理 |
 | **数据探索** | `/db-explorer` | 需登录 (修改需Admin) | SQLite 底层物理表可视化查询与多日日志打包导出 |
 | **自定义工具** | `/custom-tool` / `/tools/:slug` | 按工具配置 | 运行与管理自定义 HTML/ZIP 工具，支持多源市场扩展 |
 | **License 管理** | `/desktop-license-admin` | 管理员专有 | 管理员签发、续期、失效与归档客户端 License（服务端专有） |
+| **桌面 License 激活** | `/desktop-license-activation.html` | 公开/桌面端 | 桌面客户端离线 License 激活页，展示激活状态与离线凭据导入 |
 | **桌面宠物 AI 对话窗** | `desktop-pet/pet-chat.html` | 客户端本地免登 | 哈基米桌面伴侣独立 AI 客服视窗，支持智能避让、上下文问答与错误排查 |
 | **餐单与采购核验** | `/tools/tool-mtpx4vtr` | 需登录/本地 | 内容驱动列画像自动纠偏、WK预留周列智能剥离、每日差异汇总与明细折叠 |
 | **强控业务比对产品查询** | `/tools/tool-mumxi3px` | 需登录/本地 | 强控业务比对产品多维度模糊检索与合规范围排查 |
@@ -1079,6 +1282,12 @@ flowchart TD
 | `/api/global-backup` | `global-backup.js` | 需登录 (写需Admin) | 当前租户核心数据备份包生成、租户级自动备份调度与同租户恢复 |
 | `/api/storage` | `storage.js` | 需登录 (写需Admin) | SQLite/JSON 存储迁移状态、读源切换与遗留 JSON 安全清理 |
 | `/api/db-explorer` | `db-explorer.js` | 需登录 (写需Admin) | SQLite 物理表结构查询、数据探针与日志文件打包下载 |
+| `/api/agent-workspace` | `agent-workspace.js` | 需登录 | Dragon Claw 智能体专属本地代码工作区、目录补全、权限守卫、变更差异与 PR 自动化 |
+| `/api/python-updater` | `python-updater.js` | 需登录 (写需Admin) | Python 业务脚本版本仓库、版本差异比对与打包工程一键同步 |
+| `/api/platform-logo` | `platform-logo.js` | 需登录 (写需Admin) | 平台高清品牌资产、自动去底与多平台图标（1024/256/32）导出 |
+| `/api/desktop-pet` | `desktop-pet.js` | 需登录 | 桌面宠物古埃及故事集（40篇中英双语故事）分发与 AI 上下文展开 |
+| `/api/duty-roster` | `duty-roster.js` | 需登录 | 值班花名册、轮值规则与夜间运维考勤排班数据管理 |
+| `/api/recent-nav` | `recent-nav.js` | 需登录 | 按租户和账号持久化保存用户最近使用的功能与工具足迹 |
 | `/api/desktop-license` | `desktop-license-local.js` | 需登录 | 桌面客户端本地 License 授权状态检查 |
 | `/api/public/desktop-license` | `desktop-license-public.js` | 公开 | 桌面端 License 激活、心跳验签与离线凭据签发 |
 | `/api/public/f12-license` | `f12-license-public.js` | 公开 | F12 浏览器扩展 License 验签、可信时间与打包服务 |
@@ -1102,19 +1311,33 @@ flowchart TD
 ```text
 privacy-policy/
 ├── README.md                              # 根目录索引导航与快捷入口
+├── python-packager/                       # PR小助手独立外壳工程 (无控制台双进程架构/热更新)
+│   ├── universal_shell.py                 # 通用启动器 GUI 源码 (无控制台主进程)
+│   ├── core_script.py                     # PR 报告抽查核心业务逻辑外挂脚本
+│   ├── build_exe.py                       # 本地与 CI 自动化打包构建入口 (PyInstaller)
+│   ├── smoke_test.py                      # 真实菜单与数据读写自动化冒烟测试
+│   └── updater_config.json                # 在线热更新多源配置 (GitHub Raw/加速镜像/自定义源)
+│
 └── tools-platform/                        # 中台主工程根目录
-    ├── package.json                       # Electron 桌面端打包与根构建配置
-    ├── electron-main.js                   # Windows 桌面托盘壳主进程
+    ├── package.json                       # Electron 桌面端打包与根构建配置 (Dragon Platform)
+    ├── electron-main.js                   # 桌面托盘壳主进程 (Windows / macOS)
     ├── electron-preload.js                # 桌面端 IPC 与日志桥接脚本
     ├── desktop-license-client.js          # 桌面端 License 离线/在线验签客户端
     ├── desktop-license-preload.js         # License 激活页面预加载脚本
+    │
+    ├── desktop-pet/                       # 哈基米桌面宠物伴侣 (置顶微件/动效/客服/音效)
+    │   ├── pet.html                       # 伴侣透明独立渲染视窗
+    │   ├── gemini-pet.js                  # 动效状态机、音效、果冻回弹与拖拽物理引擎
+    │   ├── pet-chat.html                  # 毛玻璃独立 AI 客服会话视窗 (防遮挡智能避让)
+    │   ├── pet-manager.js                 # 伴侣窗口生命周期、自愈修复与配置持久化
+    │   └── pet-keyboard-hook.js           # 跨平台系统级全局按键监听与热力连击 (uiohook)
     │
     ├── backend/                           # Express 后端核心服务
     │   ├── server.js                      # 后端服务主入口、中间件装配、自检与后台任务调度
     │   ├── preflight.js                   # 启动前端口与系统环境预检
     │   ├── ecosystem.config.js            # PM2 生产运维配置文件
     │   ├── package.json                   # 后端依赖配置
-    │   ├── routes/                        # 38 个业务 API 路由模块
+    │   ├── routes/                        # 40+ 个业务 API 路由模块 (含 agent-workspace, python-updater 等)
     │   ├── models/                        # 数据库仓储 (app-db, report-store)、业务引擎与 AI 适配器
     │   ├── middleware/                    # JWT 鉴权与管理员权限控制中间件
     │   ├── logger/                        # 日志按日轮转与格式化输出
@@ -1122,7 +1345,7 @@ privacy-policy/
     │   └── data/                          # 后端运行数据库与配置 (tools.db, ai-knowledge.db 等)
     │
     ├── frontend/                          # 原生多页面静态前端
-    │   ├── index.html                     # 首页大中台主页面
+    │   ├── index.html                     # 首页双模工作台主页面 (Dragon Claw Agent + 工具矩阵)
     │   ├── pages/                         # 各独立业务页面 (uivf12, sla, report, monthly, topic-analysis, cinema 等)
     │   ├── css/                           # 全局样式、设计系统与暗黑主题
     │   ├── js/                            # 前端业务逻辑
@@ -1138,7 +1361,7 @@ privacy-policy/
     │   └── tools-platform-feature-overview-bilingual.html # 中英双语全景特性文档
     ├── iosapp/                            # 配套 iOS / Kotlin Multiplatform 移动端工程
     ├── scripts/                           # 运维、License 密钥同步与构建辅助脚本
-    └── tests/                             # 自动化单元测试与集成测试
+    └── tests/                             # 自动化单元测试与集成测试 (166 个测试套件，1,090+ 项用例)
 ```
 
 ---
@@ -1313,14 +1536,14 @@ pm2 stop tools-platform         # 停止服务
 
 | 特性维度 | Windows NSIS 安装版 (`Setup.exe`) | Windows 绿色免安装版 (`Portable.exe`) | macOS 原生客户端 (`DMG` / `ZIP`) |
 | :--- | :--- | :--- | :--- |
-| **文件名格式** | `Tools-Platform-Setup-X.Y.Z.exe` | `Tools-Platform-Portable-X.Y.Z.exe` | `Tools-Platform-X.Y.Z-arm64.dmg` / `x64.dmg` |
+| **文件名格式** | `Dragon-Platform-Setup-X.Y.Z.exe` | `Dragon-Platform-Portable-X.Y.Z.exe` | `Dragon-Platform-X.Y.Z-arm64.dmg` / `x64.dmg` |
 | **支持架构** | x64 (64位) | x64 (64位) | **Apple Silicon (arm64) & Intel (x64) 双原生** |
 | **安装方式** | 标准 Windows 安装向导，可自定义路径 | 单文件 EXE，双击直接运行，无需安装 | 挂载 DMG 拖入 `/Applications`，开箱即用 |
 | **快捷方式** | 自动创建桌面与开始菜单快捷方式 | 不创建快捷方式，可手动发送到桌面 | 自动集成于 macOS 启动台 (Launchpad) 与访达应用目录 |
 | **版本升级** | **支持应用内检测更新与静默自动升级** | 需从 GitHub Releases 手动下载新 EXE 替换 | **支持通过 ZIP 载荷进行应用内增量检测与升级** |
 | **开机自启** | 托盘菜单可直接一键勾选开机自启动 | 不写注册表启动项，纯绿色便携 | 托盘/Dock 支持配置登录项自动启动 |
 | **系统级桌宠** | **支持哈基米桌宠全功能与全局键盘监听** | **支持哈基米桌宠全功能与全局键盘监听** | **支持哈基米桌宠全功能（需系统辅助功能权限）** |
-| **数据存储** | `%APPDATA%\Tools Platform\` | 共享相同目录，更换 EXE **数据不丢失** | `~/Library/Application Support/Tools Platform/` |
+| **数据存储** | `%APPDATA%\Dragon Platform\` | 共享相同目录，更换 EXE **数据不丢失** | `~/Library/Application Support/Dragon Platform/` |
 | **安全机制** | 单实例锁 + SQLite 15s Busy Timeout | 单实例锁 + SQLite 15s Busy Timeout | **Apple Developer 签名 + Hardened Runtime + 官方公证** |
 
 #### 客户端获取与激活步骤：

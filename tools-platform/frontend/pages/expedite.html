@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>一键催办 - Tools Platform</title>
-    <link rel="stylesheet" href="/css/shared.css?v=20261011-02">
+    <link rel="stylesheet" href="/css/shared.css">
     <style>
         body {
             background: #f4f6f8;
@@ -600,11 +600,11 @@
             cursor: pointer;
         }
     </style>
-    <link rel="stylesheet" href="/css/startup-screen.css?v=20261011-45">
+    <link rel="stylesheet" href="/css/startup-screen.css">
 </head>
 
 <body>
-    <script src="/js/shared/startup-screen.js?v=20261011-45" data-startup-page="expedite"></script>
+    <script src="/js/shared/startup-screen.js" data-startup-page="expedite"></script>
     <div class="page-container">
         <div class="controls">
             <h2><span data-i18n="title">一键催办</span> <span
@@ -883,12 +883,12 @@
         </div>
     </div>
 
-    <script src="/js/shared/api.js?v=20261012-05"></script>
-    <script src="/js/shared/toast.js?v=20260530-01"></script>
-    <script src="/js/shared/i18n.js?v=20261005-01"></script>
-    <script src="/js/shared/platform-logo-upload.js?v=20261006-02"></script>
-    <script src="/js/shared/navbar.js?v=20261013-02"></script>
-    <script src="/js/expedite/network-mapping.js?v=20260924-01"></script>
+    <script src="/js/shared/api.js"></script>
+    <script src="/js/shared/toast.js"></script>
+    <script src="/js/shared/i18n.js"></script>
+    <script src="/js/shared/platform-logo-upload.js"></script>
+    <script src="/js/shared/navbar.js"></script>
+    <script src="/js/expedite/network-mapping.js"></script>
     <script>
         function formatExpediteSourceLabel(source) {
             if (source === 'sqlite') return 'SQLite';
@@ -897,39 +897,12 @@
             return source || '-';
         }
 
-        function formatVersionFromDate(dateText) {
-            const date = new Date(dateText);
-            if (Number.isNaN(date.getTime())) return '';
-            const pad = n => String(n).padStart(2, '0');
-            return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}`;
-        }
-
         async function renderExpediteFrontendVersion() {
             const versionEl = document.getElementById('expediteFrontendVersion');
             if (!versionEl) return;
-            const resourceNodes = [
-                ...document.querySelectorAll('link[href*="/css/"]'),
-                ...document.querySelectorAll('script[src*="/js/shared/"]')
-            ];
-            const versions = resourceNodes
-                .map(node => node.getAttribute('href') || node.getAttribute('src') || '')
-                .map(url => {
-                    try {
-                        return new URL(url, window.location.origin).searchParams.get('v') || '';
-                    } catch (e) {
-                        const match = url.match(/[?&]v=([^&]+)/);
-                        return match ? match[1] : '';
-                    }
-                })
-                .filter(Boolean);
-            try {
-                const res = await fetch(window.location.pathname, { method: 'HEAD', cache: 'no-store' });
-                const htmlVersion = formatVersionFromDate(res.headers.get('last-modified'));
-                if (htmlVersion) versions.push(htmlVersion);
-            } catch (e) {}
-            versions.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-            versionEl.textContent = versions.length ? `v${versions[versions.length - 1]}` : 'v未标记';
-            versionEl.title = versions.length ? `当前页面资源最新版本：${versions[versions.length - 1]}` : '未检测到前端资源版本号';
+            const version = await window.ToolsAppVersion?.get();
+            versionEl.textContent = version ? `v${version}` : 'v未标记';
+            versionEl.title = version ? `平台版本：${version}` : '未能获取平台版本';
         }
 
         function renderExpediteSourcePanel() {

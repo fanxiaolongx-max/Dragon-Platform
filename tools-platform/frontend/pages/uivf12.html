@@ -9,8 +9,8 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261006">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png?v=20261006">
     <link rel="apple-touch-icon" href="/assets/icon-mac.png?v=20261006">
-    <link rel="stylesheet" href="/css/shared.css?v=20261011-02">
-    <link rel="stylesheet" href="/css/uivf12.css?v=20261010-01">
+    <link rel="stylesheet" href="/css/shared.css">
+    <link rel="stylesheet" href="/css/uivf12.css">
     <style>
         .repo-source-panel {
             display: none !important;
@@ -53,11 +53,11 @@
             color: var(--text);
         }
     </style>
-    <link rel="stylesheet" href="/css/startup-screen.css?v=20261011-45">
+    <link rel="stylesheet" href="/css/startup-screen.css">
 </head>
 
 <body id="uiv-page">
-    <script src="/js/shared/startup-screen.js?v=20261011-45" data-startup-page="uivf12"></script>
+    <script src="/js/shared/startup-screen.js" data-startup-page="uivf12"></script>
     <div class="page-content">
         <div class="uiv-title">
             <div class="uiv-title-left">
@@ -760,50 +760,35 @@
     </div>
 
     <!-- 共享脚本 -->
-    <script src="/js/shared/api.js?v=20261012-05"></script>
-    <script src="/js/shared/custom-tool-upload.js?v=20261010-02"></script>
-    <script src="/js/shared/toast.js?v=20260628-19"></script>
-    <script src="/js/shared/i18n.js?v=20261005-01"></script>
-    <script src="/js/shared/platform-logo-upload.js?v=20261006-02"></script>
-    <script src="/js/shared/navbar.js?v=20261013-02"></script>
+    <script src="/js/shared/api.js"></script>
+    <script src="/js/shared/custom-tool-upload.js"></script>
+    <script src="/js/shared/toast.js"></script>
+    <script src="/js/shared/i18n.js"></script>
+    <script src="/js/shared/platform-logo-upload.js"></script>
+    <script src="/js/shared/navbar.js"></script>
     <!-- UIVF12 模块 -->
-    <script src="/js/uivf12/i18n.js?v=20261005-04"></script>
-    <script src="/js/uivf12/workbench.js?v=20261005-04"></script>
-    <script src="/js/uivf12/netcare-analysis.js?v=20261011-02"></script>
-    <script src="/js/uivf12/datafab-analysis.js?v=20260911-03"></script>
-    <script src="/js/uivf12/copy.js?v=20261010-01"></script>
-    <script src="/js/uivf12/genlog.js?v=20260628-19"></script>
-    <script src="/js/uivf12/auth-probe.js?v=20260720-01"></script>
-    <script src="/js/uivf12/generator.js?v=20261005-04"></script>
-    <script src="/js/uivf12/ai-adapter.js?v=20260729-01"></script>
-    <script src="/js/uivf12/ai-naming.js?v=20261012-01"></script>
-    <script src="/js/uivf12/save.js?v=20261005-04"></script>
-    <script src="/js/uivf12/sidebar.js?v=20261012-01"></script>
-    <script src="/js/uivf12/url-assist.js?v=20260729-01"></script>
-    <script src="/js/uivf12/analysis.js?v=20261012-01"></script>
-    <script src="/js/uivf12/extension-guide.js?v=20260817-01"></script>
+    <script src="/js/uivf12/i18n.js"></script>
+    <script src="/js/uivf12/workbench.js"></script>
+    <script src="/js/uivf12/netcare-analysis.js"></script>
+    <script src="/js/uivf12/datafab-analysis.js"></script>
+    <script src="/js/uivf12/copy.js"></script>
+    <script src="/js/uivf12/genlog.js"></script>
+    <script src="/js/uivf12/auth-probe.js"></script>
+    <script src="/js/uivf12/generator.js"></script>
+    <script src="/js/uivf12/ai-adapter.js"></script>
+    <script src="/js/uivf12/ai-naming.js"></script>
+    <script src="/js/uivf12/save.js"></script>
+    <script src="/js/uivf12/sidebar.js"></script>
+    <script src="/js/uivf12/url-assist.js"></script>
+    <script src="/js/uivf12/analysis.js"></script>
+    <script src="/js/uivf12/extension-guide.js"></script>
     <script>
-        function renderUIVFrontendVersion() {
+        async function renderUIVFrontendVersion() {
             const versionEl = document.getElementById('uivFrontendVersion');
             if (!versionEl) return;
-            const resourceNodes = [
-                ...document.querySelectorAll('link[href*="/css/uivf12.css"]'),
-                ...document.querySelectorAll('script[src*="/js/uivf12/"]')
-            ];
-            const versions = resourceNodes
-                .map(node => node.getAttribute('href') || node.getAttribute('src') || '')
-                .map(url => {
-                    try {
-                        return new URL(url, window.location.origin).searchParams.get('v') || '';
-                    } catch (e) {
-                        const match = url.match(/[?&]v=([^&]+)/);
-                        return match ? match[1] : '';
-                    }
-                })
-                .filter(Boolean)
-                .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-            versionEl.textContent = versions.length ? `v${versions[versions.length - 1]}` : UIVT('uiv.version.unmarked');
-            versionEl.title = versions.length ? UIVT('uiv.version.title', { version: versions[versions.length - 1] }) : UIVT('uiv.version.missing');
+            const version = await window.ToolsAppVersion?.get();
+            versionEl.textContent = version ? `v${version}` : UIVT('uiv.version.unmarked');
+            versionEl.title = version ? UIVT('uiv.version.title', { version }) : UIVT('uiv.version.missing');
         }
 
         // 页面初始化

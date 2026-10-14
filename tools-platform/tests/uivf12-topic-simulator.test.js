@@ -35,9 +35,9 @@ test('topic simulator reuses the production renderers in offline-only mode', () 
 });
 
 test('simulator assets are cache-busted on the UIVF12 page', () => {
-    assert.match(pageSource, /uivf12\.css\?v=20261010-01/);
-    assert.match(pageSource, /netcare-analysis\.js\?v=20261011-02/);
-    assert.match(pageSource, /datafab-analysis\.js\?v=20260911-03/);
-    assert.match(pageSource, /copy\.js\?v=20261010-01/);
-    assert.match(pageSource, /custom-tool-upload\.js\?v=20261010-02/);
+    assert.match(pageSource, /uivf12\.css"/);
+    assert.match(pageSource, /netcare-analysis\.js"/);
+    assert.match(pageSource, /datafab-analysis\.js"/);
+    assert.match(pageSource, /copy\.js"/);
+    assert.match(pageSource, /custom-tool-upload\.js"/);
 });

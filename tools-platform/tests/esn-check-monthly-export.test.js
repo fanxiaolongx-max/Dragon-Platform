@@ -343,7 +343,8 @@ test('column aggregation splits headers into two rows with multi-line notes and 
     assert.match(topicJs, /\.topic-html-page\s*\{\s*[^}]*max-width:\s*1560px/);
 
     // 3. Outlook MSG wide layout
-    assert.match(msgJs, /max-width:(?:1320|1450)px/);
+    // Email width follows the rendered report width, falling back to 1320px.
+    assert.match(msgJs, /const emailWidth\s*=[^;]*:\s*1320\s*;/);
     assert.match(msgJs, /target\.setAttribute\('width',\s*'100%'\)/);
 });
 
@@ -362,7 +363,7 @@ test('exportMonthlyHtml does not leak ody> text and report-msg-export converts b
 
     // 3. Email export defines convertBlocksToEmailTables and uses MSO width 1320
     assert.match(msgJs, /function convertBlocksToEmailTables\(/);
-    assert.match(msgJs, /<!--\[if \(gte mso 9\)\|\(IE\)\]>\s*<table role="presentation" width="1320"/);
+    assert.match(msgJs, /<!--\[if \(gte mso 9\)\|\(IE\)\]>\s*<table role="presentation" width="\$\{emailWidth\}"/);
 });
 
 

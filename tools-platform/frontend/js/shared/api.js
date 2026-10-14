@@ -205,6 +205,20 @@ const API = {
 
 window.API = API;
 
+// 页面版本徽标统一显示平台发布版本，资源 ?v= 现由服务端按内容哈希生成，不再代表版本。
+let toolsAppVersionPromise = null;
+window.ToolsAppVersion = {
+    get() {
+        if (!toolsAppVersionPromise) {
+            toolsAppVersionPromise = fetch('/api/app-version', { cache: 'no-store' })
+                .then(res => (res.ok ? res.json() : null))
+                .then(data => (data && data.version ? String(data.version) : ''))
+                .catch(() => '');
+        }
+        return toolsAppVersionPromise;
+    }
+};
+
 function initToolsWelcomeExperience() {
     const params = new URLSearchParams(window.location.search);
     const mode = params.get('welcome');

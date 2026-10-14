@@ -154,7 +154,7 @@ function getConfigFilePath() {
 const DEFAULT_CONFIG = {
     enabled: true,         // 是否开机/启动自动加载桌宠 (false 为永久无桌宠模式)
     visible: true,         // 当前是否可见 (本次临时隐藏状态)
-    scale: 1.2,
+    scale: 0.75,          // 默认体型缩放 0.75x (适合桌面沉浸式办公，小巧不遮挡)
     soundVol: 0.8,
     soundSet: 'duck',
     bubbleOn: true,
@@ -171,6 +171,12 @@ function loadPetConfig() {
         const filePath = getConfigFilePath();
         if (fs.existsSync(filePath)) {
             const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+            // 兼容旧版默认 1.2 缩放：若未设置 scaleVersion 且仍为旧版默认 1.2，则平滑升级为 0.75
+            if (!parsed.scaleVersion && (parsed.scale === 1.2 || parsed.scale === undefined || parsed.scale === null)) {
+                parsed.scale = 0.75;
+                parsed.scaleVersion = 2;
+                savePetConfig(parsed);
+            }
             return Object.assign({}, DEFAULT_CONFIG, parsed);
         }
     } catch (_) {}
@@ -283,7 +289,7 @@ function createPetWindow() {
 
     const baseW = 290;
     const baseH = 390;
-    const s = Math.max(0.6, Math.min(2.5, Number(cfg.scale) || 1.2));
+    const s = Math.max(0.6, Math.min(2.5, Number(cfg.scale) || 0.75));
     const petW = Math.max(160, Math.round(baseW * s));
     const petH = Math.max(220, Math.round(baseH * s));
 
@@ -610,8 +616,8 @@ function registerIpc() {
     // 缩放调整
     ipcMain.on('pet-set-scale', (event, scale) => {
         try {
-            const s = Math.max(0.6, Math.min(2.5, Number(scale) || 1.2));
-            savePetConfig({ scale: s });
+            const s = Math.max(0.6, Math.min(2.5, Number(scale) || 0.75));
+            savePetConfig({ scale: s, scaleVersion: 2 });
             if (petWin && !petWin.isDestroyed()) {
                 const baseW = 290;
                 const baseH = 390;
