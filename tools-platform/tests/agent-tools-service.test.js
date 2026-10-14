@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { EventEmitter } = require('node:events');
 
 const guard = require('../backend/models/agent-path-guard');
 const tools = require('../backend/models/agent-tools-service');
@@ -258,5 +259,33 @@ test('wide Unicode pages keep a truthful continuation cursor within the outer re
     const wide = await tools.execute(ctx(), 'read_file', { path: 'paged-unicode.txt' });
     assert.match(wide.content, /本行共 4194304 字符/);
     assert.match(wide.content, /2│中文尾行/);
+    fs.rmSync(file);
+});
+
+test('Windows cancellation kills the process tree before the parent and is idempotent', () => {
+    const calls = [];
+    const child = { pid: 12345, exitCode: null, signalCode: null, kill: () => calls.push('parent-kill') };
+    const taskkill = new EventEmitter();
+    const options = { platform: 'win32', systemRoot: 'C:\\Windows', spawnProcess: (file, args, opts) => {
+        calls.push({ file, args, opts });
+        return taskkill;
+    } };
+    tools.killTree(child, options);
+    tools.killTree(child, options);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].file, 'C:\\Windows\\System32\\taskkill.exe');
+    assert.deepEqual(calls[0].args, ['/pid', '12345', '/T', '/F']);
+    assert.equal(calls[0].opts.windowsHide, true);
+    taskkill.emit('error', new Error('synthetic launch failure'));
+    assert.equal(calls[1], 'parent-kill', 'fallback only runs if killing the tree fails');
+});
+
+test('long command output retains the tail and exit status through both output limits', async () => {
+    const file = path.join(ROOT, 'large-output.js');
+    fs.writeFileSync(file, "process.stdout.write('x'.repeat(100000) + '\\nFINAL-OUTPUT-MARKER\\n');");
+    const result = await tools.execute(ctx(), 'run_command', { command: `"${process.execPath}" large-output.js` });
+    assert.equal(result.truncated, true);
+    assert.match(result.content, /FINAL-OUTPUT-MARKER/);
+    assert.match(result.content, /退出码 0/);
     fs.rmSync(file);
 });

@@ -41,8 +41,11 @@
     display: flex;
     align-items: center;
     gap: 9px;
-    height: 40px;
-    padding: 0 9px 0 12px;
+    height: 44px;
+    min-height: 44px;
+    flex: 0 0 44px;
+    box-sizing: border-box;
+    padding: 0 10px 0 12px;
     border: 1px solid rgba(148, 163, 184, 0.2);
     border-radius: 11px;
     background: rgba(2, 6, 23, 0.45);
@@ -56,6 +59,9 @@
 .home-search input {
     flex: 1;
     min-width: 0;
+    height: 100%;
+    padding: 0;
+    margin: 0;
     border: 0;
     outline: none;
     background: transparent;

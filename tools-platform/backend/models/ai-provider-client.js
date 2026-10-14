@@ -530,7 +530,7 @@ class AiProviderClient {
                 const canFallback = !emitted && !signal?.aborted && !['AI_TOOLS_UNSUPPORTED', 'AI_TOOL_SIGNATURE_MISSING', 'AI_TOOL_HISTORY_INVALID'].includes(error?.code)
                     && ([400, 404, 405, 415, 422, 501].includes(status) || error?.code === 'AI_STREAM_UNSUPPORTED');
                 if (!canFallback) throw error;
-                console.warn(`[AI] ${this.provider} stream unavailable; falling back to buffered response: ${error.message}`);
+                console.warn(`[AI] ${this.provider} stream unavailable; falling back to buffered response: ${redactText(error.message, protection)}`);
                 result = await regularRequest();
                 emit(result.text);
             }
@@ -1052,7 +1052,7 @@ class AutoSwitchAiClient {
             } catch (error) {
                 lastError = error;
                 if (index >= this.candidates.length - 1 || !isAutoSwitchableError(error, emitted)) throw error;
-                console.warn(`[AI] ${client.provider}/${client.model} unavailable; auto-switching to the next configured model: ${error.message}`);
+                console.warn(`[AI] ${client.provider}/${client.model} unavailable; auto-switching to the next configured model: ${redactText(error.message, { secrets: [client.apiKey] })}`);
             }
         }
         throw lastError || new Error('没有可用的 AI 模型配置');

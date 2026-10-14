@@ -343,12 +343,7 @@ function beginRun(session, write, signal) {
     const onAbort = () => {
         run.aborted = true;
         run.pending.forEach(settle => settle('abort'));
-        run.processes.forEach(child => {
-            try {
-                if (process.platform === 'win32') child.kill('SIGKILL');
-                else process.kill(-child.pid, 'SIGKILL');
-            } catch (_e) { try { child.kill('SIGKILL'); } catch (_ignored) { /* exited */ } }
-        });
+        run.processes.forEach(child => toolsService.killTree(child));
     };
     signal?.addEventListener('abort', onAbort, { once: true });
     run.end = () => {

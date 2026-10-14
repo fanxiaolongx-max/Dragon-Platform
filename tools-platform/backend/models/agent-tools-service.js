@@ -184,7 +184,8 @@ function toolError(code, message) {
 function clampResult(text) {
     const value = String(text ?? '');
     if (value.length <= LIMITS.resultChars) return { content: value, truncated: false };
-    return { content: `${value.slice(0, LIMITS.resultChars)}\n…（结果过长，已截断，共 ${value.length} 字符）`, truncated: true };
+    const half = Math.floor((LIMITS.resultChars - 100) / 2);
+    return { content: `${value.slice(0, half)}\n…（结果过长，已截断，共 ${value.length} 字符）…\n${value.slice(-half)}`, truncated: true };
 }
 
 function formatSize(bytes) {
@@ -529,13 +530,20 @@ function scrubbedEnv() {
     return env;
 }
 
-function killTree(child) {
-    if (!child || child.exitCode !== null || child.signalCode) return;
+const terminatingProcesses = new WeakSet();
+function killTree(child, { platform = process.platform, spawnProcess = spawn, killGroup = process.kill, systemRoot = process.env.SystemRoot || 'C:\\Windows' } = {}) {
+    if (!child || !child.pid || child.exitCode !== null || child.signalCode || terminatingProcesses.has(child)) return;
+    terminatingProcesses.add(child);
+    const fallback = () => { try { child.kill('SIGKILL'); } catch (_ignored) { /* 已退出 */ } };
     try {
-        if (process.platform === 'win32') spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
-        else process.kill(-child.pid, 'SIGKILL');
+        if (platform === 'win32') {
+            // 先结束整棵进程树，不能先杀 cmd.exe 再调用 taskkill，否则子进程可能脱离父进程。
+            const taskkill = spawnProcess(path.win32.join(systemRoot, 'System32', 'taskkill.exe'), ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+            taskkill.on('error', fallback);
+            taskkill.on('close', code => { if (code) fallback(); });
+        } else killGroup(-child.pid, 'SIGKILL');
     } catch (_error) {
-        try { child.kill('SIGKILL'); } catch (_ignored) { /* 已退出 */ }
+        fallback();
     }
 }
 
@@ -559,8 +567,9 @@ function createOutputCollector(limit) {
             tail.push(chunk);
             tailBytes += chunk.length;
             while (tailBytes > half && tail.length) {
-                const dropped = tail.shift();
-                tailBytes -= dropped.length;
+                const excess = tailBytes - half;
+                if (tail[0].length <= excess) tailBytes -= tail.shift().length;
+                else { tail[0] = tail[0].subarray(excess); tailBytes -= excess; }
             }
         },
         text() {
@@ -637,6 +646,7 @@ async function runCommand(ctx, args = {}) {
                 content: parts.join('\n'),
                 summary: status,
                 isError: Boolean(spawnError) || timedOut || (code !== 0 && code !== null),
+                truncated: stdout.truncated || stderr.truncated,
                 exitCode: code,
                 durationMs
             });
@@ -742,4 +752,4 @@ async function execute(ctx, name, args = {}) {
     }
 }
 
-module.exports = { LIMITS, definitions, kindOf, preview, execute, scrubbedEnv, resolveShell };
+module.exports = { LIMITS, definitions, kindOf, preview, execute, scrubbedEnv, resolveShell, killTree };
