@@ -108,6 +108,46 @@ class UpdateTests(unittest.TestCase):
         with patch.object(shell, 'fetch_url', return_value=b"print('custom')\n"):
             self.assertTrue(shell.perform_update(self.config)[0])
 
+    def test_resolve_custom_urls(self):
+        s1, v1 = shell.resolve_custom_urls('https://github.com/foo/bar')
+        self.assertEqual(s1, 'https://raw.githubusercontent.com/foo/bar/main/python-packager/core_script.py')
+        self.assertEqual(v1, 'https://raw.githubusercontent.com/foo/bar/main/python-packager/version.json')
+
+        s2, v2 = shell.resolve_custom_urls('https://github.com/foo/bar/blob/main/python-packager/core_script.py')
+        self.assertEqual(s2, 'https://raw.githubusercontent.com/foo/bar/main/python-packager/core_script.py')
+        self.assertEqual(v2, 'https://raw.githubusercontent.com/foo/bar/main/python-packager/version.json')
+
+        s3, v3 = shell.resolve_custom_urls('https://github.com/foo/bar/tree/v2/sub')
+        self.assertEqual(s3, 'https://raw.githubusercontent.com/foo/bar/v2/sub/core_script.py')
+        self.assertEqual(v3, 'https://raw.githubusercontent.com/foo/bar/v2/sub/version.json')
+
+        s4, v4 = shell.resolve_custom_urls('https://example.com/custom_test.py')
+        self.assertEqual(s4, 'https://example.com/custom_test.py')
+        self.assertEqual(v4, 'https://example.com/version.json')
+
+        s5, v5 = shell.resolve_custom_urls('https://example.com/packager/')
+        self.assertEqual(s5, 'https://example.com/packager/core_script.py')
+        self.assertEqual(v5, 'https://example.com/packager/version.json')
+
+        self.assertEqual(shell.resolve_custom_urls(''), ('', ''))
+
+    def test_custom_source_with_github_repo_url_resolves_and_updates(self):
+        self.config['active_source_id'] = 'custom'
+        self.config['custom_url'] = 'https://github.com/test-org/test-repo'
+        self.config['remote_sources'].append({'id': 'custom', 'name': 'test'})
+        fetched_urls = []
+        def mock_fetch(url, timeout=None):
+            fetched_urls.append(url)
+            if url.endswith('version.json'):
+                return b'{"version": "2.0.0", "sha256": "' + hashlib.sha256(b"print('github_custom')\n").hexdigest().encode() + b'"}'
+            return b"print('github_custom')\n"
+        with patch.object(shell, 'fetch_url', side_effect=mock_fetch):
+            ok, msg, ver = shell.perform_update(self.config)
+            self.assertTrue(ok)
+            self.assertEqual(ver, '2.0.0')
+            self.assertEqual(fetched_urls[0], 'https://raw.githubusercontent.com/test-org/test-repo/main/python-packager/version.json')
+            self.assertEqual(fetched_urls[1], 'https://raw.githubusercontent.com/test-org/test-repo/main/python-packager/core_script.py')
+
 
 class TerminalTests(unittest.TestCase):
     def test_close_waits_for_update_completion_before_destroying_window(self):
@@ -308,6 +348,50 @@ class DataDirectoryTests(unittest.TestCase):
         with patch.object(shell.filedialog, 'askdirectory', return_value=''), patch.object(shell, 'save_config') as save:
             shell.UniversalShellGUI._on_choose_data_dir(GUI())
         save.assert_not_called()
+
+
+class CustomSourceUITests(unittest.TestCase):
+    def test_toggle_custom_source_input_visibility(self):
+        packed = []
+        forgotten = []
+        class DummyWidget:
+            def pack(self, **kwargs):
+                packed.append(kwargs)
+            def pack_forget(self):
+                forgotten.append(True)
+        class GUI:
+            config = {'active_source_id': 'github'}
+            custom_url_frame = DummyWidget()
+            btn_update = object()
+        gui = GUI()
+
+        shell.UniversalShellGUI._toggle_custom_source_input(gui)
+        self.assertEqual(len(forgotten), 1)
+
+        gui.config['active_source_id'] = 'custom'
+        shell.UniversalShellGUI._toggle_custom_source_input(gui)
+        self.assertEqual(len(packed), 1)
+        self.assertIs(packed[0]['before'], gui.btn_update)
+
+    def test_save_custom_url_writes_config_and_notifies(self):
+        terminal_output = []
+        class DummyVar:
+            def __init__(self, val): self.val = val
+            def get(self): return self.val
+        class GUI:
+            config = {'custom_url': ''}
+            custom_url_var = DummyVar('https://github.com/my-org/my-repo')
+            terminal = type('T', (), {'write_ansi': lambda s, text: terminal_output.append(text)})()
+        gui = GUI()
+
+        with patch.object(shell, 'save_config') as save:
+            shell.UniversalShellGUI._save_custom_url(gui, notify=True)
+            self.assertEqual(gui.config['custom_url'], 'https://github.com/my-org/my-repo')
+            save.assert_called_once_with(gui.config)
+            self.assertTrue(any('自动保存' in msg for msg in terminal_output))
+
+    def test_default_tool_name_is_pr_assistant(self):
+        self.assertEqual(shell.load_version_info()['name'], 'PR小助手')
 
 
 if __name__ == '__main__':

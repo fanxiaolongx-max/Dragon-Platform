@@ -155,6 +155,44 @@ function batchHarness() {
     return context;
 }
 
+test('multi-plan settings default on, migrate old preferences and preserve an explicit opt-out', () => {
+    const c = batchHarness(), settings = c.netcareDefaultSettings();
+    assert.equal(settings.autoSelectSanitizedPlan, true);
+    delete settings.autoSelectSanitizedPlan;
+    assert.equal(c.netcareNormalizeSettings(settings).autoSelectSanitizedPlan, true);
+    assert.equal(c.netcareNormalizeSettings({...settings, autoSelectSanitizedPlan:false}).autoSelectSanitizedPlan, false);
+    assert.throws(() => c.netcareNormalizeSettings({...settings, autoSelectSanitizedPlan:'true'}), /设置/);
+    assert.equal(c.netcareNormalizeSettings(settings).sections[0].autoSelectSanitizedPlan, undefined);
+});
+test('auto selection follows a unique sanitized label, never just the second plan or an ambiguous label', () => {
+    const select = batchHarness().netcareSanitizedPlanIndex;
+    assert.equal(select([{name:'Original plan'},{name:'脱敏方案：Replacement'}]),1);
+    assert.equal(select([{name:'Sanitized solution'},{name:'Original plan'}]),0);
+    assert.equal(select([{name:'Original plan'},{name:'Replacement'}]),-1);
+    assert.equal(select([{name:'未脱敏方案'},{name:'Not redacted plan'}]),-1);
+    assert.equal(select([{name:'脱敏方案 A'},{name:'脱敏方案 B'}]),-1);
+    assert.equal(select([{name:'Original plan'},{name:'脱敏方案'}],false),-1);
+});
+test('simultaneous plan prompts queue with their own RFC and selected index', async () => {
+    const queue = batchHarness().netcarePlanChoiceQueue, shown=[], gates=[];
+    const ask = queue(request => {shown.push(request.order);return new Promise(resolve=>gates.push(resolve));});
+    const signal = new AbortController().signal;
+    const first=ask({order:'A'},signal), second=ask({order:'B'},signal);
+    await new Promise(resolve=>setImmediate(resolve)); assert.deepEqual(shown,['A']);
+    gates[0](1); assert.equal(await first,1);
+    await new Promise(resolve=>setImmediate(resolve)); assert.deepEqual(shown,['A','B']);
+    gates[1](0); assert.equal(await second,0);
+});
+test('queued cancellation does not display the cancelled RFC or block the next choice', async () => {
+    const queue = batchHarness().netcarePlanChoiceQueue, shown=[], gates=[];
+    const ask = queue(request => {shown.push(request.order);return new Promise(resolve=>gates.push(resolve));});
+    const firstController=new AbortController(), cancelled=new AbortController(), lastController=new AbortController();
+    const first=ask({order:'A'},firstController.signal), second=ask({order:'B'},cancelled.signal), last=ask({order:'C'},lastController.signal);
+    const rejected=assert.rejects(second,/Stopped/); cancelled.abort(); await rejected;
+    await new Promise(resolve=>setImmediate(resolve)); gates[0](1); await first;
+    await new Promise(resolve=>setImmediate(resolve)); assert.deepEqual(shown,['A','C']); gates[1](0); await last;
+});
+
 test('batch input normalizes separators, case and duplicates, and refuses invalid tokens', () => {
     const { parseNetcareRfcOrders: parse } = batchHarness();
     assert.deepEqual(Array.from(parse('nc20260921001984，NC20261005000019\nNC20260921001984; NC20261005100013、NC20260901100036')),
@@ -1846,6 +1884,292 @@ test('multi-extension collision yields to first active extension and posts confl
     assert.equal(posted[0].data.currentId, secondExtId);
     assert.equal(posted[0].data.activeId, 'first-extension-id');
 });
+
+test('sanitized plan (DNC...) is recognized across PublishLiteView export and online background handlers', async () => {
+    const pack = packer.buildPackage({ ...options, examAiBridge: false });
+    const bgCode = pack.files['background.js'];
+
+    const mockOrder = 'NC20260227000221';
+    const sanitizedDocId = 'DNC20260227000221';
+
+    const mockStorage = {
+        netcareAiModels: [
+            { id: 'm-1', name: 'Test Model', model: 'test-model', protocol: 'openai', url: 'https://aigateway.huawei.com/v1/chat/completions', key: 'key-1' }
+        ],
+        netcareAiSelectedModel: 'm-1',
+        netcareExtractionSettings: {
+            aiAuditEnabled: true,
+            sections: [{ number: '3.3', textPrompt: 'Check steps' }]
+        }
+    };
+
+    const listeners = [];
+    const mockChrome = {
+        runtime: {
+            id: 'test-ext-id',
+            getURL: path => `chrome-extension://test-ext-id/${path}`,
+            onInstalled: { addListener: () => {} },
+            onMessage: { addListener: fn => listeners.push(fn) }
+        },
+        storage: {
+            local: {
+                get: async keys => {
+                    const res = {};
+                    for (const k of (Array.isArray(keys) ? keys : [keys])) {
+                        if (mockStorage[k] !== undefined) res[k] = mockStorage[k];
+                    }
+                    return res;
+                },
+                set: async () => {},
+                getBytesInUse: async () => 0
+            },
+            onChanged: { addListener: () => {} }
+        },
+        tabs: { sendMessage: async () => {}, get: async () => ({}) }
+    };
+
+    const answer = { status: 'pass', summary: { zh: '合规', en: 'Compliant' }, findings: [] };
+    const context = {
+        chrome: mockChrome,
+        fetch: async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(answer) } }] }), { status: 200 }),
+        console,
+        AbortController,
+        TextDecoder,
+        URL,
+        Date,
+        Response,
+        crypto: { randomUUID: () => '22222222-3333-4444-5555-666666666666' },
+        setTimeout,
+        clearTimeout
+    };
+
+    vm.runInNewContext(bgCode, context);
+    assert.ok(listeners.length > 0);
+
+    const dispatch = (msg, sender) => new Promise(resolve => {
+        for (const fn of listeners) {
+            let called = false;
+            const res = fn(msg, sender, val => { called = true; resolve(val); });
+            if (res === true || called) return;
+        }
+    });
+
+    // 1. Verify AI audit allows sanitized plan OwsPage tab (docId=DNC20260227000221)
+    const sanitizedOnlineUrl = `https://de.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html?docId=${sanitizedDocId}&order_id=${mockOrder}`;
+    const sender = { id: 'test-ext-id', url: sanitizedOnlineUrl, frameId: 0, tab: { id: 99 } };
+    const aiResult = await dispatch({
+        type: 'TP_RFC_AI_AUDIT',
+        id: '22222222-3333-4444-5555-666666666666',
+        order: mockOrder,
+        section: '3.3',
+        kind: 'text',
+        text: 'Operation steps for change'
+    }, sender);
+
+    assert.equal(aiResult.ok, true);
+    assert.equal(aiResult.report.status, 'pass');
+
+    // 2. Verify collector bridge parses sanitized docId into canonical order
+    const bridgeCode = pack.files['netcare-collector-bridge.js'];
+    let parsedOrder = null;
+    const bridgeWindow = {
+        top: null,
+        addEventListener: () => {},
+        postMessage: () => {}
+    };
+    bridgeWindow.top = bridgeWindow;
+    const bridgeDoc = {
+        documentElement: {
+            getAttribute: () => null,
+            setAttribute: () => {}
+        }
+    };
+    const bridgeContext = {
+        window: bridgeWindow,
+        document: bridgeDoc,
+        location: { href: `https://de.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html?docId=${sanitizedDocId}`, origin: 'https://de.kdp.gts.huawei.com' },
+        chrome: {
+            runtime: { id: 'test-ext-id' },
+            storage: { local: { get: async () => ({}) } }
+        },
+        console: { warn: () => {} },
+        URL
+    };
+    // Bridge should run without returning early
+    vm.runInNewContext(bridgeCode, bridgeContext);
+    assert.equal(bridgeDoc.documentElement.getAttribute('data-netcare-active-extension-id'), null);
+});
+
+test('disableLocalRules prevents local fallback, supports retry loop and friendly top logs', async () => {
+    const ctx = { URL, URLSearchParams, location: new URL('https://unrelated.example'), window: {} };
+    vm.runInNewContext(code, ctx);
+
+    // 1. Settings normalization checks
+    const defaultSet = ctx.netcareDefaultSettings();
+    assert.equal(defaultSet.disableLocalRules, false);
+
+    const normDisabledAi = ctx.netcareNormalizeSettings({ ...defaultSet, aiAuditEnabled: false, disableLocalRules: true });
+    assert.equal(normDisabledAi.disableLocalRules, false);
+
+    const normEnabledAi = ctx.netcareNormalizeSettings({
+        ...defaultSet,
+        aiAuditEnabled: true,
+        disableLocalRules: true,
+        sections: [{ number: '1.1', title: 'Change Purpose', text: true, textPrompt: 'Check purpose' }]
+    });
+    assert.equal(normEnabledAi.disableLocalRules, true);
+
+    // 2. Audit runner with disableLocalRules: true and promptRetry user rejection
+    const settings = normEnabledAi;
+    const items = [{ section: '1.1', sectionTitle: 'Change Purpose', kind: 'text', filename: '1.1.txt', text: '变更目的：系统优化升级' }];
+
+    const topLogs = [];
+    const topLog = (level, msg) => topLogs.push({ level, msg });
+
+    let retryPrompted = false;
+    const promptRetryReject = async (info) => {
+        retryPrompted = true;
+        assert.equal(info.section, '1.1');
+        assert.match(info.error, /Model Timeout/);
+        return false; // User decides to skip
+    };
+
+    let attempts = 0;
+    const failedRequest = async () => {
+        attempts++;
+        throw new Error('Model Timeout 504');
+    };
+
+    const reports = await ctx.netcareRunAudits(items, settings, failedRequest, new AbortController().signal, () => {}, () => {}, promptRetryReject, topLog);
+
+    assert.equal(retryPrompted, true);
+    assert.equal(attempts, 1);
+    assert.equal(reports.length, 1);
+    const r = reports[0];
+    assert.equal(r.error, true);
+    assert.equal(r.fallback, undefined); // Strictly NO fallback to local rules!
+    assert.match(r.summary, /Model Timeout 504/);
+    assert.ok(topLogs.some(l => l.level === 'error' && l.msg.includes('Model Timeout 504')));
+
+    // 3. Audit runner with disableLocalRules: true and promptRetry user confirmation -> retry succeeds
+    let retryAttempts = 0;
+    topLogs.length = 0;
+    const retryRequest = async () => {
+        retryAttempts++;
+        if (retryAttempts === 1) throw new Error('HTTP 429 Rate Limited');
+        return { ok: true, report: { status: 'pass', summary: 'Audit passed on retry' }, model: 'test-model' };
+    };
+
+    const promptRetryConfirm = async () => true; // User decides to retry
+
+    const retryReports = await ctx.netcareRunAudits(items, settings, retryRequest, new AbortController().signal, () => {}, () => {}, promptRetryConfirm, topLog);
+
+    assert.equal(retryAttempts, 2);
+    assert.equal(retryReports.length, 1);
+    assert.equal(retryReports[0].status, 'pass');
+    assert.equal(retryReports[0].summary, 'Audit passed on retry');
+    assert.ok(topLogs.some(l => l.level === 'info' && l.msg.includes('正在重试 AI 接口 (第 2 次)')));
+    assert.ok(topLogs.some(l => l.level === 'success' && l.msg.includes('AI 审计成功')));
+});
+
+test('audit summary publish stores summary without redundant snapshot creation', async () => {
+    const pkg = packer.buildPackage({ ...options, manualLaunch: true });
+    const callbacks = [], stored = {};
+    const ctx = {
+        URL,
+        chrome: {
+            runtime: { id: 'test', getURL: p => 'chrome-extension://test/' + p, onInstalled: { addListener() {} }, onMessage: { addListener: fn => callbacks.push(fn) } },
+            storage: { local: { get: async key => ({ [key]: stored[key] }), set: async d => Object.assign(stored, d) } }
+        }
+    };
+    vm.runInNewContext(pkg.files['background.js'], ctx);
+    const publish = callbacks[2];
+
+    const reply = await new Promise(r => publish({
+        type: 'TP_RFC_AUDIT_PUBLISH',
+        order: onlineOrder,
+        record: {
+            order: onlineOrder,
+            materials: [],
+            items: [],
+            reports: [{ section: '1.1', status: 'pass', summary: 'OK' }]
+        }
+    }, { id: 'test', frameId: 0, tab: { id: 1 }, url: onlineUrl }, r));
+
+    assert.equal(reply.ok, true);
+    assert.equal(stored.netcareAuditSummaries.length, 1);
+    assert.equal(stored.netcareAuditSummaries[0].order, onlineOrder);
+    // snapStore should NOT have an auto-generated per-order snapshot
+    assert.equal(stored.snapStore, undefined);
+});
+
+test('confirmation dialog is styled with fit-content to avoid full viewport stretching', () => {
+    assert.match(code, /#confirmationDialog\s*\{[^}]*height:\s*fit-content\s*!important/);
+    assert.match(code, /#confirmationDialog\s*\{[^}]*min-height:\s*0\s*!important/);
+    assert.doesNotMatch(code, /#confirmationDialog\s*\{[^}]*height:\s*auto(?![^}]*fit-content)/);
+});
+
+test('embedScreenshotsInExcel defaults to false, avoids squashing images in Excel and preserves screenshots in materials ZIP', async () => {
+    const ctx = { URL, Blob, TextEncoder, location: new URL('https://unrelated.example'), window: {} };
+    vm.runInNewContext(code, ctx);
+
+    const defaultSettings = ctx.netcareDefaultSettings();
+    assert.equal(defaultSettings.embedScreenshotsInExcel, false);
+    assert.equal(defaultSettings.screenshotsEnabled, true);
+
+    const norm = ctx.netcareNormalizeSettings({
+        sections: [{ number: '1.1', title: 'Scope', text: true, attachments: false }],
+        screenshotsEnabled: false,
+        embedScreenshotsInExcel: true
+    });
+    // Linkage: when screenshotsEnabled is false, embedScreenshotsInExcel must be false
+    assert.equal(norm.screenshotsEnabled, false);
+    assert.equal(norm.embedScreenshotsInExcel, false);
+
+    const normEnabled = ctx.netcareNormalizeSettings({
+        sections: [{ number: '1.1', title: 'Scope', text: true, attachments: false }],
+        textEnabled: true,
+        screenshotsEnabled: true,
+        embedScreenshotsInExcel: true
+    });
+    assert.equal(normEnabled.embedScreenshotsInExcel, true);
+
+    // Verify netcareValidSettings in packer accepts embedScreenshotsInExcel
+    const pkg = packer.buildPackage({ ...options, manualLaunch: true });
+    assert.ok(pkg.files['netcare-backup.html'].includes('id="password" type="password" style="display:none"'));
+    assert.ok(pkg.files['netcare-backup.html'].includes('内置统一内网秘钥'));
+
+    // Test netcareAuditExcel with embedScreenshots = false
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jvXkAAAAASUVORK5CYII=', 'base64');
+    const shot = { name: 'shot.png', folder: '3.2-Test', section: '3.2', kind: 'text', role: 'screenshot', sourceFilename: 'source.txt' };
+    const report = { section: '3.2', kind: 'text', filename: 'source.txt', rule: 'Test rule', status: 'pass', summary: 'Pass summary', findings: [] };
+    const record = { order: 'NC20261014000001', materials: [shot], items: [{ section: '3.2', kind: 'text', filename: 'source.txt', text: 'Section content' }], reports: [report] };
+    const images = new Map([[ctx.netcareAuditImageKey(record.order, 'shot.png'), new Blob([png])]]);
+    const JSZip = require('../backend/node_modules/jszip');
+
+    // Without embedding (default user preference: embedScreenshots = false)
+    const excelCleanBlob = await ctx.netcareAuditExcel([record], 'zh', images, false);
+    const zipClean = await JSZip.loadAsync(await excelCleanBlob.arrayBuffer());
+    assert.equal(zipClean.file('xl/drawings/drawing1.xml'), null);
+    assert.equal(zipClean.file('xl/media/image1.png'), null);
+    const sheetClean = await zipClean.file('xl/worksheets/sheet1.xml').async('string');
+    assert.ok(!sheetClean.includes('原始区域截图'));
+    assert.ok(!sheetClean.includes('drawing'));
+
+    // With embedding enabled (embedScreenshots = true)
+    const excelEmbedBlob = await ctx.netcareAuditExcel([record], 'zh', images, true);
+    const zipEmbed = await JSZip.loadAsync(await excelEmbedBlob.arrayBuffer());
+    assert.ok(zipEmbed.file('xl/drawings/drawing1.xml'));
+    assert.ok(zipEmbed.file('xl/media/image1.png'));
+
+    // In materials ZIP with embedScreenshots = false: Excel has no drawing, but materials ZIP preserves the screenshot PNG
+    const bundle = await ctx.netcareAuditMaterials([record], [{ order: record.order, name: 'shot.png', role: 'screenshot' }], async () => new Blob([png]), () => {}, 'zh', false);
+    assert.ok(bundle.entries.some(e => e.name.includes('方案截图') && e.name.endsWith('shot.png')));
+    const bundledExcelBlob = bundle.entries.find(e => e.name === '审计结果.xlsx').blob;
+    const bundledZip = await JSZip.loadAsync(await bundledExcelBlob.arrayBuffer());
+    assert.equal(bundledZip.file('xl/drawings/drawing1.xml'), null);
+});
+
 
 
 

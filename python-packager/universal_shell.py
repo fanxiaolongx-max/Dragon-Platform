@@ -83,7 +83,7 @@ def ensure_workspace():
                 pass
         else:
             default_ver = {
-                "name": "PR 报告抽查脚本",
+                "name": "PR小助手",
                 "version": "1.0.0",
                 "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "description": "初始内置脚本",
@@ -186,7 +186,7 @@ def data_dir_setting(directory):
 def load_version_info():
     """读取本地核心脚本版本信息"""
     info = {
-        "name": "PR 报告抽查脚本",
+        "name": "PR小助手",
         "version": "1.0.0",
         "updated_at": "未知",
         "description": "从 RFC、风险、整改、SR 合并表中按规则抽查",
@@ -306,7 +306,7 @@ def restore_backup(backup_path):
     else:
         # 兼容早期只有 .py.bak 的备份，但不沿用新脚本的版本标记。
         match = re.match(r'core_script_v(.+)_\d{8}_\d{6}\.py\.bak$', os.path.basename(backup_path))
-        metadata = {'name': 'PR 报告抽查脚本', 'version': match.group(1) if match else 'restored',
+        metadata = {'name': 'PR小助手', 'version': match.group(1) if match else 'restored',
                     'changelog': '从历史脚本备份恢复'}
     metadata.update(sha256=digest, updated_at=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
     _backup_current_script(load_version_info())
@@ -343,6 +343,52 @@ def fetch_url(url, timeout=12):
         return resp.read()
 
 
+def resolve_custom_urls(raw_input):
+    """
+    智能解析第三方源地址：
+    支持完整 GitHub 仓库主页、分支路径、blob 文件地址、原始 raw 链接或通用 HTTP/HTTPS 脚本地址。
+    """
+    url = str(raw_input or '').strip().strip('\'"')
+    if not url:
+        return '', ''
+
+    if 'github.com' in url:
+        m_blob = re.match(r'https?://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)', url)
+        if m_blob:
+            owner, repo, branch, path = m_blob.groups()
+            raw_base = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}"
+            if path.endswith('.py'):
+                parent = path.rsplit('/', 1)[0] if '/' in path else ''
+                script_path = path
+                ver_path = f"{parent}/version.json" if parent else "version.json"
+            else:
+                script_path = f"{path.rstrip('/')}/core_script.py"
+                ver_path = f"{path.rstrip('/')}/version.json"
+            return f"{raw_base}/{script_path}", f"{raw_base}/{ver_path}"
+
+        m_tree = re.match(r'https?://github\.com/([^/]+)/([^/]+)/tree/([^/]+)/(.+)', url)
+        if m_tree:
+            owner, repo, branch, path = m_tree.groups()
+            raw_base = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{path.rstrip('/')}"
+            return f"{raw_base}/core_script.py", f"{raw_base}/version.json"
+
+        m_repo = re.match(r'https?://github\.com/([^/]+)/([^/]+)/?$', url)
+        if m_repo:
+            owner, repo = m_repo.groups()
+            raw_base = f"https://raw.githubusercontent.com/{owner}/{repo}/main/python-packager"
+            return f"{raw_base}/core_script.py", f"{raw_base}/version.json"
+
+    if url.endswith('.py'):
+        script_url = url
+        ver_url = url.rsplit('/', 1)[0] + '/version.json'
+        return script_url, ver_url
+
+    if url.endswith('/'):
+        return f"{url}core_script.py", f"{url}version.json"
+
+    return url, ''
+
+
 def perform_update(config, on_progress=None):
     active_id = config.get("active_source_id", "github")
     sources = config.get("remote_sources", [])
@@ -352,10 +398,12 @@ def perform_update(config, on_progress=None):
         return False, "无效的更新源配置", ""
 
     if active_id == "custom":
-        script_url = config.get("custom_url", "").strip()
-        ver_url = config.get("custom_version_url", "").strip()
-        if not script_url:
-            return False, "请填写自定义脚本下载 URL 地址", ""
+        raw_custom = config.get("custom_url", "").strip()
+        if not raw_custom:
+            return False, "请填写自定义脚本下载或仓库 URL 地址", ""
+        resolved_script, auto_ver = resolve_custom_urls(raw_custom)
+        script_url = resolved_script or raw_custom
+        ver_url = config.get("custom_version_url", "").strip() or auto_ver
     else:
         script_url = active_src.get("url", "")
         ver_url = active_src.get("version_url", "")
@@ -373,7 +421,9 @@ def perform_update(config, on_progress=None):
             if not re.fullmatch(r'[0-9a-fA-F]{64}', str(remote_ver_data.get('sha256', ''))):
                 raise ValueError('version.json 缺少有效的 SHA-256 校验值')
         except Exception as e:
-            return False, f"获取版本校验信息失败，已保留原脚本: {e}", ""
+            if active_id != "custom":
+                return False, f"获取版本校验信息失败，已保留原脚本: {e}", ""
+            remote_ver_data = None
 
     if on_progress:
         on_progress(f"正在从 [{active_src['name']}] 下载最新核心逻辑代码...")
@@ -398,7 +448,7 @@ def perform_update(config, on_progress=None):
     current_ver = load_version_info()
     target_ver = remote_ver_data or {}
     updated_ver_info = {
-        "name": target_ver.get("name", current_ver.get("name", "PR 报告抽查脚本")),
+        "name": target_ver.get("name", current_ver.get("name", "PR小助手")),
         "version": target_ver.get("version", f"{current_ver.get('version', '1.0.0')}.hotfix"),
         "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "description": target_ver.get("description", "从远端热更新的核心脚本"),
@@ -901,7 +951,7 @@ class AppleTerminalWidget(tk.Frame):
 class UniversalShellGUI(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("PR 报告抽查工具 — Python 脚本通用热更新启动器")
+        self.title("PR小助手 — Python 脚本通用热更新启动器")
         self.geometry("980x740")
         self.minsize(860, 620)
 
@@ -933,6 +983,7 @@ class UniversalShellGUI(tk.Tk):
         self._closing = False
         self._close_requested = False
         self._restart_pending = False
+        self._custom_url_timer = None
         self.protocol('WM_DELETE_WINDOW', self._on_close)
 
         self._apply_styles()
@@ -942,7 +993,7 @@ class UniversalShellGUI(tk.Tk):
         # 启动时自动就绪提示
         self.terminal.write_ansi(
             f"\033[96m\033[1m========================================================================\033[0m\n"
-            f" \033[92m● Python 脚本通用热更新启动器已就绪\033[0m  [\033[93mv{self.ver_info.get('version', '1.0.0')}\033[0m]\n"
+            f" \033[92m● PR小助手已就绪\033[0m  [\033[93mv{self.ver_info.get('version', '1.0.0')}\033[0m]\n"
             f" • 架构：通用外壳隔离 + 核心抽查逻辑动态热更新 (免重复打包安装)\n"
             f" • 点击下方快捷按钮或输入选项数字即可在内置终端中直接交互抽查。\n"
             f"\033[96m========================================================================\033[0m\n\n"
@@ -1005,7 +1056,7 @@ class UniversalShellGUI(tk.Tk):
         title_row.pack(anchor="w")
 
         tk.Label(title_row, text="🐍", font=("Apple Color Emoji", 15), bg="#161f30").pack(side=tk.LEFT, padx=(0, 6))
-        self.lbl_app_name = tk.Label(title_row, text="PR 报告抽查工具", fg="#f0f6fc", bg="#161f30", font=("微软雅黑", 13, "bold"))
+        self.lbl_app_name = tk.Label(title_row, text="PR小助手", fg="#f0f6fc", bg="#161f30", font=("微软雅黑", 13, "bold"))
         self.lbl_app_name.pack(side=tk.LEFT, padx=(0, 8))
 
         self.lbl_version_badge = tk.Label(title_row, text="v1.0.0", fg="#38bdf8", bg="#0f2b48", font=("Consolas", 10, "bold"), padx=6, pady=1)
@@ -1026,13 +1077,36 @@ class UniversalShellGUI(tk.Tk):
 
         tk.Label(src_row, text="更新源:", fg="#8b949e", bg="#161f30", font=("微软雅黑", 8)).pack(side=tk.LEFT, padx=(0, 4))
         self.source_names = [s["name"] for s in self.config.get("remote_sources", [])]
-        self.source_combo = ttk.Combobox(src_row, values=self.source_names, state="readonly", width=26)
+        self.source_combo = ttk.Combobox(src_row, values=self.source_names, state="readonly", width=22)
         active_id = self.config.get("active_source_id", "github")
         sources = self.config.get("remote_sources", [])
         active_idx = next((i for i, s in enumerate(sources) if s["id"] == active_id), 0)
         self.source_combo.current(active_idx)
         self.source_combo.pack(side=tk.LEFT, padx=(0, 8))
         self.source_combo.bind("<<ComboboxSelected>>", self._on_source_changed)
+
+        # 第三方源地址输入容器（当且仅当选择第三方源时在下拉旁边自动展开）
+        self.custom_url_frame = tk.Frame(src_row, bg="#161f30")
+        tk.Label(self.custom_url_frame, text="仓库/脚本地址:", fg="#38bdf8", bg="#161f30", font=("微软雅黑", 8, "bold")).pack(side=tk.LEFT, padx=(0, 4))
+        self.custom_url_var = tk.StringVar(value=self.config.get("custom_url", ""))
+        self.custom_url_entry = tk.Entry(
+            self.custom_url_frame,
+            textvariable=self.custom_url_var,
+            bg="#0d1117",
+            fg="#f0f6fc",
+            insertbackground="#f0f6fc",
+            font=("Consolas", 8),
+            width=32,
+            relief="solid",
+            bd=1,
+            highlightthickness=1,
+            highlightcolor="#38bdf8",
+            highlightbackground="#30363d"
+        )
+        self.custom_url_entry.pack(side=tk.LEFT)
+        self.custom_url_entry.bind("<FocusOut>", self._on_custom_url_changed)
+        self.custom_url_entry.bind("<Return>", self._on_custom_url_changed)
+        self.custom_url_var.trace_add("write", self._on_custom_url_keystroke)
 
         # 热更新按钮
         self.btn_update = tk.Button(
@@ -1049,6 +1123,8 @@ class UniversalShellGUI(tk.Tk):
             command=self._on_check_update
         )
         self.btn_update.pack(side=tk.LEFT)
+
+        self._toggle_custom_source_input()
 
         # 辅助操作行
         btn_sub_row = tk.Frame(actions_right, bg="#161f30")
@@ -1144,7 +1220,7 @@ class UniversalShellGUI(tk.Tk):
     def _refresh_status(self):
         self.ver_info = load_version_info()
         ver = self.ver_info.get("version", "1.0.0")
-        name = self.ver_info.get("name", "PR 报告抽查脚本")
+        name = self.ver_info.get("name", "PR小助手")
         sz = self.ver_info.get("file_size_kb", 0)
         mtime = self.ver_info.get("actual_mtime", "-")
 
@@ -1153,13 +1229,52 @@ class UniversalShellGUI(tk.Tk):
         self.lbl_script_meta.config(text=f"核心文件: {CORE_SCRIPT_NAME} · 大小: {sz} KB · 修改时间: {mtime}")
         self.lbl_data_dir.config(text=f'当前数据目录：{configured_data_dir(self.config)}')
 
+    def _toggle_custom_source_input(self):
+        active_id = self.config.get("active_source_id", "github")
+        if active_id == "custom":
+            self.custom_url_frame.pack(side=tk.LEFT, padx=(0, 8), before=self.btn_update)
+        else:
+            self.custom_url_frame.pack_forget()
+
+    def _on_custom_url_keystroke(self, *args):
+        if hasattr(self, '_custom_url_timer') and self._custom_url_timer:
+            try:
+                self.after_cancel(self._custom_url_timer)
+            except Exception:
+                pass
+        self._custom_url_timer = self.after(500, lambda: self._save_custom_url(notify=False))
+
+    def _on_custom_url_changed(self, event=None):
+        if hasattr(self, '_custom_url_timer') and self._custom_url_timer:
+            try:
+                self.after_cancel(self._custom_url_timer)
+            except Exception:
+                pass
+            self._custom_url_timer = None
+        self._save_custom_url(notify=True)
+
+    def _save_custom_url(self, notify=False):
+        new_val = self.custom_url_var.get().strip()
+        if self.config.get("custom_url") != new_val:
+            self.config["custom_url"] = new_val
+            save_config(self.config)
+            if notify:
+                display = new_val if len(new_val) <= 45 else (new_val[:42] + '...')
+                self.terminal.write_ansi(f"\033[90m[配置] 第三方更新源地址已自动保存：{display or '（已清空）'}\033[0m\n")
+
     def _on_source_changed(self, event=None):
         idx = self.source_combo.current()
         sources = self.config.get("remote_sources", [])
         if 0 <= idx < len(sources):
             self.config["active_source_id"] = sources[idx]["id"]
             save_config(self.config)
+            self._toggle_custom_source_input()
             self.terminal.write_ansi(f"\n\033[96m[更新配置] 远端更新源已切换为：{sources[idx]['name']}\033[0m\n")
+            if sources[idx]["id"] == "custom":
+                self.custom_url_entry.focus_set()
+                self.custom_url_entry.selection_range(0, tk.END)
+                if not self.custom_url_var.get().strip():
+                    self.terminal.write_ansi("\033[93m[提示] 请在下拉框旁输入第三方仓库地址或脚本链接（输入后自动保存）。\033[0m\n")
 
     def _start_script_process(self):
         """拉起内置进程并在内置终端中实时收发"""
@@ -1284,6 +1399,14 @@ class UniversalShellGUI(tk.Tk):
     def _on_check_update(self):
         if self.is_updating:
             return
+
+        if self.config.get("active_source_id") == "custom":
+            self._save_custom_url(notify=False)
+            if not self.config.get("custom_url", "").strip():
+                self.terminal.write_ansi("\033[91m[提示] 请先在上方更新源下拉框旁输入第三方仓库或脚本 URL 地址！\033[0m\n")
+                self.custom_url_entry.focus_set()
+                return
+
         self.is_updating = True
         self.btn_update.config(state="disabled", text="⏳ 正在检查远端...")
 
@@ -1410,7 +1533,7 @@ class UniversalShellGUI(tk.Tk):
     def _on_view_changelog(self):
         info = load_version_info()
         ver = info.get("version", "1.0.0")
-        name = info.get("name", "PR 报告抽查脚本")
+        name = info.get("name", "PR小助手")
         updated = info.get("updated_at", "-")
         cl = info.get("changelog", "无详细变更日志")
         desc = info.get("description", "-")

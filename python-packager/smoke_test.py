@@ -84,7 +84,7 @@ def _windows_subsystem(executable):
     return struct.unpack_from('<H', data, header + 4 + 20 + 68)[0]
 
 
-def smoke_test(dist_dir=None, exe_name="PR-Audit-Worker.exe", source=False, timeout=60, gui_exe="PR报告抽查工具.exe"):
+def smoke_test(dist_dir=None, exe_name="PR-Audit-Worker.exe", source=False, timeout=60, gui_exe="PR小助手.exe"):
     with tempfile.TemporaryDirectory(prefix="PR 冒烟测试 ") as temp_dir:
         portable_dir = Path(temp_dir) / "中文目录 with spaces" / "PR 报告工具"
         if source:
@@ -136,7 +136,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dist-dir", type=Path)
     parser.add_argument("--exe", default="PR-Audit-Worker.exe")
-    parser.add_argument('--gui-exe', default='PR报告抽查工具.exe')
+    parser.add_argument('--gui-exe', default='PR小助手.exe')
     parser.add_argument("--source", action="store_true")
     parser.add_argument("--timeout", type=float, default=60)
     args = parser.parse_args(argv)

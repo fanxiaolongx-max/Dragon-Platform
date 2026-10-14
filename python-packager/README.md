@@ -8,7 +8,7 @@
 3. **版本碎片化**：用户很难即时保持最新版本。
 
 **本方案的核心架构创新：通用外壳 + 核心逻辑动态热更新**
-- **通用外壳 (`universal_shell.py` / `PR报告抽查工具.exe`)**：
+- **通用外壳 (`universal_shell.py` / `PR小助手.exe`)**：
   - 内置 Python 解释器与业务依赖（Pandas、OpenPyXL、xlrd）；
   - 提供轻量、现代的 GUI 操作界面；
   - 直接在终端提示后输入，Enter 确认，↑↓ 调用输入历史；历史回显受保护，可选择和复制，处理数据时暂停输入。终端工具栏提供「■ 停止」「⌫ 清屏」「↻ 重启」；
@@ -46,7 +46,7 @@ python-packager/
 
 每次向 `main` 分支推送 `python-packager/**` 改动，或在 GitHub Actions 界面手动触发时：
 - 工作流 `.github/workflows/package-python-exe.yml` 会在 Windows 环境自动使用 PyInstaller 编译通用外壳；
-- 生成便携式压缩包 `PR报告抽查工具-Windows-x64.zip`，并作为构建工件（Artifacts）发布；
+- 生成便携式压缩包 `PR小助手-Windows-x64.zip`，并作为构建工件（Artifacts）发布；
 - 发布前必须通过真实 EXE 冒烟测试：从包含中文和空格的临时目录启动，验证主菜单、输入退出与 Excel 读写。测试失败则不会发布绿色包。
 - `core_script.py` 的静态 `import` 会自动加入 PyInstaller 隐藏依赖；Pandas 的 Excel 引擎另外显式收集。新增第三方依赖时也应更新 `requirements.txt` 并重新发布完整绿色包。
 - 平台网页中的脚本与历史版本按租户保存；「同步到仓库」负责共享发布源码，只允许在默认租户中由管理员操作。源码导出与同步需要运行环境包含完整的 `python-packager/` 目录。

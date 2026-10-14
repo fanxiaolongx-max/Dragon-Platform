@@ -18,7 +18,7 @@ import sys
 
 PROJECT_DIR = Path(__file__).resolve().parent
 PACKAGE_NAME = "PR-Audit-Sampler"
-FRIENDLY_EXE_NAME = "PR报告抽查工具.exe"
+FRIENDLY_EXE_NAME = "PR小助手.exe"
 WORKER_EXE_NAME = "PR-Audit-Worker.exe"
 PORTABLE_FILES = ("core_script.py", "version.json", "updater_config.json", "README.md")
 # These Excel engines are loaded dynamically by pandas, rather than by the core.
@@ -83,12 +83,12 @@ VSVersionInfo(
           '040904B0',
           [
             StringStruct('CompanyName', 'Tools Platform'),
-            StringStruct('FileDescription', 'PR 报告抽查工具 - 自动化运维抽查客户端'),
+            StringStruct('FileDescription', 'PR小助手 - 自动化运维抽查客户端'),
             StringStruct('FileVersion', '{version_str}'),
             StringStruct('InternalName', 'PR-Audit-Sampler'),
             StringStruct('LegalCopyright', 'Copyright (C) 2026 Tools Platform. All rights reserved.'),
-            StringStruct('OriginalFilename', 'PR-Audit-Sampler.exe'),
-            StringStruct('ProductName', 'PR 报告抽查工具'),
+            StringStruct('OriginalFilename', 'PR小助手.exe'),
+            StringStruct('ProductName', 'PR小助手'),
             StringStruct('ProductVersion', '{version_str}')
           ]
         )

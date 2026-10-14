@@ -22,3 +22,16 @@ test('legacy records cannot bypass the settings validation after configuration p
  const backup=factory(),text=await legacyBackup({netcareExtractionSettings:{sections:'invalid'},netcareAuditSummaries:[]},'test-pass-2026');
  const restored=await backup.decrypt(text,'test-pass-2026');assert.throws(()=>backup.validate(restored,()=>false,()=>{}),/Invalid settings/);
 });
+test('passwordless configuration backup encrypts and decrypts with built-in intranet key',async()=>{
+ const backup=factory(),configuration={netcareExtractionSettings:{sections:[{number:'1.1',title:'Test',attachments:false,text:true,textPrompt:'check'}],embedScreenshotsInExcel:false},f12PopupLanguage:'zh'};
+ const passwordless=await backup.encrypt(configuration);
+ assert.ok(passwordless.includes('"format": "netcare-rfc-backup"'));
+ const restoredNoArg=await backup.decrypt(passwordless);
+ assert.deepEqual(restoredNoArg,configuration);
+ const restoredEmptyString=await backup.decrypt(passwordless,'');
+ assert.deepEqual(restoredEmptyString,configuration);
+ const customEncrypted=await backup.encrypt(configuration,'custom-pass-2026');
+ assert.deepEqual(await backup.decrypt(customEncrypted,'custom-pass-2026'),configuration);
+ await assert.rejects(backup.decrypt(customEncrypted,'wrong-pass'),/Wrong password/);
+});
+

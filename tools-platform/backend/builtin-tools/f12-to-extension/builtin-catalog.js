@@ -35,7 +35,7 @@
         runAt: 'document_idle'
       },
       'netcare-rfc-word': {
-        file: './netcare-rfc-word.js?v=20261013-02',
+        file: './netcare-rfc-word.js?v=20261014-01',
         name: 'NetCare RFC 方案与 AI 审计',
         nameEn: 'NetCare RFC Plans and AI Audit',
         description: '批量下载 RFC 方案，提取章节与附件并执行 AI 审计；支持审计快照、Excel 和材料 ZIP 导出。',
