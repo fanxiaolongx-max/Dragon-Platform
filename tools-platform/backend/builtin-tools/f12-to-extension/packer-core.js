@@ -353,11 +353,12 @@ function netcareAuditRule(settings, number, kind) {
       try {
         timer = setTimeout(() => controller.abort(), 60000);
         const stored = await chrome.storage.local.get(['netcareAiModels', 'netcareAiSelectedModel', 'netcareExtractionSettings', 'f12PopupLanguage', 'netcareRunStarted:' + message.order, 'netcareCurrentBatch']);
-        model = configPage ? message.model : (stored.netcareAiModels || []).find(m => m.id === stored.netcareAiSelectedModel);
+        const availableModels = stored.netcareAiModels || [];
+        model = configPage ? message.model : (availableModels.find(m => m.id === stored.netcareAiSelectedModel) || availableModels[0]);
 
         logScope = { order: configPage ? '' : message.order, generationAt: stored['netcareRunStarted:' + message.order] || 0, batchId: stored.netcareCurrentBatch?.started || 0, category: 'audit' };
         netcareBackgroundLog({ ...logScope, action: configPage ? 'model.test.started' : 'model.request.started', message: '模型请求开始 / Model request started', data: { section: message.section, ruleSection: message.ruleSection, kind: message.kind, filename: message.filename, characters: message.text?.length, model: model?.model, modelName: model?.name, protocol: model?.protocol, endpoint: model?.url, keyConfigured: !!model?.key } });
-        if (!model) throw new Error('请先配置并保存审计模型 / Configure an audit model');
+        if (!model) throw new Error('请先配置并保存审计模型 / Configure an audit model: 未在插件存储中找到可用模型（若安装了多个版本插件，请确认当前插件ID并在“AI 对接”中点击“保存模型”）');
 
         let prompt = 'Reply with the single word OK. This is a connection test.';
         if (!configPage) {
@@ -489,6 +490,14 @@ function netcareAuditRule(settings, number, kind) {
     });
   }
   function netcareArtifactRelay(){
+    const extId = typeof chrome !== 'undefined' ? chrome.runtime?.id || '' : '';
+    const docEl = typeof document !== 'undefined' ? document?.documentElement : null;
+    const activeExt = (typeof docEl?.getAttribute === 'function' ? docEl.getAttribute('data-netcare-active-extension-id') : docEl?.dataset?.netcareActiveExtensionId) || '';
+    if (activeExt && extId && activeExt !== extId) return;
+    if (extId && docEl) {
+      if (typeof docEl.setAttribute === 'function') docEl.setAttribute('data-netcare-active-extension-id', extId);
+      else if (docEl.dataset) docEl.dataset.netcareActiveExtensionId = extId;
+    }
     window.__tpNetcareArtifactRelayCleanup?.();
     const receive=event=>{const m=event.data;if(event.source!==window||event.origin!==location.origin||m?.source!=='TP_RFC_ARTIFACT_REQUEST'||typeof m.requestId!=='string'||!/^[a-f0-9-]{36}$/.test(m.requestId))return;
       chrome.runtime.sendMessage({...m,type:'TP_RFC_ARTIFACT_REQUEST'}).then(r=>window.postMessage({source:'TP_RFC_ARTIFACT_RESULT',requestId:m.requestId,...r},location.origin)).catch(()=>window.postMessage({source:'TP_RFC_ARTIFACT_RESULT',requestId:m.requestId,ok:false,error:'审计材料缓存连接失效，请更新扩展并刷新页面'},location.origin));};
@@ -538,8 +547,8 @@ function netcareAuditRule(settings, number, kind) {
     const toggleAuth=()=>{const enabled=$('protocol').value==='anthropic';$('authMode').disabled=!enabled;$('authField').style.opacity=enabled?'1':'.5';};
     const show=m=>{for(const k of ['name','protocol','url','model','key'])$(k).value=m?.[k]||(k==='protocol'?'openai':'');$('authMode').value=m?.authMode||(m?'api-key':'bearer');toggleAuth();};
     $('protocol').onchange=toggleAuth;
-    const render=()=>{$('profiles').replaceChildren();for(const m of models){const o=document.createElement('option');o.value=m.id;o.textContent=m.name||m.model;$('profiles').append(o);}if(models.some(m=>m.id===selected))$('profiles').value=selected;show(models.find(m=>m.id===$('profiles').value));};
-    $('profiles').onchange=()=>show(models.find(m=>m.id===$('profiles').value));
+    const render=()=>{$('profiles').replaceChildren();for(const m of models){const o=document.createElement('option');o.value=m.id;o.textContent=m.name||m.model;$('profiles').append(o);}if(models.length>0&&!models.some(m=>m.id===selected)){selected=models[0].id;chrome.storage.local.set({netcareAiSelectedModel:selected}).catch(()=>{});}if(models.some(m=>m.id===selected))$('profiles').value=selected;show(models.find(m=>m.id===$('profiles').value));};
+    $('profiles').onchange=()=>{const val=$('profiles').value;if(val){selected=val;chrome.storage.local.set({netcareAiSelectedModel:selected}).catch(()=>{});}show(models.find(m=>m.id===val));};
     $('add').onclick=()=>{$('profiles').value='';show(null);status('新模型草稿 / New model');};
     $('save').onclick=async()=>{try{const m=draft();tpBuildModelRequest(m,'test');if(models.length>=20&&!models.some(p=>p.id===m.id))throw Error('最多20个模型');models=models.filter(p=>p.id!==m.id);models.push(m);selected=m.id;await chrome.storage.local.set({netcareAiModels:models,netcareAiSelectedModel:selected});render();status('模型已保存并用于审计 / Saved as audit model');}catch(e){status(e.message);}};
     $('delete').onclick=async()=>{models=models.filter(m=>m.id!==$('profiles').value);selected=models[0]?.id||'';await chrome.storage.local.set({netcareAiModels:models,netcareAiSelectedModel:selected});render();status('已删除 / Deleted');};
@@ -555,6 +564,7 @@ function netcareAuditRule(settings, number, kind) {
           && (value.openOnline == null || typeof value.openOnline === 'boolean')
           && ['closeAfterAudit','titleFallbackEnabled','pipBetaEnabled'].every(k=>value[k]==null||typeof value[k]==='boolean')
           && (value.screenshotsEnabled == null || typeof value.screenshotsEnabled === 'boolean')
+          && (value.attachmentAuditTypes == null || Array.isArray(value.attachmentAuditTypes) && value.attachmentAuditTypes.every(t => ['txt', 'word', 'excel', 'msg'].includes(t)))
           && Number.isFinite(value.intervalMs) && value.intervalMs >= 1000 && value.intervalMs <= 30000
           && Array.isArray(value.sections) && value.sections.length <= 100 && new Set(value.sections.map(row => row.number)).size === value.sections.length
           && (!value.attachmentsEnabled || value.sections.some(row => row.attachments)) && (!value.textEnabled || value.sections.some(row => row.text))
@@ -568,6 +578,18 @@ function netcareAuditRule(settings, number, kind) {
   function netcareOnlineRelay() {
     const origins = ['https://netcare-ae.gts.huawei.com', 'https://netcare.huawei.com', 'https://netcare-de.gts.huawei.com'];
     if (window !== window.top || !origins.includes(location.origin)) return;
+    const extId = typeof chrome !== 'undefined' ? chrome.runtime?.id || '' : '';
+    const docEl = typeof document !== 'undefined' ? document?.documentElement : null;
+    const activeExt = (typeof docEl?.getAttribute === 'function' ? docEl.getAttribute('data-netcare-active-extension-id') : docEl?.dataset?.netcareActiveExtensionId) || '';
+    if (activeExt && extId && activeExt !== extId) {
+      console.warn(`[NetCare] 检测到多版本插件冲突！当前插件ID: ${extId}，已激活插件ID: ${activeExt}。此实例跳过在线中继挂载。`);
+      window.postMessage({ source: 'TP_RFC_EXTENSION_CONFLICT', currentId: extId, activeId: activeExt }, location.origin);
+      return;
+    }
+    if (extId && docEl) {
+      if (typeof docEl.setAttribute === 'function') docEl.setAttribute('data-netcare-active-extension-id', extId);
+      else if (docEl.dataset) docEl.dataset.netcareActiveExtensionId = extId;
+    }
     // Replace listeners left in an already-open page after extension reload/update.
     window.__tpRfcOnlineRelayCleanup?.();
     const sendSummaries=(records,updated)=>chrome.storage.local.get('netcareCurrentBatch').then(d=>window.postMessage({source:'TP_RFC_AUDIT_SUMMARIES',records:netcareBatchRecords(records,d.netcareCurrentBatch),updated},location.origin)).catch(()=>{});
@@ -596,6 +618,7 @@ function netcareAuditRule(settings, number, kind) {
           if (message.source === 'TP_RFC_SETTINGS_SET') {
             if (!netcareValidSettings(message.settings)) throw new Error('Invalid extraction settings');
             const value = { pipBetaEnabled:message.settings.pipBetaEnabled===true, closeAfterAudit:message.settings.closeAfterAudit===true, titleFallbackEnabled:message.settings.titleFallbackEnabled===true, aiAuditEnabled: message.settings.aiAuditEnabled === true, concurrency: message.settings.concurrency ?? 3, openOnline: message.settings.openOnline ?? true, screenshotsEnabled: message.settings.screenshotsEnabled !== false, attachmentsEnabled: message.settings.attachmentsEnabled, textEnabled: message.settings.textEnabled, intervalMs: message.settings.intervalMs,
+              attachmentAuditTypes: Array.isArray(message.settings.attachmentAuditTypes) ? message.settings.attachmentAuditTypes.filter(t => ['txt', 'word', 'excel', 'msg'].includes(t)) : ['txt'],
               sections: message.settings.sections.map(({ number, title, attachments, text, attachmentsPrompt, textPrompt }) => ({ number, title, attachments, text, attachmentsPrompt: netcareRedactText(attachmentsPrompt || ''), textPrompt: netcareRedactText(textPrompt || '') })),
               localRules: Array.isArray(message.settings.localRules) ? message.settings.localRules.slice(0, 100).map(r => ({
                 id: String(r.id || '').slice(0, 60),
@@ -644,6 +667,18 @@ function netcareAuditRule(settings, number, kind) {
     if (window !== window.top) return;
     const order = new URL(location.href).searchParams.get('docId');
     if (!/^NC\d{14}$/.test(order)) return;
+    const extId = typeof chrome !== 'undefined' ? chrome.runtime?.id || '' : '';
+    const docEl = typeof document !== 'undefined' ? document?.documentElement : null;
+    const activeExt = (typeof docEl?.getAttribute === 'function' ? docEl.getAttribute('data-netcare-active-extension-id') : docEl?.dataset?.netcareActiveExtensionId) || '';
+    if (activeExt && extId && activeExt !== extId) {
+      console.warn(`[NetCare] 检测到多版本插件冲突！当前插件ID: ${extId}，已激活插件ID: ${activeExt}。此实例跳过采集桥接挂载。`);
+      window.postMessage({ source: 'TP_RFC_EXTENSION_CONFLICT', currentId: extId, activeId: activeExt, order }, location.origin);
+      return;
+    }
+    if (extId && docEl) {
+      if (typeof docEl.setAttribute === 'function') docEl.setAttribute('data-netcare-active-extension-id', extId);
+      else if (docEl.dataset) docEl.dataset.netcareActiveExtensionId = extId;
+    }
     window.__tpRfcCollectorBridgeCleanup?.();
     const sendCollectorState = () => {
       chrome.storage?.local?.get?.(['netcareWordName:' + order, 'netcareExtractionSettings','f12PopupLanguage','netcareRunStarted:'+order,'netcareCurrentBatch']).then(data => {

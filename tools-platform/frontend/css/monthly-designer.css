@@ -714,3 +714,17 @@ body.studio-preview .metric-inspector-layer{display:none!important}
 .document-block>.size-guides span{max-width:calc(100% - 8px);white-space:normal;overflow-wrap:anywhere;text-align:center}
 /* Pivot counts have their own footer space, outside the scrollable data viewport. */
 .document-block>.document-source-note{flex:none;margin-top:6px;font-size:10px;line-height:1.5;padding-right:20px;min-width:0;white-space:normal;overflow-wrap:anywhere}
+
+/* Draft feedback and month-specific text review. */
+.monthly-save-state{flex:none;font-size:11px;padding:4px 8px;border-radius:6px;background:var(--source-surface,#edf3f9);color:var(--source-muted,#52677c)}
+.monthly-save-state[data-state=error]{color:#b45309}.monthly-save-state[data-state=saved]{color:#24714c}
+.monthly-draft-notice{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:10px 20px;padding:10px 14px;border:1px solid #b8cde2;border-radius:8px;background:var(--source-surface,#edf3f9);color:var(--source-text,#233f5c);font-size:12px}
+.monthly-draft-notice[hidden],.mapping-rules-table tr[hidden]{display:none!important}
+.monthly-edit-dialog{box-sizing:border-box;width:min(720px,calc(100vw - 24px));max-height:calc(100vh - 48px);overflow:auto;border:1px solid #b8cde2;border-radius:12px;padding:20px;background:var(--source-surface,#fff);color:var(--source-text,#233f5c)}
+.monthly-edit-dialog::backdrop{background:#10253b70}.monthly-edit-dialog h3{margin:0 0 12px}.monthly-edit-dialog p{font-size:13px;line-height:1.7}.monthly-edit-dialog footer{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;margin-top:16px}
+.monthly-edit-dialog button,.monthly-draft-notice button{border:1px solid #b8cde2;border-radius:6px;background:var(--source-surface,#f4f8fc);color:inherit;padding:7px 12px;cursor:pointer}
+.monthly-draft-list article{border-bottom:1px solid #b8cde2;padding:12px 0}.monthly-draft-list small{display:block;margin:6px 0;color:var(--source-muted,#52677c)}
+.month-review-items{display:grid;gap:8px}.month-review-items button{text-align:left}.month-review-items strong,.month-review-items span,.month-review-items small{display:block;overflow-wrap:anywhere;margin:4px 0}.month-review-items small{color:#b45309}.month-review-highlight{outline:2px solid #d69124;outline-offset:4px;background:#fff2cc!important}
+[data-mapping-search]{width:100%;box-sizing:border-box;margin-bottom:6px}[data-mapping-search-status]{display:block;font-size:11px;line-height:1.6;margin-bottom:10px;color:var(--source-muted,#52677c)}
+[data-theme=dark] .monthly-edit-dialog,[data-theme=dark] .monthly-draft-notice{background:#1b2d40;color:#e2e8f0;border-color:#425b72}[data-theme=dark] .monthly-edit-dialog button,[data-theme=dark] .monthly-draft-notice button{background:#26425d;border-color:#425b72}[data-theme=dark] .month-review-highlight{background:#674a17!important}
+@media(max-width:600px){.monthly-save-state{white-space:normal;max-width:180px}.monthly-edit-dialog{padding:14px}.monthly-edit-dialog footer button{flex:1 1 auto}.monthly-draft-notice{margin:8px}.month-review-items button{max-width:100%}}

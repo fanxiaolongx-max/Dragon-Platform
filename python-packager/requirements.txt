@@ -1,0 +1,9 @@
+# 核心业务依赖
+pandas>=2.0.0
+openpyxl>=3.1.0
+
+# 外壳热更新网络依赖
+requests>=2.28.0
+
+# EXE 打包构建工具
+pyinstaller>=6.0.0

@@ -14,6 +14,11 @@
         return rule?rule.to:text;
     }
     function columnLabel(value,rules){return String(value??'').split(' · ').map(part=>label(part,rules,'column')).join(' · ');}
+    function candidates(tables,rule){
+        const values=table=>rule.kind==='column'?(table.headers||[]):(table.rows||[]).map(row=>String(row[rule.field||table.rowField||table.headers?.[0]]??'')).filter(Boolean);
+        const displayed=new Set(tables.filter(table=>table.displayed).flatMap(values));
+        return [...new Set([...displayed,...tables.flatMap(values)])].map(value=>({value,displayed:displayed.has(value)}));
+    }
     function replaceText(element,text){
         const walker=document.createTreeWalker(element,NodeFilter.SHOW_TEXT),nodes=[];while(walker.nextNode())nodes.push(walker.currentNode);
         if(nodes.length){nodes[0].nodeValue=text;nodes.slice(1).forEach(node=>node.nodeValue='');}else element.textContent=text;
@@ -35,5 +40,5 @@
         target.querySelectorAll('[data-mapping-column]').forEach(element=>{const original=element.dataset.mappingOriginal??element.textContent;element.dataset.mappingOriginal=original;element.textContent=translate(columnLabel(original,rules));});
         target.querySelectorAll('svg text').forEach(element=>{const original=element.dataset.mappingOriginal??element.textContent;element.dataset.mappingOriginal=original;const row=element.hasAttribute('data-number-value')?original:original.split(' / ').map((part,index)=>label(part,rules,'row',block.chart?.pivot?.rows?.[index]||block.chart?.x||'')).join(' / '),display=translate(row!==original?row:columnLabel(original,rules));if(display!==original)replaceText(element,display);});
     }
-    return {validate,label,columnLabel,apply};
+    return {validate,label,columnLabel,candidates,apply};
 });

@@ -17,7 +17,7 @@
     }
     function clean(document){
         const draft=engine.normalize(document);
-        delete draft.id;delete draft.saveCount;delete draft.reportMonth;
+        delete draft.id;delete draft.saveCount;delete draft.reportMonth;delete draft.monthReview;
         draft.name=draft.name.replace(/-\d{4}-(0[1-9]|1[0-2])$/,'');
         delete draft.inlineData;
         if(draft.libraryPrefs){draft.libraryPrefs.period='';draft.libraryPrefs.date='';draft.libraryPrefs.group='';draft.libraryPrefs.expandedFileIds=[];draft.libraryPrefs.expandedSheetIds=[];}

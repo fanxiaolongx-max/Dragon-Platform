@@ -15,7 +15,8 @@ const NAV_BUILTIN_LINKS = [
     { id: 'frt', href: '/frt', icon: '📊', label: 'FRT核算', labelKey: 'nav.frt', defaultCategory: 'audit', match: p => p.startsWith('/frt') },
     { id: 'praudit', href: '/praudit', icon: '📋', label: 'PR稽查', labelKey: 'nav.praudit', defaultCategory: 'audit', match: p => p.startsWith('/praudit') },
     { id: 'storage', href: '/storage', icon: '💽', label: '迁移状态', labelKey: 'nav.storage', defaultCategory: 'system', match: p => p.startsWith('/storage') },
-    { id: 'db-explorer', href: '/db-explorer', icon: '🗄️', label: '数据探索', labelKey: 'nav.dbExplorer', defaultCategory: 'system', match: p => p.startsWith('/db-explorer') }
+    { id: 'db-explorer', href: '/db-explorer', icon: '🗄️', label: '数据探索', labelKey: 'nav.dbExplorer', defaultCategory: 'system', match: p => p.startsWith('/db-explorer') },
+    { id: 'python-updater', href: '/tools/python-updater', icon: '🐍', label: 'Python更新', labelEn: 'Python Updater', labelKey: 'nav.pythonUpdater', defaultCategory: 'cat_msbmuup1', match: p => p.startsWith('/tools/python-updater') || p.startsWith('/python-updater') }
 ];
 
 const NAV_DEFAULT_SETTINGS = {
@@ -46,7 +47,7 @@ const NAV_DEFAULT_SETTINGS = {
         'custom:tool-msbmscxd': 'audit', 'custom:tool-msbmu55i': 'audit',
         'custom:tool-ms4xb66s': 'cat_msbmuup1', 'custom:tool-mrhqjeya': 'cat_msbmuup1',
         'custom:tool-mrsw86w8': 'cat_mshv1h0m', 'custom:pr-2': 'cat_msbmuup1',
-        'custom:f12-to-extension': 'cat_msbmuup1', 'custom:tool-mrrgpqy4': 'cat_ms2192c7',
+        'custom:f12-to-extension': 'cat_msbmuup1', 'custom:python-updater': 'cat_msbmuup1', 'custom:tool-mrrgpqy4': 'cat_ms2192c7',
         'custom:particle-effects': 'cat_mshua5iu', 'custom:tool-mrrn48dc': 'cat_mshua5iu',
         'custom:optical-transfer': 'cat_mshua5iu', 'custom:tool-msf5b7nn': 'audit',
         'custom:nis_2026h1_summary': 'cat_mshv1h0m', 'custom:tool-msh8aro4': 'cat_mshv1h0m',
@@ -54,6 +55,7 @@ const NAV_DEFAULT_SETTINGS = {
     },
     itemOrder: [
         'praudit', 'custom:pr', 'frt', 'storage', 'db-explorer', 'topic-analysis', 'custom:eos_tool-v8',
+        'custom:f12-to-extension', 'custom:python-updater',
         'custom:tool-mqtlwcrv', 'custom:nis_2026h1_summary', 'custom:tool-ms4xb66s',
         'custom:particle-effects', 'custom:esn-check', 'custom:tool-mqp55fna',
         'custom:tool-mrrn48dc', 'custom:tool-ms1saxuh', 'custom:tool-mr88gv9x',
@@ -378,6 +380,7 @@ function registerNavbarI18n() {
             'nav.storage': '迁移状态',
             'nav.dbExplorer': '数据探索',
             'nav.f12packer': 'F12扩展打包',
+            'nav.pythonUpdater': 'Python脚本更新',
             'nav.more': '更多工具',
             'nav.moreSearch': '搜索工具、拼音或首字母...',
             'nav.moreSearchLabel': '搜索更多工具',
@@ -838,6 +841,7 @@ function registerNavbarI18n() {
             'nav.storage': 'Migration',
             'nav.dbExplorer': 'Data Explorer',
             'nav.f12packer': 'F12 Packer',
+            'nav.pythonUpdater': 'Python Updater',
             'nav.more': 'More Tools',
             'nav.moreSearch': 'Search tools, pinyin, or initials...',
             'nav.moreSearchLabel': 'Search more tools',

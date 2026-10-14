@@ -1,7 +1,7 @@
 (function(){
     'use strict';
     // This stamp identifies the executing script, even if an older copy was cached.
-    const scriptVersion='20261013-01';
+    const scriptVersion='20261014-01';
     const versionBadge=document.createElement('span');versionBadge.id='monthlyScriptVersion';versionBadge.className='monthly-script-version';versionBadge.setAttribute('data-controls','');versionBadge.dataset.version=scriptVersion;document.body.append(versionBadge);
     const engine=window.MonthlyDocumentEngine;
     const view=window.MonthlyCatalogView,S=window.MonthlySourceRules,W=window.MonthlyWorkspace;
@@ -12,14 +12,15 @@
     let current=engine.defaults(),catalog={files:[],snapshots:[],batches:[]},generation=0,renderPromise=Promise.resolve(),dirty=false;
     let metricTranslations=Object.create(null),globalCategories=[];
     let cardGesture=null,metaGesture=null,cardGridObserver=null,saving=false,initializing=false,initializationCancelled=false;
+    const baseRevisions=new Map();let draftManager;
     const history=[],cache=new Map(),fields=new Map();let fieldIndex=0;
     const root=document.getElementById('monthlyDocument'),dialog=document.getElementById('blockEditor');
     const t=(zh,en)=>language==='en'?en:zh;
     const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    const status=value=>{const el=document.getElementById('designerStatus');if(el){el.textContent=value;el.title=value||'';}};
+    const status=value=>{draftManager?.sync();const el=document.getElementById('designerStatus');if(el){el.textContent=value;el.title=value||'';}};
     const pair=value=>window.MonthlyLabels.pair(value,language,metricTranslations);
     const clone=value=>JSON.parse(JSON.stringify(value));
-    function checkpoint(){history.push(clone(current));if(history.length>30)history.shift();dirty=true;}
+    function checkpoint(){history.push(clone(current));if(history.length>30)history.shift();dirty=true;draftManager?.changed();}
     const transport=window.MonthlyRequestClient.create({fetch:(...args)=>fetch(...args),parse:(res,meta)=>handleResponse(res,{...meta,path:meta.path.startsWith('/api/upload/source-search?')?'/api/upload/source-search':meta.path})});
     async function request(url,options={}){const {timeoutMs,onResponse,...init}=options,headers={...getAuthHeaders(),...init.headers};if(init.body instanceof FormData)for(const key of Object.keys(headers))if(key.toLowerCase()==='content-type')delete headers[key];return transport.request(url,{credentials:'same-origin',...init,headers},{timeoutMs:timeoutMs??(init.method&&init.method!=='GET'?60000:15000),onResponse,queued:/^\/api\/(?:upload\/source-(?:sheets|snapshots)\/|duty-roster\?)/.test(url),timeoutMessage:t('读取超时：','Request timed out: ')+url+t('。请重试或检查桌面端运行日志。','. Retry or check the desktop runtime logs.')});}
     const librarySearch=window.MonthlyLibrarySearch?.create({request,t,escape,render:()=>library()})||{configure(){},reset(){},has:()=>false,matchMarkup:()=>'',buttonMarkup:()=>'',statusMarkup:()=>'',bind(){}};
@@ -89,7 +90,7 @@
     }
     function setLogo(url){checkpoint();current.logo=url;render();status(t('Logo 已更换，请保存月报','Logo changed; save the report'));}
     function actions(){
-        const names={'delete-reports':t('删除月报','Delete reports'),new:t('新建月报','New report'),template:t('设为默认模板','Set default template'),save:t('保存到服务器','Save to server'),refresh:t('刷新资料库','Refresh library'),'check-updates':t('检查月报数据更新','Check report updates'), 'add-section':t('＋模块','＋ Module'),layout:t('页面与信息栏','Page & metadata'),html:t('导出 HTML','Export HTML'),msg:t('导出 MSG 邮件','Export MSG email'),print:t('打印 / PDF','Print / PDF'),pdf:t('导出 PDF','Export PDF'),image:t('导出图片','Export image'),project:t('导出工程','Export project'),language:language==='zh'?'English':'中文',undo:t('撤销','Undo')};
+        const names={'month-review':t('跨月文字核对','Review month text'),'delete-reports':t('删除月报','Delete reports'),new:t('新建月报','New report'),template:t('设为默认模板','Set default template'),save:t('保存到服务器','Save to server'),refresh:t('刷新资料库','Refresh library'),'check-updates':t('检查月报数据更新','Check report updates'), 'add-section':t('＋模块','＋ Module'),layout:t('页面与信息栏','Page & metadata'),html:t('导出 HTML','Export HTML'),msg:t('导出 MSG 邮件','Export MSG email'),print:t('打印 / PDF','Print / PDF'),pdf:t('导出 PDF','Export PDF'),image:t('导出图片','Export image'),project:t('导出工程','Export project'),language:language==='zh'?'English':'中文',undo:t('撤销','Undo')};
         document.querySelectorAll('.designer-toolbar [data-action]').forEach(el=>el.textContent=names[el.dataset.action]);
         document.getElementById('designerName').textContent=t('通用月报编辑器','Universal monthly report editor');
         versionBadge.textContent=t('脚本 v','Script v')+scriptVersion;versionBadge.title=t('当前实际执行的月报编辑器脚本版本','Currently executing monthly editor script version');
@@ -238,6 +239,22 @@
             if(action==='retry'){if(pendingBlocks.has(block.id))return;for(const url of blockResources.get(block.id)?.keys()||[])cache.delete(url);blockResources.delete(block.id);if(block.savedData)block.previousData=block.savedData;delete block.savedData;const job=renderBlock(block,generation);renderPromise=Promise.all([renderPromise,job]).then(()=>{syncReportDataState();window.MonthlyPivotPanel?.sync();});await job;}
         }catch(error){status(error.message);}
     }
+    function reviewItems(from=current.monthReview?.from,to=current.monthReview?.to){return window.MonthlyMonthReview.findings(current,from,to);}
+    async function locateMonthReview(item){
+        if(language!==item.language){language=item.language;await render();}
+        const owner=item.scope==='document'?current:item.scope==='meta'?current.meta.find(value=>value.id===item.id):item.scope==='section'?current.sections.find(value=>value.id===item.id):findBlock(item.id)?.block;
+        const field=[...fields].find(([,value])=>value.value===owner&&value.key===item.key)?.[0],element=field?root.querySelector(`[data-field="${field}"]`):null;
+        if(!element){status(t('此处为总结模板，请在组件的数据处理中核对','Review this summary template in component processing'));if(item.scope==='block')await MonthlyPivotPanel.open(item.id,'processing');return;}
+        element.scrollIntoView({block:'center',behavior:'smooth'});element.focus({preventScroll:true});element.classList.add('month-review-highlight');setTimeout(()=>element.classList.remove('month-review-highlight'),4000);
+        const text=element.textContent,needle=item.matches[0]?.text,start=text.indexOf(needle);if(start<0)return;
+        const walker=document.createTreeWalker(element,NodeFilter.SHOW_TEXT),range=document.createRange();let offset=0,hasStart=false;
+        while(walker.nextNode()){const node=walker.currentNode,length=node.textContent.length;if(!hasStart&&offset+length>start){range.setStart(node,start-offset);hasStart=true;}if(hasStart&&offset+length>=start+needle.length){range.setEnd(node,start+needle.length-offset);const selection=getSelection();selection.removeAllRanges();selection.addRange(range);break;}offset+=length;}
+    }
+    function openMonthReview(from=current.monthReview?.from,to=current.monthReview?.to){
+        const items=reviewItems(from,to),prompt=document.createElement('dialog');prompt.className='monthly-edit-dialog';prompt.dataset.controls='';
+        prompt.innerHTML=`<h3>${t('跨月文字核对','Review month-specific text')}${from&&to?' · '+escape(from)+' → '+escape(to):''}</h3><p>${t('以下为疑似需要核对的手填月份或时间表述，包含中英文内容。点击定位后自行确认或修改。','These manual dates and time phrases may need review, including both languages. Locate each item to check or edit it.')}</p><div class="month-review-items">${items.length?items.map((item,index)=>`<button type="button" data-month-review-item="${index}"><strong>${escape(item.scope==='document'?({title:t('报告标题','Report title'),subtitle:t('副标题','Subtitle'),footer:t('页脚','Footer')}[item.key]||item.label):item.label||t('报告文字','Report text'))} · ${item.language==='zh'?'中文':'English'}</strong><span>${escape(item.text.slice(Math.max(0,item.matches[0].index-24),item.matches[0].index+100))}</span><small>${escape([...new Set(item.matches.map(match=>match.text))].join('、'))}</small></button>`).join(''):`<p>${t('未发现疑似遗留月份或相对时间表述；手填数字仍需人工核对。','No potentially stale dates or relative time phrases found; manual numbers still need review.')}</p>`}</div><footer><button type="button" data-review-close>${t('关闭','Close')}</button></footer>`;
+        document.body.append(prompt);prompt.showModal();prompt.addEventListener('close',()=>prompt.remove());prompt.querySelector('[data-review-close]').onclick=()=>prompt.close();prompt.onclick=event=>{const button=event.target.closest('[data-month-review-item]');if(button){prompt.close();locateMonthReview(items[Number(button.dataset.monthReviewItem)]).catch(error=>status(error.message));}};
+    }
     async function checkUpdates(nextMonth=engine.documentMonth(current)){
         const oldInline=inlineCatalog(),inlineValues=new Map([...root.querySelectorAll('[data-metric-token]')].map(element=>[element.dataset.metricToken,element.textContent]));
         const controller=new AbortController(),reads=new Map();
@@ -276,15 +293,17 @@
         const texts=[current.title,current.footer,...current.meta.flatMap(item=>[item.label,item.value]),...current.sections.flatMap(section=>[section.title,...section.blocks.flatMap(block=>[block.title,block.text,block.rule])])].flatMap(value=>Object.values(value||{})),freshInline={...catalog,inlineFormulas:current.inlineFormulas||[],reportMonth:current.dataRulesVersion===1||nextMonth!==engine.documentMonth(current)?nextMonth:''},tokens=new Map();
         for(const text of texts)for(const part of engine.metricTextParts(text,oldInline))if(part.key)tokens.set(part.token,part);
         if(tokens.size){const next=new Map();for(const text of texts)for(const part of engine.metricTextParts(text,freshInline))if(part.key)next.set(part.token,part);const missing=[...next.values()].filter(part=>part.missing||part.error),changed=[...tokens].some(([token,part])=>String(inlineValues.get(token)??part.value)!==String(next.get(token)?.value)||JSON.stringify(part.operandValues)!==JSON.stringify(next.get(token)?.operandValues));plans.push({id:'inline',label:t('动态指标（正文 / 信息栏）','Dynamic metrics (text / metadata)'),current:[...tokens].map(([token,part])=>part.label+': '+(inlineValues.get(token)??part.value)).join('；'),proposed:[...next.values()].map(part=>part.label+': '+part.value).join('；'),changed:changed||nextMonth!==engine.documentMonth(current),error:missing.length?t('指标引用或公式异常：','Metric or formula unavailable: ')+missing.map(part=>part.label).join('、'):'',resources:new Map()});}
+        const oldMonth=engine.documentMonth(current),textReview=reviewItems(oldMonth,nextMonth);
         const targetMonth=nextMonth,manual=current.sections.flatMap(section=>section.blocks).filter(block=>block.type==='text'&&pair(block.text).trim()&&!/\[\[@(?:metric|formula):/.test(pair(block.text))).length;
-        dialog.innerHTML=`<h3>${t('月报数据更新预览','Report data update preview')} · ${escape(targetMonth)}</h3><p>${t('刷新资料库不修改报告。勾选后统一应用，可撤销；固定版本保持锁定。','Refreshing the library does not change the report. Select updates to apply; Undo is available. Pinned versions stay pinned.')}</p>${targetMonth!==engine.documentMonth(current)?`<p>${t('新月份有 '+manual+' 个手填文字组件，请核对数字和月份。',manual+' manual text components require checking numbers and months.')}</p>`:''}<div class="update-preview-scroll"><table class="update-preview"><colgroup><col style="width:36px"><col style="width:20%"><col><col><col style="width:140px"></colgroup><thead><tr><th></th><th>${t('组件','Component')}</th><th>${t('当前来源','Current source')}</th><th>${t('更新后来源','Proposed source')}</th><th>${t('状态','Status')}</th></tr></thead><tbody>${plans.map(plan=>`<tr><td><input type="checkbox" data-update-id="${plan.id}" aria-label="${escape(t('更新：','Update: ')+plan.label)}" ${plan.changed&&!plan.error?'checked':''} ${plan.error?'disabled':''}></td><td>${escape(plan.label)}</td><td>${escape(plan.current)}</td><td>${escape(plan.proposed||'—')}</td><td class="update-preview-state"><span class="update-state-badge" data-update-state="${plan.error?'error':plan.changed?'changed':'same'}">${plan.error?t('待处理','Needs attention'):t(plan.changed?'有更新':'数据一致',plan.changed?'Update available':'Unchanged')}</span>${plan.error?`<small>${escape(plan.error)}</small>`:''}</td></tr>`).join('')}</tbody></table></div><p role="status"></p><footer><button data-update-cancel>${t('取消','Cancel')}</button><button data-update-all>${t('选择全部可用更新','Select all available')}</button><button data-update-apply>${t('应用选中更新','Apply selected')}</button></footer>`;
+        dialog.innerHTML=`<h3>${t('月报数据更新预览','Report data update preview')} · ${escape(targetMonth)}</h3><p>${t('刷新资料库不修改报告。勾选后统一应用，可撤销；固定版本保持锁定。','Refreshing the library does not change the report. Select updates to apply; Undo is available. Pinned versions stay pinned.')}</p>${targetMonth!==engine.documentMonth(current)?`<button type="button" data-preview-month-review>${t('定位核对 '+textReview.length+' 处时间表述','Review '+textReview.length+' text fields')}</button><p>${t('新月份有 '+manual+' 个手填文字组件，请核对数字和月份。',manual+' manual text components require checking numbers and months.')}</p>`:''}<div class="update-preview-scroll"><table class="update-preview"><colgroup><col style="width:36px"><col style="width:20%"><col><col><col style="width:140px"></colgroup><thead><tr><th></th><th>${t('组件','Component')}</th><th>${t('当前来源','Current source')}</th><th>${t('更新后来源','Proposed source')}</th><th>${t('状态','Status')}</th></tr></thead><tbody>${plans.map(plan=>`<tr><td><input type="checkbox" data-update-id="${plan.id}" aria-label="${escape(t('更新：','Update: ')+plan.label)}" ${plan.changed&&!plan.error?'checked':''} ${plan.error?'disabled':''}></td><td>${escape(plan.label)}</td><td>${escape(plan.current)}</td><td>${escape(plan.proposed||'—')}</td><td class="update-preview-state"><span class="update-state-badge" data-update-state="${plan.error?'error':plan.changed?'changed':'same'}">${plan.error?t('待处理','Needs attention'):t(plan.changed?'有更新':'数据一致',plan.changed?'Update available':'Unchanged')}</span>${plan.error?`<small>${escape(plan.error)}</small>`:''}</td></tr>`).join('')}</tbody></table></div><p role="status"></p><footer><button data-update-cancel>${t('取消','Cancel')}</button><button data-update-all>${t('选择全部可用更新','Select all available')}</button><button data-update-apply>${t('应用选中更新','Apply selected')}</button></footer>`;
+        dialog.querySelector('[data-preview-month-review]')?.addEventListener('click',()=>openMonthReview(oldMonth,nextMonth));
         dialog.querySelector('[data-update-cancel]').onclick=()=>{dialog.close();actions();};dialog.querySelector('[data-update-all]').onclick=()=>dialog.querySelectorAll('[data-update-id]:not(:disabled)').forEach(input=>input.checked=true);
         dialog.querySelector('[data-update-apply]').onclick=async()=>{
             const selected=new Set([...dialog.querySelectorAll('[data-update-id]:checked')].map(input=>input.dataset.updateId));
             const draft=clone(current);for(const section of draft.sections)for(const block of section.blocks)if(selected.has(block.id)){if(block.savedData)block.previousData=block.savedData;delete block.savedData;blockResources.delete(block.id);}else if(targetMonth!==engine.documentMonth(current)&&S.references(block).some(item=>item.value.reference)){const plan=plans.find(plan=>plan.id===block.id);if(!plan?.error){dialog.querySelector('[role=status]').textContent=t('切换报告月份时，请应用全部按月份引用的组件，避免月份混用。','Select all month-relative components when changing the report month.');return;}}
             if(targetMonth!==engine.documentMonth(current)&&tokens.size&&!selected.has('inline')&&!plans.find(plan=>plan.id==='inline')?.error){dialog.querySelector('[role=status]').textContent=t('请同时应用动态指标月份更新。','Apply the dynamic metric month update as well.');return;}
             checkpoint();if(selected.has('inline')){history.at(-1).inlineData={files:[],snapshots:oldInline.snapshots,batches:oldInline.batches,month:oldInline.reportMonth||''};delete draft.inlineData;}
-            current=draft;current.reportMonth=targetMonth;if(targetMonth!==engine.documentMonth(history.at(-1)))current.dataRulesVersion=1;if(targetMonth!==engine.documentMonth(history.at(-1))&&!tokens.size)delete current.inlineData;cache.clear();for(const plan of plans)if(selected.has(plan.id))for(const [url,data] of plan.resources)cache.set(url,Promise.resolve(data));dialog.close();await render();for(const plan of plans)if(plan.error){dataStates.set(plan.id,plan.error+t('；保留上次结果','; last result retained'));if(plan.id!=='inline')syncDataState(findBlock(plan.id).block);}window.MonthlyPivotPanel.sync();syncReportDataState();status(t('已应用数据更新；可撤销，请保存月报','Updates applied; Undo is available. Save the report.'));
+            current=draft;if(targetMonth!==oldMonth&&S.validMonth(oldMonth))current.monthReview={from:oldMonth,to:targetMonth};current.reportMonth=targetMonth;if(targetMonth!==engine.documentMonth(history.at(-1)))current.dataRulesVersion=1;if(targetMonth!==engine.documentMonth(history.at(-1))&&!tokens.size)delete current.inlineData;cache.clear();for(const plan of plans)if(selected.has(plan.id))for(const [url,data] of plan.resources)cache.set(url,Promise.resolve(data));dialog.close();await render();draftManager?.sync();for(const plan of plans)if(plan.error){dataStates.set(plan.id,plan.error+t('；保留上次结果','; last result retained'));if(plan.id!=='inline')syncDataState(findBlock(plan.id).block);}window.MonthlyPivotPanel.sync();syncReportDataState();status(t('已应用数据更新；可撤销，请保存月报','Updates applied; Undo is available. Save the report.'));
         };
         status(t('已完成更新检查','Update check complete'));
     }
@@ -976,7 +995,12 @@
         const resolved=effectiveBlock(block),tables=await Promise.all([...new Set((resolved.chart?.pivot?.sources||resolved.chart?.series||[]).map(source=>source.sheetId).filter(Boolean))].map(id=>blockCached('/api/upload/source-sheets/'+encodeURIComponent(id),block)));
         if(block.binding)tables.push(await sourceRows(block,engine.resolve(block.binding,reportCatalog(block))));
         const target=document.getElementById('data-'+block.id);
-        target?.querySelectorAll('table').forEach(table=>{const headers=Array.from(table.tHead?.rows[0]?.cells||[],cell=>cell.dataset.mappingOriginal??cell.textContent);const rows=Array.from(table.tBodies[0]?.rows||[],row=>Object.fromEntries(Array.from(row.cells,(cell,index)=>[headers[index]||String(index),cell.dataset.numberValue??cell.dataset.formatOriginal??cell.dataset.mappingOriginal??cell.textContent])));tables.push({headers,rows});});
+        target?.querySelectorAll('table').forEach(table=>{const headers=Array.from(table.tHead?.rows[0]?.cells||[],cell=>cell.dataset.mappingOriginal??cell.textContent);const rows=Array.from(table.tBodies[0]?.rows||[],row=>Object.fromEntries(Array.from(row.cells,(cell,index)=>[headers[index]||String(index),cell.dataset.numberValue??cell.dataset.formatOriginal??cell.dataset.mappingOriginal??cell.textContent])));tables.push({headers,rows,displayed:true,rowField:block.chart?.pivot?.rows?.[0]||block.chart?.x||headers[0]});});
+        const visibleFields=[...(block.columns||[]),...(block.chart?.pivot?.rows||[]),...(block.chart?.pivot?.values||[]).flatMap(item=>[item.field,item.label]),block.chart?.x,block.chart?.y,...(block.chart?.series||[]).flatMap(item=>[item.x,item.y])].filter(Boolean);
+        const rowField=block.chart?.pivot?.rows?.[0]||block.chart?.x||block.chart?.series?.[0]?.x||tables.find(table=>table.displayed)?.headers?.[0]||tables[0]?.headers?.[0];
+        tables.forEach(table=>table.rowField??=rowField);
+        const labels=[...target?.querySelectorAll('svg text[data-mapping-original]:not([data-number-value])')||[]].flatMap(node=>(node.dataset.mappingOriginal||'').split(' / '));
+        if(labels.length)tables.push({headers:[...new Set([rowField,...visibleFields].filter(Boolean))],rows:labels.map(value=>({[rowField]:value})),rowField,displayed:true});
         const pivot=resolved.chart?.pivot;if(pivot){const result=window.MonthlyCharts.pivotMetadata(block),headers=pivot.values.map(value=>value.field);if(result)tables.push({headers,rows:[Object.fromEntries(headers.map((field,index)=>[field,result.grandTotals[index]]))]});}
         const metric=resolved.binding?.kind==='metric'?engine.resolve(resolved.binding,reportCatalog(block))?.metric:null;if(metric)tables.push({headers:[metric.label],rows:[{[metric.label]:metric.value}]});
         return tables;
@@ -1247,13 +1271,13 @@
         dialog.close();if(cancelled)throw new Error(t('已取消本次操作，数据仍在后台加载','Action cancelled; data continues loading'));
     }
     async function exportDocument(){
-        await waitForOutput();updateEmptyState();const clone=root.cloneNode(true);clone.querySelectorAll('.metric-inspected').forEach(node=>{node.classList.remove('metric-inspected');node.removeAttribute('data-inspect-color');});clone.classList.add('document-export');
+        await waitForOutput();updateEmptyState();const clone=root.cloneNode(true);clone.querySelectorAll('.metric-inspected').forEach(node=>{node.classList.remove('metric-inspected');node.removeAttribute('data-inspect-color');});clone.querySelectorAll('.month-review-highlight').forEach(node=>node.classList.remove('month-review-highlight'));clone.classList.add('document-export');
             // Export the rendered page width, including any editor shrinkage on narrow screens.
             clone.style.width=root.getBoundingClientRect().width+'px';clone.style.maxWidth='none';clone.style.flex='none';
             const typography=getComputedStyle(root);clone.style.fontFamily=typography.fontFamily;clone.style.fontSize=typography.fontSize;
             clone.style.setProperty('--document-default-font-size',`${current.defaultFontSize||16}px`);
             clone.querySelectorAll('.document-meta-cell,.document-section,.document-block').forEach(element=>{const original=root.querySelector(element.dataset.metaId?`[data-meta-id="${element.dataset.metaId}"].document-meta-cell`:element.dataset.cardId?`[data-card-id="${element.dataset.cardId}"]`:`#${element.id}`);if(original){const style=getComputedStyle(original);element.style.setProperty('grid-column',style.gridColumn,'important');element.style.padding=style.padding;}});
-            clone.querySelectorAll('.inline-metric').forEach(element=>{element.replaceChildren(document.createTextNode(element.textContent));element.removeAttribute('data-metric-token');element.removeAttribute('title');element.classList.remove('inline-metric','inline-formula');element.removeAttribute('data-formula-id');});clone.querySelectorAll('.document-source-note').forEach(note=>{note.textContent=note.dataset.sourceDate||'';note.removeAttribute('data-source-date');});clone.querySelectorAll('[data-controls]').forEach(el=>el.remove());clone.querySelectorAll('[contenteditable]').forEach(el=>{el.removeAttribute('contenteditable');el.removeAttribute('data-placeholder');el.removeAttribute('data-field');});const logo=clone.querySelector('.document-masthead img');if(logo&&current.logo){logo.src=await exportLogo(current.logo);logo.removeAttribute('hidden');}const css=await fetch('/css/monthly-designer.css?v=20261011-53').then(res=>res.text());
+            clone.querySelectorAll('.inline-metric').forEach(element=>{element.replaceChildren(document.createTextNode(element.textContent));element.removeAttribute('data-metric-token');element.removeAttribute('title');element.classList.remove('inline-metric','inline-formula');element.removeAttribute('data-formula-id');});clone.querySelectorAll('.document-source-note').forEach(note=>{note.textContent=note.dataset.sourceDate||'';note.removeAttribute('data-source-date');});clone.querySelectorAll('[data-controls]').forEach(el=>el.remove());clone.querySelectorAll('[contenteditable]').forEach(el=>{el.removeAttribute('contenteditable');el.removeAttribute('data-placeholder');el.removeAttribute('data-field');});const logo=clone.querySelector('.document-masthead img');if(logo&&current.logo){logo.src=await exportLogo(current.logo);logo.removeAttribute('hidden');}const css=await fetch('/css/monthly-designer.css?v=20261014-01').then(res=>res.text());
         clone.style.padding=typography.padding;
         await alignExportCards(clone,css);
         return {clone,css};
@@ -1588,9 +1612,21 @@
             wrapper.remove();
         }
     }
+    function openSaveConflict(){
+        const prompt=document.createElement('dialog');prompt.className='monthly-edit-dialog';prompt.dataset.controls='';
+        prompt.innerHTML=`<h3>${t('服务器月报已有新版本','A newer server report exists')}</h3><p>${t('当前修改已保留。可继续编辑，或另存为副本；也可以先保存当前草稿，再载入服务器版本核对。','Your edits are retained. Continue editing or save a separate copy. You can also save your current draft before loading the server version to review it.')}</p><p role="status"></p><footer><button type="button" data-conflict="keep">${t('继续编辑','Keep editing')}</button><button type="button" data-conflict="latest">${t('保存草稿并载入服务器版本','Save draft & load server version')}</button><button type="button" data-conflict="copy">${t('另存副本','Save a copy')}</button></footer>`;
+        document.body.append(prompt);prompt.showModal();prompt.addEventListener('close',()=>prompt.remove());
+        prompt.onclick=async event=>{const button=event.target.closest('[data-conflict]');if(!button)return;const action=button.dataset.conflict;if(action==='keep'){prompt.close();return;}button.disabled=true;try{
+            if(action==='copy'){await draftManager.settle();checkpoint();delete current.id;current.name=t('副本-','Copy-')+current.name.slice(0,185);draftManager.begin();await render();prompt.close();await runAction('save');return;}
+            await draftManager.flush();const result=await request('/api/upload/monthly-documents/'+encodeURIComponent(current.id));const next=engine.normalize(result.document);
+            checkpoint();current=next;baseRevisions.set(next.id,result.revision);dirty=false;window.MonthlyCharts.resetPanels();await ensureReferencedCatalog();restoreLibrary();await render();draftManager.begin();prompt.close();status(t('已载入服务器版本；原修改保留在草稿与恢复中','Server version loaded; your previous edits remain in Drafts & recovery'));
+        }catch(error){prompt.querySelector('[role=status]').textContent=error.message;}finally{button.disabled=false;}};
+        status(t('保存冲突：服务器已有新版本，当前修改保留','Save conflict: a newer server version exists; your edits are retained'));
+    }
     async function runAction(action){
         root.querySelectorAll('.document-edit').forEach(commitText);
         document.activeElement?.blur();
+        if(action==='month-review'){openMonthReview();return;}
         if(action==='language'){language=language==='zh'?'en':'zh';library();await render();await listDocuments();return;}
         if(action==='undo'){if(history.length){current=history.pop();dirty=true;restoreLibrary();render();}return;}
         if(action==='delete-reports')return window.MonthlyReportManager.open({request,t,escape,currentId:current.id,onDeleted:async ids=>{
@@ -1603,7 +1639,7 @@
         if(action==='new'){
             let template=null;
             try{const saved=await request('/api/upload/monthly-default-template');template=saved?.template;}catch(error){console.warn('[MonthlyDesigner] Failed to fetch default template:',error);}
-            checkpoint();current=createFromDefault(template);window.MonthlyCharts.resetPanels();await ensureReferencedCatalog();restoreLibrary();await render();document.getElementById('documentList').value='';status(templateWarning||t('已使用默认模板新建月报，尚未保存','New report created from the default template; unsaved'));return;
+            await draftManager?.settle();checkpoint();current=createFromDefault(template);draftManager?.begin();window.MonthlyCharts.resetPanels();await ensureReferencedCatalog();restoreLibrary();await render();document.getElementById('documentList').value='';status(templateWarning||t('已使用默认模板新建月报，尚未保存','New report created from the default template; unsaved'));return;
         }
         if(action==='save'){
             if(saving)return false;
@@ -1611,19 +1647,17 @@
             saving=true;root.inert=true;toolbar.inert=true;button.disabled=true;
             button.textContent=t('正在保存…','Saving…');status(t('正在保存到服务器…','Saving to server…'));
             try{
-                await waitForOutput();captureData();let draft=engine.normalize(engine.prepareMonthlySave(current,engine.documentMonth(current))),previous=null;
-                if(draft.id){
-                    const stored=await request(`/api/upload/monthly-documents/${encodeURIComponent(draft.id)}`);
-                    if(draft.reportMonth&&engine.documentMonth(stored.document)!==draft.reportMonth)delete draft.id;else previous=stored.document;
-                }
-                draft=engine.nextSaveVersion(draft,previous);
-                const result=await request('/api/upload/monthly-documents',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(draft)});
-                current=engine.normalize(result.document);window.MonthlyCharts.resetPanels();dirty=false;await render();
+                await draftManager?.settle();await waitForOutput();captureData();let draft=engine.normalize(engine.prepareMonthlySave(current,engine.documentMonth(current)));
+                draft=engine.nextSaveVersion(draft,current.id&&engine.documentMonth(current)===draft.reportMonth?current:null);
+                const revisionHeaders=draft.id?{'X-Monthly-Base-Revision':baseRevisions.get(draft.id)??'missing'}:{};
+                const result=await request('/api/upload/monthly-documents',{method:'POST',headers:{'Content-Type':'application/json',...revisionHeaders},body:JSON.stringify(draft)});
+                current=engine.normalize(result.document);if(result.revision)baseRevisions.set(current.id,result.revision);window.MonthlyCharts.resetPanels();dirty=false;await render();await draftManager?.saved();
                 const message=t('月报已成功保存到服务器','Report saved successfully to server');
                 status(message);window.showToast(message,'success');
                 try{await listDocuments();}catch(error){status(message+t('；月报列表刷新失败：','; report list refresh failed: ')+error.message);}
                 return true;
             }catch(error){
+                if(error.body?.code==='MONTHLY_SAVE_CONFLICT'){openSaveConflict();return false;}
                 const message=t('保存失败：','Save failed: ')+error.message;
                 status(message);window.showToast(message,'error');
                 return false;
@@ -1657,15 +1691,15 @@
             if(dirty){const choice=await confirmReportSwitch(name);if(choice==='cancel')return;if(choice==='save'&&!await runAction('save'))return;}
             root.inert=true;document.querySelector('.designer-toolbar').inert=true;status(t('正在载入所选月报…','Loading selected report…'));
             const result=await request(`/api/upload/monthly-documents/${encodeURIComponent(id)}`),next=engine.normalize(result.document);
-            const previous=current,previousDirty=dirty,previousHistory=history.slice();
-            checkpoint();current=next;window.MonthlyCharts.resetPanels();dirty=false;
+            await draftManager?.settle();const previous=current,previousDirty=dirty,previousHistory=history.slice();
+            checkpoint();current=next;if(result.revision)baseRevisions.set(next.id,result.revision);window.MonthlyCharts.resetPanels();dirty=false;
             try{await ensureReferencedCatalog();restoreLibrary();await render();}
             catch(error){current=previous;dirty=previousDirty;history.splice(0,history.length,...previousHistory);window.MonthlyCharts.resetPanels();restoreLibrary();await render();throw error;}
-            select.value=current.id;status(t('已载入服务器月报','Stored report loaded'));
+            draftManager?.begin();select.value=current.id;status(t('已载入服务器月报','Stored report loaded'));
         }catch(error){status(t('切换月报失败：','Report switch failed: ')+error.message);window.showToast(error.message,'error');}
         finally{select.value=current.id||'';select.disabled=false;root.inert=false;document.querySelector('.designer-toolbar').inert=false;switchingReport=false;}
     };
-    document.getElementById('projectImport').onchange=async event=>{try{const project=JSON.parse(await event.target.files[0].text());if(project.fileType!=='monthly-document-project')throw new Error(t('无效的工程文件','Invalid project file'));const document=engine.normalize(project.document);checkpoint();delete document.id;current=document;window.MonthlyCharts.resetPanels();await ensureReferencedCatalog();restoreLibrary();await render();status(t('工程已载入，引用数据按当前租户资料库解析','Project loaded; bindings resolve in this tenant'));}catch(error){status(error.message);}finally{event.target.value='';}};
+    document.getElementById('projectImport').onchange=async event=>{try{const project=JSON.parse(await event.target.files[0].text());if(project.fileType!=='monthly-document-project')throw new Error(t('无效的工程文件','Invalid project file'));const document=engine.normalize(project.document);await draftManager?.settle();checkpoint();delete document.id;current=document;draftManager?.begin();window.MonthlyCharts.resetPanels();await ensureReferencedCatalog();restoreLibrary();await render();status(t('工程已载入，引用数据按当前租户资料库解析','Project loaded; bindings resolve in this tenant'));}catch(error){status(error.message);}finally{event.target.value='';}};
     window.addEventListener('tools:languagechange',()=>{language=window.ToolsI18n?.getLanguage()==='en-US'?'en':'zh';library();render();listDocuments().catch(error=>status(error.message));});
     window.addEventListener('beforeunload',event=>{if(dirty){event.preventDefault();event.returnValue='';}});
     window.MonthlyDesigner={getDocument:()=>clone(current),getCatalog:()=>clone(catalog),applyDocument:async document=>{current=engine.normalize(document);await ensureReferencedCatalog();window.MonthlyCharts.resetPanels();restoreLibrary();return render();},refresh,whenRendered:()=>renderPromise};
@@ -1692,7 +1726,7 @@
             if(latest){
                 const result=await request(`/api/upload/monthly-documents/${encodeURIComponent(latest.id)}`);
                 if(initializationCancelled)return;
-                current=engine.normalize(result.document);startup.step('document');window.MonthlyCharts.resetPanels();dirty=false;history.length=0;
+                current=engine.normalize(result.document);if(result.revision)baseRevisions.set(current.id,result.revision);startup.step('document');window.MonthlyCharts.resetPanels();dirty=false;history.length=0;
                 await ensureReferencedCatalog();const opened=current;restoreLibrary();startup.step('render','loading');const rendering=render();root.inert=false;toolbar.inert=false;await rendering;if(initializationCancelled||current!==opened)return;document.getElementById('documentList').value=current.id;
                 status(t('已自动载入最近保存的服务器月报','Latest saved server report loaded automatically'));
             }else{
@@ -1704,9 +1738,11 @@
             if(!initializationCancelled){startup.step('references','loading');await ensureReferencedCatalog();startup.step('references');startup.step('render','loading');await render();startup.step('render');startup.step('assets','loading');const assetsReady=await waitStartupAssets();if(!initializationCancelled)startup.step('assets',assetsReady?'ready':'error');}
             if(!initializationCancelled&&sources.status==='rejected')status(t('月报已打开，但数据资料库读取失败：','Report opened, but data sources could not be loaded: ')+sources.reason.message);
         }catch(error){if(!initializationCancelled){startupError=error.message;status(error.message);}}
-        finally{initializing=false;root.inert=false;toolbar.inert=false;startup.finish({error:startupError,cancelled:initializationCancelled});const placeholder=sourceLibrary.querySelector('[data-source-loading]');if(placeholder)placeholder.textContent=document.getElementById('designerStatus').textContent;}
+        finally{initializing=false;root.inert=false;toolbar.inert=false;startup.finish({error:startupError,cancelled:initializationCancelled});if(!startupError&&!initializationCancelled)draftManager?.start();const placeholder=sourceLibrary.querySelector('[data-source-loading]');if(placeholder)placeholder.textContent=document.getElementById('designerStatus').textContent;}
     }
     MonthlyLoadLog.init({t,status,retry:()=>refresh(directoryCatalog?.failedGroups?.length?directoryCatalog.failedGroups:undefined).catch(()=>{})});MonthlyStudioUI.init({t});
+    const reviewButton=document.createElement('button');reviewButton.type='button';reviewButton.dataset.action='month-review';document.querySelector('[data-menu=more] .studio-menu-content').append(reviewButton);
+    draftManager=window.MonthlyDraftManager.create({t,escape,request,status,dirty:()=>dirty,ready:()=>!initializing&&!saving&&!switchingReport&&!root.inert,document:()=>engine.normalize(current),signature:()=>JSON.stringify(current),hasSaved:()=>!!current.id,revision:()=>baseRevisions.get(current.id),restore:async result=>{await draftManager.settle();const next=engine.normalize(result.document),previous=current;checkpoint();current=next;if(next.id)baseRevisions.set(next.id,result.baseRevision);try{window.MonthlyCharts.resetPanels();await ensureReferencedCatalog();restoreLibrary();await render();dirty=true;}catch(error){current=previous;await render();throw error;}}});
     W.init({root,library:document.getElementById('sourceLibrary'),t,escape,metricLabel,status,find:findBlock,pair,typeName,catalog:()=>catalog,month:()=>engine.documentMonth(current),fileName:fileDisplayName,updateMode:async(block,mode)=>{checkpoint();if(mode==='legacy')delete block.dataUpdateMode;else block.dataUpdateMode=mode;if(mode==='live')delete block.savedData;cache.clear();await render();},actual:actualSource,versions:referenceVersions,referenceChange,useSelection,preview:previewSource,configure,mountEditor,state:block=>dataStates.get(block.id)||t('尚未加载','Not loaded'),favorite:key=>{current.libraryPrefs.favorites||=[];const index=current.libraryPrefs.favorites.indexOf(key);if(index>=0)current.libraryPrefs.favorites.splice(index,1);else current.libraryPrefs.favorites.push(key);dirty=true;library();}});
     document.getElementById('reportMonth').onchange=event=>{const month=event.target.value;if(S.validMonth(month))checkUpdates(month).catch(error=>{status(error.message);actions();});};
     window.MonthlyPivotPanel.init({root,library:document.getElementById('sourceLibrary'),t,escape,metricLabel,status,block:id=>findBlock(id)?.block,

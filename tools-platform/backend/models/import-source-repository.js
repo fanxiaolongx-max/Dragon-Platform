@@ -238,17 +238,26 @@ const listComponentPresets=()=>listPresets('component'),saveComponentPreset=(inp
 const listMappingPresets=()=>listPresets('mapping'),saveMappingPreset=(input,id)=>savePreset('mapping',input,id),deleteMappingPreset=id=>deletePreset('mapping',id);
 const listDataFormatPresets=()=>listPresets('dataFormat'),saveDataFormatPreset=(input,id)=>savePreset('dataFormat',input,id),deleteDataFormatPreset=id=>deletePreset('dataFormat',id);
 async function listDocuments() { await ensureReady(); return all('SELECT id,name,created_at,updated_at FROM monthly_documents ORDER BY updated_at DESC,rowid DESC'); }
-async function getDocument(documentId) { await ensureReady(); const row=await get('SELECT * FROM monthly_documents WHERE id=?',[documentId]); return row ? {...row,document:JSON.parse(row.payload_json),payload_json:undefined} : null; }
-async function saveDocumentUnlocked(document) {
+const documentRevision = payload => crypto.createHash('sha256').update(payload).digest('hex');
+async function getDocument(documentId) { await ensureReady(); const row=await get('SELECT * FROM monthly_documents WHERE id=?',[documentId]); return row ? {...row,revision:documentRevision(row.payload_json),document:JSON.parse(row.payload_json),payload_json:undefined} : null; }
+function saveConflict(){const error=new Error('Monthly report changed since it was opened');error.status=409;error.code='MONTHLY_SAVE_CONFLICT';throw error;}
+async function saveDocumentUnlocked(document, options={}) {
     await ensureReady();
     const engine=require('../../frontend/js/monthly-designer/document-engine');
     document=engine.prepareMonthlySave(document);
     const previous=document.id?await getDocument(document.id):null;
+    if(Object.hasOwn(options,'expectedRevision')&&document.id&&options.expectedRevision!==(previous?.revision??null))saveConflict();
     const month=engine.documentMonth(document);
     const documentId=previous&&month&&engine.documentMonth(previous.document)!==month?id():document.id||id();
     document=engine.nextSaveVersion(document,documentId===previous?.id?previous.document:null);
     const now=new Date().toISOString();
-    await run(`INSERT INTO monthly_documents (id,name,payload_json,created_at,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,payload_json=excluded.payload_json,updated_at=excluded.updated_at`,[documentId,document.name,json({...document,id:documentId}),now,now]);
+    const payload=json({...document,id:documentId});
+    if(previous&&documentId===previous.id&&Object.hasOwn(options,'expectedRevision')){
+        const row=await get('SELECT payload_json FROM monthly_documents WHERE id=?',[documentId]);
+        if(!row||documentRevision(row.payload_json)!==previous.revision)saveConflict();
+        const result=await run('UPDATE monthly_documents SET name=?,payload_json=?,updated_at=? WHERE id=? AND payload_json=?',[document.name,payload,now,documentId,row.payload_json]);
+        if(!result.changes)saveConflict();
+    }else await run(`INSERT INTO monthly_documents (id,name,payload_json,created_at,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,payload_json=excluded.payload_json,updated_at=excluded.updated_at`,[documentId,document.name,payload,now,now]);
     return getDocument(documentId);
 }
 async function deleteDocuments(input) {
@@ -272,8 +281,8 @@ async function saveLogo(file){
     return {id:logoId,name,created_at:time};
 }
 const documentSaves=new Map();
-async function saveDocument(document){
-    const key=getDataDir(),pending=(documentSaves.get(key)||Promise.resolve()).catch(()=>{}).then(()=>saveDocumentUnlocked(document));
+async function saveDocument(document,options={}){
+    const key=getDataDir(),pending=(documentSaves.get(key)||Promise.resolve()).catch(()=>{}).then(()=>saveDocumentUnlocked(document,options));
     documentSaves.set(key,pending);
     try{return await pending;}finally{if(documentSaves.get(key)===pending)documentSaves.delete(key);}
 }

@@ -25,4 +25,14 @@ tools-platform/backend/builtin-tools/*/audio/*.mp3
 *.mov
 *.m4v
 
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+python-packager/dist/
+python-packager/build/
+python-packager/*.spec
+python-packager/backups/
+python-packager/data/
+
 

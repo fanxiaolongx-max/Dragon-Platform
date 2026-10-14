@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "python-updater",
+    "name": "Python脚本更新器",
+    "icon": "🐍",
+    "description": "Python 脚本版本管理与通用外壳打包器，支持内置与上传脚本、GitHub 在线热更新、代码历史差异比对与 GitHub Action 自动化 EXE 构建。",
+    "tags": ["Python", "版本管理", "热更新打包", "代码比对", "通用外壳"],
+    "href": "/tools/python-updater",
+    "filePath": "/custom-tools/python-updater/index.html",
+    "publicAccess": true,
+    "createdAt": "2026-10-14T00:00:00.000Z",
+    "updatedAt": "2026-10-14T00:00:00.000Z"
+  },
+  "history": null
+}

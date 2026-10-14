@@ -1,0 +1,1907 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Python 脚本更新器 (Python Script Hot-Updater)</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- JSZip -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- FileSaver -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+    
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #0b1120 0%, #171b34 50%, #0d1527 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+      margin: 0;
+    }
+    
+    .glass-card {
+      background: rgba(23, 32, 54, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+    }
+    
+    .input-field {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #f8fafc;
+      transition: all 0.2s ease;
+    }
+    .input-field:focus {
+      outline: none;
+      border-color: #38bdf8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+    
+    .code-font {
+      font-family: 'Fira Code', monospace;
+    }
+
+    /* Diff View 样式 */
+    .diff-line-add {
+      background-color: rgba(34, 197, 94, 0.18);
+      color: #86efac;
+      border-left: 3px solid #22c55e;
+    }
+    .diff-line-del {
+      background-color: rgba(239, 68, 68, 0.18);
+      color: #fca5a5;
+      border-left: 3px solid #ef4444;
+    }
+    .diff-line-same {
+      color: #94a3b8;
+    }
+
+    /* 自定义滚动条 */
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.5); }
+
+    .tab-btn.active {
+      background: #0284c7;
+      color: #ffffff;
+      border-color: #38bdf8;
+    }
+    .tab-btn:not(.active) {
+      background: rgba(30, 41, 59, 0.6);
+      color: #94a3b8;
+      border-color: rgba(255, 255, 255, 0.08);
+    }
+    .tab-btn:not(.active):hover {
+      background: rgba(51, 65, 85, 0.8);
+      color: #f1f5f9;
+    }
+  </style>
+</head>
+<body class="p-3 md:p-6 min-h-screen flex flex-col">
+
+  <!-- 顶部面包屑与标题栏 -->
+  <header class="max-w-7xl w-full mx-auto mb-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+    <div>
+      <div class="flex items-center gap-2 mb-1 text-xs text-sky-400 font-semibold tracking-wide">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>平台自定义工具 · PYTHON 脚本更新与热打包</span>
+      </div>
+      <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-sky-400 via-teal-300 to-indigo-300">
+        Python 脚本热更新与版本管理器
+      </h1>
+      <p class="text-slate-400 text-xs md:text-sm mt-0.5">
+        通用外壳一次打包 EXE · 核心业务脚本从 GitHub 在线秒级热更新 · 历史版本比对与差异分析
+      </p>
+    </div>
+
+    <!-- 顶部状态指示徽章 -->
+    <div class="flex items-center gap-2">
+      <span class="px-2.5 py-1 rounded-md text-xs font-medium bg-slate-800/80 border border-slate-700/80 text-slate-300 flex items-center gap-1.5">
+        <span class="text-emerald-400">●</span> 远端仓库: <strong class="text-sky-300">privacy-policy</strong>
+      </span>
+      <a href="https://github.com/fanxiaolongx-max/privacy-policy/actions/workflows/package-python-exe.yml" target="_blank" class="px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-900/60 hover:bg-indigo-800/80 border border-indigo-700/80 text-indigo-200 transition flex items-center gap-1">
+        <span>⚡</span> GitHub Action 构建
+      </a>
+    </div>
+  </header>
+
+  <!-- 主工作台：双栏布局 -->
+  <main class="max-w-7xl w-full mx-auto flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5">
+    
+    <!-- 左栏：脚本选择、版本管理、远端同步 (5/12) -->
+    <aside class="lg:col-span-5 flex flex-col gap-4">
+      
+      <!-- 卡片 1: 脚本切换与基本信息 -->
+      <section class="glass-card rounded-xl p-4 md:p-5 flex flex-col gap-4">
+        <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-lg">🐍</span>
+            <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wide">脚本选择与版本配置</h2>
+          </div>
+          <button id="btnNewScript" class="text-xs text-sky-400 hover:text-sky-300 transition flex items-center gap-1">
+            <span>+</span> 新建脚本
+          </button>
+        </div>
+
+        <!-- 脚本预设选择 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">选择脚本预设</label>
+          <select id="selectScript" class="input-field w-full rounded-lg px-3 py-2 text-sm text-slate-200">
+            <option value="pr-audit-sampler" selected>PR 报告抽查脚本 (官方内置第1版)</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <!-- 脚本名称 -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">脚本名称</label>
+            <input type="text" id="scriptName" value="PR 报告抽查脚本" class="input-field w-full rounded-lg px-3 py-2 text-sm">
+          </div>
+
+          <!-- 版本号与递增 -->
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-semibold text-slate-300">当前版本号</label>
+              <div class="flex gap-1 text-[10px]">
+                <button type="button" id="btnIncPatch" class="px-1.5 py-0.5 rounded bg-slate-800 text-sky-300 hover:bg-slate-700 border border-slate-700" title="末位递增 (+0.0.1)">+0.0.1</button>
+                <button type="button" id="btnIncMinor" class="px-1.5 py-0.5 rounded bg-slate-800 text-sky-300 hover:bg-slate-700 border border-slate-700" title="次位递增 (+0.1.0)">+0.1.0</button>
+              </div>
+            </div>
+            <input type="text" id="scriptVersion" value="1.0.0" class="input-field w-full rounded-lg px-3 py-2 text-sm font-mono text-cyan-300">
+          </div>
+        </div>
+
+        <!-- 变更说明 -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">本次更新说明 (Changelog)</label>
+          <textarea id="scriptChangelog" rows="2" class="input-field w-full rounded-lg p-2 text-xs leading-relaxed" placeholder="描述此版本修复或新增的功能，将记录到更新日志并显示在客户端外壳中..."></textarea>
+        </div>
+
+        <!-- 文件上传/导入区域 -->
+        <div id="dropZone" class="border border-dashed border-slate-600 hover:border-sky-400 rounded-lg p-3 text-center cursor-pointer bg-slate-900/40 transition">
+          <input type="file" id="fileInput" accept=".py" class="hidden">
+          <div class="flex items-center justify-center gap-2 text-slate-300 text-xs">
+            <span>📥</span>
+            <span>拖拽或点击上传本地 <strong class="text-sky-300">.py 脚本</strong></span>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-0.5">自动解析并填充到编辑器，可随时与历史版本比对差异</p>
+        </div>
+
+        <!-- 操作按钮网格 -->
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <button id="btnSaveVersion" class="w-full py-2 px-3 rounded-lg bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-sky-900/30">
+            <span>💾</span> 保存为新历史版本
+          </button>
+          <button id="btnSyncRepo" class="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-900/30">
+            <span>🚀</span> 同步至仓库核心文件
+          </button>
+        </div>
+      </section>
+
+      <!-- 卡片 2: 远端热更新与通用外壳打包 -->
+      <section class="glass-card rounded-xl p-4 md:p-5 flex flex-col gap-3">
+        <div class="flex items-center gap-2 border-b border-slate-700/60 pb-2.5">
+          <span class="text-lg">⚙️</span>
+          <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wide">远端热更新源与打包框架</h2>
+        </div>
+
+        <div class="text-xs text-slate-300 space-y-2">
+          <div class="flex items-center justify-between bg-slate-900/60 p-2.5 rounded-lg border border-slate-800">
+            <div>
+              <span class="text-slate-400">远端核心目标：</span>
+              <span class="font-mono text-sky-300 text-[11px]">python-packager/core_script.py</span>
+            </div>
+            <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-700/60">实时直链</span>
+          </div>
+
+          <div class="space-y-1">
+            <label class="block text-[11px] font-medium text-slate-400">客户端默认热更新渠道：</label>
+            <div class="grid grid-cols-2 gap-2 text-[11px]">
+              <div class="p-2 rounded bg-slate-900/50 border border-slate-800 flex items-center gap-1.5">
+                <span class="text-sky-400">✓</span> <span>GitHub Raw 官方</span>
+              </div>
+              <div class="p-2 rounded bg-slate-900/50 border border-slate-800 flex items-center gap-1.5">
+                <span class="text-emerald-400">✓</span> <span>国内 ghproxy 镜像</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2 flex flex-col gap-2">
+          <button id="btnDownloadShellZip" class="w-full py-2.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5">
+            <span>📦</span> 一键下载通用外壳便携开发包 (ZIP)
+          </button>
+          <a href="https://github.com/fanxiaolongx-max/privacy-policy/actions/workflows/package-python-exe.yml" target="_blank" class="w-full py-2 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-medium text-xs transition flex items-center justify-center gap-1.5 border border-slate-700 text-center">
+            <span>⚡</span> 触发 / 查看 GitHub Action 自动打包 EXE
+          </a>
+        </div>
+      </section>
+
+      <!-- 卡片 3: 版本历史快照列表 -->
+      <section class="glass-card rounded-xl p-4 md:p-5 flex flex-col gap-2 flex-1">
+        <div class="flex items-center justify-between border-b border-slate-700/60 pb-2">
+          <h2 class="text-xs font-bold text-slate-300 uppercase tracking-wide">📜 历史版本记录 (<span id="versionCount">1</span>)</h2>
+          <span class="text-[11px] text-slate-500">点击可在右侧比对代码</span>
+        </div>
+        <div id="versionList" class="flex flex-col gap-1.5 overflow-y-auto max-h-56 pr-1">
+          <!-- 动态渲染版本记录 -->
+          <div class="text-center text-xs text-slate-500 py-4">正在加载历史版本...</div>
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- 右栏：代码编辑 / 差异比对 / 外壳仿真 (7/12) -->
+    <section class="lg:col-span-7 flex flex-col glass-card rounded-xl overflow-hidden">
+      
+      <!-- 标签页切换栏 -->
+      <div class="flex items-center justify-between bg-slate-900/80 border-b border-slate-800 px-4 py-2.5">
+        <div class="flex items-center gap-2">
+          <button id="tabBtnEditor" class="tab-btn active px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition flex items-center gap-1.5">
+            <span>💻</span> 代码编辑
+          </button>
+          <button id="tabBtnDiff" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition flex items-center gap-1.5">
+            <span>🔀</span> 历史比对与差异
+          </button>
+          <button id="tabBtnShell" class="tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition flex items-center gap-1.5">
+            <span>🖥️</span> 通用外壳 GUI 仿真
+          </button>
+        </div>
+
+        <!-- 右侧代码信息摘要 -->
+        <div class="hidden sm:flex items-center gap-3 text-xs text-slate-400">
+          <span id="codeLineCount">0 行</span>
+          <span class="text-slate-600">|</span>
+          <span id="codeSize">0 KB</span>
+          <span class="text-slate-600">|</span>
+          <button id="btnCopyCode" class="text-sky-400 hover:text-sky-300 transition" title="复制全部代码">复制</button>
+          <button id="btnResetDefault" class="text-amber-400 hover:text-amber-300 transition" title="重置为第一版初始代码">重置</button>
+        </div>
+      </div>
+
+      <!-- 视图 1: Python 代码编辑区 -->
+      <div id="viewEditor" class="flex-1 flex flex-col p-4 bg-slate-950/60 min-h-[520px]">
+        <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">core_script.py</span>
+            <span class="text-emerald-400 text-[11px]">● Python 3</span>
+          </div>
+          <span class="text-[11px] text-slate-500">支持直接编辑、粘贴或上传本地 Python 源码</span>
+        </div>
+        <textarea id="codeEditor" spellcheck="false" class="flex-1 w-full p-3.5 bg-slate-900/90 border border-slate-800 rounded-lg text-slate-200 code-font text-xs leading-relaxed resize-none focus:outline-none focus:border-sky-500/70" placeholder="正在加载 Python 核心代码..."></textarea>
+      </div>
+
+      <!-- 视图 2: 代码差异比对 (Diff Viewer) -->
+      <div id="viewDiff" class="flex-1 flex flex-col p-4 bg-slate-950/60 min-h-[520px] hidden">
+        <!-- 比对控制栏 -->
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900/90 p-3 rounded-lg border border-slate-800 mb-3 text-xs">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">当前编辑代码</span>
+            <span class="text-slate-500">VS</span>
+            <select id="diffTargetSelect" class="input-field rounded px-2.5 py-1 text-xs text-slate-200 font-mono">
+              <option value="">加载版本中...</option>
+            </select>
+          </div>
+
+          <!-- 差异计数卡片 -->
+          <div class="flex items-center gap-3">
+            <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono text-[11px]">
+              +<span id="diffAddCount">0</span> 行新增
+            </span>
+            <span class="px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800 font-mono text-[11px]">
+              -<span id="diffDelCount">0</span> 行删除
+            </span>
+            <span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono text-[11px]">
+              <span id="diffSameCount">0</span> 行未变
+            </span>
+          </div>
+        </div>
+
+        <!-- 差异代码高亮展示区 -->
+        <div id="diffContent" class="flex-1 overflow-y-auto bg-slate-900/95 border border-slate-800 rounded-lg p-2 code-font text-xs max-h-[460px]">
+          <div class="text-slate-500 text-center py-10">请选择要比对的历史版本</div>
+        </div>
+      </div>
+
+      <!-- 视图 3: 通用外壳 GUI 与热更新运行机制演示 -->
+      <div id="viewShell" class="flex-1 flex flex-col p-4 bg-slate-950/60 min-h-[520px] hidden overflow-y-auto">
+        <div class="max-w-2xl mx-auto w-full space-y-4">
+          
+          <div class="bg-gradient-to-r from-sky-900/30 to-indigo-900/30 border border-sky-800/40 rounded-xl p-4">
+            <h3 class="text-sm font-bold text-sky-300 mb-1 flex items-center gap-2">
+              <span>💡</span> 通用外壳与动态热更新架构说明
+            </h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              用户在客户端运行的是经过 PyInstaller 打包生成的单个独立 EXE（内置 Tkinter GUI 与依赖）。
+              当客户端点击「检查并更新」时，启动器直接向 GitHub 远端仓库发起请求，仅拉取几 KB 的最新 <code class="text-sky-300">core_script.py</code> 并就地覆盖。
+              <strong>用户电脑无需安装 Python 环境，无需重复下载 60MB+ 的安装包，即可始终使用最新抽查算法！</strong>
+            </p>
+          </div>
+
+          <!-- 外壳 GUI 模拟界面 (内置苹果风格交互终端) -->
+          <div class="rounded-xl border border-slate-700 bg-slate-900 overflow-hidden shadow-2xl">
+            <!-- 模拟 Windows/macOS 窗口标题栏 -->
+            <div class="bg-slate-800 px-3.5 py-2.5 flex items-center justify-between border-b border-slate-700 text-xs text-slate-300">
+              <span class="flex items-center gap-2">
+                <span>🐍</span>
+                <span class="font-bold text-slate-200">PR 报告抽查工具 — Python 脚本通用热更新启动器</span>
+              </span>
+              <div class="flex items-center gap-2 text-slate-400">
+                <span>─</span> <span>▢</span> <span class="hover:text-red-400">✕</span>
+              </div>
+            </div>
+
+            <!-- 模拟 GUI 内部 -->
+            <div class="p-4 space-y-3 text-xs">
+              
+              <!-- 顶部工具栏 -->
+              <div class="p-3 rounded-lg bg-slate-950/80 border border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800 font-mono font-bold text-xs">v1.0.0</span>
+                  <span class="text-slate-300 font-medium">PR 报告抽查脚本</span>
+                  <span class="text-[11px] text-slate-500">· core_script.py (53.4 KB)</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-400 text-[11px]">更新源:</span>
+                  <span class="px-2 py-1 rounded bg-slate-900 text-sky-300 border border-slate-800 text-[11px]">GitHub 官方源 (Raw)</span>
+                  <button type="button" class="px-2.5 py-1 rounded bg-sky-600 text-white font-bold text-[11px]">🔄 检查并在线热更新</button>
+                </div>
+              </div>
+
+              <!-- 内置苹果风格终端 (Apple-Style Terminal) -->
+              <div class="rounded-lg border border-slate-700/80 bg-slate-950 overflow-hidden shadow-lg">
+                <!-- 终端顶部 macOS 风格标题栏 -->
+                <div class="bg-slate-900 px-3 py-2 flex items-center justify-between border-b border-slate-800 text-[11px]">
+                  <div class="flex items-center gap-1.5">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-rose-500 hover:opacity-80 cursor-pointer" title="终止进程"></span>
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 hover:opacity-80 cursor-pointer" title="清屏"></span>
+                    <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 hover:opacity-80 cursor-pointer" title="重启进程"></span>
+                    <span class="ml-2 font-mono text-slate-400 font-semibold">zsh — 抽查脚本交互终端 (core_script.py)</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="px-2 py-0.5 rounded bg-emerald-950/90 text-emerald-400 border border-emerald-800/80 text-[10px] font-bold">● 运行中 (PID: 3204)</span>
+                    <span class="text-sky-400 hover:underline cursor-pointer text-[10px]">🧹 清屏</span>
+                  </div>
+                </div>
+
+                <!-- 终端代码内容输出区 (带 ANSI 彩色高亮模拟) -->
+                <div class="p-3 font-mono text-[11px] leading-relaxed text-slate-300 space-y-1 bg-slate-950 min-h-[160px]">
+                  <div class="text-sky-400 font-bold">╔════════════════════════════════════════════════════════════════╗</div>
+                  <div class="text-sky-400 font-bold">║                   PR 报告抽查脚本 — 主菜单                     ║</div>
+                  <div class="text-sky-400 font-bold">╚════════════════════════════════════════════════════════════════╝</div>
+                  <div class="text-slate-400 font-semibold">━━━ 主菜单 ━━━</div>
+                  <div>  <span class="text-yellow-400 font-bold">1</span>. 开始抽查（当前配置）</div>
+                  <div>  <span class="text-yellow-400 font-bold">2</span>. 设置抽查比例（当前 10%）</div>
+                  <div>  <span class="text-yellow-400 font-bold">3</span>. 设置抽查范围（开关/比例）</div>
+                  <div>  <span class="text-yellow-400 font-bold">4</span>. 设置抽样策略（优先级/均匀分布/种子）</div>
+                  <div>  <span class="text-yellow-400 font-bold">0</span>. 退出</div>
+                  <div class="text-cyan-400 pt-1">请选择: <span class="text-slate-200">1</span></div>
+                  <div class="text-emerald-400">  ✓  合并风险表  <span class="text-slate-500">369行 唯一369</span></div>
+                  <div class="text-emerald-400">  ✓  加载合并表  <span class="text-slate-500">4/4 来源就绪</span></div>
+                  <div class="text-emerald-400">  ✓  导出 Excel 总表  <span class="text-slate-500">42 行</span></div>
+                  <div class="text-sky-300 font-bold pt-1">■ 抽查完成！输出文件：【抽查结果】20261014_120000.xlsx</div>
+                </div>
+
+                <!-- 快捷选项点击栏 (免键盘盲打) -->
+                <div class="bg-slate-900/90 px-3 py-1.5 border-t border-slate-800 flex items-center gap-1.5 flex-wrap text-[10px]">
+                  <span class="text-slate-500">常用快捷点选:</span>
+                  <span class="px-2 py-0.5 rounded bg-slate-800 text-sky-300 font-mono font-bold cursor-pointer hover:bg-sky-900">1 开始抽查</span>
+                  <span class="px-2 py-0.5 rounded bg-slate-800 text-sky-300 font-mono font-bold cursor-pointer hover:bg-sky-900">2 设置比例</span>
+                  <span class="px-2 py-0.5 rounded bg-slate-800 text-sky-300 font-mono font-bold cursor-pointer hover:bg-sky-900">5 查看配置</span>
+                  <span class="px-2 py-0.5 rounded bg-slate-800 text-sky-300 font-mono font-bold cursor-pointer hover:bg-sky-900">0 退出</span>
+                  <span class="px-2 py-0.5 rounded bg-slate-800 text-amber-300 font-mono font-bold cursor-pointer hover:bg-amber-900">⏎ 回车确认</span>
+                </div>
+
+                <!-- 底部交互式输入栏 -->
+                <div class="bg-slate-900 px-3 py-2 border-t border-slate-800 flex items-center gap-2">
+                  <span class="text-sky-400 font-mono font-bold text-sm">❯</span>
+                  <input type="text" readonly value="1" class="flex-1 bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-slate-200 font-mono text-xs focus:outline-none">
+                  <button type="button" class="px-3 py-1 rounded bg-emerald-600 text-white font-bold text-xs">发送 (Enter)</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- 全局 Toast 提示容器 -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- 页面交互逻辑脚本 -->
+  <script>
+    // 默认内置第一版 PR 报告抽查脚本源码
+    const BUILTIN_DEFAULT_CODE = `# -*- coding: utf-8 -*-
+"""
+PR 报告抽查脚本
+================================
+功能：
+  1. 从 001 RFC、002 风险、003 整改、004 SR 合并表中按规则抽查单子
+  2. 默认抽查范围：
+       - 风险-中高风险-风险挂起   (Middle/High + Risk Suspended)
+       - 风险-中高风险-风险关闭   (Middle/High + Risk Closed)
+       - 整改-已闭环             (Rectification Closed/Completed)
+       - 整改-延期               (是否延期=是，与已闭环独立分别统计)
+       - RFC-已关闭-高级别        (已关闭 + High/Fatal)
+       - RFC-已关闭-Medium        (已关闭 + Medium)
+       - RFC-已关闭-Low           (已关闭 + Low，默认不抽)
+       - SR-已关闭-Critical       (Closed + Critical)
+       - SR-已关闭-Major          (Closed + Major)
+       - SR-已关闭-Minor          (Closed + Minor，默认不抽)
+  3. 抽样策略：按运营商(风险/RFC/SR 再按产品线)分层均匀分布 + 组内优先高等级/高重要程度
+  4. 抽查比例、各范围开关与比例、策略权重均可在主菜单调整
+  5. 抽查前自动检测原始表更新并合并统计
+  6. 生成抽查总表 Excel（统一关键列 + 各来源明细 + 配置记录）+ 命令行彩色报告
+
+用法：
+    python 抽查脚本.py
+
+依赖：pandas、openpyxl（pip install pandas openpyxl）
+作者：CodeArts 智能体生成
+"""
+
+__script_name__ = "PR 报告抽查脚本"
+__version__ = "1.0.0"
+__author__ = "CodeArts 智能体生成"
+
+import os
+import sys
+import math
+import re
+import glob
+import random
+import time
+import threading
+import datetime
+import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
+
+# 抑制 openpyxl 读取导出表时的"no default style"提示（无害，仅刷屏）
+import warnings
+warnings.filterwarnings('ignore', message='Workbook contains no default style', category=UserWarning)
+
+# ============================================================
+# 路径常量
+# ============================================================
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+RISK_DIR = os.path.join(BASE_DIR, '002【2026年1月-9月】风险-运营商-369单')
+RECT_DIR = os.path.join(BASE_DIR, '003【2025年1月-2026年9月】整改-运营商-178单')
+RFC_DIR = os.path.join(BASE_DIR, '001【2026年1月-9月】RFC-运营商-2098单')
+SR_DIR = os.path.join(BASE_DIR, '004【2026年1月-9月】SR-运营商-3418单')
+
+
+def _find_merged(d, keyword):
+    """在目录下找最新的【合并后】*.xlsx（按修改时间，优先匹配关键字）"""
+    fs = [f for f in glob.glob(os.path.join(d, '【合并后】*.xlsx')) if keyword in os.path.basename(f)]
+    if not fs:
+        fs = glob.glob(os.path.join(d, '【合并后】*.xlsx'))
+    if not fs:
+        return None
+    return max(fs, key=os.path.getmtime)
+
+
+def load_risk():
+    p = _find_merged(RISK_DIR, '风险')
+    if not p:
+        return None, None
+    return pd.read_excel(p, sheet_name='Task List'), p
+
+
+def load_rect():
+    p = _find_merged(RECT_DIR, '整改')
+    if not p:
+        return None, None
+    return pd.read_excel(p, sheet_name='Task List'), p
+
+
+def load_rfc():
+    p = _find_merged(RFC_DIR, 'RFC')
+    if not p:
+        return None, None
+    return pd.read_excel(p, sheet_name='Task List'), p
+
+
+def load_sr():
+    p = _find_merged(SR_DIR, 'SR')
+    if not p:
+        return None, None
+    return pd.read_excel(p, sheet_name='Task List'), p
+
+
+# ============================================================
+# 合并统计（自动检测原始表并合并，功能合入自原 各目录 合并并统计.py）
+# ============================================================
+RISK_SRC_PATTERN = 'risk_management_export*.xlsx'
+RECT_SRC_PATTERN = 'cs_rc_task_info_getList_all_export_cn_*.xlsx'
+RFC_SRC_PATTERN = 'nt_workflow_rfc_getList_for_report_for_export_*.xlsx'
+SR_SRC_PATTERN = 'op_ex_sr_problem_detail_export_*.xlsx'
+RISK_MERGED_NAME = '【合并后】风险-运营商.xlsx'
+RECT_MERGED_NAME = '【合并后】整改-运营商.xlsx'
+RFC_MERGED_NAME = '【合并后】RFC-运营商.xlsx'
+SR_MERGED_NAME = '【合并后】SR-运营商.xlsx'
+
+# 整改任务状态排序/着色（与 003 合并脚本一致）
+RECT_STATUS_ORDER = {
+    'Rectification Completed': 0, 'Rectification Closed': 1,
+    'Checking': 2, 'Draft': 3, 'Not Involve': 4,
+}
+RECT_STATUS_FILL = {
+    'Rectification Completed': 'C6EFCE', 'Rectification Closed': 'D9E1F2',
+    'Checking': 'FFEB9C', 'Not Involve': 'EDEDED', 'Draft': 'FCE4D6',
+}
+
+
+def _find_sources(d, pattern):
+    fs = [f for f in glob.glob(os.path.join(d, pattern))
+          if not os.path.basename(f).startswith('【合并后】')]
+    return sorted(fs)
+
+
+def need_merge(d, pattern):
+    """是否需要合并：无合并文件，或任一原始文件比合并文件新"""
+    srcs = _find_sources(d, pattern)
+    if not srcs:
+        return False
+    merged = _find_merged(d, '')
+    if not merged:
+        return True
+    return max(os.path.getmtime(f) for f in srcs) > os.path.getmtime(merged)
+
+
+def _style_header_layout(ws):
+    """通用：表头样式 + 冻结首行 + 自动筛选 + 列宽自适应"""
+    header_font = Font(name='微软雅黑', size=10, bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='305496', end_color='305496', fill_type='solid')
+    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    thin = Side(style='thin', color='BFBFBF')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    ncol, nrow = ws.max_column, ws.max_row
+    for c in range(1, ncol + 1):
+        cell = ws.cell(row=1, column=c)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center
+        cell.border = border
+    ws.freeze_panes = 'A2'
+    ws.auto_filter.ref = ws.dimensions
+    for c in range(1, ncol + 1):
+        max_len = 0
+        cl = get_column_letter(c)
+        for r in range(1, min(nrow + 1, 200)):
+            v = ws.cell(row=r, column=c).value
+            if v is None:
+                continue
+            s = str(v)
+            length = sum(2 if ord(ch) > 127 else 1 for ch in s)
+            if length > max_len:
+                max_len = length
+        ws.column_dimensions[cl].width = min(max(max_len + 2, 10), 50)
+
+
+def _col_index(ws, name):
+    for c in range(1, ws.max_column + 1):
+        if ws.cell(row=1, column=c).value == name:
+            return c
+    return None
+
+
+def _fill_col(ws, col_name, color_map):
+    c = _col_index(ws, col_name)
+    if not c:
+        return
+    for r in range(2, ws.max_row + 1):
+        v = ws.cell(row=r, column=c).value
+        if v in color_map:
+            ws.cell(row=r, column=c).fill = PatternFill(
+                start_color=color_map[v], end_color=color_map[v], fill_type='solid')
+
+
+def _beautify_merged_risk(path):
+    wb = load_workbook(path)
+    ws = wb['Task List']
+    _style_header_layout(ws)
+    _fill_col(ws, '风险等级', {'High': 'FFC7CE', 'Middle': 'FFEB9C', 'Low': 'C6EFCE'})
+    _fill_col(ws, '风险状态', {'Risk Closed': 'E2EFDA', 'Risk Suspended': 'FCE4D6'})
+    wb.save(path)
+
+
+def _beautify_merged_rect(path):
+    wb = load_workbook(path)
+    ws = wb['Task List']
+    _style_header_layout(ws)
+    _fill_col(ws, '任务状态', RECT_STATUS_FILL)
+    _fill_col(ws, '是否延期', {'是': 'FFC7CE', '否': 'E2EFDA'})
+    _fill_col(ws, '重要程度', {'严重': 'FFC7CE', '重要': 'FFEB9C', '一般': 'C6EFCE'})
+    wb.save(path)
+
+
+def merge_risk():
+    """合并风险原始表，返回 dict 信息"""
+    srcs = _find_sources(RISK_DIR, RISK_SRC_PATTERN)
+    if not srcs:
+        return None
+    dfs = []
+    src_info = []
+    for f in srcs:
+        df = pd.read_excel(f, sheet_name='Task List')
+        df['数据来源文件'] = os.path.basename(f)
+        dfs.append(df)
+        src_info.append((os.path.basename(f), len(df)))
+    merged = pd.concat(dfs, ignore_index=True)
+    total = len(merged)
+    unique = merged['风险ID'].nunique()
+    level_order = {'High': 0, 'Middle': 1, 'Low': 2}
+    merged['_lv'] = merged['风险等级'].map(level_order).fillna(3)
+    merged = merged.sort_values(by=['_lv', '风险ID']).drop(columns=['_lv']).reset_index(drop=True)
+    out = os.path.join(RISK_DIR, RISK_MERGED_NAME)
+    with pd.ExcelWriter(out, engine='openpyxl') as w:
+        merged.to_excel(w, sheet_name='Task List', index=False)
+    _beautify_merged_risk(out)
+    return {'src': '风险', 'out': out, 'total': total, 'unique': unique,
+            'dup': total - unique, 'src_info': src_info}
+
+
+def merge_rect():
+    """合并整改原始表，返回 dict 信息"""
+    srcs = _find_sources(RECT_DIR, RECT_SRC_PATTERN)
+    if not srcs:
+        return None
+    dfs = []
+    src_info = []
+    for f in srcs:
+        df = pd.read_excel(f)
+        df['数据来源文件'] = os.path.basename(f)
+        dfs.append(df)
+        src_info.append((os.path.basename(f), len(df)))
+    merged = pd.concat(dfs, ignore_index=True)
+    total = len(merged)
+    unique = merged['任务号'].nunique()
+    merged['_st'] = merged['任务状态'].map(RECT_STATUS_ORDER).fillna(9)
+    merged = merged.sort_values(by=['_st', '任务号']).drop(columns=['_st']).reset_index(drop=True)
+    out = os.path.join(RECT_DIR, RECT_MERGED_NAME)
+    with pd.ExcelWriter(out, engine='openpyxl') as w:
+        merged.to_excel(w, sheet_name='Task List', index=False)
+    _beautify_merged_rect(out)
+    return {'src': '整改', 'out': out, 'total': total, 'unique': unique,
+            'dup': total - unique, 'src_info': src_info}
+
+
+# RFC/SR 级别排序
+RFC_SEV_ORDER = {'Fatal': 0, 'High': 1, 'Medium': 2, 'Low': 3}
+SR_LVL_ORDER = {'Critical': 0, 'Major': 1, 'Minor': 2, 'Non-fault inquiry': 3}
+
+
+def _beautify_merged_rfc(path):
+    wb = load_workbook(path)
+    ws = wb['Task List']
+    _style_header_layout(ws)
+    _fill_col(ws, '状态/RFC Status', {'已关闭': 'E2EFDA', '已撤销': 'EDEDED'})
+    _fill_col(ws, '级别/Severity',
+              {'Fatal': 'FFC7CE', 'High': 'FFC7CE', 'Medium': 'FFEB9C', 'Low': 'C6EFCE'})
+    wb.save(path)
+
+
+def _beautify_merged_sr(path):
+    wb = load_workbook(path)
+    ws = wb['Task List']
+    _style_header_layout(ws)
+    _fill_col(ws, '问题单状态/SR Status',
+              {'Closed': 'E2EFDA', 'Resolved': 'D9E1F2', 'Solution Provided': 'D9E1F2'})
+    _fill_col(ws, '问题级别/Problem Level',
+              {'Critical': 'FFC7CE', 'Major': 'FFEB9C', 'Minor': 'C6EFCE', 'Non-fault inquiry': 'EDEDED'})
+    _fill_col(ws, '逾期/Overdue', {'是': 'FFC7CE', '否': 'E2EFDA'})
+    wb.save(path)
+
+
+def merge_rfc():
+    """合并 RFC 原始表，返回 dict 信息"""
+    srcs = _find_sources(RFC_DIR, RFC_SRC_PATTERN)
+    if not srcs:
+        return None
+    dfs = []
+    src_info = []
+    for f in srcs:
+        df = pd.read_excel(f)
+        df['数据来源文件'] = os.path.basename(f)
+        dfs.append(df)
+        src_info.append((os.path.basename(f), len(df)))
+    merged = pd.concat(dfs, ignore_index=True)
+    total = len(merged)
+    unique = merged['作业单号/Ticket ID'].nunique()
+    merged['_lv'] = merged['级别/Severity'].map(RFC_SEV_ORDER).fillna(9)
+    merged = merged.sort_values(by=['_lv', '作业单号/Ticket ID']).drop(columns=['_lv']).reset_index(drop=True)
+    out = os.path.join(RFC_DIR, RFC_MERGED_NAME)
+    with pd.ExcelWriter(out, engine='openpyxl') as w:
+        merged.to_excel(w, sheet_name='Task List', index=False)
+    _beautify_merged_rfc(out)
+    return {'src': 'RFC', 'out': out, 'total': total, 'unique': unique,
+            'dup': total - unique, 'src_info': src_info}
+
+
+def merge_sr():
+    """合并 SR 原始表，返回 dict 信息"""
+    srcs = _find_sources(SR_DIR, SR_SRC_PATTERN)
+    if not srcs:
+        return None
+    dfs = []
+    src_info = []
+    for f in srcs:
+        df = pd.read_excel(f)
+        df['数据来源文件'] = os.path.basename(f)
+        dfs.append(df)
+        src_info.append((os.path.basename(f), len(df)))
+    merged = pd.concat(dfs, ignore_index=True)
+    total = len(merged)
+    unique = merged['问题单号/SR Number'].nunique()
+    merged['_lv'] = merged['问题级别/Problem Level'].map(SR_LVL_ORDER).fillna(9)
+    merged = merged.sort_values(by=['_lv', '问题单号/SR Number']).drop(columns=['_lv']).reset_index(drop=True)
+    out = os.path.join(SR_DIR, SR_MERGED_NAME)
+    with pd.ExcelWriter(out, engine='openpyxl') as w:
+        merged.to_excel(w, sheet_name='Task List', index=False)
+    _beautify_merged_sr(out)
+    return {'src': 'SR', 'out': out, 'total': total, 'unique': unique,
+            'dup': total - unique, 'src_info': src_info}
+
+
+def auto_prepare(cfg, prog=None):
+    """自动合并：返回本次合并的信息列表（空表示无需合并或已关闭）"""
+    done = []
+    if not cfg.get('auto_merge', True):
+        return done
+    for label, dirn, pattern, merge_fn in [
+        ('风险', RISK_DIR, RISK_SRC_PATTERN, merge_risk),
+        ('整改', RECT_DIR, RECT_SRC_PATTERN, merge_rect),
+        ('RFC',  RFC_DIR,  RFC_SRC_PATTERN,  merge_rfc),
+        ('SR',   SR_DIR,   SR_SRC_PATTERN,   merge_sr),
+    ]:
+        tid = prog.add(f'合并{label}表') if prog else None
+        if need_merge(dirn, pattern):
+            if prog:
+                prog.start(tid)
+            info = merge_fn()
+            if info:
+                done.append(info)
+                if prog:
+                    prog.done(tid, f'{info["total"]}行 唯一{info["unique"]}')
+            else:
+                if prog:
+                    prog.fail(tid, '未找到原始表')
+        else:
+            if prog:
+                prog.skip(tid, '已是最新')
+    return done
+
+
+def print_merge_report(done):
+    """打印自动合并简短报告"""
+    if not done:
+        return
+    print(C('■ 自动合并统计（检测到原始表更新）', F_YELLOW, C_BOLD))
+    for info in done:
+        dup_color = F_GREEN if info['dup'] == 0 else F_RED
+        print(f'  • {C(info["src"], F_CYAN, C_BOLD)}：'
+              f'{len(info["src_info"])} 个源文件 → 合并 {C(str(info["total"]), F_YELLOW, C_BOLD)} 行，'
+              f'唯一 {info["unique"]}，重复 {C(str(info["dup"]), dup_color, C_BOLD)}')
+        print(f'    输出：{C(os.path.basename(info["out"]), F_CYAN)}')
+    print()
+
+
+# ============================================================
+# ANSI 彩色输出
+# ============================================================
+def _enable_ansi():
+    if sys.platform == 'win32':
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            ENABLE_VT = 0x0001 | 0x0002
+            kernel32.SetConsoleMode(kernel32.GetStdHandle(-11), ENABLE_VT)
+        except Exception:
+            os.system('')
+
+_enable_ansi()
+
+C_RESET = '\\033[0m'
+C_BOLD = '\\033[1m'
+F_RED = '\\033[91m'
+F_GREEN = '\\033[92m'
+F_YELLOW = '\\033[93m'
+F_BLUE = '\\033[94m'
+F_MAGENTA = '\\033[95m'
+F_CYAN = '\\033[96m'
+F_WHITE = '\\033[97m'
+F_GRAY = '\\033[90m'
+B_BLUE = '\\033[44m'
+B_CYAN = '\\033[46m'
+B_GREEN = '\\033[46m'
+
+
+def C(text, *codes):
+    return ''.join(codes) + str(text) + C_RESET
+
+
+def clear_screen():
+    os.system('cls' if sys.platform == 'win32' else 'clear')
+
+
+def print_title(text):
+    dl = disp_len(text)
+    width = max(dl + 8, 64)
+    bar = '═' * width
+    print()
+    print(C('╔' + bar + '╗', F_CYAN, C_BOLD))
+    pad = width - dl
+    left = pad // 2
+    right = pad - left
+    print(C('║', F_CYAN, C_BOLD) + ' ' * left + C(text, F_CYAN, C_BOLD) + ' ' * right + C('║', F_CYAN, C_BOLD))
+    print(C('╚' + bar + '╝', F_CYAN, C_BOLD))
+
+
+_ANSI_RE = re.compile(r'\\x1b\\[[0-9;]*m')
+
+
+def _strip_ansi(s):
+    return _ANSI_RE.sub('', s)
+
+
+# 窄 Unicode 标点：在等宽终端占 1 列但 ord>127（默认会算 2 导致偏宽）
+_NARROW_CHARS = set(range(0x2010, 0x2016))  # U+2010-U+2015 各种 dash
+
+
+def disp_len(s):
+    total = 0
+    for ch in _strip_ansi(s):
+        o = ord(ch)
+        if o in _NARROW_CHARS:
+            total += 1
+        elif o > 127:
+            total += 2
+        else:
+            total += 1
+    return total
+
+
+# ============================================================
+# 多步骤进度条（spinner + ✓/✗，底部原地刷新）
+# ============================================================
+_SPINNER_FRAMES = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+
+
+class Progress:
+    """多步骤进度条：完成的打 ✓，进行中的旋转 spinner，类似装依赖包的效果，原地刷新。"""
+
+    def __init__(self, title=None):
+        self.title = title
+        self.tasks = []          # [{label, status, detail}]
+        self._lines = 0          # 已渲染行数（用于光标上移）
+        self._spin_idx = 0
+        self._lock = threading.Lock()
+        self._spinning = False
+        self._spin_thread = None
+        if title:
+            print(C(f'■ {title}', F_CYAN, C_BOLD))
+
+    def add(self, label):
+        with self._lock:
+            self.tasks.append({'label': label, 'status': 'pending', 'detail': ''})
+            tid = len(self.tasks) - 1
+            self._render()
+            return tid
+
+    def start(self, tid):
+        with self._lock:
+            self.tasks[tid]['status'] = 'running'
+            self._render()
+        self._ensure_spin()
+
+    def done(self, tid, detail=''):
+        with self._lock:
+            self.tasks[tid]['status'] = 'done'
+            self.tasks[tid]['detail'] = detail
+            self._render()
+        self._maybe_stop_spin()
+
+    def fail(self, tid, detail=''):
+        with self._lock:
+            self.tasks[tid]['status'] = 'fail'
+            self.tasks[tid]['detail'] = detail
+            self._render()
+        self._maybe_stop_spin()
+
+    def skip(self, tid, detail=''):
+        with self._lock:
+            self.tasks[tid]['status'] = 'skip'
+            self.tasks[tid]['detail'] = detail
+            self._render()
+        self._maybe_stop_spin()
+
+    def _ensure_spin(self):
+        if not self._spinning:
+            self._spinning = True
+            self._spin_thread = threading.Thread(target=self._spin_loop, daemon=True)
+            self._spin_thread.start()
+
+    def _maybe_stop_spin(self):
+        with self._lock:
+            if not any(t['status'] == 'running' for t in self.tasks):
+                self._spinning = False
+
+    def _spin_loop(self):
+        while self._spinning:
+            time.sleep(0.12)
+            with self._lock:
+                if any(t['status'] == 'running' for t in self.tasks):
+                    self._spin_idx = (self._spin_idx + 1) % len(_SPINNER_FRAMES)
+                    self._render()
+                else:
+                    self._spinning = False
+                    break
+
+    def _render(self):
+        out = sys.stdout
+        if self._lines > 0:
+            out.write(f'\\033[{self._lines}A')   # 光标上移
+        for t in self.tasks:
+            out.write('\\033[2K')                  # 清当前行
+            label, detail, st = t['label'], t['detail'], t['status']
+            if st == 'done':
+                line = f'  {C("✓", F_GREEN, C_BOLD)}  {label}'
+                if detail:
+                    line += f'  {C(detail, F_GRAY)}'
+            elif st == 'running':
+                sp = _SPINNER_FRAMES[self._spin_idx]
+                line = f'  {C(sp, F_YELLOW, C_BOLD)}  {label}{C(" ...", F_GRAY)}'
+            elif st == 'fail':
+                line = f'  {C("✗", F_RED, C_BOLD)}  {label}'
+                if detail:
+                    line += f'  {C(detail, F_RED)}'
+            elif st == 'skip':
+                line = f'  {C("○", F_GRAY)}  {label}'
+                if detail:
+                    line += f'  {C(detail, F_GRAY)}'
+            else:
+                line = f'  {C("·", F_GRAY)}  {label}'
+            out.write(line + '\\n')
+        out.flush()
+        self._lines = len(self.tasks)
+
+    def finish(self):
+        self._spinning = False
+        if self._spin_thread:
+            self._spin_thread.join(timeout=2)
+        with self._lock:
+            self._render()
+
+
+def print_table(headers, rows, header_color=B_BLUE, cell_colors=None, aligns=None):
+    ncol = len(headers)
+    str_rows = [[('' if v is None else str(v)) for v in r] for r in rows]
+    col_w = [disp_len(h) for h in headers]
+    for r in str_rows:
+        for i in range(ncol):
+            col_w[i] = max(col_w[i], disp_len(r[i]))
+    col_w = [w + 2 for w in col_w]
+    if aligns is None:
+        aligns = ['left'] * ncol
+
+    def pad_cell(s, w, align):
+        dl = disp_len(s)
+        space = w - dl
+        if align == 'center':
+            l = space // 2
+            return ' ' * l + s + ' ' * (space - l)
+        elif align == 'right':
+            return ' ' * (space - 1) + s + ' '
+        else:
+            return ' ' + s + ' ' * (space - 1)
+
+    def hline(l, m, r):
+        return l + m.join('─' * w for w in col_w) + r
+
+    print(C(hline('┌', '┬', '┐'), F_GRAY))
+    hdr = [C(pad_cell(headers[i], col_w[i], 'center'), C_BOLD, F_WHITE, header_color) for i in range(ncol)]
+    print(C('│', F_GRAY) + C('│', F_GRAY).join(hdr) + C('│', F_GRAY))
+    print(C(hline('├', '┼', '┤'), F_GRAY))
+    for ri, r in enumerate(str_rows):
+        cells = []
+        for ci in range(ncol):
+            txt = pad_cell(r[ci], col_w[ci], aligns[ci])
+            if cell_colors and cell_colors[ri][ci]:
+                cells.append(C(txt, cell_colors[ri][ci], C_BOLD))
+            else:
+                cells.append(txt)
+        print(C('│', F_GRAY) + C('│', F_GRAY).join(cells) + C('│', F_GRAY))
+    print(C(hline('└', '┴', '┘'), F_GRAY))
+
+
+# ============================================================
+# 配置
+# ============================================================
+DEFAULT_CONFIG = {
+    'ratio': 0.10,                 # 默认抽查比例
+    'seed': None,                  # 随机种子 None=随机
+    'priority_high': True,         # 优先高等级/高重要程度
+    'uniform_operator': True,      # 按运营商均匀分布
+    'uniform_productline': True,   # 风险按产品线均匀分布
+    'auto_merge': True,            # 抽查前自动合并统计（检测到原始表更新则合并）
+    'scopes': {
+        'risk_suspend':  {'enable': True,  'ratio': None},  # None=用全局ratio
+        'risk_closed':   {'enable': True,  'ratio': None},
+        'rect_closed':   {'enable': True,  'ratio': None},  # 整改-已闭环(关闭+完成)
+        'rect_delay':    {'enable': True,  'ratio': None},  # 整改-延期
+        'rfc_closed_high':   {'enable': True,  'ratio': None},  # RFC-已关闭-高级别(High+Fatal)
+        'rfc_closed_medium': {'enable': True,  'ratio': None},  # RFC-已关闭-Medium
+        'rfc_closed_low':    {'enable': False, 'ratio': None},  # RFC-已关闭-Low(默认不抽)
+        'sr_closed_critical': {'enable': True,  'ratio': None},  # SR-已关闭-Critical
+        'sr_closed_major':    {'enable': True,  'ratio': None},  # SR-已关闭-Major
+        'sr_closed_minor':    {'enable': False, 'ratio': None},  # SR-已关闭-Minor(默认不抽)
+    },
+}
+
+SCOPE_META = {
+    'risk_suspend': {'name': '风险-中高风险-风险挂起', 'src': '风险'},
+    'risk_closed':  {'name': '风险-中高风险-风险关闭', 'src': '风险'},
+    'rect_closed':  {'name': '整改-已闭环',           'src': '整改'},
+    'rect_delay':   {'name': '整改-延期',             'src': '整改'},
+    'rfc_closed_high':   {'name': 'RFC-已关闭-高级别',   'src': 'RFC'},
+    'rfc_closed_medium': {'name': 'RFC-已关闭-Medium',   'src': 'RFC'},
+    'rfc_closed_low':    {'name': 'RFC-已关闭-Low',      'src': 'RFC'},
+    'sr_closed_critical': {'name': 'SR-已关闭-Critical', 'src': 'SR'},
+    'sr_closed_major':    {'name': 'SR-已关闭-Major',    'src': 'SR'},
+    'sr_closed_minor':    {'name': 'SR-已关闭-Minor',    'src': 'SR'},
+}
+
+
+def clone_cfg(cfg):
+    import copy
+    return copy.deepcopy(cfg)
+
+
+# ============================================================
+# 抽样核心
+# ============================================================
+def hamilton_apportion(group_sizes, total_quota):
+    """最大余数法按组大小分配整数配额，和=total_quota"""
+    keys = list(group_sizes.keys())
+    if not keys or total_quota <= 0:
+        return {k: 0 for k in keys}
+    total = sum(group_sizes.values())
+    if total_quota >= total:
+        return {k: group_sizes[k] for k in keys}
+    raw = {k: group_sizes[k] * total_quota / total for k in keys}
+    alloc = {k: int(math.floor(raw[k])) for k in keys}
+    remaining = total_quota - sum(alloc.values())
+    # 按小数部分降序排，依次+1
+    order = sorted(keys, key=lambda k: (raw[k] - alloc[k]), reverse=True)
+    idx = 0
+    while remaining > 0:
+        k = order[idx % len(order)]
+        if alloc[k] < group_sizes[k]:
+            alloc[k] += 1
+            remaining -= 1
+        idx += 1
+        if idx > len(order) * 4:
+            break
+    return alloc
+
+
+# 优先级权重
+RECT_IMP_ORDER = {'严重': 3, '重要': 2, '一般': 1}
+RISK_LVL_ORDER = {'High': 3, 'Middle': 2, 'Low': 1}
+# RFC/SR 优先级（值越大越优先）
+RFC_SEV_PRIO = {'Fatal': 4, 'High': 3, 'Medium': 2, 'Low': 1}
+SR_LVL_PRIO = {'Critical': 4, 'Major': 3, 'Minor': 2, 'Non-fault inquiry': 1}
+
+# 各来源字段映射：运营商列、产品线列(None=无)、优先级列、优先级映射、明细列
+SRC_FIELD_MAP = {
+    '风险': {'op': '客户名称', 'pl': '产品线', 'prio': '风险等级', 'pmap': RISK_LVL_ORDER},
+    '整改': {'op': '运营商名称', 'pl': None,      'prio': '重要程度', 'pmap': RECT_IMP_ORDER},
+    'RFC':  {'op': '客户网络/Network Name', 'pl': '产品线/Product Line',
+             'prio': '级别/Severity', 'pmap': RFC_SEV_PRIO},
+    'SR':   {'op': '客户名称/Customer Name', 'pl': '产品线/Product Line',
+              'prio': '问题级别/Problem Level', 'pmap': SR_LVL_PRIO},
+}
+
+# 各来源明细列映射（总表统一列 ← 原始列名）
+SRC_DETAIL_MAP = {
+    '风险': {'单号': '风险ID', '标题': '风险标题', '状态': '风险状态', '等级': '风险等级',
+             '运营商': '客户名称', '产品线': '产品线', '是否延期': None,
+             '处理人': '当前处理人', '创建时间': '创单时间'},
+    '整改': {'单号': '任务号', '标题': '标题', '状态': '任务状态', '等级': '重要程度',
+             '运营商': '运营商名称', '产品线': None, '是否延期': '是否延期',
+             '处理人': '处理人', '创建时间': '创建时间'},
+    'RFC':  {'单号': '作业单号/Ticket ID', '标题': '摘要/Summary', '状态': '状态/RFC Status',
+             '等级': '级别/Severity', '运营商': '客户网络/Network Name',
+             '产品线': '产品线/Product Line', '是否延期': None,
+             '处理人': '当前处理人/Current Operator', '创建时间': '创建时间/Create Time'},
+    'SR':   {'单号': '问题单号/SR Number', '标题': '问题描述/Problem Summary',
+             '状态': '问题单状态/SR Status', '等级': '问题级别/Problem Level',
+             '运营商': '客户名称/Customer Name', '产品线': '产品线/Product Line',
+             '是否延期': '逾期/Overdue', '处理人': '当前责任人/Current Owner',
+             '创建时间': '问题单上报时间/SR Report Time'},
+}
+
+
+def stratified_sample(df, group_keys, priority_col, priority_map,
+                      ratio, priority_high, seed):
+    """分层抽样"""
+    sub = df.copy()
+    n = len(sub)
+    if n == 0:
+        return sub
+    target = max(1, round(n * ratio))
+    target = min(target, n)
+
+    rng = random.Random(seed)
+
+    if not group_keys:
+        if priority_high and priority_col:
+            sub = sub.assign(_p=sub[priority_col].map(priority_map).fillna(0))
+            sub['_r'] = [rng.random() for _ in range(len(sub))]
+            sub = sub.sort_values(['_p', '_r'], ascending=[False, True])
+            return sub.head(target).drop(columns=['_p', '_r'])
+        else:
+            return sub.sample(n=target, random_state=seed if seed is not None else rng.randint(0, 2**31))
+
+    sub['_grp'] = sub[group_keys].apply(
+        lambda r: '||'.join('' if pd.isna(v) else str(v) for v in r), axis=1)
+    group_sizes = sub.groupby('_grp').size().to_dict()
+    quota = hamilton_apportion(group_sizes, target)
+
+    picked = []
+    for g, q in quota.items():
+        if q <= 0:
+            continue
+        gdf = sub[sub['_grp'] == g]
+        if priority_high and priority_col:
+            gdf = gdf.assign(_p=gdf[priority_col].map(priority_map).fillna(0))
+            gdf['_r'] = [rng.random() for _ in range(len(gdf))]
+            gdf = gdf.sort_values(['_p', '_r'], ascending=[False, True])
+            picked.append(gdf.head(q))
+        else:
+            picked.append(gdf.sample(n=min(q, len(gdf)),
+                                     random_state=seed if seed is not None else rng.randint(0, 2**31)))
+    if picked:
+        res = pd.concat(picked, ignore_index=True)
+        return res.drop(columns=[c for c in ['_grp', '_p', '_r'] if c in res.columns])
+    return sub.iloc[0:0]
+
+
+# ============================================================
+# 范围过滤
+# ============================================================
+def filter_risk_suspend(df):
+    return df[df['风险等级'].isin(['High', 'Middle']) & (df['风险状态'] == 'Risk Suspended')].copy()
+
+def filter_risk_closed(df):
+    return df[df['风险等级'].isin(['High', 'Middle']) & (df['风险状态'] == 'Risk Closed')].copy()
+
+def filter_rect_closed(df):
+    return df[df['任务状态'].isin(['Rectification Closed', 'Rectification Completed'])].copy()
+
+def filter_rect_delay(df):
+    return df[df['是否延期'] == '是'].copy()
+
+def filter_rfc_closed_high(df):
+    return df[(df['状态/RFC Status'] == '已关闭') & (df['级别/Severity'].isin(['High', 'Fatal']))].copy()
+
+def filter_rfc_closed_medium(df):
+    return df[(df['状态/RFC Status'] == '已关闭') & (df['级别/Severity'] == 'Medium')].copy()
+
+def filter_rfc_closed_low(df):
+    return df[(df['状态/RFC Status'] == '已关闭') & (df['级别/Severity'] == 'Low')].copy()
+
+def filter_sr_closed_critical(df):
+    return df[(df['问题单状态/SR Status'] == 'Closed') & (df['问题级别/Problem Level'] == 'Critical')].copy()
+
+def filter_sr_closed_major(df):
+    return df[(df['问题单状态/SR Status'] == 'Closed') & (df['问题级别/Problem Level'] == 'Major')].copy()
+
+def filter_sr_closed_minor(df):
+    return df[(df['问题单状态/SR Status'] == 'Closed') & (df['问题级别/Problem Level'] == 'Minor')].copy()
+
+SCOPE_FILTERS = {
+    'risk_suspend': filter_risk_suspend,
+    'risk_closed': filter_risk_closed,
+    'rect_closed': filter_rect_closed,
+    'rect_delay': filter_rect_delay,
+    'rfc_closed_high': filter_rfc_closed_high,
+    'rfc_closed_medium': filter_rfc_closed_medium,
+    'rfc_closed_low': filter_rfc_closed_low,
+    'sr_closed_critical': filter_sr_closed_critical,
+    'sr_closed_major': filter_sr_closed_major,
+    'sr_closed_minor': filter_sr_closed_minor,
+}
+
+# ============================================================
+# 执行抽查与主程序
+# ============================================================
+def run_sampling(cfg, prog=None):
+    done = auto_prepare(cfg, prog)
+    tid = prog.add('加载合并表') if prog else None
+    if prog: prog.start(tid)
+    risk_df, risk_path = load_risk()
+    rect_df, rect_path = load_rect()
+    rfc_df, rfc_path = load_rfc()
+    sr_df, sr_path = load_sr()
+    src_dfs = {'风险': risk_df, '整改': rect_df, 'RFC': rfc_df, 'SR': sr_df}
+    src_paths = {'风险': risk_path, '整改': rect_path, 'RFC': rfc_path, 'SR': sr_path}
+    n_ready = sum(1 for d in src_dfs.values() if d is not None)
+    if prog: prog.done(tid, f'{n_ready}/4 来源就绪')
+
+    results = {}
+    seed = cfg['seed']
+    if seed is None:
+        seed = random.randint(0, 2**31 - 1)
+
+    for sk, meta in SCOPE_META.items():
+        sc = cfg['scopes'][sk]
+        if not sc['enable']:
+            results[sk] = None
+            continue
+        ratio = sc['ratio'] if sc['ratio'] is not None else cfg['ratio']
+        src = meta['src']
+        df = src_dfs.get(src)
+        if df is None:
+            results[sk] = None
+            continue
+        tid = prog.add(f'抽样 {meta["name"]}') if prog else None
+        if prog: prog.start(tid)
+        fm = SRC_FIELD_MAP[src]
+        sub = SCOPE_FILTERS[sk](df)
+        group_keys = []
+        if cfg['uniform_operator']:
+            group_keys.append(fm['op'])
+        if cfg['uniform_productline'] and fm['pl'] is not None:
+            group_keys.append(fm['pl'])
+        picked = stratified_sample(sub, group_keys, fm['prio'], fm['pmap'],
+                                   ratio, cfg['priority_high'], seed)
+        results[sk] = {
+            'picked': picked, 'total': len(sub), 'ratio': ratio,
+            'src': src, 'name': meta['name'], 'sub': sub,
+        }
+        if prog: prog.done(tid, f'{len(picked)}/{len(sub)}')
+
+    return results, seed, src_paths, done
+
+
+def export_results(results, cfg, seed, src_paths):
+    ts = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    out_path = os.path.join(BASE_DIR, f'【抽查结果】{ts}.xlsx')
+    rows = []
+    seq = 1
+    for sk, meta in SCOPE_META.items():
+        r = results.get(sk)
+        if not r or r['picked'] is None or len(r['picked']) == 0:
+            continue
+        pk = r['picked']
+        dm = SRC_DETAIL_MAP[r['src']]
+        for _, row in pk.iterrows():
+            def _g(key):
+                col = dm.get(key)
+                return row.get(col, '') if col else ''
+            rows.append({
+                '序号': seq, '抽查来源': r['src'], '抽查范围': r['name'],
+                '单号': _g('单号'), '标题': _g('标题'), '状态': _g('状态'),
+                '等级/重要程度': _g('等级'), '运营商': _g('运营商'),
+                '产品线': _g('产品线'), '是否延期': _g('是否延期'),
+                '处理人': _g('处理人'), '创建时间': _g('创建时间'),
+            })
+            seq += 1
+    total_df = pd.DataFrame(rows)
+
+    with pd.ExcelWriter(out_path, engine='openpyxl') as writer:
+        total_df.to_excel(writer, sheet_name='抽查总表', index=False)
+        for sk, meta in SCOPE_META.items():
+            r = results.get(sk)
+            if not r or r['picked'] is None or len(r['picked']) == 0:
+                continue
+            sheet = f"{meta['src']}-{sk}"[:31]
+            r['picked'].to_excel(writer, sheet_name=sheet, index=False)
+        cfg_rows = [
+            ['抽查比例(全局)', cfg['ratio']],
+            ['随机种子', seed],
+            ['优先高等级/高重要程度', cfg['priority_high']],
+            ['按运营商均匀分布', cfg['uniform_operator']],
+            ['风险按产品线均匀分布', cfg['uniform_productline']],
+            ['生成时间', datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')],
+        ]
+        pd.DataFrame(cfg_rows, columns=['配置项', '值']).to_excel(writer, sheet_name='抽查配置', index=False)
+
+    _beautify(out_path)
+    return out_path, total_df
+
+
+def _beautify(path):
+    wb = load_workbook(path)
+    header_font = Font(name='微软雅黑', size=10, bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='305496', end_color='305496', fill_type='solid')
+    center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    thin = Side(style='thin', color='BFBFBF')
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    for ws in wb.worksheets:
+        ncol, nrow = ws.max_column, ws.max_row
+        for c in range(1, ncol + 1):
+            cell = ws.cell(row=1, column=c)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = center
+            cell.border = border
+        ws.freeze_panes = 'A2'
+        ws.auto_filter.ref = ws.dimensions
+    wb.save(path)
+
+
+def print_report(results, cfg, seed, out_path, total_df):
+    print_title('PR 报告抽查结果')
+    print()
+    print(C('■ 抽查概览', F_CYAN, C_BOLD))
+    ov_rows = []
+    total_picked = 0
+    total_candidate = 0
+    for sk, meta in SCOPE_META.items():
+        r = results.get(sk)
+        sc = cfg['scopes'][sk]
+        ratio = sc['ratio'] if sc['ratio'] is not None else cfg['ratio']
+        if not sc['enable']:
+            ov_rows.append([meta['name'], '关闭', '-', '-', '-'])
+            continue
+        if not r:
+            ov_rows.append([meta['name'], '开启', f'{ratio*100:.0f}%', '0(无数据)', '0'])
+            continue
+        cand = r['total']
+        pick = len(r['picked'])
+        total_picked += pick
+        total_candidate += cand
+        ov_rows.append([meta['name'], '开启', f'{ratio*100:.0f}%', str(cand), str(pick)])
+    ov_rows.append(['合计', '', '', str(total_candidate), str(total_picked)])
+    print_table(['抽查范围', '状态', '比例', '候选数', '抽中数'], ov_rows)
+    print(f'\\n  • 输出文件：{out_path}\\n')
+
+
+def main():
+    cfg = clone_cfg(DEFAULT_CONFIG)
+    prog = Progress('抽查进度')
+    results, seed, src_paths, done = run_sampling(cfg, prog)
+    if all(v is None for v in results.values()):
+        prog.finish()
+        print('✗ 未找到任何数据或范围全部关闭')
+        return
+    tid = prog.add('导出 Excel 总表')
+    prog.start(tid)
+    out_path, total_df = export_results(results, cfg, seed, src_paths)
+    prog.done(tid, f'{len(total_df)} 行')
+    prog.finish()
+    print_report(results, cfg, seed, out_path, total_df)
+
+
+if __name__ == '__main__':
+    main()
+`;
+
+    // 全局状态
+    let currentScriptId = 'pr-audit-sampler';
+    let currentCode = BUILTIN_DEFAULT_CODE;
+    let versionsHistory = [];
+
+    // DOM 元素引用
+    const codeEditor = document.getElementById('codeEditor');
+    const selectScript = document.getElementById('selectScript');
+    const scriptNameInput = document.getElementById('scriptName');
+    const scriptVersionInput = document.getElementById('scriptVersion');
+    const scriptChangelogInput = document.getElementById('scriptChangelog');
+    const versionList = document.getElementById('versionList');
+    const versionCount = document.getElementById('versionCount');
+    const codeLineCount = document.getElementById('codeLineCount');
+    const codeSize = document.getElementById('codeSize');
+    const diffTargetSelect = document.getElementById('diffTargetSelect');
+    const diffContent = document.getElementById('diffContent');
+    const diffAddCount = document.getElementById('diffAddCount');
+    const diffDelCount = document.getElementById('diffDelCount');
+    const diffSameCount = document.getElementById('diffSameCount');
+
+    // 视图 Tab 切换
+    const tabBtnEditor = document.getElementById('tabBtnEditor');
+    const tabBtnDiff = document.getElementById('tabBtnDiff');
+    const tabBtnShell = document.getElementById('tabBtnShell');
+    const viewEditor = document.getElementById('viewEditor');
+    const viewDiff = document.getElementById('viewDiff');
+    const viewShell = document.getElementById('viewShell');
+
+    function switchTab(target) {
+      [tabBtnEditor, tabBtnDiff, tabBtnShell].forEach(b => b.classList.remove('active'));
+      [viewEditor, viewDiff, viewShell].forEach(v => v.classList.add('hidden'));
+
+      if (target === 'editor') {
+        tabBtnEditor.classList.add('active');
+        viewEditor.classList.remove('hidden');
+      } else if (target === 'diff') {
+        tabBtnDiff.classList.add('active');
+        viewDiff.classList.remove('hidden');
+        renderDiffView();
+      } else if (target === 'shell') {
+        tabBtnShell.classList.add('active');
+        viewShell.classList.remove('hidden');
+      }
+    }
+
+    tabBtnEditor.addEventListener('click', () => switchTab('editor'));
+    tabBtnDiff.addEventListener('click', () => switchTab('diff'));
+    tabBtnShell.addEventListener('click', () => switchTab('shell'));
+
+    // Toast 提示函数
+    function showToast(msg, type = 'info') {
+      const colors = {
+        success: 'bg-emerald-600 border-emerald-500 text-white',
+        error: 'bg-rose-600 border-rose-500 text-white',
+        info: 'bg-sky-600 border-sky-500 text-white',
+        warning: 'bg-amber-600 border-amber-500 text-white'
+      };
+      const icon = type === 'success' ? '✓' : (type === 'error' ? '✗' : 'ℹ');
+      
+      const el = document.createElement('div');
+      el.className = `px-4 py-2.5 rounded-lg border shadow-xl text-xs font-semibold flex items-center gap-2 pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 ${colors[type] || colors.info}`;
+      el.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
+      
+      const container = document.getElementById('toastContainer');
+      container.appendChild(el);
+      
+      requestAnimationFrame(() => {
+        el.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        el.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => el.remove(), 300);
+      }, 3500);
+    }
+
+    // 更新代码统计
+    function updateCodeMetrics() {
+      const code = codeEditor.value;
+      const lines = code.split('\\n').length;
+      const bytes = new Blob([code]).size;
+      codeLineCount.textContent = `${lines} 行`;
+      codeSize.textContent = `${(bytes / 1024).toFixed(1)} KB`;
+    }
+
+    codeEditor.addEventListener('input', () => {
+      currentCode = codeEditor.value;
+      updateCodeMetrics();
+    });
+
+    // 复制与重置按钮
+    document.getElementById('btnCopyCode').addEventListener('click', () => {
+      navigator.clipboard.writeText(codeEditor.value)
+        .then(() => showToast('已将 Python 代码复制到剪贴板', 'success'))
+        .catch(() => showToast('复制失败，请手动选择复制', 'error'));
+    });
+
+    document.getElementById('btnResetDefault').addEventListener('click', () => {
+      if (confirm('确定要重置当前代码为系统内置的第一版 PR 报告抽查脚本吗？未保存的修改将丢失。')) {
+        codeEditor.value = BUILTIN_DEFAULT_CODE;
+        currentCode = BUILTIN_DEFAULT_CODE;
+        scriptVersionInput.value = '1.0.0';
+        updateCodeMetrics();
+        showToast('已重置为初始内置版本', 'info');
+      }
+    });
+
+    // 版本号自动递增助手
+    document.getElementById('btnIncPatch').addEventListener('click', () => {
+      const parts = (scriptVersionInput.value || '1.0.0').split('.');
+      if (parts.length === 3 && !isNaN(parts[2])) {
+        parts[2] = parseInt(parts[2], 10) + 1;
+        scriptVersionInput.value = parts.join('.');
+        showToast(`版本号已自增为 ${scriptVersionInput.value}`, 'info');
+      }
+    });
+
+    document.getElementById('btnIncMinor').addEventListener('click', () => {
+      const parts = (scriptVersionInput.value || '1.0.0').split('.');
+      if (parts.length === 3 && !isNaN(parts[1])) {
+        parts[1] = parseInt(parts[1], 10) + 1;
+        parts[2] = '0';
+        scriptVersionInput.value = parts.join('.');
+        showToast(`版本号已自增为 ${scriptVersionInput.value}`, 'info');
+      }
+    });
+
+    // 文件上传与拖拽
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-sky-400', 'bg-slate-900/80');
+    });
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-sky-400', 'bg-slate-900/80');
+    });
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-sky-400', 'bg-slate-900/80');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        handleFileUpload(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files && fileInput.files[0]) {
+        handleFileUpload(fileInput.files[0]);
+      }
+    });
+
+    function handleFileUpload(file) {
+      if (!file.name.endsWith('.py')) {
+        showToast('请上传 .py 格式的 Python 脚本文件', 'error');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target.result;
+        codeEditor.value = text;
+        currentCode = text;
+        updateCodeMetrics();
+        
+        // 尝试从文件名推断
+        const base = file.name.replace(/\\.py$/i, '');
+        scriptNameInput.value = base;
+        
+        // 尝试从脚本中提取 __version__
+        const match = text.match(/__version__\\s*=\\s*["']([^"']+)["']/);
+        if (match && match[1]) {
+          scriptVersionInput.value = match[1];
+        }
+
+        showToast(`已成功导入本地脚本：${file.name}`, 'success');
+      };
+      reader.readAsText(file, 'utf-8');
+    }
+
+    // 后端 API 调用辅助
+    async function apiRequest(url, options = {}) {
+      try {
+        const res = await fetch(url, {
+          headers: { 'Content-Type': 'application/json' },
+          ...options
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `请求失败 (HTTP ${res.status})`);
+        }
+        return await res.json();
+      } catch (err) {
+        console.warn(`[API] ${url} error:`, err);
+        throw err;
+      }
+    }
+
+    // 初始化加载
+    async function initPage() {
+      codeEditor.value = BUILTIN_DEFAULT_CODE;
+      currentCode = BUILTIN_DEFAULT_CODE;
+      updateCodeMetrics();
+
+      try {
+        // 读取已有版本
+        const data = await apiRequest(`/api/python-updater/scripts/${currentScriptId}/versions`);
+        if (data && data.versions) {
+          versionsHistory = data.versions;
+          renderVersionList();
+          populateDiffOptions();
+        }
+      } catch (e) {
+        // 纯前端脱机模式兜底
+        versionsHistory = [
+          {
+            id: 'init_v1',
+            version: '1.0.0',
+            changelog: '初始内置版本：PR 报告抽查脚本',
+            author: 'CodeArts 智能体',
+            created_at: '2026-10-14 12:00:00',
+            code: BUILTIN_DEFAULT_CODE
+          }
+        ];
+        renderVersionList();
+        populateDiffOptions();
+      }
+    }
+
+    // 渲染左侧版本快照列表
+    function renderVersionList() {
+      versionCount.textContent = versionsHistory.length;
+      if (!versionsHistory.length) {
+        versionList.innerHTML = '<div class="text-xs text-slate-500 py-3 text-center">暂无历史版本记录</div>';
+        return;
+      }
+
+      versionList.innerHTML = versionsHistory.map((ver, idx) => `
+        <div class="p-2.5 rounded-lg bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800/80 transition flex items-center justify-between cursor-pointer group" onclick="selectVersionToView('${ver.id}')">
+          <div class="min-w-0 pr-2">
+            <div class="flex items-center gap-1.5">
+              <span class="font-mono font-bold text-xs text-sky-400">v${escapeHtml(ver.version)}</span>
+              <span class="text-[10px] text-slate-500">${escapeHtml(ver.created_at || '')}</span>
+            </div>
+            <div class="text-[11px] text-slate-400 truncate mt-0.5">${escapeHtml(ver.changelog || '无说明')}</div>
+          </div>
+          <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100">
+            <button type="button" class="px-2 py-1 rounded bg-slate-800 hover:bg-sky-700 text-[10px] text-sky-300 font-medium" onclick="event.stopPropagation(); loadVersionCode('${ver.id}')">载入</button>
+            <button type="button" class="px-2 py-1 rounded bg-slate-800 hover:bg-indigo-700 text-[10px] text-indigo-300 font-medium" onclick="event.stopPropagation(); compareWithVersion('${ver.id}')">比对</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function populateDiffOptions() {
+      if (!versionsHistory.length) {
+        diffTargetSelect.innerHTML = '<option value="">暂无历史版本</option>';
+        return;
+      }
+      diffTargetSelect.innerHTML = versionsHistory.map(v => 
+        `<option value="${v.id}">v${escapeHtml(v.version)} (${escapeHtml(v.created_at || '').slice(0, 10)}) - ${escapeHtml(v.changelog || '').slice(0, 20)}</option>`
+      ).join('');
+    }
+
+    // 载入特定版本到编辑器
+    window.loadVersionCode = async function(verId) {
+      const ver = versionsHistory.find(v => v.id === verId);
+      if (!ver) return;
+      if (confirm(`确定要将编辑器中的代码替换为历史版本 v${ver.version} 吗？`)) {
+        if (!ver.code) {
+          try {
+            const res = await apiRequest(`/api/python-updater/versions/${verId}`);
+            if (res && res.version && res.version.code) ver.code = res.version.code;
+          } catch(e) {}
+        }
+        if (ver.code) {
+          codeEditor.value = ver.code;
+          currentCode = ver.code;
+          scriptVersionInput.value = ver.version;
+          scriptChangelogInput.value = `基于 v${ver.version} 修改`;
+          updateCodeMetrics();
+          switchTab('editor');
+          showToast(`已成功载入历史版本 v${ver.version}`, 'success');
+        }
+      }
+    };
+
+    // 跳转并比对该版本
+    window.compareWithVersion = function(verId) {
+      diffTargetSelect.value = verId;
+      switchTab('diff');
+    };
+
+    // 客户端简易 Diff 引擎（无需网络也可工作）
+    function clientComputeDiff(oldText, newText) {
+      const oldLines = (oldText || '').split(/\\r?\\n/);
+      const newLines = (newText || '').split(/\\r?\\n/);
+      
+      const m = oldLines.length;
+      const n = newLines.length;
+
+      // 为性能考虑，超过 2000 行做分块优化
+      const dp = Array(m + 1).fill(null).map(() => Array(n + 1).fill(0));
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) {
+          if (oldLines[i] === newLines[j]) {
+            dp[i + 1][j + 1] = dp[i][j] + 1;
+          } else {
+            dp[i + 1][j + 1] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+          }
+        }
+      }
+
+      const lines = [];
+      let i = m, j = n;
+      let adds = 0, dels = 0, sames = 0;
+
+      while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+          lines.push({ type: 'same', oldLine: i, newLine: j, text: oldLines[i - 1] });
+          sames++;
+          i--; j--;
+        } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+          lines.push({ type: 'add', oldLine: null, newLine: j, text: newLines[j - 1] });
+          adds++;
+          j--;
+        } else if (i > 0 && (j === 0 || dp[i][j - 1] < dp[i - 1][j])) {
+          lines.push({ type: 'del', oldLine: i, newLine: null, text: oldLines[i - 1] });
+          dels++;
+          i--;
+        }
+      }
+
+      lines.reverse();
+      return { lines, stats: { adds, dels, sames } };
+    }
+
+    // 渲染 Diff 界面
+    async function renderDiffView() {
+      const targetVerId = diffTargetSelect.value;
+      if (!targetVerId) {
+        diffContent.innerHTML = '<div class="text-slate-500 text-center py-10">暂无可比对的历史版本</div>';
+        return;
+      }
+
+      const ver = versionsHistory.find(v => v.id === targetVerId);
+      if (!ver) return;
+
+      let oldCode = ver.code;
+      if (!oldCode) {
+        try {
+          const res = await apiRequest(`/api/python-updater/versions/${targetVerId}`);
+          if (res && res.version && res.version.code) {
+            oldCode = res.version.code;
+            ver.code = oldCode;
+          }
+        } catch(e) {}
+      }
+
+      if (!oldCode) {
+        diffContent.innerHTML = '<div class="text-slate-500 text-center py-10">读取比对代码失败</div>';
+        return;
+      }
+
+      const diffResult = clientComputeDiff(oldCode, currentCode);
+      diffAddCount.textContent = diffResult.stats.adds;
+      diffDelCount.textContent = diffResult.stats.dels;
+      diffSameCount.textContent = diffResult.stats.sames;
+
+      if (diffResult.stats.adds === 0 && diffResult.stats.dels === 0) {
+        diffContent.innerHTML = `
+          <div class="text-center py-12">
+            <span class="text-2xl">🎉</span>
+            <div class="text-emerald-400 font-semibold mt-2">当前编辑代码与版本 v${escapeHtml(ver.version)} 完全一致，无任何差异！</div>
+          </div>
+        `;
+        return;
+      }
+
+      const html = diffResult.lines.map(l => {
+        let cls = 'diff-line-same';
+        let prefix = ' ';
+        let numStr = `${(l.oldLine || '').toString().padStart(4, ' ')}  ${(l.newLine || '').toString().padStart(4, ' ')}`;
+        if (l.type === 'add') {
+          cls = 'diff-line-add';
+          prefix = '+';
+        } else if (l.type === 'del') {
+          cls = 'diff-line-del';
+          prefix = '-';
+        }
+
+        return `<div class="px-2 py-0.5 flex items-start gap-3 ${cls}">
+          <span class="text-slate-600 select-none text-[10px] font-mono whitespace-pre">${numStr}</span>
+          <span class="font-mono select-none text-[11px] font-bold w-3">${prefix}</span>
+          <span class="flex-1 whitespace-pre-wrap break-all">${escapeHtml(l.text || '')}</span>
+        </div>`;
+      }).join('');
+
+      diffContent.innerHTML = html;
+    }
+
+    diffTargetSelect.addEventListener('change', renderDiffView);
+
+    // 1. 保存为新版本
+    document.getElementById('btnSaveVersion').addEventListener('click', async () => {
+      const name = scriptNameInput.value.trim() || '未命名脚本';
+      const version = scriptVersionInput.value.trim() || '1.0.0';
+      const changelog = scriptChangelogInput.value.trim() || '日常优化与逻辑更新';
+      const code = codeEditor.value;
+
+      if (!code.trim()) {
+        showToast('代码内容不能为空', 'error');
+        return;
+      }
+
+      try {
+        const payload = {
+          id: currentScriptId,
+          name,
+          version,
+          changelog,
+          code,
+          author: '平台用户'
+        };
+
+        const res = await apiRequest('/api/python-updater/scripts', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+
+        // 刷新列表
+        const verListRes = await apiRequest(`/api/python-updater/scripts/${currentScriptId}/versions`);
+        if (verListRes && verListRes.versions) {
+          versionsHistory = verListRes.versions;
+          renderVersionList();
+          populateDiffOptions();
+        }
+
+        showToast(`已成功保存版本 v${version}！`, 'success');
+      } catch (err) {
+        showToast(`保存失败: ${err.message}`, 'error');
+      }
+    });
+
+    // 2. 一键同步至本地/远端仓库核心脚本文件
+    document.getElementById('btnSyncRepo').addEventListener('click', async () => {
+      const code = codeEditor.value;
+      const version = scriptVersionInput.value.trim() || '1.0.0';
+      const name = scriptNameInput.value.trim() || 'PR 报告抽查脚本';
+      const changelog = scriptChangelogInput.value.trim() || '在线同步至核心脚本';
+
+      if (!code.trim()) {
+        showToast('代码不能为空', 'error');
+        return;
+      }
+
+      if (!confirm(`确定将当前编辑的代码同步写入仓库的 python-packager/core_script.py (版本: v${version}) 吗？\n写入后用户端启动器可立即在线检测并更新此版本！`)) {
+        return;
+      }
+
+      try {
+        const res = await apiRequest('/api/python-updater/sync-repo', {
+          method: 'POST',
+          body: JSON.stringify({
+            scriptId: currentScriptId,
+            code,
+            metadata: { name, version, changelog }
+          })
+        });
+
+        showToast(`核心脚本与 version.json 已成功同步更新！SHA256: ${res.sha256.slice(0, 10)}...`, 'success');
+      } catch (err) {
+        showToast(`同步失败: ${err.message}`, 'error');
+      }
+    });
+
+    // 3. 下载通用外壳包 ZIP
+    document.getElementById('btnDownloadShellZip').addEventListener('click', () => {
+      showToast('正在生成通用外壳便携开发包 ZIP...', 'info');
+      window.location.href = '/api/python-updater/export-shell';
+    });
+
+    // 新建脚本
+    document.getElementById('btnNewScript').addEventListener('click', () => {
+      if (confirm('新建脚本将清空当前编辑区，是否继续？')) {
+        currentScriptId = 'script_' + Date.now().toString(36);
+        scriptNameInput.value = '自定义 Python 工具';
+        scriptVersionInput.value = '1.0.0';
+        scriptChangelogInput.value = '创建初始版本';
+        codeEditor.value = `# -*- coding: utf-8 -*-\\n"""\\n自定义 Python 工具脚本\\n"""\\n\\ndef main():\\n    print("Hello from Python Universal Shell!")\\n\\nif __name__ == '__main__':\\n    main()\\n`;
+        currentCode = codeEditor.value;
+        updateCodeMetrics();
+        showToast('已新建空白脚本，编辑后点击【保存为新历史版本】', 'info');
+      }
+    });
+
+    function escapeHtml(str) {
+      return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // 页面加载启动
+    initPage();
+  </script>
+</body>
+</html>

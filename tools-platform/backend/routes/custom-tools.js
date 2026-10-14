@@ -26,6 +26,8 @@ const productScopeRepo = require('../models/product-scope-repository');
 const { getTenantId, runWithTenant } = require('../models/tenant-context');
 const productUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
 
+router.use('/python-updater', require('./python-updater'));
+
 router.get('/tool-mumxi3px/products', async (req, res, next) => {
     try { res.json(await productScopeRepo.loadProducts()); } catch (err) { next(err); }
 });
@@ -674,9 +676,9 @@ router.get('/:slug/snapshots/:id', async (req, res) => {
 
 router.post('/:slug/snapshots', async (req, res) => {
     try {
-        const { name, summary, payload } = req.body || {};
+        const { id, name, summary, payload, timestamp } = req.body || {};
         if (!payload) return res.status(400).json({ error: '缺少快照数据 (payload)' });
-        const item = await snapshotsRepo.addSnapshot(req.params.slug, { name, summary, payload });
+        const item = await snapshotsRepo.addSnapshot(req.params.slug, { id, name, summary, payload, timestamp });
         res.status(201).json({ success: true, item });
     } catch (err) {
         console.error('[custom-tools] add snapshot error:', err);

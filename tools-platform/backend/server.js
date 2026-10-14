@@ -425,7 +425,9 @@ app.use('/api/friend-links', friendLinksRoutes); // 首页友情链接配置与�
 app.use('/api/onboarding', onboardingRoutes); // 首次启动默认脚本/指标规则可选导入
 app.use('/api/duty-roster', require('./routes/duty-roster')); // 夜间运维值班表 API
 app.use('/api/tenants', tenantsRoutes); // 租户清单、切换与管理
+app.use('/api/python-updater', require('./routes/python-updater')); // Python 脚本热更新与版本管理 API
 if (desktopLicenseAdminRoutes) app.use('/api/desktop-licenses', requireAdmin, desktopLicenseAdminRoutes);
+
 
 // ============================================================
 // 前端路由回退（SPA）
@@ -492,6 +494,9 @@ app.get('/frt', (req, res) => {
 });
 if (!isDesktopRuntime) app.get('/desktop-license-admin', checkHtmlAuth, (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'pages/desktop-license-admin.html'));
+});
+app.get('/python-updater', checkHtmlAuth, (req, res) => {
+    res.redirect('/tools/python-updater');
 });
 app.get('/tools/:slug', checkHtmlAuth, (req, res) => {
     res.sendFile(path.join(FRONTEND_DIR, 'pages/custom-tool.html'));

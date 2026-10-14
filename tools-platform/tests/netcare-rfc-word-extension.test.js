@@ -1425,4 +1425,427 @@ test('China station kdp.idp.huawei.com export worker, online background, and art
     assert.match(catalogEntry.matches, /kdp\.idp\.huawei\.com\/ows1\/static\/editor\/IdpLiteView\/PublishLiteView\.html\*/);
 });
 
+test('attachment audit supports txt, word, excel, and msg with settings multi-select and linkage', async () => {
+    const zlib = require('node:zlib');
+    const context = { URL, URLSearchParams, Blob, Uint8Array, DataView, TextDecoder, DecompressionStream, location: new URL('https://unrelated.example'), window: {} };
+    vm.runInNewContext(code, context);
+
+    // 1. Defaults and settings validation
+    const def = context.netcareDefaultSettings();
+    assert.deepEqual([...def.attachmentAuditTypes], ['txt']);
+
+    const custom = context.netcareNormalizeSettings({
+        ...def,
+        attachmentAuditTypes: ['word', 'excel', 'msg', 'unknown']
+    });
+    assert.deepEqual([...custom.attachmentAuditTypes], ['word', 'excel', 'msg']);
+
+    // 2. Type recognition
+    assert.equal(context.netcareGetAttachmentType('test.txt'), 'txt');
+    assert.equal(context.netcareGetAttachmentType('doc.docx'), 'word');
+    assert.equal(context.netcareGetAttachmentType('legacy.doc'), 'word');
+    assert.equal(context.netcareGetAttachmentType('sheet.xlsx'), 'excel');
+    assert.equal(context.netcareGetAttachmentType('data.csv'), 'excel');
+    assert.equal(context.netcareGetAttachmentType('mail.msg'), 'msg');
+    assert.equal(context.netcareGetAttachmentType('photo.png'), null);
+
+    // Helper to generate minimal zip
+    function createZip(entries) {
+        const localHeaders = [];
+        const cdHeaders = [];
+        let offset = 0;
+        for (const entry of entries) {
+            const nameBuf = Buffer.from(entry.name, 'utf8');
+            const rawData = Buffer.from(entry.content, 'utf8');
+            const compData = zlib.deflateRawSync(rawData);
+            const lh = Buffer.alloc(30 + nameBuf.length);
+            lh.writeUInt32LE(0x04034b50, 0);
+            lh.writeUInt16LE(20, 4);
+            lh.writeUInt16LE(0, 6);
+            lh.writeUInt16LE(8, 8);
+            lh.writeUInt16LE(0, 10);
+            lh.writeUInt16LE(0, 12);
+            lh.writeUInt32LE(0x12345678, 14);
+            lh.writeUInt32LE(compData.length, 18);
+            lh.writeUInt32LE(rawData.length, 22);
+            lh.writeUInt16LE(nameBuf.length, 26);
+            lh.writeUInt16LE(0, 28);
+            nameBuf.copy(lh, 30);
+            localHeaders.push(lh, compData);
+            const cd = Buffer.alloc(46 + nameBuf.length);
+            cd.writeUInt32LE(0x02014b50, 0);
+            cd.writeUInt16LE(20, 4);
+            cd.writeUInt16LE(20, 6);
+            cd.writeUInt16LE(0, 8);
+            cd.writeUInt16LE(8, 10);
+            cd.writeUInt16LE(0, 12);
+            cd.writeUInt16LE(0, 14);
+            cd.writeUInt32LE(0x12345678, 16);
+            cd.writeUInt32LE(compData.length, 20);
+            cd.writeUInt32LE(rawData.length, 24);
+            cd.writeUInt16LE(nameBuf.length, 28);
+            cd.writeUInt16LE(0, 30);
+            cd.writeUInt16LE(0, 32);
+            cd.writeUInt16LE(0, 34);
+            cd.writeUInt16LE(0, 36);
+            cd.writeUInt32LE(0, 38);
+            cd.writeUInt32LE(offset, 42);
+            nameBuf.copy(cd, 46);
+            cdHeaders.push(cd);
+            offset += lh.length + compData.length;
+        }
+        const cdTotalSize = cdHeaders.reduce((s, h) => s + h.length, 0);
+        const eocd = Buffer.alloc(22);
+        eocd.writeUInt32LE(0x06054b50, 0);
+        eocd.writeUInt16LE(0, 4);
+        eocd.writeUInt16LE(0, 6);
+        eocd.writeUInt16LE(entries.length, 8);
+        eocd.writeUInt16LE(entries.length, 10);
+        eocd.writeUInt32LE(cdTotalSize, 12);
+        eocd.writeUInt32LE(offset, 16);
+        eocd.writeUInt16LE(0, 20);
+        return Buffer.concat([...localHeaders, ...cdHeaders, eocd]);
+    }
+
+    // Helper to generate minimal CFBF MSG
+    function createMsg(props) {
+        const header = Buffer.alloc(512, 0);
+        Buffer.from([0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1]).copy(header, 0);
+        header.writeUInt16LE(0xFFFE, 0x1C);
+        header.writeUInt16LE(9, 0x1E);
+        header.writeUInt16LE(6, 0x20);
+        header.writeUInt32LE(1, 0x2C);
+        header.writeUInt32LE(1, 0x30);
+        header.writeUInt32LE(4096, 0x38);
+        header.writeUInt32LE(2, 0x3C);
+        header.writeUInt32LE(1, 0x40);
+        header.writeUInt32LE(0xFFFFFFFE, 0x44);
+        header.writeUInt32LE(0, 0x48);
+        header.writeUInt32LE(0, 0x4C);
+
+        const entriesData = [
+            { name: '__substg1.0_0037001F', text: props.subject || '' },
+            { name: '__substg1.0_0C1A001F', text: props.sender || '' },
+            { name: '__substg1.0_1000001F', text: props.body || '' }
+        ];
+
+        const miniSectors = [];
+        const miniFat = [];
+        const dirEntries = [];
+
+        const rootEntry = Buffer.alloc(128, 0);
+        Buffer.from('Root Entry\0', 'utf16le').copy(rootEntry, 0);
+        rootEntry.writeUInt16LE(22, 0x40);
+        rootEntry.writeUInt8(5, 0x42);
+        rootEntry.writeUInt32LE(0xFFFFFFFF, 0x44);
+        rootEntry.writeUInt32LE(0xFFFFFFFF, 0x48);
+        rootEntry.writeUInt32LE(1, 0x4C);
+        rootEntry.writeUInt32LE(3, 0x74);
+        dirEntries.push(rootEntry);
+
+        let currentMiniSector = 0;
+        entriesData.forEach((item, idx) => {
+            const entryBuf = Buffer.alloc(128, 0);
+            const nameBuf = Buffer.from(item.name + '\0', 'utf16le');
+            nameBuf.copy(entryBuf, 0);
+            entryBuf.writeUInt16LE(nameBuf.length, 0x40);
+            entryBuf.writeUInt8(2, 0x42);
+            entryBuf.writeUInt32LE(idx === 0 ? 2 : 0xFFFFFFFF, 0x44);
+            entryBuf.writeUInt32LE(idx === 0 ? 3 : 0xFFFFFFFF, 0x48);
+            entryBuf.writeUInt32LE(0xFFFFFFFF, 0x4C);
+
+            const dataBuf = Buffer.from(item.text, 'utf16le');
+            entryBuf.writeUInt32LE(currentMiniSector, 0x74);
+            entryBuf.writeUInt32LE(dataBuf.length, 0x78);
+
+            const numSectors = Math.ceil(dataBuf.length / 64) || 1;
+            for (let s = 0; s < numSectors; s++) {
+                const chunk = Buffer.alloc(64, 0);
+                dataBuf.copy(chunk, 0, s * 64, (s + 1) * 64);
+                miniSectors.push(chunk);
+                miniFat.push(s < numSectors - 1 ? currentMiniSector + 1 : 0xFFFFFFFE);
+                currentMiniSector++;
+            }
+            dirEntries.push(entryBuf);
+        });
+
+        const miniStreamData = Buffer.concat(miniSectors);
+        rootEntry.writeUInt32LE(miniStreamData.length, 0x78);
+
+        const fatSec = Buffer.alloc(512, 0xFF);
+        fatSec.writeUInt32LE(0xFFFFFFFD, 0 * 4);
+        fatSec.writeUInt32LE(0xFFFFFFFE, 1 * 4);
+        fatSec.writeUInt32LE(0xFFFFFFFE, 2 * 4);
+        const numMiniStreamSectors = Math.ceil(miniStreamData.length / 512) || 1;
+        for (let s = 0; s < numMiniStreamSectors; s++) {
+            fatSec.writeUInt32LE(s < numMiniStreamSectors - 1 ? 4 + s : 0xFFFFFFFE, (3 + s) * 4);
+        }
+
+        const dirSec = Buffer.concat(dirEntries);
+        const dirPadded = Buffer.alloc(512, 0);
+        dirSec.copy(dirPadded, 0);
+
+        const miniFatSec = Buffer.alloc(512, 0xFF);
+        miniFat.forEach((val, i) => miniFatSec.writeUInt32LE(val, i * 4));
+
+        const miniStreamPadded = Buffer.alloc(numMiniStreamSectors * 512, 0);
+        miniStreamData.copy(miniStreamPadded, 0);
+
+        return Buffer.concat([header, fatSec, dirSec, miniFatSec, miniStreamPadded]);
+    }
+
+    // 3. Test TXT extraction
+    const txtBlob = new Blob([Buffer.from('操作指南内容', 'utf8')]);
+    const resTxt = await context.netcareExtractAttachmentText(txtBlob, 'guide.txt', def, '3.2', '3.2-guide.txt');
+    assert.equal(resTxt.text, '操作指南内容');
+
+    // 4. Test Word (.docx) extraction - disabled vs enabled
+    const docxBuf = createZip([{
+        name: 'word/document.xml',
+        content: '<w:document><w:body><w:p><w:t>Word实施步骤 &amp; 说明</w:t></w:p></w:body></w:document>'
+    }]);
+    const docxBlob = new Blob([docxBuf]);
+    const resDocxDisabled = await context.netcareExtractAttachmentText(docxBlob, 'steps.docx', def, '3.2', '3.2-steps.docx');
+    assert.match(resDocxDisabled.error, /未开启 Word 附件审计/);
+
+    const allTypesSettings = context.netcareNormalizeSettings({
+        ...def,
+        attachmentAuditTypes: ['txt', 'word', 'excel', 'msg']
+    });
+    const resDocxEnabled = await context.netcareExtractAttachmentText(docxBlob, 'steps.docx', allTypesSettings, '3.2', '3.2-steps.docx');
+    assert.equal(resDocxEnabled.text, 'Word实施步骤 & 说明');
+
+    // 5. Test Excel (.xlsx) extraction
+    const sharedXml = '<sst count="1" uniqueCount="1"><si><t>检查项A</t></si></sst>';
+    const sheetXml = '<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1"><v>合格</v></c></row></sheetData></worksheet>';
+    const xlsxBuf = createZip([
+        { name: 'xl/sharedStrings.xml', content: sharedXml },
+        { name: 'xl/worksheets/sheet1.xml', content: sheetXml }
+    ]);
+    const xlsxBlob = new Blob([xlsxBuf]);
+    const resXlsxDisabled = await context.netcareExtractAttachmentText(xlsxBlob, 'check.xlsx', def, '3.2', '3.2-check.xlsx');
+    assert.match(resXlsxDisabled.error, /未开启 Excel 附件审计/);
+
+    const resXlsxEnabled = await context.netcareExtractAttachmentText(xlsxBlob, 'check.xlsx', allTypesSettings, '3.2', '3.2-check.xlsx');
+    assert.match(resXlsxEnabled.text, /检查项A\t合格/);
+
+    // 6. Test CSV extraction
+    const csvBlob = new Blob([Buffer.from('Col1,Col2\nVal1,Val2', 'utf8')]);
+    const resCsvEnabled = await context.netcareExtractAttachmentText(csvBlob, 'data.csv', allTypesSettings, '3.2', '3.2-data.csv');
+    assert.equal(resCsvEnabled.text, 'Col1,Col2\nVal1,Val2');
+
+    // 7. Test MSG extraction
+    const msgBuf = createMsg({
+        subject: '变更确认邮件',
+        sender: '审核人',
+        body: '邮件正文：请准时执行变更。'
+    });
+    const msgBlob = new Blob([msgBuf]);
+    const resMsgDisabled = await context.netcareExtractAttachmentText(msgBlob, 'mail.msg', def, '3.2', '3.2-mail.msg');
+    assert.match(resMsgDisabled.error, /未开启 MSG 附件审计/);
+
+    const resMsgEnabled = await context.netcareExtractAttachmentText(msgBlob, 'mail.msg', allTypesSettings, '3.2', '3.2-mail.msg');
+    assert.match(resMsgEnabled.text, /【主题 \/ Subject】: 变更确认邮件/);
+    assert.match(resMsgEnabled.text, /请准时执行变更。/);
+
+    // 8. Unsupported format
+    const binBlob = new Blob([Buffer.from([0, 1, 2, 3])]);
+    const resBin = await context.netcareExtractAttachmentText(binBlob, 'firmware.bin', allTypesSettings, '3.2', '3.2-firmware.bin');
+    assert.match(resBin.error, /不支持自动审计的附件类型/);
+
+    // 9. Relay persistence
+    const pack = packer.buildPackage({ ...options, manualLaunch: true }), stored = {};
+    let receive;
+    const window = { addEventListener: (_t, fn) => { receive = fn; }, removeEventListener() {}, postMessage: () => {} };
+    window.top = window;
+    const origin = 'https://netcare.huawei.com';
+    vm.runInNewContext(pack.files['netcare-online-relay.js'], {
+        window, location: { origin },
+        chrome: { storage: { local: { set: async d => Object.assign(stored, d), get: async k => ({ [k]: stored[k] }) } } }
+    });
+    receive({
+        source: window, origin,
+        data: {
+            source: 'TP_RFC_SETTINGS_SET',
+            settings: {
+                ...def,
+                attachmentsEnabled: true,
+                textEnabled: true,
+                attachmentAuditTypes: ['txt', 'word', 'msg']
+            }
+        }
+    });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual([...stored.netcareExtractionSettings.attachmentAuditTypes], ['txt', 'word', 'msg']);
+});
+
+test('exported logs prefix local timestamp and timezone offset before JSON payload', () => {
+    const sandbox = {};
+    vm.runInNewContext(code + '\nsandbox.netcareFormatExportLogLine = netcareFormatExportLogLine;', {
+        window: { addEventListener: () => {}, removeEventListener: () => {} },
+        document: { querySelectorAll: () => [], getElementById: () => ({ value: '' }) },
+        location: { protocol: 'https:', hostname: 'netcare.huawei.com', href: 'https://netcare.huawei.com/p/netcare/index.html' },
+        Blob, TextDecoder, URL, console, sandbox
+    });
+    const { netcareFormatExportLogLine } = sandbox;
+    assert.equal(typeof netcareFormatExportLogLine, 'function');
+
+    const sample = {
+        id: 'c91cafd3-32a1-4254-b1b9-0b26abab878a',
+        at: 1791871529058,
+        order: 'NC20260624001106',
+        category: 'operation',
+        level: 'info',
+        action: 'ui.click',
+        message: '操作控件 / Use control',
+        data: { control: 'logExport', label: '导出筛选日志' }
+    };
+    const formatted = netcareFormatExportLogLine(sample);
+    // Format must match: [YYYY-MM-DD HH:mm:ss.SSS GMT(+/-)X] {JSON}
+    assert.match(formatted, /^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} GMT[+-]\d+(?::\d{2})?\] \{/);
+
+    const jsonPart = formatted.slice(formatted.indexOf('{'));
+    const parsed = JSON.parse(jsonPart);
+    assert.equal(parsed.id, sample.id);
+    assert.equal(parsed.order, sample.order);
+    assert.equal(parsed.action, sample.action);
+    assert.equal(parsed.timestamp, new Date(sample.at).toISOString());
+});
+
+test('AI background request falls back to first available model if selectedModel is unset or mismatched', async () => {
+    const pack = packer.buildPackage({ ...options, examAiBridge: false });
+    const bgCode = pack.files['background.js'];
+
+    // Test model fallback when netcareAiSelectedModel is undefined or non-existent
+    const mockStorage = {
+        netcareAiModels: [
+            { id: 'model-1', name: 'GLM 5.2', model: 'dfa_glm-52', protocol: 'openai', url: 'https://aigateway.huawei.com/v1/chat/completions', key: 'secret-key-1' }
+        ],
+        netcareAiSelectedModel: 'non-existent-id',
+        netcareExtractionSettings: {
+            aiAuditEnabled: true,
+            sections: [{ number: '3.5', textPrompt: 'Audit steps' }]
+        }
+    };
+
+    let capturedFetchUrl = null;
+    const listeners = [];
+
+    const mockChrome = {
+        runtime: {
+            id: 'test-ext-id',
+            getURL: path => `chrome-extension://test-ext-id/${path}`,
+            onInstalled: { addListener: () => {} },
+            onMessage: {
+                addListener: fn => listeners.push(fn)
+            }
+        },
+        storage: {
+            local: {
+                get: async keys => {
+                    const result = {};
+                    for (const k of (Array.isArray(keys) ? keys : [keys])) {
+                        if (mockStorage[k] !== undefined) result[k] = mockStorage[k];
+                    }
+                    return result;
+                },
+                set: async () => {},
+                getBytesInUse: async () => 0
+            },
+            onChanged: { addListener: () => {} }
+        },
+        tabs: {
+            sendMessage: async () => {},
+            get: async () => ({})
+        }
+    };
+
+    const answer = { status: 'pass', summary: { zh: '合规', en: 'Compliant' }, findings: [] };
+    const context = {
+        chrome: mockChrome,
+        fetch: async (url, r) => {
+            capturedFetchUrl = url;
+            return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(answer) } }] }), { status: 200 });
+        },
+        console,
+        AbortController,
+        TextDecoder,
+        URL,
+        Date,
+        Response,
+        crypto: { randomUUID: () => '11111111-2222-3333-4444-555555555555' },
+        setTimeout,
+        clearTimeout
+    };
+
+    vm.runInNewContext(bgCode, context);
+    assert.ok(listeners.length > 0);
+
+    const sendAudit = (msg, sender) => new Promise(resolve => {
+        for (const fn of listeners) {
+            let called = false;
+            const res = fn(msg, sender, val => { called = true; resolve(val); });
+            if (res === true || called) return;
+        }
+    });
+
+    const onlineUrl = 'https://kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html?docId=' + onlineOrder;
+    const sender = { id: 'test-ext-id', url: onlineUrl, frameId: 0, tab: { id: 1 } };
+    const auditRes = await sendAudit({
+        type: 'TP_RFC_AI_AUDIT',
+        id: '11111111-2222-3333-4444-555555555555',
+        order: onlineOrder,
+        section: '3.5',
+        kind: 'text',
+        text: 'Some test evidence'
+    }, sender);
+
+    assert.equal(auditRes.ok, true);
+    assert.equal(auditRes.model, 'dfa_glm-52');
+    assert.equal(capturedFetchUrl, 'https://aigateway.huawei.com/v1/chat/completions');
+});
+
+test('multi-extension collision yields to first active extension and posts conflict warning', () => {
+    const pack = packer.buildPackage({ ...options });
+    const bridgeCode = pack.files['netcare-collector-bridge.js'];
+
+    const posted = [];
+    const window = {
+        top: null,
+        addEventListener: () => {},
+        postMessage: (data, origin) => posted.push({ data, origin })
+    };
+    window.top = window;
+
+    const attributes = { 'data-netcare-active-extension-id': 'first-extension-id' };
+    const document = {
+        documentElement: {
+            getAttribute: k => attributes[k] || null,
+            setAttribute: (k, v) => { attributes[k] = v; }
+        }
+    };
+
+    const secondExtId = 'second-extension-id';
+    const context = {
+        window,
+        document,
+        location: { href: 'https://kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html?docId=NC20260624001106', origin: 'https://kdp.gts.huawei.com' },
+        chrome: {
+            runtime: { id: secondExtId },
+            storage: { local: { get: async () => ({}) } }
+        },
+        console: { warn: () => {} },
+        URL
+    };
+
+    vm.runInNewContext(bridgeCode, context);
+
+    // Verify second extension yielded and notified window of conflict
+    assert.equal(posted.length, 1);
+    assert.equal(posted[0].data.source, 'TP_RFC_EXTENSION_CONFLICT');
+    assert.equal(posted[0].data.currentId, secondExtId);
+    assert.equal(posted[0].data.activeId, 'first-extension-id');
+});
+
+
 

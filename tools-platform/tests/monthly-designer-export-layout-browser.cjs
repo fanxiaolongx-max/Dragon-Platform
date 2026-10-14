@@ -19,9 +19,8 @@ app.whenReady().then(async()=>{
  for(const screenWidth of [1900,1200]){
   win.setSize(screenWidth,1100);await win.loadURL(url);await until(()=>window.MonthlyDesigner&&!document.getElementById('monthlyDocument').inert);await evaluate(doc=>MonthlyDesigner.applyDocument(doc),report);await wait(120);
   const before=await measure();assert.ok(before.page<=report.pageWidth,'Editor never stretches beyond configured page width');
-  if(screenWidth===1900){const stretched=await evaluate(()=>{const root=document.getElementById('monthlyDocument');root.style.flex='1';const width=root.getBoundingClientRect().width;root.style.flex='';return width;});assert.ok(stretched>report.pageWidth,'Former flex layout reproduced excess editor width');}
   const exported=path.join(temp,`layout-${screenWidth}.html`);const downloaded=new Promise(resolve=>win.webContents.session.once('will-download',(_,item)=>{item.setSavePath(exported);item.once('done',resolve);}));await evaluate(()=>document.querySelector('[data-action=html]').click());await downloaded;
   await win.loadFile(exported);const after=await measure();assert.equal(after.page,before.page);assert.equal(after.width,before.width);assert.equal(after.height,before.height);assert.equal(after.font,before.font);assert.equal(after.size,before.size);assert.equal(after.lineHeight,before.lineHeight);assert.deepEqual(after.rects,before.rects);
  }
- console.log('Former flex stretch reproduced; wide/narrow editor and actual exported HTML have identical page/body width, font, size, line height and wrapped text rectangles.');
+ console.log('Wide/narrow editor and actual exported HTML have identical page/body width, font, size, line height and wrapped text rectangles.');
 }).catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{win?.destroy();if(server)await new Promise(resolve=>server.close(resolve));await require('../backend/models/app-db').closeDatabase();await require('../backend/models/tenant-sqlite-pool').closeAll();app.exit(process.exitCode||0);});

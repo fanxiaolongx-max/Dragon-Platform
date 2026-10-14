@@ -7,7 +7,7 @@ const { requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 const upload = multer({storage:multer.memoryStorage(),limits:{files:1,fileSize:128*1024*1024,fields:2,fieldSize:2000}});
 // Parent router is mounted after authentication, tenant context and admin write guard.
-const handle = fn => async (req,res) => { try {res.setHeader('X-Data-Source','sqlite');await fn(req,res);}catch(error){res.status(error.status || 500).json({error:error.message,code:'IMPORT_SOURCE_ERROR'});} };
+const handle = fn => async (req,res) => { try {res.setHeader('X-Data-Source','sqlite');await fn(req,res);}catch(error){res.status(error.status || 500).json({error:error.message,code:error.code||'IMPORT_SOURCE_ERROR'});} };
 router.get('/import-settings',handle(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json(await repo.getImportSettings());}));
 router.put('/import-settings',handle(async(req,res)=>res.json(await repo.saveImportSettings(req.body))));
 router.post('/source-batches',handle(async(req,res)=>res.json(await repo.createBatch(req.body))));
@@ -85,7 +85,19 @@ router.get('/monthly-default-template',handle(async(req,res)=>{res.setHeader('Ca
 router.put('/monthly-default-template',handle(async(req,res)=>res.json(await monthlyTemplates.saveDefault(req.body))));
 router.post('/monthly-default-template/sync-repository',handle(async(req,res)=>res.json(await monthlyTemplates.syncRepository(req))));
 router.get('/monthly-documents',handle(async(req,res)=>res.json(await repo.listDocuments())));
+const drafts=require('../models/monthly-draft-repository');
+const draftOwner=req=>req.user?.username;
+router.get('/monthly-drafts',handle(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json(await drafts.list(draftOwner(req)));}));
+router.get('/monthly-drafts/:id',handle(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json(await drafts.read(draftOwner(req),req.params.id));}));
+router.put('/monthly-drafts/:id',requireAdmin,handle(async(req,res)=>res.json(await drafts.save(draftOwner(req),req.params.id,req.body))));
+router.delete('/monthly-drafts/:id',requireAdmin,handle(async(req,res)=>res.json(await drafts.remove(draftOwner(req),req.params.id))));
 router.delete('/monthly-documents',requireAdmin,handle(async(req,res)=>{if(req.body?.confirmed!==true)return res.status(400).json({error:'Confirm monthly report deletion',code:'IMPORT_SOURCE_ERROR'});res.json(await repo.deleteDocuments(req.body.ids));}));
-router.get('/monthly-documents/:id',handle(async(req,res)=>{const document=await repo.getDocument(req.params.id);res.status(document?200:404).json(document || {error:'Monthly document not found'});}));
-router.post('/monthly-documents',handle(async(req,res)=>{let document;try{document=engine.normalize(req.body);}catch(error){return res.status(400).json({error:error.message,code:'INVALID_MONTHLY_DOCUMENT'});}res.json(await repo.saveDocument(document));}));
+router.get('/monthly-documents/:id',handle(async(req,res)=>{res.setHeader('Cache-Control','no-store');const document=await repo.getDocument(req.params.id);res.status(document?200:404).json(document || {error:'Monthly document not found'});}));
+router.post('/monthly-documents',handle(async(req,res)=>{
+    const {expectedRevision:bodyRevision,...input}=req.body||{};let document;
+    const headerRevision=req.get('X-Monthly-Base-Revision'),expectedRevision=headerRevision==='missing'?null:headerRevision??bodyRevision;
+    if(expectedRevision!==undefined&&expectedRevision!==null&&(typeof expectedRevision!=='string'||!/^[a-f0-9]{64}$/.test(expectedRevision)))return res.status(400).json({error:'Invalid base revision',code:'INVALID_MONTHLY_DOCUMENT'});
+    try{document=engine.normalize(input);}catch(error){return res.status(400).json({error:error.message,code:'INVALID_MONTHLY_DOCUMENT'});}
+    res.json(await repo.saveDocument(document,expectedRevision===undefined?{}:{expectedRevision}));
+}));
 module.exports=router;

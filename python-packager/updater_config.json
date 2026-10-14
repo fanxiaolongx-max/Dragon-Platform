@@ -1,0 +1,33 @@
+{
+  "active_source_id": "github",
+  "custom_url": "",
+  "custom_version_url": "",
+  "script_filename": "core_script.py",
+  "backup_on_update": true,
+  "remote_sources": [
+    {
+      "id": "github",
+      "name": "GitHub 官方源 (Raw)",
+      "url": "https://raw.githubusercontent.com/fanxiaolongx-max/privacy-policy/main/python-packager/core_script.py",
+      "version_url": "https://raw.githubusercontent.com/fanxiaolongx-max/privacy-policy/main/python-packager/version.json"
+    },
+    {
+      "id": "ghproxy",
+      "name": "GitHub 加速镜像 (ghproxy.net)",
+      "url": "https://ghproxy.net/https://raw.githubusercontent.com/fanxiaolongx-max/privacy-policy/main/python-packager/core_script.py",
+      "version_url": "https://ghproxy.net/https://raw.githubusercontent.com/fanxiaolongx-max/privacy-policy/main/python-packager/version.json"
+    },
+    {
+      "id": "mirror_ghproxy",
+      "name": "GitHub 加速镜像 (mirror.ghproxy.com)",
+      "url": "https://mirror.ghproxy.com/https://raw.githubusercontent.com/fanxiaolongx-max/privacy-policy/main/python-packager/core_script.py",
+      "version_url": "https://mirror.ghproxy.com/https://raw.githubusercontent.com/fanxiaolongx-max/privacy-policy/main/python-packager/version.json"
+    },
+    {
+      "id": "custom",
+      "name": "第三方 / 自定义远程地址",
+      "url": "",
+      "version_url": ""
+    }
+  ]
+}
