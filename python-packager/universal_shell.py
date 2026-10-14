@@ -121,6 +121,7 @@ def load_config():
         "custom_version_url": "",
         "backup_on_update": True,
         "data_directory": "",
+        "ui_scale": 1.0,
         "remote_sources": [
             {
                 "id": "github",
@@ -660,7 +661,12 @@ class PromptText(tk.Text):
                 args[1:3] = [start, end]
                 if args[0] == 'replace':
                     args[3] = str(args[3]).replace('\r', ' ').replace('\n', ' ')
-        return self.tk.call(self._original, *args)
+        try:
+            return self.tk.call(self._original, *args)
+        except tk.TclError as e:
+            if 'characters tagged with "sel"' in str(e):
+                return ''
+            raise
 
     def destroy(self):
         self.tk.deletecommand(self._w)
@@ -680,16 +686,18 @@ class AppleTerminalWidget(tk.Frame):
 
     ANSI_TOKEN_RE = re.compile(r'(\x1b\[[0-9;]*[a-zA-Z]|\r|\n|[^\x1b\r\n]+)')
 
-    def __init__(self, master, on_stop_cb=None, on_restart_cb=None):
+    def __init__(self, master, on_stop_cb=None, on_restart_cb=None, on_ctrl_c_cb=None):
         super().__init__(master, bg="#0d1117", bd=1, relief="solid", highlightbackground="#30363d", highlightthickness=1)
         self.on_stop_cb = on_stop_cb
         self.on_restart_cb = on_restart_cb
+        self.on_ctrl_c_cb = on_ctrl_c_cb
         self.on_input_send = None
 
         self.screen = AnsiScreen()
         self.history = []
         self.history_position = 0
         self.history_draft = ''
+        self.quick_pills = []
         self._build_terminal_ui()
 
     def _build_terminal_ui(self):
@@ -771,8 +779,12 @@ class AppleTerminalWidget(tk.Frame):
         self.text_area.bind('<Home>', self._input_home)
         self.text_area.bind('<Tab>', lambda event: 'break')
         self.text_area.bind('<Control-a>', self._select_output)
+        self.text_area.bind('<Control-c>', self._on_terminal_ctrl_c)
+        self.text_area.bind('<Control-C>', self._on_terminal_ctrl_c)
         if sys.platform == 'darwin':
             self.text_area.bind('<Command-a>', self._select_output)
+            self.text_area.bind('<Command-c>', self._on_terminal_ctrl_c)
+            self.text_area.bind('<Command-C>', self._on_terminal_ctrl_c)
         self.text_area.grid(row=0, column=0, sticky='nsew')
 
         scrollbar = ttk.Scrollbar(body_frame, orient=tk.VERTICAL, command=self.text_area.yview)
@@ -791,7 +803,8 @@ class AppleTerminalWidget(tk.Frame):
         self.quick_bar = tk.Frame(self, bg="#161b22", padx=10, pady=4)
         self.quick_bar.pack(side=tk.TOP, fill=tk.X)
 
-        tk.Label(self.quick_bar, text="常用选项快捷点选：", fg="#6e7681", bg="#161b22", font=("微软雅黑", 8)).pack(side=tk.LEFT, padx=(0, 4))
+        self.quick_bar_label = tk.Label(self.quick_bar, text="常用选项快捷点选：", fg="#6e7681", bg="#161b22", font=("微软雅黑", 8))
+        self.quick_bar_label.pack(side=tk.LEFT, padx=(0, 4))
 
         quick_commands = [
             ("1 开始抽查", "1"),
@@ -801,11 +814,11 @@ class AppleTerminalWidget(tk.Frame):
             ("5 查看配置", "5"),
             ("6 自动合并", "6"),
             ("7 立即合并", "7"),
-            ("8 智能导入", "8"),
             ("0 退出", "0"),
             ("⏎ 回车确认", ""),
         ]
 
+        self.quick_pills = []
         for label_text, cmd_val in quick_commands:
             pill = tk.Label(
                 self.quick_bar,
@@ -821,8 +834,9 @@ class AppleTerminalWidget(tk.Frame):
             )
             pill.pack(side=tk.LEFT, padx=2)
             pill.bind("<Button-1>", lambda e, val=cmd_val: self.send_input_text(val))
+            self.quick_pills.append(pill)
 
-        self.input_hint = tk.Label(self, text='在提示后直接输入 · Enter 确认 · ↑↓ 历史 · Ctrl+C 复制',
+        self.input_hint = tk.Label(self, text='在提示后直接输入 · Enter 确认 · ↑↓ 历史 · Ctrl+C 复制/中断',
                                    bg='#161b22', fg='#8b949e', font=('微软雅黑', 8), anchor='w', padx=12, pady=5)
         self.input_hint.pack(side=tk.BOTTOM, fill=tk.X)
 
@@ -843,6 +857,46 @@ class AppleTerminalWidget(tk.Frame):
         # 用户交互输入展示专用 tag
         self.text_area.tag_configure("user_input", foreground="#38bdf8", font=(font_family, 10, "bold"))
         self.text_area.tag_configure("sys_hint", foreground="#6e7681", font=(font_family, 9, "italic"))
+
+    def _on_terminal_ctrl_c(self, event=None):
+        try:
+            if self.text_area.tag_ranges('sel'):
+                text = self.text_area.get('sel.first', 'sel.last')
+                if text:
+                    self.clipboard_clear()
+                    self.clipboard_append(text)
+                    return 'break'
+        except tk.TclError:
+            pass
+
+        if self.on_ctrl_c_cb:
+            self.on_ctrl_c_cb()
+        return 'break'
+
+    def apply_ui_scale(self, s):
+        font_family = "Menlo" if sys.platform == 'darwin' else "Consolas"
+        base_size = max(9, int(round(10 * s)))
+        small_size = max(7, int(round(8 * s)))
+        title_size = max(8, int(round(9 * s)))
+
+        self.text_area.configure(font=(font_family, base_size))
+        self.text_area.tag_configure("ansi_bold", font=(font_family, base_size, "bold"))
+        self.text_area.tag_configure("user_input", font=(font_family, base_size, "bold"))
+        self.text_area.tag_configure("sys_hint", font=(font_family, max(8, base_size - 1), "italic"))
+
+        self.lbl_title.configure(font=("Consolas", title_size, "bold"))
+        self.status_badge.configure(font=("微软雅黑", small_size, "bold"))
+        self.input_hint.configure(font=("微软雅黑", small_size))
+
+        for btn in [self.btn_stop, self.btn_clear, self.btn_restart]:
+            btn.configure(font=("微软雅黑", small_size))
+
+        if hasattr(self, 'quick_bar_label'):
+            self.quick_bar_label.configure(font=("微软雅黑", small_size))
+
+        if hasattr(self, 'quick_pills'):
+            for pill in self.quick_pills:
+                pill.configure(font=("Consolas", small_size, "bold"))
 
     def _select_output(self, event=None):
         start = 'input_start' if self.screen.awaiting_input else '1.0'
@@ -974,6 +1028,7 @@ class UniversalShellGUI(tk.Tk):
         ensure_workspace()
         self.config = load_config()
         self.ver_info = load_version_info()
+        self.ui_scale = float(self.config.get("ui_scale", 1.0))
         self.is_updating = False
 
         # 进程管控
@@ -984,11 +1039,13 @@ class UniversalShellGUI(tk.Tk):
         self._close_requested = False
         self._restart_pending = False
         self._custom_url_timer = None
+        self._last_ctrl_c_time = 0
         self.protocol('WM_DELETE_WINDOW', self._on_close)
 
         self._apply_styles()
         self._build_ui()
         self._refresh_status()
+        self._apply_ui_scale(self.ui_scale, persist=False)
 
         # 启动时自动就绪提示
         self.terminal.write_ansi(
@@ -1053,14 +1110,48 @@ class UniversalShellGUI(tk.Tk):
         info_left.pack(side=tk.TOP, fill=tk.X, pady=(0, 8))
 
         title_row = tk.Frame(info_left, bg="#161f30")
-        title_row.pack(anchor="w")
+        title_row.pack(side=tk.TOP, fill=tk.X)
 
-        tk.Label(title_row, text="🐍", font=("Apple Color Emoji", 15), bg="#161f30").pack(side=tk.LEFT, padx=(0, 6))
-        self.lbl_app_name = tk.Label(title_row, text="PR小助手", fg="#f0f6fc", bg="#161f30", font=("微软雅黑", 13, "bold"))
+        title_left = tk.Frame(title_row, bg="#161f30")
+        title_left.pack(side=tk.LEFT)
+
+        tk.Label(title_left, text="🐍", font=("Apple Color Emoji", 15), bg="#161f30").pack(side=tk.LEFT, padx=(0, 6))
+        self.lbl_app_name = tk.Label(title_left, text="PR小助手", fg="#f0f6fc", bg="#161f30", font=("微软雅黑", 13, "bold"))
         self.lbl_app_name.pack(side=tk.LEFT, padx=(0, 8))
 
-        self.lbl_version_badge = tk.Label(title_row, text="v1.0.0", fg="#38bdf8", bg="#0f2b48", font=("Consolas", 10, "bold"), padx=6, pady=1)
+        self.lbl_version_badge = tk.Label(title_left, text="v1.0.0", fg="#38bdf8", bg="#0f2b48", font=("Consolas", 10, "bold"), padx=6, pady=1)
         self.lbl_version_badge.pack(side=tk.LEFT, padx=(0, 10))
+
+        # 右上角：界面等比缩放控制器（高分屏缩放适配）
+        self.zoom_frame = tk.Frame(title_row, bg="#161f30")
+        self.zoom_frame.pack(side=tk.RIGHT)
+
+        self.lbl_zoom_title = tk.Label(self.zoom_frame, text="缩放:", fg="#8b949e", bg="#161f30", font=("微软雅黑", 8))
+        self.lbl_zoom_title.pack(side=tk.LEFT, padx=(0, 4))
+
+        self.btn_zoom_out = tk.Button(
+            self.zoom_frame, text="🔍－", bg="#21262d", fg="#79c0ff",
+            activebackground="#30363d", activeforeground="#ffffff", relief="flat", bd=0,
+            font=("微软雅黑", 8, "bold"), padx=5, pady=1, cursor="hand2",
+            command=self._on_zoom_out
+        )
+        self.btn_zoom_out.pack(side=tk.LEFT, padx=1)
+
+        self.lbl_zoom_level = tk.Label(
+            self.zoom_frame, text=f"{int(round(self.ui_scale * 100))}%",
+            fg="#38bdf8", bg="#0f2b48", font=("Consolas", 8, "bold"),
+            padx=6, pady=2, cursor="hand2"
+        )
+        self.lbl_zoom_level.pack(side=tk.LEFT, padx=2)
+        self.lbl_zoom_level.bind("<Button-1>", lambda e: self._on_zoom_reset())
+
+        self.btn_zoom_in = tk.Button(
+            self.zoom_frame, text="🔍＋", bg="#21262d", fg="#79c0ff",
+            activebackground="#30363d", activeforeground="#ffffff", relief="flat", bd=0,
+            font=("微软雅黑", 8, "bold"), padx=5, pady=1, cursor="hand2",
+            command=self._on_zoom_in
+        )
+        self.btn_zoom_in.pack(side=tk.LEFT, padx=1)
 
         self.lbl_script_meta = tk.Label(info_left, text="核心文件: core_script.py · 大小: - KB", fg="#8b949e", bg="#161f30", font=("微软雅黑", 8))
         self.lbl_script_meta.pack(anchor="w", pady=(3, 0))
@@ -1174,9 +1265,10 @@ class UniversalShellGUI(tk.Tk):
             command=self._on_choose_data_dir
         )
         btn_data.pack(side=tk.LEFT, padx=(0, 4))
-        tk.Button(btn_sub_row, text='打开数据目录', bg='#21262d', fg='#c9d1d9',
+        btn_open_data = tk.Button(btn_sub_row, text='打开数据目录', bg='#21262d', fg='#c9d1d9',
                   activebackground='#30363d', activeforeground='#ffffff', relief='flat',
-                  font=('微软雅黑', 8), padx=6, pady=1, command=self._on_open_data_dir).pack(side=tk.LEFT, padx=(0, 4))
+                  font=('微软雅黑', 8), padx=6, pady=1, command=self._on_open_data_dir)
+        btn_open_data.pack(side=tk.LEFT, padx=(0, 4))
 
         btn_bak = tk.Button(
             btn_sub_row,
@@ -1208,14 +1300,24 @@ class UniversalShellGUI(tk.Tk):
         )
         btn_log.pack(side=tk.LEFT)
 
+        self._sub_action_buttons = [btn_open, btn_data, btn_open_data, btn_bak, btn_log]
+        self._scaled_labels = [self.lbl_script_meta, self.lbl_data_dir, self.lbl_zoom_title]
+
         # 2. 中间苹果风格内置交互终端
         self.terminal = AppleTerminalWidget(
             main_wrap,
             on_stop_cb=self._stop_script_process,
-            on_restart_cb=self._restart_script_process
+            on_restart_cb=self._restart_script_process,
+            on_ctrl_c_cb=self._handle_terminal_ctrl_c
         )
         self.terminal.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         self.terminal.on_input_send = self._send_to_process
+
+        self.bind('<Control-c>', self._on_window_ctrl_c)
+        self.bind('<Control-C>', self._on_window_ctrl_c)
+        if sys.platform == 'darwin':
+            self.bind('<Command-c>', self._on_window_ctrl_c)
+            self.bind('<Command-C>', self._on_window_ctrl_c)
 
     def _refresh_status(self):
         self.ver_info = load_version_info()
@@ -1356,6 +1458,106 @@ class UniversalShellGUI(tk.Tk):
                 self.terminal.write_ansi(f"\n\033[91m[终止失败] {e}\033[0m\n")
         else:
             self.terminal.write_ansi("\n\033[90m[提示] 当前无正在运行的脚本进程。\033[0m\n")
+
+    def _on_window_ctrl_c(self, event=None):
+        if event and getattr(event, 'widget', None) is getattr(self, 'custom_url_entry', None):
+            return None
+        return self.terminal._on_terminal_ctrl_c(event)
+
+    def _handle_terminal_ctrl_c(self):
+        """
+        终端快捷键 Ctrl+C 优雅处理：
+        1. 若进程未在运行，给予提示。
+        2. 若处于子菜单/确认提示中，优先优雅返回主菜单（发送 '0\n' 或 '\n'）。
+        3. 若已在主菜单，优雅停止/退出脚本进程（与左上角【■ 停止】一致）。
+        4. 若连续快速按 Ctrl+C，或进程处于密集计算中，直接强制停止。
+        """
+        if not self.process or self.process.poll() is not None:
+            self.terminal.write_ansi("\033[90m[提示] 脚本进程未运行。点击【🚀 重启抽查会话】可启动。\033[0m\n")
+            return
+
+        now = time.time()
+        if hasattr(self, '_last_ctrl_c_time') and (now - self._last_ctrl_c_time < 1.5):
+            self.terminal.write_ansi("\n\033[93m[Ctrl+C] 连续中断指令，立即停止脚本进程...\033[0m\n")
+            self._stop_script_process()
+            self._last_ctrl_c_time = 0
+            return
+        self._last_ctrl_c_time = now
+
+        is_awaiting = self.terminal.screen.awaiting_input
+        recent_text = self.terminal.screen.text().splitlines()[-12:]
+        recent_str = '\n'.join(recent_text)
+        at_main_menu = ('主菜单' in recent_str and ('请选择:' in recent_str or '请选择: ' in recent_str))
+
+        if at_main_menu:
+            self.terminal.write_ansi("\n\033[93m[Ctrl+C] 主菜单中断，正在优雅停止当前抽查会话...\033[0m\n")
+            try:
+                self.process.stdin.write(b'0\n')
+                self.process.stdin.flush()
+            except Exception:
+                pass
+            def ensure_stopped():
+                if self.process and self.process.poll() is None:
+                    self._stop_script_process()
+            self.after(500, ensure_stopped)
+        elif is_awaiting:
+            self.terminal.write_ansi("\n\033[93m[Ctrl+C] 取消当前操作，正在返回主菜单...\033[0m\n")
+            if '按回车返回主菜单' in recent_str:
+                self._send_to_process('\n')
+            else:
+                self._send_to_process('0\n')
+        else:
+            self.terminal.write_ansi("\n\033[93m[Ctrl+C] 正在中断正在执行的任务...\033[0m\n")
+            self._stop_script_process()
+
+    def _on_zoom_in(self):
+        new_scale = min(1.8, round(self.ui_scale + 0.1, 2))
+        self._apply_ui_scale(new_scale, persist=True)
+
+    def _on_zoom_out(self):
+        new_scale = max(0.8, round(self.ui_scale - 0.1, 2))
+        self._apply_ui_scale(new_scale, persist=True)
+
+    def _on_zoom_reset(self):
+        self._apply_ui_scale(1.0, persist=True)
+
+    def _apply_ui_scale(self, scale, persist=True):
+        self.ui_scale = max(0.8, min(1.8, round(scale, 2)))
+        if persist:
+            self.config["ui_scale"] = self.ui_scale
+            save_config(self.config)
+
+        s = self.ui_scale
+        if hasattr(self, 'lbl_zoom_level'):
+            self.lbl_zoom_level.config(text=f"{int(round(s * 100))}%")
+
+        if hasattr(self, 'lbl_app_name'):
+            self.lbl_app_name.config(font=("微软雅黑", max(11, int(round(13 * s))), "bold"))
+        if hasattr(self, 'lbl_version_badge'):
+            self.lbl_version_badge.config(font=("Consolas", max(9, int(round(10 * s))), "bold"))
+        if hasattr(self, 'lbl_script_meta'):
+            self.lbl_script_meta.config(font=("微软雅黑", max(7, int(round(8 * s)))))
+        if hasattr(self, 'lbl_data_dir'):
+            self.lbl_data_dir.config(font=("微软雅黑", max(7, int(round(8 * s)))))
+        if hasattr(self, 'btn_update'):
+            self.btn_update.config(font=("微软雅黑", max(7, int(round(8 * s))), "bold"))
+        if hasattr(self, 'btn_run_script'):
+            self.btn_run_script.config(font=("微软雅黑", max(7, int(round(8 * s))), "bold"))
+        if hasattr(self, 'custom_url_entry'):
+            self.custom_url_entry.config(font=("Consolas", max(7, int(round(8 * s)))))
+
+        if hasattr(self, '_sub_action_buttons'):
+            for btn in self._sub_action_buttons:
+                btn.config(font=("微软雅黑", max(7, int(round(8 * s)))))
+
+        if hasattr(self, '_scaled_labels'):
+            for lbl in self._scaled_labels:
+                lbl.config(font=("微软雅黑", max(7, int(round(8 * s)))))
+
+        if hasattr(self, 'terminal') and self.terminal:
+            self.terminal.apply_ui_scale(s)
+
+        self.minsize(max(700, int(round(860 * s))), max(500, int(round(620 * s))))
 
     def _restart_script_process(self):
         """重启脚本进程"""

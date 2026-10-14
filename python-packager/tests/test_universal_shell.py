@@ -394,5 +394,81 @@ class CustomSourceUITests(unittest.TestCase):
         self.assertEqual(shell.load_version_info()['name'], 'PR小助手')
 
 
+class TerminalCtrlCTests(unittest.TestCase):
+    def setUp(self):
+        self.root = tk.Tk()
+        self.addCleanup(self.root.destroy)
+        self.terminal = shell.AppleTerminalWidget(self.root)
+        self.terminal.pack()
+
+    def test_prompt_text_get_sel_without_selection_returns_empty_without_tclerror(self):
+        # 即使没有任何文本被选中，直接调用 proxy 获取选区也不会抛出 TclError 崩溃
+        result = self.terminal.text_area._proxy('get', 'sel.first', 'sel.last')
+        self.assertEqual(result, '')
+
+    def test_on_terminal_ctrl_c_without_selection_triggers_callback(self):
+        called = []
+        self.terminal.on_ctrl_c_cb = lambda: called.append(True)
+        ret = self.terminal._on_terminal_ctrl_c()
+        self.assertEqual(ret, 'break')
+        self.assertEqual(called, [True])
+
+    def test_on_terminal_ctrl_c_with_selection_copies_text(self):
+        self.terminal.text_area.program_edit = True
+        self.terminal.text_area.insert('1.0', '待复制的内容')
+        self.terminal.text_area.program_edit = False
+        self.terminal.text_area.tag_add('sel', '1.0', '1.4')
+        called = []
+        self.terminal.on_ctrl_c_cb = lambda: called.append(True)
+        ret = self.terminal._on_terminal_ctrl_c()
+        self.assertEqual(ret, 'break')
+        self.assertEqual(called, [])  # 有划选时仅复制，不触发中断回调
+        self.assertEqual(self.root.clipboard_get(), '待复制的')
+
+
+class UIScalingTests(unittest.TestCase):
+    def test_zoom_in_out_and_reset(self):
+        saved_configs = []
+        class DummyWidget:
+            def config(self, **kwargs): pass
+            def configure(self, **kwargs): pass
+            def tag_configure(self, *args, **kwargs): pass
+        class GUI:
+            ui_scale = 1.0
+            config = {'ui_scale': 1.0}
+            lbl_zoom_level = DummyWidget()
+            lbl_app_name = DummyWidget()
+            lbl_version_badge = DummyWidget()
+            lbl_script_meta = DummyWidget()
+            lbl_data_dir = DummyWidget()
+            btn_update = DummyWidget()
+            btn_run_script = DummyWidget()
+            custom_url_entry = DummyWidget()
+            _sub_action_buttons = []
+            _scaled_labels = []
+            terminal = None
+            def minsize(self, w, h): pass
+            _on_zoom_in = shell.UniversalShellGUI._on_zoom_in
+            _on_zoom_out = shell.UniversalShellGUI._on_zoom_out
+            _on_zoom_reset = shell.UniversalShellGUI._on_zoom_reset
+            _apply_ui_scale = shell.UniversalShellGUI._apply_ui_scale
+
+        gui = GUI()
+        with patch.object(shell, 'save_config', side_effect=lambda c: saved_configs.append(dict(c))):
+            gui._on_zoom_in()
+            self.assertAlmostEqual(gui.ui_scale, 1.1)
+            self.assertAlmostEqual(gui.config['ui_scale'], 1.1)
+
+            gui._on_zoom_in()
+            self.assertAlmostEqual(gui.ui_scale, 1.2)
+
+            gui._on_zoom_out()
+            self.assertAlmostEqual(gui.ui_scale, 1.1)
+
+            gui._on_zoom_reset()
+            self.assertAlmostEqual(gui.ui_scale, 1.0)
+            self.assertAlmostEqual(gui.config['ui_scale'], 1.0)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -4,6 +4,7 @@
   "custom_version_url": "",
   "script_filename": "core_script.py",
   "backup_on_update": true,
+  "ui_scale": 1.0,
   "remote_sources": [
     {
       "id": "github",

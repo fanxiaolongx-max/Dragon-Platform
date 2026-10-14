@@ -28,7 +28,7 @@ PR 报告抽查脚本
 """
 
 __script_name__ = "PR 报告抽查脚本"
-__version__ = "1.3.0"
+__version__ = "1.3.2"
 __author__ = "CodeArts 智能体生成"
 
 import os
@@ -98,8 +98,39 @@ def _read_sheet_safely(path, nrows=None):
         raise DataValidationError(f'读取表格失败：{os.path.basename(path)}（{e}）') from e
 
 
+def is_ignored_excel_file(path_or_name):
+    """
+    判断是否为应忽略的文件（临时文件、自动生成的抽查结果文件、合并后总表等）。
+    在任何文件扫描、智能识别、合并或查找原始源表时，直接静默忽略这些文件。
+    """
+    if not path_or_name:
+        return True
+    bn = os.path.basename(str(path_or_name))
+    if bn.startswith('~$') or bn.startswith('.'):
+        return True
+    lower_bn = bn.lower()
+    if not (lower_bn.endswith('.xlsx') or lower_bn.endswith('.xls')):
+        return True
+    ignored_keywords = [
+        '抽查结果',
+        '【抽查结果】',
+        '合并后',
+        '【合并后】',
+        'pr_report',
+        '抽查总表',
+        '抽样结果',
+        '审计结果',
+    ]
+    for kw in ignored_keywords:
+        if kw.lower() in lower_bn:
+            return True
+    return False
+
+
 def inspect_excel_headers(path):
     """快速读取 Excel 首行获取列名列表与 sheet 名（用于指纹识别）"""
+    if is_ignored_excel_file(path):
+        return [], None
     try:
         with pd.ExcelFile(path) as xl:
             sheet_to_use = 'Task List' if 'Task List' in xl.sheet_names else xl.sheet_names[0]
@@ -117,6 +148,8 @@ def classify_excel_file(path, prompt_interactive=True):
     2. 辅助结合文件名特征
     3. 若特征模糊且 prompt_interactive=True，交互提示用户手动选择
     """
+    if is_ignored_excel_file(path):
+        return None
     fname = os.path.basename(path).lower()
     cols, sheet = inspect_excel_headers(path)
     if not cols:
@@ -240,11 +273,11 @@ def _find_merged_for_type(src_type):
 
 
 def _find_sources(d, pattern):
-    """在目录下找符合 pattern 的原始文件（排除合并后文件与临时文件）"""
+    """在目录下找符合 pattern 的原始文件（排除合并后文件、抽查结果与临时文件）"""
     if not os.path.exists(d):
         return []
     fs = [f for f in glob.glob(os.path.join(d, pattern))
-          if not os.path.basename(f).startswith('【合并后】') and not os.path.basename(f).startswith('~$')]
+          if not is_ignored_excel_file(f)]
     return sorted(fs)
 
 
@@ -252,7 +285,8 @@ def get_sources_for_type(src_type):
     """
     智能获取指定类型的原始 Excel 文件列表。
     1. 从旧版特定业务目录中按 pattern 查找（兼容原有目录结构）
-    2. 同时从 data/ 目录与 BASE_DIR 中自动通过指纹识别查找
+    2. 从 data/ 目录及自定义数据目录中递归扫描，通过表头指纹自动识别匹配的源表（兜底自动识别）
+    3. 自动忽略程序生成的【抽查结果】、合并表、临时文件等
     """
     legacy_map = {
         '风险': (RISK_DIR, RISK_SRC_PATTERN),
@@ -263,23 +297,24 @@ def get_sources_for_type(src_type):
     dirn, pattern = legacy_map.get(src_type, (None, None))
     legacy_files = _find_sources(dirn, pattern) if dirn and os.path.exists(dirn) else []
 
-    # 自动指纹扫描
+    # 自动指纹扫描（支持子文件夹递归查找，作为兜底自动识别）
     found = list(legacy_files)
     candidate_dirs = [d for d in SOURCE_SCAN_ROOTS + [dirn] if d and os.path.exists(d)]
     seen = {os.path.abspath(path) for path in legacy_files}
     for d in candidate_dirs:
-        for f in sorted(glob.glob(os.path.join(d, '*.xlsx')) + glob.glob(os.path.join(d, '*.xls'))):
-            bn = os.path.basename(f)
-            if bn.startswith('~$') or bn.startswith('【合并后】'):
-                continue
-            rp = os.path.abspath(f)
-            if rp in seen:
-                continue
-            seen.add(rp)
-            ctype = classify_excel_file(f, prompt_interactive=False)
-            if ctype == src_type:
-                found.append(f)
-    return found
+        for root, _, files in os.walk(d):
+            for fn in sorted(files):
+                fp = os.path.join(root, fn)
+                if is_ignored_excel_file(fp):
+                    continue
+                rp = os.path.abspath(fp)
+                if rp in seen:
+                    continue
+                seen.add(rp)
+                ctype = classify_excel_file(fp, prompt_interactive=False)
+                if ctype == src_type:
+                    found.append(fp)
+    return sorted(found)
 
 
 def _source_fingerprints(srcs):
@@ -344,8 +379,7 @@ def _current_sources_for_type(src_type):
         # 外部导入目录也能识别新增文件；手动指定过的模糊文件保持原分类。
         for directory in {os.path.dirname(path) for path in known_paths}:
             for path in glob.glob(os.path.join(directory, '*.xlsx')) + glob.glob(os.path.join(directory, '*.xls')):
-                path = os.path.abspath(path)
-                if path in sources or os.path.basename(path).startswith(('~$', '【合并后】')):
+                if is_ignored_excel_file(path) or path in sources:
                     continue
                 if classify_excel_file(path, prompt_interactive=False) == src_type:
                     sources.add(path)
@@ -1549,7 +1583,10 @@ def print_report(results, cfg, seed, out_path, total_df):
 # ============================================================
 def _input_float(prompt, default):
     while True:
-        s = input(C(prompt, F_CYAN) + f' [默认 {default}]: ').strip()
+        try:
+            s = input(C(prompt, F_CYAN) + f' [默认 {default}]: ').strip()
+        except (KeyboardInterrupt, EOFError):
+            return default
         if s == '':
             return default
         try:
@@ -1560,7 +1597,10 @@ def _input_float(prompt, default):
 
 def _input_int(prompt, default):
     while True:
-        s = input(C(prompt, F_CYAN) + f' [默认 {default}]: ').strip()
+        try:
+            s = input(C(prompt, F_CYAN) + f' [默认 {default}]: ').strip()
+        except (KeyboardInterrupt, EOFError):
+            return default
         if s == '':
             return default
         try:
@@ -1571,7 +1611,10 @@ def _input_int(prompt, default):
 
 def _input_bool(prompt, default):
     d = 'y' if default else 'n'
-    s = input(C(prompt, F_CYAN) + f' [y/n 默认 {d}]: ').strip().lower()
+    try:
+        s = input(C(prompt, F_CYAN) + f' [y/n 默认 {d}]: ').strip().lower()
+    except (KeyboardInterrupt, EOFError):
+        return default
     if s == '':
         return default
     return s in ('y', 'yes', '1', '是')
@@ -1600,7 +1643,10 @@ def menu_set_scopes(cfg):
             rstr = C(f'{ratio*100:.0f}%', F_YELLOW) if sc['ratio'] is not None else C(f'{ratio*100:.0f}%(全局)', F_CYAN)
             print(f'  {i}. {meta["name"]}  [{en}]  比例 {rstr}')
         print(f'  0. 返回')
-        s = input(C('选择范围编号: ', F_CYAN)).strip()
+        try:
+            s = input(C('选择范围编号: ', F_CYAN)).strip()
+        except (KeyboardInterrupt, EOFError):
+            return
         if s == '0' or s == '':
             return
         try:
@@ -1642,7 +1688,10 @@ def menu_set_strategy(cfg):
     print('  1. 按来源类型＋单号去重（默认；冲突时停止抽查）')
     print('  2. 按记录抽查（保留重复，可用于审查多次记录）')
     while True:
-        choice = input(C(f'请选择 [1/2，回车保留：{DUPLICATE_POLICIES[policy]}]: ', F_CYAN)).strip()
+        try:
+            choice = input(C(f'请选择 [1/2，回车保留：{DUPLICATE_POLICIES[policy]}]: ', F_CYAN)).strip()
+        except (KeyboardInterrupt, EOFError):
+            return
         if not choice:
             break
         if choice in ('1', '2'):
@@ -1713,17 +1762,22 @@ def menu_smart_import():
             continue
         for root, _, files in os.walk(d):
             for fn in files:
-                if (fn.endswith('.xlsx') or fn.endswith('.xls')) and not fn.startswith('~$') and not fn.startswith('【合并后】'):
-                    fp = os.path.abspath(os.path.join(root, fn))
-                    if fp not in seen:
-                        seen.add(fp)
-                        all_files.append(fp)
+                fp = os.path.join(root, fn)
+                if is_ignored_excel_file(fp):
+                    continue
+                rp = os.path.abspath(fp)
+                if rp not in seen:
+                    seen.add(rp)
+                    all_files.append(fp)
 
     if not all_files:
         print()
         print(C('✗ 未在上述目录中找到任何待处理的 Excel 文件！', F_RED, C_BOLD))
         print(C(f'💡 提示：您可以将原始表格直接拷贝放入 {DATA_DIR} 目录后再次尝试。', F_YELLOW))
-        input(C('按回车返回主菜单...', F_GRAY))
+        try:
+            input(C('按回车返回主菜单...', F_GRAY))
+        except (KeyboardInterrupt, EOFError):
+            pass
         return
 
     print()
@@ -1758,7 +1812,10 @@ def menu_smart_import():
     if total_recognized == 0:
         print()
         print(C('✗ 没有识别到任何有效类型的表格。', F_RED))
-        input(C('按回车返回主菜单...', F_GRAY))
+        try:
+            input(C('按回车返回主菜单...', F_GRAY))
+        except (KeyboardInterrupt, EOFError):
+            pass
         return
 
     print()
@@ -1783,7 +1840,10 @@ def menu_smart_import():
             prog.finish()
         print()
         print_merge_report(done)
-    input(C('按回车返回主菜单...', F_GRAY))
+    try:
+        input(C('按回车返回主菜单...', F_GRAY))
+    except (KeyboardInterrupt, EOFError):
+        pass
 
 
 def main():
@@ -1800,9 +1860,12 @@ def main():
         _am = C('开启', F_GREEN) if cfg['auto_merge'] else C('关闭', F_GRAY)
         print(f'  {C("6", F_YELLOW, C_BOLD)}. 自动合并统计（当前 {_am}）')
         print(f'  {C("7", F_YELLOW, C_BOLD)}. 立即合并统计（手动触发）')
-        print(f'  {C("8", F_YELLOW, C_BOLD)}. 智能分类导入（多文件/多文件夹自动识别与合并）')
         print(f'  {C("0", F_YELLOW, C_BOLD)}. 退出')
-        s = input(C('请选择: ', F_CYAN)).strip()
+        try:
+            s = input(C('请选择: ', F_CYAN)).strip()
+        except (KeyboardInterrupt, EOFError):
+            print(C('\n再见 👋', F_CYAN))
+            break
         prog = None
         try:
             if s == '1':
@@ -1812,7 +1875,10 @@ def main():
                 if all(v is None for v in results.values()):
                     prog.finish()
                     print(C('✗ 未找到任何数据或范围全部关闭', F_RED, C_BOLD))
-                    input(C('按回车返回主菜单...', F_GRAY))
+                    try:
+                        input(C('按回车返回主菜单...', F_GRAY))
+                    except (KeyboardInterrupt, EOFError):
+                        pass
                     continue
                 tid = prog.add('导出 Excel 总表')
                 prog.start(tid)
@@ -1822,7 +1888,10 @@ def main():
                 print()
                 clear_screen()
                 print_report(results, cfg, seed, out_path, total_df)
-                input(C('按回车返回主菜单...', F_GRAY))
+                try:
+                    input(C('按回车返回主菜单...', F_GRAY))
+                except (KeyboardInterrupt, EOFError):
+                    pass
             elif s == '2':
                 menu_set_ratio(cfg)
             elif s == '3':
@@ -1831,7 +1900,10 @@ def main():
                 menu_set_strategy(cfg)
             elif s == '5':
                 menu_show_cfg(cfg)
-                input(C('按回车返回主菜单...', F_GRAY))
+                try:
+                    input(C('按回车返回主菜单...', F_GRAY))
+                except (KeyboardInterrupt, EOFError):
+                    pass
             elif s == '6':
                 clear_screen()
                 print_title('自动合并设置')
@@ -1857,16 +1929,31 @@ def main():
                 print_merge_report(done)
                 if not done:
                     print(C('  （无原始表可合并）', F_GRAY))
-                input(C('按回车返回主菜单...', F_GRAY))
+                try:
+                    input(C('按回车返回主菜单...', F_GRAY))
+                except (KeyboardInterrupt, EOFError):
+                    pass
             elif s == '8':
                 menu_smart_import()
-            elif s == '0':
+            elif s in ('0', 'q', 'exit'):
                 print(C('再见 👋', F_CYAN))
                 break
             else:
                 print(C('✗ 无效选择', F_RED))
-                input(C('按回车返回主菜单...', F_GRAY))
+                try:
+                    input(C('按回车返回主菜单...', F_GRAY))
+                except (KeyboardInterrupt, EOFError):
+                    pass
 
+        except (KeyboardInterrupt, EOFError):
+            if prog is not None:
+                for tid, task in enumerate(prog.tasks):
+                    if task['status'] == 'running':
+                        prog.fail(tid, '操作中止')
+                prog.finish()
+            print(C('\n[用户取消操作，返回主菜单]', F_YELLOW))
+            time.sleep(0.3)
+            continue
         except (DataValidationError, OSError, KeyError) as e:
             if prog is not None:
                 for tid, task in enumerate(prog.tasks):
@@ -1876,7 +1963,10 @@ def main():
             print(C(f'✗ 操作未完成：{e}', F_RED, C_BOLD))
             if isinstance(e, PermissionError):
                 print(C('请关闭正在 Excel 中打开的输出文件，并检查目录的写入权限。', F_YELLOW))
-            input(C('按回车返回主菜单...', F_GRAY))
+            try:
+                input(C('按回车返回主菜单...', F_GRAY))
+            except (KeyboardInterrupt, EOFError):
+                pass
 
 
 if __name__ == '__main__':

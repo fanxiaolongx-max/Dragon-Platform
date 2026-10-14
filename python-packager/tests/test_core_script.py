@@ -423,6 +423,36 @@ class SourceAndSamplingTests(unittest.TestCase):
         command.assert_not_called()
         self.assertEqual(output.getvalue(), '\x1b[2J\x1b[H')
 
+    def test_is_ignored_excel_file_filters_generated_and_temp_files(self):
+        self.assertTrue(self.core.is_ignored_excel_file('【抽查结果】20261014_101247.xlsx'))
+        self.assertTrue(self.core.is_ignored_excel_file('D:/data/【抽查结果】20261014_101247.xlsx'))
+        self.assertTrue(self.core.is_ignored_excel_file('~$temp.xlsx'))
+        self.assertTrue(self.core.is_ignored_excel_file('【合并后】风险-运营商.xlsx'))
+        self.assertTrue(self.core.is_ignored_excel_file('PR_Report_2026.xlsx'))
+        self.assertTrue(self.core.is_ignored_excel_file('抽查总表.xlsx'))
+        self.assertTrue(self.core.is_ignored_excel_file('readme.txt'))
+        self.assertFalse(self.core.is_ignored_excel_file('risk_export.xlsx'))
+        self.assertFalse(self.core.is_ignored_excel_file('001/raw_rfc_tickets.xlsx'))
+
+    def test_recursive_discovery_ignores_generated_results_and_classifies_subdirectories(self):
+        sub_dir = self.root / 'subdir_raw'
+        sub_dir.mkdir(parents=True, exist_ok=True)
+        # 1. 业务原始表
+        raw_path = sub_dir / 'my_risk_data.xlsx'
+        pd.DataFrame({'风险ID': ['R-101'], '风险等级': ['High'], '风险状态': ['Risk Closed']}).to_excel(raw_path, index=False)
+        # 2. 自动生成的抽查结果表（必须被忽略）
+        res_path = sub_dir / '【抽查结果】20261014_101247.xlsx'
+        pd.DataFrame({'序号': [1], '单号': ['R-101'], '抽查来源': ['风险']}).to_excel(res_path, index=False)
+        # 3. 临时文件（必须被忽略）
+        tmp_path = sub_dir / '~$temp.xlsx'
+        tmp_path.write_bytes(b'dummy')
+
+        found = self.core.get_sources_for_type('风险')
+        found_names = [os.path.basename(f) for f in found]
+        self.assertIn('my_risk_data.xlsx', found_names)
+        self.assertNotIn('【抽查结果】20261014_101247.xlsx', found_names)
+        self.assertNotIn('~$temp.xlsx', found_names)
+
 
 if __name__ == '__main__':
     unittest.main()
