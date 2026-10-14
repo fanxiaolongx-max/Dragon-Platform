@@ -749,13 +749,14 @@ sequenceDiagram
   | `search` | 读取 | `query`, `path`, `pattern`, `caseSensitive`, `maxMatches` | 全局正则/关键词代码检索，内置 10s 执行超时与最大 20,000 文件扫描上限。 |
   | `write_file` | 写入 | `path`, `content` | 完整写入文件（单次最大 1MB），写入前自动留存原文件快照至变更记录。 |
   | `edit_file` | 写入 | `path`, `edits: [{ old_string, new_string }]` | 精确块级文本替换；要求 `old_string` 在文件中唯一匹配，防范误伤。 |
-  | `delete_path` | 写入 | `path`, `recursive` | 删除文件或目录；递归删除时强制触发安全审批流程。 |
+  | `delete_path` | 写入 | `path`, `recursive` | 删除文件或目录；按权限模式审批，管理员完全访问模式自动执行。 |
   | `rename_path` | 写入 | `old_path`, `new_path`, `overwrite` | 安全移动或重命名文件/目录，目标已存在时默认拦截保护。 |
-  | `run_command` | 命令 | `command`, `timeout_ms` (默认60s/最大300s) | 在工作区下执行 Shell 命令，输出最大 32KB；自动剥离敏感环境变量并阻断高危提权。 |
-- **路径沙箱与命令安全防火墙 (`agent-path-guard.js` / `agent-command-guard.js`)**：
-  - 严格限制工作区根目录边界，禁止跨目录越权访问（如 `../../etc/passwd`、`C:\Windows`、敏感系统钥匙串目录等）。
+  | `run_command` | 命令 | `command`, `timeoutMs` (默认60s/最大300s) | 以所选目录为默认位置执行 Shell；自动剥离敏感环境变量，实际权限由服务进程的系统账号决定。 |
+- **文件路径守卫与命令审批 (`agent-path-guard.js` / `agent-command-guard.js`)**：
+  - 文件工具限制在工作区根目录内；Shell 可以访问任务所需的其他目录，不是系统沙箱，也不会自动获得更高的系统账号权限。
   - 自动忽略 `.git` 内部对象、`node_modules`、编译临时目录等膨胀文件，保障上下文窗口利用率最大化。
-  - 深度静态扫描命令参数，拦截 `rm -rf /`、格式化磁盘、带密码入参等高危行为；当命令涉及外部非受信路径时，无条件降级要求用户手动确认。
+  - 管理员的“完全访问”模式自动执行文件操作和命令，跨目录或敏感路径风险标记不会强制降级为审批；模型按当前任务自主规划、执行和验证。
+  - “请求批准”和“帮我批准”模式保留命令审批及静态风险提醒；普通用户始终只读，选择完全访问也不能执行命令或写入。聊天归属、凭据脱敏、操作记录和撤销冲突保护继续生效。
 - **实时上下文用量仪表盘 (Context Usage Bar)**：
   - 精确统计并以多色度量环呈现当前模型的 Token 预算分布：**对话消息 (Messages)**、**目录树 (Directory, 最多 200 项轻量级投影)**、**系统提示词 (System)**、**可用工具定义 (Tools)** 以及 **剩余可用额度 (Free Space)**，防止上下文溢出截断。
 - **差异审查与单点原子回滚 (Diff Review & Revert)**：

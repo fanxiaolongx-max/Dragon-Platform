@@ -52,14 +52,49 @@ test('commands that reach outside the folder, the home directory or secret files
     assert.match(win.reasons[0], /工作目录之外/);
 });
 
-test('risky commands always ask, even in full access or after "always allow"', () => {
+test('admin full access auto-approves risky commands while ask and auto still require approval', () => {
     const root = gitRepo('classify');
     const session = manager.ensureSession({ agentSessionId: sessionId(), user: admin, tenantId: 'default', root, permissionMode: 'full' });
     assert.equal(manager.classifyDecision(session, 'run_command', { command: 'npm test' }), 'allow');
-    assert.equal(manager.classifyDecision(session, 'run_command', { command: 'cat ../secrets.txt' }), 'ask');
+    assert.equal(manager.classifyDecision(session, 'run_command', { command: 'cat ../secrets.txt' }), 'allow');
     session.alwaysAllow.add('run_command');
-    assert.equal(manager.classifyDecision(session, 'run_command', { command: 'cat .env' }), 'ask');
+    assert.equal(manager.classifyDecision(session, 'run_command', { command: 'cat .env' }), 'allow');
     assert.equal(manager.classifyDecision(session, 'run_command', { command: 'ls' }), 'allow');
+    assert.equal(manager.classifyDecision(session, 'unknown_tool'), 'deny');
+    for (const permissionMode of ['ask', 'auto']) {
+        const restricted = manager.ensureSession({ agentSessionId: sessionId(), user: admin, tenantId: 'default', root, permissionMode });
+        restricted.alwaysAllow.add('run_command');
+        assert.equal(manager.classifyDecision(restricted, 'run_command', { command: 'cat ../secrets.txt' }), 'ask');
+        assert.equal(manager.classifyDecision(restricted, 'run_command', { command: 'cat .env' }), 'ask');
+    }
+    const viewer = manager.ensureSession({ agentSessionId: sessionId(), user: { username: 'viewer', role: 'viewer' }, tenantId: 'default', root, permissionMode: 'full' });
+    viewer.alwaysAllow.add('run_command');
+    for (const name of ['run_command', 'write_file', 'delete_path', 'rename_path']) assert.equal(manager.classifyDecision(viewer, name, { command: 'cat ../secrets.txt' }), 'readonly');
+});
+
+test('full access executes cross-directory commands without approval and continues to the next model step', async () => {
+    const root = path.join(sandbox, 'full-autonomy');
+    fs.mkdirSync(root);
+    const external = path.join(sandbox, 'autonomy-outside.txt');
+    fs.writeFileSync(external, 'before');
+    fs.writeFileSync(path.join(root, 'cross-directory.js'), "const fs = require('fs'); const p = '../autonomy-outside.txt'; fs.writeFileSync(p, fs.readFileSync(p, 'utf8') + '-after'); console.log('cross-directory-completed');");
+    const session = manager.ensureSession({ agentSessionId: sessionId(), user: admin, tenantId: 'default', root, permissionMode: 'full' });
+    const events = [];
+    let requests = 0;
+    const client = { model: 'mock', generateText: async options => {
+        assert.match(options.systemInstruction, /无需为每个命令、跨目录操作或风险标记重复请求批准/);
+        assert.doesNotMatch(options.systemInstruction, /不能访问根目录之外/);
+        if (++requests === 1) return { toolCalls: [{ id: 'cross-directory', name: 'run_command', args: { command: `"${process.execPath}" cross-directory.js` } }] };
+        assert.match(options.messages.at(-1).toolResults[0].content, /cross-directory-completed/);
+        assert.equal(options.messages.at(-1).toolResults[0].isError, false);
+        return { text: 'done' };
+    } };
+    const result = await manager.runAgentTurn({ session, client, systemInstruction: '', historyMessages: [{ role: 'user', content: 'update the sibling test file' }], write: event => events.push(event), signal: new AbortController().signal });
+    assert.equal(requests, 2);
+    assert.equal(result.text, 'done');
+    assert.equal(events.some(event => event.type === 'approval'), false);
+    assert.equal(events.some(event => event.type === 'tool_result' && event.ok), true);
+    assert.equal(fs.readFileSync(external, 'utf8'), 'before-after');
 });
 
 test('file changes made by a command in a git repo are recorded and can be undone', { skip: IS_WIN }, async () => {

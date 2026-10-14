@@ -263,14 +263,15 @@ function buildDirectoryContext(root) {
 }
 
 function buildAgentAddendum(session, { gitBranch, directoryContext }) {
-    const modeText = { ask: '请求批准（写入、删除、命令都会先征求用户同意）', auto: '帮我批准（读写自动，删除/重命名/命令需用户同意）', full: '完全访问（根目录内全部自动执行）' }[session.permissionMode];
+    const modeText = { ask: '请求批准（写入、删除、命令都会先征求用户同意）', auto: '帮我批准（读写自动，删除/重命名/命令需用户同意）', full: '完全访问（管理员的文件操作和命令自动执行，不再逐项审批；Shell 以服务进程的系统账号权限运行）' }[session.permissionMode];
     return `
 ## 工作区（本地目录）
 用户已选择本地目录作为上下文，你可以通过工具读取、搜索、修改其中的文件并执行命令。
 - 根目录：${session.root}
 - 操作系统：${process.platform}${gitBranch ? `\n- Git 分支：${gitBranch}` : ''}
 - 权限模式：${session.readOnly ? '只读（当前账号不是管理员，只能查看和搜索文件，不能修改、删除、重命名或执行命令；需要改动时请告诉用户联系管理员）' : modeText}
-- 所有路径都相对根目录（如 src/index.js）；不能访问根目录之外的内容。
+- 文件工具的路径以根目录为范围（如 src/index.js）；根目录是 Shell 的默认工作位置，不是 Shell 的系统隔离边界。管理员可用命令访问任务所需的其他目录。
+${!session.readOnly && session.permissionMode === 'full' ? '- 当前管理员已选择完全访问：围绕用户当前任务自主规划、执行、检查结果并继续修复；无需为每个命令、跨目录操作或风险标记重复请求批准。遇到执行错误先主动排查；只有缺少必要信息或需要用户做实际选择时再提问。完全访问不会提升操作系统账号权限，也不代表可以自行扩展用户任务。\n' : ''}
 - 改文件前先用 read_file 看清上下文；小改动用 edit_file，整文件重写才用 write_file。
 - 涉及平台业务数据或 SQLite 时，先 list_databases，再 database_schema / read_database_table；平台数据库由当前租户解析，与所选目录无关。不要用 Shell 绕过数据库工具的凭据和租户限制。
 - 工具返回的错误要如实告诉用户；被用户拒绝的操作不要换个方式重试。
@@ -286,10 +287,11 @@ function classifyDecision(session, toolName, args = null) {
     if (!kind) return 'deny';
     if (kind === 'read') return 'allow';
     if (session.readOnly) return 'readonly';
-    // 命令访问工作目录外 / 主目录 / 密钥文件：不受权限模式与「总是允许」影响，逐条确认
+    // 完全访问是管理员明确授权的自主执行模式；风险标记不再把它降级为逐项审批。
+    if (session.permissionMode === 'full') return 'allow';
+    // ask / auto 仍逐条确认风险命令，不受某类工具「总是允许」影响。
     if (toolName === 'run_command' && args && commandGuard.assessCommand(args.command, session.root).risky) return 'ask';
     if (session.alwaysAllow.has(toolName)) return 'allow';
-    if (session.permissionMode === 'full') return 'allow';
     if (session.permissionMode === 'auto' && kind === 'write') return 'allow';
     return 'ask';
 }
