@@ -39,7 +39,7 @@ class UpdateTests(unittest.TestCase):
 
     def assert_old_intact(self):
         self.assertEqual(Path(shell.CORE_SCRIPT_PATH).read_bytes(), self.old)
-        self.assertEqual(json.loads(Path(shell.VERSION_PATH).read_text()), self.old_metadata)
+        self.assertEqual(json.loads(Path(shell.VERSION_PATH).read_text(encoding='utf-8')), self.old_metadata)
 
     def test_html_error_does_not_replace_script(self):
         ok, _, _ = self.update(b'<html><body>Gateway error</body></html>')
@@ -90,7 +90,7 @@ class UpdateTests(unittest.TestCase):
         self.assertEqual(len(backups), 1)
         shell.restore_backup(str(backups[0]))
         self.assertEqual(Path(shell.CORE_SCRIPT_PATH).read_bytes(), self.old)
-        restored = json.loads(Path(shell.VERSION_PATH).read_text())
+        restored = json.loads(Path(shell.VERSION_PATH).read_text(encoding='utf-8'))
         self.assertEqual(restored['version'], '1.0.0')
         self.assertEqual(restored['sha256'], hashlib.sha256(self.old).hexdigest())
 
@@ -98,7 +98,7 @@ class UpdateTests(unittest.TestCase):
         ok, _, version = self.update(self.old)
         self.assertTrue(ok)
         self.assertEqual(version, '1.1.1')
-        self.assertEqual(json.loads(Path(shell.VERSION_PATH).read_text())['version'], '1.1.1')
+        self.assertEqual(json.loads(Path(shell.VERSION_PATH).read_text(encoding='utf-8'))['version'], '1.1.1')
 
     def test_custom_source_without_manifest_compiles_before_install(self):
         self.config['active_source_id'] = 'custom'

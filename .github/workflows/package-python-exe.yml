@@ -25,6 +25,9 @@ jobs:
   build-windows:
     name: Package Universal Shell EXE (Windows)
     runs-on: windows-latest
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
 
     steps:
       - name: Preserve LF for hot-update SHA256
