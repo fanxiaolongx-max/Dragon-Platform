@@ -29,11 +29,12 @@ import codecs
 import queue
 import tempfile
 import traceback
+import builtins
 from datetime import datetime
 
 # GUI 库 (Python 内置)
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
 # ============================================================
 # 基础路径与环境自适应
@@ -57,6 +58,7 @@ VERSION_PATH = os.path.join(APP_DIR, VERSION_FILE_NAME)
 CONFIG_PATH = os.path.join(APP_DIR, CONFIG_FILE_NAME)
 BACKUP_DIR_PATH = os.path.join(APP_DIR, BACKUP_DIR_NAME)
 DATA_DIR_PATH = os.path.join(APP_DIR, "data")
+WORKER_EXE_NAME = 'PR-Audit-Worker.exe'
 
 
 def ensure_workspace():
@@ -101,6 +103,15 @@ def ensure_workspace():
             except Exception:
                 pass
 
+    ico_dest = os.path.join(APP_DIR, "app.ico")
+    if not os.path.exists(ico_dest):
+        bundled_ico = os.path.join(BUNDLE_DIR, "app.ico")
+        if os.path.exists(bundled_ico):
+            try:
+                shutil.copy2(bundled_ico, ico_dest)
+            except Exception:
+                pass
+
 
 def load_config():
     """读取更新源配置"""
@@ -109,6 +120,7 @@ def load_config():
         "custom_url": "",
         "custom_version_url": "",
         "backup_on_update": True,
+        "data_directory": "",
         "remote_sources": [
             {
                 "id": "github",
@@ -149,10 +161,16 @@ def load_config():
 def save_config(cfg):
     """保存更新源配置"""
     try:
-        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        _atomic_write(CONFIG_PATH, json.dumps(cfg, ensure_ascii=False, indent=2).encode('utf-8'))
+        return True
     except Exception as e:
         print(f"[Error] 保存配置失败: {e}")
+        return False
+
+
+def configured_data_dir(config):
+    value = str(config.get('data_directory') or '').strip()
+    return os.path.abspath(os.path.join(APP_DIR, os.path.expanduser(value))) if value else DATA_DIR_PATH
 
 
 def load_version_info():
@@ -399,13 +417,202 @@ def perform_update(config, on_progress=None):
 # ============================================================
 # 苹果风格内置终端控件 (AppleTerminalWidget)
 # ============================================================
+class AnsiScreen:
+    """终端字符屏幕：光标移动覆盖已有内容，清屏不追加历史菜单。"""
+    COLORS = {'31': 'red', '91': 'red', '32': 'green', '92': 'green',
+              '33': 'yellow', '93': 'yellow', '34': 'blue', '94': 'blue',
+              '35': 'magenta', '95': 'magenta', '36': 'cyan', '96': 'cyan',
+              '37': 'white', '97': 'white', '30': 'gray', '90': 'gray'}
+
+    def __init__(self):
+        self.lines = [[]]
+        self.row = self.column = 0
+        self.tags = set()
+        self.pending = ''
+        self.awaiting_input = False
+
+    def clear(self):
+        self.lines = [[]]
+        self.row = self.column = 0
+
+    def _line(self):
+        while len(self.lines) <= self.row:
+            self.lines.append([])
+        return self.lines[self.row]
+
+    def _put(self, char):
+        line = self._line()
+        while len(line) <= self.column:
+            line.append((' ', ()))
+        line[self.column] = (char, tuple(sorted(self.tags)))
+        self.column += 1
+
+    def _erase_after_cursor(self):
+        del self._line()[self.column:]
+        del self.lines[self.row + 1:]
+
+    def _sgr(self, params):
+        for code in (params or '0').split(';'):
+            if code == '0':
+                self.tags.clear()
+            elif code == '1':
+                self.tags.add('ansi_bold')
+            elif code == '22':
+                self.tags.discard('ansi_bold')
+            elif code in self.COLORS or code == '39':
+                self.tags.difference_update('ansi_' + color for color in set(self.COLORS.values()))
+                if code in self.COLORS:
+                    self.tags.add('ansi_' + self.COLORS[code])
+            elif code in ('44', '46', '49'):
+                self.tags.difference_update(('ansi_bg_blue', 'ansi_bg_cyan'))
+                if code != '49':
+                    self.tags.add('ansi_bg_blue' if code == '44' else 'ansi_bg_cyan')
+
+    def _csi(self, params, command):
+        numbers = [int(part) if part.isdigit() else 0 for part in params.split(';')]
+        amount = max(1, numbers[0])
+        if command == 'm':
+            self._sgr(params)
+        elif command in ('H', 'f'):
+            self.row = min(10000, max(0, amount - 1))
+            self.column = min(4000, max(0, (numbers[1] or 1) - 1)) if len(numbers) > 1 else 0
+        elif command == 'A':
+            self.row = max(0, self.row - amount)
+        elif command == 'B':
+            self.row = min(10000, self.row + amount)
+        elif command == 'C':
+            self.column = min(4000, self.column + amount)
+        elif command == 'D':
+            self.column = max(0, self.column - amount)
+        elif command == 'G':
+            self.column = min(4000, amount - 1)
+        elif command == 'J':
+            if numbers[0] in (2, 3):
+                self.clear()
+            elif numbers[0] == 0:
+                self._erase_after_cursor()
+        elif command == 'K':
+            line = self._line()
+            if numbers[0] == 2:
+                line.clear()
+            elif numbers[0] == 1:
+                for index in range(min(self.column + 1, len(line))):
+                    line[index] = (' ', ())
+            else:
+                del line[self.column:]
+
+    def feed(self, text):
+        text = self.pending + text
+        self.pending = ''
+        position = 0
+        while position < len(text):
+            char = text[position]
+            if char == '\x1b':
+                remaining = text[position:]
+                if remaining == '\x1b':
+                    self.pending = remaining
+                    break
+                if remaining.startswith('\x1b['):
+                    match = re.match(r'\x1b\[([0-9;?]*)([@-~])', remaining)
+                    if not match:
+                        if re.fullmatch(r'\x1b\[[0-9;?]*', remaining):
+                            self.pending = remaining
+                            break
+                        position += 2
+                        continue
+                    self._csi(*match.groups())
+                    position += match.end()
+                    continue
+                if remaining.startswith('\x1b]'):
+                    end = remaining.find('\x07')
+                    if end < 0:
+                        self.pending = remaining
+                        break
+                    marker = remaining[2:end]
+                    if marker == '777;input;on':
+                        self.awaiting_input = True
+                        self._erase_after_cursor()
+                    elif marker == '777;input;off':
+                        self.awaiting_input = False
+                    position += end + 1
+                    continue
+                position += 2
+                continue
+            if char == '\r':
+                self.column = 0
+            elif char == '\n':
+                self.row += 1
+                self.column = 0
+                self._line()
+            elif char == '\b':
+                self.column = max(0, self.column - 1)
+            elif char == '\t':
+                for _ in range(8 - self.column % 8):
+                    self._put(' ')
+            elif ord(char) >= 32:
+                self._put(char)
+            position += 1
+
+    def echo_input(self, text):
+        for char in text:
+            self._put(char)
+        self.feed('\n')
+        self.awaiting_input = False
+
+    def text(self):
+        return '\n'.join(''.join(char for char, _ in line) for line in self.lines)
+
+
+class PromptText(tk.Text):
+    """只允许编辑当前提示后的输入，保留原生选择、复制、粘贴及中文输入法。"""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.program_edit = False
+        self.allow_input = False
+        self.mark_set('input_start', '1.0')
+        self.mark_gravity('input_start', tk.LEFT)
+        self._original = self._w + '_original'
+        self.tk.call('rename', self._w, self._original)
+        self.tk.createcommand(self._w, self._proxy)
+
+    def _proxy(self, *args):
+        if args and args[0] in ('insert', 'delete', 'replace') and not self.program_edit:
+            if not self.allow_input:
+                return ''
+            args = list(args)
+            if args[0] == 'insert':
+                if self.compare(args[1], '<', 'input_start'):
+                    args[1] = 'end-1c'
+                args[2] = str(args[2]).replace('\r', ' ').replace('\n', ' ')
+            else:
+                start = self.index(args[1])
+                end = self.index(args[2]) if len(args) > 2 else self.index(f'{start}+1c')
+                if self.compare(start, '<', 'input_start'):
+                    start = self.index('input_start')
+                if self.compare(end, '>', 'end-1c'):
+                    end = self.index('end-1c')
+                if args[0] == 'delete' and not self.compare(start, '<', end):
+                    return ''
+                if self.compare(end, '<', start):
+                    end = start
+                args[1:3] = [start, end]
+                if args[0] == 'replace':
+                    args[3] = str(args[3]).replace('\r', ' ').replace('\n', ' ')
+        return self.tk.call(self._original, *args)
+
+    def destroy(self):
+        self.tk.deletecommand(self._w)
+        self.tk.call('rename', self._original, self._w)
+        super().destroy()
+
+
 class AppleTerminalWidget(tk.Frame):
     """
     优雅、专业、美观的苹果风格内置交互控制台
     - 明确的停止、清屏、重启操作按钮
     - 完整支持 ANSI 8/16 色与粗体映射
     - 支持 Carriage Return (\\r) 原地刷新与多步任务旋转进度条
-    - 底部集成紧凑交互输入栏 (Prompt ❯ + Enter 发送)
+    - 在提示后直接输入，Enter 确认，历史输出受保护
     - 快捷操作小药丸按键栏 (一键点选菜单项，免键盘盲打)
     """
 
@@ -417,9 +624,10 @@ class AppleTerminalWidget(tk.Frame):
         self.on_restart_cb = on_restart_cb
         self.on_input_send = None
 
-        self._active_tags = set()
-        self._pending_ansi = ''
-        self._pending_cr = ''
+        self.screen = AnsiScreen()
+        self.history = []
+        self.history_position = 0
+        self.history_draft = ''
         self._build_terminal_ui()
 
     def _build_terminal_ui(self):
@@ -720,6 +928,19 @@ class UniversalShellGUI(tk.Tk):
 
         # 苹果深色基底色
         self.configure(bg="#0b0f19")
+
+        # 加载应用图标（Windows 任务栏与窗口标题栏）
+        ico_candidates = [
+            os.path.join(BUNDLE_DIR, "app.ico"),
+            os.path.join(APP_DIR, "app.ico"),
+        ]
+        for ico in ico_candidates:
+            if os.path.exists(ico):
+                try:
+                    self.iconbitmap(ico)
+                    break
+                except Exception:
+                    pass
 
         ensure_workspace()
         self.config = load_config()

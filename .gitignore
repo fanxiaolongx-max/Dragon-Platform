@@ -34,5 +34,7 @@ python-packager/build/
 python-packager/*.spec
 python-packager/backups/
 python-packager/data/
+build/
+dist/
 
 

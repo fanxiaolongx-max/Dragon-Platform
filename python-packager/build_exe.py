@@ -57,6 +57,50 @@ def verify_core_metadata(project_dir=PROJECT_DIR):
     return metadata
 
 
+def generate_version_info(version_str, output_path):
+    parts = [int(p) if p.isdigit() else 0 for p in str(version_str).split(".")]
+    while len(parts) < 4:
+        parts.append(0)
+    parts = tuple(parts[:4])
+
+    content = f"""# UTF-8
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers={parts},
+    prodvers={parts},
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0)
+  ),
+  kids=[
+    StringFileInfo(
+      [
+        StringTable(
+          '040904B0',
+          [
+            StringStruct('CompanyName', 'Tools Platform'),
+            StringStruct('FileDescription', 'PR 报告抽查工具 - 自动化运维抽查客户端'),
+            StringStruct('FileVersion', '{version_str}'),
+            StringStruct('InternalName', 'PR-Audit-Sampler'),
+            StringStruct('LegalCopyright', 'Copyright (C) 2026 Tools Platform. All rights reserved.'),
+            StringStruct('OriginalFilename', 'PR-Audit-Sampler.exe'),
+            StringStruct('ProductName', 'PR 报告抽查工具'),
+            StringStruct('ProductVersion', '{version_str}')
+          ]
+        )
+      ]
+    ),
+    VarFileInfo([VarStruct('Translation', [1033, 1200])])
+  ]
+)
+"""
+    Path(output_path).write_text(content, encoding="utf-8")
+    return output_path
+
+
 def pyinstaller_args(project_dir, name, dist_dir, work_dir):
     project_dir = Path(project_dir)
     args = [
@@ -66,8 +110,28 @@ def pyinstaller_args(project_dir, name, dist_dir, work_dir):
         "--distpath", str(dist_dir), "--workpath", str(work_dir),
         "--specpath", str(work_dir),
     ]
+
+    icon_path = project_dir / "app.ico"
+    if icon_path.is_file():
+        args.extend(["--icon", str(icon_path)])
+
+    metadata_path = project_dir / "version.json"
+    if metadata_path.is_file():
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8-sig"))
+            version_str = metadata.get("version", "1.1.0")
+            work_dir = Path(work_dir)
+            work_dir.mkdir(parents=True, exist_ok=True)
+            vfile = work_dir / "version_info.txt"
+            generate_version_info(version_str, vfile)
+            args.extend(["--version-file", str(vfile)])
+        except Exception:
+            pass
+
     for filename in PORTABLE_FILES[:3]:
         args.extend(["--add-data", f"{project_dir / filename}{os.pathsep}."])
+    if icon_path.is_file():
+        args.extend(["--add-data", f"{icon_path}{os.pathsep}."])
     for module in collect_hidden_imports(project_dir / "core_script.py"):
         args.extend(["--hidden-import", module])
     args.append(str(project_dir / "universal_shell.py"))
@@ -81,6 +145,9 @@ def assemble_portable(project_dir, package_dir, name):
         raise FileNotFoundError(f"PyInstaller did not produce {executable}")
     for filename in PORTABLE_FILES:
         shutil.copy2(Path(project_dir) / filename, package_dir / filename)
+    icon_path = Path(project_dir) / "app.ico"
+    if icon_path.is_file():
+        shutil.copy2(icon_path, package_dir / "app.ico")
     (package_dir / "data").mkdir(exist_ok=True)
     if executable.name != FRIENDLY_EXE_NAME:
         shutil.copy2(executable, package_dir / FRIENDLY_EXE_NAME)
