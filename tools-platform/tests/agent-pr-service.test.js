@@ -63,7 +63,8 @@ test('buildPlan quotes arguments, sanitizes the branch and only stages session f
     assert.deepEqual(plan.steps.map(item => item.step), ['branch', 'add', 'commit', 'push', 'create']);
     assert.equal(plan.title, 'Fix it\'s "quoted" second line');
     const add = plan.steps[1].command;
-    assert.match(add, IS_WIN ? /git add -A -- "src\/a b\.js" docs\/new\.md old\.txt moved\.txt/ : /git add -A -- 'src\/a b\.js' docs\/new\.md old\.txt moved\.txt/);
+    assert.match(add, /git add -A -- /);
+    for (const file of plan.paths) assert.ok(add.includes(prService.quoteArg(`:(literal)${file}`)));
     assert.match(plan.steps[4].command, /^gh pr create --head feat\/My-Branch\.x --title /);
     assert.match(plan.body, /- src\/a b\.js/);
     assert.throws(() => prService.buildPlan({ changes, title: '   ' }), /标题/);
@@ -156,7 +157,7 @@ test('runPrFlow asks per step in ask mode, stops when denied and surfaces failur
     assert.match(first.preview.command, /git checkout -b dragon-claw\/denied/);
     manager.resolveApproval(first.id, 'allow', user, 'default');
     const second = await waitFor(() => events.filter(event => event.type === 'approval')[1]);
-    assert.match(second.preview.command, /git add -A -- README\.md/);
+    assert.match(second.preview.command, /git add -A -- ['"]?:\(literal\)README\.md/);
     manager.resolveApproval(second.id, 'deny', user, 'default');
     const result = await flow;
     run.end();

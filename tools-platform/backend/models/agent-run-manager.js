@@ -12,6 +12,7 @@ const guard = require('./agent-path-guard');
 const transcriptRepo = require('./agent-transcript-repository');
 const commandGuard = require('./agent-command-guard');
 const changeRepo = require('./agent-change-repository');
+const { redactText, redactValue } = require('./ai-sensitive-data');
 
 const MAX_STEPS = 25;
 const APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
@@ -95,7 +96,7 @@ function ensureSession({ agentSessionId, user, tenantId, root, permissionMode })
         session.changeLog = new AgentChangeLog(realRoot);
         session.transcript = [];
         session.turnCount = 0;
-        session.hydrated = true; // 换了目录：旧转录作废，不再从库里恢复
+        session.hydrated = false; // 换目录后仍需校验持久归属；旧根目录的转录不会被恢复。
         session.alwaysAllow.clear();
     }
     if (permissionMode) session.permissionMode = normalizePermissionMode(permissionMode);
@@ -109,25 +110,30 @@ function ensureSession({ agentSessionId, user, tenantId, root, permissionMode })
  */
 async function hydrateSession(session) {
     if (!session || session.hydrated) return session;
-    session.hydrated = true;
     try {
         const saved = await transcriptRepo.load(session.id);
+        if (saved && saved.owner !== session.owner) throw managerError('AGENT_SESSION_FORBIDDEN', '无权访问该智能体会话', 403);
         if (saved && saved.owner === session.owner && saved.root === session.root && !session.transcript.length) {
             session.transcript = saved.transcript;
             session.turnCount = saved.turnCount;
             if (!session.lastContext && saved.context) session.lastContext = saved.context;
         }
     } catch (error) {
-        console.warn('[agent] failed to load transcript:', error.message || error);
+        if (error.code === 'AGENT_SESSION_FORBIDDEN') throw error;
+        throw managerError('AGENT_STORAGE_UNAVAILABLE', '无法校验智能体会话归属，请稍后重试', 503);
     }
     try {
         const changes = await changeRepo.load(session.id);
+        if (changes && changes.owner !== session.owner) throw managerError('AGENT_SESSION_FORBIDDEN', '无权访问该智能体会话', 403);
         if (changes && changes.owner === session.owner && changes.root === session.root && !session.changeLog.entries.size) {
             session.changeLog = AgentChangeLog.fromRecords(session.root, changes.records);
         }
     } catch (error) {
-        console.warn('[agent] failed to load change snapshots:', error.message || error);
+        if (error.code === 'AGENT_SESSION_FORBIDDEN') throw error;
+        throw managerError('AGENT_STORAGE_UNAVAILABLE', '无法校验智能体会话快照归属，请稍后重试', 503);
     }
+    await transcriptRepo.claimSession(session.id, session.owner);
+    session.hydrated = true;
     return session;
 }
 
@@ -308,6 +314,7 @@ function awaitApproval(run, call, preview) {
 
 /** 由 POST /api/agent-workspace/approvals/:id 调用；只结算 Promise，不触库。 */
 function resolveApproval(approvalId, decision, user, tenantId) {
+    if (!isAdminUser(user)) throw managerError('AGENT_SESSION_FORBIDDEN', '只读账号无权批准写入或命令', 403);
     const pending = pendingApprovals.get(String(approvalId || ''));
     if (!pending) throw managerError('AGENT_APPROVAL_NOT_FOUND', '审批已过期或不存在', 404);
     if (pending.owner !== ownerKey(user, tenantId)) throw managerError('AGENT_SESSION_FORBIDDEN', '无权处理该审批', 403);
@@ -353,20 +360,27 @@ function beginRun(session, write, signal) {
     return run;
 }
 
-async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model }) {
+async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [] }) {
+    const emit = write;
+    write = event => emit(redactValue(event, { secrets: sensitiveValues }));
     const run = beginRun(session, write, signal);
-    await hydrateSession(session);
+    try { await hydrateSession(session); } catch (error) {
+        run.end();
+        if (sessions.get(session.id) === session && !session.hydrated) sessions.delete(session.id);
+        throw error;
+    }
 
     const gitBranch = readGitBranch(session.root);
     const directoryContext = buildDirectoryContext(session.root);
     const addendum = buildAgentAddendum(session, { gitBranch, directoryContext });
-    const fullSystem = `${systemInstruction}\n${addendum}`;
+    const fullSystem = redactText(`${systemInstruction}\n${addendum}`, { secrets: sensitiveValues });
     const tools = toolsService.definitions({ readOnly: session.readOnly });
     // 同一会话前几轮的工具转录（按轮保存、含用户消息）替换对应的文字历史，让模型记得自己做过什么，
     // 且工具调用始终紧跟用户消息或工具结果。
     const currentUser = historyMessages[historyMessages.length - 1];
-    const messages = transcriptRepo.mergeHistoryWithTranscript(historyMessages, session.transcript);
-    const toolCtx = { root: session.root, changeLog: session.changeLog, signal, onProcess: child => run.processes.add(child) };
+    const messages = redactValue(transcriptRepo.mergeHistoryWithTranscript(historyMessages, session.transcript), { secrets: sensitiveValues });
+    const toolCtx = { root: session.root, changeLog: session.changeLog, signal, sensitiveValues, onProcess: child => run.processes.add(child) };
+    session.changeLog.sensitiveValues = sensitiveValues;
 
     let activeClient = client;
     const usage = { promptTokens: 0, outputTokens: 0, totalTokens: 0 };
@@ -397,7 +411,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
             lastPromptTokens = Number(result.usage?.promptTokens || 0) || lastPromptTokens;
             const toolCalls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
             if (!toolCalls.length) {
-                finalText = result.text || '';
+                finalText = redactText(result.text || '', { secrets: sensitiveValues });
                 break;
             }
             if (result.text) write({ type: 'delta', delta: '\n\n' });
@@ -437,7 +451,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
                 write({ type: 'tool_result', runId: run.id, callId: call.id, tool: call.name, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 200), truncated: Boolean(outcome.truncated), durationMs, ...(output ? { output } : {}) });
                 if (outcome.change) write({ type: 'change', ...outcome.change });
                 (outcome.changes || []).forEach(change => write({ type: 'change', ...change }));
-                if (outcome.change || outcome.changes?.length) await persistChanges(session); // 撤销快照即时落库，重启后仍可撤销
+                if (outcome.mutated || outcome.change || outcome.changes?.length || (!outcome.isError && ['write', 'destructive'].includes(toolsService.kindOf(call.name)))) await persistChanges(session);
                 toolLog.push({ tool: call.name, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 120) });
                 toolResults.push({ id: call.id, name: call.name, content: outcome.content, isError: Boolean(outcome.isError) });
                 if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
@@ -452,7 +466,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         }
         // 下一轮续写时保留本轮的工具转录（按整轮裁剪，避免无限增长）
         if (finalText) turnTranscript.push({ role: 'model', content: finalText });
-        session.transcript = transcriptRepo.normalizeTranscript([...session.transcript, ...turnTranscript]);
+        session.transcript = transcriptRepo.normalizeTranscript(redactValue([...session.transcript, ...turnTranscript], { secrets: sensitiveValues }));
         session.turnCount += 1;
         const context = contextStats.build({
             model: model || activeClient?.model,

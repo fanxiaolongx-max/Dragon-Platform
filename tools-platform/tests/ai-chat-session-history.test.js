@@ -51,11 +51,9 @@ test('replies keep their tool events and sessions record owner and workspace', a
         assert.deepEqual(await repo.listOwnedSessions({ owner: 'alice', pagePath: '/', query: '不存在的内容' }), []);
         assert.deepEqual(await repo.listOwnedSessions({ owner: '', pagePath: '/' }), [], 'no owner, no list');
 
-        // 继续一个无归属的旧会话时补上归属
-        await repo.addMessage({ sessionId: legacy, pagePath: '/', pageTitle: 'old', owner: 'alice', role: 'model', content: '接上了' });
-        assert.ok((await repo.listOwnedSessions({ owner: 'alice', pagePath: '/' })).some(item => item.id === legacy));
-        // 已有归属的不会被他人改写
-        await repo.addMessage({ sessionId: bob, pagePath: '/', pageTitle: 'x', owner: 'alice', role: 'user', content: '误用' });
+        // 无归属的历史不能由拿到 ID 的用户认领；已有归属的也不能被他人改写。
+        await assert.rejects(repo.addMessage({ sessionId: legacy, pagePath: '/', pageTitle: 'old', owner: 'alice', role: 'model', content: '接上了' }), { code: 'AI_SESSION_FORBIDDEN' });
+        await assert.rejects(repo.addMessage({ sessionId: bob, pagePath: '/', pageTitle: 'x', owner: 'alice', role: 'user', content: '误用' }), { code: 'AI_SESSION_FORBIDDEN' });
         assert.ok(!(await repo.listOwnedSessions({ owner: 'alice', pagePath: '/' })).some(item => item.id === bob));
     });
 });

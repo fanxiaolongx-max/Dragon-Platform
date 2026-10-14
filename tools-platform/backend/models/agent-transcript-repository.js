@@ -1,16 +1,17 @@
 // Dragon Claw 工作区：智能体会话的工具调用转录持久化（租户库 agent_session_transcripts）。
 // 转录 = 上几轮的 model(toolCalls) / tool(toolResults) / model(text) 消息，重启后同一 agentSessionId 仍能延续。
 const { run, get } = require('./app-db');
+const { redactValue } = require('./ai-sensitive-data');
 
 const MAX_ENTRIES = 80; // 单轮最多 25 步（约 52 条），至少能完整保住一轮
 const MAX_JSON_BYTES = 1.5 * 1024 * 1024;
 
 // 每个租户是独立的数据库文件：建表要按数据库各做一次（只做一次会让第二个租户缺表）
-const readyByDb = new Map();
-const { getDbPath } = require('./app-db');
+const readyByDb = new WeakMap();
+const { getDatabase } = require('./app-db');
 
 function ensureReady() {
-    const dbKey = getDbPath();
+    const dbKey = getDatabase();
     let initPromise = readyByDb.get(dbKey);
     if (!initPromise) {
         initPromise = (async () => {
@@ -32,6 +33,10 @@ function ensureReady() {
             });
             await run('CREATE INDEX IF NOT EXISTS idx_agent_session_transcripts_updated ON agent_session_transcripts(updated_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_agent_session_transcripts_owner_root ON agent_session_transcripts(owner, root, updated_at)');
+            await run(`CREATE TABLE IF NOT EXISTS agent_session_owners (
+                agent_session_id TEXT PRIMARY KEY,
+                owner TEXT NOT NULL
+            )`);
         })().catch(error => {
             readyByDb.delete(dbKey);
             throw error;
@@ -39,6 +44,14 @@ function ensureReady() {
         readyByDb.set(dbKey, initPromise);
     }
     return initPromise;
+}
+
+// 在执行任何工具之前原子保留会话归属；两个进程同时收到同一新 ID 时也只能有一个用户成功。
+async function claimSession(agentSessionId, owner) {
+    await ensureReady();
+    await run('INSERT OR IGNORE INTO agent_session_owners (agent_session_id, owner) VALUES (?, ?)', [String(agentSessionId), String(owner)]);
+    const record = await get('SELECT owner FROM agent_session_owners WHERE agent_session_id = ?', [String(agentSessionId)]);
+    if (record?.owner !== owner) throw Object.assign(new Error('无权访问该智能体会话'), { code: 'AGENT_SESSION_FORBIDDEN', statusCode: 403 });
 }
 
 function sanitizeEntry(entry) {
@@ -139,9 +152,12 @@ async function load(agentSessionId) {
 
 async function save({ agentSessionId, owner, root, permissionMode, transcript, turnCount, context = null }) {
     await ensureReady();
-    const entries = normalizeTranscript(transcript);
+    const existing = await load(agentSessionId);
+    if (existing && existing.owner !== owner) throw Object.assign(new Error('无权覆盖该智能体会话'), { code: 'AGENT_SESSION_FORBIDDEN', statusCode: 403 });
+    await claimSession(agentSessionId, owner);
+    const entries = normalizeTranscript(redactValue(transcript));
     const contextJson = context && typeof context === 'object' ? JSON.stringify(context).slice(0, 64 * 1024) : '';
-    await run(
+    const result = await run(
         `INSERT INTO agent_session_transcripts (agent_session_id, owner, root, permission_mode, transcript, turn_count, context)
          VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(agent_session_id) DO UPDATE SET
@@ -151,9 +167,11 @@ async function save({ agentSessionId, owner, root, permissionMode, transcript, t
              transcript = excluded.transcript,
              turn_count = excluded.turn_count,
              context = excluded.context,
-             updated_at = CURRENT_TIMESTAMP`,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE agent_session_transcripts.owner = excluded.owner`,
         [String(agentSessionId), String(owner || ''), String(root || ''), String(permissionMode || 'ask'), JSON.stringify(entries), Math.max(0, Number(turnCount) || 0), contextJson]
     );
+    if (!result.changes) throw Object.assign(new Error('无权覆盖该智能体会话'), { code: 'AGENT_SESSION_FORBIDDEN', statusCode: 403 });
     return entries;
 }
 
@@ -181,4 +199,4 @@ async function prune(days = 30) {
     return result.changes || 0;
 }
 
-module.exports = { ensureReady, load, save, findLatestSessionId, remove, prune, normalizeTranscript, mergeHistoryWithTranscript, MAX_ENTRIES, MAX_JSON_BYTES };
+module.exports = { ensureReady, claimSession, load, save, findLatestSessionId, remove, prune, normalizeTranscript, mergeHistoryWithTranscript, MAX_ENTRIES, MAX_JSON_BYTES };

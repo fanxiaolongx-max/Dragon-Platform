@@ -6,6 +6,7 @@ const DEFAULT_BASE_URLS = {
     'openai-compatible': 'https://api.openai.com/v1'
 };
 const aiUsageRepo = require('./ai-usage-repository');
+const { redactText, redactValue } = require('./ai-sensitive-data');
 
 function normalizeProvider(provider) {
     const value = String(provider || '').trim().toLowerCase();
@@ -473,7 +474,9 @@ class AiProviderClient {
     }
 
     async generateText({ prompt, systemInstruction = '', messages = null, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onRetry, onDelta, signal, tools = null, toolChoice } = {}) {
-        const finalMessages = messages ? normalizeMessages(messages) : [{ role: 'user', content: String(prompt || '') }];
+        const protection = { secrets: [this.apiKey] };
+        systemInstruction = redactText(systemInstruction, protection);
+        const finalMessages = redactValue(messages ? normalizeMessages(messages) : [{ role: 'user', content: String(prompt || '') }], protection);
         const finalTools = normalizeTools(tools);
         const toolOptions = finalTools.length ? { tools: finalTools, toolChoice } : {};
         const regularRequest = async () => {

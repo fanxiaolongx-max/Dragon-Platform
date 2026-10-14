@@ -166,7 +166,10 @@ function buildPlan({ changes = [], title, body, branch, gitPath = 'git', ghPath 
     const paths = [];
     changes.forEach(item => {
         [item.from, item.path].filter(Boolean).forEach(filePath => {
-            const normalized = String(filePath).replace(/\\/g, '/');
+            const normalized = IS_WIN ? String(filePath).replace(/\\/g, '/') : String(filePath);
+            if (!normalized || normalized.includes('\0') || path.posix.isAbsolute(normalized) || /^[A-Za-z]:/.test(normalized) || normalized.split('/').includes('..')) {
+                throw Object.assign(new Error('提交路径必须位于工作目录内'), { code: 'AGENT_PR_PATH_INVALID', statusCode: 400 });
+            }
             if (!paths.includes(normalized)) paths.push(normalized);
         });
     });
@@ -178,15 +181,40 @@ function buildPlan({ changes = [], title, body, branch, gitPath = 'git', ghPath 
     }
     const cleanBody = String(body || '').trim().slice(0, 4000);
     const commitBody = cleanBody || `由 Dragon Claw 工作区创建。\n\n改动文件：\n${paths.map(item => `- ${item}`).join('\n')}`;
+    const literalPaths = paths.map(file => `:(literal)${file}`);
     const steps = [
         { step: 'branch', command: quoteCommand(gitPath, ['checkout', '-b', branchName]) },
-        { step: 'add', command: quoteCommand(gitPath, ['add', '-A', '--', ...paths]) },
+        { step: 'add', command: quoteCommand(gitPath, ['add', '-A', '--', ...literalPaths]) },
         // 指定路径提交：只提交本会话改动的文件，用户事先暂存的其他改动保持暂存、不进入这个提交
-        { step: 'commit', command: quoteCommand(gitPath, ['commit', '-m', cleanTitle, '-m', commitBody, '--', ...paths]) },
+        { step: 'commit', command: quoteCommand(gitPath, ['commit', '-m', cleanTitle, '-m', commitBody, '--', ...literalPaths]) },
         { step: 'push', command: quoteCommand(gitPath, ['push', '-u', 'origin', branchName]) },
         { step: 'create', command: quoteCommand(ghPath, ['pr', 'create', '--head', branchName, '--title', cleanTitle, '--body', commitBody]) }
     ];
-    return { title: cleanTitle, body: commitBody, branch: branchName, paths, steps };
+    return { title: cleanTitle, body: commitBody, branch: branchName, paths, steps, gitPath };
+}
+
+// 路径限定提交仍会提交同文件内的用户原有修改。只在会话前快照与 HEAD 一致时自动创建 PR。
+async function assertCleanBaseline(session, plan) {
+    const git = plan.gitPath || 'git';
+    const top = await exec(git, ['rev-parse', '--show-toplevel'], { cwd: session.root });
+    if (!top.ok) throw Object.assign(new Error('无法校验提交基线'), { code: 'AGENT_PR_BASELINE_UNAVAILABLE', statusCode: 409 });
+    for (const entry of session.changeLog.entries.values()) {
+        const originalPath = entry.renamedFromAbs || entry.absPath;
+        const relative = path.relative(top.stdout, originalPath).split(path.sep).join('/');
+        const spec = `HEAD:${relative}`;
+        const exists = await exec(git, ['cat-file', '-e', spec], { cwd: session.root });
+        if (exists.ok !== entry.originalExists) throw baselineConflict(entry.path);
+        if (!entry.originalExists) continue;
+        if (!entry.original) throw baselineConflict(entry.path);
+        const original = await new Promise(resolve => {
+            execFile(git, ['show', spec], { cwd: session.root, encoding: 'buffer', timeout: PREFLIGHT_TIMEOUT_MS, maxBuffer: 3 * 1024 * 1024, windowsHide: true }, (error, stdout) => resolve(error ? null : stdout));
+        });
+        if (!original || !original.equals(entry.original)) throw baselineConflict(entry.path);
+    }
+}
+
+function baselineConflict(file) {
+    return Object.assign(new Error(`${file} 包含会话开始前的修改或缺少可校验快照，请先人工检查后提交`), { code: 'AGENT_PR_PREEXISTING_CHANGES', statusCode: 409 });
 }
 
 function extractPrUrl(text) {
@@ -199,6 +227,7 @@ function extractPrUrl(text) {
  * @returns {{ ok, url, branch, steps, failedStep? }}
  */
 async function runPrFlow({ session, run, plan, write, signal, classify, requestApproval }) {
+    await assertCleanBaseline(session, plan);
     const toolCtx = { root: session.root, changeLog: null, signal, onProcess: child => run.processes.add(child) };
     const total = plan.steps.length;
     const progress = [];

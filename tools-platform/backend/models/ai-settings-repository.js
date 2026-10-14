@@ -171,6 +171,12 @@ async function writeProfileStore(store) {
     return normalized;
 }
 
+// 仅供后端内容过滤使用，绝不能通过设置/模型列表 API 返回。
+async function getRedactionSecrets() {
+    const store = await getProfileStore();
+    return [...new Set(store.profiles.map(profile => runtimeSettings(profile).apiKey).filter(Boolean))];
+}
+
 function findProfile(store, profileId) {
     const id = String(profileId || store.activeProfileId);
     return store.profiles.find(item => item.id === id) || null;
@@ -451,6 +457,7 @@ async function deleteProfile(profileId) {
 }
 
 module.exports = {
+    getRedactionSecrets,
     DEFAULT_SETTINGS,
     getStoredSettings,
     getRuntimeSettings,

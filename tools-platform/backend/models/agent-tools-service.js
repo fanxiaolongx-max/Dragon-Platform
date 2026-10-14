@@ -6,6 +6,7 @@ const path = require('path');
 const os = require('os');
 const { spawn } = require('child_process');
 const guard = require('./agent-path-guard');
+const { redactText, redactValue } = require('./ai-sensitive-data');
 const { unifiedDiff } = require('./agent-change-log');
 const commandGuard = require('./agent-command-guard');
 
@@ -281,7 +282,7 @@ async function readFile(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
     const abs = guard.resolveInsideRoot(ctx.root, args.path);
     const display = guard.toDisplayPath(ctx.root, abs);
-    if (guard.isSecretFile(abs)) throw toolError('AGENT_SECRET_FILE', `出于安全考虑不读取密钥/环境变量文件：${display}`);
+    guard.assertNotSecretFile(abs);
     const stat = await fsp.stat(abs).catch(() => null);
     if (!stat) throw toolError('AGENT_NOT_FOUND', `文件不存在：${display}`);
     if (stat.isDirectory()) throw toolError('AGENT_IS_DIR', `${display} 是目录，请用 list_directory`);
@@ -391,6 +392,8 @@ async function previewWrite(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
     assertTextSize(args.content ?? '');
     const abs = guard.resolveInsideRoot(ctx.root, args.path);
+    guard.assertNotSecretFile(abs);
+    if (guard.looksBinaryByName(abs)) throw toolError('AGENT_BINARY', '请通过相应业务接口修改数据库或二进制文件');
     const display = guard.toDisplayPath(ctx.root, abs);
     const stat = await fsp.stat(abs).catch(() => null);
     if (stat && stat.isDirectory()) throw toolError('AGENT_IS_DIR', `${display} 是目录`);
@@ -416,6 +419,8 @@ async function previewEdit(ctx, args = {}) {
     if (typeof args.oldString !== 'string' || typeof args.newString !== 'string') throw toolError('AGENT_ARGS', 'oldString/newString 必须是字符串');
     if (!args.oldString) throw toolError('AGENT_ARGS', 'oldString 不能为空');
     const abs = guard.resolveInsideRoot(ctx.root, args.path);
+    guard.assertNotSecretFile(abs);
+    if (guard.looksBinaryByName(abs)) throw toolError('AGENT_BINARY', '请通过相应业务接口修改数据库或二进制文件');
     const display = guard.toDisplayPath(ctx.root, abs);
     const stat = await fsp.stat(abs).catch(() => null);
     if (!stat || !stat.isFile()) throw toolError('AGENT_NOT_FOUND', `文件不存在：${display}`);
@@ -470,6 +475,7 @@ async function renamePath(ctx, args = {}) {
     const toDisplay = guard.toDisplayPath(ctx.root, toAbs);
     if (!fs.existsSync(fromAbs)) throw toolError('AGENT_NOT_FOUND', `不存在：${fromDisplay}`);
     if (fs.existsSync(toAbs)) throw toolError('AGENT_EXISTS', `目标已存在：${toDisplay}`);
+    if (ctx.changeLog?.entries.has(toDisplay)) throw toolError('AGENT_CHANGE_CONFLICT', `目标路径 ${toDisplay} 已有其他变更记录，请先处理该记录`);
     await fsp.mkdir(path.dirname(toAbs), { recursive: true });
     const isFile = (await fsp.lstat(fromAbs)).isFile();
     // 移动前先保存原文件快照：移动后原路径已不存在，事后再读会拿不到内容而无法撤销
@@ -630,12 +636,13 @@ async function runCommandTracked(ctx, args = {}) {
         });
         if (entry) changes.push({ ...summarizeEntry(entry), revertible: ctx.changeLog.isRevertible(entry) });
     }
-    if (!changes.length) return result;
+    if (!changes.length) return detected.length ? { ...result, mutated: true } : result;
     const listed = changes.slice(0, 10).map(item => item.path).join('、');
     return {
         ...result,
         content: `${result.content}\n— 命令改动了 ${changes.length} 个文件：${listed}${changes.length > 10 ? ' 等' : ''}（已记入更改，可撤销）`,
-        changes
+        changes,
+        mutated: true
     };
 }
 
@@ -651,7 +658,7 @@ const EXECUTORS = {
 };
 
 /** 审批卡片用的预览：对写操作提前算 diff，之后执行时复用同一计划。 */
-async function preview(ctx, name, args = {}) {
+async function buildPreview(ctx, name, args = {}) {
     if (name === 'write_file') {
         const plan = await previewWrite(ctx, args);
         return { path: plan.display, diff: plan.diff.text || (plan.exists ? '' : `（新建文件，${splitCount(plan.content)} 行）`), added: plan.diff.added, removed: plan.diff.removed };
@@ -674,6 +681,10 @@ async function preview(ctx, name, args = {}) {
     return {};
 }
 
+async function preview(ctx, name, args = {}) {
+    return redactValue(await buildPreview(ctx, name, args), { secrets: ctx.sensitiveValues });
+}
+
 function splitCount(text) {
     return String(text || '').split('\n').length;
 }
@@ -686,10 +697,12 @@ async function execute(ctx, name, args = {}) {
     if (!executor) return { content: `未知工具：${name}`, summary: '未知工具', isError: true };
     try {
         const result = await executor(ctx, args && typeof args === 'object' ? args : {});
-        const clamped = clampResult(result.content);
-        return { ...result, content: clamped.content, truncated: clamped.truncated || Boolean(result.truncated) };
+        const safe = redactValue(result, { secrets: ctx.sensitiveValues });
+        const clamped = clampResult(safe.content);
+        return { ...safe, content: clamped.content, truncated: clamped.truncated || Boolean(result.truncated) };
     } catch (error) {
-        return { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: error.message, isError: true };
+        const message = redactText(error.message);
+        return { content: `错误（${error.code || 'ERROR'}）：${message}`, summary: message, isError: true };
     }
 }
 

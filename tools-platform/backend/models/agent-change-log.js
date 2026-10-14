@@ -3,6 +3,8 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const guard = require('./agent-path-guard');
+const { redactText, containsSensitiveText } = require('./ai-sensitive-data');
 
 const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
 const MAX_DIFF_LINES = 5000;
@@ -164,7 +166,11 @@ class AgentChangeLog {
         const after = readSnapshot(entry.absPath);
         if (kind) entry.kind = kind;
         else if (!after.exists) entry.kind = entry.originalExists ? 'delete' : 'create';
-        else entry.kind = entry.originalExists ? 'modify' : 'create';
+        else entry.kind = entry.renamedFrom && entry.originalExists ? 'rename' : entry.originalExists ? 'modify' : 'create';
+        if (!after.exists && !entry.originalExists) {
+            this.entries.delete(displayPath);
+            return null;
+        }
         if (entry.kind === 'modify' && after.content && entry.original && after.content.equals(entry.original)) {
             // 改回原样等于没有变化
             this.entries.delete(displayPath);
@@ -180,24 +186,27 @@ class AgentChangeLog {
 
     recordRename(fromDisplay, fromAbs, toDisplay, toAbs) {
         const source = this.entries.get(fromDisplay);
+        const originalExists = source ? source.originalExists : true;
+        const origin = originalExists ? source?.renamedFrom || fromDisplay : null;
+        const renamedFrom = origin && origin !== toDisplay ? origin : null;
         const entry = {
             path: toDisplay,
             absPath: toAbs,
-            kind: 'rename',
-            originalExists: source ? source.originalExists : true,
+            kind: renamedFrom ? 'rename' : originalExists ? 'modify' : 'create',
+            originalExists,
             original: source ? source.original : readSnapshot(fromAbs).content,
             originalTooLarge: source ? source.originalTooLarge : false,
             added: 0,
             removed: 0,
             updatedAt: Date.now(),
-            renamedFrom: source?.renamedFrom || fromDisplay,
-            renamedFromAbs: source?.renamedFromAbs || fromAbs,
+            renamedFrom,
+            renamedFromAbs: renamedFrom ? path.resolve(this.root, renamedFrom) : undefined,
             source: source?.source || 'agent',
             afterHash: hashOf(toAbs)
         };
         this.entries.delete(fromDisplay);
         this.entries.set(toDisplay, entry);
-        return entry;
+        return this.recordAfter(toDisplay);
     }
 
     summary() {
@@ -216,21 +225,25 @@ class AgentChangeLog {
 
     /** 持久化用：元数据 + 原始内容（Buffer），路径存相对工作目录 */
     toRecords() {
-        return [...this.entries.values()].map(entry => ({
-            path: entry.path,
-            meta: {
-                kind: entry.kind,
-                originalExists: entry.originalExists,
-                originalTooLarge: entry.originalTooLarge,
-                added: entry.added,
-                removed: entry.removed,
-                updatedAt: entry.updatedAt,
-                renamedFrom: entry.renamedFrom || null,
-                source: entry.source || 'agent',
-                afterHash: entry.afterHash || null
-            },
-            original: entry.original || null
-        }));
+        return [...this.entries.values()].map(entry => {
+            // 原文件含凭据时不把明文 BLOB 持久化；内存中的原内容仅用于当前进程内撤销。
+            const sensitive = entry.original && (guard.isSecretFile(entry.absPath) || containsSensitiveText(textOf(entry.original), { secrets: this.sensitiveValues }));
+            return {
+                path: entry.path,
+                meta: {
+                    kind: entry.kind,
+                    originalExists: entry.originalExists,
+                    originalTooLarge: entry.originalTooLarge || Boolean(sensitive),
+                    added: entry.added,
+                    removed: entry.removed,
+                    updatedAt: entry.updatedAt,
+                    renamedFrom: entry.renamedFrom || null,
+                    source: entry.source || 'agent',
+                    afterHash: entry.afterHash || null
+                },
+                original: sensitive ? null : entry.original || null
+            };
+        });
     }
 
     static fromRecords(root, records = []) {
@@ -238,8 +251,12 @@ class AgentChangeLog {
         for (const record of records) {
             if (!record || !record.path || !record.meta) continue;
             const meta = record.meta;
-            const absPath = path.resolve(root, record.path);
-            if (path.relative(root, absPath).startsWith('..')) continue;
+            let absPath;
+            let renamedFromAbs;
+            try {
+                absPath = guard.resolveInsideRoot(root, record.path);
+                if (meta.renamedFrom) renamedFromAbs = guard.resolveInsideRoot(root, meta.renamedFrom);
+            } catch (_error) { continue; }
             log.entries.set(record.path, {
                 path: record.path,
                 absPath,
@@ -251,7 +268,7 @@ class AgentChangeLog {
                 removed: Number(meta.removed) || 0,
                 updatedAt: Number(meta.updatedAt) || Date.now(),
                 renamedFrom: meta.renamedFrom || null,
-                renamedFromAbs: meta.renamedFrom ? path.resolve(root, meta.renamedFrom) : undefined,
+                renamedFromAbs,
                 source: meta.source || 'agent',
                 afterHash: meta.afterHash || null
             });
@@ -260,7 +277,6 @@ class AgentChangeLog {
     }
 
     isRevertible(entry) {
-        if (entry.kind === 'create') return true;
         if (entry.originalTooLarge) return false;
         return entry.originalExists ? Boolean(entry.original) : true;
     }
@@ -270,7 +286,7 @@ class AgentChangeLog {
         if (!entry) return null;
         const after = readSnapshot(entry.absPath);
         const result = unifiedDiff(entry.path, textOf(entry.original), after.exists ? textOf(after.content) : '');
-        return { path: entry.path, kind: entry.kind, from: entry.renamedFrom || undefined, ...result };
+        return { path: entry.path, kind: entry.kind, from: entry.renamedFrom || undefined, ...result, text: redactText(result.text, { secrets: this.sensitiveValues }) };
     }
 
     /** 恢复到会话开始前的状态。文件在记录之后又被改过时，除非 force，否则拒绝（避免覆盖用户后续工作）。 */
@@ -278,10 +294,17 @@ class AgentChangeLog {
         const entry = this.entries.get(displayPath);
         if (!entry) throw Object.assign(new Error('没有该文件的变更记录'), { code: 'AGENT_CHANGE_NOT_FOUND' });
         if (!this.isRevertible(entry)) throw Object.assign(new Error('原文件过大或未保存快照，无法撤销'), { code: 'AGENT_CHANGE_NOT_REVERTIBLE' });
+        guard.resolveInsideRoot(this.root, entry.path);
+        if (entry.renamedFrom) guard.resolveInsideRoot(this.root, entry.renamedFrom);
         if (!force && entry.afterHash && hashOf(entry.absPath) !== entry.afterHash) {
             throw Object.assign(new Error(`${displayPath} 在这次改动之后又被修改过，撤销会一并丢掉这些后续修改`), { code: 'AGENT_CHANGE_CONFLICT', statusCode: 409 });
         }
-        if (entry.kind === 'rename') {
+        if (entry.renamedFrom && entry.originalExists) {
+            // 目标文件的指纹没有变化，也可能有人在原路径创建了另一个文件。
+            const destination = fs.lstatSync(entry.renamedFromAbs, { throwIfNoEntry: false });
+            if (destination && (!force || !destination.isFile())) {
+                throw Object.assign(new Error(`${entry.renamedFrom} 已被重新创建，撤销会覆盖该文件`), { code: 'AGENT_CHANGE_CONFLICT', statusCode: 409 });
+            }
             if (fs.existsSync(entry.absPath)) {
                 fs.mkdirSync(path.dirname(entry.renamedFromAbs), { recursive: true });
                 fs.renameSync(entry.absPath, entry.renamedFromAbs);

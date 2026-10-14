@@ -1,5 +1,6 @@
 const { run, get, all } = require('./app-db');
 const { v4: uuidv4 } = require('uuid');
+const { redactText, redactValue } = require('./ai-sensitive-data');
 
 const RECENT_CONTEXT_MESSAGES = 8;
 const MAX_ACTIVE_SESSIONS_PER_PAGE = 30;
@@ -14,15 +15,15 @@ const DEFAULT_QUESTIONS = [
 ];
 
 // 每个租户是独立的数据库文件：建表要按数据库各做一次（只做一次会让第二个租户缺表）
-const readyByDb = new Map();
-const { getDbPath } = require('./app-db');
+const readyByDb = new WeakMap();
+const { getDatabase } = require('./app-db');
 
 function buildId(prefix) {
     return `${prefix}_${uuidv4().replace(/-/g, '').slice(0, 16)}`;
 }
 
 async function ensureReady() {
-    const dbKey = getDbPath();
+    const dbKey = getDatabase();
     let initPromise = readyByDb.get(dbKey);
     if (!initPromise) {
         initPromise = (async () => {
@@ -77,6 +78,7 @@ async function ensureReady() {
             `);
             // 工具调用、审批、命令输出等过程记录（JSON），恢复对话时重放成卡片
             await addColumnIfMissing('ai_chat_messages', 'events', "TEXT NOT NULL DEFAULT ''");
+            await addColumnIfMissing('ai_question_suggestions', 'owner', "TEXT NOT NULL DEFAULT ''");
             await run('CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_session ON ai_chat_messages(session_id, created_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_page ON ai_chat_sessions(page_path, updated_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_archive ON ai_chat_sessions(is_archived, archived_at, updated_at)');
@@ -127,13 +129,25 @@ function isInvalidQuestion(value) {
     return /^\[object\s+\w+Event\]$/i.test(String(value || '').trim());
 }
 
+function forbiddenSession() {
+    return Object.assign(new Error('无权访问该对话'), { code: 'AI_SESSION_FORBIDDEN', statusCode: 403 });
+}
+
+// 不猜测旧共享会话的所有者，也不因为调用者知道 ID 就允许认领或追加。
+async function assertSessionOwner(sessionId, owner) {
+    await ensureReady();
+    const row = await get('SELECT id, owner FROM ai_chat_sessions WHERE id = ?', [sessionId]);
+    if (row && row.owner !== String(owner || '')) throw forbiddenSession();
+    return row;
+}
+
 async function getOrCreateSession({ sessionId, pagePath, pageTitle, owner = '' }) {
     await ensureReady();
     const normalizedPath = normalizePagePath(pagePath);
     const cleanTitle = String(pageTitle || '').slice(0, 200);
     const cleanOwner = String(owner || '').slice(0, 120);
     if (sessionId) {
-        const existing = await get('SELECT id FROM ai_chat_sessions WHERE id = ?', [sessionId]);
+        const existing = await assertSessionOwner(sessionId, cleanOwner);
         if (existing) {
             await run(
                 `UPDATE ai_chat_sessions
@@ -155,9 +169,10 @@ async function getOrCreateSession({ sessionId, pagePath, pageTitle, owner = '' }
 }
 
 /** 记录该对话最近使用的工作区智能体会话与目录 */
-async function setSessionAgent(sessionId, { agentSessionId, root }) {
+async function setSessionAgent(sessionId, { agentSessionId, root, owner }) {
     await ensureReady();
     if (!sessionId || !agentSessionId || !root) return;
+    if (owner !== undefined) await assertSessionOwner(sessionId, owner);
     await run('UPDATE ai_chat_sessions SET agent_session_id = ?, agent_root = ? WHERE id = ?', [String(agentSessionId).slice(0, 100), String(root).slice(0, 1000), sessionId]);
 }
 
@@ -208,7 +223,7 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
     const normalizedPath = normalizePagePath(pagePath);
     const cleanTitle = String(pageTitle || '').slice(0, 200);
     const finalSessionId = await getOrCreateSession({ sessionId, pagePath: normalizedPath, pageTitle: cleanTitle, owner });
-    const eventsJson = Array.isArray(events) && events.length ? JSON.stringify(events).slice(0, 400 * 1024) : '';
+    const eventsJson = Array.isArray(events) && events.length ? JSON.stringify(redactValue(events)).slice(0, 400 * 1024) : '';
     await run(
         `INSERT INTO ai_chat_messages (id, session_id, page_path, page_title, role, content, tokens, cost, events)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -218,7 +233,7 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
             normalizedPath,
             cleanTitle,
             role === 'model' ? 'model' : 'user',
-            String(content || '').slice(0, 20000),
+            redactText(content || '').slice(0, 20000),
             Math.max(0, Number(tokens) || 0),
             Math.max(0, Number(cost) || 0),
             eventsJson.endsWith(']') ? eventsJson : '' // 超长被截断的 JSON 不保存
@@ -229,12 +244,13 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
     return finalSessionId;
 }
 
-async function recordQuestion({ pagePath, question }) {
+async function recordQuestion({ pagePath, question, owner } = {}) {
     await ensureReady();
     const normalizedPath = normalizePagePath(pagePath);
-    const clean = cleanQuestion(question);
-    const key = normalizeQuestion(clean);
-    if (!clean || isInvalidQuestion(clean) || key.length < 2) return null;
+    const clean = cleanQuestion(redactText(question));
+    const normalizedKey = normalizeQuestion(clean);
+    const key = owner !== undefined ? `${encodeURIComponent(String(owner))}::${normalizedKey}` : normalizedKey;
+    if (!clean || isInvalidQuestion(clean) || normalizedKey.length < 2) return null;
     const existing = await get(
         `SELECT id, question, hit_count
          FROM ai_question_suggestions
@@ -256,9 +272,9 @@ async function recordQuestion({ pagePath, question }) {
     const id = buildId('suggest');
     await run(
         `INSERT INTO ai_question_suggestions
-         (id, page_path, normalized_key, question, source, hit_count)
-         VALUES (?, ?, ?, ?, 'history', 1)`,
-        [id, normalizedPath, key, clean]
+         (id, page_path, normalized_key, question, source, hit_count, owner)
+         VALUES (?, ?, ?, ?, 'history', 1, ?)`,
+        [id, normalizedPath, key, clean, String(owner || '')]
     );
     return id;
 }
@@ -286,8 +302,9 @@ async function autoArchiveSessions() {
     }
 }
 
-async function setSessionArchived(sessionId, archived = true) {
+async function setSessionArchived(sessionId, archived = true, { owner } = {}) {
     await ensureReady();
+    if (owner !== undefined) await assertSessionOwner(sessionId, owner);
     await run(`
         UPDATE ai_chat_sessions
         SET is_archived = ?,
@@ -298,7 +315,7 @@ async function setSessionArchived(sessionId, archived = true) {
     return getSession(sessionId);
 }
 
-async function listSuggestions({ pagePath, limit = 8 } = {}) {
+async function listSuggestions({ pagePath, limit = 8, owner } = {}) {
     await ensureReady();
     const normalizedPath = normalizePagePath(pagePath);
     const safeLimit = Math.max(1, Math.min(Number(limit) || 8, 12));
@@ -306,9 +323,10 @@ async function listSuggestions({ pagePath, limit = 8 } = {}) {
         `SELECT id, question, source, hit_count, last_used_at
          FROM ai_question_suggestions
          WHERE enabled = 1 AND (page_path = ? OR page_path = '*')
+         ${owner !== undefined ? "AND (source <> 'history' OR owner = ?)" : ''}
          ORDER BY page_path = ? DESC, hit_count DESC, last_used_at DESC
          LIMIT ?`,
-        [normalizedPath, normalizedPath, safeLimit]
+        [normalizedPath, ...(owner !== undefined ? [String(owner)] : []), normalizedPath, safeLimit]
     );
     const seen = new Set();
     const items = [];
@@ -335,7 +353,7 @@ async function listSuggestions({ pagePath, limit = 8 } = {}) {
     return items;
 }
 
-async function listSessions({ pagePath, limit = 20 } = {}) {
+async function listSessions({ pagePath, limit = 20, owner } = {}) {
     await ensureReady();
     await autoArchiveSessions();
     const normalizedPath = normalizePagePath(pagePath);
@@ -352,12 +370,12 @@ async function listSessions({ pagePath, limit = 20 } = {}) {
                 ) AS last_question
          FROM ai_chat_sessions s
          LEFT JOIN ai_chat_messages m ON m.session_id = s.id
-         WHERE s.page_path = ? AND s.is_archived = 0
+         WHERE s.page_path = ? AND s.is_archived = 0 ${owner !== undefined ? 'AND s.owner = ?' : ''}
          GROUP BY s.id
          HAVING message_count > 0
          ORDER BY s.updated_at DESC, s.rowid DESC
          LIMIT ?`,
-        [normalizedPath, safeLimit]
+        [normalizedPath, ...(owner !== undefined ? [String(owner)] : []), safeLimit]
     );
     return rows.map(row => ({
         ...row,
@@ -365,7 +383,7 @@ async function listSessions({ pagePath, limit = 20 } = {}) {
     }));
 }
 
-async function listArchivedSessions({ query = '', limit = 60, offset = 0, archivedOnly = false, status = 'all' } = {}) {
+async function listArchivedSessions({ query = '', limit = 60, offset = 0, archivedOnly = false, status = 'all', owner } = {}) {
     await ensureReady();
     await autoArchiveSessions();
     const safeLimit = Math.max(1, Math.min(Number(limit) || 60, 200));
@@ -383,13 +401,14 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
         statusSql = 'AND s.is_archived = 0';
     }
 
-    const filterSql = cleanQuery
+    const querySql = cleanQuery
         ? `AND (s.page_title LIKE ? OR s.page_path LIKE ? OR EXISTS (
               SELECT 1 FROM ai_chat_messages sm
               WHERE sm.session_id = s.id AND sm.content LIKE ?
           ))`
         : '';
-    const params = cleanQuery ? [pattern, pattern, pattern] : [];
+    const filterSql = `${owner !== undefined ? 'AND s.owner = ?' : ''} ${querySql}`;
+    const params = [...(owner !== undefined ? [String(owner)] : []), ...(cleanQuery ? [pattern, pattern, pattern] : [])];
     const totalRow = await get(
         `SELECT COUNT(1) AS count
          FROM ai_chat_sessions s
@@ -424,8 +443,9 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
     };
 }
 
-async function listMessages(sessionId) {
+async function listMessages(sessionId, { owner } = {}) {
     await ensureReady();
+    if (owner !== undefined) await assertSessionOwner(sessionId, owner);
     return all(
         `SELECT id, session_id, role, content, tokens, cost, created_at, events
          FROM ai_chat_messages

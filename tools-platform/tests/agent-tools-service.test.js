@@ -108,7 +108,7 @@ test('write_file, delete_path and rename_path stay inside the root and are track
     assert.equal(fs.existsSync(path.join(sandbox, 'evil.txt')), false);
 
     const renamed = await tools.execute(context, 'rename_path', { from: 'docs/new.md', to: 'docs/renamed.md' });
-    assert.equal(renamed.change.kind, 'rename');
+    assert.equal(renamed.change.kind, 'create', 'a file created in this session remains a creation after moving');
     assert.equal(fs.existsSync(path.join(root, 'docs', 'renamed.md')), true);
     const clash = await tools.execute(context, 'rename_path', { from: 'docs/renamed.md', to: 'README.md' });
     assert.equal(clash.isError, true);
@@ -119,9 +119,8 @@ test('write_file, delete_path and rename_path stay inside the root and are track
     const dirWithoutFlag = await tools.execute(context, 'delete_path', { path: 'docs' });
     assert.equal(dirWithoutFlag.isError, true);
     const deleted = await tools.execute(context, 'delete_path', { path: 'docs/renamed.md' });
-    assert.equal(deleted.change.kind, 'delete');
-    // 撤销回到会话开始前：该文件本来不存在
-    context.changeLog.revert('docs/renamed.md');
+    assert.equal(deleted.change, null);
+    assert.equal(context.changeLog.summary().some(item => item.path === 'docs/renamed.md'), false, 'create then delete is already back to the initial state');
     assert.equal(fs.existsSync(path.join(root, 'docs', 'renamed.md')), false);
     assert.equal(fs.existsSync(path.join(root, 'docs', 'new.md')), false);
 

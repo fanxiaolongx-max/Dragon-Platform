@@ -159,7 +159,8 @@ test('select validates the directory, remembers it per user and prefs round-trip
 });
 
 test('approvals and changes endpoints check existence and ownership', async () => {
-    assert.equal((await call('POST', '/approvals/nope', { headers: viewerLocal, body: { decision: 'allow' } })).status, 404);
+    assert.equal((await call('POST', '/approvals/nope', { headers: viewerLocal, body: { decision: 'allow' } })).status, 403);
+    assert.equal((await call('POST', '/approvals/nope', { headers: ownerAdmin, body: { decision: 'allow' } })).status, 404);
 
     const sessionId = 'route-session-0001';
     const user = { username: 'viewer', role: 'admin' };
@@ -171,7 +172,8 @@ test('approvals and changes endpoints check existence and ownership', async () =
     const approval = await waitFor(() => events.find(event => event.type === 'approval'));
 
     assert.equal((await call('POST', `/approvals/${approval.id}`, { headers: adminRemote, body: { decision: 'allow' } })).status, 403, 'another user cannot approve');
-    const allowed = await call('POST', `/approvals/${approval.id}`, { headers: viewerLocal, body: { decision: 'allow' } });
+    assert.equal((await call('POST', `/approvals/${approval.id}`, { headers: viewerLocal, body: { decision: 'allow' } })).status, 403, 'a demoted owner cannot approve an old admin request');
+    const allowed = await call('POST', `/approvals/${approval.id}`, { headers: ownerAdmin, body: { decision: 'allow' } });
     assert.equal(allowed.status, 200);
     // 第二次 generateText 返回文本结束循环
     client.generateText = async () => ({ text: 'done', toolCalls: [], usage: {} });

@@ -13,6 +13,7 @@ const aiToolDataService = require('../models/ai-tool-data-service');
 const customToolsRepo = require('../models/custom-tools-repository');
 const agentRunManager = require('../models/agent-run-manager');
 const agentWorkspaceAccess = require('../models/agent-workspace-access');
+const { redactText, redactValue } = require('../models/ai-sensitive-data');
 const { getTenantId } = require('../models/tenant-context');
 
 console.log('[AI] AI Assistant route loaded. Runtime config will be read from settings, with provider-specific env fallback.');
@@ -562,6 +563,7 @@ router.post('/chat', checkAuth, async (req, res) => {
     let historyContext = null;
     let historySaved = false;
     let agentSession = null;
+    let sensitiveValues = [];
     const RECORDED_EVENT_TYPES = new Set(['tool_start', 'tool_result', 'approval', 'approval_result']);
     const recordEvent = payload => {
         if (!payload) return;
@@ -569,6 +571,7 @@ router.post('/chat', checkAuth, async (req, res) => {
         else if (RECORDED_EVENT_TYPES.has(payload.type) && recordedEvents.length < 400) recordedEvents.push(compactRecordedEvent(payload));
     };
     const writeStreamEvent = payload => {
+        payload = redactValue(payload, { secrets: sensitiveValues });
         recordEvent(payload);
         if (!streamStarted || res.destroyed || res.writableEnded) return;
         res.write(`${JSON.stringify(payload)}\n`);
@@ -579,7 +582,7 @@ router.post('/chat', checkAuth, async (req, res) => {
         historySaved = true;
         try {
             await aiChatRepo.addMessage({ ...historyContext, role: 'user', content: historyContext.question });
-            await aiChatRepo.addMessage({ ...historyContext, role: 'model', content: `${streamedText.trim()}${streamedText.trim() ? '\n\n' : ''}> ${note}`, events: recordedEvents });
+            await aiChatRepo.addMessage({ ...historyContext, role: 'model', content: `${streamedText.trim()}${streamedText.trim() ? '\n\n' : ''}> ${redactText(note, { secrets: sensitiveValues })}`, events: recordedEvents });
         } catch (saveErr) {
             console.warn('[AI] failed to persist interrupted turn:', saveErr.message || saveErr);
         }
@@ -604,6 +607,8 @@ router.post('/chat', checkAuth, async (req, res) => {
             });
         }
 
+        sensitiveValues = await aiSettingsRepo.getRedactionSecrets();
+        req.body = redactValue(req.body, { secrets: sensitiveValues });
         const { messages, context, pageTitle, pagePath, sessionId, persist, uiLanguage, stream, codeAnalysis, agent, toolSlug, clientToolData, workspace } = req.body;
         // 首页 Dragon Claw 是全能智能体：不限于平台问题，context 为平台工具目录而非页面文本。
         const homeAgent = agent === 'dragon-claw-home';
@@ -780,9 +785,10 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             : null;
         const agentResult = agentMode
             ? await agentRunManager.runAgentTurn({
+                sensitiveValues,
                 session: agentSession,
                 client: aiClient,
-                systemInstruction,
+                systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 historyMessages: effectiveMessages,
                 write: event => {
                     if (event.type === 'delta') streamHasDelta = true;
@@ -797,9 +803,9 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         const result = agentResult || (analysisResult ? analysisResult.result : await generateResponse());
         const persistedQuestion = analysisResult ? analysisResult.content : lastMessage.content;
         // 历史记录只存文本：工作区模式附上工具调用摘要，便于下一轮延续。
-        const responseText = agentResult && agentResult.toolLog.length
+        const responseText = redactText(agentResult && agentResult.toolLog.length
             ? `${result.text}\n\n（本轮调用工具 ${agentResult.toolCallCount} 次：${agentResult.toolLog.slice(0, 8).map(item => `${item.tool}${item.ok ? '' : '✗'}`).join('、')}${agentResult.toolLog.length > 8 ? '…' : ''}）`
-            : result.text;
+            : result.text, { secrets: sensitiveValues });
         
         let totalTokens = 0;
         let promptTokens = 0;
@@ -839,8 +845,9 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                     cost: costMao,
                     events: recordedEvents
                 });
-                if (agentSession) await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root });
+                if (agentSession) await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username });
                 await aiChatRepo.recordQuestion({
+                    owner: req.user.username,
                     pagePath: normalizedPath,
                     question: analysisResult ? String(codeAnalysis?.displayText || '分析知识文件').slice(0, 500) : lastMessage.content
                 });
@@ -881,13 +888,13 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         }
     } catch (error) {
         if (agentSession && historyContext) {
-            await aiChatRepo.setSessionAgent(historyContext.sessionId, { agentSessionId: agentSession.id, root: agentSession.root }).catch(() => {});
+            await aiChatRepo.setSessionAgent(historyContext.sessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username }).catch(() => {});
         }
         if (providerAbortController?.signal.aborted && error?.name === 'AbortError') {
             await saveInterruptedTurn('（已停止生成）');
             return;
         }
-        console.error('[AI] Chat error:', error);
+        console.error('[AI] Chat error:', redactText(error.stack || error.message, { secrets: sensitiveValues }));
         await saveInterruptedTurn(`⚠️ 本轮出错：${String(error?.message || error).slice(0, 300)}`);
         if (streamStarted) {
             if (!res.destroyed && !res.writableEnded) {
@@ -906,7 +913,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 error: 'AI 服务当前繁忙，已自动重试但仍未成功。请稍后再试，或在全局设置中临时切换其他可用模型。'
             });
         }
-        res.status(500).json({ error: 'AI 思考时出现异常: ' + error.message });
+        res.status(error.statusCode || 500).json({ code: error.code, error: 'AI 思考时出现异常: ' + redactText(error.message, { secrets: sensitiveValues }) });
     }
 });
 
@@ -1115,6 +1122,7 @@ router.get('/knowledge/document-content', checkAuth, async (req, res) => {
 router.get('/suggestions', checkAuth, async (req, res) => {
     try {
         const items = await aiChatRepo.listSuggestions({
+            owner: req.user.username,
             pagePath: req.query.pagePath || req.get('referer') || '',
             limit: req.query.limit
         });
@@ -1139,6 +1147,7 @@ router.get('/sessions', checkAuth, async (req, res) => {
             return res.json({ items });
         }
         const items = await aiChatRepo.listSessions({
+            owner: req.user.username,
             pagePath: req.query.pagePath || req.get('referer') || '',
             limit: req.query.limit
         });
@@ -1152,6 +1161,7 @@ router.get('/sessions', checkAuth, async (req, res) => {
 router.get('/sessions-archive', checkAuth, async (req, res) => {
     try {
         res.json(await aiChatRepo.listArchivedSessions({
+            owner: req.user.username,
             query: req.query.query,
             limit: req.query.limit,
             offset: req.query.offset,
@@ -1166,31 +1176,31 @@ router.get('/sessions-archive', checkAuth, async (req, res) => {
 
 router.post('/sessions/:sessionId/archive', checkAuth, async (req, res) => {
     try {
-        const session = await aiChatRepo.setSessionArchived(req.params.sessionId, true);
+        const session = await aiChatRepo.setSessionArchived(req.params.sessionId, true, { owner: req.user.username });
         if (!session) return res.status(404).json({ error: '会话不存在' });
         res.json({ session });
     } catch (err) {
-        res.status(500).json({ error: '归档会话失败: ' + err.message });
+        res.status(err.statusCode || 500).json({ code: err.code, error: '归档会话失败: ' + err.message });
     }
 });
 
 router.post('/sessions/:sessionId/unarchive', checkAuth, async (req, res) => {
     try {
-        const session = await aiChatRepo.setSessionArchived(req.params.sessionId, false);
+        const session = await aiChatRepo.setSessionArchived(req.params.sessionId, false, { owner: req.user.username });
         if (!session) return res.status(404).json({ error: '会话不存在' });
         res.json({ session });
     } catch (err) {
-        res.status(500).json({ error: '恢复归档会话失败: ' + err.message });
+        res.status(err.statusCode || 500).json({ code: err.code, error: '恢复归档会话失败: ' + err.message });
     }
 });
 
 router.get('/sessions/:sessionId/messages', checkAuth, async (req, res) => {
     try {
-        const items = await aiChatRepo.listMessages(req.params.sessionId);
+        const items = await aiChatRepo.listMessages(req.params.sessionId, { owner: req.user.username });
         res.json({ items });
     } catch (err) {
         console.error('[AI] session messages failed:', err);
-        res.status(500).json({ error: '读取历史消息失败: ' + err.message });
+        res.status(err.statusCode || 500).json({ code: err.code, error: '读取历史消息失败: ' + err.message });
     }
 });
 

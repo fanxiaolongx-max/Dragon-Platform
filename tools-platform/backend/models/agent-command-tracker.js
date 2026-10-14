@@ -89,10 +89,15 @@ async function captureBefore(root) {
     if (info) {
         const files = await gitStatusFiles(info, root);
         if (files === null) return null;
+        // 固定执行前的 HEAD 和文件清单。命令可以提交、reset 或删除文件，不能再用执行后的 HEAD 推断原状态。
+        const trackedOutput = await git.runGit(info.git, root, ['ls-files', '-z', '--full-name', '--', '.']);
+        if (trackedOutput === null) return null;
+        const tracked = new Set(trackedOutput.split('\0').filter(Boolean).map(file => git.toRootPath(info, root, file)).filter(Boolean));
+        const head = info.hasHead ? await git.runGit(info.git, root, ['rev-parse', '--verify', 'HEAD']) : null;
         const budget = { left: MAX_CAPTURE_BYTES };
         const dirty = new Map();
         for (const display of [...files].slice(0, MAX_TRACKED)) dirty.set(display, snapshot(path.join(root, display), budget));
-        return { mode: 'git', info, dirty, overflow: files.size > MAX_TRACKED };
+        return { mode: 'git', info, head: head?.trim(), tracked, dirty, overflow: files.size > MAX_TRACKED };
     }
     const files = new Map();
     const budget = { left: FS_CONTENT_BUDGET };
@@ -120,8 +125,10 @@ async function detectAfter(root, before) {
             if (before.overflow) continue; // 执行前没能完整捕获，无法区分是否为本次命令造成
             // 执行前是干净的已跟踪文件或不存在：原内容取自 HEAD
             const repoRelative = path.relative(before.info.top, abs).split(path.sep).join('/');
-            const original = before.info.hasHead ? await runGitBuffer(before.info.git, before.info.top, ['show', `HEAD:${repoRelative}`]) : null;
-            push({ display, abs, originalExists: original !== null, original, originalTooLarge: false });
+            const existed = before.tracked.has(display);
+            const original = existed && before.head ? await runGitBuffer(before.info.git, before.info.top, ['show', `${before.head}:${repoRelative}`]) : null;
+            // 超限、超时或 git 读取失败都不代表原文件不存在。宁可禁用撤销，也不能把原文件当新建文件删除。
+            push({ display, abs, originalExists: existed, original, originalTooLarge: existed && original === null });
         }
         return changes;
     }

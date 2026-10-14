@@ -84,6 +84,14 @@ function isSecretFile(filePath) {
     return SECRET_FILE_RE.test(String(filePath || ''));
 }
 
+function assertNotSecretFile(filePath) {
+    let real = filePath;
+    try { real = fs.realpathSync(filePath); } catch (error) {
+        if (!['ENOENT', 'ENOTDIR'].includes(error.code)) throw error;
+    }
+    if (isSecretFile(filePath) || isSecretFile(real)) throw pathError('AGENT_SECRET_FILE', 'AI 工具不可读取或修改凭据/环境变量文件');
+}
+
 module.exports = {
     IGNORED_DIRS,
     isInside,
@@ -94,5 +102,6 @@ module.exports = {
     isIgnoredDirName,
     looksBinaryByName,
     isBinaryBuffer,
-    isSecretFile
+    isSecretFile,
+    assertNotSecretFile
 };

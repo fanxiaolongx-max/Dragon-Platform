@@ -5,10 +5,15 @@ const fs = require('fs');
 const path = require('path');
 const { findExecutable, _internal: prInternal } = require('./agent-pr-service');
 const { unifiedDiff, diffLines } = require('./agent-change-log');
+const guard = require('./agent-path-guard');
+const { redactValue } = require('./ai-sensitive-data');
 
 const MAX_ENTRIES = 200;
 const MAX_TEXT_BYTES = 512 * 1024;
 const GIT_TIMEOUT_MS = 5000;
+// 仓库配置可以使 status/diff 执行 fsmonitor、external diff 或 textconv。
+// 这些辅助查询对普通账号也开放，必须禁用项目配置中的可执行扩展。
+const READ_ONLY_GIT_ARGS = ['--literal-pathspecs', '-c', 'core.fsmonitor=false', '-c', 'diff.external='];
 
 function gitBinary() {
     return findExecutable('git', prInternal.GIT_CANDIDATES).path;
@@ -17,7 +22,8 @@ function gitBinary() {
 // 成功返回 stdout，失败（非 git、无 HEAD、超时）返回 null。GIT_OPTIONAL_LOCKS=0：只读刷新不抢 index 锁。
 function runGit(git, cwd, args) {
     return new Promise(resolve => {
-        execFile(git, args, {
+        const safeArgs = args[0] === 'diff' ? [args[0], '--no-ext-diff', '--no-textconv', ...args.slice(1)] : args;
+        execFile(git, [...READ_ONLY_GIT_ARGS, ...safeArgs], {
             cwd,
             timeout: GIT_TIMEOUT_MS,
             maxBuffer: 8 * 1024 * 1024,
@@ -45,8 +51,11 @@ function toRootPath(info, root, repoRelative) {
     return rel.split(path.sep).join('/');
 }
 
-function readText(absPath) {
+function readText(absPath, root) {
     try {
+        guard.resolveInsideRoot(root, absPath);
+        guard.assertNotSecretFile(absPath);
+        if (guard.looksBinaryByName(absPath)) return null;
         const stat = fs.statSync(absPath);
         if (!stat.isFile() || stat.size > MAX_TEXT_BYTES) return null;
         const buffer = fs.readFileSync(absPath);
@@ -120,7 +129,7 @@ async function listChanges(root) {
         if (numstat.has(entry.file)) {
             ({ added, removed, binary } = numstat.get(entry.file));
         } else if (entry.kind === 'create') {
-            const text = readText(path.join(info.top, entry.file));
+            const text = readText(path.join(info.top, entry.file), root);
             if (text !== null) added = diffLines('', text).added;
             else binary = fs.existsSync(path.join(info.top, entry.file));
         }
@@ -134,12 +143,14 @@ async function listChanges(root) {
 }
 
 /** 单个文件相对 HEAD 的 unified diff；未跟踪文件按新建展示。 */
-async function diff(root, displayPath) {
+async function readDiff(root, displayPath) {
     const info = await repoInfo(root);
     if (!info) return null;
     const abs = path.resolve(root, String(displayPath || ''));
     const relToRoot = path.relative(root, abs);
     if (!relToRoot || relToRoot.startsWith('..') || path.isAbsolute(relToRoot)) return null;
+    guard.resolveInsideRoot(root, displayPath);
+    guard.assertNotSecretFile(abs);
     const repoRelative = path.relative(info.top, abs).split(path.sep).join('/');
     const args = info.hasHead ? ['diff', 'HEAD', '-M', '--', repoRelative] : ['diff', '--cached', '--', repoRelative];
     // 路径参数相对 git 的当前目录解释：在仓库根目录执行，用仓库相对路径
@@ -155,12 +166,16 @@ async function diff(root, displayPath) {
     }
     const tracked = await runGit(info.git, info.top, ['ls-files', '--', repoRelative]);
     if (tracked && tracked.trim()) return { path: display, kind: 'modify', text: '', added: 0, removed: 0, truncated: false, source: 'git' };
-    const text = readText(abs);
+    const text = readText(abs, root);
     if (text === null) {
         if (!fs.existsSync(abs)) return { path: display, kind: 'delete', text: '', added: 0, removed: 0, truncated: false, source: 'git' };
         return { path: display, kind: 'create', text: '（二进制或过大的文件，不显示内容）', added: 0, removed: 0, truncated: true, source: 'git' };
     }
     return { path: display, kind: 'create', ...unifiedDiff(display, '', text), source: 'git' };
+}
+
+async function diff(root, displayPath) {
+    return redactValue(await readDiff(root, displayPath));
 }
 
 /**
