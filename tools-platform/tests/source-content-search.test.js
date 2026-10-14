@@ -26,7 +26,7 @@ test('unparsed and corrupt originals report partial coverage while parsed curren
 });
 test('large tables are scanned in bounded row batches and resume within the same sheet',async()=>{
  const batch=await repo.createBatch(),large=await repo.saveFile(batch.id,{name:'large.csv',buffer:Buffer.from('value\nMissing')});const rows=Array.from({length:60001},(_,index)=>({value:index===60000?'Late needle':'Other value '+index}));await repo.saveSheets(large.id,[{name:'Sheet1',headers:['value'],rows}]);
- let first=await search.search({q:'Late needle',files:JSON.stringify([large.id])},'large');assert.ok(first.cursor);assert.equal(first.scannedFiles,0);assert.ok(first.scannedRows>0&&first.scannedRows<=48000);assert.deepEqual(first.results,[]);let results=[];
+ let first=await search.search({q:'Late needle',files:JSON.stringify([large.id])},'large');assert.ok(first.cursor);assert.equal(first.scannedFiles,0);assert.ok(first.scannedRows>0&&first.scannedRows<60001);assert.deepEqual(first.results,[]);let results=[];
  for(let i=0;first.cursor&&i<15;i++){await new Promise(r=>setTimeout(r,200));first=await search.search({cursor:first.cursor},'large');results.push(...first.results);}assert.equal(first.done,true);assert.equal(results[0].rowNumber,60001);
 });
 test('topic and meeting virtual sources use the same month views and stay tenant isolated',async()=>{

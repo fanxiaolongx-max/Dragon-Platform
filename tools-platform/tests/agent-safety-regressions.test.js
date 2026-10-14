@@ -34,7 +34,12 @@ function project() {
     return { root, changeLog: new AgentChangeLog(root), signal: new AbortController().signal };
 }
 function git(root, ...args) {
-    return execFileSync('git', args, { cwd: root, encoding: 'utf8', env: { ...process.env, GIT_AUTHOR_NAME: 'test', GIT_AUTHOR_EMAIL: 'test@example.invalid', GIT_COMMITTER_NAME: 'test', GIT_COMMITTER_EMAIL: 'test@example.invalid' } }).trim();
+    const res = execFileSync('git', args, { cwd: root, encoding: 'utf8', env: { ...process.env, GIT_AUTHOR_NAME: 'test', GIT_AUTHOR_EMAIL: 'test@example.invalid', GIT_COMMITTER_NAME: 'test', GIT_COMMITTER_EMAIL: 'test@example.invalid' } }).trim();
+    if (args[0] === 'init') {
+        execFileSync('git', ['config', 'user.name', 'test'], { cwd: root, env: process.env });
+        execFileSync('git', ['config', 'user.email', 'test@example.invalid'], { cwd: root, env: process.env });
+    }
+    return res;
 }
 
 test('unavailable original Git content never turns an existing large file into a removable create', async () => {
