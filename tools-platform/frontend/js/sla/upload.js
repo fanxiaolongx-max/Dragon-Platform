@@ -9,6 +9,13 @@ const SPECIAL_PRIORITY_COLS = ['task_id', 'network_name', 'owner_show', '状态-
 const SR_PRIORITY_COLS      = ['sr_num', 't1_operator', 'product_line_map', 'product', 'sr_owner', 'hw_sev_name', 'urgency', 'sr_status_name', 'open_date', 'exp_close_date', 'sus_exp_close_date', 'act_close_date', 'overdue', 'sr_id', 'customer_name', 'country_name_cn', 'repoffice_name_cn'];
 const VULN_PRIORITY_COLS    = ['task_id', 'task_status', 'network_customer_name', 'task_owner_name', 'create_time', 'task_create_time', 'vuln_id', 'vulnerability_id', '漏洞编号', '漏洞名称', 'vulnerability_name', 'customer_name', 'network_name'];
 const SLA_MONITORING_SECTION_ORDER = ['rectification', 'special', 'risk', 'sr', 'vulnerability'];
+const SLA_MONITORING_FILE_PATTERNS = [
+    ['rectification', /^PBI_自动抓取-整改详单_整改(?:[-_][a-z0-9]+)*_Latest/i],
+    ['special', /^PBI_自动抓取-CPT风险详表(?:[-_][a-z0-9]+)*_Latest/i],
+    ['risk', /^PBI_自动抓取-风险详单(?:[-_][a-z0-9]+)*_Latest/i],
+    ['sr', /^PBI_自动抓取-详单-SR(?:[-_][a-z0-9]+)*_Latest/i],
+    ['vulnerability', /^PBI_自动抓取-详单漏洞_漏洞预警(?:[-_][a-z0-9]+)*_Latest/i]
+];
 const SLA_WORKSPACE_CACHE_KEY = 'sla_last_import_workspace_v1';
 const SLA_WORKSPACE_CACHE_STATUS_KEY = 'sla_last_import_workspace_status_v1';
 const SLA_RUNTIME_FIELDS = new Set([
@@ -501,6 +508,11 @@ function getSourceName(source) {
     return String(source && source.name || '').trim();
 }
 
+function getMonitoringModeFromName(name) {
+    // Script renaming also changes download names, e.g. 风险详单-CN_Latest.csv.
+    return SLA_MONITORING_FILE_PATTERNS.find(([, pattern]) => pattern.test(String(name || '').trim()))?.[0] || 'other';
+}
+
 function getSourceNames(sources) {
     return Array.from(new Set((sources || []).map(getSourceName).filter(Boolean)));
 }
@@ -638,11 +650,8 @@ async function processBatchFilesInternal(files, meta = {}) {
 
     files.forEach(file => {
         const name = file.name;
-        if (name.startsWith('PBI_自动抓取-整改详单_整改_Latest')) { groups.rectification.files.push(file); }
-        else if (name.startsWith('PBI_自动抓取-CPT风险详表_Latest')) { groups.special.files.push(file); }
-        else if (name.startsWith('PBI_自动抓取-风险详单_Latest')) { groups.risk.files.push(file); }
-        else if (name.startsWith('PBI_自动抓取-详单-SR_Latest')) { groups.sr.files.push(file); }
-        else if (name.startsWith('PBI_自动抓取-详单漏洞_漏洞预警_Latest')) { groups.vulnerability.files.push(file); }
+        const mode = getMonitoringModeFromName(name);
+        if (mode !== 'other') { groups[mode].files.push(file); }
         else {
             let baseName = name;
             const match = name.match(/(.*?Latest)/i);
@@ -931,32 +940,30 @@ async function captureAndUploadSnapshot(fileNames, meta = {}) {
         console.error('Snapshot upload failed', e);
 
         if (!isSLACompressionSupported()) {
-            showToast('❌ 历史快照上传失败，当前浏览器不支持压缩重试', 'error');
-            throw e;
-        }
+            showToast('⚠️ 历史快照上传失败，当前浏览器不支持压缩重试', 'warning');
+        } else {
+            try {
+                logSLAUploadStep('普通快照上传失败，开始构建 gzip 压缩重试请求');
+                const compressedBody = await buildCompressedSnapshotBody(snapshot, 'gzip');
+                const compressedStats = {
+                    requestBytes: getJSONBytes(compressedBody),
+                    originalBytes: compressedBody.transport.originalBytes,
+                    compressedBytes: compressedBody.transport.compressedBytes,
+                    files: snapshot.files.length,
+                    expiringTicketCount: snapshot.expiringTickets.length
+                };
+                logSLAUploadStep('gzip 压缩快照请求已构建', compressedStats);
 
-        try {
-            logSLAUploadStep('普通快照上传失败，开始构建 gzip 压缩重试请求');
-            const compressedBody = await buildCompressedSnapshotBody(snapshot, 'gzip');
-            const compressedStats = {
-                requestBytes: getJSONBytes(compressedBody),
-                originalBytes: compressedBody.transport.originalBytes,
-                compressedBytes: compressedBody.transport.compressedBytes,
-                files: snapshot.files.length,
-                expiringTicketCount: snapshot.expiringTickets.length
-            };
-            logSLAUploadStep('gzip 压缩快照请求已构建', compressedStats);
-
-            await API[meta.updateId?'put':'post'](meta.updateId?'/api/sla/snapshots/'+encodeURIComponent(meta.updateId):'/api/sla/snapshot', compressedBody);
-            logSLAUploadStep('gzip 压缩快照重试成功', compressedStats);
-            if(!meta.ruleRefresh)showToast('✅ 预警结果已通过压缩重试生成历史快照并存档');
-        } catch (retryError) {
-            logSLAUploadError('gzip 压缩快照重试链路', retryError, {
-                files: snapshot.files.length,
-                expiringTicketCount: snapshot.expiringTickets.length
-            });
-            showToast('❌ 历史快照上传失败，压缩重试也未成功', 'error');
-            throw retryError;
+                await API[meta.updateId?'put':'post'](meta.updateId?'/api/sla/snapshots/'+encodeURIComponent(meta.updateId):'/api/sla/snapshot', compressedBody);
+                logSLAUploadStep('gzip 压缩快照重试成功', compressedStats);
+                if(!meta.ruleRefresh)showToast('✅ 预警结果已通过压缩重试生成历史快照并存档');
+            } catch (retryError) {
+                logSLAUploadError('gzip 压缩快照重试链路', retryError, {
+                    files: snapshot.files.length,
+                    expiringTicketCount: snapshot.expiringTickets.length
+                });
+                showToast('⚠️ 预警结果已生成并在本地生效，历史快照存档未成功（网络拦截或无权限）', 'warning');
+            }
         }
     }
     if(!meta.ruleRefresh){
@@ -994,10 +1001,7 @@ window.addEventListener?.('tools:languagechange', () => {
 function archivedImportDescriptor(file, saved) {
     const known = ['rectification','risk','special','sr','vulnerability'];
     let mode = saved?.mode || (known.includes(saved?.key) ? saved.key : '');
-    if (!mode) {
-        const patterns = [['PBI_自动抓取-整改详单_整改_Latest','rectification'],['PBI_自动抓取-CPT风险详表_Latest','special'],['PBI_自动抓取-风险详单_Latest','risk'],['PBI_自动抓取-详单-SR_Latest','sr'],['PBI_自动抓取-详单漏洞_漏洞预警_Latest','vulnerability']];
-        mode = patterns.find(([prefix])=>file.name.startsWith(prefix))?.[1] || 'other';
-    }
+    if (!mode) mode = getMonitoringModeFromName(file.name);
     const baseName = mode==='other' ? (saved?.baseName || file.name.match(/(.*?Latest)/i)?.[1] || file.name.replace(/\.[a-zA-Z0-9]+$/, '').replace(/\s*\(\d+\)$/, '')) : '';
     const titles = {rectification:'sla.section.title.rectBatch',risk:'sla.section.title.riskBatch',special:'sla.section.title.specialBatch',sr:'sla.section.title.sr',vulnerability:'sla.section.title.vulnBatch'};
     return {secId:saved?.key || (mode==='other'?'other_'+generateSchemaHash(baseName):mode),mode,title:saved?.title || (mode==='other'?SLAT('sla.section.title.other',{name:baseName}):SLAT(titles[mode])),themeColor:{rectification:'#1976d2',risk:'#7b1fa2',special:'#00796b',sr:'#d9480f',vulnerability:'#c2410c'}[mode]||'#555',baseName,originalSchemaHash:saved?.schemaHash||'',savedRules:saved?.rules||[],sourceFiles:[],data:[]};
