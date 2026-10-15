@@ -27,6 +27,7 @@ const { getTenantId, runWithTenant } = require('../models/tenant-context');
 const productUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
 
 router.use('/python-updater', require('./python-updater'));
+router.use('/tool-mv9strpn/warehouse', require('./ezscan-warehouse'));
 
 router.get('/tool-mumxi3px/products', async (req, res, next) => {
     try { res.json(await productScopeRepo.loadProducts()); } catch (err) { next(err); }

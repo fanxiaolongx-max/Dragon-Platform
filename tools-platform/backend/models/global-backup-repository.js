@@ -34,7 +34,8 @@ const schedulerTimers = new Map();
 const schedulerRunning = new Set();
 
 const REPORT_OWNED_FILES = ['report.db', 'report.db-wal', 'report.db-shm'];
-const PRIMARY_SQLITE_SIDECARS = ['tools.db-wal', 'tools.db-shm'];
+const WAREHOUSE_DATABASE_FILE = 'ezscan-warehouse.db';
+const PRIMARY_SQLITE_SIDECARS = ['tools.db-wal', 'tools.db-shm', `${WAREHOUSE_DATABASE_FILE}-wal`, `${WAREHOUSE_DATABASE_FILE}-shm`];
 // Chat history is intentionally managed outside the platform-wide backup lifecycle.
 // Preserve the live tenant copy during restore and never include it in backup archives.
 const CHAT_HISTORY_FILES = ['chat-history.db', 'chat-history.db-wal', 'chat-history.db-shm'];
@@ -187,9 +188,21 @@ function countFilesAndBytes(dir, options = {}) {
     return result;
 }
 
-function getManifest(reason = 'manual', tenant = null) {
+function getManifest(reason = 'manual', tenant = null, databaseSnapshots = []) {
     const targets = getDataTargets().map(target => {
         const absPath = target.absPath;
+        const snapshots = databaseSnapshots.filter(snapshot => snapshot.targetId === target.id);
+        const stats = countFilesAndBytes(absPath, {
+            excludeNames: [
+                ...(target.excludeTopLevel || []),
+                ...(target.id === 'primary_data' ? [WAREHOUSE_DATABASE_FILE] : [])
+            ],
+            includeNames: target.includeTopLevel || null
+        });
+        snapshots.forEach(snapshot => {
+            stats.files += 1;
+            stats.bytes += fs.statSync(snapshot.filePath).size;
+        });
         return {
             id: target.id,
             path: target.id,
@@ -197,10 +210,7 @@ function getManifest(reason = 'manual', tenant = null) {
             excluded: target.excludeTopLevel || [],
             included: target.includeTopLevel || null,
             exists: fs.existsSync(absPath),
-            ...countFilesAndBytes(absPath, {
-                excludeNames: target.excludeTopLevel || [],
-                includeNames: target.includeTopLevel || null
-            })
+            ...stats
         };
     });
     return {
@@ -348,13 +358,21 @@ function addPathToZip(zip, absPath, relPath, target) {
     }
 }
 
-async function writeZip(outputPath, manifest) {
+async function writeZip(outputPath, manifest, databaseSnapshots = []) {
     const zip = new JSZip();
     getDataTargets().forEach(target => {
         const absPath = target.absPath;
         if (fs.existsSync(absPath)) {
-            addPathToZip(zip, absPath, target.id, target);
+            // Warehouse data is copied only from its coherent SQLite snapshot.
+            // Reading the live main file alone could omit committed WAL pages.
+            const zipTarget = target.id === 'primary_data'
+                ? { ...target, excludeTopLevel: [...target.excludeTopLevel, WAREHOUSE_DATABASE_FILE] }
+                : target;
+            addPathToZip(zip, absPath, target.id, zipTarget);
         }
+    });
+    databaseSnapshots.forEach(snapshot => {
+        zip.file(`${snapshot.targetId}/${snapshot.filename}`, fs.readFileSync(snapshot.filePath));
     });
     zip.file('manifest.json', JSON.stringify(manifest, null, 2));
     const content = await zip.generateAsync({
@@ -421,16 +439,26 @@ async function createBackup(options = {}) {
         throw new Error('SQLite WAL 正在被占用，已取消本次备份以避免生成不完整快照');
     }
     reportProgress(options, 'checkpoint-ready', 'SQLite WAL 已安全写入主数据库', checkpointState || null, 'success');
-    reportProgress(options, 'scan', '正在扫描备份数据目录');
-    const tenant = await require('./tenants-repository').getTenantById(getTenantId()).catch(() => null);
-    const manifest = getManifest(reason, tenant);
-    reportProgress(options, 'manifest', `已生成清单：${manifest.totalFiles} 个文件，${manifest.totalBytes} 字节`, {
-        targets: manifest.targets.map(item => ({ id: item.id, files: item.files, bytes: item.bytes }))
-    });
-
+    let snapshotDir = null;
     try {
+        const databaseSnapshots = [];
+        // Do not open or create a warehouse database for tenants that have
+        // never used the tool. Existing databases get an online SQLite copy.
+        if (fs.existsSync(path.join(getDataDir(), WAREHOUSE_DATABASE_FILE))) {
+            ensureDir(getRestoreTmpDir());
+            snapshotDir = fs.mkdtempSync(path.join(getRestoreTmpDir(), 'backup-snapshot-'));
+            const filePath = path.join(snapshotDir, WAREHOUSE_DATABASE_FILE);
+            const created = await require('./ezscan-warehouse-repository').createDatabaseBackup(filePath);
+            if (created) databaseSnapshots.push({ targetId: 'primary_data', filename: WAREHOUSE_DATABASE_FILE, filePath });
+        }
+        reportProgress(options, 'scan', '正在扫描备份数据目录');
+        const tenant = await require('./tenants-repository').getTenantById(getTenantId()).catch(() => null);
+        const manifest = getManifest(reason, tenant, databaseSnapshots);
+        reportProgress(options, 'manifest', `已生成清单：${manifest.totalFiles} 个文件，${manifest.totalBytes} 字节`, {
+            targets: manifest.targets.map(item => ({ id: item.id, files: item.files, bytes: item.bytes }))
+        });
         reportProgress(options, 'compress', '正在压缩备份数据');
-        await writeZip(outputPath, manifest);
+        await writeZip(outputPath, manifest, databaseSnapshots);
         const stat = fs.statSync(outputPath);
         let capacityCleanup = null;
         if (options.skipCapacityPrune !== true) {
@@ -457,6 +485,8 @@ async function createBackup(options = {}) {
         fs.rmSync(outputPath, { force: true });
         reportProgress(options, 'backup-error', `备份生成失败：${err.message}`, null, 'error');
         throw err;
+    } finally {
+        if (snapshotDir) removeRestoreDirBestEffort(snapshotDir);
     }
 }
 

@@ -1,0 +1,168 @@
+/* Warehouse UI theme contract. Every interactive state shares these tokens. */
+:root[data-warehouse-theme] {
+    --ew-page: #eef2f7;
+    --ew-surface: #ffffff;
+    --ew-raised: #f4f7fb;
+    --ew-input: #ffffff;
+    --ew-text: #25384d;
+    --ew-muted: #52657a;
+    --ew-subtle: #5d6e83;
+    --ew-border: #bccada;
+    --ew-strong-border: #7a91ac;
+    --ew-hover: #e4edf8;
+    --ew-selected: #dceafe;
+    --ew-selected-text: #184e8c;
+    --ew-accent: #1658a7;
+    --ew-focus: #185eae;
+    --ew-focus-ring: #185eae33;
+    --ew-disabled-bg: #e8edf3;
+    --ew-disabled-text: #596b7f;
+    --ew-primary: #155bb1;
+    --ew-primary-hover: #104a91;
+    --ew-success-button: #266442;
+    --ew-warning-button: #80500f;
+    --ew-good-bg: #e1f1e7;
+    --ew-good-text: #1f643e;
+    --ew-warning-bg: #fff1cf;
+    --ew-warning-text: #775013;
+    --ew-error-bg: #fce5e4;
+    --ew-error-text: #a32c32;
+    --ew-info-bg: #e7f0fc;
+    --ew-info-text: #315778;
+    --ew-header: #155faf;
+    --ew-side: #1c3650;
+    --ew-side-text: #c4d3e2;
+    --ew-side-muted: #b5c8da;
+    --ew-side-active: #175eaf;
+}
+:root[data-warehouse-theme="dark"] {
+    --ew-page: #162331;
+    --ew-surface: #1d2c3c;
+    --ew-raised: #243548;
+    --ew-input: #142334;
+    --ew-text: #e1ebf5;
+    --ew-muted: #bacbdd;
+    --ew-subtle: #a9bdd1;
+    --ew-border: #536b83;
+    --ew-strong-border: #7f9bb6;
+    --ew-hover: #304b66;
+    --ew-selected: #284e77;
+    --ew-selected-text: #f5f9ff;
+    --ew-accent: #a0cbff;
+    --ew-focus: #96c6ff;
+    --ew-focus-ring: #96c6ff33;
+    --ew-disabled-bg: #263544;
+    --ew-disabled-text: #b0bfce;
+    --ew-primary: #245c9c;
+    --ew-primary-hover: #2d6aaf;
+    --ew-success-button: #286345;
+    --ew-warning-button: #80551d;
+    --ew-good-bg: #194b37;
+    --ew-good-text: #b4f4ce;
+    --ew-warning-bg: #493a22;
+    --ew-warning-text: #ffe0a2;
+    --ew-error-bg: #512d35;
+    --ew-error-text: #ffc0c8;
+    --ew-info-bg: #203b55;
+    --ew-info-text: #c3ddf7;
+    --ew-header: #155699;
+    --ew-side: #192f44;
+    --ew-side-active: #245c9c;
+}
+:root[data-warehouse-theme] body { background: var(--ew-page); color: var(--ew-text); }
+:root[data-warehouse-theme] :is(.workspace,#app) { background: var(--ew-page); }
+:root[data-warehouse-theme] :is(.page-head,.card,.kpi,.modal,.modal-body,.table-wrap,.search-filter,.context-menu,.tab-popup,.flow-card,.doc-form) {
+    background: var(--ew-surface); color: var(--ew-text); border-color: var(--ew-border);
+}
+:root[data-warehouse-theme] :is(.toolbar,.pager,.doc-tabs,.modal-head,.modal-foot,.workspace-tabbar,.panel-filter) {
+    background: var(--ew-raised); color: var(--ew-text); border-color: var(--ew-border);
+}
+:root[data-warehouse-theme] :is(h1,h2,h3,.page-head h1,.card h2,.kpi strong,.flow-card h2,.detail-caption) { color: var(--ew-text); }
+:root[data-warehouse-theme] :is(.hint,.pager,.search-filter label,.doc-form label,.modal-grid label,.detail-values b,.flow-card p,.empty,.tab-counter) { color: var(--ew-muted); }
+:root[data-warehouse-theme] :is(.btn,.tab-list-button,.tab-menu-action,.context-menu button) {
+    color: var(--ew-text); background: var(--ew-raised); border-color: var(--ew-border);
+}
+:root[data-warehouse-theme] :is(.btn,.tab-list-button,.tab-menu-action,.context-menu button):hover:not(:disabled) {
+    color: var(--ew-text); background: var(--ew-hover); border-color: var(--ew-strong-border); opacity: 1;
+}
+:root[data-warehouse-theme] .btn-link { background: transparent; color: var(--ew-accent); }
+:root[data-warehouse-theme] .btn-danger { color: var(--ew-error-text); border-color: var(--ew-error-text); }
+:root[data-warehouse-theme] .btn-danger:hover:not(:disabled) { background: var(--ew-error-bg); color: var(--ew-error-text); border-color: var(--ew-error-text); }
+:root[data-warehouse-theme] .btn-blue { background: var(--ew-primary); color: #ffffff; border-color: var(--ew-primary); }
+:root[data-warehouse-theme] .btn-blue:hover:not(:disabled) { background: var(--ew-primary-hover); color: #ffffff; }
+:root[data-warehouse-theme] .btn-green { background: var(--ew-success-button); color: #ffffff; border-color: var(--ew-success-button); }
+:root[data-warehouse-theme] .btn-green:hover:not(:disabled) { background: var(--ew-success-button); color: #ffffff; }
+:root[data-warehouse-theme] :is(.btn-orange,.btn-yellow) { background: var(--ew-warning-button); color: #ffffff; border-color: var(--ew-warning-button); }
+:root[data-warehouse-theme] :is(.btn-orange,.btn-yellow):hover:not(:disabled) { background: var(--ew-warning-button); color: #ffffff; }
+:root[data-warehouse-theme] :is(input:not([type=checkbox]):not([type=radio]),select,textarea,#legacyJson) {
+    background: var(--ew-input); color: var(--ew-text); border-color: var(--ew-border);
+}
+:root[data-warehouse-theme] :is(input,textarea)::placeholder { color: var(--ew-subtle); opacity: 1; }
+:root[data-warehouse-theme] select option { background: var(--ew-input); color: var(--ew-text); }
+:root[data-warehouse-theme] :is(button,input,select,textarea):disabled,
+:root[data-warehouse-theme] .btn-disabled {
+    opacity: 1; color: var(--ew-disabled-text); -webkit-text-fill-color: var(--ew-disabled-text);
+    background: var(--ew-disabled-bg); border-color: var(--ew-border); cursor: not-allowed; box-shadow: none;
+}
+:root[data-warehouse-theme] :is(input,textarea)[readonly] { color: var(--ew-muted); background: var(--ew-raised); }
+:root[data-warehouse-theme] :is(input,select,textarea,button):focus-visible { outline: 2px solid var(--ew-focus); outline-offset: 2px; }
+:root[data-warehouse-theme] .list-table :is(th,td) { border-color: var(--ew-border); }
+:root[data-warehouse-theme] .list-table th { background: var(--ew-raised); color: var(--ew-text); }
+:root[data-warehouse-theme] .list-table tbody tr:hover { background: var(--ew-hover); color: var(--ew-text); }
+:root[data-warehouse-theme] .list-table tbody tr.selected { background: var(--ew-selected); color: var(--ew-selected-text); }
+:root[data-warehouse-theme] .pill { background: var(--ew-raised); color: var(--ew-muted); }
+:root[data-warehouse-theme] .pill.ok { background: var(--ew-good-bg); color: var(--ew-good-text); }
+:root[data-warehouse-theme] .pill.pending { background: var(--ew-warning-bg); color: var(--ew-warning-text); }
+:root[data-warehouse-theme] .pill.warn { background: var(--ew-error-bg); color: var(--ew-error-text); }
+:root[data-warehouse-theme] .local-status { color: var(--ew-good-text); }
+:root[data-warehouse-theme] :is(.local-status.error,.error-text) { color: var(--ew-error-text); }
+:root[data-warehouse-theme] :is(.note,.storage-banner) { background: var(--ew-info-bg); color: var(--ew-info-text); border-color: var(--ew-border); }
+:root[data-warehouse-theme] :is(.sample-note,.storage-banner.readonly) { background: var(--ew-warning-bg); color: var(--ew-warning-text); border-color: var(--ew-border); }
+:root[data-warehouse-theme] .storage-banner.error { background: var(--ew-error-bg); color: var(--ew-error-text); border-color: var(--ew-border); }
+:root[data-warehouse-theme] .doc-tabs button { color: var(--ew-muted); }
+:root[data-warehouse-theme] .doc-tabs button.active { background: var(--ew-selected); color: var(--ew-selected-text); border-top-color: var(--ew-focus); }
+:root[data-warehouse-theme] .chart-track { background: var(--ew-raised); }
+:root[data-warehouse-theme] :is(.detail-values p,.audit-list>div) { border-color: var(--ew-border); }
+/* Tabs, all-tabs popup and right-click menu: current, hover, focus and disabled. */
+:root[data-warehouse-theme] .workspace-tabbar :is(.top-tab,.top-tab.is-pinned) { background: var(--ew-raised); color: var(--ew-text); border-color: var(--ew-border); }
+:root[data-warehouse-theme] .workspace-tabbar .top-tab:hover { background: var(--ew-hover); color: var(--ew-text); border-color: var(--ew-strong-border); }
+:root[data-warehouse-theme] .workspace-tabbar :is(.top-tab.active,.top-tab.is-pinned.active) { background: var(--ew-selected); color: var(--ew-selected-text); border-color: var(--ew-focus); box-shadow: inset 0 -2px var(--ew-focus); }
+:root[data-warehouse-theme] .workspace-tabbar :is(.tab-main,.tab-label,.home-tab-icon,.pin-tab-icon) { color: inherit; }
+:root[data-warehouse-theme] :is(.tab-nav-btn,.tab-item-close,.workspace-tabbar .top-tab .close-tab) { background: transparent; color: var(--ew-muted); opacity: 1; }
+:root[data-warehouse-theme] :is(.tab-nav-btn,.tab-item-close,.workspace-tabbar .top-tab .close-tab):hover:not(:disabled) { background: var(--ew-hover); color: var(--ew-text); }
+:root[data-warehouse-theme] .tab-nav-btn:disabled { opacity: 1; color: var(--ew-disabled-text); background: var(--ew-disabled-bg); }
+:root[data-warehouse-theme] .tab-list-button[aria-expanded=true] { background: var(--ew-selected); color: var(--ew-selected-text); border-color: var(--ew-focus); }
+:root[data-warehouse-theme] :is(.tab-menu-title,.tab-menu-title b) { color: var(--ew-text); }
+:root[data-warehouse-theme] :is(.tab-menu-title>span,.tab-section-label,.tab-menu-help,.tab-search-empty,.tab-search-item small) { color: var(--ew-muted); border-color: var(--ew-border); }
+:root[data-warehouse-theme] .tab-search { background: var(--ew-input); color: var(--ew-subtle); border-color: var(--ew-border); }
+:root[data-warehouse-theme] .tab-search:focus-within { border-color: var(--ew-focus); box-shadow: 0 0 0 2px var(--ew-focus-ring); }
+:root[data-warehouse-theme] .tab-search input:focus-visible { outline: none; }
+:root[data-warehouse-theme] .tab-search kbd { background: var(--ew-raised); color: var(--ew-muted); border-color: var(--ew-border); }
+:root[data-warehouse-theme] .tab-search-item>button:first-child { color: var(--ew-text); }
+:root[data-warehouse-theme] .tab-search-item:hover { background: var(--ew-hover); color: var(--ew-text); }
+:root[data-warehouse-theme] .tab-search-item.current { background: var(--ew-selected); color: var(--ew-selected-text); }
+:root[data-warehouse-theme] .tab-search-item.current :is(small,button:first-child) { color: var(--ew-selected-text); }
+:root[data-warehouse-theme] .tab-menu-commands { border-color: var(--ew-border); }
+:root[data-warehouse-theme] .tab-menu-action:disabled { background: var(--ew-disabled-bg); color: var(--ew-disabled-text); }
+:root[data-warehouse-theme] .topbar { background: var(--ew-header); color: #ffffff; }
+:root[data-warehouse-theme] :is(.logo,.header-location,.user-info) { color: #ffffff; }
+:root[data-warehouse-theme] .sidebar { background: var(--ew-side); color: var(--ew-side-text); }
+:root[data-warehouse-theme] :is(.nav-title,.nav-title-left) { color: var(--ew-side-text); }
+:root[data-warehouse-theme] :is(.sub-folder-title,.leaf-item) { color: var(--ew-side-muted); }
+:root[data-warehouse-theme] .leaf-item.active { background: var(--ew-side-active); color: #ffffff; }
+:root[data-warehouse-theme] .leaf-item:hover { background: var(--ew-side-active); color: #ffffff; }
+:root[data-warehouse-theme] .barcode-label { background: #ffffff; color: #182b40; }
+:root[data-warehouse-theme] .barcode-label :is(h3,p,div) { color: #182b40; }
+:root[data-warehouse-theme] .barcode-label svg { fill: #000000; }
+@media print {
+    :root[data-warehouse-theme] {
+        --ew-page:#fff; --ew-surface:#fff; --ew-raised:#eee; --ew-input:#fff;
+        --ew-text:#000; --ew-muted:#333; --ew-subtle:#333; --ew-border:#888;
+        --ew-selected:#eee; --ew-selected-text:#000; --ew-accent:#16467d;
+        --ew-good-bg:#e1f1e7; --ew-good-text:#1f643e;
+        --ew-warning-bg:#fff1cf; --ew-warning-text:#775013;
+        --ew-error-bg:#fce5e4; --ew-error-text:#a32c32;
+        --ew-info-bg:#e7f0fc; --ew-info-text:#315778;
+    }
+    :root[data-warehouse-theme] .barcode-label { background:#fff; color:#000; }
+}

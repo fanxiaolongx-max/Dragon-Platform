@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "tool-mv9strpn",
+    "name": "译维仓储管理",
+    "nameEn": "Ezscan Warehouse Management",
+    "icon": "🧩",
+    "description": "译维仓储管理工具，支持货品档案、出入库、库存盘点、条码与资金账单。业务数据按租户保存到独立服务器 SQLite 数据库，支持 JSON 备份、旧浏览器数据迁移和数据库下载。",
+    "descriptionEn": "Warehouse management with product records, inbound and outbound operations, stocktaking, barcodes, and accounts. Business data is stored in a dedicated server SQLite database per tenant, with JSON backup, browser data migration, and database download.",
+    "tags": [
+      "仓储管理",
+      "库存盘点",
+      "扫码入库",
+      "服务器存储",
+      "独立数据库"
+    ],
+    "href": "/tools/tool-mv9strpn",
+    "filePath": "/custom-tools/tool-mv9strpn/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-10-15T17:14:36.299Z",
+    "updatedAt": "2026-10-15T18:10:16.928Z"
+  },
+  "history": {
+    "id": "custom-import-tool-mv9strpn",
+    "tool": "custom",
+    "action": "导入自定义工具",
+    "detail": "译维仓储管理 (tool-mv9strpn)",
+    "time": "2026-10-15T17:14:36.299Z"
+  }
+}

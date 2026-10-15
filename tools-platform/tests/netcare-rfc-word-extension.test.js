@@ -553,12 +553,34 @@ test('default section template and exact-number preferences validate editable ro
     vm.runInNewContext(code, context);
     const settings = context.netcareDefaultSettings();
     assert.equal(settings.sections.length, 34);
-    assert.equal(settings.attachmentsEnabled, false);
+    assert.equal(settings.attachmentsEnabled, true);
+    assert.equal(settings.textEnabled, true);
+    assert.equal(settings.aiAuditEnabled, true);
+    assert.equal(settings.disableLocalRules, true);
+    assert.equal(settings.closeAfterAudit, true);
+    assert.equal(settings.embedScreenshotsInExcel, false);
+    assert.equal(settings.screenshotsEnabled, true);
+    assert.deepEqual([...settings.attachmentAuditTypes], ['txt', 'word', 'excel', 'msg']);
     assert.equal(settings.intervalMs, 1500);
-    assert.ok(context.netcareSectionMatches(settings, '3.2', 'attachments'));
-    assert.ok(context.netcareSectionMatches(settings, '3.2.1', 'attachments'));
-    assert.ok(!context.netcareSectionMatches(settings, '3.20', 'attachments'));
-    const custom = context.netcareNormalizeSettings({ ...settings, textEnabled: true, intervalMs: 5,
+    assert.ok(context.netcareSectionMatches(settings, '3.3', 'attachments'));
+    assert.ok(context.netcareSectionMatches(settings, '3.3.1', 'attachments'));
+    assert.ok(context.netcareSectionMatches(settings, '3.4', 'attachments'));
+    assert.ok(context.netcareSectionMatches(settings, '3.5', 'attachments'));
+    assert.ok(!context.netcareSectionMatches(settings, '3.2', 'attachments'));
+
+    const s33 = settings.sections.find(s => s.number === '3.3');
+    assert.equal(s33.textPrompt, '操作步骤和数据是否清晰详细，增删改操作前后是否有查询确认步骤以确保变更预期正确（若正文步骤不清晰但提及操作步骤在附件中，可判断为通过）。');
+    assert.equal(s33.attachmentsPrompt, '操作步骤和数据是否清晰详细（含具体网元、命令及参数），增删改操作前后是否有查询确认步骤以确保变更预期正确。无具体细节则不通过。');
+
+    const s34 = settings.sections.find(s => s.number === '3.4');
+    assert.equal(s34.textPrompt, '验证方案和数据是否清晰详细，是否包含具体的指标 KPI 及正常判断标准（若正文未写明细但提到具体指标 KPI 在附件中，可判断为通过）。');
+    assert.equal(s34.attachmentsPrompt, '验证方案和数据是否清晰详细，是否包含具体的指标 KPI 名称、监控方法及明确的通过标准/阈值（拒绝仅写“检查业务正常”等模糊描述）。');
+
+    const s35 = settings.sections.find(s => s.number === '3.5');
+    assert.equal(s35.textPrompt, '回退方案和数据是否清晰详细，是否有具体的逆向回退操作步骤及回退后确认步骤（若正文简略但提及详细回退步骤在附件中，可判断为通过）。');
+    assert.equal(s35.attachmentsPrompt, '回退方案和数据是否清晰详细，是否包含具体的逆向操作命令/参数或明确的备份恢复步骤，以及回退后的状态与业务验证步骤。');
+
+    const custom = context.netcareNormalizeSettings({ ...settings, aiAuditEnabled: false, attachmentsEnabled: false, textEnabled: true, intervalMs: 5,
         sections: [{ number: '9.2', title: 'Custom', text: true, attachments: false }] });
     assert.equal(custom.intervalMs, 1000);
     assert.equal(custom.sections[0].title, 'Custom');
@@ -619,7 +641,7 @@ test('configuration export/import roundtrips global preferences and migrates ear
 
 test('AI prompts force required extraction while audit stays off until explicitly enabled', () => {
     const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}}; vm.runInNewContext(code,ctx);
-    const value=ctx.netcareDefaultSettings();value.sections=[{number:'3.2',title:'Preparation',text:false,attachments:false,textPrompt:'Check rollback',attachmentsPrompt:'Check commands'}];
+    const value=ctx.netcareDefaultSettings();value.aiAuditEnabled=false;value.sections=[{number:'3.2',title:'Preparation',text:false,attachments:false,textPrompt:'Check rollback',attachmentsPrompt:'Check commands'}];
     const off=ctx.netcareNormalizeSettings(value);assert.equal(off.aiAuditEnabled,false);assert.equal(off.sections[0].text,true);assert.equal(off.sections[0].attachments,true);
     const on=ctx.netcareNormalizeSettings({...value,aiAuditEnabled:true});assert.equal(on.textEnabled,true);assert.equal(on.attachmentsEnabled,true);
     const imported=ctx.netcareImportSettings(ctx.netcareExportSettings(on));assert.equal(imported.sections[0].textPrompt,'Check rollback');assert.ok(!ctx.netcareExportSettings({...on,key:'must-not-export'}).includes('must-not-export'));
@@ -1042,7 +1064,7 @@ test('selected parent audits all text descendants together and groups attachment
 
 test('parent selection gathers distinct descendant rules and cannot silently pass oversized aggregate evidence', async()=>{
     const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
-    const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,sections:[{number:'3',title:'Operations',text:true},{number:'3.1',title:'Preparation',textPrompt:'Check preparation'},{number:'3.2',title:'Rollback',textPrompt:'Check rollback'}]});
+    const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,attachmentsEnabled:false,sections:[{number:'3',title:'Operations',text:true},{number:'3.1',title:'Preparation',textPrompt:'Check preparation'},{number:'3.2',title:'Rollback',textPrompt:'Check rollback'}]});
     assert.match(ctx.netcareAuditRule(settings,'3','text'),/3.1: Check preparation/);assert.match(ctx.netcareAuditRule(settings,'3','text'),/3.2: Check rollback/);
     const items=[{section:'3.1',kind:'text',filename:'one.txt',text:'x'.repeat(31000)},{section:'3.2',kind:'text',filename:'two.txt',text:'y'.repeat(31000)}];let calls=0;
     const reports=await ctx.netcareRunAudits(items,settings,async()=>{calls++;return{ok:true,report:{status:'pass'}};},new AbortController().signal,()=>{});
@@ -1064,7 +1086,7 @@ test('automatic extraction defers standalone Word saving after a successful cach
 
 test('chapter folder paths use the selected parent for fallback descendants',()=>{
     const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
-    const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),sections:[{number:'3',title:'Operations',text:true},{number:'3.1',title:'Steps'}]});
+    const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:false,attachmentsEnabled:false,sections:[{number:'3',title:'Operations',text:true},{number:'3.1',title:'Steps'}]});
     assert.equal(ctx.netcareSectionFolder(settings,{number:'8.1',title:'Actual child',ruleNumbers:['3']},'text'),'3-Operations');
     assert.equal(ctx.netcareSectionFolder(settings,{number:'3.1',title:'Steps'},'text'),'3-Operations');
 });
@@ -1207,6 +1229,8 @@ test('AI error automatically falls back to local rules in netcareRunAudits', asy
   const settings = ctx.netcareNormalizeSettings({
     ...ctx.netcareDefaultSettings(),
     aiAuditEnabled: true,
+    attachmentsEnabled: false,
+    disableLocalRules: false,
     sections: [{ number: '1.1', title: 'Change Purpose', text: true, textPrompt: 'Check purpose' }]
   });
 
@@ -1475,7 +1499,7 @@ test('attachment audit supports txt, word, excel, and msg with settings multi-se
 
     // 1. Defaults and settings validation
     const def = context.netcareDefaultSettings();
-    assert.deepEqual([...def.attachmentAuditTypes], ['txt']);
+    assert.deepEqual([...def.attachmentAuditTypes], ['txt', 'word', 'excel', 'msg']);
 
     const custom = context.netcareNormalizeSettings({
         ...def,
@@ -1648,13 +1672,11 @@ test('attachment audit supports txt, word, excel, and msg with settings multi-se
         content: '<w:document><w:body><w:p><w:t>Word实施步骤 &amp; 说明</w:t></w:p></w:body></w:document>'
     }]);
     const docxBlob = new Blob([docxBuf]);
-    const resDocxDisabled = await context.netcareExtractAttachmentText(docxBlob, 'steps.docx', def, '3.2', '3.2-steps.docx');
+    const txtOnlySettings = { ...def, attachmentAuditTypes: ['txt'] };
+    const resDocxDisabled = await context.netcareExtractAttachmentText(docxBlob, 'steps.docx', txtOnlySettings, '3.2', '3.2-steps.docx');
     assert.match(resDocxDisabled.error, /未开启 Word 附件审计/);
 
-    const allTypesSettings = context.netcareNormalizeSettings({
-        ...def,
-        attachmentAuditTypes: ['txt', 'word', 'excel', 'msg']
-    });
+    const allTypesSettings = def;
     const resDocxEnabled = await context.netcareExtractAttachmentText(docxBlob, 'steps.docx', allTypesSettings, '3.2', '3.2-steps.docx');
     assert.equal(resDocxEnabled.text, 'Word实施步骤 & 说明');
 
@@ -1666,15 +1688,15 @@ test('attachment audit supports txt, word, excel, and msg with settings multi-se
         { name: 'xl/worksheets/sheet1.xml', content: sheetXml }
     ]);
     const xlsxBlob = new Blob([xlsxBuf]);
-    const resXlsxDisabled = await context.netcareExtractAttachmentText(xlsxBlob, 'check.xlsx', def, '3.2', '3.2-check.xlsx');
+    const resXlsxDisabled = await context.netcareExtractAttachmentText(xlsxBlob, 'check.xlsx', txtOnlySettings, '3.2', '3.2-check.xlsx');
     assert.match(resXlsxDisabled.error, /未开启 Excel 附件审计/);
 
-    const resXlsxEnabled = await context.netcareExtractAttachmentText(xlsxBlob, 'check.xlsx', allTypesSettings, '3.2', '3.2-check.xlsx');
+    const resXlsxEnabled = await context.netcareExtractAttachmentText(xlsxBlob, 'check.xlsx', def, '3.2', '3.2-check.xlsx');
     assert.match(resXlsxEnabled.text, /检查项A\t合格/);
 
     // 6. Test CSV extraction
     const csvBlob = new Blob([Buffer.from('Col1,Col2\nVal1,Val2', 'utf8')]);
-    const resCsvEnabled = await context.netcareExtractAttachmentText(csvBlob, 'data.csv', allTypesSettings, '3.2', '3.2-data.csv');
+    const resCsvEnabled = await context.netcareExtractAttachmentText(csvBlob, 'data.csv', def, '3.2', '3.2-data.csv');
     assert.equal(resCsvEnabled.text, 'Col1,Col2\nVal1,Val2');
 
     // 7. Test MSG extraction
@@ -1684,10 +1706,10 @@ test('attachment audit supports txt, word, excel, and msg with settings multi-se
         body: '邮件正文：请准时执行变更。'
     });
     const msgBlob = new Blob([msgBuf]);
-    const resMsgDisabled = await context.netcareExtractAttachmentText(msgBlob, 'mail.msg', def, '3.2', '3.2-mail.msg');
+    const resMsgDisabled = await context.netcareExtractAttachmentText(msgBlob, 'mail.msg', txtOnlySettings, '3.2', '3.2-mail.msg');
     assert.match(resMsgDisabled.error, /未开启 MSG 附件审计/);
 
-    const resMsgEnabled = await context.netcareExtractAttachmentText(msgBlob, 'mail.msg', allTypesSettings, '3.2', '3.2-mail.msg');
+    const resMsgEnabled = await context.netcareExtractAttachmentText(msgBlob, 'mail.msg', def, '3.2', '3.2-mail.msg');
     assert.match(resMsgEnabled.text, /【主题 \/ Subject】: 变更确认邮件/);
     assert.match(resMsgEnabled.text, /请准时执行变更。/);
 
@@ -2011,7 +2033,7 @@ test('disableLocalRules prevents local fallback, supports retry loop and friendl
 
     // 1. Settings normalization checks
     const defaultSet = ctx.netcareDefaultSettings();
-    assert.equal(defaultSet.disableLocalRules, false);
+    assert.equal(defaultSet.disableLocalRules, true);
 
     const normDisabledAi = ctx.netcareNormalizeSettings({ ...defaultSet, aiAuditEnabled: false, disableLocalRules: true });
     assert.equal(normDisabledAi.disableLocalRules, false);
@@ -2019,6 +2041,7 @@ test('disableLocalRules prevents local fallback, supports retry loop and friendl
     const normEnabledAi = ctx.netcareNormalizeSettings({
         ...defaultSet,
         aiAuditEnabled: true,
+        attachmentsEnabled: false,
         disableLocalRules: true,
         sections: [{ number: '1.1', title: 'Change Purpose', text: true, textPrompt: 'Check purpose' }]
     });
@@ -2079,7 +2102,7 @@ test('disableLocalRules prevents local fallback, supports retry loop and friendl
 
 test('AI retry progress reports waiting and each retry without counting failed attempts as completed audits', async()=>{
  const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
- const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,disableLocalRules:true,sections:[{number:'3.4',title:'Test',text:true,textPrompt:'Check KPI'}]});
+ const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,attachmentsEnabled:false,disableLocalRules:true,sections:[{number:'3.4',title:'Test',text:true,textPrompt:'Check KPI'}]});
  const items=[{section:'3.4',kind:'text',filename:'3.4.txt',text:'KPI evidence'}];
  let attempts=0;const snapshots=[];const request=async()=>{if(++attempts<3)throw Error('HTTP 503');return{ok:true,report:{status:'pass',summary:'Recovered'}};};
  const reports=await ctx.netcareRunAudits(items,settings,request,new AbortController().signal,(_text,counts)=>snapshots.push(JSON.parse(JSON.stringify(counts))),()=>{},async()=>true);
