@@ -1220,8 +1220,8 @@ function mountNetcareCollector() {
     $('zip').disabled = running || !scanFinished;
     $('stop').disabled = !controller;
   }
-  const taskProgress=globalThis.createNetcareControls?.().progressModel();
-  const controls=globalThis.createNetcareControls?.().source(root,{redact:netcareRedactText,progress:()=>taskProgress?.snapshot()});
+  const taskProgress=globalThis.taskProgress=globalThis.createNetcareControls?.().progressModel();
+  const controls=globalThis.createNetcareControls?.().source(root,{redact:netcareRedactText,progress:()=>globalThis.taskProgress?.snapshot()});
   function renderCaptureDiagnostics(){const list=$('captureDiagnostics');list.hidden=!captureDiagnostics.length;list.replaceChildren();for(const item of captureDiagnostics){const button=document.createElement('button');button.className='capture-diagnostic';button.textContent=(item.outcome==='failed'?'截图失败 / Capture failed':'截图已恢复 / Capture recovered')+' · '+item.name;button.onclick=()=>{const tr=(zh,en)=>collectorUiLanguage==='en'?en:zh,text=value=>String(value||'').split(' / ')[collectorUiLanguage==='en'?1:0]||String(value||'');$('captureErrorDetails').textContent=[tr('单号','RFC')+': '+order,tr('截图位置','Capture location')+': '+item.name,tr('时间','Time')+': '+item.at,tr('最终结果','Outcome')+': '+(item.outcome==='failed'?tr('失败','Failed'):item.method==='reconstructed'?tr('内容重建截图（非页面原图）','Reconstructed native content (not a live-page screenshot)'):tr('原始区域截图成功','Live original capture succeeded')),tr('错误码','Error code')+': '+(item.code||'—'),text(item.message),...(item.navigations||[]).map(n=>tr('目录定位','Directory navigation')+' · '+n.attempt+' · '+n.action+' · '+n.number+' '+n.title+'\n'+text(n.message)),...item.attempts.map(a=>[tr('尝试','Attempt')+' '+a.attempt+' · '+a.stage+' · '+(a.code||'OK'),text(a.message),tr('已渲染章节数','Rendered sections')+': '+(a.articles??'—'),tr('区域尺寸与连接状态','Region size and attachment')+': '+JSON.stringify(a.bounds||null),a.stack||''].filter(Boolean).join('\n')),tr('建议：确认章节已加载和目录名称；刷新方案后重新提取。详情也保存在 ZIP 的截图诊断.json 和插件日志中。','Check section loading and native titles; refresh and extract again. Diagnostics also appear in the ZIP and plugin logs.')].filter(Boolean).join('\n\n');$('captureRetry').disabled=!!controller;$('captureErrorDialog').showModal();};list.append(button);} }
   let collectorUiLanguage='zh';
   $('captureErrorClose').onclick=()=>$('captureErrorDialog').close();$('captureRetry').onclick=()=>{$('captureErrorDialog').close();download(lastAutomatic);};
@@ -1429,7 +1429,7 @@ function mountNetcareCollector() {
     if (!settingsReady) { getName(); status('正在等待默认设置 / Waiting for settings'); taskActive = false; updateCollectorButtons(); return; }
     startAutoScroll(w);
     controller = new AbortController(); const signal = controller.signal;
-    taskProgress?.reset();
+    globalThis.taskProgress?.reset();
     scanFinished = false; taskActive = true; updateCollectorButtons();
     let errors = 0;
     try {
@@ -1441,7 +1441,7 @@ function mountNetcareCollector() {
       errors = topics.resolutionIssues?.length||0;
       if (!topics.length) throw new Error(topics.resolutionIssues?.map(i=>i.number+' · '+i.error).join('\n')||'未识别到完整章节目录，请检查网站页面版本');
       for (const topic of topics) {
-        taskProgress?.set(0,topics.indexOf(topic),topics.length);
+        globalThis.taskProgress?.set(0,topics.indexOf(topic),topics.length);
         if (signal.aborted) throw new Error('已停止 / Stopped');
         status(`扫描 ${topic.number} ${topic.title} / Scanning`);
         try {
@@ -1465,13 +1465,13 @@ function mountNetcareCollector() {
         box.onchange = () => box.checked ? selected.add(topic.number) : selected.delete(topic.number);
         label.append(box, document.createTextNode(`${topic.number} ${topic.title}${topic.error ? ' · ERROR: ' + topic.error : ''}`)); $('chapters').append(label);
       }
-      taskProgress?.set(0,topics.length,topics.length,true);
+      globalThis.taskProgress?.set(0,topics.length,topics.length,true);
       cleanScan = errors === 0; scanFinished = true;
       $('count').textContent = `附件 ${attachments.length} 个 / Attachments`;
       if (!attachments.length) $('files').textContent = '未发现附件 / No attachments found';
       status(`已扫描 ${topics.length} 章，发现 ${attachments.length} 个附件；${errors} 处扫描错误。可勾选章节并下载 ZIP。`);
     } catch (error) {
-      taskProgress?.finish(signal.aborted?'stopped':'error');
+      globalThis.taskProgress?.finish(signal.aborted?'stopped':'error');
       trace('extraction.failed','扫描未完成，请重新运行该单 / Scan failed; retry this RFC',
         {error:error.message},'extraction',signal.aborted?'warn':'error');
       status(error.message + '；扫描未完成，需重新扫描 / Scan incomplete; scan again');
@@ -1510,9 +1510,9 @@ function mountNetcareCollector() {
       const files=await netcareArtifactRequest({action:'list',order,orders:[order]}),word=files?.find(f=>f.name===filename);
       if(!word)throw Error('方案 Word 缓存缺失，请从主浮窗重新下载 / Word cache missing; download this RFC again');
       entries.push({name:filename,blob:await netcareReadArtifact(word,order,signal)});
-      taskProgress?.set(1,0,topics.length+chosen.length);
+      globalThis.taskProgress?.set(1,0,topics.length+chosen.length);
       for (const topic of topics) {
-        taskProgress?.set(1,topics.indexOf(topic),topics.length+chosen.length);
+        globalThis.taskProgress?.set(1,topics.indexOf(topic),topics.length+chosen.length);
         if (topic.error) report.push(`章节 ERROR: ${topic.number} ${topic.title}: ${topic.error}`);
         if (selection.has(topic.number) && topic.text && !topic.error) {
           const name = netcareUniqueFilename(netcareSafeFilename(`${topic.number}-${topic.title}.txt`), used);
@@ -1534,7 +1534,7 @@ function mountNetcareCollector() {
       });
       }
       for (const file of chosen) {
-        taskProgress?.set(1,topics.length+chosen.indexOf(file),topics.length+chosen.length);
+        globalThis.taskProgress?.set(1,topics.length+chosen.indexOf(file),topics.length+chosen.length);
         if (signal.aborted) throw new Error('已停止 / Stopped');
         status(`下载 ${file.section} · ${file.name}`);
         try {
@@ -1573,7 +1573,7 @@ function mountNetcareCollector() {
         autoScrollPaused = true;
         try {
           for(const shot of shots){
-            taskProgress?.set(2,shots.indexOf(shot),shots.length);
+            globalThis.taskProgress?.set(2,shots.indexOf(shot),shots.length);
             if(signal.aborted)throw Error('已停止 / Stopped');status('保存原始区域截图 / Screenshot: '+shot.name);
             if(document.hidden || w.document?.hidden){
               await activateTab(15000, false, 'refresh');
@@ -1603,12 +1603,12 @@ function mountNetcareCollector() {
         const issue=topics.resolutionIssues?.find(i=>i.number===row.number&&i.kind===kind)?.error||matched?.error;
         evidence.push({section:row.number,kind,filename:row.title,corrections:matched?.correctionsByKind?.[kind]||[],notApplicable:!issue&&!!matched,error:issue||(!matched?'未定位到章节 / Section not located':undefined)});
       }
-      taskProgress?.set(3,0,0);
+      globalThis.taskProgress?.set(3,0,0);
       let reports=[], cached=true;
       try {netcareCacheAudit(localStorage,order,evidence,[]);}catch(error){cached=false;report.push('暂存 ERROR: '+error.message);}
       if(settings.aiAuditEnabled){
         if(!cached)reports=[{status:'needs_review',summary:'浏览器暂存失败，未自动提交审计',error:true}];
-        else reports=await netcareRunAudits(evidence,settings,requestAudit,signal,(text,counts)=>{if(counts){taskProgress?.set(3,counts.done,counts.total);taskProgress?.retry(counts.retry);}status('AI 审计 / Auditing: '+text);$('auditStatus').textContent=text;},(action,data)=>trace(action,'准备审计证据 / Prepare audit evidence',data,'audit'),promptAiRetry,appendTopLog);
+        else reports=await netcareRunAudits(evidence,settings,requestAudit,signal,(text,counts)=>{if(counts){globalThis.taskProgress?.set(3,counts.done,counts.total);globalThis.taskProgress?.retry(counts.retry);}status('AI 审计 / Auditing: '+text);$('auditStatus').textContent=text;},(action,data)=>trace(action,'准备审计证据 / Prepare audit evidence',data,'audit'),promptAiRetry,appendTopLog);
         for(const result of reports)trace('audit.result','审计项结论 / Audit check result',{...result},'audit',result.error?'error':result.status==='fail'?'warn':'info');
         const auditText=reports.filter(r=>!r.notApplicable).map(r=>`${r.section||''} ${r.filename||''} · ${r.status}\n${r.summary}\n${(r.findings||[]).join('\n')}`).join('\n\n');
         $('auditStatus').textContent=auditText || '没有匹配的审计规则 / No audit rules';
@@ -1618,19 +1618,19 @@ function mountNetcareCollector() {
         try{netcareCacheAudit(localStorage,order,evidence,reports);}catch{}
 
       }
-      taskProgress?.set(4,0,3);
+      globalThis.taskProgress?.set(4,0,3);
       const materials=entries.filter(e=>e.section).map(e=>({name:e.name,section:e.section,kind:e.kind,role:e.role,captureMethod:e.captureMethod,sourceFilename:e.sourceFilename,folder:netcareSectionFolder(settings,topics.find(t=>t.number===e.section)||{number:e.section},e.kind)}));
       for(const entry of entries.filter(e=>e.section)){try{await netcareStoreArtifact(order,entry.name,entry.blob,signal,entry.role||entry.kind);}catch(error){failed++;report.push('材料缓存 ERROR: '+entry.name+': '+error.message);}}
       entries.push({ name: netcareUniqueFilename('清单.txt', used), blob: new Blob(['\ufeff' + report.join('\n')], { type: 'text/plain;charset=utf-8' }) });
       if(signal.aborted)throw Error('已停止 / Stopped');status('正在生成 ZIP… / Building ZIP');
-      taskProgress?.set(4,1,3);
+      globalThis.taskProgress?.set(4,1,3);
       const zip=await createNetcareZip(entries.map(e=>{
         const mat=materials.find(m=>m.name===e.name);
         if(!mat?.folder)return e;
         const subFolder=e.role==='screenshot'?'方案截图':e.kind==='attachments'?'方案附件':'方案文本';
         return {...e,name:mat.folder+'/'+subFolder+'/'+e.name};
       })),bundleFilename=netcareSafeFilename(filename.replace(/\.docx$/i,'')+'.zip');
-      taskProgress?.set(4,2,3);
+      globalThis.taskProgress?.set(4,2,3);
       let bundleFileId;
       try{bundleFileId=await netcareStoreArtifact(order,bundleFilename,zip,signal,'audit-bundle');trace('bundle.cached','最终审计 ZIP 已缓存 / Final audit ZIP cached',{name:bundleFilename,bytes:zip.size,files:entries.length},'storage');}catch(error){failed++;trace('bundle.cache.failed','审计 ZIP 缓存失败 / Audit ZIP cache failed',{error:error.message},'storage','error');throw Error('审计 ZIP 缓存失败，请重新运行该单 / Audit ZIP cache failed; retry this RFC: '+error.message);}
       await netcareLogQueue;
@@ -1649,9 +1649,9 @@ function mountNetcareCollector() {
         trace('bundle.download.cached','AI审计已开启，跳过单方案自动下载（可在汇总处统一打包下载） / Skipped automatic individual ZIP download since AI audit is enabled',{name:bundleFilename,bytes:zip.size},'storage');
         status(`审计材料已缓存：${bundleFilename}\n（AI审计已开启，未单独发起下载，可随时在主面板统一下载审计材料 ZIP）\n${attachmentSuccess} 个附件成功；${failed} 处提取/缓存错误（详见清单）；${reports.filter(r=>r.error).length} 项审计异常；${entries.length - 1} 个数据文件。`);
       }
-      const stored = await published;taskProgress?.finish(stored&&cached?'complete':'error');
+      const stored = await published;globalThis.taskProgress?.finish(stored&&cached?'complete':'error');
       if(settings.closeAfterAudit){const reason=netcareAutoCloseReason({settings,reports,failed,cached,published:await published,aborted:signal.aborted});if(reason)status($('status').textContent+'\n自动关闭已暂停 / Automatic close paused: '+reason);else window.postMessage({source:'TP_RFC_CLOSE_AFTER_AUDIT',order},location.origin);}
-    } catch (error) {taskProgress?.finish(signal.aborted?'stopped':'error');trace('extraction.failed','提取或打包失败 / Extraction or packaging failed',{error:error.message},'extraction',signal.aborted?'warn':'error');status(error.message); }
+    } catch (error) {globalThis.taskProgress?.finish(signal.aborted?'stopped':'error');trace('extraction.failed','提取或打包失败 / Extraction or packaging failed',{error:error.message},'extraction',signal.aborted?'warn':'error');status(error.message); }
     finally { stopAutoScroll(); controller = null; taskActive = false; downloadInProgress = false; updateCollectorButtons(); renderCaptureDiagnostics(); }
   }
   $('scan').onclick = () => { if (isTaskRunning()) return; scan(false); };
