@@ -28,7 +28,7 @@ PR 报告抽查脚本
 """
 
 __script_name__ = "PR 报告抽查脚本"
-__version__ = "1.3.2"
+__version__ = "1.3.3"
 __author__ = "CodeArts 智能体生成"
 
 import os

@@ -316,6 +316,40 @@ class NativeTerminalTests(unittest.TestCase):
         self.terminal._history_move(1)
         self.assertEqual(self.terminal._draft(), '')
 
+    def test_empty_native_index_uses_caret_and_submits_seed(self):
+        area = self.terminal.text_area
+        area.mark_set('insert', 'input_start')
+        area.tk.call(area._w, 'insert', '', '42')
+        area.mark_set('insert', 'input_start+1c')
+        area.tk.call(area._w, 'insert', '', '0')
+        self.assertEqual(self.terminal._draft(), '402')
+        self.terminal._on_enter_pressed()
+        self.assertEqual(self.commands, ['402\n'])
+
+    def test_empty_native_indices_cannot_edit_history(self):
+        area = self.terminal.text_area
+        prefix = area.get('1.0', 'input_start')
+        area.mark_set('insert', '1.0')
+        area.tk.call(area._w, 'insert', '', '42')
+        area.mark_set('insert', '1.0')
+        area.tk.call(area._w, 'delete', '')
+        area.tk.call(area._w, 'replace', '', '', '')
+        self.assertEqual(area.get('1.0', 'input_start'), prefix)
+        self.assertEqual(self.terminal._draft(), '42')
+
+    def test_missing_selection_during_edit_is_harmless(self):
+        area = self.terminal.text_area
+        area.insert('end-1c', '42')
+        for args in [('insert', 'sel.first', '0'),
+                     ('delete', 'sel.first', 'sel.last'),
+                     ('replace', 'sel.first', 'sel.last', '0')]:
+            self.assertEqual(area.tk.call(area._w, *args), '')
+        self.assertEqual(self.terminal._draft(), '42')
+
+    def test_unrelated_invalid_index_is_not_silenced(self):
+        with self.assertRaises(tk.TclError):
+            self.terminal.text_area._proxy('insert', 'not-an-index', '42')
+
 
 class DataDirectoryTests(unittest.TestCase):
     def test_directory_choice_is_saved_and_restarts_the_session(self):

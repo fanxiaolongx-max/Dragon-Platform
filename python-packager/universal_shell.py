@@ -637,10 +637,31 @@ class PromptText(tk.Text):
         self.tk.createcommand(self._w, self._proxy)
 
     def _proxy(self, *args):
+        try:
+            return self._dispatch(*args)
+        except tk.TclError as e:
+            # 选区可能已被重绘或输入法提交清除；索引解析也必须受保护。
+            if 'characters tagged with "sel"' in str(e):
+                return ''
+            raise
+
+    def _dispatch(self, *args):
         if args and args[0] in ('insert', 'delete', 'replace') and not self.program_edit:
             if not self.allow_input:
                 return ''
             args = list(args)
+            # 原生编辑回调可能传入空索引。按当前光标处理，随后仍执行
+            # input_start 边界校验，避免 compare('', ...) 导致 GUI 退出。
+            if len(args) > 1 and args[1] == '':
+                args[1] = 'insert'
+            if args[0] in ('delete', 'replace') and len(args) > 2 and args[2] == '':
+                args[2] = 'insert'
+            # 直接向原始控件解析索引，不能再次进入代理。否则 sel.first
+            # 已失效时，内层代理返回的空字符串会成为外层的非法索引。
+            def index(value):
+                return self.tk.call(self._original, 'index', value)
+
+            args[1] = index(args[1])
             if args[0] == 'insert':
                 if self.compare(args[1], '<', 'input_start'):
                     args[1] = 'end-1c'
@@ -648,8 +669,8 @@ class PromptText(tk.Text):
                     self.tag_remove('sel', '1.0', 'end')
                 args[2] = str(args[2]).replace('\r', ' ').replace('\n', ' ')
             else:
-                start = self.index(args[1])
-                end = self.index(args[2]) if len(args) > 2 else self.index(f'{start}+1c')
+                start = args[1]
+                end = index(args[2]) if len(args) > 2 else index(f'{start}+1c')
                 if self.compare(start, '<', 'input_start'):
                     start = self.index('input_start')
                 if self.compare(end, '>', 'end-1c'):
@@ -661,12 +682,7 @@ class PromptText(tk.Text):
                 args[1:3] = [start, end]
                 if args[0] == 'replace':
                     args[3] = str(args[3]).replace('\r', ' ').replace('\n', ' ')
-        try:
-            return self.tk.call(self._original, *args)
-        except tk.TclError as e:
-            if 'characters tagged with "sel"' in str(e):
-                return ''
-            raise
+        return self.tk.call(self._original, *args)
 
     def destroy(self):
         self.tk.deletecommand(self._w)
@@ -1799,8 +1815,15 @@ def main():
         stage = 0
         redraw = False
         protected = False
+        seed_verified = False
+        strategy_steps = [
+            ('优先高等级', ''), ('按运营商均匀分布', ''),
+            ('按产品线均匀分布', ''), ('设置固定随机种子', 'y'),
+            ('请输入随机种子', '402'), ('请选择 [1/2', ''),
+            ('当前 20%', '5'), ('随机种子：402', ''), ('当前 20%', '0'),
+        ]
         def inspect():
-            nonlocal stage, redraw, protected
+            nonlocal stage, redraw, protected, seed_verified
             content = app.terminal.screen.text()
             if stage == 0 and app.terminal.screen.awaiting_input and '请选择' in content:
                 app.terminal.text_area.insert('end-1c', '2')
@@ -1816,18 +1839,33 @@ def main():
             elif stage == 2 and app.terminal.screen.awaiting_input and '当前 20%' in content:
                 redraw = content.count('PR 报告抽查脚本') == 1
                 redraw = redraw and app.terminal.text_area.get('1.0', 'end-1c') == content
-                app.terminal.text_area.insert('end-1c', '0')
+                app.terminal.text_area.insert('end-1c', '4')
                 app.terminal._on_enter_pressed()
                 stage = 3
-            if stage == 3 and app.process and app.process.poll() is not None and '再见' in content:
+            elif 3 <= stage < 3 + len(strategy_steps) and app.terminal.screen.awaiting_input:
+                marker, value = strategy_steps[stage - 3]
+                if marker in content:
+                    area = app.terminal.text_area
+                    if marker == '请输入随机种子':
+                        # 覆盖 Windows 报错中的空索引编辑路径。
+                        area.mark_set('insert', 'end-1c')
+                        area.tk.call(area._w, 'insert', '', value)
+                    else:
+                        area.insert('end-1c', value)
+                    if marker == '随机种子：402':
+                        seed_verified = True
+                    app.terminal._on_enter_pressed()
+                    stage += 1
+            if stage == 3 + len(strategy_steps) and app.process and app.process.poll() is not None and '再见' in content:
                 console = 0
                 if sys.platform == 'win32':
                     import ctypes
                     console = ctypes.windll.kernel32.GetConsoleWindow()
                 with open(result_path, 'w', encoding='utf-8') as stream:
-                    json.dump({'passed': app.process.returncode == 0 and not console and redraw and protected,
+                    json.dump({'passed': app.process.returncode == 0 and not console and redraw and protected and seed_verified,
                                'console_window': console, 'inline_input': True,
-                               'menu_redraw': redraw, 'protected_history': protected}, stream)
+                               'menu_redraw': redraw, 'protected_history': protected,
+                               'random_seed': seed_verified}, stream)
                 app._on_close()
                 return
             if time.monotonic() >= deadline:

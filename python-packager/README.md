@@ -51,6 +51,10 @@ python-packager/
 - `core_script.py` 的静态 `import` 会自动加入 PyInstaller 隐藏依赖；Pandas 的 Excel 引擎另外显式收集。新增第三方依赖时也应更新 `requirements.txt` 并重新发布完整绿色包。
 - 平台网页中的脚本与历史版本按租户保存；「同步到仓库」负责共享发布源码，只允许在默认租户中由管理员操作。源码导出与同步需要运行环境包含完整的 `python-packager/` 目录。
 
+## Windows 输入时出现 `bad text index ""`
+
+v1.3.3 修复了终端编辑回调传入空文本索引时窗口退出的问题，并覆盖随机种子设置、配置回显和返回主菜单的 GUI 测试。此修复涉及外壳，需要下载新的完整绿色包；仅在线更新 `core_script.py` 无法修复旧 EXE。
+
 ## Windows 缺少模块错误（如 `No module named 'glob'`）
 
 旧打包配置只将 `core_script.py` 作为数据文件复制，PyInstaller 无法分析运行时加载的业务依赖。新版统一打包入口会收集这些依赖，并保留标准输入输出供内置交互终端使用。
