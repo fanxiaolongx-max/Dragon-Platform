@@ -15,6 +15,39 @@ function parseNetcareRfcOrders(value) {
 
 function netcareNativeOrder(value){try{const raw=String(value||'');let decoded=raw;for(let i=0;i<3;i++){try{const d=decodeURIComponent(decoded);if(d===decoded)break;decoded=d;}catch{break;}}const u=new URL(raw,typeof location!=='undefined'?location.href:undefined);const queries=[u.searchParams,new URLSearchParams(u.hash.replace(/^#/,'').split('?')[1]||''),new URLSearchParams(decoded.replace(/^[^?]*\?/,''))];const found=new Set();for(const q of queries)for(const [key,val] of q)if(['orderid','order_id','docid','id'].includes(key.toLowerCase())&&/^NC\d{14}$/.test(val))found.add(val);for(const m of (raw+' '+decoded).matchAll(/(?:orderid|order_id|docid|id)=(NC\d{14})/gi))found.add(m[1]);if(found.size>1)return '!ambiguous';if(found.size)return [...found][0];}catch{}return '';}
 
+// The export frame's URL is also its storage authorization identity. Never reuse
+// a first RFC's frame for another RFC, or replace a selected DNC document with NC.
+function netcareWordWorkerIdentity(value,order){
+  const url=new URL(value),docId=url.searchParams.get('id')||'';
+  if(url.protocol!=='https:'||url.username||url.password||url.port||!/(^|\.)kdp\.(?:gts|idp)\.huawei\.com$/.test(url.hostname)
+    ||url.pathname!=='/ows1/static/editor/IdpLiteView/PublishLiteView.html'||!/^NC\d{14}$/.test(order)||!/^D?NC\d{14}$/i.test(docId)||docId.replace(/^D/i,'').toUpperCase()!==order)
+    throw Error('导出连接与当前方案不匹配，请重新运行该单号 / Export worker does not match this RFC; run it again');
+  return {key:url.origin+'\n'+docId,origin:url.origin,docId,url:url.href};
+}
+function netcareReleaseWordBridge(bridges,connection){
+  if(!connection)return;
+  connection.signal?.removeEventListener('abort',connection.onAbort);
+  if(bridges.get(connection.key)===connection)bridges.delete(connection.key);
+  connection.frame.remove();
+}
+function netcareCreateWordBridge(bridges,value,order,doc,signal){
+  const identity=netcareWordWorkerIdentity(value,order);
+  if(signal?.aborted)throw Error('已停止等待 / Stopped waiting');
+  let connection=bridges.get(identity.key);
+  if(connection?.frame.isConnected)return connection;
+  if(connection)netcareReleaseWordBridge(bridges,connection);
+  const frame=doc.createElement('iframe');
+  frame.name='rfc-word-worker';frame.title='RFC Word 导出服务连接';
+  frame.style.cssText='position:fixed;left:0;bottom:0;width:2px;height:2px;border:0;opacity:.01;pointer-events:none';
+  frame.src=identity.url;
+  connection={...identity,order,frame,connected:false,signal};
+  connection.onAbort=()=>netcareReleaseWordBridge(bridges,connection);
+  signal?.addEventListener('abort',connection.onAbort,{once:true});
+  bridges.set(identity.key,connection);
+  try{doc.body.append(frame);}catch(error){netcareReleaseWordBridge(bridges,connection);throw error;}
+  return connection;
+}
+
 // Scope native redirects to the active search. The background opens the exact native
 // destination, so asynchronous searches do not depend on browser popup activation.
 function netcareSearchRedirects(win,order,forward){
@@ -30,6 +63,34 @@ function netcareSearchRedirects(win,order,forward){
   };
   win.open=wrapper;
   return ()=>{if(win.open===wrapper)win.open=original;};
+}
+
+// Native solutions can be inserted into the RFC detail or the portal's own SPA tab.
+// Inspect every candidate, without reading a cross-origin iframe's document.
+function netcareOnlineFrames(documents, order, baseUrl, isVisible) {
+  const result = [], seen = new Set();
+  const matches = value => /^D?NC\d{14}$/i.test(value || '') && value.replace(/^D/i, '').toUpperCase() === order;
+  for (const doc of new Set(documents)) {
+    for (const frame of doc?.querySelectorAll?.('iframe') || []) {
+      if (seen.has(frame)) continue;
+      seen.add(frame);
+      const src = frame.getAttribute?.('src') || frame.src || '';
+      if (frame.id !== 'IdpFrame' && !src.includes('OwsPage.html')) continue;
+      const candidate = { frame, document: doc, visible: isVisible(frame), src, url: null, hostOk: false, pathOk: false, orderOk: false, docIdParam: '', orderIdParam: '' };
+      try {
+        const u = new URL(src, doc.baseURI || baseUrl);
+        candidate.url = u;
+        candidate.hostOk = u.protocol === 'https:' && !u.username && !u.password && !u.port && /(^|\.)kdp\.(?:gts|idp)\.huawei\.com$/.test(u.hostname);
+        candidate.pathOk = u.pathname === '/ows1/static/editor/IdpLiteView/OwsPage.html';
+        candidate.docIdParam = u.searchParams.get('docId') || u.searchParams.get('id') || '';
+        candidate.orderIdParam = u.searchParams.get('order_id') || '';
+        candidate.orderOk = /^NC\d{14}$/.test(order) && matches(candidate.docIdParam) && (!candidate.orderIdParam || matches(candidate.orderIdParam));
+      } catch { /* Keep malformed candidates in diagnostics, never open them. */ }
+      candidate.valid = candidate.hostOk && candidate.pathOk && candidate.orderOk;
+      result.push(candidate);
+    }
+  }
+  return result;
 }
 
 // Search/authorization uses shared site UI sequentially; independent exports overlap.
@@ -51,6 +112,37 @@ async function executeNetcareRfcBatch(orders, concurrency, signal, prepare, tran
   }
   await Promise.all(running);
   return results;
+}
+
+// Word export is only the first stage. Finish an extraction job once its
+// current-batch result and cached ZIP are both available, including delegated RFCs.
+async function netcareCompleteRfcJobs(jobs, records, batchId, listFiles, completedText) {
+  await Promise.all([...jobs.entries()].map(async ([id, job]) => {
+    if (!job.requiresAudit || !job.wordReady || job.checkingAudit || job.batchId !== batchId) return;
+    const record = records.find(r => r.order === job.order && r.wordFilename === job.filename
+      && Number(r.generationAt || Date.parse(r.at)) >= batchId
+      && (!r.batchId || r.batchId === batchId));
+    if (!record) return;
+    job.checkingAudit = true;
+    try {
+      const files = await listFiles(job.order);
+      if (jobs.get(id) !== job) return;
+      if (!record.bundleFileId || !record.bundleFilename || !files.some(f => f.id === record.bundleFileId
+        && f.name === record.bundleFilename && f.role === 'audit-bundle')) {
+        throw Error('审计 ZIP 未成功缓存，请重试该单 / Audit ZIP was not cached; retry this RFC');
+      }
+      job.resolve(completedText(record));
+    } catch (error) {
+      if (jobs.get(id) === job) job.reject(error);
+    } finally { job.checkingAudit = false; }
+  }));
+}
+
+function netcareRejectRfcJobs(jobs, event, batchId) {
+  if (event.batchId !== batchId || !['extraction.failed', 'bundle.cache.failed'].includes(event.action)) return;
+  for (const job of jobs.values()) if (job.requiresAudit && job.order === event.order && job.batchId === batchId) {
+    job.reject(Error(event.error || event.text || '提取或审计失败 / Extraction or audit failed'));
+  }
 }
 
 // Binary transfer uses bounded chunks; no credentials or server download URLs enter the cache.
@@ -75,6 +167,7 @@ async function netcareStoreArtifact(order,name,blob,signal,role){
   const fileId=crypto.randomUUID(),chunk=384*1024;await netcareArtifactRequest({action:'begin',order,fileId,name,size:blob.size,role});
   for(let start=0,index=0;start<blob.size;start+=chunk,index++){if(signal?.aborted)throw Error('已停止 / Stopped');const bytes=new Uint8Array(await blob.slice(start,start+chunk).arrayBuffer());let raw='';for(let n=0;n<bytes.length;n+=8192)raw+=String.fromCharCode(...bytes.subarray(n,n+8192));await netcareArtifactRequest({action:'part',order,fileId,index,data:btoa(raw)});}
   await netcareArtifactRequest({action:'finish',order,fileId});
+  return fileId;
 }
 async function netcareReadArtifact(file,order,signal,snapshotId=''){
   const parts=[];for(let index=0;index<file.count;index++){if(signal?.aborted)throw Error('已停止 / Stopped');const bytes=await netcareArtifactRequest({action:'read',order,fileId:file.id,index,snapshotId});parts.push(Uint8Array.from(atob(bytes),c=>c.charCodeAt(0)));}return new Blob(parts);
@@ -1188,7 +1281,12 @@ function mountNetcareCollector() {
   $('filename').oninput = () => { dirtyName = true; };
   const receiveSlot = event => {
     if(event.source===window&&event.origin===location.origin&&event.data?.source==='TP_RFC_CLOSE_RESULT'&&event.data.order===order&&!event.data.ok){status($('status').textContent+'\n自动关闭未完成 / Automatic close failed: '+(event.data.error||'扩展连接失败 / Extension unavailable'));return;}
-    if(event.source===window&&event.origin===location.origin&&event.data?.source==='TP_RFC_AUDIT_PUBLISHED'&&event.data.order===order&&(!event.data.ok||event.data.snapshotError)){$('auditStatus').textContent+='\n'+(event.data.snapshotError?'快照保存失败：'+event.data.snapshotError:'主页面汇总失败：'+event.data.error);return;}
+    if(event.source===window&&event.origin===location.origin&&event.data?.source==='TP_RFC_AUDIT_PUBLISHED'&&event.data.order===order&&(!event.data.ok||event.data.snapshotError)){
+      $('auditStatus').textContent+='\n'+(event.data.snapshotError?'快照保存失败：'+event.data.snapshotError:'主页面汇总失败：'+event.data.error);
+      if(!event.data.ok)trace('extraction.failed','审计结果保存失败 / Audit result could not be saved',
+        {error:event.data.error||'审计结果保存失败，请重试 / Audit result save failed; retry'},'extraction','error');
+      return;
+    }
     if(event.source===window && event.origin===location.origin && event.data?.source==='TP_RFC_AI_RESULT') { aiRequests.get(event.data.id)?.resolve(event.data); return; }
     if (event.source !== window || event.origin !== location.origin || event.data?.source !== 'TP_RFC_READ_SLOT_RESULT') return;
     const slot = slots.get(event.data.id); if (slot) event.data.ok ? slot.resolve() : slot.reject(new Error(event.data.error || '请求节流连接失败'));
@@ -1320,13 +1418,14 @@ function mountNetcareCollector() {
     startAutoScroll(w);
     controller = new AbortController(); const signal = controller.signal;
     scanFinished = false; taskActive = true; updateCollectorButtons();
-    topics = netcareTopicCatalogue(w.navigationTree.FirstLevelTopics);
-    if (automatic && (settings.attachmentsEnabled || settings.textEnabled)) topics = netcareResolveTopics(settings,topics);
-    trace('sections.resolved','章节定位完成 / Sections resolved',{automatic,topics:topics.map(t=>({number:t.number,title:t.title,ruleNumbers:t.ruleNumbers,correctionsByKind:t.correctionsByKind})),issues:topics.resolutionIssues});
-    attachments = []; cleanScan = false;
-    $('files').replaceChildren(); $('chapters').replaceChildren();
-    let errors = topics.resolutionIssues?.length||0;
+    let errors = 0;
     try {
+      topics = netcareTopicCatalogue(w.navigationTree.FirstLevelTopics);
+      if (automatic && (settings.attachmentsEnabled || settings.textEnabled)) topics = netcareResolveTopics(settings,topics);
+      trace('sections.resolved','章节定位完成 / Sections resolved',{automatic,topics:topics.map(t=>({number:t.number,title:t.title,ruleNumbers:t.ruleNumbers,correctionsByKind:t.correctionsByKind})),issues:topics.resolutionIssues});
+      attachments = []; cleanScan = false;
+      $('files').replaceChildren(); $('chapters').replaceChildren();
+      errors = topics.resolutionIssues?.length||0;
       if (!topics.length) throw new Error(topics.resolutionIssues?.map(i=>i.number+' · '+i.error).join('\n')||'未识别到完整章节目录，请检查网站页面版本');
       for (const topic of topics) {
         if (signal.aborted) throw new Error('已停止 / Stopped');
@@ -1356,7 +1455,11 @@ function mountNetcareCollector() {
       $('count').textContent = `附件 ${attachments.length} 个 / Attachments`;
       if (!attachments.length) $('files').textContent = '未发现附件 / No attachments found';
       status(`已扫描 ${topics.length} 章，发现 ${attachments.length} 个附件；${errors} 处扫描错误。可勾选章节并下载 ZIP。`);
-    } catch (error) { status(error.message + '；扫描未完成，需重新扫描。'); }
+    } catch (error) {
+      trace('extraction.failed','扫描未完成，请重新运行该单 / Scan failed; retry this RFC',
+        {error:error.message},'extraction',signal.aborted?'warn':'error');
+      status(error.message + '；扫描未完成，需重新扫描 / Scan incomplete; scan again');
+    }
     finally {
       controller = null;
       const pendingAuto = settingsReady && scanFinished && !autoAttempted && (settings.attachmentsEnabled || settings.textEnabled);
@@ -1504,10 +1607,11 @@ function mountNetcareCollector() {
         const subFolder=e.role==='screenshot'?'方案截图':e.kind==='attachments'?'方案附件':'方案文本';
         return {...e,name:mat.folder+'/'+subFolder+'/'+e.name};
       })),bundleFilename=netcareSafeFilename(filename.replace(/\.docx$/i,'')+'.zip');
-      try{await netcareStoreArtifact(order,bundleFilename,zip,signal,'audit-bundle');trace('bundle.cached','最终审计 ZIP 已缓存 / Final audit ZIP cached',{name:bundleFilename,bytes:zip.size,files:entries.length},'storage');}catch(error){failed++;trace('bundle.cache.failed','审计 ZIP 缓存失败 / Audit ZIP cache failed',{error:error.message},'storage','error');}
+      let bundleFileId;
+      try{bundleFileId=await netcareStoreArtifact(order,bundleFilename,zip,signal,'audit-bundle');trace('bundle.cached','最终审计 ZIP 已缓存 / Final audit ZIP cached',{name:bundleFilename,bytes:zip.size,files:entries.length},'storage');}catch(error){failed++;trace('bundle.cache.failed','审计 ZIP 缓存失败 / Audit ZIP cache failed',{error:error.message},'storage','error');throw Error('审计 ZIP 缓存失败，请重新运行该单 / Audit ZIP cache failed; retry this RFC: '+error.message);}
       await netcareLogQueue;
-      const published=new Promise(resolve=>{const timer=setTimeout(()=>{window.removeEventListener('message',ack);resolve(false);},15000);const ack=e=>{if(e.source===window&&e.origin===location.origin&&e.data?.source==='TP_RFC_AUDIT_PUBLISHED'&&e.data.order===order){clearTimeout(timer);window.removeEventListener('message',ack);if(e.data.snapshotError){trace('snapshot.ack.failed','快照保存失败 / Snapshot save failed',{error:e.data.snapshotError},'storage','error');status($('status').textContent+'\n快照保存失败 / Snapshot save failed: '+e.data.snapshotError);}resolve(e.data.ok===true&&!e.data.snapshotError);}};window.addEventListener('message',ack);});
-      window.postMessage({source:'TP_RFC_AUDIT_PUBLISH',order,record:{order,wordFilename:filename,bundleFilename,generationAt,batchId,at:new Date().toISOString(),items:evidence,reports,materials,captureDiagnostics,logFailures:netcareLogFailures}},location.origin);
+      const published=new Promise(resolve=>{const timer=setTimeout(()=>{window.removeEventListener('message',ack);trace('extraction.failed','审计结果保存超时 / Audit result save timed out',{error:'审计结果保存超时，请重新运行该单 / Audit result save timed out; retry this RFC'},'extraction','error');resolve(false);},15000);const ack=e=>{if(e.source===window&&e.origin===location.origin&&e.data?.source==='TP_RFC_AUDIT_PUBLISHED'&&e.data.order===order){clearTimeout(timer);window.removeEventListener('message',ack);if(e.data.snapshotError){trace('snapshot.ack.failed','快照保存失败 / Snapshot save failed',{error:e.data.snapshotError},'storage','error');status($('status').textContent+'\n快照保存失败 / Snapshot save failed: '+e.data.snapshotError);}resolve(e.data.ok===true&&!e.data.snapshotError);}};window.addEventListener('message',ack);});
+      window.postMessage({source:'TP_RFC_AUDIT_PUBLISH',order,record:{order,wordFilename:filename,bundleFilename,bundleFileId,generationAt,batchId,at:new Date().toISOString(),items:evidence,reports,materials,captureDiagnostics,logFailures:netcareLogFailures}},location.origin);
       if(signal.aborted)throw Error('已停止 / Stopped');
       const shouldAutoDownloadZip = !automatic || !settings.aiAuditEnabled;
       if (shouldAutoDownloadZip) {
@@ -1613,8 +1717,7 @@ function mountNetcareCollector() {
     });
     async function run(message, signal) {
       const { job, order } = message;
-      const urlId = new URL(location.href).searchParams.get('id') || '';
-      const docId = (urlId && netcareMatchesOrder(urlId, order)) ? urlId : order;
+      const {docId}=netcareWordWorkerIdentity(location.href,order);
       const progress = text => tell({ type: 'progress', job, text });
       progress('读取方案信息…');
       // Same first request as the native Word export action.
@@ -1668,16 +1771,21 @@ function mountNetcareCollector() {
             throw new Error('返回文件不是有效的 DOCX/ZIP，可能登录已失效或无下载权限');
           }
           if (signal.aborted) throw new Error('已停止等待');
-          const objectURL = URL.createObjectURL(blob);
-          const anchor = document.createElement('a');
-          anchor.href = objectURL;
-          anchor.download = `${order}_${filename.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').replace(/\.docx$/i, '')}.docx`;
+          const wordFilename = `${order}_${filename.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').replace(/\.docx$/i, '')}.docx`;
           let cached=true;
-          try{await netcareStoreArtifact(order,anchor.download,blob,signal,'word');}catch(error){cached=false;progress('方案缓存失败，将单独保存 Word / Word cache failed; saving Word separately: '+error.message);}
+          try{await netcareStoreArtifact(order,wordFilename,blob,signal,'word');}catch(error){
+            if(signal.aborted)throw Error('已停止等待 / Stopped waiting');
+            cached=false;
+            if(message.bundleOnly)throw Error('方案 Word 缓存失败，本单未完成；请重新运行该单号。未单独下载 Word / Word cache failed; this RFC is incomplete. Run it again. No separate Word download: '+error.message);
+            progress('方案缓存失败，将单独保存 Word / Word cache failed; saving Word separately: '+error.message);
+          }
           if(signal.aborted)throw Error('已停止 / Stopped');
-          if(!message.bundleOnly||!cached){document.body.append(anchor);anchor.click();anchor.remove();}
-          setTimeout(() => URL.revokeObjectURL(objectURL), 60000);
-          tell({type:'done',job,filename:anchor.download,text:message.bundleOnly&&cached?`已获取 Word 文件（${Math.round(blob.size/1024)} KB），等待章节材料合并 ZIP / Word ready for combined ZIP`:`已获取 Word 文件（${Math.round(blob.size/1024)} KB），已发起保存；请在 Chrome 下载记录中确认。`});
+          if(!message.bundleOnly){
+            const objectURL=URL.createObjectURL(blob),anchor=document.createElement('a');
+            anchor.href=objectURL;anchor.download=wordFilename;document.body.append(anchor);anchor.click();anchor.remove();
+            setTimeout(()=>URL.revokeObjectURL(objectURL),60000);
+          }
+          tell({type:'done',job,filename:wordFilename,text:message.bundleOnly&&cached?`已获取 Word 文件（${Math.round(blob.size/1024)} KB），等待章节材料合并 ZIP / Word ready for combined ZIP`:`已获取 Word 文件（${Math.round(blob.size/1024)} KB），已发起保存；请在 Chrome 下载记录中确认。`});
           return;
         }
         if (/失败|异常|无权限|不存在|failed|error|denied/i.test(String(state.message || ''))) {
@@ -2491,13 +2599,17 @@ function mountNetcareCollector() {
   const rows = new Map(), onlineRequests = new Map();
   function routeSend(source,id,order,data={}){const requestId=crypto.randomUUID();return new Promise((resolve,reject)=>{const finish=(fn,value)=>{clearTimeout(timer);window.removeEventListener('message',receive);fn(value);};const receive=e=>{if(e.source===window&&e.origin===location.origin&&e.data?.source==='TP_RFC_ROUTE_REPLY'&&e.data.requestId===requestId)e.data.ok?finish(resolve,e.data.data):finish(reject,Error(e.data.error||'跨区域连接失败 / Region connection failed'));};const timer=setTimeout(()=>finish(reject,Error('跨区域连接超时，请更新扩展 / Region connection timed out; update extension')),12000);window.addEventListener('message',receive);window.postMessage({source,id,order,requestId,...data},location.origin);});}
   function finishRemote(entry){if(entry.result&&entry.finish){const result=entry.result;entry.finish(result.ok?null:Error(result.error||'跨区域处理失败 / Cross-region workflow failed'),result.value);}}
-  function transferRemote(entry,signal){return new Promise((resolve,reject)=>{let timer;const finish=(error,value)=>{clearTimeout(timer);signal.removeEventListener('abort',abort);entry.finish=null;error?reject(error):resolve(value);};const abort=()=>{routeSend('TP_RFC_ROUTE_CANCEL',entry.id,entry.order).catch(()=>{});finish(Error('已停止等待 / Stopped'));};entry.finish=finish;timer=setTimeout(()=>{routeSend('TP_RFC_ROUTE_CANCEL',entry.id,entry.order).catch(()=>{});finish(Error('跨区域导出超时，请检查目标站点登录 / Cross-region export timed out; check target login'));},13*60000);signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();else finishRemote(entry);});}
+  function transferRemote(entry,signal){return new Promise((resolve,reject)=>{let timer;const finish=(error,value)=>{clearTimeout(timer);signal.removeEventListener('abort',abort);entry.finish=null;error?reject(error):resolve(value);};const abort=()=>{routeSend('TP_RFC_ROUTE_CANCEL',entry.id,entry.order).catch(()=>{});finish(Error('已停止等待 / Stopped'));};entry.finish=finish;timer=setTimeout(()=>{routeSend('TP_RFC_ROUTE_CANCEL',entry.id,entry.order).catch(()=>{});finish(Error('跨区域导出超时，请检查目标站点登录 / Cross-region export timed out; check target login'));},(extractionSettings.attachmentsEnabled||extractionSettings.textEnabled?30:13)*60000);signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();else finishRemote(entry);});}
 
   const update = (order, text) => {
     const row = rows.get(order);
     if(routeRun?.order===order)routeSend('TP_RFC_ROUTE_PROGRESS',routeRun.jobId,order,{text}).catch(()=>{});
     if (row) row.status.textContent = `${order} · ${translate(text)}`;netcareLog({order,batchId:currentBatch?.started,category:'extraction',action:'rfc.progress',message:text,level:/失败|error|failed/i.test(text)?'error':'info'});
   };
+  const completeAudits = () => netcareCompleteRfcJobs(jobs, liveAuditRecords, currentBatch?.started,
+    order => netcareArtifactRequest({action:'list',order,orders:[order]}),
+    () => tr('提取与审计已完成，材料 ZIP 已就绪；可在审计结果统一下载',
+      'Extraction and audit completed; materials ZIP is ready in Audit results'));
   const receive = event => {
     if (event.source === window && event.origin === location.origin
       && event.data?.source === 'EXTENSION_POPUP' && event.data.action === 'STOP') {
@@ -2516,13 +2628,13 @@ function mountNetcareCollector() {
     if(event.source===window&&event.origin===location.origin&&event.data?.source==='TP_RFC_ROUTE_EVENT'){
       const data=event.data.data;if(!data||data.batchId!==currentBatch?.started)return;const entry=routeStates.get(data.jobId);if(data.kind==='assigned'&&entry){entry.assigned=true;entry.targetTabId=data.targetTabId;const row=rows.get(data.order);if(row){const link=document.createElement('a');try{const u=new URL(data.url);if(NETCARE_ORIGINS.has(u.origin)){link.href=u.href;link.target='_blank';link.rel='noopener';link.textContent=tr('跨区域目标页','Target region page')+' · '+u.hostname;row.online.replaceChildren(link);}}catch{}}update(data.order,tr('已转交目标站点，继续自动处理','Handed over to the target site; continuing'));}
       else if(data.kind==='result'&&entry){entry.result=data;finishRemote(entry);}
-      else if(data.kind==='progress'){const row=rows.get(data.order);if(row)row.status.textContent=data.order+' · '+translate(data.text||'');}
+      else if(data.kind==='progress'){netcareRejectRfcJobs(jobs,data,currentBatch.started);const row=rows.get(data.order);if(row)row.status.textContent=data.order+' · '+translate(data.text||'');}
       return;
     }
     if(event.source===window&&event.origin===location.origin&&event.data?.source==='TP_RFC_PIP_CHANGED'){pip?.refresh();return;}
     if(event.source===window&&event.origin===location.origin&&event.data?.source==='TP_RFC_LANGUAGE'){setLanguage(event.data.language);renderAudits();return;}
     if(event.source===window&&event.origin===location.origin&&event.data?.source==='TP_RFC_AUDIT_SUMMARIES'){
-      if(Array.isArray(event.data.records)){liveAuditRecords=event.data.records.filter(r=>r&&Array.isArray(r.reports)&&Array.isArray(r.items)&&(!currentBatch||currentBatch.orders.includes(r.order)&&Number(r.generationAt||Date.parse(r.at))>=currentBatch.started)).slice(-50);if(!activeSnapshot)auditRecords=liveAuditRecords;refreshHistory().catch(()=>{});renderAudits();if(event.data.updated&&auditRecords.length&&!dialog.open&&!auditDialog.open)auditDialog.showModal();}return;
+      if(Array.isArray(event.data.records)){liveAuditRecords=event.data.records.filter(r=>r&&Array.isArray(r.reports)&&Array.isArray(r.items)&&(!currentBatch||currentBatch.orders.includes(r.order)&&Number(r.generationAt||Date.parse(r.at))>=currentBatch.started)).slice(-50);if(!activeSnapshot)auditRecords=liveAuditRecords;completeAudits();refreshHistory().catch(()=>{});renderAudits();if(event.data.updated&&auditRecords.length&&!dialog.open&&!auditDialog.open)auditDialog.showModal();}return;
     }
     if (event.source === window && event.origin === location.origin && event.data?.source === 'TP_RFC_SETTINGS_RESULT') {
       if (!event.data.ok) { $('settingsStatus').textContent = event.data.error || '设置保存失败'; return; }
@@ -2537,7 +2649,7 @@ function mountNetcareCollector() {
       else if(event.data.ok){const row=[...rows.values()].find(r=>r.onlineRequestId===event.data.id);if(row?.online.querySelector('a')){const link=row.online.querySelector('a');row.online.replaceChildren(link,document.createTextNode(tr(' · 已新开页签',' · Tab opened')));}}
       return;
     }
-    const connection = bridges.get(event.origin);
+    const connection = [...bridges.values()].find(item=>item.origin===event.origin&&event.source===item.frame.contentWindow);
     if (!connection || event.source !== connection.frame.contentWindow || event.data?.channel !== CHANNEL) return;
     const message = event.data;
     if (message.type === 'ready') {
@@ -2550,7 +2662,14 @@ function mountNetcareCollector() {
     if (message.type === 'progress') update(job.order, message.text);
     else if (message.type === 'done') {
       if (typeof message.filename === 'string') window.postMessage({ source: 'TP_RFC_WORD_FILENAME', order: job.order, filename: message.filename }, location.origin);
-      job.resolve(message.text);
+      netcareReleaseWordBridge(bridges, connection);
+      if (job.requiresAudit) {
+        job.wordReady = true;
+        job.filename = message.filename;
+        update(job.order, tr('Word 已缓存，等待章节提取、审计与 ZIP 完成',
+          'Word cached; waiting for extraction, audit and ZIP'));
+        completeAudits();
+      } else job.resolve(message.text);
     }
     else if (message.type === 'error') job.reject(new Error(message.text));
   };
@@ -2608,45 +2727,47 @@ function mountNetcareCollector() {
   async function openOnline(order, doc, button, signal) {
     const row = rows.get(order);
     row.online.textContent = '在线方案：正在获取原生入口… / Opening online…';
-    let openedInline = false;
+    const documents = [doc, document], before = new Map(), backBefore = new Map();
+    let matched = null, stage = 'entry';
+    const fresh = candidate => {
+      const previous = before.get(candidate.frame);
+      return !previous || !previous.visible || previous.src !== candidate.src;
+    };
     try {
+      if (signal.aborted) throw new Error('已停止打开在线方案 / Online opening stopped');
       const title = button.closest('tr')?.querySelector('td:first-child .nt-table-link');
-      if (!title) throw new Error('未找到方案名称入口');
-      const oldFrame = doc.querySelector('iframe#IdpFrame');
-      if (oldFrame && visible(oldFrame)) throw new Error('请先返回 RFC 信息再打开方案');
+      if (!title) throw new Error('未找到所选方案的名称入口 / Selected solution entry not found');
+      for (const candidate of netcareOnlineFrames(documents, order, location.href, visible)) before.set(candidate.frame, candidate);
+      for (const back of doc.querySelectorAll('.solution_normal_text')) backBefore.set(back, visible(back));
       title.click();
-      openedInline = true;
-      let loggedCandidate = '';
+      const loggedCandidates = new Set();
+      let candidates = [];
       let native;
       try {
-        native = await wait(() => {
-          const item = doc.querySelector('iframe#IdpFrame') || doc.querySelector('iframe[src*="OwsPage.html"]');
-          if (!item || !visible(item)) return null;
-          try {
-            const u = new URL(item.src, location.href);
-            const hostOk = u.protocol === 'https:' && /(^|\.)kdp\.(?:gts|idp)\.huawei\.com$/.test(u.hostname);
-            const pathOk = u.pathname === '/ows1/static/editor/IdpLiteView/OwsPage.html';
-            const docId = u.searchParams.get('docId') || u.searchParams.get('id') || '';
-            const orderId = u.searchParams.get('order_id') || '';
-            const docMatches = netcareMatchesOrder(docId, order);
-            const orderMatches = !orderId || netcareMatchesOrder(orderId, order);
-            const orderOk = docMatches && orderMatches;
-            if (hostOk && pathOk && orderOk) {
-              if (!u.searchParams.get('docId')) u.searchParams.set('docId', docId || order);
-              u.searchParams.set('order_id', order);
-              netcareLog({ order, batchId: currentBatch?.started, category: 'extraction', action: 'online.entry.matched', message: '已识别在线方案入口 / Online solution entry matched', data: { host: u.hostname, pathname: u.pathname, docIdParam: docId, orderIdParam: orderId || order } });
-              return u;
+        matched = await wait(() => {
+          candidates = netcareOnlineFrames(documents, order, location.href, visible);
+          for (const candidate of candidates) {
+            if (!candidate.visible || candidate.valid) continue;
+            const data = { host: candidate.url?.hostname || '', pathname: candidate.url?.pathname || '', hostOk: candidate.hostOk, pathOk: candidate.pathOk, docIdParam: candidate.docIdParam, orderIdParam: candidate.orderIdParam, expectedOrder: order };
+            const signature = JSON.stringify(data);
+            if (!loggedCandidates.has(signature)) {
+              loggedCandidates.add(signature);
+              netcareLog({ order, batchId: currentBatch?.started, category: 'extraction', level: 'warn', action: 'online.entry.rejected', message: '检测到在线方案候选 iframe 但未通过校验 / Candidate online iframe rejected', data });
             }
-            const sig = `${u.hostname}${u.pathname}?docId=${docId}&order_id=${orderId}`;
-            if (sig !== loggedCandidate) {
-              loggedCandidate = sig;
-              netcareLog({ order, batchId: currentBatch?.started, category: 'extraction', level: 'warn', action: 'online.entry.rejected', message: '检测到在线方案候选 iframe 但未通过校验 / Candidate online iframe rejected', data: { host: u.hostname, pathname: u.pathname, hostOk, pathOk, docIdParam: docId, orderIdParam: orderId, expectedOrder: order } });
-            }
-            return null;
-          } catch { return null; }
-        }, 45000, signal, '在线方案入口未打开，请检查网站授权提示');
+          }
+          return candidates.find(candidate => candidate.visible && candidate.valid && fresh(candidate)) || null;
+        }, 45000, signal, '未识别到本次打开的在线方案入口 / No matching online entry appeared for this request');
+        native = new URL(matched.url.href);
+        if (!native.searchParams.get('docId')) native.searchParams.set('docId', matched.docIdParam);
+        native.searchParams.set('order_id', order);
+        netcareLog({ order, batchId: currentBatch?.started, category: 'extraction', action: 'online.entry.matched', message: '已识别在线方案入口 / Online solution entry matched', data: { host: native.hostname, pathname: native.pathname, docIdParam: matched.docIdParam, orderIdParam: matched.orderIdParam || order, scope: matched.document === doc ? 'detail' : 'portal' } });
       } catch (waitErr) {
-        netcareLog({ order, batchId: currentBatch?.started, category: 'extraction', level: 'error', action: 'online.entry.timeout', message: '等待在线方案入口超时或失败 / Waiting for online solution entry failed: ' + (waitErr?.message || ''), data: inspectPortalState(doc, order, 'online') });
+        if (!signal.aborted && candidates.some(candidate => candidate.visible && !candidate.valid)) {
+          waitErr = new Error('已发现在线页面，但地址或 RFC 与本单不匹配，请查看日志 / Online frames found, but their addresses or RFCs do not match; check logs');
+        } else if (!signal.aborted && candidates.some(candidate => candidate.visible && candidate.valid)) {
+          waitErr = new Error('仅找到此前已打开的方案，未确认本次入口；请返回 RFC 信息后重试 / Only an earlier solution is visible; return to RFC details and retry');
+        }
+        netcareLog({ order, batchId: currentBatch?.started, category: 'extraction', level: signal.aborted ? 'warn' : 'error', action: signal.aborted ? 'online.entry.cancelled' : 'online.entry.timeout', message: '等待在线方案入口失败 / Waiting for online solution entry failed: ' + (waitErr?.message || ''), data: inspectPortalState(doc, order, 'online') });
         throw waitErr;
       }
       // Keep a native link even if extension relay permissions are unavailable.
@@ -2657,6 +2778,7 @@ function mountNetcareCollector() {
       link.textContent = `${order} · 在线方案 / Online solution`;
       link.style.cssText = 'color:#368cff';
       row.online.replaceChildren(link);
+      stage = 'tab';
       const id = crypto.randomUUID();row.onlineRequestId=id;
       await new Promise((resolve, reject) => {
         let timer;
@@ -2675,11 +2797,20 @@ function mountNetcareCollector() {
       });
       row.online.append(document.createTextNode(' · 已新开页签 / Tab opened'));
     } catch (error) {
-      row.online.append(document.createTextNode(` · 新页签状态未确认 / Tab status unconfirmed: ${error.message}`));
+      const reason = signal.aborted ? '已停止打开在线方案 / Online opening stopped' : stage === 'entry' ? '在线方案入口识别失败 / Online entry recognition failed' : '独立方案页签打开失败 / Separate solution tab failed to open';
+      row.online.append(document.createTextNode(` · ${reason}: ${error.message}`));
+      throw error;
     } finally {
-      if (openedInline) {
-        const back = Array.from(doc.querySelectorAll('.solution_normal_text')).find(item => item.textContent.trim() === '返回RFC/HC');
-        back?.click();
+      // A portal SPA tab has separate navigation controls. Never guess its close button
+      // or use another RFC's Return action. Restore only this detail's new inline view.
+      if (matched?.document === doc && fresh(matched) && matched.frame.isConnected !== false && visible(matched.frame)) {
+        try {
+          const current = netcareOnlineFrames([doc], order, location.href, visible).find(candidate => candidate.frame === matched.frame && candidate.valid && candidate.url?.href === matched.url.href);
+          const backs = Array.from(doc.querySelectorAll('.solution_normal_text')).filter(item => visible(item) && !backBefore.get(item) && /^(?:返回RFC\/HC|(?:back|return)(?:to)?RFC(?:\/HC)?)$/i.test(item.textContent.replace(/\s+/g, '')));
+          if (current && backs.length === 1) backs[0].click();
+        } catch (error) {
+          netcareLog({ order, batchId: currentBatch?.started, category: 'extraction', level: 'warn', action: 'online.inline.restore.failed', message: '在线方案已处理，原生详情视图未能恢复 / Online entry processed; native detail view could not be restored', data: { error: error.message } });
+        }
       }
     }
   }
@@ -2756,23 +2887,18 @@ function mountNetcareCollector() {
       throw waitErr;
     }
     const url = new URL(nativeFrame.src, location.href);
-    let connection = bridges.get(url.origin);
-    if (!connection || !connection.frame.isConnected) {
-      const bridge = document.createElement('iframe');
-      bridge.name = 'rfc-word-worker';
-      bridge.title = 'RFC Word 导出服务连接';
-      bridge.style.cssText = 'position:fixed;left:0;bottom:0;width:2px;height:2px;border:0;opacity:.01;pointer-events:none';
-      bridge.src = url.href;
-      connection = { frame: bridge, origin: url.origin, connected: false };
-      bridges.set(url.origin, connection);
-      document.body.append(bridge);
-      $('connection').textContent = '导出服务：等待初始化';
+    const connection=netcareCreateWordBridge(bridges,url.href,order,document,signal);
+    $('connection').textContent = '导出服务：等待初始化';
+    try {
+      doc.querySelector('button.nc-close')?.click();
+      if ($('openOnline').checked) await openOnline(order, doc, button, signal);
+      post(connection, { type: 'hello' });
+      await wait(() => connection.connected, 60000, signal, '自动连接失败，请检查导出服务登录状态和扩展的网站权限');
+      return connection;
+    } catch(error) {
+      netcareReleaseWordBridge(bridges,connection);
+      throw error;
     }
-    doc.querySelector('button.nc-close')?.click();
-    if ($('openOnline').checked) await openOnline(order, doc, button, signal);
-    post(connection, { type: 'hello' });
-    await wait(() => connection.connected, 60000, signal, '自动连接失败，请检查导出服务登录状态和扩展的网站权限');
-    return connection;
   }
   function transfer(order, connection, signal) {
     if(connection.routeId)return transferRemote(routeStates.get(connection.routeId),signal);
@@ -2783,18 +2909,23 @@ function mountNetcareCollector() {
         clearTimeout(timer);
         signal.removeEventListener('abort', abort);
         jobs.delete(id);
+        netcareReleaseWordBridge(bridges,connection);
         fn(value);
       };
       const abort = () => {
-        post(connection, { type: 'cancel', job: id });
+        if(connection.frame.isConnected)post(connection, { type: 'cancel', job: id });
         finish(reject, new Error('已停止等待'));
       };
-      jobs.set(id, { order, connection, resolve: value => finish(resolve, value), reject: error => finish(reject, error) });
+      const requiresAudit = extractionSettings.attachmentsEnabled || extractionSettings.textEnabled;
+      jobs.set(id, { order, connection, requiresAudit, batchId: currentBatch.started,
+        resolve: value => finish(resolve, value), reject: error => finish(reject, error) });
       signal.addEventListener('abort', abort, { once: true });
       timer = setTimeout(() => {
-        post(connection, { type: 'cancel', job: id });
-        finish(reject, new Error('等待导出响应超时，请检查连接后重试'));
-      }, 13 * 60 * 1000);
+        if (connection.frame.isConnected) post(connection, { type: 'cancel', job: id });
+        finish(reject, new Error(requiresAudit
+          ? '等待提取、审计或 ZIP 超时，请检查进度后重试 / Extraction, audit or ZIP timed out; check progress and retry'
+          : '等待导出响应超时，请检查连接后重试 / Word export timed out; check the connection and retry'));
+      }, (requiresAudit ? 30 : 13) * 60 * 1000);
       if (signal.aborted) abort();
       else post(connection, { type: 'run', job: id, order,bundleOnly:extractionSettings.attachmentsEnabled||extractionSettings.textEnabled });
     });
@@ -2829,7 +2960,11 @@ function mountNetcareCollector() {
       const results = await executeNetcareRfcBatch(orders, Number($('concurrency').value), controller.signal,
         prepare, transfer, (order, result) => {update(order,result.ok?result.value:(controller.signal.aborted?result.error:`失败 / Failed: ${result.error}`));const entry=[...routeStates.values()].find(e=>e.order===order);if(controller.signal.aborted&&entry)routeSend('TP_RFC_ROUTE_CANCEL',entry.id,order).catch(()=>{});else if(entry&&!entry.assigned)routeSend('TP_RFC_ROUTE_RESULT',entry.id,order,{ok:result.ok,value:result.value,error:result.error}).catch(()=>{});});
       const success = results.filter(result => result.ok).length;
-      log(`已发起保存 ${success} / ${orders.length}；其余 ${orders.length - success} 单失败或停止。请在 Chrome 下载记录中确认。`);
+      if (extractionSettings.attachmentsEnabled || extractionSettings.textEnabled) {
+        log(tr(`材料 ZIP 已就绪 ${success} / ${orders.length}；其余 ${orders.length - success} 单失败或停止。${extractionSettings.aiAuditEnabled ? '请在“审计结果”统一下载审计材料 ZIP。' : '请在 Chrome 下载记录中确认 ZIP。'}`,
+          `Materials ZIP ready: ${success} / ${orders.length}; ${orders.length - success} failed or stopped. ${extractionSettings.aiAuditEnabled ? 'Download the combined materials ZIP from Audit results.' : 'Confirm ZIP files in Chrome downloads.'}`));
+      } else log(tr(`Word 已发起保存 ${success} / ${orders.length}；其余 ${orders.length - success} 单失败或停止。请在 Chrome 下载记录中确认。`,
+        `Word saves initiated: ${success} / ${orders.length}; ${orders.length - success} failed or stopped. Confirm in Chrome downloads.`));
     } finally {
       active = null;
       $('run').disabled = $('order').disabled = $('concurrency').disabled = $('openOnline').disabled = false;
@@ -2845,7 +2980,7 @@ function mountNetcareCollector() {
     active?.abort();planDialog.close();localization?.stop();pip?.destroy();healthSampler?.stop();healthView?.stop();
     window.removeEventListener('message', receive);
     clearInterval(settingsTimer);clearInterval(logLiveTimer);clearTimeout(logSearchTimer);unwirePanelOperations();confirmationDialog.close();clearAuditImages();dialog.close();auditDialog.close();
-    bridges.forEach(connection => connection.frame.remove());
+    bridges.forEach(connection => netcareReleaseWordBridge(bridges,connection));
     host.remove();
   };
   window.__rfcWordPanelCleanup = cleanup;

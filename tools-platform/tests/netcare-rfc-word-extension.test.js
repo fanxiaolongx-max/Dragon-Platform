@@ -44,7 +44,7 @@ test('RFC package restricts page injection and permits configured AI API origins
     assert.match(require(path.join(dir, 'builtin-catalog.js'))['netcare-rfc-word'].file, /netcare-rfc-word\.js\?v=/);
 });
 
-function workerHarness(fileBytes = [0x50, 0x4b, 0x03, 0x04, 0x00], parentOrigin = 'https://netcare-ae.gts.huawei.com', workerHost = 'https://de.kdp.gts.huawei.com') {
+function workerHarness(fileBytes = [0x50, 0x4b, 0x03, 0x04, 0x00], parentOrigin = 'https://netcare-ae.gts.huawei.com', workerHost = 'https://de.kdp.gts.huawei.com', docId = 'NC20261001000381') {
     const messages = [], requests = [], saved = [], listeners = new Map();
     const parent = { postMessage: (message, target) => messages.push({ message, target }) };
     const window = {
@@ -79,7 +79,7 @@ function workerHarness(fileBytes = [0x50, 0x4b, 0x03, 0x04, 0x00], parentOrigin 
         send() { this.status = 200; this.response = new Blob([new Uint8Array(fileBytes)]); queueMicrotask(() => this.onload()); }
         abort() { this.onabort(); }
     }
-    const location = new URL(`${workerHost}/ows1/static/editor/IdpLiteView/PublishLiteView.html?id=NC20261001000381`);
+    const location = new URL(`${workerHost}/ows1/static/editor/IdpLiteView/PublishLiteView.html?id=${docId}`);
     location.ancestorOrigins = [parentOrigin];
     const context = { window, parent, location,
         URL: class extends URL { static createObjectURL() { return 'blob:test'; } static revokeObjectURL() {} },
@@ -242,19 +242,17 @@ test('stopping a batch prevents queued RFCs from being prepared', async () => {
     assert.ok(results.every(result => !result.ok));
 });
 
-test('worker accepts ten distinct simultaneous RFCs and rejects an eleventh', async () => {
+test('a document-bound worker limits simultaneous jobs and never changes its RFC identity', async () => {
     const harness = workerHarness();
-    const orders = Array.from({length:11},(_,i)=>'NC20261005'+String(i).padStart(6,'0'));
-    orders.forEach((order, index) => harness.receive({ type: 'run', job: `batch-${index}`, order }));
+    const order='NC20261001000381';
+    Array.from({length:11},(_,index)=>harness.receive({type:'run',job:`batch-${index}`,order}));
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(harness.saved.length, 10);
-    assert.deepEqual(harness.saved.map(name => name.slice(0, 16)).sort(), orders.slice(0, 10).sort());
+    assert.ok(harness.saved.every(name=>name.startsWith(order+'_')));
     assert.ok(harness.messages.some(({ message }) => message.job === 'batch-10' && message.type === 'error'));
-    for (const order of orders.slice(0, 10)) {
-        const urls = harness.requests.map(url => new URL(url)).filter(url => url.searchParams.get('docId') === order);
-        assert.equal(urls.length, 2, 'status and download retain the same RFC');
-        assert.ok(urls.every(url => url.searchParams.get('taskId') === 'task-' + order), 'each RFC keeps its own task ID');
-    }
+    const urls=harness.requests.map(url=>new URL(url)).filter(url=>url.searchParams.has('docId'));
+    assert.equal(urls.length,20);
+    assert.ok(urls.every(url=>url.searchParams.get('docId')===order&&url.searchParams.get('taskId')==='task-'+order));
 });
 
 
@@ -1443,8 +1441,8 @@ test('online background serializes tab activation leases across concurrent solut
 });
 
 test('China station kdp.idp.huawei.com export worker, online background, and artifact storage work end-to-end', async () => {
-    const cnWorker = workerHarness(undefined, 'https://netcare.huawei.com', 'https://kdp.idp.huawei.com');
     const order = 'NC20260624001106';
+    const cnWorker = workerHarness(undefined, 'https://netcare.huawei.com', 'https://kdp.idp.huawei.com',order);
     cnWorker.receive({ type: 'run', job: 'cn-test', order });
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(cnWorker.saved.length, 1);
