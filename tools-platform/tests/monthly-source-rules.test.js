@@ -55,3 +55,12 @@ test('month and pinned references retain renamed main/child metric aliases witho
  assert.equal(E.resolve({...binding,reference:{...reference,month:'2024-09'}},data),null);
  assert.equal(E.resolve({...binding,reference:{...reference,versionId:assessment.id}},data),null);
 });
+
+test('library shows one current table per import: site-suffixed and "(1)" detail parts merge, earlier imports become history',()=>{
+ const part=(id,name,batch,date)=>({...file(id,'2026-09',date),name,batch_id:batch});
+ const catalog={batches:[],files:[part('old-cn','PBI_自动抓取-CPT风险详表_Latest.csv','old','2026-10-10T10:00:00Z'),part('old-de','PBI_自动抓取-CPT风险详表_Latest (1).csv','old','2026-10-10T10:00:01Z'),part('new-cn','PBI_自动抓取-CPT风险详表-CN_Latest.csv','new','2026-10-15T10:00:00Z'),part('new-de','PBI_自动抓取-CPT风险详表-DE_Latest.csv','new','2026-10-15T10:00:01Z'),part('risk','PBI_自动抓取-风险详单-CN_Latest.csv','new','2026-10-15T10:00:02Z'),part('chart','PBI_自动抓取_15_CN_资质_CO_Latest.csv','new','2026-10-15T10:00:03Z')]};
+ const groups=S.libraryGroups(catalog,'2026-09');assert.equal(groups.length,3);
+ const special=groups.find(group=>group.file.id==='new-de');assert.deepEqual(special.files.map(item=>item.id).sort(),['new-cn','new-de']);assert.equal(special.versions.length,4);
+ const cards=E.mergeFiles(groups.flatMap(group=>group.files));assert.equal(cards.length,3);assert.equal(cards.find(card=>card.mergedFiles.length>1).name,'PBI_自动抓取-CPT风险详表_Latest.csv');
+ assert.equal(S.tableName('PBI_自动抓取-详单-SR-DE_Latest (2).csv'),'PBI_自动抓取-详单-SR_Latest.csv');assert.equal(S.tableName('PBI_自动抓取_15_CN_资质_CO_Latest.csv'),'PBI_自动抓取_15_CN_资质_CO_Latest.csv');
+});

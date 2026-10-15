@@ -37,6 +37,11 @@ function safeMeta(meta, redact) {
     }
 }
 
+/** SDK 版本签名：导入/替换 SDK 后与当前连接使用的版本不同即提示重启。 */
+function sdkSignature(info) {
+    return info && info.available ? `${info.entry}|${info.version}|${info.importedAt || ''}` : '';
+}
+
 function getInstance(tenantId) {
     if (!instances.has(tenantId)) {
         instances.set(tenantId, { tenantId, runtime: null, provider: null, fingerprint: '', startedAt: null, lastError: null, logs: [], busy: null });
@@ -143,6 +148,7 @@ async function startInstance(instance, config) {
         throw serviceError(error.code || 'WELINK_START_FAILED', `连接 WeLink 网关失败：${redact(error.message)}`, 502);
     }
     instance.fingerprint = configRepo.connectionFingerprint(config);
+    instance.sdkSignature = sdkSignature(await sdkLoader.detect({ sdkPath: config.sdkPath }));
     instance.startedAt = new Date().toISOString();
     instance.lastError = null;
     appendLog(instance, { level: 'info', message: `已连接 WeLink 网关（channel=${config.channel}，环境=${config.environment}）` });
@@ -199,6 +205,9 @@ async function getStatus(tenantId = getTenantId()) {
         const instance = getInstance(tenantId);
         const sdk = await sdkLoader.detect({ sdkPath: config.sdkPath });
         const runtime = runtimeState(instance);
+        const staleReason = !instance.runtime ? null
+            : (instance.fingerprint !== configRepo.connectionFingerprint(config) ? 'config'
+                : (instance.sdkSignature && instance.sdkSignature !== sdkSignature(sdk) ? 'sdk' : null));
         let summary = null;
         try { summary = await targetsRepo.countSummary(CHANNEL); } catch { summary = null; }
         return {
@@ -211,7 +220,8 @@ async function getStatus(tenantId = getTenantId()) {
             connected: runtime.state === 'ready',
             startedAt: instance.startedAt,
             lastError: instance.lastError,
-            stale: Boolean(instance.runtime) && instance.fingerprint !== configRepo.connectionFingerprint(config),
+            stale: Boolean(staleReason),
+            staleReason,
             provider: instance.provider ? { ...instance.provider.stats, activeRuns: instance.provider.activeRuns.size } : null,
             summary,
             assistantInfo: config.assistantInfo

@@ -31,6 +31,9 @@
     "directories": {
       "output": "dist"
     },
+    "asarUnpack": [
+      "backend/vendor/**/*"
+    ],
     "files": [
       "backend/**/*",
       "frontend/**/*",

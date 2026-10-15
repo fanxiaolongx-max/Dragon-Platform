@@ -5,6 +5,9 @@
     const shift=(value,offset)=>{if(!validMonth(value))return '';const date=new Date(Date.UTC(Number(value.slice(0,4)),Number(value.slice(5))-1+offset,1));return date.toISOString().slice(0,7);};
     const time=value=>Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value||'')?value.replace(' ','T')+'Z':value)||0;
     const identity=value=>String(value||'').replace(/20\d{2}[-_年]?(0?[1-9]|1[0-2])(?:月|(?=\b|\.|_|-))/g,'{month}');
+    // One table per import: browser copies "(1)" and site-suffixed SLA detail downloads (CPT风险详表-CN/-DE) are parts of the same table.
+    const SITE_DETAIL=/^(PBI_自动抓取-(?:整改详单_整改|CPT风险详表|风险详单|详单-SR|详单漏洞_漏洞预警))(?:[-_][a-z0-9]+)*(?=_Latest)/i;
+    const tableName=value=>String(value||'').replace(/\s*\(\d+\)(?=\.[^.]+$|$)/g,'').trim().replace(SITE_DETAIL,'$1');
     function fileMonth(file,catalog){
         if(validMonth(file.target_period))return file.target_period;
         const match=String(file.name||'').match(/(20\d{2})[-_年]?(0?[1-9]|1[0-2])(?:月|\b|\.|_)/);if(match)return match[1]+'-'+match[2].padStart(2,'0');
@@ -46,11 +49,12 @@
         for(const file of catalog.files||[]){
             const month=fileMonth(file,catalog);if(period&&month!==period)continue;
             const kind=['original','structured'].includes(file.kind||'original')?'source-table':file.kind;
-            const name=String(file.name||'');
-            const key=JSON.stringify([kind,month,name]);
+            const key=JSON.stringify([kind,month,tableName(file.name)]);
             if(!groups.has(key))groups.set(key,{key,versions:[]});groups.get(key).versions.push(file);
         }
-        return [...groups.values()].map(group=>{group.versions.sort((a,b)=>time(b.created_at)-time(a.created_at));return {...group,file:group.versions[0]};});
+        // Only the newest import's parts are current; parts from earlier imports become history.
+        const batch=file=>file.batch_id||file.id;
+        return [...groups.values()].map(group=>{group.versions.sort((a,b)=>time(b.created_at)-time(a.created_at));const file=group.versions[0];return {...group,file,files:group.versions.filter(item=>batch(item)===batch(file)).filter((item,index,list)=>list.findIndex(other=>other.name===item.name)===index)};});
     }
     function references(block){return [...(block.binding?[{key:'binding',value:block.binding}]:[]),...(block.chart?.pivot?.sources||[]).map((value,index)=>({key:'pivot:'+index,value})),...(block.chart?.series||[]).map((value,index)=>({key:'series:'+index,value}))];}
     function validateSaved(saved){
@@ -58,5 +62,5 @@
         if(saved.definition&&(!saved.definition||Array.isArray(saved.definition)||typeof saved.definition!=='object'||Object.keys(saved.definition).some(key=>!['type','binding','chart','columns','filters','filterLogic','limit','rule'].includes(key))))throw new Error('Invalid monthly saved definition');
         for(const item of saved.resources){if(!item||typeof item.url!=='string'||!/^\/api\/(?:upload\/source-(?:sheets|snapshots)\/[\w%./:-]+|duty-roster\?month=\d{4}-\d{2})$/.test(item.url)||!item.data||typeof item.data!=='object')throw new Error('Invalid monthly saved resource');}
     }
-    return {validMonth,shift,time,identity,fileMonth,snapshotMonth,validate,targetMonth,create,resolve,catalogGroups,libraryGroups,references,validateSaved};
+    return {validMonth,shift,time,identity,tableName,fileMonth,snapshotMonth,validate,targetMonth,create,resolve,catalogGroups,libraryGroups,references,validateSaved};
 });

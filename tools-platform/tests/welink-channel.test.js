@@ -109,6 +109,7 @@ test.after(async () => {
 
 test('SDK 未安装时提示通过 welink-cli 获取', async () => {
     sdkLoader.setOverride(null);
+    sdkLoader.setBuiltinDir(path.join(sandbox, 'no-builtin'));
     const info = await sdkLoader.detect({ sdkPath: path.join(sandbox, 'missing-sdk') });
     assert.equal(info.available, false);
     assert.equal(info.customPathInvalid, true);
@@ -127,6 +128,66 @@ test('自定义 SDK 路径可识别 ESM 包入口并加载', async () => {
     assert.equal(info.source, 'custom');
     const sdk = await sdkLoader.load({ sdkPath: pkgDir });
     assert.equal(typeof sdk.createBridgeRuntime, 'function');
+});
+
+test('平台内置 SDK 优先于全局安装被识别', async () => {
+    const builtinDir = path.join(sandbox, 'vendor', '@wecode', 'bridge-runtime-sdk');
+    fs.mkdirSync(path.join(builtinDir, 'dist'), { recursive: true });
+    fs.writeFileSync(path.join(builtinDir, 'package.json'), JSON.stringify({ name: '@wecode/bridge-runtime-sdk', version: '1.0.7', type: 'module', main: './dist/index.js' }));
+    fs.writeFileSync(path.join(builtinDir, 'dist', 'index.js'), 'export async function createBridgeRuntime() { return { builtin: true }; }\n');
+    sdkLoader.setBuiltinDir(builtinDir);
+    sdkLoader.reset();
+    try {
+        const info = await sdkLoader.detect();
+        assert.equal(info.source, 'builtin');
+        assert.equal(info.version, '1.0.7');
+        assert.deepEqual(await (await sdkLoader.load()).createBridgeRuntime(), { builtin: true });
+        assert.equal((await sdkLoader.detect({ sdkPath: path.join(sandbox, 'sdk-home') })).source, 'custom', '显式配置的路径优先');
+    } finally {
+        sdkLoader.setBuiltinDir(path.join(sandbox, 'no-builtin'));
+        sdkLoader.reset();
+    }
+});
+
+test('页面导入 SDK：校验后替换、重新导入立即生效、可移除，且优先于内置', async () => {
+    sdkLoader.setOverride(null);
+    const builtinDir = path.join(sandbox, 'vendor2', '@wecode', 'bridge-runtime-sdk');
+    fs.mkdirSync(path.join(builtinDir, 'dist'), { recursive: true });
+    fs.writeFileSync(path.join(builtinDir, 'package.json'), JSON.stringify({ name: '@wecode/bridge-runtime-sdk', version: '1.0.0', type: 'module', main: './dist/index.js' }));
+    fs.writeFileSync(path.join(builtinDir, 'dist', 'index.js'), 'export async function createBridgeRuntime() { return "builtin"; }\n');
+    sdkLoader.setBuiltinDir(builtinDir);
+    sdkLoader.reset();
+    const pkg = JSON.stringify({ name: '@wecode/bridge-runtime-sdk', version: '1.0.7', type: 'module' });
+    try {
+        const first = await sdkLoader.importSdk({ entry: 'export async function createBridgeRuntime() { return "v1"; }\nexport const qrcodeAuth = { run: async () => {} };\n', types: 'export {};', packageJson: pkg, fileName: 'bridge-runtime-sdk/dist/index.js' });
+        assert.equal(first.source, 'imported');
+        assert.equal(first.version, '1.0.7');
+        assert.deepEqual(first.capabilities, { createBridgeRuntime: true, qrcodeAuth: true, packageVersion: null });
+        assert.ok(first.importedAt);
+        assert.ok(first.packageDir.startsWith(process.env.TOOLS_DATA_DIR), '存放在本机数据目录');
+        assert.equal(await (await sdkLoader.load()).createBridgeRuntime(), 'v1');
+
+        await assert.rejects(sdkLoader.importSdk({ entry: 'export const x = 1;', packageJson: pkg }), error => error.code === 'WELINK_SDK_IMPORT_INVALID' && /createBridgeRuntime/.test(error.message));
+        await assert.rejects(sdkLoader.importSdk({ entry: 'export const x = 1;', packageJson: JSON.stringify({ name: 'other' }) }), error => error.code === 'WELINK_SDK_IMPORT_MISMATCH');
+        await assert.rejects(sdkLoader.importSdk({ entry: 'var a=1;\n<truncated 286437 bytes>\n' }), error => error.code === 'WELINK_SDK_IMPORT_TRUNCATED');
+        await assert.rejects(sdkLoader.importSdk({ entry: 'export async function createBridgeRuntime( {' }), error => error.code === 'WELINK_SDK_IMPORT_INVALID');
+        assert.equal(await (await sdkLoader.load()).createBridgeRuntime(), 'v1', '校验失败不影响已导入的版本');
+        assert.deepEqual(fs.readdirSync(path.dirname(path.dirname(sdkLoader.IMPORTED_DIR))).filter(name => name.startsWith('.staging-')), [], '临时目录已清理');
+
+        await new Promise(resolve => setTimeout(resolve, 20));
+        const second = await sdkLoader.importSdk({ entry: 'export async function createBridgeRuntime() { return "v2"; }\nexport function resolvePackageVersion() { return "1.0.8"; }\n' });
+        assert.equal(second.version, '1.0.8', '只有 index.js 时使用 SDK 自报版本');
+        assert.equal(second.capabilities.qrcodeAuth, false);
+        assert.equal(await (await sdkLoader.load()).createBridgeRuntime(), 'v2', '重新导入后无需重启平台即生效');
+
+        assert.equal(sdkLoader.removeImportedSdk(), true);
+        assert.equal((await sdkLoader.detect()).source, 'builtin');
+        assert.equal(await (await sdkLoader.load()).createBridgeRuntime(), 'builtin');
+    } finally {
+        sdkLoader.removeImportedSdk();
+        sdkLoader.setBuiltinDir(path.join(sandbox, 'no-builtin'));
+        sdkLoader.reset();
+    }
 });
 
 test('配置对外只返回 SK 掩码，回传掩码不会覆盖原值，且按租户隔离', async () => {

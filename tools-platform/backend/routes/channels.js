@@ -52,6 +52,20 @@ router.post('/welink/sdk/recheck', handle(async (_req, res) => {
     res.json(await welink.getStatus(getTenantId()));
 }));
 
+// 导入 SDK：前端读取所选文件夹中的 dist/index.js（及 index.d.ts、package.json）文本后提交；
+// 后端先加载校验再替换，存放在本机数据目录，所有租户共用。
+router.post('/welink/sdk/import', handle(async (req, res) => {
+    const body = req.body || {};
+    const sdk = await sdkLoader.importSdk({ entry: body.entry, types: body.types, packageJson: body.packageJson, fileName: body.fileName });
+    // 已启用但尚未连接（例如之前缺 SDK）时立即尝试连接；已连接的保持不动，由页面提示重启后生效
+    res.json({ sdk, status: await welink.applyConfig(getTenantId()) });
+}));
+
+router.delete('/welink/sdk/import', handle(async (_req, res) => {
+    const removed = sdkLoader.removeImportedSdk();
+    res.json({ removed, status: await welink.getStatus(getTenantId()) });
+}));
+
 router.post('/welink/connect', handle(async (_req, res) => {
     res.json(await welink.connect(getTenantId()));
 }));

@@ -68,6 +68,8 @@
 .nch-pill i{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block}
 .nch-pill.ok{background:#dcfce7;color:#166534}.nch-pill.warn{background:#fef3c7;color:#92400e}.nch-pill.bad{background:#fee2e2;color:#991b1b}
 .nch-actions{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
+.nch-sdk-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed #e2e8f0}
+.nch-sdk-row .nch-muted{flex:1 1 260px;min-width:0;word-break:break-all}
 .nch-btn{height:30px;padding:0 12px;border-radius:7px;border:1px solid #cbd5e1;background:#f8fafc;color:#334155;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
 .nch-btn:hover:not(:disabled){border-color:#93c5fd;color:#1d4ed8}
 .nch-btn.primary{background:#2563eb;border-color:#2563eb;color:#fff}
@@ -216,12 +218,13 @@
         const summary = status.summary || {};
         const running = Boolean(status.runtime && status.runtime.state !== 'idle');
         const busy = view.busy;
-        const failure = status.runtime?.failureReason || status.lastError?.message;
+        // SDK 缺失时只展示上面的安装/导入提示，不重复显示同一原因的连接错误
+        const failure = sdk.available ? (status.runtime?.failureReason || status.lastError?.message) : '';
         const test = view.testResult;
         return `
             <div class="nch-status">
                 ${sdk.available
-                    ? `<span class="nch-pill ok" title="${esc(sdk.packageDir || '')}"><i></i>SDK ${esc(sdk.version || '')} · ${esc(sdk.source === 'global' ? L('全局安装', 'global') : sdk.source === 'custom' ? L('自定义路径', 'custom path') : L('项目依赖', 'local'))}</span>`
+                    ? `<span class="nch-pill ok" title="${esc(sdk.packageDir || '')}"><i></i>SDK ${esc(/unknown/.test(sdk.version || '') ? L('版本未知', 'unknown version') : (sdk.version || ''))} · ${esc(({ imported: L('已导入', 'imported'), builtin: L('平台内置', 'built-in'), global: L('全局安装', 'global'), custom: L('自定义路径', 'custom path') })[sdk.source] || L('项目依赖', 'local'))}</span>`
                     : `<span class="nch-pill bad"><i></i>${esc(L('SDK 未安装', 'SDK missing'))}</span>`}
                 ${statePill(status)}
                 <span class="nch-pill ${status.enabled ? 'ok' : ''}"><i></i>${esc(status.enabled ? L('已启用', 'Enabled') : L('未启用', 'Disabled'))}</span>
@@ -236,8 +239,20 @@
                         : `<button type="button" class="nch-btn" data-action="connect" ${busy || !sdk.available ? 'disabled' : ''}>${esc(busy === 'connect' ? L('连接中…', 'Connecting…') : L('立即连接', 'Connect'))}</button>`}
                 </div>
             </div>
+            <div class="nch-sdk-row">
+                <span class="nch-muted">${esc(sdk.available
+                    ? L(`SDK 来源：${sdk.packageDir || ''}${sdk.importedAt ? `（${new Date(sdk.importedAt).toLocaleString()} 导入）` : ''}`, `SDK source: ${sdk.packageDir || ''}${sdk.importedAt ? ` (imported ${new Date(sdk.importedAt).toLocaleString()})` : ''}`)
+                    : L('内网环境可直接导入 SDK：选择 welink-cli 或 Bot 工程里的 @wecode 文件夹即可。', 'Offline? Import the SDK by choosing the @wecode folder from welink-cli or a bot project.'))}</span>
+                <button type="button" class="nch-btn ${sdk.available ? '' : 'primary'}" data-action="sdk-import-folder" ${busy ? 'disabled' : ''}>${esc(busy === 'sdk-import' ? L('导入中…', 'Importing…') : (sdk.available ? L('更新 SDK（文件夹）', 'Update SDK (folder)') : L('导入 SDK 文件夹', 'Import SDK folder')))}</button>
+                <button type="button" class="nch-btn" data-action="sdk-import-file" ${busy ? 'disabled' : ''}>${esc(L('选择 index.js', 'Choose index.js'))}</button>
+                ${sdk.source === 'imported' ? `<button type="button" class="nch-link danger" data-action="sdk-remove" ${busy ? 'disabled' : ''}>${esc(L('移除已导入', 'Remove imported'))}</button>` : ''}
+                <input type="file" data-role="sdk-folder" webkitdirectory directory multiple hidden>
+                <input type="file" data-role="sdk-file" accept=".js,.mjs" hidden>
+            </div>
             ${!sdk.available ? `<div class="nch-alert">⚠️ ${esc(L(sdk.hint || '', sdk.hintEn || sdk.hint || ''))}${sdk.customPathInvalid ? `<br>${esc(L('当前填写的 SDK 路径下未找到 SDK。', 'No SDK found under the configured SDK path.'))}` : ''}</div>` : ''}
-            ${status.stale ? `<div class="nch-alert info">${esc(L('连接参数已修改，当前连接仍使用旧配置；点击「重启连接」生效。', 'Connection settings changed; restart the connection to apply them.'))}</div>` : ''}
+            ${status.stale ? `<div class="nch-alert info">${esc(status.staleReason === 'sdk'
+                ? L('SDK 已更新，当前连接仍在使用旧版本；点击「重启连接」生效。', 'The SDK was updated; restart the connection to use it.')
+                : L('连接参数已修改，当前连接仍使用旧配置；点击「重启连接」生效。', 'Connection settings changed; restart the connection to apply them.'))}</div>` : ''}
             ${failure && status.runtime?.state !== 'ready' ? `<div class="nch-alert bad">${esc(L('最近错误：', 'Last error: '))}${esc(failure)}</div>` : ''}
             ${view.notice ? `<div class="nch-alert ${esc(view.notice.kind)}">${esc(view.notice.text)}</div>` : ''}
             ${test ? `<div class="nch-alert ${test.ok ? 'ok' : 'bad'}"><b>${esc(test.ok ? L('连通性测试通过', 'Connection test passed') : L('连通性测试未通过', 'Connection test failed'))}</b>
@@ -271,7 +286,7 @@
                 ${field('AK', input('ak', d.ak, 'maxlength="200" autocomplete="off" spellcheck="false"'))}
                 ${field('SK', `<input type="password" data-path="sk" value="" maxlength="200" autocomplete="new-password" placeholder="${esc(view.config.hasSk ? L(`已保存 ${view.config.maskedSk}，留空不修改`, `Saved ${view.config.maskedSk}; leave blank to keep`) : L('未设置', 'Not set'))}">`, L('只在服务端保存，界面与日志只显示掩码', 'Stored server-side only; masked in UI and logs'))}
                 ${field(L('网关地址（可选）', 'Gateway URL (optional)'), input('gatewayUrl', d.gatewayUrl, 'maxlength="500" placeholder="默认使用 SDK 内置地址"'))}
-                ${field(L('SDK 路径（可选）', 'SDK path (optional)'), input('sdkPath', d.sdkPath, 'maxlength="500" placeholder="welink-cli 安装目录或 node_modules"'), L('留空自动查找项目依赖与 npm 全局目录', 'Blank = search project and npm global modules'), true)}
+                ${field(L('SDK 路径（可选）', 'SDK path (optional)'), input('sdkPath', d.sdkPath, 'maxlength="500" placeholder="welink-cli 安装目录或 node_modules"'), L('留空时依次使用平台内置 SDK、项目依赖、npm 全局目录', 'Blank = built-in SDK, then project and npm global modules'), true)}
             </div>
             <div class="nch-row">
                 <button type="button" class="nch-btn primary" data-action="qr" ${qr && qr.running ? 'disabled' : ''}>📱 ${esc(qr && qr.running ? L('等待扫码…', 'Waiting for scan…') : L('扫码授权', 'Scan to authorize'))}</button>
@@ -502,9 +517,10 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
         view.status = result.status;
         view.dirty = false;
         render();
-        setNotice('ok', result.status?.lastError && result.status.enabled && !result.status.connected
-            ? L(`已保存，但连接失败：${result.status.lastError.message}`, `Saved, but connection failed: ${result.status.lastError.message}`)
-            : L('配置已保存', 'Settings saved'));
+        const st = result.status || {};
+        if (st.enabled && !st.connected && !st.sdk?.available) setNotice('ok', L('配置已保存（SDK 就绪后即可连接）', 'Settings saved (connect once the SDK is available)'));
+        else if (st.lastError && st.enabled && !st.connected) setNotice('bad', L(`已保存，但连接失败：${st.lastError.message}`, `Saved, but connection failed: ${st.lastError.message}`));
+        else setNotice('ok', L('配置已保存', 'Settings saved'));
     }
 
     async function runQr() {
@@ -569,12 +585,61 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
         }
     }
 
+    // 从所选文件夹（或单个文件）中找出 bridge-runtime-sdk 的 dist/index.js、index.d.ts 与 package.json
+    async function readSdkFiles(fileList) {
+        const files = Array.from(fileList || []);
+        const rel = file => String(file.webkitRelativePath || file.name).replace(/\\/g, '/');
+        let candidates = files.filter(file => /(^|\/)dist\/index\.m?js$/.test(rel(file)));
+        if (!candidates.length && files.length === 1 && /\.m?js$/i.test(files[0].name)) candidates = files;
+        const preferred = candidates.filter(file => rel(file).includes('bridge-runtime-sdk/'));
+        if (preferred.length) candidates = preferred;
+        if (!candidates.length) throw new Error(L('所选内容里没有找到 bridge-runtime-sdk/dist/index.js，请选择 @wecode 或 bridge-runtime-sdk 文件夹。', 'No bridge-runtime-sdk/dist/index.js found. Choose the @wecode or bridge-runtime-sdk folder.'));
+        if (candidates.length > 1) throw new Error(L('找到多个 dist/index.js，请直接选择 bridge-runtime-sdk 文件夹。', 'Several dist/index.js files found. Choose the bridge-runtime-sdk folder itself.'));
+        const entry = candidates[0];
+        const dir = rel(entry).replace(/[^/]*$/, '');
+        const pkgDir = dir.replace(/dist\/$/, '');
+        const types = files.find(file => rel(file) === `${dir}index.d.ts`);
+        const pkg = files.find(file => rel(file) === `${pkgDir}package.json`) || files.find(file => rel(file) === `${dir}package.json`);
+        return {
+            entry: await entry.text(),
+            types: types ? await types.text() : '',
+            packageJson: pkg ? await pkg.text() : '',
+            fileName: rel(entry)
+        };
+    }
+
+    async function importSdkFrom(fileList) {
+        if (!fileList || !fileList.length) return;
+        await runAction('sdk-import', async () => {
+            view.notice = null;
+            const payload = await readSdkFiles(fileList);
+            const result = await api('POST', '/sdk/import', payload);
+            view.status = result.status;
+            const caps = result.sdk.capabilities || {};
+            const running = result.status?.runtime && result.status.runtime.state !== 'idle';
+            const shownVersion = /unknown/.test(result.sdk.version || '') ? L('（版本未知）', ' (unknown version)') : ` ${result.sdk.version}`;
+            setNotice('ok', L(`已导入 SDK${shownVersion}${caps.qrcodeAuth ? '（支持扫码授权）' : '（不含扫码授权）'}${running ? '，点击「重启连接」后生效' : ''}`,
+                `Imported SDK${shownVersion}${caps.qrcodeAuth ? ' (QR auth supported)' : ' (no QR auth)'}${running ? '; restart the connection to apply' : ''}`));
+        });
+    }
+
     async function onClick(event) {
         const button = event.target.closest('[data-action]');
         if (!button || !view.content.contains(button)) return;
         const action = button.dataset.action;
         const scope = button.dataset.scope;
         if (action === 'recheck') return runAction('recheck', async () => { view.status = await api('POST', '/sdk/recheck'); setNotice(view.status.sdk.available ? 'ok' : 'bad', view.status.sdk.available ? L('已检测到 SDK', 'SDK detected') : ''); });
+        if (action === 'sdk-import-folder' || action === 'sdk-import-file') {
+            const input = view.content.querySelector(`[data-role="${action === 'sdk-import-folder' ? 'sdk-folder' : 'sdk-file'}"]`);
+            input.value = '';
+            input.onchange = () => importSdkFrom(input.files);
+            input.click();
+            return undefined;
+        }
+        if (action === 'sdk-remove') {
+            if (!window.confirm(L('移除已导入的 SDK？之后将回退到平台内置或 welink-cli 安装的版本。', 'Remove the imported SDK? The built-in or welink-cli version will be used instead.'))) return undefined;
+            return runAction('sdk-remove', async () => { const result = await api('DELETE', '/sdk/import'); view.status = result.status; setNotice('ok', L('已移除导入的 SDK', 'Imported SDK removed')); });
+        }
         if (action === 'test') return runAction('test', async () => { view.notice = null; view.testResult = await api('POST', '/test'); view.status = await api('GET', '/status'); });
         if (action === 'connect' || action === 'restart' || action === 'disconnect') {
             return runAction(action, async () => { view.notice = null; view.status = await api('POST', `/${action}`); });

@@ -342,7 +342,7 @@
         current.libraryPrefs={loadDays:libraryDays,search:'',expandedFileIds:[],expandedSheetIds:[],...current.libraryPrefs,period:libraryPeriod,date:libraryDate,group:libraryGroup||''};
         if(!engine.documentMonth(current))current.reportMonth=libraryPeriod||new Date().toISOString().slice(0,7);
         engine.applyReportDefaults(current,engine.documentMonth(current),'');
-        const latestGroups=S.libraryGroups(sourceCatalog,libraryPeriod),latestFiles=latestGroups.map(group=>group.file);
+        const latestGroups=S.libraryGroups(sourceCatalog,libraryPeriod),latestFiles=latestGroups.flatMap(group=>group.files);
         const batchFiles=current.libraryPrefs.advanced?sourceCatalog.files.filter(file=>selected?.fileIds.includes(file.id)):latestFiles;
         const periodDutyFiles=(current.libraryPrefs.advanced?sourceCatalog.files:latestFiles).filter(file=>(file.kind==='duty_roster'||file.source_key==='夜间运维值班表')&&(!libraryPeriod||file.name.includes(libraryPeriod)||selected?.fileIds.includes(file.id)));
         const topicFiles=(current.libraryPrefs.advanced?sourceCatalog.files:latestFiles).filter(file=>file.kind==='topic_monthly'&&file.target_period===libraryPeriod);

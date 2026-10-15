@@ -255,7 +255,7 @@
     function mergeFiles(files) {
         const groups = new Map();
         for (const file of files || []) {
-            const name = String(file.name || '').replace(/\s*\(\d+\)(?=\.[^.]+$|$)/g, '').trim();
+            const name = sourceRules.tableName(file.name);
             const key = JSON.stringify([file.batch_id || file.id, name]);
             if (!groups.has(key)) groups.set(key, { ...file, name, mergedFiles: [], metricLabels: [], source_key_aliases: [], sheets: [], size: 0 });
             const group = groups.get(key); group.mergedFiles.push(file); group.size += Number(file.size) || 0;
