@@ -30,7 +30,7 @@ test('platform database IDs always resolve inside the current tenant, even after
     }
     for (const id of ['default', 'other', 'default']) await tenant.runWithTenant(id, async () => {
         const listed = await service.listDatabases(ctx);
-        assert.equal(listed.databases.some(item => item.id === 'platform:data/tools.db'), true);
+        assert.equal(listed.databases.some(item => item.id === 'platform:tools.db'), true); // 旧标识 platform:data/tools.db 仍可读取（见下）
         assert.equal(JSON.stringify(listed).includes('never-return'), false);
         const schema = await service.schema(ctx, { database: 'platform:data/tools.db' });
         assert.deepEqual(schema.tables, ['items']);
@@ -89,4 +89,39 @@ test('database pagination stays below the generic tool cap and marks oversized c
     assert.equal(data.rows.length, 1);
     assert.equal(data.nextOffset, 1);
     assert.match(data.rows[0].c0, /cell truncated/);
+});
+
+test('web layout: report.db resolves to the report directory, stale shells and 0-byte files are hidden', async () => {
+    const dataDir = tenant.getDataDir('default');
+    const reportDir = tenant.getReportDataDir('default');
+    // 数据目录里的旧 report.db 只有表结构；报表目录里的才是平台实际使用的
+    await create(path.join(dataDir, 'report.db'), 'CREATE TABLE ReportMetricData (metric_label TEXT, raw_val TEXT);');
+    await create(path.join(reportDir, 'report.db'), "CREATE TABLE ReportMetricData (metric_label TEXT, raw_val TEXT); INSERT INTO ReportMetricData VALUES ('整改完成率', '96%');");
+    // 报表目录里的旧 requirements.db 不是平台读取的位置
+    await create(path.join(reportDir, 'requirements.db'), "CREATE TABLE Requirements (title TEXT); INSERT INTO Requirements VALUES ('stale copy');");
+    await create(path.join(dataDir, 'requirements.db'), "CREATE TABLE Requirements (title TEXT); INSERT INTO Requirements VALUES ('live');");
+    fs.writeFileSync(path.join(dataDir, 'sla.db'), '');
+    await tenant.runWithTenant('default', async () => {
+        const listed = await service.listDatabases(ctx);
+        const ids = listed.databases.filter(item => item.source === 'platform').map(item => item.id).sort();
+        assert.deepEqual(ids, ['platform:report.db', 'platform:requirements.db', 'platform:tools.db']);
+        for (const id of ['platform:report.db', 'platform:data/report.db', 'platform:report/report.db']) {
+            const result = await service.readTable(ctx, { database: id, table: 'ReportMetricData' });
+            assert.equal(result.rows[0].raw_val, '96%', `${id} reads the live report database`);
+        }
+        assert.equal((await service.readTable(ctx, { database: 'platform:requirements.db', table: 'Requirements' })).rows[0].title, 'live');
+        await assert.rejects(service.schema(ctx, { database: 'platform:sla.db' }), { code: 'AGENT_DATABASE_FORBIDDEN' });
+        // 误把平台标识当 path 传入：不报 ENOENT，照常列出
+        assert.ok((await service.listDatabases(ctx, { path: 'platform:data' })).databases.some(item => item.id === 'platform:report.db'));
+    });
+});
+
+test('empty results say why instead of looking like a permission problem', async () => {
+    await create(path.join(root, 'empty.db'), "CREATE TABLE things (id INTEGER, label TEXT); CREATE TABLE some (id INTEGER, label TEXT); INSERT INTO some VALUES (1, 'a');");
+    const empty = await service.readTable(ctx, { database: 'local:empty.db', table: 'things' });
+    assert.deepEqual(empty.rows, []);
+    assert.match(empty.empty, /0 行/);
+    const filtered = await service.readTable(ctx, { database: 'local:empty.db', table: 'some', filter: { column: 'label', op: 'eq', value: 'zzz' } });
+    assert.match(filtered.empty, /筛选/);
+    assert.equal((await service.readTable(ctx, { database: 'local:empty.db', table: 'some' })).empty, undefined);
 });

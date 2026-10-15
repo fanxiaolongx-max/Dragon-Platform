@@ -23,7 +23,7 @@
             askHow: '「{name}」（{href}）应该怎么上手使用？请给出具体操作步骤和注意事项。',
             promptLogic: '解释「{name}」的代码逻辑', promptMetrics: '本月哪些指标还没达标？',
             promptMail: '帮我写一封礼貌的催办提醒邮件', promptCode: '用 Python 写一个 Excel 去重脚本',
-            stopped: '已停止生成', copy: '复制', copied: '已复制', unavailable: '智能体组件尚未加载，请稍后重试或刷新页面。',
+            stopped: '已停止生成', copy: '复制', copied: '已复制', retry: '重新发送', usageText: '输入 {input} · 输出 {output} tokens', usageTitle: '本次回复消耗：输入 {input} tokens，输出 {output} tokens', historyMore: '加载更早的消息', historyLoading: '正在加载更早的消息…', historyFailed: '加载失败，点击重试', unavailable: '智能体组件尚未加载，请稍后重试或刷新页面。',
             modelLabel: '选择模型', modelMenuTitle: '模型', modelMenuHint: '切换后从下一条消息开始生效',
             modelDefault: '默认模型', modelNextMessage: '已切换到 {name}，从下一条消息开始生效',
             modelSwitched: '已切换到 {name}', modelCurrent: '当前模型：{name}',
@@ -67,7 +67,7 @@
             askHow: 'How do I get started with “{name}” ({href})? Give concrete steps and caveats.',
             promptLogic: 'Explain the code behind “{name}”', promptMetrics: 'Which metrics missed target this month?',
             promptMail: 'Draft a polite follow-up reminder email', promptCode: 'Write a Python script to dedupe an Excel file',
-            stopped: 'Generation stopped', copy: 'Copy', copied: 'Copied', unavailable: 'The agent is still loading. Please retry in a moment or refresh the page.',
+            stopped: 'Generation stopped', copy: 'Copy', copied: 'Copied', retry: 'Send again', usageText: 'In {input} · Out {output} tokens', usageTitle: 'This reply used {input} input tokens and {output} output tokens', historyMore: 'Load earlier messages', historyLoading: 'Loading earlier messages…', historyFailed: 'Could not load. Click to retry', unavailable: 'The agent is still loading. Please retry in a moment or refresh the page.',
             modelLabel: 'Choose model', modelMenuTitle: 'Model', modelMenuHint: 'Changes apply from your next message',
             modelDefault: 'Default model', modelNextMessage: 'Switched to {name}. Applies from your next message.',
             modelSwitched: 'Switched to {name}', modelCurrent: 'Current model: {name}',
@@ -408,7 +408,8 @@
         if (force || nearBottom()) el.thread.scrollTop = el.thread.scrollHeight;
     }
 
-    function addMessage(role, text = '') {
+    // before：向上加载历史时插到该节点之前，不滚动
+    function addMessage(role, text = '', { before = null } = {}) {
         const message = document.createElement('div');
         message.className = `dc-msg dc-msg--${role}`;
         message.innerHTML = role === 'ai'
@@ -416,8 +417,12 @@
             : `<div class="dc-msg-main"><div class="dc-msg-body"></div></div>`;
         const body = message.querySelector('.dc-msg-body');
         if (role === 'user') body.textContent = text;
-        el.thread.appendChild(message);
-        scrollThread(true);
+        if (before) {
+            el.thread.insertBefore(message, before);
+        } else {
+            el.thread.appendChild(message);
+            scrollThread(true);
+        }
         return message;
     }
 
@@ -530,12 +535,67 @@
         };
     }
 
-    function addMessageTools(message, text, extraHtml = '') {
+    // ── 消息操作：图标按钮（复制 / 重新发送）+ 模型名 + 本次 Token 消耗 ──
+    const ICON_ATTRS = 'viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"';
+    const ICONS = {
+        copy: `<svg ${ICON_ATTRS}><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
+        check: `<svg ${ICON_ATTRS}><path d="M20 6 9 17l-5-5"/></svg>`,
+        retry: `<svg ${ICON_ATTRS}><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg>`
+    };
+    const retryPayloads = new WeakMap();
+
+    // 1234 → 1,234；12345 → 12.3K；1234567 → 1.23M
+    function formatTokenCount(value) {
+        const number = Math.max(0, Math.round(Number(value) || 0));
+        const trim = text => text.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+        if (number < 10000) return number.toLocaleString('en-US');
+        if (number < 1000000) return `${trim((number / 1000).toFixed(number < 100000 ? 1 : 0))}K`;
+        return `${trim((number / 1000000).toFixed(2))}M`;
+    }
+
+    function iconButton(icon, label, attrs) {
+        return `<button type="button" class="dc-msg-tool dc-msg-icon" ${attrs} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${ICONS[icon]}</button>`;
+    }
+
+    function addMessageTools(message, text, { modelName = '', usage = null } = {}) {
         const bar = document.createElement('div');
         bar.className = 'dc-msg-tools';
-        bar.innerHTML = `${extraHtml}<button type="button" class="dc-msg-tool" data-dc-copy>${escapeHtml(tx('copy'))}</button>`;
+        const input = Number(usage?.inputTokens || 0);
+        const output = Number(usage?.outputTokens || 0);
+        bar.innerHTML = `${iconButton('copy', tx('copy'), 'data-dc-copy')}
+            ${modelName ? `<span class="dc-msg-model" title="${escapeHtml(tx('modelCurrent', { name: modelName }))}">${escapeHtml(modelName)}</span>` : ''}
+            ${input || output ? `<span class="dc-msg-usage" title="${escapeHtml(tx('usageTitle', { input: input.toLocaleString(), output: output.toLocaleString() }))}">${escapeHtml(tx('usageText', { input: formatTokenCount(input), output: formatTokenCount(output) }))}</span>` : ''}`;
         bar.querySelector('[data-dc-copy]').dataset.dcCopy = text;
         message.querySelector('.dc-msg-main').appendChild(bar);
+    }
+
+    // 用户消息：复制显示的文字；重新发送用原始内容（快捷提问的显示文字与实际问题可能不同）
+    function addUserTools(message, content, displayText = content) {
+        const bar = document.createElement('div');
+        bar.className = 'dc-msg-tools';
+        bar.innerHTML = `${iconButton('retry', tx('retry'), 'data-dc-retry')}${iconButton('copy', tx('copy'), 'data-dc-copy')}`;
+        bar.querySelector('[data-dc-copy]').dataset.dcCopy = displayText;
+        retryPayloads.set(message, { content, displayText });
+        message.querySelector('.dc-msg-main').appendChild(bar);
+    }
+
+    async function copyText(text) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch {
+            // 非安全上下文（http 局域网访问）没有 Clipboard API：退回 execCommand
+            const area = document.createElement('textarea');
+            area.value = text;
+            area.setAttribute('readonly', '');
+            area.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+            document.body.appendChild(area);
+            area.select();
+            let ok = false;
+            try { ok = document.execCommand('copy'); } catch { ok = false; }
+            area.remove();
+            return ok;
+        }
     }
 
     function toolIntro(tool) {
@@ -689,7 +749,8 @@
         if (!content || state.controller || state.restoring) return;
         if (runSlashCommand(content)) return;
         setChatting(true);
-        addMessage('user', String(displayText || content).trim());
+        const shownText = String(displayText || content).trim();
+        addUserTools(addMessage('user', shownText), content, shownText);
         el.input.value = '';
         autoResize();
         state.messages.push({ role: 'user', content });
@@ -756,8 +817,7 @@
             state.messages.push({ role: 'model', content: finalText });
             const grounding = api.renderGrounding ? api.renderGrounding(data.grounding) : '';
             if (grounding) reply.querySelector('.dc-msg-main').insertAdjacentHTML('beforeend', grounding);
-            const modelName = data.model?.name || model?.name;
-            addMessageTools(reply, finalText, modelName ? `<span class="dc-msg-model" title="${escapeHtml(tx('modelCurrent', { name: modelName }))}">${escapeHtml(modelName)}</span>` : '');
+            addMessageTools(reply, finalText, { modelName: data.model?.name || model?.name || '', usage: data.usage });
         } catch (error) {
             const partial = renderer.finish();
             if (!reply.isConnected) return;
@@ -826,15 +886,31 @@
         if (el.resume) el.resume.hidden = true;
     }
 
+    // 历史消息分页：恢复对话只取最近一页，向上滚动再按 before 游标取更早的（大会话不一次性渲染）
+    const HISTORY_PAGE_SIZE = 30;
+
+    async function fetchHistoryPage(sessionId, before = '') {
+        const query = `limit=${HISTORY_PAGE_SIZE}${before ? `&before=${encodeURIComponent(before)}` : ''}`;
+        const res = await fetch(`/api/ai/sessions/${encodeURIComponent(sessionId)}/messages?${query}`, { headers: authHeaders() });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const raw = Array.isArray(data.items) ? data.items : [];
+        return {
+            items: raw.filter(item => item && (item.role === 'user' || item.role === 'model') && item.content),
+            cursor: raw[0]?.id || '', // 游标取原始第一条，空内容行也不会被重复读取
+            hasMore: Boolean(data.hasMore),
+            total: Number(data.total) || raw.length
+        };
+    }
+
     async function refreshResumeCard() {
         hideResumeCard();
         state.resume = null;
         const saved = readLastChat();
         if (!saved || !el.resume || saved.sessionId === state.sessionId) return;
         try {
-            const res = await fetch(`/api/ai/sessions/${encodeURIComponent(saved.sessionId)}/messages`, { headers: authHeaders() });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const items = ((await res.json()).items || []).filter(item => item && (item.role === 'user' || item.role === 'model') && item.content);
+            const page = await fetchHistoryPage(saved.sessionId);
+            const items = page.items;
             if (!items.length) {
                 forgetLastChat();
                 return;
@@ -842,13 +918,13 @@
             if (state.messages.length || saved.sessionId === state.sessionId) return; // 期间已开始聊天
             const lastQuestion = [...items].reverse().find(item => item.role === 'user')?.content || '';
             const time = formatChatTime(items[items.length - 1].created_at);
-            state.resume = { sessionId: saved.sessionId, items, time, agent: saved.agent || null };
+            state.resume = { sessionId: saved.sessionId, items, cursor: page.cursor, hasMore: page.hasMore, total: page.total, time, agent: saved.agent || null };
             el.resume.innerHTML = `
                 <span class="dc-resume-icon" aria-hidden="true">↺</span>
                 <span class="dc-resume-text">
                     <b>${escapeHtml(tx('resumeTitle'))}</b>
                     <span class="dc-resume-question" title="${escapeHtml(lastQuestion)}">${escapeHtml(lastQuestion)}</span>
-                    <small>${escapeHtml(tx('resumeMeta', { time, count: items.length }))}</small>
+                    <small>${escapeHtml(tx('resumeMeta', { time, count: page.total }))}</small>
                 </span>
                 <button type="button" class="dc-action dc-action--primary" data-dc-resume>${escapeHtml(tx('resumeAction'))}</button>`;
             el.resume.hidden = false;
@@ -857,15 +933,83 @@
         }
     }
 
-    function addHistoryMessage(role, text, events = []) {
-        const message = addMessage(role === 'model' ? 'ai' : 'user', text);
+    function addHistoryMessage(role, text, events = [], item = {}, before = null) {
+        const message = addMessage(role === 'model' ? 'ai' : 'user', text, { before });
         message.classList.add('dc-msg--history');
         if (role === 'model') {
             message.querySelector('.dc-msg-body').innerHTML = renderMarkdown(text);
             // 工具调用、审批、命令输出：按入库记录重放
             if (Array.isArray(events) && events.length) workspace()?.replayEvents?.(message, events);
+            addMessageTools(message, text, { modelName: item.model_name || '', usage: { inputTokens: item.input_tokens, outputTokens: item.output_tokens } });
+        } else {
+            addUserTools(message, text);
         }
         return message;
+    }
+
+    // 顶部哨兵：滚到附近自动加载更早一页，也可点击；插入后保持当前阅读位置不跳动
+    const historyPaging = { sessionId: '', cursor: '', hasMore: false, loading: false, observer: null, sentinel: null };
+
+    function resetHistoryPaging() {
+        historyPaging.observer?.disconnect();
+        historyPaging.sentinel?.remove();
+        Object.assign(historyPaging, { sessionId: '', cursor: '', hasMore: false, loading: false, observer: null, sentinel: null });
+    }
+
+    function mountHistorySentinel(anchor) {
+        const sentinel = document.createElement('button');
+        sentinel.type = 'button';
+        sentinel.className = 'dc-history-more';
+        sentinel.dataset.dcHistoryMore = '';
+        sentinel.textContent = tx('historyMore');
+        el.thread.insertBefore(sentinel, anchor);
+        historyPaging.sentinel = sentinel;
+        if ('IntersectionObserver' in window) {
+            historyPaging.observer = new IntersectionObserver(entries => {
+                if (entries.some(entry => entry.isIntersecting)) loadOlderHistory();
+            }, { root: el.thread, rootMargin: '240px 0px 0px 0px' });
+            historyPaging.observer.observe(sentinel);
+        }
+    }
+
+    async function loadOlderHistory() {
+        if (historyPaging.loading || !historyPaging.hasMore || !historyPaging.sentinel) return;
+        const sessionId = historyPaging.sessionId;
+        historyPaging.loading = true;
+        historyPaging.sentinel.textContent = tx('historyLoading');
+        historyPaging.sentinel.classList.remove('is-error');
+        try {
+            const page = await fetchHistoryPage(sessionId, historyPaging.cursor);
+            if (historyPaging.sessionId !== sessionId || state.sessionId !== sessionId || !historyPaging.sentinel) return; // 期间换了对话
+            const anchor = historyPaging.sentinel.nextSibling;
+            const previousHeight = el.thread.scrollHeight;
+            const previousTop = el.thread.scrollTop;
+            page.items.forEach(item => addHistoryMessage(item.role, String(item.content), item.events, item, anchor));
+            el.thread.scrollTop = previousTop + (el.thread.scrollHeight - previousHeight);
+            state.messages = [...page.items.map(item => ({ role: item.role === 'model' ? 'model' : 'user', content: String(item.content) })), ...state.messages];
+            historyPaging.cursor = page.cursor;
+            historyPaging.hasMore = page.hasMore && Boolean(page.cursor);
+            if (historyPaging.hasMore) {
+                historyPaging.sentinel.textContent = tx('historyMore');
+            } else {
+                historyPaging.observer?.disconnect();
+                historyPaging.sentinel.remove();
+                historyPaging.observer = null;
+                historyPaging.sentinel = null;
+            }
+        } catch {
+            if (historyPaging.sentinel) {
+                historyPaging.sentinel.textContent = tx('historyFailed');
+                historyPaging.sentinel.classList.add('is-error');
+            }
+        } finally {
+            historyPaging.loading = false;
+        }
+        // 哨兵仍在视口内（一页太短）时继续加载
+        if (historyPaging.sentinel && !historyPaging.loading && historyPaging.sentinel.getBoundingClientRect().bottom > el.thread.getBoundingClientRect().top - 240
+            && !historyPaging.sentinel.classList.contains('is-error')) {
+            requestAnimationFrame(() => loadOlderHistory());
+        }
     }
 
     async function resumeChat(resume = state.resume) {
@@ -880,8 +1024,11 @@
             state.messages = resume.items.map(item => ({ role: item.role === 'model' ? 'model' : 'user', content: String(item.content) }));
             state.sessionId = resume.sessionId;
             state.focusedTool = null;
+            resetHistoryPaging();
             el.thread.innerHTML = `<div class="dc-history-banner"><span aria-hidden="true">↺</span>${escapeHtml(tx('resumeBanner', { time: resume.time }))}</div>`;
-            resume.items.forEach(item => addHistoryMessage(item.role, String(item.content), item.events));
+            resume.items.forEach(item => addHistoryMessage(item.role, String(item.content), item.events, item));
+            Object.assign(historyPaging, { sessionId: resume.sessionId, cursor: resume.cursor || '', hasMore: Boolean(resume.hasMore && resume.cursor) });
+            if (historyPaging.hasMore) mountHistorySentinel(el.thread.querySelector('.dc-history-banner').nextSibling);
             rememberLastChat(resume.sessionId, resume.agent);
             el.thread.insertAdjacentHTML('beforeend', `<div class="dc-history-divider"><span>${escapeHtml(tx('resumeDivider'))}</span></div>`);
             hideResumeCard();
@@ -964,16 +1111,15 @@
     async function openSession(item) {
         if (!item || state.controller) return;
         try {
-            const res = await fetch(`/api/ai/sessions/${encodeURIComponent(item.id)}/messages`, { headers: authHeaders() });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const items = ((await res.json()).items || []).filter(row => row && (row.role === 'user' || row.role === 'model') && row.content);
+            const page = await fetchHistoryPage(item.id);
+            const items = page.items;
             if (!items.length) return showToast(tx('sessionLoadFailed'));
             closeSessionPicker();
             const local = readLastChat();
             const agent = item.agent || (local?.sessionId === item.id ? local.agent : null);
             workspace()?.resetSession?.(); // 先离开当前智能体会话，再接回该对话的
             el.thread.innerHTML = '';
-            resumeChat({ sessionId: item.id, items, time: formatChatTime(items[items.length - 1].created_at), agent });
+            resumeChat({ sessionId: item.id, items, cursor: page.cursor, hasMore: page.hasMore, total: page.total, time: formatChatTime(items[items.length - 1].created_at), agent });
         } catch {
             showToast(tx('sessionLoadFailed'));
         }
@@ -1024,6 +1170,7 @@
         state.messages = [];
         state.sessionId = null;
         state.focusedTool = null;
+        resetHistoryPaging();
         el.thread.innerHTML = '';
         setChatting(false);
         refreshResumeCard(); // 刚离开的对话可以再接回去
@@ -1101,15 +1248,27 @@
             }
             const copy = target.closest('[data-dc-copy]');
             if (copy) {
-                try {
-                    await navigator.clipboard.writeText(copy.dataset.dcCopy || '');
-                    copy.textContent = tx('copied');
-                    setTimeout(() => { copy.textContent = tx('copy'); }, 1400);
-                } catch {
-                    // 剪贴板不可用时忽略
-                }
+                if (!(await copyText(copy.dataset.dcCopy || ''))) return;
+                copy.innerHTML = ICONS.check;
+                copy.classList.add('is-done');
+                copy.title = tx('copied');
+                copy.setAttribute('aria-label', tx('copied'));
+                clearTimeout(copy._dcTimer);
+                copy._dcTimer = setTimeout(() => {
+                    copy.innerHTML = ICONS.copy;
+                    copy.classList.remove('is-done');
+                    copy.title = tx('copy');
+                    copy.setAttribute('aria-label', tx('copy'));
+                }, 1400);
                 return;
             }
+            const retry = target.closest('[data-dc-retry]');
+            if (retry) {
+                const payload = retryPayloads.get(retry.closest('.dc-msg'));
+                if (payload && !state.controller && !state.restoring) send(payload.content, payload.displayText);
+                return;
+            }
+            if (target.closest('[data-dc-history-more]')) return loadOlderHistory();
             const graph = target.closest('.dc-thread [data-open-knowledge-graph]');
             if (graph) {
                 event.stopPropagation();

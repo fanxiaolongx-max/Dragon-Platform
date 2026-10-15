@@ -60,3 +60,12 @@ test('navbar version badge shows the platform release instead of asset hashes', 
     assert.match(block, /ToolsAppVersion\?\.get|\/api\/app-version/);
     assert.doesNotMatch(block, /v1\.1\.0|\?v=/);
 });
+
+test('dragon-claw styles grounding basis chips for dark theme and prevents light hover wash out', () => {
+    const css = read('frontend/css/dragon-claw.css');
+    assert.match(css, /\.dc-msg\s+\.ai-grounding/);
+    assert.match(css, /\.dc-msg\s+button\.ai-grounding-item:hover,\s*\.dc-msg\s+\.ai-grounding-graph:hover/);
+    assert.match(css, /\.dc-msg\s+button\.ai-grounding-item:hover[\s\S]*?background:\s*rgba\(100,\s*255,\s*218,/);
+    assert.match(css, /\.dc-msg\s+\.ai-grounding-graph\.metric-reference/);
+});
+

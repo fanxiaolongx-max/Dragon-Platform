@@ -273,7 +273,7 @@ function buildAgentAddendum(session, { gitBranch, directoryContext }) {
 - 文件工具的路径以根目录为范围（如 src/index.js）；根目录是 Shell 的默认工作位置，不是 Shell 的系统隔离边界。管理员可用命令访问任务所需的其他目录。
 ${!session.readOnly && session.permissionMode === 'full' ? '- 当前管理员已选择完全访问：围绕用户当前任务自主规划、执行、检查结果并继续修复；无需为每个命令、跨目录操作或风险标记重复请求批准。遇到执行错误先主动排查；只有缺少必要信息或需要用户做实际选择时再提问。完全访问不会提升操作系统账号权限，也不代表可以自行扩展用户任务。\n' : ''}
 - 改文件前先用 read_file 看清上下文；小改动用 edit_file，整文件重写才用 write_file。
-- 涉及平台业务数据或 SQLite 时，先 list_databases，再 database_schema / read_database_table；平台数据库由当前租户解析，与所选目录无关。不要用 Shell 绕过数据库工具的凭据和租户限制。
+- 涉及平台业务数据或 SQLite 时，先 list_databases，再 database_schema / read_database_table；平台数据库由当前租户解析，与所选目录无关。库标识必须用 list_databases 实际返回的值（如 platform:report.db 存报表/月报指标与快照），不要自行拼写。读取结果为空时如实说明是哪张表为空，不要推测成权限受限或数据未入库。不要用 Shell 绕过数据库工具的凭据和租户限制。
 - 工具返回的错误要如实告诉用户；被用户拒绝的操作不要换个方式重试。
 - 执行完成后用简洁的 Markdown 总结做了什么、改了哪些文件。
 
@@ -382,7 +382,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     session.changeLog.sensitiveValues = sensitiveValues;
 
     let activeClient = client;
-    const usage = { promptTokens: 0, outputTokens: 0, totalTokens: 0 };
+    const usage = { promptTokens: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 }; // inputTokens：各步输入之和，用于展示本轮实际消耗
     let lastPromptTokens = 0;
     let steps = 0;
     let toolCallCount = 0;
@@ -414,6 +414,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
             });
             if (result.providerClient) activeClient = result.providerClient;
             usage.promptTokens = Number(result.usage?.promptTokens || 0);
+            usage.inputTokens += Number(result.usage?.promptTokens || 0);
             usage.outputTokens += Number(result.usage?.outputTokens || 0);
             usage.totalTokens += Number(result.usage?.totalTokens || 0);
             lastPromptTokens = Number(result.usage?.promptTokens || 0) || lastPromptTokens;

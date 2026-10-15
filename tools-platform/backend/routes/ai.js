@@ -816,10 +816,13 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         let outputTokens = 0;
         let costUSD = 0;
         let costMao = 0;
+        let inputTokens = 0;
         if (result.usage) {
             totalTokens = result.usage.totalTokens || 0;
             promptTokens = result.usage.promptTokens || 0;
             outputTokens = result.usage.outputTokens || 0;
+            // 多步工具调用时 inputTokens 为各步输入之和（实际消耗）；promptTokens 保持原有计费口径
+            inputTokens = result.usage.inputTokens || promptTokens;
             costUSD = (
                 promptTokens * aiSettings.inputCostPerMillionUsd +
                 outputTokens * aiSettings.outputCostPerMillionUsd
@@ -827,13 +830,15 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             costMao = costUSD * aiSettings.usdToCny * 10;
         }
 
+        const replyModelName = modelChoice?.name || aiSettings.model || '';
         if (persist !== false) {
             try {
                 historySaved = true;
                 if (agentRunId && agentSession) {
                     await aiChatRepo.upsertAgentTurn({ sessionId: savedSessionId, owner: req.user.username, runId: agentRunId,
                         agentSessionId: agentSession.id, root: agentSession.root, transcript: [{ role: 'user', content: persistedQuestion }],
-                        content: responseText, events: recordedEvents, tokens: totalTokens, cost: costMao, final: true });
+                        content: responseText, events: recordedEvents, tokens: totalTokens, cost: costMao, final: true,
+                        inputTokens, outputTokens, modelName: replyModelName });
                 } else {
                     await aiChatRepo.addMessage({
                         sessionId: savedSessionId,
@@ -852,7 +857,10 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                         content: responseText,
                         tokens: totalTokens,
                         cost: costMao,
-                        events: recordedEvents
+                        events: recordedEvents,
+                        inputTokens,
+                        outputTokens,
+                        modelName: replyModelName
                     });
                 }
                 if (agentSession) await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username });
@@ -870,6 +878,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             reply: responseText,
             ...(analysisResult ? { codeAnalysisAttempts: analysisResult.attempts } : {}),
             tokens: totalTokens,
+            usage: { inputTokens, outputTokens },
             cost: costMao,
             sessionId: savedSessionId,
             conversationCompression,
@@ -1206,6 +1215,10 @@ router.post('/sessions/:sessionId/unarchive', checkAuth, async (req, res) => {
 
 router.get('/sessions/:sessionId/messages', checkAuth, async (req, res) => {
     try {
+        // 带 limit 时分页（恢复对话渐进加载，before 为更早一页的游标）；不带则返回全部，兼容旧调用方
+        if (req.query.limit !== undefined) {
+            return res.json(await aiChatRepo.listMessagesPage(req.params.sessionId, { owner: req.user.username, limit: req.query.limit, before: req.query.before || '' }));
+        }
         const items = await aiChatRepo.listMessages(req.params.sessionId, { owner: req.user.username });
         res.json({ items });
     } catch (err) {

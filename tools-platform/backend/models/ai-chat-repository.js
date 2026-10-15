@@ -79,6 +79,10 @@ async function ensureReady() {
             // 工具调用、审批、命令输出等过程记录（JSON），恢复对话时重放成卡片
             await addColumnIfMissing('ai_chat_messages', 'events', "TEXT NOT NULL DEFAULT ''");
             await addColumnIfMissing('ai_chat_messages', 'agent_final', 'INTEGER NOT NULL DEFAULT 0');
+            // 每条回复的输入 / 输出 Token 与模型名：消息下方展示本次消耗（旧行为 0 / 空，界面不显示）
+            await addColumnIfMissing('ai_chat_messages', 'input_tokens', 'INTEGER NOT NULL DEFAULT 0');
+            await addColumnIfMissing('ai_chat_messages', 'output_tokens', 'INTEGER NOT NULL DEFAULT 0');
+            await addColumnIfMissing('ai_chat_messages', 'model_name', "TEXT NOT NULL DEFAULT ''");
             await addColumnIfMissing('ai_question_suggestions', 'owner', "TEXT NOT NULL DEFAULT ''");
             await run('CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_session ON ai_chat_messages(session_id, created_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_page ON ai_chat_sessions(page_path, updated_at)');
@@ -219,15 +223,17 @@ async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offs
     }));
 }
 
-async function addMessage({ sessionId, pagePath, pageTitle, role, content, tokens = 0, cost = 0, events = null, owner = '' }) {
+const tokenCount = value => Math.max(0, Math.round(Number(value) || 0));
+
+async function addMessage({ sessionId, pagePath, pageTitle, role, content, tokens = 0, cost = 0, events = null, owner = '', inputTokens = 0, outputTokens = 0, modelName = '' }) {
     await ensureReady();
     const normalizedPath = normalizePagePath(pagePath);
     const cleanTitle = String(pageTitle || '').slice(0, 200);
     const finalSessionId = await getOrCreateSession({ sessionId, pagePath: normalizedPath, pageTitle: cleanTitle, owner });
     const eventsJson = Array.isArray(events) && events.length ? JSON.stringify(redactValue(events)) : '';
     await run(
-        `INSERT INTO ai_chat_messages (id, session_id, page_path, page_title, role, content, tokens, cost, events)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO ai_chat_messages (id, session_id, page_path, page_title, role, content, tokens, cost, events, input_tokens, output_tokens, model_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             buildId('msg'),
             finalSessionId,
@@ -237,7 +243,10 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
             redactText(content || ''),
             Math.max(0, Number(tokens) || 0),
             Math.max(0, Number(cost) || 0),
-            eventsJson
+            eventsJson,
+            tokenCount(inputTokens),
+            tokenCount(outputTokens),
+            String(modelName || '').slice(0, 120)
         ]
     );
     await run('UPDATE ai_chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [finalSessionId]);
@@ -246,7 +255,7 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
 }
 
 // runId 生成稳定消息 ID；检查点更新同一对消息，正常结束或恢复不会重复追加。
-async function upsertAgentTurn({ sessionId, owner, runId, agentSessionId, root, transcript = [], content, events, tokens = 0, cost = 0, final = false }) {
+async function upsertAgentTurn({ sessionId, owner, runId, agentSessionId, root, transcript = [], content, events, tokens = 0, cost = 0, final = false, inputTokens = 0, outputTokens = 0, modelName = '' }) {
     await ensureReady();
     const session = await assertSessionOwner(sessionId, owner);
     if (!session) throw forbiddenSession();
@@ -265,13 +274,16 @@ async function upsertAgentTurn({ sessionId, owner, runId, agentSessionId, root, 
         const id = `agent_${runId}_${role}`;
         const existing = await get('SELECT session_id FROM ai_chat_messages WHERE id = ?', [id]);
         if (existing && existing.session_id !== sessionId) throw forbiddenSession();
-        await run(`INSERT INTO ai_chat_messages (id, session_id, page_path, page_title, role, content, tokens, cost, events, agent_final)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        const model = role === 'model';
+        await run(`INSERT INTO ai_chat_messages (id, session_id, page_path, page_title, role, content, tokens, cost, events, agent_final, input_tokens, output_tokens, model_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET content = excluded.content, tokens = excluded.tokens, cost = excluded.cost,
-                events = excluded.events, agent_final = excluded.agent_final
+                events = excluded.events, agent_final = excluded.agent_final, input_tokens = excluded.input_tokens,
+                output_tokens = excluded.output_tokens, model_name = excluded.model_name
             WHERE ai_chat_messages.session_id = excluded.session_id AND ai_chat_messages.agent_final = 0`,
-        [id, sessionId, metadata.page_path, metadata.page_title, role, redactText(text), role === 'model' ? tokens : 0,
-            role === 'model' ? cost : 0, JSON.stringify(redactValue(savedEvents)), Number(final)]);
+        [id, sessionId, metadata.page_path, metadata.page_title, role, redactText(text), model ? tokens : 0,
+            model ? cost : 0, JSON.stringify(redactValue(savedEvents)), Number(final),
+            model ? tokenCount(inputTokens) : 0, model ? tokenCount(outputTokens) : 0, model ? String(modelName || '').slice(0, 120) : '']);
     }
     await setSessionAgent(sessionId, { agentSessionId, root, owner });
 }
@@ -475,21 +487,53 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
     };
 }
 
+const MESSAGE_COLUMNS = 'id, session_id, role, content, tokens, cost, created_at, events, input_tokens, output_tokens, model_name';
+
+function mapMessageRow(row) {
+    let events = [];
+    try { events = row.events ? JSON.parse(row.events) : []; } catch (_error) { events = []; }
+    const { seq: _seq, ...rest } = row;
+    return { ...rest, events };
+}
+
 async function listMessages(sessionId, { owner } = {}) {
     await ensureReady();
     if (owner !== undefined) await assertSessionOwner(sessionId, owner);
     if (owner !== undefined) await require('./agent-transcript-repository').syncChatSession(sessionId, `${require('./tenant-context').getTenantId()}::${owner}`);
     return all(
-        `SELECT id, session_id, role, content, tokens, cost, created_at, events
+        `SELECT ${MESSAGE_COLUMNS}
          FROM ai_chat_messages
          WHERE session_id = ?
          ORDER BY created_at ASC, rowid ASC`,
         [sessionId]
-    ).then(rows => rows.map(row => {
-        let events = [];
-        try { events = row.events ? JSON.parse(row.events) : []; } catch (_error) { events = []; }
-        return { ...row, events };
-    }));
+    ).then(rows => rows.map(mapMessageRow));
+}
+
+/**
+ * 分页读取历史消息（恢复对话时渐进加载）：返回 before 之前最近的 limit 条，按时间正序。
+ * 游标为消息 id；排序键 (created_at, rowid) 与 listMessages 一致，同一秒写入的消息也不会漏或重。
+ */
+async function listMessagesPage(sessionId, { owner, limit = 30, before = '' } = {}) {
+    await ensureReady();
+    if (owner !== undefined) await assertSessionOwner(sessionId, owner);
+    // 只在打开会话（第一页）时同步工作区转录，向上翻页不重复同步
+    if (owner !== undefined && !before) await require('./agent-transcript-repository').syncChatSession(sessionId, `${require('./tenant-context').getTenantId()}::${owner}`);
+    const size = Math.min(100, Math.max(1, Math.floor(Number(limit)) || 30));
+    let where = 'session_id = ?';
+    const params = [sessionId];
+    if (before) {
+        const cursor = await get('SELECT created_at, rowid AS seq FROM ai_chat_messages WHERE id = ? AND session_id = ?', [String(before), sessionId]);
+        if (!cursor) throw Object.assign(new Error('分页游标无效'), { statusCode: 400, code: 'AI_CHAT_CURSOR_INVALID' });
+        where += ' AND (created_at < ? OR (created_at = ? AND rowid < ?))';
+        params.push(cursor.created_at, cursor.created_at, cursor.seq);
+    }
+    const rows = await all(
+        `SELECT ${MESSAGE_COLUMNS}, rowid AS seq FROM ai_chat_messages WHERE ${where} ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+        [...params, size + 1]
+    );
+    const hasMore = rows.length > size;
+    const total = (await get('SELECT COUNT(*) AS count FROM ai_chat_messages WHERE session_id = ?', [sessionId]))?.count || 0;
+    return { items: rows.slice(0, size).reverse().map(mapMessageRow), hasMore, total };
 }
 
 async function getSession(sessionId) {
@@ -561,6 +605,7 @@ async function getRecentMessagesForContext(sessionId, limit = RECENT_CONTEXT_MES
 }
 
 module.exports = {
+    listMessagesPage,
     ensureReady,
     getOrCreateSession,
     setSessionAgent,

@@ -76,7 +76,7 @@ const DEFINITIONS = [
     },
     {
         name: 'list_databases', kind: 'read',
-        description: '列出当前租户的平台 SQLite 和所选工作目录内的 SQLite 数据库。后续使用返回的 database 标识；path 可指定更深子目录。',
+        description: '列出当前租户的平台 SQLite（标识如 platform:report.db、platform:tools.db，指向平台实际使用的库）和所选工作目录内的 SQLite（local:相对路径）。后续必须使用返回的 database 标识；path 只用于指定工作目录内更深的子目录。',
         parameters: { type: 'object', properties: { path: { type: 'string' } } }
     },
     {

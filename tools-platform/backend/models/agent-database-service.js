@@ -14,17 +14,47 @@ const fail = message => Object.assign(new Error(message), { code: 'AGENT_DATABAS
 
 function canonical(file) { return fs.realpathSync(file); }
 
+// 与 tenant-sqlite-pool 中 scope='report' 打开的库保持一致；其余平台库都在数据目录。
+const REPORT_SCOPED = ['report.db'];
+const SKIPPED_FILE = /backup|before|corrupt|repaired|chat-history/i;
+
+/**
+ * 平台运行库按平台实际打开的位置解析，标识为 platform:<文件名>，与部署方式无关：
+ * - 网页版默认租户：报表库在 TOOLS_REPORT_DATA_DIR（仓库 data/），其余在 TOOLS_DATA_DIR（backend/data/）；
+ * - 桌面版、命名租户：两者同一目录。
+ * 不在平台读取位置的同名文件（如数据目录里的旧 report.db 空壳）和 0 字节占位文件不列出，避免读到空库。
+ */
 function platformFiles() {
-    const candidates = [];
-    for (const [scope, dir] of [['data', tenant.getDataDir()], ['report', tenant.getReportDataDir()]]) {
-        if (!fs.existsSync(dir)) continue;
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-            if (!entry.isFile() || !EXT.test(entry.name) || /backup|before|corrupt|repaired|chat-history/i.test(entry.name)) continue;
-            const file = path.join(dir, entry.name);
-            candidates.push({ id: `platform:${scope}/${entry.name}`, file: canonical(file), source: 'platform' });
+    const dataDir = tenant.getDataDir();
+    const reportDir = tenant.getReportDataDir();
+    const items = [];
+    const add = (dir, name) => {
+        const file = path.join(dir, name);
+        let stat;
+        try { stat = fs.statSync(file); } catch (_error) { return; }
+        if (!stat.isFile() || stat.size === 0) return;
+        items.push({ id: `platform:${name}`, file: canonical(file), size: stat.size, source: 'platform' });
+    };
+    if (fs.existsSync(dataDir)) {
+        for (const entry of fs.readdirSync(dataDir, { withFileTypes: true })) {
+            if (!entry.isFile() || !EXT.test(entry.name) || SKIPPED_FILE.test(entry.name)) continue;
+            if (REPORT_SCOPED.includes(entry.name.toLowerCase())) continue;
+            add(dataDir, entry.name);
         }
     }
-    return candidates.filter((item, index) => candidates.findIndex(other => other.file === item.file) === index);
+    REPORT_SCOPED.forEach(name => add(reportDir, name));
+    return items.filter((item, index) => items.findIndex(other => other.file === item.file) === index);
+}
+
+// 兼容旧标识 platform:data/<名> 与 platform:report/<名>（历史转录、模型沿用旧写法）：统一按文件名解析到平台实际使用的库。
+function platformName(id) {
+    return String(id).slice('platform:'.length).replace(/^(?:data|report)\//i, '').toLowerCase();
+}
+
+function formatSize(bytes) {
+    if (bytes >= 1048576) return `${(bytes / 1048576).toFixed(1)} MB`;
+    if (bytes >= 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${bytes} B`;
 }
 
 function checkLocal(file) {
@@ -37,7 +67,8 @@ function checkLocal(file) {
 
 function databaseFile(ctx, id) {
     if (String(id).startsWith('platform:')) {
-        const item = platformFiles().find(entry => entry.id === id);
+        const name = platformName(id);
+        const item = platformFiles().find(entry => entry.id.slice('platform:'.length).toLowerCase() === name);
         if (!item) throw fail('数据库不属于当前租户，或不存在；请先调用 list_databases');
         return item.file;
     }
@@ -77,14 +108,24 @@ async function columns(all, table) {
 }
 
 async function listDatabases(ctx, args = {}) {
-    const items = platformFiles().map(({ id, source }) => ({ id, source }));
-    const root = guard.resolveInsideRoot(ctx.root, args.path || '.');
+    const items = platformFiles().map(({ id, source, size }) => ({ id, source, size: formatSize(size) }));
+    // path 只用于工作目录内的子目录；模型误传 platform:/local: 标识时按工作目录根扫描，不报 ENOENT
+    const scanPath = /^(?:platform|local):/i.test(String(args.path || '')) ? '.' : (args.path || '.');
+    const root = guard.resolveInsideRoot(ctx.root, scanPath);
     const queue = [{ dir: root, depth: 0 }];
     let visited = 0;
     let incomplete = false;
     while (queue.length && visited < 10000 && items.length < 100) {
         const { dir, depth } = queue.shift();
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        let entries;
+        try {
+            entries = fs.readdirSync(dir, { withFileTypes: true });
+        } catch (error) {
+            if (dir === root) throw error;
+            incomplete = true; // 子目录无权限等：跳过，不影响平台库与其他目录
+            continue;
+        }
+        for (const entry of entries) {
             if (++visited > 10000 || items.length >= 100) { incomplete = true; break; }
             if (entry.isSymbolicLink()) continue;
             const file = path.join(dir, entry.name);
@@ -92,12 +133,14 @@ async function listDatabases(ctx, args = {}) {
                 if (depth < 3) queue.push({ dir: file, depth: depth + 1 });
                 else incomplete = true;
             } else if (entry.isFile() && EXT.test(entry.name)) {
-                try { checkLocal(canonical(file)); } catch (_error) { continue; }
-                items.push({ id: `local:${guard.toDisplayPath(ctx.root, file)}`, source: 'local' });
+                let size = 0;
+                try { checkLocal(canonical(file)); size = fs.statSync(file).size; } catch (_error) { continue; }
+                if (size === 0) continue;
+                items.push({ id: `local:${guard.toDisplayPath(ctx.root, file)}`, source: 'local', size: formatSize(size) });
             }
         }
     }
-    return { databases: items, incomplete: incomplete || queue.length > 0, hint: '本地扫描最多四层，可用 path 指定更深子目录；平台标识始终指向当前租户。' };
+    return { databases: items, incomplete: incomplete || queue.length > 0, hint: '平台库标识形如 platform:report.db（报表/月报指标）、platform:tools.db（工具业务数据），始终指向当前租户实际使用的库；本地扫描最多四层，path 只接受工作目录内的子目录。' };
 }
 
 async function schema(ctx, args) {
@@ -136,8 +179,13 @@ async function readTable(ctx, args) {
             safeRows.push(safe);
         }
         const hasMore = rows.length > safeRows.length;
+        // 空结果明确说明原因：模型曾把空表误判成「权限受限 / 未入库」
+        const empty = safeRows.length ? undefined
+            : args.filter ? '没有匹配筛选条件的行（表本身可能有数据，可换筛选值或去掉 filter）'
+                : offset > 0 ? '已超出表的行数，没有更多数据'
+                    : '该表当前为 0 行，是真实的空表，不是权限限制；请确认 list_databases 返回的库标识是否正确';
         return { database: args.database, table: args.table, columns: selected, omittedColumns: available.length - selected.length,
-            rows: safeRows, offset, nextOffset: hasMore ? offset + safeRows.length : null, readOnly: true,
+            rows: safeRows, offset, nextOffset: hasMore ? offset + safeRows.length : null, readOnly: true, ...(empty ? { empty } : {}),
             note: '凭据字段、账号/会话表不对 AI 开放；单格最多 1000 字符，BLOB 省略。分页期间数据库变更可能影响结果顺序。' };
     });
 }

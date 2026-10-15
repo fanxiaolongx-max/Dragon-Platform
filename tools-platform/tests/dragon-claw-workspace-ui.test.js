@@ -116,7 +116,8 @@ test('home chat can resume the last conversation with its agent session, distinc
     // 本浏览器按用户记住最近一次对话（服务端会话不分用户，不能从列表里猜）
     assert.match(js, /const LAST_CHAT_KEY = 'dragon_claw_last_chat'/);
     assert.match(js, /saved\.user === currentUser\(\)/);
-    assert.match(js, /fetch\(`\/api\/ai\/sessions\/\$\{encodeURIComponent\(saved\.sessionId\)\}\/messages`/);
+    assert.match(js, /fetch\(`\/api\/ai\/sessions\/\$\{encodeURIComponent\(sessionId\)\}\/messages\?\$\{query\}`/);
+    assert.match(js, /const page = await fetchHistoryPage\(saved\.sessionId\);/);
     // 回复后记下会话与工作区智能体会话；续接时接回，模型才记得工具操作
     assert.match(js, /rememberLastChat\(data\.sessionId, workspacePayload \?/);
     assert.match(js, /await workspace\(\)\?\.resumeWorkspace\?\.\(resume\.agent \|\| \{\}\)/);
@@ -185,7 +186,7 @@ test('/session lists my chats and resuming replays tool cards and command output
     assert.match(js, /\{ name: '\/session', aliases: \['\/sessions', '\/history'\], text: 'slashSession' \}/);
     assert.match(js, /if \(runSlashCommand\(content\)\) return;/, 'slash commands never reach the model');
     assert.match(js, /fetch\(`\/api\/ai\/sessions\?mine=1&pagePath=%2F&limit=50&query=/);
-    assert.match(js, /resume\.items\.forEach\(item => addHistoryMessage\(item\.role, String\(item\.content\), item\.events\)\)/);
+    assert.match(js, /resume\.items\.forEach\(item => addHistoryMessage\(item\.role, String\(item\.content\), item\.events, item\)\)/);
     assert.match(js, /workspace\(\)\?\.replayEvents\?\.\(message, events\)/);
     for (const key of ['sessionTitle', 'sessionSearch', 'sessionEmpty', 'sessionHint', 'slashSession', 'slashNew', 'toolOutput', 'toolInterrupted']) assert.equal(js.split(`${key}: '`).length - 1, 2, key);
     const panel = read('frontend/js/home/workspace-panel.js');
@@ -196,4 +197,28 @@ test('/session lists my chats and resuming replays tool cards and command output
     const css = read('frontend/css/dragon-claw.css');
     assert.match(css, /\.dc-session-picker \{/);
     assert.match(css, /\.dc-slash \{/);
+});
+
+test('resumed chats load history page by page and keep the reading position', () => {
+    const js = read('frontend/js/home/dragon-claw.js');
+    assert.match(js, /const HISTORY_PAGE_SIZE = 30;/);
+    assert.match(js, /limit=\$\{HISTORY_PAGE_SIZE\}\$\{before \? `&before=/);
+    assert.match(js, /new IntersectionObserver\(/, 'scrolling near the top loads the previous page');
+    assert.match(js, /el\.thread\.scrollTop = previousTop \+ \(el\.thread\.scrollHeight - previousHeight\);/);
+    assert.match(js, /state\.messages = \[\.\.\.page\.items\.map\(/, 'older turns are prepended to the model context in order');
+    assert.match(js, /resetHistoryPaging\(\);\n        el\.thread\.innerHTML = '';/, 'a new chat drops the old paging state');
+    for (const key of ['historyMore', 'historyLoading', 'historyFailed', 'retry', 'usageText', 'usageTitle']) assert.equal(js.split(`${key}: '`).length - 1, 2, key);
+});
+
+test('messages use icon actions: copy and resend on user messages, copy plus model and token usage on replies', () => {
+    const js = read('frontend/js/home/dragon-claw.js');
+    assert.match(js, /addUserTools\(addMessage\('user', shownText\), content, shownText\);/);
+    assert.match(js, /iconButton\('retry', tx\('retry'\), 'data-dc-retry'\)/);
+    assert.match(js, /addMessageTools\(reply, finalText, \{ modelName: data\.model\?\.name \|\| model\?\.name \|\| '', usage: data\.usage \}\);/);
+    assert.match(js, /document\.execCommand\('copy'\)/, 'copy still works over plain http');
+    const css = read('frontend/css/dragon-claw.css');
+    assert.match(css, /\.dc-msg-icon \{/);
+    assert.match(css, /@media \(hover: none\) \{ \.dc-msg-tools \{ opacity: 1; \} \}/);
+    const format = new Function(`${js.match(/function formatTokenCount[\s\S]*?\n    \}/)[0]}; return formatTokenCount;`)();
+    assert.deepEqual([0, 856, 1234, 12345, 123456, 1234567, 10000].map(format), ['0', '856', '1,234', '12.3K', '123K', '1.23M', '10K']);
 });
