@@ -2099,6 +2099,7 @@ function renderReport(snap) {
     let metricCols = [...(topMetrics || [])];
 
     // Auto inject manual metrics that are missing in current snapshot
+    let autoFillChanged = false;
     if (globalConfig.targets) {
         Object.keys(globalConfig.targets).forEach(k => {
             if (k.startsWith('manual_') && globalConfig.targets[k].label) {
@@ -2140,7 +2141,7 @@ function renderReport(snap) {
                     if (globalConfig.targets[k].autoFill) {
                         if (!currentSnapshot.topMetrics) currentSnapshot.topMetrics = [];
                         currentSnapshot.topMetrics.push(newMetric);
-                        putSnapshotWithCompression(currentSnapshot.id, currentSnapshot, 'auto-fill-new-metric').catch(e => console.error('Auto-fill save error:', e));
+                        autoFillChanged = true;
                     }
                 } else {
                     exists.isManual = true;
@@ -2163,7 +2164,7 @@ function renderReport(snap) {
                             } else {
                                 currentSnapshot.topMetrics.push(exists);
                             }
-                            putSnapshotWithCompression(currentSnapshot.id, currentSnapshot, 'auto-fill-existing-metric').catch(e => console.error('Auto-fill save error:', e));
+                            autoFillChanged = true;
                         }
                     }
                 }
@@ -2176,8 +2177,9 @@ function renderReport(snap) {
         return;
     }
 
-    if (applyManualAdjustAutoFillToSnapshot(currentSnapshot)) {
-        putSnapshotWithCompression(currentSnapshot.id, currentSnapshot, 'manual-adjust-auto-fill').catch(e => console.error('Manual adjust auto-fill save error:', e));
+    const manualAdjustChanged = applyManualAdjustAutoFillToSnapshot(currentSnapshot);
+    if (autoFillChanged || manualAdjustChanged) {
+        putSnapshotWithCompression(currentSnapshot.id, currentSnapshot, 'auto-fill-combined').catch(e => console.error('Auto-fill save error:', e));
     }
 
     // Prepare data structures
