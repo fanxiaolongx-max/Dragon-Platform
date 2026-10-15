@@ -529,3 +529,41 @@
 .dc-tool-output summary { width: fit-content; color: var(--dc-faint, #64748b); cursor: pointer; }
 .dc-tool-output summary:hover { color: #cbd5e1; }
 .dc-tool-output pre { max-height: 240px; margin: 6px 0 0; padding: 8px 10px; overflow: auto; border-radius: 8px; background: rgba(2, 6, 23, 0.6); color: #cbd5e1; font: 11.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-all; }
+
+/* 写入 / 编辑后的文件卡片：对话内预览与代码 */
+.dc-file-card { margin: 2px 0 6px 26px; overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 10px; background: rgba(2, 6, 23, 0.4); }
+.dc-file-head { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 8px 6px 10px; font-size: 12px; }
+.dc-file-icon { flex: none; }
+.dc-file-name { min-width: 0; overflow: hidden; color: var(--dc-text, #e2e8f0); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; }
+.dc-file-meta { flex: 1; min-width: 0; overflow: hidden; color: var(--dc-faint, #64748b); font-size: 10.5px; text-overflow: ellipsis; white-space: nowrap; }
+.dc-file-tabs { display: inline-flex; flex: none; padding: 2px; border-radius: 7px; background: rgba(148, 163, 184, 0.1); }
+.dc-file-tabs button, .dc-file-btn { height: 22px; padding: 0 9px; border: 0; border-radius: 5px; background: transparent; color: var(--dc-muted, #8b9ab3); font: inherit; font-size: 11.5px; cursor: pointer; }
+.dc-file-tabs button:hover, .dc-file-btn:hover { color: var(--dc-text, #e2e8f0); }
+.dc-file-tabs button[aria-selected="true"] { background: rgba(100, 255, 218, 0.14); color: #64ffda; font-weight: 650; }
+.dc-file-btn { flex: none; width: 24px; padding: 0; border: 1px solid rgba(148, 163, 184, 0.16); }
+.dc-file-btn[hidden] { display: none; }
+.dc-file-tabs button:focus-visible, .dc-file-btn:focus-visible { outline: 2px solid var(--dc-accent, #64ffda); outline-offset: 1px; }
+.dc-file-body { border-top: 1px solid rgba(148, 163, 184, 0.12); }
+.dc-file-body[hidden] { display: none; }
+.dc-file-status { padding: 12px; color: var(--dc-faint, #64748b); font-size: 11.5px; }
+.dc-file-status.is-error { color: #f87171; }
+.dc-file-frame { display: block; width: 100%; height: 360px; border: 0; background: #fff; }
+.dc-file-hint { padding: 5px 10px; color: var(--dc-faint, #64748b); font-size: 10.5px; }
+.dc-file-md { max-height: 420px; padding: 10px 14px; overflow: auto; color: var(--dc-text, #e2e8f0); font-size: 13px; line-height: 1.65; }
+.dc-file-code { max-height: 420px; margin: 0; padding: 8px 0; overflow: auto; background: rgba(2, 6, 23, 0.55); color: #cbd5e1; font: 11.5px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; counter-reset: dc-line; tab-size: 4; }
+.dc-file-code code { display: block; min-width: fit-content; }
+.dc-file-line { display: block; padding-right: 12px; white-space: pre; }
+.dc-file-line::before { display: inline-block; width: 3.2em; margin-right: 12px; padding-right: 8px; border-right: 1px solid rgba(148, 163, 184, 0.14); color: #475569; text-align: right; content: counter(dc-line); counter-increment: dc-line; user-select: none; }
+/* 放大：铺满窗口，Esc 或再次点击还原 */
+.dc-file-card.is-expanded { position: fixed; inset: calc(var(--navbar-h, 0px) + 16px) 16px 16px; z-index: 1250; display: flex; flex-direction: column; margin: 0; background: #0b1120; box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55); }
+.dc-file-card.is-expanded .dc-file-body { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.dc-file-card.is-expanded .dc-file-frame { flex: 1; height: auto; }
+.dc-file-card.is-expanded .dc-file-code, .dc-file-card.is-expanded .dc-file-md { flex: 1; max-height: none; }
+body.dc-file-expanded { overflow: hidden; }
+@media (max-width: 860px) {
+    .dc-file-card { margin-left: 0; }
+    .dc-file-meta { display: none; }
+    .dc-file-head { flex-wrap: wrap; }
+    .dc-file-name { flex: 1; }
+    .dc-file-frame { height: 280px; }
+}

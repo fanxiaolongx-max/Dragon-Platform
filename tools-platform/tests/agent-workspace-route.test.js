@@ -292,3 +292,24 @@ test('read-only accounts see readOnly capability and cannot revert or create PRs
     assert.equal((await revert.json()).code, 'AGENT_READ_ONLY');
     assert.equal((await call('POST', '/pr/any-session-0001', { headers: viewerLocal, body: { title: 't' } })).status, 403);
 });
+
+test('file view reads text files inside the root and refuses escapes, secrets and binaries', async () => {
+    const root = path.join(projects, 'beta');
+    fs.writeFileSync(path.join(root, 'hello.html'), '<h1>Hello</h1>\n');
+    fs.writeFileSync(path.join(root, '.env'), 'TOKEN=secret\n');
+    fs.writeFileSync(path.join(root, 'blob.txt'), Buffer.from([0x41, 0x00, 0x42]));
+    fs.mkdirSync(path.join(root, 'sub'), { recursive: true });
+    const url = file => `/file/missing-session-id?root=${encodeURIComponent(root)}&path=${encodeURIComponent(file)}`;
+
+    const ok = await call('GET', url('hello.html'), { headers: viewerLocal });
+    assert.equal(ok.status, 200);
+    const data = await ok.json();
+    assert.deepEqual([data.path, data.content, data.size], ['hello.html', '<h1>Hello</h1>\n', 15]);
+
+    assert.equal((await call('GET', url('../notes.txt'), { headers: viewerLocal })).status, 403);
+    assert.equal((await call('GET', url('.env'), { headers: viewerLocal })).status, 403);
+    assert.equal((await call('GET', url('blob.txt'), { headers: viewerLocal })).status, 415);
+    assert.equal((await call('GET', url('sub'), { headers: viewerLocal })).status, 400);
+    assert.equal((await call('GET', url('missing.html'), { headers: viewerLocal })).status, 404);
+    assert.equal((await call('GET', url('hello.html'), { headers: viewerRemote })).status, 403, 'same access gate as the rest of the workspace API');
+});

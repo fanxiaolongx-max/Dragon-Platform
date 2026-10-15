@@ -228,6 +228,31 @@ router.get('/changes/:agentSessionId', async (req, res) => {
     }
 });
 
+// 对话内文件卡片：读取工作目录内的文本文件，供「预览 / 代码」查看（只读，同 read_file 的越界与凭据文件限制）
+const FILE_VIEW_MAX_BYTES = 2 * 1024 * 1024;
+router.get('/file/:agentSessionId', async (req, res) => {
+    try {
+        const session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
+        const root = resolveRoot(session, req.query.root);
+        if (!root) return res.status(400).json({ code: 'AGENT_ROOT_REQUIRED', error: '尚未选择工作目录' });
+        const abs = guard.resolveInsideRoot(root, String(req.query.path || ''));
+        const display = guard.toDisplayPath(root, abs);
+        guard.assertNotSecretFile(abs);
+        const stat = await fsp.stat(abs).catch(() => null);
+        if (!stat) return res.status(404).json({ code: 'AGENT_FILE_NOT_FOUND', error: `文件不存在：${display}` });
+        if (!stat.isFile()) return res.status(400).json({ code: 'AGENT_IS_DIR', error: `${display} 不是文件` });
+        if (stat.size > FILE_VIEW_MAX_BYTES) return res.status(413).json({ code: 'AGENT_FILE_TOO_LARGE', error: `${display} 超过 2MB，无法在对话内预览`, size: stat.size });
+        if (guard.looksBinaryByName(abs)) return res.status(415).json({ code: 'AGENT_BINARY', error: `${display} 是二进制文件` });
+        const buffer = await fsp.readFile(abs);
+        if (guard.isBinaryBuffer(buffer)) return res.status(415).json({ code: 'AGENT_BINARY', error: `${display} 是二进制文件` });
+        res.json({ path: display, size: stat.size, mtimeMs: stat.mtimeMs, content: buffer.toString('utf8') });
+    } catch (error) {
+        const status = error.statusCode || (['AGENT_PATH_OUTSIDE', 'AGENT_PATH_INVALID', 'AGENT_SECRET_FILE'].includes(error.code) ? 403
+            : ['AGENT_ROOT_NOT_FOUND', 'AGENT_ROOT_NOT_DIR', 'AGENT_ROOT_REQUIRED'].includes(error.code) ? 400 : 500);
+        res.status(status).json({ code: error.code, error: error.message });
+    }
+});
+
 // 恢复对话：上一轮的上下文占用 + 当前的实际改动
 router.get('/state/:agentSessionId', async (req, res) => {
     try {

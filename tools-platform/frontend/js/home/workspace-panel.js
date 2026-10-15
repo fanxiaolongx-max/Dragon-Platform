@@ -698,12 +698,159 @@
         return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘' }[tool] || '⚙';
     }
 
+    // ── 对话内：写入 / 编辑后的文件卡片（预览 / 代码） ─────
+    // 内容按需从 /file 读取磁盘上的当前版本；HTML/SVG 在无 allow-same-origin 的沙箱 iframe 中渲染，拿不到平台的 Token 与存储。
+    const FILE_TOOLS = new Set(['write_file', 'edit_file']);
+    const PREVIEW_KINDS = { html: 'html', htm: 'html', xhtml: 'html', svg: 'svg', md: 'markdown', markdown: 'markdown' };
+    const fileCache = new WeakMap();
+    let replaying = false;
+
+    function fileExt(filePath) {
+        const match = /\.([^./\\]+)$/.exec(String(filePath || ''));
+        return match ? match[1].toLowerCase() : '';
+    }
+
+    function formatBytes(size) {
+        const value = Number(size || 0);
+        if (value >= 1048576) return `${(value / 1048576).toFixed(1)} MB`;
+        if (value >= 1024) return `${(value / 1024).toFixed(1)} KB`;
+        return `${value} B`;
+    }
+
+    function attachFileCard(row, filePath, autoOpen) {
+        if (!filePath) return;
+        // 同一条回复里同一文件只保留最后一张卡片（多次编辑时显示最终版本）
+        const log = row.parentElement;
+        log?.querySelectorAll('.dc-file-card').forEach(card => { if (card.dataset.path === filePath) card.remove(); });
+        const previewKind = PREVIEW_KINDS[fileExt(filePath)] || '';
+        const card = document.createElement('div');
+        card.className = 'dc-file-card';
+        card.dataset.path = filePath;
+        card.dataset.root = state.root;
+        card.dataset.session = state.agentSessionId;
+        card.dataset.preview = previewKind;
+        card.innerHTML = `
+            <div class="dc-file-head">
+                <span class="dc-file-icon" aria-hidden="true">${previewKind === 'html' ? '🌐' : previewKind === 'markdown' ? '📝' : previewKind === 'svg' ? '🖼' : '📄'}</span>
+                <span class="dc-file-name" title="${escapeHtml(filePath)}">${escapeHtml(baseName(filePath))}</span>
+                <span class="dc-file-meta"></span>
+                <span class="dc-file-tabs" role="tablist">
+                    ${previewKind ? `<button type="button" role="tab" aria-selected="false" data-file-view="preview">${escapeHtml(tx('filePreview'))}</button>` : ''}
+                    <button type="button" role="tab" aria-selected="false" data-file-view="code">${escapeHtml(tx('fileCode'))}</button>
+                </span>
+                <button type="button" class="dc-file-btn" data-file-action="expand" title="${escapeHtml(tx('fileExpand'))}" aria-label="${escapeHtml(tx('fileExpand'))}" hidden>⤢</button>
+                <button type="button" class="dc-file-btn" data-file-action="download" title="${escapeHtml(tx('fileDownload'))}" aria-label="${escapeHtml(tx('fileDownload'))}">↓</button>
+            </div>
+            <div class="dc-file-body" hidden></div>`;
+        const anchor = row.nextElementSibling?.classList.contains('dc-tool-output') ? row.nextElementSibling : row;
+        anchor.insertAdjacentElement('afterend', card);
+        if (autoOpen && previewKind) showFileView(card, 'preview');
+    }
+
+    async function loadFile(card) {
+        if (fileCache.has(card)) return fileCache.get(card);
+        const root = card.dataset.root || state.root;
+        const id = card.dataset.session || state.agentSessionId;
+        const data = await request('GET', `${API}/file/${encodeURIComponent(id)}?root=${encodeURIComponent(root)}&path=${encodeURIComponent(card.dataset.path)}`);
+        fileCache.set(card, data);
+        const lines = data.content ? data.content.split('\n').length : 0;
+        card.querySelector('.dc-file-meta').textContent = `${tx('fileLines', { count: lines })} · ${formatBytes(data.size)}`;
+        return data;
+    }
+
+    function renderCode(content) {
+        const lines = String(content).split('\n');
+        if (lines.length > 1 && lines[lines.length - 1] === '') lines.pop();
+        return `<pre class="dc-file-code"><code>${lines.map(line => `<span class="dc-file-line">${escapeHtml(line) || ' '}</span>`).join('')}</code></pre>`;
+    }
+
+    function renderPreview(card, content) {
+        const kind = card.dataset.preview;
+        if (kind === 'markdown') {
+            const render = window.ToolsAIAssistant?.renderMarkdown;
+            return `<div class="dc-file-md">${render ? render(content) : renderCode(content)}</div>`;
+        }
+        return `<iframe class="dc-file-frame" sandbox="allow-scripts allow-forms allow-modals allow-popups" referrerpolicy="no-referrer" title="${escapeHtml(card.dataset.path)}"></iframe><div class="dc-file-hint">${escapeHtml(tx('fileSandboxHint'))}</div>`;
+    }
+
+    async function showFileView(card, view) {
+        const body = card.querySelector('.dc-file-body');
+        const tabs = card.querySelectorAll('[data-file-view]');
+        // 再次点击当前标签：收起
+        if (card.dataset.view === view && !body.hidden) {
+            body.hidden = true;
+            card.dataset.view = '';
+            toggleExpand(card, false);
+            tabs.forEach(tab => tab.setAttribute('aria-selected', 'false'));
+            card.querySelector('[data-file-action="expand"]').hidden = true;
+            return;
+        }
+        card.dataset.view = view;
+        tabs.forEach(tab => tab.setAttribute('aria-selected', String(tab.dataset.fileView === view)));
+        body.hidden = false;
+        body.innerHTML = `<div class="dc-file-status">${escapeHtml(tx('fileLoading'))}</div>`;
+        let data;
+        try {
+            data = await loadFile(card);
+        } catch (error) {
+            if (card.dataset.view === view) body.innerHTML = `<div class="dc-file-status is-error">${escapeHtml(error.message)}</div>`;
+            return;
+        }
+        if (card.dataset.view !== view) return;
+        body.innerHTML = view === 'preview' ? renderPreview(card, data.content) : renderCode(data.content);
+        const frame = body.querySelector('iframe');
+        if (frame) {
+            frame.srcdoc = card.dataset.preview === 'svg'
+                ? `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;height:100%}body{display:grid;place-items:center;background:#fff}svg{max-width:100%;max-height:100vh}</style>${data.content}`
+                : data.content;
+        }
+        card.querySelector('[data-file-action="expand"]').hidden = false;
+    }
+
+    function downloadFile(card) {
+        loadFile(card).then(data => {
+            const url = URL.createObjectURL(new Blob([data.content], { type: 'application/octet-stream' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = baseName(card.dataset.path);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }).catch(error => toast(error.message));
+    }
+
+    const expandHomes = new WeakMap();
+    function toggleExpand(card, force) {
+        const expanded = force ?? !card.classList.contains('is-expanded');
+        if (expanded === card.classList.contains('is-expanded')) return;
+        // 消息气泡带入场动画的 transform，会困住 position:fixed；放大时把卡片临时挂到 body，还原时放回原位
+        if (expanded) {
+            const home = document.createComment('dc-file-card');
+            card.replaceWith(home);
+            expandHomes.set(card, home);
+            document.body.appendChild(card);
+        } else {
+            const home = expandHomes.get(card);
+            if (home?.isConnected) home.replaceWith(card); else card.remove();
+            expandHomes.delete(card);
+        }
+        card.classList.toggle('is-expanded', expanded);
+        document.body.classList.toggle('dc-file-expanded', Boolean(document.querySelector('.dc-file-card.is-expanded')));
+        const button = card.querySelector('[data-file-action="expand"]');
+        const label = tx(expanded ? 'fileCollapse' : 'fileExpand');
+        button.textContent = expanded ? '⤡' : '⤢';
+        button.title = label;
+        button.setAttribute('aria-label', label);
+    }
+
     function handleEvent(messageEl, event, sourceWorkspace) {
         if (!messageEl || !event) return;
         if (event.type === 'tool_start') {
             const row = document.createElement('div');
             row.className = 'dc-tool-row is-running';
             row.innerHTML = `<span class="dc-tool-icon" aria-hidden="true">${toolIcon(event.tool)}</span><span class="dc-tool-name">${escapeHtml(tx(`tool_${event.tool}`))}</span><span class="dc-tool-args" title="${escapeHtml(describeArgs(event.tool, event.args))}">${escapeHtml(describeArgs(event.tool, event.args))}</span><span class="dc-tool-state"><i class="dc-tool-spin" aria-hidden="true"></i></span>`;
+            if (FILE_TOOLS.has(event.tool) && event.args?.path) row.dataset.filePath = event.args.path;
             toolLogFor(messageEl).appendChild(row);
             toolRows.set(event.callId, row);
             messageEl.querySelector('.dc-thinking')?.remove();
@@ -715,6 +862,8 @@
             row.querySelector('.dc-tool-state').innerHTML = `${event.ok ? '✓' : '✗'} <span>${escapeHtml(event.summary || '')}</span>${event.durationMs > 1500 ? ` <small>${(event.durationMs / 1000).toFixed(1)}s</small>` : ''}`;
             // 命令输出：折叠在工具行下方，需要时展开查看
             if (event.output) row.insertAdjacentHTML('afterend', `<details class="dc-tool-output"><summary>${escapeHtml(tx('toolOutput'))}</summary><pre>${escapeHtml(event.output)}</pre></details>`);
+            // 写入 / 编辑成功：挂文件卡片，可在对话内预览或看代码；实时生成的 HTML/SVG/Markdown 直接展开预览
+            if (event.ok && row.dataset.filePath) attachFileCard(row, row.dataset.filePath, !replaying);
         } else if (event.type === 'approval') {
             renderApproval(messageEl, event);
         } else if (event.type === 'approval_result') {
@@ -829,6 +978,15 @@
                 else if (prBtn.dataset.wspPr === 'close') closePr();
                 return;
             }
+            const fileCard = event.target.closest('.dc-file-card');
+            if (fileCard) {
+                const viewBtn = event.target.closest('[data-file-view]');
+                const actionBtn = event.target.closest('[data-file-action]');
+                if (viewBtn) showFileView(fileCard, viewBtn.dataset.fileView);
+                else if (actionBtn?.dataset.fileAction === 'expand') toggleExpand(fileCard);
+                else if (actionBtn?.dataset.fileAction === 'download') downloadFile(fileCard);
+                return;
+            }
             const head = event.target.closest('.wsp-card-head');
             if (head && el.panel.contains(head)) {
                 const card = head.closest('.wsp-card');
@@ -882,6 +1040,7 @@
         });
         document.addEventListener('keydown', event => {
             if (event.key === 'Escape' && !el.picker.hidden) closePicker();
+            else if (event.key === 'Escape') document.querySelectorAll('.dc-file-card.is-expanded').forEach(card => toggleExpand(card, false));
         });
         window.addEventListener('tools:languagechange', renderAll);
     }
@@ -995,6 +1154,7 @@
             state.context = null;
             approvalCards.clear();
             toolRows.clear();
+            document.querySelectorAll('.dc-file-card.is-expanded').forEach(card => toggleExpand(card, false));
             renderContext();
             renderChanges();
         },
@@ -1005,12 +1165,17 @@
             if (!messageEl || !Array.isArray(events) || !events.length) return;
             const startedRows = [];
             const openCards = new Map();
-            for (const event of events) {
-                if (!event || event.type === 'change') continue;
-                handleEvent(messageEl, event);
-                if (event.type === 'tool_start') startedRows.push({ callId: event.callId, row: toolRows.get(event.callId) });
-                if (event.type === 'approval') openCards.set(event.callId, approvalCards.get(event.callId));
-                if (event.type === 'approval_result') openCards.delete(event.callId);
+            replaying = true; // 历史文件卡片默认收起，不批量加载预览
+            try {
+                for (const event of events) {
+                    if (!event || event.type === 'change') continue;
+                    handleEvent(messageEl, event);
+                    if (event.type === 'tool_start') startedRows.push({ callId: event.callId, row: toolRows.get(event.callId) });
+                    if (event.type === 'approval') openCards.set(event.callId, approvalCards.get(event.callId));
+                    if (event.type === 'approval_result') openCards.delete(event.callId);
+                }
+            } finally {
+                replaying = false;
             }
             // 中途停止的轮次：未完成的工具行与审批卡标为已中止
             startedRows.forEach(({ row }) => {
