@@ -2231,11 +2231,13 @@
         const contentType = String(res.headers.get('content-type') || '');
         if (!res.ok) {
             let message = `${res.status} ${res.statusText}`;
+            let errorData = {};
             try {
-                const errorData = await res.json();
+                errorData = await res.json();
                 message = errorData.error || message;
             } catch (_error) {}
-            throw new Error(message);
+            // 带上错误码，调用方可针对性处理（如首页 Skill 缺少工作目录时给出「选择目录」）
+            throw Object.assign(new Error(message), { status: res.status, code: errorData.code, details: errorData });
         }
         if (!contentType.includes('application/x-ndjson')) {
             const data = await res.json();

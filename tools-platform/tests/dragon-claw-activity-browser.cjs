@@ -31,7 +31,7 @@ app.whenReady().then(async () => {
         const AVATAR = 'data:image/svg+xml;base64,${Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30"><circle cx="15" cy="15" r="15" fill="#2d6861"/></svg>').toString('base64')}';
         const scrollThread = () => {};
         const renderMarkdown = text => text ? '<p>' + escapeHtml(text) + '</p>' : '';
-        const setChatting = () => {}, autoResize = () => {}, updateSendButton = () => {}, rememberLastChat = () => {}, addMessageTools = () => {};
+        const setChatting = () => {}, autoResize = () => {}, updateSendButton = () => {}, rememberLastChat = () => {}, addMessageTools = () => {}, addUserTools = () => {};
         const runSlashCommand = () => false, currentModel = () => null, buildContext = () => '';
         const collectClientToolData = async () => [];
         const waitForAssistant = async () => window.mockApi;

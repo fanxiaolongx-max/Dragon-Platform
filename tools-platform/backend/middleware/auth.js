@@ -11,7 +11,7 @@ async function checkAuth(req, res, next) {
 
     const authHeader = req.headers.authorization;
     const cookieToken = String(req.headers.cookie || '').split(';').map(item => item.trim()).find(item => item.startsWith('tools_token='))?.slice('tools_token='.length);
-    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : cookieToken;
+    const token = authHeader && authHeader.startsWith('Bearer ') ? authHeader.split(' ')[1] : (cookieToken || req.query?.token);
     if (!token) {
         return res.status(401).json({ error: '请先登录', code: 'AUTH_REQUIRED' });
     }

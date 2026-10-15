@@ -46,7 +46,11 @@ function generateStoreAssets(logoBytes, screenshots = []) {
         'store-assets/small-promo-440x280.png': promo(logo, 440, 280),
         'store-assets/marquee-1400x560.png': promo(logo, 1400, 560)
     };
-    screenshots.forEach((bytes, index) => { assets[`store-assets/screenshot-${String(index + 1).padStart(2, '0')}-1280x800.png`] = screenshot(bytes); });
+    if (!screenshots || screenshots.length === 0) {
+        assets['store-assets/screenshot-01-1280x800.png'] = promo(logo, 1280, 800);
+    } else {
+        screenshots.forEach((bytes, index) => { assets[`store-assets/screenshot-${String(index + 1).padStart(2, '0')}-1280x800.png`] = screenshot(bytes); });
+    }
     return assets;
 }
 

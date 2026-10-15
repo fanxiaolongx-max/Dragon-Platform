@@ -13,6 +13,7 @@ const aiToolDataService = require('../models/ai-tool-data-service');
 const customToolsRepo = require('../models/custom-tools-repository');
 const agentRunManager = require('../models/agent-run-manager');
 const agentWorkspaceAccess = require('../models/agent-workspace-access');
+const agentSkills = require('../models/agent-skills');
 const { redactText, redactValue } = require('../models/ai-sensitive-data');
 const { getTenantId } = require('../models/tenant-context');
 
@@ -548,6 +549,8 @@ function compactRecordedEvent(event) {
  * POST /api/ai/chat
  * 接收对话历史和页面上下文，返回 Gemini 响应
  */
+router.get('/skills', checkAuth, (_req, res) => res.json({ items: agentSkills.list() }));
+
 router.post('/chat', checkAuth, async (req, res) => {
     let streamStarted = false;
     let streamHasDelta = false;
@@ -647,6 +650,24 @@ router.post('/chat', checkAuth, async (req, res) => {
             return res.status(400).json({ error: '最后一条消息必须是用户发送的' });
         }
 
+        // Skill：本条消息里的 @id + 会话内保持的标签（req.body.skills，仅接受白名单标识）
+        let loadedSkills = { selected: [], unknown: [], prompt: '' };
+        if (homeAgent) {
+            try {
+                loadedSkills = agentSkills.load(lastMessage.content, {
+                    hasWorkspace: agentMode,
+                    language: String(uiLanguage || '').startsWith('en') ? 'en' : 'zh',
+                    extraIds: Array.isArray(req.body?.skills) ? req.body.skills.slice(0, 8) : []
+                });
+            } catch (skillError) {
+                // 缺少工作目录是可操作的前提提示，不包装成「AI 思考时出现异常」
+                if (skillError.code === 'SKILL_WORKSPACE_REQUIRED') return res.status(400).json({ code: skillError.code, error: skillError.message, skills: skillError.skills });
+                throw skillError;
+            }
+            // 随回复入库，恢复历史时仍能显示「已加载 Skill」
+            if (loadedSkills.selected.length) recordedEvents.push({ type: 'skills', skills: loadedSkills.selected.map(item => item.id) });
+        }
+
         const normalizedPath = aiChatRepo.normalizePagePath(pagePath || req.get('referer') || '');
         let savedSessionId = sessionId || null;
         if (persist !== false) {
@@ -674,7 +695,7 @@ router.post('/chat', checkAuth, async (req, res) => {
             res.on('close', () => {
                 if (!res.writableEnded) providerAbortController.abort();
             });
-            writeStreamEvent({ type: 'start', sessionId: savedSessionId });
+            writeStreamEvent({ type: 'start', sessionId: savedSessionId, skills: loadedSkills.selected, unknownSkills: loadedSkills.unknown });
         }
         const compressionResult = persist !== false
             ? await compressSessionIfNeeded({
@@ -718,6 +739,7 @@ router.post('/chat', checkAuth, async (req, res) => {
             ? `8. 不要声称自己只专注于本平台：与平台无关的问题，直接以通用助手身份完整、专业地回答，不必引用项目知识。只有问题涉及本平台时才使用上面的项目知识、业务配置和数据结果。推荐或提到平台工具时，使用 Markdown 链接 [工具名](路径)，路径只能取自“平台工具目录”，不得编造路径。`
             : `8. 如果用户的提问超出系统功能范畴，礼貌说明你专注于本工具中台。`;
         const systemInstruction = `${identityPrompt}
+${loadedSkills.prompt}
 当前页面标题: ${pageTitle || '未知'}
 ${homeAgent ? '平台工具目录与对话上下文' : '当前页面核心文本内容'}:
 ---

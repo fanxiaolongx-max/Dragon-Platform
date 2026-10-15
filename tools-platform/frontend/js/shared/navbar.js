@@ -2803,7 +2803,7 @@ async function renderLogoSettings(content) {
                 </div>
                 <label for="logoStoreScreenshots" style="display:block;margin-top:14px;font-size:12px">${text('商店截图（可选，1–5 张 PNG/JPEG，每张不超过 10 MB）', 'Store screenshots (optional, 1–5 PNG/JPEG files, up to 10 MB each)')}</label>
                 <input id="logoStoreScreenshots" type="file" accept="image/png,image/jpeg" multiple style="display:block;margin-top:8px;max-width:100%">
-                <p style="font-size:12px;margin-top:8px">${text('资产包新增商店图标 128×128、小型宣传图 440×280、顶部宣传图 1400×560 和无透明层的截图 1280×800。未选择截图时自动生成平台登录页截图；若用于插件上架，请选择该插件的真实截图。视频需自行上传 YouTube 后填写网址。', 'Includes a 128×128 store icon, 440×280 small promo, 1400×560 marquee and opaque 1280×800 screenshots. With no selected images, captures the platform login page. For an extension listing, select actual screenshots of that extension. Upload videos to YouTube separately.')}</p>
+                <p style="font-size:12px;margin-top:8px">${text('资产包包含商店图标 128×128、小型宣传图 440×280、顶部宣传图 1400×560 和标准宣传截图 1280×800。未选择截图时由服务端自动生成标准宣传截图；若用于插件上架，可选择该插件的真实界面截图。视频需自行上传 YouTube 后填写网址。', 'Includes a 128×128 store icon, 440×280 small promo, 1400×560 marquee and standard 1280×800 promo screenshots. With no selected images, the server automatically generates standard promo screenshots. For an extension listing, you can select actual screenshots of that extension. Upload videos to YouTube separately.')}</p>
                 <div id="logoUploadResultDetail" style="margin-top:12px;font-size:11px;white-space:pre-wrap;display:none"></div>
             </div>
         </div>`;
@@ -2937,6 +2937,27 @@ window.submitLogoUpload = async function () {
     }
 };
 
+// 平台服务的每个响应都带 X-Request-Id（server.js 请求 ID 中间件）；缺失说明请求被本机代理、
+// 企业安全软件或网关拦截，没有到达平台服务，给出可排查的提示而不是只有状态码。
+async function describeLogoBundleFailure(response) {
+    const requestId = response.headers.get('x-request-id');
+    const raw = await response.text().catch(() => '');
+    let data = {};
+    try { data = JSON.parse(raw); } catch (_) {}
+    if (data.error) return requestId ? `${data.error} (${requestId})` : data.error;
+    if (response.status === 403) {
+        const adminMsg = navLocaleText('权限不足，需要超级管理员账号 (HTTP 403)', 'Permission denied: Super administrator role required (HTTP 403)');
+        return requestId ? `${adminMsg} (${requestId})` : adminMsg;
+    }
+    if (!requestId) {
+        return navLocaleText(
+            `HTTP ${response.status}：请求未到达平台服务，可能被本机代理或企业安全软件（如上传/DLP 管控）拦截`,
+            `HTTP ${response.status}: the request never reached the platform service; a local proxy or security software (upload/DLP control) may have blocked it`
+        );
+    }
+    return `HTTP ${response.status} (${requestId})`;
+}
+
 window.downloadLogoBundle = async function () {
     const button = document.getElementById('logoDownloadBundleBtn');
     const status = document.getElementById('logoUploadStatus');
@@ -2947,22 +2968,36 @@ window.downloadLogoBundle = async function () {
     }
     if (status) status.textContent = navLocaleText('正在打包全套运营物料与各端徽标，请稍候…', 'Packaging brand and icon assets, please wait…');
     try {
-        if (!window.ToolsStoreAssets) await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = '/js/shared/store-assets.js';
-            script.onload = resolve;
-            script.onerror = () => reject(new Error(navLocaleText('无法加载商店物料组件', 'Store assets component could not load')));
-            document.head.appendChild(script);
-        });
-        const body = await window.ToolsStoreAssets.form(Array.from(document.getElementById('logoStoreScreenshots')?.files || []));
-        const response = await fetch('/api/platform-logo/download-bundle', {
-            method: 'POST', body,
-            headers: getAuthHeaderForNav()
-        });
-        if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            throw new Error(data.error || `HTTP ${response.status}`);
+        const screenshotInput = document.getElementById('logoStoreScreenshots');
+        const customFiles = Array.from(screenshotInput?.files || []);
+        let response;
+
+        if (customFiles.length > 0) {
+            // 用户显式上传了自定义截图：使用 store-assets 验证并以 multipart/form-data POST 上传
+            if (!window.ToolsStoreAssets) await new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = '/js/shared/store-assets.js';
+                script.onload = resolve;
+                script.onerror = () => reject(new Error(navLocaleText('无法加载商店物料组件', 'Store assets component could not load')));
+                document.head.appendChild(script);
+            });
+            const body = await window.ToolsStoreAssets.form(customFiles);
+            response = await fetch('/api/platform-logo/download-bundle', {
+                method: 'POST',
+                body,
+                headers: getAuthHeaderForNav()
+            });
+        } else {
+            // 默认情况：前端单纯发起 GET 下载请求，全套物料与标准宣传截图由服务端纯后台生成，无需前端截屏与大文件 POST
+            const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token') || '';
+            const downloadUrl = token ? `/api/platform-logo/download-bundle?token=${encodeURIComponent(token)}` : '/api/platform-logo/download-bundle';
+            response = await fetch(downloadUrl, {
+                method: 'GET',
+                headers: getAuthHeaderForNav()
+            });
         }
+
+        if (!response.ok) throw new Error(await describeLogoBundleFailure(response));
         const blob = await response.blob();
         const disposition = response.headers.get('content-disposition') || '';
         const match = disposition.match(/filename="?([^";]+)"?/i);
@@ -6937,10 +6972,7 @@ function reportBackupDownloadName(response) {
 window.exportReportDataBackup = async function () {
     await runGlobalBackupAction(navLocaleText('正在生成报表独立备份...', 'Creating report data backup...'), async () => {
         const response = await fetch('/api/db/report-data-backup/export', { headers: getAuthHeaderForNav() });
-        if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            throw new Error(data.error || `HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error(await describeLogoBundleFailure(response));
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');

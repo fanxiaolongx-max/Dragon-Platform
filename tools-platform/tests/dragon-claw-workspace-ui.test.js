@@ -206,13 +206,13 @@ test('resumed chats load history page by page and keep the reading position', ()
     assert.match(js, /new IntersectionObserver\(/, 'scrolling near the top loads the previous page');
     assert.match(js, /el\.thread\.scrollTop = previousTop \+ \(el\.thread\.scrollHeight - previousHeight\);/);
     assert.match(js, /state\.messages = \[\.\.\.page\.items\.map\(/, 'older turns are prepended to the model context in order');
-    assert.match(js, /resetHistoryPaging\(\);\n        el\.thread\.innerHTML = '';/, 'a new chat drops the old paging state');
+    assert.match(js, /resetHistoryPaging\(\);\n        window\.DragonClawSkills\?\.reset\?\.\(\);[^\n]*\n        el\.thread\.innerHTML = '';/, 'a new chat drops the old paging state and kept Skills');
     for (const key of ['historyMore', 'historyLoading', 'historyFailed', 'retry', 'usageText', 'usageTitle']) assert.equal(js.split(`${key}: '`).length - 1, 2, key);
 });
 
 test('messages use icon actions: copy and resend on user messages, copy plus model and token usage on replies', () => {
     const js = read('frontend/js/home/dragon-claw.js');
-    assert.match(js, /addUserTools\(addMessage\('user', shownText\), content, shownText\);/);
+    assert.match(js, /const userMessage = addMessage\('user', shownText\);\n        addUserTools\(userMessage, content, shownText\);/);
     assert.match(js, /iconButton\('retry', tx\('retry'\), 'data-dc-retry'\)/);
     assert.match(js, /addMessageTools\(reply, finalText, \{ modelName: data\.model\?\.name \|\| model\?\.name \|\| '', usage: data\.usage \}\);/);
     assert.match(js, /document\.execCommand\('copy'\)/, 'copy still works over plain http');
@@ -221,4 +221,16 @@ test('messages use icon actions: copy and resend on user messages, copy plus mod
     assert.match(css, /@media \(hover: none\) \{ \.dc-msg-tools \{ opacity: 1; \} \}/);
     const format = new Function(`${js.match(/function formatTokenCount[\s\S]*?\n    \}/)[0]}; return formatTokenCount;`)();
     assert.deepEqual([0, 856, 1234, 12345, 123456, 1234567, 10000].map(format), ['0', '856', '1,234', '12.3K', '123K', '1.23M', '10K']);
+});
+
+test('slash menu supports arrow-key selection; Enter runs and Tab completes the highlighted command', () => {
+    const js = read('frontend/js/home/dragon-claw.js');
+    assert.match(js, /if \(event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'\) \{/);
+    assert.match(js, /setSlashActive\(slashMenu\.active \+ \(event\.key === 'ArrowDown' \? 1 : -1\)\);/);
+    assert.match(js, /if \(!state\.controller\) runSlashCommand\(item\.name\);/, 'Enter runs the highlighted command, not the typed prefix');
+    assert.match(js, /el\.input\.value = `\$\{item\.name\} `;/, 'Tab completes the highlighted command');
+    assert.match(js, /slashMenuOpen\(\) && !event\.isComposing/, 'IME composition keeps its own arrow/enter keys');
+    assert.match(js, /el\.input\.setAttribute\('aria-activedescendant', `dcSlashOpt\$\{slashMenu\.active\}`\);/);
+    for (const text of ["slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全'", "slashHint: '↑↓ to choose · Enter to run · Tab to complete'"]) assert.ok(js.includes(text), text);
+    assert.match(read('frontend/css/dragon-claw.css'), /\.dc-slash-item\.is-active \{ box-shadow: inset 2px 0 0/);
 });

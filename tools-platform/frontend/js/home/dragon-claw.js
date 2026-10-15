@@ -9,7 +9,7 @@
         'zh-CN': {
             badge: '全能智能体', newChat: '新对话',
             activityThinking: '正在思考…', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
-            resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: 'Enter 执行 · Tab 补全', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
+            resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
             tagline: '我是 Dragon Claw，你的全能智能体。问我任何问题，或者让我带你用好平台里的工具。',
             hint: 'Enter 发送 · Shift + Enter 换行', placeholder: '给 Dragon Claw 发消息…',
             send: '发送', stop: '停止生成', you: '你',
@@ -23,7 +23,7 @@
             askHow: '「{name}」（{href}）应该怎么上手使用？请给出具体操作步骤和注意事项。',
             promptLogic: '解释「{name}」的代码逻辑', promptMetrics: '本月哪些指标还没达标？',
             promptMail: '帮我写一封礼貌的催办提醒邮件', promptCode: '用 Python 写一个 Excel 去重脚本',
-            stopped: '已停止生成', copy: '复制', copied: '已复制', retry: '重新发送', usageText: '输入 {input} · 输出 {output} tokens', usageTitle: '本次回复消耗：输入 {input} tokens，输出 {output} tokens', historyMore: '加载更早的消息', historyLoading: '正在加载更早的消息…', historyFailed: '加载失败，点击重试', unavailable: '智能体组件尚未加载，请稍后重试或刷新页面。',
+            stopped: '已停止生成', copy: '复制', copied: '已复制', retry: '重新发送', skillPickDir: '选择工作目录', usageText: '输入 {input} · 输出 {output} tokens', usageTitle: '本次回复消耗：输入 {input} tokens，输出 {output} tokens', historyMore: '加载更早的消息', historyLoading: '正在加载更早的消息…', historyFailed: '加载失败，点击重试', unavailable: '智能体组件尚未加载，请稍后重试或刷新页面。',
             modelLabel: '选择模型', modelMenuTitle: '模型', modelMenuHint: '切换后从下一条消息开始生效',
             modelDefault: '默认模型', modelNextMessage: '已切换到 {name}，从下一条消息开始生效',
             modelSwitched: '已切换到 {name}', modelCurrent: '当前模型：{name}',
@@ -53,7 +53,7 @@
         'en-US': {
             badge: 'All-round agent', newChat: 'New chat',
             activityThinking: 'Thinking…', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
-            resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: 'Enter to run · Tab to complete', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
+            resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: '↑↓ to choose · Enter to run · Tab to complete', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
             tagline: 'I’m Dragon Claw, your all-round agent. Ask me anything, or let me show you around the tools on this platform.',
             hint: 'Enter to send · Shift + Enter for a new line', placeholder: 'Message Dragon Claw…',
             send: 'Send', stop: 'Stop generating', you: 'You',
@@ -67,7 +67,7 @@
             askHow: 'How do I get started with “{name}” ({href})? Give concrete steps and caveats.',
             promptLogic: 'Explain the code behind “{name}”', promptMetrics: 'Which metrics missed target this month?',
             promptMail: 'Draft a polite follow-up reminder email', promptCode: 'Write a Python script to dedupe an Excel file',
-            stopped: 'Generation stopped', copy: 'Copy', copied: 'Copied', retry: 'Send again', usageText: 'In {input} · Out {output} tokens', usageTitle: 'This reply used {input} input tokens and {output} output tokens', historyMore: 'Load earlier messages', historyLoading: 'Loading earlier messages…', historyFailed: 'Could not load. Click to retry', unavailable: 'The agent is still loading. Please retry in a moment or refresh the page.',
+            stopped: 'Generation stopped', copy: 'Copy', copied: 'Copied', retry: 'Send again', skillPickDir: 'Choose a folder', usageText: 'In {input} · Out {output} tokens', usageTitle: 'This reply used {input} input tokens and {output} output tokens', historyMore: 'Load earlier messages', historyLoading: 'Loading earlier messages…', historyFailed: 'Could not load. Click to retry', unavailable: 'The agent is still loading. Please retry in a moment or refresh the page.',
             modelLabel: 'Choose model', modelMenuTitle: 'Model', modelMenuHint: 'Changes apply from your next message',
             modelDefault: 'Default model', modelNextMessage: 'Switched to {name}. Applies from your next message.',
             modelSwitched: 'Switched to {name}', modelCurrent: 'Current model: {name}',
@@ -750,9 +750,11 @@
         if (runSlashCommand(content)) return;
         setChatting(true);
         const shownText = String(displayText || content).trim();
-        addUserTools(addMessage('user', shownText), content, shownText);
+        const userMessage = addMessage('user', shownText);
+        addUserTools(userMessage, content, shownText);
+        window.DragonClawSkills?.decorateUser?.(userMessage);
         el.input.value = '';
-        autoResize();
+        el.input.dispatchEvent(new Event('input')); // 同步输入框相关提示（Skill 未识别提示、斜杠菜单）
         state.messages.push({ role: 'user', content });
         const reply = addMessage('ai');
         const activity = showThinking(reply);
@@ -773,6 +775,7 @@
         // 发送时锁定模型：生成过程中切换只影响下一条消息。
         const model = currentModel();
         const workspacePayload = workspace()?.getWorkspacePayload?.() || null;
+        const keptSkills = window.DragonClawSkills?.activeIds?.() || [];
         let started = false;
         try {
             const clientToolData = await collectClientToolData(`${state.messages.slice(-3, -1).map(item => item.role === 'user' ? item.content : '').join('\n')}\n${content}`);
@@ -786,6 +789,8 @@
                 uiLanguage: lang() === 'en-US' ? 'en' : 'zh',
                 sessionId: state.sessionId,
                 agent: 'dragon-claw-home',
+                // 会话内保持的 Skill（输入框上方标签）；本条消息里的 @id 由后端直接解析
+                ...(keptSkills.length ? { skills: keptSkills } : {}),
                 ...(model ? { modelId: model.id } : {}),
                 // 工作区（本地目录）模式：后端走工具调用循环，事件由面板渲染
                 ...(workspacePayload ? { workspace: workspacePayload } : {})
@@ -803,6 +808,7 @@
                         state.sessionId = event.sessionId;
                         rememberLastChat(event.sessionId, workspacePayload ? { agentSessionId: workspacePayload.agentSessionId, root: workspacePayload.root } : null);
                     }
+                    window.DragonClawSkills?.handleEvent(reply, event);
                     workspace()?.handleEvent(reply, event, workspacePayload);
                     activity.event(event);
                 }
@@ -832,6 +838,10 @@
             } else {
                 if (!started) state.messages.pop();
                 reply.querySelector('.dc-msg-body').innerHTML = renderMarkdown(`${partial ? `${partial}\n\n` : ''}> ⚠️ ${error?.message || error}`);
+                // 选用的 Skill 需要工作目录：直接给出选择入口，选好后可用用户消息的「重新发送」
+                if (error?.code === 'SKILL_WORKSPACE_REQUIRED' && workspace()?.openPicker) {
+                    reply.querySelector('.dc-msg-main').insertAdjacentHTML('beforeend', `<div class="dc-actions"><button type="button" class="dc-action dc-action--primary" data-dc-pick-dir>📂 ${escapeHtml(tx('skillPickDir'))}</button></div>`);
+                }
             }
         } finally {
             activity.finish();
@@ -940,9 +950,12 @@
             message.querySelector('.dc-msg-body').innerHTML = renderMarkdown(text);
             // 工具调用、审批、命令输出：按入库记录重放
             if (Array.isArray(events) && events.length) workspace()?.replayEvents?.(message, events);
+            const skillIds = (Array.isArray(events) ? events : []).find(event => event?.type === 'skills')?.skills;
+            if (skillIds?.length) window.DragonClawSkills?.badge?.(message, skillIds);
             addMessageTools(message, text, { modelName: item.model_name || '', usage: { inputTokens: item.input_tokens, outputTokens: item.output_tokens } });
         } else {
             addUserTools(message, text);
+            window.DragonClawSkills?.decorateUser?.(message);
         }
         return message;
     }
@@ -1025,6 +1038,7 @@
             state.sessionId = resume.sessionId;
             state.focusedTool = null;
             resetHistoryPaging();
+            window.DragonClawSkills?.reset?.();
             el.thread.innerHTML = `<div class="dc-history-banner"><span aria-hidden="true">↺</span>${escapeHtml(tx('resumeBanner', { time: resume.time }))}</div>`;
             resume.items.forEach(item => addHistoryMessage(item.role, String(item.content), item.events, item));
             Object.assign(historyPaging, { sessionId: resume.sessionId, cursor: resume.cursor || '', hasMore: Boolean(resume.hasMore && resume.cursor) });
@@ -1047,8 +1061,18 @@
     }
 
     // ── 斜杠命令提示 ─────────────────────────────
+    // 当前菜单项与高亮下标：↑↓ 移动，Enter 执行、Tab 补全的都是高亮项
+    const slashMenu = { items: [], active: 0 };
+
     function hideSlashHints() {
         if (el.slash) el.slash.hidden = true;
+        slashMenu.items = [];
+        el.input?.removeAttribute('aria-activedescendant');
+        el.input?.setAttribute('aria-expanded', 'false');
+    }
+
+    function slashMenuOpen() {
+        return Boolean(el.slash && !el.slash.hidden && slashMenu.items.length);
     }
 
     function renderSlashHints() {
@@ -1057,8 +1081,27 @@
         const typed = value.trim().toLowerCase();
         const list = SLASH_COMMANDS.filter(item => [item.name, ...item.aliases].some(name => name.startsWith(typed) || typed.startsWith(name)));
         if (!list.length) return hideSlashHints();
-        el.slash.innerHTML = `${list.map(item => `<button type="button" class="dc-slash-item" role="option" data-dc-slash="${item.name}"><b>${item.name}</b><span>${escapeHtml(tx(item.text))}</span></button>`).join('')}<div class="dc-slash-hint">${escapeHtml(tx('slashHint'))}</div>`;
+        // 继续输入时尽量保持原来高亮的命令
+        const previous = slashMenu.items[slashMenu.active]?.name;
+        slashMenu.items = list;
+        slashMenu.active = Math.max(0, list.findIndex(item => item.name === previous));
+        el.slash.innerHTML = `${list.map((item, index) => `<button type="button" class="dc-slash-item" role="option" id="dcSlashOpt${index}" data-dc-slash="${item.name}" data-dc-slash-index="${index}" tabindex="-1"><b>${item.name}</b><span>${escapeHtml(tx(item.text))}</span></button>`).join('')}<div class="dc-slash-hint">${escapeHtml(tx('slashHint'))}</div>`;
         el.slash.hidden = false;
+        el.input.setAttribute('aria-expanded', 'true');
+        setSlashActive(slashMenu.active);
+    }
+
+    function setSlashActive(index) {
+        const count = slashMenu.items.length;
+        if (!count) return;
+        slashMenu.active = (index + count) % count;
+        el.slash.querySelectorAll('[data-dc-slash-index]').forEach(node => {
+            const active = Number(node.dataset.dcSlashIndex) === slashMenu.active;
+            node.classList.toggle('is-active', active);
+            node.setAttribute('aria-selected', String(active));
+            if (active) node.scrollIntoView({ block: 'nearest' });
+        });
+        el.input.setAttribute('aria-activedescendant', `dcSlashOpt${slashMenu.active}`);
     }
 
     // ── /session 历史会话 ────────────────────────
@@ -1171,6 +1214,7 @@
         state.sessionId = null;
         state.focusedTool = null;
         resetHistoryPaging();
+        window.DragonClawSkills?.reset?.(); // 保持的 Skill 只属于当前对话
         el.thread.innerHTML = '';
         setChatting(false);
         refreshResumeCard(); // 刚离开的对话可以再接回去
@@ -1211,14 +1255,24 @@
             renderSlashHints();
         });
         el.input.addEventListener('keydown', event => {
-            if (event.key === 'Tab' && !el.slash.hidden) {
-                const first = el.slash.querySelector('[data-dc-slash]');
-                if (first) {
+            if (slashMenuOpen() && !event.isComposing) {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                     event.preventDefault();
-                    el.input.value = `${first.dataset.dcSlash} `;
-                    renderSlashHints();
+                    setSlashActive(slashMenu.active + (event.key === 'ArrowDown' ? 1 : -1));
+                    return;
                 }
-                return;
+                const item = slashMenu.items[slashMenu.active];
+                if (event.key === 'Tab') {
+                    event.preventDefault();
+                    el.input.value = `${item.name} `;
+                    renderSlashHints();
+                    return;
+                }
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    if (!state.controller) runSlashCommand(item.name);
+                    return;
+                }
             }
             if (event.key === 'Escape' && !el.slash.hidden) {
                 hideSlashHints();
@@ -1269,6 +1323,7 @@
                 return;
             }
             if (target.closest('[data-dc-history-more]')) return loadOlderHistory();
+            if (target.closest('[data-dc-pick-dir]')) return workspace()?.openPicker?.();
             const graph = target.closest('.dc-thread [data-open-knowledge-graph]');
             if (graph) {
                 event.stopPropagation();
@@ -1319,6 +1374,15 @@
         el.slash.className = 'dc-slash';
         el.slash.hidden = true;
         el.slash.setAttribute('role', 'listbox');
+        el.slash.id = 'dcSlashMenu';
+        el.input.setAttribute('aria-controls', 'dcSlashMenu');
+        el.input.setAttribute('aria-autocomplete', 'list');
+        // 鼠标移过时同步高亮，键盘与鼠标不会出现两个高亮项
+        el.slash.addEventListener('pointermove', event => {
+            const option = event.target.closest('[data-dc-slash-index]');
+            if (option && Number(option.dataset.dcSlashIndex) !== slashMenu.active) setSlashActive(Number(option.dataset.dcSlashIndex));
+        });
+        el.slash.addEventListener('mousedown', event => event.preventDefault()); // 点选时输入框不失焦
         el.form.appendChild(el.slash);
         el.resume = document.createElement('div');
         el.resume.className = 'dc-resume';

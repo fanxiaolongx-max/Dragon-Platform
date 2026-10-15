@@ -54,6 +54,22 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
     const id = await chat.addMessage({ owner: 'alice', pagePath: '/', role: 'user', content: 'Alice private text' });
     const url = `http://127.0.0.1:${server.address().port}/api/ai`;
     const headers = { Authorization: 'Bearer synthetic-bob', 'Content-Type': 'application/json' };
+    assert.equal((await fetch(`${url}/skills`)).status, 401);
+    const catalog = await (await fetch(`${url}/skills`, { headers })).json();
+    assert.equal(catalog.items.length, 5);
+    assert.equal('prompt' in catalog.items[0], false);
+    const missingWorkspace = await fetch(`${url}/chat`, { method: 'POST', headers, body: JSON.stringify({
+        agent: 'dragon-claw-home', messages: [{ role: 'user', content: '@debug find the bug' }]
+    }) });
+    assert.equal(missingWorkspace.status, 400);
+    const missingBody = await missingWorkspace.json();
+    assert.equal(missingBody.code, 'SKILL_WORKSPACE_REQUIRED');
+    assert.doesNotMatch(missingBody.error, /AI 思考时出现异常/, 'a missing folder is an actionable prerequisite, not an AI failure');
+    assert.deepEqual(missingBody.skills, ['debug']);
+    const keptWithoutWorkspace = await fetch(`${url}/chat`, { method: 'POST', headers, body: JSON.stringify({
+        agent: 'dragon-claw-home', skills: ['code-review'], messages: [{ role: 'user', content: '继续' }]
+    }) });
+    assert.equal((await keptWithoutWorkspace.json()).code, 'SKILL_WORKSPACE_REQUIRED', 'kept Skills obey the same workspace rule');
     const mine = await (await fetch(`${url}/sessions?pagePath=%2F`, { headers })).json();
     assert.deepEqual(mine.items, []);
     const archive = await (await fetch(`${url}/sessions-archive`, { headers })).json();
@@ -72,21 +88,32 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
     const root = fs.realpathSync(fs.mkdtempSync(path.join(sandbox, 'workspace-')));
     fs.writeFileSync(path.join(root, 'readme.txt'), 'workspace content');
     let turnCalls = 0;
-    provider.createClient = () => ({ model: 'mock', generateText: async () => ++turnCalls === 1
+    provider.createClient = () => ({ model: 'mock', generateText: async options => {
+        assert.match(options.systemInstruction, /### @code-review/);
+        assert.match(options.systemInstruction, /### @project-map/, 'a Skill kept from earlier in the chat is loaded too');
+        assert.doesNotMatch(options.systemInstruction, /name_en:/, 'front-matter stays out of the prompt');
+        assert.match(options.systemInstruction, /每项发现写清触发场景/);
+        assert.equal(options.tools.some(tool => tool.name === 'run_command' || tool.name === 'write_file'), false, 'a Skill does not grant a viewer write tools');
+        return ++turnCalls === 1
         ? { toolCalls: [{ id: 'read-one', name: 'read_file', args: { path: 'readme.txt' } }] }
-        : { text: 'Read completed', toolCalls: [] } });
+        : { text: 'Read completed', toolCalls: [] }; } });
     const completed = await fetch(`${url}/chat`, { method: 'POST', headers: { ...headers, Authorization: 'Bearer synthetic-alice' }, body: JSON.stringify({
-        agent: 'dragon-claw-home', stream: true, pagePath: '/', messages: [{ role: 'user', content: 'read the file' }],
+        agent: 'dragon-claw-home', stream: true, pagePath: '/', messages: [{ role: 'user', content: '用@code-review读一下文件 @code-reveiw' }],
+        skills: ['project-map', '../../secrets'],
         workspace: { root, agentSessionId: 'http-recovery-agent', permissionMode: 'full' }
     }) });
     assert.equal(completed.status, 200);
     const events = (await completed.text()).trim().split('\n').map(line => JSON.parse(line));
     const done = events.find(event => event.type === 'done');
+    const start = events.find(event => event.type === 'start');
+    assert.deepEqual(start.skills.map(item => item.id).sort(), ['code-review', 'project-map']);
+    assert.deepEqual(start.unknownSkills, ['code-reveiw']);
     assert.ok(done, JSON.stringify(events));
     assert.equal(turnCalls, 2);
     const messages = await chat.listMessages(done.sessionId, { owner: 'alice' });
     assert.equal(messages.length, 2, 'checkpoints and the final route response update one pair of messages');
     assert.match(messages[1].content, /Read completed/);
     assert.equal(messages[1].events.some(event => event.type === 'tool_result'), true);
+    assert.deepEqual(messages[1].events.find(event => event.type === 'skills').skills.sort(), ['code-review', 'project-map'], 'loaded Skills are kept with the reply for history');
     assert.equal((await chat.listMessages(done.sessionId, { owner: 'alice' })).length, 2);
 });

@@ -45,7 +45,8 @@ app.whenReady().then(async () => {
         const AVATAR = '', renderMarkdown = value => value, autoResize = () => {};
         const runSlashCommand = () => false, currentModel = () => null, buildContext = () => '', collectClientToolData = async () => [];
         const waitForAssistant = async () => ({ async requestStreamingChat(payload) { window.lastPayload = payload; return { reply: 'done' }; } });
-        const addMessageTools = () => {};
+        const addMessageTools = () => {}, addUserTools = () => {};
+        const historyPaging = {}, resetHistoryPaging = () => {}, mountHistorySentinel = () => {};
         ${functions(home, ['updateSendButton', 'resumeChat', 'newChat', 'send', 'addMessage', 'showThinking', 'createRenderer'])}
         window.fixture = { state, el, resumeChat, newChat, send };
         void 0;

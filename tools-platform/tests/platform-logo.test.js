@@ -211,6 +211,9 @@ test('upload route enforces admin rights and returns structured errors without o
         assert.equal(bytes[24], 8); assert.equal(bytes[25], 2, 'RGB PNG has no alpha channel');
         const png = PNG.sync.read(bytes); assert.equal(png.width, width); assert.equal(png.height, height);
     }
+    assert.ok(archive.file('store-assets/screenshot-01-1280x800.png'));
+    const defaultScreen = PNG.sync.read(await archive.file('store-assets/screenshot-01-1280x800.png').async('nodebuffer'));
+    assert.equal(defaultScreen.width, 1280); assert.equal(defaultScreen.height, 800);
     assert.equal((await request(app).post('/api/platform-logo/download-bundle').attach('screenshots', image.encodePng(fixture()), 'screen.png')).status, 403);
     const submit = () => request(app).post('/api/platform-logo/download-bundle').set('x-test-admin', '1');
     assert.equal((await submit()).status, 400);
