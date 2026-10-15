@@ -36,8 +36,9 @@ function encodeBmp(bitmap, width, height) {
 app.commandLine.appendSwitch('force-device-scale-factor', '1');
 app.whenReady().then(async () => {
     const window = new BrowserWindow({ width: WIDTH, height: HEIGHT, frame: false, show: false, useContentSize: true });
-    await window.loadFile(path.join(__dirname, '../frontend/pages/portable-splash-source.html'));
-    await window.webContents.executeJavaScript('document.fonts.ready');
+    // 阶段 1 的 BMP 就是阶段 2 启动页的静态首帧，两段画面因此完全一致
+    await window.loadFile(path.join(__dirname, '../frontend/pages/startup.html'), { query: { snapshot: '1' } });
+    await window.webContents.executeJavaScript('document.fonts.ready.then(() => Promise.all([...document.images].map(img => img.decode().catch(() => {}))))');
     const image = await window.webContents.capturePage({ x: 0, y: 0, width: WIDTH, height: HEIGHT });
     const size = image.getSize();
     if (size.width !== WIDTH || size.height !== HEIGHT) throw new Error(`Unexpected capture size ${size.width}x${size.height}`);

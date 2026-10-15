@@ -217,15 +217,20 @@ function encodeBmp(image) {
     return output;
 }
 
+// 与 frontend/pages/startup.html 的 .crest 保持一致：72px 徽章左上角 (45, 43)，内圈 well 半径 30，Logo 48px 居中。
+const SPLASH_CREST = { cx: 81, cy: 79, wellRadius: 29, logo: 48 };
+
 function portableSplash(image, template) {
-    // Keep the existing localized typography; replace only the 72px brand area.
+    // Keep the existing localized typography and gradient ring; repaint only the inner well and logo.
     const splash = decodeBmp(template);
-    for (let y = 42; y < 114; y++) for (let x = 44; x < 116; x++) {
-        const teal = Math.max(0, 1 - Math.hypot(x - 80, y - 20) / 360);
-        const violet = Math.max(0, 1 - Math.hypot(x - 580, y - 320) / 420);
-        splash.data.set([Math.floor(10 + 9 * violet), Math.floor(18 + 22 * teal + 8 * violet), Math.floor(36 + 24 * teal + 20 * violet), 255], (y * splash.width + x) * 4);
+    const { cx, cy, wellRadius, logo } = SPLASH_CREST;
+    for (let y = cy - wellRadius; y <= cy + wellRadius; y++) for (let x = cx - wellRadius; x <= cx + wellRadius; x++) {
+        if (Math.hypot(x - cx, y - cy) > wellRadius) continue;
+        // .well: radial-gradient(circle at 50% 30%, #15233d, #0a1222 72%)
+        const t = Math.min(1, Math.hypot(x - cx, y - (cy - 12)) / 37);
+        splash.data.set([Math.round(21 - 11 * t), Math.round(35 - 17 * t), Math.round(61 - 27 * t), 255], (y * splash.width + x) * 4);
     }
-    return encodeBmp(composite(splash, resizeImage(image, 72), 44, 42));
+    return encodeBmp(composite(splash, resizeImage(image, logo), cx - logo / 2, cy - logo / 2));
 }
 
 function cropBottomTextRegion(image) {

@@ -3,29 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tools Platform - 软件授权激活</title>
+  <title>Dragon Platform - 软件授权激活</title>
   <style>
     :root {
       --bg: #090e17;
       --card-bg: rgba(15, 23, 42, 0.92);
       --card-border: rgba(148, 163, 184, 0.16);
-      --card-border-glow: rgba(56, 189, 248, 0.18);
+      --card-border-glow: rgba(100, 255, 218, 0.18);
       --text-main: #f1f5f9;
       --text-muted: #94a3b8;
       --text-dim: #64748b;
-      --primary: #0284c7;
-      --primary-hover: #0369a1;
-      --primary-gradient: linear-gradient(135deg, #2563eb 0%, #0284c7 100%);
-      --primary-glow: rgba(14, 165, 233, 0.28);
+      --primary: #14b8a6;
+      --primary-hover: #0d9488;
+      --primary-gradient: linear-gradient(135deg, #64ffda 0%, #60a5fa 100%);
+      --primary-glow: rgba(45, 212, 191, 0.28);
       --input-bg: #070d18;
       --input-border: #1e293b;
-      --input-border-focus: #38bdf8;
+      --input-border-focus: #64ffda;
       --danger-bg: rgba(239, 68, 68, 0.12);
       --danger-border: rgba(239, 68, 68, 0.35);
       --danger-text: #fca5a5;
-      --info-bg: rgba(14, 165, 233, 0.12);
-      --info-border: rgba(14, 165, 233, 0.35);
-      --info-text: #7dd3fc;
+      --info-bg: rgba(45, 212, 191, 0.12);
+      --info-border: rgba(45, 212, 191, 0.35);
+      --info-text: #99f6e4;
       --success-bg: rgba(34, 197, 94, 0.12);
       --success-border: rgba(34, 197, 94, 0.35);
       --success-text: #86efac;
@@ -48,7 +48,7 @@
       background-color: var(--bg);
       background-image:
         radial-gradient(1200px circle at 50% -20%, rgba(37, 99, 235, 0.22) 0%, transparent 60%),
-        radial-gradient(800px circle at 85% 90%, rgba(2, 132, 199, 0.14) 0%, transparent 55%),
+        radial-gradient(800px circle at 85% 90%, rgba(20, 184, 166, 0.14) 0%, transparent 55%),
         radial-gradient(600px circle at 15% 95%, rgba(99, 102, 241, 0.12) 0%, transparent 50%);
       padding: 16px;
       user-select: none;
@@ -78,7 +78,7 @@
       left: 10%;
       right: 10%;
       height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.5), transparent);
+      background: linear-gradient(90deg, transparent, rgba(100, 255, 218, 0.5), transparent);
     }
 
     /* Top Navigation: Brand + Language Switcher */
@@ -100,21 +100,49 @@
       width: 32px;
       height: 32px;
       border-radius: 10px;
-      background: linear-gradient(135deg, #1e3a8a 0%, #0284c7 100%);
-      border: 1px solid rgba(56, 189, 248, 0.35);
+      background: radial-gradient(circle at 50% 30%, #15233d, #0a1222 72%);
+      border: 1.5px solid transparent;
+      background-clip: padding-box;
       display: grid;
       place-items: center;
-      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.3);
+      position: relative;
+      box-shadow: 0 4px 14px rgba(20, 184, 166, 0.3);
+    }
+
+    /* Dragon Claw 渐变环，与启动界面徽章一致 */
+    .brand-icon::before {
+      content: "";
+      position: absolute;
+      inset: -1.5px;
+      border-radius: inherit;
+      padding: 1.5px;
+      background: conic-gradient(from 210deg, #64ffda, #60a5fa, #a78bfa, #f472b6, #64ffda);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+    }
+
+    .brand-icon img {
+      width: 22px;
+      height: 22px;
+      object-fit: contain;
     }
 
     .brand-icon svg {
       width: 18px;
       height: 18px;
       fill: none;
-      stroke: #e0f2fe;
+      stroke: #e6fffa;
       stroke-width: 2;
       stroke-linecap: round;
       stroke-linejoin: round;
+    }
+
+    .brand-text > span:first-child {
+      background: linear-gradient(90deg, #e6fffa, #93c5fd 55%, #c4b5fd);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
     .brand-text {
@@ -132,9 +160,9 @@
       font-weight: 600;
       padding: 2px 7px;
       border-radius: 6px;
-      background: rgba(56, 189, 248, 0.12);
-      border: 1px solid rgba(56, 189, 248, 0.28);
-      color: #38bdf8;
+      background: rgba(100, 255, 218, 0.12);
+      border: 1px solid rgba(100, 255, 218, 0.28);
+      color: #64ffda;
       letter-spacing: 0;
     }
 
@@ -167,9 +195,9 @@
 
     .lang-btn.active {
       background: #1e293b;
-      color: #38bdf8;
+      color: #64ffda;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-      border: 1px solid rgba(56, 189, 248, 0.25);
+      border: 1px solid rgba(100, 255, 218, 0.25);
     }
 
     /* Header Section */
@@ -250,7 +278,7 @@
     .progress-card {
       display: none;
       background: rgba(11, 19, 35, 0.92);
-      border: 1px solid rgba(56, 189, 248, 0.25);
+      border: 1px solid rgba(100, 255, 218, 0.25);
       border-radius: 12px;
       padding: 11px 13px 9px;
       margin-bottom: 14px;
@@ -296,8 +324,8 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #38bdf8;
-      box-shadow: 0 0 8px #38bdf8;
+      background: #64ffda;
+      box-shadow: 0 0 8px #64ffda;
       flex-shrink: 0;
       animation: pulseGlow 1.4s ease-in-out infinite;
     }
@@ -323,7 +351,7 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       font-size: 12px;
       font-weight: 700;
-      color: #38bdf8;
+      color: #64ffda;
       letter-spacing: -0.02em;
     }
 
@@ -349,11 +377,11 @@
     .progress-bar-fill {
       width: 0%;
       height: 100%;
-      background: linear-gradient(90deg, #0284c7 0%, #38bdf8 50%, #06b6d4 100%);
+      background: linear-gradient(90deg, #2dd4bf 0%, #60a5fa 62%, #a78bfa 100%);
       border-radius: 9999px;
       transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+      box-shadow: 0 0 10px rgba(100, 255, 218, 0.5);
     }
 
     .progress-bar-fill::after {
@@ -417,13 +445,13 @@
     }
 
     .milestone-item.active .milestone-indicator {
-      border-color: #38bdf8;
-      background: rgba(56, 189, 248, 0.2);
-      box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+      border-color: #64ffda;
+      background: rgba(100, 255, 218, 0.2);
+      box-shadow: 0 0 8px rgba(100, 255, 218, 0.6);
     }
 
     .milestone-item.active .milestone-dot {
-      background: #38bdf8;
+      background: #64ffda;
       transform: scale(1.3);
     }
 
@@ -457,7 +485,7 @@
     }
 
     .milestone-item.active .milestone-title {
-      color: #38bdf8;
+      color: #64ffda;
       font-weight: 600;
     }
 
@@ -523,8 +551,8 @@
 
     .tool-btn:hover {
       background: rgba(30, 41, 59, 0.8);
-      color: #38bdf8;
-      border-color: rgba(56, 189, 248, 0.35);
+      color: #64ffda;
+      border-color: rgba(100, 255, 218, 0.35);
     }
 
     .tool-btn svg {
@@ -576,14 +604,14 @@
       padding: 9px 12px;
       border-radius: 9px;
       background: rgba(15, 23, 42, 0.65);
-      border: 1px dashed rgba(56, 189, 248, 0.28);
+      border: 1px dashed rgba(100, 255, 218, 0.28);
       font-size: 11.5px;
       line-height: 1.5;
       transition: border-color 0.2s ease;
     }
 
     .sample-box:hover {
-      border-color: rgba(56, 189, 248, 0.45);
+      border-color: rgba(100, 255, 218, 0.45);
     }
 
     .sample-header {
@@ -609,9 +637,9 @@
       font-weight: 700;
       padding: 1px 5px;
       border-radius: 4px;
-      background: rgba(56, 189, 248, 0.15);
-      color: #38bdf8;
-      border: 1px solid rgba(56, 189, 248, 0.3);
+      background: rgba(100, 255, 218, 0.15);
+      color: #64ffda;
+      border: 1px solid rgba(100, 255, 218, 0.3);
       letter-spacing: 0.5px;
       flex-shrink: 0;
     }
@@ -648,8 +676,8 @@
 
     .sample-btn:hover {
       background: rgba(30, 41, 59, 0.8);
-      color: #38bdf8;
-      border-color: rgba(56, 189, 248, 0.4);
+      color: #64ffda;
+      border-color: rgba(100, 255, 218, 0.4);
     }
 
     .sample-btn.copied {
@@ -672,13 +700,13 @@
     }
 
     .sample-code-row:hover {
-      border-color: rgba(56, 189, 248, 0.4);
+      border-color: rgba(100, 255, 218, 0.4);
     }
 
     .sample-code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
       font-size: 11px;
-      color: #7dd3fc;
+      color: #99f6e4;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -721,7 +749,8 @@
 
     .btn-activate {
       flex: 1;
-      color: #ffffff;
+      color: #04121f;
+      font-weight: 700;
       background: var(--primary-gradient);
       box-shadow: 0 4px 16px var(--primary-glow);
       position: relative;
@@ -729,7 +758,7 @@
     }
 
     .btn-activate:hover {
-      box-shadow: 0 6px 22px rgba(14, 165, 233, 0.42);
+      box-shadow: 0 6px 22px rgba(45, 212, 191, 0.42);
       filter: brightness(1.06);
     }
 
@@ -808,7 +837,7 @@
     .pill svg {
       width: 11px;
       height: 11px;
-      stroke: #38bdf8;
+      stroke: #64ffda;
       fill: none;
       stroke-width: 2;
     }
@@ -844,12 +873,10 @@
     <header class="top-bar">
       <div class="brand-wrap">
         <div class="brand-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
+          <img src="../assets/icon-windows-portable.png" alt="">
         </div>
         <div class="brand-text">
-          <span>Tools Platform</span>
+          <span>Dragon Platform</span>
           <span id="brand-tag" class="brand-badge">桌面企业版</span>
         </div>
       </div>
@@ -1008,7 +1035,7 @@
 
       const I18N = {
         zh: {
-          docTitle: 'Tools Platform - 软件授权激活',
+          docTitle: 'Dragon Platform - 软件授权激活',
           brandTag: '桌面企业版',
           title: '首次运行授权激活',
           subtitle: '请输入服务器授权管理页面签发的 EXE License（样例形如 DSKL1.eyJ2...）。有效期受非对称数字签名保护，无网络时也可在本地安全验证。',
@@ -1074,7 +1101,7 @@
           }
         },
         en: {
-          docTitle: 'Tools Platform - License Activation',
+          docTitle: 'Dragon Platform - License Activation',
           brandTag: 'Enterprise Desktop',
           title: 'First-Run License Activation',
           subtitle: 'Please enter the EXE license key issued by your system administrator (e.g. DSKL1.eyJ2...). Protected by asymmetric cryptography with full offline validation.',
@@ -1124,7 +1151,7 @@
             LICENSE_REQUIRED: 'License key is required',
             INVALID_FORMAT: 'Invalid key format. Please ensure you copied the complete key with DSKL1 prefix',
             INVALID_SIGNATURE: 'Invalid digital signature. The key may be corrupted or modified',
-            PRODUCT_MISMATCH: 'Product mismatch. This key is not issued for Tools Platform Desktop',
+            PRODUCT_MISMATCH: 'Product mismatch. This key is not issued for Dragon Platform Desktop',
             LICENSE_NOT_FOUND: 'License record not found on the authorization server',
             REVOKED: 'This license has been revoked or deactivated by administrator',
             ARCHIVED: 'This license has been archived and is no longer valid',

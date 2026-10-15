@@ -3,230 +3,381 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tools Platform 正在启动</title>
+    <title>Dragon Platform 正在启动</title>
+    <!--
+        绿色版两段式启动共用这一页：
+        - 阶段 1（NSIS 解压）显示的 portable-splash.bmp 由 `npm run splash:generate` 以 ?snapshot=1 截取本页首帧生成；
+        - 阶段 2 Electron 启动窗口载入本页，首帧与 BMP 完全一致，随后动画从关键帧 0 无缝"活"起来并接力进度。
+        因此首帧（静态 DOM + 各动画 0% 关键帧）就是阶段 1 的画面，修改布局后务必重新生成 BMP。
+        platform-logo-image.js 的 portableSplash() 会按 LOGO_* 坐标替换 BMP 中的 Logo，移动 .crest 时需同步。
+    -->
     <style>
         :root {
             color-scheme: dark;
-            font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+            --bg: #070c18;
+            --text: #e2e8f0;
+            --muted: #8b9ab3;
+            --faint: #5b6b84;
+            --accent: #64ffda;
+            --accent-2: #60a5fa;
+            --accent-3: #a78bfa;
+            --split: 30%;
+            --p: 26%;
+            font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
         }
         * { box-sizing: border-box; }
         html, body {
-            width: 100%;
-            height: 100%;
+            width: 620px;
+            height: 340px;
             margin: 0;
             overflow: hidden;
-            background: transparent !important;
-            background-color: transparent !important;
-        }
-        body {
-            display: grid;
-            place-items: center;
-            padding: 28px;
-            opacity: 1;
-            transition: opacity .28s ease, transform .28s ease;
+            background: transparent;
             user-select: none;
             -webkit-user-select: none;
         }
-        body.is-finished {
-            opacity: 0;
-            transform: scale(.985);
-        }
-        .glass {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, .28);
-            border-radius: 38px;
-            background:
-                radial-gradient(circle at 16% 5%, rgba(45, 212, 191, .24), transparent 35%),
-                radial-gradient(circle at 92% 95%, rgba(99, 102, 241, .22), transparent 38%),
-                linear-gradient(145deg, rgba(15, 23, 42, .92), rgba(30, 41, 59, .88));
-            box-shadow:
-                0 28px 75px rgba(2, 8, 23, .6),
-                0 0 32px rgba(45, 212, 191, .15),
-                0 0 56px rgba(96, 165, 250, .10),
-                inset 0 1px 0 rgba(255, 255, 255, .20);
-            backdrop-filter: blur(28px) saturate(145%);
-            -webkit-backdrop-filter: blur(28px) saturate(145%);
-        }
-        .glass::before {
-            content: "";
+        body.is-snapshot { background: var(--bg); }
+
+        .card {
             position: absolute;
             inset: 0;
-            pointer-events: none;
-            border-radius: inherit;
-            box-shadow: inset 0 0 0 1px rgba(125, 211, 252, .08);
+            overflow: hidden;
+            isolation: isolate;
+            border: 1px solid rgba(148, 163, 184, .16);
+            border-radius: 16px;
+            color: var(--text);
+            background:
+                radial-gradient(120% 90% at 50% -10%, rgba(30, 58, 95, .62), transparent 62%),
+                linear-gradient(180deg, #0c1527, var(--bg));
+            transition: opacity .42s ease, transform .42s cubic-bezier(.2, .8, .2, 1), filter .42s ease;
         }
-        .orb {
+        body.is-snapshot .card { border-radius: 0; }
+        body.is-finished .card { opacity: 0; transform: scale(.975); filter: blur(2px); }
+
+        /* 顶边流光：0% 关键帧在画面外，静态首帧不可见 */
+        .card::before {
+            content: "";
             position: absolute;
-            border-radius: 50%;
-            filter: blur(5px);
-            opacity: .48;
-            animation: drift 5s ease-in-out infinite alternate;
+            top: 0;
+            left: 0;
+            width: 38%;
+            height: 1px;
+            z-index: 2;
+            background: linear-gradient(90deg, transparent, rgba(100, 255, 218, .85), rgba(167, 139, 250, .7), transparent);
+            transform: translateX(-110%);
+            animation: sweep 5.6s cubic-bezier(.45, 0, .2, 1) 1.2s infinite;
         }
-        .orb.one {
-            top: -42px;
-            right: 54px;
-            width: 150px;
-            height: 150px;
-            background: rgba(56, 189, 248, .16);
+
+        /* 液态光斑，与首页 Dragon Claw 同一组色彩 */
+        .ambient { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
+        .ambient span {
+            position: absolute;
+            aspect-ratio: 1;
+            border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
+            filter: blur(46px);
+            animation: drift 18s ease-in-out infinite alternate;
         }
-        .orb.two {
-            bottom: -58px;
-            left: 54px;
-            width: 180px;
-            height: 180px;
-            background: rgba(139, 92, 246, .14);
-            animation-delay: -2s;
+        .ambient span:nth-child(1) { width: 260px; left: -70px; top: -120px; background: #0ea5a4; opacity: .34; }
+        .ambient span:nth-child(2) { width: 280px; right: -110px; top: -40px; background: #3b82f6; opacity: .30; animation-duration: 22s; }
+        .ambient span:nth-child(3) { width: 300px; left: 210px; bottom: -230px; background: #8b5cf6; opacity: .24; animation-duration: 26s; }
+        .grain {
+            position: absolute;
+            inset: 0;
+            z-index: -1;
+            opacity: .5;
+            background-image: radial-gradient(rgba(148, 163, 184, .16) 1px, transparent 1px);
+            background-size: 18px 18px;
+            -webkit-mask-image: radial-gradient(80% 70% at 85% 10%, #000, transparent 70%);
+            mask-image: radial-gradient(80% 70% at 85% 10%, #000, transparent 70%);
         }
-        @keyframes drift {
-            to { transform: translate3d(18px, -10px, 0) scale(1.08); }
-        }
+
         main {
             position: relative;
-            z-index: 1;
             height: 100%;
+            padding: 42px 44px 30px;
             display: grid;
             grid-template-rows: auto 1fr auto;
-            padding: 28px 30px 25px;
         }
-        header {
-            display: flex;
-            align-items: center;
-            gap: 14px;
+
+        header { display: flex; align-items: center; gap: 18px; }
+        /* Logo 徽章：72px，左上角固定在 (44, 42) —— 与 platform-logo-image.js 的坐标约定一致 */
+        .crest { position: relative; flex: none; width: 72px; height: 72px; display: grid; place-items: center; }
+        .crest .ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: conic-gradient(from 210deg, #64ffda, #60a5fa, #a78bfa, #f472b6, #64ffda);
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+            animation: spin 7s linear infinite;
         }
-        .app-icon {
+        .crest .halo {
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            background: conic-gradient(from 210deg, #64ffda, #60a5fa, #a78bfa, #f472b6, #64ffda);
+            filter: blur(16px);
+            opacity: .32;
+            animation: breathe 3.8s ease-in-out infinite;
+        }
+        .crest .well {
+            position: absolute;
+            inset: 6px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 50% 30%, #15233d, #0a1222 72%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+        }
+        .crest img {
+            position: relative;
             width: 48px;
             height: 48px;
-            filter: drop-shadow(0 9px 18px rgba(0, 0, 0, .28));
-        }
-        .brand {
-            min-width: 0;
+            object-fit: contain;
+            filter: drop-shadow(0 6px 12px rgba(0, 0, 0, .4));
         }
         .brand strong {
             display: block;
-            color: #f8fafc;
-            font-size: 18px;
-            letter-spacing: .01em;
+            font-size: 27px;
+            font-weight: 650;
+            letter-spacing: -.02em;
+            line-height: 1.15;
+            background: linear-gradient(90deg, #e6fffa, #93c5fd 55%, #c4b5fd);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
         .brand span {
             display: block;
-            margin-top: 3px;
-            color: rgba(203, 213, 225, .74);
+            margin-top: 6px;
+            color: rgba(100, 255, 218, .78);
             font-size: 10px;
-            letter-spacing: .13em;
+            font-weight: 700;
+            letter-spacing: .24em;
         }
-        .portable {
-            margin-left: auto;
-            padding: 5px 10px;
-            border: 1px solid rgba(52, 211, 153, .36);
-            border-radius: 999px;
-            color: #6ee7b7;
-            background: rgba(16, 185, 129, .15);
-            font-size: 11px;
-            font-weight: 800;
-            letter-spacing: .02em;
-        }
-        .status {
-            align-self: center;
-            padding-top: 12px;
-        }
+
+        .status { align-self: center; padding-top: 4px; }
         .status h1 {
             margin: 0;
-            color: #f8fafc;
-            font-size: 22px;
-            font-weight: 760;
+            color: #f1f5f9;
+            font-size: 19px;
+            font-weight: 650;
+            letter-spacing: .01em;
         }
         .status p {
-            min-height: 22px;
-            margin: 8px 0 0;
-            color: rgba(203, 213, 225, .78);
+            min-height: 20px;
+            margin: 7px 0 0;
+            color: var(--muted);
             font-size: 12px;
-            line-height: 1.7;
+            line-height: 1.65;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        .progress-meta {
+        .swap { transition: opacity .18s ease, transform .18s ease; }
+        .swap.is-out { opacity: 0; transform: translateY(-4px); }
+
+        .meta {
             display: flex;
-            align-items: center;
+            align-items: baseline;
             justify-content: space-between;
-            margin-bottom: 9px;
-            color: rgba(226, 232, 240, .72);
-            font-size: 10px;
+            margin-bottom: 10px;
+            color: rgba(203, 213, 225, .72);
+            font-size: 11px;
         }
         #percent {
-            color: #99f6e4;
-            font: 800 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+            color: var(--accent);
+            font: 700 12px/1 "Cascadia Mono", Consolas, ui-monospace, SFMono-Regular, monospace;
+            font-variant-numeric: tabular-nums;
         }
         .track {
-            height: 8px;
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, .12);
-            border-radius: 999px;
-            background: rgba(2, 8, 23, .34);
-            box-shadow: inset 0 1px 3px rgba(0, 0, 0, .28);
-        }
-        #bar {
             position: relative;
-            width: 50%;
-            height: 100%;
-            border-radius: inherit;
-            background: linear-gradient(90deg, #2dd4bf, #60a5fa 58%, #a78bfa);
-            box-shadow: 0 0 18px rgba(45, 212, 191, .48);
-            transition: width .36s cubic-bezier(.2, .8, .2, 1);
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(2, 6, 23, .55);
+            box-shadow: inset 0 0 0 1px rgba(148, 163, 184, .12);
         }
-        #bar::after {
+        /* 阶段分界刻度：左侧 0–30% 为解压，右侧为服务启动 */
+        .track::after {
+            content: "";
+            position: absolute;
+            left: var(--split);
+            top: -3px;
+            width: 1px;
+            height: 12px;
+            background: rgba(148, 163, 184, .32);
+        }
+        .fill {
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: var(--p);
+            overflow: hidden;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #2dd4bf, #60a5fa 62%, #a78bfa);
+            box-shadow: 0 0 14px rgba(45, 212, 191, .45);
+        }
+        .fill::after {
             content: "";
             position: absolute;
             inset: 0;
-            background: linear-gradient(110deg, transparent 25%, rgba(255,255,255,.5) 50%, transparent 75%);
-            transform: translateX(-100%);
-            animation: shimmer 1.25s linear infinite;
+            width: 120px;
+            background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent);
+            transform: translateX(-130px);
+            animation: shimmer 1.9s ease-in-out .4s infinite;
         }
-        @keyframes shimmer { to { transform: translateX(100%); } }
-        .foot {
-            margin-top: 10px;
-            color: rgba(148, 163, 184, .64);
-            font-size: 9px;
+        .spark {
+            position: absolute;
+            top: 50%;
+            left: var(--p);
+            width: 10px;
+            height: 10px;
+            margin: -5px 0 0 -5px;
+            border-radius: 50%;
+            background: #e0fffa;
+            box-shadow: 0 0 6px 2px rgba(100, 255, 218, .9), 0 0 18px 6px rgba(96, 165, 250, .45);
+            animation: pulse 1.6s ease-in-out infinite;
+        }
+        .steps {
+            position: relative;
+            height: 16px;
+            margin-top: 9px;
+            color: var(--faint);
+            font-size: 10px;
+            letter-spacing: .04em;
+        }
+        .steps span { position: absolute; top: 0; transition: color .4s ease; }
+        .steps span:first-child { left: 0; }
+        .steps span:last-child { left: calc(var(--split) + 8px); }
+        .steps span.is-active { color: rgba(226, 232, 240, .9); }
+        .steps span.is-done { color: rgba(100, 255, 218, .7); }
+        .steps span.is-done::before { content: "✓ "; }
+
+        body.is-error .fill { background: linear-gradient(90deg, #fb923c, #f43f5e); box-shadow: 0 0 14px rgba(244, 63, 94, .4); }
+        body.is-error .spark { display: none; }
+        body.is-error #percent, body.is-error .brand span { color: #fda4af; }
+        body.is-error .crest .ring, body.is-error .crest .halo { animation-play-state: paused; filter: grayscale(.6); }
+
+        /* 首帧冻结：阶段 2 显示后才开始播放，从 0% 关键帧起步，保证与阶段 1 的静态 BMP 无缝衔接 */
+        body:not(.is-live) *, body:not(.is-live) *::before, body:not(.is-live) *::after { animation-play-state: paused !important; }
+        body.is-snapshot *, body.is-snapshot *::before, body.is-snapshot *::after { animation: none !important; transition: none !important; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes breathe { 0%, 100% { opacity: .32; transform: scale(1); } 50% { opacity: .55; transform: scale(1.06); } }
+        @keyframes drift {
+            0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+            50% { transform: translate(28px, 18px) rotate(40deg) scale(1.08); }
+            100% { transform: translate(-18px, 10px) rotate(80deg) scale(.96); }
+        }
+        @keyframes sweep { 0% { transform: translateX(-110%); } 55%, 100% { transform: translateX(290%); } }
+        @keyframes shimmer { 0% { transform: translateX(-130px); } 70%, 100% { transform: translateX(560px); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .7; transform: scale(.78); } }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation: none !important; }
         }
     </style>
 </head>
 <body>
-    <section class="glass">
-        <span class="orb one"></span>
-        <span class="orb two"></span>
+    <section class="card">
+        <div class="ambient" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="grain" aria-hidden="true"></div>
         <main>
             <header>
-                <img class="app-icon" src="../assets/icon-windows-portable.png" alt="">
-                <div class="brand">
-                    <strong>Tools Platform</strong>
-                    <span>LOCAL PRODUCTIVITY WORKSPACE</span>
+                <div class="crest" aria-hidden="true">
+                    <span class="halo"></span>
+                    <span class="ring"></span>
+                    <span class="well"></span>
+                    <img src="../assets/icon-windows-portable.png" alt="">
                 </div>
-                <span class="portable">阶段 2/2 · 启动接力</span>
+                <div class="brand">
+                    <strong>Dragon Platform</strong>
+                    <span>DRAGON CLAW · AI WORKSPACE</span>
+                </div>
             </header>
             <div class="status">
-                <h1 id="title">便携环境已就绪</h1>
-                <p id="detail">解压已完成，正在无缝加载本地环境与服务…</p>
+                <h1 id="title" class="swap">正在解压运行环境</h1>
+                <p id="detail" class="swap">释放本地组件与运行时，首次运行或版本更新后需要稍长时间…</p>
             </div>
             <footer>
-                <div class="progress-meta">
-                    <span id="stage">阶段 2/2 · 启动接力</span>
-                    <span id="percent">40%</span>
+                <div class="meta">
+                    <span id="stage" class="swap">阶段 1/2 · 解压运行环境</span>
+                    <span id="percent">26%</span>
                 </div>
-                <div class="track"><div id="bar" style="width: 40%"></div></div>
-                <div class="foot">阶段 2/2：核心服务就绪后将自动在浏览器中打开主工作区。</div>
+                <div class="track">
+                    <div class="fill"></div>
+                    <span class="spark"></span>
+                </div>
+                <div class="steps">
+                    <span id="step1" class="is-active">解压运行环境</span>
+                    <span id="step2">启动本地服务</span>
+                </div>
             </footer>
         </main>
     </section>
     <script>
-        window.setStartupProgress = function (payload) {
-            const percent = Math.max(0, Math.min(100, Number(payload && payload.percent) || 0));
-            document.getElementById('bar').style.width = percent + '%';
-            document.getElementById('percent').textContent = Math.round(percent) + '%';
-            if (payload && payload.title) document.getElementById('title').textContent = payload.title;
-            if (payload && payload.detail) document.getElementById('detail').textContent = payload.detail;
-            if (payload && payload.stage) document.getElementById('stage').textContent = payload.stage;
-            if (payload && payload.finished) document.body.classList.add('is-finished');
-        };
+        (function () {
+            const SPLIT = 30;
+            const body = document.body;
+            const root = document.documentElement;
+            const $ = id => document.getElementById(id);
+            const snapshot = new URLSearchParams(location.search).has('snapshot');
+            let shown = 26;
+            let target = 26;
+            let pending = null;
+            let live = false;
+            let frame = 0;
+
+            function swapText(el, text) {
+                if (!text || el.textContent === text) return;
+                el.classList.add('is-out');
+                setTimeout(() => {
+                    el.textContent = text;
+                    el.classList.remove('is-out');
+                }, 180);
+            }
+
+            function paintPercent(value) {
+                root.style.setProperty('--p', value.toFixed(2) + '%');
+                $('percent').textContent = Math.round(value) + '%';
+                const second = value >= SPLIT;
+                $('step1').className = second ? 'is-done' : 'is-active';
+                $('step2').className = second ? 'is-active' : '';
+            }
+
+            function tick() {
+                const delta = target - shown;
+                shown = Math.abs(delta) < .05 ? target : shown + delta * .085;
+                paintPercent(shown);
+                frame = shown === target ? 0 : requestAnimationFrame(tick);
+            }
+
+            function apply(payload) {
+                const error = payload.state === 'error';
+                body.classList.toggle('is-error', error);
+                const percent = Math.max(0, Math.min(100, Number(payload.percent) || 0));
+                // 进度只进不退，避免阶段切换时出现回跳
+                target = Math.max(target, percent);
+                if (!frame) frame = requestAnimationFrame(tick);
+                swapText($('title'), payload.title);
+                swapText($('detail'), payload.detail);
+                swapText($('stage'), payload.stage);
+                if (payload.finished) setTimeout(() => body.classList.add('is-finished'), error ? 0 : 320);
+            }
+
+            window.setStartupProgress = function (payload) {
+                if (!payload) return;
+                if (live) apply(payload);
+                else pending = payload;
+            };
+
+            if (snapshot) {
+                body.classList.add('is-snapshot');
+                return;
+            }
+            // 先以与 BMP 相同的静态首帧示人，短暂停留后再开始动画与进度接力
+            requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => {
+                live = true;
+                body.classList.add('is-live');
+                if (pending) apply(pending);
+                pending = null;
+            }, 220)));
+        })();
     </script>
 </body>
 </html>

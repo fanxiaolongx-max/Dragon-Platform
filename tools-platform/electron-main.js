@@ -148,10 +148,10 @@ let desktopLicenseRefreshTimer = null;
 let startupWindowLoaded = false;
 let startupWindowCreatedAt = 0;
 let startupProgressState = {
-    percent: 50,
-    title: '正在初始化运行服务',
-    detail: '解压已就绪，正在准备网络端口与本地服务…',
-    stage: '阶段 2/2 · 服务初始化',
+    percent: 34,
+    title: '运行环境已就绪',
+    detail: '解压完成，正在接力启动桌面环境…',
+    stage: '阶段 2/2 · 启动接力',
     finished: false
 };
 let localPort = null;
@@ -206,7 +206,7 @@ function createLicenseWindow() {
         center: true,
         alwaysOnTop: true,
         autoHideMenuBar: true,
-        title: 'Tools Platform - 软件授权激活 / License Activation',
+        title: 'Dragon Platform - 软件授权激活 / License Activation',
         icon: getAppIconPath(),
         webPreferences: {
             preload: path.join(__dirname, 'desktop-license-preload.js'),
@@ -826,15 +826,39 @@ function shouldShowStartupWindow() {
     return isPortableWindows || process.env.TOOLS_SHOW_STARTUP_WINDOW === '1';
 }
 
+// 绿色版阶段 1 的 NSIS 启动图会一直保留，直到看到这个标记文件才销毁（见 scripts/patch-portable-nsis.js），
+// 从而让两段启动画面重叠交接，不出现空白期。
+const STARTUP_HANDOFF_MARKER = '.startup-window-visible';
+const STARTUP_WINDOW_SIZE = { width: 620, height: 340 };
+
+function signalSplashHandoff() {
+    if (!isPortableWindows) return;
+    try {
+        fs.writeFileSync(path.join(path.dirname(process.execPath), STARTUP_HANDOFF_MARKER), String(Date.now()));
+    } catch (err) {
+        console.warn('[Electron] Failed to signal splash handoff:', err.message || err);
+    }
+}
+
+// NSIS 的 BgImage 按整屏（而非工作区）居中，且以 96 DPI 渲染后由系统缩放，
+// 因此用主屏 bounds 居中、DIP 尺寸与 BMP 像素一致，阶段 2 窗口即可与启动图严丝合缝地重叠。
+function getStartupWindowBounds() {
+    const { screen } = require('electron');
+    const { bounds } = screen.getPrimaryDisplay();
+    return {
+        ...STARTUP_WINDOW_SIZE,
+        x: Math.round(bounds.x + (bounds.width - STARTUP_WINDOW_SIZE.width) / 2),
+        y: Math.round(bounds.y + (bounds.height - STARTUP_WINDOW_SIZE.height) / 2)
+    };
+}
+
 function createStartupWindow() {
     if (!shouldShowStartupWindow() || startupWindow && !startupWindow.isDestroyed()) return startupWindow;
     startupWindowLoaded = false;
     startupWindowCreatedAt = Date.now();
     startupWindow = new BrowserWindow({
-        width: 600,
-        height: 378,
-        minWidth: 600,
-        minHeight: 378,
+        ...getStartupWindowBounds(),
+        useContentSize: true,
         frame: false,
         transparent: true,
         resizable: false,
@@ -843,7 +867,6 @@ function createStartupWindow() {
         alwaysOnTop: true,
         skipTaskbar: true,
         show: false,
-        center: true,
         hasShadow: false,
         backgroundColor: '#00000000',
         icon: getAppIconPath(),
@@ -858,6 +881,8 @@ function createStartupWindow() {
             startupWindow.show();
         }
     };
+    // 首帧已绘制后再通知 NSIS 撤下阶段 1 启动图
+    startupWindow.once('show', () => setTimeout(signalSplashHandoff, 60));
     startupWindow.once('ready-to-show', showWindow);
     // 保护性保底：防止在特定 Windows 驱动/透明模式下 ready-to-show 滞后，120ms 内强制唤起呈现
     setTimeout(showWindow, 120);
@@ -871,6 +896,7 @@ function createStartupWindow() {
     });
     startupWindow.loadFile(path.join(__dirname, 'frontend/pages/startup.html')).catch((err) => {
         console.warn('[Electron] Failed to load startup window:', err.message || err);
+        signalSplashHandoff();
     });
     return startupWindow;
 }
@@ -883,16 +909,17 @@ function renderStartupProgress() {
         .catch(() => {});
 }
 
-function updateStartupProgress(percent, title, detail, stage, finished = false) {
-    startupProgressState = { percent, title, detail, stage, finished };
+function updateStartupProgress(percent, title, detail, stage, finished = false, state = 'running') {
+    startupProgressState = { percent, title, detail, stage, finished, state };
     renderStartupProgress();
 }
 
 function closeStartupWindow(success = true) {
     const win = startupWindow;
+    signalSplashHandoff();
     if (!win || win.isDestroyed()) return;
     if (success) {
-        updateStartupProgress(100, '工作空间已就绪', '正在打开 Tools Platform 主页面…', '阶段 2/2 · 启动完成', true);
+        updateStartupProgress(100, '工作空间已就绪', '正在打开 Dragon Platform 主页面…', '阶段 2/2 · 启动完成', true);
     } else {
         win.webContents.executeJavaScript('document.body.classList.add("is-finished")').catch(() => {});
     }
@@ -929,23 +956,24 @@ async function waitForLocalServer(port, timeoutMs = 45000) {
         attempt += 1;
         if (await probeLocalHealth(port)) return;
         const elapsed = Date.now() - startedAt;
-        const progress = Math.min(88, 42 + attempt * 4);
+        // 紧接"服务加载"(80%) 之后渐近逼近 94%，保证进度只进不退
+        const progress = 80 + 14 * (1 - Math.exp(-elapsed / 6000));
         const phase = elapsed < 2500
             ? {
                 title: '正在初始化数据存储',
                 detail: '检查配置、数据库与历史数据迁移…',
-                stage: '数据初始化'
+                stage: '阶段 2/2 · 数据初始化'
             }
             : elapsed < 8000
                 ? {
                     title: '正在同步系统工具',
                     detail: '核对内置工具、注册信息与用户数据…',
-                    stage: '工具同步'
+                    stage: '阶段 2/2 · 工具同步'
                 }
                 : {
                     title: '正在等待本地服务',
                     detail: '服务即将就绪，请保持当前窗口开启…',
-                    stage: '健康检查'
+                    stage: '阶段 2/2 · 健康检查'
                 };
         updateStartupProgress(progress, phase.title, phase.detail, phase.stage);
         await new Promise(resolve => setTimeout(resolve, 260));
@@ -1817,7 +1845,7 @@ function refreshTrayMenu() {
 async function startTrayApp() {
     // 第一时间弹出启动窗口，无缝接力阶段一解压，消除空白真空期
     createStartupWindow();
-    updateStartupProgress(40, '便携环境已就绪', '正在加载桌面环境与授权验证…', '阶段 2/2 · 启动接力');
+    updateStartupProgress(36, '运行环境已就绪', '正在加载桌面环境与授权验证…', '阶段 2/2 · 启动接力');
 
     const licensed = await ensureDesktopLicense();
     if (!licensed) {
@@ -1870,7 +1898,7 @@ async function startTrayApp() {
             console.warn('[Electron] Failed to initialize desktop pet:', petErr.message || petErr);
         }
     } catch (err) {
-        updateStartupProgress(100, '启动未完成', err.message || String(err), '阶段 2/2 · 启动失败');
+        updateStartupProgress(100, '启动未完成', err.message || String(err), '阶段 2/2 · 启动失败', false, 'error');
         setTimeout(() => closeStartupWindow(false), 1600);
         dialog.showErrorBox('Server Startup Failed', `Failed to start the local server: ${err.message}`);
     }

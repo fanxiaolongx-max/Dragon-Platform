@@ -180,7 +180,7 @@ test('License Activation Page: Inline script is syntactically valid and executes
     assert.equal(dom.elements['sample-badge'].textContent, '输入样例');
     assert.equal(dom.elements['btn-fill-sample-text'].textContent, '填入输入框');
     assert.equal(dom.elements['btn-copy-sample-text'].textContent, '复制样例');
-    assert.match(dom.title, /Tools Platform - 软件授权激活/);
+    assert.match(dom.title, /Dragon Platform - 软件授权激活/);
 
     // 2. Switch to English
     assert.ok(listeners['lang-btn-en'] && listeners['lang-btn-en']['click']);
@@ -198,7 +198,7 @@ test('License Activation Page: Inline script is syntactically valid and executes
     assert.equal(dom.elements['btn-fill-sample-text'].textContent, 'Fill Sample');
     assert.equal(dom.elements['btn-copy-sample-text'].textContent, 'Copy Sample');
     assert.match(dom.elements['license-token'].placeholder, /Paste your complete license key/);
-    assert.match(dom.title, /Tools Platform - License Activation/);
+    assert.match(dom.title, /Dragon Platform - License Activation/);
     assert.equal(storageMock.getItem('tools_license_lang'), 'en');
 
     // 3. Switch back to Chinese
