@@ -154,6 +154,13 @@ function batchHarness() {
     vm.runInNewContext(code, context);
     return context;
 }
+test('batch statistics count unique completed RFCs, failures and pending work without accumulating updates',()=>{
+    const stats=batchHarness().netcareBatchStatistics, outcomes=new Map();
+    const orders=['A','B','C','A'];outcomes.set('A',{ok:true});outcomes.set('A',{ok:true});outcomes.set('old',{ok:true});outcomes.set('B',{ok:false});
+    assert.deepEqual({...stats(orders,outcomes)},{total:3,completed:1,failed:1,pending:1});
+    outcomes.set('C',{ok:true});assert.equal(stats(orders,outcomes).pending,0);
+    assert.ok(!code.includes('if(event.data.updated&&auditRecords.length'),'individual audit updates must not automatically open the results modal');
+});
 
 test('multi-plan settings default on, migrate old preferences and preserve an explicit opt-out', () => {
     const c = batchHarness(), settings = c.netcareDefaultSettings();
@@ -2068,6 +2075,18 @@ test('disableLocalRules prevents local fallback, supports retry loop and friendl
     assert.equal(retryReports[0].summary, 'Audit passed on retry');
     assert.ok(topLogs.some(l => l.level === 'info' && l.msg.includes('正在重试 AI 接口 (第 2 次)')));
     assert.ok(topLogs.some(l => l.level === 'success' && l.msg.includes('AI 审计成功')));
+});
+
+test('AI retry progress reports waiting and each retry without counting failed attempts as completed audits', async()=>{
+ const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+ const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,disableLocalRules:true,sections:[{number:'3.4',title:'Test',text:true,textPrompt:'Check KPI'}]});
+ const items=[{section:'3.4',kind:'text',filename:'3.4.txt',text:'KPI evidence'}];
+ let attempts=0;const snapshots=[];const request=async()=>{if(++attempts<3)throw Error('HTTP 503');return{ok:true,report:{status:'pass',summary:'Recovered'}};};
+ const reports=await ctx.netcareRunAudits(items,settings,request,new AbortController().signal,(_text,counts)=>snapshots.push(JSON.parse(JSON.stringify(counts))),()=>{},async()=>true);
+ assert.deepEqual(snapshots.filter(s=>s.retry).map(s=>[s.retry.phase,s.retry.attempt,s.done,s.total]),[['waiting',1,0,1],['requesting',1,0,1],['waiting',2,0,1],['requesting',2,0,1]]);
+ assert.deepEqual(snapshots.at(-1),{done:1,total:1,retry:null});assert.equal(reports[0].status,'pass');
+ snapshots.length=0;await ctx.netcareRunAudits(items,settings,async()=>{throw Error('Timeout');},new AbortController().signal,(_text,counts)=>snapshots.push(JSON.parse(JSON.stringify(counts))),()=>{},async()=>false);
+ assert.equal(snapshots.at(-2).retry.phase,'waiting');assert.deepEqual(snapshots.at(-1),{done:1,total:1,retry:null});
 });
 
 test('audit summary publish stores summary without redundant snapshot creation', async () => {

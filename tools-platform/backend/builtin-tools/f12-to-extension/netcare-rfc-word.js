@@ -825,6 +825,12 @@ async function netcareExtractAttachmentText(blob, filename, settings, section, s
     };
   }
 }
+function netcareBatchStatistics(orders, outcomes) {
+  const unique = [...new Set(orders || [])];
+  const completed = unique.filter(order => outcomes.get(order)?.ok === true).length;
+  const failed = unique.filter(order => outcomes.get(order)?.ok === false).length;
+  return {total:unique.length,completed,failed,pending:unique.length-completed-failed};
+}
 function netcareSanitizedPlanIndex(plans, enabled = true) {
   if (!enabled) return -1;
   const matches = plans.map((plan, index) => ({name: String(plan.name || ''), index})).filter(plan =>
@@ -1071,16 +1077,19 @@ function netcareCacheAudit(storage, order, items, reports) {
 async function netcareRunAudits(items, settings, request, signal, progress, trace=()=>{}, promptRetry=null, topLog=null) {
   const reports=[];
   if(!settings.aiAuditEnabled)return reports;
-  for (const item of netcareGroupAuditItems(items,settings)) {
+  const auditItems=netcareGroupAuditItems(items,settings).filter(item=>netcareAuditRule(settings,item.section,item.kind));
+  const notify=(text,retry=null)=>progress(text,{done:reports.length,total:auditItems.length,retry});
+  notify('');
+  for (const item of auditItems) {
     if (signal.aborted) throw new Error('已停止 / Stopped');
     const row=netcareEffectiveSection(settings,item.ruleSection||item.section), rule=netcareAuditRule(settings,item.section,item.kind);
     if (!rule) continue;
     const result={section:item.section,kind:item.kind,filename:item.filename,sources:item.sources,sectionTitle:item.sectionTitle||row.title,corrections:item.corrections||[],rule:netcareRedactText(rule),status:'needs_review'};
     trace('audit.evidence',{section:item.section,sectionTitle:result.sectionTitle,kind:item.kind,rule:result.rule,sources:item.sources,corrections:result.corrections,characters:item.text?.length||0,preview:item.text?.slice(0,600),error:item.error});
-    if(item.notApplicable){reports.push({...result,status:'not_applicable',notApplicable:true,summary:'',findings:[]});continue;}
-    if (item.error) {result.summary=item.error;result.error=true;reports.push(result);continue;}
-    if (!item.text?.trim() || item.text.length>60000) {result.summary='文本为空或超过60000字符，未提交模型 / Empty text or exceeds 60000 characters';result.error=true;reports.push(result);continue;}
-    progress(`${item.section} · ${item.filename}`);
+    if(item.notApplicable){reports.push({...result,status:'not_applicable',notApplicable:true,summary:'',findings:[]});notify('');continue;}
+    if (item.error) {result.summary=item.error;result.error=true;reports.push(result);notify('');continue;}
+    if (!item.text?.trim() || item.text.length>60000) {result.summary='文本为空或超过60000字符，未提交模型 / Empty text or exceeds 60000 characters';result.error=true;reports.push(result);notify('');continue;}
+    notify(`${item.section} · ${item.filename}`);
     let auditAttempt = 0;
     while (!signal.aborted) {
       auditAttempt++;
@@ -1088,6 +1097,7 @@ async function netcareRunAudits(items, settings, request, signal, progress, trac
         if (topLog && auditAttempt > 1) {
           topLog('info', `正在重试 AI 接口 (第 ${auditAttempt} 次) -> 章节: ${item.section} · ${item.filename}`);
         }
+        if(auditAttempt>1)notify(`${item.section} · ${item.filename}`,{phase:'requesting',attempt:auditAttempt-1,section:item.section});
         const reply = await request(item, signal);
         if (!reply?.ok) {
           result.diagnostics = reply?.diagnostics;
@@ -1105,6 +1115,7 @@ async function netcareRunAudits(items, settings, request, signal, progress, trac
           topLog('error', `章节 ${item.section} AI 接口请求失败: ${error.message}`);
         }
         if (settings.disableLocalRules && promptRetry) {
+          notify(`${item.section} · ${item.filename}`,{phase:'waiting',attempt:auditAttempt,section:item.section});
           const shouldRetry = await promptRetry({ section: item.section, filename: item.filename, error: error.message, attempt: auditAttempt });
           if (shouldRetry) {
             if (topLog) topLog('warn', `用户确认继续重试，正在重新请求 AI 接口...`);
@@ -1126,7 +1137,7 @@ async function netcareRunAudits(items, settings, request, signal, progress, trac
         break;
       }
     }
-    reports.push(result);
+    reports.push(result);notify(`${item.section} · ${item.filename}`);
   }
   return reports;
 }
@@ -1209,7 +1220,8 @@ function mountNetcareCollector() {
     $('zip').disabled = running || !scanFinished;
     $('stop').disabled = !controller;
   }
-  const controls=globalThis.createNetcareControls?.().source(root,{redact:netcareRedactText});
+  const taskProgress=globalThis.createNetcareControls?.().progressModel();
+  const controls=globalThis.createNetcareControls?.().source(root,{redact:netcareRedactText,progress:()=>taskProgress?.snapshot()});
   function renderCaptureDiagnostics(){const list=$('captureDiagnostics');list.hidden=!captureDiagnostics.length;list.replaceChildren();for(const item of captureDiagnostics){const button=document.createElement('button');button.className='capture-diagnostic';button.textContent=(item.outcome==='failed'?'截图失败 / Capture failed':'截图已恢复 / Capture recovered')+' · '+item.name;button.onclick=()=>{const tr=(zh,en)=>collectorUiLanguage==='en'?en:zh,text=value=>String(value||'').split(' / ')[collectorUiLanguage==='en'?1:0]||String(value||'');$('captureErrorDetails').textContent=[tr('单号','RFC')+': '+order,tr('截图位置','Capture location')+': '+item.name,tr('时间','Time')+': '+item.at,tr('最终结果','Outcome')+': '+(item.outcome==='failed'?tr('失败','Failed'):item.method==='reconstructed'?tr('内容重建截图（非页面原图）','Reconstructed native content (not a live-page screenshot)'):tr('原始区域截图成功','Live original capture succeeded')),tr('错误码','Error code')+': '+(item.code||'—'),text(item.message),...(item.navigations||[]).map(n=>tr('目录定位','Directory navigation')+' · '+n.attempt+' · '+n.action+' · '+n.number+' '+n.title+'\n'+text(n.message)),...item.attempts.map(a=>[tr('尝试','Attempt')+' '+a.attempt+' · '+a.stage+' · '+(a.code||'OK'),text(a.message),tr('已渲染章节数','Rendered sections')+': '+(a.articles??'—'),tr('区域尺寸与连接状态','Region size and attachment')+': '+JSON.stringify(a.bounds||null),a.stack||''].filter(Boolean).join('\n')),tr('建议：确认章节已加载和目录名称；刷新方案后重新提取。详情也保存在 ZIP 的截图诊断.json 和插件日志中。','Check section loading and native titles; refresh and extract again. Diagnostics also appear in the ZIP and plugin logs.')].filter(Boolean).join('\n\n');$('captureRetry').disabled=!!controller;$('captureErrorDialog').showModal();};list.append(button);} }
   let collectorUiLanguage='zh';
   $('captureErrorClose').onclick=()=>$('captureErrorDialog').close();$('captureRetry').onclick=()=>{$('captureErrorDialog').close();download(lastAutomatic);};
@@ -1417,6 +1429,7 @@ function mountNetcareCollector() {
     if (!settingsReady) { getName(); status('正在等待默认设置 / Waiting for settings'); taskActive = false; updateCollectorButtons(); return; }
     startAutoScroll(w);
     controller = new AbortController(); const signal = controller.signal;
+    taskProgress?.reset();
     scanFinished = false; taskActive = true; updateCollectorButtons();
     let errors = 0;
     try {
@@ -1428,6 +1441,7 @@ function mountNetcareCollector() {
       errors = topics.resolutionIssues?.length||0;
       if (!topics.length) throw new Error(topics.resolutionIssues?.map(i=>i.number+' · '+i.error).join('\n')||'未识别到完整章节目录，请检查网站页面版本');
       for (const topic of topics) {
+        taskProgress?.set(0,topics.indexOf(topic),topics.length);
         if (signal.aborted) throw new Error('已停止 / Stopped');
         status(`扫描 ${topic.number} ${topic.title} / Scanning`);
         try {
@@ -1451,11 +1465,13 @@ function mountNetcareCollector() {
         box.onchange = () => box.checked ? selected.add(topic.number) : selected.delete(topic.number);
         label.append(box, document.createTextNode(`${topic.number} ${topic.title}${topic.error ? ' · ERROR: ' + topic.error : ''}`)); $('chapters').append(label);
       }
+      taskProgress?.set(0,topics.length,topics.length,true);
       cleanScan = errors === 0; scanFinished = true;
       $('count').textContent = `附件 ${attachments.length} 个 / Attachments`;
       if (!attachments.length) $('files').textContent = '未发现附件 / No attachments found';
       status(`已扫描 ${topics.length} 章，发现 ${attachments.length} 个附件；${errors} 处扫描错误。可勾选章节并下载 ZIP。`);
     } catch (error) {
+      taskProgress?.finish(signal.aborted?'stopped':'error');
       trace('extraction.failed','扫描未完成，请重新运行该单 / Scan failed; retry this RFC',
         {error:error.message},'extraction',signal.aborted?'warn':'error');
       status(error.message + '；扫描未完成，需重新扫描 / Scan incomplete; scan again');
@@ -1494,7 +1510,9 @@ function mountNetcareCollector() {
       const files=await netcareArtifactRequest({action:'list',order,orders:[order]}),word=files?.find(f=>f.name===filename);
       if(!word)throw Error('方案 Word 缓存缺失，请从主浮窗重新下载 / Word cache missing; download this RFC again');
       entries.push({name:filename,blob:await netcareReadArtifact(word,order,signal)});
+      taskProgress?.set(1,0,topics.length+chosen.length);
       for (const topic of topics) {
+        taskProgress?.set(1,topics.indexOf(topic),topics.length+chosen.length);
         if (topic.error) report.push(`章节 ERROR: ${topic.number} ${topic.title}: ${topic.error}`);
         if (selection.has(topic.number) && topic.text && !topic.error) {
           const name = netcareUniqueFilename(netcareSafeFilename(`${topic.number}-${topic.title}.txt`), used);
@@ -1516,6 +1534,7 @@ function mountNetcareCollector() {
       });
       }
       for (const file of chosen) {
+        taskProgress?.set(1,topics.length+chosen.indexOf(file),topics.length+chosen.length);
         if (signal.aborted) throw new Error('已停止 / Stopped');
         status(`下载 ${file.section} · ${file.name}`);
         try {
@@ -1554,6 +1573,7 @@ function mountNetcareCollector() {
         autoScrollPaused = true;
         try {
           for(const shot of shots){
+            taskProgress?.set(2,shots.indexOf(shot),shots.length);
             if(signal.aborted)throw Error('已停止 / Stopped');status('保存原始区域截图 / Screenshot: '+shot.name);
             if(document.hidden || w.document?.hidden){
               await activateTab(15000, false, 'refresh');
@@ -1583,11 +1603,12 @@ function mountNetcareCollector() {
         const issue=topics.resolutionIssues?.find(i=>i.number===row.number&&i.kind===kind)?.error||matched?.error;
         evidence.push({section:row.number,kind,filename:row.title,corrections:matched?.correctionsByKind?.[kind]||[],notApplicable:!issue&&!!matched,error:issue||(!matched?'未定位到章节 / Section not located':undefined)});
       }
+      taskProgress?.set(3,0,0);
       let reports=[], cached=true;
       try {netcareCacheAudit(localStorage,order,evidence,[]);}catch(error){cached=false;report.push('暂存 ERROR: '+error.message);}
       if(settings.aiAuditEnabled){
         if(!cached)reports=[{status:'needs_review',summary:'浏览器暂存失败，未自动提交审计',error:true}];
-        else reports=await netcareRunAudits(evidence,settings,requestAudit,signal,text=>{status('AI 审计 / Auditing: '+text);$('auditStatus').textContent=text;},(action,data)=>trace(action,'准备审计证据 / Prepare audit evidence',data,'audit'),promptAiRetry,appendTopLog);
+        else reports=await netcareRunAudits(evidence,settings,requestAudit,signal,(text,counts)=>{if(counts){taskProgress?.set(3,counts.done,counts.total);taskProgress?.retry(counts.retry);}status('AI 审计 / Auditing: '+text);$('auditStatus').textContent=text;},(action,data)=>trace(action,'准备审计证据 / Prepare audit evidence',data,'audit'),promptAiRetry,appendTopLog);
         for(const result of reports)trace('audit.result','审计项结论 / Audit check result',{...result},'audit',result.error?'error':result.status==='fail'?'warn':'info');
         const auditText=reports.filter(r=>!r.notApplicable).map(r=>`${r.section||''} ${r.filename||''} · ${r.status}\n${r.summary}\n${(r.findings||[]).join('\n')}`).join('\n\n');
         $('auditStatus').textContent=auditText || '没有匹配的审计规则 / No audit rules';
@@ -1597,16 +1618,19 @@ function mountNetcareCollector() {
         try{netcareCacheAudit(localStorage,order,evidence,reports);}catch{}
 
       }
+      taskProgress?.set(4,0,3);
       const materials=entries.filter(e=>e.section).map(e=>({name:e.name,section:e.section,kind:e.kind,role:e.role,captureMethod:e.captureMethod,sourceFilename:e.sourceFilename,folder:netcareSectionFolder(settings,topics.find(t=>t.number===e.section)||{number:e.section},e.kind)}));
       for(const entry of entries.filter(e=>e.section)){try{await netcareStoreArtifact(order,entry.name,entry.blob,signal,entry.role||entry.kind);}catch(error){failed++;report.push('材料缓存 ERROR: '+entry.name+': '+error.message);}}
       entries.push({ name: netcareUniqueFilename('清单.txt', used), blob: new Blob(['\ufeff' + report.join('\n')], { type: 'text/plain;charset=utf-8' }) });
       if(signal.aborted)throw Error('已停止 / Stopped');status('正在生成 ZIP… / Building ZIP');
+      taskProgress?.set(4,1,3);
       const zip=await createNetcareZip(entries.map(e=>{
         const mat=materials.find(m=>m.name===e.name);
         if(!mat?.folder)return e;
         const subFolder=e.role==='screenshot'?'方案截图':e.kind==='attachments'?'方案附件':'方案文本';
         return {...e,name:mat.folder+'/'+subFolder+'/'+e.name};
       })),bundleFilename=netcareSafeFilename(filename.replace(/\.docx$/i,'')+'.zip');
+      taskProgress?.set(4,2,3);
       let bundleFileId;
       try{bundleFileId=await netcareStoreArtifact(order,bundleFilename,zip,signal,'audit-bundle');trace('bundle.cached','最终审计 ZIP 已缓存 / Final audit ZIP cached',{name:bundleFilename,bytes:zip.size,files:entries.length},'storage');}catch(error){failed++;trace('bundle.cache.failed','审计 ZIP 缓存失败 / Audit ZIP cache failed',{error:error.message},'storage','error');throw Error('审计 ZIP 缓存失败，请重新运行该单 / Audit ZIP cache failed; retry this RFC: '+error.message);}
       await netcareLogQueue;
@@ -1625,8 +1649,9 @@ function mountNetcareCollector() {
         trace('bundle.download.cached','AI审计已开启，跳过单方案自动下载（可在汇总处统一打包下载） / Skipped automatic individual ZIP download since AI audit is enabled',{name:bundleFilename,bytes:zip.size},'storage');
         status(`审计材料已缓存：${bundleFilename}\n（AI审计已开启，未单独发起下载，可随时在主面板统一下载审计材料 ZIP）\n${attachmentSuccess} 个附件成功；${failed} 处提取/缓存错误（详见清单）；${reports.filter(r=>r.error).length} 项审计异常；${entries.length - 1} 个数据文件。`);
       }
+      const stored = await published;taskProgress?.finish(stored&&cached?'complete':'error');
       if(settings.closeAfterAudit){const reason=netcareAutoCloseReason({settings,reports,failed,cached,published:await published,aborted:signal.aborted});if(reason)status($('status').textContent+'\n自动关闭已暂停 / Automatic close paused: '+reason);else window.postMessage({source:'TP_RFC_CLOSE_AFTER_AUDIT',order},location.origin);}
-    } catch (error) {trace('extraction.failed','提取或打包失败 / Extraction or packaging failed',{error:error.message},'extraction',signal.aborted?'warn':'error');status(error.message); }
+    } catch (error) {taskProgress?.finish(signal.aborted?'stopped':'error');trace('extraction.failed','提取或打包失败 / Extraction or packaging failed',{error:error.message},'extraction',signal.aborted?'warn':'error');status(error.message); }
     finally { stopAutoScroll(); controller = null; taskActive = false; downloadInProgress = false; updateCollectorButtons(); renderCaptureDiagnostics(); }
   }
   $('scan').onclick = () => { if (isTaskRunning()) return; scan(false); };
@@ -1917,13 +1942,14 @@ function mountNetcareCollector() {
       .log-row-detail{background:#111c2e}
       .log-detail-pre{background:#0b1320;border-color:#1e293b}
     }
+    .batch-statistics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0 16px}.batch-statistics>div{padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--soft);text-align:center}.batch-statistics strong{display:block;font-size:27px;line-height:1.3;color:var(--accent)}.batch-statistics>div:nth-child(2) strong{color:#22a879}.batch-statistics>div:nth-child(3) strong{color:#e36d72}.batch-statistics span{font-size:10px;color:var(--muted)}.batch-completion-toast{position:fixed;left:50%;top:20px;transform:translateX(-50%);z-index:2147483647;width:min(460px,calc(100vw - 32px));background:var(--bg);border:1px solid var(--accent);border-radius:14px;box-shadow:0 15px 50px #101b3544;padding:18px}.batch-completion-toast strong{display:block;font-size:16px;margin-bottom:8px}.batch-completion-toast p{font-size:12px;line-height:1.7}.batch-completion-toast .config-actions{justify-content:flex-end}
     #planChoiceDialog[open]{display:block}#planChoiceDialog .modal-head,#planChoiceDialog .modal-footer{flex:none}#planChoiceDialog .modal-head h2{overflow-wrap:anywhere}#planChoiceDialog .modal-footer{justify-content:flex-end}
     #auditSummaryBody{padding:0 24px 24px;background:var(--bg);scrollbar-gutter:stable}.audit-table thead{position:sticky;top:0;z-index:3;background:var(--soft)}.audit-table thead th{position:static;background:var(--soft);border-bottom:1px solid var(--line)}.audit-table thead::after{content:"";position:absolute;left:0;right:0;bottom:0;border-bottom:1px solid var(--line)}#auditSummaryDialog{width:min(1560px,calc(100vw - 40px));height:calc(100vh - 48px)}.audit-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 24px;border-bottom:1px solid var(--line);background:var(--soft)}.audit-toolbar span{font-size:11px;color:var(--muted)}.audit-table{width:100%;min-width:1000px;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:11px}.audit-table th{background:var(--soft);text-align:left;font-size:11px;padding:12px;border-top:1px solid var(--line)}.audit-table td{padding:14px 12px;vertical-align:top;border-top:1px solid var(--line);border-right:1px solid var(--line);overflow-wrap:anywhere;line-height:1.65}.audit-table td:first-child{border-left:1px solid var(--line)}.audit-table .group-cell{background:var(--soft);font-weight:600}.audit-table pre{max-height:200px;font-size:11px}.audit-table details{margin:8px 0}.audit-table summary{cursor:pointer}.audit-table .rule-label{font-weight:600;margin:8px 0}.audit-table .kind-label{font-size:10px;color:var(--muted)}.audit-table .group-start td{border-top:2px solid var(--accent)}.audit-rfc{border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px}.audit-rfc>summary{font-weight:650;cursor:pointer}.audit-card{border-top:1px solid var(--line);margin-top:14px;padding-top:14px}.audit-card h4{margin:0 0 6px;font-size:13px}.audit-state{display:inline-block;border-radius:5px;padding:3px 7px;background:var(--soft);font-size:11px;margin-bottom:5px}.audit-state.pass{color:#27a77b}.audit-state.fail{color:#e36d72}.audit-state.needs_review{color:#cd9b34}.audit-card pre{max-height:220px}.audit-card details{margin-top:8px}.audit-card p{margin:5px 0;overflow-wrap:anywhere}
     @media(prefers-color-scheme:dark){:host{--bg:#182235;--soft:#131d2d;--ink:#e3eaf5;--muted:#97a8c0;--line:#314058;--accent:#4386f5;--hover:#24344d;color-scheme:dark}}
     @media(max-height:600px){#settingsDialog:has(.modal-body.log-mode) #settingsStatus{display:none}#settingsDialog:has(.modal-body.log-mode) .modal-footer{flex-wrap:nowrap;justify-content:flex-end}#settingsDialog:has(.modal-body.log-mode) .modal-head p{display:none}.log-advanced[open]{max-height:80px}.log-primary{grid-template-columns:repeat(3,minmax(0,1fr))!important}.log-primary .log-search{grid-column:auto}.modal-nav{flex-wrap:nowrap!important;overflow-x:auto;flex-shrink:0}.modal-nav button{white-space:nowrap;flex:none}.log-actions{margin-top:6px}#pluginLogStatus{margin:5px 0}.modal-body.log-mode{padding-top:10px;padding-bottom:10px}#chapterSettings>.note{display:none}#chapterSettings>.section-toolbar{margin-bottom:6px}#chapterSettings>.switch-row{margin:8px 0}}
     @media(max-width:600px){.modal-nav{flex-wrap:wrap}dialog{width:calc(100vw - 16px);height:calc(100vh - 24px)}.modal-head,.modal-footer{padding:14px}.modal-body{padding:14px}.modal-nav{padding-left:14px}.section-grid{grid-template-columns:154px minmax(180px,1fr) 38px 38px minmax(130px,1fr) minmax(130px,1fr) 26px;padding:7px 6px;gap:4px}.section-toolbar{flex-wrap:wrap}.modal-footer{flex-wrap:wrap}#settingsStatus{flex-basis:100%}}
   </style><section class="panel"><header><div><div class="eyebrow">NETCARE · RFC</div><div class="title">方案与 AI 审计 / Solutions & AI audit</div></div><div class="header-actions"><button id="languageButton" class="icon" title="切换语言 / Change language">EN</button><button id="settingsButton" class="icon" aria-label="设置 / Settings" title="设置 / Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/><path d="m9 3-1 3-3 1-2 3 2 2-1 3 3 2 3-1 2 2 3-1 1-3 3-1 2-3-2-2 1-3-3-2-3 1-2-2Z"/></svg></button><button id="close" class="icon" aria-label="关闭">×</button></div></header>
-    <div class="badge" id="connection">导出服务：尚未连接</div><label for="order">RFC 单号 / RFC numbers</label>
+    <div class="batch-statistics" aria-label="批次进度 / Batch progress"><div><strong id="batchTotal">0</strong><span>总单数 / Total</span></div><div><strong id="batchCompleted">0</strong><span>已完成 / Completed</span></div><div><strong id="batchFailed">0</strong><span>失败 / Failed</span></div></div><div class="badge" id="connection">导出服务：尚未连接</div><label for="order">RFC 单号 / RFC numbers</label>
     <textarea id="order" aria-label="RFC 单号列表" rows="3" placeholder="每行一个单号，也支持空格或逗号 / One RFC per line" autocomplete="off"></textarea>
     <div id="routeBanner" class="summary" hidden></div><div id="configSummary" class="summary"></div>
     <div class="actions"><button id="run" class="primary">下载与审计 / Download & audit</button><button id="stop" disabled>停止 / Stop</button></div>
@@ -2263,6 +2289,18 @@ function mountNetcareCollector() {
   const healthSampler=globalThis.createNetcareMonitor?.().sample({send:metric=>netcareArtifactRequest({action:'metric',metric})});
   const healthView=globalThis.createNetcareMonitor?.().mount({root,read:()=>netcareArtifactRequest({action:'metric-history'})});
   $('pipOverview').onclick=()=>pip?.toggle();
+  const batchOutcomes = new Map();
+  const completionToast = document.createElement('section');completionToast.className='batch-completion-toast';completionToast.hidden=true;completionToast.setAttribute('role','status');completionToast.setAttribute('aria-live','polite');root.append(completionToast);
+  function renderBatchStatistics(){const stats=netcareBatchStatistics(currentBatch?.orders||[],batchOutcomes);$('batchTotal').textContent=stats.total;$('batchCompleted').textContent=stats.completed;$('batchFailed').textContent=stats.failed;return stats;}
+  function notifyBatchFinished(stopped){
+    if(routeRun)return;
+    const stats=renderBatchStatistics(),title=document.createElement('strong'),summary=document.createElement('p'),actions=document.createElement('div');actions.className='config-actions';
+    title.textContent=stopped?tr('批次已停止','Batch stopped'):stats.failed?tr('批次已结束，请检查失败单号','Batch finished; check failed RFCs'):tr('全部任务已完成','All tasks completed');
+    summary.textContent=tr(`共 ${stats.total} 单 · 已完成 ${stats.completed} · 失败 ${stats.failed}`,`Total ${stats.total} · Completed ${stats.completed} · Failed ${stats.failed}`);
+    const view=document.createElement('button');view.className='primary';view.textContent=tr('查看审计结果','View audit results');view.onclick=()=>{completionToast.hidden=true;$('auditResultsButton').click();};
+    const close=document.createElement('button');close.textContent=tr('知道了','Dismiss');close.onclick=()=>{completionToast.hidden=true;};actions.append(view,close);completionToast.replaceChildren(title,summary,actions);completionToast.hidden=false;
+    netcareLog({category:'operation',action:'batch.completed',batchId:currentBatch?.started,message:stopped?'批次已停止 / Batch stopped':'批次已结束 / Batch finished',data:{...stats,stopped}});
+  }
   const planDialog = document.createElement('dialog'); planDialog.id = 'planChoiceDialog';
   planDialog.setAttribute('aria-label', '选择方案 / Choose a plan');
   planDialog.style.cssText = 'width:min(680px,calc(100vw - 32px));height:fit-content;min-height:0;max-height:calc(100vh - 40px);padding:0';
@@ -2634,7 +2672,7 @@ function mountNetcareCollector() {
     if(event.source===window&&event.origin===location.origin&&event.data?.source==='TP_RFC_PIP_CHANGED'){pip?.refresh();return;}
     if(event.source===window&&event.origin===location.origin&&event.data?.source==='TP_RFC_LANGUAGE'){setLanguage(event.data.language);renderAudits();return;}
     if(event.source===window&&event.origin===location.origin&&event.data?.source==='TP_RFC_AUDIT_SUMMARIES'){
-      if(Array.isArray(event.data.records)){liveAuditRecords=event.data.records.filter(r=>r&&Array.isArray(r.reports)&&Array.isArray(r.items)&&(!currentBatch||currentBatch.orders.includes(r.order)&&Number(r.generationAt||Date.parse(r.at))>=currentBatch.started)).slice(-50);if(!activeSnapshot)auditRecords=liveAuditRecords;completeAudits();refreshHistory().catch(()=>{});renderAudits();if(event.data.updated&&auditRecords.length&&!dialog.open&&!auditDialog.open)auditDialog.showModal();}return;
+      if(Array.isArray(event.data.records)){liveAuditRecords=event.data.records.filter(r=>r&&Array.isArray(r.reports)&&Array.isArray(r.items)&&(!currentBatch||currentBatch.orders.includes(r.order)&&Number(r.generationAt||Date.parse(r.at))>=currentBatch.started)).slice(-50);if(!activeSnapshot)auditRecords=liveAuditRecords;completeAudits();refreshHistory().catch(()=>{});renderAudits();}return;
     }
     if (event.source === window && event.origin === location.origin && event.data?.source === 'TP_RFC_SETTINGS_RESULT') {
       if (!event.data.ok) { $('settingsStatus').textContent = event.data.error || '设置保存失败'; return; }
@@ -2937,7 +2975,7 @@ function mountNetcareCollector() {
     let orders;
     try { orders = parseNetcareRfcOrders($('order').value); }
     catch (error) { log(error.message); return; }
-    routeStates.clear();currentBatch={orders,started:routeRun?.batchId||Date.now()};liveAuditRecords=[];if(!activeSnapshot){auditRecords=[];renderAudits();}if(!routeRun)window.postMessage({source:'TP_RFC_BATCH_BEGIN',orders,started:currentBatch.started},location.origin);
+    batchOutcomes.clear();completionToast.hidden=true;routeStates.clear();currentBatch={orders,started:routeRun?.batchId||Date.now()};liveAuditRecords=[];if(!activeSnapshot){auditRecords=[];renderAudits();}if(!routeRun)window.postMessage({source:'TP_RFC_BATCH_BEGIN',orders,started:currentBatch.started},location.origin);
     for(const order of orders)netcareLog({order,batchId:currentBatch.started,category:'operation',action:'batch.started',message:'开始 RFC 审计流程 / Start RFC audit workflow',data:{orders,concurrency:extractionSettings.concurrency,openOnline:extractionSettings.openOnline}});
     const controller = new AbortController();
     active = controller;
@@ -2945,6 +2983,7 @@ function mountNetcareCollector() {
     $('run').disabled = $('order').disabled = $('concurrency').disabled = $('openOnline').disabled = true;
     $('stop').disabled = false;
     $('log').textContent = `共 ${orders.length} 单 · 并发 ${$('concurrency').value} / RFC batch`;
+    renderBatchStatistics();
     rows.clear();
     $('results').replaceChildren(...orders.map(order => {
       const row = document.createElement('div');
@@ -2958,8 +2997,9 @@ function mountNetcareCollector() {
     }));
     try {
       const results = await executeNetcareRfcBatch(orders, Number($('concurrency').value), controller.signal,
-        prepare, transfer, (order, result) => {update(order,result.ok?result.value:(controller.signal.aborted?result.error:`失败 / Failed: ${result.error}`));const entry=[...routeStates.values()].find(e=>e.order===order);if(controller.signal.aborted&&entry)routeSend('TP_RFC_ROUTE_CANCEL',entry.id,order).catch(()=>{});else if(entry&&!entry.assigned)routeSend('TP_RFC_ROUTE_RESULT',entry.id,order,{ok:result.ok,value:result.value,error:result.error}).catch(()=>{});});
+        prepare, transfer, (order, result) => {batchOutcomes.set(order,{ok:result.ok});renderBatchStatistics();update(order,result.ok?result.value:(controller.signal.aborted?result.error:`失败 / Failed: ${result.error}`));const entry=[...routeStates.values()].find(e=>e.order===order);if(controller.signal.aborted&&entry)routeSend('TP_RFC_ROUTE_CANCEL',entry.id,order).catch(()=>{});else if(entry&&!entry.assigned)routeSend('TP_RFC_ROUTE_RESULT',entry.id,order,{ok:result.ok,value:result.value,error:result.error}).catch(()=>{});});
       const success = results.filter(result => result.ok).length;
+      notifyBatchFinished(controller.signal.aborted);
       if (extractionSettings.attachmentsEnabled || extractionSettings.textEnabled) {
         log(tr(`材料 ZIP 已就绪 ${success} / ${orders.length}；其余 ${orders.length - success} 单失败或停止。${extractionSettings.aiAuditEnabled ? '请在“审计结果”统一下载审计材料 ZIP。' : '请在 Chrome 下载记录中确认 ZIP。'}`,
           `Materials ZIP ready: ${success} / ${orders.length}; ${orders.length - success} failed or stopped. ${extractionSettings.aiAuditEnabled ? 'Download the combined materials ZIP from Audit results.' : 'Confirm ZIP files in Chrome downloads.'}`));

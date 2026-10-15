@@ -3,6 +3,39 @@ const base='../backend/builtin-tools/f12-to-extension/',capture=require(base+'ne
 const topic={number:'3.4',title:'Test and Verification'},shot={kind:'text',topic};
 const region=(text='3.4 Test and Verification')=>({querySelector:()=>({textContent:text}),querySelectorAll:()=>[],getBoundingClientRect:()=>({width:600,height:400}),isConnected:true});
 const doc=articles=>({querySelectorAll:selector=>selector==='article'?articles:[]});
+test('progress counters preserve real stage counts and retain partial work on stop or error',()=>{
+ const model=controls.progressModel();model.reset();model.set(0,2,5);
+ assert.equal(model.snapshot().steps[0].done,2);model.set(1,1,4);
+ assert.equal(model.snapshot().steps[0].complete,true);assert.equal(model.snapshot().steps[1].done,1);
+ model.finish('stopped');assert.equal(model.snapshot().state,'stopped');assert.equal(model.snapshot().steps[4].complete,false);
+ model.finish('error');assert.equal(model.snapshot().state,'error');
+ model.reset();assert.equal(model.snapshot().steps[1].done,0);model.set(4,2,3);model.finish();
+ assert.ok(model.snapshot().steps.every(s=>s.complete));
+});
+test('collector progress is bounded structured data and unknown stages cannot reach preview controls',()=>{
+ const model=controls.progressModel();model.set(3,1,2);const progress=model.snapshot();
+ const dto=controls.validate({version:'v',at:1,progress});assert.equal(dto.progress.steps[3].done,1);
+ for(const p of [{...progress,stage:5},{...progress,state:'success<script>'},{...progress,steps:[{done:NaN,total:1,complete:false},...progress.steps.slice(1)]}])assert.throws(()=>controls.validate({version:'v',at:1,progress:p}));
+});
+test('AI retry DTOs stay isolated per solution and clear on recovery, skip or stop',()=>{
+ const first=controls.progressModel(),second=controls.progressModel();first.set(3,2,5);second.set(3,1,4);
+ first.retry({phase:'waiting',attempt:1,section:'3.4'});
+ assert.deepEqual(controls.validProgress(first.snapshot()).retry,{phase:'waiting',attempt:1,section:'3.4'});
+ assert.equal(second.snapshot().retry,null);assert.equal(first.snapshot().steps[3].done,2);
+ first.retry({phase:'requesting',attempt:2,section:'3.4'});
+ assert.equal(controls.validProgress(first.snapshot()).retry.attempt,2);
+ for(const retry of [{phase:'unknown',attempt:1,section:'3.4'},{phase:'waiting',attempt:0,section:'3.4'},{phase:'waiting',attempt:Infinity,section:'3.4'},{phase:'waiting',attempt:1,section:'a'.repeat(81)}])assert.throws(()=>controls.validProgress({...first.snapshot(),retry}));
+ assert.throws(()=>controls.validProgress({...first.snapshot(),stage:2}));
+ const copied=first.snapshot();copied.retry.attempt=99;assert.equal(first.snapshot().retry.attempt,2);
+ first.set(3,3,5);assert.equal(first.snapshot().retry,null);
+ first.retry({phase:'waiting',attempt:1,section:'3.4'});first.finish('stopped');assert.equal(first.snapshot().retry,null);
+});
+test('manual preview positions use the full viewport and keep a header reachable',()=>{
+ assert.deepEqual(pip.viewportPosition(900,600,300,1280,800),{x:900,y:600});
+ assert.deepEqual(pip.viewportPosition(2000,2000,300,1280,800),{x:980,y:768});
+ assert.deepEqual(pip.viewportPosition(-20,-5,300,320,200),{x:0,y:0});
+ assert.deepEqual(pip.viewportPosition(20,20,500,200,20),{x:0,y:0});
+});
 test('live screenshot retries re-locate changed DOM and report earlier failures',async()=>{
  let tries=0;const a=region(),b=region(),d={querySelectorAll:s=>s==='article'?(tries===0?[a]:[b]):[]},events=[];
  const result=await capture.capture(d,shot,{signal:new AbortController().signal,sleep:async()=>{},attempt:a=>events.push(a),render:async el=>{if(++tries===1){assert.equal(el,a);throw Error('canvas failure');}assert.equal(el,b);return ['png'];}});
