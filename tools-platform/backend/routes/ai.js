@@ -558,6 +558,7 @@ router.post('/chat', checkAuth, async (req, res) => {
     let historyContext = null;
     let historySaved = false;
     let agentSession = null;
+    let agentRunId = null;
     let sensitiveValues = [];
     const RECORDED_EVENT_TYPES = new Set(['tool_start', 'tool_result', 'approval', 'approval_result']);
     const recordEvent = payload => {
@@ -576,6 +577,12 @@ router.post('/chat', checkAuth, async (req, res) => {
         if (!historyContext || historySaved) return;
         historySaved = true;
         try {
+            if (agentRunId && agentSession) {
+                await aiChatRepo.upsertAgentTurn({ ...historyContext, runId: agentRunId, agentSessionId: agentSession.id, root: agentSession.root,
+                    transcript: [{ role: 'user', content: historyContext.question }],
+                    content: `${streamedText.trim()}${streamedText.trim() ? '\n\n' : ''}> ${redactText(note, { secrets: sensitiveValues })}`, events: recordedEvents, final: true });
+                return;
+            }
             await aiChatRepo.addMessage({ ...historyContext, role: 'user', content: historyContext.question });
             await aiChatRepo.addMessage({ ...historyContext, role: 'model', content: `${streamedText.trim()}${streamedText.trim() ? '\n\n' : ''}> ${redactText(note, { secrets: sensitiveValues })}`, events: recordedEvents });
         } catch (saveErr) {
@@ -780,6 +787,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             : null;
         const agentResult = agentMode
             ? await agentRunManager.runAgentTurn({
+                chatSessionId: persist !== false ? savedSessionId : '',
+                onRunStarted: runId => { agentRunId = runId; },
                 sensitiveValues,
                 session: agentSession,
                 client: aiClient,
@@ -821,25 +830,31 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         if (persist !== false) {
             try {
                 historySaved = true;
-                await aiChatRepo.addMessage({
-                    sessionId: savedSessionId,
-                    pagePath: normalizedPath,
-                    pageTitle,
-                    owner: req.user?.username || '',
-                    role: 'user',
-                    content: persistedQuestion
-                });
-                await aiChatRepo.addMessage({
-                    sessionId: savedSessionId,
-                    pagePath: normalizedPath,
-                    pageTitle,
-                    owner: req.user?.username || '',
-                    role: 'model',
-                    content: responseText,
-                    tokens: totalTokens,
-                    cost: costMao,
-                    events: recordedEvents
-                });
+                if (agentRunId && agentSession) {
+                    await aiChatRepo.upsertAgentTurn({ sessionId: savedSessionId, owner: req.user.username, runId: agentRunId,
+                        agentSessionId: agentSession.id, root: agentSession.root, transcript: [{ role: 'user', content: persistedQuestion }],
+                        content: responseText, events: recordedEvents, tokens: totalTokens, cost: costMao, final: true });
+                } else {
+                    await aiChatRepo.addMessage({
+                        sessionId: savedSessionId,
+                        pagePath: normalizedPath,
+                        pageTitle,
+                        owner: req.user?.username || '',
+                        role: 'user',
+                        content: persistedQuestion
+                    });
+                    await aiChatRepo.addMessage({
+                        sessionId: savedSessionId,
+                        pagePath: normalizedPath,
+                        pageTitle,
+                        owner: req.user?.username || '',
+                        role: 'model',
+                        content: responseText,
+                        tokens: totalTokens,
+                        cost: costMao,
+                        events: recordedEvents
+                    });
+                }
                 if (agentSession) await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username });
                 await aiChatRepo.recordQuestion({
                     owner: req.user.username,

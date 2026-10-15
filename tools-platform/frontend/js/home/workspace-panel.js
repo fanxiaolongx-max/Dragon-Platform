@@ -13,6 +13,7 @@
 
     const state = {
         enabled: false,
+        selectionEpoch: 0,
         capability: null,
         prefs: { lastDirectory: '', recentDirectories: [], permissionMode: 'ask' },
         root: '',
@@ -390,6 +391,8 @@
     }
 
     async function toggleDiff(filePath) {
+        const root = state.root;
+        const id = state.agentSessionId;
         if (state.openDiff?.path === filePath) {
             state.openDiff = null;
             renderChanges();
@@ -397,6 +400,7 @@
         }
         try {
             const data = await request('GET', `${API}/changes/${encodeURIComponent(state.agentSessionId)}?path=${encodeURIComponent(filePath)}&root=${encodeURIComponent(state.root)}`);
+            if (state.root !== root || state.agentSessionId !== id) return;
             state.changes = data.changes || state.changes;
             state.openDiff = data.diff ? { path: filePath, text: data.diff.text } : null;
         } catch (error) {
@@ -419,9 +423,10 @@
         if (!state.enabled || !state.root || !state.agentSessionId || changesRefreshing || state.pr?.phase === 'running') return;
         changesRefreshing = true;
         const root = state.root;
+        const id = state.agentSessionId;
         try {
             const data = await request('GET', `${API}/changes/${encodeURIComponent(state.agentSessionId)}?root=${encodeURIComponent(root)}`);
-            if (state.root === root) applyChanges(data.changes);
+            if (state.root === root && state.agentSessionId === id) applyChanges(data.changes);
         } catch { /* 刷新失败保持现状 */ } finally {
             changesRefreshing = false;
         }
@@ -448,16 +453,19 @@
         return window.confirm(`${options.title}\n${options.message}`);
     }
 
-    async function revert(filePath, force = false) {
+    async function revert(filePath, force = false, target = { root: state.root, id: state.agentSessionId }) {
+        if (state.root !== target.root || state.agentSessionId !== target.id) return;
         try {
-            const data = await request('POST', `${API}/changes/${encodeURIComponent(state.agentSessionId)}/revert`, { path: filePath, root: state.root, force });
+            const data = await request('POST', `${API}/changes/${encodeURIComponent(target.id)}/revert`, { path: filePath, root: target.root, force });
+            if (state.root !== target.root || state.agentSessionId !== target.id) return;
             state.changes = data.changes || [];
             if (state.openDiff?.path === filePath) state.openDiff = null;
             toast(tx('reverted', { path: filePath }));
         } catch (error) {
+            if (state.root !== target.root || state.agentSessionId !== target.id) return;
             // 智能体改完之后文件又被改过：先确认，避免覆盖后续工作
             if (error.code === 'AGENT_CHANGE_CONFLICT' && !force) {
-                if (await confirmRevertConflict(filePath)) return revert(filePath, true);
+                if (await confirmRevertConflict(filePath)) return revert(filePath, true, target);
                 return;
             }
             toast(error.message);
@@ -610,8 +618,9 @@
         }
     }
 
-    async function selectDirectory(fullPath) {
+    async function selectDirectory(fullPath, ticket = ++state.selectionEpoch) {
         const data = await request('POST', `${API}/select`, { path: fullPath });
+        if (ticket !== state.selectionEpoch) throw Object.assign(new Error('Directory selection superseded'), { name: 'AbortError' });
         state.root = data.root;
         state.rootName = data.name || baseName(data.root);
         state.gitBranch = data.gitBranch || '';
@@ -636,6 +645,7 @@
     }
 
     function clearDirectory() {
+        state.selectionEpoch += 1;
         state.root = '';
         state.rootName = '';
         state.gitBranch = '';
@@ -688,7 +698,7 @@
         return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘' }[tool] || '⚙';
     }
 
-    function handleEvent(messageEl, event) {
+    function handleEvent(messageEl, event, sourceWorkspace) {
         if (!messageEl || !event) return;
         if (event.type === 'tool_start') {
             const row = document.createElement('div');
@@ -711,6 +721,7 @@
             const card = approvalCards.get(event.callId);
             if (card) settleCard(card, event.decision);
         } else if (event.type === 'change') {
+            if (sourceWorkspace && (sourceWorkspace.root !== state.root || sourceWorkspace.agentSessionId !== state.agentSessionId)) return;
             const index = state.changes.findIndex(item => item.path === event.path);
             const entry = { path: event.path, kind: event.kind, added: event.added, removed: event.removed, from: event.from, revertible: event.revertible !== false, source: event.source || 'agent' };
             if (index >= 0) state.changes[index] = entry; else state.changes.unshift(entry);
@@ -779,6 +790,8 @@
 
     function applyDone(data) {
         if (!data) return;
+        if (data.agentSessionId && data.agentSessionId !== state.agentSessionId) return;
+        if (data.agent?.root && data.agent.root !== state.root) return;
         if (data.context) state.context = data.context;
         if (Array.isArray(data.changes)) state.changes = data.changes.map(item => ({ ...item, source: item.source || 'agent' }));
         if (data.agent?.gitBranch !== undefined) state.gitBranch = data.agent.gitBranch || state.gitBranch;
@@ -935,15 +948,21 @@
         // 恢复历史对话：自动选回当时的目录、接回它的智能体会话，并恢复上下文与实际改动。
         // 目录已不存在时提示并保持未选目录，对话照常恢复。
         async resumeWorkspace({ agentSessionId, root } = {}) {
-            if (!state.enabled || !agentSessionId || !root || state.pr?.phase === 'running') return false;
+            if (state.pr?.phase === 'running') throw new Error(tx('prRunning'));
+            const ticket = ++state.selectionEpoch;
+            if (!state.enabled || !agentSessionId || !root) { clearDirectory(); this.resetSession(); return false; }
             if (state.root !== root) {
                 try {
-                    await selectDirectory(root);
+                    await selectDirectory(root, ticket);
                 } catch {
+                    if (ticket !== state.selectionEpoch) return false;
+                    clearDirectory();
+                    this.resetSession();
                     toast(tx('resumeDirMissing', { name: baseName(root) }));
                     return false;
                 }
             }
+            if (ticket !== state.selectionEpoch) return false;
             if (!this.adoptSession({ agentSessionId, root: state.root })) return false;
             await restoreState();
             return true;
@@ -966,6 +985,7 @@
             return true;
         },
         resetSession() {
+            state.selectionEpoch += 1;
             if (state.pr?.phase === 'running') state.pr.controller?.abort();
             state.pr = null;
             prLog.innerHTML = '';

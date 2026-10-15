@@ -61,7 +61,7 @@ test('replies keep their tool events and sessions record owner and workspace', a
 test('chat route records tool events and saves stopped or failed turns', () => {
     const route = fs.readFileSync(path.join(__dirname, '..', 'backend', 'routes', 'ai.js'), 'utf8');
     assert.match(route, /const RECORDED_EVENT_TYPES = new Set\(\['tool_start', 'tool_result', 'approval', 'approval_result'\]\)/);
-    assert.match(route, /events: recordedEvents\n\s+\}\);\n\s+if \(agentSession\) await aiChatRepo\.setSessionAgent/);
+    assert.match(route, /await aiChatRepo\.upsertAgentTurn\([\s\S]*?events: recordedEvents/);
     assert.match(route, /await saveInterruptedTurn\('（已停止生成）'\);/);
     assert.match(route, /await saveInterruptedTurn\(`⚠️ 本轮出错：/);
     assert.match(route, /if \(req\.query\.mine === '1'\) \{\n\s+const items = await aiChatRepo\.listOwnedSessions\(\{\n\s+owner: req\.user\?\.username/);

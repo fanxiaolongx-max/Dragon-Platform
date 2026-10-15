@@ -69,4 +69,24 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
     const own = await fetch(`${url}/sessions/${id}/messages`, { headers: { Authorization: 'Bearer synthetic-alice' } });
     assert.equal(own.status, 200);
     assert.equal((await own.json()).items[0].content, 'Alice private text');
+    const root = fs.realpathSync(fs.mkdtempSync(path.join(sandbox, 'workspace-')));
+    fs.writeFileSync(path.join(root, 'readme.txt'), 'workspace content');
+    let turnCalls = 0;
+    provider.createClient = () => ({ model: 'mock', generateText: async () => ++turnCalls === 1
+        ? { toolCalls: [{ id: 'read-one', name: 'read_file', args: { path: 'readme.txt' } }] }
+        : { text: 'Read completed', toolCalls: [] } });
+    const completed = await fetch(`${url}/chat`, { method: 'POST', headers: { ...headers, Authorization: 'Bearer synthetic-alice' }, body: JSON.stringify({
+        agent: 'dragon-claw-home', stream: true, pagePath: '/', messages: [{ role: 'user', content: 'read the file' }],
+        workspace: { root, agentSessionId: 'http-recovery-agent', permissionMode: 'full' }
+    }) });
+    assert.equal(completed.status, 200);
+    const events = (await completed.text()).trim().split('\n').map(line => JSON.parse(line));
+    const done = events.find(event => event.type === 'done');
+    assert.ok(done, JSON.stringify(events));
+    assert.equal(turnCalls, 2);
+    const messages = await chat.listMessages(done.sessionId, { owner: 'alice' });
+    assert.equal(messages.length, 2, 'checkpoints and the final route response update one pair of messages');
+    assert.match(messages[1].content, /Read completed/);
+    assert.equal(messages[1].events.some(event => event.type === 'tool_result'), true);
+    assert.equal((await chat.listMessages(done.sessionId, { owner: 'alice' })).length, 2);
 });

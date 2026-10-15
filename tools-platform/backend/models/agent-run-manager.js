@@ -358,7 +358,7 @@ function beginRun(session, write, signal) {
     return run;
 }
 
-async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [] }) {
+async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted }) {
     const emit = write;
     write = event => emit(redactValue(event, { secrets: sensitiveValues }));
     const run = beginRun(session, write, signal);
@@ -367,6 +367,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         if (sessions.get(session.id) === session && !session.hydrated) sessions.delete(session.id);
         throw error;
     }
+    onRunStarted?.(run.id);
 
     const gitBranch = readGitBranch(session.root);
     const directoryContext = buildDirectoryContext(session.root);
@@ -390,8 +391,10 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     const turnTranscript = currentUser && currentUser.role === 'user' ? [{ role: 'user', content: String(currentUser.content || '') }] : [];
     const toolLog = [];
     const initialTranscript = session.transcript;
+    const recovery = redactValue({ version: 1, priorTranscript: initialTranscript, priorTurnCount: session.turnCount,
+        permissionMode: session.permissionMode, chatSessionId, chatOwner: session.username }, { secrets: sensitiveValues });
     const checkpoint = status => transcriptRepo.saveTurn({ runId: run.id, agentSessionId: session.id, owner: session.owner, root: session.root,
-        transcript: redactValue(turnTranscript, { secrets: sensitiveValues }), status });
+        transcript: redactValue(turnTranscript, { secrets: sensitiveValues }), status, recovery });
 
     try {
         await checkpoint('running');

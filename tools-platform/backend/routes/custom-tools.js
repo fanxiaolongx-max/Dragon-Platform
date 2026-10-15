@@ -7,7 +7,7 @@ const createChunkUploadRouter = require('./custom-tool-chunk-upload');
 const repo = require('../models/custom-tools-repository');
 const backupRepo = require('../models/custom-tools-backup-repository');
 const historyRepo = require('../models/upload-history-repository');
-const builtinToolsSync = require('../models/builtin-tools-sync');
+const { applyBuiltinToolsInWorker } = require('../models/builtin-tools-update-service');
 const aiSettingsRepo = require('../models/ai-settings-repository');
 const aiProviderClient = require('../models/ai-provider-client');
 const f12LicenseService = require('../models/f12-license-service');
@@ -341,28 +341,49 @@ router.get('/builtin-sync/preview', requireAdmin, async (req, res) => {
     }
 });
 
-router.post('/builtin-sync/apply', requireAdmin, async (req, res) => {
-    try {
-        const body = req.body || {};
-        const result = builtinToolsSync.applyBuiltinToolDecisions({
-            sourceDir: builtinToolsSourceDir,
-            targetDir: repo.CUSTOM_TOOLS_DIR,
-            stateFile: path.join(getDataDir(), 'builtin-tools-sync-decisions.json'),
-            backupRoot: path.join(getDataDir(), 'backups/builtin-tools'),
-            applySlugs: Array.isArray(body.applySlugs) ? body.applySlugs : [],
-            skipSlugs: Array.isArray(body.skipSlugs) ? body.skipSlugs : [],
-            expectedFingerprints: body.expectedFingerprints && typeof body.expectedFingerprints === 'object'
-                ? body.expectedFingerprints
-                : {}
-        });
+async function applyBuiltinTools(body, { onProgress = () => {}, includePreview = true } = {}) {
+    return applyBuiltinToolsInWorker({
+        sourceDir: builtinToolsSourceDir,
+        targetDir: repo.CUSTOM_TOOLS_DIR,
+        stateFile: path.join(getDataDir(), 'builtin-tools-sync-decisions.json'),
+        backupRoot: path.join(getDataDir(), 'backups/builtin-tools'),
+        applySlugs: Array.isArray(body.applySlugs) ? body.applySlugs : [],
+        skipSlugs: Array.isArray(body.skipSlugs) ? body.skipSlugs : [],
+        expectedFingerprints: body.expectedFingerprints && typeof body.expectedFingerprints === 'object'
+            ? body.expectedFingerprints : {},
+        includePreview
+    }, { onProgress, finalize: async result => {
         const changedCount = result.installed.length + result.adopted.length + result.updated.length;
+        onProgress({ type: 'progress', stage: 'indexing', completed: result.installed.length + result.adopted.length + result.updated.length + result.skipped.length });
         const reconcile = changedCount ? await repo.reconcileToolsFromDisk() : null;
         if (changedCount) {
             await repo.markToolsUpdated([...result.installed, ...result.adopted, ...result.updated]);
         }
-        res.json({ success: result.invalid.length === 0, ...result, reconcile });
+        return { success: result.invalid.length === 0, ...result, reconcile };
+    } });
+}
+
+router.post('/builtin-sync/apply', requireAdmin, async (req, res) => {
+    try {
+        res.json(await applyBuiltinTools(req.body || {}));
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || '处理系统工具更新失败' });
+    }
+});
+
+router.post('/builtin-sync/apply-stream', requireAdmin, async (req, res) => {
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+    const send = event => { if (!res.destroyed && !res.writableEnded) res.write(`${JSON.stringify(event)}\n`); };
+    try {
+        const result = await applyBuiltinTools(req.body || {}, { onProgress: send, includePreview: false });
+        send({ type: 'result', data: result });
+    } catch (error) {
+        send({ type: 'error', error: error.message || '处理系统工具更新失败', status: error.status || 500 });
+    } finally {
+        res.end();
     }
 });
 

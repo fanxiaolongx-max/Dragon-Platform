@@ -4630,8 +4630,6 @@ body.service-status-open { overflow: hidden; }
     padding: 24px;
     color: #172033;
     background: rgba(15, 23, 42, 0.52);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
 }
 
 .builtin-sync-window {
@@ -4931,6 +4929,43 @@ body.service-status-open { overflow: hidden; }
     font-size: 11px;
 }
 
+.builtin-sync-feedback {
+    flex: 1;
+    min-width: 0;
+}
+
+.builtin-sync-progress[hidden] { display: none; }
+.builtin-sync-progress { margin-bottom: 6px; }
+.builtin-sync-progress-head { display: flex; justify-content: space-between; gap: 12px; color: #4338ca; font-size: 11px; }
+.builtin-sync-progress-percent { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.builtin-sync-progress-track { height: 6px; margin: 9px 0 7px; overflow: hidden; border-radius: 999px; background: #dce3ef; }
+.builtin-sync-progress-track i { display: block; width: 100%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6366f1, #14b8a6); transform: scaleX(0); transform-origin: left; transition: transform .2s ease; }
+.builtin-sync-progress-detail { overflow: hidden; color: #64748b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.builtin-sync-progress.is-error .builtin-sync-progress-head { color: #b91c1c; }
+.builtin-sync-progress.is-error .builtin-sync-progress-track i { background: #dc5b5b; }
+.builtin-sync-modal button:disabled, .builtin-sync-choice:disabled { cursor: default; opacity: .58; }
+
+@media (prefers-color-scheme: dark) {
+    .builtin-sync-window { border-color: #334155; background: #182335; color: #e2e8f0; }
+    .builtin-sync-head, .builtin-sync-footer { background: #1e293b; border-color: #334155; }
+    .builtin-sync-head h2, .builtin-sync-tool-copy strong, .builtin-sync-metrics b { color: #e2e8f0; }
+    .builtin-sync-card { background: #1e293b; border-color: #475569; }
+    .builtin-sync-card.is-conflict { background: #322b21; }
+    .builtin-sync-details summary, .builtin-sync-info-diff { background: #273449; color: #cbd5e1; }
+    .builtin-sync-file-row code { color: #cbd5e1; }
+    .builtin-sync-safe-note { background: #193b35; border-color: #2a6255; color: #b8d5ce; }
+    .builtin-sync-safe-note strong { color: #6ee7b7; }
+    .builtin-sync-head p, .builtin-sync-toolbar { color: #a6b6ca; }
+    .builtin-sync-progress-head { color: #a5b4fc; }
+    .builtin-sync-progress-track { background: #334155; }
+    .builtin-sync-progress-detail, .builtin-sync-result, .builtin-sync-metrics { color: #a6b6ca; }
+    .builtin-sync-progress.is-error .builtin-sync-progress-head { color: #fca5a5; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .builtin-sync-progress-track i { transition: none; }
+}
+
 .builtin-sync-footer button {
     height: 36px;
     padding: 0 15px;
@@ -4972,6 +5007,7 @@ body.service-status-open { overflow: hidden; }
     .builtin-sync-file-size { grid-column: 2; }
     .builtin-sync-footer { flex-wrap: wrap; padding: 11px 12px; }
     .builtin-sync-result { width: 100%; }
+    .builtin-sync-feedback { flex-basis: 100%; }
 }
 
 /* ============================================================ */

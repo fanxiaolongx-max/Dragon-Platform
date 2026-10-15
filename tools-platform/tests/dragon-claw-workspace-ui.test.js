@@ -25,7 +25,7 @@ test('chat script sends the workspace payload, forwards events and shares its te
     const assistant = read('frontend/js/shared/ai-assistant.js');
     assert.match(agent, /window\.DragonClawText = \{ tx/);
     assert.match(agent, /workspace: workspacePayload/);
-    assert.match(agent, /onEvent: event => \{\s*workspace\(\)\?\.handleEvent\(reply, event\);\s*activity\.event\(event\);/);
+    assert.match(agent, /onEvent: event => \{[\s\S]*?workspace\(\)\?\.handleEvent\(reply, event, workspacePayload\);\s*activity\.event\(event\);/);
     assert.match(agent, /workspace\(\)\?\.applyDone\(data\)/);
     assert.match(agent, /workspace\(\)\?\.resetSession\?\.\(\)/);
     assert.match(assistant, /onEvent\?\.\(event\)/);
@@ -68,7 +68,11 @@ test('server mounts the workspace router, allowlists it and the layout gains a t
     assert.match(ai, /isAgentWorkspaceAllowed\(req\)/);
     assert.match(ai, /agentSessionId: agentSession\.id/);
     const layout = read('frontend/css/home-workspace.css');
-    assert.match(layout, /body\.dc-workspace-open \.home-content\.home-workspace \{ grid-template-columns: 248px minmax\(0, 1fr\) 320px; \}/);
+    assert.match(layout, /body\.dc-workspace-open \.home-content\.home-workspace \{ grid-template-columns: var\(--ws-side\) minmax\(0, 1fr\) var\(--ws-panel-w\); \}/);
+    // 宽屏自适应：三栏宽度随视口伸展，且不再保留整体 max-width 上限
+    assert.match(layout, /--ws-side: clamp\(248px, [^)]+\);/);
+    assert.match(layout, /--ws-panel-w: clamp\(320px, [^)]+\);/);
+    assert.match(layout, /max-width: none;/);
     const css = read('frontend/css/workspace-panel.css');
     assert.match(css, /@media \(max-width: 860px\)[\s\S]*\.home-workspace-panel \{[\s\S]*position: fixed/);
 });
@@ -115,7 +119,7 @@ test('home chat can resume the last conversation with its agent session, distinc
     assert.match(js, /fetch\(`\/api\/ai\/sessions\/\$\{encodeURIComponent\(saved\.sessionId\)\}\/messages`/);
     // 回复后记下会话与工作区智能体会话；续接时接回，模型才记得工具操作
     assert.match(js, /rememberLastChat\(data\.sessionId, workspacePayload \?/);
-    assert.match(js, /if \(resume\.agent\) workspace\(\)\?\.resumeWorkspace\?\.\(resume\.agent\)/);
+    assert.match(js, /await workspace\(\)\?\.resumeWorkspace\?\.\(resume\.agent \|\| \{\}\)/);
     // 续接视图：顶部标记、历史淡化、分隔线；新对话后可再接回刚离开的对话
     assert.match(js, /dc-history-banner/);
     assert.match(js, /classList\.add\('dc-msg--history'\)/);
@@ -136,7 +140,7 @@ test('resuming selects the old folder, restores context and shows live changes i
     const panel = read('frontend/js/home/workspace-panel.js');
     // 恢复对话：目录不同就自动选回；打不开时提示，对话照常恢复
     assert.match(panel, /async resumeWorkspace\(\{ agentSessionId, root \} = \{\}\)/);
-    assert.match(panel, /await selectDirectory\(root\);\n\s+\} catch \{\n\s+toast\(tx\('resumeDirMissing'/);
+    assert.match(panel, /await selectDirectory\(root, ticket\);[\s\S]*?clearDirectory\(\);\n\s+this\.resetSession\(\);\n\s+toast\(tx\('resumeDirMissing'/);
     assert.match(panel, /API\}\/state\/\$\{encodeURIComponent\(id\)\}\?root=/);
     // 实时更改：回到页面、面板打开时定时刷新；外部改动用标签代替撤销，PR 只在有本会话改动时出现
     assert.match(panel, /window\.addEventListener\('focus', refreshChanges\)/);
@@ -170,7 +174,7 @@ test('risky commands show their reasons without "always allow", and undo conflic
     assert.match(panel, /if \(risk\) detail \+= `<div class="dc-approval-risk">/);
     assert.match(panel, /\$\{risk \? '' : `<button type="button" class="dc-action" data-decision="always">/);
     assert.match(panel, /error\.code === 'AGENT_CHANGE_CONFLICT' && !force/);
-    assert.match(panel, /\{ path: filePath, root: state\.root, force \}/, 'undo works after a restart by passing the folder');
+    assert.match(panel, /\{ path: filePath, root: target\.root, force \}/, 'undo works after a restart by passing the folder');
     assert.match(panel, /item\.source === 'command' \? `<em class="wsp-change-src"/);
     const js = read('frontend/js/home/dragon-claw.js');
     for (const key of ['commandTag', 'riskTitle', 'revertConflictTitle', 'revertConflictMessage', 'revertConflictConfirm']) assert.equal(js.split(`${key}: '`).length - 1, 2, key);

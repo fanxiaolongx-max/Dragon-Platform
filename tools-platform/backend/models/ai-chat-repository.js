@@ -78,6 +78,7 @@ async function ensureReady() {
             `);
             // 工具调用、审批、命令输出等过程记录（JSON），恢复对话时重放成卡片
             await addColumnIfMissing('ai_chat_messages', 'events', "TEXT NOT NULL DEFAULT ''");
+            await addColumnIfMissing('ai_chat_messages', 'agent_final', 'INTEGER NOT NULL DEFAULT 0');
             await addColumnIfMissing('ai_question_suggestions', 'owner', "TEXT NOT NULL DEFAULT ''");
             await run('CREATE INDEX IF NOT EXISTS idx_ai_chat_messages_session ON ai_chat_messages(session_id, created_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_ai_chat_sessions_page ON ai_chat_sessions(page_path, updated_at)');
@@ -242,6 +243,37 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
     await run('UPDATE ai_chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [finalSessionId]);
     await autoArchiveSessions();
     return finalSessionId;
+}
+
+// runId 生成稳定消息 ID；检查点更新同一对消息，正常结束或恢复不会重复追加。
+async function upsertAgentTurn({ sessionId, owner, runId, agentSessionId, root, transcript = [], content, events, tokens = 0, cost = 0, final = false }) {
+    await ensureReady();
+    const session = await assertSessionOwner(sessionId, owner);
+    if (!session) throw forbiddenSession();
+    const metadata = await get('SELECT page_path, page_title FROM ai_chat_sessions WHERE id = ?', [sessionId]);
+    const generatedEvents = [];
+    for (const entry of transcript) {
+        for (const call of entry.toolCalls || []) generatedEvents.push({ type: 'tool_start', callId: call.id, tool: call.name, args: call.args });
+        for (const result of entry.toolResults || []) generatedEvents.push({ type: 'tool_result', callId: result.id, tool: result.name, ok: !result.isError,
+            summary: result.isError ? String(result.content).slice(0, 160) : '已保存执行结果', ...(result.name === 'run_command' ? { output: result.content } : {}) });
+    }
+    const question = transcript.find(entry => entry.role === 'user')?.content || '';
+    const answer = content ?? transcript.filter(entry => entry.role === 'model' && entry.content).map(entry => entry.content).join('\n\n');
+    for (const role of ['user', 'model']) {
+        const text = role === 'user' ? question : answer;
+        const savedEvents = role === 'model' ? events || generatedEvents : [];
+        const id = `agent_${runId}_${role}`;
+        const existing = await get('SELECT session_id FROM ai_chat_messages WHERE id = ?', [id]);
+        if (existing && existing.session_id !== sessionId) throw forbiddenSession();
+        await run(`INSERT INTO ai_chat_messages (id, session_id, page_path, page_title, role, content, tokens, cost, events, agent_final)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET content = excluded.content, tokens = excluded.tokens, cost = excluded.cost,
+                events = excluded.events, agent_final = excluded.agent_final
+            WHERE ai_chat_messages.session_id = excluded.session_id AND ai_chat_messages.agent_final = 0`,
+        [id, sessionId, metadata.page_path, metadata.page_title, role, redactText(text), role === 'model' ? tokens : 0,
+            role === 'model' ? cost : 0, JSON.stringify(redactValue(savedEvents)), Number(final)]);
+    }
+    await setSessionAgent(sessionId, { agentSessionId, root, owner });
 }
 
 async function recordQuestion({ pagePath, question, owner } = {}) {
@@ -446,6 +478,7 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
 async function listMessages(sessionId, { owner } = {}) {
     await ensureReady();
     if (owner !== undefined) await assertSessionOwner(sessionId, owner);
+    if (owner !== undefined) await require('./agent-transcript-repository').syncChatSession(sessionId, `${require('./tenant-context').getTenantId()}::${owner}`);
     return all(
         `SELECT id, session_id, role, content, tokens, cost, created_at, events
          FROM ai_chat_messages
@@ -533,6 +566,7 @@ module.exports = {
     setSessionAgent,
     listOwnedSessions,
     addMessage,
+    upsertAgentTurn,
     recordQuestion,
     listSuggestions,
     listSessions,

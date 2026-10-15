@@ -104,6 +104,7 @@
         messages: [],
         sessionId: null,
         controller: null,
+        restoring: false,
         focusedTool: null,
         spotlight: [],
         spotIndex: 0,
@@ -115,6 +116,7 @@
         resume: null
     };
     const el = {};
+    let resumeEpoch = 0;
     const workspace = () => window.DragonClawWorkspace || null;
 
     function lang() {
@@ -659,7 +661,7 @@
         el.form.classList.toggle('is-generating', generating);
         el.send.setAttribute('aria-label', generating ? tx('stop') : tx('send'));
         el.send.title = generating ? tx('stop') : tx('send');
-        el.send.disabled = !generating && !el.input.value.trim();
+        el.send.disabled = state.restoring || (!generating && !el.input.value.trim());
     }
 
     // 斜杠命令：/session [关键词] 打开历史会话，/new 新对话；其他以 / 开头的内容照常发送
@@ -684,7 +686,7 @@
 
     async function send(text, displayText = text) {
         const content = String(text || '').trim();
-        if (!content || state.controller) return;
+        if (!content || state.controller || state.restoring) return;
         if (runSlashCommand(content)) return;
         setChatting(true);
         addMessage('user', String(displayText || content).trim());
@@ -729,16 +731,22 @@
             }, {
                 signal: controller.signal,
                 onDelta: delta => {
-                    if (!delta) return;
+                    if (!delta || controller.signal.aborted || !reply.isConnected) return;
                     started = true;
                     renderer.append(delta);
                 },
                 onStatus: () => activity.status(),
                 onEvent: event => {
-                    workspace()?.handleEvent(reply, event);
+                    if (controller.signal.aborted || !reply.isConnected) return;
+                    if (event.type === 'start' && event.sessionId) {
+                        state.sessionId = event.sessionId;
+                        rememberLastChat(event.sessionId, workspacePayload ? { agentSessionId: workspacePayload.agentSessionId, root: workspacePayload.root } : null);
+                    }
+                    workspace()?.handleEvent(reply, event, workspacePayload);
                     activity.event(event);
                 }
             });
+            if (controller.signal.aborted || !reply.isConnected) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
             if (data.sessionId) {
                 state.sessionId = data.sessionId;
                 rememberLastChat(data.sessionId, workspacePayload ? { agentSessionId: data.agentSessionId || workspacePayload.agentSessionId, root: data.agent?.root || workspacePayload.root } : null);
@@ -752,6 +760,7 @@
             addMessageTools(reply, finalText, modelName ? `<span class="dc-msg-model" title="${escapeHtml(tx('modelCurrent', { name: modelName }))}">${escapeHtml(modelName)}</span>` : '');
         } catch (error) {
             const partial = renderer.finish();
+            if (!reply.isConnected) return;
             if (error?.name === 'AbortError') {
                 if (partial || reply.querySelector('.dc-tool-log')?.childElementCount) {
                     state.messages.push({ role: 'model', content: partial || tx('stopped') });
@@ -859,20 +868,35 @@
         return message;
     }
 
-    function resumeChat(resume = state.resume) {
-        if (!resume || state.controller) return;
-        state.messages = resume.items.map(item => ({ role: item.role === 'model' ? 'model' : 'user', content: String(item.content) }));
-        state.sessionId = resume.sessionId;
-        state.focusedTool = null;
-        if (resume.agent) workspace()?.resumeWorkspace?.(resume.agent);
-        el.thread.innerHTML = `<div class="dc-history-banner"><span aria-hidden="true">↺</span>${escapeHtml(tx('resumeBanner', { time: resume.time }))}</div>`;
-        resume.items.forEach(item => addHistoryMessage(item.role, String(item.content), item.events));
-        rememberLastChat(resume.sessionId, resume.agent);
-        el.thread.insertAdjacentHTML('beforeend', `<div class="dc-history-divider"><span>${escapeHtml(tx('resumeDivider'))}</span></div>`);
-        hideResumeCard();
-        setChatting(true);
-        scrollThread(true);
-        el.input.focus({ preventScroll: true });
+    async function resumeChat(resume = state.resume) {
+        if (!resume || state.controller || state.restoring) return;
+        const epoch = ++resumeEpoch;
+        state.restoring = true;
+        el.input.disabled = true;
+        updateSendButton();
+        try {
+            await workspace()?.resumeWorkspace?.(resume.agent || {});
+            if (epoch !== resumeEpoch) return;
+            state.messages = resume.items.map(item => ({ role: item.role === 'model' ? 'model' : 'user', content: String(item.content) }));
+            state.sessionId = resume.sessionId;
+            state.focusedTool = null;
+            el.thread.innerHTML = `<div class="dc-history-banner"><span aria-hidden="true">↺</span>${escapeHtml(tx('resumeBanner', { time: resume.time }))}</div>`;
+            resume.items.forEach(item => addHistoryMessage(item.role, String(item.content), item.events));
+            rememberLastChat(resume.sessionId, resume.agent);
+            el.thread.insertAdjacentHTML('beforeend', `<div class="dc-history-divider"><span>${escapeHtml(tx('resumeDivider'))}</span></div>`);
+            hideResumeCard();
+            setChatting(true);
+            scrollThread(true);
+        } catch (error) {
+            if (epoch === resumeEpoch) showToast(error?.message || tx('resumeFailed'));
+        } finally {
+            if (epoch === resumeEpoch) {
+                state.restoring = false;
+                el.input.disabled = false;
+                updateSendButton();
+                el.input.focus({ preventScroll: true });
+            }
+        }
     }
 
     // ── 斜杠命令提示 ─────────────────────────────
@@ -992,6 +1016,9 @@
     }
 
     function newChat() {
+        resumeEpoch += 1;
+        state.restoring = false;
+        el.input.disabled = false;
         state.controller?.abort();
         workspace()?.resetSession?.();
         state.messages = [];

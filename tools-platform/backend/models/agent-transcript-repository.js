@@ -49,6 +49,13 @@ function ensureReady() {
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )`);
             await run('CREATE INDEX IF NOT EXISTS idx_agent_turns_session ON agent_session_turns(agent_session_id, created_at)');
+            await run("ALTER TABLE agent_session_turns ADD COLUMN recovery TEXT NOT NULL DEFAULT '{}'").catch(error => {
+                if (!/duplicate column/i.test(String(error.message))) throw error;
+            });
+            await run("ALTER TABLE agent_session_turns ADD COLUMN chat_session_id TEXT NOT NULL DEFAULT ''").catch(error => {
+                if (!/duplicate column/i.test(String(error.message))) throw error;
+            });
+            await run('CREATE INDEX IF NOT EXISTS idx_agent_turns_chat ON agent_session_turns(owner, chat_session_id)');
         })().catch(error => {
             readyByDb.delete(dbKey);
             throw error;
@@ -138,18 +145,31 @@ async function load(agentSessionId) {
         'SELECT agent_session_id, owner, root, permission_mode, transcript, turn_count, context, updated_at FROM agent_session_transcripts WHERE agent_session_id = ?',
         [String(agentSessionId || '')]
     );
-    if (!row) return null;
+    const latest = await get('SELECT * FROM agent_session_turns WHERE agent_session_id = ? ORDER BY rowid DESC LIMIT 1', [String(agentSessionId || '')]);
+    if (!row && !latest) return null;
     let transcript = [];
     try {
-        transcript = normalizeTranscript(JSON.parse(row.transcript || '[]'));
+        transcript = normalizeTranscript(JSON.parse(row?.transcript || '[]'));
     } catch (_error) {
         transcript = [];
     }
     let context = null;
     try {
-        context = row.context ? JSON.parse(row.context) : null;
+        context = row?.context ? JSON.parse(row.context) : null;
     } catch (_error) {
         context = null;
+    }
+    let recovery = {};
+    try { recovery = JSON.parse(latest?.recovery || '{}'); } catch (_error) { /* legacy archive */ }
+    if (latest && (recovery.version === 1 || !row || latest.status === 'running')) {
+        if (row && row.owner !== latest.owner) throw Object.assign(new Error('会话档案归属不一致'), { code: 'AGENT_SESSION_FORBIDDEN', statusCode: 403 });
+        const archived = JSON.parse(latest.transcript || '[]');
+        const prior = recovery.version === 1 ? recovery.priorTranscript : transcript;
+        const count = Number(recovery.priorTurnCount ?? row?.turn_count ?? 0) + (latest.status === 'completed' ? 1 : 0);
+        return { agentSessionId: latest.agent_session_id, owner: latest.owner, root: latest.root,
+            permissionMode: recovery.permissionMode || row?.permission_mode || 'ask',
+            transcript: normalizeTranscript(restoreInterruptedTranscript([...(prior || []), ...archived], latest.status)),
+            turnCount: count, context: row && row.turn_count === count ? context : null, updatedAt: latest.updated_at };
     }
     return {
         agentSessionId: row.agent_session_id,
@@ -163,14 +183,55 @@ async function load(agentSessionId) {
     };
 }
 
-async function saveTurn({ runId, agentSessionId, owner, root, transcript, status = 'running' }) {
+// 没有持久结果的调用不能断言“未执行”：进程可能在副作用发生后、保存结果前退出。
+function restoreInterruptedTranscript(entries, status) {
+    const restored = [];
+    for (let index = 0; index < entries.length; index++) {
+        const entry = sanitizeEntry(entries[index]);
+        if (!entry || entry.role === 'tool') continue;
+        restored.push(entry);
+        if (!entry.toolCalls?.length) continue;
+        const next = entries[index + 1];
+        const results = next?.role === 'tool' ? next.toolResults || [] : [];
+        if (next?.role === 'tool') index += 1;
+        restored.push({ role: 'tool', toolResults: entry.toolCalls.map(call => results.find(item => item.id === call.id) || {
+            id: call.id, name: call.name, isError: true,
+            content: '操作状态未知：上次进程可能在执行前或执行后中断。请先检查实际状态，不能把缺失结果当作未执行，也不要直接重复写入、提交或外部请求。'
+        }) });
+    }
+    if (status === 'running') restored.push({ role: 'model', content: '（上次运行没有结束记录，已恢复保存的步骤；无结果的操作状态未知，后续先核实实际状态。）' });
+    return restored;
+}
+
+async function saveTurn({ runId, agentSessionId, owner, root, transcript, status = 'running', recovery = {} }) {
     await claimSession(agentSessionId, owner);
     const entries = redactValue((Array.isArray(transcript) ? transcript : []).map(sanitizeEntry).filter(Boolean));
-    await run(`INSERT INTO agent_session_turns (run_id, agent_session_id, owner, root, transcript, status)
-        VALUES (?, ?, ?, ?, ?, ?)
+    await run(`INSERT INTO agent_session_turns (run_id, agent_session_id, owner, root, transcript, status, recovery, chat_session_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(run_id) DO UPDATE SET transcript = excluded.transcript, status = excluded.status, updated_at = CURRENT_TIMESTAMP
         WHERE agent_session_turns.owner = excluded.owner AND agent_session_turns.agent_session_id = excluded.agent_session_id`,
-    [runId, agentSessionId, owner, root, JSON.stringify(entries), status]);
+    [runId, agentSessionId, owner, root, JSON.stringify(entries), status, JSON.stringify(redactValue(recovery)), recovery.chatSessionId || '']);
+    if (recovery.chatSessionId) await syncChatTurn({ run_id: runId, agent_session_id: agentSessionId, owner, root, transcript: JSON.stringify(entries), status, recovery: JSON.stringify(recovery) });
+}
+
+async function syncChatTurn(row) {
+    const recovery = JSON.parse(row.recovery || '{}');
+    if (!recovery.chatSessionId || !recovery.chatOwner) return;
+    await require('./ai-chat-repository').upsertAgentTurn({ sessionId: recovery.chatSessionId, owner: recovery.chatOwner,
+        runId: row.run_id, agentSessionId: row.agent_session_id, root: row.root,
+        transcript: restoreInterruptedTranscript(JSON.parse(row.transcript), row.status) });
+}
+
+async function syncChatSession(sessionId, owner) {
+    await ensureReady();
+    const rows = await all(`SELECT * FROM agent_session_turns t WHERE owner = ? AND chat_session_id = ?
+        AND NOT EXISTS (SELECT 1 FROM ai_chat_messages m WHERE m.id = 'agent_' || t.run_id || '_model' AND m.agent_final = 1)
+        ORDER BY rowid`, [owner, sessionId]);
+    for (const row of rows) {
+        let recovery = {};
+        try { recovery = JSON.parse(row.recovery || '{}'); } catch (_error) { continue; }
+        if (recovery.chatSessionId === sessionId) await syncChatTurn(row);
+    }
 }
 
 async function listTurns({ agentSessionId, owner, root, limit = 5, offset = 0 }) {
@@ -213,10 +274,11 @@ async function save({ agentSessionId, owner, root, permissionMode, transcript, t
 async function findLatestSessionId(owner, root) {
     await ensureReady();
     const row = await get(
-        `SELECT agent_session_id FROM agent_session_transcripts
-         WHERE owner = ? AND root = ? AND transcript <> '[]'
-         ORDER BY updated_at DESC, rowid DESC LIMIT 1`,
-        [String(owner || ''), String(root || '')]
+        `SELECT agent_session_id FROM (
+            SELECT agent_session_id, updated_at, rowid AS sequence FROM agent_session_transcripts WHERE owner = ? AND root = ? AND transcript <> '[]'
+            UNION ALL SELECT agent_session_id, updated_at, rowid AS sequence FROM agent_session_turns WHERE owner = ? AND root = ? AND transcript <> '[]'
+         ) ORDER BY updated_at DESC, sequence DESC LIMIT 1`,
+        [String(owner || ''), String(root || ''), String(owner || ''), String(root || '')]
     );
     return row ? row.agent_session_id : '';
 }
@@ -233,4 +295,4 @@ async function prune(days = 30) {
     return result.changes || 0;
 }
 
-module.exports = { ensureReady, claimSession, load, save, saveTurn, listTurns, findLatestSessionId, remove, prune, normalizeTranscript, mergeHistoryWithTranscript, MAX_ENTRIES, MAX_JSON_BYTES };
+module.exports = { ensureReady, claimSession, load, save, saveTurn, listTurns, syncChatSession, findLatestSessionId, remove, prune, normalizeTranscript, mergeHistoryWithTranscript, MAX_ENTRIES, MAX_JSON_BYTES };

@@ -272,7 +272,7 @@ function removeEmptyParents(startPath, stopDir) {
     }
 }
 
-function copyManagedTool(source, targetDir, existingManifest, { backupBatchDir } = {}) {
+function copyManagedTool(source, targetDir, existingManifest, { backupBatchDir, onProgress = () => {} } = {}) {
     const slug = source.slug;
     const targetToolDir = path.join(targetDir, slug);
     const nonce = `${process.pid}-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
@@ -282,6 +282,7 @@ function copyManagedTool(source, targetDir, existingManifest, { backupBatchDir }
 
     fs.mkdirSync(stagingDir, { recursive: true });
     try {
+        onProgress({ stage: 'backing_up', slug });
         if (targetExists) fs.cpSync(targetToolDir, stagingDir, { recursive: true, force: true });
 
         const previousFiles = existingManifest
@@ -299,11 +300,14 @@ function copyManagedTool(source, targetDir, existingManifest, { backupBatchDir }
             }
         }
 
+        let filesCompleted = 0;
+        onProgress({ stage: 'copying', slug, filesCompleted, filesTotal: source.managedFiles.length });
         for (const relativePath of source.managedFiles) {
             const sourcePath = path.join(source.toolDir, relativePath);
             const targetPath = path.join(stagingDir, relativePath);
             fs.mkdirSync(path.dirname(targetPath), { recursive: true });
             fs.copyFileSync(sourcePath, targetPath);
+            onProgress({ stage: 'copying', slug, filesCompleted: ++filesCompleted, filesTotal: source.managedFiles.length });
         }
         fs.writeFileSync(
             path.join(stagingDir, TOOL_MANIFEST_FILE),
@@ -399,7 +403,9 @@ function applyBuiltinToolDecisions({
     backupRoot,
     applySlugs = [],
     skipSlugs = [],
-    expectedFingerprints = {}
+    expectedFingerprints = {},
+    includePreview = true,
+    onProgress = () => {}
 }) {
     const sourcePath = path.resolve(sourceDir);
     const targetPath = path.resolve(targetDir);
@@ -409,18 +415,20 @@ function applyBuiltinToolDecisions({
     const requestedApply = [...new Set(applySlugs.map(normalizeSlug).filter(Boolean))];
     const requestedSkip = [...new Set(skipSlugs.map(normalizeSlug).filter(Boolean))]
         .filter(slug => !requestedApply.includes(slug));
-    const preview = previewBuiltinTools({
-        sourceDir: sourcePath,
-        targetDir: targetPath,
-        stateFile,
-        includeSkipped: true
-    });
-    const candidates = new Map(
-        preview.tools
-            .filter(tool => tool.status !== 'unchanged')
-            .map(tool => [tool.slug, tool])
-    );
-    const sources = new Map(listBundledTools(sourcePath).map(source => [source.slug, source]));
+    // Only inspect the requested tools, and reuse each validated source inventory.
+    // Full-library scans here used to hash every bundled tool multiple times per update.
+    const allRequested = [...requestedApply, ...requestedSkip];
+    const sources = new Map();
+    const candidates = new Map();
+    const total = allRequested.length;
+    onProgress({ stage: 'validating', completed: 0, total, checked: 0 });
+    for (const slug of allRequested) {
+        const source = validateBundledTool(sourcePath, slug);
+        sources.set(slug, source);
+        const candidate = compareBundledTool(source, targetPath);
+        if (candidate.status !== 'unchanged') candidates.set(slug, candidate);
+        onProgress({ stage: 'validating', slug, completed: 0, total, checked: sources.size });
+    }
     const decisionState = readDecisionState(stateFile);
     const result = {
         samePath: false,
@@ -431,7 +439,6 @@ function applyBuiltinToolDecisions({
         backups: [],
         invalid: []
     };
-    const allRequested = [...requestedApply, ...requestedSkip];
     for (const slug of allRequested) {
         const candidate = candidates.get(slug);
         if (!candidate) throw new Error(`系统工具 ${slug} 当前没有待处理差异`);
@@ -450,12 +457,16 @@ function applyBuiltinToolDecisions({
 
     const timestamp = `${new Date().toISOString().replace(/[:.]/g, '-')}-${crypto.randomBytes(3).toString('hex')}`;
     const backupBatchDir = backupRoot ? path.join(path.resolve(backupRoot), timestamp) : null;
+    let completed = 0;
     for (const slug of requestedApply) {
         const candidate = candidates.get(slug);
         const source = sources.get(slug);
         const targetManifest = readJson(path.join(targetPath, slug, TOOL_MANIFEST_FILE));
         try {
-            const backupPath = copyManagedTool(source, targetPath, targetManifest, { backupBatchDir });
+            const backupPath = copyManagedTool(source, targetPath, targetManifest, {
+                backupBatchDir,
+                onProgress: event => onProgress({ ...event, completed, total })
+            });
             if (backupPath) result.backups.push({ slug, path: backupPath });
             if (candidate.status === 'missing') result.installed.push(slug);
             else if (candidate.status === 'adopt') result.adopted.push(slug);
@@ -464,6 +475,7 @@ function applyBuiltinToolDecisions({
         } catch (error) {
             result.invalid.push({ slug, error: error.message });
         }
+        onProgress({ stage: 'tool_complete', slug, completed: ++completed, total });
     }
     for (const slug of requestedSkip) {
         const candidate = candidates.get(slug);
@@ -472,9 +484,11 @@ function applyBuiltinToolDecisions({
             skippedAt: new Date().toISOString()
         };
         result.skipped.push(slug);
+        onProgress({ stage: 'tool_complete', slug, completed: ++completed, total });
     }
+    onProgress({ stage: 'saving', completed, total });
     writeDecisionState(stateFile, decisionState);
-    result.preview = previewBuiltinTools({
+    if (includePreview) result.preview = previewBuiltinTools({
         sourceDir: sourcePath,
         targetDir: targetPath,
         stateFile

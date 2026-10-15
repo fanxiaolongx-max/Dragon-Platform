@@ -2196,6 +2196,15 @@ window.addEventListener('tools:languagechange', () => {
 
     const syncModal = document.getElementById('builtinToolsSyncModal');
     if (syncModal && lastBuiltinToolsSyncPreview) {
+        if (syncModal.dataset.applying === '1' || syncModal.dataset.needsRefresh === '1') {
+            if (syncModal.dataset.applying === '1') {
+                renderBuiltinToolsSyncProgress(syncModal, syncModal.syncProgress || {});
+                syncModal.querySelector('.builtin-sync-apply').textContent = navLocaleText('正在处理…', 'Processing…');
+            } else {
+                syncModal.querySelector('.builtin-sync-apply').textContent = navLocaleText('重新检查', 'Check Again');
+            }
+            return;
+        }
         const selectedSlugs = new Set(
             [...syncModal.querySelectorAll('.builtin-sync-choice:checked')].map(input => input.dataset.syncSlug)
         );
@@ -8962,10 +8971,94 @@ function renderBuiltinToolDiff(tool) {
 
 function closeBuiltinToolsSyncModal() {
     const modal = document.getElementById('builtinToolsSyncModal');
+    if (modal?.dataset.applying === '1') return;
     if (modal) modal.remove();
 }
 
+async function applyBuiltinToolsWithProgress(body, onProgress) {
+    const response = await fetch('/api/custom-tools/builtin-sync/apply-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() },
+        body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+        if (typeof handleResponse === 'function') return handleResponse(response);
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || `HTTP ${response.status}`);
+    }
+    if (!response.body?.getReader) throw new Error(navLocaleText('当前浏览器不支持更新进度，请重新检查更新状态。', 'This browser cannot display update progress. Please check update status again.'));
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let result;
+    const consume = line => {
+        if (!line.trim()) return;
+        const event = JSON.parse(line);
+        if (event.type === 'progress') onProgress(event);
+        else if (event.type === 'result') result = event.data;
+        else if (event.type === 'error') throw new Error(event.error);
+    };
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            buffer += decoder.decode(value, { stream: !done });
+            let newline;
+            while ((newline = buffer.indexOf('\n')) !== -1) {
+                consume(buffer.slice(0, newline));
+                buffer = buffer.slice(newline + 1);
+            }
+            if (done) break;
+        }
+        consume(buffer);
+        if (!result) throw new Error(navLocaleText('更新连接中断，服务端可能仍在处理，请稍后重新检查。', 'The connection ended. The server may still be updating; check again shortly.'));
+        return result;
+    } finally {
+        reader.releaseLock();
+    }
+}
+
+function renderBuiltinToolsSyncProgress(modal, event) {
+    const previous = modal.syncProgress || {};
+    const progress = { ...previous, ...event };
+    const total = Math.max(1, Number(progress.total) || 0);
+    const completed = Number(progress.completed) || 0;
+    const fileFraction = progress.stage === 'copying' && progress.filesTotal
+        ? progress.filesCompleted / progress.filesTotal : 0;
+    const percent = progress.stage === 'done' ? 100
+        : progress.stage === 'indexing' ? 96
+            : progress.stage === 'saving' ? 92
+                : progress.stage === 'validating' ? 10 * (progress.checked || 0) / total
+                    : 10 + 80 * (completed + fileFraction) / total;
+    // Phase weights describe overall progress; advance only on actual worker events.
+    progress.percent = Math.min(100, Math.max(previous.percent || 0, Math.round(percent)));
+    modal.syncProgress = progress;
+    const labels = {
+        validating: navLocaleText(`正在校验版本 · ${progress.checked || 0}/${progress.total || 0}`, `Checking versions · ${progress.checked || 0}/${progress.total || 0}`),
+        backing_up: navLocaleText('正在备份旧版与保留用户文件', 'Backing up old version and preserving user files'),
+        copying: navLocaleText(`正在复制程序文件 · ${progress.filesCompleted || 0}/${progress.filesTotal || 0}`, `Copying application files · ${progress.filesCompleted || 0}/${progress.filesTotal || 0}`),
+        tool_complete: navLocaleText(`已处理 ${completed}/${progress.total || 0} 个工具`, `Processed ${completed}/${progress.total || 0} tools`),
+        saving: navLocaleText('正在保存处理结果', 'Saving update results'),
+        indexing: navLocaleText('正在刷新工具索引', 'Refreshing tool index'),
+        done: navLocaleText('处理完成', 'Complete')
+    };
+    const panel = modal.querySelector('.builtin-sync-progress');
+    panel.hidden = false;
+    panel.querySelector('.builtin-sync-progress-label').textContent = labels[progress.stage] || labels.validating;
+    panel.querySelector('.builtin-sync-progress-percent').textContent = `${progress.percent}%`;
+    const bar = panel.querySelector('[role="progressbar"]');
+    bar.setAttribute('aria-valuenow', String(progress.percent));
+    bar.setAttribute('aria-label', navLocaleText('系统工具更新进度', 'System tool update progress'));
+    bar.querySelector('i').style.transform = `scaleX(${progress.percent / 100})`;
+    const tool = lastBuiltinToolsSyncPreview?.pending?.find(item => item.slug === progress.slug);
+    const toolPosition = ['backing_up', 'copying'].includes(progress.stage)
+        ? navLocaleText(`第 ${completed + 1}/${progress.total} 个`, `Tool ${completed + 1}/${progress.total}`) : '';
+    panel.querySelector('.builtin-sync-progress-detail').textContent = progress.slug && !['saving', 'indexing', 'done'].includes(progress.stage)
+        ? [tool?.name || progress.slug, toolPosition, progress.slug].filter(Boolean).join(' · ')
+        : navLocaleText('请保持页面打开，完成后将自动刷新。', 'Keep this page open. It will refresh when the update finishes.');
+}
+
 function openBuiltinToolsSyncModal(preview, selectedSlugs) {
+    if (document.getElementById('builtinToolsSyncModal')?.dataset.applying === '1') return;
     closeBuiltinToolsSyncModal();
     const tools = Array.isArray(preview?.pending) ? preview.pending : [];
     if (!tools.length) return;
@@ -9018,7 +9111,7 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
                 </div>
                 <details class="builtin-sync-details" ${tool.status === 'conflict' ? 'open' : ''}>
                     <summary>${navEscape(navLocaleText(`查看旧版与新版比对（${diffSummary}）`, `View comparison with old version (${diffSummary})`))}</summary>
-                    <div class="builtin-sync-file-list">${renderBuiltinToolDiff(tool)}</div>
+                    <div class="builtin-sync-file-list"></div>
                 </details>
             </article>
         `;
@@ -9045,7 +9138,14 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
             </div>
             <div class="builtin-sync-list">${toolCards}</div>
             <footer class="builtin-sync-footer">
+                <div class="builtin-sync-feedback">
+                <div class="builtin-sync-progress" hidden>
+                    <div class="builtin-sync-progress-head"><strong class="builtin-sync-progress-label" aria-live="polite"></strong><span class="builtin-sync-progress-percent">0%</span></div>
+                    <div class="builtin-sync-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+                    <div class="builtin-sync-progress-detail"></div>
+                </div>
                 <span class="builtin-sync-result" aria-live="polite">${navEscape(navLocaleText('冲突项默认保留旧版，您仍可手动勾选覆盖。', 'Conflicts keep old version by default. You can manually select to overwrite.'))}</span>
+                </div>
                 <button type="button" class="builtin-sync-later">${navEscape(navLocaleText('稍后提醒', 'Remind Later'))}</button>
                 <button type="button" class="builtin-sync-today">${navEscape(navLocaleText('今天不再提醒', 'Don\'t Remind Today'))}</button>
                 <button type="button" class="builtin-sync-apply">${navEscape(navLocaleText('按选择处理', 'Apply Selected'))}</button>
@@ -9053,6 +9153,17 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
         </div>
     `;
     document.body.appendChild(modal);
+
+    // Collapsed comparisons can contain thousands of files; create rows on demand.
+    modal.querySelectorAll('.builtin-sync-details').forEach((details, index) => {
+        const renderDiff = () => {
+            if (!details.open || details.dataset.loaded) return;
+            details.dataset.loaded = '1';
+            details.querySelector('.builtin-sync-file-list').innerHTML = renderBuiltinToolDiff(tools[index]);
+        };
+        details.addEventListener('toggle', renderDiff);
+        renderDiff();
+    });
 
     const close = () => closeBuiltinToolsSyncModal();
     modal.querySelector('.builtin-sync-close').addEventListener('click', close);
@@ -9077,22 +9188,36 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
     modal.querySelector('.builtin-sync-apply').addEventListener('click', async event => {
         const button = event.currentTarget;
         const resultNode = modal.querySelector('.builtin-sync-result');
+        if (modal.dataset.applying === '1') return;
+        if (modal.dataset.needsRefresh === '1') {
+            button.disabled = true;
+            try {
+                const refreshed = await API.get('/api/custom-tools/builtin-sync/preview');
+                if (refreshed.pending?.length) openBuiltinToolsSyncModal(refreshed);
+                else window.location.reload();
+            } catch (error) {
+                resultNode.textContent = error.message;
+            } finally { button.disabled = false; }
+            return;
+        }
         const selected = new Set(
             [...modal.querySelectorAll('.builtin-sync-choice:checked')].map(input => input.dataset.syncSlug)
         );
         const applySlugs = tools.filter(tool => selected.has(tool.slug)).map(tool => tool.slug);
         const skipSlugs = tools.filter(tool => !selected.has(tool.slug)).map(tool => tool.slug);
         const expectedFingerprints = Object.fromEntries(tools.map(tool => [tool.slug, tool.fingerprint]));
-        button.disabled = true;
-        modal.querySelector('.builtin-sync-later').disabled = true;
-        modal.querySelector('.builtin-sync-today').disabled = true;
-        resultNode.textContent = navLocaleText('正在备份旧版并按选择处理…', 'Backing up old versions and applying changes…');
+        modal.dataset.applying = '1';
+        modal.querySelectorAll('button, input').forEach(control => { control.disabled = true; });
+        button.textContent = navLocaleText('正在处理…', 'Processing…');
+        resultNode.textContent = '';
+        renderBuiltinToolsSyncProgress(modal, { stage: 'validating', checked: 0, completed: 0, total: tools.length });
         try {
-            const result = await API.post('/api/custom-tools/builtin-sync/apply', {
+            const result = await applyBuiltinToolsWithProgress({
                 applySlugs,
                 skipSlugs,
                 expectedFingerprints
-            });
+            }, progress => renderBuiltinToolsSyncProgress(modal, progress));
+            renderBuiltinToolsSyncProgress(modal, { stage: 'done' });
             const changed = result.installed.length + result.adopted.length + result.updated.length;
             const failed = Array.isArray(result.invalid) ? result.invalid : [];
             resultNode.textContent = failed.length
@@ -9107,15 +9232,23 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
             if (changed) {
                 setTimeout(() => window.location.reload(), failed.length ? 1800 : 650);
             } else if (failed.length) {
-                button.disabled = false;
-                modal.querySelector('.builtin-sync-later').disabled = false;
-                modal.querySelector('.builtin-sync-today').disabled = false;
+                enableRecheck();
             } else {
+                modal.dataset.applying = '0';
                 setTimeout(close, 650);
             }
+            if (failed.length) modal.querySelector('.builtin-sync-progress').classList.add('is-error');
         } catch (error) {
             resultNode.textContent = navLocaleText(`处理失败：${error.message || '未知错误'}`, `Processing failed: ${error.message || 'Unknown error'}`);
+            modal.querySelector('.builtin-sync-progress').classList.add('is-error');
+            enableRecheck();
+        }
+        function enableRecheck() {
+            modal.dataset.applying = '0';
+            modal.dataset.needsRefresh = '1';
             button.disabled = false;
+            button.textContent = navLocaleText('重新检查', 'Check Again');
+            modal.querySelector('.builtin-sync-close').disabled = false;
             modal.querySelector('.builtin-sync-later').disabled = false;
             modal.querySelector('.builtin-sync-today').disabled = false;
         }

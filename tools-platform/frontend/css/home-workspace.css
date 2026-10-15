@@ -8,13 +8,17 @@
     --ws-muted: #8b9ab3;
     --ws-faint: #64748b;
     --ws-accent: #64ffda;
+    /* 流式三栏：不设整体上限，宽屏/高分屏下侧栏、对话列、工作区按视口比例伸展，避免两侧大片留白 */
+    --ws-side: clamp(248px, 13vw, 340px);
+    --ws-panel-w: clamp(320px, 19vw, 480px);
+    --dc-col: clamp(760px, 46vw, 1080px);
     display: grid;
-    grid-template-columns: 248px minmax(0, 1fr);
-    gap: 22px;
+    grid-template-columns: var(--ws-side) minmax(0, 1fr);
+    gap: clamp(18px, 1.1vw, 30px);
     align-items: start;
-    max-width: 1880px;
-    margin: 0 auto;
-    padding: calc(var(--navbar-h) + 18px) 24px 48px;
+    max-width: none; /* 覆盖 index.html 旧版内联的 1100px 上限 */
+    margin: 0;
+    padding: calc(var(--navbar-h) + 18px) clamp(16px, 1.4vw, 40px) 48px;
 }
 
 /* ── 左侧工作台 ───────────────────────────────── */
@@ -170,7 +174,7 @@
 
 /* 卡片网格：自动多列铺满，分组标题跨整行 */
 .home-workspace .tools-grid {
-    grid-template-columns: repeat(auto-fill, minmax(256px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(clamp(256px, 12vw, 320px), 1fr));
     gap: 12px;
     margin-bottom: 32px;
 }
@@ -348,7 +352,7 @@
 }
 
 /* 工作区面板打开时变为三列（面板样式见 workspace-panel.css） */
-body.dc-workspace-open .home-content.home-workspace { grid-template-columns: 248px minmax(0, 1fr) 320px; }
+body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr) var(--ws-panel-w); }
 
 @media (max-width: 1280px) {
     body.dc-workspace-open .home-content.home-workspace { grid-template-columns: 216px minmax(0, 1fr) 288px; gap: 16px; }
