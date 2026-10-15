@@ -174,7 +174,9 @@ async function writeProfileStore(store) {
 // 仅供后端内容过滤使用，绝不能通过设置/模型列表 API 返回。
 async function getRedactionSecrets() {
     const store = await getProfileStore();
-    return [...new Set(store.profiles.map(profile => runtimeSettings(profile).apiKey).filter(Boolean))];
+    // 频道对接凭据（WeLink SK）同样不得进入模型上下文与日志
+    const channelSecrets = await require('./channels/welink-config-repository').getSecrets().catch(() => []);
+    return [...new Set([...store.profiles.map(profile => runtimeSettings(profile).apiKey), ...channelSecrets].filter(Boolean))];
 }
 
 function findProfile(store, profileId) {

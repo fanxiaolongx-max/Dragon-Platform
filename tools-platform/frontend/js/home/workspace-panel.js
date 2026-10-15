@@ -695,7 +695,7 @@
     }
 
     function toolIcon(tool) {
-        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘' }[tool] || '⚙';
+        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨' }[tool] || '⚙';
     }
 
     // ── 对话内：写入 / 编辑后的文件卡片（预览 / 代码） ─────
@@ -892,6 +892,7 @@
         else if (preview.diff) detail = `<details class="dc-approval-diff" open><summary>${escapeHtml(preview.path || '')} <span class="wsp-add">+${preview.added || 0}</span> <span class="wsp-del">−${preview.removed || 0}</span></summary><pre class="wsp-diff">${renderDiff(preview.diff)}</pre></details>`;
         else if (preview.to) detail = `<div class="dc-approval-path">${escapeHtml(preview.path)} → ${escapeHtml(preview.to)}</div>`;
         else if (preview.path) detail = `<div class="dc-approval-path">${escapeHtml(preview.path)}${preview.recursive ? ` <em>(${escapeHtml(tx('recursive'))})</em>` : ''}</div>`;
+        else if (preview.message) detail = `<div class="dc-approval-path">${escapeHtml(preview.channel || '')} → ${escapeHtml(preview.targets || '')}</div><pre class="dc-approval-cmd">${escapeHtml(preview.message)}</pre>`;
         card.innerHTML = `
             <div class="dc-approval-head"><span class="dc-approval-icon" aria-hidden="true">${toolIcon(event.tool)}</span><b>${escapeHtml(tx('approvalTitle', { tool: kindLabel }))}</b></div>
             ${detail}

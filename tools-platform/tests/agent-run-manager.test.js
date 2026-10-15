@@ -81,7 +81,7 @@ test('ask mode blocks on approval, allow executes, and "always" skips later prom
     assert.equal(result.context.source, 'provider');
     assert.match(client.calls[0].systemInstruction, /根目录：/);
     assert.match(client.calls[0].systemInstruction, /README\.md/);
-    assert.equal(client.calls[0].tools.length, 11);
+    assert.equal(client.calls[0].tools.length, 13);
     assert.equal(client.calls[1].messages.at(-1).role, 'tool');
     assert.equal(session.transcript.length > 0, true);
     session.changeLog.revert('README.md');

@@ -415,6 +415,8 @@ function registerNavbarI18n() {
             'nav.set.tab.categories': '二级分类',
             'nav.set.tab.items': '分类与顺序',
             'nav.set.tab.ai': 'AI 助手',
+            'nav.set.tab.channels': '频道对接',
+            'nav.set.sub.channels': '把平台接入 WeLink 等频道：配置连接、扫码授权、测试连通性、管理黑白名单与主动推送范围。',
             'nav.set.tab.update': '程序更新',
             'nav.set.tab.backup': '备份恢复',
             'nav.set.tab.snapshotPublish': '静态页面推送',
@@ -899,6 +901,8 @@ function registerNavbarI18n() {
             'nav.set.tab.categories': 'Categories',
             'nav.set.tab.items': 'Items & Order',
             'nav.set.tab.ai': 'AI Assistant',
+            'nav.set.tab.channels': 'Channels',
+            'nav.set.sub.channels': 'Connect the platform to channels such as WeLink: connection, scan-to-authorize, connectivity tests, allow/block lists and push recipients.',
             'nav.set.tab.update': 'App Updates',
             'nav.set.tab.backup': 'Backup & Restore',
             'nav.set.tab.snapshotPublish': 'Static Page Publishing',
@@ -2317,6 +2321,7 @@ function renderNavSettingsSidebar() {
         <button class="nav-settings-tab ${t === 'categories' ? 'active' : ''}" data-tab="categories" onclick="switchNavSettingsTab('categories')">${navEscape(navT('nav.set.tab.categories'))}</button>
         <button class="nav-settings-tab ${t === 'items' ? 'active' : ''}" data-tab="items" onclick="switchNavSettingsTab('items')">${navEscape(navT('nav.set.tab.items'))}</button>
         <button class="nav-settings-tab ${t === 'ai' ? 'active' : ''}" data-tab="ai" onclick="switchNavSettingsTab('ai')">${navEscape(navT('nav.set.tab.ai'))}</button>
+        <button class="nav-settings-tab ${t === 'channels' ? 'active' : ''}" data-tab="channels" onclick="switchNavSettingsTab('channels')">${navEscape(navT('nav.set.tab.channels'))}</button>
         <button class="nav-settings-tab ${t === 'update' ? 'active' : ''}" data-tab="update" onclick="switchNavSettingsTab('update')">${navEscape(navT('nav.set.tab.update'))}</button>
         <button class="nav-settings-tab ${t === 'backup' ? 'active' : ''}" data-tab="backup" onclick="switchNavSettingsTab('backup')">${navEscape(navT('nav.set.tab.backup'))}</button>
         <button class="nav-settings-tab ${t === 'snapshotPublish' ? 'active' : ''}" data-tab="snapshotPublish" onclick="switchNavSettingsTab('snapshotPublish')">${navEscape(navT('nav.set.tab.snapshotPublish'))}</button>
@@ -2389,6 +2394,7 @@ function getNavSettingsTitle() {
     if (navState.settingsTab === 'accounts') return navT('nav.set.tab.accounts');
     if (navState.settingsTab === 'security') return navT('nav.set.tab.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.tab.ai');
+    if (navState.settingsTab === 'channels') return navT('nav.set.tab.channels');
     if (navState.settingsTab === 'update') return navT('nav.set.tab.update');
     if (navState.settingsTab === 'backup') return navT('nav.set.tab.backup');
     if (navState.settingsTab === 'snapshotPublish') return navT('nav.set.tab.snapshotPublish');
@@ -2413,6 +2419,7 @@ function getNavSettingsSubtitle() {
     if (navState.settingsTab === 'accounts') return navT('nav.set.sub.accounts');
     if (navState.settingsTab === 'security') return navT('nav.set.sub.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.sub.ai');
+    if (navState.settingsTab === 'channels') return navT('nav.set.sub.channels');
     if (navState.settingsTab === 'update') return navT('nav.set.sub.update');
     if (navState.settingsTab === 'backup') return navT('nav.set.sub.backup');
     if (navState.settingsTab === 'snapshotPublish') return navT('nav.set.sub.snapshotPublish');
@@ -2443,6 +2450,7 @@ function renderNavSettingsContent() {
     if (navState.settingsTab === 'accounts') return renderAccountSettings(content);
     if (navState.settingsTab === 'security') return renderSecuritySettings(content);
     if (navState.settingsTab === 'ai') return renderAiSettings(content);
+    if (navState.settingsTab === 'channels') return renderChannelSettings(content);
     if (navState.settingsTab === 'update') return renderUpdaterSettings(content);
     if (navState.settingsTab === 'backup') return renderBackupSettings(content);
     if (navState.settingsTab === 'snapshotPublish') return renderSnapshotPublishSettings(content);
@@ -3218,6 +3226,22 @@ async function loadAiUsageDashboard(dimension = navState.aiUsageDimension || 'da
 window.setAiUsageDimension = function (dimension) {
     loadAiUsageDashboard(dimension);
 };
+
+// 频道对接（WeLink 助理）设置页按需加载，逻辑在 shared/channel-settings.js
+async function renderChannelSettings(content) {
+    try {
+        if (!window.ToolsChannelSettings) await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = '/js/shared/channel-settings.js';
+            script.onload = resolve;
+            script.onerror = () => reject(new Error(navLocaleText('无法加载频道对接组件', 'Channel settings component could not load')));
+            document.head.appendChild(script);
+        });
+        await window.ToolsChannelSettings.render(content);
+    } catch (error) {
+        content.innerHTML = `<div class="nav-settings-empty">${navEscape(error.message)}</div>`;
+    }
+}
 
 async function renderAiSettings(content) {
     content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.ai.empty'))}</div>`;

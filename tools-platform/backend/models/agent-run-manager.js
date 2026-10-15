@@ -378,7 +378,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     // 且工具调用始终紧跟用户消息或工具结果。
     const currentUser = historyMessages[historyMessages.length - 1];
     let messages = redactValue(transcriptRepo.mergeHistoryWithTranscript(historyMessages, session.transcript), { secrets: sensitiveValues });
-    const toolCtx = { root: session.root, changeLog: session.changeLog, signal, sensitiveValues, onProcess: child => run.processes.add(child) };
+    const toolCtx = { root: session.root, changeLog: session.changeLog, signal, sensitiveValues, username: session.username, readOnly: session.readOnly, onProcess: child => run.processes.add(child) };
     session.changeLog.sensitiveValues = sensitiveValues;
 
     let activeClient = client;

@@ -551,7 +551,8 @@ function compactRecordedEvent(event) {
  */
 router.get('/skills', checkAuth, (_req, res) => res.json({ items: agentSkills.list() }));
 
-router.post('/chat', checkAuth, async (req, res) => {
+// 对话处理函数单独命名导出：频道对接（如 WeLink）用虚拟请求复用同一套 Dragon Claw 对话链路。
+async function handleChatRequest(req, res) {
     let streamStarted = false;
     let streamHasDelta = false;
     let providerAbortController = null;
@@ -956,7 +957,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         }
         res.status(error.statusCode || 500).json({ code: error.code, error: 'AI 思考时出现异常: ' + redactText(error.message, { secrets: sensitiveValues }) });
     }
-});
+}
+router.post('/chat', checkAuth, handleChatRequest);
 
 /**
  * GET /api/ai/models
@@ -1507,4 +1509,5 @@ CRITICAL FORMATTING & STYLE PRESERVATION RULES:
     }
 });
 
+router.handleChatRequest = handleChatRequest;
 module.exports = router;

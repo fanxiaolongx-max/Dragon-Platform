@@ -159,6 +159,40 @@ const DEFINITIONS = [
             },
             required: ['command']
         }
+    },
+    {
+        name: 'welink_list_targets',
+        kind: 'read',
+        description: '列出平台 WeLink 助理历史接触过的人员与群组（按最近活跃排序），用于确定推送对象。canPush=false 表示该目标尚无可推送会话。',
+        parameters: {
+            type: 'object',
+            properties: {
+                kind: { type: 'string', description: '"user"（人员）或 "group"（群组），默认全部' },
+                query: { type: 'string', description: '按账号、名称或备注过滤' },
+                limit: { type: 'integer', description: '最多返回条数，默认 50，最大 200' }
+            }
+        }
+    },
+    {
+        name: 'welink_send_message',
+        kind: 'external',
+        description: '通过平台 WeLink 助理主动推送一条消息（支持 Markdown）。targets 省略时推送到管理员配置的默认推送范围。会向外部发送消息，执行前需要用户审批。',
+        parameters: {
+            type: 'object',
+            properties: {
+                text: { type: 'string', description: '消息正文（Markdown），最多 8000 字' },
+                targets: {
+                    type: 'array',
+                    description: '推送目标；来自 welink_list_targets 的 kind 与 id',
+                    items: {
+                        type: 'object',
+                        properties: { kind: { type: 'string', description: '"user" 或 "group"' }, id: { type: 'string' } },
+                        required: ['kind', 'id']
+                    }
+                }
+            },
+            required: ['text']
+        }
     }
 ];
 
@@ -167,7 +201,8 @@ const KIND_BY_NAME = new Map(DEFINITIONS.map(item => [item.name, item.kind]));
 // readOnly：普通用户只拿到查看 / 搜索类工具（管理员全部权限，普通用户只读）
 function definitions({ readOnly = false } = {}) {
     return DEFINITIONS
-        .filter(item => !readOnly || item.kind === 'read')
+        // 频道联系人属于管理员数据：只读账号不提供 WeLink 工具
+        .filter(item => !readOnly || (item.kind === 'read' && !item.name.startsWith('welink_')))
         .map(({ name, description, parameters }) => ({ name, description, parameters }));
 }
 
@@ -700,8 +735,30 @@ const EXECUTORS = {
     edit_file: editFile,
     delete_path: deletePath,
     rename_path: renamePath,
-    run_command: runCommandTracked
+    run_command: runCommandTracked,
+    welink_list_targets: listWeLinkTargets,
+    welink_send_message: sendWeLinkMessage
 };
+
+// ── 频道对接（WeLink）：通过平台公共能力调用，不涉及工作目录 ─────────────
+async function listWeLinkTargets(ctx, args = {}) {
+    if (ctx.readOnly) throw toolError('WELINK_FORBIDDEN', '只读账号不能查看 WeLink 联系人');
+    const channels = require('./channels');
+    const items = await channels.listTargets({ channel: 'welink', kind: args.kind, q: args.query, limit: Math.min(200, Math.max(1, Number(args.limit) || 50)) });
+    const rows = items.map(item => ({ kind: item.kind, id: item.id, name: item.name, canPush: item.canPush, lastActiveAt: item.lastActiveAt }));
+    return { content: JSON.stringify(rows), summary: `WeLink 目标 ${rows.length} 个` };
+}
+
+async function sendWeLinkMessage(ctx, args = {}) {
+    const channels = require('./channels');
+    const result = await channels.push({ channel: 'welink', text: args.text, targets: Array.isArray(args.targets) ? args.targets : [], trigger: 'system', source: `dragon-claw:${ctx.username || ''}` });
+    const failed = result.results.filter(item => !item.ok);
+    return {
+        content: JSON.stringify(result),
+        summary: `WeLink 推送成功 ${result.sent} 个${failed.length ? `，失败 ${failed.length} 个` : ''}`,
+        ...(result.sent ? {} : { isError: true })
+    };
+}
 
 /** 审批卡片用的预览：对写操作提前算 diff，之后执行时复用同一计划。 */
 async function buildPreview(ctx, name, args = {}) {
@@ -719,6 +776,12 @@ async function buildPreview(ctx, name, args = {}) {
     }
     if (name === 'rename_path') {
         return { path: guard.toDisplayPath(ctx.root, guard.resolveInsideRoot(ctx.root, args.from || '')), to: guard.toDisplayPath(ctx.root, guard.resolveInsideRoot(ctx.root, args.to || '')) };
+    }
+    if (name === 'welink_send_message') {
+        const targets = Array.isArray(args.targets) && args.targets.length
+            ? args.targets.map(item => `${item.kind === 'group' ? '群' : '人'}:${item.id}`).join('、')
+            : '默认推送范围';
+        return { channel: 'WeLink', targets, message: String(args.text || '').slice(0, 2000) };
     }
     if (name === 'run_command') {
         const risk = commandGuard.assessCommand(args.command, ctx.root);
