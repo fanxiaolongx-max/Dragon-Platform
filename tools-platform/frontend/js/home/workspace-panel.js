@@ -768,6 +768,15 @@
         status.textContent = { allow: tx('approved'), always: tx('approvedAlways'), deny: tx('denied'), timeout: tx('approvalTimeout'), abort: tx('approvalAborted') }[decision] || decision;
     }
 
+    function finishMessage(messageEl) {
+        messageEl?.querySelectorAll('.dc-tool-row.is-running').forEach(row => {
+            row.classList.remove('is-running');
+            row.classList.add('is-fail');
+            row.querySelector('.dc-tool-state').innerHTML = `— <span>${escapeHtml(tx('toolInterrupted'))}</span>`;
+        });
+        messageEl?.querySelectorAll('.dc-approval:not(.is-settled)').forEach(card => settleCard(card, 'abort'));
+    }
+
     function applyDone(data) {
         if (!data) return;
         if (data.context) state.context = data.context;
@@ -970,6 +979,7 @@
             renderChanges();
         },
         handleEvent,
+        finishMessage,
         // 恢复历史对话：把入库的工具过程重放成工具行、审批卡（均为已结束状态，不可再操作）
         replayEvents(messageEl, events = []) {
             if (!messageEl || !Array.isArray(events) || !events.length) return;

@@ -25,7 +25,7 @@ test('chat script sends the workspace payload, forwards events and shares its te
     const assistant = read('frontend/js/shared/ai-assistant.js');
     assert.match(agent, /window\.DragonClawText = \{ tx/);
     assert.match(agent, /workspace: workspacePayload/);
-    assert.match(agent, /onEvent: event => workspace\(\)\?\.handleEvent\(reply, event\)/);
+    assert.match(agent, /onEvent: event => \{\s*workspace\(\)\?\.handleEvent\(reply, event\);\s*activity\.event\(event\);/);
     assert.match(agent, /workspace\(\)\?\.applyDone\(data\)/);
     assert.match(agent, /workspace\(\)\?\.resetSession\?\.\(\)/);
     assert.match(assistant, /onEvent\?\.\(event\)/);

@@ -8,6 +8,7 @@
     const TEXT = {
         'zh-CN': {
             badge: '全能智能体', newChat: '新对话',
+            activityThinking: '正在思考…', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
             resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: 'Enter 执行 · Tab 补全', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
             tagline: '我是 Dragon Claw，你的全能智能体。问我任何问题，或者让我带你用好平台里的工具。',
             hint: 'Enter 发送 · Shift + Enter 换行', placeholder: '给 Dragon Claw 发消息…',
@@ -51,6 +52,7 @@
         },
         'en-US': {
             badge: 'All-round agent', newChat: 'New chat',
+            activityThinking: 'Thinking…', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
             resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: 'Enter to run · Tab to complete', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
             tagline: 'I’m Dragon Claw, your all-round agent. Ask me anything, or let me show you around the tools on this platform.',
             hint: 'Enter to send · Shift + Enter for a new line', placeholder: 'Message Dragon Claw…',
@@ -417,12 +419,71 @@
         return message;
     }
 
+    // 状态属于本次回复的临时 UI，不进入正文、聊天历史或模型上下文。
     function showThinking(message) {
-        message.querySelector('.dc-msg-body').innerHTML = '<span class="dc-thinking" aria-label="…"><i></i><i></i><i></i></span>';
+        const main = message.querySelector('.dc-msg-main');
+        const row = document.createElement('div');
+        row.className = 'dc-activity';
+        row.setAttribute('role', 'status');
+        row.setAttribute('aria-live', 'polite');
+        row.setAttribute('aria-atomic', 'true');
+        row.innerHTML = '<span class="dc-activity-orbit" aria-hidden="true"><i></i><i></i><i></i></span><span class="dc-activity-text"></span>';
+        main.appendChild(row);
+        message.setAttribute('aria-busy', 'true');
+        const running = new Map();
+        const approvals = new Set();
+        let disposed = false;
+        let gapTimer = null;
+        const clearGap = () => { clearTimeout(gapTimer); gapTimer = null; };
+        const show = (key, values) => {
+            if (disposed || !message.isConnected) return;
+            clearGap();
+            message.classList.remove('is-writing');
+            row.hidden = false;
+            row.classList.toggle('is-waiting', key === 'activityApproval');
+            row.querySelector('.dc-activity-text').textContent = tx(key, values);
+            scrollThread();
+        };
+        const refresh = () => {
+            if (approvals.size) show('activityApproval');
+            else if (running.size) show('activityTool', { tool: tx(`tool_${[...running.values()].at(-1)}`) });
+            else show('activityOrganizing');
+        };
+        show('activityThinking');
+        return {
+            event(event) {
+                if (disposed || !event) return;
+                if (event.type === 'tool_start') { running.set(event.callId, event.tool); refresh(); }
+                else if (event.type === 'approval') { approvals.add(event.callId); refresh(); }
+                else if (event.type === 'approval_result') { approvals.delete(event.callId); refresh(); }
+                else if (event.type === 'tool_result') { running.delete(event.callId); approvals.delete(event.callId); refresh(); }
+            },
+            status() {
+                if (!running.size && !approvals.size) show('activityThinking');
+            },
+            streaming() {
+                if (disposed) return;
+                clearGap();
+                row.hidden = true;
+                message.classList.add('is-writing');
+                // 连续输出时用正文光标；输出暂歇时恢复轻量状态，避免看起来卡住。
+                gapTimer = setTimeout(() => {
+                    if (running.size || approvals.size) refresh();
+                    else show('activityResponding');
+                }, 1000);
+            },
+            finish() {
+                disposed = true;
+                clearGap();
+                row.remove();
+                message.removeAttribute('aria-busy');
+                message.classList.remove('is-writing');
+            }
+        };
     }
 
     // 平滑的逐段渲染，流式与本地介绍共用。
-    function createRenderer(message) {
+    function createRenderer(message, activity) {
         const body = message.querySelector('.dc-msg-body');
         let received = '';
         let visible = '';
@@ -444,6 +505,7 @@
         };
         return {
             append(delta) {
+                activity?.streaming();
                 received += String(delta || '');
                 if (!timer) timer = setTimeout(paint, 16);
             },
@@ -452,6 +514,7 @@
                 return new Promise(resolve => { resolveIdle = resolve; });
             },
             finish(finalText) {
+                activity?.finish();
                 if (timer) clearTimeout(timer);
                 timer = null;
                 received = String(finalText ?? received);
@@ -491,10 +554,10 @@
         const question = tx('tryTool', { name: tool.title });
         addMessage('user', question);
         const reply = addMessage('ai');
-        showThinking(reply);
+        const activity = showThinking(reply);
         await new Promise(resolve => setTimeout(resolve, prefersReducedMotion() ? 0 : 420));
         const intro = toolIntro(tool);
-        const renderer = createRenderer(reply);
+        const renderer = createRenderer(reply, activity);
         renderer.append(intro);
         await renderer.idle();
         renderer.finish(intro);
@@ -629,20 +692,21 @@
         autoResize();
         state.messages.push({ role: 'user', content });
         const reply = addMessage('ai');
-        showThinking(reply);
+        const activity = showThinking(reply);
         const controller = new AbortController();
         state.controller = controller;
         updateSendButton();
 
         const api = await waitForAssistant();
         if (!api) {
+            activity.finish();
             reply.querySelector('.dc-msg-body').innerHTML = renderMarkdown(`⚠️ ${tx('unavailable')}`);
             state.messages.pop();
             state.controller = null;
             updateSendButton();
             return;
         }
-        const renderer = createRenderer(reply);
+        const renderer = createRenderer(reply, activity);
         // 发送时锁定模型：生成过程中切换只影响下一条消息。
         const model = currentModel();
         const workspacePayload = workspace()?.getWorkspacePayload?.() || null;
@@ -669,7 +733,11 @@
                     started = true;
                     renderer.append(delta);
                 },
-                onEvent: event => workspace()?.handleEvent(reply, event)
+                onStatus: () => activity.status(),
+                onEvent: event => {
+                    workspace()?.handleEvent(reply, event);
+                    activity.event(event);
+                }
             });
             if (data.sessionId) {
                 state.sessionId = data.sessionId;
@@ -685,8 +753,8 @@
         } catch (error) {
             const partial = renderer.finish();
             if (error?.name === 'AbortError') {
-                if (partial) {
-                    state.messages.push({ role: 'model', content: partial });
+                if (partial || reply.querySelector('.dc-tool-log')?.childElementCount) {
+                    state.messages.push({ role: 'model', content: partial || tx('stopped') });
                     reply.querySelector('.dc-msg-main').insertAdjacentHTML('beforeend', `<div class="dc-msg-note">${escapeHtml(tx('stopped'))}</div>`);
                 } else {
                     reply.remove();
@@ -697,6 +765,8 @@
                 reply.querySelector('.dc-msg-body').innerHTML = renderMarkdown(`${partial ? `${partial}\n\n` : ''}> ⚠️ ${error?.message || error}`);
             }
         } finally {
+            activity.finish();
+            workspace()?.finishMessage?.(reply);
             if (state.controller === controller) state.controller = null;
             updateSendButton();
             scrollThread();
