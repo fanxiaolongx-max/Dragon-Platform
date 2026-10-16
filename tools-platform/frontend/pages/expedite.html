@@ -255,31 +255,293 @@
         }
 
         /* Distribution Modal Styles */
-        .dist-layout {
+        #distribution-modal {
+            --dist-surface: #fff;
+            --dist-subtle: #f8fafc;
+            --dist-pool: #f1f5f9;
+            --dist-border: #e2e8f0;
+            --dist-text: #1e293b;
+            --dist-muted: #64748b;
+            --dist-accent: #2563eb;
+            --dist-accent-soft: #eff6ff;
+            --dist-accent-text: #1d4ed8;
+            color-scheme: light;
+            padding: 24px;
+            background: rgba(15, 23, 42, 0.5);
+            overscroll-behavior: contain;
+        }
+
+        #distribution-modal .modal-content {
             display: flex;
-            gap: 20px;
-            height: 65vh;
+            flex-direction: column;
+            width: 1120px;
+            max-width: 100%;
+            max-height: calc(100vh - 48px);
+            max-height: calc(100dvh - 48px);
+            padding: 0;
             overflow: hidden;
-            margin-top: 10px;
+            background: var(--dist-surface);
+            color: var(--dist-text);
+            border: 1px solid var(--dist-border);
+            border-radius: 18px;
+            box-shadow: 0 24px 80px rgba(15, 23, 42, 0.24);
+        }
+
+        #distribution-modal .modal-header {
+            flex-shrink: 0;
+            gap: 16px;
+            margin: 0;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--dist-border);
+        }
+
+        #distribution-modal .modal-header h3 {
+            color: var(--dist-text);
+            line-height: 1.5;
+        }
+
+        #distribution-modal .close-btn {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: var(--dist-subtle);
+            color: var(--dist-muted);
+        }
+
+        #distribution-modal .close-btn:hover {
+            background: var(--dist-pool);
+            color: var(--dist-text);
+        }
+
+        .dist-body {
+            min-height: 0;
+            padding: 20px 24px 24px;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            scrollbar-gutter: stable;
+        }
+
+        .dist-description, .dist-section-description {
+            color: var(--dist-muted);
+            font-size: 13px;
+            line-height: 1.7;
+        }
+
+        .dist-description {
+            margin: 0 0 20px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            background: var(--dist-accent-soft);
+            color: var(--dist-accent-text);
+        }
+
+        .dist-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 300px;
+            gap: 20px;
+            align-items: start;
         }
 
         .dist-left {
-            flex: 2;
-            display: flex;
-            flex-direction: column;
-            border-right: 1px solid #e2e8f0;
-            padding-right: 20px;
-            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+            min-width: 0;
         }
 
         .dist-right {
-            flex: 1;
+            min-width: 0;
+            background: var(--dist-subtle);
+            border: 1px solid var(--dist-border);
+            padding: 16px;
+            border-radius: 12px;
+        }
+
+        .dist-roster-title {
+            font-size: 14px;
+            margin-bottom: 16px;
+        }
+
+        .dist-roster-title .dist-muted {
+            font-size: 12px;
+            font-weight: normal;
+        }
+
+        .dist-muted, .dist-empty {
+            color: var(--dist-muted);
+        }
+
+        .dist-roster-heading {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .dist-roster-list {
             display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            background: #f8fafc;
-            padding: 12px;
+            flex-wrap: wrap;
+            gap: 6px;
+            min-height: 28px;
+            margin-bottom: 16px;
+        }
+
+        .dist-empty {
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        #add-roster-section {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--dist-border);
+        }
+
+        .dist-field-label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .dist-field {
+            display: block;
+            width: 100%;
+            min-width: 0;
+            height: 40px;
+            padding: 0 12px;
+            border: 1px solid var(--dist-border);
             border-radius: 8px;
+            background: var(--dist-surface);
+            color: var(--dist-text);
+            font: inherit;
+            font-size: 13px;
+        }
+
+        #add-roster-section .dist-field {
+            margin-bottom: 12px;
+        }
+
+        .dist-field::placeholder {
+            color: var(--dist-muted);
+        }
+
+        #distribution-modal :is(button, input, select, [tabindex]):focus-visible {
+            outline: 2px solid var(--dist-accent);
+            outline-offset: 2px;
+        }
+
+        #distribution-modal .dist-add-button {
+            width: 100%;
+            justify-content: center;
+            padding: 10px 12px;
+            border-color: var(--dist-border);
+            background: var(--dist-surface);
+            color: var(--dist-accent-text);
+        }
+
+        .dist-network-section {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid var(--dist-border);
+        }
+
+        .dist-network-section h4 {
+            font-size: 15px;
+        }
+
+        .dist-section-description {
+            margin: 6px 0 16px;
+        }
+
+        #dist-network-mappings {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .dist-network-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border: 1px solid var(--dist-border);
+            border-radius: 10px;
+            background: var(--dist-subtle);
+        }
+
+        .dist-network-row label {
+            font-size: 13px;
+            font-weight: 500;
+            overflow-wrap: anywhere;
+        }
+
+        .dist-network-control {
+            position: relative;
+            min-width: 0;
+        }
+
+        .dist-network-control::after {
+            content: '';
+            position: absolute;
+            right: 14px;
+            top: 16px;
+            width: 7px;
+            height: 7px;
+            border-right: 1.5px solid var(--dist-muted);
+            border-bottom: 1.5px solid var(--dist-muted);
+            transform: rotate(45deg);
+            pointer-events: none;
+        }
+
+        .dist-network-control select {
+            appearance: none;
+            padding-right: 32px;
+            cursor: pointer;
+            color-scheme: inherit;
+        }
+
+        .dist-network-control select:disabled {
+            opacity: 0.7;
+            cursor: default;
+        }
+
+        .dist-footer {
+            flex-shrink: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 24px;
+            border-top: 1px solid var(--dist-border);
+            background: var(--dist-subtle);
+        }
+
+        .dist-footer-note {
+            color: var(--dist-muted);
+            font-size: 12px;
+        }
+
+        .dist-footer-actions {
+            display: flex;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-left: auto;
+        }
+
+        #distribution-modal .dist-footer .btn-secondary {
+            background: var(--dist-surface);
+            border-color: var(--dist-border);
+            color: var(--dist-muted);
+        }
+
+        #distribution-modal .dist-save-button {
+            padding: 10px 18px;
+            border-radius: 8px;
+            background: var(--dist-accent);
+            font-size: 14px;
         }
 
         .roster-chip {
@@ -290,7 +552,8 @@
             padding: 6px 12px;
             border-radius: 16px;
             font-size: 13px;
-            margin: 4px;
+            max-width: 100%;
+            overflow-wrap: anywhere;
             cursor: pointer;
             border: 1px solid #bae6fd;
             user-select: none;
@@ -303,13 +566,13 @@
         }
 
         .roster-chip.assigned {
-            background: #f3f4f6;
-            color: #4b5563;
-            border-color: #e5e7eb;
+            background: var(--dist-surface);
+            color: var(--dist-muted);
+            border-color: var(--dist-border);
         }
 
         .roster-chip.assigned:hover {
-            background: #e5e7eb;
+            background: var(--dist-pool);
         }
 
         .roster-chip.selected {
@@ -331,11 +594,12 @@
         }
 
         .dist-category {
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
+            min-width: 0;
+            background: var(--dist-surface);
+            border: 1px solid var(--dist-border);
+            border-radius: 12px;
             padding: 12px;
-            margin-bottom: 12px;
+            cursor: pointer;
             transition: all 0.2s;
         }
 
@@ -370,7 +634,7 @@
             font-weight: 600;
             font-size: 14px;
             margin-bottom: 8px;
-            color: #1e293b;
+            color: var(--dist-text);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -378,7 +642,7 @@
 
         .dist-category-pool {
             min-height: 40px;
-            background: #f1f5f9;
+            background: var(--dist-pool);
             border-radius: 6px;
             padding: 8px;
             display: flex;
@@ -387,8 +651,10 @@
         }
 
         .assigned-chip {
-            background: #fff;
-            border: 1px solid #cbd5e1;
+            max-width: 100%;
+            overflow-wrap: anywhere;
+            background: var(--dist-surface);
+            border: 1px solid var(--dist-border);
             padding: 4px 10px;
             border-radius: 16px;
             font-size: 12px;
@@ -406,6 +672,56 @@
 
         .assigned-chip .del:hover {
             color: #b91c1c;
+        }
+
+        :is(html, body)[data-theme="dark"] #distribution-modal {
+            --dist-surface: #172033;
+            --dist-subtle: #111b2c;
+            --dist-pool: #202d42;
+            --dist-border: #334155;
+            --dist-text: #e2e8f0;
+            --dist-muted: #a4b2c6;
+            --dist-accent: #3b82f6;
+            --dist-accent-soft: #172d50;
+            --dist-accent-text: #93c5fd;
+            color-scheme: dark;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            html:not([data-theme="light"]) body:not([data-theme="light"]) #distribution-modal {
+                --dist-surface: #172033;
+                --dist-subtle: #111b2c;
+                --dist-pool: #202d42;
+                --dist-border: #334155;
+                --dist-text: #e2e8f0;
+                --dist-muted: #a4b2c6;
+                --dist-accent: #3b82f6;
+                --dist-accent-soft: #172d50;
+                --dist-accent-text: #93c5fd;
+                color-scheme: dark;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .dist-layout { grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; }
+            .dist-left { grid-template-columns: minmax(0, 1fr); }
+            .dist-network-row { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+        }
+
+        @media (max-width: 640px) {
+            #distribution-modal { padding: 12px; }
+            #distribution-modal .modal-content {
+                max-height: calc(100vh - 24px);
+                max-height: calc(100dvh - 24px);
+                border-radius: 14px;
+            }
+            #distribution-modal .modal-header { padding: 14px 16px; gap: 8px; }
+            #distribution-modal .modal-header h3 { font-size: 16px; }
+            .dist-body { padding: 16px; }
+            .dist-layout, #dist-network-mappings { grid-template-columns: minmax(0, 1fr); }
+            .dist-right { grid-row: 1; }
+            .dist-footer { padding: 12px 16px; }
+            .dist-footer-note { display: none; }
         }
 
         .modal-overlay {
@@ -754,49 +1070,53 @@
     </div>
     </div>
 
-    <div class="modal-overlay" id="distribution-modal" onclick="if(event.target === this) closeDistributionModal()">
-        <div class="modal-content" style="width: 850px; max-width: 95vw;">
+    <div class="modal-overlay" id="distribution-modal" onclick="if(event.target === this) closeDistributionModal()"
+        onkeydown="handleDistributionKeydown(event)">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="distribution-modal-title"
+            aria-describedby="distribution-modal-desc">
             <div class="modal-header">
-                <h3><span data-i18n="modal_dist_title">⚙️ WeLink 高级分发策略配置 (点击分配)</span></h3>
-                <button class="close-btn" onclick="closeDistributionModal()">&times;</button>
+                <h3 id="distribution-modal-title"><span data-i18n="modal_dist_title">⚙️ WeLink 高级分发策略配置</span></h3>
+                <button type="button" class="close-btn" onclick="closeDistributionModal()" aria-label="关闭"
+                    data-i18n-aria-label="btn_close_policy">&times;</button>
             </div>
-            <p style="font-size: 12px; color: #64748b; margin-top: 0; margin-bottom: 12px;" data-i18n="modal_dist_desc">
-                选中右侧员工后点击左侧分类框即可分配。系统会自动根据分类分发不同的专属催办信息。员工库及所有配置永久保存。
-            </p>
-            <div class="dist-layout">
-                <div class="dist-left" id="dist-categories">
-                    <!-- Dynamic Categories will be rendered here via JS -->
-                </div>
-                <div class="dist-right">
-                    <div style="font-size:13px; font-weight:600; color:#555; margin-bottom:10px;"><span
-                            data-i18n="pool_emp_title">👤 员工名册 <span
-                                style="color:#999;font-weight:normal;">(点选复用)</span></span></div>
-                    <div id="dist-roster-pool"
-                        style="flex:1; align-content: flex-start; display: flex; flex-wrap: wrap;">
-                        <!-- Roster chips -->
+            <div class="dist-body" tabindex="0">
+                <p class="dist-description" id="distribution-modal-desc" data-i18n="modal_dist_desc">
+                    先在员工名册中选择人员或群组，再点击分类卡片进行分配。系统按分类生成专属催办信息，修改后请保存全部配置。
+                </p>
+                <div class="dist-layout">
+                    <div class="dist-left" id="dist-categories">
+                        <!-- Dynamic Categories will be rendered here via JS -->
                     </div>
-                    <div id="add-roster-section"
-                        style="margin-top: 10px; border-top: 1px solid #e2e8f0; padding-top: 10px;">
-                        <input type="text" id="new-roster-input" placeholder="输入工号或群ID (如: l00123)"
-                            data-i18n-placeholder="input_emp_placeholder"
-                            style="width: 100%; margin-bottom: 6px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px;">
-                        <input type="text" id="new-roster-name" placeholder="备注姓名/群名 (可选)"
-                            data-i18n-placeholder="input_name_placeholder"
-                            style="width: 100%; margin-bottom: 6px; padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px;">
-                        <button onclick="addRosterEmployee()"
-                            style="width: 100%; padding: 6px; background: #0ea5e9; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;"><span
-                                data-i18n="btn_add_roster">＋ 添加至待分配库</span></button>
+                    <div class="dist-right">
+                        <h4 class="dist-roster-title" data-i18n="pool_emp_title">👤 员工名册 <span class="dist-muted">(点选复用)</span></h4>
+                        <div id="dist-roster-pool">
+                            <!-- Roster chips -->
+                        </div>
+                        <div id="add-roster-section">
+                            <label class="dist-field-label" for="new-roster-input" data-i18n="roster_id_label">工号 / 群组 ID</label>
+                            <input type="text" id="new-roster-input" class="dist-field" placeholder="输入工号或群ID (如: l00123)"
+                                data-i18n-placeholder="input_emp_placeholder">
+                            <label class="dist-field-label" for="new-roster-name" data-i18n="roster_name_label">姓名 / 群组备注（可选）</label>
+                            <input type="text" id="new-roster-name" class="dist-field" placeholder="备注姓名/群名 (可选)"
+                                data-i18n-placeholder="input_name_placeholder">
+                            <button type="button" class="btn-secondary dist-add-button" onclick="addRosterEmployee()"><span
+                                    data-i18n="btn_add_roster">＋ 添加至待分配库</span></button>
+                        </div>
                     </div>
                 </div>
+                <section class="dist-network-section" aria-labelledby="dist-network-title">
+                    <h4 id="dist-network-title" data-i18n="network_mapping_title">单据网络名称映射</h4>
+                    <p class="dist-section-description" data-i18n="network_mapping_desc">将第三部分的原始网络名对应到上方指标分类。未匹配的单据只显示在全量简报中，不会发给专属单聊。</p>
+                    <div id="dist-network-mappings"></div>
+                </section>
             </div>
-            <div style="margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 14px;">
-                <strong data-i18n="network_mapping_title">单据网络名称映射</strong>
-                <p style="font-size: 12px; color: #64748b; margin: 6px 0 10px;" data-i18n="network_mapping_desc">将第三部分的原始网络名对应到上方指标分类。未匹配的单据只显示在全量简报中，不会发给专属单聊。</p>
-                <div id="dist-network-mappings"></div>
-            </div>
-            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
-                <button class="btn-primary" id="btn-save-policy" onclick="saveDistributionPolicy()"><span
-                        data-i18n="btn_save_policy">💾 保存全部配置</span></button>
+            <div class="dist-footer">
+                <span class="dist-footer-note" id="dist-save-hint" data-i18n="dist_save_hint">修改完成后，保存以应用分发策略</span>
+                <div class="dist-footer-actions">
+                    <button type="button" class="btn-secondary" onclick="closeDistributionModal()" data-i18n="btn_close_policy">关闭</button>
+                    <button type="button" class="btn btn-primary dist-save-button" id="btn-save-policy" onclick="saveDistributionPolicy()"><span
+                            data-i18n="btn_save_policy">💾 保存全部配置</span></button>
+                </div>
             </div>
         </div>
     </div>
@@ -951,11 +1271,15 @@
                 "excel_title": "Related Excel Report",
                 "excel_desc": "Professional high-res matrix table",
                 "btn_dl_excel": "Download Excel File",
-                "modal_dist_title": "⚙️ WeLink Advanced Distribution Strategy (Click to Assign)",
-                "modal_dist_desc": "Select an employee on the right and click a category on the left to assign. The system will automatically distribute personalized expedite messages based on categories. Roster and configs are saved permanently.",
+                "modal_dist_title": "⚙️ WeLink Advanced Distribution Strategy",
+                "modal_dist_desc": "Select a person or group from the roster, then click a category card to assign. The system generates personalized reminders by category. Save all configurations to apply your changes.",
                 "network_mapping_title": "Ticket Network Name Mapping",
                 "network_mapping_desc": "Map raw network names in the third section to metric categories above. Unmapped tickets remain in the full brief and are excluded from personal chats.",
-                "pool_emp_title": "👤 Employee Roster <span style=\"color:#999;font-weight:normal;\">(Click to reuse)</span>",
+                "pool_emp_title": "👤 Employee Roster <span class=\"dist-muted\">(Click to reuse)</span>",
+                "roster_id_label": "Employee / Group ID",
+                "roster_name_label": "Name / Group remark (optional)",
+                "btn_close_policy": "Close",
+                "dist_save_hint": "Save your changes to apply the distribution strategy",
                 "btn_add_roster": "＋ Add to Pending Pool",
                 "btn_save_policy": "💾 Save All Configurations",
                 "input_emp_placeholder": "Enter Emp ID or Group ID (e.g. l00123)",
@@ -1023,11 +1347,15 @@
                 "excel_title": "关联 Excel 报表",
                 "excel_desc": "专业的高清排版短板透视矩阵表格",
                 "btn_dl_excel": "下载 Excel 文件",
-                "modal_dist_title": "⚙️ WeLink 高级分发策略配置 (点击分配)",
-                "modal_dist_desc": "选中右侧员工后点击左侧分类框即可分配。系统会自动根据分类分发不同的专属催办信息。员工库及所有配置永久保存。",
+                "modal_dist_title": "⚙️ WeLink 高级分发策略配置",
+                "modal_dist_desc": "先在员工名册中选择人员或群组，再点击分类卡片进行分配。系统按分类生成专属催办信息，修改后请保存全部配置。",
                 "network_mapping_title": "单据网络名称映射",
                 "network_mapping_desc": "将第三部分的原始网络名对应到上方指标分类。未匹配的单据只显示在全量简报中，不会发给专属单聊。",
-                "pool_emp_title": "👤 员工名册 <span style=\"color:#999;font-weight:normal;\">(点选复用)</span>",
+                "pool_emp_title": "👤 员工名册 <span class=\"dist-muted\">(点选复用)</span>",
+                "roster_id_label": "工号 / 群组 ID",
+                "roster_name_label": "姓名 / 群组备注（可选）",
+                "btn_close_policy": "关闭",
+                "dist_save_hint": "修改完成后，保存以应用分发策略",
                 "btn_add_roster": "＋ 添加至待分配库",
                 "btn_save_policy": "💾 保存全部配置",
                 "input_emp_placeholder": "输入工号或群ID (如: l00123)",
@@ -1166,6 +1494,12 @@
                 const key = el.getAttribute('data-i18n-placeholder');
                 if (i18nUi[window.currentLang][key]) {
                     el.setAttribute('placeholder', i18nUi[window.currentLang][key]);
+                }
+            });
+            document.querySelectorAll('[data-i18n-aria-label]').forEach(el => {
+                const key = el.getAttribute('data-i18n-aria-label');
+                if (i18nUi[window.currentLang][key]) {
+                    el.setAttribute('aria-label', i18nUi[window.currentLang][key]);
                 }
             });
             // Update document title
@@ -1620,11 +1954,44 @@
         function openDistributionModal() {
             selectedRosterId = null;
             renderDistributionModal();
-            document.getElementById('distribution-modal').style.display = 'flex';
+            const modal = document.getElementById('distribution-modal');
+            if (modal.style.display !== 'flex') {
+                modal._previousFocus = document.activeElement;
+                modal._previousBodyOverflow = document.body.style.overflow;
+            }
+            document.body.style.overflow = 'hidden';
+            modal.style.display = 'flex';
+            modal.querySelector('.dist-body').scrollTop = 0;
+            modal.querySelector('.close-btn').focus();
         }
 
         function closeDistributionModal() {
-            document.getElementById('distribution-modal').style.display = 'none';
+            const modal = document.getElementById('distribution-modal');
+            if (modal.style.display !== 'flex') return;
+            modal.style.display = 'none';
+            document.body.style.overflow = modal._previousBodyOverflow;
+            modal._previousFocus?.focus({ preventScroll: true });
+        }
+
+        function handleDistributionKeydown(event) {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                closeDistributionModal();
+            } else if (event.key === 'Tab') {
+                const modal = document.getElementById('distribution-modal');
+                const controls = [...modal.querySelectorAll('button, input, select, [tabindex="0"]')]
+                    .filter(el => !el.disabled && el.getClientRects().length);
+                const first = controls[0];
+                const last = controls[controls.length - 1];
+                if (event.shiftKey && document.activeElement === first) {
+                    event.preventDefault();
+                    last?.focus();
+                } else if (!event.shiftKey && document.activeElement === last) {
+                    event.preventDefault();
+                    first?.focus();
+                }
+            }
         }
 
         function renderDistributionModal() {
@@ -1633,6 +2000,7 @@
             // Toggle visibility of admin-only elements
             document.getElementById('add-roster-section').style.display = isAdmin ? 'block' : 'none';
             document.getElementById('btn-save-policy').style.display = isAdmin ? 'inline-block' : 'none';
+            document.getElementById('dist-save-hint').hidden = !isAdmin;
 
             const rosterPool = document.getElementById('dist-roster-pool');
             const categoriesContainer = document.getElementById('dist-categories');
@@ -1659,13 +2027,13 @@
             });
 
             let finalHtml = `
-            <div style="font-size:12px; font-weight:600; color:#555; margin: 0 0 4px 4px;">${window.currentLang === 'zh' ? '👤 员工名单' : '👤 Employee List'}</div>
-            <div style="display: flex; flex-wrap: wrap; margin-bottom: 12px; min-height: 28px;">
-                ${userPoolHtml || `<span style="color:#999;font-size:12px; margin-left: 6px; font-style:italic;">${window.currentLang === 'zh' ? '暂无人员，请在下方添加' : 'No personnel, please add below'}</span>`}
+            <div class="dist-roster-heading">${window.currentLang === 'zh' ? '👤 员工名单' : '👤 Employee List'}</div>
+            <div class="dist-roster-list">
+                ${userPoolHtml || `<span class="dist-empty">${window.currentLang === 'zh' ? '暂无人员，请在下方添加' : 'No personnel, please add below'}</span>`}
             </div>
-            <div style="font-size:12px; font-weight:600; color:#555; margin: 0 0 4px 4px;">${window.currentLang === 'zh' ? '👥 群组名单' : '👥 Group List'}</div>
-            <div style="display: flex; flex-wrap: wrap; min-height: 28px;">
-                ${groupPoolHtml || `<span style="color:#999;font-size:12px; margin-left: 6px; font-style:italic;">${window.currentLang === 'zh' ? '暂无群组，请在下方添加' : 'No groups, please add below'}</span>`}
+            <div class="dist-roster-heading">${window.currentLang === 'zh' ? '👥 群组名单' : '👥 Group List'}</div>
+            <div class="dist-roster-list">
+                ${groupPoolHtml || `<span class="dist-empty">${window.currentLang === 'zh' ? '暂无群组，请在下方添加' : 'No groups, please add below'}</span>`}
             </div>`;
             rosterPool.innerHTML = finalHtml;
 
@@ -1678,7 +2046,7 @@
                     const unassignBtn = isAdmin ? `<span class="del" onclick="event.stopPropagation(); unassign('${catId}', '${id}')">✕</span>` : '';
                     return `<div class="assigned-chip">${emp.id} ${emp.name ? `(${emp.name})` : ''} ${unassignBtn}</div>`;
                 }).join('');
-                if (!chipsHtml) chipsHtml = '<span style="color:#cbd5e1; font-size:12px; font-style:italic;">' + (isAdmin ? (window.currentLang === 'zh' ? '选中右侧员工后，点击此处分配...' : 'Select an employee, click here to assign...') : (window.currentLang === 'zh' ? '暂未分配' : 'Unassigned')) + '</span>';
+                if (!chipsHtml) chipsHtml = '<span class="dist-empty">' + (isAdmin ? (window.currentLang === 'zh' ? '从名册选择后，点击此处分配' : 'Select from the roster, then click here') : (window.currentLang === 'zh' ? '暂未分配' : 'Unassigned')) + '</span>';
 
                 return `
                 <div id="cat-${catId}" class="dist-category" ${isAdmin ? `onclick="assignSelectedTo('${catId}')"` : ''} style="${!isAdmin ? 'cursor:default;' : ''}">
@@ -1692,7 +2060,6 @@
                 catHtml += renderCategory(cat, window.currentLang === 'zh' ? `专属单聊分发: [${cat}]` : `Single Chat Dist: [${cat}]`, '💬');
             });
 
-            catHtml += `<hr style="border:none; border-top:1px dashed #cbd5e1; margin: 20px 0;">`;
             catHtml += renderCategory('GLOBAL_GROUP', window.currentLang === 'zh' ? '全局群聊推送 (全量报告)' : 'Global Group Push (Full Report)', '👥');
             catHtml += renderCategory('GLOBAL_EMAIL', window.currentLang === 'zh' ? '全局邮件抄送 (全量报告)' : 'Global Email CC (Full Report)', '📧');
             catHtml += renderCategory('GLOBAL_MEET', window.currentLang === 'zh' ? '日程/会议邀请 (发起沟通)' : 'Calendar/Meeting Invite (Initiate Comm)', '📅');
@@ -1711,21 +2078,25 @@
             });
             container.replaceChildren();
             if (!networks.size) {
-                container.textContent = window.currentLang === 'zh' ? '当前快照没有临期/超期单据' : 'No expiring or overdue tickets in this snapshot';
+                const empty = document.createElement('p');
+                empty.className = 'dist-empty';
+                empty.textContent = window.currentLang === 'zh' ? '当前快照没有临期/超期单据' : 'No expiring or overdue tickets in this snapshot';
+                container.appendChild(empty);
                 return;
             }
-            [...networks].sort((a, b) => a.localeCompare(b)).forEach(network => {
+            [...networks].sort((a, b) => a.localeCompare(b)).forEach((network, index) => {
                 const row = document.createElement('div');
-                row.style.cssText = 'display:flex;align-items:center;gap:10px;margin:6px 0;flex-wrap:wrap;font-size:13px;';
-                const label = document.createElement('span');
+                row.className = 'dist-network-row';
+                const label = document.createElement('label');
                 label.textContent = network;
-                label.style.cssText = 'min-width:200px;overflow-wrap:anywhere;';
                 const select = document.createElement('select');
+                select.id = `dist-network-${index}`;
+                select.className = 'dist-field';
+                label.htmlFor = select.id;
                 select.disabled = !isAdmin;
-                select.style.cssText = 'padding:5px;border:1px solid #cbd5e1;border-radius:4px;max-width:220px;';
                 const empty = document.createElement('option');
                 empty.value = '';
-                empty.textContent = window.currentLang === 'zh' ? '未映射（不单发）' : 'Unmapped (exclude from personal chats)';
+                empty.textContent = window.currentLang === 'zh' ? '未映射（不单发）' : 'Unmapped (no personal chat)';
                 select.appendChild(empty);
                 getDistributionCategories().forEach(cat => {
                     const option = document.createElement('option');
@@ -1738,7 +2109,10 @@
                     window._distPolicy.networkMappings[network] = select.value;
                     renderBriefText();
                 });
-                row.append(label, select);
+                const control = document.createElement('div');
+                control.className = 'dist-network-control';
+                control.appendChild(select);
+                row.append(label, control);
                 container.appendChild(row);
             });
         }
