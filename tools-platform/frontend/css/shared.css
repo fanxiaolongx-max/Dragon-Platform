@@ -3939,6 +3939,109 @@ dialog#mediaFormDialog.is-importing {
     }
 }
 
+/* ── 全局设置 · 手机：全屏抽屉式窗口，标题与菜单紧凑，卡片统一收窄内边距，杜绝横向溢出 ── */
+@media (max-width: 640px) {
+    .nav-settings-modal { padding: 0; align-items: stretch; }
+    .nav-settings-window {
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        grid-template-rows: auto minmax(0, 1fr);
+        border: 0;
+        border-radius: 0;
+    }
+    .nav-settings-sidebar {
+        gap: 4px;
+        padding: 8px 52px 8px 10px; /* 右侧给关闭按钮留位 */
+        scrollbar-width: none;
+        scroll-snap-type: x proximity;
+        background: rgba(226,232,240,0.92);
+        -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 64px), transparent calc(100% - 44px));
+        mask-image: linear-gradient(90deg, #000 calc(100% - 64px), transparent calc(100% - 44px));
+    }
+    .nav-settings-sidebar::-webkit-scrollbar { display: none; }
+    .nav-settings-tab {
+        flex: none;
+        height: 32px;
+        margin: 0;
+        padding: 0 11px;
+        font-size: 12.5px;
+        scroll-snap-align: start;
+    }
+    .nav-settings-main { position: static; gap: 10px; padding: 12px 12px 0; }
+    .nav-settings-close { top: 9px; right: 10px; z-index: 2; width: 32px; height: 32px; background: #fff; box-shadow: 0 2px 8px rgba(15,23,42,0.12); }
+    .nav-settings-head { flex-direction: column; align-items: flex-start; gap: 4px; padding-right: 0; }
+    .nav-settings-heading { font-size: 18px; }
+    .nav-settings-subtitle { margin-top: 2px; font-size: 11.5px; line-height: 1.5; }
+    .nav-settings-help { font-size: 11.5px; line-height: 1.55; }
+    .nav-settings-save-state { min-width: 0; text-align: left; font-size: 11px; }
+    #navSettingsContent { padding: 0 0 calc(18px + env(safe-area-inset-bottom)); }
+
+    /* 表单与行：去掉桌面端的最小宽度，按钮自动换行 */
+    .nav-settings-input,
+    .nav-settings-select { min-width: 0; }
+    .nav-settings-list { gap: 6px; margin-top: 10px; }
+    .nav-settings-row { gap: 8px; padding: 8px; }
+    .nav-settings-actions { flex-wrap: wrap; justify-content: flex-start; }
+    .nav-settings-check { align-items: flex-start; white-space: normal; }
+    .nav-settings-check > span { white-space: normal; overflow-wrap: anywhere; }
+
+    /* 卡片：统一 12px 内边距、12px 圆角 */
+    .logo-settings-card,
+    .nav-update-card,
+    .nav-init-card,
+    .nav-ai-profile-panel,
+    .nav-ai-usage-panel,
+    .snapshot-hero,
+    .snapshot-security,
+    .snapshot-schedule,
+    .snapshot-tool-item,
+    .nch-access-col,
+    .nav-page-config-placeholder,
+    .nav-settings-empty { padding: 12px; border-radius: 12px; }
+    .snapshot-hero { gap: 10px; }
+    .snapshot-tool-item,
+    .snapshot-tool-item * { min-width: 0; overflow-wrap: anywhere; }
+    .snapshot-tool-item input:not([type="checkbox"]):not([type="radio"]) { width: 100%; max-width: 100%; box-sizing: border-box; }
+    .nch-access { grid-template-columns: 1fr; }
+    .nav-ai-profile-list { grid-auto-columns: minmax(170px, 78%); }
+
+    /* 宽表格：保留横向滑动，但让容器贴合屏幕并提示可滑动 */
+    .nav-account-table-wrap,
+    .nav-media-table-scroll,
+    .nch-table-wrap { max-width: 100%; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+
+    /* 安全策略锁定规则：每条规则一张卡片（启用 + 告警级别 / 三个数值），不再左右滑动填写 */
+    .nav-security-table { min-width: 0; width: 100%; }
+    .nav-security-table thead { display: none; }
+    .nav-security-table tbody { display: block; }
+    .nav-security-table tr {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        padding: 10px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .nav-security-table tr:last-child { border-bottom: 0; }
+    .nav-security-table td { display: block; min-width: 0; padding: 0; border: 0; }
+    .nav-security-table td::before {
+        content: attr(data-label);
+        display: block;
+        margin-bottom: 4px;
+        color: #64748b;
+        font-size: 10.5px;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .nav-security-table td:first-child { grid-row: 1; grid-column: 1; display: flex; flex-direction: column; align-items: flex-start; text-align: left; }
+    .nav-security-table td:first-child input { width: 18px; height: 18px; margin: 7px 0 0; }
+    .nav-security-table td:last-child { grid-row: 1; grid-column: 2 / 4; }
+    .nav-security-table .nav-security-number,
+    .nav-security-table .nav-security-severity { width: 100%; min-width: 0; }
+}
+
 .nav-status {
     display: flex;
     align-items: center;
@@ -4387,6 +4490,48 @@ body.service-status-open { overflow: hidden; }
     }
     .alert-center-head {
         padding: 18px 16px;
+    }
+}
+
+/* 窄窗口：版本号先让位，保证右侧服务状态完整可见 */
+@media (max-width: 1200px) {
+    #nav-resource-version-display { display: none !important; }
+}
+
+/* 手机：只保留 Logo、「更多工具」与紧凑图标按钮，确保设置/退出/服务状态都在屏幕内可点 */
+@media (max-width: 600px) {
+    #app-navbar { padding: 0 10px; gap: 6px; }
+    .nav-brand .brand-name,
+    .nav-divider { display: none; }
+    .nav-more-btn { padding: 0 8px; font-size: 11.5px; }
+    .nav-actions { gap: 4px; }
+    .nav-lang-toggle,
+    .nav-action-link,
+    .nav-alert-btn,
+    .nav-gear-btn,
+    .nav-user-chip,
+    .nav-logout-link {
+        width: 30px;
+        min-width: 30px;
+        height: 30px;
+    }
+    .nav-status { margin-left: 2px !important; gap: 0 !important; }
+    .nav-server-status { padding: 0 4px; }
+}
+
+@media (max-width: 360px) {
+    #app-navbar { padding: 0 8px; gap: 4px; }
+    .nav-more-btn { padding: 0 6px; font-size: 11px; }
+    .nav-actions { gap: 3px; }
+    .nav-lang-toggle,
+    .nav-action-link,
+    .nav-alert-btn,
+    .nav-gear-btn,
+    .nav-user-chip,
+    .nav-logout-link {
+        width: 28px;
+        min-width: 28px;
+        height: 28px;
     }
 }
 

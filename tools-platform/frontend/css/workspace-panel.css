@@ -466,26 +466,53 @@
 .dc-approval.is-deny .dc-approval-status, .dc-approval.is-timeout .dc-approval-status { color: #f87171; }
 .dc-msg-model { display: inline-flex; }
 
-/* 窄屏 FAB（仅工作区可用时显示） */
+/* 窄屏「工作区」停靠标签：与右下 Dragon Claw 标签同形同材质，叠放在其正上方（仅工作区可用时显示） */
 .wsp-fab {
     position: fixed;
-    right: 16px;
-    bottom: 86px;
+    right: 0;
+    bottom: 198px; /* Dragon Claw 标签 bottom 140 + 高 48 + 间距 10 */
     z-index: 1100;
     display: none;
-    height: 36px;
-    padding: 0 14px;
-    border: 1px solid rgba(100, 255, 218, 0.35);
-    border-radius: 999px;
-    background: rgba(11, 17, 32, 0.92);
-    color: #e6fffa;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-width: 54px;
+    height: 48px;
+    box-sizing: border-box;
+    padding: 0 9px 0 11px;
+    border: 1px solid rgba(100, 255, 218, 0.3);
+    border-right: none;
+    border-radius: 24px 0 0 24px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(16, 32, 54, 0.94));
+    color: #99f6e4;
     font: inherit;
-    font-size: 12.5px;
-    font-weight: 700;
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.4);
+    box-shadow: -8px 10px 26px rgba(2, 6, 23, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+.wsp-fab svg { width: 17px; height: 17px; }
+.wsp-fab-label { font-size: 10px; font-weight: 700; line-height: 1; letter-spacing: 0.04em; color: #cbd5e1; }
+.wsp-fab:hover,
+.wsp-fab[aria-pressed="true"] { border-color: rgba(100, 255, 218, 0.55); color: #64ffda; }
+.wsp-fab[aria-pressed="true"] { background: linear-gradient(135deg, rgba(20, 83, 79, 0.95), rgba(23, 56, 92, 0.95)); }
+.wsp-fab[aria-pressed="true"] .wsp-fab-label { color: #e6fffa; }
+.wsp-fab:focus-visible { outline: 2px solid rgba(100, 255, 218, 0.75); outline-offset: 2px; }
+@media (max-width: 520px) {
+    .wsp-fab { bottom: 178px; height: 44px; min-width: 50px; padding: 0 9px; border-radius: 22px 0 0 22px; } /* 对齐窄屏 Dragon Claw 标签 124 + 44 + 10 */
 }
 .wsp-fab[hidden] { display: none; }
+.wsp-backdrop { display: none; }
+@media (max-width: 860px) { .wsp-backdrop { display: block; } }
+/* 工作区可用时始终显示停靠标签（电脑端点击即可收起/展开右侧工作区栏） */
+body.dc-workspace-enabled .wsp-fab:not([hidden]) { display: inline-flex; }
+@media (min-width: 861px) {
+    /* 电脑端首页始终给右侧停靠列（回到顶部 / 工作区 / Dragon Claw）让出位置，避免盖住卡片、列表与工作区面板 */
+    .home-content.home-workspace { padding-right: max(clamp(16px, 1.4vw, 40px), 64px); }
+}
 
 @media (prefers-reduced-motion: reduce) {
     .wsp-picker-card, .dc-approval { animation: none; }
@@ -494,14 +521,13 @@
 
 /* ── 窄屏：面板变右侧抽屉 ─────────────────── */
 @media (max-width: 860px) {
-    body.dc-workspace-enabled .wsp-fab:not([hidden]) { display: inline-flex; }
     .home-workspace-panel {
         position: fixed;
         top: var(--navbar-h);
         right: 0;
         bottom: 0;
         z-index: 1150;
-        width: min(360px, 92vw);
+        width: min(360px, 84vw); /* 左侧留出可点击的遮罩区域用于收起 */
         max-height: none;
         border-radius: 16px 0 0 16px;
         background: rgba(11, 17, 32, 0.97);
@@ -509,6 +535,22 @@
         transition: transform 0.22s ease;
     }
     .home-workspace-panel.is-drawer-open { transform: none; }
+    /* 抽屉遮罩：点击工作区以外区域收起 */
+    .wsp-backdrop {
+        position: fixed;
+        inset: var(--navbar-h) 0 0 0;
+        z-index: 1140;
+        background: rgba(2, 6, 23, 0.5);
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.22s ease;
+        -webkit-tap-highlight-color: transparent;
+    }
+    body.dc-workspace-open .wsp-backdrop { opacity: 1; pointer-events: auto; }
+    /* 抽屉打开时暂时收起右侧 Dragon Claw 标签，避免浮在抽屉内容之上 */
+    body.dc-workspace-open .ai-fab { opacity: 0; pointer-events: none; }
     .dc-tool-row { grid-template-columns: 18px auto minmax(0, 1fr); }
     .dc-tool-row .dc-tool-state { grid-column: 2 / -1; }
 }

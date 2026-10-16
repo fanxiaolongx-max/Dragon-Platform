@@ -1954,7 +1954,9 @@ function updateResponsiveNavbar() {
     });
     document.getElementById('navResponsiveCategory')?.remove();
     const links = Array.from(primaryEl.querySelectorAll('.nav-link'));
-    if (!links.length || !isNavbarOverflowing(nav)) return;
+    // 手机宽度下主导航链接全部收进「更多工具」，避免与右侧按钮叠在一起
+    const collapseAll = window.matchMedia('(max-width: 600px)').matches;
+    if (!links.length || (!collapseAll && !isNavbarOverflowing(nav))) return;
 
     const nonActive = links.filter(link => !link.classList.contains('active')).reverse();
     const active = links.filter(link => link.classList.contains('active')).reverse();
@@ -1962,7 +1964,7 @@ function updateResponsiveNavbar() {
     const collapsedIds = [];
 
     for (const link of candidates) {
-        if (!isNavbarOverflowing(nav)) break;
+        if (!collapseAll && !isNavbarOverflowing(nav)) break;
         link.classList.add('nav-responsive-hidden');
         const itemId = link.getAttribute('data-nav-item-id');
         if (itemId) collapsedIds.push(itemId);
@@ -2565,7 +2567,7 @@ function renderCategorySettings(content) {
         <div class="nav-settings-list">
             ${categories.map((cat, index) => `
                 <div class="nav-settings-row" style="flex-wrap: wrap; gap: 8px; padding-bottom: 12px;">
-                    <div style="display: flex; gap: 8px; flex: 1; min-width: 300px;">
+                    <div style="display: flex; gap: 8px; flex: 1; min-width: min(300px, 100%);">
                         <input class="nav-settings-input" placeholder="${navEscape(navT('nav.set.placeholder.zh'))}" value="${navEscape(cat.name)}" oninput="renameNavCategory('${navEscape(cat.id)}', this.value, 'zh')">
                         <input class="nav-settings-input" placeholder="${navEscape(navT('nav.set.placeholder.en'))}" value="${navEscape(cat.nameEn || '')}" oninput="renameNavCategory('${navEscape(cat.id)}', this.value, 'en')">
                     </div>
@@ -7749,11 +7751,11 @@ async function fetchSecuritySettingsForNav() {
 function renderSecurityPolicyRows(kind, rows) {
     return (rows || []).map((policy, index) => `
         <tr>
-            <td><input type="checkbox" ${policy.enabled !== false ? 'checked' : ''} onchange="updateSecurityPolicy('${kind}', ${index}, 'enabled', this.checked)"></td>
-            <td><input class="nav-settings-input nav-security-number" type="number" min="1" max="1000" step="1" value="${navEscape(policy.count)}" oninput="updateSecurityPolicy('${kind}', ${index}, 'count', this.value)"></td>
-            <td><input class="nav-settings-input nav-security-number" type="number" min="1" max="10080" step="1" value="${navEscape(policy.windowMinutes)}" oninput="updateSecurityPolicy('${kind}', ${index}, 'windowMinutes', this.value)"></td>
-            <td><input class="nav-settings-input nav-security-number" type="number" min="1" max="10080" step="1" value="${navEscape(policy.lockMinutes)}" oninput="updateSecurityPolicy('${kind}', ${index}, 'lockMinutes', this.value)"></td>
-            <td>
+            <td data-label="${navEscape(navT('nav.sec.thEnabled'))}"><input type="checkbox" ${policy.enabled !== false ? 'checked' : ''} onchange="updateSecurityPolicy('${kind}', ${index}, 'enabled', this.checked)"></td>
+            <td data-label="${navEscape(navT('nav.sec.thCount'))}"><input class="nav-settings-input nav-security-number" type="number" min="1" max="1000" step="1" value="${navEscape(policy.count)}" oninput="updateSecurityPolicy('${kind}', ${index}, 'count', this.value)"></td>
+            <td data-label="${navEscape(navT('nav.sec.thWindow'))}"><input class="nav-settings-input nav-security-number" type="number" min="1" max="10080" step="1" value="${navEscape(policy.windowMinutes)}" oninput="updateSecurityPolicy('${kind}', ${index}, 'windowMinutes', this.value)"></td>
+            <td data-label="${navEscape(navT('nav.sec.thLock'))}"><input class="nav-settings-input nav-security-number" type="number" min="1" max="10080" step="1" value="${navEscape(policy.lockMinutes)}" oninput="updateSecurityPolicy('${kind}', ${index}, 'lockMinutes', this.value)"></td>
+            <td data-label="${navEscape(navT('nav.sec.thSeverity'))}">
                 <select class="nav-settings-input nav-security-severity" onchange="updateSecurityPolicy('${kind}', ${index}, 'severity', this.value)">
                     ${['info', 'warn', 'error', 'critical'].map(level => `<option value="${level}" ${policy.severity === level ? 'selected' : ''}>${level}</option>`).join('')}
                 </select>
@@ -8780,51 +8782,51 @@ function initBackToTopButton() {
         const style = document.createElement('style');
         style.id = styleId;
         style.textContent = `
+            /* 右侧停靠列的一员：与 Dragon Claw / 工作区标签同形同材质，小一号，叠在整列最上方 */
             #globalBackToTop {
                 position: fixed;
-                right: 22px;
-                bottom: var(--global-back-to-top-bottom, 112px);
+                right: 0;
+                bottom: var(--global-back-to-top-bottom, 156px);
                 z-index: 10050;
-                width: 40px;
+                width: 46px;
                 height: 40px;
-                border: 1px solid rgba(255, 255, 255, 0.22);
-                border-radius: 999px;
-                background: rgba(15, 23, 42, 0.58);
-                color: #e2e8f0;
-                box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
-                backdrop-filter: blur(10px);
-                -webkit-backdrop-filter: blur(10px);
+                padding: 0 4px 0 8px;
+                border: 1px solid rgba(100, 255, 218, 0.26);
+                border-right: none;
+                border-radius: 20px 0 0 20px;
+                background: linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(16, 32, 54, 0.9));
+                color: #99f6e4;
+                box-shadow: -6px 8px 22px rgba(2, 6, 23, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
                 cursor: pointer;
                 display: grid;
                 place-items: center;
-                font-size: 20px;
-                line-height: 1;
                 opacity: 0;
                 visibility: hidden;
-                transform: translateY(10px);
-                transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease, background 0.18s ease;
+                transform: translateX(100%);
+                transition: opacity 0.2s ease, transform 0.24s cubic-bezier(.2,.8,.2,1), visibility 0.2s ease, border-color 0.18s ease, color 0.18s ease;
+                -webkit-tap-highlight-color: transparent;
             }
+            #globalBackToTop svg { width: 18px; height: 18px; }
             #globalBackToTop.visible {
-                opacity: 0.82;
+                opacity: 1;
                 visibility: visible;
-                transform: translateY(0);
+                transform: translateX(0);
             }
             #globalBackToTop:hover {
-                opacity: 1;
-                background: rgba(15, 23, 42, 0.78);
-                color: #fff;
+                border-color: rgba(100, 255, 218, 0.55);
+                color: #64ffda;
             }
             #globalBackToTop:focus-visible {
-                outline: 3px solid rgba(100, 255, 218, 0.28);
-                outline-offset: 3px;
+                outline: 2px solid rgba(100, 255, 218, 0.75);
+                outline-offset: 2px;
             }
-            @media (max-width: 720px) {
-                #globalBackToTop {
-                    right: 14px;
-                    bottom: var(--global-back-to-top-bottom, 94px);
-                    width: 38px;
-                    height: 38px;
-                }
+            @media (max-width: 520px) {
+                #globalBackToTop { width: 42px; height: 36px; border-radius: 18px 0 0 18px; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #globalBackToTop { transition: none; }
             }
             @media print {
                 #globalBackToTop { display: none !important; }
@@ -8838,26 +8840,35 @@ function initBackToTopButton() {
     button.type = 'button';
     button.setAttribute('aria-label', '回到顶部');
     button.title = '回到顶部';
-    button.textContent = '↑';
+    button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>';
     document.body.appendChild(button);
 
     let lastScrollElement = null;
     let rafPending = false;
-    let lastAiFabRect = null;
     const threshold = 360;
+    const DOCK_GAP = 10;
     const defaultBottom = () => (window.innerWidth <= 720 ? 142 : 156);
-    const minimumBottom = () => (window.innerWidth <= 720 ? 16 : 24);
 
     function getWindowScrollTop() {
         return window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
     }
 
+    // 只认「当前可见且占屏一半以上高度」的主滚动区（如对话列表）；已关闭的弹窗、抽屉、下拉菜单滚过也不算，
+    // 否则它们残留的 scrollTop 会让按钮在页面顶部时也出现。
+    function isMainScroller(element) {
+        if (!element || !document.contains(element) || !element.getClientRects().length) return false;
+        const style = getComputedStyle(element);
+        if (style.visibility === 'hidden' || style.display === 'none') return false;
+        return element.clientHeight >= window.innerHeight * 0.5;
+    }
+
     function getActiveScrollTop() {
         const windowTop = getWindowScrollTop();
-        const elementTop = lastScrollElement && document.contains(lastScrollElement)
-            ? lastScrollElement.scrollTop || 0
-            : 0;
-        return Math.max(windowTop, elementTop);
+        if (!isMainScroller(lastScrollElement)) {
+            lastScrollElement = null;
+            return windowTop;
+        }
+        return Math.max(windowTop, lastScrollElement.scrollTop || 0);
     }
 
     function updateVisibility() {
@@ -8866,57 +8877,22 @@ function initBackToTopButton() {
         button.classList.toggle('visible', getActiveScrollTop() > threshold);
     }
 
-    function rectsOverlap(a, b, gap = 10) {
-        if (!a || !b) return false;
-        return !(
-            a.right + gap < b.left ||
-            a.left - gap > b.right ||
-            a.bottom + gap < b.top ||
-            a.top - gap > b.bottom
-        );
-    }
-
+    // 叠放在右侧停靠列（Dragon Claw、工作区标签）最上方，间距与停靠列一致
     function updateBackToTopPlacement() {
-        if (!lastAiFabRect) {
-            const aiFab = document.querySelector('.ai-fab');
-            if (aiFab) {
-                const rect = aiFab.getBoundingClientRect();
-                lastAiFabRect = {
-                    left: rect.left,
-                    top: rect.top,
-                    right: rect.right,
-                    bottom: rect.bottom,
-                    width: rect.width,
-                    height: rect.height
-                };
-            }
-        }
-        const fallback = defaultBottom();
-        let nextBottom = fallback;
-        const buttonWidth = button.offsetWidth || 40;
-        const buttonHeight = button.offsetHeight || 40;
-        const right = window.innerWidth <= 720 ? 14 : 22;
-        const syntheticButtonRect = {
-            left: window.innerWidth - right - buttonWidth,
-            right: window.innerWidth - right,
-            top: window.innerHeight - nextBottom - buttonHeight,
-            bottom: window.innerHeight - nextBottom
-        };
-
-        if (rectsOverlap(syntheticButtonRect, lastAiFabRect)) {
-            const bottomAboveAi = Math.max(minimumBottom(), window.innerHeight - lastAiFabRect.top + 12);
-            const bottomBelowAi = Math.max(minimumBottom(), window.innerHeight - lastAiFabRect.bottom - buttonHeight - 12);
-            nextBottom = bottomAboveAi + buttonHeight < window.innerHeight
-                ? bottomAboveAi
-                : bottomBelowAi;
-        }
+        const docked = Array.from(document.querySelectorAll('.ai-fab, #dcWorkspaceFab')).filter(element => {
+            if (!element.getClientRects().length) return false;
+            const style = getComputedStyle(element);
+            return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) > 0.05;
+        });
+        const dockTop = docked.length ? Math.min(...docked.map(element => element.getBoundingClientRect().top)) : null;
+        const nextBottom = dockTop === null ? defaultBottom() : window.innerHeight - dockTop + DOCK_GAP;
         button.style.setProperty('--global-back-to-top-bottom', `${Math.round(nextBottom)}px`);
     }
 
     function queueVisibilityUpdate(event) {
         const target = event && event.target;
         if (target && target !== document && target !== window && target !== document.documentElement && target !== document.body) {
-            if (target.scrollTop > threshold) lastScrollElement = target;
+            if (target.scrollTop > threshold && isMainScroller(target)) lastScrollElement = target;
         }
         if (rafPending) return;
         rafPending = true;
@@ -8941,10 +8917,9 @@ function initBackToTopButton() {
         updateBackToTopPlacement();
         queueVisibilityUpdate();
     }, { passive: true });
-    window.addEventListener('tools:ai-fab-position', (event) => {
-        lastAiFabRect = event.detail && event.detail.rect ? event.detail.rect : null;
-        updateBackToTopPlacement();
-    });
+    window.addEventListener('tools:ai-fab-position', updateBackToTopPlacement);
+    // 工作区标签异步出现/隐藏、抽屉开关时重新对位
+    new MutationObserver(() => queueVisibilityUpdate()).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     setTimeout(updateVisibility, 300);
 }
 

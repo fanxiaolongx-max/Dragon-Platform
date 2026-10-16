@@ -10,13 +10,13 @@
             all: '全部工具', recent: '最近使用', groups: '分类', other: '其他',
             searchPlaceholder: '搜索工具 / 拼音首字母', empty: '没有匹配的工具', emptyRecent: '还没有最近使用的工具',
             updated: '{time}更新', justNow: '刚刚', minutes: '{n} 分钟前', hours: '{n} 小时前', days: '{n} 天前',
-            updatedTitle: '上次更新：{time}'
+            updatedTitle: '上次更新：{time}', collapse: '收起菜单', expand: '展开菜单'
         },
         'en-US': {
             all: 'All tools', recent: 'Recent', groups: 'Categories', other: 'Other',
             searchPlaceholder: 'Search tools', empty: 'No matching tools', emptyRecent: 'No recently used tools yet',
             updated: 'Updated {time}', justNow: 'just now', minutes: '{n}m ago', hours: '{n}h ago', days: '{n}d ago',
-            updatedTitle: 'Last updated: {time}'
+            updatedTitle: 'Last updated: {time}', collapse: 'Collapse menu', expand: 'Expand menu'
         }
     };
     const GROUP_COLORS = ['#38bdf8', '#34d399', '#a78bfa', '#f59e0b', '#f472b6', '#22d3ee', '#fb7185', '#a3e635', '#818cf8', '#fbbf24'];
@@ -193,7 +193,7 @@
         const cardIds = new Set(groups.flatMap(group => group.cards.map(cardItemId)));
         const recentCount = recentIds().filter(id => cardIds.has(id)).length;
         const item = (attrs, icon, name, count) => `
-            <button type="button" class="home-cat-item" ${attrs}>
+            <button type="button" class="home-cat-item" title="${escapeHtml(name)}" ${attrs}>
                 <span class="home-cat-icon" aria-hidden="true">${icon}</span>
                 <span class="home-cat-name">${escapeHtml(name)}</span>
                 <span class="home-cat-count">${count}</span>
@@ -475,6 +475,7 @@
 
         window.addEventListener('tools:languagechange', () => {
             if (searchInput) searchInput.placeholder = tx('searchPlaceholder');
+            applySidebarMode();
             scheduleLayout();
         });
         // navbar 加载/保存导航设置后会派发该事件，借此同步分类。
@@ -494,6 +495,50 @@
         setInterval(() => grid.querySelectorAll(':scope > a.tool-card').forEach(renderCardMeta), 60 * 1000);
     }
 
+    // ── 侧栏收缩：电脑窄屏（< 1280px）默认收成图标栏；手动切换后记住选择 ──
+    const SIDEBAR_KEY = 'home_sidebar_mode';
+    const SIDEBAR_AUTO_COLLAPSE = 1280;
+    const SIDEBAR_MOBILE = 860;
+    let sidebarToggle = null;
+
+    function storedSidebarMode() {
+        try { return localStorage.getItem(SIDEBAR_KEY); } catch { return null; }
+    }
+
+    function applySidebarMode() {
+        const mode = storedSidebarMode();
+        const collapsed = window.innerWidth > SIDEBAR_MOBILE
+            && (mode ? mode === 'collapsed' : window.innerWidth < SIDEBAR_AUTO_COLLAPSE);
+        document.body.classList.toggle('home-sidebar-collapsed', collapsed);
+        if (sidebarToggle) {
+            const label = tx(collapsed ? 'expand' : 'collapse');
+            sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+            sidebarToggle.setAttribute('aria-label', label);
+            sidebarToggle.title = label;
+        }
+    }
+
+    function initSidebarToggle() {
+        const sidebar = document.getElementById('homeSidebar');
+        if (!sidebar) return;
+        sidebarToggle = document.createElement('button');
+        sidebarToggle.type = 'button';
+        sidebarToggle.className = 'home-sidebar-toggle';
+        sidebarToggle.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        sidebar.prepend(sidebarToggle);
+        sidebarToggle.addEventListener('click', () => {
+            const next = document.body.classList.contains('home-sidebar-collapsed') ? 'expanded' : 'collapsed';
+            try { localStorage.setItem(SIDEBAR_KEY, next); } catch { /* 无痕模式下仅本次生效 */ }
+            applySidebarMode();
+        });
+        let raf = 0;
+        window.addEventListener('resize', () => {
+            cancelAnimationFrame(raf);
+            raf = requestAnimationFrame(applySidebarMode);
+        }, { passive: true });
+        applySidebarMode();
+    }
+
     function init() {
         grid = document.getElementById('toolsGrid');
         if (!grid) return;
@@ -502,6 +547,7 @@
         emptyEl = document.getElementById('homeToolsEmpty');
         if (searchInput) searchInput.placeholder = tx('searchPlaceholder');
         document.documentElement.classList.add('home-workspace-ready');
+        initSidebarToggle();
         bindEvents();
         layout();
         loadPageUpdates();

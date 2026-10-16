@@ -89,9 +89,14 @@
         document.body.classList.toggle('dc-workspace-open', state.open);
         el.panel.hidden = !state.open;
         el.toggle?.setAttribute('aria-pressed', String(state.open));
+        el.fab?.setAttribute('aria-pressed', String(state.open));
         try { localStorage.setItem(PANEL_KEY, state.open ? '1' : '0'); } catch { /* ignore */ }
         if (state.open) requestAnimationFrame(() => el.panel.classList.add('is-drawer-open'));
         else el.panel.classList.remove('is-drawer-open');
+    }
+
+    function isDrawerMode() {
+        return window.matchMedia('(max-width: 860px)').matches;
     }
 
     function isReadOnly() {
@@ -501,7 +506,11 @@
         renderChip();
         el.panel.querySelectorAll('[data-wsp-i18n]').forEach(node => { node.textContent = tx(node.dataset.wspI18n); });
         el.picker.querySelectorAll('[data-wsp-i18n]').forEach(node => { node.textContent = tx(node.dataset.wspI18n); });
-        if (el.fab) el.fab.textContent = tx('workspace');
+        if (el.fab) {
+            const label = el.fab.querySelector('.wsp-fab-label');
+            if (label) label.textContent = tx('workspace');
+            el.fab.setAttribute('aria-label', tx('workspace'));
+        }
         if (el.pickerInput) el.pickerInput.placeholder = tx('typedPathPlaceholder');
     }
 
@@ -1005,6 +1014,11 @@
         el.toggle?.addEventListener('click', () => setOpen(!state.open));
         el.fab?.addEventListener('click', () => setOpen(!state.open));
         el.close.addEventListener('click', () => setOpen(false));
+        // 窄屏抽屉：点工作区以外的遮罩或按 Esc 收起（遮罩拦截这次点击，不会误触底下的内容）
+        el.backdrop.addEventListener('click', () => setOpen(false));
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && state.open && el.picker.hidden && isDrawerMode()) setOpen(false);
+        });
 
         // 目录选择器
         el.pickerClose.addEventListener('click', closePicker);
@@ -1068,6 +1082,10 @@
         el.pickerHidden = document.getElementById('wspPickerHidden');
         el.pickerSelect = document.getElementById('wspPickerSelect');
         document.body.appendChild(el.picker);
+        el.backdrop = document.createElement('div');
+        el.backdrop.className = 'wsp-backdrop';
+        el.backdrop.setAttribute('aria-hidden', 'true');
+        el.panel.before(el.backdrop);
         bind();
         try {
             state.capability = await request('GET', `${API}/capability`);

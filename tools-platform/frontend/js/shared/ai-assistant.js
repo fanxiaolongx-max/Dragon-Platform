@@ -7,82 +7,121 @@
     const style = document.createElement('style');
     style.innerHTML = `
         /* AI Assistant 样式定义 */
+        /* 右侧停靠标签：与首页「工作区」标签同一套形状与材质（Dragon Claw 青蓝紫） */
         .ai-fab {
             position: fixed;
             bottom: 140px;
             right: 0;
-            width: 52px;
-            height: 50px;
-            border-radius: 25px 0 0 25px;
-            background: rgba(15, 23, 42, 0.88);
-            border: 1px solid rgba(126, 151, 222, 0.55);
+            height: 48px;
+            min-width: 54px;
+            box-sizing: border-box;
+            padding: 0 11px 0 10px;
+            border-radius: 24px 0 0 24px;
+            background: linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(16, 32, 54, 0.94));
+            border: 1px solid rgba(100, 255, 218, 0.3);
             border-right: none;
-            color: white;
+            color: #e6fffa;
             display: flex;
             align-items: center;
-            justify-content: center;
             box-shadow:
-                -4px 8px 24px rgba(13, 18, 46, 0.22),
-                0 0 0 1px rgba(20, 31, 82, 0.18),
-                0 0 18px rgba(104, 118, 255, 0.18),
-                inset 0 0 0 1px rgba(236, 245, 255, 0.12);
+                -8px 10px 26px rgba(2, 6, 23, 0.4),
+                0 0 18px rgba(45, 212, 191, 0.12),
+                inset 0 1px 0 rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
             cursor: pointer;
             z-index: 100000;
-            transition: transform 0.22s cubic-bezier(.2,.8,.2,1), box-shadow 0.22s, border-color 0.22s, background 0.22s;
+            transition: border-color 0.22s, box-shadow 0.22s, background 0.22s, opacity 0.2s;
             user-select: none;
-            touch-action: none;
             isolation: isolate;
             outline: none;
             -webkit-tap-highlight-color: transparent;
+            font-family: inherit;
         }
         .ai-fab::before {
             content: "";
             position: absolute;
-            inset: -3px;
+            inset: -2px;
             z-index: -1;
             border-radius: inherit;
-            background: radial-gradient(circle at 35% 50%, rgba(118, 138, 255, 0.22), rgba(97, 232, 255, 0.08) 52%, transparent 75%);
-            opacity: 0.72;
-            transition: opacity 0.22s, transform 0.22s;
+            background: radial-gradient(circle at 30% 50%, rgba(45, 212, 191, 0.22), rgba(96, 165, 250, 0.08) 55%, transparent 78%);
+            opacity: 0;
+            transition: opacity 0.22s;
             pointer-events: none;
         }
-        .ai-fab-particles {
+        .ai-fab-orb {
+            position: relative;
+            flex: none;
+            width: 32px;
+            height: 32px;
+        }
+        .ai-fab-orb::before {
+            content: "";
             position: absolute;
             inset: 0;
-            width: 100%;
-            height: 100%;
-            display: block;
-            border-radius: inherit;
+            border-radius: 50%;
+            background: conic-gradient(from 210deg, #64ffda, #60a5fa, #a78bfa, #f472b6, #64ffda);
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+            animation: ai-fab-spin 9s linear infinite;
+        }
+        .ai-fab-avatar {
+            position: absolute;
+            inset: 3px;
+            width: calc(100% - 6px);
+            height: calc(100% - 6px);
+            border-radius: 50%;
+            object-fit: cover;
             pointer-events: none;
         }
-        .ai-fab:hover {
-            transform: translateX(-5px);
-            border-color: rgba(211, 225, 255, 0.75);
-            background: rgba(15, 23, 42, 0.98);
+        .ai-fab-dot {
+            position: absolute;
+            right: -1px;
+            bottom: -1px;
+            width: 9px;
+            height: 9px;
+            border: 2px solid #0f172a;
+            border-radius: 50%;
+            background: #34d399;
+            box-shadow: 0 0 6px rgba(52, 211, 153, 0.8);
+        }
+        .ai-fab-label {
+            max-width: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            opacity: 0;
+            font-size: 12.5px;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            transition: max-width 0.26s cubic-bezier(.2,.8,.2,1), opacity 0.2s, margin 0.26s;
+        }
+        @media (hover: hover) {
+            .ai-fab:hover .ai-fab-label,
+            .ai-fab:focus-visible .ai-fab-label {
+                max-width: 120px;
+                margin-left: 9px;
+                opacity: 1;
+            }
+        }
+        .ai-fab:hover,
+        .ai-fab[aria-expanded="true"] {
+            border-color: rgba(100, 255, 218, 0.55);
             box-shadow:
-                -6px 12px 32px rgba(13, 18, 46, 0.32),
-                0 0 0 1px rgba(20, 31, 82, 0.22),
-                0 0 26px rgba(104, 150, 255, 0.28),
-                inset 0 0 0 1px rgba(236, 245, 255, 0.22);
+                -10px 14px 32px rgba(2, 6, 23, 0.48),
+                0 0 24px rgba(45, 212, 191, 0.22),
+                inset 0 1px 0 rgba(255, 255, 255, 0.12);
         }
         .ai-fab:hover::before,
-        .ai-fab:focus-visible::before {
-            opacity: 1;
-            transform: scale(1.05);
-        }
+        .ai-fab:focus-visible::before,
+        .ai-fab[aria-expanded="true"]::before { opacity: 1; }
         .ai-fab:focus-visible {
             box-shadow:
-                -6px 12px 32px rgba(13, 18, 46, 0.35),
-                0 0 0 3px rgba(255, 255, 255, 0.72),
-                0 0 0 6px rgba(103, 121, 255, 0.36);
+                -10px 14px 32px rgba(2, 6, 23, 0.48),
+                0 0 0 2px rgba(100, 255, 218, 0.75);
         }
-        .ai-fab.dragging {
-            transform: scale(1.04);
-            box-shadow: -4px 10px 28px rgba(0, 0, 0, 0.34);
-            cursor: grabbing;
-        }
+        .ai-fab.is-pulse .ai-fab-orb { animation: ai-fab-pulse 0.6s cubic-bezier(.2,.8,.2,1); }
+        @keyframes ai-fab-spin { to { transform: rotate(360deg); } }
+        @keyframes ai-fab-pulse { 0% { transform: scale(1); } 40% { transform: scale(0.86); } 100% { transform: scale(1); } }
         .ai-proactive-alert {
             position: fixed;
             width: min(360px, calc(100vw - 32px));
@@ -826,10 +865,12 @@
             .ai-fab {
                 right: 0;
                 bottom: 124px;
-                width: 46px;
                 height: 44px;
+                min-width: 50px;
+                padding: 0 9px;
                 border-radius: 22px 0 0 22px;
             }
+            .ai-fab-orb { width: 30px; height: 30px; }
             .ai-panel,
             .ai-panel.expanded {
                 right: 12px;
@@ -860,9 +901,12 @@
         @media (prefers-reduced-motion: reduce) {
             .ai-fab,
             .ai-fab::before,
+            .ai-fab-label,
             .ai-panel {
                 transition-duration: 0.01ms !important;
             }
+            .ai-fab-orb::before,
+            .ai-fab.is-pulse .ai-fab-orb { animation: none; }
         }
     `;
     document.head.appendChild(style);
@@ -926,7 +970,7 @@
     fab.setAttribute('aria-label', '打开Dragon Claw智能体');
     fab.setAttribute('aria-expanded', 'false');
     fab.setAttribute('title', 'Dragon Claw智能体');
-    fab.innerHTML = '<canvas class="ai-fab-particles" aria-hidden="true"></canvas>';
+    fab.innerHTML = '<span class="ai-fab-orb" aria-hidden="true"><img class="ai-fab-avatar" src="/assets/dragon-claw-avatar.jpg" alt="" draggable="false"><span class="ai-fab-dot"></span></span><span class="ai-fab-label">Dragon Claw</span>';
     document.body.appendChild(fab);
 
     const proactiveAlert = document.createElement('div');
@@ -1107,7 +1151,7 @@
     let knowledgeGraphLoader = null;
     let activeChatController = null;
     const sendButtonDefaultHtml = sendBtn.innerHTML;
-    const particleFab = createParticleFab(fab);
+    const brandFab = createBrandFab(fab);
     function openKnowledgeGraph(options = {}) {
         if (window.openToolsKnowledgeGraph) {
             window.openToolsKnowledgeGraph(options).catch(error => appendMessage(`⚠️ ${error.message}`, 'ai'));
@@ -1131,174 +1175,16 @@
             .catch(error => appendMessage(`⚠️ ${error.message}`, 'ai'));
     }
 
-    function createParticleFab(root) {
-        const canvas = root.querySelector('.ai-fab-particles');
-        const ctx = canvas.getContext('2d', { alpha: true });
-        const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-        const pointCount = 180;
-        const goldenAngle = Math.PI * (3 - Math.sqrt(5));
-        const points = Array.from({ length: pointCount }, (_, index) => {
-            const y = 1 - (index / (pointCount - 1)) * 2;
-            const radius = Math.sqrt(Math.max(0, 1 - y * y));
-            const angle = goldenAngle * index;
-            const hash = (index * 73) % 97;
-            return {
-                x: Math.cos(angle) * radius,
-                y,
-                z: Math.sin(angle) * radius,
-                size: 0.52 + (hash / 97) * 0.74,
-                phase: (hash / 97) * Math.PI * 2
-            };
-        });
-        let width = 0;
-        let height = 0;
-        let dpr = 1;
-        let raf = 0;
-        let lastPaint = 0;
-        let startTime = performance.now();
-        let hoverAmount = 0;
-        let hoverTarget = 0;
-        let pulse = 0;
-
-        function resize() {
-            const rect = root.getBoundingClientRect();
-            const nextDpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
-            const nextWidth = Math.max(1, Math.round(rect.width * nextDpr));
-            const nextHeight = Math.max(1, Math.round(rect.height * nextDpr));
-            if (canvas.width === nextWidth && canvas.height === nextHeight && dpr === nextDpr) return;
-            dpr = nextDpr;
-            width = rect.width;
-            height = rect.height;
-            canvas.width = nextWidth;
-            canvas.height = nextHeight;
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        }
-
-        function draw(now) {
-            resize();
-            ctx.clearRect(0, 0, width, height);
-            const cx = width / 2;
-            const cy = height / 2 - 0.5;
-            const elapsed = (now - startTime) / 1000;
-            hoverAmount += (hoverTarget - hoverAmount) * 0.14;
-            pulse *= 0.92;
-            const speed = 0.28 + hoverAmount * 1.92;
-            const rotation = elapsed * speed;
-            const tilt = -0.32 + Math.sin(elapsed * 0.22) * 0.07;
-            const cosR = Math.cos(rotation);
-            const sinR = Math.sin(rotation);
-            const cosT = Math.cos(tilt);
-            const sinT = Math.sin(tilt);
-            const orbRadius = Math.min(width, height) * (0.31 + pulse * 0.015);
-            const projected = [];
-
-            const glow = ctx.createRadialGradient(cx - orbRadius * 0.2, cy - orbRadius * 0.24, 0, cx, cy, orbRadius * 1.35);
-            glow.addColorStop(0, `rgba(211, 245, 255, ${0.13 + hoverAmount * 0.05})`);
-            glow.addColorStop(0.42, `rgba(100, 126, 255, ${0.1 + hoverAmount * 0.05})`);
-            glow.addColorStop(1, 'rgba(50, 48, 143, 0)');
-            ctx.fillStyle = glow;
-            ctx.beginPath();
-            ctx.arc(cx, cy, orbRadius * 1.36, 0, Math.PI * 2);
-            ctx.fill();
-
-            for (let index = 0; index < points.length; index += 1) {
-                const point = points[index];
-                const wave = 1 + Math.sin(point.phase + elapsed * 1.15) * (0.035 + hoverAmount * 0.016);
-                const x1 = (point.x * cosR + point.z * sinR) * wave;
-                const z1 = (-point.x * sinR + point.z * cosR) * wave;
-                const y1 = point.y * wave;
-                const y2 = y1 * cosT - z1 * sinT;
-                const z2 = y1 * sinT + z1 * cosT;
-                const perspective = 0.84 + (z2 + 1) * 0.13;
-                projected.push({
-                    x: cx + x1 * orbRadius * perspective,
-                    y: cy + y2 * orbRadius * perspective,
-                    z: z2,
-                    size: point.size * perspective
-                });
-            }
-
-            projected.sort((a, b) => a.z - b.z);
-            for (let index = 0; index < projected.length; index += 1) {
-                const point = projected[index];
-                const depth = (point.z + 1) / 2;
-                const radius = point.size * (1.18 + depth * 0.72 + hoverAmount * 0.12);
-                ctx.fillStyle = `rgba(22, 34, 92, ${0.22 + depth * 0.28})`;
-                ctx.beginPath();
-                ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            for (let index = 0; index < projected.length; index += 1) {
-                const point = projected[index];
-                const depth = (point.z + 1) / 2;
-                const warm = Math.max(0, depth - 0.68) / 0.32;
-                const alpha = 0.2 + depth * 0.68;
-                const red = Math.round(104 + depth * 88 + warm * 30);
-                const green = Math.round(130 + depth * 94 + warm * 14);
-                const blue = Math.round(255 - warm * 38);
-                const radius = point.size * (0.72 + depth * 0.62 + hoverAmount * 0.12);
-                ctx.fillStyle = `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-                ctx.beginPath();
-                ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            const core = ctx.createRadialGradient(cx - 1.5, cy - 2, 0, cx, cy, orbRadius * 0.58);
-            core.addColorStop(0, `rgba(244, 252, 255, ${0.72 + hoverAmount * 0.12})`);
-            core.addColorStop(0.18, 'rgba(139, 229, 255, 0.2)');
-            core.addColorStop(1, 'rgba(91, 72, 220, 0)');
-            ctx.fillStyle = core;
-            ctx.beginPath();
-            ctx.arc(cx, cy, orbRadius * 0.6, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        function loop(now) {
-            raf = 0;
-            if (document.hidden) return;
-            if (now - lastPaint >= 1000 / 30) {
-                draw(now);
-                lastPaint = now;
-            }
-            raf = window.requestAnimationFrame(loop);
-        }
-
-        function start() {
-            if (raf || document.hidden) return;
-            if (reducedMotion.matches) {
-                draw(performance.now());
-                return;
-            }
-            raf = window.requestAnimationFrame(loop);
-        }
-
-        function stop() {
-            if (raf) window.cancelAnimationFrame(raf);
-            raf = 0;
-        }
-
-        root.addEventListener('pointerenter', () => {
-            hoverTarget = 1;
-        });
-        root.addEventListener('pointerleave', () => {
-            hoverTarget = 0;
-        });
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) stop();
-            else start();
-        });
-        reducedMotion.addEventListener?.('change', () => {
-            stop();
-            startTime = performance.now();
-            start();
-        });
-        window.addEventListener('resize', resize, { passive: true });
-        start();
-
+    // 点击反馈：头像徽章轻按回弹（替代原先常驻 30fps 重绘的粒子画布）
+    function createBrandFab(root) {
+        let timer = 0;
         return {
             pulse() {
-                pulse = 1;
-                if (reducedMotion.matches) draw(performance.now());
+                root.classList.remove('is-pulse');
+                void root.offsetWidth;
+                root.classList.add('is-pulse');
+                clearTimeout(timer);
+                timer = setTimeout(() => root.classList.remove('is-pulse'), 650);
             }
         };
     }
@@ -1361,7 +1247,7 @@
     }
     
     fab.onclick = () => {
-        particleFab.pulse();
+        brandFab.pulse();
         hideProactiveAlert();
         openOrClosePanel();
     };
@@ -1431,7 +1317,7 @@
     fab.onkeydown = (event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
-        particleFab.pulse();
+        brandFab.pulse();
         openOrClosePanel();
     };
 

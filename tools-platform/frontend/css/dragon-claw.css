@@ -502,8 +502,11 @@ body.dc-chatting .dc-chat-head {
     font-size: 10.5px;
     font-weight: 700;
 }
-.dc-chat-actions { display: flex; gap: 6px; }
+.dc-chat-actions { display: flex; flex: none; gap: 6px; }
+.dc-chat-name, .dc-chat-badge { white-space: nowrap; }
 .dc-ghost-btn {
+    flex: none;
+    white-space: nowrap;
     height: 30px;
     padding: 0 12px;
     border: 1px solid rgba(148, 163, 184, 0.2);
@@ -890,3 +893,15 @@ body.dc-chatting .dc-composer {
 .dc-session-tag.is-current { border-color: rgba(100, 255, 218, 0.4); color: var(--dc-accent, #64ffda); }
 .dc-session-empty { padding: 28px 0; color: var(--dc-faint, #64748b); font-size: 12.5px; text-align: center; }
 .dc-session-foot { color: var(--dc-faint, #64748b); font-size: 11px; }
+
+/* 手机：对话顶栏只保留头像、名称与两个紧凑按钮（工作区改用右侧停靠标签） */
+@media (max-width: 640px) {
+    body.dc-chatting .dc-chat-head { gap: 8px; padding: 10px 12px; }
+    .dc-chat-badge,
+    .dc-chat-actions .dc-workspace-toggle { display: none !important; }
+    .dc-chat-title { gap: 7px; }
+    .dc-chat-name { font-size: 13.5px; }
+    .dc-chat-actions { gap: 5px; }
+    .dc-ghost-btn { height: 28px; padding: 0 9px; font-size: 11.5px; border-radius: 8px; }
+}
+

@@ -1322,6 +1322,8 @@
             </details>
         </div>
 
+        <!-- 推广与资讯 + 最近操作历史：宽屏并排、紧凑展示（布局见 css/home-workspace.css） -->
+        <div class="home-info-row">
         <section class="home-promotions" id="homePromotions" aria-labelledby="homePromotionsTitle">
             <div class="home-promotions-head">
                 <h2 id="homePromotionsTitle" data-i18n="home.promotion.title">推广与资讯</h2>
@@ -1345,19 +1347,16 @@
             <div class="history-head">
                 <div class="history-title-wrap">
                     <div class="history-title">最近操作历史</div>
-                    <div class="source-badge" id="history-source">来源: -</div>
-                    <div class="history-caption">来自 `upload_history`，用于观察当前日志读取链路</div>
+                    <div class="source-badge" id="history-source">-</div>
                 </div>
                 <div class="history-actions">
+                    <label class="history-search">
+                        <span class="history-search-icon" aria-hidden="true">⌕</span>
+                        <input type="search" id="history-search" placeholder="搜索操作、详情或工具" autocomplete="off" spellcheck="false">
+                    </label>
+                    <!-- 选项按实际记录动态生成（renderHistoryFilterOptions） -->
                     <select id="history-filter" class="history-select">
                         <option value="">全部工具</option>
-                        <option value="uiv">数据抓取</option>
-                        <option value="sla">数据导入</option>
-                        <option value="custom">自定义工具</option>
-                    </select>
-                    <select id="history-mode" class="history-select">
-                        <option value="auto">自动模式</option>
-                        <option value="sqlite">强制 SQLite</option>
                     </select>
                     <button id="history-refresh" class="history-refresh">刷新历史</button>
                 </div>
@@ -1373,6 +1372,7 @@
                 </div>
             </div>
         </section>
+        </div>
         </main>
         <!-- Dragon Claw 工作区面板：环境 / 上下文 / 更改（js/home/workspace-panel.js） -->
         <aside class="home-workspace-panel" id="dcWorkspacePanel" aria-label="Dragon Claw 工作区" hidden>
@@ -1414,7 +1414,7 @@
                 </div>
             </div>
         </div>
-        <button type="button" class="wsp-fab" id="dcWorkspaceFab" hidden data-wsp-i18n="workspace">工作区</button>
+        <button type="button" class="wsp-fab" id="dcWorkspaceFab" hidden aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 11h18"/></svg><span class="wsp-fab-label">工作区</span></button>
     </div>
 
     <dialog class="home-promotion-dialog" id="homePromotionDialog" aria-labelledby="homePromotionDialogTitle">
@@ -1657,6 +1657,8 @@
     <script>
         const historyState = {
             items: [],
+            filtered: [],
+            query: '',
             page: 1,
             pageSize: 10
         };
@@ -1827,11 +1829,13 @@
                 'home.impact.totalOpens': '累计打开',
                 'home.impact.onlineTool': '在线工具',
                 'home.history.title': '最近操作历史',
-                'home.history.source': '来源: {source}',
-                'home.history.caption': '来自 `upload_history`，用于观察当前日志读取链路',
                 'home.history.allTools': '全部工具',
-                'home.history.auto': '自动模式',
-                'home.history.sqlite': '强制 SQLite',
+                'home.history.search': '搜索操作、详情或工具',
+                'home.history.count': '{n} 条记录',
+                'home.history.justNow': '刚刚',
+                'home.history.minutes': '{n} 分钟前',
+                'home.history.hours': '{n} 小时前',
+                'home.history.yesterday': '昨天 {time}',
                 'home.history.refresh': '刷新历史',
                 'home.history.loading': '正在加载最近操作历史...',
                 'home.history.refreshing': '正在刷新操作历史...',
@@ -1842,11 +1846,12 @@
                 'home.history.prev': '上一页',
                 'home.history.next': '下一页',
                 'home.history.failed': '加载失败：{message}',
-                'home.history.sourceFailed': '来源: 加载失败',
+                'home.history.sourceFailed': '加载失败',
                 'home.history.noDetail': '无附加说明',
                 'home.tool.uiv': '数据抓取',
                 'home.tool.sla': '数据导入',
-                'home.tool.custom': '自定义工具',
+                'home.tool.custom': '工具管理',
+                'home.tool.builtin': '内置工具',
                 'home.tool.unknown': '未分类',
                 'home.prompt.name': '请输入工具名称：',
                 'home.prompt.icon': '请输入工具图标，可留空：',
@@ -2026,11 +2031,13 @@
                 'home.impact.totalOpens': 'total opens',
                 'home.impact.onlineTool': 'online tool',
                 'home.history.title': 'Recent Operation History',
-                'home.history.source': 'Source: {source}',
-                'home.history.caption': 'Read from `upload_history` to verify the current log source.',
                 'home.history.allTools': 'All Tools',
-                'home.history.auto': 'Auto Mode',
-                'home.history.sqlite': 'Force SQLite',
+                'home.history.search': 'Search actions, details or tools',
+                'home.history.count': '{n} records',
+                'home.history.justNow': 'just now',
+                'home.history.minutes': '{n}m ago',
+                'home.history.hours': '{n}h ago',
+                'home.history.yesterday': 'Yesterday {time}',
                 'home.history.refresh': 'Refresh History',
                 'home.history.loading': 'Loading recent operation history...',
                 'home.history.refreshing': 'Refreshing operation history...',
@@ -2041,11 +2048,12 @@
                 'home.history.prev': 'Previous',
                 'home.history.next': 'Next',
                 'home.history.failed': 'Load failed: {message}',
-                'home.history.sourceFailed': 'Source: load failed',
+                'home.history.sourceFailed': 'Load failed',
                 'home.history.noDetail': 'No extra details',
                 'home.tool.uiv': 'Data Capture',
                 'home.tool.sla': 'Data Import',
-                'home.tool.custom': 'Custom Tool',
+                'home.tool.custom': 'Tool Management',
+                'home.tool.builtin': 'Built-in Tools',
                 'home.tool.unknown': 'Uncategorized',
                 'home.prompt.name': 'Tool name:',
                 'home.prompt.icon': 'Tool icon, optional:',
@@ -2728,18 +2736,14 @@
             document.querySelectorAll('.ai-metric-note').forEach((note, index) => { if (aiNoteKeys[index]) note.textContent = t(aiNoteKeys[index]); });
             if (platformSummary) renderPlatformStats(platformSummary);
             setText('.history-title', t('home.history.title'));
-            setText('.history-caption', t('home.history.caption'));
-            const sourceEl = document.getElementById('history-source');
-            if (sourceEl) sourceEl.textContent = t('home.history.source', { source: sourceEl.dataset.source || '-' });
+            const countEl = document.getElementById('history-source');
+            if (countEl && historyState.items.length) countEl.textContent = t('home.history.count', { n: historyState.items.length });
             setText('#history-refresh', t('home.history.refresh'));
             setText('#history-prev', t('home.history.prev'));
             setText('#history-next', t('home.history.next'));
-            setText('#history-filter option[value=""]', t('home.history.allTools'));
-            setText('#history-filter option[value="uiv"]', t('home.tool.uiv'));
-            setText('#history-filter option[value="sla"]', t('home.tool.sla'));
-            setText('#history-filter option[value="custom"]', t('home.tool.custom'));
-            setText('#history-mode option[value="auto"]', t('home.history.auto'));
-            setText('#history-mode option[value="sqlite"]', t('home.history.sqlite'));
+            renderHistoryFilterOptions();
+            const historySearch = document.getElementById('history-search');
+            if (historySearch) historySearch.placeholder = t('home.history.search');
             if (!historyState.items.length) setText('#history-page-info', t('home.history.defaultPage'));
         }
 
@@ -2762,13 +2766,8 @@
             if (tool === 'uiv') return t('home.tool.uiv');
             if (tool === 'sla') return t('home.tool.sla');
             if (tool === 'custom') return t('home.tool.custom');
+            if (tool === 'builtin') return t('home.tool.builtin');
             return tool || t('home.tool.unknown');
-        }
-
-        function formatSourceLabel(source) {
-            if (source === 'sqlite') return 'SQLite';
-            if (source === 'json') return 'JSON';
-            return source || '-';
         }
 
         function renderHistoryList(history) {
@@ -2792,15 +2791,16 @@
             const pagedItems = history.slice(start, start + historyState.pageSize);
 
             listEl.innerHTML = pagedItems.map(item => {
-                const time = item.time
+                const fullTime = item.time
                     ? new Date(item.time).toLocaleString(window.ToolsI18n?.getLanguage?.() || 'zh-CN', { hour12: false })
                     : '-';
+                const detail = item.detail || t('home.history.noDetail');
                 return `
                     <div class="history-row">
-                        <div><span class="history-tool">${formatToolLabel(item.tool)}</span></div>
-                        <div class="history-action">${item.action || '-'}</div>
-                        <div class="history-detail">${item.detail || t('home.history.noDetail')}</div>
-                        <div class="history-time">${time}</div>
+                        <div><span class="history-tool">${escapeHtml(formatToolLabel(item.tool))}</span></div>
+                        <div class="history-action" title="${escapeHtml(item.action || '')}">${escapeHtml(item.action || '-')}</div>
+                        <div class="history-detail" title="${escapeHtml(detail)}">${escapeHtml(detail)}</div>
+                        <div class="history-time" title="${escapeHtml(fullTime)}">${escapeHtml(formatHistoryTime(item.time))}</div>
                     </div>
                 `;
             }).join('');
@@ -2820,11 +2820,55 @@
             if (nextBtn) nextBtn.disabled = historyState.page >= totalPages;
         }
 
+        // 近 7 天显示相对时间（刚刚 / N 分钟前 / N 小时前 / 昨天 HH:mm），更早显示日期；完整时间放在悬停提示里
+        function formatHistoryTime(value) {
+            if (!value) return '-';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return '-';
+            const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
+            const diffMinutes = Math.floor((Date.now() - date.getTime()) / 60000);
+            if (diffMinutes < 1) return t('home.history.justNow');
+            if (diffMinutes < 60) return t('home.history.minutes', { n: diffMinutes });
+            const now = new Date();
+            const sameDay = date.toDateString() === now.toDateString();
+            if (sameDay) return t('home.history.hours', { n: Math.floor(diffMinutes / 60) });
+            const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+            const clock = date.toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit', hour12: false });
+            if (date.toDateString() === yesterday.toDateString()) return t('home.history.yesterday', { time: clock });
+            const sameYear = date.getFullYear() === now.getFullYear();
+            return date.toLocaleDateString(lang, sameYear ? { month: '2-digit', day: '2-digit' } : { year: 'numeric', month: '2-digit', day: '2-digit' }) + ' ' + clock;
+        }
+
+        // 筛选项按实际记录动态生成（带条数），新工具开始写历史后自动出现
+        function renderHistoryFilterOptions() {
+            const select = document.getElementById('history-filter');
+            if (!select) return;
+            const current = select.value;
+            const counts = new Map();
+            historyState.items.forEach(item => counts.set(item.tool || '', (counts.get(item.tool || '') || 0) + 1));
+            const options = [`<option value="">${escapeHtml(t('home.history.allTools'))} (${historyState.items.length})</option>`];
+            [...counts.entries()]
+                .sort((a, b) => b[1] - a[1])
+                .forEach(([tool, count]) => options.push(`<option value="${escapeHtml(tool)}">${escapeHtml(formatToolLabel(tool))} (${count})</option>`));
+            select.innerHTML = options.join('');
+            select.value = counts.has(current) ? current : '';
+        }
+
+        function applyHistoryFilters(resetPage = true) {
+            const tool = document.getElementById('history-filter')?.value || '';
+            const query = historyState.query.trim().toLowerCase();
+            historyState.filtered = historyState.items.filter(item => {
+                if (tool && (item.tool || '') !== tool) return false;
+                if (!query) return true;
+                return [item.action, item.detail, formatToolLabel(item.tool)].some(value => String(value || '').toLowerCase().includes(query));
+            });
+            if (resetPage) historyState.page = 1;
+            renderHistoryList(historyState.filtered);
+        }
+
         async function loadOperationHistory(resetPage = true) {
-            const filter = document.getElementById('history-filter')?.value || '';
-            const mode = document.getElementById('history-mode')?.value || 'auto';
             const listEl = document.getElementById('history-list');
-            const sourceEl = document.getElementById('history-source');
+            const countEl = document.getElementById('history-source');
 
             if (resetPage) historyState.page = 1;
             if (listEl) {
@@ -2832,35 +2876,23 @@
             }
 
             try {
-                const params = new URLSearchParams();
-                params.set('limit', '50');
-                if (filter) params.set('tool', filter);
-                if (mode) params.set('mode', mode);
-                const query = `?${params.toString()}`;
-                const history = await API.get(`/api/upload/history${query}`);
-                historyState.items = history;
-                renderHistoryList(historyState.items);
-
-                if (sourceEl) {
-                    const path = `/api/upload/history${query}`;
-                    const source = API.getLastDataSource(path) || API.getLastDataSource('/api/upload/history') || '-';
-                    sourceEl.dataset.source = formatSourceLabel(source);
-                    sourceEl.textContent = t('home.history.source', { source: sourceEl.dataset.source });
-                }
+                // 历史上限 200 条（upload-history-repository MAX_HISTORY），一次取全，筛选与搜索在前端完成
+                const history = await API.get('/api/upload/history?limit=200');
+                historyState.items = Array.isArray(history) ? history : [];
+                renderHistoryFilterOptions();
+                applyHistoryFilters(resetPage);
+                if (countEl) countEl.textContent = t('home.history.count', { n: historyState.items.length });
             } catch (e) {
                 if (listEl) {
                     listEl.innerHTML = `<div class="history-empty" style="color:#fca5a5;">${escapeHtml(t('home.history.failed', { message: e.message }))}</div>`;
                 }
-                if (sourceEl) {
-                    sourceEl.dataset.source = '';
-                    sourceEl.textContent = t('home.history.sourceFailed');
-                }
+                if (countEl) countEl.textContent = t('home.history.sourceFailed');
             }
         }
 
         function changeHistoryPage(delta) {
             historyState.page += delta;
-            renderHistoryList(historyState.items);
+            renderHistoryList(historyState.filtered);
         }
 
         function formatStatNumber(value) {
@@ -3691,7 +3723,7 @@
 
         window.addEventListener('tools:languagechange', () => {
             applyHomeI18n();
-            renderHistoryList(historyState.items);
+            applyHistoryFilters(false);
             loadCustomTools();
         });
 
@@ -3722,8 +3754,15 @@
             loadStats();
             loadOperationHistory();
 
-            document.getElementById('history-filter')?.addEventListener('change', () => loadOperationHistory(true));
-            document.getElementById('history-mode')?.addEventListener('change', () => loadOperationHistory(true));
+            document.getElementById('history-filter')?.addEventListener('change', () => applyHistoryFilters(true));
+            let historySearchTimer = 0;
+            document.getElementById('history-search')?.addEventListener('input', event => {
+                clearTimeout(historySearchTimer);
+                historySearchTimer = setTimeout(() => {
+                    historyState.query = event.target.value || '';
+                    applyHistoryFilters(true);
+                }, 120);
+            });
             document.getElementById('history-refresh')?.addEventListener('click', () => loadOperationHistory(true));
             document.getElementById('history-prev')?.addEventListener('click', () => changeHistoryPage(-1));
             document.getElementById('history-next')?.addEventListener('click', () => changeHistoryPage(1));
