@@ -1803,7 +1803,7 @@ sequenceDiagram
 ### 开发约定规范
 1. **轻量静态原则**：前端保持原生 HTML/JS/CSS 架构，严禁随意引入庞大且不必要的重型前端打包构建链。
 2. **SQLite 规范**：新增任何业务模型一律优先设计 SQLite 数据表并编写自愈脚本，严禁新增裸 JSON 文件读写。
-3. **版本防缓存机制**：修改 `frontend/js/` 或 `frontend/css/` 中的静态文件后，必须在引用该文件的 HTML 页面中同步递增版本戳（如 `navbar.js?v=1.0.176`）。
+3. **版本防缓存机制**：HTML 中引用的本地 js/css 由 `backend/models/asset-versioning.js` 在返回页面时按文件内容自动追加 `?v=<hash>`（含 `/custom-tools/<slug>/` 内置工具页面），不要手写版本戳。
 4. **安全与脱敏原则**：所有包含密码、Token、Secret、Cookie、私钥的请求与响应体必须经过统一脱敏拦截器过滤后再打印到日志或投递到 AI 模型。
 
 ### 排障 FAQ

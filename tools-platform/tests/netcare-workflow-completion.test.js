@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const packer = require('../backend/builtin-tools/f12-to-extension/packer-core');
 
 const code = fs.readFileSync(path.join(__dirname, '../backend/builtin-tools/f12-to-extension/netcare-rfc-word.js'), 'utf8');
+const pageCode = require('./helpers/netcare-page');
 const order = 'NC20260928001979', batchId = 1000;
 const bundleFileId = '00000000-0000-0000-0000-000000000001';
 const record = {order, batchId, generationAt: 1001, wordFilename: 'plan.docx', bundleFilename: 'plan.zip', bundleFileId, reports: []};
@@ -13,7 +14,7 @@ const files = [{id: bundleFileId, order, name: 'plan.zip', role: 'audit-bundle'}
 
 function workflow() {
     const ctx = {URL, URLSearchParams, location: new URL('https://unrelated.example'), window: {}};
-    vm.runInNewContext(code, ctx);
+    vm.runInNewContext(pageCode, ctx);
     const outcomes = [], jobs = new Map();
     const job = {order, batchId, requiresAudit: true, wordReady: true, filename: 'plan.docx',
         resolve: value => {outcomes.push({ok: true, value}); jobs.delete('job');},
@@ -132,7 +133,7 @@ test('AI collection publishes the exact committed ZIP identity and never publish
             trace: (action, message, data) => events.push({action, message, data}), status: value => {$('status').textContent = value;},
             netcareArtifactRequest: async () => [{id: 'word', name: 'plan.docx'}], netcareReadArtifact: async () => new Blob(['Word']),
             netcareUniqueFilename: value => value, netcareSafeFilename: value => value, netcareCacheAudit() {}, localStorage: {},
-            netcareRunAudits: async () => [], requestAudit() {}, promptAiRetry() {}, appendTopLog() {}, netcareAuditLevel: () => 'standard',
+            netcareRunAudits: async () => [], auditInputLimit: 60000, requestAudit() {}, promptAiRetry() {}, appendTopLog() {}, netcareAuditLevel: () => 'standard',
             createNetcareZip: async () => new Blob(['ZIP']), netcareStoreArtifact: async () => {if (cacheFailure) throw Error('Cache full'); return bundleFileId;},
             netcareLogQueue: Promise.resolve(), netcareLogFailures: 0, captureDiagnostics: [], setTimeout: () => 1, clearTimeout() {}};
         vm.createContext(ctx);

@@ -247,7 +247,7 @@
     if (url.username || url.password || url.search || url.hash) throw new Error('Invalid endpoint');
     const headers = { 'Content-Type': 'application/json' };
     for (const [name, value] of Object.entries(request.headers || {})) if (['authorization','x-api-key','x-goog-api-key','anthropic-version'].includes(name.toLowerCase()) && typeof value === 'string' && value.length <= 4096) headers[name] = value;
-    const body = JSON.stringify(request.body); if (!body || body.length > 120000) throw new Error('Request too large');
+    const body = JSON.stringify(request.body); if (!body || body.length > 2000000) throw new Error('Request too large');
     const response = await fetch(url.href, { method: 'POST', headers, body, credentials: 'omit', redirect: 'error', signal });
     const reader = response.body.getReader(), decoder = new TextDecoder(); let text = '', size = 0;
     while (true) { const { value, done } = await reader.read(); if (done) break; size += value.byteLength; if (size > 1048576) { await reader.cancel(); throw new Error('Response too large'); } text += decoder.decode(value,{stream:true}); }
@@ -258,6 +258,7 @@
     const endpoint = new URL(model.url);
     if (!['https:','http:'].includes(endpoint.protocol) || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) throw new Error('Invalid model endpoint');
     if (!['openai','responses','anthropic','gemini'].includes(model.protocol) || !model.model?.trim() || model.model.length>200 || model.url.length>2048 || model.key && model.key.length>4096) throw new Error('Invalid model configuration');
+    if (model.maxInputChars != null && !(Number.isInteger(model.maxInputChars) && model.maxInputChars >= 20000 && model.maxInputChars <= 800000)) throw new Error('最大输入字符需为 20000-800000 的整数 / Max input characters must be an integer from 20000 to 800000');
     const headers = {'Content-Type':'application/json'}; let body;
     if (model.protocol !== 'gemini') { const suffix = {anthropic:'/messages',responses:'/responses'}[model.protocol] || '/chat/completions'; let p=endpoint.pathname.replace(/\/+$/,''); p=/\/(chat\/completions|responses|messages)$/.test(p)?p.replace(/\/(chat\/completions|responses|messages)$/,suffix):(p||'/v1')+suffix; endpoint.pathname=p; }
     if (model.protocol==='anthropic') { if(model.authMode!=null&&!['bearer','api-key'].includes(model.authMode))throw new Error('Invalid Anthropic authentication'); if(model.key){if(model.authMode==='bearer')headers.Authorization=`Bearer ${model.key}`;else headers['x-api-key']=model.key;} headers['anthropic-version']='2023-06-01'; body={model:model.model,max_tokens:4096,messages:[{role:'user',content:prompt}]}; }
@@ -269,12 +270,6 @@
     const text=protocol==='anthropic'?(data.content||[]).filter(p=>p.type==='text').map(p=>p.text).join(''):protocol==='gemini'?(data.candidates?.[0]?.content?.parts||[]).filter(p=>!p.thought).map(p=>p.text||'').join(''):protocol==='responses'?(data.output||[]).flatMap(p=>p.content||[]).filter(p=>p.type==='output_text').map(p=>p.text).join(''):data.choices?.[0]?.message?.content;
     if(typeof text!=='string'||!text.trim())throw new Error('No model text response');return text;
   }
-function netcareRedactText(value) {
-  return String(value).replace(/Bearer\s+[^\s]+/gi,'Bearer [REDACTED]').replace(/(["']?(?:password|passwd|token|api[_ -]?key|secret|authorization|cookie)["']?\s*[:=]\s*)("[^"\n]*"|'[^'\n]*'|[^\s,&;]+)/gi,'$1[REDACTED]')
-    .replace(/Bearer\s+[^\s]+/gi,'Bearer [REDACTED]')
-    .replace(/-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g,'[REDACTED PRIVATE KEY]');
-}
-
 function netcareMatchesOrder(candidate, order) {
   if (!candidate || !order) return false;
   if (candidate === order) return true;
@@ -308,26 +303,6 @@ function netcareMatchesOrder(candidate, order) {
       }catch{reply({ok:false,error:'审计汇总来源或内容无效'});}
     });
   }
-  function netcareEffectiveSection(settings, number) {
-    const rows=settings.sections||[], own=rows.find(r=>r.number===number);
-    const ancestors=rows.filter(r=>number.startsWith(r.number+'.')).sort((a,b)=>a.number.split('.').length-b.number.split('.').length);
-    const result={number,title:own?.title||'',...own};
-    for(const kind of ['attachments','text']) {
-      const source=ancestors.find(r=>r[kind+'Prompt']?.trim());
-      result[kind+'Prompt']=source?.[kind+'Prompt']||own?.[kind+'Prompt']||'';
-      result[kind]=!!result[kind+'Prompt']||!!own?.[kind]||ancestors.some(r=>r[kind]||r[kind+'Prompt']?.trim());
-    }
-    return result;
-  }
-
-function netcareAuditOwner(settings, number, kind) {
-  return settings.sections.filter(r=>(number===r.number||number.startsWith(r.number+'.'))&&(r[kind]||r[kind+'Prompt']?.trim())).sort((a,b)=>a.number.split('.').length-b.number.split('.').length)[0]?.number||number;
-}
-function netcareAuditRule(settings, number, kind) {
-  const own=netcareEffectiveSection(settings,number)[kind+'Prompt'];if(own)return own;
-  const seen=new Set();return settings.sections.filter(r=>r.number.startsWith(number+'.')).map(r=>({number:r.number,rule:netcareEffectiveSection(settings,r.number)[kind+'Prompt']})).filter(r=>r.rule&&!seen.has(r.rule)&&seen.add(r.rule)).map(r=>r.number+': '+r.rule).join('\n');
-}
-
   function netcareAiBackground() {
     const jobs = new Map();
     const queue = [];
@@ -373,7 +348,8 @@ function netcareAuditRule(settings, number, kind) {
           const settings = stored.netcareExtractionSettings, row = netcareEffectiveSection(settings || {}, message.ruleSection || message.section), kind = message.kind;
           if (message.ruleSection && message.ruleSection !== message.section && !settings?.titleFallbackEnabled && !message.section.startsWith(message.ruleSection + '.')) throw Error('章节兜底未启用 / Title fallback disabled');
           if (!settings?.aiAuditEnabled || !['text', 'attachments'].includes(kind) || !netcareAuditRule(settings, row.number, kind)?.trim()) throw new Error('审计开关或章节规则未启用');
-          if (typeof message.text !== 'string' || !message.text.trim() || message.text.length > 60000) throw new Error('审计文本为空或超过60000字符');
+          const inputLimit = Number.isInteger(model.maxInputChars) && model.maxInputChars >= 20000 && model.maxInputChars <= 800000 ? model.maxInputChars : 60000;
+          if (typeof message.text !== 'string' || !message.text.trim() || message.text.length > inputLimit) throw new Error(`审计文本为空或超过${inputLimit}字符 / Audit text is empty or exceeds ${inputLimit} characters`);
           const level = ['strict', 'standard', 'lenient'].includes(settings?.auditLevel) ? settings.auditLevel : 'standard', phase = ['keywords', 'conclusion'].includes(message.phase) ? message.phase : 'audit';
           if (kind === 'attachments' && level !== 'strict') throw new Error('当前审计档位不审计附件 / Attachments are not audited at this audit level');
           if (phase !== 'audit' && kind !== 'attachments') throw new Error('Invalid audit phase');
@@ -573,9 +549,9 @@ function netcareAuditRule(settings, number, kind) {
     const $=id=>document.getElementById(id);let models=[],selected='';
     const localized=globalThis.createNetcareLanguage?.(document.body,'zh'),updateLanguage=()=>chrome.storage.local.get('f12PopupLanguage').then(d=>localized?.set(d.f12PopupLanguage||(/^zh/i.test(globalThis.navigator?.language||'zh')?'zh':'en')));updateLanguage();chrome.storage.onChanged?.addListener((d,a)=>{if(a==='local'&&d.f12PopupLanguage)updateLanguage();});
     const status=t=>{$('status').textContent=t;};
-    const draft=()=>({id:$('profiles').value||crypto.randomUUID(),name:$('name').value.trim()||$('model').value.trim(),protocol:$('protocol').value,url:$('url').value.trim(),model:$('model').value.trim(),authMode:$('authMode').value,key:$('key').value.trim()});
+    const draft=()=>({id:$('profiles').value||crypto.randomUUID(),name:$('name').value.trim()||$('model').value.trim(),protocol:$('protocol').value,url:$('url').value.trim(),model:$('model').value.trim(),authMode:$('authMode').value,key:$('key').value.trim(),maxInputChars:$('maxInputChars').value.trim()?Number($('maxInputChars').value):undefined});
     const toggleAuth=()=>{const enabled=$('protocol').value==='anthropic';$('authMode').disabled=!enabled;$('authField').style.opacity=enabled?'1':'.5';};
-    const show=m=>{for(const k of ['name','protocol','url','model','key'])$(k).value=m?.[k]||(k==='protocol'?'openai':'');$('authMode').value=m?.authMode||(m?'api-key':'bearer');toggleAuth();};
+    const show=m=>{for(const k of ['name','protocol','url','model','key'])$(k).value=m?.[k]||(k==='protocol'?'openai':'');$('authMode').value=m?.authMode||(m?'api-key':'bearer');$('maxInputChars').value=m?.maxInputChars||'';toggleAuth();};
     $('protocol').onchange=toggleAuth;
     const render=()=>{$('profiles').replaceChildren();for(const m of models){const o=document.createElement('option');o.value=m.id;o.textContent=m.name||m.model;$('profiles').append(o);}if(models.length>0&&!models.some(m=>m.id===selected)){selected=models[0].id;chrome.storage.local.set({netcareAiSelectedModel:selected}).catch(()=>{});}if(models.some(m=>m.id===selected))$('profiles').value=selected;show(models.find(m=>m.id===$('profiles').value));};
     $('profiles').onchange=()=>{const val=$('profiles').value;if(val){selected=val;chrome.storage.local.set({netcareAiSelectedModel:selected}).catch(()=>{});}show(models.find(m=>m.id===val));};
@@ -587,24 +563,12 @@ function netcareAuditRule(settings, number, kind) {
     chrome.storage.local.get(['netcareAiModels','netcareAiSelectedModel']).then(d=>{models=d.netcareAiModels||[];selected=d.netcareAiSelectedModel||'';render();status('模型已载入 / Models loaded');});
   }
 
-  function netcareValidSettings(value) { return value && typeof value.attachmentsEnabled === 'boolean' && typeof value.textEnabled === 'boolean'
-          && (!value.aiAuditEnabled || value.sections?.some(r=>r.textPrompt?.trim()||r.attachmentsPrompt?.trim()))
-          && (value.aiAuditEnabled == null || typeof value.aiAuditEnabled === 'boolean')
-          && (value.concurrency == null || Number.isInteger(value.concurrency) && value.concurrency >= 1 && value.concurrency <= 10)
-          && (value.openOnline == null || typeof value.openOnline === 'boolean')
-          && ['closeAfterAudit','titleFallbackEnabled','pipBetaEnabled','autoSelectSanitizedPlan','disableLocalRules','embedScreenshotsInExcel'].every(k=>value[k]==null||typeof value[k]==='boolean')
-          && (value.auditLevel == null || ['strict','standard','lenient'].includes(value.auditLevel))
-          && (value.activeRuleSet == null || typeof value.activeRuleSet === 'string' && /^(builtin:(strict|standard|lenient)|custom-[a-z0-9-]{4,40})$/.test(value.activeRuleSet))
-          && (value.ruleSets == null || Array.isArray(value.ruleSets) && value.ruleSets.length <= 20 && value.ruleSets.every(set => set && /^custom-[a-z0-9-]{4,40}$/.test(set.id || '') && Array.isArray(set.sections) && set.sections.length <= 100))
-          && (value.screenshotsEnabled == null || typeof value.screenshotsEnabled === 'boolean')
-          && (value.attachmentAuditTypes == null || Array.isArray(value.attachmentAuditTypes) && value.attachmentAuditTypes.every(t => ['txt', 'word', 'excel', 'msg'].includes(t)))
-          && Number.isFinite(value.intervalMs) && value.intervalMs >= 1000 && value.intervalMs <= 30000
-          && Array.isArray(value.sections) && value.sections.length <= 100 && new Set(value.sections.map(row => row.number)).size === value.sections.length
-          && (!value.attachmentsEnabled || value.sections.some(row => row.attachments)) && (!value.textEnabled || value.sections.some(row => row.text))
-          && value.sections.every(row => typeof row.number === 'string' && /^\d+(\.\d+)*$/.test(row.number) && row.number.length <= 40
-            && ['textPrompt','attachmentsPrompt'].every(k=>row[k]==null||typeof row[k]==='string'&&row[k].length<=4000)
-            && typeof row.title === 'string' && row.title.trim() && row.title.length <= 200 && typeof row.attachments === 'boolean' && typeof row.text === 'boolean')
-          && (value.localRules == null || Array.isArray(value.localRules) && value.localRules.length <= 100 && value.localRules.every(r => typeof r === 'object' && r && typeof (r.name || '') === 'string' && (r.name || '').length <= 100)); }
+  // The page, relay, background and backup page all declare the shared settings schema as script globals.
+  function netcareSettingsScript() {
+    const factory = globalThis.createNetcareSettings || (typeof require === 'function' ? require('./netcare-settings.js') : null);
+    if (!factory) throw Error('NetCare settings component missing; refresh the packer');
+    return `var {${Object.keys(factory()).join(',')}}=(${factory.toString()})();`;
+  }
   function netcareBatchRecords(records,batch){
     return (Array.isArray(records)?records:[]).filter(r=>Date.now()-Date.parse(r.restoredAt||r.at)<86400000&&(!batch?.orders?.length||batch.orders.includes(r.order)&&Number(r.generationAt||Date.parse(r.at))>=batch.started));
   }
@@ -650,24 +614,8 @@ function netcareAuditRule(settings, number, kind) {
         Promise.resolve().then(async () => {
           if (message.source === 'TP_RFC_SETTINGS_SET') {
             if (!netcareValidSettings(message.settings)) throw new Error('Invalid extraction settings');
-            const value = { autoSelectSanitizedPlan:message.settings.autoSelectSanitizedPlan!==false, pipBetaEnabled:message.settings.pipBetaEnabled!==false, auditLevel:['strict','standard','lenient'].includes(message.settings.auditLevel)?message.settings.auditLevel:'standard', closeAfterAudit:message.settings.closeAfterAudit===true, titleFallbackEnabled:message.settings.titleFallbackEnabled===true, aiAuditEnabled: message.settings.aiAuditEnabled === true, disableLocalRules: message.settings.aiAuditEnabled === true && message.settings.disableLocalRules !== false, embedScreenshotsInExcel: message.settings.embedScreenshotsInExcel === true, concurrency: message.settings.concurrency ?? 3, openOnline: message.settings.openOnline ?? true, screenshotsEnabled: message.settings.screenshotsEnabled !== false, attachmentsEnabled: message.settings.attachmentsEnabled, textEnabled: message.settings.textEnabled, intervalMs: message.settings.intervalMs,
-              attachmentAuditTypes: Array.isArray(message.settings.attachmentAuditTypes) ? message.settings.attachmentAuditTypes.filter(t => ['txt', 'word', 'excel', 'msg'].includes(t)) : ['txt'],
-              sections: message.settings.sections.map(({ number, title, attachments, text, attachmentsPrompt, textPrompt }) => ({ number, title, attachments, text, attachmentsPrompt: netcareRedactText(attachmentsPrompt || ''), textPrompt: netcareRedactText(textPrompt || '') })),
-              // Only custom rule sets are stored; built-in sets come from the plugin code.
-              activeRuleSet: message.settings.activeRuleSet || undefined,
-              ruleSets: (message.settings.ruleSets || []).map(set => ({ id: set.id, name: netcareRedactText(String(set.name || '').slice(0, 60)), level: ['strict', 'standard', 'lenient'].includes(set.level) ? set.level : 'standard', sections: set.sections.map(({ number, title, attachments, text, attachmentsPrompt, textPrompt }) => ({ number: String(number || '').slice(0, 40), title: String(title || '').slice(0, 200), attachments: attachments === true, text: text === true, attachmentsPrompt: netcareRedactText(String(attachmentsPrompt || '').slice(0, 4000)), textPrompt: netcareRedactText(String(textPrompt || '').slice(0, 4000)) })) })),
-              localRules: Array.isArray(message.settings.localRules) ? message.settings.localRules.slice(0, 100).map(r => ({
-                id: String(r.id || '').slice(0, 60),
-                name: netcareRedactText(String(r.name || '').slice(0, 100)),
-                sectionNumber: String(r.sectionNumber || '').slice(0, 40),
-                sectionTitle: netcareRedactText(String(r.sectionTitle || '').slice(0, 200)),
-                kind: ['text', 'attachments'].includes(r.kind) ? r.kind : 'all',
-                pattern: String(r.pattern || '').slice(0, 1000),
-                passCondition: r.passCondition === 'not_match' ? 'not_match' : 'match',
-                passSummary: netcareRedactText(String(r.passSummary || '').slice(0, 500)),
-                failSummary: netcareRedactText(String(r.failSummary || '').slice(0, 500)),
-                enabled: r.enabled !== false
-              })) : undefined };
+            // Built-in rule sets are not stored; the normalizer keeps only custom sets.
+            const value = netcareNormalizeSettings(message.settings);
             await chrome.storage.local.set({ [key]: value });
             window.postMessage({ source: 'TP_RFC_SETTINGS_RESULT', ok: true, extensionVersion: chrome.runtime?.getManifest?.().version, saved: true, aiPageUrl: chrome.runtime?.getURL?.('netcare-ai.html'), backupPageUrl: chrome.runtime?.getURL?.('netcare-backup.html'), settings: value }, location.origin);
           } else {
@@ -695,10 +643,80 @@ function netcareAuditRule(settings, number, kind) {
         .catch(() => window.postMessage({ source: 'TP_RFC_OPEN_RESULT', id: message.id,
           ok: false, error: '扩展连接失效，请点击扩展的启动脚本重新连接' }, location.origin));
     };
+    // Minimized-panel launcher. The flag lives in this tab's sessionStorage: it survives reloads without
+    // appearing in other tabs. A click restores the live panel, or after a reload starts it again.
+    const launcherKey = 'tpNetcarePanelMinimized';
+    let launcher = null, launcherState = null, launcherLanguage = /^zh/i.test(globalThis.navigator?.language || 'zh') ? 'zh' : 'en';
+    const ltr = (zh, en) => launcherLanguage === 'en' ? en : zh;
+    const readLauncher = () => { try { return JSON.parse(sessionStorage.getItem(launcherKey) || 'null'); } catch { return null; } };
+    const writeLauncher = value => { try { if (value) sessionStorage.setItem(launcherKey, JSON.stringify(value)); else sessionStorage.removeItem(launcherKey); } catch {} };
+    const count = value => Math.max(0, Math.min(500, Math.floor(Number(value) || 0)));
+    function renderLauncher() {
+      if (!launcherState) return;
+      if (!launcher) {
+        const host = document.createElement('div'); host.id = 'netcare-panel-launcher'; host.style.cssText = 'position:fixed;right:22px;bottom:22px;z-index:2147483646';
+        const root = host.attachShadow({ mode: 'open' });
+        root.innerHTML = `<style>:host{all:initial}*{box-sizing:border-box}.wrap{display:flex;align-items:center;gap:12px;font:12px/1.4 system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}.label{display:flex;flex-direction:column;gap:1px;padding:8px 14px;border-radius:12px;background:rgba(15,23,42,.9);color:#fff;box-shadow:0 10px 28px rgba(15,23,42,.28);white-space:nowrap;opacity:0;transform:translateX(8px);pointer-events:none;transition:opacity .2s ease,transform .2s ease}.label strong{font-size:12px;font-weight:650;letter-spacing:.2px}.label small{font-size:11px;color:#cbd5e1}.wrap:hover .label,.wrap:focus-within .label,.wrap[data-error] .label{opacity:1;transform:none}.wrap[data-error] .label small{color:#fca5a5}.dock{position:relative;width:58px;height:58px}.orb{position:absolute;inset:0;border:0;padding:0;border-radius:50%;cursor:pointer;background:conic-gradient(from 210deg,#2563eb,#7c3aed,#14b8a6,#2563eb);box-shadow:0 12px 30px rgba(37,99,235,.38),0 2px 6px rgba(15,23,42,.25);transition:transform .2s ease,box-shadow .2s ease;outline:none}.orb:hover{transform:translateY(-2px) scale(1.04);box-shadow:0 16px 38px rgba(37,99,235,.48),0 3px 8px rgba(15,23,42,.25)}.orb:focus-visible{box-shadow:0 0 0 3px #fff,0 0 0 6px #2563eb}.core{position:absolute;inset:3px;border-radius:50%;display:grid;place-items:center;color:#fff;background:radial-gradient(circle at 32% 26%,#3b82f6 0%,#1e3a8a 72%)}.core svg{width:26px;height:26px}.ring{position:absolute;inset:-5px;border-radius:50%;background:conic-gradient(#2dd4bf var(--progress,0%),rgba(148,163,184,.28) 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 3px),#000 calc(100% - 3px));opacity:0;transition:opacity .2s}.orb:is([data-state=running],[data-state=done],[data-state=warn]) .ring{opacity:1}.orb[data-state=warn] .ring{background:conic-gradient(#f87171 var(--progress,0%),rgba(148,163,184,.28) 0)}.orb[data-state=running]::after{content:"";position:absolute;inset:-9px;border-radius:50%;border:2px solid rgba(45,212,191,.5);animation:halo 1.8s ease-out infinite}.orb[data-state=busy] .core svg{animation:spin 1s linear infinite}.badge{position:absolute;top:-5px;right:-8px;min-width:24px;height:18px;padding:0 6px;border-radius:9px;background:#fff;color:#1e3a8a;font:650 10px/18px system-ui,sans-serif;text-align:center;box-shadow:0 2px 6px rgba(15,23,42,.28)}.orb[data-state=done] .badge{background:#16a34a;color:#fff}.orb[data-state=warn] .badge{background:#dc2626;color:#fff}.dismiss{position:absolute;top:-6px;left:-6px;width:20px;height:20px;border:0;border-radius:50%;padding:0;background:#fff;color:#475569;font:600 12px/20px system-ui,sans-serif;cursor:pointer;box-shadow:0 2px 6px rgba(15,23,42,.28);opacity:0;transform:scale(.8);transition:opacity .15s,transform .15s;z-index:1}.wrap:hover .dismiss,.dismiss:focus-visible{opacity:1;transform:none}.dismiss:hover{color:#dc2626}[hidden]{display:none!important}@keyframes halo{from{transform:scale(.92);opacity:.85}to{transform:scale(1.22);opacity:0}}@keyframes spin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}</style><div class="wrap"><span class="label" role="status"><strong></strong><small></small></span><div class="dock"><button class="orb" type="button"><span class="ring"></span><span class="core"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 14 2 2 4-4"/></svg></span><span class="badge" hidden></span></button><button class="dismiss" type="button">×</button></div></div>`;
+        (document.body || document.documentElement).append(host);
+        launcher = { host, root, busy: false, error: '' };
+        root.querySelector('.orb').onclick = restorePanel;
+        root.querySelector('.dismiss').onclick = dismissLauncher;
+      }
+      const { root } = launcher, p = launcherState.progress || {}, finished = p.completed + p.failed, running = p.running && !launcherState.stale;
+      const orb = root.querySelector('.orb'), badge = root.querySelector('.badge');
+      orb.dataset.state = launcher.busy ? 'busy' : running ? 'running' : p.failed ? 'warn' : p.total && finished >= p.total ? 'done' : 'idle';
+      orb.style.setProperty('--progress', (p.total ? Math.round(100 * finished / p.total) : 0) + '%');
+      badge.hidden = !p.total; badge.textContent = p.total ? `${finished}/${p.total}` : '';
+      const detail = launcher.error || (launcher.busy ? ltr('正在恢复浮窗…', 'Restoring panel…') : launcherState.stale ? ltr('页面已刷新 · 点击重新打开', 'Page reloaded · click to reopen') : running ? ltr(`处理中 ${finished}/${p.total} · 点击恢复`, `Running ${finished}/${p.total} · click to restore`) : p.total ? ltr(`完成 ${p.completed} · 失败 ${p.failed} · 点击恢复`, `${p.completed} done · ${p.failed} failed · click to restore`) : ltr('已最小化 · 点击恢复', 'Minimized · click to restore'));
+      root.querySelector('.label strong').textContent = ltr('方案与 AI 审计', 'RFC plans & AI audit');
+      root.querySelector('.label small').textContent = detail;
+      root.querySelector('.wrap').toggleAttribute('data-error', !!launcher.error);
+      orb.setAttribute('aria-label', ltr('恢复方案与 AI 审计浮窗', 'Restore the RFC audit panel') + ' · ' + detail);
+      root.querySelector('.dismiss').setAttribute('aria-label', ltr('彻底关闭', 'Close completely'));
+      root.querySelector('.dismiss').title = ltr('彻底关闭', 'Close completely');
+    }
+    function hideLauncher() { launcher?.host.remove(); launcher = null; launcherState = null; }
+    function restorePanel() {
+      if (!launcher || launcher.busy) return;
+      const id = crypto.randomUUID(); let answered = false;
+      const reply = event => { if (event.source === window && event.data?.source === 'TP_RFC_PANEL_STATE' && event.data.id === id) answered = true; };
+      window.addEventListener('message', reply); window.postMessage({ source: 'TP_RFC_PANEL_RESTORE', id }, location.origin);
+      setTimeout(() => {
+        window.removeEventListener('message', reply);
+        if (answered || !launcher) return;
+        // No live panel after a reload: start it the same way as the popup's Start button.
+        launcher.busy = true; launcher.error = ''; renderLauncher();
+        Promise.resolve().then(() => chrome.runtime.sendMessage({ type: 'TP_RFC_PANEL_LAUNCH' })).then(result => { if (!result?.ok) throw Error(result?.error || ''); })
+          .catch(error => { if (!launcher) return; launcher.busy = false; launcher.error = ltr('无法恢复：', 'Cannot restore: ') + (String(error?.message || '').split(' / ')[launcherLanguage === 'en' ? 1 : 0] || ltr('请点击插件图标重新启动', 'start it from the extension popup')); renderLauncher(); });
+      }, 400);
+    }
+    function dismissLauncher(event) { event?.stopPropagation(); window.postMessage({ source: 'TP_RFC_PANEL_CLOSE' }, location.origin); writeLauncher(null); hideLauncher(); }
+    const panelReceive = event => {
+      if (event.source !== window || event.origin !== location.origin || event.data?.source !== 'TP_RFC_PANEL_STATE') return;
+      if (event.data.state === 'minimized') { const p = event.data.progress || {}; launcherState = { at: Date.now(), progress: { running: p.running === true, total: count(p.total), completed: count(p.completed), failed: count(p.failed) } }; writeLauncher(launcherState); if (launcher) launcher.error = ''; renderLauncher(); }
+      else if (['open', 'closed'].includes(event.data.state)) { writeLauncher(null); hideLauncher(); }
+    };
+    const launcherLanguageChange = (data, area) => { if (area === 'local' && data.f12PopupLanguage) { launcherLanguage = data.f12PopupLanguage.newValue === 'en' ? 'en' : 'zh'; renderLauncher(); } };
+    window.addEventListener('message', panelReceive);
+    chrome.storage?.onChanged?.addListener(launcherLanguageChange);
+    const savedLauncher = readLauncher();
+    if (savedLauncher) { launcherState = { ...savedLauncher, stale: true }; renderLauncher(); }
+    Promise.resolve().then(() => chrome.storage.local.get('f12PopupLanguage')).then(d => { if (d.f12PopupLanguage) launcherLanguage = d.f12PopupLanguage === 'en' ? 'en' : 'zh'; renderLauncher(); }).catch(() => {});
     window.addEventListener('message', receive);
-    window.__tpRfcOnlineRelayCleanup = () => {window.removeEventListener('message', receive);chrome.storage?.onChanged?.removeListener(changes);chrome.runtime?.onMessage?.removeListener(confirmation);};
+    window.__tpRfcOnlineRelayCleanup = () => {window.removeEventListener('message', receive);window.removeEventListener('message', panelReceive);chrome.storage?.onChanged?.removeListener(launcherLanguageChange);launcher?.host.remove();launcher=null;chrome.storage?.onChanged?.removeListener(changes);chrome.runtime?.onMessage?.removeListener(confirmation);};
   }
 
+  // Started by the minimized-panel launcher after a reload; mirrors the popup's Start.
+  function netcarePanelLauncherBackground(config) {
+    const origins = ['https://netcare-ae.gts.huawei.com', 'https://netcare.huawei.com', 'https://netcare-de.gts.huawei.com'];
+    chrome.runtime.onMessage.addListener((message, sender, reply) => {
+      if (message?.type !== 'TP_RFC_PANEL_LAUNCH') return;
+      let origin = ''; try { origin = new URL(sender.url).origin; } catch {}
+      if (sender.id !== chrome.runtime.id || !sender.tab?.id || sender.frameId !== 0 || !origins.includes(origin)) { reply({ ok: false, error: '来源无效 / Invalid source' }); return; }
+      chrome.scripting.executeScript({ target: { tabId: sender.tab.id, allFrames: config.allFrames }, world: config.world, files: config.files }).then(() => reply({ ok: true }), error => reply({ ok: false, error: error.message }));
+      return true;
+    });
+  }
   function netcareCollectorBridge() {
     if (window !== window.top) return;
     const params = new URL(location.href).searchParams;
@@ -719,11 +737,13 @@ function netcareAuditRule(settings, number, kind) {
     }
     window.__tpRfcCollectorBridgeCleanup?.();
     const sendCollectorState = () => {
-      chrome.storage?.local?.get?.(['netcareWordName:' + order, 'netcareExtractionSettings','f12PopupLanguage','netcareRunStarted:'+order,'netcareCurrentBatch']).then(data => {
-        window.postMessage({ source: 'TP_RFC_COLLECTOR_NAME', order, loaded: true, generationAt:data['netcareRunStarted:'+order],batchId:data.netcareCurrentBatch?.orders?.includes(order)?data.netcareCurrentBatch.started:undefined, language:data.f12PopupLanguage||(/^zh/i.test(globalThis.navigator?.language||'zh')?'zh':'en'), settings: data.netcareExtractionSettings, filename: data['netcareWordName:' + order] || '' }, location.origin);
+      chrome.storage?.local?.get?.(['netcareWordName:' + order, 'netcareExtractionSettings','f12PopupLanguage','netcareRunStarted:'+order,'netcareCurrentBatch','netcareAiModels','netcareAiSelectedModel']).then(data => {
+        // Only the selected model's input limit reaches the page; endpoints and keys stay in the extension.
+        const models = Array.isArray(data.netcareAiModels) ? data.netcareAiModels : [], model = models.find(m => m?.id === data.netcareAiSelectedModel) || models[0], inputLimit = Number.isInteger(model?.maxInputChars) && model.maxInputChars >= 20000 && model.maxInputChars <= 800000 ? model.maxInputChars : 60000;
+        window.postMessage({ source: 'TP_RFC_COLLECTOR_NAME', order, loaded: true, inputLimit, generationAt:data['netcareRunStarted:'+order],batchId:data.netcareCurrentBatch?.orders?.includes(order)?data.netcareCurrentBatch.started:undefined, language:data.f12PopupLanguage||(/^zh/i.test(globalThis.navigator?.language||'zh')?'zh':'en'), settings: data.netcareExtractionSettings, filename: data['netcareWordName:' + order] || '' }, location.origin);
       }).catch(() => {});
     };
-    const watchedKeys = new Set(['netcareWordName:' + order, 'netcareExtractionSettings', 'f12PopupLanguage', 'netcareRunStarted:' + order, 'netcareCurrentBatch']);
+    const watchedKeys = new Set(['netcareWordName:' + order, 'netcareExtractionSettings', 'f12PopupLanguage', 'netcareRunStarted:' + order, 'netcareCurrentBatch', 'netcareAiModels', 'netcareAiSelectedModel']);
     const onStorageChanged = (changes, area) => {
       if (area && area !== 'local') return;
       if (Object.keys(changes || {}).some(k => watchedKeys.has(k))) sendCollectorState();
@@ -939,6 +959,8 @@ function netcareAuditRule(settings, number, kind) {
   }
 
   function buildPackage(options) {
+    // Scripts that start the RFC panel: the popup's Start and the minimized-panel launcher inject the same list.
+    const NETCARE_PANEL_FILES = ['netcare-settings.js', 'netcare-language.js', 'netcare-pip.js', 'netcare-capture.js', 'netcare-controls.js', 'netcare-monitor.js', 'content.js'];
     const validation = validateOptions(options);
     if (validation.errors.length) {
       const error = new Error(validation.errors.join("\n"));
@@ -1459,7 +1481,7 @@ async function sendToPage(action) {
       await chrome.scripting.executeScript({
         target: { tabId: tab.id, allFrames: ALL_FRAMES },
         world: SCRIPT_WORLD,
-        files: NETCARE_RFC ? [...(tab.url?.includes("/IdpLiteView/OwsPage.html") ? ["netcare-renderer.js"] : []),"netcare-language.js","netcare-pip.js","netcare-capture.js","netcare-controls.js","netcare-monitor.js","content.js"] : ["content.js"]
+        files: NETCARE_RFC ? [...(tab.url?.includes("/IdpLiteView/OwsPage.html") ? ["netcare-renderer.js"] : []),...${JSON.stringify(NETCARE_PANEL_FILES)}] : ["content.js"]
       });
     } else if (SECURE_EXAM) {
       await chrome.tabs.sendMessage(tab.id, { type: "TP_EXAM_CONTROL", action });
@@ -1525,7 +1547,9 @@ initializePopup();`;
         js: ['netcare-online-relay.js'], world: 'ISOLATED', run_at: 'document_idle'
       }];
       manifest.background = { service_worker: 'background.js' };
-      files['netcare-online-relay.js'] = `(${netcareArtifactRelay.toString()})();\n${netcareRedactText.toString()}\n${netcareValidSettings.toString()}\n${netcareBatchRecords.toString()}\n(${netcareOnlineRelay.toString()})();`;
+      const settingsScript = netcareSettingsScript();
+      files['netcare-settings.js'] = settingsScript;
+      files['netcare-online-relay.js'] = `${settingsScript}\n(${netcareArtifactRelay.toString()})();\n${netcareBatchRecords.toString()}\n(${netcareOnlineRelay.toString()})();`;
       const onlineMatches = [
         'https://*.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html*',
         'https://*.kdp.idp.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html*'
@@ -1534,7 +1558,7 @@ initializePopup();`;
       manifest.content_scripts.push({ matches: onlineMatches, js: ['content.js'], world: 'MAIN', run_at: 'document_idle' },
         { matches: onlineMatches, js: ['netcare-collector-bridge.js'], world: 'ISOLATED', run_at: 'document_idle' });
       files['netcare-collector-bridge.js'] = `(${netcareCollectorBridge.toString()})();`;
-      files['background.js'] = (files['background.js'] || '') + `\n${netcareMatchesOrder.toString()}\n${netcareBackgroundLog.toString()}\n(${netcareOnlineBackground.toString()})();\n${examAiEnabled ? '' : 'const tpFetchAi = (' + extensionAiFetch.toString() + ');'}\nconst tpBuildModelRequest = (${netcareModelRequest.toString()});\nconst tpModelAnswer = (${netcareModelAnswer.toString()});\n${netcareRedactText.toString()}\n${netcareEffectiveSection.toString()}\n${netcareAuditOwner.toString()}\n${netcareAuditRule.toString()}\n(${netcareAiBackground.toString()})();\n(${netcareAuditSummaryBackground.toString()})();`;
+      files['background.js'] = (files['background.js'] || '') + `\n${settingsScript}\n${netcareMatchesOrder.toString()}\n${netcareBackgroundLog.toString()}\n(${netcareOnlineBackground.toString()})();\n${examAiEnabled ? '' : 'const tpFetchAi = (' + extensionAiFetch.toString() + ');'}\nconst tpBuildModelRequest = (${netcareModelRequest.toString()});\nconst tpModelAnswer = (${netcareModelAnswer.toString()});\n(${netcareAiBackground.toString()})();\n(${netcareAuditSummaryBackground.toString()})();`;
       manifest.host_permissions = unique([...manifest.host_permissions, 'https://*/*', 'http://*/*']);
       const languageFactory=globalThis.createNetcareLanguage||(typeof require==='function'?require('./netcare-language.js'):null);
       if(!languageFactory)throw Error('NetCare language component missing; refresh the packer');
@@ -1542,7 +1566,7 @@ initializePopup();`;
       const pipFactory=globalThis.createNetcarePip||(typeof require==='function'?require('./netcare-pip.js'):null);
       if(!pipFactory)throw Error('NetCare preview component missing; refresh the packer');
       files['netcare-pip.js']=`globalThis.createNetcarePip=(${pipFactory.toString()});`;
-      for(const content of manifest.content_scripts.filter(c=>c.world==='MAIN'))content.js.unshift('netcare-language.js','netcare-pip.js');
+      for(const content of manifest.content_scripts.filter(c=>c.world==='MAIN'))content.js.unshift('netcare-settings.js','netcare-language.js','netcare-pip.js');
       const monitorFactory=globalThis.createNetcareMonitor||(typeof require==='function'?require('./netcare-monitor.js'):null);
       const routingFactory=globalThis.createNetcareRouting||(typeof require==='function'?require('./netcare-routing.js'):null);
       if(!monitorFactory||!routingFactory)throw Error('NetCare monitor or routing component missing; refresh the packer');
@@ -1558,6 +1582,9 @@ initializePopup();`;
       const artifactFactory=globalThis.createNetcareArtifacts||(typeof require==='function'?require('./netcare-artifacts.js'):null);
       if(!artifactFactory)throw Error('NetCare artifact component missing; refresh the packer');
       files['background.js']+=`\nconst tpArtifactFactory=(${artifactFactory.toString()});\n${netcareBatchRecords.toString()}\n${netcareAuditStorageTask.toString()}\n${netcarePruneMissingBundles.toString()}\n(${netcareArtifactBackground.toString()})();\n(${netcarePipBackground.toString()})();\nconst tpRoutingFactory=(${routingFactory.toString()});\ntpRoutingFactory().background();`;
+      // Registered last so existing background listeners keep their order. Same scripts and frames as the
+      // popup's Start; NetCare RFC packages cannot enable licensing (rejected above), so no license gate applies.
+      files['background.js'] += `\n(${netcarePanelLauncherBackground.toString()})(${JSON.stringify({ allFrames: settings.allFrames, world: settings.world, files: NETCARE_PANEL_FILES })});`;
       if(files['popup.js'])files['popup.js']+='\n'+netcarePageOperations.toString()+'\nnetcarePageOperations();';
       files['netcare-artifact-relay.js']=`(${netcareArtifactRelay.toString()})();`;
       manifest.content_scripts.push({matches:[...onlineMatches,...unique([...settings.matches.filter(p=>p.includes('PublishLiteView.html')),...netcarePublishMatches])],js:['netcare-artifact-relay.js'],world:'ISOLATED',all_frames:true,run_at:'document_idle'});
@@ -1566,10 +1593,10 @@ initializePopup();`;
       if(!backupFactory||!renderer)throw Error('NetCare backup/evidence components missing; refresh the packer');
       files['netcare-renderer.js']=renderer;
       manifest.content_scripts.find(c=>c.world==='MAIN'&&c.matches.includes(onlineMatches[0])).js.unshift('netcare-renderer.js');
-      files['netcare-backup.js']=`const tpBackup=(${backupFactory.toString()})();\nconst tpValidSettings=(${netcareValidSettings.toString()});\nconst tpModelRequest=(${netcareModelRequest.toString()});\n${netcarePageOperations.toString()}\n(${netcareBackupPage.toString()})();`;
+      files['netcare-backup.js']=`const tpBackup=(${backupFactory.toString()})();\n${settingsScript}\nconst tpValidSettings=netcareValidSettings;\nconst tpModelRequest=(${netcareModelRequest.toString()});\n${netcarePageOperations.toString()}\n(${netcareBackupPage.toString()})();`;
       files['netcare-backup.html']='<!doctype html><html><head><meta charset="utf-8"><style>body{font:12px/1.6 system-ui;margin:0;padding:4px;color:#243149}input,button{font:inherit;padding:8px;border:1px solid #ced8e5;border-radius:6px;background:transparent;color:inherit}input[type=password]{width:95%;margin:8px 0}button{cursor:pointer}p{font-size:11px;color:#718096;margin:8px 0}[hidden]{display:none!important}</style></head><body><input id="password" type="password" style="display:none" autocomplete="off"><div style="margin:6px 0 10px;display:flex;gap:8px;flex-wrap:wrap"><button id="export">导出配置 JSON / Export configuration</button> <button id="import">导入 JSON / Import</button></div><input id="file" type="file" accept=".json" hidden><p>内置统一内网秘钥安全加密（AES-256-GCM），无需输入密码即可一键导入导出并在内网设备间无缝流转。仅备份常规设置、章节与本地审计规则、模型及凭据、语言和容量设置。不包含审计结果、快照、方案、附件、截图、日志或使用状态；导入旧备份时也忽略这些数据。 / Encrypted with built-in intranet secret (AES-256-GCM); export and import with a single click across machines without manual passwords. Encrypted configuration only: preferences, section and local audit rules, models and credentials, language and capacity. Results, snapshots, documents, attachments, images, logs and runtime state are excluded, including when importing old backups.</p><p id="status" role="status"></p><script src="netcare-language.js"><\/script><script src="netcare-backup.js"><\/script></body></html>';
       files['netcare-ai.js'] = `const tpBuildModelRequest = (${netcareModelRequest.toString()});\n${netcarePageOperations.toString()}\n(${netcareAiPageScript.toString()})();`;
-      files['netcare-ai.html'] = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RFC AI models</title><style>body{font:12px/1.6 system-ui;margin:0;padding:18px;background:#fff;color:#243149}label{display:block;margin:10px 0}input,select{box-sizing:border-box;width:100%;padding:9px;border:1px solid #ced8e5;border-radius:6px;font:inherit;background:transparent;color:inherit}button{padding:8px 12px;border:1px solid #ced8e5;border-radius:6px;margin-right:6px;cursor:pointer}p{font-size:11px;color:#718096}#status{white-space:pre-wrap}h3{margin:0 0 10px}</style></head><body><h3>模型与连接 / Models & connection</h3><label>已保存模型 / Saved models<select id="profiles"></select></label><button id="add">新增 / Add</button><button id="delete">删除 / Delete</button><label>名称 / Name<input id="name"></label><label>协议 / Protocol<select id="protocol"><option value="openai">OpenAI Chat Completions</option><option value="responses">OpenAI Responses</option><option value="anthropic">Anthropic Messages</option><option value="gemini">Gemini GenerateContent</option></select></label><label id="authField">Anthropic 认证字段 / Authentication<select id="authMode"><option value="bearer">ANTHROPIC_AUTH_TOKEN（Bearer）</option><option value="api-key">ANTHROPIC_API_KEY（x-api-key）</option></select></label><label>API 地址 / Endpoint<input id="url" placeholder="https://your-api.example/v1"></label><label>模型 ID / Model<input id="model"></label><label>API Key<input id="key" type="password" autocomplete="off"></label><button id="test">连接测试 / Test</button><button id="save">保存并用于审计 / Save as audit model</button><p>开启审计会向所选模型服务发送指定章节与 TXT 附件内容。测试仅发送固定测试文本。 / Audits send selected content to your configured provider.</p><p id="status" role="status"></p><details open><summary>测试详情 / Test details</summary><pre id="testDetails" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto"></pre></details><script src="netcare-language.js"><\/script><script src="netcare-ai.js"><\/script></body></html>';
+      files['netcare-ai.html'] = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RFC AI models</title><style>body{font:12px/1.6 system-ui;margin:0;padding:18px;background:#fff;color:#243149}label{display:block;margin:10px 0}input,select{box-sizing:border-box;width:100%;padding:9px;border:1px solid #ced8e5;border-radius:6px;font:inherit;background:transparent;color:inherit}button{padding:8px 12px;border:1px solid #ced8e5;border-radius:6px;margin-right:6px;cursor:pointer}p{font-size:11px;color:#718096}#status{white-space:pre-wrap}h3{margin:0 0 10px}</style></head><body><h3>模型与连接 / Models & connection</h3><label>已保存模型 / Saved models<select id="profiles"></select></label><button id="add">新增 / Add</button><button id="delete">删除 / Delete</button><label>名称 / Name<input id="name"></label><label>协议 / Protocol<select id="protocol"><option value="openai">OpenAI Chat Completions</option><option value="responses">OpenAI Responses</option><option value="anthropic">Anthropic Messages</option><option value="gemini">Gemini GenerateContent</option></select></label><label id="authField">Anthropic 认证字段 / Authentication<select id="authMode"><option value="bearer">ANTHROPIC_AUTH_TOKEN（Bearer）</option><option value="api-key">ANTHROPIC_API_KEY（x-api-key）</option></select></label><label>API 地址 / Endpoint<input id="url" placeholder="https://your-api.example/v1"></label><label>模型 ID / Model<input id="model"></label><label>API Key<input id="key" type="password" autocomplete="off"></label><label>最大输入字符 / Max input characters<input id="maxInputChars" type="number" min="20000" max="800000" step="1000" placeholder="60000"></label><p>单次审计发送给模型的文本上限，默认 60000；大上下文模型可调高以整份审计附件。 / Text limit per audit request (default 60000); raise it for large-context models to audit whole attachments.</p><button id="test">连接测试 / Test</button><button id="save">保存并用于审计 / Save as audit model</button><p>开启审计会向所选模型服务发送指定章节与 TXT 附件内容。测试仅发送固定测试文本。 / Audits send selected content to your configured provider.</p><p id="status" role="status"></p><details open><summary>测试详情 / Test details</summary><pre id="testDetails" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:240px;overflow:auto"></pre></details><script src="netcare-language.js"><\/script><script src="netcare-ai.js"><\/script></body></html>';
       manifest.web_accessible_resources = [...(manifest.web_accessible_resources || []), {resources:['netcare-language.js','netcare-ai.html','netcare-ai.js','netcare-backup.html','netcare-backup.js'],matches:settings.matches.filter(p=>!/kdp\.(?:gts|idp)\.huawei\.com/.test(p)).map(p=>p.split('/').slice(0,3).join('/')+'/*')}];
       files['manifest.json'] = JSON.stringify(manifest, null, 2);
       const netcareStoreGuide = globalThis.TPNetcareStoreGuide || (typeof require === 'function' ? require('./netcare-store-guide.js') : null);
@@ -1673,6 +1700,7 @@ initializePopup();`;
     DEFAULT_PERMISSIONS,
     BUILTIN_TEMPLATES,
     analyzeCode,
+    netcareSettingsScript,
     buildPackage,
     createChromeCaptureLicenseConfig,
     incrementVersion,

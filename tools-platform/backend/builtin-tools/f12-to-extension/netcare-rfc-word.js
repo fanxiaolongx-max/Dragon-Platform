@@ -502,16 +502,6 @@ function netcareTopicCatalogue(groups) {
     return { query, number: p.get('catalognumber'), title: p.get('title') || '', topic: p.get('number') };
   }).filter(item => /^\d+(\.\d+)*$/.test(item.number || '') && item.topic && !seen.has(item.number) && seen.add(item.number));
 }
-function netcareDefaultLocalRules() {
-  return [
-    { id: 'rule-1.1', name: '1.1 变更目的与背景检查 / Change Purpose Check', sectionNumber: '1.1', sectionTitle: 'Change Purpose', kind: 'text', pattern: '(?:变更目的|变更原因|影响范围|Purpose|Objective|Scope)', passCondition: 'match', passSummary: '变更目的已明确 / Change purpose specified', failSummary: '缺少变更目的或影响范围说明 / Missing change purpose or scope', enabled: true },
-    { id: 'rule-1.2', name: '1.2 方案与计划检查 / Change Plan Check', sectionNumber: '1.2', sectionTitle: 'Basic Information and Change Plan', kind: 'text', pattern: '(?:拓扑|Topology|计划|Batch|外设|Peripheral|窗口|Window)', passCondition: 'match', passSummary: '变更计划与环境信息完整 / Change plan complete', failSummary: '缺少变更计划或拓扑外设说明 / Missing change plan or topology', enabled: true },
-    { id: 'rule-3.2', name: '3.2 准备工作与Checklist检查 / Preparation & Checklist', sectionNumber: '3.2', sectionTitle: 'Preparation for Change Implementation', kind: 'all', pattern: '(?:Checklist|检查项|准备工作|健康检查|Health Check|Pre-check|环境确认)', passCondition: 'match', passSummary: '准备工作与Checklist齐全 / Preparation and checklist complete', failSummary: '缺少实施前准备或Checklist检查项 / Missing preparation or checklist', enabled: true },
-    { id: 'rule-3.3', name: '3.3 实施操作步骤检查 / Operation Steps Check', sectionNumber: '3.3', sectionTitle: 'Operation Steps for Change', kind: 'text', pattern: '(?:操作步骤|Step|命令|Command|配置|Configuration|执行脚本|脚本)', passCondition: 'match', passSummary: '包含明确操作步骤与命令 / Contains operation steps and commands', failSummary: '缺少具体操作步骤或执行命令 / Missing operation steps or commands', enabled: true },
-    { id: 'rule-3.4', name: '3.4 测试验证与KPI检查 / Test & Verification Check', sectionNumber: '3.4', sectionTitle: 'Test and Verification', kind: 'text', pattern: '(?:测试|验证|KPI|Verification|Test|指标|业务恢复)', passCondition: 'match', passSummary: '包含测试验证方案或KPI指标 / Contains test verification or KPI', failSummary: '缺少测试验证步骤或业务指标 / Missing test steps or KPIs', enabled: true },
-    { id: 'rule-3.5', name: '3.5 失败回退方案检查 / Changeback Solution Check', sectionNumber: '3.5', sectionTitle: 'Solution for Changeback In the Case of Failure', kind: 'text', pattern: '(?:回退|Changeback|Rollback|应急预案|失败判定|恢复原状)', passCondition: 'match', passSummary: '包含回退方案与应急步骤 / Contains rollback plan and steps', failSummary: '缺少回退步骤或应急预案 / Missing rollback steps', enabled: true }
-  ];
-}
 function netcareUnescapeXml(str) {
   if (!str) return '';
   return str
@@ -521,10 +511,14 @@ function netcareUnescapeXml(str) {
     .replace(/&apos;/g, "'")
     .replace(/&amp;/g, '&');
 }
-function netcareTruncateEvidenceText(text, maxChars = 59000) {
+// Per-model AI input limit in characters (AI 对接 page); the background enforces the same selected-model value.
+// Top-level declarations use var: Start re-injects this file into the same page, and const would throw.
+var NETCARE_AUDIT_INPUT_LIMIT=60000;
+function netcareAuditInputLimit(value){return Number.isInteger(value)&&value>=20000&&value<=800000?value:NETCARE_AUDIT_INPUT_LIMIT;}
+function netcareTruncateEvidenceText(text, maxChars = NETCARE_AUDIT_INPUT_LIMIT - 1000) {
   if (!text) return '';
   if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + '\n\n[注：附件文本超出上限，已截取前59000字用于AI审计 / Truncated to 59000 chars]';
+  return text.slice(0, maxChars) + `\n\n[注：附件文本超出上限，已截取前${maxChars}字用于AI审计 / Truncated to ${maxChars} chars]`;
 }
 function netcareFormatExportLogLine(entry) {
   const d = new Date(entry?.at || entry?.timestamp || Date.now());
@@ -545,13 +539,13 @@ function netcareGetAttachmentType(filename) {
   if (/\.msg$/i.test(name)) return 'msg';
   return null;
 }
-const NETCARE_ATTACHMENT_TYPE_NAMES = {
+var NETCARE_ATTACHMENT_TYPE_NAMES = {
   txt: 'TXT',
   word: 'Word',
   excel: 'Excel',
   msg: 'MSG'
 };
-async function netcareExtractTxt(blob) {
+async function netcareExtractTxt(blob, maxChars) {
   if (blob.size > 10 * 1024 * 1024) throw new Error('TXT附件超过10MB，暂不自动审计');
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);
@@ -568,7 +562,7 @@ async function netcareExtractTxt(blob) {
       text = latinDecoder.decode(bytes);
     }
   }
-  return netcareTruncateEvidenceText(text);
+  return netcareTruncateEvidenceText(text, maxChars);
 }
 async function netcareUnzip(bufferOrArrayBuffer) {
   const bytes = bufferOrArrayBuffer instanceof Uint8Array
@@ -668,7 +662,7 @@ function netcareExtractLegacyDoc(buffer) {
   const lines = text.split('\n').map(l => l.trim()).filter(l => l.length >= 4);
   return lines.join('\n');
 }
-async function netcareExtractDocx(blob, filename) {
+async function netcareExtractDocx(blob, filename, maxChars) {
   if (blob.size > 30 * 1024 * 1024) throw new Error('Word附件超过30MB，暂不自动审计');
   const buffer = await blob.arrayBuffer();
   const header = new Uint8Array(buffer, 0, 4);
@@ -677,7 +671,7 @@ async function netcareExtractDocx(blob, filename) {
     if (!legacyText || legacyText.trim().length < 15) {
       throw new Error('旧版二进制 DOC 格式文本解析受限，建议另存为 DOCX 或人工检查');
     }
-    return netcareTruncateEvidenceText(legacyText);
+    return netcareTruncateEvidenceText(legacyText, maxChars);
   }
   const zip = await netcareUnzip(buffer);
   const docXml = await zip.readText('word/document.xml');
@@ -700,11 +694,11 @@ async function netcareExtractDocx(blob, filename) {
   }
   const fullText = paragraphs.join('\n');
   if (!fullText.trim()) throw new Error('Word 文件未提取到有效正文文本');
-  return netcareTruncateEvidenceText(fullText);
+  return netcareTruncateEvidenceText(fullText, maxChars);
 }
-async function netcareExtractExcel(blob, filename) {
+async function netcareExtractExcel(blob, filename, maxChars) {
   if (/\.csv$/i.test(filename)) {
-    return await netcareExtractTxt(blob);
+    return await netcareExtractTxt(blob, maxChars);
   }
   if (blob.size > 30 * 1024 * 1024) throw new Error('Excel附件超过30MB，暂不自动审计');
   const buffer = await blob.arrayBuffer();
@@ -781,9 +775,9 @@ async function netcareExtractExcel(blob, filename) {
 
   const fullText = sheetsText.join('\n\n');
   if (!fullText.trim()) throw new Error('Excel 表格未提取到有效内容');
-  return netcareTruncateEvidenceText(fullText);
+  return netcareTruncateEvidenceText(fullText, maxChars);
 }
-async function netcareExtractMsg(blob) {
+async function netcareExtractMsg(blob, maxChars) {
   if (blob.size > 20 * 1024 * 1024) throw new Error('MSG附件超过20MB，暂不自动审计');
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);
@@ -944,9 +938,9 @@ async function netcareExtractMsg(blob) {
 
   const fullText = parts.join('\n');
   if (!fullText.trim()) throw new Error('MSG 邮件未提取到有效文本或正文');
-  return netcareTruncateEvidenceText(fullText);
+  return netcareTruncateEvidenceText(fullText, maxChars);
 }
-async function netcareExtractAttachmentText(blob, filename, settings, section, savedFilename) {
+async function netcareExtractAttachmentText(blob, filename, settings, section, savedFilename, maxChars) {
   const fileType = netcareGetAttachmentType(filename);
   if (!fileType) {
     const ext = filename && filename.includes('.') ? filename.slice(filename.lastIndexOf('.')) : '未知';
@@ -972,13 +966,13 @@ async function netcareExtractAttachmentText(blob, filename, settings, section, s
   try {
     let text = '';
     if (fileType === 'txt') {
-      text = await netcareExtractTxt(blob);
+      text = await netcareExtractTxt(blob, maxChars);
     } else if (fileType === 'word') {
-      text = await netcareExtractDocx(blob, filename);
+      text = await netcareExtractDocx(blob, filename, maxChars);
     } else if (fileType === 'excel') {
-      text = await netcareExtractExcel(blob, filename);
+      text = await netcareExtractExcel(blob, filename, maxChars);
     } else if (fileType === 'msg') {
-      text = await netcareExtractMsg(blob);
+      text = await netcareExtractMsg(blob, maxChars);
     }
     if (!text || !text.trim()) {
       throw new Error('未提取到有效文本内容 / No text extracted');
@@ -1021,111 +1015,6 @@ function netcarePlanChoiceQueue(show) {
     const work = tail.then(async () => { if (settled) return; try { finish(resolve, await show(request, signal)); } catch(error) { finish(reject, error); } });
     tail = work.catch(() => {});
   });
-}
-const NETCARE_SECTION_TEMPLATE = [["1", "Description of Change and Change Influence"], ["1.1", "Change Purpose"], ["1.2", "Basic Information and Change Plan"], ["1.2.1", "Network Topology"], ["1.2.2", "Change Batches"], ["1.2.3", "Peripherals"], ["1.3", "Change Influence"], ["1.4", "Severity Information"], ["2", "Preparations for Change"], ["2.1", "Composition of Change Team and Responsibility of Team Members"], ["2.1.1", "Change Team of Orange Company"], ["2.1.2", "Huawei On-site Change Team"], ["2.1.3", "Huawei Support & Guarantee Team"], ["2.2", "Remote Access"], ["2.3", "Tool and Software Preparation"], ["2.4", "Check of Equipment Running"], ["2.5", "Change Risks and Countermeasures"], ["2.6", "Confirm Work Before Change"], ["3", "Operation Steps for Change"], ["3.1", "Overall Description of Change Steps"], ["3.2", "Preparation for Change Implementation"], ["3.3", "Operation Steps for Change"], ["3.3.1", "Operation Scripts"], ["3.4", "Test and Verification"], ["3.5", "Solution for Changeback In the Case of Failure"], ["3.5.1", "Definition of Change Failure"], ["3.5.2", "Overall Description of Changeback"], ["3.5.3", "Changeback Steps"], ["3.5.4", "Tests After Changeback"], ["3.5.5", "Changeback Risk Analysis"], ["3.6", "Change of Spare Parts and Emergency Workstation"], ["4", "Work After Change"], ["4.1", "Observation"], ["4.2", "Other work"]];
-function netcareDefaultSettings() {
-  return { autoSelectSanitizedPlan: true, aiAuditEnabled: true, disableLocalRules: true, concurrency: 3, openOnline: true, closeAfterAudit: true, titleFallbackEnabled: false, pipBetaEnabled: true, auditLevel: 'standard', attachmentsEnabled: true, textEnabled: true, screenshotsEnabled: true, embedScreenshotsInExcel: false, intervalMs: 1500,
-    attachmentAuditTypes: ['txt', 'word', 'excel', 'msg'],
-    sections: netcareBuiltinRuleSets().standard.sections,
-    localRules: netcareDefaultLocalRules() };
-}
-// strict: text and attachments are audited in full; standard (default) and lenient audit section text only.
-const NETCARE_AUDIT_LEVELS=['strict','standard','lenient'];
-function netcareAuditLevel(settings){return NETCARE_AUDIT_LEVELS.includes(settings?.auditLevel)?settings.auditLevel:'standard';}
-function netcareAttachmentAuditOn(settings){return netcareAuditLevel(settings)==='strict';}
-// Built-in rule sets are defined here only: backups and imports never store or change them, and updates refresh them.
-function netcareBuiltinRuleSets() {
-  const prompts = {
-    strict: {
-      '3.3': { text: '操作步骤和数据是否清晰详细，增删改操作前后是否有查询确认步骤以确保变更预期正确（若正文步骤不清晰但提及操作步骤在附件中，可判断为通过）。', attachments: '操作步骤和数据是否清晰详细（含具体网元、命令及参数），增删改操作前后是否有查询确认步骤以确保变更预期正确。无具体细节则不通过。' },
-      '3.4': { text: '验证方案和数据是否清晰详细，是否包含具体的指标 KPI 及正常判断标准（若正文未写明细但提到具体指标 KPI 在附件中，可判断为通过）。', attachments: '验证方案和数据是否清晰详细，是否包含具体的指标 KPI 名称、监控方法及明确的通过标准/阈值（拒绝仅写“检查业务正常”等模糊描述）。' },
-      '3.5': { text: '回退方案和数据是否清晰详细，是否有具体的逆向回退操作步骤及回退后确认步骤（若正文简略但提及详细回退步骤在附件中，可判断为通过）。', attachments: '回退方案和数据是否清晰详细，是否包含具体的逆向操作命令/参数或明确的备份恢复步骤，以及回退后的状态与业务验证步骤。' }
-    },
-    standard: {
-      '3.3': { text: '操作步骤是否清晰可执行：应说明涉及的网元和主要操作步骤，并在增删改操作前后安排查询确认。正文注明详细步骤、脚本或命令见附件且本节有附件时判定通过；本节无附件且正文缺少可执行步骤或前后确认时不通过。' },
-      '3.4': { text: '验证方案是否明确：应说明验证项目、关键 KPI 或业务指标及判断正常的标准。正文注明具体指标或验证清单见附件且本节有附件时判定通过；本节无附件且正文只有“业务正常”等笼统描述时不通过。' },
-      '3.5': { text: '回退方案是否明确：应包含失败判定条件、回退步骤和回退后的确认。正文注明回退脚本或步骤见附件且本节或子章节有附件时判定通过；无附件且正文缺少回退步骤时不通过。' }
-    },
-    lenient: {
-      '3.3': { text: '本节是否填写了与本次变更相关的操作步骤或操作说明（可引用附件）。仅当为空、占位符或与本次变更无关时不通过。' },
-      '3.4': { text: '本节是否填写了变更后的测试或验证内容（可引用附件）。仅当为空、占位符或与本次变更无关时不通过。' },
-      '3.5': { text: '本节是否填写了失败回退的方案或说明（可引用附件）。仅当为空、占位符或与本次变更无关时不通过。' }
-    }
-  };
-  const names = { strict: '严格 / Strict', standard: '中等 / Standard', lenient: '宽松 / Lenient' };
-  return Object.fromEntries(NETCARE_AUDIT_LEVELS.map(level => [level, { id: 'builtin:' + level, name: names[level], level, builtin: true,
-    sections: NETCARE_SECTION_TEMPLATE.map(([number, title]) => { const p = prompts[level][number]; return { number, title, attachments: !!p, text: !!p, attachmentsPrompt: p?.attachments || '', textPrompt: p?.text || '' }; }) }]));
-}
-function netcareNormalizeSections(rows) {
-  if (!Array.isArray(rows) || rows.length > 100) throw new Error('章节模板最多 100 项 / Maximum 100 sections');
-  const seen = new Set();
-  return rows.map(row => {
-    const number = String(row.number || '').trim(), title = String(row.title || '').trim();
-    if (!/^\d+(\.\d+)*$/.test(number) || number.length > 40 || !title || title.length > 200 || seen.has(number)) throw new Error('章节序号须为数字点号且不能重复，名称不能为空 / Invalid or duplicate section');
-    const attachmentsPrompt = netcareRedactText(String(row.attachmentsPrompt || '').trim()), textPrompt = netcareRedactText(String(row.textPrompt || '').trim());
-    if (attachmentsPrompt.length > 4000 || textPrompt.length > 4000) throw new Error('单条提示词最多4000字符');
-    seen.add(number); return { number, title, attachments: row.attachments === true || !!attachmentsPrompt, text: row.text === true || !!textPrompt, attachmentsPrompt, textPrompt };
-  });
-}
-// Resolve the active rule set into effective sections and level. Settings saved before rule sets existed
-// map to built-in Standard when their sections were never edited; edited sections become a custom set.
-function netcareResolveRuleSets(value) {
-  const builtins = netcareBuiltinRuleSets(), ids = new Set();
-  const ruleSets = (Array.isArray(value.ruleSets) ? value.ruleSets : []).slice(0, 20).map(set => {
-    const id = String(set?.id || '');
-    if (!/^custom-[a-z0-9-]{4,40}$/.test(id) || ids.has(id)) throw new Error('自定义规则集无效 / Invalid custom rule set');
-    ids.add(id);
-    return { id, name: netcareRedactText(String(set.name || '').trim()).slice(0, 60) || '自定义规则 / Custom rules', level: NETCARE_AUDIT_LEVELS.includes(set.level) ? set.level : 'standard', sections: netcareNormalizeSections(set.sections) };
-  });
-  let active = String(value.activeRuleSet || '');
-  if (!active || !(builtins[active.replace(/^builtin:/, '')] && active.startsWith('builtin:') || ids.has(active))) {
-    const legacy = netcareNormalizeSections(value.sections), level = netcareAuditLevel(value);
-    if (Object.values(builtins).some(set => JSON.stringify(set.sections) === JSON.stringify(legacy))) active = 'builtin:' + level;
-    else if (ids.has('custom-migrated')) active = 'custom-migrated';
-    else { ruleSets.push({ id: 'custom-migrated', name: '原章节规则 / Previous rules', level, sections: legacy }); active = 'custom-migrated'; }
-  }
-  const set = active.startsWith('builtin:') ? builtins[active.slice(8)] : ruleSets.find(item => item.id === active);
-  return { ruleSets, activeRuleSet: active, auditLevel: set.level, sections: set.builtin ? netcareNormalizeSections(set.sections) : set.sections };
-}
-function netcareNormalizeSettings(value) {
-  if (!value || !Array.isArray(value.sections) || value.sections.length > 100) throw new Error('章节模板最多 100 项 / Maximum 100 sections');
-  if (value.ruleSets != null && (!Array.isArray(value.ruleSets) || value.ruleSets.length > 20)) throw new Error('自定义规则集最多 20 个 / Maximum 20 custom rule sets');
-  if (value.concurrency != null && (!Number.isInteger(value.concurrency) || value.concurrency < 1 || value.concurrency > 10) || value.openOnline != null && typeof value.openOnline !== 'boolean' || value.screenshotsEnabled != null && typeof value.screenshotsEnabled !== 'boolean') throw new Error('下载全局设置无效 / Invalid preferences');
-  if (['closeAfterAudit','titleFallbackEnabled','pipBetaEnabled','autoSelectSanitizedPlan','disableLocalRules','embedScreenshotsInExcel'].some(k=>value[k]!=null&&typeof value[k]!=='boolean') || value.auditLevel != null && !NETCARE_AUDIT_LEVELS.includes(value.auditLevel)) throw new Error('提取设置无效 / Invalid extraction preferences');
-  const ALLOWED_ATTACHMENT_AUDIT_TYPES = ['txt', 'word', 'excel', 'msg'];
-  const attachmentAuditTypes = Array.isArray(value.attachmentAuditTypes)
-    ? [...new Set(value.attachmentAuditTypes.filter(t => ALLOWED_ATTACHMENT_AUDIT_TYPES.includes(t)))]
-    : ['txt', 'word', 'excel', 'msg'];
-  const { ruleSets, activeRuleSet, auditLevel, sections } = netcareResolveRuleSets(value);
-  if (value.attachmentsEnabled === true && !sections.some(row => row.attachments) || value.textEnabled === true && !sections.some(row => row.text)) throw new Error('请为已开启的提取类型选择至少一个章节 / Select a section');
-  if (value.aiAuditEnabled === true && !sections.some(row => row.textPrompt || row.attachmentsPrompt)) throw new Error('开启AI审计需要至少一条章节提示词 / Add an audit rule');
-  const aiAuditEnabled = value.aiAuditEnabled === true;
-  const attachmentsEnabled = value.attachmentsEnabled === true || aiAuditEnabled && sections.some(row => row.attachmentsPrompt);
-  const textEnabled = value.textEnabled === true || aiAuditEnabled && sections.some(row => row.textPrompt);
-  const screenshotsEnabled = (attachmentsEnabled || textEnabled) ? value.screenshotsEnabled !== false : false;
-  const embedScreenshotsInExcel = screenshotsEnabled && value.embedScreenshotsInExcel === true;
-  const closeAfterAudit = aiAuditEnabled && value.closeAfterAudit === true;
-  const localRules = Array.isArray(value.localRules) ? value.localRules.slice(0, 100).map((r, i) => {
-    const id = String(r.id || `local_rule_${i + 1}`).trim();
-    const name = netcareRedactText(String(r.name || `规则 ${i + 1}`).trim().slice(0, 100));
-    const sectionNumber = String(r.sectionNumber || '').trim().slice(0, 40);
-    const sectionTitle = netcareRedactText(String(r.sectionTitle || '').trim().slice(0, 200));
-    const kind = ['text', 'attachments'].includes(r.kind) ? r.kind : 'all';
-    const pattern = String(r.pattern || '').trim().slice(0, 1000);
-    if (pattern) {
-      try { new RegExp(pattern, 'i'); }
-      catch (e) { throw new Error(`本地审计规则【${name}】正则表达式无效: ${e.message}`); }
-    }
-    const passCondition = r.passCondition === 'not_match' ? 'not_match' : 'match';
-    const passSummary = netcareRedactText(String(r.passSummary || '符合要求 / Compliant').trim().slice(0, 500));
-    const failSummary = netcareRedactText(String(r.failSummary || '不符合要求，需人工核查 / Non-compliant').trim().slice(0, 500));
-    const enabled = r.enabled !== false;
-    return { id, name, sectionNumber, sectionTitle, kind, pattern, passCondition, passSummary, failSummary, enabled };
-  }) : netcareDefaultLocalRules();
-  return { autoSelectSanitizedPlan: value.autoSelectSanitizedPlan !== false, pipBetaEnabled:value.pipBetaEnabled!==false, auditLevel, activeRuleSet, ruleSets, closeAfterAudit, titleFallbackEnabled:value.titleFallbackEnabled===true, aiAuditEnabled, disableLocalRules: aiAuditEnabled && value.disableLocalRules !== false, concurrency: Number.isInteger(value.concurrency) && value.concurrency >= 1 && value.concurrency <= 10 ? value.concurrency : 3, openOnline: value.openOnline !== false, screenshotsEnabled, embedScreenshotsInExcel,
-    attachmentsEnabled, textEnabled,
-    intervalMs: Math.max(1000, Math.min(30000, Number(value.intervalMs) || 1500)),
-    attachmentAuditTypes, sections, localRules };
 }
 function netcareEvaluateLocalRule(settings, item) {
   const rules = (settings?.localRules || []).filter(r => r && r.enabled && r.pattern);
@@ -1188,18 +1077,6 @@ function netcareNextSectionNumber(sections,parent=''){
   for(const row of sections){if(!/^\d+(\.\d+)*$/.test(row.number)||parent&&!row.number.startsWith(prefix))continue;const part=row.number.split('.')[level];if(part!==undefined&&BigInt(part)>max)max=BigInt(part);}
   return prefix+String(max+1n);
 }
-// Preserve explicit child drafts; inherited values are computed rather than persisted.
-function netcareEffectiveSection(settings, number) {
-  const rows=settings.sections||[], own=rows.find(r=>r.number===number);
-  const ancestors=rows.filter(r=>number.startsWith(r.number+'.')).sort((a,b)=>a.number.split('.').length-b.number.split('.').length);
-  const result={number,title:own?.title||'',...own};
-  for(const kind of ['attachments','text']) {
-    const source=ancestors.find(r=>r[kind+'Prompt']?.trim());
-    result[kind+'Prompt']=source?.[kind+'Prompt']||own?.[kind+'Prompt']||'';
-    result[kind]=!!result[kind+'Prompt']||!!own?.[kind]||ancestors.some(r=>r[kind]||r[kind+'Prompt']?.trim());
-  }
-  return result;
-}
 function netcareSectionMatches(settings, number, kind) {
   return !!netcareEffectiveSection(settings,number)[kind];
 }
@@ -1252,15 +1129,6 @@ function netcareAutoCloseReason({settings,reports,failed,cached,published,aborte
   return '';
 }
 
-function netcareAuditOwner(settings, number, kind) {
-  return settings.sections.filter(r=>(number===r.number||number.startsWith(r.number+'.'))&&(r[kind]||r[kind+'Prompt']?.trim())).sort((a,b)=>a.number.split('.').length-b.number.split('.').length)[0]?.number||number;
-}
-function netcareAuditRule(settings, number, kind) {
-  const own=netcareEffectiveSection(settings,number)[kind+'Prompt'];if(own)return own;
-  const seen=new Set();return settings.sections.filter(r=>r.number.startsWith(number+'.')).map(r=>({number:r.number,rule:netcareEffectiveSection(settings,r.number)[kind+'Prompt']})).filter(r=>r.rule&&!seen.has(r.rule)&&seen.add(r.rule)).map(r=>r.number+': '+r.rule).join('\n');
-}
-// Model requests accept 60000 characters; keep headroom for redaction markers.
-const NETCARE_AUDIT_TEXT_BUDGET=58000;
 // Water-fill the budget so short files stay whole and only the largest files are cut.
 function netcareFitAuditParts(parts,limit) {
   const join=keep=>parts.map((p,i)=>{const cut=p.text.length-keep[i];return p.header+'\n'+p.text.slice(0,keep[i])+(cut?`\n…[已截断 ${cut} 字符 / ${cut} characters truncated]`:'');}).join('\n\n');
@@ -1270,7 +1138,8 @@ function netcareFitAuditParts(parts,limit) {
   for(const i of parts.map((_,i)=>i).sort((a,b)=>full[a]-full[b])){keep[i]=Math.min(full[i],Math.floor(budget/left));budget-=keep[i];left--;}
   return {text:join(keep),truncated:full.reduce((n,len,i)=>n+len-keep[i],0),keep};
 }
-function netcareGroupAuditItems(items,settings) {
+// Groups fill the model input limit less 2000 characters of headroom for redaction markers.
+function netcareGroupAuditItems(items,settings,inputLimit=NETCARE_AUDIT_INPUT_LIMIT) {
   const groups=new Map();
   for(const item of items){
     const number=netcareAuditOwner(settings,item.ruleSection||item.section,item.kind),rule=netcareAuditRule(settings,number,item.kind);if(!rule)continue;
@@ -1287,7 +1156,7 @@ function netcareGroupAuditItems(items,settings) {
     group.parts.push(same?{header:'['+label+']',text:'（与 '+same.label+' 内容相同，已省略 / Same content as '+same.label+'; omitted）',label,section:item.section,filename:item.filename,raw:item.text,duplicateOf:same.label}:{header:'['+item.section+' '+(item.sectionTitle||'')+' · '+item.filename+']',text:item.text+listed,label,section:item.section,filename:item.filename,raw:item.text});
   }
   const result = [...groups.values()].map(({parts,errors,...group})=>{
-    const fitted=netcareFitAuditParts(parts,NETCARE_AUDIT_TEXT_BUDGET);
+    const fitted=netcareFitAuditParts(parts,netcareAuditInputLimit(inputLimit)-2000);
     const files=parts.map((p,i)=>p.duplicateOf?{section:p.section,filename:p.filename,characters:p.raw.length,sent:0,duplicateOf:p.duplicateOf}:{section:p.section,filename:p.filename,characters:p.text.length,sent:fitted.keep[i]});
     const remainder=fitted.truncated?parts.map((p,i)=>({label:p.label,text:p.duplicateOf?'':p.text.slice(fitted.keep[i])})).filter(p=>p.text):undefined;
     return {...group,text:fitted.text,files,truncated:fitted.truncated||undefined,remainder,notApplicable:!parts.length&&!errors.length,error:errors.length?errors.join('\n'):undefined};
@@ -1301,11 +1170,6 @@ function netcareGroupAuditItems(items,settings) {
   });
 }
 
-function netcareRedactText(value) {
-  return String(value).replace(/Bearer\s+[^\s]+/gi,'Bearer [REDACTED]').replace(/(["']?(?:password|passwd|token|api[_ -]?key|secret|authorization|cookie)["']?\s*[:=]\s*)("[^"\n]*"|'[^'\n]*'|[^\s,&;]+)/gi,'$1[REDACTED]')
-    .replace(/Bearer\s+[^\s]+/gi,'Bearer [REDACTED]')
-    .replace(/-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/g,'[REDACTED PRIVATE KEY]');
-}
 // Temporary audit evidence only; keys never enter site storage. Bounded to 2MB/5 RFCs/24h.
 function netcareCacheAudit(storage, order, items, reports) {
   const key = 'tpNetcareAuditCacheV1', now = Date.now(); let records = [];
@@ -1349,23 +1213,27 @@ async function netcareKeywordFollowUp(item,result,reply,request,signal,trace){
     trace('audit.keywords.conclusion',{section:item.section,kind:item.kind,status:result.status,summaryI18n:result.summaryI18n},'超长附件最终结论 / Oversized attachment final conclusion');
   }catch(error){if(signal.aborted)throw error;trace('audit.keywords.conclusion',{section:item.section,kind:item.kind,error:error.message},'超长附件最终结论生成失败，保留前段结论 / Final conclusion failed; first-part verdict kept','warn');}
 }
-async function netcareRunAudits(items, settings, request, signal, progress, trace=()=>{}, promptRetry=null, topLog=null) {
-  const reports=[];
-  if(!settings.aiAuditEnabled)return reports;
-  const auditItems=netcareGroupAuditItems(items,settings).filter(item=>netcareAuditRule(settings,item.section,item.kind)&&(item.kind==='text'||netcareAttachmentAuditOn(settings)));
+// Up to 3 audit groups run at once (the background queue also allows 3); reports keep auditItems order.
+var NETCARE_AUDIT_CONCURRENCY=3;
+async function netcareRunAudits(items, settings, request, signal, progress, trace=()=>{}, promptRetry=null, topLog=null, inputLimit=NETCARE_AUDIT_INPUT_LIMIT) {
+  inputLimit=netcareAuditInputLimit(inputLimit);
+  if(!settings.aiAuditEnabled)return [];
+  const auditItems=netcareGroupAuditItems(items,settings,inputLimit).filter(item=>netcareAuditRule(settings,item.section,item.kind)&&(item.kind==='text'||netcareAttachmentAuditOn(settings)));
+  const slots=auditItems.map(()=>({phase:'pending'})),retries=new Map();let done=0,next=0,dialog=Promise.resolve();
   const state=r=>r.notApplicable?'na':r.error?'error':r.status==='pass'?'pass':r.status==='fail'?'fail':'review';
-  const notify=(text,retry=null)=>progress(text,{done:reports.length,total:auditItems.length,retry,audits:auditItems.map((item,i)=>({section:item.section,kind:item.kind,state:i<reports.length?state(reports[i]):i===reports.length?'running':'pending'}))});
-  notify('');
-  for (const item of auditItems) {
-    if (signal.aborted) throw new Error('已停止 / Stopped');
+  const notify=text=>progress(text,{done,total:auditItems.length,retry:[...retries.values()].at(-1)||null,audits:auditItems.map((item,i)=>({section:item.section,kind:item.kind,state:slots[i].phase==='done'?state(slots[i].report):slots[i].phase}))});
+  const finish=(i,report,text='')=>{retries.delete(i);slots[i]={phase:'done',report};done++;notify(text);};
+  // Retry confirmations are modal: one dialog at a time, later failures wait their turn.
+  const confirmRetry=(i,ask)=>{const turn=dialog.then(()=>{if(signal.aborted)throw new Error('已停止 / Stopped');retries.set(i,{phase:'waiting',attempt:ask.attempt,section:ask.section});notify(`${ask.section} · ${ask.filename}`);return promptRetry(ask);});dialog=turn.catch(()=>{});return turn;};
+  async function auditOne(item,i){
     const row=netcareEffectiveSection(settings,item.ruleSection||item.section), rule=netcareAuditRule(settings,item.section,item.kind);
-    if (!rule) continue;
+    if (!rule) {slots[i]={phase:'na'};return;}
     const result={section:item.section,kind:item.kind,filename:item.filename,sources:item.sources,sectionTitle:item.sectionTitle||row.title,corrections:item.corrections||[],rule:netcareRedactText(rule),status:'needs_review'};
     trace('audit.evidence',{section:item.section,sectionTitle:result.sectionTitle,kind:item.kind,rule:result.rule,sources:item.sources,files:item.files,corrections:result.corrections,characters:item.text?.length||0,truncated:item.truncated,preview:item.text?.slice(0,600),error:item.error});
-    if(item.notApplicable){reports.push({...result,status:'not_applicable',notApplicable:true,summary:'',findings:[]});notify('');continue;}
-    if (item.error) {result.summary=item.error;result.error=true;reports.push(result);notify('');continue;}
-    if (!item.text?.trim() || item.text.length>60000) {result.summary='文本为空或超过60000字符，未提交模型 / Empty text or exceeds 60000 characters';result.error=true;reports.push(result);notify('');continue;}
-    notify(`${item.section} · ${item.filename}`);
+    if(item.notApplicable)return finish(i,{...result,status:'not_applicable',notApplicable:true,summary:'',findings:[]});
+    if (item.error) {result.summary=item.error;result.error=true;return finish(i,result);}
+    if (!item.text?.trim() || item.text.length>inputLimit) {result.summary=`文本为空或超过${inputLimit}字符，未提交模型 / Empty text or exceeds ${inputLimit} characters`;result.error=true;return finish(i,result);}
+    slots[i]={phase:'running'};notify(`${item.section} · ${item.filename}`);
     // Oversized attachments: first part plus the section text as context; the reply also names keywords.
     const keywordMode=!!item.truncated&&item.kind==='attachments',sent=keywordMode?{...item,phase:'keywords',context:(auditItems.find(g=>g.kind==='text'&&g.section===item.section)?.text||'').slice(0,8000)}:item;
     let auditAttempt = 0;
@@ -1375,7 +1243,7 @@ async function netcareRunAudits(items, settings, request, signal, progress, trac
         if (topLog && auditAttempt > 1) {
           topLog('info', `正在重试 AI 接口 (第 ${auditAttempt} 次) -> 章节: ${item.section} · ${item.filename}`);
         }
-        if(auditAttempt>1)notify(`${item.section} · ${item.filename}`,{phase:'requesting',attempt:auditAttempt-1,section:item.section});
+        if(auditAttempt>1){retries.set(i,{phase:'requesting',attempt:auditAttempt-1,section:item.section});notify(`${item.section} · ${item.filename}`);}
         const reply = await request(sent, signal);
         if (!reply?.ok) {
           result.diagnostics = reply?.diagnostics;
@@ -1400,8 +1268,7 @@ async function netcareRunAudits(items, settings, request, signal, progress, trac
           topLog('error', `章节 ${item.section} AI 接口请求失败: ${error.message}`);
         }
         if (settings.disableLocalRules && promptRetry) {
-          notify(`${item.section} · ${item.filename}`,{phase:'waiting',attempt:auditAttempt,section:item.section});
-          const shouldRetry = await promptRetry({ section: item.section, filename: item.filename, error: error.message, attempt: auditAttempt });
+          const shouldRetry = await confirmRetry(i, { section: item.section, filename: item.filename, error: error.message, attempt: auditAttempt });
           if (shouldRetry) {
             if (topLog) topLog('warn', `用户确认继续重试，正在重新请求 AI 接口...`);
             continue;
@@ -1422,9 +1289,24 @@ async function netcareRunAudits(items, settings, request, signal, progress, trac
         break;
       }
     }
-    reports.push(result);notify(`${item.section} · ${item.filename}`);
+    if (signal.aborted) throw new Error('已停止 / Stopped');
+    finish(i,result,`${item.section} · ${item.filename}`);
   }
-  return reports;
+  const width=Math.min(NETCARE_AUDIT_CONCURRENCY,auditItems.length);for(let i=0;i<width;i++)slots[i]={phase:'running'};
+  notify('');
+  const worker=async()=>{while(next<auditItems.length){if(signal.aborted)throw new Error('已停止 / Stopped');const i=next++;slots[i]={phase:'running'};await auditOne(auditItems[i],i);}};
+  // allSettled first so no worker is still running when a stop or error is rethrown.
+  const settled=await Promise.allSettled(Array.from({length:width},worker));
+  const failure=settled.find(r=>r.status==='rejected');if(failure)throw failure.reason;
+  return slots.filter(s=>s.phase==='done').map(s=>s.report);
+}
+// Attachments in one table row share a region: capture it once per section and reuse the images.
+async function netcareSharedCapture(cache,shot,key,run){
+  const prior=shot.kind==='attachments'&&key&&cache.get(shot.section+'\n'+key);
+  if(prior)return {images:prior.images,method:prior.method,attempts:[],regionKey:key,sharedWith:prior.name};
+  const result=await run();
+  if(shot.kind==='attachments'&&result?.regionKey&&result.images?.length)cache.set(shot.section+'\n'+result.regionKey,{images:result.images,method:result.method,name:shot.name});
+  return result;
 }
 async function netcareCaptureEvidence(element,renderer,signal){
   if(!element||!element.isConnected)throw Error('未定位到在线方案原始区域 / Original region not found');
@@ -1537,7 +1419,7 @@ function mountNetcareCollector() {
   const selected = new Set(), blobs = new Map(), slots = new Map(), aiRequests = new Map();
   const collectorLanguage=globalThis.createNetcareLanguage?.(root,'zh');
   const healthSampler=globalThis.createNetcareMonitor?.().sample({send:metric=>netcareArtifactRequest({action:'metric',order,metric})});
-  let generationAt=Date.now(),batchId=0;let settings = netcareDefaultSettings(), settingsReady = false, scanFinished = false, autoAttempted = false;
+  let generationAt=Date.now(),batchId=0;let settings = netcareDefaultSettings(), settingsReady = false, scanFinished = false, autoAttempted = false, auditInputLimit = NETCARE_AUDIT_INPUT_LIMIT;
   const maybeAuto = () => {
     if (settingsReady && scanFinished && !controller && !downloadInProgress && !autoAttempted && !downloadCompleted && (settings.attachmentsEnabled || settings.textEnabled) && $('filename').value.trim()) {
       autoAttempted = true; taskActive = true; updateCollectorButtons(); download(true);
@@ -1588,9 +1470,9 @@ function mountNetcareCollector() {
     if (event.source === window && event.origin === location.origin && event.data?.source === 'EXTENSION_POPUP' && event.data.action === 'STOP') { cleanup(); return; }
     if (event.source !== window || event.origin !== location.origin || event.data?.source !== 'TP_RFC_COLLECTOR_NAME' || event.data.order !== order) return;
     if (event.data.loaded === true) {
-      if(!settingsReady&&Number.isFinite(event.data.generationAt))generationAt=event.data.generationAt;batchId=Number(event.data.batchId)||batchId;
+      if(!settingsReady&&Number.isFinite(event.data.generationAt))generationAt=event.data.generationAt;batchId=Number(event.data.batchId)||batchId;auditInputLimit=netcareAuditInputLimit(event.data.inputLimit);
       collectorUiLanguage=event.data.language==='en'?'en':'zh';collectorLanguage?.set(collectorUiLanguage);renderDigest();
-      try { const nextSettings=netcareNormalizeSettings(event.data.settings || netcareDefaultSettings()),changed=!settingsReady||JSON.stringify(nextSettings)!==JSON.stringify(settings);settings=nextSettings;settingsReady=true;if(changed){trace('collector.ready','在线方案已连接 / Solution connected',{filename:event.data.filename,preferences:{autoSelectSanitizedPlan:settings.autoSelectSanitizedPlan,concurrency:settings.concurrency,intervalMs:settings.intervalMs,aiAuditEnabled:settings.aiAuditEnabled,attachmentsEnabled:settings.attachmentsEnabled,textEnabled:settings.textEnabled,screenshotsEnabled:settings.screenshotsEnabled,closeAfterAudit:settings.closeAfterAudit,titleFallbackEnabled:settings.titleFallbackEnabled,pipBetaEnabled:settings.pipBetaEnabled}},'configuration');for(const section of settings.sections.filter(r=>r.text||r.attachments||r.textPrompt||r.attachmentsPrompt))trace('rule.applied','当前章节规则 / Applied section rule',section,'configuration');} } catch { status('提取设置无效，请回主浮窗重新保存'); return; }
+      try { const nextSettings=netcareNormalizeSettings(event.data.settings || netcareDefaultSettings()),changed=!settingsReady||JSON.stringify(nextSettings)!==JSON.stringify(settings);settings=nextSettings;settingsReady=true;if(changed){trace('collector.ready','在线方案已连接 / Solution connected',{filename:event.data.filename,preferences:{autoSelectSanitizedPlan:settings.autoSelectSanitizedPlan,concurrency:settings.concurrency,intervalMs:settings.intervalMs,aiAuditEnabled:settings.aiAuditEnabled,attachmentsEnabled:settings.attachmentsEnabled,textEnabled:settings.textEnabled,screenshotsEnabled:settings.screenshotsEnabled,closeAfterAudit:settings.closeAfterAudit,titleFallbackEnabled:settings.titleFallbackEnabled,pipBetaEnabled:settings.pipBetaEnabled,aiInputLimit:auditInputLimit}},'configuration');for(const section of settings.sections.filter(r=>r.text||r.attachments||r.textPrompt||r.attachmentsPrompt))trace('rule.applied','当前章节规则 / Applied section rule',section,'configuration');} } catch { status('提取设置无效，请回主浮窗重新保存'); return; }
       if (!scanFinished) { selected.clear(); if (settings.textEnabled) settings.sections.filter(row => row.text).forEach(row => selected.add(row.number)); }
     }
     if (!dirtyName && typeof event.data.filename === 'string' && event.data.filename.endsWith('.docx')) $('filename').value = event.data.filename;
@@ -1864,7 +1746,7 @@ function mountNetcareCollector() {
           blobs.set(file.href, blob);
           }
           const saved = netcareUniqueFilename(netcareSafeFilename(`${file.section}-${file.name}`), used);
-          const auditItem = await netcareExtractAttachmentText(blob, file.name, settings, file.section, saved);
+          const auditItem = await netcareExtractAttachmentText(blob, file.name, settings, file.section, saved, auditInputLimit - 1000);
           evidence.push(auditItem);
           file.savedName=saved;entries.push({ name: saved, blob,section:file.section,kind:'attachments' });attachmentSuccess++; report.push(`附件 OK: ${file.section} · ${file.name} -> ${saved} (${blob.size} bytes)`);
         } catch (error) { if (signal.aborted) throw error; failed++; file.error=error.message; report.push(`附件 ERROR: ${file.section} · ${file.name}: ${error.message}`); }
@@ -1880,6 +1762,7 @@ function mountNetcareCollector() {
           await waitUntilVisible(w, 800);
         }
         autoScrollPaused = true;
+        const regionCaptures=new Map();
         try {
           for(const shot of shots){
             globalThis.taskProgress?.set(2,shots.indexOf(shot),shots.length);
@@ -1891,11 +1774,14 @@ function mountNetcareCollector() {
             const diagnostic={id:crypto.randomUUID(),at:new Date().toISOString(),order,section:shot.section,name:shot.name,kind:shot.kind,attempts:[],navigations:[]};
             try{
               const capture=()=>engine.capture(w.document,shot,{signal,onStuck:async()=>{await activateTab(15000,false,'refresh');await waitUntilVisible(w,600);},navigation:event=>{diagnostic.navigations.push(event);trace('capture.navigation',event.message,{name:shot.name,...event},'extraction',event.clicked?'info':'warn');},render:element=>netcareCaptureEvidence(element,globalThis.html2canvas,signal),attempt:attempt=>{diagnostic.attempts.push(attempt);trace('capture.attempt','截图尝试 / Capture attempt',{name:shot.name,...attempt},'extraction',attempt.ok?'debug':'warn');}});
-              const component=globalThis.createNetcarePip?.(),result=component?.withRenderLock?await component.withRenderLock(window,capture):await capture();
-              diagnostic.method=result.method;diagnostic.attempts=result.attempts;diagnostic.outcome='ok';trace('capture.result',result.method==='live'?'原始区域截图成功 / Live original capture succeeded':'已使用内容重建兜底 / Reconstructed content fallback used',{name:shot.name,method:result.method,images:result.images.length,navigations:diagnostic.navigations},'extraction',result.method==='live'?'info':'warn');
+              const component=globalThis.createNetcarePip?.(),run=()=>component?.withRenderLock?component.withRenderLock(window,capture):capture();
+              const result=await netcareSharedCapture(regionCaptures,shot,shot.kind==='attachments'?engine.regionKey?.(w.document,shot):'',run);
+              diagnostic.method=result.method;diagnostic.attempts=result.attempts;diagnostic.outcome='ok';
+              if(result.sharedWith)trace('capture.reused','同一附件行已截图，复用图片 / Same attachment row already captured; image reused',{name:shot.name,sharedWith:result.sharedWith,method:result.method,images:result.images.length},'extraction','info');
+              else trace('capture.result',result.method==='live'?'原始区域截图成功 / Live original capture succeeded':'已使用内容重建兜底 / Reconstructed content fallback used',{name:shot.name,method:result.method,images:result.images.length,navigations:diagnostic.navigations},'extraction',result.method==='live'?'info':'warn');
               const name=result.method==='reconstructed'?shot.name.replace('章节原图','章节内容重建').replace('附件位置','附件区域重建'):shot.name;
-              for(let i=0;i<result.images.length;i++)entries.push({section:shot.section,kind:shot.kind,role:'screenshot',captureMethod:result.method,sourceFilename:shot.sourceFilename,name:netcareUniqueFilename(netcareSafeFilename(name+`-${String(i+1).padStart(3,'0')}.png`),used),blob:result.images[i]});
-              report.push(`截图 ${result.method==='reconstructed'?'FALLBACK（内容重建，非页面原图）':'OK'}: ${name} · ${result.images.length} 张`);
+              for(let i=0;i<result.images.length;i++)entries.push({section:shot.section,kind:shot.kind,role:'screenshot',captureMethod:result.method,sourceFilename:shot.sourceFilename,...(result.sharedWith?{sharedCapture:result.sharedWith}:{}),name:netcareUniqueFilename(netcareSafeFilename(name+`-${String(i+1).padStart(3,'0')}.png`),used),blob:result.images[i]});
+              report.push(`截图 ${result.method==='reconstructed'?'FALLBACK（内容重建，非页面原图）':'OK'}: ${name} · ${result.images.length} 张${result.sharedWith?` · 复用同行截图 / shared with ${result.sharedWith}`:''}`);
               if(result.attempts.length)captureDiagnostics.push(JSON.parse(netcareRedactText(JSON.stringify(diagnostic))));
             }catch(e){if(signal.aborted)throw e;failed++;diagnostic.outcome='failed';diagnostic.code=e.code||e.name;diagnostic.message=e.message;diagnostic.attempts=e.attempts||diagnostic.attempts;captureDiagnostics.push(JSON.parse(netcareRedactText(JSON.stringify(diagnostic))));report.push(`截图 ERROR: ${shot.name}: ${e.message}（详见截图诊断.json）`);trace('capture.failed','截图重试与兜底失败 / Capture retries and fallback failed',diagnostic,'extraction','error');}
             renderCaptureDiagnostics();
@@ -1917,7 +1803,7 @@ function mountNetcareCollector() {
       try {netcareCacheAudit(localStorage,order,evidence,[]);}catch(error){cached=false;report.push('暂存 ERROR: '+error.message);}
       if(settings.aiAuditEnabled){
         if(!cached)reports=[{status:'needs_review',summary:'浏览器暂存失败，未自动提交审计',error:true}];
-        else reports=await netcareRunAudits(evidence,settings,requestAudit,signal,(text,counts)=>{if(counts){globalThis.taskProgress?.set(3,counts.done,counts.total);globalThis.taskProgress?.retry(counts.retry);}status(text?'AI 审计 / Auditing: '+text:null,{audit:counts?.audits});if(text)$('auditStatus').textContent=text;},(action,data,message,level)=>trace(action,message||'准备审计证据 / Prepare audit evidence',data,'audit',level||'info'),promptAiRetry,appendTopLog);
+        else reports=await netcareRunAudits(evidence,settings,requestAudit,signal,(text,counts)=>{if(counts){globalThis.taskProgress?.set(3,counts.done,counts.total);globalThis.taskProgress?.retry(counts.retry);}status(text?'AI 审计 / Auditing: '+text:null,{audit:counts?.audits});if(text)$('auditStatus').textContent=text;},(action,data,message,level)=>trace(action,message||'准备审计证据 / Prepare audit evidence',data,'audit',level||'info'),promptAiRetry,appendTopLog,auditInputLimit);
         for(const result of reports)trace('audit.result','审计项结论 / Audit check result',{...result},'audit',result.error?'error':result.status==='fail'?'warn':'info');
         const auditText=reports.filter(r=>!r.notApplicable).map(r=>`${r.section||''} ${r.filename||''} · ${r.status}\n${r.summary}\n${(r.findings||[]).join('\n')}`).join('\n\n');
         $('auditStatus').textContent=auditText || '没有匹配的审计规则 / No audit rules';
@@ -2184,7 +2070,7 @@ function mountNetcareCollector() {
 
     .audit-shots{display:grid;gap:10px;margin-top:12px}.audit-shot{padding:8px;width:100%;display:flex;flex-direction:column;gap:6px;align-items:stretch;text-align:left;overflow:hidden;background:var(--soft)}.audit-shot img{display:block;width:100%;height:150px;object-fit:contain;border-radius:5px;background:#fff}.audit-shot span{font-size:10px;overflow-wrap:anywhere;color:var(--muted)}.audit-shot:hover{border-color:var(--accent)}#auditImageDialog{width:min(1200px,calc(100vw - 32px));height:calc(100vh - 40px);padding:0;background:var(--bg);color:var(--ink)}#auditImageDialog .settings-shell{height:100%}.audit-image-body{flex:1;min-height:0;overflow:auto;padding:16px;display:grid;place-items:center;background:var(--soft)}#auditImage{display:block;max-width:100%;max-height:100%;object-fit:contain;background:#fff;cursor:zoom-in}#auditImage.actual-size{max-width:none;max-height:none;cursor:zoom-out}.audit-image-body:has(.actual-size){display:block}#auditImageName{overflow-wrap:anywhere;max-width:900px}#auditImageDialog::backdrop{background:rgba(0,0,0,.7)}
 
-    #confirmationDialog{width:min(520px,calc(100vw - 32px));height:fit-content!important;min-height:0!important;max-height:calc(100vh - 40px)}#confirmationMessage{white-space:pre-wrap;overflow-wrap:anywhere;padding:8px 24px 20px;line-height:1.8}#confirmationDialog .modal-footer{justify-content:flex-end}#confirmationAccept.danger{background:#b6454c;border-color:#b6454c}.modal-body.log-mode{overflow:hidden;display:flex;flex-direction:column}#pluginLogs:not([hidden]){display:flex;flex-direction:column;flex:1;min-height:0}.log-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.log-filters label{font-size:10px;color:var(--muted)}.log-filters select,.log-filters input{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font:inherit;display:block;width:100%;margin-top:4px;min-width:0}.log-search{grid-column:span 2}.log-advanced{margin-top:8px;flex:none}.log-advanced summary{color:var(--muted);cursor:pointer;font-size:11px}.log-advanced .log-filters{padding-top:8px}.log-advanced[open]{max-height:150px;overflow:auto}.log-filters,.log-actions,.log-pagination{flex:none}.log-actions{margin-top:10px;align-items:center}.log-actions label{display:flex;gap:6px;font-size:11px;align-items:center}#pluginLogStatus{margin:8px 0;flex:none}
+    #confirmationDialog{width:min(520px,calc(100vw - 32px));height:fit-content!important;min-height:0!important;max-height:calc(100vh - 40px)}#closeChoiceDialog{width:min(520px,calc(100vw - 32px));height:fit-content!important;min-height:0!important;max-height:calc(100vh - 40px)}.close-choice{display:grid;gap:10px;padding:14px 24px 4px}.close-option{display:flex;flex-direction:column;align-items:flex-start;gap:3px;width:100%;padding:12px 14px;text-align:left;border-radius:10px}.close-option strong{font-size:13px}.close-option small{color:var(--muted);font-size:11px;line-height:1.5}.close-option.primary-option{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 7%,var(--bg))}.close-option:hover{border-color:var(--accent)}#closeChoiceDialog .modal-footer{justify-content:flex-end}#confirmationMessage{white-space:pre-wrap;overflow-wrap:anywhere;padding:8px 24px 20px;line-height:1.8}#confirmationDialog .modal-footer{justify-content:flex-end}#confirmationAccept.danger{background:#b6454c;border-color:#b6454c}.modal-body.log-mode{overflow:hidden;display:flex;flex-direction:column}#pluginLogs:not([hidden]){display:flex;flex-direction:column;flex:1;min-height:0}.log-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.log-filters label{font-size:10px;color:var(--muted)}.log-filters select,.log-filters input{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 9px;font:inherit;display:block;width:100%;margin-top:4px;min-width:0}.log-search{grid-column:span 2}.log-advanced{margin-top:8px;flex:none}.log-advanced summary{color:var(--muted);cursor:pointer;font-size:11px}.log-advanced .log-filters{padding-top:8px}.log-advanced[open]{max-height:150px;overflow:auto}.log-filters,.log-actions,.log-pagination{flex:none}.log-actions{margin-top:10px;align-items:center}.log-actions label{display:flex;gap:6px;font-size:11px;align-items:center}#pluginLogStatus{margin:8px 0;flex:none}
     .plugin-log-list{flex:1;min-height:0;overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--soft);overscroll-behavior:contain;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;font-size:10.5px;color:var(--ink)}
     .log-row{border-bottom:1px solid var(--line);border-left:3px solid transparent;background:var(--bg);transition:background .08s}
     .log-row:hover{background:var(--hover)}
@@ -2247,7 +2133,7 @@ function mountNetcareCollector() {
   </section>
   <dialog id="settingsDialog" aria-labelledby="settingsTitle"><div class="settings-shell"><div class="modal-head"><div><h2 id="settingsTitle">工具设置 / Settings</h2><p>下载偏好、章节规则与配置管理 / Preferences, sections & configuration</p></div><button id="settingsClose" class="icon" aria-label="关闭设置 / Close settings">×</button></div>
   <div class="modal-nav" role="tablist" aria-label="设置分类"><button id="generalTab" role="tab" aria-selected="true" aria-controls="generalSettings">常规 / General</button><button id="sectionsTab" role="tab" aria-selected="false" aria-controls="chapterSettings">章节规则 / Sections</button><button id="localRulesTab" role="tab" aria-selected="false" aria-controls="localRulesSettings">本地审计规则 / Local rules</button><button id="storageTab" role="tab" aria-selected="false" aria-controls="storageSettings">存储与快照 / Storage & snapshots</button><button id="logsTab" role="tab" aria-selected="false" aria-controls="pluginLogs">插件日志 / Plugin logs</button><button id="performanceTab" role="tab" aria-selected="false" tabindex="-1">性能监控 / Performance</button><button id="aiTab" role="tab" aria-selected="false" aria-controls="aiSettings">AI 对接 / AI models</button><button id="aboutTab" role="tab" aria-selected="false" aria-controls="aboutSettings" tabindex="-1">关于 / About</button></div>
-  <div class="modal-body"><div id="generalSettings" role="tabpanel" aria-labelledby="generalTab"><div class="settings-card"><h3>下载与在线方案 / Download preferences</h3><div class="field-row"><div><label for="concurrency">Word 下载并发数 / Concurrency</label><small>同时处理 1–10 个下载任务 / Process 1–10 downloads at once</small></div><select id="concurrency"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></div><div class="field-row"><div><label for="openOnline">同时在线打开方案 / Open online</label><small>独立开关。只下载 Word 时关闭此项和自动提取。 / Independent switch; disable for Word only.</small></div><input id="openOnline" type="checkbox" checked></div><div class="field-row"><div><label for="readInterval">采集请求间隔（秒） / Request interval</label><small>多个在线方案页共享间隔，范围 1–30 秒</small></div><input type="number" id="readInterval" min="1" max="30" step="0.5"></div></div>
+  <div class="modal-body"><div id="generalSettings" role="tabpanel" aria-labelledby="generalTab"><div class="settings-card"><h3>下载与在线方案 / Download preferences</h3><div class="field-row"><div><label for="concurrency">Word 下载并发数 / Concurrency</label><small>同时处理 1–10 个下载任务 / Process 1–10 downloads at once</small></div><select id="concurrency"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></div><div class="field-row"><div><label for="openOnline">同时在线打开方案 / Open online</label><small>独立开关。只下载 Word 时关闭此项和自动提取。 / Independent switch; disable for Word only.</small></div><input id="openOnline" type="checkbox" checked></div><div class="field-row"><div><label for="readInterval">采集请求间隔（秒） / Request interval</label><small>多个在线方案页共享间隔，范围 1–30 秒</small></div><input type="number" id="readInterval" min="1" max="30" step="0.5"></div><div class="field-row"><div><label for="panelCloseAction">关闭浮窗时 / When closing the panel</label><small>最小化后任务继续，右下角保留图标，刷新页面也能恢复 / Minimize keeps tasks running with a restore icon, even after reload</small></div><select id="panelCloseAction"><option value="ask">每次询问 / Ask every time</option><option value="minimize">最小化 / Minimize</option><option value="close">彻底关闭 / Close</option></select></div></div>
   <div class="settings-card"><label class="switch-row"><input type="checkbox" id="autoSelectSanitizedPlan" checked>多方案时自动选择脱敏方案 / Automatically select a sanitized plan</label><p class="note">默认开启。只自动选择唯一明确标记的脱敏方案；关闭或无法唯一识别时，弹窗按顺序提示选择。 / On by default. Selects only one clearly labeled sanitized plan; otherwise requests a choice in order.</p></div><div class="settings-card"><h3>AI 审计 / AI audit</h3><label class="switch-row"><input type="checkbox" id="aiAuditEnabled" checked>开启 AI 审计 / Enable AI audit</label><div id="attachmentTypesGroup" style="margin-top:10px;padding:10px;background:var(--soft);border-radius:8px;border:1px solid var(--line);transition:opacity 0.2s"><div style="font-weight:600;margin-bottom:6px;font-size:12px;color:var(--ink)">在线方案附件 AI 审计类型 / Attachment audit file types:</div><div style="display:flex;flex-wrap:wrap;gap:12px;font-size:12px"><label class="switch-row" style="margin:0"><input type="checkbox" id="auditTypeTxt" checked> <span>文本 (TXT)</span></label><label class="switch-row" style="margin:0"><input type="checkbox" id="auditTypeWord" checked> <span>Word (.docx, .doc)</span></label><label class="switch-row" style="margin:0"><input type="checkbox" id="auditTypeExcel" checked> <span>Excel (.xlsx, .xls, .csv)</span></label><label class="switch-row" style="margin:0"><input type="checkbox" id="auditTypeMsg" checked> <span>邮件 (.msg)</span></label></div><p id="attachmentLevelNote" class="note" style="margin:6px 0 0;color:var(--accent)" hidden>当前审计档位不审计附件，附件仍会下载并保存在材料包中；如需审计附件，请在“章节规则”右上角切换为“严格”。 / Attachments are not audited at this audit level but are still saved in the materials ZIP; switch to Strict in Sections to audit them.</p><p class="note" style="margin:6px 0 0">勾选的文件类型将提取正文并送入模型进行AI审计；未勾选或不支持的格式仅下载并保留在离线材料包中，审计标记为人工检查。 / Checked types will have content extracted for AI audit; unchecked files are downloaded but flagged for manual review.</p></div><label class="switch-row" style="margin-top:10px"><input type="checkbox" id="disableLocalRules" checked>禁用本地审计规则 / Disable local rules (仅使用 AI)</label><p class="note" id="disableLocalRulesNote" style="margin:4px 0 8px">开启后发生 AI 异常时不再回退本地正则规则；必须配置 AI 模型，失败时将多次重试，并弹窗询问是否继续重试。 / If enabled, does not fall back to local rules on AI error; an AI model must be configured, retries will be attempted, and a confirmation dialog will prompt before skipping.</p><p class="note" style="margin-top:8px">开启后向配置的模型发送有规则的章节文本及勾选的附件格式。其它文件标记为需人工检查。先在“AI 对接”保存模型。 / Sends selected evidence to your model.</p></div><div class="settings-card"><h3>自动提取 / Automatic extraction</h3><label class="switch-row"><input type="checkbox" id="autoAttachments" checked>指定章节的附件 / Section attachments</label><label class="switch-row"><input type="checkbox" id="autoText" checked>指定章节的文本 / Section text</label><label class="switch-row"><input type="checkbox" id="screenshotsEnabled" checked>保存原始区域截图（PNG） / Save source screenshots</label><label class="switch-row" style="margin-left:22px"><input type="checkbox" id="embedScreenshotsInExcel">同步保存截图到导出审计 Excel / Embed screenshots in exported Excel</label><p class="note" style="margin:-4px 0 8px 22px">默认关闭。关闭后导出的 Excel 无浮动截图图片，表格筛选过滤时行高整洁不挤压；完整截图依然会打包保留在审计材料 ZIP 中。 / Disabled by default. Keeps exported Excel clean and filterable without squashed floating images; full screenshots are always preserved in the materials ZIP.</p><label class="switch-row"><input type="checkbox" id="closeAfterAudit" checked>审计完成后自动关闭在线方案页签 / Close online tabs after audit</label><p class="note">汇总保存并发起 ZIP 下载后关闭；异常或停止时保留页签。 / Closes after saving results and starting ZIP download; keeps tabs on errors or stop.</p><p class="note">开启后在线提取所选章节并打包；AI 审计会自动启用有提示词的必需提取。 / Select sections in the next tab; ZIP follows Word export.</p></div>
   <div class="settings-card"><h3>配置管理 / Configuration</h3><iframe id="backupFrame" title="完整配置备份 / Full configuration backup" style="width:100%;height:230px;border:0"></iframe><div class="config-actions"><button id="importSettings" hidden>导入 JSON / Import</button><button id="exportSettings" hidden>导出 JSON / Export</button><button id="resetSections">恢复默认 / Reset</button></div><input id="importFile" type="file" accept=".json,application/json" hidden><p class="note">导出已保存配置。修改后先保存，再导出完整备份；导入完整备份立即恢复。 / Save changes before backup; import restores immediately.</p></div><div class="settings-card"><h3>测试功能 / Experimental features</h3><label class="switch-row"><input type="checkbox" id="pipBetaEnabled">在线方案画中画总览（Beta） / Online solution previews (Beta)</label><p class="note">默认开启。在线方案保留在后台页签，主页面定期更新只读预览；点击放大，拖动标题移动，右下角等比缩放。原页面操作可打开原页。 / On by default. Keeps background tabs and periodically refreshes read-only previews. Click to enlarge, drag headers to move and corners to resize. Open the original tab for native controls.</p></div></div>
   <div id="chapterSettings" role="tabpanel" aria-labelledby="sectionsTab" hidden><div class="section-toolbar"><strong>章节模板 <span id="sectionCount"></span> / Sections</strong><div class="section-tools"><label class="ruleset-label" for="ruleSetSelect">规则集 / Rule set</label><select id="ruleSetSelect"></select><button id="newRuleSet" aria-expanded="false" aria-controls="ruleSetPanel">＋ 新建 / New</button><button id="renameRuleSet">重命名 / Rename</button><button id="deleteRuleSet">删除 / Delete</button></div></div><div id="ruleSetPanel" class="settings-card ruleset-panel" hidden><h3 id="ruleSetPanelTitle"></h3><div class="ruleset-fields"><label>名称 / Name<input id="ruleSetName" type="text" maxlength="60"></label><label id="ruleSetSourceField">引入自 / Start from<select id="ruleSetSource"><option value="builtin:strict">内置 · 严格 / Built-in Strict</option><option value="builtin:standard">内置 · 中等 / Built-in Standard</option><option value="builtin:lenient">内置 · 宽松 / Built-in Lenient</option><option value="current">复制当前规则集 / Copy the current set</option><option value="blank">空白（仅章节目录） / Blank outline</option></select></label></div><p id="ruleSetPanelStatus" class="note" role="status"></p><div class="config-actions"><button id="confirmRuleSet" class="primary">确定 / OK</button><button id="cancelRuleSet">取消 / Cancel</button></div></div><div class="ruleset-bar"><p id="auditLevelNote" class="level-note" role="status"></p><div class="ruleset-actions"><label id="ruleSetLevelField" class="ruleset-level" hidden>审计口径 / Audit level<select id="ruleSetLevel"><option value="strict">严格 / Strict</option><option value="standard">中等 / Standard</option><option value="lenient">宽松 / Lenient</option></select></label><button id="addSection" aria-expanded="false" aria-controls="sectionAddPanel">＋ 添加章节 / Add</button></div></div><p class="note">父章节包含全部子章节；子章节继承选择与提示词并锁定，清空父规则后可独立设置。文件名使用实际章节。 / Parents include descendants; inherited selections and rules are locked until the parent rule is cleared.</p><label class="switch-row"><input type="checkbox" id="titleFallbackEnabled">序号缺失或名称不符时按章节名称纠错 / Correct by title when numbers are missing or titles differ</label><p class="note">开启后同时核对编号和完整名称；编号缺失或名称不符时按名称纠错，结果显示纠错前后章节。继承子章节始终限定在所选父章节范围；同名章节无法唯一定位时提示核查。 / Checks numbers and full titles, corrects missing numbers or mismatched titles and shows before/after sections. Inherited children stay within the matched parent; ambiguous titles require review.</p><div class="section-table"><div id="sectionAddPanel" class="settings-card section-add" hidden><h3>选择新章节的位置 / New section location</h3><label for="sectionParent">顶级章节或父章节 / Top level or parent section</label><select id="sectionParent"></select><p id="sectionAddPreview" role="status"></p><p>自动生成同层级的下一个序号，按序插入并定位到名称输入框。 / Generates the next sibling number, inserts in order and focuses its title.</p><div class="config-actions"><button id="confirmSectionAdd" class="primary">添加并定位 / Add & locate</button><button id="cancelSectionAdd">取消 / Cancel</button></div></div><div class="section-grid table-head"><span>序号 / No.</span><span>章节名称 / Title</span><span>附件</span><span>文本</span><span>附件检查提示词 / Attachment rule</span><span>文本检查提示词 / Text rule</span><span></span></div><div id="sectionRows"></div></div></div><div id="localRulesSettings" role="tabpanel" aria-labelledby="localRulesTab" hidden><div class="section-toolbar"><strong>本地审计规则 <span id="localRuleCount"></span> / Local rules</strong><div class="config-actions"><button id="addLocalRule">＋ 添加规则 / Add</button><button id="resetLocalRules">恢复预制规则 / Reset</button></div></div><p class="note">开启 AI 审计后，若模型遇到异常、网络超时或未配置，将自动回退到匹配的本地规则进行关键词正则判定。支持绑定章节序号和章节名称。 / When AI audit encounters model errors, automatically falls back to matching local regex rules.</p><div id="localRuleFormCard" class="settings-card" hidden><h3 id="localRuleFormTitle">编辑规则 / Edit rule</h3><input type="hidden" id="localRuleId"><div class="field-row"><div><label for="localRuleName">规则名称 / Rule name</label><small>标识审计项，如“1.1 变更目的检查”</small></div><input type="text" id="localRuleName" maxlength="100" placeholder="规则名称 / Rule name"></div><div class="field-row"><div><label for="localRuleSectionNumber">绑定章节序号 / Section number</label><small>精确或前缀匹配，如 1.1；留空匹配全部</small></div><input type="text" id="localRuleSectionNumber" maxlength="40" placeholder="例如：1.1 / e.g. 1.1"></div><div class="field-row"><div><label for="localRuleSectionTitle">绑定章节名称 / Section title</label><small>匹配章节名称关键词；留空匹配全部</small></div><input type="text" id="localRuleSectionTitle" maxlength="200" placeholder="例如：Change Purpose"></div><div class="field-row"><div><label for="localRuleKind">适用类型 / Kind</label><small>限制正文、附件或两者皆可</small></div><select id="localRuleKind"><option value="all">全部（正文与附件） / All</option><option value="text">章节文本 / Text</option><option value="attachments">方案附件 / Attachments</option></select></div><div class="field-row"><div><label for="localRulePattern">自定义正则表达式 / Regex pattern</label><small>关键词匹配正则，如 (?:变更目的|Purpose)</small></div><input type="text" id="localRulePattern" maxlength="1000" placeholder="正则表达式 / Regular expression"></div><div class="field-row"><div><label for="localRuleCondition">判定逻辑 / Condition</label><small>匹配合格或不匹配合格（黑名单）</small></div><select id="localRuleCondition"><option value="match">正则匹配即合格 / Pass if matched</option><option value="not_match">正则不匹配即合格（黑名单） / Pass if not matched</option></select></div><div class="field-row"><div><label for="localRulePassSummary">合格结论 / Pass summary</label><small>满足条件时的审计结论说明</small></div><input type="text" id="localRulePassSummary" maxlength="500" placeholder="变更目的已明确 / Specified"></div><div class="field-row"><div><label for="localRuleFailSummary">不合格结论 / Fail summary</label><small>未满足条件时的审计结论说明</small></div><input type="text" id="localRuleFailSummary" maxlength="500" placeholder="缺少变更目的说明 / Missing"></div><label class="switch-row"><input type="checkbox" id="localRuleEnabled" checked>启用此规则 / Enable rule</label><p id="localRuleFormError" class="note" style="color:#d96570" role="status"></p><div class="config-actions"><button id="saveLocalRule" class="primary">保存规则 / Save</button><button id="cancelLocalRule">取消 / Cancel</button></div></div><div class="section-table"><div class="local-rule-grid table-head"><span>启用</span><span>规则名称 / Name</span><span>绑定章节 / Section</span><span>类型</span><span>正则表达式 / Pattern</span><span>判定逻辑</span><span>操作</span></div><div id="localRuleRows"></div></div></div><div id="storageSettings" role="tabpanel" hidden><div class="settings-card"><h3>插件存储 / Extension storage</h3><p id="storageUsage"></p><div id="storageBar" class="storage-multi-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div><progress id="storageMeter" max="1" value="0" style="width:100%" hidden></progress><div id="storageBreakdown" class="storage-breakdown-grid"></div><div class="field-row"><label for="storageCapacity">容量上限（MB） / Capacity (MB)</label><input id="storageCapacity" type="number" min="50" step="50"></div><p class="note">默认500MB，最多使用浏览器配额的一半且不超过2GB；不足时自动清理最旧快照及不再引用的材料。浏览器可能清理扩展数据，请定期下载备份。 / Default 500MB; capped at half the browser quota and 2GB. Oldest snapshots are removed when full. Download backups regularly.</p><button id="storageApply">应用容量 / Apply capacity</button><p id="storageMessage" role="status"></p></div><div class="settings-card"><div class="section-toolbar"><h3>历史快照 / Snapshot history</h3><button id="storageRefresh">刷新 / Refresh</button></div><div class="config-actions"><button id="snapSelectAll">全选 / Select all</button><button id="snapSelectNone">取消选择 / Clear selection</button></div><div id="snapshotRows"></div><p id="cleanupPreview"></p><div class="config-actions"><button id="snapshotBackup" class="primary">下载待清理快照与材料 / Backup selected</button><button id="snapshotDelete">删除所选快照 / Delete selected</button></div><p class="note">清理不会删除已下载到本地的文件；共享材料只在不再被任何快照引用时删除。 / Local downloads are kept. Shared files are removed only when no snapshot references them.</p></div><div class="settings-card" id="materialsCleanupCard"><div class="section-toolbar"><h3>按类别与保留天数清理材料 / Clean materials by category & retention</h3><button id="materialsCleanupRefresh">刷新预估 / Refresh</button></div><p class="note">即使未保存历史快照，提取的截图、附件、正文文本和未归档日志也会暂存在材料存储中。您可以在此按类别或按天数清理暂存内容，释放存储空间。 / Extracted screenshots, attachments, text and logs sit in storage even without saved snapshots. Clean them here by category or retention days.</p><div class="materials-clean-grid"><label class="materials-clean-chip"><input type="checkbox" id="cleanCatScreenshots" checked> <span class="storage-dot" style="background:#3b82f6"></span> <span>方案截图 / Screenshots</span> <small id="cleanCountScreenshots"></small></label><label class="materials-clean-chip"><input type="checkbox" id="cleanCatAttachments" checked> <span class="storage-dot" style="background:#f59e0b"></span> <span>方案附件 / Attachments</span> <small id="cleanCountAttachments"></small></label><label class="materials-clean-chip"><input type="checkbox" id="cleanCatTexts" checked> <span class="storage-dot" style="background:#10b981"></span> <span>方案文本 / Texts</span> <small id="cleanCountTexts"></small></label><label class="materials-clean-chip"><input type="checkbox" id="cleanCatBundles"> <span class="storage-dot" style="background:#8b5cf6"></span> <span>审计包与Word / Bundles & Word</span> <small id="cleanCountBundles"></small></label><label class="materials-clean-chip"><input type="checkbox" id="cleanCatLogs" checked> <span class="storage-dot" style="background:#06b6d4"></span> <span>未归档日志 / Log buffer</span> <small id="cleanCountLogs"></small></label></div><div class="field-row" style="margin-top:10px"><div><label for="materialsRetentionDays">保留期限 / Retention period</label><small>选择保留最近几天的材料，清理早于该期限的内容</small></div><select id="materialsRetentionDays"><option value="0">清理全部匹配材料（不限天数） / All matching</option><option value="1">仅清理 1 天前的材料 / Older than 1 day</option><option value="3">仅清理 3 天前的材料 / Older than 3 days</option><option value="7">仅清理 7 天前的材料 / Older than 7 days</option><option value="14">仅清理 14 天前的材料 / Older than 14 days</option><option value="30">仅清理 30 天前的材料 / Older than 30 days</option></select></div><label class="switch-row" style="margin:10px 0 6px"><input type="checkbox" id="protectSnapshotRefs" checked><strong>保护历史快照引用的材料 / Protect snapshot files (推荐 / Recommended)</strong></label><p id="materialsCleanupPreview" class="note" style="margin:8px 0;font-weight:600;color:var(--ink)"></p><div class="config-actions"><button id="materialsCleanupExecute" class="primary">执行清理 / Clean up</button></div><p id="materialsCleanupStatus" role="status"></p></div></div><div id="performanceSettings" role="tabpanel" hidden><style>.performance-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.performance-cards article{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--soft)}.performance-cards strong{display:block;font-size:23px;margin:8px 0;color:var(--ink)}.performance-cards small{margin:0}.performance-chart{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}.performance-chart h3{margin:0 0 8px}.performance-plots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.performance-chart svg{display:block;width:100%;color:var(--muted);height:150px;margin-top:auto}.performance-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.performance-toolbar select{padding:6px;max-width:100%;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:7px}.performance-table{overflow:auto;max-height:260px;margin-top:14px}.performance-table table{border-collapse:collapse;width:100%;font-size:11px}.performance-table td,.performance-table th{padding:8px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}.performance-table th{position:sticky;top:0;background:var(--bg)}.metric-stale{opacity:.55}#performanceWarning{background:var(--soft);color:#bc862d;padding:10px;border-radius:8px}@media(max-width:700px){.performance-plots{grid-template-columns:1fr}}@media(max-width:600px){.performance-cards{grid-template-columns:1fr}.performance-cards strong{font-size:20px}}</style><div class="performance-toolbar"><strong>性能监控 / Performance monitor</strong><select id="performanceRange" aria-label="趋势时间范围 / Trend range"><option value="1440">最近24小时 / Last 24 hours</option><option value="360">最近6小时 / Last 6 hours</option><option value="60">最近1小时 / Last hour</option><option value="15">最近15分钟 / Last 15 minutes</option></select><button id="performanceRefresh">刷新 / Refresh</button></div><p class="note">浏览器无法提供插件独立 RAM 或 CPU 利用率。以下为包含网站本身的页面 JS 堆、长任务阻塞占比与响应延迟，仅供判断页面压力；不同页签可能共享内存，因此不累加。 / Independent extension RAM/CPU is unavailable. These page JS heap, long-task occupancy and response-delay references include the website. Tabs may share memory, so values are not summed.</p><div class="performance-cards"><article>主页面 JS 堆 / Main-page JS heap<strong id="performanceHeap">—</strong><small>含网站脚本 / Includes site scripts</small></article><article>最繁忙页面阻塞占比 / Peak page blocking<strong id="performanceBusy">—</strong><small id="performanceCpu"></small></article><article>前台响应延迟 / Foreground response delay<strong id="performanceLag">—</strong><small>后台节流不计入 / Background throttling excluded</small></article></div><p id="performanceWarning" hidden role="status"></p><p id="performanceStatus" class="note" role="status"></p><div class="performance-plots"><div class="performance-chart"><div class="performance-toolbar"><h3>JS 堆内存趋势（MB） / JS heap trend (MB)</h3><select id="performanceMemoryScope" aria-label="内存趋势指标 / Memory metric"><option value="mainHeap">主页面 / Main page</option><option value="otherHeap">其他页面最大值 / Maximum of other pages</option></select></div><svg id="performanceMemoryChart" role="img" aria-label="内存趋势 / Memory trend"></svg></div><div class="performance-chart"><h3>主线程阻塞占比趋势（非 CPU 利用率） / Main-thread blocking trend (not CPU utilization)</h3><svg id="performanceCpuChart" role="img" aria-label="主线程阻塞趋势 / Main-thread blocking trend"></svg></div></div><div class="performance-table"><table><thead><tr><th>页面或单号 / Page or RFC</th><th>站点 / Site</th><th>JS 堆 / JS heap</th><th>阻塞占比 / Blocking</th><th>响应延迟 / Delay</th><th>状态 / Status</th><th>更新时间 / Updated</th></tr></thead><tbody id="performanceSources"></tbody></table></div></div><div id="aboutSettings" role="tabpanel" aria-labelledby="aboutTab" hidden>
@@ -2258,7 +2144,7 @@ function mountNetcareCollector() {
       <section class="settings-card"><h3>3. 如何理解结论 / Understanding results</h3><ul><li>通过：证据满足配置的检查要求。 / Pass: evidence meets the configured requirements.</li><li>不通过：证据明确存在缺项或不满足要求。 / Fail: evidence shows missing or unmet requirements.</li><li>需人工核查：证据不足、含糊或审计异常，需要进一步确认；AI 结论仍需按业务要求复核。 / Needs review: insufficient or ambiguous evidence, or an audit error, needs confirmation. Review AI conclusions according to business requirements.</li><li>未涉及或确认无附件的空项不计入审计结果；流程“已完成”不等于审计“通过”。 / Non-applicable or confirmed empty attachment checks are omitted. Workflow completion does not mean the audit passed.</li></ul></section>
       <section class="settings-card"><h3>4. 排查与数据 / Troubleshooting & data</h3><ul><li>AI 异常可按提示重试；总览中的黄色 AI 圆环显示等待确认或重试次数。是否使用本地规则取决于设置。 / Retry AI errors when prompted. The yellow AI ring shows confirmation or retry count. Local fallback depends on settings.</li><li>截图异常可点击采集浮窗的错误详情；插件日志可按单号、分类和时间筛选导出。 / Open capture error details in the collector panel. Filter and export plugin logs by RFC, category and time.</li><li>存储与快照用于查看材料占用和历史记录；清理前确认保留范围。配置备份只包含配置，不包含方案材料、审计结果或日志。 / Storage & snapshots shows materials and history. Check retention before cleanup. Configuration backups exclude solution materials, audit results and logs.</li><li>AI 审计会向所选模型服务发送指定正文或附件证据，请使用获准的服务和适用的数据。 / AI auditing sends selected text or attachment evidence to the configured model service. Use an approved service and appropriate data.</li></ul></section>
     </div></div><div id="aiSettings" role="tabpanel" aria-labelledby="aiTab" hidden><iframe id="aiFrame" title="AI 模型配置 / AI model settings"></iframe><p id="aiFrameStatus" class="note">等待扩展模型配置模块连接 / Waiting for extension</p></div><div id="pluginLogs" role="tabpanel" aria-labelledby="logsTab" hidden><div class="log-filters log-primary"><label>日志范围 / Scope<select id="logScope"><option value="all">全部日志 / All logs</option><option value="pending">未关联快照 / Without snapshot</option></select></label><label>RFC 单号 / RFC<input id="logRfc" placeholder="筛选 RFC / Filter RFC"></label><label class="log-search">关键词 / Keyword<input id="logSearch" placeholder="搜索并高亮关键词 / Search and highlight"></label></div><details class="log-advanced"><summary>分类、级别与时间 / Category, level & time</summary><div class="log-filters"><label>日志分类 / Category<select id="logCategory"><option value="">全部分类 / All categories</option><option value="operation">操作 / Operations</option><option value="configuration">配置 / Configuration</option><option value="extraction">提取 / Extraction</option><option value="audit">审计 / Audit</option><option value="storage">存储 / Storage</option><option value="system">系统 / System</option></select></label><label>级别 / Level<select id="logLevel"><option value="">全部级别 / All levels</option><option value="debug">调试 / Debug</option><option value="info">信息 / Info</option><option value="warn">警告 / Warning</option><option value="error">错误 / Error</option></select></label><label>开始时间 / From<input id="logFrom" type="datetime-local"></label><label>结束时间 / To<input id="logTo" type="datetime-local"></label></div></details><div class="config-actions log-actions"><button id="logRefresh">刷新 / Refresh</button><button id="logReset">清除筛选 / Reset filters</button><button id="logExport" class="primary">导出筛选日志 / Export filtered logs</button><button id="logFullscreen" type="button" class="log-fs-btn" title="全屏查看日志 / Fullscreen">⛶ 全屏 / Fullscreen</button><label><input id="logLive" type="checkbox" checked>实时刷新 / Live</label></div><p id="pluginLogStatus" class="note" role="status"></p><div id="pluginLogEntries" class="plugin-log-list"></div><div class="log-pagination"><button id="logPrevious">上一页 / Previous</button><span id="logPage"></span><button id="logNext">下一页 / Next</button></div></div></div>
-  <div class="modal-footer"><div id="settingsStatus" role="status"></div><button id="cancelSettings">取消 / Cancel</button><button id="saveSettings" class="primary">保存设置 / Save</button></div></div></dialog><dialog id="auditSummaryDialog" aria-labelledby="auditSummaryTitle"><div class="settings-shell"><div class="modal-head"><div><h2 id="auditSummaryTitle">审计结果 / Audit results</h2><p id="auditCounts">尚无结果 / No results</p></div><button id="auditSummaryClose" class="icon" aria-label="关闭审计汇总 / Close audit results">×</button></div><div class="audit-toolbar"><select id="snapshotSelect" aria-label="历史快照 / Snapshot history"><option value="">当前结果 / Current results</option></select><button id="snapshotSave">保存快照 / Save snapshot</button><button id="auditExcel" class="primary">导出审计 Excel / Export</button><button id="auditBundle">下载审计材料 ZIP / Materials</button><span id="auditExportStatus" role="status"></span></div><div id="auditSummaryBody" class="modal-body"></div></div></dialog><dialog id="auditImageDialog" aria-labelledby="auditImageTitle"><div class="settings-shell"><div class="modal-head"><div><h2 id="auditImageTitle">原始区域截图 / Source screenshot</h2><p id="auditImageName" data-user-content></p><p id="auditImageHint">点击图片切换原图尺寸 / Click image to toggle original size</p></div><button id="auditImageClose" class="icon" aria-label="关闭截图 / Close screenshot">×</button></div><div class="audit-image-body"><img id="auditImage" alt=""></div></div></dialog><dialog id="confirmationDialog" aria-labelledby="confirmationTitle"><div class="modal-head"><h2 id="confirmationTitle"></h2></div><p id="confirmationMessage"></p><div class="modal-footer"><button id="confirmationCancel">取消 / Cancel</button><button id="confirmationAccept" class="primary">确认 / Confirm</button></div></dialog><dialog id="promptEditorDialog" aria-labelledby="promptEditorTitle"><div class="settings-shell"><div class="modal-head"><div><h2 id="promptEditorTitle"></h2><p id="promptEditorHint"></p></div><button id="promptEditorClose" class="icon" aria-label="关闭 / Close">×</button></div><div class="modal-body prompt-editor-body"><label class="prompt-editor-field"><span>附件检查提示词 / Attachment rule <small id="promptEditorAttachmentsCount"></small></span><textarea id="promptEditorAttachments" maxlength="4000"></textarea><small id="promptEditorAttachmentsNote"></small></label><label class="prompt-editor-field"><span>文本检查提示词 / Text rule <small id="promptEditorTextCount"></small></span><textarea id="promptEditorText" maxlength="4000"></textarea><small id="promptEditorTextNote"></small></label></div><div class="modal-footer"><button id="promptEditorCancel">取消 / Cancel</button><button id="promptEditorApply" class="primary">应用 / Apply</button></div></div></dialog>`;
+  <div class="modal-footer"><div id="settingsStatus" role="status"></div><button id="cancelSettings">取消 / Cancel</button><button id="saveSettings" class="primary">保存设置 / Save</button></div></div></dialog><dialog id="auditSummaryDialog" aria-labelledby="auditSummaryTitle"><div class="settings-shell"><div class="modal-head"><div><h2 id="auditSummaryTitle">审计结果 / Audit results</h2><p id="auditCounts">尚无结果 / No results</p></div><button id="auditSummaryClose" class="icon" aria-label="关闭审计汇总 / Close audit results">×</button></div><div class="audit-toolbar"><select id="snapshotSelect" aria-label="历史快照 / Snapshot history"><option value="">当前结果 / Current results</option></select><button id="snapshotSave">保存快照 / Save snapshot</button><button id="auditExcel" class="primary">导出审计 Excel / Export</button><button id="auditBundle">下载审计材料 ZIP / Materials</button><span id="auditExportStatus" role="status"></span></div><div id="auditSummaryBody" class="modal-body"></div></div></dialog><dialog id="auditImageDialog" aria-labelledby="auditImageTitle"><div class="settings-shell"><div class="modal-head"><div><h2 id="auditImageTitle">原始区域截图 / Source screenshot</h2><p id="auditImageName" data-user-content></p><p id="auditImageHint">点击图片切换原图尺寸 / Click image to toggle original size</p></div><button id="auditImageClose" class="icon" aria-label="关闭截图 / Close screenshot">×</button></div><div class="audit-image-body"><img id="auditImage" alt=""></div></div></dialog><dialog id="confirmationDialog" aria-labelledby="confirmationTitle"><div class="modal-head"><h2 id="confirmationTitle"></h2></div><p id="confirmationMessage"></p><div class="modal-footer"><button id="confirmationCancel">取消 / Cancel</button><button id="confirmationAccept" class="primary">确认 / Confirm</button></div></dialog><dialog id="closeChoiceDialog" aria-labelledby="closeChoiceTitle"><div class="modal-head"><h2 id="closeChoiceTitle">关闭浮窗 / Close panel</h2></div><div class="close-choice"><button id="closeChoiceMinimize" class="close-option primary-option"><strong>最小化到右下角 / Minimize</strong><small>任务继续运行，点右下角图标恢复，刷新页面后也能恢复 / Tasks keep running; restore from the corner icon, even after reload</small></button><button id="closeChoiceClose" class="close-option"><strong>彻底关闭 / Close completely</strong><small>停止当前任务并移除浮窗，需从插件图标重新启动 / Stops current tasks; start again from the extension icon</small></button><label class="switch-row"><input type="checkbox" id="closeChoiceRemember">记住我的选择，下次不再询问 / Remember my choice</label><p class="note">可在“设置 › 常规 › 关闭浮窗时”更改 / Change it in Settings › General</p></div><div class="modal-footer"><button id="closeChoiceCancel">取消 / Cancel</button></div></dialog><dialog id="promptEditorDialog" aria-labelledby="promptEditorTitle"><div class="settings-shell"><div class="modal-head"><div><h2 id="promptEditorTitle"></h2><p id="promptEditorHint"></p></div><button id="promptEditorClose" class="icon" aria-label="关闭 / Close">×</button></div><div class="modal-body prompt-editor-body"><label class="prompt-editor-field"><span>附件检查提示词 / Attachment rule <small id="promptEditorAttachmentsCount"></small></span><textarea id="promptEditorAttachments" maxlength="4000"></textarea><small id="promptEditorAttachmentsNote"></small></label><label class="prompt-editor-field"><span>文本检查提示词 / Text rule <small id="promptEditorTextCount"></small></span><textarea id="promptEditorText" maxlength="4000"></textarea><small id="promptEditorTextNote"></small></label></div><div class="modal-footer"><button id="promptEditorCancel">取消 / Cancel</button><button id="promptEditorApply" class="primary">应用 / Apply</button></div></div></dialog>`;
   document.body.append(host);
   const $ = id => root.getElementById(id);
   let active;
@@ -2414,7 +2300,7 @@ function mountNetcareCollector() {
   };
 
   const renderSettings = () => {
-    $('autoSelectSanitizedPlan').checked=extractionSettings.autoSelectSanitizedPlan; $('pipBetaEnabled').checked=extractionSettings.pipBetaEnabled; $('closeAfterAudit').checked=extractionSettings.closeAfterAudit; $('titleFallbackEnabled').checked=extractionSettings.titleFallbackEnabled;
+    $('autoSelectSanitizedPlan').checked=extractionSettings.autoSelectSanitizedPlan; $('pipBetaEnabled').checked=extractionSettings.pipBetaEnabled; $('panelCloseAction').value=extractionSettings.panelCloseAction||'ask'; $('closeAfterAudit').checked=extractionSettings.closeAfterAudit; $('titleFallbackEnabled').checked=extractionSettings.titleFallbackEnabled;
     $('aiAuditEnabled').checked = extractionSettings.aiAuditEnabled;
     $('disableLocalRules').checked = extractionSettings.disableLocalRules === true;
     $('concurrency').value = extractionSettings.concurrency; $('openOnline').checked = extractionSettings.openOnline;
@@ -2622,6 +2508,7 @@ function mountNetcareCollector() {
   const readSettings=()=>netcareNormalizeSettings({
     autoSelectSanitizedPlan:$('autoSelectSanitizedPlan').checked,
     pipBetaEnabled:$('pipBetaEnabled').checked,
+    panelCloseAction:$('panelCloseAction').value,
     closeAfterAudit:$('closeAfterAudit').checked,
     titleFallbackEnabled:$('titleFallbackEnabled').checked,
     screenshotsEnabled:$('screenshotsEnabled').checked,
@@ -2682,7 +2569,8 @@ function mountNetcareCollector() {
   $('pipOverview').onclick=()=>pip?.toggle();
   const batchOutcomes = new Map();
   const completionToast = document.createElement('section');completionToast.className='batch-completion-toast';completionToast.hidden=true;completionToast.setAttribute('role','status');completionToast.setAttribute('aria-live','polite');root.append(completionToast);
-  function renderBatchStatistics(){const stats=netcareBatchStatistics(currentBatch?.orders||[],batchOutcomes);$('batchTotal').textContent=stats.total;$('batchCompleted').textContent=stats.completed;$('batchFailed').textContent=stats.failed;return stats;}
+  let panelMinimized = false;
+  function renderBatchStatistics(){const stats=netcareBatchStatistics(currentBatch?.orders||[],batchOutcomes);$('batchTotal').textContent=stats.total;$('batchCompleted').textContent=stats.completed;$('batchFailed').textContent=stats.failed;if(panelMinimized)reportPanelState('minimized');return stats;}
   function notifyBatchFinished(stopped){
     if(routeRun)return;
     const stats=renderBatchStatistics(),title=document.createElement('strong'),summary=document.createElement('p'),actions=document.createElement('div');actions.className='config-actions';
@@ -3046,6 +2934,8 @@ function mountNetcareCollector() {
       cleanup();
       return;
     }
+    if (event.source === window && event.origin === location.origin && event.data?.source === 'TP_RFC_PANEL_RESTORE' && /^[a-f0-9-]{36}$/.test(event.data.id || '')) { restorePanel(event.data.id); return; }
+    if (event.source === window && event.origin === location.origin && event.data?.source === 'TP_RFC_PANEL_CLOSE') { cleanup(); return; }
     if (event.source === window && event.origin === location.origin && event.data?.source === 'TP_RFC_EXTENSION_CONFLICT') {
       log(`⚠️ 检测到多版本插件冲突（ID: ${event.data.currentId} 与 ${event.data.activeId}）。请在 chrome://extensions 中仅保留一个最新版本，避免 AI 鉴权异常与重复下载！`);
       return;
@@ -3406,6 +3296,7 @@ function mountNetcareCollector() {
         `Word saved ${success}/${orders.length}${missed ? ` · ${missed} failed or stopped` : ''} · See Chrome downloads`)); }
     } finally {
       active = null;
+      if (panelMinimized) reportPanelState('minimized');
       $('run').disabled = $('order').disabled = $('concurrency').disabled = $('openOnline').disabled = false;
       $('stop').disabled = true;
 
@@ -3417,13 +3308,45 @@ function mountNetcareCollector() {
   const cleanup = () => {
     netcareLog({category:'operation',action:'panel.closed',message:'关闭插件浮窗 / Close plugin panel',batchId:currentBatch?.started},activeSnapshot);
     active?.abort();planDialog.close();localization?.stop();pip?.destroy();healthSampler?.stop();healthView?.stop();
-    window.removeEventListener('message', receive);
+    window.removeEventListener('message', receive);closeChoiceDialog.close();window.postMessage({ source: 'TP_RFC_PANEL_STATE', state: 'closed' }, location.origin);
     clearInterval(settingsTimer);clearInterval(logLiveTimer);clearTimeout(logSearchTimer);unwirePanelOperations();confirmationDialog.close();clearAuditImages();dialog.close();auditDialog.close();
     bridges.forEach(connection => netcareReleaseWordBridge(bridges,connection));
     host.remove();
   };
   window.__rfcWordPanelCleanup = cleanup;
-  $('close').onclick = cleanup;
+  // Close asks to minimize or close unless a choice was remembered. Minimizing only hides the panel:
+  // batches keep running and the relay shows a corner launcher that also survives page reloads.
+  const panelProgress = () => { const stats = netcareBatchStatistics(currentBatch?.orders || [], batchOutcomes); return { running: !!active, total: stats.total, completed: stats.completed, failed: stats.failed }; };
+  const reportPanelState = (state, id) => window.postMessage({ source: 'TP_RFC_PANEL_STATE', state, id, progress: panelProgress() }, location.origin);
+  const pipHost = () => document.getElementById('netcare-pip-beta');
+  function minimizePanel() {
+    panelMinimized = true; host.style.display = 'none'; pipHost()?.style.setProperty('visibility', 'hidden');
+    netcareLog({ category: 'operation', action: 'panel.minimized', message: '最小化插件浮窗 / Minimize plugin panel', batchId: currentBatch?.started }, activeSnapshot);
+    reportPanelState('minimized');
+  }
+  function restorePanel(id) {
+    panelMinimized = false; host.style.display = ''; pipHost()?.style.removeProperty('visibility');
+    netcareLog({ category: 'operation', action: 'panel.restored', message: '恢复插件浮窗 / Restore plugin panel', batchId: currentBatch?.started }, activeSnapshot);
+    reportPanelState('open', id);
+  }
+  const closeChoiceDialog = $('closeChoiceDialog');
+  function chooseClose(action) {
+    if ($('closeChoiceRemember').checked && action !== extractionSettings.panelCloseAction) {
+      try { extractionSettings = netcareNormalizeSettings({ ...extractionSettings, panelCloseAction: action }); window.postMessage({ source: 'TP_RFC_SETTINGS_SET', settings: extractionSettings }, location.origin); } catch {}
+    }
+    closeChoiceDialog.close();
+    if (action === 'minimize') minimizePanel(); else cleanup();
+  }
+  $('close').onclick = () => {
+    const remembered = extractionSettings.panelCloseAction;
+    if (remembered === 'minimize') return minimizePanel();
+    if (remembered === 'close') return cleanup();
+    $('closeChoiceRemember').checked = false; closeChoiceDialog.showModal(); $('closeChoiceMinimize').focus();
+  };
+  $('closeChoiceMinimize').onclick = () => chooseClose('minimize');
+  $('closeChoiceClose').onclick = () => chooseClose('close');
+  $('closeChoiceCancel').onclick = () => closeChoiceDialog.close();
+  reportPanelState('open');
   const header = root.querySelector('header');
   header.onpointerdown = event => {
     if (event.target.closest('button')) return;

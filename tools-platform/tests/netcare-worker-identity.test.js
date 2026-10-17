@@ -8,6 +8,7 @@ const packer = require('../backend/builtin-tools/f12-to-extension/packer-core');
 
 const base = path.join(__dirname, '../backend/builtin-tools/f12-to-extension');
 const source = fs.readFileSync(path.join(base, 'netcare-rfc-word.js'), 'utf8');
+const pageCode = require('./helpers/netcare-page');
 const pkg = packer.buildPackage({
     name: 'NetCare worker identity regression', version: '1.0.0', code: source,
     matches: [
@@ -22,7 +23,7 @@ const pkg = packer.buildPackage({
 const first = 'NC20260227000221', second = 'NC20260928001979';
 const exportUrl = docId => `https://de.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html?id=${docId}`;
 const utility = { URL, URLSearchParams, Blob, TextEncoder, Uint8Array, DataView, location: new URL('https://test.example'), window: {} };
-vm.runInNewContext(source, utility);
+vm.runInNewContext(pageCode, utility);
 
 function frameDocument() {
     const frames = [];
@@ -145,7 +146,7 @@ function exportWorker(url, bg, cacheFailure = false) {
             } }
         }
     };
-    vm.runInNewContext(source, context);
+    vm.runInNewContext(pageCode, context);
     vm.runInNewContext(pkg.files['netcare-artifact-relay.js'], context);
     return {
         requests, messages, saved,

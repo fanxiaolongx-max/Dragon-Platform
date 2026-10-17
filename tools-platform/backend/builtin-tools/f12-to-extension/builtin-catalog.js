@@ -14,7 +14,7 @@
         includePopup: true
       },
       'exam-question-bank': {
-        file: './exam-question-bank-assistant.js?v=20261003-09',
+        file: './exam-question-bank-assistant.js',
         name: '题库与答题助手',
         nameEn: 'Question Bank and Exam Assistant',
         description: '抓取考试题目、维护本地题库并辅助自动答题。',
@@ -24,7 +24,7 @@
         manualLaunch: true
       },
       'authorized-media-exporter': {
-        file: './authorized-media-exporter.js?v=20260905-01',
+        file: './authorized-media-exporter.js',
         name: '授权媒体下载脚本生成器',
         nameEn: 'Authorized Media Exporter',
         description: '扫描当前页面已直接暴露的视频地址，并生成可审阅的 ffmpeg 批量下载脚本；不解密或绕过 DRM。',
@@ -35,7 +35,7 @@
         runAt: 'document_idle'
       },
       'netcare-rfc-word': {
-        file: './netcare-rfc-word.js?v=20261017-04',
+        file: './netcare-rfc-word.js',
         name: 'NetCare RFC 方案与 AI 审计',
         nameEn: 'NetCare RFC Plans and AI Audit',
         description: '批量下载 RFC 方案，提取章节与附件并执行 AI 审计；支持审计快照、Excel 和材料 ZIP 导出。',

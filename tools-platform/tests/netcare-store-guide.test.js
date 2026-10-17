@@ -15,7 +15,7 @@ test('download, in-page guide and Markdown source use the same complete submissi
   }
   assert.doesNotMatch(fs.readFileSync(path.join(base, 'netcare-store-guide.js'), 'utf8'), /<\/script>/i);
   const html = fs.readFileSync(path.join(base, 'index.html'), 'utf8');
-  assert.match(html, /netcare-store-guide\.js\?v=20261011-01/);
+  assert.match(html, /<script src="\.\/netcare-store-guide\.js"><\/script>/);
   for (const script of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(script[1]);
 });
 

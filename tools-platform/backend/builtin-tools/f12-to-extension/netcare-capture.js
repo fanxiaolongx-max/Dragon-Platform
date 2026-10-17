@@ -18,6 +18,19 @@
     if(matches.length>1)throw fail('AMBIGUOUS_ATTACHMENT','附件位置不唯一，已拒绝截图 / Ambiguous attachment location; capture refused');
     const anchor=matches[0];return anchor?.closest('tr')||anchor?.closest('p')||anchor||null;
   }
+  // Same attachment row => same region: tag plus the (section-unique) attachment links it holds.
+  function keyOf(region){
+    if(!region)return '';const tag=String(region.tagName||'').toUpperCase(),hrefs=[...new Set([...(tag==='A'?[region]:[]),...(region.querySelectorAll?.('a')||[])].map(href).filter(Boolean))].sort();
+    return hrefs.length?tag+'|'+hrefs.join('|'):'';
+  }
+  function regionKey(doc,shot){
+    if(shot.kind!=='attachments')return '';
+    try{const live=locate(doc,shot);if(live)return keyOf(live);}catch{return '';}
+    try{
+      const source=shot.topic.xml&&new DOMParser().parseFromString(shot.topic.xml,'text/html').querySelector('article'),matches=source?[...source.querySelectorAll('a')].filter(a=>href(a)===shot.file.href.toLowerCase()):[];
+      if(matches.length!==1)return '';const anchor=matches[0];return keyOf(anchor.closest('tr')||anchor.closest('p')||anchor);
+    }catch{return '';}
+  }
   function directoryNodes(doc){
     // OwsLiteView uses treepanel; older editors use NavigationTree.
     const nodes=[...doc.querySelectorAll('#treepanel [data-title="title"],#NavigationTree span,#NavigationTree p,#NavigationTree div,a,[role=treeitem]')].filter(el=>!el.closest('article')&&el.getBoundingClientRect().width>0);
@@ -106,6 +119,7 @@
       if(matches.length!==1)throw fail('ATTACHMENT_NOT_IN_XML','附件未唯一定位到该章节原始内容中 / Attachment not uniquely located in native section XML');
       const anchor=matches[0];region=anchor.closest('tr')||anchor.closest('p')||anchor;
     }
+    const key=shot.kind==='attachments'?keyOf(region):'';
     clone.querySelectorAll('script,style,iframe,object,embed,link,meta,base,form,input,button,textarea,select').forEach(el=>el.remove());
     for(const el of [clone,...clone.querySelectorAll('*')]){for(const a of [...el.attributes])if(/^on/i.test(a.name)||['id','srcdoc','srcset','poster','ping','xlink:href','autofocus','contenteditable','action','formaction','href','data-hd-href'].includes(a.name)||a.name==='style'&&/url\s*\(|expression|@import/i.test(a.value))el.removeAttribute(a.name);
       if(el.hasAttribute('src')){try{const u=new URL(el.getAttribute('src'),doc.location.href);if(u.origin!==doc.location.origin||u.username||u.password)el.removeAttribute(a.name);}catch{el.removeAttribute('src');}}
@@ -114,7 +128,7 @@
     const box=doc.createElement('div');box.setAttribute('data-netcare-reconstructed','true');box.style.cssText='position:fixed;left:-20000px;top:0;width:'+Math.max(320,Math.min(1400,doc.defaultView.innerWidth||1000))+'px;background:#fff;color:#243149;padding:20px;font:12px/1.6 Arial;pointer-events:none;z-index:-1;';
     const label=doc.createElement('p');label.textContent=shot.topic.number+' '+shot.topic.title+' · 内容重建截图（非页面原图） / Reconstructed native content (not a live-page screenshot)';box.append(label);
     if(region.tagName==='TR'){const table=doc.createElement('table');table.append(region);box.append(table);}else box.append(region);doc.body.append(box);
-    return {element:box,remove:()=>box.remove()};
+    return {element:box,key,remove:()=>box.remove()};
   }
   const delay=(ms,signal)=>new Promise((resolve,reject)=>{const done=()=>{signal.removeEventListener('abort',abort);resolve();},timer=setTimeout(done,ms),abort=()=>{clearTimeout(timer);signal.removeEventListener('abort',abort);reject(fail('STOPPED','已停止 / Stopped'));};signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();});
   async function capture(doc,shot,options){
@@ -140,13 +154,13 @@
         if(signal.aborted)throw fail('STOPPED','已停止 / Stopped');
         const images=await render(element);
         if(element.isConnected===false||locate(doc,shot)!==element)throw fail('REGION_REPLACED','渲染期间章节节点发生替换，重新定位并重试 / Section replaced during rendering; retrying');
-        options.attempt?.({attempt:n,stage:'live',ok:true});return {images,method:'live',attempts};
+        options.attempt?.({attempt:n,stage:'live',ok:true});return {images,method:'live',attempts,regionKey:shot.kind==='attachments'?keyOf(element):''};
       }catch(e){if(signal.aborted)throw e;const bounds=element?.getBoundingClientRect();const item={attempt:n,stage:'live',code:e.code||e.name||'RENDER_FAILED',message:String(e.message||e).slice(0,1500),stack:String(e.stack||'').slice(0,2000),articles:doc.querySelectorAll('article').length,bounds:bounds?{width:bounds.width,height:bounds.height,connected:element.isConnected}:null};attempts.push(item);options.attempt?.(item);if(n===1&&typeof options.onStuck==='function'){try{await options.onStuck();}catch{}}}
     }
     let fallback;
-    try{if(signal.aborted)throw fail('STOPPED','已停止 / Stopped');fallback=reconstruct(doc,shot);const images=await render(fallback.element);return {images,method:'reconstructed',attempts};}
+    try{if(signal.aborted)throw fail('STOPPED','已停止 / Stopped');fallback=reconstruct(doc,shot);const images=await render(fallback.element);return {images,method:'reconstructed',attempts,regionKey:fallback.key};}
     catch(e){if(signal.aborted)throw e;attempts.push({attempt:4,stage:'reconstructed',code:e.code||e.name||'RENDER_FAILED',message:String(e.message||e).slice(0,1500),stack:String(e.stack||'').slice(0,2000)});throw Object.assign(fail('CAPTURE_FAILED','截图重试与兜底均失败 / Capture retries and fallback failed'),{attempts});}
     finally{fallback?.remove();}
   }
-  return {article,locate,navigate,reveal,reconstruct,capture};
+  return {article,locate,regionKey,navigate,reveal,reconstruct,capture};
 });

@@ -1,6 +1,7 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),crypto=require('node:crypto');
 const dir=__dirname+'/../backend/builtin-tools/f12-to-extension/',route=require(dir+'netcare-routing.js')(),monitor=require(dir+'netcare-monitor.js')(),packer=require(dir+'packer-core.js');
 const origins=route.origins,order='NC20260910100017',code=fs.readFileSync(dir+'netcare-rfc-word.js','utf8');
+const pageCode = require('./helpers/netcare-page');
 const pkg=packer.buildPackage({name:'RFC',version:'1.0.17',description:'test',matches:origins.map(o=>o+'/p/netcare/index.html*').concat('https://*.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*').join('\n'),world:'MAIN',allFrames:true,manualLaunch:true,includePopup:true,runAt:'document_idle',license:{enabled:false},code});
 function harness(){const values={},notifications=[],injections=[],callbacks=[],events={},timers=[],created=[],tabs=new Map([[1,{id:1,url:origins[0]+'/p/netcare/index.html'}]]);
  const chrome={runtime:{id:'ext',onInstalled:{addListener(){}},onMessage:{addListener:fn=>callbacks.push(fn)}},storage:{local:{get:async keys=>{if(keys==null)return structuredClone(values);return Object.fromEntries((Array.isArray(keys)?keys:[keys]).map(k=>[k,values[k]&&structuredClone(values[k])]));},set:async data=>Object.assign(values,structuredClone(data)),remove:async key=>{for(const k of Array.isArray(key)?key:[key])delete values[k];}}},tabs:{create:async details=>{created.push(details);const tab={id:100+created.length,...details};tabs.set(tab.id,tab);return tab;},get:async id=>{if(!tabs.has(id))throw Error('closed');return {...tabs.get(id)};},sendMessage:async(id,m)=>{notifications.push({id,...structuredClone(m)});return {ok:true};},onCreated:{addListener:fn=>events.created=fn},onUpdated:{addListener:fn=>events.updated=fn},onRemoved:{addListener:fn=>{events.removed=fn;}}},webNavigation:{onCreatedNavigationTarget:{addListener:fn=>events.target=fn}},scripting:{executeScript:async settings=>{injections.push(settings);if(settings.func)return [{result:route.urlOrder(tabs.get(settings.target.tabId).url)===settings.args[0]}];return [{}];}}};
@@ -92,7 +93,7 @@ test('navigation permission and monitor components are confined to NetCare packa
 });
 
 test('native detail parsing rejects conflicting URL orders and supports mixed-case keys',()=>{
- const context={URL,URLSearchParams,location:new URL('https://example.com'),window:{}};vm.runInNewContext(code,context);
+ const context={URL,URLSearchParams,location:new URL('https://example.com'),window:{}};vm.runInNewContext(pageCode,context);
  assert.equal(context.netcareNativeOrder(origins[2]+'/rfc/network_tuning/view.html?Order_ID='+order),order);
  assert.equal(context.netcareNativeOrder(origins[2]+'/rfc/network_tuning/view.html?docId='+order+'#/rfc?orderid=NC20260910100018'),'!ambiguous');
 });
@@ -150,7 +151,7 @@ test('German station nested SPA hash route is parsed and routed successfully',as
  assert.equal(route.validPage(deUrl),true);
  assert.equal(route.urlOrder(deUrl),order);
  const context={URL,URLSearchParams,location:new URL('https://example.com'),window:{}};
- vm.runInNewContext(code,context);
+ vm.runInNewContext(pageCode,context);
  assert.equal(context.netcareNativeOrder(deUrl),order);
 
  const h=harness(),id=crypto.randomUUID();
@@ -199,7 +200,7 @@ test('source-less fallback does not adopt tabs created before arming or after ca
 });
 
 test('active search forwards only exact native cross-region opens and restores the original opener',()=>{
- const context={URL,URLSearchParams,location:new URL(origins[0]),window:{}};vm.runInNewContext(code,context);
+ const context={URL,URLSearchParams,location:new URL(origins[0]),window:{}};vm.runInNewContext(pageCode,context);
  const opened=[],forwarded=[],native=function(...args){opened.push({receiver:this,args});return 'native-window';};
  const win={location:new URL(origins[0]+'/p/netcare/index.html'),open:native};
  const restore=context.netcareSearchRedirects(win,order,url=>forwarded.push(url));

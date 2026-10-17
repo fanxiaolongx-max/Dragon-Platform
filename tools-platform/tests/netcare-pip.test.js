@@ -1,5 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),crypto=require('node:crypto');
 const dir=__dirname+'/../backend/builtin-tools/f12-to-extension/',create=require(dir+'netcare-pip.js'),packer=require(dir+'packer-core.js'),code=fs.readFileSync(dir+'netcare-rfc-word.js','utf8');
+const pageCode = require('./helpers/netcare-page');
 const opts={name:'RFC',version:'1.0.16',description:'test',matches:'https://netcare-ae.gts.huawei.com/p/netcare/index.html*\nhttps://netcare-de.gts.huawei.com/p/netcare/index.html*\nhttps://netcare.huawei.com/p/netcare/index.html*\nhttps://*.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*',world:'MAIN',allFrames:true,manualLaunch:false,includePopup:false,runAt:'document_idle',license:{enabled:false},code};
 const pkg=packer.buildPackage(opts),order='NC20260901000947',online='https://de.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/OwsPage.html?docId='+order+'&order_id='+order;
 const jpeg='data:image/jpeg;base64,/9j/AA==';
@@ -13,7 +14,7 @@ function harness(enabled=true){
  return {data,calls,tabs,chrome,send,sender};
 }
 test('Preview defaults on, persists through rules export/import, validates booleans and packages all MAIN entry points',()=>{
- const context={URL,URLSearchParams,TextEncoder,Uint8Array,DataView,Blob,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,context);
+ const context={URL,URLSearchParams,TextEncoder,Uint8Array,DataView,Blob,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,context);
  const settings=context.netcareDefaultSettings();assert.equal(settings.pipBetaEnabled,true);
  settings.pipBetaEnabled=false;assert.equal(context.netcareImportSettings(context.netcareExportSettings(settings)).pipBetaEnabled,false);
  assert.throws(()=>context.netcareNormalizeSettings({...settings,pipBetaEnabled:'true'}));

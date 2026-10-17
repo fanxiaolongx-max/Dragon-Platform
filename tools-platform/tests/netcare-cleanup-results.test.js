@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-const dir='backend/builtin-tools/f12-to-extension/';
+const dir='backend/builtin-tools/f12-to-extension/',pageCode=require('./helpers/netcare-page');
 const packer=fs.readFileSync(dir+'packer-core.js','utf8');
 function context(){const ctx=vm.createContext({});vm.runInContext(packer.slice(packer.indexOf('  function netcareAuditStorageTask('),packer.indexOf('  function netcareAuditSummaryBackground(')),ctx);return ctx;}
 test('bundle cleanup prunes stale current summaries, keeps cached or protected bundles and respects retention',()=>{
@@ -17,7 +17,7 @@ test('publishing and cleaning result summaries serialize to avoid overwriting a 
  await ctx.netcareAuditStorageTask(async()=>events.push('recovered'));assert.equal(events.at(-1),'recovered');
 });
 test('remaining summaries cannot claim that an export bundle exists solely because another RFC has a ZIP',()=>{
- const code=fs.readFileSync(dir+'netcare-rfc-word.js','utf8'),ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+ const code=fs.readFileSync(dir+'netcare-rfc-word.js','utf8'),ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
  const records=[{order:'a',bundleFilename:'a.zip'},{order:'b',bundleFilename:'b.zip'}];
  assert.deepEqual(Array.from(ctx.netcareAuditMissingBundles(records,[{order:'b',name:'a.zip'},{order:'b',name:'b.zip'}]),r=>r.order),['a']);
  assert.equal(ctx.netcareAuditMissingBundles(records,[{order:'a',name:'a.zip'},{order:'b',name:'b.zip'}]).length,0);

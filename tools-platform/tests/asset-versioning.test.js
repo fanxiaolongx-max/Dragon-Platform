@@ -114,3 +114,30 @@ test('frontend html no longer carries hand-maintained ?v= on local js/css', () =
     walk(path.join(root, 'frontend'));
     assert.deepEqual(offenders, [], 'Versions are added by backend/models/asset-versioning.js; drop the manual ?v=');
 });
+
+const f12ToolDir = path.join(root, 'backend/builtin-tools/f12-to-extension');
+
+test('F12 packer scripts are versioned by content when the tool page is served', () => {
+    // server.js serves custom-tool pages through versionAssetUrls with the tool directory as baseDir.
+    const html = fs.readFileSync(path.join(f12ToolDir, 'index.html'), 'utf8');
+    const local = [...html.matchAll(/<script src="(\.\/[^"]+)"/g)].map(match => match[1]);
+    assert.ok(local.includes('./netcare-settings.js') && local.includes('./packer-core.js'));
+    assert.deepEqual(local.filter(src => src.includes('?')), [], 'Drop the manual ?v=; content hashes are added when served');
+    const served = versionAssetUrls(html, { publicDir: path.join(root, 'frontend'), baseDir: f12ToolDir });
+    for (const src of local) {
+        const hash = fileHash(path.join(f12ToolDir, src));
+        assert.ok(hash, `${src} is missing`);
+        assert.ok(served.includes(`src="${src}?v=${hash}"`), `${src} is not versioned by content`);
+    }
+});
+
+test('F12 built-in catalog points at existing scripts without hand-maintained versions', () => {
+    const catalog = require(path.join(f12ToolDir, 'builtin-catalog.js'));
+    for (const [id, preset] of Object.entries(catalog)) {
+        if (!preset.file) continue;
+        // The packer fetches these with a cache-busting query, so they need no version of their own.
+        assert.match(preset.file, /^\.\/[\w.-]+\.js$/, id);
+        assert.ok(fs.existsSync(path.join(f12ToolDir, preset.file)), `${id}: ${preset.file} is missing`);
+    }
+    assert.match(fs.readFileSync(path.join(f12ToolDir, 'index.html'), 'utf8'), /fetch\(preset\.file \+ '\?t=' \+ Date\.now\(\)\)/);
+});

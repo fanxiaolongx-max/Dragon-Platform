@@ -7,6 +7,7 @@ const packer = require('../backend/builtin-tools/f12-to-extension/packer-core');
 
 const dir = path.join(__dirname, '../backend/builtin-tools/f12-to-extension');
 const code = fs.readFileSync(path.join(dir, 'netcare-rfc-word.js'), 'utf8');
+const pageCode = require('./helpers/netcare-page');
 const options = {
     name: 'NetCare RFC 方案 Word 下载', version: '1.0.0', description: 'RFC Word downloader',
     matches: 'https://netcare-ae.gts.huawei.com/p/netcare/index.html*\nhttps://netcare.huawei.com/p/netcare/index.html*\nhttps://netcare-de.gts.huawei.com/p/netcare/index.html*\nhttps://*.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*',
@@ -40,8 +41,9 @@ test('RFC package restricts page injection and permits configured AI API origins
     }
     const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
     assert.match(html, /<option value="netcare-rfc-word">/);
-    assert.match(html, /builtin-catalog\.js\?v=/);
-    assert.match(require(path.join(dir, 'builtin-catalog.js'))['netcare-rfc-word'].file, /netcare-rfc-word\.js\?v=/);
+    // Script versions come from file content when the page is served (asset-versioning.test.js).
+    assert.match(html, /<script src="\.\/builtin-catalog\.js"><\/script>/);
+    assert.equal(require(path.join(dir, 'builtin-catalog.js'))['netcare-rfc-word'].file, './netcare-rfc-word.js');
 });
 
 function workerHarness(fileBytes = [0x50, 0x4b, 0x03, 0x04, 0x00], parentOrigin = 'https://netcare-ae.gts.huawei.com', workerHost = 'https://de.kdp.gts.huawei.com', docId = 'NC20261001000381') {
@@ -88,7 +90,7 @@ function workerHarness(fileBytes = [0x50, 0x4b, 0x03, 0x04, 0x00], parentOrigin 
         setInterval: () => 1, clearInterval: () => {}, setTimeout: () => 1, clearTimeout: () => {},
         document: { createElement: () => ({ click() { saved.push(this.download); }, remove() {} }), body: { append() {} } }
     };
-    vm.runInNewContext(code, context);
+    vm.runInNewContext(pageCode, context);
     const receive = (message, origin = parentOrigin, source = parent) => listeners.get('message')?.({ origin, source, data: { channel: 'netcare-rfc-word-v1', ...message } });
     return { receive, messages, requests, saved, window, listeners, context };
 }
@@ -123,7 +125,7 @@ test('HTML/login responses must not be saved as Word files', async () => {
 });
 
 test('native export dialogs do not initialize a worker or an extra floating panel', () => {
-    vm.runInNewContext(code, {
+    vm.runInNewContext(pageCode, {
         location: new URL('https://de.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html?id=NC20261001000381'),
         window: { name: '' }, URL
     });
@@ -151,7 +153,7 @@ test('an unknown parent origin cannot initialize or control a worker', () => {
 
 function batchHarness() {
     const context = { URL, location: new URL('https://unrelated.example'), window: {} };
-    vm.runInNewContext(code, context);
+    vm.runInNewContext(pageCode, context);
     return context;
 }
 test('batch statistics count unique completed RFCs, failures and pending work without accumulating updates',()=>{
@@ -313,7 +315,7 @@ test('RFC popup start injects the script and stop sends the existing page contro
     assert.deepEqual(Array.from(injections[0].files), ['netcare-online-relay.js']);
     assert.equal(injections[0].world, 'ISOLATED');
     assert.equal(injections[0].target.allFrames, false);
-    assert.deepEqual(Array.from(injections[1].files), ['netcare-language.js','netcare-pip.js','netcare-capture.js','netcare-controls.js','netcare-monitor.js','content.js']);
+    assert.deepEqual(Array.from(injections[1].files), ['netcare-settings.js','netcare-language.js','netcare-pip.js','netcare-capture.js','netcare-controls.js','netcare-monitor.js','content.js']);
     assert.equal(injections[1].world, 'MAIN');
     await element('stopButton').click();
     await new Promise(resolve => setImmediate(resolve));
@@ -440,7 +442,7 @@ test('clicking Start initializes online opening on an already-open page without 
     await new Promise(resolve => setImmediate(resolve));
     await element('startButton').click();
     await new Promise(resolve => setImmediate(resolve));
-    assert.deepEqual(injections, ['netcare-online-relay.js', 'netcare-language.js']);
+    assert.deepEqual(injections, ['netcare-online-relay.js', 'netcare-settings.js']);
     for (const [index, order] of ['NC20260927000189', 'NC20260720002912'].entries()) {
         window.postMessage({ source: 'TP_RFC_OPEN_REQUEST', id: `open-${index}`, order,
             url: onlineUrl.replaceAll(onlineOrder, order) }, origin);
@@ -451,7 +453,7 @@ test('clicking Start initializes online opening on an already-open page without 
     assert.equal(messages.filter(message => message.source === 'TP_RFC_OPEN_RESULT' && message.ok).length, 2);
     await element('startButton').click();
     await new Promise(resolve => setImmediate(resolve));
-    assert.equal(listeners.size, 2, 'restarting replaces both relay listeners');
+    assert.equal(listeners.size, 3, 'restarting replaces the artifact, launcher and online relay listeners');
     window.postMessage({ source: 'TP_RFC_OPEN_REQUEST', id: 'after-restart', order: onlineOrder, url: onlineUrl }, origin);
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(background.created.length, 3, 'restarting must not open duplicate tabs');
@@ -476,7 +478,7 @@ test('a synchronously invalidated extension relay returns an error instead of le
 
 test('ZIP bundle preserves UTF-8 filenames and bytes with valid CRC, including empty text', async () => {
     const context = { URL, URLSearchParams, TextEncoder, Uint8Array, DataView, Blob, location: new URL('https://unrelated.example'), window: {} };
-    vm.runInNewContext(code, context);
+    vm.runInNewContext(pageCode, context);
     const zip = await context.createNetcareZip([
         { name: '3.2-FW Checklist CLI V1.txt', blob: new Blob(['commands\n']) },
         { name: '1.1-变更目的.txt', blob: new Blob(['\ufeff测试内容']) },
@@ -491,7 +493,7 @@ test('ZIP bundle preserves UTF-8 filenames and bytes with valid CRC, including e
 
 test('catalogue covers collapsed chapter groups and file naming prevents collisions/path traversal', () => {
     const context = { URL, URLSearchParams, location: new URL('https://unrelated.example'), window: {} };
-    vm.runInNewContext(code, context);
+    vm.runInNewContext(pageCode, context);
     const chapters = context.netcareTopicCatalogue([['catalognumber=1.1&title=Purpose&number=topic1'],
         ['number=topic2&catalognumber=3.2&title=Preparation', 'number=topic2&catalognumber=3.2&title=Preparation']]);
     assert.deepEqual(Array.from(chapters, item => item.number), ['1.1', '3.2']);
@@ -550,7 +552,7 @@ test('Word filename relay stores the exact downloaded name and rejects unrelated
 
 test('default section template and exact-number preferences validate editable rows', () => {
     const context = { URL, URLSearchParams, location: new URL('https://unrelated.example'), window: {} };
-    vm.runInNewContext(code, context);
+    vm.runInNewContext(pageCode, context);
     const settings = context.netcareDefaultSettings();
     assert.equal(settings.sections.length, 34);
     assert.equal(settings.attachmentsEnabled, true);
@@ -641,7 +643,7 @@ test('shared attachment throttle spaces read grants across tabs and rejects unre
 
 test('configuration export/import roundtrips global preferences and migrates earlier settings', () => {
     const context = { URL, URLSearchParams, location: new URL('https://unrelated.example'), window: {} };
-    vm.runInNewContext(code, context);
+    vm.runInNewContext(pageCode, context);
     const settings = context.netcareDefaultSettings(); settings.concurrency = 2; settings.openOnline = false;
     const exported = context.netcareExportSettings(settings), restored = context.netcareImportSettings(exported);
     assert.equal(restored.concurrency, 2); assert.equal(restored.openOnline, false); assert.equal(restored.sections.length,34);
@@ -654,7 +656,7 @@ test('configuration export/import roundtrips global preferences and migrates ear
 });
 
 test('AI prompts force required extraction while audit stays off until explicitly enabled', () => {
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}}; vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}}; vm.runInNewContext(pageCode,ctx);
     const value=ctx.netcareDefaultSettings();value.aiAuditEnabled=false;value.sections=[{number:'3.2',title:'Preparation',text:false,attachments:false,textPrompt:'Check rollback',attachmentsPrompt:'Check commands'}];
     const off=ctx.netcareNormalizeSettings(value);assert.equal(off.aiAuditEnabled,false);assert.equal(off.sections[0].text,true);assert.equal(off.sections[0].attachments,true);
     const on=ctx.netcareNormalizeSettings({...value,aiAuditEnabled:true});assert.equal(on.textEnabled,true);assert.equal(on.attachmentsEnabled,true);
@@ -662,7 +664,7 @@ test('AI prompts force required extraction while audit stays off until explicitl
 });
 
 test('audit cache expires old RFCs, remains bounded, and redacts credentials', () => {
-    const ctx={URL,URLSearchParams,TextEncoder,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,TextEncoder,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     let data=JSON.stringify([{order:'old',created:Date.now()-86400001,items:[]}]);const storage={getItem:()=>data,setItem:(_k,v)=>{data=v;}};
     for(let n=0;n<6;n++)ctx.netcareCacheAudit(storage,'NC'+n,[{section:'1.1',kind:'text',filename:'x.txt',text:'password=hidden token="two words"\n-----BEGIN PRIVATE KEY-----secret-----END PRIVATE KEY-----'}],[]);
     const cached=JSON.parse(data);assert.equal(cached.length,5);assert.ok(!data.includes('hidden'));assert.ok(!data.includes('two words'));assert.ok(!data.includes('secret'));assert.ok(!data.includes('"old"'));
@@ -670,7 +672,7 @@ test('audit cache expires old RFCs, remains bounded, and redacts credentials', (
 });
 
 test('audit runner skips unsupported/missing/oversized evidence, continues on model errors, and obeys stop', async () => {
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,auditLevel:'strict',sections:[{number:'3.2',title:'Preparation',textPrompt:'text rule',attachmentsPrompt:'attachment rule'}]});
     let calls=0;const items=[{section:'3.2',kind:'text',filename:'text.txt',text:'evidence'},{section:'3.2',kind:'attachments',filename:'x.docx',error:'TXT only'},{section:'3.2',kind:'attachments',filename:'large.txt',text:'x'.repeat(60001)},{section:'3.2',kind:'attachments',filename:'commands.txt',text:'commands'}];
     const r=await ctx.netcareRunAudits(items,settings,async()=>{calls++;if(calls===1)return{ok:true,report:{status:'pass',summary:'OK',findings:[]},model:'mock'};throw Error('HTTP 500');},new AbortController().signal,()=>{});
@@ -734,7 +736,7 @@ test('saved audit and draft test use identical authentication; audit 401 details
     const failed=await send('TP_RFC_AI_AUDIT',{id:'test',url:onlineUrl,frameId:0,tab:{id:2}},{order:onlineOrder,section:'3.4',kind:'text',filename:'3.4.txt',text:'KPI service test'});
     assert.equal(failed.ok,false);assert.equal(failed.diagnostics.httpStatus,401);assert.equal(failed.diagnostics.configSource,'saved-audit-model');assert.match(failed.diagnostics.response,/invalid_api_key/);assert.ok(!JSON.stringify(failed).includes(model.key));
     assert.equal(requests[0].url,requests[1].url);assert.equal(requests[0].request.headers.Authorization,requests[1].request.headers.Authorization);
-    const page={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,page);
+    const page={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,page);
     const reports=await page.netcareRunAudits([{section:'3.4',kind:'text',filename:'3.4.txt',text:'KPI service test'}],settings,async()=>failed,new AbortController().signal,()=>{});
     assert.equal(reports[0].status,'needs_review');assert.equal(reports[0].diagnostics.httpStatus,401);assert.match(reports[0].diagnostics.response,/invalid_api_key/);
 });
@@ -852,7 +854,7 @@ test('configuration backup roundtrips models and rules, excludes evidence, and r
 });
 
 test('native evidence capture splits tall regions and refuses missing or oversized original elements',async()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     let draws=0;const element={isConnected:true,scrollWidth:1000,scrollHeight:3201,getBoundingClientRect:()=>({width:1000,height:3201}),ownerDocument:{createElement:()=>({getContext:()=>({drawImage:()=>draws++}),toBlob:fn=>fn(new Blob(['png']))})}};
     const images=await ctx.netcareCaptureEvidence(element,async()=>({width:1000,height:3201}),new AbortController().signal);assert.equal(images.length,3);assert.equal(draws,3);
     await assert.rejects(ctx.netcareCaptureEvidence(null,()=>{},new AbortController().signal),/Original region/);
@@ -860,28 +862,28 @@ test('native evidence capture splits tall regions and refuses missing or oversiz
 });
 
 test('Excel keeps five columns, merged RFC and chapter cells, full error details and literal spreadsheet content',async()=>{
-    const ctx={URL,URLSearchParams,Blob,TextEncoder,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,Blob,TextEncoder,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const records=[{order:onlineOrder,wordFilename:onlineOrder+'_方案.docx',items:[{section:'3.4',kind:'text',filename:'3.4-测试.txt',text:'=HYPERLINK("https://example.invalid") <literal>'}],reports:[{section:'3.4',sectionTitle:'Test',kind:'text',filename:'3.4-测试.txt',rule:'Check KPI',status:'fail',summary:'No thresholds'},{section:'3.4',kind:'attachments',filename:'3.4-检查.txt',status:'needs_review',summary:'HTTP 401',diagnostics:{httpStatus:401,response:'Invalid token'}}]}];
     const JSZip=require('../backend/node_modules/jszip');const workbook=await JSZip.loadAsync(await (await ctx.netcareAuditExcel(records)).arrayBuffer()),sheet=await workbook.file('xl/worksheets/sheet1.xml').async('string');
     assert.match(sheet,/mergeCell ref="A2:A3"/);assert.match(sheet,/mergeCell ref="B2:B3"/);assert.match(sheet,/&lt;literal&gt;/);assert.match(sheet,/inlineStr/);assert.ok(!sheet.includes('<f>'));assert.match(sheet,/Invalid token/);
 });
 
 test('audit rows provide bilingual reason and localized error text without changing source text',()=>{
-    const ctx={URL,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const record={order:'RFC',items:[{section:'3',kind:'text',filename:'source.txt',text:'原文 / Original source = 1/2'}],reports:[{section:'3',kind:'text',filename:'source.txt',summary:'旧摘要 / Legacy summary',summaryI18n:{zh:'缺少指标',en:'Metrics missing'},findingsI18n:[{zh:'补充阈值',en:'Add thresholds'}]}]};
     const zh=ctx.netcareAuditRows([record],'zh')[0],en=ctx.netcareAuditRows([record],'en')[0];assert.equal(zh.summary,'缺少指标 / Metrics missing');assert.equal(en.summary,'缺少指标 / Metrics missing');assert.equal(zh.findings[0],'补充阈值 / Add thresholds');assert.equal(en.findings[0],'补充阈值 / Add thresholds');assert.equal(zh.text,en.text);assert.equal(zh.text,'原文 / Original source = 1/2');
     assert.equal(ctx.netcareAuditLocalized('位置：3.4；缺少阈值 / Location: 3.4; thresholds missing','en'),'Location: 3.4; thresholds missing');assert.equal(ctx.netcareAuditLocalized('缺少阈值 / Thresholds missing','zh'),'缺少阈值');assert.match(ctx.netcareAuditLocalized('旧中文结果','en'),/Run the audit again/);
 });
 
 test('screenshots follow actual parent evidence, separate attachments, and exclude ordinary PNG attachments',()=>{
-    const ctx={URL,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const record={order:'RFC',materials:[{name:'source.png',section:'3.2',kind:'text',role:'screenshot',sourceFilename:'3.2.txt'},{name:'attach.png',section:'3.2',kind:'attachments',role:'screenshot',sourceFilename:'a.pdf'},{name:'3.2.1-Script-章节原图-001.png',section:'3.2.1'},{name:'diagram.png',section:'3.2',kind:'attachments'},{name:'other.png',section:'3.3',kind:'text',role:'screenshot'}]};
     const text={section:'3.3',kind:'text',sources:[{section:'3.2',kind:'text',filename:'3.2.txt'},{section:'3.2.1',kind:'text',filename:'child.txt'}]},attachment={section:'3.3',kind:'attachments',sources:[{section:'3.2',kind:'attachments',filename:'a.pdf'}]};
     assert.deepEqual(Array.from(ctx.netcareAuditScreenshots(record,text),m=>m.name),['source.png','3.2.1-Script-章节原图-001.png']);assert.deepEqual(Array.from(ctx.netcareAuditScreenshots(record,attachment),m=>m.name),['attach.png']);attachment.sources[0].filename='b.pdf';assert.equal(ctx.netcareAuditScreenshots(record,attachment).length,0);
 });
 
 test('Excel embeds source PNGs in evidence rows, preserves grouping and exports English verdicts with bilingual reasons',async()=>{
-    const ctx={URL,Blob,TextEncoder,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,Blob,TextEncoder,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jvXkAAAAASUVORK5CYII=','base64'),shot={name:'shot.png',section:'3.2',kind:'text',role:'screenshot',sourceFilename:'source.txt'},report={section:'3.3',kind:'text',filename:'source.txt',sources:[{section:'3.2',kind:'text',filename:'source.txt'}],status:'fail',summaryI18n:{zh:'缺少指标',en:'Metrics missing'},findingsI18n:[{zh:'补充阈值',en:'Add thresholds'}]},record={order:'RFC',materials:[shot],items:[{section:'3.2',kind:'text',filename:'source.txt',text:'original literal'}],reports:[report,{...report,kind:'attachments',sources:undefined,filename:'a.txt',status:'pass'}]},images=new Map([[ctx.netcareAuditImageKey('RFC','shot.png'),new Blob([png])]]),JSZip=require('../backend/node_modules/jszip');
     for(const language of ['zh','en']){const zip=await JSZip.loadAsync(await (await ctx.netcareAuditExcel([record],language,images)).arrayBuffer()),sheet=await zip.file('xl/worksheets/sheet1.xml').async('string'),drawing=await zip.file('xl/drawings/drawing1.xml').async('string');assert.deepEqual(await zip.file('xl/media/image1.png').async('nodebuffer'),png);assert.match(sheet,/mergeCell ref="A2:A4"/);assert.match(sheet,/mergeCell ref="B2:B4"/);assert.match(sheet,/mergeCell ref="D2:D3"/);assert.match(sheet,/<drawing r:id="rId1"/);assert.match(drawing,/<xdr:col>2<\/xdr:col>/);assert.match(drawing,/<xdr:row>2<\/xdr:row>/);assert.match(drawing,/noChangeAspect="1"/);assert.match(sheet,/缺少指标 \/ Metrics missing/);assert.match(sheet,/补充阈值 \/ Add thresholds/);assert.match(sheet,/<t xml:space="preserve">Fail<\/t>/);assert.match(sheet,/<t xml:space="preserve">Pass<\/t>/);assert.doesNotMatch(sheet,/<t xml:space="preserve">(?:通过|不通过|需人工核查)<\/t>/);assert.match(sheet,language==='zh'?/原始区域截图/:/Source screenshot/);assert.match(await zip.file('xl/workbook.xml').async('string'),/<sheet name="审计结果 Results"/);}
     const missing=await JSZip.loadAsync(await (await ctx.netcareAuditExcel([record],'en')).arrayBuffer());assert.equal(missing.file('xl/drawings/drawing1.xml'),null);assert.match(await missing.file('xl/worksheets/sheet1.xml').async('string'),/Screenshots unavailable/);
@@ -889,7 +891,7 @@ test('Excel embeds source PNGs in evidence rows, preserves grouping and exports 
 });
 
 test('materials ZIP preserves original Word/attachments in RFC folders and explicitly records missing originals',async()=>{
-    const ctx={URL,URLSearchParams,Blob,TextEncoder,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,Blob,TextEncoder,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const order=onlineOrder,record={order,wordFilename:order+'_方案.docx',items:[{section:'3.4',kind:'text',filename:'3.4-测试.txt',text:'cached text'}],reports:[{section:'3.4',kind:'text',filename:'3.4-测试.txt',status:'pass',summary:'OK'},{section:'3.4',kind:'attachments',filename:'3.4-附件.docx',status:'needs_review',summary:'TXT only'}]};
     const word=new Blob([new Uint8Array([80,75,0,9])]),attachment=new Blob([new Uint8Array([7,8,9])]);
     const files=[{order,name:record.wordFilename},{order,name:'3.4-附件.docx'}];
@@ -936,7 +938,7 @@ test('binary cache rejects invalid snapshot and capacity requests before accessi
 });
 
 test('parent rules cover all descendants with inheritance without changing child drafts', () => {
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,sections:[
         {number:'3',title:'Operations',text:true,textPrompt:'Parent text rule',attachmentsPrompt:'Parent attachment rule'},
         {number:'3.5',title:'Rollback',text:false,textPrompt:'Child draft'},
@@ -952,7 +954,7 @@ test('parent rules cover all descendants with inheritance without changing child
 });
 
 test('title fallback applies only after no numbered matches and keeps actual section identity', async () => {
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,titleFallbackEnabled:true,sections:[{number:'3.5',title:'Rollback Steps',textPrompt:'Check rollback',attachmentsPrompt:'Check commands'}]});
     const catalogue=[{number:'8.2',title:'8.2 ROLLBACK: Steps',topic:'a'},{number:'8.2.1',title:'Details',topic:'b'},{number:'8.20',title:'Not related',topic:'c'},{number:'9',title:'Rollback Steps Extra',topic:'d'}];
     const resolved=ctx.netcareResolveTopics(settings,catalogue);assert.deepEqual(Array.from(resolved,t=>t.number),['8.2','8.2.1']);
@@ -983,7 +985,7 @@ test('automatic close requires owned tab, enabled audit, saved results and uncha
 });
 
 test('selected parent prevents inherited children from falling back outside its actual subtree', ()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),textEnabled:true,attachmentsEnabled:true,titleFallbackEnabled:true,sections:[
         {number:'3.3',title:'Operation Steps for Change',text:true,attachments:true},
         {number:'3.3.1',title:'Operation Scripts'},
@@ -1008,7 +1010,7 @@ test('selected parent prevents inherited children from falling back outside its 
 });
 
 test('automatic close explains missing evidence without confusing verdicts with execution errors', ()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const completed={settings:{aiAuditEnabled:true},reports:[{status:'fail'},{status:'needs_review'}],failed:0,cached:true,published:true,aborted:false};
     assert.equal(ctx.netcareAutoCloseReason(completed),'');
     assert.match(ctx.netcareAutoCloseReason({...completed,reports:[{section:'3.4',status:'needs_review',error:true,summary:'未提取到附件 / Missing evidence'}]}),/3.4.*Missing evidence/);
@@ -1018,7 +1020,7 @@ test('automatic close explains missing evidence without confusing verdicts with 
 });
 
 test('title correction rejects unresolved or ambiguous titles and accepts normalized exact titles', ()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const settings={textEnabled:true,titleFallbackEnabled:true,sections:[{number:'3.4',title:'Test and Verification',text:true}]};
     const normalized=ctx.netcareResolveTopics(settings,[{number:'3.4',title:'3.4 TEST: and Verification'}]);
     assert.equal(normalized.length,1);assert.equal(normalized[0].correctionsByKind.text.length,0);
@@ -1029,7 +1031,7 @@ test('title correction rejects unresolved or ambiguous titles and accepts normal
 });
 
 test('corrected parent reports and Excel retain before and after section names', async()=>{
-    const ctx={URL,URLSearchParams,Blob,TextEncoder,Uint8Array,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,Blob,TextEncoder,Uint8Array,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const correction={ruleNumber:'3.4',ruleTitle:'Test and Verification',fromNumber:'3.4',fromTitle:'Rollback',toNumber:'3.3',toTitle:'Test and Verification',reason:'title_mismatch'};
     const settings={aiAuditEnabled:true,sections:[{number:'3.4',title:'Test and Verification',textPrompt:'Check KPI'}]};
     const items=[{section:'3.3',ruleSection:'3.4',kind:'text',filename:'3.3.txt',text:'Evidence',corrections:[correction]},{section:'3.3.1',ruleSection:'3.4',kind:'text',filename:'3.3.1.txt',text:'Child evidence',corrections:[correction]}];
@@ -1064,7 +1066,7 @@ test('AI requires concise bilingual output and rejects monolingual responses', a
 });
 
 test('selected parent audits all text descendants together and groups attachment checks separately', async()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,auditLevel:'strict',sections:[{number:'3',title:'Operations',text:true,attachments:true,textPrompt:'Evaluate complete plan',attachmentsPrompt:'Evaluate scripts'},{number:'3.1',title:'Overview'},{number:'3.1.1',title:'Steps',textPrompt:'Hidden child draft'}]});
     const items=[{section:'3',kind:'text',filename:'3.txt',text:'Purpose'},{section:'3.1',kind:'text',filename:'3.1.txt',text:'Preparation'},{section:'3.1.1',kind:'text',filename:'3.1.1.txt',text:'Rollback'},{section:'3.1.1',kind:'attachments',filename:'commands.txt',text:'Commands'}],sent=[];
     const reports=await ctx.netcareRunAudits(items,settings,async item=>{sent.push(item);return{ok:true,report:{status:'pass',summary:'通过 / Pass',findings:[]}};},new AbortController().signal,()=>{});
@@ -1077,7 +1079,7 @@ test('selected parent audits all text descendants together and groups attachment
 });
 
 test('parent selection gathers distinct descendant rules and cannot silently pass truncated aggregate evidence', async()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,attachmentsEnabled:false,sections:[{number:'3',title:'Operations',text:true},{number:'3.1',title:'Preparation',textPrompt:'Check preparation'},{number:'3.2',title:'Rollback',textPrompt:'Check rollback'}]});
     assert.match(ctx.netcareAuditRule(settings,'3','text'),/3.1: Check preparation/);assert.match(ctx.netcareAuditRule(settings,'3','text'),/3.2: Check rollback/);
     const items=[{section:'3.1',kind:'text',filename:'one.txt',text:'short evidence'},{section:'3.2',kind:'text',filename:'two.txt',text:'x'.repeat(40000)},{section:'3.3',kind:'text',filename:'three.txt',text:'y'.repeat(40000)}];const sent=[];
@@ -1089,7 +1091,7 @@ test('parent selection gathers distinct descendant rules and cannot silently pas
 });
 
 test('identical attachment content linked from parent and child sections is sent to the model once', async()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,textEnabled:false,sections:[{number:'3.3',title:'Operations',attachments:true,attachmentsPrompt:'Check commands'}]});
     const script='MOD NODE: CID=1;\n'.repeat(200);
     const groups=ctx.netcareGroupAuditItems([{section:'3.3',kind:'attachments',filename:'3.3-DR.txt',text:script},{section:'3.3.1',kind:'attachments',filename:'3.3.1-DR.txt',text:script},{section:'3.3.1',kind:'attachments',filename:'3.3.1-Rollback.txt',text:'RMV NODE: CID=1;'}],settings);
@@ -1098,7 +1100,7 @@ test('identical attachment content linked from parent and child sections is sent
 });
 
 test('parent audit material export retains individual source files rather than looking for a synthetic summary filename',async()=>{
-    const ctx={URL,URLSearchParams,Blob,TextEncoder,Uint8Array,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,Blob,TextEncoder,Uint8Array,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const record={order:'RFC',wordFilename:'Plan.docx',items:[{section:'3.1',kind:'text',filename:'3.1.txt',text:'Preparation'},{section:'3.2',kind:'text',filename:'3.2.txt',text:'Rollback'}],reports:[{section:'3',sectionTitle:'Operations',kind:'text',filename:'3 · summary',status:'pass',summary:'OK',sources:[{section:'3.1',kind:'text',filename:'3.1.txt'},{section:'3.2',kind:'text',filename:'3.2.txt'}]}]};
     const bundle=await ctx.netcareAuditMaterials([record],[{order:'RFC',name:'Plan.docx'},{order:'RFC',name:'3.1.txt'}],async()=>new Blob(['bytes']));
     assert.equal(bundle.missing.length,0);assert.ok(bundle.entries.some(e=>e.name==='RFC/3.1.txt'));assert.ok(bundle.entries.some(e=>e.name==='RFC/3.2.txt'));assert.ok(!bundle.entries.some(e=>e.name.includes('summary')));
@@ -1111,7 +1113,7 @@ test('automatic extraction defers standalone Word saving after a successful cach
 });
 
 test('chapter folder paths use the selected parent for fallback descendants',()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:false,attachmentsEnabled:false,sections:[{number:'3',title:'Operations',text:true},{number:'3.1',title:'Steps'}]});
     assert.equal(ctx.netcareSectionFolder(settings,{number:'8.1',title:'Actual child',ruleNumbers:['3']},'text'),'3-Operations');
     assert.equal(ctx.netcareSectionFolder(settings,{number:'3.1',title:'Steps'},'text'),'3-Operations');
@@ -1124,7 +1126,7 @@ test('current audit batch excludes previous RFCs and stale results for a repeate
 });
 
 test('new chapter numbering respects parent level, existing descendants and large section numbers',()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const rows=[{number:'1'},{number:'1.2'},{number:'1.2.1'},{number:'1.2.3.1'},{number:'2'},{number:'10'}];
     assert.equal(ctx.netcareNextSectionNumber(rows),'11');assert.equal(ctx.netcareNextSectionNumber(rows,'1'),'1.3');assert.equal(ctx.netcareNextSectionNumber(rows,'1.2'),'1.2.4');assert.equal(ctx.netcareNextSectionNumber(rows,'2'),'2.1');
     const huge='99999999999999999999999';assert.equal(ctx.netcareNextSectionNumber([{number:huge}]),'100000000000000000000000');
@@ -1165,7 +1167,7 @@ test('native browser prompts are absent from the complete NetCare package and pa
     const pack=packer.buildPackage({...options,manualLaunch:true,includePopup:true});
     for(const [name,source] of Object.entries(pack.files).filter(([n])=>n.endsWith('.js')&&!n.includes('renderer'))){assert.doesNotMatch(source,/\b(?:alert|confirm|prompt)\s*\(/,name);assert.doesNotThrow(()=>new vm.Script(source,{filename:name}));}
     const html=fs.readFileSync(path.join(dir,'index.html'),'utf8');assert.doesNotMatch(html,/\b(?:alert|confirm|prompt)\s*\(/);for(const match of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))assert.doesNotThrow(()=>new vm.Script(match[1]));
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);assert.equal(ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),concurrency:10}).concurrency,10);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);assert.equal(ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),concurrency:10}).concurrency,10);
 });
 
 
@@ -1186,7 +1188,7 @@ test('background accepts extension configuration logs but rejects foreign origin
 
 
 test('snapshot material export includes the unchanged final audit ZIP along with original materials',async()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{},Blob,Uint8Array,Uint32Array,DataView,TextEncoder};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{},Blob,Uint8Array,Uint32Array,DataView,TextEncoder};vm.runInNewContext(pageCode,ctx);
     const record={order:onlineOrder,items:[],reports:[],materials:[],wordFilename:'Original.docx',bundleFilename:'completed-audit.zip'},bytes=new Uint8Array([80,75,5,6,1,2,3,4]),files=[{order:onlineOrder,name:record.bundleFilename,role:'audit-bundle'},{order:onlineOrder,name:record.wordFilename}];
     const materials=await ctx.netcareAuditMaterials([record],files,async()=>new Blob([bytes]));assert.equal(materials.missing.length,0);const original=materials.entries.find(e=>e.name===onlineOrder+'/'+record.bundleFilename);assert.equal(original.role,'audit-bundle');assert.deepEqual(new Uint8Array(await original.blob.arrayBuffer()),bytes);
     const missing=await ctx.netcareAuditMaterials([record],[],async()=>{throw Error('must not fetch');});assert.ok(missing.missing.some(e=>e.includes('completed-audit.zip')));
@@ -1208,7 +1210,7 @@ test('company HTTP endpoints work for both connection tests and saved audits wit
 });
 
 test('local audit rules default preset, validation, and regex evaluation', () => {
-  const ctx = { URL, URLSearchParams, location: new URL('https://unrelated.example'), window: {} }; vm.runInNewContext(code, ctx);
+  const ctx = { URL, URLSearchParams, location: new URL('https://unrelated.example'), window: {} }; vm.runInNewContext(pageCode, ctx);
   const defaults = ctx.netcareDefaultLocalRules();
   assert.ok(Array.isArray(defaults) && defaults.length >= 6);
   assert.ok(defaults.some(r => r.sectionNumber === '1.1' && r.pattern.includes('变更目的')));
@@ -1251,7 +1253,7 @@ test('local audit rules default preset, validation, and regex evaluation', () =>
 });
 
 test('AI error automatically falls back to local rules in netcareRunAudits', async () => {
-  const ctx = { URL, URLSearchParams, location: new URL('https://unrelated.example'), window: {} }; vm.runInNewContext(code, ctx);
+  const ctx = { URL, URLSearchParams, location: new URL('https://unrelated.example'), window: {} }; vm.runInNewContext(pageCode, ctx);
   const settings = ctx.netcareNormalizeSettings({
     ...ctx.netcareDefaultSettings(),
     aiAuditEnabled: true,
@@ -1296,7 +1298,7 @@ test('settings relay persists localRules and restores them', async () => {
 });
 
 test('materials ZIP creates 方案截图, 方案文本 and 方案附件 subfolders within chapter folders', async () => {
-  const ctx = { URL, URLSearchParams, Blob, TextEncoder, Uint8Array, location: new URL('https://unrelated.example'), window: {} }; vm.runInNewContext(code, ctx);
+  const ctx = { URL, URLSearchParams, Blob, TextEncoder, Uint8Array, location: new URL('https://unrelated.example'), window: {} }; vm.runInNewContext(pageCode, ctx);
   const record = {
     order: 'NC20261001000381',
     wordFilename: 'Plan.docx',
@@ -1435,7 +1437,7 @@ test('plugin log single-line layout and fullscreen toggle mode are present and w
 
 
 test('confirmed empty attachment checks are omitted while the audited section keeps a localized no-attachment label',async()=>{
-    const ctx={URL,URLSearchParams,Blob,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,Blob,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,auditLevel:'strict',sections:[{number:'3.4',title:'Test',text:true,attachments:true,textPrompt:'Check tests',attachmentsPrompt:'Check files'}]});
     const items=[{section:'3.4',kind:'text',filename:'test.txt',text:'Test content'},{section:'3.4',kind:'attachments',filename:'Test',notApplicable:true}];
     let calls=0;const reports=await ctx.netcareRunAudits(items,settings,async()=>{calls++;return {ok:true,report:{status:'fail',summary:'缺少指标 / Missing metrics',findings:[]}};},new AbortController().signal,()=>{});
@@ -1448,7 +1450,7 @@ test('confirmed empty attachment checks are omitted while the audited section ke
 });
 
 test('legacy generic missing-evidence placeholders are hidden but attachment download and section resolution errors remain visible',()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const make=error=>({order:'RFC',items:[{section:'3.4',kind:'attachments',filename:'Test',error}],reports:[{section:'3.4',kind:'attachments',filename:'summary',sources:[{section:'3.4',kind:'attachments',filename:'Test'}],error:true,status:'needs_review',summary:error}]});
     assert.equal(ctx.netcareAuditRows([make('未提取到该章节内容或附件，需人工检查 / Missing evidence')]).length,0);
     for(const error of ['附件下载失败 / Download failed','未定位到章节 / Section not located'])assert.equal(ctx.netcareAuditRows([make(error)]).length,1);
@@ -1521,7 +1523,7 @@ test('China station kdp.idp.huawei.com export worker, online background, and art
 test('attachment audit supports txt, word, excel, and msg with settings multi-select and linkage', async () => {
     const zlib = require('node:zlib');
     const context = { URL, URLSearchParams, Blob, Uint8Array, DataView, TextDecoder, DecompressionStream, location: new URL('https://unrelated.example'), window: {} };
-    vm.runInNewContext(code, context);
+    vm.runInNewContext(pageCode, context);
 
     // 1. Defaults and settings validation
     const def = context.netcareDefaultSettings();
@@ -1772,7 +1774,7 @@ test('attachment audit supports txt, word, excel, and msg with settings multi-se
 
 test('exported logs prefix local timestamp and timezone offset before JSON payload', () => {
     const sandbox = {};
-    vm.runInNewContext(code + '\nsandbox.netcareFormatExportLogLine = netcareFormatExportLogLine;', {
+    vm.runInNewContext(pageCode + '\nsandbox.netcareFormatExportLogLine = netcareFormatExportLogLine;', {
         window: { addEventListener: () => {}, removeEventListener: () => {} },
         document: { querySelectorAll: () => [], getElementById: () => ({ value: '' }) },
         location: { protocol: 'https:', hostname: 'netcare.huawei.com', href: 'https://netcare.huawei.com/p/netcare/index.html' },
@@ -2055,7 +2057,7 @@ test('sanitized plan (DNC...) is recognized across PublishLiteView export and on
 
 test('disableLocalRules prevents local fallback, supports retry loop and friendly top logs', async () => {
     const ctx = { URL, URLSearchParams, location: new URL('https://unrelated.example'), window: {} };
-    vm.runInNewContext(code, ctx);
+    vm.runInNewContext(pageCode, ctx);
 
     // 1. Settings normalization checks
     const defaultSet = ctx.netcareDefaultSettings();
@@ -2127,7 +2129,7 @@ test('disableLocalRules prevents local fallback, supports retry loop and friendl
 });
 
 test('AI retry progress reports waiting and each retry without counting failed attempts as completed audits', async()=>{
- const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+ const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
  const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,attachmentsEnabled:false,disableLocalRules:true,sections:[{number:'3.4',title:'Test',text:true,textPrompt:'Check KPI'}]});
  const items=[{section:'3.4',kind:'text',filename:'3.4.txt',text:'KPI evidence'}];
  let attempts=0;const snapshots=[];const request=async()=>{if(++attempts<3)throw Error('HTTP 503');return{ok:true,report:{status:'pass',summary:'Recovered'}};};
@@ -2177,7 +2179,7 @@ test('confirmation dialog is styled with fit-content to avoid full viewport stre
 
 test('embedScreenshotsInExcel defaults to false, avoids squashing images in Excel and preserves screenshots in materials ZIP', async () => {
     const ctx = { URL, Blob, TextEncoder, location: new URL('https://unrelated.example'), window: {} };
-    vm.runInNewContext(code, ctx);
+    vm.runInNewContext(pageCode, ctx);
 
     const defaultSettings = ctx.netcareDefaultSettings();
     assert.equal(defaultSettings.embedScreenshotsInExcel, false);
@@ -2242,7 +2244,7 @@ test('AI audit requires bilingual prompt, English verdict column and bilingual r
     assert.match(pkg.files['background.js'], /MANDATORY BILINGUAL REQUIREMENT: Always return BOTH Chinese \(zh\) and English \(en\)/);
 
     const ctx = { URL, URLSearchParams, Blob, TextEncoder, location: new URL('https://unrelated.example'), window: {} };
-    vm.runInNewContext(code, ctx);
+    vm.runInNewContext(pageCode, ctx);
 
     const reports = [
         { section: '1.1', kind: 'text', filename: '1.1.txt', status: 'pass', summary: '变更目的已明确 / Change purpose specified', summaryI18n: { zh: '变更目的已明确', en: 'Change purpose specified' }, findings: [], findingsI18n: [] },
@@ -2285,7 +2287,7 @@ test('AI audit requires bilingual prompt, English verdict column and bilingual r
 
 
 test('audit Excel opens with bilingual cover, contents and statistics sheets linked to the results', async()=>{
-    const ctx={URL,URLSearchParams,Blob,TextEncoder,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,Blob,TextEncoder,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const report=(section,kind,status,error)=>({section,sectionTitle:'Section '+section,kind,filename:section+'-'+kind+'.txt',rule:'Rule',status,error,model:'mock-model',summary:status+' reason',findings:[]});
     const record=(order,reports)=>({order,wordFilename:order+'_plan.docx',at:'2026-10-16T20:00:00.000Z',items:reports.map(r=>({section:r.section,kind:r.kind,filename:r.filename,text:'evidence'})),reports});
     const records=[record('NC20260531000387',[report('3.3','text','fail'),report('3.3','attachments','needs_review',true),report('3.4','text','pass')]),record('NC20260601000112',[report('3.3','text','pass'),report('3.4','text','needs_review')])];
@@ -2307,7 +2309,7 @@ test('audit Excel opens with bilingual cover, contents and statistics sheets lin
 });
 
 test('portal preview tag opened by the solution click is closed only when it is new and names this RFC', async()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{},setTimeout,Date};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{},setTimeout,Date};vm.runInNewContext(pageCode,ctx);
     const tag=(title,onClose)=>({textContent:title,querySelector:selector=>selector==='.nc-tag-text'?{getAttribute:()=>title}:selector==='.nc-tag-close'?{click:onClose}:null});
     const order='NC20260531000387',frame={isConnected:true},logs=[];let closed=0;
     const old=tag('NC20260531000387',()=>closed++),preview=tag('方案预览-DNC20260531000387',()=>{closed++;frame.isConnected=false;}),other=tag('方案预览-DNC20260601000112',()=>closed++);
@@ -2319,7 +2321,7 @@ test('portal preview tag opened by the solution click is closed only when it is 
 });
 
 test('materials export unpacks only the per-RFC bundle files that are not already in the RFC folder', async()=>{
-    const ctx={URL,URLSearchParams,Blob,TextEncoder,TextDecoder,DataView,Uint8Array,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,Blob,TextEncoder,TextDecoder,DataView,Uint8Array,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const order='NC20260531000387',word=order+'_plan.docx',bundleName=order+'_plan.zip';
     const record={order,wordFilename:word,bundleFilename:bundleName,items:[],reports:[{section:'3.3',kind:'text',filename:'3.3-Steps.txt',status:'pass',summary:'OK'}],materials:[{name:'3.3-Steps.txt',section:'3.3',kind:'text',folder:'3.3-Operation Steps'}]};
     const bundle=await ctx.createNetcareZip([{name:word,blob:new Blob(['WORD'])},{name:'3.3-Operation Steps/方案文本/3.3-Steps.txt',blob:new Blob(['﻿steps'])},{name:'AI审计结果.json',blob:new Blob(['{"reports":[]}'])},{name:'AI审计结果.txt',blob:new Blob(['﻿3.3 · pass'])},{name:'截图诊断.json',blob:new Blob(['[]'])},{name:'清单.txt',blob:new Blob(['﻿附件 OK: 3.3'])}]);
@@ -2335,7 +2337,7 @@ test('materials export unpacks only the per-RFC bundle files that are not alread
 });
 
 test('audit level defaults to standard, survives export, and keeps attachment checks out below strict', async()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const defaults=ctx.netcareDefaultSettings();assert.equal(defaults.auditLevel,'standard');
     const legacy={...defaults};delete legacy.auditLevel;assert.equal(ctx.netcareNormalizeSettings(legacy).auditLevel,'standard');
     assert.equal(ctx.netcareImportSettings(ctx.netcareExportSettings({...defaults,auditLevel:'lenient'})).auditLevel,'lenient');
@@ -2353,7 +2355,7 @@ test('audit level defaults to standard, survives export, and keeps attachment ch
 });
 
 test('keyword scoring covers every requirement unmet in the first part and logs per-requirement detail', ()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const requirements=[{id:'commands',zh:'命令',en:'Commands',metInContent:true,keywords:[{term:'MOD NODE',weight:3}]},{id:'pre-post-query',zh:'前后查询',en:'Pre/post queries',metInContent:false,keywords:[{term:'LST DBSRLINKCTRL',weight:3},{term:'DSP',weight:2},{term:'verify',weight:1}]}];
     const passed=ctx.netcareKeywordScore(requirements,[{label:'a',text:'... LST   DBSRLINKCTRL: INDEX=1; DSP RLOCATION:; ...'}]);
     assert.equal(passed.passed,true);assert.equal(passed.score,83);assert.deepEqual([...passed.requirements[1].missing],['verify']);
@@ -2364,7 +2366,7 @@ test('keyword scoring covers every requirement unmet in the first part and logs 
 });
 
 test('oversized attachments send the first part with section context, then score keywords or ask for a final conclusion', async()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,auditLevel:'strict',sections:[{number:'3.3',title:'Steps',text:true,attachments:true,textPrompt:'Check steps',attachmentsPrompt:'Check scripts'}]});
     const tail=found=>'\n'+'x'.repeat(30000)+(found?'\nLST DBSRLINKCTRL: INDEX=1;\nDSP RLOCATION:;':'');
     const items=found=>[{section:'3.3',kind:'text',filename:'3.3.txt',text:'Run the attached scripts',attachments:['big.txt','guide.docx']},{section:'3.3',kind:'attachments',filename:'big.txt',text:'MOD NODE: CID=1;'+'y'.repeat(30000)+tail(found)},{section:'3.3',kind:'attachments',filename:'guide.docx',text:'z'.repeat(40000)}];
@@ -2403,7 +2405,7 @@ test('background applies the audit level, rejects attachments below strict and r
 });
 
 test('built-in rule sets come from code; custom sets round-trip through export, import and migration', ()=>{
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const plain=value=>JSON.parse(JSON.stringify(value)),builtins=ctx.netcareBuiltinRuleSets(),defaults=ctx.netcareDefaultSettings();
     assert.deepEqual(Object.keys(builtins),['strict','standard','lenient']);
     assert.ok(builtins.strict.sections.some(s=>s.attachmentsPrompt)&&!builtins.standard.sections.some(s=>s.attachmentsPrompt)&&!builtins.lenient.sections.some(s=>s.attachmentsPrompt));
@@ -2449,10 +2451,10 @@ test('every normalized setting survives the background save unchanged, including
     const pack=packer.buildPackage({...options,manualLaunch:true}),stored={};let receive;
     const window={addEventListener:(_t,fn)=>{receive=fn;},removeEventListener(){},postMessage(){}};window.top=window;const origin='https://netcare-de.gts.huawei.com';
     vm.runInNewContext(pack.files['netcare-online-relay.js'],{window,location:{origin},chrome:{storage:{local:{set:async data=>Object.assign(stored,data),get:async key=>({[key]:stored[key]})}}}});
-    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+    const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
     const plain=value=>JSON.parse(JSON.stringify(value)),defaults=ctx.netcareDefaultSettings();
     const custom={id:'custom-ab12cd34',name:'我的规则',level:'strict',sections:plain(ctx.netcareBuiltinRuleSets().strict.sections)};
-    for(const overrides of [{disableLocalRules:true,embedScreenshotsInExcel:true},{disableLocalRules:false,embedScreenshotsInExcel:false,pipBetaEnabled:false,closeAfterAudit:false,titleFallbackEnabled:true,concurrency:5,intervalMs:3000,activeRuleSet:custom.id,ruleSets:[custom]}]){
+    for(const overrides of [{disableLocalRules:true,embedScreenshotsInExcel:true},{disableLocalRules:false,embedScreenshotsInExcel:false,pipBetaEnabled:false,closeAfterAudit:false,titleFallbackEnabled:true,concurrency:5,intervalMs:3000,activeRuleSet:custom.id,ruleSets:[custom],panelCloseAction:'minimize'},{panelCloseAction:'close'}]){
         const settings=ctx.netcareNormalizeSettings({...defaults,...overrides});
         receive({source:window,origin,data:{source:'TP_RFC_SETTINGS_SET',settings:plain(settings)}});
         await new Promise(resolve=>setImmediate(resolve));
@@ -2462,4 +2464,91 @@ test('every normalized setting survives the background save unchanged, including
     }
     // Saves made before the fix never stored the AI-only switch; the default (on) applies.
     const legacy={...defaults};delete legacy.disableLocalRules;assert.equal(ctx.netcareNormalizeSettings(legacy).disableLocalRules,true);
+});
+
+test('the minimized-panel launcher restarts the panel only for this extension on a NetCare top page', async()=>{
+    const pkg=packer.buildPackage({...options,manualLaunch:true}),listeners=[],injected=[];
+    const ctx={URL,AbortController,TextDecoder,setTimeout,clearTimeout,chrome:{runtime:{id:'test',getURL:p=>'chrome-extension://test/'+p,onInstalled:{addListener(){}},onMessage:{addListener:fn=>listeners.push(fn)}},storage:{local:{get:async()=>({})}},scripting:{executeScript:async details=>{injected.push(details);return [];}}}};
+    vm.runInNewContext(pkg.files['background.js'],ctx);
+    const launch=sender=>new Promise(reply=>{for(const listener of listeners)listener({type:'TP_RFC_PANEL_LAUNCH'},sender,reply);});
+    const page={id:'test',tab:{id:7},frameId:0,url:'https://netcare-ae.gts.huawei.com/p/netcare/index.html#/home'};
+    for(const sender of [{...page,id:'other'},{...page,frameId:2},{...page,url:'https://evil.example/p/netcare/index.html'},{...page,tab:undefined}]){
+        const result=await launch(sender);assert.equal(result.ok,false);assert.match(result.error,/Invalid source/);
+    }
+    assert.equal(injected.length,0);
+    assert.equal((await launch(page)).ok,true);
+    assert.deepEqual(JSON.parse(JSON.stringify(injected[0])),{target:{tabId:7,allFrames:true},world:'MAIN',files:['netcare-settings.js','netcare-language.js','netcare-pip.js','netcare-capture.js','netcare-controls.js','netcare-monitor.js','content.js']});
+    for(const file of injected[0].files)assert.ok(pkg.files[file],file);
+    // The launcher must inject exactly what the popup's Start injects on the NetCare page (no renderer there).
+    const popupFiles=JSON.parse(pkg.files['popup.js'].match(/\[\.\.\.\(tab\.url\?\.includes\("\/IdpLiteView\/OwsPage\.html"\) \? \["netcare-renderer\.js"\] : \[\]\),\.\.\.(\[[^\]]*\])\]/)[1]);
+    assert.deepEqual(popupFiles,JSON.parse(JSON.stringify(injected[0].files)));
+    assert.match(pkg.files['netcare-online-relay.js'],/tpNetcarePanelMinimized/);assert.match(pkg.files['netcare-online-relay.js'],/TP_RFC_PANEL_LAUNCH/);
+});
+
+test('audit runner keeps at most 3 groups in flight, returns reports in rule order and reports per-item progress', async()=>{
+ const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
+ const numbers=['3.1','3.2','3.3','3.4','3.5'];
+ const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,attachmentsEnabled:false,sections:numbers.map(number=>({number,title:'S'+number,text:true,textPrompt:'Rule '+number}))});
+ const items=numbers.map(section=>({section,kind:'text',filename:section+'.txt',text:'Evidence '+section}));
+ let inFlight=0,peak=0;const pending=[],snapshots=[];
+ const request=item=>new Promise(resolve=>{inFlight++;peak=Math.max(peak,inFlight);pending.push(()=>{inFlight--;resolve({ok:true,report:{status:item.section==='3.2'?'fail':'pass',summary:item.section,findings:[]}});});});
+ const run=ctx.netcareRunAudits(items,settings,request,new AbortController().signal,(_text,counts)=>snapshots.push(JSON.parse(JSON.stringify(counts))));
+ const tick=()=>new Promise(resolve=>setImmediate(resolve));
+ await tick();assert.equal(inFlight,3);assert.deepEqual(snapshots.at(-1).audits.map(a=>a.state),['running','running','running','pending','pending']);
+ // Finish the third request first: later groups start, earlier ones stay running.
+ pending.splice(2,1)[0]();await tick();assert.equal(inFlight,3);assert.equal(snapshots.at(-1).done,1);assert.deepEqual(snapshots.at(-1).audits.map(a=>a.state),['running','running','pass','running','pending']);
+ while(pending.length){pending.pop()();await tick();}
+ const reports=await run;
+ assert.equal(peak,3);assert.deepEqual(Array.from(reports,r=>r.section),numbers);assert.deepEqual(Array.from(reports,r=>r.summary),numbers);assert.equal(reports[1].status,'fail');
+ assert.deepEqual(snapshots.map(s=>s.done),[...snapshots.map(s=>s.done)].sort((a,b)=>a-b));assert.deepEqual({done:snapshots.at(-1).done,total:snapshots.at(-1).total},{done:5,total:5});
+ assert.deepEqual(snapshots.at(-1).audits.map(a=>a.state),['pass','fail','pass','pass','pass']);
+});
+
+test('parallel audits show one AI retry dialog at a time and stop without starting new groups', async()=>{
+ const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(pageCode,ctx);
+ const numbers=['3.1','3.2','3.3','3.4'];
+ const settings=ctx.netcareNormalizeSettings({...ctx.netcareDefaultSettings(),aiAuditEnabled:true,attachmentsEnabled:false,disableLocalRules:true,sections:numbers.map(number=>({number,title:'S'+number,text:true,textPrompt:'Rule '+number}))});
+ const items=numbers.map(section=>({section,kind:'text',filename:section+'.txt',text:'Evidence '+section}));
+ const attempts={};let open=0,maxOpen=0;const asked=[];
+ const request=async item=>{attempts[item.section]=(attempts[item.section]||0)+1;await new Promise(resolve=>setImmediate(resolve));if(attempts[item.section]===1)throw Error('HTTP 503 '+item.section);return{ok:true,report:{status:'pass',summary:'Recovered',findings:[]}};};
+ const promptRetry=async ask=>{open++;maxOpen=Math.max(maxOpen,open);asked.push(ask.section);await new Promise(resolve=>setTimeout(resolve,5));open--;return true;};
+ const reports=await ctx.netcareRunAudits(items,settings,request,new AbortController().signal,()=>{},()=>{},promptRetry);
+ assert.equal(maxOpen,1);assert.deepEqual([...asked].sort(),numbers);assert.deepEqual(Array.from(reports,r=>[r.section,r.status]),numbers.map(n=>[n,'pass']));assert.ok(Object.values(attempts).every(n=>n===2));
+ // Stop while three requests are in flight: the run rejects and the fourth group never starts.
+ const controller=new AbortController(),sent=[];
+ const stopRequest=(item,signal)=>new Promise((_resolve,reject)=>{sent.push(item.section);if(sent.length===3)setImmediate(()=>controller.abort());signal.addEventListener('abort',()=>reject(Error('已停止 / Stopped')),{once:true});});
+ await assert.rejects(ctx.netcareRunAudits(items,settings,stopRequest,controller.signal,()=>{},()=>{},promptRetry),/Stopped/);
+ assert.deepEqual(sent,['3.1','3.2','3.3']);
+});
+
+test('attachments in the same table row share one screenshot per section; other rows and sections capture separately', async()=>{
+ const ctx={URL,URLSearchParams,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,ctx);
+ const engine=require(path.join(dir,'netcare-capture.js'))();
+ const anchor=(link,row)=>({tagName:'A',getAttribute:name=>name==='href'?link:null,closest:selector=>selector==='tr'?row:null});
+ const row=links=>{const r={tagName:'TR',innerHTML:links.join(','),isConnected:true,getBoundingClientRect:()=>({width:600,height:40}),scrollIntoView(){}};r.anchors=links.map(l=>anchor(l,r));r.querySelectorAll=s=>s==='a'?r.anchors:[];return r;};
+ const first=row(['/a.txt','/b.txt','/c.txt']),second=row(['/d.txt']);
+ const article={querySelector:()=>({textContent:'3.3 Test'}),querySelectorAll:s=>s==='a'?[...first.anchors,...second.anchors]:[]};
+ const d={querySelectorAll:s=>s==='article'?[article]:[]},topic={number:'3.3',title:'Test'};
+ const shot=(name,link,section='3.3')=>({topic,section,kind:'attachments',file:{href:link},name});
+ let renders=0;const cache=new Map();
+ const take=s=>ctx.netcareSharedCapture(cache,s,engine.regionKey(d,s),()=>engine.capture(d,s,{signal:new AbortController().signal,sleep:async()=>{},render:async el=>{renders++;return ['png:'+el.innerHTML];}}));
+ const a=await take(shot('3.3-a-附件位置','/a.txt')),b=await take(shot('3.3-b-附件位置','/b.txt')),c=await take(shot('3.3-c-附件位置','/c.txt')),other=await take(shot('3.3-d-附件位置','/d.txt'));
+ assert.equal(renders,2);assert.equal(a.method,'live');assert.equal(a.sharedWith,undefined);assert.equal(b.images,a.images);assert.equal(c.images,a.images);assert.equal(b.sharedWith,'3.3-a-附件位置');assert.equal(c.sharedWith,'3.3-a-附件位置');assert.equal(b.attempts.length,0);
+ assert.equal(other.sharedWith,undefined);assert.deepEqual(Array.from(other.images),['png:/d.txt']);
+ assert.equal(engine.regionKey(d,shot('x','/a.txt')),engine.regionKey(d,shot('y','/c.txt')));assert.notEqual(engine.regionKey(d,shot('x','/a.txt')),engine.regionKey(d,shot('z','/d.txt')));
+ // Never reused across sections, for section text shots, or after a failed capture.
+ let runs=0;const fake=()=>{runs++;return Promise.resolve({images:['x'],method:'live',attempts:[],regionKey:'k'});};
+ await ctx.netcareSharedCapture(cache,shot('n1','/a.txt','3.3.1'),engine.regionKey(d,shot('x','/a.txt')),fake);
+ await ctx.netcareSharedCapture(cache,{section:'3.3',kind:'text',name:'t'},engine.regionKey(d,shot('x','/a.txt')),fake);
+ const misses=new Map();await assert.rejects(ctx.netcareSharedCapture(misses,shot('f1','/a.txt'),'k',()=>Promise.reject(Error('boom'))));await ctx.netcareSharedCapture(misses,shot('f2','/b.txt'),'k',fake);
+ assert.equal(runs,3);assert.equal(engine.regionKey(d,{section:'3.3',kind:'text',topic}),'');
+});
+
+test('Start can inject the panel scripts again into the same page after the panel was closed', ()=>{
+    // Chrome injects these files as classic scripts into one shared page scope; a repeated top-level const throws.
+    const pkg=packer.buildPackage({...options,manualLaunch:true});
+    const files=JSON.parse(pkg.files['popup.js'].match(/\.\.\.(\["netcare-settings\.js"[^\]]*\])/)[1]);
+    const ctx=vm.createContext({URL,URLSearchParams,location:new URL('https://unrelated.example/'),console});ctx.window=ctx;ctx.globalThis=ctx;
+    for(const round of [1,2])for(const file of files)assert.doesNotThrow(()=>new vm.Script(pkg.files[file],{filename:file}).runInContext(ctx),`${file} (start ${round})`);
+    assert.doesNotMatch(code,/^(const|let|class) /m,'top-level declarations in the injected page script must be var or function');
 });

@@ -68,7 +68,7 @@ Tools Platform 是一个本地/内网质量运营工具中台：
 ## 前端规则
 
 - 保持原生多页结构；共享能力优先放在 `frontend/js/shared/` 或共享 CSS，业务逻辑留在对应模块。
-- 不要在 HTML 中手写 `?v=` 缓存版本：服务端 `backend/models/asset-versioning.js` 会按文件内容自动追加哈希（`tests/asset-versioning.test.js` 会拦截手写版本）。
+- 不要在 HTML 中手写 `?v=` 缓存版本：服务端 `backend/models/asset-versioning.js` 会按文件内容自动追加哈希（`tests/asset-versioning.test.js` 会拦截手写版本）。`/custom-tools/<slug>/` 下的内置工具页面同样如此，F12 打包器的 `index.html` 与 `builtin-catalog.js` 也受该测试约束。
 - 修改 shared 资源时，用 `rg` 找全部引用页，不要只更新当前页面。
 - 新增可见文案时检查中英文切换、暗色/浅色主题、窄屏和 Electron 容器。
 - 不要只在 HTML 内复制已有 shared 工具的另一份实现。

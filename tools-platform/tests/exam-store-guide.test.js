@@ -13,7 +13,7 @@ test('download, in-page guide and Markdown source use the same complete submissi
   for (const term of ['权限', '隐私政策', '自动选择答案', 'https://*/*', 'API Key', '审核测试说明', 'Microsoft Partner Center', 'Developer Dashboard']) assert.ok(guide.markdown.includes(term), term);
   assert.doesNotMatch(fs.readFileSync(path.join(base, 'exam-store-guide.js'), 'utf8'), /<\/script>/i);
   const html = fs.readFileSync(path.join(base, 'index.html'), 'utf8');
-  assert.match(html, /exam-store-guide\.js\?v=20261003-13/);
+  assert.match(html, /<script src="\.\/exam-store-guide\.js"><\/script>/);
   for (const script of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(script[1]);
 });
 
