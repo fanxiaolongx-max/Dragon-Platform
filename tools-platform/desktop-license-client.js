@@ -17,7 +17,10 @@ function digest(token) {
     return crypto.createHash('sha256').update(String(token || '')).digest('base64url');
 }
 
-function createDesktopLicenseClient({ configPath, statePath, publicStatusPath, requestStatePath = '', machineIdentity = null }) {
+// fetchImpl：桌面端传入 Electron 的 net.fetch（走 Chromium 网络栈，遵循系统代理/PAC），
+// 否则企业内网需代理上网时，Node 自带 fetch 会直连失败，导致在线校验与一键申请不可用。
+function createDesktopLicenseClient({ configPath, statePath, publicStatusPath, requestStatePath = '', machineIdentity = null, fetchImpl = null }) {
+    const httpFetch = typeof fetchImpl === 'function' ? fetchImpl : (...args) => fetch(...args);
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     const publicKey = crypto.createPublicKey({ key: config.publicKeyJwk, format: 'jwk' });
     let machine = machineIdentity;
@@ -120,7 +123,7 @@ function createDesktopLicenseClient({ configPath, statePath, publicStatusPath, r
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 7000);
         try {
-            const response = await fetch(config.validationUrl, {
+            const response = await httpFetch(config.validationUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ token, productId: config.productId, nonce, machineId: currentMachineId() }),
@@ -270,7 +273,7 @@ function createDesktopLicenseClient({ configPath, statePath, publicStatusPath, r
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeout);
         try {
-            const response = await fetch(`${serviceBase}${pathname}`, {
+            const response = await httpFetch(`${serviceBase}${pathname}`, {
                 method,
                 headers: body ? { 'Content-Type': 'application/json' } : undefined,
                 body: body ? JSON.stringify(body) : undefined,
@@ -311,11 +314,15 @@ function createDesktopLicenseClient({ configPath, statePath, publicStatusPath, r
         return rest;
     }
 
+    let lastProbeError = '';
     async function probeRequestService() {
         try {
-            const data = await callService('/ping', { method: 'GET', timeout: 4000 });
-            return Boolean(data && data.requests && data.productId === config.productId);
-        } catch (_) {
+            const data = await callService('/ping', { method: 'GET', timeout: 6000 });
+            const ok = Boolean(data && data.requests && data.productId === config.productId);
+            lastProbeError = ok ? '' : 'UNEXPECTED_RESPONSE';
+            return ok;
+        } catch (error) {
+            lastProbeError = `${error.code || 'ERROR'}: ${error.message || error}`;
             return false;
         }
     }
@@ -393,7 +400,8 @@ function createDesktopLicenseClient({ configPath, statePath, publicStatusPath, r
     return {
         config, readState, validate, validateStored, setMachineIdentity, getMachineIdentity,
         probeRequestService, submitLicenseRequest, pollLicenseRequest, cancelLicenseRequest, clearLicenseRequest,
-        getLicenseRequest: () => publicRequestState()
+        getLicenseRequest: () => publicRequestState(),
+        getLastProbeError: () => lastProbeError
     };
 }
 

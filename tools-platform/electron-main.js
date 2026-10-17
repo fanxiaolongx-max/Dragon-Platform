@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage, clipboard } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage, clipboard, net } = require('electron');
 
 // 保证程序单实例运行，避免多开冲突导致 SQLite 锁死 (SQLITE_BUSY: database is locked)
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -34,7 +34,9 @@ const desktopLicenseClient = createDesktopLicenseClient({
     configPath: path.join(__dirname, 'frontend/desktop-license-client-config.json'),
     statePath: desktopLicenseStatePath,
     publicStatusPath: desktopLicensePublicStatusPath,
-    requestStatePath: desktopLicenseRequestPath
+    requestStatePath: desktopLicenseRequestPath,
+    // 走系统代理（企业内网常见），与浏览器访问授权服务器的网络路径一致
+    fetchImpl: (url, init) => net.fetch(url, init)
 });
 const runtimeStatusPath = path.join(electronLogRoot, 'runtime-status.json');
 const runtimeCommandPath = path.join(electronLogRoot, 'runtime-command.json');
@@ -416,6 +418,7 @@ function registerDesktopLicenseIpcHandlers() {
     ipcMain.handle('desktop-license:request-info', async () => {
         await ensureDesktopMachineIdentity().catch(() => null);
         const onlineAvailable = await desktopLicenseClient.probeRequestService();
+        if (!onlineAvailable) console.warn(`[Electron] License request service unreachable: ${desktopLicenseClient.getLastProbeError()}`);
         return { onlineAvailable, request: desktopLicenseClient.getLicenseRequest() };
     });
     ipcMain.handle('desktop-license:request-submit', async (_event, form = {}) => {

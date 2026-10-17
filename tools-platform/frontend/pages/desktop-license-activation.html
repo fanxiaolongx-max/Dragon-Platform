@@ -646,6 +646,8 @@
     .request-status-text div { margin-top: 2px; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
     .request-status-actions { display: flex; gap: 6px; }
     .request-offline { margin-top: 9px; color: var(--text-dim); font-size: 11px; line-height: 1.5; }
+    .request-retry { margin-left: 6px; padding: 0; border: 0; background: none; color: #64ffda; font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+    .request-retry:disabled { color: var(--text-dim); cursor: wait; text-decoration: none; }
     @keyframes request-pulse { 50% { opacity: 0.45; } }
     @media (max-width: 560px) { .request-fields { grid-template-columns: 1fr; } .request-status { grid-template-columns: auto minmax(0, 1fr); } .request-status-actions { grid-column: 1 / -1; } }
 
@@ -987,7 +989,7 @@
           </div>
         </div>
       </div>
-      <div class="request-offline" id="request-offline" hidden></div>
+      <div class="request-offline" id="request-offline" hidden><span id="request-offline-text"></span><button type="button" id="btn-request-retry" class="request-retry">重新检测</button></div>
     </section>
 
     <!-- Input Section -->
@@ -1150,7 +1152,9 @@
           requestRejectedDetail: '{reason}可修改信息后重新提交',
           requestRefresh: '立即查询',
           requestCancel: '撤回',
-          requestOffline: '当前无法连接授权服务器，暂不能在线申请。请复制上方机器码发给管理员，收到 License 后粘贴到下方。',
+          requestOffline: '当前无法连接授权服务器，暂不能在线申请（每 30 秒自动重试）。也可复制上方机器码发给管理员，收到 License 后粘贴到下方。',
+          requestRetry: '重新检测',
+          requestRetrying: '检测中…',
           requestFailed: '提交失败：',
           requestApproved: '申请已获批准，License 已自动激活，正在启动…',
           inputLabel: '许可证密钥 (License Key)',
@@ -1243,7 +1247,9 @@
           requestRejectedDetail: '{reason}You can edit the details and apply again',
           requestRefresh: 'Check now',
           requestCancel: 'Withdraw',
-          requestOffline: 'The license server is unreachable, so online requests are unavailable. Copy the machine code above to your administrator and paste the license you receive below.',
+          requestOffline: 'The license server is unreachable, so online requests are unavailable (retrying every 30s). You can also send the machine code above to your administrator and paste the license you receive below.',
+          requestRetry: 'Retry',
+          requestRetrying: 'Checking…',
           requestFailed: 'Request failed: ',
           requestApproved: 'Request approved. The license was activated automatically, starting…',
           inputLabel: 'License Key',
@@ -1397,7 +1403,9 @@
         btnRequestRefreshText: document.getElementById('btn-request-refresh-text'),
         btnRequestCancel: document.getElementById('btn-request-cancel'),
         btnRequestCancelText: document.getElementById('btn-request-cancel-text'),
-        requestOffline: document.getElementById('request-offline')
+        requestOffline: document.getElementById('request-offline'),
+        requestOfflineText: document.getElementById('request-offline-text'),
+        btnRequestRetry: document.getElementById('btn-request-retry')
       };
       let requestState = null;
       let requestOnline = null; // null = 尚在探测
@@ -1424,7 +1432,8 @@
         // 有待审批申请时即使暂时连不上也展示状态（网络恢复后会继续查询）
         elements.requestBox.hidden = !(requestOnline || pending);
         elements.requestOffline.hidden = requestOnline !== false || pending;
-        elements.requestOffline.textContent = t.requestOffline;
+        elements.requestOfflineText.textContent = t.requestOffline;
+        if (!elements.btnRequestRetry.disabled) elements.btnRequestRetry.textContent = t.requestRetry;
         elements.requestForm.hidden = pending;
         elements.requestStatus.hidden = !(pending || rejected);
         elements.requestStatus.classList.toggle('is-rejected', rejected);
@@ -1793,11 +1802,27 @@
       });
 
       if (window.DesktopLicense && typeof window.DesktopLicense.requestInfo === 'function') {
-        window.DesktopLicense.requestInfo().then(info => {
-          requestOnline = Boolean(info && info.onlineAvailable);
-          requestState = info && info.request ? info.request : null;
-          renderRequest();
-        }).catch(() => { requestOnline = false; renderRequest(); });
+        // 探测授权服务器：首次打开、点「重新检测」、以及离线时每 30 秒自动重试
+        const probeRequestService = async () => {
+          elements.btnRequestRetry.disabled = true;
+          elements.btnRequestRetry.textContent = I18N[currentLang].requestRetrying;
+          try {
+            const info = await window.DesktopLicense.requestInfo();
+            requestOnline = Boolean(info && info.onlineAvailable);
+            if (info && info.request) requestState = info.request;
+          } catch (_) {
+            requestOnline = false;
+          } finally {
+            elements.btnRequestRetry.disabled = false;
+            renderRequest();
+          }
+        };
+        probeRequestService();
+        elements.btnRequestRetry.addEventListener('click', probeRequestService);
+        setInterval(() => {
+          const pending = requestState && requestState.status === 'pending';
+          if (requestOnline === false && !pending && !elements.btnRequestRetry.disabled) probeRequestService();
+        }, 30000);
         if (typeof window.DesktopLicense.onRequestUpdate === 'function') window.DesktopLicense.onRequestUpdate(applyRequestResult);
 
         elements.btnRequest.addEventListener('click', async () => {

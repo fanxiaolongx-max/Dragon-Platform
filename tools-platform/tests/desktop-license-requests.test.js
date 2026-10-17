@@ -179,3 +179,29 @@ test('桌面端启动时恢复申请并在批准后免弹窗激活；申请记�
     const { build } = require('../package.json');
     assert.ok(build.files.includes('!backend/models/desktop-license-requests-repository.js'));
 });
+
+test('桌面端网络请求可走注入的 fetch（Electron net.fetch 遵循系统代理），探测失败时记录原因', async () => {
+    const calls = [];
+    const box = desktop(MACHINE_A);
+    const configPath = path.join(box.dir, 'config.json');
+    const viaProxy = createDesktopLicenseClient({
+        configPath, statePath: path.join(box.dir, 's.json'), publicStatusPath: path.join(box.dir, 'p.json'),
+        requestStatePath: path.join(box.dir, 'r.json'), machineIdentity: MACHINE_A,
+        fetchImpl: (url, init) => { calls.push(url); return fetch(url, init); }
+    });
+    assert.equal(await viaProxy.probeRequestService(), true);
+    assert.ok(calls.some(url => url.endsWith('/api/public/desktop-license/ping')), '探测请求经由注入的 fetch 发出');
+
+    const broken = createDesktopLicenseClient({
+        configPath, statePath: path.join(box.dir, 's2.json'), publicStatusPath: path.join(box.dir, 'p2.json'),
+        machineIdentity: MACHINE_A, fetchImpl: async () => { throw Object.assign(new Error('getaddrinfo ENOTFOUND'), { code: 'ENOTFOUND' }); }
+    });
+    assert.equal(await broken.probeRequestService(), false);
+    assert.match(broken.getLastProbeError(), /ENOTFOUND/);
+
+    const main = fs.readFileSync(path.join(__dirname, '../electron-main.js'), 'utf8');
+    assert.match(main, /fetchImpl: \(url, init\) => net\.fetch\(url, init\)/, '桌面端主进程使用 net.fetch');
+    const page = fs.readFileSync(path.join(__dirname, '../frontend/pages/desktop-license-activation.html'), 'utf8');
+    assert.match(page, /id="btn-request-retry"/, '离线时可手动重新检测');
+    assert.match(page, /requestOnline === false && !pending/, '离线时自动重试');
+});
