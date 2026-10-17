@@ -200,7 +200,7 @@ app.whenReady().then(async () => {
     assert.ok(workbook.worksheets[0].getColumn(1).values.some((value, index) => String(value).includes('ET-1') && workbook.worksheets[0].getCell(index, 1).fill?.fgColor?.argb === 'FFFDF6F1'));
     const pdf = await downloadClick('[data-action="pdf"]');
     assert.equal(fs.readFileSync(pdf).subarray(0,4).toString(), '%PDF');
-    await evaluate(() => { window.prompt = () => 'Smoke snapshot'; document.querySelector('[data-action="save-snapshot"]').click(); });
+    await evaluate(() => { window.AppDialog.prompt = async () => 'Smoke snapshot'; document.querySelector('[data-action="save-snapshot"]').click(); });
     await until(async () => (await window.ReportSnapshotDiff.Store.listSnapshots({ toolKey:'standard-monthly-report:default' })).some(item => item.name === 'Smoke snapshot'));
     await evaluate(() => document.querySelector('[data-action="snapshots"]').click());
     await until(() => !!document.querySelector('.monthly-snapshot-manager .report-snapshot-mgr-dialog'));

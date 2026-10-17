@@ -473,6 +473,10 @@ body.dc-chatting .dc {
     margin-bottom: 0;
     padding: 0;
 }
+/* 对话视图按视口定高，外层底部留白须与顶部留白相加等于高度里扣除的部分，否则整页会多出约 30px 可滚动距离 */
+body.dc-chatting .home-content.home-workspace { padding-bottom: 18px; }
+@media (max-width: 860px) { body.dc-chatting .home-content.home-workspace { padding-bottom: 12px; } }
+@media (max-width: 640px) { body.dc-chatting .home-content.home-workspace { padding-bottom: 14px; } }
 body.dc-chatting .dc-landing,
 body.dc-chatting .dc-resume,
 body.dc-chatting .dc-prompts,

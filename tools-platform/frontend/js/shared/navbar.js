@@ -3160,7 +3160,7 @@ window.clearSpecificModelUsage = async function (key, displayName, tokens, costC
         await loadAiUsageDashboard(navState.aiUsageDimension);
     } catch (err) {
         if (indicator) indicator.textContent = `清空失败：${err.message}`;
-        alert(`清空统计失败：${err.message}`);
+        showNavbarNotice({ title: navT('nav.dialog.error'), message: `清空统计失败：${err.message}`, tone: 'error' });
     }
 };
 
@@ -3203,7 +3203,7 @@ window.promptClearAllAiUsage = async function () {
         await loadAiUsageDashboard(navState.aiUsageDimension);
     } catch (err) {
         if (indicator) indicator.textContent = `清空失败：${err.message}`;
-        alert(`清空失败：${err.message}`);
+        showNavbarNotice({ title: navT('nav.dialog.error'), message: `清空失败：${err.message}`, tone: 'error' });
     }
 };
 
@@ -3491,10 +3491,12 @@ window.removeAiModelAlias = function (index) {
 };
 
 window.clearAiModelAliases = function () {
-    if (!confirm(navT('nav.ai.aliasClearConfirm'))) return;
-    navState.aiModelAliasDraft = [];
-    rerenderAiModelAliasPanel();
-    scheduleAiModelAliasSave(0);
+    return showNavbarConfirm({ title: navT('nav.dialog.warning'), message: navT('nav.ai.aliasClearConfirm'), tone: 'danger' }).then(confirmed => {
+        if (!confirmed) return;
+        navState.aiModelAliasDraft = [];
+        rerenderAiModelAliasPanel();
+        scheduleAiModelAliasSave(0);
+    });
 };
 
 window.resetAiModelAliases = function () {
@@ -4541,7 +4543,7 @@ window.startSnapshotPublish = async function (options = {}) {
         && document.getElementById('snapshotBranch') && document.getElementById('snapshotFile')) {
         const saveRes = await window.saveSnapshotPublishSettings({ silent: true, skipPrereq: true });
         if (saveRes && !saveRes.ok) {
-            alert(snapshotText('保存推送配置失败，无法启动推送：', 'Failed to save snapshot settings before publish: ') + saveRes.error);
+            showNavbarNotice({ title: navT('nav.dialog.error'), message: snapshotText('保存推送配置失败，无法启动推送：', 'Failed to save snapshot settings before publish: ') + saveRes.error, tone: 'error' });
             return;
         }
     }

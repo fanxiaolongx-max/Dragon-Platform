@@ -485,8 +485,8 @@
         }
     }
 
-    function resetEditor() {
-        if (!confirm('确定将当前弹窗内的常规风险规则恢复为默认值吗？\n点击“保存并应用”后才会写入服务端。')) return;
+    async function resetEditor() {
+        if (!await AppDialog.confirm('确定将当前弹窗内的常规风险规则恢复为默认值吗？\n点击“保存并应用”后才会写入服务端。', { title: '恢复默认规则', confirmText: '恢复默认' })) return;
         workingConfig = normalizeConfig(DEFAULT_CONFIG);
         refreshEditor();
         showMessage('已恢复默认值，尚未保存');

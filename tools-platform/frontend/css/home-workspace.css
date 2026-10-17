@@ -41,13 +41,21 @@
 }
 
 .home-sidebar > * { flex-shrink: 0; } /* 内容多时让侧栏滚动，而不是把搜索框等压扁 */
+.home-sidebar-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+}
 .home-search {
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: 8px;
     height: 44px;
     min-height: 44px;
-    flex: 0 0 44px;
+    flex: 1 1 auto;
+    min-width: 0;
     box-sizing: border-box;
     padding: 0 10px 0 12px;
     border: 1px solid rgba(148, 163, 184, 0.2);
@@ -70,8 +78,9 @@
     outline: none;
     background: transparent;
     color: var(--ws-text);
-    font-size: 13.5px;
+    font-size: 13px;
     line-height: 1.4;
+    text-overflow: ellipsis;
 }
 .home-search input::-webkit-search-cancel-button { cursor: pointer; }
 .home-search input::placeholder { color: #66768f; }
@@ -165,9 +174,101 @@
     padding-top: 12px;
     border-top: 1px solid rgba(148, 163, 184, 0.1);
 }
-.home-sidebar .friend-links-label { margin: 0 0 8px 4px; }
-.home-sidebar .friend-links-list { gap: 5px; }
-.home-sidebar .friend-link { height: 24px; padding: 0 8px; font-size: 11px; }
+/* 标题行：名称 + 数量；列表两列等宽对齐，状态改为右侧小圆点，超过 10 个折叠 */
+.home-sidebar .friend-links-head { display: flex; align-items: center; gap: 6px; margin: 0 0 8px 4px; }
+.home-sidebar .friend-links-label { margin: 0; color: #64748b; font-size: 10.5px; letter-spacing: 0.08em; line-height: 20px; text-transform: uppercase; }
+.home-sidebar .friend-links-count {
+    padding: 0 6px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.1);
+    color: var(--ws-faint);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    font-variant-numeric: tabular-nums;
+}
+.home-sidebar .friend-links-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px 2px;
+}
+.home-sidebar .friend-link {
+    position: relative;
+    display: grid;
+    grid-template-columns: 20px minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    height: 30px;
+    padding: 0 5px 0 4px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    box-shadow: none;
+    color: #a5b4c8;
+    font-size: 11.5px;
+    font-weight: 600;
+    transform: none;
+}
+.home-sidebar .friend-link[hidden] { display: none; }
+.home-sidebar .friend-link:hover,
+.home-sidebar .friend-link:focus-visible {
+    border-color: rgba(148, 163, 184, 0.14);
+    background: rgba(148, 163, 184, 0.08);
+    color: #f1f5f9;
+    transform: none;
+}
+.home-sidebar .friend-link.status-online,
+.home-sidebar .friend-link.status-warning,
+.home-sidebar .friend-link.status-offline,
+.home-sidebar .friend-link.status-unknown { border-color: transparent; box-shadow: none; }
+.home-sidebar .friend-link.status-offline { color: #7c8aa0; }
+.home-sidebar .friend-link-icon {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: rgba(148, 163, 184, 0.1);
+    font-size: 11.5px;
+    line-height: 1;
+}
+.home-sidebar .friend-link-icon.is-letter {
+    background: hsl(var(--fl-hue) 70% 60% / 0.16);
+    color: hsl(var(--fl-hue) 85% 76%);
+    font-size: 10.5px;
+    font-weight: 800;
+}
+.home-sidebar .friend-link > span:not(.friend-link-icon):not(.friend-link-dot) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 状态点：图标右下角的小角标，不额外占用名称宽度 */
+.home-sidebar .friend-link-dot {
+    position: absolute;
+    left: 19px;
+    top: 19px;
+    width: 7px;
+    height: 7px;
+    border: 1.5px solid #0f172a;
+    border-radius: 50%;
+    background: #475569;
+}
+.home-sidebar .friend-link.status-online .friend-link-dot { background: #34d399; box-shadow: 0 0 6px rgba(52, 211, 153, 0.6); }
+.home-sidebar .friend-link.status-warning .friend-link-dot { background: #fbbf24; box-shadow: 0 0 6px rgba(251, 191, 36, 0.6); }
+.home-sidebar .friend-link.status-offline .friend-link-dot { background: #f87171; box-shadow: 0 0 6px rgba(248, 113, 113, 0.55); }
+.home-sidebar .friend-links-toggle {
+    width: 100%;
+    height: 28px;
+    margin-top: 6px;
+    border: 1px dashed rgba(148, 163, 184, 0.2);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ws-faint);
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.home-sidebar .friend-links-toggle:hover { border-color: rgba(100, 255, 218, 0.35); background: rgba(100, 255, 218, 0.06); color: var(--ws-accent); }
 
 /* ── 右侧主区 ───────────────────────────────── */
 .home-main { min-width: 0; }
@@ -430,18 +531,18 @@ body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var
 /* ── 侧栏收缩按钮与图标栏（仅电脑宽度；js/home/workspace.js 切换 body.home-sidebar-collapsed） ── */
 .home-sidebar-toggle {
     display: none;
-    align-self: flex-end;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    min-height: 28px;
-    margin: -4px -4px -6px 0;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 44px;
+    min-height: 44px;
+    margin: 0;
     padding: 0;
-    border: 1px solid rgba(148, 163, 184, 0.16);
-    border-radius: 8px;
-    background: rgba(2, 6, 23, 0.35);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 11px;
+    background: rgba(2, 6, 23, 0.45);
     color: var(--ws-faint);
     cursor: pointer;
+    place-items: center;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 .home-sidebar-toggle svg { width: 14px; height: 14px; transition: transform 0.22s ease; }
@@ -457,7 +558,8 @@ body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var
     body.home-sidebar-collapsed.dc-workspace-open .home-sidebar { display: flex; } /* 收成图标栏后，工作区展开时也保留 */
 
     body.home-sidebar-collapsed .home-sidebar { align-items: center; gap: 8px; padding: 10px 6px; }
-    body.home-sidebar-collapsed .home-sidebar-toggle { align-self: center; margin: 0 0 2px; }
+    body.home-sidebar-collapsed .home-sidebar-head { justify-content: center; width: 100%; }
+    body.home-sidebar-collapsed .home-sidebar-toggle { align-self: center; flex: 0 0 40px; width: 40px; height: 38px; min-height: 38px; margin: 0 0 2px; border-radius: 9px; }
     body.home-sidebar-collapsed .home-sidebar-toggle svg { transform: rotate(180deg); }
     body.home-sidebar-collapsed .home-search,
     body.home-sidebar-collapsed .home-cat-label,

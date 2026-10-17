@@ -12,12 +12,12 @@ function harness(enabled=true){
  const send=(action,extra={},source=sender)=>new Promise(reply=>callbacks[4]({type:'TP_RFC_PIP_REQUEST',id:crypto.randomUUID(),action,tabId:10,order,...extra},source,reply));
  return {data,calls,tabs,chrome,send,sender};
 }
-test('Beta defaults off, persists through rules export/import, validates booleans and packages all MAIN entry points',()=>{
+test('Preview defaults on, persists through rules export/import, validates booleans and packages all MAIN entry points',()=>{
  const context={URL,URLSearchParams,TextEncoder,Uint8Array,DataView,Blob,location:new URL('https://unrelated.example'),window:{}};vm.runInNewContext(code,context);
- const settings=context.netcareDefaultSettings();assert.equal(settings.pipBetaEnabled,false);
- settings.pipBetaEnabled=true;assert.equal(context.netcareImportSettings(context.netcareExportSettings(settings)).pipBetaEnabled,true);
+ const settings=context.netcareDefaultSettings();assert.equal(settings.pipBetaEnabled,true);
+ settings.pipBetaEnabled=false;assert.equal(context.netcareImportSettings(context.netcareExportSettings(settings)).pipBetaEnabled,false);
  assert.throws(()=>context.netcareNormalizeSettings({...settings,pipBetaEnabled:'true'}));
- const legacy={...settings};delete legacy.pipBetaEnabled;assert.equal(context.netcareNormalizeSettings(legacy).pipBetaEnabled,false);
+ const legacy={...settings};delete legacy.pipBetaEnabled;assert.equal(context.netcareNormalizeSettings(legacy).pipBetaEnabled,true);
  assert.ok(pkg.files['netcare-pip.js']);for(const c of pkg.manifest.content_scripts.filter(c=>c.world==='MAIN'))assert.ok(c.js.includes('netcare-pip.js'));
  for(const [name,source] of Object.entries(pkg.files).filter(([name])=>name.endsWith('.js')))assert.doesNotThrow(()=>new vm.Script(source),name);
  assert.ok(!pkg.manifest.permissions.includes('tabCapture'));

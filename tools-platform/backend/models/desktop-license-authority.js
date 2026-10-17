@@ -3,8 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const { DATA_DIR } = require('./store');
 const registry = require('./desktop-license-registry');
+const { decodeMachineCode, isMachineId } = require('./desktop-machine-code');
 
 const TOKEN_PREFIX = 'DSKL1';
+// v2：License 绑定设备指纹，载荷必含 machineId 与有效期；v1 通用 License 不再签发也不再通过校验
+const TOKEN_VERSION = 2;
 const ATTESTATION_PREFIX = 'DSKT1';
 const KEY_FILE = process.env.DESKTOP_LICENSE_SIGNING_KEY_FILE
     || path.join(DATA_DIR, 'desktop-license-signing-key.json');
@@ -54,13 +57,14 @@ function verifyToken(token) {
         }, Buffer.from(parts[2], 'base64url'));
         if (!signatureValid) return { valid: false, reasonCode: 'INVALID_SIGNATURE' };
         const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
-        if (!payload || payload.version !== 1 || payload.productId !== registry.PRODUCT_ID
+        if (!payload || payload.productId !== registry.PRODUCT_ID
             || typeof payload.licenseId !== 'string' || !Number.isFinite(payload.issuedAt)) {
             return { valid: false, reasonCode: 'INVALID_FORMAT' };
         }
-        const hasEmbeddedValidity = payload.notBefore !== undefined || payload.expiresAt !== undefined;
-        if (hasEmbeddedValidity && (!Number.isFinite(payload.notBefore)
-            || !Number.isFinite(payload.expiresAt) || payload.expiresAt <= payload.notBefore)) {
+        if (payload.version !== TOKEN_VERSION || !isMachineId(payload.machineId)) {
+            return { valid: false, reasonCode: 'LEGACY_LICENSE' };
+        }
+        if (!Number.isFinite(payload.notBefore) || !Number.isFinite(payload.expiresAt) || payload.expiresAt <= payload.notBefore) {
             return { valid: false, reasonCode: 'INVALID_FORMAT' };
         }
         return { valid: true, payload };
@@ -69,7 +73,31 @@ function verifyToken(token) {
     }
 }
 
-function issue({ label, days = 30, expiresAt } = {}) {
+const MACHINE_CODE_ERRORS = {
+    MACHINE_CODE_REQUIRED: '请填写用户提供的机器码',
+    MACHINE_CODE_CHECKSUM: '机器码校验失败，可能复制不完整或被改动，请让用户重新复制',
+    MACHINE_CODE_INVALID: '机器码格式无效（应以 DPMC1. 开头）'
+};
+
+function requireMachine(machineCode) {
+    const decoded = decodeMachineCode(machineCode);
+    if (!decoded.valid) throw new Error(MACHINE_CODE_ERRORS[decoded.reasonCode] || '机器码无效');
+    return decoded;
+}
+
+function machineRecord(decoded) {
+    return {
+        machineId: decoded.machineId,
+        machineCode: decoded.code,
+        host: decoded.host,
+        platform: decoded.platform,
+        arch: decoded.arch,
+        source: decoded.source
+    };
+}
+
+function issue({ label, days = 30, expiresAt, machineCode } = {}) {
+    const machine = requireMachine(machineCode);
     const issuedAt = Date.now();
     const notBefore = issuedAt - 60000;
     let finalExpiresAt = Number(expiresAt);
@@ -80,35 +108,51 @@ function issue({ label, days = 30, expiresAt } = {}) {
     if (finalExpiresAt <= issuedAt) throw new Error('到期时间必须晚于当前时间');
     const licenseId = crypto.randomUUID();
     const payload = {
-        version: 1,
+        version: TOKEN_VERSION,
         licenseId,
         productId: registry.PRODUCT_ID,
+        machineId: machine.machineId,
         issuedAt,
         notBefore,
         expiresAt: finalExpiresAt
     };
     const token = sign(TOKEN_PREFIX, payload);
-    const record = registry.createRecord({ licenseId, label, token, notBefore, expiresAt: finalExpiresAt });
+    const record = registry.createRecord({ licenseId, label, token, notBefore, expiresAt: finalExpiresAt, machine: machineRecord(machine) });
     return { token, payload, record, publicKeyJwk: getPublicKeyJwk() };
 }
 
 function renew(licenseId, options = {}) {
     const current = registry.getRecord(licenseId);
     if (!current) throw new Error('未找到 License 记录');
+    // 填了新机器码即为换绑；旧版未绑定设备的记录续期时必须提供机器码
+    const rebind = Boolean(String(options.machineCode || '').trim());
+    if (!rebind && !(current.machine && isMachineId(current.machine.machineId))) {
+        throw new Error('该 License 为旧版通用授权，续期时必须填写用户的机器码以绑定设备');
+    }
+    const machine = rebind ? machineRecord(requireMachine(options.machineCode)) : current.machine;
     const issuedAt = Date.now();
     const notBefore = issuedAt - 60000;
     const expiresAt = registry.calculateRenewedExpiry(current, options);
     const payload = {
-        version: 1,
+        version: TOKEN_VERSION,
         licenseId: current.licenseId,
         productId: registry.PRODUCT_ID,
+        machineId: machine.machineId,
         issuedAt,
         notBefore,
         expiresAt
     };
     const token = sign(TOKEN_PREFIX, payload);
-    const record = registry.replaceTokenForRenewal(licenseId, { token, notBefore, expiresAt });
+    const record = registry.replaceTokenForRenewal(licenseId, { token, notBefore, expiresAt, machine, rebind });
     return { token, payload, record, publicKeyJwk: getPublicKeyJwk() };
+}
+
+function inspectMachineCode(machineCode) {
+    const decoded = decodeMachineCode(machineCode);
+    if (!decoded.valid) return { valid: false, reasonCode: decoded.reasonCode, error: MACHINE_CODE_ERRORS[decoded.reasonCode] || '机器码无效' };
+    const boundTo = registry.listRecords().filter(item => item.machine && item.machine.machineId === decoded.machineId && item.status !== 'archived')
+        .map(item => ({ licenseId: item.licenseId, label: item.label, status: item.status, expiresAt: item.expiresAt }));
+    return { ...decoded, boundTo };
 }
 
 function signAttestation(payload) {
@@ -121,6 +165,8 @@ module.exports = {
     TOKEN_PREFIX,
     ensureSigningKeys,
     getPublicKeyJwk,
+    TOKEN_VERSION,
+    inspectMachineCode,
     issue,
     renew,
     signAttestation,

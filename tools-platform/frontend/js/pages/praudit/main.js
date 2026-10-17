@@ -142,10 +142,10 @@
             try {
                 const res = await API.get('/api/praudit/configs');
                 ALL_CONFIGS = res || [];
-                
+
                 const selector = document.getElementById('auditTypeSelector');
                 selector.innerHTML = '';
-                
+
                 if (ALL_CONFIGS.length === 0) {
                     selector.innerHTML = `<option value="">${tText('无可用模板', 'No templates available')}</option>`;
                     return;
@@ -157,14 +157,14 @@
                     opt.innerText = c.name;
                     selector.appendChild(opt);
                 });
-                
+
                 const lastSelected = localStorage.getItem('PR_Auditor_LastConfigId');
                 if (lastSelected && ALL_CONFIGS.find(c => c.id === lastSelected)) {
                     selector.value = lastSelected;
                 }
                 await switchAuditType();
             } catch (e) {
-                alert("加载审计模板失败：" + e.message);
+                AppDialog.alert("加载审计模板失败：" + e.message, { title: "加载失败", tone: "error" });
             }
         }
 
@@ -172,17 +172,17 @@
             const selector = document.getElementById('auditTypeSelector');
             const configId = selector.value;
             if (!configId) return;
-            
+
             activeConfig = ALL_CONFIGS.find(c => c.id === configId);
             localStorage.setItem('PR_Auditor_LastConfigId', configId);
             activeWorkspace = getAuditWorkspaceForConfig(activeConfig);
             renderActiveWorkspaceInfo();
-            
+
             ALL_FIELDS = activeConfig.fields;
             CHECK_POINTS = activeConfig.checkpoints;
             STORAGE_KEY_DATA = getWorkspaceDataKey(activeWorkspace.id);
             STORAGE_KEY_COLS = getWorkspaceColsKey(activeWorkspace.id);
-            
+
             try {
                 let localData = null;
                 if (window.__PRAUDIT_OFFLINE__) {
@@ -197,7 +197,7 @@
                 if (!localData) {
                     localData = await localforage.getItem(STORAGE_KEY_DATA);
                 }
-                
+
                 // 兼容老版本 localStorage / IndexedDB 数据，首次读取后迁移到工作区键。
                 if (!localData) {
                     const oldLocalData = localStorage.getItem(STORAGE_KEY_DATA);
@@ -266,7 +266,7 @@
             }
 
             initColConfig();
-            
+
             // Re-apply toggleLang logic to newly rendered tables if needed
             if (typeof renderTable === 'function') {
                 renderTable();
@@ -289,7 +289,7 @@
             // 异步非阻塞存储，极大提升流畅度且无 5MB 限制
             localforage.setItem(STORAGE_KEY_DATA, cloned).catch(e => {
                 console.error("IndexedDB 写入失败:", e);
-                alert("保存失败：本地数据库异常，请检查浏览器是否禁用了 IndexedDB。");
+                AppDialog.alert("保存失败：本地数据库异常，请检查浏览器是否禁用了 IndexedDB。", { title: "保存失败", tone: "error" });
             });
         }
 
@@ -460,7 +460,7 @@
 
                 const tr = document.createElement('tr');
                 let status = 'pass';
-                
+
                 for (let i = 0; i < CHECK_POINTS.length; i++) {
                     const cKey = CHECK_POINTS[i].key;
                     if (row.checks[cKey] === 'fail') { status = 'fail'; break; }
@@ -547,7 +547,7 @@
                 textArea.value = text;
                 textArea.style.position = "fixed"; textArea.style.left = "-999999px";
                 document.body.appendChild(textArea); textArea.select();
-                try { document.execCommand('copy'); showToast(tText(`任务号 ${text} 复制成功！`, `Ticket ${text} copied successfully!`)); } catch (err) { alert(tText('复制失败，请手动复制。', 'Copy failed, please copy it manually.')); }
+                try { document.execCommand('copy'); showToast(tText(`任务号 ${text} 复制成功！`, `Ticket ${text} copied successfully!`)); } catch (err) { showToast(tText('复制失败，请手动复制。', 'Copy failed, please copy it manually.')); }
                 textArea.remove();
             }
         }
@@ -701,7 +701,7 @@
         function confirmReason() {
             if (!pendingReasonTarget) return;
             const text = document.getElementById('reasonInput').value.trim();
-            if (!text) { alert("未通过必须填写理由！"); return; }
+            if (!text) { showToast("未通过必须填写理由！"); document.getElementById('reasonInput').focus(); return; }
             const { cKey, rowIndex } = pendingReasonTarget;
             ordersData[rowIndex].checks[cKey] = 'fail'; ordersData[rowIndex].reasons[cKey] = text;
             saveToStorage(); renderTable(); closeModal('reasonModal'); pendingReasonTarget = null; activeUploadTarget = null;
@@ -735,10 +735,10 @@
 
         function exportPDF(options = {}) {
             const sourceRows = options.rows || ordersData;
-            if (sourceRows.length === 0) { alert("没有可导出的数据！"); return; }
+            if (sourceRows.length === 0) { showToast("没有可导出的数据！"); return; }
             const reportDiv = document.getElementById('printReport');
             const dateStr = new Date().toLocaleString('zh-CN', { hour12: false });
-            
+
             const title = activeConfig ? activeConfig.name : 'PR进展自检审计报告';
             const groupField = options.groupField !== undefined ? options.groupField : getActiveAuditGroupField();
             const groupValue = options.groupValue || '';
@@ -791,13 +791,13 @@
 
             sourceRows.forEach(row => {
                 let status = 'pass';
-                for (let i = 0; i < CHECK_POINTS.length; i++) { 
+                for (let i = 0; i < CHECK_POINTS.length; i++) {
                     const cKey = CHECK_POINTS[i].key;
-                    if (row.checks[cKey] === 'fail') { 
-                        status = 'fail'; 
+                    if (row.checks[cKey] === 'fail') {
+                        status = 'fail';
                         cpFailCounts[cKey].count++;
-                    } 
-                    if (row.checks[cKey] === 'none' && status !== 'fail') status = 'wait'; 
+                    }
+                    if (row.checks[cKey] === 'none' && status !== 'fail') status = 'wait';
                 }
                 if (status === 'pass') passCount++;
                 else if (status === 'fail') failCount++;
@@ -805,7 +805,7 @@
             });
 
             const passRate = total > 0 ? ((passCount / total) * 100).toFixed(1) + '%' : '0%';
-            
+
             let topFailCp = null;
             let maxFails = -1;
             Object.values(cpFailCounts).forEach(cp => {
@@ -869,14 +869,14 @@
             `;
 
             let filterRulesHtml = '';
-            const rules = Array.isArray(activeConfig && activeConfig.filterRules) 
+            const rules = Array.isArray(activeConfig && activeConfig.filterRules)
                           ? activeConfig.filterRules.filter(r => r && r.field && r.action && r.operator) : [];
             if (rules.length > 0) {
                 const actionMapZh = { 'include': '仅保留', 'exclude': '排除' };
                 const actionMapEn = { 'include': 'Keep only', 'exclude': 'Exclude' };
                 const opMapZh = { 'equals': '等于', 'contains': '包含', 'not_empty': '非空', 'empty': '为空' };
                 const opMapEn = { 'equals': 'Equals', 'contains': 'Contains', 'not_empty': 'Not empty', 'empty': 'Empty' };
-                
+
                 const rulesList = rules.map((r, idx) => {
                     let zh = `${idx + 1}. [${escapeHtml(r.field)}] ${actionMapZh[r.action] || r.action} -> ${opMapZh[r.operator] || r.operator}`;
                     let en = `${idx + 1}. [${escapeHtml(r.field)}] ${actionMapEn[r.action] || r.action} -> ${opMapEn[r.operator] || r.operator}`;
@@ -896,7 +896,7 @@
 
             let html = `
             <div class="watermark"></div>
-            
+
             <!-- 封面页 / Cover Page -->
             <div class="print-cover-page">
                 <div class="print-cover-title">PR进展自检审计报告</div>
@@ -965,8 +965,8 @@
             ${tocHtml}
         `;
 
-            const rf = (activeConfig && activeConfig.reportFields && activeConfig.reportFields.length > 0) 
-                       ? activeConfig.reportFields 
+            const rf = (activeConfig && activeConfig.reportFields && activeConfig.reportFields.length > 0)
+                       ? activeConfig.reportFields
                        : ['标题', '处理人', '任务状态', '是否延期'];
 
             tocGroups.forEach(group => {
@@ -976,10 +976,10 @@
                 group.rows.forEach((item, idx) => {
                 const row = item.row;
                 let statusBadge = ''; let status = 'pass';
-                for (let i = 0; i < CHECK_POINTS.length; i++) { 
+                for (let i = 0; i < CHECK_POINTS.length; i++) {
                     const cKey = CHECK_POINTS[i].key;
-                    if (row.checks[cKey] === 'fail') { status = 'fail'; break; } 
-                    if (row.checks[cKey] === 'none') status = 'wait'; 
+                    if (row.checks[cKey] === 'fail') { status = 'fail'; break; }
+                    if (row.checks[cKey] === 'none') status = 'wait';
                 }
 
                 if (status === 'pass') statusBadge = '✅ 整体合格 / Overall Pass';
@@ -1116,11 +1116,11 @@
         function exportAuditSpreadsheet() {
             try {
                 if (!ordersData.length) {
-                    alert(tText('没有可导出的数据！', 'No data to export.'));
+                    showToast(tText('没有可导出的数据！', 'No data to export.'));
                     return;
                 }
                 if (!window.XLSX) {
-                    alert(tText('缺少表格导出依赖 XLSX，请刷新页面后重试。', 'Missing XLSX export dependency. Please refresh and try again.'));
+                    AppDialog.alert(tText('缺少表格导出依赖 XLSX，请刷新页面后重试。', 'Missing XLSX export dependency. Please refresh and try again.'), { title: tText('导出失败', 'Export failed'), tone: 'error' });
                     return;
                 }
 
@@ -1169,7 +1169,7 @@
                 showToast(tText(`已导出 ${rows.length} 条审计明细`, `Exported ${rows.length} audit rows`));
             } catch (err) {
                 console.error('导出表格失败', err);
-                alert(`${tText('导出表格失败', 'Spreadsheet export failed')}：${err.message}`);
+                AppDialog.alert(`${tText('导出表格失败', 'Spreadsheet export failed')}：${err.message}`, { title: tText('导出失败', 'Export failed'), tone: 'error' });
             }
         }
 
@@ -1387,7 +1387,7 @@
         async function exportAuditSnapshot() {
             try {
                 if (!ordersData.length) {
-                    alert('当前没有可导出的表格数据。');
+                    showToast('当前没有可导出的表格数据。');
                     return;
                 }
                 const bundleId = createSnapshotBundleId();
@@ -1423,23 +1423,23 @@
                 downloadBlob(finalBlob, sanitizeFileName(`${offlineTemplateName}_离线审计工作包_${snapshot.rows.length}条.zip`));
             } catch (err) {
                 console.error('导出快照失败', err);
-                alert(`导出快照失败：${err.message}`);
+                AppDialog.alert(`导出快照失败：${err.message}`, { title: '导出失败', tone: 'error' });
             }
         }
 
         async function exportAuditSnapshotByGroup(btn = null) {
             try {
                 if (!ordersData.length) {
-                    alert('当前没有可导出的表格数据。');
+                    showToast('当前没有可导出的表格数据。');
                     return;
                 }
                 const groupField = getActiveAuditGroupField();
                 if (!groupField) {
-                    alert('当前审计模板未设置有效的分组字段，无法按分组导出快照。');
+                    AppDialog.alert('当前审计模板未设置有效的分组字段，无法按分组导出快照。', { title: '无法导出', tone: 'warning' });
                     return;
                 }
                 if (!window.JSZip) {
-                    alert('缺少压缩依赖 JSZip，请检查网络后重试。');
+                    AppDialog.alert('缺少压缩依赖 JSZip，请检查网络后重试。', { title: '导出失败', tone: 'error' });
                     return;
                 }
                 const groups = buildAuditGroups(ordersData, groupField).filter(group => group.rows.length > 0);
@@ -1506,7 +1506,7 @@
                 }
             } catch (err) {
                 console.error('按分组导出快照失败', err);
-                alert(`按分组导出快照失败：${err.message}`);
+                AppDialog.alert(`按分组导出快照失败：${err.message}`, { title: '导出失败', tone: 'error' });
                 if (btn) {
                     btn.disabled = false;
                     restoreI18nButtonLabel(btn, '🧩 按分组导出快照', '🧩 Export Group Snapshots');
@@ -1794,7 +1794,7 @@
                 }
             } catch (err) {
                 console.error('导入快照失败', err);
-                alert(`导入快照失败：${err.message}`);
+                AppDialog.alert(`导入快照失败：${err.message}`, { title: '导入失败', tone: 'error' });
             } finally {
                 if (input) input.value = '';
             }
@@ -1850,7 +1850,7 @@
                     });
                     if (wm && wm.parentNode === el) el.removeChild(wm);
                     el.style.position = originalPosition;
-                    
+
                     const baseWidth = contentWidth;
 
                     const baseHeight = canvas.height * baseWidth / canvas.width;
@@ -1952,19 +1952,19 @@
         }
 
         async function exportPDFByGroup(btn = null) {
-            if (ordersData.length === 0) { alert("没有可导出的数据！"); return; }
+            if (ordersData.length === 0) { showToast("没有可导出的数据！"); return; }
             const groupField = getActiveAuditGroupField();
             if (!groupField) {
-                alert("当前审计模板未设置有效的分组字段，无法按分组导出。");
+                AppDialog.alert("当前审计模板未设置有效的分组字段，无法按分组导出。", { title: "无法导出", tone: "warning" });
                 return;
             }
             const groups = buildAuditGroups(ordersData, groupField).filter(group => group.rows.length > 0);
             if (!groups.length) {
-                alert("当前没有可按分组导出的数据。");
+                showToast("当前没有可按分组导出的数据。");
                 return;
             }
             if (!window.JSZip) {
-                alert("缺少压缩依赖 JSZip，请检查网络后重试。");
+                AppDialog.alert("缺少压缩依赖 JSZip，请检查网络后重试。", { title: "导出失败", tone: "error" });
                 return;
             }
 
@@ -1988,7 +1988,7 @@
                 downloadBlob(zipBlob, sanitizeFileName(`${title}_${groupField}_分组PDF.zip`));
             } catch (err) {
                 console.error('按分组批量导出 PDF 失败', err);
-                alert(`按分组批量导出 PDF 失败：${err.message}`);
+                AppDialog.alert(`按分组批量导出 PDF 失败：${err.message}`, { title: '导出失败', tone: 'error' });
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -2039,8 +2039,8 @@
             const fileInput = document.getElementById('excelFileInput');
             const files = Array.from(fileInput.files || []);
 
-            if (files.length === 0) { alert("请先点击虚线框选择一个或多个 Excel 文件！"); return; }
-            if (typeof XLSX === 'undefined') { alert("核心库尚未加载，请确保电脑已联网。如果刚刚打开页面，请稍等1-2秒再试。"); return; }
+            if (files.length === 0) { showToast("请先点击虚线框选择一个或多个 Excel 文件！"); return; }
+            if (typeof XLSX === 'undefined') { AppDialog.alert("核心库尚未加载，请确保电脑已联网。如果刚刚打开页面，请稍等1-2秒再试。", { title: "依赖未就绪", tone: "warning" }); return; }
 
             Promise.all(files.map(parseExcelFile)).then(results => {
                 const candidates = [];
@@ -2071,11 +2071,11 @@
                     });
                 });
 
-                if (totalParsedRows === 0) { alert("检测到所选文件为空或没有符合格式的数据！"); return; }
-                if (candidates.length === 0) { alert("没有识别到有效单号，请检查首列/主键字段是否有值。"); return; }
+                if (totalParsedRows === 0) { AppDialog.alert("检测到所选文件为空或没有符合格式的数据！", { title: "无可导入数据", tone: "warning" }); return; }
+                if (candidates.length === 0) { AppDialog.alert("没有识别到有效单号，请检查首列/主键字段是否有值。", { title: "无可导入数据", tone: "warning" }); return; }
                 const filterResult = applyImportFilterRules(candidates);
                 if (filterResult.items.length === 0) {
-                    alert(`模板过滤条件已生效，但过滤后没有剩余单据。\n原始有效单据：${candidates.length} 条\n过滤掉：${filterResult.filteredOut} 条`);
+                    AppDialog.alert(`模板过滤条件已生效，但过滤后没有剩余单据。\n原始有效单据：${candidates.length} 条\n过滤掉：${filterResult.filteredOut} 条`, { title: '无剩余单据', tone: 'warning' });
                     return;
                 }
                 openSampleImportModal(filterResult.items, {
@@ -2087,7 +2087,7 @@
                 });
             }).catch(err => {
                 console.error(err);
-                alert("文件解析失败，请确保上传的是标准 Excel！\n" + err.message);
+                AppDialog.alert("文件解析失败，请确保上传的是标准 Excel！\n" + err.message, { title: "解析失败", tone: "error" });
             });
         }
 
@@ -2367,7 +2367,7 @@
         function saveConfig() {
             const checkboxes = document.querySelectorAll('.col-chk:checked');
             let newCols = []; checkboxes.forEach(cb => newCols.push(cb.value));
-            if (newCols.length === 0) { alert("请至少保留一列！"); return; }
+            if (newCols.length === 0) { showToast("请至少保留一列！"); return; }
             visibleCols = newCols; localStorage.setItem(STORAGE_KEY_COLS, JSON.stringify(visibleCols));
             renderTable(); closeModal('configModal');
         }
@@ -2378,26 +2378,28 @@
             openModal('detailModal');
         }
 
-        function removeRow(idx) { 
-            const msg = typeof currentLang !== 'undefined' && currentLang === 'en' ? "Confirm delete this row and images?" : "确定删除此单数据及截图吗？";
-            if (confirm(msg)) { ordersData.splice(idx, 1); saveToStorage(); renderTable(); } 
+        async function removeRow(idx) {
+            const en = typeof currentLang !== 'undefined' && currentLang === 'en';
+            const msg = en ? "Confirm delete this row and images?" : "确定删除此单数据及截图吗？";
+            if (await AppDialog.confirm(msg, { title: en ? 'Delete row' : '删除单据', tone: 'danger', confirmText: en ? 'Delete' : '删除', cancelText: en ? 'Cancel' : '取消' })) { ordersData.splice(idx, 1); saveToStorage(); renderTable(); }
         }
-        
+
         function passAll(idx) {
             CHECK_POINTS.forEach(cp => {
                 ordersData[idx].checks[cp.key] = 'pass';
-                ordersData[idx].reasons[cp.key] = ''; 
+                ordersData[idx].reasons[cp.key] = '';
             });
             saveToStorage();
             renderTable();
         }
 
-        function failAll(idx) {
-            const msg = typeof currentLang !== 'undefined' && currentLang === 'en' 
-                ? "Please enter the failure reason (will apply to all checkpoints):" 
+        async function failAll(idx) {
+            const en = typeof currentLang !== 'undefined' && currentLang === 'en';
+            const msg = en
+                ? "Please enter the failure reason (will apply to all checkpoints):"
                 : "请输入一键不通过的理由 (将应用到所有检查点)：";
-            const reason = prompt(msg);
-            if (!reason) return; 
+            const reason = await AppDialog.prompt(msg, { title: en ? 'Fail all checkpoints' : '一键不通过', multiline: true, confirmText: en ? 'OK' : '确定', cancelText: en ? 'Cancel' : '取消' });
+            if (!reason) return;
 
             CHECK_POINTS.forEach(cp => {
                 ordersData[idx].checks[cp.key] = 'fail';
@@ -2407,9 +2409,10 @@
             renderTable();
         }
 
-        function clearAllData() { 
-            const msg = typeof currentLang !== 'undefined' && currentLang === 'en' ? "[Danger] Clear all data permanently?" : "【危险】确定清空所有单号与图片吗？不可逆转！";
-            if (confirm(msg)) { ordersData = []; saveToStorage(); renderTable(); } 
+        async function clearAllData() {
+            const en = typeof currentLang !== 'undefined' && currentLang === 'en';
+            const msg = en ? "[Danger] Clear all data permanently?" : "【危险】确定清空所有单号与图片吗？不可逆转！";
+            if (await AppDialog.confirm(msg, { title: en ? 'Clear all data' : '清空数据', tone: 'danger', confirmText: en ? 'Clear' : '清空', cancelText: en ? 'Cancel' : '取消' })) { ordersData = []; saveToStorage(); renderTable(); }
         }
         function openModal(id) {
             const modal = document.getElementById(id);
@@ -2567,20 +2570,20 @@
             wizHeaders = [];
             document.getElementById('wizCheckpointsContainer').innerHTML = '';
             wizCpCounter = 0;
-            wizAddCheckpoint(); 
+            wizAddCheckpoint();
             openModal('wizardModal');
         }
 
         function editWizard() {
             if (!activeConfig || activeConfig.id === 'rc_audit_default') return;
             editingConfigId = activeConfig.id;
-            
+
             const titleEl = document.querySelector('#wizardModal h3 span[data-i18n]');
             if(titleEl) {
                 titleEl.setAttribute('data-i18n', '✨ 编辑审计模板');
                 titleEl.innerText = tText('✨ 编辑审计模板', I18N_DICT['✨ 编辑审计模板']);
             }
-            
+
             document.getElementById('wizName').value = activeConfig.name;
             document.getElementById('wizFileInput').value = '';
             document.getElementById('wizHeadersBox').innerHTML = `<span style="color:#27ae60;">${tText('(当前已存在映射字段，若需更换请重新上传 Excel)', '(Existing mapped fields are loaded. Upload a new sample Excel if you need to replace them.)')}</span>`;
@@ -2600,7 +2603,7 @@
                 groupField: activeConfig.groupField || '',
                 filterRules: activeConfig.filterRules || []
             });
-            
+
             wizHeaders = activeConfig.allFields || activeConfig.fields || [];
             wizSelectedFields = new Set(activeConfig.fields || []);
             renderWizardFieldGrid();
@@ -2630,17 +2633,17 @@
                 }));
             });
             renumberWizardCheckpoints();
-            
+
             openModal('wizardModal');
         }
 
         async function deleteWizardConfig() {
             if (!activeConfig || activeConfig.id === 'rc_audit_default') return;
-            const langConfirm = currentLang === 'en' 
+            const langConfirm = currentLang === 'en'
                 ? `Are you sure you want to permanently delete the template "${activeConfig.name}"?\nNote: All associated local test data will also be cleared!`
                 : `确定要永久删除审计模板【${activeConfig.name}】吗？\n注意：与之关联的本地测试数据也会被一同清除！`;
-            
-            if (!confirm(langConfirm)) return;
+
+            if (!await AppDialog.confirm(langConfirm, { title: currentLang === 'en' ? 'Delete template' : '删除审计模板', tone: 'danger', confirmText: currentLang === 'en' ? 'Delete' : '删除', cancelText: currentLang === 'en' ? 'Cancel' : '取消' })) return;
 
             try {
                 await API.delete('/api/praudit/configs/' + activeConfig.id);
@@ -2653,14 +2656,14 @@
                 localStorage.removeItem(getLegacyConfigDataKey(activeConfig.id));
                 localStorage.removeItem(getLegacyConfigColsKey(activeConfig.id));
                 removeAuditWorkspaceForConfig(activeConfig.id);
-                
+
                 showToast(currentLang === 'en' ? "Template successfully deleted!" : "模板已成功删除！");
-                
+
                 // 重置选择回默认模板
                 localStorage.removeItem('PR_Auditor_LastConfigId');
                 await loadConfigs();
             } catch(e) {
-                alert((currentLang === 'en' ? "Delete failed: " : "删除失败：") + e.message);
+                AppDialog.alert((currentLang === 'en' ? "Delete failed: " : "删除失败：") + e.message, { title: currentLang === 'en' ? "Delete failed" : "删除失败", tone: "error", confirmText: currentLang === 'en' ? "OK" : undefined });
             }
         }
 
@@ -2725,13 +2728,13 @@
             const checkedFields = getWizardCheckedFields();
             const box = document.getElementById('wizReportFieldsBox');
             const sortBox = document.getElementById('wizReportFieldsSortBox');
-            
+
             if (preselected) {
                 wizReportFieldOrder = preselected.filter(field => checkedFields.includes(field)).slice(0, 6);
             } else {
                 wizReportFieldOrder = wizReportFieldOrder.filter(field => checkedFields.includes(field));
             }
-            
+
             if (checkedFields.length === 0) {
                 const isEn = typeof currentLang !== 'undefined' && currentLang === 'en';
                 box.innerHTML = `<span style="color:#666;">${isEn ? "(Please check monitored fields above first)" : "(请先在上方勾选关注的字段)"}</span>`;
@@ -2784,7 +2787,7 @@
         function toggleReportField(el) {
             if (el.checked) {
                 if (wizReportFieldOrder.length >= 6) {
-                    alert(typeof currentLang !== 'undefined' && currentLang === 'en' ? "You can select up to 6 report fields!" : "最多只能选择 6 个报告展示字段！");
+                    showToast(typeof currentLang !== 'undefined' && currentLang === 'en' ? "You can select up to 6 report fields!" : "最多只能选择 6 个报告展示字段！");
                     el.checked = false;
                     return;
                 }
@@ -2885,7 +2888,7 @@
             wizFilterRules = wizFilterRules.map(rule => fields.includes(rule.field) ? rule : { ...rule, field: '' });
             renderFilterRulesUI();
         }
-        
+
         function limitReportFields(el) {
             toggleReportField(el);
         }
@@ -2928,9 +2931,9 @@
             reader.readAsDataURL(file);
         }
 
-        function deleteImage(cKey, rowIndex, event) {
+        async function deleteImage(cKey, rowIndex, event) {
             event.stopPropagation();
-            if (confirm("确定删除此图片吗？")) { ordersData[rowIndex].images[cKey] = ""; saveToStorage(); renderTable(); }
+            if (await AppDialog.confirm("确定删除此图片吗？", { title: "删除图片", tone: "danger", confirmText: "删除" })) { ordersData[rowIndex].images[cKey] = ""; saveToStorage(); renderTable(); }
         }
 
         function viewLargeImage(cKey, rowIndex, event) {
@@ -2942,9 +2945,9 @@
         function wizParseHeaders() {
             const fileInput = document.getElementById('wizFileInput');
             const file = fileInput.files[0];
-            if (!file) return alert("请先选择样例 Excel 文件！");
-            if (typeof XLSX === 'undefined') return alert("缺少 XLSX 依赖。");
-            
+            if (!file) { showToast("请先选择样例 Excel 文件！"); fileInput.focus(); return; }
+            if (typeof XLSX === 'undefined') return void AppDialog.alert("缺少 XLSX 依赖。", { title: "依赖未就绪", tone: "error" });
+
             const reader = new FileReader();
             reader.onload = function (e) {
                 try {
@@ -2953,13 +2956,13 @@
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-                    
-                    if (jsonData.length === 0) return alert("文件无数据！");
+
+                    if (jsonData.length === 0) return void showToast("文件无数据！");
                     wizHeaders = Object.keys(jsonData[0]);
-                    
-                    document.getElementById('wizHeadersBox').innerHTML = `成功解析出 ${wizHeaders.length} 个字段：<br>` + 
+
+                    document.getElementById('wizHeadersBox').innerHTML = `成功解析出 ${wizHeaders.length} 个字段：<br>` +
                         wizHeaders.map(h => `<span style="display:inline-block; background:#e9ecef; padding:3px 6px; border-radius:4px; border:1px solid #ddd;">${h}</span>`).join('');
-                    
+
                     wizSelectedFields = new Set(wizHeaders);
                     wizFieldSearchKeyword = '';
                     wizReportFieldSearchKeyword = '';
@@ -2971,7 +2974,7 @@
                     updateGroupFieldUI();
                     renderFilterRulesUI();
                 } catch(err) {
-                    alert("解析失败，请确保格式正确：" + err.message);
+                    AppDialog.alert("解析失败，请确保格式正确：" + err.message, { title: "解析失败", tone: "error" });
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -3047,13 +3050,13 @@
 
         async function wizSaveConfig() {
             const name = document.getElementById('wizName').value.trim();
-            if (!name) return alert("请输入自定义审计模板名称！");
-            
+            if (!name) { showToast("请输入自定义审计模板名称！"); document.getElementById('wizName').focus(); return; }
+
             const allCheckboxes = wizHeaders.slice();
             const fields = getWizardCheckedFields();
-            if (fields.length === 0) return alert("请在第二步中至少勾选一个关注的字段！");
+            if (fields.length === 0) return void showToast("请在第二步中至少勾选一个关注的字段！");
             const uncheckedFields = allCheckboxes.filter(value => !fields.includes(value));
-            
+
             const fieldsSet = new Set(fields);
             const reportFields = wizReportFieldOrder.filter(field => fieldsSet.has(field)).slice(0, 6);
             const groupField = document.getElementById('wizGroupField')?.value || '';
@@ -3066,13 +3069,13 @@
                     operator: rule.operator,
                     values: rule.values || ''
                 }));
-            
+
             const cpDivs = document.getElementById('wizCheckpointsContainer').children;
             const checkpoints = [];
             for (let i = 0; i < cpDivs.length; i++) {
                 const div = cpDivs[i];
                 const cpName = div.querySelector('.w-cp-name').value.trim();
-                if (!cpName) return alert(`第 ${i+1} 个检查点名称不能为空！`);
+                if (!cpName) { showToast(`第 ${i+1} 个检查点名称不能为空！`); div.querySelector('.w-cp-name').focus(); return; }
                 const cpKey = div.dataset.key;
                 const cpReasons = (div.querySelector('.w-cp-reasons')?.value || '')
                     .split(/\n/)
@@ -3087,8 +3090,8 @@
                 });
                 reasonTemplates[cpKey] = cpReasons;
             }
-            if (checkpoints.length === 0) return alert("至少需要定义一个检查点规则！");
-            
+            if (checkpoints.length === 0) return void showToast("至少需要定义一个检查点规则！");
+
             try {
                 const payload = { name, fields, allFields: wizHeaders.slice(), checkpoints, reportFields, groupField, filterRules, reasonTemplates };
                 if (editingConfigId) payload.id = editingConfigId;
@@ -3153,10 +3156,10 @@
                     message: e && e.message ? e.message : String(e),
                     stack: e && e.stack ? e.stack : ''
                 });
-                alert("保存模板失败：" + e.message);
+                AppDialog.alert("保存模板失败：" + e.message, { title: "保存失败", tone: "error" });
             }
         }
-        
+
         // ================== 双语切换引擎 ==================
         const I18N_DICT = {
     "PR进展附件记录 - 审计级批量自检系统": "PR Audit - Batch Verification System",
@@ -3248,14 +3251,14 @@
         function applyLanguage(lang) {
             if (currentLang === lang) return;
             currentLang = lang;
-            
+
             // 翻译带 data-i18n 的静态元素
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
                 if (currentLang === 'en' && I18N_DICT[key]) el.innerHTML = I18N_DICT[key];
                 else el.innerHTML = key;
             });
-            
+
             // 翻译 placeholder
             document.querySelectorAll('[data-i18n-ph]').forEach(el => {
                 const key = el.getAttribute('data-i18n-ph');
@@ -3317,7 +3320,7 @@
         const oldRenderTable = renderTable;
         renderTable = function() {
             oldRenderTable(); // Render original
-            
+
             // Translate dynamic table elements if EN
             if (currentLang === 'en') {
                 const tBody = document.getElementById('tableBody');
@@ -3343,16 +3346,16 @@
             canvas.width = 400; canvas.height = 200;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = '#f8d7da'; ctx.fillRect(0,0,400,200);
-            ctx.fillStyle = '#721c24'; ctx.font = '24px sans-serif'; 
+            ctx.fillStyle = '#721c24'; ctx.font = '24px sans-serif';
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(text, 200, 100);
             return canvas.toDataURL('image/png');
         }
 
-        function loadMockData() {
-            if (!activeConfig) return alert("请先选择或新建一个审计模板！");
+        async function loadMockData() {
+            if (!activeConfig) return void showToast("请先选择或新建一个审计模板！");
             if (ordersData.length > 0) {
-                if (!confirm("加载测试数据会将当前列表追加数据，确定继续吗？")) return;
+                if (!await AppDialog.confirm("加载测试数据会将当前列表追加数据，确定继续吗？", { title: "加载测试数据", confirmText: "继续" })) return;
             }
 
             const mockDataCount = 6;
@@ -3373,26 +3376,26 @@
                 });
 
                 const obj = { id, baseData, checks: {}, reasons: {}, images: {} };
-                
+
                 CHECK_POINTS.forEach((cp, cpIdx) => {
                     let state = 'pass';
                     let reason = '';
                     let img = '';
 
                     // 制造不同的业务场景
-                    if (i === 1 && cpIdx === 0) { 
-                        state = 'fail'; reason = '缺少核心书面证据邮件，无法查验'; 
-                        img = createMockImage('模拟证据缺失占位图'); 
+                    if (i === 1 && cpIdx === 0) {
+                        state = 'fail'; reason = '缺少核心书面证据邮件，无法查验';
+                        img = createMockImage('模拟证据缺失占位图');
                     }
-                    else if (i === 2 && cpIdx === 1) { 
-                        state = 'fail'; reason = '截图内容不完整，未体现评审人确认'; 
+                    else if (i === 2 && cpIdx === 1) {
+                        state = 'fail'; reason = '截图内容不完整，未体现评审人确认';
                     }
-                    else if (i === 3) { 
+                    else if (i === 3) {
                         state = 'none'; // 待检查
                     }
-                    else if (i === 4 && cpIdx % 2 === 0) { 
-                        state = 'fail'; reason = '严重违规：时间节点不符，涉嫌造假'; 
-                        img = createMockImage('风险异常截图证据'); 
+                    else if (i === 4 && cpIdx % 2 === 0) {
+                        state = 'fail'; reason = '严重违规：时间节点不符，涉嫌造假';
+                        img = createMockImage('风险异常截图证据');
                     }
 
                     obj.checks[cp.key] = state;

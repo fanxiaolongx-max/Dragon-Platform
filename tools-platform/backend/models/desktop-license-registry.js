@@ -45,7 +45,7 @@ function listRecords({ includeArchived = true } = {}) {
     return readState().licenses.filter(item => includeArchived || item.status !== 'archived');
 }
 
-function createRecord({ licenseId, label, token, notBefore, expiresAt }) {
+function createRecord({ licenseId, label, token, notBefore, expiresAt, machine = null }) {
     const state = readState();
     if (state.licenses.some(item => item.licenseId === licenseId)) throw new Error('License ID 已存在');
     const now = new Date().toISOString();
@@ -56,6 +56,7 @@ function createRecord({ licenseId, label, token, notBefore, expiresAt }) {
         token: String(token || ''),
         tokenDigest: crypto.createHash('sha256').update(String(token || '')).digest('base64url'),
         status: 'active',
+        machine: machine ? { ...machine, boundAt: now } : null,
         notBefore: Number(notBefore),
         expiresAt: Number(expiresAt),
         issuedAt: now,
@@ -64,7 +65,8 @@ function createRecord({ licenseId, label, token, notBefore, expiresAt }) {
         revokeReason: '',
         archivedAt: null,
         renewalHistory: [],
-        previousTokens: []
+        previousTokens: [],
+        bindingHistory: []
     };
     state.licenses.unshift(record);
     writeState(state);
@@ -119,10 +121,22 @@ function calculateRenewedExpiry(record, { days, expiresAt } = {}) {
     return nextExpiresAt;
 }
 
-function replaceTokenForRenewal(licenseId, { token, notBefore, expiresAt }) {
+function replaceTokenForRenewal(licenseId, { token, notBefore, expiresAt, machine = null, rebind = false }) {
     return updateRecord(licenseId, record => {
         const previousExpiresAt = Number(record.expiresAt);
-        if (record.tokenDigest) {
+        if (rebind) {
+            // 换绑设备：旧设备上的所有历史密钥立即作废（不再保留续期前密钥的宽限）
+            record.bindingHistory = [...(record.bindingHistory || []), {
+                reboundAt: new Date().toISOString(),
+                previousMachine: record.machine || null,
+                machine
+            }];
+            record.retiredTokens = [...(record.retiredTokens || []),
+                ...(record.previousTokens || []).map(item => ({ ...item, retiredAt: new Date().toISOString(), reason: 'rebind' })),
+                ...(record.tokenDigest ? [{ tokenDigest: record.tokenDigest, expiresAt: previousExpiresAt, retiredAt: new Date().toISOString(), reason: 'rebind' }] : [])];
+            record.previousTokens = [];
+            record.machine = machine ? { ...machine, boundAt: new Date().toISOString() } : null;
+        } else if (record.tokenDigest) {
             record.previousTokens.push({
                 tokenDigest: record.tokenDigest,
                 notBefore: Number(record.notBefore),
@@ -148,12 +162,18 @@ function replaceTokenForRenewal(licenseId, { token, notBefore, expiresAt }) {
     });
 }
 
-function checkPayload(payload, now = Date.now(), token = '') {
+function checkPayload(payload, now = Date.now(), token = '', reportedMachineId = '') {
     if (!payload || payload.productId !== PRODUCT_ID || !payload.licenseId) {
         return { valid: false, reasonCode: 'PRODUCT_MISMATCH' };
     }
     const record = getRecord(payload.licenseId);
     if (!record) return { valid: false, reasonCode: 'LICENSE_NOT_FOUND' };
+    // 设备绑定：台账、密钥载荷、客户端现场采集的指纹三者必须一致
+    const boundMachineId = record.machine && record.machine.machineId;
+    if (!boundMachineId) return { valid: false, reasonCode: 'LEGACY_LICENSE', record };
+    if (payload.machineId !== boundMachineId || String(reportedMachineId || '') !== boundMachineId) {
+        return { valid: false, reasonCode: 'MACHINE_MISMATCH', record };
+    }
     const digest = crypto.createHash('sha256').update(String(token || '')).digest('base64url');
     const previousToken = (record.previousTokens || []).find(item => item.tokenDigest === digest) || null;
     if (record.productId !== payload.productId || (record.tokenDigest !== digest && !previousToken)) {

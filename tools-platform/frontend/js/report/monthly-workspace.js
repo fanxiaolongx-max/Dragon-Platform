@@ -272,7 +272,8 @@
 
     async function saveSnapshot() {
         const project = collectProject();
-        const name = prompt(lang() === 'en' ? 'Snapshot name:' : '快照名称：', `${filenameBase()} ${new Date().toLocaleTimeString()}`);
+        const en = lang() === 'en';
+        const name = await AppDialog.prompt(en ? 'Snapshot name:' : '快照名称：', { title: en ? 'Save snapshot' : '保存快照', defaultValue: `${filenameBase()} ${new Date().toLocaleTimeString()}`, maxLength: 120, confirmText: en ? 'Save' : '保存', cancelText: en ? 'Cancel' : '取消' });
         if (name === null) return;
         const sheet = await buildExportSheet(['zh','en']);
         try {

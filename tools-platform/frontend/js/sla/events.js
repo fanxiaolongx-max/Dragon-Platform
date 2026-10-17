@@ -116,18 +116,18 @@ function renderCopyMenu(secId) {
 
 function executeCopy(secId, colName) {
     const data = AppState[secId].currentDisplayData;
-    if (!data || !data.length) { alert(SLAT('sla.copy.noData')); return; }
+    if (!data || !data.length) { showToast(SLAT('sla.copy.noData'), 'warning'); return; }
     const arr = data.map(r => r[colName]).filter(v => v !== undefined && v !== null && v.toString().trim() !== '');
     const unique = [...new Set(arr)];
-    if (!unique.length) { alert(SLAT('sla.copy.noValid')); return; }
+    if (!unique.length) { showToast(SLAT('sla.copy.noValid'), 'warning'); return; }
     const text = unique.join(', ');
     if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(() => alert(SLAT('sla.copy.successCount', { count: unique.length, text }))).catch(() => fallbackCopy(text));
+        navigator.clipboard.writeText(text).then(() => AppDialog.alert(SLAT('sla.copy.successCount', { count: unique.length, text }), { title: SLAT('sla.dialog.done'), tone: 'success' })).catch(() => fallbackCopy(text));
     } else { fallbackCopy(text); }
 }
 function fallbackCopy(text) {
     const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select();
-    try { document.execCommand('copy'); alert(SLAT('sla.copy.success', { text })); } catch (e) { alert(SLAT('sla.copy.fail')); }
+    try { document.execCommand('copy'); AppDialog.alert(SLAT('sla.copy.success', { text }), { title: SLAT('sla.dialog.done'), tone: 'success' }); } catch (e) { showToast(SLAT('sla.copy.fail'), 'error'); }
     document.body.removeChild(t);
 }
 
@@ -380,7 +380,7 @@ function addMetricRule(secId) {
         valY = document.getElementById(`m-valy-${secId}`).value.trim();
         colZ = document.getElementById(`m-colz-${secId}`).value;
         valK = '';
-        if (!colX || !valY || !colZ) { alert('请将提取模式的 X/Y/Z 列填写完整！'); return; }
+        if (!colX || !valY || !colZ) { showToast('请将提取模式的 X/Y/Z 列填写完整！', 'warning'); document.getElementById(!colX ? `m-colx-${secId}` : !valY ? `m-valy-${secId}` : `m-colz-${secId}`)?.focus(); return; }
     } else {
         const cx = document.getElementById(`m-c-colx-${secId}`);
         const cy = document.getElementById(`m-c-valy-${secId}`);
@@ -390,7 +390,7 @@ function addMetricRule(secId) {
         valY = cy ? cy.value.trim() : '';
         colZ = cz ? cz.value : '';
         valK = ck ? ck.value.trim() : '';
-        if (!colZ || !valK) { alert('请将统计/占比模式的 Z/K 填写完整！'); return; }
+        if (!colZ || !valK) { showToast('请将统计/占比模式的 Z/K 填写完整！', 'warning'); (!colZ ? cz : ck)?.focus(); return; }
     }
 
     let label = document.getElementById(`m-label-${secId}`).value.trim();
@@ -398,8 +398,8 @@ function addMetricRule(secId) {
     const parentVal = document.getElementById(`m-parent-${secId}`) ? document.getElementById(`m-parent-${secId}`).value : '';
     const category = document.getElementById(`m-cat-${secId}`) ? document.getElementById(`m-cat-${secId}`).value : '';
 
-    if (parentVal && !category) { alert('作为子指标时必须选择分类！'); return; }
-    if (!parentVal && !label) { alert('请输入主指标名称！'); return; }
+    if (parentVal && !category) { showToast('作为子指标时必须选择分类！', 'warning'); document.getElementById(`m-cat-${secId}`)?.focus(); return; }
+    if (!parentVal && !label) { showToast('请输入主指标名称！', 'warning'); document.getElementById(`m-label-${secId}`)?.focus(); return; }
 
     if (parentVal && !label) {
         const [parentSecId, parentRuleId] = parentVal.split('|');
@@ -2010,7 +2010,7 @@ window.deleteMetricRuleFromOverview = async function(index) {
     const extra = record.kind === 'main'
         ? '主指标下的子指标也会一起删除。'
         : '仅删除这一条子指标挂载。';
-    if (!confirm(`确认删除规则「${ruleName}」吗？\n${extra}`)) return;
+    if (!await AppDialog.confirm(`确认删除规则「${ruleName}」吗？\n${extra}`, { title: '删除指标规则', tone: 'danger', confirmText: '删除' })) return;
 
     try {
         if (record.origin === '当前导入') {

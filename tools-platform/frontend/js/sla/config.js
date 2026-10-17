@@ -7,7 +7,7 @@ async function exportConfig() {
     try {
         const data = await API.get('/api/sla/config');
         const keysCount = Object.keys(data.prefs || {}).length + (data.targets ? 1 : 0);
-        if (keysCount === 0) { alert(SLAT('sla.config.empty')); return; }
+        if (keysCount === 0) { AppDialog.alert(SLAT('sla.config.empty'), { title: SLAT('sla.dialog.notice'), tone: 'warning' }); return; }
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -57,7 +57,7 @@ async function importConfig(event) {
     try {
         rawText = await file.text();
     } catch (readErr) {
-        alert(SLAT('sla.config.readFail', { message: readErr.message }));
+        AppDialog.alert(SLAT('sla.config.readFail', { message: readErr.message }), { title: SLAT('sla.dialog.error'), tone: 'error' });
         event.target.value = '';
         return;
     }
@@ -67,13 +67,13 @@ async function importConfig(event) {
     try {
         config = JSON.parse(rawText);
     } catch (parseErr) {
-        alert(SLAT('sla.config.parseFail', { message: parseErr.message }));
+        AppDialog.alert(SLAT('sla.config.parseFail', { message: parseErr.message }), { title: SLAT('sla.dialog.error'), tone: 'error' });
         event.target.value = '';
         return;
     }
 
     if (typeof config !== 'object' || config === null) {
-        alert(SLAT('sla.config.badRoot'));
+        AppDialog.alert(SLAT('sla.config.badRoot'), { title: SLAT('sla.dialog.error'), tone: 'error' });
         event.target.value = '';
         return;
     }
@@ -105,10 +105,10 @@ async function importConfig(event) {
         normalized = config;
     } else {
         // 无法识别的格式，打印出字段帮助诊断
-        alert(SLAT('sla.config.unknown', {
+        AppDialog.alert(SLAT('sla.config.unknown', {
             fields: keys.slice(0, 10).join('\n'),
             more: keys.length > 10 ? '\n...' : ''
-        }));
+        }), { title: SLAT('sla.dialog.error'), tone: 'error' });
         event.target.value = '';
         return;
     }
@@ -119,7 +119,7 @@ async function importConfig(event) {
             await API.post('/api/sla/config', normalized);
         } catch (apiErr) {
             if (apiErr.status === 409 && apiErr.body && apiErr.body.requiresConfirmation) {
-                const ok = confirm(formatConfigImportImpact(apiErr.body.impact));
+                const ok = await AppDialog.confirm(formatConfigImportImpact(apiErr.body.impact), { title: SLAT('sla.dialog.confirm'), tone: 'danger', confirmText: SLAT('sla.dialog.continue'), cancelText: SLAT('sla.dialog.cancel') });
                 if (!ok) {
                     event.target.value = '';
                     return;
@@ -136,10 +136,10 @@ async function importConfig(event) {
         const prefsCount = Object.keys(normalized.prefs || {}).length;
         const targetsCount = Object.keys(normalized.targets || {}).length;
         const formatTip = isOldFormat ? SLAT('sla.config.legacyTip') : '';
-        alert(SLAT('sla.config.imported', { formatTip, targets: targetsCount, prefs: prefsCount }));
+        AppDialog.alert(SLAT('sla.config.imported', { formatTip, targets: targetsCount, prefs: prefsCount }), { title: SLAT('sla.dialog.done'), tone: 'success' });
         API.logHistory('sla', '导入全量配置', `format:${isOldFormat ? 'legacy' : 'new'} targets:${targetsCount} prefs:${prefsCount}`);
     } catch (apiErr) {
-        alert(SLAT('sla.config.uploadFail', { message: apiErr.message }));
+        AppDialog.alert(SLAT('sla.config.uploadFail', { message: apiErr.message }), { title: SLAT('sla.dialog.error'), tone: 'error' });
         console.error('[importConfig] 上传失败:', apiErr);
     }
 

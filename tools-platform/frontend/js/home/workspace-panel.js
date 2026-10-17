@@ -455,7 +455,7 @@
         const options = { title: tx('revertConflictTitle'), message: tx('revertConflictMessage', { path: filePath }), confirmText: tx('revertConflictConfirm'), tone: 'danger' };
         if (typeof window.showNavbarConfirm === 'function') return window.showNavbarConfirm(options);
         if (typeof showNavbarConfirm === 'function') return showNavbarConfirm(options); // eslint-disable-line no-undef
-        return window.confirm(`${options.title}\n${options.message}`);
+        return window.AppDialog.confirm(options.message, options);
     }
 
     async function revert(filePath, force = false, target = { root: state.root, id: state.agentSessionId }) {

@@ -12,6 +12,27 @@ contextBridge.exposeInMainWorld('DesktopLicense', {
         } catch (_) {}
         return '';
     },
+    writeClipboard: text => {
+        try {
+            if (clipboard && typeof clipboard.writeText === 'function') {
+                clipboard.writeText(String(text || ''));
+                return true;
+            }
+        } catch (_) {}
+        return false;
+    },
+    requestInfo: () => ipcRenderer.invoke('desktop-license:request-info'),
+    submitRequest: form => ipcRenderer.invoke('desktop-license:request-submit', form),
+    refreshRequest: () => ipcRenderer.invoke('desktop-license:request-refresh'),
+    cancelRequest: () => ipcRenderer.invoke('desktop-license:request-cancel'),
+    onRequestUpdate: (callback) => {
+        if (typeof callback !== 'function') return () => {};
+        const handler = (_event, data) => callback(data);
+        ipcRenderer.on('desktop-license:request-update', handler);
+        return () => {
+            try { ipcRenderer.removeListener('desktop-license:request-update', handler); } catch (_) {}
+        };
+    },
     onProgress: (callback) => {
         if (typeof callback !== 'function') return () => {};
         const handler = (_event, data) => callback(data);

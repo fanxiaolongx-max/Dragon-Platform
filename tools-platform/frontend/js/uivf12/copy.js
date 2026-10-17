@@ -22,7 +22,7 @@ function escapeUivHtml(value) {
 
 function copyCodeText(textAreaId, btnId, typeName) {
     const codeEl = document.getElementById(textAreaId);
-    if (!codeEl || !codeEl.value) { alert(UIVT('uiv.copy.noCode')); return; }
+    if (!codeEl || !codeEl.value) { showToast(UIVT('uiv.copy.noCode'), 'warning'); return; }
     codeEl.select();
     document.execCommand('copy');
     const btn = document.getElementById(btnId);
@@ -2439,7 +2439,7 @@ function buildAndCopyUivBatchMacro(scriptsToRun, groupName, speed = getUivBatchS
     try {
         macro = buildUivBatchMacro(scriptsToRun, groupName, { speed });
     } catch (error) {
-        alert(error.message || UIVT('uiv.copy.emptyGroup'));
+        AppDialog.alert(error.message || UIVT('uiv.copy.emptyGroup'), { title: UIVT('uiv.dialog.error'), tone: 'error' });
         return;
     }
 
@@ -4219,7 +4219,7 @@ function wrapMasterScriptWithFloatingLauncher(masterCode, options = {}) {
 }
 
 function buildAndCopyMasterScript(scriptsToRun, groupName, options = {}) {
-    if (scriptsToRun.length === 0) { alert(UIVT('uiv.copy.emptyGroup')); return; }
+    if (scriptsToRun.length === 0) { showToast(UIVT('uiv.copy.emptyGroup'), 'warning'); return; }
 
     const taskMeta = scriptsToRun.map((script, index) => {
         let origin = '';

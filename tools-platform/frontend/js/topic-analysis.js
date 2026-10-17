@@ -949,7 +949,7 @@
     async function performAiTranslate(cnEl, enEl, btn) {
         if (!cnEl || !enEl) return;
         if (!state.isAiConnected) {
-            alert('未在全局配置中对接 AI 助手，请管理员在导航栏「设置 > AI 助手」中配置 API Token。');
+            AppDialog.alert('未在全局配置中对接 AI 助手，请管理员在导航栏「设置 > AI 助手」中配置 API Token。', { title: '提示', tone: 'warning' });
             return;
         }
         const contextReport = state.eosMonthlyReport;
@@ -978,7 +978,7 @@
             setCopyStatus('已由 AI 助手完成专业翻译，粗体与颜色格式已精准对齐！');
         } catch (err) {
             console.error('AI 翻译失败:', err);
-            alert(`AI 翻译失败：${err.message || '网络异常'}`);
+            AppDialog.alert(`AI 翻译失败：${err.message || '网络异常'}`, { title: 'AI 翻译失败', tone: 'error' });
         } finally {
             if (btn) {
                 btn.disabled = false;
@@ -990,7 +990,7 @@
     async function performAiTranslateAll(items, btn) {
         if (!items || !items.length) return;
         if (!state.isAiConnected) {
-            alert('未在全局配置中对接 AI 助手，请管理员在导航栏「设置 > AI 助手」中配置 API Token。');
+            AppDialog.alert('未在全局配置中对接 AI 助手，请管理员在导航栏「设置 > AI 助手」中配置 API Token。', { title: '提示', tone: 'warning' });
             return;
         }
         const contextReport = state.eosMonthlyReport;
@@ -1025,7 +1025,7 @@
             setCopyStatus(`已由 AI 助手完成全部 ${successCount} 处内容的同步翻译与格式对齐！`);
         } catch (err) {
             console.error('批量 AI 翻译异常:', err);
-            alert(`批量翻译部分完成：成功 ${successCount} 处，错误：${err.message}`);
+            AppDialog.alert(`批量翻译部分完成：成功 ${successCount} 处，错误：${err.message}`, { title: '操作失败', tone: 'error' });
         } finally {
             if (btn) {
                 btn.disabled = false;
@@ -2410,11 +2410,11 @@
 
     async function exportMonthlyPng(scope = 'both') {
         if (!state.eosMonthlyReport) {
-            alert('当前暂无月报数据可供导出。');
+            AppDialog.alert('当前暂无月报数据可供导出。', { title: '提示', tone: 'warning' });
             return;
         }
         if (typeof html2canvas !== 'function') {
-            alert('图片导出组件（html2canvas）未加载，请刷新页面后重试。');
+            AppDialog.alert('图片导出组件（html2canvas）未加载，请刷新页面后重试。', { title: '提示', tone: 'warning' });
             return;
         }
         const sheet = elements.eosReportSheet || document.getElementById('eosReportSheet');
@@ -2459,7 +2459,7 @@
             }
         } catch (error) {
             console.error('月报 PNG 导出失败:', error);
-            alert(`月报 PNG 导出失败：${error.message}`);
+            AppDialog.alert(`月报 PNG 导出失败：${error.message}`, { title: '月报 PNG 导出失败', tone: 'error' });
         } finally {
             if (currentTheme === 'dark') {
                 document.documentElement.setAttribute('data-theme', 'dark');
@@ -2473,16 +2473,16 @@
 
     async function exportMonthlyPdf() {
         if (!state.eosMonthlyReport) {
-            alert('当前暂无月报数据可供导出。');
+            AppDialog.alert('当前暂无月报数据可供导出。', { title: '提示', tone: 'warning' });
             return;
         }
         if (typeof html2canvas !== 'function') {
-            alert('图片转换依赖（html2canvas）未加载，请刷新页面后重试。');
+            AppDialog.alert('图片转换依赖（html2canvas）未加载，请刷新页面后重试。', { title: '提示', tone: 'warning' });
             return;
         }
         const jsPdfConstructor = window.jspdf?.jsPDF || (typeof jsPDF === 'function' ? jsPDF : null);
         if (!jsPdfConstructor) {
-            alert('PDF 导出依赖（jsPDF）未加载，请刷新页面后重试。');
+            AppDialog.alert('PDF 导出依赖（jsPDF）未加载，请刷新页面后重试。', { title: '提示', tone: 'warning' });
             return;
         }
         const sheet = elements.eosReportSheet || document.getElementById('eosReportSheet');
@@ -2539,7 +2539,7 @@
             setCopyStatus('月报 PDF 导出成功！');
         } catch (error) {
             console.error('月报 PDF 导出失败:', error);
-            alert(`月报 PDF 导出失败：${error.message}`);
+            AppDialog.alert(`月报 PDF 导出失败：${error.message}`, { title: '月报 PDF 导出失败', tone: 'error' });
         } finally {
             if (currentTheme === 'dark') {
                 document.documentElement.setAttribute('data-theme', 'dark');
@@ -2553,7 +2553,7 @@
 
     async function exportMonthlyHtml() {
         if (!state.eosMonthlyReport) {
-            alert('当前暂无月报数据可供导出。');
+            AppDialog.alert('当前暂无月报数据可供导出。', { title: '提示', tone: 'warning' });
             return;
         }
         const sheet = elements.eosReportSheet || document.getElementById('eosReportSheet');
@@ -2666,7 +2666,7 @@
             setCopyStatus('月报 HTML 导出成功！');
         } catch (error) {
             console.error('月报 HTML 导出失败:', error);
-            alert(`月报 HTML 导出失败：${error.message}`);
+            AppDialog.alert(`月报 HTML 导出失败：${error.message}`, { title: '月报 HTML 导出失败', tone: 'error' });
         } finally {
             if (button) {
                 button.classList.remove('is-loading');
@@ -2677,11 +2677,11 @@
 
     async function exportMonthlyExcel() {
         if (!state.eosMonthlyReport) {
-            alert('当前暂无月报数据可供导出。');
+            AppDialog.alert('当前暂无月报数据可供导出。', { title: '提示', tone: 'warning' });
             return;
         }
         if (typeof ExcelJS === 'undefined') {
-            alert('Excel 导出组件（ExcelJS）未加载，请刷新页面后重试。');
+            AppDialog.alert('Excel 导出组件（ExcelJS）未加载，请刷新页面后重试。', { title: '提示', tone: 'warning' });
             return;
         }
         const button = elements.eosDownloadExcel;
@@ -2695,7 +2695,7 @@
             await downloadExcelWorkbook(workbook, isGenericMonthly() ? `${monthlyFilename()}_${month}.xlsx` : `埃及代表处EOS退网收编简报_${month}.xlsx`);
         } catch (error) {
             console.error('月报 Excel 导出失败:', error);
-            alert(`月报 Excel 导出失败：${error.message}`);
+            AppDialog.alert(`月报 Excel 导出失败：${error.message}`, { title: '月报 Excel 导出失败', tone: 'error' });
         } finally {
             button.classList.remove('is-loading');
             button.textContent = originalText;
@@ -2729,7 +2729,7 @@
     }
 
     async function exportMonthlyMsg() {
-        if (!state.eosMonthlyReport) { alert('当前暂无月报数据可供导出。'); return; }
+        if (!state.eosMonthlyReport) { AppDialog.alert('当前暂无月报数据可供导出。', { title: '提示', tone: 'warning' }); return; }
         const button = elements.eosDownloadMsg;
         const originalText = button.textContent;
         button.disabled = true;
@@ -2782,13 +2782,13 @@
 
     async function exportProjectFile() {
         if (!state.eosMonthlyReport) {
-            alert('当前没有可导出的月报数据。');
+            AppDialog.alert('当前没有可导出的月报数据。', { title: '提示', tone: 'warning' });
             return;
         }
         const report = state.eosMonthlyReport;
         if (!state.eosMonthlySnapshot && report.snapshot?.id && report.snapshot.id !== 'default') {
             try { state.eosMonthlySnapshot = (await getFullSnapshot(report.snapshot.id))?.snapshot || null; }
-            catch (error) { alert(`读取工程源数据失败：${error.message}`); return; }
+            catch (error) { AppDialog.alert(`读取工程源数据失败：${error.message}`, { title: '读取工程源数据失败', tone: 'error' }); return; }
         }
         const month = report.month || '当月';
         const project = buildProjectObject();
@@ -2938,23 +2938,23 @@
                 throw new Error('选中的文件不是合法的 JSON 格式。');
             }
             await applyProjectData(project, file.name);
-            alert(`【工程文件导入成功】\n\n数据月份：${project.month || project.reportData?.month}\n来源文件：${file.name}\n\n已完整载入离线报表数据、中英文文案与表格修改，您可直接继续编辑、调整格式或导出。`);
+            AppDialog.alert(`【工程文件导入成功】\n\n数据月份：${project.month || project.reportData?.month}\n来源文件：${file.name}\n\n已完整载入离线报表数据、中英文文案与表格修改，您可直接继续编辑、调整格式或导出。`, { title: '工程文件导入成功', tone: 'success' });
         } catch (error) {
             console.error('导入工程文件失败:', error);
-            alert(`导入工程文件失败：${error.message}`);
+            AppDialog.alert(`导入工程文件失败：${error.message}`, { title: '导入工程文件失败', tone: 'error' });
         }
     }
 
     // 保存当前月报快照到服务器 (跨设备管理)
     async function saveMonthlySnapshot() {
         if (!state.eosMonthlyReport) {
-            alert('当前没有可保存快照的月报数据。');
+            AppDialog.alert('当前没有可保存快照的月报数据。', { title: '提示', tone: 'warning' });
             return;
         }
         const report = state.eosMonthlyReport;
         const month = report.month || '当月';
         const defaultName = `${month} 月报快照 (${new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })})`;
-        const name = prompt('请输入快照名称（将同步保存至服务器，支持多设备查阅与比对）：', defaultName);
+        const name = await AppDialog.prompt('请输入快照名称（将同步保存至服务器，支持多设备查阅与比对）：', { title: '保存月报快照', label: '快照名称', defaultValue: defaultName, maxLength: 120, confirmText: '保存' });
         if (name === null) return;
 
         const project = buildProjectObject();
@@ -2980,10 +2980,10 @@
                 }
             });
             setCopyStatus(`已成功保存月报快照「${snap.name}」至服务器！`);
-            alert(`【快照保存成功】\n\n快照名称：${snap.name}\n数据月份：${month}\n\n已成功持久化至服务器数据库，支持多设备同步。您可随时在「月报快照库」中读取或进行分屏比对。`);
+            AppDialog.alert(`【快照保存成功】\n\n快照名称：${snap.name}\n数据月份：${month}\n\n已成功持久化至服务器数据库，支持多设备同步。您可随时在「月报快照库」中读取或进行分屏比对。`, { title: '快照保存成功', tone: 'success' });
         } catch (err) {
             console.error('保存月报快照失败:', err);
-            alert(`保存快照失败：${err.message}`);
+            AppDialog.alert(`保存快照失败：${err.message}`, { title: '保存快照失败', tone: 'error' });
         }
     }
 
@@ -3009,7 +3009,7 @@
     // 打开月报智能分屏比对
     async function openMonthlyDiff(baselineSnapshotId = null) {
         if (!state.eosMonthlyReport) {
-            alert('当前没有可比对的月报数据。');
+            AppDialog.alert('当前没有可比对的月报数据。', { title: '提示', tone: 'warning' });
             return;
         }
         const toolKey = 'topic-analysis';
@@ -3314,8 +3314,8 @@
         elements.eosNewMapKey.focus();
     }
 
-    function resetDefaultMappingsInModal() {
-        if (!window.confirm('确定恢复默认映射配置？（Etisalat Misr ➔ e&，Orange Egypt for Telecommunications ➔ Orange，Vodafone Egypt ➔ Vodafone，Telecom Egypt ➔ TE，默认阈值 10 套）')) return;
+    async function resetDefaultMappingsInModal() {
+        if (!await AppDialog.confirm('确定恢复默认映射配置？（Etisalat Misr ➔ e&，Orange Egypt for Telecommunications ➔ Orange，Vodafone Egypt ➔ Vodafone，Telecom Egypt ➔ TE，默认阈值 10 套）', { title: '恢复默认映射', confirmText: '恢复默认' })) return;
         if (elements.eosMinThresholdInput) elements.eosMinThresholdInput.value = DEFAULT_MIN_THRESHOLD;
         renderMappingTableRows(DEFAULT_MAPPINGS);
         if (elements.eosMappingStatusMsg) elements.eosMappingStatusMsg.textContent = '已重置为内置默认映射规则与阈值';
@@ -3423,11 +3423,11 @@
     async function handleTableAction(event) {
         const button = event.target.closest('button[data-action]'); if (!button) return; const { action, id } = button.dataset; button.disabled = true;
         try {
-            if (action === 'delete') { if (!window.confirm('确定删除这份历史快照？删除后无法在分析页回顾。')) return; await API.delete(`/api/topic-snapshots/${encodeURIComponent(id)}`); await loadData(); return; }
+            if (action === 'delete') { if (!await AppDialog.confirm('确定删除这份历史快照？删除后无法在分析页回顾。', { title: '删除历史快照', tone: 'danger', confirmText: '删除' })) return; await API.delete(`/api/topic-snapshots/${encodeURIComponent(id)}`); await loadData(); return; }
             const item = await getFullSnapshot(id);
             if (action === 'view') { state.detailSnapshot = item; elements.detailTitle.textContent = `${item.platform === 'datafab' ? 'DataFab' : 'NetCare'} · ${formatTime(item.capturedAt)}`; renderDetail(item.snapshot); }
             else { const blob = new Blob([JSON.stringify(item.snapshot, null, 2)], { type: 'application/json;charset=utf-8' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${item.platform}_topic_${String(item.capturedAt).replace(/[-:T.Z]/g, '').slice(0, 14)}.json`; link.click(); URL.revokeObjectURL(link.href); }
-        } catch (error) { window.alert(`操作失败：${error.message}`); } finally { button.disabled = false; }
+        } catch (error) { AppDialog.alert(`操作失败：${error.message}`, { title: '操作失败', tone: 'error' }); } finally { button.disabled = false; }
     }
 
     document.addEventListener('DOMContentLoaded', () => {

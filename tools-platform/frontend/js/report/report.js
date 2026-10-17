@@ -3477,7 +3477,7 @@ function ensureManualAdjustDetailModal() {
     return modal;
 }
 
-window.openManualAdjustDetailModal = function (cat, idx) {
+window.openManualAdjustDetailModal = async function (cat, idx) {
     if (!currentSnapshot || !manualAdjustItems[idx]) return;
     const stored = currentSnapshot.manualAdjustDetails?.[cat]?.[idx];
     const occurrenceInput = getManualAdjustOccurrenceInput(cat, idx);
@@ -3489,7 +3489,7 @@ window.openManualAdjustDetailModal = function (cat, idx) {
     }
     const records = normalizeManualAdjustDetailRecords(stored);
     const originalRecords = records.map(record => serializeManualAdjustRecord(record));
-    if (records.length > occurrenceCount && !confirm(rt('report.confirm.trimAdjustRecords', { count: records.length - occurrenceCount }))) return;
+    if (records.length > occurrenceCount && !await AppDialog.confirm(rt('report.confirm.trimAdjustRecords', { count: records.length - occurrenceCount }), { title: rt('report.dialog.confirmTitle'), tone: 'danger', confirmText: rt('report.dialog.continue'), cancelText: rt('report.dialog.cancel') })) return;
     while (records.length < occurrenceCount) records.push(createManualAdjustRecord());
     records.splice(occurrenceCount);
     manualAdjustDetailDraft = {
@@ -3526,9 +3526,9 @@ window.addManualAdjustRecord = function () {
     renderManualAdjustRecords();
 };
 
-window.removeManualAdjustRecord = function (index) {
+window.removeManualAdjustRecord = async function (index) {
     if (!manualAdjustDetailDraft || manualAdjustDetailDraft.records.length <= 1) return;
-    if (!confirm(rt('report.confirm.deleteAdjustRecord', { index: index + 1 }))) return;
+    if (!await AppDialog.confirm(rt('report.confirm.deleteAdjustRecord', { index: index + 1 }), { title: rt('report.dialog.deleteTitle'), tone: 'danger', confirmText: rt('report.dialog.delete'), cancelText: rt('report.dialog.cancel') })) return;
     syncManualAdjustRecordFields();
     const [removed] = manualAdjustDetailDraft.records.splice(index, 1);
     removed?.newFiles.forEach(item => URL.revokeObjectURL(item.previewUrl));
@@ -4171,7 +4171,7 @@ window.saveNewAdjustItem = async function () {
 };
 
 window.deleteAdjustItem = async function (idx) {
-    if (!confirm('确定要全局删除该加减分项目吗？\n删除后该项目将不再计分，且在所有快照中隐藏！')) {
+    if (!await AppDialog.confirm('确定要全局删除该加减分项目吗？\n删除后该项目将不再计分，且在所有快照中隐藏！', { title: rt('report.dialog.deleteTitle'), tone: 'danger', confirmText: rt('report.dialog.delete'), cancelText: rt('report.dialog.cancel') })) {
         return;
     }
 
@@ -4662,7 +4662,7 @@ window.saveManualMetric = async function () {
 
 window.deleteManualMetric = async function (label) {
     if (!currentSnapshot || !label) return;
-    if (!confirm(rt('report.confirm.deleteManualMetric', { name: label }))) {
+    if (!await AppDialog.confirm(rt('report.confirm.deleteManualMetric', { name: label }), { title: rt('report.dialog.deleteTitle'), tone: 'danger', confirmText: rt('report.dialog.delete'), cancelText: rt('report.dialog.cancel') })) {
         return;
     }
 
@@ -5060,7 +5060,7 @@ window.addI18nEntry = async function () {
                     showToast(rt('report.toast.i18nNameExists'), 'error');
                     return;
                 }
-                if (confirm(`您修改了指标的中文名称（从 [${_editingZh}] 改为 [${zh}]）。\n是否要全局同步重命名该指标？（这将自动更新历史快照、分组、考核配置中的名称）`)) {
+                if (await AppDialog.confirm(`您修改了指标的中文名称（从 [${_editingZh}] 改为 [${zh}]）。\n是否要全局同步重命名该指标？（这将自动更新历史快照、分组、考核配置中的名称）`, { title: '全局重命名指标', confirmText: '全局重命名', cancelText: '仅改翻译' })) {
                     try {
                         await API.post('/api/sla/rename-metric', { oldName: _editingZh, newName: zh, newEn: en });
                         showToast(rt('report.toast.renameSuccess'), 'success');
@@ -5080,7 +5080,7 @@ window.addI18nEntry = async function () {
             }
         } else {
             if (_editI18nMap[zh] !== undefined) {
-                if (!confirm(`指标 [${zh}] 已存在，是否覆盖其英文翻译？`)) {
+                if (!await AppDialog.confirm(`指标 [${zh}] 已存在，是否覆盖其英文翻译？`, { title: '覆盖翻译', tone: 'danger', confirmText: '覆盖', cancelText: rt('report.dialog.cancel') })) {
                     return;
                 }
             }
@@ -5105,8 +5105,8 @@ window.addI18nEntry = async function () {
     }
 };
 
-window.deleteI18nEntry = function (zh) {
-    if (confirm(`确定要删除“${zh}”的翻译吗？`)) {
+window.deleteI18nEntry = async function (zh) {
+    if (await AppDialog.confirm(`确定要删除“${zh}”的翻译吗？`, { title: rt('report.dialog.deleteTitle'), tone: 'danger', confirmText: rt('report.dialog.delete'), cancelText: rt('report.dialog.cancel') })) {
         delete _editI18nMap[zh];
         renderI18nList();
     }

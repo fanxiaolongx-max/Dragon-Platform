@@ -544,7 +544,7 @@ const ReqApp = {
 
     deleteReq: async function() {
         if (!this.currentReqId) return;
-        if (!confirm(tText('确定要删除这个需求吗？相关的流转日志也会被删除且不可恢复。', 'Are you sure you want to delete this request? Related logs will also be permanently deleted.'))) return;
+        if (!await AppDialog.confirm(tText('确定要删除这个需求吗？相关的流转日志也会被删除且不可恢复。', 'Are you sure you want to delete this request? Related logs will also be permanently deleted.'), { title: tText('删除需求', 'Delete request'), tone: 'danger', confirmText: tText('删除', 'Delete'), cancelText: tText('取消', 'Cancel') })) return;
 
         try {
             await API.delete(`/api/requirements/${this.currentReqId}`);

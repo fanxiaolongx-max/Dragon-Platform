@@ -628,5 +628,15 @@
   "全部货品": "All products",
   "当前租户": "Current tenant",
   "尚未加载": "Not loaded",
-  "该备份属于其他租户，请切换到备份所属租户后恢复": "This backup belongs to another tenant. Switch to that tenant before restoring it."
+  "该备份属于其他租户，请切换到备份所属租户后恢复": "This backup belongs to another tenant. Switch to that tenant before restoring it.",
+  "（正在保存到服务器…）": " (saving to server…)",
+  "（已保存到服务器）": " (saved to server)",
+  "连接异常，正在重试保存到服务器…": "Connection interrupted. Retrying server save…",
+  "；请重试保存或导出未保存修改": "; retry saving or export unsaved changes",
+  "服务器尚未确认保存": "The server has not confirmed the save",
+  "正在等待服务器确认保存，请稍后": "Waiting for server save confirmation. Please wait.",
+  "，已保存到服务器": ", saved to server",
+  "请先重试保存当前修改：": "Retry saving the current changes first: ",
+  "服务器数据或租户已变化，请先导出当前修改，再重新加载": "Server data or tenant has changed. Export your changes before reloading.",
+  "已标记为模拟同步": "Marked as simulated synchronization"
 }

@@ -11,7 +11,8 @@
         const validate = options.validate || (() => {});
         const onChange = options.onChange || (() => {});
         const delay = options.debounceMs ?? 450;
-        let timer = null, active = null, snapshot = null, generation = 0;
+        let timer = null, active = null, snapshot = null, generation = 0, uncertain = null;
+        const retryDelays = options.retryDelaysMs ?? [800, 2000];
         const state = {
             loaded: false, loading: false, canWrite: false, initialized: false,
             pending: false, saving: false, conflict: false, error: '',
@@ -39,12 +40,14 @@
                     const error = new Error(response.status === 401 ? '登录已失效，请重新登录后重试' : response.status === 403 ? '当前账号没有仓储写入权限' : response.status === 409 ? '服务器数据已被其他窗口更新，请先导出当前修改，再重新加载' : payload?.error || payload?.message || '服务器请求失败，请重试');
                     error.status = response.status;
                     error.code = payload?.code;
+                    error.transient = response.status >= 500 || response.status === 408 || response.status === 429;
                     throw error;
                 }
                 if (!payload || typeof payload !== 'object') throw new Error('服务器返回无效数据');
                 return payload;
             } catch (error) {
-                if (error.name === 'AbortError') throw new Error('服务器响应超时，修改尚未保存，请重试或导出备份');
+                if (error.name === 'AbortError') error = new Error('服务器响应超时，修改尚未保存，请重试或导出备份');
+                if (error.status === undefined) error.transient = true;
                 throw error;
             } finally { clearTimeout(timeout); }
         }
@@ -66,29 +69,70 @@
             if (!state.loaded || state.loading || !state.canWrite || state.conflict) return false;
             snapshot = JSON.parse(JSON.stringify(data));
             generation++;
+            // A fresh edit starts a new save attempt after an earlier failure.
+            // Permission and revision conflicts are still blocked above.
+            if (!active) state.error = '';
             state.pending = true;
             emit();
             clearTimeout(timer);
             if (!state.error && !active) timer = setTimeout(() => { timer = null; void flush(); }, delay);
             return true;
         }
+        function acknowledge(payload, sentGeneration) {
+            Object.assign(state, { revision: payload.revision, updatedAt: payload.updatedAt, initialized: true, error: '' });
+            if (sentGeneration === generation) { state.pending = false; snapshot = null; }
+        }
+        async function reconcile() {
+            if (!uncertain) return;
+            // A timed out PUT may already have committed. Read it back before
+            // retrying: never blindly overwrite a newer revision or tenant.
+            const payload = await request(API);
+            if (payload.tenantId === state.tenantId && payload.canWrite === true) {
+                if (payload.revision === uncertain.revision) { uncertain = null; return; }
+                if (payload.revision === uncertain.revision + 1 && JSON.stringify(payload.data) === JSON.stringify(uncertain.data)) {
+                    acknowledge(payload, uncertain.generation);
+                    uncertain = null;
+                    return;
+                }
+            }
+            if (payload.tenantId === state.tenantId && payload.canWrite === false) {
+                throw Object.assign(new Error('当前账号没有仓储写入权限'), { status: 403 });
+            }
+            throw Object.assign(new Error('服务器数据或租户已变化，请先导出当前修改，再重新加载'), { status: 409 });
+        }
         async function saveLoop() {
+            let retries = 0;
             while (state.pending && state.canWrite && !state.conflict) {
-                const data = snapshot, sentGeneration = generation;
                 state.saving = true;
+                let willRetry = false;
                 emit();
                 try {
+                    await reconcile();
+                    if (!state.pending) continue;
+                    const data = snapshot, sentGeneration = generation;
                     validate(data);
-                    const payload = await request(API, { method: 'PUT', body: JSON.stringify({ data, revision: state.revision, tenantId: state.tenantId }) });
-                    if (payload.success !== true || !Number.isSafeInteger(payload.revision) || payload.revision !== state.revision + 1) throw new Error('服务器未确认保存，请重试或导出备份');
-                    Object.assign(state, { revision: payload.revision, updatedAt: payload.updatedAt, initialized: true, error: '' });
-                    if (sentGeneration === generation) { state.pending = false; snapshot = null; }
+                    const sent = { data, generation: sentGeneration, revision: state.revision };
+                    let payload;
+                    try {
+                        payload = await request(API, { method: 'PUT', body: JSON.stringify({ data, revision: state.revision, tenantId: state.tenantId }) });
+                        if (payload.success !== true || !Number.isSafeInteger(payload.revision) || payload.revision !== state.revision + 1) {
+                            throw Object.assign(new Error('服务器未确认保存，请重试或导出备份'), { transient: true });
+                        }
+                    } catch (error) {
+                        if (error.transient) uncertain = sent;
+                        throw error;
+                    }
+                    acknowledge(payload, sentGeneration);
+                    retries = 0;
                 } catch (error) {
                     state.error = error.message || '服务器保存失败，请重试或导出备份';
                     if (error.status === 409 || error.code === 'WAREHOUSE_REVISION_CONFLICT') state.conflict = true;
                     if (error.status === 401 || error.status === 403) state.canWrite = false;
-                    return false;
-                } finally { state.saving = false; emit(); }
+                    if (!error.transient || retries >= retryDelays.length) return false;
+                    willRetry = true;
+                    emit();
+                    await new Promise(resolve => setTimeout(resolve, retryDelays[retries++]));
+                } finally { if (!willRetry) state.saving = false; emit(); }
             }
             return !state.pending;
         }
@@ -97,7 +141,7 @@
             if (active) return active;
             if (!state.pending) return state.loaded && !state.error;
             if (!state.canWrite || state.conflict || state.error) return false;
-            active = saveLoop();
+            active = Promise.resolve().then(saveLoop);
             try { return await active; }
             finally { active = null; }
         }

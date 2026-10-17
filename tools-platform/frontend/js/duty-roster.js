@@ -575,8 +575,9 @@
     }
 
     // 清空当月
-    function clearCurrentRoster() {
-        if (!confirm(t('duty.toast_clear_confirm', isChinese() ? '确定清空当月所有排班人员吗？' : 'Clear all shifts for this month?'))) return;
+    async function clearCurrentRoster() {
+        const zh = isChinese();
+        if (!await AppDialog.confirm(t('duty.toast_clear_confirm', zh ? '确定清空当月所有排班人员吗？' : 'Clear all shifts for this month?'), { title: zh ? '清空当月排班' : 'Clear roster', tone: 'danger', confirmText: zh ? '清空' : 'Clear', cancelText: zh ? '取消' : 'Cancel' })) return;
         cellsData = {};
         gridData = {};
         renderTable();
@@ -731,14 +732,14 @@
             if (window.showToast) {
                 window.showToast(toastMsg, 'success');
             } else {
-                alert(toastMsg);
+                AppDialog.alert(toastMsg, { title: isZh ? '完成' : 'Done', tone: 'success' });
             }
 
         } catch (err) {
             console.error('Import roster failed', err);
             const failMsg = (isZh ? '引入排班失败: ' : 'Failed to import roster: ') + err.message;
             if (window.showToast) window.showToast(failMsg, 'error');
-            else alert(failMsg);
+            else AppDialog.alert(failMsg, { title: isZh ? '操作失败' : 'Failed', tone: 'error' });
             updateStatusBadge();
         } finally {
             if (importPrevBtn) importPrevBtn.disabled = false;
@@ -838,12 +839,12 @@
                 ? '✅ 已成功复制值班表到剪贴板！可直接粘贴至 Excel、WPS、邮件或聊天窗口。'
                 : '✅ Duty roster copied to clipboard (TSV & HTML)! Ready to paste into Excel, email, or chat.';
             if (window.showToast) window.showToast(successMsg, 'success');
-            else alert(successMsg);
+            else AppDialog.alert(successMsg, { title: isZh ? '完成' : 'Done', tone: 'success' });
         } catch (err) {
             console.error('Copy to clipboard failed', err);
             const failMsg = isZh ? '复制到剪贴板失败，请手动选择复制。' : 'Failed to copy to clipboard.';
             if (window.showToast) window.showToast(failMsg, 'error');
-            else alert(failMsg);
+            else AppDialog.alert(failMsg, { title: isZh ? '操作失败' : 'Failed', tone: 'error' });
         }
     }
 
@@ -1062,13 +1063,13 @@
             if (window.showToast) {
                 window.showToast(successMsg, 'success');
             } else {
-                alert(successMsg);
+                AppDialog.alert(successMsg, { title: isZh ? '完成' : 'Done', tone: 'success' });
             }
         } catch (err) {
             console.error('Save roster failed', err);
             const failMsg = t('duty.toast_save_fail', isZh ? '保存失败: ' : 'Failed to save: ') + err.message;
             if (window.showToast) window.showToast(failMsg, 'error');
-            else alert(failMsg);
+            else AppDialog.alert(failMsg, { title: isZh ? '操作失败' : 'Failed', tone: 'error' });
         } finally {
             saveBtn.disabled = false;
             saveBtn.innerHTML = t('duty.btn_save', isZh ? '💾 保存到服务器' : '💾 Save to Server');

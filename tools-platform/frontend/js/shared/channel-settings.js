@@ -5,6 +5,14 @@
     if (window.ToolsChannelSettings) return;
 
     const L = (zh, en) => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? en : zh);
+    // 本文件由 navbar.js 按需加载：优先用统一弹窗 AppDialog，未加载时直接复用导航栏弹窗（同一套样式）
+    const confirmDialog = (message, options = {}) => (window.AppDialog
+        ? window.AppDialog.confirm(message, { cancelText: L('取消', 'Cancel'), ...options })
+        : window.showNavbarConfirm({ message, cancelText: L('取消', 'Cancel'), ...options }));
+    const promptDialog = (message, options = {}) => (window.AppDialog
+        ? window.AppDialog.prompt(message, { cancelText: L('取消', 'Cancel'), ...options })
+        : window.showNavbarFormDialog({ title: options.title, message, cancelText: L('取消', 'Cancel'), fields: [{ name: 'value', value: options.defaultValue || '', maxLength: options.maxLength }] })
+            .then(values => (values ? String(values.value ?? '') : null)));
     const STATE_LABEL = {
         idle: ['未连接', 'Disconnected'],
         starting: ['连接中', 'Connecting'],
@@ -637,7 +645,7 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
             return undefined;
         }
         if (action === 'sdk-remove') {
-            if (!window.confirm(L('移除已导入的 SDK？之后将回退到平台内置或 welink-cli 安装的版本。', 'Remove the imported SDK? The built-in or welink-cli version will be used instead.'))) return undefined;
+            if (!await confirmDialog(L('移除已导入的 SDK？之后将回退到平台内置或 welink-cli 安装的版本。', 'Remove the imported SDK? The built-in or welink-cli version will be used instead.'), { title: L('移除 SDK', 'Remove SDK'), tone: 'danger', confirmText: L('移除', 'Remove') })) return undefined;
             return runAction('sdk-remove', async () => { const result = await api('DELETE', '/sdk/import'); view.status = result.status; setNotice('ok', L('已移除导入的 SDK', 'Imported SDK removed')); });
         }
         if (action === 'test') return runAction('test', async () => { view.notice = null; view.testResult = await api('POST', '/test'); view.status = await api('GET', '/status'); });
@@ -647,7 +655,7 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
         if (action === 'save') return runAction('save', () => save());
         if (action === 'reload') return runAction('reload', async () => { await loadAll(); render(); });
         if (action === 'clear-sk') {
-            if (!window.confirm(L('确定清除已保存的 SK？清除后无法连接网关。', 'Clear the saved SK? The gateway connection will stop working.'))) return;
+            if (!await confirmDialog(L('确定清除已保存的 SK？清除后无法连接网关。', 'Clear the saved SK? The gateway connection will stop working.'), { title: L('清除 SK', 'Clear SK'), tone: 'danger', confirmText: L('清除', 'Clear') })) return;
             return runAction('save', () => save({ clearSk: true }));
         }
         if (action === 'qr') return runQr();
@@ -726,7 +734,7 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
         }
         if (action === 'target-alias') {
             const current = view.targets.find(item => item.kind === button.dataset.kind && item.id === button.dataset.id);
-            const alias = window.prompt(L('设置备注（留空清除）', 'Alias (blank to clear)'), current?.alias || '');
+            const alias = await promptDialog(L('设置备注（留空清除）', 'Alias (blank to clear)'), { title: L('设置备注', 'Set alias'), defaultValue: current?.alias || '', maxLength: 80 });
             if (alias === null) return undefined;
             await api('PUT', `/targets/${encodeURIComponent(button.dataset.kind)}/${encodeURIComponent(button.dataset.id)}`, { alias });
             await loadTargets();
@@ -735,7 +743,7 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
             return rerenderSection('push-card', renderPushCard());
         }
         if (action === 'target-delete') {
-            if (!window.confirm(L('删除该记录？对方再次使用助理时会重新出现；删除后在其再次发消息前无法向其推送。', 'Delete this record? It reappears when they use the assistant again; pushes to it stop until then.'))) return undefined;
+            if (!await confirmDialog(L('删除该记录？对方再次使用助理时会重新出现；删除后在其再次发消息前无法向其推送。', 'Delete this record? It reappears when they use the assistant again; pushes to it stop until then.'), { title: L('删除记录', 'Delete record'), tone: 'danger', confirmText: L('删除', 'Delete') })) return undefined;
             await api('DELETE', `/targets/${encodeURIComponent(button.dataset.kind)}/${encodeURIComponent(button.dataset.id)}`);
             await loadTargets();
             return rerenderSection('targets-card', renderTargetsCard());

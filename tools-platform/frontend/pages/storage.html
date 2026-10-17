@@ -356,6 +356,7 @@
     <script src="/js/shared/api.js"></script>
     <script src="/js/shared/platform-logo-upload.js"></script>
     <script src="/js/shared/navbar.js"></script>
+    <script src="/js/shared/app-dialog.js"></script>
     <script>
         // ================== 双语切换引擎 ==================
         const I18N_DICT = {
@@ -608,10 +609,10 @@
         async function cleanupJsonFiles() {
             const button = document.getElementById('cleanupJsonFiles');
             const resultBox = document.getElementById('cleanupJsonResult');
-            const confirmed = window.confirm(tText(
+            const confirmed = await AppDialog.confirm(tText(
                 '确认清理当前数据目录顶层的所有 JSON 文件？系统会先生成 zip 备份，再删除 JSON。',
                 'Clean all top-level JSON files in the current data directory? A ZIP backup will be created before deletion.'
-            ));
+            ), { title: tText('清理 JSON 文件', 'Clean JSON files'), tone: 'danger', confirmText: tText('备份并清理', 'Back up and clean'), cancelText: tText('取消', 'Cancel') });
             if (!confirmed) return;
 
             button.disabled = true;

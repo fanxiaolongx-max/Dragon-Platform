@@ -5,6 +5,12 @@
     const dictionaries = {
         'zh-CN': {
             'sla.title': 'Task SLA 风险监控台 - Tools Platform',
+            'sla.dialog.notice': '提示',
+            'sla.dialog.error': '操作失败',
+            'sla.dialog.done': '完成',
+            'sla.dialog.confirm': '请确认',
+            'sla.dialog.continue': '继续',
+            'sla.dialog.cancel': '取消',
             'sla.description': 'Task SLA & 风险监控全局中台，整改/常规/专项三表合一，SLA预警呼吸灯',
             'sla.sticky.title': '⚡ 核心数据舱：',
             'sla.sticky.empty': '(当前未配置指标，请在下方独立表格中点击"🎯 指标"添加)',
@@ -405,6 +411,12 @@
         },
         'en-US': {
             'sla.title': 'Task SLA Risk Monitor - Tools Platform',
+            'sla.dialog.notice': 'Notice',
+            'sla.dialog.error': 'Operation failed',
+            'sla.dialog.done': 'Done',
+            'sla.dialog.confirm': 'Please confirm',
+            'sla.dialog.continue': 'Continue',
+            'sla.dialog.cancel': 'Cancel',
             'sla.description': 'Global Task SLA and risk monitoring console combining rectification, regular risk, and special risk tables.',
             'sla.sticky.title': '⚡ Core Metrics:',
             'sla.sticky.empty': '(No metrics configured. Click "🎯 Metrics" in a table below to add one.)',

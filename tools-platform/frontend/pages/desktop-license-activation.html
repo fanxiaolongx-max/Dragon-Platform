@@ -599,6 +599,56 @@
     }
 
     /* Sample License Box */
+    .machine-card {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border: 1px solid rgba(100, 255, 218, 0.28);
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(20, 184, 166, 0.1), rgba(96, 165, 250, 0.06));
+    }
+    .machine-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .machine-title { color: #e6fffa; font-size: 13px; font-weight: 800; }
+    .machine-device { margin-top: 3px; color: var(--text-muted); font-size: 11.5px; }
+    .machine-code {
+      margin-top: 9px;
+      padding: 9px 10px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 8px;
+      background: var(--input-bg);
+      color: #99f6e4;
+      font: 600 11.5px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+      word-break: break-all;
+      user-select: all;
+      max-height: 64px;
+      overflow: auto;
+    }
+    .machine-hint { margin-top: 7px; color: var(--text-dim); font-size: 11px; line-height: 1.5; }
+    .machine-card.is-weak .machine-hint { color: #fcd34d; }
+    .request-box { margin-top: 11px; padding-top: 11px; border-top: 1px dashed rgba(148, 163, 184, 0.22); }
+    .request-box[hidden], .request-status[hidden], .request-form[hidden], .request-offline[hidden], .request-status-actions .tool-btn[hidden] { display: none; }
+    .request-title { color: #cbd5e1; font-size: 12px; font-weight: 700; margin-bottom: 7px; }
+    .request-fields { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr) auto; gap: 7px; }
+    .request-input {
+      min-width: 0; height: 32px; padding: 0 10px;
+      border: 1px solid var(--input-border); border-radius: 8px;
+      background: var(--input-bg); color: var(--text-main); font: inherit; font-size: 12px;
+    }
+    .request-input:focus { outline: none; border-color: var(--input-border-focus); }
+    .request-btn {
+      height: 32px; padding: 0 14px; border: 0; border-radius: 8px;
+      background: var(--primary-gradient); color: #04121f; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; white-space: nowrap;
+    }
+    .request-btn:disabled { opacity: 0.6; cursor: wait; }
+    .request-status { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+    .request-dot { width: 9px; height: 9px; border-radius: 50%; background: #fbbf24; box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.15); animation: request-pulse 1.6s ease-in-out infinite; }
+    .request-status.is-rejected .request-dot { background: #f87171; box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.15); animation: none; }
+    .request-status-text b { display: block; color: #f1f5f9; font-size: 12.5px; }
+    .request-status-text div { margin-top: 2px; color: var(--text-muted); font-size: 11px; line-height: 1.5; }
+    .request-status-actions { display: flex; gap: 6px; }
+    .request-offline { margin-top: 9px; color: var(--text-dim); font-size: 11px; line-height: 1.5; }
+    @keyframes request-pulse { 50% { opacity: 0.45; } }
+    @media (max-width: 560px) { .request-fields { grid-template-columns: 1fr; } .request-status { grid-template-columns: auto minmax(0, 1fr); } .request-status-actions { grid-column: 1 / -1; } }
+
     .sample-box {
       margin-top: 8px;
       padding: 9px 12px;
@@ -900,6 +950,46 @@
       <div id="status-text" class="status-text"></div>
     </div>
 
+    <!-- 本机机器码：发给管理员签发绑定本机的 License -->
+    <section class="machine-card" id="machine-card">
+      <div class="machine-head">
+        <div>
+          <div class="machine-title" id="machine-title">第 1 步 · 将本机机器码发给管理员</div>
+          <div class="machine-device" id="machine-device">正在读取本机设备信息…</div>
+        </div>
+        <button type="button" id="btn-copy-machine" class="tool-btn" disabled>
+          <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span id="btn-copy-machine-text">复制机器码</span>
+        </button>
+      </div>
+      <div class="machine-code" id="machine-code">—</div>
+      <div class="machine-hint" id="machine-hint">License 仅对本机有效，复制到其他电脑无法使用。</div>
+
+      <!-- 在线一键申请：授权服务器可连通时显示；申请状态保存在本地，重启后自动恢复并继续查询 -->
+      <div class="request-box" id="request-box" hidden>
+        <div class="request-form" id="request-form">
+          <div class="request-title" id="request-title">或在线一键申请，管理员审批后自动激活</div>
+          <div class="request-fields">
+            <input type="text" id="request-name" class="request-input" maxlength="40" autocomplete="name" placeholder="申请人（必填）">
+            <input type="text" id="request-note" class="request-input" maxlength="200" placeholder="备注（选填，如部门/用途）">
+            <button type="button" id="btn-request" class="request-btn">提交申请</button>
+          </div>
+        </div>
+        <div class="request-status" id="request-status" hidden>
+          <span class="request-dot" aria-hidden="true"></span>
+          <div class="request-status-text">
+            <b id="request-status-title"></b>
+            <div id="request-status-detail"></div>
+          </div>
+          <div class="request-status-actions">
+            <button type="button" id="btn-request-refresh" class="tool-btn"><span id="btn-request-refresh-text">立即查询</span></button>
+            <button type="button" id="btn-request-cancel" class="tool-btn"><span id="btn-request-cancel-text">撤回</span></button>
+          </div>
+        </div>
+      </div>
+      <div class="request-offline" id="request-offline" hidden></div>
+    </section>
+
     <!-- Input Section -->
     <section class="input-section">
       <div class="input-meta-bar">
@@ -1037,8 +1127,32 @@
         zh: {
           docTitle: 'Dragon Platform - 软件授权激活',
           brandTag: '桌面企业版',
-          title: '首次运行授权激活',
-          subtitle: '请输入服务器授权管理页面签发的 EXE License（样例形如 DSKL1.eyJ2...）。有效期受非对称数字签名保护，无网络时也可在本地安全验证。',
+          title: '本机授权激活',
+          subtitle: 'License 按设备签发：先把下方本机机器码发给管理员，再粘贴管理员签发的 License。授权受数字签名保护，无网络时也能在本地校验。',
+          machineTitle: '第 1 步 · 将本机机器码发给管理员',
+          machineLoading: '正在读取本机设备信息…',
+          machineDevice: '本机：{host} · {os}',
+          machineCopy: '复制机器码',
+          machineCopied: '已复制',
+          machineHint: 'License 仅对本机有效，复制到其他电脑无法使用。第 2 步：把管理员发回的 License 粘贴到下方。',
+          machineWeak: '未能读取本机硬件标识，已改用本机生成的设备 ID（重装系统或清理用户目录后可能需要重新申请）。',
+          machineUnavailable: '无法读取本机设备信息，请重启软件后重试。',
+          requestTitle: '或在线一键申请，管理员审批后自动激活',
+          requestName: '申请人（必填）',
+          requestNote: '备注（选填，如部门/用途）',
+          requestSubmit: '提交申请',
+          requestSubmitting: '正在提交…',
+          requestNameRequired: '请填写申请人，便于管理员识别',
+          requestPending: '申请已提交，等待管理员审批',
+          requestPendingDetail: '申请人 {name} · 提交于 {time} · 审批后自动激活，每 15 秒自动查询{checked}',
+          requestChecked: '（上次 {time}）',
+          requestRejected: '申请未通过',
+          requestRejectedDetail: '{reason}可修改信息后重新提交',
+          requestRefresh: '立即查询',
+          requestCancel: '撤回',
+          requestOffline: '当前无法连接授权服务器，暂不能在线申请。请复制上方机器码发给管理员，收到 License 后粘贴到下方。',
+          requestFailed: '提交失败：',
+          requestApproved: '申请已获批准，License 已自动激活，正在启动…',
           inputLabel: '许可证密钥 (License Key)',
           placeholder: '请在此粘贴完整的许可证密钥（样例：DSKL1.eyJ2ZXJzaW9u...MEQC...）...',
           sampleBadge: '输入样例',
@@ -1097,14 +1211,41 @@
             TOKEN_MISMATCH: '服务器校验凭据与当前提交的密钥不符',
             VERIFICATION_FAILED: '授权验证未通过，请检查密钥是否正确',
             ONLINE_UNAVAILABLE: '无法连接到授权服务器，且本地无有效离线缓存',
-            UNKNOWN_ERROR: '验证过程中发生未预期异常，请稍后重试'
+            UNKNOWN_ERROR: '验证过程中发生未预期异常，请稍后重试',
+            LEGACY_LICENSE: '这是旧版通用 License，已停止使用。请把本机机器码发给管理员，申请绑定本机的新 License',
+            MACHINE_MISMATCH: '该 License 绑定的是其他设备，不能在本机使用。请把本机机器码发给管理员重新申请',
+            MACHINE_UNAVAILABLE: '无法读取本机设备信息，请重启软件后重试'
           }
         },
         en: {
           docTitle: 'Dragon Platform - License Activation',
           brandTag: 'Enterprise Desktop',
-          title: 'First-Run License Activation',
-          subtitle: 'Please enter the EXE license key issued by your system administrator (e.g. DSKL1.eyJ2...). Protected by asymmetric cryptography with full offline validation.',
+          title: 'Device License Activation',
+          subtitle: 'Licenses are issued per device: send the machine code below to your administrator, then paste the license they issue. Signed licenses can also be verified offline.',
+          machineTitle: 'Step 1 · Send this machine code to your administrator',
+          machineLoading: 'Reading device information…',
+          machineDevice: 'This device: {host} · {os}',
+          machineCopy: 'Copy code',
+          machineCopied: 'Copied',
+          machineHint: 'The license only works on this device. Step 2: paste the license you receive below.',
+          machineWeak: 'Hardware identifiers were unavailable, so a locally generated device ID is used (you may need a new license after reinstalling the OS or clearing user data).',
+          machineUnavailable: 'Device information is unavailable. Please restart the app and try again.',
+          requestTitle: 'Or apply online — it activates automatically once approved',
+          requestName: 'Applicant (required)',
+          requestNote: 'Note (optional, e.g. team/purpose)',
+          requestSubmit: 'Apply',
+          requestSubmitting: 'Submitting…',
+          requestNameRequired: 'Please enter the applicant name so the administrator can identify you',
+          requestPending: 'Request submitted, waiting for approval',
+          requestPendingDetail: 'Applicant {name} · submitted {time} · activates automatically, checking every 15s{checked}',
+          requestChecked: ' (last {time})',
+          requestRejected: 'Request rejected',
+          requestRejectedDetail: '{reason}You can edit the details and apply again',
+          requestRefresh: 'Check now',
+          requestCancel: 'Withdraw',
+          requestOffline: 'The license server is unreachable, so online requests are unavailable. Copy the machine code above to your administrator and paste the license you receive below.',
+          requestFailed: 'Request failed: ',
+          requestApproved: 'Request approved. The license was activated automatically, starting…',
           inputLabel: 'License Key',
           placeholder: 'Paste your complete license key here (e.g. DSKL1.eyJ2ZXJzaW9u...MEQC...)...',
           sampleBadge: 'Sample Format',
@@ -1163,7 +1304,10 @@
             TOKEN_MISMATCH: 'Returned voucher does not match the submitted license key',
             VERIFICATION_FAILED: 'License verification failed. Please check your key and try again',
             ONLINE_UNAVAILABLE: 'Cannot connect to license server and no valid offline signature found',
-            UNKNOWN_ERROR: 'An unexpected error occurred during verification. Please try again'
+            UNKNOWN_ERROR: 'An unexpected error occurred during verification. Please try again',
+            LEGACY_LICENSE: 'This is a retired universal license. Send this machine code to your administrator for a device-bound license',
+            MACHINE_MISMATCH: 'This license is bound to another device. Send this machine code to your administrator for a new one',
+            MACHINE_UNAVAILABLE: 'Device information is unavailable. Please restart the app and try again'
           }
         }
       };
@@ -1232,8 +1376,109 @@
         step1Title: document.getElementById('step-1-title'),
         step2Title: document.getElementById('step-2-title'),
         step3Title: document.getElementById('step-3-title'),
-        step4Title: document.getElementById('step-4-title')
+        step4Title: document.getElementById('step-4-title'),
+        machineCard: document.getElementById('machine-card'),
+        machineTitle: document.getElementById('machine-title'),
+        machineDevice: document.getElementById('machine-device'),
+        machineCode: document.getElementById('machine-code'),
+        machineHint: document.getElementById('machine-hint'),
+        btnCopyMachine: document.getElementById('btn-copy-machine'),
+        btnCopyMachineText: document.getElementById('btn-copy-machine-text'),
+        requestBox: document.getElementById('request-box'),
+        requestForm: document.getElementById('request-form'),
+        requestTitle: document.getElementById('request-title'),
+        requestName: document.getElementById('request-name'),
+        requestNote: document.getElementById('request-note'),
+        btnRequest: document.getElementById('btn-request'),
+        requestStatus: document.getElementById('request-status'),
+        requestStatusTitle: document.getElementById('request-status-title'),
+        requestStatusDetail: document.getElementById('request-status-detail'),
+        btnRequestRefresh: document.getElementById('btn-request-refresh'),
+        btnRequestRefreshText: document.getElementById('btn-request-refresh-text'),
+        btnRequestCancel: document.getElementById('btn-request-cancel'),
+        btnRequestCancelText: document.getElementById('btn-request-cancel-text'),
+        requestOffline: document.getElementById('request-offline')
       };
+      let requestState = null;
+      let requestOnline = null; // null = 尚在探测
+      let requestSubmitting = false;
+
+      function formatClock(value) {
+        if (!value) return '-';
+        const d = new Date(value);
+        const pad = n => String(n).padStart(2, '0');
+        return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+
+      function renderRequest() {
+        const t = I18N[currentLang];
+        if (!elements.requestBox) return;
+        elements.requestTitle.textContent = t.requestTitle;
+        elements.requestName.placeholder = t.requestName;
+        elements.requestNote.placeholder = t.requestNote;
+        elements.btnRequest.textContent = requestSubmitting ? t.requestSubmitting : t.requestSubmit;
+        elements.btnRequestRefreshText.textContent = t.requestRefresh;
+        elements.btnRequestCancelText.textContent = t.requestCancel;
+        const pending = Boolean(requestState && requestState.status === 'pending');
+        const rejected = Boolean(requestState && requestState.status === 'rejected');
+        // 有待审批申请时即使暂时连不上也展示状态（网络恢复后会继续查询）
+        elements.requestBox.hidden = !(requestOnline || pending);
+        elements.requestOffline.hidden = requestOnline !== false || pending;
+        elements.requestOffline.textContent = t.requestOffline;
+        elements.requestForm.hidden = pending;
+        elements.requestStatus.hidden = !(pending || rejected);
+        elements.requestStatus.classList.toggle('is-rejected', rejected);
+        elements.btnRequestRefresh.hidden = !pending;
+        elements.btnRequestCancel.hidden = !pending;
+        if (pending) {
+          elements.requestStatusTitle.textContent = t.requestPending;
+          elements.requestStatusDetail.textContent = t.requestPendingDetail
+            .replace('{name}', requestState.applicantName || '-')
+            .replace('{time}', formatClock(requestState.createdAt))
+            .replace('{checked}', requestState.lastCheckedAt ? t.requestChecked.replace('{time}', formatClock(requestState.lastCheckedAt)) : '');
+        } else if (rejected) {
+          elements.requestStatusTitle.textContent = t.requestRejected;
+          elements.requestStatusDetail.textContent = t.requestRejectedDetail.replace('{reason}', requestState.rejectReason ? `${requestState.rejectReason}。` : '');
+          if (!elements.requestName.value) elements.requestName.value = requestState.applicantName || '';
+          if (!elements.requestNote.value) elements.requestNote.value = requestState.applicantNote || '';
+        }
+      }
+
+      function applyRequestResult(result) {
+        if (!result) return;
+        if (result.license && result.license.valid) {
+          requestState = null;
+          renderRequest();
+          showStatus(I18N[currentLang].requestApproved, 'success');
+          return;
+        }
+        if ('request' in result) requestState = result.request;
+        renderRequest();
+      }
+      let machineInfo = null;
+      let machineLoaded = false;
+
+      const OS_NAMES = { win32: 'Windows', darwin: 'macOS', linux: 'Linux' };
+      function renderMachine() {
+        const t = I18N[currentLang];
+        elements.machineTitle.textContent = t.machineTitle;
+        elements.btnCopyMachineText.textContent = t.machineCopy;
+        if (!machineInfo) {
+          elements.machineDevice.textContent = machineLoaded ? t.machineUnavailable : t.machineLoading;
+          elements.machineCode.textContent = '—';
+          elements.machineHint.textContent = t.machineHint;
+          elements.btnCopyMachine.disabled = true;
+          return;
+        }
+        const weak = machineInfo.source === 'fallback';
+        elements.machineCard.classList.toggle('is-weak', weak);
+        elements.machineDevice.textContent = t.machineDevice
+          .replace('{host}', machineInfo.host || '-')
+          .replace('{os}', OS_NAMES[machineInfo.platform] || machineInfo.platform || '-');
+        elements.machineCode.textContent = machineInfo.machineCode;
+        elements.machineHint.textContent = weak ? t.machineWeak : t.machineHint;
+        elements.btnCopyMachine.disabled = false;
+      }
 
       let currentStageName = 'START';
       let currentProgressPercent = 0;
@@ -1251,6 +1496,8 @@
         document.title = t.docTitle;
         elements.title.textContent = t.title;
         elements.subtitle.textContent = t.subtitle;
+        renderMachine();
+        renderRequest();
         elements.brandTag.textContent = t.brandTag;
         elements.licenseToken.placeholder = t.placeholder;
         elements.btnPasteText.textContent = t.pasteBtn;
@@ -1536,9 +1783,66 @@
         }
       });
 
+      elements.btnCopyMachine.addEventListener('click', () => {
+        if (!machineInfo) return;
+        const ok = window.DesktopLicense && typeof window.DesktopLicense.writeClipboard === 'function'
+          && window.DesktopLicense.writeClipboard(machineInfo.machineCode);
+        if (!ok && navigator.clipboard) navigator.clipboard.writeText(machineInfo.machineCode).catch(() => {});
+        elements.btnCopyMachineText.textContent = I18N[currentLang].machineCopied;
+        setTimeout(() => { elements.btnCopyMachineText.textContent = I18N[currentLang].machineCopy; }, 1600);
+      });
+
+      if (window.DesktopLicense && typeof window.DesktopLicense.requestInfo === 'function') {
+        window.DesktopLicense.requestInfo().then(info => {
+          requestOnline = Boolean(info && info.onlineAvailable);
+          requestState = info && info.request ? info.request : null;
+          renderRequest();
+        }).catch(() => { requestOnline = false; renderRequest(); });
+        if (typeof window.DesktopLicense.onRequestUpdate === 'function') window.DesktopLicense.onRequestUpdate(applyRequestResult);
+
+        elements.btnRequest.addEventListener('click', async () => {
+          const t = I18N[currentLang];
+          const applicantName = elements.requestName.value.trim();
+          if (!applicantName) {
+            showStatus(t.requestNameRequired, 'error');
+            elements.requestName.focus();
+            return;
+          }
+          requestSubmitting = true;
+          elements.btnRequest.disabled = true;
+          renderRequest();
+          try {
+            const result = await window.DesktopLicense.submitRequest({ applicantName, applicantNote: elements.requestNote.value.trim() });
+            if (result && result.ok) {
+              requestState = result.request;
+              elements.statusBox.className = 'status-alert';
+            } else {
+              const reason = (result && (t.reasons[result.code] || result.error)) || t.reasons.UNKNOWN_ERROR;
+              showStatus(`${t.requestFailed}${reason}`, 'error', result && result.code);
+            }
+          } finally {
+            requestSubmitting = false;
+            elements.btnRequest.disabled = false;
+            renderRequest();
+          }
+        });
+        elements.btnRequestRefresh.addEventListener('click', async () => {
+          elements.btnRequestRefresh.disabled = true;
+          try { applyRequestResult(await window.DesktopLicense.refreshRequest()); } finally { elements.btnRequestRefresh.disabled = false; }
+        });
+        elements.btnRequestCancel.addEventListener('click', async () => {
+          await window.DesktopLicense.cancelRequest();
+          requestState = null;
+          renderRequest();
+        });
+      }
+
       // Check initial state from main process
       if (window.DesktopLicense && typeof window.DesktopLicense.getState === 'function') {
         window.DesktopLicense.getState().then(state => {
+          machineInfo = state && state.machine ? state.machine : null;
+          machineLoaded = true;
+          renderMachine();
           if (state && state.reasonCode && state.reasonCode !== 'LICENSE_REQUIRED') {
             const t = I18N[currentLang];
             const reasonMsg = t.reasons[state.reasonCode] || state.reasonCode;

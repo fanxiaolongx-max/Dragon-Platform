@@ -282,8 +282,8 @@ function activateInitialSection(sections) {
     if (first && first.secId) activateSectionTab(first.secId);
 }
 
-function clearWorkspaceCache({ skipConfirm = false } = {}) {
-    if (!skipConfirm && !confirm(SLAT('sla.upload.confirmClearCache'))) return false;
+async function clearWorkspaceCache({ skipConfirm = false } = {}) {
+    if (!skipConfirm && !await AppDialog.confirm(SLAT('sla.upload.confirmClearCache'), { title: SLAT('sla.dialog.confirm'), tone: 'danger', cancelText: SLAT('sla.dialog.cancel') })) return false;
     try {
         localStorage.removeItem(SLA_WORKSPACE_CACHE_KEY);
         localStorage.removeItem(SLA_WORKSPACE_CACHE_STATUS_KEY);
@@ -579,14 +579,14 @@ async function handleSpecificUploadInternal(e, forceMode) {
     const monthFilter = filterSourcesByTargetMonth(files);
     files = monthFilter.kept;
     if (!files.length) {
-        alert(`所选文件均不是目标月份 ${monthFilter.targetMonth} 月的数据，已忽略导入。`);
+        AppDialog.alert(`所选文件均不是目标月份 ${monthFilter.targetMonth} 月的数据，已忽略导入。`, { title: SLAT('sla.dialog.notice'), tone: 'warning' });
         e.target.value = '';
         return;
     }
     document.getElementById('main-wrapper').innerHTML = `<div class="loading-text">${SLAT('sla.upload.parseLoading')}</div>`;
     document.getElementById('summary-nav-area').style.display = 'none';
     const rawData = await readFiles(files);
-    if (!rawData.length) { alert(SLAT('sla.upload.emptyFile')); document.getElementById('main-wrapper').innerHTML = ''; return; }
+    if (!rawData.length) { AppDialog.alert(SLAT('sla.upload.emptyFile'), { title: SLAT('sla.dialog.error'), tone: 'error' }); document.getElementById('main-wrapper').innerHTML = ''; return; }
     document.getElementById('main-wrapper').innerHTML = '';
     resetRuntimeWorkspace();
     const titleMap = {

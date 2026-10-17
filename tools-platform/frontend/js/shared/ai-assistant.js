@@ -176,7 +176,7 @@
             color:#fff; background:linear-gradient(135deg,#6366f1,#8b5cf6 58%,#c026d3); box-shadow:0 3px 10px rgba(109,40,217,.22);
             font-size:9px; line-height:1.3; letter-spacing:.06em; text-transform:uppercase;
         }
-        .ai-proactive-alert-text { display:block; }
+        .ai-proactive-alert-text { display:block; overflow-wrap:anywhere; }
         .ai-proactive-alert-ai-panel {
             display:none; position:relative; margin-top:10px; padding:9px 10px; overflow:hidden; border:1px solid transparent; border-radius:11px;
             background:linear-gradient(#f8faff,#f8faff) padding-box,linear-gradient(115deg,#60a5fa,#8b5cf6,#ec4899,#22d3ee,#60a5fa) border-box;
@@ -218,9 +218,16 @@
         body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-action { color:#aab7cc; background:rgba(30,41,59,.8); border-color:rgba(129,140,248,.28); }
         .ai-proactive-alert[data-theme="graph"] .ai-proactive-alert-action:hover,
         body.ai-kg-open .ai-proactive-alert .ai-proactive-alert-action:hover { color:#c7d2fe; background:#26324a; border-color:rgba(129,140,248,.5); }
-        @media (max-width: 520px) {
-            .ai-proactive-alert { width:calc(100vw - 28px); }
-        }
+        .ai-proactive-alert[data-compact="true"] { padding:11px 12px; border-radius:14px; font-size:12px; line-height:1.5; overscroll-behavior:contain; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-kicker { padding-right:28px; margin-bottom:4px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-text { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-ai-panel { margin-top:8px; padding:7px 8px; border-radius:9px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-ai-text { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-footer { flex-wrap:wrap; gap:6px; margin-top:7px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-hint { flex-basis:100%; font-size:10px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-actions { margin-left:auto; max-width:100%; flex-wrap:wrap; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-action { min-height:32px; font-size:11px; }
+        .ai-proactive-alert[data-compact="true"] .ai-proactive-alert-close { right:5px; top:4px; width:30px; height:30px; }
         @media (prefers-reduced-motion: reduce) {
             .ai-proactive-alert, .ai-proactive-alert.show, .ai-proactive-alert.is-leaving, .ai-proactive-alert.is-closing, .ai-proactive-alert-ai-panel, .ai-proactive-alert-ai-char { animation:none; transition:opacity .01ms linear; transform:none; filter:none; }
             .ai-proactive-alert-ai-char { opacity:1; }
@@ -1210,23 +1217,35 @@
 
     function positionProactiveAlert() {
         const rect = fab.getBoundingClientRect();
-        const width = Math.min(360, Math.max(240, window.innerWidth - 32));
-        const left = Math.min(window.innerWidth - width - 14, Math.max(14, rect.right - width));
+        // 使用可见视口，避免页面横向溢出、Safari 工具栏或软键盘让浮层定位到屏幕之外。
+        const viewport = window.visualViewport;
+        const viewportWidth = viewport?.width || document.documentElement.clientWidth || window.innerWidth;
+        const viewportHeight = viewport?.height || window.innerHeight;
+        const compact = viewportWidth <= 600 || (window.matchMedia('(pointer: coarse)').matches && viewportHeight <= 500);
+        const margin = 12;
+        const minLeft = (viewport?.offsetLeft || 0) + margin;
+        const minTop = (viewport?.offsetTop || 0) + margin;
+        const maxRight = minLeft + viewportWidth - margin * 2;
+        const maxBottom = minTop + viewportHeight - margin * 2;
+        const width = Math.max(0, Math.min(compact ? 320 : 360, viewportWidth - margin * 2));
+        const left = Math.max(minLeft, Math.min(maxRight - width, rect.right - width));
+        proactiveAlert.dataset.compact = String(compact);
+        proactiveAlert.style.width = `${width}px`;
+        const viewportLimit = Math.max(0, Math.min(maxBottom - minTop, compact ? Math.min(280, viewportHeight * .45) : Infinity));
         proactiveAlert.style.maxHeight = '';
         proactiveAlert.style.overflowY = '';
         const measuredHeight = proactiveAlert.offsetHeight || 118;
-        const availableAbove = Math.max(0, rect.top - 26);
-        const availableBelow = Math.max(0, window.innerHeight - rect.bottom - 26);
+        const availableAbove = Math.max(0, Math.min(maxBottom, rect.top - 14) - minTop);
+        const availableBelow = Math.max(0, maxBottom - Math.max(minTop, rect.bottom + 14));
         const placeAbove = measuredHeight <= availableAbove || availableAbove >= availableBelow;
         const availableSpace = placeAbove ? availableAbove : availableBelow;
-        if (measuredHeight > availableSpace) {
-            proactiveAlert.style.maxHeight = `${Math.max(96, availableSpace)}px`;
-            proactiveAlert.style.overflowY = 'auto';
-        }
-        const height = Math.min(measuredHeight, Math.max(96, availableSpace));
+        const heightLimit = Math.min(viewportLimit, availableSpace);
+        proactiveAlert.style.maxHeight = `${heightLimit}px`;
+        proactiveAlert.style.overflowY = measuredHeight > heightLimit ? 'auto' : '';
+        const height = Math.min(measuredHeight, heightLimit);
         const top = placeAbove ? rect.top - height - 14 : rect.bottom + 14;
         proactiveAlert.style.left = `${Math.round(left)}px`;
-        proactiveAlert.style.top = `${Math.round(Math.max(12, top))}px`;
+        proactiveAlert.style.top = `${Math.round(Math.max(minTop, Math.min(maxBottom - height, top)))}px`;
         proactiveAlert.dataset.placement = placeAbove ? 'above' : 'below';
         const arrowRight = Math.min(width - 30, Math.max(18, left + width - (rect.left + rect.width / 2) - 7));
         proactiveAlert.style.setProperty('--ai-alert-arrow-right', `${Math.round(arrowRight)}px`);
@@ -1310,6 +1329,8 @@
         proactiveHideTimer = window.setTimeout(() => hideProactiveAlert(), PROACTIVE_HOVER_LEAVE_GRACE_MS);
     });
     window.addEventListener('resize', positionProactiveAlert);
+    window.visualViewport?.addEventListener('resize', positionProactiveAlert);
+    window.visualViewport?.addEventListener('scroll', positionProactiveAlert);
     document.addEventListener('visibilitychange', () => {
         if (!document.hidden && !proactiveTimer && !proactiveAlert.classList.contains('show')) scheduleProactiveAlert();
     });

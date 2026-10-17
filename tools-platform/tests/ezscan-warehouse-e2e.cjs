@@ -18,7 +18,7 @@ const pool = require('../backend/models/tenant-sqlite-pool');
 const { runWithTenant } = require('../backend/models/tenant-context');
 const root = path.join(__dirname, '..');
 const route = '/api/custom-tools/tool-mv9strpn/warehouse';
-let server, puts = 0, exitCode = 0;
+let server, puts = 0, exitCode = 0, failPuts = 0, delayPuts = 0;
 const windows = [], errors = [];
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const evaluate = (win, fn, ...args) => win.webContents.executeJavaScript(`(${fn.toString()})(...${JSON.stringify(args)})`, true)
@@ -75,9 +75,13 @@ app.whenReady().then(async () => {
     web.use(express.json({ limit: '25mb' }));
     // Authentication has separate route tests; this fixture keeps real tenant
     // context, validation, optimistic concurrency and SQLite persistence.
-    web.use(route, (req, _res, next) => {
+    web.use(route, (req, res, next) => {
         req.user = { username: 'e2e-user', role: req.headers.cookie?.includes('warehouse_e2e_viewer=1') ? 'user' : 'admin', tenantId: 'default' };
-        if (req.method === 'PUT') puts++;
+        if (req.method === 'PUT') {
+            puts++;
+            if (failPuts > 0) { failPuts--; return res.status(503).json({ error: 'Test server temporarily unavailable' }); }
+            if (delayPuts) return setTimeout(() => runWithTenant('default', next), delayPuts);
+        }
         runWithTenant('default', next);
     }, require('../backend/routes/ezscan-warehouse'));
     web.get('/warehouse', (_req, res) => res.type('html').send(require('../backend/models/custom-tool-i18n-service').injectLanguageRuntime(
@@ -105,12 +109,22 @@ app.whenReady().then(async () => {
         qty.value = '7';
         qty.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await flush(first);
+    // Normal typing must save without the test forcing a flush.
+    await until(first, () => !storage.getStatus().pending && !storage.getStatus().saving);
     assert.equal((await repo.loadState()).data.docs[0].status, '草稿');
     await click(first, '[data-action="submitDoc"]');
-    await flush(first);
+    await until(first, () => !businessSaving && !storage.getStatus().pending);
+    delayPuts = 800;
     await click(first, '[data-action="approveDoc"]');
-    await flush(first);
+    assert.match(await evaluate(first, () => document.querySelector('#toast').textContent), /正在保存/);
+    assert.equal(await evaluate(first, () => document.querySelector('[data-action="unapproveDoc"]').disabled), true);
+    assert.equal((await repo.loadState()).data.docs[0].status, '已提交', 'The server has not acknowledged the delayed approval');
+    fs.writeFileSync(path.join(screenshots, 'approval-saving.png'), (await first.webContents.capturePage()).toPNG());
+    await until(first, () => !businessSaving && !storage.getStatus().pending);
+    delayPuts = 0;
+    assert.match(await evaluate(first, () => document.querySelector('#toast').textContent), /已审核，已保存到服务器/);
+    assert.doesNotMatch(await evaluate(first, () => document.querySelector('#toast').textContent), /尚未保存/);
+    fs.writeFileSync(path.join(screenshots, 'approval-server-confirmed.png'), (await first.webContents.capturePage()).toPNG());
     const saved = await repo.loadState();
     assert.equal(saved.data.docs[0].status, '已审核');
     assert.equal(saved.data.docs[0].lines[0].qty, 7);
@@ -166,6 +180,26 @@ app.whenReady().then(async () => {
     await evaluate(first, () => closeModal());
 
     // Test every screen and detail with actual records from the server generator.
+    // A failed automatic save must remain visibly unsaved and recover on online.
+    await evaluate(first, () => { navigate('其他入库单'); newDoc(); });
+    await until(first, () => !storage.getStatus().pending);
+    assert.match(await evaluate(first, () => document.querySelector('#toast').textContent), /已保存到服务器/);
+    failPuts = 3;
+    await evaluate(first, () => {
+        const field = document.querySelector('[data-doc="remark"]');
+        field.value = 'offline draft recovery';
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await until(first, () => !!storage.getStatus().error && !storage.getStatus().saving);
+    assert.equal(await evaluate(first, () => storage.getStatus().pending), true);
+    assert.notEqual((await repo.loadState()).data.docs[0].remark, 'offline draft recovery');
+    assert.match(await evaluate(first, () => document.querySelector('#storageBanner').textContent), /保存失败/);
+    fs.writeFileSync(path.join(screenshots, 'save-failure-recovery.png'), (await first.webContents.capturePage()).toPNG());
+    await evaluate(first, () => window.dispatchEvent(new Event('online')));
+    await until(first, () => !storage.getStatus().pending && !storage.getStatus().saving);
+    assert.equal((await repo.loadState()).data.docs[0].remark, 'offline draft recovery');
+    await evaluate(first, () => deleteRecord(currentId));
+    await until(first, () => !storage.getStatus().pending);
     await evaluate(first, () => modifySamples('add'));
     await flush(first);
     const sampleCount = (await repo.loadState()).data.docs.length;
@@ -188,15 +222,15 @@ app.whenReady().then(async () => {
     });
     assert.equal(allPages.length, 28);
     // Every document type must apply and reverse its own stock effects.
-    await evaluate(first, () => {
+    await evaluate(first, async () => {
         for (const type of DOCS) {
             const doc = db.docs.find(row => row.sampleTag && row.type === type && row.status === '草稿');
             showDoc(doc.id);
             if (docValidation(doc)) throw Error(type + ': ' + docValidation(doc));
             const before = stockMap();
-            setStatus('submitDoc');
+            await setStatus('submitDoc');
             if (doc.status !== '已提交') throw Error(type + ' did not submit');
-            setStatus('approveDoc');
+            await setStatus('approveDoc');
             if (doc.status !== '已审核') throw Error(type + ' did not approve');
             const expected = new Map(before);
             const changes = {'其他入库单':[3,4],'采购入库单':[3,4],'生产入库单':[3,4],'退货入库单':[3,4],'盘盈入库单':[3,4],'采购收货单':[3,4],'其他出库单':[-3,-4],'领料出库单':[-3,-4],'销售发货单':[-3,-4],'库存调拨单':[-3,-4],'形态转换单':[-3,-4]};
@@ -214,7 +248,7 @@ app.whenReady().then(async () => {
                 expected.set(target, before.get(target) + 5);
             }
             for (const [key, qty] of expected) if (Math.abs(stockMap().get(key) - qty) > 1e-7) throw Error(type + ' stock effect mismatch');
-            setStatus('unapproveDoc');
+            await setStatus('unapproveDoc');
             if (doc.status !== '草稿') throw Error(type + ' did not reverse');
             for (const [key, qty] of before) if (Math.abs(stockMap().get(key) - qty) > 1e-7) throw Error(type + ' reverse mismatch');
         }
@@ -222,26 +256,26 @@ app.whenReady().then(async () => {
     await flush(first);
     assert.equal((await repo.loadState()).data.docs.length, sampleCount);
 
-    await evaluate(first, () => {
+    await evaluate(first, async () => {
         const order = db.docs.find(row => row.sampleTag && row.type === '采购订单' && row.status === '已审核');
         showDoc(order.id); executeOrder();
         const child = currentDoc();
         if (child.sourceId !== order.id || !document.querySelector('[data-doc="partner"]').disabled) throw Error('Order linkage is not protected');
         showDoc(order.id); executeOrder();
         if (currentDoc().id !== child.id || db.docs.filter(row => row.sourceId === order.id).length !== 1) throw Error('Duplicate execution document created');
-        setStatus('submitDoc'); setStatus('approveDoc');
+        await setStatus('submitDoc'); await setStatus('approveDoc');
         if (child.status !== '已审核' || !db.payables.some(bill => bill.docId === child.id)) throw Error('Execution approval did not create its linked bill');
-        showDoc(order.id); setStatus('unapproveDoc');
+        showDoc(order.id); await setStatus('unapproveDoc');
         if (order.status !== '已审核') throw Error('Order with execution document was reversed');
-        showDoc(child.id); setStatus('unapproveDoc');
+        showDoc(child.id); await setStatus('unapproveDoc');
         if (!deleteRecord(child.id)) throw Error('Reversed execution draft could not be deleted');
         const outbound = db.docs.find(row => row.sampleTag && row.type === '其他出库单' && row.status === '草稿');
         showDoc(outbound.id);
         const qty = outbound.lines[0].qty; outbound.lines[0].qty = 1000000;
         const before = JSON.stringify([...stockMap()]);
-        setStatus('submitDoc'); setStatus('approveDoc');
+        await setStatus('submitDoc'); await setStatus('approveDoc');
         if (outbound.status !== '已提交' || before !== JSON.stringify([...stockMap()])) throw Error('Negative-stock approval was allowed');
-        setStatus('withdrawDoc'); outbound.lines[0].qty = qty;
+        await setStatus('withdrawDoc'); outbound.lines[0].qty = qty;
         generateSN();
         if (outbound.lines[0].sn.length !== qty) throw Error('Serial generation failed');
         const input = document.querySelector('[data-line-key="qty"]'); input.value = String(qty + 1); updateDocumentInput(input);

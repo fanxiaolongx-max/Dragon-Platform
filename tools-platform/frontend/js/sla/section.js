@@ -310,6 +310,18 @@ function getSRSeverity(row) {
     return 'normal';
 }
 
+
+// 同一次渲染可能跳过多个区块：合并成一条统一弹窗提示，避免逐个打断或互相覆盖
+const skippedSectionMessages = [];
+function warnSkippedSection(message) {
+    console.warn('[SLA section]', message);
+    skippedSectionMessages.push(message);
+    if (skippedSectionMessages.length > 1) return;
+    setTimeout(() => {
+        const text = skippedSectionMessages.splice(0).join('\n');
+        AppDialog.alert(text, { title: SLAT('sla.dialog.notice'), tone: 'warning' });
+    }, 0);
+}
 function formatSRDuration(hours) {
     const absHours = Math.abs(Math.ceil(hours || 0));
     if (absHours <= 48) {
@@ -350,20 +362,20 @@ async function initSection(secId, mode, title, rawData, themeColor, baseName = '
     if (sectionRuleConfig) {
         const statusFields = mode === 'sr' ? sectionRuleConfig.fields.status : sectionRuleConfig.statusFields;
         if (!statusFields.some(field => validHeaders.includes(field))) {
-            alert(`区块 [${title}] 未找到已配置的状态字段（${statusFields.join(' / ')}），跳过渲染。`);
+            warnSkippedSection(`区块 [${title}] 未找到已配置的状态字段（${statusFields.join(' / ')}），跳过渲染。`);
             return;
         }
-    } else if (mode === 'rectification' && !validHeaders.includes('task_status')) { alert(`区块 [${title}] 未找到 task_status，跳过渲染。`); return; }
+    } else if (mode === 'rectification' && !validHeaders.includes('task_status')) { warnSkippedSection(`区块 [${title}] 未找到 task_status，跳过渲染。`); return; }
     if (mode === 'risk') {
         const statusFields = (riskRuleConfig && riskRuleConfig.statusFields) || ['风险状态', 'risk_status'];
         if (!statusFields.some(field => validHeaders.includes(field))) {
-            alert(`区块 [${title}] 未找到已配置的状态字段（${statusFields.join(' / ')}），跳过渲染。`);
+            warnSkippedSection(`区块 [${title}] 未找到已配置的状态字段（${statusFields.join(' / ')}），跳过渲染。`);
             return;
         }
     }
-    if (!sectionRuleConfig && mode === 'special' && !(validHeaders.includes('状态-Status') || validHeaders.includes('task_status_en') || validHeaders.includes('task_status') || validHeaders.includes('task_status_cn'))) { alert(`区块 [${title}] 未找到状态列，跳过渲染。`); return; }
-    if (!sectionRuleConfig && mode === 'sr' && !validHeaders.includes('sr_status_name')) { alert(`区块 [${title}] 未找到 sr_status_name，跳过渲染。`); return; }
-    if (!sectionRuleConfig && mode === 'vulnerability' && !validHeaders.includes('task_status')) { alert(`区块 [${title}] 未找到 task_status，跳过渲染。`); return; }
+    if (!sectionRuleConfig && mode === 'special' && !(validHeaders.includes('状态-Status') || validHeaders.includes('task_status_en') || validHeaders.includes('task_status') || validHeaders.includes('task_status_cn'))) { warnSkippedSection(`区块 [${title}] 未找到状态列，跳过渲染。`); return; }
+    if (!sectionRuleConfig && mode === 'sr' && !validHeaders.includes('sr_status_name')) { warnSkippedSection(`区块 [${title}] 未找到 sr_status_name，跳过渲染。`); return; }
+    if (!sectionRuleConfig && mode === 'vulnerability' && !validHeaders.includes('task_status')) { warnSkippedSection(`区块 [${title}] 未找到 task_status，跳过渲染。`); return; }
 
     const targetPriorityCols = mode === 'rectification' ? RECT_P : (mode === 'risk' ? RISK_P : (mode === 'special' ? SPEC_P : (mode === 'sr' ? SR_P : (mode === 'vulnerability' ? VULN_P : []))));
     const foundPriorityCols = targetPriorityCols.filter(col => validHeaders.includes(col));

@@ -256,8 +256,8 @@ function showScriptRenameDialog(script) {
     const confirmBtn = document.getElementById('uivScriptRenameSubmit');
 
     if (!overlay || !input || !cancelBtn || !confirmBtn) {
-        const promptResult = window.prompt(UIVT('uiv.script.renamePrompt') || '请输入新的脚本名称：', script?.name || '');
-        return Promise.resolve(promptResult ? promptResult.trim() : null);
+        return AppDialog.prompt(UIVT('uiv.script.renamePrompt') || '请输入新的脚本名称：', { title: UIVT('uiv.dialog.renameTitle'), defaultValue: script?.name || '', maxLength: 100 })
+            .then(promptResult => (promptResult ? promptResult.trim() : null));
     }
 
     const currentName = String(script?.name || '').trim();
@@ -608,7 +608,7 @@ function buildScriptItem(script) {
     conBtn.innerText = 'F12';
     conBtn.onclick = () => {
         if (script.consoleCode) window.UIVCopy.copyFromMemory(script.consoleCode, UIVT('uiv.copy.consoleScript'));
-        else alert(UIVT('uiv.alert.legacyScript'));
+        else AppDialog.alert(UIVT('uiv.alert.legacyScript'), { title: UIVT('uiv.dialog.notice'), tone: 'warning' });
     };
 
     const rightActions = document.createElement('div');
@@ -697,7 +697,7 @@ async function exportBackup() {
     try {
         const data = await API.get('/api/uiv/backup');
         if (data.scripts.length === 0 && (!data.categories || data.categories.length === 0)) {
-            alert(UIVT('uiv.alert.emptyExport')); return;
+            showToast(UIVT('uiv.alert.emptyExport'), 'warning'); return;
         }
         const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -719,14 +719,16 @@ async function importBackup(event) {
     reader.onload = async e => {
         try {
             const parsed = JSON.parse(e.target.result);
-            if (!Array.isArray(parsed.scripts)) { alert(UIVT('uiv.alert.invalidBackup')); return; }
-            const merge = confirm(UIVT('uiv.confirm.importMode'));
+            if (!Array.isArray(parsed.scripts)) { AppDialog.alert(UIVT('uiv.alert.invalidBackup'), { title: UIVT('uiv.dialog.error'), tone: 'error' }); return; }
+            // 原生 confirm 的「取消」代表覆盖导入；统一弹窗中关闭/Esc 也会返回 false，所以覆盖前再做一次危险确认，避免误清空仓库
+            const merge = await AppDialog.confirm(UIVT('uiv.confirm.importMode'), { title: UIVT('uiv.dialog.importTitle'), tone: 'info', confirmText: UIVT('uiv.dialog.merge'), cancelText: UIVT('uiv.dialog.overwrite') });
+            if (!merge && !await AppDialog.confirm(UIVT('uiv.confirm.importOverwrite'), { title: UIVT('uiv.dialog.overwriteTitle'), tone: 'danger', confirmText: UIVT('uiv.dialog.overwrite'), cancelText: UIVT('uiv.dialog.cancel') })) { event.target.value = ''; return; }
             await API.post('/api/uiv/backup', { scripts: parsed.scripts, categories: parsed.categories, merge });
             await loadSavedScripts();
             showToast(UIVT('uiv.toast.imported'));
             API.logHistory('uiv', merge ? '融合导入' : '覆盖导入', `共 ${parsed.scripts.length} 个脚本`);
         } catch (err) {
-            alert(UIVT('uiv.alert.importFail'));
+            AppDialog.alert(UIVT('uiv.alert.importFail'), { title: UIVT('uiv.dialog.error'), tone: 'error' });
         }
         event.target.value = '';
     };

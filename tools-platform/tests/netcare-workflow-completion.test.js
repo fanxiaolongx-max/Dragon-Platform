@@ -132,7 +132,7 @@ test('AI collection publishes the exact committed ZIP identity and never publish
             trace: (action, message, data) => events.push({action, message, data}), status: value => {$('status').textContent = value;},
             netcareArtifactRequest: async () => [{id: 'word', name: 'plan.docx'}], netcareReadArtifact: async () => new Blob(['Word']),
             netcareUniqueFilename: value => value, netcareSafeFilename: value => value, netcareCacheAudit() {}, localStorage: {},
-            netcareRunAudits: async () => [], requestAudit() {}, promptAiRetry() {}, appendTopLog() {},
+            netcareRunAudits: async () => [], requestAudit() {}, promptAiRetry() {}, appendTopLog() {}, netcareAuditLevel: () => 'standard',
             createNetcareZip: async () => new Blob(['ZIP']), netcareStoreArtifact: async () => {if (cacheFailure) throw Error('Cache full'); return bundleFileId;},
             netcareLogQueue: Promise.resolve(), netcareLogFailures: 0, captureDiagnostics: [], setTimeout: () => 1, clearTimeout() {}};
         vm.createContext(ctx);

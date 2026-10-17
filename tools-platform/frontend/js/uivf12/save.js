@@ -231,7 +231,7 @@ async function saveCurrentScript() {
     let codeUIV = document.getElementById('codeOutput').value;
     let codeConsole = document.getElementById('consoleOutput').value;
     const url = document.getElementById('requestUrl').value.trim();
-    if (!codeUIV || !codeConsole) { alert(UIVT('uiv.save.needGenerate')); return; }
+    if (!codeUIV || !codeConsole) { showToast(UIVT('uiv.save.needGenerate'), 'warning'); return; }
 
     // 不管 AI 命名当前处于何种状态（分析中、生成中或就绪），都支持立即保存当前脚本，不阻断保存流程
     window.UIVAINaming?.markSaved?.();
@@ -373,7 +373,7 @@ async function saveCurrentScript() {
         const msg = conflicts.length > 1
             ? UIVT('uiv.save.conflictMany', { count: conflicts.length })
             : UIVT('uiv.save.conflictOne', { name: conflicts[0].name });
-        if (!confirm(msg)) return;
+        if (!await AppDialog.confirm(msg, { title: UIVT('uiv.dialog.overwriteTitle'), tone: 'danger', cancelText: UIVT('uiv.dialog.cancel') })) return;
     }
 
     try {

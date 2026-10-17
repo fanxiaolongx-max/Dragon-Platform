@@ -288,6 +288,7 @@
 <script src="/js/shared/toast.js"></script>
     <script src="/js/shared/platform-logo-upload.js"></script>
     <script src="/js/shared/navbar.js"></script>
+    <script src="/js/shared/app-dialog.js"></script>
 
 <script>
     let globalParsedData = null;
@@ -674,7 +675,7 @@
         const rows = globalParsedData; 
         const monthInput = document.getElementById('targetMonth').value; 
         
-        if (!rows || rows.length < 2) return alert("表格数据异常！");
+        if (!rows || rows.length < 2) return void AppDialog.alert("表格数据异常！", { title: '无法计算', tone: 'error' });
 
         const getIdx = (keys) => {
             const lowerKeys = keys.map(k => k.toLowerCase());
@@ -698,7 +699,7 @@
         const idxOwner = getIdx(['当前责任人', '责任人', 'owner', 'sr_owner', 'cur_assignee']);
         const idxCustomer = getIdx(['客户名称', 'customer name', 'customer_name', 'network', '网络']);
 
-        if (idxExpClose === -1) return alert("❌ 找不到【期望关闭时间】列。");
+        if (idxExpClose === -1) return void AppDialog.alert("❌ 找不到【期望关闭时间】列。", { title: '缺少必需列', tone: 'error' });
 
         let frdCount = 0;
         let frcCount = 0;
@@ -966,7 +967,7 @@
 
     async function saveSnapshot(event) {
         if (!globalProcessedRows || globalProcessedRows.length === 0) {
-            return alert("暂无考核数据可保存，请先导入表格！");
+            return void showToast("暂无考核数据可保存，请先导入表格！", 'warning');
         }
         
         const payload = {
@@ -1004,10 +1005,10 @@
             if (typeof showToast !== 'undefined') {
                 showToast('✅ 快照保存成功！');
             } else {
-                alert('✅ 快照保存成功！');
+                AppDialog.alert('✅ 快照保存成功！', { title: '完成', tone: 'success' });
             }
         } catch (e) {
-            alert("保存失败：" + e.message);
+            AppDialog.alert("保存失败：" + e.message, { title: '保存失败', tone: 'error' });
             event.target.innerText = "💾 保存为快照";
             event.target.disabled = false;
         }
@@ -1189,12 +1190,12 @@
     }
 
     async function deleteSnapshot(id) {
-        if(!confirm(tText('确定删除该快照？', 'Are you sure you want to delete this snapshot?'))) return;
+        if(!await AppDialog.confirm(tText('确定删除该快照？', 'Are you sure you want to delete this snapshot?'), { title: tText('删除快照', 'Delete snapshot'), tone: 'danger', confirmText: tText('删除', 'Delete'), cancelText: tText('取消', 'Cancel') })) return;
         try {
             await API.delete('/api/frt/snapshots/' + id);
             openSnapshotsModal();
         } catch(e) {
-            alert(tText("删除失败: ", "Failed to delete: ") + e.message);
+            AppDialog.alert(tText("删除失败: ", "Failed to delete: ") + e.message, { title: tText('删除失败', 'Delete failed'), tone: 'error' });
         }
     }
 

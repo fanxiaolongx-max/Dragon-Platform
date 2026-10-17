@@ -983,11 +983,16 @@
 <body>
     <div class="home-content home-workspace">
         <aside class="home-sidebar" id="homeSidebar" aria-label="工具分类">
-            <label class="home-search">
-                <span class="home-search-icon" aria-hidden="true">⌕</span>
-                <input type="search" id="homeToolSearch" placeholder="搜索工具 / 拼音首字母" autocomplete="off" spellcheck="false">
-                <kbd class="home-search-kbd" aria-hidden="true">/</kbd>
-            </label>
+            <div class="home-sidebar-head">
+                <label class="home-search">
+                    <span class="home-search-icon" aria-hidden="true">⌕</span>
+                    <input type="search" id="homeToolSearch" placeholder="搜索工具 / 拼音首字母" autocomplete="off" spellcheck="false">
+                    <kbd class="home-search-kbd" aria-hidden="true">/</kbd>
+                </label>
+                <button type="button" class="home-sidebar-toggle" id="homeSidebarToggle" aria-label="收起菜单" title="收起菜单">
+                    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+            </div>
             <nav class="home-cat-nav" id="homeCategoryNav" aria-label="工具分类"></nav>
             <div class="custom-tools-panel" id="customToolsPanel" style="display:none;">
                 <span class="custom-tools-note">导入 HTML 或 ZIP 工具包后，会自动生成首页模块和顶部导航入口，并默认支持静态快照与 Pages 推送</span>
@@ -995,7 +1000,10 @@
                 <button class="custom-tool-upload" id="customToolUploadBtn">导入 HTML / ZIP 工具</button>
             </div>
             <nav class="friend-links" aria-label="友情链接">
-                <button type="button" class="friend-links-label" id="friendLinksManageBtn" data-home-i18n="home.links.title">🔗 友情链接</button>
+                <div class="friend-links-head">
+                    <button type="button" class="friend-links-label" id="friendLinksManageBtn" data-home-i18n="home.links.title">友情链接</button>
+                    <span class="friend-links-count" id="friendLinksCount" hidden></span>
+                </div>
                 <div class="friend-links-list">
                     <a class="friend-link" href="https://wise.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="wise.fanxiaolong.uk"><span class="friend-link-icon">💰</span><span data-home-i18n="home.links.wise">财务管理</span></a>
                     <a class="friend-link" href="https://app.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="app.fanxiaolong.uk"><span class="friend-link-icon">📱</span><span data-home-i18n="home.links.app">手机控制</span></a>
@@ -1649,6 +1657,7 @@
     <script src="/js/shared/f12-quick-downloads.js"></script>
     <script src="/js/shared/platform-logo-upload.js"></script>
     <script src="/js/shared/navbar.js"></script>
+    <script src="/js/shared/app-dialog.js"></script>
     <script src="/js/home/workspace.js"></script>
     <script src="/js/home/workspace-panel.js"></script>
     <script src="/js/home/dragon-claw.js"></script>
@@ -1681,7 +1690,9 @@
                 'home.hero.desc': '统一工具中台 · 前后端分离架构 · 数据持久化存储<br>让每一个工具都更强大、更稳定、更易扩展',
                 'home.graph.title': '项目知识图谱',
                 'home.graph.subtitle': '探索模块、工具、代码与数据关系',
-                'home.links.title': '🔗 友情链接',
+                'home.links.title': '友情链接',
+                'home.links.showAll': '展开全部 ({n})',
+                'home.links.showLess': '收起',
                 'home.links.wise': '财务管理',
                 'home.links.app': '手机控制',
                 'home.links.yutang': 'AI 远程控机',
@@ -1864,6 +1875,11 @@
                 'home.toast.renamed': '工具名称已更新',
                 'home.alert.deleteFailed': '删除失败：{message}',
                 'home.alert.renameFailed': '修改名称失败：{message}',
+                'home.dialog.renameTitle': '修改工具名称',
+                'home.dialog.deleteTitle': '删除自定义工具',
+                'home.dialog.delete': '删除',
+                'home.dialog.save': '保存',
+                'home.dialog.failed': '操作失败',
                 'home.validation.nameRequired': '工具名称不能为空',
                 'home.validation.nameTooLong': '工具名称不能超过 80 个字符',
                 'home.custom.defaultName': '自定义工具',
@@ -1883,7 +1899,9 @@
                 'home.hero.desc': 'A unified tool hub · Decoupled frontend/backend · Persistent data storage<br>Make every tool stronger, steadier, and easier to extend',
                 'home.graph.title': 'Project Knowledge Graph',
                 'home.graph.subtitle': 'Explore modules, tools, code, and data relationships',
-                'home.links.title': '🔗 Links',
+                'home.links.title': 'Links',
+                'home.links.showAll': 'Show all ({n})',
+                'home.links.showLess': 'Show less',
                 'home.links.wise': 'Finance',
                 'home.links.app': 'Phone Control',
                 'home.links.yutang': 'AI Phone Control',
@@ -2066,6 +2084,11 @@
                 'home.toast.renamed': 'Tool name updated',
                 'home.alert.deleteFailed': 'Delete failed: {message}',
                 'home.alert.renameFailed': 'Rename failed: {message}',
+                'home.dialog.renameTitle': 'Rename tool',
+                'home.dialog.deleteTitle': 'Delete custom tool',
+                'home.dialog.delete': 'Delete',
+                'home.dialog.save': 'Save',
+                'home.dialog.failed': 'Operation failed',
                 'home.validation.nameRequired': 'Tool name cannot be empty',
                 'home.validation.nameTooLong': 'Tool name cannot exceed 80 characters',
                 'home.custom.defaultName': 'Custom Tool',
@@ -2198,17 +2221,61 @@
                 : t('home.links.neverProbed');
         }
 
+        const FRIEND_LINKS_COLLAPSED = 10;
+        const FRIEND_LINKS_EXPANDED_KEY = 'home_friend_links_expanded';
+        const FRIEND_LINK_HUES = [168, 199, 217, 258, 291, 330, 24, 45];
+
+        // 未设置图标（或仍是默认 🔗）的链接显示名称首字头像，颜色按名称稳定分配
+        function friendLinkBadge(link, name) {
+            const icon = String(link.icon || '').trim();
+            if (icon && icon !== '🔗') return `<span class="friend-link-icon">${escapeHtml(icon)}</span>`;
+            const letter = Array.from(String(name || '?').replace(/^[^\p{L}\p{N}]+/u, ''))[0] || '?';
+            const hash = Array.from(String(name || '')).reduce((sum, ch) => (sum * 31 + ch.codePointAt(0)) >>> 0, 7);
+            return `<span class="friend-link-icon is-letter" style="--fl-hue:${FRIEND_LINK_HUES[hash % FRIEND_LINK_HUES.length]}">${escapeHtml(letter.toUpperCase())}</span>`;
+        }
+
+        function isFriendLinksExpanded() {
+            try { return localStorage.getItem(FRIEND_LINKS_EXPANDED_KEY) === '1'; } catch { return false; }
+        }
+
         function renderFriendLinks(snapshot = friendLinksState.snapshot) {
             const list = document.querySelector('.friend-links-list');
             if (!list || !snapshot || !Array.isArray(snapshot.links)) return;
             const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
-            list.innerHTML = snapshot.links.map(link => {
+            const expanded = isFriendLinksExpanded();
+            const total = snapshot.links.length;
+            list.innerHTML = snapshot.links.map((link, index) => {
                 const statusInfo = snapshot.statuses?.[link.id] || {};
                 const status = getFriendStatus(statusInfo.status);
                 const name = lang === 'en-US' && link.nameEn ? link.nameEn : link.name;
                 const detail = [getFriendStatusLabel(status), statusInfo.message, statusInfo.checkedAt ? formatFriendProbeTime(statusInfo.checkedAt) : ''].filter(Boolean).join(' · ');
-                return `<a class="friend-link status-${status}" data-friend-link-id="${escapeHtml(link.id)}" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(`${name} · ${detail}`)}"><span class="friend-link-icon">${escapeHtml(link.icon || '🔗')}</span><span>${escapeHtml(name)}</span></a>`;
+                const hidden = !expanded && index >= FRIEND_LINKS_COLLAPSED ? ' hidden' : '';
+                return `<a class="friend-link status-${status}" data-friend-link-id="${escapeHtml(link.id)}" href="${escapeHtml(link.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(`${name} · ${detail}`)}"${hidden}>${friendLinkBadge(link, name)}<span class="friend-link-name">${escapeHtml(name)}</span><span class="friend-link-dot" aria-label="${escapeHtml(getFriendStatusLabel(status))}"></span></a>`;
             }).join('');
+
+            const count = document.getElementById('friendLinksCount');
+            if (count) {
+                count.hidden = total === 0;
+                count.textContent = String(total);
+            }
+            let toggle = document.getElementById('friendLinksToggle');
+            if (total <= FRIEND_LINKS_COLLAPSED) {
+                toggle?.remove();
+                return;
+            }
+            if (!toggle) {
+                toggle = document.createElement('button');
+                toggle.type = 'button';
+                toggle.id = 'friendLinksToggle';
+                toggle.className = 'friend-links-toggle';
+                toggle.addEventListener('click', () => {
+                    try { localStorage.setItem(FRIEND_LINKS_EXPANDED_KEY, isFriendLinksExpanded() ? '0' : '1'); } catch { /* 无痕模式下仅本次生效 */ }
+                    renderFriendLinks();
+                });
+                list.after(toggle);
+            }
+            toggle.setAttribute('aria-expanded', String(expanded));
+            toggle.textContent = expanded ? t('home.links.showLess') : t('home.links.showAll', { n: total });
         }
 
         function scheduleFriendLinksRefresh(snapshot) {
@@ -3574,10 +3641,10 @@
                     return;
                 }
                 const adoptSlugs = preview.tools.filter(tool => selected.includes(tool.slug) && tool.status === 'conflict').map(tool => tool.slug);
-                if (adoptSlugs.length && !confirm(text(
+                if (adoptSlugs.length && !await AppDialog.confirm(text(
                     `将接管 ${adoptSlugs.length} 个同名本地工具。旧目录会先备份，确定继续吗？`,
                     `Adopt ${adoptSlugs.length} local tools with matching slugs? Their current directories will be backed up first.`
-                ))) return;
+                ), { title: text('接管同名工具', 'Adopt local tools'), confirmText: text('继续', 'Continue'), cancelText: text('取消', 'Cancel') })) return;
                 loading = true;
                 applyButton.disabled = true;
                 refreshButton.disabled = true;
@@ -3689,14 +3756,14 @@
         async function renameCustomTool(slug) {
             const card = document.querySelector(`[data-custom-tool-card="1"][data-tool-slug="${CSS.escape(slug)}"]`);
             const currentName = card?.querySelector('.card-title')?.textContent?.trim() || '';
-            const name = prompt(t('home.prompt.rename'), currentName);
+            const name = await AppDialog.prompt(t('home.prompt.rename'), { title: t('home.dialog.renameTitle'), defaultValue: currentName, maxLength: 80, confirmText: t('home.dialog.save') });
             if (name === null || name.trim() === currentName) return;
             if (!name.trim()) {
-                alert(t('home.alert.renameFailed', { message: t('home.validation.nameRequired') }));
+                showToast(t('home.alert.renameFailed', { message: t('home.validation.nameRequired') }), 'warning');
                 return;
             }
             if (name.trim().length > 80) {
-                alert(t('home.alert.renameFailed', { message: t('home.validation.nameTooLong') }));
+                showToast(t('home.alert.renameFailed', { message: t('home.validation.nameTooLong') }), 'warning');
                 return;
             }
             try {
@@ -3705,19 +3772,19 @@
                 await loadCustomTools();
                 if (window.refreshCustomToolNavLinks) await window.refreshCustomToolNavLinks();
             } catch (e) {
-                alert(t('home.alert.renameFailed', { message: e.message }));
+                AppDialog.alert(t('home.alert.renameFailed', { message: e.message }), { title: t('home.dialog.failed'), tone: 'error' });
             }
         }
 
         async function deleteCustomTool(slug) {
-            if (!confirm(t('home.confirm.delete'))) return;
+            if (!await AppDialog.confirm(t('home.confirm.delete'), { title: t('home.dialog.deleteTitle'), tone: 'danger', confirmText: t('home.dialog.delete') })) return;
             try {
                 await API.delete(`/api/custom-tools/${encodeURIComponent(slug)}`);
                 showToast(t('home.toast.deleted'));
                 await loadCustomTools();
                 if (window.refreshCustomToolNavLinks) await window.refreshCustomToolNavLinks();
             } catch (e) {
-                alert(t('home.alert.deleteFailed', { message: e.message }));
+                AppDialog.alert(t('home.alert.deleteFailed', { message: e.message }), { title: t('home.dialog.failed'), tone: 'error' });
             }
         }
 
@@ -3740,7 +3807,7 @@
                     await window.openToolsKnowledgeGraph();
                 } catch (error) {
                     if (typeof showToast === 'function') showToast(error.message || '知识图谱打开失败', 'error');
-                    else alert(error.message || '知识图谱打开失败');
+                    else AppDialog.alert(error.message || '知识图谱打开失败', { title: '打开失败', tone: 'error' });
                 } finally {
                     button.disabled = false;
                     button.removeAttribute('aria-busy');

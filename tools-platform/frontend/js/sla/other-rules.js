@@ -361,7 +361,7 @@
     async function saveFromEditor() {
         try { const config=collectEditor();validate(config);show('正在保存并重算当前数据…');await API.put(`/api/sla/prefs/${encodeURIComponent(prefKey(editorMode))}`,config);cache[editorMode]=normalizeConfig(editorMode,config);workingConfig=clone(cache[editorMode]);if(window.SLASection?.applySectionRuleConfig)window.SLASection.applySectionRuleConfig(editorMode,cache[editorMode]);window.SLAMetricSnapshotSync?.schedule();prepareEditor(editorMode,cache[editorMode]);show(`已保存，当前${MODE_META[editorMode].name}已按新规则重算`);if(window.showToast)window.showToast(`✅ ${MODE_META[editorMode].name}规则已保存并应用`); } catch(error){show(error.message||'保存失败',true);}
     }
-    function resetEditor() { if(!confirm(`确定将${MODE_META[editorMode].name}规则恢复为默认值吗？\n点击“保存并应用”后才会写入服务端。`))return;workingConfig=defaultConfig(editorMode);refresh();show('已恢复默认值，尚未保存'); }
+    async function resetEditor() { if(!await AppDialog.confirm(`确定将${MODE_META[editorMode].name}规则恢复为默认值吗？\n点击“保存并应用”后才会写入服务端。`,{ title:'恢复默认规则', confirmText:'恢复默认' }))return;workingConfig=defaultConfig(editorMode);refresh();show('已恢复默认值，尚未保存'); }
     function describeConfig(mode, config) {
         const normalized=normalizeConfig(mode,config||cache[mode]||defaultConfig(mode));
         if(mode==='sr')return [`状态字段：${normalized.fields.status.join(' -> ')}`,`挂起关键字：${normalized.values.pending.join(' / ')}`,`关闭关键字：${normalized.values.closed.join(' / ')}`,`Critical：消耗 > ${normalized.thresholds.criticalDangerConsume}% 或剩余 < ${normalized.thresholds.criticalDangerHours}小时；提醒：消耗 > ${normalized.thresholds.criticalWarningConsume}% 且剩余 < ${normalized.thresholds.criticalWarningHours}小时`,`普通单：消耗 > ${normalized.thresholds.normalDangerConsume}% 紧急，> ${normalized.thresholds.normalWarningConsume}% 提醒`];

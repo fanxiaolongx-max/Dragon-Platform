@@ -1067,7 +1067,7 @@
             }
             // 读取恢复
             else if (e.target.closest('.sm-restore-btn')) {
-                if (confirm('确定将此快照恢复到当前工作区吗？当前未保存的临时输入可能会被覆盖。')) {
+                if (await AppDialog.confirm('确定将此快照恢复到当前工作区吗？当前未保存的临时输入可能会被覆盖。', { title: '恢复快照', confirmText: '恢复' })) {
                     close();
                     if (typeof onRestoreSnapshot === 'function') {
                         const fullSnap = await ReportSnapshotStore.getSnapshot(id);
@@ -1077,7 +1077,8 @@
             }
             // 重命名
             else if (e.target.closest('.sm-rename-btn')) {
-                const newName = prompt('请输入快照新名称：');
+                const currentName = (itemEl.querySelector('.report-snapshot-item-title span')?.textContent || '').replace(/^📄\s*/, '').trim();
+                const newName = await AppDialog.prompt('请输入快照新名称：', { title: '重命名快照', label: '快照名称', defaultValue: currentName, maxLength: 120, confirmText: '保存' });
                 if (newName && newName.trim()) {
                     await ReportSnapshotStore.renameSnapshot(id, newName.trim());
                     close();
@@ -1086,7 +1087,7 @@
             }
             // 删除
             else if (e.target.closest('.sm-delete-btn')) {
-                if (confirm('确定从服务器永久删除此份快照吗？')) {
+                if (await AppDialog.confirm('确定从服务器永久删除此份快照吗？', { title: '删除快照', tone: 'danger', confirmText: '删除' })) {
                     await ReportSnapshotStore.deleteSnapshot(id);
                     itemEl.remove();
                 }

@@ -521,11 +521,16 @@
     function initSidebarToggle() {
         const sidebar = document.getElementById('homeSidebar');
         if (!sidebar) return;
-        sidebarToggle = document.createElement('button');
-        sidebarToggle.type = 'button';
-        sidebarToggle.className = 'home-sidebar-toggle';
-        sidebarToggle.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-        sidebar.prepend(sidebarToggle);
+        const head = sidebar.querySelector('.home-sidebar-head');
+        sidebarToggle = sidebar.querySelector('.home-sidebar-toggle');
+        if (!sidebarToggle) {
+            sidebarToggle = document.createElement('button');
+            sidebarToggle.type = 'button';
+            sidebarToggle.className = 'home-sidebar-toggle';
+            sidebarToggle.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+            if (head) head.appendChild(sidebarToggle);
+            else sidebar.prepend(sidebarToggle);
+        }
         sidebarToggle.addEventListener('click', () => {
             const next = document.body.classList.contains('home-sidebar-collapsed') ? 'expanded' : 'collapsed';
             try { localStorage.setItem(SIDEBAR_KEY, next); } catch { /* 无痕模式下仅本次生效 */ }

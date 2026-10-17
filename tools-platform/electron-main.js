@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage, clipboard } = require('electron');
 
 // 保证程序单实例运行，避免多开冲突导致 SQLite 锁死 (SQLITE_BUSY: database is locked)
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -26,12 +26,15 @@ process.env.TOOLS_DESKTOP_RUNTIME = '1';
 const electronLogRoot = path.join(userDataPath, 'logs');
 const desktopLicenseStatePath = path.join(userDataPath, 'desktop-license.json');
 const desktopLicensePublicStatusPath = path.join(userDataPath, 'desktop-license-public-status.json');
+const desktopLicenseRequestPath = path.join(userDataPath, 'desktop-license-request.json');
 process.env.TOOLS_DESKTOP_LICENSE_STATUS_PATH = desktopLicensePublicStatusPath;
 const { createDesktopLicenseClient } = require('./desktop-license-client');
+const { getDesktopMachineIdentity } = require('./desktop-machine-id');
 const desktopLicenseClient = createDesktopLicenseClient({
     configPath: path.join(__dirname, 'frontend/desktop-license-client-config.json'),
     statePath: desktopLicenseStatePath,
-    publicStatusPath: desktopLicensePublicStatusPath
+    publicStatusPath: desktopLicensePublicStatusPath,
+    requestStatePath: desktopLicenseRequestPath
 });
 const runtimeStatusPath = path.join(electronLogRoot, 'runtime-status.json');
 const runtimeCommandPath = path.join(electronLogRoot, 'runtime-command.json');
@@ -280,18 +283,122 @@ function waitForLicenseActivation() {
     return new Promise(resolve => { licenseActivationResolve = resolve; });
 }
 
+// 本机设备指纹：每次启动现场采集（不缓存），授权判断前必须就绪
+let desktopMachineIdentityPromise = null;
+function ensureDesktopMachineIdentity() {
+    if (!desktopMachineIdentityPromise) {
+        desktopMachineIdentityPromise = getDesktopMachineIdentity({ fallbackDir: userDataPath })
+            .then(identity => {
+                desktopLicenseClient.setMachineIdentity(identity);
+                console.log(`[Electron] Machine identity ready (${identity.source}, signals: ${identity.signals.join(', ')})`);
+                return identity;
+            });
+    }
+    return desktopMachineIdentityPromise;
+}
+
+function getPublicMachineInfo() {
+    const identity = desktopLicenseClient.getMachineIdentity();
+    return identity ? { machineCode: identity.machineCode, host: identity.host, platform: identity.platform, source: identity.source } : null;
+}
+
+function copyMachineCodeToClipboard() {
+    const info = getPublicMachineInfo();
+    if (!info) return;
+    clipboard.writeText(info.machineCode);
+    showTrayBalloon('已复制本机机器码', '请将机器码发送给管理员，用于签发或续期绑定本机的 License。');
+}
+
+// ── 一键申请 License：待审批期间定期查询；激活窗口打开时 15 秒一次，否则 60 秒一次 ──
+let licenseRequestTimer = null;
+let licenseRequestPolling = false;
+
+function sendLicenseRequestUpdate(payload) {
+    if (licenseWindow && !licenseWindow.isDestroyed() && !licenseWindow.webContents.isDestroyed()) {
+        licenseWindow.webContents.send('desktop-license:request-update', payload);
+    }
+}
+
+function finishLicenseActivation() {
+    const resolve = licenseActivationResolve;
+    licenseActivationResolve = null;
+    stopLicenseRequestPolling();
+    setTimeout(() => {
+        if (licenseWindow && !licenseWindow.isDestroyed()) licenseWindow.close();
+        if (startupWindow && !startupWindow.isDestroyed()) {
+            startupWindow.setAlwaysOnTop(true);
+            startupWindow.show();
+            startupWindow.focus();
+        }
+        if (resolve) resolve(true);
+    }, 500);
+}
+
+async function pollLicenseRequestOnce() {
+    if (licenseRequestPolling) return null;
+    licenseRequestPolling = true;
+    try {
+        const result = await desktopLicenseClient.pollLicenseRequest();
+        if (result.license && result.license.valid) {
+            desktopLicenseStatus = result.license;
+            refreshTrayMenu();
+        }
+        sendLicenseRequestUpdate(result);
+        if (result.license && result.license.valid) {
+            finishLicenseActivation();
+        } else if (!result.request || result.request.status !== 'pending') {
+            stopLicenseRequestPolling();
+        }
+        return result;
+    } finally {
+        licenseRequestPolling = false;
+    }
+}
+
+function scheduleLicenseRequestPolling() {
+    stopLicenseRequestPolling();
+    const request = desktopLicenseClient.getLicenseRequest();
+    if (!request || request.status !== 'pending') return;
+    const interval = licenseWindow && !licenseWindow.isDestroyed() ? 15000 : 60000;
+    licenseRequestTimer = setTimeout(async () => {
+        licenseRequestTimer = null;
+        await pollLicenseRequestOnce().catch(error => console.warn('[Electron] License request poll failed:', error.message || error));
+        scheduleLicenseRequestPolling();
+    }, interval);
+    licenseRequestTimer.unref?.();
+}
+
+function stopLicenseRequestPolling() {
+    if (licenseRequestTimer) clearTimeout(licenseRequestTimer);
+    licenseRequestTimer = null;
+}
+
 async function ensureDesktopLicense() {
+    await ensureDesktopMachineIdentity();
     desktopLicenseStatus = await desktopLicenseClient.validateStored();
-    if (desktopLicenseStatus.valid) return true;
-    return waitForLicenseActivation();
+    if (desktopLicenseStatus.valid) {
+        desktopLicenseClient.clearLicenseRequest();
+        return true;
+    }
+    // 上次启动提交过申请：先查一次，管理员已批准则直接激活，不再弹激活窗口；否则在窗口中恢复申请状态并继续定期查询
+    if (desktopLicenseClient.getLicenseRequest()) {
+        const result = await pollLicenseRequestOnce().catch(() => null);
+        if (result && result.license && result.license.valid) return true;
+    }
+    const activation = waitForLicenseActivation();
+    scheduleLicenseRequestPolling();
+    return activation;
 }
 
 function registerDesktopLicenseIpcHandlers() {
-    ipcMain.handle('desktop-license:get-state', () => desktopLicenseStatus);
+    ipcMain.handle('desktop-license:get-state', async () => {
+        await ensureDesktopMachineIdentity().catch(() => null);
+        return { ...desktopLicenseStatus, machine: getPublicMachineInfo() };
+    });
     ipcMain.handle('desktop-license:activate', async (event, rawToken) => {
         const token = String(rawToken || '').trim();
+        await ensureDesktopMachineIdentity();
         desktopLicenseStatus = await desktopLicenseClient.validate(token, {
-            requireOnline: true,
             onProgress: (progress) => {
                 try {
                     if (event && event.sender && !event.sender.isDestroyed()) {
@@ -301,19 +408,39 @@ function registerDesktopLicenseIpcHandlers() {
             }
         });
         if (desktopLicenseStatus.valid) {
-            const resolve = licenseActivationResolve;
-            licenseActivationResolve = null;
-            setTimeout(() => {
-                if (licenseWindow && !licenseWindow.isDestroyed()) licenseWindow.close();
-                if (startupWindow && !startupWindow.isDestroyed()) {
-                    startupWindow.setAlwaysOnTop(true);
-                    startupWindow.show();
-                    startupWindow.focus();
-                }
-                if (resolve) resolve(true);
-            }, 500);
+            desktopLicenseClient.clearLicenseRequest();
+            finishLicenseActivation();
         }
         return desktopLicenseStatus;
+    });
+    ipcMain.handle('desktop-license:request-info', async () => {
+        await ensureDesktopMachineIdentity().catch(() => null);
+        const onlineAvailable = await desktopLicenseClient.probeRequestService();
+        return { onlineAvailable, request: desktopLicenseClient.getLicenseRequest() };
+    });
+    ipcMain.handle('desktop-license:request-submit', async (_event, form = {}) => {
+        try {
+            await ensureDesktopMachineIdentity();
+            const request = await desktopLicenseClient.submitLicenseRequest({
+                applicantName: form.applicantName,
+                applicantNote: form.applicantNote,
+                clientVersion: app.getVersion()
+            });
+            scheduleLicenseRequestPolling();
+            return { ok: true, request };
+        } catch (error) {
+            return { ok: false, code: error.code || 'REQUEST_FAILED', error: error.message };
+        }
+    });
+    ipcMain.handle('desktop-license:request-refresh', async () => {
+        const result = await pollLicenseRequestOnce().catch(error => ({ error: error.code || 'REQUEST_FAILED' }));
+        scheduleLicenseRequestPolling();
+        return result || { request: desktopLicenseClient.getLicenseRequest() };
+    });
+    ipcMain.handle('desktop-license:request-cancel', async () => {
+        stopLicenseRequestPolling();
+        await desktopLicenseClient.cancelLicenseRequest();
+        return { ok: true };
     });
     ipcMain.handle('desktop-license:quit', () => {
         isQuitting = true;
@@ -1782,6 +1909,7 @@ function refreshTrayMenu() {
         { label: desktopLicenseStatus.valid
             ? `License：已授权至 ${new Date(desktopLicenseStatus.expiresAt).toLocaleDateString()}`
             : `License：已失效 (${desktopLicenseStatus.reasonCode || 'UNKNOWN'})`, enabled: false },
+        { label: '复制本机机器码（申请/续期 License）', enabled: Boolean(getPublicMachineInfo()), click: copyMachineCodeToClipboard },
         { type: 'separator' },
         { label: '打开 Tools Platform', click: () => openAppPath('/') },
         { label: '打开数据抓取', click: () => openAppPath('/uivf12') },
@@ -1912,6 +2040,7 @@ app.on('before-quit', () => {
 });
 
 app.whenReady().then(() => {
+    ensureDesktopMachineIdentity().catch(error => console.warn('[Electron] Machine identity failed:', error.message || error));
     if (!isPortableWindows) setupAutoUpdater();
     registerUpdaterIpcHandlers();
     registerDesktopIpcHandlers();

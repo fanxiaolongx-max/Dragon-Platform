@@ -68,7 +68,7 @@ app.whenReady().then(async () => {
     const errors = [];
     win.webContents.on('console-message', (_, level, message) => { if (level === 3) errors.push(message); });
     await win.loadURL(`http://127.0.0.1:${server.address().port}/pages/topic-analysis.html`);
-    await evaluate(() => { window.alert = message => { window.__lastAlert = message; }; });
+    await evaluate(() => { window.AppDialog.alert = async message => { window.__lastAlert = message; }; });
     await until(() => !!document.querySelector('#eosMonthlyReport .topic-report-title'));
     const eosDefault = await evaluate(() => document.getElementById('eosMonthlyReport').textContent);
     await evaluate(() => {

@@ -4,6 +4,13 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 
+const os = require('os');
+
+// 签发会写密钥文件与台账：测试一律指向临时目录，绝不触碰 backend/data 下的正式数据
+const licenseSandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'desktop-license-test-'));
+process.env.DESKTOP_LICENSE_SIGNING_KEY_FILE = path.join(licenseSandbox, 'signing-key.json');
+process.env.DESKTOP_LICENSE_REGISTRY_FILE = path.join(licenseSandbox, 'registry.json');
+
 const root = path.resolve(__dirname, '..');
 const htmlPath = path.join(root, 'frontend/pages/desktop-license-activation.html');
 const html = fs.readFileSync(htmlPath, 'utf8');
@@ -119,7 +126,9 @@ test('License Activation Page: Inline script is syntactically valid and executes
         'btn-copy-sample', 'btn-copy-sample-text', 'sample-code-row', 'sample-code', 'sample-tip',
         'progress-card', 'progress-stage-desc', 'progress-percent', 'progress-bar-fill',
         'step-1', 'step-2', 'step-3', 'step-4',
-        'step-1-title', 'step-2-title', 'step-3-title', 'step-4-title'
+        'step-1-title', 'step-2-title', 'step-3-title', 'step-4-title',
+        'machine-card', 'machine-title', 'machine-device', 'machine-code', 'machine-hint',
+        'btn-copy-machine', 'btn-copy-machine-text'
     ];
 
     elementIds.forEach(id => {
@@ -173,7 +182,8 @@ test('License Activation Page: Inline script is syntactically valid and executes
 
     // 1. Initial Chinese mode check
     assert.equal(dom.documentElement.lang, 'zh-CN');
-    assert.equal(dom.elements['title'].textContent, '首次运行授权激活');
+    assert.equal(dom.elements['title'].textContent, '本机授权激活');
+    assert.equal(dom.elements['machine-title'].textContent, '第 1 步 · 将本机机器码发给管理员');
     assert.equal(dom.elements['step-1-title'].textContent, '格式解析');
     assert.equal(dom.elements['step-2-title'].textContent, '签名验签');
     assert.equal(dom.elements['btn-activate-text'].textContent, '验证并启动（支持离线）');
@@ -187,7 +197,8 @@ test('License Activation Page: Inline script is syntactically valid and executes
     listeners['lang-btn-en']['click']();
 
     assert.equal(dom.documentElement.lang, 'en');
-    assert.equal(dom.elements['title'].textContent, 'First-Run License Activation');
+    assert.equal(dom.elements['title'].textContent, 'Device License Activation');
+    assert.equal(dom.elements['machine-title'].textContent, 'Step 1 · Send this machine code to your administrator');
     assert.equal(dom.elements['step-1-title'].textContent, 'Format');
     assert.equal(dom.elements['step-2-title'].textContent, 'Signature');
     assert.equal(dom.elements['step-3-title'].textContent, 'Verification');
@@ -260,7 +271,7 @@ test('License Activation Page: Preload exposes readClipboard, getState, activate
 
 test('Desktop License Client: validate reports progress stages to callback', async () => {
     const { createDesktopLicenseClient } = require('../desktop-license-client');
-    const os = require('os');
+    const { encodeMachineCode } = require('../backend/models/desktop-machine-code');
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'license-progress-test-'));
     const authority = require('../backend/models/desktop-license-authority');
 
@@ -272,13 +283,15 @@ test('Desktop License Client: validate reports progress stages to callback', asy
         publicKeyJwk: authority.getPublicKeyJwk()
     }));
 
+    const machine = { machineId: 'a'.repeat(32), host: 'TEST-PC', platform: 'win32', arch: 'x64', source: 'win32' };
     const client = createDesktopLicenseClient({
         configPath,
         statePath: path.join(tempDir, 'state.json'),
-        publicStatusPath: path.join(tempDir, 'status.json')
+        publicStatusPath: path.join(tempDir, 'status.json'),
+        machineIdentity: machine
     });
 
-    const issued = authority.issue({ label: '测试进度报告', days: 30 });
+    const issued = authority.issue({ label: '测试进度报告', days: 30, machineCode: encodeMachineCode(machine) });
     const stages = [];
 
     const result = await client.validate(issued.token, {
