@@ -1,0 +1,89 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .cm{position:absolute;top:215px;width:322px;height:110px;border:3px solid var(--ink);border-radius:22px;background:#fff;box-shadow:var(--sh);display:flex;align-items:center;gap:14px;padding:0 18px;font-family:"Fredoka",sans-serif;font-size:40px;white-space:nowrap}
+#root .cd{position:absolute;top:375px;height:470px;background:#fff;border:3px solid var(--ink);border-radius:28px;box-shadow:var(--sh);overflow:hidden}
+#root .cd .hd{height:70px;border-bottom:3px solid var(--ink);display:flex;align-items:center;padding:0 24px;font-family:"Fredoka",sans-serif;font-size:38px;white-space:nowrap}
+#root .zn{position:absolute;width:262px;height:112px;border:2.5px dashed var(--ink);border-radius:16px;background:#fffdf5;padding:6px 12px;font-size:30px;color:#6b6874}
+#root .fc{position:absolute;display:inline-block;border:2.5px solid var(--ink);border-radius:999px;padding:0 16px 2px;font-size:30px;background:#ffe08a;white-space:nowrap;z-index:6}
+#root .ct{position:absolute;display:inline-flex;align-items:center;justify-content:center;width:62px;height:50px;border:2.5px solid var(--ink);border-radius:12px;background:#fff}
+#root .ed{position:absolute;left:1000px;top:470px;width:780px;font-size:42px;line-height:1.7}
+#root .mc{display:inline-block;background:#ffe08a;border:3px solid var(--ink);border-radius:10px;padding:0 10px;font-family:"JetBrains Mono",monospace;font-size:34px}
+#root .pop{position:absolute;left:1020px;top:560px;width:600px;border:3px solid var(--ink);border-radius:18px;background:#fff;box-shadow:var(--sh);z-index:8;padding:10px 16px;font-size:34px}
+#root .pop div{height:54px;display:flex;align-items:center;gap:12px;border-bottom:3px dotted #cfcfd6}
+</style>
+<div id="root" data-composition-id="s16" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="48" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1480px;top:-170px;width:520px;height:520px;background:#ffe08f"></div>
+  <div class="head wob" id="s16-h"><span class="step">Station 5</span><span class="ttl">Monthly Report · Components & pivot</span></div>
+  <div class="cm wob" id="s16-k1" style="left:110px;top:200px"><span id="s16-i1"></span>Text</div>
+  <div class="cm wob" id="s16-k2" style="left:454px;top:200px"><span id="s16-i2"></span>Metrics</div>
+  <div class="cm wob" id="s16-k3" style="left:798px;top:200px"><span id="s16-i3"></span>Table</div>
+  <div class="cm wob" id="s16-k4" style="left:1142px;top:200px"><span id="s16-i4"></span>Pivot chart</div>
+  <div class="cm wob" id="s16-k5" style="left:1486px;top:200px"><span id="s16-i5"></span>Rules</div>
+  <div class="cd wob" id="s16-p" style="left:110px;width:840px;height:510px"><div class="hd" style="background:#aed8f2">Processing · Excel-style pivot</div></div>
+  <div class="abs" id="s16-fl" style="left:140px;top:470px"></div>
+  <div class="zn" data-layout-allow-overlap id="s16-z1" style="left:350px;top:470px">▽ Filters</div>
+  <div class="zn" data-layout-allow-overlap id="s16-z2" style="left:630px;top:470px">▥ Columns</div>
+  <div class="zn" data-layout-allow-overlap id="s16-z3" style="left:350px;top:596px">≡ Rows</div>
+  <div class="zn" data-layout-allow-overlap id="s16-z4" style="left:630px;top:596px">Σ Values</div>
+  <div class="fc" data-layout-allow-overlap id="s16-f1" style="left:150px;top:470px;background:#ffe08a">Status</div>
+  <div class="fc" data-layout-allow-overlap id="s16-f2" style="left:150px;top:530px;background:#ffc2d1">Month</div>
+  <div class="fc" data-layout-allow-overlap id="s16-f3" style="left:150px;top:590px;background:#cfe9fb">Office</div>
+  <div class="fc" data-layout-allow-overlap id="s16-f4" style="left:150px;top:650px;background:#dcf5ea">Count</div>
+  <div class="abs row" id="s16-ty" style="left:140px;top:740px;gap:10px"><span class="ct" id="s16-t1"></span><span class="ct" id="s16-t2"></span><span class="ct" id="s16-t3"></span><span class="ct" id="s16-t4"></span><span class="ct" id="s16-t5"></span><span class="ct" id="s16-t6"></span><span class="ct" id="s16-t7"></span></div>
+  <div class="cd wob" id="s16-e" style="left:980px;width:840px;height:510px"><div class="hd" style="background:#ffe08f">Text component · type @ to insert a metric</div></div>
+  <div class="ed" id="s16-ed">This month: high-risk found <span class="mc" id="s16-a">108</span> closed <span class="mc" id="s16-b">104</span> remaining <span class="mc" id="s16-r" style="background:#dcf5ea">4</span> .</div>
+  <div class="pop" id="s16-pop" data-layout-allow-overlap><div>@ Search metrics…</div><div>High-risk found　108</div><div>High-risk closed　104</div></div>
+  <div class="tag abs" id="s16-fm" style="left:1000px;top:730px;font-size:36px;background:#d9c6ef">Formula A − B　(add / subtract / ratio / rate…)</div>
+  <div class="abs wob" id="s16-rc" style="left:1000px;top:790px"></div>
+  <div class="tag abs" id="s16-rt" style="left:1070px;top:800px;font-size:34px;background:#47cf9f">Change month → auto-recalc</div>
+  <div class="abs wob" id="s16-d" style="left:1642px;top:814px"></div>
+  <div id="s16-sp"></div>
+  <div class="cap" id="s16-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s16-d",dino("dn",{w:207,h:199}));
+ put("s16-i1",'<span style="font-size:46px">T</span>');put("s16-i2",'<span style="font-size:46px">#</span>');put("s16-i3",icon("table","#ffe08f",56));put("s16-i4",icon("chart","#aed8f2",50));put("s16-i5",icon("doc","#d9c6ef",50));
+ put("s16-rc",'<svg width="64" height="64" viewBox="0 0 64 64"><path class="ln" d="M52 32 A20 20 0 1 1 42 14 M42 6 V16 H52"/></svg>');
+ var tys=[["chart","#aed8f2"],["chart","#9fe0c9"],["star","#ffe08f"],["table","#ffb3c6"],["box","#d9c6ef"],["gear","#ffe08f"],["table","#aed8f2"]];
+ tys.forEach(function(t,i){put("s16-t"+(i+1),icon(t[0],t[1],40));});
+ document.getElementById("s16-sp").innerHTML=sparkle(960,340,44)+sparkle(1850,340,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s16-k1,#s16-k2,#s16-k3,#s16-k4,#s16-k5,#s16-p,#s16-z1,#s16-z2,#s16-z3,#s16-z4,#s16-f1,#s16-f2,#s16-f3,#s16-f4,#s16-ty,#s16-e,#s16-ed,#s16-pop,#s16-fm,#s16-rc,#s16-rt",{opacity:0});
+ tl.fromTo("#s16-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s16-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ [["#s16-k1","Text"],["#s16-k2","Metrics"],["#s16-k3","Table"],["#s16-k4","Pivot chart"],["#s16-k5","Rules"]].forEach(function(a){pop(tl,a[0],T(a[1])-.1,{s:.5,y:-20,d:.4});});
+ var b=T("Filters");
+ tl.fromTo("#s16-p",{opacity:0,y:50},{opacity:1,y:0,duration:.5,ease:"power3.out"},b-1.2);
+ tl.fromTo("#s16-z1,#s16-z2,#s16-z3,#s16-z4",{opacity:0,scale:.9},{opacity:1,scale:1,duration:.3,stagger:.1,transformOrigin:"50% 50%"},b-.9);
+ tl.fromTo("#s16-f1,#s16-f2,#s16-f3,#s16-f4",{opacity:0,x:-20},{opacity:1,x:0,duration:.3,stagger:.1},b-.6);
+ var m=T("Columns");
+ tl.to("#s16-f1",{x:210,y:36,duration:.6,ease:"power2.inOut"},b+.1);
+ tl.to("#s16-f2",{x:490,y:-24,duration:.6,ease:"power2.inOut"},m+.1);
+ tl.to("#s16-f3",{x:210,y:78,duration:.6,ease:"power2.inOut"},m+.5);
+ tl.to("#s16-f4",{x:490,y:42,duration:.6,ease:"power2.inOut"},m+.9);
+ var c=T("seven chart types");
+ tl.fromTo("#s16-ty",{opacity:0,y:20},{opacity:1,y:0,duration:.4},c-.2);
+ tl.to("#s16-t1,#s16-t2,#s16-t3,#s16-t4,#s16-t5,#s16-t6,#s16-t7",{backgroundColor:"#ffe08a",duration:.2,stagger:.22},c+.3);
+ var d=T("insert a metric number");
+ tl.fromTo("#s16-e",{opacity:0,y:50},{opacity:1,y:0,duration:.5,ease:"power3.out"},d-1.4);
+ tl.fromTo("#s16-ed",{opacity:0},{opacity:1,duration:.4},d-1.0);
+ tl.fromTo("#s16-pop",{opacity:0,y:20},{opacity:1,y:0,duration:.35},d-.3);tl.to("#s16-pop",{opacity:0,duration:.3},d+1.4);
+ tl.fromTo("#s16-a,#s16-b",{scale:.6},{scale:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},d+.6);
+ var f=T("formula");
+ pop(tl,"#s16-fm",f-.1,{s:.5});tl.fromTo("#s16-r",{scale:.5,backgroundColor:"#ffe08a"},{scale:1.15,backgroundColor:"#dcf5ea",duration:.5,ease:"back.out(2)",transformOrigin:"50% 50%"},f+.6);
+ var g=T("recalculates");
+ tl.fromTo("#s16-rc,#s16-rt",{opacity:0,scale:.4},{opacity:1,scale:1,duration:.45,stagger:.15,ease:"back.out(2)",transformOrigin:"50% 50%"},g-.1);
+ tl.to("#s16-rc",{rotation:360,duration:1.2,ease:"power2.inOut",transformOrigin:"50% 50%"},g+.2);
+ dcheer(tl,"dn",g+.2);bounce(tl,"s16-d",g+.4,3,14);
+ tl.fromTo("#s16-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},g);
+ captions(tl,"s16-cap");
+ window.__timelines["s16"]=tl;
+})();
+</script>
+</template></body></html>

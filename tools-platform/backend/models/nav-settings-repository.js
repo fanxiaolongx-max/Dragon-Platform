@@ -53,6 +53,17 @@ function getDefaultPlatformName() {
     return identity.platformNameZh || identity.platformName || '图特工具平台';
 }
 
+const DEFAULT_GUIDE_VIDEO_URL = 'https://jx.huawei.com/community/comgroup/videoShareDetail/7207b25a9c0f42a08dfb1ab9832d44fe?commentId=0cca456df675451ca2df19c08b01ab11';
+
+function normalizeGuideVideoUrl(value) {
+    if (value === undefined) return DEFAULT_GUIDE_VIDEO_URL;
+    if (typeof value !== 'string' || !value.trim()) return '';
+    try {
+        const url = new URL(value.trim());
+        return /^https?:$/.test(url.protocol) && !url.username && !url.password && value.length <= 2048 ? url.href : '';
+    } catch (_) { return ''; }
+}
+
 const DEFAULT_SETTINGS = {
     get platformName() { return getDefaultPlatformName(); },
     get platformNameZh() { return getDefaultPlatformIdentity().platformNameZh; },
@@ -192,6 +203,7 @@ function normalizeSettings(input = {}) {
     const platformName = rawPlatformName || platformNameZh || defaultIdentity.platformName;
 
     return {
+        platformGuideVideoUrl: normalizeGuideVideoUrl(input.platformGuideVideoUrl),
         platformName,
         platformNameZh,
         platformNameEn,
@@ -266,6 +278,7 @@ function mergeDefaultSettingsPreservingCustomTools(currentInput, customToolIds =
         categories,
         categoryByItem,
         itemOrder,
+        platformGuideVideoUrl: current.platformGuideVideoUrl,
         platformName: current.platformName,
         platformNameZh: current.platformNameZh,
         platformNameEn: current.platformNameEn,
@@ -285,6 +298,7 @@ async function saveSettings(settings) {
     // Older navigation clients must not erase separately configured packaging shortcuts or identity properties.
     const input = { ...settings };
     const current = await getSettings();
+    if (!Object.hasOwn(input, 'platformGuideVideoUrl')) input.platformGuideVideoUrl = current.platformGuideVideoUrl;
     if (!Object.hasOwn(input, 'f12QuickDownloads')) input.f12QuickDownloads = current.f12QuickDownloads;
     if (!Object.hasOwn(input, 'platformName')) input.platformName = current.platformName;
     if (!Object.hasOwn(input, 'platformNameZh')) input.platformNameZh = current.platformNameZh;

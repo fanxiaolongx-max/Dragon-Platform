@@ -1,7 +1,9 @@
-import asyncio, json, sys, re, edge_tts
+import asyncio, json, sys, re, os, edge_tts
 # 每段 = (开场, 目的句, 正文, 目的卡片短句)。目的句在画面中以"为什么"卡片强调；为空则不显示卡片。
 LINES = {
- "s1": ("", "", "嗨，我是小龙！平台把数据变成月报，一共五站：数据抓取、数据导入、报表看板、一键催办、月报页面。脚本抓数据，规则算指标，看板打分入库，催办盯短板，月报来收尾。", ""),
+ "s1": ("", "", "嗨，我是小龙！今天带你认识 Dragon 平台，看看每个月的数据，怎么一步步变成一份月报。", ""),
+ "bg": ("先说背景。", "", "每个月，运维团队都要做一份服务质量月报。数据散落在好几个系统里，要一个个登录、导出，再整理成表格，手工算达标率，再挨个催人整改，最后还要排版成报告。一套做下来要好几天，还容易出错。Dragon 平台，就是把这一整套流程，串成一条自动流水线。", ""),
+ "ov": ("", "", "整条流水线一共五站：数据抓取、数据导入、报表看板、一键催办、月报页面。脚本抓数据，规则算指标，看板打分入库，催办盯短板，月报来收尾。", ""),
  "s2": ("第一站，数据抓取。", "数据散落在各个系统里，手工导出又慢又容易漏，脚本能一键全部拿回来。", "这里是脚本工程中心。先安装 UI.Vision 插件，Chrome 和 Edge 都支持。左边是智能调度仓库，默认脚本直接能用，还能分类、重命名、导入导出。", "手工导出又慢又易漏，脚本一键全拿回"),
  "s3": ("", "没有现成脚本也不用写代码，三步就能把一个接口变成抓取脚本。", "选请求地址，比如 DataFab，或者 NetCare 各大区节点；粘贴请求负载；再粘贴接口返回的 JSON 响应示例。负载和响应，都能从开发者工具的网络面板里复制。", "不写代码，三步做出抓取脚本"),
  "s4": ("", "这一步，是为了抓得准，也抓得全。", "响应里有多张表怎么办？在数据聚焦里填关键词，系统自动打分匹配，命中多张，就弹窗让你点选。再按需勾选开关：循环翻页，把每一页都抓全；汇总兜底、动态 CPC 和 NID。跨月的时候，打开当月加上月双重裂变，月初也不会漏掉上个月的数据。", "抓得准，也抓得全"),
@@ -46,6 +48,12 @@ async def one(k, parts, out):
         w = {"t": short, "s": round(chars[min(a, len(chars) - 1)][0], 2), "e": round(chars[min(b - 1, len(chars) - 1)][1], 2), "chars": b}
     return {"id": k, "text": text, "words": words, "why": w}
 async def main(out):
-    res = [await one(k, v, out) for k, v in LINES.items()]
+    try: old = {x["id"]: x for x in json.load(open(f"{out}/words.json"))}
+    except Exception: old = {}
+    res = []
+    for k, v in LINES.items():
+        o = old.get(k)
+        if o and o["text"] == v[0] + v[1] + v[2] and os.path.exists(f"{out}/{k}.mp3"): res.append(o)
+        else: res.append(await one(k, v, out))
     json.dump(res, open(f"{out}/words.json", "w"), ensure_ascii=False, indent=1)
 asyncio.run(main(sys.argv[1]))

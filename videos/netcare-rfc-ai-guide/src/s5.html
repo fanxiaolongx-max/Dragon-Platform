@@ -15,19 +15,19 @@
   <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="14" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
   <div class="paper"></div>
   <div class="blob" style="left:760px;top:760px;width:560px;height:560px;background:#8ecae6"></div>
-  <div class="head wob" id="s5-h"><span class="step">功能 1</span><span class="ttl">一键提取 · 打包 · 存证</span></div>
-  <div class="col wob" id="s5-c1" style="left:100px;top:210px;background:#fff"><div class="hd" style="background:#8ecae6"><span id="s5-i1"></span>在线打开 · 扫描</div>
+  <div class="head wob" id="s5-h"><span class="step">功能 1</span><span class="ttl">看方案 · 选章节 · 留底</span></div>
+  <div class="col wob" id="s5-c1" style="left:100px;top:210px;background:#fff"><div class="hd" style="background:#8ecae6"><span id="s5-i1"></span>在线打开 · 找章节</div>
     <div class="tr" id="s5-t0" style="top:110px">3 实施方案</div>
     <div class="tr" id="s5-t1" style="top:174px;left:70px">3.2 配置检查<span class="tag" style="font-size:26px;margin-left:12px;background:#ffd166;padding:0 12px">附件×2</span></div>
     <div class="tr" id="s5-t2" style="top:238px;left:70px">3.3 操作步骤</div>
     <div class="tr" id="s5-t3" style="top:302px;left:70px">3.5 失败回退<span class="tag" style="font-size:26px;margin-left:12px;background:#ffd166;padding:0 12px">附件×1</span></div>
     <div class="abs" id="s5-mag" style="left:380px;top:300px"></div></div>
-  <div class="col wob" id="s5-c2" style="left:690px;background:#fff"><div class="hd" style="background:#ffd166"><span id="s5-i2"></span>勾选 · 打包 ZIP</div>
+  <div class="col wob" id="s5-c2" style="left:690px;background:#fff"><div class="hd" style="background:#ffd166"><span id="s5-i2"></span>勾选 · 打包压缩包</div>
     <div class="ck on" id="s5-k1" style="top:110px"><b></b>3.2 附件 + 文本</div>
     <div class="ck" id="s5-k2" style="top:182px"><b></b>3.3 操作步骤</div>
     <div class="ck" id="s5-k3" style="top:254px"><b></b>3.5 失败回退</div>
     <div class="abs" id="s5-zip" style="left:210px;top:330px"></div></div>
-  <div class="col wob" id="s5-c3" style="left:1280px;background:#fff"><div class="hd" style="background:#ff8fab"><span id="s5-i3"></span>原始区域截图</div>
+  <div class="col wob" id="s5-c3" style="left:1280px;background:#fff"><div class="hd" style="background:#ff8fab"><span id="s5-i3"></span>截图留底</div>
     <div class="abs dash" id="s5-sh1" style="left:30px;top:110px;width:480px;height:150px;background:#fffdf5;padding:14px 20px;font-size:34px;line-height:1.4">3.5.1 回退命令<br><span class="mono" style="font-size:24px">UNDO ACL 3001</span></div>
     <div class="abs" id="s5-cam" style="left:360px;top:285px"></div>
     <div class="tag abs" id="s5-png" style="left:30px;top:385px;font-size:30px;background:#7bdcb5">3.5-章节原图-001.png</div></div>
@@ -52,8 +52,8 @@
  tl.fromTo("#s5-fa,#s5-fb,#s5-fc",{opacity:0,y:100},{opacity:1,y:0,duration:.5,stagger:.12,ease:"back.out(1.5)"},.9);
  var a=T("在线");
  tl.fromTo("#s5-c1",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},a-.4);
- tl.fromTo("#s5-t0,#s5-t1,#s5-t2,#s5-t3",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.45},T("扫描")-.2);
- tl.fromTo("#s5-mag",{opacity:0,x:-20,y:-40},{opacity:1,duration:.4},T("扫描"));
+ tl.fromTo("#s5-t0,#s5-t1,#s5-t2,#s5-t3",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.45},T("找出")-.2);
+ tl.fromTo("#s5-mag",{opacity:0,x:-20,y:-40},{opacity:1,duration:.4},T("找出"));
  tl.to("#s5-mag",{y:-90,duration:.7,ease:"sine.inOut"},T("章节"));tl.to("#s5-mag",{y:-20,x:-10,duration:.8,ease:"sine.inOut"},T("附件"));
  point(tl,"fa",T("附件")-.3,.8);
  var b=T("勾选");
@@ -69,10 +69,10 @@
  tl.fromTo("#s5-sh1",{opacity:0,y:20},{opacity:1,y:0,duration:.4},c-.5);
  tl.fromTo("#s5-cam",{opacity:0,y:30},{opacity:1,y:0,duration:.4},c-.3);
  tl.to("#s5-flash",{opacity:.9,duration:.08},c+.1);tl.to("#s5-flash",{opacity:0,duration:.3},c+.18);
- tl.fromTo("#s5-png",{opacity:0,scale:.4,y:20},{opacity:1,scale:1,y:0,duration:.4,ease:"back.out(2)"},T("存证")-.1);
+ tl.fromTo("#s5-png",{opacity:0,scale:.4,y:20},{opacity:1,scale:1,y:0,duration:.4,ease:"back.out(2)"},T("留底")-.1);
  tl.to("#fc-armR",{rotation:-110,svgOrigin:"102 104",duration:.3,ease:"back.out(2)"},c-.2);
- bounce(tl,"s5-fc",T("存证"),3,14);
- tl.fromTo("#s5-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("存证"));
+ bounce(tl,"s5-fc",T("留底"),3,14);
+ tl.fromTo("#s5-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("留底"));
  captions(tl,"s5-cap");
  window.__timelines["s5"]=tl;
 })();

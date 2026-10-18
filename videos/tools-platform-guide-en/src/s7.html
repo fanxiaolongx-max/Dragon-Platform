@@ -1,0 +1,61 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .fl{position:absolute;left:150px;width:470px;height:60px;border:2.5px solid var(--ink);border-radius:14px;background:#fff;display:flex;align-items:center;gap:12px;padding:0 14px;font-size:30px;white-space:nowrap}
+#root .fl b{width:18px;height:22px;border:2.5px solid var(--ink);border-radius:4px;display:block;flex:none}
+#root .sec{position:absolute;left:830px;width:990px;height:98px;border:3px solid var(--ink);border-radius:22px;background:#fff;display:flex;align-items:center;gap:20px;padding:0 26px;font-family:"Fredoka",sans-serif;font-size:46px;white-space:nowrap}
+#root .sec .dt{width:30px;height:30px;border-radius:50%;border:2.5px solid var(--ink);display:block;flex:none}
+#root .sec .st2{margin-left:auto;font-family:"Patrick Hand",cursive;font-size:34px;padding:0 16px;border:2.5px solid var(--ink);border-radius:999px;background:#fffdf5}
+</style>
+<div id="root" data-composition-id="s7" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="23" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:-120px;width:480px;height:480px;background:#ffe08f"></div>
+  <div class="head wob" id="s7-h"><span class="step">Station 2</span><span class="ttl">Data Import · One-click sorting</span></div>
+  <div class="btn" id="s7-bt" style="left:140px;top:300px;background:#ffb3c6;font-size:42px">Batch Import All Tables</div>
+  <div class="win wob" id="s7-fw" style="left:110px;top:220px;width:560px;height:620px"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>Data Import</span></div></div>
+  <div class="fl" id="s7-f1" style="top:410px"><b style="background:#ffe08f"></b>PBI_auto-capture-Remediation…</div>
+  <div class="fl" id="s7-f2" style="top:480px"><b style="background:#ffb3c6"></b>PBI_auto-capture-Risk…</div>
+  <div class="fl" id="s7-f3" style="top:550px"><b style="background:#aed8f2"></b>PBI_auto-capture-CPT Risk…</div>
+  <div class="fl" id="s7-f4" style="top:620px"><b style="background:#9fe0c9"></b>PBI_auto-capture-SR Details…</div>
+  <div class="fl" id="s7-f5" style="top:690px"><b style="background:#d9c6ef"></b>PBI_auto-capture-Vulnerability…</div>
+  <div class="abs" id="s7-ar" style="left:0;top:0"></div>
+  <div class="sec" id="s7-s1" style="top:230px"><i class="dt" style="background:#ffe08f"></i>Remediation<span class="st2">8 days left</span></div>
+  <div class="sec" id="s7-s2" style="top:344px"><i class="dt" style="background:#ffb3c6"></i>Routine Risk<span class="st2">25 days left</span></div>
+  <div class="sec" id="s7-s3" style="top:458px"><i class="dt" style="background:#aed8f2"></i>Special Risk<span class="st2">40 days left</span></div>
+  <div class="sec" id="s7-s4" style="top:572px"><i class="dt" style="background:#9fe0c9"></i>SR Details<span class="st2">12 days left</span></div>
+  <div class="sec" id="s7-s5" style="top:686px"><i class="dt" style="background:#d9c6ef"></i>Vulnerability Alerts<span class="st2">5 days left</span></div>
+  <div class="abs row" id="s7-lg" style="left:830px;top:810px;gap:18px"><span class="tag" id="s7-g1" style="background:#ffb3c0;font-size:38px">Urgent</span><span class="tag" id="s7-g2" style="background:#ffe08f;font-size:38px">Warning</span><span class="tag" id="s7-g3" style="background:#9fe0c9;font-size:38px">Normal</span></div>
+  <div class="abs wob" id="s7-d" style="left:1538px;top:748px"></div>
+  <div id="s7-sp"></div>
+  <div class="cap" id="s7-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s7-d",dino("dn",{w:244,h:234}));
+ put("s7-ar",arrow(660,440,150,80,"s7-a1"));
+ document.getElementById("s7-sp").innerHTML=sparkle(800,200,44)+sparkle(1850,420,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s7-bt,#s7-fw,#s7-f1,#s7-f2,#s7-f3,#s7-f4,#s7-f5,#s7-ar,#s7-s1,#s7-s2,#s7-s3,#s7-s4,#s7-s5,#s7-lg",{opacity:0});
+ tl.fromTo("#s7-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s7-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("Batch Import All Tables");
+ tl.fromTo("#s7-fw",{opacity:0,y:50},{opacity:1,y:0,duration:.5,ease:"power3.out"},a-.6);pop(tl,"#s7-bt",a-.2,{s:.5,d:.5});click(tl,"#s7-bt",a+.9);
+  tl.fromTo("#s7-f1,#s7-f2,#s7-f3,#s7-f4,#s7-f5",{opacity:0,x:-30},{opacity:1,x:0,duration:.3,stagger:.12},a+.9);
+ var b=T("filename prefix");
+ tl.set("#s7-ar",{opacity:1},b);draw(tl,"#s7-a1",b,.6);tl.to("#s7-a1h",{opacity:1,duration:.1},b+.6);
+ var ks=["Remediation","Routine Risk","Special Risk","SR Details","Vulnerability Alerts"];
+ ks.forEach(function(k,i){var t=T(k);tl.fromTo("#s7-s"+(i+1),{opacity:0,x:60},{opacity:1,x:0,duration:.4,ease:"power3.out"},t-.1);tl.to("#s7-f"+(i+1),{x:20,opacity:.45,duration:.3},t);tl.fromTo("#s7-s"+(i+1)+" .st2",{scale:.4},{scale:1,duration:.4,ease:"back.out(2)",transformOrigin:"50% 50%"},t+.3);});
+ var c=T("red yellow and green warnings");
+ tl.fromTo("#s7-lg",{opacity:0,y:20},{opacity:1,y:0,duration:.4},c-.6);
+ tl.to("#s7-s5 .st2",{backgroundColor:"#ffb3c0",duration:.3},T("red yellow and green warnings")-.3);tl.to("#s7-s1 .st2",{backgroundColor:"#ffe08f",duration:.3},T("red yellow and green warnings")-.1);tl.to("#s7-s3 .st2",{backgroundColor:"#9fe0c9",duration:.3},T("red yellow and green warnings")+.1);
+ tl.to("#s7-s5",{x:8,duration:.1,repeat:5,yoyo:true},c);
+ dpoint(tl,"dn",c,1);
+ tl.fromTo("#s7-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},c+.5);
+ captions(tl,"s7-cap");
+ window.__timelines["s7"]=tl;
+})();
+</script>
+</template></body></html>

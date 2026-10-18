@@ -41,7 +41,7 @@ def findT(sc,kw,nth=0):
 early=[]
 bad=[]
 for i,sc in enumerate(words):
-    f=f'src/s{i+1}.html'
+    f=f'src/{sc["id"]}.html'
     if not os.path.exists(f): continue
     for m in re.finditer(r'T\("([^"]+)"(?:,(\d+))?\)',open(f,encoding='utf8').read()):
         pos=findT(sc,m.group(1),int(m.group(2) or 0))
@@ -56,18 +56,18 @@ for i,sc in enumerate(words):
     d=dur(f"assets/voice/{sc['id']}.mp3"); D.append(round(d+LEAD+(2.4 if i==len(words)-1 else TAIL),2)); ST.append(round(t,2)); t+=D[-1]
 total=round(t,2)
 for i,sc in enumerate(words):
-    n=i+1
-    if not os.path.exists(f'src/s{n}.html'): continue
-    s=open(f'src/s{n}.html',encoding='utf8').read()
+    n=sc['id']
+    if not os.path.exists(f'src/s{n}.html' if False else f'src/{n}.html'): continue
+    s=open(f'src/{n}.html',encoding='utf8').read()
     data='var SDUR=%s;var WHY=%s;var W=%s;var CAPS=%s;var LEAD=%s;'%(D[i],json.dumps({k:v for k,v in sc['why'].items() if k!='chars'},ensure_ascii=False) if sc.get('why') else 'null',json.dumps([{'t':w['text'],'s':round(w['start'],2),'e':round(w['end'],2)} for w in sc['words']],ensure_ascii=False),json.dumps(caps(sc),ensure_ascii=False),LEAD)
     s=s.replace('<template>','<template><link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Long+Cang&display=swap" rel="stylesheet">',1).replace('/*SHARED*/',css).replace('//LIB',lib).replace('//DATA',data).replace('WOBID',f'wob{n}')
-    open(f'compositions/frames/s{n}.html','w',encoding='utf8').write(s)
+    open(f'compositions/frames/{n}.html','w',encoding='utf8').write(s)
 slots=''
 for i,sc in enumerate(words):
-    n=i+1
-    if not os.path.exists(f'src/s{n}.html'): continue
-    slots+=f'  <div id="el-s{n}" data-composition-id="s{n}" data-composition-src="compositions/frames/s{n}.html" data-start="{ST[i]}" data-duration="{D[i]}" data-track-index="1" data-width="1920" data-height="1080"></div>\n'
-    slots+=f'  <audio id="el-s{n}-voice" src="assets/voice/{sc["id"]}.mp3" data-start="{round(ST[i]+LEAD,2)}" data-duration="{round(dur("assets/voice/%s.mp3"%sc["id"]),2)}" data-track-index="{10+i}" data-volume="1"></audio>\n'
+    n=sc['id']
+    if not os.path.exists(f'src/{n}.html'): continue
+    slots+=f'  <div id="el-{n}" data-composition-id="{n}" data-composition-src="compositions/frames/{n}.html" data-start="{ST[i]}" data-duration="{D[i]}" data-track-index="1" data-width="1920" data-height="1080"></div>\n'
+    slots+=f'  <audio id="el-{n}-voice" src="assets/voice/{sc["id"]}.mp3" data-start="{round(ST[i]+LEAD,2)}" data-duration="{round(dur("assets/voice/%s.mp3"%sc["id"]),2)}" data-track-index="{10+i}" data-volume="1"></audio>\n'
 COLS=['#ffb3c6','#aed8f2','#ffe08f','#9fe0c9','#d9c6ef','#ffc29a','#fffdf8']
 CEN=[(240,200),(960,140),(1680,220),(300,880),(980,960),(1660,860),(960,540)]
 trans='';tjs=''

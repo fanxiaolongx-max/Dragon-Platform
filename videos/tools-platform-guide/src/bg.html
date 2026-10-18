@@ -1,0 +1,69 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pn{position:absolute;top:250px;width:262px;height:270px;background:#fff;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh);display:flex;flex-direction:column;align-items:center;padding-top:18px}
+#root .pn .nm{font-size:42px;margin-top:6px;white-space:nowrap}
+#root .pn .sb{font-size:30px;color:#8a7360;margin-top:4px;white-space:nowrap}
+#root .ar{position:absolute;top:360px;font-size:60px;color:#c9a98c}
+#root .mini{position:absolute;top:0;width:200px;height:70px;border:3px solid var(--ink);border-radius:18px;background:#fff;font-size:34px;display:flex;align-items:center;justify-content:center;white-space:nowrap}
+#root .sysw{width:92px;height:62px;border:3px solid var(--ink);border-radius:10px;background:#fff;position:absolute}
+#root .sysw:before{content:"";position:absolute;left:0;right:0;top:0;height:16px;background:var(--sky);border-bottom:3px solid var(--ink);border-radius:6px 6px 0 0}
+</style>
+<div id="root" data-composition-id="bg" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:700px;width:520px;height:520px;background:#ffb3c6"></div>
+  <div class="blob" style="left:1520px;top:-160px;width:520px;height:520px;background:#aed8f2"></div>
+  <div class="head wob" id="bg-h"><span class="step">背景</span><span class="ttl">每个月，月报是怎么做的？</span></div>
+
+  <div class="pn wob" id="bg-p1" style="left:100px"><div style="position:relative;width:150px;height:96px"><i class="sysw" style="left:0;top:0"></i><i class="sysw" style="left:34px;top:22px"></i><i class="sysw" style="left:58px;top:40px"></i></div><div class="nm">好几个系统</div><div class="sb">数据各管一摊</div></div>
+  <div class="ar" id="bg-a1" style="left:366px">→</div>
+  <div class="pn wob" id="bg-p2" style="left:430px"><span id="bg-i2"></span><div class="nm">逐个导出</div><div class="sb">登录、点导出</div></div>
+  <div class="ar" id="bg-a2" style="left:696px">→</div>
+  <div class="pn wob" id="bg-p3" style="left:760px"><span id="bg-i3"></span><div class="nm">整理表格</div><div class="sb">复制粘贴合并</div></div>
+  <div class="ar" id="bg-a3" style="left:1026px">→</div>
+  <div class="pn wob" id="bg-p4" style="left:1090px"><span id="bg-i4"></span><div class="nm">手工算达标率</div><div class="sb">一个个公式</div></div>
+  <div class="ar" id="bg-a4" style="left:1356px">→</div>
+  <div class="pn wob" id="bg-p5" style="left:1420px"><span id="bg-i5"></span><div class="nm">挨个催整改</div><div class="sb">一条条发消息</div></div>
+  <div class="abs" style="left:1700px;top:254px;display:none"></div>
+  <div class="pn wob" id="bg-p6" style="left:1560px;top:560px;width:262px;height:200px;padding-top:14px"><span id="bg-i6"></span><div class="nm" style="font-size:40px">排版成报告</div></div>
+
+  <div class="sticky wob" id="bg-s1" style="left:130px;top:570px;transform:rotate(-3deg);background:linear-gradient(170deg,#ffe3e8,#ffb3c6);font-family:'ZCOOL KuaiLe',sans-serif;font-size:54px;line-height:1.35">⏰ 要好几天<br>⚠ 还容易出错</div>
+
+  <div class="abs wob" id="bg-band" style="left:110px;top:770px;width:1450px;height:150px;border:3px solid var(--ink);border-radius:30px;background:linear-gradient(90deg,#dff6ec,#fff7d6);box-shadow:var(--sh)"></div>
+  <div class="abs" id="bg-bt" style="left:140px;top:786px;font-size:48px;white-space:nowrap">Dragon 平台 · 自动流水线</div>
+  <div class="mini" id="bg-m1" style="left:150px;top:854px;width:200px;height:52px;font-size:30px;background:#aed8f2">数据抓取</div>
+  <div class="mini" id="bg-m2" style="left:400px;top:854px;width:200px;height:52px;font-size:30px;background:#ffe08f">数据导入</div>
+  <div class="mini" id="bg-m3" style="left:650px;top:854px;width:200px;height:52px;font-size:30px;background:#9fe0c9">报表看板</div>
+  <div class="mini" id="bg-m4" style="left:900px;top:854px;width:200px;height:52px;font-size:30px;background:#ffb3c6">一键催办</div>
+  <div class="mini" id="bg-m5" style="left:1150px;top:854px;width:200px;height:52px;font-size:30px;background:#d9c6ef">月报页面</div>
+  <div class="abs" id="bg-ok" style="left:1400px;top:816px"></div>
+  <div class="abs wob" id="bg-d" style="left:1618px;top:720px"></div>
+  <div id="bg-sp"></div>
+  <div class="cap" id="bg-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("bg-i2",icon("doc","#aed8f2",100));put("bg-i3",icon("table","#ffe08f",100));put("bg-i4",icon("chart","#9fe0c9",100));put("bg-i5",icon("bell","#ffb3c6",100));put("bg-i6",icon("doc","#d9c6ef",84));
+ put("bg-ok",icon("check","#47cf9f",90));put("bg-d",dino("dn",{w:280,h:268}));
+ document.getElementById("bg-sp").innerHTML=sparkle(1820,520,44)+sparkle(1480,780,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#bg-p1,#bg-p2,#bg-p3,#bg-p4,#bg-p5,#bg-p6,#bg-a1,#bg-a2,#bg-a3,#bg-a4,#bg-s1,#bg-band,#bg-bt,#bg-m1,#bg-m2,#bg-m3,#bg-m4,#bg-m5,#bg-ok",{opacity:0});
+ tl.fromTo("#bg-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#bg-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var seq=[["好几个系统","#bg-p1",null],["导出","#bg-p2","#bg-a1"],["整理成表格","#bg-p3","#bg-a2"],["手工算达标率","#bg-p4","#bg-a3"],["挨个催人整改","#bg-p5","#bg-a4"],["排版成报告","#bg-p6",null]];
+ seq.forEach(function(x){var t=T(x[0]);pop(tl,x[1],t-.15,{s:.5,y:30,d:.5});if(x[2])tl.fromTo(x[2],{opacity:0,x:-14},{opacity:1,x:0,duration:.3},t-.3);});
+ var bt=T("好几天");pop(tl,"#bg-s1",bt-.1,{s:.5,d:.55});tl.to("#bg-s1",{rotation:-1,duration:.5,repeat:3,yoyo:true,ease:"sine.inOut"},bt+.6);
+ var d=T("Dragon平台");
+ tl.fromTo("#bg-band,#bg-bt",{opacity:0,y:30},{opacity:1,y:0,duration:.55,ease:"power3.out",stagger:.1},d-.1);
+ tl.fromTo("#bg-m1,#bg-m2,#bg-m3,#bg-m4,#bg-m5",{opacity:0,scale:.6},{opacity:1,scale:1,duration:.35,stagger:.14,ease:"back.out(1.8)",transformOrigin:"50% 50%"},T("串成")+.05);
+ pop(tl,"#bg-ok",T("自动流水线")+.3,{s:.3,d:.5});
+ dcheer(tl,"dn",T("自动流水线")+.3);
+ tl.fromTo("#bg-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("自动流水线")+.4);
+ captions(tl,"bg-cap");
+ window.__timelines["bg"]=tl;
+})();
+</script>
+</template></body></html>

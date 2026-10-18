@@ -2,7 +2,8 @@
 .nrv-stack { position: fixed; top: calc(var(--navbar-h, 52px) + 86px); right: 18px; z-index: 9500; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
 .nrv-stack > *, .nrv-banners > * { pointer-events: auto; }
 /* 抽屉：用户开始操作页面后整体滑出到右侧，留下边缘标签（样式与右下角 Dragon Claw 助手一致） */
-.nrv-stack { transition: transform .5s cubic-bezier(.2, .8, .2, 1), opacity .35s ease, visibility 0s; }
+.nrv-stack { transition: top 1.2s cubic-bezier(.22, 1, .36, 1), transform .5s cubic-bezier(.2, .8, .2, 1), opacity .35s ease, visibility 0s; }
+.nrv-stack.is-intro { top: calc(var(--navbar-h, 52px) + 18px); }
 .nrv-stack.is-tucked { transform: translateX(calc(100% + 40px)); opacity: 0; visibility: hidden; transition: transform .45s cubic-bezier(.4, 0, .2, 1), opacity .3s ease .1s, visibility 0s .45s; }
 .nrv-tab {
     position: fixed; top: calc(var(--navbar-h, 52px) + 86px); right: 0; z-index: 9500;

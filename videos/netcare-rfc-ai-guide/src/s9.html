@@ -11,9 +11,9 @@
   <div class="blob" style="left:-150px;top:-130px;width:500px;height:500px;background:#ff8fab"></div>
   <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#ffd166"></div>
   <div id="s9-bk">
-    <div class="head wob" id="s9-h"><span class="step">配置 3</span><span class="ttl">加密备份 · 一键恢复</span></div>
+    <div class="head wob" id="s9-h"><span class="step">设置 3</span><span class="ttl">加密备份 · 一键恢复</span></div>
     <div class="win wob" id="s9-w1" style="left:110px;top:240px;width:780px;height:560px"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>备份与恢复</span></div></div>
-    <div class="abs" style="left:150px;top:340px;font-size:42px">备份密码（至少 8 位）</div>
+    <div class="abs" style="left:150px;top:340px;font-size:42px">备份密码（8 位以上，自己记牢）</div>
     <div class="inp" id="s9-pw" style="left:150px;top:410px;width:700px"></div>
     <div class="btn" id="s9-bb" style="left:150px;top:540px;font-size:38px;background:#ffd166">导出加密备份</div>
     <div class="tag abs mono" id="s9-aes" style="left:150px;top:690px;font-size:30px;background:#cdb4db">AES-256-GCM · PBKDF2</div>
@@ -26,10 +26,10 @@
   </div>
   <div id="s9-end">
     <div class="abs wob" id="s9-big" style="left:0;right:0;top:80px;text-align:center;font-family:'ZCOOL KuaiLe',sans-serif;font-size:110px;white-space:nowrap">你都学会啦！</div>
-    <div class="item wob" id="s9-e1" style="left:360px;top:290px;background:#ffd166"><span id="s9-ei1"></span>打包</div>
+    <div class="item wob" id="s9-e1" style="left:360px;top:290px;background:#ffd166"><span id="s9-ei1"></span>拿安装包</div>
     <div class="item wob" id="s9-e2" style="left:780px;top:290px;background:#8ecae6"><span id="s9-ei2"></span>安装</div>
     <div class="item wob" id="s9-e3" style="left:1200px;top:290px;background:#7bdcb5"><span id="s9-ei3"></span>使用</div>
-    <div class="item wob" id="s9-e4" style="left:780px;top:470px;background:#ff8fab"><span id="s9-ei4"></span>配置</div>
+    <div class="item wob" id="s9-e4" style="left:780px;top:470px;background:#ff8fab"><span id="s9-ei4"></span>设置</div>
     <div class="abs wob" id="s9-fg" style="left:260px;top:520px"></div>
     <div class="abs wob" id="s9-fg2" style="left:1440px;top:520px"></div>
     <div class="abs wob" id="s9-nm" style="left:0;right:0;top:680px;text-align:center;font-family:'ZCOOL KuaiLe',sans-serif;font-size:56px;white-space:nowrap">NetCare RFC 方案与 <span style="color:#ef476f">AI 审计</span></div>
@@ -67,7 +67,7 @@
  tl.to("#s9-bk",{opacity:0,y:-40,duration:.5,ease:"power2.in"},e-.1);
  tl.set("#s9-end",{opacity:1},e+.3);
  tl.fromTo("#s9-big",{opacity:0,scale:.5,y:30},{opacity:1,scale:1,y:0,duration:.6,ease:"back.out(1.8)",transformOrigin:"50% 50%"},e+.4);
- [["#s9-e1","打包"],["#s9-e2","安装"],["#s9-e3","使用"],["#s9-e4","配置"]].forEach(function(a,i){pop(tl,a[0],T(a[1])+(i<3?0:0)+.05,{s:.3,y:30,d:.5});});
+ [["#s9-e1","拿包"],["#s9-e2","安装"],["#s9-e3","使用"],["#s9-e4","设置你都"]].forEach(function(a,i){pop(tl,a[0],T(a[1])+(i<3?0:0)+.05,{s:.3,y:30,d:.5});});
  tl.fromTo("#s9-fg,#s9-fg2",{opacity:0,y:140},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)",stagger:.15},e+.9);
  tl.fromTo("#s9-nm",{opacity:0,y:20},{opacity:1,y:0,duration:.6},T("学会")-.1);
  pop(tl,"#s9-go",T("快去")-.1,{s:.3,d:.55});

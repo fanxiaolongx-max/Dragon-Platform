@@ -2,7 +2,7 @@
 import re, subprocess, sys
 html = open('index.html', encoding='utf8').read()
 total = float(re.search(r'data-composition-id="main"[^>]*data-duration="([\d.]+)"', html).group(1))
-voices = re.findall(r'<audio id="el-s\d+-voice" src="([^"]+)" data-start="([\d.]+)"', html)
+voices = re.findall(r'<audio id="el-\w+-voice" src="([^"]+)" data-start="([\d.]+)"', html)
 src = 'assets/music/bgm_even.wav'
 dur = float(subprocess.check_output(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', src]).decode())
 # 1) 不够长就用中段交叉淡入循环续上

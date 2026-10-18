@@ -1,0 +1,74 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .wob{filter:url(#WOBID)}
+#root .stp{position:absolute;width:420px;height:150px;border:5px solid var(--ink);border-radius:24px;background:#fff;box-shadow:7px 7px 0 var(--ink);display:flex;align-items:center;gap:16px;padding:0 22px;font-size:44px;line-height:1.1;white-space:nowrap}
+#root .ar2{position:absolute;font-family:"ZCOOL KuaiLe",sans-serif;font-size:64px}
+#root .rowtag{position:absolute;left:110px;font-family:"ZCOOL KuaiLe",sans-serif;font-size:48px;border:5px solid var(--ink);border-radius:50px;padding:4px 28px 8px;white-space:nowrap;box-shadow:5px 5px 0 var(--ink)}
+</style>
+<div id="root" data-composition-id="bg" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="17" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1440px;top:700px;width:560px;height:560px;background:#ffd166"></div>
+  <div class="blob" style="left:-150px;top:-120px;width:460px;height:460px;background:#8ecae6"></div>
+  <div class="head wob" id="bg-h"><span class="step">背景</span><span class="ttl">这个小工具能做什么？</span></div>
+  <div class="sticky wob" id="bg-def" style="left:1330px;top:150px;width:520px;font-size:40px;transform:rotate(3deg);background:#8ecae6">RFC = 网络变更申请单<br><span style="font-size:34px">每张单里，都附着一份「变更方案」文档</span></div>
+
+  <div class="rowtag" id="bg-t1" style="top:262px;background:#ffe0e8">以前</div>
+  <div class="stp wob" id="bg-a1" style="left:110px;top:340px"><span id="bg-ai1"></span>一张张<br>打开单子</div>
+  <div class="ar2" id="bg-aa1" style="left:548px;top:372px">→</div>
+  <div class="stp wob" id="bg-a2" style="left:620px;top:340px"><span id="bg-ai2"></span>下载<br>方案文档</div>
+  <div class="ar2" id="bg-aa2" style="left:1058px;top:372px">→</div>
+  <div class="stp wob" id="bg-a3" style="left:1130px;top:340px"><span id="bg-ai3"></span>对着清单<br>逐条核对</div>
+  <div class="sticky wob" id="bg-pain" style="left:1580px;top:330px;transform:rotate(-4deg);font-size:46px;background:#ffc9d6;padding:12px 20px 16px">又慢<br>又容易漏</div>
+
+  <div class="rowtag" id="bg-t2" style="top:540px;background:#d9fbec">现在</div>
+  <div class="stp wob" id="bg-b1" style="left:110px;top:618px;background:#fff8dc"><span id="bg-bi1"></span>批量下载<br>方案文档</div>
+  <div class="ar2" id="bg-ba1" style="left:548px;top:650px">→</div>
+  <div class="stp wob" id="bg-b2" style="left:620px;top:618px;background:#fff8dc"><span id="bg-bi2"></span>AI 先帮你<br>查一遍</div>
+  <div class="ar2" id="bg-ba2" style="left:1058px;top:650px">→</div>
+  <div class="stp wob" id="bg-b3" style="left:1130px;top:618px;background:#fff8dc;gap:10px;padding:0 16px"><span class="tag" style="background:#9be7c7;font-size:34px;padding:0 14px">通过</span><span class="tag" style="background:#ffc9d6;font-size:34px;padding:0 14px">不通过</span><span class="tag" style="background:#ffe9a8;font-size:34px;padding:0 14px">待复核</span></div>
+  <div class="tag abs" id="bg-b3l" style="left:1140px;top:792px;background:#fff;font-size:40px">你只需要看结论</div>
+
+  <div class="abs wob" id="bg-fig" style="left:1630px;top:560px"></div>
+  <div class="bubble" id="bg-bub" style="left:1600px;top:440px;font-size:46px">轻松多啦！</div>
+  <div id="bg-sp"></div>
+  <div class="cap" id="bg-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("bg-ai1",icon("doc","#8ecae6",72));put("bg-ai2",icon("zip","#ffd166",72));put("bg-ai3",icon("search","#ff8fab",72));
+ put("bg-bi1",icon("zip","#ffd166",72));put("bg-bi2",icon("star","#cdb4db",72));
+ put("bg-fig",figure("fb0",{body:"#8ecae6",hat:"#ff8fab",w:250,h:340}));
+ document.getElementById("bg-sp").innerHTML=sparkle(1500,640,44)+sparkle(1830,520,40,"#ff8fab")+sparkle(1280,170,40,"#ffd166");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#bg-def,#bg-t1,#bg-a1,#bg-aa1,#bg-a2,#bg-aa2,#bg-a3,#bg-pain,#bg-t2,#bg-b1,#bg-ba1,#bg-b2,#bg-ba2,#bg-b3,#bg-b3l,#bg-bub",{opacity:0});
+ tl.fromTo("#bg-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#bg-fig",{opacity:0,y:140},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);
+ pop(tl,"#bg-def",T("变更申请单")-.2,{s:.4,y:-20});
+ pop(tl,"#bg-t1",T("一张张")-.5,{s:.5});
+ pop(tl,"#bg-a1",T("一张张")-.1,{s:.5,y:30});
+ tl.fromTo("#bg-aa1",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},T("下载方案文档")-.4);
+ pop(tl,"#bg-a2",T("下载方案文档")-.1,{s:.5,y:30});
+ tl.fromTo("#bg-aa2",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},T("逐条核对")-.5);
+ pop(tl,"#bg-a3",T("逐条核对")-.2,{s:.5,y:30});
+ pop(tl,"#bg-pain",T("又慢")-.1,{s:.4,d:.5});tl.to("#bg-pain",{rotation:-1,duration:.4,repeat:3,yoyo:true,ease:"sine.inOut"},T("又慢")+.5);
+ tl.to("#bg-a1,#bg-a2,#bg-a3,#bg-aa1,#bg-aa2,#bg-t1,#bg-pain",{opacity:.35,duration:.5},T("这个小工具")-.1);
+ pop(tl,"#bg-t2",T("这个小工具")+.1,{s:.5});
+ pop(tl,"#bg-b1",T("批量下载")-.1,{s:.5,y:30});
+ tl.fromTo("#bg-ba1",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},T("批量下载")+.5);
+ pop(tl,"#bg-b2",T("AI先帮你")-.1,{s:.5,y:30});
+ tl.fromTo("#bg-ba2",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},T("你只需要")-.8);
+ pop(tl,"#bg-b3",T("你只需要")-.4,{s:.5,y:30});
+ pop(tl,"#bg-b3l",T("看结论")-.1,{s:.5});
+ pop(tl,"#bg-bub",T("看结论")+.3,{s:.4});
+ tl.fromTo("#bg-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.25,ease:"back.out(2)",transformOrigin:"50% 50%"},T("看结论"));
+ tl.to("#fb0-armR",{rotation:-160,svgOrigin:"102 104",duration:.35,ease:"back.out(2)"},T("看结论")+.2);tl.to("#fb0-armL",{rotation:160,svgOrigin:"58 104",duration:.35,ease:"back.out(2)"},T("看结论")+.2);
+ bounce(tl,"bg-fig",T("看结论")+.4,3,16);
+ captions(tl,"bg-cap");
+ window.__timelines["bg"]=tl;
+})();
+</script>
+</template></body></html>

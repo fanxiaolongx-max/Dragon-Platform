@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pn .nm{font-size:30px!important;white-space:normal!important;text-align:center;line-height:1.1;padding:0 8px}#root .pn .sb{font-size:24px!important;white-space:normal!important;text-align:center;padding:0 8px}
+#root .pn{position:absolute;top:250px;width:262px;height:270px;background:#fff;border:3px solid var(--ink);border-radius:26px;box-shadow:var(--sh);display:flex;flex-direction:column;align-items:center;padding-top:18px}
+#root .pn .nm{font-size:42px;margin-top:6px;white-space:nowrap}
+#root .pn .sb{font-size:30px;color:#8a7360;margin-top:4px;white-space:nowrap}
+#root .ar{position:absolute;top:360px;font-size:60px;color:#c9a98c}
+#root .mini{position:absolute;top:0;width:200px;height:70px;border:3px solid var(--ink);border-radius:18px;background:#fff;font-size:34px;display:flex;align-items:center;justify-content:center;white-space:nowrap}
+#root .sysw{width:92px;height:62px;border:3px solid var(--ink);border-radius:10px;background:#fff;position:absolute}
+#root .sysw:before{content:"";position:absolute;left:0;right:0;top:0;height:16px;background:var(--sky);border-bottom:3px solid var(--ink);border-radius:6px 6px 0 0}
+</style>
+<div id="root" data-composition-id="bg" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:700px;width:520px;height:520px;background:#ffb3c6"></div>
+  <div class="blob" style="left:1520px;top:-160px;width:520px;height:520px;background:#aed8f2"></div>
+  <div class="head wob" id="bg-h"><span class="step">Background</span><span class="ttl">How is the monthly report made?</span></div>
+
+  <div class="pn wob" id="bg-p1" style="left:100px"><div style="position:relative;width:150px;height:96px"><i class="sysw" style="left:0;top:0"></i><i class="sysw" style="left:34px;top:22px"></i><i class="sysw" style="left:58px;top:40px"></i></div><div class="nm">Several systems</div><div class="sb">Each holds its own data</div></div>
+  <div class="ar" id="bg-a1" style="left:366px">→</div>
+  <div class="pn wob" id="bg-p2" style="left:430px"><span id="bg-i2"></span><div class="nm">Export one by one</div><div class="sb">Log in, click export</div></div>
+  <div class="ar" id="bg-a2" style="left:696px">→</div>
+  <div class="pn wob" id="bg-p3" style="left:760px"><span id="bg-i3"></span><div class="nm">Tidy into tables</div><div class="sb">Copy, paste, merge</div></div>
+  <div class="ar" id="bg-a3" style="left:1026px">→</div>
+  <div class="pn wob" id="bg-p4" style="left:1090px"><span id="bg-i4"></span><div class="nm">Pass rates by hand</div><div class="sb">Formula by formula</div></div>
+  <div class="ar" id="bg-a4" style="left:1356px">→</div>
+  <div class="pn wob" id="bg-p5" style="left:1420px"><span id="bg-i5"></span><div class="nm">Chase for fixes</div><div class="sb">Message by message</div></div>
+  <div class="abs" style="left:1700px;top:254px;display:none"></div>
+  <div class="pn wob" id="bg-p6" style="left:1560px;top:560px;width:262px;height:200px;padding-top:14px"><span id="bg-i6"></span><div class="nm" style="font-size:40px">Lay out the report</div></div>
+
+  <div class="sticky wob" id="bg-s1" style="left:130px;top:570px;transform:rotate(-3deg);background:linear-gradient(170deg,#ffe3e8,#ffb3c6);font-family:'Fredoka',sans-serif;font-size:54px;line-height:1.35">⏰ Takes days<br>⚠ Error-prone too</div>
+
+  <div class="abs wob" id="bg-band" style="left:110px;top:770px;width:1450px;height:150px;border:3px solid var(--ink);border-radius:30px;background:linear-gradient(90deg,#dff6ec,#fff7d6);box-shadow:var(--sh)"></div>
+  <div class="abs" id="bg-bt" style="left:140px;top:786px;font-size:48px;white-space:nowrap">Dragon Platform · Auto pipeline</div>
+  <div class="mini" id="bg-m1" style="left:150px;top:854px;width:200px;height:52px;font-size:30px;background:#aed8f2">Data Capture</div>
+  <div class="mini" id="bg-m2" style="left:400px;top:854px;width:200px;height:52px;font-size:30px;background:#ffe08f">Data Import</div>
+  <div class="mini" id="bg-m3" style="left:650px;top:854px;width:200px;height:52px;font-size:30px;background:#9fe0c9">Report Board</div>
+  <div class="mini" id="bg-m4" style="left:900px;top:854px;width:200px;height:52px;font-size:30px;background:#ffb3c6">One-click Nudge</div>
+  <div class="mini" id="bg-m5" style="left:1150px;top:854px;width:200px;height:52px;font-size:30px;background:#d9c6ef">Monthly Report</div>
+  <div class="abs" id="bg-ok" style="left:1400px;top:816px"></div>
+  <div class="abs wob" id="bg-d" style="left:1618px;top:720px"></div>
+  <div id="bg-sp"></div>
+  <div class="cap" id="bg-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("bg-i2",icon("doc","#aed8f2",100));put("bg-i3",icon("table","#ffe08f",100));put("bg-i4",icon("chart","#9fe0c9",100));put("bg-i5",icon("bell","#ffb3c6",100));put("bg-i6",icon("doc","#d9c6ef",84));
+ put("bg-ok",icon("check","#47cf9f",90));put("bg-d",dino("dn",{w:280,h:268}));
+ document.getElementById("bg-sp").innerHTML=sparkle(1820,520,44)+sparkle(1480,780,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#bg-p1,#bg-p2,#bg-p3,#bg-p4,#bg-p5,#bg-p6,#bg-a1,#bg-a2,#bg-a3,#bg-a4,#bg-s1,#bg-band,#bg-bt,#bg-m1,#bg-m2,#bg-m3,#bg-m4,#bg-m5,#bg-ok",{opacity:0});
+ tl.fromTo("#bg-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#bg-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var seq=[["several systems","#bg-p1",null],["export it","#bg-p2","#bg-a1"],["tidy everything into tables","#bg-p3","#bg-a2"],["pass rates by hand","#bg-p4","#bg-a3"],["chase people one by one","#bg-p5","#bg-a4"],["lay it all out as a report","#bg-p6",null]];
+ seq.forEach(function(x){var t=T(x[0]);pop(tl,x[1],t-.15,{s:.5,y:30,d:.5});if(x[2])tl.fromTo(x[2],{opacity:0,x:-14},{opacity:1,x:0,duration:.3},t-.3);});
+ var bt=T("It takes days");pop(tl,"#bg-s1",bt-.1,{s:.5,d:.55});tl.to("#bg-s1",{rotation:-1,duration:.5,repeat:3,yoyo:true,ease:"sine.inOut"},bt+.6);
+ var d=T("Dragon Platform");
+ tl.fromTo("#bg-band,#bg-bt",{opacity:0,y:30},{opacity:1,y:0,duration:.55,ease:"power3.out",stagger:.1},d-.1);
+ tl.fromTo("#bg-m1,#bg-m2,#bg-m3,#bg-m4,#bg-m5",{opacity:0,scale:.6},{opacity:1,scale:1,duration:.35,stagger:.14,ease:"back.out(1.8)",transformOrigin:"50% 50%"},T("links")+.05);
+ pop(tl,"#bg-ok",T("automatic pipeline")+.3,{s:.3,d:.5});
+ dcheer(tl,"dn",T("automatic pipeline")+.3);
+ tl.fromTo("#bg-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("automatic pipeline")+.4);
+ captions(tl,"bg-cap");
+ window.__timelines["bg"]=tl;
+})();
+</script>
+</template></body></html>

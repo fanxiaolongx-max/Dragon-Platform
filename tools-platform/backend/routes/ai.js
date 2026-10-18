@@ -1,3 +1,4 @@
+const { getUsageVideoFooter } = require('../models/platform-usage-video');
 const express = require('express');
 const router = express.Router();
 const { checkAuth } = require('../middleware/auth');
@@ -829,6 +830,11 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             })
             : null;
         const result = agentResult || (analysisResult ? analysisResult.result : await generateResponse());
+        const usageVideoFooter = analysisCode ? '' : await getUsageVideoFooter(lastMessage.content, uiLanguage);
+        if (usageVideoFooter && !String(result.text || '').includes(usageVideoFooter.trim())) {
+            result.text = String(result.text || '') + usageVideoFooter;
+            if (streamRequested) writeStreamEvent({ type: 'delta', delta: usageVideoFooter });
+        }
         const persistedQuestion = analysisResult ? analysisResult.content : lastMessage.content;
         // 历史记录只存文本：工作区模式附上工具调用摘要，便于下一轮延续。
         const responseText = redactText(agentResult && agentResult.toolLog.length

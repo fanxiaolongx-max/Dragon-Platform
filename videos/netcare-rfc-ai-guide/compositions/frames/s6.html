@@ -27,37 +27,42 @@
 .row{display:flex;align-items:center}
 .abs{position:absolute}
 
-#root .wob{filter:url(#wob6)}
+.bdg{position:absolute;width:64px;height:64px;border-radius:50%;background:var(--red);color:#fff;border:5px solid var(--ink);font-family:"ZCOOL KuaiLe",sans-serif;font-size:40px;display:flex;align-items:center;justify-content:center;z-index:35;box-shadow:4px 4px 0 var(--ink)}
+.hl{position:absolute;border:6px dashed var(--red);border-radius:22px;z-index:34;pointer-events:none}
+.lbl{position:absolute;z-index:36;font-family:"Long Cang",cursive;font-size:44px;line-height:1.15;background:#fff3c4;border:5px solid var(--ink);border-radius:14px 28px 14px 28px;padding:8px 22px 12px;box-shadow:6px 6px 0 var(--ink);white-space:nowrap}
+.addr{position:absolute;height:64px;border:5px solid var(--ink);border-radius:34px;background:#fff;display:flex;align-items:center;padding:0 26px;font-family:"JetBrains Mono",monospace;font-size:32px;white-space:nowrap;overflow:hidden}
+
+#root .wob{filter:url(#wobs6)}
 #root .stamp{position:absolute;width:270px;height:330px;border:6px solid var(--ink);border-radius:28px;box-shadow:10px 10px 0 var(--ink);background:#fff;display:flex;flex-direction:column;align-items:center;padding-top:22px}
 #root .stamp .tt{font-family:"ZCOOL KuaiLe",sans-serif;font-size:46px;margin-top:6px;white-space:nowrap}
 #root .stamp .ds{font-size:30px;margin-top:6px;white-space:nowrap}
 </style>
 <div id="root" data-composition-id="s6" data-width="1920" data-height="1080">
-  <svg width="0" height="0" style="position:absolute"><filter id="wob6" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="21" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <svg width="0" height="0" style="position:absolute"><filter id="wobs6" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="21" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
   <div class="paper"></div>
   <div class="blob" style="left:-140px;top:-120px;width:480px;height:480px;background:#ffd166"></div>
-  <div class="head wob" id="s6-h"><span class="step">功能 2</span><span class="ttl">AI 审计 · 三态结论</span></div>
-  <div class="sticky wob" id="s6-st" style="left:110px;top:230px;width:430px;transform:rotate(-3deg)">章节规则<br><span style="font-size:36px">3.5 回退命令是否具体、可执行？</span></div>
+  <div class="head wob" id="s6-h"><span class="step">功能 2</span><span class="ttl">AI 审计 · 三种结论</span></div>
+  <div class="sticky wob" id="s6-st" style="left:110px;top:230px;width:430px;transform:rotate(-3deg)">你写的检查要求<br><span style="font-size:36px">3.5 回退办法写清楚了吗？能照着做吗？</span></div>
   <div class="abs" id="s6-ar1"></div>
   <div class="abs wob" id="s6-bot" style="left:640px;top:250px"></div>
   <div class="bubble" id="s6-bb" style="left:610px;top:140px;font-size:40px;padding:8px 22px 12px">逐条检查中…</div>
-  <div class="stamp wob" id="s6-s1" style="left:950px;top:230px;background:#d9fbec"><span id="s6-i1"></span><div class="tt" style="color:#059669">通过</div><div class="ds">PASS</div></div>
-  <div class="stamp wob" id="s6-s2" style="left:1245px;top:230px;background:#ffe0e8"><span id="s6-i2"></span><div class="tt" style="color:#ef476f">不通过</div><div class="ds">FAIL</div></div>
-  <div class="stamp wob" id="s6-s3" style="left:1540px;top:230px;background:#fff3c4"><span id="s6-i3"></span><div class="tt" style="color:#d97706">需复核</div><div class="ds">NEEDS_REVIEW</div></div>
-  <div class="win wob" id="s6-xl" style="left:960px;top:610px;width:960px;height:250px;border-right:none;border-radius:26px 0 0 26px"><div class="wbar" style="background:var(--mint)"><i></i><i></i><i></i><span>审计结果.xlsx</span></div></div>
+  <div class="stamp wob" id="s6-s1" style="left:950px;top:230px;background:#d9fbec"><span id="s6-i1"></span><div class="tt" style="color:#059669">通过</div><div class="ds">没问题</div></div>
+  <div class="stamp wob" id="s6-s2" style="left:1245px;top:230px;background:#ffe0e8"><span id="s6-i2"></span><div class="tt" style="color:#ef476f">不通过</div><div class="ds">要修改</div></div>
+  <div class="stamp wob" id="s6-s3" style="left:1540px;top:230px;background:#fff3c4"><span id="s6-i3"></span><div class="tt" style="color:#d97706">需人工复核</div><div class="ds">交给人看</div></div>
+  <div class="win wob" id="s6-xl" style="left:960px;top:610px;width:960px;height:250px;border-right:none;border-radius:26px 0 0 26px"><div class="wbar" style="background:var(--mint)"><i></i><i></i><i></i><span>审计结果.xlsx（Excel 表格）</span></div></div>
   <div class="abs mono" id="s6-tb" style="left:990px;top:690px;font-size:26px;line-height:1.7;white-space:pre">方案　　　章节　　审计点　　　结论　　原因
-RFC-0087　 3.3　　确认查询　　<b style="color:#059669">PASS</b>　　—
-RFC-0087　 3.5　　回退命令　　<b style="color:#ef476f">FAIL</b>　　缺少回退</div>
+RFC-0087　 3.3　　确认查询　　<b style="color:#059669">通过</b>　　—
+RFC-0087　 3.5　　回退命令　　<b style="color:#ef476f">不通过</b>　　缺少回退</div>
   <div class="abs wob" id="s6-xi" style="left:760px;top:640px"></div>
   <div class="abs wob" id="s6-fig" style="left:190px;top:560px"></div>
   <div id="s6-sp"></div>
   <div class="cap" id="s6-cap"></div>
 </div>
 <script>
-function T(s){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
- s=String(s).replace(/\s+/g,"");var p=C.replace(/\s+/g,"").indexOf(s);if(p<0)return 0;
- var q=0,j=0;for(i=0;i<C.length;i++){if(/\s/.test(C[i]))continue;if(q===p){j=i;break;}q++;}
- return Math.round((W[M[j]].s+LEAD)*100)/100;}
+function T(s,nth){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
+ s=String(s).replace(/\s+/g,"");var P="",MM=[];for(i=0;i<C.length;i++){if(!/\s/.test(C[i])){P+=C[i];MM.push(M[i]);}}
+ var p=-1,n=nth||0,from=0;while(n>=0){p=P.indexOf(s,from);if(p<0)return 0;from=p+1;n--;}
+ return Math.round((W[MM[p]].s+LEAD)*100)/100;}
 function figure(id,o){o=o||{};var body=o.body||"#ff8fab",hat=o.hat||"#ffd166";
  return '<svg id="'+id+'" class="fig" viewBox="0 0 160 220" width="'+(o.w||240)+'" height="'+(o.h||330)+'" style="overflow:visible">'+
  '<g id="'+id+'-legL"><path class="ln" d="M70 152 L64 196"/><ellipse cx="58" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
@@ -116,7 +121,7 @@ function typeText(tl,id,text,t,dur){var el=document.getElementById(id);el.innerH
 function toggle(tl,id,t){tl.to("#"+id,{backgroundColor:"#06d6a0",duration:.2},t);tl.to("#"+id+" i",{x:34,duration:.25,ease:"back.out(2)"},t);}
 function arrow(x,y,w,h,id){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="overflow:visible"><path id="'+id+'" class="ln" pathLength="1" stroke-dasharray="1" d="M6 '+(h/2)+' C'+(w*.3)+' '+(h*.1)+' '+(w*.6)+' '+(h*.9)+' '+(w-26)+' '+(h/2)+'"/><path id="'+id+'h" class="ln" d="M'+(w-40)+' '+(h/2-16)+' L'+(w-8)+' '+(h/2)+' L'+(w-40)+' '+(h/2+16)+'" opacity="0"/></svg>';}
 
-var W=[{"t": "开启", "s": 0.1, "e": 0.63}, {"t": "AI", "s": 0.73, "e": 1.24}, {"t": "审计", "s": 1.25, "e": 1.7}, {"t": "模型", "s": 1.96, "e": 2.37}, {"t": "会", "s": 2.38, "e": 2.51}, {"t": "按", "s": 2.51, "e": 2.62}, {"t": "你", "s": 2.62, "e": 2.72}, {"t": "写", "s": 2.73, "e": 2.87}, {"t": "的", "s": 2.87, "e": 2.97}, {"t": "章", "s": 3.0, "e": 3.19}, {"t": "节规", "s": 3.19, "e": 3.54}, {"t": "则", "s": 3.55, "e": 3.89}, {"t": "逐条", "s": 3.99, "e": 4.39}, {"t": "检查", "s": 4.4, "e": 4.9}, {"t": "结论", "s": 5.44, "e": 5.81}, {"t": "只有", "s": 5.84, "e": 6.04}, {"t": "三种", "s": 6.05, "e": 6.49}, {"t": "通过", "s": 6.71, "e": 7.17}, {"t": "不", "s": 7.35, "e": 7.48}, {"t": "通过", "s": 7.48, "e": 7.87}, {"t": "需要", "s": 8.02, "e": 8.38}, {"t": "人工", "s": 8.41, "e": 8.69}, {"t": "复核", "s": 8.7, "e": 9.15}, {"t": "还", "s": 9.32, "e": 9.48}, {"t": "能", "s": 9.48, "e": 9.56}, {"t": "一", "s": 9.59, "e": 9.69}, {"t": "键", "s": 9.69, "e": 9.86}, {"t": "导出", "s": 9.87, "e": 10.33}, {"t": "Excel", "s": 10.42, "e": 10.91}, {"t": "报告", "s": 10.92, "e": 11.29}];var CAPS=[{"t": "开启 AI 审计", "s": 0.1, "e": 1.7}, {"t": "模型会按你写的章节规则逐条检查", "s": 1.96, "e": 4.9}, {"t": "结论只有三种", "s": 5.44, "e": 6.49}, {"t": "通过、不通过、需要人工复核", "s": 6.71, "e": 9.15}, {"t": "还能一键导出 Excel 报告", "s": 9.32, "e": 11.29}];var LEAD=0.4;
+var W=[{"t": "打开", "s": 0.1, "e": 0.59}, {"t": "AI", "s": 0.71, "e": 1.21}, {"t": "审计", "s": 1.22, "e": 1.5}, {"t": "后", "s": 1.5, "e": 1.82}, {"t": "AI", "s": 2.21, "e": 2.8}, {"t": "会", "s": 2.8, "e": 2.97}, {"t": "照着", "s": 2.99, "e": 3.2}, {"t": "你", "s": 3.2, "e": 3.29}, {"t": "写", "s": 3.3, "e": 3.47}, {"t": "好", "s": 3.47, "e": 3.61}, {"t": "的", "s": 3.61, "e": 3.71}, {"t": "检查", "s": 3.73, "e": 4.0}, {"t": "要求", "s": 4.01, "e": 4.5}, {"t": "把", "s": 4.71, "e": 4.84}, {"t": "每个", "s": 4.85, "e": 5.05}, {"t": "章节", "s": 5.06, "e": 5.39}, {"t": "逐条", "s": 5.42, "e": 5.73}, {"t": "检查", "s": 5.75, "e": 6.05}, {"t": "一", "s": 6.06, "e": 6.15}, {"t": "遍", "s": 6.15, "e": 6.35}, {"t": "结果", "s": 6.88, "e": 7.25}, {"t": "只有", "s": 7.28, "e": 7.5}, {"t": "三种", "s": 7.51, "e": 7.98}, {"t": "通过", "s": 8.29, "e": 8.79}, {"t": "不", "s": 8.96, "e": 9.09}, {"t": "通过", "s": 9.09, "e": 9.5}, {"t": "需要", "s": 9.66, "e": 10.05}, {"t": "人工", "s": 10.07, "e": 10.4}, {"t": "复核", "s": 10.41, "e": 10.87}, {"t": "还", "s": 11.42, "e": 11.59}, {"t": "能", "s": 11.59, "e": 11.7}, {"t": "一", "s": 11.72, "e": 11.85}, {"t": "键", "s": 11.85, "e": 12.05}, {"t": "导出", "s": 12.06, "e": 12.31}, {"t": "成", "s": 12.31, "e": 12.62}, {"t": "Excel", "s": 12.71, "e": 13.27}, {"t": "表格", "s": 13.29, "e": 13.55}, {"t": "报告", "s": 13.56, "e": 13.93}];var CAPS=[{"t": "打开 AI 审计后", "s": 0.1, "e": 1.82}, {"t": "AI 会照着你写好的检查要求", "s": 2.21, "e": 4.5}, {"t": "把每个章节逐条检查一遍", "s": 4.71, "e": 6.35}, {"t": "结果只有三种", "s": 6.88, "e": 7.98}, {"t": "通过、不通过、需要人工复核", "s": 8.29, "e": 10.87}, {"t": "还能一键导出成 Excel 表格报告", "s": 11.42, "e": 13.93}];var LEAD=0.4;
 (function(){
  put("s6-i1",icon("check","#06d6a0",120));put("s6-i2",icon("cross","#ef476f",120));put("s6-i3",icon("ask","#ffd166",120));put("s6-xi",icon("table","#7bdcb5",150));
  put("s6-bot",'<svg viewBox="0 0 200 220" width="260" height="286" style="overflow:visible"><path class="ln" d="M100 20 V4"/><circle class="ol" cx="100" cy="2" r="9" fill="#ef476f"/><rect class="ol" x="26" y="26" width="148" height="120" rx="34" fill="#cdb4db"/><circle class="ol" cx="70" cy="76" r="17" fill="#fff"/><circle class="ol" cx="130" cy="76" r="17" fill="#fff"/><circle id="s6-e1" cx="70" cy="76" r="7" fill="#2d2a32"/><circle id="s6-e2" cx="130" cy="76" r="7" fill="#2d2a32"/><path class="ln" d="M76 112 Q100 128 124 112"/><rect class="ol" x="52" y="150" width="96" height="54" rx="14" fill="#8ecae6"/><path class="ln" d="M70 177 H130"/></svg>');
@@ -127,15 +132,13 @@ var W=[{"t": "开启", "s": 0.1, "e": 0.63}, {"t": "AI", "s": 0.73, "e": 1.24}, 
  gsap.set("#s6-st,#s6-ar1,#s6-bot,#s6-bb,#s6-s1,#s6-s2,#s6-s3,#s6-xl,#s6-tb,#s6-xi",{opacity:0});
  tl.fromTo("#s6-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
  tl.fromTo("#s6-fig",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);
- var a=T("模型");
  pop(tl,"#s6-bot",.9,{s:.4,y:40});
  tl.to("#s6-bot",{y:-8,duration:.5,repeat:12,yoyo:true,ease:"sine.inOut"},1.4);
- var b=T("章节规则")||T("章");
- tl.fromTo("#s6-st",{opacity:0,x:-60,rotation:-8},{opacity:1,x:0,rotation:-3,duration:.55,ease:"back.out(1.6)"},T("你写的")-.1);
- tl.set("#s6-ar1",{opacity:1},T("你写的")+.3);draw(tl,"#s6-a1",T("你写的")+.3,.5);tl.to("#s6-a1h",{opacity:1,duration:.1},T("你写的")+.8);
+ tl.fromTo("#s6-st",{opacity:0,x:-60,rotation:-8},{opacity:1,x:0,rotation:-3,duration:.55,ease:"back.out(1.6)"},T("你写好的")-.1);
+ tl.set("#s6-ar1",{opacity:1},T("你写好的")+.3);draw(tl,"#s6-a1",T("你写好的")+.3,.5);tl.to("#s6-a1h",{opacity:1,duration:.1},T("你写好的")+.8);
  pop(tl,"#s6-bb",T("逐条")-.1,{s:.4});
  tl.to("#s6-e1,#s6-e2",{x:10,duration:.35,repeat:5,yoyo:true,ease:"sine.inOut"},T("逐条"));
- tl.to("#s6-bb",{opacity:0,duration:.3},T("检查")+.8);
+ tl.to("#s6-bb",{opacity:0,duration:.3},T("检查一遍")+.8);
  pop(tl,"#s6-s1",T("通过")-.1,{s:.3,y:-40,d:.5});
  pop(tl,"#s6-s2",T("不通过")-.1,{s:.3,y:-40,d:.5});
  pop(tl,"#s6-s3",T("人工")-.1,{s:.3,y:-40,d:.5});

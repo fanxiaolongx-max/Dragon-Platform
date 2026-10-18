@@ -12,10 +12,11 @@
   <svg class="abs wob" style="left:110px;top:330px" width="1000" height="40" viewBox="0 0 1000 40"><path id="s1-ul" class="ln" pathLength="1" stroke-dasharray="1" style="stroke:#ff8fab;stroke-width:14" d="M6 24 C150 4 300 38 460 18 S780 34 990 12"/></svg>
   <div class="abs" id="s1-t2" style="left:116px;top:370px;font-family:'ZCOOL KuaiLe',sans-serif;font-size:92px;line-height:1.1;white-space:nowrap">方案与 <span style="color:#ef476f">AI 审计</span></div>
   <div class="abs" id="s1-t3" style="left:120px;top:490px;font-size:64px;white-space:nowrap">扩展小助手 · 手把手使用指南</div>
-  <div class="abs row" id="s1-chips" style="left:116px;top:640px;gap:34px">
-    <div class="row" id="s1-c1" style="gap:12px"><span class="wob" id="s1-i1"></span><span class="tag" style="background:#ffd166;font-size:54px">安装</span></div>
-    <div class="row" id="s1-c2" style="gap:12px"><span class="wob" id="s1-i2"></span><span class="tag" style="background:#7bdcb5;font-size:54px">使用</span></div>
-    <div class="row" id="s1-c3" style="gap:12px"><span class="wob" id="s1-i3"></span><span class="tag" style="background:#ff8fab;font-size:54px">配置</span></div>
+  <div class="abs" id="s1-chips" style="left:116px;top:620px;width:1000px">
+    <div class="row" id="s1-c1" style="gap:12px;position:absolute;left:0;top:0"><span class="wob" id="s1-i1"></span><span class="tag" style="background:#ffd166;font-size:46px">拿安装包</span></div>
+    <div class="row" id="s1-c2" style="gap:12px;position:absolute;left:480px;top:0"><span class="wob" id="s1-i2"></span><span class="tag" style="background:#8ecae6;font-size:46px">装进浏览器</span></div>
+    <div class="row" id="s1-c3" style="gap:12px;position:absolute;left:0;top:150px"><span class="wob" id="s1-i3"></span><span class="tag" style="background:#7bdcb5;font-size:46px">开始使用</span></div>
+    <div class="row" id="s1-c4" style="gap:12px;position:absolute;left:480px;top:150px"><span class="wob" id="s1-i4"></span><span class="tag" style="background:#ff8fab;font-size:46px">个性设置</span></div>
   </div>
   <div class="abs wob" id="s1-fig" style="left:1230px;top:330px"></div>
   <div class="bubble" id="s1-bub" style="left:1330px;top:215px;font-size:54px">嗨～我是小审！</div>
@@ -26,7 +27,7 @@
 //LIB
 //DATA
 (function(){
- put("s1-i1",icon("box","#ffd166",120));put("s1-i2",icon("cursor","#7bdcb5",120));put("s1-i3",icon("gear","#ff8fab",120));
+ put("s1-i1",icon("zip","#ffd166",100));put("s1-i2",icon("puzzle","#8ecae6",100));put("s1-i3",icon("cursor","#7bdcb5",100));put("s1-i4",icon("gear","#ff8fab",100));
  put("s1-fig",figure("f1",{body:"#8ecae6",hat:"#ff8fab",w:380,h:520}));
  document.getElementById("s1-sp").innerHTML=sparkle(1130,170,56)+sparkle(1700,200,44,"#ff8fab")+sparkle(1650,760,50,"#8ecae6")+sparkle(980,520,38,"#7bdcb5");
  var tl=gsap.timeline({paused:true});
@@ -38,7 +39,7 @@
  pop(tl,"#s1-bub",.9,{s:.4});
  wave(tl,"f1",.9,4);
  bounce(tl,"s1-fig",3.2,4,16);
- ["#s1-c1","#s1-c2","#s1-c3"].forEach(function(s,i){pop(tl,s,[T("安装"),T("使用"),T("配置")][i]-.1,{s:.3,y:30});});
+ ["#s1-c1","#s1-c2","#s1-c3","#s1-c4"].forEach(function(s,i){pop(tl,s,[T("拿安装包"),T("装进浏览器"),T("开始使用"),T("个性设置")][i]-.1,{s:.3,y:30});});
  tl.to("#s1-bub",{opacity:0,duration:.3},2.6);
  tl.fromTo("#s1-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.25,ease:"back.out(2)",transformOrigin:"50% 50%"},1.4);
  tl.to("#s1-sp svg",{rotation:20,duration:1.1,repeat:5,yoyo:true,ease:"sine.inOut",transformOrigin:"50% 50%"},2);

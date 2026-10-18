@@ -27,23 +27,34 @@ def caps(sc):
         res.append({'t':re.sub(r'[，、；：]+$','',c.strip()).rstrip('。').strip(),'s':round(chars[a][0],2),'e':round(chars[b][1],2)})
         pos+=n
     return res
+
+# 检查 src 里的 T("关键词") 是否都能在对应旁白里找到
+bad=[]
+for sc in words:
+    f=f'src/{sc["id"]}.html'
+    if not os.path.exists(f): continue
+    C=re.sub(r'\s+','',''.join(w['text'] for w in sc['words']))
+    for m in re.finditer(r'T\("([^"]+)"\)',open(f,encoding='utf8').read()):
+        if re.sub(r'\s+','',m.group(1)) not in C: bad.append((sc['id'],m.group(1)))
+if bad:
+    print('MISSING T() keywords:',bad); raise SystemExit(1)
 D=[];ST=[];t=0
 for i,sc in enumerate(words):
     d=dur(f"assets/voice/{sc['id']}.mp3"); D.append(round(d+LEAD+(2.4 if i==len(words)-1 else TAIL),2)); ST.append(round(t,2)); t+=D[-1]
 total=round(t,2)
 for i,sc in enumerate(words):
-    n=i+1
-    if not os.path.exists(f'src/s{n}.html'): continue
-    s=open(f'src/s{n}.html',encoding='utf8').read()
+    n=sc['id']
+    if not os.path.exists(f'src/{n}.html'): continue
+    s=open(f'src/{n}.html',encoding='utf8').read()
     data='var W=%s;var CAPS=%s;var LEAD=%s;'%(json.dumps([{'t':w['text'],'s':round(w['start'],2),'e':round(w['end'],2)} for w in sc['words']],ensure_ascii=False),json.dumps(caps(sc),ensure_ascii=False),LEAD)
     s=s.replace('<template>','<template><link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Long+Cang&display=swap" rel="stylesheet">',1).replace('/*SHARED*/',css).replace('//LIB',lib).replace('//DATA',data).replace('WOBID',f'wob{n}')
-    open(f'compositions/frames/s{n}.html','w',encoding='utf8').write(s)
+    open(f'compositions/frames/{n}.html','w',encoding='utf8').write(s)
 slots=''
 for i,sc in enumerate(words):
-    n=i+1
-    if not os.path.exists(f'src/s{n}.html'): continue
-    slots+=f'  <div id="el-s{n}" data-composition-id="s{n}" data-composition-src="compositions/frames/s{n}.html" data-start="{ST[i]}" data-duration="{D[i]}" data-track-index="1" data-width="1920" data-height="1080"></div>\n'
-    slots+=f'  <audio id="el-s{n}-voice" src="assets/voice/{sc["id"]}.mp3" data-start="{round(ST[i]+LEAD,2)}" data-duration="{round(dur("assets/voice/%s.mp3"%sc["id"]),2)}" data-track-index="{10+i}" data-volume="1"></audio>\n'
+    n=sc['id']
+    if not os.path.exists(f'src/{n}.html'): continue
+    slots+=f'  <div id="el-{n}" data-composition-id="{n}" data-composition-src="compositions/frames/{n}.html" data-start="{ST[i]}" data-duration="{D[i]}" data-track-index="1" data-width="1920" data-height="1080"></div>\n'
+    slots+=f'  <audio id="el-{n}-voice" src="assets/voice/{sc["id"]}.mp3" data-start="{round(ST[i]+LEAD,2)}" data-duration="{round(dur("assets/voice/%s.mp3"%sc["id"]),2)}" data-track-index="{10+i}" data-volume="1"></audio>\n'
 html=f'''<!doctype html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=1920, height=1080">
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
@@ -53,7 +64,7 @@ html=f'''<!doctype html>
 #root>div[data-composition-src]{{position:absolute;inset:0}}</style></head>
 <body>
 <div id="root" data-composition-id="main" data-start="0" data-width="1920" data-height="1080" data-duration="{total}">
-{slots}  <audio id="el-bgm" src="assets/music/bgm.mp3" data-start="0" data-duration="{total}" data-track-index="30" data-volume="0.45"></audio>
+{slots}  <audio id="el-bgm" src="assets/music/bgm.mp3" data-start="0" data-duration="{total}" data-track-index="30" data-volume="0.6"></audio>
 </div>
 <script>const tl=gsap.timeline({{paused:true}});window.__timelines["main"]=tl;</script>
 </body></html>

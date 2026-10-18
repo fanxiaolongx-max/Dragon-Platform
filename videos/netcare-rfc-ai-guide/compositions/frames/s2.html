@@ -27,37 +27,58 @@
 .row{display:flex;align-items:center}
 .abs{position:absolute}
 
-#root .wob{filter:url(#wob2)}
-#root .tab{position:absolute;left:140px;width:280px;height:72px;border:4px solid var(--ink);border-radius:20px;background:#fff;font-size:36px;white-space:nowrap;display:flex;align-items:center;padding:0 22px}
-#root .card{position:absolute;left:450px;width:690px;height:84px;border:4px solid var(--ink);border-radius:20px;background:#fff;font-size:42px;display:flex;align-items:center;padding:0 26px;gap:14px}
-#root .cursor{position:absolute;left:0;top:0;width:74px;height:74px;z-index:20}
+.bdg{position:absolute;width:64px;height:64px;border-radius:50%;background:var(--red);color:#fff;border:5px solid var(--ink);font-family:"ZCOOL KuaiLe",sans-serif;font-size:40px;display:flex;align-items:center;justify-content:center;z-index:35;box-shadow:4px 4px 0 var(--ink)}
+.hl{position:absolute;border:6px dashed var(--red);border-radius:22px;z-index:34;pointer-events:none}
+.lbl{position:absolute;z-index:36;font-family:"Long Cang",cursive;font-size:44px;line-height:1.15;background:#fff3c4;border:5px solid var(--ink);border-radius:14px 28px 14px 28px;padding:8px 22px 12px;box-shadow:6px 6px 0 var(--ink);white-space:nowrap}
+.addr{position:absolute;height:64px;border:5px solid var(--ink);border-radius:34px;background:#fff;display:flex;align-items:center;padding:0 26px;font-family:"JetBrains Mono",monospace;font-size:32px;white-space:nowrap;overflow:hidden}
+
+#root .wob{filter:url(#wobs2)}
+#root .tab{position:absolute;left:490px;width:250px;height:62px;border:4px solid var(--ink);border-radius:18px;background:#fff;font-size:32px;white-space:nowrap;display:flex;align-items:center;padding:0 18px}
+#root .card{position:absolute;left:770px;width:650px;height:76px;border:4px solid var(--ink);border-radius:18px;background:#fff;font-size:38px;display:flex;align-items:center;padding:0 22px;gap:12px;white-space:nowrap}
+#root .tc{position:absolute;width:230px;height:150px;border:4px solid var(--ink);border-radius:18px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:34px;gap:6px;white-space:nowrap}
+#root .cursor{position:absolute;left:0;top:0;width:74px;height:74px;z-index:40}
 </style>
 <div id="root" data-composition-id="s2" data-width="1920" data-height="1080">
-  <svg width="0" height="0" style="position:absolute"><filter id="wob2" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="5" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <svg width="0" height="0" style="position:absolute"><filter id="wobs2" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="5" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
   <div class="paper"></div>
   <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#cdb4db"></div>
-  <div class="head wob" id="s2-h"><span class="step">第 1 步</span><span class="ttl">打包</span></div>
-  <div class="win wob" id="s2-win" style="left:110px;top:230px;width:1060px;height:650px"><div class="wbar"><i></i><i></i><i></i><span>F12 扩展打包</span></div></div>
-  <div class="tab" id="s2-t1" style="top:330px">我的脚本</div>
-  <div class="tab" id="s2-t2" style="top:424px;background:#fff">系统内置脚本</div>
-  <div class="tab" id="s2-t3" style="top:518px">模板库</div>
-  <div class="card" id="s2-c1" style="top:330px">视频地址扫描器</div>
-  <div class="card" id="s2-c2" style="top:430px;background:#fff"><span id="s2-ic"></span>NetCare RFC 方案与 AI 审计</div>
-  <div class="card" id="s2-c3" style="top:530px">Chrome Capture Pro</div>
-  <div class="btn" id="s2-btn" style="left:450px;top:702px;background:#ffd166">生成扩展 ZIP</div>
+  <div class="head wob" id="s2-h"><span class="step">第 1 步</span><span class="ttl">拿安装包</span></div>
+
+  <div class="win wob" id="s2-home" style="left:110px;top:220px;width:880px;height:600px"><div class="wbar"><i></i><i></i><i></i><span>Dragon 平台 · 首页</span></div></div>
+  <div class="abs" id="s2-sb" style="left:150px;top:312px;width:800px;height:76px;border:5px solid var(--ink);border-radius:40px;background:#fff;display:flex;align-items:center;padding:0 26px;gap:16px;font-size:38px;white-space:nowrap"><span id="s2-si"></span><span id="s2-st" style="color:#2d2a32"></span><span id="s2-ph" style="color:#a09aa8">搜索工具 / 拼音首字母</span></div>
+  <div class="tc" id="s2-tc1" style="left:150px;top:430px;opacity:.55">月报页面</div>
+  <div class="tc" id="s2-tc2" style="left:410px;top:430px;opacity:.55">一键催办</div>
+  <div class="tc" id="s2-tc3" style="left:670px;top:430px;opacity:.55">报表看板</div>
+  <div class="tc" id="s2-tc4" style="left:150px;top:430px;background:#ffd166;border-width:5px"><span id="s2-ti"></span>F12 扩展打包</div>
+  <div class="hl" id="s2-hl1" style="left:136px;top:416px;width:258px;height:178px"></div>
+  <div class="bdg" id="s2-b1" style="left:96px;top:290px">1</div>
+  <div class="lbl" id="s2-l1" style="left:420px;top:600px">① 首页搜索框，输入「扩展打包」</div>
+
+  <div class="win wob" id="s2-win" style="left:440px;top:250px;width:1030px;height:600px;z-index:20"><div class="wbar" style="background:#ffd166"><i></i><i></i><i></i><span>F12 扩展打包</span></div></div>
+  <div class="tab" id="s2-t1" style="top:340px;z-index:21">我的脚本</div>
+  <div class="tab" id="s2-t2" style="top:424px;z-index:21">系统内置脚本</div>
+  <div class="tab" id="s2-t3" style="top:508px;z-index:21">模板库</div>
+  <div class="card" id="s2-c1" style="top:340px;z-index:21">视频地址扫描器</div>
+  <div class="card" id="s2-c2" style="top:430px;z-index:21"><span id="s2-ic"></span>NetCare RFC 方案与 AI 审计</div>
+  <div class="card" id="s2-c3" style="top:520px;z-index:21">Chrome Capture Pro</div>
+  <div class="btn" id="s2-btn" style="left:770px;top:690px;background:#ffd166;z-index:21">生成扩展安装包</div>
+  <div class="bdg" id="s2-b2" style="left:440px;top:402px">2</div>
+  <div class="bdg" id="s2-b3" style="left:720px;top:412px">3</div>
+  <div class="bdg" id="s2-b4" style="left:1100px;top:672px">4</div>
   <div class="cursor wob" id="s2-cur"></div>
-  <div class="abs wob" id="s2-zip" style="left:1260px;top:330px"></div>
-  <div class="tag abs" id="s2-zl" style="left:1250px;top:610px;background:#ffd166;font-size:40px">NetCare-扩展.zip</div>
-  <div class="abs wob" id="s2-fig" style="left:1560px;top:470px"></div>
-  <div class="bubble" id="s2-bub" style="left:1530px;top:330px;font-size:52px">拿到啦！</div>
+
+  <div class="abs wob" id="s2-zip" style="left:1560px;top:300px"></div>
+  <div class="tag abs" id="s2-zl" style="left:1500px;top:570px;background:#ffd166;font-size:36px">NetCare-扩展.zip</div>
+  <div class="tag abs" id="s2-zl2" style="left:1530px;top:640px;background:#fff;font-size:32px">= 小工具的安装包</div>
+  <div class="abs wob" id="s2-fig" style="left:1700px;top:720px"></div>
   <div id="s2-sp"></div>
   <div class="cap" id="s2-cap"></div>
 </div>
 <script>
-function T(s){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
- s=String(s).replace(/\s+/g,"");var p=C.replace(/\s+/g,"").indexOf(s);if(p<0)return 0;
- var q=0,j=0;for(i=0;i<C.length;i++){if(/\s/.test(C[i]))continue;if(q===p){j=i;break;}q++;}
- return Math.round((W[M[j]].s+LEAD)*100)/100;}
+function T(s,nth){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
+ s=String(s).replace(/\s+/g,"");var P="",MM=[];for(i=0;i<C.length;i++){if(!/\s/.test(C[i])){P+=C[i];MM.push(M[i]);}}
+ var p=-1,n=nth||0,from=0;while(n>=0){p=P.indexOf(s,from);if(p<0)return 0;from=p+1;n--;}
+ return Math.round((W[MM[p]].s+LEAD)*100)/100;}
 function figure(id,o){o=o||{};var body=o.body||"#ff8fab",hat=o.hat||"#ffd166";
  return '<svg id="'+id+'" class="fig" viewBox="0 0 160 220" width="'+(o.w||240)+'" height="'+(o.h||330)+'" style="overflow:visible">'+
  '<g id="'+id+'-legL"><path class="ln" d="M70 152 L64 196"/><ellipse cx="58" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
@@ -116,35 +137,55 @@ function typeText(tl,id,text,t,dur){var el=document.getElementById(id);el.innerH
 function toggle(tl,id,t){tl.to("#"+id,{backgroundColor:"#06d6a0",duration:.2},t);tl.to("#"+id+" i",{x:34,duration:.25,ease:"back.out(2)"},t);}
 function arrow(x,y,w,h,id){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="overflow:visible"><path id="'+id+'" class="ln" pathLength="1" stroke-dasharray="1" d="M6 '+(h/2)+' C'+(w*.3)+' '+(h*.1)+' '+(w*.6)+' '+(h*.9)+' '+(w-26)+' '+(h/2)+'"/><path id="'+id+'h" class="ln" d="M'+(w-40)+' '+(h/2-16)+' L'+(w-8)+' '+(h/2)+' L'+(w-40)+' '+(h/2+16)+'" opacity="0"/></svg>';}
 
-var W=[{"t": "第一", "s": 0.1, "e": 0.34}, {"t": "步", "s": 0.34, "e": 0.58}, {"t": "打包", "s": 0.84, "e": 1.24}, {"t": "打开", "s": 1.77, "e": 2.22}, {"t": "F", "s": 2.24, "e": 2.5}, {"t": "12", "s": 2.5, "e": 2.92}, {"t": "扩展", "s": 3.03, "e": 3.35}, {"t": "打包", "s": 3.36, "e": 3.76}, {"t": "在", "s": 4.16, "e": 4.34}, {"t": "系统", "s": 4.35, "e": 4.68}, {"t": "内置", "s": 4.69, "e": 4.92}, {"t": "脚本", "s": 4.93, "e": 5.2}, {"t": "里", "s": 5.2, "e": 5.47}, {"t": "选中", "s": 5.58, "e": 6.07}, {"t": "NetCare", "s": 6.17, "e": 6.69}, {"t": "RFC", "s": 6.7, "e": 7.26}, {"t": "方案", "s": 7.28, "e": 7.63}, {"t": "与", "s": 7.64, "e": 7.88}, {"t": "AI", "s": 7.98, "e": 8.4}, {"t": "审计", "s": 8.41, "e": 8.8}, {"t": "点击", "s": 9.04, "e": 9.35}, {"t": "生成", "s": 9.36, "e": 9.82}, {"t": "就", "s": 9.98, "e": 10.13}, {"t": "能", "s": 10.13, "e": 10.22}, {"t": "拿到", "s": 10.24, "e": 10.44}, {"t": "一个", "s": 10.44, "e": 10.59}, {"t": "扩展", "s": 10.6, "e": 11.03}, {"t": "ZIP", "s": 11.12, "e": 11.44}, {"t": "啦", "s": 11.44, "e": 11.65}];var CAPS=[{"t": "第一步，打包。打开 F12 扩展打包", "s": 0.1, "e": 3.76}, {"t": "在系统内置脚本里选中 NetCare RFC 方案与 AI 审计", "s": 4.16, "e": 8.8}, {"t": "点击生成，就能拿到一个扩展 ZIP 啦", "s": 9.04, "e": 11.65}];var LEAD=0.4;
+var W=[{"t": "第一", "s": 0.1, "e": 0.34}, {"t": "步", "s": 0.34, "e": 0.55}, {"t": "拿", "s": 0.84, "e": 1.06}, {"t": "安装包", "s": 1.06, "e": 1.57}, {"t": "打开", "s": 2.11, "e": 2.5}, {"t": "Dragon", "s": 2.52, "e": 2.9}, {"t": "平台", "s": 2.91, "e": 3.14}, {"t": "首页", "s": 3.14, "e": 3.55}, {"t": "在", "s": 3.77, "e": 3.96}, {"t": "搜索", "s": 3.97, "e": 4.27}, {"t": "框", "s": 4.27, "e": 4.54}, {"t": "输入", "s": 4.55, "e": 4.86}, {"t": "扩展", "s": 4.88, "e": 5.17}, {"t": "打包", "s": 5.18, "e": 5.58}, {"t": "点", "s": 5.83, "e": 5.99}, {"t": "开", "s": 5.99, "e": 6.31}, {"t": "F", "s": 6.33, "e": 6.58}, {"t": "12", "s": 6.58, "e": 6.87}, {"t": "扩展", "s": 6.9, "e": 7.19}, {"t": "打包", "s": 7.21, "e": 7.58}, {"t": "左边", "s": 8.12, "e": 8.51}, {"t": "选", "s": 8.53, "e": 8.67}, {"t": "系统", "s": 8.68, "e": 9.0}, {"t": "内置", "s": 9.02, "e": 9.22}, {"t": "脚本", "s": 9.23, "e": 9.65}, {"t": "点", "s": 9.92, "e": 10.12}, {"t": "中", "s": 10.12, "e": 10.39}, {"t": "NetCare", "s": 10.41, "e": 10.96}, {"t": "RFC", "s": 10.97, "e": 11.54}, {"t": "方案", "s": 11.56, "e": 11.9}, {"t": "与", "s": 11.91, "e": 12.11}, {"t": "AI", "s": 12.22, "e": 12.7}, {"t": "审计", "s": 12.71, "e": 13.14}, {"t": "再点", "s": 13.38, "e": 13.7}, {"t": "生成", "s": 13.71, "e": 14.2}, {"t": "就", "s": 14.36, "e": 14.52}, {"t": "能", "s": 14.52, "e": 14.61}, {"t": "下载", "s": 14.62, "e": 14.88}, {"t": "到", "s": 14.88, "e": 14.98}, {"t": "一个", "s": 14.99, "e": 15.13}, {"t": "压缩包", "s": 15.15, "e": 15.67}, {"t": "它", "s": 15.92, "e": 16.11}, {"t": "就", "s": 16.12, "e": 16.21}, {"t": "是", "s": 16.21, "e": 16.31}, {"t": "这个", "s": 16.32, "e": 16.5}, {"t": "小", "s": 16.52, "e": 16.7}, {"t": "工具", "s": 16.7, "e": 16.92}, {"t": "的", "s": 16.92, "e": 16.99}, {"t": "安装包", "s": 17.0, "e": 17.51}];var CAPS=[{"t": "第一步，拿安装包", "s": 0.1, "e": 1.57}, {"t": "打开 Dragon 平台首页", "s": 2.11, "e": 3.55}, {"t": "在搜索框输入扩展打包", "s": 3.77, "e": 5.58}, {"t": "点开 F12 扩展打包", "s": 5.83, "e": 7.58}, {"t": "左边选系统内置脚本", "s": 8.12, "e": 9.65}, {"t": "点中 NetCare RFC 方案与 AI 审计", "s": 9.92, "e": 13.14}, {"t": "再点生成，就能下载到一个压缩包", "s": 13.38, "e": 15.67}, {"t": "它就是这个小工具的安装包", "s": 15.92, "e": 17.51}];var LEAD=0.4;
 (function(){
- put("s2-ic",icon("star","#ffd166",54));put("s2-cur",icon("cursor","#ffffff",74));
- put("s2-zip",icon("zip","#ffd166",260));
- put("s2-fig",figure("f2",{body:"#7bdcb5",hat:"#ef476f",w:300,h:410}));
- document.getElementById("s2-sp").innerHTML=sparkle(1260,270,48)+sparkle(1520,330,40,"#ff8fab")+sparkle(1480,820,52,"#8ecae6");
+ put("s2-si",icon("search","#8ecae6",52));put("s2-ti",icon("puzzle","#ffffff",50));put("s2-ic",icon("star","#ffd166",50));put("s2-cur",icon("cursor","#ffffff",74));
+ put("s2-zip",icon("zip","#ffd166",220));
+ put("s2-fig",figure("f2",{body:"#7bdcb5",hat:"#ef476f",w:200,h:274}));
+ document.getElementById("s2-sp").innerHTML=sparkle(1500,260,48)+sparkle(1810,430,40,"#ff8fab")+sparkle(1480,800,44,"#8ecae6");
  var tl=gsap.timeline({paused:true});
+ gsap.set("#s2-home,#s2-sb,#s2-tc1,#s2-tc2,#s2-tc3,#s2-tc4,#s2-hl1,#s2-b1,#s2-l1,#s2-win,#s2-t1,#s2-t2,#s2-t3,#s2-c1,#s2-c2,#s2-c3,#s2-btn,#s2-b2,#s2-b3,#s2-b4,#s2-cur,#s2-zip,#s2-zl,#s2-zl2",{opacity:0});
  tl.fromTo("#s2-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
- tl.fromTo("#s2-win",{opacity:0,y:60},{opacity:1,y:0,duration:.7,ease:"power3.out"},.6);
- tl.fromTo("#s2-t1,#s2-t2,#s2-t3,#s2-c1,#s2-c2,#s2-c3,#s2-btn",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.09,ease:"power2.out"},1.1);
  tl.fromTo("#s2-fig",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.9);
- tl.set("#s2-cur",{x:900,y:820});tl.fromTo("#s2-cur",{opacity:0},{opacity:1,duration:.3},T("打开")-.3);
- // F12 扩展打包 -> 系统内置脚本
+ var th=T("首页");
+ tl.fromTo("#s2-home",{opacity:0,y:60},{opacity:1,y:0,duration:.7,ease:"power3.out"},th-.5);
+ tl.fromTo("#s2-sb,#s2-tc1,#s2-tc2,#s2-tc3",{opacity:0,y:20},{opacity:1,y:0,duration:.4,stagger:.1},th+.1);
+ tl.to("#s2-tc1,#s2-tc2,#s2-tc3",{opacity:.55,duration:.01},th+.7);
+ pop(tl,"#s2-b1",th+.2,{s:.3});pop(tl,"#s2-l1",th+.3,{s:.5});
+ var ts=T("搜索框");
+ tl.set("#s2-hl1",{opacity:0},0);
+ typeText(tl,"s2-st","扩展打包",T("输入扩展打包")||ts,.9);
+ tl.set("#s2-ph",{opacity:0},T("输入扩展打包")||ts);
+ var to=T("点开");
+ tl.to("#s2-tc1,#s2-tc2,#s2-tc3",{opacity:0,duration:.25},to-.9);
+ tl.fromTo("#s2-tc4",{opacity:0,scale:.6},{opacity:1,scale:1,duration:.4,ease:"back.out(1.8)",transformOrigin:"50% 50%"},to-.7);
+ tl.fromTo("#s2-hl1",{opacity:0},{opacity:1,duration:.3},to-.3);
+ tl.set("#s2-cur",{x:560,y:700});tl.fromTo("#s2-cur",{opacity:0},{opacity:1,duration:.3},to-.9);
+ cur(tl,"#s2-cur",300,520,to-.6,.6);click(tl,"#s2-cur",to+.45);
+ // open tool window
+ var tw=to+.9;
+ tl.to("#s2-home,#s2-sb,#s2-tc4,#s2-hl1,#s2-b1,#s2-l1",{opacity:.0,duration:.4},tw);
+ tl.fromTo("#s2-win",{opacity:0,y:60,scale:.95},{opacity:1,y:0,scale:1,duration:.55,ease:"back.out(1.4)",transformOrigin:"50% 50%"},tw);
+ tl.fromTo("#s2-t1,#s2-t2,#s2-t3,#s2-c1,#s2-c2,#s2-c3,#s2-btn",{opacity:0,x:-20},{opacity:1,x:0,duration:.3,stagger:.07},tw+.3);
  var tt=T("系统内置");
- cur(tl,"#s2-cur",300,452,tt-.7,.7);click(tl,"#s2-cur",tt+.05);
+ pop(tl,"#s2-b2",tt-.3,{s:.3});
+ cur(tl,"#s2-cur",600,470,tt-.7,.7);click(tl,"#s2-cur",tt+.05);
  tl.to("#s2-t2",{backgroundColor:"#ffd166",duration:.2},tt+.05);
- var tc=T("选中");
- cur(tl,"#s2-cur",800,468,tc-.55,.6);click(tl,"#s2-cur",tc+.05);
+ var tc=T("点中");
+ pop(tl,"#s2-b3",tc-.4,{s:.3});
+ cur(tl,"#s2-cur",1000,470,tc-.55,.6);click(tl,"#s2-cur",tc+.05);
  tl.to("#s2-c2",{backgroundColor:"#7bdcb5",duration:.2,scale:1.03,transformOrigin:"50% 50%"},tc+.05);
- var tg=T("点击生成");
- cur(tl,"#s2-cur",650,738,tg-.5,.55);click(tl,"#s2-cur",tg+.35);click(tl,"#s2-btn",tg+.35);
+ var tg=T("再点生成");
+ pop(tl,"#s2-b4",tg-.2,{s:.3});
+ cur(tl,"#s2-cur",900,740,tg-.5,.55);click(tl,"#s2-cur",tg+.35);click(tl,"#s2-btn",tg+.35);
  tl.to("#s2-btn",{backgroundColor:"#06d6a0",duration:.2},tg+.4);
- pop(tl,"#s2-zip",T("拿到"),{s:.2,y:60,d:.6});pop(tl,"#s2-zl",T("拿到")+.3,{s:.5});pop(tl,"#s2-bub",T("拿到")+.2,{s:.4});
- tl.fromTo("#s2-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.2,ease:"back.out(2)",transformOrigin:"50% 50%"},T("拿到")+.1);
- var tz=T("拿到")+.3;
- tl.to("#f2-armR",{rotation:-160,svgOrigin:"102 104",duration:.35,ease:"back.out(2)"},tz);
- tl.to("#f2-armL",{rotation:160,svgOrigin:"58 104",duration:.35,ease:"back.out(2)"},tz);
- bounce(tl,"s2-fig",tz+.2,4,18);
- tl.to("#s2-zip",{y:-14,duration:.5,repeat:3,yoyo:true,ease:"sine.inOut"},tz+.7);
+ var tz=T("压缩包");
+ pop(tl,"#s2-zip",tz-.1,{s:.2,y:60,d:.6});pop(tl,"#s2-zl",tz+.3,{s:.5});pop(tl,"#s2-zl2",T("安装包",1)||tz+.6,{s:.5});
+ tl.to("#s2-cur",{opacity:0,duration:.3},tz);
+ tl.fromTo("#s2-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.2,ease:"back.out(2)",transformOrigin:"50% 50%"},tz+.1);
+ tl.to("#f2-armR",{rotation:-160,svgOrigin:"102 104",duration:.35,ease:"back.out(2)"},tz+.2);tl.to("#f2-armL",{rotation:160,svgOrigin:"58 104",duration:.35,ease:"back.out(2)"},tz+.2);
+ bounce(tl,"s2-fig",tz+.4,4,18);
+ tl.to("#s2-zip",{y:-14,duration:.5,repeat:3,yoyo:true,ease:"sine.inOut"},tz+.8);
  captions(tl,"s2-cap");
  window.__timelines["s2"]=tl;
 })();

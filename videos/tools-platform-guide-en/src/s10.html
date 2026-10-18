@@ -1,0 +1,78 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .cd{position:absolute;top:220px;height:610px;background:#fff;border:3px solid var(--ink);border-radius:28px;box-shadow:var(--sh);overflow:hidden}
+#root .cd .hd{height:80px;border-bottom:3px solid var(--ink);display:flex;align-items:center;padding:0 24px;font-family:"Fredoka",sans-serif;font-size:40px;white-space:nowrap}
+#root .cn{position:absolute;display:flex;align-items:center;gap:12px;font-size:36px;white-space:nowrap}
+#root .cn i{font-style:normal;border:2.5px solid var(--ink);border-radius:12px;padding:0 14px 2px;background:#fffdf5}
+#root .seg{position:absolute;left:150px;top:722px;display:flex;border:3px solid var(--ink);border-radius:40px;overflow:hidden;font-size:38px}
+#root .seg span{padding:6px 26px 10px;background:#fff;white-space:nowrap}
+#root .seg span+span{border-left:3px solid var(--ink)}
+#root .ro{position:absolute;left:940px;width:410px;height:78px;border:2.5px solid var(--ink);border-radius:16px;background:#fff;display:flex;align-items:center;gap:14px;padding:0 16px;font-size:34px;white-space:nowrap}
+#root .ro b{width:26px;height:26px;border-radius:50%;border:2.5px solid var(--ink);display:block;flex:none}
+#root .mt{position:absolute;display:inline-flex;align-items:center;gap:12px;border:2.5px solid var(--ink);border-radius:30px;padding:2px 22px 6px;font-size:38px;white-space:nowrap}
+#root .mt b{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--ink);display:block}
+</style>
+<div id="root" data-composition-id="s10" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="30" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:700px;width:520px;height:520px;background:#9fe0c9"></div>
+  <div class="head wob" id="s10-h"><span class="step">Station 2</span><span class="ttl">Metric Rules ③ Filters & hierarchy</span></div>
+  <div class="cd wob" id="s10-c1" style="left:110px;width:790px"><div class="hd" style="background:#ffe08f">Advanced Filters</div></div>
+  <div class="cn" id="s10-n0" style="left:150px;top:330px"><span>Main condition</span><i>Status</i><span>contains</span><i>Open</i></div>
+  <div class="cn" id="s10-n1" style="left:150px;top:420px"><span>＋ Column condition</span><i>Overdue</i><span>contains</span><i>Yes</i></div>
+  <div class="cn" id="s10-n2" style="left:150px;top:510px"><span>＋ Column condition</span><i>Office</i><span>contains</span><i>Egypt</i></div>
+  <div class="tag abs" id="s10-add" style="left:150px;top:610px;background:#fff;font-size:34px;border-style:dashed">＋ Add column condition</div>
+  <div class="seg" id="s10-seg"><span id="s10-and" style="background:#9fe0c9">AND All match</span><span id="s10-or">OR Any match</span></div>
+  <div class="cd wob" id="s10-c2" style="left:940px;width:430px"><div class="hd" style="background:#aed8f2">Data range</div></div>
+  <div class="ro" id="s10-o1" style="top:330px;left:960px;width:390px"><b style="background:#47cf9f"></b>This table only</div>
+  <div class="ro" id="s10-o2" style="top:420px;left:960px;width:390px"><b></b>All tables</div>
+  <div class="abs row" id="s10-tbs" style="left:975px;top:540px;gap:12px"><span class="tag" style="background:#ffe08f;font-size:30px">Remediation</span><span class="tag" style="background:#ffb3c6;font-size:30px">Risk</span><span class="tag" style="background:#d9c6ef;font-size:30px">SR</span></div>
+  <div class="abs" id="s10-mg" style="left:960px;top:620px"></div>
+  <div class="cd wob" id="s10-c3" style="left:1410px;width:410px"><div class="hd" style="background:#ffb3c6">Main · Child metrics</div></div>
+  <div class="mt" id="s10-m0" style="left:1440px;top:330px;background:#ffe08f">Main metric: Open items</div>
+  <div class="mt" id="s10-s1" style="left:1500px;top:440px;background:#fff"><b style="background:#f27b96"></b>Egypt</div>
+  <div class="mt" id="s10-s2" style="left:1500px;top:530px;background:#fff"><b style="background:#ffe08f"></b>Germany</div>
+  <div class="mt" id="s10-s3" style="left:1500px;top:620px;background:#fff"><b style="background:#47cf9f"></b>Mid East</div>
+  <svg class="abs" id="s10-ln" style="left:1440px;top:390px" width="60" height="280" viewBox="0 0 60 280"><path class="ln" style="stroke-width:5" d="M14 0 V240 M14 70 H54 M14 160 H54 M14 240 H54"/></svg>
+  <div class="abs wob" id="s10-d" style="left:1582px;top:814px"></div>
+  <div id="s10-sp"></div>
+  <div class="cap" id="s10-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s10-d",dino("dn",{w:207,h:199}));
+ put("s10-mg",'<svg width="400" height="170" viewBox="0 0 400 170"><path class="ln" d="M30 10 L150 70 M190 10 V70 M350 10 L230 70"/><rect class="ol" x="130" y="78" width="140" height="70" rx="16" fill="#9fe0c9"/><text x="200" y="124" text-anchor="middle" font-family="Patrick Hand" font-size="40" fill="#5b4636">One rule</text></svg>');
+ document.getElementById("s10-sp").innerHTML=sparkle(900,190,44)+sparkle(1850,220,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s10-c1,#s10-n0,#s10-n1,#s10-n2,#s10-add,#s10-seg,#s10-c2,#s10-o1,#s10-o2,#s10-tbs,#s10-mg,#s10-c3,#s10-m0,#s10-s1,#s10-s2,#s10-s3,#s10-ln",{opacity:0});
+ tl.fromTo("#s10-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s10-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("Advanced Filters");
+ tl.fromTo("#s10-c1",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},a-.9);
+ tl.fromTo("#s10-n0",{opacity:0,x:-20},{opacity:1,x:0,duration:.35},a-.3);
+ tl.fromTo("#s10-n1,#s10-n2,#s10-add",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.3},T("add more column conditions")-.2);
+ tl.fromTo("#s10-seg",{opacity:0,y:20},{opacity:1,y:0,duration:.4},T("AND")-.3);
+ tl.to("#s10-and",{backgroundColor:"#9fe0c9",duration:.2},T("AND"));
+ tl.to("#s10-and",{backgroundColor:"#ffffff",duration:.2},T("OR"));tl.to("#s10-or",{backgroundColor:"#ffe08f",duration:.2},T("OR"));
+ var b=T("current table");
+ tl.fromTo("#s10-c2",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},b-.7);
+ tl.fromTo("#s10-o1,#s10-o2",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.2},b-.2);
+ var c=T("all independent tables");
+ tl.to("#s10-o1 b",{backgroundColor:"#ffffff",duration:.2},c);tl.to("#s10-o2 b",{backgroundColor:"#47cf9f",duration:.2},c);
+ tl.fromTo("#s10-tbs,#s10-mg",{opacity:0,y:20},{opacity:1,y:0,duration:.4,stagger:.2},c+.2);
+ var d=T("main metric");
+ tl.fromTo("#s10-c3",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},d-.8);
+ pop(tl,"#s10-m0",d-.1,{s:.4});
+ var e=T("child metric");
+ tl.fromTo("#s10-ln",{opacity:0},{opacity:1,duration:.4},T("main metric",1)+.3);
+ tl.fromTo("#s10-s1,#s10-s2,#s10-s3",{opacity:0,x:30},{opacity:1,x:0,duration:.35,stagger:.2},T("main metric",1)+.5);
+ dpoint(tl,"dn",e,1);
+ tl.fromTo("#s10-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},e);
+ captions(tl,"s10-cap");
+ window.__timelines["s10"]=tl;
+})();
+</script>
+</template></body></html>

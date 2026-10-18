@@ -1,0 +1,88 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .wob{filter:url(#WOBID)}
+#root .modal{position:absolute;left:330px;top:210px;width:1260px;height:690px;background:#fff;border:6px solid var(--ink);border-radius:28px;box-shadow:12px 12px 0 var(--ink);overflow:hidden}
+#root .tabs{position:absolute;left:30px;top:96px;display:flex;gap:16px}
+#root .tb{border:4px solid var(--ink);border-radius:24px 24px 0 0;padding:6px 34px 8px;font-size:42px;background:#fff;white-space:nowrap}
+#root .pane{position:absolute;left:36px;top:170px;width:1180px;height:480px;border:4px solid var(--ink);border-radius:0 20px 20px 20px;background:#fffdf5}
+#root .lab{position:absolute;left:36px;font-size:42px;white-space:nowrap}
+#root .sl{position:absolute;left:330px;width:520px;height:18px;border:4px solid var(--ink);border-radius:12px;background:#fff}
+#root .sl i{position:absolute;left:0;top:-14px;width:36px;height:36px;border:4px solid var(--ink);border-radius:50%;background:var(--pink);display:block}
+#root .val{position:absolute;left:890px;font-family:"Fredoka",sans-serif;font-size:46px;white-space:nowrap}
+#root .tg{position:absolute;right:30px;width:96px;height:48px;border:4px solid var(--ink);border-radius:30px;background:#cfcfd6}
+#root .tg i{position:absolute;left:4px;top:4px;width:32px;height:32px;border-radius:50%;background:#fff;border:4px solid var(--ink);display:block}
+#root .cursor{position:absolute;left:0;top:0;width:74px;height:74px;z-index:30}
+#root .ck{position:absolute;left:36px;width:1100px;height:60px;border:4px solid var(--ink);border-radius:14px;background:#fff;display:flex;align-items:center;gap:20px;padding:0 18px;font-size:36px;white-space:nowrap}
+#root .ck b{width:32px;height:32px;border:4px solid var(--ink);border-radius:8px;background:#fff;position:relative;display:block}
+#root .ck b:after{content:"";position:absolute;left:7px;top:-4px;width:10px;height:21px;border-right:6px solid var(--green);border-bottom:6px solid var(--green);transform:rotate(40deg);opacity:0}
+#root .ck.on b:after{opacity:1}
+</style>
+<div id="root" data-composition-id="s7" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="31" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:640px;width:520px;height:520px;background:#cdb4db"></div>
+  <div class="head wob" id="s7-h"><span class="step">Settings 1</span><span class="ttl">General · Chapter Rules</span></div>
+  <div class="abs wob" id="s7-mini" style="left:1320px;top:70px;width:560px;height:84px;border:5px solid var(--ink);border-radius:20px;background:var(--mint);box-shadow:6px 6px 0 var(--ink);display:flex;align-items:center;padding:0 22px;font-size:32px;white-space:nowrap">NetCare RFC Plans & AI Audit<span style="margin-left:auto" id="s7-gear"></span></div>
+  <div class="bdg" id="s7-b1" style="left:1250px;top:150px">1</div>
+  <div class="lbl" id="s7-l1" style="left:1380px;top:170px;font-size:38px">The gear, top right of the small window</div>
+  <div class="modal wob" id="s7-mod"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>Settings</span></div>
+    <div class="tabs"><span class="tb" id="s7-tb1" style="background:#ffd166">General</span><span class="tb" id="s7-tb2">Chapter Rules</span><span class="tb" id="s7-tb3">AI Connection</span></div>
+    <div class="pane" id="s7-p1">
+      <div class="lab" style="top:36px">Downloads at once</div><div class="sl" id="s7-sl1" style="top:50px"><i></i></div><div class="val" id="s7-v1" style="top:26px">3</div>
+      <div class="lab" style="top:128px">Seconds between</div><div class="sl" id="s7-sl2" style="top:142px"><i></i></div><div class="val" id="s7-v2" style="top:118px">1.5 s</div>
+      <div class="lab" style="top:224px">Auto Extract</div><div class="tg" id="s7-tg1" style="top:222px"><i></i></div>
+      <div class="lab" style="top:312px">AI Audit</div><div class="tg" id="s7-tg2" style="top:310px"><i></i></div>
+      <div class="lab" style="top:400px;font-size:34px;color:#6b6874">Changes save automatically in your browser</div>
+    </div>
+    <div class="pane" id="s7-p2" style="opacity:0">
+      <div class="ck" id="s7-k1" style="top:24px"><b></b><span class="mono" style="font-size:30px">3.2</span>Config check　<span class="tag" style="font-size:28px;background:#ffd166;padding:0 14px">Files</span></div>
+      <div class="ck" id="s7-k2" style="top:98px"><b></b><span class="mono" style="font-size:30px">3.3</span>Steps　<span class="tag" style="font-size:28px;background:#8ecae6;padding:0 14px">Text</span></div>
+      <div class="ck" id="s7-k3" style="top:172px"><b></b><span class="mono" style="font-size:30px">3.5</span>Rollback　<span class="tag" style="font-size:28px;background:#8ecae6;padding:0 14px">Text</span></div>
+      <div class="abs dash" style="left:36px;top:262px;width:1100px;height:190px;background:#fff;padding:14px 22px;font-size:36px;line-height:1.35"><div style="font-size:30px;color:#6b6874">Checking instructions (plain words, like briefing a colleague; max 4000 characters each)</div><div id="s7-pr"></div></div>
+    </div>
+  </div>
+  <div class="cursor wob" id="s7-cur"></div>
+  <div class="abs wob" id="s7-fig" style="left:1660px;top:610px"></div>
+  <div id="s7-sp"></div>
+  <div class="cap" id="s7-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s7-gear",icon("gear","#ffffff",56));put("s7-cur",icon("cursor","#ffffff",74));
+ put("s7-fig",figure("f7",{body:"#ff9f68",hat:"#7bdcb5",w:240,h:330}));
+ document.getElementById("s7-sp").innerHTML=sparkle(1600,230,44)+sparkle(1820,520,40,"#ff8fab");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s7-mod,#s7-cur,#s7-b1,#s7-l1,#s7-mini",{opacity:0});
+ tl.fromTo("#s7-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s7-fig",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);
+ tl.fromTo("#s7-mini",{opacity:0,y:-30},{opacity:1,y:0,duration:.6,ease:"back.out(1.6)"},.8);
+ var ts=T("the settings");
+ tl.set("#s7-cur",{x:1500,y:700});tl.fromTo("#s7-cur",{opacity:0},{opacity:1,duration:.3},ts-1.2);
+ pop(tl,"#s7-b1",ts-.7,{s:.3});pop(tl,"#s7-l1",ts-.6,{s:.5});cur(tl,"#s7-cur",1800,120,ts-1.0,.9);click(tl,"#s7-cur",ts+.1);
+ tl.to("#s7-gear",{rotation:180,duration:.7,ease:"power2.inOut",transformOrigin:"50% 50%"},ts+.1);
+ tl.fromTo("#s7-mod",{opacity:0,y:80,scale:.9},{opacity:1,y:0,scale:1,duration:.55,ease:"back.out(1.5)",transformOrigin:"50% 50%"},ts+.2);
+ tl.to("#s7-cur",{opacity:0,duration:.2},ts+.5);tl.to("#s7-l1,#s7-b1,#s7-mini",{opacity:0,duration:.3},ts+.6);
+ var a=T("download at once");
+ tl.to("#s7-sl1 i",{x:140,duration:.6,ease:"power2.inOut"},a);
+ tl.set("#s7-v1",{innerHTML:"3"},0);tl.set("#s7-v1",{innerHTML:"5"},a+.5);
+ var b=T("seconds to wait");
+ tl.to("#s7-sl2 i",{x:60,duration:.6,ease:"power2.inOut"},b);tl.set("#s7-v2",{innerHTML:"2 s"},b+.5);
+ toggle(tl,"s7-tg1",T("Auto Extract"));
+ toggle(tl,"s7-tg2",T("AI Audit")+.1);
+ var c=T("Chapter Rules");
+ tl.to("#s7-tb1",{backgroundColor:"#ffffff",duration:.15},c);tl.to("#s7-tb2",{backgroundColor:"#ffd166",duration:.15},c);
+ tl.to("#s7-p1",{opacity:0,duration:.25},c);tl.to("#s7-p2",{opacity:1,duration:.3},c+.15);
+ var d=T("tick the chapters");
+ tl.fromTo("#s7-k1,#s7-k2,#s7-k3",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.12},c+.3);
+ tl.to("#s7-k1",{className:"ck on",duration:.01},d+.1);tl.to("#s7-k2",{className:"ck on",duration:.01},d+.5);tl.to("#s7-k3",{className:"ck on",duration:.01},d+.9);
+ typeText(tl,"s7-pr","Check the rollback is written clearly, can be followed, and says how to confirm success.",T("one line of instructions")-.2,1.4);
+ point(tl,"f7",T("one line of instructions"),1.0);
+ tl.fromTo("#s7-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.25,ease:"back.out(2)",transformOrigin:"50% 50%"},T("one line of instructions"));
+ captions(tl,"s7-cap");
+ window.__timelines["s7"]=tl;
+})();
+</script>
+</template></body></html>

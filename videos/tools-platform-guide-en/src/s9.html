@@ -1,0 +1,72 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root table{border-collapse:separate;border-spacing:0;position:absolute;left:140px;top:312px;width:800px;font-size:38px}
+#root th{background:#aed8f2;border:2.5px solid var(--ink);padding:6px 10px;font-family:"Fredoka",sans-serif;font-weight:400;font-size:38px}
+#root td{border:2.5px solid var(--ink);padding:6px 10px;text-align:center;background:#fff;height:62px}
+#root .tabs2{position:absolute;left:1035px;top:300px;display:flex;gap:10px}
+#root .tabs2 span{border:2.5px solid var(--ink);border-radius:22px;padding:2px 22px 6px;font-size:36px;background:#fff;white-space:nowrap}
+#root .fd{position:absolute;left:1035px;display:flex;align-items:center;gap:14px;font-size:38px;white-space:nowrap}
+#root .fd i{font-style:normal;min-width:200px;text-align:center;border:2.5px solid var(--ink);border-radius:14px;padding:2px 14px 4px;background:#fffdf5}
+#root .rs{position:absolute;left:1470px;top:400px;width:320px;height:330px;border:6px dashed var(--ink);border-radius:26px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#root .rs b{font-family:"Fredoka",sans-serif;font-weight:400;font-size:110px;line-height:1}
+#root .rs span{font-size:34px;color:#6b6874;margin-top:10px}
+
+</style>
+<div id="root" data-composition-id="s9" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="29" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1480px;top:-170px;width:520px;height:520px;background:#d9c6ef"></div>
+  <div class="head wob" id="s9-h"><span class="step">Station 2</span><span class="ttl">Metric Rules ② Count & ratio</span></div>
+  <div class="win wob" id="s9-tw" style="left:110px;top:220px;width:860px;height:560px"><div class="wbar"><i></i><i></i><i></i><span>Sample table · Task list</span></div></div>
+  <table id="s9-tb"><tr><th>Office</th><th>Status</th><th>Overdue</th><th>Count</th></tr>
+    <tr id="s9-r1"><td>Egypt</td><td class="c2">Open</td><td class="c3">Yes</td><td class="c4">12</td></tr>
+    <tr id="s9-r2"><td>Germany</td><td class="c2">Open</td><td class="c3">No</td><td class="c4">8</td></tr>
+    <tr id="s9-r3"><td>Mid East</td><td class="c2">Closed</td><td class="c3">No</td><td class="c4">5</td></tr>
+    <tr id="s9-r4"><td>Egypt</td><td class="c2">Open</td><td class="c3">No</td><td class="c4">7</td></tr>
+    <tr id="s9-r5"><td>Mid East</td><td class="c2">Open</td><td class="c3">Yes</td><td class="c4">3</td></tr></table>
+  <div class="win wob" id="s9-rw" style="left:1010px;top:220px;width:810px;height:560px"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>Metric rule editor</span></div></div>
+  <div class="tabs2" id="s9-tabs"><span id="s9-m1">One Row</span><span id="s9-m2">Many Rows</span><span id="s9-m3">Times</span><span id="s9-m4">Ratio</span></div>
+  <div class="fd" id="s9-fx" style="top:390px"><span>Cond. col X</span><i id="s9-fxv">Status</i></div><div class="fd" id="s9-fy" style="top:460px"><span>Cond. value Y</span><i id="s9-fyv">Open</i></div><div class="fd" id="s9-fz" style="top:530px"><span>Count col Z</span><i id="s9-fzv">Overdue</i></div><div class="fd" id="s9-fk" style="top:600px"><span>Keyword K</span><i id="s9-fkv">Yes</i></div><div class="abs row" id="s9-ch" style="left:1035px;top:690px;gap:12px"><span class="tag" id="s9-c1" style="background:#9fe0c9;font-size:32px">Return</span><span class="tag" id="s9-c2" style="background:#ffe08f;font-size:32px">Overdue</span><span class="tag" id="s9-c3" style="background:#fff;font-size:32px">[empty]</span><span class="tag" id="s9-c4" style="background:#fff;font-size:32px">[filled]</span></div>
+  <div class="rs" id="s9-rs"><span>Result</span><b id="s9-rv">–</b><span id="s9-rn"></span></div>
+  <div class="abs wob" id="s9-d" style="left:88px;top:758px"></div>
+  <div id="s9-sp"></div>
+  <div class="cap" id="s9-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s9-d",dino("dn",{w:244,h:234}));
+ document.getElementById("s9-sp").innerHTML=sparkle(980,190,44)+sparkle(1850,420,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ var HL=function(sel,t,c){tl.to(sel,{backgroundColor:c,duration:.25},t);};
+ var CL=function(sel,t){tl.to(sel,{backgroundColor:"#ffffff",duration:.25},t);};
+ var TAB=function(id,t){tl.to("#s9-tabs span",{backgroundColor:"#ffffff",duration:.15},t);tl.to("#"+id,{backgroundColor:"#ffe08f",duration:.2},t);};
+ var RV=function(v,t,note){tl.set("#s9-rv",{innerHTML:v},t);tl.fromTo("#s9-rs",{scale:.9},{scale:1,duration:.35,ease:"back.out(2)",transformOrigin:"50% 50%"},t);if(note!==undefined)tl.set("#s9-rn",{innerHTML:note},t);};
+ tl.fromTo("#s9-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s9-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ 
+ gsap.set("#s9-tw,#s9-tb,#s9-rw,#s9-tabs,#s9-fx,#s9-fy,#s9-fz,#s9-fk,#s9-rs,#s9-c1,#s9-c2,#s9-c3,#s9-c4",{opacity:0});
+ var M="#s9-r1 .c2,#s9-r2 .c2,#s9-r4 .c2,#s9-r5 .c2", Z="#s9-r1 .c3,#s9-r5 .c3";
+ tl.fromTo("#s9-tw,#s9-tb",{opacity:0,y:50},{opacity:1,y:0,duration:.6,ease:"power3.out"},.5);
+ tl.fromTo("#s9-rw,#s9-tabs,#s9-rs",{opacity:0,x:60},{opacity:1,x:0,duration:.6,ease:"power3.out"},.9);
+ var b=T("Count Times");TAB("s9-m3",b);
+ var x=T("column X contains Y");
+ tl.fromTo("#s9-fx,#s9-fy",{opacity:0,x:20},{opacity:1,x:0,duration:.35,stagger:.25},x);HL(M,x+.2,"#ffe08a");
+ var z=T("column Z contains keyword K");
+ tl.fromTo("#s9-fz,#s9-fk",{opacity:0,x:20},{opacity:1,x:0,duration:.35,stagger:.25},z);HL(Z,z+.3,"#ffc2d1");
+ RV("2",z+1.2,"times (rows 1 and 5)");
+ dpoint(tl,"dn",z,1);
+ var r=T("Count Ratio");CL("#s9-tb td",r-.1);HL(M,r+.1,"#ffe08a");HL(Z,r+.1,"#ffc2d1");TAB("s9-m4",r);tl.set("#s9-rv",{fontSize:58},r+.9);RV("2÷4=50%",r+.9,"Z has K ÷ X has Y");
+ var nx=T("Leave X empty");CL("#s9-tb .c2",nx);tl.set("#s9-fyv",{innerHTML:"(empty)"},nx);tl.set("#s9-fxv",{innerHTML:"(empty)"},nx);RV("2÷5=40%",nx+.6,"Z has K ÷ all rows");
+ pop(tl,"#s9-c1",T("Return rate")-.1,{s:.4});pop(tl,"#s9-c2",T("overdue rate")-.1,{s:.4});
+ pop(tl,"#s9-c3",T("empty or filled")-.2,{s:.4});pop(tl,"#s9-c4",T("empty or filled")+.2,{s:.4});
+ dcheer(tl,"dn",T("empty or filled")+.4);bounce(tl,"s9-d",T("empty or filled")+.6,3,14);
+ tl.fromTo("#s9-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("empty or filled")+.3);
+
+ captions(tl,"s9-cap");
+ window.__timelines["s9"]=tl;
+})();
+</script>
+</template></body></html>

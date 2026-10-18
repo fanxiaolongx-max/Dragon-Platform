@@ -1,0 +1,83 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .wob{filter:url(#WOBID)}
+#root .inp{position:absolute;height:70px;border:5px solid var(--ink);border-radius:18px;background:#fff;padding:8px 22px;font-family:"JetBrains Mono",monospace;font-size:34px;white-space:nowrap}
+#root .item{position:absolute;width:380px;height:130px;border:6px solid var(--ink);border-radius:28px;box-shadow:8px 8px 0 var(--ink);display:flex;align-items:center;gap:18px;padding:0 26px;font-family:"Fredoka",sans-serif;font-size:64px;white-space:nowrap}
+</style>
+<div id="root" data-composition-id="s9" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="51" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:-130px;width:500px;height:500px;background:#ff8fab"></div>
+  <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#ffd166"></div>
+  <div id="s9-bk">
+    <div class="head wob" id="s9-h"><span class="step">Settings 3</span><span class="ttl">Encrypted backup · Restore</span></div>
+    <div class="win wob" id="s9-w1" style="left:110px;top:240px;width:780px;height:560px"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>Backup & Restore</span></div></div>
+    <div class="abs" style="left:150px;top:340px;font-size:42px">Backup password (8+ characters, remember it)</div>
+    <div class="inp" id="s9-pw" style="left:150px;top:410px;width:700px"></div>
+    <div class="btn" id="s9-bb" style="left:150px;top:540px;font-size:38px;background:#ffd166">Export encrypted backup</div>
+    <div class="tag abs mono" id="s9-aes" style="left:150px;top:690px;font-size:30px;background:#cdb4db">AES-256-GCM · PBKDF2</div>
+    <div class="abs wob" id="s9-lock" style="left:700px;top:520px"></div>
+    <div class="abs" id="s9-ar"></div>
+    <div class="abs wob" id="s9-file" style="left:1010px;top:360px"></div>
+    <div class="tag abs mono" id="s9-fl" style="left:960px;top:560px;font-size:28px;background:#fff">netcare-backup.json</div>
+    <div class="abs wob" id="s9-lap" style="left:1360px;top:350px"></div>
+    <div class="btn" id="s9-rs" style="left:1330px;top:640px;font-size:40px;background:#7bdcb5">One-click restore</div>
+  </div>
+  <div id="s9-end">
+    <div class="abs wob" id="s9-big" style="left:0;right:0;top:80px;text-align:center;font-family:'Fredoka',sans-serif;font-size:110px;white-space:nowrap">You've learned it all!</div>
+    <div class="item wob" id="s9-e1" style="left:360px;top:290px;background:#ffd166"><span id="s9-ei1"></span>Installer</div>
+    <div class="item wob" id="s9-e2" style="left:780px;top:290px;background:#8ecae6"><span id="s9-ei2"></span>Install</div>
+    <div class="item wob" id="s9-e3" style="left:1200px;top:290px;background:#7bdcb5"><span id="s9-ei3"></span>Use</div>
+    <div class="item wob" id="s9-e4" style="left:780px;top:470px;background:#ff8fab"><span id="s9-ei4"></span>Settings</div>
+    <div class="abs wob" id="s9-fg" style="left:260px;top:520px"></div>
+    <div class="abs wob" id="s9-fg2" style="left:1440px;top:520px"></div>
+    <div class="abs wob" id="s9-nm" style="left:0;right:0;top:680px;text-align:center;font-family:'Fredoka',sans-serif;font-size:56px;white-space:nowrap">NetCare RFC Plans & <span style="color:#ef476f">AI Audit</span></div>
+    <div class="btn" id="s9-go" style="left:690px;top:790px;font-size:56px;background:#ffd166;padding:10px 60px 14px">Go try it →</div>
+  </div>
+  <div id="s9-sp"></div>
+  <div class="cap" id="s9-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s9-lock",icon("lock","#ffd166",120));put("s9-file",icon("doc","#8ecae6",180));put("s9-lap",'<svg viewBox="0 0 200 150" width="300" height="225" style="overflow:visible"><rect class="ol" x="26" y="14" width="148" height="100" rx="12" fill="#fff"/><rect x="40" y="28" width="120" height="72" rx="6" fill="#d9fbec"/><path class="ln" d="M10 130 H190"/><path class="ln" d="M60 64 L90 86 L140 40" style="stroke:#06d6a0;stroke-width:9"/></svg>');
+ put("s9-ar",arrow(870,400,120,70,"s9-a1")+arrow(1190,400,130,70,"s9-a2"));
+ [1,2,3,4].forEach(function(i){put("s9-ei"+i,icon("check","#ffffff",80));});
+ put("s9-fg",figure("g1",{body:"#8ecae6",hat:"#ffd166",w:260,h:356}));put("s9-fg2",figure("g2",{body:"#ff8fab",hat:"#06d6a0",w:260,h:356}));
+ document.getElementById("s9-sp").innerHTML=sparkle(240,300,50)+sparkle(1640,260,46,"#ff8fab")+sparkle(1750,700,54,"#8ecae6")+sparkle(150,760,44,"#7bdcb5")+sparkle(980,160,40,"#ef476f")+sparkle(1520,420,36,"#ffd166");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s9-lock,#s9-ar,#s9-file,#s9-fl,#s9-lap,#s9-rs,#s9-aes,#s9-end,#s9-sp",{opacity:0});
+ tl.fromTo("#s9-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s9-w1",{opacity:0,y:60},{opacity:1,y:0,duration:.7,ease:"power3.out"},.5);
+ tl.fromTo("#s9-pw,#s9-bb",{opacity:0,y:20},{opacity:1,y:0,duration:.4,stagger:.15},.9);
+ typeText(tl,"s9-pw","••••••••••",T("eight characters"),1.2);
+ pop(tl,"#s9-aes",T("encrypted")-.1,{s:.4});
+ var b=T("export");
+ click(tl,"#s9-bb",b+.2);tl.to("#s9-bb",{backgroundColor:"#06d6a0",duration:.2},b+.25);
+ pop(tl,"#s9-lock",b+.3,{s:.3});
+ pop(tl,"#s9-file",T("backup")+.4,{s:.3,y:40});tl.set("#s9-fl",{opacity:1},0);tl.to("#s9-fl",{opacity:0,duration:.01},0);pop(tl,"#s9-fl",T("backup")+.7,{s:.5});
+ tl.set("#s9-ar",{opacity:1},T("new")-.2);draw(tl,"#s9-a1",T("new"),.5);tl.to("#s9-a1h",{opacity:1,duration:.1},T("new")+.5);
+ pop(tl,"#s9-lap",T("computer")-.1,{s:.3,y:30});
+ tl.to("#s9-file",{x:420,y:-0,scale:.8,duration:.8,ease:"power2.inOut"},T("you can restore"));
+ draw(tl,"#s9-a2",T("you can restore"),.5);tl.to("#s9-a2h",{opacity:1,duration:.1},T("you can restore")+.5);
+ pop(tl,"#s9-rs",T("with one click")-.1,{s:.4});click(tl,"#s9-rs",T("click")+.1);
+ var e=T("That is it");
+ tl.to("#s9-bk",{opacity:0,y:-40,duration:.5,ease:"power2.in"},e-.1);
+ tl.set("#s9-end",{opacity:1},e+.3);
+ tl.fromTo("#s9-big",{opacity:0,scale:.5,y:30},{opacity:1,scale:1,y:0,duration:.6,ease:"back.out(1.8)",transformOrigin:"50% 50%"},e+.4);
+ [["#s9-e1","Installer"],["#s9-e2","install"],["#s9-e3","use"],["#s9-e4","settings"]].forEach(function(a,i){pop(tl,a[0],T(a[1])+(i<3?0:0)+.05,{s:.3,y:30,d:.5});});
+ tl.fromTo("#s9-fg,#s9-fg2",{opacity:0,y:140},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)",stagger:.15},e+.9);
+ tl.fromTo("#s9-nm",{opacity:0,y:20},{opacity:1,y:0,duration:.6},T("learned it all")-.1);
+ pop(tl,"#s9-go",T("Go and give")-.1,{s:.3,d:.55});
+ tl.to("#s9-go",{scale:1.06,duration:.45,repeat:5,yoyo:true,ease:"sine.inOut",transformOrigin:"50% 50%"},T("Go and give")+.6);
+ tl.set("#s9-sp",{opacity:1},T("learned it all")-.3);
+ tl.fromTo("#s9-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.15,ease:"back.out(2)",transformOrigin:"50% 50%"},T("learned it all"));
+ tl.to("#s9-sp svg",{rotation:25,duration:.9,repeat:7,yoyo:true,ease:"sine.inOut",transformOrigin:"50% 50%"},T("learned it all")+.6);
+ ["g1","g2"].forEach(function(id){tl.to("#"+id+"-armR",{rotation:-160,svgOrigin:"102 104",duration:.3,ease:"back.out(2)"},T("learned it all"));tl.to("#"+id+"-armL",{rotation:160,svgOrigin:"58 104",duration:.3,ease:"back.out(2)"},T("learned it all"));bounce(tl,id,T("learned it all")+.3,6,20);});
+ captions(tl,"s9-cap");
+ window.__timelines["s9"]=tl;
+})();
+</script>
+</template></body></html>

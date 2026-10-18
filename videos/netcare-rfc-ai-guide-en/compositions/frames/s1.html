@@ -1,0 +1,142 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>#root{position:absolute;inset:0;overflow:hidden;color:#2d2a32;font-family:"Patrick Hand",cursive;--ink:#2d2a32;--paper:#fff7e6;--pink:#ff8fab;--yellow:#ffd166;--mint:#7bdcb5;--sky:#8ecae6;--lav:#cdb4db;--red:#ef476f;--green:#06d6a0;--orange:#ff9f68}
+#root *{box-sizing:border-box}
+.paper{position:absolute;inset:0;background:radial-gradient(circle at 1px 1px,rgba(45,42,50,.11) 2px,transparent 2.4px) 0 0/44px 44px,#fff7e6}
+.blob{position:absolute;border-radius:50%;opacity:.55}
+.head{position:absolute;left:100px;top:64px;display:flex;align-items:center;gap:26px}
+.step{font-family:"Fredoka",sans-serif;font-size:46px;background:var(--yellow);border:5px solid var(--ink);border-radius:60px 40px 56px 36px;padding:6px 30px 8px;box-shadow:6px 6px 0 var(--ink);transform:rotate(-3deg);white-space:nowrap}
+.ttl{font-family:"Fredoka",sans-serif;font-size:92px;letter-spacing:.04em;line-height:1;white-space:nowrap}
+.win{position:absolute;background:#fff;border:6px solid var(--ink);border-radius:26px;box-shadow:12px 12px 0 var(--ink);overflow:hidden}
+.wbar{height:62px;display:flex;align-items:center;gap:12px;padding:0 22px;border-bottom:6px solid var(--ink);background:var(--sky);font-family:"Patrick Hand",cursive;font-size:32px}
+.wbar i{width:20px;height:20px;border-radius:50%;border:4px solid var(--ink);display:block}
+.wbar i:nth-child(1){background:var(--pink)}.wbar i:nth-child(2){background:var(--yellow)}.wbar i:nth-child(3){background:var(--mint)}
+.wbar span{margin-left:10px;white-space:nowrap}
+.btn{position:absolute;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-family:"Fredoka",sans-serif;font-size:38px;border:5px solid var(--ink);border-radius:50px;padding:10px 34px 12px;box-shadow:6px 6px 0 var(--ink);background:var(--pink);white-space:nowrap}
+.tag{display:inline-block;font-family:"Patrick Hand",cursive;font-size:36px;border:4px solid var(--ink);border-radius:30px;padding:2px 22px 4px;background:var(--mint);white-space:nowrap}
+.sticky{position:absolute;font-family:"Patrick Hand",cursive;font-size:42px;line-height:1.25;background:var(--yellow);border:5px solid var(--ink);border-radius:8px 30px 10px 24px;padding:16px 26px 20px;box-shadow:7px 7px 0 var(--ink)}
+.bubble{position:absolute;font-family:"Patrick Hand",cursive;font-size:46px;line-height:1.2;background:#fff;border:5px solid var(--ink);border-radius:36px;padding:16px 30px 20px;box-shadow:6px 6px 0 var(--ink);white-space:nowrap}
+.bubble:after{content:"";position:absolute;left:46px;bottom:-26px;width:34px;height:34px;background:#fff;border-right:5px solid var(--ink);border-bottom:5px solid var(--ink);transform:rotate(45deg) skew(10deg,10deg)}
+.fig{position:absolute}
+.ln{fill:none;stroke:#2d2a32;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+.ol{stroke:#2d2a32;stroke-width:5;stroke-linejoin:round}
+.cap{position:absolute;left:0;right:0;bottom:48px;height:92px}
+.cap .c{position:absolute;left:50%;top:0;transform:translateX(-50%);white-space:nowrap;font-family:"Patrick Hand",cursive;font-size:56px;line-height:1;background:#fff;border:5px solid var(--ink);border-radius:50px;padding:12px 40px 16px;box-shadow:6px 6px 0 var(--ink);opacity:0}
+.mono{font-family:"JetBrains Mono",monospace}
+.dash{border:4px dashed var(--ink);border-radius:18px}
+.row{display:flex;align-items:center}
+.abs{position:absolute}
+
+.bdg{position:absolute;width:64px;height:64px;border-radius:50%;background:var(--red);color:#fff;border:5px solid var(--ink);font-family:"Fredoka",sans-serif;font-size:40px;display:flex;align-items:center;justify-content:center;z-index:35;box-shadow:4px 4px 0 var(--ink)}
+.hl{position:absolute;border:6px dashed var(--red);border-radius:22px;z-index:34;pointer-events:none}
+.lbl{position:absolute;z-index:36;font-family:"Patrick Hand",cursive;font-size:44px;line-height:1.15;background:#fff3c4;border:5px solid var(--ink);border-radius:14px 28px 14px 28px;padding:8px 22px 12px;box-shadow:6px 6px 0 var(--ink);white-space:nowrap}
+.addr{position:absolute;height:64px;border:5px solid var(--ink);border-radius:34px;background:#fff;display:flex;align-items:center;padding:0 26px;font-family:"JetBrains Mono",monospace;font-size:32px;white-space:nowrap;overflow:hidden}
+
+#s1 .wob,#root .wob{filter:url(#wobs1)}
+</style>
+<div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="wobs1" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="3" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-120px;top:620px;width:520px;height:520px;background:#cdb4db"></div>
+  <div class="blob" style="left:1380px;top:-160px;width:520px;height:520px;background:#8ecae6"></div>
+  <div class="abs wob" id="s1-t1" style="left:110px;top:150px;font-family:'Fredoka',sans-serif;font-size:170px;line-height:1;letter-spacing:.01em;white-space:nowrap">NetCare RFC</div>
+  <svg class="abs wob" style="left:110px;top:330px" width="1000" height="40" viewBox="0 0 1000 40"><path id="s1-ul" class="ln" pathLength="1" stroke-dasharray="1" style="stroke:#ff8fab;stroke-width:14" d="M6 24 C150 4 300 38 460 18 S780 34 990 12"/></svg>
+  <div class="abs" id="s1-t2" style="left:116px;top:370px;font-family:'Fredoka',sans-serif;font-size:92px;line-height:1.1;white-space:nowrap">Plans & <span style="color:#ef476f">AI Audit</span></div>
+  <div class="abs" id="s1-t3" style="left:120px;top:490px;font-size:64px;white-space:nowrap">Extension helper · Step-by-step guide</div>
+  <div class="abs" id="s1-chips" style="left:116px;top:620px;width:1000px">
+    <div class="row" id="s1-c1" style="gap:12px;position:absolute;left:0;top:0"><span class="wob" id="s1-i1"></span><span class="tag" style="background:#ffd166;font-size:46px">Get the installer</span></div>
+    <div class="row" id="s1-c2" style="gap:12px;position:absolute;left:480px;top:0"><span class="wob" id="s1-i2"></span><span class="tag" style="background:#8ecae6;font-size:46px">Add to browser</span></div>
+    <div class="row" id="s1-c3" style="gap:12px;position:absolute;left:0;top:150px"><span class="wob" id="s1-i3"></span><span class="tag" style="background:#7bdcb5;font-size:46px">Start using</span></div>
+    <div class="row" id="s1-c4" style="gap:12px;position:absolute;left:480px;top:150px"><span class="wob" id="s1-i4"></span><span class="tag" style="background:#ff8fab;font-size:46px">Settings</span></div>
+  </div>
+  <div class="abs wob" id="s1-fig" style="left:1230px;top:330px"></div>
+  <div class="bubble" id="s1-bub" style="left:1330px;top:215px;font-size:54px">Hi, I'm Audie!</div>
+  <div id="s1-sp"></div>
+  <div class="cap" id="s1-cap"></div>
+</div>
+<script>
+function T(s,nth){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
+ s=String(s).replace(/\s+/g,"");var P="",MM=[];for(i=0;i<C.length;i++){if(!/\s/.test(C[i])){P+=C[i];MM.push(M[i]);}}
+ var p=-1,n=nth||0,from=0;while(n>=0){p=P.indexOf(s,from);if(p<0)return 0;from=p+1;n--;}
+ return Math.round((W[MM[p]].s+LEAD)*100)/100;}
+function figure(id,o){o=o||{};var body=o.body||"#ff8fab",hat=o.hat||"#ffd166";
+ return '<svg id="'+id+'" class="fig" viewBox="0 0 160 220" width="'+(o.w||240)+'" height="'+(o.h||330)+'" style="overflow:visible">'+
+ '<g id="'+id+'-legL"><path class="ln" d="M70 152 L64 196"/><ellipse cx="58" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
+ '<g id="'+id+'-legR"><path class="ln" d="M92 152 L98 196"/><ellipse cx="104" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
+ '<path class="ol" d="M54 92 Q80 82 106 92 L112 154 Q80 166 48 154 Z" fill="'+body+'"/>'+
+ '<g id="'+id+'-armL"><path class="ln" d="M58 104 Q40 124 38 146"/><circle class="ol" cx="37" cy="151" r="10" fill="#ffe3d0"/></g>'+
+ '<g id="'+id+'-armR"><path class="ln" d="M102 104 Q120 124 122 146"/><circle class="ol" cx="123" cy="151" r="10" fill="#ffe3d0"/></g>'+
+ '<g id="'+id+'-head"><circle class="ol" cx="80" cy="52" r="38" fill="#ffe9d6"/>'+
+ '<path class="ol" d="M44 44 Q80 -8 116 44 Q80 26 44 44 Z" fill="'+hat+'"/><circle class="ol" cx="80" cy="6" r="9" fill="'+hat+'"/>'+
+ '<circle cx="66" cy="58" r="5" fill="#2d2a32"/><circle cx="94" cy="58" r="5" fill="#2d2a32"/>'+
+ '<ellipse cx="55" cy="72" rx="9" ry="6" fill="#ff8fab" opacity=".7"/><ellipse cx="105" cy="72" rx="9" ry="6" fill="#ff8fab" opacity=".7"/>'+
+ '<path class="ln" style="stroke-width:5" d="M70 74 Q80 84 90 74"/></g></svg>';}
+function put(id,html){document.getElementById(id).innerHTML=html;}
+function wave(tl,id,t,n){var a=id+"-armR";tl.to("#"+a,{rotation:-150,svgOrigin:"102 104",duration:.35,ease:"power2.out"},t);
+ tl.to("#"+a,{rotation:-120,svgOrigin:"102 104",duration:.22,repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t+.35);
+ tl.to("#"+a,{rotation:0,svgOrigin:"102 104",duration:.4,ease:"power2.inOut"},t+.35+n*.44);}
+function bounce(tl,id,t,n,h){tl.to("#"+id,{y:-(h||14),duration:.28,repeat:n*2-1,yoyo:true,ease:"power1.inOut"},t);}
+function walk(tl,id,t,dur,n){tl.to("#"+id+"-legL",{rotation:18,svgOrigin:"70 152",duration:dur/(n*2),repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t);
+ tl.to("#"+id+"-legR",{rotation:-18,svgOrigin:"92 152",duration:dur/(n*2),repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t);}
+function typing(tl,id,t,dur){var n=Math.max(2,Math.round(dur/.16));
+ tl.to("#"+id+"-armL",{rotation:-38,svgOrigin:"58 104",duration:.3,ease:"power2.out"},t);
+ tl.to("#"+id+"-armR",{rotation:38,svgOrigin:"102 104",duration:.3,ease:"power2.out"},t);
+ tl.to("#"+id+"-armL",{rotation:-26,svgOrigin:"58 104",duration:.16,repeat:n,yoyo:true,ease:"none"},t+.3);
+ tl.to("#"+id+"-armR",{rotation:26,svgOrigin:"102 104",duration:.16,repeat:n,yoyo:true,ease:"none"},t+.38);}
+function point(tl,id,t,hold){var a=id+"-armR";tl.to("#"+a,{rotation:-100,svgOrigin:"102 104",duration:.35,ease:"back.out(1.6)"},t);
+ tl.to("#"+a,{rotation:0,svgOrigin:"102 104",duration:.4,ease:"power2.inOut"},t+.35+(hold||1));}
+function pop(tl,sel,t,o){o=o||{};tl.fromTo(sel,{opacity:0,scale:o.s||.6,y:o.y||0,x:o.x||0},{opacity:1,scale:1,y:0,x:0,duration:o.d||.45,ease:"back.out(1.7)",transformOrigin:o.origin||"50% 50%"},t);}
+function draw(tl,sel,t,d){tl.fromTo(sel,{strokeDashoffset:1},{strokeDashoffset:0,duration:d||.6,ease:"power2.out"},t);}
+function captions(tl,boxId){var box=document.getElementById(boxId);CAPS.forEach(function(c,i){var e=document.createElement("div");e.className="c";e.textContent=c.t;box.appendChild(e);
+ var s=c.s+LEAD,en=c.e+LEAD+0.05;tl.fromTo(e,{opacity:0,y:14},{opacity:1,y:0,duration:.2,ease:"power2.out"},s);
+ tl.to(e,{opacity:0,duration:.15},Math.max(s+.25,en-.12));});}
+function icon(n,c,s){c=c||"#ffd166";s=s||100;var b='<svg viewBox="0 0 100 100" width="'+s+'" height="'+s+'" style="overflow:visible">',e='</svg>';
+ var m={
+ box:'<path class="ol" d="M12 34 L50 16 L88 34 L88 72 L50 90 L12 72 Z" fill="'+c+'"/><path class="ln" d="M12 34 L50 52 L88 34 M50 52 V90"/>',
+ zip:'<rect class="ol" x="20" y="10" width="60" height="80" rx="10" fill="'+c+'"/><path class="ln" stroke-dasharray="5 9" d="M50 12 V58"/><rect class="ol" x="38" y="58" width="24" height="20" rx="5" fill="#fff"/>',
+ doc:'<path class="ol" d="M22 8 H62 L80 26 V92 H22 Z" fill="'+c+'"/><path class="ln" d="M62 8 V26 H80 M34 46 H68 M34 60 H68 M34 74 H56"/>',
+ gear:'<g class="ln">'+[0,45,90,135,180,225,270,315].map(function(a){return '<path d="M50 8 V22" transform="rotate('+a+' 50 50)"/>';}).join("")+'</g><circle class="ol" cx="50" cy="50" r="30" fill="'+c+'"/><circle class="ol" cx="50" cy="50" r="11" fill="#fff"/>',
+ cursor:'<path class="ol" d="M28 12 L28 80 L45 64 L58 90 L70 84 L57 60 L80 58 Z" fill="'+c+'"/>',
+ shield:'<path class="ol" d="M50 8 L86 22 V50 C86 72 70 86 50 94 C30 86 14 72 14 50 V22 Z" fill="'+c+'"/><path class="ln" d="M32 52 L45 65 L70 38"/>',
+ camera:'<rect class="ol" x="10" y="28" width="80" height="56" rx="12" fill="'+c+'"/><path class="ol" d="M32 28 L38 16 H62 L68 28" fill="'+c+'"/><circle class="ol" cx="50" cy="56" r="17" fill="#fff"/><circle cx="50" cy="56" r="7" fill="#2d2a32"/>',
+ lock:'<path class="ln" d="M30 44 V32 C30 14 70 14 70 32 V44"/><rect class="ol" x="20" y="42" width="60" height="46" rx="10" fill="'+c+'"/><circle cx="50" cy="62" r="6" fill="#2d2a32"/><path class="ln" d="M50 66 V76"/>',
+ check:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:9" d="M28 52 L44 68 L74 34"/>',
+ cross:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:9" d="M33 33 L67 67 M67 33 L33 67"/>',
+ ask:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:8" d="M36 38 C36 22 66 22 64 40 C62 52 50 52 50 64"/><circle cx="50" cy="78" r="5" fill="#2d2a32"/>',
+ search:'<circle class="ol" cx="42" cy="42" r="26" fill="'+c+'"/><path class="ln" style="stroke-width:10" d="M62 62 L88 88"/>',
+ folder:'<path class="ol" d="M8 24 H38 L46 34 H92 V82 H8 Z" fill="'+c+'"/>',
+ puzzle:'<path class="ol" d="M14 30 H40 C34 14 62 14 56 30 H82 V50 C98 44 98 72 82 66 V88 H14 Z" fill="'+c+'"/>',
+ star:'<path class="ol" d="M50 8 L61 38 L92 40 L68 60 L76 91 L50 74 L24 91 L32 60 L8 40 L39 38 Z" fill="'+c+'"/>',
+ table:'<rect class="ol" x="10" y="18" width="80" height="64" rx="8" fill="#fff"/><path class="ln" style="stroke-width:5" d="M10 38 H90 M10 58 H90 M38 18 V82 M64 18 V82"/><rect x="12" y="20" width="76" height="16" rx="5" fill="'+c+'" opacity=".9"/>'
+ };return b+m[n]+e;}
+function sparkle(x,y,s,c){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" viewBox="0 0 40 40" width="'+s+'" height="'+s+'"><path class="ol" style="stroke-width:3" d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="'+(c||"#ffd166")+'"/></svg>';}
+function cur(tl,sel,x,y,t,d){tl.to(sel,{x:x,y:y,duration:d||.7,ease:"power2.inOut"},t);}
+function click(tl,sel,t){tl.to(sel,{scale:.86,duration:.1,yoyo:true,repeat:1,transformOrigin:"50% 50%",ease:"power1.inOut"},t);}
+function typeText(tl,id,text,t,dur){var el=document.getElementById(id);el.innerHTML=text.split("").map(function(c){return '<span style="opacity:0">'+(c===" "?"&nbsp;":c)+'</span>';}).join("");
+ tl.to(el.children,{opacity:1,duration:.01,stagger:dur/Math.max(1,text.length)},t);}
+function toggle(tl,id,t){tl.to("#"+id,{backgroundColor:"#06d6a0",duration:.2},t);tl.to("#"+id+" i",{x:34,duration:.25,ease:"back.out(2)"},t);}
+function arrow(x,y,w,h,id){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="overflow:visible"><path id="'+id+'" class="ln" pathLength="1" stroke-dasharray="1" d="M6 '+(h/2)+' C'+(w*.3)+' '+(h*.1)+' '+(w*.6)+' '+(h*.9)+' '+(w-26)+' '+(h/2)+'"/><path id="'+id+'h" class="ln" d="M'+(w-40)+' '+(h/2-16)+' L'+(w-8)+' '+(h/2)+' L'+(w-40)+' '+(h/2+16)+'" opacity="0"/></svg>';}
+
+var W=[{"t": "Hi", "s": 0.1, "e": 0.45}, {"t": "I'm", "s": 0.49, "e": 0.69}, {"t": "Audie", "s": 0.79, "e": 1.13}, {"t": "Today", "s": 1.48, "e": 1.92}, {"t": "I'll", "s": 1.94, "e": 2.09}, {"t": "walk", "s": 2.1, "e": 2.32}, {"t": "you", "s": 2.33, "e": 2.44}, {"t": "through", "s": 2.45, "e": 2.61}, {"t": "the", "s": 2.62, "e": 2.72}, {"t": "NetCare", "s": 2.73, "e": 3.21}, {"t": "RFC", "s": 3.22, "e": 3.72}, {"t": "Plans", "s": 3.73, "e": 4.19}, {"t": "and", "s": 4.2, "e": 4.46}, {"t": "AI", "s": 4.56, "e": 4.89}, {"t": "Audit", "s": 4.9, "e": 5.15}, {"t": "tool", "s": 5.16, "e": 5.49}, {"t": "First", "s": 5.84, "e": 6.38}, {"t": "the", "s": 6.52, "e": 6.63}, {"t": "problem", "s": 6.64, "e": 7.04}, {"t": "it", "s": 7.05, "e": 7.15}, {"t": "solves", "s": 7.16, "e": 7.7}, {"t": "Then", "s": 8.05, "e": 8.34}, {"t": "four", "s": 8.35, "e": 8.57}, {"t": "steps", "s": 8.58, "e": 9.07}, {"t": "get", "s": 9.37, "e": 9.53}, {"t": "the", "s": 9.54, "e": 9.6}, {"t": "installer", "s": 9.61, "e": 10.27}, {"t": "add", "s": 10.56, "e": 10.71}, {"t": "it", "s": 10.72, "e": 10.78}, {"t": "to", "s": 10.79, "e": 10.88}, {"t": "your", "s": 10.89, "e": 10.98}, {"t": "browser", "s": 11.0, "e": 11.51}, {"t": "start", "s": 11.89, "e": 12.15}, {"t": "using", "s": 12.16, "e": 12.48}, {"t": "it", "s": 12.49, "e": 12.68}, {"t": "and", "s": 12.78, "e": 13.04}, {"t": "tweak", "s": 13.1, "e": 13.39}, {"t": "the", "s": 13.4, "e": 13.5}, {"t": "settings", "s": 13.51, "e": 14.01}, {"t": "with", "s": 14.12, "e": 14.31}, {"t": "every", "s": 14.38, "e": 14.69}, {"t": "click", "s": 14.7, "e": 14.94}, {"t": "shown", "s": 14.95, "e": 15.38}];var CAPS=[{"t": "Hi, I'm Audie! Today I'll walk you through the", "s": 0.1, "e": 2.72}, {"t": "NetCare RFC Plans and AI Audit tool. First", "s": 2.73, "e": 6.38}, {"t": "the problem it solves. Then four steps", "s": 6.52, "e": 9.07}, {"t": "get the installer, add it to your browser", "s": 9.37, "e": 11.51}, {"t": "start using it, and tweak the settings", "s": 11.89, "e": 14.01}, {"t": "with every click shown", "s": 14.12, "e": 15.38}];var LEAD=0.4;
+(function(){
+ put("s1-i1",icon("zip","#ffd166",100));put("s1-i2",icon("puzzle","#8ecae6",100));put("s1-i3",icon("cursor","#7bdcb5",100));put("s1-i4",icon("gear","#ff8fab",100));
+ put("s1-fig",figure("f1",{body:"#8ecae6",hat:"#ff8fab",w:380,h:520}));
+ document.getElementById("s1-sp").innerHTML=sparkle(1130,170,56)+sparkle(1700,200,44,"#ff8fab")+sparkle(1650,760,50,"#8ecae6")+sparkle(980,520,38,"#7bdcb5");
+ var tl=gsap.timeline({paused:true});
+ tl.fromTo("#s1-t1",{opacity:0,y:60,rotation:-3},{opacity:1,y:0,rotation:0,duration:.7,ease:"back.out(1.6)"},.3);
+ draw(tl,"#s1-ul",.9,.7);
+ tl.fromTo("#s1-t2",{opacity:0,x:-60},{opacity:1,x:0,duration:.6,ease:"power3.out"},1.1);
+ tl.fromTo("#s1-t3",{opacity:0},{opacity:1,duration:.6},1.6);
+ tl.fromTo("#s1-fig",{opacity:0,y:200},{opacity:1,y:0,duration:.7,ease:"back.out(1.5)"},.2);
+ pop(tl,"#s1-bub",.9,{s:.4});
+ wave(tl,"f1",.9,4);
+ bounce(tl,"s1-fig",3.2,4,16);
+ ["#s1-c1","#s1-c2","#s1-c3","#s1-c4"].forEach(function(s,i){pop(tl,s,[T("get the installer"),T("add it to your browser"),T("start using it"),T("tweak the settings")][i]-.1,{s:.3,y:30});});
+ tl.to("#s1-bub",{opacity:0,duration:.3},2.6);
+ tl.fromTo("#s1-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.25,ease:"back.out(2)",transformOrigin:"50% 50%"},1.4);
+ tl.to("#s1-sp svg",{rotation:20,duration:1.1,repeat:5,yoyo:true,ease:"sine.inOut",transformOrigin:"50% 50%"},2);
+ captions(tl,"s1-cap");
+ window.__timelines["s1"]=tl;
+})();
+</script>
+</template></body></html>

@@ -1,0 +1,3113 @@
+[
+ {
+  "id": "s1",
+  "text": "Hi, I'm Audie! Today I'll walk you through the NetCare RFC Plans and AI Audit tool. First, the problem it solves. Then four steps: get the installer, add it to your browser, start using it, and tweak the settings, with every click shown.",
+  "words": [
+   {
+    "text": "Hi",
+    "start": 0.1,
+    "end": 0.451958
+   },
+   {
+    "text": "I'm",
+    "start": 0.488333,
+    "end": 0.694624
+   },
+   {
+    "text": "Audie",
+    "start": 0.79175,
+    "end": 1.131541
+   },
+   {
+    "text": "Today",
+    "start": 1.482041,
+    "end": 1.918916
+   },
+   {
+    "text": "I'll",
+    "start": 1.943208,
+    "end": 2.088833
+   },
+   {
+    "text": "walk",
+    "start": 2.100958,
+    "end": 2.319416
+   },
+   {
+    "text": "you",
+    "start": 2.331541,
+    "end": 2.440749
+   },
+   {
+    "text": "through",
+    "start": 2.452916,
+    "end": 2.610666
+   },
+   {
+    "text": "the",
+    "start": 2.622833,
+    "end": 2.719916
+   },
+   {
+    "text": "NetCare",
+    "start": 2.732041,
+    "end": 3.205332
+   },
+   {
+    "text": "RFC",
+    "start": 3.217458,
+    "end": 3.715041
+   },
+   {
+    "text": "Plans",
+    "start": 3.727166,
+    "end": 4.188332
+   },
+   {
+    "text": "and",
+    "start": 4.2005,
+    "end": 4.455375
+   },
+   {
+    "text": "AI",
+    "start": 4.564583,
+    "end": 4.892249
+   },
+   {
+    "text": "Audit",
+    "start": 4.904375,
+    "end": 5.147083
+   },
+   {
+    "text": "tool",
+    "start": 5.159208,
+    "end": 5.486874
+   },
+   {
+    "text": "First",
+    "start": 5.838833,
+    "end": 6.384958
+   },
+   {
+    "text": "the",
+    "start": 6.518458,
+    "end": 6.627666
+   },
+   {
+    "text": "problem",
+    "start": 6.639791,
+    "end": 7.040291
+   },
+   {
+    "text": "it",
+    "start": 7.052416,
+    "end": 7.149499
+   },
+   {
+    "text": "solves",
+    "start": 7.161666,
+    "end": 7.695666
+   },
+   {
+    "text": "Then",
+    "start": 8.047583,
+    "end": 8.338833
+   },
+   {
+    "text": "four",
+    "start": 8.350958,
+    "end": 8.569416
+   },
+   {
+    "text": "steps",
+    "start": 8.581541,
+    "end": 9.066957
+   },
+   {
+    "text": "get",
+    "start": 9.370375,
+    "end": 9.528125
+   },
+   {
+    "text": "the",
+    "start": 9.540291,
+    "end": 9.600957
+   },
+   {
+    "text": "installer",
+    "start": 9.613125,
+    "end": 10.268458
+   },
+   {
+    "text": "add",
+    "start": 10.559708,
+    "end": 10.705333
+   },
+   {
+    "text": "it",
+    "start": 10.717458,
+    "end": 10.778124
+   },
+   {
+    "text": "to",
+    "start": 10.790291,
+    "end": 10.875249
+   },
+   {
+    "text": "your",
+    "start": 10.887375,
+    "end": 10.984458
+   },
+   {
+    "text": "browser",
+    "start": 10.996583,
+    "end": 11.506291
+   },
+   {
+    "text": "start",
+    "start": 11.894666,
+    "end": 12.149541
+   },
+   {
+    "text": "using",
+    "start": 12.161666,
+    "end": 12.477207
+   },
+   {
+    "text": "it",
+    "start": 12.489333,
+    "end": 12.683499
+   },
+   {
+    "text": "and",
+    "start": 12.780583,
+    "end": 13.035458
+   },
+   {
+    "text": "tweak",
+    "start": 13.096125,
+    "end": 13.387375
+   },
+   {
+    "text": "the",
+    "start": 13.3995,
+    "end": 13.496583
+   },
+   {
+    "text": "settings",
+    "start": 13.50875,
+    "end": 14.006333
+   },
+   {
+    "text": "with",
+    "start": 14.115541,
+    "end": 14.309707
+   },
+   {
+    "text": "every",
+    "start": 14.382541,
+    "end": 14.685957
+   },
+   {
+    "text": "click",
+    "start": 14.698041,
+    "end": 14.940749
+   },
+   {
+    "text": "shown",
+    "start": 14.952916,
+    "end": 15.377666
+   }
+  ]
+ },
+ {
+  "id": "bg",
+  "text": "First, the background. An RFC is a network change request, and every request comes with a change plan document. Auditors have to open the requests one by one, download each plan, and check it line by line against a checklist. With lots of requests, it is slow and things get missed. This little tool lives in your browser. It downloads plans in bulk, lets AI do a first pass, and you only read the verdicts.",
+  "words": [
+   {
+    "text": "First",
+    "start": 0.1,
+    "end": 0.634
+   },
+   {
+    "text": "the",
+    "start": 0.755333,
+    "end": 0.840291
+   },
+   {
+    "text": "background",
+    "start": 0.852416,
+    "end": 1.495624
+   },
+   {
+    "text": "An",
+    "start": 1.846125,
+    "end": 2.101
+   },
+   {
+    "text": "RFC",
+    "start": 2.113125,
+    "end": 2.719916
+   },
+   {
+    "text": "is",
+    "start": 2.732041,
+    "end": 2.877666
+   },
+   {
+    "text": "a",
+    "start": 2.889791,
+    "end": 2.9383319
+   },
+   {
+    "text": "network",
+    "start": 2.9505,
+    "end": 3.351
+   },
+   {
+    "text": "change",
+    "start": 3.363125,
+    "end": 3.678666
+   },
+   {
+    "text": "request",
+    "start": 3.690791,
+    "end": 4.236916
+   },
+   {
+    "text": "and",
+    "start": 4.479625,
+    "end": 4.649541
+   },
+   {
+    "text": "every",
+    "start": 4.807291,
+    "end": 5.049999
+   },
+   {
+    "text": "request",
+    "start": 5.062125,
+    "end": 5.60825
+   },
+   {
+    "text": "comes",
+    "start": 5.620375,
+    "end": 5.935916
+   },
+   {
+    "text": "with",
+    "start": 5.948041,
+    "end": 6.081541
+   },
+   {
+    "text": "a",
+    "start": 6.093708,
+    "end": 6.154374
+   },
+   {
+    "text": "change",
+    "start": 6.1665,
+    "end": 6.603375
+   },
+   {
+    "text": "plan",
+    "start": 6.615541,
+    "end": 6.882541
+   },
+   {
+    "text": "document",
+    "start": 6.894666,
+    "end": 7.452916
+   },
+   {
+    "text": "Auditors",
+    "start": 7.804875,
+    "end": 8.290291
+   },
+   {
+    "text": "have",
+    "start": 8.302416,
+    "end": 8.472332
+   },
+   {
+    "text": "to",
+    "start": 8.484458,
+    "end": 8.593666
+   },
+   {
+    "text": "open",
+    "start": 8.605833,
+    "end": 8.824291
+   },
+   {
+    "text": "the",
+    "start": 8.836416,
+    "end": 8.909249
+   },
+   {
+    "text": "requests",
+    "start": 8.921375,
+    "end": 9.394666
+   },
+   {
+    "text": "one",
+    "start": 9.406791,
+    "end": 9.625249
+   },
+   {
+    "text": "by",
+    "start": 9.637375,
+    "end": 9.795125
+   },
+   {
+    "text": "one",
+    "start": 9.807291,
+    "end": 10.183499
+   },
+   {
+    "text": "download",
+    "start": 10.523291,
+    "end": 10.948041
+   },
+   {
+    "text": "each",
+    "start": 10.972333,
+    "end": 11.190791
+   },
+   {
+    "text": "plan",
+    "start": 11.202916,
+    "end": 11.664082
+   },
+   {
+    "text": "and",
+    "start": 11.967458,
+    "end": 12.173749
+   },
+   {
+    "text": "check",
+    "start": 12.198041,
+    "end": 12.392207
+   },
+   {
+    "text": "it",
+    "start": 12.404375,
+    "end": 12.513583
+   },
+   {
+    "text": "line",
+    "start": 12.525708,
+    "end": 12.804833
+   },
+   {
+    "text": "by",
+    "start": 12.817,
+    "end": 12.962625
+   },
+   {
+    "text": "line",
+    "start": 12.97475,
+    "end": 13.363083
+   },
+   {
+    "text": "against",
+    "start": 13.37525,
+    "end": 13.751458
+   },
+   {
+    "text": "a",
+    "start": 13.763583,
+    "end": 13.7999989
+   },
+   {
+    "text": "checklist",
+    "start": 13.812125,
+    "end": 14.479583
+   },
+   {
+    "text": "With",
+    "start": 14.831541,
+    "end": 15.062124
+   },
+   {
+    "text": "lots",
+    "start": 15.074291,
+    "end": 15.414082
+   },
+   {
+    "text": "of",
+    "start": 15.426208,
+    "end": 15.511166
+   },
+   {
+    "text": "requests",
+    "start": 15.523291,
+    "end": 16.105832
+   },
+   {
+    "text": "it",
+    "start": 16.239333,
+    "end": 16.324291
+   },
+   {
+    "text": "is",
+    "start": 16.336416,
+    "end": 16.457791
+   },
+   {
+    "text": "slow",
+    "start": 16.469916,
+    "end": 17.125249
+   },
+   {
+    "text": "and",
+    "start": 17.137375,
+    "end": 17.39225
+   },
+   {
+    "text": "things",
+    "start": 17.404375,
+    "end": 17.719916
+   },
+   {
+    "text": "get",
+    "start": 17.732041,
+    "end": 17.877666
+   },
+   {
+    "text": "missed",
+    "start": 17.889791,
+    "end": 18.375207
+   },
+   {
+    "text": "This",
+    "start": 18.727166,
+    "end": 18.957749
+   },
+   {
+    "text": "little",
+    "start": 18.969916,
+    "end": 19.236916
+   },
+   {
+    "text": "tool",
+    "start": 19.249041,
+    "end": 19.528166
+   },
+   {
+    "text": "lives",
+    "start": 19.540291,
+    "end": 19.758749
+   },
+   {
+    "text": "in",
+    "start": 19.770875,
+    "end": 19.831541
+   },
+   {
+    "text": "your",
+    "start": 19.843708,
+    "end": 19.940791
+   },
+   {
+    "text": "browser",
+    "start": 19.952916,
+    "end": 20.426207
+   },
+   {
+    "text": "It",
+    "start": 20.778166,
+    "end": 20.972332
+   },
+   {
+    "text": "downloads",
+    "start": 20.984458,
+    "end": 21.530583
+   },
+   {
+    "text": "plans",
+    "start": 21.542708,
+    "end": 21.870374
+   },
+   {
+    "text": "in",
+    "start": 21.882541,
+    "end": 22.003916
+   },
+   {
+    "text": "bulk",
+    "start": 22.016,
+    "end": 22.355791
+   },
+   {
+    "text": "lets",
+    "start": 22.622833,
+    "end": 22.816999
+   },
+   {
+    "text": "AI",
+    "start": 22.84125,
+    "end": 23.1325
+   },
+   {
+    "text": "do",
+    "start": 23.144666,
+    "end": 23.326707
+   },
+   {
+    "text": "a",
+    "start": 23.338833,
+    "end": 23.423791
+   },
+   {
+    "text": "first",
+    "start": 23.435916,
+    "end": 23.812124
+   },
+   {
+    "text": "pass",
+    "start": 23.824291,
+    "end": 24.200499
+   },
+   {
+    "text": "and",
+    "start": 24.236875,
+    "end": 24.370375
+   },
+   {
+    "text": "you",
+    "start": 24.382541,
+    "end": 24.491749
+   },
+   {
+    "text": "only",
+    "start": 24.552416,
+    "end": 24.916499
+   },
+   {
+    "text": "read",
+    "start": 24.928625,
+    "end": 25.159208
+   },
+   {
+    "text": "the",
+    "start": 25.171375,
+    "end": 25.244208
+   },
+   {
+    "text": "verdicts",
+    "start": 25.256291,
+    "end": 25.863082
+   }
+  ]
+ },
+ {
+  "id": "s2",
+  "text": "Step one: get the installer. Open the Dragon Platform home page, type Extension Packager in the search box, and open F12 Extension Packager. On the left choose Built-in Scripts, click NetCare RFC Plans and AI Audit, then click Generate. You will download a zip file, and that zip is the installer for this tool.",
+  "words": [
+   {
+    "text": "Step",
+    "start": 0.1,
+    "end": 0.5005
+   },
+   {
+    "text": "one",
+    "start": 0.512625,
+    "end": 0.816041
+   },
+   {
+    "text": "get",
+    "start": 1.143708,
+    "end": 1.313624
+   },
+   {
+    "text": "the",
+    "start": 1.325708,
+    "end": 1.386374
+   },
+   {
+    "text": "installer",
+    "start": 1.398541,
+    "end": 2.053874
+   },
+   {
+    "text": "Open",
+    "start": 2.404375,
+    "end": 2.732041
+   },
+   {
+    "text": "the",
+    "start": 2.744166,
+    "end": 2.841249
+   },
+   {
+    "text": "Dragon",
+    "start": 2.853416,
+    "end": 3.290291
+   },
+   {
+    "text": "Platform",
+    "start": 3.302416,
+    "end": 3.799999
+   },
+   {
+    "text": "home",
+    "start": 3.812125,
+    "end": 4.018416
+   },
+   {
+    "text": "page",
+    "start": 4.030583,
+    "end": 4.443208
+   },
+   {
+    "text": "type",
+    "start": 4.710208,
+    "end": 4.965083
+   },
+   {
+    "text": "Extension",
+    "start": 4.977166,
+    "end": 5.474749
+   },
+   {
+    "text": "Packager",
+    "start": 5.486875,
+    "end": 5.948041
+   },
+   {
+    "text": "in",
+    "start": 5.960208,
+    "end": 6.081583
+   },
+   {
+    "text": "the",
+    "start": 6.093708,
+    "end": 6.166541
+   },
+   {
+    "text": "search",
+    "start": 6.178625,
+    "end": 6.469875
+   },
+   {
+    "text": "box",
+    "start": 6.482041,
+    "end": 6.858249
+   },
+   {
+    "text": "and",
+    "start": 7.100958,
+    "end": 7.355833
+   },
+   {
+    "text": "open",
+    "start": 7.440791,
+    "end": 7.732041
+   },
+   {
+    "text": "F12",
+    "start": 7.780583,
+    "end": 8.290291
+   },
+   {
+    "text": "Extension",
+    "start": 8.302416,
+    "end": 8.812124
+   },
+   {
+    "text": "Packager",
+    "start": 8.824291,
+    "end": 9.346124
+   },
+   {
+    "text": "On",
+    "start": 9.698041,
+    "end": 9.904332
+   },
+   {
+    "text": "the",
+    "start": 9.9165,
+    "end": 9.989333
+   },
+   {
+    "text": "left",
+    "start": 10.001458,
+    "end": 10.256333
+   },
+   {
+    "text": "choose",
+    "start": 10.268458,
+    "end": 10.523333
+   },
+   {
+    "text": "Built-in",
+    "start": 10.535416,
+    "end": 10.850957
+   },
+   {
+    "text": "Scripts",
+    "start": 10.863125,
+    "end": 11.324291
+   },
+   {
+    "text": "click",
+    "start": 11.421375,
+    "end": 11.7005
+   },
+   {
+    "text": "NetCare",
+    "start": 11.712625,
+    "end": 12.283
+   },
+   {
+    "text": "RFC",
+    "start": 12.295166,
+    "end": 12.756332
+   },
+   {
+    "text": "Plans",
+    "start": 12.768458,
+    "end": 13.241749
+   },
+   {
+    "text": "and",
+    "start": 13.253875,
+    "end": 13.460166
+   },
+   {
+    "text": "AI",
+    "start": 13.520875,
+    "end": 13.812125
+   },
+   {
+    "text": "Audit",
+    "start": 13.824291,
+    "end": 14.212624
+   },
+   {
+    "text": "then",
+    "start": 14.564583,
+    "end": 14.770874
+   },
+   {
+    "text": "click",
+    "start": 14.783,
+    "end": 15.05
+   },
+   {
+    "text": "Generate",
+    "start": 15.062125,
+    "end": 15.596125
+   },
+   {
+    "text": "You",
+    "start": 15.948041,
+    "end": 16.117957
+   },
+   {
+    "text": "will",
+    "start": 16.130083,
+    "end": 16.239291
+   },
+   {
+    "text": "download",
+    "start": 16.251458,
+    "end": 16.700499
+   },
+   {
+    "text": "a",
+    "start": 16.712625,
+    "end": 16.773291
+   },
+   {
+    "text": "zip",
+    "start": 16.785416,
+    "end": 17.003874
+   },
+   {
+    "text": "file",
+    "start": 17.016,
+    "end": 17.477166
+   },
+   {
+    "text": "and",
+    "start": 17.562125,
+    "end": 17.695625
+   },
+   {
+    "text": "that",
+    "start": 17.719916,
+    "end": 17.926207
+   },
+   {
+    "text": "zip",
+    "start": 17.938333,
+    "end": 18.181041
+   },
+   {
+    "text": "is",
+    "start": 18.217458,
+    "end": 18.314541
+   },
+   {
+    "text": "the",
+    "start": 18.326708,
+    "end": 18.399541
+   },
+   {
+    "text": "installer",
+    "start": 18.411666,
+    "end": 18.982041
+   },
+   {
+    "text": "for",
+    "start": 18.994166,
+    "end": 19.103374
+   },
+   {
+    "text": "this",
+    "start": 19.115541,
+    "end": 19.309707
+   },
+   {
+    "text": "tool",
+    "start": 19.321833,
+    "end": 19.734458
+   }
+  ]
+ },
+ {
+  "id": "s3",
+  "text": "Step two: add it to your browser. First unzip the file to get a folder. Then type chrome://extensions in the address bar. In Edge, type edge://extensions. Press Enter to open the extensions page. Turn on Developer mode at the top right, then click Load unpacked at the top left, choose the folder you just unzipped, and you are done!",
+  "words": [
+   {
+    "text": "Step",
+    "start": 0.1,
+    "end": 0.5005
+   },
+   {
+    "text": "two",
+    "start": 0.512625,
+    "end": 0.828166
+   },
+   {
+    "text": "add",
+    "start": 1.046583,
+    "end": 1.216499
+   },
+   {
+    "text": "it",
+    "start": 1.228625,
+    "end": 1.313583
+   },
+   {
+    "text": "to",
+    "start": 1.325708,
+    "end": 1.410666
+   },
+   {
+    "text": "your",
+    "start": 1.422833,
+    "end": 1.507791
+   },
+   {
+    "text": "browser",
+    "start": 1.519916,
+    "end": 1.993207
+   },
+   {
+    "text": "First",
+    "start": 2.343708,
+    "end": 2.707791
+   },
+   {
+    "text": "unzip",
+    "start": 2.719916,
+    "end": 3.035457
+   },
+   {
+    "text": "the",
+    "start": 3.047583,
+    "end": 3.132541
+   },
+   {
+    "text": "file",
+    "start": 3.144666,
+    "end": 3.569416
+   },
+   {
+    "text": "to",
+    "start": 3.581541,
+    "end": 3.678624
+   },
+   {
+    "text": "get",
+    "start": 3.690791,
+    "end": 3.836416
+   },
+   {
+    "text": "a",
+    "start": 3.848541,
+    "end": 3.909207
+   },
+   {
+    "text": "folder",
+    "start": 3.921375,
+    "end": 4.418958
+   },
+   {
+    "text": "Then",
+    "start": 4.770875,
+    "end": 5.062125
+   },
+   {
+    "text": "type",
+    "start": 5.074291,
+    "end": 5.304874
+   },
+   {
+    "text": "chrome",
+    "start": 5.317,
+    "end": 5.705333
+   },
+   {
+    "text": "/",
+    "start": 6.105833,
+    "end": 6.979624
+   },
+   {
+    "text": "/",
+    "start": 6.99175,
+    "end": 7.768458
+   },
+   {
+    "text": "extensions",
+    "start": 7.780583,
+    "end": 8.423791
+   },
+   {
+    "text": "in",
+    "start": 8.435916,
+    "end": 8.581541
+   },
+   {
+    "text": "the",
+    "start": 8.593708,
+    "end": 8.666541
+   },
+   {
+    "text": "address",
+    "start": 8.678625,
+    "end": 9.103375
+   },
+   {
+    "text": "bar",
+    "start": 9.115541,
+    "end": 9.479624
+   },
+   {
+    "text": "In",
+    "start": 9.831541,
+    "end": 10.049999
+   },
+   {
+    "text": "Edge",
+    "start": 10.062125,
+    "end": 10.450458
+   },
+   {
+    "text": "type",
+    "start": 10.547583,
+    "end": 10.814583
+   },
+   {
+    "text": "edge",
+    "start": 10.826708,
+    "end": 11.178666
+   },
+   {
+    "text": "/",
+    "start": 11.59125,
+    "end": 12.44075
+   },
+   {
+    "text": "/",
+    "start": 12.452916,
+    "end": 13.253874
+   },
+   {
+    "text": "extensions",
+    "start": 13.266,
+    "end": 14.066958
+   },
+   {
+    "text": "Press",
+    "start": 14.418916,
+    "end": 14.734457
+   },
+   {
+    "text": "Enter",
+    "start": 14.795166,
+    "end": 15.062166
+   },
+   {
+    "text": "to",
+    "start": 15.074291,
+    "end": 15.195666
+   },
+   {
+    "text": "open",
+    "start": 15.20775,
+    "end": 15.486875
+   },
+   {
+    "text": "the",
+    "start": 15.499041,
+    "end": 15.5475819
+   },
+   {
+    "text": "extensions",
+    "start": 15.559708,
+    "end": 16.190791
+   },
+   {
+    "text": "page",
+    "start": 16.202916,
+    "end": 16.639791
+   },
+   {
+    "text": "Turn",
+    "start": 16.99175,
+    "end": 17.270875
+   },
+   {
+    "text": "on",
+    "start": 17.283,
+    "end": 17.392208
+   },
+   {
+    "text": "Developer",
+    "start": 17.404375,
+    "end": 17.914083
+   },
+   {
+    "text": "mode",
+    "start": 17.926208,
+    "end": 18.168916
+   },
+   {
+    "text": "at",
+    "start": 18.181083,
+    "end": 18.278166
+   },
+   {
+    "text": "the",
+    "start": 18.290291,
+    "end": 18.375249
+   },
+   {
+    "text": "top",
+    "start": 18.387375,
+    "end": 18.6665
+   },
+   {
+    "text": "right",
+    "start": 18.678625,
+    "end": 18.969875
+   },
+   {
+    "text": "then",
+    "start": 19.309708,
+    "end": 19.540291
+   },
+   {
+    "text": "click",
+    "start": 19.552416,
+    "end": 19.795124
+   },
+   {
+    "text": "Load",
+    "start": 19.807291,
+    "end": 20.134957
+   },
+   {
+    "text": "unpacked",
+    "start": 20.159208,
+    "end": 20.705333
+   },
+   {
+    "text": "at",
+    "start": 20.717458,
+    "end": 20.802416
+   },
+   {
+    "text": "the",
+    "start": 20.814583,
+    "end": 20.899541
+   },
+   {
+    "text": "top",
+    "start": 20.911666,
+    "end": 21.190791
+   },
+   {
+    "text": "left",
+    "start": 21.202916,
+    "end": 21.603416
+   },
+   {
+    "text": "choose",
+    "start": 22.003875,
+    "end": 22.270875
+   },
+   {
+    "text": "the",
+    "start": 22.283,
+    "end": 22.380083
+   },
+   {
+    "text": "folder",
+    "start": 22.39225,
+    "end": 22.804875
+   },
+   {
+    "text": "you",
+    "start": 22.817,
+    "end": 22.9505
+   },
+   {
+    "text": "just",
+    "start": 22.962625,
+    "end": 23.253875
+   },
+   {
+    "text": "unzipped",
+    "start": 23.266,
+    "end": 23.787833
+   },
+   {
+    "text": "and",
+    "start": 24.006291,
+    "end": 24.139791
+   },
+   {
+    "text": "you",
+    "start": 24.176208,
+    "end": 24.273291
+   },
+   {
+    "text": "are",
+    "start": 24.285458,
+    "end": 24.394666
+   },
+   {
+    "text": "done",
+    "start": 24.406791,
+    "end": 24.770874
+   }
+  ]
+ },
+ {
+  "id": "s4",
+  "text": "Step three: start using it. Open the NetCare website, log in, and refresh the page. Then click the puzzle icon at the top right of your browser, find this tool in the list, and click Start Script. A small window pops up at the bottom right of the page.",
+  "words": [
+   {
+    "text": "Step",
+    "start": 0.1,
+    "end": 0.512625
+   },
+   {
+    "text": "three",
+    "start": 0.52475,
+    "end": 0.876708
+   },
+   {
+    "text": "start",
+    "start": 1.095125,
+    "end": 1.362125
+   },
+   {
+    "text": "using",
+    "start": 1.374291,
+    "end": 1.641291
+   },
+   {
+    "text": "it",
+    "start": 1.653416,
+    "end": 1.835457
+   },
+   {
+    "text": "Open",
+    "start": 2.185916,
+    "end": 2.489332
+   },
+   {
+    "text": "the",
+    "start": 2.501458,
+    "end": 2.562124
+   },
+   {
+    "text": "NetCare",
+    "start": 2.574291,
+    "end": 2.974791
+   },
+   {
+    "text": "website",
+    "start": 2.986875,
+    "end": 3.472291
+   },
+   {
+    "text": "log",
+    "start": 3.8,
+    "end": 4.079125
+   },
+   {
+    "text": "in",
+    "start": 4.09125,
+    "end": 4.333958
+   },
+   {
+    "text": "and",
+    "start": 4.418916,
+    "end": 4.600957
+   },
+   {
+    "text": "refresh",
+    "start": 4.62525,
+    "end": 5.098541
+   },
+   {
+    "text": "the",
+    "start": 5.110666,
+    "end": 5.219874
+   },
+   {
+    "text": "page",
+    "start": 5.232041,
+    "end": 5.656791
+   },
+   {
+    "text": "Then",
+    "start": 6.00875,
+    "end": 6.312166
+   },
+   {
+    "text": "click",
+    "start": 6.324291,
+    "end": 6.554874
+   },
+   {
+    "text": "the",
+    "start": 6.567,
+    "end": 6.664083
+   },
+   {
+    "text": "puzzle",
+    "start": 6.676208,
+    "end": 7.028166
+   },
+   {
+    "text": "icon",
+    "start": 7.040291,
+    "end": 7.537874
+   },
+   {
+    "text": "at",
+    "start": 7.55,
+    "end": 7.659208
+   },
+   {
+    "text": "the",
+    "start": 7.671375,
+    "end": 7.768458
+   },
+   {
+    "text": "top",
+    "start": 7.780583,
+    "end": 8.120374
+   },
+   {
+    "text": "right",
+    "start": 8.144666,
+    "end": 8.326707
+   },
+   {
+    "text": "of",
+    "start": 8.338833,
+    "end": 8.399499
+   },
+   {
+    "text": "your",
+    "start": 8.411666,
+    "end": 8.520874
+   },
+   {
+    "text": "browser",
+    "start": 8.533,
+    "end": 8.994166
+   },
+   {
+    "text": "find",
+    "start": 9.394666,
+    "end": 9.661666
+   },
+   {
+    "text": "this",
+    "start": 9.673791,
+    "end": 9.843707
+   },
+   {
+    "text": "tool",
+    "start": 9.855833,
+    "end": 10.098541
+   },
+   {
+    "text": "in",
+    "start": 10.110666,
+    "end": 10.195624
+   },
+   {
+    "text": "the",
+    "start": 10.20775,
+    "end": 10.292708
+   },
+   {
+    "text": "list",
+    "start": 10.304875,
+    "end": 10.656833
+   },
+   {
+    "text": "and",
+    "start": 10.753875,
+    "end": 10.984458
+   },
+   {
+    "text": "click",
+    "start": 11.00875,
+    "end": 11.239333
+   },
+   {
+    "text": "Start",
+    "start": 11.251458,
+    "end": 11.554874
+   },
+   {
+    "text": "Script",
+    "start": 11.567,
+    "end": 12.040291
+   },
+   {
+    "text": "A",
+    "start": 12.39225,
+    "end": 12.562166
+   },
+   {
+    "text": "small",
+    "start": 12.574291,
+    "end": 12.950499
+   },
+   {
+    "text": "window",
+    "start": 12.962625,
+    "end": 13.278166
+   },
+   {
+    "text": "pops",
+    "start": 13.290291,
+    "end": 13.666499
+   },
+   {
+    "text": "up",
+    "start": 13.678625,
+    "end": 13.812125
+   },
+   {
+    "text": "at",
+    "start": 13.824291,
+    "end": 13.921374
+   },
+   {
+    "text": "the",
+    "start": 13.9335,
+    "end": 14.030583
+   },
+   {
+    "text": "bottom",
+    "start": 14.042708,
+    "end": 14.418916
+   },
+   {
+    "text": "right",
+    "start": 14.431083,
+    "end": 14.588833
+   },
+   {
+    "text": "of",
+    "start": 14.600958,
+    "end": 14.661624
+   },
+   {
+    "text": "the",
+    "start": 14.673791,
+    "end": 14.746624
+   },
+   {
+    "text": "page",
+    "start": 14.75875,
+    "end": 15.171375
+   }
+  ]
+ },
+ {
+  "id": "s4b",
+  "text": "In the small window, paste one or more RFC numbers, the numbers of the change requests you want to check, up to fifty at a time. Click Find and Download, and you will see how far each request has got, one line at a time.",
+  "words": [
+   {
+    "text": "In",
+    "start": 0.1,
+    "end": 0.282041
+   },
+   {
+    "text": "the",
+    "start": 0.294166,
+    "end": 0.379124
+   },
+   {
+    "text": "small",
+    "start": 0.39125,
+    "end": 0.767458
+   },
+   {
+    "text": "window",
+    "start": 0.779625,
+    "end": 1.19225
+   },
+   {
+    "text": "paste",
+    "start": 1.50775,
+    "end": 1.847541
+   },
+   {
+    "text": "one",
+    "start": 1.859708,
+    "end": 2.199499
+   },
+   {
+    "text": "or",
+    "start": 2.211666,
+    "end": 2.357291
+   },
+   {
+    "text": "more",
+    "start": 2.369416,
+    "end": 2.563582
+   },
+   {
+    "text": "RFC",
+    "start": 2.575708,
+    "end": 3.024749
+   },
+   {
+    "text": "numbers",
+    "start": 3.036875,
+    "end": 3.522291
+   },
+   {
+    "text": "the",
+    "start": 3.837875,
+    "end": 3.934958
+   },
+   {
+    "text": "numbers",
+    "start": 3.947083,
+    "end": 4.335416
+   },
+   {
+    "text": "of",
+    "start": 4.347583,
+    "end": 4.420416
+   },
+   {
+    "text": "the",
+    "start": 4.432541,
+    "end": 4.517499
+   },
+   {
+    "text": "change",
+    "start": 4.529625,
+    "end": 4.905833
+   },
+   {
+    "text": "requests",
+    "start": 4.917958,
+    "end": 5.391249
+   },
+   {
+    "text": "you",
+    "start": 5.403416,
+    "end": 5.488374
+   },
+   {
+    "text": "want",
+    "start": 5.5005,
+    "end": 5.621875
+   },
+   {
+    "text": "to",
+    "start": 5.634,
+    "end": 5.6825409
+   },
+   {
+    "text": "check",
+    "start": 5.694666,
+    "end": 6.046624
+   },
+   {
+    "text": "up",
+    "start": 6.325708,
+    "end": 6.447083
+   },
+   {
+    "text": "to",
+    "start": 6.459208,
+    "end": 6.556291
+   },
+   {
+    "text": "fifty",
+    "start": 6.568458,
+    "end": 6.993208
+   },
+   {
+    "text": "at",
+    "start": 7.005333,
+    "end": 7.114541
+   },
+   {
+    "text": "a",
+    "start": 7.126708,
+    "end": 7.1752489
+   },
+   {
+    "text": "time",
+    "start": 7.187375,
+    "end": 7.648541
+   },
+   {
+    "text": "Click",
+    "start": 7.999041,
+    "end": 8.302457
+   },
+   {
+    "text": "Find",
+    "start": 8.314583,
+    "end": 8.630124
+   },
+   {
+    "text": "and",
+    "start": 8.64225,
+    "end": 8.715083
+   },
+   {
+    "text": "Download",
+    "start": 8.727166,
+    "end": 9.273291
+   },
+   {
+    "text": "and",
+    "start": 9.503875,
+    "end": 9.661625
+   },
+   {
+    "text": "you",
+    "start": 9.685916,
+    "end": 9.746582
+   },
+   {
+    "text": "will",
+    "start": 9.75875,
+    "end": 9.880125
+   },
+   {
+    "text": "see",
+    "start": 9.89225,
+    "end": 10.062166
+   },
+   {
+    "text": "how",
+    "start": 10.074291,
+    "end": 10.244207
+   },
+   {
+    "text": "far",
+    "start": 10.256291,
+    "end": 10.644624
+   },
+   {
+    "text": "each",
+    "start": 10.668916,
+    "end": 10.863082
+   },
+   {
+    "text": "request",
+    "start": 10.87525,
+    "end": 11.287875
+   },
+   {
+    "text": "has",
+    "start": 11.3,
+    "end": 11.469916
+   },
+   {
+    "text": "got",
+    "start": 11.482041,
+    "end": 11.761166
+   },
+   {
+    "text": "one",
+    "start": 12.1495,
+    "end": 12.404375
+   },
+   {
+    "text": "line",
+    "start": 12.4165,
+    "end": 12.634958
+   },
+   {
+    "text": "at",
+    "start": 12.647083,
+    "end": 12.732041
+   },
+   {
+    "text": "a",
+    "start": 12.744166,
+    "end": 12.7927069
+   },
+   {
+    "text": "time",
+    "start": 12.804875,
+    "end": 13.24175
+   }
+  ]
+ },
+ {
+  "id": "s5",
+  "text": "While downloading the Word plan, it can also open the plan online and automatically find its chapters and attachments. Tick the chapters you care about and pack them into a zip in one click. A screenshot of each chapter exactly as it looks on the page is saved too, as evidence for later.",
+  "words": [
+   {
+    "text": "While",
+    "start": 0.1,
+    "end": 0.379125
+   },
+   {
+    "text": "downloading",
+    "start": 0.39125,
+    "end": 0.913083
+   },
+   {
+    "text": "the",
+    "start": 0.92525,
+    "end": 1.010208
+   },
+   {
+    "text": "Word",
+    "start": 1.022333,
+    "end": 1.240791
+   },
+   {
+    "text": "plan",
+    "start": 1.252916,
+    "end": 1.689791
+   },
+   {
+    "text": "it",
+    "start": 1.859708,
+    "end": 1.956791
+   },
+   {
+    "text": "can",
+    "start": 1.968916,
+    "end": 2.090291
+   },
+   {
+    "text": "also",
+    "start": 2.102416,
+    "end": 2.442207
+   },
+   {
+    "text": "open",
+    "start": 2.454375,
+    "end": 2.697083
+   },
+   {
+    "text": "the",
+    "start": 2.709208,
+    "end": 2.806291
+   },
+   {
+    "text": "plan",
+    "start": 2.818458,
+    "end": 3.109708
+   },
+   {
+    "text": "online",
+    "start": 3.134,
+    "end": 3.704375
+   },
+   {
+    "text": "and",
+    "start": 3.7165,
+    "end": 3.87425
+   },
+   {
+    "text": "automatically",
+    "start": 3.9835,
+    "end": 4.626708
+   },
+   {
+    "text": "find",
+    "start": 4.638833,
+    "end": 4.978624
+   },
+   {
+    "text": "its",
+    "start": 4.990791,
+    "end": 5.136416
+   },
+   {
+    "text": "chapters",
+    "start": 5.148541,
+    "end": 5.743207
+   },
+   {
+    "text": "and",
+    "start": 5.755333,
+    "end": 5.876708
+   },
+   {
+    "text": "attachments",
+    "start": 5.888833,
+    "end": 6.616999
+   },
+   {
+    "text": "Tick",
+    "start": 6.967458,
+    "end": 7.210166
+   },
+   {
+    "text": "the",
+    "start": 7.222333,
+    "end": 7.307291
+   },
+   {
+    "text": "chapters",
+    "start": 7.319416,
+    "end": 7.816999
+   },
+   {
+    "text": "you",
+    "start": 7.829125,
+    "end": 7.901958
+   },
+   {
+    "text": "care",
+    "start": 7.914083,
+    "end": 8.132541
+   },
+   {
+    "text": "about",
+    "start": 8.144666,
+    "end": 8.435916
+   },
+   {
+    "text": "and",
+    "start": 8.533,
+    "end": 8.678625
+   },
+   {
+    "text": "pack",
+    "start": 8.715041,
+    "end": 9.006291
+   },
+   {
+    "text": "them",
+    "start": 9.018458,
+    "end": 9.188374
+   },
+   {
+    "text": "into",
+    "start": 9.2005,
+    "end": 9.443208
+   },
+   {
+    "text": "a",
+    "start": 9.455333,
+    "end": 9.515999
+   },
+   {
+    "text": "zip",
+    "start": 9.528166,
+    "end": 9.807291
+   },
+   {
+    "text": "in",
+    "start": 9.843708,
+    "end": 9.989333
+   },
+   {
+    "text": "one",
+    "start": 10.001458,
+    "end": 10.183499
+   },
+   {
+    "text": "click",
+    "start": 10.195625,
+    "end": 10.620375
+   },
+   {
+    "text": "A",
+    "start": 10.972333,
+    "end": 11.142249
+   },
+   {
+    "text": "screenshot",
+    "start": 11.154375,
+    "end": 11.7005
+   },
+   {
+    "text": "of",
+    "start": 11.712625,
+    "end": 11.809708
+   },
+   {
+    "text": "each",
+    "start": 11.85825,
+    "end": 12.064541
+   },
+   {
+    "text": "chapter",
+    "start": 12.076708,
+    "end": 12.477208
+   },
+   {
+    "text": "exactly",
+    "start": 12.489333,
+    "end": 13.047583
+   },
+   {
+    "text": "as",
+    "start": 13.059708,
+    "end": 13.253874
+   },
+   {
+    "text": "it",
+    "start": 13.266,
+    "end": 13.363083
+   },
+   {
+    "text": "looks",
+    "start": 13.37525,
+    "end": 13.593708
+   },
+   {
+    "text": "on",
+    "start": 13.605833,
+    "end": 13.690791
+   },
+   {
+    "text": "the",
+    "start": 13.702916,
+    "end": 13.787874
+   },
+   {
+    "text": "page",
+    "start": 13.8,
+    "end": 14.127666
+   },
+   {
+    "text": "is",
+    "start": 14.139791,
+    "end": 14.236874
+   },
+   {
+    "text": "saved",
+    "start": 14.249041,
+    "end": 14.576707
+   },
+   {
+    "text": "too",
+    "start": 14.588833,
+    "end": 14.904374
+   },
+   {
+    "text": "as",
+    "start": 15.20775,
+    "end": 15.401916
+   },
+   {
+    "text": "evidence",
+    "start": 15.462625,
+    "end": 15.850958
+   },
+   {
+    "text": "for",
+    "start": 15.863125,
+    "end": 15.9845
+   },
+   {
+    "text": "later",
+    "start": 15.996583,
+    "end": 16.360666
+   }
+  ]
+ },
+ {
+  "id": "s6",
+  "text": "With AI Audit switched on, AI follows the rules you wrote and checks every chapter line by line. There are only three verdicts: Pass, Fail, or Needs manual review. You can also export everything as an Excel report in one click.",
+  "words": [
+   {
+    "text": "With",
+    "start": 0.1,
+    "end": 0.354875
+   },
+   {
+    "text": "AI",
+    "start": 0.439791,
+    "end": 0.755332
+   },
+   {
+    "text": "Audit",
+    "start": 0.767458,
+    "end": 1.022333
+   },
+   {
+    "text": "switched",
+    "start": 1.034458,
+    "end": 1.422791
+   },
+   {
+    "text": "on",
+    "start": 1.434958,
+    "end": 1.726208
+   },
+   {
+    "text": "AI",
+    "start": 2.138833,
+    "end": 2.393708
+   },
+   {
+    "text": "follows",
+    "start": 2.405833,
+    "end": 2.806333
+   },
+   {
+    "text": "the",
+    "start": 2.818458,
+    "end": 2.915541
+   },
+   {
+    "text": "rules",
+    "start": 2.927666,
+    "end": 3.194666
+   },
+   {
+    "text": "you",
+    "start": 3.206791,
+    "end": 3.340291
+   },
+   {
+    "text": "wrote",
+    "start": 3.352416,
+    "end": 3.619416
+   },
+   {
+    "text": "and",
+    "start": 3.680083,
+    "end": 3.862124
+   },
+   {
+    "text": "checks",
+    "start": 3.874291,
+    "end": 4.214082
+   },
+   {
+    "text": "every",
+    "start": 4.359708,
+    "end": 4.590291
+   },
+   {
+    "text": "chapter",
+    "start": 4.602416,
+    "end": 5.015041
+   },
+   {
+    "text": "line",
+    "start": 5.027166,
+    "end": 5.245624
+   },
+   {
+    "text": "by",
+    "start": 5.25775,
+    "end": 5.379125
+   },
+   {
+    "text": "line",
+    "start": 5.39125,
+    "end": 5.803875
+   },
+   {
+    "text": "There",
+    "start": 6.154375,
+    "end": 6.384958
+   },
+   {
+    "text": "are",
+    "start": 6.397083,
+    "end": 6.530583
+   },
+   {
+    "text": "only",
+    "start": 6.542708,
+    "end": 6.821833
+   },
+   {
+    "text": "three",
+    "start": 6.834,
+    "end": 7.12525
+   },
+   {
+    "text": "verdicts",
+    "start": 7.137375,
+    "end": 7.659208
+   },
+   {
+    "text": "Pass",
+    "start": 7.926208,
+    "end": 8.435916
+   },
+   {
+    "text": "Fail",
+    "start": 8.690791,
+    "end": 9.176207
+   },
+   {
+    "text": "or",
+    "start": 9.249041,
+    "end": 9.431082
+   },
+   {
+    "text": "Needs",
+    "start": 9.443208,
+    "end": 9.722333
+   },
+   {
+    "text": "manual",
+    "start": 9.746583,
+    "end": 10.183458
+   },
+   {
+    "text": "review",
+    "start": 10.195625,
+    "end": 10.644666
+   },
+   {
+    "text": "You",
+    "start": 10.996583,
+    "end": 11.190749
+   },
+   {
+    "text": "can",
+    "start": 11.202916,
+    "end": 11.336416
+   },
+   {
+    "text": "also",
+    "start": 11.348541,
+    "end": 11.603416
+   },
+   {
+    "text": "export",
+    "start": 11.615541,
+    "end": 12.016041
+   },
+   {
+    "text": "everything",
+    "start": 12.137375,
+    "end": 12.695625
+   },
+   {
+    "text": "as",
+    "start": 12.70775,
+    "end": 12.877666
+   },
+   {
+    "text": "an",
+    "start": 12.889791,
+    "end": 12.962624
+   },
+   {
+    "text": "Excel",
+    "start": 12.97475,
+    "end": 13.338833
+   },
+   {
+    "text": "report",
+    "start": 13.350958,
+    "end": 13.739291
+   },
+   {
+    "text": "in",
+    "start": 13.751458,
+    "end": 13.909208
+   },
+   {
+    "text": "one",
+    "start": 13.921375,
+    "end": 14.091291
+   },
+   {
+    "text": "click",
+    "start": 14.103416,
+    "end": 14.503916
+   }
+  ]
+ },
+ {
+  "id": "s7",
+  "text": "Last, the settings. Click the gear icon at the top right of the small window. The General tab lets you choose how many requests download at once and how many seconds to wait between them, and switch on Auto Extract and AI Audit. On the Chapter Rules tab, tick the chapters to check, then write one line of instructions for each, just like briefing a colleague.",
+  "words": [
+   {
+    "text": "Last",
+    "start": 0.1,
+    "end": 0.646125
+   },
+   {
+    "text": "the",
+    "start": 0.718916,
+    "end": 0.815999
+   },
+   {
+    "text": "settings",
+    "start": 0.828166,
+    "end": 1.422832
+   },
+   {
+    "text": "Click",
+    "start": 1.773291,
+    "end": 2.076707
+   },
+   {
+    "text": "the",
+    "start": 2.088833,
+    "end": 2.185916
+   },
+   {
+    "text": "gear",
+    "start": 2.198041,
+    "end": 2.477166
+   },
+   {
+    "text": "icon",
+    "start": 2.489333,
+    "end": 2.938374
+   },
+   {
+    "text": "at",
+    "start": 2.9505,
+    "end": 3.047583
+   },
+   {
+    "text": "the",
+    "start": 3.059708,
+    "end": 3.144666
+   },
+   {
+    "text": "top",
+    "start": 3.156791,
+    "end": 3.448041
+   },
+   {
+    "text": "right",
+    "start": 3.472333,
+    "end": 3.666499
+   },
+   {
+    "text": "of",
+    "start": 3.678625,
+    "end": 3.751458
+   },
+   {
+    "text": "the",
+    "start": 3.763583,
+    "end": 3.848541
+   },
+   {
+    "text": "small",
+    "start": 3.860666,
+    "end": 4.188332
+   },
+   {
+    "text": "window",
+    "start": 4.2005,
+    "end": 4.637375
+   },
+   {
+    "text": "The",
+    "start": 4.989333,
+    "end": 5.171374
+   },
+   {
+    "text": "General",
+    "start": 5.1835,
+    "end": 5.559708
+   },
+   {
+    "text": "tab",
+    "start": 5.571833,
+    "end": 5.923791
+   },
+   {
+    "text": "lets",
+    "start": 5.984458,
+    "end": 6.178624
+   },
+   {
+    "text": "you",
+    "start": 6.190791,
+    "end": 6.275749
+   },
+   {
+    "text": "choose",
+    "start": 6.287875,
+    "end": 6.554875
+   },
+   {
+    "text": "how",
+    "start": 6.567,
+    "end": 6.749041
+   },
+   {
+    "text": "many",
+    "start": 6.761166,
+    "end": 6.991749
+   },
+   {
+    "text": "requests",
+    "start": 7.003875,
+    "end": 7.489291
+   },
+   {
+    "text": "download",
+    "start": 7.501458,
+    "end": 7.926208
+   },
+   {
+    "text": "at",
+    "start": 7.938333,
+    "end": 8.047541
+   },
+   {
+    "text": "once",
+    "start": 8.059708,
+    "end": 8.435916
+   },
+   {
+    "text": "and",
+    "start": 8.617958,
+    "end": 8.812124
+   },
+   {
+    "text": "how",
+    "start": 8.824291,
+    "end": 8.982041
+   },
+   {
+    "text": "many",
+    "start": 8.994166,
+    "end": 9.236874
+   },
+   {
+    "text": "seconds",
+    "start": 9.249041,
+    "end": 9.649541
+   },
+   {
+    "text": "to",
+    "start": 9.661666,
+    "end": 9.758749
+   },
+   {
+    "text": "wait",
+    "start": 9.770875,
+    "end": 9.977166
+   },
+   {
+    "text": "between",
+    "start": 9.989333,
+    "end": 10.316999
+   },
+   {
+    "text": "them",
+    "start": 10.329125,
+    "end": 10.596125
+   },
+   {
+    "text": "and",
+    "start": 10.8995,
+    "end": 11.081541
+   },
+   {
+    "text": "switch",
+    "start": 11.093708,
+    "end": 11.421374
+   },
+   {
+    "text": "on",
+    "start": 11.4335,
+    "end": 11.615541
+   },
+   {
+    "text": "Auto",
+    "start": 11.627666,
+    "end": 11.918916
+   },
+   {
+    "text": "Extract",
+    "start": 11.931083,
+    "end": 12.513624
+   },
+   {
+    "text": "and",
+    "start": 12.574291,
+    "end": 12.744207
+   },
+   {
+    "text": "AI",
+    "start": 12.817,
+    "end": 13.096125
+   },
+   {
+    "text": "Audit",
+    "start": 13.10825,
+    "end": 13.545125
+   },
+   {
+    "text": "On",
+    "start": 13.897083,
+    "end": 14.079124
+   },
+   {
+    "text": "the",
+    "start": 14.09125,
+    "end": 14.164083
+   },
+   {
+    "text": "Chapter",
+    "start": 14.176208,
+    "end": 14.625249
+   },
+   {
+    "text": "Rules",
+    "start": 14.637375,
+    "end": 14.89225
+   },
+   {
+    "text": "tab",
+    "start": 14.904375,
+    "end": 15.256333
+   },
+   {
+    "text": "tick",
+    "start": 15.620375,
+    "end": 15.802416
+   },
+   {
+    "text": "the",
+    "start": 15.814583,
+    "end": 15.899541
+   },
+   {
+    "text": "chapters",
+    "start": 15.911666,
+    "end": 16.445666
+   },
+   {
+    "text": "to",
+    "start": 16.45775,
+    "end": 16.530583
+   },
+   {
+    "text": "check",
+    "start": 16.542708,
+    "end": 16.943208
+   },
+   {
+    "text": "then",
+    "start": 17.295166,
+    "end": 17.513624
+   },
+   {
+    "text": "write",
+    "start": 17.525708,
+    "end": 17.731999
+   },
+   {
+    "text": "one",
+    "start": 17.744166,
+    "end": 17.938332
+   },
+   {
+    "text": "line",
+    "start": 17.9505,
+    "end": 18.132541
+   },
+   {
+    "text": "of",
+    "start": 18.144666,
+    "end": 18.205332
+   },
+   {
+    "text": "instructions",
+    "start": 18.217458,
+    "end": 18.824249
+   },
+   {
+    "text": "for",
+    "start": 18.836416,
+    "end": 18.982041
+   },
+   {
+    "text": "each",
+    "start": 19.042708,
+    "end": 19.418916
+   },
+   {
+    "text": "just",
+    "start": 19.770875,
+    "end": 20.074291
+   },
+   {
+    "text": "like",
+    "start": 20.086416,
+    "end": 20.329124
+   },
+   {
+    "text": "briefing",
+    "start": 20.34125,
+    "end": 20.790291
+   },
+   {
+    "text": "a",
+    "start": 20.802416,
+    "end": 20.8509569
+   },
+   {
+    "text": "colleague",
+    "start": 20.863125,
+    "end": 21.397125
+   }
+  ]
+ },
+ {
+  "id": "s8",
+  "text": "The AI Connection tab tells the tool which AI to use. First pick a provider: OpenAI, Anthropic, Gemini, or even an in-house local service. Then fill in its web address, the model name and the key, which works like a password. Click Test Connection first, and once it works, click Save and Use for Audit. The key stays on your own computer, and sensitive details are masked before anything is sent to the AI.",
+  "words": [
+   {
+    "text": "The",
+    "start": 0.1,
+    "end": 0.294166
+   },
+   {
+    "text": "AI",
+    "start": 0.330583,
+    "end": 0.597583
+   },
+   {
+    "text": "Connection",
+    "start": 0.609708,
+    "end": 1.070874
+   },
+   {
+    "text": "tab",
+    "start": 1.083,
+    "end": 1.422791
+   },
+   {
+    "text": "tells",
+    "start": 1.459208,
+    "end": 1.689791
+   },
+   {
+    "text": "the",
+    "start": 1.701958,
+    "end": 1.799041
+   },
+   {
+    "text": "tool",
+    "start": 1.811166,
+    "end": 2.090291
+   },
+   {
+    "text": "which",
+    "start": 2.102416,
+    "end": 2.332999
+   },
+   {
+    "text": "AI",
+    "start": 2.430083,
+    "end": 2.636374
+   },
+   {
+    "text": "to",
+    "start": 2.648541,
+    "end": 2.745624
+   },
+   {
+    "text": "use",
+    "start": 2.75775,
+    "end": 3.194625
+   },
+   {
+    "text": "First",
+    "start": 3.545125,
+    "end": 3.945625
+   },
+   {
+    "text": "pick",
+    "start": 3.95775,
+    "end": 4.079125
+   },
+   {
+    "text": "a",
+    "start": 4.09125,
+    "end": 4.164083
+   },
+   {
+    "text": "provider",
+    "start": 4.176208,
+    "end": 4.734458
+   },
+   {
+    "text": "OpenAI",
+    "start": 5.098541,
+    "end": 5.668916
+   },
+   {
+    "text": "Anthropic",
+    "start": 5.911666,
+    "end": 6.676249
+   },
+   {
+    "text": "Gemini",
+    "start": 6.834,
+    "end": 7.416541
+   },
+   {
+    "text": "or",
+    "start": 7.477166,
+    "end": 7.804832
+   },
+   {
+    "text": "even",
+    "start": 7.962625,
+    "end": 8.156791
+   },
+   {
+    "text": "an",
+    "start": 8.168916,
+    "end": 8.265999
+   },
+   {
+    "text": "in-house",
+    "start": 8.302416,
+    "end": 8.775707
+   },
+   {
+    "text": "local",
+    "start": 8.787875,
+    "end": 9.103416
+   },
+   {
+    "text": "service",
+    "start": 9.115541,
+    "end": 9.722332
+   },
+   {
+    "text": "Then",
+    "start": 10.074291,
+    "end": 10.353416
+   },
+   {
+    "text": "fill",
+    "start": 10.365541,
+    "end": 10.632541
+   },
+   {
+    "text": "in",
+    "start": 10.644666,
+    "end": 10.729624
+   },
+   {
+    "text": "its",
+    "start": 10.74175,
+    "end": 10.863125
+   },
+   {
+    "text": "web",
+    "start": 10.87525,
+    "end": 11.093708
+   },
+   {
+    "text": "address",
+    "start": 11.105833,
+    "end": 11.591249
+   },
+   {
+    "text": "the",
+    "start": 11.906791,
+    "end": 11.991749
+   },
+   {
+    "text": "model",
+    "start": 12.003875,
+    "end": 12.404375
+   },
+   {
+    "text": "name",
+    "start": 12.4165,
+    "end": 12.719916
+   },
+   {
+    "text": "and",
+    "start": 12.817,
+    "end": 12.9505
+   },
+   {
+    "text": "the",
+    "start": 12.962625,
+    "end": 13.047583
+   },
+   {
+    "text": "key",
+    "start": 13.059708,
+    "end": 13.375249
+   },
+   {
+    "text": "which",
+    "start": 13.630083,
+    "end": 13.860666
+   },
+   {
+    "text": "works",
+    "start": 13.872833,
+    "end": 14.212624
+   },
+   {
+    "text": "like",
+    "start": 14.22475,
+    "end": 14.406791
+   },
+   {
+    "text": "a",
+    "start": 14.418916,
+    "end": 14.479582
+   },
+   {
+    "text": "password",
+    "start": 14.49175,
+    "end": 15.074291
+   },
+   {
+    "text": "Click",
+    "start": 15.426208,
+    "end": 15.741749
+   },
+   {
+    "text": "Test",
+    "start": 15.753875,
+    "end": 16.033
+   },
+   {
+    "text": "Connection",
+    "start": 16.045166,
+    "end": 16.494207
+   },
+   {
+    "text": "first",
+    "start": 16.506291,
+    "end": 16.918916
+   },
+   {
+    "text": "and",
+    "start": 17.028166,
+    "end": 17.234457
+   },
+   {
+    "text": "once",
+    "start": 17.25875,
+    "end": 17.477208
+   },
+   {
+    "text": "it",
+    "start": 17.489333,
+    "end": 17.598541
+   },
+   {
+    "text": "works",
+    "start": 17.610666,
+    "end": 18.023291
+   },
+   {
+    "text": "click",
+    "start": 18.144666,
+    "end": 18.375249
+   },
+   {
+    "text": "Save",
+    "start": 18.387375,
+    "end": 18.860666
+   },
+   {
+    "text": "and",
+    "start": 18.95775,
+    "end": 19.09125
+   },
+   {
+    "text": "Use",
+    "start": 19.103416,
+    "end": 19.333999
+   },
+   {
+    "text": "for",
+    "start": 19.346125,
+    "end": 19.503875
+   },
+   {
+    "text": "Audit",
+    "start": 19.516,
+    "end": 19.9165
+   },
+   {
+    "text": "The",
+    "start": 20.268458,
+    "end": 20.414083
+   },
+   {
+    "text": "key",
+    "start": 20.426208,
+    "end": 20.632499
+   },
+   {
+    "text": "stays",
+    "start": 20.644666,
+    "end": 20.996624
+   },
+   {
+    "text": "on",
+    "start": 21.00875,
+    "end": 21.105833
+   },
+   {
+    "text": "your",
+    "start": 21.117958,
+    "end": 21.251458
+   },
+   {
+    "text": "own",
+    "start": 21.263583,
+    "end": 21.409208
+   },
+   {
+    "text": "computer",
+    "start": 21.421375,
+    "end": 21.9675
+   },
+   {
+    "text": "and",
+    "start": 22.234458,
+    "end": 22.452916
+   },
+   {
+    "text": "sensitive",
+    "start": 22.537875,
+    "end": 23.011166
+   },
+   {
+    "text": "details",
+    "start": 23.023291,
+    "end": 23.520874
+   },
+   {
+    "text": "are",
+    "start": 23.533,
+    "end": 23.6665
+   },
+   {
+    "text": "masked",
+    "start": 23.678625,
+    "end": 24.200458
+   },
+   {
+    "text": "before",
+    "start": 24.212625,
+    "end": 24.637375
+   },
+   {
+    "text": "anything",
+    "start": 24.710208,
+    "end": 25.134958
+   },
+   {
+    "text": "is",
+    "start": 25.147083,
+    "end": 25.219916
+   },
+   {
+    "text": "sent",
+    "start": 25.232041,
+    "end": 25.426207
+   },
+   {
+    "text": "to",
+    "start": 25.438333,
+    "end": 25.498999
+   },
+   {
+    "text": "the",
+    "start": 25.511166,
+    "end": 25.596124
+   },
+   {
+    "text": "AI",
+    "start": 25.60825,
+    "end": 25.972333
+   }
+  ]
+ },
+ {
+  "id": "s9",
+  "text": "Finally, set a backup password of at least eight characters and export an encrypted backup. Even on a new computer, you can restore with one click. That is it! Installer, install, use, settings, you have learned it all. Go and give it a try!",
+  "words": [
+   {
+    "text": "Finally",
+    "start": 0.1,
+    "end": 0.779625
+   },
+   {
+    "text": "set",
+    "start": 0.913125,
+    "end": 1.083041
+   },
+   {
+    "text": "a",
+    "start": 1.095125,
+    "end": 1.167958
+   },
+   {
+    "text": "backup",
+    "start": 1.180083,
+    "end": 1.592708
+   },
+   {
+    "text": "password",
+    "start": 1.604875,
+    "end": 2.090291
+   },
+   {
+    "text": "of",
+    "start": 2.102416,
+    "end": 2.260166
+   },
+   {
+    "text": "at",
+    "start": 2.284458,
+    "end": 2.417958
+   },
+   {
+    "text": "least",
+    "start": 2.430083,
+    "end": 2.684958
+   },
+   {
+    "text": "eight",
+    "start": 2.7335,
+    "end": 2.879125
+   },
+   {
+    "text": "characters",
+    "start": 2.89125,
+    "end": 3.522333
+   },
+   {
+    "text": "and",
+    "start": 3.546583,
+    "end": 3.765041
+   },
+   {
+    "text": "export",
+    "start": 3.777166,
+    "end": 4.298999
+   },
+   {
+    "text": "an",
+    "start": 4.371833,
+    "end": 4.456791
+   },
+   {
+    "text": "encrypted",
+    "start": 4.468916,
+    "end": 5.063582
+   },
+   {
+    "text": "backup",
+    "start": 5.075708,
+    "end": 5.561124
+   },
+   {
+    "text": "Even",
+    "start": 5.911666,
+    "end": 6.227207
+   },
+   {
+    "text": "on",
+    "start": 6.239333,
+    "end": 6.372833
+   },
+   {
+    "text": "a",
+    "start": 6.384958,
+    "end": 6.4213739
+   },
+   {
+    "text": "new",
+    "start": 6.4335,
+    "end": 6.615541
+   },
+   {
+    "text": "computer",
+    "start": 6.627666,
+    "end": 7.113082
+   },
+   {
+    "text": "you",
+    "start": 7.343708,
+    "end": 7.404374
+   },
+   {
+    "text": "can",
+    "start": 7.4165,
+    "end": 7.55
+   },
+   {
+    "text": "restore",
+    "start": 7.562125,
+    "end": 8.047541
+   },
+   {
+    "text": "with",
+    "start": 8.059708,
+    "end": 8.217458
+   },
+   {
+    "text": "one",
+    "start": 8.229625,
+    "end": 8.448083
+   },
+   {
+    "text": "click",
+    "start": 8.460208,
+    "end": 8.872833
+   },
+   {
+    "text": "That",
+    "start": 9.22475,
+    "end": 9.49175
+   },
+   {
+    "text": "is",
+    "start": 9.503875,
+    "end": 9.588833
+   },
+   {
+    "text": "it",
+    "start": 9.600958,
+    "end": 9.855833
+   },
+   {
+    "text": "Installer",
+    "start": 10.20775,
+    "end": 10.996583
+   },
+   {
+    "text": "install",
+    "start": 11.093708,
+    "end": 11.773333
+   },
+   {
+    "text": "use",
+    "start": 12.052416,
+    "end": 12.489291
+   },
+   {
+    "text": "settings",
+    "start": 12.598541,
+    "end": 13.120374
+   },
+   {
+    "text": "you",
+    "start": 13.253875,
+    "end": 13.338833
+   },
+   {
+    "text": "have",
+    "start": 13.350958,
+    "end": 13.496583
+   },
+   {
+    "text": "learned",
+    "start": 13.50875,
+    "end": 13.751458
+   },
+   {
+    "text": "it",
+    "start": 13.763583,
+    "end": 13.836416
+   },
+   {
+    "text": "all",
+    "start": 13.848541,
+    "end": 14.164082
+   },
+   {
+    "text": "Go",
+    "start": 14.516,
+    "end": 14.855791
+   },
+   {
+    "text": "and",
+    "start": 14.867958,
+    "end": 15.025708
+   },
+   {
+    "text": "give",
+    "start": 15.037875,
+    "end": 15.195625
+   },
+   {
+    "text": "it",
+    "start": 15.20775,
+    "end": 15.280583
+   },
+   {
+    "text": "a",
+    "start": 15.292708,
+    "end": 15.3412489
+   },
+   {
+    "text": "try",
+    "start": 15.353416,
+    "end": 15.814582
+   }
+  ]
+ }
+]

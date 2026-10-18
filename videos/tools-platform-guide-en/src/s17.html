@@ -1,0 +1,75 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .rel{font-size:27px!important}
+#root .rel{position:absolute;top:205px;display:inline-flex;align-items:center;gap:10px;border:2.5px solid var(--ink);border-radius:30px;padding:2px 22px 6px;font-size:38px;white-space:nowrap;background:#fff}
+#root .rel em{font-style:normal;font-family:"JetBrains Mono",monospace;font-size:26px;color:#3f3b4a}
+#root .bar{position:absolute;bottom:0;width:140px;border:3px solid var(--ink);border-radius:14px 14px 0 0}
+#root .ut{position:absolute;left:140px;width:1040px;border-collapse:collapse;font-size:32px}
+#root .ut td,#root .ut th{border:3px solid var(--ink);padding:2px 12px;height:56px;background:#fff;white-space:nowrap;text-align:left}
+#root .ut th{background:#aed8f2;font-family:"Fredoka",sans-serif;font-weight:400}
+#root .bd{display:inline-block;border-radius:999px;padding:0 14px;border:3px solid var(--ink);font-size:28px}
+</style>
+<div id="root" data-composition-id="s17" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="51" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:700px;width:520px;height:520px;background:#aed8f2"></div>
+  <div class="head wob" id="s17-h"><span class="step">Station 5</span><span class="ttl">Monthly Report · Month logic</span></div>
+  <div class="rel" id="s17-r1" style="left:110px;top:190px;background:#ffe08f">This month<em>0</em></div>
+  <div class="rel" id="s17-r2" style="left:310px;top:190px;background:#aed8f2">Last month<em>-1</em></div>
+  <div class="rel" id="s17-r3" style="left:510px;top:190px;background:#d9c6ef">Same month last year<em>-12</em></div>
+  <div class="rel" id="s17-r4" style="left:790px;top:190px">Offset month<em>-2…</em></div>
+  <div class="rel" id="s17-r5" style="left:1040px;top:190px;background:#9fe0c9">Fixed month<em>2026-06</em></div>
+  <div class="win wob" id="s17-ch" style="left:1270px;top:270px;width:550px;height:340px"><div class="wbar" style="background:var(--mint)"><i></i><i></i><i></i><span>Month-over-month chart</span></div></div>
+  <div class="abs" id="s17-bars" style="left:1330px;top:370px;width:440px;height:200px"><div class="bar" id="s17-b1" style="left:60px;height:120px;background:#aed8f2"></div><div class="bar" id="s17-b2" style="left:250px;height:160px;background:#ffe08f"></div></div>
+  <div class="abs" id="s17-bl" style="left:1330px;top:575px;font-size:30px;white-space:nowrap;width:440px"><span style="position:absolute;left:30px">Sep</span><span style="position:absolute;left:240px">Oct</span></div>
+  <div class="abs" id="s17-cs" style="left:110px;top:290px;width:1100px;font-size:40px;line-height:1.5">One chart bound to both <span class="tag" style="background:#aed8f2;font-size:36px">Last month</span> + <span class="tag" style="background:#ffe08f;font-size:36px">This month</span> → <b>MoM</b><br><span style="font-size:34px;color:#6b6874">Default: save this result · update after review</span></div>
+  <div class="win wob" id="s17-uw" style="left:110px;top:430px;width:1100px;height:420px"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>Report update preview</span></div></div>
+  <table class="ut" id="s17-ut" style="top:520px"><tr><th>Component</th><th>Current source</th><th>Updated source</th><th>Status</th></tr>
+    <tr id="s17-u1"><td>Risk trend chart</td><td>2026-09</td><td>2026-10</td><td><span class="bd" style="background:#cfe9fb">● Updated</span></td></tr>
+    <tr id="s17-u2"><td>Closure-rate metric</td><td>2026-10</td><td>2026-10</td><td><span class="bd" style="background:#dcf5ea">● Consistent</span></td></tr>
+    <tr id="s17-u3"><td>Last-year table</td><td>2025-10</td><td>Fixed version</td><td><span class="bd" style="background:#e5e5ee">● Fixed version</span></td></tr>
+    <tr id="s17-u4"><td>Topic summary</td><td>2026-09</td><td>Missing field</td><td><span class="bd" style="background:#ffe08a">● Pending</span></td></tr></table>
+  <div class="win wob" id="s17-ac" style="left:1270px;top:650px;width:550px;height:150px;border-radius:22px"></div>
+  <div class="btn" id="s17-ap" style="left:1300px;top:690px;font-size:36px;background:#47cf9f;padding:4px 26px 8px">Apply selected</div>
+  <div class="btn" id="s17-un" style="left:1640px;top:690px;font-size:36px;background:#fff;padding:4px 26px 8px">Undo</div>
+  <div class="abs wob" id="s17-d" style="left:1700px;top:830px"></div>
+  <div id="s17-sp"></div>
+  <div class="cap" id="s17-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s17-d",dino("dn",{w:180,h:172}));
+ document.getElementById("s17-sp").innerHTML=sparkle(1230,160,44)+sparkle(1850,560,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s17-ac,#s17-r1,#s17-r2,#s17-r3,#s17-r4,#s17-r5,#s17-ch,#s17-bars,#s17-bl,#s17-cs,#s17-uw,#s17-ut,#s17-ap,#s17-un",{opacity:0});
+ tl.fromTo("#s17-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s17-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("month relations");
+ pop(tl,"#s17-r1",T("This Month")-.1,{s:.5});pop(tl,"#s17-r2",T("Last Month")-.1,{s:.5});pop(tl,"#s17-r3",T("Same Month Last Year")-.1,{s:.5});pop(tl,"#s17-r4",T("offset month")-.1,{s:.5});pop(tl,"#s17-r5",T("fixed month")-.1,{s:.5});
+ var b=T("month over month");
+ tl.fromTo("#s17-ch",{opacity:0,x:60},{opacity:1,x:0,duration:.5,ease:"power3.out"},b-1.2);
+ tl.fromTo("#s17-bars,#s17-bl",{opacity:0},{opacity:1,duration:.3},b-.9);
+ tl.fromTo("#s17-b1",{height:0},{height:120,duration:.5,ease:"power2.out"},b-.7);tl.fromTo("#s17-b2",{height:0},{height:160,duration:.5,ease:"power2.out"},b-.4);
+ tl.fromTo("#s17-cs",{opacity:0,y:20},{opacity:1,y:0,duration:.5},b-.3);
+ var c=T("comparison preview");
+ tl.to("#s17-cs",{opacity:0,duration:.3},c-.5);
+ tl.fromTo("#s17-uw",{opacity:0,y:60},{opacity:1,y:0,duration:.5,ease:"power3.out"},c-.5);
+ tl.fromTo("#s17-ut",{opacity:0},{opacity:1,duration:.4},c-.1);
+ gsap.set("#s17-u1,#s17-u2,#s17-u3,#s17-u4",{opacity:0});
+ tl.fromTo("#s17-u1",{opacity:0,x:-20},{opacity:1,x:0,duration:.3},T("Updated")-.1);
+ tl.fromTo("#s17-u2",{opacity:0,x:-20},{opacity:1,x:0,duration:.3},T("Consistent")-.1);
+ tl.fromTo("#s17-u3",{opacity:0,x:-20},{opacity:1,x:0,duration:.3},T("Fixed Version")-.1);
+ tl.fromTo("#s17-u4",{opacity:0,x:-20},{opacity:1,x:0,duration:.3},T("Pending")-.1);
+ var d=T("Tick the ones to apply");tl.fromTo("#s17-ac",{opacity:0,y:30},{opacity:1,y:0,duration:.45,ease:"power3.out"},d-.7);
+ pop(tl,"#s17-ap",d-.3,{s:.5});click(tl,"#s17-ap",d+.5);tl.to("#s17-u1",{backgroundColor:"#dcf5ea",duration:.3},d+.6);
+ pop(tl,"#s17-un",T("undo")-.1,{s:.5});click(tl,"#s17-un",T("undo")+.4);
+ dcheer(tl,"dn",T("undo")+.3);bounce(tl,"s17-d",T("undo")+.5,3,14);
+ tl.fromTo("#s17-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("undo"));
+ captions(tl,"s17-cap");
+ window.__timelines["s17"]=tl;
+})();
+</script>
+</template></body></html>

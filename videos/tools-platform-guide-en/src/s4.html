@@ -1,0 +1,63 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .blk{position:absolute;left:150px;width:740px;height:118px;border:2.5px solid var(--ink);border-radius:16px;background:#fff;padding:10px 20px;font-size:36px}
+#root .blk .cols{display:flex;gap:10px;margin-top:6px}
+#root .blk .cols span{font-family:"JetBrains Mono",monospace;font-size:22px;padding:2px 12px;border:3px solid var(--ink);border-radius:999px;background:#fffdf5}
+#root .score{position:absolute;right:16px;top:12px;font-size:32px;padding:0 14px;border:2.5px solid var(--ink);border-radius:999px;background:#ffe08f;white-space:nowrap}
+#root .pick{position:absolute;left:520px;top:360px;width:560px;border:3px solid var(--ink);border-radius:24px;background:#fff;box-shadow:var(--sh);padding:20px 26px;z-index:8}
+#root .pick div{display:flex;align-items:center;gap:14px;height:64px;font-size:38px;white-space:nowrap}
+#root .pick b{width:26px;height:26px;border-radius:50%;border:2.5px solid var(--ink);display:block;flex:none}
+</style>
+<div id="root" data-composition-id="s4" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1500px;top:-170px;width:520px;height:520px;background:#ffb3c6"></div>
+  <div class="head wob" id="s4-h"><span class="step">Station 1</span><span class="ttl">Script Builder · Focus & options</span></div>
+  <div class="win wob" id="s4-win" style="left:110px;top:220px;width:820px;height:640px"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>Sample response · several tables found</span></div></div>
+  <div class="blk" id="s4-b1" style="top:382px">Overview<div class="cols"><span>Metrics</span><span>Values</span></div><span class="score" id="s4-sc1">Low</span></div>
+  <div class="blk" id="s4-b2" style="top:520px">Regional Summary<div class="cols"><span>Region</span><span>Office</span><span>Total</span></div><span class="score" id="s4-sc2">High</span></div>
+  <div class="blk" id="s4-b3" style="top:658px">Office Details<div class="cols"><span>Office</span><span>Status</span><span>Count</span></div><span class="score" id="s4-sc3">Top</span></div>
+  <div class="abs" id="s4-kw" style="left:150px;top:298px;display:flex;align-items:center;gap:16px;font-size:42px;white-space:nowrap"><span>Data Focus</span><span class="tag" id="s4-kwv" style="background:#fff;font-size:40px;padding:2px 26px">Office</span></div>
+  <div class="pick" id="s4-pick" data-layout-allow-overlap><div style="font-family:'Fredoka',sans-serif;font-size:40px">Several tables matched, pick one:</div><div id="s4-p1"><b></b>Regional Summary</div><div id="s4-p2"><b></b>Office Details</div></div>
+  <div class="win wob" id="s4-win2" style="left:990px;top:220px;width:830px;height:640px"><div class="wbar"><i></i><i></i><i></i><span>Options</span></div></div>
+  <div class="opt" id="s4-t1" style="left:1020px;top:310px;width:770px;height:78px"><span>Auto paging</span><span class="swt" id="s4-w1"><i></i></span></div>
+  <div class="opt" id="s4-t2" style="left:1020px;top:402px;width:770px;height:78px"><span>Force summary data · fallback</span><span class="swt" id="s4-w2"><i></i></span></div>
+  <div class="opt" id="s4-t3" style="left:1020px;top:494px;width:770px;height:78px"><span>Dynamic CPC / NID</span><span class="swt" id="s4-w3"><i></i></span></div>
+  <div class="opt" id="s4-t4" style="left:1020px;top:586px;width:770px;height:78px"><span>Current + previous month</span><span class="swt" id="s4-w4"><i></i></span></div>
+  <div class="opt" id="s4-t5" style="left:1020px;top:678px;width:770px;height:78px"><span>Auto-build 3-region scripts</span><span class="swt" id="s4-w5"><i></i></span></div>
+  <div class="abs wob" id="s4-d" style="left:1597px;top:746px"></div>
+  <div id="s4-sp"></div>
+  <div class="cap" id="s4-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s4-d",dino("dn",{w:256,h:244}));
+ document.getElementById("s4-sp").innerHTML=sparkle(950,200,44)+sparkle(1850,200,40,"#9fe0c9");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s4-win,#s4-b1,#s4-b2,#s4-b3,#s4-kw,#s4-pick,#s4-win2,#s4-t1,#s4-t2,#s4-t3,#s4-t4,#s4-t5,#s4-sc1,#s4-sc2,#s4-sc3",{opacity:0});
+ tl.fromTo("#s4-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s4-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("several tables");
+ tl.fromTo("#s4-win",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},a-.9);
+ tl.fromTo("#s4-b1,#s4-b2,#s4-b3",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.2},a-.4);
+ var b=T("Data Focus");
+ tl.fromTo("#s4-kw",{opacity:0,y:20},{opacity:1,y:0,duration:.4},b-.1);
+ var c=T("scores each table");
+ tl.fromTo("#s4-sc1,#s4-sc2,#s4-sc3",{opacity:0,scale:.3},{opacity:1,scale:1,duration:.35,stagger:.2,ease:"back.out(2)",transformOrigin:"50% 50%"},c);
+ var d=T("several match");
+ tl.fromTo("#s4-pick",{opacity:0,y:40,scale:.9},{opacity:1,y:0,scale:1,duration:.45,ease:"back.out(1.6)"},d-.2);
+ tl.to("#s4-p2 b",{backgroundColor:"#47cf9f",duration:.2},d+1.4);tl.to("#s4-b3",{backgroundColor:"#dcf5ea",duration:.3},d+1.4);
+ tl.to("#s4-pick",{opacity:0,duration:.3},d+2.4);
+ tl.fromTo("#s4-win2",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},T("Auto Paging")-.7);
+ tl.fromTo("#s4-t1,#s4-t2,#s4-t3,#s4-t4,#s4-t5",{opacity:0,x:30},{opacity:1,x:0,duration:.3,stagger:.1},T("Auto Paging")-.4);
+ toggle(tl,"s4-w1",T("Auto Paging")+.2);toggle(tl,"s4-w2",T("Summary Fallback")+.2);toggle(tl,"s4-w3",T("CPC")+.1);toggle(tl,"s4-w4",T("Current plus Previous Month")+.1);
+ dpoint(tl,"dn",T("Current plus Previous Month")+.3,1.2);
+ tl.fromTo("#s4-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("Current plus Previous Month")+.8);
+ captions(tl,"s4-cap");
+ window.__timelines["s4"]=tl;
+})();
+</script>
+</template></body></html>

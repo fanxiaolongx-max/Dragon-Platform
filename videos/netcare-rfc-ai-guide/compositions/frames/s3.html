@@ -27,38 +27,54 @@
 .row{display:flex;align-items:center}
 .abs{position:absolute}
 
-#root .wob{filter:url(#wob3)}
-#root .row2{position:absolute;left:520px;width:880px;height:84px;border:4px solid var(--ink);border-radius:20px;background:#fff;font-size:42px;display:flex;align-items:center;padding:0 26px;gap:18px;white-space:nowrap}
-#root .sw{position:absolute;right:26px;top:16px;width:84px;height:44px;border:4px solid var(--ink);border-radius:30px;background:#cfcfd6}
-#root .sw i{position:absolute;left:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#fff;border:4px solid var(--ink);display:block}
-#root .cursor{position:absolute;left:0;top:0;width:74px;height:74px;z-index:20}
+.bdg{position:absolute;width:64px;height:64px;border-radius:50%;background:var(--red);color:#fff;border:5px solid var(--ink);font-family:"ZCOOL KuaiLe",sans-serif;font-size:40px;display:flex;align-items:center;justify-content:center;z-index:35;box-shadow:4px 4px 0 var(--ink)}
+.hl{position:absolute;border:6px dashed var(--red);border-radius:22px;z-index:34;pointer-events:none}
+.lbl{position:absolute;z-index:36;font-family:"Long Cang",cursive;font-size:44px;line-height:1.15;background:#fff3c4;border:5px solid var(--ink);border-radius:14px 28px 14px 28px;padding:8px 22px 12px;box-shadow:6px 6px 0 var(--ink);white-space:nowrap}
+.addr{position:absolute;height:64px;border:5px solid var(--ink);border-radius:34px;background:#fff;display:flex;align-items:center;padding:0 26px;font-family:"JetBrains Mono",monospace;font-size:32px;white-space:nowrap;overflow:hidden}
+
+#root .wob{filter:url(#wobs3)}
+#root .cursor{position:absolute;left:0;top:0;width:74px;height:74px;z-index:40}
+#root .bt{position:absolute;height:64px;border:4px solid var(--ink);border-radius:14px;background:#fff;font-size:34px;display:flex;align-items:center;padding:0 22px;white-space:nowrap}
 </style>
 <div id="root" data-composition-id="s3" data-width="1920" data-height="1080">
-  <svg width="0" height="0" style="position:absolute"><filter id="wob3" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="8" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <svg width="0" height="0" style="position:absolute"><filter id="wobs3" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="8" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
   <div class="paper"></div>
   <div class="blob" style="left:-160px;top:640px;width:520px;height:520px;background:#7bdcb5"></div>
-  <div class="head wob" id="s3-h"><span class="step">第 2 步</span><span class="ttl">安装</span></div>
+  <div class="head wob" id="s3-h"><span class="step">第 2 步</span><span class="ttl">装进浏览器</span></div>
   <div class="abs wob" id="s3-zip" style="left:130px;top:300px"></div>
   <div class="abs wob" id="s3-fol" style="left:130px;top:300px;z-index:15"></div>
-  <div class="tag abs" id="s3-fl" style="left:110px;top:540px;background:#ffd166;font-size:40px">解压 → 文件夹</div>
+  <div class="tag abs" id="s3-fl" style="left:100px;top:540px;background:#ffd166;font-size:32px;padding:2px 12px 4px">解压→文件夹</div>
   <div class="tag abs mono" id="s3-mf" style="left:130px;top:610px;background:#fff;font-size:28px">manifest.json</div>
-  <div class="win wob" id="s3-win" style="left:460px;top:230px;width:1000px;height:650px"><div class="wbar"><i></i><i></i><i></i><span>扩展程序 · chrome://extensions</span></div></div>
-  <div class="row2" id="s3-r1" style="top:326px">开发者模式<span class="sw" id="s3-sw"><i></i></span></div>
-  <div class="btn" id="s3-b1" style="left:520px;top:436px;font-size:36px;background:#fff">加载已解压的扩展程序</div>
-  <div class="btn" id="s3-b2" style="left:1000px;top:436px;font-size:36px;background:#fff">打包扩展</div>
-  <div class="row2" id="s3-ext" style="top:580px;background:#7bdcb5"><span id="s3-ei"></span>NetCare RFC 方案与 AI 审计<span style="margin-left:auto;font-size:36px">已启用 ✓</span></div>
-  <div class="abs row" id="s3-brw" style="left:540px;top:720px;gap:24px"><span class="tag" id="s3-chrome" style="background:#8ecae6;font-size:44px">Chrome</span><span class="tag" id="s3-edge" style="background:#cdb4db;font-size:44px">Edge</span><span class="tag" style="background:#fff;font-size:44px">都支持</span></div>
+
+  <div class="win wob" id="s3-win" style="left:440px;top:220px;width:1140px;height:680px"><div class="wbar" style="height:70px;background:#dfe9f3;gap:10px"><i></i><i></i><i></i><span style="font-size:30px;background:#fff;border:4px solid var(--ink);border-radius:14px 14px 0 0;padding:2px 20px 4px;margin-left:12px">扩展程序</span></div></div>
+  <div class="addr" id="s3-ad" style="left:470px;top:304px;width:800px"><span id="s3-adt"></span></div>
+  <div class="bdg" id="s3-b1" style="left:1240px;top:290px">1</div>
+  <div class="lbl" id="s3-l1" style="left:1290px;top:236px;font-size:38px">地址栏输入这行字</div>
+  <div class="tag abs mono" id="s3-edge" style="left:480px;top:380px;background:#cdb4db;font-size:28px">Edge 用户：edge://extensions</div>
+
+  <div class="abs" id="s3-ph" style="left:480px;top:450px;font-family:'ZCOOL KuaiLe',sans-serif;font-size:46px">扩展程序</div>
+  <div class="abs row" id="s3-dev" style="left:1190px;top:442px;gap:14px;font-size:38px;white-space:nowrap">开发者模式<span class="tg2" id="s3-sw" style="position:relative;width:96px;height:48px;border:4px solid var(--ink);border-radius:30px;background:#cfcfd6;display:block"><i style="position:absolute;left:4px;top:4px;width:32px;height:32px;border-radius:50%;background:#fff;border:4px solid var(--ink);display:block"></i></span></div>
+  <div class="bdg" id="s3-b2" style="left:1120px;top:432px">2</div>
+  <div class="lbl" id="s3-l2" style="left:1130px;top:370px;font-size:38px;opacity:0">右上角，打开它</div>
+
+  <div class="bt" id="s3-bt1" style="left:480px;top:540px;width:396px">加载已解压的扩展程序</div>
+  <div class="bt" id="s3-bt2" style="left:900px;top:540px">打包扩展程序</div>
+  <div class="bt" id="s3-bt3" style="left:1170px;top:540px">更新</div>
+  <div class="bdg" id="s3-b3" style="left:446px;top:526px">3</div>
+  <div class="hl" id="s3-hl3" style="left:466px;top:526px;width:424px;height:92px"></div>
+  <div class="lbl" id="s3-l3" style="left:560px;top:628px;font-size:38px">点它，再选刚才的文件夹</div>
+  <div class="abs row" id="s3-ext" style="left:480px;top:730px;width:1050px;height:96px;border:4px solid var(--ink);border-radius:18px;background:#7bdcb5;font-size:40px;padding:0 24px;gap:16px;white-space:nowrap"><span id="s3-ei"></span>NetCare RFC 方案与 AI 审计<span style="margin-left:auto;font-size:36px">已启用 ✓</span></div>
   <div class="cursor wob" id="s3-cur"></div>
-  <div class="abs wob" id="s3-fig" style="left:1580px;top:470px"></div>
-  <div class="bubble" id="s3-bub" style="left:1520px;top:330px;font-size:50px">装好啦！</div>
+  <div class="abs wob" id="s3-fig" style="left:1640px;top:560px"></div>
+  <div class="bubble" id="s3-bub" style="left:1610px;top:440px;font-size:50px">装好啦！</div>
   <div id="s3-sp"></div>
   <div class="cap" id="s3-cap"></div>
 </div>
 <script>
-function T(s){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
- s=String(s).replace(/\s+/g,"");var p=C.replace(/\s+/g,"").indexOf(s);if(p<0)return 0;
- var q=0,j=0;for(i=0;i<C.length;i++){if(/\s/.test(C[i]))continue;if(q===p){j=i;break;}q++;}
- return Math.round((W[M[j]].s+LEAD)*100)/100;}
+function T(s,nth){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
+ s=String(s).replace(/\s+/g,"");var P="",MM=[];for(i=0;i<C.length;i++){if(!/\s/.test(C[i])){P+=C[i];MM.push(M[i]);}}
+ var p=-1,n=nth||0,from=0;while(n>=0){p=P.indexOf(s,from);if(p<0)return 0;from=p+1;n--;}
+ return Math.round((W[MM[p]].s+LEAD)*100)/100;}
 function figure(id,o){o=o||{};var body=o.body||"#ff8fab",hat=o.hat||"#ffd166";
  return '<svg id="'+id+'" class="fig" viewBox="0 0 160 220" width="'+(o.w||240)+'" height="'+(o.h||330)+'" style="overflow:visible">'+
  '<g id="'+id+'-legL"><path class="ln" d="M70 152 L64 196"/><ellipse cx="58" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
@@ -117,33 +133,41 @@ function typeText(tl,id,text,t,dur){var el=document.getElementById(id);el.innerH
 function toggle(tl,id,t){tl.to("#"+id,{backgroundColor:"#06d6a0",duration:.2},t);tl.to("#"+id+" i",{x:34,duration:.25,ease:"back.out(2)"},t);}
 function arrow(x,y,w,h,id){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="overflow:visible"><path id="'+id+'" class="ln" pathLength="1" stroke-dasharray="1" d="M6 '+(h/2)+' C'+(w*.3)+' '+(h*.1)+' '+(w*.6)+' '+(h*.9)+' '+(w-26)+' '+(h/2)+'"/><path id="'+id+'h" class="ln" d="M'+(w-40)+' '+(h/2-16)+' L'+(w-8)+' '+(h/2)+' L'+(w-40)+' '+(h/2+16)+'" opacity="0"/></svg>';}
 
-var W=[{"t": "第二", "s": 0.1, "e": 0.36}, {"t": "步", "s": 0.36, "e": 0.58}, {"t": "安装", "s": 0.92, "e": 1.37}, {"t": "解压", "s": 1.89, "e": 2.23}, {"t": "ZIP", "s": 2.23, "e": 2.69}, {"t": "打开", "s": 2.91, "e": 3.22}, {"t": "浏览器", "s": 3.24, "e": 3.62}, {"t": "的", "s": 3.62, "e": 3.74}, {"t": "扩展", "s": 3.76, "e": 4.07}, {"t": "页面", "s": 4.08, "e": 4.45}, {"t": "Chrome", "s": 4.74, "e": 5.13}, {"t": "和", "s": 5.22, "e": 5.46}, {"t": "Edge", "s": 5.47, "e": 5.81}, {"t": "都", "s": 5.84, "e": 6.01}, {"t": "支持", "s": 6.03, "e": 6.49}, {"t": "打开", "s": 7.03, "e": 7.38}, {"t": "开发者", "s": 7.41, "e": 7.78}, {"t": "模式", "s": 7.79, "e": 8.31}, {"t": "点击", "s": 8.67, "e": 9.06}, {"t": "加载", "s": 9.07, "e": 9.33}, {"t": "已", "s": 9.35, "e": 9.47}, {"t": "解压", "s": 9.47, "e": 9.75}, {"t": "的", "s": 9.75, "e": 9.86}, {"t": "扩展", "s": 9.88, "e": 10.19}, {"t": "程序", "s": 10.2, "e": 10.66}, {"t": "选中", "s": 11.01, "e": 11.38}, {"t": "那个", "s": 11.39, "e": 11.54}, {"t": "文件夹", "s": 11.56, "e": 12.12}, {"t": "就", "s": 12.29, "e": 12.42}, {"t": "装好", "s": 12.43, "e": 12.79}, {"t": "啦", "s": 12.79, "e": 13.02}];var CAPS=[{"t": "第二步，安装。解压 ZIP", "s": 0.1, "e": 2.69}, {"t": "打开浏览器的扩展页面", "s": 2.91, "e": 4.45}, {"t": "Chrome 和 Edge 都支持", "s": 4.74, "e": 6.49}, {"t": "打开开发者模式", "s": 7.03, "e": 8.31}, {"t": "点击加载已解压的扩展程序", "s": 8.67, "e": 10.66}, {"t": "选中那个文件夹，就装好啦", "s": 11.01, "e": 13.02}];var LEAD=0.4;
+var W=[{"t": "第二", "s": 0.1, "e": 0.37}, {"t": "步", "s": 0.37, "e": 0.58}, {"t": "装", "s": 0.78, "e": 1.02}, {"t": "进", "s": 1.02, "e": 1.15}, {"t": "浏览器", "s": 1.16, "e": 1.71}, {"t": "先", "s": 2.25, "e": 2.48}, {"t": "把", "s": 2.48, "e": 2.57}, {"t": "压缩", "s": 2.59, "e": 2.9}, {"t": "包解压", "s": 2.9, "e": 3.48}, {"t": "得到", "s": 3.73, "e": 3.95}, {"t": "一个", "s": 3.96, "e": 4.09}, {"t": "文件夹", "s": 4.12, "e": 4.69}, {"t": "然后", "s": 5.24, "e": 5.75}, {"t": "在", "s": 5.86, "e": 6.07}, {"t": "浏览器", "s": 6.08, "e": 6.57}, {"t": "地址栏", "s": 6.58, "e": 6.96}, {"t": "输入", "s": 6.98, "e": 7.24}, {"t": "chrome", "s": 7.24, "e": 7.63}, {"t": "/", "s": 7.95, "e": 8.38}, {"t": "extensions", "s": 8.38, "e": 9.12}, {"t": "用", "s": 9.36, "e": 9.6}, {"t": "Edge", "s": 9.6, "e": 10.04}, {"t": "就", "s": 10.13, "e": 10.27}, {"t": "输入", "s": 10.28, "e": 10.58}, {"t": "edge", "s": 10.58, "e": 11.04}, {"t": "/", "s": 11.31, "e": 11.73}, {"t": "extensions", "s": 11.73, "e": 12.49}, {"t": "回车", "s": 12.69, "e": 13.14}, {"t": "打开", "s": 13.15, "e": 13.46}, {"t": "扩展", "s": 13.48, "e": 13.76}, {"t": "管理", "s": 13.77, "e": 14.07}, {"t": "页", "s": 14.07, "e": 14.29}, {"t": "把", "s": 14.82, "e": 15.04}, {"t": "右上角", "s": 15.06, "e": 15.51}, {"t": "的", "s": 15.51, "e": 15.6}, {"t": "开发者", "s": 15.62, "e": 16.05}, {"t": "模式", "s": 16.06, "e": 16.33}, {"t": "打开", "s": 16.34, "e": 16.82}, {"t": "再点", "s": 17.09, "e": 17.45}, {"t": "左上", "s": 17.48, "e": 17.79}, {"t": "角", "s": 17.79, "e": 17.92}, {"t": "的", "s": 17.92, "e": 18.05}, {"t": "加载", "s": 18.07, "e": 18.44}, {"t": "已", "s": 18.47, "e": 18.61}, {"t": "解压", "s": 18.61, "e": 18.9}, {"t": "的", "s": 18.9, "e": 19.03}, {"t": "扩展", "s": 19.06, "e": 19.4}, {"t": "程序", "s": 19.41, "e": 19.87}, {"t": "选中", "s": 20.24, "e": 20.66}, {"t": "刚才", "s": 20.68, "e": 20.96}, {"t": "的", "s": 20.96, "e": 21.03}, {"t": "文件夹", "s": 21.04, "e": 21.62}, {"t": "就", "s": 21.76, "e": 21.9}, {"t": "装好", "s": 21.91, "e": 22.29}, {"t": "啦", "s": 22.29, "e": 22.54}];var CAPS=[{"t": "第二步，装进浏览器。先把压缩包解压", "s": 0.1, "e": 3.48}, {"t": "得到一个文件夹", "s": 3.73, "e": 4.69}, {"t": "然后在浏览器地址栏输入 chrome://extensions", "s": 5.24, "e": 9.6}, {"t": "用 Edge 就输入 edge://extensions", "s": 9.6, "e": 13.14}, {"t": "回车打开扩展管理页", "s": 13.15, "e": 15.51}, {"t": "把右上角的开发者模式打开", "s": 15.06, "e": 17.45}, {"t": "再点左上角的加载已解压的扩展程序", "s": 17.48, "e": 20.66}, {"t": "选中刚才的文件夹，就装好啦", "s": 20.68, "e": 22.54}];var LEAD=0.4;
 (function(){
  put("s3-zip",icon("zip","#ffd166",200));put("s3-fol",icon("folder","#ffd166",200));put("s3-cur",icon("cursor","#ffffff",74));put("s3-ei",icon("puzzle","#ffd166",56));
- put("s3-fig",figure("f3",{body:"#cdb4db",hat:"#06d6a0",w:300,h:410}));
- document.getElementById("s3-sp").innerHTML=sparkle(1500,300,48)+sparkle(1810,420,40,"#ff8fab")+sparkle(1380,760,50,"#8ecae6");
+ put("s3-fig",figure("f3",{body:"#cdb4db",hat:"#06d6a0",w:240,h:330}));
+ document.getElementById("s3-sp").innerHTML=sparkle(1600,300,48)+sparkle(1830,420,40,"#ff8fab")+sparkle(1380,880,50,"#8ecae6");
  var tl=gsap.timeline({paused:true});
  tl.fromTo("#s3-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
  tl.fromTo("#s3-fig",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.6);
- gsap.set("#s3-fol,#s3-fl,#s3-mf,#s3-win,#s3-r1,#s3-b1,#s3-b2,#s3-ext,#s3-brw,#s3-bub,#s3-cur",{opacity:0});
+ gsap.set("#s3-fol,#s3-fl,#s3-mf,#s3-win,#s3-ad,#s3-b1,#s3-l1,#s3-edge,#s3-ph,#s3-dev,#s3-b2,#s3-l2,#s3-bt1,#s3-bt2,#s3-bt3,#s3-b3,#s3-hl3,#s3-l3,#s3-ext,#s3-bub,#s3-cur",{opacity:0});
  pop(tl,"#s3-zip",1.0,{s:.3,y:40});
  var tu=T("解压");
  tl.to("#s3-zip",{opacity:0,scale:.3,duration:.3},tu);pop(tl,"#s3-fol",tu+.15,{s:.3});pop(tl,"#s3-fl",tu+.3,{s:.5});pop(tl,"#s3-mf",tu+.6,{s:.5});
- var tw=T("扩展页面");
- tl.fromTo("#s3-win",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},tw-.5);
- tl.fromTo("#s3-r1,#s3-b1,#s3-b2",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.12},tw+.1);
- pop(tl,"#s3-chrome",T("Chrome"),{s:.4});pop(tl,"#s3-edge",T("Edge"),{s:.4});tl.fromTo("#s3-brw .tag:last-child",{opacity:0},{opacity:1,duration:.3},T("都支持"));
- tl.set("#s3-brw",{opacity:1});tl.set("#s3-chrome,#s3-edge,#s3-brw .tag:last-child",{opacity:0},0);
- var td=T("开发者");
- tl.set("#s3-cur",{x:560,y:760});tl.fromTo("#s3-cur",{opacity:0},{opacity:1,duration:.3},td-.9);
- cur(tl,"#s3-cur",1260,370,td-.8,.7);click(tl,"#s3-cur",td+.2);toggle(tl,"s3-sw",td+.25);
- var tl2=T("加载");
- cur(tl,"#s3-cur",760,478,tl2-.7,.7);click(tl,"#s3-cur",tl2+.4);tl.to("#s3-b1",{backgroundColor:"#ffd166",duration:.2},tl2+.4);
+ var tw=T("地址栏");
+ tl.fromTo("#s3-win",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},tw-.9);
+ tl.fromTo("#s3-ad",{opacity:0},{opacity:1,duration:.4},tw-.5);
+ pop(tl,"#s3-b1",tw-.3,{s:.3});pop(tl,"#s3-l1",tw-.2,{s:.5});
+ typeText(tl,"s3-adt","chrome://extensions",T("chrome"),1.3);
+ pop(tl,"#s3-edge",T("Edge")-.1,{s:.5});
+ var te=T("回车");
+ tl.fromTo("#s3-ph,#s3-dev,#s3-bt1,#s3-bt2,#s3-bt3",{opacity:0,y:20},{opacity:1,y:0,duration:.4,stagger:.08},te+.1);
+ tl.to("#s3-l1,#s3-b1",{opacity:0,duration:.3},te+.8);
+ var td=T("开发者模式");
+ pop(tl,"#s3-b2",td-.9,{s:.3});pop(tl,"#s3-l2",td-.8,{s:.5});
+ tl.set("#s3-cur",{x:700,y:820});tl.fromTo("#s3-cur",{opacity:0},{opacity:1,duration:.3},td-.9);
+ cur(tl,"#s3-cur",1300,490,td-.8,.7);click(tl,"#s3-cur",td+.2);toggle(tl,"s3-sw",td+.25);
+ tl.to("#s3-l2,#s3-b2",{opacity:0,duration:.3},td+1.2);
+ var tl2=T("加载已解压");
+ pop(tl,"#s3-b3",tl2-.8,{s:.3});tl.fromTo("#s3-hl3",{opacity:0},{opacity:1,duration:.3},tl2-.7);pop(tl,"#s3-l3",tl2-.6,{s:.5});
+ cur(tl,"#s3-cur",680,590,tl2-.7,.7);click(tl,"#s3-cur",tl2+.5);tl.to("#s3-bt1",{backgroundColor:"#ffd166",duration:.2},tl2+.5);
  var ts=T("选中");
- tl.to("#s3-fol",{x:420,y:150,scale:.6,duration:.8,ease:"power2.inOut"},ts);
+ tl.to("#s3-fol",{x:430,y:380,scale:.5,duration:.8,ease:"power2.inOut"},ts);
  var tz=T("装好");
- tl.to("#s3-fol",{opacity:0,duration:.25},tz-.1);
+ tl.to("#s3-fol,#s3-hl3,#s3-b3,#s3-l3",{opacity:0,duration:.25},tz-.1);
  tl.fromTo("#s3-ext",{opacity:0,y:30,scale:.9},{opacity:1,y:0,scale:1,duration:.5,ease:"back.out(1.8)"},tz);
+ tl.to("#s3-cur",{opacity:0,duration:.3},tz);
  pop(tl,"#s3-bub",tz+.3,{s:.4});
  tl.fromTo("#s3-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.2,ease:"back.out(2)",transformOrigin:"50% 50%"},tz+.1);
  tl.to("#f3-armR",{rotation:-160,svgOrigin:"102 104",duration:.35,ease:"back.out(2)"},tz+.2);tl.to("#f3-armL",{rotation:160,svgOrigin:"58 104",duration:.35,ease:"back.out(2)"},tz+.2);

@@ -18,6 +18,22 @@ test('platform names are isolated by tenant and survive older clients and naviga
         await pool.closeAll();
         fs.rmSync(sandbox, { recursive: true, force: true });
     });
+    const { getUsageVideoFooter } = require('../backend/models/platform-usage-video');
+    assert.match(await getUsageVideoFooter('平台怎么使用？', 'zh-CN'), /jx.huawei.com/);
+    await repo.saveSettings({ platformGuideVideoUrl: 'https://example.com/guide' });
+    await repo.saveSettings({ primaryIds: ['home'] });
+    assert.match(await getUsageVideoFooter('How do I use Dragon Claw?', 'en-US'), /Watch.*example.com/);
+    assert.equal(await getUsageVideoFooter('写一个排序算法', 'zh-CN'), '');
+    assert.equal(repo.mergeDefaultSettingsPreservingCustomTools(await repo.getSettings()).platformGuideVideoUrl, 'https://example.com/guide');
+    await runWithTenant('video-other', async () => {
+        assert.match((await repo.getSettings()).platformGuideVideoUrl, /jx.huawei.com/);
+        await repo.saveSettings({ platformGuideVideoUrl: '' });
+        assert.equal(await getUsageVideoFooter('平台使用指南', 'zh-CN'), '');
+    });
+    assert.equal((await repo.getSettings()).platformGuideVideoUrl, 'https://example.com/guide');
+    for (const value of ['javascript:alert(1)', 'https://user:password@example.com', 'invalid']) {
+        assert.equal(repo.normalizeSettings({ platformGuideVideoUrl: value }).platformGuideVideoUrl, '');
+    }
     const defaultName = repo.getDefaultPlatformName();
     assert.equal((await repo.getSettings()).platformName, defaultName);
     await repo.saveSettings({ platformName: '  埃及运营平台  ' });

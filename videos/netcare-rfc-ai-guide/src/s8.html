@@ -15,23 +15,23 @@
   <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="41" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
   <div class="paper"></div>
   <div class="blob" style="left:1480px;top:-170px;width:520px;height:520px;background:#7bdcb5"></div>
-  <div class="head wob" id="s8-h"><span class="step">配置 2</span><span class="ttl">AI 对接 · 添加模型</span></div>
+  <div class="head wob" id="s8-h"><span class="step">设置 2</span><span class="ttl">AI 对接 · 选哪家 AI</span></div>
   <div class="modal wob" id="s8-mod"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>设置 · AI 对接</span></div>
     <div class="tabs"><span class="tb">常规</span><span class="tb">章节规则</span><span class="tb" style="background:#ffd166">AI 对接</span></div>
     <div class="pane">
-      <div class="lab" style="top:24px">协议</div>
+      <div class="lab" style="top:24px">AI 服务商</div>
       <div class="abs row" id="s8-pr" style="left:230px;top:22px;gap:14px">
         <span class="tag" id="s8-o1" style="background:#ffd166;font-size:32px">OpenAI</span><span class="tag" id="s8-o2" style="background:#8ecae6;font-size:32px">Anthropic</span><span class="tag" id="s8-o3" style="background:#cdb4db;font-size:32px">Gemini</span><span class="tag" id="s8-o4" style="background:#7bdcb5;font-size:32px">本地兼容服务</span></div>
-      <div class="lab" style="top:122px">接口地址</div><div class="inp" id="s8-in1" style="top:116px"></div>
-      <div class="lab" style="top:208px">模型 ID</div><div class="inp" id="s8-in2" style="top:202px"></div>
-      <div class="lab" style="top:294px">Key</div><div class="inp" id="s8-in3" style="top:288px"></div>
+      <div class="lab" style="top:122px">网址</div><div class="inp" id="s8-in1" style="top:116px"></div>
+      <div class="lab" style="top:208px">模型名称</div><div class="inp" id="s8-in2" style="top:202px"></div>
+      <div class="lab" style="top:294px">密钥</div><div class="abs" style="left:700px;top:296px;font-size:32px;color:#6b6874;white-space:nowrap;z-index:3">（相当于账号密码）</div><div class="inp" id="s8-in3" style="top:288px"></div>
       <div class="btn" id="s8-bt" style="left:36px;top:390px;font-size:34px;padding:6px 26px 8px;background:#fff">测试连接</div>
       <div class="btn" id="s8-bs" style="left:290px;top:390px;font-size:34px;padding:6px 26px 8px;background:#ffd166">保存并用于审计</div>
       <div class="tag" id="s8-ok" style="position:absolute;left:690px;top:394px;font-size:32px;background:#06d6a0">✓ HTTP 200 · 0.8 秒</div>
     </div>
   </div>
-  <div class="sticky wob" id="s8-st1" style="left:1350px;top:250px;width:470px;font-size:40px;background:#8ecae6;transform:rotate(3deg)"><span id="s8-lk" style="vertical-align:middle"></span> Key 只保存在本地</div>
-  <div class="sticky wob" id="s8-st2" style="left:1350px;top:430px;width:470px;font-size:40px;background:#7bdcb5;transform:rotate(-2deg)"><span id="s8-sh" style="vertical-align:middle"></span> 发给模型前<br>自动脱敏</div>
+  <div class="sticky wob" id="s8-st1" style="left:1350px;top:250px;width:470px;font-size:40px;background:#8ecae6;transform:rotate(3deg)"><span id="s8-lk" style="vertical-align:middle"></span> 密钥只存在<br>你自己的电脑里</div>
+  <div class="sticky wob" id="s8-st2" style="left:1350px;top:430px;width:470px;font-size:40px;background:#7bdcb5;transform:rotate(-2deg)"><span id="s8-sh" style="vertical-align:middle"></span> 发给 AI 之前<br>敏感内容自动打码</div>
   <div class="cursor wob" id="s8-cur"></div>
   <div class="abs wob" id="s8-fig" style="left:1480px;top:640px"></div>
   <div id="s8-sp"></div>
@@ -51,12 +51,12 @@
  tl.fromTo("#s8-fig",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.8);
  [["#s8-o1","OpenAI"],["#s8-o2","Anthropic"],["#s8-o3","Gemini"],["#s8-o4","本地"]].forEach(function(a){pop(tl,a[0],T(a[1])-.1,{s:.4});});
  var ob=["#s8-o1","#s8-o2","#s8-o3","#s8-o4"];
- tl.to("#s8-o1",{scale:1.12,duration:.2,yoyo:true,repeat:1,transformOrigin:"50% 50%"},T("兼容")+.4);
- typeText(tl,"s8-in1","https://api.example.com/v1",T("接口"),1.3);
- typeText(tl,"s8-in2","gpt-4o-mini",T("模型")+.1,.9);
- typeText(tl,"s8-in3","••••••••••••••••",T("Key")+.1,.9);
- typing(tl,"f8",T("接口"),3.4);
- var t1=T("测试");
+ tl.to("#s8-o1",{scale:1.12,duration:.2,yoyo:true,repeat:1,transformOrigin:"50% 50%"},T("都行")+.4);
+ typeText(tl,"s8-in1","https://api.example.com/v1",T("网址"),1.3);
+ typeText(tl,"s8-in2","gpt-4o-mini",T("模型名称")+.1,.9);
+ typeText(tl,"s8-in3","••••••••••••••••",T("密钥")+.1,.9);
+ typing(tl,"f8",T("网址"),3.4);
+ var t1=T("测试连接");
  tl.set("#s8-cur",{x:420,y:700});tl.fromTo("#s8-cur",{opacity:0},{opacity:1,duration:.3},t1-.8);
  cur(tl,"#s8-cur",250,745,t1-.7,.7);pop(tl,"#s8-bt",t1-1.4,{s:.4});click(tl,"#s8-cur",t1+.3);click(tl,"#s8-bt",t1+.3);
  pop(tl,"#s8-ok",t1+.9,{s:.3});
@@ -64,11 +64,11 @@
  pop(tl,"#s8-bs",t2-1.0,{s:.4});
  cur(tl,"#s8-cur",560,745,t2-.5,.5);click(tl,"#s8-cur",t2+.25);click(tl,"#s8-bs",t2+.25);tl.to("#s8-bs",{backgroundColor:"#06d6a0",duration:.2},t2+.3);
  tl.to("#s8-cur",{opacity:0,duration:.3},t2+1.1);
- pop(tl,"#s8-st1",T("只保存")-.1,{s:.4,x:60});
+ pop(tl,"#s8-st1",T("只存在")-.1,{s:.4,x:60});
  pop(tl,"#s8-st2",T("敏感")-.1,{s:.4,x:60});
- tl.fromTo("#s8-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.25,ease:"back.out(2)",transformOrigin:"50% 50%"},T("脱敏")-.3);
- tl.to("#f8-armR",{rotation:-160,svgOrigin:"102 104",duration:.35,ease:"back.out(2)"},T("脱敏"));tl.to("#f8-armL",{rotation:160,svgOrigin:"58 104",duration:.35,ease:"back.out(2)"},T("脱敏"));
- bounce(tl,"s8-fig",T("脱敏")+.2,3,16);
+ tl.fromTo("#s8-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.25,ease:"back.out(2)",transformOrigin:"50% 50%"},T("打码")-.3);
+ tl.to("#f8-armR",{rotation:-160,svgOrigin:"102 104",duration:.35,ease:"back.out(2)"},T("打码"));tl.to("#f8-armL",{rotation:160,svgOrigin:"58 104",duration:.35,ease:"back.out(2)"},T("打码"));
+ bounce(tl,"s8-fig",T("打码")+.2,3,16);
  captions(tl,"s8-cap");
  window.__timelines["s8"]=tl;
 })();

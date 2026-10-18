@@ -1387,6 +1387,7 @@ function normalizeNavSettings(settings = {}) {
     const platformName = rawName || platformNameZh;
 
     return {
+        platformGuideVideoUrl: typeof settings.platformGuideVideoUrl === 'string' ? settings.platformGuideVideoUrl : '',
         platformName,
         platformNameZh,
         platformNameEn,
@@ -2755,6 +2756,11 @@ async function renderLogoSettings(content) {
                             <input id="platformSloganEnInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="200" value="${navEscape(navState.settings.platformSloganEn || '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”')}" placeholder="“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”" autocomplete="off">
                         </div>
                     </div>
+                    <div style="margin-top:14px">
+                        <label for="platformGuideVideoUrlInput">${text('平台使用介绍视频（可选）', 'Platform introduction video (optional)')}</label>
+                        <input type="url" id="platformGuideVideoUrlInput" class="nav-settings-input" style="width:100%;box-sizing:border-box;margin-top:6px" maxlength="2048" value="${navEscape(navState.settings.platformGuideVideoUrl || '')}" placeholder="https://…">
+                        <p style="font-size:12px;opacity:.7">${text('AI 回答平台使用问题时附上此链接；清空后关闭视频推荐。', 'AI adds this link to platform usage answers. Leave blank to disable.')}</p>
+                    </div>
                     <div class="nav-settings-actions" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:14px">
                         <button type="submit" class="primary" id="platformNameSaveBtn">${text('保存标识设置', 'Save identity settings')}</button>
                         <span id="platformNameSaveStatus" role="status" style="font-size:12px"></span>
@@ -2864,6 +2870,7 @@ window.savePlatformName = async function () {
             method: 'PUT', headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() },
             body: JSON.stringify({
                 ...navState.settings,
+                platformGuideVideoUrl: document.getElementById('platformGuideVideoUrlInput')?.value.trim() ?? navState.settings.platformGuideVideoUrl,
                 platformName,
                 platformNameZh,
                 platformNameEn,

@@ -27,7 +27,12 @@
 .row{display:flex;align-items:center}
 .abs{position:absolute}
 
-#root .wob{filter:url(#wob7)}
+.bdg{position:absolute;width:64px;height:64px;border-radius:50%;background:var(--red);color:#fff;border:5px solid var(--ink);font-family:"ZCOOL KuaiLe",sans-serif;font-size:40px;display:flex;align-items:center;justify-content:center;z-index:35;box-shadow:4px 4px 0 var(--ink)}
+.hl{position:absolute;border:6px dashed var(--red);border-radius:22px;z-index:34;pointer-events:none}
+.lbl{position:absolute;z-index:36;font-family:"Long Cang",cursive;font-size:44px;line-height:1.15;background:#fff3c4;border:5px solid var(--ink);border-radius:14px 28px 14px 28px;padding:8px 22px 12px;box-shadow:6px 6px 0 var(--ink);white-space:nowrap}
+.addr{position:absolute;height:64px;border:5px solid var(--ink);border-radius:34px;background:#fff;display:flex;align-items:center;padding:0 26px;font-family:"JetBrains Mono",monospace;font-size:32px;white-space:nowrap;overflow:hidden}
+
+#root .wob{filter:url(#wobs7)}
 #root .modal{position:absolute;left:330px;top:210px;width:1260px;height:690px;background:#fff;border:6px solid var(--ink);border-radius:28px;box-shadow:12px 12px 0 var(--ink);overflow:hidden}
 #root .tabs{position:absolute;left:30px;top:96px;display:flex;gap:16px}
 #root .tb{border:4px solid var(--ink);border-radius:24px 24px 0 0;padding:6px 34px 8px;font-size:42px;background:#fff;white-space:nowrap}
@@ -45,25 +50,27 @@
 #root .ck.on b:after{opacity:1}
 </style>
 <div id="root" data-composition-id="s7" data-width="1920" data-height="1080">
-  <svg width="0" height="0" style="position:absolute"><filter id="wob7" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="31" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <svg width="0" height="0" style="position:absolute"><filter id="wobs7" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="31" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
   <div class="paper"></div>
   <div class="blob" style="left:-150px;top:640px;width:520px;height:520px;background:#cdb4db"></div>
-  <div class="head wob" id="s7-h"><span class="step">配置 1</span><span class="ttl">设置 · 常规与章节规则</span></div>
-  <div class="abs wob" id="s7-gear" style="left:1700px;top:80px"></div>
+  <div class="head wob" id="s7-h"><span class="step">设置 1</span><span class="ttl">常规 · 章节规则</span></div>
+  <div class="abs wob" id="s7-mini" style="left:1320px;top:70px;width:560px;height:84px;border:5px solid var(--ink);border-radius:20px;background:var(--mint);box-shadow:6px 6px 0 var(--ink);display:flex;align-items:center;padding:0 22px;font-size:32px;white-space:nowrap">NetCare RFC 方案与 AI 审计<span style="margin-left:auto" id="s7-gear"></span></div>
+  <div class="bdg" id="s7-b1" style="left:1250px;top:150px">1</div>
+  <div class="lbl" id="s7-l1" style="left:1380px;top:170px;font-size:38px">小窗口右上角的齿轮</div>
   <div class="modal wob" id="s7-mod"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>设置</span></div>
     <div class="tabs"><span class="tb" id="s7-tb1" style="background:#ffd166">常规</span><span class="tb" id="s7-tb2">章节规则</span><span class="tb" id="s7-tb3">AI 对接</span></div>
     <div class="pane" id="s7-p1">
-      <div class="lab" style="top:36px">并发数</div><div class="sl" id="s7-sl1" style="top:50px"><i></i></div><div class="val" id="s7-v1" style="top:26px">3</div>
-      <div class="lab" style="top:128px">请求间隔</div><div class="sl" id="s7-sl2" style="top:142px"><i></i></div><div class="val" id="s7-v2" style="top:118px">1.5 秒</div>
+      <div class="lab" style="top:36px">同时下载几张单</div><div class="sl" id="s7-sl1" style="top:50px"><i></i></div><div class="val" id="s7-v1" style="top:26px">3</div>
+      <div class="lab" style="top:128px">每张间隔几秒</div><div class="sl" id="s7-sl2" style="top:142px"><i></i></div><div class="val" id="s7-v2" style="top:118px">1.5 秒</div>
       <div class="lab" style="top:224px">自动提取</div><div class="tg" id="s7-tg1" style="top:222px"><i></i></div>
       <div class="lab" style="top:312px">AI 审计</div><div class="tg" id="s7-tg2" style="top:310px"><i></i></div>
-      <div class="lab" style="top:400px;font-size:34px;color:#6b6874">保存后写入扩展本地，三个入口共享</div>
+      <div class="lab" style="top:400px;font-size:34px;color:#6b6874">改完自动保存在你的浏览器里</div>
     </div>
     <div class="pane" id="s7-p2" style="opacity:0">
       <div class="ck" id="s7-k1" style="top:24px"><b></b><span class="mono" style="font-size:30px">3.2</span>配置检查　<span class="tag" style="font-size:28px;background:#ffd166;padding:0 14px">附件</span></div>
       <div class="ck" id="s7-k2" style="top:98px"><b></b><span class="mono" style="font-size:30px">3.3</span>操作步骤　<span class="tag" style="font-size:28px;background:#8ecae6;padding:0 14px">文本</span></div>
       <div class="ck" id="s7-k3" style="top:172px"><b></b><span class="mono" style="font-size:30px">3.5</span>失败回退　<span class="tag" style="font-size:28px;background:#8ecae6;padding:0 14px">文本</span></div>
-      <div class="abs dash" style="left:36px;top:262px;width:1100px;height:190px;background:#fff;padding:14px 22px;font-size:36px;line-height:1.35"><div style="font-size:30px;color:#6b6874">检查提示词（每条最多 4000 字）</div><div id="s7-pr"></div></div>
+      <div class="abs dash" style="left:36px;top:262px;width:1100px;height:190px;background:#fff;padding:14px 22px;font-size:36px;line-height:1.35"><div style="font-size:30px;color:#6b6874">检查要求（像交代同事一样，用大白话写；每条最多 4000 字）</div><div id="s7-pr"></div></div>
     </div>
   </div>
   <div class="cursor wob" id="s7-cur"></div>
@@ -72,10 +79,10 @@
   <div class="cap" id="s7-cap"></div>
 </div>
 <script>
-function T(s){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
- s=String(s).replace(/\s+/g,"");var p=C.replace(/\s+/g,"").indexOf(s);if(p<0)return 0;
- var q=0,j=0;for(i=0;i<C.length;i++){if(/\s/.test(C[i]))continue;if(q===p){j=i;break;}q++;}
- return Math.round((W[M[j]].s+LEAD)*100)/100;}
+function T(s,nth){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
+ s=String(s).replace(/\s+/g,"");var P="",MM=[];for(i=0;i<C.length;i++){if(!/\s/.test(C[i])){P+=C[i];MM.push(M[i]);}}
+ var p=-1,n=nth||0,from=0;while(n>=0){p=P.indexOf(s,from);if(p<0)return 0;from=p+1;n--;}
+ return Math.round((W[MM[p]].s+LEAD)*100)/100;}
 function figure(id,o){o=o||{};var body=o.body||"#ff8fab",hat=o.hat||"#ffd166";
  return '<svg id="'+id+'" class="fig" viewBox="0 0 160 220" width="'+(o.w||240)+'" height="'+(o.h||330)+'" style="overflow:visible">'+
  '<g id="'+id+'-legL"><path class="ln" d="M70 152 L64 196"/><ellipse cx="58" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
@@ -134,26 +141,26 @@ function typeText(tl,id,text,t,dur){var el=document.getElementById(id);el.innerH
 function toggle(tl,id,t){tl.to("#"+id,{backgroundColor:"#06d6a0",duration:.2},t);tl.to("#"+id+" i",{x:34,duration:.25,ease:"back.out(2)"},t);}
 function arrow(x,y,w,h,id){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="overflow:visible"><path id="'+id+'" class="ln" pathLength="1" stroke-dasharray="1" d="M6 '+(h/2)+' C'+(w*.3)+' '+(h*.1)+' '+(w*.6)+' '+(h*.9)+' '+(w-26)+' '+(h/2)+'"/><path id="'+id+'h" class="ln" d="M'+(w-40)+' '+(h/2-16)+' L'+(w-8)+' '+(h/2)+' L'+(w-40)+' '+(h/2+16)+'" opacity="0"/></svg>';}
 
-var W=[{"t": "接下来", "s": 0.1, "e": 0.51}, {"t": "是", "s": 0.53, "e": 0.62}, {"t": "配置", "s": 0.63, "e": 1.1}, {"t": "点", "s": 1.64, "e": 1.85}, {"t": "浮窗", "s": 1.85, "e": 2.22}, {"t": "右上角", "s": 2.24, "e": 2.62}, {"t": "的", "s": 2.62, "e": 2.68}, {"t": "设置", "s": 2.69, "e": 3.16}, {"t": "常规", "s": 3.42, "e": 3.83}, {"t": "页", "s": 3.83, "e": 4.06}, {"t": "可以", "s": 4.08, "e": 4.29}, {"t": "调并", "s": 4.3, "e": 4.59}, {"t": "发数", "s": 4.6, "e": 5.05}, {"t": "和", "s": 5.07, "e": 5.18}, {"t": "请求", "s": 5.19, "e": 5.47}, {"t": "间隔", "s": 5.48, "e": 5.98}, {"t": "打开", "s": 6.16, "e": 6.52}, {"t": "自动", "s": 6.54, "e": 6.84}, {"t": "提取", "s": 6.85, "e": 7.3}, {"t": "与", "s": 7.38, "e": 7.55}, {"t": "AI", "s": 7.56, "e": 7.89}, {"t": "审计", "s": 7.9, "e": 8.29}, {"t": "章节", "s": 8.83, "e": 9.21}, {"t": "规则", "s": 9.23, "e": 9.48}, {"t": "页", "s": 9.48, "e": 9.68}, {"t": "里", "s": 9.68, "e": 9.96}, {"t": "勾选", "s": 10.24, "e": 10.58}, {"t": "要", "s": 10.58, "e": 10.68}, {"t": "提取", "s": 10.7, "e": 10.97}, {"t": "的", "s": 10.97, "e": 11.04}, {"t": "章节", "s": 11.05, "e": 11.54}, {"t": "再", "s": 11.7, "e": 11.85}, {"t": "给", "s": 11.85, "e": 11.95}, {"t": "每个", "s": 11.96, "e": 12.18}, {"t": "章节", "s": 12.19, "e": 12.49}, {"t": "写上", "s": 12.49, "e": 12.89}, {"t": "检查", "s": 12.91, "e": 13.29}, {"t": "提示", "s": 13.3, "e": 13.6}, {"t": "词", "s": 13.6, "e": 13.92}];var CAPS=[{"t": "接下来是配置。点浮窗右上角的设置", "s": 0.1, "e": 3.16}, {"t": "常规页可以调并发数和请求间隔", "s": 3.42, "e": 5.98}, {"t": "打开自动提取与 AI 审计", "s": 6.16, "e": 8.29}, {"t": "章节规则页里，勾选要提取的章节", "s": 8.83, "e": 11.54}, {"t": "再给每个章节写上检查提示词", "s": 11.7, "e": 13.92}];var LEAD=0.4;
+var W=[{"t": "最后", "s": 0.1, "e": 0.44}, {"t": "是", "s": 0.44, "e": 0.52}, {"t": "设置", "s": 0.53, "e": 1.02}, {"t": "点", "s": 1.56, "e": 1.75}, {"t": "小", "s": 1.75, "e": 1.9}, {"t": "窗口", "s": 1.9, "e": 2.45}, {"t": "右上角", "s": 2.48, "e": 2.97}, {"t": "的", "s": 2.97, "e": 3.11}, {"t": "齿轮", "s": 3.14, "e": 3.51}, {"t": "图标", "s": 3.53, "e": 3.96}, {"t": "常规", "s": 4.5, "e": 4.89}, {"t": "页", "s": 4.89, "e": 5.06}, {"t": "可以", "s": 5.08, "e": 5.27}, {"t": "调", "s": 5.27, "e": 5.58}, {"t": "同时", "s": 5.88, "e": 6.17}, {"t": "下载", "s": 6.18, "e": 6.44}, {"t": "几", "s": 6.45, "e": 6.54}, {"t": "张", "s": 6.54, "e": 6.7}, {"t": "单", "s": 6.7, "e": 7.0}, {"t": "每", "s": 7.19, "e": 7.41}, {"t": "张", "s": 7.41, "e": 7.55}, {"t": "之间", "s": 7.56, "e": 7.95}, {"t": "隔", "s": 7.97, "e": 8.15}, {"t": "几", "s": 8.16, "e": 8.31}, {"t": "秒", "s": 8.31, "e": 8.54}, {"t": "还", "s": 8.71, "e": 8.88}, {"t": "能", "s": 8.88, "e": 8.99}, {"t": "打开", "s": 9.0, "e": 9.35}, {"t": "自动", "s": 9.38, "e": 9.69}, {"t": "提取", "s": 9.71, "e": 10.19}, {"t": "和", "s": 10.29, "e": 10.5}, {"t": "AI", "s": 10.51, "e": 10.86}, {"t": "审计", "s": 10.87, "e": 11.25}, {"t": "章节", "s": 11.79, "e": 12.18}, {"t": "规则", "s": 12.21, "e": 12.45}, {"t": "页", "s": 12.45, "e": 12.65}, {"t": "里", "s": 12.65, "e": 12.95}, {"t": "勾选", "s": 13.25, "e": 13.63}, {"t": "要", "s": 13.63, "e": 13.76}, {"t": "检查", "s": 13.77, "e": 14.13}, {"t": "哪些", "s": 14.15, "e": 14.41}, {"t": "章节", "s": 14.42, "e": 14.92}, {"t": "再", "s": 15.12, "e": 15.28}, {"t": "给", "s": 15.28, "e": 15.38}, {"t": "每个", "s": 15.39, "e": 15.61}, {"t": "章节", "s": 15.62, "e": 16.13}, {"t": "写", "s": 16.23, "e": 16.43}, {"t": "一", "s": 16.43, "e": 16.52}, {"t": "句", "s": 16.52, "e": 16.67}, {"t": "检查", "s": 16.7, "e": 16.99}, {"t": "要求", "s": 17.0, "e": 17.52}, {"t": "就", "s": 17.77, "e": 17.92}, {"t": "像", "s": 17.92, "e": 18.05}, {"t": "给", "s": 18.07, "e": 18.18}, {"t": "同事", "s": 18.18, "e": 18.54}, {"t": "交代", "s": 18.56, "e": 18.84}, {"t": "任务", "s": 18.86, "e": 19.09}, {"t": "一样", "s": 19.1, "e": 19.41}];var CAPS=[{"t": "最后是设置", "s": 0.1, "e": 1.02}, {"t": "点小窗口右上角的齿轮图标", "s": 1.56, "e": 3.96}, {"t": "常规页可以调：同时下载几张单", "s": 4.5, "e": 7.0}, {"t": "每张之间隔几秒", "s": 7.19, "e": 8.54}, {"t": "还能打开自动提取和 AI 审计", "s": 8.71, "e": 11.25}, {"t": "章节规则页里，勾选要检查哪些章节", "s": 11.79, "e": 14.92}, {"t": "再给每个章节写一句检查要求", "s": 15.12, "e": 17.52}, {"t": "就像给同事交代任务一样", "s": 17.77, "e": 19.41}];var LEAD=0.4;
 (function(){
- put("s7-gear",icon("gear","#ffd166",96));put("s7-cur",icon("cursor","#ffffff",74));
+ put("s7-gear",icon("gear","#ffffff",56));put("s7-cur",icon("cursor","#ffffff",74));
  put("s7-fig",figure("f7",{body:"#ff9f68",hat:"#7bdcb5",w:240,h:330}));
  document.getElementById("s7-sp").innerHTML=sparkle(1600,230,44)+sparkle(1820,520,40,"#ff8fab");
  var tl=gsap.timeline({paused:true});
- gsap.set("#s7-mod,#s7-cur",{opacity:0});
+ gsap.set("#s7-mod,#s7-cur,#s7-b1,#s7-l1,#s7-mini",{opacity:0});
  tl.fromTo("#s7-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
  tl.fromTo("#s7-fig",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);
- tl.fromTo("#s7-gear",{opacity:0,scale:.3,rotation:-90},{opacity:1,scale:1,rotation:0,duration:.6,ease:"back.out(1.8)",transformOrigin:"50% 50%"},.8);
+ tl.fromTo("#s7-mini",{opacity:0,y:-30},{opacity:1,y:0,duration:.6,ease:"back.out(1.6)"},.8);
  var ts=T("设置");
  tl.set("#s7-cur",{x:1500,y:700});tl.fromTo("#s7-cur",{opacity:0},{opacity:1,duration:.3},ts-1.2);
- cur(tl,"#s7-cur",1730,160,ts-1.0,.9);click(tl,"#s7-cur",ts+.1);
+ pop(tl,"#s7-b1",ts-.7,{s:.3});pop(tl,"#s7-l1",ts-.6,{s:.5});cur(tl,"#s7-cur",1800,120,ts-1.0,.9);click(tl,"#s7-cur",ts+.1);
  tl.to("#s7-gear",{rotation:180,duration:.7,ease:"power2.inOut",transformOrigin:"50% 50%"},ts+.1);
  tl.fromTo("#s7-mod",{opacity:0,y:80,scale:.9},{opacity:1,y:0,scale:1,duration:.55,ease:"back.out(1.5)",transformOrigin:"50% 50%"},ts+.2);
- tl.to("#s7-cur",{opacity:0,duration:.2},ts+.5);
- var a=T("并发");
+ tl.to("#s7-cur",{opacity:0,duration:.2},ts+.5);tl.to("#s7-l1,#s7-b1,#s7-mini",{opacity:0,duration:.3},ts+.6);
+ var a=T("同时下载");
  tl.to("#s7-sl1 i",{x:140,duration:.6,ease:"power2.inOut"},a);
  tl.set("#s7-v1",{innerHTML:"3"},0);tl.set("#s7-v1",{innerHTML:"5"},a+.5);
- var b=T("请求间隔");
+ var b=T("隔几秒");
  tl.to("#s7-sl2 i",{x:60,duration:.6,ease:"power2.inOut"},b);tl.set("#s7-v2",{innerHTML:"2 秒"},b+.5);
  toggle(tl,"s7-tg1",T("自动提取"));
  toggle(tl,"s7-tg2",T("AI 审计")+.1);
@@ -163,9 +170,9 @@ var W=[{"t": "接下来", "s": 0.1, "e": 0.51}, {"t": "是", "s": 0.53, "e": 0.6
  var d=T("勾选");
  tl.fromTo("#s7-k1,#s7-k2,#s7-k3",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.12},c+.3);
  tl.to("#s7-k1",{className:"ck on",duration:.01},d+.1);tl.to("#s7-k2",{className:"ck on",duration:.01},d+.5);tl.to("#s7-k3",{className:"ck on",duration:.01},d+.9);
- typeText(tl,"s7-pr","检查回退命令是否具体、可执行，并给出预期回显。",T("提示")-.2,1.4);
- point(tl,"f7",T("提示"),1.0);
- tl.fromTo("#s7-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.25,ease:"back.out(2)",transformOrigin:"50% 50%"},T("提示"));
+ typeText(tl,"s7-pr","检查回退办法是否写清楚、能照着做，并说明怎么确认回退成功。",T("检查要求")-.2,1.4);
+ point(tl,"f7",T("检查要求"),1.0);
+ tl.fromTo("#s7-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.25,ease:"back.out(2)",transformOrigin:"50% 50%"},T("检查要求"));
  captions(tl,"s7-cap");
  window.__timelines["s7"]=tl;
 })();

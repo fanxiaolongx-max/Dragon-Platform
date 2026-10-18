@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .cd{position:absolute;top:220px;height:600px;background:#fff;border:3px solid var(--ink);border-radius:28px;box-shadow:var(--sh);overflow:hidden}
+#root .cd .hd{height:80px;border-bottom:3px solid var(--ink);display:flex;align-items:center;gap:14px;padding:0 24px;font-family:"Fredoka",sans-serif;font-size:40px;white-space:nowrap}
+#root .ir{position:absolute;left:140px;width:440px;height:76px;border:2.5px solid var(--ink);border-radius:16px;background:#fff;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:36px;white-space:nowrap}
+#root .ir b{width:24px;height:24px;border-radius:50%;border:2.5px solid var(--ink);display:block;flex:none}
+#root .fl2{position:absolute;left:720px;width:500px;height:64px;border:2.5px solid var(--ink);border-radius:14px;background:#fffdf5;display:flex;align-items:center;gap:12px;padding:0 16px;font-size:34px;white-space:nowrap}
+#root .fl2 span{color:#6b6874;font-size:28px}
+#root .bb{position:absolute;left:1280px;top:310px;width:500px;font-size:34px;line-height:1.5;background:#fffdf5;border:2.5px dashed var(--ink);border-radius:16px;padding:14px 20px;height:480px}
+#root .vr{display:inline-block;background:#ffe08a;border-radius:8px;padding:0 8px;font-family:"JetBrains Mono",monospace;font-size:30px}
+</style>
+<div id="root" data-composition-id="s13" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="39" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:700px;width:520px;height:520px;background:#ffb3c6"></div>
+  <div class="head wob" id="s13-h"><span class="step">Station 4</span><span class="ttl">One-click Nudge · Build brief</span></div>
+  <div class="cd wob" id="s13-c1" style="left:110px;width:500px"><div class="hd" style="background:#aed8f2">Latest saved snapshot</div></div>
+  <div class="ir" id="s13-i1" style="top:330px"><b style="background:#f27b96"></b>High-risk closure</div>
+  <div class="ir" id="s13-i2" style="top:420px"><b style="background:#f27b96"></b>Overdue rate</div>
+  <div class="ir" id="s13-i3" style="top:510px"><b style="background:#47cf9f"></b>Return rate</div>
+  <div class="ir" id="s13-i4" style="top:600px"><b style="background:#cfcfd6"></b>Log filing</div>
+  <div class="abs wob" id="s13-fn" style="left:628px;top:420px"></div>
+  <div class="cd wob" id="s13-c2" style="left:710px;width:520px"><div class="hd" style="background:#ffe08f">Template settings</div></div>
+  <div class="fl2" id="s13-f0" style="top:330px;background:#ffe3ea">Ignore keywords<span>log ✕　filing ✕</span></div>
+  <div class="fl2" id="s13-f1" style="top:410px">Greeting<span>Hi dear,</span></div>
+  <div class="fl2" id="s13-f2" style="top:490px">Title<span class="vr">{MM}/{DD} Nudge</span></div>
+  <div class="fl2" id="s13-f3" style="top:570px">Closing<span>Close this week</span></div>
+  <div class="tag abs" id="s13-vm" style="left:740px;top:660px;font-size:34px;background:#ffe08f">{MM} = Month</div>
+  <div class="tag abs" id="s13-vd" style="left:970px;top:660px;font-size:34px;background:#aed8f2">{DD} = Date</div>
+  <div class="cd wob" id="s13-c3" style="left:1270px;width:550px"><div class="hd" style="background:#9fe0c9">Nudge brief</div></div>
+  <div class="bb" id="s13-bb" style="left:1290px;top:318px;width:510px;height:470px;border:0;background:transparent">Hi dear,<br><b>Oct 18 Nudge</b><br>① High-risk closure missed<br>② Overdue rate missed<br><span style="color:#6b6874;font-size:30px">(log filing: ignored)</span><br>Close this week</div>
+  <div class="abs wob" id="s13-d" style="left:1622px;top:809px"></div>
+  <div id="s13-sp"></div>
+  <div class="cap" id="s13-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s13-d",dino("dn",{w:207,h:199}));put("s13-fn",icon("funnel","#ffe08f",70));
+ document.getElementById("s13-sp").innerHTML=sparkle(1250,190,44)+sparkle(1850,240,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s13-c1,#s13-i1,#s13-i2,#s13-i3,#s13-i4,#s13-fn,#s13-c2,#s13-f0,#s13-f1,#s13-f2,#s13-f3,#s13-vm,#s13-vd,#s13-c3,#s13-bb",{opacity:0});
+ tl.fromTo("#s13-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s13-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("latest saved snapshot");
+ tl.fromTo("#s13-c1",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},a-.6);
+ tl.fromTo("#s13-i1,#s13-i2,#s13-i3,#s13-i4",{opacity:0,x:-20},{opacity:1,x:0,duration:.3,stagger:.18},a+.2);
+ var b=T("lost points");
+ pop(tl,"#s13-fn",b-.2,{s:.4});
+ tl.to("#s13-i1,#s13-i2",{backgroundColor:"#ffe3ea",duration:.3,stagger:.2},b);
+ tl.to("#s13-i3",{opacity:.35,duration:.3},b+.4);
+ var c=T("ignore keyword");
+ tl.fromTo("#s13-c2",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},c-.9);
+ tl.fromTo("#s13-f0",{opacity:0,x:-20},{opacity:1,x:0,duration:.35},c-.2);
+ tl.to("#s13-i4",{opacity:.3,x:30,duration:.4},c+.8);
+ var d=T("template settings");
+ tl.fromTo("#s13-f1,#s13-f2,#s13-f3",{opacity:0,x:-20},{opacity:1,x:0,duration:.3,stagger:.2},T("greeting")-.2);
+ pop(tl,"#s13-vm",T("MM")-.1,{s:.4});pop(tl,"#s13-vd",T("DD")-.1,{s:.4});
+ var e=T("DD")+.9;
+ tl.fromTo("#s13-c3",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},e-.3);
+ tl.fromTo("#s13-bb",{opacity:0},{opacity:1,duration:.6},e+.2);
+ dpoint(tl,"dn",e,1.2);
+ tl.fromTo("#s13-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},e+.4);
+ captions(tl,"s13-cap");
+ window.__timelines["s13"]=tl;
+})();
+</script>
+</template></body></html>

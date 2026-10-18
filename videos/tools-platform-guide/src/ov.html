@@ -1,0 +1,53 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .st{position:absolute;top:580px;width:300px;height:250px;background:#fff;border:3px solid var(--ink);border-radius:28px;box-shadow:var(--sh);display:flex;flex-direction:column;align-items:center;padding-top:20px}
+#root .st .nm{font-family:"ZCOOL KuaiLe",sans-serif;font-size:46px;margin-top:6px;white-space:nowrap}
+#root .st .nn{position:absolute;left:-14px;top:-20px;width:54px;height:54px;border-radius:50%;border:3px solid var(--ink);background:var(--yellow);font-family:"ZCOOL KuaiLe",sans-serif;font-size:32px;display:flex;align-items:center;justify-content:center}
+#root .rl{position:absolute;top:850px;width:300px;text-align:center;font-size:38px;white-space:nowrap}
+</style>
+<div id="root" data-composition-id="ov" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="3" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-140px;top:-120px;width:480px;height:480px;background:#d9c6ef"></div>
+  <div class="blob" style="left:1460px;top:-170px;width:520px;height:520px;background:#aed8f2"></div>
+  <div class="abs wob" id="ov-t" style="left:110px;top:70px;font-family:'ZCOOL KuaiLe',sans-serif;font-size:120px;line-height:1;white-space:nowrap">五站流水线</div>
+  <svg class="abs wob" style="left:110px;top:206px" width="780" height="36" viewBox="0 0 780 36"><path id="ov-ul" class="ln" pathLength="1" stroke-dasharray="1" style="stroke:#ffb3c6;stroke-width:12" d="M6 22 C150 4 300 34 460 16 S700 30 774 12"/></svg>
+  <div class="abs" id="ov-sub" style="left:118px;top:250px;font-size:58px;white-space:nowrap">从原始数据，一路走到月报</div>
+  <svg class="abs" style="left:100px;top:566px" width="1720" height="10"><path d="M0 5 H1720" stroke="#5b4636" stroke-width="5" stroke-dasharray="4 16" stroke-linecap="round"/></svg>
+  <div class="st wob" id="ov-c1" style="left:110px"><span class="nn">1</span><span id="ov-i1"></span><div class="nm">数据抓取</div></div>
+  <div class="st wob" id="ov-c2" style="left:460px"><span class="nn">2</span><span id="ov-i2"></span><div class="nm">数据导入</div></div>
+  <div class="st wob" id="ov-c3" style="left:810px"><span class="nn">3</span><span id="ov-i3"></span><div class="nm">报表看板</div></div>
+  <div class="st wob" id="ov-c4" style="left:1160px"><span class="nn">4</span><span id="ov-i4"></span><div class="nm">一键催办</div></div>
+  <div class="st wob" id="ov-c5" style="left:1510px"><span class="nn">5</span><span id="ov-i5"></span><div class="nm">月报页面</div></div>
+  <div class="rl" id="ov-r1" style="left:110px">脚本抓数据</div><div class="rl" id="ov-r2" style="left:460px">规则算指标</div><div class="rl" id="ov-r3" style="left:810px">打分入库</div><div class="rl" id="ov-r4" style="left:1160px">催办盯短板</div><div class="rl" id="ov-r5" style="left:1510px">月报来收尾</div>
+  <div class="abs wob" id="ov-d" style="left:125px;top:305px"></div>
+  <div id="ov-sp"></div>
+  <div class="cap" id="ov-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("ov-i1",icon("search","#aed8f2",96));put("ov-i2",icon("box","#ffe08f",96));put("ov-i3",icon("chart","#9fe0c9",96));put("ov-i4",icon("bell","#ffb3c6",96));put("ov-i5",icon("cal","#d9c6ef",96));
+ put("ov-d",dino("dn",{w:270,h:270}));
+ document.getElementById("ov-sp").innerHTML=sparkle(960,90,50)+sparkle(1220,220,44,"#ffb3c6")+sparkle(1750,430,52,"#9fe0c9");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#ov-c1,#ov-c2,#ov-c3,#ov-c4,#ov-c5,#ov-r1,#ov-r2,#ov-r3,#ov-r4,#ov-r5",{opacity:0});
+ tl.fromTo("#ov-t",{opacity:0,y:50,rotation:-2},{opacity:1,y:0,rotation:0,duration:.7,ease:"back.out(1.6)"},.3);
+ draw(tl,"#ov-ul",.9,.7);tl.fromTo("#ov-sub",{opacity:0},{opacity:1,duration:.6},1.2);
+ tl.fromTo("#ov-d",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.2);
+ dtail(tl,"dn",.6,12);
+ var names=["数据抓取","数据导入","报表看板","一键催办","月报页面"],roles=["脚本抓数据","规则算指标","看板打分入库","催办盯短板","月报来收尾"],xs=[110,460,810,1160,1510];
+ names.forEach(function(n,i){var t=T(n);
+   pop(tl,"#ov-c"+(i+1),t-.1,{s:.5,y:40,d:.5});
+   if(i>0){tl.to("#ov-d",{x:xs[i]-110,duration:.7,ease:"power2.inOut"},t-.7);dwalk(tl,"dn",t-.7,.7,2);}
+   pop(tl,"#ov-r"+(i+1),T(roles[i].replace("看板打分入库","看板打分入库"))-.05,{s:.6,d:.4});
+ });
+ tl.fromTo("#ov-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("月报来收尾"));
+ dcheer(tl,"dn",T("月报来收尾")+.2);bounce(tl,"ov-d",T("月报来收尾")+.4,3,16);
+ captions(tl,"ov-cap");
+ window.__timelines["ov"]=tl;
+})();
+</script>
+</template></body></html>

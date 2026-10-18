@@ -1,0 +1,166 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template><link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>#root{position:absolute;inset:0;overflow:hidden;color:#2d2a32;font-family:"Patrick Hand",cursive;--ink:#2d2a32;--paper:#fff7e6;--pink:#ff8fab;--yellow:#ffd166;--mint:#7bdcb5;--sky:#8ecae6;--lav:#cdb4db;--red:#ef476f;--green:#06d6a0;--orange:#ff9f68}
+#root *{box-sizing:border-box}
+.paper{position:absolute;inset:0;background:radial-gradient(circle at 1px 1px,rgba(45,42,50,.11) 2px,transparent 2.4px) 0 0/44px 44px,#fff7e6}
+.blob{position:absolute;border-radius:50%;opacity:.55}
+.head{position:absolute;left:100px;top:64px;display:flex;align-items:center;gap:26px}
+.step{font-family:"Fredoka",sans-serif;font-size:46px;background:var(--yellow);border:5px solid var(--ink);border-radius:60px 40px 56px 36px;padding:6px 30px 8px;box-shadow:6px 6px 0 var(--ink);transform:rotate(-3deg);white-space:nowrap}
+.ttl{font-family:"Fredoka",sans-serif;font-size:92px;letter-spacing:.04em;line-height:1;white-space:nowrap}
+.win{position:absolute;background:#fff;border:6px solid var(--ink);border-radius:26px;box-shadow:12px 12px 0 var(--ink);overflow:hidden}
+.wbar{height:62px;display:flex;align-items:center;gap:12px;padding:0 22px;border-bottom:6px solid var(--ink);background:var(--sky);font-family:"Patrick Hand",cursive;font-size:32px}
+.wbar i{width:20px;height:20px;border-radius:50%;border:4px solid var(--ink);display:block}
+.wbar i:nth-child(1){background:var(--pink)}.wbar i:nth-child(2){background:var(--yellow)}.wbar i:nth-child(3){background:var(--mint)}
+.wbar span{margin-left:10px;white-space:nowrap}
+.btn{position:absolute;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-family:"Fredoka",sans-serif;font-size:38px;border:5px solid var(--ink);border-radius:50px;padding:10px 34px 12px;box-shadow:6px 6px 0 var(--ink);background:var(--pink);white-space:nowrap}
+.tag{display:inline-block;font-family:"Patrick Hand",cursive;font-size:36px;border:4px solid var(--ink);border-radius:30px;padding:2px 22px 4px;background:var(--mint);white-space:nowrap}
+.sticky{position:absolute;font-family:"Patrick Hand",cursive;font-size:42px;line-height:1.25;background:var(--yellow);border:5px solid var(--ink);border-radius:8px 30px 10px 24px;padding:16px 26px 20px;box-shadow:7px 7px 0 var(--ink)}
+.bubble{position:absolute;font-family:"Patrick Hand",cursive;font-size:46px;line-height:1.2;background:#fff;border:5px solid var(--ink);border-radius:36px;padding:16px 30px 20px;box-shadow:6px 6px 0 var(--ink);white-space:nowrap}
+.bubble:after{content:"";position:absolute;left:46px;bottom:-26px;width:34px;height:34px;background:#fff;border-right:5px solid var(--ink);border-bottom:5px solid var(--ink);transform:rotate(45deg) skew(10deg,10deg)}
+.fig{position:absolute}
+.ln{fill:none;stroke:#2d2a32;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+.ol{stroke:#2d2a32;stroke-width:5;stroke-linejoin:round}
+.cap{position:absolute;left:0;right:0;bottom:48px;height:92px}
+.cap .c{position:absolute;left:50%;top:0;transform:translateX(-50%);white-space:nowrap;font-family:"Patrick Hand",cursive;font-size:56px;line-height:1;background:#fff;border:5px solid var(--ink);border-radius:50px;padding:12px 40px 16px;box-shadow:6px 6px 0 var(--ink);opacity:0}
+.mono{font-family:"JetBrains Mono",monospace}
+.dash{border:4px dashed var(--ink);border-radius:18px}
+.row{display:flex;align-items:center}
+.abs{position:absolute}
+
+.bdg{position:absolute;width:64px;height:64px;border-radius:50%;background:var(--red);color:#fff;border:5px solid var(--ink);font-family:"Fredoka",sans-serif;font-size:40px;display:flex;align-items:center;justify-content:center;z-index:35;box-shadow:4px 4px 0 var(--ink)}
+.hl{position:absolute;border:6px dashed var(--red);border-radius:22px;z-index:34;pointer-events:none}
+.lbl{position:absolute;z-index:36;font-family:"Patrick Hand",cursive;font-size:44px;line-height:1.15;background:#fff3c4;border:5px solid var(--ink);border-radius:14px 28px 14px 28px;padding:8px 22px 12px;box-shadow:6px 6px 0 var(--ink);white-space:nowrap}
+.addr{position:absolute;height:64px;border:5px solid var(--ink);border-radius:34px;background:#fff;display:flex;align-items:center;padding:0 26px;font-family:"JetBrains Mono",monospace;font-size:32px;white-space:nowrap;overflow:hidden}
+
+#root .wob{filter:url(#wobbg)}
+#root .stp{position:absolute;width:420px;height:150px;border:5px solid var(--ink);border-radius:24px;background:#fff;box-shadow:7px 7px 0 var(--ink);display:flex;align-items:center;gap:16px;padding:0 22px;font-size:44px;line-height:1.1;white-space:nowrap}
+#root .ar2{position:absolute;font-family:"Fredoka",sans-serif;font-size:64px}
+#root .rowtag{position:absolute;left:110px;font-family:"Fredoka",sans-serif;font-size:48px;border:5px solid var(--ink);border-radius:50px;padding:4px 28px 8px;white-space:nowrap;box-shadow:5px 5px 0 var(--ink)}
+</style>
+<div id="root" data-composition-id="bg" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="wobbg" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="17" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1440px;top:700px;width:560px;height:560px;background:#ffd166"></div>
+  <div class="blob" style="left:-150px;top:-120px;width:460px;height:460px;background:#8ecae6"></div>
+  <div class="head wob" id="bg-h"><span class="step">Background</span><span class="ttl">What it does</span></div>
+  <div class="sticky wob" id="bg-def" style="left:1330px;top:150px;width:520px;font-size:40px;transform:rotate(3deg);background:#8ecae6">RFC = Network Change Request<br><span style="font-size:34px">Every request comes with a “change plan” document</span></div>
+
+  <div class="rowtag" id="bg-t1" style="top:262px;background:#ffe0e8">Before</div>
+  <div class="stp wob" id="bg-a1" style="left:110px;top:340px"><span id="bg-ai1"></span>Open requests<br>one by one</div>
+  <div class="ar2" id="bg-aa1" style="left:548px;top:372px">→</div>
+  <div class="stp wob" id="bg-a2" style="left:620px;top:340px"><span id="bg-ai2"></span>Download<br>plan documents</div>
+  <div class="ar2" id="bg-aa2" style="left:1058px;top:372px">→</div>
+  <div class="stp wob" id="bg-a3" style="left:1130px;top:340px"><span id="bg-ai3"></span>Check against<br>the checklist</div>
+  <div class="sticky wob" id="bg-pain" style="left:1580px;top:330px;transform:rotate(-4deg);font-size:46px;background:#ffc9d6;padding:12px 20px 16px">Slow<br>and error-prone</div>
+
+  <div class="rowtag" id="bg-t2" style="top:540px;background:#d9fbec">Now</div>
+  <div class="stp wob" id="bg-b1" style="left:110px;top:618px;background:#fff8dc"><span id="bg-bi1"></span>Bulk download<br>plan documents</div>
+  <div class="ar2" id="bg-ba1" style="left:548px;top:650px">→</div>
+  <div class="stp wob" id="bg-b2" style="left:620px;top:618px;background:#fff8dc"><span id="bg-bi2"></span>AI does a<br>first pass</div>
+  <div class="ar2" id="bg-ba2" style="left:1058px;top:650px">→</div>
+  <div class="stp wob" id="bg-b3" style="left:1130px;top:618px;background:#fff8dc;gap:10px;padding:0 16px"><span class="tag" style="background:#9be7c7;font-size:34px;padding:0 14px">Pass</span><span class="tag" style="background:#ffc9d6;font-size:34px;padding:0 14px">Fail</span><span class="tag" style="background:#ffe9a8;font-size:34px;padding:0 14px">Review</span></div>
+  <div class="tag abs" id="bg-b3l" style="left:1140px;top:792px;background:#fff;font-size:40px">You only read the verdicts</div>
+
+  <div class="abs wob" id="bg-fig" style="left:1630px;top:560px"></div>
+  <div class="bubble" id="bg-bub" style="left:1600px;top:440px;font-size:46px">So much easier!</div>
+  <div id="bg-sp"></div>
+  <div class="cap" id="bg-cap"></div>
+</div>
+<script>
+function T(s,nth){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
+ s=String(s).replace(/\s+/g,"");var P="",MM=[];for(i=0;i<C.length;i++){if(!/\s/.test(C[i])){P+=C[i];MM.push(M[i]);}}
+ var p=-1,n=nth||0,from=0;while(n>=0){p=P.indexOf(s,from);if(p<0)return 0;from=p+1;n--;}
+ return Math.round((W[MM[p]].s+LEAD)*100)/100;}
+function figure(id,o){o=o||{};var body=o.body||"#ff8fab",hat=o.hat||"#ffd166";
+ return '<svg id="'+id+'" class="fig" viewBox="0 0 160 220" width="'+(o.w||240)+'" height="'+(o.h||330)+'" style="overflow:visible">'+
+ '<g id="'+id+'-legL"><path class="ln" d="M70 152 L64 196"/><ellipse cx="58" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
+ '<g id="'+id+'-legR"><path class="ln" d="M92 152 L98 196"/><ellipse cx="104" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
+ '<path class="ol" d="M54 92 Q80 82 106 92 L112 154 Q80 166 48 154 Z" fill="'+body+'"/>'+
+ '<g id="'+id+'-armL"><path class="ln" d="M58 104 Q40 124 38 146"/><circle class="ol" cx="37" cy="151" r="10" fill="#ffe3d0"/></g>'+
+ '<g id="'+id+'-armR"><path class="ln" d="M102 104 Q120 124 122 146"/><circle class="ol" cx="123" cy="151" r="10" fill="#ffe3d0"/></g>'+
+ '<g id="'+id+'-head"><circle class="ol" cx="80" cy="52" r="38" fill="#ffe9d6"/>'+
+ '<path class="ol" d="M44 44 Q80 -8 116 44 Q80 26 44 44 Z" fill="'+hat+'"/><circle class="ol" cx="80" cy="6" r="9" fill="'+hat+'"/>'+
+ '<circle cx="66" cy="58" r="5" fill="#2d2a32"/><circle cx="94" cy="58" r="5" fill="#2d2a32"/>'+
+ '<ellipse cx="55" cy="72" rx="9" ry="6" fill="#ff8fab" opacity=".7"/><ellipse cx="105" cy="72" rx="9" ry="6" fill="#ff8fab" opacity=".7"/>'+
+ '<path class="ln" style="stroke-width:5" d="M70 74 Q80 84 90 74"/></g></svg>';}
+function put(id,html){document.getElementById(id).innerHTML=html;}
+function wave(tl,id,t,n){var a=id+"-armR";tl.to("#"+a,{rotation:-150,svgOrigin:"102 104",duration:.35,ease:"power2.out"},t);
+ tl.to("#"+a,{rotation:-120,svgOrigin:"102 104",duration:.22,repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t+.35);
+ tl.to("#"+a,{rotation:0,svgOrigin:"102 104",duration:.4,ease:"power2.inOut"},t+.35+n*.44);}
+function bounce(tl,id,t,n,h){tl.to("#"+id,{y:-(h||14),duration:.28,repeat:n*2-1,yoyo:true,ease:"power1.inOut"},t);}
+function walk(tl,id,t,dur,n){tl.to("#"+id+"-legL",{rotation:18,svgOrigin:"70 152",duration:dur/(n*2),repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t);
+ tl.to("#"+id+"-legR",{rotation:-18,svgOrigin:"92 152",duration:dur/(n*2),repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t);}
+function typing(tl,id,t,dur){var n=Math.max(2,Math.round(dur/.16));
+ tl.to("#"+id+"-armL",{rotation:-38,svgOrigin:"58 104",duration:.3,ease:"power2.out"},t);
+ tl.to("#"+id+"-armR",{rotation:38,svgOrigin:"102 104",duration:.3,ease:"power2.out"},t);
+ tl.to("#"+id+"-armL",{rotation:-26,svgOrigin:"58 104",duration:.16,repeat:n,yoyo:true,ease:"none"},t+.3);
+ tl.to("#"+id+"-armR",{rotation:26,svgOrigin:"102 104",duration:.16,repeat:n,yoyo:true,ease:"none"},t+.38);}
+function point(tl,id,t,hold){var a=id+"-armR";tl.to("#"+a,{rotation:-100,svgOrigin:"102 104",duration:.35,ease:"back.out(1.6)"},t);
+ tl.to("#"+a,{rotation:0,svgOrigin:"102 104",duration:.4,ease:"power2.inOut"},t+.35+(hold||1));}
+function pop(tl,sel,t,o){o=o||{};tl.fromTo(sel,{opacity:0,scale:o.s||.6,y:o.y||0,x:o.x||0},{opacity:1,scale:1,y:0,x:0,duration:o.d||.45,ease:"back.out(1.7)",transformOrigin:o.origin||"50% 50%"},t);}
+function draw(tl,sel,t,d){tl.fromTo(sel,{strokeDashoffset:1},{strokeDashoffset:0,duration:d||.6,ease:"power2.out"},t);}
+function captions(tl,boxId){var box=document.getElementById(boxId);CAPS.forEach(function(c,i){var e=document.createElement("div");e.className="c";e.textContent=c.t;box.appendChild(e);
+ var s=c.s+LEAD,en=c.e+LEAD+0.05;tl.fromTo(e,{opacity:0,y:14},{opacity:1,y:0,duration:.2,ease:"power2.out"},s);
+ tl.to(e,{opacity:0,duration:.15},Math.max(s+.25,en-.12));});}
+function icon(n,c,s){c=c||"#ffd166";s=s||100;var b='<svg viewBox="0 0 100 100" width="'+s+'" height="'+s+'" style="overflow:visible">',e='</svg>';
+ var m={
+ box:'<path class="ol" d="M12 34 L50 16 L88 34 L88 72 L50 90 L12 72 Z" fill="'+c+'"/><path class="ln" d="M12 34 L50 52 L88 34 M50 52 V90"/>',
+ zip:'<rect class="ol" x="20" y="10" width="60" height="80" rx="10" fill="'+c+'"/><path class="ln" stroke-dasharray="5 9" d="M50 12 V58"/><rect class="ol" x="38" y="58" width="24" height="20" rx="5" fill="#fff"/>',
+ doc:'<path class="ol" d="M22 8 H62 L80 26 V92 H22 Z" fill="'+c+'"/><path class="ln" d="M62 8 V26 H80 M34 46 H68 M34 60 H68 M34 74 H56"/>',
+ gear:'<g class="ln">'+[0,45,90,135,180,225,270,315].map(function(a){return '<path d="M50 8 V22" transform="rotate('+a+' 50 50)"/>';}).join("")+'</g><circle class="ol" cx="50" cy="50" r="30" fill="'+c+'"/><circle class="ol" cx="50" cy="50" r="11" fill="#fff"/>',
+ cursor:'<path class="ol" d="M28 12 L28 80 L45 64 L58 90 L70 84 L57 60 L80 58 Z" fill="'+c+'"/>',
+ shield:'<path class="ol" d="M50 8 L86 22 V50 C86 72 70 86 50 94 C30 86 14 72 14 50 V22 Z" fill="'+c+'"/><path class="ln" d="M32 52 L45 65 L70 38"/>',
+ camera:'<rect class="ol" x="10" y="28" width="80" height="56" rx="12" fill="'+c+'"/><path class="ol" d="M32 28 L38 16 H62 L68 28" fill="'+c+'"/><circle class="ol" cx="50" cy="56" r="17" fill="#fff"/><circle cx="50" cy="56" r="7" fill="#2d2a32"/>',
+ lock:'<path class="ln" d="M30 44 V32 C30 14 70 14 70 32 V44"/><rect class="ol" x="20" y="42" width="60" height="46" rx="10" fill="'+c+'"/><circle cx="50" cy="62" r="6" fill="#2d2a32"/><path class="ln" d="M50 66 V76"/>',
+ check:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:9" d="M28 52 L44 68 L74 34"/>',
+ cross:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:9" d="M33 33 L67 67 M67 33 L33 67"/>',
+ ask:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:8" d="M36 38 C36 22 66 22 64 40 C62 52 50 52 50 64"/><circle cx="50" cy="78" r="5" fill="#2d2a32"/>',
+ search:'<circle class="ol" cx="42" cy="42" r="26" fill="'+c+'"/><path class="ln" style="stroke-width:10" d="M62 62 L88 88"/>',
+ folder:'<path class="ol" d="M8 24 H38 L46 34 H92 V82 H8 Z" fill="'+c+'"/>',
+ puzzle:'<path class="ol" d="M14 30 H40 C34 14 62 14 56 30 H82 V50 C98 44 98 72 82 66 V88 H14 Z" fill="'+c+'"/>',
+ star:'<path class="ol" d="M50 8 L61 38 L92 40 L68 60 L76 91 L50 74 L24 91 L32 60 L8 40 L39 38 Z" fill="'+c+'"/>',
+ table:'<rect class="ol" x="10" y="18" width="80" height="64" rx="8" fill="#fff"/><path class="ln" style="stroke-width:5" d="M10 38 H90 M10 58 H90 M38 18 V82 M64 18 V82"/><rect x="12" y="20" width="76" height="16" rx="5" fill="'+c+'" opacity=".9"/>'
+ };return b+m[n]+e;}
+function sparkle(x,y,s,c){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" viewBox="0 0 40 40" width="'+s+'" height="'+s+'"><path class="ol" style="stroke-width:3" d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="'+(c||"#ffd166")+'"/></svg>';}
+function cur(tl,sel,x,y,t,d){tl.to(sel,{x:x,y:y,duration:d||.7,ease:"power2.inOut"},t);}
+function click(tl,sel,t){tl.to(sel,{scale:.86,duration:.1,yoyo:true,repeat:1,transformOrigin:"50% 50%",ease:"power1.inOut"},t);}
+function typeText(tl,id,text,t,dur){var el=document.getElementById(id);el.innerHTML=text.split("").map(function(c){return '<span style="opacity:0">'+(c===" "?"&nbsp;":c)+'</span>';}).join("");
+ tl.to(el.children,{opacity:1,duration:.01,stagger:dur/Math.max(1,text.length)},t);}
+function toggle(tl,id,t){tl.to("#"+id,{backgroundColor:"#06d6a0",duration:.2},t);tl.to("#"+id+" i",{x:34,duration:.25,ease:"back.out(2)"},t);}
+function arrow(x,y,w,h,id){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="overflow:visible"><path id="'+id+'" class="ln" pathLength="1" stroke-dasharray="1" d="M6 '+(h/2)+' C'+(w*.3)+' '+(h*.1)+' '+(w*.6)+' '+(h*.9)+' '+(w-26)+' '+(h/2)+'"/><path id="'+id+'h" class="ln" d="M'+(w-40)+' '+(h/2-16)+' L'+(w-8)+' '+(h/2)+' L'+(w-40)+' '+(h/2+16)+'" opacity="0"/></svg>';}
+
+var W=[{"t": "First", "s": 0.1, "e": 0.63}, {"t": "the", "s": 0.76, "e": 0.84}, {"t": "background", "s": 0.85, "e": 1.5}, {"t": "An", "s": 1.85, "e": 2.1}, {"t": "RFC", "s": 2.11, "e": 2.72}, {"t": "is", "s": 2.73, "e": 2.88}, {"t": "a", "s": 2.89, "e": 2.94}, {"t": "network", "s": 2.95, "e": 3.35}, {"t": "change", "s": 3.36, "e": 3.68}, {"t": "request", "s": 3.69, "e": 4.24}, {"t": "and", "s": 4.48, "e": 4.65}, {"t": "every", "s": 4.81, "e": 5.05}, {"t": "request", "s": 5.06, "e": 5.61}, {"t": "comes", "s": 5.62, "e": 5.94}, {"t": "with", "s": 5.95, "e": 6.08}, {"t": "a", "s": 6.09, "e": 6.15}, {"t": "change", "s": 6.17, "e": 6.6}, {"t": "plan", "s": 6.62, "e": 6.88}, {"t": "document", "s": 6.89, "e": 7.45}, {"t": "Auditors", "s": 7.8, "e": 8.29}, {"t": "have", "s": 8.3, "e": 8.47}, {"t": "to", "s": 8.48, "e": 8.59}, {"t": "open", "s": 8.61, "e": 8.82}, {"t": "the", "s": 8.84, "e": 8.91}, {"t": "requests", "s": 8.92, "e": 9.39}, {"t": "one", "s": 9.41, "e": 9.63}, {"t": "by", "s": 9.64, "e": 9.8}, {"t": "one", "s": 9.81, "e": 10.18}, {"t": "download", "s": 10.52, "e": 10.95}, {"t": "each", "s": 10.97, "e": 11.19}, {"t": "plan", "s": 11.2, "e": 11.66}, {"t": "and", "s": 11.97, "e": 12.17}, {"t": "check", "s": 12.2, "e": 12.39}, {"t": "it", "s": 12.4, "e": 12.51}, {"t": "line", "s": 12.53, "e": 12.8}, {"t": "by", "s": 12.82, "e": 12.96}, {"t": "line", "s": 12.97, "e": 13.36}, {"t": "against", "s": 13.38, "e": 13.75}, {"t": "a", "s": 13.76, "e": 13.8}, {"t": "checklist", "s": 13.81, "e": 14.48}, {"t": "With", "s": 14.83, "e": 15.06}, {"t": "lots", "s": 15.07, "e": 15.41}, {"t": "of", "s": 15.43, "e": 15.51}, {"t": "requests", "s": 15.52, "e": 16.11}, {"t": "it", "s": 16.24, "e": 16.32}, {"t": "is", "s": 16.34, "e": 16.46}, {"t": "slow", "s": 16.47, "e": 17.13}, {"t": "and", "s": 17.14, "e": 17.39}, {"t": "things", "s": 17.4, "e": 17.72}, {"t": "get", "s": 17.73, "e": 17.88}, {"t": "missed", "s": 17.89, "e": 18.38}, {"t": "This", "s": 18.73, "e": 18.96}, {"t": "little", "s": 18.97, "e": 19.24}, {"t": "tool", "s": 19.25, "e": 19.53}, {"t": "lives", "s": 19.54, "e": 19.76}, {"t": "in", "s": 19.77, "e": 19.83}, {"t": "your", "s": 19.84, "e": 19.94}, {"t": "browser", "s": 19.95, "e": 20.43}, {"t": "It", "s": 20.78, "e": 20.97}, {"t": "downloads", "s": 20.98, "e": 21.53}, {"t": "plans", "s": 21.54, "e": 21.87}, {"t": "in", "s": 21.88, "e": 22.0}, {"t": "bulk", "s": 22.02, "e": 22.36}, {"t": "lets", "s": 22.62, "e": 22.82}, {"t": "AI", "s": 22.84, "e": 23.13}, {"t": "do", "s": 23.14, "e": 23.33}, {"t": "a", "s": 23.34, "e": 23.42}, {"t": "first", "s": 23.44, "e": 23.81}, {"t": "pass", "s": 23.82, "e": 24.2}, {"t": "and", "s": 24.24, "e": 24.37}, {"t": "you", "s": 24.38, "e": 24.49}, {"t": "only", "s": 24.55, "e": 24.92}, {"t": "read", "s": 24.93, "e": 25.16}, {"t": "the", "s": 25.17, "e": 25.24}, {"t": "verdicts", "s": 25.26, "e": 25.86}];var CAPS=[{"t": "First, the background", "s": 0.1, "e": 1.5}, {"t": "An RFC is a network change request", "s": 1.85, "e": 4.24}, {"t": "and every request comes with a", "s": 4.48, "e": 6.15}, {"t": "change plan document", "s": 6.17, "e": 7.45}, {"t": "Auditors have to open the requests", "s": 7.8, "e": 9.39}, {"t": "one by one, download each plan", "s": 9.41, "e": 11.66}, {"t": "and check it line by line against a", "s": 11.97, "e": 13.8}, {"t": "checklist. With lots of requests", "s": 13.81, "e": 16.11}, {"t": "it is slow and things get missed", "s": 16.24, "e": 18.38}, {"t": "This little tool lives in your browser", "s": 18.73, "e": 20.43}, {"t": "It downloads plans in bulk", "s": 20.78, "e": 22.36}, {"t": "lets AI do a first pass", "s": 22.62, "e": 24.2}, {"t": "and you only read the verdicts", "s": 24.24, "e": 25.86}];var LEAD=0.4;
+(function(){
+ put("bg-ai1",icon("doc","#8ecae6",72));put("bg-ai2",icon("zip","#ffd166",72));put("bg-ai3",icon("search","#ff8fab",72));
+ put("bg-bi1",icon("zip","#ffd166",72));put("bg-bi2",icon("star","#cdb4db",72));
+ put("bg-fig",figure("fb0",{body:"#8ecae6",hat:"#ff8fab",w:250,h:340}));
+ document.getElementById("bg-sp").innerHTML=sparkle(1500,640,44)+sparkle(1830,520,40,"#ff8fab")+sparkle(1280,170,40,"#ffd166");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#bg-def,#bg-t1,#bg-a1,#bg-aa1,#bg-a2,#bg-aa2,#bg-a3,#bg-pain,#bg-t2,#bg-b1,#bg-ba1,#bg-b2,#bg-ba2,#bg-b3,#bg-b3l,#bg-bub",{opacity:0});
+ tl.fromTo("#bg-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#bg-fig",{opacity:0,y:140},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);
+ pop(tl,"#bg-def",T("network change request")-.2,{s:.4,y:-20});
+ pop(tl,"#bg-t1",T("one by one")-.5,{s:.5});
+ pop(tl,"#bg-a1",T("one by one")-.1,{s:.5,y:30});
+ tl.fromTo("#bg-aa1",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},T("download each plan")-.4);
+ pop(tl,"#bg-a2",T("download each plan")-.1,{s:.5,y:30});
+ tl.fromTo("#bg-aa2",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},T("line by line")-.5);
+ pop(tl,"#bg-a3",T("line by line")-.2,{s:.5,y:30});
+ pop(tl,"#bg-pain",T("it is slow")-.1,{s:.4,d:.5});tl.to("#bg-pain",{rotation:-1,duration:.4,repeat:3,yoyo:true,ease:"sine.inOut"},T("it is slow")+.5);
+ tl.to("#bg-a1,#bg-a2,#bg-a3,#bg-aa1,#bg-aa2,#bg-t1,#bg-pain",{opacity:.35,duration:.5},T("This little tool")-.1);
+ pop(tl,"#bg-t2",T("This little tool")+.1,{s:.5});
+ pop(tl,"#bg-b1",T("downloads plans in bulk")-.1,{s:.5,y:30});
+ tl.fromTo("#bg-ba1",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},T("downloads plans in bulk")+.5);
+ pop(tl,"#bg-b2",T("AI do a first pass")-.1,{s:.5,y:30});
+ tl.fromTo("#bg-ba2",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},T("you only")-.8);
+ pop(tl,"#bg-b3",T("you only")-.4,{s:.5,y:30});
+ pop(tl,"#bg-b3l",T("read the verdicts")-.1,{s:.5});
+ pop(tl,"#bg-bub",T("read the verdicts")+.3,{s:.4});
+ tl.fromTo("#bg-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.25,ease:"back.out(2)",transformOrigin:"50% 50%"},T("read the verdicts"));
+ tl.to("#fb0-armR",{rotation:-160,svgOrigin:"102 104",duration:.35,ease:"back.out(2)"},T("read the verdicts")+.2);tl.to("#fb0-armL",{rotation:160,svgOrigin:"58 104",duration:.35,ease:"back.out(2)"},T("read the verdicts")+.2);
+ bounce(tl,"bg-fig",T("read the verdicts")+.4,3,16);
+ captions(tl,"bg-cap");
+ window.__timelines["bg"]=tl;
+})();
+</script>
+</template></body></html>

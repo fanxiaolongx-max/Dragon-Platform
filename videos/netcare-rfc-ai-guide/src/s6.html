@@ -10,18 +10,18 @@
   <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="21" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
   <div class="paper"></div>
   <div class="blob" style="left:-140px;top:-120px;width:480px;height:480px;background:#ffd166"></div>
-  <div class="head wob" id="s6-h"><span class="step">功能 2</span><span class="ttl">AI 审计 · 三态结论</span></div>
-  <div class="sticky wob" id="s6-st" style="left:110px;top:230px;width:430px;transform:rotate(-3deg)">章节规则<br><span style="font-size:36px">3.5 回退命令是否具体、可执行？</span></div>
+  <div class="head wob" id="s6-h"><span class="step">功能 2</span><span class="ttl">AI 审计 · 三种结论</span></div>
+  <div class="sticky wob" id="s6-st" style="left:110px;top:230px;width:430px;transform:rotate(-3deg)">你写的检查要求<br><span style="font-size:36px">3.5 回退办法写清楚了吗？能照着做吗？</span></div>
   <div class="abs" id="s6-ar1"></div>
   <div class="abs wob" id="s6-bot" style="left:640px;top:250px"></div>
   <div class="bubble" id="s6-bb" style="left:610px;top:140px;font-size:40px;padding:8px 22px 12px">逐条检查中…</div>
-  <div class="stamp wob" id="s6-s1" style="left:950px;top:230px;background:#d9fbec"><span id="s6-i1"></span><div class="tt" style="color:#059669">通过</div><div class="ds">PASS</div></div>
-  <div class="stamp wob" id="s6-s2" style="left:1245px;top:230px;background:#ffe0e8"><span id="s6-i2"></span><div class="tt" style="color:#ef476f">不通过</div><div class="ds">FAIL</div></div>
-  <div class="stamp wob" id="s6-s3" style="left:1540px;top:230px;background:#fff3c4"><span id="s6-i3"></span><div class="tt" style="color:#d97706">需复核</div><div class="ds">NEEDS_REVIEW</div></div>
-  <div class="win wob" id="s6-xl" style="left:960px;top:610px;width:960px;height:250px;border-right:none;border-radius:26px 0 0 26px"><div class="wbar" style="background:var(--mint)"><i></i><i></i><i></i><span>审计结果.xlsx</span></div></div>
+  <div class="stamp wob" id="s6-s1" style="left:950px;top:230px;background:#d9fbec"><span id="s6-i1"></span><div class="tt" style="color:#059669">通过</div><div class="ds">没问题</div></div>
+  <div class="stamp wob" id="s6-s2" style="left:1245px;top:230px;background:#ffe0e8"><span id="s6-i2"></span><div class="tt" style="color:#ef476f">不通过</div><div class="ds">要修改</div></div>
+  <div class="stamp wob" id="s6-s3" style="left:1540px;top:230px;background:#fff3c4"><span id="s6-i3"></span><div class="tt" style="color:#d97706">需人工复核</div><div class="ds">交给人看</div></div>
+  <div class="win wob" id="s6-xl" style="left:960px;top:610px;width:960px;height:250px;border-right:none;border-radius:26px 0 0 26px"><div class="wbar" style="background:var(--mint)"><i></i><i></i><i></i><span>审计结果.xlsx（Excel 表格）</span></div></div>
   <div class="abs mono" id="s6-tb" style="left:990px;top:690px;font-size:26px;line-height:1.7;white-space:pre">方案　　　章节　　审计点　　　结论　　原因
-RFC-0087　 3.3　　确认查询　　<b style="color:#059669">PASS</b>　　—
-RFC-0087　 3.5　　回退命令　　<b style="color:#ef476f">FAIL</b>　　缺少回退</div>
+RFC-0087　 3.3　　确认查询　　<b style="color:#059669">通过</b>　　—
+RFC-0087　 3.5　　回退命令　　<b style="color:#ef476f">不通过</b>　　缺少回退</div>
   <div class="abs wob" id="s6-xi" style="left:760px;top:640px"></div>
   <div class="abs wob" id="s6-fig" style="left:190px;top:560px"></div>
   <div id="s6-sp"></div>
@@ -40,15 +40,13 @@ RFC-0087　 3.5　　回退命令　　<b style="color:#ef476f">FAIL</b>　　�
  gsap.set("#s6-st,#s6-ar1,#s6-bot,#s6-bb,#s6-s1,#s6-s2,#s6-s3,#s6-xl,#s6-tb,#s6-xi",{opacity:0});
  tl.fromTo("#s6-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
  tl.fromTo("#s6-fig",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);
- var a=T("模型");
  pop(tl,"#s6-bot",.9,{s:.4,y:40});
  tl.to("#s6-bot",{y:-8,duration:.5,repeat:12,yoyo:true,ease:"sine.inOut"},1.4);
- var b=T("章节规则")||T("章");
- tl.fromTo("#s6-st",{opacity:0,x:-60,rotation:-8},{opacity:1,x:0,rotation:-3,duration:.55,ease:"back.out(1.6)"},T("你写的")-.1);
- tl.set("#s6-ar1",{opacity:1},T("你写的")+.3);draw(tl,"#s6-a1",T("你写的")+.3,.5);tl.to("#s6-a1h",{opacity:1,duration:.1},T("你写的")+.8);
+ tl.fromTo("#s6-st",{opacity:0,x:-60,rotation:-8},{opacity:1,x:0,rotation:-3,duration:.55,ease:"back.out(1.6)"},T("你写好的")-.1);
+ tl.set("#s6-ar1",{opacity:1},T("你写好的")+.3);draw(tl,"#s6-a1",T("你写好的")+.3,.5);tl.to("#s6-a1h",{opacity:1,duration:.1},T("你写好的")+.8);
  pop(tl,"#s6-bb",T("逐条")-.1,{s:.4});
  tl.to("#s6-e1,#s6-e2",{x:10,duration:.35,repeat:5,yoyo:true,ease:"sine.inOut"},T("逐条"));
- tl.to("#s6-bb",{opacity:0,duration:.3},T("检查")+.8);
+ tl.to("#s6-bb",{opacity:0,duration:.3},T("检查一遍")+.8);
  pop(tl,"#s6-s1",T("通过")-.1,{s:.3,y:-40,d:.5});
  pop(tl,"#s6-s2",T("不通过")-.1,{s:.3,y:-40,d:.5});
  pop(tl,"#s6-s3",T("人工")-.1,{s:.3,y:-40,d:.5});

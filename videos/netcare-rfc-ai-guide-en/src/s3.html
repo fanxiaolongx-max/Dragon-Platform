@@ -1,0 +1,87 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .wob{filter:url(#WOBID)}
+#root .cursor{position:absolute;left:0;top:0;width:74px;height:74px;z-index:40}
+#root .bt{position:absolute;height:64px;border:4px solid var(--ink);border-radius:14px;background:#fff;font-size:34px;display:flex;align-items:center;padding:0 22px;white-space:nowrap}
+</style>
+<div id="root" data-composition-id="s3" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="8" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-160px;top:640px;width:520px;height:520px;background:#7bdcb5"></div>
+  <div class="head wob" id="s3-h"><span class="step">Step 2</span><span class="ttl">Add to browser</span></div>
+  <div class="abs wob" id="s3-zip" style="left:130px;top:300px"></div>
+  <div class="abs wob" id="s3-fol" style="left:130px;top:300px;z-index:15"></div>
+  <div class="tag abs" id="s3-fl" style="left:100px;top:540px;background:#ffd166;font-size:32px;padding:2px 12px 4px">Unzip→folder</div>
+  <div class="tag abs mono" id="s3-mf" style="left:130px;top:610px;background:#fff;font-size:28px">manifest.json</div>
+
+  <div class="win wob" id="s3-win" style="left:440px;top:220px;width:1140px;height:680px"><div class="wbar" style="height:70px;background:#dfe9f3;gap:10px"><i></i><i></i><i></i><span style="font-size:30px;background:#fff;border:4px solid var(--ink);border-radius:14px 14px 0 0;padding:2px 20px 4px;margin-left:12px">Extensions</span></div></div>
+  <div class="addr" id="s3-ad" style="left:470px;top:304px;width:800px"><span id="s3-adt"></span></div>
+  <div class="bdg" id="s3-b1" style="left:1240px;top:290px">1</div>
+  <div class="lbl" id="s3-l1" style="left:1290px;top:236px;font-size:38px">Type this in the address bar</div>
+  <div class="tag abs mono" id="s3-edge" style="left:480px;top:380px;background:#cdb4db;font-size:28px">Edge users: edge://extensions</div>
+
+  <div class="abs" id="s3-ph" style="left:480px;top:450px;font-family:'Fredoka',sans-serif;font-size:46px">Extensions</div>
+  <div class="abs row" id="s3-dev" style="left:1190px;top:442px;gap:14px;font-size:38px;white-space:nowrap">Developer mode<span class="tg2" id="s3-sw" style="position:relative;width:96px;height:48px;border:4px solid var(--ink);border-radius:30px;background:#cfcfd6;display:block"><i style="position:absolute;left:4px;top:4px;width:32px;height:32px;border-radius:50%;background:#fff;border:4px solid var(--ink);display:block"></i></span></div>
+  <div class="bdg" id="s3-b2" style="left:1120px;top:432px">2</div>
+  <div class="lbl" id="s3-l2" style="left:1130px;top:370px;font-size:38px;opacity:0">Top right: turn it on</div>
+
+  <div class="bt" id="s3-bt1" style="left:480px;top:540px;width:396px">Load unpacked</div>
+  <div class="bt" id="s3-bt2" style="left:900px;top:540px">Pack extension</div>
+  <div class="bt" id="s3-bt3" style="left:1170px;top:540px">Update</div>
+  <div class="bdg" id="s3-b3" style="left:446px;top:526px">3</div>
+  <div class="hl" id="s3-hl3" style="left:466px;top:526px;width:424px;height:92px"></div>
+  <div class="lbl" id="s3-l3" style="left:560px;top:628px;font-size:38px">Click it, then pick the folder</div>
+  <div class="abs row" id="s3-ext" style="left:480px;top:730px;width:1050px;height:96px;border:4px solid var(--ink);border-radius:18px;background:#7bdcb5;font-size:40px;padding:0 24px;gap:16px;white-space:nowrap"><span id="s3-ei"></span>NetCare RFC Plans & AI Audit<span style="margin-left:auto;font-size:36px">Enabled ✓</span></div>
+  <div class="cursor wob" id="s3-cur"></div>
+  <div class="abs wob" id="s3-fig" style="left:1640px;top:560px"></div>
+  <div class="bubble" id="s3-bub" style="left:1610px;top:440px;font-size:50px">All set!</div>
+  <div id="s3-sp"></div>
+  <div class="cap" id="s3-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s3-zip",icon("zip","#ffd166",200));put("s3-fol",icon("folder","#ffd166",200));put("s3-cur",icon("cursor","#ffffff",74));put("s3-ei",icon("puzzle","#ffd166",56));
+ put("s3-fig",figure("f3",{body:"#cdb4db",hat:"#06d6a0",w:240,h:330}));
+ document.getElementById("s3-sp").innerHTML=sparkle(1600,300,48)+sparkle(1830,420,40,"#ff8fab")+sparkle(1380,880,50,"#8ecae6");
+ var tl=gsap.timeline({paused:true});
+ tl.fromTo("#s3-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s3-fig",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.6);
+ gsap.set("#s3-fol,#s3-fl,#s3-mf,#s3-win,#s3-ad,#s3-b1,#s3-l1,#s3-edge,#s3-ph,#s3-dev,#s3-b2,#s3-l2,#s3-bt1,#s3-bt2,#s3-bt3,#s3-b3,#s3-hl3,#s3-l3,#s3-ext,#s3-bub,#s3-cur",{opacity:0});
+ pop(tl,"#s3-zip",1.0,{s:.3,y:40});
+ var tu=T("unzip");
+ tl.to("#s3-zip",{opacity:0,scale:.3,duration:.3},tu);pop(tl,"#s3-fol",tu+.15,{s:.3});pop(tl,"#s3-fl",tu+.3,{s:.5});pop(tl,"#s3-mf",tu+.6,{s:.5});
+ var tw=T("address bar");
+ tl.fromTo("#s3-win",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},tw-.9);
+ tl.fromTo("#s3-ad",{opacity:0},{opacity:1,duration:.4},tw-.5);
+ pop(tl,"#s3-b1",tw-.3,{s:.3});pop(tl,"#s3-l1",tw-.2,{s:.5});
+ typeText(tl,"s3-adt","chrome://extensions",T("chrome"),1.3);
+ pop(tl,"#s3-edge",T("Edge")-.1,{s:.5});
+ var te=T("Enter");
+ tl.fromTo("#s3-ph,#s3-dev,#s3-bt1,#s3-bt2,#s3-bt3",{opacity:0,y:20},{opacity:1,y:0,duration:.4,stagger:.08},te+.1);
+ tl.to("#s3-l1,#s3-b1",{opacity:0,duration:.3},te+.8);
+ var td=T("Developer mode");
+ pop(tl,"#s3-b2",td-.9,{s:.3});pop(tl,"#s3-l2",td-.8,{s:.5});
+ tl.set("#s3-cur",{x:700,y:820});tl.fromTo("#s3-cur",{opacity:0},{opacity:1,duration:.3},td-.9);
+ cur(tl,"#s3-cur",1300,490,td-.8,.7);click(tl,"#s3-cur",td+.2);toggle(tl,"s3-sw",td+.25);
+ tl.to("#s3-l2,#s3-b2",{opacity:0,duration:.3},td+1.2);
+ var tl2=T("Load unpacked");
+ pop(tl,"#s3-b3",tl2-.8,{s:.3});tl.fromTo("#s3-hl3",{opacity:0},{opacity:1,duration:.3},tl2-.7);pop(tl,"#s3-l3",tl2-.6,{s:.5});
+ cur(tl,"#s3-cur",680,590,tl2-.7,.7);click(tl,"#s3-cur",tl2+.5);tl.to("#s3-bt1",{backgroundColor:"#ffd166",duration:.2},tl2+.5);
+ var ts=T("choose the folder");
+ tl.to("#s3-fol",{x:430,y:380,scale:.5,duration:.8,ease:"power2.inOut"},ts);
+ var tz=T("you are done");
+ tl.to("#s3-fol,#s3-hl3,#s3-b3,#s3-l3",{opacity:0,duration:.25},tz-.1);
+ tl.fromTo("#s3-ext",{opacity:0,y:30,scale:.9},{opacity:1,y:0,scale:1,duration:.5,ease:"back.out(1.8)"},tz);
+ tl.to("#s3-cur",{opacity:0,duration:.3},tz);
+ pop(tl,"#s3-bub",tz+.3,{s:.4});
+ tl.fromTo("#s3-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.2,ease:"back.out(2)",transformOrigin:"50% 50%"},tz+.1);
+ tl.to("#f3-armR",{rotation:-160,svgOrigin:"102 104",duration:.35,ease:"back.out(2)"},tz+.2);tl.to("#f3-armL",{rotation:160,svgOrigin:"58 104",duration:.35,ease:"back.out(2)"},tz+.2);
+ bounce(tl,"s3-fig",tz+.4,3,18);
+ captions(tl,"s3-cap");
+ window.__timelines["s3"]=tl;
+})();
+</script>
+</template></body></html>

@@ -8,7 +8,7 @@
     'use strict';
     const STORE_KEY = 'tools.home.promoVideos.dismissed';
     const STORE_VALUE = 'v2';
-    const VER = '20261018-03';
+    const VER = '20261018-05';
     const VIDEOS = {
         rfc: {
             mini: '/assets/promotions/netcare-rfc-ai-guide.mp4?v=' + VER,
@@ -21,6 +21,13 @@
             poster: '/assets/promotions/platform-guide-poster.jpg?v=' + VER
         }
     };
+    // 英文界面使用英文配音/字幕版本（文件名加 -en）
+    const EN_FILES = {
+        rfc: { mini: 'netcare-rfc-ai-guide-en.mp4', hd: 'netcare-rfc-ai-guide-en-hd.mp4', poster: 'netcare-rfc-ai-guide-en-poster.jpg' },
+        guide: { mini: 'platform-guide-en.mp4', hd: 'platform-guide-en-hd.mp4', poster: 'platform-guide-en-poster.jpg' }
+    };
+    const isEnglish = () => { try { return /^en/i.test((window.ToolsI18n && window.ToolsI18n.getLanguage && window.ToolsI18n.getLanguage()) || document.documentElement.lang || ''); } catch (_) { return false; } };
+    const media = (key, kind) => isEnglish() ? '/assets/promotions/' + EN_FILES[key][kind] + '?v=' + VER : VIDEOS[key][kind];
     const ORDER = ['rfc', 'guide'];
     const DEFAULT_CURRENT = 'rfc';
     const i18n = window.ToolsI18n;
@@ -59,7 +66,7 @@
         if (document.getElementById('nrvStack')) return;
         const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const stack = document.createElement('div');
-        stack.className = 'nrv-stack'; stack.id = 'nrvStack';
+        stack.className = 'nrv-stack is-intro'; stack.id = 'nrvStack';
         stack.innerHTML = `
             <div class="nrv-float" id="nrvFloat" hidden>
                 <video muted playsinline preload="auto"></video>
@@ -144,9 +151,21 @@
                 mini.play().catch(() => { /* 仍被拦截则停在封面 */ });
             });
         }
+        // 首次进入：上方停留 3 秒，下移到原位；9 秒后自动收起。
+        let settleTimer = setTimeout(() => stack.classList.remove('is-intro'), 3000);
+        let tuckTimer = setTimeout(() => {
+            if (!dlg.open && ask.hidden && !stack.matches(':hover') && !stack.contains(document.activeElement)) tuck();
+        }, 9000);
+        function cancelIntro() {
+            clearTimeout(settleTimer); clearTimeout(tuckTimer);
+            stack.classList.remove('is-intro');
+        }
+        stack.addEventListener('pointerdown', cancelIntro);
+        stack.addEventListener('focusin', cancelIntro);
         // 抽屉：收起到右侧边缘标签 / 从标签抽出
         function tuck() {
             if (tucked) return;
+            cancelIntro();
             tucked = true;
             resumeOnUntuck = !!current && !mini.paused && !ended;
             try { mini.pause(); } catch (_) { /* noop */ }
@@ -201,8 +220,8 @@
             current = key;
             ended = false; replayBtn.hidden = true; ask.hidden = true; bar.style.width = '0%';
             if (!key) { try { mini.pause(); } catch (_) { /* noop */ } mini.removeAttribute('src'); mini.load(); float.hidden = true; translate(); return; }
-            mini.poster = VIDEOS[key].poster;
-            mini.src = VIDEOS[key].mini;
+            mini.poster = media(key, 'poster');
+            mini.src = media(key, 'mini');
             float.hidden = false;
             float.classList.remove('nrv-swap'); void float.offsetWidth; float.classList.add('nrv-swap');
             translate();
@@ -213,8 +232,8 @@
             if (dlg.open || !key) return;
             bigKey = key;
             try { mini.pause(); } catch (_) { /* noop */ }
-            big.poster = VIDEOS[key].poster;
-            if (big.getAttribute('src') !== VIDEOS[key].hd) big.src = VIDEOS[key].hd;
+            big.poster = media(key, 'poster');
+            if (big.getAttribute('src') !== media(key, 'hd')) big.src = media(key, 'hd');
             translate();
             previousOverflow = document.body.style.overflow;
             dlg.showModal(); document.body.style.overflow = 'hidden';
@@ -261,7 +280,12 @@
             if (document.hidden) { wasPlayingBeforeHide = !mini.paused; if (wasPlayingBeforeHide) mini.pause(); }
             else if (wasPlayingBeforeHide && current && !tucked && !dlg.open && ask.hidden && !ended) mini.play().catch(() => {});
         });
-        window.addEventListener('tools:languagechange', translate);
+        window.addEventListener('tools:languagechange', () => {
+            translate();
+            // 语言切换后换成对应语言的视频（重新从头播放）
+            if (dlg.open && bigKey) { big.poster = media(bigKey, 'poster'); big.src = media(bigKey, 'hd'); big.currentTime = 0; big.play().catch(() => {}); }
+            else if (current && !float.hidden) { const was = !mini.paused; mini.poster = media(current, 'poster'); mini.src = media(current, 'mini'); ended = false; replayBtn.hidden = true; bar.style.width = '0%'; if (was) mini.play().catch(() => {}); }
+        });
 
         setCurrent(current);
     }
