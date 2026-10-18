@@ -11,9 +11,9 @@
         }
         return result;
     }
-    function paths(points, from, to, step, used=false, width=712) {
+    function paths(points, from, to, step, used=false, width=712, height=280) {
         const x=at=>56+Math.max(0,Math.min(1,(at-from)/(to-from)))*(width-80);
-        const y=value=>22+(100-(used?100-value:value))*2.18;
+        const y=value=>22+(100-(used?100-value:value))*(height-62)/100;
         return segments(points,Math.max(10*60000,step*3)).map(segment=>({
             d:segment.map((p,i)=>(i?'L':'M')+x(p.at).toFixed(2)+','+y(p.remaining).toFixed(2)).join(' '),
             points:segment.map(p=>({...p,x:x(p.at),y:y(p.remaining)}))

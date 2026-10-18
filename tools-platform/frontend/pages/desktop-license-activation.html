@@ -917,6 +917,57 @@
       border-radius: 3px;
       font-size: 10px;
     }
+    /* Keep both activation paths visible together on desktop-sized windows. */
+    body { padding:18px; align-items:flex-start; }
+    .container { zoom:.94; width:min(1060px,calc((100vw - 36px)/.94)); padding:20px 22px 16px; margin:auto; }
+    .top-bar { margin-bottom:12px; }
+    .header-section { margin-bottom:12px; }
+    .brand-text { font-size:15px; }
+    .title { font-size:19px; }
+    .subtitle { font-size:11.5px; }
+    .activation-layout { display:grid; grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr); gap:20px; margin-bottom:14px; align-items:start; }
+    .activation-entry { min-width:0; }
+    .machine-card { min-width:0; margin-bottom:0; padding:12px; }
+    .machine-head>div { min-width:0; }
+    .machine-head>.tool-btn { white-space:nowrap; flex-shrink:0; }
+    .machine-title { font-size:12px; line-height:1.5; }
+    .machine-device,.machine-hint { font-size:10.5px; line-height:1.45; }
+    .machine-code { max-height:none; overflow:visible; font-size:10.5px; line-height:1.45; padding:8px; }
+    .request-fields { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+    .request-btn { grid-column:1/-1; }
+    .request-status { grid-template-columns:auto minmax(0,1fr); }
+    .request-status-actions { grid-column:2; flex-wrap:wrap; }
+    .input-section { margin-bottom:10px; }
+    .input-meta-bar { flex-wrap:wrap; gap:6px; font-size:11.5px; }
+    textarea { min-height:88px; max-height:120px; font-size:11.5px; }
+    .input-tools { gap:5px; }
+    .tool-btn { font-size:10.5px; }
+    .sample-box { padding:8px 10px; }
+    .sample-header { flex-wrap:wrap; gap:5px; }
+    .sample-tip { font-size:10.5px; line-height:1.45; }
+    .progress-card { padding:9px 11px; margin-bottom:10px; }
+    .status-alert { font-size:11.5px; padding:8px 11px; margin-bottom:12px; }
+    .actions-bar { gap:8px; margin-bottom:0; }
+    button.btn { padding:10px 12px; font-size:12px; }
+    .footer-section { padding-top:10px; }
+    .feature-pills { margin-bottom:6px; }
+    .pill,.meta-note,.shortcut-hints { font-size:10px; }
+    @media (max-width:760px) {
+      body { padding:12px; }
+      .container { zoom:1; width:100%; padding:16px; }
+      .activation-layout { grid-template-columns:minmax(0,1fr); gap:14px; }
+      .brand-wrap { gap:7px; }
+      .brand-text { flex-wrap:wrap; gap:4px; font-size:14px; }
+      .top-bar { gap:8px; }
+    }
+    @media (max-height:680px) and (min-width:761px) {
+      body { padding:12px; }
+      .container { zoom:.9; width:min(1120px,calc((100vw - 24px)/.9)); padding:14px 18px 12px; }
+      .top-bar,.header-section { margin-bottom:9px; }
+      .brand-icon { width:28px; height:28px; }
+      .activation-layout { gap:16px; margin-bottom:10px; }
+      .sample-tip { font-size:10px; }
+    }
   </style>
 </head>
 <body>
@@ -941,7 +992,7 @@
     <!-- Header Section -->
     <section class="header-section">
       <h1 id="title" class="title">首次运行授权激活</h1>
-      <p id="subtitle" class="subtitle">请输入服务器授权管理页面签发的 EXE License。有效期受非对称数字签名保护，无网络时也可在本地安全验证。</p>
+      <p id="subtitle" class="subtitle">请输入服务器授权管理页面签发的桌面端 License。有效期受非对称数字签名保护，无网络时也可在本地安全验证。</p>
     </section>
 
     <!-- Alert / Status Bar -->
@@ -952,6 +1003,7 @@
       <div id="status-text" class="status-text"></div>
     </div>
 
+    <div class="activation-layout">
     <!-- 本机机器码：发给管理员签发绑定本机的 License -->
     <section class="machine-card" id="machine-card">
       <div class="machine-head">
@@ -992,11 +1044,12 @@
       <div class="request-offline" id="request-offline" hidden><span id="request-offline-text"></span><button type="button" id="btn-request-retry" class="request-retry">重新检测</button></div>
     </section>
 
+    <div class="activation-entry">
     <!-- Input Section -->
     <section class="input-section">
       <div class="input-meta-bar">
         <label for="license-token" id="input-label" class="input-label">
-          <span>许可证密钥 (License Key)</span>
+          <span id="license-input-label-text">许可证密钥 (License Key)</span>
           <span class="format-hint">DSKL1...</span>
         </label>
         <div class="input-tools">
@@ -1098,6 +1151,8 @@
       </button>
     </div>
 
+    </div>
+    </div>
     <!-- Security Badges & Meta Footer -->
     <footer class="footer-section">
       <div class="feature-pills">
@@ -1136,7 +1191,7 @@
           machineDevice: '本机：{host} · {os}',
           machineCopy: '复制机器码',
           machineCopied: '已复制',
-          machineHint: 'License 仅对本机有效，复制到其他电脑无法使用。第 2 步：把管理员发回的 License 粘贴到下方。',
+          machineHint: 'License 仅对本机有效，复制到其他电脑无法使用。第 2 步：把管理员发回的 License 粘贴到密钥输入框。',
           machineWeak: '未能读取本机硬件标识，已改用本机生成的设备 ID（重装系统或清理用户目录后可能需要重新申请）。',
           machineUnavailable: '无法读取本机设备信息，请重启软件后重试。',
           requestTitle: '或在线一键申请，管理员审批后自动激活',
@@ -1152,7 +1207,7 @@
           requestRejectedDetail: '{reason}可修改信息后重新提交',
           requestRefresh: '立即查询',
           requestCancel: '撤回',
-          requestOffline: '当前无法连接授权服务器，暂不能在线申请（每 30 秒自动重试）。也可复制上方机器码发给管理员，收到 License 后粘贴到下方。',
+          requestOffline: '当前无法连接授权服务器，暂不能在线申请（每 30 秒自动重试）。也可复制机器码发给管理员，收到 License 后粘贴到密钥输入框。',
           requestRetry: '重新检测',
           requestRetrying: '检测中…',
           requestFailed: '提交失败：',
@@ -1231,7 +1286,7 @@
           machineDevice: 'This device: {host} · {os}',
           machineCopy: 'Copy code',
           machineCopied: 'Copied',
-          machineHint: 'The license only works on this device. Step 2: paste the license you receive below.',
+          machineHint: 'The license only works on this device. Step 2: paste the license you receive into the License Key field.',
           machineWeak: 'Hardware identifiers were unavailable, so a locally generated device ID is used (you may need a new license after reinstalling the OS or clearing user data).',
           machineUnavailable: 'Device information is unavailable. Please restart the app and try again.',
           requestTitle: 'Or apply online — it activates automatically once approved',
@@ -1247,7 +1302,7 @@
           requestRejectedDetail: '{reason}You can edit the details and apply again',
           requestRefresh: 'Check now',
           requestCancel: 'Withdraw',
-          requestOffline: 'The license server is unreachable, so online requests are unavailable (retrying every 30s). You can also send the machine code above to your administrator and paste the license you receive below.',
+          requestOffline: 'The license server is unreachable, so online requests are unavailable (retrying every 30s). You can also send the machine code to your administrator and paste the license you receive into the License Key field.',
           requestRetry: 'Retry',
           requestRetrying: 'Checking…',
           requestFailed: 'Request failed: ',
@@ -1340,6 +1395,7 @@
         subtitle: document.getElementById('subtitle'),
         brandTag: document.getElementById('brand-tag'),
         inputLabel: document.getElementById('input-label'),
+        inputLabelText: document.getElementById('license-input-label-text'),
         licenseToken: document.getElementById('license-token'),
         btnPasteText: document.getElementById('btn-paste-text'),
         btnClearText: document.getElementById('btn-clear-text'),
@@ -1505,6 +1561,7 @@
         document.title = t.docTitle;
         elements.title.textContent = t.title;
         elements.subtitle.textContent = t.subtitle;
+        if (elements.inputLabelText) elements.inputLabelText.textContent = t.inputLabel;
         renderMachine();
         renderRequest();
         elements.brandTag.textContent = t.brandTag;

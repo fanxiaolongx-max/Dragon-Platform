@@ -19,21 +19,48 @@ function parseCodexQuota(response, accountPlan = null) {
     value.membership=membership(buckets?.codex?.planType) || membership(response?.rateLimits?.planType) || membership(accountPlan);
     return value.active ? value : unavailable('codex','unsupported');
 }
-function codexCommand(home = os.homedir(), platform = process.platform) {
-    const onPath = (process.env.PATH || '').split(path.delimiter).filter(Boolean).map(dir=>path.join(dir,platform === 'win32' ? 'codex.exe' : 'codex'));
-    for (const file of onPath) if(fs.existsSync(file)) return {file,args:[]};
+function codexCommandForFile(file, env = process.env, runtime = process.execPath) {
+    try {
+        if (!fs.statSync(file).isFile()) return null;
+        const real = fs.realpathSync(file);
+        let nodeScript = /\.(?:[cm]?js)$/i.test(real);
+        if (!nodeScript) {
+            const fd = fs.openSync(real, 'r');
+            try {
+                const head = Buffer.alloc(256);
+                const size = fs.readSync(fd, head, 0, head.length, 0);
+                nodeScript = /^#![^\r\n]*\bnode(?:\s|$)/.test(head.toString('utf8', 0, size).split('\n')[0]);
+            } finally { fs.closeSync(fd); }
+        }
+        // Finder-launched apps have no Homebrew Node in PATH. npm's Codex entry
+        // uses /usr/bin/env node, so run it explicitly with Electron's own Node.
+        // Keep the canonical script path so npm/pnpm optional packages resolve.
+        return nodeScript ? {file:runtime,args:[real],env:{...env,ELECTRON_RUN_AS_NODE:'1'}} : {file,args:[]};
+    } catch (_) { return null; }
+}
+function codexCommand(home = os.homedir(), platform = process.platform, options = {}) {
+    const env = options.env || process.env, runtime = options.runtime || process.execPath;
+    const onPath = (env.PATH || env.Path || '').split(platform === 'win32' ? ';' : ':').filter(Boolean).map(dir=>path.join(dir,platform === 'win32' ? 'codex.exe' : 'codex'));
+    for (const file of onPath) {
+        const command = codexCommandForFile(file,env,runtime);
+        if (command) return command;
+    }
     const candidates = platform === 'win32' ? [path.join(home,'.local','bin','codex.exe')] : [
         path.join(home,'.local','bin','codex'), '/opt/homebrew/bin/codex', '/usr/local/bin/codex',
         '/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex',
         '/Applications/Codex.app/Contents/Resources/codex'
     ];
-    for (const file of candidates) if (fs.existsSync(file)) return { file, args:[] };
+    for (const file of candidates) {
+        const command = codexCommandForFile(file,env,runtime);
+        if (command) return command;
+    }
     if (platform === 'win32') {
-        const roots = [path.join(process.env.APPDATA || path.join(home,'AppData','Roaming'),'npm','node_modules','@openai','codex'),
-            path.join(process.env.LOCALAPPDATA || path.join(home,'AppData','Local'),'Programs','codex')];
+        const roots = [path.join(env.APPDATA || path.join(home,'AppData','Roaming'),'npm','node_modules','@openai','codex'),
+            path.join(env.LOCALAPPDATA || path.join(home,'AppData','Local'),'Programs','codex')];
         for (const root of roots) {
             const script = path.join(root,'bin','codex.js');
-            if (fs.existsSync(script)) return {file:process.execPath,args:[script],env:{...process.env,ELECTRON_RUN_AS_NODE:'1'}};
+            const command = codexCommandForFile(script,env,runtime);
+            if (command) return command;
         }
     }
     return {file:'codex',args:[]};
@@ -86,4 +113,4 @@ function readCodexQuota(options = {}) {
         send({id:1,method:'initialize',params:{clientInfo:{name:'tools_platform_quota',title:'Tools Platform quota',version:'1.0.0'}}});
     });
 }
-module.exports = { readCodexQuota, parseCodexQuota, codexCommand };
+module.exports = { readCodexQuota, parseCodexQuota, codexCommand, codexCommandForFile };

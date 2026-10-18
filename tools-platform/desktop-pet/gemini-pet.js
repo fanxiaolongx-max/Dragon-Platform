@@ -513,7 +513,7 @@
 
     function fmtPct(val) {
       if (val === null || val === undefined || !isFinite(val)) return '--%';
-      return (Math.round(val * 10) / 10) + '%';
+      return Math.round(val) + '%';
     }
 
     function getQuotaColor(val) {

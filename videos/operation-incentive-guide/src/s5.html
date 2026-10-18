@@ -1,0 +1,69 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .tb{position:absolute;display:flex;align-items:center;height:62px;border-bottom:2px solid rgba(91,70,54,.25);font-size:28px;white-space:nowrap}
+#root .tb span{flex:none;overflow:hidden}
+#root .tg{display:inline-block;border:2.5px solid var(--ink);border-radius:999px;padding:0 16px;font-size:28px;background:#eee}
+#root .vtab{position:absolute;top:226px;height:60px;border:3px solid var(--ink);border-radius:16px 16px 0 0;background:#fff;font-size:32px;display:flex;align-items:center;padding:0 22px;white-space:nowrap}
+</style>
+<div id="root" data-composition-id="s5" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="15" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:640px;width:520px;height:520px;background:#aed8f2"></div>
+  <div class="head wob" id="s5-h"><span class="step">第 3 步</span><span class="ttl">核对 ① 每条记录的去向</span></div>
+
+  <div class="vtab" id="s5-v1" style="left:110px;background:#ffe3e8">排除 / 异常记录</div>
+  <div class="win wob" id="s5-w1" style="left:100px;top:285px;width:850px;height:560px;border-radius:0 24px 24px 24px"><div class="wbar" style="display:none"></div></div>
+  <div class="tb" id="s5-t10" style="left:130px;top:305px;width:790px;font-weight:700;background:#fff0f2"><span style="width:90px">行号</span><span style="width:170px">操作人</span><span style="width:530px">没算的原因</span></div>
+  <div class="tb" id="s5-t11" style="left:130px;top:370px;width:790px"><span style="width:90px">128</span><span style="width:170px">员工 B</span><span style="width:530px"><i class="tg" style="background:#ffd9c2">任务未完成</i></span></div>
+  <div class="tb" id="s5-t12" style="left:130px;top:435px;width:790px"><span style="width:90px">301</span><span style="width:170px">员工 D</span><span style="width:530px"><i class="tg" style="background:#ffe9a8">非夜间操作</i></span></div>
+  <div class="tb" id="s5-t13" style="left:130px;top:500px;width:790px"><span style="width:90px">517</span><span style="width:170px">（空）</span><span style="width:530px"><i class="tg" style="background:#ffd9c2">缺少操作人</i></span></div>
+  <div class="tb" id="s5-t14" style="left:130px;top:565px;width:790px"><span style="width:90px">902</span><span style="width:170px">员工 E</span><span style="width:530px"><i class="tg" style="background:#ffe9a8">缺少开始时间</i></span></div>
+  <div class="abs" id="s5-n1" style="left:130px;top:670px;width:790px;font-size:34px;line-height:1.5;color:#8a7360">每一条没算的，都写明原因，<br>不会悄悄消失。</div>
+
+  <div class="vtab" id="s5-v2" style="left:990px;background:#dff6ec">计算明细</div>
+  <div class="win wob" id="s5-w2" style="left:980px;top:285px;width:850px;height:560px;border-radius:0 24px 24px 24px"><div class="wbar" style="display:none"></div></div>
+  <div class="tb" id="s5-d0" style="left:1010px;top:305px;width:790px;font-weight:700;background:#eaf7f0"><span style="width:120px">操作人</span><span style="width:130px">日期</span><span style="width:110px">等级</span><span style="width:110px">结果</span><span style="width:320px">原因</span></div>
+  <div class="tb" id="s5-d1" style="left:1010px;top:370px;width:790px"><span style="width:120px">员工 A</span><span style="width:130px">09-03</span><span style="width:110px">Low</span><span style="width:110px"><i class="tg">忽略</i></span><span style="width:320px;font-size:26px">同日多单，已由更高等级计发</span></div>
+  <div class="tb" id="s5-d2" style="left:1010px;top:435px;width:790px"><span style="width:120px">员工 A</span><span style="width:130px">09-03</span><span style="width:110px">Fatal</span><span style="width:110px"><i class="tg" style="background:#9fe0c9">计发</i></span><span style="width:320px;font-size:26px">¥600</span></div>
+  <div class="tb" id="s5-d3" style="left:1010px;top:500px;width:790px"><span style="width:120px">员工 C</span><span style="width:130px">09-05</span><span style="width:110px">Medium</span><span style="width:110px"><i class="tg" style="background:#9fe0c9">计发</i></span><span style="width:320px;font-size:26px">¥180</span></div>
+  <div class="tb" id="s5-d4" style="left:1010px;top:565px;width:790px"><span style="width:120px">员工 F</span><span style="width:130px">09-07</span><span style="width:110px">High</span><span style="width:110px"><i class="tg">忽略</i></span><span style="width:320px;font-size:26px">在黑名单中，不计发</span></div>
+  <div class="abs" id="s5-n2" style="left:1010px;top:670px;width:790px;font-size:34px;line-height:1.5;color:#8a7360">每一行都标着「计发」还是「忽略」，<br>忽略的写着为什么。</div>
+  <div class="sticky wob" id="s5-st" style="left:560px;top:850px;transform:rotate(-2deg);font-size:40px;padding:10px 24px 14px;white-space:nowrap;background:linear-gradient(170deg,#fff4c7,#ffe08f)">任何一笔钱：为什么算、为什么不算，都能查</div>
+  <div class="abs wob" id="s5-d" style="left:1660px;top:790px"></div>
+  <div id="s5-sp"></div>
+  <div class="cap" id="s5-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s5-d",dino("dn",{w:210,h:202}));
+ document.getElementById("s5-sp").innerHTML=sparkle(960,190,44)+sparkle(1850,300,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s5-v1,#s5-w1,#s5-t10,#s5-t11,#s5-t12,#s5-t13,#s5-t14,#s5-n1,#s5-v2,#s5-w2,#s5-d0,#s5-d1,#s5-d2,#s5-d3,#s5-d4,#s5-n2,#s5-st",{opacity:0});
+ tl.fromTo("#s5-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s5-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("异常记录");
+ tl.fromTo("#s5-v1,#s5-w1,#s5-t10",{opacity:0,y:40},{opacity:1,y:0,duration:.5,ease:"power3.out",stagger:.08},a-.4);
+ var r=T("任务未完成");
+ tl.fromTo("#s5-t11",{opacity:0,x:-30},{opacity:1,x:0,duration:.35},r-.3);
+ tl.fromTo("#s5-t12",{opacity:0,x:-30},{opacity:1,x:0,duration:.35},T("非夜间操作")-.3);
+ tl.fromTo("#s5-t13",{opacity:0,x:-30},{opacity:1,x:0,duration:.35},T("缺少操作人")-.3);
+ tl.fromTo("#s5-t14",{opacity:0,x:-30},{opacity:1,x:0,duration:.35},T("缺少操作人")+.5);
+ tl.fromTo("#s5-n1",{opacity:0},{opacity:1,duration:.5},T("缺少操作人")+.7);
+ var b=T("计算明细");
+ tl.fromTo("#s5-v2,#s5-w2,#s5-d0",{opacity:0,y:40},{opacity:1,y:0,duration:.5,ease:"power3.out",stagger:.08},b-.4);
+ var c=T("计发还是忽略");
+ tl.fromTo("#s5-d2,#s5-d3",{opacity:0,x:-30},{opacity:1,x:0,duration:.35,stagger:.2},c-.6);
+ tl.fromTo("#s5-d1",{opacity:0,x:-30},{opacity:1,x:0,duration:.35},T("同日多单")-.4);
+ tl.fromTo("#s5-d4",{opacity:0,x:-30},{opacity:1,x:0,duration:.35},T("同日多单")+.8);
+ tl.fromTo("#s5-n2",{opacity:0},{opacity:1,duration:.5},T("同日多单")+1.0);
+ var e=T("为什么不算");
+ pop(tl,"#s5-st",e-.5,{s:.4,y:20,d:.6});dcheer(tl,"dn",e);
+ tl.fromTo("#s5-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},e);
+ captions(tl,"s5-cap");
+ window.__timelines["s5"]=tl;
+})();
+</script>
+</template></body></html>

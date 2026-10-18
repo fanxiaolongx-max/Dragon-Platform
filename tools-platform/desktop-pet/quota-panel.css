@@ -8,16 +8,19 @@ body { padding:4px; }
   box-shadow:inset 0 1px 0 rgba(226,246,240,.13),0 2px 6px rgba(0,0,0,.2);
   color:#f4fbfa; display:flex; flex-direction:column;
 }
-header { display:flex; align-items:center; justify-content:space-between; font-size:11px; font-weight:600; letter-spacing:.07em; color:#c1d6d7; padding-bottom:5px; }
+header { display:grid; grid-template-columns:94px 1fr 1fr; align-items:center; gap:6px; font-size:9px; font-weight:500; color:#b6cbd1; padding:0 2px 7px 0; text-align:right; }
+.panel-heading { display:flex; align-items:center; gap:5px; text-align:left; }
+#panelTitle { font-size:10px; font-weight:600; white-space:nowrap; }
 .live-indicator { width:5px; height:5px; border-radius:50%; background:#83d8ce; box-shadow:0 0 7px rgba(131,216,206,.5); }
 #quotaRows { display:grid; grid-template-rows:repeat(3,1fr); flex:1; min-height:0; }
 .quota-row { --brand:#8be5d4; display:grid; grid-template-columns:94px 1fr 1fr; align-items:center; gap:6px; border-top:1px solid rgba(209,233,235,.11); padding:8px 0; }
 .quota-row.claudecode { --brand:#f5c8a6; }
 .quota-row.antigravity { --brand:#c8c3ff; }
+.quota-row>div { min-width:0; }
 .provider-name { display:flex; align-items:center; gap:6px; color:#f4fbfa; font-size:12px; font-weight:700; line-height:1.25; }
 .provider-mark { flex-shrink:0; width:4px; height:19px; border-radius:4px; background:var(--brand); }
-.provider-detail { display:block; margin:0; color:#b1c6cd; font-size:9px; line-height:1.2; }
-.provider-meta { display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin:5px 0 0 10px; }
+.provider-detail { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0; color:#b1c6cd; font-size:9px; line-height:1.2; }
+.provider-meta { display:flex; align-items:center; gap:4px; margin:5px 0 0 10px; }
 .membership-badge {
   display:inline-flex; align-items:center; gap:3px; flex-shrink:0; min-height:16px; padding:1px 5px;
   border:1px solid rgba(222,190,113,.48); border-radius:5px;
@@ -33,14 +36,12 @@ header { display:flex; align-items:center; justify-content:space-between; font-s
 .quota-cell:hover,.quota-cell:focus-visible { background:rgba(166,225,220,.12); outline:1px solid rgba(166,225,220,.45); }
 .quota-value { color:var(--brand); font-size:25px; font-weight:750; letter-spacing:-.07em; line-height:1.12; white-space:nowrap; }
 .quota-percent { font-size:12px; font-weight:600; letter-spacing:0; margin-left:1px; opacity:.92; }
-.quota-label { display:block; margin-top:3px; font-size:9px; font-weight:500; color:#b6cbd1; }
 .quota-cell.low .quota-value { color:#ffb3b7; }
 .quota-cell.warning .quota-value { color:#ffe09a; }
 .quota-row.cached .quota-value { text-decoration:underline dotted rgba(224,239,243,.5); text-underline-offset:4px; }
 .quota-cell.unknown .quota-value { color:#91aab5; }
-footer { padding-top:4px; color:#a5bdc6; font-size:9px; line-height:1.2; text-align:right; }
 @media (max-width:245px) {
  .quota-panel { padding:9px 9px 7px; }
- .quota-row { grid-template-columns:85px 1fr 1fr; gap:3px; }
+ .quota-row,header { grid-template-columns:85px 1fr 1fr; gap:3px; }
  .quota-value { font-size:22px; }
 }

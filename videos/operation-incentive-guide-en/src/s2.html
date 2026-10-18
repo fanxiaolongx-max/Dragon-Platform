@@ -1,0 +1,66 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .ck3{font-size:29px!important}#root .scope{font-size:32px!important}
+#root .gate{position:absolute;left:230px;top:310px;width:760px;height:430px;border:3px dashed var(--ink);border-radius:30px;background:#fffdf5;display:flex;flex-direction:column;align-items:center;padding-top:36px}
+#root .scope{position:absolute;height:76px;border:3px solid var(--ink);border-radius:20px;display:flex;align-items:center;gap:14px;padding:0 24px;font-size:36px;white-space:nowrap}
+#root .scope em{font-style:normal;background:#fff;border:2.5px solid var(--ink);border-radius:999px;padding:0 16px;font-size:32px}
+#root .ck3{position:absolute;left:1180px;width:640px;height:84px;border:3px solid var(--ink);border-radius:20px;background:#fff;display:flex;align-items:center;gap:16px;padding:0 24px;font-size:36px;white-space:nowrap}
+</style>
+<div id="root" data-composition-id="s2" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="5" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#d9c6ef"></div>
+  <div class="head wob" id="s2-h"><span class="step">Step 1</span><span class="ttl">Import data</span></div>
+  <div class="win wob" id="s2-win" style="left:110px;top:220px;width:1000px;height:600px"><div class="wbar"><i></i><i></i><i></i><span>Operation Incentive Statistics</span></div></div>
+  <div class="gate" id="s2-gate"><span id="s2-gi"></span><div style="font-family:'Fredoka',sans-serif;font-size:50px;margin-top:12px;white-space:nowrap">Import the night-operations Excel</div>
+    <div class="btn" id="s2-btn" style="position:relative;margin-top:36px;background:#ffb3c6;font-size:40px">Choose Excel file</div>
+    <div style="margin-top:34px;font-size:32px;color:#8a7360;white-space:nowrap" id="s2-gf">No file chosen yet</div></div>
+  <div class="abs" id="s2-top" style="left:150px;top:300px;width:920px;height:70px;border:3px solid var(--ink);border-radius:18px;background:#fff;display:flex;align-items:center;padding:0 22px;font-size:34px;white-space:nowrap">Current file: night-operations.xlsx · <b id="s2-cnt" style="font-weight:400;background:#ffe08f;border-radius:10px;padding:0 12px;margin-left:6px">3,842 records</b></div>
+  <div class="abs" id="s2-sl" style="left:150px;top:410px;font-size:38px;white-space:nowrap">Group (auto-split by operator ID)</div>
+  <div class="scope" id="s2-sc1" style="left:150px;top:480px;background:#dff6ec">Non-WX operators <em>3,610</em></div>
+  <div class="scope" id="s2-sc2" style="left:640px;top:480px;background:#e4f1fb">WX operators <em>232</em></div>
+  <div class="abs" id="s2-nt" style="left:150px;top:600px;width:920px;font-size:34px;line-height:1.5;color:#8a7360">IDs containing WX go in the right group, the rest in the left. Each group is counted on its own.</div>
+  <div class="tag abs" id="s2-demo" style="left:900px;top:760px;background:#fff;font-size:28px">Sample data</div>
+  <div class="ck3" id="s2-k1" style="top:300px"><span id="s2-ki1"></span>Spots operations marked “Completed”</div>
+  <div class="ck3" id="s2-k2" style="top:410px"><span id="s2-ki2"></span>Judges whether it was at night</div>
+  <div class="ck3" id="s2-k3" style="top:520px"><span id="s2-ki3"></span>Splits WX / non-WX by operator ID</div>
+  <div class="cursor wob" id="s2-cur"></div>
+  <div class="abs wob" id="s2-d" style="left:1532px;top:700px"></div>
+  <div id="s2-sp"></div>
+  <div class="cap" id="s2-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s2-gi",icon("table","#9fe0c9",120));put("s2-cur",icon("cursor","#ffffff",74));put("s2-d",dino("dn",{w:300,h:288}));
+ [1,2,3].forEach(function(i){put("s2-ki"+i,icon("check","#47cf9f",50));});
+ document.getElementById("s2-sp").innerHTML=sparkle(1140,200,44)+sparkle(1800,560,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s2-win,#s2-gate,#s2-top,#s2-sl,#s2-sc1,#s2-sc2,#s2-nt,#s2-demo,#s2-k1,#s2-k2,#s2-k3,#s2-cur",{opacity:0});
+ tl.fromTo("#s2-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s2-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("Choose Excel file");
+ tl.fromTo("#s2-win",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},a-1.4);
+ tl.fromTo("#s2-gate",{opacity:0,scale:.95},{opacity:1,scale:1,duration:.5,transformOrigin:"50% 50%"},a-.9);
+ tl.set("#s2-cur",{x:700,y:820});tl.fromTo("#s2-cur",{opacity:0},{opacity:1,duration:.3},a-.8);
+ cur(tl,"#s2-cur",600,590,a-.6,.7);click(tl,"#s2-cur",a+.5);click(tl,"#s2-btn",a+.5);
+ tl.to("#s2-gf",{innerHTML:"Chosen: night-operations.xlsx",duration:.01},a+.7);
+ var b=T("number of records");
+ tl.to("#s2-gate",{opacity:0,duration:.35},b-1.0);tl.to("#s2-cur",{opacity:0,duration:.3},b-1.0);
+ tl.fromTo("#s2-top",{opacity:0,y:-20},{opacity:1,y:0,duration:.45},b-.8);
+ tl.fromTo("#s2-cnt",{scale:.6},{scale:1,duration:.5,ease:"back.out(2)",transformOrigin:"50% 50%"},b);
+ var c=T("WX");
+ tl.fromTo("#s2-sl",{opacity:0},{opacity:1,duration:.4},c-.6);
+ pop(tl,"#s2-sc1",c-.2,{s:.5,y:30});pop(tl,"#s2-sc2",c+.2,{s:.5,y:30});
+ var d=T("counts them separately");
+ tl.fromTo("#s2-nt",{opacity:0},{opacity:1,duration:.5},d-.4);pop(tl,"#s2-demo",d,{s:.5});
+ tl.fromTo("#s2-k1,#s2-k2,#s2-k3",{opacity:0,x:60},{opacity:1,x:0,duration:.45,stagger:.5,ease:"power3.out"},b+.4);
+ dpoint(tl,"dn",d,1);
+ tl.fromTo("#s2-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},d+.4);
+ captions(tl,"s2-cap");
+ window.__timelines["s2"]=tl;
+})();
+</script>
+</template></body></html>

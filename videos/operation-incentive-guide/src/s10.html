@@ -1,0 +1,69 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .qb{display:inline-block;border:2.5px solid var(--ink);border-radius:999px;background:#fff;padding:0 22px;height:56px;line-height:52px;font-size:30px;white-space:nowrap}
+#root .vt{position:absolute;top:420px;height:62px;border:3px solid var(--ink);border-radius:16px 16px 0 0;background:#fff;font-size:30px;display:flex;align-items:center;justify-content:center;white-space:nowrap}
+#root .sk{position:absolute;top:500px;width:300px;height:140px;border:3px solid var(--ink);border-radius:22px;background:#fff;box-shadow:var(--sh);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+#root .sk .k{font-size:28px;color:#8a7360;white-space:nowrap}
+#root .sk .v{font-family:"ZCOOL KuaiLe",sans-serif;font-size:52px}
+</style>
+<div id="root" data-composition-id="s10" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="20" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1450px;top:-150px;width:520px;height:520px;background:#aed8f2"></div>
+  <div class="head wob" id="s10-h"><span class="step">看结果</span><span class="ttl">核对完，再看数字</span></div>
+
+  <div class="abs" id="s10-q" style="left:110px;top:225px;width:1700px;display:flex;flex-wrap:wrap;gap:14px;align-items:center"><span style="font-size:34px;margin-right:6px">快速筛选</span><i class="qb" style="background:#ffe3e8">全部</i><i class="qb">本月</i><i class="qb">上月</i><i class="qb">本季度</i><i class="qb">上季度</i><i class="qb">本半年</i><i class="qb">本年度</i></div>
+  <div class="abs" id="s10-f" style="left:110px;top:320px;width:1700px;display:flex;gap:14px;align-items:center;font-size:30px;white-space:nowrap"><span>过滤：</span><i class="qb" style="background:#fffdf5">BU / 部门 ▾</i><i class="qb" style="background:#fffdf5">客户名称 ▾</i><i class="qb" style="background:#fffdf5">人员属性 ▾</i><i class="qb" style="background:#fffdf5">操作等级 ▾</i><i class="qb" style="background:#fffdf5">姓名 / 工号</i></div>
+  <div class="vt" id="s10-v1" style="left:110px;width:190px;background:#ffe3e8">维度汇总</div>
+  <div class="vt" id="s10-v2" style="left:310px;width:190px">周期汇总</div>
+  <div class="vt" id="s10-v3" style="left:510px;width:190px">周期交叉</div>
+  <div class="vt" id="s10-v4" style="left:710px;width:240px">人员周期汇总</div>
+  <div class="vt" id="s10-v5" style="left:960px;width:190px">计算明细</div>
+  <div class="vt" id="s10-v6" style="left:1160px;width:190px">异常记录</div>
+  <div class="btn" id="s10-cmp" style="left:1420px;top:412px;font-size:30px;padding:6px 24px 8px;background:#ffb3c6">同比 / 环比分析</div>
+
+  <div class="sk" id="s10-k1" style="left:110px"><div class="k">原始记录</div><div class="v">3,842</div></div>
+  <div class="sk" id="s10-k2" style="left:440px"><div class="k">规则有效记录</div><div class="v" style="color:#2f9e74">2,516</div></div>
+  <div class="sk" id="s10-k3" style="left:770px"><div class="k">同人同日去重后</div><div class="v" style="color:#d9456b">1,408</div></div>
+  <div class="sk" id="s10-k4" style="left:1100px"><div class="k">涉及人员</div><div class="v">186</div></div>
+  <div class="sk" id="s10-k5" style="left:1430px;background:#fff8dc"><div class="k">激励合计（元）</div><div class="v" style="color:#d9822b">312,860</div></div>
+  <div class="tag abs" id="s10-demo" style="left:110px;top:652px;background:#fff;font-size:28px">示例数据</div>
+
+  <div class="win wob" id="s10-ch" style="left:110px;top:700px;width:900px;height:220px"><div class="wbar" style="height:48px;font-size:26px;background:#dff6ec"><i></i><i></i><i></i><span>激励金额趋势（点节点可下钻）</span></div></div>
+  <svg class="abs" id="s10-cs" style="left:130px;top:760px" width="860" height="150" viewBox="0 0 860 150"><path id="s10-cl" class="ln" pathLength="1" stroke-dasharray="1" style="stroke:#d9456b;stroke-width:6" d="M20 110 C120 90 180 120 260 70 S420 90 500 50 S700 80 840 30"/><circle cx="260" cy="70" r="9" fill="#ffe08f" stroke="#5b4636" stroke-width="3"/><circle cx="500" cy="50" r="9" fill="#ffe08f" stroke="#5b4636" stroke-width="3"/><circle cx="840" cy="30" r="9" fill="#ffe08f" stroke="#5b4636" stroke-width="3"/></svg>
+  <div class="abs wob" id="s10-cp" style="left:1060px;top:700px;width:560px;height:220px;border:3px solid var(--ink);border-radius:24px;background:#fff;box-shadow:var(--sh);padding:22px 28px;font-size:34px;line-height:1.5">同比 / 环比<br><span style="font-size:30px;color:#8a7360">本月 vs 上月　激励金额 <b style="color:#2f9e74;font-weight:400">▲ 8.5%</b></span><br><span style="font-size:30px;color:#8a7360">涉及人员 <b style="color:#d9456b;font-weight:400">▼ 3 人</b></span></div>
+  <div class="abs wob" id="s10-d" style="left:1660px;top:760px"></div>
+  <div id="s10-sp"></div>
+  <div class="cap" id="s10-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s10-d",dino("dn",{w:230,h:220}));
+ document.getElementById("s10-sp").innerHTML=sparkle(1380,190,44)+sparkle(1850,640,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s10-q,#s10-f,#s10-v1,#s10-v2,#s10-v3,#s10-v4,#s10-v5,#s10-v6,#s10-cmp,#s10-k1,#s10-k2,#s10-k3,#s10-k4,#s10-k5,#s10-demo,#s10-ch,#s10-cs,#s10-cp",{opacity:0});
+ tl.fromTo("#s10-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s10-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("快速筛选");
+ tl.fromTo("#s10-q",{opacity:0,y:20},{opacity:1,y:0,duration:.5},a-.3);
+ tl.fromTo("#s10-f",{opacity:0,y:20},{opacity:1,y:0,duration:.5},T("BU")-.3);
+ var b=T("六个视图");
+ tl.fromTo("#s10-v1,#s10-v2,#s10-v3,#s10-v4,#s10-v5,#s10-v6",{opacity:0,y:20},{opacity:1,y:0,duration:.3,stagger:.38},b-.1);
+ var c=T("同比环比");
+ pop(tl,"#s10-cmp",c-.2,{s:.5,y:20});pop(tl,"#s10-cp",c+.1,{s:.5,y:20});
+ var d=T("点图形");
+ tl.fromTo("#s10-ch,#s10-cs",{opacity:0,y:20},{opacity:1,y:0,duration:.5},d-.9);draw(tl,"#s10-cl",d-.6,.9);
+ var e=T("上面的数字卡片");
+ tl.fromTo("#s10-k1,#s10-k2,#s10-k3,#s10-k4",{opacity:0,y:30},{opacity:1,y:0,duration:.4,stagger:.35,ease:"back.out(1.6)"},T("原始记录")-.2);
+ var f=T("激励合计");
+ pop(tl,"#s10-k5",f-.3,{s:.5,y:30});pop(tl,"#s10-demo",f,{s:.5});
+ dcheer(tl,"dn",f+.5);
+ tl.fromTo("#s10-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},f);
+ captions(tl,"s10-cap");
+ window.__timelines["s10"]=tl;
+})();
+</script>
+</template></body></html>

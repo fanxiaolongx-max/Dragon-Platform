@@ -331,8 +331,8 @@ function openQuotaTrends(selection) {
     quotaTrendsSelection = {provider:selection.provider,groupId:selection.groupId,windowId:selection.windowId};
     if (!quotaTrendsWin || quotaTrendsWin.isDestroyed()) {
         const area = (screen.getDisplayMatching(petWin.getBounds()) || screen.getPrimaryDisplay()).workArea;
-        const width = Math.min(780,area.width),height = Math.min(640,area.height);
-        quotaTrendsWin = new BrowserWindow({width,height,minWidth:360,minHeight:420,
+        const width = Math.min(1080,Math.max(1,area.width-32)),height = Math.min(800,Math.max(1,area.height-32));
+        quotaTrendsWin = new BrowserWindow({width,height,minWidth:Math.min(520,width),minHeight:Math.min(480,height),
             x:Math.round(area.x+(area.width-width)/2),y:Math.round(area.y+(area.height-height)/2),
             title:'Quota trends',show:false,backgroundColor:'#112c36',autoHideMenuBar:true,
             webPreferences:{nodeIntegration:true,contextIsolation:false}});

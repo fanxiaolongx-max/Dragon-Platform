@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .st{position:absolute;top:360px;width:380px;height:320px;background:#fff;border:3px solid var(--ink);border-radius:30px;box-shadow:var(--sh);display:flex;flex-direction:column;align-items:center;padding-top:40px}
+#root .st .nm{font-family:"ZCOOL KuaiLe",sans-serif;font-size:52px;margin-top:10px;white-space:nowrap}
+#root .st .sb{font-size:34px;color:#8a7360;margin-top:8px;white-space:nowrap}
+#root .st .nn{position:absolute;left:-16px;top:-22px;width:60px;height:60px;border-radius:50%;border:3px solid var(--ink);background:var(--yellow);font-family:"ZCOOL KuaiLe",sans-serif;font-size:36px;display:flex;align-items:center;justify-content:center}
+</style>
+<div id="root" data-composition-id="ov" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="13" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-140px;top:-120px;width:480px;height:480px;background:#d9c6ef"></div>
+  <div class="blob" style="left:1460px;top:640px;width:520px;height:520px;background:#9fe0c9"></div>
+  <div class="abs wob" id="ov-t" style="left:110px;top:70px;font-family:'ZCOOL KuaiLe',sans-serif;font-size:120px;line-height:1;white-space:nowrap">四步流程</div>
+  <svg class="abs wob" style="left:110px;top:200px" width="560" height="36" viewBox="0 0 560 36"><path id="ov-ul" class="ln" pathLength="1" stroke-dasharray="1" style="stroke:#ffb3c6;stroke-width:12" d="M6 22 C120 4 220 34 330 16 S500 30 554 12"/></svg>
+  <div class="abs" id="ov-sub" style="left:118px;top:250px;font-size:56px;white-space:nowrap">从一张 Excel，到人人确认的激励结果</div>
+  <svg class="abs" style="left:100px;top:330px" width="1720" height="10"><path d="M0 5 H1720" stroke="#5b4636" stroke-width="5" stroke-dasharray="4 16" stroke-linecap="round"/></svg>
+  <div class="st wob" id="ov-c1" style="left:110px"><span class="nn">1</span><span id="ov-i1"></span><div class="nm">导入数据</div><div class="sb">放进当月的表</div></div>
+  <div class="st wob" id="ov-c2" style="left:540px"><span class="nn">2</span><span id="ov-i2"></span><div class="nm">设定规则</div><div class="sb">金额、时间、人员</div></div>
+  <div class="st wob" id="ov-c3" style="left:970px;top:330px;height:360px;background:#fff8dc;border-width:5px"><span class="nn">3</span><span id="ov-i3"></span><div class="nm">核对准确性</div><div class="sb">每一条都查得到</div></div>
+  <div class="st wob" id="ov-c4" style="left:1400px"><span class="nn">4</span><span id="ov-i4"></span><div class="nm">导出确认</div><div class="sb">人人对照确认</div></div>
+  <div class="sticky wob" id="ov-key" style="left:1010px;top:720px;transform:rotate(-3deg);font-family:'ZCOOL KuaiLe',sans-serif;font-size:46px;background:linear-gradient(170deg,#ffe3e8,#ffb3c6)">★ 最重要的一步</div>
+  <div class="abs wob" id="ov-d" style="left:300px;top:690px"></div>
+  <div id="ov-sp"></div>
+  <div class="cap" id="ov-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("ov-i1",icon("zip","#aed8f2",110));put("ov-i2",icon("gear","#ffe08f",110));put("ov-i3",icon("shield","#9fe0c9",120));put("ov-i4",icon("check","#ffb3c6",110));
+ put("ov-d",dino("dn",{w:250,h:240}));
+ document.getElementById("ov-sp").innerHTML=sparkle(900,200,44)+sparkle(1790,300,52,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#ov-c1,#ov-c2,#ov-c3,#ov-c4,#ov-key,#ov-sub",{opacity:0});
+ tl.fromTo("#ov-t",{opacity:0,y:50,rotation:-2},{opacity:1,y:0,rotation:0,duration:.7,ease:"back.out(1.6)"},.3);
+ draw(tl,"#ov-ul",.9,.7);tl.fromTo("#ov-sub",{opacity:0},{opacity:1,duration:.6},1.0);
+ tl.fromTo("#ov-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.5);
+ var names=["导入数据","设定规则","核对准确性","导出确认"],xs=[110,540,970,1400];
+ names.forEach(function(n,i){var t=T(n);pop(tl,"#ov-c"+(i+1),t-.1,{s:.5,y:40,d:.5});
+   if(i>0){tl.to("#ov-d",{x:xs[i]-110+(i===2?0:0),duration:.7,ease:"power2.inOut"},t-.7);dwalk(tl,"dn",t-.7,.7,2);}});
+ pop(tl,"#ov-key",T("最重要")-.1,{s:.4,d:.55});tl.to("#ov-c3",{y:-10,duration:.3,repeat:3,yoyo:true,ease:"sine.inOut"},T("最重要"));
+ dpoint(tl,"dn",T("最重要"),1.2);
+ tl.fromTo("#ov-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("最重要"));
+ captions(tl,"ov-cap");
+ window.__timelines["ov"]=tl;
+})();
+</script>
+</template></body></html>

@@ -1,0 +1,53 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root #s7-warn{font-size:30px!important}
+#root .mo{position:absolute;top:470px;height:150px;border:3px solid var(--ink);border-radius:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:"Fredoka",sans-serif;font-size:50px;box-shadow:var(--sh)}
+#root .mo small{font-family:"Patrick Hand",cursive;font-size:30px;color:#8a7360}
+#root .lb{position:absolute;border:3px solid var(--ink);border-radius:18px;background:#fff;padding:10px 20px 12px;font-size:34px;line-height:1.3;white-space:nowrap;z-index:5}
+</style>
+<div id="root" data-composition-id="s7" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="17" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:-120px;width:480px;height:480px;background:#ffe08f"></div>
+  <div class="head wob" id="s7-h"><span class="step">Step 3</span><span class="ttl">Verify ③ Month boundaries</span></div>
+  <div class="abs" id="s7-ax" style="left:110px;top:330px"><svg width="1700" height="120" viewBox="0 0 1700 120"><path d="M20 70 H1680" stroke="#5b4636" stroke-width="5" stroke-linecap="round"/><path d="M850 20 V110" stroke="#f27b96" stroke-width="6" stroke-dasharray="10 8"/></svg></div>
+  <div class="abs" id="s7-l1" style="left:300px;top:300px;font-size:38px;white-space:nowrap">Sep 30</div>
+  <div class="abs" id="s7-l2" style="left:1230px;top:300px;font-size:38px;white-space:nowrap">Oct 1</div>
+  <div class="abs" id="s7-l3" style="left:935px;top:300px;font-size:34px;color:#d9456b;white-space:nowrap">0:00</div>
+  <div class="abs wob" id="s7-op" style="left:640px;top:392px;width:640px;height:64px;border:3px solid var(--ink);border-radius:18px;background:#ffc9d6;display:flex;align-items:center;justify-content:center;font-size:34px;white-space:nowrap">One operation: 23:20 → 01:10 next day</div>
+  <div class="mo wob" id="s7-m1" style="left:300px;width:420px;background:#e4f1fb">Counts in Sep?<small>by “local start time”</small></div>
+  <div class="mo wob" id="s7-m2" style="left:1000px;width:480px;background:#fff0c9">Counts in Oct?<small>by “sheet month column”</small></div>
+  <div class="abs" id="s7-ar1" style="left:760px;top:490px;font-size:56px">⇄</div>
+  <div class="win wob" id="s7-sel" style="left:110px;top:670px;width:760px;height:210px"><div class="wbar" style="background:#e4f1fb"><i></i><i></i><i></i><span>Period basis</span></div></div>
+  <div class="row" id="s7-o1" style="position:absolute;left:150px;top:750px;gap:12px;font-size:36px;white-space:nowrap"><i style="width:26px;height:26px;border-radius:50%;border:3px solid var(--ink);display:block"></i>Local start time</div>
+  <div class="row" id="s7-o2" style="position:absolute;left:150px;top:810px;gap:12px;font-size:36px;white-space:nowrap"><i style="width:26px;height:26px;border-radius:50%;border:3px solid var(--ink);display:block;background:#47cf9f"></i>Sheet month column　<small style="font-size:28px;color:#8a7360">(default)</small></div>
+  <div class="abs" id="s7-warn" style="left:920px;top:670px;width:900px;height:210px;border:3px solid #e0a81f;border-radius:22px;background:#fff7d6;padding:20px 28px;font-size:36px;line-height:1.5;box-shadow:var(--sh)"><b style="font-weight:400;color:#b45309">⚠ Mind the period basis</b><br>Results can differ by basis for cross-month operations. Confirm it before exporting so nothing is missed or mis-paid.</div>
+  <div class="abs wob" id="s7-d" style="left:1580px;top:900px;display:none"></div>
+  <div id="s7-sp"></div>
+  <div class="cap" id="s7-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ document.getElementById("s7-sp").innerHTML=sparkle(900,190,44)+sparkle(1800,300,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s7-ax,#s7-l1,#s7-l2,#s7-l3,#s7-op,#s7-m1,#s7-m2,#s7-ar1,#s7-sel,#s7-o1,#s7-o2,#s7-warn",{opacity:0});
+ tl.fromTo("#s7-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ var a=T("local start time");
+ tl.fromTo("#s7-ax,#s7-l1,#s7-l2,#s7-l3",{opacity:0},{opacity:1,duration:.5,stagger:.1},T("For example")||a-2);
+ pop(tl,"#s7-op",T("late at night")||a-1.2,{s:.5,y:20});
+ pop(tl,"#s7-m1",a-.2,{s:.5,y:30});
+ var b=T("year and month columns");
+ pop(tl,"#s7-m2",b-.2,{s:.5,y:30});tl.fromTo("#s7-ar1",{opacity:0},{opacity:1,duration:.3},b+.6);
+ var c=T("Period Basis");
+ tl.fromTo("#s7-sel,#s7-o1,#s7-o2",{opacity:0,y:30},{opacity:1,y:0,duration:.45,stagger:.12,ease:"power3.out"},c-.5);
+ var d=T("confirm the basis before exporting");
+ pop(tl,"#s7-warn",d-.8,{s:.5,y:20,d:.6});tl.to("#s7-warn",{x:6,duration:.1,repeat:5,yoyo:true},d);
+ tl.fromTo("#s7-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},d);
+ captions(tl,"s7-cap");
+ window.__timelines["s7"]=tl;
+})();
+</script>
+</template></body></html>

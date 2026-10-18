@@ -1,0 +1,68 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .xc{position:absolute;display:flex;height:60px;align-items:center;border-bottom:2px solid rgba(91,70,54,.25);font-size:26px;white-space:nowrap;left:140px;width:1560px}
+#root .xc span{flex:none;overflow:hidden;padding-right:8px}
+#root .fw{position:absolute;top:735px;width:330px;height:130px;border:3px solid var(--ink);border-radius:24px;background:#fff;box-shadow:var(--sh);display:flex;align-items:center;justify-content:center;text-align:center;font-size:34px;line-height:1.25;padding:0 14px}
+#root .fa{position:absolute;top:772px;font-size:52px}
+</style>
+<div id="root" data-composition-id="s11" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="21" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:640px;width:520px;height:520px;background:#ffe08f"></div>
+  <div class="head wob" id="s11-h"><span class="step">第 4 步</span><span class="ttl">导出确认</span></div>
+  <div class="btn" id="s11-bt" style="left:1360px;top:84px;font-size:36px;background:#ffb3c6;padding:8px 30px 10px">导出当前结果</div>
+
+  <div class="win wob" id="s11-win" style="left:110px;top:230px;width:1640px;height:430px"><div class="wbar" style="background:#bfe8cf"><i></i><i></i><i></i><span>导出的 Excel（示例数据）</span></div></div>
+  <div class="xc" id="s11-x0" style="top:305px;font-weight:700;background:#e9f6ee"><span style="width:150px">操作人</span><span style="width:230px">任务编号</span><span style="width:130px">等级</span><span style="width:250px">当地开始时间</span><span style="width:200px">…其他原始列…</span><span style="width:200px;background:#ffe08f" id="s11-n1">本行激励（元）</span><span style="width:230px;background:#ffe08f" id="s11-n2">WeLink 部门</span><span style="width:170px;background:#ffe08f" id="s11-n3">工号变更</span></div>
+  <div class="xc" id="s11-x1" style="top:365px"><span style="width:150px">员工 A</span><span style="width:230px">T20260903001</span><span style="width:130px">Fatal</span><span style="width:250px">2026-09-03 02:40</span><span style="width:200px">……</span><span style="width:200px">600</span><span style="width:230px">网络运维部</span><span style="width:170px"></span></div>
+  <div class="xc" id="s11-x2" style="top:425px"><span style="width:150px">员工 C</span><span style="width:230px">T20260905017</span><span style="width:130px">Medium</span><span style="width:250px">2026-09-05 00:30</span><span style="width:200px">……</span><span style="width:200px">180</span><span style="width:230px">服务交付部</span><span style="width:170px;color:#b45309">→ 0033221</span></div>
+  <div class="xc" id="s11-x3" style="top:485px"><span style="width:150px">员工 B</span><span style="width:230px">T20260909004</span><span style="width:130px">High</span><span style="width:250px">2026-09-09 23:10</span><span style="width:200px">……</span><span style="width:200px">280</span><span style="width:230px;color:#d9456b">疑似已离职</span><span style="width:170px"></span></div>
+  <div class="hl" id="s11-hl" style="position:absolute;left:130px;top:478px;width:1580px;height:70px;border:5px dashed #f27b96;border-radius:16px;pointer-events:none"></div>
+  <div class="abs" id="s11-nt" style="left:140px;top:575px;font-size:32px;color:#8a7360;white-space:nowrap">只保留被计发的行，原始表的每一列都在，每行激励都能对着原始记录核对。</div>
+  <div class="sticky wob" id="s11-sk" style="left:1250px;top:560px;width:480px;transform:rotate(2deg);font-size:36px;line-height:1.3;padding:10px 22px 14px;background:linear-gradient(170deg,#ffe3e8,#ffb3c6)">疑似已离职的人，<br>请主管亲自确认</div>
+
+  <div class="fw wob" id="s11-f1" style="left:110px;background:#fff8dc">导出明细</div>
+  <div class="fa" id="s11-a1" style="left:450px">→</div>
+  <div class="fw wob" id="s11-f2" style="left:520px;background:#e4f1fb">发给每位主管和同事<br>逐行确认</div>
+  <div class="fa" id="s11-a2" style="left:860px">→</div>
+  <div class="fw wob" id="s11-f3" style="left:930px;background:#ffe3e8">有疑问？<br>加黑名单 / 改规则</div>
+  <div class="fa" id="s11-a3" style="left:1270px">→</div>
+  <div class="fw wob" id="s11-f4" style="left:1340px;background:#dff6ec">自动重算<br>重新导出，再确认</div>
+  <div class="abs wob" id="s11-d" style="left:1700px;top:740px"></div>
+  <div id="s11-sp"></div>
+  <div class="cap" id="s11-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s11-d",dino("dn",{w:210,h:202}));
+ document.getElementById("s11-sp").innerHTML=sparkle(1330,190,44)+sparkle(1860,300,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s11-bt,#s11-win,#s11-x0,#s11-x1,#s11-x2,#s11-x3,#s11-hl,#s11-nt,#s11-sk,#s11-f1,#s11-a1,#s11-f2,#s11-a2,#s11-f3,#s11-a3,#s11-f4",{opacity:0});
+ tl.fromTo("#s11-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s11-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("导出当前结果");
+ pop(tl,"#s11-bt",a-.3,{s:.5});click(tl,"#s11-bt",a+.6);
+ tl.fromTo("#s11-win",{opacity:0,y:50},{opacity:1,y:0,duration:.55,ease:"power3.out"},a+.4);
+ var b=T("保留原始表的所有列");
+ tl.fromTo("#s11-x0,#s11-x1,#s11-x2,#s11-x3,#s11-nt",{opacity:0,x:-20},{opacity:1,x:0,duration:.3,stagger:.2},b-.3);
+ var c=T("本行激励金额");
+ tl.to("#s11-n1",{backgroundColor:"#ffd166",duration:.3,repeat:3,yoyo:true},c);
+ tl.to("#s11-n2",{backgroundColor:"#ffd166",duration:.3,repeat:3,yoyo:true},T("部门"));
+ tl.to("#s11-n3",{backgroundColor:"#ffd166",duration:.3,repeat:3,yoyo:true},T("工号变更"));
+ var d=T("疑似已离职");
+ tl.fromTo("#s11-hl",{opacity:0},{opacity:1,duration:.3},d-.3);pop(tl,"#s11-sk",d,{s:.4,y:20,d:.55});
+ var e=T("发给每位主管和同事确认");
+ pop(tl,"#s11-f1",e-1.2,{s:.5,y:30});tl.fromTo("#s11-a1",{opacity:0},{opacity:1,duration:.3},e-.7);pop(tl,"#s11-f2",e-.4,{s:.5,y:30});
+ var f=T("有疑问的");
+ tl.fromTo("#s11-a2",{opacity:0},{opacity:1,duration:.3},f-.6);pop(tl,"#s11-f3",f-.2,{s:.5,y:30});
+ var g=T("重新导出");
+ tl.fromTo("#s11-a3",{opacity:0},{opacity:1,duration:.3},g-.8);pop(tl,"#s11-f4",g-.5,{s:.5,y:30});dcheer(tl,"dn",g);
+ tl.fromTo("#s11-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},g);
+ captions(tl,"s11-cap");
+ window.__timelines["s11"]=tl;
+})();
+</script>
+</template></body></html>

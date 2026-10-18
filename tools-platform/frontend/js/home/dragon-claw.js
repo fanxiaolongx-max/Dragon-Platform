@@ -939,6 +939,7 @@
                 <button type="button" class="dc-action dc-action--primary" data-dc-resume>${escapeHtml(tx('resumeAction'))}</button>`;
             el.resume.hidden = false;
         } catch {
+            forgetLastChat();
             hideResumeCard();
         }
     }

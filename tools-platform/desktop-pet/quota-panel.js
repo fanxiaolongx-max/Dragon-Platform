@@ -5,10 +5,11 @@
     let quotas=null, group='gemini';
     function render() {
         const english=window.PetI18n.getLanguage()==='en-US';
-        const text=english?{title:'ACCOUNT QUOTA',footer:'5 hours / weekly · remaining',five:'5 hours',week:'Weekly',desktop:'Desktop',gemini:'Gemini',third:'Claude / GPT',live:'Live',cached:'Cached'}:
-            {title:'账户剩余额度',footer:'5 小时 / 每周 · 剩余比例',five:'5 小时',week:'每周',desktop:'桌面订阅',gemini:'Gemini',third:'Claude / GPT',live:'实时',cached:'缓存'};
+        const text=english?{title:'ACCOUNT QUOTA',five:'5 hours',week:'Weekly',desktop:'Desktop',gemini:'Gemini',third:'Claude / GPT',live:'Live',cached:'Cached'}:
+            {title:'账户剩余额度',five:'5 小时',week:'每周',desktop:'桌面订阅',gemini:'Gemini',third:'Claude / GPT',live:'实时',cached:'缓存'};
         document.getElementById('panelTitle').textContent=text.title;
-        document.getElementById('panelFooter').textContent=text.footer;
+        document.getElementById('columnFive').textContent=text.five;
+        document.getElementById('columnWeek').textContent=text.week;
         document.querySelector('section').setAttribute('aria-label',text.title);
         rows.replaceChildren();
         const entries=window.PetQuotaView.groups(quotas,english);
@@ -37,6 +38,7 @@
             const available=entry && ['live','cached'].includes(entry.status);
             const description=provider==='antigravity'?(group==='third-party'?text.third:text.gemini):'';
             detail.textContent=available?[description,entry.status==='cached'?text.cached:''].filter(Boolean).join(' · '):entry?.state || '—';
+            detail.title=detail.textContent;
             if(detail.textContent)meta.appendChild(detail);
             brand.appendChild(meta);row.appendChild(brand);
             for(const [id,label] of [['5h',text.five],['weekly',text.week]]) {
@@ -45,10 +47,9 @@
                 cell.title=(english?'View trend · ':'查看趋势 · ')+title+' · '+label;
                 cell.setAttribute('aria-label',cell.title);
                 cell.addEventListener('click',()=>ipc.send('pet-open-quota-trends',{provider,groupId:available?entry.key.slice(provider.length+1):(provider==='antigravity'?group:provider),windowId:id}));
-                const number=document.createElement('div');number.className='quota-value';number.textContent=value==null?'—':String(value);
+                const number=document.createElement('div');number.className='quota-value';number.textContent=value==null?'—':String(Math.round(value));
                 if(value!=null){const unit=document.createElement('span');unit.className='quota-percent';unit.textContent='%';number.appendChild(unit);}
-                const caption=document.createElement('span');caption.className='quota-label';caption.textContent=label;
-                cell.append(number,caption);row.appendChild(cell);
+                cell.append(number);row.appendChild(cell);
             }
             rows.appendChild(row);
         }

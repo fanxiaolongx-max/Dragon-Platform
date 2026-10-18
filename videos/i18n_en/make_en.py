@@ -44,7 +44,8 @@ def translate(text, scene, tk, dic, scoped):
 def leftover(text):
     return sorted(set(re.findall(r'[^\x00-\x7f<>"\';{}\n]*[一-鿿][^\x00-\x7f<>"\';{}\n]*|[一-鿿]+', text)))
 
-def build_project(name, tk, dic, kind):
+def build_project(name, tk, dic, kind, scoped=None):
+    scoped = SCOPED if scoped is None else scoped
     src = os.path.join(ROOT, name); dst = os.path.join(ROOT, name + '-en')
     clone(src, dst)
     miss = {}
@@ -52,9 +53,9 @@ def build_project(name, tk, dic, kind):
         p = os.path.join(dst, 'src', f); sc = f[:-5]
         # always re-translate from the Chinese source
         t = open(os.path.join(src, 'src', f), encoding='utf8').read()
-        t = translate(t, sc, tk, dic, SCOPED)
+        t = translate(t, sc, tk, dic, scoped)
         t = font_swap(t)
-        for a, b in ENFIX.get(('p:' if kind == 'platform' else 'n:') + sc, []):
+        for a, b in ENFIX.get(({'platform': 'p:', 'netcare': 'n:', 'incentive': 'i:'})[kind] + sc, []):
             if a not in t: print('  ENFIX miss', kind, sc, a[:40])
             t = t.replace(a, b)
         open(p, 'w', encoding='utf8').write(t)
@@ -95,10 +96,10 @@ def build_project(name, tk, dic, kind):
                 t = t.replace("PUN=r'[，。！？；：、,.!?;:\\s“”\"\\'（）()—…]'", "PUN=r'[，。！？；：、,.!?;:\\s“”\"\\'（）()—…]'")
             open(p, 'w', encoding='utf8').write(t)
     # voice script
-    if kind == 'platform':
+    if kind in ('platform', 'incentive'):
         vo = open(os.path.join(src, 'scripts', 'vo.py'), encoding='utf8').read()
         a = vo.index('LINES = {'); b = vo.index('# 只给语音用')
-        lines = 'LINES = {\n' + ''.join(' %s: %s,\n' % (json.dumps(k), json.dumps(list(v), ensure_ascii=False)) for k, v in NR.PLATFORM.items()) + '}\n'
+        lines = 'LINES = {\n' + ''.join(' %s: %s,\n' % (json.dumps(k), json.dumps(list(v), ensure_ascii=False)) for k, v in (NR.PLATFORM if kind == 'platform' else NR.INCENTIVE).items()) + '}\n'
         vo = vo[:a] + lines + vo[b:]
         vo = re.sub(r'SPOKEN = \[.*?\]\n', 'SPOKEN = []\n', vo, flags=re.S)
         vo = vo.replace('VOICE = "zh-CN-YunxiNeural"', 'VOICE = "%s"' % VOICE).replace('rate="+8%"', 'rate="%s"' % RATE)
@@ -108,7 +109,7 @@ def build_project(name, tk, dic, kind):
         lines = 'LINES = {\n' + ''.join(' %s: %s,\n' % (json.dumps(k), json.dumps(v, ensure_ascii=False)) for k, v in NR.NETCARE.items()) + '}\n'
         vo = vo[:a] + lines + vo[b:]
         vo = vo.replace('VOICE="zh-CN-YunxiNeural"', 'VOICE="%s"' % VOICE).replace('rate="+6%"', 'rate="%s"' % RATE)
-    if kind == 'platform':
+    if kind in ('platform', 'incentive'):
         vo = vo.replace('text = pre + why + body', 'text = " ".join(x for x in (pre, why, body) if x)').replace('o["text"] == v[0] + v[1] + v[2]', 'o["text"] == " ".join(x for x in v[:3] if x)')
         vo = vo.replace('a = len(re.sub(PUN, \'\', pre)); b = a + len(re.sub(PUN, \'\', why))', 'a = len(re.sub(PUN, \'\', pre)); b = a + len(re.sub(PUN, \'\', why))')
     os.makedirs(os.path.join(dst, 'compositions', 'frames'), exist_ok=True); os.makedirs(os.path.join(dst, 'renders'), exist_ok=True)
@@ -118,7 +119,9 @@ def build_project(name, tk, dic, kind):
     return dst, miss
 
 if __name__ == '__main__':
-    for name, tk, dic, kind in (('tools-platform-guide', TK_PLATFORM, PLATFORM, 'platform'), ('netcare-rfc-ai-guide', TK_NETCARE, NETCARE, 'netcare')):
-        dst, miss = build_project(name, tk, dic, kind)
+    which = sys.argv[1:] or ['platform', 'netcare', 'incentive']
+    for name, tk, dic, kind, sco in (('tools-platform-guide', TK_PLATFORM, PLATFORM, 'platform', None), ('netcare-rfc-ai-guide', TK_NETCARE, NETCARE, 'netcare', None), ('operation-incentive-guide', TK_INCENTIVE, INCENTIVE, 'incentive', SCOPED_INC)):
+        if kind not in which: continue
+        dst, miss = build_project(name, tk, dic, kind, sco)
         print('==', dst)
         for f, lo in miss.items(): print(' leftover', f, lo)

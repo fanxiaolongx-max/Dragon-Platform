@@ -1,0 +1,39 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+</style>
+<div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="3" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-140px;top:-120px;width:480px;height:480px;background:#ffb3c6"></div>
+  <div class="blob" style="left:1460px;top:-170px;width:520px;height:520px;background:#ffe08f"></div>
+  <div class="abs wob" id="s1-t" style="left:110px;top:70px;font-family:'ZCOOL KuaiLe',sans-serif;font-size:128px;line-height:1;white-space:nowrap">操作激励统计</div>
+  <svg class="abs wob" style="left:110px;top:206px" width="780" height="36" viewBox="0 0 780 36"><path id="s1-ul" class="ln" pathLength="1" stroke-dasharray="1" style="stroke:#ffb3c6;stroke-width:12" d="M6 22 C150 4 300 34 460 16 S700 30 774 12"/></svg>
+  <div class="abs" id="s1-sub" style="left:118px;top:250px;font-size:58px;white-space:nowrap">夜间操作激励 · 算得准 · 对得上</div>
+  <div class="abs" id="s1-tip" style="left:118px;top:400px;font-size:46px;line-height:1.7;white-space:nowrap;color:#7a6350">你将看到：<br>① 为什么要用它<br>② 每一步在哪里点<br>③ 怎么保证数据准确<br>④ 结果怎么给大家确认</div>
+  <div class="abs wob" id="s1-d" style="left:1180px;top:430px"></div>
+  <div class="bubble" id="s1-bub" style="left:1010px;top:410px;font-size:56px">嗨～我是小龙！</div>
+  <div id="s1-sp"></div>
+  <div class="cap" id="s1-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s1-d",dino("dn",{w:420,h:405}));
+ document.getElementById("s1-sp").innerHTML=sparkle(960,90,50)+sparkle(1220,220,44,"#ffb3c6")+sparkle(1750,330,52,"#9fe0c9")+sparkle(1000,760,44,"#ffe08f");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s1-bub,#s1-tip",{opacity:0});
+ tl.fromTo("#s1-t",{opacity:0,y:50,rotation:-2},{opacity:1,y:0,rotation:0,duration:.7,ease:"back.out(1.6)"},.3);
+ draw(tl,"#s1-ul",.9,.7);tl.fromTo("#s1-sub",{opacity:0},{opacity:1,duration:.6},1.2);
+ tl.fromTo("#s1-d",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.2);
+ pop(tl,"#s1-bub",.8,{s:.4});dwave(tl,"dn",.8,3);dtail(tl,"dn",.6,12);
+ tl.to("#s1-bub",{opacity:0,duration:.3},3.0);
+ tl.fromTo("#s1-tip",{opacity:0,x:-30},{opacity:1,x:0,duration:.7,ease:"power3.out"},T("夜间操作"));
+ tl.fromTo("#s1-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("算得准"));
+ dcheer(tl,"dn",T("算得准")+.2);bounce(tl,"s1-d",T("算得准")+.4,3,16);
+ captions(tl,"s1-cap");
+ window.__timelines["s1"]=tl;
+})();
+</script>
+</template></body></html>

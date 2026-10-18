@@ -1,0 +1,69 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .gt{position:absolute;top:235px;width:400px;height:160px;border:3px solid var(--ink);border-radius:26px;background:#fff;box-shadow:var(--sh);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+#root .gt .t1{font-family:"ZCOOL KuaiLe",sans-serif;font-size:44px;white-space:nowrap}
+#root .gt .t2{font-size:30px;color:#8a7360;white-space:nowrap}
+#root .gt .nn{position:absolute;left:-14px;top:-18px;width:52px;height:52px;border-radius:50%;border:3px solid var(--ink);background:var(--yellow);font-family:"ZCOOL KuaiLe",sans-serif;font-size:32px;display:flex;align-items:center;justify-content:center}
+#root .od{position:absolute;left:30px;width:690px;height:84px;border:3px solid var(--ink);border-radius:18px;background:#fff;display:flex;align-items:center;gap:16px;padding:0 20px;font-size:34px;white-space:nowrap}
+#root .od em{font-style:normal;margin-left:auto;border:2.5px solid var(--ink);border-radius:999px;padding:0 18px;font-size:30px}
+#root .sc{position:absolute;top:490px;width:260px;height:170px;border:3px solid var(--ink);border-radius:22px;background:#fff;box-shadow:var(--sh);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+#root .sc .k{font-size:30px;color:#8a7360;white-space:nowrap}
+#root .sc .v{font-family:"ZCOOL KuaiLe",sans-serif;font-size:62px}
+</style>
+<div id="root" data-composition-id="s4" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="14" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1400px;top:-170px;width:520px;height:520px;background:#ffe08f"></div>
+  <div class="head wob" id="s4-h"><span class="step">第 2 步</span><span class="ttl">怎么算：四道关</span></div>
+  <div class="gt wob" id="s4-g1" style="left:110px"><span class="nn">1</span><div class="t1">已完成</div><div class="t2">任务状态要完成</div></div>
+  <div class="gt wob" id="s4-g2" style="left:540px"><span class="nn">2</span><div class="t1">夜间时间</div><div class="t2">落在 22:00–06:00</div></div>
+  <div class="gt wob" id="s4-g3" style="left:970px"><span class="nn">3</span><div class="t1">信息齐全</div><div class="t2">有操作人和开始时间</div></div>
+  <div class="gt wob" id="s4-g4" style="left:1400px;background:#fff8dc;border-width:5px"><span class="nn">4</span><div class="t1">同人同天取最高</div><div class="t2">多单只算一次</div></div>
+  <div class="win wob" id="s4-ex" style="left:110px;top:450px;width:780px;height:470px"><div class="wbar" style="background:#ffe3e8"><i></i><i></i><i></i><span>例：员工 A · 9 月 3 日 · 三单</span></div></div>
+  <div class="od" id="s4-o1" style="left:140px;top:545px"><b style="font-weight:400">单 1</b>Low　¥50<em id="s4-e1" style="background:#eee">忽略</em></div>
+  <div class="od" id="s4-o2" style="left:140px;top:645px"><b style="font-weight:400">单 2</b>High　¥280<em id="s4-e2" style="background:#eee">忽略</em></div>
+  <div class="od" id="s4-o3" style="left:140px;top:745px"><b style="font-weight:400">单 3</b>Fatal　¥600<em id="s4-e3" style="background:#9fe0c9">计发</em></div>
+  <div class="bubble" id="s4-bub" style="left:660px;top:820px;font-size:40px;padding:10px 24px 14px">这天只计 ¥600</div>
+  <div class="sc" id="s4-c1" style="left:960px"><div class="k">原始记录</div><div class="v">3,842</div></div>
+  <div class="abs" id="s4-ar1" style="left:1228px;top:545px;font-size:56px">→</div>
+  <div class="sc" id="s4-c2" style="left:1290px"><div class="k">规则有效记录</div><div class="v" style="color:#2f9e74">2,516</div></div>
+  <div class="abs" id="s4-ar2" style="left:1558px;top:545px;font-size:56px">→</div>
+  <div class="sc" id="s4-c3" style="left:1620px;width:240px"><div class="k">同人同日去重后</div><div class="v" style="color:#d9456b">1,408</div></div>
+  <div class="tag abs" id="s4-demo" style="left:960px;top:690px;background:#fff;font-size:28px">示例数据</div>
+  <div class="abs wob" id="s4-d" style="left:1500px;top:740px"></div>
+  <div id="s4-sp"></div>
+  <div class="cap" id="s4-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s4-d",dino("dn",{w:270,h:260}));
+ document.getElementById("s4-sp").innerHTML=sparkle(1000,190,44)+sparkle(1850,440,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s4-g1,#s4-g2,#s4-g3,#s4-g4,#s4-ex,#s4-o1,#s4-o2,#s4-o3,#s4-bub,#s4-c1,#s4-c2,#s4-c3,#s4-ar1,#s4-ar2,#s4-demo",{opacity:0});
+ tl.fromTo("#s4-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s4-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ pop(tl,"#s4-g1",T("已完成")-.2,{s:.5,y:30});
+ pop(tl,"#s4-g2",T("夜间")-.2,{s:.5,y:30});
+ pop(tl,"#s4-g3",T("操作人和开始时间")-.4,{s:.5,y:30});
+ var v=T("规则有效记录");
+ pop(tl,"#s4-c1",v-1.2,{s:.5,y:30});tl.fromTo("#s4-ar1",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},v-.6);pop(tl,"#s4-c2",v-.3,{s:.5,y:30});
+ pop(tl,"#s4-demo",v,{s:.5});
+ var g=T("同一个人同一天");
+ pop(tl,"#s4-g4",g-.2,{s:.5,y:30});
+ tl.fromTo("#s4-ex",{opacity:0,y:50},{opacity:1,y:0,duration:.5,ease:"power3.out"},g+1.0);
+ tl.fromTo("#s4-o1,#s4-o2,#s4-o3",{opacity:0,x:-30},{opacity:1,x:0,duration:.35,stagger:.4},T("最高等级")+.6);
+ var s=T("六百元");
+ tl.to("#s4-o1,#s4-o2",{opacity:.5,duration:.4},s-.8);
+ tl.to("#s4-o3",{backgroundColor:"#e3f9ef",scale:1.03,duration:.3,transformOrigin:"50% 50%"},s-.4);
+ pop(tl,"#s4-bub",s-.2,{s:.4});
+ tl.fromTo("#s4-ar2",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},s+.5);pop(tl,"#s4-c3",s+.7,{s:.5,y:30});
+ dcheer(tl,"dn",s+.6);
+ tl.fromTo("#s4-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},s+.7);
+ captions(tl,"s4-cap");
+ window.__timelines["s4"]=tl;
+})();
+</script>
+</template></body></html>

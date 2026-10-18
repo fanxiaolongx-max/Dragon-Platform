@@ -1,0 +1,69 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .fee{position:absolute;top:290px;width:236px;height:150px;border:3px solid var(--ink);border-radius:20px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+#root .fee .lv{font-size:34px;white-space:nowrap}
+#root .fee .amt{font-family:"ZCOOL KuaiLe",sans-serif;font-size:56px;white-space:nowrap}
+#root .fee .amt small{font-size:30px;font-family:"Long Cang",cursive;margin-left:4px}
+#root .row4{position:absolute;left:150px;width:920px;height:84px;border:3px solid var(--ink);border-radius:20px;background:#fffdf5;display:flex;align-items:center;gap:16px;padding:0 22px;font-size:36px;white-space:nowrap}
+#root .sel{margin-left:auto;border:2.5px solid var(--ink);border-radius:12px;background:#fff;padding:0 16px;font-size:30px;height:50px;display:flex;align-items:center}
+</style>
+<div id="root" data-composition-id="s3" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="8" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-160px;top:640px;width:520px;height:520px;background:#9fe0c9"></div>
+  <div class="head wob" id="s3-h"><span class="step">第 2 步</span><span class="ttl">设定规则</span></div>
+  <div class="btn" id="s3-rb" style="left:1260px;top:90px;background:#fff;font-size:34px;padding:8px 28px 10px">规则配置</div>
+  <div class="win wob" id="s3-win" style="left:110px;top:215px;width:1010px;height:700px"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>激励与夜间规则设置</span></div></div>
+  <div class="fee" id="s3-f1" style="left:140px"><div class="lv">Low</div><div class="amt" id="s3-a1">50<small>元</small></div></div>
+  <div class="fee" id="s3-f2" style="left:394px"><div class="lv">Medium</div><div class="amt" id="s3-a2">180<small>元</small></div></div>
+  <div class="fee" id="s3-f3" style="left:648px"><div class="lv">High</div><div class="amt" id="s3-a3">280<small>元</small></div></div>
+  <div class="fee" id="s3-f4" style="left:902px;width:186px"><div class="lv">Fatal</div><div class="amt" id="s3-a4">600<small>元</small></div></div>
+  <div class="row4" id="s3-r1" style="top:470px"><span class="swt" id="s3-sw"><i></i></span>仅统计夜间操作<span class="tag" style="background:#e4f1fb;margin-left:auto;font-size:32px" id="s3-tm">22:00 – 06:00</span></div>
+  <div class="row4" id="s3-r2" style="top:575px">人员识别字段<span class="sel">complete_operator 操作人工号 ▾</span></div>
+  <div class="row4" id="s3-r3" style="top:680px">夜间校验方式<span class="sel">仅按操作时间判断 ▾</span></div>
+  <div class="btn" id="s3-sv" style="left:760px;top:800px;background:#ffb3c6;font-size:36px;padding:8px 30px 10px">保存并应用</div>
+  <div class="sticky wob" id="s3-s1" style="left:1220px;top:300px;width:520px;transform:rotate(2deg);font-size:40px">默认金额随时可改<br><span style="font-size:34px">Fatal ＞ High ＞ Medium ＞ Low<br>未识别的等级，按 0 元</span></div>
+  <div class="sticky wob" id="s3-s2" style="left:1220px;top:560px;width:520px;transform:rotate(-2deg);font-size:40px;background:linear-gradient(170deg,#dff6ec,#9fe0c9)">改完保存，<br>结果自动重算</div>
+  <div class="cursor wob" id="s3-cur"></div>
+  <div class="abs wob" id="s3-d" style="left:1580px;top:740px"></div>
+  <div id="s3-sp"></div>
+  <div class="cap" id="s3-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s3-cur",icon("cursor","#ffffff",74));put("s3-d",dino("dn",{w:270,h:260}));
+ document.getElementById("s3-sp").innerHTML=sparkle(1170,200,44)+sparkle(1800,480,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s3-rb,#s3-win,#s3-f1,#s3-f2,#s3-f3,#s3-f4,#s3-r1,#s3-r2,#s3-r3,#s3-sv,#s3-s1,#s3-s2,#s3-cur,#s3-tm",{opacity:0});
+ tl.fromTo("#s3-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s3-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("规则配置");
+ pop(tl,"#s3-rb",a-.6,{s:.5});
+ tl.set("#s3-cur",{x:1500,y:400});tl.fromTo("#s3-cur",{opacity:0},{opacity:1,duration:.3},a-.8);
+ cur(tl,"#s3-cur",1420,150,a-.5,.6);click(tl,"#s3-cur",a+.2);click(tl,"#s3-rb",a+.2);
+ tl.fromTo("#s3-win",{opacity:0,y:60,scale:.95},{opacity:1,y:0,scale:1,duration:.55,ease:"back.out(1.4)",transformOrigin:"50% 50%"},a+.3);
+ tl.to("#s3-cur",{opacity:0,duration:.3},a+.6);
+ var b=T("四个等级");
+ tl.fromTo("#s3-f1,#s3-f2,#s3-f3,#s3-f4",{opacity:0,y:30},{opacity:1,y:0,duration:.4,stagger:.2,ease:"back.out(1.6)"},T("Low")-.2);
+ pop(tl,"#s3-s1",T("默认是")-.2,{s:.5,y:20});
+ var c=T("仅统计夜间操作");
+ tl.fromTo("#s3-r1",{opacity:0,x:-20},{opacity:1,x:0,duration:.4},c-.5);
+ toggle(tl,"s3-sw",c+.9);pop(tl,"#s3-tm",c+1.2,{s:.4});
+ var d=T("识别操作人");
+ tl.fromTo("#s3-r2,#s3-r3",{opacity:0,x:-20},{opacity:1,x:0,duration:.4,stagger:.3},d-.9);
+ var e=T("保存并应用");
+ pop(tl,"#s3-sv",e-.6,{s:.5,y:20});
+ tl.set("#s3-cur",{x:1100,y:900});tl.fromTo("#s3-cur",{opacity:0},{opacity:1,duration:.3},e-.9);
+ cur(tl,"#s3-cur",900,850,e-.7,.6);click(tl,"#s3-cur",e+.5);click(tl,"#s3-sv",e+.5);tl.to("#s3-sv",{backgroundColor:"#47cf9f",duration:.2},e+.55);
+ pop(tl,"#s3-s2",e+.8,{s:.4,y:20});
+ tl.to("#s3-cur",{opacity:0,duration:.3},e+1.4);
+ dpoint(tl,"dn",e+.2,1.3);
+ tl.fromTo("#s3-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},e+.9);
+ captions(tl,"s3-cap");
+ window.__timelines["s3"]=tl;
+})();
+</script>
+</template></body></html>

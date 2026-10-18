@@ -1,5 +1,5 @@
 'use strict';
-const PANEL_SIZE = { width:264, height:246 };
+const PANEL_SIZE = { width:264, height:218 };
 function panelBounds(pet, area, anchor, previous) {
     const margin=8, gap=12;
     const width=Math.min(PANEL_SIZE.width,Math.max(1,area.width-margin*2));

@@ -47,7 +47,7 @@
             line(entry.label+(entry.membership ? ' · '+entry.membership.label : '')+' · '+entry.state,'quota-account-title');
             if(['live','cached','unsupported'].includes(entry.status)) {
                 for(const w of entry.windows) {
-                    line(w.title+' '+text.remaining+' '+(w.value===null?'—':w.value+'%')+(w.reset?' · '+text.reset+' '+w.reset:''));
+                    line(w.title+' '+text.remaining+' '+(w.value===null?'—':Math.round(w.value)+'%')+(w.reset?' · '+text.reset+' '+w.reset:''));
                 }
             }
             if(entry.updated)line(text.updated+' '+entry.updated,'quota-account-time');

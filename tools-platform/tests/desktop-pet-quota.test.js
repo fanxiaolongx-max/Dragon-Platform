@@ -5,7 +5,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { EventEmitter } = require('node:events');
 const { PassThrough } = require('node:stream');
-const { parseCodexQuota,readCodexQuota } = require('../desktop-pet/codex-quota');
+const { parseCodexQuota,readCodexQuota,codexCommand,codexCommandForFile } = require('../desktop-pet/codex-quota');
 const { parseClaudeQuota,readClaudeQuota } = require('../desktop-pet/claude-quota');
 const { readDesktopClaudeCredential,selectDesktopEntry } = require('../desktop-pet/claude-desktop-quota');
 const { parseAntigravityQuota,parseProcesses,createAntigravityReader } = require('../desktop-pet/antigravity-quota');
@@ -68,6 +68,44 @@ test('Codex handshake reads account mode before quotas, closes only its own chil
 test('a hung Codex child times out without blocking the next probe',async()=>{
     const child=new EventEmitter();child.stdout=new PassThrough();child.stdin=new PassThrough();let killed=false;child.kill=()=>{killed=true;child.exitCode=0;};
     const q=await readCodexQuota({spawn:()=>child,command:{file:'test',args:[]},timeout:10});assert.equal(q.status,'unavailable');assert.equal(killed,true);
+});
+
+test('GUI Codex discovery runs symlinked npm scripts with the explicit runtime and preserves native binaries',t=>{
+    const home=fs.mkdtempSync(path.join(os.tmpdir(),'pet-codex-launch-'));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));
+    const bin=path.join(home,'.local','bin');fs.mkdirSync(bin,{recursive:true});
+    const script=path.join(home,'entry with spaces.js');fs.writeFileSync(script,'#!/usr/bin/env node\n');
+    fs.symlinkSync(script,path.join(bin,'codex'));
+    const env={PATH:'/usr/bin:/bin:/usr/sbin:/sbin',CODEX_HOME:path.join(home,'account')},runtime=path.join(home,'Desktop App');
+    const command=codexCommand(home,'darwin',{env,runtime});
+    assert.equal(command.file,runtime);assert.deepEqual(command.args,[fs.realpathSync(script)]);
+    assert.equal(command.env.ELECTRON_RUN_AS_NODE,'1');assert.equal(command.env.CODEX_HOME,env.CODEX_HOME);
+    assert.equal(env.ELECTRON_RUN_AS_NODE,undefined,'do not change the parent process environment');
+    const native=path.join(home,'codex-native');fs.writeFileSync(native,Buffer.from([0xcf,0xfa,0xed,0xfe]));
+    assert.deepEqual(codexCommandForFile(native,env,runtime),{file:native,args:[]});
+    const noExtension=path.join(home,'node-wrapper');fs.writeFileSync(noExtension,'#!/usr/bin/env node\nconsole.log("test")');
+    assert.deepEqual(codexCommandForFile(noExtension,env,runtime).args,[fs.realpathSync(noExtension)]);
+    assert.equal(codexCommandForFile(home,env,runtime),null);
+});
+test('Windows npm discovery also uses the embedded runtime when node is absent from PATH',t=>{
+    const home=fs.mkdtempSync(path.join(os.tmpdir(),'pet-codex-win-'));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));
+    const appData=path.join(home,'Roaming'),script=path.join(appData,'npm','node_modules','@openai','codex','bin','codex.js');
+    fs.mkdirSync(path.dirname(script),{recursive:true});fs.writeFileSync(script,'#!/usr/bin/env node\n');
+    const env={Path:path.join(home,'empty-a')+';'+path.join(home,'empty-b'),APPDATA:appData};
+    const command=codexCommand(home,'win32',{env,runtime:'desktop.exe'});
+    assert.equal(command.file,'desktop.exe');assert.deepEqual(command.args,[fs.realpathSync(script)]);assert.equal(command.env.ELECTRON_RUN_AS_NODE,'1');
+});
+test('an npm Codex executable can complete the handshake with the same minimal PATH as Finder',async t=>{
+    const home=fs.mkdtempSync(path.join(os.tmpdir(),'pet-codex-real-spawn-'));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));
+    const script=path.join(home,'codex-entry.cjs');
+    fs.writeFileSync(script,`#!/usr/bin/env node
+        const rl=require('node:readline').createInterface({input:process.stdin});
+        rl.on('line',line=>{const m=JSON.parse(line);if(!m.id)return;
+            const result=m.method==='account/read'?{account:{type:'chatgpt',planType:'plus'}}:
+                m.method==='account/rateLimits/read'?{rateLimits:{primary:{usedPercent:25,windowDurationMins:300}}}:{};
+            process.stdout.write(JSON.stringify({id:m.id,result})+'\\n');});`);
+    const command=codexCommandForFile(script,{...process.env,PATH:'/usr/bin:/bin:/usr/sbin:/sbin'});
+    const result=await readCodexQuota({command});
+    assert.equal(result.status,'live');assert.equal(result.membership.label,'Plus');assert.equal(result.groups[0].windows[0].remainingPercent,75);
 });
 
 test('Antigravity discovers Windows and Mac listening ports and never forwards local credentials',async()=>{

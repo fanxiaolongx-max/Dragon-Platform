@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage, clipboard, net } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, session, shell, Tray, Menu, nativeImage, clipboard, net, screen } = require('electron');
 
 // 保证程序单实例运行，避免多开冲突导致 SQLite 锁死 (SQLITE_BUSY: database is locked)
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -204,14 +204,18 @@ function createLicenseWindow() {
         updateStartupProgress(40, '等待授权激活', '检测到 License 尚未激活或已过期，请在授权激活窗口中完成激活…', '阶段 2/2 · 等待授权');
     }
 
+    const licenseArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+    const licenseWidth = Math.min(1040, Math.max(1, licenseArea.width - 32));
+    const licenseHeight = Math.min(740, Math.max(1, licenseArea.height - 32));
     licenseWindow = new BrowserWindow({
-        width: 640,
-        height: 600,
-        minWidth: 560,
-        minHeight: 520,
+        width: licenseWidth,
+        height: licenseHeight,
+        minWidth: Math.min(560, licenseWidth),
+        minHeight: Math.min(480, licenseHeight),
+        x: Math.round(licenseArea.x + (licenseArea.width - licenseWidth) / 2),
+        y: Math.round(licenseArea.y + (licenseArea.height - licenseHeight) / 2),
         backgroundColor: '#090e17',
         show: false,
-        center: true,
         alwaysOnTop: true,
         autoHideMenuBar: true,
         title: 'Dragon Platform - 软件授权激活 / License Activation',

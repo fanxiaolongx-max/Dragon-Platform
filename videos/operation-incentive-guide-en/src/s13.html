@@ -1,0 +1,51 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .gc .t{font-size:34px!important;white-space:normal!important;text-align:center;padding:0 12px;line-height:1.1}#root .gc .s{font-size:26px!important;white-space:normal!important;text-align:center;padding:0 14px}
+#root .gc{position:absolute;top:290px;width:400px;height:300px;border:3px solid var(--ink);border-radius:30px;box-shadow:var(--sh);display:flex;flex-direction:column;align-items:center;padding-top:34px;gap:10px}
+#root .gc .t{font-family:"Fredoka",sans-serif;font-size:46px;white-space:nowrap}
+#root .gc .s{font-size:32px;color:#6b5a48;white-space:nowrap}
+</style>
+<div id="root" data-composition-id="s13" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="23" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:-120px;width:480px;height:480px;background:#ffb3c6"></div>
+  <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#ffe08f"></div>
+  <div class="abs wob" id="s13-big" style="left:0;right:0;top:80px;text-align:center;font-family:'Fredoka',sans-serif;font-size:100px;white-space:nowrap">Clear and verifiable</div>
+  <div class="gc wob" id="s13-c1" style="left:110px;background:#dff6ec"><span id="s13-i1"></span><div class="t">Rules open and editable</div><div class="s">Amounts, night hours</div></div>
+  <div class="gc wob" id="s13-c2" style="left:540px;background:#e4f1fb"><span id="s13-i2"></span><div class="t">Every record has a destination</div><div class="s">Counted or not, there is a reason</div></div>
+  <div class="gc wob" id="s13-c3" style="left:970px;background:#fff0c9"><span id="s13-i3"></span><div class="t">Anomalies raise alerts</div><div class="s">Quality · resignation · attendance</div></div>
+  <div class="gc wob" id="s13-c4" style="left:1400px;background:#ffe3e8;border-width:5px"><span id="s13-i4"></span><div class="t">A person confirms last</div><div class="s">Supervisor and staff confirm</div></div>
+  <div class="abs wob" id="s13-nm" style="left:0;right:0;top:670px;text-align:center;font-family:'Fredoka',sans-serif;font-size:60px;white-space:nowrap">The tool calculates <span style="color:#d9456b">·</span> people confirm</div>
+  <div class="btn" id="s13-go" style="left:690px;top:790px;font-size:52px;background:#ffd166;padding:10px 60px 14px">Go try it →</div>
+  <div class="abs wob" id="s13-f1" style="left:240px;top:740px"></div>
+  <div class="abs wob" id="s13-f2" style="left:1440px;top:740px"></div>
+  <div id="s13-sp"></div>
+  <div class="cap" id="s13-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s13-i1",icon("gear","#47cf9f",100));put("s13-i2",icon("search","#8ecae6",100));put("s13-i3",icon("bell","#ffd166",100));put("s13-i4",icon("check","#ff8fab",100));
+ put("s13-f1",dino("dn",{w:250,h:240}));put("s13-f2",dino("dn2",{w:250,h:240,body:"#ffc9d6"}));
+ document.getElementById("s13-sp").innerHTML=sparkle(240,300,50)+sparkle(1700,230,46,"#ffb3c6")+sparkle(1780,700,54,"#9fe0c9")+sparkle(150,760,44,"#ffe08f")+sparkle(980,200,40,"#d9456b");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s13-c1,#s13-c2,#s13-c3,#s13-c4,#s13-nm,#s13-go,#s13-big",{opacity:0});
+ tl.fromTo("#s13-f1,#s13-f2",{opacity:0,y:140},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)",stagger:.15},.5);dtail(tl,"dn",1,14);
+ pop(tl,"#s13-big",T("To sum up")+.3,{s:.5,y:20,d:.6});
+ pop(tl,"#s13-c1",T("rules are open and editable")-.1,{s:.5,y:40,d:.5});
+ pop(tl,"#s13-c2",T("every record has a destination")-.1,{s:.5,y:40,d:.5});
+ pop(tl,"#s13-c3",T("anomalies raise their own alerts")-.1,{s:.5,y:40,d:.5});
+ pop(tl,"#s13-c4",T("a person confirms")-.3,{s:.5,y:40,d:.5});
+ var a=T("is clear");
+ pop(tl,"#s13-nm",T("The tool does the calculating")-.1,{s:.5,y:20,d:.55});
+ pop(tl,"#s13-go",T("Go and give")-.2,{s:.3,d:.55});tl.to("#s13-go",{scale:1.06,duration:.45,repeat:5,yoyo:true,ease:"sine.inOut",transformOrigin:"50% 50%"},T("Go and give")+.6);
+ tl.fromTo("#s13-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.15,ease:"back.out(2)",transformOrigin:"50% 50%"},a);
+ tl.to("#s13-sp svg",{rotation:25,duration:.9,repeat:7,yoyo:true,ease:"sine.inOut",transformOrigin:"50% 50%"},a+.6);
+ dcheer(tl,"dn",a);dcheer(tl,"dn2",a+.1);bounce(tl,"s13-f1",a+.3,5,18);bounce(tl,"s13-f2",a+.45,5,18);
+ captions(tl,"s13-cap");
+ window.__timelines["s13"]=tl;
+})();
+</script>
+</template></body></html>

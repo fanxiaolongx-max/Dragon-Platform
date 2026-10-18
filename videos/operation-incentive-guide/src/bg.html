@@ -1,0 +1,67 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .xr{position:absolute;left:24px;width:572px;height:46px;display:flex;border-bottom:2px solid rgba(91,70,54,.25);font-size:26px;align-items:center;white-space:nowrap}
+#root .xr span{flex:none}
+#root .pain{position:absolute;left:800px;width:680px;height:104px;border:3px solid var(--ink);border-radius:22px;background:#fff;box-shadow:var(--sh);display:flex;align-items:center;gap:18px;padding:0 22px;font-size:38px;white-space:nowrap}
+#root .pain b{width:50px;height:50px;border-radius:50%;border:3px solid var(--ink);background:var(--yellow);display:flex;align-items:center;justify-content:center;font-weight:400;font-size:30px;flex:none}
+#root .gd{position:absolute;top:790px;height:96px;border:3px solid var(--ink);border-radius:26px;display:flex;align-items:center;gap:14px;padding:0 26px;font-size:42px;white-space:nowrap;box-shadow:var(--sh)}
+</style>
+<div id="root" data-composition-id="bg" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:700px;width:520px;height:520px;background:#ffb3c6"></div>
+  <div class="blob" style="left:1520px;top:-160px;width:520px;height:520px;background:#aed8f2"></div>
+  <div class="head wob" id="bg-h"><span class="step">背景</span><span class="ttl">每个月的激励，怎么算出来？</span></div>
+
+  <div class="win wob" id="bg-xl" style="left:110px;top:225px;width:620px;height:520px"><div class="wbar" style="background:#bfe8cf"><i></i><i></i><i></i><span>夜间操作.xlsx</span></div></div>
+  <div class="xr" id="bg-x0" style="left:134px;top:305px;font-weight:700;background:#e9f6ee"><span style="width:150px">操作人</span><span style="width:120px">等级</span><span style="width:130px">状态</span><span>开始时间</span></div>
+  <div class="xr" id="bg-x1" style="left:134px;top:353px"><span style="width:150px">员工 A</span><span style="width:120px">Low</span><span style="width:130px">已完成</span><span>09-03 23:10</span></div>
+  <div class="xr" id="bg-x2" style="left:134px;top:401px"><span style="width:150px">员工 A</span><span style="width:120px">Fatal</span><span style="width:130px">已完成</span><span>09-03 02:40</span></div>
+  <div class="xr" id="bg-x3" style="left:134px;top:449px"><span style="width:150px">员工 B</span><span style="width:120px">High</span><span style="width:130px">未完成</span><span>09-04 14:05</span></div>
+  <div class="xr" id="bg-x4" style="left:134px;top:497px"><span style="width:150px">员工 C</span><span style="width:120px">Medium</span><span style="width:130px">已完成</span><span>09-05 00:30</span></div>
+  <div class="xr" id="bg-x5" style="left:134px;top:545px"><span style="width:150px">员工 C</span><span style="width:120px">Low</span><span style="width:130px">已完成</span><span>09-05 23:50</span></div>
+  <div class="abs" style="left:134px;top:600px;font-size:30px;color:#8a7360;white-space:nowrap">……（一共几千行）</div>
+  <div class="tag abs" id="bg-n" style="left:150px;top:660px;background:#ffe08f;font-size:38px">约 3,800 行 · 示例</div>
+
+  <div class="pain" id="bg-p1" style="top:245px"><b>1</b>挑出真正做完的夜间操作</div>
+  <div class="pain" id="bg-p2" style="top:375px"><b>2</b>同人同天多单，只算最高等级</div>
+  <div class="pain" id="bg-p3" style="top:505px"><b>3</b>按等级套金额，汇总到每个人</div>
+  <div class="sticky wob" id="bg-st" style="left:1510px;top:290px;width:380px;transform:rotate(3deg);background:linear-gradient(170deg,#ffe3e8,#ffb3c6);font-family:'ZCOOL KuaiLe',sans-serif;font-size:42px;line-height:1.4">人工做：<br>又慢<br>易漏 · 易错<br><span style="font-size:32px;white-space:nowrap">还关系到每个人的钱</span></div>
+
+  <div class="abs" id="bg-gl" style="left:110px;top:735px;font-size:40px;white-space:nowrap">所以这个工具做到三件事：</div>
+  <div class="gd wob" id="bg-g1" style="left:110px;background:#dff6ec"><span id="bg-gi1"></span>自动算</div>
+  <div class="gd wob" id="bg-g2" style="left:460px;background:#e4f1fb"><span id="bg-gi2"></span>每一步都能查</div>
+  <div class="gd wob" id="bg-g3" style="left:960px;background:#fff0c9"><span id="bg-gi3"></span>算完大家确认</div>
+  <div class="abs wob" id="bg-d" style="left:1618px;top:730px"></div>
+  <div id="bg-sp"></div>
+  <div class="cap" id="bg-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("bg-gi1",icon("bolt","#47cf9f",56));put("bg-gi2",icon("search","#aed8f2",56));put("bg-gi3",icon("check","#ffe08f",56));put("bg-d",dino("dn",{w:250,h:240}));
+ document.getElementById("bg-sp").innerHTML=sparkle(780,200,44)+sparkle(1500,640,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#bg-xl,#bg-x0,#bg-x1,#bg-x2,#bg-x3,#bg-x4,#bg-x5,#bg-n,#bg-p1,#bg-p2,#bg-p3,#bg-st,#bg-gl,#bg-g1,#bg-g2,#bg-g3",{opacity:0});
+ tl.fromTo("#bg-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#bg-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("几千行");
+ tl.fromTo("#bg-xl",{opacity:0,y:50},{opacity:1,y:0,duration:.6,ease:"power3.out"},a-1.2);
+ tl.fromTo("#bg-x0,#bg-x1,#bg-x2,#bg-x3,#bg-x4,#bg-x5",{opacity:0,x:-20},{opacity:1,x:0,duration:.3,stagger:.1},a-.8);
+ pop(tl,"#bg-n",a,{s:.4});
+ pop(tl,"#bg-p1",T("真正做完")-.3,{s:.6,y:20});
+ pop(tl,"#bg-p2",T("最高等级")-.9,{s:.6,y:20});
+ pop(tl,"#bg-p3",T("汇总到每个人")-.9,{s:.6,y:20});
+ pop(tl,"#bg-st",T("容易错")-.4,{s:.4,d:.55});tl.to("#bg-st",{rotation:1,duration:.5,repeat:3,yoyo:true,ease:"sine.inOut"},T("每个人的钱"));
+ tl.to("#bg-xl,#bg-x0,#bg-x1,#bg-x2,#bg-x3,#bg-x4,#bg-x5,#bg-n",{opacity:.35,duration:.5},T("所以这个工具")-.1);
+ tl.fromTo("#bg-gl",{opacity:0},{opacity:1,duration:.4},T("所以这个工具"));
+ pop(tl,"#bg-g1",T("自动算")-.1,{s:.5,y:30});pop(tl,"#bg-g2",T("每一步都能查")-.1,{s:.5,y:30});pop(tl,"#bg-g3",T("大家确认")-.2,{s:.5,y:30});
+ dcheer(tl,"dn",T("大家确认")+.4);
+ tl.fromTo("#bg-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("大家确认"));
+ captions(tl,"bg-cap");
+ window.__timelines["bg"]=tl;
+})();
+</script>
+</template></body></html>

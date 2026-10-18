@@ -1,0 +1,65 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .sn{font-size:28px!important}
+#root .fld{position:absolute;left:150px;width:800px}
+#root .fld .lab{font-size:32px;margin-bottom:6px;white-space:nowrap}
+#root .fld .inp{height:64px;border:3px solid var(--ink);border-radius:14px;background:#fffdf5;display:flex;align-items:center;padding:0 18px;font-size:32px;white-space:nowrap}
+#root .sc{position:absolute;left:150px;top:640px;width:800px;height:70px;border:3px dashed var(--ink);border-radius:16px;background:#f4faf6;display:flex;align-items:center;padding:0 20px;font-size:30px;white-space:nowrap;color:#4c6657}
+#root .sn{position:absolute;left:0;width:760px;height:128px;border:3px solid var(--ink);border-radius:22px;background:#fff;padding:14px 22px;font-size:32px;line-height:1.4;box-shadow:var(--sh)}
+</style>
+<div id="root" data-composition-id="s12" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="22" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#d9c6ef"></div>
+  <div class="head wob" id="s12-h"><span class="step">Wrap-up</span><span class="ttl">Save a snapshot</span></div>
+  <div class="btn" id="s12-bt" style="left:1330px;top:84px;font-size:34px;background:#ffb3c6;padding:8px 28px 10px">📸 Save Snapshot</div>
+
+  <div class="win wob" id="s12-win" style="left:110px;top:215px;width:900px;height:700px"><div class="wbar" style="background:#ffe3e8"><i></i><i></i><i></i><span>Save incentive snapshot to server</span></div></div>
+  <div class="fld" id="s12-f1" style="top:310px"><div class="lab">Snapshot name</div><div class="inp" id="s12-i1"></div></div>
+  <div class="fld" id="s12-f2" style="top:450px"><div class="lab">Period</div><div class="inp" id="s12-i2"></div></div>
+  <div class="sc" id="s12-sc" style="top:575px">Saves: original data · rule amounts · blacklist</div>
+  <div class="btn" id="s12-ok" style="left:560px;top:775px;font-size:32px;background:#47cf9f;padding:8px 26px 10px">Confirm save</div>
+  <div class="btn" id="s12-cc" style="left:300px;top:775px;font-size:32px;background:#fff;padding:8px 26px 10px">Cancel</div>
+
+  <div class="abs" id="s12-lt" style="left:1070px;top:215px;font-size:42px;white-space:nowrap;font-family:'Fredoka',sans-serif">Snapshot Library</div>
+  <div class="sn wob" id="s12-s1" style="left:1070px;top:285px;width:760px;background:#fff8dc"><b style="font-weight:400">2026-09　Night-operation incentive</b><br><span style="font-size:28px;color:#8a7360">1,408 · 186 people · 312,860 CNY</span><span class="tag" style="position:absolute;right:20px;top:42px;background:#ffb3c6;font-size:28px">Load</span></div>
+  <div class="sn wob" id="s12-s2" style="left:1070px;top:435px;width:760px"><b style="font-weight:400">2026-08　Night-operation incentive</b><br><span style="font-size:28px;color:#8a7360">1,322 · 179 people · 295,410 CNY</span><span class="tag" style="position:absolute;right:20px;top:42px;background:#fff;font-size:28px">Load</span></div>
+  <div class="sn wob" id="s12-s3" style="left:1070px;top:585px;width:760px"><b style="font-weight:400">2026-07　Night-operation incentive</b><br><span style="font-size:28px;color:#8a7360">1,290 · 181 people · 288,720 CNY</span><span class="tag" style="position:absolute;right:20px;top:42px;background:#fff;font-size:28px">Load</span></div>
+  <div class="abs" id="s12-nt" style="left:1070px;top:745px;width:760px;font-size:34px;line-height:1.5;color:#8a7360">Reload that workspace in one click,<br>and check how that month was worked out.</div>
+  <div class="cursor wob" id="s12-cur"></div>
+  <div class="abs wob" id="s12-d" style="left:1618px;top:790px"></div>
+  <div id="s12-sp"></div>
+  <div class="cap" id="s12-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s12-cur",icon("cursor","#ffffff",74));put("s12-d",dino("dn",{w:220,h:210}));
+ document.getElementById("s12-sp").innerHTML=sparkle(1030,190,44)+sparkle(1860,520,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s12-bt,#s12-win,#s12-f1,#s12-f2,#s12-sc,#s12-ok,#s12-cc,#s12-lt,#s12-s1,#s12-s2,#s12-s3,#s12-nt,#s12-cur",{opacity:0});
+ tl.fromTo("#s12-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s12-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("Save Snapshot");
+ pop(tl,"#s12-bt",a-.4,{s:.5});click(tl,"#s12-bt",a+.5);
+ tl.fromTo("#s12-win",{opacity:0,y:50,scale:.95},{opacity:1,y:0,scale:1,duration:.5,ease:"back.out(1.4)",transformOrigin:"50% 50%"},a+.4);
+ tl.fromTo("#s12-f1,#s12-f2",{opacity:0,y:20},{opacity:1,y:0,duration:.35,stagger:.15},a+.7);
+ typeText(tl,"s12-i1","2026-09 Night-operation incentive",T("give it a name"),1.2);
+ typeText(tl,"s12-i2","2026-09",T("a period"),.8);
+ var b=T("original data");
+ tl.fromTo("#s12-sc,#s12-ok,#s12-cc",{opacity:0,y:20},{opacity:1,y:0,duration:.35,stagger:.12},b-.3);
+ tl.set("#s12-cur",{x:900,y:900});tl.fromTo("#s12-cur",{opacity:0},{opacity:1,duration:.3},b+.8);
+ cur(tl,"#s12-cur",700,830,b+.9,.6);click(tl,"#s12-cur",b+2.0);click(tl,"#s12-ok",b+2.0);tl.to("#s12-ok",{backgroundColor:"#06d6a0",duration:.2},b+2.05);tl.to("#s12-cur",{opacity:0,duration:.3},b+2.6);
+ var c=T("Snapshot Library");
+ tl.fromTo("#s12-lt",{opacity:0},{opacity:1,duration:.4},c-.3);
+ tl.fromTo("#s12-s1,#s12-s2,#s12-s3",{opacity:0,x:60},{opacity:1,x:0,duration:.45,stagger:.25,ease:"power3.out"},c);
+ var d=T("look back");
+ tl.fromTo("#s12-nt",{opacity:0},{opacity:1,duration:.5},d-.6);dpoint(tl,"dn",d,1.2);
+ tl.fromTo("#s12-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},d);
+ captions(tl,"s12-cap");
+ window.__timelines["s12"]=tl;
+})();
+</script>
+</template></body></html>

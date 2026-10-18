@@ -1,0 +1,66 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .stp{position:absolute;top:240px;height:130px;border:3px solid var(--ink);border-radius:24px;background:#fff;box-shadow:var(--sh);display:flex;align-items:center;justify-content:center;gap:14px;padding:0 24px;font-size:36px;line-height:1.25;text-align:center}
+#root .pr{position:absolute;left:150px;width:1050px;height:68px;border-bottom:2px solid rgba(91,70,54,.25);display:flex;align-items:center;font-size:32px;white-space:nowrap}
+#root .pr span{flex:none}
+#root .pt{display:inline-block;border:2.5px solid var(--ink);border-radius:999px;padding:0 16px;font-size:28px}
+</style>
+<div id="root" data-composition-id="s8" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="18" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1450px;top:-150px;width:520px;height:520px;background:#9fe0c9"></div>
+  <div class="head wob" id="s8-h"><span class="step">第 3 步</span><span class="ttl">核对 ④ 人员在不在岗</span></div>
+  <div class="stp wob" id="s8-a" style="left:110px;width:520px;background:#e4f1fb"><span id="s8-ai"></span>下载 WeLink<br>人员查询脚本</div>
+  <div class="abs" id="s8-a1" style="left:640px;top:270px;font-size:60px">→</div>
+  <div class="stp wob" id="s8-b" style="left:720px;width:520px;background:#fff8dc"><span id="s8-bi"></span>运行：逐个工号查询<br>生成一个文本结果</div>
+  <div class="abs" id="s8-a2" style="left:1250px;top:270px;font-size:60px">→</div>
+  <div class="stp wob" id="s8-c" style="left:1330px;width:490px;background:#dff6ec"><span id="s8-ci"></span>导入 WeLink<br>查询结果</div>
+
+  <div class="win wob" id="s8-win" style="left:110px;top:420px;width:1130px;height:430px"><div class="wbar"><i></i><i></i><i></i><span>人员核对表（示例数据）</span></div></div>
+  <div class="pr" id="s8-r0" style="top:505px;font-weight:700;background:#f4efe6"><span style="width:200px">工号</span><span style="width:150px">姓名</span><span style="width:230px">部门</span><span>标记</span></div>
+  <div class="pr" id="s8-r1" style="top:573px"><span style="width:200px">a0012345</span><span style="width:150px">员工 A</span><span style="width:230px">网络运维部</span><span>—</span></div>
+  <div class="pr" id="s8-r2" style="top:641px"><span style="width:200px">b0087654</span><span style="width:150px">员工 B</span><span style="width:230px" id="s8-dp">疑似已离职</span><span class="pt" id="s8-t1" style="background:#ffc9d6">疑似已离职</span></div>
+  <div class="pr" id="s8-r3" style="top:709px"><span style="width:200px">f0033221</span><span style="width:150px">员工 C</span><span style="width:230px">服务交付部</span><span class="pt" id="s8-t2" style="background:#ffe9a8">工号有变更 → 0033221</span></div>
+  <div class="abs" id="s8-st" style="left:150px;top:785px;font-size:30px;color:#8a7360;white-space:nowrap">已关联 3 条人员信息　·　疑似已离职：1 人</div>
+  <div class="sticky wob" id="s8-sk" style="left:1290px;top:430px;width:530px;transform:rotate(2deg);font-size:42px;line-height:1.35;background:linear-gradient(170deg,#ffe3e8,#ffb3c6);font-family:'ZCOOL KuaiLe',sans-serif">疑似已离职<br><span style="font-family:'Long Cang',cursive;font-size:38px">只是提示：查询结果为空。<br>一定要人工二次确认！</span></div>
+  <div class="btn" id="s8-bd" style="left:1290px;top:720px;font-size:30px;background:#fff;padding:8px 24px 10px;white-space:nowrap">查看疑似已离职人员详表</div>
+  <div class="cursor wob" id="s8-cur"></div>
+  <div class="abs wob" id="s8-d" style="left:1580px;top:800px"></div>
+  <div id="s8-sp"></div>
+  <div class="cap" id="s8-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s8-ai",icon("doc","#aed8f2",64));put("s8-bi",icon("search","#ffe08f",64));put("s8-ci",icon("group","#9fe0c9",64));put("s8-cur",icon("cursor","#ffffff",74));put("s8-d",dino("dn",{w:240,h:230}));
+ document.getElementById("s8-sp").innerHTML=sparkle(1260,200,44)+sparkle(1820,380,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s8-a,#s8-a1,#s8-b,#s8-a2,#s8-c,#s8-win,#s8-r0,#s8-r1,#s8-r2,#s8-r3,#s8-st,#s8-sk,#s8-bd,#s8-cur",{opacity:0});
+ tl.fromTo("#s8-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s8-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("下载WeLink人员查询脚本");
+ pop(tl,"#s8-a",a-.2,{s:.5,y:30});
+ var b=T("逐个工号");
+ tl.fromTo("#s8-a1",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},b-.8);pop(tl,"#s8-b",b-.4,{s:.5,y:30});
+ var c=T("导入WeLink查询结果");
+ tl.fromTo("#s8-a2",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},c-.7);pop(tl,"#s8-c",c-.3,{s:.5,y:30});
+ tl.set("#s8-cur",{x:1500,y:520});tl.fromTo("#s8-cur",{opacity:0},{opacity:1,duration:.3},c+.2);
+ cur(tl,"#s8-cur",1560,330,c+.3,.5);click(tl,"#s8-cur",c+1.0);click(tl,"#s8-c",c+1.0);tl.to("#s8-cur",{opacity:0,duration:.3},c+1.5);
+ var d=T("系统会给人员打上标记");
+ tl.fromTo("#s8-win,#s8-r0",{opacity:0,y:30},{opacity:1,y:0,duration:.45,stagger:.1,ease:"power3.out"},d-.2);
+ tl.fromTo("#s8-r1,#s8-r2,#s8-r3,#s8-st",{opacity:0,x:-20},{opacity:1,x:0,duration:.3,stagger:.15},d+.3);
+ var e=T("疑似已离职");
+ pop(tl,"#s8-sk",e-.4,{s:.4,y:20,d:.55});tl.to("#s8-r2",{backgroundColor:"#fff0f2",duration:.3},e);
+ var f=T("工号有变更");
+ tl.to("#s8-r3",{backgroundColor:"#fff7d6",duration:.3},f);
+ var g=T("人工二次确认");
+ pop(tl,"#s8-bd",g-.6,{s:.5,y:20});tl.to("#s8-sk",{rotation:0,duration:.4,repeat:3,yoyo:true,ease:"sine.inOut"},g);
+ dpoint(tl,"dn",g,1.2);
+ tl.fromTo("#s8-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},g);
+ captions(tl,"s8-cap");
+ window.__timelines["s8"]=tl;
+})();
+</script>
+</template></body></html>

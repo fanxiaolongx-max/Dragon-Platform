@@ -84,6 +84,7 @@
 .nrv-banner:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
 .nrv-float.nrv-swap { animation: nrv-swap .45s cubic-bezier(.2, .8, .2, 1) both; }
 .nrv-banner[data-video="guide"] b, .nrv-float[data-video="guide"] .nrv-badge b { background: linear-gradient(135deg, #10b981, #0ea5e9); }
+.nrv-banner[data-video="incentive"] b, .nrv-float[data-video="incentive"] .nrv-badge b { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
 .nrv-banner b { flex-shrink: 0; padding: 2px 8px; border-radius: 999px; background: linear-gradient(135deg, #f97316, #ec4899); color: #fff; font-size: 10.5px; letter-spacing: .08em; }
 .nrv-banner span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nrv-banner svg { flex-shrink: 0; width: 16px; height: 16px; color: #7dd3fc; }

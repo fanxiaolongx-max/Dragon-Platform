@@ -143,7 +143,7 @@ flowchart TD
     subgraph 双模主画布系统["主画布双模态体系 (Dual Modes)"]
         MAIN -->|默认首屏 / 新对话| M1["Mode A: Dragon Claw Agent 协同工作区"]
         MAIN -->|浏览工具 / 向下滚动 / 点击卡片| M2["Mode B: 全功能工具矩阵与活跃度视图"]
-        M1 <-->|无缝热切换 (dcBackToTools / dcNewChat)| M2
+        M1 <-->|"无缝热切换 (dcBackToTools / dcNewChat)"| M2
     end
 
     subgraph 智能体协同子系统["Mode A: Agent Workspace 深度协同体系"]

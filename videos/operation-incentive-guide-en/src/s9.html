@@ -1,0 +1,61 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pc .hd{font-size:36px!important}
+#root .pc{position:absolute;top:230px;width:540px;height:500px;background:#fff;border:3px solid var(--ink);border-radius:28px;box-shadow:var(--sh);overflow:hidden}
+#root .pc .hd{height:84px;border-bottom:3px solid var(--ink);display:flex;align-items:center;gap:14px;padding:0 24px;font-family:"Fredoka",sans-serif;font-size:44px;white-space:nowrap}
+#root .pc .bd{padding:20px 24px;font-size:32px;line-height:1.45}
+#root .inpt{border:2.5px dashed var(--ink);border-radius:14px;background:#fffdf5;padding:10px 16px;font-size:30px;line-height:1.5;white-space:nowrap}
+#root .rl{display:flex;align-items:center;gap:10px;height:56px;font-size:28px;white-space:nowrap}
+#root .rl i{font-style:normal;border:2.5px solid var(--ink);border-radius:10px;background:#fff;padding:0 12px;height:44px;display:flex;align-items:center}
+#root .ar{display:flex;align-items:center;gap:10px;height:54px;font-size:28px;white-space:nowrap;border-bottom:2px solid rgba(91,70,54,.2)}
+</style>
+<div id="root" data-composition-id="s9" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="19" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-160px;top:640px;width:520px;height:520px;background:#ffb3c6"></div>
+  <div class="head wob" id="s9-h"><span class="step">Step 3</span><span class="ttl">Found a problem? What to do</span></div>
+
+  <div class="pc wob" id="s9-c1" style="left:100px"><div class="hd" style="background:#ffe3e8"><span id="s9-i1"></span>Incentive Blacklist</div><div class="bd">
+    <div class="inpt">f84300033, managers excluded<br>a00938814, special agreement</div>
+    <div style="margin-top:20px">People on the list:<br><span class="tag" style="background:#e4f1fb;font-size:28px">Kept in details</span> <span class="tag" style="background:#ffc9d6;font-size:28px">No longer paid</span></div>
+    <div style="margin-top:14px;font-size:28px;color:#8a7360">A reason after the ID is optional</div></div></div>
+  <div class="pc wob" id="s9-c2" style="left:690px"><div class="hd" style="background:#ffe9a8"><span id="s9-i2"></span>Exclusion Rules</div><div class="bd">
+    <div class="rl"><i>Field ▾</i><i>WeLink Dept</i></div>
+    <div class="rl"><i>Rule ▾</i><i>contains</i><i>a dept</i></div>
+    <div style="margin-top:12px">Set a rule on any column or WeLink field</div>
+    <div style="margin-top:12px"><span class="tag" style="background:#ffc9d6;font-size:28px">Matches are not paid</span></div></div></div>
+  <div class="pc wob" id="s9-c3" style="left:1280px"><div class="hd" style="background:#fff3d0"><span id="s9-i3"></span>Attendance Alert</div><div class="bd" style="padding-top:14px">
+    <div style="background:#fff7d6;border:2.5px solid #e0a81f;border-radius:12px;padding:8px 14px;font-size:27px;line-height:1.4">⚠ 3 paid staff were absent or late in meetings</div>
+    <div class="ar"><span class="chk on" id="s9-k1"></span>Staff G　absent ×1</div>
+    <div class="ar"><span class="chk on" id="s9-k2"></span>Staff H　late ×2</div>
+    <div class="btn" id="s9-bk" style="position:relative;margin-top:16px;font-size:28px;padding:6px 18px 8px;background:#ffb3c6">🚫 Add to blacklist</div></div></div>
+
+  <div class="abs wob" id="s9-bar" style="left:110px;top:780px;width:1400px;height:100px;border:3px solid var(--ink);border-radius:26px;background:#dff6ec;box-shadow:var(--sh);display:flex;align-items:center;gap:20px;padding:0 30px;font-size:42px;white-space:nowrap"><span id="s9-bi"></span>Handled → results recalculate, amounts update at once</div>
+  <div class="abs wob" id="s9-d" style="left:1618px;top:750px"></div>
+  <div id="s9-sp"></div>
+  <div class="cap" id="s9-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s9-i1",icon("lock","#ffb3c6",56));put("s9-i2",icon("funnel","#ffe08f",56));put("s9-i3",icon("bell","#ffe08f",56));put("s9-bi",icon("bolt","#47cf9f",60));put("s9-d",dino("dn",{w:250,h:240}));
+ document.getElementById("s9-sp").innerHTML=sparkle(660,190,44)+sparkle(1850,500,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s9-c1,#s9-c2,#s9-c3,#s9-bar",{opacity:0});
+ tl.fromTo("#s9-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s9-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("Incentive Blacklist");pop(tl,"#s9-c1",a-.3,{s:.5,y:40,d:.55});
+ var b=T("Exclusion Rules");pop(tl,"#s9-c2",b-.3,{s:.5,y:40,d:.55});
+ var c=T("Meeting Attendance Alert");pop(tl,"#s9-c3",c-.3,{s:.5,y:40,d:.55});
+ var k=T("add them to the blacklist in one click");
+ tl.to("#s9-bk",{backgroundColor:"#47cf9f",duration:.2},k);click(tl,"#s9-bk",k);
+ var d=T("recalculated automatically");
+ pop(tl,"#s9-bar",d-.4,{s:.5,y:20,d:.55});dcheer(tl,"dn",d);
+ tl.fromTo("#s9-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},d);
+ captions(tl,"s9-cap");
+ window.__timelines["s9"]=tl;
+})();
+</script>
+</template></body></html>

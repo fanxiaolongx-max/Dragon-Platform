@@ -1,0 +1,68 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pain{font-size:30px!important}#root .gd{font-size:36px!important}
+#root .xr{position:absolute;left:24px;width:572px;height:46px;display:flex;border-bottom:2px solid rgba(91,70,54,.25);font-size:26px;align-items:center;white-space:nowrap}
+#root .xr span{flex:none}
+#root .pain{position:absolute;left:800px;width:680px;height:104px;border:3px solid var(--ink);border-radius:22px;background:#fff;box-shadow:var(--sh);display:flex;align-items:center;gap:18px;padding:0 22px;font-size:38px;white-space:nowrap}
+#root .pain b{width:50px;height:50px;border-radius:50%;border:3px solid var(--ink);background:var(--yellow);display:flex;align-items:center;justify-content:center;font-weight:400;font-size:30px;flex:none}
+#root .gd{position:absolute;top:790px;height:96px;border:3px solid var(--ink);border-radius:26px;display:flex;align-items:center;gap:14px;padding:0 26px;font-size:42px;white-space:nowrap;box-shadow:var(--sh)}
+</style>
+<div id="root" data-composition-id="bg" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:700px;width:520px;height:520px;background:#ffb3c6"></div>
+  <div class="blob" style="left:1520px;top:-160px;width:520px;height:520px;background:#aed8f2"></div>
+  <div class="head wob" id="bg-h"><span class="step">Background</span><span class="ttl">How it is worked out</span></div>
+
+  <div class="win wob" id="bg-xl" style="left:110px;top:225px;width:620px;height:520px"><div class="wbar" style="background:#bfe8cf"><i></i><i></i><i></i><span>night-operations.xlsx</span></div></div>
+  <div class="xr" id="bg-x0" style="left:134px;top:305px;font-weight:700;background:#e9f6ee"><span style="width:150px">Operator</span><span style="width:120px">Level</span><span style="width:130px">Status</span><span>Start time</span></div>
+  <div class="xr" id="bg-x1" style="left:134px;top:353px"><span style="width:150px">Staff A</span><span style="width:120px">Low</span><span style="width:130px">Done</span><span>09-03 23:10</span></div>
+  <div class="xr" id="bg-x2" style="left:134px;top:401px"><span style="width:150px">Staff A</span><span style="width:120px">Fatal</span><span style="width:130px">Done</span><span>09-03 02:40</span></div>
+  <div class="xr" id="bg-x3" style="left:134px;top:449px"><span style="width:150px">Staff B</span><span style="width:120px">High</span><span style="width:130px">Not done</span><span>09-04 14:05</span></div>
+  <div class="xr" id="bg-x4" style="left:134px;top:497px"><span style="width:150px">Staff C</span><span style="width:120px">Medium</span><span style="width:130px">Done</span><span>09-05 00:30</span></div>
+  <div class="xr" id="bg-x5" style="left:134px;top:545px"><span style="width:150px">Staff C</span><span style="width:120px">Low</span><span style="width:130px">Done</span><span>09-05 23:50</span></div>
+  <div class="abs" style="left:134px;top:600px;font-size:30px;color:#8a7360;white-space:nowrap">… (thousands of rows in all)</div>
+  <div class="tag abs" id="bg-n" style="left:150px;top:660px;background:#ffe08f;font-size:38px">About 3,800 rows · sample</div>
+
+  <div class="pain" id="bg-p1" style="top:245px"><b>1</b>Pick the night operations truly completed</div>
+  <div class="pain" id="bg-p2" style="top:375px"><b>2</b>Same person, same day: highest level only</div>
+  <div class="pain" id="bg-p3" style="top:505px"><b>3</b>Apply amount per level, total per person</div>
+  <div class="sticky wob" id="bg-st" style="left:1500px;top:290px;width:400px;transform:rotate(3deg);background:linear-gradient(170deg,#ffe3e8,#ffb3c6);font-family:'Fredoka',sans-serif;font-size:42px;line-height:1.4">By hand:<br>Slow<br>Misses · Mistakes<br><span style="font-size:28px">and it affects<br>everyone's pay</span></div>
+
+  <div class="abs" id="bg-gl" style="left:110px;top:735px;font-size:40px;white-space:nowrap">So this tool does three things:</div>
+  <div class="gd wob" id="bg-g1" style="left:110px;background:#dff6ec"><span id="bg-gi1"></span>Auto-calculates</div>
+  <div class="gd wob" id="bg-g2" style="left:550px;background:#e4f1fb"><span id="bg-gi2"></span>Every step checkable</div>
+  <div class="gd wob" id="bg-g3" style="left:1140px;background:#fff0c9"><span id="bg-gi3"></span>Everyone confirms</div>
+  <div class="abs wob" id="bg-d" style="left:1618px;top:730px"></div>
+  <div id="bg-sp"></div>
+  <div class="cap" id="bg-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("bg-gi1",icon("bolt","#47cf9f",56));put("bg-gi2",icon("search","#aed8f2",56));put("bg-gi3",icon("check","#ffe08f",56));put("bg-d",dino("dn",{w:250,h:240}));
+ document.getElementById("bg-sp").innerHTML=sparkle(780,200,44)+sparkle(1500,640,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#bg-xl,#bg-x0,#bg-x1,#bg-x2,#bg-x3,#bg-x4,#bg-x5,#bg-n,#bg-p1,#bg-p2,#bg-p3,#bg-st,#bg-gl,#bg-g1,#bg-g2,#bg-g3",{opacity:0});
+ tl.fromTo("#bg-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#bg-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("thousands of rows");
+ tl.fromTo("#bg-xl",{opacity:0,y:50},{opacity:1,y:0,duration:.6,ease:"power3.out"},a-1.2);
+ tl.fromTo("#bg-x0,#bg-x1,#bg-x2,#bg-x3,#bg-x4,#bg-x5",{opacity:0,x:-20},{opacity:1,x:0,duration:.3,stagger:.1},a-.8);
+ pop(tl,"#bg-n",a,{s:.4});
+ pop(tl,"#bg-p1",T("truly completed")-.3,{s:.6,y:20});
+ pop(tl,"#bg-p2",T("highest level")-.9,{s:.6,y:20});
+ pop(tl,"#bg-p3",T("total it up per person")-.9,{s:.6,y:20});
+ pop(tl,"#bg-st",T("make mistakes")-.4,{s:.4,d:.55});tl.to("#bg-st",{rotation:1,duration:.5,repeat:3,yoyo:true,ease:"sine.inOut"},T("each person is paid"));
+ tl.to("#bg-xl,#bg-x0,#bg-x1,#bg-x2,#bg-x3,#bg-x4,#bg-x5,#bg-n",{opacity:.35,duration:.5},T("So this tool")-.1);
+ tl.fromTo("#bg-gl",{opacity:0},{opacity:1,duration:.4},T("So this tool"));
+ pop(tl,"#bg-g1",T("calculates automatically")-.1,{s:.5,y:30});pop(tl,"#bg-g2",T("every step can be checked")-.1,{s:.5,y:30});pop(tl,"#bg-g3",T("everyone confirms")-.2,{s:.5,y:30});
+ dcheer(tl,"dn",T("everyone confirms")+.4);
+ tl.fromTo("#bg-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("everyone confirms"));
+ captions(tl,"bg-cap");
+ window.__timelines["bg"]=tl;
+})();
+</script>
+</template></body></html>
