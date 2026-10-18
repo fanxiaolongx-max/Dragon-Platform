@@ -8,12 +8,13 @@ const fs = require('fs');
 const { URL } = require('url');
 const desktopLanguage = require('../backend/models/desktop-language');
 desktopLanguage.events.on('change', (language) => {
-    for (const win of [petWin, chatWin, settingsWin, quotaPanelWin]) {
+    for (const win of [petWin, chatWin, settingsWin, quotaPanelWin, quotaTrendsWin]) {
         if (win && !win.isDestroyed()) win.webContents.send('pet-language-change', language);
     }
 });
 const { detectAllQuotas } = require('./quota-detector');
 const { panelBounds, PANEL_SIZE } = require('./quota-panel-layout');
+const { requestHistory } = require('./quota-history-client');
 const {
     startKeyboardHook,
     stopKeyboardHook,
@@ -26,6 +27,11 @@ let petWin = null;
 let chatWin = null;
 let settingsWin = null;
 let quotaPanelWin = null;
+let quotaTrendsWin = null;
+let quotaTrendsSelection = null;
+let historyDevice = null;
+let historyWrite = Promise.resolve();
+let recordedQuotaKey = '';
 let quotaPanelReady = false;
 let lastQuotaData = null;
 let quotaPanelAnchor = null;
@@ -290,6 +296,57 @@ function closeQuotaPanel() {
     quotaPanelWin = null; quotaPanelSide = null;
 }
 
+function closeQuotaTrends() {
+    if (quotaTrendsWin && !quotaTrendsWin.isDestroyed()) quotaTrendsWin.destroy();
+    quotaTrendsWin = null;
+}
+function historyDeviceId() {
+    if (!historyDevice) {
+        const config = loadPetConfig();
+        historyDevice = /^[a-f0-9-]{36}$/.test(config.quotaHistoryDeviceId || '') ? config.quotaHistoryDeviceId : require('crypto').randomUUID();
+        if (historyDevice !== config.quotaHistoryDeviceId) savePetConfig({quotaHistoryDeviceId:historyDevice});
+    }
+    return historyDevice;
+}
+async function quotaHistoryRequest(query, quotas) {
+    const token = await getOrCreateDesktopPetToken();
+    if (!token) throw new Error('QUOTA_HISTORY_UNAVAILABLE');
+    return requestHistory(normalizeBaseUrl(localBaseUrl,localServerPort),token,historyDeviceId(),query,quotas);
+}
+function recordQuotaHistory(quotas) {
+    if (!['codex','claudecode','antigravity'].some(p=>quotas[p]?.status === 'live' && Number.isSafeInteger(quotas[p].updatedAt))) return historyWrite;
+    const key = ['codex','claudecode','antigravity'].map(p=>p+':'+(quotas[p]?.status === 'live' ? quotas[p].updatedAt : '')).join('|');
+    if (key === recordedQuotaKey) return historyWrite;
+    historyWrite = historyWrite.catch(()=>{}).then(async()=>{
+        if (key === recordedQuotaKey) return;
+        await quotaHistoryRequest(null,quotas);
+        recordedQuotaKey = key;
+    });
+    return historyWrite;
+}
+function openQuotaTrends(selection) {
+    if (!petWin || petWin.isDestroyed()) return;
+    if (!selection || !['codex','claudecode','antigravity'].includes(selection.provider) ||
+        ![selection.groupId,selection.windowId].every(value=>typeof value==='string' && /^[a-zA-Z0-9_.:-]{1,100}$/.test(value))) return;
+    quotaTrendsSelection = {provider:selection.provider,groupId:selection.groupId,windowId:selection.windowId};
+    if (!quotaTrendsWin || quotaTrendsWin.isDestroyed()) {
+        const area = (screen.getDisplayMatching(petWin.getBounds()) || screen.getPrimaryDisplay()).workArea;
+        const width = Math.min(780,area.width),height = Math.min(640,area.height);
+        quotaTrendsWin = new BrowserWindow({width,height,minWidth:360,minHeight:420,
+            x:Math.round(area.x+(area.width-width)/2),y:Math.round(area.y+(area.height-height)/2),
+            title:'Quota trends',show:false,backgroundColor:'#112c36',autoHideMenuBar:true,
+            webPreferences:{nodeIntegration:true,contextIsolation:false}});
+        quotaTrendsWin.on('closed',()=>{quotaTrendsWin=null;});
+        quotaTrendsWin.webContents.on('did-finish-load',()=>{
+            if (quotaTrendsWin && !quotaTrendsWin.isDestroyed()) {quotaTrendsWin.show();quotaTrendsWin.focus();}
+        });
+        quotaTrendsWin.loadFile(path.join(__dirname,'quota-trends.html')).catch(closeQuotaTrends);
+    } else {
+        quotaTrendsWin.show();quotaTrendsWin.focus();
+        quotaTrendsWin.webContents.send('pet-quota-trends-selection',quotaTrendsSelection);
+    }
+}
+
 function syncQuotaPanel() {
     if (!petWin || petWin.isDestroyed() || !petWin.isVisible() || !quotaPanelOptions.enabled) {
         if (quotaPanelWin && !quotaPanelWin.isDestroyed()) quotaPanelWin.hide();
@@ -381,6 +438,7 @@ function createPetWindow() {
     petWin.on('hide', sendPetEnvironment);
     petWin.on('closed', () => {
         closeQuotaPanel();
+        closeQuotaTrends();
         petWin = null;
         stopKeyboardHook();
     });
@@ -518,6 +576,7 @@ async function refreshQuotas(force = false) {
         if (chatWin && !chatWin.isDestroyed()) {
             chatWin.webContents.send('pet-quota-update', quotas);
         }
+        await recordQuotaHistory(quotas).catch(()=>{});
     } catch (_) {}
 }
 
@@ -531,6 +590,25 @@ function registerIpc() {
     const isPetSender = event => petWin && !petWin.isDestroyed() && event.sender === petWin.webContents;
     const isQuotaPanelSender = event => quotaPanelWin && !quotaPanelWin.isDestroyed() && event.sender === quotaPanelWin.webContents;
     const isChatSender = event => chatWin && !chatWin.isDestroyed() && event.sender === chatWin.webContents;
+    const isTrendsSender = event => quotaTrendsWin && !quotaTrendsWin.isDestroyed() && event.sender === quotaTrendsWin.webContents;
+    ipcMain.on('pet-quota-panel-hit', (event, active) => {
+        if (isQuotaPanelSender(event)) quotaPanelWin.setIgnoreMouseEvents(active !== true,{forward:true});
+    });
+    ipcMain.on('pet-open-quota-trends', (event, selection) => {
+        if (isQuotaPanelSender(event) || isChatSender(event) || isPetSender(event)) openQuotaTrends(selection);
+    });
+    ipcMain.handle('pet-quota-trends-ready', event => {
+        if (!isTrendsSender(event)) throw new Error('QUOTA_TRENDS_WINDOW_REQUIRED');
+        return quotaTrendsSelection;
+    });
+    ipcMain.handle('pet-quota-history', async (event, query) => {
+        if (!isTrendsSender(event)) throw new Error('QUOTA_TRENDS_WINDOW_REQUIRED');
+        if (!query || !['codex','claudecode','antigravity'].includes(query.provider) ||
+            !Number.isFinite(query.days) || query.days < 1 || query.days > 90) throw new Error('INVALID_QUOTA_QUERY');
+        if (query.refresh === true) await refreshQuotas(true);
+        await historyWrite.catch(()=>{});
+        return quotaHistoryRequest({provider:query.provider,days:query.days});
+    });
     ipcMain.on('pet-quota-panel-ready', event => {
         if (!isQuotaPanelSender(event)) return;
         quotaPanelReady = true;
@@ -790,6 +868,7 @@ function registerIpc() {
  */
 function hidePetForNow() {
     stopKeyboardHook();
+    if (quotaTrendsWin && !quotaTrendsWin.isDestroyed()) quotaTrendsWin.hide();
     if (chatWin && !chatWin.isDestroyed()) chatWin.hide();
     if (settingsWin && !settingsWin.isDestroyed()) settingsWin.hide();
     if (petWin && !petWin.isDestroyed()) petWin.hide();
@@ -822,6 +901,7 @@ function setPetEnabled(enabled) {
         if (chatWin && !chatWin.isDestroyed()) chatWin.destroy();
         if (settingsWin && !settingsWin.isDestroyed()) settingsWin.destroy();
         closeQuotaPanel();
+        closeQuotaTrends();
         if (petWin && !petWin.isDestroyed()) petWin.destroy();
         chatWin = null;
         settingsWin = null;
@@ -868,7 +948,8 @@ function initDesktopPet({ port = 3030, baseUrl = 'http://localhost:3030' } = {})
     if (!quotaPollingTimer) {
         quotaPollingTimer = setInterval(() => {
             if ((petWin && !petWin.isDestroyed() && petWin.isVisible()) ||
-                (chatWin && !chatWin.isDestroyed() && chatWin.isVisible())) {
+                (chatWin && !chatWin.isDestroyed() && chatWin.isVisible()) ||
+                (quotaTrendsWin && !quotaTrendsWin.isDestroyed() && quotaTrendsWin.isVisible())) {
                 refreshQuotas();
             }
         }, 15000);
@@ -883,6 +964,7 @@ function cleanupDesktopPet() {
         quotaPollingTimer = null;
     }
     closeQuotaPanel();
+    closeQuotaTrends();
     if (chatWin && !chatWin.isDestroyed()) chatWin.destroy();
     if (settingsWin && !settingsWin.isDestroyed()) settingsWin.destroy();
     if (petWin && !petWin.isDestroyed()) petWin.destroy();

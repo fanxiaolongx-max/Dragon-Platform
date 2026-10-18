@@ -1,0 +1,62 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .row3{position:absolute;left:160px;width:370px;height:62px;border:2.5px solid var(--ink);border-radius:16px;background:#fff;display:flex;align-items:center;gap:14px;padding:0 16px;font-size:38px;white-space:nowrap}
+</style>
+<div id="root" data-composition-id="s2" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="5" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#d9c6ef"></div>
+  <div class="head wob" id="s2-h"><span class="step">第 1 站</span><span class="ttl">数据抓取 · 脚本工程中心</span></div>
+  <div class="win wob" id="s2-win" style="left:110px;top:220px;width:1010px;height:650px"><div class="wbar"><i></i><i></i><i></i><span>UIVF12 抓取引擎 · 自动化脚本工程中心</span></div></div>
+  <div class="abs dash" id="s2-side" style="left:140px;top:310px;width:410px;height:535px;background:#fffdf5"></div>
+  <div class="abs" id="s2-sh" style="left:164px;top:318px;font-family:'ZCOOL KuaiLe',sans-serif;font-size:42px">智能调度仓库</div>
+  <div class="row3" id="s2-r1" style="top:392px"><span class="chk"></span>整改详单</div>
+  <div class="row3" id="s2-r2" style="top:466px"><span class="chk"></span>风险详单</div>
+  <div class="row3" id="s2-r3" style="top:540px"><span class="chk"></span>专项风险</div>
+  <div class="row3" id="s2-r4" style="top:614px"><span class="chk"></span>SR 详单</div>
+  <div class="row3" id="s2-r5" style="top:688px"><span class="chk"></span>漏洞预警</div>
+  <div class="btn" id="s2-b1" style="left:600px;top:330px;background:#ffb3c6">运行批脚本</div>
+  <div class="btn" id="s2-b2" style="left:600px;top:450px;background:#fff">导出脚本</div>
+  <div class="btn" id="s2-b3" style="left:600px;top:570px;background:#fff">导入脚本</div>
+  <div class="abs" id="s2-ws" style="left:600px;top:690px;font-size:36px;color:#6b6874;white-space:nowrap">双击脚本 → 回填到工作台</div>
+  <div class="win wob" id="s2-plug" style="left:1180px;top:230px;width:640px;height:290px"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>UI.Vision RPA 插件</span></div></div>
+  <div class="abs wob" id="s2-pi" style="left:1210px;top:320px"></div>
+  <div class="abs" id="s2-pt" style="left:1330px;top:330px;font-size:42px;line-height:1.3;white-space:nowrap">官方商店一键安装<br><span style="font-size:34px;color:#6b6874">无法访问时用备用本地包</span></div>
+  <div class="abs row" id="s2-bw" style="left:1214px;top:430px;gap:18px"><span class="tag" id="s2-ch" style="background:#aed8f2;font-size:40px">Chrome</span><span class="tag" id="s2-ed" style="background:#d9c6ef;font-size:40px">Edge</span></div>
+  <div class="abs row" id="s2-ch3" style="left:600px;top:780px;gap:14px"><span class="tag" id="s2-k1" style="background:#9fe0c9;font-size:40px">分类</span><span class="tag" id="s2-k2" style="background:#ffe08f;font-size:40px">重命名</span><span class="tag" id="s2-k3" style="background:#ffb3c6;font-size:40px">导入导出</span></div>
+  <div class="abs wob" id="s2-d" style="left:1532px;top:587px"></div>
+  <div id="s2-sp"></div>
+  <div class="cap" id="s2-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s2-pi",icon("puzzle","#ffe08f",96));put("s2-d",dino("dn",{w:305,h:293}));
+ document.getElementById("s2-sp").innerHTML=sparkle(1160,200,44)+sparkle(1800,560,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s2-win,#s2-side,#s2-sh,#s2-r1,#s2-r2,#s2-r3,#s2-r4,#s2-r5,#s2-b1,#s2-b2,#s2-b3,#s2-ws,#s2-plug,#s2-pi,#s2-pt,#s2-ch,#s2-ed,#s2-k1,#s2-k2,#s2-k3",{opacity:0});
+ tl.fromTo("#s2-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s2-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);
+ dtail(tl,"dn",1,14);
+ var a=T("脚本工程中心");
+ tl.fromTo("#s2-win",{opacity:0,y:60},{opacity:1,y:0,duration:.7,ease:"power3.out"},a-.3);
+ tl.fromTo("#s2-side,#s2-sh",{opacity:0},{opacity:1,duration:.4},a+.3);
+ var b=T("安装");
+ tl.fromTo("#s2-plug,#s2-pi,#s2-pt",{opacity:0,x:80},{opacity:1,x:0,duration:.55,stagger:.1,ease:"power3.out"},b-.1);
+ pop(tl,"#s2-ch",T("Chrome"),{s:.4});pop(tl,"#s2-ed",T("Edge"),{s:.4});
+ dpoint(tl,"dn",b,1.2);
+ var c=T("智能调度仓库");
+ tl.to("#s2-side",{backgroundColor:"#dcf5ea",duration:.3},c);
+ tl.fromTo("#s2-r1,#s2-r2,#s2-r3,#s2-r4,#s2-r5",{opacity:0,x:-30},{opacity:1,x:0,duration:.35,stagger:.14},T("默认脚本")-.3);
+ tl.to("#s2-r1 .chk,#s2-r2 .chk",{className:"chk on",duration:.01},T("直接能用")||T("默认脚本")+1);
+ tl.fromTo("#s2-b1,#s2-b2,#s2-b3,#s2-ws",{opacity:0,x:30},{opacity:1,x:0,duration:.4,stagger:.1},T("默认脚本")+.6);
+ pop(tl,"#s2-k1",T("分类"),{s:.4});pop(tl,"#s2-k2",T("重命名"),{s:.4});pop(tl,"#s2-k3",T("导入导出"),{s:.4});
+ tl.fromTo("#s2-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("导入导出"));
+ dcheer(tl,"dn",T("导入导出")+.3);bounce(tl,"s2-d",T("导入导出")+.5,3,14);
+ captions(tl,"s2-cap");
+ window.__timelines["s2"]=tl;
+})();
+</script>
+</template></body></html>

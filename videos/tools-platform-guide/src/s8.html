@@ -1,0 +1,78 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root table{border-collapse:separate;border-spacing:0;position:absolute;left:140px;top:312px;width:800px;font-size:38px}
+#root th{background:#aed8f2;border:2.5px solid var(--ink);padding:6px 10px;font-family:"ZCOOL KuaiLe",sans-serif;font-weight:400;font-size:38px}
+#root td{border:2.5px solid var(--ink);padding:6px 10px;text-align:center;background:#fff;height:62px}
+#root .tabs2{position:absolute;left:1035px;top:300px;display:flex;gap:10px}
+#root .tabs2 span{border:2.5px solid var(--ink);border-radius:22px;padding:2px 22px 6px;font-size:36px;background:#fff;white-space:nowrap}
+#root .fd{position:absolute;left:1035px;display:flex;align-items:center;gap:14px;font-size:38px;white-space:nowrap}
+#root .fd i{font-style:normal;min-width:200px;text-align:center;border:2.5px solid var(--ink);border-radius:14px;padding:2px 14px 4px;background:#fffdf5}
+#root .rs{position:absolute;left:1470px;top:400px;width:320px;height:330px;border:6px dashed var(--ink);border-radius:26px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#root .rs b{font-family:"ZCOOL KuaiLe",sans-serif;font-weight:400;font-size:110px;line-height:1}
+#root .rs span{font-size:34px;color:#6b6874;margin-top:10px}
+
+</style>
+<div id="root" data-composition-id="s8" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="28" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1480px;top:-170px;width:520px;height:520px;background:#d9c6ef"></div>
+  <div class="head wob" id="s8-h"><span class="step">第 2 站</span><span class="ttl">指标规则 ① 提取</span></div>
+  <div class="win wob" id="s8-tw" style="left:110px;top:220px;width:860px;height:560px"><div class="wbar"><i></i><i></i><i></i><span>示例表 · 任务清单</span></div></div>
+  <table id="s8-tb"><tr><th>代表处</th><th>状态</th><th>超期</th><th>数量</th></tr>
+    <tr id="s8-r1"><td>埃及</td><td class="c2">打开</td><td class="c3">是</td><td class="c4">12</td></tr>
+    <tr id="s8-r2"><td>德国</td><td class="c2">打开</td><td class="c3">否</td><td class="c4">8</td></tr>
+    <tr id="s8-r3"><td>中东</td><td class="c2">关闭</td><td class="c3">否</td><td class="c4">5</td></tr>
+    <tr id="s8-r4"><td>埃及</td><td class="c2">打开</td><td class="c3">否</td><td class="c4">7</td></tr>
+    <tr id="s8-r5"><td>中东</td><td class="c2">打开</td><td class="c3">是</td><td class="c4">3</td></tr></table>
+  <div class="win wob" id="s8-rw" style="left:1010px;top:220px;width:810px;height:560px"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>指标规则编辑</span></div></div>
+  <div class="tabs2" id="s8-tabs"><span id="s8-m1">提取单行</span><span id="s8-m2">提取多行</span><span id="s8-m3">统计次数</span><span id="s8-m4">统计占比</span></div>
+  <div class="fd" id="s8-fx" style="top:390px"><span>条件列 X</span><i id="s8-fxv">状态</i></div><div class="fd" id="s8-fy" style="top:470px"><span>条件值 Y</span><i id="s8-fyv">打开</i></div><div class="fd" id="s8-fz" style="top:550px"><span>展示列 Z</span><i id="s8-fzv">数量</i></div><div class="fd" id="s8-fm" style="top:630px"><span>多行方法</span><i id="s8-fmv">求和</i></div>
+  <div class="rs" id="s8-rs"><span>结果</span><b id="s8-rv">–</b><span id="s8-rn"></span></div>
+  <div class="abs wob" id="s8-d" style="left:88px;top:758px"></div>
+  <div id="s8-sp"></div>
+  <div class="cap" id="s8-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s8-d",dino("dn",{w:244,h:234}));
+ document.getElementById("s8-sp").innerHTML=sparkle(980,190,44)+sparkle(1850,420,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ var HL=function(sel,t,c){tl.to(sel,{backgroundColor:c,duration:.25},t);};
+ var CL=function(sel,t){tl.to(sel,{backgroundColor:"#ffffff",duration:.25},t);};
+ var TAB=function(id,t){tl.to("#s8-tabs span",{backgroundColor:"#ffffff",duration:.15},t);tl.to("#"+id,{backgroundColor:"#ffe08f",duration:.2},t);};
+ var RV=function(v,t,note){tl.set("#s8-rv",{innerHTML:v},t);tl.fromTo("#s8-rs",{scale:.9},{scale:1,duration:.35,ease:"back.out(2)",transformOrigin:"50% 50%"},t);if(note!==undefined)tl.set("#s8-rn",{innerHTML:note},t);};
+ tl.fromTo("#s8-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s8-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ 
+ gsap.set("#s8-tw,#s8-tb,#s8-rw,#s8-tabs,#s8-fx,#s8-fy,#s8-fz,#s8-fm,#s8-rs",{opacity:0});
+ var M="#s8-r1 .c2,#s8-r2 .c2,#s8-r4 .c2,#s8-r5 .c2", V="#s8-r1 .c4,#s8-r2 .c4,#s8-r4 .c4,#s8-r5 .c4", ALL="#s8-tb td";
+ var a=T("指标按钮");
+ tl.fromTo("#s8-tw,#s8-tb",{opacity:0,y:50},{opacity:1,y:0,duration:.6,ease:"power3.out"},a-1);
+ tl.fromTo("#s8-rw,#s8-tabs,#s8-rs",{opacity:0,x:60},{opacity:1,x:0,duration:.6,ease:"power3.out"},a-.5);
+ var b=T("提取单行");TAB("s8-m1",b);
+ var x=T("X列包含Y");
+ tl.fromTo("#s8-fx",{opacity:0,x:20},{opacity:1,x:0,duration:.35},x);HL("#s8-tb .c2",x,"#cfe9fb");
+ tl.fromTo("#s8-fy",{opacity:0,x:20},{opacity:1,x:0,duration:.35},x+.7);HL(M,x+.7,"#ffe08a");
+ var z=T("Z列的值");
+ tl.fromTo("#s8-fz",{opacity:0,x:20},{opacity:1,x:0,duration:.35},z);HL("#s8-tb .c4",z,"#ffc2d1");
+ tl.to("#s8-r1",{outline:"6px solid #47cf9f",outlineOffset:"-4px",duration:.2},z+.8);RV("12",z+.9,"第一条命中行的 Z 值");
+ dpoint(tl,"dn",z,1);
+ var m=T("提取多行");
+ tl.to("#s8-r1",{outline:"0px solid #47cf9f",duration:.2},m-.2);CL(ALL,m);HL(M,m+.1,"#ffe08a");HL(V,m+.1,"#ffe08a");TAB("s8-m2",m);
+ tl.fromTo("#s8-fm",{opacity:0,x:20},{opacity:1,x:0,duration:.35},m+.5);
+ var q=T("求和");RV("30",q,"求和 12+8+7+3");
+ var p=T("平均");tl.set("#s8-fmv",{innerHTML:"平均值"},p);RV("7.5",p,"平均值");
+ var mx=T("最大");tl.set("#s8-fmv",{innerHTML:"最大值"},mx);RV("12",mx,"最大值");
+ var mn=T("最小");tl.set("#s8-fmv",{innerHTML:"最小值"},mn);RV("3",mn,"最小值");
+ var gn=T("有效个数");tl.set("#s8-fmv",{innerHTML:"有效数值个数"},gn);RV("4",gn,"有效数值个数");
+ dcheer(tl,"dn",gn+.3);bounce(tl,"s8-d",gn+.5,3,14);
+ tl.fromTo("#s8-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},gn+.3);
+
+ captions(tl,"s8-cap");
+ window.__timelines["s8"]=tl;
+})();
+</script>
+</template></body></html>

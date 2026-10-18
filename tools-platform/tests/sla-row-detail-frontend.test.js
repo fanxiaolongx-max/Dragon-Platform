@@ -175,5 +175,25 @@ test('SLARowDetail client-side logic tests', async t => {
     const css = fs.readFileSync(path.join(__dirname, '../frontend/css/sla.css'), 'utf8');
     assert.ok(css.includes('grid-template-columns: minmax(95px, 130px) minmax(0, 1fr) auto;'), 'sla-detail-field-item grid should end with auto');
     assert.ok(css.includes('.sla-detail-copy-btn.copied') && css.includes('white-space: nowrap;'), 'copied button must have white-space: nowrap');
+
+    // Test applyFrequentHeaders: ensures frequent columns are auto-shown and prioritized even if previously hidden
+    mockWindow.AppState.rectification.orderedHeaders = ['empty_col_1', 'plan_date', 'task_status', 'task_id', 'source_name'];
+    mockWindow.AppState.rectification.visibleHeaders = ['empty_col_1', 'plan_date']; // task_id and task_status were omitted/hidden
+    SLARowDetail.applyFrequentHeaders('rectification');
+
+    assert.equal(mockWindow.AppState.rectification.visibleHeaders[0], 'task_id', 'task_id should be first in visibleHeaders');
+    assert.equal(mockWindow.AppState.rectification.visibleHeaders[1], 'task_status', 'task_status should be second in visibleHeaders');
+    assert.ok(mockWindow.AppState.rectification.visibleHeaders.includes('task_id'), 'task_id must be auto-displayed');
+    assert.ok(mockWindow.AppState.rectification.visibleHeaders.includes('task_status'), 'task_status must be auto-displayed');
+    assert.equal(mockWindow.AppState.rectification.orderedHeaders[0], 'task_id', 'task_id should be first in orderedHeaders');
+    assert.equal(mockWindow.AppState.rectification.orderedHeaders[1], 'task_status', 'task_status should be second in orderedHeaders');
+
+    // Test syncFrequentToMainTable
+    mockWindow.AppState.rectification.visibleHeaders = ['source_name'];
+    await SLARowDetail.syncFrequentToMainTable();
+    assert.equal(mockWindow.AppState.rectification.visibleHeaders[0], 'task_id');
+    assert.equal(mockWindow.AppState.rectification.visibleHeaders[1], 'task_status');
+    assert.ok(mockWindow.AppState.rectification.visibleHeaders.includes('source_name'));
 });
+
 

@@ -55,7 +55,7 @@ function requestJson(url, options = {}) {
         req.end(body);
     });
 }
-// Memory only: never persist credentials, responses, or a second quota database.
+// Reader cache stays in memory. Only sanitized fresh measurements enter SQLite history.
 function cachedReader(provider, read, ttl = 60000, now = Date.now) {
     let last = null, checked = 0, pending = null, result = null;
     return function (force = false) {

@@ -1,0 +1,71 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .stg{display:inline-flex;align-items:center;gap:10px;border:2.5px solid var(--ink);border-radius:14px;background:#fff;padding:4px 16px;font-size:34px;white-space:nowrap}
+#root .stg b{width:24px;height:24px;border-radius:50%;border:2.5px solid var(--ink);background:#fff;display:block;flex:none}
+</style>
+<div id="root" data-composition-id="s5" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="14" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:700px;width:520px;height:520px;background:#ffe08f"></div>
+  <div class="head wob" id="s5-h"><span class="step">第 1 站</span><span class="ttl">脚本制作 · 生成与 AI 适配</span></div>
+  <div class="win wob" id="s5-w1" style="left:110px;top:220px;width:900px;height:640px"><div class="wbar" style="background:var(--mint)"><i></i><i></i><i></i><span>生产级 UI.Vision 宏代码</span></div></div>
+  <div class="codebox" id="s5-code" style="left:140px;top:300px;width:840px;height:290px;font-size:25px;border-style:solid;border-width:3px"><span style="color:#8a4fff">{</span>
+  <span style="color:#0284c7">"Name"</span>: <span style="color:#059669">"整改详单_抓取"</span>,
+  <span style="color:#0284c7">"Commands"</span>: [
+    { <span style="color:#0284c7">"Command"</span>: <span style="color:#059669">"open"</span>, <span style="color:#0284c7">"Target"</span>: <span style="color:#059669">"https://…"</span> },
+    { <span style="color:#0284c7">"Command"</span>: <span style="color:#059669">"executeScript_Sandbox"</span>, … }
+  ]
+<span style="color:#8a4fff">}</span></div>
+  <div class="sticky wob" id="s5-nm" style="left:620px;top:612px;width:350px;font-size:34px;transform:rotate(3deg);padding:8px 18px 12px;background:#d9c6ef">AI 命名：整改详单_抓取</div>
+  <div class="btn" id="s5-b1" style="left:140px;top:760px;background:#ffb3c6;font-size:36px">一键生成</div>
+  <div class="btn" id="s5-b2" style="left:390px;top:760px;background:#ffe08f;font-size:36px">加入侧边栏</div>
+  <div class="btn" id="s5-b3" style="left:690px;top:760px;background:#9fe0c9;font-size:36px">自动分类</div>
+  <div class="tag abs" id="s5-cs" style="left:140px;top:622px;font-size:34px;background:#fff">复制控制台脚本 F12</div>
+  <div class="win wob" id="s5-w2" style="left:1060px;top:220px;width:760px;height:640px"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>AI 全网站抓取适配器</span></div></div>
+  <div class="abs" id="s5-a1" style="left:1090px;top:310px;font-size:38px;white-space:nowrap">① 粘贴 <b>Copy as fetch</b></div>
+  <div class="codebox" id="s5-a1c" style="left:1090px;top:362px;width:700px;height:80px;font-size:24px;padding:10px 16px">fetch("https://…/api", { headers: {…} })</div>
+  <div class="abs" id="s5-a2" style="left:1090px;top:462px;font-size:38px;white-space:nowrap">② 粘贴 <b>Copy response</b></div>
+  <div class="codebox" id="s5-a2c" style="left:1090px;top:514px;width:700px;height:80px;font-size:24px;padding:10px 16px">{ "data": [ { "id": 1, … } ] }</div>
+  <div class="abs row" id="s5-st" style="left:1090px;top:628px;gap:12px"><span class="stg" id="s5-g1"><b></b>脱敏</span><span class="stg" id="s5-g2"><b></b>分析</span><span class="stg" id="s5-g3"><b></b>验证路径</span></div>
+  <div class="tag abs" id="s5-ok" style="left:1090px;top:748px;font-size:36px;background:#47cf9f">高置信 → 复用成熟引擎</div>
+  <div class="abs wob" id="s5-sh" style="left:1650px;top:700px"></div>
+  <div class="abs wob" id="s5-d" style="left:1608px;top:788px"></div>
+  <div id="s5-sp"></div>
+  <div class="cap" id="s5-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s5-d",dino("dn",{w:244,h:234}));put("s5-sh",icon("shield","#9fe0c9",110));
+ document.getElementById("s5-sp").innerHTML=sparkle(1020,190,44)+sparkle(1850,520,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s5-w1,#s5-code,#s5-nm,#s5-b1,#s5-b2,#s5-b3,#s5-cs,#s5-w2,#s5-a1,#s5-a1c,#s5-a2,#s5-a2c,#s5-st,#s5-ok,#s5-sh",{opacity:0});
+ tl.fromTo("#s5-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s5-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("一键生成");
+ tl.fromTo("#s5-w1",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},a-.15);
+ pop(tl,"#s5-b1",a-.4,{s:.4});
+ tl.to("#s5-b1",{backgroundColor:"#47cf9f",duration:.2},a+.1);click(tl,"#s5-b1",a+.1);
+ tl.fromTo("#s5-code",{opacity:0},{opacity:1,duration:.6},a+.3);
+ pop(tl,"#s5-cs",T("控制台脚本")-.1,{s:.4});
+ pop(tl,"#s5-b2",T("加入侧边栏")-.1,{s:.4});pop(tl,"#s5-b3",T("自动分类")-.1,{s:.4});
+ pop(tl,"#s5-nm",T("命名")-.3,{s:.4,y:20});
+ var b=T("AI适配器");
+ tl.fromTo("#s5-w2",{opacity:0,x:80},{opacity:1,x:0,duration:.6,ease:"power3.out"},b-.5);
+ var c=T("Copyasfetch");
+ tl.fromTo("#s5-a1,#s5-a1c",{opacity:0,y:20},{opacity:1,y:0,duration:.4,stagger:.1},c-.2);
+ tl.fromTo("#s5-a2,#s5-a2c",{opacity:0,y:20},{opacity:1,y:0,duration:.4,stagger:.1},T("响应")-.2);
+ tl.fromTo("#s5-st",{opacity:0,y:20},{opacity:1,y:0,duration:.4},T("脱敏")-.5);
+ var g=function(id,t){tl.to("#"+id+" b",{backgroundColor:"#47cf9f",duration:.2},t);};
+ g("s5-g1",T("脱敏"));g("s5-g2",T("分析"));g("s5-g3",T("分析")+1.2);
+ pop(tl,"#s5-sh",T("脱敏")+.2,{s:.3});
+ pop(tl,"#s5-ok",T("分析")+1.8,{s:.4});
+ dpoint(tl,"dn",T("分析")+.4,1.2);
+ tl.fromTo("#s5-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("分析")+1.8);
+ captions(tl,"s5-cap");
+ window.__timelines["s5"]=tl;
+})();
+</script>
+</template></body></html>

@@ -23,8 +23,14 @@ async function loadPrefs(secId) {
             state.customMetrics = saved.customMetrics || [];
             state.sourceMeta = saved._sourceMeta || null;
         }
+        if (window.SLARowDetail && typeof window.SLARowDetail.applyFrequentHeaders === 'function') {
+            window.SLARowDetail.applyFrequentHeaders(secId);
+        }
         if (window.renderSLASourcePanel) window.renderSLASourcePanel();
     } catch (e) {
+        if (window.SLARowDetail && typeof window.SLARowDetail.applyFrequentHeaders === 'function') {
+            window.SLARowDetail.applyFrequentHeaders(secId);
+        }
         // 服务端无数据时使用默认值（不报错）
         if (window.renderSLASourcePanel) window.renderSLASourcePanel();
     }

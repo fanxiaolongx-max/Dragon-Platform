@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>额度使用趋势</title>
+  <link rel="stylesheet" href="quota-trends.css">
+  <script src="pet-i18n.js"></script>
+  <script src="quota-trend-chart.js"></script>
+</head>
+<body>
+  <main>
+    <header><div><p class="eyebrow">THOTH · ACCOUNT INSIGHTS</p><h1 id="title">额度使用趋势</h1></div><button id="refresh" type="button">刷新额度</button></header>
+    <p id="cadence" class="muted"></p>
+    <div class="filters">
+      <label><span id="providerLabel"></span><select id="provider"><option value="codex">Codex</option><option value="claudecode">Claude Code</option><option value="antigravity">Antigravity</option></select></label>
+      <label class="series-filter"><span id="seriesLabel"></span><select id="series"></select></label>
+      <label><span id="rangeLabel"></span><select id="range"></select></label>
+      <label id="customWrap" hidden><span id="daysLabel"></span><input id="days" type="number" min="1" max="90" step="1" value="14"></label>
+    </div>
+    <div class="summary">
+      <div><span id="remainingLabel"></span><strong id="latest">—</strong></div>
+      <div><span id="samplesLabel"></span><strong id="samples">0</strong></div>
+      <div><span id="updatedLabel"></span><strong class="date" id="updated">—</strong></div>
+    </div>
+    <section class="chart-card">
+      <div class="chart-top"><span id="chartTitle"></span><select id="metric" aria-label="Metric"></select></div>
+      <svg id="chart" viewBox="0 0 712 280" role="img"></svg>
+      <p id="empty" role="status" hidden></p>
+      <div id="legend"></div>
+      <p id="status" role="status" class="muted"></p>
+    </section>
+    <p id="coverage" class="muted"></p>
+    <p id="scope" class="note"></p>
+    <p id="retention" class="muted"></p>
+  </main>
+  <script src="quota-trends.js"></script>
+</body>
+</html>

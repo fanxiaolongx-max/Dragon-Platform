@@ -638,6 +638,35 @@
     /**
      * 同步将服务端已记住的常用复制字段置顶排至主表格列首
      */
+    /**
+     * 将本表涉及的常用复制列默认自动展示并优先置顶排在最前
+     */
+    function applyFrequentHeaders(secId) {
+        if (!secId) return;
+        const state = window.AppState && window.AppState[secId];
+        if (!state || !state.orderedHeaders || !state.orderedHeaders.length) return;
+
+        const tableType = getTableType(secId);
+        const frequentFields = getCachedFrequentFields(tableType);
+        if (!frequentFields || !frequentFields.length) return;
+
+        // 1. 找出本表中所有存在的常用列（从 orderedHeaders 中找，确保字段在数据源中存在）
+        const validFrequent = frequentFields.filter(f => state.orderedHeaders.includes(f));
+        if (!validFrequent.length) return;
+
+        // 2. 优先重排 orderedHeaders：常用列置顶在最前，其余保持相对顺序
+        const remainingOrdered = state.orderedHeaders.filter(h => !validFrequent.includes(h));
+        state.orderedHeaders = [...validFrequent, ...remainingOrdered];
+
+        // 3. 优先重排 visibleHeaders：默认自动展示所有存在的常用列，且置顶在最前
+        const currentVisible = Array.isArray(state.visibleHeaders) ? state.visibleHeaders : [...state.orderedHeaders];
+        const otherVisible = currentVisible.filter(h => !validFrequent.includes(h));
+        state.visibleHeaders = [...validFrequent, ...otherVisible];
+    }
+
+    /**
+     * 同步将服务端已记住的常用复制字段置顶排至主表格列首并确保自动展示
+     */
     async function syncFrequentToMainTable() {
         if (!currentSecId) return;
         const state = window.AppState && window.AppState[currentSecId];
@@ -653,12 +682,8 @@
             return;
         }
 
-        // 保留原有效字段
-        const currentVisible = [...state.visibleHeaders];
-        const validFrequent = frequentFields.filter(f => currentVisible.includes(f));
-        const others = currentVisible.filter(f => !validFrequent.includes(f));
+        applyFrequentHeaders(currentSecId);
 
-        state.visibleHeaders = [...validFrequent, ...others];
         if (window.SLAPrefs && typeof window.SLAPrefs.savePrefs === 'function') {
             await window.SLAPrefs.savePrefs(currentSecId);
         }
@@ -666,8 +691,9 @@
             window.updateView(currentSecId);
         }
 
+        const validCount = frequentFields.filter(f => state.orderedHeaders.includes(f)).length;
         if (window.showToast) {
-            window.showToast(`已将 ${validFrequent.length} 个常用字段排至主表格最前方！`);
+            window.showToast(`已将 ${validCount} 个常用字段排至主表格最前方并默认展示！`);
         }
     }
 
@@ -699,6 +725,7 @@
         clearSearch,
         handleCopy,
         copyAllNonEmpty,
+        applyFrequentHeaders,
         syncFrequentToMainTable,
         fetchCopiedFields,
         getCachedFrequentFields,

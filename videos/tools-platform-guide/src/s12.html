@@ -1,0 +1,74 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .cp{position:absolute;display:inline-flex;align-items:center;gap:10px;border:2.5px solid var(--ink);border-radius:30px;padding:2px 24px 6px;font-size:38px;white-space:nowrap;background:#fff}
+#root .rk{position:absolute;left:140px;width:820px;height:70px;display:flex;align-items:center;gap:16px;font-size:36px;white-space:nowrap}
+#root .rk em{font-style:normal;width:50px;height:50px;border-radius:50%;border:2.5px solid var(--ink);display:flex;align-items:center;justify-content:center;font-family:"ZCOOL KuaiLe",sans-serif;font-size:30px;background:#ffe08f;flex:none}
+#root .rk .br{height:38px;border:2.5px solid var(--ink);border-radius:20px;background:#9fe0c9;width:0}
+#root .rk b{font-family:"ZCOOL KuaiLe",sans-serif;font-weight:400;font-size:38px}
+#root .mr{position:absolute;left:1060px;width:730px;height:64px;border:2.5px solid var(--ink);border-radius:14px;background:#fff;display:flex;align-items:center;gap:14px;padding:0 16px;font-size:34px;white-space:nowrap}
+#root .mr span{margin-left:auto;font-family:"ZCOOL KuaiLe",sans-serif;font-size:34px}
+</style>
+<div id="root" data-composition-id="s12" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="36" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1480px;top:-170px;width:520px;height:520px;background:#9fe0c9"></div>
+  <div class="head wob" id="s12-h"><span class="step">第 3 站</span><span class="ttl">报表看板 · 打分入库</span></div>
+  <div class="win wob" id="s12-tbar" style="left:110px;top:186px;width:1710px;height:156px;border-radius:22px"></div>
+  <div class="cp" id="s12-p1" style="left:136px;top:204px;background:#aed8f2">考核月份 2026-10 ▾</div>
+  <div class="cp" id="s12-p2" style="left:560px;top:204px">历史快照 ▾</div>
+  <div class="cp" id="s12-p3" style="left:136px;top:276px;font-size:34px">手动加指标</div>
+  <div class="cp" id="s12-p4" style="left:380px;top:276px;font-size:34px">权重</div>
+  <div class="cp" id="s12-p5" style="left:540px;top:276px;font-size:34px">分组</div>
+  <div class="cp" id="s12-p6" style="left:700px;top:276px;font-size:34px">中英字典</div>
+  <div class="btn" id="s12-b1" style="left:1150px;top:236px;font-size:36px;background:#47cf9f;padding:4px 26px 8px">入库</div>
+  <div class="btn" id="s12-b2" style="left:1310px;top:236px;font-size:36px;background:#ffe08f;padding:4px 26px 8px">模板映射</div>
+  <div class="btn" id="s12-b3" style="left:1550px;top:236px;font-size:36px;background:#ffb3c6;padding:4px 26px 8px">导出赛马表</div>
+  <div class="win wob" id="s12-w1" style="left:110px;top:360px;width:880px;height:480px"><div class="wbar" style="background:var(--mint)"><i></i><i></i><i></i><span>客户群 / 代表处 健康度排名</span></div></div>
+  <div class="rk" id="s12-k1" style="top:445px"><em>1</em>客户群 A<span class="br" style="max-width:380px"></span><b>96</b></div>
+  <div class="rk" id="s12-k2" style="top:525px"><em>2</em>客户群 B<span class="br" style="max-width:360px"></span><b>91</b></div>
+  <div class="rk" id="s12-k3" style="top:605px"><em>3</em>客户群 C<span class="br" style="max-width:348px"></span><b>88</b></div>
+  <div class="rk" id="s12-k4" style="top:685px"><em>4</em>客户群 D<span class="br" style="max-width:330px"></span><b>84</b></div>
+  <div class="rk" id="s12-k5" style="top:765px"><em>5</em>客户群 E<span class="br" style="max-width:312px"></span><b>79</b></div>
+  <div class="win wob" id="s12-w2" style="left:1030px;top:360px;width:790px;height:480px"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>指标计分（实际 vs 目标）</span></div></div>
+  <div class="mr" id="s12-m1" style="top:445px">高危闭环率<span>+2.0</span></div>
+  <div class="mr" id="s12-m2" style="top:519px">超期率<span style="color:#f27b96">-1.5</span></div>
+  <div class="mr" id="s12-m3" style="top:593px">回传率<span>+0.8</span></div>
+  <div class="mr" id="s12-m4" style="top:667px">整改完成率<span style="color:#f27b96">-3.0</span></div>
+  <div class="mr" id="s12-m5" style="top:741px;border-style:dashed;opacity:.5">Others · 日志备案<span style="font-size:28px">只监控 不计分</span></div>
+  <div class="abs wob" id="s12-d" style="left:1602px;top:814px"></div>
+  <div id="s12-sp"></div>
+  <div class="cap" id="s12-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s12-d",dino("dn",{w:207,h:199}));
+ document.getElementById("s12-sp").innerHTML=sparkle(1000,330,44)+sparkle(1850,330,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s12-tbar,#s12-p1,#s12-p2,#s12-p3,#s12-p4,#s12-p5,#s12-p6,#s12-b1,#s12-b2,#s12-b3,#s12-w1,#s12-w2,#s12-k1,#s12-k2,#s12-k3,#s12-k4,#s12-k5,#s12-m1,#s12-m2,#s12-m3,#s12-m4,#s12-m5",{opacity:0});
+ tl.fromTo("#s12-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s12-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("考核月份");tl.fromTo("#s12-tbar",{opacity:0,y:-20},{opacity:1,y:0,duration:.5,ease:"power3.out"},a-.5);
+ pop(tl,"#s12-p1",a-.1,{s:.5});pop(tl,"#s12-p2",a+.3,{s:.5});
+ var b=T("计分");
+ tl.fromTo("#s12-w2",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},b-.6);
+ tl.fromTo("#s12-m1,#s12-m2,#s12-m3,#s12-m4",{opacity:0,x:30},{opacity:1,x:0,duration:.3,stagger:.18},b);
+ var c=T("健康度排名");
+ tl.fromTo("#s12-w1",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},c-.9);
+ tl.fromTo("#s12-k1,#s12-k2,#s12-k3,#s12-k4,#s12-k5",{opacity:0,x:-30},{opacity:1,x:0,duration:.3,stagger:.14},c-.3);
+ tl.to("#s12-w1 ~ .rk .br,.rk .br",{width:"100%",duration:.9,stagger:.12,ease:"power2.out"},c+.3);
+ pop(tl,"#s12-p3",T("手动加指标")-.1,{s:.5});pop(tl,"#s12-p4",T("权重")-.1,{s:.5});pop(tl,"#s12-p5",T("分组")-.1,{s:.5});pop(tl,"#s12-p6",T("中英字典")-.1,{s:.5});
+ var o=T("Others");
+ tl.fromTo("#s12-m5",{opacity:0,x:30},{opacity:.5,x:0,duration:.4},o);
+ var d=T("入库");
+ pop(tl,"#s12-b1",d-.2,{s:.5});click(tl,"#s12-b1",d+.6);tl.to("#s12-b1",{scale:1.08,duration:.2,yoyo:true,repeat:1,transformOrigin:"50% 50%"},d+.9);
+ pop(tl,"#s12-b2",T("模板映射")-.1,{s:.5});pop(tl,"#s12-b3",T("赛马表")-.1,{s:.5});
+ dcheer(tl,"dn",T("赛马表")+.2);bounce(tl,"s12-d",T("赛马表")+.4,3,14);
+ tl.fromTo("#s12-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("赛马表"));
+ captions(tl,"s12-cap");
+ window.__timelines["s12"]=tl;
+})();
+</script>
+</template></body></html>

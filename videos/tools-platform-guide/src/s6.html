@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .rw{position:absolute;left:140px;width:560px;height:62px;border:2.5px solid var(--ink);border-radius:16px;background:#fff;display:flex;align-items:center;gap:14px;padding:0 16px;font-size:38px;white-space:nowrap}
+#root .tb{position:absolute;left:1460px;width:330px;height:58px;border:2.5px solid var(--ink);border-radius:14px;background:#fff;display:flex;align-items:center;gap:10px;padding:0 14px;font-size:30px;white-space:nowrap}
+#root .tb b{width:20px;height:20px;border-radius:50%;border:2.5px solid var(--ink);background:#fff;display:block;flex:none}
+#root .pg{position:absolute;left:830px;top:340px;width:500px;height:46px;border:2.5px solid var(--ink);border-radius:30px;background:#fff;overflow:hidden}
+#root .pg i{display:block;height:100%;width:0;background:var(--green)}
+#root .dot{position:absolute;width:26px;height:26px;border:2.5px solid var(--ink);border-radius:8px;background:var(--yellow);z-index:12}
+</style>
+<div id="root" data-composition-id="s6" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="17" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#aed8f2"></div>
+  <div class="head wob" id="s6-h"><span class="step">第 1 站</span><span class="ttl">运行批脚本 · 自动入库</span></div>
+  <div class="win wob" id="s6-w1" style="left:110px;top:220px;width:620px;height:560px"><div class="wbar"><i></i><i></i><i></i><span>智能调度仓库</span></div></div>
+  <div class="rw" id="s6-r1" style="top:312px"><span class="chk"></span>整改详单</div>
+  <div class="rw" id="s6-r2" style="top:384px"><span class="chk"></span>风险详单</div>
+  <div class="rw" id="s6-r3" style="top:456px"><span class="chk"></span>SR 详单</div>
+  <div class="rw" id="s6-r4" style="top:528px"><span class="chk"></span>漏洞预警</div>
+  <div class="btn" id="s6-bt" style="left:150px;top:660px;background:#ffb3c6;font-size:40px">运行批脚本</div>
+  <div class="win wob" id="s6-w2" style="left:790px;top:220px;width:580px;height:560px"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>目标网站 · 已登录</span></div></div>
+  <div class="abs" id="s6-pt" style="left:830px;top:300px;font-size:38px;white-space:nowrap">自动翻页抓取中…</div>
+  <div class="pg" id="s6-pg"><i></i></div>
+  <div class="abs row" id="s6-pgs" style="left:830px;top:420px;gap:14px"><span class="tag" style="background:#fff">第 1 页</span><span class="tag" style="background:#fff">第 2 页</span><span class="tag" style="background:#fff">第 3 页 …</span></div>
+  <div class="abs mono" id="s6-rows" style="left:830px;top:520px;font-size:30px;line-height:1.7;white-space:pre">rows: 100 → 200 → 300 …</div>
+  <div class="win wob" id="s6-w3" style="left:1430px;top:220px;width:390px;height:560px"><div class="wbar" style="background:var(--mint)"><i></i><i></i><i></i><span>数据导入</span></div></div>
+  <div class="tb" id="s6-t1" style="top:312px"><b></b>整改</div><div class="tb" id="s6-t2" style="top:380px"><b></b>常规风险</div><div class="tb" id="s6-t3" style="top:448px"><b></b>SR 详单</div><div class="tb" id="s6-t4" style="top:516px"><b></b>漏洞预警</div>
+  <div class="abs" id="s6-ar" style="left:0;top:0"></div>
+  <div class="sticky wob" id="s6-warn" style="left:110px;top:815px;width:900px;font-size:40px;background:#ffd0d8;transform:rotate(-1deg);padding:10px 24px 14px;white-space:nowrap">⚠ 从抓取到导入完成，请不要切换租户</div>
+  <div class="cursor wob" id="s6-cur"></div>
+  <div class="abs wob" id="s6-d" style="left:1618px;top:748px"></div>
+  <div id="s6-sp"></div>
+  <div class="cap" id="s6-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s6-d",dino("dn",{w:244,h:234}));put("s6-cur",icon("cursor","#ffffff",74));
+ put("s6-ar",arrow(722,440,80,60,"s6-a1")+arrow(1360,440,80,60,"s6-a2"));
+ document.getElementById("s6-sp").innerHTML=sparkle(1380,190,44)+sparkle(1850,200,40,"#ffb3c6");
+ var dots="";for(var i=0;i<5;i++)dots+='<span class="dot" id="s6-dt'+i+'" style="left:1330px;top:'+(520+i*20)+'px"></span>';
+ document.getElementById("s6-sp").insertAdjacentHTML("beforeend",dots);
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s6-w1,#s6-r1,#s6-r2,#s6-r3,#s6-r4,#s6-bt,#s6-w2,#s6-pt,#s6-pg,#s6-pgs,#s6-rows,#s6-w3,#s6-t1,#s6-t2,#s6-t3,#s6-t4,#s6-ar,#s6-warn,#s6-cur,.dot",{opacity:0});
+ tl.fromTo("#s6-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s6-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("勾选脚本");
+ tl.fromTo("#s6-w1",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},a-.7);
+ tl.fromTo("#s6-r1,#s6-r2,#s6-r3,#s6-r4,#s6-bt",{opacity:0,x:-20},{opacity:1,x:0,duration:.3,stagger:.1},a-.4);
+ ["s6-r1","s6-r2","s6-r3","s6-r4"].forEach(function(id,i){tl.to("#"+id+" .chk",{className:"chk on",duration:.01},a+.4+i*.22);});
+ var b=T("运行批脚本");
+ tl.set("#s6-cur",{x:150,y:560});tl.fromTo("#s6-cur",{opacity:0},{opacity:1,duration:.3},b-.9);
+ cur(tl,"#s6-cur",300,700,b-.8,.7);click(tl,"#s6-cur",b+.2);click(tl,"#s6-bt",b+.2);tl.to("#s6-bt",{backgroundColor:"#47cf9f",duration:.2},b+.25);tl.to("#s6-cur",{opacity:0,duration:.3},b+.7);
+ var c=T("自动翻页");
+ tl.fromTo("#s6-w2",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},c-.6);
+ tl.fromTo("#s6-pt,#s6-pg,#s6-pgs,#s6-rows",{opacity:0},{opacity:1,duration:.4,stagger:.1},c-.2);
+ tl.set("#s6-ar",{opacity:1},c);draw(tl,"#s6-a1",c,.5);tl.to("#s6-a1h",{opacity:1,duration:.1},c+.5);
+ tl.to("#s6-pg i",{width:"100%",duration:3.2,ease:"none"},c);
+ var d=T("直接送到");
+ tl.fromTo("#s6-w3",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},d-.7);
+ draw(tl,"#s6-a2",d-.3,.5);tl.to("#s6-a2h",{opacity:1,duration:.1},d+.2);
+ for(var i=0;i<5;i++){tl.fromTo("#s6-dt"+i,{opacity:0,x:0},{opacity:1,x:0,duration:.1},d+i*.2);tl.to("#s6-dt"+i,{x:230,y:-(180-i*40)+i*0,duration:.8,ease:"power2.inOut"},d+i*.2);tl.to("#s6-dt"+i,{opacity:0,duration:.1},d+i*.2+.8);}
+ tl.fromTo("#s6-t1,#s6-t2,#s6-t3,#s6-t4",{opacity:0,x:20},{opacity:1,x:0,duration:.3,stagger:.2},d+.5);
+ ["s6-t1","s6-t2","s6-t3","s6-t4"].forEach(function(id,i){tl.to("#"+id+" b",{backgroundColor:"#47cf9f",duration:.2},d+1.5+i*.25);});
+ var e=T("不要切换租户");
+ tl.fromTo("#s6-warn",{opacity:0,y:30,rotation:-4},{opacity:1,y:0,rotation:-1,duration:.5,ease:"back.out(1.6)"},e-1.2);
+ tl.to("#s6-warn",{x:6,duration:.08,repeat:5,yoyo:true},e);
+ dpoint(tl,"dn",e-.8,1.2);
+ tl.fromTo("#s6-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("直接送到")+1.5);
+ captions(tl,"s6-cap");
+ window.__timelines["s6"]=tl;
+})();
+</script>
+</template></body></html>

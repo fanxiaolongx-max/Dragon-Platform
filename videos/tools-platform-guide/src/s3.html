@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pc{position:absolute;top:240px;width:540px;height:500px;background:#fff;border:3px solid var(--ink);border-radius:28px;box-shadow:var(--sh);overflow:hidden}
+#root .pc .hd{height:86px;border-bottom:3px solid var(--ink);display:flex;align-items:center;gap:16px;padding:0 24px 0 84px;font-family:"ZCOOL KuaiLe",sans-serif;font-size:42px;white-space:nowrap}
+#root .opt2{position:absolute;left:24px;width:488px;height:66px;border:2.5px solid var(--ink);border-radius:16px;background:#fff;display:flex;align-items:center;gap:14px;padding:0 18px;font-size:34px;white-space:nowrap}
+#root .opt2 b{width:22px;height:22px;border-radius:50%;border:2.5px solid var(--ink);display:block;flex:none}
+</style>
+<div id="root" data-composition-id="s3" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="8" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-160px;top:640px;width:520px;height:520px;background:#9fe0c9"></div>
+  <div class="head wob" id="s3-h"><span class="step">第 1 站</span><span class="ttl">脚本制作 · 三步填写</span></div>
+  <div class="pc wob" id="s3-c1" style="left:110px"><div class="hd" style="background:#aed8f2">请求地址</div>
+    <div class="opt2" id="s3-o1" style="top:112px"><b style="background:#47cf9f"></b>DataFab · 明细列表</div>
+    <div class="opt2" id="s3-o2" style="top:192px"><b style="background:#f27b96"></b>NetCare · 中国节点</div>
+    <div class="opt2" id="s3-o3" style="top:272px"><b style="background:#38bdf8"></b>NetCare · 中东节点</div>
+    <div class="opt2" id="s3-o4" style="top:352px"><b style="background:#ffc29a"></b>NetCare · 德国节点</div></div>
+  <div class="pc wob" id="s3-c2" style="left:690px"><div class="hd" style="background:#ffe08f">请求负载 Payload</div>
+    <div class="codebox" id="s3-j1" style="left:24px;top:112px;width:488px;height:340px;font-size:28px">{
+  "pageNo": 1,
+  "pageSize": 100,
+  "filters": {
+    "month": "2026-10"
+  }
+}</div></div>
+  <div class="pc wob" id="s3-c3" style="left:1270px"><div class="hd" style="background:#ffb3c6">响应示例 Response</div>
+    <div class="codebox" id="s3-j2" style="left:24px;top:112px;width:488px;height:340px;font-size:28px">{
+  "data": [
+    {
+      "metadata": [ ... ],
+      "data": [ ... ]
+    }
+  ]
+}</div></div>
+  <div class="num" style="left:90px;top:218px">1</div><div class="num" style="left:670px;top:218px">2</div><div class="num" style="left:1250px;top:218px">3</div>
+  <div class="win wob" id="s3-dev" style="left:110px;top:780px;width:1450px;height:130px;border-radius:22px"><div class="abs" style="left:26px;top:22px;font-family:'ZCOOL KuaiLe',sans-serif;font-size:40px;white-space:nowrap">开发者工具 F12 → 网络 Network → 右键 Copy</div><div class="abs row" style="left:26px;top:76px;gap:16px"><span class="tag" style="background:#ffe08f;font-size:30px;padding:0 16px">Copy request payload</span><span class="tag" style="background:#ffb3c6;font-size:30px;padding:0 16px">Copy response</span></div></div>
+  <div class="abs wob" id="s3-d" style="left:1607px;top:691px"></div>
+  <div id="s3-sp"></div>
+  <div class="cap" id="s3-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s3-d",dino("dn",{w:256,h:244}));
+ document.getElementById("s3-sp").innerHTML=sparkle(1560,190,44)+sparkle(1850,380,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s3-c1,#s3-c2,#s3-c3,#s3-dev,#s3-o2,#s3-o3,#s3-o4,#s3-j1,#s3-j2",{opacity:0});
+ tl.fromTo("#s3-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s3-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("请求地址");
+ tl.fromTo("#s3-c1",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},a-.5);
+ tl.fromTo("#s3-o2,#s3-o3,#s3-o4",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.18},T("NetCare")-.1);
+ tl.to("#s3-o1",{backgroundColor:"#ffe08f",duration:.25},T("DataFab")+.1);
+ var b=T("请求负载");
+ tl.fromTo("#s3-c2",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},b-.4);
+ tl.fromTo("#s3-j1",{opacity:0},{opacity:1,duration:.5},b+.3);
+ var c=T("JSON响应示例");
+ tl.fromTo("#s3-c3",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},c-.4);
+ tl.fromTo("#s3-j2",{opacity:0},{opacity:1,duration:.5},c+.3);
+ var d=T("开发者工具");
+ tl.fromTo("#s3-dev",{opacity:0,y:40},{opacity:1,y:0,duration:.55,ease:"power3.out"},d-.3);
+dpoint(tl,"dn",d+.5,1.2);
+ tl.fromTo("#s3-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},d+1);
+ captions(tl,"s3-cap");
+ window.__timelines["s3"]=tl;
+})();
+</script>
+</template></body></html>

@@ -181,6 +181,7 @@ test('manager restricts story IPC and delivers queued story once without togglin
                 ipcMain: { handle: (name, fn) => handles[name] = fn, on: (name, fn) => listeners[name] = fn } };
             if (name.endsWith('desktop-language')) return { events: new EventEmitter(), getLanguage: () => 'zh-CN' };
             if (name.endsWith('quota-panel-layout')) return require('../desktop-pet/quota-panel-layout');
+            if (name.endsWith('quota-history-client')) return require('../desktop-pet/quota-history-client');
             if (name.endsWith('quota-detector')) return { detectAllQuotas: async () => null };
             if (name.endsWith('pet-keyboard-hook')) return { startKeyboardHook() {}, stopKeyboardHook() {} };
             if (name.endsWith('auth-sessions-repository')) return { saveSession: async () => {} };

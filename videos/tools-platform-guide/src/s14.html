@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .cd{position:absolute;height:610px;top:220px;background:#fff;border:3px solid var(--ink);border-radius:28px;box-shadow:var(--sh);overflow:hidden}
+#root .cd .hd{height:80px;border-bottom:3px solid var(--ink);display:flex;align-items:center;padding:0 24px;font-family:"ZCOOL KuaiLe",sans-serif;font-size:40px;white-space:nowrap}
+#root .pp{position:absolute;left:140px;display:inline-flex;align-items:center;gap:12px;border:2.5px solid var(--ink);border-radius:30px;padding:2px 22px 6px 12px;font-size:36px;white-space:nowrap;background:#fff}
+#root .pp i{width:36px;height:36px;border-radius:50%;border:2.5px solid var(--ink);display:block}
+#root .ct{position:absolute;left:600px;width:480px;height:104px;border:2.5px solid var(--ink);border-radius:20px;background:#fff;display:flex;align-items:center;gap:14px;padding:0 20px;font-size:40px;white-space:nowrap}
+#root .ct .as{margin-left:auto;font-size:28px;border:3px dashed var(--ink);border-radius:999px;padding:0 12px;background:#fffdf5}
+#root .ch{position:absolute;width:290px;height:150px;border:3px solid var(--ink);border-radius:22px;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:38px;white-space:nowrap}
+</style>
+<div id="root" data-composition-id="s14" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="42" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#aed8f2"></div>
+  <div class="head wob" id="s14-h"><span class="step">第 4 站</span><span class="ttl">一键催办 · 精准分发</span></div>
+  <div class="cd wob" id="s14-c1" style="left:110px;width:440px"><div class="hd" style="background:#ffe08f">员工名册</div></div>
+  <div class="pp" id="s14-p1" style="top:330px"><i style="background:#ffb3c6"></i>成员 A</div>
+  <div class="pp" id="s14-p2" style="top:416px"><i style="background:#aed8f2"></i>成员 B</div>
+  <div class="pp" id="s14-p3" style="top:502px"><i style="background:#9fe0c9"></i>成员 C</div>
+  <div class="pp" id="s14-p4" style="top:588px"><i style="background:#d9c6ef"></i>运维群</div>
+  <div class="tag abs" id="s14-ad" style="left:140px;top:690px;font-size:32px;background:#fff;border-style:dashed">＋ 添加至待分配库</div>
+  <div class="cd wob" id="s14-c2" style="left:590px;width:520px"><div class="hd" style="background:#aed8f2">分类卡片</div></div>
+  <div class="ct" id="s14-t1" style="top:330px;left:610px;width:480px"><b style="width:26px;height:26px;border-radius:50%;background:#f27b96;border:2.5px solid #5b4636;display:block"></b>埃及<span class="as" id="s14-a1">成员 A</span></div>
+  <div class="ct" id="s14-t2" style="top:450px;left:610px;width:480px"><b style="width:26px;height:26px;border-radius:50%;background:#ffe08f;border:2.5px solid #5b4636;display:block"></b>德国<span class="as" id="s14-a2">成员 B</span></div>
+  <div class="ct" id="s14-t3" style="top:570px;left:610px;width:480px"><b style="width:26px;height:26px;border-radius:50%;background:#47cf9f;border:2.5px solid #5b4636;display:block"></b>中东<span class="as" id="s14-a3">运维群</span></div>
+  <div class="tag abs" id="s14-nm" style="left:610px;top:714px;font-size:28px;background:#ffe08f">网络映射：EG-Egypt ET → ET</div>
+  <div class="abs" id="s14-ar" style="left:0;top:0"></div>
+  <div class="cd wob" id="s14-c3" style="left:1150px;width:670px;height:610px"><div class="hd" style="background:#ffb3c6">分发渠道</div></div>
+  <div class="ch" id="s14-h1" style="left:1180px;top:325px"><span id="s14-ic1"></span>单聊</div>
+  <div class="ch" id="s14-h2" style="left:1500px;top:325px"><span id="s14-ic2"></span>群聊</div>
+  <div class="ch" id="s14-h3" style="left:1180px;top:490px;height:140px"><span id="s14-ic3"></span>邮件抄送</div>
+  <div class="ch" id="s14-h4" style="left:1500px;top:490px;height:140px"><span id="s14-ic4"></span>会议邀请</div>
+  <div class="btn" id="s14-b1" style="left:1180px;top:660px;font-size:34px;background:#ffe08f;padding:4px 24px 8px">复制 WeLink 脚本</div>
+  <div class="btn" id="s14-b2" style="left:1180px;top:745px;font-size:34px;background:#9fe0c9;padding:4px 24px 8px">下载 Excel 短板矩阵</div>
+  <div class="abs wob" id="s14-d" style="left:1660px;top:700px"></div>
+  <div id="s14-sp"></div>
+  <div class="cap" id="s14-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s14-d",dino("dn",{w:190,h:182}));
+ put("s14-ic1",icon("chat","#ffb3c6",60));put("s14-ic2",icon("group","#aed8f2",60));put("s14-ic3",icon("mail","#ffe08f",54));put("s14-ic4",icon("cal","#d9c6ef",54));
+ put("s14-ar",arrow(520,420,100,70,"s14-a"));
+ document.getElementById("s14-sp").innerHTML=sparkle(1110,200,44)+sparkle(1850,260,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s14-c1,#s14-p1,#s14-p2,#s14-p3,#s14-p4,#s14-ad,#s14-c2,#s14-t1,#s14-t2,#s14-t3,#s14-nm,#s14-ar,#s14-c3,#s14-h1,#s14-h2,#s14-h3,#s14-h4,#s14-b1,#s14-b2,#s14-a1,#s14-a2,#s14-a3",{opacity:0});
+ tl.fromTo("#s14-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s14-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("员工名册");
+ tl.fromTo("#s14-c1",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},a-.7);
+ tl.fromTo("#s14-p1,#s14-p2,#s14-p3,#s14-p4,#s14-ad",{opacity:0,x:-20},{opacity:1,x:0,duration:.3,stagger:.16},a);
+ var b=T("分类卡片");
+ tl.fromTo("#s14-c2",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},b-.7);
+ tl.fromTo("#s14-t1,#s14-t2,#s14-t3",{opacity:0,x:-20},{opacity:1,x:0,duration:.3,stagger:.15},b-.2);
+ tl.set("#s14-ar",{opacity:1},b+.4);draw(tl,"#s14-a",b+.4,.5);tl.to("#s14-ah",{opacity:1,duration:.1},b+.9);
+ tl.fromTo("#s14-a1,#s14-a2,#s14-a3",{opacity:0,scale:.3},{opacity:1,scale:1,duration:.35,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},b+.8);
+ pop(tl,"#s14-nm",T("网络名称映射")-.1,{s:.4});
+ tl.fromTo("#s14-c3",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},T("单聊")-.7);
+ pop(tl,"#s14-h1",T("单聊")-.1,{s:.5});pop(tl,"#s14-h2",T("群聊")-.1,{s:.5});pop(tl,"#s14-h3",T("邮件抄送")-.1,{s:.5});pop(tl,"#s14-h4",T("会议邀请")-.1,{s:.5});
+ pop(tl,"#s14-b1",T("WeLink")-.2,{s:.5});pop(tl,"#s14-b2",T("Excel短板矩阵")-.2,{s:.5});
+ dcheer(tl,"dn",T("Excel短板矩阵")+.3);bounce(tl,"s14-d",T("Excel短板矩阵")+.5,3,14);
+ tl.fromTo("#s14-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("Excel短板矩阵"));
+ captions(tl,"s14-cap");
+ window.__timelines["s14"]=tl;
+})();
+</script>
+</template></body></html>

@@ -390,10 +390,11 @@ async function initSection(secId, mode, title, rawData, themeColor, baseName = '
     let frequentCols = [];
     if (window.SLARowDetail && typeof window.SLARowDetail.getCachedFrequentFields === 'function') {
         const cached = window.SLARowDetail.getCachedFrequentFields(mode || secId);
-        frequentCols = (cached || []).filter(col => otherCols.includes(col));
+        frequentCols = (cached || []).filter(col => validHeaders.includes(col));
     }
-    const nonFrequentOtherCols = otherCols.filter(col => !frequentCols.includes(col));
-    const orderedHeadersLocal = [...foundPriorityCols, ...frequentCols, ...nonFrequentOtherCols];
+    const remainingPriority = foundPriorityCols.filter(col => !frequentCols.includes(col));
+    const remainingOther = otherCols.filter(col => !frequentCols.includes(col));
+    const orderedHeadersLocal = [...frequentCols, ...remainingPriority, ...remainingOther];
     const schemaHashStr = options.originalSchemaHash || ((mode === 'other' && baseName) ? 'sla_prefs_other_' + SLAUpload.generateSchemaHash(baseName) : 'sla_prefs_' + mode + '_' + SLAUpload.generateSchemaHash(orderedHeadersLocal.slice().sort().join('|')));
 
     AppState[secId] = {

@@ -41,7 +41,10 @@
             brand.appendChild(meta);row.appendChild(brand);
             for(const [id,label] of [['5h',text.five],['weekly',text.week]]) {
                 const window=entry?.windows.find(w=>w.id===id), value=available?window?.value:null;
-                const cell=document.createElement('div');cell.className='quota-cell'+(value==null?' unknown':value<=20?' low':value<=40?' warning':'');
+                const cell=document.createElement('button');cell.type='button';cell.className='quota-cell'+(value==null?' unknown':value<=20?' low':value<=40?' warning':'');
+                cell.title=(english?'View trend · ':'查看趋势 · ')+title+' · '+label;
+                cell.setAttribute('aria-label',cell.title);
+                cell.addEventListener('click',()=>ipc.send('pet-open-quota-trends',{provider,groupId:available?entry.key.slice(provider.length+1):(provider==='antigravity'?group:provider),windowId:id}));
                 const number=document.createElement('div');number.className='quota-value';number.textContent=value==null?'—':String(value);
                 if(value!=null){const unit=document.createElement('span');unit.className='quota-percent';unit.textContent='%';number.appendChild(unit);}
                 const caption=document.createElement('span');caption.className='quota-label';caption.textContent=label;
@@ -55,5 +58,11 @@
     ipc.on('pet-quota-update',(_event,data)=>{quotas=data;render();});
     ipc.on('pet-quota-panel-config',(_event,config)=>{group=config?.group==='third-party'?'third-party':'gemini';render();});
     window.addEventListener('pet:languagechange',render);
+    let hit=false;
+    document.addEventListener('mousemove',event=>{
+        const next=!!event.target.closest('.quota-cell');
+        if(next!==hit){hit=next;ipc.send('pet-quota-panel-hit',hit);}
+    });
+    document.addEventListener('mouseleave',()=>{hit=false;ipc.send('pet-quota-panel-hit',false);});
     render();ipc.send('pet-quota-panel-ready');
 })();

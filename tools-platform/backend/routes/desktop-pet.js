@@ -1,6 +1,7 @@
 const express = require('express');
 const language = require('../models/desktop-language');
 const stories = require('../models/pet-stories-repository');
+const quotaHistory = require('../models/pet-quota-history-repository');
 const router = express.Router();
 
 // A logged-in local user may change this machine's UI language, including viewers.
@@ -29,6 +30,27 @@ router.post('/language', (req, res) => {
         return res.status(400).json({ code: 'INVALID_LANGUAGE', error: 'Unsupported language' });
     }
     res.json({ success: true, language: language.getLanguage() });
+});
+router.post('/quota-history', async (req, res, next) => {
+    if (req.user.role !== 'admin') return res.status(403).json({code:'ADMIN_REQUIRED', error:'Administrator required'});
+    if (!req.user.username || !quotaHistory.identifier(req.body?.device)) return res.status(400).json({code:'INVALID_QUOTA_SCOPE', error:'Invalid installation'});
+    try {
+        await quotaHistory.record(req.user.username, req.body.device, req.body.quotas);
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({success:true});
+    } catch (error) { next(error); }
+});
+router.get('/quota-history', async (req, res, next) => {
+    const days = Number(req.query.days || 1);
+    if (!req.user.username || !quotaHistory.identifier(req.query.device) ||
+        !['codex','claudecode','antigravity'].includes(req.query.provider) || !Number.isFinite(days) || days < 1 || days > 90) {
+        return res.status(400).json({code:'INVALID_QUOTA_QUERY', error:'Invalid quota query'});
+    }
+    try {
+        const history = await quotaHistory.history(req.user.username, req.query.device, req.query.provider, days);
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({success:true, history});
+    } catch (error) { next(error); }
 });
 router.get('/stories', async (req, res, next) => {
     try {

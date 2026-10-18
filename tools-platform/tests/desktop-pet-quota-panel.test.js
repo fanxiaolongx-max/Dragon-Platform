@@ -84,3 +84,23 @@ test('panel preferences persist, reject foreign senders and do not expose story 
     assert.equal(panel.webContents.sent.some(m=>m.name==='pet-quota-panel-config'&&m.data.group==='third-party'),true);
     const config=JSON.parse(fs.readFileSync(path.join(f.root,'desktop-pet-config.json'),'utf8'));assert.equal(config.quotaPanelOn,true);assert.equal(config.quotaPanelGroup,'third-party');
 });
+test('quota clicks open only a validated trends window, mouse hit regions stay scoped, and disabling closes trends',async t=>{
+    const f=manager(t),pet=f.windows[0];pet.ready();const panel=f.windows[1];
+    f.listeners['pet-quota-panel-hit']({sender:{}},true);assert.equal(panel.ignoresMouse,true);
+    f.listeners['pet-quota-panel-hit']({sender:panel.webContents},true);assert.equal(panel.ignoresMouse,false);
+    f.listeners['pet-quota-panel-hit']({sender:panel.webContents},false);assert.equal(panel.ignoresMouse,true);
+    const selection={provider:'codex',groupId:'codex',windowId:'5h'};
+    f.listeners['pet-open-quota-trends']({sender:{}},selection);assert.equal(f.windows.length,2);
+    f.listeners['pet-open-quota-trends']({sender:panel.webContents},{...selection,provider:'unknown'});assert.equal(f.windows.length,2);
+    f.listeners['pet-open-quota-trends']({sender:panel.webContents},selection);
+    const trends=f.windows[2];assert.ok(trends.file.endsWith('quota-trends.html'));trends.ready();assert.equal(trends.visible,true);
+    assert.deepEqual(JSON.parse(JSON.stringify(f.handles['pet-quota-trends-ready']({sender:trends.webContents}))),selection);
+    assert.throws(()=>f.handles['pet-quota-trends-ready']({sender:panel.webContents}),/WINDOW_REQUIRED/);
+    await assert.rejects(f.handles['pet-quota-history']({sender:panel.webContents},{provider:'codex',days:1}),/WINDOW_REQUIRED/);
+    await assert.rejects(f.handles['pet-quota-history']({sender:trends.webContents},{provider:'codex',days:91}),/INVALID_QUOTA_QUERY/);
+    await assert.rejects(f.handles['pet-get-init-data']({sender:trends.webContents}),/WINDOW_REQUIRED/);
+    f.listeners['pet-open-quota-trends']({sender:panel.webContents},{...selection,windowId:'weekly'});assert.equal(f.windows.length,3);
+    assert.equal(trends.webContents.sent.at(-1).data.windowId,'weekly');
+    f.api.hidePetForNow();assert.equal(trends.visible,false);
+    f.api.setPetEnabled(false);assert.equal(trends.destroyed,true);
+});
