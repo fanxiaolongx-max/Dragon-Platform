@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "acceptance-checklist",
+    "name": "在线验收表",
+    "nameEn": "Acceptance Checklist",
+    "icon": "📋",
+    "description": "纯浏览器验收填报：验收结果下拉、多图证明、本地自动保存、含图片 Excel 导出与备份恢复。",
+    "descriptionEn": "Browser-only acceptance checklist with result dropdowns, image evidence, local autosave, Excel image export, and backup / restore.",
+    "tags": ["验收", "填报", "Excel", "本地存储"],
+    "href": "/tools/acceptance-checklist",
+    "filePath": "/custom-tools/acceptance-checklist/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-10-18T00:00:00.000Z",
+    "updatedAt": "2026-10-18T00:00:00.000Z"
+  },
+  "history": null
+}

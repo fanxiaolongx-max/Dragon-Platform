@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>在线验收表 / Acceptance Checklist</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+<header><div><div class="eyebrow">ACCEPTANCE WORKSPACE</div><h1 data-i18n="title">在线验收表</h1><p data-i18n="subtitle">交付有记录，验收有依据。</p></div><div class="actions"><button id="language-toggle" lang="en">English</button><button id="export" class="primary" data-i18n="export">导出 Excel（含图片）</button></div></header>
+<div class="notice"><span class="dot"></span><span data-i18n="privacy">填报和图片仅保存在当前浏览器，不上传服务器。清理浏览器数据会丢失记录，请定期备份。</span><span id="save-status" role="status" aria-live="polite"></span></div>
+<section class="card metadata" aria-label="Project information">
+<label><span data-i18n="project">项目名称</span><input id="project" data-meta="project" maxlength="160"></label>
+<label><span data-i18n="month">验收月份</span><input id="month" data-meta="month" type="month"></label>
+<label><span data-i18n="reviewer">验收人</span><input id="reviewer" data-meta="reviewer" maxlength="100"></label>
+<label><span>BOQ Code</span><input id="boq" data-meta="boq" maxlength="100"></label>
+<label class="wide"><span data-i18n="procurement">采购项目</span><input id="procurement" data-meta="procurement" maxlength="300"></label>
+<label><span data-i18n="unit">单位</span><input id="unit" data-meta="unit" maxlength="40"></label>
+</section>
+<section class="card sheet">
+<div class="sheet-head"><div><h2 data-i18n="items">交付物验收</h2><p id="summary"></p></div><button id="add" data-i18n="add">＋ 添加项目</button></div>
+<div class="table-scroll"><table><colgroup><col class="number"><col class="deliverable"><col class="weight"><col class="quantity"><col class="quantity"><col class="result"><col class="evidence"><col class="remarks"><col class="remove"></colgroup><thead><tr><th>#</th><th data-i18n="deliverable">交付物 / 验收内容</th><th data-i18n="weight">权重 %</th><th data-i18n="baseline">基准数量</th><th data-i18n="actual">实际数量</th><th data-i18n="result">验收结果</th><th data-i18n="evidence">图片证明</th><th data-i18n="remarks">备注 / 整改说明</th><th><span class="sr-only" data-i18n="actions">操作</span></th></tr></thead><tbody id="rows"></tbody></table></div>
+<div class="sheet-foot"><span id="weight-total"></span><span data-i18n="imageHint">每项最多 6 张图片 · 自动压缩 · 点击缩略图查看</span></div>
+</section>
+<details class="card rules"><summary data-i18n="rules">原表扣罚规则（参考）</summary><p data-i18n="rulesHint">保留图片中的条款供核对，不自动计算扣罚或验收得分。</p><ul id="rules-list"></ul></details>
+<footer><span data-i18n="layoutHint">已精简原表：BOQ、采购项目和单位移至表头；移除重复小计和总验收比例列。</span><div class="actions"><button id="backup" data-i18n="backup">备份数据（含图片）</button><button id="restore" data-i18n="restore">恢复备份</button><input id="restore-file" type="file" accept="application/json,.json" hidden></div></footer>
+<p id="message" role="status" aria-live="polite"></p>
+</main>
+<dialog id="preview"><form method="dialog"><button aria-label="Close">×</button></form><img id="preview-image" alt="Evidence"><p id="preview-name"></p></dialog>
+<script src="vendor/exceljs.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
