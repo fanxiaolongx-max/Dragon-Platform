@@ -134,9 +134,15 @@ async function addEvent({
     source = '',
     objectType = '',
     objectId = '',
-    detail = {}
+    detail = {},
+    aiSummary = '',
+    aiStatus = ''
 }) {
     await ensureReady();
+    const isCircuitBreakerEvent = source === 'ai_circuit_breaker';
+    const resolvedAiStatus = aiStatus || (isCircuitBreakerEvent ? 'not_applicable' : 'pending');
+    const resolvedAiSummary = aiSummary || (isCircuitBreakerEvent ? '系统底层防护告警，无需 AI 二次分析。' : '');
+
     const item = {
         id: buildId(),
         eventType: normalizeType(eventType),
@@ -148,13 +154,15 @@ async function addEvent({
         source: String(source || '').slice(0, 120),
         objectType: String(objectType || '').slice(0, 120),
         objectId: String(objectId || '').slice(0, 240),
-        detail: detail && typeof detail === 'object' ? detail : {}
+        detail: detail && typeof detail === 'object' ? detail : {},
+        ai_summary: resolvedAiSummary,
+        ai_status: resolvedAiStatus
     };
 
     await run(
         `INSERT INTO alert_center_events
-         (id, event_type, severity, status, title, message, actor, source, object_type, object_id, detail_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, event_type, severity, status, title, message, actor, source, object_type, object_id, detail_json, ai_summary, ai_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
             item.id,
             item.eventType,
@@ -166,28 +174,32 @@ async function addEvent({
             item.source,
             item.objectType,
             item.objectId,
-            JSON.stringify(item.detail || {})
+            JSON.stringify(item.detail || {}),
+            item.ai_summary,
+            item.ai_status
         ]
     );
     await trimEvents();
-    setTimeout(() => {
-        try {
-            require('./alert-ai-analyzer').enqueueAlertAnalysis({
-                id: item.id,
-                event_type: item.eventType,
-                severity: item.severity,
-                title: item.title,
-                message: item.message,
-                actor: item.actor,
-                source: item.source,
-                object_type: item.objectType,
-                object_id: item.objectId,
-                detail: item.detail
-            });
-        } catch (err) {
-            console.warn('[alert-ai] enqueue failed:', err.message || err);
-        }
-    }, 0);
+    if (item.ai_status !== 'not_applicable' && item.ai_status !== 'done' && !isCircuitBreakerEvent) {
+        setTimeout(() => {
+            try {
+                require('./alert-ai-analyzer').enqueueAlertAnalysis({
+                    id: item.id,
+                    event_type: item.eventType,
+                    severity: item.severity,
+                    title: item.title,
+                    message: item.message,
+                    actor: item.actor,
+                    source: item.source,
+                    object_type: item.objectType,
+                    object_id: item.objectId,
+                    detail: item.detail
+                });
+            } catch (err) {
+                console.warn('[alert-ai] enqueue failed:', err.message || err);
+            }
+        }, 0);
+    }
     return item;
 }
 

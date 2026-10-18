@@ -75,7 +75,7 @@ function chat(fetcher) {
     const elements = new Map();
     const story = id => { const seed = seeds.find(s => s.id === id); return { id, kind: seed.kind, ...seed.zh, sources: seed.sources, language: 'zh-CN' }; };
     const context = {
-        window: { PetI18n: { t: value => value, getLanguage: () => 'zh-CN' } },
+        window: { addEventListener() {}, PetI18n: { t: value => value, getLanguage: () => 'zh-CN' } },
         document: { getElementById(id) { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); }, createElement: element, querySelectorAll: () => [] },
         require: () => ({ ipcRenderer: {
             on(name, fn) { ipc[name] = fn; }, send(name, val) { (events[name] ||= []).push(val); },
@@ -180,6 +180,7 @@ test('manager restricts story IPC and delivers queued story once without togglin
                 screen: { getPrimaryDisplay: () => display, getDisplayMatching: () => display },
                 ipcMain: { handle: (name, fn) => handles[name] = fn, on: (name, fn) => listeners[name] = fn } };
             if (name.endsWith('desktop-language')) return { events: new EventEmitter(), getLanguage: () => 'zh-CN' };
+            if (name.endsWith('quota-panel-layout')) return require('../desktop-pet/quota-panel-layout');
             if (name.endsWith('quota-detector')) return { detectAllQuotas: async () => null };
             if (name.endsWith('pet-keyboard-hook')) return { startKeyboardHook() {}, stopKeyboardHook() {} };
             if (name.endsWith('auth-sessions-repository')) return { saveSession: async () => {} };

@@ -126,8 +126,46 @@ test('自定义 SDK 路径可识别 ESM 包入口并加载', async () => {
     assert.equal(info.available, true);
     assert.equal(info.version, '1.0.7');
     assert.equal(info.source, 'custom');
+    const nativeWebSocket = globalThis.WebSocket;
     const sdk = await sdkLoader.load({ sdkPath: pkgDir });
     assert.equal(typeof sdk.createBridgeRuntime, 'function');
+    if (typeof nativeWebSocket === 'function') assert.equal(globalThis.WebSocket, nativeWebSocket, '保留宿主的 WebSocket');
+});
+
+test('无全局 WebSocket 时，SDK 在模块求值前补齐实现并能实际连接', { timeout: 5000 }, async t => {
+    const { WebSocketServer } = require('ws');
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'WebSocket');
+    const server = new WebSocketServer({ host: '127.0.0.1', port: 0 });
+    let client;
+    t.after(async () => {
+        if (client) client.terminate();
+        for (const socket of server.clients) socket.terminate();
+        await new Promise(resolve => server.close(resolve));
+        if (original) Object.defineProperty(globalThis, 'WebSocket', original);
+        else delete globalThis.WebSocket;
+    });
+    await new Promise((resolve, reject) => { server.once('listening', resolve); server.once('error', reject); });
+    server.on('connection', socket => socket.on('message', data => socket.send(data.toString())));
+    const pkgDir = path.join(sandbox, 'sdk-websocket');
+    fs.mkdirSync(pkgDir, { recursive: true });
+    fs.writeFileSync(path.join(pkgDir, 'package.json'), JSON.stringify({ name: '@wecode/bridge-runtime-sdk', type: 'module', main: './index.js' }));
+    fs.writeFileSync(path.join(pkgDir, 'index.js'), `
+        const Socket = WebSocket;
+        export async function createBridgeRuntime(url) { return new Socket(url); }
+    `);
+    delete globalThis.WebSocket;
+    const sdk = await sdkLoader.load({ sdkPath: pkgDir });
+    assert.equal(typeof globalThis.WebSocket, 'function');
+    client = await sdk.createBridgeRuntime(`ws://127.0.0.1:${server.address().port}`);
+    const echoed = await new Promise((resolve, reject) => {
+        client.addEventListener('open', () => client.send('welink-handshake'));
+        client.addEventListener('message', event => resolve(event.data), { once: true });
+        client.addEventListener('error', event => reject(event.error || new Error(event.message)), { once: true });
+    });
+    assert.equal(echoed, 'welink-handshake', '兼容客户端支持 SDK 所需的浏览器事件 API');
+    delete globalThis.WebSocket;
+    await sdkLoader.load({ sdkPath: pkgDir });
+    assert.equal(typeof globalThis.WebSocket, 'function', '缓存 SDK 再次加载时也补齐宿主环境');
 });
 
 test('平台内置 SDK 优先于全局安装被识别', async () => {
@@ -318,6 +356,28 @@ test('连接失败时错误信息不泄露 SK；诊断与日志同样脱敏', as
     const diagnostics = await service.getDiagnostics('default');
     assert.ok(!JSON.stringify(diagnostics).includes('leaky-secret-value'));
     assert.equal(diagnostics.status.connected, false);
+});
+
+test('SDK start 不抛异常但网关失败或未就绪时，连通性测试不能误报成功', async () => {
+    for (const state of ['failed', 'reconnecting']) {
+        const sdk = createFakeSdk();
+        const createRuntime = sdk.createBridgeRuntime.bind(sdk);
+        sdk.createBridgeRuntime = async options => {
+            const runtime = await createRuntime(options);
+            runtime.getStatus = () => ({ state, failureReason: state === 'failed' ? 'WebSocket is not defined' : null });
+            return runtime;
+        };
+        sdkLoader.setOverride(sdk);
+        service.resetForTests();
+        await runWithTenant('default', () => configRepo.saveConfig({ enabled: false, channel: 'GDEClaw', ak: 'ak-123', sk: 'test-sk-value' }));
+        const result = await service.testConnection('default');
+        assert.equal(result.ok, false);
+        const handshake = result.steps.find(step => step.key === 'gateway');
+        assert.equal(handshake.ok, false);
+        assert.match(handshake.detail, state === 'failed' ? /WebSocket is not defined/ : /reconnecting/);
+        assert.equal(result.steps.some(step => step.key === 'provider'), false, '握手未通过时不再报告 Provider 健康');
+        assert.equal((await service.getStatus('default')).runtime.state, 'idle', '测试失败也清理临时连接');
+    }
 });
 
 test('连通性测试：未启用时临时连接并恢复断开', async () => {

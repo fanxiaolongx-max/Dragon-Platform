@@ -150,7 +150,7 @@ test('AI requests use the selected language and preserve previous messages', asy
     const element = () => ({ style: {}, value: '', appendChild() {}, addEventListener() {} });
     const elements = new Map();
     const context = {
-        window: { PetI18n: { t: value => value, getLanguage: () => selected } },
+        window: { addEventListener() {}, PetI18n: { t: value => value, getLanguage: () => selected } },
         document: { getElementById(id) {
             if (!elements.has(id)) elements.set(id, element());
             return elements.get(id);

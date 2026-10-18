@@ -1,0 +1,7 @@
+# 视频制作过程产物：可由源工程重新生成，不进仓库
+**/.hyperframes/
+**/renders/
+**/assets/music/
+**/assets/voice/*.mp3
+**/node_modules/
+*.wav

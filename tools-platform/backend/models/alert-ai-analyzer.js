@@ -2,6 +2,7 @@ const { all, run } = require('./app-db');
 const aiSettingsRepo = require('./ai-settings-repository');
 const alertCenterRepo = require('./alert-center-repository');
 const aiProviderClient = require('./ai-provider-client');
+const { alertAiCircuit } = require('./ai-circuit-breaker');
 
 const MAX_PER_MINUTE = 3;
 const MAX_PER_HOUR = 30;
@@ -252,6 +253,13 @@ async function analyzeOne(event) {
         await updateAlertAi(event.id, fallbackSummary, 'fallback_no_ai');
         return 'done';
     }
+
+    // 熔断保护：若外网 AI 连续失败，直接使用高质量参考摘要，不卡顿、不耗时
+    if (alertAiCircuit.isOpen()) {
+        await updateAlertAi(event.id, fallbackSummary, 'fallback_circuit');
+        return 'done';
+    }
+
     const now = Date.now();
     if (!canUseAi(now)) {
         return 'rate_limited';
@@ -284,8 +292,10 @@ ${compactJson(event.detail)}
     const result = await client.generateText({
         prompt,
         maxOutputTokens: 96,
-        temperature: 0.25
+        temperature: 0.25,
+        signal: alertAiCircuit.createTimeoutSignal(3500)
     });
+    alertAiCircuit.recordSuccess();
     const summary = cleanAiText(result.text);
     const finalSummary = isWeakAiSummary(summary, fallbackSummary) ? fallbackSummary : summary;
     await updateAlertAi(event.id, finalSummary, finalSummary === fallbackSummary ? 'fallback_done' : 'done');
@@ -306,8 +316,10 @@ async function processQueue() {
                     return;
                 }
             } catch (err) {
-                console.warn('[alert-ai] analyze failed:', err.message || err);
-                await updateAlertAi(event.id, '', 'failed').catch(() => {});
+                alertAiCircuit.recordFailure(err);
+                console.warn('[alert-ai] analyze failed, using fallback summary:', err.message || err);
+                const fallback = cleanAiText(buildFallbackSummary(event));
+                await updateAlertAi(event.id, fallback, 'fallback_failed').catch(() => {});
             }
             await new Promise(resolve => setTimeout(resolve, 1200));
         }

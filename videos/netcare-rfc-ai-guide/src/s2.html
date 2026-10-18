@@ -1,0 +1,65 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .wob{filter:url(#WOBID)}
+#root .tab{position:absolute;left:140px;width:280px;height:72px;border:4px solid var(--ink);border-radius:20px;background:#fff;font-size:36px;white-space:nowrap;display:flex;align-items:center;padding:0 22px}
+#root .card{position:absolute;left:450px;width:690px;height:84px;border:4px solid var(--ink);border-radius:20px;background:#fff;font-size:42px;display:flex;align-items:center;padding:0 26px;gap:14px}
+#root .cursor{position:absolute;left:0;top:0;width:74px;height:74px;z-index:20}
+</style>
+<div id="root" data-composition-id="s2" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="5" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#cdb4db"></div>
+  <div class="head wob" id="s2-h"><span class="step">第 1 步</span><span class="ttl">打包</span></div>
+  <div class="win wob" id="s2-win" style="left:110px;top:230px;width:1060px;height:650px"><div class="wbar"><i></i><i></i><i></i><span>F12 扩展打包</span></div></div>
+  <div class="tab" id="s2-t1" style="top:330px">我的脚本</div>
+  <div class="tab" id="s2-t2" style="top:424px;background:#fff">系统内置脚本</div>
+  <div class="tab" id="s2-t3" style="top:518px">模板库</div>
+  <div class="card" id="s2-c1" style="top:330px">视频地址扫描器</div>
+  <div class="card" id="s2-c2" style="top:430px;background:#fff"><span id="s2-ic"></span>NetCare RFC 方案与 AI 审计</div>
+  <div class="card" id="s2-c3" style="top:530px">Chrome Capture Pro</div>
+  <div class="btn" id="s2-btn" style="left:450px;top:702px;background:#ffd166">生成扩展 ZIP</div>
+  <div class="cursor wob" id="s2-cur"></div>
+  <div class="abs wob" id="s2-zip" style="left:1260px;top:330px"></div>
+  <div class="tag abs" id="s2-zl" style="left:1250px;top:610px;background:#ffd166;font-size:40px">NetCare-扩展.zip</div>
+  <div class="abs wob" id="s2-fig" style="left:1560px;top:470px"></div>
+  <div class="bubble" id="s2-bub" style="left:1530px;top:330px;font-size:52px">拿到啦！</div>
+  <div id="s2-sp"></div>
+  <div class="cap" id="s2-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s2-ic",icon("star","#ffd166",54));put("s2-cur",icon("cursor","#ffffff",74));
+ put("s2-zip",icon("zip","#ffd166",260));
+ put("s2-fig",figure("f2",{body:"#7bdcb5",hat:"#ef476f",w:300,h:410}));
+ document.getElementById("s2-sp").innerHTML=sparkle(1260,270,48)+sparkle(1520,330,40,"#ff8fab")+sparkle(1480,820,52,"#8ecae6");
+ var tl=gsap.timeline({paused:true});
+ tl.fromTo("#s2-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s2-win",{opacity:0,y:60},{opacity:1,y:0,duration:.7,ease:"power3.out"},.6);
+ tl.fromTo("#s2-t1,#s2-t2,#s2-t3,#s2-c1,#s2-c2,#s2-c3,#s2-btn",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.09,ease:"power2.out"},1.1);
+ tl.fromTo("#s2-fig",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.9);
+ tl.set("#s2-cur",{x:900,y:820});tl.fromTo("#s2-cur",{opacity:0},{opacity:1,duration:.3},T("打开")-.3);
+ // F12 扩展打包 -> 系统内置脚本
+ var tt=T("系统内置");
+ cur(tl,"#s2-cur",300,452,tt-.7,.7);click(tl,"#s2-cur",tt+.05);
+ tl.to("#s2-t2",{backgroundColor:"#ffd166",duration:.2},tt+.05);
+ var tc=T("选中");
+ cur(tl,"#s2-cur",800,468,tc-.55,.6);click(tl,"#s2-cur",tc+.05);
+ tl.to("#s2-c2",{backgroundColor:"#7bdcb5",duration:.2,scale:1.03,transformOrigin:"50% 50%"},tc+.05);
+ var tg=T("点击生成");
+ cur(tl,"#s2-cur",650,738,tg-.5,.55);click(tl,"#s2-cur",tg+.35);click(tl,"#s2-btn",tg+.35);
+ tl.to("#s2-btn",{backgroundColor:"#06d6a0",duration:.2},tg+.4);
+ pop(tl,"#s2-zip",T("拿到"),{s:.2,y:60,d:.6});pop(tl,"#s2-zl",T("拿到")+.3,{s:.5});pop(tl,"#s2-bub",T("拿到")+.2,{s:.4});
+ tl.fromTo("#s2-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.2,ease:"back.out(2)",transformOrigin:"50% 50%"},T("拿到")+.1);
+ var tz=T("拿到")+.3;
+ tl.to("#f2-armR",{rotation:-160,svgOrigin:"102 104",duration:.35,ease:"back.out(2)"},tz);
+ tl.to("#f2-armL",{rotation:160,svgOrigin:"58 104",duration:.35,ease:"back.out(2)"},tz);
+ bounce(tl,"s2-fig",tz+.2,4,18);
+ tl.to("#s2-zip",{y:-14,duration:.5,repeat:3,yoyo:true,ease:"sine.inOut"},tz+.7);
+ captions(tl,"s2-cap");
+ window.__timelines["s2"]=tl;
+})();
+</script>
+</template></body></html>

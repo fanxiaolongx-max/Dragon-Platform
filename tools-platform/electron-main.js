@@ -8,6 +8,9 @@ if (!hasSingleInstanceLock) {
     process.exit(0);
 }
 
+// 首页推广视频需要带声音自动播放；桌面端不要求先有用户手势（浏览器端会自动降级为静音播放）
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');

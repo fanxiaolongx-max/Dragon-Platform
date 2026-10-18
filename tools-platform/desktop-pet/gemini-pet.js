@@ -86,6 +86,8 @@
     '.gpet-period{font-size:calc(var(--gpet-u) * 76);font-weight:800;line-height:1.05}',
     '.gpet-wrap{white-space:normal;max-width:calc(var(--gpet-u) * 450);line-height:1.32;font-size:calc(var(--gpet-u) * 42);margin:0 auto;word-break:break-word;text-shadow:0 1px 4px rgba(0,0,0,0.85),0 0 10px rgba(131,216,206,0.35)}',
     '.gpet-hint{font-size:calc(var(--gpet-u) * 38);color:#cbd5e1;letter-spacing:.02em;margin-top:calc(var(--gpet-u) * 10);min-height:calc(var(--gpet-u) * 46);line-height:1.2;font-weight:500;text-shadow:0 0 8px rgba(203,213,225,0.3)}',
+    '.gpet-quota-label{white-space:pre-line;overflow-wrap:anywhere;font-size:calc(var(--gpet-u) * 36);line-height:1.2}',
+    '.gpet-quota-hint{white-space:pre-line;font-size:calc(var(--gpet-u) * 28);line-height:1.25}',
     '.gpet-menu{position:fixed;min-width:210px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;background:rgba(255,255,255,0.96);backdrop-filter:blur(16px);border:1px solid rgba(20,125,122,0.25);border-radius:12px;padding:10px 12px;opacity:0;transform:scale(.92) translateY(-6px);transition:opacity .18s ease,transform .2s cubic-bezier(.34,1.56,.64,1);pointer-events:none;z-index:100000;box-shadow:0 12px 32px rgba(15,23,42,0.22);color-scheme:light;box-sizing:border-box}',
     '.gpet-menu.gpet-menu-open{opacity:1;transform:scale(1) translateY(0);pointer-events:auto}',
     '.gpet-menu-title{font-size:13px;font-weight:700;color:#105d61;margin-bottom:8px;display:flex;align-items:center;gap:6px}',
@@ -317,6 +319,24 @@
     quotaViewSelect.appendChild(soundOpt('alternate', petT('双额度交替轮播')));
     quotaViewSelect.addEventListener('change', function () { setQuotaView(quotaViewSelect.value); });
 
+    var quotaSourceSelect = document.createElement('select');
+    quotaSourceSelect.className = 'gpet-sound';
+    [['auto','自动选择额度来源'],['codex:codex','Codex'],['claudecode:claudecode','Claude Code Desktop'],
+      ['antigravity:gemini','Antigravity · Gemini'],['antigravity:third-party','Antigravity · Claude / GPT']].forEach(function (item) {
+        quotaSourceSelect.appendChild(soundOpt(item[0],petT(item[1])));
+    });
+    quotaSourceSelect.addEventListener('change', function () { setQuotaSource(quotaSourceSelect.value); });
+
+    var quotaPanelOn = true;
+    var quotaPanelGroup = 'gemini';
+    var quotaPanelToggle = document.createElement('input');
+    quotaPanelToggle.type = 'checkbox'; quotaPanelToggle.checked = true;
+    quotaPanelToggle.addEventListener('change', function () { setQuotaPanelOn(quotaPanelToggle.checked, true); });
+    var quotaPanelGroupSelect = document.createElement('select'); quotaPanelGroupSelect.className = 'gpet-sound';
+    quotaPanelGroupSelect.appendChild(soundOpt('gemini', 'Gemini'));
+    quotaPanelGroupSelect.appendChild(soundOpt('third-party', 'Claude / GPT'));
+    quotaPanelGroupSelect.addEventListener('change', function () { setQuotaPanelGroup(quotaPanelGroupSelect.value, true); });
+
     var workStateSelect = document.createElement('select');
     workStateSelect.className = 'gpet-sound';
     workStateSelect.appendChild(soundOpt('auto', petT('自动跟随 (托腮思考/静静守候)')));
@@ -373,6 +393,9 @@
     var row2 = menuRow(); row2.appendChild(menuLabel(petT('音效'))); row2.appendChild(soundSelect);
     var row3 = menuRow(); row3.appendChild(menuLabel(petT('音量'))); row3.appendChild(volInput); row3.appendChild(volPct);
     var row4 = menuRow(); row4.appendChild(menuLabel(petT('配额'))); row4.appendChild(quotaViewSelect);
+    var sourceRow = menuRow(); sourceRow.appendChild(menuLabel(petT('额度来源'))); sourceRow.appendChild(quotaSourceSelect);
+    var panelRow = menuRow(); panelRow.appendChild(menuLabel(petT('常驻额度面板'))); panelRow.appendChild(quotaPanelToggle);
+    var panelGroupRow = menuRow(); panelGroupRow.appendChild(menuLabel(petT('反重力额度组'))); panelGroupRow.appendChild(quotaPanelGroupSelect);
     var rowWork = menuRow(); rowWork.appendChild(menuLabel(petT('状态'))); rowWork.appendChild(workStateSelect);
     var rowSync = menuRow(); rowSync.appendChild(menuLabel(petT('跟随反重力'))); rowSync.appendChild(antigravitySyncSelect);
     var row5 = menuRow(); row5.appendChild(menuLabel(petT('气泡'))); row5.appendChild(bubbleToggle);
@@ -405,6 +428,9 @@
     menuBox.appendChild(row2);
     menuBox.appendChild(row3);
     menuBox.appendChild(row4);
+    menuBox.appendChild(sourceRow);
+    menuBox.appendChild(panelRow);
+    menuBox.appendChild(panelGroupRow);
     menuBox.appendChild(rowWork);
     menuBox.appendChild(rowSync);
     menuBox.appendChild(row5);
@@ -443,6 +469,8 @@
       claude5h: 1,
       claudeWeekly: 1,
       quotaView: '5h',
+      quotaSource: 'auto',
+      quotas: null,
       alternateFlip: false,
       status: 'ok',
       message: ''
@@ -485,11 +513,11 @@
 
     function fmtPct(val) {
       if (val === null || val === undefined || !isFinite(val)) return '--%';
-      return Math.round(val * 100) + '%';
+      return (Math.round(val * 10) / 10) + '%';
     }
 
     function getQuotaColor(val) {
-      var pct = val * 100;
+      var pct = val;
       if (pct <= 20) return '#fb7185';
       if (pct <= 50) return '#fbbf24';
       return '#83d8ce';
@@ -586,19 +614,8 @@
     }
 
     function getCurrentQuotaDisplay() {
-      if (!isAntigravityConnected && state.gemini5h === null) {
-        return {
-          label: petT('✦ 纯净桌宠模式'),
-          val: null,
-          hint: petT('反重力未开启 · 待机陪伴中 ✦')
-        };
-      }
       var isWeekly = state.quotaView === 'weekly' || (state.quotaView === 'alternate' && state.alternateFlip);
-      var label = isWeekly ? petT('✦ Gemini 周配额') : petT('✦ Gemini 5小时配额');
-      var val = isWeekly ? state.geminiWeekly : state.gemini5h;
-      var reset = isWeekly ? state.geminiWeeklyReset : state.gemini5hReset;
-      var hint = reset || (isAntigravityConnected ? petT('反重力全速运转中 ✦') : petT('离线缓存额度 · 待机中 ✦'));
-      return { label: label, val: val, hint: hint };
+      return window.PetQuotaView.current(state.quotas, state.quotaSource, isWeekly, window.PetI18n && window.PetI18n.getLanguage() === 'en-US');
     }
 
     function restoreBubbleLines(isSwapping) {
@@ -865,6 +882,7 @@
     function animateAmount(from, to, duration) {
       if (costBubbleActive || bubbleRandomActive) return;
       if (animId) cancelAnimationFrame(animId);
+      if (to === null || to === undefined || !isFinite(to)) { shown = null; render(); return; }
       if (from === null || !isFinite(from)) from = to;
       if (from === to) {
         shown = to;
@@ -896,10 +914,11 @@
     function render() {
       if (costBubbleActive || bubbleRandomActive) return;
       var info = getCurrentQuotaDisplay();
+      labelEl.classList.add('gpet-quota-label'); hintEl.classList.add('gpet-quota-hint');
       labelEl.textContent = info.label;
       var targetVal = info.val;
       if (targetVal === null || targetVal === undefined) {
-        amountEl.textContent = petT('待机中');
+        amountEl.textContent = info.empty || petT('待机中');
         amountEl.style.color = '#10b981';
       } else {
         if (shown === null) shown = targetVal;
@@ -913,6 +932,7 @@
       if (!data) return;
       var infoBefore = getCurrentQuotaDisplay();
       var prevVal = infoBefore.val;
+      state.quotas = data;
       if (typeof data.gemini5h === 'number') state.gemini5h = data.gemini5h;
       if (data.gemini5hReset) state.gemini5hReset = data.gemini5hReset;
       if (typeof data.geminiWeekly === 'number') state.geminiWeekly = data.geminiWeekly;
@@ -1169,7 +1189,26 @@
       saveConfig();
     }
 
+    function setQuotaPanelOn(value, persist) {
+      quotaPanelOn = value !== false; quotaPanelToggle.checked = quotaPanelOn;
+      if (persist && ipcRenderer) ipcRenderer.send('pet-quota-panel-options', {quotaPanelOn:quotaPanelOn});
+      saveConfig();
+    }
+    function setQuotaPanelGroup(value, persist) {
+      quotaPanelGroup = value === 'third-party' ? 'third-party' : 'gemini'; quotaPanelGroupSelect.value = quotaPanelGroup;
+      if (persist && ipcRenderer) ipcRenderer.send('pet-quota-panel-options', {quotaPanelGroup:quotaPanelGroup});
+      saveConfig();
+    }
+
+    function setQuotaSource(value) {
+      if (!['auto','codex:codex','claudecode:claudecode','antigravity:gemini','antigravity:third-party'].includes(value)) return;
+      if (animId) { cancelAnimationFrame(animId); animId = null; }
+      state.quotaSource = value; quotaSourceSelect.value = value;
+      shown = null; render(); saveConfig();
+    }
+
     function setQuotaView(v) {
+      if (animId) { cancelAnimationFrame(animId); animId = null; }
       state.quotaView = v;
       quotaViewSelect.value = v;
       shown = null;
@@ -1231,6 +1270,9 @@
           soundVol: soundVol,
           soundSet: soundSet,
           quotaView: state.quotaView,
+          quotaSource: state.quotaSource,
+          quotaPanelOn: quotaPanelOn,
+          quotaPanelGroup: quotaPanelGroup,
           bubbleOn: bubbleOn,
           typingOn: typingOn,
           gravityOn: gravityOn,
@@ -1271,6 +1313,9 @@
           if (c.soundVol !== undefined) setVol(c.soundVol);
           if (c.soundSet) setSoundSet(c.soundSet);
           if (c.quotaView) setQuotaView(c.quotaView);
+          if (c.quotaSource) setQuotaSource(c.quotaSource);
+          if (c.quotaPanelOn !== undefined) setQuotaPanelOn(c.quotaPanelOn, false);
+          if (c.quotaPanelGroup) setQuotaPanelGroup(c.quotaPanelGroup, false);
           if (c.bubbleOn !== undefined) setBubbleOn(c.bubbleOn);
           if (c.typingOn !== undefined) setTypingOn(c.typingOn);
           if (c.gravityOn !== undefined) setGravityOn(c.gravityOn);
@@ -2252,6 +2297,14 @@
           }
         } catch (_) {}
       });
+      var sendQuotaAnchor = function () {
+        var r = img.getBoundingClientRect();
+        ipcRenderer.send('pet-quota-anchor', {x:r.left,y:r.top,width:r.width,height:r.height});
+      };
+      ipcRenderer.on('pet-environment', sendQuotaAnchor);
+      img.addEventListener('load', sendQuotaAnchor);
+      window.addEventListener('resize', sendQuotaAnchor);
+
       ipcRenderer.on('pet-quota-update', function (e, data) {
         updateQuotaState(data);
       });
@@ -2286,6 +2339,9 @@
         if (c.soundVol !== undefined) setVol(c.soundVol, true);
         if (c.soundSet) setSoundSet(c.soundSet);
         if (c.quotaView) setQuotaView(c.quotaView);
+        if (c.quotaSource) setQuotaSource(c.quotaSource);
+        if (c.quotaPanelOn !== undefined) setQuotaPanelOn(c.quotaPanelOn, false);
+        if (c.quotaPanelGroup) setQuotaPanelGroup(c.quotaPanelGroup, false);
         if (c.bubbleOn !== undefined) setBubbleOn(c.bubbleOn);
         if (c.typingOn !== undefined) setTypingOn(c.typingOn);
         if (c.turnCostOn !== undefined) setTurnCostOn(c.turnCostOn);
@@ -2366,13 +2422,17 @@
       hideBubble: hideBubble,
       toggleMenu: toggleMenu,
       updateQuota: updateQuotaState,
+      setQuotaSource: setQuotaSource,
+      setQuotaPanelOn: function (value) { setQuotaPanelOn(value, true); },
+      setQuotaPanelGroup: function (value) { setQuotaPanelGroup(value, true); },
+      setQuotaView: setQuotaView,
       setAgentWorking: setAgentWorking,
       setWorkStateMode: setWorkStateMode,
       setAntigravitySyncMode: setAntigravitySyncMode,
       setScale: setScale,
       refreshQuota: function (manual) {
         if (ipcRenderer) {
-          ipcRenderer.send('pet-request-quota');
+          ipcRenderer.send('pet-request-quota', {force:!!manual});
           ipcRenderer.send('pet-request-agent-work-state');
         }
         if (manual) {
@@ -2381,7 +2441,7 @@
       }
     };
     updateMousePassThrough(false);
-    console.log('✦ 托特 (尺寸调节 & 纯净Gemini配额版) 已就绪！');
+    console.log('✦ 托特桌宠与账户额度已就绪！');
   } // end of initWidget
 
   initWidget();

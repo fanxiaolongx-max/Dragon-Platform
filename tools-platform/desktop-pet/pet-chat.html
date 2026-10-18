@@ -168,6 +168,11 @@
       font-weight: 500;
     }
 
+    .quota-account { flex-direction:column; align-items:flex-start; padding:7px 10px; gap:3px; flex-shrink:0; }
+    .quota-chip.quota-account { color:var(--pet-ink, #123743); }
+    .quota-account-title { font-weight:700; }
+    .quota-account-time { font-size:10px; opacity:.7; }
+
     /* 消息展示区域 */
     .chat-body {
       flex: 1;
@@ -521,8 +526,9 @@
       50% { opacity: 1; }
     }
   </style>
-  <script src="pet-i18n.js?v=20261007-03"></script>
-  <link rel="stylesheet" href="thoth-theme.css?v=20261007-03">
+  <script src="quota-view.js"></script>
+  <script src="pet-i18n.js"></script>
+  <link rel="stylesheet" href="thoth-theme.css">
 </head>
 <body>
   <div class="chat-container">
@@ -898,40 +904,11 @@
     }
 
     // 更新多模型额度展示
+    let lastQuotaData = null;
+    window.addEventListener('pet:languagechange', () => { if(lastQuotaData) updateQuotaDisplay(lastQuotaData); });
     function updateQuotaDisplay(quotas) {
-      if (!quotas) return;
-      let html = '';
-
-      if (quotas.antigravity && quotas.antigravity.active) {
-        const ag = quotas.antigravity;
-        html += `<div class="quota-chip">
-          <span>✨ Gemini 5h:</span>
-          <span>${ag.gemini5h}%</span>
-          <span style="font-size:9.5px;opacity:.7;">(${ag.gemini5hReset || petT("已同步")})</span>
-        </div>`;
-        if (ag.geminiWeekly !== undefined) {
-          html += `<div class="quota-chip">
-            <span>📅 周额度:</span>
-            <span>${ag.geminiWeekly}%</span>
-          </div>`;
-        }
-      }
-
-      if (quotas.codex && quotas.codex.active) {
-        html += `<div class="quota-chip codex">
-          <span>⚡ Codex:</span>
-          <span>正常在线</span>
-        </div>`;
-      }
-
-      if (!html) {
-        html = `<div class="quota-chip idle">
-          <span>💤</span>
-          <span>独立伴侣模式 · 平台工具就绪</span>
-        </div>`;
-      }
-
-      quotaBar.innerHTML = html;
+      lastQuotaData = quotas;
+      window.PetQuotaView.render(quotaBar,quotas,window.PetI18n.getLanguage() === 'en-US');
     }
 
     async function handleSendMessage(presetText, storyOpening = false) {

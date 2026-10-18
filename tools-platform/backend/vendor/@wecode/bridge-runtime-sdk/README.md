@@ -18,7 +18,7 @@ backend/vendor/@wecode/bridge-runtime-sdk/
 
 ## 说明
 
-- SDK 是纯 JS 的 ESM 包，只需 Node.js ≥ 18（桌面版 Electron 28 自带 Node 18 即满足）。
+- SDK 是纯 JS 的 ESM 包，支持 Node.js ≥ 18；桌面版 Electron 28 / Node 18 缺少全局 WebSocket，平台会在加载 SDK 前通过运行依赖 `ws` 补齐。已有原生 WebSocket 时保留原实现。
 - 桌面版打包时本目录通过 `asarUnpack` 解包到 `app.asar.unpacked`，运行时从真实文件加载。
 - 升级 SDK：直接替换本目录文件，然后在频道对接页面点击「重新检测 SDK」。
 - 加载顺序：配置的 SDK 路径 → 本目录 → 项目依赖 → npm 全局目录。

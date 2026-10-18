@@ -1525,8 +1525,8 @@ html.is-page-scrolling::-webkit-scrollbar-thumb {
 }
 
 .nav-settings-window {
-    width: min(1120px, 96vw);
-    height: min(680px, 86vh);
+    width: min(1440px, calc(100vw - 48px));
+    height: min(900px, calc(100vh - 48px));
     display: grid;
     grid-template-columns: 220px 1fr;
     overflow: hidden;

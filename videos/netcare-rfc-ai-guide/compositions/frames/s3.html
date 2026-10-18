@@ -1,0 +1,155 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template><link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Long+Cang&display=swap" rel="stylesheet">
+<style>#root{position:absolute;inset:0;overflow:hidden;color:#2d2a32;font-family:"Long Cang",cursive;--ink:#2d2a32;--paper:#fff7e6;--pink:#ff8fab;--yellow:#ffd166;--mint:#7bdcb5;--sky:#8ecae6;--lav:#cdb4db;--red:#ef476f;--green:#06d6a0;--orange:#ff9f68}
+#root *{box-sizing:border-box}
+.paper{position:absolute;inset:0;background:radial-gradient(circle at 1px 1px,rgba(45,42,50,.11) 2px,transparent 2.4px) 0 0/44px 44px,#fff7e6}
+.blob{position:absolute;border-radius:50%;opacity:.55}
+.head{position:absolute;left:100px;top:64px;display:flex;align-items:center;gap:26px}
+.step{font-family:"ZCOOL KuaiLe",sans-serif;font-size:46px;background:var(--yellow);border:5px solid var(--ink);border-radius:60px 40px 56px 36px;padding:6px 30px 8px;box-shadow:6px 6px 0 var(--ink);transform:rotate(-3deg);white-space:nowrap}
+.ttl{font-family:"ZCOOL KuaiLe",sans-serif;font-size:92px;letter-spacing:.04em;line-height:1;white-space:nowrap}
+.win{position:absolute;background:#fff;border:6px solid var(--ink);border-radius:26px;box-shadow:12px 12px 0 var(--ink);overflow:hidden}
+.wbar{height:62px;display:flex;align-items:center;gap:12px;padding:0 22px;border-bottom:6px solid var(--ink);background:var(--sky);font-family:"Long Cang",cursive;font-size:32px}
+.wbar i{width:20px;height:20px;border-radius:50%;border:4px solid var(--ink);display:block}
+.wbar i:nth-child(1){background:var(--pink)}.wbar i:nth-child(2){background:var(--yellow)}.wbar i:nth-child(3){background:var(--mint)}
+.wbar span{margin-left:10px;white-space:nowrap}
+.btn{position:absolute;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-family:"ZCOOL KuaiLe",sans-serif;font-size:38px;border:5px solid var(--ink);border-radius:50px;padding:10px 34px 12px;box-shadow:6px 6px 0 var(--ink);background:var(--pink);white-space:nowrap}
+.tag{display:inline-block;font-family:"Long Cang",cursive;font-size:36px;border:4px solid var(--ink);border-radius:30px;padding:2px 22px 4px;background:var(--mint);white-space:nowrap}
+.sticky{position:absolute;font-family:"Long Cang",cursive;font-size:42px;line-height:1.25;background:var(--yellow);border:5px solid var(--ink);border-radius:8px 30px 10px 24px;padding:16px 26px 20px;box-shadow:7px 7px 0 var(--ink)}
+.bubble{position:absolute;font-family:"Long Cang",cursive;font-size:46px;line-height:1.2;background:#fff;border:5px solid var(--ink);border-radius:36px;padding:16px 30px 20px;box-shadow:6px 6px 0 var(--ink);white-space:nowrap}
+.bubble:after{content:"";position:absolute;left:46px;bottom:-26px;width:34px;height:34px;background:#fff;border-right:5px solid var(--ink);border-bottom:5px solid var(--ink);transform:rotate(45deg) skew(10deg,10deg)}
+.fig{position:absolute}
+.ln{fill:none;stroke:#2d2a32;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+.ol{stroke:#2d2a32;stroke-width:5;stroke-linejoin:round}
+.cap{position:absolute;left:0;right:0;bottom:48px;height:92px}
+.cap .c{position:absolute;left:50%;top:0;transform:translateX(-50%);white-space:nowrap;font-family:"Long Cang",cursive;font-size:56px;line-height:1;background:#fff;border:5px solid var(--ink);border-radius:50px;padding:12px 40px 16px;box-shadow:6px 6px 0 var(--ink);opacity:0}
+.mono{font-family:"JetBrains Mono",monospace}
+.dash{border:4px dashed var(--ink);border-radius:18px}
+.row{display:flex;align-items:center}
+.abs{position:absolute}
+
+#root .wob{filter:url(#wob3)}
+#root .row2{position:absolute;left:520px;width:880px;height:84px;border:4px solid var(--ink);border-radius:20px;background:#fff;font-size:42px;display:flex;align-items:center;padding:0 26px;gap:18px;white-space:nowrap}
+#root .sw{position:absolute;right:26px;top:16px;width:84px;height:44px;border:4px solid var(--ink);border-radius:30px;background:#cfcfd6}
+#root .sw i{position:absolute;left:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#fff;border:4px solid var(--ink);display:block}
+#root .cursor{position:absolute;left:0;top:0;width:74px;height:74px;z-index:20}
+</style>
+<div id="root" data-composition-id="s3" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="wob3" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="8" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-160px;top:640px;width:520px;height:520px;background:#7bdcb5"></div>
+  <div class="head wob" id="s3-h"><span class="step">第 2 步</span><span class="ttl">安装</span></div>
+  <div class="abs wob" id="s3-zip" style="left:130px;top:300px"></div>
+  <div class="abs wob" id="s3-fol" style="left:130px;top:300px;z-index:15"></div>
+  <div class="tag abs" id="s3-fl" style="left:110px;top:540px;background:#ffd166;font-size:40px">解压 → 文件夹</div>
+  <div class="tag abs mono" id="s3-mf" style="left:130px;top:610px;background:#fff;font-size:28px">manifest.json</div>
+  <div class="win wob" id="s3-win" style="left:460px;top:230px;width:1000px;height:650px"><div class="wbar"><i></i><i></i><i></i><span>扩展程序 · chrome://extensions</span></div></div>
+  <div class="row2" id="s3-r1" style="top:326px">开发者模式<span class="sw" id="s3-sw"><i></i></span></div>
+  <div class="btn" id="s3-b1" style="left:520px;top:436px;font-size:36px;background:#fff">加载已解压的扩展程序</div>
+  <div class="btn" id="s3-b2" style="left:1000px;top:436px;font-size:36px;background:#fff">打包扩展</div>
+  <div class="row2" id="s3-ext" style="top:580px;background:#7bdcb5"><span id="s3-ei"></span>NetCare RFC 方案与 AI 审计<span style="margin-left:auto;font-size:36px">已启用 ✓</span></div>
+  <div class="abs row" id="s3-brw" style="left:540px;top:720px;gap:24px"><span class="tag" id="s3-chrome" style="background:#8ecae6;font-size:44px">Chrome</span><span class="tag" id="s3-edge" style="background:#cdb4db;font-size:44px">Edge</span><span class="tag" style="background:#fff;font-size:44px">都支持</span></div>
+  <div class="cursor wob" id="s3-cur"></div>
+  <div class="abs wob" id="s3-fig" style="left:1580px;top:470px"></div>
+  <div class="bubble" id="s3-bub" style="left:1520px;top:330px;font-size:50px">装好啦！</div>
+  <div id="s3-sp"></div>
+  <div class="cap" id="s3-cap"></div>
+</div>
+<script>
+function T(s){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
+ s=String(s).replace(/\s+/g,"");var p=C.replace(/\s+/g,"").indexOf(s);if(p<0)return 0;
+ var q=0,j=0;for(i=0;i<C.length;i++){if(/\s/.test(C[i]))continue;if(q===p){j=i;break;}q++;}
+ return Math.round((W[M[j]].s+LEAD)*100)/100;}
+function figure(id,o){o=o||{};var body=o.body||"#ff8fab",hat=o.hat||"#ffd166";
+ return '<svg id="'+id+'" class="fig" viewBox="0 0 160 220" width="'+(o.w||240)+'" height="'+(o.h||330)+'" style="overflow:visible">'+
+ '<g id="'+id+'-legL"><path class="ln" d="M70 152 L64 196"/><ellipse cx="58" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
+ '<g id="'+id+'-legR"><path class="ln" d="M92 152 L98 196"/><ellipse cx="104" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
+ '<path class="ol" d="M54 92 Q80 82 106 92 L112 154 Q80 166 48 154 Z" fill="'+body+'"/>'+
+ '<g id="'+id+'-armL"><path class="ln" d="M58 104 Q40 124 38 146"/><circle class="ol" cx="37" cy="151" r="10" fill="#ffe3d0"/></g>'+
+ '<g id="'+id+'-armR"><path class="ln" d="M102 104 Q120 124 122 146"/><circle class="ol" cx="123" cy="151" r="10" fill="#ffe3d0"/></g>'+
+ '<g id="'+id+'-head"><circle class="ol" cx="80" cy="52" r="38" fill="#ffe9d6"/>'+
+ '<path class="ol" d="M44 44 Q80 -8 116 44 Q80 26 44 44 Z" fill="'+hat+'"/><circle class="ol" cx="80" cy="6" r="9" fill="'+hat+'"/>'+
+ '<circle cx="66" cy="58" r="5" fill="#2d2a32"/><circle cx="94" cy="58" r="5" fill="#2d2a32"/>'+
+ '<ellipse cx="55" cy="72" rx="9" ry="6" fill="#ff8fab" opacity=".7"/><ellipse cx="105" cy="72" rx="9" ry="6" fill="#ff8fab" opacity=".7"/>'+
+ '<path class="ln" style="stroke-width:5" d="M70 74 Q80 84 90 74"/></g></svg>';}
+function put(id,html){document.getElementById(id).innerHTML=html;}
+function wave(tl,id,t,n){var a=id+"-armR";tl.to("#"+a,{rotation:-150,svgOrigin:"102 104",duration:.35,ease:"power2.out"},t);
+ tl.to("#"+a,{rotation:-120,svgOrigin:"102 104",duration:.22,repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t+.35);
+ tl.to("#"+a,{rotation:0,svgOrigin:"102 104",duration:.4,ease:"power2.inOut"},t+.35+n*.44);}
+function bounce(tl,id,t,n,h){tl.to("#"+id,{y:-(h||14),duration:.28,repeat:n*2-1,yoyo:true,ease:"power1.inOut"},t);}
+function walk(tl,id,t,dur,n){tl.to("#"+id+"-legL",{rotation:18,svgOrigin:"70 152",duration:dur/(n*2),repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t);
+ tl.to("#"+id+"-legR",{rotation:-18,svgOrigin:"92 152",duration:dur/(n*2),repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t);}
+function typing(tl,id,t,dur){var n=Math.max(2,Math.round(dur/.16));
+ tl.to("#"+id+"-armL",{rotation:-38,svgOrigin:"58 104",duration:.3,ease:"power2.out"},t);
+ tl.to("#"+id+"-armR",{rotation:38,svgOrigin:"102 104",duration:.3,ease:"power2.out"},t);
+ tl.to("#"+id+"-armL",{rotation:-26,svgOrigin:"58 104",duration:.16,repeat:n,yoyo:true,ease:"none"},t+.3);
+ tl.to("#"+id+"-armR",{rotation:26,svgOrigin:"102 104",duration:.16,repeat:n,yoyo:true,ease:"none"},t+.38);}
+function point(tl,id,t,hold){var a=id+"-armR";tl.to("#"+a,{rotation:-100,svgOrigin:"102 104",duration:.35,ease:"back.out(1.6)"},t);
+ tl.to("#"+a,{rotation:0,svgOrigin:"102 104",duration:.4,ease:"power2.inOut"},t+.35+(hold||1));}
+function pop(tl,sel,t,o){o=o||{};tl.fromTo(sel,{opacity:0,scale:o.s||.6,y:o.y||0,x:o.x||0},{opacity:1,scale:1,y:0,x:0,duration:o.d||.45,ease:"back.out(1.7)",transformOrigin:o.origin||"50% 50%"},t);}
+function draw(tl,sel,t,d){tl.fromTo(sel,{strokeDashoffset:1},{strokeDashoffset:0,duration:d||.6,ease:"power2.out"},t);}
+function captions(tl,boxId){var box=document.getElementById(boxId);CAPS.forEach(function(c,i){var e=document.createElement("div");e.className="c";e.textContent=c.t;box.appendChild(e);
+ var s=c.s+LEAD,en=c.e+LEAD+0.05;tl.fromTo(e,{opacity:0,y:14},{opacity:1,y:0,duration:.2,ease:"power2.out"},s);
+ tl.to(e,{opacity:0,duration:.15},Math.max(s+.25,en-.12));});}
+function icon(n,c,s){c=c||"#ffd166";s=s||100;var b='<svg viewBox="0 0 100 100" width="'+s+'" height="'+s+'" style="overflow:visible">',e='</svg>';
+ var m={
+ box:'<path class="ol" d="M12 34 L50 16 L88 34 L88 72 L50 90 L12 72 Z" fill="'+c+'"/><path class="ln" d="M12 34 L50 52 L88 34 M50 52 V90"/>',
+ zip:'<rect class="ol" x="20" y="10" width="60" height="80" rx="10" fill="'+c+'"/><path class="ln" stroke-dasharray="5 9" d="M50 12 V58"/><rect class="ol" x="38" y="58" width="24" height="20" rx="5" fill="#fff"/>',
+ doc:'<path class="ol" d="M22 8 H62 L80 26 V92 H22 Z" fill="'+c+'"/><path class="ln" d="M62 8 V26 H80 M34 46 H68 M34 60 H68 M34 74 H56"/>',
+ gear:'<g class="ln">'+[0,45,90,135,180,225,270,315].map(function(a){return '<path d="M50 8 V22" transform="rotate('+a+' 50 50)"/>';}).join("")+'</g><circle class="ol" cx="50" cy="50" r="30" fill="'+c+'"/><circle class="ol" cx="50" cy="50" r="11" fill="#fff"/>',
+ cursor:'<path class="ol" d="M28 12 L28 80 L45 64 L58 90 L70 84 L57 60 L80 58 Z" fill="'+c+'"/>',
+ shield:'<path class="ol" d="M50 8 L86 22 V50 C86 72 70 86 50 94 C30 86 14 72 14 50 V22 Z" fill="'+c+'"/><path class="ln" d="M32 52 L45 65 L70 38"/>',
+ camera:'<rect class="ol" x="10" y="28" width="80" height="56" rx="12" fill="'+c+'"/><path class="ol" d="M32 28 L38 16 H62 L68 28" fill="'+c+'"/><circle class="ol" cx="50" cy="56" r="17" fill="#fff"/><circle cx="50" cy="56" r="7" fill="#2d2a32"/>',
+ lock:'<path class="ln" d="M30 44 V32 C30 14 70 14 70 32 V44"/><rect class="ol" x="20" y="42" width="60" height="46" rx="10" fill="'+c+'"/><circle cx="50" cy="62" r="6" fill="#2d2a32"/><path class="ln" d="M50 66 V76"/>',
+ check:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:9" d="M28 52 L44 68 L74 34"/>',
+ cross:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:9" d="M33 33 L67 67 M67 33 L33 67"/>',
+ ask:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:8" d="M36 38 C36 22 66 22 64 40 C62 52 50 52 50 64"/><circle cx="50" cy="78" r="5" fill="#2d2a32"/>',
+ search:'<circle class="ol" cx="42" cy="42" r="26" fill="'+c+'"/><path class="ln" style="stroke-width:10" d="M62 62 L88 88"/>',
+ folder:'<path class="ol" d="M8 24 H38 L46 34 H92 V82 H8 Z" fill="'+c+'"/>',
+ puzzle:'<path class="ol" d="M14 30 H40 C34 14 62 14 56 30 H82 V50 C98 44 98 72 82 66 V88 H14 Z" fill="'+c+'"/>',
+ star:'<path class="ol" d="M50 8 L61 38 L92 40 L68 60 L76 91 L50 74 L24 91 L32 60 L8 40 L39 38 Z" fill="'+c+'"/>',
+ table:'<rect class="ol" x="10" y="18" width="80" height="64" rx="8" fill="#fff"/><path class="ln" style="stroke-width:5" d="M10 38 H90 M10 58 H90 M38 18 V82 M64 18 V82"/><rect x="12" y="20" width="76" height="16" rx="5" fill="'+c+'" opacity=".9"/>'
+ };return b+m[n]+e;}
+function sparkle(x,y,s,c){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" viewBox="0 0 40 40" width="'+s+'" height="'+s+'"><path class="ol" style="stroke-width:3" d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="'+(c||"#ffd166")+'"/></svg>';}
+function cur(tl,sel,x,y,t,d){tl.to(sel,{x:x,y:y,duration:d||.7,ease:"power2.inOut"},t);}
+function click(tl,sel,t){tl.to(sel,{scale:.86,duration:.1,yoyo:true,repeat:1,transformOrigin:"50% 50%",ease:"power1.inOut"},t);}
+function typeText(tl,id,text,t,dur){var el=document.getElementById(id);el.innerHTML=text.split("").map(function(c){return '<span style="opacity:0">'+(c===" "?"&nbsp;":c)+'</span>';}).join("");
+ tl.to(el.children,{opacity:1,duration:.01,stagger:dur/Math.max(1,text.length)},t);}
+function toggle(tl,id,t){tl.to("#"+id,{backgroundColor:"#06d6a0",duration:.2},t);tl.to("#"+id+" i",{x:34,duration:.25,ease:"back.out(2)"},t);}
+function arrow(x,y,w,h,id){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="overflow:visible"><path id="'+id+'" class="ln" pathLength="1" stroke-dasharray="1" d="M6 '+(h/2)+' C'+(w*.3)+' '+(h*.1)+' '+(w*.6)+' '+(h*.9)+' '+(w-26)+' '+(h/2)+'"/><path id="'+id+'h" class="ln" d="M'+(w-40)+' '+(h/2-16)+' L'+(w-8)+' '+(h/2)+' L'+(w-40)+' '+(h/2+16)+'" opacity="0"/></svg>';}
+
+var W=[{"t": "第二", "s": 0.1, "e": 0.36}, {"t": "步", "s": 0.36, "e": 0.58}, {"t": "安装", "s": 0.92, "e": 1.37}, {"t": "解压", "s": 1.89, "e": 2.23}, {"t": "ZIP", "s": 2.23, "e": 2.69}, {"t": "打开", "s": 2.91, "e": 3.22}, {"t": "浏览器", "s": 3.24, "e": 3.62}, {"t": "的", "s": 3.62, "e": 3.74}, {"t": "扩展", "s": 3.76, "e": 4.07}, {"t": "页面", "s": 4.08, "e": 4.45}, {"t": "Chrome", "s": 4.74, "e": 5.13}, {"t": "和", "s": 5.22, "e": 5.46}, {"t": "Edge", "s": 5.47, "e": 5.81}, {"t": "都", "s": 5.84, "e": 6.01}, {"t": "支持", "s": 6.03, "e": 6.49}, {"t": "打开", "s": 7.03, "e": 7.38}, {"t": "开发者", "s": 7.41, "e": 7.78}, {"t": "模式", "s": 7.79, "e": 8.31}, {"t": "点击", "s": 8.67, "e": 9.06}, {"t": "加载", "s": 9.07, "e": 9.33}, {"t": "已", "s": 9.35, "e": 9.47}, {"t": "解压", "s": 9.47, "e": 9.75}, {"t": "的", "s": 9.75, "e": 9.86}, {"t": "扩展", "s": 9.88, "e": 10.19}, {"t": "程序", "s": 10.2, "e": 10.66}, {"t": "选中", "s": 11.01, "e": 11.38}, {"t": "那个", "s": 11.39, "e": 11.54}, {"t": "文件夹", "s": 11.56, "e": 12.12}, {"t": "就", "s": 12.29, "e": 12.42}, {"t": "装好", "s": 12.43, "e": 12.79}, {"t": "啦", "s": 12.79, "e": 13.02}];var CAPS=[{"t": "第二步，安装。解压 ZIP", "s": 0.1, "e": 2.69}, {"t": "打开浏览器的扩展页面", "s": 2.91, "e": 4.45}, {"t": "Chrome 和 Edge 都支持", "s": 4.74, "e": 6.49}, {"t": "打开开发者模式", "s": 7.03, "e": 8.31}, {"t": "点击加载已解压的扩展程序", "s": 8.67, "e": 10.66}, {"t": "选中那个文件夹，就装好啦", "s": 11.01, "e": 13.02}];var LEAD=0.4;
+(function(){
+ put("s3-zip",icon("zip","#ffd166",200));put("s3-fol",icon("folder","#ffd166",200));put("s3-cur",icon("cursor","#ffffff",74));put("s3-ei",icon("puzzle","#ffd166",56));
+ put("s3-fig",figure("f3",{body:"#cdb4db",hat:"#06d6a0",w:300,h:410}));
+ document.getElementById("s3-sp").innerHTML=sparkle(1500,300,48)+sparkle(1810,420,40,"#ff8fab")+sparkle(1380,760,50,"#8ecae6");
+ var tl=gsap.timeline({paused:true});
+ tl.fromTo("#s3-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s3-fig",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.6);
+ gsap.set("#s3-fol,#s3-fl,#s3-mf,#s3-win,#s3-r1,#s3-b1,#s3-b2,#s3-ext,#s3-brw,#s3-bub,#s3-cur",{opacity:0});
+ pop(tl,"#s3-zip",1.0,{s:.3,y:40});
+ var tu=T("解压");
+ tl.to("#s3-zip",{opacity:0,scale:.3,duration:.3},tu);pop(tl,"#s3-fol",tu+.15,{s:.3});pop(tl,"#s3-fl",tu+.3,{s:.5});pop(tl,"#s3-mf",tu+.6,{s:.5});
+ var tw=T("扩展页面");
+ tl.fromTo("#s3-win",{opacity:0,y:60},{opacity:1,y:0,duration:.6,ease:"power3.out"},tw-.5);
+ tl.fromTo("#s3-r1,#s3-b1,#s3-b2",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.12},tw+.1);
+ pop(tl,"#s3-chrome",T("Chrome"),{s:.4});pop(tl,"#s3-edge",T("Edge"),{s:.4});tl.fromTo("#s3-brw .tag:last-child",{opacity:0},{opacity:1,duration:.3},T("都支持"));
+ tl.set("#s3-brw",{opacity:1});tl.set("#s3-chrome,#s3-edge,#s3-brw .tag:last-child",{opacity:0},0);
+ var td=T("开发者");
+ tl.set("#s3-cur",{x:560,y:760});tl.fromTo("#s3-cur",{opacity:0},{opacity:1,duration:.3},td-.9);
+ cur(tl,"#s3-cur",1260,370,td-.8,.7);click(tl,"#s3-cur",td+.2);toggle(tl,"s3-sw",td+.25);
+ var tl2=T("加载");
+ cur(tl,"#s3-cur",760,478,tl2-.7,.7);click(tl,"#s3-cur",tl2+.4);tl.to("#s3-b1",{backgroundColor:"#ffd166",duration:.2},tl2+.4);
+ var ts=T("选中");
+ tl.to("#s3-fol",{x:420,y:150,scale:.6,duration:.8,ease:"power2.inOut"},ts);
+ var tz=T("装好");
+ tl.to("#s3-fol",{opacity:0,duration:.25},tz-.1);
+ tl.fromTo("#s3-ext",{opacity:0,y:30,scale:.9},{opacity:1,y:0,scale:1,duration:.5,ease:"back.out(1.8)"},tz);
+ pop(tl,"#s3-bub",tz+.3,{s:.4});
+ tl.fromTo("#s3-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.2,ease:"back.out(2)",transformOrigin:"50% 50%"},tz+.1);
+ tl.to("#f3-armR",{rotation:-160,svgOrigin:"102 104",duration:.35,ease:"back.out(2)"},tz+.2);tl.to("#f3-armL",{rotation:160,svgOrigin:"58 104",duration:.35,ease:"back.out(2)"},tz+.2);
+ bounce(tl,"s3-fig",tz+.4,3,18);
+ captions(tl,"s3-cap");
+ window.__timelines["s3"]=tl;
+})();
+</script>
+</template></body></html>

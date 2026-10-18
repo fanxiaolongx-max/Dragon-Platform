@@ -141,6 +141,10 @@ async function startInstance(instance, config) {
     instance.provider = provider;
     try {
         await runtime.start();
+        const status = runtimeState(instance);
+        if (status.state === 'failed') {
+            throw serviceError(status.errorCode || 'WELINK_START_FAILED', status.failureReason || '网关连接失败');
+        }
     } catch (error) {
         instance.lastError = { code: error.code || 'WELINK_START_FAILED', message: redact(error.message), at: new Date().toISOString() };
         appendLog(instance, { level: 'error', message: `连接失败：${error.code ? `[${error.code}] ` : ''}${error.message}` }, redact);
@@ -274,9 +278,15 @@ async function testConnection(tenantId = getTenantId()) {
     const started = Date.now();
     try {
         await connect(tenantId);
-        push('gateway', '网关握手', true, `${runtimeState(instance).state}，耗时 ${Date.now() - started}ms`);
+        const status = runtimeState(instance);
+        if (status.state !== 'ready') {
+            const redact = redactWith([config.ak, config.sk]);
+            throw serviceError('WELINK_NOT_READY', redact(status.failureReason || `网关尚未就绪（${status.state}）`));
+        }
+        push('gateway', '网关握手', true, `${status.state}，耗时 ${Date.now() - started}ms`);
     } catch (error) {
         push('gateway', '网关握手', false, error.message);
+        if (!config.enabled && !wasConnected) await disconnect(tenantId);
         return { ok: false, steps };
     }
     try {

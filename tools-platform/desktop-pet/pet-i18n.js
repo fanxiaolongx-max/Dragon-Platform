@@ -1,6 +1,10 @@
 // Localized desktop UI. Conversation messages and diagnostic payloads are never translated.
 (function () {
     const translations = {
+    "常驻额度面板": "Always show quotas",
+    "反重力额度组": "Antigravity group",
+    "额度来源": "Quota source",
+    "自动选择额度来源": "Auto-select quota source",
     "自然眼神与轻微动效": "Natural gaze and subtle eye motion",
     "随机眨眼与待机动作": "Random blinking and idle poses",
     "图特主动讲故事": "Thoth's spontaneous stories",

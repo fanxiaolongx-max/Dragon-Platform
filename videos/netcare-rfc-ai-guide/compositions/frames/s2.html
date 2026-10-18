@@ -1,0 +1,152 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template><link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Long+Cang&display=swap" rel="stylesheet">
+<style>#root{position:absolute;inset:0;overflow:hidden;color:#2d2a32;font-family:"Long Cang",cursive;--ink:#2d2a32;--paper:#fff7e6;--pink:#ff8fab;--yellow:#ffd166;--mint:#7bdcb5;--sky:#8ecae6;--lav:#cdb4db;--red:#ef476f;--green:#06d6a0;--orange:#ff9f68}
+#root *{box-sizing:border-box}
+.paper{position:absolute;inset:0;background:radial-gradient(circle at 1px 1px,rgba(45,42,50,.11) 2px,transparent 2.4px) 0 0/44px 44px,#fff7e6}
+.blob{position:absolute;border-radius:50%;opacity:.55}
+.head{position:absolute;left:100px;top:64px;display:flex;align-items:center;gap:26px}
+.step{font-family:"ZCOOL KuaiLe",sans-serif;font-size:46px;background:var(--yellow);border:5px solid var(--ink);border-radius:60px 40px 56px 36px;padding:6px 30px 8px;box-shadow:6px 6px 0 var(--ink);transform:rotate(-3deg);white-space:nowrap}
+.ttl{font-family:"ZCOOL KuaiLe",sans-serif;font-size:92px;letter-spacing:.04em;line-height:1;white-space:nowrap}
+.win{position:absolute;background:#fff;border:6px solid var(--ink);border-radius:26px;box-shadow:12px 12px 0 var(--ink);overflow:hidden}
+.wbar{height:62px;display:flex;align-items:center;gap:12px;padding:0 22px;border-bottom:6px solid var(--ink);background:var(--sky);font-family:"Long Cang",cursive;font-size:32px}
+.wbar i{width:20px;height:20px;border-radius:50%;border:4px solid var(--ink);display:block}
+.wbar i:nth-child(1){background:var(--pink)}.wbar i:nth-child(2){background:var(--yellow)}.wbar i:nth-child(3){background:var(--mint)}
+.wbar span{margin-left:10px;white-space:nowrap}
+.btn{position:absolute;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-family:"ZCOOL KuaiLe",sans-serif;font-size:38px;border:5px solid var(--ink);border-radius:50px;padding:10px 34px 12px;box-shadow:6px 6px 0 var(--ink);background:var(--pink);white-space:nowrap}
+.tag{display:inline-block;font-family:"Long Cang",cursive;font-size:36px;border:4px solid var(--ink);border-radius:30px;padding:2px 22px 4px;background:var(--mint);white-space:nowrap}
+.sticky{position:absolute;font-family:"Long Cang",cursive;font-size:42px;line-height:1.25;background:var(--yellow);border:5px solid var(--ink);border-radius:8px 30px 10px 24px;padding:16px 26px 20px;box-shadow:7px 7px 0 var(--ink)}
+.bubble{position:absolute;font-family:"Long Cang",cursive;font-size:46px;line-height:1.2;background:#fff;border:5px solid var(--ink);border-radius:36px;padding:16px 30px 20px;box-shadow:6px 6px 0 var(--ink);white-space:nowrap}
+.bubble:after{content:"";position:absolute;left:46px;bottom:-26px;width:34px;height:34px;background:#fff;border-right:5px solid var(--ink);border-bottom:5px solid var(--ink);transform:rotate(45deg) skew(10deg,10deg)}
+.fig{position:absolute}
+.ln{fill:none;stroke:#2d2a32;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+.ol{stroke:#2d2a32;stroke-width:5;stroke-linejoin:round}
+.cap{position:absolute;left:0;right:0;bottom:48px;height:92px}
+.cap .c{position:absolute;left:50%;top:0;transform:translateX(-50%);white-space:nowrap;font-family:"Long Cang",cursive;font-size:56px;line-height:1;background:#fff;border:5px solid var(--ink);border-radius:50px;padding:12px 40px 16px;box-shadow:6px 6px 0 var(--ink);opacity:0}
+.mono{font-family:"JetBrains Mono",monospace}
+.dash{border:4px dashed var(--ink);border-radius:18px}
+.row{display:flex;align-items:center}
+.abs{position:absolute}
+
+#root .wob{filter:url(#wob2)}
+#root .tab{position:absolute;left:140px;width:280px;height:72px;border:4px solid var(--ink);border-radius:20px;background:#fff;font-size:36px;white-space:nowrap;display:flex;align-items:center;padding:0 22px}
+#root .card{position:absolute;left:450px;width:690px;height:84px;border:4px solid var(--ink);border-radius:20px;background:#fff;font-size:42px;display:flex;align-items:center;padding:0 26px;gap:14px}
+#root .cursor{position:absolute;left:0;top:0;width:74px;height:74px;z-index:20}
+</style>
+<div id="root" data-composition-id="s2" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="wob2" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="5" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#cdb4db"></div>
+  <div class="head wob" id="s2-h"><span class="step">第 1 步</span><span class="ttl">打包</span></div>
+  <div class="win wob" id="s2-win" style="left:110px;top:230px;width:1060px;height:650px"><div class="wbar"><i></i><i></i><i></i><span>F12 扩展打包</span></div></div>
+  <div class="tab" id="s2-t1" style="top:330px">我的脚本</div>
+  <div class="tab" id="s2-t2" style="top:424px;background:#fff">系统内置脚本</div>
+  <div class="tab" id="s2-t3" style="top:518px">模板库</div>
+  <div class="card" id="s2-c1" style="top:330px">视频地址扫描器</div>
+  <div class="card" id="s2-c2" style="top:430px;background:#fff"><span id="s2-ic"></span>NetCare RFC 方案与 AI 审计</div>
+  <div class="card" id="s2-c3" style="top:530px">Chrome Capture Pro</div>
+  <div class="btn" id="s2-btn" style="left:450px;top:702px;background:#ffd166">生成扩展 ZIP</div>
+  <div class="cursor wob" id="s2-cur"></div>
+  <div class="abs wob" id="s2-zip" style="left:1260px;top:330px"></div>
+  <div class="tag abs" id="s2-zl" style="left:1250px;top:610px;background:#ffd166;font-size:40px">NetCare-扩展.zip</div>
+  <div class="abs wob" id="s2-fig" style="left:1560px;top:470px"></div>
+  <div class="bubble" id="s2-bub" style="left:1530px;top:330px;font-size:52px">拿到啦！</div>
+  <div id="s2-sp"></div>
+  <div class="cap" id="s2-cap"></div>
+</div>
+<script>
+function T(s){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
+ s=String(s).replace(/\s+/g,"");var p=C.replace(/\s+/g,"").indexOf(s);if(p<0)return 0;
+ var q=0,j=0;for(i=0;i<C.length;i++){if(/\s/.test(C[i]))continue;if(q===p){j=i;break;}q++;}
+ return Math.round((W[M[j]].s+LEAD)*100)/100;}
+function figure(id,o){o=o||{};var body=o.body||"#ff8fab",hat=o.hat||"#ffd166";
+ return '<svg id="'+id+'" class="fig" viewBox="0 0 160 220" width="'+(o.w||240)+'" height="'+(o.h||330)+'" style="overflow:visible">'+
+ '<g id="'+id+'-legL"><path class="ln" d="M70 152 L64 196"/><ellipse cx="58" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
+ '<g id="'+id+'-legR"><path class="ln" d="M92 152 L98 196"/><ellipse cx="104" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
+ '<path class="ol" d="M54 92 Q80 82 106 92 L112 154 Q80 166 48 154 Z" fill="'+body+'"/>'+
+ '<g id="'+id+'-armL"><path class="ln" d="M58 104 Q40 124 38 146"/><circle class="ol" cx="37" cy="151" r="10" fill="#ffe3d0"/></g>'+
+ '<g id="'+id+'-armR"><path class="ln" d="M102 104 Q120 124 122 146"/><circle class="ol" cx="123" cy="151" r="10" fill="#ffe3d0"/></g>'+
+ '<g id="'+id+'-head"><circle class="ol" cx="80" cy="52" r="38" fill="#ffe9d6"/>'+
+ '<path class="ol" d="M44 44 Q80 -8 116 44 Q80 26 44 44 Z" fill="'+hat+'"/><circle class="ol" cx="80" cy="6" r="9" fill="'+hat+'"/>'+
+ '<circle cx="66" cy="58" r="5" fill="#2d2a32"/><circle cx="94" cy="58" r="5" fill="#2d2a32"/>'+
+ '<ellipse cx="55" cy="72" rx="9" ry="6" fill="#ff8fab" opacity=".7"/><ellipse cx="105" cy="72" rx="9" ry="6" fill="#ff8fab" opacity=".7"/>'+
+ '<path class="ln" style="stroke-width:5" d="M70 74 Q80 84 90 74"/></g></svg>';}
+function put(id,html){document.getElementById(id).innerHTML=html;}
+function wave(tl,id,t,n){var a=id+"-armR";tl.to("#"+a,{rotation:-150,svgOrigin:"102 104",duration:.35,ease:"power2.out"},t);
+ tl.to("#"+a,{rotation:-120,svgOrigin:"102 104",duration:.22,repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t+.35);
+ tl.to("#"+a,{rotation:0,svgOrigin:"102 104",duration:.4,ease:"power2.inOut"},t+.35+n*.44);}
+function bounce(tl,id,t,n,h){tl.to("#"+id,{y:-(h||14),duration:.28,repeat:n*2-1,yoyo:true,ease:"power1.inOut"},t);}
+function walk(tl,id,t,dur,n){tl.to("#"+id+"-legL",{rotation:18,svgOrigin:"70 152",duration:dur/(n*2),repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t);
+ tl.to("#"+id+"-legR",{rotation:-18,svgOrigin:"92 152",duration:dur/(n*2),repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t);}
+function typing(tl,id,t,dur){var n=Math.max(2,Math.round(dur/.16));
+ tl.to("#"+id+"-armL",{rotation:-38,svgOrigin:"58 104",duration:.3,ease:"power2.out"},t);
+ tl.to("#"+id+"-armR",{rotation:38,svgOrigin:"102 104",duration:.3,ease:"power2.out"},t);
+ tl.to("#"+id+"-armL",{rotation:-26,svgOrigin:"58 104",duration:.16,repeat:n,yoyo:true,ease:"none"},t+.3);
+ tl.to("#"+id+"-armR",{rotation:26,svgOrigin:"102 104",duration:.16,repeat:n,yoyo:true,ease:"none"},t+.38);}
+function point(tl,id,t,hold){var a=id+"-armR";tl.to("#"+a,{rotation:-100,svgOrigin:"102 104",duration:.35,ease:"back.out(1.6)"},t);
+ tl.to("#"+a,{rotation:0,svgOrigin:"102 104",duration:.4,ease:"power2.inOut"},t+.35+(hold||1));}
+function pop(tl,sel,t,o){o=o||{};tl.fromTo(sel,{opacity:0,scale:o.s||.6,y:o.y||0,x:o.x||0},{opacity:1,scale:1,y:0,x:0,duration:o.d||.45,ease:"back.out(1.7)",transformOrigin:o.origin||"50% 50%"},t);}
+function draw(tl,sel,t,d){tl.fromTo(sel,{strokeDashoffset:1},{strokeDashoffset:0,duration:d||.6,ease:"power2.out"},t);}
+function captions(tl,boxId){var box=document.getElementById(boxId);CAPS.forEach(function(c,i){var e=document.createElement("div");e.className="c";e.textContent=c.t;box.appendChild(e);
+ var s=c.s+LEAD,en=c.e+LEAD+0.05;tl.fromTo(e,{opacity:0,y:14},{opacity:1,y:0,duration:.2,ease:"power2.out"},s);
+ tl.to(e,{opacity:0,duration:.15},Math.max(s+.25,en-.12));});}
+function icon(n,c,s){c=c||"#ffd166";s=s||100;var b='<svg viewBox="0 0 100 100" width="'+s+'" height="'+s+'" style="overflow:visible">',e='</svg>';
+ var m={
+ box:'<path class="ol" d="M12 34 L50 16 L88 34 L88 72 L50 90 L12 72 Z" fill="'+c+'"/><path class="ln" d="M12 34 L50 52 L88 34 M50 52 V90"/>',
+ zip:'<rect class="ol" x="20" y="10" width="60" height="80" rx="10" fill="'+c+'"/><path class="ln" stroke-dasharray="5 9" d="M50 12 V58"/><rect class="ol" x="38" y="58" width="24" height="20" rx="5" fill="#fff"/>',
+ doc:'<path class="ol" d="M22 8 H62 L80 26 V92 H22 Z" fill="'+c+'"/><path class="ln" d="M62 8 V26 H80 M34 46 H68 M34 60 H68 M34 74 H56"/>',
+ gear:'<g class="ln">'+[0,45,90,135,180,225,270,315].map(function(a){return '<path d="M50 8 V22" transform="rotate('+a+' 50 50)"/>';}).join("")+'</g><circle class="ol" cx="50" cy="50" r="30" fill="'+c+'"/><circle class="ol" cx="50" cy="50" r="11" fill="#fff"/>',
+ cursor:'<path class="ol" d="M28 12 L28 80 L45 64 L58 90 L70 84 L57 60 L80 58 Z" fill="'+c+'"/>',
+ shield:'<path class="ol" d="M50 8 L86 22 V50 C86 72 70 86 50 94 C30 86 14 72 14 50 V22 Z" fill="'+c+'"/><path class="ln" d="M32 52 L45 65 L70 38"/>',
+ camera:'<rect class="ol" x="10" y="28" width="80" height="56" rx="12" fill="'+c+'"/><path class="ol" d="M32 28 L38 16 H62 L68 28" fill="'+c+'"/><circle class="ol" cx="50" cy="56" r="17" fill="#fff"/><circle cx="50" cy="56" r="7" fill="#2d2a32"/>',
+ lock:'<path class="ln" d="M30 44 V32 C30 14 70 14 70 32 V44"/><rect class="ol" x="20" y="42" width="60" height="46" rx="10" fill="'+c+'"/><circle cx="50" cy="62" r="6" fill="#2d2a32"/><path class="ln" d="M50 66 V76"/>',
+ check:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:9" d="M28 52 L44 68 L74 34"/>',
+ cross:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:9" d="M33 33 L67 67 M67 33 L33 67"/>',
+ ask:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:8" d="M36 38 C36 22 66 22 64 40 C62 52 50 52 50 64"/><circle cx="50" cy="78" r="5" fill="#2d2a32"/>',
+ search:'<circle class="ol" cx="42" cy="42" r="26" fill="'+c+'"/><path class="ln" style="stroke-width:10" d="M62 62 L88 88"/>',
+ folder:'<path class="ol" d="M8 24 H38 L46 34 H92 V82 H8 Z" fill="'+c+'"/>',
+ puzzle:'<path class="ol" d="M14 30 H40 C34 14 62 14 56 30 H82 V50 C98 44 98 72 82 66 V88 H14 Z" fill="'+c+'"/>',
+ star:'<path class="ol" d="M50 8 L61 38 L92 40 L68 60 L76 91 L50 74 L24 91 L32 60 L8 40 L39 38 Z" fill="'+c+'"/>',
+ table:'<rect class="ol" x="10" y="18" width="80" height="64" rx="8" fill="#fff"/><path class="ln" style="stroke-width:5" d="M10 38 H90 M10 58 H90 M38 18 V82 M64 18 V82"/><rect x="12" y="20" width="76" height="16" rx="5" fill="'+c+'" opacity=".9"/>'
+ };return b+m[n]+e;}
+function sparkle(x,y,s,c){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" viewBox="0 0 40 40" width="'+s+'" height="'+s+'"><path class="ol" style="stroke-width:3" d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="'+(c||"#ffd166")+'"/></svg>';}
+function cur(tl,sel,x,y,t,d){tl.to(sel,{x:x,y:y,duration:d||.7,ease:"power2.inOut"},t);}
+function click(tl,sel,t){tl.to(sel,{scale:.86,duration:.1,yoyo:true,repeat:1,transformOrigin:"50% 50%",ease:"power1.inOut"},t);}
+function typeText(tl,id,text,t,dur){var el=document.getElementById(id);el.innerHTML=text.split("").map(function(c){return '<span style="opacity:0">'+(c===" "?"&nbsp;":c)+'</span>';}).join("");
+ tl.to(el.children,{opacity:1,duration:.01,stagger:dur/Math.max(1,text.length)},t);}
+function toggle(tl,id,t){tl.to("#"+id,{backgroundColor:"#06d6a0",duration:.2},t);tl.to("#"+id+" i",{x:34,duration:.25,ease:"back.out(2)"},t);}
+function arrow(x,y,w,h,id){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="overflow:visible"><path id="'+id+'" class="ln" pathLength="1" stroke-dasharray="1" d="M6 '+(h/2)+' C'+(w*.3)+' '+(h*.1)+' '+(w*.6)+' '+(h*.9)+' '+(w-26)+' '+(h/2)+'"/><path id="'+id+'h" class="ln" d="M'+(w-40)+' '+(h/2-16)+' L'+(w-8)+' '+(h/2)+' L'+(w-40)+' '+(h/2+16)+'" opacity="0"/></svg>';}
+
+var W=[{"t": "第一", "s": 0.1, "e": 0.34}, {"t": "步", "s": 0.34, "e": 0.58}, {"t": "打包", "s": 0.84, "e": 1.24}, {"t": "打开", "s": 1.77, "e": 2.22}, {"t": "F", "s": 2.24, "e": 2.5}, {"t": "12", "s": 2.5, "e": 2.92}, {"t": "扩展", "s": 3.03, "e": 3.35}, {"t": "打包", "s": 3.36, "e": 3.76}, {"t": "在", "s": 4.16, "e": 4.34}, {"t": "系统", "s": 4.35, "e": 4.68}, {"t": "内置", "s": 4.69, "e": 4.92}, {"t": "脚本", "s": 4.93, "e": 5.2}, {"t": "里", "s": 5.2, "e": 5.47}, {"t": "选中", "s": 5.58, "e": 6.07}, {"t": "NetCare", "s": 6.17, "e": 6.69}, {"t": "RFC", "s": 6.7, "e": 7.26}, {"t": "方案", "s": 7.28, "e": 7.63}, {"t": "与", "s": 7.64, "e": 7.88}, {"t": "AI", "s": 7.98, "e": 8.4}, {"t": "审计", "s": 8.41, "e": 8.8}, {"t": "点击", "s": 9.04, "e": 9.35}, {"t": "生成", "s": 9.36, "e": 9.82}, {"t": "就", "s": 9.98, "e": 10.13}, {"t": "能", "s": 10.13, "e": 10.22}, {"t": "拿到", "s": 10.24, "e": 10.44}, {"t": "一个", "s": 10.44, "e": 10.59}, {"t": "扩展", "s": 10.6, "e": 11.03}, {"t": "ZIP", "s": 11.12, "e": 11.44}, {"t": "啦", "s": 11.44, "e": 11.65}];var CAPS=[{"t": "第一步，打包。打开 F12 扩展打包", "s": 0.1, "e": 3.76}, {"t": "在系统内置脚本里选中 NetCare RFC 方案与 AI 审计", "s": 4.16, "e": 8.8}, {"t": "点击生成，就能拿到一个扩展 ZIP 啦", "s": 9.04, "e": 11.65}];var LEAD=0.4;
+(function(){
+ put("s2-ic",icon("star","#ffd166",54));put("s2-cur",icon("cursor","#ffffff",74));
+ put("s2-zip",icon("zip","#ffd166",260));
+ put("s2-fig",figure("f2",{body:"#7bdcb5",hat:"#ef476f",w:300,h:410}));
+ document.getElementById("s2-sp").innerHTML=sparkle(1260,270,48)+sparkle(1520,330,40,"#ff8fab")+sparkle(1480,820,52,"#8ecae6");
+ var tl=gsap.timeline({paused:true});
+ tl.fromTo("#s2-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s2-win",{opacity:0,y:60},{opacity:1,y:0,duration:.7,ease:"power3.out"},.6);
+ tl.fromTo("#s2-t1,#s2-t2,#s2-t3,#s2-c1,#s2-c2,#s2-c3,#s2-btn",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.09,ease:"power2.out"},1.1);
+ tl.fromTo("#s2-fig",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.9);
+ tl.set("#s2-cur",{x:900,y:820});tl.fromTo("#s2-cur",{opacity:0},{opacity:1,duration:.3},T("打开")-.3);
+ // F12 扩展打包 -> 系统内置脚本
+ var tt=T("系统内置");
+ cur(tl,"#s2-cur",300,452,tt-.7,.7);click(tl,"#s2-cur",tt+.05);
+ tl.to("#s2-t2",{backgroundColor:"#ffd166",duration:.2},tt+.05);
+ var tc=T("选中");
+ cur(tl,"#s2-cur",800,468,tc-.55,.6);click(tl,"#s2-cur",tc+.05);
+ tl.to("#s2-c2",{backgroundColor:"#7bdcb5",duration:.2,scale:1.03,transformOrigin:"50% 50%"},tc+.05);
+ var tg=T("点击生成");
+ cur(tl,"#s2-cur",650,738,tg-.5,.55);click(tl,"#s2-cur",tg+.35);click(tl,"#s2-btn",tg+.35);
+ tl.to("#s2-btn",{backgroundColor:"#06d6a0",duration:.2},tg+.4);
+ pop(tl,"#s2-zip",T("拿到"),{s:.2,y:60,d:.6});pop(tl,"#s2-zl",T("拿到")+.3,{s:.5});pop(tl,"#s2-bub",T("拿到")+.2,{s:.4});
+ tl.fromTo("#s2-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.2,ease:"back.out(2)",transformOrigin:"50% 50%"},T("拿到")+.1);
+ var tz=T("拿到")+.3;
+ tl.to("#f2-armR",{rotation:-160,svgOrigin:"102 104",duration:.35,ease:"back.out(2)"},tz);
+ tl.to("#f2-armL",{rotation:160,svgOrigin:"58 104",duration:.35,ease:"back.out(2)"},tz);
+ bounce(tl,"s2-fig",tz+.2,4,18);
+ tl.to("#s2-zip",{y:-14,duration:.5,repeat:3,yoyo:true,ease:"sine.inOut"},tz+.7);
+ captions(tl,"s2-cap");
+ window.__timelines["s2"]=tl;
+})();
+</script>
+</template></body></html>

@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#s1 .wob,#root .wob{filter:url(#WOBID)}
+</style>
+<div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="3" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-120px;top:620px;width:520px;height:520px;background:#cdb4db"></div>
+  <div class="blob" style="left:1380px;top:-160px;width:520px;height:520px;background:#8ecae6"></div>
+  <div class="abs wob" id="s1-t1" style="left:110px;top:150px;font-family:'ZCOOL KuaiLe',sans-serif;font-size:170px;line-height:1;letter-spacing:.01em;white-space:nowrap">NetCare RFC</div>
+  <svg class="abs wob" style="left:110px;top:330px" width="1000" height="40" viewBox="0 0 1000 40"><path id="s1-ul" class="ln" pathLength="1" stroke-dasharray="1" style="stroke:#ff8fab;stroke-width:14" d="M6 24 C150 4 300 38 460 18 S780 34 990 12"/></svg>
+  <div class="abs" id="s1-t2" style="left:116px;top:370px;font-family:'ZCOOL KuaiLe',sans-serif;font-size:92px;line-height:1.1;white-space:nowrap">方案与 <span style="color:#ef476f">AI 审计</span></div>
+  <div class="abs" id="s1-t3" style="left:120px;top:490px;font-size:64px;white-space:nowrap">扩展小助手 · 手把手使用指南</div>
+  <div class="abs row" id="s1-chips" style="left:116px;top:640px;gap:34px">
+    <div class="row" id="s1-c1" style="gap:12px"><span class="wob" id="s1-i1"></span><span class="tag" style="background:#ffd166;font-size:54px">安装</span></div>
+    <div class="row" id="s1-c2" style="gap:12px"><span class="wob" id="s1-i2"></span><span class="tag" style="background:#7bdcb5;font-size:54px">使用</span></div>
+    <div class="row" id="s1-c3" style="gap:12px"><span class="wob" id="s1-i3"></span><span class="tag" style="background:#ff8fab;font-size:54px">配置</span></div>
+  </div>
+  <div class="abs wob" id="s1-fig" style="left:1230px;top:330px"></div>
+  <div class="bubble" id="s1-bub" style="left:1330px;top:215px;font-size:54px">嗨～我是小审！</div>
+  <div id="s1-sp"></div>
+  <div class="cap" id="s1-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s1-i1",icon("box","#ffd166",120));put("s1-i2",icon("cursor","#7bdcb5",120));put("s1-i3",icon("gear","#ff8fab",120));
+ put("s1-fig",figure("f1",{body:"#8ecae6",hat:"#ff8fab",w:380,h:520}));
+ document.getElementById("s1-sp").innerHTML=sparkle(1130,170,56)+sparkle(1700,200,44,"#ff8fab")+sparkle(1650,760,50,"#8ecae6")+sparkle(980,520,38,"#7bdcb5");
+ var tl=gsap.timeline({paused:true});
+ tl.fromTo("#s1-t1",{opacity:0,y:60,rotation:-3},{opacity:1,y:0,rotation:0,duration:.7,ease:"back.out(1.6)"},.3);
+ draw(tl,"#s1-ul",.9,.7);
+ tl.fromTo("#s1-t2",{opacity:0,x:-60},{opacity:1,x:0,duration:.6,ease:"power3.out"},1.1);
+ tl.fromTo("#s1-t3",{opacity:0},{opacity:1,duration:.6},1.6);
+ tl.fromTo("#s1-fig",{opacity:0,y:200},{opacity:1,y:0,duration:.7,ease:"back.out(1.5)"},.2);
+ pop(tl,"#s1-bub",.9,{s:.4});
+ wave(tl,"f1",.9,4);
+ bounce(tl,"s1-fig",3.2,4,16);
+ ["#s1-c1","#s1-c2","#s1-c3"].forEach(function(s,i){pop(tl,s,[T("安装"),T("使用"),T("配置")][i]-.1,{s:.3,y:30});});
+ tl.to("#s1-bub",{opacity:0,duration:.3},2.6);
+ tl.fromTo("#s1-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.25,ease:"back.out(2)",transformOrigin:"50% 50%"},1.4);
+ tl.to("#s1-sp svg",{rotation:20,duration:1.1,repeat:5,yoyo:true,ease:"sine.inOut",transformOrigin:"50% 50%"},2);
+ captions(tl,"s1-cap");
+ window.__timelines["s1"]=tl;
+})();
+</script>
+</template></body></html>

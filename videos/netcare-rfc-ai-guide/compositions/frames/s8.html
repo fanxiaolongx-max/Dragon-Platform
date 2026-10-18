@@ -1,0 +1,163 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template><link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Long+Cang&display=swap" rel="stylesheet">
+<style>#root{position:absolute;inset:0;overflow:hidden;color:#2d2a32;font-family:"Long Cang",cursive;--ink:#2d2a32;--paper:#fff7e6;--pink:#ff8fab;--yellow:#ffd166;--mint:#7bdcb5;--sky:#8ecae6;--lav:#cdb4db;--red:#ef476f;--green:#06d6a0;--orange:#ff9f68}
+#root *{box-sizing:border-box}
+.paper{position:absolute;inset:0;background:radial-gradient(circle at 1px 1px,rgba(45,42,50,.11) 2px,transparent 2.4px) 0 0/44px 44px,#fff7e6}
+.blob{position:absolute;border-radius:50%;opacity:.55}
+.head{position:absolute;left:100px;top:64px;display:flex;align-items:center;gap:26px}
+.step{font-family:"ZCOOL KuaiLe",sans-serif;font-size:46px;background:var(--yellow);border:5px solid var(--ink);border-radius:60px 40px 56px 36px;padding:6px 30px 8px;box-shadow:6px 6px 0 var(--ink);transform:rotate(-3deg);white-space:nowrap}
+.ttl{font-family:"ZCOOL KuaiLe",sans-serif;font-size:92px;letter-spacing:.04em;line-height:1;white-space:nowrap}
+.win{position:absolute;background:#fff;border:6px solid var(--ink);border-radius:26px;box-shadow:12px 12px 0 var(--ink);overflow:hidden}
+.wbar{height:62px;display:flex;align-items:center;gap:12px;padding:0 22px;border-bottom:6px solid var(--ink);background:var(--sky);font-family:"Long Cang",cursive;font-size:32px}
+.wbar i{width:20px;height:20px;border-radius:50%;border:4px solid var(--ink);display:block}
+.wbar i:nth-child(1){background:var(--pink)}.wbar i:nth-child(2){background:var(--yellow)}.wbar i:nth-child(3){background:var(--mint)}
+.wbar span{margin-left:10px;white-space:nowrap}
+.btn{position:absolute;display:inline-flex;align-items:center;justify-content:center;gap:10px;font-family:"ZCOOL KuaiLe",sans-serif;font-size:38px;border:5px solid var(--ink);border-radius:50px;padding:10px 34px 12px;box-shadow:6px 6px 0 var(--ink);background:var(--pink);white-space:nowrap}
+.tag{display:inline-block;font-family:"Long Cang",cursive;font-size:36px;border:4px solid var(--ink);border-radius:30px;padding:2px 22px 4px;background:var(--mint);white-space:nowrap}
+.sticky{position:absolute;font-family:"Long Cang",cursive;font-size:42px;line-height:1.25;background:var(--yellow);border:5px solid var(--ink);border-radius:8px 30px 10px 24px;padding:16px 26px 20px;box-shadow:7px 7px 0 var(--ink)}
+.bubble{position:absolute;font-family:"Long Cang",cursive;font-size:46px;line-height:1.2;background:#fff;border:5px solid var(--ink);border-radius:36px;padding:16px 30px 20px;box-shadow:6px 6px 0 var(--ink);white-space:nowrap}
+.bubble:after{content:"";position:absolute;left:46px;bottom:-26px;width:34px;height:34px;background:#fff;border-right:5px solid var(--ink);border-bottom:5px solid var(--ink);transform:rotate(45deg) skew(10deg,10deg)}
+.fig{position:absolute}
+.ln{fill:none;stroke:#2d2a32;stroke-width:6;stroke-linecap:round;stroke-linejoin:round}
+.ol{stroke:#2d2a32;stroke-width:5;stroke-linejoin:round}
+.cap{position:absolute;left:0;right:0;bottom:48px;height:92px}
+.cap .c{position:absolute;left:50%;top:0;transform:translateX(-50%);white-space:nowrap;font-family:"Long Cang",cursive;font-size:56px;line-height:1;background:#fff;border:5px solid var(--ink);border-radius:50px;padding:12px 40px 16px;box-shadow:6px 6px 0 var(--ink);opacity:0}
+.mono{font-family:"JetBrains Mono",monospace}
+.dash{border:4px dashed var(--ink);border-radius:18px}
+.row{display:flex;align-items:center}
+.abs{position:absolute}
+
+#root .wob{filter:url(#wob8)}
+#root .modal{position:absolute;left:110px;top:210px;width:1180px;height:690px;background:#fff;border:6px solid var(--ink);border-radius:28px;box-shadow:12px 12px 0 var(--ink);overflow:hidden}
+#root .tabs{position:absolute;left:30px;top:96px;display:flex;gap:16px}
+#root .tb{border:4px solid var(--ink);border-radius:24px 24px 0 0;padding:6px 34px 8px;font-size:42px;background:#fff;white-space:nowrap}
+#root .pane{position:absolute;left:36px;top:170px;width:1096px;height:480px;border:4px solid var(--ink);border-radius:0 20px 20px 20px;background:#fffdf5}
+#root .lab{position:absolute;left:30px;font-size:40px;white-space:nowrap}
+#root .inp{position:absolute;left:230px;width:830px;height:62px;border:4px solid var(--ink);border-radius:16px;background:#fff;padding:6px 20px;font-family:"JetBrains Mono",monospace;font-size:30px;white-space:nowrap;overflow:hidden}
+#root .proto{position:absolute;top:96px;white-space:nowrap}
+#root .cursor{position:absolute;left:0;top:0;width:74px;height:74px;z-index:30}
+</style>
+<div id="root" data-composition-id="s8" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="wob8" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="41" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1480px;top:-170px;width:520px;height:520px;background:#7bdcb5"></div>
+  <div class="head wob" id="s8-h"><span class="step">配置 2</span><span class="ttl">AI 对接 · 添加模型</span></div>
+  <div class="modal wob" id="s8-mod"><div class="wbar" style="background:var(--yellow)"><i></i><i></i><i></i><span>设置 · AI 对接</span></div>
+    <div class="tabs"><span class="tb">常规</span><span class="tb">章节规则</span><span class="tb" style="background:#ffd166">AI 对接</span></div>
+    <div class="pane">
+      <div class="lab" style="top:24px">协议</div>
+      <div class="abs row" id="s8-pr" style="left:230px;top:22px;gap:14px">
+        <span class="tag" id="s8-o1" style="background:#ffd166;font-size:32px">OpenAI</span><span class="tag" id="s8-o2" style="background:#8ecae6;font-size:32px">Anthropic</span><span class="tag" id="s8-o3" style="background:#cdb4db;font-size:32px">Gemini</span><span class="tag" id="s8-o4" style="background:#7bdcb5;font-size:32px">本地兼容服务</span></div>
+      <div class="lab" style="top:122px">接口地址</div><div class="inp" id="s8-in1" style="top:116px"></div>
+      <div class="lab" style="top:208px">模型 ID</div><div class="inp" id="s8-in2" style="top:202px"></div>
+      <div class="lab" style="top:294px">Key</div><div class="inp" id="s8-in3" style="top:288px"></div>
+      <div class="btn" id="s8-bt" style="left:36px;top:390px;font-size:34px;padding:6px 26px 8px;background:#fff">测试连接</div>
+      <div class="btn" id="s8-bs" style="left:290px;top:390px;font-size:34px;padding:6px 26px 8px;background:#ffd166">保存并用于审计</div>
+      <div class="tag" id="s8-ok" style="position:absolute;left:690px;top:394px;font-size:32px;background:#06d6a0">✓ HTTP 200 · 0.8 秒</div>
+    </div>
+  </div>
+  <div class="sticky wob" id="s8-st1" style="left:1350px;top:250px;width:470px;font-size:40px;background:#8ecae6;transform:rotate(3deg)"><span id="s8-lk" style="vertical-align:middle"></span> Key 只保存在本地</div>
+  <div class="sticky wob" id="s8-st2" style="left:1350px;top:430px;width:470px;font-size:40px;background:#7bdcb5;transform:rotate(-2deg)"><span id="s8-sh" style="vertical-align:middle"></span> 发给模型前<br>自动脱敏</div>
+  <div class="cursor wob" id="s8-cur"></div>
+  <div class="abs wob" id="s8-fig" style="left:1480px;top:640px"></div>
+  <div id="s8-sp"></div>
+  <div class="cap" id="s8-cap"></div>
+</div>
+<script>
+function T(s){var C="",M=[],i,k;for(i=0;i<W.length;i++){for(k=0;k<W[i].t.length;k++){C+=W[i].t[k];M.push(i);}}
+ s=String(s).replace(/\s+/g,"");var p=C.replace(/\s+/g,"").indexOf(s);if(p<0)return 0;
+ var q=0,j=0;for(i=0;i<C.length;i++){if(/\s/.test(C[i]))continue;if(q===p){j=i;break;}q++;}
+ return Math.round((W[M[j]].s+LEAD)*100)/100;}
+function figure(id,o){o=o||{};var body=o.body||"#ff8fab",hat=o.hat||"#ffd166";
+ return '<svg id="'+id+'" class="fig" viewBox="0 0 160 220" width="'+(o.w||240)+'" height="'+(o.h||330)+'" style="overflow:visible">'+
+ '<g id="'+id+'-legL"><path class="ln" d="M70 152 L64 196"/><ellipse cx="58" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
+ '<g id="'+id+'-legR"><path class="ln" d="M92 152 L98 196"/><ellipse cx="104" cy="204" rx="15" ry="8" fill="#2d2a32"/></g>'+
+ '<path class="ol" d="M54 92 Q80 82 106 92 L112 154 Q80 166 48 154 Z" fill="'+body+'"/>'+
+ '<g id="'+id+'-armL"><path class="ln" d="M58 104 Q40 124 38 146"/><circle class="ol" cx="37" cy="151" r="10" fill="#ffe3d0"/></g>'+
+ '<g id="'+id+'-armR"><path class="ln" d="M102 104 Q120 124 122 146"/><circle class="ol" cx="123" cy="151" r="10" fill="#ffe3d0"/></g>'+
+ '<g id="'+id+'-head"><circle class="ol" cx="80" cy="52" r="38" fill="#ffe9d6"/>'+
+ '<path class="ol" d="M44 44 Q80 -8 116 44 Q80 26 44 44 Z" fill="'+hat+'"/><circle class="ol" cx="80" cy="6" r="9" fill="'+hat+'"/>'+
+ '<circle cx="66" cy="58" r="5" fill="#2d2a32"/><circle cx="94" cy="58" r="5" fill="#2d2a32"/>'+
+ '<ellipse cx="55" cy="72" rx="9" ry="6" fill="#ff8fab" opacity=".7"/><ellipse cx="105" cy="72" rx="9" ry="6" fill="#ff8fab" opacity=".7"/>'+
+ '<path class="ln" style="stroke-width:5" d="M70 74 Q80 84 90 74"/></g></svg>';}
+function put(id,html){document.getElementById(id).innerHTML=html;}
+function wave(tl,id,t,n){var a=id+"-armR";tl.to("#"+a,{rotation:-150,svgOrigin:"102 104",duration:.35,ease:"power2.out"},t);
+ tl.to("#"+a,{rotation:-120,svgOrigin:"102 104",duration:.22,repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t+.35);
+ tl.to("#"+a,{rotation:0,svgOrigin:"102 104",duration:.4,ease:"power2.inOut"},t+.35+n*.44);}
+function bounce(tl,id,t,n,h){tl.to("#"+id,{y:-(h||14),duration:.28,repeat:n*2-1,yoyo:true,ease:"power1.inOut"},t);}
+function walk(tl,id,t,dur,n){tl.to("#"+id+"-legL",{rotation:18,svgOrigin:"70 152",duration:dur/(n*2),repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t);
+ tl.to("#"+id+"-legR",{rotation:-18,svgOrigin:"92 152",duration:dur/(n*2),repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t);}
+function typing(tl,id,t,dur){var n=Math.max(2,Math.round(dur/.16));
+ tl.to("#"+id+"-armL",{rotation:-38,svgOrigin:"58 104",duration:.3,ease:"power2.out"},t);
+ tl.to("#"+id+"-armR",{rotation:38,svgOrigin:"102 104",duration:.3,ease:"power2.out"},t);
+ tl.to("#"+id+"-armL",{rotation:-26,svgOrigin:"58 104",duration:.16,repeat:n,yoyo:true,ease:"none"},t+.3);
+ tl.to("#"+id+"-armR",{rotation:26,svgOrigin:"102 104",duration:.16,repeat:n,yoyo:true,ease:"none"},t+.38);}
+function point(tl,id,t,hold){var a=id+"-armR";tl.to("#"+a,{rotation:-100,svgOrigin:"102 104",duration:.35,ease:"back.out(1.6)"},t);
+ tl.to("#"+a,{rotation:0,svgOrigin:"102 104",duration:.4,ease:"power2.inOut"},t+.35+(hold||1));}
+function pop(tl,sel,t,o){o=o||{};tl.fromTo(sel,{opacity:0,scale:o.s||.6,y:o.y||0,x:o.x||0},{opacity:1,scale:1,y:0,x:0,duration:o.d||.45,ease:"back.out(1.7)",transformOrigin:o.origin||"50% 50%"},t);}
+function draw(tl,sel,t,d){tl.fromTo(sel,{strokeDashoffset:1},{strokeDashoffset:0,duration:d||.6,ease:"power2.out"},t);}
+function captions(tl,boxId){var box=document.getElementById(boxId);CAPS.forEach(function(c,i){var e=document.createElement("div");e.className="c";e.textContent=c.t;box.appendChild(e);
+ var s=c.s+LEAD,en=c.e+LEAD+0.05;tl.fromTo(e,{opacity:0,y:14},{opacity:1,y:0,duration:.2,ease:"power2.out"},s);
+ tl.to(e,{opacity:0,duration:.15},Math.max(s+.25,en-.12));});}
+function icon(n,c,s){c=c||"#ffd166";s=s||100;var b='<svg viewBox="0 0 100 100" width="'+s+'" height="'+s+'" style="overflow:visible">',e='</svg>';
+ var m={
+ box:'<path class="ol" d="M12 34 L50 16 L88 34 L88 72 L50 90 L12 72 Z" fill="'+c+'"/><path class="ln" d="M12 34 L50 52 L88 34 M50 52 V90"/>',
+ zip:'<rect class="ol" x="20" y="10" width="60" height="80" rx="10" fill="'+c+'"/><path class="ln" stroke-dasharray="5 9" d="M50 12 V58"/><rect class="ol" x="38" y="58" width="24" height="20" rx="5" fill="#fff"/>',
+ doc:'<path class="ol" d="M22 8 H62 L80 26 V92 H22 Z" fill="'+c+'"/><path class="ln" d="M62 8 V26 H80 M34 46 H68 M34 60 H68 M34 74 H56"/>',
+ gear:'<g class="ln">'+[0,45,90,135,180,225,270,315].map(function(a){return '<path d="M50 8 V22" transform="rotate('+a+' 50 50)"/>';}).join("")+'</g><circle class="ol" cx="50" cy="50" r="30" fill="'+c+'"/><circle class="ol" cx="50" cy="50" r="11" fill="#fff"/>',
+ cursor:'<path class="ol" d="M28 12 L28 80 L45 64 L58 90 L70 84 L57 60 L80 58 Z" fill="'+c+'"/>',
+ shield:'<path class="ol" d="M50 8 L86 22 V50 C86 72 70 86 50 94 C30 86 14 72 14 50 V22 Z" fill="'+c+'"/><path class="ln" d="M32 52 L45 65 L70 38"/>',
+ camera:'<rect class="ol" x="10" y="28" width="80" height="56" rx="12" fill="'+c+'"/><path class="ol" d="M32 28 L38 16 H62 L68 28" fill="'+c+'"/><circle class="ol" cx="50" cy="56" r="17" fill="#fff"/><circle cx="50" cy="56" r="7" fill="#2d2a32"/>',
+ lock:'<path class="ln" d="M30 44 V32 C30 14 70 14 70 32 V44"/><rect class="ol" x="20" y="42" width="60" height="46" rx="10" fill="'+c+'"/><circle cx="50" cy="62" r="6" fill="#2d2a32"/><path class="ln" d="M50 66 V76"/>',
+ check:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:9" d="M28 52 L44 68 L74 34"/>',
+ cross:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:9" d="M33 33 L67 67 M67 33 L33 67"/>',
+ ask:'<circle class="ol" cx="50" cy="50" r="40" fill="'+c+'"/><path class="ln" style="stroke-width:8" d="M36 38 C36 22 66 22 64 40 C62 52 50 52 50 64"/><circle cx="50" cy="78" r="5" fill="#2d2a32"/>',
+ search:'<circle class="ol" cx="42" cy="42" r="26" fill="'+c+'"/><path class="ln" style="stroke-width:10" d="M62 62 L88 88"/>',
+ folder:'<path class="ol" d="M8 24 H38 L46 34 H92 V82 H8 Z" fill="'+c+'"/>',
+ puzzle:'<path class="ol" d="M14 30 H40 C34 14 62 14 56 30 H82 V50 C98 44 98 72 82 66 V88 H14 Z" fill="'+c+'"/>',
+ star:'<path class="ol" d="M50 8 L61 38 L92 40 L68 60 L76 91 L50 74 L24 91 L32 60 L8 40 L39 38 Z" fill="'+c+'"/>',
+ table:'<rect class="ol" x="10" y="18" width="80" height="64" rx="8" fill="#fff"/><path class="ln" style="stroke-width:5" d="M10 38 H90 M10 58 H90 M38 18 V82 M64 18 V82"/><rect x="12" y="20" width="76" height="16" rx="5" fill="'+c+'" opacity=".9"/>'
+ };return b+m[n]+e;}
+function sparkle(x,y,s,c){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" viewBox="0 0 40 40" width="'+s+'" height="'+s+'"><path class="ol" style="stroke-width:3" d="M20 2 L24 16 L38 20 L24 24 L20 38 L16 24 L2 20 L16 16 Z" fill="'+(c||"#ffd166")+'"/></svg>';}
+function cur(tl,sel,x,y,t,d){tl.to(sel,{x:x,y:y,duration:d||.7,ease:"power2.inOut"},t);}
+function click(tl,sel,t){tl.to(sel,{scale:.86,duration:.1,yoyo:true,repeat:1,transformOrigin:"50% 50%",ease:"power1.inOut"},t);}
+function typeText(tl,id,text,t,dur){var el=document.getElementById(id);el.innerHTML=text.split("").map(function(c){return '<span style="opacity:0">'+(c===" "?"&nbsp;":c)+'</span>';}).join("");
+ tl.to(el.children,{opacity:1,duration:.01,stagger:dur/Math.max(1,text.length)},t);}
+function toggle(tl,id,t){tl.to("#"+id,{backgroundColor:"#06d6a0",duration:.2},t);tl.to("#"+id+" i",{x:34,duration:.25,ease:"back.out(2)"},t);}
+function arrow(x,y,w,h,id){return '<svg class="abs" style="left:'+x+'px;top:'+y+'px" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" style="overflow:visible"><path id="'+id+'" class="ln" pathLength="1" stroke-dasharray="1" d="M6 '+(h/2)+' C'+(w*.3)+' '+(h*.1)+' '+(w*.6)+' '+(h*.9)+' '+(w-26)+' '+(h/2)+'"/><path id="'+id+'h" class="ln" d="M'+(w-40)+' '+(h/2-16)+' L'+(w-8)+' '+(h/2)+' L'+(w-40)+' '+(h/2+16)+'" opacity="0"/></svg>';}
+
+var W=[{"t": "AI", "s": 0.1, "e": 0.52}, {"t": "对", "s": 0.53, "e": 0.69}, {"t": "接页", "s": 0.69, "e": 0.93}, {"t": "里", "s": 0.93, "e": 1.17}, {"t": "选", "s": 1.34, "e": 1.58}, {"t": "好", "s": 1.58, "e": 1.7}, {"t": "协议", "s": 1.71, "e": 2.08}, {"t": "OpenAI", "s": 2.38, "e": 3.28}, {"t": "Anthropic", "s": 3.51, "e": 4.27}, {"t": "Gemini", "s": 4.58, "e": 5.14}, {"t": "或者", "s": 5.24, "e": 5.51}, {"t": "兼容", "s": 5.52, "e": 5.78}, {"t": "的", "s": 5.78, "e": 5.85}, {"t": "本地", "s": 5.88, "e": 6.17}, {"t": "服务", "s": 6.18, "e": 6.62}, {"t": "都", "s": 6.71, "e": 6.89}, {"t": "行", "s": 6.89, "e": 7.18}, {"t": "填", "s": 7.71, "e": 7.92}, {"t": "上", "s": 7.92, "e": 8.11}, {"t": "接口", "s": 8.14, "e": 8.41}, {"t": "地址", "s": 8.42, "e": 8.88}, {"t": "模型", "s": 9.15, "e": 9.68}, {"t": "ID", "s": 9.79, "e": 10.2}, {"t": "和", "s": 10.21, "e": 10.34}, {"t": "Key", "s": 10.34, "e": 10.72}, {"t": "先", "s": 11.05, "e": 11.33}, {"t": "测试", "s": 11.34, "e": 11.63}, {"t": "连接", "s": 11.64, "e": 12.04}, {"t": "再点", "s": 12.23, "e": 12.58}, {"t": "保存", "s": 12.59, "e": 13.11}, {"t": "并", "s": 13.22, "e": 13.36}, {"t": "用于", "s": 13.37, "e": 13.57}, {"t": "审计", "s": 13.58, "e": 14.01}, {"t": "Key", "s": 14.55, "e": 14.88}, {"t": "只", "s": 14.88, "e": 15.01}, {"t": "保存", "s": 15.02, "e": 15.55}, {"t": "在", "s": 15.65, "e": 15.81}, {"t": "你", "s": 15.81, "e": 15.91}, {"t": "本地", "s": 15.92, "e": 16.31}, {"t": "敏感", "s": 16.7, "e": 17.02}, {"t": "信息", "s": 17.03, "e": 17.41}, {"t": "发给", "s": 17.43, "e": 17.67}, {"t": "模型", "s": 17.68, "e": 17.98}, {"t": "之前", "s": 18.0, "e": 18.48}, {"t": "也", "s": 18.64, "e": 18.77}, {"t": "会", "s": 18.77, "e": 18.93}, {"t": "自动", "s": 18.95, "e": 19.25}, {"t": "脱敏", "s": 19.26, "e": 19.6}];var CAPS=[{"t": "AI 对接页里，选好协议", "s": 0.1, "e": 2.08}, {"t": "OpenAI、Anthropic、Gemini 或者兼容的本地服务都行", "s": 2.38, "e": 7.18}, {"t": "填上接口地址、模型 ID 和 Key", "s": 7.71, "e": 10.72}, {"t": "先测试连接，再点保存并用于审计", "s": 11.05, "e": 14.01}, {"t": "Key 只保存在你本地", "s": 14.55, "e": 16.31}, {"t": "敏感信息发给模型之前，也会自动脱敏", "s": 16.7, "e": 19.6}];var LEAD=0.4;
+(function(){
+ put("s8-lk",icon("lock","#ffd166",70));put("s8-sh",icon("shield","#ffffff",70));put("s8-cur",icon("cursor","#ffffff",74));
+ put("s8-fig",figure("f8",{body:"#ef476f",hat:"#ffd166",w:240,h:330}));
+ document.getElementById("s8-sp").innerHTML=sparkle(1310,210,44)+sparkle(1850,380,40,"#ff8fab")+sparkle(1330,800,46,"#8ecae6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s8-o1,#s8-o2,#s8-o3,#s8-o4,#s8-bt,#s8-bs,#s8-ok,#s8-st1,#s8-st2,#s8-cur",{opacity:0});
+ tl.fromTo("#s8-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s8-mod",{opacity:0,y:60},{opacity:1,y:0,duration:.7,ease:"power3.out"},.5);
+ tl.fromTo("#s8-fig",{opacity:0,y:120},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.8);
+ [["#s8-o1","OpenAI"],["#s8-o2","Anthropic"],["#s8-o3","Gemini"],["#s8-o4","本地"]].forEach(function(a){pop(tl,a[0],T(a[1])-.1,{s:.4});});
+ var ob=["#s8-o1","#s8-o2","#s8-o3","#s8-o4"];
+ tl.to("#s8-o1",{scale:1.12,duration:.2,yoyo:true,repeat:1,transformOrigin:"50% 50%"},T("兼容")+.4);
+ typeText(tl,"s8-in1","https://api.example.com/v1",T("接口"),1.3);
+ typeText(tl,"s8-in2","gpt-4o-mini",T("模型")+.1,.9);
+ typeText(tl,"s8-in3","••••••••••••••••",T("Key")+.1,.9);
+ typing(tl,"f8",T("接口"),3.4);
+ var t1=T("测试");
+ tl.set("#s8-cur",{x:420,y:700});tl.fromTo("#s8-cur",{opacity:0},{opacity:1,duration:.3},t1-.8);
+ cur(tl,"#s8-cur",250,745,t1-.7,.7);pop(tl,"#s8-bt",t1-1.4,{s:.4});click(tl,"#s8-cur",t1+.3);click(tl,"#s8-bt",t1+.3);
+ pop(tl,"#s8-ok",t1+.9,{s:.3});
+ var t2=T("保存");
+ pop(tl,"#s8-bs",t2-1.0,{s:.4});
+ cur(tl,"#s8-cur",560,745,t2-.5,.5);click(tl,"#s8-cur",t2+.25);click(tl,"#s8-bs",t2+.25);tl.to("#s8-bs",{backgroundColor:"#06d6a0",duration:.2},t2+.3);
+ tl.to("#s8-cur",{opacity:0,duration:.3},t2+1.1);
+ pop(tl,"#s8-st1",T("只保存")-.1,{s:.4,x:60});
+ pop(tl,"#s8-st2",T("敏感")-.1,{s:.4,x:60});
+ tl.fromTo("#s8-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.25,ease:"back.out(2)",transformOrigin:"50% 50%"},T("脱敏")-.3);
+ tl.to("#f8-armR",{rotation:-160,svgOrigin:"102 104",duration:.35,ease:"back.out(2)"},T("脱敏"));tl.to("#f8-armL",{rotation:160,svgOrigin:"58 104",duration:.35,ease:"back.out(2)"},T("脱敏"));
+ bounce(tl,"s8-fig",T("脱敏")+.2,3,16);
+ captions(tl,"s8-cap");
+ window.__timelines["s8"]=tl;
+})();
+</script>
+</template></body></html>

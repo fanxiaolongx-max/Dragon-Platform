@@ -8,11 +8,12 @@ const fs = require('fs');
 const { URL } = require('url');
 const desktopLanguage = require('../backend/models/desktop-language');
 desktopLanguage.events.on('change', (language) => {
-    for (const win of [petWin, chatWin, settingsWin]) {
+    for (const win of [petWin, chatWin, settingsWin, quotaPanelWin]) {
         if (win && !win.isDestroyed()) win.webContents.send('pet-language-change', language);
     }
 });
 const { detectAllQuotas } = require('./quota-detector');
+const { panelBounds, PANEL_SIZE } = require('./quota-panel-layout');
 const {
     startKeyboardHook,
     stopKeyboardHook,
@@ -24,6 +25,12 @@ const {
 let petWin = null;
 let chatWin = null;
 let settingsWin = null;
+let quotaPanelWin = null;
+let quotaPanelReady = false;
+let lastQuotaData = null;
+let quotaPanelAnchor = null;
+let quotaPanelSide = null;
+let quotaPanelOptions = { enabled:true, group:'gemini' };
 
 let localServerPort = 3030;
 let localBaseUrl = 'http://localhost:3030';
@@ -101,6 +108,7 @@ function openStoryChat(id) {
 function sendPetEnvironment() {
     if (!petWin || petWin.isDestroyed() || petWin.webContents.isLoading()) return;
     try {
+        syncQuotaPanel();
         const bounds = petWin.getBounds();
         const display = screen.getDisplayMatching(bounds) || screen.getPrimaryDisplay();
         petWin.webContents.send('pet-environment', {
@@ -158,6 +166,8 @@ const DEFAULT_CONFIG = {
     soundVol: 0.8,
     soundSet: 'duck',
     bubbleOn: true,
+    quotaPanelOn: true,
+    quotaPanelGroup: 'gemini',
     typingOn: true,
     eyeGazeOn: true,
     randomMotionOn: true,
@@ -274,6 +284,39 @@ function calculateChatBounds(petBounds, chatW = 440, chatH = 620) {
     };
 }
 
+function closeQuotaPanel() {
+    quotaPanelReady = false;
+    if (quotaPanelWin && !quotaPanelWin.isDestroyed()) quotaPanelWin.destroy();
+    quotaPanelWin = null; quotaPanelSide = null;
+}
+
+function syncQuotaPanel() {
+    if (!petWin || petWin.isDestroyed() || !petWin.isVisible() || !quotaPanelOptions.enabled) {
+        if (quotaPanelWin && !quotaPanelWin.isDestroyed()) quotaPanelWin.hide();
+        return;
+    }
+    if (!quotaPanelWin || quotaPanelWin.isDestroyed()) {
+        quotaPanelReady = false;
+        quotaPanelWin = new BrowserWindow({
+            width:PANEL_SIZE.width,height:PANEL_SIZE.height,parent:petWin,
+            frame:false,transparent:true,alwaysOnTop:true,resizable:false,skipTaskbar:true,
+            hasShadow:false,show:false,focusable:false,backgroundColor:'#00000000',
+            webPreferences:{nodeIntegration:true,contextIsolation:false}
+        });
+        quotaPanelWin.setIgnoreMouseEvents(true,{forward:true});
+        quotaPanelWin.on('closed',()=>{quotaPanelWin=null;quotaPanelReady=false;});
+        quotaPanelWin.loadFile(path.join(__dirname,'quota-panel.html')).catch(()=>closeQuotaPanel());
+    }
+    const pet = petWin.getBounds();
+    const area = (screen.getDisplayMatching(pet) || screen.getPrimaryDisplay()).workArea;
+    const next = panelBounds(pet,area,quotaPanelAnchor,quotaPanelSide);
+    quotaPanelSide = next.side;
+    const {side,...bounds} = next;
+    const current = quotaPanelWin.getBounds();
+    if (['x','y','width','height'].some(key=>bounds[key]!==current[key])) quotaPanelWin.setBounds(bounds);
+    if (quotaPanelReady && !quotaPanelWin.isVisible()) quotaPanelWin.showInactive();
+}
+
 /**
  * 创建桌宠透明视窗
  */
@@ -284,6 +327,8 @@ function createPetWindow() {
     }
 
     const cfg = loadPetConfig();
+    quotaPanelOptions = {enabled:cfg.quotaPanelOn !== false,group:cfg.quotaPanelGroup === 'third-party' ? 'third-party' : 'gemini'};
+    quotaPanelAnchor = null;
     const primaryDisplay = screen.getPrimaryDisplay();
     const workArea = primaryDisplay.workArea;
 
@@ -335,6 +380,7 @@ function createPetWindow() {
     petWin.on('show', sendPetEnvironment);
     petWin.on('hide', sendPetEnvironment);
     petWin.on('closed', () => {
+        closeQuotaPanel();
         petWin = null;
         stopKeyboardHook();
     });
@@ -461,9 +507,11 @@ function createSettingsWindow() {
 /**
  * 刷新并向前端广播多模型额度数据 (容错静默)
  */
-async function refreshQuotas() {
+async function refreshQuotas(force = false) {
     try {
-        const quotas = await detectAllQuotas();
+        const quotas = await detectAllQuotas(force);
+        lastQuotaData = quotas;
+        if (quotaPanelWin && !quotaPanelWin.isDestroyed() && quotaPanelReady) quotaPanelWin.webContents.send('pet-quota-update', quotas);
         if (petWin && !petWin.isDestroyed()) {
             petWin.webContents.send('pet-quota-update', quotas);
         }
@@ -481,7 +529,34 @@ function registerIpc() {
     ipcRegistered = true;
     ipcMain.handle('pet-get-language', () => desktopLanguage.getLanguage());
     const isPetSender = event => petWin && !petWin.isDestroyed() && event.sender === petWin.webContents;
+    const isQuotaPanelSender = event => quotaPanelWin && !quotaPanelWin.isDestroyed() && event.sender === quotaPanelWin.webContents;
     const isChatSender = event => chatWin && !chatWin.isDestroyed() && event.sender === chatWin.webContents;
+    ipcMain.on('pet-quota-panel-ready', event => {
+        if (!isQuotaPanelSender(event)) return;
+        quotaPanelReady = true;
+        quotaPanelWin.webContents.send('pet-quota-panel-config', {group:quotaPanelOptions.group});
+        if (lastQuotaData) quotaPanelWin.webContents.send('pet-quota-update',lastQuotaData);
+        syncQuotaPanel();
+    });
+    ipcMain.on('pet-quota-anchor', (event, rect) => {
+        if (!isPetSender(event) || !rect) return;
+        const bounds = petWin.getBounds();
+        if (!['x','y','width','height'].every(key=>typeof rect[key] === 'number' && Number.isFinite(rect[key]))) return;
+        if (rect.width <= 0 || rect.height <= 0 || rect.x < -5 || rect.y < -5 || rect.x+rect.width > bounds.width+5 || rect.y+rect.height > bounds.height+5) return;
+        if (quotaPanelAnchor && ['x','y','width','height'].every(key=>Math.abs(rect[key]-quotaPanelAnchor[key])<3)) return;
+        quotaPanelAnchor = {x:rect.x,y:rect.y,width:rect.width,height:rect.height};
+        syncQuotaPanel();
+    });
+    ipcMain.on('pet-quota-panel-options', (event, patch) => {
+        if (!isPetSender(event) || !patch) return;
+        const config = {};
+        if (typeof patch.quotaPanelOn === 'boolean') config.quotaPanelOn = patch.quotaPanelOn;
+        if (['gemini','third-party'].includes(patch.quotaPanelGroup)) config.quotaPanelGroup = patch.quotaPanelGroup;
+        const merged = savePetConfig(config);
+        quotaPanelOptions = {enabled:merged.quotaPanelOn !== false,group:merged.quotaPanelGroup};
+        if (quotaPanelWin && !quotaPanelWin.isDestroyed() && quotaPanelReady) quotaPanelWin.webContents.send('pet-quota-panel-config',{group:quotaPanelOptions.group});
+        syncQuotaPanel();
+    });
     ipcMain.on('pet-request-environment', event => { if (isPetSender(event)) sendPetEnvironment(); });
     ipcMain.handle('pet-get-stories', (event, language) => {
         if (!isPetSender(event) && !isChatSender(event)) throw new Error('PET_STORY_WINDOW_REQUIRED');
@@ -512,7 +587,8 @@ function registerIpc() {
     });
 
     // 获取前端初始参数 (端口、Token、配额数据)
-    ipcMain.handle('pet-get-init-data', async () => {
+    ipcMain.handle('pet-get-init-data', async event => {
+        if (!isChatSender(event)) throw new Error('PET_CHAT_WINDOW_REQUIRED');
         const token = await getOrCreateDesktopPetToken();
         const quotas = await detectAllQuotas().catch(() => null);
         return {
@@ -645,6 +721,9 @@ function registerIpc() {
     ipcMain.on('pet-config-changed', (event, cfg) => {
         try {
             const merged = savePetConfig(cfg);
+            quotaPanelOptions = {enabled:merged.quotaPanelOn !== false,group:merged.quotaPanelGroup === 'third-party' ? 'third-party' : 'gemini'};
+            if (quotaPanelWin && !quotaPanelWin.isDestroyed() && quotaPanelReady) quotaPanelWin.webContents.send('pet-quota-panel-config',{group:quotaPanelOptions.group});
+            syncQuotaPanel();
             if (petWin && !petWin.isDestroyed()) {
                 petWin.webContents.send('pet-apply-config', merged);
             }
@@ -700,8 +779,9 @@ function registerIpc() {
     });
 
     // 请求额度数据
-    ipcMain.on('pet-request-quota', () => {
-        refreshQuotas();
+    ipcMain.on('pet-request-quota', (event, options) => {
+        if (!isPetSender(event) && !isChatSender(event)) return;
+        refreshQuotas(options?.force === true);
     });
 }
 
@@ -741,6 +821,7 @@ function setPetEnabled(enabled) {
         // 彻底关闭并销毁窗口，恢复完全无桌宠状态
         if (chatWin && !chatWin.isDestroyed()) chatWin.destroy();
         if (settingsWin && !settingsWin.isDestroyed()) settingsWin.destroy();
+        closeQuotaPanel();
         if (petWin && !petWin.isDestroyed()) petWin.destroy();
         chatWin = null;
         settingsWin = null;
@@ -801,6 +882,7 @@ function cleanupDesktopPet() {
         clearInterval(quotaPollingTimer);
         quotaPollingTimer = null;
     }
+    closeQuotaPanel();
     if (chatWin && !chatWin.isDestroyed()) chatWin.destroy();
     if (settingsWin && !settingsWin.isDestroyed()) settingsWin.destroy();
     if (petWin && !petWin.isDestroyed()) petWin.destroy();

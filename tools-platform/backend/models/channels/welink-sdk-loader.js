@@ -161,6 +161,9 @@ async function load(options = {}) {
 
 /** 按入口文件 + 修改时间缓存；重新导入同路径文件时 URL 带上新的版本号，绕过 ESM 模块缓存。 */
 async function importEntry(entry) {
+    // Electron 28 / Node 18 没有全局 WebSocket；SDK 在模块求值和连接时都会使用它。
+    // 必须在动态 import 之前补齐，并保留较新 Node 或宿主提供的原生实现。
+    if (typeof globalThis.WebSocket !== 'function') globalThis.WebSocket = require('ws');
     let version = 0;
     try { version = Math.round(fs.statSync(entry).mtimeMs); } catch { version = 0; }
     const key = `${entry}?v=${version}`;
