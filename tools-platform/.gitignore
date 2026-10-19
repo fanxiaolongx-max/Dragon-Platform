@@ -56,5 +56,4 @@ frontend/assets/videos/
 *.mov
 *.m4v
 
-# 首页推广视频（体积小，需随仓库发布；其余视频仍不入库）
-!frontend/assets/promotions/*.mp4
+# 首页推广海报和矢量图随仓库发布，视频文件（*.mp4）托管于 Dragon-Platform-Media Releases，不入库

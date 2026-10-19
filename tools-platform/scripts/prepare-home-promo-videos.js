@@ -49,8 +49,12 @@ function buildManifest() {
 }
 
 function checkManifest() {
-    const expected = buildManifest();
     const saved = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const allFilesPresent = FILES.every(name => fs.existsSync(path.join(projectRoot, 'frontend/assets/promotions', name)));
+    if (!allFilesPresent) {
+        return saved;
+    }
+    const expected = buildManifest();
     if (JSON.stringify(expected) !== JSON.stringify(saved)) {
         throw new Error('Home video sources changed. Publish a new media release and regenerate its manifest before packaging.');
     }
