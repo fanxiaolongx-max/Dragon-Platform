@@ -7,7 +7,8 @@
 
     const TEXT = {
         'zh-CN': {
-            badge: '全能智能体', newChat: '新对话',
+            badge: '全能智能体', newChat: '新对话', history: '历史',
+            chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}',
             activityThinking: '正在思考…', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
             resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
             tagline: '我是 Dragon Claw，你的全能智能体。问我任何问题，或者让我带你用好平台里的工具。',
@@ -15,7 +16,7 @@
             send: '发送', stop: '停止生成', you: '你',
             greetEarly: '夜深了', greetMorning: '早上好', greetNoon: '中午好', greetAfternoon: '下午好', greetEvening: '晚上好',
             spotFrequent: '你常用的', spotRandom: '随手推荐', spotAsk: '想感受一下「{name}」吗？',
-            spotGo: '带我看看', spotOpen: '直接打开', spotMore: '也可以试试', spotPrev: '上一个', spotNext: '下一个',
+            spotGo: '带我看看', spotOpen: '直接打开', spotGem: '隐藏小功能', spotGemAsk: '发现一个小功能：「{name}」', spotGemOpen: '去试试', introWhere: '在哪里找到它：', spotMore: '也可以试试', spotPrev: '上一个', spotNext: '下一个',
             tryTool: '想体验一下「{name}」', introCan: '它能帮你做什么', introGroup: '分类：{group}', introUpdated: '{time}更新',
             introOpen: '打开 {name}', introAskLogic: '讲讲它的实现逻辑', introAskHow: '怎么上手使用？',
             introFooter: '点下面的按钮就能直接使用；想了解实现细节或使用技巧，也可以继续问我。',
@@ -51,7 +52,8 @@
             workspaceDisabled: '工作区仅在本机或管理员账号下可用'
         },
         'en-US': {
-            badge: 'All-round agent', newChat: 'New chat',
+            badge: 'All-round agent', newChat: 'New chat', history: 'History',
+            chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}',
             activityThinking: 'Thinking…', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
             resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: '↑↓ to choose · Enter to run · Tab to complete', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
             tagline: 'I’m Dragon Claw, your all-round agent. Ask me anything, or let me show you around the tools on this platform.',
@@ -59,7 +61,7 @@
             send: 'Send', stop: 'Stop generating', you: 'You',
             greetEarly: 'Working late', greetMorning: 'Good morning', greetNoon: 'Good afternoon', greetAfternoon: 'Good afternoon', greetEvening: 'Good evening',
             spotFrequent: 'Your frequent tool', spotRandom: 'Picked for you', spotAsk: 'Want to try “{name}”?',
-            spotGo: 'Show me', spotOpen: 'Open it', spotMore: 'Or try', spotPrev: 'Previous', spotNext: 'Next',
+            spotGo: 'Show me', spotOpen: 'Open it', spotGem: 'Hidden gem', spotGemAsk: 'Did you know about “{name}”?', spotGemOpen: 'Try it', introWhere: 'Where to find it:', spotMore: 'Or try', spotPrev: 'Previous', spotNext: 'Next',
             tryTool: 'I’d like to try “{name}”', introCan: 'What it can do for you', introGroup: 'Category: {group}', introUpdated: 'updated {time}',
             introOpen: 'Open {name}', introAskLogic: 'Explain how it works', introAskHow: 'How do I get started?',
             introFooter: 'Use the button below to open it right away, or keep asking me about how it works.',
@@ -163,6 +165,46 @@
         return window.HomeWorkspace?.getTools?.() || [];
     }
 
+    // 藏在各工具内部的小功能（F12 插件、Python 脚本、浮窗脚本，js/home/capabilities.js），按工具的结构包装后参与推荐
+    function capabilityTools() {
+        return (window.HomeCapabilities?.items?.() || []).map(item => ({
+            id: `cap:${item.id}`,
+            title: item.displayName || item.name,
+            description: item.description || '',
+            href: item.href,
+            icon: item.icon,
+            group: item.groupLabel,
+            color: item.color,
+            tags: [],
+            updatedText: '',
+            capability: true,
+            where: item.where
+        }));
+    }
+
+    // 每次进入首页轮播第一张是一个「隐藏小功能」，优先挑最近没展示过的，轮完一遍再从头
+    const GEM_SEEN_KEY = 'dragon_claw_gem_seen';
+
+    function pickGem(caps) {
+        if (!caps.length) return null;
+        if (state.gemId) {
+            const kept = caps.find(item => item.id === state.gemId);
+            if (kept) return kept;
+        }
+        let seen = [];
+        try { seen = JSON.parse(localStorage.getItem(GEM_SEEN_KEY) || '[]'); } catch { seen = []; }
+        if (!Array.isArray(seen)) seen = [];
+        let pool = caps.filter(item => !seen.includes(item.id));
+        if (!pool.length) {
+            seen = [];
+            pool = caps;
+        }
+        const gem = shuffle(pool)[0];
+        state.gemId = gem.id;
+        try { localStorage.setItem(GEM_SEEN_KEY, JSON.stringify([...seen, gem.id].slice(-60))); } catch { /* 无痕模式下每次随机 */ }
+        return gem;
+    }
+
     function prefersReducedMotion() {
         return matchMedia('(prefers-reduced-motion: reduce)').matches;
     }
@@ -186,7 +228,7 @@
     }
 
     function renderPrompts() {
-        const featured = state.spotlight[0];
+        const featured = state.spotlight.find(item => !item.capability); // 「解释代码逻辑」只针对工具
         const prompts = [
             featured ? { label: tx('promptLogic', { name: featured.title }), prompt: tx('askLogic', { name: featured.title, href: featured.href }), tool: featured.id } : null,
             { label: tx('promptMetrics') },
@@ -208,14 +250,20 @@
 
     function buildSpotlight() {
         const all = tools().filter(tool => tool.href && tool.title);
-        const signature = all.map(tool => tool.id).sort().join('|');
+        const caps = capabilityTools().filter(tool => tool.href && tool.title);
+        const signature = [...all, ...caps].map(tool => tool.id).sort().join('|');
         if (!all.length || signature === state.spotSignature) return;
         state.spotSignature = signature;
         const byId = new Map(all.map(tool => [tool.id, tool]));
         const recent = (window.HomeWorkspace?.recentIds?.() || []).map(id => byId.get(id)).filter(Boolean);
-        const frequent = recent.slice(0, 4).map(tool => ({ ...tool, frequent: true }));
+        const frequent = recent.slice(0, 3).map(tool => ({ ...tool, frequent: true }));
         const frequentIds = new Set(frequent.map(tool => tool.id));
-        state.spotlight = [...frequent, ...shuffle(all.filter(tool => !frequentIds.has(tool.id)))].slice(0, SPOTLIGHT_SIZE);
+        const gem = pickGem(caps);
+        // 其余位置以工具为主，穿插两个小功能
+        const rest = shuffle(all.filter(tool => !frequentIds.has(tool.id)));
+        const extraCaps = shuffle(caps.filter(item => item !== gem)).slice(0, 2);
+        extraCaps.forEach((item, index) => rest.splice(Math.min(rest.length, 2 + index * 3), 0, item));
+        state.spotlight = [...(gem ? [gem] : []), ...frequent, ...rest].slice(0, SPOTLIGHT_SIZE);
         state.spotIndex = 0;
         renderPrompts();
         renderSpotlight();
@@ -236,13 +284,17 @@
             <div class="dc-spot-card">
                 <div class="dc-spot-icon" aria-hidden="true">${escapeHtml(tool.icon || '✨')}</div>
                 <div class="dc-spot-copy">
-                    <div class="dc-spot-kicker">${escapeHtml(tool.frequent ? tx('spotFrequent') : tx('spotRandom'))} · ${escapeHtml(tool.group)}</div>
-                    <div class="dc-spot-title">${escapeHtml(tx('spotAsk', { name: tool.title }))}</div>
+                    ${tool.capability
+                        ? `<div class="dc-spot-kicker is-gem"><span class="dc-spot-gem">✦ ${escapeHtml(tx('spotGem'))}</span><span>${escapeHtml(tool.group)}</span></div>
+                    <div class="dc-spot-title">${escapeHtml(tx('spotGemAsk', { name: tool.title }))}</div>`
+                        : `<div class="dc-spot-kicker">${escapeHtml(tool.frequent ? tx('spotFrequent') : tx('spotRandom'))} · ${escapeHtml(tool.group)}</div>
+                    <div class="dc-spot-title">${escapeHtml(tx('spotAsk', { name: tool.title }))}</div>`}
                     <div class="dc-spot-desc">${escapeHtml(tool.description)}</div>
+                    ${tool.capability && tool.where ? `<div class="dc-spot-where" title="${escapeHtml(tool.where)}"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 14s4.5-4.1 4.5-7.4A4.5 4.5 0 0 0 3.5 6.6C3.5 9.9 8 14 8 14Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="6.6" r="1.6" fill="currentColor"/></svg><span>${escapeHtml(tool.where)}</span></div>` : ''}
                 </div>
                 <div class="dc-spot-actions">
                     <button type="button" class="dc-spot-go" data-spot-go="${escapeHtml(tool.id)}">${escapeHtml(tx('spotGo'))}</button>
-                    <a class="dc-spot-open" href="${escapeHtml(tool.href)}">${escapeHtml(tx('spotOpen'))} <span aria-hidden="true">↗</span></a>
+                    <a class="dc-spot-open" href="${escapeHtml(tool.href)}">${escapeHtml(tx(tool.capability ? 'spotGemOpen' : 'spotOpen'))} <span aria-hidden="true">↗</span></a>
                 </div>
             </div>
             <div class="dc-spot-foot">
@@ -600,7 +652,8 @@
 
     function toolIntro(tool) {
         const lines = [`**${tool.icon ? `${tool.icon} ` : ''}${tool.title}** — ${tool.description}`];
-        if (tool.tags.length) {
+        if (tool.where) lines.push('', `**${tx('introWhere')}** ${tool.where}`);
+        if (tool.tags?.length) {
             lines.push('', `**${tx('introCan')}**`, ...tool.tags.slice(0, 5).map(tag => `- ${tag}`));
         }
         const meta = [tx('introGroup', { group: tool.group }), tool.updatedText ? tx('introUpdated', { time: tool.updatedText }) : ''].filter(Boolean).join(' · ');
@@ -609,7 +662,8 @@
     }
 
     async function introduceTool(toolId) {
-        const tool = tools().find(item => item.id === toolId) || state.spotlight.find(item => item.id === toolId);
+        const tool = tools().find(item => item.id === toolId) || state.spotlight.find(item => item.id === toolId)
+            || capabilityTools().find(item => item.id === toolId);
         if (!tool || state.controller) return;
         state.focusedTool = tool;
         setChatting(true);
@@ -646,6 +700,15 @@
         for (const line of catalog) {
             if (context.length + line.length > CONTEXT_MAX_CHARS) break;
             context += `${line}\n`;
+        }
+        // 藏在工具内部的插件与脚本：便于回答「平台有哪些插件 / 某个脚本在哪」
+        const caps = capabilityTools().map(item => `- ${item.title}｜${item.href}｜${item.group}｜${item.where}｜${item.description.slice(0, 80)}`);
+        if (caps.length && context.length < CONTEXT_MAX_CHARS - 200) {
+            context += `\n平台插件与脚本（名称｜入口｜类别｜位置｜简介）：\n`;
+            for (const line of caps) {
+                if (context.length + line.length > CONTEXT_MAX_CHARS) break;
+                context += `${line}\n`;
+            }
         }
         return context;
     }
@@ -879,15 +942,22 @@
         try {
             localStorage.setItem(LAST_CHAT_KEY, JSON.stringify({ sessionId, user: currentUser(), updatedAt: Date.now(), ...(keptAgent ? { agent: keptAgent } : {}) }));
         } catch { /* 存储不可用时不提供续接 */ }
+        markActiveChat();
+        scheduleChatListRefresh();
     }
 
     function forgetLastChat() {
+        scheduleChatListRefresh();
         try { localStorage.removeItem(LAST_CHAT_KEY); } catch { /* ignore */ }
     }
 
     // 数据库时间是 UTC 的 "YYYY-MM-DD HH:MM:SS"
+    function parseChatTime(value) {
+        return new Date(/Z$|[+-]\d{2}:?\d{2}$/.test(String(value)) ? value : `${String(value || '').replace(' ', 'T')}Z`);
+    }
+
     function formatChatTime(value) {
-        const date = new Date(/Z$|[+-]\d{2}:?\d{2}$/.test(String(value)) ? value : `${String(value || '').replace(' ', 'T')}Z`);
+        const date = parseChatTime(value);
         if (Number.isNaN(date.getTime())) return '';
         return date.toLocaleString(lang() === 'en-US' ? 'en-US' : 'zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });
     }
@@ -1205,6 +1275,150 @@
         loadSessionList(query);
     }
 
+    // ── 侧栏历史对话（对话模式左侧面板） ────────────
+    const chatList = { items: [], loaded: false, failed: false, seq: 0, timer: null, searchTimer: null };
+
+    function chatGroupKey(date) {
+        const startOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+        const days = Math.round((startOfDay(new Date()) - startOfDay(date)) / 86400000);
+        if (days <= 0) return 'chatToday';
+        if (days === 1) return 'chatYesterday';
+        if (days < 7) return 'chatWeek';
+        if (days < 30) return 'chatMonth';
+        return 'chatOlder';
+    }
+
+    function chatItemTime(date, group) {
+        const locale = lang() === 'en-US' ? 'en-US' : 'zh-CN';
+        if (group === 'chatToday' || group === 'chatYesterday') return date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: false });
+        return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+    }
+
+    function renderChatList() {
+        if (!el.chatList) return;
+        if (!chatList.loaded) {
+            el.chatList.innerHTML = '<div class="home-chat-skeleton" aria-hidden="true"><span></span><span></span><span></span><span></span></div>';
+            return;
+        }
+        if (chatList.failed) {
+            el.chatList.innerHTML = `<div class="home-chat-empty">${escapeHtml(tx('chatLoadFailed'))}<button type="button" class="home-chat-retry" data-chat-retry>${escapeHtml(tx('chatRetry'))}</button></div>`;
+            return;
+        }
+        if (!chatList.items.length) {
+            el.chatList.innerHTML = `<div class="home-chat-empty">${escapeHtml(tx(el.chatSearch?.value.trim() ? 'chatNoMatch' : 'chatEmpty'))}</div>`;
+            return;
+        }
+        let currentGroup = '';
+        const html = [];
+        chatList.items.forEach((item, index) => {
+            const date = parseChatTime(item.updatedAt);
+            const valid = !Number.isNaN(date.getTime());
+            const group = valid ? chatGroupKey(date) : 'chatOlder';
+            if (group !== currentGroup) {
+                currentGroup = group;
+                html.push(`<div class="home-chat-group">${escapeHtml(tx(group))}</div>`);
+            }
+            const title = String(item.firstQuestion || item.lastQuestion || item.id).replace(/\s+/g, ' ').trim();
+            const root = item.agent?.root || '';
+            const folder = root ? `<svg class="home-chat-folder" viewBox="0 0 16 16" aria-label="${escapeHtml(tx('chatFolderTitle', { root }))}"><title>${escapeHtml(tx('chatFolderTitle', { root }))}</title><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>` : '';
+            html.push(`<button type="button" class="home-chat-item${item.id === state.sessionId ? ' is-active' : ''}" role="listitem" data-chat-index="${index}" title="${escapeHtml(title)}"${item.id === state.sessionId ? ' aria-current="true"' : ''}>
+                <span class="home-chat-title">${escapeHtml(title)}</span>
+                <span class="home-chat-meta">${folder}<span>${valid ? escapeHtml(chatItemTime(date, group)) : ''}</span></span>
+            </button>`);
+        });
+        el.chatList.innerHTML = html.join('');
+    }
+
+    function markActiveChat() {
+        el.chatList?.querySelectorAll('[data-chat-index]').forEach(button => {
+            const active = chatList.items[Number(button.dataset.chatIndex)]?.id === state.sessionId;
+            button.classList.toggle('is-active', active);
+            if (active) button.setAttribute('aria-current', 'true');
+            else button.removeAttribute('aria-current');
+        });
+    }
+
+    async function loadChatList() {
+        if (!el.chatList) return;
+        const seq = ++chatList.seq;
+        const query = el.chatSearch?.value.trim() || '';
+        try {
+            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=80&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            if (seq !== chatList.seq) return;
+            chatList.items = Array.isArray(data.items) ? data.items : [];
+            chatList.failed = false;
+        } catch {
+            if (seq !== chatList.seq) return;
+            chatList.failed = !chatList.items.length; // 已有列表时刷新失败就保留旧列表
+        }
+        chatList.loaded = true;
+        renderChatList();
+    }
+
+    function scheduleChatListRefresh(delay = 600) {
+        if (!el.chatList) return;
+        clearTimeout(chatList.timer);
+        chatList.timer = setTimeout(loadChatList, delay);
+    }
+
+    function openChatFromList(item) {
+        if (!item) return;
+        if (item.id === state.sessionId && state.messages.length) {
+            setChatting(true);
+            el.input.focus({ preventScroll: true });
+            return;
+        }
+        if (state.controller) return showToast(tx('chatBusy'));
+        openSession(item);
+    }
+
+    function bindChatList() {
+        if (!el.chatList) return;
+        el.chatList.addEventListener('click', event => {
+            if (event.target.closest('[data-chat-retry]')) {
+                chatList.loaded = false;
+                renderChatList();
+                return loadChatList();
+            }
+            const button = event.target.closest('[data-chat-index]');
+            if (button) openChatFromList(chatList.items[Number(button.dataset.chatIndex)]);
+        });
+        // ↑↓ 在列表中移动焦点
+        el.chatList.addEventListener('keydown', event => {
+            if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+            const buttons = [...el.chatList.querySelectorAll('[data-chat-index]')];
+            const index = buttons.indexOf(document.activeElement);
+            if (index < 0) return;
+            event.preventDefault();
+            buttons[Math.max(0, Math.min(buttons.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)))]?.focus();
+        });
+        el.chatSearch?.addEventListener('input', () => {
+            clearTimeout(chatList.searchTimer);
+            chatList.searchTimer = setTimeout(loadChatList, 220);
+        });
+        el.chatSearch?.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                el.chatSearch.value = '';
+                loadChatList();
+                el.chatSearch.blur();
+            } else if (event.key === 'ArrowDown') {
+                const first = el.chatList.querySelector('[data-chat-index]');
+                if (first) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            }
+        });
+        document.getElementById('homeChatNew')?.addEventListener('click', () => {
+            window.HomeMode?.set?.('chat');
+            newChat();
+        });
+        renderChatList();
+        loadChatList();
+    }
+
     function newChat() {
         resumeEpoch += 1;
         state.restoring = false;
@@ -1218,6 +1432,7 @@
         window.DragonClawSkills?.reset?.(); // 保持的 Skill 只属于当前对话
         el.thread.innerHTML = '';
         setChatting(false);
+        markActiveChat();
         refreshResumeCard(); // 刚离开的对话可以再接回去
         window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
         el.input.focus();
@@ -1333,23 +1548,22 @@
         });
 
         el.newChat.addEventListener('click', newChat);
-        el.back.addEventListener('click', () => {
-            setChatting(false);
-            requestAnimationFrame(() => window.HomeWorkspace?.scrollToTools?.());
-        });
-        el.scrollHint.addEventListener('click', () => window.HomeWorkspace?.scrollToTools?.());
-
-        window.addEventListener('home:show-agent', () => {
+        // 对话与工具是两种互斥模式（js/home/home-mode.js）：离开对话不清空当前对话，切回来原样继续
+        el.back.addEventListener('click', () => window.HomeMode?.set?.('tools', { focus: true }));
+        el.history?.addEventListener('click', () => openSessionPicker());
+        document.getElementById('homeHistoryBtn')?.addEventListener('click', () => openSessionPicker());
+        window.addEventListener('home:mode', event => {
+            if (event.detail?.mode !== 'chat') return;
             if (state.messages.length) setChatting(true);
-            else window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
-            el.input.focus({ preventScroll: true });
+            scheduleChatListRefresh(0);
         });
-        window.addEventListener('home:show-tools', () => setChatting(false));
         window.addEventListener('home:tools-updated', buildSpotlight);
+        window.addEventListener('home:capabilities', buildSpotlight);
         window.addEventListener('tools:languagechange', () => {
             applyTexts();
             if (!state.messages.length) refreshResumeCard();
             renderModelPicker();
+            renderChatList();
         });
     }
 
@@ -1365,7 +1579,9 @@
         el.greeting = document.getElementById('dcGreeting');
         el.newChat = document.getElementById('dcNewChat');
         el.back = document.getElementById('dcBackToTools');
-        el.scrollHint = document.getElementById('dcScrollHint');
+        el.history = document.getElementById('dcHistoryBtn');
+        el.chatList = document.getElementById('homeChatList');
+        el.chatSearch = document.getElementById('homeChatSearch');
         el.model = document.getElementById('dcModel');
         el.modelBtn = document.getElementById('dcModelBtn');
         el.modelName = document.getElementById('dcModelName');
@@ -1391,6 +1607,7 @@
         el.resume.hidden = true;
         el.form.insertAdjacentElement('afterend', el.resume);
         bindEvents();
+        bindChatList();
         bindModelPicker();
         loadModels();
         applyTexts();

@@ -1398,6 +1398,10 @@ if __name__ == '__main__':
 
     // 全局状态
     let currentScriptId = 'pr-audit-sampler';
+    // 首页「插件与脚本」入口：?script=<id> 直接打开对应脚本
+    let linkedScriptId = '';
+    try { linkedScriptId = new URLSearchParams(location.search).get('script') || ''; } catch { /* 没有地址参数的运行环境 */ }
+    if (/^[A-Za-z0-9_.-]{1,80}$/.test(linkedScriptId)) currentScriptId = linkedScriptId;
     let currentCode = '';
     let versionsHistory = [];
 

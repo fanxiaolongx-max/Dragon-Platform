@@ -631,6 +631,17 @@
       } catch (error) {
         setScriptLibraryStatus(`服务器脚本列表读取失败：${error.message}`, 'text-amber-300');
       }
+      // 首页「插件与脚本」入口：?script=<内置 id> 或 ?script=server:<id> 直接载入对应脚本
+      const linkedScript = quickRequest.get('script') || '';
+      const linkedValid = /^server:[a-zA-Z0-9_-]+$/.test(linkedScript) ? serverScripts.some(item => `server:${item.id}` === linkedScript) : Object.hasOwn(BUILTIN_SCRIPTS, linkedScript);
+      if (linkedValid) {
+        try {
+          document.getElementById('builtinScriptSelect').value = linkedScript;
+          await loadSelectedScript(linkedScript);
+        } catch (error) {
+          setScriptLibraryStatus(`载入脚本失败：${error.message}`, 'text-amber-300');
+        }
+      }
     });
 
     document.getElementById('builtinScriptSelect').addEventListener('change', async event => {

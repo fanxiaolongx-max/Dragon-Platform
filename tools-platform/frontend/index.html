@@ -980,53 +980,108 @@
     <link rel="stylesheet" href="/css/dragon-claw.css">
     <link rel="stylesheet" href="/css/dragon-claw-skills.css">
     <link rel="stylesheet" href="/css/workspace-panel.css">
+    <link rel="stylesheet" href="/css/home-mode.css">
+    <link rel="stylesheet" href="/css/home-capabilities.css">
 </head>
 <body>
     <div class="home-content home-workspace">
-        <aside class="home-sidebar" id="homeSidebar" aria-label="工具分类">
-            <div class="home-sidebar-head">
-                <label class="home-search">
-                    <span class="home-search-icon" aria-hidden="true">⌕</span>
-                    <input type="search" id="homeToolSearch" placeholder="搜索工具 / 拼音首字母" autocomplete="off" spellcheck="false">
-                    <kbd class="home-search-kbd" aria-hidden="true">/</kbd>
-                </label>
-                <button type="button" class="home-sidebar-toggle" id="homeSidebarToggle" aria-label="收起菜单" title="收起菜单">
-                    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <aside class="home-sidebar" id="homeSidebar" aria-label="首页导航">
+            <!-- 图标栏：对话 / 工具两种模式互斥（js/home/home-mode.js），友情链接以弹层展示 -->
+            <nav class="home-rail" aria-label="首页模式">
+                <button type="button" class="home-rail-btn" data-home-mode="chat" aria-pressed="true">
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.5 4.5h11a1.5 1.5 0 0 1 1.5 1.5v6.5a1.5 1.5 0 0 1-1.5 1.5H9l-3.5 2.8V14h-1A1.5 1.5 0 0 1 3 12.5V6a1.5 1.5 0 0 1 1.5-1.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 8.3h6M7 10.8h3.8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    <span class="home-rail-label" data-home-mode-i18n="chat">对话</span>
                 </button>
-            </div>
-            <nav class="home-cat-nav" id="homeCategoryNav" aria-label="工具分类"></nav>
-            <div class="custom-tools-panel" id="customToolsPanel" style="display:none;">
-                <span class="custom-tools-note">导入 HTML 或 ZIP 工具包后，会自动生成首页模块和顶部导航入口，并默认支持静态快照与 Pages 推送</span>
-                <button class="custom-tool-upload market" id="toolMarketBtn">🛍️ 工具市场</button>
-                <button class="custom-tool-upload" id="customToolUploadBtn">导入 HTML / ZIP 工具</button>
-            </div>
-            <nav class="friend-links" aria-label="友情链接">
-                <div class="friend-links-head">
-                    <button type="button" class="friend-links-label" id="friendLinksManageBtn" data-home-i18n="home.links.title">友情链接</button>
-                    <span class="friend-links-count" id="friendLinksCount" hidden></span>
-                </div>
-                <div class="friend-links-list">
-                    <a class="friend-link" href="https://wise.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="wise.fanxiaolong.uk"><span class="friend-link-icon">💰</span><span data-home-i18n="home.links.wise">财务管理</span></a>
-                    <a class="friend-link" href="https://app.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="app.fanxiaolong.uk"><span class="friend-link-icon">📱</span><span data-home-i18n="home.links.app">手机控制</span></a>
-                    <a class="friend-link" href="https://yutang.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="yutang.fanxiaolong.uk"><span class="friend-link-icon">🤖</span><span data-home-i18n="home.links.yutang">AI 远程控机</span></a>
-                    <a class="friend-link" data-friend-link-id="api" href="https://api.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="api.fanxiaolong.uk"><span class="friend-link-icon">⚡</span><span data-home-i18n="home.links.api">API 中转</span></a>
-                    <a class="friend-link" href="https://api2.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="api2.fanxiaolong.uk"><span class="friend-link-icon">🔁</span><span data-home-i18n="home.links.api2">API 中转二站</span></a>
-                    <a class="friend-link" href="https://cs2.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="cs2.fanxiaolong.uk"><span class="friend-link-icon">🛟</span><span data-home-i18n="home.links.cs2">工具中台备用</span></a>
-                    <a class="friend-link" href="https://cs.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="cs.fanxiaolong.uk"><span class="friend-link-icon">🏠</span><span data-home-i18n="home.links.csMain">工具中台主站</span></a>
-                    <a class="friend-link" href="https://cs.fanxiaolong.uk/desktop-license-admin" target="_blank" rel="noopener noreferrer" title="cs.fanxiaolong.uk/desktop-license-admin"><span class="friend-link-icon">🔑</span><span data-home-i18n="home.links.license">License 发放</span></a>
-                    <a class="friend-link" href="https://ssh.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="ssh.fanxiaolong.uk"><span class="friend-link-icon">☁️</span><span data-home-i18n="home.links.ssh">移动终端云</span></a>
-                    <a class="friend-link" href="https://pcap.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="pcap.fanxiaolong.uk"><span class="friend-link-icon">📡</span><span data-home-i18n="home.links.pcap">网络分析</span></a>
-                    <a class="friend-link" href="https://openclaw3.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="openclaw3.fanxiaolong.uk"><span class="friend-link-icon">🦞</span><span>OpenClaw</span></a>
-                    <a class="friend-link" href="https://bobapro.life/" target="_blank" rel="noopener noreferrer" title="bobapro.life"><span class="friend-link-icon">🧋</span><span>BobaPro</span></a>
-                    <a class="friend-link" href="https://canting.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="canting.fanxiaolong.uk"><span class="friend-link-icon">🍽️</span><span data-home-i18n="home.links.canting">餐厅服务</span></a>
-                    <a class="friend-link" href="https://ims.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="ims.fanxiaolong.uk"><span class="friend-link-icon">🗂️</span><span>IMS</span></a>
-                    <a class="friend-link" href="https://boda-3xyulq.fly.dev/" target="_blank" rel="noopener noreferrer" title="boda-3xyulq.fly.dev"><span class="friend-link-icon">🏪</span><span>线上中超</span></a>
-                    <a class="friend-link" href="https://canting-demo.fly.dev/" target="_blank" rel="noopener noreferrer" title="canting-demo.fly.dev"><span class="friend-link-icon">🧪</span><span>餐厅 Demo</span></a>
-                    <a class="friend-link" href="https://boda-t0amgq.fly.dev/" target="_blank" rel="noopener noreferrer" title="boda-t0amgq.fly.dev"><span class="friend-link-icon">🍜</span><span>家家乐点餐</span></a>
-                    <a class="friend-link" href="https://boda-0mqtrq.fly.dev/" target="_blank" rel="noopener noreferrer" title="boda-0mqtrq.fly.dev"><span class="friend-link-icon">🧋</span><span>Neferdidi 奶茶店</span></a>
-                    <a class="friend-link" href="https://grok-api2.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="grok-api2.fanxiaolong.uk"><span class="friend-link-icon">✦</span><span>Grok API 二站</span></a>
-                </div>
+                <button type="button" class="home-rail-btn" data-home-mode="tools" aria-pressed="false">
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 3.5h5v5h-5zM11.5 3.5h5v5h-5zM3.5 11.5h5v5h-5zM11.5 11.5h5v5h-5z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                    <span class="home-rail-label" data-home-mode-i18n="tools">工具</span>
+                </button>
+                <!-- 手机：侧栏不显示历史列表，改为弹窗 -->
+                <button type="button" class="home-rail-btn home-rail-history" id="homeHistoryBtn">
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.8 10a6.2 6.2 0 1 0 1.9-4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3.5 3.8v2.6h2.6M10 6.6V10l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    <span class="home-rail-label" data-home-mode-i18n="history">历史</span>
+                </button>
+                <span class="home-rail-spacer" aria-hidden="true"></span>
+                <button type="button" class="home-rail-btn" id="homeLinksBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="homeLinksPop">
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.6 11.4a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-1 1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M11.4 8.6a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l1-1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                    <span class="home-rail-label" data-home-mode-i18n="links">链接</span>
+                </button>
             </nav>
+
+            <div class="home-panel">
+                <!-- 对话模式：历史对话（js/home/dragon-claw.js 渲染列表） -->
+                <section class="home-panel-view" data-home-panel="chat" aria-label="历史对话">
+                    <div class="home-panel-head">
+                        <span class="home-panel-title" data-home-mode-i18n="chatTitle">对话</span>
+                        <button type="button" class="home-sidebar-toggle" aria-label="收起侧栏" title="收起侧栏">
+                            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                    </div>
+                    <button type="button" class="home-chat-new" id="homeChatNew">
+                        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+                        <span data-home-mode-i18n="newChat">新对话</span>
+                    </button>
+                    <label class="home-search home-search--compact">
+                        <span class="home-search-icon" aria-hidden="true">⌕</span>
+                        <input type="search" id="homeChatSearch" placeholder="搜索对话" autocomplete="off" spellcheck="false">
+                    </label>
+                    <div class="home-chat-list" id="homeChatList" role="list"></div>
+                </section>
+
+                <!-- 工具模式：搜索 + 分类（js/home/workspace.js） -->
+                <section class="home-panel-view" data-home-panel="tools" aria-label="工具分类" hidden>
+                    <div class="home-panel-head">
+                        <span class="home-panel-title" data-home-mode-i18n="toolsTitle">工具</span>
+                        <button type="button" class="home-sidebar-toggle" aria-label="收起侧栏" title="收起侧栏">
+                            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
+                    </div>
+                    <label class="home-search home-search--compact">
+                        <span class="home-search-icon" aria-hidden="true">⌕</span>
+                        <input type="search" id="homeToolSearch" placeholder="搜索工具 / 拼音首字母" autocomplete="off" spellcheck="false">
+                        <kbd class="home-search-kbd" aria-hidden="true">/</kbd>
+                    </label>
+                    <nav class="home-cat-nav" id="homeCategoryNav" aria-label="工具分类"></nav>
+                    <!-- 插件与脚本：F12 插件 / Python 脚本 / 浮窗脚本等（js/home/capabilities.js，新增后自动出现） -->
+                    <nav class="home-cat-nav home-caps-nav" id="homeCapsNav" aria-label="插件与脚本" hidden></nav>
+                    <div class="custom-tools-panel" id="customToolsPanel" style="display:none;">
+                        <span class="custom-tools-note">导入 HTML 或 ZIP 工具包后，会自动生成首页模块和顶部导航入口，并默认支持静态快照与 Pages 推送</span>
+                        <button class="custom-tool-upload market" id="toolMarketBtn">🛍️ 工具市场</button>
+                        <button class="custom-tool-upload" id="customToolUploadBtn">导入 HTML / ZIP 工具</button>
+                    </div>
+                </section>
+            </div>
+
+            <!-- 友情链接弹层 -->
+            <div class="home-links-pop" id="homeLinksPop" role="dialog" aria-label="友情链接" hidden>
+                <nav class="friend-links" aria-label="友情链接">
+                    <div class="friend-links-head">
+                        <button type="button" class="friend-links-label" id="friendLinksManageBtn" data-home-i18n="home.links.title">友情链接</button>
+                        <span class="friend-links-count" id="friendLinksCount" hidden></span>
+                    </div>
+                    <div class="friend-links-list">
+                        <a class="friend-link" href="https://wise.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="wise.fanxiaolong.uk"><span class="friend-link-icon">💰</span><span data-home-i18n="home.links.wise">财务管理</span></a>
+                        <a class="friend-link" href="https://app.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="app.fanxiaolong.uk"><span class="friend-link-icon">📱</span><span data-home-i18n="home.links.app">手机控制</span></a>
+                        <a class="friend-link" href="https://yutang.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="yutang.fanxiaolong.uk"><span class="friend-link-icon">🤖</span><span data-home-i18n="home.links.yutang">AI 远程控机</span></a>
+                        <a class="friend-link" data-friend-link-id="api" href="https://api.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="api.fanxiaolong.uk"><span class="friend-link-icon">⚡</span><span data-home-i18n="home.links.api">API 中转</span></a>
+                        <a class="friend-link" href="https://api2.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="api2.fanxiaolong.uk"><span class="friend-link-icon">🔁</span><span data-home-i18n="home.links.api2">API 中转二站</span></a>
+                        <a class="friend-link" href="https://cs2.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="cs2.fanxiaolong.uk"><span class="friend-link-icon">🛟</span><span data-home-i18n="home.links.cs2">工具中台备用</span></a>
+                        <a class="friend-link" href="https://cs.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="cs.fanxiaolong.uk"><span class="friend-link-icon">🏠</span><span data-home-i18n="home.links.csMain">工具中台主站</span></a>
+                        <a class="friend-link" href="https://cs.fanxiaolong.uk/desktop-license-admin" target="_blank" rel="noopener noreferrer" title="cs.fanxiaolong.uk/desktop-license-admin"><span class="friend-link-icon">🔑</span><span data-home-i18n="home.links.license">License 发放</span></a>
+                        <a class="friend-link" href="https://ssh.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="ssh.fanxiaolong.uk"><span class="friend-link-icon">☁️</span><span data-home-i18n="home.links.ssh">移动终端云</span></a>
+                        <a class="friend-link" href="https://pcap.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="pcap.fanxiaolong.uk"><span class="friend-link-icon">📡</span><span data-home-i18n="home.links.pcap">网络分析</span></a>
+                        <a class="friend-link" href="https://openclaw3.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="openclaw3.fanxiaolong.uk"><span class="friend-link-icon">🦞</span><span>OpenClaw</span></a>
+                        <a class="friend-link" href="https://bobapro.life/" target="_blank" rel="noopener noreferrer" title="bobapro.life"><span class="friend-link-icon">🧋</span><span>BobaPro</span></a>
+                        <a class="friend-link" href="https://canting.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="canting.fanxiaolong.uk"><span class="friend-link-icon">🍽️</span><span data-home-i18n="home.links.canting">餐厅服务</span></a>
+                        <a class="friend-link" href="https://ims.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="ims.fanxiaolong.uk"><span class="friend-link-icon">🗂️</span><span>IMS</span></a>
+                        <a class="friend-link" href="https://boda-3xyulq.fly.dev/" target="_blank" rel="noopener noreferrer" title="boda-3xyulq.fly.dev"><span class="friend-link-icon">🏪</span><span>线上中超</span></a>
+                        <a class="friend-link" href="https://canting-demo.fly.dev/" target="_blank" rel="noopener noreferrer" title="canting-demo.fly.dev"><span class="friend-link-icon">🧪</span><span>餐厅 Demo</span></a>
+                        <a class="friend-link" href="https://boda-t0amgq.fly.dev/" target="_blank" rel="noopener noreferrer" title="boda-t0amgq.fly.dev"><span class="friend-link-icon">🍜</span><span>家家乐点餐</span></a>
+                        <a class="friend-link" href="https://boda-0mqtrq.fly.dev/" target="_blank" rel="noopener noreferrer" title="boda-0mqtrq.fly.dev"><span class="friend-link-icon">🧋</span><span>Neferdidi 奶茶店</span></a>
+                        <a class="friend-link" href="https://grok-api2.fanxiaolong.uk/" target="_blank" rel="noopener noreferrer" title="grok-api2.fanxiaolong.uk"><span class="friend-link-icon">✦</span><span>Grok API 二站</span></a>
+                    </div>
+                </nav>
+            </div>
         </aside>
 
         <main class="home-main">
@@ -1040,6 +1095,7 @@
                 </div>
                 <div class="dc-chat-actions">
                     <button type="button" class="dc-ghost-btn dc-workspace-toggle" id="dcWorkspaceToggle" hidden aria-pressed="false"><span class="dc-workspace-toggle-dot" aria-hidden="true"></span><span data-dc-i18n="workspace">工作区</span></button>
+                    <button type="button" class="dc-ghost-btn dc-history-btn" id="dcHistoryBtn" data-dc-i18n="history">历史</button>
                     <button type="button" class="dc-ghost-btn" id="dcNewChat" data-dc-i18n="newChat">新对话</button>
                     <button type="button" class="dc-ghost-btn" id="dcBackToTools" data-dc-i18n="backToTools">浏览工具</button>
                 </div>
@@ -1086,11 +1142,26 @@
                 </span>
                 <span class="home-graph-arrow" aria-hidden="true">›</span>
             </button>
+            <button type="button" class="home-graph-entry home-caps-entry" id="homeCapsEntry" hidden>
+                <span class="home-graph-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5h3.2a1.8 1.8 0 1 1 3.6 0H19v3.3a1.8 1.8 0 1 1 0 3.6V15h-3.2a1.8 1.8 0 1 0-3.6 0H9v-3.4a1.8 1.8 0 1 0 0-3.6Z"></path><path d="M5 9v10.5h10.5"></path></svg>
+                </span>
+                <span class="home-graph-copy">
+                    <span class="home-graph-title" data-caps-entry-title>插件与脚本</span>
+                    <span class="home-graph-divider" aria-hidden="true"></span>
+                    <span class="home-graph-subtitle" data-caps-entry-sub></span>
+                </span>
+                <span class="home-graph-arrow" aria-hidden="true">›</span>
+            </button>
                 <div id="homeF12QuickDownloads" class="home-f12-shortcuts"></div>
             </div>
-            <button type="button" class="dc-scroll-hint" id="dcScrollHint"><span data-dc-i18n="browseTools">浏览全部工具</span><span aria-hidden="true">↓</span></button>
         </section>
 
+        <!-- 工具模式标题（js/home/workspace.js 按视图更新） -->
+        <header class="home-tools-head" id="homeToolsHead">
+            <h1 class="home-tools-title" id="homeToolsTitle">全部工具</h1>
+            <span class="home-tools-count" id="homeToolsCount"></span>
+        </header>
         <div class="tools-grid" id="toolsGrid">
             <a href="/uivf12" class="tool-card uivf12">
                 <div class="card-icon">🚀</div>
@@ -1245,6 +1316,8 @@
                 <div class="card-arrow">进入模块 →</div>
             </a>
         </div>
+        <!-- 插件与脚本：藏在各工具内部的小功能（js/home/capabilities.js） -->
+        <section class="home-caps" id="homeCaps" aria-labelledby="homeCapsTitle" hidden></section>
         <div class="home-empty" id="homeToolsEmpty" hidden>
             <div class="home-empty-icon" aria-hidden="true">🔍</div>
             <div class="home-empty-text" id="homeToolsEmptyText">没有匹配的工具</div>
@@ -1661,7 +1734,9 @@
     <script src="/js/shared/platform-logo-upload.js"></script>
     <script src="/js/shared/navbar.js"></script>
     <script src="/js/shared/app-dialog.js"></script>
+    <script src="/js/home/home-mode.js"></script>
     <script src="/js/home/workspace.js"></script>
+    <script src="/js/home/capabilities.js"></script>
     <script src="/js/home/workspace-panel.js"></script>
     <script src="/js/home/dragon-claw.js"></script>
     <script src="/js/home/dragon-claw-skills.js"></script>

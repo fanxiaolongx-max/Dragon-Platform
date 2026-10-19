@@ -1,4 +1,4 @@
-/* 首页工作台布局：左侧分类/搜索 + 右侧铺满的分组卡片网格（配合 js/home/workspace.js）。
+/* 首页工作台布局：左侧图标栏 + 面板（对话 / 工具两种模式，见 home-mode.css）+ 右侧主区（配合 js/home/workspace.js）。
    覆盖 index.html 内联样式中的旧版大卡片布局，因此在其之后加载。 */
 
 .home-content.home-workspace {
@@ -166,8 +166,8 @@
 .home-sidebar .custom-tools-note { display: none; }
 .home-sidebar .custom-tool-upload { justify-content: center; height: 34px; font-size: 12.5px; }
 
-/* 友情链接 */
-.home-sidebar .friend-links {
+/* 友情链接（图标栏弹层 .home-links-pop，见 home-mode.css） */
+.home-links-pop .friend-links {
     display: block;
     width: auto;
     margin: 0;
@@ -175,9 +175,9 @@
     border-top: 1px solid rgba(148, 163, 184, 0.1);
 }
 /* 标题行：名称 + 数量；列表两列等宽对齐，状态改为右侧小圆点，超过 10 个折叠 */
-.home-sidebar .friend-links-head { display: flex; align-items: center; gap: 6px; margin: 0 0 8px 4px; }
-.home-sidebar .friend-links-label { margin: 0; color: #64748b; font-size: 10.5px; letter-spacing: 0.08em; line-height: 20px; text-transform: uppercase; }
-.home-sidebar .friend-links-count {
+.home-links-pop .friend-links-head { display: flex; align-items: center; gap: 6px; margin: 0 0 8px 4px; }
+.home-links-pop .friend-links-label { margin: 0; color: #64748b; font-size: 10.5px; letter-spacing: 0.08em; line-height: 20px; text-transform: uppercase; }
+.home-links-pop .friend-links-count {
     padding: 0 6px;
     border-radius: 999px;
     background: rgba(148, 163, 184, 0.1);
@@ -187,12 +187,12 @@
     line-height: 16px;
     font-variant-numeric: tabular-nums;
 }
-.home-sidebar .friend-links-list {
+.home-links-pop .friend-links-list {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 2px 2px;
 }
-.home-sidebar .friend-link {
+.home-links-pop .friend-link {
     position: relative;
     display: grid;
     grid-template-columns: 20px minmax(0, 1fr);
@@ -210,20 +210,20 @@
     font-weight: 600;
     transform: none;
 }
-.home-sidebar .friend-link[hidden] { display: none; }
-.home-sidebar .friend-link:hover,
-.home-sidebar .friend-link:focus-visible {
+.home-links-pop .friend-link[hidden] { display: none; }
+.home-links-pop .friend-link:hover,
+.home-links-pop .friend-link:focus-visible {
     border-color: rgba(148, 163, 184, 0.14);
     background: rgba(148, 163, 184, 0.08);
     color: #f1f5f9;
     transform: none;
 }
-.home-sidebar .friend-link.status-online,
-.home-sidebar .friend-link.status-warning,
-.home-sidebar .friend-link.status-offline,
-.home-sidebar .friend-link.status-unknown { border-color: transparent; box-shadow: none; }
-.home-sidebar .friend-link.status-offline { color: #7c8aa0; }
-.home-sidebar .friend-link-icon {
+.home-links-pop .friend-link.status-online,
+.home-links-pop .friend-link.status-warning,
+.home-links-pop .friend-link.status-offline,
+.home-links-pop .friend-link.status-unknown { border-color: transparent; box-shadow: none; }
+.home-links-pop .friend-link.status-offline { color: #7c8aa0; }
+.home-links-pop .friend-link-icon {
     display: grid;
     place-items: center;
     width: 20px;
@@ -233,15 +233,15 @@
     font-size: 11.5px;
     line-height: 1;
 }
-.home-sidebar .friend-link-icon.is-letter {
+.home-links-pop .friend-link-icon.is-letter {
     background: hsl(var(--fl-hue) 70% 60% / 0.16);
     color: hsl(var(--fl-hue) 85% 76%);
     font-size: 10.5px;
     font-weight: 800;
 }
-.home-sidebar .friend-link > span:not(.friend-link-icon):not(.friend-link-dot) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-links-pop .friend-link > span:not(.friend-link-icon):not(.friend-link-dot) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 状态点：图标右下角的小角标，不额外占用名称宽度 */
-.home-sidebar .friend-link-dot {
+.home-links-pop .friend-link-dot {
     position: absolute;
     left: 19px;
     top: 19px;
@@ -251,10 +251,10 @@
     border-radius: 50%;
     background: #475569;
 }
-.home-sidebar .friend-link.status-online .friend-link-dot { background: #34d399; box-shadow: 0 0 6px rgba(52, 211, 153, 0.6); }
-.home-sidebar .friend-link.status-warning .friend-link-dot { background: #fbbf24; box-shadow: 0 0 6px rgba(251, 191, 36, 0.6); }
-.home-sidebar .friend-link.status-offline .friend-link-dot { background: #f87171; box-shadow: 0 0 6px rgba(248, 113, 113, 0.55); }
-.home-sidebar .friend-links-toggle {
+.home-links-pop .friend-link.status-online .friend-link-dot { background: #34d399; box-shadow: 0 0 6px rgba(52, 211, 153, 0.6); }
+.home-links-pop .friend-link.status-warning .friend-link-dot { background: #fbbf24; box-shadow: 0 0 6px rgba(251, 191, 36, 0.6); }
+.home-links-pop .friend-link.status-offline .friend-link-dot { background: #f87171; box-shadow: 0 0 6px rgba(248, 113, 113, 0.55); }
+.home-links-pop .friend-links-toggle {
     width: 100%;
     height: 28px;
     margin-top: 6px;
@@ -268,7 +268,7 @@
     cursor: pointer;
     transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
-.home-sidebar .friend-links-toggle:hover { border-color: rgba(100, 255, 218, 0.35); background: rgba(100, 255, 218, 0.06); color: var(--ws-accent); }
+.home-links-pop .friend-links-toggle:hover { border-color: rgba(100, 255, 218, 0.35); background: rgba(100, 255, 218, 0.06); color: var(--ws-accent); }
 
 /* ── 右侧主区 ───────────────────────────────── */
 .home-main { min-width: 0; }
@@ -492,7 +492,7 @@ body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var
         border: 1px solid rgba(148, 163, 184, 0.14);
         border-radius: 999px;
     }
-    .home-sidebar .friend-links { display: none; }
+    .home-links-pop .friend-links { display: none; }
     .home-sidebar .custom-tools-panel { flex-direction: row; }
     .home-sidebar .custom-tool-upload { flex: 1; min-width: 0; padding: 0 8px; }
     .home-workspace .tools-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
@@ -526,63 +526,6 @@ body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var
     .home-workspace .card-desc { -webkit-line-clamp: 2; font-size: 11px; line-height: 1.45; }
     .home-workspace .card-foot,
     .home-workspace .custom-tool-actions { display: none; }
-}
-
-/* ── 侧栏收缩按钮与图标栏（仅电脑宽度；js/home/workspace.js 切换 body.home-sidebar-collapsed） ── */
-.home-sidebar-toggle {
-    display: none;
-    flex: 0 0 38px;
-    width: 38px;
-    height: 44px;
-    min-height: 44px;
-    margin: 0;
-    padding: 0;
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    border-radius: 11px;
-    background: rgba(2, 6, 23, 0.45);
-    color: var(--ws-faint);
-    cursor: pointer;
-    place-items: center;
-    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
-}
-.home-sidebar-toggle svg { width: 14px; height: 14px; transition: transform 0.22s ease; }
-.home-sidebar-toggle:hover { color: var(--ws-accent); border-color: rgba(100, 255, 218, 0.4); background: rgba(100, 255, 218, 0.08); }
-.home-sidebar-toggle:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 2px; }
-
-@media (min-width: 861px) {
-    .home-sidebar-toggle { display: grid; }
-    .home-content.home-workspace { transition: grid-template-columns 0.24s ease; }
-
-    body.home-sidebar-collapsed .home-content.home-workspace { grid-template-columns: 60px minmax(0, 1fr); }
-    body.home-sidebar-collapsed.dc-workspace-open .home-content.home-workspace { grid-template-columns: 60px minmax(0, 1fr) var(--ws-panel-w); }
-    body.home-sidebar-collapsed.dc-workspace-open .home-sidebar { display: flex; } /* 收成图标栏后，工作区展开时也保留 */
-
-    body.home-sidebar-collapsed .home-sidebar { align-items: center; gap: 8px; padding: 10px 6px; }
-    body.home-sidebar-collapsed .home-sidebar-head { justify-content: center; width: 100%; }
-    body.home-sidebar-collapsed .home-sidebar-toggle { align-self: center; flex: 0 0 40px; width: 40px; height: 38px; min-height: 38px; margin: 0 0 2px; border-radius: 9px; }
-    body.home-sidebar-collapsed .home-sidebar-toggle svg { transform: rotate(180deg); }
-    body.home-sidebar-collapsed .home-search,
-    body.home-sidebar-collapsed .home-cat-label,
-    body.home-sidebar-collapsed .home-cat-name,
-    body.home-sidebar-collapsed .home-cat-count,
-    body.home-sidebar-collapsed .home-sidebar .friend-links { display: none; }
-    body.home-sidebar-collapsed .home-sidebar .custom-tools-panel { display: none !important; }
-    body.home-sidebar-collapsed .home-cat-nav { width: 100%; align-items: center; gap: 4px; }
-    body.home-sidebar-collapsed .home-cat-item {
-        grid-template-columns: 1fr;
-        justify-items: center;
-        width: 40px;
-        height: 38px;
-        padding: 0;
-    }
-    body.home-sidebar-collapsed .home-cat-item.is-active,
-    body.home-sidebar-collapsed .home-cat-item.is-current { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--group-color, var(--ws-accent)) 45%, transparent); }
-    body.home-sidebar-collapsed .home-cat-icon { width: 20px; height: 20px; }
-    body.home-sidebar-collapsed .home-cat-avatar { width: 22px; height: 22px; }
-    body.home-sidebar-collapsed .home-cat-dot { width: 10px; height: 10px; }
-}
-@media (prefers-reduced-motion: reduce) {
-    .home-content.home-workspace, .home-sidebar-toggle svg { transition: none; }
 }
 
 /* ── 推广与资讯 + 最近操作历史：宽屏左右并排，紧凑列表，限定高度（覆盖 index.html 内联与 home-promotions.css 的大尺寸） ── */

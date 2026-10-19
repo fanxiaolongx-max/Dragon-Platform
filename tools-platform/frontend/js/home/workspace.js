@@ -1,4 +1,4 @@
-// 首页工作台：左侧分类与搜索，右侧按分类分组铺满的卡片网格，卡片底部显示「上次更新」。
+// 首页工具模式：左侧分类与搜索，右侧按分类分组铺满的卡片网格，卡片底部显示「上次更新」。
 // 卡片仍由 index.html 渲染（内置为静态 HTML，自定义工具由 renderCustomToolCards 生成）；
 // 这里只做增强：分组排序、筛选、更新时间，不改动卡片自身的数据和事件。
 // 分类沿用导航设置（navbar.js 的 navState.settings），在导航中调整分类后首页同步变化。
@@ -10,25 +10,26 @@
             all: '全部工具', recent: '最近使用', groups: '分类', other: '其他',
             searchPlaceholder: '搜索工具 / 拼音首字母', empty: '没有匹配的工具', emptyRecent: '还没有最近使用的工具',
             updated: '{time}更新', justNow: '刚刚', minutes: '{n} 分钟前', hours: '{n} 小时前', days: '{n} 天前',
-            updatedTitle: '上次更新：{time}', collapse: '收起菜单', expand: '展开菜单'
+            updatedTitle: '上次更新：{time}', searchTitle: '搜索“{q}”', toolCount: '{n} 个工具'
         },
         'en-US': {
             all: 'All tools', recent: 'Recent', groups: 'Categories', other: 'Other',
             searchPlaceholder: 'Search tools', empty: 'No matching tools', emptyRecent: 'No recently used tools yet',
             updated: 'Updated {time}', justNow: 'just now', minutes: '{n}m ago', hours: '{n}h ago', days: '{n}d ago',
-            updatedTitle: 'Last updated: {time}', collapse: 'Collapse menu', expand: 'Expand menu'
+            updatedTitle: 'Last updated: {time}', searchTitle: 'Search “{q}”', toolCount: '{n} tools'
         }
     };
     const GROUP_COLORS = ['#38bdf8', '#34d399', '#a78bfa', '#f59e0b', '#f472b6', '#22d3ee', '#fb7185', '#a3e635', '#818cf8', '#fbbf24'];
     const CLOCK_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 4.6V8l2.3 1.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
 
-    const AGENT_SECTION = '__agent';
     const state = { view: 'all', query: '', currentGroup: '' };
     const updates = { pages: {}, tools: {}, toolsLoaded: false, toolsLoading: null };
     let grid;
     let sidebarNav;
     let searchInput;
     let emptyEl;
+    let headTitle;
+    let headCount;
     let groups = [];
     let layoutQueued = false;
 
@@ -199,7 +200,6 @@
                 <span class="home-cat-count">${count}</span>
             </button>`;
         sidebarNav.innerHTML = [
-            hasAgent() ? item('data-agent="1"', '<img class="home-cat-avatar" src="/assets/dragon-claw-avatar.jpg" alt="">', 'Dragon Claw', '<span class="home-cat-ai">AI</span>') : '',
             item('data-view="all"', '<svg viewBox="0 0 16 16"><path d="M2.5 2.5h4.5v4.5H2.5zM9 2.5h4.5v4.5H9zM2.5 9h4.5v4.5H2.5zM9 9h4.5v4.5H9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>', tx('all'), total),
             item('data-view="recent"', CLOCK_SVG, tx('recent'), recentCount),
             `<div class="home-cat-label">${escapeHtml(tx('groups'))}</div>`,
@@ -208,31 +208,29 @@
         syncSidebarState();
     }
 
-    // 首页顶部是 Dragon Claw 智能体（js/home/dragon-claw.js）；对话中时工具区隐藏。
-    function hasAgent() {
-        return Boolean(document.getElementById('dragonClaw'));
-    }
-
-    function isChatting() {
-        return document.body.classList.contains('dc-chatting');
+    // 首页分对话 / 工具两种互斥模式（js/home/home-mode.js），工具区只在工具模式下显示。
+    function isToolsMode() {
+        return document.body.classList.contains('home-mode-tools');
     }
 
     function syncSidebarState() {
         if (!sidebarNav) return;
         const browsing = state.view === 'all' && !state.query;
-        const agentActive = isChatting() || (browsing && state.currentGroup === AGENT_SECTION);
-        sidebarNav.querySelectorAll('[data-agent]').forEach(button => {
-            button.classList.toggle('is-active', agentActive);
-            button.setAttribute('aria-pressed', String(agentActive));
-        });
         sidebarNav.querySelectorAll('[data-view]').forEach(button => {
-            const active = !agentActive && button.dataset.view === state.view;
+            const active = button.dataset.view === state.view && !state.query;
             button.classList.toggle('is-active', active);
             button.setAttribute('aria-pressed', String(active));
         });
         sidebarNav.querySelectorAll('[data-group]').forEach(button => {
-            button.classList.toggle('is-current', !isChatting() && browsing && button.dataset.group === state.currentGroup);
+            button.classList.toggle('is-current', browsing && button.dataset.group === state.currentGroup);
         });
+    }
+
+    function renderToolsHead(visible) {
+        if (!headTitle) return;
+        const query = state.query.trim();
+        headTitle.textContent = query ? tx('searchTitle', { q: query }) : tx(state.view === 'recent' ? 'recent' : 'all');
+        if (headCount) headCount.textContent = tx('toolCount', { n: visible });
     }
 
     function applyFilter() {
@@ -261,7 +259,10 @@
             const text = emptyEl.querySelector('#homeToolsEmptyText');
             if (text) text.textContent = recent ? tx('emptyRecent') : tx('empty');
         }
+        renderToolsHead(visible);
         syncSidebarState();
+        // 插件与脚本区块（js/home/capabilities.js）跟随同一个搜索与视图过滤
+        window.dispatchEvent(new CustomEvent('home:tools-filtered', { detail: { view: state.view, query, visible } }));
     }
 
     function layout() {
@@ -299,7 +300,12 @@
         }));
     }
 
-    window.HomeWorkspace = { getTools, recentIds, syncSidebar: () => syncSidebarState(), scrollToTools };
+    window.HomeWorkspace = {
+        getTools, recentIds, syncSidebar: () => syncSidebarState(), scrollToTools,
+        getFilter: () => ({ view: state.view, query: state.query.trim() }),
+        // 侧栏其它区块（插件与脚本）被点击时，退出「最近使用」/搜索，回到全部视图
+        showAll: () => { if (state.view !== 'all' || state.query) setView('all'); }
+    };
 
     // 微任务批量重排：在绘制前完成（避免卡片先乱序再跳位），且不像 rAF 那样在后台标签页被暂停。
     function scheduleLayout() {
@@ -323,9 +329,9 @@
     }
 
     function updateCurrentGroup() {
-        if (state.view !== 'all' || state.query || isChatting()) return;
+        if (state.view !== 'all' || state.query || !isToolsMode()) return;
         const offset = navbarOffset() + 24;
-        let current = hasAgent() ? AGENT_SECTION : (groups[0]?.id || '');
+        let current = groups[0]?.id || '';
         groups.forEach(group => {
             if (group.head && !group.head.hidden && group.head.getBoundingClientRect().top <= offset) current = group.id;
         });
@@ -346,14 +352,13 @@
         scrollToTools();
     }
 
-    // 滚到工具区开头（首页顶部是智能体区域）
+    // 工具模式下工具区就在页面顶部
     function scrollToTools() {
-        const top = hasAgent() ? grid.getBoundingClientRect().top + window.scrollY - navbarOffset() - 8 : 0;
-        window.scrollTo({ top: Math.max(0, top), behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+        window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     }
 
     function showTools() {
-        if (isChatting()) window.dispatchEvent(new CustomEvent('home:show-tools'));
+        if (!isToolsMode()) window.HomeMode?.set?.('tools');
     }
 
     function onSearch() {
@@ -400,10 +405,6 @@
         sidebarNav?.addEventListener('click', event => {
             const button = event.target.closest('.home-cat-item');
             if (!button) return;
-            if (button.dataset.agent) {
-                window.dispatchEvent(new CustomEvent('home:show-agent'));
-                return;
-            }
             showTools();
             if (button.dataset.view) {
                 setView(button.dataset.view);
@@ -439,8 +440,10 @@
             const target = event.target;
             if (target.closest?.('input, textarea, select, [contenteditable="true"], dialog[open]')) return;
             event.preventDefault();
-            searchInput?.focus();
-            searchInput?.select();
+            // 工具模式聚焦工具搜索，对话模式聚焦历史对话搜索
+            const field = isToolsMode() ? searchInput : document.getElementById('homeChatSearch');
+            field?.focus();
+            field?.select();
         });
 
         // 卡片间方向键导航：按视觉顺序在可见卡片中移动焦点。
@@ -475,14 +478,12 @@
 
         window.addEventListener('tools:languagechange', () => {
             if (searchInput) searchInput.placeholder = tx('searchPlaceholder');
-            applySidebarMode();
             scheduleLayout();
         });
         // navbar 加载/保存导航设置后会派发该事件，借此同步分类。
         window.addEventListener('tools:requirement-page-categories-change', scheduleLayout);
-        window.addEventListener('home:chat-state', () => {
-            if (!isChatting()) updateCurrentGroup();
-            syncSidebarState();
+        window.addEventListener('home:mode', () => {
+            if (isToolsMode()) requestAnimationFrame(updateCurrentGroup);
         });
 
         new MutationObserver(records => {
@@ -495,64 +496,16 @@
         setInterval(() => grid.querySelectorAll(':scope > a.tool-card').forEach(renderCardMeta), 60 * 1000);
     }
 
-    // ── 侧栏收缩：电脑窄屏（< 1280px）默认收成图标栏；手动切换后记住选择 ──
-    const SIDEBAR_KEY = 'home_sidebar_mode';
-    const SIDEBAR_AUTO_COLLAPSE = 1280;
-    const SIDEBAR_MOBILE = 860;
-    let sidebarToggle = null;
-
-    function storedSidebarMode() {
-        try { return localStorage.getItem(SIDEBAR_KEY); } catch { return null; }
-    }
-
-    function applySidebarMode() {
-        const mode = storedSidebarMode();
-        const collapsed = window.innerWidth > SIDEBAR_MOBILE
-            && (mode ? mode === 'collapsed' : window.innerWidth < SIDEBAR_AUTO_COLLAPSE);
-        document.body.classList.toggle('home-sidebar-collapsed', collapsed);
-        if (sidebarToggle) {
-            const label = tx(collapsed ? 'expand' : 'collapse');
-            sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
-            sidebarToggle.setAttribute('aria-label', label);
-            sidebarToggle.title = label;
-        }
-    }
-
-    function initSidebarToggle() {
-        const sidebar = document.getElementById('homeSidebar');
-        if (!sidebar) return;
-        const head = sidebar.querySelector('.home-sidebar-head');
-        sidebarToggle = sidebar.querySelector('.home-sidebar-toggle');
-        if (!sidebarToggle) {
-            sidebarToggle = document.createElement('button');
-            sidebarToggle.type = 'button';
-            sidebarToggle.className = 'home-sidebar-toggle';
-            sidebarToggle.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-            if (head) head.appendChild(sidebarToggle);
-            else sidebar.prepend(sidebarToggle);
-        }
-        sidebarToggle.addEventListener('click', () => {
-            const next = document.body.classList.contains('home-sidebar-collapsed') ? 'expanded' : 'collapsed';
-            try { localStorage.setItem(SIDEBAR_KEY, next); } catch { /* 无痕模式下仅本次生效 */ }
-            applySidebarMode();
-        });
-        let raf = 0;
-        window.addEventListener('resize', () => {
-            cancelAnimationFrame(raf);
-            raf = requestAnimationFrame(applySidebarMode);
-        }, { passive: true });
-        applySidebarMode();
-    }
-
     function init() {
         grid = document.getElementById('toolsGrid');
         if (!grid) return;
         sidebarNav = document.getElementById('homeCategoryNav');
         searchInput = document.getElementById('homeToolSearch');
         emptyEl = document.getElementById('homeToolsEmpty');
+        headTitle = document.getElementById('homeToolsTitle');
+        headCount = document.getElementById('homeToolsCount');
         if (searchInput) searchInput.placeholder = tx('searchPlaceholder');
         document.documentElement.classList.add('home-workspace-ready');
-        initSidebarToggle();
         bindEvents();
         layout();
         loadPageUpdates();

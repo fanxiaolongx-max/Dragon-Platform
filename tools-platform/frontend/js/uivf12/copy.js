@@ -4302,4 +4302,6 @@ window.UIVBatch = window.UIVCopy; // alias
 document.addEventListener('DOMContentLoaded', () => {
     updateUivBatchSpeedButton();
     startUivBatchSchedule();
+    // 首页「插件与脚本」入口：?siteScripts=1 直接打开浮窗脚本选择
+    if (new URLSearchParams(location.search).get('siteScripts') === '1') openSiteConsoleScriptPicker();
 });

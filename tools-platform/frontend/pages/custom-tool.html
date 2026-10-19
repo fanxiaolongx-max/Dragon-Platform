@@ -307,7 +307,11 @@
                 const frame = document.createElement('iframe');
                 frame.className = 'custom-tool-frame';
                 const cleanFilePath = tool.filePath || '';
-                frame.src = cleanFilePath.includes('?') ? `${cleanFilePath}&_t=${Date.now()}` : `${cleanFilePath}?_t=${Date.now()}`;
+                // 外层地址的参数（如首页「插件与脚本」入口带的 ?script=）透传给工具页，便于直达具体脚本
+                const frameUrl = new URL(cleanFilePath, location.origin);
+                new URLSearchParams(location.search).forEach((value, key) => frameUrl.searchParams.set(key, value));
+                frameUrl.searchParams.set('_t', String(Date.now()));
+                frame.src = frameUrl.origin === location.origin ? `${frameUrl.pathname}${frameUrl.search}${frameUrl.hash}` : frameUrl.href;
                 frame.title = displayName;
                 frame.allow = allowedFeatures;
                 frame.hidden = true;

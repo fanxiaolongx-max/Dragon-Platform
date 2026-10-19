@@ -378,6 +378,19 @@ app.get('/api/home/page-updates', async (req, res, next) => {
     }
 });
 
+// 首页「插件与脚本」目录：F12 插件、Python 脚本、数据抓取浮窗脚本等藏在工具内部的小功能（models/home-capabilities.js）
+app.get('/api/home/capabilities', async (req, res, next) => {
+    try {
+        res.setHeader('Cache-Control', 'no-store');
+        res.json(await require('./models/home-capabilities').listCapabilities({
+            isAdmin: req.user?.role === 'admin',
+            lang: req.query.lang === 'en-US' ? 'en-US' : 'zh-CN'
+        }));
+    } catch (error) {
+        next(error);
+    }
+});
+
 // Protect modifications: requireAdmin for all non-GET requests under uiv, sla, upload
 app.use('/api', (req, res, next) => {
     if (req.path.startsWith('/auth/')) return next();
