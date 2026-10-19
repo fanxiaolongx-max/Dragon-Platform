@@ -5,6 +5,7 @@ description: 只读核对表结构、口径和数据异常
 description_en: Check schemas, definitions and anomalies read-only
 workspace: true
 order: 4
+icon: 📊
 ---
 
 # 数据核查 / Data check

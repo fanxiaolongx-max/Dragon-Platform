@@ -7,13 +7,13 @@
 
     const TEXT = {
         'zh-CN': {
-            all: '全部工具', recent: '最近使用', groups: '分类', other: '其他',
+            all: '全部工具', recent: '最近使用', groups: '分类', other: '其他', skills: '技能',
             searchPlaceholder: '搜索工具 / 拼音首字母', empty: '没有匹配的工具', emptyRecent: '还没有最近使用的工具',
             updated: '{time}更新', justNow: '刚刚', minutes: '{n} 分钟前', hours: '{n} 小时前', days: '{n} 天前',
             updatedTitle: '上次更新：{time}', searchTitle: '搜索“{q}”', toolCount: '{n} 个工具'
         },
         'en-US': {
-            all: 'All tools', recent: 'Recent', groups: 'Categories', other: 'Other',
+            all: 'All tools', recent: 'Recent', groups: 'Categories', other: 'Other', skills: 'Skills',
             searchPlaceholder: 'Search tools', empty: 'No matching tools', emptyRecent: 'No recently used tools yet',
             updated: 'Updated {time}', justNow: 'just now', minutes: '{n}m ago', hours: '{n}h ago', days: '{n}d ago',
             updatedTitle: 'Last updated: {time}', searchTitle: 'Search “{q}”', toolCount: '{n} tools'
@@ -50,12 +50,17 @@
         return typeof navState !== 'undefined' && navState?.settings ? navState.settings : { categories: [], categoryByItem: {} };
     }
 
+    // 技能卡片（js/home/skills-tools.js）：点击进入对话并 @ 该技能，统一归入「技能」分组
+    const SKILLS_GROUP = '__skills';
+
     function cardItemId(card) {
+        if (card.dataset.skillCard === '1') return `skill:${card.dataset.skillId}`;
         if (card.dataset.customToolCard === '1') return `custom:${card.dataset.toolSlug}`;
         return String(card.getAttribute('href') || '').replace(/^\//, '');
     }
 
     function defaultCategory(card, itemId) {
+        if (card.dataset.skillCard === '1') return SKILLS_GROUP;
         if (card.dataset.customToolCard === '1') return 'custom';
         const builtin = typeof NAV_BUILTIN_LINKS !== 'undefined' ? NAV_BUILTIN_LINKS.find(item => item.id === itemId) : null;
         return builtin?.defaultCategory || 'business';
@@ -104,6 +109,7 @@
     }
 
     function updatedAtFor(card) {
+        if (card.dataset.skillCard === '1') return card.dataset.updatedAt || '';
         if (card.dataset.customToolCard === '1') return updates.tools[card.dataset.toolSlug] || '';
         return updates.pages[card.getAttribute('href')] || '';
     }
@@ -139,16 +145,17 @@
         cards.forEach(card => {
             const itemId = cardItemId(card);
             let groupId = settings.categoryByItem?.[itemId] || defaultCategory(card, itemId);
-            if (!known.has(groupId)) groupId = known.has('custom') && card.dataset.customToolCard === '1' ? 'custom' : '__other';
+            if (!known.has(groupId) && groupId !== SKILLS_GROUP) groupId = known.has('custom') && card.dataset.customToolCard === '1' ? 'custom' : '__other';
             if (!byGroup.has(groupId)) byGroup.set(groupId, []);
             byGroup.get(groupId).push(card);
         });
         const ordered = [...known.values()].filter(category => byGroup.has(category.id))
             .map(category => ({ id: category.id, name: categoryName(category), cards: byGroup.get(category.id) }));
+        if (byGroup.has(SKILLS_GROUP)) ordered.push({ id: SKILLS_GROUP, name: tx('skills'), cards: byGroup.get(SKILLS_GROUP) });
         if (byGroup.has('__other')) ordered.push({ id: '__other', name: tx('other'), cards: byGroup.get('__other') });
         const colorIndex = new Map((settings.categories || []).map((category, index) => [category.id, index]));
         ordered.forEach((group, index) => {
-            group.color = GROUP_COLORS[(colorIndex.get(group.id) ?? index) % GROUP_COLORS.length];
+            group.color = group.id === SKILLS_GROUP ? '#f472b6' : GROUP_COLORS[(colorIndex.get(group.id) ?? index) % GROUP_COLORS.length];
         });
         return ordered;
     }
@@ -273,7 +280,7 @@
         renderGroupHeads();
         renderSidebar();
         applyFilter();
-        if (!updates.toolsLoaded || cards.some(card => card.dataset.customToolCard === '1' && !updates.tools[card.dataset.toolSlug])) {
+        if (!updates.toolsLoaded || cards.some(card => card.dataset.customToolCard === '1' && card.dataset.skillCard !== '1' && !updates.tools[card.dataset.toolSlug])) {
             loadToolUpdates();
         }
         updateCurrentGroup();

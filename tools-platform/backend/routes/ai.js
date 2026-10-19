@@ -14,7 +14,7 @@ const aiToolDataService = require('../models/ai-tool-data-service');
 const customToolsRepo = require('../models/custom-tools-repository');
 const agentRunManager = require('../models/agent-run-manager');
 const agentWorkspaceAccess = require('../models/agent-workspace-access');
-const agentSkills = require('../models/agent-skills');
+const agentSkillsStore = require('../models/agent-skills-store');
 const { redactText, redactValue } = require('../models/ai-sensitive-data');
 const { getTenantId } = require('../models/tenant-context');
 const { proactiveAlertCircuit } = require('../models/ai-circuit-breaker');
@@ -551,7 +551,14 @@ function compactRecordedEvent(event) {
  * POST /api/ai/chat
  * 接收对话历史和页面上下文，返回 Gemini 响应
  */
-router.get('/skills', checkAuth, (_req, res) => res.json({ items: agentSkills.list() }));
+// 对话 @ 菜单：内置 + 当前租户的自定义 Skill（已删除的内置 Skill 不出现）
+router.get('/skills', checkAuth, async (_req, res) => {
+    try {
+        res.json({ items: (await agentSkillsStore.listAll()).map(({ id, name, nameEn, description, descriptionEn, workspace, icon, builtIn }) => ({ id, name, nameEn, description, descriptionEn, workspace, icon, builtIn })) });
+    } catch (error) {
+        res.status(500).json({ error: `读取技能列表失败: ${error.message}` });
+    }
+});
 
 // 对话处理函数单独命名导出：频道对接（如 WeLink）用虚拟请求复用同一套 Dragon Claw 对话链路。
 async function handleChatRequest(req, res) {
@@ -657,7 +664,7 @@ async function handleChatRequest(req, res) {
         let loadedSkills = { selected: [], unknown: [], prompt: '' };
         if (homeAgent) {
             try {
-                loadedSkills = agentSkills.load(lastMessage.content, {
+                loadedSkills = await agentSkillsStore.loadAll(lastMessage.content, {
                     hasWorkspace: agentMode,
                     language: String(uiLanguage || '').startsWith('en') ? 'en' : 'zh',
                     extraIds: Array.isArray(req.body?.skills) ? req.body.skills.slice(0, 8) : []

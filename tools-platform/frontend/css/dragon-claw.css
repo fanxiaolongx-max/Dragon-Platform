@@ -459,11 +459,7 @@
 @keyframes dc-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
 
 /* ── 对话视图 ───────────────────────────────── */
-body.dc-chatting .home-workspace .tools-grid,
-body.dc-chatting #homeToolsEmpty,
-body.dc-chatting .stats-bar,
-body.dc-chatting .home-promotions,
-body.dc-chatting .history-panel { display: none !important; }
+/* 工具区的显隐由首页模式决定（home-mode.css：对话模式隐藏、工具模式显示），对话进行中切到工具模式也要完整显示 */
 
 body.dc-chatting .dc {
     justify-content: flex-start;
@@ -795,7 +791,7 @@ body.dc-chatting .dc-composer {
     .dc-spot-actions { grid-column: 1 / -1; }
     .dc-spot-desc { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
     .dc-hint { display: none; }
-    body.dc-chatting .home-sidebar { display: none; }
+    body.dc-chatting.home-mode-chat .home-sidebar { display: none; }
     body.dc-chatting .dc { height: calc(100vh - var(--navbar-h) - 24px); }
     body.dc-chatting .dc-thread { padding: 18px 14px 8px; }
     .dc-msg--user .dc-msg-main { max-width: 88%; }

@@ -887,6 +887,7 @@
             const grounding = api.renderGrounding ? api.renderGrounding(data.grounding) : '';
             if (grounding) reply.querySelector('.dc-msg-main').insertAdjacentHTML('beforeend', grounding);
             addMessageTools(reply, finalText, { modelName: data.model?.name || model?.name || '', usage: data.usage });
+            window.DragonClawSkills?.offerSave?.(reply, finalText); // @create-skill 的草稿：回复下方提供「保存为技能」
         } catch (error) {
             const partial = renderer.finish();
             if (!reply.isConnected) return;
@@ -1024,6 +1025,7 @@
             const skillIds = (Array.isArray(events) ? events : []).find(event => event?.type === 'skills')?.skills;
             if (skillIds?.length) window.DragonClawSkills?.badge?.(message, skillIds);
             addMessageTools(message, text, { modelName: item.model_name || '', usage: { inputTokens: item.input_tokens, outputTokens: item.output_tokens } });
+            window.DragonClawSkills?.offerSave?.(message, text);
         } else {
             addUserTools(message, text);
             window.DragonClawSkills?.decorateUser?.(message);
@@ -1438,6 +1440,20 @@
         el.input.focus();
     }
 
+    // 「全部工具 → 技能」卡片：切到对话、新建对话并在输入框填入 @技能（js/home/skills-tools.js）
+    function startWithSkill(id) {
+        const skillId = String(id || '').toLowerCase();
+        if (!/^[a-z][a-z0-9-]{0,40}$/.test(skillId)) return;
+        window.HomeMode?.set?.('chat');
+        if (state.controller) return showToast(tx('chatBusy'));
+        if (state.messages.length || state.sessionId) newChat();
+        el.input.value = `@${skillId} `;
+        autoResize();
+        el.input.dispatchEvent(new Event('input', { bubbles: true }));
+        el.input.focus({ preventScroll: true });
+        el.input.setSelectionRange(el.input.value.length, el.input.value.length);
+    }
+
     function autoResize() {
         el.input.style.height = 'auto';
         el.input.style.height = `${Math.min(el.input.scrollHeight, 220)}px`;
@@ -1608,6 +1624,15 @@
         el.form.insertAdjacentElement('afterend', el.resume);
         bindEvents();
         bindChatList();
+        window.DragonClaw = { startWithSkill };
+        // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
+        const linkedSkill = new URLSearchParams(location.search).get('skill');
+        if (linkedSkill) {
+            const url = new URL(location.href);
+            url.searchParams.delete('skill');
+            history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+            setTimeout(() => startWithSkill(linkedSkill));
+        }
         bindModelPicker();
         loadModels();
         applyTexts();

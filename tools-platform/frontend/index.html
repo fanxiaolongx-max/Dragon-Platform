@@ -1047,7 +1047,7 @@
                     <div class="custom-tools-panel" id="customToolsPanel" style="display:none;">
                         <span class="custom-tools-note">导入 HTML 或 ZIP 工具包后，会自动生成首页模块和顶部导航入口，并默认支持静态快照与 Pages 推送</span>
                         <button class="custom-tool-upload market" id="toolMarketBtn">🛍️ 工具市场</button>
-                        <button class="custom-tool-upload" id="customToolUploadBtn">导入 HTML / ZIP 工具</button>
+                        <button class="custom-tool-upload" id="customToolUploadBtn">导入 HTML / ZIP / SKILL</button>
                     </div>
                 </section>
             </div>
@@ -1631,7 +1631,7 @@
             </div>
             <form class="tool-import-form" id="customToolImportForm" novalidate>
                 <label class="tool-import-file" id="customToolFilePicker">
-                    <input type="file" id="customToolFileInput" accept=".html,.htm,.zip,text/html,application/zip" hidden>
+                    <input type="file" id="customToolFileInput" accept=".html,.htm,.zip,.md,text/html,application/zip,text/markdown" hidden>
                     <span class="tool-import-file-icon">📦</span>
                     <span class="tool-import-file-main">
                         <span class="tool-import-file-title" id="customToolFileTitle">选择 HTML / ZIP 文件</span>
@@ -1737,6 +1737,7 @@
     <script src="/js/home/home-mode.js"></script>
     <script src="/js/home/workspace.js"></script>
     <script src="/js/home/capabilities.js"></script>
+    <script src="/js/home/skills-tools.js"></script>
     <script src="/js/home/workspace-panel.js"></script>
     <script src="/js/home/dragon-claw.js"></script>
     <script src="/js/home/dragon-claw-skills.js"></script>
@@ -1834,15 +1835,25 @@
                 'home.apiRelay.installFailed': '自动添加失败：{message}',
                 'home.apiRelay.saveBeforeInstall': '配置已修改，请先保存后再自动添加。',
                 'home.custom.note': '导入 HTML 或 ZIP 工具包后，会自动生成首页模块和顶部导航入口，并默认支持静态快照与 Pages 推送',
-                'home.custom.upload': '导入 HTML / ZIP 工具',
+                'home.custom.upload': '导入 HTML / ZIP / SKILL',
                 'home.market.button': '🛍️ 工具市场',
                 'home.market.title': '工具市场',
                 'home.market.subtitle': '从已启用的仓库安装或更新 HTML 工具。',
                 'home.market.details': '查看详细更新日志',
                 'home.import.title': '导入自定义工具',
                 'home.import.subtitle': '一次填写工具信息并上传 HTML 或 ZIP 工具包（自动支持离线快照与 Pages 静态推送）。',
-                'home.import.fileTitle': '选择 HTML / ZIP 文件',
-                'home.import.fileHint': 'HTML 或 ZIP，ZIP 最大 35 MB',
+                'home.import.fileTitle': '选择 HTML / ZIP / SKILL 文件',
+                'home.import.fileHint': 'HTML 或 ZIP 工具包（最大 35 MB）；含 SKILL.md 的技能包或单个 SKILL.md 会导入为技能',
+                'home.import.skillChecking': '正在识别文件类型…',
+                'home.import.skillDetected': '已识别为 SKILL 技能包 @{id}：导入后出现在「全部工具 → 技能」，可在对话里 @{id} 使用',
+                'home.import.skillFiles': '，附带 {count} 个参考文件',
+                'home.import.skillSubmit': '导入技能',
+                'home.import.skillTitle': '导入技能',
+                'home.import.skillName': '中文技能名',
+                'home.import.skillNameEn': '英文技能名',
+                'home.import.skillExists': '已有技能 @{id}，要用这个技能包覆盖吗？',
+                'home.import.skillReserved': '@{id} 是内置技能的标识，请修改 SKILL.md 里的 id 后再导入',
+                'home.import.skillImported': '已导入技能 @{id}',
                 'home.import.icon': '图标',
                 'home.import.name': '中文工具名',
                 'home.import.nameEn': '英文工具名',
@@ -2043,15 +2054,25 @@
                 'home.apiRelay.installFailed': 'Automatic setup failed: {message}',
                 'home.apiRelay.saveBeforeInstall': 'Save the modified setup before installing it.',
                 'home.custom.note': 'Import an HTML file or ZIP package to generate a home card and navigation entry, with out-of-the-box static snapshot and Pages publishing support.',
-                'home.custom.upload': 'Import HTML / ZIP Tool',
+                'home.custom.upload': 'Import HTML / ZIP / SKILL',
                 'home.market.button': '🛍️ Tool Market',
                 'home.market.title': 'Tool Market',
                 'home.market.subtitle': 'Install or update HTML tools from enabled sources.',
                 'home.market.details': 'View detailed update log',
                 'home.import.title': 'Import Custom Tool',
                 'home.import.subtitle': 'Enter all tool details and select an HTML or ZIP package in one place (with automatic offline snapshot and Pages publishing support).',
-                'home.import.fileTitle': 'Choose HTML / ZIP file',
-                'home.import.fileHint': 'HTML or ZIP; ZIP up to 35 MB',
+                'home.import.fileTitle': 'Choose an HTML / ZIP / SKILL file',
+                'home.import.fileHint': 'HTML or ZIP tool package (up to 35 MB). A package with SKILL.md, or a single SKILL.md, is imported as a Skill',
+                'home.import.skillChecking': 'Checking the file type…',
+                'home.import.skillDetected': 'Recognized as Skill package @{id}. After import it appears in All tools → Skills and can be used with @{id} in chat',
+                'home.import.skillFiles': ', with {count} reference files',
+                'home.import.skillSubmit': 'Import Skill',
+                'home.import.skillTitle': 'Import Skill',
+                'home.import.skillName': 'Chinese Skill name',
+                'home.import.skillNameEn': 'English Skill name',
+                'home.import.skillExists': 'Skill @{id} already exists. Replace it with this package?',
+                'home.import.skillReserved': '@{id} belongs to a built-in Skill. Change the id in SKILL.md and import again',
+                'home.import.skillImported': 'Imported Skill @{id}',
                 'home.import.icon': 'Icon',
                 'home.import.name': 'Chinese tool name',
                 'home.import.nameEn': 'English tool name',
@@ -3085,7 +3106,7 @@
             setText('#ai-saved', `≈${formatStatNumber(ai.savedHours)}h`);
             setText('#ai-task-note', t('home.ai.taskNote', { questions: ai.questions || 0 }));
 
-            document.querySelectorAll('#toolsGrid > a.tool-card:not([data-custom-tool-card="1"])').forEach(card => {
+            document.querySelectorAll('#toolsGrid > a.tool-card:not([data-custom-tool-card="1"]):not([data-skill-card="1"])').forEach(card => {
                 const key = card.getAttribute('href').replace(/^\//, '');
                 renderToolImpact(card, summary.toolStats?.[key]);
             });
@@ -3198,6 +3219,93 @@
             if (!panel || !btn || !modal || !form || !input) return;
             panel.style.display = role === 'admin' ? 'flex' : 'none';
             let metadataGeneration = 0;
+            // SKILL 技能包（ZIP 内含 SKILL.md，或单个 .md）：导入到「全部工具 → 技能」，而不是 HTML 工具
+            let skillImport = null;
+            const tagsField = document.getElementById('customToolTags')?.closest('.tool-import-field');
+            const fileToBase64 = async file => {
+                const bytes = new Uint8Array(await file.arrayBuffer());
+                const chunkSize = 0x8000;
+                let binary = '';
+                for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+                    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+                }
+                return btoa(binary);
+            };
+            const isSkillPackage = async file => {
+                if (/\.md$/i.test(file.name)) return true;
+                if (!/\.zip$/i.test(file.name) || !window.JSZip) return false;
+                const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+                const names = Object.values(zip.files).filter(entry => !entry.dir).map(entry => entry.name.replace(/\\/g, '/'))
+                    .filter(name => !name.split('/').some(part => part === '__MACOSX' || part.startsWith('._')));
+                const skill = names.filter(name => /(^|\/)skill\.md$/i.test(name)).sort((a, b) => a.split('/').length - b.split('/').length)[0];
+                if (!skill) return false;
+                // 同时带网页入口的包按 HTML 工具处理（SKILL.md 比任何 HTML 都浅时才算技能包）
+                const html = names.filter(name => /\.html?$/i.test(name)).sort((a, b) => a.split('/').length - b.split('/').length)[0];
+                return !html || skill.split('/').length <= html.split('/').length;
+            };
+            const setSkillMode = skill => {
+                skillImport = skill;
+                if (tagsField) tagsField.hidden = Boolean(skill);
+                submitBtn.textContent = t(skill ? 'home.import.skillSubmit' : 'home.import.submit');
+                const title = document.getElementById('customToolImportTitle');
+                if (title) title.textContent = t(skill ? 'home.import.skillTitle' : 'home.import.title');
+                const nameLabel = document.getElementById('customToolNameLabel');
+                if (nameLabel) nameLabel.innerHTML = `${escapeHtml(t(skill ? 'home.import.skillName' : 'home.import.name'))} <span>*</span>`;
+                const nameEnLabel = document.getElementById('customToolNameEnLabel');
+                if (nameEnLabel) nameEnLabel.textContent = t(skill ? 'home.import.skillNameEn' : 'home.import.nameEn');
+            };
+            const detectSkill = async file => {
+                const generation = ++metadataGeneration;
+                setAiStatus(t('home.import.skillChecking'), 'loading');
+                let preview = null;
+                try {
+                    if (await isSkillPackage(file)) {
+                        const isMarkdown = /\.md$/i.test(file.name);
+                        const payload = isMarkdown ? { skillMd: await file.text(), archiveName: file.name } : { archiveBase64: await fileToBase64(file), archiveName: file.name };
+                        preview = { ...(await API.post('/api/agent-skills/preview', payload)).skill, payload, isMarkdown };
+                    }
+                } catch (error) {
+                    if (generation !== metadataGeneration) return;
+                    setSkillMode(null);
+                    setAiStatus(error.message, 'warning');
+                    return;
+                }
+                if (generation !== metadataGeneration) return;
+                if (!preview) {
+                    setSkillMode(null);
+                    void generateAiMetadata(file);
+                    return;
+                }
+                setSkillMode(preview);
+                nameInput.value = preview.name || nameInput.value;
+                nameInput.dataset.autoValue = nameInput.value;
+                nameEnInput.value = preview.nameEn || '';
+                descriptionInput.value = preview.description || '';
+                descriptionEnInput.value = preview.descriptionEn || '';
+                iconInput.value = preview.icon || '✨';
+                const detail = t('home.import.skillDetected', { id: preview.id }) + (preview.fileCount ? t('home.import.skillFiles', { count: preview.fileCount }) : '');
+                setAiStatus(preview.reserved ? t('home.import.skillReserved', { id: preview.id }) : detail, preview.reserved ? 'warning' : 'success');
+            };
+            const importSkill = async (overwrite = false) => {
+                const body = {
+                    ...skillImport.payload,
+                    overwrite,
+                    source: 'import',
+                    name: nameInput.value.trim(),
+                    nameEn: nameEnInput.value.trim(),
+                    description: descriptionInput.value.trim(),
+                    descriptionEn: descriptionEnInput.value.trim(),
+                    icon: iconInput.value.trim() || '✨'
+                };
+                try {
+                    return (await API.post(skillImport.isMarkdown ? '/api/agent-skills' : '/api/agent-skills/import', body)).skill;
+                } catch (error) {
+                    const code = error.body?.code;
+                    if (code === 'SKILL_EXISTS' && !overwrite && await AppDialog.confirm(t('home.import.skillExists', { id: skillImport.id }), { title: t('home.import.skillSubmit') })) return importSkill(true);
+                    if (code === 'SKILL_ID_RESERVED') throw new Error(t('home.import.skillReserved', { id: skillImport.id }));
+                    throw error;
+                }
+            };
 
             const formatFileSize = bytes => {
                 if (bytes < 1024) return `${bytes} B`;
@@ -3295,6 +3403,7 @@
                 fileName.textContent = '';
                 filePicker.classList.remove('has-file');
                 setAiStatus();
+                setSkillMode(null);
                 clearImportError();
             };
             const openImportModal = () => {
@@ -3322,11 +3431,11 @@
                 clearImportError();
                 filePicker.classList.add('has-file');
                 fileName.textContent = t('home.import.fileSelected', { name: file.name, size: formatFileSize(file.size) });
-                const defaultName = file.name.replace(/\.(html?|zip)$/i, '');
+                const defaultName = file.name.replace(/\.(html?|zip|md)$/i, '');
                 const previousAutoValue = nameInput.dataset.autoValue || '';
                 if (!nameInput.value.trim() || nameInput.value === previousAutoValue) nameInput.value = defaultName;
                 nameInput.dataset.autoValue = defaultName;
-                void generateAiMetadata(file);
+                void detectSkill(file);
             };
 
             btn.addEventListener('click', openImportModal);
@@ -3347,6 +3456,16 @@
                 const file = input.files && input.files[0];
                 try {
                     if (!file) throw new Error(t('home.import.fileRequired'));
+                    if (skillImport) {
+                        if (!nameInput.value.trim()) throw new Error(t('home.validation.nameRequired'));
+                        submitBtn.disabled = true;
+                        submitBtn.textContent = t('home.import.submitting');
+                        const skill = await importSkill();
+                        submitBtn.dataset.completed = 'true';
+                        showToast(t('home.import.skillImported', { id: skill.id }));
+                        window.dispatchEvent(new CustomEvent('skills:changed', { detail: { id: skill.id } }));
+                        return;
+                    }
                     const isZip = /\.zip$/i.test(file.name);
                     if (!isZip && !/\.html?$/i.test(file.name)) throw new Error('仅支持 HTML 或 ZIP 文件');
                     if (isZip && file.size > 35 * 1024 * 1024) throw new Error('ZIP 文件不能超过 35 MB');
@@ -3386,7 +3505,7 @@
                     showImportError(t('home.alert.importFailed', { message: e.message }));
                 } finally {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = t(submitBtn.dataset.completed === 'true' ? 'home.import.done' : 'home.import.submit');
+                    submitBtn.textContent = t(submitBtn.dataset.completed === 'true' ? 'home.import.done' : skillImport ? 'home.import.skillSubmit' : 'home.import.submit');
                 }
             });
         }

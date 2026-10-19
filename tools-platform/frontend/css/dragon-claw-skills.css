@@ -28,3 +28,37 @@ html[data-theme="light"] .dc-skill-menu, body.light-theme .dc-skill-menu { --dc-
 .dc-skill-mention { padding: 0 3px; border-radius: 4px; background: rgba(100, 255, 218, .14); color: var(--dc-accent, #64ffda); font-weight: 600; }
 html[data-theme="light"] .dc-skill-chip, body.light-theme .dc-skill-chip { --dc-accent: #087f78; border-color: rgba(8, 127, 120, .3); background: rgba(8, 127, 120, .08); }
 html[data-theme="light"] .dc-skill-mention, body.light-theme .dc-skill-mention { --dc-accent: #087f78; background: rgba(8, 127, 120, .1); }
+
+/* @create-skill 草稿：回复下方的「保存为技能」卡片（js/home/dragon-claw-skills.js offerSave） */
+.dc-skill-draft {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid rgba(244, 114, 182, 0.3);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(244, 114, 182, 0.08), rgba(96, 165, 250, 0.06));
+}
+.dc-skill-draft.is-saved { border-color: rgba(52, 211, 153, 0.4); background: linear-gradient(135deg, rgba(52, 211, 153, 0.08), rgba(96, 165, 250, 0.05)); }
+.dc-skill-draft-icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(244, 114, 182, 0.28);
+    border-radius: 11px;
+    background: rgba(244, 114, 182, 0.12);
+    font-size: 19px;
+}
+.dc-skill-draft-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.dc-skill-draft-body b { overflow: hidden; color: #f1f5f9; font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
+.dc-skill-draft-body span { color: #9fb0c6; font-size: 12px; line-height: 1.5; }
+.dc-skill-draft-status { color: #7c8aa0; font-size: 11px; }
+.dc-skill-draft.is-saved .dc-skill-draft-status { color: #6ee7b7; }
+.dc-skill-draft-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+@media (max-width: 640px) {
+    .dc-skill-draft { grid-template-columns: 36px minmax(0, 1fr); }
+    .dc-skill-draft-actions { grid-column: 1 / -1; justify-content: flex-start; }
+}

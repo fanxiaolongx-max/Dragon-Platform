@@ -5,6 +5,7 @@ description: 基于实际内容编写 README、操作说明和交接文档
 description_en: Write grounded READMEs, guides and handover notes
 workspace: false
 order: 5
+icon: 📝
 ---
 
 # 编写文档 / Write documentation

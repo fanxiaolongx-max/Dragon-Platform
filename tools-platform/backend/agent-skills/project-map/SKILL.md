@@ -5,6 +5,7 @@ description: 梳理入口、模块、数据流和启动方式
 description_en: Map entry points, modules, data flow and setup
 workspace: true
 order: 1
+icon: 🗺️
 ---
 
 # 项目导览 / Project map

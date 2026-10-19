@@ -536,7 +536,6 @@ body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var
     align-items: stretch;
     margin: 18px 0 40px;
 }
-body.dc-chatting .home-info-row { display: none; }
 .home-workspace .home-info-row > .home-promotions,
 .home-workspace .home-info-row > .history-panel {
     display: flex;

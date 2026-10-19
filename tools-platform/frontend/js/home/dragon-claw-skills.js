@@ -53,14 +53,14 @@
         menu.replaceChildren();
         const title = document.createElement('div');
         title.className = 'dc-skill-caption';
-        title.textContent = words('内置 Skills · 仅用于本条消息', 'Built-in Skills · This message only');
+        title.textContent = words('Skills · 仅用于本条消息（全部工具 → 技能 可管理）', 'Skills · This message only (manage in All tools → Skills)');
         menu.appendChild(title);
         matches.forEach((item, index) => {
             const option = document.createElement('button');
             option.type = 'button'; option.className = 'dc-skill-option'; option.id = `dcSkillOption${index}`;
             option.dataset.skillIndex = String(index); option.tabIndex = -1; option.setAttribute('role', 'option');
             const label = document.createElement('b'), description = document.createElement('span');
-            label.textContent = `@${item.id} · ${en() ? item.nameEn : item.name}`;
+            label.textContent = `${item.icon ? `${item.icon} ` : ''}@${item.id} · ${en() ? item.nameEn : item.name}`;
             description.textContent = en() ? item.descriptionEn : item.description;
             option.append(label, description);
             if (item.workspace && !window.DragonClawWorkspace?.getWorkspacePayload?.()) {
@@ -248,6 +248,110 @@
         form.addEventListener('submit', () => setTimeout(updateDiscover));
         window.addEventListener('tools:languagechange', () => { updateDiscover(); renderChips(); });
     }
-    window.DragonClawSkills = { handleEvent, activeIds: () => kept.slice(), reset, badge, decorateUser };
+    // 新建、导入、改名或删除 Skill 后重新读取目录（js/home/skills-tools.js 等派发 skills:changed）
+    function refresh() {
+        loaded = false; failed = false;
+        load();
+    }
+
+    // ── @create-skill 生成的草稿：识别回复里的 ```skill 代码块，在回复下方提供「保存为技能」 ──
+    const DRAFT_RE = /```skill[^\S\r\n]*\r?\n([\s\S]*?)\r?\n```/g;
+
+    function draftFrom(text) {
+        const blocks = Array.from(String(text || '').matchAll(DRAFT_RE), match => match[1].trim()).filter(Boolean);
+        const markdown = blocks.pop();
+        if (!markdown) return null;
+        const head = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        const fields = {};
+        (head ? head[1] : '').split(/\r?\n/).forEach(line => {
+            const pair = line.match(/^([a-z_]+):\s*(.*)$/i);
+            if (pair) fields[pair[1].toLowerCase()] = pair[2].trim().replace(/^(['"])(.*)\1$/, '$2');
+        });
+        const id = String(fields.id || '').toLowerCase();
+        return { markdown, id: /^[a-z][a-z0-9-]{0,40}$/.test(id) ? id : '', name: fields.name || fields.name_en || id, nameEn: fields.name_en || fields.name || id,
+            description: fields.description || '', descriptionEn: fields.description_en || fields.description || '', icon: fields.icon || '✨' };
+    }
+
+    function downloadDraft(draft) {
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(new Blob([`${draft.markdown}\n`], { type: 'text/markdown;charset=utf-8' }));
+        link.download = `${draft.id || 'skill'}-SKILL.md`;
+        document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+    }
+
+    function useSkillNow(id) {
+        if (!input) return;
+        const mention = `@${id} `;
+        if (!input.value.includes(`@${id}`)) input.value = `${mention}${input.value.replace(/^\s+/, '')}`;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.focus({ preventScroll: true });
+        input.setSelectionRange(input.value.length, input.value.length);
+    }
+
+    async function saveDraft(card, draft, overwrite = false) {
+        const save = card.querySelector('[data-draft-save]');
+        const status = card.querySelector('.dc-skill-draft-status');
+        save.disabled = true;
+        status.textContent = words('正在保存…', 'Saving…');
+        try {
+            const result = await window.API.post('/api/agent-skills', { skillMd: draft.markdown, overwrite });
+            const id = result.skill.id;
+            card.classList.add('is-saved');
+            status.textContent = words(`已保存为 @${id}，已出现在「全部工具 → 技能」`, `Saved as @${id}. It now appears in All tools → Skills`);
+            save.textContent = words(`立即使用 @${id}`, `Use @${id} now`);
+            save.dataset.draftUse = id;
+            delete save.dataset.draftSave;
+            window.dispatchEvent(new CustomEvent('skills:changed', { detail: { id } }));
+        } catch (error) {
+            const code = error.body?.code;
+            if (code === 'SKILL_EXISTS' && await window.AppDialog?.confirm?.(words(`已有技能 @${draft.id}，要用这份草稿覆盖吗？`, `@${draft.id} already exists. Replace it with this draft?`), { title: words('覆盖技能', 'Replace Skill'), confirmText: words('覆盖', 'Replace') })) {
+                return saveDraft(card, draft, true);
+            }
+            status.textContent = code === 'SKILL_ID_RESERVED'
+                ? words('这个标识被内置技能占用了，请让我换一个 id 后重新生成', 'This id belongs to a built-in Skill. Ask me to regenerate with another id')
+                : `${words('保存失败', 'Save failed')}：${error.message}`;
+        } finally {
+            save.disabled = false;
+        }
+    }
+
+    function offerSave(message, text) {
+        const draft = draftFrom(text);
+        const main = message?.querySelector?.('.dc-msg-main');
+        if (!draft || !main) return;
+        main.querySelector('.dc-skill-draft')?.remove();
+        const admin = localStorage.getItem('tools_role') === 'admin';
+        const card = document.createElement('div');
+        card.className = 'dc-skill-draft';
+        const icon = document.createElement('span'); icon.className = 'dc-skill-draft-icon'; icon.textContent = draft.icon;
+        const body = document.createElement('div'); body.className = 'dc-skill-draft-body';
+        const title = document.createElement('b'); title.textContent = `${en() ? draft.nameEn : draft.name}${draft.id ? ` · @${draft.id}` : ''}`;
+        const desc = document.createElement('span'); desc.textContent = en() ? draft.descriptionEn : draft.description;
+        const status = document.createElement('small'); status.className = 'dc-skill-draft-status';
+        status.textContent = admin ? words('确认无误后保存，即可在对话里 @ 使用', 'Save it to @ this Skill in chat')
+            : words('仅管理员可保存；可下载 SKILL.md 交给管理员导入', 'Only admins can save. Download SKILL.md for an admin to import');
+        body.append(title, desc, status);
+        const actions = document.createElement('div'); actions.className = 'dc-skill-draft-actions';
+        if (admin) {
+            const save = document.createElement('button'); save.type = 'button'; save.className = 'dc-action dc-action--primary';
+            save.dataset.draftSave = '1'; save.textContent = words('保存为技能', 'Save as Skill');
+            actions.appendChild(save);
+        }
+        const download = document.createElement('button'); download.type = 'button'; download.className = 'dc-action';
+        download.dataset.draftDownload = '1'; download.textContent = words('下载 SKILL.md', 'Download SKILL.md');
+        actions.appendChild(download);
+        card.append(icon, body, actions);
+        card.addEventListener('click', event => {
+            if (event.target.closest('[data-draft-download]')) return downloadDraft(draft);
+            const use = event.target.closest('[data-draft-use]');
+            if (use) return useSkillNow(use.dataset.draftUse);
+            if (event.target.closest('[data-draft-save]')) saveDraft(card, draft);
+        });
+        main.appendChild(card);
+    }
+
+    window.addEventListener('skills:changed', refresh);
+    window.DragonClawSkills = { handleEvent, activeIds: () => kept.slice(), reset, badge, decorateUser, refresh, offerSave, use: useSkillNow };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
 })();

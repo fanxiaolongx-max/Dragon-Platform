@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const skills = require('../backend/models/agent-skills');
 
 test('builtin catalog loads actual SKILL.md files on demand and exposes metadata only', () => {
-    assert.equal(skills.list().length, 5);
+    assert.equal(skills.list().length, 6);
     for (const item of skills.list()) {
         assert.equal('prompt' in item, false);
         const loaded = skills.load(`@${item.id} do this`, { hasWorkspace: true });

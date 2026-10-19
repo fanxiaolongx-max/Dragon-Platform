@@ -5,6 +5,7 @@ description: 检查真实缺陷、回归风险与遗漏
 description_en: Review concrete bugs, regressions and missing checks
 workspace: true
 order: 3
+icon: 🔍
 ---
 
 # 代码审查 / Code review

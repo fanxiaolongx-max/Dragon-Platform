@@ -56,7 +56,7 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
     const headers = { Authorization: 'Bearer synthetic-bob', 'Content-Type': 'application/json' };
     assert.equal((await fetch(`${url}/skills`)).status, 401);
     const catalog = await (await fetch(`${url}/skills`, { headers })).json();
-    assert.equal(catalog.items.length, 5);
+    assert.equal(catalog.items.length, 6, 'built-in Skills, including @create-skill');
     assert.equal('prompt' in catalog.items[0], false);
     const missingWorkspace = await fetch(`${url}/chat`, { method: 'POST', headers, body: JSON.stringify({
         agent: 'dragon-claw-home', messages: [{ role: 'user', content: '@debug find the bug' }]

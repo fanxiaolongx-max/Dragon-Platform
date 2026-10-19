@@ -126,15 +126,43 @@
         el.linksPop.style.top = `${Math.round(top)}px`;
     }
 
-    function toggleLinks(open = !linksOpen()) {
+    function toggleLinks(open = !linksOpen(), { focus = true } = {}) {
         if (!el.linksPop) return;
+        clearTimeout(hoverTimer);
         el.linksPop.hidden = !open;
         el.linksBtn.setAttribute('aria-expanded', String(open));
         el.linksBtn.classList.toggle('is-open', open);
         if (open) {
             positionLinks();
-            el.linksPop.querySelector('.friend-link:not([hidden])')?.focus({ preventScroll: true });
+            if (focus) el.linksPop.querySelector('.friend-link:not([hidden])')?.focus({ preventScroll: true });
         }
+    }
+
+    // 鼠标悬停即展开（触屏仍为点击）：移开后稍作停留再收起，便于把鼠标移进弹层
+    let hoverTimer = 0;
+    const HOVER_OPEN_DELAY = 120;
+    const HOVER_CLOSE_DELAY = 280;
+
+    function hoverCapable(event) {
+        return event.pointerType === 'mouse' && !isMobile();
+    }
+
+    function scheduleLinks(open, delay) {
+        clearTimeout(hoverTimer);
+        hoverTimer = setTimeout(() => {
+            if (open !== linksOpen()) toggleLinks(open, { focus: false });
+        }, delay);
+    }
+
+    function bindLinksHover() {
+        if (!el.linksBtn || !el.linksPop) return;
+        el.linksBtn.addEventListener('pointerenter', event => { if (hoverCapable(event)) scheduleLinks(true, HOVER_OPEN_DELAY); });
+        el.linksBtn.addEventListener('pointerleave', event => { if (hoverCapable(event)) scheduleLinks(false, HOVER_CLOSE_DELAY); });
+        el.linksPop.addEventListener('pointerenter', event => { if (hoverCapable(event)) clearTimeout(hoverTimer); });
+        el.linksPop.addEventListener('pointerleave', event => {
+            // 弹层里打开了管理对话框等焦点仍在弹层内时不自动收起
+            if (hoverCapable(event) && !el.linksPop.contains(document.activeElement)) scheduleLinks(false, HOVER_CLOSE_DELAY);
+        });
     }
 
     function applyTexts() {
@@ -160,8 +188,11 @@
 
         el.linksBtn?.addEventListener('click', event => {
             event.stopPropagation();
+            // 悬停已展开时点击不再收起（避免“移上去展开、一点又关上”）；键盘或触屏点击照常切换
+            if (event.detail > 0 && linksOpen() && el.linksBtn.matches(':hover') && !isMobile()) return;
             toggleLinks();
         });
+        bindLinksHover();
         document.addEventListener('pointerdown', event => {
             if (linksOpen() && !el.linksPop.contains(event.target) && !el.linksBtn.contains(event.target)) toggleLinks(false);
         });

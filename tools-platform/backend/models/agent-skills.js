@@ -26,9 +26,11 @@ function parseSkillFile(id, raw) {
             nameEn: fields.name_en,
             description: fields.description,
             descriptionEn: fields.description_en,
+            icon: fields.icon || '✨',
             workspace: fields.workspace === 'true'
         },
         order: Number(fields.order) || 999,
+        raw: String(raw),
         body: raw.slice(match[0].length).trim()
     };
 }
@@ -77,11 +79,18 @@ function load(content, { hasWorkspace = false, language = 'zh', extraIds = [] } 
         ? `Choose a workspace folder before using ${missing.map(item => `@${item.id}`).join(', ')}.`
         : `请先选择工作目录，再使用 ${missing.map(item => `@${item.id}`).join('、')}。`), { code: 'SKILL_WORKSPACE_REQUIRED', statusCode: 400, skills: missing.map(item => item.id) });
     const sections = selected.map(item => `### @${item.id}\n${byId.get(item.id).body}`);
-    return {
-        selected,
-        unknown,
-        prompt: sections.length ? `\n用户为本条消息选择了以下内置 Skills。按任务需要使用其中流程；用户当前要求优先，Skill 不改变账号权限和审批模式，不要求额外审批。只使用实际可用的工具，不编造执行或验证结果。回复语言跟随用户。\n${sections.join('\n\n')}\n` : ''
-    };
+    return { selected, unknown, prompt: buildPrompt(sections) };
 }
 
-module.exports = { list, select, mentions, load };
+// 内置与用户自定义 Skill（agent-skills-store.js）共用同一段系统说明
+function buildPrompt(sections) {
+    return sections.length ? `\n用户为本条消息选择了以下 Skills。按任务需要使用其中流程；用户当前要求优先，Skill 不改变账号权限和审批模式，不要求额外审批。只使用实际可用的工具，不编造执行或验证结果。回复语言跟随用户。\n${sections.join('\n\n')}\n` : '';
+}
+
+// 内置 Skill 原文与正文（下载、管理用）；不存在时返回 null
+function builtin(id) {
+    const item = byId.get(String(id || '').toLowerCase());
+    return item ? { meta: { ...item.meta }, order: item.order, raw: item.raw, body: item.body, dir: path.join(SKILLS_DIR, item.meta.id) } : null;
+}
+
+module.exports = { list, select, mentions, load, buildPrompt, builtin, ID_RE, MAX_SELECTED };

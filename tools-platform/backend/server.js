@@ -431,6 +431,7 @@ app.use('/api/upload', uploadRoutes);   // 文件上传历史 API
 app.use('/api/db', require('./routes/db')); // DB 保存 API
 app.use('/api/requirements', requirementsRoutes); // 需求管理 API
 app.use('/api/ai', aiRoutes); // AI 服务 API
+app.use('/api/agent-skills', require('./routes/agent-skills')); // Skill 管理：内置 + 租户自定义（对话 @create-skill 创建或导入 SKILL 压缩包）
 app.use('/api/storage', storageRoutes); // 存储迁移状态 API
 app.use('/api/db-explorer', require('./routes/db-explorer')); // 数据库浏览 API
 app.use('/api/frt', frtRoutes); // FRT 历史快照 API

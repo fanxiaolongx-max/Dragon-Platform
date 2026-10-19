@@ -5,6 +5,7 @@ description: 复现问题、定位原因、修复并验证
 description_en: Reproduce, diagnose, fix and verify a bug
 workspace: true
 order: 2
+icon: 🐞
 ---
 
 # 排查故障 / Debug
