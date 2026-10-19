@@ -1639,6 +1639,23 @@ pm2 stop tools-platform         # 停止服务
 
 ---
 
+### 首页介绍视频的按需加载与离线缓存
+
+现有的 NetCare RFC / AI 审计、操作激励统计、平台五站指南共 3 个视频，各有中英文、小窗和高清版本，共 12 个 MP4；EOS 月报指南另有中文版小窗和高清 2 个 MP4。合计 14 个文件（约 228 MiB）均从桌面安装包中排除，封面随包保留。EOS 暂无英文配音版本，英文界面沿用中文版视频；其他未登记的视频仍按原有方式打包。
+
+- 首页只请求当前语言、当前播放的小窗版；切换视频才请求另一部。
+- 点击大窗才请求对应高清版。播放器通过本地服务分段读取 GitHub Releases 视频，首段到达即可播放，无需等待整个文件下载完成，并支持拖动进度。
+- 已请求的版本继续在后台补齐缓存；关闭后再次观看会复用已完成的片段。每段经过 SHA-256 校验，网络中断、超时、损坏片段可在重试时继续获取，不把未完成下载标记为有效缓存。
+- 完整缓存的版本可离线观看；首次观看和缺失片段需要联网。下载失败会保留封面，并显示重试入口。
+- 缓存在 Windows `%APPDATA%\Dragon Platform\cache\home-videos\` 或 macOS `~/Library/Application Support/Dragon Platform/cache/home-videos/`，独立于安装目录、绿色版临时解压目录及租户业务数据。退出程序不会清除完整片段；程序更新后仍可复用相同版本。
+- 服务器/源码运行时优先使用现有本地视频；文件不存在时同样可以从远端缓存加载。可用 `TOOLS_PROMO_CACHE_DIR` 指定缓存目录，默认位于 `TOOLS_DATA_DIR/cache/home-videos/`。
+
+媒体发布在独立的 [Dragon-Platform-Media 仓库](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/tag/home-videos-20261019)，EOS 使用单独的 [EOS 媒体 Release](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/tag/eos-guide-20261019)，原来 12 个文件的地址和缓存标识保持不变。固定媒体 Release 与桌面应用自动更新分别管理。客户端只访问公开附件，不内置 GitHub Token。文件清单、大小及分段校验保存在版本控制的 `backend/home-promo-videos.json`，其中 `assets.<文件名>.url` 可指定独立的发布地址；未指定时使用清单的 `baseUrl`。运行时不依赖可变的 `latest` 链接。
+
+维护这些视频时，先为新内容选择新的媒体 Release 标签，更新 `scripts/prepare-home-promo-videos.js` 中相应的 `BASE_URL` 或 `EOS_BASE_URL`，再运行 `node scripts/prepare-home-promo-videos.js --write` 生成清单。上传该 Release 对应的视频及清单文件后，对比远端文件的大小和 SHA-256 并验证 HTTP Range 播放，再发布使用新清单的客户端。不要覆盖旧标签下的文件，以免旧客户端校验失败。
+
+`node scripts/prepare-home-promo-videos.js` 和 `npm run release:verify-assets` 会检查源视频与清单是否一致、MP4 元数据是否支持渐进播放。添加新视频不会自动纳入远程加载机制，需要另行登记其清单和打包规则。
+
 ### 12.4 桌面客户端本地生成文件与目录全景字典 (Windows vs macOS)
 
 为方便运维审计、数据迁移、备份及排障分析，以下详细列出桌面客户端在 Windows 与 macOS 系统中落地生成的所有目录、文件及其具体用途。

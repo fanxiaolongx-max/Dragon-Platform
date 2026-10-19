@@ -22,6 +22,9 @@ const http = require('http');
 const userDataPath = app.getPath('userData');
 process.env.TOOLS_DATA_DIR = path.join(userDataPath, 'data');
 process.env.TOOLS_BRANDING_DIR = path.join(userDataPath, 'branding');
+process.env.TOOLS_PROMO_CACHE_DIR = path.join(userDataPath, 'cache', 'home-videos');
+// Electron networking follows the system/enterprise proxy, including GitHub redirects.
+require('./backend/models/home-promo-videos').configurePromoVideoFetch((url, init) => net.fetch(url, init));
 if (app.isPackaged) {
     process.env.TOOLS_MEDIA_DIR = path.join(userDataPath, 'media');
 }

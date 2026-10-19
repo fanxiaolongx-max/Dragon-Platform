@@ -1,0 +1,72 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .bn{position:absolute;top:225px;height:62px;border:3px solid var(--ink);border-radius:16px;background:#fff;font-size:30px;display:flex;align-items:center;padding:0 22px;white-space:nowrap}
+#root .tx{position:absolute;left:110px;top:330px;width:900px;border:2.5px solid var(--ink);border-radius:16px;background:#fffdf8;padding:16px 22px;font-size:30px;line-height:1.55}
+#root .tx mark{background:#ffe08f;padding:0 4px;border-radius:4px}
+#root .ft{position:absolute;left:650px;top:395px;width:220px;height:62px;border:3px solid var(--ink);border-radius:14px;background:#fff;display:flex;align-items:center;justify-content:center;gap:18px;font-size:34px;z-index:7}
+#root .dl{position:absolute;left:1050px;top:330px;width:770px;height:360px}
+#root .rw{position:absolute;left:30px;width:710px;height:60px;border:2.5px solid var(--ink);border-radius:12px;background:#fff;display:flex;align-items:center;padding:0 16px;gap:10px;font-size:26px;white-space:nowrap}
+#root .bi{position:absolute;top:340px;width:800px;height:270px;border:3px solid var(--ink);border-radius:22px;background:#fff;box-shadow:var(--sh);padding:16px 22px;font-size:27px;line-height:1.5}
+</style>
+<div id="root" data-composition-id="s11" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="21" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:640px;width:520px;height:520px;background:#aed8f2"></div>
+  <div class="head wob" id="s11-h"><span class="step">第 5 步</span><span class="ttl">月报可以随手改</span></div>
+  <div class="bn" id="s11-b1" style="left:110px;background:#dff6ec">恢复本月自动文案</div>
+  <div class="bn" id="s11-b2" style="left:420px;background:#dff6ec">恢复固定文案</div>
+  <div class="bn" id="s11-b3" style="left:680px;background:#ffe9a8">映射与阈值配置</div>
+  <div class="tx" id="s11-tx">产品收编率 <mark id="s11-mk">44.6%</mark>，预计年底完成率 63.1%，仍有 96 套无计划，建议<span id="s11-ed">系统部继续推动</span>。</div>
+  <div class="ft" id="s11-ft"><b style="font-weight:700">B</b><b style="font-weight:400;color:#d9456b">A</b></div>
+  <div class="tag abs" id="s11-hint" style="left:110px;top:455px;background:#fff7d6;font-size:28px">点一下就能改 · 选中文字可加粗 / 改颜色</div>
+
+  <div class="win wob" id="s11-dg" style="left:1040px;top:220px;width:790px;height:420px"><div class="wbar" style="background:#ffe9a8"><i></i><i></i><i></i><span>映射与阈值配置</span></div></div>
+  <div class="abs" id="s11-m1" style="left:1070px;top:300px;font-size:30px;white-space:nowrap">客户名称映射</div>
+  <div class="rw" id="s11-r1" style="left:1070px;top:350px;width:730px"><span style="font-family:'JetBrains Mono',monospace;font-size:22px">客户 A 英文全称</span><b style="font-weight:400">→</b><span style="background:#dff6ec;border-radius:8px;padding:0 10px">客户 A</span></div>
+  <div class="rw" id="s11-r2" style="left:1070px;top:420px;width:730px"><span style="font-family:'JetBrains Mono',monospace;font-size:22px">客户 B 旧名称</span><b style="font-weight:400">→</b><span style="background:#dff6ec;border-radius:8px;padding:0 10px">客户 B</span></div>
+  <div class="abs" id="s11-m2" style="left:1070px;top:505px;font-size:30px;white-space:nowrap">重点设备套数展示阈值　≥ <b style="font-weight:400;border:2.5px solid var(--ink);border-radius:10px;padding:0 14px;background:#fffdf5">5</b>　套才显示</div>
+  <div class="abs" id="s11-m3" style="left:1070px;top:565px;font-size:25px;color:#8a7360;white-space:nowrap">太小的数量不放进重点关注文案</div>
+
+  <div class="bi" id="s11-cn" style="left:110px"><b style="font-weight:400;font-family:'ZCOOL KuaiLe',sans-serif;font-size:32px">🇨🇳 中文版</b><br>产品收编率 44.6%，预计年底完成率 63.1%，仍有 96 套无计划。</div>
+  <div class="bi" id="s11-en" style="left:940px;width:880px"><b style="font-weight:400;font-family:'ZCOOL KuaiLe',sans-serif;font-size:32px">🇬🇧 English</b><br>Product incorporation rate is 44.6%, forecast year-end 63.1%, 96 sets have no plan.<br><span class="tag" id="s11-cap" style="background:#ffe9a8;font-size:26px">3 处英文待同步</span>　<span class="tag" id="s11-ai" style="background:#b9a1f2;font-size:26px">AI 翻译</span></div>
+  <div class="cursor wob" id="s11-cur" style="z-index:40"></div>
+  <div class="abs wob" id="s11-d" style="left:1700px;top:900px;display:none"></div>
+  <div id="s11-sp"></div>
+  <div class="cap" id="s11-cap2"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s11-cur",icon("cursor","#ffffff",74));
+ document.getElementById("s11-sp").innerHTML=sparkle(1000,190,44)+sparkle(1850,640,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s11-b1,#s11-b2,#s11-b3,#s11-tx,#s11-ft,#s11-hint,#s11-dg,#s11-m1,#s11-r1,#s11-r2,#s11-m2,#s11-m3,#s11-cn,#s11-en,#s11-cur",{opacity:0});
+ tl.fromTo("#s11-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ var a=T("点一下就能改");
+ tl.fromTo("#s11-tx",{opacity:0,y:30},{opacity:1,y:0,duration:.5,ease:"power3.out"},a-1.0);pop(tl,"#s11-hint",a-.2,{s:.5,y:15});
+ tl.set("#s11-cur",{x:700,y:420});tl.fromTo("#s11-cur",{opacity:0},{opacity:1,duration:.3},a);
+ cur(tl,"#s11-cur",760,390,a+.1,.5);click(tl,"#s11-cur",a+.8);
+ tl.set("#s11-ed",{innerHTML:"系统部与客户本月确认计划"},a+.9);tl.to("#s11-ed",{backgroundColor:"#ffe08f",duration:.3},a+.95);
+ var b=T("加粗");
+ pop(tl,"#s11-ft",b-.2,{s:.5,y:10});tl.to("#s11-mk",{fontWeight:700,color:"#d9456b",duration:.3},b+.6);
+ tl.to("#s11-cur",{opacity:0,duration:.3},b+1);
+ var c=T("恢复本月自动文案");pop(tl,"#s11-b1",c-.3,{s:.5,y:15});
+ pop(tl,"#s11-b2",T("恢复固定文案")-.3,{s:.5,y:15});
+ var d=T("映射与阈值配置");
+ pop(tl,"#s11-b3",d-.3,{s:.5,y:15});
+ tl.fromTo("#s11-dg",{opacity:0,y:40,scale:.96},{opacity:1,y:0,scale:1,duration:.5,ease:"back.out(1.4)",transformOrigin:"50% 50%"},d+.3);
+ tl.fromTo("#s11-m1,#s11-r1,#s11-r2",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.2},T("客户名称")-.2);
+ tl.fromTo("#s11-m2,#s11-m3",{opacity:0,x:-20},{opacity:1,x:0,duration:.4,stagger:.3},T("展示阈值")-.4);
+ var e=T("中英文是两个版本");
+ tl.to("#s11-dg,#s11-m1,#s11-r1,#s11-r2,#s11-m2,#s11-m3,#s11-tx,#s11-hint",{opacity:.0,duration:.4},e-.5);
+ tl.fromTo("#s11-cn,#s11-en",{opacity:0,y:40},{opacity:1,y:0,duration:.5,stagger:.2,ease:"power3.out"},e-.2);
+ tl.to("#s11-cap",{scale:1.12,duration:.3,repeat:3,yoyo:true,transformOrigin:"50% 50%"},T("英文待同步"));
+ tl.to("#s11-ai",{scale:1.12,duration:.3,repeat:3,yoyo:true,transformOrigin:"50% 50%"},T("AI翻译"));
+ tl.fromTo("#s11-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("AI翻译"));
+ captions(tl,"s11-cap2");
+ window.__timelines["s11"]=tl;
+})();
+</script>
+</template></body></html>

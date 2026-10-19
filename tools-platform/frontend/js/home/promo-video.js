@@ -8,7 +8,7 @@
     'use strict';
     const STORE_KEY = 'tools.home.promoVideos.dismissed';
     const STORE_VALUE = 'v2';
-    const VER = '20261018-07';
+    const VER = '20261019-01';
     const VIDEOS = {
         rfc: {
             mini: '/assets/promotions/netcare-rfc-ai-guide.mp4?v=' + VER,
@@ -19,6 +19,11 @@
             mini: '/assets/promotions/operation-incentive-guide.mp4?v=' + VER,
             hd: '/assets/promotions/operation-incentive-guide-hd.mp4?v=' + VER,
             poster: '/assets/promotions/operation-incentive-guide-poster.jpg?v=' + VER
+        },
+        eos: {
+            mini: '/assets/promotions/eos-report-guide.mp4?v=' + VER,
+            hd: '/assets/promotions/eos-report-guide-hd.mp4?v=' + VER,
+            poster: '/assets/promotions/eos-report-guide-poster.jpg?v=' + VER
         },
         guide: {
             mini: '/assets/promotions/platform-guide.mp4?v=' + VER,
@@ -34,13 +39,14 @@
     };
     const isEnglish = () => { try { return /^en/i.test((window.ToolsI18n && window.ToolsI18n.getLanguage && window.ToolsI18n.getLanguage()) || document.documentElement.lang || ''); } catch (_) { return false; } };
     const media = (key, kind) => isEnglish() && EN_FILES[key] ? '/assets/promotions/' + EN_FILES[key][kind] + '?v=' + VER : VIDEOS[key][kind];
-    const ORDER = ['rfc', 'incentive', 'guide'];
+    const ORDER = ['rfc', 'incentive', 'eos', 'guide'];
     const DEFAULT_CURRENT = 'rfc';
     const i18n = window.ToolsI18n;
     if (i18n) i18n.register('home-promo-video', {
         'zh-CN': {
             'home.nrv.rfc.badge': '新功能', 'home.nrv.rfc.name': 'NetCare RFC 方案与 AI 审计', 'home.nrv.rfc.banner': '新功能 · NetCare RFC 方案与 AI 审计介绍',
             'home.nrv.incentive.badge': '核算', 'home.nrv.incentive.name': '操作激励统计：怎么算准每一笔', 'home.nrv.incentive.banner': '核算指南 · 操作激励统计，算得准、对得上',
+            'home.nrv.eos.badge': '月报', 'home.nrv.eos.name': 'EOS 风险收编：一键取数，自动成月报', 'home.nrv.eos.banner': '月报指南 · EOS 取数、测算目标、一键成月报',
             'home.nrv.guide.badge': '指南', 'home.nrv.guide.name': 'Dragon 平台五站使用指南', 'home.nrv.guide.banner': '使用指南 · 数据抓取到月报，五站通关',
             'home.nrv.hint': '点击放大高清观看', 'home.nrv.close': '关闭', 'home.nrv.mute': '静音', 'home.nrv.unmute': '开启声音', 'home.nrv.replay': '重新播放',
             'home.nrv.askTitle': '关闭推广视频？', 'home.nrv.askBody': '仅本次关闭：下次打开首页还会出现；永久关闭：只保留右上角的视频横幅，点击即可观看。',
@@ -51,6 +57,7 @@
         'en-US': {
             'home.nrv.rfc.badge': 'NEW', 'home.nrv.rfc.name': 'NetCare RFC Plans and AI Audit', 'home.nrv.rfc.banner': 'New · NetCare RFC Plans and AI Audit intro',
             'home.nrv.incentive.badge': 'PAYOUT', 'home.nrv.incentive.name': 'Operation Incentive Statistics: getting every payout right', 'home.nrv.incentive.banner': 'Guide · Operation incentive statistics, accurate and verifiable',
+            'home.nrv.eos.badge': 'REPORT', 'home.nrv.eos.name': 'EOS incorporation: one-click data, automatic monthly report', 'home.nrv.eos.banner': 'Guide · EOS data capture, target forecast, one-click report',
             'home.nrv.guide.badge': 'GUIDE', 'home.nrv.guide.name': 'Dragon Platform five-step guide', 'home.nrv.guide.banner': 'Guide · From data capture to monthly reports',
             'home.nrv.hint': 'Click to watch in HD', 'home.nrv.close': 'Close', 'home.nrv.mute': 'Mute', 'home.nrv.unmute': 'Turn sound on', 'home.nrv.replay': 'Replay',
             'home.nrv.askTitle': 'Close the promo video?', 'home.nrv.askBody': 'Close for now: it returns next time you open the home page. Close permanently: only the video banners stay at the top right.',
@@ -271,7 +278,7 @@
         float.addEventListener('keydown', event => { if (event.key === 'Escape' && !ask.hidden) { ask.hidden = true; if (!ended) mini.play().catch(() => {}); } });
         mini.addEventListener('timeupdate', () => { if (mini.duration) bar.style.width = (mini.currentTime / mini.duration * 100) + '%'; });
         mini.addEventListener('ended', () => { ended = true; replayBtn.hidden = false; });
-        mini.addEventListener('error', () => { if (mini.getAttribute('src')) float.hidden = true; });
+        mini.addEventListener('error', () => { if (mini.getAttribute('src') && !float.querySelector('.nrv-load-status')) float.hidden = true; });
         dlg.querySelector('.nrv-dialog-close').addEventListener('click', closeBig);
         dlg.addEventListener('click', event => {
             const rect = dlg.getBoundingClientRect();

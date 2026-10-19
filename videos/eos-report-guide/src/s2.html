@@ -1,0 +1,69 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .rb{position:absolute;left:30px;width:1000px;height:92px;border:3px solid var(--ink);border-radius:20px;background:#fff;display:flex;align-items:center;padding:0 22px;gap:14px}
+#root .rb .nm{font-size:34px;white-space:nowrap;font-weight:700}
+#root .rb .u{font-family:"JetBrains Mono",monospace;font-size:19px;color:#8a7360;white-space:nowrap}
+#root .rb .c{font-size:24px;color:#7c4dff;white-space:nowrap}
+#root .bt2{margin-left:auto;display:flex;gap:10px}
+#root .bt2 i{font-style:normal;border:2.5px solid var(--ink);border-radius:14px;padding:0 16px;height:50px;display:flex;align-items:center;font-size:28px;white-space:nowrap}
+#root .lbtn{position:absolute;left:24px;width:440px;height:68px;border:3px solid var(--ink);border-radius:16px;background:#fff;font-size:30px;display:flex;align-items:center;padding:0 20px;white-space:nowrap}
+</style>
+<div id="root" data-composition-id="s2" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="5" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:700px;width:520px;height:520px;background:#d9c6ef"></div>
+  <div class="head wob" id="s2-h"><span class="step">第 1 步</span><span class="ttl">复制浮窗脚本</span></div>
+  <div class="win wob" id="s2-win" style="left:100px;top:220px;width:520px;height:560px"><div class="wbar"><i></i><i></i><i></i><span>数据抓取 · 智能调度仓库</span></div></div>
+  <div class="lbtn" id="s2-b1" style="left:124px;top:310px">🚀 运行批脚本</div>
+  <div class="lbtn" id="s2-b2" style="left:124px;top:400px;background:#ffe08f;border-width:4px">📋 浮窗脚本</div>
+  <div class="lbtn" id="s2-b3" style="left:124px;top:490px">📦 拷贝全部为批量阵列</div>
+  <div class="abs" id="s2-bn" style="left:124px;top:590px;width:440px;font-size:28px;line-height:1.45;color:#8a7360">点「浮窗脚本」，选择目标站点，复制该站点的 F12 脚本。</div>
+  <div class="bdg" id="s2-n1" style="position:absolute;left:84px;top:380px;width:56px;height:56px;border-radius:50%;background:#f27b96;color:#fff;border:3px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:34px;z-index:5">1</div>
+
+  <div class="win wob" id="s2-md" style="left:700px;top:215px;width:1120px;height:700px;z-index:10"><div class="wbar" style="background:#d9c6ef"><i></i><i></i><i></i><span>选择要复制脚本的站点</span></div></div>
+  <div class="abs" id="s2-mt" style="left:730px;top:290px;width:1060px;height:62px;border:2.5px solid #e0a81f;border-radius:14px;background:#fff7d6;font-size:25px;line-height:1.3;padding:6px 16px;z-index:11">浮窗模式不会逐个下载 CSV。抓取完成后可按指标查看详表，并将全部 CSV 一次打包下载为 ZIP。</div>
+  <div class="rb" id="s2-r1" style="left:730px;top:370px;z-index:11;width:1060px"><div><div class="nm">DataFab</div><div class="u">datafab-pro.gtsdata…com</div><div class="c">23 个可执行脚本</div></div><div class="bt2"><i style="background:#c8eef0">模拟浮窗</i><i style="background:#b9a1f2">复制此站点</i></div></div>
+  <div class="rb" id="s2-r2" style="left:730px;top:468px;z-index:11;width:1060px"><div><div class="nm">isales.huawei.com</div><div class="c">1 个可执行脚本</div></div><div class="bt2"><i style="background:#b9a1f2">复制此站点</i></div></div>
+  <div class="rb" id="s2-r3" style="left:730px;top:566px;z-index:11;width:1060px"><div><div class="nm">NetCare 德国</div><div class="c">2 个可执行脚本</div></div><div class="bt2"><i style="background:#b9a1f2">复制此站点</i></div></div>
+  <div class="rb" id="s2-r4" style="left:730px;top:664px;z-index:11;width:1060px;border-width:4px"><div><div class="nm">NetCare 中国</div><div class="u">netcare.huawei.com</div><div class="c">十几个可执行脚本</div></div><div class="bt2"><i style="background:#c8eef0">模拟浮窗</i><i id="s2-cp" style="background:#b9a1f2">复制此站点</i></div></div>
+  <div class="rb" id="s2-r5" style="left:730px;top:762px;z-index:11;width:1060px;height:80px"><div><div class="nm">w3.huawei.com</div></div><div class="bt2"><i style="background:#b9a1f2">复制此站点</i></div></div>
+  <div class="hl" id="s2-hl" style="position:absolute;left:712px;top:652px;width:1096px;height:122px;border:6px dashed #f27b96;border-radius:22px;z-index:20;pointer-events:none"></div>
+  <div class="tag abs" id="s2-ok" style="left:1250px;top:930px;background:#9fe0c9;font-size:34px;z-index:20">✅ 已复制 NetCare 中国 的 F12 脚本</div>
+  <div class="cursor wob" id="s2-cur" style="z-index:40"></div>
+  <div class="abs wob" id="s2-d" style="left:220px;top:790px"></div>
+  <div id="s2-sp"></div>
+  <div class="cap" id="s2-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s2-cur",icon("cursor","#ffffff",74));put("s2-d",dino("dn",{w:240,h:230}));
+ document.getElementById("s2-sp").innerHTML=sparkle(680,190,44)+sparkle(1840,820,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s2-win,#s2-b1,#s2-b2,#s2-b3,#s2-bn,#s2-n1,#s2-md,#s2-mt,#s2-r1,#s2-r2,#s2-r3,#s2-r4,#s2-r5,#s2-hl,#s2-ok,#s2-cur",{opacity:0});
+ tl.fromTo("#s2-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s2-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("浮窗脚本",1);
+ tl.fromTo("#s2-win,#s2-b1,#s2-b2,#s2-b3",{opacity:0,y:30},{opacity:1,y:0,duration:.45,stagger:.1,ease:"power3.out"},a-1.0);
+ pop(tl,"#s2-n1",a-.3,{s:.3});tl.fromTo("#s2-bn",{opacity:0},{opacity:1,duration:.4},a+.2);
+ tl.set("#s2-cur",{x:700,y:760});tl.fromTo("#s2-cur",{opacity:0},{opacity:1,duration:.3},a-.6);
+ cur(tl,"#s2-cur",330,455,a-.5,.6);click(tl,"#s2-cur",a+.5);tl.to("#s2-b2",{backgroundColor:"#ffd166",duration:.2},a+.5);
+ var b=T("选择站点");
+ tl.fromTo("#s2-md",{opacity:0,y:50,scale:.96},{opacity:1,y:0,scale:1,duration:.5,ease:"back.out(1.4)",transformOrigin:"50% 50%"},b-.3);
+ tl.fromTo("#s2-r1,#s2-r2,#s2-r3,#s2-r4,#s2-r5",{opacity:0,x:-20},{opacity:1,x:0,duration:.35,stagger:.14},b+.4);
+ var c=T("同源限制");
+ pop(tl,"#s2-hl",T("NetCare中国")-.2,{s:.9,d:.4});
+ tl.to("#s2-cur",{x:1500,y:735,duration:.7,ease:"power2.inOut"},T("复制此站点")-.8);
+ click(tl,"#s2-cur",T("复制此站点")+.1);tl.to("#s2-cp",{backgroundColor:"#47cf9f",duration:.2},T("复制此站点")+.1);
+ pop(tl,"#s2-ok",T("复制此站点")+.5,{s:.4,d:.5});
+ tl.to("#s2-cur",{opacity:0,duration:.3},T("复制此站点")+1.2);
+ tl.fromTo("#s2-mt",{opacity:0,y:-10},{opacity:1,y:0,duration:.4},T("不会逐个下载")-.5);
+ dpoint(tl,"dn",T("不会逐个下载"),1.2);
+ tl.fromTo("#s2-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("不会逐个下载"));
+ captions(tl,"s2-cap");
+ window.__timelines["s2"]=tl;
+})();
+</script>
+</template></body></html>

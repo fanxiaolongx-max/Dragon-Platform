@@ -1,0 +1,55 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .nd{position:absolute;width:250px;height:100px;border:3px solid var(--ink);border-radius:50px;display:flex;align-items:center;justify-content:center;font-size:32px;white-space:nowrap;box-shadow:var(--sh);text-align:center;line-height:1.2}
+#root .vc{position:absolute;left:1010px;width:810px;height:128px;border:3px solid var(--ink);border-radius:24px;background:#fff;box-shadow:var(--sh);display:flex;align-items:center;gap:18px;padding:0 24px;font-size:34px;line-height:1.3}
+#root .vc b{width:56px;height:56px;border-radius:50%;border:3px solid var(--ink);background:var(--yellow);display:flex;align-items:center;justify-content:center;font-weight:400;font-size:34px;flex:none}
+</style>
+<div id="root" data-composition-id="s13" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="23" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:-120px;width:480px;height:480px;background:#aed8f2"></div>
+  <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#ffe08f"></div>
+  <div class="head wob" id="s13-h"><span class="step">总结</span><span class="ttl">每月一遍，管理提效</span></div>
+  <svg class="abs" id="s13-cy" style="left:110px;top:230px" width="820" height="620" viewBox="0 0 820 620"><ellipse cx="410" cy="310" rx="330" ry="240" fill="none" stroke="#c9a98c" stroke-width="5" stroke-dasharray="4 14" stroke-linecap="round"/></svg>
+  <div class="abs" id="s13-ct" style="left:310px;top:500px;width:420px;text-align:center;font-size:44px;font-family:'ZCOOL KuaiLe',sans-serif;line-height:1.3;white-space:nowrap">每月<br>一个循环</div>
+  <div class="nd wob" id="s13-n1" style="left:300px;top:215px;background:#fff8dc">① 复制浮窗脚本</div>
+  <div class="nd wob" id="s13-n2" style="left:650px;top:365px;background:#e4f1fb">② NetCare 取数</div>
+  <div class="nd wob" id="s13-n3" style="left:560px;top:690px;background:#ffe9a8">③ 填计划测目标</div>
+  <div class="nd wob" id="s13-n4" style="left:150px;top:690px;background:#dff6ec">④ 导出再导入</div>
+  <div class="nd wob" id="s13-n5" style="left:90px;top:365px;background:#ffe3e8">⑤ 一键生成月报</div>
+  <div class="vc" id="s13-v1" style="top:215px;background:#e4f1fb"><b>1</b>快捷取到系统里的<br>最新进展</div>
+  <div class="vc" id="s13-v2" style="top:365px;background:#ffe9a8"><b>2</b>随时刷新计划数，直接测算<br>全年能不能达成目标</div>
+  <div class="vc" id="s13-v3" style="top:515px;background:#fff8dc"><b>3</b>Top N 清单，对准没收编的<br>产品和版本，联手推进</div>
+  <div class="vc" id="s13-v4" style="top:665px;background:#dff6ec"><b>4</b>月报自动生成<br>省下大量整理时间</div>
+  <div class="btn" id="s13-go" style="left:1260px;top:830px;font-size:48px;background:#ffd166;padding:10px 50px 14px">快去试试吧 →</div>
+  <div class="abs wob" id="s13-d" style="left:690px;top:530px;display:none"></div>
+  <div class="abs wob" id="s13-f" style="left:200px;top:480px"></div>
+  <div id="s13-sp"></div>
+  <div class="cap" id="s13-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s13-f",dino("dn",{w:210,h:200}));
+ document.getElementById("s13-sp").innerHTML=sparkle(960,200,44)+sparkle(1860,250,48,"#ffb3c6")+sparkle(980,860,40,"#9fe0c9")+sparkle(130,260,44,"#ffe08f");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s13-cy,#s13-ct,#s13-n1,#s13-n2,#s13-n3,#s13-n4,#s13-n5,#s13-v1,#s13-v2,#s13-v3,#s13-v4,#s13-go",{opacity:0});
+ tl.fromTo("#s13-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s13-f",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("每个月重复");
+ tl.fromTo("#s13-cy,#s13-ct",{opacity:0},{opacity:1,duration:.5},a-.8);
+ ["#s13-n1","#s13-n2","#s13-n3","#s13-n4","#s13-n5"].forEach(function(s,i){pop(tl,s,a-.6+i*.45,{s:.5,y:15,d:.4});});
+ pop(tl,"#s13-v1",T("最新进展")-.3,{s:.5,y:20,d:.5});
+ pop(tl,"#s13-v2",T("测算全年")-.5,{s:.5,y:20,d:.5});
+ pop(tl,"#s13-v3",T("TopN清单")-.3,{s:.5,y:20,d:.5});
+ pop(tl,"#s13-v4",T("月报自动生成")-.3,{s:.5,y:20,d:.5});
+ pop(tl,"#s13-go",T("快去试试吧")-.2,{s:.3,d:.55});tl.to("#s13-go",{scale:1.06,duration:.45,repeat:5,yoyo:true,ease:"sine.inOut",transformOrigin:"50% 50%"},T("快去试试吧")+.6);
+ dcheer(tl,"dn",T("快去试试吧"));bounce(tl,"s13-f",T("快去试试吧")+.3,5,16);
+ tl.fromTo("#s13-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.15,ease:"back.out(2)",transformOrigin:"50% 50%"},T("快去试试吧"));
+ captions(tl,"s13-cap");
+ window.__timelines["s13"]=tl;
+})();
+</script>
+</template></body></html>

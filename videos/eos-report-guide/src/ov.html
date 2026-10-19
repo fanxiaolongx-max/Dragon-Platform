@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .st{position:absolute;top:530px;width:300px;height:250px;background:#fff;border:3px solid var(--ink);border-radius:28px;box-shadow:var(--sh);display:flex;flex-direction:column;align-items:center;padding-top:24px}
+#root .st .nm{font-family:"ZCOOL KuaiLe",sans-serif;font-size:38px;margin-top:6px;white-space:nowrap}
+#root .st .nn{position:absolute;left:-14px;top:-20px;width:54px;height:54px;border-radius:50%;border:3px solid var(--ink);background:var(--yellow);font-family:"ZCOOL KuaiLe",sans-serif;font-size:32px;display:flex;align-items:center;justify-content:center}
+#root .rl{position:absolute;top:800px;width:300px;text-align:center;font-size:32px;color:#7a6350;white-space:nowrap}
+</style>
+<div id="root" data-composition-id="ov" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="13" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-140px;top:-120px;width:480px;height:480px;background:#d9c6ef"></div>
+  <div class="blob" style="left:1460px;top:-170px;width:520px;height:520px;background:#aed8f2"></div>
+  <div class="abs wob" id="ov-t" style="left:110px;top:70px;font-family:'ZCOOL KuaiLe',sans-serif;font-size:120px;line-height:1;white-space:nowrap">五步流程</div>
+  <svg class="abs wob" style="left:110px;top:200px" width="560" height="36" viewBox="0 0 560 36"><path id="ov-ul" class="ln" pathLength="1" stroke-dasharray="1" style="stroke:#aed8f2;stroke-width:12" d="M6 22 C120 4 220 34 330 16 S500 30 554 12"/></svg>
+  <div class="abs" id="ov-sub" style="left:118px;top:250px;font-size:54px;white-space:nowrap">每月一遍，持续跟进，自动成稿</div>
+  <svg class="abs" style="left:100px;top:500px" width="1720" height="10"><path d="M0 5 H1720" stroke="#5b4636" stroke-width="5" stroke-dasharray="4 16" stroke-linecap="round"/></svg>
+  <div class="st wob" id="ov-c1" style="left:110px"><span class="nn">1</span><span id="ov-i1"></span><div class="nm">复制浮窗脚本</div></div>
+  <div class="st wob" id="ov-c2" style="left:460px"><span class="nn">2</span><span id="ov-i2"></span><div class="nm">NetCare 取数</div></div>
+  <div class="st wob" id="ov-c3" style="left:810px"><span class="nn">3</span><span id="ov-i3"></span><div class="nm">填计划测目标</div></div>
+  <div class="st wob" id="ov-c4" style="left:1160px"><span class="nn">4</span><span id="ov-i4"></span><div class="nm">导出再导入</div></div>
+  <div class="st wob" id="ov-c5" style="left:1510px"><span class="nn">5</span><span id="ov-i5"></span><div class="nm">一键生成月报</div></div>
+  <div class="rl" id="ov-r1" style="left:110px">带去 NetCare</div><div class="rl" id="ov-r2" style="left:460px">一键取回进展</div><div class="rl" id="ov-r3" style="left:810px">测算全年目标</div><div class="rl" id="ov-r4" style="left:1160px">带回平台</div><div class="rl" id="ov-r5" style="left:1510px">自动成稿</div>
+  <div class="abs wob" id="ov-d" style="left:125px;top:290px"></div>
+  <div id="ov-sp"></div>
+  <div class="cap" id="ov-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("ov-i1",icon("puzzle","#ffe08f",92));put("ov-i2",icon("search","#aed8f2",92));put("ov-i3",icon("chart","#9fe0c9",92));put("ov-i4",icon("zip","#ffb3c6",92));put("ov-i5",icon("doc","#d9c6ef",92));
+ put("ov-d",dino("dn",{w:270,h:260}));
+ document.getElementById("ov-sp").innerHTML=sparkle(900,200,44)+sparkle(1790,300,52,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#ov-c1,#ov-c2,#ov-c3,#ov-c4,#ov-c5,#ov-r1,#ov-r2,#ov-r3,#ov-r4,#ov-r5,#ov-sub",{opacity:0});
+ tl.fromTo("#ov-t",{opacity:0,y:50,rotation:-2},{opacity:1,y:0,rotation:0,duration:.7,ease:"back.out(1.6)"},.3);
+ draw(tl,"#ov-ul",.9,.7);tl.fromTo("#ov-sub",{opacity:0},{opacity:1,duration:.6},1.0);
+ tl.fromTo("#ov-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.3);
+ var ks=["复制浮窗脚本","在NetCare站点取数","填写计划","导出再导入平台","一键生成月报"],xs=[110,460,810,1160,1510];
+ ks.forEach(function(k,i){var t=T(k);pop(tl,"#ov-c"+(i+1),t-.1,{s:.5,y:40,d:.5});pop(tl,"#ov-r"+(i+1),t+.2,{s:.6,d:.4});
+   if(i>0){tl.to("#ov-d",{x:xs[i]-110,duration:.7,ease:"power2.inOut"},t-.7);dwalk(tl,"dn",t-.7,.7,2);}});
+ var e=T("每个月重复");dcheer(tl,"dn",e+.2);bounce(tl,"ov-d",e+.4,3,16);
+ tl.fromTo("#ov-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},e);
+ captions(tl,"ov-cap");
+ window.__timelines["ov"]=tl;
+})();
+</script>
+</template></body></html>

@@ -303,6 +303,8 @@ app.use((req, res, next) => {
 // Desktop builds keep uploaded media outside app.asar. Preserve the public URL
 // used by the cinema page while serving files from the writable runtime folder.
 app.use('/assets/videos', mediaAssetGuard, express.static(VIDEOS_DIR, { index: false }));
+// Released home videos stream/cache separately from uploaded cinema media.
+app.use(require('./models/home-promo-videos').createPromoVideoMiddleware());
 app.use(require('./models/platform-logo-runtime').createLogoAssetMiddleware());
 app.use(assetVersioning.createFrontendHtmlMiddleware(FRONTEND_DIR));
 app.use(assetVersioning.createImmutableAssetMiddleware(FRONTEND_DIR));

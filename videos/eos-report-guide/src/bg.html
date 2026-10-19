@@ -1,0 +1,67 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .pn{position:absolute;top:400px;width:300px;height:200px;background:#fff;border:3px solid var(--ink);border-radius:24px;box-shadow:var(--sh);display:flex;flex-direction:column;align-items:center;padding-top:18px}
+#root .pn .nm{font-size:36px;margin-top:6px;white-space:nowrap}
+#root .pn .sb{font-size:27px;color:#8a7360;margin-top:4px;white-space:nowrap}
+#root .ar{position:absolute;top:470px;font-size:54px;color:#c9a98c}
+#root .mini{position:absolute;top:775px;height:84px;border:3px solid var(--ink);border-radius:22px;display:flex;align-items:center;justify-content:center;gap:10px;font-size:34px;white-space:nowrap;box-shadow:var(--sh)}
+</style>
+<div id="root" data-composition-id="bg" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="11" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:700px;width:520px;height:520px;background:#ffb3c6"></div>
+  <div class="blob" style="left:1520px;top:-160px;width:520px;height:520px;background:#aed8f2"></div>
+  <div class="head wob" id="bg-h"><span class="step">背景</span><span class="ttl">EOS 风险，为什么每月都要盯？</span></div>
+  <div class="sticky wob" id="bg-d1" style="left:110px;top:200px;width:600px;font-size:36px;line-height:1.35;transform:rotate(-1.5deg);background:linear-gradient(170deg,#e4f1fb,#aed8f2)"><b style="font-weight:400;font-family:'ZCOOL KuaiLe',sans-serif">EOS</b> = 产品或版本<b style="font-weight:400">停止服务</b><br><span style="font-size:30px">还在客户网络里跑，出故障支持受限，风险高</span></div>
+  <div class="sticky wob" id="bg-d2" style="left:760px;top:200px;width:620px;font-size:36px;line-height:1.35;transform:rotate(1.5deg);background:linear-gradient(170deg,#dff6ec,#9fe0c9)"><b style="font-weight:400;font-family:'ZCOOL KuaiLe',sans-serif">收编</b> = 产品<b style="font-weight:400">退网</b> + 版本<b style="font-weight:400">升级</b><br><span style="font-size:30px">盯每个客户、每条产品线、每个产品</span></div>
+  <div class="abs" id="bg-pl" style="left:110px;top:345px;font-size:38px;white-space:nowrap;font-family:'ZCOOL KuaiLe',sans-serif">过去怎么做：</div>
+  <div class="pn wob" id="bg-p1" style="left:110px"><span id="bg-i1"></span><div class="nm">登录取数</div><div class="sb">一页页翻</div></div>
+  <div class="ar" id="bg-a1" style="left:420px">→</div>
+  <div class="pn wob" id="bg-p2" style="left:490px"><span id="bg-i2"></span><div class="nm">手工统计</div><div class="sb">客户、产品逐个算</div></div>
+  <div class="ar" id="bg-a2" style="left:800px">→</div>
+  <div class="pn wob" id="bg-p3" style="left:870px"><span id="bg-i3"></span><div class="nm">沟通计划数</div><div class="sb">找各系统部要</div></div>
+  <div class="ar" id="bg-a3" style="left:1180px">→</div>
+  <div class="pn wob" id="bg-p4" style="left:1250px"><span id="bg-i4"></span><div class="nm">手算达标</div><div class="sb">今年能不能完成</div></div>
+  <div class="ar" id="bg-a4" style="left:1560px">→</div>
+  <div class="pn wob" id="bg-p5" style="left:1630px;width:230px"><span id="bg-i5"></span><div class="nm" style="font-size:32px">写月报</div><div class="sb" style="font-size:24px">中英文排版</div></div>
+  <div class="sticky wob" id="bg-st" style="left:110px;top:630px;transform:rotate(-1.5deg);font-family:'ZCOOL KuaiLe',sans-serif;font-size:42px;background:linear-gradient(170deg,#ffe3e8,#ffb3c6)">慢 · 易错 · 难看出哪里没计划</div>
+
+  <div class="abs" id="bg-nl" style="left:110px;top:710px;font-size:38px;white-space:nowrap;font-family:'ZCOOL KuaiLe',sans-serif">现在：串成一条线</div>
+  <div class="mini wob" id="bg-m1" style="left:110px;width:320px;background:#e4f1fb">浮窗一键取数</div>
+  <div class="mini wob" id="bg-m2" style="left:470px;width:360px;background:#fff8dc">填计划测目标</div>
+  <div class="mini wob" id="bg-m3" style="left:870px;width:320px;background:#dff6ec">导出再导入</div>
+  <div class="mini wob" id="bg-m4" style="left:1230px;width:320px;background:#ffe3e8">一键生成月报</div>
+  <div class="abs wob" id="bg-d" style="left:1618px;top:700px"></div>
+  <div id="bg-sp"></div>
+  <div class="cap" id="bg-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("bg-i1",icon("search","#aed8f2",64));put("bg-i2",icon("table","#ffe08f",64));put("bg-i3",icon("chat","#ffb3c6",64));put("bg-i4",icon("chart","#9fe0c9",64));put("bg-i5",icon("doc","#d9c6ef",64));put("bg-d",dino("dn",{w:250,h:240}));
+ document.getElementById("bg-sp").innerHTML=sparkle(1440,170,44)+sparkle(1500,650,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#bg-d1,#bg-d2,#bg-pl,#bg-p1,#bg-a1,#bg-p2,#bg-a2,#bg-p3,#bg-a3,#bg-p4,#bg-a4,#bg-p5,#bg-st,#bg-nl,#bg-m1,#bg-m2,#bg-m3,#bg-m4",{opacity:0});
+ tl.fromTo("#bg-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#bg-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ pop(tl,"#bg-d1",T("停止服务")-.4,{s:.4,d:.55});
+ pop(tl,"#bg-d2",T("收编")-.5,{s:.4,d:.55});
+ tl.fromTo("#bg-pl",{opacity:0},{opacity:1,duration:.4},T("过去的做法")-.2);
+ pop(tl,"#bg-p1",T("登录系统")-.1,{s:.5,y:30});
+ tl.fromTo("#bg-a1",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},T("手工统计")-.5);pop(tl,"#bg-p2",T("手工统计")-.1,{s:.5,y:30});
+ tl.fromTo("#bg-a2",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},T("计划数")-.6);pop(tl,"#bg-p3",T("计划数")-.2,{s:.5,y:30});
+ tl.fromTo("#bg-a3",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},T("年度目标")-.7);pop(tl,"#bg-p4",T("年度目标")-.3,{s:.5,y:30});
+ tl.fromTo("#bg-a4",{opacity:0,x:-14},{opacity:1,x:0,duration:.3},T("中英文月报")-.7);pop(tl,"#bg-p5",T("中英文月报")-.3,{s:.5,y:30});
+ pop(tl,"#bg-st",T("又慢又容易错")-.2,{s:.4,d:.55});
+ tl.to("#bg-p1,#bg-p2,#bg-p3,#bg-p4,#bg-p5,#bg-a1,#bg-a2,#bg-a3,#bg-a4,#bg-pl",{opacity:.35,duration:.5},T("这个功能")-.2);
+ tl.fromTo("#bg-nl",{opacity:0},{opacity:1,duration:.4},T("这个功能"));
+ tl.fromTo("#bg-m1,#bg-m2,#bg-m3,#bg-m4",{opacity:0,scale:.6},{opacity:1,scale:1,duration:.35,stagger:.2,ease:"back.out(1.8)",transformOrigin:"50% 50%"},T("串起来")-.3);
+ dcheer(tl,"dn",T("串起来")+.3);
+ tl.fromTo("#bg-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("串起来"));
+ captions(tl,"bg-cap");
+ window.__timelines["bg"]=tl;
+})();
+</script>
+</template></body></html>

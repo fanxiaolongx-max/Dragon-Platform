@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>项目演变 MV</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: #06080c; }
+      #root {
+        position: relative; width: 100%; height: 100%; overflow: hidden;
+        background: #06080c; color: #f5f7fa;
+        font-family: sans-serif; font-weight: 800;
+        --amber: #ffb347; --cyan: #3ee0ff; --mag: #ff2e7e; --white: #f5f7fa; --gray: #98a3b5;
+      }
+      .scene { position: absolute; inset: 0; }
+      .abs { position: absolute; white-space: nowrap; }
+      .mono { font-family: monospace; font-weight: 700; }
+
+      /* 背景网格 + 暗角 */
+      #bg { background:
+        linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 80px 80px,
+        linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 80px 80px; }
+      #vig { position: absolute; inset: 0; background: radial-gradient(ellipse at center, transparent 45%, rgba(0,0,0,.75) 100%); }
+      #fx { position: absolute; inset: 0; opacity: 0; background: #fff; }
+
+      /* S1 */
+      .chip { position: absolute; white-space: nowrap; font-family: monospace; font-weight: 700; font-size: 30px;
+        color: var(--amber); border: 2px solid var(--amber); background: rgba(255,179,71,.08); padding: 10px 20px; border-radius: 8px; }
+      /* S2 */
+      .node { position: absolute; top: 450px; width: 300px; height: 150px; border: 3px solid var(--cyan); border-radius: 18px;
+        background: rgba(62,224,255,.08); display: flex; align-items: center; justify-content: center; font-size: 44px; color: var(--white); }
+      .nlabel { position: absolute; top: 625px; width: 300px; text-align: center; font-size: 28px; color: var(--gray); }
+      .packet { position: absolute; top: 513px; left: 330px; width: 24px; height: 24px; background: var(--cyan); border-radius: 6px; box-shadow: 0 0 24px var(--cyan); }
+      .layer { position: absolute; left: 510px; width: 900px; height: 130px; border-radius: 18px; display: flex; align-items: center; justify-content: center; font-size: 54px; }
+      /* S3 */
+      .card { position: absolute; width: 410px; height: 180px; border: 2px solid rgba(62,224,255,.55); border-radius: 14px;
+        background: rgba(255,255,255,.04); padding: 24px 28px; }
+      .card .m { font-family: monospace; font-weight: 700; font-size: 24px; color: var(--cyan); }
+      .card .n { font-size: 46px; margin-top: 8px; color: var(--white); }
+      .card .d { font-size: 26px; margin-top: 8px; color: var(--gray); }
+      /* S4 */
+      .big { position: absolute; font-family: monospace; font-weight: 900; line-height: 1; letter-spacing: -4px; }
+      .lab { position: absolute; font-size: 44px; color: var(--white); }
+      .bar { position: absolute; width: 70px; bottom: 180px; border-radius: 8px 8px 0 0; transform-origin: 50% 100%; }
+      .bval { position: absolute; width: 98px; text-align: center; font-family: monospace; font-weight: 700; font-size: 24px; color: var(--white); }
+      .bmon { position: absolute; width: 98px; text-align: center; top: 915px; font-family: monospace; font-weight: 700; font-size: 22px; color: var(--gray); }
+      /* strobe */
+      #strobe-word { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 340px; font-weight: 900; letter-spacing: 12px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="64" data-width="1920" data-height="1080">
+      <audio id="bgm" src="assets/bgm.mp3" data-start="0" data-duration="64" data-track-index="9" data-volume="1"></audio>
+
+      <div id="bg" class="clip scene" data-start="0" data-duration="64" data-track-index="0"></div>
+      <div id="vig" class="clip scene" data-start="0" data-duration="64" data-track-index="0" style="pointer-events:none"></div>
+
+      <!-- S1 起点 0-8 -->
+      <div id="s1" class="clip scene" data-start="0" data-duration="8" data-track-index="1">
+        <div id="s1-cmd" class="abs mono" style="left:100px;top:110px;font-size:44px;color:var(--gray)"></div>
+        <div id="s1-date" class="abs mono" style="left:100px;top:180px;font-size:36px;color:var(--amber)">2025-11-16 &nbsp;Initial commit</div>
+        <div id="s1-head" class="abs" style="left:0;width:1920px;top:400px;text-align:center;font-size:104px;line-height:1.25;color:var(--white)">
+          最开始，只是一个个<br /><span style="color:var(--amber)">AI 生成的 HTML 页面</span>
+        </div>
+      </div>
+
+      <!-- S2 抓取与导入 8-20 -->
+      <div id="s2" class="clip scene" data-start="8" data-duration="12" data-track-index="1">
+        <div id="s2-title" class="abs" style="left:100px;top:90px;font-size:88px;color:var(--white)">然后，开始<span style="color:var(--cyan)">抓数据</span></div>
+        <div id="s2-sub" class="abs mono" style="left:104px;top:205px;font-size:32px;color:var(--gray)">UIVF12 抓取 → 自动导入 → SLA 报告</div>
+        <div id="s2-title2" class="abs" style="left:100px;top:90px;font-size:88px;color:var(--white)">页面，长出了<span style="color:var(--cyan)">后端</span>和<span style="color:var(--cyan)">数据库</span></div>
+        <div id="s2-pipe"></div>
+        <div id="s2-stack"></div>
+        <div id="s2-slam" class="abs" style="left:0;width:1920px;top:370px;text-align:center;font-size:230px;color:var(--mag);letter-spacing:6px">中台，来了。</div>
+      </div>
+
+      <!-- S3 中台化 20-36 -->
+      <div id="s3" class="clip scene" data-start="20" data-duration="16" data-track-index="1">
+        <div id="s3-wrap" class="scene">
+          <div id="s3-title" class="abs" style="left:100px;top:46px;font-size:76px;color:var(--white)">它，长成了一整个<span style="color:var(--mag)">中台</span></div>
+          <div id="s3-title2" class="abs" style="left:100px;top:46px;font-size:76px;color:var(--white)">……而且，<span style="color:var(--mag)">还在继续长</span></div>
+          <div id="s3-cards"></div>
+        </div>
+      </div>
+
+      <!-- S4 高潮 36-44 -->
+      <div id="s4" class="clip scene" data-start="36" data-duration="8" data-track-index="1">
+        <div id="s4-glow" class="scene" style="background:radial-gradient(ellipse at 30% 40%, rgba(255,46,126,.35), transparent 60%)"></div>
+        <div id="s4-wrap" class="scene">
+          <div id="s4-n1" class="big" style="left:90px;top:100px;font-size:260px;color:var(--white)">0</div>
+          <div id="s4-l1" class="lab" style="left:100px;top:380px">次提交 <span class="mono" style="color:var(--gray);font-size:30px">COMMITS</span></div>
+          <div id="s4-n2" class="big" style="left:90px;top:500px;font-size:200px;color:var(--mag)">424</div>
+          <div id="s4-l2" class="lab" style="left:100px;top:710px">次发版 <span class="mono" style="color:var(--gray);font-size:30px">RELEASES</span></div>
+          <div id="s4-n3" class="big" style="left:90px;top:790px;font-size:130px;color:var(--cyan)">11</div>
+          <div id="s4-l3" class="lab" style="left:300px;top:840px">个月</div>
+          <div id="s4-chart"></div>
+          <div id="s4-cap" class="abs" style="left:1000px;top:150px;font-size:56px;color:var(--white)">每月提交数</div>
+        </div>
+      </div>
+
+      <!-- S4b 闪词 44-48 -->
+      <div id="s4b" class="clip scene" data-start="44" data-duration="4" data-track-index="2" style="background:#06080c">
+        <div id="strobe-word"></div>
+      </div>
+
+      <!-- S5 断崖 48-52 -->
+      <div id="s5" class="clip scene" data-start="48" data-duration="4" data-track-index="1">
+        <div id="s5-cmd" class="abs mono" style="left:360px;top:440px;font-size:48px;color:var(--gray)"></div>
+        <div id="s5-out" class="abs mono" style="left:360px;top:520px;font-size:96px;color:var(--white)">1035</div>
+      </div>
+
+      <!-- S6 尾声 52-64 -->
+      <div id="s6" class="clip scene" data-start="52" data-duration="12" data-track-index="1">
+        <div id="s6-a" class="abs" style="left:0;width:1920px;top:250px;text-align:center;font-size:84px;color:var(--gray)">我们的路，</div>
+        <div id="s6-b" class="abs" style="left:0;width:1920px;top:370px;text-align:center;font-size:190px;color:var(--white);letter-spacing:6px">还有很长要走。</div>
+        <div id="s6-c" class="abs" style="left:0;width:1920px;top:650px;text-align:center;font-size:44px;color:var(--cyan);letter-spacing:10px">更稳 · 更快 · 更聪明 · 更多人用得上</div>
+        <div id="s6-line" class="abs" style="left:100px;top:830px;width:1720px;height:4px;background:linear-gradient(90deg,var(--cyan) 0%,var(--cyan) 62%,rgba(255,255,255,.15) 66%,rgba(255,255,255,.15) 100%)"></div>
+        <div id="s6-dots"></div>
+        <div id="s6-cmd" class="abs mono" style="left:100px;top:900px;font-size:40px;color:var(--gray)"></div>
+        <div id="s6-end" class="abs mono" style="right:100px;top:895px;font-size:36px;color:var(--amber);letter-spacing:6px">TO BE CONTINUED</div>
+      </div>
+
+      <!-- HUD 0-36 -->
+      <div id="hud" class="clip scene" data-start="0" data-duration="36" data-track-index="6">
+        <div id="hud-date" class="abs mono" style="right:100px;top:44px;font-size:34px;color:var(--cyan);text-align:right"></div>
+        <div id="hud-count" class="abs mono" style="right:100px;top:92px;font-size:34px;color:var(--gray);text-align:right"></div>
+      </div>
+
+      <div id="fx" class="clip scene" data-start="0" data-duration="64" data-track-index="8"></div>
+      <div id="fade" class="clip scene" data-start="0" data-duration="64" data-track-index="10" style="background:#000;opacity:0"></div>
+    </div>
+
+    <script>
+      const BEAT = 0.5, BAR = 2.0;
+      const $ = (s) => document.querySelector(s);
+      const tl = gsap.timeline({ paused: true });
+      function mk(parent, cls, html, style) {
+        const d = document.createElement('div');
+        d.className = cls; d.innerHTML = html; if (style) d.style.cssText = style;
+        parent.appendChild(d); return d;
+      }
+      // 打字机：用代理对象推进字符数，seek 安全
+      function typeText(sel, text, t, dur) {
+        const el = $(sel); el.textContent = '';
+        const o = { n: 0 };
+        tl.to(o, { n: text.length, duration: dur, ease: 'none', onUpdate: () => { el.textContent = text.slice(0, Math.round(o.n)); } }, t);
+      }
+      function pop(el, t, o) {
+        o = o || {};
+        tl.fromTo(el, { opacity: 0, y: o.y ?? 30, scale: o.s ?? 0.88 }, { opacity: 1, y: 0, scale: 1, duration: o.d ?? 0.28, ease: 'back.out(2.2)' }, t);
+      }
+      function flash(t, a, dur, color) {
+        tl.fromTo('#fx', { opacity: a, backgroundColor: color || '#ffffff' }, { opacity: 0, duration: dur || 0.4, ease: 'power2.out', immediateRender: false }, t);
+      }
+      function shake(sel, t, amp) {
+        tl.fromTo(sel, { x: -amp, y: amp * 0.6 }, { x: 0, y: 0, duration: 0.2, ease: 'power3.out', immediateRender: false }, t);
+      }
+
+      /* ===== S1 起点 0-8 ===== */
+      typeText('#s1-cmd', '$ git init', 0.5, 1.1);
+      tl.fromTo('#s1-date', { opacity: 0 }, { opacity: 1, duration: 0.4 }, 1.9);
+      const privacy = mk($('#s1'), 'chip', 'privacy.html', 'left:1180px;top:110px');
+      const terms = mk($('#s1'), 'chip', 'terms.html', 'left:1180px;top:190px');
+      pop(privacy, 2.0); pop(terms, 3.0);
+      tl.fromTo('#s1-head', { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 4.0);
+      const demos = [
+        ['外卖流程DEMO.html', 100, 740], ['地址比对DEMO.html', 760, 740], ['报告解析DEMO.html', 1400, 740],
+        ['表格可视DEMO.html', 260, 830], ['合同倒数DEMO.html', 900, 830], ['链路分析DEMO.html', 1440, 830],
+        ['汇率监控DEMO.html', 140, 920], ['文档总结DEMO.html', 800, 920],
+      ];
+      demos.forEach((c, i) => pop(mk($('#s1'), 'chip', c[0], `left:${c[1]}px;top:${c[2]}px`), 4.0 + i * BEAT, { y: 24, d: 0.22 }));
+      // 轻微心跳
+      [4, 5, 6, 7].forEach((t) => tl.fromTo('#s1-head', { scale: 1.015 }, { scale: 1, duration: 0.35, ease: 'power2.out', immediateRender: false }, t));
+      flash(8.0, 0.55, 0.5, '#3ee0ff');
+
+      /* ===== S2 抓取与导入 8-20 ===== */
+      const pipe = $('#s2-pipe');
+      const nodes = [['网页 / 系统', ''], ['抓取', 'UIVF12'], ['导入', '一键入库'], ['报表', 'SLA · 月报']];
+      nodes.forEach((n, i) => {
+        const nd = mk(pipe, 'node', n[0], `left:${180 + i * 440}px`);
+        if (n[1]) mk(pipe, 'nlabel', n[1], `left:${180 + i * 440}px`);
+        pop(nd, 8.5 + i * BEAT * 2, { y: 40 });
+      });
+      pipe.querySelectorAll('.nlabel').forEach((l, i) => tl.fromTo(l, { opacity: 0 }, { opacity: 1, duration: 0.3 }, 10.5 + i * BEAT * 2));
+      const lines = [0, 1, 2].map((i) => mk(pipe, 'abs', '', `left:${480 + i * 440}px;top:523px;width:140px;height:4px;background:var(--cyan);transform-origin:0 50%`));
+      lines.forEach((l, i) => tl.fromTo(l, { scaleX: 0 }, { scaleX: 1, duration: 0.3, ease: 'power2.out' }, 9.0 + i * BEAT * 2));
+      for (let i = 0; i < 8; i++) {
+        const p = mk(pipe, 'packet', '');
+        tl.fromTo(p, { x: 0, opacity: 0 }, { x: 1320, opacity: 1, duration: 1.5, ease: 'none', keyframes: undefined }, 12 + i * BEAT);
+        tl.to(p, { opacity: 0, duration: 0.2 }, 13.3 + i * BEAT);
+      }
+      tl.fromTo('#s2-title', { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' }, 8.1);
+      tl.fromTo('#s2-sub', { opacity: 0 }, { opacity: 1, duration: 0.5 }, 9.0);
+      // 切 bar 4：换成后端 + 数据库
+      tl.to(['#s2-title', '#s2-sub', pipe], { opacity: 0, duration: 0.25 }, 15.75);
+      tl.fromTo('#s2-title2', { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' }, 16.0);
+      const stack = $('#s2-stack');
+      const layers = [
+        ['HTML 页面', 'rgba(255,179,71,.14)', 'var(--amber)', 330],
+        ['Express 后端', 'rgba(62,224,255,.14)', 'var(--cyan)', 490],
+        ['SQLite 数据库', 'rgba(255,46,126,.16)', 'var(--mag)', 650],
+      ];
+      layers.forEach((l, i) => {
+        const e = mk(stack, 'layer', l[0], `top:${l[3]}px;background:${l[1]};border:3px solid ${l[2]};color:${l[2]}`);
+        pop(e, 16.5 + i * 1.0, { y: 60 });
+      });
+      tl.fromTo('#s2-slam', { opacity: 0, scale: 2.2 }, { opacity: 1, scale: 1, duration: 0.3, ease: 'power4.out' }, 19.0);
+      tl.to(stack, { opacity: 0.15, duration: 0.2 }, 19.0);
+      tl.to('#s2-title2', { opacity: 0.2, duration: 0.2 }, 19.0);
+      [19.0, 19.5].forEach((t) => shake('#s2-slam', t, 14));
+      flash(20.0, 0.6, 0.5, '#ff2e7e');
+
+      /* ===== S3 中台化 20-36 ===== */
+      const cardsData = [
+        ['2026.05', 'SLA 合控', '指标规则引擎'], ['2026.05', '月报导出', 'Excel · PDF'], ['2026.05', 'SQLite', '数据全部落库'], ['2026.06', '运营大屏', '一屏看全局'],
+        ['2026.06', '自定义工具', '上传即挂载'], ['2026.06', 'Dragon Claw', '智能体工作区'], ['2026.06', '桌面客户端', 'Windows · macOS'], ['2026.07', '自动发版', 'v1.0.80 →'],
+        ['2026.08', '服务监控', '可用性统计'], ['2026.09', '工具市场', '独立发布'], ['2026.09', '月报引擎', '7 专题 · 双语'], ['2026.09', '内置工具库', '配音 · 多语言'],
+        ['2026.10', '桌面授权', '激活 · 中英双语'], ['2026.10', 'RFC 审计', 'NetCare 方案'], ['2026.10', 'WeLink 接入', '手机上问数'], ['2026.10', '桌宠', '额度趋势'],
+      ];
+      const cwrap = $('#s3-cards');
+      const cards = cardsData.map((c, i) => {
+        const col = i % 4, row = Math.floor(i / 4);
+        return mk(cwrap, 'card', `<div class="m">${c[0]}</div><div class="n">${c[1]}</div><div class="d">${c[2]}</div>`,
+          `left:${100 + col * 450}px;top:${190 + row * 200}px`);
+      });
+      tl.fromTo('#s3-title', { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.4, ease: 'power3.out' }, 20.0);
+      cards.forEach((c, i) => {
+        const t = 20.5 + i * BEAT * 0.75;
+        pop(c, t, { y: 50, s: 0.8, d: 0.22 });
+        tl.fromTo(c, { borderColor: 'rgba(255,46,126,1)', backgroundColor: 'rgba(255,46,126,.35)' },
+          { borderColor: 'rgba(62,224,255,.55)', backgroundColor: 'rgba(255,255,255,.04)', duration: 0.5, immediateRender: false }, t);
+      });
+      // 之后每拍随机点亮一张
+      for (let k = 0; k < 14; k++) {
+        const idx = (k * 5 + 3) % 16;
+        tl.fromTo(cards[idx], { backgroundColor: 'rgba(62,224,255,.32)', scale: 1.04 },
+          { backgroundColor: 'rgba(255,255,255,.04)', scale: 1, duration: 0.4, immediateRender: false }, 28.5 + k * BEAT);
+      }
+      for (let t = 20; t < 36; t += BEAT) tl.fromTo('#fx', { opacity: 0.05 }, { opacity: 0, duration: 0.25, immediateRender: false }, t);
+      tl.to('#s3-title', { opacity: 0, duration: 0.15 }, 33.9);
+      tl.fromTo('#s3-title2', { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.4, ease: 'power3.out' }, 34.0);
+      for (let t = 34; t < 36; t += BEAT) shake('#s3-wrap', t, 8 + (t - 34) * 6);
+      flash(36.0, 0.95, 0.7, '#ffffff');
+
+      /* ===== S4 高潮 36-44 ===== */
+      const cnt = { v: 0 };
+      tl.fromTo('#s4-n1', { opacity: 0, scale: 1.6 }, { opacity: 1, scale: 1, duration: 0.25, ease: 'power4.out' }, 36.0);
+      tl.to(cnt, { v: 1035, duration: 3.6, ease: 'power2.out', onUpdate: () => { $('#s4-n1').textContent = Math.round(cnt.v); } }, 36.0);
+      tl.fromTo('#s4-l1', { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power3.out' }, 36.5);
+      tl.fromTo('#s4-n2', { opacity: 0, scale: 1.8 }, { opacity: 1, scale: 1, duration: 0.25, ease: 'power4.out' }, 38.0);
+      tl.fromTo('#s4-l2', { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power3.out' }, 38.25);
+      tl.fromTo('#s4-n3', { opacity: 0, scale: 1.8 }, { opacity: 1, scale: 1, duration: 0.25, ease: 'power4.out' }, 40.0);
+      tl.fromTo('#s4-l3', { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power3.out' }, 40.25);
+      tl.fromTo('#s4-cap', { opacity: 0 }, { opacity: 1, duration: 0.3 }, 36.5);
+      const months = [['11', 6], ['12', 21], ['01', 34], ['02', 2], ['03', 3], ['04', 0], ['05', 50], ['06', 190], ['07', 147], ['08', 86], ['09', 245], ['10', 251]];
+      // 12 个柱：宽 70 + 间距 14（实际占位 84）
+      const chart = $('#s4-chart');
+      months.forEach((m, i) => {
+        const x = 760 + i * 90, h = Math.max(4, (m[1] / 251) * 540);
+        const hot = m[1] > 180;
+        const bar = mk(chart, 'bar', '', `left:${x}px;height:${h}px;background:${hot ? 'linear-gradient(0deg,#ff2e7e,#ffb347)' : 'linear-gradient(0deg,#1d6f86,#3ee0ff)'}`);
+        const mon = mk(chart, 'bmon', m[0], `left:${x - 14}px`);
+        const val = mk(chart, 'bval', String(m[1]), `left:${x - 14}px;top:${900 - h - 40}px`);
+        const t = 36.5 + i * 0.5 * 0.6;
+        tl.fromTo(bar, { scaleY: 0 }, { scaleY: 1, duration: 0.3, ease: 'back.out(1.6)' }, t);
+        tl.fromTo([mon, val], { opacity: 0 }, { opacity: 1, duration: 0.2 }, t + 0.1);
+      });
+      for (let t = 36; t < 44; t += BEAT) { shake('#s4-wrap', t, 9); tl.fromTo('#fx', { opacity: 0.1, backgroundColor: '#ff2e7e' }, { opacity: 0, duration: 0.3, immediateRender: false }, t); }
+      flash(36.0, 0.95, 0.7, '#ffffff');
+
+      /* ===== S4b 闪词 44-48 ===== */
+      const words = [['抓取', 'var(--white)'], ['导入', 'var(--cyan)'], ['分析', 'var(--amber)'], ['报表', 'var(--white)'], ['监控', 'var(--cyan)'], ['智能体', 'var(--mag)'], ['桌面端', 'var(--amber)'], ['手机端', 'var(--white)']];
+      const sw = $('#strobe-word');
+      const starts = [44, 44.5, 45, 45.5, 46, 46.5, 47, 47.5];
+      words.forEach((w, i) => {
+        const e = mk(sw, 'abs', w[0], `left:0;top:0;width:1920px;height:1080px;display:flex;align-items:center;justify-content:center;color:${w[1]};font-size:${i === 5 ? 420 : 340}px`);
+        tl.fromTo(e, { opacity: 0, scale: 1.5 }, { opacity: 1, scale: 1, duration: 0.18, ease: 'power4.out' }, starts[i]);
+        tl.to(e, { opacity: 0, duration: 0.05 }, starts[i] + 0.45);
+        tl.fromTo('#fx', { opacity: 0.18 + i * 0.03, backgroundColor: '#ffffff' }, { opacity: 0, duration: 0.2, immediateRender: false }, starts[i]);
+      });
+      flash(48.0, 0.9, 0.25, '#ffffff');
+
+      /* ===== S5 断崖 48-52 ===== */
+      typeText('#s5-cmd', '$ git log --oneline | wc -l', 48.3, 1.6);
+      tl.fromTo('#s5-out', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }, 50.0);
+      tl.to(['#s5-cmd', '#s5-out'], { opacity: 0, duration: 0.5 }, 51.5);
+
+      /* ===== S6 尾声 52-64 ===== */
+      tl.fromTo('#s6-a', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 1.0, ease: 'power2.out' }, 52.5);
+      tl.fromTo('#s6-b', { opacity: 0, y: 40, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 1.4, ease: 'power3.out' }, 54.0);
+      tl.fromTo('#s6-c', { opacity: 0 }, { opacity: 1, duration: 1.2 }, 56.0);
+      tl.fromTo('#s6-line', { opacity: 0, scaleX: 0, transformOrigin: '0 50%' }, { opacity: 1, scaleX: 1, duration: 1.6, ease: 'power2.inOut' }, 57.0);
+      const dots = $('#s6-dots');
+      for (let i = 0; i < 12; i++) {
+        const left = 100 + (i / 11) * 1720 * 0.62;
+        const d = mk(dots, 'abs', '', `left:${left - 9}px;top:823px;width:18px;height:18px;border-radius:9px;background:var(--cyan);box-shadow:0 0 14px var(--cyan)`);
+        tl.fromTo(d, { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.25, ease: 'back.out(3)' }, 57.6 + i * 0.1);
+      }
+      for (let i = 0; i < 5; i++) {
+        const left = 100 + 1720 * 0.66 + i * 150;
+        const d = mk(dots, 'abs', '', `left:${left}px;top:823px;width:18px;height:18px;border-radius:9px;border:2px dashed rgba(255,255,255,.35)`);
+        tl.fromTo(d, { opacity: 0 }, { opacity: 1, duration: 0.5 }, 59.0 + i * 0.25);
+      }
+      typeText('#s6-cmd', '$ git commit -m "第二章"', 59.5, 1.6);
+      tl.fromTo('#s6-end', { opacity: 0 }, { opacity: 1, duration: 0.8 }, 61.2);
+      tl.to('#fade', { opacity: 1, duration: 1.8, ease: 'power1.in' }, 62.2);
+
+      /* ===== HUD：日期 + 累计提交（全程由一个代理对象驱动） ===== */
+      const mIdx = [[0, 0.5], [8, 2.9], [20, 6.4], [36, 9.0]];
+      const cum = [[0, 0], [3, 6], [8, 61], [14, 63], [20, 116], [28, 306], [36, 539]];
+      const interp = (arr, t) => { for (let i = 1; i < arr.length; i++) if (t <= arr[i][0]) { const a = arr[i - 1], b = arr[i]; return a[1] + (b[1] - a[1]) * (t - a[0]) / (b[0] - a[0]); } return arr[arr.length - 1][1]; };
+      const hp = { t: 0 };
+      tl.to(hp, { t: 36, duration: 36, ease: 'none', onUpdate: () => {
+        const m = Math.floor(interp(mIdx, hp.t)); const abs = 10 + m; // 2025-11 起
+        const y = 2025 + Math.floor(abs / 12), mo = (abs % 12) + 1;
+        $('#hud-date').textContent = y + '.' + String(mo).padStart(2, '0');
+        $('#hud-count').textContent = Math.round(interp(cum, hp.t)) + ' commits';
+      } }, 0);
+
+      window.__timelines = window.__timelines || {};
+      window.__timelines['main'] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <title>星河 · 项目演变</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;500;700&family=Noto+Sans+SC:wght@300;400&family=Unbounded:wght@200;300&display=block" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script src="assets/data.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.181.2/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.181.2/examples/jsm/"
+        }
+      }
+    </script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+      #root {
+        position: relative; width: 100%; height: 100%; overflow: hidden; background: #000;
+        color: #f3f1ec;
+        --ink: #f3f1ec; --dim: rgba(243, 241, 236, 0.62); --gold: #e8c48a; --blue: #a9c1ff;
+        --serif: "Noto Serif SC", serif; --sans: "Noto Sans SC", sans-serif;
+        --num: "Unbounded", sans-serif; --mono: "JetBrains Mono", monospace;
+      }
+      .full { position: absolute; inset: 0; }
+      #space { position: absolute; inset: 0; width: 1920px; height: 1080px; display: block; }
+      .t { position: absolute; white-space: nowrap; text-shadow: 0 0 40px rgba(0, 0, 0, 0.85), 0 0 12px rgba(0, 0, 0, 0.6); }
+      .serif { font-family: var(--serif); }
+      .sans { font-family: var(--sans); font-weight: 300; }
+      .mono { font-family: var(--mono); font-weight: 400; }
+      .num { font-family: var(--num); font-weight: 200; }
+      .center { left: 0; width: 1920px; text-align: center; }
+
+      /* 遮幅 2.39:1 */
+      .lb { position: absolute; left: 0; width: 1920px; height: 128px; background: #000; }
+      #lb-top { top: 0; } #lb-bot { bottom: 0; }
+      .hud { position: absolute; font-family: var(--mono); font-size: 15px; letter-spacing: 0.42em; color: rgba(243, 241, 236, 0.5); white-space: nowrap; }
+
+      /* 星标签 */
+      .seed { position: absolute; left: 0; top: 0; font-family: var(--mono); font-size: 17px; color: var(--gold); letter-spacing: 0.06em; white-space: nowrap; opacity: 0; text-shadow: 0 0 16px rgba(0,0,0,.9); }
+      .seed::before { content: ""; display: inline-block; width: 26px; height: 1px; background: rgba(232, 196, 138, 0.7); vertical-align: middle; margin-right: 10px; }
+
+      /* 里程碑 */
+      .ms { position: absolute; left: 150px; top: 330px; width: 1100px; }
+      .ms .row { display: flex; align-items: center; gap: 22px; font-family: var(--mono); font-size: 20px; letter-spacing: 0.32em; color: var(--dim); }
+      .ms .row .ln { width: 120px; height: 1px; background: var(--gold); transform-origin: 0 50%; }
+      .ms .row .dt { color: var(--gold); }
+      .ms .ti { margin-top: 26px; font-family: var(--serif); font-weight: 700; font-size: 128px; line-height: 1.08; letter-spacing: 0.06em; color: var(--ink); text-shadow: 0 0 60px rgba(0,0,0,.8); white-space: nowrap; }
+      .ms .sb { margin-top: 26px; font-family: var(--sans); font-weight: 300; font-size: 36px; letter-spacing: 0.1em; color: rgba(243,241,236,.86); white-space: nowrap; text-shadow: 0 0 30px rgba(0,0,0,.9); }
+      .ms .cm { margin-top: 34px; font-family: var(--mono); font-size: 18px; color: rgba(243,241,236,.42); letter-spacing: 0.04em; white-space: nowrap; height: 24px; }
+
+      /* 提交洪流 */
+      #stream-mask { position: absolute; right: 90px; top: 170px; width: 460px; height: 740px; overflow: hidden;
+        -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 82%, transparent 100%);
+        mask-image: linear-gradient(180deg, transparent 0%, #000 18%, #000 82%, transparent 100%); }
+      #stream { position: absolute; left: 0; top: 0; width: 460px; font-family: var(--mono); font-size: 15px; line-height: 26px; color: rgba(169, 193, 255, 0.36); }
+      #stream div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      /* 数字 */
+      .bignum { font-family: var(--num); font-weight: 200; font-size: 290px; line-height: 1; letter-spacing: -0.02em;
+        background: linear-gradient(180deg, #ffffff 0%, #dfe7ff 45%, #8fa8e8 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+        text-shadow: none; }
+      .numlab { font-family: var(--serif); font-weight: 500; font-size: 46px; letter-spacing: 0.4em; color: var(--ink); }
+      .numsub { font-family: var(--mono); font-size: 18px; letter-spacing: 0.5em; color: rgba(243,241,236,.5); }
+
+      #grain-overlay .grain-texture { position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+        background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        opacity: 0.07; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="88" data-width="1920" data-height="1080">
+      <audio id="bgm" src="assets/bgm.mp3" data-start="0" data-duration="88" data-track-index="12" data-volume="1"></audio>
+
+      <!-- 宇宙层 -->
+      <div id="space-wrap" class="clip full" data-start="0" data-duration="88" data-track-index="0">
+        <canvas id="space" width="1920" height="1080"></canvas>
+      </div>
+
+      <!-- 星标签（位置由 3D 投影逐帧写入） -->
+      <div id="seeds" class="clip full" data-start="8" data-duration="12" data-track-index="1"></div>
+
+      <!-- 冷开场 0-8 -->
+      <div id="s0" class="clip full" data-start="0" data-duration="8" data-track-index="2">
+        <div id="s0-date" class="t mono center" style="top:470px;font-size:22px;letter-spacing:0.7em;color:var(--gold)">2025 · 11 · 16</div>
+        <div id="s0-line" class="t serif center" style="top:520px;font-size:62px;font-weight:300;letter-spacing:0.14em">故事，从一个 HTML 页面开始。</div>
+      </div>
+
+      <!-- 萌芽 8-20 -->
+      <div id="s1" class="clip full" data-start="8" data-duration="12" data-track-index="2">
+        <div id="s1-a" class="t serif" style="left:150px;top:690px;font-size:66px;font-weight:500;letter-spacing:0.1em">最初，它只是一些 AI 生成的网页。</div>
+        <div id="s1-b" class="t serif" style="left:150px;top:690px;font-size:66px;font-weight:500;letter-spacing:0.1em">跨年那天，一口气写了 <span style="color:var(--gold)">8</span> 个。</div>
+        <div id="s1-c" class="t serif" style="left:150px;top:690px;font-size:66px;font-weight:500;letter-spacing:0.1em">零散，但每一个，都在解决一个真实的问题。</div>
+      </div>
+
+      <!-- 里程碑 20-48 -->
+      <div id="s2" class="clip full" data-start="20" data-duration="28" data-track-index="2"></div>
+      <div id="s2-stream" class="clip full" data-start="20" data-duration="28" data-track-index="3">
+        <div id="stream-mask"><div id="stream"></div></div>
+      </div>
+
+      <!-- 蓄力 48-51.5 -->
+      <div id="s3" class="clip full" data-start="48" data-duration="3.5" data-track-index="2">
+        <div id="s3-date" class="t num center" style="top:420px;font-size:150px;letter-spacing:0.04em;color:var(--ink)">2025.11.16</div>
+        <div id="s3-sub" class="t mono center" style="top:620px;font-size:22px;letter-spacing:0.6em;color:var(--dim)"></div>
+      </div>
+
+      <!-- 高潮 52-64 -->
+      <div id="s4" class="clip full" data-start="52" data-duration="12" data-track-index="2">
+        <div id="scrim" class="full" style="background:radial-gradient(ellipse 55% 50% at 50% 45%, rgba(0,0,0,.7), rgba(0,0,0,.3) 60%, rgba(0,0,0,.08))"></div>
+        <div id="n1" class="full">
+          <div id="n1-num" class="t bignum center" style="top:250px">0</div>
+          <div id="n1-lab" class="t numlab center" style="top:575px">次提交</div>
+          <div id="n1-sub" class="t numsub center" style="top:650px">COMMITS · 2025.11 — 2026.10</div>
+          <svg id="curve" width="1920" height="1080" viewBox="0 0 1920 1080" style="position:absolute;left:0;top:0">
+            <defs>
+              <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#a9c1ff" stop-opacity="0.35" />
+                <stop offset="1" stop-color="#a9c1ff" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            <path id="curve-area" fill="url(#cg)" d="" />
+            <path id="curve-line" pathLength="1" fill="none" stroke="#ffffff" stroke-width="3.5" d="" style="filter:drop-shadow(0 0 8px rgba(169,193,255,.9))" />
+            <circle id="curve-dot" r="7" fill="#fff" style="filter:drop-shadow(0 0 14px #fff)" />
+            <g id="curve-months"></g>
+          </svg>
+        </div>
+        <div id="n2" class="full">
+          <svg width="1920" height="1080" viewBox="0 0 1920 1080" style="position:absolute;left:0;top:0">
+            <defs>
+              <mask id="ring-mask"><circle id="ring-reveal" cx="960" cy="470" r="300" fill="none" stroke="#fff" stroke-width="80" transform="rotate(-90 960 470)" /></mask>
+            </defs>
+            <circle cx="960" cy="470" r="300" fill="none" stroke="rgba(223,231,255,.85)" stroke-width="26" stroke-dasharray="1.3 3.146" mask="url(#ring-mask)" />
+          </svg>
+          <div id="n2-num" class="t bignum center" style="top:330px;font-size:230px">424</div>
+          <div id="n2-lab" class="t numlab center" style="top:810px">个版本</div>
+          <div id="n2-sub" class="t numsub center" style="top:885px">v1.0.0 — v1.0.424</div>
+        </div>
+        <div id="n3" class="full">
+          <div id="n3-num" class="t bignum center" style="top:280px">336</div>
+          <div id="n3-lab" class="t numlab center" style="top:610px">天</div>
+          <div id="n3-sub" class="t serif center" style="top:700px;font-size:40px;font-weight:300;letter-spacing:0.2em;color:rgba(243,241,236,.8)">从第一行代码，到今天。</div>
+        </div>
+      </div>
+
+      <!-- 余震 64-68 -->
+      <div id="s5" class="clip full" data-start="64" data-duration="4" data-track-index="2">
+        <div id="s5-a" class="t mono center" style="top:520px;font-size:20px;letter-spacing:0.7em;color:var(--dim)">2026 · 10 · 18 &nbsp;—&nbsp; TODAY</div>
+      </div>
+
+      <!-- 尾声 68-88 -->
+      <div id="s6" class="clip full" data-start="68" data-duration="20" data-track-index="2">
+        <div id="e1a" class="t serif center" style="top:610px;font-size:60px;font-weight:300;letter-spacing:0.16em">人类的每一次进步，</div>
+        <div id="e1b" class="t serif center" style="top:705px;font-size:60px;font-weight:300;letter-spacing:0.16em">都不是一步跨出来的。</div>
+        <div id="e2" class="t serif center" style="top:655px;font-size:60px;font-weight:300;letter-spacing:0.16em">而是无数人，各自认真走出的一小步。</div>
+        <div id="e3a" class="t serif center" style="top:610px;font-size:60px;font-weight:300;letter-spacing:0.16em">我们这一步很小——</div>
+        <div id="e3b" class="t serif center" style="top:705px;font-size:60px;font-weight:300;letter-spacing:0.16em">实实在在，做一个<span style="color:var(--gold)">好用的提效工具</span>。</div>
+        <div id="e4" class="t serif center" style="top:560px;font-size:88px;font-weight:500;letter-spacing:0.22em">路还很长，我们继续。</div>
+        <div id="e5" class="t num center" style="top:720px;font-size:26px;letter-spacing:0.9em;color:rgba(243,241,236,.82)">DRAGON PLATFORM</div>
+        <div id="e6" class="t mono center" style="top:772px;font-size:16px;letter-spacing:0.6em;color:var(--dim)">2025.11 — TO BE CONTINUED</div>
+      </div>
+
+      <!-- 遮幅 + HUD -->
+      <div id="frame" class="clip full" data-start="0" data-duration="88" data-track-index="8">
+        <div id="lb-top" class="lb"></div>
+        <div id="lb-bot" class="lb"></div>
+        <div id="hud-l" class="hud" style="left:80px;top:56px">DRAGON PLATFORM &nbsp;/&nbsp; EVOLUTION</div>
+        <div id="hud-r" class="hud" style="right:80px;top:56px;text-align:right"></div>
+        <div id="hud-ch" class="hud" style="left:80px;bottom:56px"></div>
+        <div id="hud-c" class="hud" style="right:80px;bottom:56px;text-align:right"></div>
+      </div>
+
+      <div id="grain" class="clip full" data-start="0" data-duration="88" data-track-index="9">
+        <div id="grain-overlay" class="full"><div class="grain-texture"></div></div>
+      </div>
+      <div id="flash" class="clip full" data-start="0" data-duration="88" data-track-index="10" style="background:#fff;opacity:0"></div>
+      <div id="blk0" class="clip full" data-start="0" data-duration="3" data-track-index="11" style="background:#000;z-index:15"></div>
+      <div id="blk1" class="clip full" data-start="51.46" data-duration="0.54" data-track-index="11" style="background:#000;z-index:15"></div>
+      <div id="blk2" class="clip full" data-start="63.98" data-duration="3.22" data-track-index="11" style="background:#000;z-index:15"></div>
+      <div id="blk3" class="clip full" data-start="67.2" data-duration="3.2" data-track-index="11" style="background:#000;z-index:15"></div>
+      <div id="blk4" class="clip full" data-start="86.6" data-duration="1.4" data-track-index="11" style="background:#000;opacity:0;z-index:15"></div>
+    </div>
+
+    <script type="module">
+      import * as THREE from 'three';
+      import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+      import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+      import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+      import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+      const W = 1920, H = 1080, TOTAL = 88;
+      const $ = (s) => document.querySelector(s);
+      // ---------- 时间常量（与配乐一致） ----------
+      const STARS = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19];
+      const MS = [20, 24, 28, 32, 36, 40, 44];
+      const NUMS = [52, 56, 60];
+      const IMPACTS = [...MS, ...NUMS, 64];
+
+      // ---------- 工具函数 ----------
+      function mulberry(a) { return function () { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+      const ss = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+      function keys(arr, t) { // 分段平滑插值 [[t, v...]]
+        if (t <= arr[0][0]) return arr[0].slice(1);
+        for (let i = 1; i < arr.length; i++) {
+          if (t <= arr[i][0]) {
+            const a = arr[i - 1], b = arr[i], k = ss(a[0], b[0], t);
+            return a.slice(1).map((v, j) => v + (b[j + 1] - v) * k);
+          }
+        }
+        return arr[arr.length - 1].slice(1);
+      }
+      function lin(arr, t) {
+        if (t <= arr[0][0]) return arr[0][1];
+        for (let i = 1; i < arr.length; i++) if (t <= arr[i][0]) { const a = arr[i - 1], b = arr[i]; return a[1] + (b[1] - a[1]) * (t - a[0]) / (b[0] - a[0]); }
+        return arr[arr.length - 1][1];
+      }
+      const pulse = (times, t, decay) => times.reduce((s, x) => s + (t >= x ? Math.exp(-(t - x) * decay) : 0), 0);
+
+      // ---------- Three 场景 ----------
+      const canvas = $('#space');
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(1); renderer.setSize(W, H, false);
+      renderer.setClearColor(0x000000, 1);
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(50, W / H, 0.1, 3000);
+      scene.add(camera);
+
+      // 星云穹顶
+      const nebula = new THREE.Mesh(
+        new THREE.SphereGeometry(1500, 64, 32),
+        new THREE.ShaderMaterial({
+          side: THREE.BackSide, depthWrite: false,
+          uniforms: { uT: { value: 0 }, uI: { value: 0.4 } },
+          vertexShader: `varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+          fragmentShader: `
+            varying vec3 vD; uniform float uT; uniform float uI;
+            float h(vec3 p){ p = fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+            float n(vec3 x){ vec3 i=floor(x); vec3 f=fract(x); f=f*f*(3.0-2.0*f);
+              return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),
+                         mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z); }
+            float fbm(vec3 p){ float s=0.0,a=0.5; for(int i=0;i<6;i++){ s+=a*n(p); p*=2.03; a*=0.5; } return s; }
+            void main(){
+              vec3 p = vD*2.2 + vec3(uT*0.004, 0.0, uT*0.002);
+              float q = fbm(p + fbm(p*1.7)*1.2);
+              float band = exp(-pow(vD.y*2.6 + 0.15, 2.0));
+              float m = smoothstep(0.42, 0.95, q) * (0.35 + 0.9*band);
+              vec3 c1 = vec3(0.10,0.05,0.22), c2 = vec3(0.05,0.20,0.32), c3 = vec3(0.45,0.16,0.32);
+              vec3 col = mix(c1, c2, smoothstep(0.4,0.8,fbm(p*0.8+3.0)));
+              col = mix(col, c3, smoothstep(0.62,0.9,q)*0.6);
+              gl_FragColor = vec4(col * m * uI * 1.6, 1.0);
+            }`,
+        })
+      );
+      scene.add(nebula);
+
+      // 背景星空
+      {
+        const r = mulberry(3), n = 9000, pos = new Float32Array(n * 3), sz = new Float32Array(n), ph = new Float32Array(n), col = new Float32Array(n * 3);
+        for (let i = 0; i < n; i++) {
+          const u = r() * 2 - 1, th = r() * Math.PI * 2, rad = 700 + r() * 600, s = Math.sqrt(1 - u * u);
+          pos.set([Math.cos(th) * s * rad, u * rad, Math.sin(th) * s * rad], i * 3);
+          sz[i] = 0.8 + Math.pow(r(), 6) * 3.2; ph[i] = r() * 100;
+          const w = r(); col.set(w < 0.15 ? [1, 0.85, 0.7] : w < 0.3 ? [0.7, 0.8, 1] : [1, 1, 1], i * 3);
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        g.setAttribute('size', new THREE.BufferAttribute(sz, 1));
+        g.setAttribute('phase', new THREE.BufferAttribute(ph, 1));
+        g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        var bgStars = new THREE.Points(g, new THREE.ShaderMaterial({
+          transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+          uniforms: { uT: { value: 0 }, uB: { value: 1 } },
+          vertexShader: `attribute float size; attribute float phase; attribute vec3 color; varying vec3 vC; varying float vA; uniform float uT; uniform float uB;
+            void main(){ vC = color; vA = (0.55 + 0.45*sin(uT*(1.5+fract(phase)*3.0) + phase)) * uB;
+              gl_PointSize = size * 1.6; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+          fragmentShader: `varying vec3 vC; varying float vA; void main(){ float d = length(gl_PointCoord-0.5)*2.0; float a = pow(max(0.0,1.0-d),2.0); gl_FragColor = vec4(vC*a*vA, 1.0); }`,
+        }));
+        scene.add(bgStars);
+      }
+
+      // 银河
+      const GR = 24;
+      const galaxy = (() => {
+        const r = mulberry(7), n = 110000, pos = new Float32Array(n * 3), col = new Float32Array(n * 3), sz = new Float32Array(n), birth = new Float32Array(n);
+        const inC = new THREE.Color('#ffd9a8'), outC = new THREE.Color('#5d7dff'), pink = new THREE.Color('#ff7fb8'), tmp = new THREE.Color();
+        const ARMS = 3;
+        for (let i = 0; i < n; i++) {
+          let rad, x, y, z;
+          if (i < n * 0.16) { // 核球
+            rad = Math.pow(r(), 2.2) * 5.5; const th = r() * Math.PI * 2, u = r() * 2 - 1, s = Math.sqrt(1 - u * u);
+            x = Math.cos(th) * s * rad; y = u * rad * 0.45; z = Math.sin(th) * s * rad;
+          } else {
+            rad = 1.5 + Math.pow(r(), 1.35) * GR;
+            const br = ((i % ARMS) / ARMS) * Math.PI * 2, spin = rad * 0.34;
+            const rnd = () => Math.pow(r(), 3) * (r() < 0.5 ? 1 : -1) * 0.42 * rad * 0.55;
+            x = Math.cos(br + spin) * rad + rnd(); y = rnd() * 0.22; z = Math.sin(br + spin) * rad + rnd();
+          }
+          pos.set([x, y, z], i * 3);
+          const k = Math.min(1, Math.hypot(x, z) / GR);
+          tmp.copy(inC).lerp(outC, Math.pow(k, 0.7));
+          if (r() < 0.06) tmp.lerp(pink, 0.7);
+          col.set([tmp.r, tmp.g, tmp.b], i * 3);
+          sz[i] = 0.5 + Math.pow(r(), 4) * 2.6;
+          birth[i] = Math.min(1, k * 0.8 + r() * 0.2);
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        g.setAttribute('size', new THREE.BufferAttribute(sz, 1));
+        g.setAttribute('birth', new THREE.BufferAttribute(birth, 1));
+        const m = new THREE.ShaderMaterial({
+          transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+          uniforms: { uRot: { value: 0 }, uReveal: { value: 0 }, uB: { value: 1 } },
+          vertexShader: `attribute vec3 color; attribute float size; attribute float birth; varying vec3 vC;
+            uniform float uRot; uniform float uReveal; uniform float uB;
+            void main(){
+              float d = length(position.xz);
+              float a = atan(position.z, position.x) + uRot * (7.0 / (d + 4.0));
+              vec3 p = vec3(cos(a)*d, position.y, sin(a)*d);
+              float vis = smoothstep(birth, birth + 0.06, uReveal);
+              vC = color * vis * uB;
+              vec4 mv = modelViewMatrix * vec4(p, 1.0);
+              gl_PointSize = clamp(size * 46.0 / -mv.z, 0.0, 14.0) * (0.6 + 0.4*vis);
+              gl_Position = projectionMatrix * mv;
+            }`,
+          fragmentShader: `varying vec3 vC; void main(){ float d = length(gl_PointCoord-0.5)*2.0; float a = pow(max(0.0,1.0-d),2.2); gl_FragColor = vec4(vC*a*0.95, 1.0); }`,
+        });
+        const pts = new THREE.Points(g, m);
+        pts.rotation.x = 0.0;
+        scene.add(pts);
+        return pts;
+      })();
+
+      // 星核光晕（始终面向相机的面片）
+      const core = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        uniforms: { uI: { value: 0 } },
+        vertexShader: `varying vec2 vU; void main(){ vU = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+        fragmentShader: `varying vec2 vU; uniform float uI; void main(){ vec2 p = vU-0.5; float d = length(p)*2.0;
+          float g = exp(-d*5.5)*1.2 + exp(-d*14.0)*2.0;
+          float ray = (exp(-abs(p.y)*160.0) + exp(-abs(p.x)*160.0)) * exp(-d*2.4) * 0.6;
+          vec3 c = vec3(1.0,0.86,0.68)*(g+ray);
+          gl_FragColor = vec4(c*uI, 1.0); }`,
+      }));
+      core.scale.setScalar(9);
+      scene.add(core);
+
+      // 萌芽之星：11 个最早的 HTML 页面
+      const SEED_NAMES = ['privacy.html', 'terms.html', '外卖流程DEMO.html', '地址比对DEMO.html', '报告解析DEMO.html', '表格可视DEMO.html', '泡泡图表DEMO.html', '合同倒数DEMO.html', '链路分析DEMO.html', '汇率监控DEMO.html', '文档总结DEMO.html'];
+      const SEED_POS = [[-3, 1.6, 2], [5, -1.2, 1], [-12, 3.6, -2], [11, 4.8, -3], [-8.5, -4.6, 3], [2, 6.5, -4], [15, -3.4, -1], [-17, -0.6, -5], [7, -6.8, 2], [-2.5, -7.2, -2], [18, 2.2, -6]];
+      const seedMat = new THREE.ShaderMaterial({
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+        uniforms: { uT: { value: 0 }, uFade: { value: 1 } },
+        vertexShader: `attribute float ign; varying float vB; uniform float uT; uniform float uFade;
+          void main(){ float dt = uT - ign; vB = (dt < 0.0 ? 0.0 : (0.9 + 3.5*exp(-dt*2.2))) * uFade;
+            vec4 mv = modelViewMatrix * vec4(position,1.0);
+            gl_PointSize = (70.0 + 120.0*exp(-max(dt,0.0)*2.2)) * 30.0 / -mv.z; gl_Position = projectionMatrix * mv; }`,
+        fragmentShader: `varying float vB; void main(){ vec2 p = gl_PointCoord-0.5; float d = length(p)*2.0;
+          float g = exp(-d*7.0)*1.4 + exp(-d*22.0)*2.5;
+          float ray = (exp(-abs(p.y)*90.0) + exp(-abs(p.x)*90.0)) * max(0.0, 1.0-d) * 0.9;
+          gl_FragColor = vec4(vec3(1.0,0.82,0.55)*(g+ray)*vB, 1.0); }`,
+      });
+      {
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(SEED_POS.flat()), 3));
+        g.setAttribute('ign', new THREE.BufferAttribute(new Float32Array(STARS), 1));
+        scene.add(new THREE.Points(g, seedMat));
+      }
+      const seedLabels = SEED_NAMES.map((nm) => { const d = document.createElement('div'); d.className = 'seed'; d.textContent = nm; $('#seeds').appendChild(d); return d; });
+
+      // 超光速星线（挂在相机下）
+      const warp = (() => {
+        const r = mulberry(21), n = 2600, pos = new Float32Array(n * 6), z0 = new Float32Array(n * 2), tail = new Float32Array(n * 2);
+        for (let i = 0; i < n; i++) {
+          const th = r() * Math.PI * 2, rad = 1.2 + Math.pow(r(), 0.7) * 22, x = Math.cos(th) * rad, y = Math.sin(th) * rad, z = r() * 240;
+          pos.set([x, y, 0, x, y, 0], i * 6); z0.set([z, z], i * 2); tail.set([0, 1], i * 2);
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        g.setAttribute('z0', new THREE.BufferAttribute(z0, 1));
+        g.setAttribute('tail', new THREE.BufferAttribute(tail, 1));
+        const m = new THREE.ShaderMaterial({
+          transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+          uniforms: { uTravel: { value: 0 }, uLen: { value: 0 }, uA: { value: 0 } },
+          vertexShader: `attribute float z0; attribute float tail; varying float vA; uniform float uTravel; uniform float uLen; uniform float uA;
+            void main(){ float z = -240.0 + mod(z0 + uTravel, 240.0); z -= tail * uLen;
+              vA = uA * smoothstep(-240.0, -150.0, z) * (1.0 - tail*0.85);
+              gl_Position = projectionMatrix * vec4(position.xy, z, 1.0); }`,
+          fragmentShader: `varying float vA; void main(){ gl_FragColor = vec4(vec3(0.75,0.85,1.0)*vA, 1.0); }`,
+        });
+        const lines = new THREE.LineSegments(g, m);
+        lines.frustumCulled = false;
+        camera.add(lines);
+        return m;
+      })();
+
+      // 后期：泛光
+      const composer = new EffectComposer(renderer);
+      composer.setPixelRatio(1); composer.setSize(W, H);
+      composer.addPass(new RenderPass(scene, camera));
+      const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.8, 0.5, 0.18);
+      composer.addPass(bloom);
+      composer.addPass(new OutputPass());
+
+      // ---------- 镜头与参数曲线 ----------
+      const CAM = [
+        [0, 0, 5, 62, 0, 0, 0],
+        [8, 0, 3.5, 46, 0, 0, 0],
+        [20, -7, 6, 37, -4, 0, 0],
+        [36, -20, 17, 25, -9, 0, 4],
+        [48, -5, 9, 17, -7, 0, 2],
+        [51.5, 0, 12, 24, 0, 0, 0],
+        [56, 11, 1.6, 9, 0, 0, 0],
+        [64, -7, 3.2, 13, 0, 0, 0],
+        [64.01, 0, 72, 34, 0, 0, 12],
+        [88, 0, 44, 22, 0, 0, 9],
+      ];
+      const SPIN = [[0, 0.015], [20, 0.04], [36, 0.09], [48, 0.16], [52, 0.42], [60, 0.3], [64, 0.2], [68, 0.035], [88, 0.03]];
+      const REVEAL = [[0, 0], [19, 0], [36, 0.42], [48, 0.78], [51.5, 0.85], [56, 1.02], [88, 1.02]];
+      const NEB = [[0, 0.15], [8, 0.3], [20, 0.5], [48, 0.75], [52, 1.1], [64, 0.9], [68, 0.55], [88, 0.6]];
+      // 旋转角 = 角速度积分（固定步长，结果确定）
+      const rotTable = [0]; { let a = 0; for (let i = 1; i <= TOTAL * 60; i++) { a += lin(SPIN, i / 60) / 60; rotTable.push(a); } }
+      const rotAt = (t) => rotTable[Math.min(rotTable.length - 1, Math.round(t * 60))];
+      const warpAmt = (t) => (t < 51.5 ? 0 : t < 52 ? ss(51.5, 52, t) * 0.3 : t < 55.5 ? 1 : t < 64 ? 1 - ss(55.5, 63, t) * 0.85 : 0);
+      const travelTable = [0]; { let a = 0; for (let i = 1; i <= TOTAL * 60; i++) { const w = warpAmt(i / 60); a += (12 + w * 260) / 60; travelTable.push(a); } }
+
+      const v = new THREE.Vector3();
+      let lastT = -1;
+      function renderAt(t) {
+        if (t === lastT) return; lastT = t;
+        const c = keys(CAM, t);
+        const shake = IMPACTS.reduce((s, x) => s + (t >= x ? Math.exp(-(t - x) * 5) : 0), 0) * 0.18;
+        camera.position.set(c[0] + Math.sin(t * 0.37) * 0.4 + Math.sin(t * 61) * shake, c[1] + Math.cos(t * 0.29) * 0.3 + Math.cos(t * 53) * shake, c[2]);
+        camera.lookAt(c[3], c[4], c[5]);
+        camera.updateMatrixWorld();
+
+        const rot = rotAt(t);
+        galaxy.material.uniforms.uRot.value = rot;
+        galaxy.material.uniforms.uReveal.value = lin(REVEAL, t);
+        const flashes = pulse(MS, t, 2.2) + pulse(NUMS, t, 1.6) * 1.4;
+        galaxy.material.uniforms.uB.value = (t < 52 ? 1 : t < 64 ? 0.8 : 1.2) + flashes * 0.12;
+        nebula.material.uniforms.uT.value = t;
+        nebula.material.uniforms.uI.value = lin(NEB, t) * (1 + flashes * 0.3);
+        bgStars.material.uniforms.uT.value = t;
+        seedMat.uniforms.uT.value = t;
+        seedMat.uniforms.uFade.value = 1 - ss(30, 40, t);
+        const coreBase = lin([[0, 0], [19, 0], [20, 0.25], [36, 0.55], [48, 0.85], [52, 1.2], [64, 1.0], [68, 0.75], [88, 0.8]], t);
+        const camD = camera.position.length(); core.material.uniforms.uI.value = (coreBase * 0.4 + flashes * 0.35) * Math.min(1, Math.max(0.12, (camD - 5) / 22));
+        core.lookAt(camera.position);
+        const w = warpAmt(t);
+        warp.uniforms.uTravel.value = travelTable[Math.min(travelTable.length - 1, Math.round(t * 60))];
+        warp.uniforms.uLen.value = 2 + w * 60;
+        warp.uniforms.uA.value = w * 0.3;
+        bloom.strength = 0.75 + (t >= 52 && t < 64 ? 0.2 : 0) + flashes * 0.25;
+
+        // 萌芽之星标签：3D → 屏幕
+        if (t >= 8 && t < 20.5) {
+          SEED_POS.forEach((p, i) => {
+            v.set(p[0], p[1], p[2]).project(camera);
+            const x = (v.x * 0.5 + 0.5) * W, y = (-v.y * 0.5 + 0.5) * H;
+            const el = seedLabels[i];
+            el.style.transform = `translate(${x + 18}px, ${y - 11}px)`;
+            const a = t < STARS[i] ? 0 : Math.min(1, (t - STARS[i]) / 0.35) * (1 - ss(16.3, 16.9, t));
+            el.style.opacity = a.toFixed(3);
+          });
+        }
+        composer.render();
+      }
+
+      // ---------- DOM 时间线 ----------
+      const tl = gsap.timeline({ paused: true });
+      const proxy = { t: 0 };
+      tl.to(proxy, { t: TOTAL, duration: TOTAL, ease: 'none', onUpdate: () => renderAt(proxy.t) }, 0);
+      window.addEventListener('hf-seek', (e) => renderAt(e.detail.time));
+
+      function blurIn(sel, t, d = 0.9, ls) {
+        const from = { opacity: 0, filter: 'blur(16px)', y: 14 }, to = { opacity: 1, filter: 'blur(0px)', y: 0, duration: d, ease: 'power3.out' };
+        if (ls) { from.scale = 1.06; to.scale = 1; }
+        tl.fromTo(sel, from, to, t);
+      }
+      function blurOut(sel, t, d = 0.45) { tl.to(sel, { opacity: 0, filter: 'blur(14px)', duration: d, ease: 'power2.in' }, t); }
+      function typeText(el, text, t, dur) { const o = { n: 0 }; tl.to(o, { n: text.length, duration: dur, ease: 'none', onUpdate: () => { el.textContent = text.slice(0, Math.round(o.n)); } }, t); }
+
+      // 开场：黑场淡入
+      tl.fromTo('#blk0', { opacity: 1 }, { opacity: 0, duration: 2.9, ease: 'power2.in' }, 0);
+      blurIn('#s0-date', 2.0, 1.2, ['1.2em', '0.7em']);
+      blurIn('#s0-line', 3.8, 1.4, ['0.4em', '0.14em']);
+      blurOut(['#s0-date', '#s0-line'], 7.2, 0.7);
+
+      // 萌芽
+      blurIn('#s1-a', 9.0, 1.0); blurOut('#s1-a', 13.3);
+      blurIn('#s1-b', 14.0, 1.0); blurOut('#s1-b', 16.6);
+      blurIn('#s1-c', 17.0, 1.0); blurOut('#s1-c', 19.4);
+
+      // 里程碑
+      const MILESTONES = [
+        ['2026 · 05 · 15', '有了后端', '散落的页面，第一次被收进同一个平台', 'refactor: move HTML tool files to consolidated directory'],
+        ['2026 · 05 · 30', '数据落地', 'UIVF12 抓取 · 自动导入 · 全量迁入 SQLite', 'refactor: migrate file-based data storage to persistent SQLite'],
+        ['2026 · 06 · 03', '人人都能造工具', '一个 HTML 文件，上传即成为平台工具', 'feat: implement custom tool management system'],
+        ['2026 · 06 · 11', '走出浏览器', '桌面客户端 · CI 自动构建与发版', 'feat: Add Electron wrapper and GitHub Actions CI'],
+        ['2026 · 07 · 17', '装进口袋', 'iOS 工程 · 手机上也能查指标、看风险', 'feat: initialize iOS application project'],
+        ['2026 · 09 · 08', '工具市场', '工具独立发布、独立更新、按需安装', 'feat: add independently published tool market'],
+        ['2026 · 10 · 15', 'Dragon Claw', '会读写代码、会调度工具的智能体工作区', 'feat: Dragon Claw 双模工作台 · Agent Workspace'],
+      ];
+      MILESTONES.forEach((m, i) => {
+        const t0 = MS[i];
+        const box = document.createElement('div'); box.className = 'ms';
+        box.innerHTML = `<div class="row"><span>${String(i + 1).padStart(2, '0')} / 07</span><span class="ln"></span><span class="dt">${m[0]}</span></div>
+          <div class="ti">${m[1]}</div><div class="sb">${m[2]}</div><div class="cm"></div>`;
+        $('#s2').appendChild(box);
+        tl.fromTo(box, { opacity: 0 }, { opacity: 1, duration: 0.01 }, t0);
+        tl.fromTo(box.querySelector('.ln'), { scaleX: 0 }, { scaleX: 1, duration: 0.6, ease: 'power3.out' }, t0);
+        tl.fromTo(box.querySelector('.row'), { opacity: 0 }, { opacity: 1, duration: 0.4 }, t0 + 0.05);
+        tl.fromTo(box.querySelector('.ti'), { opacity: 0, filter: 'blur(22px)', scale: 1.06 },
+          { opacity: 1, filter: 'blur(0px)', scale: 1, duration: 0.9, ease: 'power3.out', transformOrigin: '0% 50%' }, t0 + 0.08);
+        tl.fromTo(box.querySelector('.sb'), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.7, ease: 'power2.out' }, t0 + 0.5);
+        typeText(box.querySelector('.cm'), '› ' + m[3], t0 + 0.8, 1.3);
+        tl.to(box, { opacity: 0, filter: 'blur(16px)', duration: 0.4, ease: 'power2.in' }, t0 + 3.55);
+      });
+
+      // 提交洪流
+      const stream = $('#stream');
+      window.COMMITS.forEach((s) => { const d = document.createElement('div'); let w = 0, o = ''; for (const ch of s) { w += ch.charCodeAt(0) > 0x2e80 ? 1.85 : 1; if (w > 46) { o += '…'; break; } o += ch; } d.textContent = o; stream.appendChild(d); });
+      const streamH = window.COMMITS.length * 26;
+      tl.fromTo('#stream-mask', { opacity: 0 }, { opacity: 1, duration: 1.2 }, 20.5);
+      tl.fromTo(stream, { y: 600 }, { y: -(streamH - 300), duration: 27.5, ease: 'power2.in' }, 20.5);
+
+      // 蓄力：日期飞转 336 天
+      const day0 = Date.UTC(2025, 10, 16);
+      const dp = { d: 0 };
+      tl.fromTo('#s3-date', { opacity: 0, filter: 'blur(10px)' }, { opacity: 1, filter: 'blur(0px)', duration: 0.4 }, 48.0);
+      tl.fromTo('#s3-sub', { opacity: 0 }, { opacity: 1, duration: 0.4 }, 48.3);
+      tl.to(dp, { d: 336, duration: 3.3, ease: 'power2.in', onUpdate: () => {
+        const dd = Math.round(dp.d), dt = new Date(day0 + dd * 86400000);
+        $('#s3-date').textContent = dt.getUTCFullYear() + '.' + String(dt.getUTCMonth() + 1).padStart(2, '0') + '.' + String(dt.getUTCDate()).padStart(2, '0');
+        $('#s3-sub').textContent = 'DAY ' + String(dd).padStart(3, '0') + '  ·  ' + String(window.CUM[dd]).padStart(4, '0') + ' COMMITS';
+      } }, 48.0);
+      // 51.5 骤停：黑
+      tl.fromTo('#flash', { opacity: 1 }, { opacity: 0, duration: 0.9, ease: 'power2.out', immediateRender: false }, 52.0);
+      [56, 60].forEach((x) => tl.fromTo('#flash', { opacity: 0.55 }, { opacity: 0, duration: 0.7, ease: 'power2.out', immediateRender: false }, x));
+      MS.forEach((x) => tl.fromTo('#flash', { opacity: 0.18 }, { opacity: 0, duration: 0.6, ease: 'power2.out', immediateRender: false }, x));
+
+      // 遮幅在高潮时打开
+      tl.to('#lb-top', { y: -128, duration: 0.5, ease: 'power3.out' }, 52.0);
+      tl.to('#lb-bot', { y: 128, duration: 0.5, ease: 'power3.out' }, 52.0);
+      tl.to(['#hud-l', '#hud-r', '#hud-ch', '#hud-c'], { opacity: 0, duration: 0.3 }, 51.4);
+      tl.to('#lb-top', { y: 0, duration: 0.01 }, 64.0);
+      tl.to('#lb-bot', { y: 0, duration: 0.01 }, 64.0);
+
+      // 高潮数字 1：1035 + 累计曲线
+      const cn = { v: 0 };
+      tl.fromTo('#n1-num', { opacity: 0, scale: 1.25, filter: 'blur(20px)' }, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.7, ease: 'expo.out' }, 52.0);
+      tl.to(cn, { v: 1035, duration: 2.6, ease: 'expo.out', onUpdate: () => { $('#n1-num').textContent = Math.round(cn.v).toLocaleString('en-US'); } }, 52.0);
+      blurIn('#n1-lab', 52.6, 0.8, ['1em', '0.4em']); blurIn('#n1-sub', 53.0, 0.8);
+      {
+        const cumM = [6, 27, 61, 63, 66, 66, 116, 306, 453, 539, 784, 1035];
+        const x0 = 260, x1 = 1660, yb = 930, yt = 740;
+        const pts = cumM.map((c, i) => [x0 + (i / 11) * (x1 - x0), yb - (c / 1035) * (yb - yt)]);
+        let d = `M${pts[0][0]},${pts[0][1]}`;
+        for (let i = 1; i < pts.length; i++) { const p = pts[i - 1], q = pts[i], mx = (p[0] + q[0]) / 2; d += ` C${mx},${p[1]} ${mx},${q[1]} ${q[0]},${q[1]}`; }
+        $('#curve-line').setAttribute('d', d);
+        $('#curve-area').setAttribute('d', d + ` L${x1},${yb} L${x0},${yb} Z`);
+        $('#curve-line').style.strokeDasharray = 1;
+        tl.fromTo('#curve-line', { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 2.6, ease: 'power2.inOut' }, 52.3);
+        const bez = (k) => { const f = Math.min(10.9999, k * 11), i = Math.floor(f), u = f - i, p = pts[i], q = pts[i + 1], mx = (p[0] + q[0]) / 2, a = (1 - u) ** 3, b = 3 * (1 - u) ** 2 * u, c = 3 * (1 - u) * u * u, e = u ** 3;
+          return [a * p[0] + (b + c) * mx + e * q[0], a * p[1] + b * p[1] + c * q[1] + e * q[1]]; };
+        tl.fromTo('#curve-area', { opacity: 0 }, { opacity: 1, duration: 1.2 }, 53.8);
+        const dot = { k: 0 };
+        tl.to(dot, { k: 1, duration: 2.6, ease: 'power2.inOut', onUpdate: () => { const p = bez(dot.k); $('#curve-dot').setAttribute('cx', p[0]); $('#curve-dot').setAttribute('cy', p[1]); } }, 52.3);
+        const ML = ['2025.11', '12', '2026.01', '02', '03', '04', '05', '06', '07', '08', '09', '10'];
+        ML.forEach((m, i) => {
+          const tx = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          tx.setAttribute('x', pts[i][0]); tx.setAttribute('y', yb + 34); tx.setAttribute('text-anchor', 'middle');
+          tx.setAttribute('fill', 'rgba(243,241,236,.45)'); tx.setAttribute('font-size', '15'); tx.setAttribute('font-family', 'JetBrains Mono'); tx.setAttribute('letter-spacing', '2');
+          tx.textContent = m; $('#curve-months').appendChild(tx);
+        });
+        tl.fromTo('#curve-months', { opacity: 0 }, { opacity: 1, duration: 0.8 }, 52.6);
+      }
+      blurOut('#n1', 55.55, 0.4);
+
+      // 高潮数字 2：424 + 刻度环
+      const C = 2 * Math.PI * 300;
+      $('#ring-reveal').style.strokeDasharray = C;
+      tl.fromTo('#n2-num', { opacity: 0, scale: 1.3, filter: 'blur(20px)' }, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.7, ease: 'expo.out' }, 56.0);
+      tl.fromTo('#ring-reveal', { strokeDashoffset: C }, { strokeDashoffset: 0, duration: 2.4, ease: 'power3.out' }, 56.0);
+      blurIn('#n2-lab', 56.6, 0.8, ['1em', '0.4em']); blurIn('#n2-sub', 57.0, 0.8);
+      tl.fromTo('#n2', { opacity: 0 }, { opacity: 1, duration: 0.01 }, 56.0);
+      blurOut('#n2', 59.55, 0.4);
+
+      // 高潮数字 3：336 天
+      tl.fromTo('#n3', { opacity: 0 }, { opacity: 1, duration: 0.01 }, 60.0);
+      tl.fromTo('#n3-num', { opacity: 0, scale: 1.3, filter: 'blur(20px)' }, { opacity: 1, scale: 1, filter: 'blur(0px)', duration: 0.7, ease: 'expo.out' }, 60.0);
+      blurIn('#n3-lab', 60.6, 0.8, ['1em', '0.4em']);
+      blurIn('#n3-sub', 61.2, 1.0, ['0.5em', '0.2em']);
+
+      // 64 断电
+      tl.fromTo('#blk3', { opacity: 1 }, { opacity: 0, duration: 3.0, ease: 'power1.inOut' }, 67.2);
+      tl.fromTo('#s5-a', { opacity: 0 }, { opacity: 1, duration: 1.0 }, 64.8);
+      tl.to('#s5-a', { opacity: 0, duration: 0.6 }, 67.0);
+      // #s5 需要在黑场之上可见：用 z 序把 s5 放到黑场上方
+      $('#s5').style.zIndex = 20; // 黑场之上
+
+      // 尾声
+      blurIn('#e1a', 69.0, 1.6, ['0.4em', '0.16em']); blurIn('#e1b', 71.0, 1.6, ['0.4em', '0.16em']);
+      blurOut(['#e1a', '#e1b'], 74.4, 0.7);
+      blurIn('#e2', 75.2, 1.8, ['0.4em', '0.16em']); blurOut('#e2', 78.4, 0.7);
+      blurIn('#e3a', 79.2, 1.4, ['0.4em', '0.16em']); blurIn('#e3b', 80.8, 1.6, ['0.4em', '0.16em']);
+      blurOut(['#e3a', '#e3b'], 83.4, 0.6);
+      blurIn('#e4', 84.1, 1.6, ['0.5em', '0.22em']);
+      tl.fromTo('#e5', { opacity: 0, scale: 1.08 }, { opacity: 1, scale: 1, duration: 2.0, ease: 'power2.out' }, 85.0);
+      tl.fromTo('#e6', { opacity: 0 }, { opacity: 1, duration: 1.2 }, 85.8);
+      tl.fromTo('#blk4', { opacity: 0 }, { opacity: 1, duration: 1.4, ease: 'power1.in' }, 86.6);
+
+      // HUD
+      const DAYKEYS = [[0, 0], [8, 0], [20, 180], [24, 195], [28, 199], [32, 207], [36, 243], [40, 296], [44, 333], [48, 336]];
+      const CH = [[0, ''], [8, 'CHAPTER 01 &nbsp;·&nbsp; 萌芽'], [20, 'CHAPTER 02 &nbsp;·&nbsp; 生长'], [36, 'CHAPTER 03 &nbsp;·&nbsp; 加速'], [48, 'CHAPTER 04 &nbsp;·&nbsp; 此刻']];
+      const hp = { t: 0 }; let lastCh = '';
+      tl.to(hp, { t: 51.5, duration: 51.5, ease: 'none', onUpdate: () => {
+        const dd = Math.min(336, Math.round(lin(DAYKEYS, hp.t)));
+        const dt = new Date(day0 + dd * 86400000);
+        $('#hud-r').textContent = dt.getUTCFullYear() + '.' + String(dt.getUTCMonth() + 1).padStart(2, '0') + '.' + String(dt.getUTCDate()).padStart(2, '0');
+        $('#hud-c').textContent = 'COMMITS  ' + String(window.CUM[dd]).padStart(4, '0');
+        let ch = ''; CH.forEach((c) => { if (hp.t >= c[0]) ch = c[1]; });
+        if (ch !== lastCh) { $('#hud-ch').innerHTML = ch; lastCh = ch; }
+      } }, 0);
+      tl.fromTo(['#hud-l', '#hud-r', '#hud-ch', '#hud-c'], { opacity: 0 }, { opacity: 1, duration: 1.5 }, 2.5);
+
+      // 胶片颗粒：逐帧跳位（确定性）
+      const gp = { k: 0 };
+      tl.to(gp, { k: TOTAL * 12, duration: TOTAL, ease: 'none', onUpdate: () => {
+        const k = Math.floor(gp.k), r = mulberry(k + 1);
+        $('#grain-overlay .grain-texture').style.transform = `translate(${(r() * 20 - 10).toFixed(1)}%, ${(r() * 20 - 10).toFixed(1)}%)`;
+      } }, 0);
+
+      renderAt(0);
+      window.__timelines = window.__timelines || {};
+      window.__timelines['main'] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>
