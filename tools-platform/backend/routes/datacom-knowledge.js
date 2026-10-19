@@ -101,4 +101,68 @@ router.delete('/categories/:id', requireAdmin, route(async (req, res) => {
     res.json({ success: true, ...(await repo.deleteCategory(req.params.id)) });
 }));
 
+router.post('/outline', requireAdmin, route(async (req, res) => {
+    assertCurrentTenant(req.body?.tenantId);
+    res.json({ success: true, ...(await repo.saveOutline(req.body?.node, actorOf(req))) });
+}));
+
+router.put('/outline/:id', requireAdmin, route(async (req, res) => {
+    assertCurrentTenant(req.body?.tenantId);
+    res.json({ success: true, ...(await repo.saveOutline(req.body?.node, actorOf(req), req.params.id)) });
+}));
+
+router.delete('/outline/:id', requireAdmin, route(async (req, res) => {
+    assertCurrentTenant(req.query.tenantId);
+    res.json({ success: true, ...(await repo.deleteOutline(req.params.id)) });
+}));
+
+// ---------------- AI 问答与笔记：登录用户都可使用（server.js 放行），改写原文仍需管理员 ----------------
+const knowledgeAi = require('../models/datacom-knowledge-ai');
+
+router.get('/ai/status', route(async (req, res) => {
+    res.json({ ...(await knowledgeAi.aiStatus()), canRewrite: req.user?.role === 'admin' });
+}));
+
+router.get('/annotations', route(async (req, res) => {
+    res.json({ annotations: await knowledgeAi.listAnnotations({ articleId: req.query.articleId, visualId: req.query.visualId, scope: req.query.scope }) });
+}));
+
+router.put('/annotations/:id', route(async (req, res) => {
+    assertCurrentTenant(req.body?.tenantId);
+    res.json({ success: true, annotation: await knowledgeAi.updateAnnotation(req.params.id, req.body, req.user) });
+}));
+
+router.delete('/annotations/:id', route(async (req, res) => {
+    assertCurrentTenant(req.query.tenantId);
+    res.json({ success: true, ...(await knowledgeAi.deleteAnnotation(req.params.id, req.user)) });
+}));
+
+// 流式返回 NDJSON：{type:'delta'} 逐段文字，最后 {type:'done'} 带保存好的问答/笔记或改写建议
+router.post('/ai/ask', async (req, res) => {
+    try {
+        assertCurrentTenant(req.body?.tenantId);
+    } catch (error) {
+        return res.status(error.status).json({ error: error.message, code: error.code });
+    }
+    const controller = new AbortController();
+    res.on('close', () => { if (!res.writableFinished) controller.abort(); });
+    res.status(200).set({ 'Content-Type': 'application/x-ndjson; charset=utf-8', 'X-Accel-Buffering': 'no' });
+    res.flushHeaders?.();
+    const send = payload => { if (!res.writableEnded && !res.destroyed) res.write(`${JSON.stringify(payload)}\n`); };
+    try {
+        send({ type: 'start' });
+        const result = await knowledgeAi.ask(req.body, { user: req.user, signal: controller.signal, onDelta: delta => send({ type: 'delta', text: delta }) });
+        send({ type: 'done', ...result });
+    } catch (error) {
+        if (!controller.signal.aborted) send({ type: 'error', error: error.status ? error.message : `AI 调用失败：${error.message}`, code: error.code || 'DATACOM_AI_ERROR' });
+    } finally {
+        res.end();
+    }
+});
+
+router.post('/ai/apply', requireAdmin, route(async (req, res) => {
+    assertCurrentTenant(req.body?.tenantId);
+    res.json({ success: true, ...(await knowledgeAi.applyRewrite(req.body, { user: req.user })) });
+}));
+
 module.exports = router;

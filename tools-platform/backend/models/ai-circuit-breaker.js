@@ -84,7 +84,8 @@ class AiCircuitBreaker {
         threshold = 2,
         coolDownMs = 120_000,
         timeoutMs = 3500,
-        alertIntervalMs = 15 * 60 * 1000 // 默认持续异常时 15 分钟最多告警一次
+        alertIntervalMs = 15 * 60 * 1000, // 默认持续异常时 15 分钟最多告警一次
+        emitAlerts = true
     } = {}) {
         this.name = name;
         this.displayName = displayName;
@@ -92,6 +93,7 @@ class AiCircuitBreaker {
         this.coolDownMs = coolDownMs;
         this.timeoutMs = timeoutMs;
         this.alertIntervalMs = alertIntervalMs;
+        this.emitAlerts = emitAlerts;
         this.consecutiveFailures = 0;
         this.trippedUntil = 0;
         this.lastError = null;
@@ -112,7 +114,9 @@ class AiCircuitBreaker {
             console.log(`[AI] ${this.name} connection recovered.`);
         }
         if (this.hasActiveOutage) {
-            emitRecoveryAlert({ name: this.name, displayName: this.displayName }).catch(() => {});
+            if (this.emitAlerts) {
+                emitRecoveryAlert({ name: this.name, displayName: this.displayName }).catch(() => {});
+            }
             this.hasActiveOutage = false;
         }
         this.consecutiveFailures = 0;
@@ -139,6 +143,9 @@ class AiCircuitBreaker {
         }
         this.lastAlertAt = now;
         this.hasActiveOutage = true;
+        if (!this.emitAlerts) {
+            return;
+        }
         const reason = err?.message || String(err || '网络连接超时或不可达');
         emitCircuitAlert({
             name: this.name,

@@ -3,13 +3,20 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp
 const hex4 = value => value.toString(16).toUpperCase().padStart(4, '0');
 const hex2 = value => value.toString(16).toUpperCase().padStart(2, '0');
 
+const GUIDES = {
+    'checksum-lab': ['输入待校验的数据', '逐步观察累加与回卷', '在接收侧验证结果'],
+    'timer-lab': ['设定上限与初始间隔', '观察每次退避间隔', '比较封顶与复位'],
+    'lsa-arbiter': ['确认属于同一条 LSA', '按优先级逐项比较', '在首个差异处作出判断'],
+    'prefix-matcher': ['比较固定前缀位', '检查允许的掩码长度', '两个条件同时成立才匹配'],
+    'rid-lab': ['查看候选来源优先级', '启动时选定 Router-ID', '对比候选值与运行值']
+};
 function shell(container, lab, body) {
-    container.innerHTML = `<div class="dk-lab"><header class="dk-lab-head"><div class="dk-hud-kicker">交互实验室</div><h3>${esc(lab.title)}</h3><p>${esc(lab.subtitle)}</p></header><div class="dk-lab-body">${body}</div></div>`;
+    container.innerHTML = `<div class="dk-lab"><header class="dk-lab-head"><div class="dk-hud-kicker">交互实验室</div><h3>${esc(lab.title)}</h3><p>${esc(lab.subtitle)}</p></header><div class="dk-lab-guide">${(GUIDES[lab.id] || []).map((text,i)=>`<div><b>0${i+1}</b>${esc(text)}</div>`).join('')}</div><div class="dk-lab-body">${body}</div></div>`;
     return container.querySelector('.dk-lab-body');
 }
 
 // ---------------- 校验和实验室 ----------------
-function rfc1071Steps(words) {
+export function rfc1071Steps(words) {
     const steps = [];
     let sum = 0;
     words.forEach((word, index) => {
@@ -43,13 +50,13 @@ function parseHexBytes(text) {
     return bytes.slice(0, 256);
 }
 
-function fletcherCompute(bytes, checksumOffset = 16) {
+export function fletcherCompute(bytes, checksumOffset = 16) {
     const data = bytes.slice();
     data[0] = 0; data[1] = 0;
     data[checksumOffset] = 0; data[checksumOffset + 1] = 0;
     let c0 = 0;
     let c1 = 0;
-    const rows = data.map((byte, index) => { c0 = (c0 + byte) % 255; c1 = (c1 + c0) % 255; return { index, byte, c0, c1 }; });
+    const rows = data.map((byte, index) => { if (index < 2) return { index, byte, c0, c1, skipped: true }; c0 = (c0 + byte) % 255; c1 = (c1 + c0) % 255; return { index, byte, c0, c1 }; });
     const n = data.length;
     const k = checksumOffset + 1;
     let x = ((n - k) * c0 - c1) % 255;
@@ -60,7 +67,7 @@ function fletcherCompute(bytes, checksumOffset = 16) {
     verify[checksumOffset] = x; verify[checksumOffset + 1] = y;
     let v0 = 0;
     let v1 = 0;
-    verify.forEach(byte => { v0 = (v0 + byte) % 255; v1 = (v1 + v0) % 255; });
+    verify.slice(2).forEach(byte => { v0 = (v0 + byte) % 255; v1 = (v1 + v0) % 255; });
     return { rows, x, y, checksum: (x << 8) | y, v0, v1 };
 }
 
@@ -79,11 +86,11 @@ const checksumLab = {
             </section>
             <section data-panel="fletcher" hidden>
                 <div class="dk-form-row"><label>LSA 字节（十六进制，含 20 字节头）<textarea class="dk-input" rows="3" data-fl-input>0000 0201 0101 0101 0101 0101 8000 0001 0000 0024 0000 0001 0A00 0000 FFFF FF00 0300 000A</textarea></label></div>
-                <p class="dk-mini-note">计算前把 LS age（前 2 字节）与 Checksum（第 17、18 字节）置 0；接收方对整条 LSA 运算得到 C0 = C1 = 0 即通过。</p>
+                <p class="dk-mini-note">跳过 LS age（前 2 字节），把 Checksum（第 17、18 字节）置 0 后计算；接收方保留校验和并同样跳过 LS age，结果 C0 = C1 = 0 即通过。</p>
                 <div class="dk-calc" data-fl-out></div>
             </section>
             <section data-panel="crc" hidden>
-                <label class="dk-check"><input type="checkbox" data-crc-flip checked> 模拟中继路由器内存发生 1 位翻转</label>
+                <label class="dk-check"><input type="checkbox" data-crc-flip checked> 模拟中继路由器内 TCP 载荷发生 1 位翻转</label>
                 <div class="dk-crc-flow" data-crc-out></div>
                 <button class="dk-btn" data-crc-play>播放传输过程</button>
             </section>`);
@@ -140,24 +147,24 @@ const checksumLab = {
             const bytes = parseHexBytes(flInput.value);
             if (bytes.length < 20) { flOut.innerHTML = '<div class="dk-result is-bad">至少需要 20 字节 LSA 头部</div>'; return; }
             const result = fletcherCompute(bytes);
-            const cells = result.rows.map(row => `<div class="dk-fl-cell${row.index < 2 || row.index === 16 || row.index === 17 ? ' is-zero' : ''}" title="字节 ${row.index + 1}"><b>${hex2(row.byte)}</b><span>C0 ${row.c0}</span><span>C1 ${row.c1}</span></div>`).join('');
+            const cells = result.rows.map(row => `<div class="dk-fl-cell${row.index < 2 || row.index === 16 || row.index === 17 ? ' is-zero' : ''}" title="字节 ${row.index + 1}"><b>${hex2(row.byte)}</b><span>${row.skipped ? 'LS age' : `C0 ${row.c0}`}</span><span>${row.skipped ? '不参与计算' : `C1 ${row.c1}`}</span></div>`).join('');
             flOut.innerHTML = `<div class="dk-fl-grid">${cells}</div>
                 <div class="dk-result is-ok">X = ((N−K)·C0 − C1) mod 255 = <b>0x${hex2(result.x)}</b>　Y = (510 − C0 − X) mod 255 = <b>0x${hex2(result.y)}</b>　→ LS checksum = <b>0x${hex4(result.checksum)}</b></div>
                 <div class="dk-result ${result.v0 === 0 && result.v1 === 0 ? 'is-ok' : 'is-bad'}">接收方核验：C0 = ${result.v0}，C1 = ${result.v1} ${result.v0 === 0 && result.v1 === 0 ? '✓ 通过' : '✗'}</div>
-                <p class="dk-mini-note">C1 是 C0 的累加，相当于给每个字节乘上位置权重：两个字节互换位置时 C1 一定变化，这正是普通累加和做不到的。</p>`;
+                <p class="dk-mini-note">C1 是 C0 的累加，相当于给每个字节乘上位置权重：因此能检测部分普通累加和漏掉的位置变化，但仍可能发生碰撞，不能替代密码学认证。</p>`;
         };
         flInput.addEventListener('input', renderFletcher);
         const crcOut = body.querySelector('[data-crc-out]');
         const flip = body.querySelector('[data-crc-flip]');
         let crcStage = 5;
-        const crcStages = ['发送主机计算 IP/TCP 校验和', '网卡附加 CRC-32，线路 1 传输', '路由器核验并剥离 CRC，数据进入内存', '出接口为数据重新计算 CRC-32，线路 2 传输', '接收主机：CRC 通过，再核验端到端校验和'];
+        const crcStages = ['发送主机计算 TCP 校验和（含 TCP 头、数据与 IP 伪首部）', '网卡附加 CRC-32，线路 1 传输', '路由器核验并剥离 CRC，数据进入内存', '出接口为数据重新计算 CRC-32，线路 2 传输', '接收主机：CRC 通过，再核验端到端校验和'];
         const renderCrc = () => {
             const bad = flip.checked;
             const node = (title, index, extra = '') => `<div class="dk-crc-node${crcStage >= index ? ' is-on' : ''}"><strong>${title}</strong>${extra}</div>`;
             crcOut.innerHTML = `<div class="dk-crc-row">${node('发送主机', 0, '<span class="tag ok">Checksum ✓</span>')}<div class="dk-crc-wire${crcStage >= 1 ? ' is-on' : ''}"><span>CRC-32 #1 ✓</span></div>
                 ${node('中继路由器', 2, bad && crcStage >= 2 ? '<span class="tag bad">内存位翻转 💥</span>' : '<span class="tag">转发</span>')}<div class="dk-crc-wire${crcStage >= 3 ? ' is-on' : ''}"><span>CRC-32 #2 ✓${bad ? '（为脏数据重算）' : ''}</span></div>
-                ${node('接收主机', 4, crcStage >= 4 ? `<span class="tag ${bad ? 'bad' : 'ok'}">端到端 Checksum ${bad ? '✗ 拦截' : '✓'}</span>` : '')}</div>
-                <div class="dk-crc-span"><i style="width:${crcStage >= 4 ? 100 : crcStage * 22}%"></i><span>端到端 Checksum 覆盖全路径</span></div>
+                ${node('接收主机', 4, crcStage >= 4 ? `<span class="tag ${bad ? 'bad' : 'ok'}">TCP Checksum ${bad ? '✗ 拦截' : '✓'}</span>` : '')}</div>
+                <div class="dk-crc-span"><i style="width:${crcStage >= 4 ? 100 : crcStage * 22}%"></i><span>TCP 端到端校验；IPv4 头校验和不保护载荷</span></div>
                 <div class="dk-mini-note">${crcStages[Math.min(crcStage, 4)]}</div>`;
         };
         let crcTimer = null;
@@ -201,10 +208,10 @@ export function timerIntervals({ max, start, hold, count, mode }) {
 const timerLab = {
     id: 'timer-lab',
     title: '智能定时器 · 指数退避',
-    subtitle: '第 1 次用 start，第 n 次用 hold×2^(n−2)，封顶 max。SPF 一直保持最大值直到网络安静；LSA 产生/接收在最大值连续 3 次后复位。',
+    subtitle: '演示 VRP 笔记中的退避模型：首次 start，随后 hold×2^(n−2)，封顶 max。复位策略与默认值依设备版本核对。',
     mount(container) {
         const presets = {
-            spf: { max: 5000, start: 50, hold: 200, mode: 'spf', label: 'SPF 缺省 5000/50/200' },
+            spf: { max: 5000, start: 50, hold: 200, mode: 'spf', label: 'SPF 示例 5000/50/200' },
             orig: { max: 5000, start: 500, hold: 1000, mode: 'lsa', label: 'LSA 产生 5000/500/1000' },
             arr: { max: 1000, start: 500, hold: 500, mode: 'lsa', label: 'LSA 接收 1000/500/500' },
             fast: { max: 2000, start: 10, hold: 50, mode: 'spf', label: '激进模板 2000/10/50' }
@@ -218,17 +225,19 @@ const timerLab = {
                 <label>连续触发次数<input class="dk-input" type="number" data-k="count" min="1" max="16"></label>
                 <label>复位规则<select class="dk-input" data-k="mode"><option value="spf">SPF：保持最大直到安静</option><option value="lsa">LSA：最大值 3 次后复位</option></select></label>
             </div>
-            <div class="dk-bars" data-out></div>
+            <div class="dk-chart-label">纵轴：等待间隔（ms） · 横轴：连续触发次数</div><div class="dk-bars" data-out></div>
             <p class="dk-mini-note" data-note></p>`);
         const state = { ...presets.spf, count: 10 };
         const render = () => {
             body.querySelectorAll('[data-k]').forEach(input => { input.value = state[input.dataset.k]; });
+            const valid = state.max >= 1 && state.hold >= 1 && state.start >= 0 && state.start <= state.max && state.hold <= state.max && state.count >= 1 && state.count <= 16;
+            if (!valid) { body.querySelector('[data-out]').innerHTML = '<div class="dk-result is-bad">要求：0 ≤ start ≤ max，1 ≤ hold ≤ max，触发次数 1–16。</div>'; body.querySelector('[data-note]').textContent = ''; return; }
             const list = timerIntervals(state);
             const peak = Math.max(...list, 1);
             let total = 0;
             body.querySelector('[data-out]').innerHTML = list.map((value, index) => {
                 total += value;
-                return `<div class="dk-bar${value >= state.max ? ' is-max' : ''}${index && value === state.start && list[index - 1] >= state.max ? ' is-reset' : ''}"><i style="height:${Math.max(3, value / peak * 100)}%"></i><b>${value}</b><span>#${index + 1}</span></div>`;
+                return `<div class="dk-bar${value >= state.max ? ' is-max' : ''}${index && value === state.start && list[index - 1] >= state.max ? ' is-reset' : ''}"><i style="height:${value / peak * 100}%"></i><b>${value}</b><span>#${index + 1}</span></div>`;
             }).join('');
             body.querySelector('[data-note]').textContent = `${state.count} 次连续变化累计等待 ${total} ms。${state.mode === 'spf' ? '超过 max-interval 且无新震荡后，才退出退避重新从 start 开始。' : '红色复位柱表示连续 3 次最大间隔后回到 start-interval。'}`;
         };
@@ -236,6 +245,7 @@ const timerLab = {
             const key = event.target.dataset.k;
             if (!key) return;
             state[key] = key === 'mode' ? event.target.value : Math.max(0, Number(event.target.value) || 0);
+            if (key === 'count') state[key] = Math.min(16, Math.max(1, Math.floor(state[key])));
             render();
         });
         body.addEventListener('click', event => {
@@ -256,6 +266,8 @@ const toSigned = value => {
 };
 
 export function arbitrate(a, b) {
+    const valid = value => /^(?:0x)?[0-9a-f]{1,8}$/i.test(String(value.seq)) && (parseInt(String(value.seq).replace(/^0x/i, ''), 16) >>> 0) !== 0x80000000 && /^(?:0x)?[0-9a-f]{1,4}$/i.test(String(value.checksum)) && value.age !== '' && Number.isInteger(Number(value.age)) && Number(value.age) >= 0 && Number(value.age) <= 3600;
+    if (!valid(a) || !valid(b)) return { steps: [], winner: null, error: '请输入合法的序列号、校验和与 0–3600 秒的 Age；0x80000000 为保留序列号。' };
     const steps = [];
     const sa = toSigned(a.seq);
     const sb = toSigned(b.seq);
@@ -277,7 +289,7 @@ export function arbitrate(a, b) {
 const lsaArbiter = {
     id: 'lsa-arbiter',
     title: 'LSA 新旧仲裁器',
-    subtitle: '三元组相同的两条 LSA 谁更新？依次比较：序列号 → 校验和 → MaxAge → Age 差值是否超过 15 分钟。',
+    subtitle: '在同一泛洪作用域内，三元组相同的两条 LSA 谁更新？依次比较：序列号 → 校验和 → MaxAge → Age 差值是否超过 15 分钟。',
     mount(container) {
         const presets = [
             ['序列号更大', { seq: '80000005', checksum: '1A2B', age: 300 }, { seq: '80000006', checksum: '0F00', age: 10 }],
@@ -294,19 +306,19 @@ const lsaArbiter = {
         const body = shell(container, this, `<div class="dk-chip-row">${presets.map(([name], index) => `<button class="dk-chip" data-p="${index}">${name}</button>`).join('')}</div>
             <div class="dk-lsa-pair">${card('A', 'LSDB 中已有的 A')}${card('B', '新收到的 B')}</div><div class="dk-arbiter" data-out></div>`);
         const values = { A: { ...presets[0][1] }, B: { ...presets[0][2] } };
-        const render = () => {
-            ['A', 'B'].forEach(id => body.querySelectorAll(`[data-card="${id}"] [data-f]`).forEach(input => { input.value = values[id][input.dataset.f]; }));
-            const { steps, winner } = arbitrate(values.A, values.B);
-            const verdict = winner === 'same' ? '两者视为同一实例：丢弃新收到的副本，不触发 SPF' : `${winner} 更新${winner === 'B' ? '：写入 LSDB 并继续泛洪' : '：本地更新，向对方回送自己的版本'}`;
+        const render = (sync = true) => {
+            if (sync) ['A', 'B'].forEach(id => body.querySelectorAll(`[data-card="${id}"] [data-f]`).forEach(input => { input.value = values[id][input.dataset.f]; }));
+            const { steps, winner, error } = arbitrate(values.A, values.B);
+            if (error) { body.querySelector('[data-out]').innerHTML = `<div class="dk-result is-bad">${esc(error)}</div>`; return; }
+            const verdict = winner === 'same' ? '两者视为同一实例：不替换为更新实例；确认处理取决于接收上下文' : `${winner} 更新${winner === 'B' ? '：按接收状态与泛洪规则处理' : '：本地实例更新，按协议条件回送本地实例'}`;
             body.querySelector('[data-out]').innerHTML = `<ol class="dk-arbiter-steps">${steps.map(step => `<li class="${step.decided ? 'is-decided' : ''}"><strong>${step.rule}</strong><span>${esc(step.result)}</span></li>`).join('')}</ol><div class="dk-result ${winner === 'same' ? 'is-warn' : 'is-ok'}">${verdict}</div><p class="dk-mini-note">序列号是有符号 32 位：0x80000001 是最小可用值，0x7FFFFFFF 最大。</p>`;
         };
         body.addEventListener('input', event => {
             const field = event.target.dataset.f;
             if (!field) return;
             const id = event.target.closest('[data-card]').dataset.card;
-            values[id][field] = field === 'age' ? Math.min(3600, Math.max(0, Number(event.target.value) || 0)) : event.target.value.trim();
-            const { steps, winner } = arbitrate(values.A, values.B);
-            body.querySelector('[data-out]').innerHTML = `<ol class="dk-arbiter-steps">${steps.map(step => `<li class="${step.decided ? 'is-decided' : ''}"><strong>${step.rule}</strong><span>${esc(step.result)}</span></li>`).join('')}</ol><div class="dk-result ${winner === 'same' ? 'is-warn' : 'is-ok'}">${winner === 'same' ? '视为同一实例' : `${winner} 更新`}</div>`;
+            values[id][field] = event.target.value.trim();
+            render(false);
         });
         body.addEventListener('click', event => {
             const index = event.target.closest('[data-p]')?.dataset.p;
@@ -321,6 +333,7 @@ const lsaArbiter = {
 };
 
 // ---------------- 前缀列表匹配 ----------------
+export const validIPv4 = ip => /^(?:0|[1-9]\d{0,2})(?:\.(?:0|[1-9]\d{0,2})){3}$/.test(String(ip)) && String(ip).split('.').every(x => Number(x) <= 255);
 const ipToInt = ip => String(ip).split('.').reduce((sum, part) => (sum << 8) + (Number(part) & 255), 0) >>> 0;
 
 export function prefixMatch(rule, route) {
@@ -329,10 +342,11 @@ export function prefixMatch(rule, route) {
     const hasLe = rule.le !== '' && rule.le !== undefined && rule.le !== null;
     const ge = hasGe ? Number(rule.ge) : len;
     const le = hasLe ? Number(rule.le) : (hasGe ? 32 : len);
+    if (!validIPv4(rule.prefix) || !validIPv4(route.prefix) || ![len, ge, le, Number(route.len)].every(n=>Number.isInteger(n)&&n>=0&&n<=32) || ge < len || le < ge || rule.len === '' || route.len === '') return { valid: false, bitsOk: false, lenOk: false, ge, le, match: false };
     const mask = len === 0 ? 0 : (0xFFFFFFFF << (32 - len)) >>> 0;
     const bitsOk = ((ipToInt(rule.prefix) & mask) >>> 0) === ((ipToInt(route.prefix) & mask) >>> 0);
     const lenOk = Number(route.len) >= ge && Number(route.len) <= le;
-    return { bitsOk, lenOk, ge, le, match: bitsOk && lenOk };
+    return { valid: true, bitsOk, lenOk, ge, le, match: bitsOk && lenOk };
 }
 
 const prefixMatcher = {
@@ -359,17 +373,18 @@ const prefixMatcher = {
             const cls = index < len ? (bit === other ? 'fix ok' : 'fix bad') : 'free';
             return `<i class="${cls}${index % 8 === 7 ? ' gap' : ''}">${bit}</i>`;
         }).join('');
-        const render = () => {
-            body.querySelectorAll('[data-r]').forEach(input => { input.value = state.rule[input.dataset.r]; });
-            body.querySelectorAll('[data-x]').forEach(input => { input.value = state.route[input.dataset.x]; });
+        const render = (sync = true) => {
+            if (sync) body.querySelectorAll('[data-r]').forEach(input => { input.value = state.rule[input.dataset.r]; });
+            if (sync) body.querySelectorAll('[data-x]').forEach(input => { input.value = state.route[input.dataset.x]; });
             const result = prefixMatch(state.rule, state.route);
+            if (!result.valid) { body.querySelector('[data-out]').innerHTML = '<div class="dk-result is-bad">请输入有效 IPv4 地址；长度须为 0–32，且规则长度 ≤ ge ≤ le。</div>'; return; }
             const len = Number(state.rule.len);
             const marks = Array.from({ length: 33 }, (_, index) => `<i class="${index >= result.ge && index <= result.le ? 'in' : ''}${index === Number(state.route.len) ? ' here' : ''}" title="/${index}"></i>`).join('');
             body.querySelector('[data-out]').innerHTML = `
                 <div class="dk-bitrow"><span>规则</span><div class="dk-bits wide">${bits(state.rule.prefix, len)}</div></div>
                 <div class="dk-bitrow"><span>路由</span><div class="dk-bits wide">${bits(state.route.prefix, len, state.rule.prefix)}</div></div>
                 <div class="dk-result ${result.bitsOk ? 'is-ok' : 'is-bad'}">前 ${len} 位 ${result.bitsOk ? '一致 ✓' : '不一致 ✗'}</div>
-                <div class="dk-lenbar">${marks}</div><div class="dk-mini-note">允许的掩码长度：/${result.ge} ~ /${result.le}，路由为 /${state.route.len}</div>
+                <div class="dk-lenbar">${marks}</div><div class="dk-len-axis"><span>/0</span><span>/8</span><span>/16</span><span>/24</span><span>/32</span></div><div class="dk-mini-note">允许的掩码长度：/${result.ge} ~ /${result.le}，路由为 /${state.route.len}</div>
                 <div class="dk-result ${result.lenOk ? 'is-ok' : 'is-bad'}">掩码长度 ${result.lenOk ? '在范围内 ✓' : '超出范围 ✗'}</div>
                 <div class="dk-result big ${result.match ? 'is-ok' : 'is-bad'}">${result.match ? '匹配 MATCH' : '不匹配 NO MATCH'}</div>`;
         };
@@ -378,9 +393,7 @@ const prefixMatcher = {
             if (!key) return;
             const target = event.target.dataset.r ? state.rule : state.route;
             target[key] = key === 'prefix' ? event.target.value.trim() : (event.target.value === '' ? '' : Math.min(32, Math.max(0, Number(event.target.value))));
-            const result = prefixMatch(state.rule, state.route);
-            body.querySelector('[data-out] .dk-result.big').className = `dk-result big ${result.match ? 'is-ok' : 'is-bad'}`;
-            body.querySelector('[data-out] .dk-result.big').textContent = result.match ? '匹配 MATCH' : '不匹配 NO MATCH';
+            render(false);
         });
         body.addEventListener('change', render);
         body.addEventListener('click', event => {
@@ -396,6 +409,7 @@ const prefixMatcher = {
 
 // ---------------- Router-ID 选举 ----------------
 export function electRouterId({ processId, globalId, interfaces }) {
+    if ([processId, globalId, ...interfaces.map(i => i.ip)].some(ip => ip && (!validIPv4(ip) || ip === '0.0.0.0' || ip === '255.255.255.255'))) return { id: null, reason: '请输入合法的非零 IPv4 标识或接口地址。' };
     if (processId) return { id: processId, reason: '进程下手工配置（最高优先级）' };
     if (globalId) return { id: globalId, reason: '全局 router id' };
     const up = interfaces.filter(item => item.up && item.ip);
@@ -410,7 +424,7 @@ export function electRouterId({ processId, globalId, interfaces }) {
 const ridLab = {
     id: 'rid-lab',
     title: 'Router-ID 选举模拟',
-    subtitle: '进程配置 > 全局配置 > 最大 Loopback > 最大接口 IP；选定后非抢占，必须 reset ospf process 才会重选。',
+    subtitle: '按此 VRP 教学模型比较：进程配置 → 全局配置 → 最大有效 Loopback → 最大有效接口 IP。配置候选值与运行值分开展示。',
     mount(container) {
         const state = {
             processId: '', globalId: '', running: null,
@@ -421,12 +435,14 @@ const ridLab = {
                 { name: 'GE0/0/2', ip: '172.16.0.1', loopback: false, up: true }
             ]
         };
-        const body = shell(container, this, `<div class="dk-form-row"><label>ospf 1 router-id<input class="dk-input" data-k="processId" placeholder="未配置"></label><label>全局 router id<input class="dk-input" data-k="globalId" placeholder="未配置"></label></div>
+        const body = shell(container, this, `<div class="dk-rid-flow"><span><b>01 · 最高</b>进程 Router-ID</span><span><b>02</b>全局 Router-ID</span><span><b>03</b>最大 Loopback IP</span><span><b>04 · 回退</b>最大接口 IP</span></div><div class="dk-form-row"><label>ospf 1 router-id<input class="dk-input" data-k="processId" placeholder="未配置"></label><label>全局 router id<input class="dk-input" data-k="globalId" placeholder="未配置"></label></div>
             <table class="dk-calc-table"><thead><tr><th>接口</th><th>IP</th><th>类型</th><th>状态</th></tr></thead><tbody data-ifs></tbody></table>
             <div class="dk-form-row"><button class="dk-btn" data-act="start">启动 OSPF 进程</button><button class="dk-btn ghost" data-act="reset">reset ospf 1 process</button></div><div data-out></div>`);
-        const render = () => {
-            body.querySelector('[data-ifs]').innerHTML = state.interfaces.map((item, index) => `<tr><td>${item.name}</td><td><input class="dk-input slim" data-ip="${index}" value="${esc(item.ip)}"></td><td>${item.loopback ? 'Loopback' : '物理'}</td><td><button class="dk-chip ${item.up ? 'is-on' : ''}" data-up="${index}">${item.up ? 'Up' : 'Down'}</button></td></tr>`).join('');
+        const render = (sync = true) => {
+            if (sync) body.querySelector('[data-ifs]').innerHTML = state.interfaces.map((item, index) => `<tr><td>${item.name}</td><td><input class="dk-input slim" data-ip="${index}" value="${esc(item.ip)}"></td><td>${item.loopback ? 'Loopback' : '物理'}</td><td><button class="dk-chip ${item.up ? 'is-on' : ''}" data-up="${index}">${item.up ? 'Up' : 'Down'}</button></td></tr>`).join('');
             const candidate = electRouterId(state);
+            if (!candidate.id || candidate.id === '0.0.0.0') { body.querySelector('[data-out]').innerHTML = `<div class="dk-result is-bad">${esc(candidate.reason)}</div>`; body.querySelectorAll('[data-act]').forEach(b => { b.disabled = true; }); return; }
+            body.querySelectorAll('[data-act]').forEach(b => { b.disabled = false; });
             const pending = state.running && state.running.id !== candidate.id;
             body.querySelector('[data-out]').innerHTML = `<div class="dk-result is-ok">按当前配置应选：<b>${candidate.id}</b>（${candidate.reason}）</div>
                 ${state.running ? `<div class="dk-result ${pending ? 'is-warn' : 'is-ok'}">运行中的 Router-ID：<b>${state.running.id}</b>${pending ? ' — 新值仅进入“待生效区”，需在维护窗口执行 reset ospf process' : ''}</div>` : '<div class="dk-mini-note">进程尚未启动。</div>'}`;
@@ -434,9 +450,7 @@ const ridLab = {
         body.addEventListener('input', event => {
             if (event.target.dataset.k) state[event.target.dataset.k] = event.target.value.trim();
             if (event.target.dataset.ip) state.interfaces[event.target.dataset.ip].ip = event.target.value.trim();
-            const candidate = electRouterId(state);
-            const out = body.querySelector('[data-out] .dk-result b');
-            if (out) out.textContent = candidate.id;
+            render(false);
         });
         body.addEventListener('change', render);
         body.addEventListener('click', event => {

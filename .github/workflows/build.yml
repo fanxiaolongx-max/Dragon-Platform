@@ -44,6 +44,12 @@ jobs:
           npm rebuild sqlite3
           npm ci --prefix backend --no-audit --no-fund
 
+      - name: Verify published lesson media
+        working-directory: tools-platform
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run datacom:verify-videos
+
       - name: Run tests
         working-directory: tools-platform
         run: npm test

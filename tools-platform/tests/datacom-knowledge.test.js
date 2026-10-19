@@ -157,3 +157,67 @@ test('knowledge databases are isolated per tenant', async () => {
     const conflict = await api('post', `${endpoint}/domains`, 'dk-beta').send({ tenantId: 'default', domain: { id: 'x1', name: 'X' } }).expect(409);
     assert.equal(conflict.body.code, 'DATACOM_TENANT_CHANGED');
 });
+
+test('seed outline marks every knowledge point as covered, partial or AI-added', () => {
+    const articleIds = new Set(seed.articles.map(item => item.id));
+    const chapters = seed.outline.filter(node => !node.parentId);
+    const points = seed.outline.filter(node => node.parentId);
+    assert.ok(chapters.length >= 10 && points.length >= 60);
+    for (const point of points) {
+        assert.ok(['covered', 'partial', 'added'].includes(point.status), point.id);
+        assert.ok(chapters.some(chapter => chapter.id === point.parentId), point.id);
+        point.articles.forEach(id => assert.ok(articleIds.has(id), `${point.id} -> ${id}`));
+        if (point.status !== 'covered') assert.ok(point.note.length > 10, `${point.id} 需要说明`);
+        if (point.status === 'added') assert.equal(point.articles.length, 0, `${point.id} AI 补充项不应声称有原笔记`);
+        if (point.status === 'covered') assert.ok(point.articles.length > 0, `${point.id} 原笔记项必须关联文章`);
+    }
+    for (const article of seed.articles) {
+        assert.ok(article.shortTitle && article.shortTitle.length <= 24, `${article.id} 短标题`);
+        assert.deepEqual(article.aiFields, ['summary', 'keyPoints', 'visuals']);
+    }
+});
+
+test('outline API serves coverage, allows admin edits and survives seed refresh', async () => {
+    const catalog = await api('get', endpoint, 'dk-viewer').expect(200);
+    assert.equal(catalog.body.outline.length, seed.outline.length);
+    const target = catalog.body.outline.find(node => node.status === 'added');
+    await api('put', `${endpoint}/outline/${target.id}`, 'dk-viewer').send({ node: { ...target, status: 'covered' } }).expect(403);
+    await api('put', `${endpoint}/outline/${target.id}`).send({ node: { ...target, status: 'covered', articles: ['ospf-fsm'], note: '已补充笔记' } }).expect(200);
+    await api('put', `${endpoint}/outline/${target.id}`).send({ node: { ...target, status: 'unknown' } }).expect(400);
+    const chapter = catalog.body.outline.find(node => !node.parentId && node.domainId === 'ospf');
+    await api('delete', `${endpoint}/outline/${chapter.id}`).expect(409);
+    const created = await api('post', `${endpoint}/outline`).send({ node: { domainId: 'ospf', parentId: chapter.id, title: '新知识点', status: 'added', note: 'AI 补充说明' } }).expect(200);
+    await api('post', `${endpoint}/outline`).send({ node: { domainId: 'ospf', parentId: created.body.id, title: '三级', status: 'added' } }).expect(400);
+
+    const db = pool.getConnection(repo.DB_FILENAME);
+    await new Promise((resolve, reject) => db.run("UPDATE dk_meta SET value = '1' WHERE key = 'seed_version'", error => error ? reject(error) : resolve()));
+    await pool.closeAll();
+    const after = await api('get').expect(200);
+    const edited = after.body.outline.find(node => node.id === target.id);
+    assert.equal(edited.status, 'covered');
+    assert.deepEqual(edited.articles, ['ospf-fsm']);
+    assert.ok(after.body.outline.some(node => node.id === created.body.id));
+    await api('delete', `${endpoint}/outline/${created.body.id}`).expect(200);
+});
+
+test('editing an AI-curated summary drops only that AI marker; v1 databases gain short titles', async () => {
+    const { body } = await api('get', `${endpoint}/articles/ospf-fsm`).expect(200);
+    assert.deepEqual(body.article.aiFields, ['summary', 'keyPoints', 'visuals']);
+    assert.equal(body.article.shortTitle, '邻居状态机');
+    await api('put', `${endpoint}/articles/ospf-fsm`).send({ article: { ...body.article, summary: '我自己写的摘要' }, revision: body.article.revision }).expect(200);
+    const updated = await api('get', `${endpoint}/articles/ospf-fsm`).expect(200);
+    assert.deepEqual(updated.body.article.aiFields, ['keyPoints', 'visuals']);
+
+    // 模拟 v1 数据库：清空新列后重新执行种子升级
+    const db = pool.getConnection(repo.DB_FILENAME);
+    const exec = sql => new Promise((resolve, reject) => db.run(sql, error => error ? reject(error) : resolve()));
+    await exec("UPDATE dk_articles SET short_title = '', ai_fields_json = NULL");
+    await exec('DELETE FROM dk_outline');
+    await exec("UPDATE dk_meta SET value = '1' WHERE key = 'seed_version'");
+    await pool.closeAll();
+    const migrated = await api('get').expect(200);
+    assert.ok(migrated.body.articles.every(article => article.shortTitle || article.origin === 'user'));
+    const fsm = migrated.body.articles.find(article => article.id === 'ospf-fsm');
+    assert.deepEqual(fsm.aiFields, ['keyPoints', 'visuals'], '人工改过的摘要不再标记为 AI');
+    assert.equal(migrated.body.outline.length, seed.outline.length);
+});

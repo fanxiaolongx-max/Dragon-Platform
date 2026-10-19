@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "tool-dining-card-wechat",
+    "name": "营业流水刷卡与微信就餐统计",
+    "nameEn": "Card & WeChat Dining Statistics",
+    "icon": "🍽️",
+    "description": "支持同时导入营业流水刷卡 Excel 与微信账单，单独深度分析并智能合并到营业流水总盘；自动按餐别价格档位识别【自有-微信】与【非自有-微信】，支持历史数据快照保存与一键载入。",
+    "descriptionEn": "Integrates card swipe logs and WeChat dining bills with separate and unified analysis, categorizing personnel into own/non-own and WeChat (own-WeChat, non-own-WeChat), with snapshot archive and restore support.",
+    "tags": [
+      "营业流水",
+      "刷卡统计",
+      "微信账单",
+      "就餐统计",
+      "开罗时间",
+      "双模分析",
+      "数据快照"
+    ],
+    "href": "/tools/tool-dining-card-wechat",
+    "filePath": "/custom-tools/tool-dining-card-wechat/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-10-13T12:00:00.000Z",
+    "updatedAt": "2026-10-19T21:37:02.630Z"
+  },
+  "history": null
+}

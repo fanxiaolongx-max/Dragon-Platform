@@ -1,0 +1,44 @@
+{
+  "chunkSize": 524288,
+  "videos": {
+    "ospf-fsm": "20261020-1"
+  },
+  "assets": {
+    "datacom/ospf-fsm.mp4": {
+      "size": 3649194,
+      "sha256": "d5e1246abe59ed3f659558d894fce7a6c3a89309c542bef38a7639469a165ce8",
+      "chunks": [
+        "2dffbb5ffbfea82753f549ae2e6fc2187d3885f8ee93cfc952c702a46d5808e3",
+        "b028b36164294d4498220498bd9ba6299b1e1f8d1496ef05ed788957a4e5baea",
+        "d29237d801d6275ced914967e8c88d0966871eac9355e3de3ed23f4e24a0e433",
+        "ac48f0ac75d323542bb1f14d58378466c31d1c5bbfa51a63f0deb8407d86bd16",
+        "9a2d7ba2b9130b511f4b9f8a645b3eaeeed8ff48cd60cb647ada5889b70ac35d",
+        "ab810ffa0a6097d67c07d34e193937a01a34589595d26c3f1155085215f3cc55",
+        "0d162ed5bc518882720a2ca6b57ff44de4b0d8faf1626c4cc3e6e09ac3833246"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-fsm-20261020-1/ospf-fsm.mp4"
+    },
+    "datacom/ospf-fsm-hd.mp4": {
+      "size": 7452278,
+      "sha256": "01ad8bc446ca5fea313dadfbfc88f07c903ce896d3bb7e93351184ee4456ca23",
+      "chunks": [
+        "d4da6f271cb8fb4e2954ad7b09cc57512b64ea07984b471e316ff6cc6ed0f399",
+        "95aa0d000e101a65e81c6c8e49c4191c7f00e7289c7ecc6d66c2d4689d99fc53",
+        "6f8c03a66bf0f47b3ce4f8fd1aaa7d8fc30e6a23637adb8746f1f36e6c0bc381",
+        "fa1f9fe723e8a8c74af8f0d0378f1c172ecde6e9803bd190acf0493d7d672975",
+        "76e5bf360c98aa6acfbe56352149adf4f76512b5ef689c9f09807d550a27bc64",
+        "d16f5bbf7efeab687171b5e6fe9baac70de6b21c9223412c3c662503e3a3de76",
+        "45547c67667340011c479932570bbce3bb882f5f245c8550b515dc7e44a23aa9",
+        "0b8158205cd3e86a099dea2227416c8b652c26b7c08d55ccb89bc3629b9c94de",
+        "b6629655d22e93da9c7fed4be7095785162f34c7890871ce6839a2b9bc8bdcf9",
+        "26a517e0e0db46f7eb120c6bfad2cf404e54f577028b3c0af93de76bc9376a43",
+        "544d689e6d960baebbba94e0684ca09faa8b900a5a2cdb27d224456595473d64",
+        "b39b5341c3fc83b958980693f89bd992304f19c8ad666d85174df03be9323ba6",
+        "edcbb30449f0852611299d99170c4967dfbcedcd73a1564dd1b0db97eadcc31d",
+        "767d42124a57640175dc9883fb38dd114a55b657b0ba7b2c85d1215f28052a97",
+        "223cab4d316807a0ec586d8198eeaee6609205d4837a9323a9f8a75d010387e0"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-fsm-20261020-1/ospf-fsm-hd.mp4"
+    }
+  }
+}

@@ -710,6 +710,8 @@ flowchart TD
 
 #### 静态快照导出与 Pages 发布
 
+`datacom-protocol-expert`（数通协议专家）使用专用只读快照导出：从当前租户的 `datacom-knowledge.db` 读取分类、学习路径和最新有效文章正文，支持全文搜索、Markdown / Mermaid、二维分步教学图、知识星图和交互实验室。Pages 分离版附带 `data/knowledge.json` 及前端资源；单文件 HTML 内嵌数据和资源，可离线打开。快照不请求平台知识库 API，不发布 SQLite 原始文件、已删除文章或修订历史，也不提供编辑操作。知识库修改后需再次推送，或启用已有定时推送；升级前只复制了页面资源的旧发布需重新推送一次。
+
 负向事件独立 HTML 的下载、配置及仓库推送仅限管理员。下载按钮始终生成内嵌数据与证据附件的单文件 HTML，供离线查看（附件总量超过 100 MB 时导出失败）。全局设置中的“静态页面推送”可按租户保存 HTTPS/SSH 远端仓库地址（推荐）或服务器可访问的本地 Git 镜像目录、目标分支、HTML 路径模板和推送格式。路径模板默认 `{toolSlug}/index.html`，当前工具的 `toolSlug` 为 `department-reward-penalty`，实际发布到 `department-reward-penalty/index.html`；已保存的具体路径保持不变。旧配置默认保持“单文件 HTML”；可切换到“Pages 分离版”，在解析后的 HTML 同目录 `data/` 下生成 `state.json`、`records.json`、`audit.json` 和 `evidence/` 附件。仓库根目录的 `index.html` 可继续用作 Pages 站点首页；工具子页面应使用完整路径访问，具体发布规则以 CodeHub Pages 实测为准。Pages 分离版必须通过支持同域静态文件访问的 Pages 服务打开，直接下载 HTML 不含数据；页面请求 JSON 时使用 `cache: 'no-store'`，托管服务自身的缓存与发布规则仍须实测。
 
 `tool-mqp55fna`（六个一信息收集）和 `f12-to-extension`（F12 扩展打包）也支持管理员下载及推送静态页面，默认不参与全量或定时推送。六个一快照包含当前租户的全部调查模板与提交记录，可搜索和查看字段。F12 静态版包含当前租户保存的脚本源码、匹配网址、系统内置脚本与 Chrome Capture Pro 完整扩展模板；用户可在浏览器中调整参数、检查兼容性并下载 Manifest V3 ZIP。静态版需手动管理扩展版本，不提供服务器版本预留、脚本保存、License 签发或台账操作；打包出的扩展关闭 License 功能。两者均支持单文件 HTML 与 Pages 分离版。Pages 的 `data/*.json` 和扩展模板可由静态托管服务直接访问，页面密码只提供浏览界面限制，不能替代仓库或 Pages 的访问控制。发布前须确认脚本源码和调查数据的可见范围。
@@ -1661,7 +1663,9 @@ pm2 stop tools-platform         # 停止服务
 
 维护这些视频时，先为新内容选择新的媒体 Release 标签，在 `scripts/prepare-home-promo-videos.js` 中新增该标签的地址常量，把新文件加入 `FILES` 和 `RELEASE_URLS`，并在 `package.json` 的打包排除规则里登记；再运行 `node scripts/prepare-home-promo-videos.js --write` 生成清单。上传该 Release 对应的视频及清单文件后，对比远端文件的大小和 SHA-256 并验证 HTTP Range 播放，再发布使用新清单的客户端。不要覆盖旧标签下的文件，以免旧客户端校验失败。
 
-`node scripts/prepare-home-promo-videos.js` 和 `npm run release:verify-assets` 会检查源视频与清单是否一致、MP4 元数据是否支持渐进播放。添加新视频不会自动纳入远程加载机制，需要另行登记其清单和打包规则。
+`node scripts/prepare-home-promo-videos.js` 和 `npm run release:verify-assets` 会检查源视频与清单是否一致、MP4 元数据是否支持渐进播放。首页添加新视频需要登记其清单和打包规则。
+
+数通笔记视频已接入同一独立媒体仓库：导出后自动登记，运行 `npm run datacom:publish-videos` 自动上传并校验，`npm run media:install-hook` 启用推送前同步，CI 检查附件已发布。所有数通 MP4 均排除在代码仓库和桌面包之外。后续 AI 接入规则与命令见 [数通视频发布说明](docs/datacom-video-publishing.md) 和数通内置工具目录的 `AGENTS.md`。
 
 ### 12.4 桌面客户端本地生成文件与目录全景字典 (Windows vs macOS)
 

@@ -3,5 +3,8 @@
 **/renders/
 **/assets/music/
 **/assets/voice/*.mp3
+**/assets/voice/**/*.mp3
 **/node_modules/
 *.wav
+*.mp3
+*.aac

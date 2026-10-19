@@ -37,7 +37,10 @@ jobs:
 
       - name: Validate built-in tools
         working-directory: tools-platform
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          npm run datacom:verify-videos
           node backend/test_builtin_tools_sync.js
           node backend/test_custom_tools_market_service.js
 

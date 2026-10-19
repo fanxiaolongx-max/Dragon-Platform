@@ -24,7 +24,10 @@
     "build:mac": "npm run license:verify-desktop-config && npm run release:verify-assets && node scripts/build-mac.js",
     "build:mac:local": "npm run license:verify-desktop-config && npm run release:verify-assets && node scripts/build-mac.js --local",
     "release:verify-assets": "node scripts/verify-release-assets.js",
-    "promo:sync-media": "node scripts/sync-media-releases.js"
+    "promo:sync-media": "node scripts/sync-media-releases.js",
+    "datacom:publish-videos": "node scripts/prepare-datacom-videos.js --write && node scripts/sync-media-releases.js --datacom",
+    "datacom:verify-videos": "node scripts/prepare-datacom-videos.js && node scripts/sync-media-releases.js --datacom --check",
+    "media:install-hook": "git config core.hooksPath .githooks"
   },
   "build": {
     "appId": "com.toolsplatform.app",
@@ -53,6 +56,7 @@
       "!frontend/assets/promotions/{netcare-rfc-ai-guide,operation-incentive-guide,platform-guide}{,-en}{,-hd}.mp4",
       "!frontend/assets/promotions/eos-report-guide{,-en}{,-hd}.mp4",
       "!frontend/assets/promotions/project-evolution-galaxy-hd.mp4",
+      "!frontend/assets/promotions/datacom/**/*.mp4",
       "!**/.env",
       "!**/.env.*",
       "!**/*.{db,sqlite,sqlite3,db-wal,db-shm,log,p12,pfx,p8,pem,key,certSigningRequest}",

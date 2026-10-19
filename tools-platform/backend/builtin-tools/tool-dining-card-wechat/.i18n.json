@@ -1,0 +1,19 @@
+{
+  "营业流水刷卡与微信就餐统计": "Card Swipe & WeChat Dining Statistics",
+  "支持同时导入营业流水（刷卡数据）与微信账单，单独深度分析并智能合并到营业流水总盘；自动按餐别价格档位识别【自有-微信】与【非自有-微信】。": "Supports importing card swipe Excel and WeChat bills simultaneously, performing separate deep analysis and auto-merging into the main dashboard, distinguishing own-WeChat and non-own-WeChat by meal price tiers.",
+  "综合大盘": "Unified Dashboard",
+  "微信就餐独立分析": "WeChat Standalone Analysis",
+  "刷卡流水独立分析": "Card Swipe Standalone Analysis",
+  "自有-微信": "Own-WeChat",
+  "非自有-微信": "Non-own WeChat",
+  "家属": "Family",
+  "自有": "Own",
+  "顾问": "Consultant",
+  "租赁WX": "Leased WX",
+  "保存快照": "Save Snapshot",
+  "历史快照": "Snapshot History",
+  "载入快照": "Restore Snapshot",
+  "导出综合明细 CSV": "Export Merged CSV",
+  "导出微信独立报表 Excel": "Export WeChat Report Excel",
+  "保存饼图 PNG": "Save Pie Chart PNG"
+}

@@ -1,5 +1,5 @@
 // Markdown 渲染：marked + Obsidian 风格扩展（callout、[[双链]]、$公式$）+ 懒加载 Mermaid + 安全清洗。
-import { isRfcDiagram } from './scenes-misc.js';
+import { isRfcDiagram } from './rfc-parser.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
@@ -82,7 +82,7 @@ function configure() {
                 if (language === 'mermaid') return `<div class="dk-mermaid is-pending"><pre class="dk-mermaid-src">${esc(code)}</pre></div>`;
                 const rfc = isRfcDiagram(code);
                 const highlighted = esc(code).split('\n').map(line => /^\s*(#|!|\/\/)/.test(line) ? `<span class="cm">${line}</span>` : line.replace(/(--&gt;.*)$/, '<span class="cm">$1</span>')).join('\n');
-                return `<figure class="dk-code${rfc ? ' is-rfc' : ''}"><figcaption><span>${esc(language || 'text')}</span>${rfc ? '<button type="button" class="dk-code-btn" data-rfc>🧊 3D 拆解</button>' : ''}<button type="button" class="dk-code-btn" data-copy>复制</button></figcaption><pre><code>${highlighted}</code></pre></figure>`;
+                return `<figure class="dk-code${rfc ? ' is-rfc' : ''}"><figcaption><span>${esc(language || 'text')}</span>${rfc ? '<button type="button" class="dk-code-btn" data-rfc>🧊 按位查看</button>' : ''}<button type="button" class="dk-code-btn" data-copy>复制</button></figcaption><pre><code>${highlighted}</code></pre></figure>`;
             }
         }
     });
@@ -179,7 +179,7 @@ export async function renderMermaid(container, dark) {
         blocks.forEach(block => block.classList.add('is-failed'));
         return;
     }
-    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: dark ? 'dark' : 'default', fontFamily: '"PingFang SC","Microsoft YaHei",system-ui,sans-serif', flowchart: { htmlLabels: true, curve: 'basis' } });
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'base', themeVariables: { primaryColor: dark ? '#162943' : '#edf5fc', primaryTextColor: dark ? '#e2e8f0' : '#172c43', primaryBorderColor: dark ? '#5177a5' : '#6e98bb', lineColor: dark ? '#8daac9' : '#557791', secondaryColor: dark ? '#17362e' : '#e9f6f1', tertiaryColor: dark ? '#242e43' : '#f5f7fb', fontSize: '15px', background: dark ? '#0d1527' : '#ffffff' }, fontFamily: '"PingFang SC","Microsoft YaHei",system-ui,sans-serif', flowchart: { htmlLabels: true, curve: 'linear', nodeSpacing: 35, rankSpacing: 55, padding: 18 }, sequence: { actorMargin: 65, messageMargin: 40, useMaxWidth: false } });
     for (const block of blocks) {
         if (!block.isConnected) continue;
         // 原文 init 指令里的 'theme': 'base' 会覆盖暗色主题，渲染前去掉以跟随当前主题
@@ -187,7 +187,19 @@ export async function renderMermaid(container, dark) {
         const id = `dk-mermaid-${mermaidCounter += 1}`;
         try {
             const { svg } = await mermaid.render(id, source);
-            block.innerHTML = svg;
+            // AI 操作栏可能已在异步渲染期间挂载，保留其按钮与笔记标记。
+            const actions = block.querySelector(':scope > .dk-block-ai');
+            block.dataset.source = source;
+            block.innerHTML = `<div class="dk-mermaid-tools"><span>流程示意 · 沿箭头阅读</span><button type="button" data-zoom="out" aria-label="缩小流程图">−</button><button type="button" data-zoom="reset">适应宽度</button><button type="button" data-zoom="in" aria-label="放大流程图">＋</button></div><div class="dk-mermaid-viewport" tabindex="0" aria-label="流程图，可滚动查看"><div class="dk-mermaid-drawing">${svg}</div></div>`;
+            if (actions) block.prepend(actions);
+            let zoom = 1;
+            const drawing = block.querySelector('.dk-mermaid-drawing');
+            block.querySelector('.dk-mermaid-tools').addEventListener('click', event => {
+                const action = event.target.closest('[data-zoom]')?.dataset.zoom;
+                if (!action) return;
+                zoom = action === 'reset' ? 1 : Math.max(.5, Math.min(3, zoom + (action === 'in' ? .25 : -.25)));
+                drawing.style.width = `${zoom * 100}%`;
+            });
             block.classList.remove('is-pending');
         } catch (error) {
             document.getElementById(`d${id}`)?.remove();

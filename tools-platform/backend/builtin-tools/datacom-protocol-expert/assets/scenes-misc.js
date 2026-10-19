@@ -1,64 +1,9 @@
-// 通用场景：任意 RFC ASCII 报文图 → 3D 拆解；知识星图。
+// 通用场景：任意 RFC ASCII 报文图 → 3D 字段动画；知识星图。
 import { PALETTE, span, ease, pathPoint } from './engine3d.js';
 import { buildBitLayers } from './scenes-ospf.js';
 
-const FIELD_COLORS = [0x2563eb, 0x7c3aed, 0x0d9488, 0xdb2777, 0xea580c, 0x16a34a, 0x0891b2, 0xb45309, 0x4f46e5, 0x65a30d];
-const SEPARATOR = /^\s*\+(?:[-+]+)\+?\s*$/;
-
-export function isRfcDiagram(text) {
-    const lines = String(text || '').split('\n');
-    const separators = lines.filter(line => SEPARATOR.test(line) && line.includes('-'));
-    // 至少有一条分隔线带有字段边界（3 个以上 “+”），以排除普通的 ASCII 文本框
-    return separators.length >= 2 && separators.some(line => (line.match(/\+/g) || []).length >= 3) && lines.some(line => /^\s*\|.*\|/.test(line));
-}
-
-// 解析 RFC 风格的位图：分隔线确定行宽，竖线位置换算成 bit 数，竖线外的文字当作注释
-export function parseRfcDiagram(text) {
-    const lines = String(text || '').replace(/\t/g, '    ').split('\n');
-    const rulers = lines.filter(line => /^\s*\d(\s+\d)+\s*$/.test(line)).map(line => line.trim().split(/\s+/).length);
-    const bitsPerRow = rulers.length && Math.max(...rulers) >= 8 && Math.max(...rulers) <= 64 ? Math.max(...rulers) : 32;
-    const separators = lines.filter(line => SEPARATOR.test(line));
-    const start = Math.min(...separators.map(line => line.indexOf('+')));
-    const width = Math.max(...separators.map(line => line.trimEnd().length - 1 - line.indexOf('+')));
-    if (!Number.isFinite(width) || width < 4) return null;
-    const fields = [];
-    let groupFirstField = null;
-    lines.forEach(line => {
-        if (SEPARATOR.test(line)) { groupFirstField = null; return; }
-        if (!/^\s*\|/.test(line)) return;
-        const pipes = [];
-        for (let i = start; i <= start + width && i < line.length; i += 1) if (line[i] === '|') pipes.push(i);
-        if (pipes[0] !== start) pipes.unshift(start);
-        // 行尾缺少竖线（如 DD 的 “|I|M|MS”）：按分隔线宽度补一个虚拟边界，字段名取到行尾
-        const open = pipes[pipes.length - 1] < start + width;
-        if (open) pipes.push(start + width);
-        const note = (open ? '' : line.slice(start + width + 1)).trim().replace(/^[(（]|[)）]$/g, '');
-        const segments = [];
-        for (let i = 0; i < pipes.length - 1; i += 1) {
-            const chars = pipes[i + 1] - pipes[i];
-            const textEnd = open && i === pipes.length - 2 ? line.length : pipes[i + 1];
-            segments.push({ name: line.slice(pipes[i] + 1, textEnd).trim(), bits: Math.max(1, Math.round(chars * bitsPerRow / width)) });
-        }
-        const total = segments.reduce((sum, item) => sum + item.bits, 0);
-        if (segments.length) segments[segments.length - 1].bits += bitsPerRow - total;
-        // 同一分隔区内的空白续行：字段跨越多个 32 bit 字
-        if (groupFirstField && segments.every(item => !item.name || item.name === '...' || item.name === '…')) {
-            if (segments.every(item => !item.name)) { groupFirstField.bits += bitsPerRow; return; }
-        }
-        segments.forEach((segment, index) => {
-            const field = {
-                name: segment.name === '...' || segment.name === '…' ? '…（可重复）' : (segment.name || '（保留）'),
-                bits: segment.bits,
-                desc: note && segments.length === 1 ? note : (segment.name === '0' ? '保留位，置 0。' : ''),
-                color: FIELD_COLORS[fields.length % FIELD_COLORS.length]
-            };
-            fields.push(field);
-            if (index === 0) groupFirstField = segments.length === 1 ? field : null;
-        });
-    });
-    if (!fields.length) return null;
-    return { bitsPerRow, fields };
-}
+import { parseRfcDiagram } from './rfc-parser.js';
+export { parseRfcDiagram, isRfcDiagram } from './rfc-parser.js';
 
 export function rfcScene(text, title = '报文结构') {
     const parsed = parseRfcDiagram(text);
@@ -66,18 +11,21 @@ export function rfcScene(text, title = '报文结构') {
     const totalBits = parsed.fields.reduce((sum, field) => sum + field.bits, 0);
     return {
         id: 'rfc-diagram',
-        title: `${title} · 3D 拆解`,
+        title: `${title} · 3D 字段图`,
         subtitle: `从文中的 RFC 位图自动生成：每行 ${parsed.bitsPerRow} bit，共 ${Math.ceil(totalBits / 8)} 字节、${parsed.fields.length} 个字段。点击砖块查看字段长度。`,
-        duration: 10,
+        duration: 12,
+        // 装配完成后字段自动拉开、停留，循环前合拢
+        explodeAt: t => span(t, 0.66, 0.76) * (1 - span(t, 0.92, 0.99)),
         build(ctx) {
             const layer = { id: 'rfc', name: title, color: PALETTE.info, fields: parsed.fields };
             const { layerRecords, height } = buildBitLayers(ctx, [layer], { bitsPerRow: parsed.bitsPerRow, bitWidth: parsed.bitsPerRow <= 16 ? 0.75 : 0.19, showTitles: false });
             const records = layerRecords[0].records.filter(record => !record.id.endsWith('-title'));
             records.forEach((record, index) => { record.offset.set(record.offset.x * 2, record.offset.y, (index % 2 ? 0.6 : -0.6) + record.offset.z); });
-            ctx.camera3([6, 3 - height * 0.3, 12], [0, -height * 0.4, 0]);
+            ctx.camera3([2.5, 1 - height * 0.3, 12], [0, -height * 0.4, 0]);
             ctx.setSteps([
                 { at: 0, title: '逐字段装配', text: '按报文中出现的顺序依次落位，宽度与 bit 数成正比。' },
-                { at: 0.6, title: '完整报文', text: '拖动“拆解”滑块可以把每个字段炸开，点击查看详情。' }
+                { at: 0.6, title: '完整报文', text: '所有字段落位，宽度与 bit 数成正比。' },
+                { at: 0.68, title: '字段拉开', text: '每个字段自动分开，点击砖块查看详情；可暂停或拖动时间轴停在这一刻。' }
             ]);
             return {
                 update(t) {

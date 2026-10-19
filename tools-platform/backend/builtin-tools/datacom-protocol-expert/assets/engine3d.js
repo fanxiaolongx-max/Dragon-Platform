@@ -1,5 +1,5 @@
 // 数通协议专家 · 3D 拆解舞台
-// 统一提供：程序化建模、爆炸拆解、剖面视图、射线点选 + 引线标注、相机补间、可拖拽的时间轴联动。
+// 统一提供：程序化建模、随时间轴自动展开的拆解动画、射线点选 + 引线标注、相机补间、可拖拽的时间轴联动。
 import * as THREE from './vendor/three.module.min.js';
 import { OrbitControls } from './vendor/OrbitControls.js';
 
@@ -16,6 +16,10 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 export const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 // 把全局进度 t 映射到某一区间内的局部进度 [0,1]
 export const span = (t, start, end) => clamp((t - start) / Math.max(1e-6, end - start), 0, 1);
+
+// 大场景中标签按相机距离整体放大，保证可读；由舞台在 build/update 前设置
+let labelBoost = 1;
+export function setLabelBoost(value) { labelBoost = value; }
 
 let glowTexture = null;
 function getGlowTexture() {
@@ -78,7 +82,7 @@ export function makeLabel(text, { color = '#e2e8f0', bg = 'rgba(15,23,42,0.78)',
     texture.anisotropy = 4;
     const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
     const sprite = new THREE.Sprite(material);
-    const worldHeight = size * (lines.length * 1.25 + 0.7);
+    const worldHeight = size * labelBoost * (lines.length * 1.25 + 0.7);
     sprite.scale.set(worldHeight * (width / height), worldHeight, 1);
     sprite.userData.isLabel = true;
     sprite.renderOrder = 10;
@@ -344,7 +348,7 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
     root.tabIndex = 0;
     root.innerHTML = `
         <canvas class="dk-stage-canvas"></canvas>
-        <div class="dk-hud dk-hud-title"><div class="dk-hud-kicker">3D 拆解 · 动态联动</div><h3></h3><p></p></div>
+        <div class="dk-hud dk-hud-title"><div class="dk-hud-kicker">3D 动态演示</div><h3></h3><p></p></div>
         <div class="dk-hud dk-hud-options"></div>
         <div class="dk-hud dk-hud-legend"></div>
         <div class="dk-hud dk-hud-extra" hidden></div>
@@ -352,12 +356,6 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
         <div class="dk-hud dk-hud-narration"><span class="dk-step-index"></span><div><strong></strong><p></p></div></div>
         <div class="dk-label-layer"><div class="dk-leader-label" hidden></div><div class="dk-hover-tip" hidden></div></div>
         <div class="dk-hud dk-hud-bar">
-            <div class="dk-seg" role="group" aria-label="视图模式">
-                <button type="button" data-view="assembled" class="is-active" title="组装视图">组装</button>
-                <button type="button" data-view="section" title="剖面透视">剖面</button>
-                <button type="button" data-view="exploded" title="3D 爆炸拆解">爆炸</button>
-            </div>
-            <label class="dk-range dk-explode"><span>拆解</span><input type="range" min="0" max="100" value="0" aria-label="爆炸程度"><b>0%</b></label>
             <button type="button" class="dk-icon-btn" data-act="play" title="播放 / 暂停（空格）">❚❚</button>
             <button type="button" class="dk-icon-btn" data-act="speed" title="倍速">1×</button>
             <div class="dk-timeline"><input type="range" min="0" max="1000" value="0" aria-label="动态流转进度"><div class="dk-ticks"></div></div>
@@ -371,23 +369,25 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.1;
-    renderer.localClippingEnabled = true;
+    renderer.toneMappingExposure = 1.2;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x050b18);
-    scene.fog = new THREE.FogExp2(0x050b18, 0.012);
+    scene.fog = new THREE.Fog(0x050b18, 60, 220); // 取景后按相机距离重设，避免大场景被雾吞没
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 500);
     const controls = new OrbitControls(camera, canvas);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.maxDistance = 120;
     controls.minDistance = 2;
+    let userCamera = false; // 用户拖动或缩放过视角后，不再自动推拉相机，直到重置
+    controls.addEventListener('start', () => { userCamera = true; state.cameraTween = null; });
 
     // 环境：灯光、地面网格、星空
     const environment = new THREE.Group();
-    environment.add(new THREE.HemisphereLight(0x9cc9ff, 0x0b1020, 0.9));
-    const key = new THREE.DirectionalLight(0xffffff, 1.4);
+    environment.add(new THREE.HemisphereLight(0x9cc9ff, 0x1b2740, 1.2));
+    environment.add(new THREE.AmbientLight(0x3b4a6b, 0.5));
+    const key = new THREE.DirectionalLight(0xffffff, 1.6);
     key.position.set(8, 14, 10);
     environment.add(key);
     const rim = new THREE.DirectionalLight(0x60a5fa, 0.7);
@@ -415,11 +415,10 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
     scene.add(world);
 
     const state = {
-        t: 0, playing: true, speed: 1, explode: 0, explodeTarget: 0, view: 'assembled',
+        t: 0, playing: true, speed: 1, explode: 0, bounds: null, labelBoost: 1,
         options: {}, steps: [], parts: [], links: [], trajectories: [], selected: null, hovered: null,
         sceneApi: null, disposed: false, visible: true, cameraTween: null, defaultView: null
     };
-    const sectionPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0.0);
     const raycaster = new THREE.Raycaster();
     const pointer = new THREE.Vector2();
     const clock = new THREE.Clock();
@@ -433,8 +432,6 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
         narration: root.querySelector('.dk-hud-narration'),
         leader: root.querySelector('.dk-leader-label'),
         tip: root.querySelector('.dk-hover-tip'),
-        explode: root.querySelector('.dk-explode input'),
-        explodeValue: root.querySelector('.dk-explode b'),
         timeline: root.querySelector('.dk-timeline input'),
         ticks: root.querySelector('.dk-ticks'),
         play: root.querySelector('[data-act="play"]'),
@@ -578,58 +575,98 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
 
     // 依据场景包围球自动取景：保留场景指定的观察方向，距离刚好容纳整个模型
     function fitView(preferred) {
-        const box = new THREE.Box3();
+        // 逐个网格记录包围盒：整体 AABB 的角点多是空气，按它取景会让斜视角下的模型显得很小
         const measure = () => {
+            const box = new THREE.Box3();
+            box.boxes = [];
             world.updateMatrixWorld(true);
             world.traverse(child => {
-                if (!child.visible || child.userData.noDim || child.isLine || child.isLineSegments) return;
-                if (child.isMesh) box.expandByObject(child);
+                if (!child.visible || child.userData.noDim || child.isLine || child.isLineSegments || !child.isMesh) return;
+                const own = new THREE.Box3().setFromObject(child);
+                if (own.isEmpty()) return;
+                box.union(own);
+                box.boxes.push(own);
             });
+            return box;
         };
-        // 组装态与完全爆炸态都要装得下
-        measure();
-        state.parts.forEach(record => record.object.position.copy(record.base).add(record.offset));
-        measure();
-        state.parts.forEach(record => record.object.position.copy(record.base));
-        world.updateMatrixWorld(true);
-        if (box.isEmpty()) return preferred;
-        const center = box.getCenter(new THREE.Vector3());
+        // 会随时间轴自动拆开的场景：另算一个拆开态取景，播放时相机随拆开程度在两者之间平滑推拉
+        const assembled = measure();
+        let exploded = null;
+        if (sceneDef.explodeAt) {
+            state.parts.forEach(record => record.object.position.copy(record.base).add(record.offset));
+            exploded = measure();
+            state.parts.forEach(record => record.object.position.copy(record.base));
+            world.updateMatrixWorld(true);
+        }
+        if (assembled.isEmpty()) return preferred;
         const direction = preferred ? preferred.position.clone().sub(preferred.target) : new THREE.Vector3(1, 0.75, 1.2);
         if (direction.lengthSq() < 1e-6) direction.set(1, 0.75, 1.2);
         direction.normalize();
-        // 投影包围盒 8 个角点，迭代调整距离直到模型占满视口约 80%（顶部/底部 HUD 预留空间）
-        const probe = camera.clone();
-        probe.aspect = Math.max(0.5, camera.aspect || 1.6);
-        probe.updateProjectionMatrix();
-        const corners = [];
-        for (let i = 0; i < 8; i += 1) corners.push(new THREE.Vector3(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z));
-        let distance = box.getSize(new THREE.Vector3()).length();
-        for (let i = 0; i < 6; i += 1) {
+        // 顶部标题区与底部控制栏/解说占用的高度：模型取景到两者之间的空白带，并垂直居中于该带
+        const stageHeight = root.clientHeight || 600;
+        const topReserve = Math.min(0.3, 120 / stageHeight);
+        const bottomReserve = Math.min(0.4, 150 / stageHeight);
+        const bandFraction = Math.max(0.35, 1 - topReserve - bottomReserve);
+        const viewFor = box => {
+            const center = box.getCenter(new THREE.Vector3());
+            // 投影每个网格包围盒的角点，迭代调整距离直到模型占满空白带
+            const probe = camera.clone();
+            probe.aspect = Math.max(0.5, camera.aspect || 1.6);
+            probe.updateProjectionMatrix();
+            const corners = [];
+            (box.boxes || [box]).forEach(item => {
+                for (let i = 0; i < 8; i += 1) corners.push(new THREE.Vector3(i & 1 ? item.max.x : item.min.x, i & 2 ? item.max.y : item.min.y, i & 4 ? item.max.z : item.min.z));
+            });
+            let distance = box.getSize(new THREE.Vector3()).length();
+            for (let i = 0; i < 6; i += 1) {
+                probe.position.copy(center).addScaledVector(direction, distance);
+                probe.lookAt(center);
+                probe.updateMatrixWorld(true);
+                let extentX = 0;
+                let extentY = 0;
+                corners.forEach(corner => {
+                    const p = corner.clone().project(probe);
+                    extentX = Math.max(extentX, Math.abs(p.x));
+                    extentY = Math.max(extentY, Math.abs(p.y));
+                });
+                const need = Math.max(extentX / 0.84, extentY / (bandFraction * 0.92));
+                distance = Math.max(4, distance * (0.35 + 0.65 * need));
+            }
+            // 把模型中心抬到空白带中心：相机与目标一起沿相机 up 方向下移
             probe.position.copy(center).addScaledVector(direction, distance);
             probe.lookAt(center);
             probe.updateMatrixWorld(true);
-            let extentX = 0;
-            let extentY = 0;
-            corners.forEach(corner => {
-                const p = corner.clone().project(probe);
-                extentX = Math.max(extentX, Math.abs(p.x));
-                extentY = Math.max(extentY, Math.abs(p.y));
-            });
-            const need = Math.max(extentX / 0.86, extentY / (compact ? 0.62 : 0.7));
-            distance = Math.max(4, distance * (0.35 + 0.65 * need));
-        }
-        return { position: center.clone().addScaledVector(direction, distance), target: center };
+            const up = new THREE.Vector3().setFromMatrixColumn(probe.matrixWorld, 1).normalize();
+            const liftNdc = bottomReserve - topReserve;
+            const shift = up.multiplyScalar(-liftNdc * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) * distance);
+            const target = center.clone().add(shift);
+            return { position: target.clone().addScaledVector(direction, distance), target, box, distance };
+        };
+        const view = viewFor(assembled);
+        state.explodedView = exploded && !exploded.isEmpty() ? viewFor(exploded.union(assembled)) : null;
+        const { target: center, distance } = view;
+        state.bounds = { center, radius: assembled.getBoundingSphere(new THREE.Sphere()).radius, distance };
+        scene.fog.near = distance * 1.8;
+        scene.fog.far = distance * 6;
+        // 标签随场景规模放大；此前已按旧倍率生成的标签按差值补偿
+        const boost = Math.min(2.2, Math.max(1, distance / 26));
+        const ratio = boost / state.labelBoost;
+        if (Math.abs(ratio - 1) > 0.01) world.traverse(child => { if (child.userData.isLabel) child.scale.multiplyScalar(ratio); });
+        state.labelBoost = boost;
+        return view;
     }
 
     function build({ refit = false } = {}) {
         clearWorld();
         const ctx = makeContext();
         state.defaultView = null;
+        setLabelBoost(state.labelBoost);
         state.sceneApi = sceneDef.build(ctx, { ...state.options }) || {};
+        setLabelBoost(1);
         state.defaultView = fitView(state.defaultView);
         applyDim();
         renderTicks();
-        if (refit) flyTo(state.defaultView, 0.8);
+        if (refit) flyTo(currentAutoView(), 0.8);
     }
 
     // ---- 选项 ----
@@ -701,20 +738,7 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
 
     function syncPlay() { ui.play.textContent = state.playing ? '❚❚' : '▶'; }
 
-    // ---- 视图模式 / 爆炸 ----
-    function setView(view) {
-        state.view = view;
-        root.querySelectorAll('[data-view]').forEach(button => button.classList.toggle('is-active', button.dataset.view === view));
-        renderer.clippingPlanes = view === 'section' ? [sectionPlane] : [];
-        if (view === 'exploded') state.explodeTarget = Math.max(state.explodeTarget, 1);
-        if (view === 'assembled') state.explodeTarget = 0;
-        ui.explode.value = Math.round(state.explodeTarget * 100);
-        ui.explodeValue.textContent = `${ui.explode.value}%`;
-    }
-
     root.querySelector('.dk-hud-bar').addEventListener('click', event => {
-        const view = event.target.closest('[data-view]');
-        if (view) return setView(view.dataset.view);
         const action = event.target.closest('[data-act]')?.dataset.act;
         if (action === 'play') { state.playing = !state.playing; syncPlay(); }
         if (action === 'speed') {
@@ -722,19 +746,11 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
             state.speed = speeds[(speeds.indexOf(state.speed) + 1) % speeds.length];
             ui.speed.textContent = `${state.speed}×`;
         }
-        if (action === 'reset') { select(null); flyTo(state.defaultView); }
+        if (action === 'reset') { select(null); userCamera = false; flyTo(currentAutoView()); }
         if (action === 'fullscreen') {
             if (document.fullscreenElement) document.exitFullscreen();
             else root.requestFullscreen?.().catch(() => root.classList.toggle('is-pseudo-full'));
         }
-    });
-    ui.explode.addEventListener('input', () => {
-        state.explodeTarget = Number(ui.explode.value) / 100;
-        ui.explodeValue.textContent = `${ui.explode.value}%`;
-        root.querySelectorAll('[data-view]').forEach(button => {
-            const active = button.dataset.view === (state.view === 'section' ? 'section' : (state.explodeTarget > 0 ? 'exploded' : 'assembled'));
-            button.classList.toggle('is-active', active);
-        });
     });
     root.addEventListener('keydown', event => {
         if (event.code === 'Space' && event.target === root) { event.preventDefault(); state.playing = !state.playing; syncPlay(); }
@@ -783,6 +799,12 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
         return { center: box.getCenter(new THREE.Vector3()), size: box.getSize(new THREE.Vector3()).length() };
     }
 
+    function currentAutoView() {
+        if (!state.explodedView || !state.defaultView) return state.defaultView;
+        const k = ease(state.explode);
+        return { position: state.defaultView.position.clone().lerp(state.explodedView.position, k), target: state.defaultView.target.clone().lerp(state.explodedView.target, k) };
+    }
+
     function flyTo(view, duration = 0.9) {
         if (!view) return;
         state.cameraTween = { from: camera.position.clone(), fromTarget: controls.target.clone(), to: view.position.clone(), toTarget: view.target.clone(), t: 0, duration };
@@ -802,6 +824,7 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
         ui.leader.hidden = !record;
         if (!record) {
             ui.detail.hidden = true;
+            if (state.explodedView && !userCamera) flyTo(currentAutoView(), 0.6);
             onSelect && onSelect(null);
             return;
         }
@@ -819,11 +842,8 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
         pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(pointer, camera);
-        const hits = raycaster.intersectObjects(world.children, true).filter(hit => hit.object.visible && hit.object.userData.partRecord && !hit.object.userData.isLabel);
-        if (state.view === 'section') {
-            const visible = hits.filter(hit => sectionPlane.distanceToPoint(hit.point) >= -0.001);
-            return visible[0]?.object.userData.partRecord || null;
-        }
+        // 名称标签属于所在部件：点标签即选中部件，避免射线穿过标签选中后方对象
+        const hits = raycaster.intersectObjects(world.children, true).filter(hit => hit.object.visible && hit.object.userData.partRecord);
         return hits[0]?.object.userData.partRecord || null;
     }
 
@@ -880,6 +900,8 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
         const height = root.clientHeight;
         if (!width || !height) return;
         renderer.setSize(width, height, false);
+        root.classList.toggle('is-narrow', width < 860);
+        root.classList.toggle('is-tiny', width < 560);
         camera.aspect = width / height;
         camera.updateProjectionMatrix();
     }
@@ -899,9 +921,11 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
             state.t = (state.t + dt * state.speed / duration) % 1;
             ui.timeline.value = String(Math.round(state.t * 1000));
         }
-        state.explode += (state.explodeTarget - state.explode) * Math.min(1, dt * 5);
-        if (Math.abs(state.explodeTarget - state.explode) < 0.001) state.explode = state.explodeTarget;
+        // 拆开程度由场景按时间轴给出，拖动时间轴即可逐帧查看
+        state.explode = sceneDef.explodeAt ? clamp(sceneDef.explodeAt(state.t, state.options), 0, 1) : 0;
+        setLabelBoost(state.labelBoost);
         state.sceneApi?.update?.(state.t, dt, state);
+        setLabelBoost(1);
         state.parts.forEach(record => {
             record.object.position.copy(record.base).addScaledVector(record.offset, ease(state.explode)).add(record.anim);
         });
@@ -929,6 +953,11 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
             controls.target.lerpVectors(tween.fromTarget, tween.toTarget, k);
             if (tween.t >= 1) state.cameraTween = null;
         }
+        if (state.explodedView && !userCamera && !state.cameraTween && !state.selected) {
+            const view = currentAutoView();
+            camera.position.copy(view.position);
+            controls.target.copy(view.target);
+        }
         controls.update();
         updateLeader();
         updateNarration();
@@ -953,6 +982,31 @@ export function createStage(host, sceneDef, { compact = false, onSelect = null, 
     return {
         root,
         setOptions(options) { Object.assign(state.options, options); renderOptions(); build(); },
+        // 供 AI 问答使用：当前场景、步骤、选中部件与参数
+        getContext() {
+            const step = state.steps[currentStep()];
+            const part = state.selected;
+            const plain = value => String(value || '').replace(/<[^>]+>/g, '');
+            return {
+                sceneId: sceneDef.id, title: sceneDef.title, subtitle: sceneDef.subtitle || '', t: Number(state.t.toFixed(3)),
+                options: { ...state.options },
+                step: step ? { title: step.title, text: plain(step.text) } : null,
+                part: part ? { id: part.id, name: part.name, desc: plain(part.desc), rows: (part.rows || []).map(([k, v]) => `${plain(k)}：${plain(v)}`) } : null
+            };
+        },
+        // 从笔记跳回：恢复参数、时间轴位置并重新选中部件
+        restore({ t, options, partId } = {}) {
+            const known = Object.fromEntries(Object.entries(options || {}).filter(([key]) => (sceneDef.options || []).some(def => def.id === key)));
+            if (Object.keys(known).length) { Object.assign(state.options, known); renderOptions(); build({ refit: true }); }
+            if (Number.isFinite(Number(t))) {
+                state.t = Math.min(0.999, Math.max(0, Number(t)));
+                ui.timeline.value = String(Math.round(state.t * 1000));
+                state.playing = false;
+                syncPlay();
+            }
+            if (partId) setTimeout(() => { const record = state.parts.find(item => item.id === partId); if (record) select(record); }, 120);
+            root.focus({ preventScroll: true });
+        },
         select(id) { select(state.parts.find(record => record.id === id) || null); },
         dispose() {
             state.disposed = true;

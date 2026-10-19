@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 3,
   "domains": [
     {
       "id": "ospf",
@@ -155,12 +155,1235 @@
       ]
     }
   ],
+  "outline": [
+    {
+      "id": "ospf-basics",
+      "domainId": "ospf",
+      "parentId": null,
+      "title": "协议基础与报文",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 10
+    },
+    {
+      "id": "ospf-basics-rid",
+      "domainId": "ospf",
+      "parentId": "ospf-basics",
+      "title": "Router-ID 选举与非抢占",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-router-id"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "ospf-basics-roles",
+      "domainId": "ospf",
+      "parentId": "ospf-basics",
+      "title": "路由器角色 IR / BR / ABR / ASBR",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-router-types"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "ospf-basics-encap",
+      "domainId": "ospf",
+      "parentId": "ospf-basics",
+      "title": "报文封装：IP 协议号 89、组播 224.0.0.5/6",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-packets",
+        "ospf-network-types"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "ospf-basics-packets",
+      "domainId": "ospf",
+      "parentId": "ospf-basics",
+      "title": "五种报文与 24 字节公共头",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-packets"
+      ],
+      "sort": 40
+    },
+    {
+      "id": "ospf-basics-params",
+      "domainId": "ospf",
+      "parentId": "ospf-basics",
+      "title": "缺省参数与计时器",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-default-params"
+      ],
+      "sort": 50
+    },
+    {
+      "id": "ospf-basics-cost",
+      "domainId": "ospf",
+      "parentId": "ospf-basics",
+      "title": "接口开销计算与参考带宽",
+      "status": "partial",
+      "note": "笔记给出了 Cost = 参考带宽 / 接口带宽，以及“沿入方向逐跳累加”的原则；缺少完整的算路示例，也没有说明手工配置的接口 cost 优先于自动计算、链路聚合成员变化会导致 Cost 变化等细节。",
+      "articles": [
+        "ospf-default-params",
+        "ospf-lsa-handbook"
+      ],
+      "sort": 60
+    },
+    {
+      "id": "ospf-basics-preference",
+      "domainId": "ospf",
+      "parentId": "ospf-basics",
+      "title": "路由协议优先级",
+      "status": "partial",
+      "note": "华为内部 10 / 外部 150 已提及。Junos 中 OSPF 内部路由优先级为 10、外部为 150；笔记 show route 示例中把普通 OSPF 路由写作 OSPF/150，跨厂商对比时需要区分内部与外部。",
+      "articles": [
+        "ospf-default-params",
+        "junos-rib-tables"
+      ],
+      "sort": 70
+    },
+    {
+      "id": "ospf-adjacency",
+      "domainId": "ospf",
+      "parentId": null,
+      "title": "邻居与邻接",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 20
+    },
+    {
+      "id": "ospf-adjacency-hello",
+      "domainId": "ospf",
+      "parentId": "ospf-adjacency",
+      "title": "Hello 参数协商与一致性检查",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-packets"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "ospf-adjacency-fsm",
+      "domainId": "ospf",
+      "parentId": "ospf-adjacency",
+      "title": "邻居状态机（含 Attempt 与异常回退）",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-fsm"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "ospf-adjacency-ddms",
+      "domainId": "ospf",
+      "parentId": "ospf-adjacency",
+      "title": "DD 主从协商与隐式确认",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-packets",
+        "ospf-fsm"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "ospf-adjacency-nettype",
+      "domainId": "ospf",
+      "parentId": "ospf-adjacency",
+      "title": "五种网络类型与报文收发地址",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-network-types"
+      ],
+      "sort": 40
+    },
+    {
+      "id": "ospf-adjacency-dr",
+      "domainId": "ospf",
+      "parentId": "ospf-adjacency",
+      "title": "DR/BDR 选举与伪节点",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-dr-bdr",
+        "ospf-network-types"
+      ],
+      "sort": 50
+    },
+    {
+      "id": "ospf-adjacency-mtu",
+      "domainId": "ospf",
+      "parentId": "ospf-adjacency",
+      "title": "MTU 检查与卡在 ExStart",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-packets",
+        "ospf-fsm"
+      ],
+      "sort": 60
+    },
+    {
+      "id": "ospf-adjacency-p2mp",
+      "domainId": "ospf",
+      "parentId": "ospf-adjacency",
+      "title": "P2MP 网络的 /32 主机路由",
+      "status": "added",
+      "note": "P2MP 不选 DR：每台路由器在 1 类 LSA 中把自己的接口地址作为掩码 /32 的 Stub 链路通告，并为每个邻居描述一条点到点链路，因此 P2MP 网段会出现大量 /32 主机路由（RFC 2328 12.4.1.4）。",
+      "articles": [],
+      "sort": 70
+    },
+    {
+      "id": "ospf-adjacency-gr",
+      "domainId": "ospf",
+      "parentId": "ospf-adjacency",
+      "title": "平滑重启 GR（Grace-LSA）",
+      "status": "partial",
+      "note": "笔记只在 Opaque LSA 场景中提到 Type-9 Grace-LSA 的用途；Restarter / Helper 两种角色、Grace Period 以及“期间拓扑变化即终止 Helper”等流程没有展开。",
+      "articles": [
+        "ospf-te-opaque"
+      ],
+      "sort": 80
+    },
+    {
+      "id": "ospf-adjacency-nsr",
+      "domainId": "ospf",
+      "parentId": "ospf-adjacency",
+      "title": "NSR 不间断路由",
+      "status": "partial",
+      "note": "只在 Router-ID 一文提到主备倒换时备板接管；与 GR 的区别（NSR 不依赖邻居配合，对邻居完全透明）没有说明。",
+      "articles": [
+        "ospf-router-id"
+      ],
+      "sort": 90
+    },
+    {
+      "id": "ospf-lsdb",
+      "domainId": "ospf",
+      "parentId": null,
+      "title": "LSDB 同步与可靠泛洪",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 30
+    },
+    {
+      "id": "ospf-lsdb-header",
+      "domainId": "ospf",
+      "parentId": "ospf-lsdb",
+      "title": "LSA 头部与三元组",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-lsa-handbook",
+        "ospf-lsr-triplet"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "ospf-lsdb-newer",
+      "domainId": "ospf",
+      "parentId": "ospf-lsdb",
+      "title": "LSA 新旧判定顺序",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-lsa-handbook"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "ospf-lsdb-aging",
+      "domainId": "ospf",
+      "parentId": "ospf-lsdb",
+      "title": "老化、刷新与 MaxAge 主动撤销",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-lsa-handbook",
+        "ospf-packets"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "ospf-lsdb-seqwrap",
+      "domainId": "ospf",
+      "parentId": "ospf-lsdb",
+      "title": "序列号回绕处理",
+      "status": "added",
+      "note": "序列号到达 0x7FFFFFFF 后不能再加 1：始发路由器先以 MaxAge 把该 LSA 泛洪清除，确认全网删除后再以 0x80000001 重新生成（RFC 2328 12.1.6）。",
+      "articles": [],
+      "sort": 40
+    },
+    {
+      "id": "ospf-lsdb-ack",
+      "domainId": "ospf",
+      "parentId": "ospf-lsdb",
+      "title": "LSAck 显式 / 隐式确认与重传",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-packets"
+      ],
+      "sort": 50
+    },
+    {
+      "id": "ospf-lsdb-checksum",
+      "domainId": "ospf",
+      "parentId": "ospf-lsdb",
+      "title": "报文与 LSA 双层校验",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-checksum",
+        "rfc1071-checksum",
+        "crc-checksum-system"
+      ],
+      "sort": 60
+    },
+    {
+      "id": "ospf-lsdb-options",
+      "domainId": "ospf",
+      "parentId": "ospf-lsdb",
+      "title": "LSA 头中的 Options 字段",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-lsa-options"
+      ],
+      "sort": 70
+    },
+    {
+      "id": "ospf-lsdb-transdelay",
+      "domainId": "ospf",
+      "parentId": "ospf-lsdb",
+      "title": "传输延迟与 LS age 累加",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-default-params"
+      ],
+      "sort": 80
+    },
+    {
+      "id": "ospf-lsa",
+      "domainId": "ospf",
+      "parentId": null,
+      "title": "LSA 与区域",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 40
+    },
+    {
+      "id": "ospf-lsa-t12",
+      "domainId": "ospf",
+      "parentId": "ospf-lsa",
+      "title": "1 / 2 类 LSA 与伪节点",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-lsa-handbook",
+        "ospf-lsa-philosophy"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "ospf-lsa-t34",
+      "domainId": "ospf",
+      "parentId": "ospf-lsa",
+      "title": "3 / 4 类 LSA 与 ABR 防环",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-lsa-handbook",
+        "ospf-lsa-philosophy"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "ospf-lsa-t57",
+      "domainId": "ospf",
+      "parentId": "ospf-lsa",
+      "title": "5 / 7 类外部 LSA",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-lsa-handbook"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "ospf-lsa-fa",
+      "domainId": "ospf",
+      "parentId": "ospf-lsa",
+      "title": "转发地址 FA",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-fa",
+        "ospf-lsa-handbook"
+      ],
+      "sort": 40
+    },
+    {
+      "id": "ospf-lsa-pbit",
+      "domainId": "ospf",
+      "parentId": "ospf-lsa",
+      "title": "P-bit 与 7 转 5",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-lsa-handbook",
+        "ospf-fa"
+      ],
+      "sort": 50
+    },
+    {
+      "id": "ospf-lsa-translator",
+      "domainId": "ospf",
+      "parentId": "ospf-lsa",
+      "title": "NSSA 翻译者角色与稳定性",
+      "status": "partial",
+      "note": "笔记说明了 Router-ID 最大的 ABR 担任翻译者；RFC 3101 中的翻译者角色配置（Always / Candidate）与翻译者稳定间隔（缺省 40 秒）没有提及。",
+      "articles": [
+        "ospf-lsa-handbook"
+      ],
+      "sort": 60
+    },
+    {
+      "id": "ospf-lsa-areas",
+      "domainId": "ospf",
+      "parentId": "ospf-lsa",
+      "title": "Stub / Totally Stub / NSSA / Totally NSSA",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-areas"
+      ],
+      "sort": 70
+    },
+    {
+      "id": "ospf-lsa-vlink",
+      "domainId": "ospf",
+      "parentId": "ospf-lsa",
+      "title": "虚链路 Virtual-Link",
+      "status": "partial",
+      "note": "笔记零散提到了虚链路的计时器、单播收发、认证要求和 V 位；它的用途（修复骨干不连续、让未直连 Area 0 的区域接入骨干）、Transit Area 不能是 Stub/NSSA、逻辑上属于 Area 0 等核心约束没有集中说明。",
+      "articles": [
+        "ospf-network-types",
+        "ospf-auth",
+        "ospf-router-types"
+      ],
+      "sort": 80
+    },
+    {
+      "id": "ospf-lsa-opaque",
+      "domainId": "ospf",
+      "parentId": "ospf-lsa",
+      "title": "Opaque LSA（9 / 10 / 11 类）",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-te-opaque"
+      ],
+      "sort": 90
+    },
+    {
+      "id": "ospf-lsa-t68",
+      "domainId": "ospf",
+      "parentId": "ospf-lsa",
+      "title": "6 类与 8 类 LSA",
+      "status": "added",
+      "note": "6 类 Group-membership LSA 用于 MOSPF（RFC 1584，已基本淘汰）；8 类 External-Attributes LSA 原计划在 OSPF 中携带 BGP 属性，从未广泛部署。OSPFv3 中 8 类被重新定义为 Link-LSA。",
+      "articles": [],
+      "sort": 100
+    },
+    {
+      "id": "ospf-spf",
+      "domainId": "ospf",
+      "parentId": null,
+      "title": "路由计算",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 50
+    },
+    {
+      "id": "ospf-spf-dijkstra",
+      "domainId": "ospf",
+      "parentId": "ospf-spf",
+      "title": "SPF（Dijkstra）计算过程",
+      "status": "partial",
+      "note": "笔记讲了开销沿入方向累加以及 PRC / iSPF 的分工；缺少候选列表、逐个节点加入最短路径树、先算区域内再算区域间和外部路由的完整流程。",
+      "articles": [
+        "ospf-lsa-handbook",
+        "ospf-convergence"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "ospf-spf-order",
+      "domainId": "ospf",
+      "parentId": "ospf-spf",
+      "title": "选路顺序：区域内 > 区域间 > E1 > E2",
+      "status": "partial",
+      "note": "笔记给出了“区域内 > 区域间 > 外部”。外部路由内部还有 Type-1 优于 Type-2；两条 E2 外部开销相同时，再比较到达 ASBR / FA 的内部开销。",
+      "articles": [
+        "ospf-areas",
+        "ospf-lsa-handbook"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "ospf-spf-e1e2",
+      "domainId": "ospf",
+      "parentId": "ospf-spf",
+      "title": "E1 / E2 外部开销计算",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-lsa-handbook",
+        "ospf-default-params"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "ospf-spf-prc",
+      "domainId": "ospf",
+      "parentId": "ospf-spf",
+      "title": "PRC 与 iSPF",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-convergence"
+      ],
+      "sort": 40
+    },
+    {
+      "id": "ospf-spf-ecmp",
+      "domainId": "ospf",
+      "parentId": "ospf-spf",
+      "title": "等价多路径负载分担 ECMP",
+      "status": "added",
+      "note": "开销相同的多条路径会同时写入路由表实现负载分担，最大条数由设备规格与 maximum load-balancing 等配置决定。",
+      "articles": [],
+      "sort": 50
+    },
+    {
+      "id": "ospf-spf-interarea",
+      "domainId": "ospf",
+      "parentId": "ospf-spf",
+      "title": "区域间防环规则",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-lsa-handbook",
+        "ospf-lsa-philosophy"
+      ],
+      "sort": 60
+    },
+    {
+      "id": "ospf-control",
+      "domainId": "ospf",
+      "parentId": null,
+      "title": "路由控制",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 60
+    },
+    {
+      "id": "ospf-control-filter",
+      "domainId": "ospf",
+      "parentId": "ospf-control",
+      "title": "3 / 5 类 LSA 过滤的八个阻断点",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-filter"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "ospf-control-prefix",
+      "domainId": "ospf",
+      "parentId": "ospf-control",
+      "title": "前缀列表匹配规则",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-filter"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "ospf-control-summary",
+      "domainId": "ospf",
+      "parentId": "ospf-control",
+      "title": "路由汇总 abr-summary / asbr-summary",
+      "status": "partial",
+      "note": "笔记只在过滤场景中用到 not-advertise；汇总路由的开销取值（RFC 2328 取明细中的最大开销）以及是否在本地生成指向 Null0 的防环路由（各厂商缺省不同）没有说明。",
+      "articles": [
+        "ospf-filter"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "ospf-control-import",
+      "domainId": "ospf",
+      "parentId": "ospf-control",
+      "title": "外部路由引入与 Tag / Type / Cost",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-default-params",
+        "ospf-filter"
+      ],
+      "sort": 40
+    },
+    {
+      "id": "ospf-control-default",
+      "domainId": "ospf",
+      "parentId": "ospf-control",
+      "title": "普通区域缺省路由下发",
+      "status": "partial",
+      "note": "NSSA 的缺省下发条件讲得很细；普通区域中 default-route-advertise 默认要求本地已有缺省路由、加 always 参数可无条件生成 5 类缺省，没有展开。",
+      "articles": [
+        "ospf-areas",
+        "junos-default-route"
+      ],
+      "sort": 50
+    },
+    {
+      "id": "ospf-control-dnbit",
+      "domainId": "ospf",
+      "parentId": "ospf-control",
+      "title": "VPN 场景防环：DN 位与 Route Tag",
+      "status": "partial",
+      "note": "DN 位与 VPN Route Tag 只作了字段说明；在 PE-CE 双归属场景中如何用它们防止路由回灌，没有结合拓扑讲解。",
+      "articles": [
+        "ospf-lsa-options",
+        "ospf-default-params"
+      ],
+      "sort": 60
+    },
+    {
+      "id": "ospf-ha",
+      "domainId": "ospf",
+      "parentId": null,
+      "title": "收敛与高可用",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 70
+    },
+    {
+      "id": "ospf-ha-bfd",
+      "domainId": "ospf",
+      "parentId": "ospf-ha",
+      "title": "BFD 联动与快速收敛",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-convergence"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "ospf-ha-timers",
+      "domainId": "ospf",
+      "parentId": "ospf-ha",
+      "title": "SPF / LSA 智能定时器",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-convergence",
+        "ospf-default-params"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "ospf-ha-flap",
+      "domainId": "ospf",
+      "parentId": "ospf-ha",
+      "title": "邻居震荡抑制",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-convergence"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "ospf-ha-frr",
+      "domainId": "ospf",
+      "parentId": "ospf-ha",
+      "title": "LFA / Remote LFA / TI-LFA",
+      "status": "partial",
+      "note": "笔记在配置中使能了 LFA 并提到 Remote-LFA；LFA 的无环条件 Dist(N,D) < Dist(N,S) + Dist(S,D) 与 TI-LFA 没有讲解。",
+      "articles": [
+        "ospf-convergence"
+      ],
+      "sort": 40
+    },
+    {
+      "id": "ospf-ha-stubrouter",
+      "domainId": "ospf",
+      "parentId": "ospf-ha",
+      "title": "Stub Router（最大开销通告）",
+      "status": "added",
+      "note": "设备重启或割接时临时把自身链路以最大开销通告，让流量先绕行，待 BGP 等收敛后再恢复（华为 stub-router on-startup，Junos overload）。",
+      "articles": [],
+      "sort": 50
+    },
+    {
+      "id": "ospf-ha-microloop",
+      "domainId": "ospf",
+      "parentId": "ospf-ha",
+      "title": "TE 隧道防微环",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-te-opaque"
+      ],
+      "sort": 60
+    },
+    {
+      "id": "ospf-security",
+      "domainId": "ospf",
+      "parentId": null,
+      "title": "安全",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 80
+    },
+    {
+      "id": "ospf-security-authtype",
+      "domainId": "ospf",
+      "parentId": "ospf-security",
+      "title": "认证类型与报文封装",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-auth"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "ospf-security-keychain",
+      "domainId": "ospf",
+      "parentId": "ospf-security",
+      "title": "Keychain 平滑换密",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-auth"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "ospf-security-replay",
+      "domainId": "ospf",
+      "parentId": "ospf-security",
+      "title": "加密序列号防重放",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-auth"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "ospf-security-gtsm",
+      "domainId": "ospf",
+      "parentId": "ospf-security",
+      "title": "GTSM / TTL 安全检查",
+      "status": "added",
+      "note": "只接受 TTL 在指定跳数范围内的 OSPF 报文，用来防御远端伪造报文带来的 CPU 攻击。",
+      "articles": [],
+      "sort": 40
+    },
+    {
+      "id": "ospf-ext",
+      "domainId": "ospf",
+      "parentId": null,
+      "title": "扩展与演进",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 90
+    },
+    {
+      "id": "ospf-ext-te",
+      "domainId": "ospf",
+      "parentId": "ospf-ext",
+      "title": "MPLS-TE、CSPF 与 SRLG",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-te-opaque"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "ospf-ext-shortcut",
+      "domainId": "ospf",
+      "parentId": "ospf-ext",
+      "title": "IGP Shortcut 与转发邻接",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-te-opaque"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "ospf-ext-sr",
+      "domainId": "ospf",
+      "parentId": "ospf-ext",
+      "title": "SR-MPLS 扩展（Prefix-SID / Adj-SID / SRGB）",
+      "status": "partial",
+      "note": "笔记说明了 Prefix-SID 需要 Type-11 才能跨区域、Adj-SID 位于链路 TLV；SRGB 的通告（Router Information LSA）以及“标签 = SRGB 起始值 + SID 索引”的计算没有展开。",
+      "articles": [
+        "ospf-te-opaque"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "ospf-ext-pece",
+      "domainId": "ospf",
+      "parentId": "ospf-ext",
+      "title": "MPLS VPN 中的 OSPF（Sham Link / Domain ID）",
+      "status": "partial",
+      "note": "只出现在缺省参数表中；Sham Link 用来解决后门链路使区域内路由优于 VPN 路由的问题、Domain ID 决定 PE 转成 3 类还是 5 类，没有讲解。",
+      "articles": [
+        "ospf-default-params",
+        "ospf-lsa-options"
+      ],
+      "sort": 40
+    },
+    {
+      "id": "ospf-ext-ospfv3",
+      "domainId": "ospf",
+      "parentId": "ospf-ext",
+      "title": "OSPFv3（IPv6）",
+      "status": "added",
+      "note": "按链路而非网段运行，用链路本地地址建邻；拓扑与地址分离，1/2 类 LSA 不再携带地址，新增 Link-LSA 与 Intra-Area-Prefix-LSA；取消报文头认证字段，改用 IPsec 或 RFC 7166 认证尾；支持 Instance ID 多实例。",
+      "articles": [],
+      "sort": 50
+    },
+    {
+      "id": "ospf-ext-process",
+      "domainId": "ospf",
+      "parentId": "ospf-ext",
+      "title": "多进程与 VPN 实例绑定",
+      "status": "added",
+      "note": "同一设备可运行多个 OSPF 进程，进程之间默认互相隔离，互引路由需要 import-route；常用于把进程绑定到不同 VPN 实例。",
+      "articles": [],
+      "sort": 60
+    },
+    {
+      "id": "junos-rib",
+      "domainId": "junos",
+      "parentId": null,
+      "title": "路由表与优先级",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 10
+    },
+    {
+      "id": "junos-rib-tables",
+      "domainId": "junos",
+      "parentId": "junos-rib",
+      "title": "inet.0 / inet.3 / mpls.0 / bgp.l3vpn.0 用途",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "junos-rib-tables"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "junos-rib-showroute",
+      "domainId": "junos",
+      "parentId": "junos-rib",
+      "title": "show route 输出解读",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "junos-rib-tables"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "junos-rib-preference",
+      "domainId": "junos",
+      "parentId": "junos-rib",
+      "title": "协议优先级对照",
+      "status": "partial",
+      "note": "直连 0、静态 5、BGP 170 已列出；OSPF 内部 10 / 外部 150、IS-IS L1 / L2 内部 15 / 18 没有完整给出，与华为（OSPF 10 / 150、静态 60、BGP 255）对比时容易混淆。",
+      "articles": [
+        "junos-rib-tables"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "junos-policy",
+      "domainId": "junos",
+      "parentId": null,
+      "title": "路由策略",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 20
+    },
+    {
+      "id": "junos-policy-structure",
+      "domainId": "junos",
+      "parentId": "junos-policy",
+      "title": "Policy / Term / From / Then 结构",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "junos-policy-engine"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "junos-policy-actions",
+      "domainId": "junos",
+      "parentId": "junos-policy",
+      "title": "终止、修改与流控动作",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "junos-policy-engine"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "junos-policy-chain",
+      "domainId": "junos",
+      "parentId": "junos-policy",
+      "title": "策略链与协议默认策略",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "junos-policy-engine",
+        "juniper-vs-huawei-policy"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "junos-policy-defaults",
+      "domainId": "junos",
+      "parentId": "junos-policy",
+      "title": "各协议默认导入 / 导出行为",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "juniper-vs-huawei-policy"
+      ],
+      "sort": 40
+    },
+    {
+      "id": "junos-policy-routefilter",
+      "domainId": "junos",
+      "parentId": "junos-policy",
+      "title": "route-filter 六种匹配方式",
+      "status": "added",
+      "note": "exact / orlonger / longer / upto / prefix-length-range / through 决定前缀长度范围；翻译华为 ip-prefix 的 ge / le 时需要逐一对应，例如 “前缀 /16 less-equal 32” 相当于 orlonger。",
+      "articles": [],
+      "sort": 50
+    },
+    {
+      "id": "junos-policy-prefixlist",
+      "domainId": "junos",
+      "parentId": "junos-policy",
+      "title": "prefix-list 与 route-filter 的区别",
+      "status": "added",
+      "note": "prefix-list 只能精确匹配、可在多处复用；需要范围匹配时用 prefix-list-filter（exact / orlonger / longer）或 route-filter。",
+      "articles": [],
+      "sort": 60
+    },
+    {
+      "id": "junos-policy-community",
+      "domainId": "junos",
+      "parentId": "junos-policy",
+      "title": "community 定义与正则匹配",
+      "status": "partial",
+      "note": "笔记列出了 add / set / delete 动作与华为对照；community 的 members 定义、正则表达式以及 target: / origin: 扩展团体写法没有展开。",
+      "articles": [
+        "junos-policy-engine"
+      ],
+      "sort": 70
+    },
+    {
+      "id": "junos-vrf",
+      "domainId": "junos",
+      "parentId": null,
+      "title": "L3VPN 与 VRF",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 30
+    },
+    {
+      "id": "junos-vrf-rt",
+      "domainId": "junos",
+      "parentId": "junos-vrf",
+      "title": "RT 三种写法的优先级与屏蔽",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "juniper-rt-priority"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "junos-vrf-vrfpolicy",
+      "domainId": "junos",
+      "parentId": "junos-vrf",
+      "title": "vrf-import / vrf-export 实测行为",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "junos-vrf-lab-verified"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "junos-vrf-autoexport",
+      "domainId": "junos",
+      "parentId": "junos-vrf",
+      "title": "自动导出与 iBGP / eBGP 差异",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "junos-vrf-auto-export"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "junos-vrf-leaking",
+      "domainId": "junos",
+      "parentId": "junos-vrf",
+      "title": "instance-import / rib-groups / auto-export",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "junos-vrf-leaking"
+      ],
+      "sort": 40
+    },
+    {
+      "id": "junos-vrf-vrflabel",
+      "domainId": "junos",
+      "parentId": "junos-vrf",
+      "title": "vrf-table-label 与 VPN 标签分配",
+      "status": "added",
+      "note": "Junos 缺省按下一跳分配 VPN 标签；配置 vrf-table-label 后改为每个 VRF 一个标签，出口 PE 需要再做一次 IP 查表，适合要在 VRF 内做过滤或 ARP 解析的场景。",
+      "articles": [],
+      "sort": 50
+    },
+    {
+      "id": "junos-vrf-interas",
+      "domainId": "junos",
+      "parentId": "junos-vrf",
+      "title": "跨域 Option A / B / C",
+      "status": "partial",
+      "note": "只提到 Option B/C 中 eBGP VPNv4 的导出陷阱；三种方案的路由交换方式、标签处理与 ASBR 角色没有讲解。",
+      "articles": [
+        "junos-vrf-auto-export"
+      ],
+      "sort": 60
+    },
+    {
+      "id": "junos-bgp",
+      "domainId": "junos",
+      "parentId": null,
+      "title": "BGP 跨厂商差异",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 40
+    },
+    {
+      "id": "junos-bgp-defroute",
+      "domainId": "junos",
+      "parentId": "junos-bgp",
+      "title": "默认路由：搬运 vs 凭空生成",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "junos-default-route"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "junos-bgp-bgpexport",
+      "domainId": "junos",
+      "parentId": "junos-bgp",
+      "title": "BGP 默认只导出 BGP 路由",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "junos-vrf-auto-export",
+        "juniper-vs-huawei-policy"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "junos-bgp-nhs",
+      "domainId": "junos",
+      "parentId": "junos-bgp",
+      "title": "next-hop self",
+      "status": "partial",
+      "note": "只在动作对照表中出现：Junos 用 export 策略 then next-hop self，华为在 peer 下配置 next-hop-local；iBGP 缺省不改下一跳带来的影响没有说明。",
+      "articles": [
+        "junos-policy-engine"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "junos-bgp-selection",
+      "domainId": "junos",
+      "parentId": "junos-bgp",
+      "title": "BGP 选路规则差异",
+      "status": "added",
+      "note": "Junos 没有 Weight / PrefVal 属性，缺省只在来自同一邻居 AS 的路由之间比较 MED（可用 always-compare-med 改变）；华为以协议首选值 PrefVal 作为第一步。割接前建议按实际版本核对。",
+      "articles": [],
+      "sort": 40
+    },
+    {
+      "id": "junos-ops",
+      "domainId": "junos",
+      "parentId": null,
+      "title": "配置与割接操作",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 50
+    },
+    {
+      "id": "junos-ops-commit",
+      "domainId": "junos",
+      "parentId": "junos-ops",
+      "title": "commit / rollback / commit confirmed",
+      "status": "added",
+      "note": "候选配置在 commit 前不生效；commit confirmed N 在 N 分钟内未再次确认会自动回滚，是远程割接防失联的保险；rollback 0~49 保存历史配置。",
+      "articles": [],
+      "sort": 10
+    },
+    {
+      "id": "junos-ops-displayset",
+      "domainId": "junos",
+      "parentId": "junos-ops",
+      "title": "show | display set 配置对照",
+      "status": "added",
+      "note": "用 show configuration | display set 把层级配置输出成 set 命令，便于与笔记中的 set 风格配置对照和批量翻译。",
+      "articles": [],
+      "sort": 20
+    },
+    {
+      "id": "fundamentals-checksum",
+      "domainId": "fundamentals",
+      "parentId": null,
+      "title": "校验与可靠性",
+      "status": null,
+      "note": "",
+      "articles": [],
+      "sort": 10
+    },
+    {
+      "id": "fundamentals-checksum-crc",
+      "domainId": "fundamentals",
+      "parentId": "fundamentals-checksum",
+      "title": "CRC-32 逐跳保护",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "crc-checksum-system"
+      ],
+      "sort": 10
+    },
+    {
+      "id": "fundamentals-checksum-inet",
+      "domainId": "fundamentals",
+      "parentId": "fundamentals-checksum",
+      "title": "Internet Checksum 一的补码和",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "rfc1071-checksum"
+      ],
+      "sort": 20
+    },
+    {
+      "id": "fundamentals-checksum-fletcher",
+      "domainId": "fundamentals",
+      "parentId": "fundamentals-checksum",
+      "title": "Fletcher-16 与 LSA 校验",
+      "status": "covered",
+      "note": "",
+      "articles": [
+        "ospf-checksum"
+      ],
+      "sort": 30
+    },
+    {
+      "id": "fundamentals-checksum-incremental",
+      "domainId": "fundamentals",
+      "parentId": "fundamentals-checksum",
+      "title": "校验和增量更新（RFC 1624）",
+      "status": "partial",
+      "note": "笔记提到 TTL 变化可以增量修正校验和；公式 HC' = ~(~HC + ~m + m') 及其推导没有展开。",
+      "articles": [
+        "crc-checksum-system"
+      ],
+      "sort": 40
+    },
+    {
+      "id": "fundamentals-checksum-ipv6",
+      "domainId": "fundamentals",
+      "parentId": "fundamentals-checksum",
+      "title": "IPv6 取消头部校验和",
+      "status": "added",
+      "note": "IPv6 头部不再携带校验和，依赖链路层 CRC 与上层校验（IPv6 下 UDP 校验和变为必选），以减少逐跳处理开销。",
+      "articles": [],
+      "sort": 50
+    }
+  ],
   "articles": [
     {
       "id": "juniper-rt-priority",
       "categoryId": "junos-vrf",
       "title": "Juniper VRF Route Target (RT) 配置与生效逻辑",
-      "summary": "Juniper VRF 的 RT 三种写法按「高级策略 > 单向拆分 > 全局双向」逐方向屏蔽，同方向只有最高优先级生效。",
+      "shortTitle": "RT 三种写法与优先级",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "分别检查 VRF 的导入、导出方向，理解 vrf-target 与显式策略的关系，并核对 RT 附加、匹配和终止动作。",
       "difficulty": 3,
       "tags": [
         "Juniper",
@@ -172,7 +1395,7 @@
         "收发方向独立裁决：import 与 export 各自只认优先级最高的一种配置。",
         "vrf-import/vrf-export 策略可叠加成 Policy Chain，新配置不覆盖旧配置。",
         "vrf-target import/export（单向）与 vrf-target（双向）都是新配置直接覆盖旧值。",
-        "无显式 accept 时：vrf-export 对 BGP 默认放行、对直连/静态/IGP 默认拒绝；vrf-import 默认全拒。",
+        "默认动作需结合具体挂载点、地址族及 auto-export 配置核对；建议显式表达预期的接受或拒绝。",
         "华为对照：Import 先过 iRT 门禁再过 route-policy；Export 先 route-policy 再叠加 eRT。"
       ],
       "visuals": [
@@ -193,7 +1416,13 @@
       "id": "junos-vrf-auto-export",
       "categoryId": "junos-vrf",
       "title": "Juniper VRF 路由自动导出：iBGP vs eBGP VPNv4 的底层差异",
-      "summary": "VRF 内 IGP/静态路由经 vrf-target 进入 bgp.l3vpn.0 后仍保留 OSPF「血统」：iBGP VPNv4 自动放行，eBGP VPNv4 默认被拦截。",
+      "shortTitle": "VRF 自动导出：iBGP vs eBGP",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "区分同一 PE 上的 VRF 自动导出、跨 PE 的 VPNv4 分发与向 CE 发布，并结合策略挂载点解释实验结果。",
       "difficulty": 4,
       "tags": [
         "Juniper",
@@ -202,9 +1431,9 @@
         "eBGP"
       ],
       "keyPoints": [
-        "BGP 默认只导出 BGP 学到的路由，原始协议为 OSPF/静态的 VPNv4 路由受此约束。",
-        "iBGP VPNv4 邻居走特权通道，无需 export 策略即可收到本地 VRF 路由。",
-        "eBGP VPNv4（Inter-AS Option B/C）默认收不到，需在 eBGP 组挂 export 策略放行。",
+        "普通 BGP 导出与 VPN 地址族分发具有不同上下文，不能仅凭原始协议推断是否发布。",
+        "检查 VRF 导出、VPN 地址族和邻居配置，再判断本地 VRF 路由是否向该邻居发布。",
+        "跨 AS VPN 的行为应按 Option、平台与策略配置验证，不宜把单次实验推广为所有 eBGP VPNv4 场景。",
         "vpn-apply-export 会让发往远端 PE 的路由先过 VRF export、再叠加 BGP 组 export。"
       ],
       "visuals": [
@@ -224,7 +1453,13 @@
       "id": "junos-vrf-lab-verified",
       "categoryId": "junos-vrf",
       "title": "Juniper VRF 路由策略实测行为终极指南 (Lab Verified)",
-      "summary": "实测结论：vrf-import 默认全拒且每个 accept Term 必须匹配 RT；vrf-export 策略一旦配置，vrf-target export 的 RT 就不再自动附加。",
+      "shortTitle": "VRF 策略实测指南",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "整理 VRF 导入与导出策略的实验观察；使用前需确认 Junos 版本、实例类型、地址族及相关配置。",
       "difficulty": 4,
       "tags": [
         "Juniper",
@@ -234,7 +1469,7 @@
       ],
       "keyPoints": [
         "配置 vrf-import 策略后 vrf-target import 立即失效，交叉裁决全部交给策略。",
-        "Commit 强校验：vrf-import 中执行 accept 的 Term 必须且只能匹配 RT。",
+        "vrf-import 可在 RT community 匹配之外组合受支持的其他条件；具体提交约束依版本核验。",
         "本地交叉与远端 VPNv4 学习在 vrf-import 引擎中的默认动作完全一致。",
         "vrf-export 策略生效后，RT 必须由策略内 community add 打标。",
         "上送骨干（PE→PE）默认自动带上直连/静态/IGP；发布给 CE 的 BGP 则必须单独写 export 策略。"
@@ -255,7 +1490,13 @@
       "id": "junos-default-route",
       "categoryId": "junos-policy",
       "title": "Juniper vs Huawei: BGP 默认路由 (0.0.0.0/0) 处理机制终极解密",
-      "summary": "默认路由处理的哲学分歧：Huawei 可凭空 default-route-advertise，Juniper 必须本地真实存在 0/0 并经策略精确放行。",
+      "shortTitle": "默认路由：搬运 vs 生成",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "比较缺省路由的生成、匹配与发布过程，理解本地可用路由和出口策略各自承担的作用。",
       "difficulty": 3,
       "tags": [
         "Juniper",
@@ -286,7 +1527,13 @@
       "id": "juniper-vs-huawei-policy",
       "categoryId": "junos-policy",
       "title": "Juniper (Junos) 与 Huawei (VRP) 默认路由策略深度对比",
-      "summary": "Junos 是「集中拉取 + 协议默认兜底」，VRP 是「分布式推送 + 隐式拒绝」，翻译策略时必须补兜底节点。",
+      "shortTitle": "Junos vs VRP 默认策略",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "按协议与挂载方向对比 Junos 和 VRP 的策略控制流；迁移时明确未命中动作，避免意外放行或拒绝。",
       "difficulty": 4,
       "tags": [
         "Juniper",
@@ -296,8 +1543,8 @@
       ],
       "keyPoints": [
         "Juniper 策略未命中交给协议默认策略；Huawei 挂载 route-policy 后末尾隐式拒绝。",
-        "Juniper → Huawei 翻译时若原策略无 accept/reject，需手工加 permit node 兜底。",
-        "RIP 是天坑：Juniper 连自己的 RIP 路由都不默认发送，Huawei 则默认宣告。",
+        "迁移时先确定未命中路由的业务意图，再显式配置 permit 或 deny；不要无条件放行。",
+        "默认导出行为依协议和实现而异，应在对应挂载点逐项核对。",
         "Huawei VPN 中 RT 门禁（vpn-target）与 route-policy 修饰严格分离。",
         "重分布：Juniper 在目标协议挂 export 策略（Pull），Huawei 在目标协议下 import-route（Push）。"
       ],
@@ -317,7 +1564,13 @@
       "id": "junos-rib-tables",
       "categoryId": "junos-rib",
       "title": "Juniper (Junos) 核心路由表 (RIB) 速查及示例",
-      "summary": "Junos RIB 以 <实例>.<协议簇>.<编号> 命名：.0 用于转发、.3 用于 BGP 解析下一跳、mpls.0 用于标签交换、bgp.l3vpn.0 是 VPN 中转站。",
+      "shortTitle": "核心路由表速查",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "识别 Junos 的 IPv4、VPN 与标签路由表，区分控制面选路、下一跳解析与转发安装。",
       "difficulty": 2,
       "tags": [
         "Juniper",
@@ -327,8 +1580,8 @@
       ],
       "keyPoints": [
         "inet.0 是 IPv4 单播主表；inet.3 存放 LSP 入口，供 BGP 解析下一跳。",
-        "mpls.0 是 P 路由器的标签交换表（Swap/Pop）。",
-        "bgp.l3vpn.0 存放带 RD 的 VPNv4 路由，尚未进入具体 VRF。",
+        "mpls.0 存放 MPLS 标签路由；实际标签转发还需检查转发平面。",
+        "bgp.l3vpn.0 处理 VPN 路由；同一路由是否进入 VRF 需结合导入策略和实际表项判断。",
         "show route 输出：* 表示活跃路由，[协议/优先级] 值越小越优，> 指向实际选用的下一跳。",
         "Juniper 默认优先级：直连 0、静态 5、OSPF 150（外部）、IBGP/EBGP 均为 170。"
       ],
@@ -347,7 +1600,13 @@
       "id": "junos-policy-engine",
       "categoryId": "junos-policy",
       "title": "Junos 路由策略 (Routing Policy) 深度解析",
-      "summary": "Junos 策略是 Policy → Term → From/Then 的决策树：终止动作才停止，修改动作会带着新属性继续向下匹配。",
+      "shortTitle": "Junos 路由策略解析",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "沿 Policy → Term → Match / Action 理解策略评估：属性修改与终止动作不同，未决断时检查下一条规则和默认行为。",
       "difficulty": 3,
       "tags": [
         "Juniper",
@@ -356,7 +1615,7 @@
         "策略链"
       ],
       "keyPoints": [
-        "同一 Term 内多个 from 是逻辑与；不写 from 等于匹配所有路由。",
+        "不同类型匹配条件通常按 AND 组合；同类多个值与特定匹配项另有规则；省略 from 通常匹配所有候选。",
         "accept/reject 是终止动作，立刻跳出整个策略链。",
         "community/metric/local-preference 等是穿透修改动作，隐式 next term。",
         "next term / next policy 显式改变瀑布流。",
@@ -378,7 +1637,13 @@
       "id": "junos-vrf-leaking",
       "categoryId": "junos-vrf",
       "title": "Juniper VRF Policy 与路由交叉机制总结",
-      "summary": "VRF 间路由交叉有三条路：MP-BGP（RT，经 bgp.l3vpn.0，协议变为 BGP）、instance-import（表对表）、rib-groups（学习时多路写入）。",
+      "shortTitle": "VRF 路由交叉三种机制",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "比较 MP-BGP VPN 分发、instance-import 与 rib-groups 的入口、作用范围和下一跳要求。",
       "difficulty": 4,
       "tags": [
         "Juniper",
@@ -387,9 +1652,9 @@
         "instance-import"
       ],
       "keyPoints": [
-        "vrf-export 加 RD/RT 写入 bgp.l3vpn.0，vrf-import 只能按 community(RT) 匹配。",
+        "RD 由 VRF 配置提供并区分 VPN 前缀；RT 按导出策略附加，vrf-import 可结合 RT 与其他受支持条件。",
         "auto-export 让同一 PE 上的 VRF 互通，仍遵循 RT 匹配逻辑。",
-        "instance-import 直接从源 VRF 表拉取，保留原始协议与 Metric。",
+        "instance-import 执行本地表间导入，支持的实例类型和属性处理需按平台与版本确认。",
         "rib-groups 在协议学习时即复写到多张表，最灵活也最容易成环。"
       ],
       "visuals": [
@@ -409,7 +1674,13 @@
       "id": "ospf-lsa-handbook",
       "categoryId": "ospf-lsa",
       "title": "OSPFv2 核心 LSA 架构哲学、报文字段与工程计算机制全量手册",
-      "summary": "六类核心 LSA 的生命周期、20 字节头部、逐字段格式与设计动机，以及 FA 与 P-bit 两大外部路由机制的完整推演。",
+      "shortTitle": "LSA 全量手册",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "按生成者、作用域、字段与生命周期梳理核心 LSA，结合 FA、NSSA 翻译和新旧仲裁理解路由计算。",
       "difficulty": 5,
       "tags": [
         "OSPF",
@@ -422,7 +1693,7 @@
         "新旧仲裁顺序：序列号 → 校验和 → MaxAge(3600s) → Age 差值是否超过 900s。",
         "1 类描述节点、2 类为多路访问网段建伪节点、3 类跨区域折叠为前缀+Metric。",
         "4 类是给 5 类定位 ASBR 的「GPS」，5 类全域泛洪（Stub/NSSA 除外）。",
-        "7 转 5 双门禁：P-bit = 1 且 FA ≠ 0.0.0.0；ABR 下发的 7 类缺省强制 P=0、FA=0。"
+        "P=1 且 FA 非零是翻译的必要条件；还需检查翻译者、路由选择与聚合。ABR 产生的 Type-7 缺省设置 P=0。"
       ],
       "visuals": [
         "area-flood",
@@ -446,7 +1717,13 @@
       "id": "ospf-te-opaque",
       "categoryId": "ospf-te",
       "title": "OSPF 流量工程与不透明 LSA 全家族 (Type-9/10/11) 架构哲学与实战全解",
-      "summary": "Opaque LSA 用 9/10/11 区分链路/区域/全域泛洪边界；TE-LSA（Type-10）为 CSPF 提供带宽、颜色、SRLG 等约束。",
+      "shortTitle": "TE 与 Opaque LSA",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "区分 Opaque LSA 的泛洪作用域与具体扩展，沿 TE 属性通告、TEDB、约束算路和 RSVP-TE 信令理解流量工程。",
       "difficulty": 5,
       "tags": [
         "OSPF",
@@ -455,7 +1732,7 @@
         "Segment Routing"
       ],
       "keyPoints": [
-        "Type-9 仅单跳（GR 请假条），Type-10 区域内（MPLS-TE），Type-11 全 AS（跨区域 Prefix-SID）。",
+        "Type-9/10/11 分别表示链路、区域与 AS 作用域；具体业务必须结合 Opaque 类型和扩展规范解释。",
         "OSPF-TE 只负责采集与泛洪链路约束，CSPF 消费 TEDB 生成 ERO，RSVP-TE 逐跳预留。",
         "Router Address TLV 把「名字」(Router-ID) 缝合到可路由的 LSR-ID，缺失则 CSPF 找不到终点。",
         "Link TLV 子 TLV 涵盖带宽、TE Metric、管理组、SRLG、时延与 Adj-SID。",
@@ -478,7 +1755,13 @@
       "id": "ospf-areas",
       "categoryId": "ospf-lsa",
       "title": "华为 OSPF 区域类型与缺省路由下发机制",
-      "summary": "Stub 系列拒绝 4/5 类并由 ABR 下发 3 类缺省；NSSA 允许以 7 类引入外部路由，缺省下发条件严格区分 ABR 与 ASBR。",
+      "shortTitle": "区域类型与缺省路由",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "比较普通、Stub 与 NSSA 区域中的 LSA 范围，并按设备实现和配置核对缺省路由的生成条件。",
       "difficulty": 3,
       "tags": [
         "OSPF",
@@ -488,7 +1771,7 @@
       ],
       "keyPoints": [
         "普通 Stub：1/2/3 类 + 3 类缺省；Totally Stub 仅在 ABR 配置 no-summary，只剩 3 类缺省。",
-        "NSSA ABR 自动下发 7 类缺省，前提是在 Area 0 有 Full 邻居（防黑洞）。",
+        "NSSA ABR 是否产生缺省路由需按设备实现与配置核对，不是所有 NSSA 无条件自动生成。",
         "NSSA ASBR 下发 7 类缺省需要手工 default-route-advertise 且本地已有 0/0。",
         "Totally NSSA 同时可能存在 3 类缺省与 7 类缺省，路由表优选 3 类。",
         "选路优先级：区域内 > 区域间 (3 类) > 外部 (5/7 类)。"
@@ -510,7 +1793,13 @@
       "id": "ospf-lsr-triplet",
       "categoryId": "ospf-adjacency",
       "title": "OSPF LSR 报文仅携带“三元组”的设计原理与可靠性保障",
-      "summary": "LSR 只带 12 字节三元组而不带序列号，是因为版本判定在 Exchange（DD 头部）完成，Loading 只负责取回「最新实例」。",
+      "shortTitle": "LSR 为何只带三元组",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "DD 用头部比较实例，LSR 用三元组请求对象，LSU 提供完整 LSA；接收后仍需校验和确认处理。",
       "difficulty": 2,
       "tags": [
         "OSPF",
@@ -539,7 +1828,13 @@
       "id": "ospf-fa",
       "categoryId": "ospf-lsa",
       "title": "OSPF 外部路由转发地址 (FA) 深度权威全解",
-      "summary": "FA 让外部流量直接指向共享网段上的真实下一跳，消除经 ASBR 的三角折返；对 7 类 LSA 而言非零 FA 更是 7 转 5 的硬性门槛。",
+      "shortTitle": "转发地址 FA",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "区分外部路由的通告者与转发解析目标，理解 FA 为零、非零可达和非零不可达三种情况。",
       "difficulty": 4,
       "tags": [
         "OSPF",
@@ -549,7 +1844,7 @@
       ],
       "keyPoints": [
         "5 类 FA 非零三条件：出接口使能 OSPF、广播网络类型、非静默接口。",
-        "FA = 0 时流量必须先到 ASBR，同一以太网口进包又出包；FA ≠ 0 时 ASBR 被完全旁路。",
+        "FA=0 时解析 ASBR；FA 非零时解析 FA。能否绕过 ASBR 以及是否同接口进出，取决于实际拓扑。",
         "7 类 FA 推选：外部下一跳 → Loopback → 最大 IfIndex 物理口，必须凑出非零值。",
         "7 转 5 后 Advertising Router 变为翻译 ABR，非零 FA 保留了原始节点锚点。",
         "ABR 下发的 7 类缺省：P-bit=0、FA=0.0.0.0，杜绝倒灌回骨干。"
@@ -571,7 +1866,13 @@
       "id": "ospf-checksum",
       "categoryId": "checksum",
       "title": "OSPF 校验和 (Checksum) 算法与设计哲学全解",
-      "summary": "OSPF 报文头用 RFC 1071 一的补码和（快），LSA 用 Fletcher-16（准且对位置敏感），并把每秒变化的 LS age 排除在外。",
+      "shortTitle": "OSPF 校验和算法",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "区分 OSPF 报文校验、LSA Fletcher 校验与密码学认证，明确各自的覆盖范围及例外。",
       "difficulty": 4,
       "tags": [
         "OSPF",
@@ -579,10 +1880,10 @@
         "Fletcher-16"
       ],
       "keyPoints": [
-        "报文头校验覆盖整个 OSPF 报文，MD5/HMAC 认证时认证字段不参与。",
-        "LSA 在 LSDB 中驻留最长 1 小时，需要能发现字节对调与内存位翻转。",
-        "Fletcher 用两个模 255 累加器 C0/C1，接收方对整条 LSA 运算得 0 即通过。",
-        "LS age 置 0 后再计算，使拓扑不变时 Checksum 恒定，全网无需每秒重算。"
+        "非密码学认证时，报文校验排除 64 位认证字段；AuType=2 时 OSPF 报文 Checksum 置 0。",
+        "LSA 按规则刷新与老化；MaxAge 冲刷并不等于“数据库信息最多只能存在一小时”。",
+        "Fletcher 使用模 255 累加器 C0/C1；接收方排除 LS age，带校验字段计算，两者均为 0 时通过。",
+        "LS checksum 的计算排除 LS age，避免仅因 Age 变化而重算。"
       ],
       "visuals": [
         "checksum-lab"
@@ -600,7 +1901,13 @@
       "id": "ospf-lsa-philosophy",
       "categoryId": "ospf-lsa",
       "title": "OSPF 核心 LSA 架构哲学：拓扑演进与“为什么这样设计”深度辩证",
-      "summary": "用一张贯穿拓扑追问每类 LSA「为什么非它不可」：伪节点降维、区域折叠、ASBR 定位、FA 重定向与 NSSA 妥协。",
+      "shortTitle": "LSA 设计哲学",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "从网络抽象与区域边界理解 LSA 分工：伪节点表示共享网络，区域间通告表达可达性，外部通告补充引入路由。",
       "difficulty": 4,
       "tags": [
         "OSPF",
@@ -632,7 +1939,13 @@
       "id": "ospf-dr-bdr",
       "categoryId": "ospf-adjacency",
       "title": "OSPF 网络类型与 DR/BDR 机制：设计巧思与常见迷思",
-      "summary": "DR/BDR 机制的四个巧思（伪节点、先 BDR 后 DR、224.0.0.5/6 分权、BackupSeen 快速跳出）与四个常见迷思。",
+      "shortTitle": "DR/BDR 巧思与迷思",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "分开观察广播网络的 DR/BDR 选举、完整邻接和 SPF 伪节点，避免把协议同步路径当成业务转发路径。",
       "difficulty": 3,
       "tags": [
         "OSPF",
@@ -664,7 +1977,13 @@
       "id": "rfc1071-checksum",
       "categoryId": "checksum",
       "title": "RFC 1071 校验和 (一的补码和) 计算全流程详解",
-      "summary": "RFC 1071 互联网校验和：16 位字累加、进位回卷、按位取反；接收方全量累加得 0xFFFF 即校验通过。",
+      "shortTitle": "RFC 1071 手算详解",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "通过 16 位累加、进位回卷和按位取反计算互联网校验和，并在接收侧验证结果。",
       "difficulty": 2,
       "tags": [
         "RFC1071",
@@ -693,7 +2012,13 @@
       "id": "ospf-lsa-options",
       "categoryId": "ospf-lsa",
       "title": "为什么 OSPF LSA 头部必须携带 Options 字段？",
-      "summary": "Hello/DD 中的 Options 是链路级能力协商，LSA 头中的 Options 是随 LSA 全网传播的「使用说明标签」。",
+      "shortTitle": "LSA 头为何带 Options",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "结合报文或 LSA 类型解释 Options 中的能力位，区分外部路由能力 E-bit 与 Router-LSA 正文中的 ASBR 标志。",
       "difficulty": 3,
       "tags": [
         "OSPF",
@@ -702,7 +2027,7 @@
         "E-bit"
       ],
       "keyPoints": [
-        "E-bit 标识 ASBR 能力，算外部路由时用于核验 ASBR 身份。",
+        "Options 的 E-bit 表示外部路由处理能力；ASBR 的 E 标志在 Router-LSA 正文中。",
         "同一比特在 Hello 中是 N-bit（NSSA 协商），在 7 类 LSA 中是 P-bit（是否 7 转 5）。",
         "DC-bit 配合 DoNotAge 抑制按需链路上的周期刷新。",
         "O-bit 标识对 Opaque LSA（TE/SR 扩展）的支持。"
@@ -724,7 +2049,13 @@
       "id": "crc-checksum-system",
       "categoryId": "checksum",
       "title": "计算机网络校验体系：CRC、Checksum 的前因后果与设计真相",
-      "summary": "CRC 保护单跳线路，路由器每跳重算 CRC；内部内存/总线的静默损坏必须靠端到端的高层 Checksum 才能发现。",
+      "shortTitle": "CRC 与 Checksum 体系",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "比较链路 CRC、IPv4 头校验和与 TCP 校验和的覆盖范围，观察中继设备内部损坏可能如何被发现。",
       "difficulty": 3,
       "tags": [
         "CRC",
@@ -735,7 +2066,7 @@
         "CRC-32 基于 GF(2) 多项式除法，能 100% 检出 ≤32 位的突发错误。",
         "路由器剥掉旧 CRC、为已损坏的数据重算新 CRC，链路层无法察觉。",
         "高层用累加型 Checksum：软件成本低，且 TTL 变化可增量修正（RFC 1624）。",
-        "OSPF 三层防护：链路 CRC-32 → 报文 Internet Checksum → LSA Fletcher-16。"
+        "区分链路 CRC、OSPF 报文校验或认证与 LSA Fletcher 校验；AuType=2 时不再使用普通报文校验和。"
       ],
       "visuals": [
         "checksum-lab"
@@ -753,7 +2084,13 @@
       "id": "ospf-convergence",
       "categoryId": "ospf-stability",
       "title": "OSPF 快速收敛、智能定时器、LSA泛洪抑制与邻居震荡抑制底层全景实战手册",
-      "summary": "快速收敛管「感知与直切」，泛洪抑制管「发包与算路节流」，邻居震荡抑制管「把流量钉在备链」——三者缺一不可。",
+      "shortTitle": "快速收敛与震荡抑制",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "分别理解故障检测、LSA / SPF 节流与不稳定路径避让，观察它们对控制面开销和业务切换的不同影响。",
       "difficulty": 5,
       "tags": [
         "OSPF",
@@ -765,7 +2102,7 @@
         "PRC 只算变化的叶子路由，iSPF 只重算受影响子树。",
         "智能定时器：第 n 次间隔 = hold × 2^(n-2)，封顶 max；SPF 缺省 5000/50/200 ms。",
         "LSA 产生/接收定时器在最大间隔连续 3 次后回到 start-interval。",
-        "仅有泛洪抑制时，主链路 Cost 仍最优，流量每次放行都会被拉回坏链。",
+        "泛洪或 SPF 节流不直接改变链路代价；主路恢复后仍可能重新被优选。",
         "suppress-flapping peer：hold-max-cost 宣告 65535，hold-down 直接拒绝建邻，可叠加。"
       ],
       "visuals": [
@@ -785,7 +2122,13 @@
       "id": "ospf-packets",
       "categoryId": "ospf-basics",
       "title": "OSPFv2 报文类型与报文结构全解",
-      "summary": "OSPF 承载于 IP 协议号 89，五种报文共享 24 字节公共头；Hello 建邻、DD 摘要、LSR 请求、LSU 更新、LSAck 确认。",
+      "shortTitle": "报文类型与结构",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "按公共头和载荷阅读五种 OSPFv2 报文：Hello 发现邻居，DD 比较摘要，LSR 请求，LSU 更新，LSAck 确认。",
       "difficulty": 3,
       "tags": [
         "OSPF",
@@ -817,7 +2160,13 @@
       "id": "ospf-fsm",
       "categoryId": "ospf-adjacency",
       "title": "OSPF 邻居状态机及状态转换全解析",
-      "summary": "邻居状态机分两阶段：Down→Init→2-Way 建立邻居，ExStart→Exchange→Loading→Full 建立邻接并同步 LSDB。",
+      "shortTitle": "邻居状态机",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "从单端邻居视角追踪状态变化，区分正常的 2-Way、数据库同步和卡在 ExStart / Exchange 的异常。",
       "difficulty": 3,
       "tags": [
         "OSPF",
@@ -826,9 +2175,9 @@
       ],
       "keyPoints": [
         "Init：收到 Hello 但邻居列表不含自己；2-Way：看到了自己，双向通信成立。",
-        "广播网中 DROther 之间永久停在 2-Way，其余进入 ExStart。",
+        "稳定广播网络中 DROther 之间通常停在 2-Way；角色改变后可以建立完整邻接。",
         "ExStart 用空 DD 定主从；Exchange 交换 LSA 头；请求列表非空才进入 Loading。",
-        "SeqNumberMismatch/BadLSReq 回退 ExStart，最常见原因是 MTU 不匹配。",
+        "SeqNumberMismatch/BadLSReq 可触发同步重启；排查 MTU、序列号、报文丢失和邻接状态等条件。",
         "InactivityTimer 超时或接口 Down 时从任意状态跌回 Down。"
       ],
       "visuals": [
@@ -849,7 +2198,13 @@
       "id": "ospf-network-types",
       "categoryId": "ospf-adjacency",
       "title": "OSPF 网络类型、报文收发与 DR/BDR 选举全景全解",
-      "summary": "四类网络类型 + 虚链路决定是否选举 DR、Hello 计时器与五种报文的单播/组播目的地址。",
+      "shortTitle": "网络类型与 DR 选举",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "对比网络类型对邻居发现、DR/BDR 选举、目的地址与默认计时参数的影响。",
       "difficulty": 3,
       "tags": [
         "OSPF",
@@ -880,7 +2235,13 @@
       "id": "ospf-auth",
       "categoryId": "ospf-control",
       "title": "OSPF 认证体系底层全景实战手册",
-      "summary": "OSPF 认证按范围分接口/区域/虚链路（接口优先），按算法分 Null、明文与密码学认证，Keychain 实现按时间平滑换密。",
+      "shortTitle": "认证体系",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "区分简单口令与密码学认证，理解认证字段、尾部摘要以及密钥有效期；认证不等于内容加密。",
       "difficulty": 3,
       "tags": [
         "OSPF",
@@ -909,7 +2270,13 @@
       "id": "ospf-router-types",
       "categoryId": "ospf-basics",
       "title": "OSPF 路由器角色与设计初衷",
-      "summary": "IR、BR、ABR、ASBR 四种角色服务于层次化设计：缩小 LSDB、建立汇总与过滤点、构造区域间星型无环拓扑。",
+      "shortTitle": "路由器角色",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "按接口所属区域和引入路由的职责理解 IR、骨干路由器、ABR 与 ASBR，并识别可同时具备的角色。",
       "difficulty": 1,
       "tags": [
         "OSPF",
@@ -920,7 +2287,7 @@
       "keyPoints": [
         "IR：所有接口在同一区域；BR：至少一个接口在 Area 0。",
         "ABR 连接 Area 0 与非骨干区域，负责生成 3/4 类并拦截特殊区域的外部 LSA。",
-        "真正的 ABR 需要在 Area 0 有 Full 邻居或虚链路。",
+        "检查骨干连接、邻接与 ABR 通告行为；ABR 判定及工作条件存在实现差异。",
         "执行 import-route 即成为 ASBR，ASBR 不一定是 ABR。"
       ],
       "visuals": [
@@ -939,7 +2306,13 @@
       "id": "ospf-filter",
       "categoryId": "ospf-control",
       "title": "OSPF 3类与5类 LSA 深度过滤机制全景实战手册",
-      "summary": "八个阻断点区分两层：LSA/拓扑级过滤改变下游 LSDB；filter-policy import 只拦截本机写入路由表，不影响泛洪。",
+      "shortTitle": "3/5 类 LSA 过滤",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "分开观察通告生成、出向泛洪、区域间通告与本机路由安装过滤；用 LSDB / RIB 对照定位影响。",
       "difficulty": 4,
       "tags": [
         "OSPF",
@@ -970,7 +2343,13 @@
       "id": "ospf-default-params",
       "categoryId": "ospf-basics",
       "title": "华为 VRP OSPF 缺省参数基准全景手册",
-      "summary": "华为 OSPF 进程/区域/接口三级缺省参数速查，以及必须调整的参考带宽、传输延迟与优先级陷阱。",
+      "shortTitle": "华为缺省参数",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "区分 RFC 常量、厂商默认值与规划参数，以实际设备版本和接口输出为依据建立 OSPF 参数基线。",
       "difficulty": 2,
       "tags": [
         "OSPF",
@@ -981,7 +2360,7 @@
       "keyPoints": [
         "外部路由缺省 Type-2、Metric 1、Tag 1；内部优先级 10，外部 150。",
         "MaxAge 3600s、刷新 1800s、MaxAgeDiff 900s 为 RFC 固定值。",
-        "参考带宽缺省 100 Mbps，导致 GE/10GE/100GE 的 Cost 全为 1，现网必须调大。",
+        "参考带宽较小时，高速接口可能得到相同 cost；是否调整应依据全域度量规划，并保持配置一致。",
         "接口缺省：Hello 10/30s、Dead 40/120s、重传 5s、传输延迟 1s、DR 优先级 1。"
       ],
       "visuals": [
@@ -1000,7 +2379,13 @@
       "id": "ospf-router-id",
       "categoryId": "ospf-basics",
       "title": "华为 OSPF Router-ID 选举与生效机制",
-      "summary": "华为 Router-ID 选举：进程配置 > 全局配置 > 最大 Loopback > 最大接口 IP；选定后非抢占，修改需 reset ospf process。",
+      "shortTitle": "Router-ID 选举",
+      "aiFields": [
+        "summary",
+        "keyPoints",
+        "visuals"
+      ],
+      "summary": "在 VRP 教学模型中比较 Router-ID 候选来源，区分配置候选值、当前运行值与重新选举的生效时机。",
       "difficulty": 1,
       "tags": [
         "OSPF",

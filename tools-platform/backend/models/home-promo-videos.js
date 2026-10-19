@@ -3,6 +3,7 @@ const fsp = require('node:fs/promises');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const manifest = require('../home-promo-videos.json');
+const datacomManifest = require('../datacom-note-videos.json');
 
 let desktopFetch;
 function configurePromoVideoFetch(fetchImpl) { desktopFetch = fetchImpl; }
@@ -46,7 +47,7 @@ function createDownloadQueue(limit) {
 }
 
 function createPromoVideoMiddleware(options = {}) {
-    const catalog = options.manifest || manifest;
+    const catalog = options.manifest || { ...manifest, assets: { ...manifest.assets, ...datacomManifest.assets } };
     const env = options.env || process.env;
     const root = options.root || path.resolve(__dirname, '../..');
     const cacheDir = options.cacheDir || env.TOOLS_PROMO_CACHE_DIR
@@ -143,7 +144,7 @@ function createPromoVideoMiddleware(options = {}) {
     }
 
     const middleware = async (req, res, next) => {
-        const match = /^\/assets\/promotions\/([a-z0-9-]+\.mp4)$/.exec(req.path);
+        const match = /^\/assets\/promotions\/((?:datacom\/)?[a-z0-9-]+\.mp4)$/.exec(req.path);
         const name = match?.[1];
         const asset = name && Object.hasOwn(catalog.assets, name) ? catalog.assets[name] : null;
         if (!asset || (req.method !== 'GET' && req.method !== 'HEAD')) return next();

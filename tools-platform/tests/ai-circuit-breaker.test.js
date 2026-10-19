@@ -15,7 +15,8 @@ test('AiCircuitBreaker trips after threshold failures and recovers after coolDow
         name: 'TestBreaker',
         threshold: 2,
         coolDownMs: 50,
-        timeoutMs: 100
+        timeoutMs: 100,
+        emitAlerts: false
     });
 
     assert.equal(breaker.isOpen(), false);
@@ -42,7 +43,7 @@ test('AiCircuitBreaker trips after threshold failures and recovers after coolDow
 });
 
 test('AiCircuitBreaker createTimeoutSignal produces functional signal', async () => {
-    const breaker = new AiCircuitBreaker({ timeoutMs: 30 });
+    const breaker = new AiCircuitBreaker({ timeoutMs: 30, emitAlerts: false });
     const signal = breaker.createTimeoutSignal();
     assert.ok(signal);
     assert.equal(signal.aborted, false);
@@ -56,7 +57,8 @@ test('AiCircuitBreaker suppresses repeated alerts within alertIntervalMs', () =>
         name: 'ThrottledBreaker',
         threshold: 2,
         coolDownMs: 50,
-        alertIntervalMs: 500
+        alertIntervalMs: 500,
+        emitAlerts: false
     });
 
     // 劫持 maybeEmitAlert 底层逻辑验证节流
@@ -85,4 +87,18 @@ test('AiCircuitBreaker suppresses repeated alerts within alertIntervalMs', () =>
     breaker.recordSuccess();
     assert.equal(breaker.hasActiveOutage, false);
     assert.equal(breaker.consecutiveFailures, 0);
+});
+
+test('AiCircuitBreaker respects emitAlerts: false and skips alert emission', () => {
+    const breaker = new AiCircuitBreaker({
+        name: 'SilentBreaker',
+        threshold: 1,
+        emitAlerts: false
+    });
+    breaker.recordFailure(new Error('timeout'));
+    assert.equal(breaker.isOpen(), true);
+    assert.equal(breaker.hasActiveOutage, true);
+    // Success should not throw and should clear outage without emitting alerts
+    breaker.recordSuccess();
+    assert.equal(breaker.hasActiveOutage, false);
 });

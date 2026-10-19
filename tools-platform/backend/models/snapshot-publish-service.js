@@ -281,6 +281,14 @@ registerProvider('tool-mumxi3px', {
     buildPagesSnapshot: (tenantId, opts) => require('./product-scope-snapshot').buildPagesSnapshot(tenantId, opts)
 });
 
+registerProvider('datacom-protocol-expert', {
+    name: '数通协议专家',
+    description: '查看当前租户知识库的分类、文章、搜索及 3D 交互实验的只读快照。',
+    defaultFile: 'datacom-protocol-expert/index.html',
+    buildSnapshot: (tenantId, opts) => require('./datacom-knowledge-snapshot').buildSnapshot(tenantId, opts),
+    buildPagesSnapshot: (tenantId, opts) => require('./datacom-knowledge-snapshot').buildPagesSnapshot(tenantId, opts)
+});
+
 registerProvider('tool-mqp55fna', {
     name: '六个一信息收集',
     description: '查看调查模板与全部提交记录的只读快照。',

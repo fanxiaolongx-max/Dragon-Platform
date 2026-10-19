@@ -50,6 +50,7 @@ test('all 17 source videos match the frozen manifest and have fast-start metadat
     assert.equal(Object.keys(catalog.assets).length, 17);
     for (const file of Object.keys(catalog.assets)) assert.ok(excluded(`frontend/assets/promotions/${file}`), file);
     assert.equal(excluded('frontend/assets/promotions/future-guide.mp4'), false);
+    assert.equal(excluded('frontend/assets/promotions/datacom/future-lesson.mp4'), true);
     assert.equal(excluded('frontend/assets/promotions/eos-report-guide-en-poster.jpg'), false);
     assert.equal(excluded('frontend/assets/promotions/eos-report-guide-poster.jpg'), false);
     assert.equal(excluded('frontend/assets/promotions/platform-guide-poster.jpg'), false);
@@ -87,6 +88,19 @@ test('EOS can stream from a separate release without moving the original video s
     const original = await app.get({ Range: `bytes=${chunkSize}-${chunkSize + 20}` });
     assert.deepEqual(Buffer.from(await original.arrayBuffer()), bytes.subarray(chunkSize, chunkSize + 21));
     assert.equal(app.requests[1].url, `${manifest.baseUrl}/${name}`);
+});
+
+test('registered datacom lessons stream from their immutable release and reject unregistered paths', async t => {
+    const lesson = 'datacom/ospf-fsm.mp4';
+    const lessonUrl = 'https://example.test/datacom-ospf-fsm-20261020-1/ospf-fsm.mp4';
+    const app = await fixture(t, { manifest: { ...manifest, assets: { [lesson]: { ...asset, url: lessonUrl } } } });
+    const response = await app.get({ Range: 'bytes=0-20' }, `/assets/promotions/${lesson}`);
+    assert.equal(response.status, 206);
+    assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes.subarray(0, 21));
+    assert.equal(app.requests[0].url, lessonUrl);
+    assert.equal((await app.get({}, '/assets/promotions/datacom/unknown.mp4')).status, 404);
+    assert.equal((await app.get({}, '/assets/promotions/other/ospf-fsm.mp4')).status, 404);
+    assert.equal(app.requests.length, 1);
 });
 
 test('arbitrary seek across chunks returns exact bytes, range metadata and reusable disk chunks', async t => {

@@ -159,9 +159,11 @@ const TYPE_NAMES = { 1: 'Hello', 2: 'DD', 3: 'LSR', 4: 'LSU', 5: 'LSAck' };
 
 export const packetExplode = {
     id: 'packet-explode',
-    title: 'OSPF 报文封装 · 3D 爆炸图',
+    title: 'OSPF 报文封装 · 3D 分层图',
     subtitle: '以太网 → IP(89) → OSPF 24 字节头 → 五种载荷 → LSA：逐层封装、逐字段拆解。',
-    duration: 16,
+    duration: 18,
+    // 封装完成后各层自动拉开、停留，再合拢进入解封装
+    explodeAt: t => span(t, 0.64, 0.7) * (1 - span(t, 0.76, 0.8)),
     options: [
         { id: 'type', label: '报文类型', value: 1, choices: [1, 2, 3, 4, 5].map(value => ({ value, label: TYPE_NAMES[value] })) },
         { id: 'auth', label: '认证', value: 'null', choices: [{ value: 'null', label: 'Null' }, { value: 'simple', label: '明文' }, { value: 'crypto', label: 'HMAC' }] }
@@ -171,7 +173,7 @@ export const packetExplode = {
         if (options.auth === 'crypto') layers.push({ id: 'digest', name: '报文尾部摘要', color: 0xb45309, desc: 'HMAC-SHA256 摘要追加在 OSPF 报文之后，密码本身从不出现在网络上。', fields: [{ name: 'Message Digest (HMAC-SHA256)', bits: 256, desc: '密钥 + 整个 OSPF 报文作为输入计算的 32 字节摘要。' }] });
         layers.push(FCS);
         const { layerRecords, height } = buildBitLayers(ctx, layers);
-        ctx.camera3([11, 4 - height * 0.3, 15], [0, -height * 0.42, 0]);
+        ctx.camera3([4, 1 - height * 0.3, 16], [0, -height * 0.42, 0]); // 偏正面，字段标签可读
         // 封装顺序：内层先生成，外层依次包裹
         const order = layerRecords.map((_, index) => index).reverse().filter(index => layers[index].id !== 'fcs');
         const ethIndex = 0;
@@ -184,7 +186,8 @@ export const packetExplode = {
             { at: appear.get(2) || 0.2, title: '加 OSPF 公共头部', text: '24 字节头部：版本、类型、Router ID、Area ID、校验和与认证字段。' },
             { at: appear.get(1) || 0.35, title: 'IP 封装（协议号 89）', text: '目的地址按网络类型和角色选择 224.0.0.5 / 224.0.0.6 / 单播，TTL=1。' },
             { at: appear.get(0) || 0.5, title: '以太网封装 + FCS', text: 'FCS 为 CRC-32，只保护这一跳线路；上层校验和才是端到端的。' },
-            { at: 0.62, title: '线路传输', text: '完整的帧在链路上传输。点击任意字段砖块查看含义，拖动“拆解”滑块逐层炸开。' },
+            { at: 0.6, title: '线路传输', text: '完整的帧在链路上传输。' },
+            { at: 0.66, title: '分层拉开', text: '各层与字段自动拉开，点击任意字段砖块查看含义；可暂停或拖动时间轴停在这一刻。' },
             { at: 0.8, title: '接收端逐层解封装', text: '外层先剥离：FCS/以太网 → IP → OSPF 头校验 → 交给状态机处理载荷。' }
         ]);
         return {

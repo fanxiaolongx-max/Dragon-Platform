@@ -1,0 +1,412 @@
+{
+  "id": "ospf-fsm",
+  "title": "OSPF 邻居状态机",
+  "source": "knowledge-seed.json#ospf-fsm",
+  "spoken": [
+    [
+      "2-Way",
+      "Two-Way"
+    ],
+    [
+      "Clawd",
+      "克劳德"
+    ],
+    [
+      "LSAck",
+      "LS Ack"
+    ]
+  ],
+  "segments": [
+    {
+      "id": "intro",
+      "type": "title",
+      "head": "OSPF · 邻接",
+      "say": "嗨，我是 Clawd！两台路由器想成为 OSPF 邻居，可不是握个手就完事。今天用一张状态图，带你看懂邻居状态机。",
+      "title": "OSPF 邻居状态机",
+      "subtitle": "从 Down 到 Full，每一步都在确认什么？",
+      "tags": [
+        {
+          "t": "RFC 2328 §10",
+          "cue": "状态图"
+        },
+        {
+          "t": "8 个状态",
+          "cue": "状态图"
+        },
+        {
+          "t": "排障必备",
+          "cue": "看懂"
+        }
+      ],
+      "strip": {
+        "cue": "状态图",
+        "items": [
+          "Down",
+          "Attempt",
+          "Init",
+          "2-Way",
+          "ExStart",
+          "Exchange",
+          "Loading",
+          "Full"
+        ]
+      }
+    },
+    {
+      "id": "ask",
+      "type": "question",
+      "head": "先想一想",
+      "say": "先抛个问题：链路明明是通的，为什么有的邻居停在 2-Way 一动不动，有的却卡在 ExStart 上不去？哪个才是真的故障？",
+      "term": {
+        "cmd": "display ospf peer brief",
+        "rows": [
+          {
+            "cells": [
+              "R2",
+              "GE0/0/1",
+              "2-Way"
+            ],
+            "tone": "warn",
+            "cue": "停在"
+          },
+          {
+            "cells": [
+              "R3",
+              "GE0/0/2",
+              "ExStart"
+            ],
+            "tone": "bad",
+            "cue": "卡在"
+          },
+          {
+            "cells": [
+              "R4",
+              "GE0/0/3",
+              "Full"
+            ],
+            "tone": "ok",
+            "cue": "卡在"
+          }
+        ]
+      },
+      "question": [
+        {
+          "t": "哪个才是真故障？",
+          "cue": "哪个才是"
+        }
+      ]
+    },
+    {
+      "id": "phase1",
+      "type": "fsm",
+      "head": "阶段一 · 建立邻居",
+      "say": "第一阶段，建邻居。一开始是 Down。收到对方的 Hello，可里面还没有我的 Router-ID，这是 Init，只是单向听见了对方。等对方的 Hello 里出现了我，双向通信成立，就进入 2-Way。",
+      "nodes": [
+        {
+          "id": "down",
+          "label": "Down",
+          "sub": "还没收到 Hello",
+          "cue": "Down",
+          "at": [
+            300,
+            420
+          ]
+        },
+        {
+          "id": "init",
+          "label": "Init",
+          "sub": "听见对方，对方没看见我",
+          "cue": "Init",
+          "at": [
+            790,
+            420
+          ]
+        },
+        {
+          "id": "2way",
+          "label": "2-Way",
+          "sub": "互相看见，双向成立",
+          "cue": "2-Way",
+          "at": [
+            1280,
+            420
+          ]
+        }
+      ],
+      "edges": [
+        {
+          "from": "down",
+          "to": "init",
+          "label": "收到 Hello",
+          "cue": "收到对方"
+        },
+        {
+          "from": "init",
+          "to": "2way",
+          "label": "Hello 里有我",
+          "cue": "出现了我"
+        }
+      ],
+      "note": {
+        "t": "Hello 的邻居列表里，有没有我的 Router-ID？",
+        "cue": "Router-ID"
+      }
+    },
+    {
+      "id": "adjok",
+      "type": "compare",
+      "head": "2-Way 的岔路口",
+      "say": "到了 2-Way，要先判断：需不需要同步数据库？广播网里，两个 DROther 之间就停在 2-Way，这完全正常。只有点到点链路，或者有一方是 DR、BDR，才继续往下走。",
+      "caption": "AdjOK? 需不需要建立完整邻接",
+      "cols": [
+        "两端关系",
+        "结果",
+        "结论"
+      ],
+      "rows": [
+        {
+          "cells": [
+            "DROther ↔ DROther",
+            "停在 2-Way",
+            "正常"
+          ],
+          "tone": "ok",
+          "cue": "两个"
+        },
+        {
+          "cells": [
+            "点到点 P2P / P2MP",
+            "进入 ExStart",
+            "建邻接"
+          ],
+          "tone": "info",
+          "cue": "点到点"
+        },
+        {
+          "cells": [
+            "一方是 DR / BDR",
+            "进入 ExStart",
+            "建邻接"
+          ],
+          "tone": "info",
+          "cue": "BDR"
+        }
+      ]
+    },
+    {
+      "id": "exstart",
+      "type": "packet",
+      "head": "阶段二 · ExStart 定主从",
+      "say": "第二阶段，建邻接。ExStart 里，双方先互发空的 DD 报文，I、M、MS 三个位都置一。再比一比 Router-ID，大的当 Master，由它掌握序列号。",
+      "packet": "DD 报文（空）",
+      "packetCue": "空",
+      "fields": [
+        {
+          "name": "I",
+          "val": "1",
+          "w": 1,
+          "cue": "I",
+          "hl": true
+        },
+        {
+          "name": "M",
+          "val": "1",
+          "w": 1,
+          "cue": "M",
+          "hl": true
+        },
+        {
+          "name": "MS",
+          "val": "1",
+          "w": 1,
+          "cue": "MS",
+          "hl": true
+        },
+        {
+          "name": "DD 序列号",
+          "val": "seq",
+          "w": 2.4,
+          "cue": "序列号"
+        },
+        {
+          "name": "LSA 头部",
+          "val": "空",
+          "w": 3,
+          "cue": "空",
+          "dim": true
+        }
+      ],
+      "duel": {
+        "cue": "比一比",
+        "winCue": "Master",
+        "left": {
+          "name": "R1",
+          "rid": "1.1.1.1"
+        },
+        "right": {
+          "name": "R2",
+          "rid": "2.2.2.2"
+        },
+        "winner": "right"
+      }
+    },
+    {
+      "id": "phase2",
+      "type": "fsm",
+      "head": "阶段二 · 同步数据库",
+      "say": "主从定好，进入 Exchange，交换 LSA 头，缺的记进请求列表。列表为空，直接 Full；不空，先进 Loading，用 LSR 去要，对方回 LSU，再确认 LSAck，要完了就到 Full。",
+      "nodes": [
+        {
+          "id": "exstart",
+          "label": "ExStart",
+          "sub": "定主从",
+          "cue": "主从",
+          "at": [
+            250,
+            400
+          ],
+          "subUp": true
+        },
+        {
+          "id": "exchange",
+          "label": "Exchange",
+          "sub": "交换 LSA 头",
+          "cue": "Exchange",
+          "at": [
+            720,
+            400
+          ],
+          "subUp": true
+        },
+        {
+          "id": "loading",
+          "label": "Loading",
+          "sub": "LSR → LSU → LSAck",
+          "cue": "Loading",
+          "at": [
+            1010,
+            700
+          ]
+        },
+        {
+          "id": "full",
+          "label": "Full",
+          "sub": "数据库一致",
+          "cue": "Full",
+          "final": true,
+          "at": [
+            1300,
+            400
+          ],
+          "subUp": true
+        }
+      ],
+      "edges": [
+        {
+          "from": "exstart",
+          "to": "exchange",
+          "label": "主从确定",
+          "cue": "进入"
+        },
+        {
+          "from": "exchange",
+          "to": "full",
+          "label": "请求列表为空",
+          "cue": "列表为空"
+        },
+        {
+          "from": "exchange",
+          "to": "loading",
+          "label": "列表非空",
+          "cue": "不空"
+        },
+        {
+          "from": "loading",
+          "to": "full",
+          "label": "要完了",
+          "cue": "要完了"
+        }
+      ],
+      "note": {
+        "t": "缺哪条 LSA，就记进请求列表",
+        "cue": "请求列表",
+        "y": 560
+      }
+    },
+    {
+      "id": "fault",
+      "type": "compare",
+      "head": "卡住和掉线",
+      "say": "那卡住和掉线呢？DD 序列号对不上，或者请求了不存在的 LSA，都会退回 ExStart 重来，最常见的元凶是两端 MTU 不一致。Dead 时间内收不到 Hello，或者接口 Down，就从任何状态直接跌回 Down。",
+      "caption": "异常回退：先看事件，再看去哪",
+      "cols": [
+        "触发事件",
+        "退回到",
+        "优先排查"
+      ],
+      "rows": [
+        {
+          "cells": [
+            "SeqNumberMismatch",
+            "ExStart",
+            "两端 MTU 不一致"
+          ],
+          "tone": "bad",
+          "cue": "序列号对不上"
+        },
+        {
+          "cells": [
+            "BadLSReq",
+            "ExStart",
+            "请求了不存在的 LSA"
+          ],
+          "tone": "bad",
+          "cue": "不存在"
+        },
+        {
+          "cells": [
+            "InactivityTimer 超时",
+            "Down",
+            "Hello 丢失 / ACL"
+          ],
+          "tone": "warn",
+          "cue": "Dead"
+        },
+        {
+          "cells": [
+            "接口 Down",
+            "Down",
+            "物理链路"
+          ],
+          "tone": "warn",
+          "cue": "接口"
+        }
+      ],
+      "flash": {
+        "row": 0,
+        "col": 2,
+        "cue": "MTU"
+      }
+    },
+    {
+      "id": "recap",
+      "type": "recap",
+      "head": "要点回顾",
+      "say": "最后记住三句话：Init 是听见对方，2-Way 是互相看见；DROther 之间停在 2-Way 是正常的；卡在 ExStart、Exchange，先查 MTU。我是 Clawd，下次见！",
+      "points": [
+        {
+          "t": "Init 听见对方，2-Way 互相看见",
+          "cue": "Init"
+        },
+        {
+          "t": "DROther 之间停在 2-Way 是正常的",
+          "cue": "DROther"
+        },
+        {
+          "t": "卡在 ExStart / Exchange，先查 MTU",
+          "cue": "先查"
+        }
+      ]
+    }
+  ]
+}

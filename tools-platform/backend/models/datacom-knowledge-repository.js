@@ -76,6 +76,16 @@ async function createSchema(connection) {
         created_at TEXT NOT NULL, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL DEFAULT ''
     )`);
     await run(connection, 'CREATE INDEX IF NOT EXISTS idx_dk_articles_category ON dk_articles(category_id, sort)');
+    const columns = new Set((await all(connection, 'PRAGMA table_info(dk_articles)')).map(row => row.name));
+    if (!columns.has('short_title')) await run(connection, "ALTER TABLE dk_articles ADD COLUMN short_title TEXT NOT NULL DEFAULT ''");
+    // NULL 表示历史数据尚未判定哪些字段由 AI 整理
+    if (!columns.has('ai_fields_json')) await run(connection, 'ALTER TABLE dk_articles ADD COLUMN ai_fields_json TEXT');
+    await run(connection, `CREATE TABLE IF NOT EXISTS dk_outline (
+        id TEXT PRIMARY KEY, domain_id TEXT NOT NULL, parent_id TEXT, title TEXT NOT NULL, status TEXT,
+        note TEXT NOT NULL DEFAULT '', articles_json TEXT NOT NULL DEFAULT '[]', sort INTEGER NOT NULL DEFAULT 0,
+        origin TEXT NOT NULL DEFAULT 'user', edited INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL, updated_by TEXT NOT NULL DEFAULT ''
+    )`);
+    await run(connection, 'CREATE INDEX IF NOT EXISTS idx_dk_outline_domain ON dk_outline(domain_id, parent_id, sort)');
     await run(connection, `CREATE TABLE IF NOT EXISTS dk_article_revisions (
         id INTEGER PRIMARY KEY AUTOINCREMENT, article_id TEXT NOT NULL, revision INTEGER NOT NULL,
         payload_json TEXT NOT NULL, created_at TEXT NOT NULL, created_by TEXT NOT NULL DEFAULT ''
@@ -102,14 +112,31 @@ async function applySeed(connection) {
                 WHERE dk_categories.origin = 'seed'`, [category.id, category.domainId, category.name, category.description, category.sort, stamp]);
         }
         for (const article of SEED.articles) {
-            const values = articleColumns(normalizeArticle(article, { partial: false }));
-            await run(connection, `INSERT INTO dk_articles (id, category_id, title, summary, difficulty, tags_json, key_points_json, visuals_json, related_json, source, body_md, sort, origin, edited, deleted, revision, created_at, updated_at, updated_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'seed', 0, 0, 1, ?, ?, 'system')
+            const normalized = normalizeArticle(article, { partial: false });
+            const values = articleColumns(normalized);
+            await run(connection, `INSERT INTO dk_articles (id, category_id, title, summary, difficulty, tags_json, key_points_json, visuals_json, related_json, source, body_md, sort, short_title, ai_fields_json, origin, edited, deleted, revision, created_at, updated_at, updated_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'seed', 0, 0, 1, ?, ?, 'system')
                 ON CONFLICT(id) DO UPDATE SET category_id = excluded.category_id, title = excluded.title, summary = excluded.summary, difficulty = excluded.difficulty,
                     tags_json = excluded.tags_json, key_points_json = excluded.key_points_json, visuals_json = excluded.visuals_json, related_json = excluded.related_json,
-                    source = excluded.source, body_md = excluded.body_md, sort = excluded.sort, revision = dk_articles.revision + 1, updated_at = excluded.updated_at
+                    source = excluded.source, body_md = excluded.body_md, sort = excluded.sort, short_title = excluded.short_title, ai_fields_json = excluded.ai_fields_json,
+                    revision = dk_articles.revision + 1, updated_at = excluded.updated_at
                 WHERE dk_articles.origin = 'seed' AND dk_articles.edited = 0 AND dk_articles.deleted = 0`,
-            [article.id, ...values, stamp, stamp]);
+            [article.id, ...values, JSON.stringify(article.aiFields || []), stamp, stamp]);
+            // 已被人工编辑的种子文章：只补齐新字段，AI 标记仅保留仍与种子原值一致的字段
+            const existing = await get(connection, 'SELECT summary, key_points_json, visuals_json FROM dk_articles WHERE id = ? AND edited = 1 AND ai_fields_json IS NULL', [article.id]);
+            if (existing) {
+                const same = { summary: existing.summary === normalized.summary, keyPoints: existing.key_points_json === JSON.stringify(normalized.keyPoints), visuals: existing.visuals_json === JSON.stringify(normalized.visuals) };
+                await run(connection, 'UPDATE dk_articles SET ai_fields_json = ? WHERE id = ?', [JSON.stringify((article.aiFields || []).filter(field => same[field])), article.id]);
+            }
+            await run(connection, "UPDATE dk_articles SET short_title = ? WHERE id = ? AND short_title = ''", [normalized.shortTitle, article.id]);
+        }
+        for (const node of SEED.outline || []) {
+            await run(connection, `INSERT INTO dk_outline (id, domain_id, parent_id, title, status, note, articles_json, sort, origin, edited, updated_at, updated_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'seed', 0, ?, 'system')
+                ON CONFLICT(id) DO UPDATE SET domain_id = excluded.domain_id, parent_id = excluded.parent_id, title = excluded.title, status = excluded.status,
+                    note = excluded.note, articles_json = excluded.articles_json, sort = excluded.sort, updated_at = excluded.updated_at
+                WHERE dk_outline.origin = 'seed' AND dk_outline.edited = 0`,
+            [node.id, node.domainId, node.parentId, node.title, node.status, node.note, JSON.stringify(node.articles), node.sort, stamp]);
         }
         await run(connection, "INSERT INTO dk_meta (key, value) VALUES ('learning_path', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(SEED.learningPath)]);
         await run(connection, "INSERT INTO dk_meta (key, value) VALUES ('seed_version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [String(SEED.version)]);
@@ -167,6 +194,7 @@ function normalizeArticle(input, { partial }) {
     return {
         categoryId: partial && input.categoryId === undefined ? undefined : normalizeId(input.categoryId, '分类'),
         title: cleanText(input.title, 200, '标题', { required: true }).trim(),
+        shortTitle: cleanText(input.shortTitle, 40, '目录短标题').trim(),
         summary: cleanText(input.summary, 2000, '摘要').trim(),
         difficulty,
         tags: cleanList(input.tags, '标签', { maxItems: 20, maxLength: 40 }),
@@ -181,7 +209,7 @@ function normalizeArticle(input, { partial }) {
 
 function articleColumns(article) {
     return [article.categoryId, article.title, article.summary, article.difficulty, JSON.stringify(article.tags), JSON.stringify(article.keyPoints),
-        JSON.stringify(article.visuals), JSON.stringify(article.related), article.source, article.bodyMd, article.sort];
+        JSON.stringify(article.visuals), JSON.stringify(article.related), article.source, article.bodyMd, article.sort, article.shortTitle];
 }
 
 function unpackArticle(row, { withBody = true } = {}) {
@@ -190,6 +218,8 @@ function unpackArticle(row, { withBody = true } = {}) {
         id: row.id,
         categoryId: row.category_id,
         title: row.title,
+        shortTitle: row.short_title || '',
+        aiFields: parseJson(row.ai_fields_json, []),
         summary: row.summary,
         difficulty: row.difficulty,
         tags: parseJson(row.tags_json, []),
@@ -215,21 +245,86 @@ async function ensureCategory(connection, categoryId) {
     if (!category) throw knowledgeError('分类不存在，请先创建分类', 400, 'DATACOM_CATEGORY_MISSING');
 }
 
-async function loadCatalog() {
+async function loadCatalog({ withBody = false } = {}) {
     const connection = await readyConnection();
     const [domains, categories, rows, pathRow] = await Promise.all([
         all(connection, 'SELECT * FROM dk_domains ORDER BY sort, name'),
         all(connection, 'SELECT * FROM dk_categories ORDER BY sort, name'),
-        all(connection, `SELECT id, category_id, title, summary, difficulty, tags_json, key_points_json, visuals_json, related_json, source, sort, origin, edited,
-            revision, created_at, updated_at, updated_by, length(body_md) AS body_length FROM dk_articles WHERE deleted = 0 ORDER BY sort, title`),
+        all(connection, `SELECT id, category_id, title, short_title, ai_fields_json, summary, difficulty, tags_json, key_points_json, visuals_json, related_json, source, sort, origin, edited,
+            revision, created_at, updated_at, updated_by, ${withBody ? 'body_md' : 'length(body_md) AS body_length'} FROM dk_articles WHERE deleted = 0 ORDER BY sort, title`),
         get(connection, "SELECT value FROM dk_meta WHERE key = 'learning_path'")
     ]);
+    const outline = await all(connection, 'SELECT * FROM dk_outline ORDER BY domain_id, sort, title');
     return {
         domains: domains.map(item => ({ id: item.id, name: item.name, icon: item.icon, description: item.description, sort: item.sort, origin: item.origin })),
         categories: categories.map(item => ({ id: item.id, domainId: item.domain_id, name: item.name, description: item.description, sort: item.sort, origin: item.origin })),
-        articles: rows.map(row => unpackArticle(row, { withBody: false })),
-        learningPath: parseJson(pathRow?.value, [])
+        articles: rows.map(row => unpackArticle(row, { withBody })),
+        learningPath: parseJson(pathRow?.value, []),
+        outline: outline.map(unpackOutline)
     };
+}
+
+const OUTLINE_STATUS = new Set(['covered', 'partial', 'added']);
+const unpackOutline = row => ({ id: row.id, domainId: row.domain_id, parentId: row.parent_id, title: row.title, status: row.status, note: row.note,
+    articles: parseJson(row.articles_json, []), sort: row.sort, origin: row.origin, edited: Boolean(row.edited), updatedAt: row.updated_at, updatedBy: row.updated_by });
+
+function normalizeOutline(input, { create }) {
+    if (!input || typeof input !== 'object' || Array.isArray(input)) throw knowledgeError('大纲数据格式错误');
+    const parentId = input.parentId ? normalizeId(input.parentId, '上级章节') : null;
+    const status = parentId ? String(input.status || '') : null;
+    if (parentId && !OUTLINE_STATUS.has(status)) throw knowledgeError('知识点状态必须是 covered / partial / added');
+    const sort = input.sort === undefined ? 100 : Number(input.sort);
+    if (!Number.isSafeInteger(sort)) throw knowledgeError('排序值无效');
+    return {
+        id: create ? (input.id ? normalizeId(input.id, '大纲 ID') : `outline-${crypto.randomBytes(4).toString('hex')}`) : null,
+        domainId: normalizeId(input.domainId, '所属领域'),
+        parentId,
+        title: cleanText(input.title, 120, '大纲标题', { required: true }).trim(),
+        status,
+        note: cleanText(input.note, 2000, '说明').trim(),
+        articles: cleanList(input.articles, '关联文章', { maxItems: 20, maxLength: 64, pattern: ID_RE }),
+        sort
+    };
+}
+
+async function saveOutline(input, actor, id = null) {
+    const node = normalizeOutline(input, { create: !id });
+    const nodeId = id ? normalizeId(id, '大纲 ID') : node.id;
+    const connection = await readyConnection();
+    await transaction(connection, async () => {
+        if (!await get(connection, 'SELECT id FROM dk_domains WHERE id = ?', [node.domainId])) throw knowledgeError('所属领域不存在', 400, 'DATACOM_DOMAIN_MISSING');
+        if (node.parentId) {
+            const parent = await get(connection, 'SELECT parent_id, domain_id FROM dk_outline WHERE id = ?', [node.parentId]);
+            if (!parent || parent.parent_id || parent.domain_id !== node.domainId) throw knowledgeError('上级章节无效（只支持“章节 → 知识点”两级）');
+        }
+        const stamp = nowIso();
+        const existing = await get(connection, 'SELECT parent_id FROM dk_outline WHERE id = ?', [nodeId]);
+        if (id) {
+            if (!existing) throw knowledgeError('大纲节点不存在', 404, 'DATACOM_NOT_FOUND');
+            if (Boolean(existing.parent_id) !== Boolean(node.parentId)) throw knowledgeError('不能在章节与知识点之间转换');
+            await run(connection, `UPDATE dk_outline SET domain_id = ?, parent_id = ?, title = ?, status = ?, note = ?, articles_json = ?, sort = ?, edited = 1, updated_at = ?, updated_by = ? WHERE id = ?`,
+                [node.domainId, node.parentId, node.title, node.status, node.note, JSON.stringify(node.articles), node.sort, stamp, actor, nodeId]);
+        } else {
+            if (existing) throw knowledgeError(`大纲 ID 已存在：${nodeId}`, 409, 'DATACOM_ID_EXISTS');
+            await run(connection, `INSERT INTO dk_outline (id, domain_id, parent_id, title, status, note, articles_json, sort, origin, edited, updated_at, updated_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'user', 1, ?, ?)`, [nodeId, node.domainId, node.parentId, node.title, node.status, node.note, JSON.stringify(node.articles), node.sort, stamp, actor]);
+        }
+    });
+    await checkpoint(connection);
+    return { id: nodeId };
+}
+
+async function deleteOutline(id) {
+    const nodeId = normalizeId(id, '大纲 ID');
+    const connection = await readyConnection();
+    await transaction(connection, async () => {
+        const children = await get(connection, 'SELECT COUNT(*) AS count FROM dk_outline WHERE parent_id = ?', [nodeId]);
+        if (children.count) throw knowledgeError(`章节下还有 ${children.count} 个知识点，请先删除`, 409, 'DATACOM_OUTLINE_IN_USE');
+        const result = await run(connection, 'DELETE FROM dk_outline WHERE id = ?', [nodeId]);
+        if (!result.changes) throw knowledgeError('大纲节点不存在', 404, 'DATACOM_NOT_FOUND');
+    });
+    await checkpoint(connection);
+    return { ok: true, id: nodeId };
 }
 
 async function getArticle(id) {
@@ -263,8 +358,8 @@ async function insertArticle(connection, input, actor, taken) {
     if (existing && !existing.deleted) throw knowledgeError(`文章 ID 已存在：${id}`, 409, 'DATACOM_ID_EXISTS');
     const stamp = nowIso();
     if (existing) await run(connection, 'DELETE FROM dk_articles WHERE id = ?', [id]);
-    await run(connection, `INSERT INTO dk_articles (id, category_id, title, summary, difficulty, tags_json, key_points_json, visuals_json, related_json, source, body_md, sort, origin, edited, deleted, revision, created_at, updated_at, updated_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'user', 1, 0, 1, ?, ?, ?)`, [id, ...articleColumns(article), stamp, stamp, actor]);
+    await run(connection, `INSERT INTO dk_articles (id, category_id, title, summary, difficulty, tags_json, key_points_json, visuals_json, related_json, source, body_md, sort, short_title, ai_fields_json, origin, edited, deleted, revision, created_at, updated_at, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '[]', 'user', 1, 0, 1, ?, ?, ?)`, [id, ...articleColumns(article), stamp, stamp, actor]);
     taken.add(id);
     return id;
 }
@@ -294,9 +389,12 @@ async function updateArticle(id, input, expectedRevision, actor) {
         if (row.revision !== expectedRevision) throw knowledgeError('文章已被其他人更新，请刷新后再编辑', 409, 'DATACOM_REVISION_CONFLICT');
         await saveRevision(connection, row, actor);
         const stamp = nowIso();
+        // 人工改过的字段不再标记为“AI 整理”
+        const changed = { summary: row.summary !== article.summary, keyPoints: row.key_points_json !== JSON.stringify(article.keyPoints), visuals: row.visuals_json !== JSON.stringify(article.visuals) };
+        const aiFields = parseJson(row.ai_fields_json, []).filter(field => !changed[field]);
         await run(connection, `UPDATE dk_articles SET category_id = ?, title = ?, summary = ?, difficulty = ?, tags_json = ?, key_points_json = ?, visuals_json = ?,
-            related_json = ?, source = ?, body_md = ?, sort = ?, edited = 1, revision = revision + 1, updated_at = ?, updated_by = ? WHERE id = ? AND revision = ?`,
-        [...articleColumns(article), stamp, actor, articleId, expectedRevision]);
+            related_json = ?, source = ?, body_md = ?, sort = ?, short_title = ?, ai_fields_json = ?, edited = 1, revision = revision + 1, updated_at = ?, updated_by = ? WHERE id = ? AND revision = ?`,
+        [...articleColumns(article), JSON.stringify(aiFields), stamp, actor, articleId, expectedRevision]);
         return { revision: expectedRevision + 1, updatedAt: stamp };
     });
     await checkpoint(connection);
@@ -500,6 +598,7 @@ module.exports = {
     createArticles,
     deleteArticle,
     deleteCategory,
+    deleteOutline,
     getArticle,
     getRevision,
     listRevisions,
@@ -507,6 +606,9 @@ module.exports = {
     parseImport,
     saveCategory,
     saveDomain,
+    saveOutline,
     search,
-    updateArticle
+    updateArticle,
+    // 同库的其他模块（AI 问答与笔记）复用连接、串行事务与 WAL 合并
+    database: { readyConnection, transaction, checkpoint, run, get, all, parseJson, knowledgeError, normalizeId }
 };
