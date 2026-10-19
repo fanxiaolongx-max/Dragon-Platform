@@ -263,6 +263,9 @@ const sendFrontendHtml = assetVersioning.createFrontendHtmlSender(FRONTEND_DIR);
 const PUBLIC_HTML_PATHS = new Set([
     '/login.html',
     '/pages/login.html',
+    '/project-evolution',
+    '/project-evolution.html',
+    '/pages/project-evolution.html',
     '/privacy',
     '/privacy.html',
     '/pages/privacy.html',
@@ -458,6 +461,9 @@ app.get('/', (req, res) => {
 });
 app.get('/login.html', (req, res) => {
     sendFrontendHtml(res, 'pages/login.html');
+});
+app.get(['/project-evolution', '/project-evolution.html'], (req, res) => {
+    sendFrontendHtml(res, 'pages/project-evolution.html');
 });
 app.get(['/cinema', '/cinema.html'], (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');

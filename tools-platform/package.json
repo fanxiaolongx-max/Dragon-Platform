@@ -52,6 +52,7 @@
       "!frontend/assets/videos/**/*",
       "!frontend/assets/promotions/{netcare-rfc-ai-guide,operation-incentive-guide,platform-guide}{,-en}{,-hd}.mp4",
       "!frontend/assets/promotions/eos-report-guide{,-en}{,-hd}.mp4",
+      "!frontend/assets/promotions/project-evolution-galaxy-hd.mp4",
       "!**/.env",
       "!**/.env.*",
       "!**/*.{db,sqlite,sqlite3,db-wal,db-shm,log,p12,pfx,p8,pem,key,certSigningRequest}",
