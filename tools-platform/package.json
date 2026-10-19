@@ -6,7 +6,7 @@
   "main": "electron-main.js",
   "scripts": {
     "start": "node backend/server.js",
-    "test": "node --test \"tests/*.test.js\"",
+    "test": "node --test --test-concurrency=1 \"tests/*.test.js\"",
     "start:desktop": "electron .",
     "postinstall": "electron-builder install-app-deps && node scripts/ensure-builtin-assets.js",
     "assets:ensure": "node scripts/ensure-builtin-assets.js",

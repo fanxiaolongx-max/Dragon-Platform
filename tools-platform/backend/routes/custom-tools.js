@@ -15,6 +15,7 @@ const f12LicenseRegistry = require('../models/f12-license-registry');
 const f12ExtensionIdentityService = require('../models/f12-extension-identity-service');
 const f12ExtensionVersionService = require('../models/f12-extension-version-service');
 const f12ScriptPresetsRepository = require('../models/f12-script-presets-repository');
+const bundledScripts = require('../models/bundled-scripts');
 const { getDataDir } = require('../models/store');
 const { requireAdmin } = require('../middleware/auth');
 const customToolI18nGenerator = require('../../scripts/generate-custom-tool-i18n');
@@ -47,7 +48,7 @@ router.post('/tool-mumxi3px/products/import', requireAdmin, (req, res, next) => 
     } catch (err) { res.status(err.status || 500).json({ error: err.status === 400 ? err.message : '保存产品数据失败' }); }
 });
 
-const builtinToolsSourceDir = path.join(__dirname, '../builtin-tools');
+const builtinToolsSourceDir = repo.BUILTIN_TOOLS_DIR;
 const backupUpload = multer({
     storage: multer.diskStorage({
         destination(_req, _file, callback) {
@@ -165,7 +166,9 @@ router.get('/f12-to-extension/license-config', requireAdmin, (req, res) => {
 router.get('/f12-to-extension/scripts', requireAdmin, async (_req, res) => {
     try {
         res.setHeader('Cache-Control', 'no-store');
-        res.json({ success: true, scripts: await f12ScriptPresetsRepository.listPresets() });
+        await bundledScripts.ensureSeeded(); // 随项目内置的 F12 脚本（backend/builtin-scripts/f12）
+        const bundledIds = bundledScripts.bundledIds('f12');
+        res.json({ success: true, scripts: (await f12ScriptPresetsRepository.listPresets()).map(item => ({ ...item, builtIn: bundledIds.has(item.id) })) });
     } catch (error) {
         res.status(500).json({ error: error.message || '读取服务器脚本列表失败' });
     }

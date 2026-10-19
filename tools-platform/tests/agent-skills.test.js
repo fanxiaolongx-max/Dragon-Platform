@@ -3,7 +3,9 @@ const assert = require('node:assert/strict');
 const skills = require('../backend/models/agent-skills');
 
 test('builtin catalog loads actual SKILL.md files on demand and exposes metadata only', () => {
-    assert.equal(skills.list().length, 6);
+    const dirs = require('node:fs').readdirSync(require('node:path').join(__dirname, '../backend/agent-skills'), { withFileTypes: true }).filter(entry => entry.isDirectory()).length;
+    assert.equal(skills.list().length, dirs); // 「转为内置」会新增目录，数量以实际目录为准
+    assert.ok(skills.list().length >= 6);
     for (const item of skills.list()) {
         assert.equal('prompt' in item, false);
         const loaded = skills.load(`@${item.id} do this`, { hasWorkspace: true });

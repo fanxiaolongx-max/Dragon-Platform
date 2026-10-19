@@ -432,6 +432,7 @@ app.use('/api/db', require('./routes/db')); // DB 保存 API
 app.use('/api/requirements', requirementsRoutes); // 需求管理 API
 app.use('/api/ai', aiRoutes); // AI 服务 API
 app.use('/api/agent-skills', require('./routes/agent-skills')); // Skill 管理：内置 + 租户自定义（对话 @create-skill 创建或导入 SKILL 压缩包）
+app.use('/api/builtin-promotion', require('./routes/builtin-promotion')); // 自定义工具 / 技能 / 脚本「转为内置」写入项目源码目录，或取消内置
 app.use('/api/storage', storageRoutes); // 存储迁移状态 API
 app.use('/api/db-explorer', require('./routes/db-explorer')); // 数据库浏览 API
 app.use('/api/frt', frtRoutes); // FRT 历史快照 API
@@ -621,7 +622,7 @@ async function startServer() {
     await initializeDefaultBusinessSchema();
     try {
         const initialized = initializeBuiltinTools({
-            sourceDir: path.join(__dirname, 'builtin-tools'),
+            sourceDir: customToolsRepo.BUILTIN_TOOLS_DIR,
             targetDir: customToolsRepo.CUSTOM_TOOLS_DIR,
             stateFile: path.join(DATA_DIR, 'builtin-tools-sync-decisions.json'),
             backupRoot: path.join(DATA_DIR, 'backups/builtin-tools')
@@ -643,7 +644,7 @@ async function startServer() {
     }
     try {
         await ensureBuiltinToolAssets({
-            sourceDir: path.join(__dirname, 'builtin-tools'),
+            sourceDir: customToolsRepo.BUILTIN_TOOLS_DIR,
             targetDir: customToolsRepo.CUSTOM_TOOLS_DIR
         });
     } catch (assetsError) {

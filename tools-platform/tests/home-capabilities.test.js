@@ -19,6 +19,7 @@ function stubModule(file, exports) {
 stubModule('f12-script-presets-repository.js', { listPresets: (...args) => stubs.f12.listPresets(...args) });
 stubModule('python-script-repository.js', { listScripts: (...args) => stubs.python.listScripts(...args) });
 stubModule('uiv-scripts-repository.js', { listScripts: (...args) => stubs.uiv.listScripts(...args) });
+stubModule('bundled-scripts.js', { ensureSeeded: async () => {}, bundledIds: () => new Set() });
 
 const { listCapabilities } = require('../backend/models/home-capabilities');
 const builtinCatalog = require('../backend/builtin-tools/f12-to-extension/builtin-catalog.js');

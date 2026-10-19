@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const SKILLS_DIR = path.join(__dirname, '../agent-skills');
+const SKILLS_DIR = process.env.TOOLS_AGENT_SKILLS_DIR ? path.resolve(process.env.TOOLS_AGENT_SKILLS_DIR) : path.join(__dirname, '../agent-skills'); // 测试可指向临时目录
 const ID_RE = /^[a-z][a-z0-9-]{0,40}$/;
 const MAX_SELECTED = 8;
 
@@ -35,12 +35,19 @@ function parseSkillFile(id, raw) {
     };
 }
 
-// 启动时读取一次：内置 Skill 随版本发布，运行期间不变
-const catalog = fs.readdirSync(SKILLS_DIR, { withFileTypes: true })
-    .filter(entry => entry.isDirectory() && ID_RE.test(entry.name) && fs.existsSync(path.join(SKILLS_DIR, entry.name, 'SKILL.md')))
-    .map(entry => parseSkillFile(entry.name, fs.readFileSync(path.join(SKILLS_DIR, entry.name, 'SKILL.md'), 'utf8')))
-    .sort((a, b) => a.order - b.order || a.meta.id.localeCompare(b.meta.id));
-const byId = new Map(catalog.map(item => [item.meta.id, item]));
+// 启动时读取；「转为内置 / 取消内置」（builtin-promotion.js）改动目录后调用 reload() 重新读取
+let catalog = [];
+let byId = new Map();
+
+function reload() {
+    catalog = fs.readdirSync(SKILLS_DIR, { withFileTypes: true })
+        .filter(entry => entry.isDirectory() && ID_RE.test(entry.name) && fs.existsSync(path.join(SKILLS_DIR, entry.name, 'SKILL.md')))
+        .map(entry => parseSkillFile(entry.name, fs.readFileSync(path.join(SKILLS_DIR, entry.name, 'SKILL.md'), 'utf8')))
+        .sort((a, b) => a.order - b.order || a.meta.id.localeCompare(b.meta.id));
+    byId = new Map(catalog.map(item => [item.meta.id, item]));
+    return catalog.length;
+}
+reload();
 
 function list() { return catalog.map(item => ({ ...item.meta })); }
 
@@ -93,4 +100,4 @@ function builtin(id) {
     return item ? { meta: { ...item.meta }, order: item.order, raw: item.raw, body: item.body, dir: path.join(SKILLS_DIR, item.meta.id) } : null;
 }
 
-module.exports = { list, select, mentions, load, buildPrompt, builtin, ID_RE, MAX_SELECTED };
+module.exports = { list, select, mentions, load, buildPrompt, builtin, reload, parseSkillFile, SKILLS_DIR, ID_RE, MAX_SELECTED };

@@ -1,12 +1,15 @@
 const express = require('express');
 const router = express.Router();
 const repo = require('../models/python-script-repository');
+const bundledScripts = require('../models/bundled-scripts');
 const { requireAdmin } = require('../middleware/auth');
 
 // 1. 获取脚本列表
 router.get('/scripts', async (_req, res) => {
     try {
-        const scripts = await repo.listScripts();
+        await bundledScripts.ensureSeeded(); // 随项目内置的 Python 脚本（backend/builtin-scripts/python）
+        const bundledIds = bundledScripts.bundledIds('python');
+        const scripts = (await repo.listScripts()).map(item => ({ ...item, builtIn: item.id === repo.DEFAULT_SCRIPT_ID || bundledIds.has(item.id) }));
         res.json({ success: true, scripts });
     } catch (err) {
         res.status(500).json({ error: err.message || '获取脚本列表失败' });

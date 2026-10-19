@@ -75,6 +75,15 @@
         return [itemName(item), item.name, item.description, groupLabel(group)].some(text => normalize(text).includes(q));
     }
 
+    // F12 服务器脚本 / Python 脚本可「转为内置」；打包器源码自带的条目显示为已内置且不能取消（js/home/builtin-promotion.js）
+    function promotionButton(group, item) {
+        if (!window.BuiltinPromotion || !['f12', 'python'].includes(group.kind)) return '';
+        if (!item.promoteId && !item.builtInLocked) return '';
+        return window.BuiltinPromotion.button(group.kind, item.promoteId || item.id, {
+            builtIn: item.builtIn === true, locked: item.builtInLocked === true, name: itemName(item), className: 'home-cap-builtin'
+        });
+    }
+
     // ── 侧栏入口 ──
     function renderNav() {
         if (!el.nav) return;
@@ -124,6 +133,7 @@
                                     <span class="home-cap-card-title"><span class="home-cap-card-name">${escapeHtml(itemName(item))}</span>${badgeText(item) ? `<span class="home-cap-badge">${escapeHtml(badgeText(item))}</span>` : ''}</span>
                                     <span class="home-cap-card-desc">${escapeHtml(item.description)}</span>
                                 </span>
+                                ${promotionButton(group, item)}
                                 <span class="home-cap-card-arrow" aria-hidden="true">↗</span>
                             </a>`).join('')}
                     </div>
@@ -231,7 +241,8 @@
         items,
         groups: () => state.groups,
         total: () => state.groups.reduce((sum, group) => sum + group.count, 0),
-        show: kind => scrollToGroup(kind)
+        show: kind => scrollToGroup(kind),
+        reload: () => load()
     };
 
     function init() {

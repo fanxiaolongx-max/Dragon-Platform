@@ -1734,6 +1734,7 @@
     <script src="/js/shared/platform-logo-upload.js"></script>
     <script src="/js/shared/navbar.js"></script>
     <script src="/js/shared/app-dialog.js"></script>
+    <script src="/js/home/builtin-promotion.js"></script>
     <script src="/js/home/home-mode.js"></script>
     <script src="/js/home/workspace.js"></script>
     <script src="/js/home/capabilities.js"></script>
@@ -3145,6 +3146,7 @@
                     <div class="custom-tool-actions">
                         <button type="button" class="custom-tool-action" title="${escapeHtml(t('home.custom.download'))}" onclick="event.preventDefault(); event.stopPropagation(); downloadCustomTool('${escapeHtml(tool.slug)}')">↓</button>
                         ${role === 'admin' ? `
+                            ${window.BuiltinPromotion?.button('tool', tool.slug, { builtIn: tool.builtIn === true, name: displayName }) || ''}
                             <button type="button" class="custom-tool-action" title="${escapeHtml(t('home.custom.rename'))}" onclick="event.preventDefault(); event.stopPropagation(); renameCustomTool('${escapeHtml(tool.slug)}')">✎</button>
                             <button type="button" class="custom-tool-action delete" title="${escapeHtml(t('home.custom.delete'))}" onclick="event.preventDefault(); event.stopPropagation(); deleteCustomTool('${escapeHtml(tool.slug)}')">×</button>
                         ` : ''}

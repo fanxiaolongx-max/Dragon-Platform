@@ -76,7 +76,7 @@ async function initializeTenantStorage(tenantId, onProgress) {
         fs.mkdirSync(path.join(stagingDir, 'custom-tools'), { recursive: true });
         emitProgress(onProgress, { stage: 'builtin-tools', percent: 84, message: '正在安装租户系统内置工具', messageEn: 'Installing built-in tools for the tenant' });
         initializeBuiltinTools({
-            sourceDir: path.join(__dirname, '../builtin-tools'),
+            sourceDir: process.env.TOOLS_BUILTIN_TOOLS_DIR ? path.resolve(process.env.TOOLS_BUILTIN_TOOLS_DIR) : path.join(__dirname, '../builtin-tools'),
             targetDir: path.join(stagingDir, 'custom-tools'),
             stateFile: path.join(stagingDir, 'builtin-tools-sync-decisions.json'),
             backupRoot: path.join(stagingDir, 'backups', 'builtin-tools')

@@ -4,6 +4,7 @@
 const f12PresetsRepository = require('./f12-script-presets-repository');
 const pythonScriptRepository = require('./python-script-repository');
 const uivScriptsRepository = require('./uiv-scripts-repository');
+const bundledScripts = require('./bundled-scripts');
 
 const F12_PACKER_HREF = '/tools/f12-to-extension';
 const PYTHON_PACKER_HREF = '/tools/python-updater';
@@ -71,10 +72,14 @@ const PROVIDERS = [
                 description: clip(preset.description),
                 href: `${F12_PACKER_HREF}?script=${encodeURIComponent(id)}`,
                 badge: preset.isFullExtension ? 'extension' : 'script',
+                builtIn: true,
+                builtInLocked: true, // 打包器源码自带，不能取消
                 updatedAt: ''
             }));
             // 服务器脚本库只对管理员开放（与打包器接口权限一致）
             if (isAdmin) {
+                await bundledScripts.ensureSeeded();
+                const bundledIds = bundledScripts.bundledIds('f12');
                 const presets = await f12PresetsRepository.listPresets();
                 const builtinNames = new Set(items.map(item => item.name));
                 presets.filter(preset => !builtinNames.has(preset.name)).forEach(preset => items.push({
@@ -84,6 +89,8 @@ const PROVIDERS = [
                     description: clip(preset.description) || '服务器脚本库中的自定义 F12 脚本，可一键打包成浏览器插件',
                     href: `${F12_PACKER_HREF}?script=${encodeURIComponent(`server:${preset.id}`)}`,
                     badge: 'server',
+                    promoteId: preset.id,
+                    builtIn: bundledIds.has(preset.id),
                     updatedAt: toIso(preset.updatedAt || preset.updated_at)
                 }));
             }
@@ -100,6 +107,8 @@ const PROVIDERS = [
         whereEn: 'Python Script Updater → script list',
         href: PYTHON_PACKER_HREF,
         async list() {
+            await bundledScripts.ensureSeeded();
+            const bundledIds = bundledScripts.bundledIds('python');
             const scripts = await pythonScriptRepository.listScripts();
             return scripts.map(script => ({
                 id: `python:${script.id}`,
@@ -108,6 +117,9 @@ const PROVIDERS = [
                 description: clip(script.description),
                 href: `${PYTHON_PACKER_HREF}?script=${encodeURIComponent(script.id)}`,
                 badge: script.current_version ? `v${script.current_version}` : '',
+                promoteId: script.id,
+                builtIn: script.id === pythonScriptRepository.DEFAULT_SCRIPT_ID || bundledIds.has(script.id),
+                builtInLocked: script.id === pythonScriptRepository.DEFAULT_SCRIPT_ID, // 随 Python 打包器源码内置
                 updatedAt: toIso(script.updated_at)
             }));
         }

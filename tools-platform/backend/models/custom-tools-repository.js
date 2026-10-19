@@ -9,7 +9,8 @@ const historyRepo = require('./upload-history-repository');
 const customToolI18nDefaults = require('./custom-tool-i18n-defaults');
 
 function getCustomToolsDir() { return path.join(getDataDir(), 'custom-tools'); }
-const BUILTIN_TOOLS_DIR = path.join(__dirname, '../builtin-tools');
+// 测试可用 TOOLS_BUILTIN_TOOLS_DIR 指向临时目录，避免「转为内置」改动仓库源码
+const BUILTIN_TOOLS_DIR = process.env.TOOLS_BUILTIN_TOOLS_DIR ? path.resolve(process.env.TOOLS_BUILTIN_TOOLS_DIR) : path.join(__dirname, '../builtin-tools');
 const TOOL_MANIFEST_FILE = '.tool-manifest.json';
 let registryMutationQueue = Promise.resolve();
 const registryReadyPromises = new Map();

@@ -11,7 +11,7 @@ const repo = require('./custom-tools-repository');
 const { fingerprintFiles } = require('./tool-content-fingerprint');
 const { getDataDir } = require('./store');
 const { run, get } = require('./app-db');
-const BUILTIN_SOURCE_DIR = path.join(__dirname, '../builtin-tools');
+const BUILTIN_SOURCE_DIR = repo.BUILTIN_TOOLS_DIR;
 
 const DEFAULT_CATALOG_URL = 'https://raw.githubusercontent.com/fanxiaolongx-max/privacy-policy/tool-market/catalog.json';
 const CATALOG_MAX_BYTES = 2 * 1024 * 1024;

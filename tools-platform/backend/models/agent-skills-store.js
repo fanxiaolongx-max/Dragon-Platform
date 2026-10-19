@@ -183,11 +183,29 @@ async function listAll({ includeHidden = false } = {}) {
             updatedAt: ''
         };
     });
-    const customs = customRows.map(row => {
+    // 同名时以内置为准（例如其他租户把同标识的技能转为了内置）
+    const customs = customRows.filter(row => !builtinSkills.builtin(row.id)).map(row => {
         const { body, files, ...meta } = rowToSkill(row);
         return meta;
     });
     return [...builtins, ...customs].filter(item => includeHidden || !item.hidden);
+}
+
+/** 删除自定义 Skill 行（转为内置后调用），同时清掉同标识的内置覆盖记录 */
+async function deleteRows(id) {
+    await ensureReady();
+    const cleanId = String(id || '').toLowerCase();
+    await run('DELETE FROM agent_skills WHERE id = ?', [cleanId]);
+    await run('DELETE FROM agent_skill_overrides WHERE id = ?', [cleanId]);
+}
+
+/** 以给定内容写入自定义 Skill（取消内置后调用），不做内置标识冲突检查 */
+async function insertDemoted(skill, files, createdBy = '') {
+    await ensureReady();
+    const now = new Date().toISOString();
+    await run(`INSERT OR REPLACE INTO agent_skills (id, name, name_en, description, description_en, icon, workspace, body, files_json, source, created_by, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'builtin', ?, ?, ?)`,
+    [skill.id, skill.name, skill.nameEn, skill.description, skill.descriptionEn, skill.icon || '✨', skill.workspace ? 1 : 0, skill.body, JSON.stringify(files || []), createdBy, now, now]);
 }
 
 async function getCustom(id) {
@@ -351,6 +369,8 @@ module.exports = {
     parseSkillArchive,
     listAll,
     getCustom,
+    deleteRows,
+    insertDemoted,
     createFromMarkdown,
     importArchive,
     previewArchive,

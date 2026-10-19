@@ -196,3 +196,35 @@ body.home-mode-chat .home-caps { display: none !important; }
     cursor: pointer;
 }
 .home-group-head .skill-restore:hover { background: rgba(244, 114, 182, 0.1); }
+
+/* ── 转为内置 / 取消内置（js/home/builtin-promotion.js） ── */
+.custom-tool-action.builtin-toggle { color: #94a3b8; font-size: 13px; }
+.custom-tool-action.builtin-toggle:hover { color: #fcd34d; }
+.custom-tool-action.builtin-toggle.is-builtin { color: #fbbf24; }
+.home-cap-card .home-cap-builtin {
+    position: absolute;
+    top: 7px;
+    right: 7px;
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 7px;
+    background: rgba(2, 6, 23, 0.7);
+    color: #94a3b8;
+    font-size: 12px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.home-cap-card:hover .home-cap-builtin,
+.home-cap-card:focus-within .home-cap-builtin,
+.home-cap-card .home-cap-builtin.is-builtin { opacity: 1; }
+.home-cap-card .home-cap-builtin:hover { color: #fcd34d; border-color: rgba(251, 191, 36, 0.45); }
+.home-cap-card .home-cap-builtin.is-builtin { border-color: rgba(251, 191, 36, 0.3); color: #fbbf24; }
+.home-cap-card .home-cap-builtin.is-locked { cursor: default; opacity: 0.55; }
+.home-cap-card:has(.home-cap-builtin) .home-cap-card-arrow { display: none; }
+body.builtin-promotion-readonly .builtin-toggle { display: none !important; }

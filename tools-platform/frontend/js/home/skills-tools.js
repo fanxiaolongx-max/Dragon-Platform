@@ -73,6 +73,7 @@
                 <div class="custom-tool-actions">
                     <button type="button" class="custom-tool-action" data-skill-action="download" title="${escapeHtml(tx('download'))}">↓</button>
                     ${admin ? `
+                        ${window.BuiltinPromotion?.button('skill', item.id, { builtIn: item.builtIn, name: displayName(item) }) || ''}
                         <button type="button" class="custom-tool-action" data-skill-action="rename" title="${escapeHtml(tx('rename'))}">✎</button>
                         <button type="button" class="custom-tool-action delete" data-skill-action="delete" title="${escapeHtml(tx('delete'))}">×</button>` : ''}
                 </div>
