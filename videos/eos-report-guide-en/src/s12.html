@@ -1,0 +1,65 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root #s12-c1{font-size:23px!important}
+#root .mn{position:absolute;left:100px;top:250px;width:620px;border:3px solid var(--ink);border-radius:22px;background:#fff;box-shadow:var(--sh);overflow:hidden}
+#root .mi{height:84px;border-bottom:2px solid rgba(91,70,54,.2);display:flex;align-items:center;gap:14px;padding:0 22px;font-size:32px;white-space:nowrap}
+#root .mi small{font-size:24px;color:#8a7360}
+#root .eb{position:absolute;top:640px;height:64px;border:3px solid var(--ink);border-radius:16px;font-size:30px;display:flex;align-items:center;padding:0 22px;white-space:nowrap;box-shadow:var(--sh)}
+#root .cd{position:absolute;border:3px solid var(--ink);border-radius:22px;background:#fff;box-shadow:var(--sh);padding:14px 22px;font-size:28px;line-height:1.45}
+#root .sn{position:absolute;left:790px;width:480px;height:84px;border:2.5px solid var(--ink);border-radius:16px;background:#fff;padding:8px 18px;font-size:26px;line-height:1.35;white-space:nowrap}
+</style>
+<div id="root" data-composition-id="s12" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="22" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1450px;top:700px;width:560px;height:560px;background:#d9c6ef"></div>
+  <div class="head wob" id="s12-h"><span class="step">Step 5</span><span class="ttl">Export · Keep · Compare</span></div>
+  <div class="abs" id="s12-l1" style="left:100px;top:200px;font-size:34px;font-family:'Fredoka',sans-serif;white-space:nowrap">Download PNG ▾</div>
+  <div class="mn wob" id="s12-mn">
+    <div class="mi" id="s12-m1"><span>🇨🇳</span>Chinese PNG<small>Chinese only</small></div>
+    <div class="mi" id="s12-m2"><span>🇬🇧</span>English PNG<small>English only</small></div>
+    <div class="mi" id="s12-m3"><span>🌐</span>Bilingual PNG<small>full side-by-side</small></div>
+    <div class="mi" id="s12-m4" style="background:#fff3c4;border:none"><span>📦</span>Download all (3 images)</div>
+  </div>
+  <div class="eb" id="s12-e1" style="left:100px;background:#ffe3e8">PDF</div>
+  <div class="eb" id="s12-e2" style="left:230px;background:#e4f1fb">HTML (offline)</div>
+  <div class="eb" id="s12-e3" style="left:560px;width:210px;background:#dff6ec">Excel</div>
+  <div class="eb" id="s12-e4" style="left:100px;top:730px;background:#fff8dc">MSG (edit in Outlook)</div>
+  <div class="cd" id="s12-c1" style="left:790px;top:240px;width:480px;height:70px;padding:8px 22px;background:#ffe9a8;font-size:30px">📸 Save snapshot → 📚 Snapshot library</div>
+  <div class="sn" id="s12-s1" style="top:325px">2026-10 report　<span style="color:#8a7360">saved</span></div>
+  <div class="sn" id="s12-s2" style="top:420px">2026-09 report　<span style="color:#8a7360">saved</span></div>
+  <div class="cd" id="s12-c2" style="left:790px;top:530px;width:1030px;height:230px;background:#fffdf8"><b style="font-weight:400;font-family:'Fredoka',sans-serif;font-size:32px">🔍 Report Compare (split view)</b>
+    <div style="display:flex;gap:20px;margin-top:10px"><div style="flex:1;border:2.5px solid var(--ink);border-radius:12px;padding:8px 12px;font-size:25px;line-height:1.5">Sep: rate <mark style="background:#ffd9c2">41.2%</mark>, no plan <mark style="background:#ffd9c2">110</mark> units</div><div style="flex:1;border:2.5px solid var(--ink);border-radius:12px;padding:8px 12px;font-size:25px;line-height:1.5">Oct: rate <mark style="background:#c8f0d8">44.6%</mark>, no plan <mark style="background:#c8f0d8">96</mark> units</div></div>
+    <div style="font-size:25px;color:#8a7360;margin-top:8px">Text, data and color differences highlighted</div></div>
+  <div class="cd" id="s12-c3" style="left:1310px;top:240px;width:510px;height:270px;background:#dff6ec"><b style="font-weight:400;font-family:'Fredoka',sans-serif;font-size:32px">📦 Export project file</b><br>Full data + all bilingual edits<br>📂 A colleague imports it and keeps editing</div>
+  <div class="abs wob" id="s12-d" style="left:1650px;top:800px"></div>
+  <div id="s12-sp"></div>
+  <div class="cap" id="s12-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s12-d",dino("dn",{w:230,h:220}));
+ document.getElementById("s12-sp").innerHTML=sparkle(760,190,44)+sparkle(1850,300,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s12-l1,#s12-mn,#s12-m1,#s12-m2,#s12-m3,#s12-m4,#s12-e1,#s12-e2,#s12-e3,#s12-e4,#s12-c1,#s12-s1,#s12-s2,#s12-c2,#s12-c3",{opacity:0});
+ tl.fromTo("#s12-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s12-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("long PNG");
+ tl.fromTo("#s12-l1,#s12-mn",{opacity:0,y:30},{opacity:1,y:0,duration:.45,stagger:.1,ease:"power3.out"},a-.5);
+ tl.fromTo("#s12-m1,#s12-m2,#s12-m3",{opacity:0,x:-20},{opacity:1,x:0,duration:.3,stagger:.5},T("comes in Chinese")-.1);
+ pop(tl,"#s12-m4",T("download all three")-.3,{s:.7,d:.4});
+ pop(tl,"#s12-e1",T("PDF")-.2,{s:.5,y:15});pop(tl,"#s12-e2",T("HTML")-.2,{s:.5,y:15});pop(tl,"#s12-e3",T("Excel")-.2,{s:.5,y:15});pop(tl,"#s12-e4",T("MSG")-.2,{s:.5,y:15});
+ var b=T("snapshot library");
+ pop(tl,"#s12-c1",b-.9,{s:.5,y:15});tl.fromTo("#s12-s1,#s12-s2",{opacity:0,x:30},{opacity:1,x:0,duration:.35,stagger:.2},b-.3);
+ var c=T("Report Compare");
+ pop(tl,"#s12-c2",c-.3,{s:.5,y:20,d:.5});
+ var d=T("export a project file");
+ pop(tl,"#s12-c3",d-.3,{s:.5,y:20,d:.5});dcheer(tl,"dn",d+.5);
+ tl.fromTo("#s12-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},d+.5);
+ captions(tl,"s12-cap");
+ window.__timelines["s12"]=tl;
+})();
+</script>
+</template></body></html>

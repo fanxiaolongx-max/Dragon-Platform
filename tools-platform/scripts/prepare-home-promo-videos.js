@@ -7,10 +7,16 @@ const manifestPath = path.join(projectRoot, 'backend/home-promo-videos.json');
 const CHUNK_SIZE = 512 * 1024;
 const BASE_URL = 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019';
 const EOS_BASE_URL = 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-20261019';
+const EOS_EN_BASE_URL = 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-en-20261019';
+// Each later media release keeps its own tag; earlier files and cache identities stay untouched.
+const RELEASE_URLS = {
+    'eos-report-guide.mp4': EOS_BASE_URL, 'eos-report-guide-hd.mp4': EOS_BASE_URL,
+    'eos-report-guide-en.mp4': EOS_EN_BASE_URL, 'eos-report-guide-en-hd.mp4': EOS_EN_BASE_URL
+};
 // Preserve the original release URLs and cache identities when adding EOS.
 const FILES = ['netcare-rfc-ai-guide', 'operation-incentive-guide', 'platform-guide']
     .flatMap(base => ['', '-en'].flatMap(language => ['', '-hd'].map(quality => `${base}${language}${quality}.mp4`)))
-    .concat(['eos-report-guide.mp4', 'eos-report-guide-hd.mp4']);
+    .concat(['eos-report-guide.mp4', 'eos-report-guide-hd.mp4', 'eos-report-guide-en.mp4', 'eos-report-guide-en-hd.mp4']);
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 
 function assertFastStart(bytes, name) {
@@ -35,7 +41,7 @@ function buildManifest() {
         const chunks = [];
         for (let offset = 0; offset < bytes.length; offset += CHUNK_SIZE) chunks.push(digest(bytes.subarray(offset, offset + CHUNK_SIZE)));
         assets[name] = { size: bytes.length, sha256: digest(bytes), chunks };
-        if (name.startsWith('eos-report-guide')) assets[name].url = `${EOS_BASE_URL}/${name}`;
+        if (RELEASE_URLS[name]) assets[name].url = `${RELEASE_URLS[name]}/${name}`;
     }
     return { baseUrl: BASE_URL, chunkSize: CHUNK_SIZE, assets };
 }

@@ -1,0 +1,73 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .cons{position:absolute;left:125px;top:560px;width:830px;height:200px;background:#2b2f3a;border:3px solid var(--ink);border-radius:14px;color:#cfe8ff;font-family:"JetBrains Mono",monospace;font-size:22px;line-height:1.5;padding:12px 18px;overflow:hidden;z-index:6}
+#root .cons b{color:#ffd166;font-weight:400}
+#root .mt{position:absolute;width:250px;height:96px;border:3px solid var(--ink);border-radius:18px;background:#fff;display:flex;flex-direction:column;justify-content:center;padding:0 16px;font-size:26px;line-height:1.3;box-shadow:var(--sh);white-space:nowrap}
+#root .mt small{font-size:22px;color:#2f9e74}
+#root .nb{position:absolute;width:56px;height:56px;border-radius:50%;background:#f27b96;color:#fff;border:3px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:34px;z-index:30}
+</style>
+<div id="root" data-composition-id="s3" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="8" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-160px;top:640px;width:520px;height:520px;background:#9fe0c9"></div>
+  <div class="head wob" id="s3-h"><span class="step">Step 2</span><span class="ttl">Capture on the NetCare site</span></div>
+  <div class="win wob" id="s3-win" style="left:100px;top:215px;width:880px;height:560px"><div class="wbar" style="background:#cfe3f6"><i></i><i></i><i></i><span>NetCare site · logged in</span></div></div>
+  <div class="abs dash" id="s3-pg" style="left:130px;top:300px;width:820px;height:240px;background:#fffdf5;display:flex;align-items:center;justify-content:center;font-size:34px;color:#b3a591">(your usual NetCare page)</div>
+  <div class="cons" id="s3-cons"><span style="color:#8fa3b8">Console ▸</span><br><b>&gt;</b> <span id="s3-code"></span></div>
+  <div class="tag abs" id="s3-en" style="left:760px;top:715px;background:#ffd166;font-size:30px;z-index:8">Enter ⏎</div>
+  <div class="nb" id="s3-n1" style="left:76px;top:290px">1</div>
+  <div class="nb" id="s3-n2" style="left:76px;top:560px">2</div>
+  <div class="nb" id="s3-n3" style="left:76px;top:660px">3</div>
+
+  <div class="win wob" id="s3-pn" style="left:1030px;top:215px;width:800px;height:700px;z-index:10"><div class="wbar" style="background:#1e293b;color:#e2e8f0"><i></i><i></i><i></i><span>UIVF12 Capture Panel</span></div></div>
+  <div class="abs" id="s3-nt" style="left:1060px;top:295px;width:740px;height:64px;border:2.5px solid #e0a81f;border-radius:14px;background:#fff7d6;font-size:28px;line-height:1.3;padding:8px 16px;z-index:11">Script loaded, capture not started. Check the site and your login, then click below.</div>
+  <div class="btn" id="s3-bs" style="left:1060px;top:385px;background:#9fe0c9;font-size:32px;z-index:11;padding:8px 26px 10px">Start Capture</div>
+  <div class="btn" id="s3-bz" style="left:1420px;top:385px;background:#fff;font-size:30px;z-index:11;padding:8px 22px 10px">Download all CSV (ZIP)</div>
+  <div class="mt" id="s3-m1" style="left:1060px;top:500px;z-index:11">Critical EOS risk<small>✓ taken over</small></div>
+  <div class="mt" id="s3-m2" style="left:1330px;top:500px;z-index:11">Version EOS risk<small>✓ taken over</small></div>
+  <div class="mt" id="s3-m3" style="left:1060px;top:615px;z-index:11">Product EOS risk<small>✓ taken over</small></div>
+  <div class="mt" id="s3-m4" style="left:1330px;top:615px;z-index:11">Critical EOS incorp.<small>✓ taken over</small></div>
+  <div class="abs" id="s3-st" style="left:1060px;top:735px;width:740px;font-size:28px;line-height:1.4;color:#2f9e74;z-index:11">Done: CSVs are held in the panel. Click a metric for details, or download all as ZIP.</div>
+  <div class="tag abs" id="s3-nc" style="left:1250px;top:840px;background:#c8eef0;font-size:32px;z-index:12">New button: NetCare Insights ▸</div>
+  <div class="cursor wob" id="s3-cur" style="z-index:40"></div>
+  <div class="abs wob" id="s3-d" style="left:380px;top:800px"></div>
+  <div id="s3-sp"></div>
+  <div class="cap" id="s3-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s3-cur",icon("cursor","#ffffff",74));put("s3-d",dino("dn",{w:240,h:230}));
+ document.getElementById("s3-sp").innerHTML=sparkle(1000,190,44)+sparkle(1840,300,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s3-win,#s3-pg,#s3-cons,#s3-en,#s3-n1,#s3-n2,#s3-n3,#s3-pn,#s3-nt,#s3-bs,#s3-bz,#s3-m1,#s3-m2,#s3-m3,#s3-m4,#s3-st,#s3-nc,#s3-cur",{opacity:0});
+ tl.fromTo("#s3-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s3-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("Log in");
+ tl.fromTo("#s3-win,#s3-pg",{opacity:0,y:40},{opacity:1,y:0,duration:.5,ease:"power3.out",stagger:.1},a-.6);pop(tl,"#s3-n1",a,{s:.3});
+ var b=T("F12");
+ pop(tl,"#s3-n2",b-.2,{s:.3});tl.fromTo("#s3-cons",{opacity:0,y:60},{opacity:1,y:0,duration:.5,ease:"power3.out"},b);
+ var c=T("paste");
+ pop(tl,"#s3-n3",c-.3,{s:.3});typeText(tl,"s3-code","(async()=>{ /* UIVF12 panel script */ … })()",c,1.4);
+ var d=T("press Enter");
+ pop(tl,"#s3-en",d,{s:.4});
+ var e=T("data capture panel");
+ tl.to("#s3-cons,#s3-en",{opacity:.25,duration:.4},e-.3);
+ tl.fromTo("#s3-pn",{opacity:0,x:80,scale:.96},{opacity:1,x:0,scale:1,duration:.55,ease:"back.out(1.4)",transformOrigin:"50% 50%"},e-.3);
+ tl.fromTo("#s3-nt,#s3-bs,#s3-bz",{opacity:0,y:20},{opacity:1,y:0,duration:.4,stagger:.15},e+.6);
+ var f=T("Start Capture");
+ tl.set("#s3-cur",{x:1100,y:700});tl.fromTo("#s3-cur",{opacity:0},{opacity:1,duration:.3},f-1.0);
+ cur(tl,"#s3-cur",1180,460,f-.8,.6);click(tl,"#s3-cur",f+.2);click(tl,"#s3-bs",f+.2);tl.to("#s3-bs",{backgroundColor:"#47cf9f",duration:.2},f+.25);
+ var g=T("takes over");
+ tl.fromTo("#s3-m1,#s3-m2,#s3-m3,#s3-m4",{opacity:0,scale:.7},{opacity:1,scale:1,duration:.35,stagger:.2,ease:"back.out(1.7)",transformOrigin:"50% 50%"},g-.2);
+ tl.fromTo("#s3-st",{opacity:0},{opacity:1,duration:.4},g+.9);pop(tl,"#s3-nc",g+1.4,{s:.4});
+ tl.to("#s3-cur",{opacity:0,duration:.3},g+.4);
+ dcheer(tl,"dn",g+1.2);
+ tl.fromTo("#s3-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},g+1.3);
+ captions(tl,"s3-cap");
+ window.__timelines["s3"]=tl;
+})();
+</script>
+</template></body></html>

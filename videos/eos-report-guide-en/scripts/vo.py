@@ -1,0 +1,54 @@
+import asyncio, json, sys, re, os, edge_tts
+# 每段 = (开场, 目的句, 正文, 目的卡片短句)。目的句在画面中以"为什么"卡片强调；为空则不显示卡片。
+LINES = {
+ "s1": ["", "", "Hi, I'm Little Dragon! Today's topic is EOS risk management and incorporation: how to pull the latest progress from the system in one click, how to forecast what we can reach this year, and how the monthly report is generated automatically.", ""],
+ "bg": ["First, the background.", "", "EOS means a product or version has reached end of service. These old products and versions still run in customer networks, so when something fails, support is limited and the risk is high. That is why we track them every month: products must be retired from the network, versions must be upgraded, and together we call this incorporation. We track every customer, every product line, and every product. In the past, you logged in and collected numbers page by page, counted them by hand, asked each account team for this year's planned numbers, worked out yourself whether the annual target could be met, and finally wrote up a bilingual monthly report. It was slow and error-prone, and it was hard to see in time where there was no plan. This feature links the whole process together.", ""],
+ "ov": ["", "", "The process has five steps. One, copy the floating panel script. Two, capture data on the NetCare site. Three, fill in plans and forecast the target. Four, export and import back into the platform. Five, generate the monthly report in one click. Repeat it every month to keep tracking.", ""],
+ "s2": ["Step one: copy the floating panel script.", "NetCare data can only be read on the NetCare site, so the capture script has to run there.", "Open the Data Capture page and click the Floating Panel Script button in the library on the left. A window opens to choose a site, listing each site and how many scripts it can run. Because of the browser's same-origin rule, pick the site you will open and paste the script into. Here, choose NetCare China, which has a dozen or so scripts, and click Copy This Site. Note that the floating panel does not download CSV files one by one. After capturing, you view them in the panel, or download them all as one package.", "The script must run on the NetCare site"],
+ "s3": ["Step two: capture data on the NetCare site.", "", "Log in to the NetCare site with your usual account, press F12 to open the developer tools, go to the Console, paste the script you just copied, and press Enter. A data capture panel pops up on the page. At this point the script is loaded, but capture has not started. Check that the site and your login are right, then click Start Capture. The panel takes over the data, so there are no files to download one by one.", ""],
+ "s4": ["", "No more logging in page by page. One refresh, and the latest progress in the system is all in hand.", "At the top of the panel there is a NetCare Insights button. Click it to open the insights view. Click Refresh, and the panel pulls five kinds of data: certificates, EOS, change volume, high-risk interception, and SR, shown as five tabs. This time we focus on the first one, EOS Incorporation.", "One refresh, all the latest progress"],
+ "s5": ["", "First the big picture: each customer's incorporation rate, and how far it is from the target.", "At the top of the EOS Incorporation page you can set a product target and a version target. The defaults are thirty and eighty percent, and you can adjust them as needed. The summary table below lists each customer: quantity, rate, pending, plan this year, no plan, and projected rate, one set for products and one for versions. A rate that meets the target is green, one that misses it is red, so you can see at a glance which customer is falling behind.", "The big picture: how far from target"],
+ "s6": ["", "Update the planned number of network elements any time, and see right away what can be reached this year.", "Expand the rows to go down by customer, product line, and product; versions are grouped by product as well. Every item has a plan for this year. Click plus or minus, or type a number, and it cannot exceed the pending count. Next to it is a progress note to record where the follow-up stands. Every change instantly updates the projected rate of that item, that customer, and the whole table. The incorporation brief is recalculated too: how many more from the no-plan list would lift the projected rate, to what level, and how many percentage points remain to the target.", "Change a plan, see the yearly forecast"],
+ "s7": ["", "", "The no-plan items are the ones that need a push. The rightmost column of the summary table lists, for each customer, the products or versions with the most no-plan units, that is the Top N, and you can set N to any number on the page. Sort by quantity from high to low, or by rate from low to high. With this list, it is clear at a glance which customer, product, or version still has no plan, so you can take it to the neighboring teams and push incorporation forward together. Tables can be collapsed or shown full screen, and exported straight to Excel.", ""],
+ "s8": ["Step four: export, then import into the platform.", "The plans, targets, and notes you entered must come back to the platform before the report can be generated.", "Click Export JSON. The panel saves all the captured data, together with the targets, planned numbers, and notes you entered, into one file. Back on the platform's Data Capture page, open the Floating Panel Script window again, and this time click Simulate Panel next to NetCare China, then click Import JSON. It works offline and never calls the live site. After import it enters review mode and is archived to the server automatically. The page shows Archived, so you can look back month by month.", "Bring the data back to auto-write the report"],
+ "s9": ["Step five: generate the monthly report in one click.", "Once imported, the monthly report is one click away.", "Open the Topic Analysis page. At the top is the snapshot overview: total snapshots, how many batches NetCare and DataFab have archived, and the latest data time. Below is the report area. The report topic defaults to EOS incorporation, and you can switch to certificates, changes, high-risk interception, SR, and other topics. Choose the report month and the report is generated immediately. Each month uses the last snapshot imported for that month, and the planned numbers and targets come from the settings saved in that snapshot, so later edits never change past reports.", "Imported, then one click to the report"],
+ "s10": ["", "", "The report is clearly structured. It opens with the title and the annual overall targets: a one hundred percent risk closure rate, plus three levels, baseline, target, and stretch, for both the product retirement rate and the version incorporation rate. Next comes the progress overview, written automatically: the current status, the projected year-end completion rate, how many units still have no plan, which customers are involved, and recommendations. Then the progress details: one table each for products and versions, listing by customer the total, incorporated, current rate, pending, plan this year, no plan, and rate after plan, with key focus text above the table. Finally, risk management progress and the risk handling process.", ""],
+ "s11": ["", "", "The report is not rigid. Every text and table can be edited with one click, and selected text can be made bold or recolored. If you mess up the generated text for the month, click Restore Monthly Text, and fixed sections can be restored with Restore Fixed Text. In Mapping and Threshold Settings, you can map customer names to the names you want to show, and set a display threshold for key equipment counts, so small numbers are left out. Chinese and English are two separate versions. When you edit the Chinese, the page flags English awaiting sync, and if the platform has an AI assistant configured, AI Translate does it in one click.", ""],
+ "s12": ["", "", "When it looks right, export it. The long PNG comes in Chinese, English, and a combined bilingual version, and you can download all three in one click. You can also download a PDF, an HTML file you can browse offline, a multi-sheet Excel workbook, and an MSG email you can keep editing in Outlook. To keep a record, save a snapshot into the report snapshot library. Report Compare shows two versions side by side and highlights differences in text and data automatically. You can also export a project file and share it, and a colleague who imports it can keep editing.", ""],
+ "s13": ["", "", "Finally, how to make it a habit. Every month, repeat the five steps: capture, plan, export and import, and generate the report, with no manual compiling. Targets can be refreshed every month to keep tracking. The value comes in four parts. One, the latest progress in the system, fast. Two, refresh planned numbers any time and forecast directly whether the yearly target can be met. Three, the Top N list keeps everyone focused on the products and versions not yet incorporated. Four, the report writes itself, saving a lot of compiling time. Go and give it a try!", ""],
+}
+# 只给语音用的同音替换（字幕仍显示原文）："行"在表格语境读 háng
+SPOKEN = []
+VOICE = "en-US-AvaNeural"
+PUN = r'[，。！？；：、,.!?;:\s“”"\'（）()—…@]'
+def spoken(text):
+    for a, b in SPOKEN: text = text.replace(a, b)
+    return text
+async def one(k, parts, out):
+    pre, why, body, short = parts
+    text = " ".join(x for x in (pre, why, body) if x)
+    c = edge_tts.Communicate(spoken(text), VOICE, rate="+3%", pitch="+0Hz", boundary="WordBoundary")
+    words = []
+    with open(f"{out}/{k}.mp3", "wb") as f:
+        async for ch in c.stream():
+            if ch["type"] == "audio": f.write(ch["data"])
+            elif ch["type"] == "WordBoundary":
+                words.append({"text": ch["text"].replace("航", "行"), "start": ch["offset"] / 1e7, "end": (ch["offset"] + ch["duration"]) / 1e7})
+    w = None
+    if why:
+        a = len(re.sub(PUN, '', pre)); b = a + len(re.sub(PUN, '', why))
+        chars = []
+        for t in words:
+            for ch in re.sub(PUN, '', t["text"]): chars.append((t["start"], t["end"]))
+        w = {"t": short, "s": round(chars[min(a, len(chars) - 1)][0], 2), "e": round(chars[min(b - 1, len(chars) - 1)][1], 2), "chars": b}
+    return {"id": k, "text": text, "words": words, "why": w}
+async def main(out):
+    try: old = {x["id"]: x for x in json.load(open(f"{out}/words.json"))}
+    except Exception: old = {}
+    res = []
+    for k, v in LINES.items():
+        o = old.get(k)
+        if o and o["text"] == " ".join(x for x in v[:3] if x) and os.path.exists(f"{out}/{k}.mp3"): res.append(o)
+        else: res.append(await one(k, v, out))
+    json.dump(res, open(f"{out}/words.json", "w"), ensure_ascii=False, indent=1)
+asyncio.run(main(sys.argv[1]))

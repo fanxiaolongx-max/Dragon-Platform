@@ -1,0 +1,68 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .nt{font-size:26px!important}
+#root .nt{position:absolute;top:310px;height:64px;border:3px solid var(--ink);border-radius:16px 16px 0 0;background:#fff;font-size:30px;display:flex;align-items:center;padding:0 22px;white-space:nowrap}
+#root .tb2{position:absolute;top:300px;height:60px;border:3px solid var(--ink);border-radius:14px;background:#fff;font-size:28px;display:flex;align-items:center;padding:0 18px;white-space:nowrap}
+#root .tile{position:absolute;top:520px;width:300px;height:130px;border:3px solid var(--ink);border-radius:22px;background:#fff;box-shadow:var(--sh);display:flex;flex-direction:column;justify-content:center;gap:4px;padding:0 22px;font-size:32px;white-space:nowrap}
+#root .tile small{font-size:26px;color:#2f9e74}
+</style>
+<div id="root" data-composition-id="s4" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="9" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1450px;top:-150px;width:520px;height:520px;background:#aed8f2"></div>
+  <div class="head wob" id="s4-h"><span class="step">Step 2</span><span class="ttl">NetCare Insights · one refresh</span></div>
+  <div class="win wob" id="s4-win" style="left:100px;top:215px;width:1720px;height:700px"><div class="wbar" style="background:#1e293b;color:#e2e8f0"><i></i><i></i><i></i><span>UIVF12 Capture Panel</span></div></div>
+  <div class="btn" id="s4-nc" style="left:1500px;top:228px;font-size:28px;padding:4px 22px 6px;background:#c8eef0;z-index:10">NetCare Insights</div>
+  <div class="nt" id="s4-t1" style="left:130px;background:#ffe08f;border-width:4px">EOS</div>
+  <div class="nt" id="s4-t2" style="left:290px">Certs</div>
+  <div class="nt" id="s4-t3" style="left:450px">Changes</div>
+  <div class="nt" id="s4-t4" style="left:610px">High-risk</div>
+  <div class="nt" id="s4-t5" style="left:770px">SR</div>
+  <div class="tb2" id="s4-rf" style="left:1100px;background:#9fe0c9">↻ Refresh</div>
+  <div class="tb2" id="s4-ex" style="left:1290px">Export JSON</div>
+  <div class="tb2" id="s4-im" style="left:1470px">Import JSON</div>
+  <div class="abs" id="s4-sts" style="left:130px;top:410px;width:1660px;font-size:32px;color:#8a7360">Insights not loaded</div>
+  <div class="tile" id="s4-k1" style="left:130px;background:#fff8dc">Certificates<small>✓ fetched</small></div>
+  <div class="tile" id="s4-k2" style="left:460px;background:#ffe9a8;border-width:4px">EOS products<small>✓ fetched</small></div>
+  <div class="tile" id="s4-k3" style="left:790px;background:#ffe9a8;border-width:4px">EOS versions<small>✓ fetched</small></div>
+  <div class="tile" id="s4-k4" style="left:1120px;background:#fff8dc">Changes<small>✓ fetched</small></div>
+  <div class="tile" id="s4-k5" style="left:1450px;background:#fff8dc">Interception / SR<small>✓ fetched</small></div>
+  <div class="sticky wob" id="s4-sk" style="left:130px;top:700px;transform:rotate(-1.5deg);font-size:40px;background:linear-gradient(170deg,#dff6ec,#9fe0c9)">All the latest progress, fetched in one go</div>
+  <div class="cursor wob" id="s4-cur" style="z-index:40"></div>
+  <div class="abs wob" id="s4-d" style="left:1580px;top:690px"></div>
+  <div id="s4-sp"></div>
+  <div class="cap" id="s4-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s4-cur",icon("cursor","#ffffff",74));put("s4-d",dino("dn",{w:230,h:220}));
+ document.getElementById("s4-sp").innerHTML=sparkle(1400,190,44)+sparkle(1850,620,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s4-win,#s4-nc,#s4-t1,#s4-t2,#s4-t3,#s4-t4,#s4-t5,#s4-rf,#s4-ex,#s4-im,#s4-sts,#s4-k1,#s4-k2,#s4-k3,#s4-k4,#s4-k5,#s4-sk,#s4-cur",{opacity:0});
+ tl.fromTo("#s4-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s4-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ tl.fromTo("#s4-win",{opacity:0,y:50},{opacity:1,y:0,duration:.55,ease:"power3.out"},.6);
+ var a=T("NetCare Insights");
+ pop(tl,"#s4-nc",a-.3,{s:.5});
+ tl.set("#s4-cur",{x:1200,y:800});tl.fromTo("#s4-cur",{opacity:0},{opacity:1,duration:.3},a-.8);
+ cur(tl,"#s4-cur",1580,270,a-.6,.7);click(tl,"#s4-cur",a+.5);click(tl,"#s4-nc",a+.5);
+ tl.fromTo("#s4-t1,#s4-t2,#s4-t3,#s4-t4,#s4-t5,#s4-rf,#s4-ex,#s4-im,#s4-sts",{opacity:0,y:15},{opacity:1,y:0,duration:.3,stagger:.07},a+.8);
+ var b=T("Click Refresh");
+ cur(tl,"#s4-cur",1200,350,b-.6,.5);click(tl,"#s4-cur",b+.3);tl.to("#s4-rf",{backgroundColor:"#47cf9f",duration:.2},b+.3);
+ tl.to("#s4-sts",{innerHTML:"Loading certificates, EOS, changes, interception and SR…",duration:.01},b+.4);
+ var c=T("five kinds of data");
+ tl.fromTo("#s4-k1,#s4-k2,#s4-k3,#s4-k4,#s4-k5",{opacity:0,y:30,scale:.85},{opacity:1,y:0,scale:1,duration:.4,stagger:.25,ease:"back.out(1.6)",transformOrigin:"50% 50%"},c-.4);
+ tl.to("#s4-sts",{innerHTML:"Loaded · latest data in the system",duration:.01},c+1.6);
+ tl.to("#s4-cur",{opacity:0,duration:.3},c+.5);
+ var d=T("EOS Incorporation");
+ tl.to("#s4-t1",{y:-8,duration:.25,repeat:3,yoyo:true},d);tl.to("#s4-k2,#s4-k3",{scale:1.06,duration:.3,repeat:3,yoyo:true,transformOrigin:"50% 50%"},d);
+ pop(tl,"#s4-sk",d+.4,{s:.4,y:20,d:.55});dpoint(tl,"dn",d,1.2);
+ tl.fromTo("#s4-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},d+.4);
+ captions(tl,"s4-cap");
+ window.__timelines["s4"]=tl;
+})();
+</script>
+</template></body></html>

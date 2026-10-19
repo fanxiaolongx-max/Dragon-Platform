@@ -43,14 +43,14 @@ async function fixture(t, options = {}) {
     return { cacheDir, requests, middleware, get: (headers = {}, route = urlPath, method = 'GET') => fetch(base + route, { method, headers }) };
 }
 
-test('all 14 source videos match the frozen manifest and have fast-start metadata; only these are excluded from desktop builds', () => {
+test('all 16 source videos match the frozen manifest and have fast-start metadata; only these are excluded from desktop builds', () => {
     const catalog = checkManifest();
     const { build } = require('../package.json');
     const excluded = picomatch(build.files.filter(item => item.startsWith('!')).map(item => item.slice(1)), { dot: true });
-    assert.equal(Object.keys(catalog.assets).length, 14);
+    assert.equal(Object.keys(catalog.assets).length, 16);
     for (const file of Object.keys(catalog.assets)) assert.ok(excluded(`frontend/assets/promotions/${file}`), file);
     assert.equal(excluded('frontend/assets/promotions/future-guide.mp4'), false);
-    assert.equal(excluded('frontend/assets/promotions/eos-report-guide-en.mp4'), false);
+    assert.equal(excluded('frontend/assets/promotions/eos-report-guide-en-poster.jpg'), false);
     assert.equal(excluded('frontend/assets/promotions/eos-report-guide-poster.jpg'), false);
     assert.equal(excluded('frontend/assets/promotions/platform-guide-poster.jpg'), false);
 });

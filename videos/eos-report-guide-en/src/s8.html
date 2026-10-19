@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .tb2{position:absolute;height:56px;border:3px solid var(--ink);border-radius:14px;background:#fff;font-size:27px;display:flex;align-items:center;padding:0 16px;white-space:nowrap}
+#root .chp{display:inline-block;border:2.5px solid var(--ink);border-radius:999px;padding:0 14px;font-size:26px;margin:4px 6px 0 0;white-space:nowrap}
+#root .row5{position:absolute;left:100px;top:560px;width:800px;height:120px;border:3px solid var(--ink);border-radius:22px;background:#fff;display:flex;align-items:center;padding:0 24px;gap:14px;box-shadow:var(--sh)}
+#root .row5 .nm{font-size:36px;white-space:nowrap;font-weight:700}
+#root .row5 .bt2{margin-left:auto;display:flex;gap:10px}
+#root .row5 .bt2 i{font-style:normal;border:2.5px solid var(--ink);border-radius:14px;padding:0 16px;height:52px;display:flex;align-items:center;font-size:28px;white-space:nowrap}
+</style>
+<div id="root" data-composition-id="s8" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="18" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:1450px;top:-150px;width:520px;height:520px;background:#9fe0c9"></div>
+  <div class="head wob" id="s8-h"><span class="step">Step 4</span><span class="ttl">Export JSON, import to platform</span></div>
+
+  <div class="abs" id="s8-l1" style="left:100px;top:205px;font-size:34px;font-family:'Fredoka',sans-serif;white-space:nowrap">① On the NetCare site</div>
+  <div class="win wob" id="s8-w1" style="left:100px;top:255px;width:760px;height:230px"><div class="wbar" style="background:#1e293b;color:#e2e8f0"><i></i><i></i><i></i><span>NetCare Insights · EOS</span></div></div>
+  <div class="tb2" id="s8-b0" style="left:130px;top:345px">↻ Refresh</div>
+  <div class="tb2" id="s8-b1" style="left:350px;top:345px;background:#ffe08f;border-width:4px">Export JSON</div>
+  <div class="tb2" id="s8-b2" style="left:560px;top:345px">Import JSON</div>
+  <div class="abs" id="s8-st1" style="left:130px;top:425px;font-size:26px;color:#8a7360;white-space:nowrap">Targets, plans and notes are filled in</div>
+  <div class="abs" id="s8-ar1" style="left:880px;top:330px;font-size:60px;color:#c9a98c">→</div>
+  <div class="win wob" id="s8-fl" style="left:970px;top:255px;width:850px;height:230px"><div class="wbar" style="background:#fff3c4"><i></i><i></i><i></i><span>NetCare_insights_20261018.json</span></div></div>
+  <div class="abs" id="s8-ch" style="left:1000px;top:340px;width:790px"><span class="chp" style="background:#e4f1fb">All captured data</span><span class="chp" style="background:#ffe9a8">Product / version targets</span><span class="chp" style="background:#dff6ec">Every plan</span><span class="chp" style="background:#ffe3e8">Progress note</span></div>
+
+  <div class="abs" id="s8-l2" style="left:100px;top:510px;font-size:34px;font-family:'Fredoka',sans-serif;white-space:nowrap">② Back on the platform · Data Capture · script window</div>
+  <div class="row5" id="s8-rw"><div class="nm">NetCare China</div><div class="bt2"><i id="s8-sim" style="background:#c8eef0;border-width:4px">Simulate Panel</i><i style="background:#b9a1f2">Copy This Site</i></div></div>
+  <div class="abs" id="s8-ar2" style="left:920px;top:590px;font-size:60px;color:#c9a98c">→</div>
+  <div class="win wob" id="s8-w2" style="left:1000px;top:545px;width:820px;height:360px"><div class="wbar" style="background:#d9c6ef"><i></i><i></i><i></i><span>NetCare China · Simulated panel (offline JSON review)</span></div></div>
+  <div class="tb2" id="s8-ib" style="left:1030px;top:630px;background:#ffe08f;border-width:4px">Import JSON</div>
+  <div class="tag abs" id="s8-rv" style="left:1030px;top:710px;background:#ffe9a8;font-size:28px">Review mode · 2026-10-18</div>
+  <div class="abs" id="s8-of" style="left:1030px;top:765px;font-size:26px;color:#8a7360;white-space:nowrap">Offline simulation, no live calls</div>
+  <div class="tag abs" id="s8-ok" style="left:1030px;top:815px;background:#9fe0c9;font-size:30px">✅ Archived to server</div>
+  <div class="cursor wob" id="s8-cur" style="z-index:40"></div>
+  <div class="abs wob" id="s8-d" style="left:300px;top:740px;display:none"></div>
+  <div id="s8-sp"></div>
+  <div class="cap" id="s8-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s8-cur",icon("cursor","#ffffff",74));
+ document.getElementById("s8-sp").innerHTML=sparkle(900,190,44)+sparkle(1850,520,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s8-l1,#s8-w1,#s8-b0,#s8-b1,#s8-b2,#s8-st1,#s8-ar1,#s8-fl,#s8-ch,#s8-l2,#s8-rw,#s8-ar2,#s8-w2,#s8-ib,#s8-rv,#s8-of,#s8-ok,#s8-cur",{opacity:0});
+ tl.fromTo("#s8-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ var a=T("Export JSON");
+ tl.fromTo("#s8-l1,#s8-w1,#s8-b0,#s8-b1,#s8-b2,#s8-st1",{opacity:0,y:20},{opacity:1,y:0,duration:.4,stagger:.08},a-.9);
+ tl.set("#s8-cur",{x:600,y:480});tl.fromTo("#s8-cur",{opacity:0},{opacity:1,duration:.3},a-.6);
+ cur(tl,"#s8-cur",440,395,a-.5,.5);click(tl,"#s8-cur",a+.3);click(tl,"#s8-b1",a+.3);
+ tl.fromTo("#s8-ar1,#s8-fl",{opacity:0,x:-30},{opacity:1,x:0,duration:.45,stagger:.15},a+.6);
+ tl.fromTo("#s8-ch .chp",{opacity:0,scale:.6},{opacity:1,scale:1,duration:.3,stagger:.3,ease:"back.out(1.7)",transformOrigin:"50% 50%"},T("together with the targets")||a+1.4);
+ tl.fromTo("#s8-ch",{opacity:0},{opacity:1,duration:.2},a+1.2);
+ var b=T("Back on the platform");
+ tl.to("#s8-cur",{opacity:0,duration:.2},b-.4);
+ tl.fromTo("#s8-l2,#s8-rw",{opacity:0,y:20},{opacity:1,y:0,duration:.45,stagger:.1},b-.2);
+ var c=T("Simulate Panel");
+ tl.set("#s8-cur",{x:1000,y:800});tl.fromTo("#s8-cur",{opacity:0},{opacity:1,duration:.3},c-.9);
+ cur(tl,"#s8-cur",640,630,c-.8,.6);
+ pop(tl,"#s8-sim",c-.2,{s:.8,d:.3});click(tl,"#s8-cur",c+.5);tl.to("#s8-sim",{backgroundColor:"#8fd9de",duration:.2},c+.5);
+ tl.fromTo("#s8-ar2,#s8-w2",{opacity:0,x:-30},{opacity:1,x:0,duration:.5,stagger:.12},c+.7);
+ var d=T("Import JSON");
+ tl.fromTo("#s8-ib",{opacity:0,y:15},{opacity:1,y:0,duration:.35},d-.6);
+ cur(tl,"#s8-cur",1200,690,d-.5,.6);click(tl,"#s8-cur",d+.3);click(tl,"#s8-ib",d+.3);
+ pop(tl,"#s8-of",T("offline")-.2,{s:.8,d:.3});
+ pop(tl,"#s8-rv",T("review mode")-.2,{s:.5,d:.4});
+ pop(tl,"#s8-ok",T("shows Archived")-.2,{s:.4,d:.5});
+ tl.to("#s8-cur",{opacity:0,duration:.3},T("shows Archived"));
+ tl.fromTo("#s8-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("shows Archived"));
+ captions(tl,"s8-cap");
+ window.__timelines["s8"]=tl;
+})();
+</script>
+</template></body></html>

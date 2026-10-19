@@ -8,7 +8,7 @@
     'use strict';
     const STORE_KEY = 'tools.home.promoVideos.dismissed';
     const STORE_VALUE = 'v2';
-    const VER = '20261019-01';
+    const VER = '20261019-02';
     const VIDEOS = {
         rfc: {
             mini: '/assets/promotions/netcare-rfc-ai-guide.mp4?v=' + VER,
@@ -35,6 +35,7 @@
     const EN_FILES = {
         rfc: { mini: 'netcare-rfc-ai-guide-en.mp4', hd: 'netcare-rfc-ai-guide-en-hd.mp4', poster: 'netcare-rfc-ai-guide-en-poster.jpg' },
         incentive: { mini: 'operation-incentive-guide-en.mp4', hd: 'operation-incentive-guide-en-hd.mp4', poster: 'operation-incentive-guide-en-poster.jpg' },
+        eos: { mini: 'eos-report-guide-en.mp4', hd: 'eos-report-guide-en-hd.mp4', poster: 'eos-report-guide-en-poster.jpg' },
         guide: { mini: 'platform-guide-en.mp4', hd: 'platform-guide-en-hd.mp4', poster: 'platform-guide-en-poster.jpg' }
     };
     const isEnglish = () => { try { return /^en/i.test((window.ToolsI18n && window.ToolsI18n.getLanguage && window.ToolsI18n.getLanguage()) || document.documentElement.lang || ''); } catch (_) { return false; } };

@@ -1,0 +1,73 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template>
+<style>/*SHARED*/
+#root .cfg{font-size:22px!important}
+#root .cfg{position:absolute;top:228px;height:62px;border:3px solid var(--ink);border-radius:16px;background:#fff;font-size:28px;display:flex;align-items:center;gap:8px;padding:0 18px;white-space:nowrap}
+#root .cfg i{font-style:normal;border:2.5px solid var(--ink);border-radius:10px;padding:0 12px;background:#fffdf5;min-width:56px;text-align:center}
+#root table.ov{position:absolute;left:100px;top:330px;width:1720px;border-collapse:collapse;font-size:26px;background:#fff;border:3px solid var(--ink);border-radius:14px;overflow:hidden}
+#root .ov th,#root .ov td{border:1.5px solid rgba(91,70,54,.35);padding:7px 6px;text-align:center;white-space:nowrap}
+#root .ov th{background:#eef5fb;font-weight:400}
+#root .ov th.g{background:#dff6ec}#root .ov th.h{background:#ffe9a8}
+#root .ov td.n{text-align:left;padding-left:12px}
+#root .ov tr.bg td{background:#f4efe6;font-weight:700}
+#root .ov tr.tot td{background:#fff3c4;font-weight:700}
+#root .ov td.ok{background:#e1f7ea;color:#1f8a5b}
+#root .ov td.bad{background:#ffe0e6;color:#c8375c}
+</style>
+<div id="root" data-composition-id="s5" data-width="1920" data-height="1080">
+  <svg width="0" height="0" style="position:absolute"><filter id="WOBID" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="15" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter></svg>
+  <div class="paper"></div>
+  <div class="blob" style="left:-150px;top:700px;width:520px;height:520px;background:#ffe08f"></div>
+  <div class="head wob" id="s5-h"><span class="step">Step 3</span><span class="ttl">EOS Incorporation · Summary</span></div>
+  <div class="cfg" id="s5-c1" style="left:110px">Product target <i id="s5-t1">30</i>%</div>
+  <div class="cfg" id="s5-c2" style="left:420px">Version target <i id="s5-t2">80</i>%</div>
+  <div class="cfg" id="s5-c3" style="left:730px">Product Top N <i>3</i></div>
+  <div class="cfg" id="s5-c4" style="left:1060px">Version Top N <i>3</i></div>
+  <div class="cfg" id="s5-c5" style="left:1390px">Sort: quantity high→low ▾</div>
+  <table class="ov" id="s5-tb">
+    <thead>
+      <tr><th rowspan="2" style="width:170px">Customer / BG</th><th colspan="6" class="g">Products　target 30%</th><th colspan="6" class="h">Versions　target 80%</th></tr>
+      <tr><th class="g">Qty</th><th class="g">Rate</th><th class="g">Pending</th><th class="g">Plan</th><th class="g">No plan</th><th class="g">Projected</th><th class="h">Qty</th><th class="h">Rate</th><th class="h">Pending</th><th class="h">Plan</th><th class="h">No plan</th><th class="h">Projected</th></tr>
+    </thead>
+    <tbody>
+      <tr class="bg"><td class="n">CNBG</td><td>200</td><td class="ok">37.0%</td><td>126</td><td>30</td><td>96</td><td class="ok">52.0%</td><td>350</td><td class="bad">62.9%</td><td>130</td><td>50</td><td>80</td><td class="bad">77.1%</td></tr>
+      <tr><td class="n">└ Cust. A</td><td>120</td><td class="ok">45.0%</td><td>66</td><td>20</td><td>46</td><td class="ok">61.7%</td><td>200</td><td class="bad">45.0%</td><td>110</td><td>30</td><td>80</td><td class="bad">60.0%</td></tr>
+      <tr><td class="n">└ Cust. B</td><td>80</td><td class="bad">25.0%</td><td>60</td><td>10</td><td>50</td><td class="ok">37.5%</td><td>150</td><td class="ok">86.7%</td><td>20</td><td>20</td><td>0</td><td class="ok">100%</td></tr>
+      <tr class="bg"><td class="n">EBG</td><td>60</td><td class="ok">70.0%</td><td>18</td><td>18</td><td>0</td><td class="ok">100%</td><td>100</td><td class="bad">55.0%</td><td>45</td><td>10</td><td>35</td><td class="bad">65.0%</td></tr>
+      <tr><td class="n">└ Cust. C</td><td>60</td><td class="ok">70.0%</td><td>18</td><td>18</td><td>0</td><td class="ok">100%</td><td>100</td><td class="bad">55.0%</td><td>45</td><td>10</td><td>35</td><td class="bad">65.0%</td></tr>
+      <tr class="tot"><td class="n">Total</td><td>260</td><td class="ok">44.6%</td><td>144</td><td>48</td><td>96</td><td class="ok">63.1%</td><td>450</td><td class="bad">61.1%</td><td>175</td><td>60</td><td>115</td><td class="bad">74.4%</td></tr>
+    </tbody>
+  </table>
+  <div class="tag abs" id="s5-demo" style="left:100px;top:800px;background:#fff;font-size:28px">Sample data</div>
+  <div class="tag abs" id="s5-lg1" style="left:1130px;top:800px;background:#e1f7ea;color:#1f8a5b;font-size:32px">Green = target met</div>
+  <div class="tag abs" id="s5-lg2" style="left:1450px;top:800px;background:#ffe0e6;color:#c8375c;font-size:32px">Red = not yet</div>
+  <div class="abs wob" id="s5-d" style="left:1650px;top:830px"></div>
+  <div id="s5-sp"></div>
+  <div class="cap" id="s5-cap"></div>
+</div>
+<script>
+//LIB
+//DATA
+(function(){
+ put("s5-d",dino("dn",{w:200,h:190}));
+ document.getElementById("s5-sp").innerHTML=sparkle(1000,190,44)+sparkle(1850,300,40,"#ffb3c6");
+ var tl=gsap.timeline({paused:true});
+ gsap.set("#s5-c1,#s5-c2,#s5-c3,#s5-c4,#s5-c5,#s5-tb,#s5-demo,#s5-lg1,#s5-lg2",{opacity:0});
+ tl.fromTo("#s5-h",{opacity:0,x:-50},{opacity:1,x:0,duration:.6,ease:"back.out(1.6)"},.3);
+ tl.fromTo("#s5-d",{opacity:0,y:100},{opacity:1,y:0,duration:.6,ease:"back.out(1.5)"},.7);dtail(tl,"dn",1,14);
+ var a=T("product target and a version target");
+ pop(tl,"#s5-c1",a-.2,{s:.5,y:20});pop(tl,"#s5-c2",a+.6,{s:.5,y:20});
+ var b=T("The defaults are");tl.to("#s5-t1,#s5-t2",{backgroundColor:"#ffe08f",duration:.3,repeat:3,yoyo:true},b);
+ tl.fromTo("#s5-c3,#s5-c4,#s5-c5",{opacity:0,y:15},{opacity:1,y:0,duration:.35,stagger:.15},T("adjust them as needed")-.3);
+ var c=T("summary table below");
+ tl.fromTo("#s5-tb",{opacity:0,y:40},{opacity:1,y:0,duration:.6,ease:"power3.out"},c-.4);
+ pop(tl,"#s5-demo",c+.5,{s:.5});
+ var d=T("is green");pop(tl,"#s5-lg1",d-.2,{s:.5});pop(tl,"#s5-lg2",T("is red")-.2,{s:.5});
+ tl.to("#s5-tb td.bad",{scale:1.06,duration:.25,repeat:3,yoyo:true,transformOrigin:"50% 50%"},T("falling behind"));
+ dpoint(tl,"dn",T("falling behind"),1.2);
+ tl.fromTo("#s5-sp svg",{scale:0,opacity:0},{scale:1,opacity:1,duration:.4,stagger:.3,ease:"back.out(2)",transformOrigin:"50% 50%"},T("see at a glance"));
+ captions(tl,"s5-cap");
+ window.__timelines["s5"]=tl;
+})();
+</script>
+</template></body></html>

@@ -1,0 +1,7552 @@
+[
+ {
+  "id": "s1",
+  "text": "Hi, I'm Little Dragon! Today's topic is EOS risk management and incorporation: how to pull the latest progress from the system in one click, how to forecast what we can reach this year, and how the monthly report is generated automatically.",
+  "words": [
+   {
+    "text": "Hi",
+    "start": 0.1,
+    "end": 0.476208
+   },
+   {
+    "text": "I'm",
+    "start": 0.52475,
+    "end": 0.706791
+   },
+   {
+    "text": "Little",
+    "start": 0.718916,
+    "end": 0.925207
+   },
+   {
+    "text": "Dragon",
+    "start": 0.937375,
+    "end": 1.459208
+   },
+   {
+    "text": "Today's",
+    "start": 1.809708,
+    "end": 2.210208
+   },
+   {
+    "text": "topic",
+    "start": 2.222333,
+    "end": 2.671374
+   },
+   {
+    "text": "is",
+    "start": 2.695625,
+    "end": 2.865541
+   },
+   {
+    "text": "EOS",
+    "start": 2.97475,
+    "end": 3.435916
+   },
+   {
+    "text": "risk",
+    "start": 3.448041,
+    "end": 3.763582
+   },
+   {
+    "text": "management",
+    "start": 3.775708,
+    "end": 4.382499
+   },
+   {
+    "text": "and",
+    "start": 4.467458,
+    "end": 4.625208
+   },
+   {
+    "text": "incorporation",
+    "start": 4.637375,
+    "end": 5.4505
+   },
+   {
+    "text": "how",
+    "start": 5.935916,
+    "end": 6.032999
+   },
+   {
+    "text": "to",
+    "start": 6.045125,
+    "end": 6.130083
+   },
+   {
+    "text": "pull",
+    "start": 6.14225,
+    "end": 6.324291
+   },
+   {
+    "text": "the",
+    "start": 6.336416,
+    "end": 6.482041
+   },
+   {
+    "text": "latest",
+    "start": 6.494166,
+    "end": 6.870374
+   },
+   {
+    "text": "progress",
+    "start": 6.882541,
+    "end": 7.440791
+   },
+   {
+    "text": "from",
+    "start": 7.452916,
+    "end": 7.622832
+   },
+   {
+    "text": "the",
+    "start": 7.634958,
+    "end": 7.707791
+   },
+   {
+    "text": "system",
+    "start": 7.719916,
+    "end": 8.193207
+   },
+   {
+    "text": "in",
+    "start": 8.217458,
+    "end": 8.375208
+   },
+   {
+    "text": "one",
+    "start": 8.387375,
+    "end": 8.593666
+   },
+   {
+    "text": "click",
+    "start": 8.605833,
+    "end": 8.921374
+   },
+   {
+    "text": "how",
+    "start": 9.370375,
+    "end": 9.443208
+   },
+   {
+    "text": "to",
+    "start": 9.455333,
+    "end": 9.552416
+   },
+   {
+    "text": "forecast",
+    "start": 9.564583,
+    "end": 10.207791
+   },
+   {
+    "text": "what",
+    "start": 10.219916,
+    "end": 10.353416
+   },
+   {
+    "text": "we",
+    "start": 10.365541,
+    "end": 10.462624
+   },
+   {
+    "text": "can",
+    "start": 10.47475,
+    "end": 10.6325
+   },
+   {
+    "text": "reach",
+    "start": 10.644666,
+    "end": 10.899541
+   },
+   {
+    "text": "this",
+    "start": 10.911666,
+    "end": 11.081582
+   },
+   {
+    "text": "year",
+    "start": 11.093708,
+    "end": 11.384958
+   },
+   {
+    "text": "and",
+    "start": 11.712625,
+    "end": 11.943208
+   },
+   {
+    "text": "how",
+    "start": 12.016,
+    "end": 12.1495
+   },
+   {
+    "text": "the",
+    "start": 12.161666,
+    "end": 12.246624
+   },
+   {
+    "text": "monthly",
+    "start": 12.25875,
+    "end": 12.647083
+   },
+   {
+    "text": "report",
+    "start": 12.659208,
+    "end": 13.071833
+   },
+   {
+    "text": "is",
+    "start": 13.120375,
+    "end": 13.314541
+   },
+   {
+    "text": "generated",
+    "start": 13.326708,
+    "end": 13.921374
+   },
+   {
+    "text": "automatically",
+    "start": 13.945625,
+    "end": 14.722333
+   }
+  ],
+  "why": null
+ },
+ {
+  "id": "bg",
+  "text": "First, the background. EOS means a product or version has reached end of service. These old products and versions still run in customer networks, so when something fails, support is limited and the risk is high. That is why we track them every month: products must be retired from the network, versions must be upgraded, and together we call this incorporation. We track every customer, every product line, and every product. In the past, you logged in and collected numbers page by page, counted them by hand, asked each account team for this year's planned numbers, worked out yourself whether the annual target could be met, and finally wrote up a bilingual monthly report. It was slow and error-prone, and it was hard to see in time where there was no plan. This feature links the whole process together.",
+  "words": [
+   {
+    "text": "First",
+    "start": 0.1,
+    "end": 0.634
+   },
+   {
+    "text": "the",
+    "start": 0.755333,
+    "end": 0.840291
+   },
+   {
+    "text": "background",
+    "start": 0.852416,
+    "end": 1.495624
+   },
+   {
+    "text": "EOS",
+    "start": 1.846125,
+    "end": 2.404375
+   },
+   {
+    "text": "means",
+    "start": 2.477166,
+    "end": 2.719874
+   },
+   {
+    "text": "a",
+    "start": 2.732041,
+    "end": 2.804874
+   },
+   {
+    "text": "product",
+    "start": 2.817,
+    "end": 3.253875
+   },
+   {
+    "text": "or",
+    "start": 3.278166,
+    "end": 3.472332
+   },
+   {
+    "text": "version",
+    "start": 3.484458,
+    "end": 3.909208
+   },
+   {
+    "text": "has",
+    "start": 3.921375,
+    "end": 4.164083
+   },
+   {
+    "text": "reached",
+    "start": 4.176208,
+    "end": 4.467458
+   },
+   {
+    "text": "end",
+    "start": 4.479625,
+    "end": 4.661666
+   },
+   {
+    "text": "of",
+    "start": 4.673791,
+    "end": 4.746624
+   },
+   {
+    "text": "service",
+    "start": 4.75875,
+    "end": 5.353416
+   },
+   {
+    "text": "These",
+    "start": 5.705333,
+    "end": 5.972333
+   },
+   {
+    "text": "old",
+    "start": 5.984458,
+    "end": 6.178624
+   },
+   {
+    "text": "products",
+    "start": 6.190791,
+    "end": 6.615541
+   },
+   {
+    "text": "and",
+    "start": 6.627666,
+    "end": 6.749041
+   },
+   {
+    "text": "versions",
+    "start": 6.761166,
+    "end": 7.234457
+   },
+   {
+    "text": "still",
+    "start": 7.270875,
+    "end": 7.586416
+   },
+   {
+    "text": "run",
+    "start": 7.598541,
+    "end": 7.816999
+   },
+   {
+    "text": "in",
+    "start": 7.829125,
+    "end": 7.9505
+   },
+   {
+    "text": "customer",
+    "start": 7.962625,
+    "end": 8.423791
+   },
+   {
+    "text": "networks",
+    "start": 8.435916,
+    "end": 8.957749
+   },
+   {
+    "text": "so",
+    "start": 9.054875,
+    "end": 9.236916
+   },
+   {
+    "text": "when",
+    "start": 9.249041,
+    "end": 9.431082
+   },
+   {
+    "text": "something",
+    "start": 9.443208,
+    "end": 9.819416
+   },
+   {
+    "text": "fails",
+    "start": 9.831541,
+    "end": 10.268416
+   },
+   {
+    "text": "support",
+    "start": 10.559708,
+    "end": 10.972333
+   },
+   {
+    "text": "is",
+    "start": 10.984458,
+    "end": 11.117958
+   },
+   {
+    "text": "limited",
+    "start": 11.130083,
+    "end": 11.603374
+   },
+   {
+    "text": "and",
+    "start": 11.615541,
+    "end": 11.821832
+   },
+   {
+    "text": "the",
+    "start": 11.834,
+    "end": 11.943208
+   },
+   {
+    "text": "risk",
+    "start": 11.955333,
+    "end": 12.307291
+   },
+   {
+    "text": "is",
+    "start": 12.319416,
+    "end": 12.428624
+   },
+   {
+    "text": "high",
+    "start": 12.440791,
+    "end": 12.792749
+   },
+   {
+    "text": "That",
+    "start": 13.144666,
+    "end": 13.448082
+   },
+   {
+    "text": "is",
+    "start": 13.496583,
+    "end": 13.593666
+   },
+   {
+    "text": "why",
+    "start": 13.605833,
+    "end": 13.775749
+   },
+   {
+    "text": "we",
+    "start": 13.787875,
+    "end": 13.90925
+   },
+   {
+    "text": "track",
+    "start": 13.921375,
+    "end": 14.212625
+   },
+   {
+    "text": "them",
+    "start": 14.22475,
+    "end": 14.394666
+   },
+   {
+    "text": "every",
+    "start": 14.552416,
+    "end": 14.782999
+   },
+   {
+    "text": "month",
+    "start": 14.795166,
+    "end": 15.134957
+   },
+   {
+    "text": "products",
+    "start": 15.535416,
+    "end": 16.020832
+   },
+   {
+    "text": "must",
+    "start": 16.033,
+    "end": 16.3
+   },
+   {
+    "text": "be",
+    "start": 16.312125,
+    "end": 16.421333
+   },
+   {
+    "text": "retired",
+    "start": 16.4335,
+    "end": 16.931083
+   },
+   {
+    "text": "from",
+    "start": 16.943208,
+    "end": 17.088833
+   },
+   {
+    "text": "the",
+    "start": 17.100958,
+    "end": 17.161624
+   },
+   {
+    "text": "network",
+    "start": 17.173791,
+    "end": 17.622832
+   },
+   {
+    "text": "versions",
+    "start": 18.047583,
+    "end": 18.508749
+   },
+   {
+    "text": "must",
+    "start": 18.520875,
+    "end": 18.787875
+   },
+   {
+    "text": "be",
+    "start": 18.8,
+    "end": 18.921375
+   },
+   {
+    "text": "upgraded",
+    "start": 18.9335,
+    "end": 19.516041
+   },
+   {
+    "text": "and",
+    "start": 19.698041,
+    "end": 19.904332
+   },
+   {
+    "text": "together",
+    "start": 19.928625,
+    "end": 20.377666
+   },
+   {
+    "text": "we",
+    "start": 20.389791,
+    "end": 20.498999
+   },
+   {
+    "text": "call",
+    "start": 20.511166,
+    "end": 20.778166
+   },
+   {
+    "text": "this",
+    "start": 20.790291,
+    "end": 20.960207
+   },
+   {
+    "text": "incorporation",
+    "start": 20.972333,
+    "end": 21.858249
+   },
+   {
+    "text": "We",
+    "start": 22.210208,
+    "end": 22.392249
+   },
+   {
+    "text": "track",
+    "start": 22.404375,
+    "end": 22.744166
+   },
+   {
+    "text": "every",
+    "start": 22.889791,
+    "end": 23.120374
+   },
+   {
+    "text": "customer",
+    "start": 23.132541,
+    "end": 23.678666
+   },
+   {
+    "text": "every",
+    "start": 23.9335,
+    "end": 24.212625
+   },
+   {
+    "text": "product",
+    "start": 24.22475,
+    "end": 24.6495
+   },
+   {
+    "text": "line",
+    "start": 24.661666,
+    "end": 25.025749
+   },
+   {
+    "text": "and",
+    "start": 25.098541,
+    "end": 25.304832
+   },
+   {
+    "text": "every",
+    "start": 25.438333,
+    "end": 25.693208
+   },
+   {
+    "text": "product",
+    "start": 25.705333,
+    "end": 26.287874
+   },
+   {
+    "text": "In",
+    "start": 26.639791,
+    "end": 26.809707
+   },
+   {
+    "text": "the",
+    "start": 26.821833,
+    "end": 26.918916
+   },
+   {
+    "text": "past",
+    "start": 26.931083,
+    "end": 27.392249
+   },
+   {
+    "text": "you",
+    "start": 27.744166,
+    "end": 27.865541
+   },
+   {
+    "text": "logged",
+    "start": 27.877666,
+    "end": 28.193207
+   },
+   {
+    "text": "in",
+    "start": 28.205333,
+    "end": 28.423791
+   },
+   {
+    "text": "and",
+    "start": 28.448041,
+    "end": 28.654332
+   },
+   {
+    "text": "collected",
+    "start": 28.6665,
+    "end": 29.115541
+   },
+   {
+    "text": "numbers",
+    "start": 29.127666,
+    "end": 29.564541
+   },
+   {
+    "text": "page",
+    "start": 29.576708,
+    "end": 29.977208
+   },
+   {
+    "text": "by",
+    "start": 29.989333,
+    "end": 30.147083
+   },
+   {
+    "text": "page",
+    "start": 30.159208,
+    "end": 30.668916
+   },
+   {
+    "text": "counted",
+    "start": 30.984458,
+    "end": 31.299999
+   },
+   {
+    "text": "them",
+    "start": 31.312125,
+    "end": 31.482041
+   },
+   {
+    "text": "by",
+    "start": 31.494166,
+    "end": 31.627666
+   },
+   {
+    "text": "hand",
+    "start": 31.639791,
+    "end": 32.100957
+   },
+   {
+    "text": "asked",
+    "start": 32.525708,
+    "end": 32.926208
+   },
+   {
+    "text": "each",
+    "start": 32.999041,
+    "end": 33.181082
+   },
+   {
+    "text": "account",
+    "start": 33.193208,
+    "end": 33.520874
+   },
+   {
+    "text": "team",
+    "start": 33.533,
+    "end": 33.787875
+   },
+   {
+    "text": "for",
+    "start": 33.8,
+    "end": 33.909208
+   },
+   {
+    "text": "this",
+    "start": 33.921375,
+    "end": 34.139833
+   },
+   {
+    "text": "year's",
+    "start": 34.151958,
+    "end": 34.491749
+   },
+   {
+    "text": "planned",
+    "start": 34.503875,
+    "end": 34.807291
+   },
+   {
+    "text": "numbers",
+    "start": 34.819416,
+    "end": 35.304832
+   },
+   {
+    "text": "worked",
+    "start": 35.644666,
+    "end": 35.923791
+   },
+   {
+    "text": "out",
+    "start": 35.935916,
+    "end": 36.045124
+   },
+   {
+    "text": "yourself",
+    "start": 36.057291,
+    "end": 36.506332
+   },
+   {
+    "text": "whether",
+    "start": 36.518458,
+    "end": 36.809708
+   },
+   {
+    "text": "the",
+    "start": 36.821833,
+    "end": 36.931041
+   },
+   {
+    "text": "annual",
+    "start": 36.979625,
+    "end": 37.355833
+   },
+   {
+    "text": "target",
+    "start": 37.367958,
+    "end": 37.792708
+   },
+   {
+    "text": "could",
+    "start": 37.804875,
+    "end": 37.938375
+   },
+   {
+    "text": "be",
+    "start": 37.9505,
+    "end": 38.047583
+   },
+   {
+    "text": "met",
+    "start": 38.059708,
+    "end": 38.375249
+   },
+   {
+    "text": "and",
+    "start": 38.751458,
+    "end": 38.969916
+   },
+   {
+    "text": "finally",
+    "start": 38.994166,
+    "end": 39.540291
+   },
+   {
+    "text": "wrote",
+    "start": 39.552416,
+    "end": 39.758707
+   },
+   {
+    "text": "up",
+    "start": 39.770875,
+    "end": 39.928625
+   },
+   {
+    "text": "a",
+    "start": 39.965041,
+    "end": 40.062124
+   },
+   {
+    "text": "bilingual",
+    "start": 40.074291,
+    "end": 40.693207
+   },
+   {
+    "text": "monthly",
+    "start": 40.705333,
+    "end": 41.093666
+   },
+   {
+    "text": "report",
+    "start": 41.105833,
+    "end": 41.664083
+   },
+   {
+    "text": "It",
+    "start": 42.016,
+    "end": 42.1495
+   },
+   {
+    "text": "was",
+    "start": 42.161666,
+    "end": 42.307291
+   },
+   {
+    "text": "slow",
+    "start": 42.319416,
+    "end": 42.877666
+   },
+   {
+    "text": "and",
+    "start": 42.889791,
+    "end": 43.083957
+   },
+   {
+    "text": "error-prone",
+    "start": 43.156791,
+    "end": 43.775707
+   },
+   {
+    "text": "and",
+    "start": 44.103416,
+    "end": 44.309707
+   },
+   {
+    "text": "it",
+    "start": 44.394666,
+    "end": 44.479624
+   },
+   {
+    "text": "was",
+    "start": 44.49175,
+    "end": 44.588833
+   },
+   {
+    "text": "hard",
+    "start": 44.600958,
+    "end": 44.880083
+   },
+   {
+    "text": "to",
+    "start": 44.89225,
+    "end": 44.952916
+   },
+   {
+    "text": "see",
+    "start": 44.965041,
+    "end": 45.147082
+   },
+   {
+    "text": "in",
+    "start": 45.159208,
+    "end": 45.244166
+   },
+   {
+    "text": "time",
+    "start": 45.256291,
+    "end": 45.596082
+   },
+   {
+    "text": "where",
+    "start": 45.60825,
+    "end": 45.766
+   },
+   {
+    "text": "there",
+    "start": 45.778166,
+    "end": 45.899541
+   },
+   {
+    "text": "was",
+    "start": 45.911666,
+    "end": 46.045166
+   },
+   {
+    "text": "no",
+    "start": 46.057291,
+    "end": 46.275749
+   },
+   {
+    "text": "plan",
+    "start": 46.287875,
+    "end": 46.821875
+   },
+   {
+    "text": "This",
+    "start": 47.173791,
+    "end": 47.452916
+   },
+   {
+    "text": "feature",
+    "start": 47.465041,
+    "end": 47.853374
+   },
+   {
+    "text": "links",
+    "start": 47.865541,
+    "end": 48.083999
+   },
+   {
+    "text": "the",
+    "start": 48.096125,
+    "end": 48.193208
+   },
+   {
+    "text": "whole",
+    "start": 48.205333,
+    "end": 48.484458
+   },
+   {
+    "text": "process",
+    "start": 48.496583,
+    "end": 48.957749
+   },
+   {
+    "text": "together",
+    "start": 48.969916,
+    "end": 49.467499
+   }
+  ],
+  "why": null
+ },
+ {
+  "id": "ov",
+  "text": "The process has five steps. One, copy the floating panel script. Two, capture data on the NetCare site. Three, fill in plans and forecast the target. Four, export and import back into the platform. Five, generate the monthly report in one click. Repeat it every month to keep tracking.",
+  "words": [
+   {
+    "text": "The",
+    "start": 0.1,
+    "end": 0.245625
+   },
+   {
+    "text": "process",
+    "start": 0.25775,
+    "end": 0.718916
+   },
+   {
+    "text": "has",
+    "start": 0.731083,
+    "end": 0.937374
+   },
+   {
+    "text": "five",
+    "start": 0.9495,
+    "end": 1.289291
+   },
+   {
+    "text": "steps",
+    "start": 1.301458,
+    "end": 1.799041
+   },
+   {
+    "text": "One",
+    "start": 2.1495,
+    "end": 2.634916
+   },
+   {
+    "text": "copy",
+    "start": 2.804875,
+    "end": 3.132541
+   },
+   {
+    "text": "the",
+    "start": 3.144666,
+    "end": 3.266041
+   },
+   {
+    "text": "floating",
+    "start": 3.278166,
+    "end": 3.702916
+   },
+   {
+    "text": "panel",
+    "start": 3.715041,
+    "end": 4.018457
+   },
+   {
+    "text": "script",
+    "start": 4.030583,
+    "end": 4.479624
+   },
+   {
+    "text": "Two",
+    "start": 4.831541,
+    "end": 5.280582
+   },
+   {
+    "text": "capture",
+    "start": 5.4505,
+    "end": 5.790291
+   },
+   {
+    "text": "data",
+    "start": 5.802416,
+    "end": 6.190749
+   },
+   {
+    "text": "on",
+    "start": 6.202916,
+    "end": 6.312124
+   },
+   {
+    "text": "the",
+    "start": 6.324291,
+    "end": 6.384957
+   },
+   {
+    "text": "NetCare",
+    "start": 6.397083,
+    "end": 6.797583
+   },
+   {
+    "text": "site",
+    "start": 6.809708,
+    "end": 7.137374
+   },
+   {
+    "text": "Three",
+    "start": 7.489333,
+    "end": 7.962624
+   },
+   {
+    "text": "fill",
+    "start": 8.132541,
+    "end": 8.387416
+   },
+   {
+    "text": "in",
+    "start": 8.3995,
+    "end": 8.508708
+   },
+   {
+    "text": "plans",
+    "start": 8.520875,
+    "end": 8.969916
+   },
+   {
+    "text": "and",
+    "start": 8.982041,
+    "end": 9.224749
+   },
+   {
+    "text": "forecast",
+    "start": 9.236875,
+    "end": 9.80725
+   },
+   {
+    "text": "the",
+    "start": 9.819416,
+    "end": 9.892249
+   },
+   {
+    "text": "target",
+    "start": 9.904375,
+    "end": 10.426208
+   },
+   {
+    "text": "Four",
+    "start": 10.778166,
+    "end": 11.190791
+   },
+   {
+    "text": "export",
+    "start": 11.542708,
+    "end": 12.052416
+   },
+   {
+    "text": "and",
+    "start": 12.113125,
+    "end": 12.270875
+   },
+   {
+    "text": "import",
+    "start": 12.331541,
+    "end": 12.768416
+   },
+   {
+    "text": "back",
+    "start": 12.780583,
+    "end": 12.999041
+   },
+   {
+    "text": "into",
+    "start": 13.011166,
+    "end": 13.156791
+   },
+   {
+    "text": "the",
+    "start": 13.168916,
+    "end": 13.265999
+   },
+   {
+    "text": "platform",
+    "start": 13.278166,
+    "end": 13.945624
+   },
+   {
+    "text": "Five",
+    "start": 14.297583,
+    "end": 14.928666
+   },
+   {
+    "text": "generate",
+    "start": 15.159208,
+    "end": 15.668916
+   },
+   {
+    "text": "the",
+    "start": 15.681083,
+    "end": 15.753916
+   },
+   {
+    "text": "monthly",
+    "start": 15.766,
+    "end": 16.1665
+   },
+   {
+    "text": "report",
+    "start": 16.178625,
+    "end": 16.6155
+   },
+   {
+    "text": "in",
+    "start": 16.639791,
+    "end": 16.833957
+   },
+   {
+    "text": "one",
+    "start": 16.846125,
+    "end": 17.040291
+   },
+   {
+    "text": "click",
+    "start": 17.052416,
+    "end": 17.477166
+   },
+   {
+    "text": "Repeat",
+    "start": 17.829125,
+    "end": 18.253875
+   },
+   {
+    "text": "it",
+    "start": 18.266,
+    "end": 18.375208
+   },
+   {
+    "text": "every",
+    "start": 18.448041,
+    "end": 18.690749
+   },
+   {
+    "text": "month",
+    "start": 18.702916,
+    "end": 18.994166
+   },
+   {
+    "text": "to",
+    "start": 19.006291,
+    "end": 19.091249
+   },
+   {
+    "text": "keep",
+    "start": 19.103416,
+    "end": 19.297582
+   },
+   {
+    "text": "tracking",
+    "start": 19.309708,
+    "end": 19.904374
+   }
+  ],
+  "why": null
+ },
+ {
+  "id": "s2",
+  "text": "Step one: copy the floating panel script. NetCare data can only be read on the NetCare site, so the capture script has to run there. Open the Data Capture page and click the Floating Panel Script button in the library on the left. A window opens to choose a site, listing each site and how many scripts it can run. Because of the browser's same-origin rule, pick the site you will open and paste the script into. Here, choose NetCare China, which has a dozen or so scripts, and click Copy This Site. Note that the floating panel does not download CSV files one by one. After capturing, you view them in the panel, or download them all as one package.",
+  "words": [
+   {
+    "text": "Step",
+    "start": 0.1,
+    "end": 0.5005
+   },
+   {
+    "text": "one",
+    "start": 0.512625,
+    "end": 0.864583
+   },
+   {
+    "text": "copy",
+    "start": 1.155833,
+    "end": 1.519916
+   },
+   {
+    "text": "the",
+    "start": 1.532041,
+    "end": 1.629124
+   },
+   {
+    "text": "floating",
+    "start": 1.64125,
+    "end": 2.066
+   },
+   {
+    "text": "panel",
+    "start": 2.078166,
+    "end": 2.369416
+   },
+   {
+    "text": "script",
+    "start": 2.381541,
+    "end": 2.854832
+   },
+   {
+    "text": "NetCare",
+    "start": 3.205333,
+    "end": 3.690749
+   },
+   {
+    "text": "data",
+    "start": 3.702916,
+    "end": 4.030582
+   },
+   {
+    "text": "can",
+    "start": 4.042708,
+    "end": 4.261166
+   },
+   {
+    "text": "only",
+    "start": 4.285416,
+    "end": 4.540291
+   },
+   {
+    "text": "be",
+    "start": 4.552416,
+    "end": 4.685916
+   },
+   {
+    "text": "read",
+    "start": 4.698041,
+    "end": 4.977166
+   },
+   {
+    "text": "on",
+    "start": 4.989333,
+    "end": 5.098541
+   },
+   {
+    "text": "the",
+    "start": 5.110666,
+    "end": 5.171332
+   },
+   {
+    "text": "NetCare",
+    "start": 5.1835,
+    "end": 5.571833
+   },
+   {
+    "text": "site",
+    "start": 5.584,
+    "end": 5.887416
+   },
+   {
+    "text": "so",
+    "start": 6.251458,
+    "end": 6.372833
+   },
+   {
+    "text": "the",
+    "start": 6.384958,
+    "end": 6.469916
+   },
+   {
+    "text": "capture",
+    "start": 6.482041,
+    "end": 6.931082
+   },
+   {
+    "text": "script",
+    "start": 6.943208,
+    "end": 7.258749
+   },
+   {
+    "text": "has",
+    "start": 7.270875,
+    "end": 7.501458
+   },
+   {
+    "text": "to",
+    "start": 7.513583,
+    "end": 7.622791
+   },
+   {
+    "text": "run",
+    "start": 7.634958,
+    "end": 7.841249
+   },
+   {
+    "text": "there",
+    "start": 7.853416,
+    "end": 8.168957
+   },
+   {
+    "text": "Open",
+    "start": 8.520875,
+    "end": 8.836416
+   },
+   {
+    "text": "the",
+    "start": 8.848541,
+    "end": 8.945624
+   },
+   {
+    "text": "Data",
+    "start": 8.95775,
+    "end": 9.236875
+   },
+   {
+    "text": "Capture",
+    "start": 9.249041,
+    "end": 9.661666
+   },
+   {
+    "text": "page",
+    "start": 9.673791,
+    "end": 10.062124
+   },
+   {
+    "text": "and",
+    "start": 10.195625,
+    "end": 10.401916
+   },
+   {
+    "text": "click",
+    "start": 10.414083,
+    "end": 10.668958
+   },
+   {
+    "text": "the",
+    "start": 10.681083,
+    "end": 10.790291
+   },
+   {
+    "text": "Floating",
+    "start": 10.802416,
+    "end": 11.251457
+   },
+   {
+    "text": "Panel",
+    "start": 11.263583,
+    "end": 11.627666
+   },
+   {
+    "text": "Script",
+    "start": 11.639791,
+    "end": 12.003874
+   },
+   {
+    "text": "button",
+    "start": 12.016,
+    "end": 12.343666
+   },
+   {
+    "text": "in",
+    "start": 12.355833,
+    "end": 12.501458
+   },
+   {
+    "text": "the",
+    "start": 12.513583,
+    "end": 12.598541
+   },
+   {
+    "text": "library",
+    "start": 12.610666,
+    "end": 13.168916
+   },
+   {
+    "text": "on",
+    "start": 13.181083,
+    "end": 13.302458
+   },
+   {
+    "text": "the",
+    "start": 13.314583,
+    "end": 13.387416
+   },
+   {
+    "text": "left",
+    "start": 13.3995,
+    "end": 13.884916
+   },
+   {
+    "text": "A",
+    "start": 14.236875,
+    "end": 14.431041
+   },
+   {
+    "text": "window",
+    "start": 14.443208,
+    "end": 14.795166
+   },
+   {
+    "text": "opens",
+    "start": 14.807291,
+    "end": 15.183499
+   },
+   {
+    "text": "to",
+    "start": 15.195625,
+    "end": 15.292708
+   },
+   {
+    "text": "choose",
+    "start": 15.304875,
+    "end": 15.55975
+   },
+   {
+    "text": "a",
+    "start": 15.571833,
+    "end": 15.632499
+   },
+   {
+    "text": "site",
+    "start": 15.644666,
+    "end": 16.008749
+   },
+   {
+    "text": "listing",
+    "start": 16.469916,
+    "end": 16.846124
+   },
+   {
+    "text": "each",
+    "start": 16.85825,
+    "end": 17.064541
+   },
+   {
+    "text": "site",
+    "start": 17.076708,
+    "end": 17.428666
+   },
+   {
+    "text": "and",
+    "start": 17.55,
+    "end": 17.695625
+   },
+   {
+    "text": "how",
+    "start": 17.719916,
+    "end": 17.889832
+   },
+   {
+    "text": "many",
+    "start": 17.901958,
+    "end": 18.144666
+   },
+   {
+    "text": "scripts",
+    "start": 18.156791,
+    "end": 18.545124
+   },
+   {
+    "text": "it",
+    "start": 18.557291,
+    "end": 18.678666
+   },
+   {
+    "text": "can",
+    "start": 18.690791,
+    "end": 18.836416
+   },
+   {
+    "text": "run",
+    "start": 18.848541,
+    "end": 19.200499
+   },
+   {
+    "text": "Because",
+    "start": 19.552416,
+    "end": 19.904374
+   },
+   {
+    "text": "of",
+    "start": 19.9165,
+    "end": 19.989333
+   },
+   {
+    "text": "the",
+    "start": 20.001458,
+    "end": 20.086416
+   },
+   {
+    "text": "browser's",
+    "start": 20.098541,
+    "end": 20.608249
+   },
+   {
+    "text": "same-origin",
+    "start": 20.620375,
+    "end": 21.263583
+   },
+   {
+    "text": "rule",
+    "start": 21.275708,
+    "end": 21.651916
+   },
+   {
+    "text": "pick",
+    "start": 22.12525,
+    "end": 22.307291
+   },
+   {
+    "text": "the",
+    "start": 22.319416,
+    "end": 22.416499
+   },
+   {
+    "text": "site",
+    "start": 22.428625,
+    "end": 22.70775
+   },
+   {
+    "text": "you",
+    "start": 22.719916,
+    "end": 22.829124
+   },
+   {
+    "text": "will",
+    "start": 22.84125,
+    "end": 22.999
+   },
+   {
+    "text": "open",
+    "start": 23.023291,
+    "end": 23.472332
+   },
+   {
+    "text": "and",
+    "start": 23.520875,
+    "end": 23.715041
+   },
+   {
+    "text": "paste",
+    "start": 23.751458,
+    "end": 24.151958
+   },
+   {
+    "text": "the",
+    "start": 24.164083,
+    "end": 24.249041
+   },
+   {
+    "text": "script",
+    "start": 24.261166,
+    "end": 24.613124
+   },
+   {
+    "text": "into",
+    "start": 24.62525,
+    "end": 25.098541
+   },
+   {
+    "text": "Here",
+    "start": 25.4505,
+    "end": 25.911666
+   },
+   {
+    "text": "choose",
+    "start": 26.239333,
+    "end": 26.518458
+   },
+   {
+    "text": "NetCare",
+    "start": 26.530583,
+    "end": 26.943208
+   },
+   {
+    "text": "China",
+    "start": 26.955333,
+    "end": 27.380083
+   },
+   {
+    "text": "which",
+    "start": 27.622833,
+    "end": 27.792749
+   },
+   {
+    "text": "has",
+    "start": 27.804875,
+    "end": 27.974791
+   },
+   {
+    "text": "a",
+    "start": 27.986875,
+    "end": 28.071833
+   },
+   {
+    "text": "dozen",
+    "start": 28.084,
+    "end": 28.533041
+   },
+   {
+    "text": "or",
+    "start": 28.545166,
+    "end": 28.751457
+   },
+   {
+    "text": "so",
+    "start": 28.763583,
+    "end": 29.018458
+   },
+   {
+    "text": "scripts",
+    "start": 29.030583,
+    "end": 29.443208
+   },
+   {
+    "text": "and",
+    "start": 29.503875,
+    "end": 29.831541
+   },
+   {
+    "text": "click",
+    "start": 29.880083,
+    "end": 30.122791
+   },
+   {
+    "text": "Copy",
+    "start": 30.134958,
+    "end": 30.462624
+   },
+   {
+    "text": "This",
+    "start": 30.47475,
+    "end": 30.6325
+   },
+   {
+    "text": "Site",
+    "start": 30.644666,
+    "end": 30.948082
+   },
+   {
+    "text": "Note",
+    "start": 31.3,
+    "end": 31.676208
+   },
+   {
+    "text": "that",
+    "start": 31.688333,
+    "end": 31.846083
+   },
+   {
+    "text": "the",
+    "start": 31.85825,
+    "end": 31.955333
+   },
+   {
+    "text": "floating",
+    "start": 31.967458,
+    "end": 32.404333
+   },
+   {
+    "text": "panel",
+    "start": 32.4165,
+    "end": 32.792708
+   },
+   {
+    "text": "does",
+    "start": 32.804875,
+    "end": 33.011166
+   },
+   {
+    "text": "not",
+    "start": 33.023291,
+    "end": 33.290291
+   },
+   {
+    "text": "download",
+    "start": 33.302416,
+    "end": 33.775707
+   },
+   {
+    "text": "CSV",
+    "start": 33.787875,
+    "end": 34.22475
+   },
+   {
+    "text": "files",
+    "start": 34.236875,
+    "end": 34.625208
+   },
+   {
+    "text": "one",
+    "start": 34.637375,
+    "end": 34.795125
+   },
+   {
+    "text": "by",
+    "start": 34.807291,
+    "end": 34.940791
+   },
+   {
+    "text": "one",
+    "start": 34.952916,
+    "end": 35.341249
+   },
+   {
+    "text": "After",
+    "start": 35.693208,
+    "end": 36.081541
+   },
+   {
+    "text": "capturing",
+    "start": 36.093708,
+    "end": 36.651958
+   },
+   {
+    "text": "you",
+    "start": 36.906791,
+    "end": 37.003874
+   },
+   {
+    "text": "view",
+    "start": 37.016,
+    "end": 37.258708
+   },
+   {
+    "text": "them",
+    "start": 37.270875,
+    "end": 37.477166
+   },
+   {
+    "text": "in",
+    "start": 37.489333,
+    "end": 37.562166
+   },
+   {
+    "text": "the",
+    "start": 37.574291,
+    "end": 37.671374
+   },
+   {
+    "text": "panel",
+    "start": 37.6835,
+    "end": 38.132541
+   },
+   {
+    "text": "or",
+    "start": 38.363125,
+    "end": 38.618
+   },
+   {
+    "text": "download",
+    "start": 38.6665,
+    "end": 39.103375
+   },
+   {
+    "text": "them",
+    "start": 39.115541,
+    "end": 39.285457
+   },
+   {
+    "text": "all",
+    "start": 39.35825,
+    "end": 39.564541
+   },
+   {
+    "text": "as",
+    "start": 39.576708,
+    "end": 39.698083
+   },
+   {
+    "text": "one",
+    "start": 39.710208,
+    "end": 39.867958
+   },
+   {
+    "text": "package",
+    "start": 39.880083,
+    "end": 40.426208
+   }
+  ],
+  "why": {
+   "t": "The script must run on the NetCare site",
+   "s": 3.21,
+   "e": 8.17,
+   "chars": 104
+  }
+ },
+ {
+  "id": "s3",
+  "text": "Step two: capture data on the NetCare site. Log in to the NetCare site with your usual account, press F12 to open the developer tools, go to the Console, paste the script you just copied, and press Enter. A data capture panel pops up on the page. At this point the script is loaded, but capture has not started. Check that the site and your login are right, then click Start Capture. The panel takes over the data, so there are no files to download one by one.",
+  "words": [
+   {
+    "text": "Step",
+    "start": 0.1,
+    "end": 0.476208
+   },
+   {
+    "text": "two",
+    "start": 0.488333,
+    "end": 0.828124
+   },
+   {
+    "text": "capture",
+    "start": 1.046583,
+    "end": 1.398541
+   },
+   {
+    "text": "data",
+    "start": 1.410666,
+    "end": 1.798999
+   },
+   {
+    "text": "on",
+    "start": 1.811166,
+    "end": 1.932541
+   },
+   {
+    "text": "the",
+    "start": 1.944666,
+    "end": 2.005332
+   },
+   {
+    "text": "NetCare",
+    "start": 2.017458,
+    "end": 2.442208
+   },
+   {
+    "text": "site",
+    "start": 2.454375,
+    "end": 2.794166
+   },
+   {
+    "text": "Log",
+    "start": 3.144666,
+    "end": 3.496624
+   },
+   {
+    "text": "in",
+    "start": 3.50875,
+    "end": 3.617958
+   },
+   {
+    "text": "to",
+    "start": 3.630083,
+    "end": 3.715041
+   },
+   {
+    "text": "the",
+    "start": 3.727166,
+    "end": 3.812124
+   },
+   {
+    "text": "NetCare",
+    "start": 3.824291,
+    "end": 4.261166
+   },
+   {
+    "text": "site",
+    "start": 4.273291,
+    "end": 4.503874
+   },
+   {
+    "text": "with",
+    "start": 4.516,
+    "end": 4.625208
+   },
+   {
+    "text": "your",
+    "start": 4.637375,
+    "end": 4.746583
+   },
+   {
+    "text": "usual",
+    "start": 4.75875,
+    "end": 5.086416
+   },
+   {
+    "text": "account",
+    "start": 5.098541,
+    "end": 5.535416
+   },
+   {
+    "text": "press",
+    "start": 5.923791,
+    "end": 6.166499
+   },
+   {
+    "text": "F12",
+    "start": 6.3,
+    "end": 6.870375
+   },
+   {
+    "text": "to",
+    "start": 6.882541,
+    "end": 7.003916
+   },
+   {
+    "text": "open",
+    "start": 7.016,
+    "end": 7.283
+   },
+   {
+    "text": "the",
+    "start": 7.295125,
+    "end": 7.367958
+   },
+   {
+    "text": "developer",
+    "start": 7.380083,
+    "end": 7.853374
+   },
+   {
+    "text": "tools",
+    "start": 7.865541,
+    "end": 8.314582
+   },
+   {
+    "text": "go",
+    "start": 8.702916,
+    "end": 8.812124
+   },
+   {
+    "text": "to",
+    "start": 8.824291,
+    "end": 8.933499
+   },
+   {
+    "text": "the",
+    "start": 8.945625,
+    "end": 9.042708
+   },
+   {
+    "text": "Console",
+    "start": 9.054875,
+    "end": 9.649541
+   },
+   {
+    "text": "paste",
+    "start": 10.05,
+    "end": 10.34125
+   },
+   {
+    "text": "the",
+    "start": 10.353416,
+    "end": 10.438374
+   },
+   {
+    "text": "script",
+    "start": 10.4505,
+    "end": 10.814583
+   },
+   {
+    "text": "you",
+    "start": 10.826708,
+    "end": 10.984458
+   },
+   {
+    "text": "just",
+    "start": 10.996583,
+    "end": 11.275708
+   },
+   {
+    "text": "copied",
+    "start": 11.287875,
+    "end": 11.834
+   },
+   {
+    "text": "and",
+    "start": 11.943208,
+    "end": 12.210208
+   },
+   {
+    "text": "press",
+    "start": 12.222333,
+    "end": 12.477208
+   },
+   {
+    "text": "Enter",
+    "start": 12.489333,
+    "end": 12.901958
+   },
+   {
+    "text": "A",
+    "start": 13.253875,
+    "end": 13.472333
+   },
+   {
+    "text": "data",
+    "start": 13.484458,
+    "end": 13.775708
+   },
+   {
+    "text": "capture",
+    "start": 13.787875,
+    "end": 14.139833
+   },
+   {
+    "text": "panel",
+    "start": 14.151958,
+    "end": 14.528166
+   },
+   {
+    "text": "pops",
+    "start": 14.540291,
+    "end": 14.855832
+   },
+   {
+    "text": "up",
+    "start": 14.867958,
+    "end": 14.977166
+   },
+   {
+    "text": "on",
+    "start": 14.989333,
+    "end": 15.086416
+   },
+   {
+    "text": "the",
+    "start": 15.098541,
+    "end": 15.171374
+   },
+   {
+    "text": "page",
+    "start": 15.1835,
+    "end": 15.60825
+   },
+   {
+    "text": "At",
+    "start": 15.960208,
+    "end": 16.166499
+   },
+   {
+    "text": "this",
+    "start": 16.178625,
+    "end": 16.397083
+   },
+   {
+    "text": "point",
+    "start": 16.409208,
+    "end": 16.627666
+   },
+   {
+    "text": "the",
+    "start": 16.639791,
+    "end": 16.724749
+   },
+   {
+    "text": "script",
+    "start": 16.736875,
+    "end": 17.040291
+   },
+   {
+    "text": "is",
+    "start": 17.052416,
+    "end": 17.149499
+   },
+   {
+    "text": "loaded",
+    "start": 17.161666,
+    "end": 17.610707
+   },
+   {
+    "text": "but",
+    "start": 17.901958,
+    "end": 18.144666
+   },
+   {
+    "text": "capture",
+    "start": 18.156791,
+    "end": 18.569416
+   },
+   {
+    "text": "has",
+    "start": 18.593708,
+    "end": 18.763624
+   },
+   {
+    "text": "not",
+    "start": 18.775708,
+    "end": 19.018416
+   },
+   {
+    "text": "started",
+    "start": 19.030583,
+    "end": 19.540291
+   },
+   {
+    "text": "Check",
+    "start": 19.89225,
+    "end": 20.171375
+   },
+   {
+    "text": "that",
+    "start": 20.1835,
+    "end": 20.329125
+   },
+   {
+    "text": "the",
+    "start": 20.34125,
+    "end": 20.426208
+   },
+   {
+    "text": "site",
+    "start": 20.438333,
+    "end": 20.838833
+   },
+   {
+    "text": "and",
+    "start": 20.8995,
+    "end": 21.020875
+   },
+   {
+    "text": "your",
+    "start": 21.033,
+    "end": 21.1665
+   },
+   {
+    "text": "login",
+    "start": 21.178625,
+    "end": 21.542708
+   },
+   {
+    "text": "are",
+    "start": 21.554875,
+    "end": 21.712625
+   },
+   {
+    "text": "right",
+    "start": 21.72475,
+    "end": 21.99175
+   },
+   {
+    "text": "then",
+    "start": 22.25875,
+    "end": 22.501458
+   },
+   {
+    "text": "click",
+    "start": 22.513583,
+    "end": 22.756291
+   },
+   {
+    "text": "Start",
+    "start": 22.768458,
+    "end": 23.047583
+   },
+   {
+    "text": "Capture",
+    "start": 23.059708,
+    "end": 23.581541
+   },
+   {
+    "text": "The",
+    "start": 23.9335,
+    "end": 24.09125
+   },
+   {
+    "text": "panel",
+    "start": 24.103416,
+    "end": 24.467499
+   },
+   {
+    "text": "takes",
+    "start": 24.479625,
+    "end": 24.7345
+   },
+   {
+    "text": "over",
+    "start": 24.746583,
+    "end": 24.928624
+   },
+   {
+    "text": "the",
+    "start": 24.940791,
+    "end": 25.037874
+   },
+   {
+    "text": "data",
+    "start": 25.05,
+    "end": 25.414083
+   },
+   {
+    "text": "so",
+    "start": 25.778166,
+    "end": 25.887374
+   },
+   {
+    "text": "there",
+    "start": 25.8995,
+    "end": 26.045125
+   },
+   {
+    "text": "are",
+    "start": 26.057291,
+    "end": 26.142249
+   },
+   {
+    "text": "no",
+    "start": 26.154375,
+    "end": 26.372833
+   },
+   {
+    "text": "files",
+    "start": 26.384958,
+    "end": 26.761166
+   },
+   {
+    "text": "to",
+    "start": 26.773291,
+    "end": 26.870374
+   },
+   {
+    "text": "download",
+    "start": 26.882541,
+    "end": 27.283041
+   },
+   {
+    "text": "one",
+    "start": 27.295166,
+    "end": 27.452916
+   },
+   {
+    "text": "by",
+    "start": 27.465041,
+    "end": 27.586416
+   },
+   {
+    "text": "one",
+    "start": 27.598541,
+    "end": 27.962624
+   }
+  ],
+  "why": null
+ },
+ {
+  "id": "s4",
+  "text": "No more logging in page by page. One refresh, and the latest progress in the system is all in hand. At the top of the panel there is a NetCare Insights button. Click it to open the insights view. Click Refresh, and the panel pulls five kinds of data: certificates, EOS, change volume, high-risk interception, and SR, shown as five tabs. This time we focus on the first one, EOS Incorporation.",
+  "words": [
+   {
+    "text": "No",
+    "start": 0.1,
+    "end": 0.367
+   },
+   {
+    "text": "more",
+    "start": 0.379125,
+    "end": 0.585416
+   },
+   {
+    "text": "logging",
+    "start": 0.597583,
+    "end": 0.937374
+   },
+   {
+    "text": "in",
+    "start": 0.9495,
+    "end": 1.034458
+   },
+   {
+    "text": "page",
+    "start": 1.046583,
+    "end": 1.362124
+   },
+   {
+    "text": "by",
+    "start": 1.374291,
+    "end": 1.507791
+   },
+   {
+    "text": "page",
+    "start": 1.519916,
+    "end": 1.981082
+   },
+   {
+    "text": "One",
+    "start": 2.331541,
+    "end": 2.598541
+   },
+   {
+    "text": "refresh",
+    "start": 2.610666,
+    "end": 3.193207
+   },
+   {
+    "text": "and",
+    "start": 3.266,
+    "end": 3.460166
+   },
+   {
+    "text": "the",
+    "start": 3.484458,
+    "end": 3.605833
+   },
+   {
+    "text": "latest",
+    "start": 3.617958,
+    "end": 3.994166
+   },
+   {
+    "text": "progress",
+    "start": 4.006291,
+    "end": 4.515999
+   },
+   {
+    "text": "in",
+    "start": 4.528166,
+    "end": 4.649541
+   },
+   {
+    "text": "the",
+    "start": 4.661666,
+    "end": 4.734499
+   },
+   {
+    "text": "system",
+    "start": 4.746583,
+    "end": 5.256291
+   },
+   {
+    "text": "is",
+    "start": 5.34125,
+    "end": 5.450458
+   },
+   {
+    "text": "all",
+    "start": 5.486875,
+    "end": 5.729583
+   },
+   {
+    "text": "in",
+    "start": 5.74175,
+    "end": 5.826708
+   },
+   {
+    "text": "hand",
+    "start": 5.838833,
+    "end": 6.336416
+   },
+   {
+    "text": "At",
+    "start": 6.688333,
+    "end": 6.870374
+   },
+   {
+    "text": "the",
+    "start": 6.882541,
+    "end": 6.967499
+   },
+   {
+    "text": "top",
+    "start": 6.979625,
+    "end": 7.246625
+   },
+   {
+    "text": "of",
+    "start": 7.25875,
+    "end": 7.331583
+   },
+   {
+    "text": "the",
+    "start": 7.343708,
+    "end": 7.428666
+   },
+   {
+    "text": "panel",
+    "start": 7.440791,
+    "end": 7.719916
+   },
+   {
+    "text": "there",
+    "start": 7.732041,
+    "end": 7.926207
+   },
+   {
+    "text": "is",
+    "start": 7.938333,
+    "end": 8.035416
+   },
+   {
+    "text": "a",
+    "start": 8.047583,
+    "end": 8.0961239
+   },
+   {
+    "text": "NetCare",
+    "start": 8.10825,
+    "end": 8.630083
+   },
+   {
+    "text": "Insights",
+    "start": 8.64225,
+    "end": 9.115541
+   },
+   {
+    "text": "button",
+    "start": 9.127666,
+    "end": 9.600957
+   },
+   {
+    "text": "Click",
+    "start": 9.952916,
+    "end": 10.219916
+   },
+   {
+    "text": "it",
+    "start": 10.232041,
+    "end": 10.353416
+   },
+   {
+    "text": "to",
+    "start": 10.365541,
+    "end": 10.486916
+   },
+   {
+    "text": "open",
+    "start": 10.499041,
+    "end": 10.766041
+   },
+   {
+    "text": "the",
+    "start": 10.778166,
+    "end": 10.838832
+   },
+   {
+    "text": "insights",
+    "start": 10.850958,
+    "end": 11.299999
+   },
+   {
+    "text": "view",
+    "start": 11.312125,
+    "end": 11.72475
+   },
+   {
+    "text": "Click",
+    "start": 12.076708,
+    "end": 12.343708
+   },
+   {
+    "text": "Refresh",
+    "start": 12.355833,
+    "end": 12.889833
+   },
+   {
+    "text": "and",
+    "start": 12.97475,
+    "end": 13.1325
+   },
+   {
+    "text": "the",
+    "start": 13.144666,
+    "end": 13.229624
+   },
+   {
+    "text": "panel",
+    "start": 13.24175,
+    "end": 13.581541
+   },
+   {
+    "text": "pulls",
+    "start": 13.593708,
+    "end": 13.872833
+   },
+   {
+    "text": "five",
+    "start": 13.884958,
+    "end": 14.224749
+   },
+   {
+    "text": "kinds",
+    "start": 14.236875,
+    "end": 14.528125
+   },
+   {
+    "text": "of",
+    "start": 14.540291,
+    "end": 14.625249
+   },
+   {
+    "text": "data",
+    "start": 14.637375,
+    "end": 14.965041
+   },
+   {
+    "text": "certificates",
+    "start": 15.329125,
+    "end": 16.045125
+   },
+   {
+    "text": "EOS",
+    "start": 16.372833,
+    "end": 16.846124
+   },
+   {
+    "text": "change",
+    "start": 17.173791,
+    "end": 17.489332
+   },
+   {
+    "text": "volume",
+    "start": 17.501458,
+    "end": 17.999041
+   },
+   {
+    "text": "high-risk",
+    "start": 18.314583,
+    "end": 18.739333
+   },
+   {
+    "text": "interception",
+    "start": 18.751458,
+    "end": 19.528166
+   },
+   {
+    "text": "and",
+    "start": 19.564583,
+    "end": 19.795166
+   },
+   {
+    "text": "SR",
+    "start": 19.867958,
+    "end": 20.353374
+   },
+   {
+    "text": "shown",
+    "start": 20.584,
+    "end": 20.802458
+   },
+   {
+    "text": "as",
+    "start": 20.814583,
+    "end": 20.960208
+   },
+   {
+    "text": "five",
+    "start": 20.972333,
+    "end": 21.275749
+   },
+   {
+    "text": "tabs",
+    "start": 21.287875,
+    "end": 21.809708
+   },
+   {
+    "text": "This",
+    "start": 22.161666,
+    "end": 22.428666
+   },
+   {
+    "text": "time",
+    "start": 22.440791,
+    "end": 22.683499
+   },
+   {
+    "text": "we",
+    "start": 22.695625,
+    "end": 22.817
+   },
+   {
+    "text": "focus",
+    "start": 22.829125,
+    "end": 23.24175
+   },
+   {
+    "text": "on",
+    "start": 23.253875,
+    "end": 23.350958
+   },
+   {
+    "text": "the",
+    "start": 23.363125,
+    "end": 23.448083
+   },
+   {
+    "text": "first",
+    "start": 23.460208,
+    "end": 23.799999
+   },
+   {
+    "text": "one",
+    "start": 23.812125,
+    "end": 24.079125
+   },
+   {
+    "text": "EOS",
+    "start": 24.455333,
+    "end": 24.795124
+   },
+   {
+    "text": "Incorporation",
+    "start": 24.807291,
+    "end": 25.668957
+   }
+  ],
+  "why": {
+   "t": "One refresh, all the latest progress",
+   "s": 0.1,
+   "e": 6.34,
+   "chars": 77
+  }
+ },
+ {
+  "id": "s5",
+  "text": "First the big picture: each customer's incorporation rate, and how far it is from the target. At the top of the EOS Incorporation page you can set a product target and a version target. The defaults are thirty and eighty percent, and you can adjust them as needed. The summary table below lists each customer: quantity, rate, pending, plan this year, no plan, and projected rate, one set for products and one for versions. A rate that meets the target is green, one that misses it is red, so you can see at a glance which customer is falling behind.",
+  "words": [
+   {
+    "text": "First",
+    "start": 0.1,
+    "end": 0.488333
+   },
+   {
+    "text": "the",
+    "start": 0.5005,
+    "end": 0.585458
+   },
+   {
+    "text": "big",
+    "start": 0.597583,
+    "end": 0.803874
+   },
+   {
+    "text": "picture",
+    "start": 0.816,
+    "end": 1.252875
+   },
+   {
+    "text": "each",
+    "start": 1.665541,
+    "end": 1.908249
+   },
+   {
+    "text": "customer's",
+    "start": 1.920375,
+    "end": 2.49075
+   },
+   {
+    "text": "incorporation",
+    "start": 2.502916,
+    "end": 3.328166
+   },
+   {
+    "text": "rate",
+    "start": 3.340291,
+    "end": 3.631541
+   },
+   {
+    "text": "and",
+    "start": 3.934958,
+    "end": 4.189833
+   },
+   {
+    "text": "how",
+    "start": 4.238333,
+    "end": 4.493208
+   },
+   {
+    "text": "far",
+    "start": 4.505333,
+    "end": 4.796583
+   },
+   {
+    "text": "it",
+    "start": 4.80875,
+    "end": 4.881583
+   },
+   {
+    "text": "is",
+    "start": 4.893708,
+    "end": 5.051458
+   },
+   {
+    "text": "from",
+    "start": 5.063583,
+    "end": 5.245624
+   },
+   {
+    "text": "the",
+    "start": 5.25775,
+    "end": 5.330583
+   },
+   {
+    "text": "target",
+    "start": 5.342708,
+    "end": 5.888833
+   },
+   {
+    "text": "At",
+    "start": 6.239333,
+    "end": 6.409249
+   },
+   {
+    "text": "the",
+    "start": 6.421375,
+    "end": 6.506333
+   },
+   {
+    "text": "top",
+    "start": 6.518458,
+    "end": 6.809708
+   },
+   {
+    "text": "of",
+    "start": 6.821833,
+    "end": 6.906791
+   },
+   {
+    "text": "the",
+    "start": 6.918916,
+    "end": 6.991749
+   },
+   {
+    "text": "EOS",
+    "start": 7.003875,
+    "end": 7.331541
+   },
+   {
+    "text": "Incorporation",
+    "start": 7.343708,
+    "end": 8.108291
+   },
+   {
+    "text": "page",
+    "start": 8.120375,
+    "end": 8.520875
+   },
+   {
+    "text": "you",
+    "start": 8.569416,
+    "end": 8.630082
+   },
+   {
+    "text": "can",
+    "start": 8.64225,
+    "end": 8.8
+   },
+   {
+    "text": "set",
+    "start": 8.812125,
+    "end": 8.95775
+   },
+   {
+    "text": "a",
+    "start": 8.969916,
+    "end": 9.042749
+   },
+   {
+    "text": "product",
+    "start": 9.054875,
+    "end": 9.49175
+   },
+   {
+    "text": "target",
+    "start": 9.503875,
+    "end": 9.9165
+   },
+   {
+    "text": "and",
+    "start": 10.025708,
+    "end": 10.171333
+   },
+   {
+    "text": "a",
+    "start": 10.1835,
+    "end": 10.2320409
+   },
+   {
+    "text": "version",
+    "start": 10.244166,
+    "end": 10.596124
+   },
+   {
+    "text": "target",
+    "start": 10.60825,
+    "end": 11.117958
+   },
+   {
+    "text": "The",
+    "start": 11.469916,
+    "end": 11.615541
+   },
+   {
+    "text": "defaults",
+    "start": 11.627666,
+    "end": 12.064541
+   },
+   {
+    "text": "are",
+    "start": 12.076708,
+    "end": 12.246624
+   },
+   {
+    "text": "thirty",
+    "start": 12.25875,
+    "end": 12.6835
+   },
+   {
+    "text": "and",
+    "start": 12.695625,
+    "end": 12.84125
+   },
+   {
+    "text": "eighty",
+    "start": 12.97475,
+    "end": 13.168916
+   },
+   {
+    "text": "percent",
+    "start": 13.181083,
+    "end": 13.678666
+   },
+   {
+    "text": "and",
+    "start": 13.9335,
+    "end": 14.054875
+   },
+   {
+    "text": "you",
+    "start": 14.067,
+    "end": 14.151958
+   },
+   {
+    "text": "can",
+    "start": 14.164083,
+    "end": 14.297583
+   },
+   {
+    "text": "adjust",
+    "start": 14.309708,
+    "end": 14.673791
+   },
+   {
+    "text": "them",
+    "start": 14.685916,
+    "end": 14.819416
+   },
+   {
+    "text": "as",
+    "start": 14.831541,
+    "end": 14.952916
+   },
+   {
+    "text": "needed",
+    "start": 14.965041,
+    "end": 15.389791
+   },
+   {
+    "text": "The",
+    "start": 15.74175,
+    "end": 15.911666
+   },
+   {
+    "text": "summary",
+    "start": 15.923791,
+    "end": 16.312124
+   },
+   {
+    "text": "table",
+    "start": 16.324291,
+    "end": 16.627707
+   },
+   {
+    "text": "below",
+    "start": 16.639791,
+    "end": 16.931041
+   },
+   {
+    "text": "lists",
+    "start": 16.943208,
+    "end": 17.282999
+   },
+   {
+    "text": "each",
+    "start": 17.319416,
+    "end": 17.525707
+   },
+   {
+    "text": "customer",
+    "start": 17.537875,
+    "end": 18.047583
+   },
+   {
+    "text": "quantity",
+    "start": 18.350958,
+    "end": 18.933499
+   },
+   {
+    "text": "rate",
+    "start": 19.273291,
+    "end": 19.600957
+   },
+   {
+    "text": "pending",
+    "start": 19.940791,
+    "end": 20.499041
+   },
+   {
+    "text": "plan",
+    "start": 20.74175,
+    "end": 21.020875
+   },
+   {
+    "text": "this",
+    "start": 21.033,
+    "end": 21.251458
+   },
+   {
+    "text": "year",
+    "start": 21.263583,
+    "end": 21.615541
+   },
+   {
+    "text": "no",
+    "start": 21.906791,
+    "end": 22.125249
+   },
+   {
+    "text": "plan",
+    "start": 22.137375,
+    "end": 22.732041
+   },
+   {
+    "text": "and",
+    "start": 22.768458,
+    "end": 23.047583
+   },
+   {
+    "text": "projected",
+    "start": 23.096125,
+    "end": 23.581541
+   },
+   {
+    "text": "rate",
+    "start": 23.593708,
+    "end": 23.909249
+   },
+   {
+    "text": "one",
+    "start": 24.346125,
+    "end": 24.576708
+   },
+   {
+    "text": "set",
+    "start": 24.588833,
+    "end": 24.807291
+   },
+   {
+    "text": "for",
+    "start": 24.819416,
+    "end": 24.965041
+   },
+   {
+    "text": "products",
+    "start": 24.977166,
+    "end": 25.438332
+   },
+   {
+    "text": "and",
+    "start": 25.462625,
+    "end": 25.74175
+   },
+   {
+    "text": "one",
+    "start": 25.766,
+    "end": 25.972291
+   },
+   {
+    "text": "for",
+    "start": 25.984458,
+    "end": 26.117958
+   },
+   {
+    "text": "versions",
+    "start": 26.130083,
+    "end": 26.761166
+   },
+   {
+    "text": "A",
+    "start": 27.113125,
+    "end": 27.307291
+   },
+   {
+    "text": "rate",
+    "start": 27.319416,
+    "end": 27.562124
+   },
+   {
+    "text": "that",
+    "start": 27.574291,
+    "end": 27.719916
+   },
+   {
+    "text": "meets",
+    "start": 27.732041,
+    "end": 27.974749
+   },
+   {
+    "text": "the",
+    "start": 27.986875,
+    "end": 28.083958
+   },
+   {
+    "text": "target",
+    "start": 28.096125,
+    "end": 28.50875
+   },
+   {
+    "text": "is",
+    "start": 28.520875,
+    "end": 28.630083
+   },
+   {
+    "text": "green",
+    "start": 28.64225,
+    "end": 29.054875
+   },
+   {
+    "text": "one",
+    "start": 29.49175,
+    "end": 29.685916
+   },
+   {
+    "text": "that",
+    "start": 29.698041,
+    "end": 29.880082
+   },
+   {
+    "text": "misses",
+    "start": 29.89225,
+    "end": 30.207791
+   },
+   {
+    "text": "it",
+    "start": 30.219916,
+    "end": 30.304874
+   },
+   {
+    "text": "is",
+    "start": 30.317,
+    "end": 30.438375
+   },
+   {
+    "text": "red",
+    "start": 30.4505,
+    "end": 30.74175
+   },
+   {
+    "text": "so",
+    "start": 31.117958,
+    "end": 31.227166
+   },
+   {
+    "text": "you",
+    "start": 31.239333,
+    "end": 31.299999
+   },
+   {
+    "text": "can",
+    "start": 31.312125,
+    "end": 31.482041
+   },
+   {
+    "text": "see",
+    "start": 31.494166,
+    "end": 31.664082
+   },
+   {
+    "text": "at",
+    "start": 31.676208,
+    "end": 31.785416
+   },
+   {
+    "text": "a",
+    "start": 31.797583,
+    "end": 31.8461239
+   },
+   {
+    "text": "glance",
+    "start": 31.85825,
+    "end": 32.295125
+   },
+   {
+    "text": "which",
+    "start": 32.307291,
+    "end": 32.537874
+   },
+   {
+    "text": "customer",
+    "start": 32.55,
+    "end": 33.047583
+   },
+   {
+    "text": "is",
+    "start": 33.059708,
+    "end": 33.205333
+   },
+   {
+    "text": "falling",
+    "start": 33.217458,
+    "end": 33.557249
+   },
+   {
+    "text": "behind",
+    "start": 33.569416,
+    "end": 34.139791
+   }
+  ],
+  "why": {
+   "t": "The big picture: how far from target",
+   "s": 0.1,
+   "e": 5.89,
+   "chars": 74
+  }
+ },
+ {
+  "id": "s6",
+  "text": "Update the planned number of network elements any time, and see right away what can be reached this year. Expand the rows to go down by customer, product line, and product; versions are grouped by product as well. Every item has a plan for this year. Click plus or minus, or type a number, and it cannot exceed the pending count. Next to it is a progress note to record where the follow-up stands. Every change instantly updates the projected rate of that item, that customer, and the whole table. The incorporation brief is recalculated too: how many more from the no-plan list would lift the projected rate, to what level, and how many percentage points remain to the target.",
+  "words": [
+   {
+    "text": "Update",
+    "start": 0.1,
+    "end": 0.512625
+   },
+   {
+    "text": "the",
+    "start": 0.52475,
+    "end": 0.609708
+   },
+   {
+    "text": "planned",
+    "start": 0.621833,
+    "end": 0.913083
+   },
+   {
+    "text": "number",
+    "start": 0.92525,
+    "end": 1.2165
+   },
+   {
+    "text": "of",
+    "start": 1.228625,
+    "end": 1.313583
+   },
+   {
+    "text": "network",
+    "start": 1.325708,
+    "end": 1.738333
+   },
+   {
+    "text": "elements",
+    "start": 1.77475,
+    "end": 2.1995
+   },
+   {
+    "text": "any",
+    "start": 2.345125,
+    "end": 2.527166
+   },
+   {
+    "text": "time",
+    "start": 2.539333,
+    "end": 2.915541
+   },
+   {
+    "text": "and",
+    "start": 3.328166,
+    "end": 3.498082
+   },
+   {
+    "text": "see",
+    "start": 3.510208,
+    "end": 3.789333
+   },
+   {
+    "text": "right",
+    "start": 3.801458,
+    "end": 3.971374
+   },
+   {
+    "text": "away",
+    "start": 3.9835,
+    "end": 4.286916
+   },
+   {
+    "text": "what",
+    "start": 4.299041,
+    "end": 4.468957
+   },
+   {
+    "text": "can",
+    "start": 4.481083,
+    "end": 4.614583
+   },
+   {
+    "text": "be",
+    "start": 4.626708,
+    "end": 4.748083
+   },
+   {
+    "text": "reached",
+    "start": 4.760208,
+    "end": 5.063624
+   },
+   {
+    "text": "this",
+    "start": 5.075708,
+    "end": 5.245624
+   },
+   {
+    "text": "year",
+    "start": 5.25775,
+    "end": 5.609708
+   },
+   {
+    "text": "Expand",
+    "start": 5.960208,
+    "end": 6.482041
+   },
+   {
+    "text": "the",
+    "start": 6.494166,
+    "end": 6.566999
+   },
+   {
+    "text": "rows",
+    "start": 6.579125,
+    "end": 6.821833
+   },
+   {
+    "text": "to",
+    "start": 6.834,
+    "end": 6.931083
+   },
+   {
+    "text": "go",
+    "start": 6.943208,
+    "end": 7.088833
+   },
+   {
+    "text": "down",
+    "start": 7.100958,
+    "end": 7.380083
+   },
+   {
+    "text": "by",
+    "start": 7.39225,
+    "end": 7.513625
+   },
+   {
+    "text": "customer",
+    "start": 7.525708,
+    "end": 8.108249
+   },
+   {
+    "text": "product",
+    "start": 8.387375,
+    "end": 8.8
+   },
+   {
+    "text": "line",
+    "start": 8.812125,
+    "end": 9.212625
+   },
+   {
+    "text": "and",
+    "start": 9.236875,
+    "end": 9.443166
+   },
+   {
+    "text": "product",
+    "start": 9.455333,
+    "end": 10.013583
+   },
+   {
+    "text": "versions",
+    "start": 10.426208,
+    "end": 10.850958
+   },
+   {
+    "text": "are",
+    "start": 10.863125,
+    "end": 11.033041
+   },
+   {
+    "text": "grouped",
+    "start": 11.045166,
+    "end": 11.409249
+   },
+   {
+    "text": "by",
+    "start": 11.421375,
+    "end": 11.579125
+   },
+   {
+    "text": "product",
+    "start": 11.59125,
+    "end": 12.113083
+   },
+   {
+    "text": "as",
+    "start": 12.12525,
+    "end": 12.234458
+   },
+   {
+    "text": "well",
+    "start": 12.246583,
+    "end": 12.598541
+   },
+   {
+    "text": "Every",
+    "start": 12.9505,
+    "end": 13.314583
+   },
+   {
+    "text": "item",
+    "start": 13.326708,
+    "end": 13.630124
+   },
+   {
+    "text": "has",
+    "start": 13.64225,
+    "end": 13.8
+   },
+   {
+    "text": "a",
+    "start": 13.812125,
+    "end": 13.884958
+   },
+   {
+    "text": "plan",
+    "start": 13.897083,
+    "end": 14.212624
+   },
+   {
+    "text": "for",
+    "start": 14.22475,
+    "end": 14.333958
+   },
+   {
+    "text": "this",
+    "start": 14.346125,
+    "end": 14.528166
+   },
+   {
+    "text": "year",
+    "start": 14.540291,
+    "end": 14.892249
+   },
+   {
+    "text": "Click",
+    "start": 15.244166,
+    "end": 15.535416
+   },
+   {
+    "text": "plus",
+    "start": 15.547583,
+    "end": 15.887374
+   },
+   {
+    "text": "or",
+    "start": 15.935916,
+    "end": 16.130082
+   },
+   {
+    "text": "minus",
+    "start": 16.14225,
+    "end": 16.724791
+   },
+   {
+    "text": "or",
+    "start": 16.809708,
+    "end": 17.088833
+   },
+   {
+    "text": "type",
+    "start": 17.100958,
+    "end": 17.319416
+   },
+   {
+    "text": "a",
+    "start": 17.331541,
+    "end": 17.3679569
+   },
+   {
+    "text": "number",
+    "start": 17.380083,
+    "end": 17.829124
+   },
+   {
+    "text": "and",
+    "start": 18.132541,
+    "end": 18.266041
+   },
+   {
+    "text": "it",
+    "start": 18.290291,
+    "end": 18.387374
+   },
+   {
+    "text": "cannot",
+    "start": 18.3995,
+    "end": 18.848541
+   },
+   {
+    "text": "exceed",
+    "start": 18.860666,
+    "end": 19.261166
+   },
+   {
+    "text": "the",
+    "start": 19.273291,
+    "end": 19.358249
+   },
+   {
+    "text": "pending",
+    "start": 19.370375,
+    "end": 19.673791
+   },
+   {
+    "text": "count",
+    "start": 19.685916,
+    "end": 20.062124
+   },
+   {
+    "text": "Next",
+    "start": 20.414083,
+    "end": 20.729624
+   },
+   {
+    "text": "to",
+    "start": 20.74175,
+    "end": 20.838833
+   },
+   {
+    "text": "it",
+    "start": 20.850958,
+    "end": 21.008708
+   },
+   {
+    "text": "is",
+    "start": 21.117958,
+    "end": 21.215041
+   },
+   {
+    "text": "a",
+    "start": 21.227166,
+    "end": 21.299999
+   },
+   {
+    "text": "progress",
+    "start": 21.312125,
+    "end": 21.833958
+   },
+   {
+    "text": "note",
+    "start": 21.846125,
+    "end": 22.064583
+   },
+   {
+    "text": "to",
+    "start": 22.076708,
+    "end": 22.198083
+   },
+   {
+    "text": "record",
+    "start": 22.210208,
+    "end": 22.659249
+   },
+   {
+    "text": "where",
+    "start": 22.671375,
+    "end": 22.829125
+   },
+   {
+    "text": "the",
+    "start": 22.84125,
+    "end": 22.950458
+   },
+   {
+    "text": "follow-up",
+    "start": 22.962625,
+    "end": 23.460208
+   },
+   {
+    "text": "stands",
+    "start": 23.472333,
+    "end": 24.103416
+   },
+   {
+    "text": "Every",
+    "start": 24.455333,
+    "end": 24.795124
+   },
+   {
+    "text": "change",
+    "start": 24.807291,
+    "end": 25.159249
+   },
+   {
+    "text": "instantly",
+    "start": 25.244166,
+    "end": 25.729582
+   },
+   {
+    "text": "updates",
+    "start": 25.74175,
+    "end": 26.202916
+   },
+   {
+    "text": "the",
+    "start": 26.215041,
+    "end": 26.324249
+   },
+   {
+    "text": "projected",
+    "start": 26.336416,
+    "end": 26.821832
+   },
+   {
+    "text": "rate",
+    "start": 26.834,
+    "end": 27.028166
+   },
+   {
+    "text": "of",
+    "start": 27.040291,
+    "end": 27.113124
+   },
+   {
+    "text": "that",
+    "start": 27.12525,
+    "end": 27.283
+   },
+   {
+    "text": "item",
+    "start": 27.295166,
+    "end": 27.634957
+   },
+   {
+    "text": "that",
+    "start": 27.938333,
+    "end": 28.120374
+   },
+   {
+    "text": "customer",
+    "start": 28.132541,
+    "end": 28.775749
+   },
+   {
+    "text": "and",
+    "start": 28.848541,
+    "end": 28.994166
+   },
+   {
+    "text": "the",
+    "start": 29.030583,
+    "end": 29.103416
+   },
+   {
+    "text": "whole",
+    "start": 29.115541,
+    "end": 29.346124
+   },
+   {
+    "text": "table",
+    "start": 29.35825,
+    "end": 29.843666
+   },
+   {
+    "text": "The",
+    "start": 30.195625,
+    "end": 30.34125
+   },
+   {
+    "text": "incorporation",
+    "start": 30.353416,
+    "end": 31.142249
+   },
+   {
+    "text": "brief",
+    "start": 31.154375,
+    "end": 31.506333
+   },
+   {
+    "text": "is",
+    "start": 31.59125,
+    "end": 31.761166
+   },
+   {
+    "text": "recalculated",
+    "start": 31.773291,
+    "end": 32.549999
+   },
+   {
+    "text": "too",
+    "start": 32.562125,
+    "end": 32.889791
+   },
+   {
+    "text": "how",
+    "start": 33.363125,
+    "end": 33.4845
+   },
+   {
+    "text": "many",
+    "start": 33.496583,
+    "end": 33.751458
+   },
+   {
+    "text": "more",
+    "start": 33.763583,
+    "end": 34.042708
+   },
+   {
+    "text": "from",
+    "start": 34.054875,
+    "end": 34.224791
+   },
+   {
+    "text": "the",
+    "start": 34.236875,
+    "end": 34.321833
+   },
+   {
+    "text": "no-plan",
+    "start": 34.334,
+    "end": 34.819416
+   },
+   {
+    "text": "list",
+    "start": 34.831541,
+    "end": 35.159207
+   },
+   {
+    "text": "would",
+    "start": 35.171375,
+    "end": 35.365541
+   },
+   {
+    "text": "lift",
+    "start": 35.377666,
+    "end": 35.656791
+   },
+   {
+    "text": "the",
+    "start": 35.668916,
+    "end": 35.753874
+   },
+   {
+    "text": "projected",
+    "start": 35.766,
+    "end": 36.215041
+   },
+   {
+    "text": "rate",
+    "start": 36.227166,
+    "end": 36.542707
+   },
+   {
+    "text": "to",
+    "start": 36.918916,
+    "end": 37.015999
+   },
+   {
+    "text": "what",
+    "start": 37.028166,
+    "end": 37.210207
+   },
+   {
+    "text": "level",
+    "start": 37.222333,
+    "end": 37.647083
+   },
+   {
+    "text": "and",
+    "start": 37.97475,
+    "end": 38.229625
+   },
+   {
+    "text": "how",
+    "start": 38.472333,
+    "end": 38.630083
+   },
+   {
+    "text": "many",
+    "start": 38.64225,
+    "end": 38.872833
+   },
+   {
+    "text": "percentage",
+    "start": 38.884958,
+    "end": 39.418958
+   },
+   {
+    "text": "points",
+    "start": 39.431083,
+    "end": 39.807291
+   },
+   {
+    "text": "remain",
+    "start": 39.819416,
+    "end": 40.207749
+   },
+   {
+    "text": "to",
+    "start": 40.219916,
+    "end": 40.316999
+   },
+   {
+    "text": "the",
+    "start": 40.329125,
+    "end": 40.414083
+   },
+   {
+    "text": "target",
+    "start": 40.426208,
+    "end": 40.972333
+   }
+  ],
+  "why": {
+   "t": "Change a plan, see the yearly forecast",
+   "s": 0.1,
+   "e": 5.61,
+   "chars": 85
+  }
+ },
+ {
+  "id": "s7",
+  "text": "The no-plan items are the ones that need a push. The rightmost column of the summary table lists, for each customer, the products or versions with the most no-plan units, that is the Top N, and you can set N to any number on the page. Sort by quantity from high to low, or by rate from low to high. With this list, it is clear at a glance which customer, product, or version still has no plan, so you can take it to the neighboring teams and push incorporation forward together. Tables can be collapsed or shown full screen, and exported straight to Excel.",
+  "words": [
+   {
+    "text": "The",
+    "start": 0.1,
+    "end": 0.2335
+   },
+   {
+    "text": "no-plan",
+    "start": 0.245625,
+    "end": 0.743208
+   },
+   {
+    "text": "items",
+    "start": 0.755333,
+    "end": 1.107291
+   },
+   {
+    "text": "are",
+    "start": 1.119416,
+    "end": 1.277166
+   },
+   {
+    "text": "the",
+    "start": 1.289333,
+    "end": 1.386416
+   },
+   {
+    "text": "ones",
+    "start": 1.398541,
+    "end": 1.677666
+   },
+   {
+    "text": "that",
+    "start": 1.689791,
+    "end": 1.835416
+   },
+   {
+    "text": "need",
+    "start": 1.847583,
+    "end": 2.005333
+   },
+   {
+    "text": "a",
+    "start": 2.017458,
+    "end": 2.078124
+   },
+   {
+    "text": "push",
+    "start": 2.090291,
+    "end": 2.539332
+   },
+   {
+    "text": "The",
+    "start": 2.889791,
+    "end": 3.071832
+   },
+   {
+    "text": "rightmost",
+    "start": 3.084,
+    "end": 3.569416
+   },
+   {
+    "text": "column",
+    "start": 3.581541,
+    "end": 3.921332
+   },
+   {
+    "text": "of",
+    "start": 3.9335,
+    "end": 4.018458
+   },
+   {
+    "text": "the",
+    "start": 4.030583,
+    "end": 4.115541
+   },
+   {
+    "text": "summary",
+    "start": 4.127666,
+    "end": 4.503874
+   },
+   {
+    "text": "table",
+    "start": 4.516,
+    "end": 4.819416
+   },
+   {
+    "text": "lists",
+    "start": 4.831541,
+    "end": 5.207749
+   },
+   {
+    "text": "for",
+    "start": 5.426208,
+    "end": 5.559708
+   },
+   {
+    "text": "each",
+    "start": 5.60825,
+    "end": 5.826708
+   },
+   {
+    "text": "customer",
+    "start": 5.838833,
+    "end": 6.397083
+   },
+   {
+    "text": "the",
+    "start": 6.7005,
+    "end": 6.785458
+   },
+   {
+    "text": "products",
+    "start": 6.797583,
+    "end": 7.246624
+   },
+   {
+    "text": "or",
+    "start": 7.25875,
+    "end": 7.477208
+   },
+   {
+    "text": "versions",
+    "start": 7.489333,
+    "end": 7.962624
+   },
+   {
+    "text": "with",
+    "start": 7.97475,
+    "end": 8.083958
+   },
+   {
+    "text": "the",
+    "start": 8.096125,
+    "end": 8.168958
+   },
+   {
+    "text": "most",
+    "start": 8.181083,
+    "end": 8.472333
+   },
+   {
+    "text": "no-plan",
+    "start": 8.484458,
+    "end": 8.945624
+   },
+   {
+    "text": "units",
+    "start": 8.95775,
+    "end": 9.35825
+   },
+   {
+    "text": "that",
+    "start": 9.710208,
+    "end": 9.892249
+   },
+   {
+    "text": "is",
+    "start": 9.904375,
+    "end": 9.989333
+   },
+   {
+    "text": "the",
+    "start": 10.001458,
+    "end": 10.086416
+   },
+   {
+    "text": "Top",
+    "start": 10.098541,
+    "end": 10.377666
+   },
+   {
+    "text": "N",
+    "start": 10.414083,
+    "end": 10.681083
+   },
+   {
+    "text": "and",
+    "start": 11.020875,
+    "end": 11.178625
+   },
+   {
+    "text": "you",
+    "start": 11.190791,
+    "end": 11.251457
+   },
+   {
+    "text": "can",
+    "start": 11.263583,
+    "end": 11.421333
+   },
+   {
+    "text": "set",
+    "start": 11.4335,
+    "end": 11.664083
+   },
+   {
+    "text": "N",
+    "start": 11.773291,
+    "end": 11.967457
+   },
+   {
+    "text": "to",
+    "start": 11.979625,
+    "end": 12.088833
+   },
+   {
+    "text": "any",
+    "start": 12.100958,
+    "end": 12.331541
+   },
+   {
+    "text": "number",
+    "start": 12.343708,
+    "end": 12.610708
+   },
+   {
+    "text": "on",
+    "start": 12.622833,
+    "end": 12.732041
+   },
+   {
+    "text": "the",
+    "start": 12.744166,
+    "end": 12.829124
+   },
+   {
+    "text": "page",
+    "start": 12.84125,
+    "end": 13.278125
+   },
+   {
+    "text": "Sort",
+    "start": 13.630083,
+    "end": 13.969874
+   },
+   {
+    "text": "by",
+    "start": 13.982041,
+    "end": 14.115541
+   },
+   {
+    "text": "quantity",
+    "start": 14.127666,
+    "end": 14.564541
+   },
+   {
+    "text": "from",
+    "start": 14.576708,
+    "end": 14.734458
+   },
+   {
+    "text": "high",
+    "start": 14.746583,
+    "end": 14.904333
+   },
+   {
+    "text": "to",
+    "start": 14.9165,
+    "end": 15.037875
+   },
+   {
+    "text": "low",
+    "start": 15.05,
+    "end": 15.401958
+   },
+   {
+    "text": "or",
+    "start": 15.462625,
+    "end": 15.778166
+   },
+   {
+    "text": "by",
+    "start": 15.790291,
+    "end": 15.972332
+   },
+   {
+    "text": "rate",
+    "start": 15.984458,
+    "end": 16.263583
+   },
+   {
+    "text": "from",
+    "start": 16.275708,
+    "end": 16.481999
+   },
+   {
+    "text": "low",
+    "start": 16.494166,
+    "end": 16.627666
+   },
+   {
+    "text": "to",
+    "start": 16.639791,
+    "end": 16.736874
+   },
+   {
+    "text": "high",
+    "start": 16.749041,
+    "end": 17.125249
+   },
+   {
+    "text": "With",
+    "start": 17.477166,
+    "end": 17.671332
+   },
+   {
+    "text": "this",
+    "start": 17.6835,
+    "end": 17.865541
+   },
+   {
+    "text": "list",
+    "start": 17.877666,
+    "end": 18.253874
+   },
+   {
+    "text": "it",
+    "start": 18.545166,
+    "end": 18.605832
+   },
+   {
+    "text": "is",
+    "start": 18.617958,
+    "end": 18.763583
+   },
+   {
+    "text": "clear",
+    "start": 18.775708,
+    "end": 19.091249
+   },
+   {
+    "text": "at",
+    "start": 19.103416,
+    "end": 19.200499
+   },
+   {
+    "text": "a",
+    "start": 19.212625,
+    "end": 19.273291
+   },
+   {
+    "text": "glance",
+    "start": 19.285416,
+    "end": 19.710166
+   },
+   {
+    "text": "which",
+    "start": 19.722333,
+    "end": 19.928624
+   },
+   {
+    "text": "customer",
+    "start": 19.940791,
+    "end": 20.535457
+   },
+   {
+    "text": "product",
+    "start": 20.778166,
+    "end": 21.287874
+   },
+   {
+    "text": "or",
+    "start": 21.445625,
+    "end": 21.651916
+   },
+   {
+    "text": "version",
+    "start": 21.664083,
+    "end": 22.113124
+   },
+   {
+    "text": "still",
+    "start": 22.12525,
+    "end": 22.4165
+   },
+   {
+    "text": "has",
+    "start": 22.428625,
+    "end": 22.659208
+   },
+   {
+    "text": "no",
+    "start": 22.671375,
+    "end": 22.877666
+   },
+   {
+    "text": "plan",
+    "start": 22.889791,
+    "end": 23.363082
+   },
+   {
+    "text": "so",
+    "start": 23.763583,
+    "end": 23.884958
+   },
+   {
+    "text": "you",
+    "start": 23.897083,
+    "end": 23.969916
+   },
+   {
+    "text": "can",
+    "start": 23.982041,
+    "end": 24.115541
+   },
+   {
+    "text": "take",
+    "start": 24.127666,
+    "end": 24.309707
+   },
+   {
+    "text": "it",
+    "start": 24.321833,
+    "end": 24.431041
+   },
+   {
+    "text": "to",
+    "start": 24.443208,
+    "end": 24.540291
+   },
+   {
+    "text": "the",
+    "start": 24.552416,
+    "end": 24.637374
+   },
+   {
+    "text": "neighboring",
+    "start": 24.6495,
+    "end": 25.062125
+   },
+   {
+    "text": "teams",
+    "start": 25.074291,
+    "end": 25.486916
+   },
+   {
+    "text": "and",
+    "start": 25.499041,
+    "end": 25.753916
+   },
+   {
+    "text": "push",
+    "start": 25.766,
+    "end": 26.033
+   },
+   {
+    "text": "incorporation",
+    "start": 26.045166,
+    "end": 26.846124
+   },
+   {
+    "text": "forward",
+    "start": 26.85825,
+    "end": 27.198041
+   },
+   {
+    "text": "together",
+    "start": 27.210208,
+    "end": 27.719916
+   },
+   {
+    "text": "Tables",
+    "start": 28.071833,
+    "end": 28.496583
+   },
+   {
+    "text": "can",
+    "start": 28.50875,
+    "end": 28.654375
+   },
+   {
+    "text": "be",
+    "start": 28.6665,
+    "end": 28.763583
+   },
+   {
+    "text": "collapsed",
+    "start": 28.775708,
+    "end": 29.431041
+   },
+   {
+    "text": "or",
+    "start": 29.49175,
+    "end": 29.734458
+   },
+   {
+    "text": "shown",
+    "start": 29.746583,
+    "end": 30.086374
+   },
+   {
+    "text": "full",
+    "start": 30.098541,
+    "end": 30.304832
+   },
+   {
+    "text": "screen",
+    "start": 30.317,
+    "end": 30.766041
+   },
+   {
+    "text": "and",
+    "start": 31.081541,
+    "end": 31.275707
+   },
+   {
+    "text": "exported",
+    "start": 31.287875,
+    "end": 31.882541
+   },
+   {
+    "text": "straight",
+    "start": 31.894666,
+    "end": 32.198082
+   },
+   {
+    "text": "to",
+    "start": 32.210208,
+    "end": 32.319416
+   },
+   {
+    "text": "Excel",
+    "start": 32.331541,
+    "end": 32.816957
+   }
+  ],
+  "why": null
+ },
+ {
+  "id": "s8",
+  "text": "Step four: export, then import into the platform. The plans, targets, and notes you entered must come back to the platform before the report can be generated. Click Export JSON. The panel saves all the captured data, together with the targets, planned numbers, and notes you entered, into one file. Back on the platform's Data Capture page, open the Floating Panel Script window again, and this time click Simulate Panel next to NetCare China, then click Import JSON. It works offline and never calls the live site. After import it enters review mode and is archived to the server automatically. The page shows Archived, so you can look back month by month.",
+  "words": [
+   {
+    "text": "Step",
+    "start": 0.1,
+    "end": 0.476208
+   },
+   {
+    "text": "four",
+    "start": 0.488333,
+    "end": 0.840291
+   },
+   {
+    "text": "export",
+    "start": 1.19225,
+    "end": 1.774791
+   },
+   {
+    "text": "then",
+    "start": 2.04175,
+    "end": 2.187375
+   },
+   {
+    "text": "import",
+    "start": 2.1995,
+    "end": 2.587833
+   },
+   {
+    "text": "into",
+    "start": 2.6,
+    "end": 2.794166
+   },
+   {
+    "text": "the",
+    "start": 2.806291,
+    "end": 2.903374
+   },
+   {
+    "text": "platform",
+    "start": 2.915541,
+    "end": 3.570874
+   },
+   {
+    "text": "The",
+    "start": 3.921375,
+    "end": 4.079125
+   },
+   {
+    "text": "plans",
+    "start": 4.09125,
+    "end": 4.600958
+   },
+   {
+    "text": "targets",
+    "start": 4.6495,
+    "end": 5.110666
+   },
+   {
+    "text": "and",
+    "start": 5.134958,
+    "end": 5.389833
+   },
+   {
+    "text": "notes",
+    "start": 5.401958,
+    "end": 5.668958
+   },
+   {
+    "text": "you",
+    "start": 5.681083,
+    "end": 5.778166
+   },
+   {
+    "text": "entered",
+    "start": 5.790291,
+    "end": 6.178624
+   },
+   {
+    "text": "must",
+    "start": 6.190791,
+    "end": 6.494207
+   },
+   {
+    "text": "come",
+    "start": 6.506291,
+    "end": 6.664041
+   },
+   {
+    "text": "back",
+    "start": 6.676208,
+    "end": 6.906791
+   },
+   {
+    "text": "to",
+    "start": 6.918916,
+    "end": 6.991749
+   },
+   {
+    "text": "the",
+    "start": 7.003875,
+    "end": 7.100958
+   },
+   {
+    "text": "platform",
+    "start": 7.113125,
+    "end": 7.719916
+   },
+   {
+    "text": "before",
+    "start": 7.744166,
+    "end": 8.059707
+   },
+   {
+    "text": "the",
+    "start": 8.071833,
+    "end": 8.144666
+   },
+   {
+    "text": "report",
+    "start": 8.156791,
+    "end": 8.642207
+   },
+   {
+    "text": "can",
+    "start": 8.654375,
+    "end": 8.836416
+   },
+   {
+    "text": "be",
+    "start": 8.848541,
+    "end": 8.945624
+   },
+   {
+    "text": "generated",
+    "start": 8.95775,
+    "end": 9.625208
+   },
+   {
+    "text": "Click",
+    "start": 9.977166,
+    "end": 10.256291
+   },
+   {
+    "text": "Export",
+    "start": 10.292708,
+    "end": 10.741749
+   },
+   {
+    "text": "JSON",
+    "start": 10.753875,
+    "end": 11.397083
+   },
+   {
+    "text": "The",
+    "start": 11.749041,
+    "end": 11.918957
+   },
+   {
+    "text": "panel",
+    "start": 11.931083,
+    "end": 12.307291
+   },
+   {
+    "text": "saves",
+    "start": 12.319416,
+    "end": 12.792707
+   },
+   {
+    "text": "all",
+    "start": 12.877666,
+    "end": 13.047582
+   },
+   {
+    "text": "the",
+    "start": 13.059708,
+    "end": 13.156791
+   },
+   {
+    "text": "captured",
+    "start": 13.168916,
+    "end": 13.617957
+   },
+   {
+    "text": "data",
+    "start": 13.630083,
+    "end": 13.969874
+   },
+   {
+    "text": "together",
+    "start": 14.346125,
+    "end": 14.783
+   },
+   {
+    "text": "with",
+    "start": 14.795166,
+    "end": 14.892249
+   },
+   {
+    "text": "the",
+    "start": 14.904375,
+    "end": 14.989333
+   },
+   {
+    "text": "targets",
+    "start": 15.001458,
+    "end": 15.583999
+   },
+   {
+    "text": "planned",
+    "start": 15.863125,
+    "end": 16.154375
+   },
+   {
+    "text": "numbers",
+    "start": 16.1665,
+    "end": 16.676208
+   },
+   {
+    "text": "and",
+    "start": 16.712625,
+    "end": 16.931083
+   },
+   {
+    "text": "notes",
+    "start": 16.955333,
+    "end": 17.246583
+   },
+   {
+    "text": "you",
+    "start": 17.25875,
+    "end": 17.355833
+   },
+   {
+    "text": "entered",
+    "start": 17.367958,
+    "end": 17.792708
+   },
+   {
+    "text": "into",
+    "start": 17.962625,
+    "end": 18.2175
+   },
+   {
+    "text": "one",
+    "start": 18.229625,
+    "end": 18.448083
+   },
+   {
+    "text": "file",
+    "start": 18.460208,
+    "end": 18.957791
+   },
+   {
+    "text": "Back",
+    "start": 19.309708,
+    "end": 19.625249
+   },
+   {
+    "text": "on",
+    "start": 19.637375,
+    "end": 19.722333
+   },
+   {
+    "text": "the",
+    "start": 19.734458,
+    "end": 19.819416
+   },
+   {
+    "text": "platform's",
+    "start": 19.831541,
+    "end": 20.474749
+   },
+   {
+    "text": "Data",
+    "start": 20.486875,
+    "end": 20.766
+   },
+   {
+    "text": "Capture",
+    "start": 20.778166,
+    "end": 21.166499
+   },
+   {
+    "text": "page",
+    "start": 21.178625,
+    "end": 21.530583
+   },
+   {
+    "text": "open",
+    "start": 21.967458,
+    "end": 22.173749
+   },
+   {
+    "text": "the",
+    "start": 22.185916,
+    "end": 22.270874
+   },
+   {
+    "text": "Floating",
+    "start": 22.283,
+    "end": 22.70775
+   },
+   {
+    "text": "Panel",
+    "start": 22.719916,
+    "end": 23.047582
+   },
+   {
+    "text": "Script",
+    "start": 23.059708,
+    "end": 23.338833
+   },
+   {
+    "text": "window",
+    "start": 23.350958,
+    "end": 23.593666
+   },
+   {
+    "text": "again",
+    "start": 23.605833,
+    "end": 23.994166
+   },
+   {
+    "text": "and",
+    "start": 24.370375,
+    "end": 24.516
+   },
+   {
+    "text": "this",
+    "start": 24.540291,
+    "end": 24.722332
+   },
+   {
+    "text": "time",
+    "start": 24.734458,
+    "end": 25.062124
+   },
+   {
+    "text": "click",
+    "start": 25.074291,
+    "end": 25.353416
+   },
+   {
+    "text": "Simulate",
+    "start": 25.365541,
+    "end": 25.875249
+   },
+   {
+    "text": "Panel",
+    "start": 25.887375,
+    "end": 26.215041
+   },
+   {
+    "text": "next",
+    "start": 26.227166,
+    "end": 26.579124
+   },
+   {
+    "text": "to",
+    "start": 26.59125,
+    "end": 26.700458
+   },
+   {
+    "text": "NetCare",
+    "start": 26.712625,
+    "end": 27.185916
+   },
+   {
+    "text": "China",
+    "start": 27.198041,
+    "end": 27.598541
+   },
+   {
+    "text": "then",
+    "start": 28.023291,
+    "end": 28.241749
+   },
+   {
+    "text": "click",
+    "start": 28.253875,
+    "end": 28.50875
+   },
+   {
+    "text": "Import",
+    "start": 28.520875,
+    "end": 28.9335
+   },
+   {
+    "text": "JSON",
+    "start": 28.945625,
+    "end": 29.564541
+   },
+   {
+    "text": "It",
+    "start": 29.9165,
+    "end": 30.086416
+   },
+   {
+    "text": "works",
+    "start": 30.098541,
+    "end": 30.365541
+   },
+   {
+    "text": "offline",
+    "start": 30.377666,
+    "end": 30.972332
+   },
+   {
+    "text": "and",
+    "start": 30.996583,
+    "end": 31.154333
+   },
+   {
+    "text": "never",
+    "start": 31.178625,
+    "end": 31.482041
+   },
+   {
+    "text": "calls",
+    "start": 31.494166,
+    "end": 31.736874
+   },
+   {
+    "text": "the",
+    "start": 31.749041,
+    "end": 31.846124
+   },
+   {
+    "text": "live",
+    "start": 31.85825,
+    "end": 32.12525
+   },
+   {
+    "text": "site",
+    "start": 32.137375,
+    "end": 32.465041
+   },
+   {
+    "text": "After",
+    "start": 32.817,
+    "end": 33.205333
+   },
+   {
+    "text": "import",
+    "start": 33.217458,
+    "end": 33.642208
+   },
+   {
+    "text": "it",
+    "start": 33.6665,
+    "end": 33.775708
+   },
+   {
+    "text": "enters",
+    "start": 33.787875,
+    "end": 34.151958
+   },
+   {
+    "text": "review",
+    "start": 34.164083,
+    "end": 34.431083
+   },
+   {
+    "text": "mode",
+    "start": 34.443208,
+    "end": 34.758749
+   },
+   {
+    "text": "and",
+    "start": 34.867958,
+    "end": 35.049999
+   },
+   {
+    "text": "is",
+    "start": 35.062125,
+    "end": 35.171333
+   },
+   {
+    "text": "archived",
+    "start": 35.1835,
+    "end": 35.778166
+   },
+   {
+    "text": "to",
+    "start": 35.790291,
+    "end": 35.850957
+   },
+   {
+    "text": "the",
+    "start": 35.863125,
+    "end": 35.960208
+   },
+   {
+    "text": "server",
+    "start": 35.972333,
+    "end": 36.397083
+   },
+   {
+    "text": "automatically",
+    "start": 36.409208,
+    "end": 37.137374
+   },
+   {
+    "text": "The",
+    "start": 37.489333,
+    "end": 37.659249
+   },
+   {
+    "text": "page",
+    "start": 37.671375,
+    "end": 37.986916
+   },
+   {
+    "text": "shows",
+    "start": 37.999041,
+    "end": 38.290291
+   },
+   {
+    "text": "Archived",
+    "start": 38.302416,
+    "end": 38.921332
+   },
+   {
+    "text": "so",
+    "start": 39.2005,
+    "end": 39.334
+   },
+   {
+    "text": "you",
+    "start": 39.346125,
+    "end": 39.418958
+   },
+   {
+    "text": "can",
+    "start": 39.431083,
+    "end": 39.564583
+   },
+   {
+    "text": "look",
+    "start": 39.576708,
+    "end": 39.746624
+   },
+   {
+    "text": "back",
+    "start": 39.75875,
+    "end": 39.977208
+   },
+   {
+    "text": "month",
+    "start": 39.989333,
+    "end": 40.232041
+   },
+   {
+    "text": "by",
+    "start": 40.244166,
+    "end": 40.377666
+   },
+   {
+    "text": "month",
+    "start": 40.389791,
+    "end": 40.814541
+   }
+  ],
+  "why": {
+   "t": "Bring the data back to auto-write the report",
+   "s": 3.92,
+   "e": 9.63,
+   "chars": 126
+  }
+ },
+ {
+  "id": "s9",
+  "text": "Step five: generate the monthly report in one click. Once imported, the monthly report is one click away. Open the Topic Analysis page. At the top is the snapshot overview: total snapshots, how many batches NetCare and DataFab have archived, and the latest data time. Below is the report area. The report topic defaults to EOS incorporation, and you can switch to certificates, changes, high-risk interception, SR, and other topics. Choose the report month and the report is generated immediately. Each month uses the last snapshot imported for that month, and the planned numbers and targets come from the settings saved in that snapshot, so later edits never change past reports.",
+  "words": [
+   {
+    "text": "Step",
+    "start": 0.1,
+    "end": 0.512625
+   },
+   {
+    "text": "five",
+    "start": 0.52475,
+    "end": 1.022333
+   },
+   {
+    "text": "generate",
+    "start": 1.289333,
+    "end": 1.786916
+   },
+   {
+    "text": "the",
+    "start": 1.799041,
+    "end": 1.883999
+   },
+   {
+    "text": "monthly",
+    "start": 1.896125,
+    "end": 2.30875
+   },
+   {
+    "text": "report",
+    "start": 2.320875,
+    "end": 2.794166
+   },
+   {
+    "text": "in",
+    "start": 2.818458,
+    "end": 3.024749
+   },
+   {
+    "text": "one",
+    "start": 3.036875,
+    "end": 3.218916
+   },
+   {
+    "text": "click",
+    "start": 3.231083,
+    "end": 3.643708
+   },
+   {
+    "text": "Once",
+    "start": 3.994166,
+    "end": 4.333957
+   },
+   {
+    "text": "imported",
+    "start": 4.346125,
+    "end": 4.9165
+   },
+   {
+    "text": "the",
+    "start": 5.280583,
+    "end": 5.389791
+   },
+   {
+    "text": "monthly",
+    "start": 5.401958,
+    "end": 5.838833
+   },
+   {
+    "text": "report",
+    "start": 5.850958,
+    "end": 6.324249
+   },
+   {
+    "text": "is",
+    "start": 6.4335,
+    "end": 6.59125
+   },
+   {
+    "text": "one",
+    "start": 6.603416,
+    "end": 6.882541
+   },
+   {
+    "text": "click",
+    "start": 6.894666,
+    "end": 7.125249
+   },
+   {
+    "text": "away",
+    "start": 7.137375,
+    "end": 7.562125
+   },
+   {
+    "text": "Open",
+    "start": 7.914083,
+    "end": 8.241749
+   },
+   {
+    "text": "the",
+    "start": 8.253875,
+    "end": 8.326708
+   },
+   {
+    "text": "Topic",
+    "start": 8.338833,
+    "end": 8.702916
+   },
+   {
+    "text": "Analysis",
+    "start": 8.715041,
+    "end": 9.249041
+   },
+   {
+    "text": "page",
+    "start": 9.261166,
+    "end": 9.710207
+   },
+   {
+    "text": "At",
+    "start": 10.062125,
+    "end": 10.244166
+   },
+   {
+    "text": "the",
+    "start": 10.256291,
+    "end": 10.341249
+   },
+   {
+    "text": "top",
+    "start": 10.353416,
+    "end": 10.693207
+   },
+   {
+    "text": "is",
+    "start": 10.729625,
+    "end": 10.851
+   },
+   {
+    "text": "the",
+    "start": 10.863125,
+    "end": 10.960208
+   },
+   {
+    "text": "snapshot",
+    "start": 10.972333,
+    "end": 11.615541
+   },
+   {
+    "text": "overview",
+    "start": 11.627666,
+    "end": 12.088832
+   },
+   {
+    "text": "total",
+    "start": 12.513583,
+    "end": 12.816999
+   },
+   {
+    "text": "snapshots",
+    "start": 12.829125,
+    "end": 13.533
+   },
+   {
+    "text": "how",
+    "start": 13.812125,
+    "end": 13.9335
+   },
+   {
+    "text": "many",
+    "start": 13.945625,
+    "end": 14.176208
+   },
+   {
+    "text": "batches",
+    "start": 14.188333,
+    "end": 14.649499
+   },
+   {
+    "text": "NetCare",
+    "start": 14.661666,
+    "end": 15.268457
+   },
+   {
+    "text": "and",
+    "start": 15.280583,
+    "end": 15.426208
+   },
+   {
+    "text": "DataFab",
+    "start": 15.584,
+    "end": 16.130125
+   },
+   {
+    "text": "have",
+    "start": 16.14225,
+    "end": 16.287875
+   },
+   {
+    "text": "archived",
+    "start": 16.312125,
+    "end": 16.918916
+   },
+   {
+    "text": "and",
+    "start": 17.173791,
+    "end": 17.355832
+   },
+   {
+    "text": "the",
+    "start": 17.367958,
+    "end": 17.501458
+   },
+   {
+    "text": "latest",
+    "start": 17.513583,
+    "end": 17.926208
+   },
+   {
+    "text": "data",
+    "start": 17.938333,
+    "end": 18.181041
+   },
+   {
+    "text": "time",
+    "start": 18.193208,
+    "end": 18.593708
+   },
+   {
+    "text": "Below",
+    "start": 18.945625,
+    "end": 19.443208
+   },
+   {
+    "text": "is",
+    "start": 19.455333,
+    "end": 19.625249
+   },
+   {
+    "text": "the",
+    "start": 19.637375,
+    "end": 19.722333
+   },
+   {
+    "text": "report",
+    "start": 19.734458,
+    "end": 20.110666
+   },
+   {
+    "text": "area",
+    "start": 20.134958,
+    "end": 20.583999
+   },
+   {
+    "text": "The",
+    "start": 20.935916,
+    "end": 21.093666
+   },
+   {
+    "text": "report",
+    "start": 21.105833,
+    "end": 21.457791
+   },
+   {
+    "text": "topic",
+    "start": 21.469916,
+    "end": 21.809707
+   },
+   {
+    "text": "defaults",
+    "start": 21.821833,
+    "end": 22.222333
+   },
+   {
+    "text": "to",
+    "start": 22.234458,
+    "end": 22.355833
+   },
+   {
+    "text": "EOS",
+    "start": 22.380083,
+    "end": 22.804833
+   },
+   {
+    "text": "incorporation",
+    "start": 22.817,
+    "end": 23.654375
+   },
+   {
+    "text": "and",
+    "start": 24.030583,
+    "end": 24.188333
+   },
+   {
+    "text": "you",
+    "start": 24.212625,
+    "end": 24.285458
+   },
+   {
+    "text": "can",
+    "start": 24.297583,
+    "end": 24.431083
+   },
+   {
+    "text": "switch",
+    "start": 24.443208,
+    "end": 24.758749
+   },
+   {
+    "text": "to",
+    "start": 24.770875,
+    "end": 24.880083
+   },
+   {
+    "text": "certificates",
+    "start": 24.89225,
+    "end": 25.60825
+   },
+   {
+    "text": "changes",
+    "start": 25.8995,
+    "end": 26.421333
+   },
+   {
+    "text": "high-risk",
+    "start": 26.736875,
+    "end": 27.198041
+   },
+   {
+    "text": "interception",
+    "start": 27.210208,
+    "end": 27.950499
+   },
+   {
+    "text": "SR",
+    "start": 28.193208,
+    "end": 28.775749
+   },
+   {
+    "text": "and",
+    "start": 28.824291,
+    "end": 29.054874
+   },
+   {
+    "text": "other",
+    "start": 29.2005,
+    "end": 29.382541
+   },
+   {
+    "text": "topics",
+    "start": 29.394666,
+    "end": 30.013582
+   },
+   {
+    "text": "Choose",
+    "start": 30.365541,
+    "end": 30.705332
+   },
+   {
+    "text": "the",
+    "start": 30.717458,
+    "end": 30.814541
+   },
+   {
+    "text": "report",
+    "start": 30.826708,
+    "end": 31.202916
+   },
+   {
+    "text": "month",
+    "start": 31.215041,
+    "end": 31.494166
+   },
+   {
+    "text": "and",
+    "start": 31.518458,
+    "end": 31.651958
+   },
+   {
+    "text": "the",
+    "start": 31.664083,
+    "end": 31.736916
+   },
+   {
+    "text": "report",
+    "start": 31.749041,
+    "end": 32.222332
+   },
+   {
+    "text": "is",
+    "start": 32.319416,
+    "end": 32.537874
+   },
+   {
+    "text": "generated",
+    "start": 32.55,
+    "end": 33.047583
+   },
+   {
+    "text": "immediately",
+    "start": 33.059708,
+    "end": 33.715041
+   },
+   {
+    "text": "Each",
+    "start": 34.067,
+    "end": 34.370416
+   },
+   {
+    "text": "month",
+    "start": 34.382541,
+    "end": 34.661666
+   },
+   {
+    "text": "uses",
+    "start": 34.673791,
+    "end": 34.952916
+   },
+   {
+    "text": "the",
+    "start": 34.965041,
+    "end": 35.086416
+   },
+   {
+    "text": "last",
+    "start": 35.098541,
+    "end": 35.426207
+   },
+   {
+    "text": "snapshot",
+    "start": 35.438333,
+    "end": 36.008708
+   },
+   {
+    "text": "imported",
+    "start": 36.020875,
+    "end": 36.45775
+   },
+   {
+    "text": "for",
+    "start": 36.469916,
+    "end": 36.579124
+   },
+   {
+    "text": "that",
+    "start": 36.59125,
+    "end": 36.761166
+   },
+   {
+    "text": "month",
+    "start": 36.773291,
+    "end": 37.064541
+   },
+   {
+    "text": "and",
+    "start": 37.39225,
+    "end": 37.562166
+   },
+   {
+    "text": "the",
+    "start": 37.574291,
+    "end": 37.659249
+   },
+   {
+    "text": "planned",
+    "start": 37.671375,
+    "end": 37.9505
+   },
+   {
+    "text": "numbers",
+    "start": 37.962625,
+    "end": 38.350958
+   },
+   {
+    "text": "and",
+    "start": 38.363125,
+    "end": 38.4845
+   },
+   {
+    "text": "targets",
+    "start": 38.496583,
+    "end": 38.981999
+   },
+   {
+    "text": "come",
+    "start": 38.994166,
+    "end": 39.261166
+   },
+   {
+    "text": "from",
+    "start": 39.273291,
+    "end": 39.431041
+   },
+   {
+    "text": "the",
+    "start": 39.443208,
+    "end": 39.516041
+   },
+   {
+    "text": "settings",
+    "start": 39.528166,
+    "end": 39.965041
+   },
+   {
+    "text": "saved",
+    "start": 40.001458,
+    "end": 40.414083
+   },
+   {
+    "text": "in",
+    "start": 40.426208,
+    "end": 40.486874
+   },
+   {
+    "text": "that",
+    "start": 40.499041,
+    "end": 40.656791
+   },
+   {
+    "text": "snapshot",
+    "start": 40.668916,
+    "end": 41.239291
+   },
+   {
+    "text": "so",
+    "start": 41.639791,
+    "end": 41.846082
+   },
+   {
+    "text": "later",
+    "start": 41.870375,
+    "end": 42.222333
+   },
+   {
+    "text": "edits",
+    "start": 42.234458,
+    "end": 42.537874
+   },
+   {
+    "text": "never",
+    "start": 42.55,
+    "end": 42.926208
+   },
+   {
+    "text": "change",
+    "start": 42.938333,
+    "end": 43.278124
+   },
+   {
+    "text": "past",
+    "start": 43.290291,
+    "end": 43.617957
+   },
+   {
+    "text": "reports",
+    "start": 43.630083,
+    "end": 44.261166
+   }
+  ],
+  "why": {
+   "t": "Imported, then one click to the report",
+   "s": 3.99,
+   "e": 7.56,
+   "chars": 84
+  }
+ },
+ {
+  "id": "s10",
+  "text": "The report is clearly structured. It opens with the title and the annual overall targets: a one hundred percent risk closure rate, plus three levels, baseline, target, and stretch, for both the product retirement rate and the version incorporation rate. Next comes the progress overview, written automatically: the current status, the projected year-end completion rate, how many units still have no plan, which customers are involved, and recommendations. Then the progress details: one table each for products and versions, listing by customer the total, incorporated, current rate, pending, plan this year, no plan, and rate after plan, with key focus text above the table. Finally, risk management progress and the risk handling process.",
+  "words": [
+   {
+    "text": "The",
+    "start": 0.1,
+    "end": 0.245625
+   },
+   {
+    "text": "report",
+    "start": 0.25775,
+    "end": 0.718916
+   },
+   {
+    "text": "is",
+    "start": 0.828166,
+    "end": 0.998082
+   },
+   {
+    "text": "clearly",
+    "start": 1.010208,
+    "end": 1.434958
+   },
+   {
+    "text": "structured",
+    "start": 1.447083,
+    "end": 2.041749
+   },
+   {
+    "text": "It",
+    "start": 2.39225,
+    "end": 2.598541
+   },
+   {
+    "text": "opens",
+    "start": 2.610666,
+    "end": 2.950457
+   },
+   {
+    "text": "with",
+    "start": 2.962625,
+    "end": 3.071833
+   },
+   {
+    "text": "the",
+    "start": 3.084,
+    "end": 3.168958
+   },
+   {
+    "text": "title",
+    "start": 3.181083,
+    "end": 3.702916
+   },
+   {
+    "text": "and",
+    "start": 3.787875,
+    "end": 3.884958
+   },
+   {
+    "text": "the",
+    "start": 3.897083,
+    "end": 3.982041
+   },
+   {
+    "text": "annual",
+    "start": 4.018458,
+    "end": 4.503874
+   },
+   {
+    "text": "overall",
+    "start": 4.516,
+    "end": 4.855791
+   },
+   {
+    "text": "targets",
+    "start": 4.867958,
+    "end": 5.389791
+   },
+   {
+    "text": "a",
+    "start": 5.826708,
+    "end": 5.899541
+   },
+   {
+    "text": "one",
+    "start": 5.911666,
+    "end": 6.166541
+   },
+   {
+    "text": "hundred",
+    "start": 6.178625,
+    "end": 6.566958
+   },
+   {
+    "text": "percent",
+    "start": 6.579125,
+    "end": 6.99175
+   },
+   {
+    "text": "risk",
+    "start": 7.003875,
+    "end": 7.4165
+   },
+   {
+    "text": "closure",
+    "start": 7.428625,
+    "end": 7.792708
+   },
+   {
+    "text": "rate",
+    "start": 7.804875,
+    "end": 8.071875
+   },
+   {
+    "text": "plus",
+    "start": 8.472333,
+    "end": 8.775749
+   },
+   {
+    "text": "three",
+    "start": 8.8,
+    "end": 9.042708
+   },
+   {
+    "text": "levels",
+    "start": 9.054875,
+    "end": 9.540291
+   },
+   {
+    "text": "baseline",
+    "start": 9.807291,
+    "end": 10.438374
+   },
+   {
+    "text": "target",
+    "start": 10.705333,
+    "end": 11.190749
+   },
+   {
+    "text": "and",
+    "start": 11.251458,
+    "end": 11.506333
+   },
+   {
+    "text": "stretch",
+    "start": 11.518458,
+    "end": 12.064583
+   },
+   {
+    "text": "for",
+    "start": 12.465041,
+    "end": 12.622791
+   },
+   {
+    "text": "both",
+    "start": 12.634958,
+    "end": 12.889833
+   },
+   {
+    "text": "the",
+    "start": 12.901958,
+    "end": 12.999041
+   },
+   {
+    "text": "product",
+    "start": 13.011166,
+    "end": 13.423791
+   },
+   {
+    "text": "retirement",
+    "start": 13.435916,
+    "end": 13.982041
+   },
+   {
+    "text": "rate",
+    "start": 13.994166,
+    "end": 14.249041
+   },
+   {
+    "text": "and",
+    "start": 14.467458,
+    "end": 14.613083
+   },
+   {
+    "text": "the",
+    "start": 14.637375,
+    "end": 14.734458
+   },
+   {
+    "text": "version",
+    "start": 14.746583,
+    "end": 15.195624
+   },
+   {
+    "text": "incorporation",
+    "start": 15.20775,
+    "end": 15.984458
+   },
+   {
+    "text": "rate",
+    "start": 15.996583,
+    "end": 16.312124
+   },
+   {
+    "text": "Next",
+    "start": 16.664083,
+    "end": 17.040291
+   },
+   {
+    "text": "comes",
+    "start": 17.052416,
+    "end": 17.319416
+   },
+   {
+    "text": "the",
+    "start": 17.331541,
+    "end": 17.416499
+   },
+   {
+    "text": "progress",
+    "start": 17.428625,
+    "end": 17.8655
+   },
+   {
+    "text": "overview",
+    "start": 17.877666,
+    "end": 18.411666
+   },
+   {
+    "text": "written",
+    "start": 18.848541,
+    "end": 19.115541
+   },
+   {
+    "text": "automatically",
+    "start": 19.127666,
+    "end": 19.819416
+   },
+   {
+    "text": "the",
+    "start": 20.1835,
+    "end": 20.268458
+   },
+   {
+    "text": "current",
+    "start": 20.280583,
+    "end": 20.608249
+   },
+   {
+    "text": "status",
+    "start": 20.620375,
+    "end": 21.1665
+   },
+   {
+    "text": "the",
+    "start": 21.4335,
+    "end": 21.518458
+   },
+   {
+    "text": "projected",
+    "start": 21.530583,
+    "end": 22.015999
+   },
+   {
+    "text": "year-end",
+    "start": 22.028166,
+    "end": 22.477207
+   },
+   {
+    "text": "completion",
+    "start": 22.489333,
+    "end": 23.023333
+   },
+   {
+    "text": "rate",
+    "start": 23.035458,
+    "end": 23.302458
+   },
+   {
+    "text": "how",
+    "start": 23.763583,
+    "end": 23.884958
+   },
+   {
+    "text": "many",
+    "start": 23.897083,
+    "end": 24.127666
+   },
+   {
+    "text": "units",
+    "start": 24.139791,
+    "end": 24.528124
+   },
+   {
+    "text": "still",
+    "start": 24.540291,
+    "end": 24.819416
+   },
+   {
+    "text": "have",
+    "start": 24.831541,
+    "end": 24.977166
+   },
+   {
+    "text": "no",
+    "start": 24.989333,
+    "end": 25.219916
+   },
+   {
+    "text": "plan",
+    "start": 25.232041,
+    "end": 25.729624
+   },
+   {
+    "text": "which",
+    "start": 26.081541,
+    "end": 26.312124
+   },
+   {
+    "text": "customers",
+    "start": 26.324291,
+    "end": 26.882541
+   },
+   {
+    "text": "are",
+    "start": 26.894666,
+    "end": 26.991749
+   },
+   {
+    "text": "involved",
+    "start": 27.003875,
+    "end": 27.598541
+   },
+   {
+    "text": "and",
+    "start": 27.829125,
+    "end": 28.096125
+   },
+   {
+    "text": "recommendations",
+    "start": 28.168916,
+    "end": 29.176207
+   },
+   {
+    "text": "Then",
+    "start": 29.528166,
+    "end": 29.746624
+   },
+   {
+    "text": "the",
+    "start": 29.75875,
+    "end": 29.843708
+   },
+   {
+    "text": "progress",
+    "start": 29.855833,
+    "end": 30.329124
+   },
+   {
+    "text": "details",
+    "start": 30.34125,
+    "end": 30.923791
+   },
+   {
+    "text": "one",
+    "start": 31.336416,
+    "end": 31.566999
+   },
+   {
+    "text": "table",
+    "start": 31.579125,
+    "end": 31.931083
+   },
+   {
+    "text": "each",
+    "start": 31.955333,
+    "end": 32.173791
+   },
+   {
+    "text": "for",
+    "start": 32.185916,
+    "end": 32.355832
+   },
+   {
+    "text": "products",
+    "start": 32.367958,
+    "end": 32.804833
+   },
+   {
+    "text": "and",
+    "start": 32.817,
+    "end": 32.962625
+   },
+   {
+    "text": "versions",
+    "start": 32.97475,
+    "end": 33.50875
+   },
+   {
+    "text": "listing",
+    "start": 33.872833,
+    "end": 34.224791
+   },
+   {
+    "text": "by",
+    "start": 34.236875,
+    "end": 34.406791
+   },
+   {
+    "text": "customer",
+    "start": 34.418916,
+    "end": 34.952916
+   },
+   {
+    "text": "the",
+    "start": 34.965041,
+    "end": 35.062124
+   },
+   {
+    "text": "total",
+    "start": 35.074291,
+    "end": 35.547582
+   },
+   {
+    "text": "incorporated",
+    "start": 35.838833,
+    "end": 36.664083
+   },
+   {
+    "text": "current",
+    "start": 36.967458,
+    "end": 37.234458
+   },
+   {
+    "text": "rate",
+    "start": 37.246583,
+    "end": 37.525708
+   },
+   {
+    "text": "pending",
+    "start": 37.877666,
+    "end": 38.387374
+   },
+   {
+    "text": "plan",
+    "start": 38.727166,
+    "end": 39.018416
+   },
+   {
+    "text": "this",
+    "start": 39.030583,
+    "end": 39.261166
+   },
+   {
+    "text": "year",
+    "start": 39.273291,
+    "end": 39.600957
+   },
+   {
+    "text": "no",
+    "start": 39.940791,
+    "end": 40.183499
+   },
+   {
+    "text": "plan",
+    "start": 40.195625,
+    "end": 40.778166
+   },
+   {
+    "text": "and",
+    "start": 40.826708,
+    "end": 41.032999
+   },
+   {
+    "text": "rate",
+    "start": 41.1665,
+    "end": 41.421375
+   },
+   {
+    "text": "after",
+    "start": 41.4335,
+    "end": 41.72475
+   },
+   {
+    "text": "plan",
+    "start": 41.736875,
+    "end": 42.198041
+   },
+   {
+    "text": "with",
+    "start": 42.465041,
+    "end": 42.671332
+   },
+   {
+    "text": "key",
+    "start": 42.6835,
+    "end": 42.914083
+   },
+   {
+    "text": "focus",
+    "start": 42.926208,
+    "end": 43.326708
+   },
+   {
+    "text": "text",
+    "start": 43.338833,
+    "end": 43.690791
+   },
+   {
+    "text": "above",
+    "start": 43.702916,
+    "end": 43.897082
+   },
+   {
+    "text": "the",
+    "start": 43.909208,
+    "end": 43.982041
+   },
+   {
+    "text": "table",
+    "start": 43.994166,
+    "end": 44.479582
+   },
+   {
+    "text": "Finally",
+    "start": 44.831541,
+    "end": 45.498999
+   },
+   {
+    "text": "risk",
+    "start": 45.632541,
+    "end": 45.935957
+   },
+   {
+    "text": "management",
+    "start": 45.948041,
+    "end": 46.469874
+   },
+   {
+    "text": "progress",
+    "start": 46.482041,
+    "end": 47.016041
+   },
+   {
+    "text": "and",
+    "start": 47.064583,
+    "end": 47.270874
+   },
+   {
+    "text": "the",
+    "start": 47.283,
+    "end": 47.392208
+   },
+   {
+    "text": "risk",
+    "start": 47.404375,
+    "end": 47.756333
+   },
+   {
+    "text": "handling",
+    "start": 47.768458,
+    "end": 48.181083
+   },
+   {
+    "text": "process",
+    "start": 48.193208,
+    "end": 48.836416
+   }
+  ],
+  "why": null
+ },
+ {
+  "id": "s11",
+  "text": "The report is not rigid. Every text and table can be edited with one click, and selected text can be made bold or recolored. If you mess up the generated text for the month, click Restore Monthly Text, and fixed sections can be restored with Restore Fixed Text. In Mapping and Threshold Settings, you can map customer names to the names you want to show, and set a display threshold for key equipment counts, so small numbers are left out. Chinese and English are two separate versions. When you edit the Chinese, the page flags English awaiting sync, and if the platform has an AI assistant configured, AI Translate does it in one click.",
+  "words": [
+   {
+    "text": "The",
+    "start": 0.1,
+    "end": 0.245625
+   },
+   {
+    "text": "report",
+    "start": 0.25775,
+    "end": 0.718916
+   },
+   {
+    "text": "is",
+    "start": 0.79175,
+    "end": 0.937375
+   },
+   {
+    "text": "not",
+    "start": 0.9495,
+    "end": 1.204375
+   },
+   {
+    "text": "rigid",
+    "start": 1.2165,
+    "end": 1.64125
+   },
+   {
+    "text": "Every",
+    "start": 1.99175,
+    "end": 2.331541
+   },
+   {
+    "text": "text",
+    "start": 2.343708,
+    "end": 2.756333
+   },
+   {
+    "text": "and",
+    "start": 2.780583,
+    "end": 2.901958
+   },
+   {
+    "text": "table",
+    "start": 2.914083,
+    "end": 3.302416
+   },
+   {
+    "text": "can",
+    "start": 3.314583,
+    "end": 3.460208
+   },
+   {
+    "text": "be",
+    "start": 3.472333,
+    "end": 3.581541
+   },
+   {
+    "text": "edited",
+    "start": 3.593708,
+    "end": 3.921374
+   },
+   {
+    "text": "with",
+    "start": 3.9335,
+    "end": 4.079125
+   },
+   {
+    "text": "one",
+    "start": 4.09125,
+    "end": 4.35825
+   },
+   {
+    "text": "click",
+    "start": 4.370375,
+    "end": 4.722333
+   },
+   {
+    "text": "and",
+    "start": 5.037875,
+    "end": 5.219916
+   },
+   {
+    "text": "selected",
+    "start": 5.232041,
+    "end": 5.681082
+   },
+   {
+    "text": "text",
+    "start": 5.693208,
+    "end": 6.130083
+   },
+   {
+    "text": "can",
+    "start": 6.14225,
+    "end": 6.312166
+   },
+   {
+    "text": "be",
+    "start": 6.324291,
+    "end": 6.433499
+   },
+   {
+    "text": "made",
+    "start": 6.445625,
+    "end": 6.712625
+   },
+   {
+    "text": "bold",
+    "start": 6.72475,
+    "end": 7.113083
+   },
+   {
+    "text": "or",
+    "start": 7.137375,
+    "end": 7.343666
+   },
+   {
+    "text": "recolored",
+    "start": 7.355833,
+    "end": 7.950499
+   },
+   {
+    "text": "If",
+    "start": 8.302416,
+    "end": 8.496582
+   },
+   {
+    "text": "you",
+    "start": 8.50875,
+    "end": 8.605833
+   },
+   {
+    "text": "mess",
+    "start": 8.617958,
+    "end": 8.812124
+   },
+   {
+    "text": "up",
+    "start": 8.824291,
+    "end": 8.945666
+   },
+   {
+    "text": "the",
+    "start": 8.95775,
+    "end": 9.054833
+   },
+   {
+    "text": "generated",
+    "start": 9.067,
+    "end": 9.552416
+   },
+   {
+    "text": "text",
+    "start": 9.564583,
+    "end": 9.855833
+   },
+   {
+    "text": "for",
+    "start": 9.867958,
+    "end": 9.952916
+   },
+   {
+    "text": "the",
+    "start": 9.965041,
+    "end": 10.037874
+   },
+   {
+    "text": "month",
+    "start": 10.05,
+    "end": 10.401958
+   },
+   {
+    "text": "click",
+    "start": 10.778166,
+    "end": 10.984457
+   },
+   {
+    "text": "Restore",
+    "start": 10.996583,
+    "end": 11.481999
+   },
+   {
+    "text": "Monthly",
+    "start": 11.494166,
+    "end": 11.894666
+   },
+   {
+    "text": "Text",
+    "start": 11.906791,
+    "end": 12.380082
+   },
+   {
+    "text": "and",
+    "start": 12.489333,
+    "end": 12.732041
+   },
+   {
+    "text": "fixed",
+    "start": 12.744166,
+    "end": 13.059707
+   },
+   {
+    "text": "sections",
+    "start": 13.071833,
+    "end": 13.557249
+   },
+   {
+    "text": "can",
+    "start": 13.569416,
+    "end": 13.727166
+   },
+   {
+    "text": "be",
+    "start": 13.739333,
+    "end": 13.836416
+   },
+   {
+    "text": "restored",
+    "start": 13.848541,
+    "end": 14.370374
+   },
+   {
+    "text": "with",
+    "start": 14.382541,
+    "end": 14.552457
+   },
+   {
+    "text": "Restore",
+    "start": 14.564583,
+    "end": 15.098583
+   },
+   {
+    "text": "Fixed",
+    "start": 15.110666,
+    "end": 15.414082
+   },
+   {
+    "text": "Text",
+    "start": 15.426208,
+    "end": 15.850958
+   },
+   {
+    "text": "In",
+    "start": 16.202916,
+    "end": 16.421374
+   },
+   {
+    "text": "Mapping",
+    "start": 16.4335,
+    "end": 16.821833
+   },
+   {
+    "text": "and",
+    "start": 16.834,
+    "end": 16.955375
+   },
+   {
+    "text": "Threshold",
+    "start": 16.967458,
+    "end": 17.477166
+   },
+   {
+    "text": "Settings",
+    "start": 17.489333,
+    "end": 17.914083
+   },
+   {
+    "text": "you",
+    "start": 18.217458,
+    "end": 18.290291
+   },
+   {
+    "text": "can",
+    "start": 18.302416,
+    "end": 18.448041
+   },
+   {
+    "text": "map",
+    "start": 18.460208,
+    "end": 18.702916
+   },
+   {
+    "text": "customer",
+    "start": 18.715041,
+    "end": 19.176207
+   },
+   {
+    "text": "names",
+    "start": 19.188333,
+    "end": 19.528124
+   },
+   {
+    "text": "to",
+    "start": 19.540291,
+    "end": 19.649499
+   },
+   {
+    "text": "the",
+    "start": 19.661666,
+    "end": 19.746624
+   },
+   {
+    "text": "names",
+    "start": 19.75875,
+    "end": 20.05
+   },
+   {
+    "text": "you",
+    "start": 20.062125,
+    "end": 20.134958
+   },
+   {
+    "text": "want",
+    "start": 20.147083,
+    "end": 20.280583
+   },
+   {
+    "text": "to",
+    "start": 20.292708,
+    "end": 20.3412489
+   },
+   {
+    "text": "show",
+    "start": 20.353416,
+    "end": 20.705374
+   },
+   {
+    "text": "and",
+    "start": 21.093708,
+    "end": 21.312166
+   },
+   {
+    "text": "set",
+    "start": 21.360666,
+    "end": 21.566957
+   },
+   {
+    "text": "a",
+    "start": 21.579125,
+    "end": 21.6276659
+   },
+   {
+    "text": "display",
+    "start": 21.639791,
+    "end": 22.040291
+   },
+   {
+    "text": "threshold",
+    "start": 22.052416,
+    "end": 22.610666
+   },
+   {
+    "text": "for",
+    "start": 22.622833,
+    "end": 22.756333
+   },
+   {
+    "text": "key",
+    "start": 22.768458,
+    "end": 22.950499
+   },
+   {
+    "text": "equipment",
+    "start": 22.962625,
+    "end": 23.37525
+   },
+   {
+    "text": "counts",
+    "start": 23.387375,
+    "end": 23.739333
+   },
+   {
+    "text": "so",
+    "start": 24.127666,
+    "end": 24.479624
+   },
+   {
+    "text": "small",
+    "start": 24.503875,
+    "end": 24.904375
+   },
+   {
+    "text": "numbers",
+    "start": 24.9165,
+    "end": 25.329125
+   },
+   {
+    "text": "are",
+    "start": 25.34125,
+    "end": 25.499
+   },
+   {
+    "text": "left",
+    "start": 25.511166,
+    "end": 25.778166
+   },
+   {
+    "text": "out",
+    "start": 25.790291,
+    "end": 26.117957
+   },
+   {
+    "text": "Chinese",
+    "start": 26.469916,
+    "end": 27.003916
+   },
+   {
+    "text": "and",
+    "start": 27.016,
+    "end": 27.17375
+   },
+   {
+    "text": "English",
+    "start": 27.222333,
+    "end": 27.683499
+   },
+   {
+    "text": "are",
+    "start": 27.732041,
+    "end": 27.962624
+   },
+   {
+    "text": "two",
+    "start": 27.97475,
+    "end": 28.229625
+   },
+   {
+    "text": "separate",
+    "start": 28.24175,
+    "end": 28.617958
+   },
+   {
+    "text": "versions",
+    "start": 28.630083,
+    "end": 29.224749
+   },
+   {
+    "text": "When",
+    "start": 29.576708,
+    "end": 29.795166
+   },
+   {
+    "text": "you",
+    "start": 29.807291,
+    "end": 29.904374
+   },
+   {
+    "text": "edit",
+    "start": 29.9165,
+    "end": 30.195625
+   },
+   {
+    "text": "the",
+    "start": 30.20775,
+    "end": 30.280583
+   },
+   {
+    "text": "Chinese",
+    "start": 30.292708,
+    "end": 30.887374
+   },
+   {
+    "text": "the",
+    "start": 31.202916,
+    "end": 31.299999
+   },
+   {
+    "text": "page",
+    "start": 31.312125,
+    "end": 31.664083
+   },
+   {
+    "text": "flags",
+    "start": 31.676208,
+    "end": 32.125249
+   },
+   {
+    "text": "English",
+    "start": 32.1495,
+    "end": 32.562125
+   },
+   {
+    "text": "awaiting",
+    "start": 32.574291,
+    "end": 32.974791
+   },
+   {
+    "text": "sync",
+    "start": 32.986875,
+    "end": 33.350958
+   },
+   {
+    "text": "and",
+    "start": 33.6665,
+    "end": 33.82425
+   },
+   {
+    "text": "if",
+    "start": 33.872833,
+    "end": 33.969916
+   },
+   {
+    "text": "the",
+    "start": 33.982041,
+    "end": 34.066999
+   },
+   {
+    "text": "platform",
+    "start": 34.079125,
+    "end": 34.698041
+   },
+   {
+    "text": "has",
+    "start": 34.710208,
+    "end": 34.916499
+   },
+   {
+    "text": "an",
+    "start": 34.928625,
+    "end": 35.05
+   },
+   {
+    "text": "AI",
+    "start": 35.098541,
+    "end": 35.401957
+   },
+   {
+    "text": "assistant",
+    "start": 35.414083,
+    "end": 35.850958
+   },
+   {
+    "text": "configured",
+    "start": 35.863125,
+    "end": 36.445666
+   },
+   {
+    "text": "AI",
+    "start": 36.918916,
+    "end": 37.149499
+   },
+   {
+    "text": "Translate",
+    "start": 37.161666,
+    "end": 37.865541
+   },
+   {
+    "text": "does",
+    "start": 37.889791,
+    "end": 38.047541
+   },
+   {
+    "text": "it",
+    "start": 38.059708,
+    "end": 38.168916
+   },
+   {
+    "text": "in",
+    "start": 38.181083,
+    "end": 38.375249
+   },
+   {
+    "text": "one",
+    "start": 38.387375,
+    "end": 38.605833
+   },
+   {
+    "text": "click",
+    "start": 38.617958,
+    "end": 39.054833
+   }
+  ],
+  "why": null
+ },
+ {
+  "id": "s12",
+  "text": "When it looks right, export it. The long PNG comes in Chinese, English, and a combined bilingual version, and you can download all three in one click. You can also download a PDF, an HTML file you can browse offline, a multi-sheet Excel workbook, and an MSG email you can keep editing in Outlook. To keep a record, save a snapshot into the report snapshot library. Report Compare shows two versions side by side and highlights differences in text and data automatically. You can also export a project file and share it, and a colleague who imports it can keep editing.",
+  "words": [
+   {
+    "text": "When",
+    "start": 0.1,
+    "end": 0.306291
+   },
+   {
+    "text": "it",
+    "start": 0.318458,
+    "end": 0.427666
+   },
+   {
+    "text": "looks",
+    "start": 0.439791,
+    "end": 0.670374
+   },
+   {
+    "text": "right",
+    "start": 0.682541,
+    "end": 0.985957
+   },
+   {
+    "text": "export",
+    "start": 1.167958,
+    "end": 1.592708
+   },
+   {
+    "text": "it",
+    "start": 1.604875,
+    "end": 1.823333
+   },
+   {
+    "text": "The",
+    "start": 2.173791,
+    "end": 2.343707
+   },
+   {
+    "text": "long",
+    "start": 2.355833,
+    "end": 2.586416
+   },
+   {
+    "text": "PNG",
+    "start": 2.598541,
+    "end": 3.083957
+   },
+   {
+    "text": "comes",
+    "start": 3.096125,
+    "end": 3.399541
+   },
+   {
+    "text": "in",
+    "start": 3.411666,
+    "end": 3.508749
+   },
+   {
+    "text": "Chinese",
+    "start": 3.520875,
+    "end": 4.067
+   },
+   {
+    "text": "English",
+    "start": 4.394666,
+    "end": 4.892249
+   },
+   {
+    "text": "and",
+    "start": 4.977166,
+    "end": 5.268416
+   },
+   {
+    "text": "a",
+    "start": 5.304875,
+    "end": 5.3534159
+   },
+   {
+    "text": "combined",
+    "start": 5.365541,
+    "end": 5.802416
+   },
+   {
+    "text": "bilingual",
+    "start": 5.814583,
+    "end": 6.287874
+   },
+   {
+    "text": "version",
+    "start": 6.3,
+    "end": 6.736875
+   },
+   {
+    "text": "and",
+    "start": 7.052416,
+    "end": 7.198041
+   },
+   {
+    "text": "you",
+    "start": 7.210208,
+    "end": 7.2587489
+   },
+   {
+    "text": "can",
+    "start": 7.270875,
+    "end": 7.404375
+   },
+   {
+    "text": "download",
+    "start": 7.4165,
+    "end": 7.914083
+   },
+   {
+    "text": "all",
+    "start": 7.97475,
+    "end": 8.193208
+   },
+   {
+    "text": "three",
+    "start": 8.205333,
+    "end": 8.569416
+   },
+   {
+    "text": "in",
+    "start": 8.581541,
+    "end": 8.690749
+   },
+   {
+    "text": "one",
+    "start": 8.702916,
+    "end": 8.897082
+   },
+   {
+    "text": "click",
+    "start": 8.909208,
+    "end": 9.346083
+   },
+   {
+    "text": "You",
+    "start": 9.698041,
+    "end": 9.880082
+   },
+   {
+    "text": "can",
+    "start": 9.89225,
+    "end": 10.02575
+   },
+   {
+    "text": "also",
+    "start": 10.037875,
+    "end": 10.280583
+   },
+   {
+    "text": "download",
+    "start": 10.292708,
+    "end": 10.729583
+   },
+   {
+    "text": "a",
+    "start": 10.74175,
+    "end": 10.814583
+   },
+   {
+    "text": "PDF",
+    "start": 10.826708,
+    "end": 11.530583
+   },
+   {
+    "text": "an",
+    "start": 11.870375,
+    "end": 12.028125
+   },
+   {
+    "text": "HTML",
+    "start": 12.040291,
+    "end": 12.683499
+   },
+   {
+    "text": "file",
+    "start": 12.695625,
+    "end": 12.97475
+   },
+   {
+    "text": "you",
+    "start": 12.986875,
+    "end": 13.071833
+   },
+   {
+    "text": "can",
+    "start": 13.084,
+    "end": 13.2175
+   },
+   {
+    "text": "browse",
+    "start": 13.229625,
+    "end": 13.50875
+   },
+   {
+    "text": "offline",
+    "start": 13.520875,
+    "end": 14.030583
+   },
+   {
+    "text": "a",
+    "start": 14.431083,
+    "end": 14.4796239
+   },
+   {
+    "text": "multi-sheet",
+    "start": 14.503875,
+    "end": 15.110666
+   },
+   {
+    "text": "Excel",
+    "start": 15.122833,
+    "end": 15.486916
+   },
+   {
+    "text": "workbook",
+    "start": 15.499041,
+    "end": 15.996624
+   },
+   {
+    "text": "and",
+    "start": 16.324291,
+    "end": 16.506332
+   },
+   {
+    "text": "an",
+    "start": 16.542708,
+    "end": 16.700458
+   },
+   {
+    "text": "MSG",
+    "start": 16.809708,
+    "end": 17.367958
+   },
+   {
+    "text": "email",
+    "start": 17.380083,
+    "end": 17.816958
+   },
+   {
+    "text": "you",
+    "start": 17.84125,
+    "end": 17.914083
+   },
+   {
+    "text": "can",
+    "start": 17.926208,
+    "end": 18.071833
+   },
+   {
+    "text": "keep",
+    "start": 18.084,
+    "end": 18.326708
+   },
+   {
+    "text": "editing",
+    "start": 18.37525,
+    "end": 18.715041
+   },
+   {
+    "text": "in",
+    "start": 18.727166,
+    "end": 18.836374
+   },
+   {
+    "text": "Outlook",
+    "start": 18.848541,
+    "end": 19.321832
+   },
+   {
+    "text": "To",
+    "start": 19.673791,
+    "end": 19.843707
+   },
+   {
+    "text": "keep",
+    "start": 19.855833,
+    "end": 20.074291
+   },
+   {
+    "text": "a",
+    "start": 20.086416,
+    "end": 20.147082
+   },
+   {
+    "text": "record",
+    "start": 20.159208,
+    "end": 20.632499
+   },
+   {
+    "text": "save",
+    "start": 20.984458,
+    "end": 21.190749
+   },
+   {
+    "text": "a",
+    "start": 21.202916,
+    "end": 21.275749
+   },
+   {
+    "text": "snapshot",
+    "start": 21.287875,
+    "end": 21.894666
+   },
+   {
+    "text": "into",
+    "start": 21.906791,
+    "end": 22.137374
+   },
+   {
+    "text": "the",
+    "start": 22.1495,
+    "end": 22.246583
+   },
+   {
+    "text": "report",
+    "start": 22.25875,
+    "end": 22.695625
+   },
+   {
+    "text": "snapshot",
+    "start": 22.70775,
+    "end": 23.350958
+   },
+   {
+    "text": "library",
+    "start": 23.363125,
+    "end": 24.030583
+   },
+   {
+    "text": "Report",
+    "start": 24.382541,
+    "end": 24.795166
+   },
+   {
+    "text": "Compare",
+    "start": 24.807291,
+    "end": 25.268457
+   },
+   {
+    "text": "shows",
+    "start": 25.280583,
+    "end": 25.644666
+   },
+   {
+    "text": "two",
+    "start": 25.656791,
+    "end": 25.899499
+   },
+   {
+    "text": "versions",
+    "start": 25.911666,
+    "end": 26.312166
+   },
+   {
+    "text": "side",
+    "start": 26.324291,
+    "end": 26.603416
+   },
+   {
+    "text": "by",
+    "start": 26.615541,
+    "end": 26.749041
+   },
+   {
+    "text": "side",
+    "start": 26.761166,
+    "end": 27.185916
+   },
+   {
+    "text": "and",
+    "start": 27.198041,
+    "end": 27.343666
+   },
+   {
+    "text": "highlights",
+    "start": 27.355833,
+    "end": 27.926208
+   },
+   {
+    "text": "differences",
+    "start": 27.962625,
+    "end": 28.545166
+   },
+   {
+    "text": "in",
+    "start": 28.557291,
+    "end": 28.690791
+   },
+   {
+    "text": "text",
+    "start": 28.702916,
+    "end": 29.127666
+   },
+   {
+    "text": "and",
+    "start": 29.164083,
+    "end": 29.358249
+   },
+   {
+    "text": "data",
+    "start": 29.394666,
+    "end": 29.758749
+   },
+   {
+    "text": "automatically",
+    "start": 29.770875,
+    "end": 30.486875
+   },
+   {
+    "text": "You",
+    "start": 30.838833,
+    "end": 31.020874
+   },
+   {
+    "text": "can",
+    "start": 31.033,
+    "end": 31.154375
+   },
+   {
+    "text": "also",
+    "start": 31.1665,
+    "end": 31.409208
+   },
+   {
+    "text": "export",
+    "start": 31.421375,
+    "end": 31.809708
+   },
+   {
+    "text": "a",
+    "start": 31.821833,
+    "end": 31.882499
+   },
+   {
+    "text": "project",
+    "start": 31.894666,
+    "end": 32.367957
+   },
+   {
+    "text": "file",
+    "start": 32.380083,
+    "end": 32.756291
+   },
+   {
+    "text": "and",
+    "start": 32.780583,
+    "end": 32.901958
+   },
+   {
+    "text": "share",
+    "start": 32.914083,
+    "end": 33.193208
+   },
+   {
+    "text": "it",
+    "start": 33.205333,
+    "end": 33.338833
+   },
+   {
+    "text": "and",
+    "start": 33.484458,
+    "end": 33.666499
+   },
+   {
+    "text": "a",
+    "start": 33.690791,
+    "end": 33.751457
+   },
+   {
+    "text": "colleague",
+    "start": 33.763583,
+    "end": 34.261166
+   },
+   {
+    "text": "who",
+    "start": 34.273291,
+    "end": 34.406791
+   },
+   {
+    "text": "imports",
+    "start": 34.418916,
+    "end": 34.867957
+   },
+   {
+    "text": "it",
+    "start": 34.880083,
+    "end": 34.989291
+   },
+   {
+    "text": "can",
+    "start": 35.001458,
+    "end": 35.147083
+   },
+   {
+    "text": "keep",
+    "start": 35.159208,
+    "end": 35.341249
+   },
+   {
+    "text": "editing",
+    "start": 35.34125,
+    "end": 35.778125
+   }
+  ],
+  "why": null
+ },
+ {
+  "id": "s13",
+  "text": "Finally, how to make it a habit. Every month, repeat the five steps: capture, plan, export and import, and generate the report, with no manual compiling. Targets can be refreshed every month to keep tracking. The value comes in four parts. One, the latest progress in the system, fast. Two, refresh planned numbers any time and forecast directly whether the yearly target can be met. Three, the Top N list keeps everyone focused on the products and versions not yet incorporated. Four, the report writes itself, saving a lot of compiling time. Go and give it a try!",
+  "words": [
+   {
+    "text": "Finally",
+    "start": 0.1,
+    "end": 0.718916
+   },
+   {
+    "text": "how",
+    "start": 0.840291,
+    "end": 0.961666
+   },
+   {
+    "text": "to",
+    "start": 0.973791,
+    "end": 1.058749
+   },
+   {
+    "text": "make",
+    "start": 1.070875,
+    "end": 1.252916
+   },
+   {
+    "text": "it",
+    "start": 1.265041,
+    "end": 1.349999
+   },
+   {
+    "text": "a",
+    "start": 1.362125,
+    "end": 1.3985409
+   },
+   {
+    "text": "habit",
+    "start": 1.410666,
+    "end": 1.883957
+   },
+   {
+    "text": "Every",
+    "start": 2.234458,
+    "end": 2.574249
+   },
+   {
+    "text": "month",
+    "start": 2.586416,
+    "end": 2.901957
+   },
+   {
+    "text": "repeat",
+    "start": 3.168916,
+    "end": 3.557249
+   },
+   {
+    "text": "the",
+    "start": 3.569416,
+    "end": 3.678624
+   },
+   {
+    "text": "five",
+    "start": 3.690791,
+    "end": 3.994207
+   },
+   {
+    "text": "steps",
+    "start": 4.006291,
+    "end": 4.443166
+   },
+   {
+    "text": "capture",
+    "start": 4.685916,
+    "end": 5.280582
+   },
+   {
+    "text": "plan",
+    "start": 5.596125,
+    "end": 6.081541
+   },
+   {
+    "text": "export",
+    "start": 6.469916,
+    "end": 6.991749
+   },
+   {
+    "text": "and",
+    "start": 7.016,
+    "end": 7.1495
+   },
+   {
+    "text": "import",
+    "start": 7.173791,
+    "end": 7.719916
+   },
+   {
+    "text": "and",
+    "start": 7.889791,
+    "end": 8.132499
+   },
+   {
+    "text": "generate",
+    "start": 8.302416,
+    "end": 8.751457
+   },
+   {
+    "text": "the",
+    "start": 8.763583,
+    "end": 8.836416
+   },
+   {
+    "text": "report",
+    "start": 8.848541,
+    "end": 9.406791
+   },
+   {
+    "text": "with",
+    "start": 9.528166,
+    "end": 9.734457
+   },
+   {
+    "text": "no",
+    "start": 9.746583,
+    "end": 10.098541
+   },
+   {
+    "text": "manual",
+    "start": 10.110666,
+    "end": 10.523291
+   },
+   {
+    "text": "compiling",
+    "start": 10.535416,
+    "end": 11.202874
+   },
+   {
+    "text": "Targets",
+    "start": 11.554875,
+    "end": 12.113125
+   },
+   {
+    "text": "can",
+    "start": 12.12525,
+    "end": 12.307291
+   },
+   {
+    "text": "be",
+    "start": 12.319416,
+    "end": 12.428624
+   },
+   {
+    "text": "refreshed",
+    "start": 12.440791,
+    "end": 12.950499
+   },
+   {
+    "text": "every",
+    "start": 13.059708,
+    "end": 13.290291
+   },
+   {
+    "text": "month",
+    "start": 13.302416,
+    "end": 13.605832
+   },
+   {
+    "text": "to",
+    "start": 13.617958,
+    "end": 13.702916
+   },
+   {
+    "text": "keep",
+    "start": 13.715041,
+    "end": 13.921332
+   },
+   {
+    "text": "tracking",
+    "start": 13.9335,
+    "end": 14.516041
+   },
+   {
+    "text": "The",
+    "start": 14.867958,
+    "end": 15.025708
+   },
+   {
+    "text": "value",
+    "start": 15.037875,
+    "end": 15.389833
+   },
+   {
+    "text": "comes",
+    "start": 15.401958,
+    "end": 15.693208
+   },
+   {
+    "text": "in",
+    "start": 15.705333,
+    "end": 15.838833
+   },
+   {
+    "text": "four",
+    "start": 15.850958,
+    "end": 16.045124
+   },
+   {
+    "text": "parts",
+    "start": 16.057291,
+    "end": 16.591291
+   },
+   {
+    "text": "One",
+    "start": 16.943208,
+    "end": 17.307291
+   },
+   {
+    "text": "the",
+    "start": 17.367958,
+    "end": 17.489333
+   },
+   {
+    "text": "latest",
+    "start": 17.501458,
+    "end": 17.865541
+   },
+   {
+    "text": "progress",
+    "start": 17.877666,
+    "end": 18.338832
+   },
+   {
+    "text": "in",
+    "start": 18.350958,
+    "end": 18.435916
+   },
+   {
+    "text": "the",
+    "start": 18.448041,
+    "end": 18.520874
+   },
+   {
+    "text": "system",
+    "start": 18.533,
+    "end": 18.982041
+   },
+   {
+    "text": "fast",
+    "start": 19.018458,
+    "end": 19.564583
+   },
+   {
+    "text": "Two",
+    "start": 19.9165,
+    "end": 20.34125
+   },
+   {
+    "text": "refresh",
+    "start": 20.766,
+    "end": 21.202875
+   },
+   {
+    "text": "planned",
+    "start": 21.215041,
+    "end": 21.469916
+   },
+   {
+    "text": "numbers",
+    "start": 21.482041,
+    "end": 21.858249
+   },
+   {
+    "text": "any",
+    "start": 21.931083,
+    "end": 22.125249
+   },
+   {
+    "text": "time",
+    "start": 22.137375,
+    "end": 22.525708
+   },
+   {
+    "text": "and",
+    "start": 22.574291,
+    "end": 22.719916
+   },
+   {
+    "text": "forecast",
+    "start": 22.732041,
+    "end": 23.448041
+   },
+   {
+    "text": "directly",
+    "start": 23.496583,
+    "end": 23.909208
+   },
+   {
+    "text": "whether",
+    "start": 23.921375,
+    "end": 24.2005
+   },
+   {
+    "text": "the",
+    "start": 24.212625,
+    "end": 24.273291
+   },
+   {
+    "text": "yearly",
+    "start": 24.285458,
+    "end": 24.722333
+   },
+   {
+    "text": "target",
+    "start": 24.734458,
+    "end": 25.207749
+   },
+   {
+    "text": "can",
+    "start": 25.219916,
+    "end": 25.389832
+   },
+   {
+    "text": "be",
+    "start": 25.401958,
+    "end": 25.486916
+   },
+   {
+    "text": "met",
+    "start": 25.499041,
+    "end": 25.826707
+   },
+   {
+    "text": "Three",
+    "start": 26.178625,
+    "end": 26.6155
+   },
+   {
+    "text": "the",
+    "start": 26.7005,
+    "end": 26.809708
+   },
+   {
+    "text": "Top",
+    "start": 26.821833,
+    "end": 27.113083
+   },
+   {
+    "text": "N",
+    "start": 27.173791,
+    "end": 27.343707
+   },
+   {
+    "text": "list",
+    "start": 27.355833,
+    "end": 27.659249
+   },
+   {
+    "text": "keeps",
+    "start": 27.671375,
+    "end": 27.9505
+   },
+   {
+    "text": "everyone",
+    "start": 28.035458,
+    "end": 28.423791
+   },
+   {
+    "text": "focused",
+    "start": 28.435916,
+    "end": 28.872791
+   },
+   {
+    "text": "on",
+    "start": 28.884958,
+    "end": 28.969916
+   },
+   {
+    "text": "the",
+    "start": 28.982041,
+    "end": 29.066999
+   },
+   {
+    "text": "products",
+    "start": 29.079125,
+    "end": 29.528166
+   },
+   {
+    "text": "and",
+    "start": 29.540291,
+    "end": 29.698041
+   },
+   {
+    "text": "versions",
+    "start": 29.710208,
+    "end": 30.207791
+   },
+   {
+    "text": "not",
+    "start": 30.232041,
+    "end": 30.474749
+   },
+   {
+    "text": "yet",
+    "start": 30.486875,
+    "end": 30.656791
+   },
+   {
+    "text": "incorporated",
+    "start": 30.668916,
+    "end": 31.445624
+   },
+   {
+    "text": "Four",
+    "start": 31.797583,
+    "end": 32.282999
+   },
+   {
+    "text": "the",
+    "start": 32.537875,
+    "end": 32.634958
+   },
+   {
+    "text": "report",
+    "start": 32.647083,
+    "end": 33.035416
+   },
+   {
+    "text": "writes",
+    "start": 33.047583,
+    "end": 33.278166
+   },
+   {
+    "text": "itself",
+    "start": 33.290291,
+    "end": 33.799999
+   },
+   {
+    "text": "saving",
+    "start": 34.079125,
+    "end": 34.431083
+   },
+   {
+    "text": "a",
+    "start": 34.443208,
+    "end": 34.516041
+   },
+   {
+    "text": "lot",
+    "start": 34.528166,
+    "end": 34.855832
+   },
+   {
+    "text": "of",
+    "start": 34.867958,
+    "end": 34.965041
+   },
+   {
+    "text": "compiling",
+    "start": 34.977166,
+    "end": 35.486874
+   },
+   {
+    "text": "time",
+    "start": 35.499041,
+    "end": 35.935916
+   },
+   {
+    "text": "Go",
+    "start": 36.287875,
+    "end": 36.627666
+   },
+   {
+    "text": "and",
+    "start": 36.639791,
+    "end": 36.797541
+   },
+   {
+    "text": "give",
+    "start": 36.809708,
+    "end": 36.967458
+   },
+   {
+    "text": "it",
+    "start": 36.979625,
+    "end": 37.052458
+   },
+   {
+    "text": "a",
+    "start": 37.064583,
+    "end": 37.1131239
+   },
+   {
+    "text": "try",
+    "start": 37.12525,
+    "end": 37.586416
+   }
+  ],
+  "why": null
+ }
+]

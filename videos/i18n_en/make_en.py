@@ -55,7 +55,7 @@ def build_project(name, tk, dic, kind, scoped=None):
         t = open(os.path.join(src, 'src', f), encoding='utf8').read()
         t = translate(t, sc, tk, dic, scoped)
         t = font_swap(t)
-        for a, b in ENFIX.get(({'platform': 'p:', 'netcare': 'n:', 'incentive': 'i:'})[kind] + sc, []):
+        for a, b in ENFIX.get(({'platform': 'p:', 'netcare': 'n:', 'incentive': 'i:', 'eos': 'e:'})[kind] + sc, []):
             if a not in t: print('  ENFIX miss', kind, sc, a[:40])
             t = t.replace(a, b)
         open(p, 'w', encoding='utf8').write(t)
@@ -96,10 +96,10 @@ def build_project(name, tk, dic, kind, scoped=None):
                 t = t.replace("PUN=r'[，。！？；：、,.!?;:\\s“”\"\\'（）()—…]'", "PUN=r'[，。！？；：、,.!?;:\\s“”\"\\'（）()—…]'")
             open(p, 'w', encoding='utf8').write(t)
     # voice script
-    if kind in ('platform', 'incentive'):
+    if kind in ('platform', 'incentive', 'eos'):
         vo = open(os.path.join(src, 'scripts', 'vo.py'), encoding='utf8').read()
         a = vo.index('LINES = {'); b = vo.index('# 只给语音用')
-        lines = 'LINES = {\n' + ''.join(' %s: %s,\n' % (json.dumps(k), json.dumps(list(v), ensure_ascii=False)) for k, v in (NR.PLATFORM if kind == 'platform' else NR.INCENTIVE).items()) + '}\n'
+        lines = 'LINES = {\n' + ''.join(' %s: %s,\n' % (json.dumps(k), json.dumps(list(v), ensure_ascii=False)) for k, v in ({'platform': NR.PLATFORM, 'incentive': NR.INCENTIVE, 'eos': NR.EOS})[kind].items()) + '}\n'
         vo = vo[:a] + lines + vo[b:]
         vo = re.sub(r'SPOKEN = \[.*?\]\n', 'SPOKEN = []\n', vo, flags=re.S)
         vo = vo.replace('VOICE = "zh-CN-YunxiNeural"', 'VOICE = "%s"' % VOICE).replace('rate="+8%"', 'rate="%s"' % RATE)
@@ -109,7 +109,7 @@ def build_project(name, tk, dic, kind, scoped=None):
         lines = 'LINES = {\n' + ''.join(' %s: %s,\n' % (json.dumps(k), json.dumps(v, ensure_ascii=False)) for k, v in NR.NETCARE.items()) + '}\n'
         vo = vo[:a] + lines + vo[b:]
         vo = vo.replace('VOICE="zh-CN-YunxiNeural"', 'VOICE="%s"' % VOICE).replace('rate="+6%"', 'rate="%s"' % RATE)
-    if kind in ('platform', 'incentive'):
+    if kind in ('platform', 'incentive', 'eos'):
         vo = vo.replace('text = pre + why + body', 'text = " ".join(x for x in (pre, why, body) if x)').replace('o["text"] == v[0] + v[1] + v[2]', 'o["text"] == " ".join(x for x in v[:3] if x)')
         vo = vo.replace('a = len(re.sub(PUN, \'\', pre)); b = a + len(re.sub(PUN, \'\', why))', 'a = len(re.sub(PUN, \'\', pre)); b = a + len(re.sub(PUN, \'\', why))')
     os.makedirs(os.path.join(dst, 'compositions', 'frames'), exist_ok=True); os.makedirs(os.path.join(dst, 'renders'), exist_ok=True)
@@ -119,8 +119,8 @@ def build_project(name, tk, dic, kind, scoped=None):
     return dst, miss
 
 if __name__ == '__main__':
-    which = sys.argv[1:] or ['platform', 'netcare', 'incentive']
-    for name, tk, dic, kind, sco in (('tools-platform-guide', TK_PLATFORM, PLATFORM, 'platform', None), ('netcare-rfc-ai-guide', TK_NETCARE, NETCARE, 'netcare', None), ('operation-incentive-guide', TK_INCENTIVE, INCENTIVE, 'incentive', SCOPED_INC)):
+    which = sys.argv[1:] or ['platform', 'netcare', 'incentive', 'eos']
+    for name, tk, dic, kind, sco in (('tools-platform-guide', TK_PLATFORM, PLATFORM, 'platform', None), ('netcare-rfc-ai-guide', TK_NETCARE, NETCARE, 'netcare', None), ('operation-incentive-guide', TK_INCENTIVE, INCENTIVE, 'incentive', SCOPED_INC), ('eos-report-guide', TK_EOS, EOS, 'eos', SCOPED_EOS)):
         if kind not in which: continue
         dst, miss = build_project(name, tk, dic, kind, sco)
         print('==', dst)
