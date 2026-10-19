@@ -1,11 +1,12 @@
 /* 首页对话 / 工具两种互斥模式（配合 js/home/home-mode.js）。
-   左侧：图标栏（对话 / 工具 / 链接）+ 面板（历史对话 或 工具分类）；
+   左侧：图标栏（对话 / 工具 / 市场 / 导入 / 链接）+ 面板（历史对话 或 工具分类）；
    对话模式：主区只有 Dragon Claw，右侧可开工作区；工具模式：主区只有工具网格与资讯，不出现对话和工作区。
    在 home-workspace.css、dragon-claw.css 之后加载，覆盖其中的旧版侧栏与布局。 */
 
 .home-content.home-workspace {
     --ws-rail: 60px;
-    --ws-side: clamp(300px, 16vw, 380px);
+    --ws-side-default: clamp(352px, 19vw, 420px);
+    --ws-side: clamp(280px, var(--ws-side-preferred, var(--ws-side-default)), var(--ws-side-max, 560px));
 }
 
 /* ── 模式显隐 ───────────────────────────────── */
@@ -61,6 +62,14 @@ body.home-mode-chat.dc-chatting .dc { padding-bottom: 0; }
     background: rgba(2, 6, 23, 0.28);
 }
 .home-rail-spacer { flex: 1; }
+.home-rail-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+}
+.home-rail-actions[hidden] { display: none; }
 .home-rail-btn {
     position: relative;
     display: flex;
@@ -107,6 +116,34 @@ body.home-mode-chat.dc-chatting .dc { padding-bottom: 0; }
     min-width: 0;
     min-height: 0;
 }
+.home-sidebar-resizer {
+    position: absolute;
+    z-index: 2;
+    top: 10px;
+    bottom: 10px;
+    right: 0;
+    width: 8px;
+    cursor: col-resize;
+    touch-action: none;
+    border-radius: 4px;
+}
+.home-sidebar-resizer[hidden] { display: none; }
+.home-sidebar-resizer::after {
+    content: '';
+    position: absolute;
+    top: calc(50% - 20px);
+    right: 2px;
+    width: 2px;
+    height: 40px;
+    border-radius: 2px;
+    background: rgba(148, 163, 184, 0.3);
+}
+.home-sidebar-resizer:hover::after,
+.home-sidebar-resizer:focus-visible::after,
+body.home-sidebar-resizing .home-sidebar-resizer::after { background: var(--ws-accent); }
+.home-sidebar-resizer:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: -2px; }
+body.home-sidebar-resizing,
+body.home-sidebar-resizing * { cursor: col-resize !important; user-select: none !important; }
 .home-panel-view {
     display: flex;
     flex-direction: column;
@@ -341,7 +378,7 @@ body.home-mode-chat.dc-chatting .dc { padding-bottom: 0; }
     body.home-sidebar-collapsed.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr) 300px; }
 }
 @media (min-width: 861px) and (max-width: 1100px) {
-    .home-content.home-workspace { --ws-side: 272px; }
+    .home-content.home-workspace { --ws-side-default: 320px; }
 }
 
 /* ── 手机：图标栏变为顶部分段标签；历史对话改为弹窗 ── */
@@ -359,6 +396,7 @@ body.home-mode-chat.dc-chatting .dc { padding-bottom: 0; }
         background: transparent;
     }
     .home-rail-spacer { display: none; }
+    .home-rail-actions:not([hidden]) { display: contents; }
     .home-rail-btn {
         flex-direction: row;
         gap: 5px;
@@ -390,6 +428,18 @@ body.home-mode-chat.dc-chatting .dc { padding-bottom: 0; }
     }
     .home-links-pop .friend-links-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .home-tools-title { font-size: 17px; }
+}
+
+/* 小屏上的管理员入口较多，图标与短文字上下排列，保持可读和可点击。 */
+@media (max-width: 640px) {
+    .home-rail-btn {
+        flex-direction: column;
+        gap: 4px;
+        height: 48px;
+        padding: 0 2px;
+        border-radius: 10px;
+        font-size: 10.5px;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {

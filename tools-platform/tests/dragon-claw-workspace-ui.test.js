@@ -36,7 +36,7 @@ test('chat script sends the workspace payload, forwards events and shares its te
     assert.match(panel, /window\.DragonClawWorkspace = \{/);
     // 新标签页（sessionStorage 为空）重选同一目录时沿用服务端记住的会话 id；New Chat 仍新开 id
     assert.match(panel, /adoptSessionId\(data\.agentSessionId\) \|\| newSessionId\(\)/);
-    assert.match(panel, /resetSession\(\) \{[\s\S]*?state\.agentSessionId = newSessionId\(\);/);
+    assert.match(panel, /resetSession\(\{ clearWorkspace = false \} = \{\}\) \{[\s\S]*?state\.agentSessionId = newSessionId\(\);/);
     const routeSrc = read('backend/routes/agent-workspace.js');
     assert.match(routeSrc, /runManager\.findLatestSessionId\(req\.user, getTenantId\(\), root\)/);
     assert.match(routeSrc, /prefs, agentSessionId \}\)/);

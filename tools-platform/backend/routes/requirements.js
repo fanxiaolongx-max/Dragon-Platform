@@ -5,6 +5,8 @@ const fs = require('fs');
 
 const { ensureDataDir } = require('../models/store');
 const { createDatabaseProxy } = require('../models/tenant-sqlite-pool');
+const transport = require('../models/requirements-transport');
+const uploads = require('../models/requirements-upload');
 
 ensureDataDir();
 const db = createDatabaseProxy('requirements.db');
@@ -37,6 +39,60 @@ db.serialize(() => {
     )`);
 });
 
+// Descriptions and remarks can contain pasted credentials or scripts; do not log write bodies.
+router.use((req, _res, next) => {
+    if (req.method !== 'GET') req.suppressBodyLog = true;
+    next();
+});
+
+// This router is mounted after authentication and tenant context injection.
+router.get('/transport-key', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(transport.getPublicConfig(req.user));
+});
+
+const uploadEndpoint = action => async (req, res) => {
+    try {
+        const result = await action(req);
+        res.status(result.status || 200).json(result.body || result);
+    } catch (error) {
+        res.status(error.status || 500).json({
+            error: error.status ? error.message : '需求分块上传处理失败',
+            code: error.code || 'REQUIREMENT_UPLOAD_FAILED'
+        });
+    }
+};
+
+router.post('/uploads/start', uploadEndpoint(req => uploads.start(req.body || {}, req.user)));
+router.post('/uploads/:uploadId/chunk', uploadEndpoint(req => uploads.receive(req.params.uploadId, req.body || {}, req.user)));
+router.delete('/uploads/:uploadId', uploadEndpoint(req => { uploads.cancel(req.params.uploadId, req.user); return { success: true }; }));
+router.post('/uploads/:uploadId/complete', uploadEndpoint(req => uploads.complete(req.params.uploadId, req.user, (envelope, target) => {
+    const body = transport.decrypt(envelope, { user: req.user, method: target.method, path: target.path });
+    // Reuse exactly the same business validation and permission checks as direct writes.
+    return new Promise((resolve, reject) => {
+        let status = 200;
+        const response = {
+            status(value) { status = value; return this; },
+            json(value) { resolve({ status, body: value }); }
+        };
+        try {
+            const write = target.method === 'POST' ? createRequirement : updateRequirement;
+            write({ user: req.user, params: { id: target.requirementId }, body }, response);
+        } catch (error) { reject(error); }
+    });
+})));
+
+function decryptRequest(req, res, next) {
+    try {
+        req.body = transport.decrypt(req.body, {
+            user: req.user, method: req.method, path: `/api/requirements${req.path === '/' ? '' : req.path}`
+        });
+        next();
+    } catch (error) {
+        res.status(error.status || 400).json({ error: error.message, code: error.code || 'REQUIREMENT_TRANSPORT_INVALID' });
+    }
+}
+
 // 获取需求列表
 router.get('/', (req, res) => {
     db.all('SELECT * FROM Requirements ORDER BY id DESC', (err, rows) => {
@@ -61,7 +117,7 @@ router.get('/:id', (req, res) => {
 });
 
 // 提交新需求
-router.post('/', (req, res) => {
+function createRequirement(req, res) {
     const { title, description, category, urgent } = req.body;
     if (!title) return res.status(400).json({ error: '标题为必填项' });
     if (!category) return res.status(400).json({ error: '页面分类为必选项' });
@@ -86,10 +142,11 @@ router.post('/', (req, res) => {
             );
         }
     );
-});
+}
+router.post('/', decryptRequest, createRequirement);
 
 // 更新需求 (可以只更新信息，或者推进流程状态)
-router.put('/:id', (req, res) => {
+function updateRequirement(req, res) {
     const id = req.params.id;
     const { title, description, category, status, assignee, remark, urgent } = req.body;
     const operator = req.user ? req.user.username : 'Guest';
@@ -158,7 +215,8 @@ router.put('/:id', (req, res) => {
             }
         );
     });
-});
+}
+router.put('/:id', decryptRequest, updateRequirement);
 
 // 删除需求
 router.delete('/:id', (req, res) => {

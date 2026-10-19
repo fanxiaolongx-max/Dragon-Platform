@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "datacom-protocol-expert",
+    "name": "数通协议专家",
+    "nameEn": "Datacom Protocol Expert",
+    "icon": "🕸️",
+    "description": "数通协议知识库：OSPF、Juniper 跨厂商策略等知识的分类整理，配合 3D 爆炸拆解、动态流程与交互实验室可视化复杂知识点。",
+    "descriptionEn": "Datacom protocol knowledge base with 3D exploded views, animated protocol flows and interactive labs.",
+    "tags": ["数通", "OSPF", "Juniper", "3D", "知识库"],
+    "href": "/tools/datacom-protocol-expert",
+    "filePath": "/custom-tools/datacom-protocol-expert/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-10-19T00:00:00.000Z",
+    "updatedAt": "2026-10-19T00:00:00.000Z"
+  },
+  "history": null
+}

@@ -107,8 +107,12 @@
                 </div>
                 
                 <div class="form-group">
-                    <label data-i18n="需求详情描述">需求详情描述</label>
-                    <textarea id="reqDescInput" class="form-control" rows="4" data-i18n-ph="详细说明背景、期望效果等" placeholder="详细说明背景、期望效果等"></textarea>
+                    <label for="reqDescInput" data-i18n="需求详情描述">需求详情描述</label>
+                    <textarea id="reqDescInput" class="form-control" rows="4" aria-describedby="reqDescMeta" data-i18n-ph="详细说明背景、期望效果等" placeholder="详细说明背景、期望效果等"></textarea>
+                    <div class="req-description-meta" id="reqDescMeta">
+                        <span data-i18n="未设字数上限">未设字数上限</span>
+                        <span id="reqDescCount" role="status" aria-live="polite" aria-atomic="true">已输入 0 字 · 还可输入：不限</span>
+                    </div>
                 </div>
 
                 <label class="urgent-toggle" for="reqUrgentInput">

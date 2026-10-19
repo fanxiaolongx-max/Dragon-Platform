@@ -86,3 +86,49 @@ test('both languages define the re-login texts', () => {
         assert.equal(source.split(`'${key}':`).length - 1, 2, key);
     }
 });
+
+function preferencePage() {
+    const store = new Map([
+        ['tools_user', 'alice'], ['tools_token', 'test-session'], ['tools_tenant_id', 'default'],
+        ['home_sidebar_width:default:alice:chat', '424'], ['home_sidebar_width:other:alice:tools', '368'],
+        ['ordinary_pref', 'default-value']
+    ]);
+    const context = {
+        localStorage: {
+            get length() { return store.size; }, key: index => [...store.keys()][index] || null,
+            getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, String(value)),
+            removeItem: key => store.delete(key), clear: () => store.clear()
+        },
+        sessionStorage: { clear() {} }, console, fetch: async () => ({}), stopAlertCenterPolling() {},
+        window: { location: { href: '/' } }, document: { cookie: '' }, NAV_BOOTSTRAP_CACHE_KEY: 'nav-cache'
+    };
+    const nodes = ast.body.filter(node =>
+        (node.type === 'FunctionDeclaration' && node.id.name === 'switchTenantBrowserState')
+        || (node.type === 'VariableDeclaration' && node.declarations.some(d => ['TENANT_BROWSER_STATE_PREFIX', 'TENANT_BROWSER_GLOBAL_KEYS'].includes(d.id.name)))
+        || (node.type === 'ExpressionStatement' && node.expression.type === 'AssignmentExpression' && node.expression.left.property?.name === 'doLogout'));
+    vm.createContext(context);
+    vm.runInContext(nodes.map(node => source.slice(node.start, node.end)).join('\n'), context);
+    return { store, context };
+}
+
+test('logout preserves account-scoped sidebar widths while removing authentication state', async () => {
+    const { context, store } = preferencePage();
+    await context.window.doLogout();
+    assert.equal(store.get('home_sidebar_width:default:alice:chat'), '424');
+    assert.equal(store.get('home_sidebar_width:other:alice:tools'), '368');
+    assert.equal(store.has('tools_token'), false);
+    assert.equal(store.has('tools_user'), false);
+    assert.equal(context.window.location.href, '/login.html');
+});
+
+test('tenant switching retains explicitly scoped sidebar widths and still switches ordinary browser state', () => {
+    const { context, store } = preferencePage();
+    vm.runInContext("switchTenantBrowserState('default', 'other')", context);
+    assert.equal(store.get('home_sidebar_width:default:alice:chat'), '424');
+    assert.equal(store.get('home_sidebar_width:other:alice:tools'), '368');
+    assert.equal(store.has('ordinary_pref'), false);
+    store.set('ordinary_pref', 'other-value');
+    vm.runInContext("switchTenantBrowserState('other', 'default')", context);
+    assert.equal(store.get('ordinary_pref'), 'default-value');
+    assert.equal(store.get('home_sidebar_width:default:alice:chat'), '424');
+});

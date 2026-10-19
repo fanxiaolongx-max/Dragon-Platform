@@ -1426,7 +1426,7 @@
         state.restoring = false;
         el.input.disabled = false;
         state.controller?.abort();
-        workspace()?.resetSession?.();
+        workspace()?.resetSession?.({ clearWorkspace: true });
         state.messages = [];
         state.sessionId = null;
         state.focusedTool = null;

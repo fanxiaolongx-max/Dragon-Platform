@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数通协议专家</title>
+    <script>
+        (function () {
+            var pref = 'dark';
+            try { pref = localStorage.getItem('dk_theme') || 'dark'; } catch (e) {}
+            var dark = pref === 'system' ? window.matchMedia('(prefers-color-scheme: dark)').matches : pref !== 'light';
+            document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        })();
+    </script>
+    <link rel="stylesheet" href="./assets/app.css">
+</head>
+<body>
+    <header class="dk-topbar">
+        <button type="button" class="dk-icon-btn dk-nav-toggle" id="navToggle" aria-label="展开目录">☰</button>
+        <a class="dk-brand" href="#/"><span class="dk-logo" aria-hidden="true">◈</span><span><b>数通协议专家</b><small>Datacom Protocol Expert · 3D 知识库</small></span></a>
+        <div class="dk-search">
+            <input id="searchInput" type="search" placeholder="搜索协议、字段、命令，如 FA、P-bit、vrf-import…" aria-label="搜索知识库" autocomplete="off">
+            <div id="searchResults" class="dk-search-results" hidden></div>
+        </div>
+        <button type="button" class="dk-btn ghost small" id="themeBtn">🌙 深色</button>
+    </header>
+    <div class="dk-layout">
+        <aside id="sidebar" class="dk-sidebar" aria-label="知识目录"></aside>
+        <main id="main" class="dk-main"><div class="dk-loading">正在加载知识库…</div></main>
+    </div>
+    <div id="modalRoot" hidden></div>
+    <div id="toast" class="dk-toast-host" aria-live="polite"></div>
+    <script src="./assets/vendor/marked.min.js"></script>
+    <script type="module" src="./assets/app.js"></script>
+</body>
+</html>

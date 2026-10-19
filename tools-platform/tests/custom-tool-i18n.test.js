@@ -13,6 +13,7 @@ test('every registered custom HTML tool has a valid offline translation resource
     for (const tool of tools) {
         const candidates = [
             path.join(customToolsRepo.CUSTOM_TOOLS_DIR, tool.slug, '.i18n.json'),
+            path.join(customToolsRepo.BUILTIN_TOOLS_DIR, tool.slug, '.i18n.json'),
             path.join(i18nService.TRANSLATIONS_DIR, `${tool.slug}.json`)
         ];
         const resource = candidates.find(candidate => fs.existsSync(candidate));

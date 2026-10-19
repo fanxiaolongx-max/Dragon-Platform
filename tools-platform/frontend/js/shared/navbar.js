@@ -150,7 +150,7 @@ function switchTenantBrowserState(fromTenantId, toTenantId) {
     const snapshot = {};
     for (let index = 0; index < localStorage.length; index += 1) {
         const key = localStorage.key(index);
-        if (!key || TENANT_BROWSER_GLOBAL_KEYS.has(key) || key.startsWith(TENANT_BROWSER_STATE_PREFIX) || key.startsWith(NAV_BOOTSTRAP_CACHE_KEY)) continue;
+        if (!key || TENANT_BROWSER_GLOBAL_KEYS.has(key) || key.startsWith(TENANT_BROWSER_STATE_PREFIX) || key.startsWith(NAV_BOOTSTRAP_CACHE_KEY) || key.startsWith('home_sidebar_width:')) continue;
         snapshot[key] = localStorage.getItem(key);
     }
     try {
@@ -7992,6 +7992,7 @@ window.doLogout = async function () {
         const key = localStorage.key(i);
         if (key && (
             key.startsWith('tools_recent_nav_tools') ||
+            key.startsWith('home_sidebar_width:') ||
             key === 'tools_tenant_id' ||
             key === 'tools_platform_name' ||
             key === 'tools_platform_identity' ||

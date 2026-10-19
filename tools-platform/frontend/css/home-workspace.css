@@ -154,18 +154,6 @@
 .home-cat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-cat-count { color: var(--ws-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
 
-/* 管理员：工具市场 / 导入（JS 通过 style.display 控制显隐） */
-.home-sidebar .custom-tools-panel {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-    margin: 0;
-    padding-top: 12px;
-    border-top: 1px solid rgba(148, 163, 184, 0.1);
-}
-.home-sidebar .custom-tools-note { display: none; }
-.home-sidebar .custom-tool-upload { justify-content: center; height: 34px; font-size: 12.5px; }
-
 /* 友情链接（图标栏弹层 .home-links-pop，见 home-mode.css） */
 .home-links-pop .friend-links {
     display: block;
@@ -493,8 +481,6 @@ body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var
         border-radius: 999px;
     }
     .home-links-pop .friend-links { display: none; }
-    .home-sidebar .custom-tools-panel { flex-direction: row; }
-    .home-sidebar .custom-tool-upload { flex: 1; min-width: 0; padding: 0 8px; }
     .home-workspace .tools-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
 }
 
@@ -505,7 +491,6 @@ body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var
     .home-sidebar { gap: 10px; padding: 10px; border-radius: 14px; }
     .home-search { height: 40px; min-height: 40px; flex-basis: 40px; }
     .home-search-kbd { display: none; }
-    .home-sidebar .custom-tools-panel { display: none !important; } /* 显隐由脚本内联控制，手机上统一收起 */
     .home-workspace .tools-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 22px; }
     .home-group-head { margin-top: 6px; font-size: 12.5px; }
     .home-workspace .tool-card {

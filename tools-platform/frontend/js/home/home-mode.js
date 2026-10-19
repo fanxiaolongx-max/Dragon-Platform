@@ -7,11 +7,13 @@
     const TEXT = {
         'zh-CN': {
             chat: '对话', tools: '工具', links: '链接', history: '历史', chatTitle: '对话', toolsTitle: '工具', newChat: '新对话',
-            chatSearch: '搜索对话', collapse: '收起侧栏', expand: '展开侧栏', linksTitle: '友情链接'
+            chatSearch: '搜索对话', collapse: '收起侧栏', expand: '展开侧栏', linksTitle: '友情链接',
+            resize: '调整侧栏宽度', resizeHint: '拖动或按左右方向键调整宽度，双击或按 Enter 恢复默认'
         },
         'en-US': {
             chat: 'Chats', tools: 'Tools', links: 'Links', history: 'History', chatTitle: 'Chats', toolsTitle: 'Tools', newChat: 'New chat',
-            chatSearch: 'Search chats', collapse: 'Collapse sidebar', expand: 'Expand sidebar', linksTitle: 'Links'
+            chatSearch: 'Search chats', collapse: 'Collapse sidebar', expand: 'Expand sidebar', linksTitle: 'Links',
+            resize: 'Resize sidebar', resizeHint: 'Drag or use arrow keys to resize; double-click or press Enter to reset'
         }
     };
     const MODES = ['chat', 'tools'];
@@ -19,12 +21,133 @@
     const AUTO_COLLAPSE = 1280; // 窄于此宽度默认只显示图标栏
     const WORKSPACE_COLLAPSE = 1600; // 右侧工作区打开且窄于此宽度时，左侧自动收成图标栏
     const MOBILE = 860;
+    const WIDTH_KEY = 'home_sidebar_width';
+    const MIN_WIDTH = 280;
+    const MAX_WIDTH = 560;
 
     const el = {};
     let mode = 'chat';
     // 工作区打开期间用户手动展开/收起的选择；工作区开关变化时清空，回到自动规则
     let workspaceOverride = null;
     let lastWorkspaceOpen = false;
+    let widthScope = '';
+    let widths = {};
+    let drag = null;
+
+    function preferenceScope() {
+        try { return `${encodeURIComponent(localStorage.getItem('tools_tenant_id') || 'default')}:${encodeURIComponent(localStorage.getItem('tools_user') || 'local')}`; }
+        catch { return 'local'; }
+    }
+
+    function loadWidths() {
+        const scope = preferenceScope();
+        if (scope === widthScope) return;
+        widthScope = scope;
+        widths = {};
+        for (const name of MODES) {
+            try {
+                const value = Number(localStorage.getItem(`${WIDTH_KEY}:${scope}:${name}`));
+                if (Number.isFinite(value) && value >= MIN_WIDTH && value <= MAX_WIDTH) widths[name] = value;
+            } catch { /* Keep defaults when browser storage is unavailable. */ }
+        }
+    }
+
+    function widthBounds() {
+        const css = getComputedStyle(el.layout);
+        const available = el.layout.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight);
+        const gap = parseFloat(css.columnGap) || 0;
+        const right = workspaceOpen() ? (document.getElementById('dcWorkspacePanel')?.getBoundingClientRect().width || 320) : 0;
+        const maximum = Math.floor(Math.min(MAX_WIDTH, available * 0.48, available - right - gap * (right ? 2 : 1) - 360));
+        return { min: MIN_WIDTH, max: Math.max(MIN_WIDTH, maximum) };
+    }
+
+    function applySidebarWidth() {
+        loadWidths();
+        const bounds = widthBounds();
+        el.layout.style.setProperty('--ws-side-max', `${bounds.max}px`);
+        if (widths[mode] !== undefined) el.layout.style.setProperty('--ws-side-preferred', `${widths[mode]}px`);
+        else el.layout.style.removeProperty('--ws-side-preferred');
+        if (!el.resizer) return;
+        el.resizer.hidden = isMobile() || isCollapsed();
+        el.resizer.setAttribute('aria-valuemin', String(bounds.min));
+        el.resizer.setAttribute('aria-valuemax', String(bounds.max));
+        if (!el.resizer.hidden) el.resizer.setAttribute('aria-valuenow', String(Math.round(el.sidebar.getBoundingClientRect().width)));
+    }
+
+    function saveWidth() {
+        try {
+            const key = `${WIDTH_KEY}:${widthScope}:${mode}`;
+            if (widths[mode] === undefined) localStorage.removeItem(key);
+            else localStorage.setItem(key, String(widths[mode]));
+        } catch { /* Retain the preference for this page when storage is full or disabled. */ }
+    }
+
+    function changeWidth(value, persist = false) {
+        loadWidths();
+        const bounds = widthBounds();
+        widths[mode] = Math.round(Math.max(bounds.min, Math.min(bounds.max, value)));
+        applySidebarWidth();
+        if (persist) saveWidth();
+    }
+
+    function finishResize(persist) {
+        if (!drag) return;
+        const previous = drag;
+        drag = null;
+        document.body.classList.remove('home-sidebar-resizing');
+        if (el.resizer.hasPointerCapture(previous.pointerId)) el.resizer.releasePointerCapture(previous.pointerId);
+        if (previous.scope === preferenceScope() && previous.mode === mode) {
+            if (persist) saveWidth();
+            else widths[mode] = previous.preferred;
+        }
+        applySidebarWidth();
+    }
+
+    function bindSidebarResize() {
+        if (!el.resizer) return;
+        const reset = () => {
+            finishResize(false);
+            loadWidths();
+            widths[mode] = undefined;
+            saveWidth();
+            applySidebarWidth();
+        };
+        el.resizer.addEventListener('pointerdown', event => {
+            if (drag || event.button !== 0 || !event.isPrimary || isMobile() || isCollapsed()) return;
+            event.preventDefault();
+            loadWidths();
+            drag = { pointerId: event.pointerId, x: event.clientX, width: el.sidebar.getBoundingClientRect().width, preferred: widths[mode], mode, scope: widthScope };
+            el.resizer.focus({ preventScroll: true });
+            el.resizer.setPointerCapture(event.pointerId);
+            document.body.classList.add('home-sidebar-resizing');
+        });
+        el.resizer.addEventListener('pointermove', event => {
+            if (!drag || event.pointerId !== drag.pointerId) return;
+            if (drag.scope !== preferenceScope()) return finishResize(false);
+            changeWidth(drag.width + event.clientX - drag.x);
+        });
+        el.resizer.addEventListener('pointerup', event => { if (drag?.pointerId === event.pointerId) finishResize(true); });
+        el.resizer.addEventListener('pointercancel', () => finishResize(false));
+        el.resizer.addEventListener('lostpointercapture', () => finishResize(false));
+        el.resizer.addEventListener('dblclick', reset);
+        el.resizer.addEventListener('keydown', event => {
+            if (event.key === 'Enter') { event.preventDefault(); reset(); return; }
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const bounds = widthBounds();
+            const width = el.sidebar.getBoundingClientRect().width;
+            changeWidth(event.key === 'Home' ? bounds.min : event.key === 'End' ? bounds.max : width + (event.key === 'ArrowRight' ? 1 : -1) * (event.shiftKey ? 40 : 16), true);
+        });
+        document.addEventListener('keydown', event => { if (event.key === 'Escape') finishResize(false); });
+        window.addEventListener('blur', () => finishResize(false));
+        window.addEventListener('storage', event => {
+            if (event.key === null || event.key === 'tools_user' || event.key === 'tools_tenant_id' || event.key.startsWith(`${WIDTH_KEY}:`)) {
+                finishResize(false);
+                widthScope = '';
+                applySidebarWidth();
+            }
+        });
+    }
 
     function lang() {
         return window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'en-US' : 'zh-CN';
@@ -62,6 +185,7 @@
             if (workspaceOpen() && window.innerWidth < WORKSPACE_COLLAPSE) collapsed = workspaceOverride ?? true;
             else if (workspaceOpen() && workspaceOverride !== null) collapsed = workspaceOverride;
         }
+        if (collapsed || isMobile()) finishResize(false);
         document.body.classList.toggle('home-sidebar-collapsed', collapsed);
         el.toggles.forEach(button => {
             const label = tx(collapsed ? 'expand' : 'collapse');
@@ -69,6 +193,7 @@
             button.setAttribute('aria-label', label);
             button.title = label;
         });
+        applySidebarWidth();
     }
 
     function setCollapsed(collapsed) {
@@ -80,6 +205,7 @@
     }
 
     function setMode(next, { updateHash = true, focus = false } = {}) {
+        finishResize(false);
         if (!MODES.includes(next)) next = 'chat';
         if (!document.getElementById('dragonClaw')) next = 'tools'; // 没有智能体区域时只有工具
         const changed = next !== mode || !document.body.classList.contains(`home-mode-${next}`);
@@ -173,10 +299,15 @@
         if (el.linksBtn) el.linksBtn.title = tx('linksTitle');
         const chatSearch = document.getElementById('homeChatSearch');
         if (chatSearch) chatSearch.placeholder = tx('chatSearch');
+        if (el.resizer) {
+            el.resizer.setAttribute('aria-label', tx('resize'));
+            el.resizer.title = tx('resizeHint');
+        }
         applySidebarMode();
     }
 
     function bindEvents() {
+        bindSidebarResize();
         el.modeButtons.forEach(button => button.addEventListener('click', () => {
             toggleLinks(false);
             const next = button.dataset.homeMode;
@@ -211,6 +342,7 @@
 
         let raf = 0;
         window.addEventListener('resize', () => {
+            finishResize(false);
             cancelAnimationFrame(raf);
             raf = requestAnimationFrame(() => {
                 applySidebarMode();
@@ -231,6 +363,8 @@
     function init() {
         el.sidebar = document.getElementById('homeSidebar');
         if (!el.sidebar) return;
+        el.layout = el.sidebar.closest('.home-workspace');
+        el.resizer = document.getElementById('homeSidebarResizer');
         el.rail = el.sidebar.querySelector('.home-rail');
         el.modeButtons = [...el.sidebar.querySelectorAll('[data-home-mode]')];
         el.panels = [...el.sidebar.querySelectorAll('[data-home-panel]')];

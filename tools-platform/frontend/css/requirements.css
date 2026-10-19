@@ -567,6 +567,20 @@ textarea.form-control {
     min-height: 110px;
 }
 
+.req-description-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 4px 12px;
+    margin-top: 6px;
+    color: #94a3b8;
+    font-size: 12px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+}
+
+#reqDescCount { margin-left: auto; text-align: right; }
+
 .form-row {
     display: flex;
     gap: 16px;

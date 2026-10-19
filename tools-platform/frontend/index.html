@@ -665,38 +665,6 @@
             color:#7dd3fc;
             font-size:12px;
         }
-        .custom-tools-panel {
-            margin: 16px 0 28px;
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .custom-tools-note {
-            color: #8ba4c2;
-            font-size: 12px;
-        }
-        .custom-tool-upload {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            height: 38px;
-            padding: 0 14px;
-            border-radius: 10px;
-            border: 1px solid rgba(100,255,218,0.28);
-            background: rgba(100,255,218,0.12);
-            color: #8fffe8;
-            font-size: 13px;
-            font-weight: 800;
-            cursor: pointer;
-        }
-        .custom-tool-upload:hover {
-            background: rgba(100,255,218,0.18);
-            border-color: rgba(100,255,218,0.42);
-        }
-        .custom-tool-upload.market { border-color: rgba(96,165,250,.35); background: rgba(59,130,246,.14); color: #bfdbfe; }
-        .custom-tool-upload.market:hover { border-color: rgba(96,165,250,.55); background: rgba(59,130,246,.22); }
         .tool-import-overlay {
             position: fixed;
             inset: 0;
@@ -965,7 +933,6 @@
             .ai-metric:nth-last-child(-n+2) { border-bottom:0; }
             .history-row { grid-template-columns: 1fr; }
             .history-time { text-align: left; }
-            .custom-tools-panel { justify-content: flex-start; margin-top: 14px; }
             .tool-import-overlay { padding: 12px; align-items: flex-end; }
             .tool-import-dialog { max-height: calc(100vh - 24px); border-radius: 20px 20px 12px 12px; }
             .tool-import-head, .tool-import-form { padding-left: 20px; padding-right: 20px; }
@@ -1002,6 +969,16 @@
                     <span class="home-rail-label" data-home-mode-i18n="history">历史</span>
                 </button>
                 <span class="home-rail-spacer" aria-hidden="true"></span>
+                <div class="home-rail-actions" id="customToolsPanel" hidden>
+                    <button type="button" class="home-rail-btn" id="toolMarketBtn" title="工具市场" aria-label="工具市场" aria-haspopup="dialog" aria-controls="toolMarketModal">
+                        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 7h12l1 9.5H3L4 7Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+                        <span class="home-rail-label" data-home-i18n="home.market.short">市场</span>
+                    </button>
+                    <button type="button" class="home-rail-btn" id="customToolUploadBtn" title="导入 HTML / ZIP / SKILL" aria-label="导入 HTML / ZIP / SKILL" aria-haspopup="dialog" aria-controls="customToolImportModal">
+                        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m-3-3 3 3 3-3M4 12v4.5h12V12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span class="home-rail-label" data-home-i18n="home.custom.uploadShort">导入</span>
+                    </button>
+                </div>
                 <button type="button" class="home-rail-btn" id="homeLinksBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="homeLinksPop">
                     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.6 11.4a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-1 1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M11.4 8.6a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l1-1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                     <span class="home-rail-label" data-home-mode-i18n="links">链接</span>
@@ -1044,13 +1021,10 @@
                     <nav class="home-cat-nav" id="homeCategoryNav" aria-label="工具分类"></nav>
                     <!-- 插件与脚本：F12 插件 / Python 脚本 / 浮窗脚本等（js/home/capabilities.js，新增后自动出现） -->
                     <nav class="home-cat-nav home-caps-nav" id="homeCapsNav" aria-label="插件与脚本" hidden></nav>
-                    <div class="custom-tools-panel" id="customToolsPanel" style="display:none;">
-                        <span class="custom-tools-note">导入 HTML 或 ZIP 工具包后，会自动生成首页模块和顶部导航入口，并默认支持静态快照与 Pages 推送</span>
-                        <button class="custom-tool-upload market" id="toolMarketBtn">🛍️ 工具市场</button>
-                        <button class="custom-tool-upload" id="customToolUploadBtn">导入 HTML / ZIP / SKILL</button>
-                    </div>
                 </section>
             </div>
+
+            <div class="home-sidebar-resizer" id="homeSidebarResizer" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="homeSidebar" aria-label="调整侧栏宽度" hidden></div>
 
             <!-- 友情链接弹层 -->
             <div class="home-links-pop" id="homeLinksPop" role="dialog" aria-label="友情链接" hidden>
@@ -1837,7 +1811,9 @@
                 'home.apiRelay.saveBeforeInstall': '配置已修改，请先保存后再自动添加。',
                 'home.custom.note': '导入 HTML 或 ZIP 工具包后，会自动生成首页模块和顶部导航入口，并默认支持静态快照与 Pages 推送',
                 'home.custom.upload': '导入 HTML / ZIP / SKILL',
-                'home.market.button': '🛍️ 工具市场',
+                'home.market.button': '工具市场',
+                'home.market.short': '市场',
+                'home.custom.uploadShort': '导入',
                 'home.market.title': '工具市场',
                 'home.market.subtitle': '从已启用的仓库安装或更新 HTML 工具。',
                 'home.market.details': '查看详细更新日志',
@@ -2056,7 +2032,9 @@
                 'home.apiRelay.saveBeforeInstall': 'Save the modified setup before installing it.',
                 'home.custom.note': 'Import an HTML file or ZIP package to generate a home card and navigation entry, with out-of-the-box static snapshot and Pages publishing support.',
                 'home.custom.upload': 'Import HTML / ZIP / SKILL',
-                'home.market.button': '🛍️ Tool Market',
+                'home.market.button': 'Tool Market',
+                'home.market.short': 'Market',
+                'home.custom.uploadShort': 'Import',
                 'home.market.title': 'Tool Market',
                 'home.market.subtitle': 'Install or update HTML tools from enabled sources.',
                 'home.market.details': 'View detailed update log',
@@ -2860,9 +2838,12 @@
             setText('#apiRelaySaveBtn', t('home.apiRelay.save'));
             renderApiRelayExample();
             updateApiRelayRuntimeState();
-            setText('.custom-tools-note', t('home.custom.note'));
-            setText('#customToolUploadBtn', t('home.custom.upload'));
-            setText('#toolMarketBtn', t('home.market.button'));
+            [['customToolUploadBtn', 'home.custom.upload'], ['toolMarketBtn', 'home.market.button']].forEach(([id, key]) => {
+                const button = document.getElementById(id);
+                if (!button) return;
+                button.title = t(key);
+                button.setAttribute('aria-label', t(key));
+            });
             setText('#toolMarketTitle', t('home.market.title'));
             setText('#toolMarketSubtitle', t('home.market.subtitle'));
             setText('#customToolImportTitle', t('home.import.title'));
@@ -3219,7 +3200,7 @@
                 progressLog.scrollTop = progressLog.scrollHeight;
             };
             if (!panel || !btn || !modal || !form || !input) return;
-            panel.style.display = role === 'admin' ? 'flex' : 'none';
+            panel.hidden = role !== 'admin';
             let metadataGeneration = 0;
             // SKILL 技能包（ZIP 内含 SKILL.md，或单个 .md）：导入到「全部工具 → 技能」，而不是 HTML 工具
             let skillImport = null;

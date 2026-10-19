@@ -123,6 +123,7 @@ const app = express();
 app.use(cors());
 app.use('/api/custom-tools/import-upload', express.json({ limit: 850000 }));
 app.use('/api/topic-snapshots/import-upload', express.json({ limit: 850000 }));
+app.use('/api/requirements/uploads', express.json({ limit: 800000 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -447,6 +448,7 @@ app.use('/api/chat-history', chatHistoryRoutes); // 租户隔离的聊天记录�
 app.use('/api/custom-tools', customToolsRoutes); // 自定义 HTML 工具注册 API
 app.use('/api/department-reward-penalty', require('./routes/department-reward-penalty'));
 app.use('/api/reward-program', require('./routes/reward-program'));
+app.use('/api/datacom-knowledge', require('./routes/datacom-knowledge')); // 数通协议专家知识库（独立 datacom-knowledge.db）
 app.use('/api/slide-design', slideDesignRoutes); // 胶片设计项目与 PPT 素材库
 app.use('/api/surveys', surveysRoutes); // 可配置调查模板与提交记录 API
 app.use('/api/nav-settings', navSettingsRoutes); // 顶部导航全局设置 API

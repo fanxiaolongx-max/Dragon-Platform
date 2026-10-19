@@ -91,7 +91,7 @@
         el.toggle?.setAttribute('aria-pressed', String(state.open));
         el.fab?.setAttribute('aria-pressed', String(state.open));
         try { localStorage.setItem(PANEL_KEY, state.open ? '1' : '0'); } catch { /* ignore */ }
-        if (state.open) requestAnimationFrame(() => el.panel.classList.add('is-drawer-open'));
+        if (state.open) requestAnimationFrame(() => { if (state.open) el.panel.classList.add('is-drawer-open'); });
         else el.panel.classList.remove('is-drawer-open');
     }
 
@@ -663,6 +663,7 @@
         state.openDiff = null;
         state.pr?.controller?.abort();
         state.pr = null;
+        setOpen(false);
         renderAll();
         window.dispatchEvent(new CustomEvent('dragon-claw:workspace-change', { detail: { root: '' } }));
     }
@@ -1142,6 +1143,7 @@
             }
             if (ticket !== state.selectionEpoch) return false;
             if (!this.adoptSession({ agentSessionId, root: state.root })) return false;
+            setOpen(true);
             await restoreState();
             return true;
         },
@@ -1162,7 +1164,8 @@
             renderChanges();
             return true;
         },
-        resetSession() {
+        resetSession({ clearWorkspace = false } = {}) {
+            if (clearWorkspace) clearDirectory();
             state.selectionEpoch += 1;
             if (state.pr?.phase === 'running') state.pr.controller?.abort();
             state.pr = null;
