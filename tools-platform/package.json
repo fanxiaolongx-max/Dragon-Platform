@@ -23,7 +23,8 @@
     "build:win:publish": "npm run license:verify-desktop-config && electron-builder --win nsis --x64 --publish always && node scripts/patch-portable-nsis.js && electron-builder --win portable --x64 --publish always --config.win.icon=frontend/assets/icon-windows-portable.ico",
     "build:mac": "npm run license:verify-desktop-config && npm run release:verify-assets && node scripts/build-mac.js",
     "build:mac:local": "npm run license:verify-desktop-config && npm run release:verify-assets && node scripts/build-mac.js --local",
-    "release:verify-assets": "node scripts/verify-release-assets.js"
+    "release:verify-assets": "node scripts/verify-release-assets.js",
+    "promo:sync-media": "node scripts/sync-media-releases.js"
   },
   "build": {
     "appId": "com.toolsplatform.app",
