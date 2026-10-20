@@ -127,15 +127,21 @@ function findArticleByTitle(target) {
 }
 
 // ---------------- 主题 ----------------
+let systemThemeMedia = null;
+try { systemThemeMedia = window.matchMedia?.('(prefers-color-scheme: dark)') || null; } catch (_) { /* 无法识别时使用浅色 */ }
+function themePreference() {
+    const pref = localStorageGet(THEME_KEY);
+    return ['dark', 'light', 'system'].includes(pref) ? pref : 'system';
+}
 function resolvedTheme() {
-    const pref = localStorageGet(THEME_KEY) || 'dark';
-    if (pref === 'system') return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const pref = themePreference();
+    if (pref === 'system') return systemThemeMedia?.matches === true ? 'dark' : 'light';
     return pref;
 }
 function localStorageGet(key) { try { return localStorage.getItem(key); } catch (_) { return null; } }
 function localStorageSet(key, value) { try { localStorage.setItem(key, value); } catch (_) { /* 隐私模式 */ } }
 function applyTheme() {
-    const pref = localStorageGet(THEME_KEY) || 'dark';
+    const pref = themePreference();
     document.documentElement.dataset.theme = resolvedTheme();
     const button = $('#themeBtn');
     if (button) button.textContent = { dark: '🌙 深色', light: '☀️ 浅色', system: '🌓 跟随系统' }[pref];
@@ -981,15 +987,21 @@ function bindSidebarResize() {
 function bindGlobalEvents() {
     window.addEventListener('hashchange', route);
     $('#themeBtn').addEventListener('click', () => {
-        const order = ['dark', 'light', 'system'];
-        const current = localStorageGet(THEME_KEY) || 'dark';
+        const order = ['system', 'light', 'dark'];
+        const current = themePreference();
         localStorageSet(THEME_KEY, order[(order.indexOf(current) + 1) % order.length]);
         applyTheme();
         if (state.route?.name === 'article') renderArticle(state.route.id);
     });
-    matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
+    const followSystemTheme = () => {
+        if (themePreference() !== 'system') return;
+        applyTheme();
+        if (state.route?.name === 'article') renderArticle(state.route.id);
+    };
+    if (systemThemeMedia?.addEventListener) systemThemeMedia.addEventListener('change', followSystemTheme);
+    else systemThemeMedia?.addListener?.(followSystemTheme);
     $('#navToggle').addEventListener('click', () => {
-        if (matchMedia('(max-width: 860px)').matches) document.body.classList.toggle('is-nav-open');
+        if (window.innerWidth <= 860) document.body.classList.toggle('is-nav-open');
         else setNavCollapsed(!document.body.classList.contains('is-nav-collapsed'));
     });
     bindSidebarResize();

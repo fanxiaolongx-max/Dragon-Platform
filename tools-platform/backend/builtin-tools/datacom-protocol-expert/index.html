@@ -1,14 +1,17 @@
 <!DOCTYPE html>
-<html lang="zh-CN" data-theme="dark">
+<html lang="zh-CN" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>数通协议专家</title>
     <script>
         (function () {
-            var pref = 'dark';
-            try { pref = localStorage.getItem('dk_theme') || 'dark'; } catch (e) {}
-            var dark = pref === 'system' ? window.matchMedia('(prefers-color-scheme: dark)').matches : pref !== 'light';
+            var pref = 'system', dark = false;
+            try { pref = localStorage.getItem('dk_theme') || 'system'; } catch (e) {}
+            if (pref === 'dark') dark = true;
+            else if (pref !== 'light') {
+                try { dark = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches === true; } catch (e) {}
+            }
             document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
         })();
     </script>
@@ -23,7 +26,7 @@
             <div id="searchResults" class="dk-search-results" hidden></div>
         </div>
         <button type="button" class="dk-btn ghost small dk-ai-toggle" id="aiPanelBtn" title="AI 问答与笔记侧栏">✦ AI 笔记<b></b></button>
-        <button type="button" class="dk-btn ghost small" id="themeBtn">🌙 深色</button>
+        <button type="button" class="dk-btn ghost small" id="themeBtn">🌓 跟随系统</button>
     </header>
     <div class="dk-layout">
         <aside id="sidebar" class="dk-sidebar" aria-label="知识目录"></aside>

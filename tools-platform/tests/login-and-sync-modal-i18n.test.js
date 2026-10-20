@@ -232,7 +232,7 @@ test('navbar.js builtin tools sync modal helpers support English and Chinese', (
 
         const statusMeta = ctx.builtinToolStatusMeta('missing');
         assert.equal(statusMeta.label, 'New System Tool');
-        assert.equal(ctx.builtinToolStatusMeta('update').label, 'New Version Found');
+        assert.equal(ctx.builtinToolStatusMeta('update').label, 'Content Differs');
         assert.equal(ctx.builtinToolStatusMeta('adopt').label, 'Adopt Identical Version');
         assert.equal(ctx.builtinToolStatusMeta('conflict').label, 'Name Conflict');
 
@@ -261,7 +261,7 @@ test('navbar.js builtin tools sync modal helpers support English and Chinese', (
         vm.runInContext(helpersCode, ctx);
 
         assert.equal(ctx.builtinToolStatusMeta('missing').label, '新增系统工具');
-        assert.equal(ctx.builtinToolStatusMeta('update').label, '发现新版本');
+        assert.equal(ctx.builtinToolStatusMeta('update').label, '内容有差异');
         assert.equal(ctx.builtinToolChangeLabel('added'), '新增');
         assert.equal(ctx.builtinToolChangeLabel('modified'), '修改');
 
