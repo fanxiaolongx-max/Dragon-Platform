@@ -4,10 +4,24 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 
+const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-defaults-test-'));
+process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
+process.env.TOOLS_REPORT_DATA_DIR = path.join(sandbox, 'reports');
+
 const repo = require('../backend/models/nav-settings-repository');
 const { runWithTenant } = require('../backend/models/tenant-context');
 const appDb = require('../backend/models/app-db');
 const pool = require('../backend/models/tenant-sqlite-pool');
+
+const defaultsFile = path.join(__dirname, '../backend/defaults/nav-layout.json');
+const originalDefaultsContent = fs.readFileSync(defaultsFile, 'utf8');
+
+test.after(async () => {
+    fs.writeFileSync(defaultsFile, originalDefaultsContent, 'utf8');
+    await appDb.closeDatabase();
+    await pool.closeAll();
+    fs.rmSync(sandbox, { recursive: true, force: true });
+});
 
 test('nav-layout-defaults: getDefaultNavLayout reads from defaults/nav-layout.json', async t => {
     const defaultLayout = repo.getDefaultNavLayout();
@@ -27,17 +41,7 @@ test('nav-layout-defaults: DEFAULT_SETTINGS dynamically delegates to getDefaultN
     assert.deepEqual(repo.DEFAULT_SETTINGS.itemOrder, layout.itemOrder);
 });
 
-test('nav-layout-defaults: setAsDefaultLayout writes defaults/nav-layout.json and saves to current tenant', async t => {
-    const defaultsFile = path.join(__dirname, '../backend/defaults/nav-layout.json');
-    const originalContent = fs.readFileSync(defaultsFile, 'utf8');
-
-    t.after(async () => {
-        // Restore original file
-        fs.writeFileSync(defaultsFile, originalContent, 'utf8');
-        await appDb.closeDatabase();
-        await pool.closeAll();
-    });
-
+test('nav-layout-defaults: setAsDefaultLayout writes defaults/nav-layout.json and saves to current tenant', async () => {
     const customLayout = {
         primaryIds: ['home', 'topic-analysis', 'custom-report'],
         categories: [
@@ -90,16 +94,10 @@ test('nav-layout-defaults: frontend navbar.js and shared.css contain set-as-defa
     assert.match(sharedCss, /\.nav-settings-btn-setdefault/);
 });
 
-test('nav-layout-defaults: POST /api/nav-settings/set-as-default requires admin and saves layout', async t => {
+test('nav-layout-defaults: POST /api/nav-settings/set-as-default requires admin and saves layout', async () => {
     const express = require('express');
     const request = require('supertest');
     const navRouter = require('../backend/routes/nav-settings');
-    const defaultsFile = path.join(__dirname, '../backend/defaults/nav-layout.json');
-    const originalContent = fs.readFileSync(defaultsFile, 'utf8');
-
-    t.after(() => {
-        fs.writeFileSync(defaultsFile, originalContent, 'utf8');
-    });
 
     const app = express();
     app.use(express.json());
