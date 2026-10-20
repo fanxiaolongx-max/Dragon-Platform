@@ -64,11 +64,16 @@ self.addEventListener('fetch', event => {
             }
             return json({ error: '请先登录', code: 'AUTH_REQUIRED' }, 401);
         }
-        const response = await fetch(new URL(file.url, base), { cache: 'no-store' });
-        if (!response.ok) return new Response('Snapshot unavailable', { status: 503 });
         try {
-            const data = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes(file.iv) }, unlocked.key, await response.arrayBuffer());
-            return new Response(data, { headers: { 'Content-Type': file.type, 'Cache-Control': 'no-store' } });
+            const chunks = [];
+            // 顺序下载和认证每个分片，避免并行载入大文件造成瞬时内存峰值。
+            for (const part of file.parts || [file]) {
+                if (!/^tp-static\/payload\/[a-f0-9]+\.bin$/.test(part.url)) throw new Error('Invalid payload');
+                const response = await fetch(new URL(part.url, base), { cache: 'no-store' });
+                if (!response.ok) return new Response('Snapshot unavailable', { status: 503 });
+                chunks.push(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes(part.iv) }, unlocked.key, await response.arrayBuffer()));
+            }
+            return new Response(new Blob(chunks), { headers: { 'Content-Type': file.type, 'Cache-Control': 'no-store' } });
         } catch (_) { return new Response('Snapshot verification failed', { status: 503 }); }
     })());
 });

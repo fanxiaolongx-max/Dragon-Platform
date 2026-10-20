@@ -4253,7 +4253,7 @@ async function renderSnapshotPublishSettings(content) {
                 <div id="snapshotPrerequisites" class="snapshot-prerequisites ${prereqClass}" role="status">${prereqContent}</div>
                 <div class="snapshot-hero"><span class="snapshot-hero-icon">↗</span><div><strong>${navEscape(snapshotText('平台工具 · 静态页面发布（Git Pages）', 'Platform Tools · Static Page Publishing (Git Pages)'))}</strong><p>${navEscape(snapshotText('推送与平台一致的主页和只读工具，统一使用本地账号登录。账号密码按推送时同步，修改后请再次推送；站点需使用 HTTPS。', 'Publish the platform homepage and read-only tools with one sign-in using local accounts. Account changes take effect after publishing again. HTTPS is required.'))}</p></div></div>
                 <div class="snapshot-fields">
-                    <label>${navEscape(snapshotText('推送格式', 'Publishing format'))}<select id="snapshotPublishMode" class="nav-settings-input" onchange="updateSnapshotPublishPathPreview()"><option value="single" ${settings.publishMode !== 'pages' ? 'selected' : ''}>${navEscape(snapshotText('单文件 HTML（数据内嵌）', 'Single HTML (embedded data)'))}</option><option value="pages" ${settings.publishMode === 'pages' ? 'selected' : ''}>${navEscape(snapshotText('Pages 分离版（HTML + JSON + 附件）', 'Split Pages (HTML + JSON + evidence)'))}</option></select><small>${navEscape(snapshotText('下载按钮始终导出可离线查看的单 HTML。Pages 分离版按工具目录存储文件，仅提交有变化的文件。', 'The download button always exports a standalone offline HTML. Split Pages stores assets under the tool directory and commits only changed files.'))}</small></label>
+                    <label>${navEscape(snapshotText('推送格式', 'Publishing format'))}<select id="snapshotPublishMode" class="nav-settings-input" onchange="updateSnapshotPublishPathPreview(); restartSnapshotEstimates();"><option value="single" ${settings.publishMode !== 'pages' ? 'selected' : ''}>${navEscape(snapshotText('单文件 HTML（数据内嵌）', 'Single HTML (embedded data)'))}</option><option value="pages" ${settings.publishMode === 'pages' ? 'selected' : ''}>${navEscape(snapshotText('Pages 分离版（HTML + JSON + 附件）', 'Split Pages (HTML + JSON + evidence)'))}</option></select><small>${navEscape(snapshotText('下载按钮始终导出可离线查看的单 HTML。Pages 分离版按工具目录存储文件，仅提交有变化的文件。', 'The download button always exports a standalone offline HTML. Split Pages stores assets under the tool directory and commits only changed files.'))}</small></label>
                     <label>${navEscape(snapshotText('远端仓库地址（推荐）', 'Remote Git URL (recommended)'))}<input id="snapshotRemoteUrl" class="nav-settings-input" value="${navEscape(settings.remoteUrl || '')}" placeholder="https://codehub.example.com/team/project.git" autocomplete="off"><small>${navEscape(snapshotText('HTTPS 或 SSH；不要在地址中包含密码或 Token。服务器需已配置 Git 认证。填写后优先使用此地址。', 'HTTPS or SSH; never put a password or token in the URL. Git authentication must be configured on the server. This takes priority when set.'))}</small></label>
                     <label>${navEscape(snapshotText('本地 Git 镜像仓库（可选）', 'Local Git mirror (optional)'))}<input id="snapshotRepoDir" class="nav-settings-input" value="${navEscape(settings.repoDir || '')}" placeholder="D:\\03-工具开发\\privacy-policy-main\\CNBG\\_CS\\_Tools\\_Platform" autocomplete="off"><small>${navEscape(snapshotText('远端地址留空时读取此目录的 origin；不覆盖镜像工作区。', 'When the remote URL is empty, its origin is used. The mirror checkout remains untouched.'))}</small></label>
                     <label>${navEscape(snapshotText('目标分支', 'Target branch'))}<input id="snapshotBranch" class="nav-settings-input" value="${navEscape(settings.branch || 'master')}" autocomplete="off"></label>
@@ -4267,6 +4267,11 @@ async function renderSnapshotPublishSettings(content) {
                         </div>
                         <input type="search" id="snapshotToolsFilter" class="nav-settings-input" style="max-width: 170px; padding: 5px 10px; font-size: 12px; margin-left: auto;" placeholder="${navEscape(snapshotText('搜索工具…', 'Filter tools…'))}" oninput="filterSnapshotTools(this.value)">
                     </div>
+                    <div class="snapshot-tools-toolbar">
+                        <button type="button" onclick="toggleAllSnapshotTools(true)">${navEscape(snapshotText('全选可推送工具', 'Select eligible tools'))}</button>
+                        <button type="button" onclick="toggleAllSnapshotTools(false)">${navEscape(snapshotText('取消全选', 'Clear selection'))}</button>
+                        <small>${navEscape(snapshotText('达到 10 MiB 或 100 个文件的工具自动跳过；仅可从该工具顶部强制推送。', 'Tools at 10 MiB or 100 files are skipped; use Force publish from that tool’s top menu.'))}</small>
+                    </div>
                     <div class="snapshot-tools-list">
                         ${(settings.tools || [
                             { toolSlug: 'department-reward-penalty', name: '负向事件管理', encryptionEnabled: settings.encryptionEnabled, hasPassword: settings.hasPassword, enabled: true },
@@ -4279,7 +4284,14 @@ async function renderSnapshotPublishSettings(content) {
                                         <strong>${navEscape(t.name || t.toolSlug)}</strong>
                                         <small class="snapshot-tool-slug">${navEscape(t.toolSlug)}</small>
                                     </label>
+                                    <div class="snapshot-tool-meta-right">
+                                        <span class="snapshot-tool-size-badge pending" id="snapshotToolSize_${navEscape(t.toolSlug)}" title="${navEscape(snapshotText('点击重新预估此工具大小', 'Click to re-estimate data volume'))}" onclick="estimateSingleSnapshotTool('${navEscape(t.toolSlug)}')">
+                                            <span class="snapshot-size-loading-dot"></span>
+                                            <span class="snapshot-size-text">${navEscape(snapshotText('待预估', 'Pending'))}</span>
+                                        </span>
+                                    </div>
                                 </div>
+                                <div class="snapshot-tool-warning-row" id="snapshotToolWarning_${navEscape(t.toolSlug)}" style="display:none"></div>
                             </div>
                         `).join('')}
                     </div>
@@ -4290,12 +4302,145 @@ async function renderSnapshotPublishSettings(content) {
                 <div class="snapshot-history">${jobs.length ? jobs.map(job => `<button type="button" class="snapshot-history-item" data-job-id="${navEscape(job.id)}"><span class="snapshot-dot ${navEscape(job.status)}"></span><span><strong>${job.trigger === 'scheduled' ? navEscape(snapshotText('定时', 'Scheduled')) + ' · ' : ''}${navEscape(job.stage)}</strong><small>${navEscape(new Date(job.createdAt).toLocaleString())} · ${navEscape(job.path)}</small></span><span class="snapshot-percent">${Number(job.progress)}%</span></button>`).join('') : `<div class="snapshot-history-empty">${navEscape(snapshotText('还没有推送记录', 'No publishing runs yet'))}</div>`}</div>
             </div>`;
         content.querySelectorAll('[data-job-id]').forEach(button => button.addEventListener('click', () => openSnapshotPublishProgress(button.dataset.jobId)));
+        startSnapshotToolsEstimateQueue();
         if (!cached) {
             checkSnapshotPrerequisites({ settings });
         }
     } catch (error) {
         content.innerHTML = `<div class="nav-settings-empty">${navEscape(snapshotText('读取失败：', 'Failed to load: '))}${navEscape(error.message)}</div>`;
     }
+}
+
+let snapshotEstimateAbortController = null;
+
+window.restartSnapshotEstimates = function () {
+    if (snapshotEstimateAbortController) {
+        snapshotEstimateAbortController.abort();
+        snapshotEstimateAbortController = null;
+    }
+    startSnapshotToolsEstimateQueue();
+};
+
+window.estimateSingleSnapshotTool = async function (toolSlug) {
+    const badge = document.getElementById('snapshotToolSize_' + toolSlug);
+    const item = document.querySelector(`.snapshot-tool-item[data-tool-slug="${toolSlug}"]`);
+    const warnRow = document.getElementById('snapshotToolWarning_' + toolSlug);
+    const mode = document.getElementById('snapshotPublishMode')?.value || 'pages';
+    if (!badge || !item) return;
+    markSnapshotEstimatePending(item);
+    const requestId = item.dataset.estimateRequest = String(Date.now()) + Math.random();
+    badge.className = 'snapshot-tool-size-badge loading';
+    badge.innerHTML = `<span class="snapshot-size-loading-dot"></span><span class="snapshot-size-text">${navEscape(snapshotText('预估中…', 'Estimating…'))}</span>`;
+
+    try {
+        const res = await snapshotApi('/estimate/' + encodeURIComponent(toolSlug) + '?mode=' + encodeURIComponent(mode) + '&refresh=1');
+        if (item.dataset.estimateRequest !== requestId) return;
+        applyToolEstimateResult(toolSlug, res, badge, item, warnRow);
+    } catch (err) {
+        if (item.dataset.estimateRequest === requestId) failSnapshotEstimate(item, badge);
+    }
+};
+
+function applyToolEstimateResult(toolSlug, res, badge, item, warnRow) {
+    if (!badge || !res || !item?.isConnected) return;
+    const countText = snapshotText(`${res.fileCount} 个文件`, `${res.fileCount} files`);
+    const sizeText = res.totalSizeFormatted || '0 B';
+    const blocked = res.isHeavy || res.supported === false;
+    item.dataset.estimateState = blocked ? 'blocked' : 'ready';
+    const checkbox = document.getElementById('snapshotToolEnabled_' + toolSlug);
+    if (checkbox) {
+        checkbox.disabled = blocked;
+        checkbox.checked = !blocked && item.dataset.requestedEnabled === '1';
+    }
+    badge.className = 'snapshot-tool-size-badge badge-' + (blocked ? 'danger' : res.warningLevel || 'normal');
+    badge.title = snapshotText('点击重新预估此工具大小', 'Click to re-estimate data volume');
+    badge.innerHTML = `${blocked ? '⚠️ ' : ''}<span class="snapshot-size-text">${navEscape(countText)} · ${navEscape(sizeText)}</span>`;
+    item.classList.toggle('snapshot-tool-heavy', blocked);
+    if (warnRow) {
+        warnRow.style.display = blocked ? 'flex' : 'none';
+        warnRow.className = 'snapshot-tool-warning-row snapshot-heavy-warning';
+        warnRow.textContent = blocked ? snapshotText('批量与定时推送自动跳过，已发布版本保留。请打开该工具，在顶部选择“强制推送”单独更新；不会截断历史数据。', 'Skipped in bulk and scheduled publishing; the published version is retained. Open this tool and use Force publish from its top menu. History is preserved.') : '';
+    }
+}
+
+window.toggleAllSnapshotTools = function (checked) {
+    document.querySelectorAll('.snapshot-tool-item[data-tool-slug]').forEach(item => {
+        if (item.hidden) return;
+        item.dataset.requestedEnabled = checked ? '1' : '0';
+        const checkbox = document.getElementById('snapshotToolEnabled_' + item.dataset.toolSlug);
+        if (checkbox) checkbox.checked = !checkbox.disabled && checked;
+    });
+};
+
+function markSnapshotEstimatePending(item) {
+    const input = document.getElementById('snapshotToolEnabled_' + item.dataset.toolSlug);
+    if (input) {
+        if (!input.disabled) item.dataset.requestedEnabled = input.checked ? '1' : '0';
+        input.disabled = true; input.checked = false;
+    }
+    item.dataset.estimateState = 'pending';
+}
+
+function failSnapshotEstimate(item, badge) {
+    item.dataset.estimateState = 'error';
+    badge.className = 'snapshot-tool-size-badge error';
+    badge.textContent = snapshotText('预估失败，点击重试', 'Estimate failed; click to retry');
+}
+
+function startSnapshotToolsEstimateQueue() {
+    if (snapshotEstimateAbortController) {
+        snapshotEstimateAbortController.abort();
+    }
+    const ac = new AbortController();
+    snapshotEstimateAbortController = ac;
+
+    const items = Array.from(document.querySelectorAll('.snapshot-tool-item[data-tool-slug]'));
+    if (!items.length) return;
+
+    const mode = document.getElementById('snapshotPublishMode')?.value || 'pages';
+
+    // 初始将所有 badge 标记为待预估
+    items.forEach(item => {
+        markSnapshotEstimatePending(item);
+        item.dataset.estimateRequest = '';
+        const slug = item.dataset.toolSlug;
+        const badge = document.getElementById('snapshotToolSize_' + slug);
+        if (badge) {
+            badge.className = 'snapshot-tool-size-badge pending';
+            badge.innerHTML = `<span class="snapshot-size-text">${navEscape(snapshotText('排队中…', 'Queued…'))}</span>`;
+        }
+    });
+
+    // 串行预估，避免同时生成多个业务快照。
+    (async () => {
+        for (const item of items) {
+            if (ac.signal.aborted) return;
+            const slug = item.dataset.toolSlug;
+            if (!slug) continue;
+            const badge = document.getElementById('snapshotToolSize_' + slug);
+            const warnRow = document.getElementById('snapshotToolWarning_' + slug);
+            if (!badge || item.dataset.estimateState !== 'pending' || item.dataset.estimateRequest) continue;
+            const requestId = item.dataset.estimateRequest = String(Date.now()) + Math.random();
+
+            badge.className = 'snapshot-tool-size-badge loading';
+            badge.innerHTML = `<span class="snapshot-size-loading-dot"></span><span class="snapshot-size-text">${navEscape(snapshotText('预估中…', 'Estimating…'))}</span>`;
+
+            try {
+                const res = await snapshotApi('/estimate/' + encodeURIComponent(slug) + '?mode=' + encodeURIComponent(mode), {
+                    signal: ac.signal
+                });
+                if (ac.signal.aborted) return;
+                if (item.dataset.estimateRequest !== requestId) continue;
+                applyToolEstimateResult(slug, res, badge, item, warnRow);
+            } catch (err) {
+                if (ac.signal.aborted) return;
+                if (item.dataset.estimateRequest === requestId) failSnapshotEstimate(item, badge);
+            }
+
+            // 每个工具间隔 60ms 释放 CPU 与渲染线程，防止卡顿
+            await new Promise(r => setTimeout(r, 60));
+        }
+    })().catch(() => {});
 }
 
 window.filterSnapshotTools = function (query) {
@@ -4491,6 +4636,7 @@ window.saveSnapshotPublishSettings = async function (options = {}) {
     if (indicator && !options.silent) indicator.textContent = snapshotText('正在保存…', 'Saving…');
     const toolsList = [];
     document.querySelectorAll('.snapshot-tool-item[data-tool-slug]').forEach(el => {
+        if (el.dataset.estimateState !== 'ready') return;
         const slug = el.dataset.toolSlug;
         const en = document.getElementById('snapshotToolEnabled_' + slug)?.checked !== false;
         toolsList.push({ toolSlug: slug, enabled: en });
@@ -4528,6 +4674,7 @@ window.saveSnapshotPublishSettings = async function (options = {}) {
 };
 
 window.startSnapshotPublish = async function (options = {}) {
+    window.snapshotLastPublishOptions = Object.assign({}, options);
     if (document.getElementById('navSettingsModal')?.style.display === 'flex'
         && document.getElementById('snapshotBranch') && document.getElementById('snapshotFile')) {
         const saveRes = await window.saveSnapshotPublishSettings({ silent: true, skipPrereq: true });
@@ -4537,16 +4684,17 @@ window.startSnapshotPublish = async function (options = {}) {
         }
     }
     const isForce = Boolean(options.force);
+    const sizeNotice = snapshotText(' 大工具在全量与定时推送中自动跳过；只有单工具的强制推送才可更新，已发布版本保留。', ' Large tools are skipped in bulk and scheduled runs; only per-tool Force publish updates them. Published versions are retained.');
     const selectedTool = options.toolSlug ? (options.toolName || options.toolSlug) : '';
     const confirmed = await showNavbarConfirm({
         title: isForce
             ? snapshotText('确认强制重新发布快照', 'Force republish snapshot?')
             : snapshotText('确认发布只读快照', 'Publish read-only snapshot?'),
-        message: isForce
+        message: (isForce
             ? snapshotText(`${selectedTool ? `仅针对「${selectedTool}」，` : '本次还会清理远端已发布但现已取消勾选的工具。'}即使文件未发生变化，本次也将强制创建 Git 提交并推送到远端仓库，以触发静态托管平台（Pages）的重新构建与部署。`, `${selectedTool ? `For ${selectedTool}, ` : 'Previously published tools that are now unchecked will also be removed from the remote. '}this will create a Git commit and push to remote even when files have not changed, triggering a Pages redeploy.`)
             : selectedTool
                 ? snapshotText(`本次将根据已保存配置生成「${selectedTool}」的只读快照，并推送到目标仓库。`, `This will publish a read-only snapshot of ${selectedTool} using the saved destination settings.`)
-                : snapshotText('本次将生成并推送各已启用工具的只读快照，同时从远端删除已发布但现已取消勾选的工具页面及受管理资源。请确认目标仓库及 Pages 的访问权限。', 'This will publish read-only snapshots of enabled tools and remove previously published, now unchecked tools and their managed assets from the remote. Confirm repository and Pages access first.'),
+                : snapshotText('本次将生成并推送各已启用工具的只读快照，同时从远端删除已发布但现已取消勾选的工具页面及受管理资源。请确认目标仓库及 Pages 的访问权限。', 'This will publish read-only snapshots of enabled tools and remove previously published, now unchecked tools and their managed assets from the remote. Confirm repository and Pages access first.')) + sizeNotice,
         confirmText: isForce ? snapshotText('强制推送', 'Force publish') : snapshotText('生成并推送', 'Generate & publish'),
         cancelText: snapshotText('取消', 'Cancel')
     });
@@ -4559,11 +4707,16 @@ window.startSnapshotPublish = async function (options = {}) {
     }
 };
 
+window.retrySnapshotPublish = function () {
+    const opts = window.snapshotLastPublishOptions || {};
+    window.startSnapshotPublish(opts);
+};
+
 window.openSnapshotPublishProgress = function (jobId, initialError = '') {
     let modal = document.getElementById('snapshotProgressModal');
     if (!modal) {
         modal = document.createElement('div'); modal.id = 'snapshotProgressModal'; modal.className = 'snapshot-progress-overlay';
-        modal.innerHTML = `<section class="snapshot-progress-dialog" role="dialog" aria-modal="true" aria-labelledby="snapshotProgressTitle"><button type="button" class="snapshot-progress-close" aria-label="Close" onclick="closeSnapshotPublishProgress()">×</button><div class="snapshot-progress-eyebrow">PUBLISHING WORKFLOW</div><h2 id="snapshotProgressTitle"></h2><p id="snapshotProgressDetail"></p><div class="snapshot-progress-bar"><i id="snapshotProgressFill"></i></div><div id="snapshotProgressMeta" class="snapshot-progress-meta"></div><div id="snapshotProgressEntries" class="snapshot-progress-entries" aria-live="polite"></div><div class="snapshot-progress-logs-section"><div class="snapshot-progress-logs-head"><span><strong>${navEscape(snapshotText('详细执行日志', 'Detailed Execution Logs'))}</strong></span><button type="button" class="snapshot-progress-log-btn" onclick="copySnapshotPublishLogs()">${navEscape(snapshotText('复制日志', 'Copy Logs'))}</button></div><div id="snapshotProgressTerminal" class="snapshot-progress-terminal" role="region" aria-label="Detailed logs"></div></div><button type="button" class="snapshot-config-shortcut" onclick="closeSnapshotPublishProgress(); navState.settingsTab='snapshotPublish'; openNavSettingsModal()">${navEscape(snapshotText('查看推送配置与历史', 'View destination & history'))} ↗</button></section>`;
+        modal.innerHTML = `<section class="snapshot-progress-dialog" role="dialog" aria-modal="true" aria-labelledby="snapshotProgressTitle"><button type="button" class="snapshot-progress-close" aria-label="Close" onclick="closeSnapshotPublishProgress()">×</button><div class="snapshot-progress-eyebrow">PUBLISHING WORKFLOW</div><h2 id="snapshotProgressTitle"></h2><p id="snapshotProgressDetail"></p><div class="snapshot-progress-bar"><i id="snapshotProgressFill"></i></div><div id="snapshotProgressMeta" class="snapshot-progress-meta"></div><div id="snapshotProgressFailureArea" class="snapshot-progress-failure-bar" style="display:none"></div><div id="snapshotProgressEntries" class="snapshot-progress-entries" aria-live="polite"></div><div class="snapshot-progress-logs-section"><div class="snapshot-progress-logs-head"><span><strong>${navEscape(snapshotText('详细执行日志', 'Detailed Execution Logs'))}</strong></span><button type="button" class="snapshot-progress-log-btn" onclick="copySnapshotPublishLogs()">${navEscape(snapshotText('复制日志', 'Copy Logs'))}</button></div><div id="snapshotProgressTerminal" class="snapshot-progress-terminal" role="region" aria-label="Detailed logs"></div></div><button type="button" class="snapshot-config-shortcut" onclick="closeSnapshotPublishProgress(); navState.settingsTab='snapshotPublish'; openNavSettingsModal()">${navEscape(snapshotText('查看推送配置与历史', 'View destination & history'))} ↗</button></section>`;
         document.body.appendChild(modal);
     }
     modal.hidden = false;
@@ -4615,6 +4768,33 @@ function renderSnapshotProgress(job) {
     modal.querySelector('#snapshotProgressFill').style.width = `${Math.max(0, Math.min(100, Number(job.progress) || 0))}%`;
     modal.querySelector('#snapshotProgressFill').className = job.status;
     modal.querySelector('#snapshotProgressMeta').textContent = `${job.progress || 0}%${job.commit ? ' · ' + job.commit.slice(0, 12) : ''}`;
+    const failureArea = modal.querySelector('#snapshotProgressFailureArea');
+    if (failureArea) {
+        if (job.status === 'failed' || job.status === 'interrupted') {
+            failureArea.style.display = 'flex';
+            const lastEntry = (job.entries && job.entries.length ? job.entries[job.entries.length - 1].message : '') || job.stage;
+            let tip = snapshotText('建议：点击右侧“重新尝试推送”再次执行；或在全局设置中配置“本地 Git 镜像仓库”提升克隆与检查速度。', 'Tip: Click Retry Publishing on the right to try again, or configure a local mirror repository in Settings.');
+            if (/体积|大小|MiB|大工具|大载荷|大文件/.test(lastEntry)) {
+                tip = snapshotText('体积限制无法通过重试绕过。大工具请从自身顶部选择强制推送；业务载荷会自动分片加密。公共资源超限或远端历史含大文件时，请按日志处理。', 'Retry cannot bypass size limits. Use per-tool Force publish; business payloads are encrypted in chunks. Check logs for oversized public assets or old Git objects.');
+            } else if (/文件暂存|检查变更|索引|超长|大量/i.test(lastEntry) || job.stage === '检查变更') {
+                tip = snapshotText('单步提示：本次生成的工具快照包含大量文件（如多媒体或离线数据）。系统已自动放宽超时限制，可直接点击重试；若只需更新单个工具，可在该工具页面使用“独立推送”。', 'Step hint: Large number of files generated. Timeout has been extended; click Retry, or push this tool individually from its own page.');
+            } else if (/网络|连接|超时|codehub|fetch|clone|push|远程/i.test(lastEntry) || /获取分支|推送远端/i.test(job.stage)) {
+                tip = snapshotText('单步提示：与内网 CodeHub 连接缓慢或网络波动。系统已开启自动重试，建议确认内网 VPN 连接正常；若仓库较大，建议在设置中配置“本地 Git 镜像仓库”。', 'Step hint: CodeHub connection slow. Ensure VPN connection is active, or configure a local mirror repository.');
+            }
+            failureArea.innerHTML = `
+                <div class="snapshot-failure-content">
+                    <div class="snapshot-failure-msg"><strong>${navEscape(snapshotText('推送遇阻', 'Publishing Blocked'))}：</strong>${navEscape(lastEntry)}</div>
+                    <div class="snapshot-failure-tip">${navEscape(tip)}</div>
+                </div>
+                <button type="button" class="snapshot-retry-btn" onclick="retrySnapshotPublish()">
+                    🔄 ${navEscape(snapshotText('重新尝试推送', 'Retry Publishing'))}
+                </button>
+            `;
+        } else {
+            failureArea.style.display = 'none';
+            failureArea.innerHTML = '';
+        }
+    }
     modal.querySelector('#snapshotProgressEntries').innerHTML = (job.entries || []).map(entry => `<div class="snapshot-progress-entry"><time>${navEscape(new Date(entry.at).toLocaleTimeString())}</time><span>${navEscape(entry.message)}</span></div>`).join('');
     const terminal = modal.querySelector('#snapshotProgressTerminal');
     if (terminal) {
