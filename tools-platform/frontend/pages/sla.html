@@ -451,6 +451,10 @@
                 <label class="upload-btn" style="background:#d9480f; color:white;">指定导入 [SR] <input type="file" id="sr-upload" accept=".xlsx,.xls,.csv" multiple></label>
                 <label class="upload-btn" style="background:#c2410c; color:white;">指定导入 [漏洞] <input type="file" id="vuln-upload" accept=".xlsx,.xls,.csv" multiple></label>
                 <button type="button" class="upload-cache-clear" onclick="SLAUpload.clearWorkspaceCache()">清空当前缓存</button>
+                <div id="upload-status-group" class="upload-status-group" style="display:none;">
+                    <div id="sourceArchiveStatus" class="upload-status-item upload-source-archive-status" role="status"></div>
+                    <div id="metricSnapshotSyncStatus" class="upload-status-item upload-metric-sync-status" role="status"></div>
+                </div>
             </div>
         </div>
 

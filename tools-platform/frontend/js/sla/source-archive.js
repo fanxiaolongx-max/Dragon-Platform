@@ -2,9 +2,30 @@
     'use strict';
     const english=()=>window.ToolsI18n?.getLanguage()==='en-US';
     const label=(zh,en)=>english()?en:zh;
-    const status=document.createElement('div');status.id='sourceArchiveStatus';status.setAttribute('role','status');status.style.cssText='margin:10px 0;font-size:13px;line-height:1.7';
-    document.querySelector('.upload-actions').after(status);
-    const message=value=>{status.textContent=value;};
+    window.updateUploadStatusVisibility = window.updateUploadStatusVisibility || function() {
+        if (!document || typeof document.getElementById !== 'function') return;
+        const group = document.getElementById('upload-status-group');
+        if (!group) return;
+        const s1 = document.getElementById('sourceArchiveStatus');
+        const s2 = document.getElementById('metricSnapshotSyncStatus');
+        const has1 = Boolean(s1 && (s1.textContent.trim() || s1.children?.length > 0));
+        const has2 = Boolean(s2 && (s2.textContent.trim() || s2.children?.length > 0) && s2.style.display !== 'none');
+        group.style.display = (has1 || has2) ? 'inline-flex' : 'none';
+        group.classList.toggle('has-content', has1 || has2);
+    };
+    const status = (typeof document.getElementById === 'function' ? document.getElementById('sourceArchiveStatus') : null) || (() => {
+        const el = document.createElement('div');
+        el.id = 'sourceArchiveStatus';
+        el.className = 'upload-status-item upload-source-archive-status';
+        el.setAttribute('role', 'status');
+        const group = (typeof document.getElementById === 'function' ? document.getElementById('upload-status-group') : null) || (typeof document.querySelector === 'function' ? document.querySelector('.upload-actions') : null);
+        if (group && typeof group.appendChild === 'function') group.appendChild(el);
+        return el;
+    })();
+    const message = value => {
+        status.textContent = value;
+        window.updateUploadStatusVisibility();
+    };
     async function request(url,options){const headers=getAuthHeaders();if(options?.body instanceof FormData)delete headers['Content-Type'];const response=await fetch(url,{credentials:'same-origin',...options,headers:{...headers,...options?.headers}});return handleResponse(response,{method:options?.method || 'GET',path:url});}
     const json=(method,value)=>({method,headers:{'Content-Type':'application/json'},body:JSON.stringify(value)});
     function csv(rows){const headers=[...new Set(rows.flatMap(row=>Object.keys(row)))];const quote=value=>'"'+String(value??'').replace(/"/g,'""')+'"';return [headers,...rows.map(row=>headers.map(h=>row[h]))].map(row=>row.map(quote).join(',')).join('\r\n');}
@@ -37,6 +58,7 @@
         }
         message(label(`已永久保存 ${saved} 个原始表格${errors?`，${errors} 个表格解析失败（原文件仍已保存）`:''}。未配置提取规则的表格也可在月报中引用。`,`Permanently archived ${saved} source tables${errors?`; ${errors} parsing errors (originals retained)`:''}. Tables without extraction rules are available in the report designer.`));
         const link=document.createElement('a');link.href='/pages/monthly-designer.html';link.textContent=label(' 打开数据资料库与月报编辑器',' Open source library & report designer');status.append(link);
+        window.updateUploadStatusVisibility();
         return batch.id;
     }
     let busy=false;

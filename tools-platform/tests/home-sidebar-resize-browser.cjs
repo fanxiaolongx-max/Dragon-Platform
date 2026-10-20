@@ -32,10 +32,14 @@ async function drag(delta, { cancel = false } = {}) {
 const key = name => evaluate(`homeSidebarResizer.dispatchEvent(new KeyboardEvent('keydown',{key:${JSON.stringify(name)},bubbles:true}))`);
 app.whenReady().then(async () => {
     const web = express();
-    web.get('/', (_, res) => {
+    web.get('/', (req, res) => {
         let html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8');
-        html = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, tag => /src="\/js\/(?:home\/home-mode|shared\/i18n)\.js"/.test(tag) ? tag : '');
-        html = html.replace('<body>', `<body><script>
+        html = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, tag => {
+            if (tag.includes('id="homeModeBootstrap"')) return tag;
+            if (req.query.preinit && tag.includes('/js/home/home-mode.js')) return '';
+            return /src="\/js\/(?:home\/home-mode|shared\/i18n)\.js"/.test(tag) ? tag : '';
+        });
+        html = html.replace(/<body\b[^>]*>/, tag => `${tag}<script>
             if (!localStorage.getItem('tools_user')) localStorage.setItem('tools_user','alice');
             if (!localStorage.getItem('tools_tenant_id')) localStorage.setItem('tools_tenant_id','default');
             if (!localStorage.getItem('home_sidebar_mode')) localStorage.setItem('home_sidebar_mode','expanded');
@@ -48,6 +52,17 @@ app.whenReady().then(async () => {
     win = new BrowserWindow({ show: false, width: 1440, height: 950, webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
     const errors = [];
     win.webContents.on('console-message', (_, level, message) => { if (level === 3) errors.push(message); });
+    const origin = `http://127.0.0.1:${server.address().port}`;
+    // 不加载主模式脚本，确认即使它尚未就绪，浏览器首屏也只有一个模式。
+    for (const hash of ['', '#tools', '#unknown']) {
+        await win.loadURL(`${origin}/?preinit=1&case=${encodeURIComponent(hash)}${hash}`);
+        assert.equal(await evaluate('typeof HomeMode'), 'undefined');
+        const tools = hash === '#tools';
+        assert.equal(await evaluate("getComputedStyle(document.querySelector('.tools-grid')).display==='none'"), !tools);
+        assert.equal(await evaluate("getComputedStyle(dragonClaw).display==='none'"), tools);
+        assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-home-panel=chat]')).display==='none'"), tools);
+        assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-home-panel=tools]')).display==='none'"), !tools);
+    }
     await win.loadURL(`http://127.0.0.1:${server.address().port}`);
     win.webContents.debugger.attach('1.3');
     assert.ok(Math.abs(await width() - 352) < 1, 'Default is wider than the previous 300px');
@@ -115,7 +130,7 @@ app.whenReady().then(async () => {
     await wait(70);
     fs.writeFileSync(path.join(temp, 'preview.png'), (await win.webContents.capturePage()).toPNG());
     assert.deepEqual(errors, []);
-    console.log(`PASS: default width, native dragging, separate chat/tools preferences, reload, account/tenant isolation, Escape, keyboard, reset, viewport/workspace/mobile handling. Preview: ${path.join(temp, 'preview.png')}`);
+    console.log(`PASS: initial chat/tools visibility before mode script, default width, native dragging, separate chat/tools preferences, reload, account/tenant isolation, Escape, keyboard, reset, viewport/workspace/mobile handling. Preview: ${path.join(temp, 'preview.png')}`);
 }).catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
     win?.destroy(); server?.closeAllConnections(); server?.close(); app.exit(process.exitCode || 0);
 });

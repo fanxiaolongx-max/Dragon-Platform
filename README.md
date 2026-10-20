@@ -1,289 +1,373 @@
-# Dragon Platform
+<div align="center">
 
-**面向数据采集、SLA 合控、月报交付、Agent Workspace 智能体协同与日常治理的本地 / 内网工具中台矩阵。**
+<img src="tools-platform/docs/images/readme/hero.svg" alt="Dragon Platform：做好每一个工具" width="100%">
 
-[下载安装](https://github.com/fanxiaolongx-max/privacy-policy/releases) · [完整使用指南](tools-platform/README.md) · [Dragon Claw 智能体](#-核心亮点dragon-claw-全能智能体与-agent-workspace) · [技术架构](#技术架构与关键技术栈) · [通用月报编辑器](tools-platform/docs/monthly-designer.md) · [快速启动](#快速启动)
+**一个跑在你自己电脑或内网里的工具中台：首页是能聊天、能看数据、能改代码的智能体，背后是从数据抓取到月报交付的整条流水线，外加 40 多个随取随用的小工具。**
 
-![Dragon Platform：采集与导入、规则与分析、展示与交付](tools-platform/docs/images/readme/platform-overview.svg)
+[📥 下载桌面版](https://github.com/fanxiaolongx-max/Dragon-Platform/releases) ·
+[🎬 三分钟看懂](#-先看一段视频) ·
+[🐉 Dragon Claw](#-dragon-claw首页的全能智能体) ·
+[🚀 快速开始](#-快速开始) ·
+[📘 完整使用指南](tools-platform/README.md)
 
----
-
-## 🌟 核心亮点：Dragon Claw 全能智能体与 Agent Workspace
-
-首页全新集成了具备真实代码编写、调试与环境调度能力的 **Dragon Claw Agent Workspace**。它突破了传统只读聊天机器人的局限，将大模型意图推断与本地工程文件系统、Git 工作流及终端执行深度贯通，成为研发运维人员的“智能结对编程副驾驶”。
-
-![Dragon Claw Agent Workspace 全能智能体与协同工作区](tools-platform/docs/images/readme/dragon-claw-workspace.svg)
-
-### 💡 核心设计思路 (Design Philosophy)
-
-1. **从“只读问答”到“工程闭环”**：
-   传统运维 AI 往往只是被动回答知识库文本，遇到代码缺陷或配置错漏仍需人工复制粘贴、反复调试。Dragon Claw 突破性地接入生产级 **Tool Calling (Function Calling)** 协议，赋予智能体**看代码、搜工程、改文件、跑命令验证、提交 PR** 的自主闭环能力。
-2. **“双模工作台”一体化融合而非割裂**：
-   研发与运维在日常工作中，既需要一键直达、直观高效的可视化工具矩阵（SLA 合控、月报工作区、一键催办等），又需要自如应对复杂工程的对话式 Agent。平台首创“双模工作台”，通过 `Mode A (Agent 协同)` 与 `Mode B (工具矩阵)` 随时无缝切换，两者相互透传数据上下文。
-3. **安全防线第一原则 (Security by Design)**：
-   绝不在本地执行不可控的黑盒脚本。Dragon Claw 构建了严格的 **`agent-path-guard` 路径沙箱守卫**（严禁遍历越权）、**三级权限审批机制**（`ask` / `auto` / `full`）、**命令安全防火墙**（危险命令拦截、密码/令牌自动脱敏）与**内存态审批隔离**，确保在企业内网安全放心运行。
+</div>
 
 ---
 
-### 🚀 八大核心功能亮点 (Key Highlights)
+## 🎬 先看一段视频
 
-| 核心亮点 | 能力描述 | 价值体现 |
-| :--- | :--- | :--- |
-| **① 全能智能体人设 (`dragon-claw-home`)** | 首页不受限于单一业务，具备跨语言架构、数据科学、前端开发与系统排障的通用全能专家能力。 | 既是中台的“超级向导”，又是本地全栈“编程助手”。 |
-| **② 统一多模型 Tool Calling 引擎** | 原生抽象接入 **Google Gemini 2.5 / Pro、Anthropic Claude 3.5 Sonnet、OpenAI、MiniMax** 等各大主流大模型，支持流式工具派发与思考签名。 | 不依赖单一厂商，支持故障自动熔断降级 (Failover)。 |
-| **③ 本地工程沙箱 (`workspace-panel.js`)** | 智能路径联想（支持 `~` 用户目录与绝对路径 Tab 补全），严格受限于挂载根目录，自动过滤 `.git`、`node_modules` 等无关噪点。 | 上下文更纯净，从源头上杜绝越权访问外部敏感目录。 |
-| **④ 8 大生产级工具链调度全集** | 内置目录列举 (`list_directory`)、带行号分段长读 (`read_file`)、正则秒级检索 (`search`)、原子写 (`write_file`)、精确块级替换 (`edit_file`)、安全删除/重命名与超时受控终端命令 (`run_command`)。 | 精准高效完成代码修改，大文件与大输出自动截断保护。 |
-| **⑤ 三级安全权限模式 (Permission Modes)** | **`ask` (逐项审批)**：写操作与命令强制弹窗确认；<br/>**`auto` (智能放行)**：自动读写，破坏性操作仍需审批；<br/>**`full` (完全自治)**：全自动执行；非管理员自动锁定为只读保护。 | 自由把控智能体自治度，严防意外误删或破坏性执行。 |
-| **⑥ 实时 Token 预算仪表盘** | 动态计算并直观以多色度量环呈现：**对话消息 (Messages)**、**200项目录树 (Directory)**、**系统提示词 (System)**、**工具定义 (Tools)** 以及 **剩余可用额度 (Free Space)**。 | 一目了然掌握模型上下文消耗水位，彻底告别超限截断。 |
-| **⑦ 差异审查与文件单点回滚 (Revert)** | 记录每次工具写操作的前后文件快照；前端可直观查看绿红高亮的代码变更 Diff，并内置外部冲突检测与单文件一键原子撤销。 | 随时审查智能体修改细节，改错一秒无损回滚。 |
-| **⑧ 一键自动化创建 GitHub Pull Request** | 深度集成 Git 与 GitHub CLI (`gh`)；修改验证通过后，在面板中输入分支名，即可全自动完成分支创建、暂存、提交、推送并调起 `gh pr create` 发起 PR。 | 从对话排障到代码评审交付实现真正的流水线贯通。 |
+<table>
+<tr>
+<td width="62%">
+<a href="https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-hd.mp4"><img src="tools-platform/docs/images/readme/shots/video-platform-guide.jpg" alt="从数据到月报：Dragon 平台五站通关指南（中文高清）"></a>
+</td>
+<td>
+
+### 从数据到月报 · 五站通关
+
+跟着小龙走一遍：**抓数据 → 导入合控 → 看报表 → 编月报 → 催办交付**，7 分钟知道平台每一站在干什么、该点哪里。
+
+▶️ [中文高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-hd.mp4) · [中文标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide.mp4)<br>
+▶️ [English HD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-en-hd.mp4) · [English SD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-en.mp4)
+
+更多专题视频见 [📺 视频中心](#-视频中心)。
+
+</td>
+</tr>
+</table>
+
+## 目录
+
+- [它是什么](#-它是什么)
+- [🐉 Dragon Claw：首页的全能智能体](#-dragon-claw首页的全能智能体)
+- [📊 数据主线：从抓取到月报](#-数据主线从抓取到月报)
+- [🧰 工具矩阵：每个小需求都值得一个好工具](#-工具矩阵每个小需求都值得一个好工具)
+- [📡 数通协议专家：把协议「演」给你看](#-数通协议专家把协议演给你看)
+- [📺 视频中心](#-视频中心)
+- [🚀 快速开始](#-快速开始)
+- [🧱 技术一览](#-技术一览)
+- [📚 文档导航](#-文档导航)
+- [🌌 项目演进](#-项目演进)
+- [💫 愿景：做好每一个工具](#-愿景做好每一个工具)
 
 ---
 
-### 📖 极简实用指导：6 步玩转 Agent Workspace
+## 🌱 它是什么
 
-```text
-[打开首页] ──> [选择模型] ──> [挂载本地工程] ──> [自然语言下达任务] ──> [审查 Diff 验证] ──> [一键发起 PR]
+Dragon Platform 最初只是一个 HTML 页面，用来少做一点重复的表格活。现在它长成了一个完整的工具中台，但初心没变：**把日常工作里那些「又要手工弄一遍」的事，变成点一下就好的工具。**
+
+- **一个首页解决大多数事**：问问题、查数据、找工具、改代码，都从 Dragon Claw 对话框开始。
+- **一条数据主线**：网页数据自动抓取 → 多表导入与 SLA 合控 → 报表看板 → 月报编辑与导出 → 一键催办。
+- **一个工具市场**：任何一个 HTML 页面都能变成平台工具，统一登录、统一入口、按租户隔离数据。
+- **数据留在本地**：服务跑在你自己的电脑或内网服务器上，SQLite 存储，按租户物理隔离。
+
+```mermaid
+mindmap
+  root((Dragon Platform))
+    🐉 Dragon Claw 智能体
+      通用问答与写作
+      平台数据问答
+      本地工作区改代码
+      技能 Skill 与斜杠命令
+      WeLink 助手与跟进任务
+    📊 数据主线
+      UIVF12 自动抓取
+      SLA 多表合控
+      报表看板与运营大屏
+      通用月报编辑器
+      一键催办
+    🧰 工具矩阵
+      专项治理 考勤 激励 奖惩
+      业务核验 比价 验收 仓储
+      学习 数通 阿拉伯语 题库
+      效率 日程 传文件 胶片
+    🛡️ 平台底座
+      多租户隔离
+      备份恢复与授权
+      Web 桌面 移动三端
+      中英双语
 ```
 
-1. **第一步：启动主页并选择模型**  
-   打开平台首页，Dragon Claw 默认就绪；在对话框底部可按需切换模型（如默认 `Aragon`，或切换为 Gemini、Claude 等模型方案）。
-2. **第二步：挂载本地工程目录**  
-   点击对话框上方或右侧的「**工作区**」按钮，在输入框中键入本地项目路径（例如 `~/projects/my-repo`），支持键盘上下键选择与 Tab 智能补全。
-3. **第三步：设置安全权限模式**  
-   在右侧工作区面板顶部选择权限：
-   - **日常推荐 `auto` (帮我批准)**：普通读写自动执行，当触发删除文件或执行命令时弹窗确认；
-   - **严谨审计选 `ask` (请求批准)**：任何文件修改与终端调用均需手动点击“允许”。
-4. **第四步：自然语言下发任务**  
-   在输入框中直接输入任务，例如：
-   > *“检查当前项目中是否存在未处理的 SQL 异常，帮我修复它并运行自动化测试”*  
-   > *“把 README 中的接口列表补充完整，并对比现有 routes/ 目录保持一致”*  
-   > *“编写一个 Python 脚本用于离线比对两份采购 Excel，并保存到 scripts/ 目录”*
-5. **第五步：审查 Diff 与单文件撤销**  
-   智能体执行完成后，右侧面板会实时列出改动文件列表。点击「**差异**」可展开查看精确的文本 Diff；如不符合预期，点击「**撤销**」即可原子还原文件。
-6. **第六步：一键发起 GitHub Pull Request**  
-   在右侧面板底部点击「**创建 PR**」，输入功能分支名与标题，系统自动执行 Git 暂存、提交并推送到远端，调起 `gh pr create` 生成可审查的 PR 链接。
-
 ---
 
-### 🏛️ 双循环执行架构与安全流转机制
+## 🐉 Dragon Claw：首页的全能智能体
+
+打开平台首页，迎面就是 Dragon Claw。它不只会聊天：能读懂平台里的报表和工具数据，能在你选定的本地目录里看代码、改文件、跑命令，也能被拉进 WeLink 群里当团队助手。
+
+<img src="tools-platform/docs/images/readme/shots/home-chat.jpg" alt="Dragon Claw 首页：问候、工具推荐与历史对话" width="100%">
+
+### 它能帮你做什么
+
+| | |
+| :---: | :---: |
+| <img src="tools-platform/docs/images/readme/shots/claw-general.jpg" alt="通用问答：用表格对比 OSPF 与 IS-IS"> | <img src="tools-platform/docs/images/readme/shots/claw-data.jpg" alt="平台数据问答：列出即将超期的 SR 工单"> |
+| **💬 什么都能问**<br>编程、写作、翻译、技术对比……默认用表格把结论讲清楚，还会顺手推荐平台里相关的工具。 | **📈 直接问平台数据**<br>「本周哪些工单快超期？」它会读取最新入库的快照作答，并注明数据来源和时间，不编造数字。 |
+| <img src="tools-platform/docs/images/readme/shots/claw-agent.jpg" alt="工作区智能体：读代码、改文件、跑测试"> | <img src="tools-platform/docs/images/readme/shots/claw-diff.jpg" alt="右侧工作区：逐个文件查看差异并可单独撤销"> |
+| **🛠️ 在本地目录里干活**<br>选一个项目目录，用一句话交代任务：它会列目录、读文件、改代码、跑测试，每一步都看得见。 | **🔍 改了什么一目了然**<br>右侧工作区显示每个文件的增删行数和差异，不满意可以单独撤销；验证通过后还能一键发起 PR。 |
+| <img src="tools-platform/docs/images/readme/shots/claw-skills.jpg" alt="输入 @ 调出技能列表"> | <img src="tools-platform/docs/images/readme/shots/claw-slash.jpg" alt="输入 / 调出斜杠命令"> |
+| **🎯 @ 一个技能**<br>输入 `@` 挑选项目导览、排查故障、代码审查、数据核查、编写文档等技能，也可以把好用的提示词存成自己的技能。 | **⌨️ / 斜杠命令**<br>`/session` 翻找历史对话、`/new` 开新对话，键盘就能完成常用操作。 |
+
+> [!TIP]
+> 工作区有三档权限：**请求批准**（每次写文件、跑命令都问你）、**帮我批准**（只在删除和执行命令时问）、**完全访问**。非管理员账号自动只读，路径被限制在你选的目录里，密码和令牌会自动脱敏。
+
+### WeLink 助手：在群里 @ 一下，平台帮你记着、按时提醒
+
+把 Dragon Claw 接入 WeLink 后，同事在群里 @助手 就能提问；说一句「帮我记一下，后边跟进」，它会把任务、提醒人和频率存进平台，到点在原群里 @ 相关人。所有群聊和单聊记录都按群或按人合并显示在首页「WeLink」分类里，上方的进度条显示任务走到了哪一步。
+
+<img src="tools-platform/docs/images/readme/shots/welink-followup.jpg" alt="WeLink 对话历史：任务进度条、合并时间线与右侧跟进卡片" width="100%">
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Dev as 研发/运维人员
-    participant UI as 双模工作台 (frontend/index.html)
-    participant Route as 路由网关 (/api/ai/chat)
-    participant RunMgr as 智能体运行管理器 (agent-run-manager.js)
-    participant LLM as 多模型 Tool Calling 引擎 (ai-provider-client.js)
-    participant Guard as 路径与命令沙箱 (agent-path-guard / command-guard)
-    participant Tool as 8大系统工具链 (agent-tools-service.js)
-    participant Change as 变更追踪与Diff (agent-change-log.js)
-    participant Git as GitHub PR服务 (agent-pr-service.js)
-
-    Note over Dev,UI: 交互外循环：任务输入与工作区配置
-    Dev->>UI: 挂载工作区目录 + 输入编程/运维指令
-    UI->>Route: 发起流式对话 (携带 workspace 与 agentSessionId)
-    Route->>RunMgr: 初始化会话与 200 项目录轻量索引
-    RunMgr->>LLM: 注入环境、工具规范与用户指令
-
-    loop 执行内循环：模型自主工具调用 (最多 25 轮)
-        LLM-->>RunMgr: 产生 Tool Call 事件 (如 edit_file / run_command)
-        RunMgr->>Guard: 校验路径与命令合法性 (防目录穿越与危险指令)
-        alt 模式为 ask 或命中危险敏感策略
-            Guard-->>UI: 推送审批卡片 (Approval Card)
-            Dev->>UI: 审查并点击「允许 / 拒绝」
-            UI->>RunMgr: 提交审批裁决 (纯内存结算)
-        end
-        RunMgr->>Tool: 执行具体工具操作 (读/写/搜/跑)
-        Tool->>Change: 捕获变更前快照并计算统一 Diff
-        Tool-->>RunMgr: 返回结构化工具结果 (Tool Result)
-        RunMgr-->>UI: SSE 推送工具执行状态与实时打字机响应
-        RunMgr->>LLM: 回传工具执行结果，模型继续推理
+    actor U as 群里的同事
+    participant B as WeLink 助手（Dragon Claw）
+    participant P as 平台跟进任务库
+    participant S as 提醒调度器
+    U->>B: @助手 帮我记一下这个遗留任务，后边跟进
+    B->>P: 保存任务：做什么、提醒谁、紧急度、频率
+    B-->>U: 已记录 ✅ 每个工作日 10:00 提醒
+    loop 按紧急度与工作日历（埃及周日至周四）
+        S->>P: 查到期任务
+        S-->>U: ⏰ 跟进提醒 @负责人，附当前进展与本次要问的事
     end
-
-    Note over Dev,Git: 交付与闭环：审查与 PR 流转
-    Dev->>UI: 审查右侧面板 Diff 变更
-    opt 发现修改偏差
-        Dev->>UI: 点击指定文件「撤销 (Revert)」
-        UI->>RunMgr: 原子回滚文件至操作前版本
-    end
-    Dev->>UI: 确认无误，点击「一键创建 GitHub PR」
-    UI->>Git: POST /api/agent-workspace/create-pr
-    Git->>Git: 自动切分支 -> git commit -> git push -> gh pr create
-    Git-->>Dev: 返回 GitHub PR 直达地址
+    U->>B: 海报改好了 / 完成
+    B->>P: 记录进展或关闭任务
+    Note over P: 首页「WeLink」分类可看到完整时间线，<br/>以及 开始→进行→结束 的进度和关闭情况
 ```
 
----
-
-## 界面与工作台预览
-
-### 1. 通用月报编辑器
-
-左侧找数据，中间编辑月报，右侧配置组件。支持数据透视、图表、指标引用、跨月模板复用与多格式导出。
-
-![通用月报编辑器：资料库、月报画布与组件配置](tools-platform/docs/images/readme/monthly-editor.png)
-
-*真实编辑器界面，使用虚构的团队与演示数据；具体功能见[月报编辑器指南](tools-platform/docs/monthly-designer.md)。*
-
-### 2. 首次启动快速上手
-
-按需导入默认脚本与指标规则，再根据业务调整。
-
-<img src="tools-platform/docs/images/first-run-quick-start.png" alt="首次启动：选择导入默认脚本库与指标规则" width="730">
-
-[查看默认快速上手包与导入说明 →](tools-platform/README.md#默认快速上手包)
+想深入了解智能体的执行循环、安全设计和接口，见[完整使用指南 · Dragon Claw 章节](tools-platform/README.md#29-dragon-claw-智能体agent-workspace-协同工作区与-2d3d-双视图知识图谱)。
 
 ---
 
-## 矩阵子系统拓扑
+## 📊 数据主线：从抓取到月报
 
-整个仓库由中台核心服务、桌面端宿主、Python 独立抽查外壳以及移动端工程共同组成：
+平台最核心的一条线，是把散落在各个网站和 Excel 里的运维数据，变成一份能直接发出去的月报。
 
 ```mermaid
-flowchart TD
-    subgraph 仓库主干["privacy-policy 仓库系统矩阵"]
-        TP["tools-platform/ (中台核心工程)"]
-        PP["python-packager/ (PR小助手独立绿色外壳)"]
-        IOS["tools-platform/iosapp/ (移动端工程)"]
-    end
-
-    subgraph 中台多端分发["中台交付形态 (tools-platform)"]
-        TP --> WEB["内网浏览器 Web 端 (http://localhost:3030)"]
-        TP --> DSK["Dragon Platform 桌面客户端 (Electron 28)"]
-        DSK --> DSK_MAC["macOS DMG / ZIP (arm64 / x64 签名公证版)"]
-        DSK --> DSK_WIN["Windows 安装版 (NSIS) / 单文件便携版 (Portable)"]
-        DSK --> PET["哈基米桌宠伴侣 (0.75x 悬浮视窗 + 全局键盘音效 + 40篇双语故事)"]
-    end
-
-    subgraph 首页工作区["首页双模工作台体系"]
-        WEB & DSK --> HOME["首页 (frontend/index.html)"]
-        HOME --> AGENT["Dragon Claw Agent Workspace (路径沙箱/三级权限/Diff/PR)"]
-        HOME --> TOOLS["全功能工具矩阵 (SLA/报表/催办/专项治理/工具市场)"]
-    end
-
-    subgraph Python外壳生态["独立外壳生态 (python-packager)"]
-        PP --> SHELL["universal_shell.py (无控制台透明包装 GUI)"]
-        PP --> WORKER["PR-Audit-Worker.exe (后台业务进程)"]
-        PP --> UPDATER["在线热更新体系 (GitHub Raw / ghproxy / 自定义源)"]
-        PP --> ARTIFACT["CI 自动化打包工件: PR小助手-Windows-x64.zip"]
-    end
+flowchart LR
+    A["🕸️ 数据抓取<br/>UIVF12 脚本 / F12 控制台"] --> B["📥 数据导入<br/>多表合并 · 列映射"]
+    B --> C["⏱️ SLA 合控<br/>倒计时 · 超期预警"]
+    C --> D["📸 快照入库<br/>按月留存 · 历史可追溯"]
+    D --> E["📈 报表看板<br/>客户群排名 · 短板透视"]
+    D --> F["📝 通用月报<br/>拖拽排版 · 指标引用"]
+    D --> G["⚡ 一键催办<br/>自动生成文案"]
+    D --> H["🖥️ 运营大屏"]
+    F --> I["📤 导出<br/>PDF · HTML · Excel · 图片 · MSG"]
+    D -. 只读 .-> J["🐉 Dragon Claw 数据问答"]
 ```
+
+| 第一站：自动抓取 | 第二站：导入与 SLA 合控 |
+| :---: | :---: |
+| <img src="tools-platform/docs/images/readme/shots/uivf12.jpg" alt="UIVF12 自动化脚本工程中心"> | <img src="tools-platform/docs/images/readme/shots/sla.jpg" alt="SLA 全局数据合控大台：工单与超期色标"> |
+| 脚本仓库按站点分组，填网址、贴接口样例，就能生成 UI.Vision 宏或 F12 控制台脚本，批量定时抓取。 | 一次拖入多张详单，自动归类到整改、风险、SR、漏洞等合集；每张工单按规则算出剩余时间，超期标红。 |
+| **第三站：月报编辑** | **第四站：专题分析** |
+| <img src="tools-platform/docs/images/readme/shots/monthly.jpg" alt="通用月报编辑器：资料库、画布与组件配置"> | <img src="tools-platform/docs/images/readme/shots/topic.jpg" alt="专题分析：EOS 收编进展月报"> |
+| 左侧资料库找数据，中间像写文档一样排月报，图表和指标随月份自动更新，模板跨月复用。 | 按租户沉淀 NetCare / DataFab 快照，生成 EOS 收编等专题月报，支持版本对比与多格式导出。 |
+
+<details>
+<summary>📷 再看一张：填好数据的月报编辑器</summary>
+
+<img src="tools-platform/docs/images/readme/monthly-editor.png" alt="通用月报编辑器：资料库、月报画布与组件配置" width="100%">
+
+*使用虚构团队与演示数据。具体操作见[月报编辑器指南](tools-platform/docs/monthly-designer.md)。*
+</details>
+
+**这条线的每一站怎么用：** [数据抓取](tools-platform/README.md#21-自动化数据抓取与-uivf12-ai-网站适配器) · [SLA 与指标规则](tools-platform/README.md#22-sla-数据合控与指标规则引擎) · [报表与月报](tools-platform/README.md#23-报表看板月报工作区与运营大屏) · [催办与导出](tools-platform/README.md#24-一键精准催办与导出) · [默认快速上手包](tools-platform/README.md#默认快速上手包)
 
 ---
 
-## 能做什么
+## 🧰 工具矩阵：每个小需求都值得一个好工具
 
-| 工作场景 | 主要能力 | 阅读入口 |
+首页切到「工具」模式，所有工具按分类排好，支持搜索和收藏。平台内置 40 多个工具，覆盖专项治理、业务核验、学习和日常效率。
+
+<img src="tools-platform/docs/images/readme/shots/home-tools.jpg" alt="首页工具模式：分类浏览全部工具" width="100%">
+
+### 常用工具一览
+
+| | | |
+| :---: | :---: | :---: |
+| <img src="tools-platform/docs/images/readme/shots/t-calendar.jpg" alt="日程安排"><br>**📅 日程安排**<br>自动读取最新 SLA 快照，为快到期的工单排好三次提醒 | <img src="tools-platform/docs/images/readme/shots/t-reward.jpg" alt="奖励申报与评优"><br>**🏅 奖励申报与评优**<br>悬赏奖、岗位激励、操作激励的申报、审批与公示 | <img src="tools-platform/docs/images/readme/shots/t-dining.jpg" alt="营业流水与微信就餐统计"><br>**🍱 就餐统计**<br>刷卡流水与微信账单合并分析，自动识别餐别档位 |
+| <img src="tools-platform/docs/images/readme/shots/t-accept.jpg" alt="在线验收表"><br>**📋 在线验收表**<br>纯浏览器填报，多图证明，导出带图片的 Excel | <img src="tools-platform/docs/images/readme/shots/t-warehouse.jpg" alt="仓储管理"><br>**📦 仓储管理**<br>货品档案、出入库、盘点、条码与资金账单 | <img src="tools-platform/docs/images/readme/shots/t-f12.jpg" alt="F12 扩展打包"><br>**🧩 F12 扩展打包**<br>把控制台脚本打包成浏览器扩展，可离线验签授权 |
+| <img src="tools-platform/docs/images/readme/shots/t-python.jpg" alt="Python 脚本热更新"><br>**🐍 Python 脚本热更新**<br>脚本版本管理、差异对比，一键打包绿色外壳 | <img src="tools-platform/docs/images/readme/shots/t-optical.jpg" alt="光码传文件"><br>**🔦 光码传文件**<br>屏幕播二维码、手机扫码收文件，不经过服务器 | <img src="tools-platform/docs/images/readme/shots/t-arabic.jpg" alt="阿拉伯语互动课堂"><br>**🗣️ 阿拉伯语课堂**<br>开罗口语：字母、词汇、会话，配音跟读闯关 |
+| <img src="tools-platform/docs/images/readme/shots/t-slides.jpg" alt="胶片设计"><br>**🎞️ 胶片设计**<br>组件可拖拽缩放的胶片编辑器，导出 PDF / PPT | <img src="tools-platform/docs/images/readme/shots/t-overview.jpg" alt="平台全景"><br>**🗺️ 平台全景**<br>中英双语介绍全部模块与工具，支持搜索筛选 | <img src="tools-platform/docs/images/readme/shots/cinema.jpg" alt="光影大厅"><br>**🎬 光影大厅**<br>沉浸式影院，复盘录像与培训视频点播 |
+
+<details>
+<summary>📜 内置工具完整清单</summary>
+
+| 分类 | 工具 |
+| --- | --- |
+| 专项治理 | 会议考勤 · 操作激励统计 · 奖励申报与评优 · 负向事件管理 · 夜间值班表 · 重急收编 · 临时 License 统计 · PR 透视 · 外包 PR · PR 审计 · FRT KPI 核算 |
+| 业务核验 | 供应商报价比价 · 餐单核验 · 强控业务比对检索 · 在线验收表 · 仓储管理 · 欠款对账 · 三方软件分析 |
+| 学习成长 | 数通协议专家 · 阿拉伯语互动课堂 · 题库学习与 Excel 转换 · 膳食手册 |
+| 效率工具 | 日程安排 · 光码传文件 · 聊天记录中心 · 胶片设计 · 汇报胶片 · F12 扩展打包 · Python 脚本更新器 · 人数计数 · 粒子特效 |
+| 平台介绍 | 平台全景 · 平台介绍 · 上传指南 · 重点通知 |
+
+每个工具怎么用：[专项治理工具链](tools-platform/README.md#26-专项治理工具链) · [题库助手](tools-platform/docs/f12-exam-ai.md) · [埃及口语课堂](tools-platform/docs/egyptian-classroom.md) · [奖励申报](tools-platform/docs/reward-program.md) · [Python 外壳](python-packager/README.md)
+</details>
+
+### 一个工具是怎么来的
+
+<img src="tools-platform/docs/images/readme/tool-journey.svg" alt="一个工具的诞生之旅：想法、HTML 文件、导入平台、工具市场、智能体可用" width="100%">
+
+任何一个单文件 HTML（或打包好的 ZIP）都能导入成平台工具：自动获得登录保护、顶部导航、中英文切换和按租户隔离的数据存储。工具可以发布到多个市场源，平台对比版本后一键更新，也能整体离线导出。详见[自定义工具与工具市场](tools-platform/README.md#28-自定义工具与多源工具市场生态)。
+
+<div align="center">
+<img src="tools-platform/docs/images/readme/shots/particle.gif" alt="粒子特效工具：随音乐变化的 3D 粒子" width="60%"><br>
+<sub>连「粒子特效」这样纯好玩的工具也有一席之地：跟着音乐或麦克风实时变化的 3D 粒子。</sub>
+</div>
+
+---
+
+## 📡 数通协议专家：把协议「演」给你看
+
+OSPF 邻居为什么卡在 2-Way？DR 是怎么选出来的？数通协议专家把一篇篇笔记做成了**分步动画、可调参数的实验和知识大纲**，每一步都告诉你发生了什么、为什么。
+
+<div align="center">
+<img src="tools-platform/docs/images/readme/shots/datacom-lesson.gif" alt="OSPF 建邻分步图解：从 Init 到 Full" width="88%"><br>
+<sub>分步教学自动播放：OSPF 两台路由器从 Init、2-Way 一路走到 Full。</sub>
+</div>
+
+| 知识库总览 | 图解文章 |
+| :---: | :---: |
+| <img src="tools-platform/docs/images/readme/shots/datacom-home.jpg" alt="数通协议专家首页"> | <img src="tools-platform/docs/images/readme/shots/datacom-article.jpg" alt="OSPF 邻居状态机图解文章"> |
+| **可视化实验室** | **知识大纲** |
+| <img src="tools-platform/docs/images/readme/shots/datacom-lab.jpg" alt="DR/BDR 选举交互实验"> | <img src="tools-platform/docs/images/readme/shots/datacom-outline.jpg" alt="知识大纲思维导图"> |
+
+还有配套的笔记讲解视频：
+
+| [<img src="tools-platform/docs/images/readme/shots/video-ospf-fsm.jpg" alt="OSPF 邻居状态机">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-fsm-20261020-1/ospf-fsm-hd.mp4) | [<img src="tools-platform/docs/images/readme/shots/video-ospf-router-types.jpg" alt="OSPF 路由器角色">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-router-types-20261020-2/ospf-router-types-hd.mp4) | [<img src="tools-platform/docs/images/readme/shots/video-ospf-router-id.jpg" alt="Router-ID 选举与生效">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-router-id-20261020-1/ospf-router-id-hd.mp4) |
+| :---: | :---: | :---: |
+| **OSPF 邻居状态机** · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-fsm-20261020-1/ospf-fsm.mp4) | **OSPF 路由器角色** · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-router-types-20261020-2/ospf-router-types.mp4) | **Router-ID 选举与生效** · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-router-id-20261020-1/ospf-router-id.mp4) |
+
+---
+
+## 📺 视频中心
+
+所有视频都有高清版；平台介绍类视频同时提供中文和英文。点击封面直接播放中文高清版。
+
+| 视频 | 讲什么 | 中文 | English |
+| :--- | :--- | :---: | :---: |
+| [<img src="tools-platform/docs/images/readme/shots/video-platform-guide.jpg" width="220" alt="Dragon 平台五站使用指南">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-hd.mp4) | **从数据到月报 · 五站通关**<br>抓数据、导入合控、看报表、编月报、催办交付 · 7:17 | [高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-hd.mp4) · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide.mp4) | [HD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-en-hd.mp4) · [SD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-en.mp4) |
+| [<img src="tools-platform/docs/images/readme/shots/video-eos-report-guide.jpg" width="220" alt="EOS 风险收编月报">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-20261019/eos-report-guide-hd.mp4) | **EOS 风险收编月报**<br>一键取数、测算目标、自动成稿 · 7:53 | [高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-20261019/eos-report-guide-hd.mp4) · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-20261019/eos-report-guide.mp4) | [HD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-en-20261019/eos-report-guide-en-hd.mp4) · [SD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-en-20261019/eos-report-guide-en.mp4) |
+| [<img src="tools-platform/docs/images/readme/shots/video-operation-incentive-guide.jpg" width="220" alt="操作激励统计">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-hd.mp4) | **操作激励统计**<br>夜间操作怎么算准每一笔、对得上 · 6:28 | [高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-hd.mp4) · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide.mp4) | [HD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-en-hd.mp4) · [SD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-en.mp4) |
+| [<img src="tools-platform/docs/images/readme/shots/video-netcare-rfc-ai-guide.jpg" width="220" alt="NetCare RFC 方案与 AI 审计">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-hd.mp4) | **NetCare RFC 方案与 AI 审计**<br>浏览器扩展小助手，手把手教你用 · 3:32 | [高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-hd.mp4) · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide.mp4) | [HD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-en-hd.mp4) · [SD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-en.mp4) |
+| 数通笔记 × 3 | OSPF 邻居状态机 · 路由器角色 · Router-ID 选举，见[数通协议专家](#-数通协议专家把协议演给你看) | ✅ | — |
+| 项目演进 · 银河之旅 | 一个 HTML 页面如何长成一座工具中台，见[项目演进](#-项目演进) | ✅ | — |
+
+<sub>视频托管在 [Dragon-Platform-Media](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases) 的发布页；平台首页也会按需下载并缓存这些视频，离线也能看。</sub>
+
+---
+
+## 🚀 快速开始
+
+### 选一种用法
+
+| 方式 | 适合 | 获取 |
 | --- | --- | --- |
-| 协同编程与智能体 | Dragon Claw Agent Workspace、本地目录补全、权限守卫 (ask/auto/full)、Token仪表盘、Diff审查、GitHub PR 自动化 | [Agent Workspace](#-核心亮点dragon-claw-全能智能体与-agent-workspace) |
-| 数据采集与导入 | UI.Vision / F12 脚本库、网站适配、Excel / CSV 导入、自动导入 | [采集](tools-platform/README.md#21-自动化数据抓取与-uivf12-ai-网站适配器) · [指标规则](tools-platform/README.md#22-sla-数据合控与指标规则引擎) |
-| 月报与看板 | 通用月报设计器、数据透视、图表、动态指标、模板复用、运营大屏 | [月报编辑器](tools-platform/docs/monthly-designer.md) · [报表能力](tools-platform/README.md#23-报表看板月报工作区与运营大屏) |
-| 交付与跟进 | PDF / HTML / Excel / 图片 / MSG 导出、一键催办、网络别名映射 | [催办与导出](tools-platform/README.md#24-一键精准催办与导出) |
-| 专项治理与协作 | 会议考勤、花名册、夜间值班表、专题分析、部门奖惩、正向激励、PR / FRT、需求与问卷 | [专项工具链](tools-platform/README.md#26-专项治理工具链) |
-| 业务核验与学习 | 采购订单核验、供应商报价比对、考题金库、阿拉伯语互动学习 | [专项工具链](tools-platform/README.md#26-专项治理工具链) · [题库助手](tools-platform/docs/f12-exam-ai.md) |
-| Python 独立抽查 | PR小助手绿色版、无控制台双进程架构、Web端脚本编辑比对 (`/python-updater.html`)、在线热更新 | [Python生态](tools-platform/README.md#212-python-脚本热更新与-pr-小助手独立生态-python-packager) · [外壳文档](python-packager/README.md) |
-| 内容制作 | 胶片设计、PPT 素材库、光影大厅与多媒体工具 | [胶片与素材](tools-platform/README.md#25-胶片设计与-ppt-素材库) · [多媒体](tools-platform/README.md#210-光影大厅-tools-cinema-与多媒体生态) |
-| AI 与桌面伴侣 | 多模型切换 (Aragon/Gemini/Claude/MiniMax)、2D/3D知识图谱、0.75x哈基米桌宠伴侣、古埃及双语故事与防遮挡客服 | [智能体](tools-platform/README.md#29-dragon-claw-智能体agent-workspace-协同工作区与-2d3d-双视图知识图谱) · [桌面宠物](tools-platform/README.md#211-桌面宠物伴侣-哈基米-hajimi-companion-与智能客服) |
-| 工具扩展 | 自定义 HTML 工具、内置工具、多源市场源与离线导出 | [工具市场](tools-platform/README.md#28-自定义工具与多源工具市场生态) |
-| 平台管理与授权 | 多租户物理隔离、双轨非对称 License 验签、离线激活、备份恢复、服务监控与存储迁移 | [授权](tools-platform/README.md#3-安全授权与双轨-license-体系) · [存储](tools-platform/README.md#4-数据存储启动自愈与迁移治理) · [备份](tools-platform/README.md#5-备份恢复与远端主站同步) |
+| 🪟 **Windows 桌面版** | 一个人在自己电脑上用，安装版或免安装绿色版 | [下载发行版](https://github.com/fanxiaolongx-max/Dragon-Platform/releases) |
+| 🍎 **macOS 桌面版** | Apple Silicon / Intel 双架构，已签名公证 | [下载发行版](https://github.com/fanxiaolongx-max/Dragon-Platform/releases) |
+| 🌐 **浏览器 / 内网部署** | 团队共用一套数据和工具 | 见下方命令 |
+| 🐍 **PR 小助手绿色版** | 不想装 Python 的 Windows 抽查场景 | [下载](https://github.com/fanxiaolongx-max/Dragon-Platform/releases) · [说明](python-packager/README.md) |
+| 📱 **iOS / KMP 移动工程** | 移动端开发与只读指标接入 | [移动端工程](tools-platform/iosapp/) |
 
-## 选择使用方式
-
-| 方式 | 适合场景 | 获取与说明 |
-| --- | --- | --- |
-| 浏览器 / 内网部署 | 团队共享数据与工具，通过浏览器访问主页双模工作台 | [快速启动](#快速启动) · [部署指南](tools-platform/README.md#12-多系统部署桌面客户端与新手配置指引) |
-| Windows 桌面端 (Dragon Platform) | 本机运行；NSIS 安装版或免安装单文件便携绿色版 (Portable) | [下载发行版](https://github.com/fanxiaolongx-max/privacy-policy/releases) · [客户端说明](tools-platform/README.md#123-桌面客户端指引-windows-安装版绿色版-vs-macos-签名公证版) |
-| macOS 桌面端 (Dragon Platform) | 本机运行；Apple 权威签名公证 DMG / ZIP，arm64 / x64 双架构构建 | [下载发行版](https://github.com/fanxiaolongx-max/privacy-policy/releases) · [构建与验收](tools-platform/docs/macos-desktop-release.md) |
-| Python 独立抽查外壳 (PR小助手) | 轻量纯净、无控制台黑窗、免配置 Python 环境的 Windows 绿色抽查工具，支持在线脚本热更新 | [下载 PR小助手-Windows-x64.zip](https://github.com/fanxiaolongx-max/privacy-policy/releases) · [外壳文档](python-packager/README.md) |
-| iOS / KMP 移动工程 | 移动端开发与外部指标只读接入 | [移动端工程](tools-platform/iosapp/) · [接口说明](tools-platform/iosapp/external-metrics-api.md) |
-
-## 快速启动
-
-> [!IMPORTANT]
-> **华为内网环境部署必读**：  
-> 如果在**华为内网环境**进行源码安装与拉取依赖，执行 `npm install` 前**必须先切换为华为内部 npm 镜像源**，否则公共 npm 源将无法访问或连接超时：
-> ```powershell
-> # 1. 切换至华为内网镜像源
-> npm config set registry http://mirrors.tools.huawei.com/npm/
-> 
-> # 2. 验证当前镜像源配置
-> npm config get registry
-> # 正确输出应为: http://mirrors.tools.huawei.com/npm/
-> ```
-
-在仓库根目录执行：
+### 从源码启动（需要 Node.js 20 LTS）
 
 ```bash
 cd tools-platform/backend
 npm install
-npm run doctor
-npm start
+npm run doctor   # 检查运行环境
+npm start        # 默认 http://localhost:3030
 ```
 
-打开 **http://localhost:3030**。运行环境、登录初始化、PM2 与桌面打包步骤见[完整部署指南](tools-platform/README.md#12-多系统部署桌面客户端与新手配置指引)。
+首次打开会引导你创建管理员，并可一键导入**默认快速上手包**（数据抓取脚本库与指标规则），装好就能用。
 
-## 技术架构与关键技术栈
+<details>
+<summary>🏢 华为内网安装依赖前，先切换 npm 镜像</summary>
 
-![Tools Platform 全景技术架构与关键技术栈](tools-platform/docs/images/readme/technology-architecture.svg)
+```bash
+npm config set registry http://mirrors.tools.huawei.com/npm/
+npm config get registry
+```
+</details>
 
-### 关键开发技术点 (Key Engineering Highlights)
+装好之后第一天做什么、PM2 常驻部署、桌面端文件目录在哪里，见[完整使用指南 · 部署与新手配置](tools-platform/README.md#12-多系统部署桌面客户端与新手配置指引)。
 
-- **前端架构（原生轻量 · 零打包构建 · 多页面解耦 · 双模工作台）**：
-  - **纯原生核心栈**：采用纯原生 **Vanilla JavaScript (ES6+)** 与语义化 HTML5，**无 Vue / React 等重型框架依赖**，无虚拟 DOM 运行时负担。
-  - **零编译构建 (Zero-Build / No-Bundler)**：无需 Webpack、Vite 或 Babel 打包步骤，代码改动后浏览器与桌面客户端刷新即生效，拥有极佳的调试敏捷度与毫秒级首屏加载性能。
-  - **多页面架构 (MPA) 与双模画布**：`frontend/pages/*.html` 独立解耦加载；首页原生融合 Dragon Claw 协同模式与全功能工具矩阵，支持 `/` 快捷键与拼音首字母检索。
-  - **现代纯 CSS3 视觉体系**：全局 CSS 变量（`CSS Variables`）、毛玻璃拟态（`Glassmorphism`）、Flexbox / Grid 响应式栅格，原生深度适配深色暗黑模式（`Dark Mode`）。
-  - **领域驱动模块分层**：
-    - `js/sla/`：SLA 数据合控、指标预警呼吸灯、渐进式按需分页（`<1ms` 切片渲染）、原生矢量羽毛漂浮加载动效。
-    - `js/uivf12/`：UI.Vision 宏与控制台脚本 AST / 正则双向同步生成工作台。
-    - `js/monthly-designer/`：通用月报拖拽设计器、跨月模板复用与导出。
-    - `js/home/workspace-panel.js`：Dragon Claw Agent 本地工程工作区面板、路径补全、权限防护与 PR 自动化。
-    - `js/home/dragon-claw.js`：全能智能体主交互、工具推荐轮播、灵感卡片与流式渲染。
-    - `js/shared/`：API 统一请求网关（含 SQLite/JSON 模式切换与来源元数据追踪）、`ToolsI18n` 中英双语引擎、全局启动屏（`ToolsStartup`）。
-  - **轻量专业库生态**：按需集成 Apache ECharts 5（趋势图表）、SheetJS / ExcelJS（多表导入导出）、html2canvas & jsPDF（报告导出）、LocalForage（大文件离线存储）。
+---
 
-- **后端架构（模块化服务 · 智能计算引擎 · 开机自愈）**：
-  - **Node.js + Express**：模块化分层，业务路由与仓储层清晰解耦（`/routes` + `/models`），具备统一异常容灾拦截与响应包装。
-  - **双模读源引擎 (Dual-Source Engine)**：**SQLite 3** 关系型核心引擎（开启 WAL 模式高并发保护）与 **JSON 本地文件降级存储**无缝协同，支持运行时自动探测与平滑降级。
-  - **系统韧性与自愈体系**：内置开机自检 Doctor、存储就绪守卫（`ensureReady`）以及存量脚本/数据的自动纠偏与修复机制。
-  - **租户物理隔离**：多租户物理分目录沙箱隔离（`data/tenants/<tenantId>/`），数据纯本地/内网私有驻留，严禁外发。
+## 🧱 技术一览
 
-- **跨端宿主与交付（桌面客户端 + 独立 Python 外壳 + 移动端）**：
-  - **Electron 28 桌面应用 (Dragon Platform)**：主进程（Main）与渲染进程（Renderer）通过 Preload 脚本安全隔离，支持系统托盘驻留、开机自启与快捷操作。
-  - **全平台发行包矩阵**：
-    - **macOS**：Apple Developer 证书权威签名与公证，同时发布 `arm64`（Apple Silicon）与 `x64`（Intel）双架构 DMG 安装镜像与 ZIP 更新包。
-    - **Windows**：NSIS 规范安装包与免安装单文件便携绿色版（Portable）。
-  - **Python 独立外壳 (PR小助手)**：无控制台双进程架构（`universal_shell.py` + `PR-Audit-Worker.exe`），内置终端与动态在线热更新。
-  - **移动端与扩展工程**：Kotlin Multiplatform (KMP) / iOS 原生 Xcode 工程生态。
-
-- **工程质量保证**：
-  - 接入 Node.js 原生测试体系（`node --test`），全量覆盖 **166 个测试套件文件、1,090+ 项**全链路业务规则、SLA 合控、宏生成、快照比对、多端打包、桌宠动效与生命周期等自动化测试用例（自动化测试通过率 100%）。
-
-| 层级 | 核心实现 | 架构特征 |
+| 层 | 选型 | 特点 |
 | --- | --- | --- |
-| 前端 | 原生 HTML5 / CSS3 / Vanilla JavaScript | 零打包构建 (No-Build)、双模工作台、多页面解耦 (MPA)、暗黑模式适配 |
-| 后端 | Node.js + Express REST API (40+ 路由) | 路由与仓储分层解耦、WAL 高并发、开机自愈检查 (Doctor) |
-| 数据存储 | SQLite 3 关系型核心 + JSON 文件降级 | 双模读源引擎、按租户物理目录沙箱隔离 |
-| 桌面端 | Electron 28 (Main / Preload 隔离) | Dragon Platform macOS (签名公证 DMG/ZIP 双架构) · Windows (安装版/便携版) |
-| Python 外壳 | 无控制台双进程 GUI + 在线热更新 | PR小助手-Windows-x64.zip 独立绿色版，秒级脚本在线热更新 |
-| 移动端 | Kotlin Multiplatform (KMP) / iOS | 跨平台共享核心模型，原生 UI 查看 |
+| 前端 | 原生 HTML / CSS / JavaScript | 不依赖框架、不需要打包，改完刷新即生效；中英双语、深色界面 |
+| 后端 | Node.js + Express | 51 个路由模块，统一鉴权、租户上下文与管理员写保护 |
+| 存储 | SQLite（WAL） | 每个租户独立目录和数据库，启动自检与自动修复 |
+| 智能体 | 多模型函数调用 | 接入 Gemini、Claude、OpenAI、MiniMax 等，自动熔断与降级 |
+| 桌面端 | Electron | Windows 安装版 / 绿色版，macOS 签名公证版，自动增量更新 |
+| 质量 | `node --test` | 217 个测试文件覆盖业务规则、权限隔离、导出与界面回归 |
 
-源码、运行数据、备份和客户端持久化目录的详细说明见[目录结构](tools-platform/README.md#10-目录结构详解)与[客户端文件目录](tools-platform/README.md#124-桌面客户端本地生成文件与目录全景字典-windows-vs-macos)。
+<details>
+<summary>🗺️ 展开完整技术架构图</summary>
 
-## 文档导航
+<img src="tools-platform/docs/images/readme/technology-architecture.svg" alt="Tools Platform 技术架构与关键技术栈" width="100%">
+</details>
 
-| 想了解什么 | 文档 |
+<details>
+<summary>🛡️ 安全与数据边界</summary>
+
+- 所有业务接口都需要登录，写操作默认只有管理员可以执行。
+- 每个租户的数据、自定义工具和备份放在各自目录里，备份、恢复、出厂重置都会校验租户。
+- 发给 AI 的内容会自动去掉密码、令牌、Cookie 和密钥；工作区智能体只能访问你选定的目录。
+- 桌面版使用非对称签名的 License，支持离线激活。
+
+详见[安全授权](tools-platform/README.md#3-安全授权与双轨-license-体系)与[备份恢复](tools-platform/README.md#5-备份恢复与远端主站同步)。
+</details>
+
+---
+
+## 📚 文档导航
+
+这一页负责「看懂它」；具体怎么用、怎么配、怎么排障，都在工程目录的完整指南里。
+
+| 想了解 | 去看 |
 | --- | --- |
-| 全部功能、数据流、架构与部署 | [工程 README](tools-platform/README.md) |
-| Dragon Claw Agent Workspace 深度解析 | [Agent Workspace 详解](tools-platform/README.md#29-dragon-claw-智能体agent-workspace-协同工作区与-2d3d-双视图知识图谱) |
-| 月报编辑、数据来源、模板与导出 | [通用月报编辑器指南](tools-platform/docs/monthly-designer.md) |
-| 页面地址与 API 路由 | [页面入口](tools-platform/README.md#7-常用页面入口清单) · [API 全景](tools-platform/README.md#8-主要-api-路由全景表) |
-| Python 外壳架构与热更新 | [PR小助手与热更新说明](python-packager/README.md) |
-| 外部系统接入指标 | [外部指标 API](tools-platform/docs/external-metrics-api.md) |
-| macOS 构建、签名与验收 | [macOS 发布文档](tools-platform/docs/macos-desktop-release.md) |
-| 题库与口语学习 | [题库助手](tools-platform/docs/f12-exam-ai.md) · [埃及口语课堂](tools-platform/docs/egyptian-classroom.md) |
-| 中英双语功能介绍 | [能力概览](tools-platform/docs/tools-platform-feature-overview-bilingual.html) |
-| 开发约定 | [项目 AGENTS.md](tools-platform/AGENTS.md) |
+| 全部功能的操作步骤、数据流、部署与排障 | 📘 [完整使用指南](tools-platform/README.md) |
+| 第一次装好后该做什么 | [新手入门 Day 1 清单](tools-platform/README.md#125-新手入门安装登录后需要做啥-day-1-checklist) |
+| 月报怎么编、数据从哪来、怎么导出 | [通用月报编辑器指南](tools-platform/docs/monthly-designer.md) |
+| 专题月报 | [专题月报说明](tools-platform/docs/topic-monthly-reports.md) |
+| Dragon Claw 技能与安全加固 | [技能说明](tools-platform/docs/dragon-claw-skills.md) · [安全加固](tools-platform/docs/dragon-claw-hardening.md) |
+| 数通协议专家与视频发布 | [可视化学习设计](tools-platform/docs/datacom-visual-learning.md) · [视频发布流程](tools-platform/docs/datacom-video-publishing.md) |
+| 页面地址与 API | [页面入口清单](tools-platform/README.md#7-常用页面入口清单) · [API 路由全景](tools-platform/README.md#8-主要-api-路由全景表) |
+| 外部系统读取指标 | [外部指标 API](tools-platform/docs/external-metrics-api.md) |
+| macOS 打包与签名 | [macOS 发布文档](tools-platform/docs/macos-desktop-release.md) |
+| 参与开发 | [开发约定 AGENTS.md](tools-platform/AGENTS.md) |
 
-首页用于快速了解项目；功能细节与运维资料统一保留在工程文档中。
+---
+
+## 🌌 项目演进
+
+2025 年 11 月 16 日，第一次提交只有一个 HTML 页面。一年里，1000 多次提交，它一点点长出了数据主线、月报编辑器、工具市场、桌面客户端，再到今天能读代码、能进群、能记事的 Dragon Claw。
+
+<div align="center">
+<a href="https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/project-evolution-galaxy-20261019/project-evolution-galaxy-hd.mp4"><img src="tools-platform/docs/images/readme/shots/video-project-evolution.jpg" alt="项目演进 · 银河之旅（高清）" width="80%"></a>
+
+**▶️ [观看《项目演进 · 银河之旅》高清版](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/project-evolution-galaxy-20261019/project-evolution-galaxy-hd.mp4)**　·　平台内也可以打开「项目演进」页面，沿着时间轴逐一回看每个里程碑。
+</div>
+
+---
+
+## 💫 愿景：做好每一个工具
+
+> 没有哪个工具小到不值得认真做。
+
+我们相信，真正改变日常工作的往往不是宏大的系统，而是一个个**刚好解决眼前问题的小工具**：少复制一次表格、少算错一笔激励、少漏掉一次跟进。Dragon Platform 想做的，就是让这样的工具：
+
+- **容易诞生**：有想法就能做，一个 HTML 文件就是一个工具，AI 帮你写；
+- **好用耐用**：统一的登录、数据、备份和更新，工具不会因为没人维护而散落、失效；
+- **越用越聪明**：每个工具的数据都能被 Dragon Claw 读懂、串起来，回答更大的问题；
+- **属于大家**：工具可以分享到市场，一个人的好点子变成整个团队的效率。
+
+**做好每一个工具，让每一份重复劳动都有人替你记得、替你完成。** 🐉
+
+<div align="center">
+<sub>截图均来自本地沙箱，使用平台自带的默认上手包与虚构的人员、网络和工单数据。</sub>
+</div>

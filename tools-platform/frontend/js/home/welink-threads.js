@@ -255,21 +255,22 @@
         state.highlight = '';
         renderThreads();
         mountChrome();
-        api.thread.innerHTML = `<div class="wl-thread-loading">${escapeHtml(tx('loading'))}</div>`;
+        api.beginLoading();
         renderStage();
+        // 跟进卡片独立加载，不让较慢的侧栏请求挡住对话正文。
+        loadTasks(seq);
         try {
-            const [page] = await Promise.all([
-                request('GET', `${API}/threads/${thread.kind}/${encodeURIComponent(thread.id)}/messages?limit=${PAGE_SIZE}`),
-                loadTasks(seq)
-            ]);
+            const page = await request('GET', `${API}/threads/${thread.kind}/${encodeURIComponent(thread.id)}/messages?limit=${PAGE_SIZE}`);
             if (seq !== state.openSeq) return;
             state.active.name = page.thread?.name || thread.name;
             state.items = page.items || [];
             state.segments = page.segments || [];
             state.hasMore = Boolean(page.hasMore);
             renderTimeline({ scroll: 'bottom' });
+            api.finishLoading();
         } catch (error) {
             if (seq !== state.openSeq) return;
+            api.finishLoading(false);
             api.thread.innerHTML = `<div class="wl-thread-loading is-error">${escapeHtml(tx('loadFailed'))}：${escapeHtml(error.message)}</div>`;
         }
         clearInterval(state.refreshTimer);
@@ -337,15 +338,20 @@
         if (state.hasMore) thread.insertAdjacentHTML('beforeend', `<button type="button" class="dc-history-more" data-wl-more>${escapeHtml(tx(state.loadingMore ? 'loading' : 'loadMore'))}</button>`);
         if (!state.items.length) thread.insertAdjacentHTML('beforeend', `<div class="wl-thread-loading">${escapeHtml(tx('noMessages'))}</div>`);
         let currentSession = null;
-        state.items.forEach((item, position) => {
+        api.batchMessages(() => state.items.forEach((item, position) => {
             if (item.sessionId !== currentSession) {
                 const index = segmentIndex(item.sessionId);
                 // 更早的消息还没加载完时，首条消息可能在段落中间，分隔线等加载到段首再显示
-                if (!(position === 0 && state.hasMore)) thread.insertAdjacentHTML('beforeend', dividerHtml(state.segments[index], position === 0 ? 0 : index));
+                if (!(position === 0 && state.hasMore)) {
+                    const divider = document.createElement('div');
+                    divider.innerHTML = dividerHtml(state.segments[index], position === 0 ? 0 : index);
+                    // 分隔线随消息一起进入同一个片段，保留时间线顺序。
+                    api.appendToBatch(divider.firstElementChild);
+                }
                 currentSession = item.sessionId;
             }
             renderMessage(item);
-        });
+        }));
         thread.querySelector('[data-wl-more]')?.addEventListener('click', loadOlder);
         if (scroll === 'bottom') thread.scrollTop = thread.scrollHeight;
         else if (scroll === 'keep') thread.scrollTop = thread.scrollHeight - previousHeight + previousTop;
@@ -622,7 +628,8 @@
             renderReadonly();
             renderStage();
             renderPanel();
-            renderTimeline();
+            if (state.api?.thread.hasAttribute('aria-busy')) state.api.beginLoading();
+            else renderTimeline();
         }
     }
 

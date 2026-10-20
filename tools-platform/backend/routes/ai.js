@@ -17,6 +17,10 @@ const agentWorkspaceAccess = require('../models/agent-workspace-access');
 const agentSkillsStore = require('../models/agent-skills-store');
 const { redactText, redactValue } = require('../models/ai-sensitive-data');
 const { getTenantId } = require('../models/tenant-context');
+const contextCompaction = require('../models/ai-context-compaction');
+const activeChats = new Map();
+const compactingChats = new Set();
+const chatLockKey = id => `${getTenantId()}::${id}`;
 const { proactiveAlertCircuit } = require('../models/ai-circuit-breaker');
 const followupAgent = require('../models/channels/followup-agent');
 
@@ -563,6 +567,7 @@ router.get('/skills', checkAuth, async (_req, res) => {
 
 // 对话处理函数单独命名导出：频道对接（如 WeLink）用虚拟请求复用同一套 Dragon Claw 对话链路。
 async function handleChatRequest(req, res) {
+    let releaseChat = () => {};
     let streamStarted = false;
     let streamHasDelta = false;
     let providerAbortController = null;
@@ -694,6 +699,10 @@ async function handleChatRequest(req, res) {
         }
 
         if (persist !== false && savedSessionId) {
+            const lockKey = chatLockKey(savedSessionId);
+            if (compactingChats.has(lockKey)) return res.status(409).json({ code: 'AI_CHAT_BUSY', error: '当前对话正在压缩上下文，请稍后再发送' });
+            activeChats.set(lockKey, (activeChats.get(lockKey) || 0) + 1);
+            releaseChat = () => { const count = (activeChats.get(lockKey) || 1) - 1; if (count) activeChats.set(lockKey, count); else activeChats.delete(lockKey); };
             historyContext = { sessionId: savedSessionId, pagePath: normalizedPath, pageTitle, owner: req.user?.username || '', question: lastMessage.content };
         }
         const aiClient = aiProviderClient.createClient(aiSettings);
@@ -1010,9 +1019,47 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             });
         }
         res.status(error.statusCode || 500).json({ code: error.code, error: 'AI 思考时出现异常: ' + redactText(error.message, { secrets: sensitiveValues }) });
+    } finally {
+        releaseChat();
     }
 }
 router.post('/chat', checkAuth, handleChatRequest);
+
+router.post('/compact', checkAuth, async (req, res) => {
+    const id = String(req.body?.sessionId || '');
+    const key = chatLockKey(id);
+    let locked = false, run = null, secrets = [];
+    const controller = new AbortController();
+    const onClose = () => { if (!res.writableEnded) controller.abort(); };
+    res.on('close', onClose);
+    try {
+        if (!id || !await aiChatRepo.assertSessionOwner(id, req.user.username)) return res.status(404).json({ code: 'AI_SESSION_NOT_FOUND', error: '对话不存在' });
+        if (activeChats.has(key) || compactingChats.has(key)) return res.status(409).json({ code: 'AI_CHAT_BUSY', error: '当前对话正在执行，请结束后再压缩上下文' });
+        compactingChats.add(key); locked = true;
+        const saved = await aiChatRepo.getSession(id);
+        let session = null;
+        if (saved.agent_session_id && saved.agent_root) {
+            if (!agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) return res.status(403).json({ code: 'AGENT_WORKSPACE_FORBIDDEN', error: '无权使用此工作区' });
+            session = await agentRunManager.restoreSession(saved.agent_session_id, req.user, getTenantId(), saved.agent_root);
+            if (!session) return res.status(409).json({ code: 'AGENT_SESSION_UNAVAILABLE', error: '工作区会话无法恢复，请重新选择原目录后重试' });
+            run = agentRunManager.beginRun(session, () => {}, controller.signal);
+        }
+        const choice = req.body.modelId !== undefined ? await aiSettingsRepo.resolveModelChoice(req.body.modelId) : null;
+        let settings = await aiSettingsRepo.getRuntimeSettings({ profileId: choice?.profileId });
+        if (choice && (!settings.hasApiKey || !settings.keyLooksValid)) settings = await aiSettingsRepo.getRuntimeSettings();
+        if (!settings.hasApiKey || !settings.keyLooksValid) return res.status(503).json({ error: '请先配置可用的 AI 模型 Token' });
+        secrets = await aiSettingsRepo.getRedactionSecrets();
+        const result = await contextCompaction.compact({ sessionId: id, owner: req.user.username, agentSession: session,
+            client: aiProviderClient.createClient(settings), signal: controller.signal, secrets });
+        if (!res.destroyed) res.json(result);
+    } catch (error) {
+        if (!res.destroyed) res.status(error.statusCode || 500).json({ code: error.code, error: redactText(error.message || '压缩失败', { secrets }) });
+    } finally {
+        run?.end();
+        if (locked) compactingChats.delete(key);
+        res.removeListener('close', onClose);
+    }
+});
 
 /**
  * GET /api/ai/models

@@ -31,6 +31,9 @@ function ensureReady() {
             await run("ALTER TABLE agent_session_transcripts ADD COLUMN context TEXT NOT NULL DEFAULT ''").catch(error => {
                 if (!/duplicate column/i.test(String(error && error.message))) throw error;
             });
+            await run('ALTER TABLE agent_session_transcripts ADD COLUMN compacted_through_rowid INTEGER NOT NULL DEFAULT 0').catch(error => {
+                if (!/duplicate column/i.test(String(error.message))) throw error;
+            });
             await run('CREATE INDEX IF NOT EXISTS idx_agent_session_transcripts_updated ON agent_session_transcripts(updated_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_agent_session_transcripts_owner_root ON agent_session_transcripts(owner, root, updated_at)');
             await run(`CREATE TABLE IF NOT EXISTS agent_session_owners (
@@ -142,10 +145,10 @@ function mergeHistoryWithTranscript(historyMessages, transcript) {
 async function load(agentSessionId) {
     await ensureReady();
     const row = await get(
-        'SELECT agent_session_id, owner, root, permission_mode, transcript, turn_count, context, updated_at FROM agent_session_transcripts WHERE agent_session_id = ?',
+        'SELECT agent_session_id, owner, root, permission_mode, transcript, turn_count, context, updated_at, compacted_through_rowid FROM agent_session_transcripts WHERE agent_session_id = ?',
         [String(agentSessionId || '')]
     );
-    const latest = await get('SELECT * FROM agent_session_turns WHERE agent_session_id = ? ORDER BY rowid DESC LIMIT 1', [String(agentSessionId || '')]);
+    const latest = await get('SELECT *, rowid AS sequence FROM agent_session_turns WHERE agent_session_id = ? ORDER BY rowid DESC LIMIT 1', [String(agentSessionId || '')]);
     if (!row && !latest) return null;
     let transcript = [];
     try {
@@ -161,7 +164,7 @@ async function load(agentSessionId) {
     }
     let recovery = {};
     try { recovery = JSON.parse(latest?.recovery || '{}'); } catch (_error) { /* legacy archive */ }
-    if (latest && (recovery.version === 1 || !row || latest.status === 'running')) {
+    if (latest && latest.sequence > Number(row?.compacted_through_rowid || 0) && (recovery.version === 1 || !row || latest.status === 'running')) {
         if (row && row.owner !== latest.owner) throw Object.assign(new Error('会话档案归属不一致'), { code: 'AGENT_SESSION_FORBIDDEN', statusCode: 403 });
         const archived = JSON.parse(latest.transcript || '[]');
         const prior = recovery.version === 1 ? recovery.priorTranscript : transcript;
@@ -253,8 +256,8 @@ async function save({ agentSessionId, owner, root, permissionMode, transcript, t
     const entries = normalizeTranscript(redactValue(transcript));
     const contextJson = context && typeof context === 'object' ? JSON.stringify(context).slice(0, 64 * 1024) : '';
     const result = await run(
-        `INSERT INTO agent_session_transcripts (agent_session_id, owner, root, permission_mode, transcript, turn_count, context)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO agent_session_transcripts (agent_session_id, owner, root, permission_mode, transcript, turn_count, context, compacted_through_rowid)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(agent_session_id) DO UPDATE SET
              owner = excluded.owner,
              root = excluded.root,
@@ -262,9 +265,10 @@ async function save({ agentSessionId, owner, root, permissionMode, transcript, t
              transcript = excluded.transcript,
              turn_count = excluded.turn_count,
              context = excluded.context,
+             compacted_through_rowid = MAX(agent_session_transcripts.compacted_through_rowid, excluded.compacted_through_rowid),
              updated_at = CURRENT_TIMESTAMP
          WHERE agent_session_transcripts.owner = excluded.owner`,
-        [String(agentSessionId), String(owner || ''), String(root || ''), String(permissionMode || 'ask'), JSON.stringify(entries), Math.max(0, Number(turnCount) || 0), contextJson]
+        [String(agentSessionId), String(owner || ''), String(root || ''), String(permissionMode || 'ask'), JSON.stringify(entries), Math.max(0, Number(turnCount) || 0), contextJson, 0]
     );
     if (!result.changes) throw Object.assign(new Error('无权覆盖该智能体会话'), { code: 'AGENT_SESSION_FORBIDDEN', statusCode: 403 });
     return entries;

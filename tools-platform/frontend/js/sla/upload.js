@@ -236,6 +236,9 @@ function renderEmptyWorkspace() {
     if (mainWrapper) {
         mainWrapper.innerHTML = `<div class="sla-empty-workspace">${SLAT('sla.empty.main')}</div>`;
     }
+    const archiveStatus = document.getElementById('sourceArchiveStatus');
+    if (archiveStatus) archiveStatus.textContent = '';
+    if (typeof window.updateUploadStatusVisibility === 'function') window.updateUploadStatusVisibility();
     document.querySelectorAll('.upload-actions input[type="file"]').forEach(input => { input.value = ''; });
     if (window.SLAMetrics && typeof window.SLAMetrics.renderTopStickyBar === 'function') {
         window.SLAMetrics.renderTopStickyBar();
@@ -1028,7 +1031,10 @@ async function loadArchivedSnapshot(snapshot, options = {}) {
         const reviewMeta = { type:'archive-review', archiveNamesVersion:1, reviewMonitoringVersion:1, selectedTargetMonth:snapshot.selectedTargetMonth, summaryTitle:title, files:files.map(file=>file.name), sourceSnapshotId:snapshot.id, sourceTimestamp:snapshot.timestamp, originalFileCount:files.length, worksheetCount };
         renderArchiveReviewNotice(reviewMeta);
         const archiveStatus = document.getElementById('sourceArchiveStatus');
-        if (archiveStatus) archiveStatus.textContent = SLAT('sla.history.originalsLoaded');
+        if (archiveStatus) {
+            archiveStatus.textContent = SLAT('sla.history.originalsLoaded');
+            if (typeof window.updateUploadStatusVisibility === 'function') window.updateUploadStatusVisibility();
+        }
         activateInitialSection(sections);
         setGlobalRuleBoxCollapsed(true);
         reviewMeta.metricSnapshotContext={files:files.map(file=>file.name),source:'archive-review',sourceBatchId:snapshot.sourceBatchId,month:snapshot.selectedTargetMonth};

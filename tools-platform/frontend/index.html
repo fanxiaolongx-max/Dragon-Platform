@@ -951,7 +951,11 @@
     <link rel="stylesheet" href="/css/home-mode.css">
     <link rel="stylesheet" href="/css/home-capabilities.css">
 </head>
-<body>
+<body class="home-mode-chat">
+    <!-- 首屏先确定模式，避免等待底部脚本时同时露出对话区和工具区。 -->
+    <script id="homeModeBootstrap">
+        if (location.hash === '#tools') document.body.classList.replace('home-mode-chat', 'home-mode-tools');
+    </script>
     <div class="home-content home-workspace">
         <aside class="home-sidebar" id="homeSidebar" aria-label="首页导航">
             <!-- 图标栏：对话 / 工具两种模式互斥（js/home/home-mode.js），友情链接以弹层展示 -->
@@ -1011,7 +1015,7 @@
                 </section>
 
                 <!-- 工具模式：搜索 + 分类（js/home/workspace.js） -->
-                <section class="home-panel-view" data-home-panel="tools" aria-label="工具分类" hidden>
+                <section class="home-panel-view" data-home-panel="tools" aria-label="工具分类">
                     <div class="home-panel-head">
                         <span class="home-panel-title" data-home-mode-i18n="toolsTitle">工具</span>
                         <button type="button" class="home-sidebar-toggle" aria-label="收起侧栏" title="收起侧栏">

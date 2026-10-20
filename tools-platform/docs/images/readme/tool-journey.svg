@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="330" viewBox="0 0 1200 330" role="img" aria-labelledby="t d">
+  <title id="t">一个工具的诞生之旅</title>
+  <desc id="d">想法、HTML 工具、导入平台、工具市场、Dragon Claw 智能体可用五个阶段</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fffaf0"/>
+      <stop offset="1" stop-color="#f3f0ff"/>
+    </linearGradient>
+    <linearGradient id="path" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#34d399"/>
+      <stop offset="0.5" stop-color="#60a5fa"/>
+      <stop offset="1" stop-color="#a78bfa"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#6366f1" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="330" rx="24" fill="url(#bg)"/>
+  <circle cx="60" cy="300" r="90" fill="#fde68a" opacity="0.25"/>
+  <circle cx="1150" cy="30" r="110" fill="#c4b5fd" opacity="0.25"/>
+  <text x="600" y="44" text-anchor="middle" font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-size="22" font-weight="800" fill="#334155">一个工具的诞生之旅</text>
+  <text x="600" y="68" text-anchor="middle" font-family="-apple-system, 'Segoe UI', sans-serif" font-size="13" fill="#64748b">From a small idea to a tool the whole team — and the AI agent — can use</text>
+
+  <path d="M130 176 C 230 120, 300 230, 370 176 S 520 120, 600 176 S 750 232, 830 176 S 980 120, 1070 176" fill="none" stroke="url(#path)" stroke-width="5" stroke-dasharray="2 12" stroke-linecap="round"/>
+
+  <g font-family="-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" text-anchor="middle">
+    <g transform="translate(130 176)" filter="url(#soft)">
+      <circle r="46" fill="#fff" stroke="#34d399" stroke-width="3"/>
+      <text y="14" font-size="40">💡</text>
+      <text y="80" font-size="17" font-weight="800" fill="#0f172a">一个想法</text>
+      <text y="102" font-size="13" fill="#64748b">“这张 Excel 又要手工比对？”</text>
+    </g>
+    <g transform="translate(370 176)" filter="url(#soft)">
+      <circle r="46" fill="#fff" stroke="#4ade80" stroke-width="3"/>
+      <text y="14" font-size="40">🧩</text>
+      <text y="80" font-size="17" font-weight="800" fill="#0f172a">一个 HTML 文件</text>
+      <text y="102" font-size="13" fill="#64748b">纯前端即可，让 AI 帮你写</text>
+    </g>
+    <g transform="translate(600 176)" filter="url(#soft)">
+      <circle r="46" fill="#fff" stroke="#60a5fa" stroke-width="3"/>
+      <text y="14" font-size="40">📥</text>
+      <text y="80" font-size="17" font-weight="800" fill="#0f172a">导入平台</text>
+      <text y="102" font-size="13" fill="#64748b">统一入口 · 登录 · 租户隔离</text>
+    </g>
+    <g transform="translate(830 176)" filter="url(#soft)">
+      <circle r="46" fill="#fff" stroke="#818cf8" stroke-width="3"/>
+      <text y="14" font-size="40">🛒</text>
+      <text y="80" font-size="17" font-weight="800" fill="#0f172a">工具市场</text>
+      <text y="102" font-size="13" fill="#64748b">多源发布 · 版本对比 · 一键更新</text>
+    </g>
+    <g transform="translate(1070 176)" filter="url(#soft)">
+      <circle r="46" fill="#fff" stroke="#a78bfa" stroke-width="3"/>
+      <text y="14" font-size="40">🐉</text>
+      <text y="80" font-size="17" font-weight="800" fill="#0f172a">智能体也会用</text>
+      <text y="102" font-size="13" fill="#64748b">Dragon Claw 读懂工具数据</text>
+    </g>
+  </g>
+  <g fill="#f472b6">
+    <path d="M248 128l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/>
+    <path d="M722 230l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#60a5fa"/>
+    <path d="M955 120l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#a78bfa"/>
+  </g>
+</svg>

@@ -117,4 +117,34 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
     assert.equal(messages[1].events.some(event => event.type === 'tool_result'), true);
     assert.deepEqual(messages[1].events.find(event => event.type === 'skills').skills.sort(), ['code-review', 'project-map'], 'loaded Skills are kept with the reply for history');
     assert.equal((await chat.listMessages(done.sessionId, { owner: 'alice' })).length, 2);
+    const deniedCompact = await fetch(`${url}/compact`, { method: 'POST', headers, body: JSON.stringify({ sessionId: done.sessionId }) });
+    assert.equal(deniedCompact.status, 403, 'cannot compact another user\'s context');
+    const compactId = await chat.getOrCreateSession({ owner: 'alice', pagePath: '/', pageTitle: 'Dragon Claw' });
+    for (let i = 0; i < 3; i++) {
+        await chat.addMessage({ sessionId: compactId, owner: 'alice', role: 'user', content: `question-${i} ${'details '.repeat(100)}` });
+        await chat.addMessage({ sessionId: compactId, owner: 'alice', role: 'model', content: `answer-${i} ${'facts '.repeat(100)}` });
+    }
+    let finishSummary, startedSummary;
+    const summaryReady = new Promise(resolve => { startedSummary = resolve; });
+    provider.createClient = () => ({ generateText: async () => { startedSummary(); return new Promise(resolve => { finishSummary = () => resolve({ text: 'Compact handoff: confirmed facts and pending work.' }); }); } });
+    const aliceHeaders = { ...headers, Authorization: 'Bearer synthetic-alice' };
+    const compactRequest = fetch(`${url}/compact`, { method: 'POST', headers: aliceHeaders, body: JSON.stringify({ sessionId: compactId }) });
+    await summaryReady;
+    const twice = await fetch(`${url}/compact`, { method: 'POST', headers: aliceHeaders, body: JSON.stringify({ sessionId: compactId }) });
+    assert.equal(twice.status, 409);
+    const during = await fetch(`${url}/chat`, { method: 'POST', headers: aliceHeaders, body: JSON.stringify({ sessionId: compactId, messages: [{ role: 'user', content: 'too early' }] }) });
+    assert.equal(during.status, 409);
+    finishSummary();
+    const compacted = await compactRequest;
+    assert.equal(compacted.status, 200, 'ordinary users can compact their own chat through the real upstream permissions');
+    assert.equal((await compacted.json()).performed, true);
+    assert.equal((await chat.listMessages(compactId, { owner: 'alice' })).length, 6);
+    provider.createClient = () => ({ generateChat: async options => {
+        assert.match(options.systemInstruction, /Compact handoff/);
+        assert.doesNotMatch(JSON.stringify(options.messages), /question-0/);
+        return { text: 'Continued after compaction.' };
+    } });
+    const continued = await fetch(`${url}/chat`, { method: 'POST', headers: aliceHeaders, body: JSON.stringify({ agent: 'dragon-claw-home', sessionId: compactId, messages: [{ role: 'user', content: 'continue' }] }) });
+    assert.equal(continued.status, 200);
+    assert.match((await continued.json()).reply, /Continued/);
 });

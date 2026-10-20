@@ -541,7 +541,7 @@ async function getSession(sessionId) {
     if (!sessionId) return null;
     return get(
         `SELECT id, page_path, page_title, summary, summary_until_message_id, summary_updated_at,
-                is_archived, archived_at, created_at, updated_at
+                is_archived, archived_at, created_at, updated_at, agent_session_id, agent_root
          FROM ai_chat_sessions
          WHERE id = ?`,
         [sessionId]
@@ -596,10 +596,12 @@ async function getRecentMessagesForContext(sessionId, limit = RECENT_CONTEXT_MES
     const rows = await all(
         `SELECT id, role, content, created_at
          FROM ai_chat_messages
-         WHERE session_id = ?
+         WHERE session_id = ? AND rowid > COALESCE((
+             SELECT rowid FROM ai_chat_messages WHERE id = (SELECT summary_until_message_id FROM ai_chat_sessions WHERE id = ?)
+             AND session_id = ?), 0)
          ORDER BY rowid DESC
          LIMIT ?`,
-        [sessionId, safeLimit]
+        [sessionId, sessionId, sessionId, safeLimit]
     );
     return rows.reverse();
 }
@@ -623,5 +625,6 @@ module.exports = {
     getMessagesForCompression,
     updateSessionSummary,
     getRecentMessagesForContext,
-    normalizePagePath
+    normalizePagePath,
+    assertSessionOwner
 };

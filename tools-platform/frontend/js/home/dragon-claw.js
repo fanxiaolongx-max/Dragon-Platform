@@ -7,6 +7,8 @@
 
     const TEXT = {
         'zh-CN': {
+            ctxCompacted: '上下文已压缩，下次回复后更新占用',
+            slashCompact: '压缩当前对话上下文，保留完整历史', compactRunning: '正在压缩上下文…', compactEmpty: '先开始一段对话，再压缩上下文', compactSmall: '上下文已较精简，无需压缩', compactDone: '上下文已压缩，完整历史和工具记录仍保留', compactFailed: '压缩失败，未清除历史记录',
             datacomTitle: '数通协议专家', datacomDescription: '协议图解 · 交互实验 · 视频讲解',
             badge: '全能智能体', newChat: '新对话', history: '历史',
             chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}',
@@ -53,6 +55,8 @@
             workspaceDisabled: '工作区仅在本机或管理员账号下可用'
         },
         'en-US': {
+            ctxCompacted: 'Context compacted. Usage updates after the next reply.',
+            slashCompact: 'Compact context while keeping the full history', compactRunning: 'Compacting context…', compactEmpty: 'Start a conversation before compacting its context', compactSmall: 'The context is already compact', compactDone: 'Context compacted. Full chat and tool history kept.', compactFailed: 'Could not compact context. History was not deleted.',
             datacomTitle: 'Datacom Protocol Expert', datacomDescription: 'Visual guides · Interactive labs · Videos',
             badge: 'All-round agent', newChat: 'New chat', history: 'History',
             chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}',
@@ -462,6 +466,35 @@
         if (force || nearBottom()) el.thread.scrollTop = el.thread.scrollHeight;
     }
 
+    function beginHistoryLoading() {
+        el.thread.setAttribute('aria-busy', 'true');
+        el.thread.innerHTML = `<div class="dc-history-loading" role="status" aria-label="${escapeHtml(tx('sessionLoading'))}">
+            <div class="dc-history-skeleton" aria-hidden="true">
+                <div class="dc-skeleton-question"><i></i><i></i></div>
+                <div class="dc-skeleton-answer"><b></b><div><i></i><i></i><i></i><i></i></div></div>
+                <div class="dc-skeleton-question"><i></i></div>
+                <div class="dc-skeleton-answer"><b></b><div><i></i><i></i><i></i></div></div>
+            </div></div>`;
+        el.thread.scrollTop = 0;
+    }
+
+    function finishHistoryLoading(reveal = true) {
+        el.thread.removeAttribute('aria-busy');
+        if (reveal && !prefersReducedMotion()) {
+            el.thread.animate?.([{ opacity: .45 }, { opacity: 1 }], { duration: 180, easing: 'ease-out' });
+        }
+    }
+
+    // 历史页先在片段中组装，避免每条消息插入后读取 scrollHeight 强制布局。
+    let messageBatch = null;
+    function batchMessages(render) {
+        const fragment = document.createDocumentFragment();
+        const previous = messageBatch;
+        messageBatch = fragment;
+        try { render(); } finally { messageBatch = previous; }
+        (previous || el.thread).appendChild(fragment);
+    }
+
     // before：向上加载历史时插到该节点之前，不滚动
     function addMessage(role, text = '', { before = null } = {}) {
         const message = document.createElement('div');
@@ -474,8 +507,8 @@
         if (before) {
             el.thread.insertBefore(message, before);
         } else {
-            el.thread.appendChild(message);
-            scrollThread(true);
+            (messageBatch || el.thread).appendChild(message);
+            if (!messageBatch) scrollThread(true);
         }
         return message;
     }
@@ -792,7 +825,8 @@
     // 斜杠命令：/session [关键词] 打开历史会话，/new 新对话；其他以 / 开头的内容照常发送
     const SLASH_COMMANDS = [
         { name: '/session', aliases: ['/sessions', '/history'], text: 'slashSession' },
-        { name: '/new', aliases: [], text: 'slashNew' }
+        { name: '/new', aliases: [], text: 'slashNew' },
+        { name: '/compact', aliases: ['/compress'], text: 'slashCompact' }
     ];
 
     function runSlashCommand(content) {
@@ -806,7 +840,49 @@
         hideSlashHints();
         if (command.name === '/session') openSessionPicker(match[2] || '');
         else if (command.name === '/new') newChat();
+        else if (command.name === '/compact') compactContext();
         return true;
+    }
+
+    async function compactContext() {
+        if (state.controller || state.restoring) return;
+        if (!state.sessionId) return showToast(tx('compactEmpty'));
+        const id = state.sessionId;
+        const controller = new AbortController();
+        state.controller = controller;
+        el.input.disabled = true;
+        updateSendButton();
+        const notice = document.createElement('div');
+        notice.className = 'dc-msg-note';
+        notice.setAttribute('role', 'status');
+        notice.textContent = tx('compactRunning');
+        el.thread.appendChild(notice);
+        scrollThread(true);
+        try {
+            const model = currentModel();
+            const response = await fetch('/api/ai/compact', { method: 'POST',
+                headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionId: id, ...(model ? { modelId: model.id } : {}) }), signal: controller.signal });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || tx('compactFailed'));
+            if (controller.signal.aborted || !notice.isConnected || state.sessionId !== id || state.controller !== controller) return;
+            notice.textContent = tx(data.performed ? 'compactDone' : 'compactSmall');
+            if (data.performed) {
+                state.messages = state.messages.slice(-2);
+                workspace()?.applyCompaction?.(data);
+            }
+        } catch (error) {
+            if (!notice.isConnected || state.sessionId !== id) return;
+            if (error.name === 'AbortError') notice.remove();
+            else notice.textContent = `⚠️ ${tx('compactFailed')}: ${error.message}`;
+        } finally {
+            if (state.controller === controller) {
+                state.controller = null;
+                el.input.disabled = false;
+                updateSendButton();
+                el.input.focus({ preventScroll: true });
+            }
+        }
     }
 
     async function send(text, displayText = text) {
@@ -1100,12 +1176,16 @@
         }
     }
 
-    async function resumeChat(resume = state.resume) {
-        if (!resume || state.controller || state.restoring) return;
-        const epoch = ++resumeEpoch;
+    async function resumeChat(resume = state.resume, pendingEpoch = null) {
+        if (!resume || state.controller || (state.restoring && pendingEpoch === null)) return;
+        const epoch = pendingEpoch ?? ++resumeEpoch;
         state.restoring = true;
         el.input.disabled = true;
         updateSendButton();
+        exitExternal();
+        hideResumeCard();
+        setChatting(true);
+        if (!el.thread.hasAttribute('aria-busy')) beginHistoryLoading();
         try {
             await workspace()?.resumeWorkspace?.(resume.agent || {});
             if (epoch !== resumeEpoch) return;
@@ -1115,7 +1195,7 @@
             resetHistoryPaging();
             window.DragonClawSkills?.reset?.();
             el.thread.innerHTML = `<div class="dc-history-banner"><span aria-hidden="true">↺</span>${escapeHtml(tx('resumeBanner', { time: resume.time }))}</div>`;
-            resume.items.forEach(item => addHistoryMessage(item.role, String(item.content), item.events, item));
+            batchMessages(() => resume.items.forEach(item => addHistoryMessage(item.role, String(item.content), item.events, item)));
             Object.assign(historyPaging, { sessionId: resume.sessionId, cursor: resume.cursor || '', hasMore: Boolean(resume.hasMore && resume.cursor) });
             if (historyPaging.hasMore) mountHistorySentinel(el.thread.querySelector('.dc-history-banner').nextSibling);
             rememberLastChat(resume.sessionId, resume.agent);
@@ -1124,9 +1204,13 @@
             setChatting(true);
             scrollThread(true);
         } catch (error) {
-            if (epoch === resumeEpoch) showToast(error?.message || tx('resumeFailed'));
+            if (epoch === resumeEpoch) {
+                el.thread.innerHTML = `<div class="dc-session-empty">${escapeHtml(tx('resumeFailed'))}</div>`;
+                showToast(error?.message || tx('resumeFailed'));
+            }
         } finally {
             if (epoch === resumeEpoch) {
+                finishHistoryLoading();
                 state.restoring = false;
                 el.input.disabled = false;
                 updateSendButton();
@@ -1228,18 +1312,38 @@
 
     async function openSession(item) {
         if (!item || state.controller) return;
+        const epoch = ++resumeEpoch;
+        closeSessionPicker();
+        exitExternal();
+        workspace()?.resetSession?.();
+        resetHistoryPaging();
+        window.DragonClawSkills?.reset?.();
+        state.messages = [];
+        state.sessionId = null;
+        state.focusedTool = null;
+        state.restoring = true;
+        el.input.disabled = true;
+        updateSendButton();
+        hideResumeCard();
+        setChatting(true);
+        beginHistoryLoading();
+        markActiveChat();
         try {
             const page = await fetchHistoryPage(item.id);
+            if (epoch !== resumeEpoch) return;
             const items = page.items;
-            if (!items.length) return showToast(tx('sessionLoadFailed'));
-            closeSessionPicker();
-            exitExternal();
+            if (!items.length) throw new Error('Empty session');
             const local = readLastChat();
             const agent = item.agent || (local?.sessionId === item.id ? local.agent : null);
-            workspace()?.resetSession?.(); // 先离开当前智能体会话，再接回该对话的
-            el.thread.innerHTML = '';
-            resumeChat({ sessionId: item.id, items, cursor: page.cursor, hasMore: page.hasMore, total: page.total, time: formatChatTime(items[items.length - 1].created_at), agent });
+            await resumeChat({ sessionId: item.id, items, cursor: page.cursor, hasMore: page.hasMore, total: page.total, time: formatChatTime(items[items.length - 1].created_at), agent }, epoch);
         } catch {
+            if (epoch !== resumeEpoch) return;
+            finishHistoryLoading(false);
+            el.thread.innerHTML = `<div class="dc-session-empty">${escapeHtml(tx('sessionLoadFailed'))}<button type="button" class="dc-ghost-btn" data-dc-session-retry>${escapeHtml(tx('chatRetry'))}</button></div>`;
+            el.thread.querySelector('[data-dc-session-retry]').addEventListener('click', () => openSession(item));
+            state.restoring = false;
+            el.input.disabled = false;
+            updateSendButton();
             showToast(tx('sessionLoadFailed'));
         }
     }
@@ -1427,6 +1531,7 @@
     function newChat() {
         exitExternal();
         resumeEpoch += 1;
+        finishHistoryLoading(false);
         state.restoring = false;
         el.input.disabled = false;
         state.controller?.abort();
@@ -1437,6 +1542,7 @@
         resetHistoryPaging();
         window.DragonClawSkills?.reset?.(); // 保持的 Skill 只属于当前对话
         el.thread.innerHTML = '';
+        updateSendButton();
         setChatting(false);
         markActiveChat();
         refreshResumeCard(); // 刚离开的对话可以再接回去
@@ -1457,6 +1563,7 @@
         external.onExit = null;
         previous?.({ switching: true });
         resumeEpoch += 1;
+        finishHistoryLoading(false);
         state.restoring = false;
         workspace()?.resetSession?.();
         state.messages = [];
@@ -1476,6 +1583,10 @@
         markActiveChat();
         return {
             thread: el.thread,
+            beginLoading: beginHistoryLoading,
+            finishLoading: finishHistoryLoading,
+            batchMessages,
+            appendToBatch: node => (messageBatch || el.thread).appendChild(node),
             renderMarkdown,
             avatar: AVATAR,
             addMessage: (role, text, options) => addMessage(role, text, options),
@@ -1633,7 +1744,9 @@
         window.addEventListener('home:capabilities', buildSpotlight);
         window.addEventListener('tools:languagechange', () => {
             applyTexts();
-            if (!state.messages.length) refreshResumeCard();
+            const loading = el.thread.querySelector('.dc-history-loading');
+            if (loading) loading.setAttribute('aria-label', tx('sessionLoading'));
+            if (!state.messages.length && !state.restoring && !external.active) refreshResumeCard();
             renderModelPicker();
             renderChatList();
         });

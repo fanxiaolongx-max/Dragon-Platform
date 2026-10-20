@@ -1241,6 +1241,12 @@
             messageEl.querySelectorAll('.dc-approval').forEach(card => card.classList.add('is-history'));
         },
         applyDone,
+        applyCompaction(data) {
+            if (data.agentSessionId !== state.agentSessionId || data.root !== state.root) return;
+            state.context = null; // 下一轮请求按压缩后的实际内容重新计算，避免继续展示旧占用。
+            renderContext();
+            el.ctxBody.innerHTML = `<div class="wsp-empty">${escapeHtml(tx('ctxCompacted'))}</div>`;
+        },
         open: () => setOpen(true),
         close: () => setOpen(false),
         toggle: () => setOpen(!state.open),

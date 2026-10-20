@@ -10,6 +10,10 @@
 }
 
 /* ── 模式显隐 ───────────────────────────────── */
+/* DOMContentLoaded 前也按首屏模式显示对应侧栏，随后 hidden 由脚本同步。 */
+body.home-mode-chat .home-panel-view[data-home-panel="tools"],
+body.home-mode-tools .home-panel-view[data-home-panel="chat"] { display: none; }
+
 body.home-mode-chat .home-tools-head,
 body.home-mode-chat .home-workspace .tools-grid,
 body.home-mode-chat #homeToolsEmpty,
