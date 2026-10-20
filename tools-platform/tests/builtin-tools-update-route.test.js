@@ -115,3 +115,29 @@ test('stream endpoint keeps admin checks, tenant paths and result/error contract
     assert.deepEqual(legacy.body.installed, ['sample']);
     assert.equal(legacy.body.preview.pending.length, 0);
 });
+
+test('preview-stream endpoint checks admin role and streams progress and preview result', async () => {
+    const sourceDir = path.join(root, 'source');
+    fs.mkdirSync(path.join(sourceDir, 'sample'), { recursive: true });
+    fs.writeFileSync(path.join(sourceDir, 'sample/index.html'), '<p>version 1</p>');
+    fs.writeFileSync(path.join(sourceDir, 'sample/.tool-manifest.json'), JSON.stringify({ version: 1,
+        tool: { slug: 'sample', name: 'Fixture', icon: '🧩', tags: [] } }));
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => runWithTenant('alpha', () => {
+        req.user = { role: req.headers['x-test-role'] || 'admin' }; next();
+    }));
+    app.use('/api/custom-tools', router);
+    const endpoint = '/api/custom-tools/builtin-sync/preview-stream?manual=1';
+    await request(app).get(endpoint).set('x-test-role', 'viewer').expect(403);
+    const response = await request(app).get(endpoint).expect(200);
+    assert.match(response.headers['content-type'], /application\/x-ndjson/);
+    assert.equal(response.headers['x-accel-buffering'], 'no');
+    const events = response.text.trim().split('\n').map(JSON.parse);
+    assert.ok(events.length >= 2, 'streams progress and final result');
+    assert.ok(events.some(e => e.type === 'progress'));
+    const resultEvent = events.find(e => e.type === 'result');
+    assert.ok(resultEvent);
+    assert.equal(resultEvent.data.manual, true);
+    assert.ok(Array.isArray(resultEvent.data.tools));
+});

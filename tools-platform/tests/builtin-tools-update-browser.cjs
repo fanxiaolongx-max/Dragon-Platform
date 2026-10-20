@@ -48,6 +48,17 @@ app.whenReady().then(async () => {
             ${section}`);
     });
     web.get('/api/custom-tools/builtin-sync/preview', (req, res) => { previewRequests++; res.json({ manual: req.query.manual === '1', pending }); });
+    web.get('/api/custom-tools/builtin-sync/preview-stream', async (req, res) => {
+        previewRequests++;
+        res.setHeader('Content-Type', 'application/x-ndjson');
+        res.flushHeaders();
+        res.write(`${JSON.stringify({ type: 'progress', stage: 'comparing', current: 1, total: 2, slug: 'sample', name: '示例 sample' })}\n`);
+        await wait(60);
+        res.write(`${JSON.stringify({ type: 'progress', stage: 'comparing', current: 2, total: 2, slug: 'second', name: '示例 second' })}\n`);
+        await wait(30);
+        res.write(`${JSON.stringify({ type: 'result', data: { manual: req.query.manual === '1', pending } })}\n`);
+        res.end();
+    });
     web.post('/api/custom-tools/builtin-sync/apply-stream', (req, res) => {
         applyRequests++; lastBody = req.body; stream = res;
         res.setHeader('Content-Type', 'application/x-ndjson'); res.flushHeaders();
@@ -132,7 +143,10 @@ app.whenReady().then(async () => {
         document.getElementById('toolMarketBtn').dataset.opened = '1';
         document.getElementById('builtinToolsCompareBtn').click();
     });
+    assert.equal(await evaluate(() => document.getElementById('builtinToolsSyncModal')?.dataset.loading), '1', 'comparison modal appears immediately in loading mode');
+    assert.ok(await evaluate(() => document.querySelector('.builtin-sync-loading') !== null), 'loading skeleton and progress view are visible right away');
     await until(() => document.querySelector('#builtinToolsSyncTitle')?.textContent.includes('Compare Bundled'));
+    assert.equal(await evaluate(() => document.getElementById('builtinToolsSyncModal')?.dataset.loading), '0');
     assert.deepEqual(await evaluate(() => [...document.querySelector('.home-rail-actions').children].map(node => node.id)), ['toolMarketBtn', 'builtinToolsCompareBtn', 'customToolUploadBtn']);
     assert.equal(await evaluate(() => document.querySelectorAll('.builtin-sync-choice:checked').length), 0);
     assert.equal(await evaluate(() => getComputedStyle(document.querySelector('.builtin-sync-today')).display), 'none');

@@ -5245,6 +5245,143 @@ body.service-status-open { overflow: hidden; }
 .builtin-sync-progress.is-error .builtin-sync-progress-track i { background: #dc5b5b; }
 .builtin-sync-modal button:disabled, .builtin-sync-choice:disabled { cursor: default; opacity: .58; }
 
+/* 比对加载态与骨架屏 (Comparison Loading State & Skeletons) */
+.builtin-sync-loading {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 6px 0 10px;
+}
+
+.builtin-sync-loading-card {
+    padding: 16px 20px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.9));
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
+.builtin-sync-loading-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.builtin-sync-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2.5px solid rgba(99, 102, 241, 0.22);
+    border-top-color: #4f46e5;
+    border-radius: 50%;
+    animation: builtin-sync-spin .75s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes builtin-sync-spin {
+    to { transform: rotate(360deg); }
+}
+
+.builtin-sync-loading-title {
+    font-size: 13px;
+    font-weight: 750;
+    color: #0f172a;
+}
+
+.builtin-sync-loading-percent {
+    margin-left: auto;
+    font-size: 13px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    color: #4f46e5;
+}
+
+.builtin-sync-loading-bar {
+    height: 6px;
+    margin-top: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e2e8f0;
+}
+
+.builtin-sync-loading-bar i {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #6366f1, #06b6d4);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform .18s ease;
+}
+
+.builtin-sync-loading-detail {
+    margin-top: 8px;
+    font-size: 11px;
+    color: #64748b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.builtin-sync-skeleton-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.builtin-sync-skeleton-card {
+    height: 78px;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 14px;
+    background: linear-gradient(90deg, rgba(241, 245, 249, 0.7) 25%, rgba(226, 232, 240, 0.95) 50%, rgba(241, 245, 249, 0.7) 75%);
+    background-size: 200% 100%;
+    animation: builtin-sync-shimmer 1.5s infinite ease-in-out;
+}
+
+@keyframes builtin-sync-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.builtin-sync-error-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 20px;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+    border-radius: 14px;
+    background: rgba(254, 242, 242, 0.88);
+    color: #991b1b;
+}
+
+.builtin-sync-error-card strong {
+    font-size: 14px;
+    color: #b91c1c;
+}
+
+.builtin-sync-error-card p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #7f1d1d;
+}
+
+.builtin-sync-error-card .builtin-sync-retry {
+    align-self: flex-start;
+    height: 32px;
+    padding: 0 14px;
+    border: 1px solid #dc2626;
+    border-radius: 8px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.builtin-sync-error-card .builtin-sync-retry:hover {
+    background: #dc2626;
+}
+
 @media (prefers-color-scheme: dark) {
     .builtin-sync-window { border-color: #334155; background: #182335; color: #e2e8f0; }
     .builtin-sync-head, .builtin-sync-footer { background: #1e293b; border-color: #334155; }
@@ -5260,10 +5397,27 @@ body.service-status-open { overflow: hidden; }
     .builtin-sync-progress-track { background: #334155; }
     .builtin-sync-progress-detail, .builtin-sync-result, .builtin-sync-metrics, .builtin-sync-versions { color: #a6b6ca; }
     .builtin-sync-progress.is-error .builtin-sync-progress-head { color: #fca5a5; }
+    .builtin-sync-loading-card { background: linear-gradient(135deg, #1e293b, #172033); border-color: #334155; }
+    .builtin-sync-loading-title { color: #f1f5f9; }
+    .builtin-sync-loading-percent { color: #a5b4fc; }
+    .builtin-sync-loading-detail { color: #94a3b8; }
+    .builtin-sync-loading-bar { background: #334155; }
+    .builtin-sync-spinner { border-color: rgba(165, 180, 252, 0.2); border-top-color: #818cf8; }
+    .builtin-sync-skeleton-card {
+        background: linear-gradient(90deg, rgba(30, 41, 59, 0.6) 25%, rgba(51, 65, 85, 0.85) 50%, rgba(30, 41, 59, 0.6) 75%);
+        background-size: 200% 100%;
+        border-color: #334155;
+    }
+    .builtin-sync-error-card { background: rgba(44, 26, 26, 0.88); border-color: #7f1d1d; color: #fca5a5; }
+    .builtin-sync-error-card strong { color: #f87171; }
+    .builtin-sync-error-card p { color: #fca5a5; }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .builtin-sync-progress-track i { transition: none; }
+    .builtin-sync-loading-bar i { transition: none; }
+    .builtin-sync-skeleton-card { animation: none; }
+    .builtin-sync-spinner { animation-duration: 2s; }
 }
 
 .builtin-sync-footer button {

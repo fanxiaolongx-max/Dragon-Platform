@@ -9096,6 +9096,7 @@ function initBackToTopButton() {
 }
 
 let builtinToolsSyncChecking = false;
+let builtinToolsCompareAbort = null;
 const BUILTIN_TOOLS_SYNC_SNOOZE_KEY = 'builtin_tools_sync_snooze_date_v1';
 
 function getBuiltinToolsSyncLocalDate() {
@@ -9175,7 +9176,101 @@ function renderBuiltinToolDiff(tool) {
 function closeBuiltinToolsSyncModal() {
     const modal = document.getElementById('builtinToolsSyncModal');
     if (modal?.dataset.applying === '1') return;
+    if (builtinToolsCompareAbort) {
+        try { builtinToolsCompareAbort.abort(); } catch (_) {}
+        builtinToolsCompareAbort = null;
+    }
+    const button = document.getElementById('builtinToolsCompareBtn');
+    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); }
+    builtinToolsSyncChecking = false;
     if (modal) modal.remove();
+}
+
+async function fetchBuiltinToolsPreviewWithProgress(onProgress, signal) {
+    try {
+        const response = await fetch('/api/custom-tools/builtin-sync/preview-stream?manual=1', {
+            headers: { ...getAuthHeaderForNav() },
+            signal
+        });
+        if (response.ok && response.body?.getReader) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let result = null;
+            const consume = line => {
+                if (!line.trim()) return;
+                const event = JSON.parse(line);
+                if (event.type === 'progress') onProgress(event);
+                else if (event.type === 'result') result = event.data;
+                else if (event.type === 'error') throw new Error(event.error);
+            };
+            while (true) {
+                const { done, value } = await reader.read();
+                buffer += decoder.decode(value, { stream: !done });
+                let newline;
+                while ((newline = buffer.indexOf('\n')) !== -1) {
+                    consume(buffer.slice(0, newline));
+                    buffer = buffer.slice(newline + 1);
+                }
+                if (done) break;
+            }
+            consume(buffer);
+            if (result) return result;
+        }
+    } catch (err) {
+        if (signal?.aborted) throw err;
+        // 降级为普通请求
+    }
+    return await API.get('/api/custom-tools/builtin-sync/preview?manual=1');
+}
+
+function renderBuiltinToolsCompareProgress(modal, event) {
+    if (!modal || modal.dataset.loading !== '1') return;
+    const total = Math.max(1, Number(event.total) || 1);
+    const current = Math.min(total, Math.max(0, Number(event.current) || 0));
+    const percent = Math.round((current / total) * 100);
+    const titleEl = modal.querySelector('.builtin-sync-loading-title');
+    const percentEl = modal.querySelector('.builtin-sync-loading-percent');
+    const barEl = modal.querySelector('.builtin-sync-loading-bar');
+    const barFill = modal.querySelector('.builtin-sync-loading-bar i');
+    const detailEl = modal.querySelector('.builtin-sync-loading-detail');
+    const resultEl = modal.querySelector('.builtin-sync-result');
+    if (titleEl) {
+        titleEl.textContent = navLocaleText(
+            `正在比对系统内置工具 · ${current}/${total}`,
+            `Comparing bundled tools · ${current}/${total}`
+        );
+    }
+    if (percentEl) percentEl.textContent = `${percent}%`;
+    if (barEl) barEl.setAttribute('aria-valuenow', String(percent));
+    if (barFill) barFill.style.transform = `scaleX(${current / total})`;
+    const toolText = event.name || event.slug ? `${event.name || event.slug}${event.slug && event.name !== event.slug ? ` (${event.slug})` : ''}` : '';
+    if (detailEl) {
+        detailEl.textContent = toolText ? navLocaleText(`正在检查：${toolText}`, `Checking: ${toolText}`) : navLocaleText('正在检索文件指纹与修改…', 'Scanning fingerprints and changes…');
+    }
+    if (resultEl && toolText) {
+        resultEl.textContent = navLocaleText(`比对进度 (${current}/${total})：${toolText}`, `Progress (${current}/${total}): ${toolText}`);
+    }
+}
+
+function renderBuiltinToolsCompareError(modal, error, onRetry) {
+    if (!modal) return;
+    modal.dataset.loading = '0';
+    const list = modal.querySelector('.builtin-sync-list');
+    if (list) {
+        list.innerHTML = `
+            <div class="builtin-sync-error-card">
+                <strong>⚠️ ${navEscape(navLocaleText('读取内置工具比对失败', 'Failed to Compare Bundled Tools'))}</strong>
+                <p>${navEscape(error?.message || navLocaleText('网络连接超时或服务未就绪，请重试。', 'Connection timed out or service unavailable. Please retry.'))}</p>
+                <div><button type="button" class="builtin-sync-retry">${navEscape(navLocaleText('重新比对', 'Retry Comparison'))}</button></div>
+            </div>
+        `;
+        list.querySelector('.builtin-sync-retry')?.addEventListener('click', () => {
+            if (typeof onRetry === 'function') onRetry();
+        });
+    }
+    const resultEl = modal.querySelector('.builtin-sync-result');
+    if (resultEl) resultEl.textContent = navLocaleText('比对失败，请重试。', 'Comparison failed. Please retry.');
 }
 
 async function applyBuiltinToolsWithProgress(body, onProgress) {
@@ -9262,18 +9357,83 @@ function renderBuiltinToolsSyncProgress(modal, event) {
 
 function openBuiltinToolsSyncModal(preview, selectedSlugs) {
     if (document.getElementById('builtinToolsSyncModal')?.dataset.applying === '1') return;
-    closeBuiltinToolsSyncModal();
     const tools = Array.isArray(preview?.pending) ? preview.pending : [];
     const manual = preview?.manual === true;
-    if (!tools.length && !manual) return;
+    const loading = preview?.loading === true;
+    if (!tools.length && !manual && !loading) return;
     lastBuiltinToolsSyncPreview = preview;
 
-    const modal = document.createElement('div');
-    modal.id = 'builtinToolsSyncModal';
-    modal.className = 'builtin-sync-modal';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    modal.setAttribute('aria-labelledby', 'builtinToolsSyncTitle');
+    let modal = document.getElementById('builtinToolsSyncModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'builtinToolsSyncModal';
+        modal.className = 'builtin-sync-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', 'builtinToolsSyncTitle');
+        document.body.appendChild(modal);
+    }
+    delete modal.dataset.needsRefresh;
+    delete modal.dataset.applying;
+    modal.dataset.loading = loading ? '1' : '0';
+
+    if (loading) {
+        modal.innerHTML = `
+            <div class="builtin-sync-window">
+                <header class="builtin-sync-head">
+                    <div>
+                        <div class="builtin-sync-kicker">SYSTEM TOOLS UPDATE</div>
+                        <h2 id="builtinToolsSyncTitle">${navEscape(navLocaleText('正在比对系统内置工具…', 'Comparing Bundled Tools…'))}</h2>
+                        <p>${navEscape(navLocaleText('正在检索系统随包内置工具并与当前环境比对差异，请稍候…', 'Scanning bundled tools and comparing differences with in-use versions, please wait…'))}</p>
+                    </div>
+                    <button type="button" class="builtin-sync-close" aria-label="${navEscape(navLocaleText('稍后处理', 'Dismiss'))}">×</button>
+                </header>
+                <div class="builtin-sync-safe-note">
+                    <span>🛡️</span>
+                    <div><strong>${navEscape(navLocaleText('工具业务数据不会被覆盖', 'Tool business data will not be overwritten'))}</strong><br>${navEscape(navLocaleText('仅同步工具程序文件；用户额外文件会保留，被替换的旧目录也会备份到数据目录。', 'Only tool application files are synced. Custom user files are preserved, and replaced folders are backed up to the data directory.'))}</div>
+                </div>
+                <div class="builtin-sync-toolbar">
+                    <span>${navEscape(navLocaleText('正在比对中…', 'Comparing...'))}</span>
+                </div>
+                <div class="builtin-sync-list">
+                    <div class="builtin-sync-loading">
+                        <div class="builtin-sync-loading-card">
+                            <div class="builtin-sync-loading-head">
+                                <div class="builtin-sync-spinner" aria-hidden="true"></div>
+                                <div class="builtin-sync-loading-title">${navEscape(navLocaleText('正在比对系统内置工具…', 'Comparing bundled tools…'))}</div>
+                                <div class="builtin-sync-loading-percent">0%</div>
+                            </div>
+                            <div class="builtin-sync-loading-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                <i></i>
+                            </div>
+                            <div class="builtin-sync-loading-detail">${navEscape(navLocaleText('准备开始比对…', 'Preparing comparison…'))}</div>
+                        </div>
+                        <div class="builtin-sync-skeleton-list" aria-hidden="true">
+                            <div class="builtin-sync-skeleton-card"></div>
+                            <div class="builtin-sync-skeleton-card"></div>
+                            <div class="builtin-sync-skeleton-card"></div>
+                        </div>
+                    </div>
+                </div>
+                <footer class="builtin-sync-footer">
+                    <div class="builtin-sync-feedback">
+                        <span class="builtin-sync-result" aria-live="polite">${navEscape(navLocaleText('正在比对系统内置工具与本地工具差异…', 'Comparing bundled tools with in-use versions…'))}</span>
+                    </div>
+                    <button type="button" class="builtin-sync-later">${navEscape(navLocaleText('关闭', 'Close'))}</button>
+                    <button type="button" class="builtin-sync-today" hidden>${navEscape(navLocaleText('今天不再提醒', 'Don\'t Remind Today'))}</button>
+                    <button type="button" class="builtin-sync-apply" disabled>${navEscape(navLocaleText('强制使用随包版本', 'Use Bundled Versions'))}</button>
+                </footer>
+            </div>
+        `;
+        const close = () => closeBuiltinToolsSyncModal();
+        modal.querySelector('.builtin-sync-close').addEventListener('click', close);
+        modal.querySelector('.builtin-sync-later').addEventListener('click', close);
+        modal.addEventListener('click', event => {
+            if (event.target === modal) close();
+        });
+        return;
+    }
+
     const toolCards = tools.map(tool => {
         const status = builtinToolStatusMeta(tool.status);
         const counts = tool.counts || {};
@@ -9467,22 +9627,54 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
 }
 
 window.openBuiltinToolsComparison = async function () {
-    if (builtinToolsSyncChecking || document.getElementById('builtinToolsSyncModal')?.dataset.applying === '1'
+    if (document.getElementById('builtinToolsSyncModal')?.dataset.applying === '1'
         || localStorage.getItem('tools_role') !== 'admin') return;
+
+    const existingModal = document.getElementById('builtinToolsSyncModal');
+    if (existingModal && existingModal.dataset.loading === '1') {
+        existingModal.querySelector('.builtin-sync-close')?.focus();
+        return;
+    }
+
     const button = document.getElementById('builtinToolsCompareBtn');
     builtinToolsSyncChecking = true;
     if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
-    try {
-        const preview = await API.get('/api/custom-tools/builtin-sync/preview?manual=1');
-        openBuiltinToolsSyncModal(preview);
-    } catch (error) {
-        const message = navLocaleText(`读取内置比对失败：${error.message}`, `Failed to compare bundled tools: ${error.message}`);
-        if (window.AppDialog?.alert) await window.AppDialog.alert(message);
-        else window.alert(message);
-    } finally {
-        builtinToolsSyncChecking = false;
-        if (button) { button.disabled = false; button.removeAttribute('aria-busy'); }
+
+    if (builtinToolsCompareAbort) {
+        try { builtinToolsCompareAbort.abort(); } catch (_) {}
+        builtinToolsCompareAbort = null;
     }
+    const abortController = new AbortController();
+    builtinToolsCompareAbort = abortController;
+
+    // 先出画面：立即渲染内置工具差异比对弹窗与加载态
+    openBuiltinToolsSyncModal({ manual: true, loading: true });
+    const modal = document.getElementById('builtinToolsSyncModal');
+
+    const runScan = async () => {
+        try {
+            const preview = await fetchBuiltinToolsPreviewWithProgress(progress => {
+                renderBuiltinToolsCompareProgress(modal, progress);
+            }, abortController.signal);
+            if (abortController.signal.aborted) return;
+            openBuiltinToolsSyncModal(preview);
+        } catch (error) {
+            if (abortController.signal.aborted) return;
+            renderBuiltinToolsCompareError(modal, error, () => {
+                if (modal) {
+                    modal.dataset.loading = '1';
+                    openBuiltinToolsSyncModal({ manual: true, loading: true });
+                }
+                runScan();
+            });
+        } finally {
+            builtinToolsSyncChecking = false;
+            if (button) { button.disabled = false; button.removeAttribute('aria-busy'); }
+            if (builtinToolsCompareAbort === abortController) builtinToolsCompareAbort = null;
+        }
+    };
+
+    runScan();
 };
 
 document.addEventListener('click', event => {

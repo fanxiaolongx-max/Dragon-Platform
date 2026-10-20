@@ -371,7 +371,7 @@ function copyManagedTool(source, targetDir, existingManifest, { backupBatchDir, 
     }
 }
 
-function previewBuiltinTools({ sourceDir, targetDir, stateFile, includeSkipped = false, preserveInstalledRelease = true }) {
+function previewBuiltinTools({ sourceDir, targetDir, stateFile, includeSkipped = false, preserveInstalledRelease = true, onProgress = () => {} }) {
     const sourcePath = path.resolve(sourceDir);
     const targetPath = path.resolve(targetDir);
     const result = {
@@ -396,7 +396,13 @@ function previewBuiltinTools({ sourceDir, targetDir, stateFile, includeSkipped =
         throw error;
     }
 
+    const total = bundledTools.length;
+    onProgress({ stage: 'listing', current: 0, total });
+
+    let current = 0;
     for (const source of bundledTools) {
+        current += 1;
+        onProgress({ stage: 'comparing', current, total, slug: source.slug, name: source.name });
         try {
             const comparison = compareBundledTool(source, targetPath, { preserveInstalledRelease });
             const skippedDecision = decisionState.skipped[source.slug];
@@ -414,6 +420,7 @@ function previewBuiltinTools({ sourceDir, targetDir, stateFile, includeSkipped =
         }
     }
     if (!includeSkipped) result.tools = result.pending;
+    onProgress({ stage: 'done', current: total, total });
     return result;
 }
 

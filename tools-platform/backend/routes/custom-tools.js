@@ -61,25 +61,40 @@ const backupUpload = multer({
     limits: { fileSize: 512 * 1024 * 1024, files: 1 }
 });
 
-function previewBuiltinToolsOffMainThread(options) {
+function previewBuiltinToolsOffMainThread(options, { onProgress } = {}) {
     return new Promise((resolve, reject) => {
-        const worker = new Worker(path.join(__dirname, '../workers/builtin-tools-preview-worker.js'), { workerData: options });
+        const workerOptions = typeof onProgress === 'function' ? { ...options, trackProgress: true } : options;
+        const worker = new Worker(path.join(__dirname, '../workers/builtin-tools-preview-worker.js'), { workerData: workerOptions });
+        let settled = false;
+        const cleanup = () => { clearTimeout(timeout); };
         const timeout = setTimeout(() => {
+            if (settled) return;
+            settled = true;
             worker.terminate();
             reject(Object.assign(new Error('读取系统工具差异超时'), { status: 504 }));
         }, 60000);
-        worker.once('message', result => {
-            clearTimeout(timeout);
-            if (result?.ok) resolve(result.preview);
-            else reject(Object.assign(new Error(result?.error || '读取系统工具差异失败'), { status: result?.status || 500 }));
+        worker.on('message', message => {
+            if (message?.type === 'progress') {
+                try { onProgress(message); } catch (_) {}
+                return;
+            }
+            if (settled) return;
+            settled = true;
+            cleanup();
+            if (message?.ok) resolve(message.preview);
+            else reject(Object.assign(new Error(message?.error || '读取系统工具差异失败'), { status: message?.status || 500 }));
         });
         worker.once('error', error => {
-            clearTimeout(timeout);
+            if (settled) return;
+            settled = true;
+            cleanup();
             reject(error);
         });
         worker.once('exit', code => {
+            if (settled) return;
+            settled = true;
+            cleanup();
             if (code !== 0) {
-                clearTimeout(timeout);
                 reject(new Error(`系统工具差异扫描工作线程退出（${code}）`));
             }
         });
@@ -347,6 +362,34 @@ router.get('/builtin-sync/preview', requireAdmin, async (req, res) => {
         res.json(preview);
     } catch (err) {
         res.status(err.status || 500).json({ error: err.message || '读取系统工具差异失败' });
+    }
+});
+
+router.get('/builtin-sync/preview-stream', requireAdmin, async (req, res) => {
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+    const send = event => { if (!res.destroyed && !res.writableEnded) res.write(`${JSON.stringify(event)}\n`); };
+    try {
+        const preview = await previewBuiltinToolsOffMainThread({
+            sourceDir: builtinToolsSourceDir,
+            targetDir: repo.CUSTOM_TOOLS_DIR,
+            stateFile: path.join(getDataDir(), 'builtin-tools-sync-decisions.json'),
+            includeSkipped: req.query.includeSkipped === '1' || req.query.manual === '1',
+            preserveInstalledRelease: req.query.manual !== '1'
+        }, {
+            onProgress: event => send({ type: 'progress', ...event })
+        });
+        if (req.query.manual === '1') {
+            preview.manual = true;
+            preview.pending = preview.tools.filter(tool => tool.status !== 'unchanged').map(tool => ({ ...tool, recommended: false }));
+        }
+        send({ type: 'result', data: preview });
+    } catch (err) {
+        send({ type: 'error', error: err.message || '读取系统工具差异失败', status: err.status || 500 });
+    } finally {
+        res.end();
     }
 });
 
