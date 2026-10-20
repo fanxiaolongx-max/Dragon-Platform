@@ -322,7 +322,8 @@ textarea.dk-input { resize: vertical; font-family: "JetBrains Mono", Menlo, Cons
 .dk-lab-page { display: grid; gap: 14px; }
 
 /* ---------- 文章 ---------- */
-.dk-article-layout { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 28px; max-width: 1360px; }
+.dk-article-layout { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 28px; width: 100%; }
+.dk-article { min-width: 0; }
 .dk-article h1 { font-size: 28px; line-height: 1.35; margin: 4px 0 10px; }
 .dk-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
 .dk-summary {
