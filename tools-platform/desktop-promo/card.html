@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Platform promotion</title>
+<style>
+:root { --accent: #14b8a6; --accent2: #0ea5e9; }
+body[data-color="blue"] { --accent: #3b82f6; --accent2: #6366f1; }
+body[data-color="violet"] { --accent: #8b5cf6; --accent2: #ec4899; }
+body[data-color="orange"] { --accent: #f97316; --accent2: #ec4899; }
+body[data-color="rose"] { --accent: #f43f5e; --accent2: #f97316; }
+body[data-color="green"] { --accent: #10b981; --accent2: #84cc16; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: #0f172a; color: #e2e8f0; font: 12px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; user-select: none; }
+.bar { position: fixed; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 6px; box-sizing: border-box; border-bottom: 1px solid rgba(148, 163, 184, .22); }
+.card { height: 30px; padding: 0 6px 0 0; background: linear-gradient(90deg, rgba(15, 23, 42, .98), rgba(30, 41, 59, .98)); cursor: pointer; }
+.card::before { content: ''; align-self: stretch; width: 4px; background: linear-gradient(180deg, var(--accent), var(--accent2)); }
+.badge { flex: none; padding: 1px 7px; border-radius: 999px; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-size: 10px; font-weight: 800; letter-spacing: .04em; }
+.name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
+.live { flex: none; display: inline-flex; align-items: center; gap: 4px; color: #94a3b8; font-size: 10px; }
+.live i { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 0 rgba(34, 197, 94, .6); animation: pulse 2s infinite; }
+button { flex: none; display: inline-grid; place-items: center; height: 24px; min-width: 24px; padding: 0 6px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #cbd5e1; font: inherit; font-size: 13px; cursor: pointer; }
+button:hover:not(:disabled) { background: rgba(148, 163, 184, .18); color: #fff; }
+button:disabled { opacity: .35; cursor: default; }
+button.danger:hover { background: #dc2626; }
+.tool { height: 40px; padding: 0 6px 0 0; background: #111c31; -webkit-app-region: drag; }
+.tool::before { content: ''; align-self: stretch; width: 4px; background: linear-gradient(180deg, var(--accent), var(--accent2)); }
+.tool button, .tool .url { -webkit-app-region: no-drag; }
+.url { flex: 1; min-width: 0; height: 26px; display: flex; align-items: center; padding: 0 10px; border-radius: 7px; background: rgba(2, 6, 23, .55); border: 1px solid rgba(148, 163, 184, .2); color: #94a3b8; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; user-select: text; }
+.url b { color: #e2e8f0; font-weight: 600; margin-right: 8px; }
+.sep { width: 1px; height: 18px; background: rgba(148, 163, 184, .25); margin: 0 2px; }
+[hidden] { display: none !important; }
+@keyframes pulse { 70% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
+</style>
+</head>
+<body data-color="teal">
+<div class="bar card" id="card">
+    <span class="badge" id="badge"></span>
+    <span class="name" id="name"></span>
+    <span class="live" id="live"><i></i><span id="liveText"></span></span>
+    <button type="button" data-act="expand" id="expandBtn">⤢</button>
+    <button type="button" data-act="hide-stack" id="hideBtn">×</button>
+</div>
+<div class="bar tool" id="tool" hidden>
+    <span class="badge" id="toolBadge" style="margin-left:6px"></span>
+    <button type="button" data-act="back" id="backBtn">‹</button>
+    <button type="button" data-act="forward" id="forwardBtn">›</button>
+    <button type="button" data-act="reload" id="reloadBtn">⟳</button>
+    <button type="button" data-act="home" id="homeBtn">⌂</button>
+    <div class="url" id="url"></div>
+    <button type="button" data-act="plugins" id="pluginsBtn">🧩</button>
+    <button type="button" data-act="scripts" id="scriptsBtn">🪟</button>
+    <button type="button" data-act="external" id="externalBtn">↗</button>
+    <span class="sep"></span>
+    <button type="button" data-act="minimize" id="minBtn">–</button>
+    <button type="button" data-act="maximize" id="maxBtn">□</button>
+    <button type="button" data-act="close" class="danger" id="closeBtn">×</button>
+</div>
+<script>
+const TEXT = {
+    'zh-CN': { live: '实时', expand: '放大浏览', hide: '今天不再显示推广卡片', back: '后退', forward: '前进', reload: '刷新', home: '回到推广首页', external: '在系统浏览器打开', min: '缩回右下角', max: '最大化', restore: '还原', close: '关闭此推广页', front: '点击切换到这张卡片', plugins: '浏览器插件', scripts: '浮窗脚本', toolMin: '最小化', toolClose: '关闭窗口', toolHome: '回到站点首页' },
+    'en-US': { live: 'Live', expand: 'Open', hide: 'Hide promotion cards for today', back: 'Back', forward: 'Forward', reload: 'Reload', home: 'Back to promotion home', external: 'Open in system browser', min: 'Shrink to corner', max: 'Maximize', restore: 'Restore', close: 'Close this page', front: 'Click to bring this card to front', plugins: 'Browser extensions', scripts: 'Floating scripts', toolMin: 'Minimize', toolClose: 'Close window', toolHome: 'Back to site home' }
+};
+const $ = id => document.getElementById(id);
+let current = null;
+function setTip(id, text) { $(id).title = text; $(id).setAttribute('aria-label', text); }
+window.promoCard.onState(state => {
+    current = state;
+    const t = TEXT[state.lang] || TEXT['zh-CN'];
+    document.body.dataset.color = state.color;
+    document.title = state.name;
+    const expanded = state.mode === 'expanded';
+    $('card').hidden = expanded;
+    $('tool').hidden = !expanded;
+    $('badge').textContent = state.badge; $('toolBadge').textContent = state.badge;
+    $('name').textContent = state.title && state.title !== state.badge ? `${state.name} · ${state.title}` : state.name;
+    $('liveText').textContent = t.live;
+    // 后面的卡片只露出标题条：点击整条换到最前；最前的卡片显示放大和关闭按钮
+    $('expandBtn').hidden = !state.front; $('hideBtn').hidden = !state.front;
+    $('card').title = state.front ? t.expand : t.front;
+    setTip('expandBtn', t.expand); setTip('hideBtn', t.hide);
+    setTip('backBtn', t.back); setTip('forwardBtn', t.forward); setTip('reloadBtn', t.reload); setTip('homeBtn', t.home);
+    setTip('externalBtn', t.external); setTip('minBtn', state.tool ? t.toolMin : t.min); setTip('maxBtn', state.maximized ? t.restore : t.max); setTip('closeBtn', state.tool ? t.toolClose : t.close);
+    setTip('pluginsBtn', t.plugins); setTip('scriptsBtn', t.scripts); if (state.tool) setTip('homeBtn', t.toolHome);
+    $('maxBtn').textContent = state.maximized ? '❐' : '□';
+    $('backBtn').disabled = !state.canBack; $('forwardBtn').disabled = !state.canForward;
+    const url = $('url'); url.textContent = '';
+    const title = document.createElement('b'); title.textContent = state.title || state.name;
+    url.append(title, document.createTextNode(state.url));
+    url.title = state.url;
+});
+document.addEventListener('click', event => {
+    const button = event.target.closest('button[data-act]');
+    if (button) { event.stopPropagation(); window.promoCard.send(button.dataset.act); return; }
+    if (event.target.closest('#card')) window.promoCard.send('activate');
+});
+$('tool').addEventListener('dblclick', event => { if (!event.target.closest('button, .url')) window.promoCard.send('maximize'); });
+</script>
+</body>
+</html>

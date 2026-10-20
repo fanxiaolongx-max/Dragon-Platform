@@ -1525,6 +1525,8 @@ html.is-page-scrolling::-webkit-scrollbar-thumb {
 }
 
 .nav-settings-window {
+    /* 设置窗口使用浅色面板，原生控件也应保持相同配色。 */
+    color-scheme: light;
     width: min(1440px, calc(100vw - 48px));
     height: min(900px, calc(100vh - 48px));
     display: grid;
@@ -1552,6 +1554,9 @@ html.is-page-scrolling::-webkit-scrollbar-thumb {
 }
 
 .nav-settings-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     width: 100%;
     height: 36px;
     margin-bottom: 5px;
@@ -1564,6 +1569,16 @@ html.is-page-scrolling::-webkit-scrollbar-thumb {
     font-size: 13px;
     font-weight: 700;
     cursor: pointer;
+}
+.nav-settings-tab-icon {
+    flex: 0 0 20px;
+    width: 20px;
+    text-align: center;
+    font-size: 16px;
+    line-height: 1;
+}
+.nav-settings-tab-label {
+    min-width: 0;
 }
 .nav-settings-tab:hover {
     background: rgba(255,255,255,0.58);
@@ -2596,28 +2611,6 @@ dialog#mediaFormDialog.is-importing {
     .snapshot-progress-log-btn { background: #1e293b; border-color: #334155; color: #93c5fd; }
     .snapshot-progress-log-btn:hover { background: #2a3749; }
     .snapshot-config-shortcut { background: #132034; border-color: #2b456b; color: #7db5f5; }
-    .snapshot-tool-size-badge { background: #1e293b; color: #94a3b8; border-color: #334155; }
-    .snapshot-tool-size-badge.loading { background: #172554; color: #60a5fa; border-color: #1e40af; }
-    .snapshot-tool-size-badge.badge-normal { background: #052e16; color: #4ade80; border-color: #14532d; }
-    .snapshot-tool-size-badge.badge-warning { background: #451a03; color: #fde047; border-color: #78350f; }
-    .snapshot-tool-size-badge.badge-danger { background: #450a0a; color: #fca5a5; border-color: #7f1d1d; }
-    .snapshot-tool-item.snapshot-tool-heavy {
-        background: linear-gradient(135deg, #2d1e08, #16202e);
-        border-color: #d97706;
-        border-left-color: #f59e0b;
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-    }
-    .snapshot-heavy-warning {
-        background: #341808;
-        border-color: #7c2d12;
-        color: #fdba74;
-    }
-    .snapshot-heavy-uncheck-btn {
-        background: #c2410c;
-    }
-    .snapshot-heavy-uncheck-btn:hover {
-        background: #9a3412;
-    }
 }
 
 .nav-security-grid {

@@ -418,6 +418,8 @@ app.use('/api', (req, res, next) => {
         (req.method === 'PUT' && req.path === '/datacom-knowledge/preference') ||
         (['PUT', 'DELETE'].includes(req.method) && /^\/datacom-knowledge\/annotations\/[^/]+$/.test(req.path))) return next(); // 登录用户可向 AI 提问、记笔记、保存偏好；路由内校验归属，改写原文仍需管理员
     if (req.method === 'POST' && req.path === '/desktop-pet/language') return next(); // 路由内限制本机登录用户
+    if (req.method === 'POST' && /^\/platform-promotions\/desktop\/(?:sync|open\/[^/]+|site-scripts(?:\/run)?)$/.test(req.path)) return next(); // 路由内限制本机登录用户，只操作本机桌面浏览器窗口（推广卡片、浮窗脚本）
+    if (req.method === 'POST' && req.path === '/platform-promotions/clicks') return next(); // 登录用户上报推广点击，路由内校验推广项
     if (req.method === 'POST' && req.path === '/ai/proactive-alert-message') return next(); // 只读 KPI 提醒文案，不修改业务数据
     if (req.method === 'POST' && req.path === '/ai/chat') return next(); // 登录用户都可对话；工作区内非管理员只拿到只读工具（路由与 agent-run-manager 内校验）
     if (req.method === 'POST' && req.path === '/ai/compact') return next(); // 登录用户仅可压缩本人会话的模型上下文，路由内校验归属
@@ -467,6 +469,7 @@ app.use('/api/external/metrics', externalMetricsRoutes); // 外部/移动端只�
 app.use('/api/alert-center', alertCenterRoutes); // 系统告警台 API
 app.use('/api/platform-metrics', platformMetricsRoutes); // 首页效能与使用量统计
 app.use('/api/friend-links', friendLinksRoutes); // 首页友情链接配置与轻量可用性探测
+app.use('/api/platform-promotions', require('./routes/platform-promotions')); // 首页推广区（视频 + 推广链接）配置与桌面推广卡片堆
 app.use('/api/onboarding', onboardingRoutes); // 首次启动默认脚本/指标规则可选导入
 app.use('/api/duty-roster', require('./routes/duty-roster')); // 夜间运维值班表 API
 app.use('/api/tenants', tenantsRoutes); // 租户清单、切换与管理

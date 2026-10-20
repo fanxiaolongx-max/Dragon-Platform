@@ -832,21 +832,70 @@ function expandFloatingMetricDependencies(selectedScripts, allScripts, ruleBundl
     return { scripts: expanded, added };
 }
 
+// 生成某个站点的浮窗启动脚本（与「复制此站点」完全相同的内容）
+async function buildSiteFloatingScript(origin, { returnCode = false } = {}) {
+    const { scripts = [] } = await API.get('/api/uiv/scripts');
+    const ruleBundle = await loadFloatingSlaRuleBundle();
+    const scope = applyUivBatchCategoryFilter(scripts);
+    const grouped = groupConsoleScriptsBySite(scope.scripts);
+    const site = grouped.sites.find(item => item.origin === origin);
+    if (!site || !site.scripts.length) throw new Error(UIVT('uiv.siteScript.noSite', { site: origin }));
+    const expanded = expandFloatingMetricDependencies(site.scripts, scripts, ruleBundle, site.origin);
+    const code = buildAndCopyMasterScript(expanded.scripts, `${site.name}-浮窗工具预备版`, {
+        floatingLauncher: true,
+        siteName: site.name,
+        expectedOrigin: site.origin,
+        ruleBundle,
+        returnCode
+    });
+    let openUrl = '';
+    try {
+        const first = site.scripts[0];
+        const candidate = new URL(resolveUivOpenUrl(first, resolveUivScriptUrl(first)) || site.origin);
+        if (candidate.origin === site.origin) openUrl = candidate.toString();
+    } catch (e) {}
+    return { site, expanded, code, openUrl: openUrl || site.origin + '/' };
+}
+
+// 桌面端（Electron）自带浏览器：本机接口可用时，浮窗脚本列表多一个「桌面浏览器运行」按钮
+const UIV_DESKTOP_API = '/api/platform-promotions/desktop';
+let uivDesktopAvailable = null;
+async function isUivDesktopBrowserAvailable() {
+    if (uivDesktopAvailable !== null) return uivDesktopAvailable;
+    try { uivDesktopAvailable = !!(await API.get(UIV_DESKTOP_API)).available; } catch (e) { uivDesktopAvailable = false; }
+    return uivDesktopAvailable;
+}
+
+async function sendSiteScriptToDesktop(origin, run) {
+    const built = await buildSiteFloatingScript(origin, { returnCode: true });
+    if (!built.code) throw new Error(UIVT('uiv.siteScript.noSite', { site: origin }));
+    await API.post(`${UIV_DESKTOP_API}/site-scripts`, { origin: built.site.origin, name: built.site.name, url: built.openUrl, code: built.code, run });
+    return built;
+}
+
+async function runSiteScriptsInDesktop(origin) {
+    try {
+        const built = await sendSiteScriptToDesktop(origin, true);
+        closeSiteConsoleScriptPicker();
+        const dependencyText = built.expanded.added.length ? UIVT('uiv.siteScript.depText', { count: built.expanded.added.length }) : '';
+        showToast(UIVT('uiv.siteScript.desktopSent', { name: built.site.name, count: built.expanded.scripts.length, dep: dependencyText }), 'success');
+    } catch (error) {
+        showToast(UIVT('uiv.siteScript.desktopFail', { error: error.message }), 'error');
+    }
+}
+
+// 打开数据抓取页时，把桌面浏览器里已缓存的站点脚本刷新成最新版本（不打开窗口）
+async function refreshDesktopSiteScripts() {
+    if (!(await isUivDesktopBrowserAvailable())) return;
+    try {
+        const { items = [] } = await API.get(`${UIV_DESKTOP_API}/site-scripts`);
+        for (const item of items) await sendSiteScriptToDesktop(item.origin, false).catch(() => {});
+    } catch (e) {}
+}
+
 async function copySiteConsoleScripts(origin) {
     try {
-        const { scripts = [] } = await API.get('/api/uiv/scripts');
-        const ruleBundle = await loadFloatingSlaRuleBundle();
-        const scope = applyUivBatchCategoryFilter(scripts);
-        const grouped = groupConsoleScriptsBySite(scope.scripts);
-        const site = grouped.sites.find(item => item.origin === origin);
-        if (!site || !site.scripts.length) throw new Error(UIVT('uiv.siteScript.noSite', { site: origin }));
-        const expanded = expandFloatingMetricDependencies(site.scripts, scripts, ruleBundle, site.origin);
-        buildAndCopyMasterScript(expanded.scripts, `${site.name}-浮窗工具预备版`, {
-            floatingLauncher: true,
-            siteName: site.name,
-            expectedOrigin: site.origin,
-            ruleBundle
-        });
+        const { site, expanded } = await buildSiteFloatingScript(origin);
         closeSiteConsoleScriptPicker();
         const dependencyText = expanded.added.length ? UIVT('uiv.siteScript.depText', { count: expanded.added.length }) : '';
         showToast(UIVT('uiv.siteScript.copied', { name: site.name, count: expanded.scripts.length, dep: dependencyText }), 'success');
@@ -860,6 +909,7 @@ async function openSiteConsoleScriptPicker() {
         const { scripts = [] } = await API.get('/api/uiv/scripts');
         const scope = applyUivBatchCategoryFilter(scripts);
         const grouped = groupConsoleScriptsBySite(scope.scripts);
+        const desktopAvailable = await isUivDesktopBrowserAvailable();
         closeSiteConsoleScriptPicker();
 
         const overlay = document.createElement('div');
@@ -875,7 +925,7 @@ async function openSiteConsoleScriptPicker() {
                     <div class="uiv-site-script-origin" title="${escapeUivHtml(site.origin)}">${escapeUivHtml(site.origin)}</div>
                     <div class="uiv-site-script-count">${UIVT('uiv.siteScript.scriptCount', { count: site.scripts.length })}</div>
                 </div>
-                <div class="uiv-site-script-buttons">${simulator ? `<button type="button" class="uiv-site-script-simulate" data-site-origin="${escapeUivHtml(site.origin)}">${UIVT('uiv.siteScript.simulate')}</button>` : ''}<button type="button" class="uiv-site-script-copy" data-site-origin="${escapeUivHtml(site.origin)}">${UIVT('uiv.siteScript.copy')}</button></div>
+                <div class="uiv-site-script-buttons">${simulator ? `<button type="button" class="uiv-site-script-simulate" data-site-origin="${escapeUivHtml(site.origin)}">${UIVT('uiv.siteScript.simulate')}</button>` : ''}${desktopAvailable ? `<button type="button" class="uiv-site-script-copy uiv-site-script-desktop" data-site-origin="${escapeUivHtml(site.origin)}" title="${escapeUivHtml(UIVT('uiv.siteScript.desktopTitle'))}">${UIVT('uiv.siteScript.desktop')}</button>` : ''}<button type="button" class="uiv-site-script-copy" data-site-origin="${escapeUivHtml(site.origin)}">${UIVT('uiv.siteScript.copy')}</button></div>
             </div>
         `; }).join('');
         const unresolvedNote = grouped.unresolved.length
@@ -904,6 +954,8 @@ async function openSiteConsoleScriptPicker() {
             }
             const simulateButton = event.target.closest('.uiv-site-script-simulate');
             if (simulateButton) { openTopicFloatingSimulator(simulateButton.dataset.siteOrigin || ''); return; }
+            const desktopButton = event.target.closest('.uiv-site-script-desktop');
+            if (desktopButton) { runSiteScriptsInDesktop(desktopButton.dataset.siteOrigin || ''); return; }
             const copyButton = event.target.closest('.uiv-site-script-copy');
             if (copyButton) copySiteConsoleScripts(copyButton.dataset.siteOrigin || '');
         });
@@ -4268,6 +4320,7 @@ function buildAndCopyMasterScript(scriptsToRun, groupName, options = {}) {
             dataFabRuntimeSource: options.dataFabRuntimeSource
         })
         : masterCode;
+    if (options.returnCode) return copyCode;
     copyFromMemory(copyCode, options.floatingLauncher
         ? `${groupName} 浮窗启动脚本`
         : UIVT('uiv.copy.batchType', { group: groupName }));
@@ -4283,6 +4336,7 @@ window.UIVCopy = {
     openSiteConsoleScriptPicker,
     closeSiteConsoleScriptPicker,
     copySiteConsoleScripts,
+    runSiteScriptsInDesktop,
     openTopicFloatingSimulator,
     closeTopicFloatingSimulator,
     openUivBatchCategoryFilter,
@@ -4304,4 +4358,5 @@ document.addEventListener('DOMContentLoaded', () => {
     startUivBatchSchedule();
     // 首页「插件与脚本」入口：?siteScripts=1 直接打开浮窗脚本选择
     if (new URLSearchParams(location.search).get('siteScripts') === '1') openSiteConsoleScriptPicker();
+    refreshDesktopSiteScripts();
 });

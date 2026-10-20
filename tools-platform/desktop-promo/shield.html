@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+html, body { margin: 0; height: 100%; background: transparent; cursor: zoom-in; overflow: hidden; }
+body::after { content: ''; position: fixed; inset: 0; background: linear-gradient(180deg, transparent 60%, rgba(2, 6, 23, .35)); opacity: 0; transition: opacity .2s; }
+body:hover::after { opacity: 1; }
+</style>
+</head>
+<body>
+<script>
+// 小窗状态下盖在推广页面上方：点击只用来切换/放大卡片，不操作页面
+document.addEventListener('mousedown', event => { event.preventDefault(); window.promoCard.send('activate'); });
+document.addEventListener('wheel', event => event.preventDefault(), { passive: false });
+</script>
+</body>
+</html>

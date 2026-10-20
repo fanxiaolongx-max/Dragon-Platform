@@ -1,0 +1,15 @@
+{
+  "links": [
+    {
+      "id": "netcare",
+      "name": "NetCare",
+      "nameEn": "NetCare",
+      "badge": "NetCare",
+      "badgeEn": "NetCare",
+      "description": "设备健康与风险一站看",
+      "descriptionEn": "Device health and risks at a glance",
+      "url": "https://netcare.huawei.com/p/netcare/index.html#/home",
+      "color": "teal"
+    }
+  ]
+}
