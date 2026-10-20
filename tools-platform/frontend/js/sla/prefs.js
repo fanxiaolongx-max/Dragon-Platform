@@ -5,35 +5,38 @@
 
 async function loadPrefs(secId) {
     const state = AppState[secId];
-    try {
-        const mode = API.getSourceMode('sla_data');
-        const query = mode === 'auto' ? '' : `?mode=${encodeURIComponent(mode)}`;
-        const path = `/api/sla/prefs/${encodeURIComponent(state.schemaHash)}${query}`;
-        const saved = await API.get(path);
-        state.hasSavedPrefs = !!saved;
-        window.__lastSLAPrefsPath = path;
-        if (saved) {
-            const hasVisibleHeaders = Object.prototype.hasOwnProperty.call(saved, 'visibleHeaders')
-                && Array.isArray(saved.visibleHeaders);
-            const validV = (saved.visibleHeaders || []).filter(h => state.orderedHeaders.includes(h));
-            state.visibleHeaders = hasVisibleHeaders ? validV : [...state.orderedHeaders];
-            state.columnWidths = saved.columnWidths || {};
-            state.sortKey = saved.sortKey || null;
-            state.sortAsc = saved.sortAsc !== undefined ? saved.sortAsc : true;
-            state.customMetrics = saved.customMetrics || [];
-            state.sourceMeta = saved._sourceMeta || null;
+    const mode = API.getSourceMode('sla_data');
+    const query = mode === 'auto' ? '' : `?mode=${encodeURIComponent(mode)}`;
+    const path = `/api/sla/prefs/${encodeURIComponent(state.schemaHash)}${query}`;
+    let saved;
+    // 批量初始化会并发读取多张表的规则。请求失败不能当作“没有配置”，
+    // 否则会把缺少整列指标的结果保存成一次成功的历史快照。
+    for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+            saved = await API.get(path);
+            break;
+        } catch (error) {
+            if (attempt === 2) throw error;
+            await new Promise(resolve => setTimeout(resolve, 150 * (attempt + 1)));
         }
-        if (window.SLARowDetail && typeof window.SLARowDetail.applyFrequentHeaders === 'function') {
-            window.SLARowDetail.applyFrequentHeaders(secId);
-        }
-        if (window.renderSLASourcePanel) window.renderSLASourcePanel();
-    } catch (e) {
-        if (window.SLARowDetail && typeof window.SLARowDetail.applyFrequentHeaders === 'function') {
-            window.SLARowDetail.applyFrequentHeaders(secId);
-        }
-        // 服务端无数据时使用默认值（不报错）
-        if (window.renderSLASourcePanel) window.renderSLASourcePanel();
     }
+    state.hasSavedPrefs = !!saved;
+    window.__lastSLAPrefsPath = path;
+    if (saved) {
+        const hasVisibleHeaders = Object.prototype.hasOwnProperty.call(saved, 'visibleHeaders')
+            && Array.isArray(saved.visibleHeaders);
+        const validV = (saved.visibleHeaders || []).filter(h => state.orderedHeaders.includes(h));
+        state.visibleHeaders = hasVisibleHeaders ? validV : [...state.orderedHeaders];
+        state.columnWidths = saved.columnWidths || {};
+        state.sortKey = saved.sortKey || null;
+        state.sortAsc = saved.sortAsc !== undefined ? saved.sortAsc : true;
+        state.customMetrics = saved.customMetrics || [];
+        state.sourceMeta = saved._sourceMeta || null;
+    }
+    if (window.SLARowDetail && typeof window.SLARowDetail.applyFrequentHeaders === 'function') {
+        window.SLARowDetail.applyFrequentHeaders(secId);
+    }
+    if (window.renderSLASourcePanel) window.renderSLASourcePanel();
 }
 
 function normalizeSourcePrefix(name) {

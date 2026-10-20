@@ -224,6 +224,18 @@ function syncStickyBarSubExpandedState() {
     }
 }
 
+// 页面预警和历史快照共用同一个按月目标判断，保留 0 目标的语义。
+function getMetricWarningState(metric, targetMap, month) {
+    if (!targetMap || targetMap[month] === undefined || targetMap[month] === '') return { isWarn: false, gap: '' };
+    const target = parseFloat(targetMap[month]);
+    const current = parseFloat(String(metric.value).replace(/[^0-9.-]/g, ''));
+    if (!Number.isFinite(current) || !Number.isFinite(target)) return { isWarn: false, gap: '' };
+    const type = targetMap.type || 'gte';
+    const isWarn = (type === 'gte' && current < target) || (type === 'lte' && current > target);
+    const suffix = String(metric.value).includes('%') ? '%' : '';
+    return { isWarn, gap: isWarn ? `${type === 'lte' ? '超' : '差'} ${+Math.abs(target - current).toFixed(2)}${suffix}` : '' };
+}
+
 function renderTopStickyBar() {
     const content = document.getElementById('sticky-bar-content');
     const btnExpand = document.getElementById('btn-expand-metrics');
@@ -267,26 +279,8 @@ function renderTopStickyBar() {
     let html = '';
     keys.forEach(k => {
         const m = window.GlobalMetrics[k];
-        let isWarn = false, gapHtml = '';
-        const targetMap = window.GlobalTargets[k];
-        if (targetMap && targetMap[cm] !== undefined && targetMap[cm] !== '') {
-            const targetVal = parseFloat(targetMap[cm]);
-            const currentVal = parseFloat(String(m.value).replace(/[^0-9.-]/g, ''));
-            const condition = targetMap.type || 'gte';
-            if (!isNaN(currentVal) && !isNaN(targetVal)) {
-                if (condition === 'gte' && currentVal < targetVal) {
-                    isWarn = true;
-                    const gap = +(targetVal - currentVal).toFixed(2);
-                    const isPercent = String(m.value).includes('%');
-                    gapHtml = `<span class="metric-gap">差 ${gap}${isPercent ? '%' : ''}</span>`;
-                } else if (condition === 'lte' && currentVal > targetVal) {
-                    isWarn = true;
-                    const gap = +(currentVal - targetVal).toFixed(2);
-                    const isPercent = String(m.value).includes('%');
-                    gapHtml = `<span class="metric-gap">超 ${gap}${isPercent ? '%' : ''}</span>`;
-                }
-            }
-        }
+        const { isWarn, gap } = getMetricWarningState(m, window.GlobalTargets[k], cm);
+        const gapHtml = gap ? `<span class="metric-gap">${gap}</span>` : '';
         const highlightClass = isWarn ? 'metric-warn-highlight' : '';
         const colorClass = isWarn ? 'danger' : m.color;
 
@@ -741,5 +735,5 @@ document.addEventListener('DOMContentLoaded', () => {
 window.toggleMetricSub = toggleMetricSub;
 window.syncStickyBarSubExpandedState = syncStickyBarSubExpandedState;
 window.evaluateAllMetrics = evaluateAllMetrics;
-window.SLAMetrics = { evaluateAllMetrics, renderTopStickyBar, toggleMetricSub, syncStickyBarSubExpandedState };
+window.SLAMetrics = { getMetricWarningState, evaluateAllMetrics, renderTopStickyBar, toggleMetricSub, syncStickyBarSubExpandedState };
 window.SLATargetMonth = { get: getSLATargetMonth, set: setSLATargetMonth, init: initSLATargetMonthSelect };

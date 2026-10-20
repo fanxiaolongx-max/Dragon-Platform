@@ -612,8 +612,7 @@ async function handleSpecificUploadInternal(e, forceMode) {
     API.logHistory('sla', `导入${titleMap[forceMode]}`, `${files.length} 个文件`);
     e.target.value = '';
 
-    // 触发快照抓取
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // 指标快照直接读取计算结果，不依赖浏览器重绘。
     await captureAndUploadSnapshot(files.map(f => f.name), { source: 'manual', sourceBatchId });
 }
 
@@ -710,8 +709,7 @@ async function processBatchFilesInternal(files, meta = {}) {
     
     API.logHistory('sla', meta.historyAction || '批量导入', `${files.length} 个文件`);
     
-    // 所有表格渲染完后，触发快照抓取 (稍微等一下让浏览器重绘)
-    await new Promise(resolve => setTimeout(resolve, 300));
+    // 所有来源初始化完成后统一计算并保存，不依赖 DOM 重绘时机。
     await captureAndUploadSnapshot(files.map(f => f.name), { source: meta.source || 'manual', sourceBatchId });
 }
 
@@ -782,6 +780,7 @@ async function importUivAutoSession() {
 }
 
 async function captureAndUploadSnapshot(fileNames, meta = {}) {
+    window.evaluateAllMetrics?.();
     const snapshot = {
         id: meta.updateId || window.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
         timestamp: new Date().toISOString(),
@@ -862,65 +861,38 @@ async function captureAndUploadSnapshot(fileNames, meta = {}) {
         }
     });
 
-    // 提取顶部自定义数据舱（从DOM提取，以获取当月的 gap 和 warn 状态）
-    const stickyBar = document.getElementById('sticky-bar-content');
-    if (stickyBar) {
-        stickyBar.querySelectorAll('.info-item').forEach(item => {
-            const labelEl = item.querySelector('.info-label');
-            const valueEl = item.querySelector('.info-value');
-            const gapEl = item.querySelector('.metric-gap');
-            if (labelEl && valueEl) {
-                const label = labelEl.innerText.replace(':', '').trim();
-                const value = valueEl.innerText.trim();
-                const gap = gapEl ? gapEl.innerText.trim() : '';
-                const isWarn = item.classList.contains('metric-warn-highlight') || valueEl.classList.contains('danger');
-                
-                // 提取原来的颜色
-                let color = '#4fc3f7';
-                if (valueEl.classList.contains('success')) color = '#81c784';
-                if (valueEl.classList.contains('warn')) color = '#ffb74d';
-                if (valueEl.classList.contains('danger')) color = '#ef5350';
-                
-                // 提取 sub-metrics
-                const subMetrics = [];
-                const subList = item.querySelector('.sub-metrics-list');
-                if (subList) {
-                    subList.querySelectorAll('span').forEach(subSpan => {
-                        const txt = subSpan.innerText.trim();
-                        const parts = txt.split(':');
-                        if (parts.length >= 2) {
-                            subMetrics.push({ category: parts[0].trim(), value: parts[1].trim() });
-                        }
-                    });
-                }
-                
-                const entry = item.dataset.metricKey && window.GlobalMetrics?.[item.dataset.metricKey] ? [item.dataset.metricKey, window.GlobalMetrics[item.dataset.metricKey]] : (() => {const matches=Object.entries(window.GlobalMetrics||{}).filter(([,metric])=>metric.label===label);return matches.length===1?matches[0]:null;})();
-                const metricKey = entry?.[0];
-                const sectionEntry = Object.entries(window.AppState || {}).find(([secId,state]) => (state.customMetrics || []).some(rule => `${secId}_${rule.id}` === metricKey));
-                const sectionKey = sectionEntry?.[0];
-                const state = sectionEntry?.[1];
-                const rule = (state?.customMetrics || []).find(rule => `${sectionKey}_${rule.id}` === metricKey);
-                const sourceSections = state ? (rule?.scope==='all'?snapshot.sourceSections.filter(section=>!section.archiveSupplementary):snapshot.sourceSections.filter(section=>section.key===sectionKey)) : [];
-                const sourceFiles = [...new Set(sourceSections.flatMap(section=>section.sourceFiles||[]))];
-                const target = window.GlobalTargets?.[metricKey];
-                let firstRowFound = false;
-                const sourceSelections = sourceSections.map(section => ({ sectionKey:section.key, indexes:section.rows.flatMap((row,index) => {
-                    if (!rule || typeof metricRuleRowMatches !== 'function' || !metricRuleRowMatches(row, rule, true)) return [];
-                    if (rule.type === 'count' && !metricRuleCellMatches(row[rule.colZ], rule.valK)) return [];
-                    if (!['count','ratio','extract_multi'].includes(rule.type)) { if (firstRowFound) return []; firstRowFound = true; }
-                    return [index];
-                }) }));
-                for(const child of subMetrics){
-                    const childRule=(rule?.subMetrics||[]).find(item=>item.category===child.category);
-                    const cross=childRule?.scope==='all'||(!childRule?.scope&&rule?.scope==='all');
-                    const childSection=childRule?.sourceSecId||sectionKey;
-                    const childSources=childRule?snapshot.sourceSections.filter(section=>cross?!section.archiveSupplementary:section.key===childSection):[];
-                    child.sourceLinkVersion=2;child.sourceSection=childSection||'';child.sourceSectionKeys=childSources.map(section=>section.key);child.sourceFiles=[...new Set(childSources.flatMap(section=>section.sourceFiles||[]))];
-                }
-                snapshot.topMetrics.push({ key:metricKey || `legacy:${label}`, label, value, gap, isWarn, color, subMetrics, sourceSection:sectionKey || '', sourceLinkVersion:2,sourceSectionKeys:sourceSections.map(section=>section.key),sourceFiles, rule:rule || null, sourceSelections, savedTarget:target?.[snapshot.selectedTargetMonth] ?? null });
-            }
-        });
-    }
+    // 用计算结果保存全部指标和子指标，折叠、隐藏或尚未重绘的页面不影响快照。
+    Object.entries(window.GlobalMetrics || {}).forEach(([metricKey, metric]) => {
+        const { label, value } = metric;
+        const target = window.GlobalTargets?.[metricKey];
+        const { isWarn, gap } = window.SLAMetrics.getMetricWarningState(metric, target, snapshot.selectedTargetMonth);
+        const color = isWarn ? '#ef5350' : ({ success: '#81c784', warn: '#ffb74d', danger: '#ef5350' }[metric.color] || '#4fc3f7');
+        const subMetrics = (metric.subMetrics || []).map(child => ({ category: child.category, value: String(child.value) }));
+        const sectionEntry = Object.entries(window.AppState || {}).find(([secId, state]) => (state.customMetrics || []).some(rule => `${secId}_${rule.id}` === metricKey));
+        const sectionKey = sectionEntry?.[0];
+        const state = sectionEntry?.[1];
+        const rule = (state?.customMetrics || []).find(rule => `${sectionKey}_${rule.id}` === metricKey);
+        const sourceSections = state ? (rule?.scope === 'all' ? snapshot.sourceSections.filter(section => !section.archiveSupplementary) : snapshot.sourceSections.filter(section => section.key === sectionKey)) : [];
+        const sourceFiles = [...new Set(sourceSections.flatMap(section => section.sourceFiles || []))];
+        let firstRowFound = false;
+        const sourceSelections = sourceSections.map(section => ({ sectionKey: section.key, indexes: section.rows.flatMap((row, index) => {
+            if (!rule || typeof metricRuleRowMatches !== 'function' || !metricRuleRowMatches(row, rule, true)) return [];
+            if (rule.type === 'count' && !metricRuleCellMatches(row[rule.colZ], rule.valK)) return [];
+            if (!['count', 'ratio', 'extract_multi'].includes(rule.type)) { if (firstRowFound) return []; firstRowFound = true; }
+            return [index];
+        }) }));
+        for (const child of subMetrics) {
+            const childRule = (rule?.subMetrics || []).find(item => item.category === child.category);
+            const cross = childRule?.scope === 'all' || (!childRule?.scope && rule?.scope === 'all');
+            const childSection = childRule?.sourceSecId || sectionKey;
+            const childSources = childRule ? snapshot.sourceSections.filter(section => cross ? !section.archiveSupplementary : section.key === childSection) : [];
+            child.sourceLinkVersion = 2;
+            child.sourceSection = childSection || '';
+            child.sourceSectionKeys = childSources.map(section => section.key);
+            child.sourceFiles = [...new Set(childSources.flatMap(section => section.sourceFiles || []))];
+        }
+        snapshot.topMetrics.push({ key: metricKey, label, value: String(value), gap, isWarn, color, subMetrics, sourceSection: sectionKey || '', sourceLinkVersion: 2, sourceSectionKeys: sourceSections.map(section => section.key), sourceFiles, rule: rule || null, sourceSelections, savedTarget: target?.[snapshot.selectedTargetMonth] ?? null });
+    });
 
     const snapshotStats = {
         requestBytes: getJSONBytes(snapshot),
