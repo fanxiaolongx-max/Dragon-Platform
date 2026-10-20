@@ -414,7 +414,15 @@ async function loadEnabledCatalogs(options = {}) {
 async function previewMarket(options = {}) {
     const catalog = await loadEnabledCatalogs(options);
     options.onProgress?.({ stage: 'tools_comparing', count: catalog.tools.length });
-    const tools = catalog.tools.map(item => compareCatalogTool(item));
+    const tools = [];
+    for (const item of catalog.tools) {
+        tools.push(compareCatalogTool(item));
+        if (options.onProgress) {
+            options.onProgress({ stage: 'tool_compared', slug: item.slug, name: item.tool?.name || item.slug, current: tools.length, total: catalog.tools.length });
+            // 让出事件循环，使进度事件逐条写出而不是比对结束后一次性到达
+            await new Promise(resolve => setImmediate(resolve));
+        }
+    }
     options.onProgress?.({ stage: 'preview_done', count: tools.length });
     return {
         sources: catalog.sources,

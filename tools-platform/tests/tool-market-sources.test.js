@@ -47,7 +47,7 @@ test('market settings isolate tenants and disabled sources cause no requests', a
             const previewProgress = [];
             const preview = await market.previewMarket({ force: true, onProgress: event => previewProgress.push(event.stage) });
             assert.equal(preview.tools.length, 1);
-            assert.deepEqual(previewProgress.slice(-2), ['tools_comparing', 'preview_done']);
+            assert.deepEqual(previewProgress.slice(-3), ['tools_comparing', 'tool_compared', 'preview_done']);
             await market.saveMarketSettings({ githubEnabled: false, sources: saved.sources.map(source => ({ ...source, enabled: false })) });
             const disabled = await market.previewMarket({ force: true });
             assert.equal(disabled.sources.every(source => source.enabled === false), true);

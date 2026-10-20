@@ -1236,9 +1236,10 @@
 
     function renderSlashHints() {
         const value = el.input.value;
-        if (!value.startsWith('/') || /\s/.test(value.trim()) && !/^\/\S+\s*$/.test(value)) return hideSlashHints();
-        const typed = value.trim().toLowerCase();
-        const list = SLASH_COMMANDS.filter(item => [item.name, ...item.aliases].some(name => name.startsWith(typed) || typed.startsWith(name)));
+        // 命令名后一旦出现空格就算输入完成（Tab 补全也会补上空格），收起提示
+        if (!value.startsWith('/') || /\s/.test(value)) return hideSlashHints();
+        const typed = value.toLowerCase();
+        const list = SLASH_COMMANDS.filter(item => [item.name, ...item.aliases].some(name => name.startsWith(typed)));
         if (!list.length) return hideSlashHints();
         // 继续输入时尽量保持原来高亮的命令
         const previous = slashMenu.items[slashMenu.active]?.name;

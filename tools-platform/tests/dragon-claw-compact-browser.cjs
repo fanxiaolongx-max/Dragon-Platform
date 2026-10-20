@@ -44,6 +44,11 @@ app.whenReady().then(async()=>{
     const count=await evaluate(()=>document.querySelectorAll('.dc-msg').length);
     await evaluate(()=>{typeText('/');});
     assert.ok((await evaluate(()=>document.getElementById('dcSlashMenu').textContent)).includes('/compact'));
+    await evaluate(()=>{typeText('/compact ');});
+    assert.equal(await evaluate(()=>document.getElementById('dcSlashMenu').hidden),true,'a space after the command closes the hint');
+    await evaluate(()=>{typeText('/comp');press('Tab')});
+    assert.equal(await evaluate(()=>document.getElementById('dcInput').value),'/compact ');
+    assert.equal(await evaluate(()=>document.getElementById('dcSlashMenu').hidden),true,'Tab completion closes the hint');
     await evaluate(()=>{typeText('/compact');press('Enter')});
     assert.equal(await evaluate(()=>document.getElementById('dcInput').disabled),true);
     assert.equal(await evaluate(()=>calls.length),3,'a slash command never becomes a model question');

@@ -813,6 +813,7 @@
         .tool-market-toolbar { margin-bottom:14px; color:#94a3b8; font-size:12px; }
         .tool-market-trust { padding:7px 10px; border-radius:999px; background:rgba(16,185,129,.12); color:#86efac; }
         .tool-market-trust.unverified { background:rgba(245,158,11,.12); color:#fcd34d; }
+        .tool-market-trust:empty { display:none; }
         .tool-market-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-content:start; gap:8px; min-height:0; flex:1; overflow:auto; padding-right:4px; }
         .tool-market-card { display:grid; grid-template-columns:auto 36px minmax(0,1fr) auto; align-items:start; gap:9px; padding:11px 12px; border:1px solid rgba(148,163,184,.16); border-radius:12px; background:rgba(2,6,23,.3); transition: opacity .25s ease, filter .25s ease, border-color .25s ease, background .25s ease, transform .25s ease, box-shadow .25s ease; }
         .tool-market-card.is-actionable { border-color:rgba(52,211,153,.45); background:linear-gradient(135deg,rgba(16,185,129,.1) 0%,rgba(2,6,23,.45) 100%); box-shadow:0 0 16px rgba(16,185,129,.08), inset 0 0 0 1px rgba(52,211,153,.12); }
@@ -841,6 +842,17 @@
         .tool-market-warning { color:#fbbf24 !important; }
         .tool-market-message { min-height:18px; color:#93c5fd; font-size:12px; }
         .tool-market-empty { padding:35px 15px; text-align:center; color:#94a3b8; }
+        /* 复用“比对”弹窗的加载卡片，按市场弹窗的深色主题着色 */
+        .tool-market-list .builtin-sync-loading { grid-column:1 / -1; }
+        .tool-market-list .builtin-sync-skeleton-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+        .tool-market-list .builtin-sync-loading-card { background:linear-gradient(135deg,#1e293b,#172033); border-color:#334155; }
+        .tool-market-list .builtin-sync-loading-title { color:#f1f5f9; }
+        .tool-market-list .builtin-sync-loading-percent { color:#a5b4fc; }
+        .tool-market-list .builtin-sync-loading-detail { color:#94a3b8; }
+        .tool-market-list .builtin-sync-loading-bar { background:#334155; }
+        .tool-market-list .builtin-sync-spinner { border-color:rgba(165,180,252,.2); border-top-color:#818cf8; }
+        .tool-market-list .builtin-sync-skeleton-card { background:linear-gradient(90deg,rgba(30,41,59,.6) 25%,rgba(51,65,85,.85) 50%,rgba(30,41,59,.6) 75%); background-size:200% 100%; border-color:#334155; }
+        @media (max-width:900px) { .tool-market-list .builtin-sync-skeleton-list { grid-template-columns:1fr; } }
         .tool-market-head-actions { display:flex; align-items:center; gap:8px; }
         .tool-market-settings { display:none; padding:14px; border-bottom:1px solid rgba(148,163,184,.2); }
         .tool-market-settings.open { display:block; max-height:45vh; overflow:auto; }
@@ -3569,6 +3581,7 @@
                     source_error: text(`${source}：读取失败：${event.error}`, `${source}: failed: ${event.error}`),
                     catalogs_merged: text(`已合并 ${event.sourceCount || 0} 个仓库，共 ${count} 个不重复工具`, `Merged ${event.sourceCount || 0} sources; ${count} unique tools`),
                     tools_comparing: text(`正在对比 ${count} 个工具与本地目录`, `Comparing ${count} tools with local directories`),
+                    tool_compared: text(`已比对 ${event.current}/${event.total}：${event.name || slug}`, `Compared ${event.current}/${event.total}: ${event.name || slug}`),
                     preview_done: text(`目录对比完成，共 ${count} 个工具`, `Catalog comparison complete; ${count} tools`),
                     apply_start: text(`开始处理 ${count} 个所选工具`, `Starting ${count} selected tools`),
                     bundled_installing: text(`正在安装 ${count} 个内置工具`, `Installing ${count} bundled tools`),
@@ -3584,7 +3597,7 @@
                 };
                 if (messages[event.stage]) appendLog(messages[event.stage]);
             };
-            const requestStream = async (path, body) => {
+            const requestStream = async (path, body, onProgress) => {
                 const token = localStorage.getItem('tools_token');
                 const response = await fetch(path, {
                     method: body ? 'POST' : 'GET',
@@ -3603,7 +3616,7 @@
                 const processLine = line => {
                     if (!line.trim()) return;
                     const event = JSON.parse(line);
-                    if (event.type === 'progress') logStage(event);
+                    if (event.type === 'progress') { logStage(event); onProgress?.(event); }
                     else if (event.type === 'result') result = event.data;
                     else if (event.type === 'error') throw new Error(event.error || text('工具市场请求失败', 'Tool market request failed'));
                 };
@@ -3793,17 +3806,99 @@
                 refreshButton.textContent = text('刷新', 'Refresh');
             };
 
+            // 目录加载进度：仓库读取占 0–45%（按各仓库所处阶段平均），本地比对占 45–100%（按已比对工具数）
+            const SOURCE_STAGE_WEIGHT = { source_start: .05, catalog_fetching: .15, catalog_received: .6, catalog_parsed: .75, catalog_validated: .9, catalog_cached: .9, source_done: 1, source_error: 1 };
+            const renderLoadingCard = () => {
+                list.innerHTML = `<div class="builtin-sync-loading">
+                    <div class="builtin-sync-loading-card">
+                        <div class="builtin-sync-loading-head">
+                            <div class="builtin-sync-spinner" aria-hidden="true"></div>
+                            <div class="builtin-sync-loading-title">${escapeHtml(text('正在加载工具市场目录…', 'Loading tool market catalog…'))}</div>
+                            <div class="builtin-sync-loading-percent">0%</div>
+                        </div>
+                        <div class="builtin-sync-loading-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
+                        <div class="builtin-sync-loading-detail">${escapeHtml(text('正在读取仓库设置…', 'Reading source settings…'))}</div>
+                    </div>
+                    <div class="builtin-sync-skeleton-list" aria-hidden="true">
+                        <div class="builtin-sync-skeleton-card"></div><div class="builtin-sync-skeleton-card"></div>
+                        <div class="builtin-sync-skeleton-card"></div><div class="builtin-sync-skeleton-card"></div>
+                    </div>
+                </div>`;
+            };
+            const createLoadTracker = () => {
+                const sources = new Map();
+                let sourceCount = 0;
+                let percent = 0;
+                return event => {
+                    let title = null;
+                    let detail = null;
+                    if (event.stage === 'sources_ready') {
+                        sourceCount = Number(event.count) || 0;
+                        detail = text(`已启用 ${sourceCount} 个仓库`, `${sourceCount} sources enabled`);
+                    } else if (event.stage in SOURCE_STAGE_WEIGHT) {
+                        const name = event.sourceName || '';
+                        sources.set(name, Math.max(sources.get(name) || 0, SOURCE_STAGE_WEIGHT[event.stage]));
+                        const done = [...sources.values()].filter(value => value >= 1).length;
+                        const total = Math.max(sourceCount, sources.size, 1);
+                        const sum = [...sources.values()].reduce((acc, value) => acc + value, 0);
+                        percent = Math.max(percent, sum / total * 45);
+                        title = text(`正在读取仓库目录 · ${done}/${total}`, `Reading source catalogs · ${done}/${total}`);
+                        detail = {
+                            source_start: text(`${name}：开始连接`, `${name}: connecting`),
+                            catalog_fetching: text(`${name}：正在获取 catalog.json`, `${name}: fetching catalog.json`),
+                            catalog_received: text(`${name}：已下载目录（${size(event.bytes)}）`, `${name}: catalog downloaded (${size(event.bytes)})`),
+                            catalog_parsed: text(`${name}：正在校验 ${event.count || 0} 条工具记录`, `${name}: validating ${event.count || 0} tool records`),
+                            catalog_validated: text(`${name}：目录校验通过`, `${name}: catalog validated`),
+                            catalog_cached: text(`${name}：使用缓存目录`, `${name}: using cached catalog`),
+                            source_done: text(`${name}：读取完成`, `${name}: ready`),
+                            source_error: text(`${name}：读取失败`, `${name}: failed`)
+                        }[event.stage];
+                    } else if (event.stage === 'catalogs_merged') {
+                        percent = Math.max(percent, 45);
+                        detail = text(`已合并 ${event.count || 0} 个工具`, `Merged ${event.count || 0} tools`);
+                    } else if (event.stage === 'tools_comparing') {
+                        percent = Math.max(percent, 45);
+                        title = text(`正在比对本地工具 · 0/${event.count || 0}`, `Comparing local tools · 0/${event.count || 0}`);
+                    } else if (event.stage === 'tool_compared') {
+                        const total = Math.max(1, Number(event.total) || 1);
+                        const current = Math.min(total, Number(event.current) || 0);
+                        percent = Math.max(percent, 45 + current / total * 55);
+                        title = text(`正在比对本地工具 · ${current}/${total}`, `Comparing local tools · ${current}/${total}`);
+                        detail = text(`正在检查：${event.name || event.slug}`, `Checking: ${event.name || event.slug}`);
+                    } else if (event.stage === 'preview_done') {
+                        percent = 100;
+                        title = text('目录加载完成', 'Catalog loaded');
+                    } else {
+                        return;
+                    }
+                    const rounded = Math.round(percent);
+                    const titleEl = list.querySelector('.builtin-sync-loading-title');
+                    const percentEl = list.querySelector('.builtin-sync-loading-percent');
+                    const barEl = list.querySelector('.builtin-sync-loading-bar');
+                    const fillEl = list.querySelector('.builtin-sync-loading-bar i');
+                    const detailEl = list.querySelector('.builtin-sync-loading-detail');
+                    if (title && titleEl) titleEl.textContent = title;
+                    if (percentEl) percentEl.textContent = `${rounded}%`;
+                    if (barEl) barEl.setAttribute('aria-valuenow', String(rounded));
+                    if (fillEl) fillEl.style.transform = `scaleX(${percent / 100})`;
+                    if (detail && detailEl) detailEl.textContent = detail;
+                    if (detail) message.textContent = `${rounded}% · ${detail}`;
+                };
+            };
+
             const load = async force => {
                 if (loading) return;
                 resetProgress();
                 appendLog(text('开始刷新工具市场目录', 'Refreshing tool market catalog'));
                 loading = true;
                 message.textContent = text('正在加载最新工具目录…', 'Loading the latest catalog…');
-                list.innerHTML = `<div class="tool-market-empty">${message.textContent}</div>`;
+                summary.textContent = message.textContent;
+                trust.textContent = '';
+                renderLoadingCard();
                 applyButton.disabled = true;
                 refreshButton.disabled = true;
                 try {
-                    const data = await requestStream(`/api/custom-tools/market/preview-stream${force ? '?refresh=1' : ''}`);
+                    const data = await requestStream(`/api/custom-tools/market/preview-stream${force ? '?refresh=1' : ''}`, null, createLoadTracker());
                     render(data);
                 } catch (error) {
                     appendLog(text(`目录加载失败：${error.message}`, `Catalog load failed: ${error.message}`));
