@@ -91,6 +91,13 @@ async function createSchema(connection) {
         payload_json TEXT NOT NULL, created_at TEXT NOT NULL, created_by TEXT NOT NULL DEFAULT ''
     )`);
     await run(connection, 'CREATE INDEX IF NOT EXISTS idx_dk_revisions_article ON dk_article_revisions(article_id, revision)');
+    await run(connection, `CREATE TABLE IF NOT EXISTS dk_preferences (
+        user_key TEXT PRIMARY KEY,
+        nav_width INTEGER NOT NULL DEFAULT 290,
+        nav_collapsed INTEGER NOT NULL DEFAULT 0,
+        payload_json TEXT NOT NULL DEFAULT '{}',
+        updated_at TEXT NOT NULL
+    )`);
 }
 
 // 种子升级：新增的分类/文章补齐；从未被人工编辑过的种子文章随新版本刷新；
@@ -592,6 +599,59 @@ function parseImport(files) {
     return drafts;
 }
 
+async function getUserPreference(username) {
+    const connection = await readyConnection();
+    const key = (username || 'default').trim().toLowerCase() || 'default';
+    let row = await get(connection, 'SELECT nav_width, nav_collapsed, payload_json, updated_at FROM dk_preferences WHERE user_key = ?', [key]);
+    if (!row && key !== 'default') {
+        row = await get(connection, 'SELECT nav_width, nav_collapsed, payload_json, updated_at FROM dk_preferences WHERE user_key = ?', ['default']);
+    }
+    if (!row) {
+        return { navWidth: 290, navCollapsed: false, payload: {}, updatedAt: null };
+    }
+    return {
+        navWidth: Number(row.nav_width) || 290,
+        navCollapsed: Boolean(row.nav_collapsed),
+        payload: parseJson(row.payload_json, {}),
+        updatedAt: row.updated_at
+    };
+}
+
+async function saveUserPreference(username, preference = {}) {
+    const connection = await readyConnection();
+    const key = (username || 'default').trim().toLowerCase() || 'default';
+    let navWidth = Number(preference.navWidth);
+    if (!Number.isFinite(navWidth) || navWidth < 180 || navWidth > 1200) {
+        navWidth = 290;
+    }
+    navWidth = Math.round(navWidth);
+    const navCollapsed = preference.navCollapsed ? 1 : 0;
+    const payload = preference.payload && typeof preference.payload === 'object' && !Array.isArray(preference.payload)
+        ? preference.payload
+        : {};
+    const stamp = nowIso();
+
+    await transaction(connection, async () => {
+        await run(connection, `INSERT INTO dk_preferences (user_key, nav_width, nav_collapsed, payload_json, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_key) DO UPDATE SET
+                nav_width = excluded.nav_width,
+                nav_collapsed = excluded.nav_collapsed,
+                payload_json = excluded.payload_json,
+                updated_at = excluded.updated_at`,
+            [key, navWidth, navCollapsed, JSON.stringify(payload), stamp]);
+    });
+    await checkpoint(connection);
+    return {
+        preference: {
+            navWidth,
+            navCollapsed: Boolean(navCollapsed),
+            payload,
+            updatedAt: stamp
+        }
+    };
+}
+
 module.exports = {
     DB_FILENAME,
     SEED_VERSION: SEED.version,
@@ -601,12 +661,14 @@ module.exports = {
     deleteOutline,
     getArticle,
     getRevision,
+    getUserPreference,
     listRevisions,
     loadCatalog,
     parseImport,
     saveCategory,
     saveDomain,
     saveOutline,
+    saveUserPreference,
     search,
     updateArticle,
     // 同库的其他模块（AI 问答与笔记）复用连接、串行事务与 WAL 合并

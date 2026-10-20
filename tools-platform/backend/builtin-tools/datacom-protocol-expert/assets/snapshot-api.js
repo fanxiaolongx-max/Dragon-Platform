@@ -13,9 +13,19 @@ export function createSnapshotApi(snapshot, fetchData = globalThis.fetch) {
         }
         return pending;
     }
-    return async (path = '', { method = 'GET' } = {}) => {
-        if (method.toUpperCase() !== 'GET') throw fail('只读快照，请返回平台修改知识库', 403, 'READ_ONLY_SNAPSHOT');
+    return async (path = '', { method = 'GET', body } = {}) => {
         const url = new URL(path || '/', 'https://snapshot.invalid');
+        if (url.pathname === '/preference') {
+            return {
+                preference: {
+                    navWidth: Number(body?.navWidth) || 290,
+                    navCollapsed: Boolean(body?.navCollapsed),
+                    payload: {},
+                    updatedAt: null
+                }
+            };
+        }
+        if (method.toUpperCase() !== 'GET') throw fail('只读快照，请返回平台修改知识库', 403, 'READ_ONLY_SNAPSHOT');
         const data = await load();
         if (url.pathname === '/') {
             return {

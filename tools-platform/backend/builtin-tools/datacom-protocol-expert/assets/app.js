@@ -881,30 +881,95 @@ async function reloadCatalog() {
     state.tenantId = data.tenantId;
     state.username = data.username;
     state.databaseFile = data.databaseFile;
+    if (data.preference) {
+        applyServerPreference(data.preference);
+    }
     renderSidebar();
 }
 
 // ---------- 左侧目录：拖动调宽，拖过最小宽度自动收起 ----------
 const NAV_WIDTH_KEY = 'dk_nav_width';
 const NAV_COLLAPSED_KEY = 'dk_nav_collapsed';
+const NAV_UPDATED_AT_KEY = 'dk_nav_updated_at';
 const NAV_MIN = 200;
 const NAV_COLLAPSE_AT = 140;
-const navMax = () => Math.max(NAV_MIN, Math.min(560, Math.round(window.innerWidth * 0.45)));
+const navMax = () => Math.max(NAV_MIN, Math.min(600, Math.round(window.innerWidth * 0.5)));
+let savedNavWidth = 290;
 let navWidth = 290;
 let snapTimer = 0;
+let syncPrefTimer = 0;
 
-function setNavWidth(width, persist = true) {
-    navWidth = Math.round(Math.max(NAV_MIN, Math.min(navMax(), width)));
-    document.documentElement.style.setProperty('--nav-w', `${navWidth}px`);
-    if (persist) localStorageSet(NAV_WIDTH_KEY, String(navWidth));
+function syncPreferenceToServer(width, collapsed) {
+    if (snapshotApi) return;
+    clearTimeout(syncPrefTimer);
+    syncPrefTimer = setTimeout(async () => {
+        try {
+            await api('/preference', {
+                method: 'PUT',
+                body: {
+                    tenantId: state.tenantId,
+                    navWidth: width !== undefined ? width : savedNavWidth,
+                    navCollapsed: collapsed !== undefined ? collapsed : document.body.classList.contains('is-nav-collapsed')
+                }
+            });
+        } catch (err) {
+            console.warn('[dk-preference] 同步偏好至服务端失败:', err);
+        }
+    }, 280);
 }
 
-function setNavCollapsed(collapsed, persist = true) {
+function applyServerPreference(serverPref) {
+    if (!serverPref || typeof serverPref !== 'object') return;
+    const sWidth = Number(serverPref.navWidth);
+    const sCollapsed = Boolean(serverPref.navCollapsed);
+    const sUpdated = serverPref.updatedAt ? new Date(serverPref.updatedAt).getTime() : 0;
+
+    const localWidthRaw = localStorageGet(NAV_WIDTH_KEY);
+    const localUpdatedRaw = localStorageGet(NAV_UPDATED_AT_KEY);
+    const localUpdated = localUpdatedRaw ? new Date(localUpdatedRaw).getTime() : 0;
+    const hasLocal = localWidthRaw !== null && localWidthRaw !== undefined && localWidthRaw !== '';
+
+    // 1. 本地无记录（首次访问 / 换浏览器 / 隐身窗口 / 清空缓存），或服务端更新时间晚于本地
+    if (!hasLocal || (sUpdated && (!localUpdated || sUpdated > localUpdated))) {
+        if (sWidth && sWidth >= NAV_MIN && sWidth <= 900) {
+            savedNavWidth = sWidth;
+            setNavWidth(sWidth, true, false);
+        }
+        setNavCollapsed(sCollapsed, true, false);
+        if (sUpdated) localStorageSet(NAV_UPDATED_AT_KEY, new Date(sUpdated).toISOString());
+        return;
+    }
+
+    // 2. 本地有调整且比服务端更新，反向同步至服务器
+    if (hasLocal && (!sUpdated || (localUpdated && localUpdated > sUpdated))) {
+        syncPreferenceToServer(savedNavWidth, document.body.classList.contains('is-nav-collapsed'));
+    }
+}
+
+function setNavWidth(width, persist = true, syncServer = false) {
+    const target = Math.round(Math.max(NAV_MIN, Math.min(navMax(), width)));
+    navWidth = target;
+    document.documentElement.style.setProperty('--nav-w', `${navWidth}px`);
+    if (persist) {
+        savedNavWidth = target;
+        const stamp = new Date().toISOString();
+        localStorageSet(NAV_WIDTH_KEY, String(savedNavWidth));
+        localStorageSet(NAV_UPDATED_AT_KEY, stamp);
+        if (syncServer) syncPreferenceToServer(savedNavWidth);
+    }
+}
+
+function setNavCollapsed(collapsed, persist = true, syncServer = false) {
     document.body.classList.toggle('is-nav-collapsed', collapsed);
     const label = collapsed ? '展开目录' : '收起目录';
     for (const button of [$('#navCollapse'), $('#navToggle')]) { button?.setAttribute('aria-label', label); button?.setAttribute('title', label); }
     $('#navResize')?.setAttribute('aria-expanded', String(!collapsed));
-    if (persist) localStorageSet(NAV_COLLAPSED_KEY, collapsed ? '1' : '0');
+    if (persist) {
+        const stamp = new Date().toISOString();
+        localStorageSet(NAV_COLLAPSED_KEY, collapsed ? '1' : '0');
+        localStorageSet(NAV_UPDATED_AT_KEY, stamp);
+        if (syncServer) syncPreferenceToServer(undefined, collapsed);
+    }
 }
 
 // 拖动中跨过收起阈值时，短暂恢复过渡，让收起/展开同样平滑。
@@ -917,22 +982,24 @@ function snapNav() {
 function bindSidebarResize() {
     const handle = $('#navResize');
     if (!handle) return;
-    setNavWidth(Number(localStorageGet(NAV_WIDTH_KEY)) || 290, false);
-    setNavCollapsed(localStorageGet(NAV_COLLAPSED_KEY) === '1', false);
+    const initialLocalWidth = Number(localStorageGet(NAV_WIDTH_KEY));
+    savedNavWidth = initialLocalWidth && initialLocalWidth >= NAV_MIN ? initialLocalWidth : 290;
+    setNavWidth(savedNavWidth, false, false);
+    setNavCollapsed(localStorageGet(NAV_COLLAPSED_KEY) === '1', false, false);
     // 画布类视图（思维导图）只监听窗口尺寸，布局过渡结束后补发一次。
     $('.dk-layout').addEventListener('transitionend', event => { if (event.propertyName === 'grid-template-columns') window.dispatchEvent(new Event('resize')); });
-    $('#navCollapse').addEventListener('click', event => { event.stopPropagation(); setNavCollapsed(!document.body.classList.contains('is-nav-collapsed')); });
+    $('#navCollapse').addEventListener('click', event => { event.stopPropagation(); setNavCollapsed(!document.body.classList.contains('is-nav-collapsed'), true, true); });
     $('#navCollapse').addEventListener('pointerdown', event => event.stopPropagation());
-    handle.addEventListener('dblclick', event => { if (!event.target.closest('#navCollapse')) setNavCollapsed(!document.body.classList.contains('is-nav-collapsed')); });
+    handle.addEventListener('dblclick', event => { if (!event.target.closest('#navCollapse')) setNavCollapsed(!document.body.classList.contains('is-nav-collapsed'), true, true); });
     handle.addEventListener('keydown', event => {
         if (event.target !== handle) return;
-        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setNavCollapsed(!document.body.classList.contains('is-nav-collapsed')); }
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setNavCollapsed(!document.body.classList.contains('is-nav-collapsed'), true, true); }
         else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
             event.preventDefault();
             const step = event.key === 'ArrowLeft' ? -24 : 24;
-            if (document.body.classList.contains('is-nav-collapsed')) { if (step > 0) setNavCollapsed(false); }
-            else if (step < 0 && navWidth <= NAV_MIN) setNavCollapsed(true);
-            else setNavWidth(navWidth + step);
+            if (document.body.classList.contains('is-nav-collapsed')) { if (step > 0) setNavCollapsed(false, true, true); }
+            else if (step < 0 && navWidth <= NAV_MIN) setNavCollapsed(true, true, true);
+            else setNavWidth(navWidth + step, true, true);
         }
     });
     handle.addEventListener('pointerdown', event => {
@@ -949,13 +1016,13 @@ function bindSidebarResize() {
             const wanted = x - left;
             if (body.classList.contains('is-nav-collapsed')) {
                 // 收起状态下向右拖过阈值即展开，展开宽度跟随指针
-                if (wanted > NAV_COLLAPSE_AT + 20) { setNavWidth(wanted, false); setNavCollapsed(false, false); snapNav(); }
+                if (wanted > NAV_COLLAPSE_AT + 20) { setNavWidth(wanted, false, false); setNavCollapsed(false, false, false); snapNav(); }
                 return;
             }
             if (wanted < NAV_COLLAPSE_AT) {
                 body.classList.remove('is-nav-will-collapse');
-                setNavWidth(before, false);
-                setNavCollapsed(true, false);
+                setNavWidth(before, false, false);
+                setNavCollapsed(true, false, false);
                 snapNav();
                 return;
             }
@@ -963,7 +1030,7 @@ function bindSidebarResize() {
             const below = wanted < NAV_MIN;
             body.classList.toggle('is-nav-will-collapse', below);
             if (below) { navWidth = NAV_MIN; document.documentElement.style.setProperty('--nav-w', `${Math.round(NAV_MIN - (NAV_MIN - wanted) * 0.35)}px`); }
-            else setNavWidth(wanted, false);
+            else setNavWidth(wanted, false, false);
         };
         const move = moveEvent => { x = moveEvent.clientX; if (!frame) frame = requestAnimationFrame(apply); };
         const up = () => {
@@ -973,15 +1040,24 @@ function bindSidebarResize() {
             document.removeEventListener('pointercancel', up);
             const springBack = body.classList.contains('is-nav-will-collapse');
             body.classList.remove('is-nav-resizing', 'is-nav-will-collapse', 'is-nav-snapping');
-            setNavWidth(navWidth);   // 阻尼区松手时平滑回弹到最小宽度
-            setNavCollapsed(body.classList.contains('is-nav-collapsed'));
+            setNavWidth(navWidth, true, true);   // 阻尼区松手时平滑回弹到最小宽度，持久化本地并同步服务器
+            setNavCollapsed(body.classList.contains('is-nav-collapsed'), true, true);
             if (!springBack) window.dispatchEvent(new Event('resize'));
         };
         document.addEventListener('pointermove', move);
         document.addEventListener('pointerup', up);
         document.addEventListener('pointercancel', up);
     });
-    window.addEventListener('resize', () => { if (navWidth > navMax()) setNavWidth(navMax(), false); });
+    window.addEventListener('resize', () => {
+        const max = navMax();
+        if (navWidth > max) {
+            navWidth = max;
+            document.documentElement.style.setProperty('--nav-w', `${navWidth}px`);
+        } else if (navWidth < savedNavWidth && savedNavWidth <= max) {
+            navWidth = savedNavWidth;
+            document.documentElement.style.setProperty('--nav-w', `${navWidth}px`);
+        }
+    });
 }
 
 function bindGlobalEvents() {
@@ -1002,7 +1078,7 @@ function bindGlobalEvents() {
     else systemThemeMedia?.addListener?.(followSystemTheme);
     $('#navToggle').addEventListener('click', () => {
         if (window.innerWidth <= 860) document.body.classList.toggle('is-nav-open');
-        else setNavCollapsed(!document.body.classList.contains('is-nav-collapsed'));
+        else setNavCollapsed(!document.body.classList.contains('is-nav-collapsed'), true, true);
     });
     bindSidebarResize();
     $('#searchInput').addEventListener('input', event => {

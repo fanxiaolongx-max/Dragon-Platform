@@ -94,6 +94,7 @@ const FALLBACK_NAV_LAYOUT = Object.freeze({
         praudit: 'audit',
         storage: 'system',
         'db-explorer': 'system',
+        'topic-analysis': 'cat_mshv1h0m',
         'custom:eos_tool-v2': 'cat_mq0nny3v',
         'custom:eos': 'cat_mq0nny3v',
         'custom:eos_tool-v4': 'cat_mq0nny3v',

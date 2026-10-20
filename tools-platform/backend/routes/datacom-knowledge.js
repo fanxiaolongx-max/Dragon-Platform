@@ -28,14 +28,28 @@ function assertCurrentTenant(expectedTenant) {
 const actorOf = req => req.user?.username || 'admin';
 
 router.get('/', route(async (req, res) => {
+    const username = req.user?.username || '';
+    const preference = await repo.getUserPreference(username);
     res.json({
         ...(await repo.loadCatalog()),
         tenantId: getTenantId(),
         canWrite: req.user?.role === 'admin',
-        username: req.user?.username || '',
+        username,
         databaseFile: repo.DB_FILENAME,
-        seedVersion: repo.SEED_VERSION
+        seedVersion: repo.SEED_VERSION,
+        preference
     });
+}));
+
+router.get('/preference', route(async (req, res) => {
+    const preference = await repo.getUserPreference(req.user?.username);
+    res.json({ preference });
+}));
+
+router.put('/preference', route(async (req, res) => {
+    assertCurrentTenant(req.body?.tenantId);
+    const result = await repo.saveUserPreference(req.user?.username, req.body);
+    res.json({ success: true, ...result });
 }));
 
 router.get('/search', route(async (req, res) => {

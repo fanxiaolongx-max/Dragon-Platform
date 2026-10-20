@@ -415,7 +415,8 @@ app.use('/api', (req, res, next) => {
     if (req.method === 'POST' && req.path === '/platform-metrics/open') return next(); // 登录用户记录工具打开量
     if (req.method === 'POST' && req.path === '/recent-nav') return next(); // 登录用户维护自己的最近使用
     if ((req.method === 'POST' && req.path === '/datacom-knowledge/ai/ask') ||
-        (['PUT', 'DELETE'].includes(req.method) && /^\/datacom-knowledge\/annotations\/[^/]+$/.test(req.path))) return next(); // 登录用户可向 AI 提问、记笔记；路由内校验归属，改写原文仍需管理员
+        (req.method === 'PUT' && req.path === '/datacom-knowledge/preference') ||
+        (['PUT', 'DELETE'].includes(req.method) && /^\/datacom-knowledge\/annotations\/[^/]+$/.test(req.path))) return next(); // 登录用户可向 AI 提问、记笔记、保存偏好；路由内校验归属，改写原文仍需管理员
     if (req.method === 'POST' && req.path === '/desktop-pet/language') return next(); // 路由内限制本机登录用户
     if (req.method === 'POST' && req.path === '/ai/proactive-alert-message') return next(); // 只读 KPI 提醒文案，不修改业务数据
     if (req.method === 'POST' && req.path === '/ai/chat') return next(); // 登录用户都可对话；工作区内非管理员只拿到只读工具（路由与 agent-run-manager 内校验）

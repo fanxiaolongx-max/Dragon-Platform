@@ -221,3 +221,39 @@ test('editing an AI-curated summary drops only that AI marker; v1 databases gain
     assert.deepEqual(fsm.aiFields, ['keyPoints', 'visuals'], '人工改过的摘要不再标记为 AI');
     assert.equal(migrated.body.outline.length, seed.outline.length);
 });
+
+test('sidebar preference: default, update, per-user isolation and non-admin write support', async () => {
+    // 1. 默认偏好
+    const initRes = await api('get', `${endpoint}/preference`, 'dk-admin').expect(200);
+    assert.deepEqual(initRes.body.preference, { navWidth: 290, navCollapsed: false, payload: {}, updatedAt: null });
+
+    // 2. 普通用户 (非管理员 viewer) 也可保存偏好
+    const saveViewer = await api('put', `${endpoint}/preference`, 'dk-viewer')
+        .send({ navWidth: 380, navCollapsed: true })
+        .expect(200);
+    assert.equal(saveViewer.body.success, true);
+    assert.equal(saveViewer.body.preference.navWidth, 380);
+    assert.equal(saveViewer.body.preference.navCollapsed, true);
+
+    // 3. 管理员用户独立保存偏好
+    const saveAdmin = await api('put', `${endpoint}/preference`, 'dk-admin')
+        .send({ navWidth: 460, navCollapsed: false })
+        .expect(200);
+    assert.equal(saveAdmin.body.preference.navWidth, 460);
+    assert.equal(saveAdmin.body.preference.navCollapsed, false);
+
+    // 4. 用户隔离验证：viewer 读到 380，admin 读到 460
+    const viewerGet = await api('get', `${endpoint}/preference`, 'dk-viewer').expect(200);
+    assert.equal(viewerGet.body.preference.navWidth, 380);
+    assert.equal(viewerGet.body.preference.navCollapsed, true);
+
+    const adminCatalog = await api('get', endpoint, 'dk-admin').expect(200);
+    assert.equal(adminCatalog.body.preference.navWidth, 460);
+    assert.equal(adminCatalog.body.preference.navCollapsed, false);
+
+    // 5. 异常宽度自动安全钳制
+    const clampRes = await api('put', `${endpoint}/preference`, 'dk-admin')
+        .send({ navWidth: 'invalid-or-negative' })
+        .expect(200);
+    assert.equal(clampRes.body.preference.navWidth, 290);
+});

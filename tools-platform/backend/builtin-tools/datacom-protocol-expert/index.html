@@ -13,6 +13,12 @@
                 try { dark = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches === true; } catch (e) {}
             }
             document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+            try {
+                var w = parseInt(localStorage.getItem('dk_nav_width'), 10);
+                if (w && w >= 200 && w <= 900) {
+                    document.documentElement.style.setProperty('--nav-w', w + 'px');
+                }
+            } catch (e) {}
         })();
     </script>
     <link rel="stylesheet" href="./assets/app.css">

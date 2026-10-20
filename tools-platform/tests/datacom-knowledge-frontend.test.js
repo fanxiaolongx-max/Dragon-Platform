@@ -78,3 +78,13 @@ test('mermaid state diagram labels with extra colons are normalized', async () =
     assert.match(fixed, /Down --> Attempt : Event： Start/);
     assert.equal(normalizeMermaid('flowchart TD\n A -->|"x: y"| B'), 'flowchart TD\n A -->|"x: y"| B');
 });
+
+test('snapshotApi handles /preference without throwing and returns defaults', async () => {
+    const { createSnapshotApi } = await load('snapshot-api.js');
+    const api = createSnapshotApi({ data: { domains: [], categories: [], articles: [], learningPath: [] } });
+    const getRes = await api('/preference');
+    assert.deepEqual(getRes.preference, { navWidth: 290, navCollapsed: false, payload: {}, updatedAt: null });
+    const putRes = await api('/preference', { method: 'PUT', body: { navWidth: 420, navCollapsed: true } });
+    assert.equal(putRes.preference.navWidth, 420);
+    assert.equal(putRes.preference.navCollapsed, true);
+});
