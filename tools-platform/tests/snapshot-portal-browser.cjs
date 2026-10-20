@@ -51,11 +51,31 @@ app.whenReady().then(async () => {
     await until(() => document.querySelectorAll('[data-custom-tool-card]').length === 3);
     await until(() => !!document.querySelector('#nrvStack'));
     assert.equal(await evaluate(() => !!document.getElementById('homeSidebar') && !!document.getElementById('statsBar') && !!document.getElementById('homePromotions')), true);
+    assert.equal(await evaluate(() => document.querySelector('#dcDatacomPromo .dc-feature-new')?.textContent), 'NEW');
+    if (process.env.PORTAL_CHAT_SCREENSHOT) {
+        await new Promise(resolve => setTimeout(resolve, 3200));
+        fs.writeFileSync(process.env.PORTAL_CHAT_SCREENSHOT, (await win.webContents.capturePage()).toPNG());
+        win.setSize(390, 844);
+        await new Promise(resolve => setTimeout(resolve, 150));
+        assert.equal(await evaluate(() => { const a = document.getElementById('dcDatacomPromo'); return a.scrollWidth <= a.clientWidth + 1 && a.getBoundingClientRect().right <= innerWidth; }), true);
+        assert.equal(await evaluate(() => { const a = document.getElementById('dcDatacomPromo'), r = a.getBoundingClientRect(); return a.contains(document.elementFromPoint(r.right - 10, r.top + r.height / 2)); }), true, 'mobile video widget must not cover the promotion link');
+        fs.writeFileSync(process.env.PORTAL_CHAT_SCREENSHOT.replace('.png', '-mobile.png'), (await win.webContents.capturePage()).toPNG());
+        await evaluate(() => document.body.classList.add('dc-chatting'));
+        assert.equal(await evaluate(() => document.getElementById('dcDatacomPromo').getBoundingClientRect().bottom <= document.querySelector('.dc-chat-head').getBoundingClientRect().top + 1), true, 'the link also fits above the active conversation toolbar');
+        await evaluate(() => document.body.classList.remove('dc-chatting'));
+        win.setSize(1440, 1000);
+    }
+    await evaluate(() => document.getElementById('dcDatacomPromo').click());
+    await until(() => !!document.querySelector('.dk-hero'));
+    assert.equal(new URL(win.webContents.getURL()).pathname, '/project/datacom-protocol-expert/index.html');
+    await win.loadURL(base + 'index.html');
+    await until(() => document.querySelectorAll('[data-custom-tool-card]').length === 3);
     await evaluate(() => window.HomeMode.set('tools'));
     await evaluate(() => document.querySelector('[data-tool-slug="private-tool"]').click());
     await until(() => document.body.textContent.includes('无权限，请联系管理员添加'));
     assert.ok(['/project/', '/project/index.html'].includes(new URL(win.webContents.getURL()).pathname));
     await evaluate(() => window.ToolsI18n.setLanguage('en-US'));
+    await until(() => document.querySelector('#dcDatacomPromo strong')?.textContent === 'Datacom Protocol Expert');
     await until(() => document.querySelector('[data-tool-slug="demo-tool"]')?.textContent.includes('Published tool'));
     const video = await evaluate(() => [...document.querySelectorAll('#nrvStack video source')].map(v => v.src).filter(Boolean));
     assert.equal(await evaluate(() => [...document.querySelectorAll('#nrvStack video, #nrvDialog video')].every(v => !v.hasAttribute('src') && v.querySelector('source')?.type === 'video/mp4')), true);
