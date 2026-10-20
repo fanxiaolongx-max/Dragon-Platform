@@ -1,6 +1,6 @@
 {
   "name": "tools-platform",
-  "version": "1.0.448",
+  "version": "1.0.449",
   "description": "Tools Platform Desktop App",
   "repository": "github:fanxiaolongx-max/privacy-policy",
   "main": "electron-main.js",
@@ -42,7 +42,7 @@
       "backend/**/*",
       "frontend/**/*",
       "desktop-pet/**/*",
-    "desktop-promo/**/*",
+      "desktop-promo/**/*",
       "scripts/generate-custom-tool-i18n.js",
       "electron-main.js",
       "electron-preload.js",
