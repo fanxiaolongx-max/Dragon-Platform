@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const express = require('express');
+const { versionAssetUrls, fileHash } = require('../backend/models/asset-versioning');
 const root = path.join(__dirname, '..');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'datacom-video-overview-'));
 app.setPath('userData', path.join(temp, 'profile'));
@@ -23,6 +24,18 @@ async function until(fn) {
 }
 app.whenReady().then(async () => {
     const web = express();
+    const toolRoot = path.join(root, 'backend/builtin-tools/datacom-protocol-expert');
+    web.get('/warm-module-cache', (_, res) => res.type('html').send('<script type="module">import "/custom-tools/datacom-protocol-expert/assets/note-video.js"; window.oldModuleCached = true;</script>'));
+    // Reproduce an old browser/CDN cache entry that lacks the newly added export.
+    web.get('/custom-tools/datacom-protocol-expert/assets/note-video.js', (req, res) => {
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+        if (!req.query.v) return res.type('js').send('export function mountNoteVideo() {}');
+        res.sendFile(path.join(toolRoot, 'assets/note-video.js'));
+    });
+    web.get('/custom-tools/datacom-protocol-expert/index.html', (_, res) => {
+        res.setHeader('Cache-Control', 'no-store');
+        res.type('html').send(versionAssetUrls(fs.readFileSync(path.join(toolRoot, 'index.html'), 'utf8'), { publicDir: path.join(root, 'frontend'), baseDir: toolRoot }));
+    });
     web.get('/api/datacom-knowledge', (_, res) => res.json({ ...data, canWrite: false, tenantId: 'fixture', username: 'test' }));
     web.get('/api/datacom-knowledge/articles/:id', (req, res) => res.json({ article: data.articles.find(a => a.id === req.params.id) }));
     web.get('/api/datacom-knowledge/annotations', (_, res) => res.json({ annotations: [] }));
@@ -32,6 +45,8 @@ app.whenReady().then(async () => {
     session.defaultSession.webRequest.onBeforeRequest((details, callback) => { requests.push(details.url); callback({}); });
     nativeTheme.themeSource = 'dark';
     win = new BrowserWindow({ show: false, width: 1720, height: 1100, webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
+    await win.loadURL(`http://127.0.0.1:${server.address().port}/warm-module-cache`);
+    await until(() => window.oldModuleCached === true);
     await win.loadURL(`http://127.0.0.1:${server.address().port}/custom-tools/datacom-protocol-expert/index.html`);
     await until(() => document.querySelectorAll('[data-video-id]').length === 5 && !!document.querySelector('#homeVideos video'));
     await wait(300);
@@ -39,6 +54,8 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate(() => !!document.querySelector('.dk-nav-link[href="#/a/ospf-lsa-handbook"] .dk-nav-video')), false);
     assert.equal(requests.filter(url => /\.mp4(?:\?|$)/.test(url)).length, 0, 'overview must not preload video data');
     assert.equal(requests.filter(url => url.includes('/manifest.json')).length, 1, 'directory and overview must share their manifest');
+    const hash = fileHash(path.join(toolRoot, 'assets/note-video.js'));
+    assert.ok(requests.some(url => url.endsWith(`/assets/note-video.js?v=${hash}`)), 'current video module loads through its content version despite the stale unversioned cache entry');
     assert.equal(await evaluate(() => document.querySelector('#homeVideos').textContent.includes('1:60')), false);
     const position = await evaluate(() => {
         const content = document.querySelector('.dk-home-content').getBoundingClientRect();

@@ -67,6 +67,55 @@ test('content hash changes when the file changes', t => {
     assert.notEqual(fileHash(file), before);
 });
 
+function importMap(html) {
+    return JSON.parse(/<script type="importmap">([\s\S]*?)<\/script>/.exec(html)[1]).imports;
+}
+
+test('module dependency maps version nested imports, re-exports, dynamic imports and cycles by content', t => {
+    const dir = makeSandbox(t);
+    const baseDir = path.join(dir, 'pages');
+    fs.mkdirSync(path.join(baseDir, 'nested'));
+    fs.writeFileSync(path.join(baseDir, 'entry.js'), "import './nested/child.js'; export * from './shared.js'; import('./lazy.js');");
+    fs.writeFileSync(path.join(baseDir, 'nested/child.js'), "import '../shared.js'; import '../entry.js';");
+    fs.writeFileSync(path.join(baseDir, 'shared.js'), 'export const version = 1;');
+    fs.writeFileSync(path.join(baseDir, 'lazy.js'), "export { version } from './shared.js';");
+    const html = '<script type="module" src="./entry.js"></script>';
+    const served = versionAssetUrls(html, { publicDir: dir, baseDir });
+    const map = importMap(served);
+    for (const name of ['nested/child.js', 'shared.js', 'lazy.js']) {
+        assert.equal(map['./' + name], `./${name}?v=${fileHash(path.join(baseDir, name))}`);
+    }
+    assert.ok(served.indexOf('type="importmap"') < served.indexOf('type="module"'));
+    const entryHash = fileHash(path.join(baseDir, 'entry.js'));
+    fs.writeFileSync(path.join(baseDir, 'shared.js'), 'export const version = "new release";');
+    const after = versionAssetUrls(html, { publicDir: dir, baseDir });
+    assert.equal(fileHash(path.join(baseDir, 'entry.js')), entryHash, 'entry did not change');
+    assert.notEqual(importMap(after)['./shared.js'], map['./shared.js'], 'updated dependency gets a new URL even when its parents stay unchanged');
+});
+
+test('dependency maps preserve authored import maps and leave external, bare, missing and out-of-root imports alone', t => {
+    const dir = makeSandbox(t);
+    const baseDir = path.join(dir, 'pages');
+    fs.writeFileSync(path.join(baseDir, 'entry.js'), "import 'bare-package'; import 'https://example.test/module.js'; import './missing.js'; import '../../outside.js'; import '/js/shared/navbar.js';");
+    const html = '<script src="./entry.js" type="module"></script>';
+    const map = importMap(versionAssetUrls(html, { publicDir: dir, baseDir }));
+    assert.deepEqual(Object.keys(map).filter(key => !key.includes('entry.js')), ['/js/shared/navbar.js']);
+    assert.equal(map['/js/shared/navbar.js'], `/js/shared/navbar.js?v=${fileHash(path.join(dir, 'js/shared/navbar.js'))}`);
+    const authored = '<script type="importmap">{"imports":{"bare-package":"/vendor.js"}}</script>' + html;
+    const served = versionAssetUrls(authored, { publicDir: dir, baseDir });
+    assert.equal((served.match(/type="importmap"/g) || []).length, 1);
+    assert.match(served, /"bare-package":"\/vendor.js"/);
+});
+
+test('datacom entry and its note video dependency are versioned together when served as a custom tool', () => {
+    const baseDir = path.join(root, 'backend/builtin-tools/datacom-protocol-expert');
+    const served = versionAssetUrls(fs.readFileSync(path.join(baseDir, 'index.html'), 'utf8'), { publicDir: path.join(root, 'frontend'), baseDir });
+    const map = importMap(served);
+    assert.equal(map['./assets/note-video.js'], './assets/note-video.js?v=' + fileHash(path.join(baseDir, 'assets/note-video.js')));
+    assert.ok(Object.keys(map).length > 15, 'transitive teaching and vendor modules are also covered');
+    assert.equal(versionAssetUrls(served, { publicDir: path.join(root, 'frontend'), baseDir }), served, 'serving twice does not duplicate the map');
+});
+
 test('frontend html middleware serves versioned pages and skips non-html paths', t => {
     const dir = makeSandbox(t);
     fs.writeFileSync(path.join(dir, 'pages/a.html'), '<script src="/js/shared/navbar.js"></script>');

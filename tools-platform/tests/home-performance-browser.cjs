@@ -8,7 +8,7 @@ const express = require('express');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'home-performance-'));
 app.setPath('userData', path.join(temp, 'profile'));
 const frontend = path.join(__dirname, '../frontend');
-const tools = [{ slug: 'fixture', name: '测试工具', nameEn: 'Fixture', icon: '🧰', description: 'Fixture tool', filePath: '/custom-tools/fixture/index.html', builtIn: true }];
+const tools = [{ slug: 'fixture', name: 'Python脚本更新器', nameEn: 'Python Script Updater', icon: '🧰', description: 'Fixture tool', filePath: '/custom-tools/fixture/index.html', builtIn: true }];
 let win, server, directoryRequests = 0, previewRequests = 0;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const evaluate = (fn, ...args) => win.webContents.executeJavaScript(`(${fn.toString()})(...${JSON.stringify(args)})`, true);
@@ -32,6 +32,7 @@ app.whenReady().then(async () => {
     });
     web.get('/api/custom-tools', async (_, res) => { directoryRequests++; await wait(180); res.json(tools); });
     web.get('/api/app-version', (_, res) => res.json({ version: 'fixture-1' }));
+    web.get('/api/builtin-promotion/status', (_, res) => res.json({ writable: true }));
     web.get('/api/auth/me', (_, res) => res.json({ username: 'fixture-admin', role: 'admin', tenantId: 'default' }));
     web.get('/api/tenants', (_, res) => res.json({ tenants: [{ id: 'default', name: '默认租户' }], activeTenantId: 'default' }));
     web.get('/api/custom-tools/builtin-sync/preview', (_, res) => { previewRequests++; res.json({ pending: [], tools: [] }); });
@@ -84,6 +85,38 @@ app.whenReady().then(async () => {
         return { paused, resumed };
     });
     assert.deepEqual(pause, { paused: 'paused', resumed: 'running' }, 'focus must pause and resume rotation');
+    await evaluate(() => document.querySelector('[data-home-mode="tools"]').click());
+    await wait(200);
+    for (const language of ['zh-CN', 'en-US']) {
+        await evaluate(lang => window.ToolsI18n.setLanguage(lang), language);
+        for (const width of [240, 300]) {
+            const layout = await evaluate(cardWidth => {
+                const card = document.querySelector('[data-tool-slug="fixture"]');
+                card.style.width = `${cardWidth}px`;
+                const actions = card.querySelector('.custom-tool-actions');
+                actions.querySelector('button').focus();
+                const buttons = [...actions.children].map(button => {
+                    const rect = button.getBoundingClientRect();
+                    return { x: rect.x, y: rect.y, right: rect.right, bottom: rect.bottom };
+                });
+                const title = card.querySelector('.card-title');
+                const range = document.createRange();
+                range.selectNodeContents(title);
+                const titleRight = Math.max(...[...range.getClientRects()].map(rect => rect.right));
+                return { buttons, titleRight, descTop: card.querySelector('.card-desc').getBoundingClientRect().top };
+            }, width);
+            assert.equal(layout.buttons.length, 4);
+            const [a, b, c, d] = layout.buttons;
+            assert.equal(a.y, b.y, 'first two actions share a row');
+            assert.equal(c.y, d.y, 'last two actions share a row');
+            assert.equal(a.x, c.x, 'two aligned columns');
+            assert.equal(b.x, d.x);
+            assert.ok(c.y > a.bottom && b.x > a.right, JSON.stringify(layout));
+            assert.ok(layout.titleRight <= a.x, 'title does not overlap actions');
+            assert.ok(layout.descTop >= d.bottom, 'description stays below actions');
+        }
+    }
+    await evaluate(() => { document.querySelector('[data-tool-slug="fixture"]').style.width = ''; });
     for (const [width, height, theme, lang] of [[1440, 1000, 'dark', 'zh-CN'], [390, 844, 'light', 'en-US']]) {
         nativeTheme.themeSource = theme;
         win.setSize(width, height);

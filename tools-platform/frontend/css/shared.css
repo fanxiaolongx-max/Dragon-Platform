@@ -4941,6 +4941,7 @@ body.service-status-open { overflow: hidden; }
 }
 
 .builtin-sync-window {
+    color-scheme: light;
     width: min(900px, 96vw);
     max-height: min(820px, 92vh);
     display: grid;
@@ -4974,7 +4975,7 @@ body.service-status-open { overflow: hidden; }
 
 .builtin-sync-head p {
     margin: 7px 0 0;
-    color: #64748b;
+    color: #52647a;
     font-size: 13px;
     line-height: 1.65;
 }
@@ -5015,7 +5016,7 @@ body.service-status-open { overflow: hidden; }
     align-items: center;
     gap: 8px;
     padding: 2px 22px 10px;
-    color: #64748b;
+    color: #52647a;
     font-size: 12px;
 }
 
@@ -5089,8 +5090,8 @@ body.service-status-open { overflow: hidden; }
 
 .builtin-sync-tool-copy small {
     margin-top: 2px;
-    color: #94a3b8;
-    font: 10px/1.3 ui-monospace, SFMono-Regular, Consolas, monospace;
+    color: #52647a;
+    font: 11px/1.3 ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 .builtin-sync-status {
@@ -5120,7 +5121,7 @@ body.service-status-open { overflow: hidden; }
 .builtin-sync-conflict-note {
     margin: 0 15px 8px 43px;
     color: #92400e;
-    font-size: 11px;
+    font-size: 12px;
     line-height: 1.5;
 }
 
@@ -5139,7 +5140,7 @@ body.service-status-open { overflow: hidden; }
 
 .builtin-sync-versions {
     margin: 0 15px 7px 43px;
-    color: #64748b;
+    color: #52647a;
     font-size: 12px;
     line-height: 1.6;
     overflow-wrap: anywhere;
@@ -5151,7 +5152,7 @@ body.service-status-open { overflow: hidden; }
     flex-wrap: wrap;
     gap: 7px;
     margin: 0 15px 10px 43px;
-    color: #64748b;
+    color: #52647a;
     font-size: 11px;
 }
 
@@ -5165,7 +5166,7 @@ body.service-status-open { overflow: hidden; }
 
 .builtin-sync-counts {
     margin-left: auto;
-    color: #64748b;
+    color: #52647a;
     font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
@@ -5221,8 +5222,8 @@ body.service-status-open { overflow: hidden; }
 .builtin-sync-file-size,
 .builtin-sync-unchanged,
 .builtin-sync-empty-diff {
-    color: #94a3b8;
-    font-size: 10px;
+    color: #52647a;
+    font-size: 11px;
 }
 
 .builtin-sync-unchanged,
@@ -5241,7 +5242,7 @@ body.service-status-open { overflow: hidden; }
 
 .builtin-sync-result {
     margin-right: auto;
-    color: #64748b;
+    color: #52647a;
     font-size: 11px;
 }
 
@@ -5256,7 +5257,7 @@ body.service-status-open { overflow: hidden; }
 .builtin-sync-progress-percent { flex-shrink: 0; font-variant-numeric: tabular-nums; }
 .builtin-sync-progress-track { height: 6px; margin: 9px 0 7px; overflow: hidden; border-radius: 999px; background: #dce3ef; }
 .builtin-sync-progress-track i { display: block; width: 100%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #6366f1, #14b8a6); transform: scaleX(0); transform-origin: left; transition: transform .2s ease; }
-.builtin-sync-progress-detail { overflow: hidden; color: #64748b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.builtin-sync-progress-detail { overflow: hidden; color: #52647a; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .builtin-sync-progress.is-error .builtin-sync-progress-head { color: #b91c1c; }
 .builtin-sync-progress.is-error .builtin-sync-progress-track i { background: #dc5b5b; }
 .builtin-sync-modal button:disabled, .builtin-sync-choice:disabled { cursor: default; opacity: .58; }
@@ -5333,7 +5334,7 @@ body.service-status-open { overflow: hidden; }
 .builtin-sync-loading-detail {
     margin-top: 8px;
     font-size: 11px;
-    color: #64748b;
+    color: #52647a;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -5398,37 +5399,6 @@ body.service-status-open { overflow: hidden; }
     background: #dc2626;
 }
 
-@media (prefers-color-scheme: dark) {
-    .builtin-sync-window { border-color: #334155; background: #182335; color: #e2e8f0; }
-    .builtin-sync-head, .builtin-sync-footer { background: #1e293b; border-color: #334155; }
-    .builtin-sync-head h2, .builtin-sync-tool-copy strong, .builtin-sync-metrics b { color: #e2e8f0; }
-    .builtin-sync-card { background: #1e293b; border-color: #475569; }
-    .builtin-sync-card.is-conflict { background: #322b21; }
-    .builtin-sync-details summary, .builtin-sync-info-diff { background: #273449; color: #cbd5e1; }
-    .builtin-sync-file-row code { color: #cbd5e1; }
-    .builtin-sync-safe-note { background: #193b35; border-color: #2a6255; color: #b8d5ce; }
-    .builtin-sync-safe-note strong { color: #6ee7b7; }
-    .builtin-sync-head p, .builtin-sync-toolbar { color: #a6b6ca; }
-    .builtin-sync-progress-head { color: #a5b4fc; }
-    .builtin-sync-progress-track { background: #334155; }
-    .builtin-sync-progress-detail, .builtin-sync-result, .builtin-sync-metrics, .builtin-sync-versions { color: #a6b6ca; }
-    .builtin-sync-progress.is-error .builtin-sync-progress-head { color: #fca5a5; }
-    .builtin-sync-loading-card { background: linear-gradient(135deg, #1e293b, #172033); border-color: #334155; }
-    .builtin-sync-loading-title { color: #f1f5f9; }
-    .builtin-sync-loading-percent { color: #a5b4fc; }
-    .builtin-sync-loading-detail { color: #94a3b8; }
-    .builtin-sync-loading-bar { background: #334155; }
-    .builtin-sync-spinner { border-color: rgba(165, 180, 252, 0.2); border-top-color: #818cf8; }
-    .builtin-sync-skeleton-card {
-        background: linear-gradient(90deg, rgba(30, 41, 59, 0.6) 25%, rgba(51, 65, 85, 0.85) 50%, rgba(30, 41, 59, 0.6) 75%);
-        background-size: 200% 100%;
-        border-color: #334155;
-    }
-    .builtin-sync-error-card { background: rgba(44, 26, 26, 0.88); border-color: #7f1d1d; color: #fca5a5; }
-    .builtin-sync-error-card strong { color: #f87171; }
-    .builtin-sync-error-card p { color: #fca5a5; }
-}
-
 @media (prefers-reduced-motion: reduce) {
     .builtin-sync-progress-track i { transition: none; }
     .builtin-sync-loading-bar i { transition: none; }
@@ -5462,6 +5432,57 @@ body.service-status-open { overflow: hidden; }
 .builtin-sync-footer button:disabled {
     opacity: .58;
     cursor: wait;
+}
+
+@media (prefers-color-scheme: dark) {
+    .builtin-sync-window { color-scheme: dark; border-color: #334155; background: #182335; color: #e2e8f0; }
+    .builtin-sync-head, .builtin-sync-footer { background: #1e293b; border-color: #334155; }
+    .builtin-sync-head h2, .builtin-sync-tool-copy strong, .builtin-sync-metrics b { color: #e2e8f0; }
+    .builtin-sync-card { background: #1e293b; border-color: #475569; }
+    .builtin-sync-card.is-conflict { background: #322b21; }
+    .builtin-sync-kicker { color: #b8b1ff; }
+    .builtin-sync-tool-copy small, .builtin-sync-counts,
+    .builtin-sync-file-size, .builtin-sync-unchanged, .builtin-sync-empty-diff { color: #b8c4d6; }
+    .builtin-sync-arrow { color: #c4b5fd; }
+    .builtin-sync-conflict-note { padding: 8px 10px; border-left: 2px solid #d99a42; border-radius: 4px; background: #332818; color: #fbd38d; }
+    .builtin-sync-status.is-new, .builtin-sync-status.is-adopt,
+    .builtin-sync-change.is-added { background: #14382e; color: #a7f3d0; }
+    .builtin-sync-status.is-update { background: #30315b; color: #d9d6ff; }
+    .builtin-sync-status.is-conflict { background: #422e16; color: #fcd99d; }
+    .builtin-sync-change.is-modified { background: #173558; color: #bfdbfe; }
+    .builtin-sync-change.is-removed { background: #482329; color: #fecaca; }
+    .builtin-sync-change.is-preserved { background: #352958; color: #e9d5ff; }
+    .builtin-sync-toolbar button, .builtin-sync-footer button { background: #273449; border-color: #52637a; color: #e2e8f0; }
+    .builtin-sync-toolbar button:hover, .builtin-sync-footer button:hover { background: #34455d; }
+    .builtin-sync-footer .builtin-sync-apply { background: #4f46e5; border-color: #818cf8; color: #fff; }
+    .builtin-sync-footer .builtin-sync-apply:hover { background: #4338ca; }
+    .builtin-sync-footer .builtin-sync-today { background: #302e59; border-color: #7169b8; color: #e0dcff; }
+    .builtin-sync-footer .builtin-sync-today:hover { background: #403c72; }
+    .builtin-sync-close { background: #334155; color: #e2e8f0; }
+    .builtin-sync-close:hover { background: #475569; }
+    .builtin-sync-details summary, .builtin-sync-info-diff { background: #273449; color: #cbd5e1; }
+    .builtin-sync-file-row code { color: #cbd5e1; }
+    .builtin-sync-safe-note { background: #193b35; border-color: #2a6255; color: #b8d5ce; }
+    .builtin-sync-safe-note strong { color: #6ee7b7; }
+    .builtin-sync-head p, .builtin-sync-toolbar { color: #a6b6ca; }
+    .builtin-sync-progress-head { color: #a5b4fc; }
+    .builtin-sync-progress-track { background: #334155; }
+    .builtin-sync-progress-detail, .builtin-sync-result, .builtin-sync-metrics, .builtin-sync-versions { color: #a6b6ca; }
+    .builtin-sync-progress.is-error .builtin-sync-progress-head { color: #fca5a5; }
+    .builtin-sync-loading-card { background: linear-gradient(135deg, #1e293b, #172033); border-color: #334155; }
+    .builtin-sync-loading-title { color: #f1f5f9; }
+    .builtin-sync-loading-percent { color: #a5b4fc; }
+    .builtin-sync-loading-detail { color: #94a3b8; }
+    .builtin-sync-loading-bar { background: #334155; }
+    .builtin-sync-spinner { border-color: rgba(165, 180, 252, 0.2); border-top-color: #818cf8; }
+    .builtin-sync-skeleton-card {
+        background: linear-gradient(90deg, rgba(30, 41, 59, 0.6) 25%, rgba(51, 65, 85, 0.85) 50%, rgba(30, 41, 59, 0.6) 75%);
+        background-size: 200% 100%;
+        border-color: #334155;
+    }
+    .builtin-sync-error-card { background: rgba(44, 26, 26, 0.88); border-color: #7f1d1d; color: #fca5a5; }
+    .builtin-sync-error-card strong { color: #f87171; }
+    .builtin-sync-error-card p { color: #fca5a5; }
 }
 
 @media (max-width: 640px) {

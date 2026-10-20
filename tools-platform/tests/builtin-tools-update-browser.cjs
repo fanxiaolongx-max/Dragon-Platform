@@ -25,6 +25,35 @@ const pending = ['sample', 'second'].map(slug => ({ slug, name: `示例 ${slug}`
     changes: [{ path: 'index.html', type: 'modified', oldSize: 100, newSize: 200 }] }));
 const send = event => stream.write(`${JSON.stringify(event)}\n`);
 
+async function checkTextContrast() {
+    const results = await evaluate(() => {
+        const channels = value => value.match(/[\d.]+/g).map(Number);
+        const blend = (front, back) => {
+            const alpha = front[3] ?? 1;
+            return front.slice(0, 3).map((value, index) => value * alpha + back[index] * (1 - alpha));
+        };
+        const background = element => {
+            const layers = [];
+            for (let node = element; node; node = node.parentElement) layers.push(channels(getComputedStyle(node).backgroundColor));
+            return layers.reverse().reduce((back, front) => blend(front, back), [255, 255, 255]);
+        };
+        const luminance = rgb => rgb.map(value => { value /= 255; return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4; })
+            .reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+        const selectors = ['.builtin-sync-kicker', '.builtin-sync-head p', '.builtin-sync-tool-copy small', '.builtin-sync-conflict-note',
+            '.builtin-sync-metrics', '.builtin-sync-counts', '.builtin-sync-versions', '.builtin-sync-status', '.builtin-sync-change',
+            '.builtin-sync-file-row code', '.builtin-sync-file-size', '.builtin-sync-unchanged', '.builtin-sync-info-diff',
+            '.builtin-sync-safe-note', '.builtin-sync-safe-note strong', '.builtin-sync-details summary', '.builtin-sync-result',
+            '.builtin-sync-toolbar button', '.builtin-sync-footer button', '.builtin-sync-close'];
+        return selectors.flatMap(selector => [...document.querySelectorAll(selector)].filter(node => node.getClientRects().length && !node.disabled).map(node => {
+            const bg = background(node);
+            const foreground = blend(channels(getComputedStyle(node).color), bg);
+            const a = luminance(foreground), b = luminance(bg);
+            return { selector, text: node.textContent.trim().slice(0, 50), contrast: (Math.max(a, b) + .05) / (Math.min(a, b) + .05) };
+        }));
+    });
+    for (const result of results) assert.ok(result.contrast >= 4.5, JSON.stringify(result));
+}
+
 app.whenReady().then(async () => {
     const web = express();
     web.use(express.json());
@@ -69,6 +98,37 @@ app.whenReady().then(async () => {
     win = new BrowserWindow({ show: false, width: 1200, height: 900, webPreferences: { contextIsolation: true, nodeIntegration: false } });
     await win.loadURL(`http://127.0.0.1:${server.address().port}`);
     await until(() => typeof openBuiltinToolsSyncModal === 'function');
+    // Includes local-change warnings, conflict cards, metadata and every file-change state.
+    for (const [theme, width, language, manual] of [['light', 1200, 'zh-CN', false], ['dark', 1200, 'zh-CN', false], ['light', 390, 'en-US', true], ['dark', 390, 'en-US', true]]) {
+        nativeTheme.themeSource = theme;
+        win.setSize(width, 900);
+        await evaluate(() => {
+            window.language = 'zh-CN';
+            const preview = structuredClone(fixturePreview);
+            preview.manual = true;
+            preview.pending[0].localChanges = true;
+            preview.pending[0].counts = { added: 1, modified: 1, removed: 1, preserved: 1, unchanged: 2 };
+            preview.pending[0].changes = ['added', 'modified', 'removed', 'preserved'].map(type => ({ type, path: `assets/${type}.js`, oldSize: 100, newSize: 200 }));
+            preview.pending[1].status = 'conflict';
+            preview.pending[1].toolInfoChanged = true;
+            preview.pending[1].oldTool = { name: '当前名称', icon: '🧩' };
+            preview.pending[1].newTool = { name: '随包名称', icon: '🧰' };
+            window.contrastPreview = preview;
+        });
+        await win.webContents.executeJavaScript(`window.language=${JSON.stringify(language)}; contrastPreview.manual=${JSON.stringify(manual)}; openBuiltinToolsSyncModal(contrastPreview);`);
+        await evaluate(() => document.querySelectorAll('.builtin-sync-details').forEach(node => { node.open = true; }));
+        await until(() => document.querySelectorAll('.builtin-sync-file-row').length === 5);
+        await wait(100);
+        await checkTextContrast();
+        assert.equal(await evaluate(() => getComputedStyle(document.querySelector('.builtin-sync-window')).colorScheme), theme);
+        const size = await evaluate(() => { const node = document.querySelector('.builtin-sync-window'); return { width: node.clientWidth, scroll: node.scrollWidth }; });
+        assert.ok(size.scroll <= size.width + 1, JSON.stringify({ theme, width, size }));
+        fs.writeFileSync(`/tmp/builtin-sync-contrast-${theme}-${width}.png`, (await win.webContents.capturePage()).toPNG());
+        await evaluate(() => closeBuiltinToolsSyncModal());
+    }
+    nativeTheme.themeSource = 'light';
+    win.setSize(1200, 900);
+    await evaluate(() => { window.language = 'zh-CN'; });
     await evaluate(() => openBuiltinToolsSyncModal(fixturePreview));
     assert.equal(await evaluate(() => document.querySelectorAll('.builtin-sync-file-row').length), 0, 'diff rows are lazy');
     await evaluate(() => { document.querySelector('details').open = true; });
