@@ -19,6 +19,18 @@ window.__TP_STATIC_READY__ = (async () => {
     async function worker() {
         if (!window.isSecureContext || !navigator.serviceWorker) throw new Error(en() ? 'Open this site over HTTPS.' : '请通过 HTTPS 打开此站点');
         const registration = await navigator.serviceWorker.register(new URL('tp-static-sw.js', base), { scope: base.pathname, updateViaCache: 'none' });
+        await registration.update();
+        const pending = registration.installing || registration.waiting;
+        if (pending && pending.state !== 'activated') await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('静态站点更新超时，请刷新重试')), 15000);
+            const changed = () => {
+                if (pending.state === 'activated' || pending.state === 'redundant') {
+                    clearTimeout(timer); pending.removeEventListener('statechange', changed);
+                    pending.state === 'activated' ? resolve() : reject(new Error('静态站点更新失败，请刷新重试'));
+                }
+            };
+            pending.addEventListener('statechange', changed); changed();
+        });
         await navigator.serviceWorker.ready;
         return registration.active || navigator.serviceWorker.controller;
     }
@@ -46,6 +58,8 @@ window.__TP_STATIC_READY__ = (async () => {
             if (!location.pathname.endsWith('/login.html')) location.replace(new URL('login.html', base));
         }
     });
+    // 已登录页面也检查 worker 更新，等待支持新载荷格式的版本激活后再加载业务资源。
+    await worker();
     window.fetch = async (input, init = {}) => {
         const url = new URL(typeof input === 'string' ? input : input.url, base);
         if (url.pathname === '/api/auth/login' || url.pathname.endsWith('/api/auth/login')) {

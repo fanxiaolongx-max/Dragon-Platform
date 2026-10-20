@@ -4285,10 +4285,10 @@ async function renderSnapshotPublishSettings(content) {
                                         <small class="snapshot-tool-slug">${navEscape(t.toolSlug)}</small>
                                     </label>
                                     <div class="snapshot-tool-meta-right">
-                                        <span class="snapshot-tool-size-badge pending" id="snapshotToolSize_${navEscape(t.toolSlug)}" title="${navEscape(snapshotText('点击重新预估此工具大小', 'Click to re-estimate data volume'))}" onclick="estimateSingleSnapshotTool('${navEscape(t.toolSlug)}')">
+                                        <button type="button" class="snapshot-tool-size-badge pending" id="snapshotToolSize_${navEscape(t.toolSlug)}" title="${navEscape(snapshotText('点击重新预估此工具大小', 'Click to re-estimate data volume'))}" onclick="estimateSingleSnapshotTool('${navEscape(t.toolSlug)}')">
                                             <span class="snapshot-size-loading-dot"></span>
                                             <span class="snapshot-size-text">${navEscape(snapshotText('待预估', 'Pending'))}</span>
-                                        </span>
+                                        </button>
                                     </div>
                                 </div>
                                 <div class="snapshot-tool-warning-row" id="snapshotToolWarning_${navEscape(t.toolSlug)}" style="display:none"></div>
