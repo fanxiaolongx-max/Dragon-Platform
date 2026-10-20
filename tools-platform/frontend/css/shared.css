@@ -2316,6 +2316,14 @@ dialog#mediaFormDialog.is-importing {
     line-height: 1.5;
 }
 
+.nav-settings-restore-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
 .nav-settings-restore-card button {
     flex: 0 0 auto;
     min-height: 34px;
@@ -2327,11 +2335,26 @@ dialog#mediaFormDialog.is-importing {
     font-size: 12px;
     font-weight: 800;
     cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .nav-settings-restore-card button:hover {
     color: #fff;
     background: #2563eb;
+    border-color: #2563eb;
+}
+
+.nav-settings-restore-card button.nav-settings-btn-setdefault {
+    border-color: #10b981;
+    color: #047857;
+    background: #ecfdf5;
+}
+
+.nav-settings-restore-card button.nav-settings-btn-setdefault:hover {
+    color: #fff;
+    background: #059669;
+    border-color: #059669;
+    box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);
 }
 
 .snapshot-settings { display: grid; gap: 18px; color: #243449; }

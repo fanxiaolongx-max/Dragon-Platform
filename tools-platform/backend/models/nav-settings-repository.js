@@ -64,15 +64,7 @@ function normalizeGuideVideoUrl(value) {
     } catch (_) { return ''; }
 }
 
-const DEFAULT_SETTINGS = {
-    get platformName() { return getDefaultPlatformName(); },
-    get platformNameZh() { return getDefaultPlatformIdentity().platformNameZh; },
-    get platformNameEn() { return getDefaultPlatformIdentity().platformNameEn; },
-    get platformSubtitle() { return getDefaultPlatformIdentity().platformSubtitle; },
-    get platformSubtitleEn() { return getDefaultPlatformIdentity().platformSubtitleEn; },
-    get platformSlogan() { return getDefaultPlatformIdentity().platformSlogan; },
-    get platformSloganEn() { return getDefaultPlatformIdentity().platformSloganEn; },
-    // 首次安装且尚无 nav_settings 记录时使用；已有用户配置不会被覆盖。
+const FALLBACK_NAV_LAYOUT = Object.freeze({
     primaryIds: [
         'home',
         'uivf12',
@@ -81,28 +73,27 @@ const DEFAULT_SETTINGS = {
         'custom-report',
         'expedite',
         'monthly',
-        'duty-roster',
         'bigscreen',
+        'topic-analysis',
         'custom:network_safety_meeting_summary'
     ],
     categories: [
-        { id: 'business', name: '业务工具', nameEn: 'Business Tools' },
         { id: 'audit', name: '审计与核算', nameEn: 'Audit & KPI' },
-        { id: 'system', name: '系统治理', nameEn: 'System Governance' },
+        { id: 'cat_mu9po0me', name: '奖惩管理', nameEn: 'Incentive & Negative' },
         { id: 'cat_mq0nny3v', name: '五个端到端', nameEn: '“5” E2E' },
         { id: 'cat_msbmuup1', name: '实用工具', nameEn: 'Useful' },
         { id: 'cat_msbmvd5l', name: '网络安全', nameEn: 'Safety' },
         { id: 'cat_mshv1h0m', name: '汇报呈现', nameEn: 'Report' },
         { id: 'custom', name: '自定义工具', nameEn: 'Custom Tools' },
+        { id: 'cat_mshua5iu', name: '休闲娱乐', nameEn: 'Play' },
         { id: 'cat_ms2192c7', name: '行政餐饮', nameEn: 'Admin' },
-        { id: 'cat_mshua5iu', name: '休闲娱乐', nameEn: 'Play' }
+        { id: 'system', name: '系统治理', nameEn: 'System Governance' }
     ],
     categoryByItem: {
         frt: 'audit',
         praudit: 'audit',
         storage: 'system',
         'db-explorer': 'system',
-        'topic-analysis': 'cat_mshv1h0m',
         'custom:eos_tool-v2': 'cat_mq0nny3v',
         'custom:eos': 'cat_mq0nny3v',
         'custom:eos_tool-v4': 'cat_mq0nny3v',
@@ -115,16 +106,16 @@ const DEFAULT_SETTINGS = {
         'custom:tool-ms1saxuh': 'cat_ms2192c7',
         'custom:tool-msbmscxd': 'audit',
         'custom:tool-msbmu55i': 'audit',
-        'custom:tool-ms4xb66s': 'cat_msbmuup1',
+        'custom:tool-ms4xb66s': 'cat_mu9po0me',
         'custom:tool-mrhqjeya': 'cat_msbmuup1',
         'custom:tool-mrsw86w8': 'cat_mshv1h0m',
         'custom:pr-2': 'cat_msbmuup1',
-        'custom:f12-to-extension': 'cat_msbmuup1',
+        'custom:f12-to-extension': 'audit',
         'custom:tool-mrrgpqy4': 'cat_ms2192c7',
         'custom:particle-effects': 'cat_mshua5iu',
         'custom:tool-mrrn48dc': 'cat_mshua5iu',
         'custom:optical-transfer': 'cat_mshua5iu',
-        'custom:tool-msf5b7nn': 'audit',
+        'custom:tool-msf5b7nn': 'cat_mu9po0me',
         'custom:nis_2026h1_summary': 'cat_mshv1h0m',
         'custom:tool-msh8aro4': 'cat_mshv1h0m',
         'custom:question-bank-assistant-privacy': 'cat_mshv1h0m',
@@ -136,7 +127,6 @@ const DEFAULT_SETTINGS = {
         'frt',
         'storage',
         'db-explorer',
-        'topic-analysis',
         'custom:eos_tool-v8',
         'custom:tool-mqtlwcrv',
         'custom:nis_2026h1_summary',
@@ -155,6 +145,45 @@ const DEFAULT_SETTINGS = {
         'custom:tool-mro1gt5o',
         'custom:tool-mrsw86w8'
     ]
+});
+
+function getDefaultNavLayout() {
+    try {
+        const file = path.join(__dirname, '../defaults/nav-layout.json');
+        if (fs.existsSync(file)) {
+            const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+            if (data && typeof data === 'object') {
+                const primaryIds = Array.isArray(data.primaryIds) ? data.primaryIds.map(String) : FALLBACK_NAV_LAYOUT.primaryIds.slice();
+                const categories = Array.isArray(data.categories) && data.categories.length ? data.categories : FALLBACK_NAV_LAYOUT.categories.slice();
+                const categoryByItem = data.categoryByItem && typeof data.categoryByItem === 'object' && !Array.isArray(data.categoryByItem)
+                    ? { ...data.categoryByItem }
+                    : { ...FALLBACK_NAV_LAYOUT.categoryByItem };
+                const itemOrder = Array.isArray(data.itemOrder) ? data.itemOrder.map(String) : FALLBACK_NAV_LAYOUT.itemOrder.slice();
+                return { primaryIds, categories, categoryByItem, itemOrder };
+            }
+        }
+    } catch (_) {}
+    return {
+        primaryIds: FALLBACK_NAV_LAYOUT.primaryIds.slice(),
+        categories: FALLBACK_NAV_LAYOUT.categories.slice(),
+        categoryByItem: { ...FALLBACK_NAV_LAYOUT.categoryByItem },
+        itemOrder: FALLBACK_NAV_LAYOUT.itemOrder.slice()
+    };
+}
+
+const DEFAULT_SETTINGS = {
+    get platformName() { return getDefaultPlatformName(); },
+    get platformNameZh() { return getDefaultPlatformIdentity().platformNameZh; },
+    get platformNameEn() { return getDefaultPlatformIdentity().platformNameEn; },
+    get platformSubtitle() { return getDefaultPlatformIdentity().platformSubtitle; },
+    get platformSubtitleEn() { return getDefaultPlatformIdentity().platformSubtitleEn; },
+    get platformSlogan() { return getDefaultPlatformIdentity().platformSlogan; },
+    get platformSloganEn() { return getDefaultPlatformIdentity().platformSloganEn; },
+    // 首次安装或恢复默认时使用 defaults/nav-layout.json；已有租户配置不会被覆盖。
+    get primaryIds() { return getDefaultNavLayout().primaryIds; },
+    get categories() { return getDefaultNavLayout().categories; },
+    get categoryByItem() { return getDefaultNavLayout().categoryByItem; },
+    get itemOrder() { return getDefaultNavLayout().itemOrder; }
 };
 
 function normalizeSettings(input = {}) {
@@ -344,13 +373,53 @@ async function restoreDefaultsPreservingCustomTools(customToolIds = []) {
     };
 }
 
+async function setAsDefaultLayout(layoutToSet) {
+    const current = layoutToSet ? normalizeSettings(layoutToSet) : (await getSettings());
+    const layout = {
+        primaryIds: Array.isArray(current.primaryIds) ? current.primaryIds.map(String) : [],
+        categories: Array.isArray(current.categories) ? current.categories.map(c => ({
+            id: String(c.id).trim(),
+            name: String(c.name).trim(),
+            ...(c.nameEn ? { nameEn: String(c.nameEn).trim() } : {})
+        })) : [],
+        categoryByItem: current.categoryByItem && typeof current.categoryByItem === 'object' && !Array.isArray(current.categoryByItem)
+            ? { ...current.categoryByItem }
+            : {},
+        itemOrder: Array.isArray(current.itemOrder) ? current.itemOrder.map(String) : []
+    };
+
+    // 写入源码默认配置文件 defaults/nav-layout.json（可随代码仓库一同推送至远端）
+    const defaultsDir = path.join(__dirname, '../defaults');
+    fs.mkdirSync(defaultsDir, { recursive: true });
+    const file = path.join(defaultsDir, 'nav-layout.json');
+    fs.writeFileSync(file, JSON.stringify(layout, null, 2) + '\n', 'utf8');
+
+    // 自动生效：保存到当前租户的配置
+    const saved = await saveSettings({
+        ...current,
+        primaryIds: layout.primaryIds,
+        categories: layout.categories,
+        categoryByItem: layout.categoryByItem,
+        itemOrder: layout.itemOrder
+    });
+
+    return {
+        success: true,
+        file: 'backend/defaults/nav-layout.json',
+        settings: saved,
+        layout
+    };
+}
+
 module.exports = {
     DEFAULT_SETTINGS,
     getDefaultPlatformIdentity,
     getDefaultPlatformName,
+    getDefaultNavLayout,
     normalizeSettings,
     mergeDefaultSettingsPreservingCustomTools,
     getSettings,
     saveSettings,
-    restoreDefaultsPreservingCustomTools
+    restoreDefaultsPreservingCustomTools,
+    setAsDefaultLayout
 };

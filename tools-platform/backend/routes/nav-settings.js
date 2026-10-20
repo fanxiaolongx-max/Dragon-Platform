@@ -26,4 +26,13 @@ router.post('/restore-defaults', requireAdmin, async (req, res) => {
     }
 });
 
+router.post('/set-as-default', requireAdmin, async (req, res) => {
+    try {
+        const layoutInput = req.body?.settings || req.body?.layout || null;
+        res.json(await repo.setAsDefaultLayout(layoutInput));
+    } catch (err) {
+        res.status(500).json({ error: err.message || '设置系统默认导航布局失败' });
+    }
+});
+
 module.exports = router;

@@ -498,6 +498,14 @@ function registerNavbarI18n() {
             'nav.set.restore.restoring': '正在恢复系统默认...',
             'nav.set.restore.success': '已恢复系统默认，并保留 {tools} 个非系统工具、{categories} 个自建分类',
             'nav.set.restore.fail': '恢复失败: ',
+            'nav.set.default.button': '设为系统默认布局',
+            'nav.set.default.confirmTitle': '将当前布局设为系统默认布局？',
+            'nav.set.default.confirmMessage': '当前顶部菜单、分类及工具排版将被写入系统源码默认配置（defaults/nav-layout.json），并立即对当前系统生效。',
+            'nav.set.default.confirmHint': '推送代码至远端仓库后，该布局将作为所有环境和后续默认初始化的系统标准布局。',
+            'nav.set.default.action': '确认设为默认',
+            'nav.set.default.saving': '正在设为系统默认布局...',
+            'nav.set.default.success': '已成功将当前布局设为系统默认布局并写入默认配置',
+            'nav.set.default.fail': '设为系统默认布局失败: ',
             'nav.init.help': '这里的两种操作都只作用于当前租户：开箱即用只补齐缺失默认内容；彻底初始化会清空当前租户业务数据。',
             'nav.init.quickTitle': '启动开箱即用模式',
             'nav.init.quickDesc': '重新导入仓库内置的智能调度脚本和全量指标规则。仅补齐缺失项，不覆盖同名脚本、规则或用户配置；导入前会生成配置快照。',
@@ -984,6 +992,14 @@ function registerNavbarI18n() {
             'nav.set.restore.restoring': 'Restoring system defaults...',
             'nav.set.restore.success': 'Defaults restored; preserved {tools} non-system tool(s) and {categories} custom category/categories',
             'nav.set.restore.fail': 'Restore failed: ',
+            'nav.set.default.button': 'Set as system default',
+            'nav.set.default.confirmTitle': 'Set current layout as system default?',
+            'nav.set.default.confirmMessage': 'The current top menu, categories, and tool arrangement will be saved to codebase defaults (defaults/nav-layout.json) and applied immediately.',
+            'nav.set.default.confirmHint': 'Once pushed to the remote repository, this layout will serve as the system standard default across environments.',
+            'nav.set.default.action': 'Set as default',
+            'nav.set.default.saving': 'Setting as system default...',
+            'nav.set.default.success': 'Current layout successfully set as system default and saved to defaults config',
+            'nav.set.default.fail': 'Failed to set system default: ',
             'nav.init.help': 'Both actions affect only the current tenant: Quick Start adds missing defaults, while Factory Reset clears this tenant’s business data.',
             'nav.init.quickTitle': 'Enable Quick Start Mode',
             'nav.init.quickDesc': 'Re-import the bundled smart-scheduling scripts and complete metric rules. Missing items are added without overwriting same-name scripts, rules, or user settings; a configuration snapshot is created first.',
@@ -2474,7 +2490,10 @@ function renderNavigationRestorePanel() {
                 <strong>${navEscape(navT('nav.set.restore.title'))}</strong>
                 <p>${navEscape(navT('nav.set.restore.desc'))}</p>
             </div>
-            <button type="button" onclick="restoreSystemNavigationDefaults()">${navEscape(navT('nav.set.restore.button'))}</button>
+            <div class="nav-settings-restore-actions">
+                <button type="button" class="nav-settings-btn-restore" onclick="restoreSystemNavigationDefaults()">${navEscape(navT('nav.set.restore.button'))}</button>
+                <button type="button" class="nav-settings-btn-setdefault" onclick="setCurrentNavigationAsDefault()">${navEscape(navT('nav.set.default.button'))}</button>
+            </div>
         </section>
     `;
 }
@@ -2514,6 +2533,43 @@ window.restoreSystemNavigationDefaults = async function () {
     } catch (error) {
         const nextIndicator = document.getElementById('navSettingsSaveState');
         if (nextIndicator) nextIndicator.textContent = navT('nav.set.restore.fail') + error.message;
+    }
+};
+
+window.setCurrentNavigationAsDefault = async function () {
+    const confirmed = await showNavbarConfirm({
+        title: navT('nav.set.default.confirmTitle'),
+        message: navT('nav.set.default.confirmMessage'),
+        hint: navT('nav.set.default.confirmHint'),
+        cancelText: navT('nav.set.restore.cancel'),
+        confirmText: navT('nav.set.default.action')
+    });
+    if (!confirmed) return;
+
+    clearTimeout(navState.saveTimer);
+    const indicator = document.getElementById('navSettingsSaveState');
+    if (indicator) indicator.textContent = navT('nav.set.default.saving');
+    try {
+        const res = await fetch('/api/nav-settings/set-as-default', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() },
+            body: JSON.stringify({ settings: navState.settings })
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !payload.success) throw new Error(payload.error || `HTTP ${res.status}`);
+        if (payload.settings) {
+            navState.settings = normalizeNavSettings(payload.settings);
+        }
+        writeNavigationBootstrapCache();
+        renderNavLinksFromState();
+        renderNavSettingsContent();
+        const nextIndicator = document.getElementById('navSettingsSaveState');
+        if (nextIndicator) {
+            nextIndicator.textContent = navT('nav.set.default.success');
+        }
+    } catch (error) {
+        const nextIndicator = document.getElementById('navSettingsSaveState');
+        if (nextIndicator) nextIndicator.textContent = navT('nav.set.default.fail') + error.message;
     }
 };
 
