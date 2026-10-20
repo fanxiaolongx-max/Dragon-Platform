@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目演进 · 银河之旅</title>
+    <link rel="icon" href="./tp-static/frontend/favicon.ico">
+    <link rel="stylesheet" href="./tp-static/frontend/css/project-evolution.css?v=5ff1db961625">
+    <script src="./tp-static/frontend/js/shared/i18n.js?v=a3bbf96d630f"></script>
+    <script src="./tp-static/frontend/js/project-evolution.js?v=b7aded7a2b75" defer></script>
+</head>
+<body>
+    <div class="evolution-atmosphere" aria-hidden="true"></div>
+    <header class="evolution-nav">
+        <a href="./login.html" data-i18n="evolution.back">← 返回登录</a>
+        <span>DRAGON PLATFORM</span>
+        <button type="button" id="evolutionLanguage" aria-label="切换语言 / Switch language">中文 / EN</button>
+    </header>
+    <main class="evolution-main">
+        <div class="evolution-heading">
+            <p class="evolution-kicker">PROJECT EVOLUTION / GALAXY</p>
+            <h1 data-i18n="evolution.title">项目演进 · 银河之旅</h1>
+            <p class="evolution-description" data-i18n="evolution.description">88 秒，回看一个工具平台如何逐步生长。</p>
+        </div>
+        <div class="evolution-player">
+            <video id="evolutionVideo" controls playsinline preload="metadata" poster="./tp-static/frontend/assets/promotions/project-evolution-galaxy-poster.jpg" data-i18n-aria-label="evolution.videoLabel" aria-label="项目演进高清视频"></video>
+            <div class="evolution-status" id="evolutionStatus" role="status" aria-live="polite" hidden>
+                <span id="evolutionStatusText"></span>
+                <button type="button" id="evolutionAction" hidden></button>
+            </div>
+        </div>
+        <p class="evolution-caption" data-i18n="evolution.caption">1080p 高清 · 可全屏观看</p>
+    </main>
+</body>
+</html>

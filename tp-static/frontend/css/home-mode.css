@@ -1,0 +1,447 @@
+/* 首页对话 / 工具两种互斥模式（配合 js/home/home-mode.js）。
+   左侧：图标栏（对话 / 工具 / 市场 / 导入 / 链接）+ 面板（历史对话 或 工具分类）；
+   对话模式：主区只有 Dragon Claw，右侧可开工作区；工具模式：主区只有工具网格与资讯，不出现对话和工作区。
+   在 home-workspace.css、dragon-claw.css 之后加载，覆盖其中的旧版侧栏与布局。 */
+
+.home-content.home-workspace {
+    --ws-rail: 60px;
+    --ws-side-default: clamp(352px, 19vw, 420px);
+    --ws-side: clamp(280px, var(--ws-side-preferred, var(--ws-side-default)), var(--ws-side-max, 560px));
+}
+
+/* ── 模式显隐 ───────────────────────────────── */
+body.home-mode-chat .home-tools-head,
+body.home-mode-chat .home-workspace .tools-grid,
+body.home-mode-chat #homeToolsEmpty,
+body.home-mode-chat .stats-bar,
+body.home-mode-chat .home-info-row { display: none !important; }
+
+body.home-mode-tools .dc,
+body.home-mode-tools .home-workspace-panel,
+body.home-mode-tools .wsp-fab,
+body.home-mode-tools .wsp-backdrop { display: none !important; }
+
+/* 对话模式：对话区占满一屏，往下滚不会再出现工具 */
+body.home-mode-chat .dc {
+    min-height: calc(100vh - var(--navbar-h) - 36px);
+    margin-bottom: 0;
+    padding-bottom: 48px;
+}
+body.home-mode-chat .home-content.home-workspace { padding-bottom: 18px; }
+body.home-mode-chat.dc-chatting .dc { padding-bottom: 0; }
+
+/* 工具模式标题 */
+.home-tools-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 4px 2px 6px;
+}
+.home-tools-title {
+    margin: 0;
+    color: #f1f5f9;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.home-tools-count { flex: none; color: var(--ws-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* ── 侧栏：图标栏 + 面板 ───────────────────────── */
+.home-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+    width: var(--ws-rail);
+    padding: 10px 0;
+    border-right: 1px solid rgba(148, 163, 184, 0.1);
+    background: rgba(2, 6, 23, 0.28);
+}
+.home-rail-spacer { flex: 1; }
+.home-rail-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+}
+.home-rail-actions[hidden] { display: none; }
+.home-rail-btn {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 46px;
+    height: 52px;
+    padding: 0;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: #7d8ca3;
+    font: inherit;
+    font-size: 10.5px;
+    font-weight: 650;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+.home-rail-btn svg { width: 20px; height: 20px; }
+.home-rail-btn:hover { background: rgba(148, 163, 184, 0.08); color: #e2e8f0; }
+.home-rail-btn:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: -2px; }
+.home-rail-btn.is-active,
+.home-rail-btn.is-open { background: rgba(100, 255, 218, 0.1); color: #e6fffa; }
+.home-rail-btn.is-active::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    top: 14px;
+    bottom: 14px;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--ws-accent);
+    box-shadow: 0 0 10px rgba(100, 255, 218, 0.45);
+}
+.home-rail-history { display: none; } /* 只在手机上出现 */
+
+.home-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+}
+.home-sidebar-resizer {
+    position: absolute;
+    z-index: 2;
+    top: 10px;
+    bottom: 10px;
+    right: 0;
+    width: 8px;
+    cursor: col-resize;
+    touch-action: none;
+    border-radius: 4px;
+}
+.home-sidebar-resizer[hidden] { display: none; }
+.home-sidebar-resizer::after {
+    content: '';
+    position: absolute;
+    top: calc(50% - 20px);
+    right: 2px;
+    width: 2px;
+    height: 40px;
+    border-radius: 2px;
+    background: rgba(148, 163, 184, 0.3);
+}
+.home-sidebar-resizer:hover::after,
+.home-sidebar-resizer:focus-visible::after,
+body.home-sidebar-resizing .home-sidebar-resizer::after { background: var(--ws-accent); }
+.home-sidebar-resizer:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: -2px; }
+body.home-sidebar-resizing,
+body.home-sidebar-resizing * { cursor: col-resize !important; user-select: none !important; }
+.home-panel-view {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+    min-height: 0;
+    padding: 12px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+}
+.home-panel-view[hidden] { display: none; }
+.home-panel-view > * { flex-shrink: 0; }
+.home-panel-view[data-home-panel="chat"] { overflow: hidden; }
+
+.home-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    height: 28px;
+    padding: 0 0 0 4px;
+}
+.home-panel-title { color: var(--ws-text); font-size: 13.5px; font-weight: 750; letter-spacing: 0.02em; }
+
+.home-sidebar .home-sidebar-toggle {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ws-faint);
+    cursor: pointer;
+    transition: color 0.15s ease, background 0.15s ease;
+}
+.home-sidebar .home-sidebar-toggle svg { width: 14px; height: 14px; }
+.home-sidebar .home-sidebar-toggle:hover { background: rgba(148, 163, 184, 0.1); color: var(--ws-accent); }
+.home-sidebar .home-sidebar-toggle:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 1px; }
+
+.home-search.home-search--compact { flex: none; height: 36px; min-height: 36px; border-radius: 10px; }
+
+/* ── 历史对话 ───────────────────────────────── */
+.home-chat-new {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    height: 38px;
+    padding: 0 12px;
+    border: 1px solid rgba(100, 255, 218, 0.26);
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(100, 255, 218, 0.12), rgba(96, 165, 250, 0.1));
+    color: #e6fffa;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.home-chat-new svg { width: 14px; height: 14px; }
+.home-chat-new:hover {
+    border-color: rgba(100, 255, 218, 0.5);
+    background: linear-gradient(135deg, rgba(100, 255, 218, 0.18), rgba(96, 165, 250, 0.14));
+    box-shadow: 0 6px 18px rgba(20, 184, 166, 0.14);
+}
+.home-chat-new:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: 2px; }
+
+.home-chat-list {
+    flex: 1 1 auto !important;
+    min-height: 0;
+    margin: 0 -6px;
+    padding: 0 6px 6px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.22) transparent;
+}
+.home-chat-group {
+    margin: 14px 8px 5px;
+    color: #5b6b84;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+.home-chat-group:first-child { margin-top: 4px; }
+.home-chat-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 34px;
+    margin: 0 0 1px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: #a5b4c8;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 550;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.home-chat-item:hover { background: rgba(148, 163, 184, 0.08); color: var(--ws-text); }
+.home-chat-item:focus-visible { outline: 2px solid var(--ws-accent); outline-offset: -2px; }
+.home-chat-item.is-active {
+    background: rgba(100, 255, 218, 0.1);
+    color: #e6fffa;
+    box-shadow: inset 2px 0 0 var(--ws-accent);
+}
+.home-chat-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-chat-meta {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--ws-faint);
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+.home-chat-folder { width: 12px; height: 12px; color: #7c8aa0; }
+.home-chat-item:hover .home-chat-meta,
+.home-chat-item.is-active .home-chat-meta { color: #8b9ab3; }
+
+.home-chat-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 28px 12px;
+    color: var(--ws-faint);
+    font-size: 12px;
+    line-height: 1.6;
+    text-align: center;
+}
+.home-chat-retry {
+    height: 28px;
+    padding: 0 12px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    border-radius: 8px;
+    background: transparent;
+    color: #c7d2e1;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+}
+.home-chat-retry:hover { border-color: rgba(100, 255, 218, 0.4); color: var(--ws-accent); }
+
+.home-chat-skeleton { display: grid; gap: 8px; padding: 6px 4px; }
+.home-chat-skeleton span {
+    height: 26px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, rgba(148, 163, 184, 0.06), rgba(148, 163, 184, 0.13), rgba(148, 163, 184, 0.06));
+    background-size: 200% 100%;
+    animation: home-chat-shimmer 1.4s ease-in-out infinite;
+}
+.home-chat-skeleton span:nth-child(2) { width: 82%; }
+.home-chat-skeleton span:nth-child(3) { width: 90%; }
+.home-chat-skeleton span:nth-child(4) { width: 70%; }
+@keyframes home-chat-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* 历史按钮（对话头部）只在手机上出现，电脑上左侧已有列表 */
+.dc-history-btn { display: none; }
+
+/* ── 友情链接弹层（JS 挂到 body 下，贴着图标栏定位） ── */
+.home-links-pop {
+    position: fixed;
+    z-index: 1200;
+    width: 380px;
+    max-width: calc(100vw - 24px);
+    max-height: min(72vh, 600px);
+    padding: 14px;
+    overflow-y: auto;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    border-radius: 14px;
+    background: rgba(10, 15, 30, 0.96);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.02) inset;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+    animation: home-pop-in 0.16s ease both;
+}
+.home-links-pop[hidden] { display: none; }
+@keyframes home-pop-in { from { opacity: 0; transform: translateX(-4px) scale(0.98); } to { opacity: 1; transform: none; } }
+.home-links-pop .friend-links { padding-top: 0; border-top: 0; }
+.home-links-pop .friend-links-head { margin: 0 0 10px 2px; }
+.home-links-pop .friend-links-label { color: var(--ws-text, #e2e8f0); font-size: 12px; font-weight: 750; letter-spacing: 0.04em; }
+.home-links-pop .friend-links-list { gap: 4px; }
+.home-links-pop .friend-link { height: 34px; font-size: 12px; }
+/* 弹层里空间足够：全部展开，不需要「显示全部」 */
+.home-links-pop .friend-link[hidden] { display: grid; }
+.home-links-pop .friend-links-toggle { display: none; }
+
+/* ── 电脑布局：网格列宽 ───────────────────────── */
+@media (min-width: 861px) {
+    .home-sidebar,
+    body.dc-workspace-open aside.home-sidebar {
+        display: flex;
+        flex-direction: row;
+        align-items: stretch;
+        gap: 0;
+        height: calc(100vh - var(--navbar-h) - 36px);
+        max-height: none;
+        padding: 0;
+        overflow: hidden;
+    }
+    .home-sidebar > * { flex-shrink: 1; }
+    .home-rail { flex-shrink: 0; }
+
+    body .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr); }
+    body.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr) var(--ws-panel-w); }
+    body.home-sidebar-collapsed .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr); }
+    body.home-sidebar-collapsed.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr) var(--ws-panel-w); }
+    /* 工作区只属于对话模式：工具模式下即使工作区仍处于打开状态也不占列 */
+    body.home-mode-tools.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr); }
+    body.home-sidebar-collapsed.home-mode-tools.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr); }
+
+    body.home-sidebar-collapsed .home-panel { display: none; }
+    body.home-sidebar-collapsed .home-rail { border-right: 0; background: transparent; }
+}
+
+@media (min-width: 861px) and (max-width: 1280px) {
+    body.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr) 300px; }
+    body.home-sidebar-collapsed.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr) 300px; }
+}
+@media (min-width: 861px) and (max-width: 1100px) {
+    .home-content.home-workspace { --ws-side-default: 320px; }
+}
+
+/* ── 手机：图标栏变为顶部分段标签；历史对话改为弹窗 ── */
+@media (max-width: 860px) {
+    .home-sidebar { gap: 10px; }
+    /* 等宽分段标签：对话 / 工具 /（对话模式下的）历史 / 链接 */
+    .home-rail {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        gap: 6px;
+        width: auto;
+        padding: 0;
+        border-right: 0;
+        background: transparent;
+    }
+    .home-rail-spacer { display: none; }
+    .home-rail-actions:not([hidden]) { display: contents; }
+    .home-rail-btn {
+        flex-direction: row;
+        gap: 5px;
+        width: auto;
+        min-width: 0;
+        height: 36px;
+        padding: 0 6px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 999px;
+        font-size: 12.5px;
+        white-space: nowrap;
+    }
+    .home-rail-btn svg { flex: none; width: 15px; height: 15px; }
+    .home-rail-label { overflow: hidden; text-overflow: ellipsis; }
+    .home-rail-btn.is-active::before { display: none; }
+    .home-rail-btn.is-active { border-color: rgba(100, 255, 218, 0.35); }
+    body.home-mode-chat .home-rail-history { display: flex; }
+    .home-panel-view { padding: 0; overflow: visible; }
+    .home-panel-head { display: none; }
+    body.home-mode-chat .home-panel { display: none; }
+    .dc-history-btn { display: inline-flex; align-items: center; }
+    .home-links-pop {
+        left: 12px !important;
+        right: 12px;
+        top: auto !important;
+        bottom: 12px;
+        width: auto;
+        max-width: none;
+    }
+    .home-links-pop .friend-links-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .home-tools-title { font-size: 17px; }
+}
+
+/* 小屏上的管理员入口较多，图标与短文字上下排列，保持可读和可点击。 */
+@media (max-width: 640px) {
+    .home-rail-btn {
+        flex-direction: column;
+        gap: 4px;
+        height: 48px;
+        padding: 0 2px;
+        border-radius: 10px;
+        font-size: 10.5px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .home-links-pop, .home-chat-skeleton span { animation: none; }
+}

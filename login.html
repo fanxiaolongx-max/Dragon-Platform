@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head><script src="./tp-static/boot.js?v=afa363e039b2"></script>
+    <meta name="google-site-verification" content="Bkzm4lbFEHnJEXGJ3bIb5QLbY1uR1ecQa7JLa8vM0cw" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 图特工具平台</title>
+    <link rel="icon" type="image/x-icon" href="./tp-static/frontend/favicon.ico?v=20261006">
+    <link rel="icon" type="image/png" sizes="32x32" href="./tp-static/frontend/assets/icon.png?v=165c6f7cdea5">
+    <link rel="apple-touch-icon" href="./tp-static/frontend/assets/icon-mac.png?v=1cd05bdad56c">
+    <script src="./tp-static/frontend/js/shared/i18n.js?v=a3bbf96d630f"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400;1,500;1,600;1,700&family=Playfair+Display:ital,wght@1,400;1,600&family=Inter:wght@300;400;600&display=swap');
+
+        /* 清除默认边距，全屏铺满 */
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #050810;
+            /* 深空蓝紫底色 */
+        }
+
+        /* 动画画布 */
+        #spaceCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        /* 登录成功时承载高斯泼溅粒子；独立画布避免影响星空帧率 */
+        #dissolveCanvas {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            pointer-events: none;
+        }
+
+        /* 登录容器，浮在画布上 */
+        .login-wrapper {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            justify-content: safe center;
+            overflow-y: auto;
+            padding: 24px 0;
+            box-sizing: border-box;
+        }
+
+        .login-wrapper > .glass-panel,
+        .login-wrapper > .footer-links,
+        .login-wrapper > .login-slogan-wrap { flex-shrink: 0; }
+
+        /* 毛玻璃面板 Glassmorphism */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 40px 32px;
+            width: 360px;
+            max-width: calc(100vw - 32px);
+            text-align: center;
+            color: white;
+            transition: transform 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        /* 标题排版 */
+        .glass-panel h2 {
+            margin: 0 0 6px;
+            font-weight: 600;
+            font-size: 21px;
+            letter-spacing: 1px;
+            background: linear-gradient(to right, #fff, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .version-badge {
+            font-size: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 7px;
+            border-radius: 8px;
+            color: #a5b4fc;
+            font-weight: normal;
+        }
+
+        .glass-panel .subtitle {
+            margin: 0 0 20px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 1px;
+        }
+
+        /* 表单输入框 */
+        .input-group {
+            margin-bottom: 16px;
+            text-align: left;
+            position: relative;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 6px;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 11px 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: white;
+            font-size: 13px;
+            outline: none;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+            letter-spacing: 1px;
+        }
+
+        .input-group input::placeholder {
+            color: rgba(255, 255, 255, 0.2);
+        }
+
+        .input-group input:focus {
+            border-color: rgba(99, 102, 241, 0.6);
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.2);
+        }
+
+        /* 渐变按钮 */
+        button.btn-login {
+            width: 100%;
+            padding: 11px;
+            background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 2px;
+            margin-top: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button.btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.5);
+            background: linear-gradient(135deg, #6366f1 0%, #60a5fa 100%);
+        }
+
+        button.btn-login:active {
+            transform: translateY(0);
+        }
+
+        .glass-panel.login-success {
+            pointer-events: none;
+            animation: panel-dissolve 980ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            transform-origin: center;
+        }
+
+        .login-success .input-group,
+        .login-success .btn-login {
+            pointer-events: none;
+            animation: control-dissolve 760ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .login-success .input-group + .input-group {
+            animation-delay: 45ms;
+        }
+
+        .login-success .btn-login {
+            animation-delay: 90ms;
+        }
+
+        @keyframes control-dissolve {
+            0% {
+                opacity: 1;
+                filter: blur(0);
+                transform: scale(1);
+                clip-path: inset(0 0 0 0 round 10px);
+            }
+            42% {
+                opacity: 0.72;
+                filter: blur(1.5px);
+                transform: scale(1.015);
+            }
+            100% {
+                opacity: 0;
+                filter: blur(13px);
+                transform: scale(1.045) translateY(-4px);
+                clip-path: inset(0 0 0 100% round 10px);
+            }
+        }
+
+        @keyframes panel-dissolve {
+            0% {
+                opacity: 1;
+                filter: blur(0) saturate(1);
+                transform: scale(0.95);
+            }
+            35% {
+                opacity: 0.9;
+                filter: blur(1px) saturate(1.18);
+                transform: scale(0.965);
+                box-shadow: 0 25px 70px -12px rgba(79, 70, 229, 0.5);
+            }
+            72% {
+                opacity: 0.42;
+                filter: blur(7px) saturate(0.85);
+                transform: scale(1.015) translateY(-3px);
+            }
+            100% {
+                opacity: 0;
+                filter: blur(22px) saturate(0.55);
+                transform: scale(1.07) translateY(-8px);
+                box-shadow: 0 0 110px rgba(99, 102, 241, 0);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .glass-panel.login-success,
+            .login-success .input-group,
+            .login-success .btn-login {
+                animation: none;
+                opacity: 0;
+                transition: opacity 180ms ease;
+            }
+            .login-slogan-wrap,
+            .login-slogan-primary,
+            .login-slogan-secondary {
+                animation: none !important;
+                -webkit-mask: none !important;
+                mask: none !important;
+                opacity: 1 !important;
+                filter: none !important;
+                transform: none !important;
+            }
+        }
+
+        /* 辅助按钮 */
+        button.btn-play-game {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 12px;
+        }
+
+        button.btn-play-game:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(165, 180, 252, 0.5);
+            color: rgba(165, 180, 252, 1);
+        }
+
+        button.btn-cinema {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(168, 85, 247, 0.15) 100%);
+            border: 1px solid rgba(168, 85, 247, 0.32);
+            border-radius: 10px;
+            color: rgba(224, 231, 255, 0.9);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            box-shadow: 0 4px 14px rgba(124, 58, 237, 0.1);
+            text-decoration: none;
+            box-sizing: border-box;
+        }
+
+        button.btn-cinema:hover {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(168, 85, 247, 0.3) 100%);
+            border-color: rgba(192, 132, 252, 0.7);
+            color: #ffffff;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(147, 51, 234, 0.25);
+        }
+
+        #error-msg {
+            color: #ef4444;
+            font-size: 11px;
+            margin-top: 12px;
+            min-height: 16px;
+        }
+
+        /* 登录卡片多级标题与下方神秘标语 */
+        .login-brand-header {
+            margin-bottom: 5px;
+        }
+
+        .login-brand-sub {
+            font-size: 11px;
+            color: rgba(199, 210, 254, 0.85);
+            letter-spacing: 0.6px;
+            font-weight: 500;
+            margin-bottom: 3px;
+        }
+
+        .login-brand-subtitle {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.45);
+            letter-spacing: 0.4px;
+            margin-bottom: 13px;
+        }
+
+        /* 登录页深空神秘悬浮标语（无背景、高雅手写衬线、中英双语） */
+        .login-slogan-wrap {
+            margin-top: clamp(24px, 3.5vh, 40px);
+            margin-bottom: clamp(24px, 3.5vh, 42px);
+            width: 92vw;
+            max-width: 820px;
+            box-sizing: border-box;
+            text-align: center;
+            position: relative;
+            z-index: 2;
+            background: none !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 20px;
+            pointer-events: none;
+            user-select: none;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+
+            /* 页面初次打开/刷新时：由中心向两侧及四周柔和蔓延展开淡出浮现 */
+            -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(0, 0, 0, 1) 35%, rgba(0, 0, 0, 0) 75%);
+            mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, rgba(0, 0, 0, 1) 35%, rgba(0, 0, 0, 0) 75%);
+            -webkit-mask-position: center center;
+            mask-position: center center;
+            -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+            -webkit-mask-size: 0% 100%;
+            mask-size: 0% 100%;
+            animation: slogan-cosmic-reveal 2.4s cubic-bezier(0.16, 1, 0.3, 1) 0.35s forwards;
+            will-change: mask-size, -webkit-mask-size, opacity, filter, transform;
+        }
+
+        @keyframes slogan-cosmic-reveal {
+            0% {
+                opacity: 0;
+                filter: blur(12px) brightness(1.35);
+                transform: scale(0.96) translateY(6px);
+                -webkit-mask-size: 0% 100%;
+                mask-size: 0% 100%;
+            }
+            30% {
+                opacity: 0.55;
+                filter: blur(5px) brightness(1.2);
+            }
+            70% {
+                opacity: 0.92;
+                filter: blur(1px) brightness(1.05);
+            }
+            100% {
+                opacity: 1;
+                filter: blur(0px) brightness(1);
+                transform: scale(1) translateY(0);
+                -webkit-mask-size: 420% 320%;
+                mask-size: 420% 320%;
+            }
+        }
+
+        .login-slogan-primary,
+        .login-slogan-secondary {
+            margin: 0;
+            font-style: italic;
+            transition: all 0.35s ease;
+            /* 优雅古典衬线与手写体融合栈，中西文兼顾高雅与神秘感 */
+            font-family: 'Cormorant Garamond', 'Playfair Display', 'Baskerville', 'Georgia', 'Songti SC', 'STSong', 'KaiTi', 'Noto Serif SC', serif;
+        }
+
+        .login-slogan-primary {
+            font-size: 17px;
+            line-height: 1.75;
+            font-weight: 500;
+            color: rgba(224, 231, 255, 0.92);
+            letter-spacing: 0.9px;
+            text-shadow: 0 0 16px rgba(165, 180, 252, 0.5), 0 0 36px rgba(99, 102, 241, 0.28);
+            animation: slogan-line-primary 2.4s cubic-bezier(0.16, 1, 0.3, 1) 0.35s both;
+        }
+
+        .login-slogan-secondary {
+            margin-top: 7px;
+            font-size: 13.5px;
+            line-height: 1.65;
+            font-weight: 400;
+            color: rgba(165, 180, 252, 0.68);
+            letter-spacing: 0.6px;
+            text-shadow: 0 0 12px rgba(129, 140, 248, 0.35);
+            animation: slogan-line-secondary 2.6s cubic-bezier(0.16, 1, 0.3, 1) 0.5s both;
+        }
+
+        @keyframes slogan-line-primary {
+            0% {
+                letter-spacing: 2.4px;
+                text-shadow: 0 0 32px rgba(165, 180, 252, 0.85), 0 0 52px rgba(99, 102, 241, 0.5);
+            }
+            100% {
+                letter-spacing: 0.9px;
+                text-shadow: 0 0 16px rgba(165, 180, 252, 0.5), 0 0 36px rgba(99, 102, 241, 0.28);
+            }
+        }
+
+        @keyframes slogan-line-secondary {
+            0% {
+                opacity: 0;
+                transform: translateY(4px);
+                letter-spacing: 2px;
+                text-shadow: 0 0 22px rgba(129, 140, 248, 0.6);
+            }
+            40% {
+                opacity: 0.45;
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+                letter-spacing: 0.6px;
+                text-shadow: 0 0 12px rgba(129, 140, 248, 0.35);
+            }
+        }
+
+        #loginSloganSmoke {
+            position: absolute;
+            left: 0;
+            top: -120px;
+            width: 100%;
+            height: calc(100% + 240px);
+            pointer-events: none;
+            opacity: .85;
+            /* Four-sided alpha feathering is applied inside the smoke canvas. */
+        }
+        .login-slogan-wrap.slogan-smoke-ready {
+            animation: none;
+            mask: none;
+            -webkit-mask: none;
+            opacity: 1;
+            filter: none;
+            transform: none;
+            will-change: auto;
+        }
+        .slogan-smoke-ready p { position: relative; animation: none; }
+        .slogan-smoke-active p {
+            --line-reveal: var(--slogan-reveal);
+            -webkit-mask-image: linear-gradient(90deg, #000 calc(var(--line-reveal) * 100% - 12%), transparent calc(var(--line-reveal) * 100% + 8%));
+            mask-image: linear-gradient(90deg, #000 calc(var(--line-reveal) * 100% - 12%), transparent calc(var(--line-reveal) * 100% + 8%));
+            filter: blur(calc((1 - var(--slogan-clarity, 0)) * 3px));
+        }
+        .slogan-smoke-active .login-slogan-secondary { --line-reveal: var(--slogan-reveal-secondary); }
+        @media (prefers-reduced-motion: reduce) { #loginSloganSmoke { display: none; } }
+
+        .glass-panel.login-success ~ .login-slogan-wrap {
+            animation: none !important;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 300ms ease, transform 300ms ease;
+        }
+
+        .footer-links {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            max-width: calc(100vw - 32px);
+        }
+
+        .footer-links a {
+            color: rgba(255, 255, 255, 0.4);
+            text-decoration: none;
+            white-space: nowrap;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover {
+            color: #a5b4fc;
+        }
+
+        .legal-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 10020;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+            background: rgba(2, 6, 23, 0.62);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+
+        .legal-modal.open {
+            display: flex;
+        }
+
+        .legal-dialog {
+            width: min(860px, 94vw);
+            max-height: min(760px, 88vh);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: rgba(15, 23, 42, 0.92);
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.58), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            color: #e5eefc;
+        }
+
+        .legal-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 14px;
+            padding: 20px 24px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .legal-head h3 {
+            margin: 0;
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(to right, #fff, #a5b4fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .legal-close {
+            width: 34px;
+            height: 34px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.78);
+            cursor: pointer;
+            font-size: 22px;
+            line-height: 1;
+        }
+
+        .legal-close:hover {
+            background: rgba(255, 255, 255, 0.12);
+            color: #fff;
+        }
+
+        .legal-body {
+            overflow: auto;
+            padding: 10px 28px 28px;
+            line-height: 1.75;
+            color: rgba(226, 232, 240, 0.76);
+        }
+
+        .legal-body h1 {
+            margin: 20px 0 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 26px;
+        }
+
+        .legal-body h2 {
+            margin: 24px 0 10px;
+            color: #e5e7eb;
+            font-size: 18px;
+        }
+
+        .legal-body p,
+        .legal-body ul {
+            margin: 0 0 14px;
+        }
+
+        .legal-body ul {
+            padding-left: 22px;
+        }
+
+        .legal-body li {
+            margin-bottom: 8px;
+        }
+
+        .legal-body strong {
+            color: #f8fafc;
+        }
+
+        .legal-body code {
+            padding: 2px 6px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.08);
+            color: #fca5a5;
+        }
+
+        .legal-divider {
+            height: 1px;
+            margin: 28px 0;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        @media (max-width: 560px) {
+            .legal-modal {
+                padding: 14px;
+            }
+
+            .legal-head {
+                padding: 16px 18px 12px;
+            }
+
+            .legal-body {
+                padding: 8px 18px 22px;
+            }
+
+            /* 给右上角语言切换按钮让出位置，避免与登录框重叠 */
+            .login-wrapper {
+                padding-top: 56px;
+                box-sizing: border-box;
+            }
+
+            .glass-panel {
+                padding: 32px 22px;
+            }
+
+            .glass-panel h2 {
+                font-size: 19px;
+            }
+
+            .login-slogan-wrap {
+                margin-top: 22px;
+                padding: 0 14px;
+            }
+
+            .login-slogan-primary {
+                font-size: 15px;
+                line-height: 1.65;
+            }
+
+            .login-slogan-secondary {
+                font-size: 12px;
+                line-height: 1.55;
+            }
+        }
+
+        @media (max-height: 760px) {
+            .login-slogan-wrap {
+                margin-top: 18px;
+                margin-bottom: 12px;
+            }
+        }
+
+        /* 加载小动画 */
+        .loader {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* --- Mini Game Styles --- */
+        .game-wrapper {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 9999;
+            display: none;
+            overflow: hidden;
+        }
+
+        .game-wrapper.active {
+            display: block;
+        }
+
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .btn-close-game {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            z-index: 10000;
+            font-size: 14px;
+            backdrop-filter: blur(4px);
+            transition: background 0.2s;
+        }
+
+        .btn-close-game:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        /* 语言切换按钮 Glassmorphism */
+        .login-lang-switch {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+        }
+
+        .btn-lang-toggle {
+            height: 34px;
+            min-width: 82px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            padding: 0 14px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            color: #e2e8f0;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.25s ease;
+        }
+
+        .btn-lang-toggle:hover {
+            transform: translateY(-1px);
+            border-color: rgba(165, 180, 252, 0.5);
+            background: rgba(30, 41, 59, 0.7);
+            color: #ffffff;
+            box-shadow: 0 6px 16px rgba(99, 102, 241, 0.25);
+        }
+
+        .btn-lang-icon {
+            font-size: 15px;
+            line-height: 1;
+        }
+
+        .btn-lang-current {
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="login-lang-switch">
+        <button type="button" class="btn-lang-toggle" id="loginLangBtn" onclick="toggleLoginLanguage()" title="切换语言 / Switch Language" data-i18n-title="login.langToggleTitle" aria-label="切换语言 / Switch Language" data-i18n-aria-label="login.langToggleTitle">
+            <span class="btn-lang-icon">🌐</span>
+            <span class="btn-lang-current" id="loginLangCurrent">中文</span>
+        </button>
+    </div>
+
+    <canvas id="spaceCanvas"></canvas>
+    <canvas id="dissolveCanvas" aria-hidden="true"></canvas>
+
+    <div class="login-wrapper">
+        <div class="glass-panel" id="loginPanel">
+            <div class="login-brand-header">
+                <h2 style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:3px;"><img id="loginBrandLogo" src="./tp-static/frontend/assets/logo.png?v=1cd05bdad56c" alt="Dragon 工具平台" style="width:26px;height:26px;object-fit:contain;filter:drop-shadow(0 0 10px rgba(59,130,246,0.6));"><span data-platform-name id="loginBrandName">Dragon 工具平台</span> <span class="version-badge" id="appVersionBadge">v...</span></h2>
+                <div class="login-brand-sub" id="loginBrandSub">Dragon Platform</div>
+                <div class="login-brand-subtitle" id="loginBrandSubtitle">埃及 CS 工具与知识中心</div>
+            </div>
+            <div class="subtitle" data-i18n="login.subtitle">默认账号：admin / admin123</div>
+
+            <div class="input-group">
+                <label data-i18n="login.usernameLabel">用户名</label>
+                <input type="text" id="username" placeholder="请输入账号" data-i18n-placeholder="login.usernamePlaceholder" onkeydown="handleEnter(event)">
+            </div>
+            <div class="input-group">
+                <label data-i18n="login.passwordLabel">密码</label>
+                <input type="password" id="password" placeholder="请输入密码" data-i18n-placeholder="login.passwordPlaceholder" onkeydown="handleEnter(event)">
+            </div>
+
+            <button class="btn-login" id="loginBtn" data-i18n="login.submit" onclick="doLogin()">登 录</button>
+            <button class="btn-play-game" data-i18n="login.playGame" onclick="toggleGame(true)">♨️ 休息一下</button>
+            <button class="btn-cinema" data-i18n="login.cinema" onclick="window.location.href='/cinema'">🎬 影视作品</button>
+            <div id="error-msg"></div>
+        </div>
+
+        <div class="footer-links">
+            <a href="/privacy" data-i18n="login.privacy" onclick="openLegalModal('privacy'); return false;">隐私政策</a>
+            <span style="color:rgba(255,255,255,0.2);">|</span>
+            <a href="/terms" data-i18n="login.terms" onclick="openLegalModal('terms'); return false;">服务条款</a>
+            <span style="color:rgba(255,255,255,0.2);">|</span>
+            <a class="login-evolution-link" href="./project-evolution.html" target="_blank" rel="noopener noreferrer" data-i18n="login.evolutionTitle" data-i18n-aria-label="login.evolutionAria" aria-label="观看项目演进视频，在新窗口播放高清版">项目演进</a>
+        </div>
+
+        <div class="login-slogan-wrap" id="loginSloganWrap">
+            <canvas id="loginSloganSmoke" aria-hidden="true"></canvas>
+            <p class="login-slogan-primary" id="loginSloganPrimary">“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”</p>
+            <p class="login-slogan-secondary" id="loginSloganSecondary">“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”</p>
+            <span id="loginSloganText" style="display:none"></span>
+        </div>
+    </div>
+
+    <div class="legal-modal" id="legalModal" aria-hidden="true" onclick="handleLegalBackdrop(event)">
+        <div class="legal-dialog" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle">
+            <div class="legal-head">
+                <h3 id="legalModalTitle" data-i18n="login.privacyTitle">隐私政策</h3>
+                <button type="button" class="legal-close" onclick="closeLegalModal()" data-i18n-aria-label="login.close" aria-label="关闭">×</button>
+            </div>
+            <div class="legal-body" id="legalModalBody"></div>
+        </div>
+    </div>
+
+    <!-- Mini Game Container -->
+    <div class="game-wrapper" id="gameWrapper">
+        <button class="btn-close-game" data-i18n="login.exitGame" onclick="toggleGame(false)">退出游戏</button>
+        <iframe id="gameIframe" src="" frameborder="0" style="width: 100%; height: 100%; display: block;"></iframe>
+    </div>
+
+    <script src="./tp-static/frontend/js/shared/api.js?v=07f6d79b4891"></script>
+    <script src="./tp-static/frontend/js/shared/migration-status.js?v=77d85f62cd84"></script>
+    <script>
+        // --- 星空动画逻辑 ---
+        const canvas = document.getElementById('spaceCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width, height;
+        let stars = [];
+
+        const numStars = 800;
+        const baseSpeed = 2.5;
+        const warpSpeed = 45;
+        let currentSpeed = baseSpeed;
+        let targetSpeed = baseSpeed;
+        const fov = 400;
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+
+        window.addEventListener('resize', resize);
+        resize();
+
+        const LEGAL_CONTENT = {
+            privacy: {
+                title: '隐私政策 (Privacy Policy)',
+                html: `
+                    <h1>隐私政策 (Privacy Policy)</h1>
+                    <p>欢迎使用工具中台 (Tools Platform)。本隐私政策旨在说明您在使用我们服务时，我们如何收集、使用和保护您的信息。</p>
+                    <h2>收集的信息</h2>
+                    <ul>
+                        <li><strong>账户与认证数据：</strong>登录时使用的用户凭证或相关授权令牌。</li>
+                        <li><strong>上传的数据：</strong>用于数据分析、SLA监控、FRT KPI核算和PR稽查等业务而导入的文件（如Excel、JSON）。</li>
+                        <li><strong>操作日志：</strong>用户操作记录、脚本执行历史、任务调度以及自定义工具的使用情况。</li>
+                        <li><strong>偏好设置：</strong>存储在服务器或本地的自定义配置和平台偏好设置。</li>
+                    </ul>
+                    <h2>我们如何使用您的信息</h2>
+                    <ul>
+                        <li><strong>提供服务：</strong>执行数据抓取、处理、报表生成及各类业务管理任务。</li>
+                        <li><strong>平台改进：</strong>分析工具使用模式，以提升系统性能、安全性和稳定性。</li>
+                        <li><strong>安全与审计：</strong>保留操作历史，用于安全审计、错误追踪和故障排查。</li>
+                    </ul>
+                    <h2>数据保护</h2>
+                    <p>我们采取适当的技术和组织措施来保护您的数据，防止未经授权的访问、篡改、泄露或销毁。我们不会向未经授权的第三方出售或共享您的数据。</p>
+                    <h2>联系我们</h2>
+                    <p>如果您对本隐私政策有任何疑问，请通过以下方式联系管理员：<code>fanxiaolongx@gmail.com</code></p>
+                    <div class="legal-divider"></div>
+                    <h1>Privacy Policy</h1>
+                    <p>Welcome to the Tools Platform (工具中台). This Privacy Policy explains how we collect, use, and protect your information when you use our services.</p>
+                    <h2>Information Collected</h2>
+                    <ul>
+                        <li><strong>Account and Authentication Data:</strong> User credentials or authorization tokens used when logging in.</li>
+                        <li><strong>Uploaded Data:</strong> Files (e.g., Excel, JSON) imported for data analysis, SLA monitoring, FRT KPI calculation, and PR audit tasks.</li>
+                        <li><strong>Operation Logs:</strong> History of user actions, script execution records, task scheduling, and custom tool usage.</li>
+                        <li><strong>Preferences:</strong> Custom configurations and preference settings stored in the server or local storage.</li>
+                    </ul>
+                    <h2>How We Use Your Information</h2>
+                    <ul>
+                        <li><strong>Providing Services:</strong> To execute data scraping, processing, report generation, and other platform management tasks.</li>
+                        <li><strong>Platform Improvement:</strong> To analyze tool usage patterns and improve system performance, security, and stability.</li>
+                        <li><strong>Security and Auditing:</strong> To maintain operational history for security auditing, error tracking, and troubleshooting purposes.</li>
+                    </ul>
+                    <h2>Data Protection</h2>
+                    <p>We implement appropriate technical and organizational measures to protect your data against unauthorized access, alteration, disclosure, or destruction. We do not sell or share your data with unauthorized third parties.</p>
+                    <h2>Contact Us</h2>
+                    <p>If you have any questions about this privacy policy, please contact the administrator at: <code>fanxiaolongx@gmail.com</code></p>
+                `
+            },
+            terms: {
+                title: '服务条款 (Terms of Service)',
+                html: `
+                    <h1>服务条款 (Terms of Service)</h1>
+                    <p>访问和使用工具中台 (Tools Platform) 即表示您同意遵守以下服务条款。</p>
+                    <h2>服务的使用</h2>
+                    <ul>
+                        <li>您同意仅出于合法和经授权的业务目的使用本平台及其工具（包括但不限于数据抓取、SLA导入、PR稽查和报表工具）。</li>
+                        <li>您有责任确保上传至本平台的任何数据或文件的准确性、安全性及合法性。</li>
+                        <li>使用数据抓取及宏代码引擎时，必须遵守目标系统或网站的使用条款及适用法律。严禁恶意抓取、未经授权的数据窃取或滥用平台计算资源。</li>
+                    </ul>
+                    <h2>免责声明</h2>
+                    <p>工具中台及所有包含的子工具均按“现状”和“现有”基础提供。我们不对本平台功能的稳定性、准确性或数据的绝对安全提供任何形式的明示或暗示的保证。</p>
+                    <h2>责任限制</h2>
+                    <p>对于因使用或无法使用本平台及其工具而导致的任何直接、间接、附带、特殊或后果性损害（包括但不限于业务中断或数据丢失），我们概不负责。</p>
+                    <h2>条款修改</h2>
+                    <p>我们保留随时修改、暂停或终止本平台部分或全部服务的权利，恕不另行通知。继续使用本平台即表示您接受修改后的服务条款。</p>
+                    <div class="legal-divider"></div>
+                    <h1>Terms of Service</h1>
+                    <p>By accessing and using the Tools Platform (工具中台), you agree to comply with and be bound by the following terms of service.</p>
+                    <h2>Use of Service</h2>
+                    <ul>
+                        <li>You agree to use the platform and its tools (including but not limited to data scraping, SLA imports, PR audit, and reporting tools) only for lawful and authorized business purposes.</li>
+                        <li>You are solely responsible for ensuring the accuracy, security, and legality of any data or files you upload to the platform.</li>
+                        <li>When using data scraping or macro engines, you must comply with the target system/website's terms of service and applicable laws. Malicious scraping, unauthorized data extraction, or abuse of platform computing resources is strictly prohibited.</li>
+                    </ul>
+                    <h2>Disclaimer of Warranties</h2>
+                    <p>The Tools Platform and all included sub-tools are provided on an "as is" and "as available" basis. We make no warranties, express or implied, regarding the stability, accuracy, or absolute security of the platform's features or data.</p>
+                    <h2>Limitation of Liability</h2>
+                    <p>In no event shall we be liable for any direct, indirect, incidental, special, or consequential damages (including but not limited to business interruption or data loss) arising out of the use or inability to use the platform and its tools.</p>
+                    <h2>Modifications</h2>
+                    <p>We reserve the right to modify, suspend, or discontinue any part or all of the platform's services at any time without prior notice. Your continued use of the platform constitutes acceptance of the modified terms.</p>
+                `
+            }
+        };
+
+        function openLegalModal(type) {
+            const item = LEGAL_CONTENT[type] || LEGAL_CONTENT.privacy;
+            const modal = document.getElementById('legalModal');
+            const title = document.getElementById('legalModalTitle');
+            const body = document.getElementById('legalModalBody');
+            if (!modal || !title || !body) return;
+            const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
+            title.textContent = lang === 'en-US'
+                ? (type === 'terms' ? 'Terms of Service (服务条款)' : 'Privacy Policy (隐私政策)')
+                : (type === 'terms' ? '服务条款 (Terms of Service)' : '隐私政策 (Privacy Policy)');
+            title.setAttribute('data-legal-type', type);
+            body.innerHTML = (currentPlatformName && currentPlatformName !== 'Tools Platform')
+                ? item.html.split('Tools Platform').join(currentPlatformName)
+                : item.html;
+            body.scrollTop = 0;
+            modal.classList.add('open');
+            modal.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeLegalModal() {
+            const modal = document.getElementById('legalModal');
+            if (!modal) return;
+            modal.classList.remove('open');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        function handleLegalBackdrop(event) {
+            if (event.target && event.target.id === 'legalModal') closeLegalModal();
+        }
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') closeLegalModal();
+        });
+
+        class Star {
+            constructor() {
+                this.reset(true);
+            }
+            reset(randomZ = false) {
+                this.x = (Math.random() - 0.5) * width * 2;
+                this.y = (Math.random() - 0.5) * height * 2;
+                this.z = randomZ ? Math.random() * width + 100 : width + 100;
+                this.pz = this.z;
+            }
+            update() {
+                this.pz = this.z;
+                this.z -= currentSpeed;
+                if (this.z < 1) {
+                    this.reset(false);
+                    this.pz = this.z;
+                }
+            }
+            draw() {
+                const sx = (this.x / this.z) * fov + width / 2;
+                const sy = (this.y / this.z) * fov + height / 2;
+                const px = (this.x / this.pz) * fov + width / 2;
+                const py = (this.y / this.pz) * fov + height / 2;
+
+                const distanceRatio = 1 - (this.z / width);
+                const opacity = Math.max(0.1, distanceRatio);
+                const lineWidth = Math.max(0.5, distanceRatio * (currentSpeed > 10 ? 4 : 2));
+
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(sx, sy);
+                ctx.strokeStyle = `rgba(165, 180, 252, ${opacity})`;
+                ctx.lineWidth = lineWidth;
+                ctx.stroke();
+            }
+        }
+
+        for (let i = 0; i < numStars; i++) {
+            stars.push(new Star());
+        }
+
+        function animate() {
+            currentSpeed += (targetSpeed - currentSpeed) * 0.05;
+            ctx.fillStyle = 'rgba(5, 8, 16, 0.4)';
+            ctx.fillRect(0, 0, width, height);
+
+            stars.forEach(star => {
+                star.update();
+                star.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+
+        // --- 业务逻辑 ---
+        async function loadAppVersion() {
+            const badge = document.getElementById('appVersionBadge');
+            if (!badge) return;
+            try {
+                const res = await fetch('/api/app-version', { cache: 'no-store' });
+                if (!res.ok) throw new Error('version api failed');
+                const data = await res.json();
+                if (data && data.version) {
+                    badge.textContent = `v${String(data.version).replace(/^v/i, '')}`;
+                }
+            } catch (e) {
+                console.warn('[Login] load app version failed:', e);
+            }
+        }
+
+        loadAppVersion();
+
+        function toggleGame(show) {
+            const wrapper = document.getElementById('gameWrapper');
+            const iframe = document.getElementById('gameIframe');
+            if (show) {
+                wrapper.classList.add('active');
+                // 每次打开都重新加载游戏
+                iframe.setAttribute('src', '/knight-dreams/index.html');
+            } else {
+                wrapper.classList.remove('active');
+                // 退出时清空 iframe 地址，彻底销毁游戏进程和声音
+                iframe.setAttribute('src', '');
+            }
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter') doLogin();
+        }
+
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+        function gaussianRandom() {
+            let u = 0;
+            let v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+        }
+
+        function roundedRectParticlePoint(rect) {
+            const edgeBias = Math.random();
+            if (edgeBias < 0.38) {
+                const side = Math.floor(Math.random() * 4);
+                if (side === 0) return { x: rect.left + Math.random() * rect.width, y: rect.top };
+                if (side === 1) return { x: rect.right, y: rect.top + Math.random() * rect.height };
+                if (side === 2) return { x: rect.left + Math.random() * rect.width, y: rect.bottom };
+                return { x: rect.left, y: rect.top + Math.random() * rect.height };
+            }
+            return {
+                x: rect.left + Math.random() * rect.width,
+                y: rect.top + Math.random() * rect.height
+            };
+        }
+
+        function playGaussianDissolve() {
+            const panel = document.getElementById('loginPanel');
+            if (!panel) return;
+
+            panel.classList.add('login-success');
+            if (prefersReducedMotion.matches) return;
+
+            const fxCanvas = document.getElementById('dissolveCanvas');
+            const fx = fxCanvas.getContext('2d');
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+            fxCanvas.width = Math.round(window.innerWidth * dpr);
+            fxCanvas.height = Math.round(window.innerHeight * dpr);
+            fxCanvas.style.width = `${window.innerWidth}px`;
+            fxCanvas.style.height = `${window.innerHeight}px`;
+            fx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            const controls = [
+                panel,
+                ...panel.querySelectorAll('.input-group'),
+                document.getElementById('loginBtn')
+            ].filter(Boolean);
+            const panelRect = panel.getBoundingClientRect();
+            const originX = panelRect.left + panelRect.width / 2;
+            const originY = panelRect.top + panelRect.height / 2;
+            const particles = [];
+
+            controls.forEach((control, controlIndex) => {
+                const rect = control.getBoundingClientRect();
+                const isPanel = control === panel;
+                const isButton = control === document.getElementById('loginBtn');
+                const areaCount = isPanel
+                    ? 440
+                    : Math.round(Math.min(320, Math.max(140, rect.width * rect.height / 85)));
+                for (let i = 0; i < areaCount; i++) {
+                    const point = roundedRectParticlePoint(rect);
+                    const dx = point.x - originX;
+                    const dy = point.y - originY;
+                    const distance = Math.max(1, Math.hypot(dx, dy));
+                    const spread = (isPanel ? 0.95 : 0.7) + Math.random() * 1.2;
+                    const palette = isPanel
+                        ? ['15, 23, 42', '51, 65, 85', '99, 102, 241', '165, 180, 252']
+                        : isButton
+                            ? ['99, 102, 241', '59, 130, 246', '96, 165, 250', '255, 255, 255']
+                            : ['165, 180, 252', '148, 163, 184', '226, 232, 240', '99, 102, 241'];
+
+                    particles.push({
+                        x: point.x + gaussianRandom() * 1.2,
+                        y: point.y + gaussianRandom() * 1.2,
+                        vx: (dx / distance) * spread + gaussianRandom() * 0.8 + 0.65,
+                        vy: (dy / distance) * spread + gaussianRandom() * 0.65 - 0.28,
+                        size: Math.max(0.8, 2.4 + gaussianRandom() * 1.15),
+                        blur: 3 + Math.random() * 9,
+                        alpha: 0.38 + Math.random() * 0.58,
+                        drag: 0.965 + Math.random() * 0.018,
+                        color: palette[Math.floor(Math.random() * palette.length)],
+                        phase: Math.random() * Math.PI * 2,
+                        delay: (isPanel ? 0 : controlIndex * 2) + Math.random() * 7
+                    });
+                }
+            });
+
+            const startedAt = performance.now();
+            const duration = 1050;
+
+            function renderDissolve(now) {
+                const elapsed = now - startedAt;
+                const progress = Math.min(1, elapsed / duration);
+                fx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+                fx.globalCompositeOperation = 'lighter';
+
+                particles.forEach(particle => {
+                    if (elapsed < particle.delay * 12) return;
+                    particle.vx += Math.sin(particle.phase + progress * 8) * 0.012;
+                    particle.vy += Math.cos(particle.phase + progress * 7) * 0.01;
+                    particle.x += particle.vx * (1 + progress * 2.8);
+                    particle.y += particle.vy * (1 + progress * 2.2);
+                    particle.vx *= particle.drag;
+                    particle.vy *= particle.drag;
+
+                    const life = Math.pow(1 - progress, 1.35);
+                    const radius = Math.max(0.2, particle.size * (1 + progress * 0.7));
+                    const gradient = fx.createRadialGradient(
+                        particle.x, particle.y, 0,
+                        particle.x, particle.y, radius + particle.blur
+                    );
+                    gradient.addColorStop(0, `rgba(${particle.color}, ${particle.alpha * life})`);
+                    gradient.addColorStop(0.28, `rgba(${particle.color}, ${particle.alpha * life * 0.55})`);
+                    gradient.addColorStop(1, `rgba(${particle.color}, 0)`);
+                    fx.fillStyle = gradient;
+                    fx.beginPath();
+                    fx.arc(particle.x, particle.y, radius + particle.blur, 0, Math.PI * 2);
+                    fx.fill();
+                });
+
+                if (progress < 1) {
+                    requestAnimationFrame(renderDissolve);
+                } else {
+                    fx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+                }
+            }
+
+            requestAnimationFrame(renderDissolve);
+        }
+
+        async function doLogin() {
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value;
+            const errDiv = document.getElementById('error-msg');
+            const btn = document.getElementById('loginBtn');
+            const panel = document.getElementById('loginPanel');
+
+            if (btn.disabled) return;
+
+            if (!u || !p) {
+                errDiv.textContent = window.ToolsI18n ? window.ToolsI18n.t('login.emptyFields') : '用户名和密码不能为空';
+                return;
+            }
+
+            errDiv.textContent = '';
+
+            // 触发跃迁动画
+            btn.disabled = true;
+            btn.setAttribute('aria-busy', 'true');
+            btn.innerHTML = `${window.ToolsI18n ? window.ToolsI18n.t('login.submitting') : '正在登录'} <span class="loader"></span>`;
+            btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            btn.style.boxShadow = '0 10px 25px -5px rgba(16, 185, 129, 0.5)';
+            panel.style.transform = 'scale(0.95)';
+            targetSpeed = warpSpeed;
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || (window.ToolsI18n ? window.ToolsI18n.t('login.failed') : '登录失败'));
+                }
+
+                localStorage.setItem('tools_token', data.token);
+                localStorage.setItem('tools_user', data.username);
+                localStorage.setItem('tools_role', data.role);
+                localStorage.setItem('tools_tenant_id', data.tenantId || 'default');
+
+                btn.innerHTML = window.ToolsI18n ? window.ToolsI18n.t('login.success') : '登录成功';
+                btn.removeAttribute('aria-busy');
+                playGaussianDissolve();
+
+                // 让粒子完整融入星空后再进入平台
+                setTimeout(() => {
+                    window.location.href = window.__TP_LOGIN_DESTINATION__ || './index.html';
+                }, prefersReducedMotion.matches ? 220 : 1080);
+
+            } catch (e) {
+                // 恢复原状
+                setTimeout(() => {
+                    targetSpeed = baseSpeed;
+                    btn.innerHTML = window.ToolsI18n ? window.ToolsI18n.t('login.submit') : '登 录';
+                    btn.disabled = false;
+                    btn.removeAttribute('aria-busy');
+                    btn.style.background = '';
+                    btn.style.boxShadow = '';
+                    panel.style.transform = 'scale(1)';
+                    errDiv.textContent = e.message;
+                }, 500);
+            }
+        }
+
+        // --- 多语言国际化 (i18n) ---
+        const LOGIN_I18N = {
+            'zh-CN': {
+                'login.pageTitle': '登录 - 图特工具平台',
+                'login.subtitle': '默认账号：admin / admin123',
+                'login.usernameLabel': '用户名',
+                'login.usernamePlaceholder': '请输入账号',
+                'login.passwordLabel': '密码',
+                'login.passwordPlaceholder': '请输入密码',
+                'login.submit': '登 录',
+                'login.submitting': '正在登录',
+                'login.success': '登录成功',
+                'login.failed': '登录失败',
+                'login.emptyFields': '用户名和密码不能为空',
+                'login.playGame': '♨️ 休息一下',
+                'login.cinema': '🎬 影视作品',
+                'login.evolutionTitle': '项目演进',
+                'login.evolutionAria': '观看项目演进视频，在新窗口播放高清版',
+                'login.privacy': '隐私政策',
+                'login.terms': '服务条款',
+                'login.exitGame': '退出游戏',
+                'login.close': '关闭',
+                'login.langToggleTitle': '切换语言 / Switch Language',
+                'login.privacyTitle': '隐私政策 (Privacy Policy)',
+                'login.termsTitle': '服务条款 (Terms of Service)'
+            },
+            'en-US': {
+                'login.pageTitle': 'Sign In - Dragon Platform',
+                'login.subtitle': 'Default credentials: admin / admin123',
+                'login.usernameLabel': 'Username',
+                'login.usernamePlaceholder': 'Enter username',
+                'login.passwordLabel': 'Password',
+                'login.passwordPlaceholder': 'Enter password',
+                'login.submit': 'Sign In',
+                'login.submitting': 'Signing in',
+                'login.success': 'Signed in successfully',
+                'login.failed': 'Sign in failed',
+                'login.emptyFields': 'Username and password cannot be empty',
+                'login.playGame': '♨️ Take a Break',
+                'login.cinema': '🎬 Cinema & Films',
+                'login.evolutionTitle': 'Project evolution',
+                'login.evolutionAria': 'Watch the project evolution video in HD in a new window',
+                'login.privacy': 'Privacy Policy',
+                'login.terms': 'Terms of Service',
+                'login.exitGame': 'Exit Game',
+                'login.close': 'Close',
+                'login.langToggleTitle': 'Switch Language / 切换语言',
+                'login.privacyTitle': 'Privacy Policy (隐私政策)',
+                'login.termsTitle': 'Terms of Service (服务条款)'
+            }
+        };
+
+        let currentPlatformName = 'Dragon 工具平台';
+        let currentPlatformIdentity = {
+            platformName: 'Dragon 工具平台',
+            platformNameZh: 'Dragon 工具平台',
+            platformNameEn: 'Dragon Platform',
+            platformSubtitle: '埃及 CS 工具与知识中心',
+            platformSubtitleEn: 'Egypt CS Tools & Knowledge Center',
+            platformSlogan: '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”',
+            platformSloganEn: '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”'
+        };
+
+        function updateLoginTitle() {
+            const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
+            const defaultPrefix = lang === 'en-US' ? 'Sign In' : '登录';
+            const rawTitle = window.ToolsI18n?.t('login.pageTitle') || `${defaultPrefix} - Tools Platform`;
+            document.title = rawTitle.includes('Tools Platform')
+                ? rawTitle.split('Tools Platform').join(currentPlatformName)
+                : `${defaultPrefix} - ${currentPlatformName}`;
+        }
+
+        function renderLoginIdentityUI() {
+            const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
+            const isEn = lang === 'en-US';
+
+            const rawName = currentPlatformIdentity.platformName || '';
+            const rawHasChinese = /[^\x00-\x7F]/.test(rawName);
+
+            let zhName = currentPlatformIdentity.platformNameZh;
+            let enName = currentPlatformIdentity.platformNameEn;
+
+            if (zhName && enName && zhName.toLowerCase() === enName.toLowerCase() && !/[^\x00-\x7F]/.test(zhName) && (enName.toLowerCase() === 'thoth platform' || enName.toLowerCase() === 'dragon platform' || enName.toLowerCase() === 'tools platform' || enName.toLowerCase() === 'eg cs hub')) {
+                zhName = 'Dragon 工具平台';
+            }
+
+            zhName = zhName || (rawHasChinese ? rawName : 'Dragon 工具平台');
+            enName = enName || (!rawHasChinese && rawName ? rawName : 'Dragon Platform');
+
+            const zhSub = currentPlatformIdentity.platformSubtitle || '埃及 CS 工具与知识中心';
+            const enSub = currentPlatformIdentity.platformSubtitleEn || 'Egypt CS Tools & Knowledge Center';
+            const zhSlogan = currentPlatformIdentity.platformSlogan || '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”';
+            const enSlogan = currentPlatformIdentity.platformSloganEn || '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”';
+
+            // 中文模式：主名称中文（大字），辅名称英文（小字），副标题在更下
+            // 英文模式：主名称英文（大字），辅名称中文（小字），副标题在更下
+            const mainTitle = isEn ? enName : zhName;
+            const secondaryTitle = isEn ? zhName : enName;
+            const subtitleText = isEn ? (enSub || zhSub) : (zhSub || enSub);
+            const sloganPrimary = isEn ? (enSlogan || zhSlogan) : (zhSlogan || enSlogan);
+            const sloganSecondary = isEn ? (zhSlogan || enSlogan) : (enSlogan || zhSlogan);
+
+            currentPlatformName = mainTitle;
+
+            document.querySelectorAll('[data-platform-name]').forEach(el => {
+                el.textContent = mainTitle;
+                el.title = mainTitle;
+            });
+
+            const hasDistinctSecondary = Boolean(
+                secondaryTitle &&
+                mainTitle &&
+                secondaryTitle.trim().toLowerCase() !== mainTitle.trim().toLowerCase()
+            );
+
+            const subEl = document.getElementById('loginBrandSub');
+            if (subEl) {
+                if (hasDistinctSecondary) {
+                    subEl.textContent = secondaryTitle;
+                    subEl.style.display = '';
+                } else {
+                    subEl.textContent = '';
+                    subEl.style.display = 'none';
+                }
+            }
+
+            const subtitleEl = document.getElementById('loginBrandSubtitle');
+            if (subtitleEl) subtitleEl.textContent = subtitleText;
+
+            const sloganPrimaryEl = document.getElementById('loginSloganPrimary');
+            if (sloganPrimaryEl) sloganPrimaryEl.textContent = sloganPrimary;
+
+            const sloganSecondaryEl = document.getElementById('loginSloganSecondary');
+            if (sloganSecondaryEl) sloganSecondaryEl.textContent = sloganSecondary;
+
+            const sloganEl = document.getElementById('loginSloganText');
+            if (sloganEl) sloganEl.textContent = sloganPrimary;
+
+            const logo = document.getElementById('loginBrandLogo');
+            if (logo) logo.alt = mainTitle;
+
+            updateLoginTitle();
+        }
+
+        function applyLoginPlatformIdentity(data) {
+            if (!data) return;
+            if (typeof data === 'string') {
+                const cleaned = data.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80);
+                if (cleaned) {
+                    currentPlatformIdentity.platformName = cleaned;
+                    const hasChinese = /[^\x00-\x7F]/.test(cleaned);
+                    if (hasChinese) {
+                        currentPlatformIdentity.platformNameZh = cleaned;
+                    } else {
+                        currentPlatformIdentity.platformNameEn = cleaned;
+                    }
+                    currentPlatformName = cleaned;
+                }
+            } else if (typeof data === 'object') {
+                if (data.platformName) {
+                    currentPlatformIdentity.platformName = String(data.platformName).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80);
+                }
+                const rawName = currentPlatformIdentity.platformName || '';
+                const rawHasChinese = /[^\x00-\x7F]/.test(rawName);
+
+                let zh = data.platformNameZh ? String(data.platformNameZh).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80) : '';
+                let en = data.platformNameEn ? String(data.platformNameEn).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80) : '';
+
+                if (zh && en && zh.toLowerCase() === en.toLowerCase() && !/[^\x00-\x7F]/.test(zh) && (en.toLowerCase() === 'thoth platform' || en.toLowerCase() === 'dragon platform' || en.toLowerCase() === 'tools platform' || en.toLowerCase() === 'eg cs hub')) {
+                    zh = 'Dragon 工具平台';
+                }
+
+                currentPlatformIdentity.platformNameZh = zh || (rawHasChinese ? rawName : 'Dragon 工具平台');
+                currentPlatformIdentity.platformNameEn = en || (!rawHasChinese && rawName ? rawName : 'Dragon Platform');
+
+                if (data.platformSubtitle) currentPlatformIdentity.platformSubtitle = String(data.platformSubtitle).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 120);
+                if (data.platformSubtitleEn) currentPlatformIdentity.platformSubtitleEn = String(data.platformSubtitleEn).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 120);
+                if (data.platformSlogan) currentPlatformIdentity.platformSlogan = String(data.platformSlogan).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 200);
+                if (data.platformSloganEn) currentPlatformIdentity.platformSloganEn = String(data.platformSloganEn).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 200);
+                currentPlatformName = currentPlatformIdentity.platformNameZh || currentPlatformIdentity.platformName || '图特工具平台';
+            }
+            renderLoginIdentityUI();
+        }
+
+        function applyLoginPlatformName(name) {
+            applyLoginPlatformIdentity(name);
+        }
+
+        async function loadPlatformIdentity() {
+            try {
+                const cachedIdentity = localStorage.getItem('tools_platform_identity');
+                if (cachedIdentity) {
+                    const parsed = JSON.parse(cachedIdentity);
+                    if (parsed) applyLoginPlatformIdentity(parsed);
+                } else {
+                    const cachedName = localStorage.getItem('tools_platform_name');
+                    if (cachedName) applyLoginPlatformName(cachedName);
+                    const tenant = localStorage.getItem('tools_tenant_id') || 'default';
+                    const navCache = JSON.parse(localStorage.getItem(`tools_nav_cache:${tenant}`) || 'null');
+                    if (navCache?.settings) {
+                        applyLoginPlatformIdentity(navCache.settings);
+                    }
+                }
+            } catch (_) {}
+
+            try {
+                let res = await fetch('/api/platform-identity', { cache: 'no-store' });
+                if (!res.ok) {
+                    res = await fetch('/api/nav-settings', { cache: 'no-store' });
+                }
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && typeof data === 'object') {
+                        applyLoginPlatformIdentity(data);
+                        try {
+                            localStorage.setItem('tools_platform_name', currentPlatformName);
+                            localStorage.setItem('tools_platform_identity', JSON.stringify({
+                                platformName: data.platformName,
+                                platformNameZh: data.platformNameZh,
+                                platformNameEn: data.platformNameEn,
+                                platformSubtitle: data.platformSubtitle,
+                                platformSubtitleEn: data.platformSubtitleEn,
+                                platformSlogan: data.platformSlogan,
+                                platformSloganEn: data.platformSloganEn
+                            }));
+                        } catch (_) {}
+                    }
+                }
+            } catch (e) {
+                console.warn('[Login] load nav-settings failed:', e);
+            }
+
+            try {
+                const logoRes = await fetch('/api/platform-logo/status', { cache: 'no-store' });
+                if (logoRes.ok) {
+                    const logoData = await logoRes.json();
+                    if (logoData && logoData.logoUrl) {
+                        const logo = document.getElementById('loginBrandLogo');
+                        if (logo) logo.src = logoData.logoUrl;
+                    }
+                }
+            } catch (_) {}
+        }
+
+        function updateLoginLanguageUI() {
+            const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
+            renderLoginIdentityUI();
+            const currentSpan = document.getElementById('loginLangCurrent');
+            if (currentSpan) currentSpan.textContent = lang === 'en-US' ? 'EN' : '中文';
+            const modal = document.getElementById('legalModal');
+            if (modal && modal.classList.contains('open')) {
+                const title = document.getElementById('legalModalTitle');
+                if (title) {
+                    const legalType = title.getAttribute('data-legal-type') || 'privacy';
+                    title.textContent = window.ToolsI18n?.t(legalType === 'terms' ? 'login.termsTitle' : 'login.privacyTitle');
+                }
+            }
+        }
+
+        function toggleLoginLanguage() {
+            if (window.ToolsI18n) {
+                window.ToolsI18n.toggleLanguage();
+            }
+        }
+
+        if (window.ToolsI18n) {
+            window.ToolsI18n.register('login', LOGIN_I18N);
+            window.addEventListener('tools:languagechange', () => {
+                updateLoginLanguageUI();
+            });
+            updateLoginLanguageUI();
+        }
+        loadPlatformIdentity();
+    </script>
+    <script src="./tp-static/frontend/js/shared/login-slogan-smoke.js?v=dde301fa053f"></script>
+    <script src="./tp-static/frontend/js/shared/desktop-license-badge.js?v=31d510877026"></script>
+</body>
+
+</html>

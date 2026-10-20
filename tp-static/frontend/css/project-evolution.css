@@ -1,0 +1,128 @@
+:root {
+    color-scheme: dark;
+    --page: #04050b;
+    --text: #f2effa;
+    --muted: #a6a1b8;
+    --line: rgba(191, 174, 226, .15);
+    --surface: rgba(21, 18, 36, .62);
+}
+* { box-sizing: border-box; }
+body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--page);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.evolution-atmosphere {
+    position: fixed;
+    z-index: 0;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse at 16% 14%, rgba(93, 49, 139, .23), transparent 42%),
+        radial-gradient(ellipse at 85% 54%, rgba(76, 39, 111, .2), transparent 44%),
+        radial-gradient(ellipse at 50% 100%, rgba(43, 46, 93, .13), transparent 52%);
+}
+.evolution-atmosphere::before {
+    content: "";
+    position: absolute;
+    inset: -90px;
+    background: url('../assets/promotions/project-evolution-galaxy-poster.jpg') center / cover no-repeat;
+    filter: blur(80px) saturate(.65);
+    opacity: .12;
+}
+.evolution-atmosphere::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(ellipse at 50% 45%, transparent 28%, rgba(4, 5, 11, .72) 100%),
+        url('../assets/promotions/project-evolution-stars.svg') center top / 1400px 1000px repeat;
+    opacity: .68;
+}
+.evolution-nav, .evolution-main { position: relative; z-index: 1; }
+.evolution-nav {
+    max-width: 1440px;
+    margin: auto;
+    padding: 22px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid var(--line);
+    font-size: 12px;
+}
+.evolution-nav a { color: var(--muted); text-decoration: none; transition: color .2s; }
+.evolution-nav a:hover { color: var(--text); }
+.evolution-nav > span { font-size: 10px; letter-spacing: .3em; color: #aba1bd; }
+button { cursor: pointer; font: inherit; }
+.evolution-nav button {
+    padding: 7px 12px;
+    color: #d9d1e9;
+    border: 1px solid rgba(191, 174, 226, .23);
+    background: var(--surface);
+    border-radius: 999px;
+    transition: background .2s, border-color .2s;
+}
+.evolution-nav button:hover { background: rgba(52, 37, 76, .68); border-color: rgba(191, 174, 226, .46); }
+a:focus-visible, button:focus-visible, video:focus-visible { outline: 2px solid #c2a5ed; outline-offset: 4px; }
+.evolution-main { width: min(1280px, calc(100% - 64px)); margin: 36px auto 24px; }
+.evolution-heading { margin-bottom: 24px; }
+.evolution-kicker { color: #bca8ce; font-size: 10px; letter-spacing: .3em; }
+h1 {
+    margin: 14px 0 10px;
+    font-family: "Songti SC", "STSong", "Noto Serif SC", Georgia, serif;
+    font-size: clamp(24px, 3.2vw, 40px);
+    font-weight: 500;
+    letter-spacing: .08em;
+    color: #f1ecf5;
+    text-shadow: 0 2px 24px rgba(170, 117, 215, .15);
+}
+.evolution-description { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.evolution-player {
+    position: relative;
+    overflow: hidden;
+    background: #000;
+    border: 1px solid rgba(190, 161, 225, .22);
+    border-radius: 14px;
+    box-shadow: 0 24px 90px rgba(0, 0, 0, .68), 0 0 65px rgba(110, 65, 155, .09);
+}
+video { display: block; width: 100%; aspect-ratio: 16 / 9; max-height: calc(100vh - 240px); max-height: max(220px, calc(100dvh - 240px)); background: #000; object-fit: contain; }
+.evolution-status {
+    position: absolute;
+    left: 50%;
+    bottom: 64px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: max-content;
+    max-width: calc(100% - 32px);
+    padding: 12px 16px;
+    background: rgba(18, 13, 30, .96);
+    border: 1px solid rgba(191, 174, 226, .3);
+    border-radius: 10px;
+    color: #f2effa;
+    font-size: 13px;
+    line-height: 1.5;
+}
+[hidden] { display: none !important; }
+.evolution-status button { flex: none; padding: 7px 12px; border: 1px solid rgba(216, 195, 241, .22); border-radius: 6px; color: #fff; background: #654286; }
+.evolution-status button:hover { background: #79539c; }
+.evolution-caption { margin: 16px 0; text-align: center; color: #93899f; font-size: 11px; letter-spacing: .08em; }
+@media (max-width: 600px) {
+    .evolution-nav { padding: 16px; gap: 10px; }
+    .evolution-nav > span { display: none; }
+    .evolution-main { width: calc(100% - 24px); margin-top: 28px; }
+    .evolution-heading { margin: 0 4px 20px; }
+    .evolution-player { border-radius: 10px; }
+    video { min-height: 0; max-height: none; }
+    .evolution-status { bottom: 46px; padding: 8px 10px; font-size: 12px; gap: 8px; }
+    .evolution-atmosphere::before { filter: blur(55px) saturate(.65); opacity: .09; }
+    .evolution-atmosphere::after { opacity: .5; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .evolution-nav a, .evolution-nav button { transition: none; }
+}
