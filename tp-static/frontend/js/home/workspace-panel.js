@@ -26,6 +26,7 @@
         openDiff: null,
         pr: null, // { phase: 'checking'|'blocked'|'form'|'running'|'done'|'failed', preflight, steps, url, error, controller }
         open: false,
+        external: null, // { previousOpen }：显示外部卡片（WeLink 跟进与记忆）时隐藏环境/上下文/更改
         picker: { items: [], active: -1, timer: null, lastInput: null, exists: false, isDir: false, requestId: 0 }
     };
     const el = {};
@@ -85,7 +86,7 @@
 
     // ── 面板开关 ──────────────────────────────────────────
     function setOpen(open) {
-        state.open = Boolean(open) && state.enabled;
+        state.open = Boolean(open) && (state.enabled || Boolean(state.external));
         document.body.classList.toggle('dc-workspace-open', state.open);
         el.panel.hidden = !state.open;
         el.toggle?.setAttribute('aria-pressed', String(state.open));
@@ -1087,6 +1088,11 @@
         el.backdrop.className = 'wsp-backdrop';
         el.backdrop.setAttribute('aria-hidden', 'true');
         el.panel.before(el.backdrop);
+        el.extCard = document.createElement('section');
+        el.extCard.className = 'wsp-card wsp-card--external is-open';
+        el.extCard.dataset.card = 'external';
+        el.extCard.innerHTML = '<button type="button" class="wsp-card-head" aria-expanded="true"><span data-wsp-ext-title></span><span class="wsp-card-meta" data-wsp-ext-meta></span><i class="wsp-caret" aria-hidden="true"></i></button><div class="wsp-card-body" data-wsp-ext-body></div>';
+        el.panel.appendChild(el.extCard);
         bind();
         try {
             state.capability = await request('GET', `${API}/capability`);
@@ -1116,8 +1122,33 @@
         setInterval(() => { if (state.open && document.visibilityState === 'visible') refreshChanges(); }, 15000);
     }
 
+    // 外部卡片：其他模块（如 WeLink 对话的跟进与记忆）借用右侧工作区面板展示内容，工作区未启用时也可用。
+    function showExternal({ title = '', meta = '', open } = {}) {
+        if (!el.panel || !el.extCard) return null;
+        if (!state.external) state.external = { previousOpen: state.open };
+        el.panel.classList.add('is-external');
+        el.extCard.querySelector('[data-wsp-ext-title]').textContent = title;
+        el.extCard.querySelector('[data-wsp-ext-meta]').textContent = meta;
+        const shouldOpen = open !== undefined ? open : !isDrawerMode();
+        if (shouldOpen) setOpen(true);
+        return el.extCard.querySelector('[data-wsp-ext-body]');
+    }
+
+    function hideExternal() {
+        if (!state.external) return;
+        const { previousOpen } = state.external;
+        state.external = null;
+        el.panel.classList.remove('is-external');
+        el.extCard.querySelector('[data-wsp-ext-body]').innerHTML = '';
+        setOpen(previousOpen && state.enabled);
+    }
+
     window.DragonClawWorkspace = {
         init,
+        showExternal,
+        hideExternal,
+        openPanel: () => setOpen(true),
+        isPanelOpen: () => state.open,
         isEnabled: () => state.enabled,
         hasWorkspace: () => Boolean(state.root),
         getWorkspacePayload() {
@@ -1210,6 +1241,12 @@
             messageEl.querySelectorAll('.dc-approval').forEach(card => card.classList.add('is-history'));
         },
         applyDone,
+        applyCompaction(data) {
+            if (data.agentSessionId !== state.agentSessionId || data.root !== state.root) return;
+            state.context = null; // 下一轮请求按压缩后的实际内容重新计算，避免继续展示旧占用。
+            renderContext();
+            el.ctxBody.innerHTML = `<div class="wsp-empty">${escapeHtml(tx('ctxCompacted'))}</div>`;
+        },
         open: () => setOpen(true),
         close: () => setOpen(false),
         toggle: () => setOpen(!state.open),

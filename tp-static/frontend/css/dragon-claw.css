@@ -56,6 +56,47 @@
 /* ── 落地页 ───────────────────────────────── */
 .dc-chat-head, .dc-thread { display: none; }
 
+/* 对话区顶部的工具入口；保留原生链接，静态站点沿用统一权限与地址映射。 */
+.dc-feature-link {
+    position: absolute;
+    top: 14px;
+    left: 18px;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    max-width: calc(100% - 36px);
+    box-sizing: border-box;
+    padding: 7px 11px 7px 7px;
+    border: 1px solid rgba(94, 234, 212, .28);
+    border-radius: 11px;
+    background: linear-gradient(110deg, rgba(20, 184, 166, .12), rgba(99, 102, 241, .12));
+    color: #d9faf3;
+    text-decoration: none;
+    font-size: 12px;
+    line-height: 1.35;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), 0 4px 16px rgba(2, 6, 23, .12);
+    transition: border-color .18s ease, background .18s ease;
+}
+.dc-feature-link:hover { border-color: rgba(94, 234, 212, .65); background: linear-gradient(110deg, rgba(20, 184, 166, .2), rgba(99, 102, 241, .2)); }
+.dc-feature-link:focus-visible { outline: 2px solid var(--dc-accent); outline-offset: 3px; }
+.dc-feature-icon { display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 7px; background: linear-gradient(135deg, #0d9488, #6366f1); color: #fff; font-size: 20px; }
+.dc-feature-new { flex: none; padding: 3px 5px; border-radius: 5px; background: #b5f36c; color: #163b23; font-size: 8px; font-weight: 850; letter-spacing: .06em; }
+.dc-feature-link strong { min-width: 0; font-size: 12px; font-weight: 650; }
+.dc-feature-description { min-width: 0; color: #a4b7cb; font-size: 11px; }
+.dc-feature-arrow { flex: none; margin-left: 2px; color: #7dd3fc; font-size: 16px; }
+body.dc-chatting .dc-feature-link { display: none; }
+@media (max-width: 860px) {
+    /* 手机的模式标签占一行，让视频浮窗避开下方的新工具入口。 */
+    body.home-mode-chat .nrv-stack { top: calc(var(--navbar-h, 52px) + 168px); }
+    body.home-mode-chat .nrv-stack:not(.is-tucked) { transition: transform .5s ease, opacity .35s ease, visibility 0s; }
+}
+@media (max-width: 640px) {
+    .dc-feature-link { top: 10px; left: 12px; max-width: calc(100% - 24px); gap: 7px; padding: 6px 9px 6px 6px; }
+    .dc-feature-description { display: none; }
+    .dc-feature-link strong { font-size: 11px; }
+}
+
 .dc-landing { display: flex; flex-direction: column; align-items: center; text-align: center; }
 .dc-orb {
     position: relative;
@@ -489,6 +530,11 @@ body.dc-chatting .dc-chat-head {
     padding: 12px 18px;
     border-bottom: 1px solid var(--dc-border);
     background: rgba(8, 13, 28, 0.4);
+    animation: dc-head-settle .26s cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes dc-head-settle {
+    from { opacity: .5; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 .dc-chat-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .dc-chat-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
@@ -533,6 +579,24 @@ body.dc-chatting .dc-composer {
     width: min(calc(var(--dc-col, 760px) + 40px), calc(100% - 32px));
     margin: 4px 0 16px;
 }
+
+/* 模糊文字般的占位：只动画透明度，不逐帧移动渐变或计算布局。 */
+.dc-history-loading { width: min(var(--dc-col, 760px), 100%); margin: 0 auto; }
+.dc-history-skeleton { display: grid; gap: 32px; padding: 12px 0; animation: dc-skeleton-breathe 1.8s ease-in-out infinite; }
+.dc-history-skeleton i, .dc-history-skeleton b { display: block; background: currentColor; }
+.dc-history-skeleton i { height: 11px; border-radius: 6px 4px 5px 3px; }
+.dc-skeleton-question { display: grid; gap: 12px; width: 46%; margin-left: auto; padding: 15px 18px; border-radius: 16px 16px 4px 16px; color: var(--dc-muted); background: rgba(148, 163, 184, .05); }
+.dc-skeleton-question i { opacity: .2; }
+.dc-skeleton-question i:last-child { width: 71%; }
+.dc-skeleton-question:nth-child(3) { width: 34%; }
+.dc-skeleton-answer { display: flex; gap: 12px; color: var(--dc-muted); }
+.dc-skeleton-answer b { flex: none; width: 26px; height: 26px; border-radius: 50%; opacity: .13; }
+.dc-skeleton-answer > div { display: grid; align-content: start; gap: 14px; flex: 1; padding-top: 7px; }
+.dc-skeleton-answer i { width: 92%; opacity: .17; }
+.dc-skeleton-answer i:nth-child(2) { width: 77%; }
+.dc-skeleton-answer i:nth-child(3) { width: 86%; }
+.dc-skeleton-answer i:last-child { width: 53%; }
+@keyframes dc-skeleton-breathe { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
 
 .dc-msg { display: flex; gap: 12px; margin-bottom: 24px; animation: dc-msg-in 0.28s ease both; }
 @keyframes dc-msg-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -779,6 +843,7 @@ body.dc-chatting .dc-composer {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    body.dc-chatting .dc-chat-head, .dc-history-skeleton { animation: none; }
     .dc-activity-orbit, .dc-msg--ai.is-writing .dc-msg-body > :last-child::after { animation: none; }
     .dc-ambient span, .dc-orb-ring, .dc-orb-ring::after, .dc-spot-blob span, .dc-spot-icon, .dc-scroll-hint span[aria-hidden] { animation: none; }
     .dc-model-menu { animation: none; }
@@ -899,8 +964,9 @@ body.dc-chatting .dc-composer {
     body.dc-chatting .dc-chat-head { gap: 8px; padding: 10px 12px; }
     .dc-chat-badge,
     .dc-chat-actions .dc-workspace-toggle { display: none !important; }
-    .dc-chat-title { gap: 7px; }
-    .dc-chat-name { font-size: 13.5px; }
+    .dc-chat-title { flex: 1; gap: 7px; }
+    .dc-chat-avatar { flex: none; }
+    .dc-chat-name { overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; }
     .dc-chat-actions { gap: 5px; }
     .dc-ghost-btn { height: 28px; padding: 0 9px; font-size: 11.5px; border-radius: 8px; }
 }

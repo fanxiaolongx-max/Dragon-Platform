@@ -498,6 +498,14 @@ function registerNavbarI18n() {
             'nav.set.restore.restoring': '正在恢复系统默认...',
             'nav.set.restore.success': '已恢复系统默认，并保留 {tools} 个非系统工具、{categories} 个自建分类',
             'nav.set.restore.fail': '恢复失败: ',
+            'nav.set.default.button': '设为系统默认布局',
+            'nav.set.default.confirmTitle': '将当前布局设为系统默认布局？',
+            'nav.set.default.confirmMessage': '当前顶部菜单、分类及工具排版将被写入系统源码默认配置（defaults/nav-layout.json），并立即对当前系统生效。',
+            'nav.set.default.confirmHint': '推送代码至远端仓库后，该布局将作为所有环境和后续默认初始化的系统标准布局。',
+            'nav.set.default.action': '确认设为默认',
+            'nav.set.default.saving': '正在设为系统默认布局...',
+            'nav.set.default.success': '已成功将当前布局设为系统默认布局并写入默认配置',
+            'nav.set.default.fail': '设为系统默认布局失败: ',
             'nav.init.help': '这里的两种操作都只作用于当前租户：开箱即用只补齐缺失默认内容；彻底初始化会清空当前租户业务数据。',
             'nav.init.quickTitle': '启动开箱即用模式',
             'nav.init.quickDesc': '重新导入仓库内置的智能调度脚本和全量指标规则。仅补齐缺失项，不覆盖同名脚本、规则或用户配置；导入前会生成配置快照。',
@@ -984,6 +992,14 @@ function registerNavbarI18n() {
             'nav.set.restore.restoring': 'Restoring system defaults...',
             'nav.set.restore.success': 'Defaults restored; preserved {tools} non-system tool(s) and {categories} custom category/categories',
             'nav.set.restore.fail': 'Restore failed: ',
+            'nav.set.default.button': 'Set as system default',
+            'nav.set.default.confirmTitle': 'Set current layout as system default?',
+            'nav.set.default.confirmMessage': 'The current top menu, categories, and tool arrangement will be saved to codebase defaults (defaults/nav-layout.json) and applied immediately.',
+            'nav.set.default.confirmHint': 'Once pushed to the remote repository, this layout will serve as the system standard default across environments.',
+            'nav.set.default.action': 'Set as default',
+            'nav.set.default.saving': 'Setting as system default...',
+            'nav.set.default.success': 'Current layout successfully set as system default and saved to defaults config',
+            'nav.set.default.fail': 'Failed to set system default: ',
             'nav.init.help': 'Both actions affect only the current tenant: Quick Start adds missing defaults, while Factory Reset clears this tenant’s business data.',
             'nav.init.quickTitle': 'Enable Quick Start Mode',
             'nav.init.quickDesc': 'Re-import the bundled smart-scheduling scripts and complete metric rules. Missing items are added without overwriting same-name scripts, rules, or user settings; a configuration snapshot is created first.',
@@ -2474,7 +2490,10 @@ function renderNavigationRestorePanel() {
                 <strong>${navEscape(navT('nav.set.restore.title'))}</strong>
                 <p>${navEscape(navT('nav.set.restore.desc'))}</p>
             </div>
-            <button type="button" onclick="restoreSystemNavigationDefaults()">${navEscape(navT('nav.set.restore.button'))}</button>
+            <div class="nav-settings-restore-actions">
+                <button type="button" class="nav-settings-btn-restore" onclick="restoreSystemNavigationDefaults()">${navEscape(navT('nav.set.restore.button'))}</button>
+                <button type="button" class="nav-settings-btn-setdefault" onclick="setCurrentNavigationAsDefault()">${navEscape(navT('nav.set.default.button'))}</button>
+            </div>
         </section>
     `;
 }
@@ -2514,6 +2533,43 @@ window.restoreSystemNavigationDefaults = async function () {
     } catch (error) {
         const nextIndicator = document.getElementById('navSettingsSaveState');
         if (nextIndicator) nextIndicator.textContent = navT('nav.set.restore.fail') + error.message;
+    }
+};
+
+window.setCurrentNavigationAsDefault = async function () {
+    const confirmed = await showNavbarConfirm({
+        title: navT('nav.set.default.confirmTitle'),
+        message: navT('nav.set.default.confirmMessage'),
+        hint: navT('nav.set.default.confirmHint'),
+        cancelText: navT('nav.set.restore.cancel'),
+        confirmText: navT('nav.set.default.action')
+    });
+    if (!confirmed) return;
+
+    clearTimeout(navState.saveTimer);
+    const indicator = document.getElementById('navSettingsSaveState');
+    if (indicator) indicator.textContent = navT('nav.set.default.saving');
+    try {
+        const res = await fetch('/api/nav-settings/set-as-default', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() },
+            body: JSON.stringify({ settings: navState.settings })
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !payload.success) throw new Error(payload.error || `HTTP ${res.status}`);
+        if (payload.settings) {
+            navState.settings = normalizeNavSettings(payload.settings);
+        }
+        writeNavigationBootstrapCache();
+        renderNavLinksFromState();
+        renderNavSettingsContent();
+        const nextIndicator = document.getElementById('navSettingsSaveState');
+        if (nextIndicator) {
+            nextIndicator.textContent = navT('nav.set.default.success');
+        }
+    } catch (error) {
+        const nextIndicator = document.getElementById('navSettingsSaveState');
+        if (nextIndicator) nextIndicator.textContent = navT('nav.set.default.fail') + error.message;
     }
 };
 
@@ -9096,6 +9152,7 @@ function initBackToTopButton() {
 }
 
 let builtinToolsSyncChecking = false;
+let builtinToolsCompareAbort = null;
 const BUILTIN_TOOLS_SYNC_SNOOZE_KEY = 'builtin_tools_sync_snooze_date_v1';
 
 function getBuiltinToolsSyncLocalDate() {
@@ -9131,7 +9188,7 @@ function builtinToolStatusMeta(status) {
     return {
         missing: { label: navLocaleText('新增系统工具', 'New System Tool'), tone: 'new' },
         adopt: { label: navLocaleText('接管同版工具', 'Adopt Identical Version'), tone: 'adopt' },
-        update: { label: navLocaleText('发现新版本', 'New Version Found'), tone: 'update' },
+        update: { label: navLocaleText('内容有差异', 'Content Differs'), tone: 'update' },
         conflict: { label: navLocaleText('同名工具冲突', 'Name Conflict'), tone: 'conflict' }
     }[status] || { label: navLocaleText('存在差异', 'Has Differences'), tone: 'update' };
 }
@@ -9175,7 +9232,101 @@ function renderBuiltinToolDiff(tool) {
 function closeBuiltinToolsSyncModal() {
     const modal = document.getElementById('builtinToolsSyncModal');
     if (modal?.dataset.applying === '1') return;
+    if (builtinToolsCompareAbort) {
+        try { builtinToolsCompareAbort.abort(); } catch (_) {}
+        builtinToolsCompareAbort = null;
+    }
+    const button = document.getElementById('builtinToolsCompareBtn');
+    if (button) { button.disabled = false; button.removeAttribute('aria-busy'); }
+    builtinToolsSyncChecking = false;
     if (modal) modal.remove();
+}
+
+async function fetchBuiltinToolsPreviewWithProgress(onProgress, signal) {
+    try {
+        const response = await fetch('/api/custom-tools/builtin-sync/preview-stream?manual=1', {
+            headers: { ...getAuthHeaderForNav() },
+            signal
+        });
+        if (response.ok && response.body?.getReader) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            let result = null;
+            const consume = line => {
+                if (!line.trim()) return;
+                const event = JSON.parse(line);
+                if (event.type === 'progress') onProgress(event);
+                else if (event.type === 'result') result = event.data;
+                else if (event.type === 'error') throw new Error(event.error);
+            };
+            while (true) {
+                const { done, value } = await reader.read();
+                buffer += decoder.decode(value, { stream: !done });
+                let newline;
+                while ((newline = buffer.indexOf('\n')) !== -1) {
+                    consume(buffer.slice(0, newline));
+                    buffer = buffer.slice(newline + 1);
+                }
+                if (done) break;
+            }
+            consume(buffer);
+            if (result) return result;
+        }
+    } catch (err) {
+        if (signal?.aborted) throw err;
+        // 降级为普通请求
+    }
+    return await API.get('/api/custom-tools/builtin-sync/preview?manual=1');
+}
+
+function renderBuiltinToolsCompareProgress(modal, event) {
+    if (!modal || modal.dataset.loading !== '1') return;
+    const total = Math.max(1, Number(event.total) || 1);
+    const current = Math.min(total, Math.max(0, Number(event.current) || 0));
+    const percent = Math.round((current / total) * 100);
+    const titleEl = modal.querySelector('.builtin-sync-loading-title');
+    const percentEl = modal.querySelector('.builtin-sync-loading-percent');
+    const barEl = modal.querySelector('.builtin-sync-loading-bar');
+    const barFill = modal.querySelector('.builtin-sync-loading-bar i');
+    const detailEl = modal.querySelector('.builtin-sync-loading-detail');
+    const resultEl = modal.querySelector('.builtin-sync-result');
+    if (titleEl) {
+        titleEl.textContent = navLocaleText(
+            `正在比对系统内置工具 · ${current}/${total}`,
+            `Comparing bundled tools · ${current}/${total}`
+        );
+    }
+    if (percentEl) percentEl.textContent = `${percent}%`;
+    if (barEl) barEl.setAttribute('aria-valuenow', String(percent));
+    if (barFill) barFill.style.transform = `scaleX(${current / total})`;
+    const toolText = event.name || event.slug ? `${event.name || event.slug}${event.slug && event.name !== event.slug ? ` (${event.slug})` : ''}` : '';
+    if (detailEl) {
+        detailEl.textContent = toolText ? navLocaleText(`正在检查：${toolText}`, `Checking: ${toolText}`) : navLocaleText('正在检索文件指纹与修改…', 'Scanning fingerprints and changes…');
+    }
+    if (resultEl && toolText) {
+        resultEl.textContent = navLocaleText(`比对进度 (${current}/${total})：${toolText}`, `Progress (${current}/${total}): ${toolText}`);
+    }
+}
+
+function renderBuiltinToolsCompareError(modal, error, onRetry) {
+    if (!modal) return;
+    modal.dataset.loading = '0';
+    const list = modal.querySelector('.builtin-sync-list');
+    if (list) {
+        list.innerHTML = `
+            <div class="builtin-sync-error-card">
+                <strong>⚠️ ${navEscape(navLocaleText('读取内置工具比对失败', 'Failed to Compare Bundled Tools'))}</strong>
+                <p>${navEscape(error?.message || navLocaleText('网络连接超时或服务未就绪，请重试。', 'Connection timed out or service unavailable. Please retry.'))}</p>
+                <div><button type="button" class="builtin-sync-retry">${navEscape(navLocaleText('重新比对', 'Retry Comparison'))}</button></div>
+            </div>
+        `;
+        list.querySelector('.builtin-sync-retry')?.addEventListener('click', () => {
+            if (typeof onRetry === 'function') onRetry();
+        });
+    }
+    const resultEl = modal.querySelector('.builtin-sync-result');
+    if (resultEl) resultEl.textContent = navLocaleText('比对失败，请重试。', 'Comparison failed. Please retry.');
 }
 
 async function applyBuiltinToolsWithProgress(body, onProgress) {
@@ -9262,17 +9413,83 @@ function renderBuiltinToolsSyncProgress(modal, event) {
 
 function openBuiltinToolsSyncModal(preview, selectedSlugs) {
     if (document.getElementById('builtinToolsSyncModal')?.dataset.applying === '1') return;
-    closeBuiltinToolsSyncModal();
     const tools = Array.isArray(preview?.pending) ? preview.pending : [];
-    if (!tools.length) return;
+    const manual = preview?.manual === true;
+    const loading = preview?.loading === true;
+    if (!tools.length && !manual && !loading) return;
     lastBuiltinToolsSyncPreview = preview;
 
-    const modal = document.createElement('div');
-    modal.id = 'builtinToolsSyncModal';
-    modal.className = 'builtin-sync-modal';
-    modal.setAttribute('role', 'dialog');
-    modal.setAttribute('aria-modal', 'true');
-    modal.setAttribute('aria-labelledby', 'builtinToolsSyncTitle');
+    let modal = document.getElementById('builtinToolsSyncModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'builtinToolsSyncModal';
+        modal.className = 'builtin-sync-modal';
+        modal.setAttribute('role', 'dialog');
+        modal.setAttribute('aria-modal', 'true');
+        modal.setAttribute('aria-labelledby', 'builtinToolsSyncTitle');
+        document.body.appendChild(modal);
+    }
+    delete modal.dataset.needsRefresh;
+    delete modal.dataset.applying;
+    modal.dataset.loading = loading ? '1' : '0';
+
+    if (loading) {
+        modal.innerHTML = `
+            <div class="builtin-sync-window">
+                <header class="builtin-sync-head">
+                    <div>
+                        <div class="builtin-sync-kicker">SYSTEM TOOLS UPDATE</div>
+                        <h2 id="builtinToolsSyncTitle">${navEscape(navLocaleText('正在比对系统内置工具…', 'Comparing Bundled Tools…'))}</h2>
+                        <p>${navEscape(navLocaleText('正在检索系统随包内置工具并与当前环境比对差异，请稍候…', 'Scanning bundled tools and comparing differences with in-use versions, please wait…'))}</p>
+                    </div>
+                    <button type="button" class="builtin-sync-close" aria-label="${navEscape(navLocaleText('稍后处理', 'Dismiss'))}">×</button>
+                </header>
+                <div class="builtin-sync-safe-note">
+                    <span>🛡️</span>
+                    <div><strong>${navEscape(navLocaleText('工具业务数据不会被覆盖', 'Tool business data will not be overwritten'))}</strong><br>${navEscape(navLocaleText('仅同步工具程序文件；用户额外文件会保留，被替换的旧目录也会备份到数据目录。', 'Only tool application files are synced. Custom user files are preserved, and replaced folders are backed up to the data directory.'))}</div>
+                </div>
+                <div class="builtin-sync-toolbar">
+                    <span>${navEscape(navLocaleText('正在比对中…', 'Comparing...'))}</span>
+                </div>
+                <div class="builtin-sync-list">
+                    <div class="builtin-sync-loading">
+                        <div class="builtin-sync-loading-card">
+                            <div class="builtin-sync-loading-head">
+                                <div class="builtin-sync-spinner" aria-hidden="true"></div>
+                                <div class="builtin-sync-loading-title">${navEscape(navLocaleText('正在比对系统内置工具…', 'Comparing bundled tools…'))}</div>
+                                <div class="builtin-sync-loading-percent">0%</div>
+                            </div>
+                            <div class="builtin-sync-loading-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                <i></i>
+                            </div>
+                            <div class="builtin-sync-loading-detail">${navEscape(navLocaleText('准备开始比对…', 'Preparing comparison…'))}</div>
+                        </div>
+                        <div class="builtin-sync-skeleton-list" aria-hidden="true">
+                            <div class="builtin-sync-skeleton-card"></div>
+                            <div class="builtin-sync-skeleton-card"></div>
+                            <div class="builtin-sync-skeleton-card"></div>
+                        </div>
+                    </div>
+                </div>
+                <footer class="builtin-sync-footer">
+                    <div class="builtin-sync-feedback">
+                        <span class="builtin-sync-result" aria-live="polite">${navEscape(navLocaleText('正在比对系统内置工具与本地工具差异…', 'Comparing bundled tools with in-use versions…'))}</span>
+                    </div>
+                    <button type="button" class="builtin-sync-later">${navEscape(navLocaleText('关闭', 'Close'))}</button>
+                    <button type="button" class="builtin-sync-today" hidden>${navEscape(navLocaleText('今天不再提醒', 'Don\'t Remind Today'))}</button>
+                    <button type="button" class="builtin-sync-apply" disabled>${navEscape(navLocaleText('强制使用随包版本', 'Use Bundled Versions'))}</button>
+                </footer>
+            </div>
+        `;
+        const close = () => closeBuiltinToolsSyncModal();
+        modal.querySelector('.builtin-sync-close').addEventListener('click', close);
+        modal.querySelector('.builtin-sync-later').addEventListener('click', close);
+        modal.addEventListener('click', event => {
+            if (event.target === modal) close();
+        });
+        return;
+    }
+
     const toolCards = tools.map(tool => {
         const status = builtinToolStatusMeta(tool.status);
         const counts = tool.counts || {};
@@ -9284,7 +9501,7 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
                 : navLocaleText('无文件差异', 'No file differences');
         const conflictNotice = tool.status === 'conflict'
             ? `<div class="builtin-sync-conflict-note">${navEscape(navLocaleText('此目录不是系统管理版本，可能是您的同名自定义工具，已默认不覆盖。', 'This directory is not managed by the system and may be your custom tool with the same name. Overwrite is unchecked by default.'))}</div>`
-            : '';
+            : tool.localChanges ? `<div class="builtin-sync-conflict-note">${navEscape(navLocaleText('检测到本地修改或旧版校验信息不完整，已保留当前工具。确认后可手动勾选更新，旧目录会先备份。', 'Local changes or incomplete legacy verification data were detected. The current tool is preserved. Select it to update after review; the old folder will be backed up first.'))}</div>` : '';
         const toolInfoDiff = tool.toolInfoChanged && tool.oldTool && tool.newTool
             ? `<div class="builtin-sync-info-diff">
                 <span>${navEscape(navLocaleText('旧信息', 'Old'))}：${navEscape(tool.oldTool.icon)} ${navEscape(tool.oldTool.name)}</span>
@@ -9292,7 +9509,7 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
                 <span>${navEscape(navLocaleText('新信息', 'New'))}：${navEscape(tool.newTool.icon)} ${navEscape(tool.newTool.name)}</span>
             </div>`
             : '';
-        const isChecked = selectedSlugs ? selectedSlugs.has(tool.slug) : Boolean(tool.recommended);
+        const isChecked = selectedSlugs ? selectedSlugs.has(tool.slug) : !manual && Boolean(tool.recommended);
         return `
             <article class="builtin-sync-card ${tool.status === 'conflict' ? 'is-conflict' : ''}" data-sync-slug="${navEscape(tool.slug)}">
                 <label class="builtin-sync-tool-head">
@@ -9306,27 +9523,28 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
                 </label>
                 ${conflictNotice}
                 ${toolInfoDiff}
+                ${manual ? `<div class="builtin-sync-versions">${navEscape(navLocaleText('当前来源', 'Current source'))}：${navEscape(tool.currentSource === 'market' ? navLocaleText('工具市场', 'Tool market') : navLocaleText('本地工具', 'Local tool'))} · ${navEscape(tool.currentVersion || '—')} → ${navEscape(navLocaleText('随包内置', 'Bundled'))} · ${navEscape(tool.bundledVersion || '—')}</div>` : ''}
                 <div class="builtin-sync-metrics">
-                    <span>${navEscape(navLocaleText('旧版', 'Old'))} <b>${formatBuiltinToolBytes(tool.oldBytes)}</b></span>
+                    <span>${navEscape(navLocaleText('当前使用', 'In use'))} <b>${formatBuiltinToolBytes(tool.oldBytes)}</b></span>
                     <span class="builtin-sync-arrow">→</span>
-                    <span>${navEscape(navLocaleText('内置新版', 'Built-in'))} <b>${formatBuiltinToolBytes(tool.newBytes)}</b></span>
+                    <span>${navEscape(navLocaleText('随包内置', 'Bundled'))} <b>${formatBuiltinToolBytes(tool.newBytes)}</b></span>
                     <span class="builtin-sync-counts">+${counts.added || 0} / ~${counts.modified || 0} / −${counts.removed || 0} / ${navEscape(navLocaleText('保留', 'Preserved'))} ${counts.preserved || 0}</span>
                 </div>
                 <details class="builtin-sync-details" ${tool.status === 'conflict' ? 'open' : ''}>
-                    <summary>${navEscape(navLocaleText(`查看旧版与新版比对（${diffSummary}）`, `View comparison with old version (${diffSummary})`))}</summary>
+                    <summary>${navEscape(navLocaleText(`查看当前与随包版本比对（${diffSummary}）`, `Compare in-use and bundled versions (${diffSummary})`))}</summary>
                     <div class="builtin-sync-file-list"></div>
                 </details>
             </article>
         `;
-    }).join('');
+    }).join('') || `<div class="builtin-sync-empty-diff">${navEscape(navLocaleText('当前工具与随包内置版本一致，没有需要替换的工具。', 'Installed tools match the bundled versions. No replacement is needed.'))}</div>`;
 
     modal.innerHTML = `
         <div class="builtin-sync-window">
             <header class="builtin-sync-head">
                 <div>
                     <div class="builtin-sync-kicker">SYSTEM TOOLS UPDATE</div>
-                    <h2 id="builtinToolsSyncTitle">${navEscape(navLocaleText('发现系统内置工具差异', 'Built-in System Tools Updates Available'))}</h2>
-                    <p>${navEscape(navLocaleText('请选择要覆盖或安装的工具。未勾选项会保留现状，并在该内置版本不变时不再提醒。', 'Select tools to update or install. Unselected tools will remain as-is and won\'t prompt again unless updated.'))}</p>
+                    <h2 id="builtinToolsSyncTitle">${navEscape(manual ? navLocaleText('内置工具差异比对', 'Compare Bundled Tools') : navLocaleText('发现系统内置工具差异', 'Built-in System Tools Updates Available'))}</h2>
+                    <p>${navEscape(manual ? navLocaleText('按需选择工具，强制使用当前主程序随包版本（可能是旧版）。未选择的工具保持不变。', 'Select tools to replace with this app’s bundled versions, which may be older. Unselected tools remain unchanged.') : navLocaleText('请选择要覆盖或安装的工具。未勾选项会保留现状，并在该内置版本不变时不再提醒。', 'Select tools to update or install. Unselected tools will remain as-is and won\'t prompt again unless updated.'))}</p>
                 </div>
                 <button type="button" class="builtin-sync-close" aria-label="${navEscape(navLocaleText('稍后处理', 'Dismiss'))}">×</button>
             </header>
@@ -9336,7 +9554,7 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
             </div>
             <div class="builtin-sync-toolbar">
                 <span>${navEscape(navLocaleText(`共 ${tools.length} 个待处理工具`, `${tools.length} pending tool(s)`))}</span>
-                <button type="button" data-sync-select="recommended">${navEscape(navLocaleText('选择建议项', 'Select Recommended'))}</button>
+                <button type="button" data-sync-select="recommended">${navEscape(manual ? navLocaleText('全选差异', 'Select All Differences') : navLocaleText('选择建议项', 'Select Recommended'))}</button>
                 <button type="button" data-sync-select="none">${navEscape(navLocaleText('全部取消', 'Deselect All'))}</button>
             </div>
             <div class="builtin-sync-list">${toolCards}</div>
@@ -9347,11 +9565,11 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
                     <div class="builtin-sync-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div>
                     <div class="builtin-sync-progress-detail"></div>
                 </div>
-                <span class="builtin-sync-result" aria-live="polite">${navEscape(navLocaleText('冲突项默认保留旧版，您仍可手动勾选覆盖。', 'Conflicts keep old version by default. You can manually select to overwrite.'))}</span>
+                <span class="builtin-sync-result" aria-live="polite">${navEscape(manual ? navLocaleText('默认不选；强制替换前会备份当前目录，业务数据库与用户额外文件保留。', 'Nothing is selected by default. Current folders are backed up before replacement; business databases and extra user files are preserved.') : navLocaleText('冲突项默认保留旧版，您仍可手动勾选覆盖。', 'Conflicts keep old version by default. You can manually select to overwrite.'))}</span>
                 </div>
-                <button type="button" class="builtin-sync-later">${navEscape(navLocaleText('稍后提醒', 'Remind Later'))}</button>
-                <button type="button" class="builtin-sync-today">${navEscape(navLocaleText('今天不再提醒', 'Don\'t Remind Today'))}</button>
-                <button type="button" class="builtin-sync-apply">${navEscape(navLocaleText('按选择处理', 'Apply Selected'))}</button>
+                <button type="button" class="builtin-sync-later">${navEscape(manual ? navLocaleText('关闭', 'Close') : navLocaleText('稍后提醒', 'Remind Later'))}</button>
+                <button type="button" class="builtin-sync-today" ${manual ? 'hidden' : ''}>${navEscape(navLocaleText('今天不再提醒', 'Don\'t Remind Today'))}</button>
+                <button type="button" class="builtin-sync-apply" ${!tools.length ? 'disabled' : ''}>${navEscape(manual ? navLocaleText('强制使用随包版本', 'Use Bundled Versions') : navLocaleText('按选择处理', 'Apply Selected'))}</button>
             </footer>
         </div>
     `;
@@ -9380,7 +9598,7 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
     });
     modal.querySelector('[data-sync-select="recommended"]').addEventListener('click', () => {
         modal.querySelectorAll('.builtin-sync-choice').forEach((input, index) => {
-            input.checked = Boolean(tools[index] && tools[index].recommended);
+            input.checked = manual || Boolean(tools[index] && tools[index].recommended);
         });
     });
     modal.querySelector('[data-sync-select="none"]').addEventListener('click', () => {
@@ -9395,8 +9613,8 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
         if (modal.dataset.needsRefresh === '1') {
             button.disabled = true;
             try {
-                const refreshed = await API.get('/api/custom-tools/builtin-sync/preview');
-                if (refreshed.pending?.length) openBuiltinToolsSyncModal(refreshed);
+                const refreshed = await API.get(manual ? '/api/custom-tools/builtin-sync/preview?manual=1' : '/api/custom-tools/builtin-sync/preview');
+                if (refreshed.pending?.length || manual) openBuiltinToolsSyncModal(refreshed);
                 else window.location.reload();
             } catch (error) {
                 resultNode.textContent = error.message;
@@ -9407,7 +9625,11 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
             [...modal.querySelectorAll('.builtin-sync-choice:checked')].map(input => input.dataset.syncSlug)
         );
         const applySlugs = tools.filter(tool => selected.has(tool.slug)).map(tool => tool.slug);
-        const skipSlugs = tools.filter(tool => !selected.has(tool.slug)).map(tool => tool.slug);
+        if (manual && !applySlugs.length) {
+            resultNode.textContent = navLocaleText('请先勾选需要替换的工具。', 'Select tools to replace first.');
+            return;
+        }
+        const skipSlugs = manual ? [] : tools.filter(tool => !selected.has(tool.slug)).map(tool => tool.slug);
         const expectedFingerprints = Object.fromEntries(tools.map(tool => [tool.slug, tool.fingerprint]));
         modal.dataset.applying = '1';
         modal.querySelectorAll('button, input').forEach(control => { control.disabled = true; });
@@ -9418,7 +9640,8 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
             const result = await applyBuiltinToolsWithProgress({
                 applySlugs,
                 skipSlugs,
-                expectedFingerprints
+                expectedFingerprints,
+                ...(manual ? { forceBundled: true } : {})
             }, progress => renderBuiltinToolsSyncProgress(modal, progress));
             renderBuiltinToolsSyncProgress(modal, { stage: 'done' });
             const changed = result.installed.length + result.adopted.length + result.updated.length;
@@ -9458,6 +9681,61 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
     });
     setTimeout(() => modal.querySelector('.builtin-sync-choice')?.focus(), 0);
 }
+
+window.openBuiltinToolsComparison = async function () {
+    if (document.getElementById('builtinToolsSyncModal')?.dataset.applying === '1'
+        || localStorage.getItem('tools_role') !== 'admin') return;
+
+    const existingModal = document.getElementById('builtinToolsSyncModal');
+    if (existingModal && existingModal.dataset.loading === '1') {
+        existingModal.querySelector('.builtin-sync-close')?.focus();
+        return;
+    }
+
+    const button = document.getElementById('builtinToolsCompareBtn');
+    builtinToolsSyncChecking = true;
+    if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
+
+    if (builtinToolsCompareAbort) {
+        try { builtinToolsCompareAbort.abort(); } catch (_) {}
+        builtinToolsCompareAbort = null;
+    }
+    const abortController = new AbortController();
+    builtinToolsCompareAbort = abortController;
+
+    // 先出画面：立即渲染内置工具差异比对弹窗与加载态
+    openBuiltinToolsSyncModal({ manual: true, loading: true });
+    const modal = document.getElementById('builtinToolsSyncModal');
+
+    const runScan = async () => {
+        try {
+            const preview = await fetchBuiltinToolsPreviewWithProgress(progress => {
+                renderBuiltinToolsCompareProgress(modal, progress);
+            }, abortController.signal);
+            if (abortController.signal.aborted) return;
+            openBuiltinToolsSyncModal(preview);
+        } catch (error) {
+            if (abortController.signal.aborted) return;
+            renderBuiltinToolsCompareError(modal, error, () => {
+                if (modal) {
+                    modal.dataset.loading = '1';
+                    openBuiltinToolsSyncModal({ manual: true, loading: true });
+                }
+                runScan();
+            });
+        } finally {
+            builtinToolsSyncChecking = false;
+            if (button) { button.disabled = false; button.removeAttribute('aria-busy'); }
+            if (builtinToolsCompareAbort === abortController) builtinToolsCompareAbort = null;
+        }
+    };
+
+    runScan();
+};
+
+document.addEventListener('click', event => {
+    if (event.target.closest('#builtinToolsCompareBtn')) void window.openBuiltinToolsComparison();
+});
 
 async function checkBuiltinToolsSync() {
     const toolMarketOpened = () => document.getElementById('toolMarketBtn')?.dataset.opened === '1';
