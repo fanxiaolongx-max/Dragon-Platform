@@ -16,6 +16,42 @@ function netcareDefaultLocalRules() {
     { id: 'rule-3.5', name: '3.5 失败回退方案检查 / Changeback Solution Check', sectionNumber: '3.5', sectionTitle: 'Solution for Changeback In the Case of Failure', kind: 'text', pattern: '(?:回退|Changeback|Rollback|应急预案|失败判定|恢复原状)', passCondition: 'match', passSummary: '包含回退方案与应急步骤 / Contains rollback plan and steps', failSummary: '缺少回退步骤或应急预案 / Missing rollback steps', enabled: true }
   ];
 }
+const NETCARE_BILINGUAL_SECTIONS = [
+  { number: "1", en: "Description of Change and Change Influence", zh: "变更描述及影响", aliases: ["变更描述与影响", "变更描述"] },
+  { number: "1.1", en: "Change Purpose", zh: "变更目的", aliases: ["变更目的与背景", "变更背景与目的", "Purpose"] },
+  { number: "1.2", en: "Basic Information and Change Plan", zh: "基本信息及变更方案", aliases: ["基本信息与变更方案", "变更计划与方案", "变更方案", "Change Plan"] },
+  { number: "1.2.1", en: "Network Topology", zh: "网络拓扑", aliases: ["拓扑", "Topology"] },
+  { number: "1.2.2", en: "Change Batches", zh: "变更批次", aliases: ["批次", "Batches"] },
+  { number: "1.2.3", en: "Peripherals", zh: "外设", aliases: ["周边外设", "Peripheral"] },
+  { number: "1.3", en: "Change Influence", zh: "变更影响", aliases: ["业务影响", "Influence"] },
+  { number: "1.4", en: "Severity Information", zh: "严重性信息", aliases: ["严重程度", "Severity"] },
+  { number: "2", en: "Preparations for Change", zh: "变更准备", aliases: ["准备工作", "实施准备"] },
+  { number: "2.1", en: "Composition of Change Team and Responsibility of Team Members", zh: "变更团队构成及职责", aliases: ["团队构成及职责", "变更团队"] },
+  { number: "2.1.1", en: "Change Team of Orange Company", zh: "客户变更团队", aliases: ["局方变更团队", "Customer Change Team", "Orange Change Team"] },
+  { number: "2.1.2", en: "Huawei On-site Change Team", zh: "华为现场变更团队", aliases: ["现场变更团队"] },
+  { number: "2.1.3", en: "Huawei Support & Guarantee Team", zh: "华为后方支持与保障团队", aliases: ["后方保障团队", "支持与保障团队"] },
+  { number: "2.2", en: "Remote Access", zh: "远程接入", aliases: ["远程访问"] },
+  { number: "2.3", en: "Tool and Software Preparation", zh: "工具及软件准备", aliases: ["工具和软件准备"] },
+  { number: "2.4", en: "Check of Equipment Running", zh: "设备运行检查", aliases: ["设备运行状态检查", "设备健康检查"] },
+  { number: "2.5", en: "Change Risks and Countermeasures", zh: "变更风险及应对措施", aliases: ["风险及应对措施", "风险评估"] },
+  { number: "2.6", en: "Confirm Work Before Change", zh: "变更前确认工作", aliases: ["变更前确认"] },
+  { number: "3", en: "Operation Steps for Change", zh: "变更实施操作步骤", aliases: ["操作步骤", "变更操作步骤", "实施步骤"] },
+  { number: "3.1", en: "Overall Description of Change Steps", zh: "变更步骤总体描述", aliases: ["总体描述", "步骤总体描述"] },
+  { number: "3.2", en: "Preparation for Change Implementation", zh: "变更实施准备工作", aliases: ["准备工作与Checklist", "实施准备工作", "准备工作"] },
+  { number: "3.3", en: "Operation Steps for Change", zh: "变更实施操作步骤", aliases: ["操作步骤", "实施操作步骤", "具体操作步骤", "Operation Steps"] },
+  { number: "3.3.1", en: "Operation Scripts", zh: "操作脚本", aliases: ["执行脚本", "脚本", "Scripts"] },
+  { number: "3.4", en: "Test and Verification", zh: "测试验证", aliases: ["测试验证与KPI", "验证方案", "测试方案", "Verification", "KPI"] },
+  { number: "3.5", en: "Solution for Changeback In the Case of Failure", zh: "失败回退方案", aliases: ["失败回退", "回退方案", "应急回退", "Rollback", "Changeback"] },
+  { number: "3.5.1", en: "Definition of Change Failure", zh: "变更失败判定条件", aliases: ["失败判定条件", "失败判定"] },
+  { number: "3.5.2", en: "Overall Description of Changeback", zh: "回退方案总体描述", aliases: ["回退总体描述"] },
+  { number: "3.5.3", en: "Changeback Steps", zh: "回退步骤", aliases: ["逆向回退步骤", "回退操作步骤"] },
+  { number: "3.5.4", en: "Tests After Changeback", zh: "回退后测试", aliases: ["回退后验证", "回退后测试验证"] },
+  { number: "3.5.5", en: "Changeback Risk Analysis", zh: "回退风险分析", aliases: ["回退风险"] },
+  { number: "3.6", en: "Change of Spare Parts and Emergency Workstation", zh: "备件及应急工作站变更", aliases: ["备件变更"] },
+  { number: "4", en: "Work After Change", zh: "变更后工作", aliases: ["变更后期工作", "后续工作"] },
+  { number: "4.1", en: "Observation", zh: "观察", aliases: ["业务观察", "网络观察"] },
+  { number: "4.2", en: "Other work", zh: "其他工作", aliases: ["其它工作"] }
+];
 const NETCARE_SECTION_TEMPLATE = [["1", "Description of Change and Change Influence"], ["1.1", "Change Purpose"], ["1.2", "Basic Information and Change Plan"], ["1.2.1", "Network Topology"], ["1.2.2", "Change Batches"], ["1.2.3", "Peripherals"], ["1.3", "Change Influence"], ["1.4", "Severity Information"], ["2", "Preparations for Change"], ["2.1", "Composition of Change Team and Responsibility of Team Members"], ["2.1.1", "Change Team of Orange Company"], ["2.1.2", "Huawei On-site Change Team"], ["2.1.3", "Huawei Support & Guarantee Team"], ["2.2", "Remote Access"], ["2.3", "Tool and Software Preparation"], ["2.4", "Check of Equipment Running"], ["2.5", "Change Risks and Countermeasures"], ["2.6", "Confirm Work Before Change"], ["3", "Operation Steps for Change"], ["3.1", "Overall Description of Change Steps"], ["3.2", "Preparation for Change Implementation"], ["3.3", "Operation Steps for Change"], ["3.3.1", "Operation Scripts"], ["3.4", "Test and Verification"], ["3.5", "Solution for Changeback In the Case of Failure"], ["3.5.1", "Definition of Change Failure"], ["3.5.2", "Overall Description of Changeback"], ["3.5.3", "Changeback Steps"], ["3.5.4", "Tests After Changeback"], ["3.5.5", "Changeback Risk Analysis"], ["3.6", "Change of Spare Parts and Emergency Workstation"], ["4", "Work After Change"], ["4.1", "Observation"], ["4.2", "Other work"]];
 function netcareDefaultSettings() {
   return { autoSelectSanitizedPlan: true, aiAuditEnabled: true, disableLocalRules: true, concurrency: 3, openOnline: true, closeAfterAudit: true, titleFallbackEnabled: false, pipBetaEnabled: true, auditLevel: 'standard', panelCloseAction: 'ask', attachmentsEnabled: true, textEnabled: true, screenshotsEnabled: true, embedScreenshotsInExcel: false, intervalMs: 1500,
@@ -162,5 +198,23 @@ function netcareValidSettings(value) { return value && typeof value.attachmentsE
           && ['textPrompt','attachmentsPrompt'].every(k=>row[k]==null||typeof row[k]==='string'&&row[k].length<=4000)
           && typeof row.title === 'string' && row.title.trim() && row.title.length <= 200 && typeof row.attachments === 'boolean' && typeof row.text === 'boolean')
         && (value.localRules == null || Array.isArray(value.localRules) && value.localRules.length <= 100 && value.localRules.every(r => typeof r === 'object' && r && typeof (r.name || '') === 'string' && (r.name || '').length <= 100)); }
-return {netcareDefaultLocalRules,netcareDefaultSettings,netcareAuditLevel,netcareAttachmentAuditOn,netcareBuiltinRuleSets,netcareNormalizeSections,netcareResolveRuleSets,netcareNormalizeSettings,netcareEffectiveSection,netcareAuditOwner,netcareAuditRule,netcareRedactText,netcareValidSettings};
+function netcareNormalizeSectionTitle(value) {
+  return String(value||'').normalize('NFKC').toLowerCase().replace(/^\s*\d+(?:\.\d+)*[.、)\s]+/,'').replace(/[\s\p{P}\p{S}]+/gu,'');
+}
+function netcareSectionTitleMatches(titleA, titleB, sectionNumber = '') {
+  const normA = netcareNormalizeSectionTitle(titleA);
+  const normB = netcareNormalizeSectionTitle(titleB);
+  if (!normA || !normB) return false;
+  if (normA === normB) return true;
+  const secNum = String(sectionNumber || '').trim();
+  for (const item of NETCARE_BILINGUAL_SECTIONS) {
+    if (secNum && item.number !== secNum && !item.number.startsWith(secNum + '.') && !secNum.startsWith(item.number + '.')) continue;
+    const variants = [item.en, item.zh, ...(item.aliases || [])].map(netcareNormalizeSectionTitle).filter(Boolean);
+    const aMatch = variants.some(v => normA === v || (v.length >= 2 && normA.includes(v)) || (normA.length >= 2 && v.includes(normA)));
+    const bMatch = variants.some(v => normB === v || (v.length >= 2 && normB.includes(v)) || (normB.length >= 2 && v.includes(normB)));
+    if (aMatch && bMatch) return true;
+  }
+  return false;
+}
+return {netcareDefaultLocalRules,netcareDefaultSettings,netcareAuditLevel,netcareAttachmentAuditOn,netcareBuiltinRuleSets,netcareNormalizeSections,netcareResolveRuleSets,netcareNormalizeSettings,netcareEffectiveSection,netcareAuditOwner,netcareAuditRule,netcareRedactText,netcareValidSettings,netcareNormalizeSectionTitle,netcareSectionTitleMatches,NETCARE_BILINGUAL_SECTIONS};
 });

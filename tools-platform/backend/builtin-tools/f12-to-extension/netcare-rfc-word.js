@@ -48,6 +48,26 @@ function netcareCreateWordBridge(bridges,value,order,doc,signal){
   return connection;
 }
 
+var NETCARE_SEARCH_PLACEHOLDERS = ['请输入单号', 'Ticket No.', 'Ticket No', 'Please enter ticket number'];
+
+function netcareFindOrderSearch(doc = (typeof document !== 'undefined' ? document : null)) {
+  if (!doc?.querySelector) return null;
+  for (const placeholder of NETCARE_SEARCH_PLACEHOLDERS) {
+    const input = doc.querySelector(`input[placeholder="${placeholder}" i]`);
+    const search = input?.closest('.search-input')?.querySelector('button.search-icon')
+      || input?.parentElement?.querySelector('button.search-icon')
+      || input?.closest('.search-input')?.querySelector('button');
+    if (input && search) return { input, search };
+  }
+  const container = doc.querySelector('.search-input');
+  if (container) {
+    const input = container.querySelector('input');
+    const search = container.querySelector('button.search-icon') || container.querySelector('button');
+    if (input && search) return { input, search };
+  }
+  return null;
+}
+
 // Scope native redirects to the active search. The background opens the exact native
 // destination, so asynchronous searches do not depend on browser popup activation.
 function netcareSearchRedirects(win,order,forward){
@@ -1083,6 +1103,24 @@ function netcareSectionMatches(settings, number, kind) {
 function netcareNormalizeSectionTitle(value) {
   return String(value||'').normalize('NFKC').toLowerCase().replace(/^\s*\d+(?:\.\d+)*[.、)\s]+/,'').replace(/[\s\p{P}\p{S}]+/gu,'');
 }
+if (typeof netcareSectionTitleMatches !== 'function') {
+  var netcareSectionTitleMatches = function(titleA, titleB, sectionNumber = '') {
+    const normA = netcareNormalizeSectionTitle(titleA);
+    const normB = netcareNormalizeSectionTitle(titleB);
+    if (!normA || !normB) return false;
+    if (normA === normB) return true;
+    const secNum = String(sectionNumber || '').trim();
+    const sections = (typeof NETCARE_BILINGUAL_SECTIONS !== 'undefined' && Array.isArray(NETCARE_BILINGUAL_SECTIONS)) ? NETCARE_BILINGUAL_SECTIONS : [];
+    for (const item of sections) {
+      if (secNum && item.number !== secNum && !item.number.startsWith(secNum + '.') && !secNum.startsWith(item.number + '.')) continue;
+      const variants = [item.en, item.zh, ...(item.aliases || [])].map(netcareNormalizeSectionTitle).filter(Boolean);
+      const aMatch = variants.some(v => normA === v || (v.length >= 2 && normA.includes(v)) || (normA.length >= 2 && v.includes(normA)));
+      const bMatch = variants.some(v => normB === v || (v.length >= 2 && normB.includes(v)) || (normB.length >= 2 && v.includes(normB)));
+      if (aMatch && bMatch) return true;
+    }
+    return false;
+  };
+}
 function netcareResolveTopics(settings, catalogue) {
   const resolved=new Map(),issues=[];
   const add=(topic,rule,kind,correction)=>{let item=resolved.get(topic.number);if(!item){item={...topic,ruleNumbers:[],ruleNumbersByKind:{text:[],attachments:[]},correctionsByKind:{text:[],attachments:[]}};resolved.set(topic.number,item);}if(!item.ruleNumbers.includes(rule.number))item.ruleNumbers.push(rule.number);item.ruleNumbersByKind[kind].push(rule.number);if(correction)item.correctionsByKind[kind].push(correction);};
@@ -1092,12 +1130,12 @@ function netcareResolveTopics(settings, catalogue) {
     // Resolve a selected parent once; inherited children stay in its actual subtree.
     const roots=rules.filter(r=>!rules.some(parent=>r.number.startsWith(parent.number+'.')));
     for(const rule of roots) {
-      const atNumber=catalogue.find(t=>t.number===rule.number),expected=netcareNormalizeSectionTitle(rule.title);
+      const atNumber=catalogue.find(t=>t.number===rule.number);
       const exact=catalogue.filter(t=>t.number===rule.number||t.number.startsWith(rule.number+'.'));
-      const mismatch=!!atNumber&&netcareNormalizeSectionTitle(atNumber.title)!==expected;
+      const mismatch=!!atNumber&&!netcareSectionTitleMatches(atNumber.title,rule.title,rule.number);
       if(exact.length&&(!settings.titleFallbackEnabled||!mismatch)){exact.forEach(t=>add(t,rule,kind));continue;}
       if(!settings.titleFallbackEnabled)continue;
-      let candidates=catalogue.filter(t=>expected&&netcareNormalizeSectionTitle(t.title)===expected);
+      let candidates=catalogue.filter(t=>netcareSectionTitleMatches(t.title,rule.title,rule.number));
       const sameDepth=candidates.filter(t=>t.number.split('.').length===rule.number.split('.').length);if(sameDepth.length)candidates=sameDepth;
       const parent=rule.number.split('.').slice(0,-1).join('.'),sameParent=candidates.filter(t=>t.number.split('.').slice(0,-1).join('.')===parent);if(candidates.length>1&&sameParent.length)candidates=sameParent;
       if(candidates.length!==1){issues.push({number:rule.number,kind,error:candidates.length?'同名章节无法唯一定位 / Multiple matching section titles; cannot select uniquely':'未找到预期名称的章节 / Expected section title not found',fromNumber:atNumber?.number||rule.number,fromTitle:atNumber?.title||''});continue;}
@@ -3132,7 +3170,7 @@ function mountNetcareCollector() {
       if (matched?.document === doc && fresh(matched) && matched.frame.isConnected !== false && visible(matched.frame)) {
         try {
           const current = netcareOnlineFrames([doc], order, location.href, visible).find(candidate => candidate.frame === matched.frame && candidate.valid && candidate.url?.href === matched.url.href);
-          const backs = Array.from(doc.querySelectorAll('.solution_normal_text')).filter(item => visible(item) && !backBefore.get(item) && /^(?:返回RFC\/HC|(?:back|return)(?:to)?RFC(?:\/HC)?)$/i.test(item.textContent.replace(/\s+/g, '')));
+          const backs = Array.from(doc.querySelectorAll('.solution_normal_text')).filter(item => visible(item) && !backBefore.get(item) && /^(?:返回RFC\/HC|(?:back|return)(?:to)?(?:RFC|HC|Ticket)?(?:\/HC)?)$/i.test(item.textContent.replace(/\s+/g, '')));
           if (current && backs.length === 1) backs[0].click();
         } catch (error) {
           netcareLog({ order, batchId: currentBatch?.started, category: 'extraction', level: 'warn', action: 'online.inline.restore.failed', message: '在线方案已处理，原生详情视图未能恢复 / Online entry processed; native detail view could not be restored', data: { error: error.message } });
@@ -3150,8 +3188,9 @@ function mountNetcareCollector() {
     if(frame?.routeId)return frame;
     if (!frame) {
       log('通过网站原生搜索定位作业单…');
-      const input = document.querySelector('input[placeholder="请输入单号"]');
-      const search = input?.closest('.search-input')?.querySelector('button.search-icon');
+      const entry = netcareFindOrderSearch(document);
+      const input = entry?.input;
+      const search = entry?.search;
       if (!input || !search) throw new Error('未找到单号搜索入口，请在 NetCare 主页面执行');
       const previous = input.value;
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, order);

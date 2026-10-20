@@ -2552,3 +2552,75 @@ test('Start can inject the panel scripts again into the same page after the pane
     for(const round of [1,2])for(const file of files)assert.doesNotThrow(()=>new vm.Script(pkg.files[file],{filename:file}).runInContext(ctx),`${file} (start ${round})`);
     assert.doesNotMatch(code,/^(const|let|class) /m,'top-level declarations in the injected page script must be var or function');
 });
+
+test('bilingual NetCare English and Chinese support: ticket search placeholders, 34-chapter title mapping and cross-language topic resolution', ()=>{
+    const ctx={URL,URLSearchParams,location:new URL('https://netcare-de.gts.huawei.com/p/netcare/index.html'),window:{}};
+    vm.runInNewContext(pageCode,ctx);
+
+    // 1. Ticket search input in English and Chinese
+    const makeFakeDoc = (placeholder, hasClass = true) => {
+        const input = { placeholder, value: '', dispatchEvent: () => {}, isConnected: true, closest: sel => sel === '.search-input' && hasClass ? container : null };
+        const button = { click: () => {} };
+        const container = { querySelector: sel => sel === 'input' ? input : sel === 'button.search-icon' ? button : null };
+        return {
+            querySelector: sel => {
+                if (sel.includes(`placeholder="${placeholder}"`)) return input;
+                if (sel === '.search-input') return hasClass ? container : null;
+                return null;
+            }
+        };
+    };
+    const enSearch = ctx.netcareFindOrderSearch(makeFakeDoc('Ticket No.'));
+    assert.ok(enSearch?.input && enSearch?.search, 'Locates English Ticket No. search input');
+    const zhSearch = ctx.netcareFindOrderSearch(makeFakeDoc('请输入单号'));
+    assert.ok(zhSearch?.input && zhSearch?.search, 'Locates Chinese 请输入单号 search input');
+    const fallbackSearch = ctx.netcareFindOrderSearch(makeFakeDoc('Custom Search Placeholder'));
+    assert.ok(fallbackSearch?.input && fallbackSearch?.search, 'Locates input through .search-input container fallback');
+
+    // 2. Section title matches across languages for all 34 sections
+    assert.equal(ctx.netcareSectionTitleMatches('操作步骤', 'Operation Steps for Change', '3.3'), true);
+    assert.equal(ctx.netcareSectionTitleMatches('测试验证', 'Test and Verification', '3.4'), true);
+    assert.equal(ctx.netcareSectionTitleMatches('失败回退', 'Solution for Changeback In the Case of Failure', '3.5'), true);
+    assert.equal(ctx.netcareSectionTitleMatches('变更目的', 'Change Purpose', '1.1'), true);
+    assert.equal(ctx.netcareSectionTitleMatches('Rollback', 'Test and Verification', '3.4'), false);
+
+    // 3. Cross-language topic resolution: Chinese rule in settings, English catalogue in page
+    const zhCustomSections = ctx.netcareDefaultSettings().sections.map(s => {
+        if (s.number === '1.1') return { ...s, title: '变更目的', text: true, textPrompt: '检查变更目的' };
+        if (s.number === '3.3') return { ...s, title: '操作步骤', text: true };
+        if (s.number === '3.4') return { ...s, title: '测试验证', text: true, textPrompt: '检查KPI' };
+        if (s.number === '3.5') return { ...s, title: '失败回退', text: true, textPrompt: '检查回退' };
+        return { ...s, text: false, attachments: false, textPrompt: '', attachmentsPrompt: '' };
+    });
+    const zhSettings = ctx.netcareNormalizeSettings({
+        ...ctx.netcareDefaultSettings(),
+        textEnabled: true,
+        titleFallbackEnabled: true,
+        sections: zhCustomSections
+    });
+    const enCatalogue = [
+        { number: '1.1', title: 'Change Purpose', topic: 't1' },
+        { number: '3.3', title: 'Operation Steps for Change', topic: 't2' },
+        { number: '3.4', title: 'Test and Verification', topic: 't3' },
+        { number: '3.5', title: 'Solution for Changeback In the Case of Failure', topic: 't4' }
+    ];
+    const resolvedEn = ctx.netcareResolveTopics(zhSettings, enCatalogue);
+    assert.equal(resolvedEn.length, 4, 'Resolves all 4 chapters with English titles matching Chinese rules');
+    assert.equal(resolvedEn.resolutionIssues?.length || 0, 0, 'No resolution mismatch issues');
+
+    // 4. Reverse cross-language: English rules in settings, Chinese catalogue in page
+    const enSettings = ctx.netcareNormalizeSettings({
+        ...ctx.netcareDefaultSettings(),
+        textEnabled: true,
+        titleFallbackEnabled: true
+    });
+    const zhCatalogue = [
+        { number: '1.1', title: '变更目的', topic: 't1' },
+        { number: '3.3', title: '变更实施操作步骤', topic: 't2' },
+        { number: '3.4', title: '测试验证', topic: 't3' },
+        { number: '3.5', title: '失败回退方案', topic: 't4' }
+    ];
+    const resolvedZh = ctx.netcareResolveTopics(enSettings, zhCatalogue);
+    assert.ok(resolvedZh.length >= 3, 'Resolves chapters with Chinese titles matching English rules');
+    assert.equal(resolvedZh.resolutionIssues?.length || 0, 0, 'No resolution mismatch issues');
+});
