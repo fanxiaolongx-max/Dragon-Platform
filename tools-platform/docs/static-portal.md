@@ -14,7 +14,7 @@
 
 ## 视频
 
-右上角的 NetCare RFC、操作激励、EOS 月报和平台指南四组视频同时支持中文和英文普通版、高清版，地址来自 `backend/home-promo-videos.json` 的固定媒体 Release。登录页下方的“项目演进”入口也使用对应的媒体 Release 视频。原生 `<video>` 直接播放远端地址，不设置 `crossorigin`，不复制 MP4 到静态代码仓库。封面及背景图片随通用界面资源发布；视频需要联网，沿用浏览器自动播放限制和静音降级。平台本地的视频请求与缓存接口保持不变。
+右上角的 NetCare RFC、操作激励、EOS 月报和平台指南四组视频同时支持中文和英文普通版、高清版，地址来自 `backend/home-promo-videos.json` 的固定媒体 Release。登录页下方的“项目演进”入口也使用对应的媒体 Release 视频。原生 `<video>` 通过 `<source type="video/mp4">` 播放远端地址，不设置 `crossorigin`，不复制 MP4 到静态代码仓库。Release 下载响应可能返回 `application/octet-stream`，因此必须在 source 上显式声明视频类型，且不能同时设置会覆盖 source 的 video.src；否则 Safari 会拒绝加载。封面及背景图片随通用界面资源发布；视频需要联网，沿用浏览器自动播放限制和静音降级。平台本地的视频请求与缓存接口保持不变。
 
 ## 发布与升级
 
@@ -31,6 +31,10 @@
 node --test tests/snapshot-portal.test.js tests/generic-static-tool-snapshot.test.js tests/static-tool-snapshots.test.js tests/department-reward-penalty-snapshot.test.js tests/catalog-tool-snapshot.test.js
 node_modules/.bin/electron tests/snapshot-portal-browser.cjs
 PORTAL_REMOTE_VIDEOS=1 node_modules/.bin/electron tests/snapshot-portal-browser.cjs
+# macOS：用原生 WebKit/AVFoundation 检查真实 Release 下载响应下的播放与跳转
+node tests/static-video-webkit.cjs
 ```
 
 浏览器验证涵盖原登录页、错误密码、主页组件、中英切换、工具权限、直接链接保护、退出、真实数通知识库加载，以及 Service Worker 停止后的资源解密恢复。启用远端视频验证时另检查四组视频两种语言的普通版/高清版与项目演进视频的实际播放。
+
+WebKit 验证还覆盖全部三篇笔记的普通版、高清版与拖动播放，以及 source 加载失败时首页的重试提示。此测试使用 macOS WebKit，不代替 iPhone 真机网络环境验证。

@@ -1,7 +1,7 @@
 // 笔记讲解视频：文件与首页推广视频同源存放（/assets/promotions/datacom/），按 manifest 判断哪些笔记已有视频。
 // 发布规则见本模块 AGENTS.md：成品只上传 Dragon-Platform-Media Releases，运行 npm run datacom:publish-videos；禁止提交 MP4。
 // 小窗播放低码率版本，点击放大加载高清版；浏览器拦截带声音自动播放时降级为静音并提示开声音。
-// 只读导出使用冻结的公开 Release 地址。保持原生 video src 且不设置 crossorigin，普通播放无需 CORS 授权。
+// 只读导出使用冻结的公开 Release 地址。source 显式声明 video/mp4 以兼容 Safari；不设置 crossorigin。
 const BASE = '/assets/promotions/datacom/';
 const AUTOPLAY_KEY = 'dk_video_autoplay';
 let manifestPromise = null;
@@ -41,7 +41,7 @@ export async function mountNoteVideo(host, articleId, { offline = false, autopla
     host.innerHTML = `<div class="dk-video-head"><span class="dk-video-kicker">🎬 视频讲解</span><strong>${esc(meta.title || '')}</strong>${meta.duration ? `<span class="dk-mini-note">${clock(meta.duration)}</span>` : ''}
             <label class="dk-video-auto"><input type="checkbox" ${autoplayEnabled() ? 'checked' : ''}> 打开笔记自动播放</label></div>
         <div class="dk-video-frame">
-            <video playsinline preload="metadata" poster="${esc(src(articleId, 'poster', meta, offline))}" src="${esc(src(articleId, 'mini', meta, offline))}"></video>
+            <video playsinline preload="metadata" poster="${esc(src(articleId, 'poster', meta, offline))}"><source type="video/mp4" src="${esc(src(articleId, 'mini', meta, offline))}"></video>
             <button type="button" class="dk-video-sound" hidden>🔇 点击开启声音</button>
             <button type="button" class="dk-video-play" aria-label="播放视频讲解">▶</button>
             <button type="button" class="dk-video-hd" title="高清大窗观看">⛶ 高清</button>
@@ -95,14 +95,14 @@ export async function mountNoteVideo(host, articleId, { offline = false, autopla
         });
     }, { threshold: 0.2 });
     observer.observe(host);
-    return () => { observer.disconnect(); video.pause(); video.removeAttribute('src'); video.load(); frame.classList.remove('is-floating'); };
+    return () => { observer.disconnect(); video.pause(); video.querySelector('source')?.remove(); video.load(); frame.classList.remove('is-floating'); };
 }
 
 function openHd(articleId, meta, startAt = 0, offline = false) {
     const mask = document.createElement('div');
     mask.className = 'dk-video-dialog';
     mask.innerHTML = `<div class="dk-video-dialog-box" role="dialog" aria-modal="true" aria-label="视频讲解"><header><strong>🎬 ${esc(meta.title || '')}</strong><button type="button" class="dk-icon-btn" aria-label="关闭">×</button></header>
-        <video controls autoplay playsinline poster="${esc(src(articleId, 'poster', meta, offline))}" src="${esc(src(articleId, 'hd', meta, offline))}"></video></div>`;
+        <video controls autoplay playsinline poster="${esc(src(articleId, 'poster', meta, offline))}"><source type="video/mp4" src="${esc(src(articleId, 'hd', meta, offline))}"></video></div>`;
     document.body.appendChild(mask);
     const video = mask.querySelector('video');
     video.addEventListener('loadedmetadata', () => { if (startAt > 0 && startAt < video.duration) video.currentTime = startAt; }, { once: true });

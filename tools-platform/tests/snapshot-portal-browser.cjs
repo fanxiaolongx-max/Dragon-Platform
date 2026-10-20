@@ -52,7 +52,8 @@ app.whenReady().then(async () => {
     assert.ok(['/project/', '/project/index.html'].includes(new URL(win.webContents.getURL()).pathname));
     await evaluate(() => window.ToolsI18n.setLanguage('en-US'));
     await until(() => document.querySelector('[data-tool-slug="demo-tool"]')?.textContent.includes('Published tool'));
-    const video = await evaluate(() => [...document.querySelectorAll('#nrvStack video')].map(v => v.src).filter(Boolean));
+    const video = await evaluate(() => [...document.querySelectorAll('#nrvStack video source')].map(v => v.src).filter(Boolean));
+    assert.equal(await evaluate(() => [...document.querySelectorAll('#nrvStack video, #nrvDialog video')].every(v => !v.hasAttribute('src') && v.querySelector('source')?.type === 'video/mp4')), true);
     assert.ok(video.every(url => url.startsWith('https://github.com/fanxiaolongx-max/Dragon-Platform-Media/')));
     if (process.env.PORTAL_REMOTE_VIDEOS === '1') {
         for (const lang of ['zh-CN', 'en-US']) {
@@ -66,7 +67,7 @@ app.whenReady().then(async () => {
                 await until(() => document.querySelector('#nrvDialog[open] video')?.readyState >= 1);
                 await evaluate(async () => { const v = document.querySelector('#nrvDialog video'); v.muted = true; await v.play(); });
                 await until(() => document.querySelector('#nrvDialog video').currentTime > 0.15);
-                const sources = await evaluate(() => [document.querySelector('#nrvFloat video').src, document.querySelector('#nrvDialog video').src]);
+                const sources = await evaluate(() => [document.querySelector('#nrvFloat video').currentSrc, document.querySelector('#nrvDialog video').currentSrc]);
                 assert.ok(sources.every(url => url.includes('Dragon-Platform-Media/releases/download/')));
                 if (lang === 'en-US') assert.ok(sources.every(url => /-en(?:-hd)?\.mp4/.test(url)));
                 await evaluate(() => document.querySelector('.nrv-dialog-close').click());

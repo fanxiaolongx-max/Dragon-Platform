@@ -76,9 +76,11 @@ app.whenReady().then(async () => {
         await until(() => document.querySelector('#articleVideo video')?.readyState >= 1);
         const source = await evaluate(() => {
             const v = document.querySelector('#articleVideo video');
-            return { src: v.src, poster: v.poster, crossOrigin: v.getAttribute('crossorigin'), duration: v.duration };
+            return { src: v.currentSrc, poster: v.poster, crossOrigin: v.getAttribute('crossorigin'), duration: v.duration, type: v.querySelector('source')?.type, direct: v.getAttribute('src') };
         });
         assert.equal(source.crossOrigin, null, 'plain video playback must not require CORS permission');
+        assert.equal(source.type, 'video/mp4', 'Safari needs an explicit type for Release download responses');
+        assert.equal(source.direct, null, 'video src would override the typed source');
         assert.ok(source.duration > 100);
         assert.ok(source.src.startsWith(mode === 'platform' ? base + '/assets/promotions/datacom/' : release));
         assert.ok(source.poster.startsWith(mode === 'single' ? 'data:image/jpeg;base64,' : base + '/'));
@@ -88,7 +90,7 @@ app.whenReady().then(async () => {
         await until(() => { const v = document.querySelector('#articleVideo video'); return !v.seeking && v.currentTime >= 20 && v.readyState >= 2; });
         await evaluate(() => document.querySelector('.dk-video-hd').click());
         await until(() => document.querySelector('.dk-video-dialog video')?.readyState >= 1);
-        const hdSource = await evaluate(() => document.querySelector('.dk-video-dialog video').src);
+        const hdSource = await evaluate(() => document.querySelector('.dk-video-dialog video').currentSrc);
         assert.ok(hdSource.includes('ospf-fsm-hd.mp4'));
         assert.ok(hdSource.startsWith(mode === 'platform' ? base + '/assets/promotions/datacom/' : release));
         await evaluate(async () => { const v = document.querySelector('.dk-video-dialog video'); v.muted = true; await v.play(); });
@@ -97,7 +99,7 @@ app.whenReady().then(async () => {
         const outgoing = requests.slice(start);
         if (mode === 'platform') assert.equal(outgoing.some(url => url.startsWith(release)), false);
         else assert.equal(outgoing.some(url => url.includes('/api/') || url.includes('/assets/promotions/datacom/')), false, JSON.stringify(outgoing));
-        await evaluate(() => { location.hash = '#/a/ospf-router-id'; });
+        await evaluate(() => { location.hash = '#/a/ospf-lsa-handbook'; });
         await until(() => !!document.querySelector('#articleVideo[hidden]'));
         console.log(`${mode}: metadata, inline playback, seeking, HD playback, poster and original platform URL selection passed`);
     }

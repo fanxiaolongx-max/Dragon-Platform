@@ -85,7 +85,7 @@
         stack.className = 'nrv-stack is-intro'; stack.id = 'nrvStack';
         stack.innerHTML = `
             <div class="nrv-float" id="nrvFloat" hidden>
-                <video muted playsinline preload="auto"></video>
+                <video muted playsinline preload="auto"><source type="video/mp4"></video>
                 <div class="nrv-badge"><b data-k="badge"></b><span data-k="name"></span></div>
                 <button type="button" class="nrv-btn nrv-close" data-act="close">×</button>
                 <button type="button" class="nrv-btn nrv-sound" data-act="sound"></button>
@@ -100,7 +100,7 @@
             <div class="nrv-banners"></div>`;
         const dlg = document.createElement('dialog');
         dlg.className = 'nrv-dialog'; dlg.id = 'nrvDialog';
-        dlg.innerHTML = '<div class="nrv-dialog-head"><h2><b data-k="dBadge"></b><span data-k="dName"></span></h2><button type="button" class="nrv-dialog-close">×</button></div><video controls playsinline preload="metadata"></video>';
+        dlg.innerHTML = '<div class="nrv-dialog-head"><h2><b data-k="dBadge"></b><span data-k="dName"></span></h2><button type="button" class="nrv-dialog-close">×</button></div><video controls playsinline preload="metadata"><source type="video/mp4"></video>';
         const tab = document.createElement('button');
         tab.type = 'button'; tab.className = 'nrv-tab'; tab.id = 'nrvTab'; tab.tabIndex = -1;
         tab.setAttribute('aria-hidden', 'true');
@@ -111,6 +111,13 @@
         const bannersBox = stack.querySelector('.nrv-banners');
         const mini = float.querySelector('video');
         const big = dlg.querySelector('video');
+        // GitHub Release 下载响应是 octet-stream；Safari 需要 source 的显式媒体类型。
+        // 更换 source 子元素后主动 load，保留普通版、高清版及语言切换的加载行为。
+        function setSource(video, url) {
+            const source = video.querySelector('source');
+            if (url) source.setAttribute('src', url); else source.removeAttribute('src');
+            video.load();
+        }
         const ask = float.querySelector('.nrv-ask');
         const soundBtn = float.querySelector('[data-act="sound"]');
         const replayBtn = float.querySelector('[data-act="replay"]');
@@ -235,9 +242,9 @@
         function setCurrent(key) {
             current = key;
             ended = false; replayBtn.hidden = true; ask.hidden = true; bar.style.width = '0%';
-            if (!key) { try { mini.pause(); } catch (_) { /* noop */ } mini.removeAttribute('src'); mini.load(); float.hidden = true; translate(); return; }
+            if (!key) { try { mini.pause(); } catch (_) { /* noop */ } setSource(mini, ''); float.hidden = true; translate(); return; }
             mini.poster = media(key, 'poster');
-            mini.src = media(key, 'mini');
+            setSource(mini, media(key, 'mini'));
             float.hidden = false;
             float.classList.remove('nrv-swap'); void float.offsetWidth; float.classList.add('nrv-swap');
             translate();
@@ -249,7 +256,7 @@
             bigKey = key;
             try { mini.pause(); } catch (_) { /* noop */ }
             big.poster = media(key, 'poster');
-            if (big.getAttribute('src') !== media(key, 'hd')) big.src = media(key, 'hd');
+            if (big.querySelector('source').getAttribute('src') !== media(key, 'hd')) setSource(big, media(key, 'hd'));
             translate();
             previousOverflow = document.body.style.overflow;
             dlg.showModal(); document.body.style.overflow = 'hidden';
@@ -279,7 +286,7 @@
         float.addEventListener('keydown', event => { if (event.key === 'Escape' && !ask.hidden) { ask.hidden = true; if (!ended) mini.play().catch(() => {}); } });
         mini.addEventListener('timeupdate', () => { if (mini.duration) bar.style.width = (mini.currentTime / mini.duration * 100) + '%'; });
         mini.addEventListener('ended', () => { ended = true; replayBtn.hidden = false; });
-        mini.addEventListener('error', () => { if (mini.getAttribute('src') && !float.querySelector('.nrv-load-status')) float.hidden = true; });
+        mini.addEventListener('error', () => { if (mini.querySelector('source').getAttribute('src') && !float.querySelector('.nrv-load-status')) float.hidden = true; }, true);
         dlg.querySelector('.nrv-dialog-close').addEventListener('click', closeBig);
         dlg.addEventListener('click', event => {
             const rect = dlg.getBoundingClientRect();
@@ -299,8 +306,8 @@
         window.addEventListener('tools:languagechange', () => {
             translate();
             // 语言切换后换成对应语言的视频（重新从头播放）
-            if (dlg.open && bigKey) { big.poster = media(bigKey, 'poster'); big.src = media(bigKey, 'hd'); big.currentTime = 0; big.play().catch(() => {}); }
-            else if (current && !float.hidden) { const was = !mini.paused; mini.poster = media(current, 'poster'); mini.src = media(current, 'mini'); ended = false; replayBtn.hidden = true; bar.style.width = '0%'; if (was) mini.play().catch(() => {}); }
+            if (dlg.open && bigKey) { big.poster = media(bigKey, 'poster'); setSource(big, media(bigKey, 'hd')); big.play().catch(() => {}); }
+            else if (current && !float.hidden) { const was = !mini.paused; mini.poster = media(current, 'poster'); setSource(mini, media(current, 'mini')); ended = false; replayBtn.hidden = true; bar.style.width = '0%'; if (was) mini.play().catch(() => {}); }
         });
 
         setCurrent(current);

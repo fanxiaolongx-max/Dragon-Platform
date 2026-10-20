@@ -42,12 +42,17 @@
     video.addEventListener('waiting', () => { if (state !== 'play') show('loading'); });
     video.addEventListener('playing', () => show(''));
     video.addEventListener('canplay', () => { if (state === 'loading') show(''); });
-    video.addEventListener('error', () => show('error'));
+    video.addEventListener('error', () => show('error'), true);
     action.addEventListener('click', () => { if (state === 'error') video.load(); play(); });
     document.getElementById('evolutionLanguage').addEventListener('click', () => i18n?.toggleLanguage());
     window.addEventListener('tools:languagechange', render);
     // This page is opened by an explicit click. The login page itself never sets a video source.
-    video.src = '/assets/promotions/project-evolution-galaxy-hd.mp4';
+    // 显式声明媒体类型，使 Safari 可播放返回 octet-stream 的 Release 地址。
+    const source = document.createElement('source');
+    source.type = 'video/mp4';
+    source.src = '/assets/promotions/project-evolution-galaxy-hd.mp4';
+    video.append(source);
+    video.load();
     render();
     play();
 })();

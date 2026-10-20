@@ -57,6 +57,7 @@ test('player reports blocked autoplay and allows failed downloads to be retried'
     function element() { return { hidden: true, textContent: '', addEventListener: (name, action) => { handlers[name] = action; } }; }
     const videoEvents = {};
     const video = { ...element(), error: null, loads: 0, plays: 0,
+        append(source) { this.source = source; },
         addEventListener: (name, action) => { videoEvents[name] = action; },
         load() { this.loads++; },
         play() { this.plays++; return Promise.reject({ name: 'NotAllowedError' }); }
@@ -65,10 +66,12 @@ test('player reports blocked autoplay and allows failed downloads to be retried'
     let retry;
     action.addEventListener = (_name, callback) => { retry = callback; };
     const elements = { evolutionVideo: video, evolutionStatus: status, evolutionStatusText: label, evolutionAction: action, evolutionLanguage: element() };
-    const context = { document: { getElementById: id => elements[id] }, window: { addEventListener() {} } };
+    const context = { document: { getElementById: id => elements[id], createElement: () => ({}) }, window: { addEventListener() {} } };
     vm.runInNewContext(fs.readFileSync(path.join(frontend, 'js/project-evolution.js'), 'utf8'), context);
     await Promise.resolve();
-    assert.equal(video.src, '/assets/promotions/project-evolution-galaxy-hd.mp4');
+    assert.equal(video.source.src, '/assets/promotions/project-evolution-galaxy-hd.mp4');
+    assert.equal(video.source.type, 'video/mp4');
+    assert.equal(video.src, undefined, 'A video src attribute overrides the typed source and breaks Safari Release playback');
     assert.equal(status.hidden, false);
     assert.equal(action.textContent, '播放');
     videoEvents.loadstart();
@@ -80,7 +83,7 @@ test('player reports blocked autoplay and allows failed downloads to be retried'
     assert.equal(action.textContent, '重试');
     video.play = function () { this.plays++; return Promise.resolve(); };
     retry();
-    assert.equal(video.loads, 1);
+    assert.equal(video.loads, 2);
     videoEvents.playing();
     assert.equal(status.hidden, true);
 });

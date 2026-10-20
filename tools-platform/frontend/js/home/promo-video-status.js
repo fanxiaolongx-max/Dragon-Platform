@@ -26,17 +26,18 @@
                 retry.textContent = t('home.video.retry');
                 retry.hidden = state !== 'error'; spinner.hidden = state === 'error';
             }
-            function show(next) { state = video.getAttribute('src') ? next : ''; render(); }
+            const hasSource = () => video.getAttribute('src') || video.querySelector('source')?.getAttribute('src');
+            function show(next) { state = hasSource() ? next : ''; render(); }
             video.addEventListener('loadstart', () => show('loading'));
             video.addEventListener('waiting', () => show('loading'));
-            video.addEventListener('error', () => show('error'));
+            video.addEventListener('error', () => show('error'), true);
             ['playing', 'canplay', 'ended', 'emptied'].forEach(event => video.addEventListener(event, () => show('')));
             retry.addEventListener('click', event => {
                 event.stopPropagation(); show('loading'); video.load(); video.play().catch(() => {});
             });
             window.addEventListener('tools:languagechange', render);
             if (video.error) show('error');
-            else if (video.getAttribute('src') && video.readyState < 3) show('loading');
+            else if (hasSource() && video.readyState < 3) show('loading');
         });
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
