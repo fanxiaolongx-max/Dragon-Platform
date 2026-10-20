@@ -1,12 +1,24 @@
 # 用法: python3 scripts/export.py <note-id> <render.mp4> [poster秒数]
 # 输出到 tools-platform/frontend/assets/promotions/datacom/：<id>.mp4（720p 小窗）、<id>-hd.mp4（1080p）、<id>-poster.jpg，并合并 manifest.json
-import json, os, subprocess, sys, datetime
-note, src = sys.argv[1], sys.argv[2]; pt = sys.argv[3] if len(sys.argv) > 3 else '9'
+import json, os, subprocess, sys, datetime, argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('note'); parser.add_argument('src'); parser.add_argument('poster', nargs='?', default='9')
+parser.add_argument('--copy-hd', action='store_true', help='Preserve a verified 1080p H.264/AAC delivery master without recompression')
+parser.add_argument('--preset', choices=['slow', 'medium', 'fast'], default='slow')
+options = parser.parse_args()
+note, src, pt = options.note, options.src, options.poster
 spec = json.load(open(f'scripts/notes/{note}.json', encoding='utf8'))
 out = os.path.abspath('../../tools-platform/frontend/assets/promotions/datacom'); os.makedirs(out, exist_ok=True)
 ff = ['ffmpeg', '-v', 'error', '-y', '-i', src]
-subprocess.run(ff + ['-c:v', 'libx264', '-preset', 'slow', '-crf', '21', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', f'{out}/{note}-hd.mp4'], check=True)
-subprocess.run(ff + ['-vf', 'scale=1280:720:flags=lanczos', '-c:v', 'libx264', '-preset', 'slow', '-crf', '27', '-maxrate', '1200k', '-bufsize', '2400k', '-pix_fmt', 'yuv420p',
+if options.copy_hd:
+    streams = json.loads(subprocess.check_output(['ffprobe', '-v', 'error', '-show_streams', '-of', 'json', src]))['streams']
+    video = next(s for s in streams if s['codec_type'] == 'video')
+    assert video['codec_name'] == 'h264' and (video['width'], video['height']) == (1920, 1080), 'copy-hd requires a 1080p H.264 master'
+    assert any(s['codec_type'] == 'audio' and s['codec_name'] == 'aac' for s in streams), 'copy-hd requires AAC audio'
+    subprocess.run(ff + ['-c', 'copy', '-movflags', '+faststart', f'{out}/{note}-hd.mp4'], check=True)
+else:
+    subprocess.run(ff + ['-c:v', 'libx264', '-preset', options.preset, '-crf', '21', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '160k', '-movflags', '+faststart', f'{out}/{note}-hd.mp4'], check=True)
+subprocess.run(ff + ['-vf', 'scale=1280:720:flags=lanczos', '-c:v', 'libx264', '-preset', options.preset, '-crf', '25', '-maxrate', '1500k', '-bufsize', '3000k', '-pix_fmt', 'yuv420p',
                      '-c:a', 'aac', '-b:a', '96k', '-ac', '2', '-movflags', '+faststart', f'{out}/{note}.mp4'], check=True)
 subprocess.run(['ffmpeg', '-v', 'error', '-y', '-ss', pt, '-i', src, '-frames:v', '1', '-vf', 'scale=1280:720:flags=lanczos', '-q:v', '3', f'{out}/{note}-poster.jpg'], check=True)
 d = float(subprocess.check_output(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f'{out}/{note}-hd.mp4']).decode())
