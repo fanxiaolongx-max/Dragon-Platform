@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { runWithTenant } = require('../tenant-context');
 const configRepo = require('./welink-config-repository');
 const targetsRepo = require('./channel-targets-repository');
+const followupsRepo = require('./channel-followups-repository');
 const access = require('./welink-access');
 const dragonClawBridge = require('./dragon-claw-channel-bridge');
 
@@ -202,17 +203,22 @@ class WeLinkProvider {
         let finalText = '';
         let failure = null;
         let usage = null;
+        const conversationRef = { kind: conversation.kind === 'group' ? 'group' : 'user', id: conversation.kind === 'group' ? conversation.groupId : conversation.senderAccount };
         await dragonClawBridge.runTurn({
             channel: CHANNEL,
             account: conversation.senderAccount,
+            conversation: conversationRef.id ? conversationRef : null,
+            toolSessionId,
             text,
             aiSessionId: stored?.aiSessionId || '',
             modelId: config.modelId,
             signal,
             contextNote: `本次对话来自 WeLink ${conversation.kind === 'group' ? '群聊' : '单聊'}，发送人账号：${conversation.senderAccount || '未知'}。回复会显示在 WeLink 聊天窗口中，请使用简洁的 Markdown；不要输出平台内部相对链接以外的可执行内容。`,
             onEvent: event => {
-                if (event.type === 'start' && event.sessionId && event.sessionId !== stored?.aiSessionId) {
-                    targetsRepo.bindAiSession(CHANNEL, toolSessionId, event.sessionId).catch(() => {});
+                if (event.type === 'start' && event.sessionId) {
+                    if (event.sessionId !== stored?.aiSessionId) targetsRepo.bindAiSession(CHANNEL, toolSessionId, event.sessionId).catch(() => {});
+                    // 每个平台对话是该群/人时间线上的一段；/new 或换会话后从新段落开始
+                    if (conversationRef.id) followupsRepo.addSegment(CHANNEL, { ...conversationRef, toolSessionId, aiSessionId: event.sessionId }).catch(() => {});
                 } else if (event.type === 'delta' && event.delta) {
                     streamed += event.delta;
                     queue.push({ type: 'text.delta', messageId, partId, content: String(event.delta) });

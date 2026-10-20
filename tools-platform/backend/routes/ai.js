@@ -18,6 +18,7 @@ const agentSkillsStore = require('../models/agent-skills-store');
 const { redactText, redactValue } = require('../models/ai-sensitive-data');
 const { getTenantId } = require('../models/tenant-context');
 const { proactiveAlertCircuit } = require('../models/ai-circuit-breaker');
+const followupAgent = require('../models/channels/followup-agent');
 
 console.log('[AI] AI Assistant route loaded. Runtime config will be read from settings, with provider-specific env fallback.');
 
@@ -573,6 +574,9 @@ async function handleChatRequest(req, res) {
     let agentSession = null;
     let agentRunId = null;
     let sensitiveValues = [];
+    // 频道对话（WeLink 等）由桥接层在虚拟请求上挂 channelTurn；HTTP 请求无法设置该属性
+    const channelTurn = req.channelTurn && typeof req.channelTurn === 'object' && req.channelTurn.conversation?.kind && req.channelTurn.conversation?.id ? req.channelTurn : null;
+    const channelUserEvents = channelTurn ? [{ type: 'channel', channel: channelTurn.channel, kind: channelTurn.conversation.kind, sender: channelTurn.actor || '' }] : null;
     const RECORDED_EVENT_TYPES = new Set(['tool_start', 'tool_result', 'approval', 'approval_result']);
     const recordEvent = payload => {
         if (!payload) return;
@@ -596,7 +600,7 @@ async function handleChatRequest(req, res) {
                     content: `${streamedText.trim()}${streamedText.trim() ? '\n\n' : ''}> ${redactText(note, { secrets: sensitiveValues })}`, events: recordedEvents, final: true });
                 return;
             }
-            await aiChatRepo.addMessage({ ...historyContext, role: 'user', content: historyContext.question });
+            await aiChatRepo.addMessage({ ...historyContext, role: 'user', content: historyContext.question, events: channelUserEvents });
             await aiChatRepo.addMessage({ ...historyContext, role: 'model', content: `${streamedText.trim()}${streamedText.trim() ? '\n\n' : ''}> ${redactText(note, { secrets: sensitiveValues })}`, events: recordedEvents });
         } catch (saveErr) {
             console.warn('[AI] failed to persist interrupted turn:', saveErr.message || saveErr);
@@ -739,6 +743,21 @@ async function handleChatRequest(req, res) {
                 clientToolData: Array.isArray(clientToolData) ? clientToolData.slice(0, 12) : []
             });
 
+        // 频道对话的跟进任务：本会话已有任务与工具使用规则拼进系统提示
+        let followupSetup = null;
+        if (channelTurn && homeAgent && !agentMode) {
+            try {
+                const channelConfig = await require('../models/channels/welink-config-repository').getConfig();
+                if (channelConfig.followup.enabled) {
+                    const calendar = channelConfig.followup.calendar;
+                    const ctx = { channel: channelTurn.channel, conversation: channelTurn.conversation, toolSessionId: channelTurn.toolSessionId || '', aiSessionId: savedSessionId || '', actor: channelTurn.actor || '', userText: String(lastMessage.content || '').slice(0, 6000) };
+                    followupSetup = { ctx, calendar, prompt: await followupAgent.buildPrompt(ctx, calendar) };
+                }
+            } catch (followupError) {
+                console.warn('[AI] follow-up setup failed:', followupError.message || followupError);
+            }
+        }
+
         // 构造 System Instruction
         const identityPrompt = homeAgent
             ? `你是 "Dragon Claw"，Tools Platform 工具中台首页的全能 AI 智能体。
@@ -763,7 +782,7 @@ ${expertGrounding.businessConfigPrompt ? `\n与用户问题相关的只读业务
 ${expertGrounding.toolDataPrompt ? `\n平台工具业务数据（只读；来自工具保存的快照、状态、数据库或用户浏览器本地存储，已压缩为字段统计与汇总）：\n---\n${expertGrounding.toolDataPrompt}\n---\n` : ''}
 ${expertGrounding.dataPrompt ? `\n只读报表分析工具结果：\n---\n${expertGrounding.dataPrompt}\n---\n` : ''}
 ${expertGrounding.metricGraphPrompt ? `\n与本次问题相关的运营指标体系图谱节点：\n---\n${expertGrounding.metricGraphPrompt}\n---\n` : ''}
-${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}
+${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${followupSetup ? `${followupSetup.prompt}\n` : ''}
 **核心要求**：
 1. 默认使用${responseLanguage}回答，并与当前界面语言保持一致；用户明确指定其他语言时遵从用户要求。先直接回答结论，再根据问题难度给出必要细节；保持专业、清晰，不强制所有回答都极端简短。
 1.1 默认优先使用 Markdown 表格组织适合结构化展示的内容，尤其是指标与客户群对比、目标与实际值、历史趋势、配置清单、问题排查、方案比较和整改建议。先用一两句话给出结论，再用表格列出依据或行动；避免把同一组信息写成长段落。简单问答、单一事实和需要连贯解释的内容可使用简短文字；用户明确指定其他格式时遵从用户要求。
@@ -785,7 +804,7 @@ ${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n
 4.9 用户询问某个平台工具里的数据（人次、数量、金额、记录、趋势等）时，必须依据“平台工具业务数据”作答，并写明工具名、快照名或数据来源、数据期间。快照摘要（如 totalTransactions）和“表内合计行”是工具自身算出的口径，回答总数时优先采用；按日/按字段的统计只是辅助拆解，二者不一致时说明差异而不是自行改算。用户要的时间段没有对应快照时，明确说“没有覆盖该期间的数据”，并列出已有快照的期间；工具没有可读数据时如实说明，可建议打开工具导入后保存快照。不得编造任何数值。
 5. 历史报表使用入库时保存的得分和计分状态，不得用当前目标或计分规则重算。
 6. 把事实、基于数据的解读和可能原因分开。没有证据的原因必须标记为“可能”或“建议进一步核查”。
-${agentMode ? '7. 你没有修改平台业务数据（数据库、报表）的权限；但可以通过工具读写用户选定的本地工作目录。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
+${agentMode ? '7. 你没有修改平台业务数据（数据库、报表）的权限；但可以通过工具读写用户选定的本地工作目录。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
 ${scopeRule}
 ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.systemPrompt}` : ''}`;
 
@@ -836,7 +855,27 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 model: aiSettings.model
             })
             : null;
-        const result = agentResult || (analysisResult ? analysisResult.result : await generateResponse());
+        const followupResult = !agentResult && !analysisResult && followupSetup
+            ? await followupAgent.runTurn({
+                client: aiClient,
+                systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
+                messages: effectiveMessages,
+                ctx: followupSetup.ctx,
+                calendar: followupSetup.calendar,
+                signal: providerAbortController?.signal,
+                maxOutputTokens: aiSettings.maxOutputTokens,
+                temperature: aiSettings.temperature,
+                onDelta: streamRequested ? delta => {
+                    streamHasDelta = true;
+                    writeStreamEvent({ type: 'delta', delta });
+                } : undefined
+            })
+            : null;
+        if (followupResult?.events?.length) {
+            recordedEvents.push(...followupResult.events);
+            if (streamRequested) followupResult.events.forEach(event => writeStreamEvent(event));
+        }
+        const result = agentResult || followupResult || (analysisResult ? analysisResult.result : await generateResponse());
         const usageVideoFooter = analysisCode ? '' : await getUsageVideoFooter(lastMessage.content, uiLanguage);
         if (usageVideoFooter && !String(result.text || '').includes(usageVideoFooter.trim())) {
             result.text = String(result.text || '') + usageVideoFooter;
@@ -883,7 +922,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                         pageTitle,
                         owner: req.user?.username || '',
                         role: 'user',
-                        content: persistedQuestion
+                        content: persistedQuestion,
+                        events: channelUserEvents
                     });
                     await aiChatRepo.addMessage({
                         sessionId: savedSessionId,

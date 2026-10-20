@@ -1233,6 +1233,7 @@
             const items = page.items;
             if (!items.length) return showToast(tx('sessionLoadFailed'));
             closeSessionPicker();
+            exitExternal();
             const local = readLastChat();
             const agent = item.agent || (local?.sessionId === item.id ? local.agent : null);
             workspace()?.resetSession?.(); // 先离开当前智能体会话，再接回该对话的
@@ -1424,6 +1425,7 @@
     }
 
     function newChat() {
+        exitExternal();
         resumeEpoch += 1;
         state.restoring = false;
         el.input.disabled = false;
@@ -1440,6 +1442,58 @@
         refreshResumeCard(); // 刚离开的对话可以再接回去
         window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
         el.input.focus();
+    }
+
+    // ── 外部只读对话：WeLink 等频道的合并时间线（js/home/welink-threads.js）借用对话区渲染 ──
+    // 进入时离开当前对话、禁用输入框；新对话 / 打开个人历史时自动退出并回调 onExit。
+    const external = { active: false, onExit: null };
+
+    function enterExternal({ onExit } = {}) {
+        if (state.controller) {
+            showToast(tx('chatBusy'));
+            return null;
+        }
+        const previous = external.active ? external.onExit : null;
+        external.onExit = null;
+        previous?.({ switching: true });
+        resumeEpoch += 1;
+        state.restoring = false;
+        workspace()?.resetSession?.();
+        state.messages = [];
+        state.sessionId = null;
+        state.focusedTool = null;
+        resetHistoryPaging();
+        window.DragonClawSkills?.reset?.();
+        el.thread.innerHTML = '';
+        external.active = true;
+        external.onExit = onExit || null;
+        document.body.classList.add('dc-external-view');
+        el.input.disabled = true;
+        updateSendButton();
+        hideResumeCard();
+        hideSlashHints();
+        setChatting(true);
+        markActiveChat();
+        return {
+            thread: el.thread,
+            renderMarkdown,
+            avatar: AVATAR,
+            addMessage: (role, text, options) => addMessage(role, text, options),
+            addCopy: (message, text) => addMessageTools(message, text),
+            scrollToBottom: () => scrollThread(true),
+            formatTime: formatChatTime
+        };
+    }
+
+    function exitExternal() {
+        if (!external.active) return;
+        external.active = false;
+        const callback = external.onExit;
+        external.onExit = null;
+        document.body.classList.remove('dc-external-view');
+        el.input.disabled = false;
+        updateSendButton();
+        callback?.({ switching: false });
     }
 
     // 「全部工具 → 技能」卡片：切到对话、新建对话并在输入框填入 @技能（js/home/skills-tools.js）
@@ -1626,7 +1680,7 @@
         el.form.insertAdjacentElement('afterend', el.resume);
         bindEvents();
         bindChatList();
-        window.DragonClaw = { startWithSkill };
+        window.DragonClaw = { startWithSkill, enterExternal, exitExternal, newChat, lang, isExternal: () => external.active };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
         const linkedSkill = new URLSearchParams(location.search).get('skill');
         if (linkedSkill) {

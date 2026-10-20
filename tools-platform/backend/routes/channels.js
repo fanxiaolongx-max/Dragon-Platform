@@ -8,6 +8,8 @@ const configRepo = require('../models/channels/welink-config-repository');
 const targetsRepo = require('../models/channels/channel-targets-repository');
 const sdkLoader = require('../models/channels/welink-sdk-loader');
 const welink = require('../models/channels/welink-bridge-service');
+const followupsRepo = require('../models/channels/channel-followups-repository');
+const followupScheduler = require('../models/channels/followup-scheduler');
 
 const router = express.Router();
 const CHANNEL = 'welink';
@@ -40,7 +42,7 @@ router.get('/welink/config', requireAdmin, handle(async (_req, res) => {
 router.put('/welink/config', handle(async (req, res) => {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const allowed = ['enabled', 'environment', 'gatewayUrl', 'channel', 'toolVersion', 'ak', 'sk', 'clearSk', 'sdkPath',
-        'replyEngine', 'modelId', 'slashCommandsEnabled', 'deniedReply', 'access', 'push'];
+        'replyEngine', 'modelId', 'slashCommandsEnabled', 'deniedReply', 'access', 'push', 'followup'];
     const patch = Object.fromEntries(Object.entries(body).filter(([key]) => allowed.includes(key)));
     const saved = await configRepo.saveConfig(patch);
     const status = await welink.applyConfig(getTenantId());
@@ -152,6 +154,66 @@ router.post('/welink/push', handle(async (req, res) => {
         trigger: ['scheduled', 'webhook', 'system'].includes(body.trigger) ? body.trigger : 'system',
         source: `${req.user?.username || ''}${source ? ` @ ${source}` : ''}`
     }));
+}));
+
+// ── WeLink 对话历史与跟进任务 ────────────────────────────
+// 查看对所有登录用户开放（租户内共享）；修改任务、立即提醒仍需管理员（server.js 非 GET 统一门禁）。
+
+function threadParams(req, res) {
+    if (!KIND_RE.test(req.params.kind) || !req.params.id || req.params.id.length > 200) {
+        res.status(400).json({ code: 'CHANNEL_THREAD_INVALID', error: '无效的会话' });
+        return null;
+    }
+    return { kind: req.params.kind, id: req.params.id };
+}
+
+async function tasksWithEvents(tasks) {
+    const items = [];
+    for (const task of tasks) items.push({ ...task, events: await followupsRepo.listEvents(task.id, { limit: 60 }) });
+    return items;
+}
+
+router.get('/welink/threads', handle(async (req, res) => {
+    res.json({ items: await followupsRepo.listThreads(CHANNEL, { q: req.query.q, limit: req.query.limit }) });
+}));
+
+router.get('/welink/threads/:kind/:id/messages', handle(async (req, res) => {
+    const thread = threadParams(req, res);
+    if (!thread) return;
+    const target = await targetsRepo.getTarget(CHANNEL, thread.kind, thread.id);
+    const page = await followupsRepo.listThreadMessages(CHANNEL, thread.kind, thread.id, { limit: req.query.limit, before: req.query.before });
+    res.json({ thread: { ...thread, name: target?.name || thread.id }, ...page });
+}));
+
+router.get('/welink/threads/:kind/:id/followups', handle(async (req, res) => {
+    const thread = threadParams(req, res);
+    if (!thread) return;
+    const config = await configRepo.getConfig();
+    const tasks = await followupsRepo.listTasks(CHANNEL, { ...thread, limit: 100 });
+    res.json({ items: await tasksWithEvents(tasks), calendar: config.followup.calendar, enabled: config.followup.enabled, canManage: isAdmin(req) });
+}));
+
+const FOLLOWUP_ACTIONS = { done: 'done', cancel: 'cancelled', pause: 'paused', resume: 'open', reopen: 'open' };
+
+router.patch('/welink/followups/:id', handle(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const actor = `platform:${req.user?.username || ''}`;
+    const { followup } = await configRepo.getConfig();
+    let task;
+    if (body.action) {
+        if (!FOLLOWUP_ACTIONS[body.action]) return res.status(400).json({ code: 'FOLLOWUP_ACTION_INVALID', error: '无效的操作' });
+        task = await followupsRepo.setStatus(req.params.id, FOLLOWUP_ACTIONS[body.action], { actor, note: String(body.note || '').slice(0, 2000), calendar: followup.calendar });
+    } else {
+        const allowed = ['title', 'detail', 'assignees', 'urgency', 'scheduleMode', 'intervalMinutes', 'randomMinMinutes', 'randomMaxMinutes', 'allowOffHours', 'nextRemindAt', 'nextRemindNote', 'dueAt', 'progress'];
+        const patch = Object.fromEntries(Object.entries(body).filter(([key]) => allowed.includes(key)));
+        task = await followupsRepo.updateTask(req.params.id, patch, { actor, calendar: followup.calendar });
+    }
+    res.json({ item: (await tasksWithEvents([task]))[0] });
+}));
+
+router.post('/welink/followups/:id/remind', handle(async (req, res) => {
+    const task = await followupScheduler.remindNow(req.params.id);
+    res.json({ item: (await tasksWithEvents([task]))[0] });
 }));
 
 module.exports = router;

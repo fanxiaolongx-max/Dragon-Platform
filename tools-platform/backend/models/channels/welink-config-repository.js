@@ -1,6 +1,7 @@
 // WeLink 频道对接配置：与 AI 配置一致，存放在当前租户的 sys_kv_store（租户隔离）。
 // SK 只在后端使用，对外只返回掩码；保存时未修改的掩码值保留原 SK。
 const { readKV, writeKV } = require('../kv-store');
+const followupSchedule = require('./followup-schedule');
 
 const CATEGORY = 'channels';
 const KEY = 'welink_config';
@@ -30,6 +31,11 @@ const DEFAULT_CONFIG = {
     push: {
         defaultTargets: [],
         allowUserPush: false
+    },
+    // 跟进任务：对话中记下的任务按工作日历在原会话 @ 提醒
+    followup: {
+        enabled: true,
+        calendar: { ...followupSchedule.DEFAULT_CALENDAR }
     },
     updatedAt: null
 };
@@ -93,6 +99,10 @@ function normalizeConfig(input = {}) {
             defaultTargets: normalizeTargets(push.defaultTargets),
             allowUserPush: push.allowUserPush === true
         },
+        followup: {
+            enabled: (input.followup || {}).enabled !== false,
+            calendar: followupSchedule.normalizeCalendar((input.followup || {}).calendar || {})
+        },
         updatedAt: base.updatedAt || null
     };
 }
@@ -124,6 +134,7 @@ async function saveConfig(patch = {}) {
     const next = { ...current, ...patch };
     if (patch.access) next.access = { ...current.access, ...patch.access };
     if (patch.push) next.push = { ...current.push, ...patch.push };
+    if (patch.followup) next.followup = { ...current.followup, ...patch.followup, calendar: { ...current.followup.calendar, ...(patch.followup.calendar || {}) } };
     const incomingSk = clean(patch.sk, 200);
     if (patch.clearSk === true) next.sk = '';
     else if (!incomingSk || incomingSk === maskSecret(current.sk)) next.sk = current.sk;

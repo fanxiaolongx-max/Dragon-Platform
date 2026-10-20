@@ -678,6 +678,9 @@ async function startServer() {
             require('./models/channels/welink-bridge-service')
                 .autoStartAll(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id))
                 .catch(err => console.error('[WeLink] 自动连接失败：', err.message));
+            // 频道跟进任务：每分钟检查到期提醒，在原群/单聊 @ 相关人
+            require('./models/channels/followup-scheduler')
+                .start(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id));
         }, 5000);
     });
 
