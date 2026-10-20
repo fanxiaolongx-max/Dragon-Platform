@@ -9,6 +9,7 @@ const request = require('supertest');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'builtin-update-route-'));
 process.env.TOOLS_DATA_DIR = path.join(root, 'data');
 process.env.TOOLS_REPORT_DATA_DIR = path.join(root, 'reports');
+process.env.TOOLS_BUILTIN_TOOLS_DIR = path.join(root, 'source');
 const service = require('../backend/models/builtin-tools-update-service');
 const apply = service.applyBuiltinToolsInWorker;
 // Use tiny bundled fixtures while exercising the real worker, route and SQLite registry.
@@ -23,6 +24,55 @@ test.after(async () => {
     await closeDatabase();
     await require('../backend/models/tenant-sqlite-pool').closeAll();
     fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('manual comparison exposes market differences without automatic prompts; only explicit force applies the bundle', async () => {
+    const { applyBuiltinToolDecisions } = require('../backend/models/builtin-tools-sync');
+    const { fingerprintFiles } = require('../backend/models/tool-content-fingerprint');
+    const sourceDir = path.join(root, 'source');
+    fs.mkdirSync(path.join(sourceDir, 'sample'), { recursive: true });
+    fs.writeFileSync(path.join(sourceDir, 'sample/index.html'), '<p>version 1</p>');
+    fs.writeFileSync(path.join(sourceDir, 'sample/.tool-manifest.json'), JSON.stringify({ version: 1,
+        tool: { slug: 'sample', name: 'Fixture', icon: '🧩', tags: [] } }));
+    const targetDir = path.join(getDataDir('manual'), 'custom-tools');
+    const source = previewBuiltinTools({ sourceDir, targetDir }).pending[0];
+    applyBuiltinToolDecisions({ sourceDir, targetDir, applySlugs: ['sample'], expectedFingerprints: { sample: source.fingerprint } });
+    const installedDir = path.join(targetDir, 'sample');
+    const manifestPath = path.join(installedDir, '.tool-manifest.json');
+    fs.writeFileSync(path.join(installedDir, 'index.html'), '<p>market version</p>');
+    const manifest = JSON.parse(fs.readFileSync(manifestPath));
+    manifest.system.fingerprint = fingerprintFiles(installedDir, ['index.html', '.tool-manifest.json']);
+    manifest.market = { id: 'official/sample', directoryFingerprint: manifest.system.fingerprint };
+    fs.writeFileSync(manifestPath, JSON.stringify(manifest));
+    fs.writeFileSync(path.join(installedDir, 'user-note.txt'), 'keep me');
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => runWithTenant('manual', () => { req.user = { role: req.headers['x-test-role'] || 'admin' }; next(); }));
+    app.use('/api/custom-tools', router);
+    const url = '/api/custom-tools/builtin-sync';
+    await request(app).get(url + '/preview?manual=1').set('x-test-role', 'viewer').expect(403);
+    const automatic = await request(app).get(url + '/preview').expect(200);
+    assert.deepEqual(automatic.body.pending, []);
+    const manual = await request(app).get(url + '/preview?manual=1').expect(200);
+    assert.equal(manual.body.manual, true);
+    assert.equal(manual.body.pending[0].currentSource, 'market');
+    assert.equal(manual.body.pending[0].recommended, false);
+    const body = { applySlugs: ['sample'], skipSlugs: [], expectedFingerprints: { sample: manual.body.pending[0].fingerprint } };
+    const events = response => response.text.trim().split('\n').map(JSON.parse);
+    const rejected = await request(app).post(url + '/apply-stream').send(body).expect(200);
+    assert.equal(events(rejected).at(-1).status, 409);
+    await request(app).post(url + '/apply-stream').set('x-test-role', 'viewer').send({ ...body, forceBundled: true }).expect(403);
+    const stale = await request(app).post(url + '/apply-stream').send({ ...body, forceBundled: true, expectedFingerprints: { sample: 'stale' } }).expect(200);
+    assert.equal(events(stale).at(-1).status, 409);
+    assert.equal(fs.readFileSync(path.join(installedDir, 'index.html'), 'utf8'), '<p>market version</p>');
+    const forced = await request(app).post(url + '/apply-stream').send({ ...body, forceBundled: true }).expect(200);
+    const result = events(forced).at(-1).data;
+    assert.deepEqual(result.updated, ['sample']);
+    assert.deepEqual(result.skipped, []);
+    assert.equal(fs.readFileSync(path.join(installedDir, 'index.html'), 'utf8'), '<p>version 1</p>');
+    assert.equal(fs.readFileSync(path.join(installedDir, 'user-note.txt'), 'utf8'), 'keep me');
+    assert.equal(fs.readFileSync(path.join(result.backups[0].path, 'index.html'), 'utf8'), '<p>market version</p>');
+    assert.deepEqual((await request(app).get(url + '/preview').expect(200)).body.pending, []);
 });
 
 test('stream endpoint keeps admin checks, tenant paths and result/error contracts', async () => {

@@ -974,6 +974,10 @@
                         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 7h12l1 9.5H3L4 7Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
                         <span class="home-rail-label" data-home-i18n="home.market.short">市场</span>
                     </button>
+                    <button type="button" class="home-rail-btn" id="builtinToolsCompareBtn" title="内置工具差异比对与回退" aria-label="内置工具差异比对与回退" aria-haspopup="dialog" aria-controls="builtinToolsSyncModal">
+                        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5h12m-3-3 3 3-3 3M17 15H5m3-3-3 3 3 3M3 9v6m14-10v6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <span class="home-rail-label" data-home-i18n="home.builtin.compareShort">比对</span>
+                    </button>
                     <button type="button" class="home-rail-btn" id="customToolUploadBtn" title="导入 HTML / ZIP / SKILL" aria-label="导入 HTML / ZIP / SKILL" aria-haspopup="dialog" aria-controls="customToolImportModal">
                         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m-3-3 3 3 3-3M4 12v4.5h12V12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         <span class="home-rail-label" data-home-i18n="home.custom.uploadShort">导入</span>
@@ -1820,6 +1824,8 @@
                 'home.custom.upload': '导入 HTML / ZIP / SKILL',
                 'home.market.button': '工具市场',
                 'home.market.short': '市场',
+                'home.builtin.compareShort': '比对',
+                'home.builtin.compare': '内置工具差异比对与回退',
                 'home.custom.uploadShort': '导入',
                 'home.market.title': '工具市场',
                 'home.market.subtitle': '从已启用的仓库安装或更新 HTML 工具。',
@@ -2041,6 +2047,8 @@
                 'home.custom.upload': 'Import HTML / ZIP / SKILL',
                 'home.market.button': 'Tool Market',
                 'home.market.short': 'Market',
+                'home.builtin.compareShort': 'Diff',
+                'home.builtin.compare': 'Compare and restore bundled tools',
                 'home.custom.uploadShort': 'Import',
                 'home.market.title': 'Tool Market',
                 'home.market.subtitle': 'Install or update HTML tools from enabled sources.',
@@ -2845,7 +2853,7 @@
             setText('#apiRelaySaveBtn', t('home.apiRelay.save'));
             renderApiRelayExample();
             updateApiRelayRuntimeState();
-            [['customToolUploadBtn', 'home.custom.upload'], ['toolMarketBtn', 'home.market.button']].forEach(([id, key]) => {
+            [['customToolUploadBtn', 'home.custom.upload'], ['toolMarketBtn', 'home.market.button'], ['builtinToolsCompareBtn', 'home.builtin.compare']].forEach(([id, key]) => {
                 const button = document.getElementById(id);
                 if (!button) return;
                 button.title = t(key);

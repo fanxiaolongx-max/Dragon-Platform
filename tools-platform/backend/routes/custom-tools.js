@@ -336,8 +336,13 @@ router.get('/builtin-sync/preview', requireAdmin, async (req, res) => {
             sourceDir: builtinToolsSourceDir,
             targetDir: repo.CUSTOM_TOOLS_DIR,
             stateFile: path.join(getDataDir(), 'builtin-tools-sync-decisions.json'),
-            includeSkipped: req.query.includeSkipped === '1'
+            includeSkipped: req.query.includeSkipped === '1' || req.query.manual === '1',
+            preserveInstalledRelease: req.query.manual !== '1'
         });
+        if (req.query.manual === '1') {
+            preview.manual = true;
+            preview.pending = preview.tools.filter(tool => tool.status !== 'unchanged').map(tool => ({ ...tool, recommended: false }));
+        }
         res.setHeader('Cache-Control', 'no-store');
         res.json(preview);
     } catch (err) {
@@ -355,6 +360,7 @@ async function applyBuiltinTools(body, { onProgress = () => {}, includePreview =
         skipSlugs: Array.isArray(body.skipSlugs) ? body.skipSlugs : [],
         expectedFingerprints: body.expectedFingerprints && typeof body.expectedFingerprints === 'object'
             ? body.expectedFingerprints : {},
+        preserveInstalledRelease: body.forceBundled !== true,
         includePreview
     }, { onProgress, finalize: async result => {
         const changedCount = result.installed.length + result.adopted.length + result.updated.length;
@@ -362,6 +368,10 @@ async function applyBuiltinTools(body, { onProgress = () => {}, includePreview =
         const reconcile = changedCount ? await repo.reconcileToolsFromDisk() : null;
         if (changedCount) {
             await repo.markToolsUpdated([...result.installed, ...result.adopted, ...result.updated]);
+            for (const slug of [...result.installed, ...result.adopted, ...result.updated]) {
+                console.log(`[custom-tools] ${body.forceBundled === true ? '强制使用随包版本' : '手动同步'} ${slug} 已生效：${path.join(repo.CUSTOM_TOOLS_DIR, slug)}`);
+            }
+            for (const backup of result.backups) console.log(`[custom-tools] 更新前备份 ${backup.slug}：${backup.path}`);
         }
         return { success: result.invalid.length === 0, ...result, reconcile };
     } });

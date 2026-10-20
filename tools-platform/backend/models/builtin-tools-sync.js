@@ -241,10 +241,10 @@ function compareBundledTool(source, targetDir, { preserveInstalledRelease = true
     const installedTime = Date.parse(targetManifest?.tool?.updatedAt);
     const comparableReleases = Number.isFinite(sourceTime) && Number.isFinite(installedTime);
     const installedFromMarket = managed && targetManifest.market?.directoryFingerprint === targetManifest.system.fingerprint;
-    // 同一日期的市场包也可能包含后续代码修复。缺少更晚的发布日期时，不用随包模板覆盖它。
+    // 市场安装代表用户的版本选择，自动流程不再用随包模板替换它。手动比对允许显式回退。
     const retainedRelease = preserveInstalledRelease && managed && !canonicalContentMatches && (
         (comparableReleases && sourceTime < installedTime && installedContentMatches)
-        || (installedFromMarket && !(comparableReleases && sourceTime > installedTime))
+        || installedFromMarket
     );
     let status = 'unchanged';
     if (!targetExists) status = 'missing';
@@ -266,6 +266,9 @@ function compareBundledTool(source, targetDir, { preserveInstalledRelease = true
         managed,
         localChanges: managed && !installedContentMatches,
         retainedRelease,
+        currentSource: targetManifest?.market ? 'market' : managed ? 'builtin' : 'custom',
+        currentVersion: targetManifest?.tool?.updatedAt || targetManifest?.market?.releaseVersion || null,
+        bundledVersion: source.manifest.tool.updatedAt || null,
         legacyMatch,
         metadataChanged,
         fingerprintMigrated: managed && storedFingerprintChanged && canonicalContentMatches,
@@ -460,7 +463,7 @@ function applyBuiltinToolDecisions({
     };
     for (const slug of allRequested) {
         const candidate = candidates.get(slug);
-        if (!candidate) throw new Error(`系统工具 ${slug} 当前没有待处理差异`);
+        if (!candidate) throw Object.assign(new Error(`系统工具 ${slug} 当前没有待处理差异，请重新比对`), { status: 409 });
         const expected = expectedFingerprints && expectedFingerprints[slug];
         if (!expected) {
             const error = new Error(`系统工具 ${slug} 缺少比对版本标识，请重新查看比对结果`);
@@ -569,7 +572,7 @@ function initializeBuiltinTools({ sourceDir, targetDir, stateFile, backupRoot, l
             const counts = tool.counts;
             logger.log(`[custom-tools] 已${action} ${tool.name} (${tool.slug})：新增 ${counts.added}，修改 ${counts.modified}，移除 ${counts.removed}，保留用户文件 ${counts.preserved}；生效目录：${path.join(targetDir, tool.slug)}`);
         } else if (tool.retainedRelease) {
-            logger.log(`[custom-tools] 保留已安装版本 ${tool.name} (${tool.slug})：随包版本更旧，或市场版本没有可确认的更新发布日期；不回退、不重复提示。`);
+            logger.log(`[custom-tools] 保留已安装版本 ${tool.name} (${tool.slug})：保留用户选择的市场版本或较新版本；不回退、不重复提示，可在内置比对中手动替换。`);
         } else if (tool.status !== 'unchanged') {
             const reason = tool.skipped ? '管理员已选择跳过此版本' : tool.status === 'conflict' ? '同名自定义工具，未自动覆盖' : tool.localChanges ? '本地内容已修改或旧版校验信息不完整，待管理员确认' : '更新未完成';
             logger.warn(`[custom-tools] 未自动更新 ${tool.name} (${tool.slug})：${reason}。`);

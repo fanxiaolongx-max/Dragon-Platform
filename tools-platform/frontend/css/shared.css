@@ -5121,6 +5121,14 @@ body.service-status-open { overflow: hidden; }
     font-size: 10px;
 }
 
+.builtin-sync-versions {
+    margin: 0 15px 7px 43px;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
 .builtin-sync-metrics {
     display: flex;
     align-items: center;
@@ -5250,7 +5258,7 @@ body.service-status-open { overflow: hidden; }
     .builtin-sync-head p, .builtin-sync-toolbar { color: #a6b6ca; }
     .builtin-sync-progress-head { color: #a5b4fc; }
     .builtin-sync-progress-track { background: #334155; }
-    .builtin-sync-progress-detail, .builtin-sync-result, .builtin-sync-metrics { color: #a6b6ca; }
+    .builtin-sync-progress-detail, .builtin-sync-result, .builtin-sync-metrics, .builtin-sync-versions { color: #a6b6ca; }
     .builtin-sync-progress.is-error .builtin-sync-progress-head { color: #fca5a5; }
 }
 
@@ -5293,7 +5301,7 @@ body.service-status-open { overflow: hidden; }
     .builtin-sync-safe-note { margin: 12px 12px 8px; }
     .builtin-sync-toolbar { padding: 2px 12px 9px; }
     .builtin-sync-list { padding: 0 12px 12px; }
-    .builtin-sync-metrics { margin-left: 15px; }
+    .builtin-sync-metrics, .builtin-sync-versions { margin-left: 15px; }
     .builtin-sync-counts { width: 100%; margin-left: 0; }
     .builtin-sync-file-row { grid-template-columns: minmax(42px, max-content) minmax(0, 1fr); }
     .builtin-sync-file-size { grid-column: 2; }

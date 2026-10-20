@@ -52,6 +52,9 @@ app.whenReady().then(async () => {
     await until(() => !!document.querySelector('#nrvStack'));
     assert.equal(await evaluate(() => !!document.getElementById('homeSidebar') && !!document.getElementById('statsBar') && !!document.getElementById('homePromotions')), true);
     assert.equal(await evaluate(() => document.querySelector('#dcDatacomPromo .dc-feature-new')?.textContent), 'NEW');
+    await evaluate(() => document.getElementById('builtinToolsCompareBtn').click());
+    await until(() => document.body.textContent.includes('无权限，请联系管理员添加'));
+    assert.equal(await evaluate(() => !!document.getElementById('builtinToolsSyncModal')), false, 'read-only exports cannot offer a forced tool replacement');
     if (process.env.PORTAL_CHAT_SCREENSHOT) {
         await new Promise(resolve => setTimeout(resolve, 3200));
         fs.writeFileSync(process.env.PORTAL_CHAT_SCREENSHOT, (await win.webContents.capturePage()).toPNG());

@@ -15,7 +15,12 @@ async function until(fn) {
     for (let i = 0; i < 150; i++) { if (await evaluate(fn)) return; await wait(20); }
     throw new Error(`Timed out: ${fn}`);
 }
+async function untilApply(count) {
+    for (let i = 0; i < 150 && applyRequests < count; i++) await wait(20);
+    assert.equal(applyRequests, count, 'the request reaches the fixture server');
+}
 const pending = ['sample', 'second'].map(slug => ({ slug, name: `示例 ${slug}`, icon: '🧩', status: 'update',
+    currentSource: 'market', currentVersion: '2026-10-20T08:00:00.000Z', bundledVersion: '2026-10-19T08:00:00.000Z',
     recommended: true, fingerprint: slug, counts: { modified: 1 }, oldBytes: 100, newBytes: 200,
     changes: [{ path: 'index.html', type: 'modified', oldSize: 100, newSize: 200 }] }));
 const send = event => stream.write(`${JSON.stringify(event)}\n`);
@@ -23,8 +28,13 @@ const send = event => stream.write(`${JSON.stringify(event)}\n`);
 app.whenReady().then(async () => {
     const web = express();
     web.use(express.json());
-    web.get('/', (_req, res) => res.type('html').send('<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/shared.css"><body><h1>Update fixture</h1><script src="/fixture.js"></script>'));
+    web.get('/', (_req, res) => {
+        const home = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
+        const rail = home.match(/<nav class="home-rail"[\s\S]*?<\/nav>/)[0].replace('id="customToolsPanel" hidden', 'id="customToolsPanel"');
+        res.type('html').send(`<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/shared.css"><link rel="stylesheet" href="/home-mode.css"><body>${rail}<script src="/fixture.js"></script>`);
+    });
     web.get('/shared.css', (_req, res) => res.sendFile(path.join(__dirname, '../frontend/css/shared.css')));
+    web.get('/home-mode.css', (_req, res) => res.sendFile(path.join(__dirname, '../frontend/css/home-mode.css')));
     web.get('/fixture.js', (_req, res) => {
         const source = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
         const section = source.slice(source.indexOf('let builtinToolsSyncChecking ='), source.indexOf('let pageScrollbarIdleTimer;'));
@@ -37,7 +47,7 @@ app.whenReady().then(async () => {
             window.ticks=0;setInterval(()=>window.ticks++,10);
             ${section}`);
     });
-    web.get('/api/custom-tools/builtin-sync/preview', (_req, res) => { previewRequests++; res.json({ pending }); });
+    web.get('/api/custom-tools/builtin-sync/preview', (req, res) => { previewRequests++; res.json({ manual: req.query.manual === '1', pending }); });
     web.post('/api/custom-tools/builtin-sync/apply-stream', (req, res) => {
         applyRequests++; lastBody = req.body; stream = res;
         res.setHeader('Content-Type', 'application/x-ndjson'); res.flushHeaders();
@@ -54,6 +64,7 @@ app.whenReady().then(async () => {
     await until(() => document.querySelectorAll('.builtin-sync-file-row').length === 1);
     await evaluate(() => document.querySelector('.builtin-sync-apply').click());
     await until(() => document.querySelector('.builtin-sync-progress')?.hidden === false);
+    await untilApply(1);
     assert.equal(applyRequests, 1);
     assert.deepEqual(lastBody.applySlugs, ['sample', 'second']);
     assert.equal(await evaluate(() => [...document.querySelectorAll('#builtinToolsSyncModal button, #builtinToolsSyncModal input')].every(node => node.disabled)), true);
@@ -102,17 +113,46 @@ app.whenReady().then(async () => {
 
     await evaluate(() => document.querySelector('.builtin-sync-apply').click());
     await until(() => document.getElementById('builtinToolsSyncModal').dataset.applying === '1');
-    while (applyRequests < 2) await wait(10);
+    await untilApply(2);
     send({ type: 'result', data: { installed: [], adopted: [], updated: [], skipped: ['sample', 'second'], invalid: [] } }); stream.end();
     await until(() => document.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow') === '100');
     await until(() => !document.getElementById('builtinToolsSyncModal'));
 
     await evaluate(() => openBuiltinToolsSyncModal(fixturePreview));
     await evaluate(() => document.querySelector('.builtin-sync-apply').click());
-    while (applyRequests < 3) await wait(10);
+    await untilApply(3);
     stream.end();
     await until(() => document.querySelector('.builtin-sync-result')?.textContent.includes('server may still be updating'));
     assert.equal(await evaluate(() => document.querySelector('.builtin-sync-apply').disabled), false);
+    // The real home rail opens manual comparison despite market-use/snooze flags.
+    await evaluate(() => {
+        closeBuiltinToolsSyncModal();
+        localStorage.setItem('tools_role', 'admin');
+        snoozeBuiltinToolsSyncForToday();
+        document.getElementById('toolMarketBtn').dataset.opened = '1';
+        document.getElementById('builtinToolsCompareBtn').click();
+    });
+    await until(() => document.querySelector('#builtinToolsSyncTitle')?.textContent.includes('Compare Bundled'));
+    assert.deepEqual(await evaluate(() => [...document.querySelector('.home-rail-actions').children].map(node => node.id)), ['toolMarketBtn', 'builtinToolsCompareBtn', 'customToolUploadBtn']);
+    assert.equal(await evaluate(() => document.querySelectorAll('.builtin-sync-choice:checked').length), 0);
+    assert.equal(await evaluate(() => getComputedStyle(document.querySelector('.builtin-sync-today')).display), 'none');
+    await evaluate(() => document.querySelector('.builtin-sync-apply').click());
+    assert.equal(applyRequests, 3, 'manual mode must require a selection');
+    assert.match(await evaluate(() => document.querySelector('.builtin-sync-result').textContent), /Select tools/);
+    assert.equal(await evaluate(() => { const modal = document.querySelector('.builtin-sync-window'); return modal.scrollWidth <= modal.clientWidth + 1; }), true, 'long version dates fit the mobile dialog');
+    fs.writeFileSync(path.join(temp, 'manual-dark-mobile.png'), (await win.webContents.capturePage()).toPNG());
+    win.setSize(1200, 900);
+    nativeTheme.themeSource = 'light';
+    await evaluate(() => { window.language = 'zh-CN'; openBuiltinToolsSyncModal({ ...fixturePreview, manual: true }); });
+    await wait(150);
+    fs.writeFileSync(path.join(temp, 'manual-light.png'), (await win.webContents.capturePage()).toPNG());
+    await evaluate(() => { document.querySelector('.builtin-sync-choice').checked = true; document.querySelector('.builtin-sync-apply').click(); });
+    await untilApply(4);
+    assert.deepEqual(lastBody.applySlugs, ['sample']);
+    assert.deepEqual(lastBody.skipSlugs, [], 'manual comparisons do not change skipped-version choices');
+    assert.equal(lastBody.forceBundled, true, 'only explicit manual selection forces a bundled replacement');
+    send({ type: 'result', data: { installed: [], adopted: [], updated: [], skipped: [], invalid: [] } }); stream.end();
+    await until(() => !document.getElementById('builtinToolsSyncModal'));
     console.log(`Built-in update UI passed: live progress, lazy diffs, duplicate protection, responsive/dark layouts, bilingual progress, recovery and completion. Screenshots: ${temp}`);
 }).catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
     win?.destroy(); server?.closeAllConnections(); server?.close(); app.exit(process.exitCode || 0);

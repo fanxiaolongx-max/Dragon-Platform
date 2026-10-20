@@ -55,7 +55,7 @@
     document.addEventListener('click', async event => {
         const anchor = event.target.closest('a[href]');
         if (!anchor) {
-            const mutation = event.target.closest('[type="file"],.custom-tool-actions button,#customToolUploadBtn,#toolMarketBtn,#dcSend,#dcAttach,#dcWorkspaceBtn,[data-skill-action]');
+            const mutation = event.target.closest('[type="file"],.custom-tool-actions button,#customToolUploadBtn,#toolMarketBtn,#builtinToolsCompareBtn,#dcSend,#dcAttach,#dcWorkspaceBtn,[data-skill-action]');
             if (mutation) stop(event);
             return;
         }

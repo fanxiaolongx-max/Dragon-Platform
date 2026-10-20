@@ -506,6 +506,7 @@ async function applyMarketUpdates({ slugs = [], adoptSlugs = [], expectedFingerp
             targetDir: repo.CUSTOM_TOOLS_DIR,
             backupRoot: path.join(getDataDir(), 'backups', 'tool-market'),
             applySlugs: bundledSlugs,
+            preserveInstalledRelease: false,
             expectedFingerprints: Object.fromEntries(bundledSlugs.map(slug => [slug, current.get(slug).fingerprint]))
         });
         onProgress?.({ stage: 'bundled_done', count: bundledResult.installed.length + bundledResult.adopted.length + bundledResult.updated.length });

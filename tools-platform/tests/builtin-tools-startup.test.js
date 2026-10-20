@@ -97,7 +97,7 @@ test('local edits, explicit skips and legacy fingerprints stay intact; another t
     assert.ok(logs.some(line => line.includes('管理员已选择跳过')));
 });
 
-test('a market release survives an older or equally dated bundle without repeated prompts; a newer bundle upgrades it', async () => {
+test('market releases stay selected across app updates; explicit manual comparisons can replace them', async () => {
     const source = bundle('market v2');
     await initialize('market');
     const manifestPath = path.join(target('market'), '.tool-manifest.json');
@@ -120,7 +120,11 @@ test('a market release survives an older or equally dated bundle without repeate
     latest.market = { id: 'official/sample', directoryFingerprint: latest.system.fingerprint };
     fs.writeFileSync(manifestPath, JSON.stringify(latest));
     bundle('bundled v4', '2026-10-21T00:00:00.000Z');
-    assert.deepEqual((await initialize('market')).updated, ['sample']);
+    assert.deepEqual((await initialize('market')).updated, []);
+    assert.equal(html('market'), '<p>market v3</p>');
+    const manual = sync.previewBuiltinTools({ ...options, preserveInstalledRelease: false }).pending[0];
+    sync.applyBuiltinToolDecisions({ ...options, preserveInstalledRelease: false, applySlugs: ['sample'],
+        expectedFingerprints: { sample: manual.fingerprint } });
     assert.equal(html('market'), '<p>bundled v4</p>');
     assert.equal(JSON.parse(fs.readFileSync(manifestPath)).market, undefined);
     assert.ok(logs.some(line => line.includes('不回退、不重复提示')));
@@ -187,6 +191,12 @@ test('real market downloads update the served folder twice with the same release
                 assert.deepEqual((await initialize('market-download')).pending, []);
                 assert.equal(html('market-download'), `<p>${version}</p>`);
             }
+            bundle('bundled newer', '2026-10-21T00:00:00.000Z');
+            assert.deepEqual((await initialize('market-download')).updated, []);
+            const next = (await market.previewMarket({ force: true })).tools[0];
+            assert.equal(next.selectedSource, 'builtin');
+            assert.deepEqual((await market.applyMarketUpdates({ slugs: ['sample'], expectedFingerprints: { sample: next.fingerprint } })).updated, ['sample']);
+            assert.equal(html('market-download'), '<p>bundled newer</p>', 'the market can explicitly select the bundled release too');
         });
     } finally { await new Promise(resolve => server.close(resolve)); }
 });
