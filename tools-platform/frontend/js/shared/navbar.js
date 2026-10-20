@@ -3304,16 +3304,27 @@ window.setAiUsageDimension = function (dimension) {
     loadAiUsageDashboard(dimension);
 };
 
+// 按需加载的设置脚本带上内容版本号：CDN 会给无版本号的脚本加数小时缓存，平台更新后仍拿到旧版
+async function loadNavLazyScript(src, errorText) {
+    let url = src;
+    try {
+        const res = await fetch(`/api/asset-version?path=${encodeURIComponent(src)}`, { cache: 'no-store' });
+        const data = res.ok ? await res.json() : null;
+        if (data && data.version) url = `${src}?v=${encodeURIComponent(data.version)}`;
+    } catch (_) { /* 拿不到版本号时按原地址加载 */ }
+    await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = url;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error(errorText));
+        document.head.appendChild(script);
+    });
+}
+
 // 频道对接（WeLink 助理）设置页按需加载，逻辑在 shared/channel-settings.js
 async function renderChannelSettings(content) {
     try {
-        if (!window.ToolsChannelSettings) await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = '/js/shared/channel-settings.js';
-            script.onload = resolve;
-            script.onerror = () => reject(new Error(navLocaleText('无法加载频道对接组件', 'Channel settings component could not load')));
-            document.head.appendChild(script);
-        });
+        if (!window.ToolsChannelSettings) await loadNavLazyScript('/js/shared/channel-settings.js', navLocaleText('无法加载频道对接组件', 'Channel settings component could not load'));
         await window.ToolsChannelSettings.render(content);
     } catch (error) {
         content.innerHTML = `<div class="nav-settings-empty">${navEscape(error.message)}</div>`;
@@ -3323,13 +3334,7 @@ async function renderChannelSettings(content) {
 // 平台推广设置页按需加载，逻辑在 shared/promotion-settings.js
 async function renderPromotionSettings(content) {
     try {
-        if (!window.ToolsPromotionSettings) await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = '/js/shared/promotion-settings.js';
-            script.onload = resolve;
-            script.onerror = () => reject(new Error(navLocaleText('无法加载平台推广组件', 'Promotion settings component could not load')));
-            document.head.appendChild(script);
-        });
+        if (!window.ToolsPromotionSettings) await loadNavLazyScript('/js/shared/promotion-settings.js', navLocaleText('无法加载平台推广组件', 'Promotion settings component could not load'));
         await window.ToolsPromotionSettings.render(content);
     } catch (error) {
         content.innerHTML = `<div class="nav-settings-empty">${navEscape(error.message)}</div>`;

@@ -160,3 +160,11 @@ test('config API: everyone reads, only admins write; desktop controls are local-
     const after = await (await fetch(`${url}/stats`, { headers: as('synthetic-admin') })).json();
     assert.equal(after.items.find(item => item.id === 'netcare').channels.card, 1);
 });
+
+test('lazily loaded settings scripts are fetched with a content version', () => {
+    const navbar = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+    assert.match(navbar, /loadNavLazyScript\('\/js\/shared\/promotion-settings\.js'/);
+    assert.match(navbar, /\/api\/asset-version\?path=/);
+    const server = fs.readFileSync(path.join(__dirname, '../backend/server.js'), 'utf8');
+    assert.match(server, /app\.get\('\/api\/asset-version'/);
+});

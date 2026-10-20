@@ -331,6 +331,16 @@ app.get('/api/health', (req, res) => {
 
 const quickStartService = require('./models/default-quick-start-service');
 
+// 按需动态加载的前端脚本（如全局设置里的子页面）没有经过 HTML 版本化：返回内容哈希，前端拼成 ?v= 避免 CDN/浏览器缓存旧版
+app.get('/api/asset-version', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const assetPath = String(req.query.path || '');
+    if (!/^\/js\/[\w./-]+\.js$/.test(assetPath) || assetPath.includes('..')) return res.status(400).json({ error: 'Invalid asset path' });
+    const hash = assetVersioning.fileHash(path.join(FRONTEND_DIR, assetPath));
+    if (!hash) return res.status(404).json({ error: 'Asset not found' });
+    res.json({ path: assetPath, version: hash });
+});
+
 // 登录页未登录可访问，用根 package.json 版本号对齐 GitHub/electron-builder 打包版本，附带构建与三方件信息。
 app.get('/api/app-version', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
