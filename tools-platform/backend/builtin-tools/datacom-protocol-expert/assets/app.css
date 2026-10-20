@@ -1273,3 +1273,57 @@ select.dk-input { cursor: pointer; }
     .dk-mgr-new-cat, .dk-mgr-cats li.is-editing form { grid-template-columns: 1fr; }
 }
 .dk-flash-face.is-front > .dk-review-kind { align-self: flex-start; }
+
+/* 总览视频课堂：按需播放，目录标识与教学图解并列。 */
+.dk-nav-video { flex: none; font-style: normal; font-size: 9.5px; font-weight: 700; color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent); border-radius: 4px; padding: 0 3px; line-height: 14px; white-space: nowrap; }
+.dk-home-section { container: dk-home / inline-size; }
+.dk-home-layout { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 28px; }
+.dk-home-layout.has-videos { grid-template-columns: minmax(0, 1fr) minmax(300px, 360px); }
+.dk-home-content { min-width: 0; }
+.dk-home-content .dk-hard-list { grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
+.dk-home-content .dk-cov-home-card > span:not(.dk-cov-bar) { flex-wrap: wrap; gap: 4px 10px; }
+.dk-home-content .dk-domain-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.dk-home-content .dk-cov-home { grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); }
+.dk-video-recommendations { position: sticky; top: calc(var(--dk-header-h) + 20px); min-width: 0; margin-top: 34px; padding: 18px; border: 1px solid var(--line); border-radius: 18px; background: var(--panel); box-shadow: var(--shadow); }
+.dk-video-recommendations[hidden] { display: none; }
+.dk-video-recommend-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.dk-video-recommend-head .dk-hud-kicker { font-size: 9px; letter-spacing: 1.6px; }
+.dk-video-recommend-head h2 { margin: 3px 0 0; font-size: 18px; line-height: 1.4; }
+.dk-video-recommend-head h2 span { margin-left: 6px; font-size: 11px; font-weight: 400; color: var(--text-2); white-space: nowrap; }
+.dk-video-recommend-head button { flex: none; white-space: nowrap; }
+.dk-video-recommendations .dk-note-video { margin: 0; }
+.dk-video-recommendations .dk-video-head { gap: 5px 10px; margin-bottom: 10px; }
+.dk-video-recommendations .dk-video-head strong { flex: 1 1 100%; font-size: 14px; line-height: 1.55; }
+.dk-video-recommendations .dk-video-kicker { font-size: 10px; padding-left: 0; background: none; }
+.dk-video-recommendations .dk-mini-note { font-size: 11px; }
+.dk-video-recommendations .dk-video-play { width: 50px; height: 50px; font-size: 20px; }
+.dk-video-recommendations .dk-video-hd { opacity: 1; right: 8px; top: 8px; }
+.dk-video-frame:focus-within .dk-video-hd { opacity: 1; }
+.dk-video-read { display: flex; align-items: center; justify-content: space-between; font-size: 12px; padding: 10px 0 14px; color: var(--accent); }
+.dk-video-recommend-list { display: grid; gap: 5px; border-top: 1px solid var(--line); padding-top: 12px; }
+.dk-video-pick { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: center; gap: 10px; width: 100%; padding: 7px; border: 1px solid transparent; border-radius: 10px; text-align: left; background: transparent; color: var(--text); cursor: pointer; }
+.dk-video-pick:hover { background: var(--panel-2); border-color: var(--line); }
+.dk-video-pick[aria-pressed="true"] { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 9%, var(--panel)); }
+.dk-video-thumb { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 6px; overflow: hidden; background: var(--panel-2); }
+.dk-video-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dk-video-thumb i { position: absolute; inset: 0; display: grid; place-items: center; font-style: normal; font-size: 12px; color: #fff; background: rgba(2, 6, 23, .25); text-shadow: 0 1px 5px #000; }
+.dk-video-pick-copy { display: grid; gap: 3px; min-width: 0; }
+.dk-video-pick-copy strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 12px; font-weight: 600; line-height: 1.5; }
+.dk-video-pick-copy small { color: var(--text-2); font-size: 10.5px; }
+.dk-video-recommendations button:focus-visible, .dk-video-read:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@container dk-home (max-width: 960px) {
+    .dk-home-layout.has-videos { grid-template-columns: minmax(0, 1fr); }
+    .dk-video-recommendations { position: static; order: -1; margin-top: 28px; }
+    .dk-video-recommend-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; }
+    .dk-video-recommend-list { border-top: 0; padding-top: 0; align-content: start; }
+}
+@media (max-width: 600px) {
+    .dk-video-recommendations { padding: 14px; }
+    .dk-video-recommend-body { grid-template-columns: minmax(0, 1fr); gap: 0; }
+    .dk-video-recommend-list { grid-auto-flow: column; grid-auto-columns: 144px; grid-template-columns: none; gap: 8px; overflow-x: auto; padding: 10px 2px 6px; border-top: 1px solid var(--line); scroll-snap-type: x proximity; }
+    .dk-video-pick { grid-template-columns: minmax(0, 1fr); gap: 7px; align-content: start; scroll-snap-align: start; }
+    .dk-video-pick-copy strong { min-height: 36px; }
+    .dk-video-hd { opacity: 1; }
+    .dk-video-dialog { padding: 10px; }
+    .dk-video-dialog-box header strong { min-width: 0; font-size: 13px; }
+}

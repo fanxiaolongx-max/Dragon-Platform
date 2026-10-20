@@ -9,7 +9,7 @@ import { readingGuides } from './reading-guides.js';
 import { renderMarkdown, renderMermaid } from './markdown.js';
 import { createSnapshotApi } from './snapshot-api.js';
 import { initAiNotes } from './ai-notes.js';
-import { mountNoteVideo } from './note-video.js';
+import { mountNoteVideo, loadVideoManifest, mountVideoRecommendations } from './note-video.js';
 import { mountMindMap } from './mindmap.js';
 import { mountNotesReview, sidebarIndexHtml } from './notes-review.js';
 
@@ -24,7 +24,7 @@ labs.forEach(lab => VISUALS.set(lab.id, { id: lab.id, kind: '2d', title: lab.tit
 
 const state = {
     catalog: null, canWrite: false, tenantId: undefined, username: '',
-    articles: new Map(), mounted: [], route: null, sidebarOpen: false, collapsed: new Set(), coverageFilter: 'all'
+    articles: new Map(), videos: {}, mounted: [], route: null, sidebarOpen: false, collapsed: new Set(), coverageFilter: 'all'
 };
 
 const $ = selector => document.querySelector(selector);
@@ -172,7 +172,7 @@ function renderSidebar() {
                 const articles = catalog.articles.filter(article => article.categoryId === cat.id);
                 return `<div class="dk-nav-cat"><div class="dk-nav-cat-name"><span>${esc(cat.name)}</span><em>${articles.length}</em></div>${articles.map(article => {
                     const hasLesson = article.visuals.some(id => VISUALS.get(id)?.kind === 'lesson');
-                    return `<a class="dk-nav-link${route.name === 'article' && route.id === article.id ? ' is-active' : ''}" href="#/a/${article.id}" title="${esc(article.title)}"><span>${esc(navTitle(article))}</span>${hasLesson ? '<i class="dk-nav-3d" title="含分步教学图解">图解</i>' : ''}</a>`;
+                    return `<a class="dk-nav-link${route.name === 'article' && route.id === article.id ? ' is-active' : ''}" href="#/a/${article.id}" title="${esc(article.title)}"><span>${esc(navTitle(article))}</span>${Object.hasOwn(state.videos, article.id) ? '<i class="dk-nav-video" title="含视频讲解" aria-label="含视频讲解">▶ 视频</i>' : ''}${hasLesson ? '<i class="dk-nav-3d" title="含分步教学图解">图解</i>' : ''}</a>`;
                 }).join('') || '<div class="dk-nav-empty">暂无文章</div>'}</div>`;
         }).join('');
         return `<section class="dk-nav-domain${collapsed ? ' is-collapsed' : ''}">${head}<div class="dk-nav-domain-body">${body}</div></section>`;
@@ -326,6 +326,7 @@ function renderHome() {
                 <div><b>${Math.round(chars / 1000)}k</b><span>字原文</span></div>
             </div>
         </section>
+        <div class="dk-home-section"><div class="dk-home-layout"><div class="dk-home-content">
         <h2 class="dk-section-title">知识覆盖度 <a class="dk-mini-note" href="#/outline-list">查看覆盖清单 →</a></h2>
         <div class="dk-cov-home">${catalog.domains.map(item => {
             const points = outlineChapters(item.id).flatMap(chapter => outlinePoints(chapter.id));
@@ -343,7 +344,9 @@ function renderHome() {
         <h2 class="dk-section-title">推荐学习路径</h2>
         <ol class="dk-path">${catalog.learningPath.map((step, index) => `<li><div class="dk-path-index">${index + 1}</div><div><h4>${esc(step.title)}</h4><div class="dk-path-items">${step.articles.map(id => articleMeta(id)).filter(Boolean).map(article => `<a href="#/a/${article.id}">${esc(article.title)}</a>`).join('<span>→</span>')}</div></div></li>`).join('')}</ol>
         <h2 class="dk-section-title">复杂知识点 · 建议配合可视化阅读</h2>
-        <div class="dk-hard-list">${hard.map(article => `<a class="dk-hard" href="#/a/${article.id}"><div>${stars(article.difficulty)}<strong>${esc(article.title)}</strong></div><p>${esc(article.summary)}</p><div class="dk-hard-vis">${article.visuals.map(id => VISUALS.get(id)).filter(Boolean).map(visual => `<span>${visualBadge(visual)}${esc(visual.title.split(' · ')[0])}</span>`).join('')}</div></a>`).join('')}</div>`;
+        <div class="dk-hard-list">${hard.map(article => `<a class="dk-hard" href="#/a/${article.id}"><div>${stars(article.difficulty)}<strong>${esc(article.title)}</strong></div><p>${esc(article.summary)}</p><div class="dk-hard-vis">${article.visuals.map(id => VISUALS.get(id)).filter(Boolean).map(visual => `<span>${visualBadge(visual)}${esc(visual.title.split(' · ')[0])}</span>`).join('')}</div></a>`).join('')}</div>
+        </div><aside class="dk-video-recommendations" id="homeVideos" aria-label="视频课堂" hidden></aside></div></div>`;
+    state.mounted.push(mountVideoRecommendations($('#homeVideos'), { articles: catalog.articles, offline: Boolean(snapshotApi) }));
 }
 
 function renderLabs() {
@@ -1148,6 +1151,11 @@ async function boot() {
         main().innerHTML = `<div class="dk-empty"><h2>无法加载知识库</h2><p>${esc(error.message)}</p></div>`;
         return;
     }
+    // 视频清单与总览播放器共用一次请求，目录不阻塞知识库首屏。
+    loadVideoManifest({ offline: Boolean(snapshotApi) }).then(videos => {
+        state.videos = videos || {};
+        renderSidebar();
+    });
     // 平台注入的语言开关放入导航栏，避免固定浮钮覆盖图表操作。
     const languageButton = document.getElementById('toolsCustomLanguageButton');
     if (languageButton) document.querySelector('.dk-topbar').appendChild(languageButton);

@@ -9,6 +9,22 @@ const { pathToFileURL } = require('node:url');
 const assets = path.join(__dirname, '../backend/builtin-tools/datacom-protocol-expert/assets');
 const load = name => import(pathToFileURL(path.join(assets, name)).href);
 
+test('video recommendations only use registered notes visible in the current catalog and never mutate the catalog', async () => {
+    const { selectVideoRecommendations } = await load('note-video.js');
+    const manifest = require('../frontend/assets/promotions/datacom/manifest.json');
+    const catalog = Object.keys(manifest).map(id => ({ id }));
+    const before = catalog.map(article => article.id);
+    const all = selectVideoRecommendations([...catalog, { id: 'private-note' }], manifest, 6, () => 0);
+    assert.equal(all.length, 5);
+    assert.equal(new Set(all.map(article => article.id)).size, 5);
+    assert.equal(all.some(article => article.id === 'private-note'), false);
+    assert.deepEqual(catalog.map(article => article.id), before);
+    assert.deepEqual(selectVideoRecommendations(catalog.slice(0, 1), manifest), catalog.slice(0, 1));
+    assert.deepEqual(selectVideoRecommendations(catalog, {}), []);
+    const more = Object.fromEntries(Array.from({ length: 10 }, (_, n) => ['note-' + n, {}]));
+    assert.equal(selectVideoRecommendations(Object.keys(more).map(id => ({ id })), more).length, 6);
+});
+
 const HELLO = `
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1

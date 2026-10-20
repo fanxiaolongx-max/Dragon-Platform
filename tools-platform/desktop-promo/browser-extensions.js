@@ -2,7 +2,6 @@
 // - 项目自带的插件目录：启动时复制到用户数据目录再加载；平台更新后内容变化会自动重新加载。
 // - 用户导入：打包好的插件 .zip 解压后加载；插件文件夹直接加载（重新打包到同一文件夹，下次启动即是新版）。
 // - 本机 Chrome / Edge 已安装的插件：勾选后从浏览器自己的插件目录加载最新版本（例如公司的登录插件）。
-const { app } = require('electron');
 const crypto = require('crypto');
 const fs = require('fs');
 const os = require('os');
@@ -108,6 +107,8 @@ function scanInstalledBrowserExtensions() {
 }
 
 function createExtensionManager({ session, statePath }) {
+    // 只有桌面运行时需要 Electron；插件目录扫描与元数据解析也供普通 Node 测试使用。
+    const { app } = require('electron');
     const installRoot = path.join(app.getPath('userData'), 'browser-extensions');
     let state = readState();
     const loaded = new Map();   // key → { id, name, version, popup, source, error }

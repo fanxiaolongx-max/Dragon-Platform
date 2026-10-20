@@ -2012,13 +2012,15 @@ function updateResponsiveNavbar() {
 
 async function loadNavigationData() {
     try {
-        const [settingsRes, toolsRes] = await Promise.all([
-            fetch('/api/nav-settings', { headers: getAuthHeaderForNav() }),
-            fetch('/api/custom-tools', { headers: getAuthHeaderForNav() })
+        const [settings, tools] = await Promise.all([
+            fetch('/api/nav-settings', { headers: getAuthHeaderForNav() }).then(res => res.ok ? res.json() : null),
+            typeof API !== 'undefined'
+                ? API.get('/api/custom-tools').catch(() => null)
+                : fetch('/api/custom-tools', { headers: getAuthHeaderForNav() }).then(res => res.ok ? res.json() : null)
         ]);
-        if (settingsRes.ok) navState.settings = normalizeNavSettings(await settingsRes.json());
-        if (toolsRes.ok) navState.customTools = await toolsRes.json();
-        if (settingsRes.ok || toolsRes.ok) writeNavigationBootstrapCache();
+        if (settings) navState.settings = normalizeNavSettings(settings);
+        if (tools) navState.customTools = tools;
+        if (settings || tools) writeNavigationBootstrapCache();
     } catch (e) {
         console.warn('[Navbar] load navigation data failed:', e);
     }
@@ -9770,6 +9772,20 @@ document.addEventListener('click', event => {
     if (event.target.closest('#builtinToolsCompareBtn')) void window.openBuiltinToolsComparison();
 });
 
+const BUILTIN_SYNC_CHECK_TTL_MS = 5 * 60 * 1000;
+
+async function builtinSyncCheckCacheKey() {
+    let version;
+    try { version = await window.ToolsAppVersion?.get(); } catch (_) { return ''; }
+    // 包版本变化后重新检查；没有版本信息时不跳过扫描。
+    if (!version) return '';
+    return 'tools_builtin_sync_check:' + JSON.stringify([
+        localStorage.getItem('tools_user') || '',
+        localStorage.getItem('tools_tenant_id') || 'default',
+        version
+    ]);
+}
+
 async function checkBuiltinToolsSync() {
     const toolMarketOpened = () => document.getElementById('toolMarketBtn')?.dataset.opened === '1';
     if (toolMarketOpened()) return;
@@ -9783,7 +9799,17 @@ async function checkBuiltinToolsSync() {
     ) return;
     builtinToolsSyncChecking = true;
     try {
+        const cacheKey = await builtinSyncCheckCacheKey();
+        try {
+            const checkedAt = Number(cacheKey && sessionStorage.getItem(cacheKey));
+            const age = Date.now() - checkedAt;
+            if (checkedAt > 0 && age >= 0 && age < BUILTIN_SYNC_CHECK_TTL_MS) return;
+        } catch (_) { /* 无法使用会话存储时按原逻辑扫描 */ }
         const preview = await API.get('/api/custom-tools/builtin-sync/preview');
+        // 仅记住“没有待更新项”的成功检查，不复用可能过时的更新清单。
+        if (cacheKey && Array.isArray(preview?.pending) && !preview.pending.length) {
+            try { sessionStorage.setItem(cacheKey, String(Date.now())); } catch (_) { /* noop */ }
+        }
         if (!toolMarketOpened() && preview && Array.isArray(preview.pending) && preview.pending.length) {
             openBuiltinToolsSyncModal(preview);
         }

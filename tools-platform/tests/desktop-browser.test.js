@@ -3,9 +3,28 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { execFileSync } = require('node:child_process');
 
 const { createSiteScriptStore } = require('../desktop-promo/site-scripts');
 const { displayName, compareVersions, scanInstalledBrowserExtensions } = require('../desktop-promo/browser-extensions');
+
+test('extension metadata helpers load without an Electron binary in a plain Node process', () => {
+    const modulePath = require.resolve('../desktop-promo/browser-extensions');
+    execFileSync(process.execPath, ['-e', `
+        const assert = require('node:assert/strict');
+        const Module = require('node:module');
+        const originalLoad = Module._load;
+        Module._load = function(id, ...args) {
+            if (id === 'electron') throw new Error('Electron binary unavailable in CI');
+            return originalLoad.call(this, id, ...args);
+        };
+        const extensions = require(${JSON.stringify(modulePath)});
+        assert.equal(extensions.displayName('/fixture', { name: 'Fixture' }), 'Fixture');
+        assert.ok(extensions.compareVersions('1.10.0', '1.9.0') > 0);
+        assert.equal(typeof extensions.scanInstalledBrowserExtensions, 'function');
+        assert.throws(() => extensions.createExtensionManager({ session: {} }), /Electron binary unavailable in CI/);
+    `], { stdio: 'pipe' });
+});
 
 test('floating script store keeps one script per site and never lists the code', t => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'desktop-site-scripts-'));

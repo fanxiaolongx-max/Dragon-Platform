@@ -4,6 +4,8 @@
 
 const API_BASE = window.location.origin;
 const lastDataSourceByPath = {};
+// 只合并工具目录的进行中请求；请求结束即释放，不缓存已完成的业务数据。
+const pendingCustomToolGets = new Map();
 const DATA_SOURCE_MODE_KEY = 'tools_data_source_modes';
 
 const dataSourceEvents = [];
@@ -117,6 +119,10 @@ async function handleResponse(res, requestMeta = {}) {
         throw err;
     }
 
+    if (requestMeta.method !== 'GET' && /^\/api\/custom-tools(?:\/|$)/.test(requestMeta.path || '')) {
+        pendingCustomToolGets.clear();
+    }
+
     const sourceMeta = extractDataSourceMeta(res, requestMeta.path || '');
     const source = sourceMeta.primary;
 
@@ -129,12 +135,22 @@ async function handleResponse(res, requestMeta = {}) {
 
 const API = {
     get: async function(path) {
-        const res = await fetch(`${API_BASE}${path}`, {
-            headers: {
-                ...getAuthHeaders()
-            }
-        });
-        return handleResponse(res, { method: 'GET', path });
+        const headers = getAuthHeaders();
+        const request = async () => {
+            const res = await fetch(`${API_BASE}${path}`, { headers });
+            return handleResponse(res, { method: 'GET', path });
+        };
+        if (path !== '/api/custom-tools') return request();
+        const key = JSON.stringify([headers.Authorization || '', localStorage.getItem('tools_user'), localStorage.getItem('tools_tenant_id') || 'default']);
+        let pending = pendingCustomToolGets.get(key);
+        if (!pending) {
+            pending = request().finally(() => {
+                if (pendingCustomToolGets.get(key) === pending) pendingCustomToolGets.delete(key);
+            });
+            pendingCustomToolGets.set(key, pending);
+        }
+        // 调用方仍持有独立的数据副本，避免互相修改目录元数据。
+        return JSON.parse(JSON.stringify(await pending));
     },
     post: async function(path, body) {
         const res = await fetch(`${API_BASE}${path}`, {
