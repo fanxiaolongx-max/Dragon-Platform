@@ -89,7 +89,7 @@ test('F12 snapshot carries saved and built-in scripts plus offline packer assets
     assert.equal(await reopened.file('content.js').async('string'), saved.code);
 });
 
-test('scoped Pages publishing writes both tools to separate directories', async () => {
+test('scoped Pages publishing encrypts surveys and excludes script/plugin tools', async () => {
     const bare = path.join(temp, 'remote.git');
     const mirror = path.join(temp, 'mirror');
     execFileSync('git', ['init', '--bare', '--initial-branch=main', bare]);
@@ -99,7 +99,7 @@ test('scoped Pages publishing writes both tools to separate directories', async 
     execFileSync('git', ['-C', mirror, '-c', 'user.name=Test', '-c', 'user.email=test@localhost', 'commit', '-m', 'Initial']);
     execFileSync('git', ['-C', mirror, 'push', '-u', 'origin', 'HEAD:main']);
     await publishing.saveSettings({ repoDir: mirror, branch: 'main', file: '{toolSlug}/index.html', publishMode: 'pages' });
-    for (const slug of ['tool-mqp55fna', 'f12-to-extension']) {
+    for (const slug of ['tool-mqp55fna']) {
         const started = await publishing.startJob('default', { toolSlug: slug });
         let job;
         for (let attempt = 0; attempt < 100; attempt++) {
@@ -110,9 +110,12 @@ test('scoped Pages publishing writes both tools to separate directories', async 
         assert.equal(job.status, 'success', JSON.stringify(job.entries));
     }
     const files = execFileSync('git', ['--git-dir', bare, 'ls-tree', '-r', '--name-only', 'main']).toString();
-    assert.match(files, /tool-mqp55fna\/data\/surveys\.json/);
-    assert.match(files, /f12-to-extension\/data\/f12-presets\.json/);
-    assert.match(files, /f12-to-extension\/data\/assets\/packer-core\.js/);
-    const f12Data = execFileSync('git', ['--git-dir', bare, 'show', 'main:f12-to-extension/data/f12-presets.json']).toString();
-    assert.match(f12Data, /saved script/);
+    const portal = JSON.parse(execFileSync('git', ['--git-dir', bare, 'show', 'main:tp-static/site.json']).toString());
+    assert.ok(portal.files['tool-mqp55fna/data/surveys.json']);
+    assert.doesNotMatch(files, /f12-to-extension/);
+    const excluded = await publishing.startJob('default', { toolSlug: 'f12-to-extension' });
+    let job;
+    for (let i = 0; i < 100; i++) { job = await publishing.getJob(excluded.id); if (job.status !== 'running') break; await new Promise(r => setTimeout(r, 30)); }
+    assert.equal(job.status, 'failed');
+    assert.ok(job.entries.some(entry => entry.message.includes('脚本与插件')));
 });

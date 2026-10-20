@@ -18,6 +18,14 @@ const request = require('supertest');
 const router = require('../backend/routes/department-reward-penalty');
 const { runWithTenant } = require('../backend/models/tenant-context');
 const originalPath = tools.getToolFilePath;
+function publishedManifest(bare, ref = 'github-import') {
+    return JSON.parse(execFileSync('git', ['--git-dir', bare, 'show', ref + ':tp-static/site.json']).toString());
+}
+async function publishedContent(bare, name, ref = 'github-import') {
+    const meta = publishedManifest(bare, ref), item = meta.files[name];
+    const security = require('../backend/models/snapshot-portal-security');
+    return security.open(execFileSync('git', ['--git-dir', bare, 'show', ref + ':' + item.url]), await security.getKey(meta.keyId), item.iv).toString();
+}
 test.after(async () => { tools.getToolFilePath = originalPath; await db.closeDatabase(); fs.rmSync(temp, { recursive: true, force: true }); });
 
 test('single HTML embeds tenant data safely and blocks network/write requests', async () => {
@@ -222,9 +230,11 @@ test('push updates only the configured HTML on an isolated git branch', async ()
         assert.equal(history.body[0].id, started.body.id);
         assert.ok(Array.isArray(history.body[0].commandLogs));
         const published = execFileSync('git', ['--git-dir', bare, 'show', 'github-import:pages/reward-penalty.html']).toString();
-        assert.match(published, /OFFLINE_SNAPSHOT/);
+        assert.match(published, /data-static-boot/);
+        assert.match(await publishedContent(bare, 'pages/reward-penalty.html'), /OFFLINE_SNAPSHOT/);
         const rootIndex = execFileSync('git', ['--git-dir', bare, 'show', 'github-import:index.html']).toString();
-        assert.match(rootIndex, /href="\.\/pages\/reward-penalty\.html"/);
+        assert.match(rootIndex, /data-static-boot/);
+        assert.match(await publishedContent(bare, 'portal-data.json'), /\.\/pages\/reward-penalty\.html/);
         assert.equal(JSON.parse(execFileSync('git', ['--git-dir', bare, 'show', 'github-import:.tools-platform-menu.json']).toString()).items[0].slug, 'department-reward-penalty');
         const rootGuide = execFileSync('git', ['--git-dir', bare, 'show', 'github-import:README.md']).toString();
         assert.match(rootGuide, /# 静态工具仓库/);
@@ -259,13 +269,13 @@ test('push updates only the configured HTML on an isolated git branch', async ()
             await new Promise(resolve => setTimeout(resolve, 30));
         }
         assert.equal(pagesResult.status, 'success', JSON.stringify(pagesResult.entries));
-        const pagesHtml = execFileSync('git', ['--git-dir', bare, 'show', 'github-import:pages/reward-penalty.html']).toString();
+        const pagesHtml = await publishedContent(bare, 'pages/reward-penalty.html');
         assert.match(pagesHtml, /\['state','records','audit'\]/);
         assert.doesNotMatch(pagesHtml, /OFFLINE_SNAPSHOT/);
-        const initialRecordJson = execFileSync('git', ['--git-dir', bare, 'show', 'github-import:pages/data/records.json']).toString();
+        const initialRecordJson = await publishedContent(bare, 'pages/data/records.json');
         assert.ok(JSON.parse(initialRecordJson).some(row => row.id === 'snapshot-record'));
         const pagesMenu = JSON.parse(execFileSync('git', ['--git-dir', bare, 'show', 'github-import:.tools-platform-menu.json']).toString());
-        assert.equal(execFileSync('git', ['--git-dir', bare, 'show', 'github-import:pages/data/evidence/12345678-1234-1234-1234-123456789abc.txt']).toString(), 'offline evidence');
+        assert.equal(await publishedContent(bare, 'pages/data/evidence/12345678-1234-1234-1234-123456789abc.txt'), 'offline evidence');
         await repo.put('records', 'snapshot-record', { id: 'snapshot-record', remark: 'new remark', attachments: ['/api/department-reward-penalty/evidence/12345678-1234-1234-1234-123456789abc.txt'] }, 'tester');
         const changedJob = await service.startJob('default');
         let changedResult;
@@ -276,7 +286,8 @@ test('push updates only the configured HTML on an isolated git branch', async ()
         }
         assert.equal(changedResult.status, 'success', JSON.stringify(changedResult.entries));
         const changedFiles = execFileSync('git', ['--git-dir', bare, 'diff-tree', '--no-commit-id', '--name-only', '-r', 'github-import']).toString().trim().split('\n').sort();
-        assert.deepEqual(changedFiles, ['.tools-platform-menu.json', 'index.html', 'pages/data/audit.json', 'pages/data/records.json']);
+        assert.ok(changedFiles.includes('.tools-platform-menu.json'));
+        assert.ok(changedFiles.every(name => name === '.tools-platform-menu.json' || name.startsWith('tp-static/')), 'data edits only update encrypted payloads and metadata');
         const changedMenu = JSON.parse(execFileSync('git', ['--git-dir', bare, 'show', 'github-import:.tools-platform-menu.json']).toString());
         assert.notEqual(changedMenu.items[0].fingerprint, pagesMenu.items[0].fingerprint);
         await repo.put('records', 'snapshot-record', { id: 'snapshot-record', remark: 'evidence removed', attachments: [] }, 'tester');
@@ -289,7 +300,8 @@ test('push updates only the configured HTML on an isolated git branch', async ()
         }
         assert.equal(removedResult.status, 'success', JSON.stringify(removedResult.entries));
         const deletedFiles = execFileSync('git', ['--git-dir', bare, 'diff-tree', '--no-commit-id', '--name-status', '-r', 'github-import']).toString();
-        assert.match(deletedFiles, /D\tpages\/data\/evidence\/12345678-1234-1234-1234-123456789abc\.txt/);
+        assert.match(deletedFiles, /D\ttp-static\/payload\/[a-f0-9]+\.bin/);
+        assert.equal(publishedManifest(bare).files['pages/data/evidence/12345678-1234-1234-1234-123456789abc.txt'], undefined);
         await service.saveSettings({ repoDir: mirror, branch: 'github-import', file: 'pages/reward-penalty.html', publishMode: 'single' });
         const singleAgain = await service.startJob('default');
         let singleResult;
@@ -314,7 +326,7 @@ test('push updates only the configured HTML on an isolated git branch', async ()
             await new Promise(resolve => setTimeout(resolve, 30));
         }
         assert.equal(templatedResult.status, 'success', JSON.stringify(templatedResult.entries));
-        assert.ok(JSON.parse(execFileSync('git', ['--git-dir', bare, 'show', 'github-import:department-reward-penalty/data/records.json']).toString()).length);
+        assert.ok(JSON.parse(await publishedContent(bare, 'department-reward-penalty/data/records.json')).length);
         service.stopTenantScheduler('default');
     } finally {
         for (const [key, value] of saved) if (value === undefined) delete process.env[key]; else process.env[key] = value;
@@ -545,7 +557,8 @@ test('disabling encryption removes password gatekeeper and force push redeploys 
     }
     assert.equal(res1.status, 'success');
     const encHtml = execFileSync('git', ['--git-dir', bare, 'show', 'master:department-reward-penalty/index.html']).toString();
-    assert.match(encHtml, /id="tpGatekeeperModal"/);
+    assert.match(encHtml, /data-static-boot/, 'published tools use shared site login even when legacy passwords were configured');
+    assert.doesNotMatch(encHtml, /tpGatekeeperModal/);
 
     // 2. Disable encryption
     const unencSettings = await service.saveSettings({

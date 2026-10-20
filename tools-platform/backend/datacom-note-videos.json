@@ -1,7 +1,9 @@
 {
   "chunkSize": 524288,
   "videos": {
-    "ospf-fsm": "20261020-1"
+    "ospf-fsm": "20261020-1",
+    "ospf-router-id": "20261020-1",
+    "ospf-router-types": "20261020-2"
   },
   "assets": {
     "datacom/ospf-fsm.mp4": {
@@ -39,6 +41,76 @@
         "223cab4d316807a0ec586d8198eeaee6609205d4837a9323a9f8a75d010387e0"
       ],
       "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-fsm-20261020-1/ospf-fsm-hd.mp4"
+    },
+    "datacom/ospf-router-id.mp4": {
+      "size": 3440151,
+      "sha256": "9a2a3eb7d9f09c3185bc9c7f603056ea0b2ab755b7d1c862cbaf685cf1647279",
+      "chunks": [
+        "f155e4951f336c7abcc425a6815f6322c03a8ca7e0a1da2ff52b9ac7faac94af",
+        "f27d127a1e4fe627ace1fecb3200e231b3309b060155f3dae9781a5b045635fc",
+        "1dd0c1ffcab73f3fcb0df35d66ec17cf4d9740ae2364c502c6b479d3e2107b50",
+        "d3b44e154f981e65f4a48c5dbf5575ea355e41dfd01aec69167ea51e07ca95bc",
+        "827c72ed98d6f5c172714317d4973f349ceb427fc0c7341213d1de352cb1c2e6",
+        "781d78b15eacc2b6426636aadb942b5df278da8e1418ebf40e87e411e7e67b32",
+        "26b9b067c0bc8fefa23d23ab72badb93cffe4a310f4224591f2ec8828b609af1"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-router-id-20261020-1/ospf-router-id.mp4"
+    },
+    "datacom/ospf-router-id-hd.mp4": {
+      "size": 7021627,
+      "sha256": "f1d0de660169d23202c4c23e61e6c1dac7ca2db55dbcd556736ee248887ab059",
+      "chunks": [
+        "f7553c16847ca999d21149fe78e9a16971d50d8be25f40a106ab597a9ef29cd0",
+        "113750d5a5b05cfcfe8c7af8c7d964100f461adb1bfe554b9c5983c93aa747b2",
+        "48f44edc0527d9c2f4f898da4cf2fdb87a66821dac5f0db2e90a53c71507456e",
+        "0182cd7dd9d6ef866839d7dee8aa1ce3b773b4859bef7d90c53e6324cfb69985",
+        "202ad16cc7344f15d229f93d0cbd9b2979f59b68d2d0a38e0c1f340017dfa87d",
+        "b22d3388f3f139f3012496a41954eb8fc6f63154b82e80f1d24406421417a17f",
+        "c3b755b632943c84f8ad8aace686343d15e4502070af65b72ebdd1ef29c4165a",
+        "b189efc44647445ebd8ebdf08a0447eeabe89ec3df0871f72d0b11a0b76a891e",
+        "00d3bf6cc199a5ef6519f62f2e7083e519789ca913801717e9f73ebad52a8790",
+        "7beef0ae4d372c4234a9109f6dc17b41c10c948bf1008ab3e6fa729e95e93a02",
+        "5a024b72f8cbddc8645040ad476f8d147b35b7b5e99adc04bae5ac8648b69ebe",
+        "39cdc8d09aa1ce14cc369bf4c86a7b26ab12ffa972c37b95ad7497e4587dd7e6",
+        "7a19ac6177246b12e48faf49f0c4eaf27cc0b6527bff1cf7d7f849f08812af18",
+        "ff255f13b6cc7d887f8411bbb41d752411a06138222087d2031dd856058c2a5f"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-router-id-20261020-1/ospf-router-id-hd.mp4"
+    },
+    "datacom/ospf-router-types.mp4": {
+      "size": 3604055,
+      "sha256": "50b56ff39609befb9a356785ef7742920904d97d11c532d2ec865fd355868031",
+      "chunks": [
+        "2abceabfb4733111e4560f979177635e66dec134cbcf56bf36d124d4993c36f0",
+        "db49d28779fe73feed661b70dfd933b5f8f1d0b979a4370dae0405d0db4ec0bd",
+        "20310d7fe7d8548fb7579c333d4c21d2bace86b11a2f1d09f5bdc13c85bad018",
+        "ad164a0983533b031ece0caab2063e0190375d98b3f61195d81a49615b0831c1",
+        "70571149223d1a77155e68968c541f6cefa9e6658439867afeb2f84ab5be470e",
+        "e02dc0f52ed907188335499bb55823c7f9349350e19629a3860fbcbc712eb663",
+        "78e02b4feec3a4b2b7a08215b52c886ab9152c3f23fcbbed632e8e47f065d12f"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-router-types-20261020-2/ospf-router-types.mp4"
+    },
+    "datacom/ospf-router-types-hd.mp4": {
+      "size": 7225554,
+      "sha256": "fce499a7bef47c9cd2170737da106e61212ab8a739b3eccd6ef807e65ab95999",
+      "chunks": [
+        "c46231a026633ab9ae6edc45168f61091f0c105bcb1271ce079db589d4858eb4",
+        "ce9c2cf9cef56582aff3142c31161aa1da197e6547d20cee35f1cf9c4b7b71d0",
+        "c9f5c57a775996f6adea548b36d0ff42fa875092c84e95c9b249050f60fd282d",
+        "d5db3f284e11216a99f67ffedd68e89bba9f118570b36eec5590087ca38127c4",
+        "4a7bf22cbb17b708407271ae732f0280733ccee36e5df5301b7513bb07d97265",
+        "8c4db84c5ee9f85c1e1f7f4983286a7852d24f69b466cc7b83c85c621a6ca1c3",
+        "6ee9ec4e41f4f44b7363f001ef7403f778aff59de4de795c562af72a1b355c42",
+        "270ddccdecc97a621ae6da0ae32ace4759064fb3eea3d6fdb55e395729e1aa79",
+        "ece2e2c588f389bf2556868b558023538949a0994878edc5ae1beb65f268b395",
+        "d64b485293da4a4c4a28eeea6a856f18847a0e870e6930e2f6644fa3be52b63b",
+        "6c740ecb2824c0e84630e98961ac47c1033281eae4d3b50620949f41a3872abc",
+        "dd31596e9f2376c687d2ac42ecce9f82a31fb8d8ba2813448b924dfe784d074c",
+        "440d93d70f04369e46b6d0c3d8bb872e7b31d76795f16231a02fa0fa0b9a8f12",
+        "fb4aa93eb479b75444eafb4a62540294b79db40c6b7f774e151368e7269b8aef"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-router-types-20261020-2/ospf-router-types-hd.mp4"
     }
   }
 }

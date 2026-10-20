@@ -1,0 +1,350 @@
+{
+  "id": "ospf-router-id",
+  "title": "Router-ID 选举与生效",
+  "source": "knowledge-seed.json#ospf-router-id",
+  "spoken": [
+    [
+      "Clawd",
+      "克劳德"
+    ],
+    [
+      "router-id",
+      "router ID"
+    ],
+    [
+      "auto-recover",
+      "auto recover"
+    ]
+  ],
+  "segments": [
+    {
+      "id": "intro",
+      "type": "title",
+      "head": "OSPF · 华为 VRP",
+      "say": "嗨，我是 Clawd！Router-ID 是 OSPF 路由器的身份证。它怎么选出来？改了为什么不生效？今天一次搞懂。",
+      "title": "Router-ID 选举与生效",
+      "subtitle": "华为 VRP：怎么选、什么时候真正生效",
+      "tags": [
+        {
+          "t": "选举优先级",
+          "cue": "怎么选"
+        },
+        {
+          "t": "非抢占",
+          "cue": "不生效"
+        },
+        {
+          "t": "割接查证",
+          "cue": "搞懂"
+        }
+      ],
+      "strip": {
+        "cue": "怎么选",
+        "items": [
+          "进程配置",
+          "全局配置",
+          "Loopback",
+          "其他接口",
+          "0.0.0.0"
+        ]
+      }
+    },
+    {
+      "id": "ask",
+      "type": "question",
+      "head": "割接现场",
+      "say": "先看个割接现场：配置里写了 router-id 9.9.9.9，可 display ospf brief 一看，还是旧的 1.1.1.1。配置没生效？",
+      "term": {
+        "cmd": "display ospf brief",
+        "rows": [
+          {
+            "cells": [
+              "配置",
+              "router-id",
+              "9.9.9.9"
+            ],
+            "tone": "warn",
+            "cue": "写了"
+          },
+          {
+            "cells": [
+              "运行",
+              "Router ID",
+              "1.1.1.1"
+            ],
+            "tone": "bad",
+            "cue": "还是旧的"
+          },
+          {
+            "cells": [
+              "进程",
+              "ospf 1",
+              "Running"
+            ],
+            "tone": "ok",
+            "cue": "还是旧的"
+          }
+        ]
+      },
+      "question": [
+        {
+          "t": "配置为什么没生效？",
+          "cue": "配置没生效"
+        }
+      ]
+    },
+    {
+      "id": "order",
+      "type": "compare",
+      "head": "选举顺序 · 由高到低",
+      "compact": true,
+      "say": "华为按顺序来：先看进程下手工配置，再看全局的 router id；都没有，就从 Up 的 Loopback 里挑 IP 最大的；再没有，才轮到其他接口。一个活跃 IP 都没有，就是 0.0.0.0，进程建不了邻居。",
+      "caption": "Router-ID 候选来源",
+      "cols": [
+        "优先级",
+        "候选来源",
+        "示例"
+      ],
+      "widths": [
+        0.7,
+        1.5,
+        1.5
+      ],
+      "rows": [
+        {
+          "cells": [
+            "1",
+            "进程下手工配置",
+            "ospf 1 router-id 1.1.1.1"
+          ],
+          "tone": "info",
+          "cue": "进程下"
+        },
+        {
+          "cells": [
+            "2",
+            "全局手工配置",
+            "router id 2.2.2.2"
+          ],
+          "tone": "info",
+          "cue": "全局"
+        },
+        {
+          "cells": [
+            "3",
+            "Up 的 Loopback 最大 IP",
+            "LoopBack0 3.3.3.3"
+          ],
+          "tone": "ok",
+          "cue": "Loopback"
+        },
+        {
+          "cells": [
+            "4",
+            "其他 Up 接口最大 IP",
+            "GE0/0/1 10.0.12.1"
+          ],
+          "tone": "ok",
+          "cue": "其他接口"
+        },
+        {
+          "cells": [
+            "5",
+            "没有任何活跃 IP",
+            "0.0.0.0 无法建邻"
+          ],
+          "tone": "bad",
+          "cue": "活跃"
+        }
+      ],
+      "flash": {
+        "row": 4,
+        "col": 2,
+        "cue": "建不了"
+      }
+    },
+    {
+      "id": "nonpre",
+      "type": "fsm",
+      "head": "非抢占 · 改了要重启",
+      "say": "关键在于：Router-ID 不抢占。进程跑起来以后，就算新增了更大的 Loopback，或者手工改成 9.9.9.9，运行值也不会自动切换，新配置只是待生效。得在维护窗口执行 reset ospf process，重启进程，重新选举后才生效。",
+      "nodes": [
+        {
+          "id": "a",
+          "label": "1.1.1.1",
+          "sub": "当前运行值",
+          "cue": "跑起来",
+          "at": [
+            300,
+            400
+          ],
+          "subUp": true
+        },
+        {
+          "id": "b",
+          "label": "9.9.9.9",
+          "sub": "新配置 · 待生效",
+          "cue": "9.9.9.9",
+          "at": [
+            820,
+            400
+          ],
+          "subUp": true
+        },
+        {
+          "id": "c",
+          "label": "reset",
+          "sub": "reset ospf 1 process",
+          "cue": "reset",
+          "at": [
+            820,
+            700
+          ]
+        },
+        {
+          "id": "d",
+          "label": "9.9.9.9",
+          "sub": "重新选举后生效",
+          "cue": "才生效",
+          "at": [
+            1320,
+            700
+          ],
+          "final": true
+        }
+      ],
+      "edges": [
+        {
+          "from": "a",
+          "to": "b",
+          "label": "新增 / 修改配置",
+          "cue": "新增"
+        },
+        {
+          "from": "b",
+          "to": "c",
+          "label": "维护窗口",
+          "cue": "维护窗口"
+        },
+        {
+          "from": "c",
+          "to": "d",
+          "label": "重新选举",
+          "cue": "重新选举"
+        }
+      ],
+      "note": {
+        "t": "运行值不会自动切换",
+        "cue": "不会自动",
+        "y": 620
+      }
+    },
+    {
+      "id": "auto",
+      "type": "compare",
+      "head": "也会自动重选",
+      "say": "也有自动重选的时候：配了 auto-recover，检测到 Router-ID 冲突，会自动重选并重启进程；主备倒换时，备板进程接管；宣告的接口全部 Down，进程休眠，等接口再 Up，就会重新选一次。",
+      "caption": "三种自动重选 / 重启场景",
+      "cols": [
+        "场景",
+        "会发生什么"
+      ],
+      "widths": [
+        1.2,
+        2.2
+      ],
+      "rows": [
+        {
+          "cells": [
+            "auto-recover",
+            "Router-ID 冲突 → 自动重选并重启进程"
+          ],
+          "tone": "warn",
+          "cue": "auto-recover"
+        },
+        {
+          "cells": [
+            "主备倒换 NSR",
+            "备板进程接管，相当于重启一次"
+          ],
+          "tone": "info",
+          "cue": "主备"
+        },
+        {
+          "cells": [
+            "宣告接口全 Down",
+            "进程休眠，接口再 Up 时重新选举"
+          ],
+          "tone": "info",
+          "cue": "宣告"
+        }
+      ]
+    },
+    {
+      "id": "check",
+      "type": "compare",
+      "head": "割接后查证",
+      "say": "所以割接以后，别只看配置文本。用 display ospf brief 看实际生效的 Router-ID，display router id 看全局值，再用 display ospf peer brief 确认邻居没有卡在 ExStart。",
+      "caption": "别只看 current-configuration",
+      "cols": [
+        "命令",
+        "看什么"
+      ],
+      "widths": [
+        1.5,
+        1.6
+      ],
+      "rows": [
+        {
+          "cells": [
+            "display ospf brief",
+            "进程实际使用的 Router-ID"
+          ],
+          "tone": "ok",
+          "cue": "ospf brief"
+        },
+        {
+          "cells": [
+            "display router id",
+            "全局 Router-ID"
+          ],
+          "tone": "info",
+          "cue": "全局值"
+        },
+        {
+          "cells": [
+            "display ospf peer brief",
+            "邻居是否卡在 ExStart / Exchange"
+          ],
+          "tone": "warn",
+          "cue": "peer"
+        }
+      ],
+      "flash": {
+        "row": 0,
+        "col": 1,
+        "cue": "实际生效"
+      }
+    },
+    {
+      "id": "recap",
+      "type": "recap",
+      "head": "要点回顾",
+      "say": "最后记住三句话：选举顺序是进程、全局、Loopback、其他接口；Router-ID 不抢占，改完要重启进程才生效；割接后用 display ospf brief 看实际值。我是 Clawd，下次见！",
+      "points": [
+        {
+          "t": "进程配置 > 全局 > Loopback > 其他接口",
+          "cue": "选举顺序"
+        },
+        {
+          "t": "不抢占：改完 reset 进程才生效",
+          "cue": "不抢占"
+        },
+        {
+          "t": "割接后 display ospf brief 看实际值",
+          "cue": "割接后"
+        }
+      ]
+    }
+  ]
+}

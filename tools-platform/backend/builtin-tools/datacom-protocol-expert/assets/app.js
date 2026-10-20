@@ -878,6 +878,106 @@ async function reloadCatalog() {
     renderSidebar();
 }
 
+// ---------- 左侧目录：拖动调宽，拖过最小宽度自动收起 ----------
+const NAV_WIDTH_KEY = 'dk_nav_width';
+const NAV_COLLAPSED_KEY = 'dk_nav_collapsed';
+const NAV_MIN = 200;
+const NAV_COLLAPSE_AT = 140;
+const navMax = () => Math.max(NAV_MIN, Math.min(560, Math.round(window.innerWidth * 0.45)));
+let navWidth = 290;
+let snapTimer = 0;
+
+function setNavWidth(width, persist = true) {
+    navWidth = Math.round(Math.max(NAV_MIN, Math.min(navMax(), width)));
+    document.documentElement.style.setProperty('--nav-w', `${navWidth}px`);
+    if (persist) localStorageSet(NAV_WIDTH_KEY, String(navWidth));
+}
+
+function setNavCollapsed(collapsed, persist = true) {
+    document.body.classList.toggle('is-nav-collapsed', collapsed);
+    const label = collapsed ? '展开目录' : '收起目录';
+    for (const button of [$('#navCollapse'), $('#navToggle')]) { button?.setAttribute('aria-label', label); button?.setAttribute('title', label); }
+    $('#navResize')?.setAttribute('aria-expanded', String(!collapsed));
+    if (persist) localStorageSet(NAV_COLLAPSED_KEY, collapsed ? '1' : '0');
+}
+
+// 拖动中跨过收起阈值时，短暂恢复过渡，让收起/展开同样平滑。
+function snapNav() {
+    document.body.classList.add('is-nav-snapping');
+    clearTimeout(snapTimer);
+    snapTimer = setTimeout(() => document.body.classList.remove('is-nav-snapping'), 320);
+}
+
+function bindSidebarResize() {
+    const handle = $('#navResize');
+    if (!handle) return;
+    setNavWidth(Number(localStorageGet(NAV_WIDTH_KEY)) || 290, false);
+    setNavCollapsed(localStorageGet(NAV_COLLAPSED_KEY) === '1', false);
+    // 画布类视图（思维导图）只监听窗口尺寸，布局过渡结束后补发一次。
+    $('.dk-layout').addEventListener('transitionend', event => { if (event.propertyName === 'grid-template-columns') window.dispatchEvent(new Event('resize')); });
+    $('#navCollapse').addEventListener('click', event => { event.stopPropagation(); setNavCollapsed(!document.body.classList.contains('is-nav-collapsed')); });
+    $('#navCollapse').addEventListener('pointerdown', event => event.stopPropagation());
+    handle.addEventListener('dblclick', event => { if (!event.target.closest('#navCollapse')) setNavCollapsed(!document.body.classList.contains('is-nav-collapsed')); });
+    handle.addEventListener('keydown', event => {
+        if (event.target !== handle) return;
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setNavCollapsed(!document.body.classList.contains('is-nav-collapsed')); }
+        else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            event.preventDefault();
+            const step = event.key === 'ArrowLeft' ? -24 : 24;
+            if (document.body.classList.contains('is-nav-collapsed')) { if (step > 0) setNavCollapsed(false); }
+            else if (step < 0 && navWidth <= NAV_MIN) setNavCollapsed(true);
+            else setNavWidth(navWidth + step);
+        }
+    });
+    handle.addEventListener('pointerdown', event => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+        try { handle.setPointerCapture(event.pointerId); } catch (_) { /* 合成事件无捕获 */ }
+        const body = document.body;
+        const left = $('.dk-layout').getBoundingClientRect().left;
+        const before = navWidth;
+        let x = event.clientX, frame = 0;
+        body.classList.add('is-nav-resizing');
+        const apply = () => {
+            frame = 0;
+            const wanted = x - left;
+            if (body.classList.contains('is-nav-collapsed')) {
+                // 收起状态下向右拖过阈值即展开，展开宽度跟随指针
+                if (wanted > NAV_COLLAPSE_AT + 20) { setNavWidth(wanted, false); setNavCollapsed(false, false); snapNav(); }
+                return;
+            }
+            if (wanted < NAV_COLLAPSE_AT) {
+                body.classList.remove('is-nav-will-collapse');
+                setNavWidth(before, false);
+                setNavCollapsed(true, false);
+                snapNav();
+                return;
+            }
+            // 低于最小宽度时带阻尼，提示继续拖动将收起
+            const below = wanted < NAV_MIN;
+            body.classList.toggle('is-nav-will-collapse', below);
+            if (below) { navWidth = NAV_MIN; document.documentElement.style.setProperty('--nav-w', `${Math.round(NAV_MIN - (NAV_MIN - wanted) * 0.35)}px`); }
+            else setNavWidth(wanted, false);
+        };
+        const move = moveEvent => { x = moveEvent.clientX; if (!frame) frame = requestAnimationFrame(apply); };
+        const up = () => {
+            if (frame) { cancelAnimationFrame(frame); apply(); }   // 松手前落实最后一次位置
+            document.removeEventListener('pointermove', move);
+            document.removeEventListener('pointerup', up);
+            document.removeEventListener('pointercancel', up);
+            const springBack = body.classList.contains('is-nav-will-collapse');
+            body.classList.remove('is-nav-resizing', 'is-nav-will-collapse', 'is-nav-snapping');
+            setNavWidth(navWidth);   // 阻尼区松手时平滑回弹到最小宽度
+            setNavCollapsed(body.classList.contains('is-nav-collapsed'));
+            if (!springBack) window.dispatchEvent(new Event('resize'));
+        };
+        document.addEventListener('pointermove', move);
+        document.addEventListener('pointerup', up);
+        document.addEventListener('pointercancel', up);
+    });
+    window.addEventListener('resize', () => { if (navWidth > navMax()) setNavWidth(navMax(), false); });
+}
+
 function bindGlobalEvents() {
     window.addEventListener('hashchange', route);
     $('#themeBtn').addEventListener('click', () => {
@@ -888,7 +988,11 @@ function bindGlobalEvents() {
         if (state.route?.name === 'article') renderArticle(state.route.id);
     });
     matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
-    $('#navToggle').addEventListener('click', () => document.body.classList.toggle('is-nav-open'));
+    $('#navToggle').addEventListener('click', () => {
+        if (matchMedia('(max-width: 860px)').matches) document.body.classList.toggle('is-nav-open');
+        else setNavCollapsed(!document.body.classList.contains('is-nav-collapsed'));
+    });
+    bindSidebarResize();
     $('#searchInput').addEventListener('input', event => {
         clearTimeout(searchTimer);
         searchTimer = setTimeout(() => runSearch(event.target.value), 220);

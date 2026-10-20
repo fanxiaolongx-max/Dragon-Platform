@@ -4251,7 +4251,7 @@ async function renderSnapshotPublishSettings(content) {
         content.innerHTML = `
             <div class="snapshot-settings">
                 <div id="snapshotPrerequisites" class="snapshot-prerequisites ${prereqClass}" role="status">${prereqContent}</div>
-                <div class="snapshot-hero"><span class="snapshot-hero-icon">↗</span><div><strong>${navEscape(snapshotText('平台工具 · 静态页面发布（Git Pages）', 'Platform Tools · Static Page Publishing (Git Pages)'))}</strong><p>${navEscape(snapshotText('将平台工具生成只读快照并推送到静态 Git 托管仓库，支持统一门户入口、定时自动推送及各工具独立密码保护。', 'Publish read-only snapshots of platform tools to a static Git repository with a unified portal, automatic scheduling and independent password protection.'))}</p></div></div>
+                <div class="snapshot-hero"><span class="snapshot-hero-icon">↗</span><div><strong>${navEscape(snapshotText('平台工具 · 静态页面发布（Git Pages）', 'Platform Tools · Static Page Publishing (Git Pages)'))}</strong><p>${navEscape(snapshotText('推送与平台一致的主页和只读工具，统一使用本地账号登录。账号密码按推送时同步，修改后请再次推送；站点需使用 HTTPS。', 'Publish the platform homepage and read-only tools with one sign-in using local accounts. Account changes take effect after publishing again. HTTPS is required.'))}</p></div></div>
                 <div class="snapshot-fields">
                     <label>${navEscape(snapshotText('推送格式', 'Publishing format'))}<select id="snapshotPublishMode" class="nav-settings-input" onchange="updateSnapshotPublishPathPreview()"><option value="single" ${settings.publishMode !== 'pages' ? 'selected' : ''}>${navEscape(snapshotText('单文件 HTML（数据内嵌）', 'Single HTML (embedded data)'))}</option><option value="pages" ${settings.publishMode === 'pages' ? 'selected' : ''}>${navEscape(snapshotText('Pages 分离版（HTML + JSON + 附件）', 'Split Pages (HTML + JSON + evidence)'))}</option></select><small>${navEscape(snapshotText('下载按钮始终导出可离线查看的单 HTML。Pages 分离版按工具目录存储文件，仅提交有变化的文件。', 'The download button always exports a standalone offline HTML. Split Pages stores assets under the tool directory and commits only changed files.'))}</small></label>
                     <label>${navEscape(snapshotText('远端仓库地址（推荐）', 'Remote Git URL (recommended)'))}<input id="snapshotRemoteUrl" class="nav-settings-input" value="${navEscape(settings.remoteUrl || '')}" placeholder="https://codehub.example.com/team/project.git" autocomplete="off"><small>${navEscape(snapshotText('HTTPS 或 SSH；不要在地址中包含密码或 Token。服务器需已配置 Git 认证。填写后优先使用此地址。', 'HTTPS or SSH; never put a password or token in the URL. Git authentication must be configured on the server. This takes priority when set.'))}</small></label>
@@ -4263,7 +4263,7 @@ async function renderSnapshotPublishSettings(content) {
                     <div class="snapshot-security-head">
                         <div>
                             <strong>${navEscape(snapshotText('已接入静态发布的工具', 'Tools with Snapshot Publishing'))}</strong>
-                            <p>${navEscape(snapshotText('可独立控制各工具是否参与推送，以及是否开启访问密码保护。开启密码后，静态托管页面需输入对应密码方可解锁。', 'Independently control whether each tool is published and protected with an access password. Protected pages require a password to view.'))}</p>
+                            <p>${navEscape(snapshotText('勾选参与全量与定时推送的工具。首页和所有工具统一登录，无需单独密码；脚本与插件暂不发布。', 'Choose tools for full and scheduled publishing. The homepage and tools share one sign-in; individual passwords are no longer needed. Scripts and plugins are excluded.'))}</p>
                         </div>
                         <input type="search" id="snapshotToolsFilter" class="nav-settings-input" style="max-width: 170px; padding: 5px 10px; font-size: 12px; margin-left: auto;" placeholder="${navEscape(snapshotText('搜索工具…', 'Filter tools…'))}" oninput="filterSnapshotTools(this.value)">
                     </div>
@@ -4271,26 +4271,13 @@ async function renderSnapshotPublishSettings(content) {
                         ${(settings.tools || [
                             { toolSlug: 'department-reward-penalty', name: '负向事件管理', encryptionEnabled: settings.encryptionEnabled, hasPassword: settings.hasPassword, enabled: true },
                             { toolSlug: 'reward-program', name: '奖励申报与评优', encryptionEnabled: false, hasPassword: false, enabled: true }
-                        ]).map(t => `
+                        ]).filter(t => !['f12-to-extension', 'python-updater'].includes(t.toolSlug)).map(t => `
                             <div class="snapshot-tool-item" data-tool-slug="${navEscape(t.toolSlug)}">
                                 <div class="snapshot-tool-row">
                                     <label class="snapshot-tool-enable">
                                         <input type="checkbox" id="snapshotToolEnabled_${navEscape(t.toolSlug)}" ${t.enabled !== false ? 'checked' : ''}>
                                         <strong>${navEscape(t.name || t.toolSlug)}</strong>
                                         <small class="snapshot-tool-slug">${navEscape(t.toolSlug)}</small>
-                                    </label>
-                                    <label class="snapshot-security-toggle">
-                                        <input id="snapshotEncryptionEnabled_${navEscape(t.toolSlug)}" type="checkbox" ${t.encryptionEnabled ? 'checked' : ''} onchange="toggleSnapshotToolPassword('${navEscape(t.toolSlug)}')">
-                                        <span>${navEscape(snapshotText('密码保护', 'Password protected'))}</span>
-                                    </label>
-                                </div>
-                                <div id="snapshotPasswordRow_${navEscape(t.toolSlug)}" class="snapshot-password-row" style="${t.encryptionEnabled ? '' : 'display: none;'}">
-                                    <label>
-                                        <div class="snapshot-password-field">
-                                            <input id="snapshotPassword_${navEscape(t.toolSlug)}" class="nav-settings-input" type="password" placeholder="${t.hasPassword ? navEscape(snapshotText('留空表示保持当前已设置的密码', 'Leave blank to keep existing password')) : navEscape(snapshotText('请输入访问密码（至少 4 位）', 'Enter password (at least 4 chars)'))}" autocomplete="new-password">
-                                            <button type="button" class="snapshot-password-toggle" onclick="toggleSnapshotToolPasswordVisibility('${navEscape(t.toolSlug)}')" aria-label="${navEscape(snapshotText('切换密码可见性', 'Toggle password visibility'))}">👁</button>
-                                        </div>
-                                        <small>${t.hasPassword ? navEscape(snapshotText('当前已配置访问密码。如需修改请输入新密码，留空则保持原密码。', 'Password configured. Enter a new password to change it, or leave blank to keep.')) : navEscape(snapshotText('静态页面内置客户端 SHA-256 加密验证。', 'Includes client-side SHA-256 password protection.'))}</small>
                                     </label>
                                 </div>
                             </div>
@@ -4506,11 +4493,8 @@ window.saveSnapshotPublishSettings = async function (options = {}) {
     document.querySelectorAll('.snapshot-tool-item[data-tool-slug]').forEach(el => {
         const slug = el.dataset.toolSlug;
         const en = document.getElementById('snapshotToolEnabled_' + slug)?.checked !== false;
-        const enc = document.getElementById('snapshotEncryptionEnabled_' + slug)?.checked || false;
-        const pwd = document.getElementById('snapshotPassword_' + slug)?.value || '';
-        toolsList.push({ toolSlug: slug, enabled: en, encryptionEnabled: enc, password: pwd });
+        toolsList.push({ toolSlug: slug, enabled: en });
     });
-    const drpTool = toolsList.find(t => t.toolSlug === 'department-reward-penalty') || {};
     const newSettings = {
         remoteUrl: document.getElementById('snapshotRemoteUrl').value,
         repoDir: document.getElementById('snapshotRepoDir').value,
@@ -4519,8 +4503,6 @@ window.saveSnapshotPublishSettings = async function (options = {}) {
         publishMode: document.getElementById('snapshotPublishMode').value,
         scheduleEnabled: document.getElementById('snapshotScheduleEnabled').checked,
         intervalMinutes: Number(document.getElementById('snapshotIntervalMinutes').value),
-        encryptionEnabled: drpTool.encryptionEnabled || false,
-        password: drpTool.password || '',
         tools: toolsList
     };
     try {

@@ -1,0 +1,354 @@
+{
+  "id": "ospf-router-types",
+  "title": "OSPF 路由器角色",
+  "source": "knowledge-seed.json#ospf-router-types",
+  "spoken": [
+    [
+      "Clawd",
+      "克劳德"
+    ],
+    [
+      "import-route",
+      "import route"
+    ]
+  ],
+  "segments": [
+    {
+      "id": "intro",
+      "type": "title",
+      "head": "OSPF · 区域设计",
+      "say": "嗨，我是 Clawd！OSPF 里的 IR、BR、ABR、ASBR，名字绕得人头晕，其实都来自同一个设计初衷。今天一次讲清楚。",
+      "title": "OSPF 路由器角色",
+      "subtitle": "IR、BR、ABR、ASBR，各管什么？",
+      "tags": [
+        {
+          "t": "层次化设计",
+          "cue": "设计初衷"
+        },
+        {
+          "t": "4 种角色",
+          "cue": "设计初衷"
+        },
+        {
+          "t": "角色可叠加",
+          "cue": "讲清楚"
+        }
+      ],
+      "strip": {
+        "cue": "OSPF 里的",
+        "items": [
+          "IR",
+          "BR",
+          "ABR",
+          "ASBR"
+        ]
+      }
+    },
+    {
+      "id": "ask",
+      "type": "question",
+      "head": "先想一想",
+      "say": "先想一想：几百台路由器都塞进一个区域，会怎样？任何一条链路抖一下，全网都要重跑 SPF。",
+      "term": {
+        "cmd": "display ospf lsdb brief",
+        "rows": [
+          {
+            "cells": [
+              "Area 0",
+              "Router",
+              "1286 条"
+            ],
+            "tone": "warn",
+            "cue": "几百台"
+          },
+          {
+            "cells": [
+              "Link",
+              "GE0/0/7",
+              "Flap ×12"
+            ],
+            "tone": "bad",
+            "cue": "抖一下"
+          },
+          {
+            "cells": [
+              "SPF",
+              "全网",
+              "重算 ×37"
+            ],
+            "tone": "bad",
+            "cue": "重跑"
+          }
+        ]
+      },
+      "question": [
+        {
+          "t": "单区域扛得住吗？",
+          "cue": "会怎样"
+        }
+      ]
+    },
+    {
+      "id": "why",
+      "type": "compare",
+      "head": "设计初衷 · 分层",
+      "say": "办法就是分区域。区域内路由器只关心本区域，计算量小；在区域边界做汇总和过滤，路由表更精简；所有非骨干区域都必须连到 Area 0，区域间就不会成环。",
+      "caption": "层次化设计解决三件事",
+      "cols": [
+        "设计目标",
+        "怎么做到",
+        "靠谁"
+      ],
+      "rows": [
+        {
+          "cells": [
+            "缩小 LSDB / SPF",
+            "只算本区域拓扑",
+            "IR"
+          ],
+          "tone": "ok",
+          "cue": "只关心"
+        },
+        {
+          "cells": [
+            "控制路由",
+            "边界汇总与过滤",
+            "ABR / ASBR"
+          ],
+          "tone": "info",
+          "cue": "汇总"
+        },
+        {
+          "cells": [
+            "区域间无环",
+            "非骨干必须连 Area 0",
+            "ABR"
+          ],
+          "tone": "warn",
+          "cue": "Area 0"
+        }
+      ]
+    },
+    {
+      "id": "roles",
+      "type": "fsm",
+      "head": "IR · BR · ABR",
+      "say": "先看 IR，它的所有接口都在同一个区域，只管本区域的数据库。BR 是骨干路由器，有一个接口在 Area 0 就算。同时连着 Area 0 和别的区域的，就是 ABR，它也属于 BR。",
+      "nodes": [
+        {
+          "id": "ir",
+          "label": "IR",
+          "sub": "接口全在 Area 1",
+          "cue": "IR",
+          "at": [
+            300,
+            420
+          ]
+        },
+        {
+          "id": "abr",
+          "label": "ABR",
+          "sub": "Area 1 + Area 0",
+          "cue": "ABR",
+          "at": [
+            790,
+            420
+          ]
+        },
+        {
+          "id": "br",
+          "label": "BR",
+          "sub": "至少一个接口在 Area 0",
+          "cue": "BR",
+          "at": [
+            1280,
+            420
+          ],
+          "final": true
+        }
+      ],
+      "edges": [
+        {
+          "from": "ir",
+          "to": "abr",
+          "label": "Area 1",
+          "cue": "同一个区域"
+        },
+        {
+          "from": "abr",
+          "to": "br",
+          "label": "Area 0",
+          "cue": "Area 0"
+        }
+      ],
+      "note": {
+        "t": "所有 ABR 都是 BR",
+        "cue": "也属于"
+      }
+    },
+    {
+      "id": "abr",
+      "type": "compare",
+      "head": "ABR · 最忙的角色",
+      "say": "ABR 最忙：它把区域内的一类、二类 LSA，转成三类 LSA 送进 Area 0；对 Stub、NSSA 这些特殊区域，它拦住四类、五类，改发缺省路由。前提是它在 Area 0 里有 Full 邻居。",
+      "caption": "ABR 的三件事",
+      "cols": [
+        "职责",
+        "具体做什么"
+      ],
+      "widths": [
+        1,
+        2.2
+      ],
+      "rows": [
+        {
+          "cells": [
+            "LSA 翻译官",
+            "1/2 类 → 3 类，泛洪进 Area 0"
+          ],
+          "tone": "info",
+          "cue": "一类"
+        },
+        {
+          "cells": [
+            "特殊区域守门",
+            "Stub / NSSA：拦 4/5 类，发缺省路由"
+          ],
+          "tone": "warn",
+          "cue": "Stub"
+        },
+        {
+          "cells": [
+            "身份前提",
+            "Area 0 有 Full 邻居（或虚连接）"
+          ],
+          "tone": "bad",
+          "cue": "前提"
+        }
+      ],
+      "flash": {
+        "row": 2,
+        "col": 1,
+        "cue": "Full"
+      }
+    },
+    {
+      "id": "asbr",
+      "type": "fsm",
+      "head": "ASBR · 引入外部路由",
+      "say": "再看 ASBR。只要执行了 import-route，把直连、静态或 BGP 路由引进来，它立刻就是 ASBR。普通区域里它生成五类 LSA，NSSA 里生成七类。",
+      "nodes": [
+        {
+          "id": "ext",
+          "label": "外部路由",
+          "sub": "直连 / 静态 / BGP",
+          "cue": "直连",
+          "at": [
+            300,
+            420
+          ]
+        },
+        {
+          "id": "asbr",
+          "label": "ASBR",
+          "sub": "执行 import-route",
+          "cue": "立刻",
+          "at": [
+            790,
+            420
+          ]
+        },
+        {
+          "id": "ospf",
+          "label": "OSPF 域",
+          "sub": "普通区 5 类 · NSSA 7 类",
+          "cue": "五类",
+          "at": [
+            1280,
+            420
+          ],
+          "final": true
+        }
+      ],
+      "edges": [
+        {
+          "from": "ext",
+          "to": "asbr",
+          "label": "import-route",
+          "cue": "import-route"
+        },
+        {
+          "from": "asbr",
+          "to": "ospf",
+          "label": "注入外部 LSA",
+          "cue": "生成"
+        }
+      ],
+      "note": {
+        "t": "一条 import-route，就是 ASBR",
+        "cue": "立刻"
+      }
+    },
+    {
+      "id": "combo",
+      "type": "compare",
+      "head": "角色可以叠加",
+      "say": "角色还能叠加：完全在 Area 0 里的，既是 IR 也是 BR；ABR 天然是 BR；NSSA 里一台普通路由器引入静态路由，就是 IR 加 ASBR，不一定是 ABR。",
+      "caption": "同一台设备，可以身兼数职",
+      "cols": [
+        "这台路由器",
+        "同时是"
+      ],
+      "widths": [
+        2,
+        1.2
+      ],
+      "rows": [
+        {
+          "cells": [
+            "接口全在 Area 0",
+            "IR + BR"
+          ],
+          "tone": "ok",
+          "cue": "完全在"
+        },
+        {
+          "cells": [
+            "连接 Area 0 与 Area 1",
+            "ABR + BR"
+          ],
+          "tone": "info",
+          "cue": "天然"
+        },
+        {
+          "cells": [
+            "NSSA 内引入静态路由",
+            "IR + ASBR（不是 ABR）"
+          ],
+          "tone": "warn",
+          "cue": "NSSA"
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "type": "recap",
+      "head": "要点回顾",
+      "say": "最后记住三句话：IR 看接口是不是全在一个区域；ABR 连着 Area 0，管三类 LSA 和特殊区域；执行 import-route 就是 ASBR，不一定是 ABR。我是 Clawd，下次见！",
+      "points": [
+        {
+          "t": "IR：所有接口都在同一个区域",
+          "cue": "IR"
+        },
+        {
+          "t": "ABR：连 Area 0，管 3 类 LSA 与特殊区域",
+          "cue": "ABR"
+        },
+        {
+          "t": "import-route 即 ASBR，不一定是 ABR",
+          "cue": "import-route"
+        }
+      ]
+    }
+  ]
+}

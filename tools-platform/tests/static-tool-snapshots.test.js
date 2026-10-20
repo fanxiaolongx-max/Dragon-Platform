@@ -166,13 +166,15 @@ test('tool-scoped publish writes only the selected Pages bundle and retains its 
     assert.equal(job.status, 'success', JSON.stringify(job.entries));
     assert.equal(job.toolSlug, 'tool-msf5b7nn');
     const files = execFileSync('git', ['--git-dir', bare, 'ls-tree', '-r', '--name-only', 'main']).toString();
-    assert.match(files, /tool-msf5b7nn\/data\/meeting\.json/);
+    const portal = JSON.parse(execFileSync('git', ['--git-dir', bare, 'show', 'main:tp-static/site.json']).toString());
+    assert.ok(portal.files['tool-msf5b7nn/data/meeting.json']);
     assert.doesNotMatch(files, /tool-ms4xb66s\//);
     const menu = JSON.parse(execFileSync('git', ['--git-dir', bare, 'show', 'main:.tools-platform-menu.json']).toString());
     assert.match(menu.items[0].fingerprint, /^[a-f0-9]{64}$/);
     assert.ok(Number.isFinite(Date.parse(menu.items[0].updatedAt)));
     const index = execFileSync('git', ['--git-dir', bare, 'show', 'main:index.html']).toString();
-    assert.match(index, new RegExp(menu.items[0].fingerprint.slice(0, 12)));
+    assert.match(index, /data-static-boot/);
+    assert.match(files, /login\.html/);
 });
 
 test('tool-scoped publish rejects a shared fixed output path before changing the repository', async () => {

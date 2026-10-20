@@ -3,5 +3,15 @@
     "v": "20261020-1",
     "duration": 117.8,
     "title": "OSPF 邻居状态机"
+  },
+  "ospf-router-types": {
+    "v": "20261020-2",
+    "duration": 119.8,
+    "title": "OSPF 路由器角色"
+  },
+  "ospf-router-id": {
+    "v": "20261020-1",
+    "duration": 109.3,
+    "title": "Router-ID 选举与生效"
   }
 }

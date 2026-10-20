@@ -1,6 +1,7 @@
 // 笔记讲解视频：文件与首页推广视频同源存放（/assets/promotions/datacom/），按 manifest 判断哪些笔记已有视频。
 // 发布规则见本模块 AGENTS.md：成品只上传 Dragon-Platform-Media Releases，运行 npm run datacom:publish-videos；禁止提交 MP4。
 // 小窗播放低码率版本，点击放大加载高清版；浏览器拦截带声音自动播放时降级为静音并提示开声音。
+// 只读导出使用冻结的公开 Release 地址。保持原生 video src 且不设置 crossorigin，普通播放无需 CORS 授权。
 const BASE = '/assets/promotions/datacom/';
 const AUTOPLAY_KEY = 'dk_video_autoplay';
 let manifestPromise = null;
@@ -13,7 +14,8 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp
 const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, '0')}`;
 
 export function loadVideoManifest({ offline = false } = {}) {
-    if (offline) return Promise.resolve({});
+    // 只读导出内嵌公开视频清单；平台仍走原有同源清单和缓存接口。
+    if (offline) return Promise.resolve(globalThis.__DATACOM_SNAPSHOT__?.videos || {});
     if (!manifestPromise) {
         manifestPromise = fetch(`${BASE}manifest.json?t=${Date.now()}`, { credentials: 'same-origin' })
             .then(response => (response.ok ? response.json() : {}))
@@ -24,9 +26,10 @@ export function loadVideoManifest({ offline = false } = {}) {
 
 export const autoplayEnabled = () => store.get(AUTOPLAY_KEY) !== 'off';
 
-function src(id, kind, version) {
+function src(id, kind, meta, offline) {
+    if (offline) return meta.sources?.[kind] || '';
     const file = kind === 'hd' ? `${id}-hd.mp4` : kind === 'poster' ? `${id}-poster.jpg` : `${id}.mp4`;
-    return `${BASE}${encodeURIComponent(file)}?v=${encodeURIComponent(version || '1')}`;
+    return `${BASE}${encodeURIComponent(file)}?v=${encodeURIComponent(meta.v || '1')}`;
 }
 
 // 在 host 中挂载视频讲解区块；没有视频时什么都不显示。返回 dispose。
@@ -38,7 +41,7 @@ export async function mountNoteVideo(host, articleId, { offline = false, autopla
     host.innerHTML = `<div class="dk-video-head"><span class="dk-video-kicker">🎬 视频讲解</span><strong>${esc(meta.title || '')}</strong>${meta.duration ? `<span class="dk-mini-note">${clock(meta.duration)}</span>` : ''}
             <label class="dk-video-auto"><input type="checkbox" ${autoplayEnabled() ? 'checked' : ''}> 打开笔记自动播放</label></div>
         <div class="dk-video-frame">
-            <video playsinline preload="metadata" poster="${src(articleId, 'poster', meta.v)}" src="${src(articleId, 'mini', meta.v)}"></video>
+            <video playsinline preload="metadata" poster="${esc(src(articleId, 'poster', meta, offline))}" src="${esc(src(articleId, 'mini', meta, offline))}"></video>
             <button type="button" class="dk-video-sound" hidden>🔇 点击开启声音</button>
             <button type="button" class="dk-video-play" aria-label="播放视频讲解">▶</button>
             <button type="button" class="dk-video-hd" title="高清大窗观看">⛶ 高清</button>
@@ -55,7 +58,7 @@ export async function mountNoteVideo(host, articleId, { offline = false, autopla
     sound.addEventListener('click', () => { video.muted = false; sound.hidden = true; video.play().catch(() => {}); });
     video.addEventListener('volumechange', () => { if (!video.muted) sound.hidden = true; });
     host.querySelector('.dk-video-auto input').addEventListener('change', event => store.set(AUTOPLAY_KEY, event.target.checked ? 'on' : 'off'));
-    host.querySelector('.dk-video-hd').addEventListener('click', () => { video.pause(); openHd(articleId, meta, video.currentTime); });
+    host.querySelector('.dk-video-hd').addEventListener('click', () => { video.pause(); openHd(articleId, meta, video.currentTime, offline); });
 
     if (autoplay && autoplayEnabled()) {
         try {
@@ -95,11 +98,11 @@ export async function mountNoteVideo(host, articleId, { offline = false, autopla
     return () => { observer.disconnect(); video.pause(); video.removeAttribute('src'); video.load(); frame.classList.remove('is-floating'); };
 }
 
-function openHd(articleId, meta, startAt = 0) {
+function openHd(articleId, meta, startAt = 0, offline = false) {
     const mask = document.createElement('div');
     mask.className = 'dk-video-dialog';
     mask.innerHTML = `<div class="dk-video-dialog-box" role="dialog" aria-modal="true" aria-label="视频讲解"><header><strong>🎬 ${esc(meta.title || '')}</strong><button type="button" class="dk-icon-btn" aria-label="关闭">×</button></header>
-        <video controls autoplay playsinline poster="${src(articleId, 'poster', meta.v)}" src="${src(articleId, 'hd', meta.v)}"></video></div>`;
+        <video controls autoplay playsinline poster="${esc(src(articleId, 'poster', meta, offline))}" src="${esc(src(articleId, 'hd', meta, offline))}"></video></div>`;
     document.body.appendChild(mask);
     const video = mask.querySelector('video');
     video.addEventListener('loadedmetadata', () => { if (startAt > 0 && startAt < video.duration) video.currentTime = startAt; }, { once: true });

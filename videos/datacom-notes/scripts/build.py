@@ -3,6 +3,7 @@
 # 讲解稿里所有 "cue"/"xxxCue" 关键词会换算成场景内秒数 "ct"/"xxxCt"；找不到关键词会报错退出。
 import json, re, subprocess, os, sys, difflib
 LEAD = 0.4; TAIL = 0.55; END = 2.2
+ANTIC = 0.35  # 画面元素提前量：在含该关键词的字幕出现前 ANTIC 秒触发，保证不晚于旁白/字幕
 note = sys.argv[1]
 spec = json.load(open(f'scripts/notes/{note}.json', encoding='utf8'))
 words = {w['id']: w for w in json.load(open(f'assets/voice/{note}/words.json', encoding='utf8'))}
@@ -49,9 +50,17 @@ def caps(rec, ct):
         res.append({'t': re.sub(r'[，、；：]+$', '', c.strip()).rstrip('。').strip(), 's': round(ct[a][0] + LEAD, 2), 'e': round(ct[b][1] + LEAD, 2)})
         pos += n
     return res
-bad = []
-def resolve(obj, D, ct, sid):
-    if isinstance(obj, list): return [resolve(x, D, ct, sid) for x in obj]
+bad = []; CUES = []
+def clause_start(rec, ct):
+    """每个字 -> 它所在字幕分句的开始时间（与 caps() 同一分句规则）"""
+    out = []; pos = 0
+    for c in clauses(rec['text']):
+        n = len(strip(c))
+        if n == 0: continue
+        out += [ct[min(pos, len(ct) - 1)][0]] * n; pos += n
+    return out
+def resolve(obj, D, ct, sid, cs=None):
+    if isinstance(obj, list): return [resolve(x, D, ct, sid, cs) for x in obj]
     if not isinstance(obj, dict): return obj
     o = {}
     for k, v in obj.items():
@@ -62,8 +71,10 @@ def resolve(obj, D, ct, sid):
                 if p < 0: break
                 s = p + 1
             if p < 0: bad.append((sid, v)); p = 0
-            o[k[:-3] + 'Ct' if k != 'cue' else 'ct'] = round(ct[p][0] + LEAD, 2)
-        o[k] = resolve(v, D, ct, sid) if k not in ('cue',) else v
+            at = max(0.6, min(ct[p][0], cs[p]) + LEAD - ANTIC)
+            o[k[:-3] + 'Ct' if k != 'cue' else 'ct'] = round(at, 2)
+            CUES.append({'seg': sid, 'cue': v, 'ct': round(at, 2), 'spoken': round(ct[p][0] + LEAD, 2)})
+        o[k] = resolve(v, D, ct, sid, cs) if k not in ('cue',) else v
     return o
 segs = spec['segments']; D_ = []; ST = []; t = 0; scenes = []
 for i, seg in enumerate(segs):
@@ -71,8 +82,9 @@ for i, seg in enumerate(segs):
     assert rec['text'] == seg['say'], f'{seg["id"]}: 讲解稿已改动，请先运行 vo.py'
     vd = dur(f'assets/voice/{note}/{seg["id"]}.mp3')
     d = round(vd + LEAD + (END if i == len(segs) - 1 else TAIL), 2)
-    D, ct = char_times(rec)
-    S = resolve(seg, D, ct, seg['id']); S['series'] = spec['title']
+    D, ct = char_times(rec); n0 = len(CUES)
+    S = resolve(seg, D, ct, seg['id'], clause_start(rec, ct)); S['series'] = spec['title']
+    for c in CUES[n0:]: c['abs'] = round(t + c['spoken'], 2); c['absCt'] = round(t + c['ct'], 2)
     scenes.append((seg, S, caps(rec, ct), d, vd)); ST.append(round(t, 2)); D_.append(d); t += d
 if bad: print('MISSING cue keywords:', bad); raise SystemExit(1)
 total = round(t, 2)
@@ -124,6 +136,7 @@ html = f'''<!doctype html>
 </body></html>
 '''
 open('index.html', 'w', encoding='utf8').write(html)
+json.dump(CUES, open(f'renders/{note}-cues.json', 'w', encoding='utf8'), ensure_ascii=False, indent=1)
 json.dump({'note': note, 'title': spec['title'], 'duration': total}, open('renders/last-build.json', 'w', encoding='utf8'), ensure_ascii=False)
 print('starts', ST); print('durs', D_); print('total', total)
 for seg, S, cp, d, vd in scenes: print(seg['id'], [c['t'] for c in cp])

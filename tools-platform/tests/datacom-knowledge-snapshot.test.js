@@ -23,6 +23,12 @@ const pool = require('../backend/models/tenant-sqlite-pool');
 const appDb = require('../backend/models/app-db');
 let createSnapshotApi;
 const currentBody = '# 最新知识\n只在正文出现的 needle-body\n</script><script>window.unwanted=true</script>\n100%_literal';
+function snapshotConfig(html) {
+    const script = /<script>window\.__DATACOM_SNAPSHOT__=([\s\S]*?);<\/script>/.exec(html)[0];
+    const context = { window: {} };
+    vm.runInNewContext(script.slice(8, -9), context);
+    return context.window.__DATACOM_SNAPSHOT__;
+}
 
 test.before(async () => {
     ({ createSnapshotApi } = await import(pathToFileURL(path.join(__dirname, '../backend/builtin-tools/datacom-protocol-expert/assets/snapshot-api.js')).href));
@@ -74,6 +80,47 @@ test('explicit tenant wins over ambient context and exports custom domains and c
     assert.equal(data.articles.some(item => item.id === 'snapshot-current'), false);
     const defaultOutput = await runWithTenant('beta', () => snapshot.buildPagesSnapshot('default'));
     assert.doesNotMatch(defaultOutput.files.get('data/knowledge.json'), /beta-only-knowledge/);
+});
+
+test('video snapshots freeze registered public release URLs and local posters without copying MP4 files', async () => {
+    const registry = require('../backend/datacom-note-videos.json');
+    const pages = await snapshot.buildPagesSnapshot('default');
+    const config = snapshotConfig(pages.html);
+    const video = config.videos['ospf-fsm'];
+    assert.equal(video.sources.mini, registry.assets['datacom/ospf-fsm.mp4'].url);
+    assert.equal(video.sources.hd, registry.assets['datacom/ospf-fsm-hd.mp4'].url);
+    assert.equal(video.sources.poster, './assets/note-videos/ospf-fsm-poster.jpg');
+    assert.ok(pages.files.has('assets/note-videos/ospf-fsm-poster.jpg'));
+    assert.equal([...pages.files.keys()].some(name => /\.(?:mp4|mp3)$/i.test(name)), false);
+    const single = snapshotConfig(await snapshot.buildSnapshot('default'));
+    assert.match(single.videos['ospf-fsm'].sources.poster, /^data:image\/jpeg;base64,/);
+    assert.equal(single.videos['ospf-fsm'].sources.hd, video.sources.hd);
+    assert.equal(config.videos['snapshot-current'], undefined, 'private notes receive no public media mapping');
+    await runWithTenant('no-video', () => repo.deleteArticle('ospf-fsm', 'test'));
+    const deleted = await snapshot.buildPagesSnapshot('no-video');
+    assert.equal(snapshotConfig(deleted.html).videos['ospf-fsm'], undefined);
+    assert.equal(deleted.files.has('assets/note-videos/ospf-fsm-poster.jpg'), false);
+});
+
+test('video manifest selects injected snapshot data and preserves platform same-origin fetching', async () => {
+    const { loadVideoManifest } = await import(pathToFileURL(path.join(__dirname, '../backend/builtin-tools/datacom-protocol-expert/assets/note-video.js')).href);
+    const originalFetch = globalThis.fetch;
+    let fetched = 0;
+    globalThis.__DATACOM_SNAPSHOT__ = { videos: { 'ospf-fsm': { title: 'Snapshot video' } } };
+    globalThis.fetch = async url => {
+        fetched++;
+        assert.match(url, /^\/assets\/promotions\/datacom\/manifest\.json\?t=/);
+        return { ok: true, json: async () => ({ 'ospf-fsm': { title: 'Platform video' } }) };
+    };
+    try {
+        assert.equal((await loadVideoManifest({ offline: true }))['ospf-fsm'].title, 'Snapshot video');
+        assert.equal(fetched, 0);
+        assert.equal((await loadVideoManifest())['ospf-fsm'].title, 'Platform video');
+        assert.equal(fetched, 1);
+    } finally {
+        globalThis.fetch = originalFetch;
+        delete globalThis.__DATACOM_SNAPSHOT__;
+    }
 });
 
 test('snapshot API loads data once, searches full text literally and denies all writes and revision reads', async () => {
@@ -173,15 +220,22 @@ test('publishing sends the knowledge data to git and detects subsequent database
         assert.fail('publish timed out');
     }
     const first = await push();
-    const tree = git(['--git-dir', remote, 'ls-tree', '-r', '--name-only', 'main']);
+    const site = () => JSON.parse(git(['--git-dir', remote, 'show', 'main:tp-static/site.json']));
     for (const name of ['index.html', 'data/knowledge.json', 'assets/snapshot-api.js', 'assets/vendor/three.module.min.js']) {
-        assert.ok(tree.includes('datacom-protocol-expert/' + name), name);
+        assert.ok(site().files['datacom-protocol-expert/' + name], name);
     }
-    const readData = () => JSON.parse(git(['--git-dir', remote, 'show', 'main:datacom-protocol-expert/data/knowledge.json']));
-    assert.equal(readData().articles.find(item => item.id === 'snapshot-current').bodyMd, currentBody);
-    assert.equal((await push()).commit, first.commit, 'unchanged data skips commit/push');
+    const readData = async () => {
+        const meta = site(), file = meta.files['datacom-protocol-expert/data/knowledge.json'];
+        const security = require('../backend/models/snapshot-portal-security');
+        const bytes = execFileSync('git', ['--git-dir', remote, 'show', 'main:' + file.url]);
+        return JSON.parse(security.open(bytes, await security.getKey(meta.keyId), file.iv));
+    };
+    assert.equal((await readData()).articles.find(item => item.id === 'snapshot-current').bodyMd, currentBody);
+    const second = await push();
+    const changedPaths = git(['--git-dir', remote, 'diff', '--name-only', first.commit, second.commit]);
+    assert.equal(second.commit, first.commit, 'unchanged data skips commit/push: ' + changedPaths);
     const article = await repo.getArticle('snapshot-current');
     await repo.updateArticle(article.id, { ...article, bodyMd: 'Updated knowledge after first publish' }, article.revision, 'test');
     assert.notEqual((await push()).commit, first.commit);
-    assert.equal(readData().articles.find(item => item.id === article.id).bodyMd, 'Updated knowledge after first publish');
+    assert.equal((await readData()).articles.find(item => item.id === article.id).bodyMd, 'Updated knowledge after first publish');
 });

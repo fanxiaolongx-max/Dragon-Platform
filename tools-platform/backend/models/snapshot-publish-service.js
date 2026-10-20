@@ -7,6 +7,7 @@ const { promisify } = require('util');
 const { run, get, all, getDbPath } = require('./app-db');
 const { getTenantId, runWithTenant } = require('./tenant-context');
 const { updatePublishMenu, removePublishMenuItems, readPublishMenuItems, MENU_FILE } = require('./snapshot-publish-menu');
+const { buildPortal, EXCLUDED: PORTAL_EXCLUDED_TOOLS } = require('./snapshot-portal');
 
 const execGit = promisify(execFile);
 const git = (file, args, options = {}) => execGit(file, args, {
@@ -917,9 +918,11 @@ async function publish(job, tenantId, settings, options = {}) {
         let targetSlugs = [];
         const disabledSlugs = new Set();
         if (options.toolSlug) {
+            if (PORTAL_EXCLUDED_TOOLS.has(options.toolSlug)) throw bad('静态站点暂不发布脚本与插件内容');
             targetSlugs = [options.toolSlug];
         } else {
             for (const slug of providers.keys()) {
+                if (PORTAL_EXCLUDED_TOOLS.has(slug)) { disabledSlugs.add(slug); continue; }
                 const toolSettings = await getToolSettings(slug);
                 if (toolSettings.enabled !== false) targetSlugs.push(slug);
                 else disabledSlugs.add(slug);
@@ -976,7 +979,16 @@ async function publish(job, tenantId, settings, options = {}) {
 
         const paths = ['index.html', MENU_FILE];
         let guideName = 'README.md';
-        const disabledPublishedItems = options.toolSlug ? [] : readPublishMenuItems(checkout).filter(item => disabledSlugs.has(item.slug));
+        const legacyPaths = new Map();
+        if (!fs.existsSync(path.join(checkout, 'tp-static/site.json'))) {
+            for (const item of readPublishMenuItems(checkout)) {
+                if (item.encrypted && !PORTAL_EXCLUDED_TOOLS.has(item.slug) && providers.has(item.slug) && !targetSlugs.includes(item.slug)) {
+                    targetSlugs.push(item.slug);
+                    legacyPaths.set(item.slug, item.href.slice(2));
+                }
+            }
+        }
+        const disabledPublishedItems = readPublishMenuItems(checkout).filter(item => PORTAL_EXCLUDED_TOOLS.has(item.slug) || !options.toolSlug && disabledSlugs.has(item.slug));
         if (!targetSlugs.length && !disabledPublishedItems.length) throw bad('没有已启用或待清理的静态发布工具');
         if (disabledPublishedItems.length) {
             await updateJob(job, 'running', '清理停用工具', 43, `发现 ${disabledPublishedItems.length} 个已取消勾选且仍存在于远端菜单的工具`);
@@ -984,22 +996,20 @@ async function publish(job, tenantId, settings, options = {}) {
                 const scope = removeDisabledPublishedTool(checkout, item, paths);
                 await recordCommandLog(job, { at: new Date().toISOString(), type: 'info', msg: `[停用清理] ${item.name} (${item.slug})：已删除${scope}` });
             }
-            const menuResult = removePublishMenuItems(checkout, disabledSlugs);
+            const menuResult = removePublishMenuItems(checkout, new Set(disabledPublishedItems.map(item => item.slug)));
             if (menuResult) guideName = menuResult.guideName;
         }
 
+        const portalFiles = new Map();
         for (const slug of targetSlugs) {
             const provider = providers.get(slug);
             if (!provider) continue;
             const tool = await require('./custom-tools-repository').getTool(slug);
             const toolName = tool?.name || provider.name;
-            const toolSecurity = await getToolSettings(slug, true);
-            const toolResolvedFile = resolvePublishPath(config.file, slug);
+            const toolResolvedFile = legacyPaths.get(slug) || resolvePublishPath(config.file, slug);
             const snapshotOptions = {
                 encryption: {
-                    enabled: Boolean(toolSecurity.encryptionEnabled && toolSecurity.passwordHash),
-                    passwordHash: toolSecurity.passwordHash,
-                    passwordSalt: toolSecurity.passwordSalt
+                    enabled: false
                 }
             };
 
@@ -1022,6 +1032,7 @@ async function publish(job, tenantId, settings, options = {}) {
             rejectSymlinkParents(checkout, destination);
             fs.mkdirSync(path.dirname(destination), { recursive: true });
             fs.writeFileSync(destination, output.html);
+            portalFiles.set(toolResolvedFile, output.html);
             paths.push(toolResolvedFile);
 
             const dataRelative = path.posix.join(path.posix.dirname(toolResolvedFile), 'data');
@@ -1043,6 +1054,7 @@ async function publish(job, tenantId, settings, options = {}) {
                     fs.mkdirSync(path.dirname(file), { recursive: true });
                     fs.writeFileSync(file, contents);
                     paths.push(path.posix.join(path.posix.dirname(toolResolvedFile), relative));
+                    portalFiles.set(path.posix.join(path.posix.dirname(toolResolvedFile), relative), contents);
                 }
                 paths.push(dataRelative);
                 if (path.posix.dirname(toolResolvedFile) !== '.') {
@@ -1093,6 +1105,9 @@ async function publish(job, tenantId, settings, options = {}) {
         }
 
         paths.push(guideName);
+        await updateJob(job, 'running', '生成平台主页', 61, '复用平台主页与登录页，同步当前租户账号快照并加密只读站点；原始密码与密码哈希不会发布');
+        const portal = await buildPortal(checkout, readPublishMenuItems(checkout), portalFiles);
+        paths.push(...portal.paths);
         await updateJob(job, 'running', '更新仓库介绍', 62, '正在同步首页菜单和仓库工具说明');
         await recordCommandLog(job, {
             at: new Date().toISOString(),
@@ -1101,7 +1116,8 @@ async function publish(job, tenantId, settings, options = {}) {
         });
 
         await updateJob(job, 'running', '检查变更', 68, config.publishMode === 'pages' ? '正在逐文件比较 HTML、JSON 和证据附件' : '已生成只读快照 HTML，正在检查目标文件变更');
-        const uniquePaths = Array.from(new Set(paths));
+        const candidates = Array.from(new Set(paths));
+        const uniquePaths = candidates.filter(name => !candidates.some(parent => parent !== name && name.startsWith(parent + '/')));
         await runGit(job, ['-C', checkout, 'add', '-A', '--', ...uniquePaths], { timeout: 30000 }, 'git add -A -- ' + uniquePaths.join(' '));
         const diffRes = await runGit(job, ['-C', checkout, 'diff', '--cached', '--name-only', '--', ...uniquePaths], {}, 'git diff --cached --name-only');
         const changed = diffRes.stdout.trim().split('\n').filter(Boolean);

@@ -32,3 +32,11 @@ frontend/assets/promotions/datacom/
 远端检查：`npm run datacom:verify-videos`。实际发布后另检查视频 URL 的 HTTP 206、Content-Range 和首段内容，不能只看 Release 标签存在。
 
 仅适用于公开的内置教学内容。租户私有笔记、用户上传和业务数据不应发布到公共媒体仓库。
+
+## 平台只读页面推送
+
+数通协议专家的 Pages 和单文件 HTML 快照会按文章 ID 自动附带已登记的视频清单。普通版和高清版使用 `backend/datacom-note-videos.json` 中的固定 Release 下载地址；Pages 包复制封面，单文件内嵌封面，不复制或提交 MP4。导出会校验两份清单的版本和地址一致，仅为快照中仍存在的公开内置文章生成视频映射。
+
+导出页直接使用原生 `<video src>` 播放远端视频，不通过 JavaScript fetch 获取视频，也不设置 `crossorigin`。平台内仍使用原有 `/assets/promotions/datacom/` 同源接口，按需下载、校验和缓存的行为保持不变。单文件的笔记正文和教学图可离线查看，视频需要联网访问 GitHub 媒体 Release；浏览器对带声音自动播放的限制沿用原播放器的静音降级处理。
+
+验证导出映射与平台缓存：`node --test tests/datacom-knowledge-snapshot.test.js tests/datacom-video-publishing.test.js tests/home-promo-videos.test.js`。实际跨站播放和平台同源回归：`node_modules/.bin/electron tests/datacom-note-video-browser.cjs --remote`，检查元数据、播放、拖动和高清切换；省略 `--remote` 时使用不同端口的本地媒体验证无 CORS 响应头的跨站播放（需要本地普通版和高清版 MP4）。

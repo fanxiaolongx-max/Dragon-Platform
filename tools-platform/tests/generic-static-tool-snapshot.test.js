@@ -199,9 +199,9 @@ test('publishing a custom static tool pushes HTML and assets to git repository a
 
     const tree = execFileSync('git', ['--git-dir', bare, 'ls-tree', '-r', '--name-only', 'main']).toString();
     assert.match(tree, /zip-demo-tool\/index\.html/);
-    assert.match(tree, /zip-demo-tool\/style\.css/);
-    assert.match(tree, /zip-demo-tool\/app\.js/);
-    assert.match(tree, /zip-demo-tool\/assets\/icon\.txt/);
+    const portal = JSON.parse(execFileSync('git', ['--git-dir', bare, 'show', 'main:tp-static/site.json']).toString());
+    for (const name of ['style.css', 'app.js', 'assets/icon.txt']) assert.ok(portal.files['zip-demo-tool/' + name]);
+    assert.doesNotMatch(tree, /zip-demo-tool\/app\.js/, 'tool assets are encrypted behind shared login');
     assert.match(tree, /zip-demo-tool\/data\/\.tools-platform-snapshot\.json/);
 
     const menu = JSON.parse(execFileSync('git', ['--git-dir', bare, 'show', 'main:.tools-platform-menu.json']).toString());
@@ -248,7 +248,7 @@ test('full publish removes unchecked remote tool bundles while targeted publish 
     const menu = () => JSON.parse(execFileSync('git', ['--git-dir', bare, 'show', 'main:.tools-platform-menu.json']).toString());
 
     await publish();
-    assert.match(tree(), /zip-demo-tool\/assets\/icon\.txt/);
+    assert.ok(JSON.parse(execFileSync('git', ['--git-dir', bare, 'show', 'main:tp-static/site.json']).toString()).files['zip-demo-tool/assets/icon.txt']);
     assert.equal(menu().items.length, 2);
 
     await publishService.saveToolSettings('zip-demo-tool', { enabled: false, encryptionEnabled: false });
@@ -282,4 +282,30 @@ test('full publish removes unchecked remote tool bundles while targeted publish 
     assert.doesNotMatch(tree(), /static-demo-tool\/index\.html/);
     assert.match(tree(), /static-demo-tool\/manual\.html/, 'single-file cleanup must preserve unrelated files');
     assert.deepEqual(menu().items, []);
+});
+
+test('upgrading a legacy password-protected tool removes its separate gate during a targeted publish', async () => {
+    const bare = path.join(temp, 'legacy-portal.git'), mirror = path.join(temp, 'legacy-portal-mirror');
+    const git = args => execFileSync('git', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    git(['init', '--bare', '--initial-branch=main', bare]);
+    git(['clone', bare, mirror]);
+    fs.mkdirSync(path.join(mirror, 'static-demo-tool'));
+    const old = await publishService.providers.get('static-demo-tool').buildSnapshot('default', { encryption: { enabled: true, passwordHash: 'a'.repeat(64), passwordSalt: 'old-salt' } });
+    fs.writeFileSync(path.join(mirror, 'static-demo-tool/index.html'), old);
+    require('../backend/models/snapshot-publish-menu').updatePublishMenu(mirror, { slug: 'static-demo-tool', name: 'Legacy tool', href: './static-demo-tool/index.html', encrypted: true });
+    git(['-C', mirror, 'add', '.']);
+    git(['-C', mirror, '-c', 'user.name=Test', '-c', 'user.email=test@localhost', 'commit', '-m', 'Legacy protected site']);
+    git(['-C', mirror, 'push', '-u', 'origin', 'HEAD:main']);
+    await publishService.saveSettings({ repoDir: mirror, branch: 'main', file: '{toolSlug}/index.html', publishMode: 'pages' });
+    const started = await publishService.startJob('default', { toolSlug: 'zip-demo-tool' });
+    let job;
+    for (let i = 0; i < 200; i++) { job = await publishService.getJob(started.id); if (job.status !== 'running') break; await new Promise(r => setTimeout(r, 30)); }
+    assert.equal(job.status, 'success', JSON.stringify(job.entries));
+    const site = JSON.parse(git(['--git-dir', bare, 'show', 'main:tp-static/site.json']).toString());
+    const file = site.files['static-demo-tool/index.html'];
+    const security = require('../backend/models/snapshot-portal-security');
+    const html = security.open(git(['--git-dir', bare, 'show', 'main:' + file.url]), await security.getKey(site.keyId), file.iv).toString();
+    assert.match(html, /Hello Static World/);
+    assert.doesNotMatch(html, /tpGatekeeperModal/);
+    assert.ok(site.files['zip-demo-tool/index.html']);
 });

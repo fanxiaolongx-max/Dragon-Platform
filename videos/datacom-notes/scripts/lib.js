@@ -35,11 +35,12 @@ var RENDER={
   pop(tl,tm,.5);var cmd=tm.querySelector(".cmd");cmd.innerHTML=("&lt;R1&gt; "+esc(T.cmd)).replace(/(&[a-z]+;|.)/g,'<span style="opacity:0">$1</span>');
   tl.to(cmd.children,{opacity:1,duration:.01,stagger:1.1/cmd.children.length},.9);
   T.rows.forEach(function(r,i){var c=TONE[r.tone]||"#94a3b8";var e=el("div","tr",'<span>'+esc(r.cells[0])+'</span><span>'+esc(r.cells[1])+'</span><span><b class="badge" style="color:'+c+';border-color:'+c+'">'+esc(r.cells[2])+'</b></span>');tm.appendChild(e);
-   slideIn(tl,e,r.ct-.15+(i===2?.5:0),-30);if(r.tone!=="ok")glow(tl,e.querySelector(".badge"),r.ct+.4,c);});
+   slideIn(tl,e,r.ct-.15+(i===2?.2:0),-30);if(r.tone!=="ok")glow(tl,e.querySelector(".badge"),r.ct+.4,c);});
   var q=el("div","qbox",'<div class="q">?</div><div class="qt"></div>');q.querySelector(".qt").textContent=S.question[0].t;st.appendChild(q);
   pop(tl,q,S.question[0].ct-.2,{s:.6});cThink(tl,cid,1.2,Math.max(1.5,S.question[0].ct-1.6));},
  fsm:function(tl,st,P,cid){var W=S.nw||270,H=110,N={};
   var svgNS="http://www.w3.org/2000/svg",svg=document.createElementNS(svgNS,"svg");svg.setAttribute("width","1920");svg.setAttribute("height","1080");svg.setAttribute("style","position:absolute;left:0;top:0;overflow:visible");st.appendChild(svg);
+  S.edges.forEach(function(e){S.nodes.forEach(function(nd){if(nd.id===e.from&&e.ct<nd.ct)nd.ct=e.ct;});});
   var n=S.nodes.length;S.nodes.forEach(function(nd,i){var at=nd.at||[100+W/2+i*((1400-W)/Math.max(1,n-1)),440];N[nd.id]={x:at[0],y:at[1],nd:nd};});
   function clip(a,b){var dx=b.x-a.x,dy=b.y-a.y,k=Math.min(Math.abs(dx)>0?(W/2+14)/Math.abs(dx):1e9,Math.abs(dy)>0?(H/2+14)/Math.abs(dy):1e9);return [a.x+dx*k,a.y+dy*k];}
   S.edges.forEach(function(e,i){var A=N[e.from],B=N[e.to],p,lab,ang,d;
@@ -60,9 +61,9 @@ var RENDER={
   cPoint(tl,cid,S.nodes[Math.min(1,n-1)].ct,1);if(S.note)cPoint(tl,cid,S.note.ct+.2,1);},
  compare:function(tl,st,P,cid){var w=S.widths||[1.35,1,1.25],sum=w.reduce(function(a,b){return a+b;},0);
   if(S.caption){var cp=el("div","tcap","◆ "+esc(S.caption));st.appendChild(cp);slideIn(tl,cp,.6,-30);}
-  var tb=el("div","tbl");st.appendChild(tb);
+  var tb=el("div",S.compact?"tbl cpt":"tbl");st.appendChild(tb);
   function row(cells,cls,tone){var r=el("div","trow"+(cls?" "+cls:""));if(tone)r.appendChild(el("i","st",null,"background:"+TONE[tone]));
-   cells.forEach(function(c,j){var d=el("div","td mono".replace(" mono",j===0&&!cls?" mono":""),esc(c),"width:"+(1396*w[j]/sum)+"px"+(j===1&&tone&&!cls?";color:"+TONE[tone]+";font-weight:700":""));r.appendChild(d);});tb.appendChild(r);return r;}
+   cells.forEach(function(c,j){var d=el("div",j===0&&!cls&&/^[\x00-\x7f]+$/.test(c)?"td mono":"td",esc(c),"width:"+(1396*w[j]/sum)+"px"+(j===1&&tone&&!cls?";color:"+TONE[tone]+";font-weight:700":""));r.appendChild(d);});tb.appendChild(r);return r;}
   var h=row(S.cols,"h");slideIn(tl,h,.8,-30);
   var rows=S.rows.map(function(r){var e=row(r.cells,null,r.tone);slideIn(tl,e,r.ct-.15);return e;});
   if(S.flash){var cell=rows[S.flash.row].children[S.flash.col+1];tl.to(cell,{color:"#f59e0b",fontWeight:900,duration:.2},S.flash.ct);glow(tl,rows[S.flash.row],S.flash.ct,"rgba(245,158,11,.6)");cPoint(tl,cid,S.flash.ct,1.2);}
@@ -82,6 +83,6 @@ var RENDER={
    pop(tl,m,D.winCt-.1,{s:.4});pop(tl,s,D.winCt+.2,{s:.4});tl.to(W2,{borderColor:"#f59e0b",duration:.3},D.winCt);glow(tl,W2,D.winCt,"rgba(245,158,11,.55)");tl.to(Lo,{opacity:.6,duration:.4},D.winCt+.3);
    cPoint(tl,cid,D.winCt,1.4);}},
  recap:function(tl,st,P,cid){S.points.forEach(function(p,i){var e=el("div","pt card",'<span class="n">'+(i+1)+'</span><span class="t">'+esc(p.t)+'</span><span class="ck">✓</span>',"top:"+(230+i*180)+"px");st.appendChild(e);
-  slideIn(tl,e,p.ct-.2,-60);tl.fromTo(e.querySelector(".ck"),{opacity:0,scale:0},{opacity:1,scale:1,duration:.35,ease:"back.out(3)"},p.ct+.6);tl.to(e,{borderColor:"rgba(245,158,11,.7)",duration:.3},p.ct+.6);cNod(tl,cid,p.ct+.5,2);});
+  slideIn(tl,e,p.ct-.2,-60);tl.fromTo(e.querySelector(".ck"),{opacity:0,scale:0},{opacity:1,scale:1,duration:.35,ease:"back.out(3)"},p.ct+.25);tl.to(e,{borderColor:"rgba(245,158,11,.7)",duration:.3},p.ct+.25);cNod(tl,cid,p.ct+.3,2);});
   cPoint(tl,cid,SDUR-3.2,1.2);}
 };

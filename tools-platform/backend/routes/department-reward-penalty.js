@@ -107,12 +107,7 @@ router.get('/snapshot/download/:slug', respond(async (req, res) => {
     if (!provider) fail('该工具尚未接入静态页面发布', 404);
     const format = String(req.query.format || 'single');
     if (format !== 'single' && format !== 'pages') fail('下载格式无效');
-    const toolSecurity = await snapshotPublish.getToolSettings(slug, true);
-    const options = { encryption: {
-        enabled: Boolean(toolSecurity.encryptionEnabled && toolSecurity.passwordHash),
-        passwordHash: toolSecurity.passwordHash,
-        passwordSalt: toolSecurity.passwordSalt
-    } };
+    const options = { encryption: { enabled: false } };
     const tenantId = req.user?.tenantId || 'default';
     res.setHeader('Cache-Control', 'no-store');
     if (format === 'single') {
