@@ -9284,7 +9284,7 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
                 : navLocaleText('无文件差异', 'No file differences');
         const conflictNotice = tool.status === 'conflict'
             ? `<div class="builtin-sync-conflict-note">${navEscape(navLocaleText('此目录不是系统管理版本，可能是您的同名自定义工具，已默认不覆盖。', 'This directory is not managed by the system and may be your custom tool with the same name. Overwrite is unchecked by default.'))}</div>`
-            : '';
+            : tool.localChanges ? `<div class="builtin-sync-conflict-note">${navEscape(navLocaleText('检测到本地修改或旧版校验信息不完整，已保留当前工具。确认后可手动勾选更新，旧目录会先备份。', 'Local changes or incomplete legacy verification data were detected. The current tool is preserved. Select it to update after review; the old folder will be backed up first.'))}</div>` : '';
         const toolInfoDiff = tool.toolInfoChanged && tool.oldTool && tool.newTool
             ? `<div class="builtin-sync-info-diff">
                 <span>${navEscape(navLocaleText('旧信息', 'Old'))}：${navEscape(tool.oldTool.icon)} ${navEscape(tool.oldTool.name)}</span>

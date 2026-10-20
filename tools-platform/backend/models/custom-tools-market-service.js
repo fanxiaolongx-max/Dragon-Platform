@@ -470,6 +470,11 @@ function annotateInstalledTool(item) {
     fs.renameSync(temp, target);
 }
 
+function logMarketUpdates(changed, backups) {
+    for (const slug of changed) console.log(`[tool-market] 工具更新已生效 ${slug}：${path.join(repo.CUSTOM_TOOLS_DIR, slug)}`);
+    for (const backup of backups) console.log(`[tool-market] 更新前备份 ${backup.slug}：${backup.path}`);
+}
+
 async function applyMarketUpdates({ slugs = [], adoptSlugs = [], expectedFingerprints = {}, expectedSources = {}, onProgress } = {}) {
     const selected = [...new Set(slugs.map(normalizeSlug).filter(Boolean))];
     const allowedAdoptions = new Set(adoptSlugs.map(normalizeSlug).filter(slug => selected.includes(slug)));
@@ -507,6 +512,8 @@ async function applyMarketUpdates({ slugs = [], adoptSlugs = [], expectedFingerp
     }
     if (!marketSlugs.length) {
         const changed = [...bundledResult.installed, ...bundledResult.adopted, ...bundledResult.updated];
+        logMarketUpdates(changed, bundledResult.backups);
+        onProgress?.({ stage: 'apply_done', count: changed.length });
         return { ...bundledResult, changed, preview: await previewMarket() };
     }
     const tempParent = path.join(getDataDir(), 'tmp', 'tool-market');
@@ -525,7 +532,7 @@ async function applyMarketUpdates({ slugs = [], adoptSlugs = [], expectedFingerp
             await extractPackage(buffer, toolSource);
             onProgress?.({ stage: 'package_extracted', slug });
         }
-        const sourcePreview = builtinToolsSync.previewBuiltinTools({ sourceDir, targetDir: repo.CUSTOM_TOOLS_DIR, includeSkipped: true });
+        const sourcePreview = builtinToolsSync.previewBuiltinTools({ sourceDir, targetDir: repo.CUSTOM_TOOLS_DIR, includeSkipped: true, preserveInstalledRelease: false });
         const sourceMap = new Map(sourcePreview.tools.map(item => [item.slug, item]));
         for (const slug of marketSlugs) {
             if (sourceMap.get(slug)?.fingerprint !== items.get(slug).package.directoryFingerprint) throw new Error(`${slug} 解压内容指纹与目录不一致`);
@@ -537,11 +544,13 @@ async function applyMarketUpdates({ slugs = [], adoptSlugs = [], expectedFingerp
             targetDir: repo.CUSTOM_TOOLS_DIR,
             backupRoot: path.join(getDataDir(), 'backups', 'tool-market'),
             applySlugs: marketSlugs,
+            preserveInstalledRelease: false,
             expectedFingerprints: Object.fromEntries(marketSlugs.map(slug => [slug, sourceMap.get(slug).fingerprint]))
         });
         const marketChanged = [...result.installed, ...result.adopted, ...result.updated];
         marketChanged.forEach(slug => annotateInstalledTool(items.get(slug)));
         const changed = [...bundledResult.installed, ...bundledResult.adopted, ...bundledResult.updated, ...marketChanged];
+        logMarketUpdates(changed, [...bundledResult.backups, ...result.backups]);
         onProgress?.({ stage: 'apply_done', count: changed.length });
         return {
             ...result,

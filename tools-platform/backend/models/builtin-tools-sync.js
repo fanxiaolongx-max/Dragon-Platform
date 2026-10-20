@@ -156,7 +156,7 @@ function writeDecisionState(stateFile, state) {
     fs.renameSync(tempFile, stateFile);
 }
 
-function compareBundledTool(source, targetDir) {
+function compareBundledTool(source, targetDir, { preserveInstalledRelease = true } = {}) {
     const targetToolDir = path.join(targetDir, source.slug);
     const targetExists = fs.existsSync(targetToolDir) && fs.statSync(targetToolDir).isDirectory();
     const targetManifest = targetExists ? readJson(path.join(targetToolDir, TOOL_MANIFEST_FILE)) : null;
@@ -230,11 +230,27 @@ function compareBundledTool(source, targetDir) {
         }
     }
     const metadataChanged = managed ? !canonicalContentMatches : targetExists;
+    let installedContentMatches = canonicalContentMatches;
+    if (managed && !installedContentMatches) {
+        try {
+            installedContentMatches = fingerprintFiles(targetToolDir, [TOOL_MANIFEST_FILE, ...previousManagedFiles])
+                === targetManifest.system.fingerprint;
+        } catch (_) { /* 缺失或无法读取的受管文件需要人工确认 */ }
+    }
+    const sourceTime = Date.parse(source.manifest.tool.updatedAt);
+    const installedTime = Date.parse(targetManifest?.tool?.updatedAt);
+    const comparableReleases = Number.isFinite(sourceTime) && Number.isFinite(installedTime);
+    const installedFromMarket = managed && targetManifest.market?.directoryFingerprint === targetManifest.system.fingerprint;
+    // 同一日期的市场包也可能包含后续代码修复。缺少更晚的发布日期时，不用随包模板覆盖它。
+    const retainedRelease = preserveInstalledRelease && managed && !canonicalContentMatches && (
+        (comparableReleases && sourceTime < installedTime && installedContentMatches)
+        || (installedFromMarket && !(comparableReleases && sourceTime > installedTime))
+    );
     let status = 'unchanged';
     if (!targetExists) status = 'missing';
     else if (!managed && legacyMatch) status = 'adopt';
     else if (!managed) status = 'conflict';
-    else if (!canonicalContentMatches) status = 'update';
+    else if (!canonicalContentMatches && !retainedRelease) status = 'update';
 
     return {
         slug: source.slug,
@@ -248,6 +264,8 @@ function compareBundledTool(source, targetDir) {
         fingerprint: source.fingerprint,
         targetExists,
         managed,
+        localChanges: managed && !installedContentMatches,
+        retainedRelease,
         legacyMatch,
         metadataChanged,
         fingerprintMigrated: managed && storedFingerprintChanged && canonicalContentMatches,
@@ -350,7 +368,7 @@ function copyManagedTool(source, targetDir, existingManifest, { backupBatchDir, 
     }
 }
 
-function previewBuiltinTools({ sourceDir, targetDir, stateFile, includeSkipped = false }) {
+function previewBuiltinTools({ sourceDir, targetDir, stateFile, includeSkipped = false, preserveInstalledRelease = true }) {
     const sourcePath = path.resolve(sourceDir);
     const targetPath = path.resolve(targetDir);
     const result = {
@@ -377,13 +395,13 @@ function previewBuiltinTools({ sourceDir, targetDir, stateFile, includeSkipped =
 
     for (const source of bundledTools) {
         try {
-            const comparison = compareBundledTool(source, targetPath);
+            const comparison = compareBundledTool(source, targetPath, { preserveInstalledRelease });
             const skippedDecision = decisionState.skipped[source.slug];
             comparison.skipped = Boolean(
                 skippedDecision
                 && skippedDecision.fingerprint === source.fingerprint
             );
-            comparison.recommended = comparison.status !== 'conflict';
+            comparison.recommended = comparison.status !== 'conflict' && !comparison.localChanges;
             result.tools.push(comparison);
             if (comparison.status === 'unchanged') result.unchanged.push(comparison.slug);
             else if (comparison.skipped) result.skipped.push(comparison);
@@ -405,6 +423,7 @@ function applyBuiltinToolDecisions({
     skipSlugs = [],
     expectedFingerprints = {},
     includePreview = true,
+    preserveInstalledRelease = true,
     onProgress = () => {}
 }) {
     const sourcePath = path.resolve(sourceDir);
@@ -425,7 +444,7 @@ function applyBuiltinToolDecisions({
     for (const slug of allRequested) {
         const source = validateBundledTool(sourcePath, slug);
         sources.set(slug, source);
-        const candidate = compareBundledTool(source, targetPath);
+        const candidate = compareBundledTool(source, targetPath, { preserveInstalledRelease });
         if (candidate.status !== 'unchanged') candidates.set(slug, candidate);
         onProgress({ stage: 'validating', slug, completed: 0, total, checked: sources.size });
     }
@@ -491,7 +510,8 @@ function applyBuiltinToolDecisions({
     if (includePreview) result.preview = previewBuiltinTools({
         sourceDir: sourcePath,
         targetDir: targetPath,
-        stateFile
+        stateFile,
+        preserveInstalledRelease
     });
     return result;
 }
@@ -516,7 +536,7 @@ function syncBuiltinTools({ sourceDir, targetDir, backupRoot }) {
     };
 }
 
-function initializeBuiltinTools({ sourceDir, targetDir, stateFile, backupRoot }) {
+function initializeBuiltinTools({ sourceDir, targetDir, stateFile, backupRoot, logger = console }) {
     const preview = previewBuiltinTools({
         sourceDir,
         targetDir,
@@ -526,18 +546,37 @@ function initializeBuiltinTools({ sourceDir, targetDir, stateFile, backupRoot })
     if (preview.samePath) {
         return { samePath: true, installed: [], adopted: [], updated: [], skipped: [], backups: [], invalid: [], pending: [] };
     }
-    const safeTools = preview.tools.filter(tool => tool.status === 'missing' || tool.status === 'adopt');
+    const safeTools = preview.tools.filter(tool => tool.status === 'missing' || tool.status === 'adopt'
+        || (tool.status === 'update' && !tool.localChanges && !tool.skipped && Boolean(backupRoot)));
     const result = applyBuiltinToolDecisions({
         sourceDir,
         targetDir,
         stateFile,
         backupRoot,
         applySlugs: safeTools.map(tool => tool.slug),
-        expectedFingerprints: Object.fromEntries(safeTools.map(tool => [tool.slug, tool.fingerprint]))
+        expectedFingerprints: Object.fromEntries(safeTools.map(tool => [tool.slug, tool.fingerprint])),
+        includePreview: false
     });
+    const applied = new Set([...result.installed, ...result.adopted, ...result.updated]);
     result.pending = preview.tools
-        .filter(tool => tool.status === 'update' || tool.status === 'conflict')
+        .filter(tool => !applied.has(tool.slug) && !tool.skipped && (tool.status === 'update' || tool.status === 'conflict'))
         .map(tool => tool.slug);
+    result.invalid.push(...preview.invalid);
+    logger.log(`[custom-tools] 内置工具自动同步：已安装 ${result.installed.length}，已更新 ${result.updated.length}，已登记 ${result.adopted.length}，待确认 ${result.pending.length}；实际生效目录：${path.resolve(targetDir)}`);
+    for (const tool of preview.tools) {
+        if (applied.has(tool.slug)) {
+            const action = result.installed.includes(tool.slug) ? '安装' : result.adopted.includes(tool.slug) ? '登记' : '更新';
+            const counts = tool.counts;
+            logger.log(`[custom-tools] 已${action} ${tool.name} (${tool.slug})：新增 ${counts.added}，修改 ${counts.modified}，移除 ${counts.removed}，保留用户文件 ${counts.preserved}；生效目录：${path.join(targetDir, tool.slug)}`);
+        } else if (tool.retainedRelease) {
+            logger.log(`[custom-tools] 保留已安装版本 ${tool.name} (${tool.slug})：随包版本更旧，或市场版本没有可确认的更新发布日期；不回退、不重复提示。`);
+        } else if (tool.status !== 'unchanged') {
+            const reason = tool.skipped ? '管理员已选择跳过此版本' : tool.status === 'conflict' ? '同名自定义工具，未自动覆盖' : tool.localChanges ? '本地内容已修改或旧版校验信息不完整，待管理员确认' : '更新未完成';
+            logger.warn(`[custom-tools] 未自动更新 ${tool.name} (${tool.slug})：${reason}。`);
+        }
+    }
+    for (const backup of result.backups) logger.log(`[custom-tools] 更新前备份 ${backup.slug}：${backup.path}`);
+    for (const failure of result.invalid) logger.warn(`[custom-tools] 自动同步失败 ${failure.slug}：${failure.error}`);
     return result;
 }
 

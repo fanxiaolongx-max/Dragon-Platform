@@ -1,10 +1,7 @@
 const express = require('express');
-const path = require('path');
 const tenantsRepo = require('../models/tenants-repository');
 const sessionsRepo = require('../models/auth-sessions-repository');
-const customToolsRepo = require('../models/custom-tools-repository');
-const { initializeBuiltinTools } = require('../models/builtin-tools-sync');
-const { getDataDir, runWithTenant } = require('../models/tenant-context');
+const { initializeTenantBuiltinTools } = require('../models/builtin-tools-startup');
 
 const router = express.Router();
 const operationLogs = new Map();
@@ -73,16 +70,7 @@ router.post('/switch', async (req, res) => {
         if (!await tenantsRepo.canAccess(req.user.username, req.user.role, tenantId)) {
             return res.status(403).json({ error: '无权访问该租户' });
         }
-        await runWithTenant(tenantId, async () => {
-            const dataDir = getDataDir();
-            initializeBuiltinTools({
-                sourceDir: customToolsRepo.BUILTIN_TOOLS_DIR,
-                targetDir: customToolsRepo.getCustomToolsDir(),
-                stateFile: path.join(dataDir, 'builtin-tools-sync-decisions.json'),
-                backupRoot: path.join(dataDir, 'backups', 'builtin-tools')
-            });
-            await customToolsRepo.reconcileToolsFromDisk();
-        });
+        await initializeTenantBuiltinTools(tenantId);
         await sessionsRepo.setActiveTenant(req.authToken, tenantId);
         res.json({ success: true, tenantId });
     } catch (error) {

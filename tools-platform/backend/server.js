@@ -79,7 +79,7 @@ const customToolsRepo = require('./models/custom-tools-repository');
 const customToolI18nService = require('./models/custom-tool-i18n-service');
 const assetVersioning = require('./models/asset-versioning');
 const pageUpdateTimes = require('./models/page-update-times');
-const { initializeBuiltinTools } = require('./models/builtin-tools-sync');
+const { initializeTenantBuiltinTools } = require('./models/builtin-tools-startup');
 const { ensureBuiltinToolAssets } = require('./models/builtin-assets-unpacker');
 const { DATA_DIR } = require('./models/store');
 const navSettingsRoutes = require('./routes/nav-settings');
@@ -625,23 +625,11 @@ async function startServer() {
     await legacyJsonMigration.runStartupLegacyJsonMigration();
     await initializeDefaultBusinessSchema();
     try {
-        const initialized = initializeBuiltinTools({
-            sourceDir: customToolsRepo.BUILTIN_TOOLS_DIR,
-            targetDir: customToolsRepo.CUSTOM_TOOLS_DIR,
-            stateFile: path.join(DATA_DIR, 'builtin-tools-sync-decisions.json'),
-            backupRoot: path.join(DATA_DIR, 'backups/builtin-tools')
-        });
-        if (initialized.installed.length) {
-            console.warn(`[custom-tools] 已自动安装缺失的系统工具：${initialized.installed.join('、')}`);
-        }
-        if (initialized.adopted.length) {
-            console.warn(`[custom-tools] 已登记内容一致的旧版系统工具：${initialized.adopted.join('、')}`);
-        }
-        if (initialized.pending.length) {
-            console.warn(`[custom-tools] 检测到 ${initialized.pending.length} 个系统工具差异，等待管理员确认`);
-        }
-        if (initialized.invalid.length) {
-            console.warn(`[custom-tools] 部分系统工具初始化失败：${initialized.invalid.map(item => `${item.slug} (${item.error})`).join('、')}`);
+        await initializeTenantBuiltinTools(DEFAULT_TENANT_ID);
+        const tenants = await require('./models/tenants-repository').listManagedTenants();
+        for (const tenant of tenants.filter(item => item.id !== DEFAULT_TENANT_ID && item.status === 'active')) {
+            try { await initializeTenantBuiltinTools(tenant.id); }
+            catch (error) { console.warn(`[custom-tools] 租户 ${tenant.id} 工具自动同步失败：${error.message}`); }
         }
     } catch (error) {
         console.warn(`[custom-tools] 系统工具初始化失败，继续使用现有用户工具：${error.message}`);
@@ -653,13 +641,6 @@ async function startServer() {
         });
     } catch (assetsError) {
         console.warn(`[builtin-assets] 媒体资源包就绪检查失败：${assetsError.message}`);
-    }
-    const customToolReconcile = await customToolsRepo.reconcileToolsFromDisk();
-    if (customToolReconcile.recovered.length) {
-        console.warn(`[custom-tools] 已根据磁盘清单恢复注册：${customToolReconcile.recovered.join('、')}`);
-    }
-    if (customToolReconcile.unregistered.length) {
-        console.warn(`[custom-tools] 发现未注册且无可信清单的目录：${customToolReconcile.unregistered.join('、')}`);
     }
 
     const server = app.listen(PORT, () => {
