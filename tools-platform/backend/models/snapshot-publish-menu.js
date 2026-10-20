@@ -26,6 +26,7 @@ function validateItem(item) {
         description: String(item.description || '').replace(/\s+/g, ' ').trim(),
         href: item.href,
         encrypted: Boolean(item.encrypted),
+        ...(item.batchExcluded ? { batchExcluded: true } : {}),
         ...(item.fingerprint ? { fingerprint: item.fingerprint } : {}),
         ...(item.updatedAt ? { updatedAt: item.updatedAt } : {})
     };

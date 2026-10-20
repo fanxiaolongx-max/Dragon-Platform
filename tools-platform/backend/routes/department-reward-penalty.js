@@ -126,6 +126,13 @@ router.get('/snapshot/download/:slug', respond(async (req, res) => {
     res.send(archive);
 }));
 router.get('/snapshot/settings', respond(async (req, res) => { snapshotAdmin(req); res.setHeader('Cache-Control', 'no-store'); res.json(await snapshotPublish.getSettings()); }));
+router.get('/snapshot/estimate/:slug', respond(async (req, res) => {
+    snapshotAdmin(req);
+    res.setHeader('Cache-Control', 'no-store');
+    const tenantId = req.user?.tenantId || 'default';
+    const mode = String(req.query.mode || 'pages');
+    res.json(await snapshotPublish.estimateToolSnapshot(tenantId, req.params.slug, mode, req.query.refresh === '1'));
+}));
 router.get('/snapshot/prerequisites', respond(async (req, res) => { snapshotAdmin(req); res.setHeader('Cache-Control', 'no-store'); res.json(await snapshotPublish.getPrerequisites()); }));
 router.put('/snapshot/settings', respond(async (req, res) => { snapshotAdmin(req); res.json(await snapshotPublish.saveSettings(req.body || {})); }));
 router.get('/snapshot/jobs', respond(async (req, res) => { snapshotAdmin(req); res.setHeader('Cache-Control', 'no-store'); res.json(await snapshotPublish.listJobs()); }));

@@ -8,6 +8,7 @@ const { run, get, all, getDbPath } = require('./app-db');
 const { getTenantId, runWithTenant } = require('./tenant-context');
 const { updatePublishMenu, removePublishMenuItems, readPublishMenuItems, MENU_FILE } = require('./snapshot-publish-menu');
 const { buildPortal, EXCLUDED: PORTAL_EXCLUDED_TOOLS } = require('./snapshot-portal');
+const sizePolicy = require('./snapshot-size-policy');
 
 const execGit = promisify(execFile);
 const git = (file, args, options = {}) => execGit(file, args, {
@@ -18,7 +19,8 @@ const git = (file, args, options = {}) => execGit(file, args, {
         GCM_INTERACTIVE: 'never',
         GIT_SSH_COMMAND: 'ssh -o BatchMode=yes',
         GIT_ASKPASS: '',
-        SSH_ASKPASS: ''
+        SSH_ASKPASS: '',
+        ...(options.env || {})
     }
 });
 const active = new Set();
@@ -720,7 +722,7 @@ async function getPrerequisites() {
         const attemptStart = Date.now();
         const displayCmd = `git ls-remote --exit-code --heads ${remote} ${config.branch}`;
         try {
-            const lsRes = await git('git', ['ls-remote', '--exit-code', '--heads', remote, config.branch], { timeout: 15000 });
+            const lsRes = await git('git', ['ls-remote', '--exit-code', '--heads', remote, config.branch], { ...networkOptions(remote), timeout: 15000 });
             const attemptDuration = Date.now() - attemptStart;
             const branchHead = (lsRes.stdout.trim().split(/\s+/)[0] || '').slice(0, 12);
             log('远端探测', 'success', `[尝试 ${attempt}/${maxAttempts}] 成功连接远端！往返延迟: ${attemptDuration}ms${branchHead ? ` (分支 HEAD: ${branchHead})` : ''}`, attemptDuration, displayCmd);
@@ -844,7 +846,7 @@ async function runGit(job, args, options = {}, displayCmdOverride = '') {
         stderr = String(res.stderr || '').trim();
         const durationMs = Date.now() - start;
         let output = [stdout, stderr].filter(Boolean).join('\n');
-        if (output.length > 20000) output = output.slice(0, 20000) + '\n... (输出过长，已截断)';
+        if (output.length > 20000) output = output.slice(0, 8000) + '\n... (中间输出过长，已省略；保留首尾日志) ...\n' + output.slice(-12000);
         await recordCommandLog(job, {
             at: new Date().toISOString(),
             cmd: displayCmd,
@@ -858,7 +860,7 @@ async function runGit(job, args, options = {}, displayCmdOverride = '') {
         stderr = String(err.stderr || err.message || '').trim();
         const durationMs = Date.now() - start;
         let output = [stdout, stderr].filter(Boolean).join('\n');
-        if (output.length > 20000) output = output.slice(0, 20000) + '\n... (输出过长，已截断)';
+        if (output.length > 20000) output = output.slice(0, 8000) + '\n... (中间输出过长，已省略；保留首尾日志) ...\n' + output.slice(-12000);
         await recordCommandLog(job, {
             at: new Date().toISOString(),
             cmd: displayCmd,
@@ -867,6 +869,36 @@ async function runGit(job, args, options = {}, displayCmdOverride = '') {
             failed: true
         });
         throw err;
+    }
+}
+
+function isTransientGitError(error) {
+    const text = String(error.stderr || error.message || '');
+    if (/authentication|permission denied|could not read username|pre-receive|hook declined|non-fast-forward|fetch first|remote rejected|large file|limited size/i.test(text)) return false;
+    return error.killed || error.code === 'ETIMEDOUT' || /timed? out|connection (?:reset|closed|refused)|could not resolve host|network is unreachable|remote end hung up|early EOF|HTTP (?:502|503|504)|RPC failed.*(?:curl 18|curl 56)/i.test(text);
+}
+function networkOptions(remote) {
+    return /codehub/i.test(remote) ? { env: { GCM_AUTO_DETECT: 'false', GCM_PROVIDER: 'generic' } } : {};
+}
+
+async function runGitWithRetry(job, args, options = {}, displayCmdOverride = '') {
+    const { retries = 0, retryDelayMs = 2000, beforeRetry, ...gitOptions } = options;
+    let attempt = 0;
+    while (true) {
+        attempt++;
+        try {
+            return await runGit(job, args, gitOptions, displayCmdOverride);
+        } catch (err) {
+            if (attempt > retries || !isTransientGitError(err)) throw err;
+            await beforeRetry?.();
+            const errMsg = String(err.stderr || err.message || '').replace(/\r?\n/g, ' ').slice(0, 160);
+            await recordCommandLog(job, {
+                at: new Date().toISOString(),
+                type: 'info',
+                msg: `[远端波动自动重试 ${attempt}/${retries}] 操作未完成 (${errMsg || '网络无响应'})，正在等待 ${(retryDelayMs / 1000).toFixed(1)}s 后重试...`
+            });
+            await new Promise(r => setTimeout(r, retryDelayMs));
+        }
     }
 }
 
@@ -973,9 +1005,14 @@ async function publish(job, tenantId, settings, options = {}) {
             (hasLocalMirror ? ` --reference-if-able ${JSON.stringify(config.repoDir)}` : '') +
             ` -- ${JSON.stringify(remote)} checkout`;
         const cloneStart = Date.now();
-        await runGit(job, cloneArgs, { timeout: 300000 }, cloneDisplay);
+        await runGitWithRetry(job, cloneArgs, { ...networkOptions(remote), timeout: 300000, retries: 2, retryDelayMs: 3000, beforeRetry: () => fs.rmSync(checkout, { recursive: true, force: true }) }, cloneDisplay);
         const cloneSec = ((Date.now() - cloneStart) / 1000).toFixed(1);
         await updateJob(job, 'running', '获取分支', 38, `远端分支获取完成（耗时 ${cloneSec}s）`);
+
+        // 优化 Windows 与大量小文件的临时仓库性能，消除 LF/CRLF 转换告警并加速 git add / status
+        await runGit(job, ['-C', checkout, 'config', 'core.autocrlf', 'false'], {}, 'git config core.autocrlf false').catch(() => {});
+        await runGit(job, ['-C', checkout, 'config', 'core.safecrlf', 'false'], {}, 'git config core.safecrlf false').catch(() => {});
+        await runGit(job, ['-C', checkout, 'config', 'core.fscache', 'true'], {}, 'git config core.fscache true').catch(() => {});
 
         const paths = ['index.html', MENU_FILE];
         let guideName = 'README.md';
@@ -988,7 +1025,7 @@ async function publish(job, tenantId, settings, options = {}) {
                 }
             }
         }
-        const disabledPublishedItems = readPublishMenuItems(checkout).filter(item => PORTAL_EXCLUDED_TOOLS.has(item.slug) || !options.toolSlug && disabledSlugs.has(item.slug));
+        const disabledPublishedItems = readPublishMenuItems(checkout).filter(item => PORTAL_EXCLUDED_TOOLS.has(item.slug) || !options.toolSlug && disabledSlugs.has(item.slug) && !item.batchExcluded);
         if (!targetSlugs.length && !disabledPublishedItems.length) throw bad('没有已启用或待清理的静态发布工具');
         if (disabledPublishedItems.length) {
             await updateJob(job, 'running', '清理停用工具', 43, `发现 ${disabledPublishedItems.length} 个已取消勾选且仍存在于远端菜单的工具`);
@@ -1001,6 +1038,7 @@ async function publish(job, tenantId, settings, options = {}) {
         }
 
         const portalFiles = new Map();
+        const publishedSlugs = [];
         for (const slug of targetSlugs) {
             const provider = providers.get(slug);
             if (!provider) continue;
@@ -1017,15 +1055,28 @@ async function publish(job, tenantId, settings, options = {}) {
                 ? `正在生成 [${toolName}] Pages 页面、数据与证据文件`
                 : `正在生成 [${toolName}] 只读单文件 HTML`);
 
+            const forcedTool = Boolean(options.toolSlug && options.force && job.trigger !== 'scheduled');
+            const preflight = provider.isGenericStatic ? estimateStaticTool(slug, config.publishMode) : null;
+            const skipHeavy = async stats => {
+                if (!stats.isHeavy || forcedTool) return false;
+                const message = `[批量跳过] ${toolName} (${slug})：${formatSize(stats.totalBytes)}，${stats.fileCount} 个文件。请从该工具页面顶部选择“强制推送”；已发布版本保持不变。`;
+                if (options.toolSlug) throw bad(message);
+                await recordCommandLog(job, { at: new Date().toISOString(), type: 'info', msg: message });
+                await updateJob(job, 'running', '跳过大工具', 48, message);
+                return true;
+            };
+            if (preflight && await skipHeavy(preflight)) continue;
             const output = config.publishMode === 'pages'
                 ? await provider.buildPagesSnapshot(tenantId, snapshotOptions)
                 : { html: await provider.buildSnapshot(tenantId, snapshotOptions), files: new Map() };
+            if (await skipHeavy(sizePolicy.measure(output))) continue;
+            publishedSlugs.push(slug);
             const fingerprint = fingerprintSnapshotBundle(output, config.publishMode);
 
             await recordCommandLog(job, {
                 at: new Date().toISOString(),
                 type: 'info',
-                msg: `[生成快照] 工具: ${toolName} (${slug})，模式: ${config.publishMode === 'pages' ? 'Pages' : '单文件'}${snapshotOptions.encryption.enabled ? ' (已开启访问密码保护)' : ''}，页面大小: ${formatSize(output.html.length)}${config.publishMode === 'pages' ? `，提取数据文件: ${output.files.size} 个` : ''}`
+                msg: `[生成快照] 工具: ${toolName} (${slug})，模式: ${config.publishMode === 'pages' ? 'Pages' : '单文件'}${snapshotOptions.encryption.enabled ? ' (已开启访问密码保护)' : ''}，页面大小: ${formatSize(Buffer.byteLength(output.html, 'utf8'))}${config.publishMode === 'pages' ? `，提取数据文件: ${output.files.size} 个` : ''}`
             });
 
             const destination = path.join(checkout, toolResolvedFile);
@@ -1099,7 +1150,8 @@ async function publish(job, tenantId, settings, options = {}) {
                 description: tool?.description || provider.description,
                 href: './' + toolResolvedFile,
                 encrypted: Boolean(snapshotOptions.encryption.enabled),
-                fingerprint
+                fingerprint,
+                batchExcluded: sizePolicy.measure(output).isHeavy
             });
             guideName = menuRes.guideName || guideName;
         }
@@ -1115,32 +1167,64 @@ async function publish(job, tenantId, settings, options = {}) {
             msg: `[菜单同步] 已同步 .tools-platform-menu.json 与仓库指南文件 ${guideName}`
         });
 
+        // 单文件大小防御审查（预防触发远端 Git/CodeHub 仓库的单文件 50 MiB pre-receive hook 上限）
+        const MAX_SINGLE_FILE_BYTES = sizePolicy.MAX_GIT_FILE_BYTES;
+        for (const relPath of paths) {
+            const fullPath = path.join(checkout, relPath);
+            if (!fs.existsSync(fullPath)) continue;
+            const checkFile = p => {
+                const stat = fs.lstatSync(p, { throwIfNoEntry: false });
+                if (!stat) return;
+                if (stat.isFile() && stat.size > MAX_SINGLE_FILE_BYTES) {
+                    const rel = path.relative(checkout, p).replace(/\\/g, '/');
+                    let originName = rel;
+                    if (portal?.manifest?.files) {
+                        for (const [orig, meta] of Object.entries(portal.manifest.files)) {
+                            if (meta && (meta.parts || [meta]).some(part => part.url === rel)) {
+                                originName = `${orig} (打包载荷: ${rel})`;
+                                break;
+                            }
+                        }
+                    }
+                    throw bad(`【推送被安全拦截】文件 [${originName}] 体积为 ${formatSize(stat.size)}，已超过本地 45 MiB 安全上限（为远端 50 MiB 限制留余量）。请检查对应工具的公共资源或旧载荷；强制推送不会绕过此限制。`);
+                } else if (stat.isDirectory()) {
+                    for (const sub of fs.readdirSync(p)) checkFile(path.join(p, sub));
+                }
+            };
+            checkFile(fullPath);
+        }
+
         await updateJob(job, 'running', '检查变更', 68, config.publishMode === 'pages' ? '正在逐文件比较 HTML、JSON 和证据附件' : '已生成只读快照 HTML，正在检查目标文件变更');
         const candidates = Array.from(new Set(paths));
         const uniquePaths = candidates.filter(name => !candidates.some(parent => parent !== name && name.startsWith(parent + '/')));
-        await runGit(job, ['-C', checkout, 'add', '-A', '--', ...uniquePaths], { timeout: 30000 }, 'git add -A -- ' + uniquePaths.join(' '));
+        const addStart = Date.now();
+        await runGit(job, ['-C', checkout, 'add', '-A', '--', ...uniquePaths], { timeout: 300000 }, 'git add -A -- ' + uniquePaths.join(' '));
+        const addSec = ((Date.now() - addStart) / 1000).toFixed(1);
+        if (Number(addSec) > 3) {
+            await recordCommandLog(job, { at: new Date().toISOString(), type: 'info', msg: `[变更索引] 文件暂存完成（耗时 ${addSec}s，包含 ${uniquePaths.length} 个根路径项）` });
+        }
         const diffRes = await runGit(job, ['-C', checkout, 'diff', '--cached', '--name-only', '--', ...uniquePaths], {}, 'git diff --cached --name-only');
         const changed = diffRes.stdout.trim().split('\n').filter(Boolean);
         const dirty = changed.length > 0;
         const forceDeploy = Boolean(options.force);
         const summaryNames = [
-            ...targetSlugs.map(s => providers.get(s)?.name || s),
+            ...publishedSlugs.map(s => providers.get(s)?.name || s),
             ...disabledPublishedItems.map(item => `停用${item.name}`)
         ].join('、');
         if (dirty) {
             await updateJob(job, 'running', '检查变更', 75, '本次变更 ' + changed.length + ' 个文件：' + changed.slice(0, 4).join('、') + (changed.length > 4 ? ' 等' : ''));
-            await runGit(job, ['-C', checkout, '-c', 'user.name=Tools Platform', '-c', 'user.email=tools-platform@localhost', 'commit', '-m', `Update readonly tools snapshot (${summaryNames})`], { timeout: 30000 }, `git commit -m "Update readonly tools snapshot (${summaryNames})"`);
+            await runGit(job, ['-C', checkout, '-c', 'user.name=Tools Platform', '-c', 'user.email=tools-platform@localhost', 'commit', '-m', `Update readonly tools snapshot (${summaryNames})`], { timeout: 120000 }, `git commit -m "Update readonly tools snapshot (${summaryNames})"`);
             await updateJob(job, 'running', '推送远端', 86, '仅提交发生变化的发布文件；正在更新远端 ' + config.branch + ' 分支');
             const pushStart = Date.now();
-            await runGit(job, ['-C', checkout, 'push', 'origin', 'HEAD:refs/heads/' + config.branch], { timeout: 300000 }, `git push origin HEAD:refs/heads/${config.branch}`);
+            await runGitWithRetry(job, ['-C', checkout, 'push', 'origin', 'HEAD:refs/heads/' + config.branch], { ...networkOptions(remote), timeout: 300000, retries: 2, retryDelayMs: 4000 }, `git push origin HEAD:refs/heads/${config.branch}`);
             const pushSec = ((Date.now() - pushStart) / 1000).toFixed(1);
             await updateJob(job, 'running', '推送远端', 96, `远端更新成功（耗时 ${pushSec}s）`);
         } else if (forceDeploy) {
             await updateJob(job, 'running', '检查变更', 75, '发布文件无变化，按强制推送模式创建空提交以触发 Pages 重新部署');
-            await runGit(job, ['-C', checkout, '-c', 'user.name=Tools Platform', '-c', 'user.email=tools-platform@localhost', 'commit', '--allow-empty', '-m', `Force redeploy readonly tools snapshot (${summaryNames})`], { timeout: 30000 }, `git commit --allow-empty -m "Force redeploy readonly tools snapshot (${summaryNames})"`);
+            await runGit(job, ['-C', checkout, '-c', 'user.name=Tools Platform', '-c', 'user.email=tools-platform@localhost', 'commit', '--allow-empty', '-m', `Force redeploy readonly tools snapshot (${summaryNames})`], { timeout: 120000 }, `git commit --allow-empty -m "Force redeploy readonly tools snapshot (${summaryNames})"`);
             await updateJob(job, 'running', '推送远端', 86, '强制提交完成；正在更新远端 ' + config.branch + ' 分支');
             const pushStart = Date.now();
-            await runGit(job, ['-C', checkout, 'push', 'origin', 'HEAD:refs/heads/' + config.branch], { timeout: 300000 }, `git push origin HEAD:refs/heads/${config.branch}`);
+            await runGitWithRetry(job, ['-C', checkout, 'push', 'origin', 'HEAD:refs/heads/' + config.branch], { ...networkOptions(remote), timeout: 300000, retries: 2, retryDelayMs: 4000 }, `git push origin HEAD:refs/heads/${config.branch}`);
             const pushSec = ((Date.now() - pushStart) / 1000).toFixed(1);
             await updateJob(job, 'running', '推送远端', 96, `远端强制更新成功（耗时 ${pushSec}s）`);
         } else {
@@ -1157,9 +1241,30 @@ async function publish(job, tenantId, settings, options = {}) {
         } else if (error.code === 'ENOENT') {
             message = '未找到 Git 命令：请在运行服务或绿色版的电脑上安装 Git 并加入 PATH';
         } else if (error.code === 'ETIMEDOUT' || error.killed) {
-            message = `操作超时（超过 300 秒）：阶段 [${job.stage}] 网络连接较慢或远端无响应。建议配置“本地 Git 镜像仓库”加速。`;
+            if (job.stage === '检查变更') {
+                message = `文件暂存与变更检查超时：本次快照包含大量数据或附件（Windows 磁盘与杀软扫描耗时较长）。已优化 Git 索引缓存，建议重试；若只需更新单个工具，可在对应工具中选择“独立推送”。`;
+            } else if (job.stage === '获取分支' || job.stage === '推送远端') {
+                message = `远端仓库网络连接超时（阶段 [${job.stage}]）：内网 CodeHub 连接较慢或响应超时。已开启自动重试，建议检查网络/VPN，或在全局设置中配置“本地 Git 镜像仓库”加速。`;
+            } else {
+                message = `操作超时：阶段 [${job.stage}] 执行耗时过长。建议重试，或配置“本地 Git 镜像仓库”加速。`;
+            }
         } else {
-            message = error.message ? '推送失败：' + error.message : '推送失败：请检查仓库 origin、目标分支、Git 凭据和远端并发更新';
+            const errText = (error.stderr || error.message || '').toLowerCase();
+            if (errText.includes('authentication failed') || errText.includes('could not read username')) {
+                message = 'Git 认证失败：请确认当前 Windows 用户已在系统中配置了 CodeHub 仓库的有效凭据。';
+            } else if (errText.includes('could not resolve host') || errText.includes('network is unreachable')) {
+                message = '无法连接远端仓库：网络不可达，请检查办公内网或 VPN 连接。';
+            } else if (errText.includes('exceeded the upper limited size') || errText.includes('large file')) {
+                const match = (error.stderr || error.message || '').match(/size of file '([^']+)' has exceeded the upper limited size/i);
+                const fileHint = match ? `（违规文件: ${match[1]}）` : '';
+                message = `远端 CodeHub 拒绝推送：存在单文件体积超过了仓库允许的上限 (50 MiB)${fileHint}。建议在设置中取消勾选操作激励统计等包含庞大历史数据的工具，或先在工具中归档清理历史数据后再推送。`;
+            } else if (errText.includes('pre-receive hook declined')) {
+                message = '远端仓库策略拒绝推送，请查看详细日志中的 hook 原因（文件体积、分支权限或其他策略）；重试不能绕过仓库策略。';
+            } else if (errText.includes('fetch first') || errText.includes('non-fast-forward')) {
+                message = '远端存在并发更新冲突：远端分支已被其他提交更新，请重新发起推送以获取最新分支；“强制推送”仅触发重新部署，不覆盖远端历史。';
+            } else {
+                message = error.message ? '推送失败：' + error.message : '推送失败：请检查仓库 origin、目标分支、Git 凭据和远端并发更新';
+            }
         }
         await updateJob(job, 'failed', '失败', job.progress || 0, message);
     } finally {
@@ -1253,9 +1358,75 @@ async function startScheduler() {
     return Promise.all(tenants.map(tenant => scheduleTenant(tenant.id)));
 }
 
+function estimateStaticTool(slug, mode) {
+    const root = getStaticToolRootDir(slug);
+    let htmlBytes = 0, totalBytes = 0, fileCount = 0, maxFileBytes = 0;
+    function walk(dir) {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (entry.name.startsWith('.') || entry.isSymbolicLink()) continue;
+            const file = path.join(dir, entry.name);
+            if (entry.isDirectory()) { if (mode === 'pages') walk(file); }
+            else if (entry.isFile() && (mode === 'pages' || file === path.join(root, 'index.html'))) {
+                const size = fs.statSync(file).size;
+                if (file === path.join(root, 'index.html')) htmlBytes = size;
+                fileCount++; totalBytes += size; maxFileBytes = Math.max(size, maxFileBytes);
+            }
+        }
+    }
+    walk(root);
+    return sizePolicy.classify({ htmlBytes, totalBytes, fileCount, dataFilesCount: fileCount - 1, maxFileBytes });
+}
+
+const estimateCache = new Map();
+const estimatePending = new Map();
+const ESTIMATE_TTL_MS = 5 * 60 * 1000;
+
+async function estimateToolSnapshot(tenantId, toolSlug, mode = 'pages', refresh = false) {
+    const slug = String(toolSlug || '').trim();
+    if (!slug) throw bad('缺少工具标识');
+    if (PORTAL_EXCLUDED_TOOLS.has(slug)) {
+        return {
+            toolSlug: slug,
+            supported: false,
+            message: '静态站点暂不发布脚本与插件'
+        };
+    }
+    const provider = providers.get(slug);
+    if (!provider) throw bad('该工具尚未接入静态页面发布', 404);
+
+    const publishMode = mode === 'single' ? 'single' : 'pages';
+    const cacheKey = `${tenantId}:${slug}:${publishMode}`;
+    const cached = estimateCache.get(cacheKey);
+    if (!refresh && cached && (Date.now() - cached.timestamp < ESTIMATE_TTL_MS)) {
+        return cached.data;
+    }
+
+    if (estimatePending.has(cacheKey)) return estimatePending.get(cacheKey);
+    const task = (async () => {
+        const stats = await runWithTenant(tenantId, async () => {
+            if (provider.isGenericStatic) return estimateStaticTool(slug, publishMode);
+            const options = { encryption: { enabled: false } };
+            const output = publishMode === 'pages' && provider.buildPagesSnapshot
+                ? await provider.buildPagesSnapshot(tenantId, options)
+                : { html: await provider.buildSnapshot(tenantId, options), files: new Map() };
+            return sizePolicy.measure(output);
+        });
+        const res = {
+            toolSlug: slug, supported: true, mode: publishMode, ...stats,
+            htmlSizeFormatted: formatSize(stats.htmlBytes), totalSizeFormatted: formatSize(stats.totalBytes),
+            suggestion: stats.isHeavy ? '批量与定时推送会自动跳过；仅在该工具页面顶部选择强制推送才能更新。已发布版本保留，历史数据不会截断。' : ''
+        };
+        if (estimateCache.size >= 128) estimateCache.delete(estimateCache.keys().next().value);
+        estimateCache.set(cacheKey, { timestamp: Date.now(), data: res });
+        return res;
+    })().finally(() => estimatePending.delete(cacheKey));
+    estimatePending.set(cacheKey, task);
+    return task;
+}
+
 module.exports = {
     getSettings, saveSettings, getPrerequisites, getJob, listJobs, startJob,
     scheduleTenant, startScheduler, stopTenantScheduler, runScheduledTenant,
-    resolvePublishPath, hashPassword,
+    resolvePublishPath, hashPassword, estimateToolSnapshot, isTransientGitError,
     getToolSettings, saveToolSettings, registerProvider, providers
 };

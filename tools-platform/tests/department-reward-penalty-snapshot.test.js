@@ -600,3 +600,68 @@ test('disabling encryption removes password gatekeeper and force push redeploys 
     assert.equal(res4.status, 'success');
     assert.notEqual(res4.commit, res3.commit);
 });
+
+test('publish workflow configures windows performance git flags and records detailed command timing', async () => {
+    const service = require('../backend/models/snapshot-publish-service');
+    const bare = path.join(temp, 'remote-perf.git');
+    const mirror = path.join(temp, 'mirror-perf');
+    execFileSync('git', ['init', '--bare', bare]);
+    execFileSync('git', ['clone', bare, mirror]);
+    execFileSync('git', ['-C', mirror, 'checkout', '-b', 'master']);
+    fs.writeFileSync(path.join(mirror, 'init.txt'), 'init');
+    execFileSync('git', ['-C', mirror, 'add', 'init.txt']);
+    execFileSync('git', ['-C', mirror, '-c', 'user.name=Test', '-c', 'user.email=test@localhost', 'commit', '-m', 'Init']);
+    execFileSync('git', ['-C', mirror, 'push', '-u', 'origin', 'master']);
+
+    await service.saveSettings({
+        repoDir: mirror,
+        branch: 'master',
+        file: '{toolSlug}/index.html',
+        publishMode: 'pages'
+    });
+
+    const job = await service.startJob('default', { force: true });
+    let res;
+    for (let i = 0; i < 100; i++) {
+        res = await service.getJob(job.id);
+        if (res.status !== 'running') break;
+        await new Promise(r => setTimeout(r, 40));
+    }
+    assert.equal(res.status, 'success', JSON.stringify(res.entries));
+    assert.ok(Array.isArray(res.commandLogs));
+    // Verify that checkout git config for performance was executed
+    assert.ok(res.commandLogs.some(l => l.cmd && l.cmd.includes('config core.autocrlf false')));
+    assert.ok(res.commandLogs.some(l => l.cmd && l.cmd.includes('config core.fscache true')));
+    // Verify git add execution
+    assert.ok(res.commandLogs.some(l => l.cmd && l.cmd.includes('add -A')));
+});
+
+test('estimateToolSnapshot provides tool size and warning level with caching', async () => {
+    const service = require('../backend/models/snapshot-publish-service');
+    const est = await service.estimateToolSnapshot('default', 'department-reward-penalty', 'pages');
+    assert.equal(est.toolSlug, 'department-reward-penalty');
+    assert.equal(est.supported, true);
+    assert.ok(est.fileCount >= 1);
+    assert.ok(est.totalBytes > 0);
+    assert.ok(typeof est.totalSizeFormatted === 'string');
+    assert.ok(['normal', 'warning', 'danger'].includes(est.warningLevel));
+
+    // Test cached response
+    const cachedEst = await service.estimateToolSnapshot('default', 'department-reward-penalty', 'pages');
+    assert.equal(cachedEst.totalBytes, est.totalBytes);
+
+    // Test single mode
+    const singleEst = await service.estimateToolSnapshot('default', 'department-reward-penalty', 'single');
+    assert.equal(singleEst.mode, 'single');
+    assert.equal(singleEst.fileCount, 1);
+
+    // Test unsupported/excluded tool
+    const excludedEst = await service.estimateToolSnapshot('default', 'f12-to-extension', 'pages');
+    assert.equal(excludedEst.supported, false);
+
+    // Test non-existent tool throws 404
+    await assert.rejects(
+        () => service.estimateToolSnapshot('default', 'non-existent-tool-slug', 'pages'),
+        /尚未接入/
+    );
+});

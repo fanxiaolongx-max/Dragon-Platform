@@ -23,12 +23,17 @@ app.whenReady().then(async () => {
             await tools.createTool({slug:'private-tool',name:'未发布工具',nameEn:'Unpublished tool',htmlContent:'<!doctype html><html><head></head><body>Never published</body></html>'});
             const checkout=path.join(root,'site');fs.mkdirSync(checkout);
             const files=new Map([['demo-tool/index.html','<!doctype html><html><head></head><body><h1 id="publishedDemo">Published private snapshot</h1></body></html>']]);
+            files.set('demo-tool/data/chunked.json',JSON.stringify({value:'汉'.repeat(3*1024*1024)}));
             const datacom=await require('./backend/models/datacom-knowledge-snapshot').buildPagesSnapshot('default');
             files.set('datacom-protocol-expert/index.html',datacom.html);for(const [name,content] of datacom.files)files.set('datacom-protocol-expert/'+name,content);
             await require('./backend/models/snapshot-portal').buildPortal(checkout,[{slug:'demo-tool',name:'已发布工具',href:'./demo-tool/index.html'},{slug:'datacom-protocol-expert',name:'数通协议专家',href:'./datacom-protocol-expert/index.html'}],files);
             await require('./backend/models/app-db').closeDatabase();await require('./backend/models/platform-db').closeDatabase();await require('./backend/models/tenant-sqlite-pool').closeAll();
         })().catch(e=>{console.error(e);process.exit(1)});
     `], { cwd: ROOT, env: { ...process.env, PORTAL_TEST_DIR: temp, TOOLS_DATA_DIR: path.join(temp, 'data'), TOOLS_REPORT_DATA_DIR: path.join(temp, 'reports'), INITIAL_ADMIN_USERNAME: 'portal-admin', INITIAL_ADMIN_PASSWORD: 'Portal-password-2026!' } });
+    const workerPath = path.join(temp, 'site/tp-static-sw.js');
+    const newWorker = fs.readFileSync(workerPath, 'utf8');
+    // 模拟已经安装的旧版 worker：能读普通密文，但还不认识 parts 分片。
+    fs.writeFileSync(workerPath, newWorker.replace('file.parts || [file]', '[file]').replace('Snapshot verification failed', 'LEGACY verification failed'));
     const web = express();
     web.use('/project', express.static(path.join(temp, 'site')));
     server = await new Promise(resolve => { const s = web.listen(0, '127.0.0.1', () => resolve(s)); });
@@ -82,6 +87,12 @@ app.whenReady().then(async () => {
         await win.loadURL(base + 'index.html#tools');
         await until(() => !!document.querySelector('[data-tool-slug="demo-tool"]'));
     }
+    // 发布新版 worker，延迟安装以捕获“注册已返回，但新版尚未激活”的升级竞态。
+    fs.writeFileSync(workerPath, newWorker + '\nself.addEventListener("install", e => e.waitUntil(new Promise(r => setTimeout(r, 400))));');
+    await win.loadURL(base + 'index.html');
+    await until(() => !!document.getElementById('toolsGrid'));
+    assert.equal(await evaluate(async () => { const r=await fetch('./demo-tool/data/chunked.json');if(!r.ok)throw Error('Upgrade response '+r.status+': '+await r.text());return (await r.json()).value.length; }), 3 * 1024 * 1024, 'an already signed-in client waits for the updated multipart worker');
+    await evaluate(() => window.HomeMode.set('tools'));
     await until(() => Number(getComputedStyle(document.querySelector('.tool-card')).opacity) > 0.9);
     await new Promise(resolve => setTimeout(resolve, 500));
     if (process.env.PORTAL_SCREENSHOT) fs.writeFileSync(process.env.PORTAL_SCREENSHOT, (await win.webContents.capturePage()).toPNG());
@@ -90,6 +101,7 @@ app.whenReady().then(async () => {
     await evaluate(() => document.querySelector('[data-tool-slug="demo-tool"]').click());
     await until(() => !!document.getElementById('publishedDemo'));
     assert.equal(new URL(win.webContents.getURL()).pathname, '/project/demo-tool/index.html');
+    assert.equal(await evaluate(async () => (await (await fetch('./data/chunked.json')).json()).value.length), 3 * 1024 * 1024, 'multipart payload is reassembled and decrypted completely');
     await win.loadURL(base + 'datacom-protocol-expert/index.html');
     await until(() => !!document.querySelector('.dk-hero'));
     win.webContents.debugger.attach('1.3');

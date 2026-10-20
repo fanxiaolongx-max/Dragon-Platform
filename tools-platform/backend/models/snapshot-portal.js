@@ -2,12 +2,14 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const security = require('./snapshot-portal-security');
+const { PAYLOAD_CHUNK_BYTES } = require('./snapshot-size-policy');
 const { getTenantId } = require('./tenant-context');
 const { safeJson } = require('./static-snapshot-data');
 const FRONTEND = path.join(__dirname, '../../frontend');
 const EXCLUDED = new Set(['f12-to-extension', 'python-updater']);
 const safeName = name => typeof name === 'string' && !name.startsWith('/') && !name.split('/').some(p => !p || p === '..' || p === '.');
 const read = name => fs.readFileSync(path.join(FRONTEND, name), 'utf8');
+const payloadParts = item => item.parts || [item];
 function mime(name) {
     return ({ '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.pdf': 'application/pdf', '.ico': 'image/x-icon' })[path.extname(name).toLowerCase()] || 'application/octet-stream';
 }
@@ -124,11 +126,14 @@ async function readPrevious(checkout, keep) {
     let key;
     const files = new Map();
     for (const [name, item] of Object.entries(manifest.files)) {
-        if (!safeName(name) || !/^tp-static\/payload\/[a-f0-9]+\.bin$/.test(item.url)) throw new Error('旧静态站点清单路径无效');
-        assertPath(checkout, item.url);
+        if (!safeName(name) || !payloadParts(item).length) throw new Error('旧静态站点清单路径无效');
+        for (const part of payloadParts(item)) {
+            if (!/^tp-static\/payload\/[a-f0-9]+\.bin$/.test(part.url)) throw new Error('旧静态站点清单路径无效');
+            assertPath(checkout, part.url);
+        }
         if (!keep(name)) continue;
         key ||= await security.getKey(manifest.keyId);
-        files.set(name, security.open(fs.readFileSync(path.join(checkout, item.url)), key, item.iv));
+        files.set(name, Buffer.concat(payloadParts(item).map(part => security.open(fs.readFileSync(path.join(checkout, part.url)), key, part.iv))));
     }
     return { files, manifest };
 }
@@ -179,17 +184,29 @@ async function buildPortal(checkout, items, changedFiles) {
         }
         const hash = security.digest(bytes);
         const old = previous.manifest?.keyId === auth.id && previous.manifest.files[name];
-        const encrypted = old?.hash === hash ? null : security.seal(bytes, auth.key);
-        const entry = old?.hash === hash ? old : { url: `tp-static/payload/${security.digest(name)}.bin`, iv: encrypted.iv, hash, type: mime(name) };
-        if (encrypted) write(checkout, entry.url, encrypted.ciphertext);
+        let entry = old?.hash === hash && (bytes.length <= PAYLOAD_CHUNK_BYTES || old.parts) ? old : null;
+        if (!entry) {
+            const parts = [];
+            for (let offset = 0; offset < bytes.length || !parts.length; offset += PAYLOAD_CHUNK_BYTES) {
+                const chunk = bytes.subarray(offset, offset + PAYLOAD_CHUNK_BYTES);
+                const hash = security.digest(chunk);
+                const prior = old?.parts?.[parts.length];
+                if (prior?.hash === hash) { parts.push(prior); continue; }
+                const encrypted = security.seal(chunk, auth.key);
+                const url = `tp-static/payload/${security.digest(bytes.length > PAYLOAD_CHUNK_BYTES ? 'chunk\0' + name + '\0' + offset : name)}.bin`;
+                write(checkout, url, encrypted.ciphertext);
+                parts.push({ url, iv: encrypted.iv, ...(bytes.length > PAYLOAD_CHUNK_BYTES ? { hash } : {}) });
+            }
+            entry = { ...(parts.length === 1 ? parts[0] : { parts }), hash, type: mime(name) };
+        }
         manifest.files[name] = entry;
         if (/\.html$/i.test(name)) write(checkout, name, bootHtml(path.posix.relative(path.posix.dirname(name), '.') || '.'));
         else if (belongs(name) && fs.existsSync(path.join(checkout, name))) fs.unlinkSync(path.join(checkout, name));
     }
     for (const [name, bytes] of publicFiles.files) write(checkout, name, bytes);
     manifest.files = Object.fromEntries(Object.entries(manifest.files).sort(([a], [b]) => a.localeCompare(b)));
-    const activePayloads = new Set(Object.values(manifest.files).map(item => item.url));
-    for (const item of Object.values(previous.manifest?.files || {})) {
+    const activePayloads = new Set(Object.values(manifest.files).flatMap(payloadParts).map(item => item.url));
+    for (const item of Object.values(previous.manifest?.files || {}).flatMap(payloadParts)) {
         if (!activePayloads.has(item.url) && fs.existsSync(path.join(checkout, item.url))) fs.unlinkSync(path.join(checkout, item.url));
     }
     write(checkout, 'tp-static/site.json', JSON.stringify(manifest, null, 2) + '\n');
