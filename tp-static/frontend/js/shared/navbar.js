@@ -423,6 +423,7 @@ function registerNavbarI18n() {
             'nav.set.tab.initialize': '初始化',
             'nav.set.tab.tenants': '租户管理',
             'nav.set.tab.media': '媒体资源',
+            'nav.set.tab.promotions': '平台推广',
             'nav.set.tab.customBackup': '自定义工具备份',
             'nav.set.tab.accounts': '账号管理',
             'nav.set.tab.security': '安全策略',
@@ -444,6 +445,7 @@ function registerNavbarI18n() {
             'nav.set.sub.initialize': '补齐开箱即用内容，或在安全备份和完整归档后恢复到首次使用状态。',
             'nav.set.sub.tenants': '管理独立业务空间。每个租户拥有自己的脚本、规则、数据库、附件和自定义工具。',
             'nav.set.sub.media': '统一管理点播媒体库、分类文件夹、本地资源批量导入与封面重绘。',
+            'nav.set.sub.promotions': '配置首页右上角推广区：推广视频的显示、推广链接的增删改、首页最多显示的链接数与轮换间隔，以及桌面端右下角推广卡片堆。',
             'nav.media.categoryFilter': '媒体分类筛选',
             'nav.media.searchLabel': '搜索媒体资源',
             'nav.media.previewBack': '返回媒体设置',
@@ -916,7 +918,8 @@ function registerNavbarI18n() {
             'nav.set.tab.snapshotPublish': 'Static Page Publishing',
             'nav.set.tab.initialize': 'Initialization',
             'nav.set.tab.tenants': 'Tenants',
-            'nav.set.tab.media': '🎬 Media Library',
+            'nav.set.tab.media': 'Media Library',
+            'nav.set.tab.promotions': 'Promotions',
             'nav.set.tab.customBackup': 'Custom Tool Backup',
             'nav.set.tab.accounts': 'Accounts',
             'nav.set.tab.security': 'Security',
@@ -938,6 +941,7 @@ function registerNavbarI18n() {
             'nav.set.sub.initialize': 'Add the Quick Start defaults or return to a clean first-run state after a safety backup and full archive.',
             'nav.set.sub.tenants': 'Manage isolated workspaces. Each tenant has separate scripts, rules, databases, attachments, and custom tools.',
             'nav.set.sub.media': 'Manage the on-demand media library, category folders, local batch imports, and poster regeneration.',
+            'nav.set.sub.promotions': 'Configure the home page promo area: which videos show, promoted links, the maximum number of links and rotation interval, and the desktop promotion card stack.',
             'nav.media.categoryFilter': 'Filter media categories',
             'nav.media.searchLabel': 'Search media resources',
             'nav.media.previewBack': 'Back to media settings',
@@ -2008,13 +2012,15 @@ function updateResponsiveNavbar() {
 
 async function loadNavigationData() {
     try {
-        const [settingsRes, toolsRes] = await Promise.all([
-            fetch('/api/nav-settings', { headers: getAuthHeaderForNav() }),
-            fetch('/api/custom-tools', { headers: getAuthHeaderForNav() })
+        const [settings, tools] = await Promise.all([
+            fetch('/api/nav-settings', { headers: getAuthHeaderForNav() }).then(res => res.ok ? res.json() : null),
+            typeof API !== 'undefined'
+                ? API.get('/api/custom-tools').catch(() => null)
+                : fetch('/api/custom-tools', { headers: getAuthHeaderForNav() }).then(res => res.ok ? res.json() : null)
         ]);
-        if (settingsRes.ok) navState.settings = normalizeNavSettings(await settingsRes.json());
-        if (toolsRes.ok) navState.customTools = await toolsRes.json();
-        if (settingsRes.ok || toolsRes.ok) writeNavigationBootstrapCache();
+        if (settings) navState.settings = normalizeNavSettings(settings);
+        if (tools) navState.customTools = tools;
+        if (settings || tools) writeNavigationBootstrapCache();
     } catch (e) {
         console.warn('[Navbar] load navigation data failed:', e);
     }
@@ -2323,9 +2329,13 @@ function moveArrayItem(arr, index, delta) {
     return copy;
 }
 
+function renderNavSettingsTabLabel(icon, label) {
+    return `<span class="nav-settings-tab-icon" aria-hidden="true">${navEscape(icon)}</span><span class="nav-settings-tab-label">${navEscape(label)}</span>`;
+}
+
 function renderPageSettingsTabs() {
     return NAV_BUILTIN_LINKS.map(item => `
-        <button class="nav-settings-tab nav-settings-tab-page ${navState.settingsTab === `page:${item.id}` ? 'active' : ''}" data-tab="page:${navEscape(item.id)}" onclick="switchNavSettingsTab('page:${navEscape(item.id)}')">${item.icon} ${navEscape(getNavLabel(item))}</button>
+        <button class="nav-settings-tab nav-settings-tab-page ${navState.settingsTab === `page:${item.id}` ? 'active' : ''}" data-tab="page:${navEscape(item.id)}" onclick="switchNavSettingsTab('page:${navEscape(item.id)}')">${renderNavSettingsTabLabel(item.icon, getNavLabel(item))}</button>
     `).join('');
 }
 
@@ -2335,25 +2345,26 @@ function renderNavSettingsSidebar() {
     const t = navState.settingsTab;
     sidebar.innerHTML = `
         <div class="nav-settings-title">${navEscape(navT('nav.set.title'))}</div>
-        <button class="nav-settings-tab ${t === 'primary' ? 'active' : ''}" data-tab="primary" onclick="switchNavSettingsTab('primary')">${navEscape(navT('nav.set.tab.primary'))}</button>
-        <button class="nav-settings-tab ${t === 'logo' ? 'active' : ''}" data-tab="logo" onclick="switchNavSettingsTab('logo')">${navEscape(navT('nav.set.tab.logo'))}</button>
-        <button class="nav-settings-tab ${t === 'categories' ? 'active' : ''}" data-tab="categories" onclick="switchNavSettingsTab('categories')">${navEscape(navT('nav.set.tab.categories'))}</button>
-        <button class="nav-settings-tab ${t === 'items' ? 'active' : ''}" data-tab="items" onclick="switchNavSettingsTab('items')">${navEscape(navT('nav.set.tab.items'))}</button>
-        <button class="nav-settings-tab ${t === 'ai' ? 'active' : ''}" data-tab="ai" onclick="switchNavSettingsTab('ai')">${navEscape(navT('nav.set.tab.ai'))}</button>
-        <button class="nav-settings-tab ${t === 'channels' ? 'active' : ''}" data-tab="channels" onclick="switchNavSettingsTab('channels')">${navEscape(navT('nav.set.tab.channels'))}</button>
-        <button class="nav-settings-tab ${t === 'update' ? 'active' : ''}" data-tab="update" onclick="switchNavSettingsTab('update')">${navEscape(navT('nav.set.tab.update'))}</button>
-        <button class="nav-settings-tab ${t === 'backup' ? 'active' : ''}" data-tab="backup" onclick="switchNavSettingsTab('backup')">${navEscape(navT('nav.set.tab.backup'))}</button>
-        <button class="nav-settings-tab ${t === 'snapshotPublish' ? 'active' : ''}" data-tab="snapshotPublish" onclick="switchNavSettingsTab('snapshotPublish')">${navEscape(navT('nav.set.tab.snapshotPublish'))}</button>
-        <button class="nav-settings-tab ${t === 'initialize' ? 'active' : ''}" data-tab="initialize" onclick="switchNavSettingsTab('initialize')">${navEscape(navT('nav.set.tab.initialize'))}</button>
-        <button class="nav-settings-tab ${t === 'tenants' ? 'active' : ''}" data-tab="tenants" onclick="switchNavSettingsTab('tenants')">${navEscape(navT('nav.set.tab.tenants'))}</button>
-        <button class="nav-settings-tab ${t === 'media' ? 'active' : ''}" data-tab="media" onclick="switchNavSettingsTab('media')">${navEscape(navT('nav.set.tab.media'))}</button>
-        <button class="nav-settings-tab ${t === 'customBackup' ? 'active' : ''}" data-tab="customBackup" onclick="switchNavSettingsTab('customBackup')">${navEscape(navT('nav.set.tab.customBackup'))}</button>
-        <button class="nav-settings-tab ${t === 'accounts' ? 'active' : ''}" data-tab="accounts" onclick="switchNavSettingsTab('accounts')">${navEscape(navT('nav.set.tab.accounts'))}</button>
-        <button class="nav-settings-tab ${t === 'security' ? 'active' : ''}" data-tab="security" onclick="switchNavSettingsTab('security')">${navEscape(navT('nav.set.tab.security'))}</button>
+        <button class="nav-settings-tab ${t === 'primary' ? 'active' : ''}" data-tab="primary" onclick="switchNavSettingsTab('primary')">${renderNavSettingsTabLabel('🧭', navT('nav.set.tab.primary'))}</button>
+        <button class="nav-settings-tab ${t === 'logo' ? 'active' : ''}" data-tab="logo" onclick="switchNavSettingsTab('logo')">${renderNavSettingsTabLabel('🏷️', navT('nav.set.tab.logo'))}</button>
+        <button class="nav-settings-tab ${t === 'categories' ? 'active' : ''}" data-tab="categories" onclick="switchNavSettingsTab('categories')">${renderNavSettingsTabLabel('🗂️', navT('nav.set.tab.categories'))}</button>
+        <button class="nav-settings-tab ${t === 'items' ? 'active' : ''}" data-tab="items" onclick="switchNavSettingsTab('items')">${renderNavSettingsTabLabel('↕️', navT('nav.set.tab.items'))}</button>
+        <button class="nav-settings-tab ${t === 'ai' ? 'active' : ''}" data-tab="ai" onclick="switchNavSettingsTab('ai')">${renderNavSettingsTabLabel('🤖', navT('nav.set.tab.ai'))}</button>
+        <button class="nav-settings-tab ${t === 'channels' ? 'active' : ''}" data-tab="channels" onclick="switchNavSettingsTab('channels')">${renderNavSettingsTabLabel('🔌', navT('nav.set.tab.channels'))}</button>
+        <button class="nav-settings-tab ${t === 'update' ? 'active' : ''}" data-tab="update" onclick="switchNavSettingsTab('update')">${renderNavSettingsTabLabel('🔄', navT('nav.set.tab.update'))}</button>
+        <button class="nav-settings-tab ${t === 'backup' ? 'active' : ''}" data-tab="backup" onclick="switchNavSettingsTab('backup')">${renderNavSettingsTabLabel('💾', navT('nav.set.tab.backup'))}</button>
+        <button class="nav-settings-tab ${t === 'snapshotPublish' ? 'active' : ''}" data-tab="snapshotPublish" onclick="switchNavSettingsTab('snapshotPublish')">${renderNavSettingsTabLabel('📤', navT('nav.set.tab.snapshotPublish'))}</button>
+        <button class="nav-settings-tab ${t === 'initialize' ? 'active' : ''}" data-tab="initialize" onclick="switchNavSettingsTab('initialize')">${renderNavSettingsTabLabel('🌱', navT('nav.set.tab.initialize'))}</button>
+        <button class="nav-settings-tab ${t === 'tenants' ? 'active' : ''}" data-tab="tenants" onclick="switchNavSettingsTab('tenants')">${renderNavSettingsTabLabel('🏢', navT('nav.set.tab.tenants'))}</button>
+        <button class="nav-settings-tab ${t === 'media' ? 'active' : ''}" data-tab="media" onclick="switchNavSettingsTab('media')">${renderNavSettingsTabLabel('🎬', navT('nav.set.tab.media'))}</button>
+        <button class="nav-settings-tab ${t === 'promotions' ? 'active' : ''}" data-tab="promotions" onclick="switchNavSettingsTab('promotions')">${renderNavSettingsTabLabel('📣', navT('nav.set.tab.promotions'))}</button>
+        <button class="nav-settings-tab ${t === 'customBackup' ? 'active' : ''}" data-tab="customBackup" onclick="switchNavSettingsTab('customBackup')">${renderNavSettingsTabLabel('🧰', navT('nav.set.tab.customBackup'))}</button>
+        <button class="nav-settings-tab ${t === 'accounts' ? 'active' : ''}" data-tab="accounts" onclick="switchNavSettingsTab('accounts')">${renderNavSettingsTabLabel('👤', navT('nav.set.tab.accounts'))}</button>
+        <button class="nav-settings-tab ${t === 'security' ? 'active' : ''}" data-tab="security" onclick="switchNavSettingsTab('security')">${renderNavSettingsTabLabel('🛡️', navT('nav.set.tab.security'))}</button>
         <div class="nav-settings-title nav-settings-section-title">${navEscape(navT('nav.set.tab.pages'))}</div>
         ${renderPageSettingsTabs()}
         <div class="nav-settings-section-title" aria-hidden="true"></div>
-        <button class="nav-settings-tab ${t === 'page:f12-extension' ? 'active' : ''}" data-tab="page:f12-extension" onclick="switchNavSettingsTab('page:f12-extension')">🧩 ${navEscape(navT('nav.page.f12.title'))}</button>
+        <button class="nav-settings-tab ${t === 'page:f12-extension' ? 'active' : ''}" data-tab="page:f12-extension" onclick="switchNavSettingsTab('page:f12-extension')">${renderNavSettingsTabLabel('🧩', navT('nav.page.f12.title'))}</button>
     `;
 }
 
@@ -2420,6 +2431,7 @@ function getNavSettingsTitle() {
     if (navState.settingsTab === 'initialize') return navT('nav.set.tab.initialize');
     if (navState.settingsTab === 'tenants') return navT('nav.set.tab.tenants');
     if (navState.settingsTab === 'media') return navT('nav.set.tab.media');
+    if (navState.settingsTab === 'promotions') return navT('nav.set.tab.promotions');
     if (navState.settingsTab === 'customBackup') return navT('nav.set.tab.customBackup');
     if (navState.settingsTab === 'categories') return navT('nav.set.tab.categories');
     if (navState.settingsTab === 'items') return navT('nav.set.tab.items');
@@ -2445,6 +2457,7 @@ function getNavSettingsSubtitle() {
     if (navState.settingsTab === 'initialize') return navT('nav.set.sub.initialize');
     if (navState.settingsTab === 'tenants') return navT('nav.set.sub.tenants');
     if (navState.settingsTab === 'media') return navT('nav.set.sub.media');
+    if (navState.settingsTab === 'promotions') return navT('nav.set.sub.promotions');
     if (navState.settingsTab === 'customBackup') return navT('nav.set.sub.customBackup');
     if (navState.settingsTab === 'categories') return navT('nav.set.sub.categories');
     if (navState.settingsTab === 'items') return navT('nav.set.sub.items');
@@ -2476,6 +2489,7 @@ function renderNavSettingsContent() {
     if (navState.settingsTab === 'initialize') return renderInitializationSettings(content);
     if (navState.settingsTab === 'tenants') return renderTenantSettings(content);
     if (navState.settingsTab === 'media') return renderMediaSettings(content);
+    if (navState.settingsTab === 'promotions') return renderPromotionSettings(content);
     if (navState.settingsTab === 'customBackup') return renderCustomToolBackupSettings(content);
     if (navState.settingsTab === 'categories') return renderCategorySettings(content);
     if (navState.settingsTab === 'items') return renderItemCategorySettings(content);
@@ -3292,17 +3306,38 @@ window.setAiUsageDimension = function (dimension) {
     loadAiUsageDashboard(dimension);
 };
 
+// 按需加载的设置脚本带上内容版本号：CDN 会给无版本号的脚本加数小时缓存，平台更新后仍拿到旧版
+async function loadNavLazyScript(src, errorText) {
+    let url = src;
+    try {
+        const res = await fetch(`/api/asset-version?path=${encodeURIComponent(src)}`, { cache: 'no-store' });
+        const data = res.ok ? await res.json() : null;
+        if (data && data.version) url = `${src}?v=${encodeURIComponent(data.version)}`;
+    } catch (_) { /* 拿不到版本号时按原地址加载 */ }
+    await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = url;
+        script.onload = resolve;
+        script.onerror = () => reject(new Error(errorText));
+        document.head.appendChild(script);
+    });
+}
+
 // 频道对接（WeLink 助理）设置页按需加载，逻辑在 shared/channel-settings.js
 async function renderChannelSettings(content) {
     try {
-        if (!window.ToolsChannelSettings) await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = './tp-static/frontend/js/shared/channel-settings.js';
-            script.onload = resolve;
-            script.onerror = () => reject(new Error(navLocaleText('无法加载频道对接组件', 'Channel settings component could not load')));
-            document.head.appendChild(script);
-        });
+        if (!window.ToolsChannelSettings) await loadNavLazyScript('./tp-static/frontend/js/shared/channel-settings.js', navLocaleText('无法加载频道对接组件', 'Channel settings component could not load'));
         await window.ToolsChannelSettings.render(content);
+    } catch (error) {
+        content.innerHTML = `<div class="nav-settings-empty">${navEscape(error.message)}</div>`;
+    }
+}
+
+// 平台推广设置页按需加载，逻辑在 shared/promotion-settings.js
+async function renderPromotionSettings(content) {
+    try {
+        if (!window.ToolsPromotionSettings) await loadNavLazyScript('./tp-static/frontend/js/shared/promotion-settings.js', navLocaleText('无法加载平台推广组件', 'Promotion settings component could not load'));
+        await window.ToolsPromotionSettings.render(content);
     } catch (error) {
         content.innerHTML = `<div class="nav-settings-empty">${navEscape(error.message)}</div>`;
     }
@@ -9737,6 +9772,20 @@ document.addEventListener('click', event => {
     if (event.target.closest('#builtinToolsCompareBtn')) void window.openBuiltinToolsComparison();
 });
 
+const BUILTIN_SYNC_CHECK_TTL_MS = 5 * 60 * 1000;
+
+async function builtinSyncCheckCacheKey() {
+    let version;
+    try { version = await window.ToolsAppVersion?.get(); } catch (_) { return ''; }
+    // 包版本变化后重新检查；没有版本信息时不跳过扫描。
+    if (!version) return '';
+    return 'tools_builtin_sync_check:' + JSON.stringify([
+        localStorage.getItem('tools_user') || '',
+        localStorage.getItem('tools_tenant_id') || 'default',
+        version
+    ]);
+}
+
 async function checkBuiltinToolsSync() {
     const toolMarketOpened = () => document.getElementById('toolMarketBtn')?.dataset.opened === '1';
     if (toolMarketOpened()) return;
@@ -9750,7 +9799,17 @@ async function checkBuiltinToolsSync() {
     ) return;
     builtinToolsSyncChecking = true;
     try {
+        const cacheKey = await builtinSyncCheckCacheKey();
+        try {
+            const checkedAt = Number(cacheKey && sessionStorage.getItem(cacheKey));
+            const age = Date.now() - checkedAt;
+            if (checkedAt > 0 && age >= 0 && age < BUILTIN_SYNC_CHECK_TTL_MS) return;
+        } catch (_) { /* 无法使用会话存储时按原逻辑扫描 */ }
         const preview = await API.get('/api/custom-tools/builtin-sync/preview');
+        // 仅记住“没有待更新项”的成功检查，不复用可能过时的更新清单。
+        if (cacheKey && Array.isArray(preview?.pending) && !preview.pending.length) {
+            try { sessionStorage.setItem(cacheKey, String(Date.now())); } catch (_) { /* noop */ }
+        }
         if (!toolMarketOpened() && preview && Array.isArray(preview.pending) && preview.pending.length) {
             openBuiltinToolsSyncModal(preview);
         }

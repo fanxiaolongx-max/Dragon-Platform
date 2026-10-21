@@ -422,6 +422,19 @@
 .home-workspace .custom-tool-actions { top: 10px; right: 10px; }
 .home-workspace .custom-tool-action { width: 26px; height: 26px; }
 
+/* 四个操作收成两行，标题行为操作区留足高度，避免覆盖标题和描述。 */
+@media (min-width: 641px) {
+    .home-workspace .custom-tool-actions:has(> :nth-child(4)) {
+        display: grid;
+        grid-template-columns: repeat(2, 26px);
+        gap: 4px;
+    }
+    .home-workspace .tool-card.custom-tool:has(.custom-tool-actions > :nth-child(4)) .card-title {
+        min-height: 56px;
+        overflow-wrap: anywhere;
+    }
+}
+
 .home-empty {
     padding: 56px 0 64px;
     color: var(--ws-faint);

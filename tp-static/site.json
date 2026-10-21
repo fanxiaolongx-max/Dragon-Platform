@@ -168,14 +168,14 @@
     },
     "datacom-protocol-expert/assets/app.css": {
       "url": "tp-static/payload/88adb51d768da777c71d0e3b73c5182b65314c3298f34e118a614fa32f3d5d56.bin",
-      "iv": "+wGGBdOiHqgs7fWF",
-      "hash": "e40d9a16b87d752963f7a304edb42755d12b9b07bacf0bc96913a772b79a720c",
+      "iv": "mIPZpP9j8gyhXYiN",
+      "hash": "9bf1fe68b6079c6582c845159cf8d394454c0fe0f6cea8a767d0360c669c620c",
       "type": "text/css; charset=utf-8"
     },
     "datacom-protocol-expert/assets/app.js": {
       "url": "tp-static/payload/375c6626a6369c6c7885115a3cda0feaf868037de2553f8cf685facce502fc23.bin",
-      "iv": "m70+cpkROBza1w/x",
-      "hash": "7d4f330c4a6a17120ae8f48bf2df3ba4768da953714849ae4d640fd8a5464a76",
+      "iv": "Y7IBsW1Q/CaZniE2",
+      "hash": "7f25abb7ef958a1565aba76da88234fc4f1cbd1ba0937e7114285e80199745f9",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/diagram-kit.js": {
@@ -222,9 +222,21 @@
     },
     "datacom-protocol-expert/assets/note-video.js": {
       "url": "tp-static/payload/0cc067ece739621455b05c3a6b0f64c13d2a50c93a5acb6f46d9db9eb3e0f8d0.bin",
-      "iv": "PcJ10YJNyuTDGixY",
-      "hash": "f135b8f7bad57f16627e8a1ae21f4c49ac524d2a176cf80be10171de5485cae1",
+      "iv": "3nvf4nv2AsHOBdUp",
+      "hash": "de8d41c632ae1e8ba5bfe8a8312f6bd16570eeef1e040f65c58e28cf4ab81285",
       "type": "text/javascript; charset=utf-8"
+    },
+    "datacom-protocol-expert/assets/note-videos/ospf-dr-bdr-poster.jpg": {
+      "url": "tp-static/payload/e2f7cee8c9c1cb6543eb2f8e04cff3516d5bc06de3d465b888cdc49797954480.bin",
+      "iv": "x2X2Iz8B7fvHo/EG",
+      "hash": "c6d003f9c5ecdac668fd035aaeccdc9b0259f27815ad6097a14afa49958476ee",
+      "type": "image/jpeg"
+    },
+    "datacom-protocol-expert/assets/note-videos/ospf-fa-poster.jpg": {
+      "url": "tp-static/payload/600137596fcfceb6b5057ba14ac4778e88ff86ccf602112e27f7b3c19523d46e.bin",
+      "iv": "bo9GZGYA/GtDRGcf",
+      "hash": "bf53f20077af87e5cfc8527121d751a7033b6fd313da228da22a712598273501",
+      "type": "image/jpeg"
     },
     "datacom-protocol-expert/assets/note-videos/ospf-fsm-poster.jpg": {
       "url": "tp-static/payload/06db0214353052a08287daeed9ddaea47c2e54757c179a973264aadcdd8ab8ce.bin",
@@ -342,8 +354,8 @@
     },
     "datacom-protocol-expert/index.html": {
       "url": "tp-static/payload/350b556c16e392b0cc02319227bdbc6d6890a508d6bd9b1e85082d7619b87ac2.bin",
-      "iv": "4EO+wrQQp0lBxHwC",
-      "hash": "0b44695a38a794ee4bb1573423788e90442c6f89392b2d5219855a40022eaaac",
+      "iv": "VUn6SARaEq04oUAJ",
+      "hash": "b2f98cfeab63f5173b4bd06df20e29e6c60d52e9407efed821e701da170e5f33",
       "type": "text/html; charset=utf-8"
     },
     "datacom-protocol-expert/THIRD_PARTY_NOTICES.md": {
@@ -428,8 +440,8 @@
     },
     "index.html": {
       "url": "tp-static/payload/0eb547304658805aad788d320f10bf1f292797b5e6d745a3bf617584da017051.bin",
-      "iv": "XwC/bHp1kBOUfxg+",
-      "hash": "1f7ef15a3e25306cb69993c716ab38f518108546fc2928081eedbcd588772fd3",
+      "iv": "AWTUQl33Zx/SwGkv",
+      "hash": "8c768cfe2f39cabef572e773f4c76d9df5e942304781bc6494b1e0f7fbe7205c",
       "type": "text/html; charset=utf-8"
     },
     "mayrig/index.html": {
@@ -1220,8 +1232,8 @@
     },
     "portal-data.json": {
       "url": "tp-static/payload/4187a00828abb3180acbb34476f6daf7e5f48cabcd5296e625824e9757bf3d25.bin",
-      "iv": "rA8j0UC6oI0yRn6b",
-      "hash": "6b2e0509d7350a10e7731ebe31233d03208826372f31cf187d4eaca3c4c345a8",
+      "iv": "JBXhDa5yKj6EE57n",
+      "hash": "d528e7e6811e8473cf6ff0244ccd46c2255f1ae0a2776c9263748609c2682644",
       "type": "application/json; charset=utf-8"
     },
     "pr-2/index.html": {
@@ -11568,8 +11580,8 @@
     },
     "tool-mumxi3px/index.html": {
       "url": "tp-static/payload/75d15759f83fc8f0e3a6cc7c39574b5443a39eabe4bc8bd9a60591224eac6eda.bin",
-      "iv": "unVasC/4ViLBLhlu",
-      "hash": "1e8e92dfa5e5bdb797a4ba805918287601fbb06e39aee2351f845546063f2d5a",
+      "iv": "w7gQs+krKKWnHtkm",
+      "hash": "6d37c337e277d4e102ee6f0197d6dd294120dd82316ff3144a00d7862d85126f",
       "type": "text/html; charset=utf-8"
     },
     "tool-mv9strpn/index.html": {
