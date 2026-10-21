@@ -1058,6 +1058,13 @@
         animate();
 
         // --- 业务逻辑 ---
+        let loginAppVersion = '';
+        function renderAppVersion() {
+            const badge = document.getElementById('appVersionBadge');
+            if (!badge || !loginAppVersion) return;
+            const en = (window.ToolsI18n?.getLanguage?.() || document.documentElement.lang || '').startsWith('en');
+            badge.textContent = `v${loginAppVersion}${window.__TP_STATIC_BASE__ ? ' · ' + (en ? 'Online test version' : '在线测试版') : ''}`;
+        }
         async function loadAppVersion() {
             const badge = document.getElementById('appVersionBadge');
             if (!badge) return;
@@ -1066,7 +1073,8 @@
                 if (!res.ok) throw new Error('version api failed');
                 const data = await res.json();
                 if (data && data.version) {
-                    badge.textContent = `v${String(data.version).replace(/^v/i, '')}`;
+                    loginAppVersion = String(data.version).replace(/^v/i, '');
+                    renderAppVersion();
                 }
             } catch (e) {
                 console.warn('[Login] load app version failed:', e);
@@ -1557,6 +1565,7 @@
             window.ToolsI18n.register('login', LOGIN_I18N);
             window.addEventListener('tools:languagechange', () => {
                 updateLoginLanguageUI();
+                renderAppVersion();
             });
             updateLoginLanguageUI();
         }

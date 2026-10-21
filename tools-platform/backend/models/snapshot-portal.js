@@ -68,7 +68,7 @@ async function collectHome(items) {
     const appVersion = { name: appPackage.productName || appPackage.name || 'Tools Platform', version: appPackage.version || '0.0.0' };
     return { settings, identity, tools, summary, items, friendLinks, promotions, appVersion, tenantId: getTenantId() };
 }
-function collectPublicFiles(identity, promotions) {
+function collectPublicFiles(identity, promotions, appVersion) {
     const files = new Map();
     function walk(dir) {
         for (const entry of fs.readdirSync(path.join(FRONTEND, dir), { withFileTypes: true })) {
@@ -122,7 +122,7 @@ function collectPublicFiles(identity, promotions) {
     files.set('login.html', portalHtml(rewrite(read('pages/login.html')), 'login.html', false));
     const published = new Map([...files].map(([name, bytes]) => [/^(?:js|css|assets)\//.test(name) || name === 'favicon.ico' ? 'tp-static/frontend/' + name : name, bytes]));
     for (const name of ['login.html', 'project-evolution.html']) published.set(name, versionPage(String(published.get(name)), published));
-    return { files: published, media, identity: { '/api/platform-identity': identity, '/api/nav-settings': identity, '/api/platform-logo/status': { ok: true, hasLogo: files.has('assets/logo.png') } } };
+    return { files: published, media, identity: { '/api/platform-identity': identity, '/api/nav-settings': identity, '/api/platform-logo/status': { ok: true, hasLogo: files.has('assets/logo.png') }, '/api/app-version': appVersion } };
 }
 
 async function readPrevious(checkout, keep) {
@@ -160,7 +160,7 @@ async function buildPortal(checkout, items, changedFiles) {
     const previous = await readPrevious(checkout, name => belongs(name) && !replaced(name));
     const auth = await security.getSecurity();
     const home = await collectHome(items);
-    const publicFiles = collectPublicFiles(home.identity, home.promotions);
+    const publicFiles = collectPublicFiles(home.identity, home.promotions, home.appVersion);
     const files = new Map();
     for (const [name, bytes] of previous.files) if (belongs(name) && !replaced(name) && !name.endsWith('/.tools-platform-snapshot.json')) files.set(name, bytes);
     // 首次升级：吸收以前发布的工具文件，再以加密载荷替换明文文件。

@@ -55,6 +55,8 @@ test('publishes original homepage and login, encrypts tool data and uses separat
     assert.match(fs.readFileSync(path.join(checkout, 'tp-static/frontend/js/project-evolution.js'), 'utf8'), /Dragon-Platform-Media\/releases\/download/);
     const data = JSON.parse(await decrypted('portal-data.json'));
     assert.deepEqual(data.appVersion, { name: require('../package.json').productName || require('../package.json').name, version: require('../package.json').version });
+    assert.deepEqual(meta.identity['/api/app-version'], data.appVersion, 'the login page can read the same publish-time version before authentication');
+    assert.deepEqual(Object.keys(meta.identity['/api/app-version']).sort(), ['name', 'version'], 'public version metadata excludes business and authentication data');
     assert.deepEqual(data.promotions, await promotions.getConfig());
     const cover = data.promotions.links.find(link => link.coverImage.startsWith('/assets/promotions/')).coverImage;
     assert.ok(fs.existsSync(path.join(checkout, 'tp-static/frontend', cover.slice(1))), 'local promotion covers are published');

@@ -44,6 +44,16 @@ app.whenReady().then(async () => {
     await win.loadURL(base);
     await until(() => !!document.getElementById('loginBtn'));
     assert.equal(new URL(win.webContents.getURL()).pathname, '/project/login.html');
+    await until(() => document.getElementById('appVersionBadge')?.textContent.includes('在线测试版'));
+    assert.equal(await evaluate(() => document.getElementById('appVersionBadge').textContent), `v${require('../package.json').version} · 在线测试版`);
+    assert.equal(await evaluate(async () => (await fetch('/api/app-version', { method: 'PUT', body: '{}' })).status), 403, 'the pre-login version endpoint stays read-only');
+    await evaluate(() => window.ToolsI18n.setLanguage('en-US'));
+    await until(() => document.getElementById('appVersionBadge')?.textContent.includes('Online test version'));
+    win.setSize(390, 844);
+    await evaluate(() => document.documentElement.dataset.theme = 'light');
+    assert.equal(await evaluate(() => { const badge = document.getElementById('appVersionBadge'), rect = badge.getBoundingClientRect(); return rect.width > 0 && rect.left >= 0 && rect.right <= innerWidth && badge.scrollWidth <= badge.clientWidth + 1; }), true, 'the login version badge fits a narrow window');
+    win.setSize(1440, 1000);
+    await evaluate(() => { document.documentElement.dataset.theme = 'dark'; window.ToolsI18n.setLanguage('zh-CN'); });
     await evaluate(() => { document.getElementById('username').value = 'portal-admin'; document.getElementById('password').value = 'wrong'; document.getElementById('loginBtn').click(); });
     await until(() => !!document.getElementById('error-msg').textContent);
     await until(() => !document.getElementById('loginBtn').disabled);
