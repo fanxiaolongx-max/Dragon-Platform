@@ -27,8 +27,18 @@
         if (route === '/api/auth/me') return json(auth ? { username: auth.username, role: auth.role, tenantId: data.tenantId } : {}, auth ? 200 : 401);
         if (String(options.method || 'GET').toUpperCase() !== 'GET') {
             if (route === '/api/platform-metrics/open') return json({ success: true });
+            // 静态站点不收集点击统计；原推广组件上报时无需弹出只读提示。
+            if (route === '/api/platform-promotions/clicks' && String(options.method).toUpperCase() === 'POST') return json({ success: true, counted: false });
             notify(); return json({ error: window.__TP_STATIC_DENIED__(), code: 'READ_ONLY_SNAPSHOT' }, 403);
         }
+        if (route === '/api/app-version') return json(data.appVersion || {});
+        if (route === '/api/platform-promotions' && data.promotions) return json({
+            ...data.promotions,
+            desktopStack: false,
+            defaultsWritable: false,
+            links: data.promotions.links.map(link => ({ ...link, coverImage: link.coverImage?.startsWith('/assets/promotions/') ? new URL('tp-static/frontend' + link.coverImage, base).href : link.coverImage }))
+        });
+        if (route === '/api/platform-promotions/desktop') return json({ available: false });
         if (route === '/api/nav-settings') return json(data.settings);
         if (route === '/api/platform-identity') return json(data.identity);
         if (route === '/api/custom-tools') return json(data.tools);
