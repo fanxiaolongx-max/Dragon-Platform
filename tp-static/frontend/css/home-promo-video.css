@@ -139,6 +139,14 @@ body.dc-chatting .nrv-stack, body.dc-chatting .nrv-tab { translate: 0 68px; }
 .nrv-link-open { align-self: flex-start; display: inline-flex; align-items: center; gap: 5px; margin-top: 4px; padding: 4px 11px; border-radius: 999px; background: rgba(255, 255, 255, .16); border: 1px solid rgba(255, 255, 255, .28); font-size: 11.5px; font-weight: 800; }
 .nrv-link-open svg { width: 13px; height: 13px; }
 .nrv-link:hover .nrv-link-open { background: rgba(255, 255, 255, .26); }
+.nrv-link-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+.nrv-link-image[hidden] { display: none; }
+.has-link-image .nrv-link-cover { background: linear-gradient(transparent 68%, rgba(8, 24, 40, .86)); padding: 10px 12px; flex-direction: row; align-items: flex-end; justify-content: space-between; }
+.has-link-image .nrv-link-host, .has-link-image .nrv-link-cover strong { display: none; }
+.has-link-image .nrv-link-cover p { color: #fff; font-weight: 700; padding-bottom: 5px; }
+.has-link-image .nrv-link-open { align-self: flex-end; flex-shrink: 0; background: #16334be6; }
+.has-link-image .nrv-hint { display: none; }
+.nrv-float.has-link-image::after { background: none; }
 .nrv-link-frame { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top center; background: #fff; }
 .nrv-link-live { position: absolute; z-index: 2; left: 10px; bottom: 9px; display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: rgba(2, 6, 23, .7); color: #e2e8f0; font-size: 10.5px; font-weight: 800; pointer-events: none; }
 .nrv-link-live i { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; animation: nrv-live 2s infinite; }

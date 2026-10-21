@@ -44,6 +44,7 @@
     "autonomous-maintenance.jpg": "./tp-static/frontend/assets/promotions/autonomous-maintenance.jpg?v=0e56342a9203",
     "eos-report-guide-en-poster.jpg": "./tp-static/frontend/assets/promotions/eos-report-guide-en-poster.jpg?v=ff9d39c43e75",
     "eos-report-guide-poster.jpg": "./tp-static/frontend/assets/promotions/eos-report-guide-poster.jpg?v=fb300bf46616",
+    "netcare-operation-map.svg": "./tp-static/frontend/assets/promotions/netcare-operation-map.svg?v=812f0e1f650a",
     "netcare-rfc-ai-guide-en-poster.jpg": "./tp-static/frontend/assets/promotions/netcare-rfc-ai-guide-en-poster.jpg?v=7919ad7f18a2",
     "netcare-rfc-ai-guide-poster.jpg": "./tp-static/frontend/assets/promotions/netcare-rfc-ai-guide-poster.jpg?v=479f1183de06",
     "operation-incentive-guide-en-poster.jpg": "./tp-static/frontend/assets/promotions/operation-incentive-guide-en-poster.jpg?v=dcf5e353de13",
@@ -354,8 +355,8 @@
     },
     "datacom-protocol-expert/index.html": {
       "url": "tp-static/payload/350b556c16e392b0cc02319227bdbc6d6890a508d6bd9b1e85082d7619b87ac2.bin",
-      "iv": "VUn6SARaEq04oUAJ",
-      "hash": "b2f98cfeab63f5173b4bd06df20e29e6c60d52e9407efed821e701da170e5f33",
+      "iv": "M7Xn+YP76tDQLPwP",
+      "hash": "6f66eb70cf910f95cd258eabe15b89c612e9f10f5bd67bc5ec0f667e6811c584",
       "type": "text/html; charset=utf-8"
     },
     "datacom-protocol-expert/THIRD_PARTY_NOTICES.md": {
@@ -440,8 +441,8 @@
     },
     "index.html": {
       "url": "tp-static/payload/0eb547304658805aad788d320f10bf1f292797b5e6d745a3bf617584da017051.bin",
-      "iv": "AWTUQl33Zx/SwGkv",
-      "hash": "8c768cfe2f39cabef572e773f4c76d9df5e942304781bc6494b1e0f7fbe7205c",
+      "iv": "cfSi0FoJLh9iqRjn",
+      "hash": "2f56870491efd0b27f0fdd129dbee19d141ce3a370def2c47af984253c66b872",
       "type": "text/html; charset=utf-8"
     },
     "mayrig/index.html": {
@@ -1232,8 +1233,8 @@
     },
     "portal-data.json": {
       "url": "tp-static/payload/4187a00828abb3180acbb34476f6daf7e5f48cabcd5296e625824e9757bf3d25.bin",
-      "iv": "JBXhDa5yKj6EE57n",
-      "hash": "d528e7e6811e8473cf6ff0244ccd46c2255f1ae0a2776c9263748609c2682644",
+      "iv": "EX3By6Cd9Vzd8P4V",
+      "hash": "5bf70c53fef6045fe156957dbc974caa69459e703bae0269f566bc61c3365836",
       "type": "application/json; charset=utf-8"
     },
     "pr-2/index.html": {
@@ -11580,8 +11581,8 @@
     },
     "tool-mumxi3px/index.html": {
       "url": "tp-static/payload/75d15759f83fc8f0e3a6cc7c39574b5443a39eabe4bc8bd9a60591224eac6eda.bin",
-      "iv": "w7gQs+krKKWnHtkm",
-      "hash": "6d37c337e277d4e102ee6f0197d6dd294120dd82316ff3144a00d7862d85126f",
+      "iv": "Mue/UZNaFVfdlV58",
+      "hash": "274618c81a01c376e98df8d67d42bef1ecb2e061a5b2d0ad11eee8a5d23978fb",
       "type": "text/html; charset=utf-8"
     },
     "tool-mv9strpn/index.html": {
