@@ -15,6 +15,7 @@ const security = require('../backend/models/snapshot-portal-security');
 const users = require('../backend/models/auth-users-repository');
 const { hashPassword } = require('../backend/middleware/auth');
 const { runWithTenant } = require('../backend/models/tenant-context');
+const promotions = require('../backend/models/platform-promotions-repository');
 const checkout = path.join(temp, 'site');
 const items = [{ slug: 'demo-tool', name: 'Published demo', href: './demo-tool/index.html' }];
 const changed = () => new Map([['demo-tool/index.html', '<!doctype html><html><head></head><body>CONFIDENTIAL_SNAPSHOT</body></html>'], ['demo-tool/data/value.json', '{"private":"private-business-value"}']]);
@@ -52,6 +53,11 @@ test('publishes original homepage and login, encrypts tool data and uses separat
     assert.match(login, /project-evolution.html/);
     assert.match(fs.readFileSync(path.join(checkout, 'tp-static/frontend/js/home/promo-video.js'), 'utf8'), /Dragon-Platform-Media\/releases\/download/);
     assert.match(fs.readFileSync(path.join(checkout, 'tp-static/frontend/js/project-evolution.js'), 'utf8'), /Dragon-Platform-Media\/releases\/download/);
+    const data = JSON.parse(await decrypted('portal-data.json'));
+    assert.deepEqual(data.appVersion, { name: require('../package.json').productName || require('../package.json').name, version: require('../package.json').version });
+    assert.deepEqual(data.promotions, await promotions.getConfig());
+    const cover = data.promotions.links.find(link => link.coverImage.startsWith('/assets/promotions/')).coverImage;
+    assert.ok(fs.existsSync(path.join(checkout, 'tp-static/frontend', cover.slice(1))), 'local promotion covers are published');
     const auth = await loginKey(meta, 'portal-admin', 'Original-password-2026!');
     assert.equal(auth.username, 'portal-admin');
     assert.equal(Buffer.from(auth.key, 'base64').equals(await security.getKey(meta.keyId)), true);
@@ -72,12 +78,23 @@ test('password changes rotate site keys and reencrypt retained tools; unchanged 
 });
 
 test('portal keys and home data remain tenant scoped and omitted tools are inaccessible', async () => {
+    await promotions.saveConfig({ maxLinks: 1, rotateSeconds: 45, videos: [{ id: 'eos', enabled: false }], links: [{ id: 'tenant-only', name: 'Tenant site', url: 'https://tenant.example/', coverImage: 'https://tenant.example/cover.webp' }] });
+    await portal.buildPortal(checkout, items, new Map());
+    const data = JSON.parse(await decrypted('portal-data.json'));
+    assert.equal(data.promotions.maxLinks, 1);
+    assert.equal(data.promotions.rotateSeconds, 45);
+    assert.equal(data.promotions.videos.find(video => video.id === 'eos').enabled, false);
+    assert.equal(data.promotions.links.find(link => link.id === 'tenant-only').coverImage, 'https://tenant.example/cover.webp');
     const baseKey = manifest().keyId;
     const beta = path.join(temp, 'beta');
     fs.mkdirSync(beta);
     await runWithTenant('beta', () => portal.buildPortal(beta, [], new Map()));
     await assert.rejects(runWithTenant('beta', () => portal.buildPortal(checkout, items, changed())), /不属于当前租户/);
     const betaManifest = JSON.parse(fs.readFileSync(path.join(beta, 'tp-static/site.json')));
+    const betaHome = betaManifest.files['portal-data.json'];
+    const betaData = JSON.parse(security.open(fs.readFileSync(path.join(beta, betaHome.url)), await runWithTenant('beta', () => security.getKey(betaManifest.keyId)), betaHome.iv));
+    assert.equal(betaData.promotions.links.some(link => link.id === 'tenant-only'), false);
+    assert.equal(betaData.promotions.videos.find(video => video.id === 'eos').enabled, true);
     assert.notEqual(betaManifest.keyId, baseKey);
     assert.equal(betaManifest.files['demo-tool/index.html'], undefined);
     await portal.buildPortal(checkout, [], new Map());

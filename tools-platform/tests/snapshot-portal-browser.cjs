@@ -19,6 +19,7 @@ app.whenReady().then(async () => {
         const root=process.env.PORTAL_TEST_DIR;
         (async()=>{
             const tools=require('./backend/models/custom-tools-repository');
+            await require('./backend/models/platform-promotions-repository').saveConfig({maxLinks:2,rotateSeconds:10,links:[{id:'portal-link',name:'静态推广链接',nameEn:'Static promotion link',url:'https://promotion.example/landing',coverImage:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF1cAAAAASUVORK5CYII='}]});
             await tools.createTool({slug:'demo-tool',name:'已发布工具',nameEn:'Published tool',htmlContent:'<!doctype html><html><head><title>Demo</title></head><body><h1 id="publishedDemo">Published private snapshot</h1></body></html>'});
             await tools.createTool({slug:'private-tool',name:'未发布工具',nameEn:'Unpublished tool',htmlContent:'<!doctype html><html><head></head><body>Never published</body></html>'});
             const checkout=path.join(root,'site');fs.mkdirSync(checkout);
@@ -50,6 +51,26 @@ app.whenReady().then(async () => {
     await until(() => !!document.getElementById('toolsGrid'), 500);
     await until(() => document.querySelectorAll('[data-custom-tool-card]').length === 3);
     await until(() => !!document.querySelector('#nrvStack'));
+    await until(() => document.querySelector('#nav-resource-version-display')?.textContent.includes('在线测试版'));
+    assert.equal(await evaluate(() => document.querySelector('#nav-resource-version-display').textContent), `v${require('../package.json').version} · 在线测试版`);
+    await until(() => !!document.querySelector('.nrv-banner[data-promo="link:portal-link"]'));
+    await evaluate(() => document.querySelector('.nrv-banner[data-promo="link:netcare"]').click());
+    await until(() => !!document.querySelector('.nrv-link-image')?.naturalWidth);
+    assert.ok(await evaluate(() => document.querySelector('.nrv-link-image').src.includes('/project/tp-static/frontend/assets/promotions/')), 'local cover resolves within a Pages project path');
+    await evaluate(() => document.querySelector('.nrv-banner[data-promo="link:portal-link"]').click());
+    await until(() => document.querySelector('.nrv-link-image')?.src.startsWith('data:image/png;') && !!document.querySelector('.nrv-link-image').naturalWidth);
+    const opened = await evaluate(() => {
+        const originalOpen = window.open, calls = [];
+        window.open = () => ({ location: { href: 'about:blank', replace: url => calls.push(url) }, focus() {} });
+        try { document.querySelector('#nrvFloat .nrv-link').click(); } finally { window.open = originalOpen; }
+        return calls;
+    });
+    assert.deepEqual(opened, ['https://promotion.example/landing']);
+    await evaluate(async () => { const res = await fetch('/api/platform-promotions/clicks', { method: 'POST', body: '{}' }); return res.json(); });
+    assert.equal(await evaluate(() => !!document.getElementById('staticPermissionNotice')), false, 'opening promotions does not report a read-only permission error');
+    assert.equal(await evaluate(async () => (await fetch('/api/platform-promotions', { method: 'PUT', body: '{}' })).status), 403, 'promotion config stays read-only');
+    await evaluate(() => document.getElementById('staticPermissionNotice')?.remove());
+    await evaluate(() => document.querySelector('.nrv-banner[data-video="rfc"]').click());
     assert.equal(await evaluate(() => !!document.getElementById('homeSidebar') && !!document.getElementById('statsBar') && !!document.getElementById('homePromotions')), true);
     assert.equal(await evaluate(() => document.querySelector('#dcDatacomPromo .dc-feature-new')?.textContent), 'NEW');
     await evaluate(() => document.getElementById('builtinToolsCompareBtn').click());
@@ -78,6 +99,7 @@ app.whenReady().then(async () => {
     await until(() => document.body.textContent.includes('无权限，请联系管理员添加'));
     assert.ok(['/project/', '/project/index.html'].includes(new URL(win.webContents.getURL()).pathname));
     await evaluate(() => window.ToolsI18n.setLanguage('en-US'));
+    await until(() => document.querySelector('#nav-resource-version-display')?.textContent.includes('Online test version'));
     await until(() => document.querySelector('#dcDatacomPromo strong')?.textContent === 'Datacom Protocol Expert');
     await until(() => document.querySelector('[data-tool-slug="demo-tool"]')?.textContent.includes('Published tool'));
     const video = await evaluate(() => [...document.querySelectorAll('#nrvStack video source')].map(v => v.src).filter(Boolean));

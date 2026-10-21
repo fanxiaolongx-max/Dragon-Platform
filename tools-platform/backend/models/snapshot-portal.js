@@ -63,9 +63,12 @@ async function collectHome(items) {
     const linksConfig = await require('./friend-links-repository').getConfig();
     const friendLinks = { links: linksConfig.links.map(({ id, name, nameEn, icon, url }) => ({ id, name, nameEn, icon, url: new URL(url).origin + new URL(url).pathname })), statuses: {}, probeIntervalMinutes: linksConfig.probeIntervalMinutes };
     const identity = Object.fromEntries(Object.entries(settings).filter(([key]) => key.startsWith('platform')));
-    return { settings, identity, tools, summary, items, friendLinks, tenantId: getTenantId() };
+    const promotions = await require('./platform-promotions-repository').getConfig();
+    const appPackage = require('../../package.json');
+    const appVersion = { name: appPackage.productName || appPackage.name || 'Tools Platform', version: appPackage.version || '0.0.0' };
+    return { settings, identity, tools, summary, items, friendLinks, promotions, appVersion, tenantId: getTenantId() };
 }
-function collectPublicFiles(identity) {
+function collectPublicFiles(identity, promotions) {
     const files = new Map();
     function walk(dir) {
         for (const entry of fs.readdirSync(path.join(FRONTEND, dir), { withFileTypes: true })) {
@@ -86,6 +89,12 @@ function collectPublicFiles(identity) {
     }
     for (const entry of fs.readdirSync(path.join(FRONTEND, 'assets/promotions'), { withFileTypes: true })) {
         if (entry.isFile() && /\.(?:png|jpg|svg)$/i.test(entry.name)) files.set('assets/promotions/' + entry.name, fs.readFileSync(path.join(FRONTEND, 'assets/promotions', entry.name)));
+    }
+    // 配置还允许子目录和 JPEG/WebP 封面，按引用复制，避免遗漏静态站点所需图片。
+    for (const link of promotions.links) {
+        if (!/^\/assets\/promotions\/[a-zA-Z0-9/_-]+\.(?:svg|png|jpg|jpeg|webp)$/.test(link.coverImage) || link.coverImage.includes('..')) continue;
+        const name = link.coverImage.slice(1);
+        if (fs.existsSync(path.join(FRONTEND, name))) files.set(name, fs.readFileSync(path.join(FRONTEND, name)));
     }
     if (fs.existsSync(path.join(FRONTEND, 'favicon.ico'))) files.set('favicon.ico', fs.readFileSync(path.join(FRONTEND, 'favicon.ico')));
     const logo = require('./platform-logo-runtime');
@@ -151,7 +160,7 @@ async function buildPortal(checkout, items, changedFiles) {
     const previous = await readPrevious(checkout, name => belongs(name) && !replaced(name));
     const auth = await security.getSecurity();
     const home = await collectHome(items);
-    const publicFiles = collectPublicFiles(home.identity);
+    const publicFiles = collectPublicFiles(home.identity, home.promotions);
     const files = new Map();
     for (const [name, bytes] of previous.files) if (belongs(name) && !replaced(name) && !name.endsWith('/.tools-platform-snapshot.json')) files.set(name, bytes);
     // 首次升级：吸收以前发布的工具文件，再以加密载荷替换明文文件。

@@ -2187,7 +2187,7 @@ function renderNavbar() {
         const getVersion = window.ToolsAppVersion?.get
             || (() => fetch('/api/app-version', { cache: 'no-store' }).then(res => (res.ok ? res.json() : null)).then(data => data?.version || '').catch(() => ''));
         getVersion().then(version => {
-            if (version) versionDisplay.textContent = `v${version}`;
+            if (version) versionDisplay.textContent = `v${version}${window.__TP_STATIC_BASE__ ? ' · ' + navLocaleText('在线测试版', 'Online test version') : ''}`;
         });
     }
 
