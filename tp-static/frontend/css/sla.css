@@ -2505,3 +2505,7 @@ td.frequent-copied-cell {
     color: #a1bdcf;
 }
 
+
+.metric-rule-badge.monthly{background:#dcfce7;color:#166534;white-space:nowrap}
+.metric-rule-monthly-row td:first-child{box-shadow:inset 3px 0 #40956a}
+[data-theme="dark"] .metric-rule-badge.monthly{background:#164532;color:#bbf7d0}

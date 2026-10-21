@@ -41,8 +41,12 @@
         targetFilter: { kind: 'all', q: '' },
         targets: [],
         messages: [],
+        // 消息日志按需分页：滚动到日志卡片才加载第一页，表格滚到底再加载下一页
+        messageLog: { loaded: false, loading: false, hasMore: false, total: 0, error: '', expanded: new Set(), observer: null, epoch: 0 },
         pollTimer: null
     };
+    const MESSAGE_PAGE_SIZE = 30;
+    const MESSAGE_PREVIEW_CHARS = 300;
 
     const api = (...args) => window.ToolsChannels.request(...args);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -153,7 +157,8 @@
         view.status = status;
         view.models = Array.isArray(models.items) ? models.items : (Array.isArray(models.models) ? models.models : []);
         view.dirty = false;
-        await Promise.all([loadTargets(), loadMessages()]);
+        resetMessageLog();
+        await loadTargets();
     }
 
     function authHeaders() {
@@ -172,11 +177,39 @@
         }
     }
 
-    async function loadMessages() {
+    function resetMessageLog() {
+        const log = view.messageLog;
+        log.observer?.disconnect();
+        Object.assign(log, { loaded: false, loading: false, hasMore: false, total: 0, error: '', observer: null, epoch: log.epoch + 1 });
+        log.expanded.clear();
+        view.messages = [];
+    }
+
+    // reset：重新取第一页（刷新、测试推送后）；否则按最后一条 id 取更早一页
+    async function loadMessages({ reset = false } = {}) {
+        const log = view.messageLog;
+        if (log.loading && !reset) return;
+        if (!reset && log.loaded && !log.hasMore) return;
+        const epoch = reset ? ++log.epoch : log.epoch;
+        const before = reset ? 0 : view.messages[view.messages.length - 1]?.id || 0;
+        log.loading = true;
+        log.error = '';
+        rerenderMessageLog();
         try {
-            view.messages = (await api('GET', '/messages?limit=100')).items || [];
-        } catch (_) {
-            view.messages = [];
+            const data = await api('GET', `/messages?limit=${MESSAGE_PAGE_SIZE}${before ? `&before=${before}` : ''}`);
+            if (epoch !== log.epoch) return; // 期间刷新过，丢弃旧请求
+            const items = Array.isArray(data.items) ? data.items : [];
+            view.messages = reset ? items : [...view.messages, ...items.filter(item => !view.messages.some(row => row.id === item.id))];
+            if (reset) log.expanded.clear();
+            Object.assign(log, { loaded: true, hasMore: Boolean(data.hasMore), total: Number(data.total) || view.messages.length });
+        } catch (error) {
+            if (epoch === log.epoch) log.error = error.message || String(error);
+        } finally {
+            if (epoch === log.epoch) {
+                log.loading = false;
+                // 刷新回到最新一页的顶部，避免沿用旧滚动位置立刻触发下一页
+                rerenderMessageLog({ toTop: reset });
+            }
         }
     }
 
@@ -447,26 +480,45 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
             </table></div>`;
     }
 
-    function renderMessagesCard() {
+    function renderMessageLog() {
         const statusBadge = status => {
             if (status === 'ok') return `<span class="nch-badge ok">${esc(L('成功', 'OK'))}</span>`;
             if (status === 'denied') return `<span class="nch-badge warn">${esc(L('已拒绝', 'Denied'))}</span>`;
             if (status === 'aborted') return `<span class="nch-badge">${esc(L('已中止', 'Aborted'))}</span>`;
             return `<span class="nch-badge bad">${esc(L('失败', 'Error'))}</span>`;
         };
-        const rows = view.messages.map(item => `<tr>
+        const log = view.messageLog;
+        const rows = view.messages.map(item => {
+            const long = item.text.length > MESSAGE_PREVIEW_CHARS;
+            const open = log.expanded.has(item.id);
+            return `<tr>
             <td style="white-space:nowrap">${esc(new Date(item.createdAt).toLocaleString())}</td>
             <td style="white-space:nowrap">${item.direction === 'in' ? '⬇️ ' + esc(L('收到', 'In')) : '⬆️ ' + esc(item.trigger === 'reply' ? L('回复', 'Reply') : L('推送', 'Push'))}</td>
             <td>${item.kind === 'group' ? '👥' : '👤'} ${esc(item.targetId)}${item.sender && item.sender !== item.targetId ? `<div class="nch-id">${esc(item.sender)}</div>` : ''}</td>
             <td>${statusBadge(item.status)}${item.error ? `<div class="nch-id">${esc(item.error)}</div>` : ''}</td>
-            <td class="nch-text">${esc(item.text.length > 300 ? `${item.text.slice(0, 300)}…` : item.text)}${item.source ? `<div class="nch-id">${esc(item.source)}</div>` : ''}</td>
-        </tr>`).join('');
+            <td class="nch-text">${esc(long && !open ? `${item.text.slice(0, MESSAGE_PREVIEW_CHARS)}…` : item.text)}${long ? ` <button type="button" class="nch-link" data-action="message-expand" data-id="${esc(item.id)}">${esc(open ? L('收起', 'Less') : L('展开全文', 'Show all'))}</button>` : ''}${item.source ? `<div class="nch-id">${esc(item.source)}</div>` : ''}</td>
+        </tr>`;
+        }).join('');
+        // 末行：加载状态 / 加载更多（滚到底自动触发）/ 已全部显示
+        const footer = !log.loaded && !log.error
+            ? `<tr data-role="messages-more"><td colspan="5" class="nch-muted">${esc(log.loading ? L('正在加载消息日志…', 'Loading message log…') : L('滚动到这里时加载', 'Loads when scrolled into view'))}</td></tr>`
+            : log.error
+                ? `<tr data-role="messages-more"><td colspan="5" class="nch-muted">${esc(L('加载失败：', 'Failed to load: '))}${esc(log.error)} <button type="button" class="nch-link" data-action="${log.loaded ? 'messages-more' : 'messages-refresh'}">${esc(L('重试', 'Retry'))}</button></td></tr>`
+                : !view.messages.length
+                    ? `<tr><td colspan="5" class="nch-muted">${esc(L('暂无消息', 'No messages yet'))}</td></tr>`
+                    : log.hasMore
+                        ? `<tr data-role="messages-more"><td colspan="5" class="nch-muted">${log.loading ? esc(L('正在加载更早的消息…', 'Loading earlier messages…')) : `<button type="button" class="nch-link" data-action="messages-more">${esc(L(`加载更多（已显示 ${view.messages.length} / 共 ${log.total} 条）`, `Load more (${view.messages.length} of ${log.total})`))}</button>`}</td></tr>`
+                        : `<tr><td colspan="5" class="nch-muted">${esc(L(`已显示全部 ${view.messages.length} 条`, `All ${view.messages.length} shown`))}</td></tr>`;
         return `
-            <h4>🧾 ${esc(L('消息日志', 'Message log'))} <button type="button" class="nch-link" data-action="messages-refresh">${esc(L('刷新', 'Refresh'))}</button></h4>
-            <div class="nch-table-wrap"><table class="nch-table">
+            <h4>🧾 ${esc(L('消息日志', 'Message log'))} <button type="button" class="nch-link" data-action="messages-refresh">${esc(L('刷新', 'Refresh'))}</button>${log.loaded ? `<span class="nch-muted" style="font-weight:400;font-size:12px;margin-left:6px">${esc(L(`共 ${log.total} 条`, `${log.total} total`))}</span>` : ''}</h4>
+            <div class="nch-table-wrap" data-role="messages-log"><table class="nch-table">
                 <thead><tr><th>${esc(L('时间', 'Time'))}</th><th>${esc(L('方向', 'Direction'))}</th><th>${esc(L('对象', 'Target'))}</th><th>${esc(L('状态', 'Status'))}</th><th>${esc(L('内容', 'Content'))}</th></tr></thead>
-                <tbody>${rows || `<tr><td colspan="5" class="nch-muted">${esc(L('暂无消息', 'No messages yet'))}</td></tr>`}</tbody>
-            </table></div>
+                <tbody>${rows}${footer}</tbody>
+            </table></div>`;
+    }
+
+    function renderMessagesCard() {
+        return `<div data-role="messages-log-area">${renderMessageLog()}</div>
             <details class="nch-diag" style="margin-top:12px" data-role="diag"><summary class="nch-muted" style="cursor:pointer">${esc(L('诊断信息（网关状态、调用轨迹、运行日志）', 'Diagnostics (gateway state, traces, logs)'))}</summary><pre data-role="diag-body">${esc(L('展开后加载…', 'Loads when expanded…'))}</pre></details>`;
     }
 
@@ -489,11 +541,45 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
                 </div>
             </div>`;
         renderStatusCard();
+        bindMessageLog();
     }
 
     function rerenderSection(role, html) {
         const el = view.content?.querySelector(`[data-role="${role}"]`);
         if (el) el.innerHTML = html;
+        if (role === 'messages-card') bindMessageLog();
+    }
+
+    // 只重绘日志表格：保留诊断面板的展开状态与表格滚动位置
+    function rerenderMessageLog({ toTop = false } = {}) {
+        const area = view.content?.querySelector('[data-role="messages-log-area"]');
+        if (!area) return;
+        const scrollTop = toTop ? 0 : area.querySelector('[data-role="messages-log"]')?.scrollTop || 0;
+        area.innerHTML = renderMessageLog();
+        const wrap = area.querySelector('[data-role="messages-log"]');
+        if (wrap) wrap.scrollTop = scrollTop;
+        bindMessageLog();
+    }
+
+    // 日志卡片进入视口才取第一页；表格内滚到末行附近再取下一页。不支持 IntersectionObserver 时直接加载，末行按钮可手动翻页
+    function bindMessageLog() {
+        const log = view.messageLog;
+        log.observer?.disconnect();
+        log.observer = null;
+        const sentinel = view.content?.querySelector('[data-role="messages-more"]');
+        if (!sentinel || log.loading || log.error || (log.loaded && !log.hasMore)) return;
+        if (!('IntersectionObserver' in window)) {
+            if (!log.loaded) loadMessages({ reset: true });
+            return;
+        }
+        const wrap = view.content.querySelector('[data-role="messages-log"]');
+        log.observer = new IntersectionObserver(entries => {
+            if (!entries.some(entry => entry.isIntersecting)) return;
+            log.observer?.disconnect();
+            log.observer = null;
+            loadMessages({ reset: !log.loaded });
+        }, { root: log.loaded ? wrap : null, rootMargin: log.loaded ? '0px 0px 120px 0px' : '0px 0px 200px 0px' });
+        log.observer.observe(sentinel);
     }
 
     // ── 交互 ─────────────────────────────────────────────
@@ -586,8 +672,7 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
             const result = await window.ToolsChannels.push({ text, targets, source: L('频道对接 · 测试推送', 'Channels · test push') });
             const failures = result.results.filter(item => !item.ok).map(item => `${item.name}：${item.error}`);
             resultEl.textContent = L(`成功 ${result.sent}，失败 ${result.failed}`, `${result.sent} sent, ${result.failed} failed`) + (failures.length ? ` — ${failures.slice(0, 3).join('；')}` : '');
-            await loadMessages();
-            rerenderSection('messages-card', renderMessagesCard());
+            if (view.messageLog.loaded) await loadMessages({ reset: true });
         } catch (error) {
             resultEl.textContent = error.message;
         }
@@ -748,9 +833,13 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
             await loadTargets();
             return rerenderSection('targets-card', renderTargetsCard());
         }
-        if (action === 'messages-refresh') {
-            await loadMessages();
-            return rerenderSection('messages-card', renderMessagesCard());
+        if (action === 'messages-refresh') return loadMessages({ reset: true });
+        if (action === 'messages-more') return loadMessages();
+        if (action === 'message-expand') {
+            const id = Number(button.dataset.id);
+            if (view.messageLog.expanded.has(id)) view.messageLog.expanded.delete(id);
+            else view.messageLog.expanded.add(id);
+            return rerenderMessageLog();
         }
         return undefined;
     }

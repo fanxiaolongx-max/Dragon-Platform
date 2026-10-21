@@ -86,7 +86,7 @@ window.__TP_STATIC_READY__ = (async () => {
         }
         if (url.pathname.includes('/api/')) {
             const route = url.pathname.slice(url.pathname.indexOf('/api/'));
-            if (['/api/platform-identity', '/api/nav-settings', '/api/platform-logo/status'].includes(route) && location.pathname.endsWith('/login.html')) {
+            if (['/api/platform-identity', '/api/nav-settings', '/api/platform-logo/status', '/api/app-version'].includes(route) && location.pathname.endsWith('/login.html') && String(init.method || 'GET').toUpperCase() === 'GET') {
                 return response(site.identity?.[route] || {});
             }
             if (window.__TP_STATIC_API__) return window.__TP_STATIC_API__(route, init);

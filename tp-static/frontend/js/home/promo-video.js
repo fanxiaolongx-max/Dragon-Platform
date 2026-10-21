@@ -63,7 +63,7 @@
             'home.nrv.bannerLabel': '观看视频：{name}', 'home.nrv.dialogClose': '关闭视频',
             'home.nrv.tab': '平台推广', 'home.nrv.tabLabel': '展开平台推广',
             'home.nrv.link.badge': '推广', 'home.nrv.link.open': '打开', 'home.nrv.link.bannerLabel': '打开推广页面：{name}',
-            'home.nrv.link.hintDesktop': '点击打开大窗浏览', 'home.nrv.link.hintTab': '点击在新标签页打开', 'home.nrv.link.live': '实时画面'
+            'home.nrv.link.hintDesktop': '点击在 Dragon 浏览器新标签页打开', 'home.nrv.link.hintTab': '点击在新标签页打开', 'home.nrv.link.live': '实时画面'
         },
         'en-US': {
             'home.nrv.rfc.badge': 'NEW', 'home.nrv.rfc.name': 'NetCare RFC Plans and AI Audit', 'home.nrv.rfc.banner': 'New · NetCare RFC Plans and AI Audit intro',
@@ -76,7 +76,7 @@
             'home.nrv.bannerLabel': 'Watch video: {name}', 'home.nrv.dialogClose': 'Close video',
             'home.nrv.tab': 'Promotions', 'home.nrv.tabLabel': 'Show platform promotions',
             'home.nrv.link.badge': 'LINK', 'home.nrv.link.open': 'Open', 'home.nrv.link.bannerLabel': 'Open promoted page: {name}',
-            'home.nrv.link.hintDesktop': 'Click to open the full window', 'home.nrv.link.hintTab': 'Click to open in a new tab', 'home.nrv.link.live': 'Live'
+            'home.nrv.link.hintDesktop': 'Click to open a new Dragon Browser tab', 'home.nrv.link.hintTab': 'Click to open in a new tab', 'home.nrv.link.live': 'Live'
         }
     });
     const t = (key, fallback, params) => (i18n && i18n.t ? i18n.t(key, params) : fallback);
@@ -254,7 +254,7 @@
             const map = {
                 badge: link ? (linkText(link, 'badge') || t('home.nrv.link.badge', '推广')) : t('home.nrv.' + key + '.badge', ''),
                 name: link && linkText(link, 'badge') === linkText(link, 'name') ? '' : nameOf(key),
-                hint: link ? (desktop ? t('home.nrv.link.hintDesktop', '点击打开大窗浏览') : t('home.nrv.link.hintTab', '点击在新标签页打开')) : t('home.nrv.hint', '点击放大高清观看'),
+                hint: link ? (desktop ? t('home.nrv.link.hintDesktop', '点击在 Dragon 浏览器新标签页打开') : t('home.nrv.link.hintTab', '点击在新标签页打开')) : t('home.nrv.hint', '点击放大高清观看'),
                 askTitle: t('home.nrv.askTitle', '关闭推广小窗？'), askBody: t('home.nrv.askBody', ''),
                 dBadge: bigKey ? t('home.nrv.' + bigKey + '.badge', '') : '', dName: bigKey ? nameOf(bigKey) : '',
                 tab: t('home.nrv.tab', '平台推广'),
