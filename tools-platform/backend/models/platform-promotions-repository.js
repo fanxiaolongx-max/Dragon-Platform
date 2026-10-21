@@ -1,5 +1,5 @@
 // 全局设置 › 平台推广：首页右上角推广区（内置视频 + 推广链接）的配置。
-// 内置视频与内置链接只能隐藏，不能删除或改地址；自定义链接可增删改。按租户保存在 sys_kv_store。
+// 内置链接可隐藏或更换封面，不能删除或改地址；自定义链接可增删改。按租户保存在 sys_kv_store。
 // 内置（默认）链接来自受版本控制的 backend/platform-promotions-defaults.json：手动编辑或在源码可写的服务上
 // 通过全局设置写回，提交并推送到 Git 后即成为所有环境的默认链接。
 const crypto = require('crypto');
@@ -97,13 +97,31 @@ function saveDefaultLinks(input) {
     const used = new Set();
     const links = raw.map((item, index) => {
         if (!item || !String(item.id || '').trim()) throw new Error('默认推广链接缺少 id');
-        const { id, name, nameEn, badge, badgeEn, description, descriptionEn, url, color } = normalizeCustomLink(item, index, used);
-        return { id, name, nameEn, badge, badgeEn, description, descriptionEn, url, color };
+        const { id, name, nameEn, badge, badgeEn, description, descriptionEn, url, color, coverImage } = normalizeCustomLink(item, index, used);
+        return { id, name, nameEn, badge, badgeEn, description, descriptionEn, url, color, coverImage };
     });
     const temp = `${DEFAULTS_FILE}.${process.pid}.tmp`;
     fs.writeFileSync(temp, `${JSON.stringify({ links }, null, 2)}\n`, 'utf8');
     fs.renameSync(temp, DEFAULTS_FILE);
     return links;
+}
+
+function normalizeCoverImage(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^\/assets\/promotions\/[a-zA-Z0-9/_-]+\.(?:svg|png|jpg|jpeg|webp)$/.test(raw) && !raw.includes('..')) return raw;
+    if (raw.startsWith('data:')) {
+        if (raw.length > 710000) throw new Error('封面图片不能超过 512 KB');
+        const match = /^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/.exec(raw);
+        if (!match) throw new Error('封面图片仅支持 PNG、JPEG、WebP');
+        const bytes = Buffer.from(match[2], 'base64');
+        const valid = match[1] === 'png' ? bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+            : match[1] === 'jpeg' ? bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255
+                : bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WEBP';
+        if (!valid || bytes.length > 512 * 1024) throw new Error('封面图片无效或超过 512 KB');
+        return raw;
+    }
+    return normalizeUrl(raw);
 }
 
 function normalizeCustomLink(item, index, usedIds) {
@@ -125,7 +143,8 @@ function normalizeCustomLink(item, index, usedIds) {
         description: text(item.description, 120),
         descriptionEn: text(item.descriptionEn, 160),
         url,
-        color: COLORS.includes(item.color) ? item.color : 'blue'
+        color: COLORS.includes(item.color) ? item.color : 'blue',
+        coverImage: normalizeCoverImage(item.coverImage)
     };
 }
 
@@ -138,7 +157,7 @@ function normalizeConfig(input = {}) {
 
     const rawLinks = Array.isArray(source.links) ? source.links.filter(item => item && typeof item === 'object') : [];
     const builtinState = new Map(rawLinks.filter(item => BUILTIN_LINKS.some(link => link.id === item.id)).map(item => [item.id, item]));
-    // 内置链接只接受“是否显示”与排序位置，其余字段始终以代码为准
+    // 内置链接允许租户更换封面，名称和目标地址仍以代码为准。
     const usedIds = new Set(BUILTIN_LINKS.map(link => link.id));
     const custom = rawLinks.filter(item => !BUILTIN_LINKS.some(link => link.id === item.id));
     if (custom.length > MAX_CUSTOM_LINKS) throw new Error(`自定义推广链接最多支持 ${MAX_CUSTOM_LINKS} 个`);
@@ -149,7 +168,8 @@ function normalizeConfig(input = {}) {
         if (builtin) {
             if (placed.has(builtin.id)) return;
             placed.add(builtin.id);
-            ordered.push({ ...builtin, builtin: true, enabled: builtinState.get(builtin.id).enabled !== false });
+            ordered.push({ ...builtin, builtin: true, enabled: builtinState.get(builtin.id).enabled !== false,
+                coverImage: Object.hasOwn(item, 'coverImage') ? normalizeCoverImage(item.coverImage) : builtin.coverImage });
         } else {
             ordered.push(normalizeCustomLink(item, index, usedIds));
         }
@@ -178,6 +198,15 @@ async function getConfig() {
 async function saveConfig(input) {
     const config = normalizeConfig({ ...(input || {}), updatedAt: new Date().toISOString() });
     const { defaultsWritable: _writable, ...stored } = config;
+    // 与默认封面相同时继承源码默认值，避免普通保存把旧默认封面永久固定。
+    const defaults = builtinLinks();
+    stored.links = stored.links.map(link => {
+        if (link.builtin && link.coverImage === defaults.find(item => item.id === link.id)?.coverImage) {
+            const { coverImage: _cover, ...inherited } = link;
+            return inherited;
+        }
+        return link;
+    });
     await writeKV('sys', CONFIG_KEY, stored);
     return config;
 }

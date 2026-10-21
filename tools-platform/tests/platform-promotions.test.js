@@ -57,6 +57,22 @@ test('built-ins can only be hidden; custom links are validated and keep their or
     assert.throws(() => repo.normalizeConfig({ links: [{ name: '', url: 'https://x.example/' }] }), /名称/);
 });
 
+test('link covers accept local assets, remote URLs and raster uploads while protecting built-in targets', () => {
+    const original = repo.normalizeConfig({}).links[0];
+    assert.equal(original.coverImage, '/assets/promotions/netcare-operation-map.svg');
+    const coverImage = 'https://images.example/cover.jpg';
+    const link = repo.normalizeConfig({ links: [{ id: 'netcare', url: 'https://other.example/', coverImage }] }).links[0];
+    assert.equal(link.coverImage, coverImage);
+    assert.equal(link.url, original.url);
+    assert.equal(repo.normalizeConfig({ links: [{ id: 'netcare', enabled: true }] }).links[0].coverImage, original.coverImage, 'legacy configs inherit the new default');
+    assert.equal(repo.normalizeConfig({ links: [{ id: 'netcare', coverImage: '' }] }).links[0].coverImage, '', 'explicit clear uses gradient');
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aF1cAAAAASUVORK5CYII=';
+    assert.equal(repo.normalizeConfig({ links: [{ name: 'Custom', url: 'https://x.example', coverImage: png }] }).links.at(-1).coverImage, png);
+    for (const bad of ['javascript:alert(1)', 'file:///tmp/x.png', '/assets/promotions/../secret.png', 'data:image/svg+xml;base64,PHN2Zz4=', 'data:image/png;base64,YmFk', 'https://user:pass@example.com/a.jpg', 'data:image/png;base64,' + 'A'.repeat(710001)]) {
+        assert.throws(() => repo.normalizeConfig({ links: [{ id: 'netcare', coverImage: bad }] }));
+    }
+});
+
 test('config API: everyone reads, only admins write; desktop controls are local-only', async t => {
     const previousRuntime = process.env.TOOLS_DESKTOP_RUNTIME;
     const app = express();
@@ -89,7 +105,7 @@ test('config API: everyone reads, only admins write; desktop controls are local-
     const initial = await (await fetch(url, { headers: as('synthetic-viewer') })).json();
     assert.equal(initial.links[0].id, 'netcare');
 
-    const body = JSON.stringify({ ...initial, maxLinks: 2, links: [...initial.links, { name: 'Wiki', url: 'https://wiki.example/' }] });
+    const body = JSON.stringify({ ...initial, maxLinks: 2, links: [...initial.links.map(link => ({ ...link, coverImage: 'https://images.example/tenant-cover.jpg' })), { name: 'Wiki', url: 'https://wiki.example/' }] });
     assert.equal((await fetch(url, { method: 'PUT', headers: as('synthetic-viewer'), body })).status, 403);
 
     const synced = [];
@@ -112,6 +128,7 @@ test('config API: everyone reads, only admins write; desktop controls are local-
     const saved = await (await fetch(url, { method: 'PUT', headers: as('synthetic-admin'), body })).json();
     assert.equal(saved.maxLinks, 2);
     assert.equal(saved.links.at(-1).name, 'Wiki');
+    assert.equal((await (await fetch(url, { headers: as('synthetic-viewer') })).json()).links[0].coverImage, 'https://images.example/tenant-cover.jpg', 'cover survives SQLite save and reload');
     assert.equal(synced.length, 1, 'saving refreshes the local desktop card stack');
 
     assert.equal((await (await fetch(`${url}/desktop`, { headers: as('synthetic-viewer') })).json()).available, true);

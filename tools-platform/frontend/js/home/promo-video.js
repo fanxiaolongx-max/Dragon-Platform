@@ -138,6 +138,7 @@
             <div class="nrv-float" id="nrvFloat" hidden>
                 <video muted playsinline preload="auto"><source type="video/mp4"></video>
                 <div class="nrv-link" hidden>
+                    <img class="nrv-link-image" alt="" referrerpolicy="no-referrer" hidden>
                     <div class="nrv-link-cover"><span class="nrv-link-host" data-k="host"></span><strong data-k="linkName"></strong><p data-k="linkDesc"></p><span class="nrv-link-open"><span data-k="linkOpen"></span>${ICON.link}</span></div>
                     <img class="nrv-link-frame" alt="" hidden>
                     <span class="nrv-link-live" hidden><i></i><span data-k="live"></span></span>
@@ -242,6 +243,16 @@
             float.dataset.video = link ? '' : key;
             float.dataset.kind = link ? 'link' : 'video';
             float.dataset.color = link ? (link.color || 'teal') : '';
+            const cover = float.querySelector('.nrv-link-image');
+            const coverUrl = link?.coverImage || '';
+            if ((cover.getAttribute('src') || '') !== coverUrl) {
+                cover.hidden = true;
+                float.classList.remove('has-link-image');
+                cover.onload = () => { cover.hidden = false; float.classList.add('has-link-image'); };
+                cover.onerror = () => { cover.hidden = true; float.classList.remove('has-link-image'); };
+                if (coverUrl) cover.src = coverUrl;
+                else cover.removeAttribute('src');
+            }
             float.querySelector('[data-act="close"]').setAttribute('aria-label', t('home.nrv.close', '关闭'));
             float.querySelector('[data-act="once"]').textContent = t('home.nrv.once', '仅本次关闭');
             float.querySelector('[data-act="forever"]').textContent = t('home.nrv.forever', '永久关闭');

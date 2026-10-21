@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="810" viewBox="0 0 1440 810" fill="none">
+  <title>NetCare 网络维护作战地图</title>
+  <desc>青蓝导航、浅色看板与骨架表格组成的维护作战地图示意封面，不包含真实业务数据。</desc>
+  <defs>
+    <linearGradient id="nav" x2="1440" y2="48" gradientUnits="userSpaceOnUse"><stop stop-color="#168faf"/><stop offset="1" stop-color="#36b5d1"/></linearGradient>
+    <g id="line"><rect width="104" height="9" rx="4" fill="#dce4e9"/></g>
+    <g id="row"><use href="#line"/><use href="#line" x="152"/><rect x="295" width="34" height="9" rx="4" fill="#b7d9cc"/><rect x="386" width="24" height="9" rx="4" fill="#dce4e9"/><rect x="462" width="24" height="9" rx="4" fill="#dce4e9"/><rect x="538" width="24" height="9" rx="4" fill="#dce4e9"/><path d="M0 27H594" stroke="#edf1f4"/></g>
+    <g id="smallRow"><use href="#line"/><rect x="134" width="45" height="9" rx="4" fill="#dae6f5"/><rect x="218" width="30" height="9" rx="4" fill="#dce4e9"/><rect x="308" width="62" height="9" rx="4" fill="#dce4e9"/></g>
+    <style>text{font-family:Arial,'PingFang SC','Microsoft YaHei',sans-serif} .heading{fill:#344759;font-size:21px;font-weight:600}.small{fill:#7b8c99;font-size:15px}</style>
+  </defs>
+  <path fill="#f1f4f7" d="M0 0h1440v810H0z"/>
+  <path fill="url(#nav)" d="M0 0h1440v54H0z"/>
+  <path d="M23 20h17M23 27h17M23 34h17" stroke="white" stroke-width="2"/>
+  <circle cx="65" cy="27" r="13" stroke="#c2f5ff" stroke-width="2"/>
+  <text x="88" y="36" fill="white" font-size="28">NetCareCloud</text>
+  <g fill="#e4f7fc" font-size="16"><text x="333" y="34">维护工作台</text><text x="475" y="34">网络运行</text><text x="603" y="34">网络安全</text><text x="731" y="34">智能运维</text></g>
+  <g stroke="#d7f6fc" stroke-width="2"><circle cx="1306" cy="27" r="7"/><circle cx="1347" cy="27" r="7"/><circle cx="1388" cy="27" r="7"/></g>
+  <path fill="#fff" d="M0 54h1440v116H0z"/>
+  <path d="M0 170h1440" stroke="#dce5ea"/>
+  <text x="720" y="113" fill="#263c50" text-anchor="middle" font-size="40" font-weight="600">网络维护作战地图</text>
+  <path d="M288 104h158m548 0h158" stroke="#78c1d3"/>
+  <path d="m430 99 16 5-16 5m580-10-16 5 16 5" stroke="#78c1d3"/>
+  <g fill="#f6f8fa" stroke="#dce5eb"><rect x="28" y="188" width="298" height="36" rx="4"/><rect x="340" y="188" width="298" height="36" rx="4"/><rect x="652" y="188" width="298" height="36" rx="4"/><rect x="964" y="188" width="270" height="36" rx="4"/></g>
+  <g class="small"><text x="43" y="212">维护范围</text><text x="355" y="212">全部网络</text><text x="667" y="212">全部设备</text><text x="979" y="212">时间范围</text></g>
+  <rect x="1250" y="188" width="162" height="36" rx="4" fill="#2a9cbd"/><text x="1331" y="212" text-anchor="middle" fill="white" font-size="16">查询</text>
+  <g fill="white" stroke="#e1e7eb"><rect x="24" y="244" width="466" height="218" rx="4"/><rect x="504" y="244" width="440" height="218" rx="4"/><rect x="958" y="244" width="214" height="218" rx="4"/><rect x="1186" y="244" width="230" height="218" rx="4"/><rect x="24" y="478" width="690" height="306" rx="4"/><rect x="728" y="478" width="688" height="144" rx="4"/><rect x="728" y="638" width="688" height="146" rx="4"/></g>
+  <g class="heading"><text x="46" y="278">网络运行概览</text><text x="526" y="278">维护任务</text><text x="980" y="278">告警概览</text><text x="1208" y="278">人员保障</text><text x="46" y="514">维护网络</text><text x="750" y="514">作战任务</text><text x="750" y="674">风险关注</text></g>
+  <g fill="#e9f0f5"><rect x="46" y="297" width="184" height="24" rx="3"/><rect x="246" y="297" width="217" height="24" rx="3"/></g>
+  <g stroke-width="7" stroke-linecap="round"><path d="M56 354H442M56 407H442" stroke="#e8edf1"/><path d="M56 354H292" stroke="#e4bc44"/><path d="M56 407H363" stroke="#e4bc44"/><path d="M547 361H892M547 414H892" stroke="#e8edf1"/><path d="M547 361H742M547 414H837" stroke="#4e8ed9"/></g>
+  <g fill="#7d8e9c"><use href="#line" x="48" y="334"/><use href="#line" x="48" y="387"/><use href="#line" x="527" y="313"/></g>
+  <g class="small"><text x="48" y="441">设备状态</text><text x="527" y="441">任务进展</text></g>
+  <g><rect x="987" y="321" width="44" height="54" rx="7" fill="#ef706c" transform="rotate(8 987 321)"/><rect x="1070" y="321" width="44" height="54" rx="7" fill="#efc34e" transform="rotate(8 1070 321)"/><path d="m1009 335-3 18m-1 8v2m88-28-3 18m-1 8v2" stroke="white" stroke-width="4" stroke-linecap="round"/></g>
+  <use href="#line" x="981" y="410"/><g fill="#4c87c7" font-size="35"><text x="1210" y="345">—</text><text x="1325" y="345">—</text></g><use href="#line" x="1209" y="370"/><use href="#line" x="1209" y="415"/>
+  <path d="M45 536h646v30H45zM750 536h644v24H750zM750 697h644v24H750z" fill="#f1f5f8"/>
+  <g class="small"><text x="56" y="556">网络名称</text><text x="209" y="556">运行状态</text><text x="351" y="556">设备</text><text x="443" y="556">告警</text><text x="518" y="556">任务</text><text x="595" y="556">风险</text></g>
+  <use href="#row" x="56" y="588"/><use href="#row" x="56" y="630"/><use href="#row" x="56" y="672"/><use href="#row" x="56" y="714"/>
+  <use href="#smallRow" x="752" y="582"/><use href="#smallRow" x="752" y="742"/>
+</svg>

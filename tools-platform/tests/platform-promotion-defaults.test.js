@@ -75,7 +75,7 @@ test('admins write defaults to the source file; a promoted custom link becomes b
     // 先作为自定义链接保存，再设为默认
     await fetch(url, { method: 'PUT', headers: as('defaults-admin'), body: JSON.stringify({ ...initial, links: [...initial.links, { id: 'wiki', name: 'Wiki', url: 'https://wiki.example/' }] }) });
     const defaults = initial.links.filter(link => link.builtin).map(({ id, name, url: link, color }) => ({ id, name, url: link, color }));
-    const body = JSON.stringify({ links: [...defaults, { id: 'wiki', name: 'Wiki', url: 'https://wiki.example/', color: 'green' }] });
+    const body = JSON.stringify({ links: [...defaults, { id: 'wiki', name: 'Wiki', url: 'https://wiki.example/', color: 'green', coverImage: 'https://images.example/wiki.jpg' }] });
     assert.equal((await fetch(`${url}/defaults`, { method: 'PUT', headers: as('defaults-viewer'), body })).status, 403);
     const saved = await (await fetch(`${url}/defaults`, { method: 'PUT', headers: as('defaults-admin'), body })).json();
     const wiki = saved.links.find(link => link.id === 'wiki');
@@ -83,6 +83,7 @@ test('admins write defaults to the source file; a promoted custom link becomes b
     assert.equal(wiki.color, 'green');
     assert.equal(saved.links.filter(link => link.id === 'wiki').length, 1, 'no duplicate after promotion');
     const file = JSON.parse(fs.readFileSync(defaultsFile, 'utf8'));
+    assert.equal(file.links.find(link => link.id === 'wiki').coverImage, 'https://images.example/wiki.jpg');
     assert.deepEqual(file.links.map(link => link.id), ['netcare', 'wiki']);
     assert.equal('enabled' in file.links[0], false, 'tenant state stays out of the source file');
     assert.equal((await fetch(`${url}/defaults`, { method: 'PUT', headers: as('defaults-admin'), body: JSON.stringify({ links: [{ name: 'x', url: 'https://x.example/' }] }) })).status, 400);

@@ -15,7 +15,7 @@
         ['orange', '橙', 'Orange', '#f97316'], ['rose', '玫红', 'Rose', '#f43f5e'], ['green', '绿', 'Green', '#10b981']
     ];
     const colorHex = id => (COLORS.find(item => item[0] === id) || COLORS[0])[3];
-    const EMPTY_LINK = { id: '', builtin: false, enabled: true, name: '', nameEn: '', badge: '', badgeEn: '', description: '', descriptionEn: '', url: '', color: 'blue' };
+    const EMPTY_LINK = { id: '', builtin: false, enabled: true, name: '', nameEn: '', badge: '', badgeEn: '', description: '', descriptionEn: '', url: '', color: 'blue', coverImage: '' };
 
     const view = { content: null, config: null, draft: null, dirty: false, editing: null, notice: null, busy: false, stats: null, statsDays: 30, statsError: '' };
 
@@ -23,7 +23,7 @@
         const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token');
         return token ? { Authorization: `Bearer ${token}` } : {};
     }
-    const DEFAULT_FIELDS = ['id', 'name', 'nameEn', 'badge', 'badgeEn', 'description', 'descriptionEn', 'url', 'color'];
+    const DEFAULT_FIELDS = ['id', 'name', 'nameEn', 'badge', 'badgeEn', 'description', 'descriptionEn', 'url', 'color', 'coverImage'];
     const pickDefault = link => Object.fromEntries(DEFAULT_FIELDS.map(key => [key, link[key] || '']));
     const currentDefaults = () => view.config.links.filter(link => link.builtin).map(pickDefault);
 
@@ -140,6 +140,8 @@
 
     function renderLinkForm() {
         const link = view.editing.link;
+        const coverOnly = view.editing.mode === 'cover';
+        const uploadedCover = String(link.coverImage || '').startsWith('data:');
         const field = (key, label, hint = '', type = 'text') => `
             <label class="npp-field"><span>${esc(label)}</span><input type="${type}" data-edit="${key}" value="${esc(link[key])}">${hint ? `<small>${esc(hint)}</small>` : ''}</label>`;
         const defaultHint = view.editing.mode === 'default'
@@ -149,6 +151,7 @@
             <div class="npp-form" data-role="link-form">
                 ${defaultHint}
                 <div class="npp-grid">
+                    ${coverOnly ? '' : `
                     ${field('name', L('名称（中文）*', 'Name (Chinese) *'))}
                     ${field('nameEn', L('名称（英文）', 'Name (English)'))}
                     ${field('badge', L('角标（中文）', 'Badge (Chinese)'), L('例如：推广、新站，最多 12 个字', 'e.g. NEW, up to 12 characters'))}
@@ -159,6 +162,13 @@
                     <div class="npp-field npp-wide"><span>${esc(L('标识颜色', 'Color'))}</span>
                         <div class="npp-colors">${COLORS.map(([id, zh, en, hex]) => `<label class="${link.color === id ? 'active' : ''}"><input type="radio" name="npp-color" data-edit="color" value="${id}" ${link.color === id ? 'checked' : ''}><span class="npp-dot" style="background:${hex}"></span>${esc(L(zh, en))}</label>`).join('')}</div>
                     </div>
+                    `}
+                    <label class="npp-field npp-wide"><span>${esc(L('封面图片（可选）', 'Cover image (optional)'))}</span>
+                        <input type="text" data-edit="coverImage" value="${esc(uploadedCover ? '' : link.coverImage || '')}" placeholder="${esc(uploadedCover ? L('已选择本地图片，可填写地址替换', 'Local image selected; enter a URL to replace it') : 'https://…')}">
+                        <small>${esc(L('填写图片地址，或选择下方本地图片；留空使用渐变背景。', 'Enter an image URL or choose a local image below. Leave blank for the gradient background.'))}</small>
+                    </label>
+                    <label class="npp-field npp-wide"><span>${esc(L('选择本地图片', 'Choose local image'))}</span><input type="file" data-cover-file accept="image/png,image/jpeg,image/webp"><small>${esc(L('PNG / JPEG / WebP，自动缩小压缩；建议 16:9 横图。', 'PNG / JPEG / WebP, automatically resized and compressed. A 16:9 landscape image works best.'))}</small></label>
+                    <div class="npp-field npp-wide"><img data-cover-preview ${link.coverImage ? `src="${esc(link.coverImage)}"` : 'hidden'} alt="${esc(L('封面预览', 'Cover preview'))}" referrerpolicy="no-referrer" style="width:100%;max-width:480px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;border:1px solid #cbd5e1"><button type="button" class="npp-btn sm" data-action="clear-cover">${esc(L('清除图片，使用渐变背景', 'Clear image and use gradient'))}</button></div>
                 </div>
                 <div class="npp-form-actions">
                     <button type="button" class="npp-btn" data-action="cancel-edit">${esc(L('取消', 'Cancel'))}</button>
@@ -180,7 +190,7 @@
                     <button type="button" class="npp-btn sm" data-action="up" data-index="${index}" ${index === 0 ? 'disabled' : ''} aria-label="${esc(L('上移', 'Move up'))}">↑</button>
                     <button type="button" class="npp-btn sm" data-action="down" data-index="${index}" ${index === links.length - 1 ? 'disabled' : ''} aria-label="${esc(L('下移', 'Move down'))}">↓</button>
                     ${link.builtin
-                        ? (view.config.defaultsWritable ? `<button type="button" class="npp-btn sm" data-action="edit-default" data-index="${index}" title="${esc(L('写入项目源码，提交推送后成为默认', 'Writes to the project source; commit and push to make it the default'))}">${esc(L('编辑默认', 'Edit default'))}</button>` : '')
+                        ? `<button type="button" class="npp-btn sm" data-action="edit-cover" data-index="${index}">${esc(L('封面图片', 'Cover image'))}</button>` + (view.config.defaultsWritable ? `<button type="button" class="npp-btn sm" data-action="edit-default" data-index="${index}" title="${esc(L('写入项目源码，提交推送后成为默认', 'Writes to the project source; commit and push to make it the default'))}">${esc(L('编辑默认', 'Edit default'))}</button>` : '')
                         : `${view.config.defaultsWritable ? `<button type="button" class="npp-btn sm" data-action="promote-default" data-index="${index}" title="${esc(L('写入项目源码，提交推送后所有环境都自带这个链接', 'Writes to the project source; after commit and push every environment ships with it'))}">${esc(L('设为默认', 'Make default'))}</button>` : ''}
                     <button type="button" class="npp-btn sm" data-action="edit" data-index="${index}">${esc(L('编辑', 'Edit'))}</button>
                     <button type="button" class="npp-btn sm danger" data-action="delete" data-index="${index}">${esc(L('删除', 'Delete'))}</button>`}
@@ -189,7 +199,7 @@
             </div>`).join('');
         return `
             <h4>🔗 ${esc(L('推广链接', 'Promoted links'))}<span style="margin-left:auto"></span><button type="button" class="npp-btn" data-action="add" ${view.editing ? 'disabled' : ''}>＋ ${esc(L('添加链接', 'Add link'))}</button></h4>
-            <p class="npp-desc">${esc(L('系统自带链接只能设为不显示；自定义链接可增删改。排序靠前的链接优先显示在首页和桌面卡片堆的最前面。', 'Built-in links can only be hidden; custom links can be added, edited and deleted. Links at the top are shown first on the home page and at the front of the desktop card stack.'))}${view.config.defaultsWritable ? esc(L(' 当前服务运行在项目源码目录：可「编辑默认」或把自定义链接「设为默认」，写入 backend/platform-promotions-defaults.json，提交并推送后即为所有环境的默认链接（也可以直接手动编辑这个文件）。', ' This server runs from the project source: use “Edit default” or “Make default” to write backend/platform-promotions-defaults.json; commit and push it to make it the default everywhere (you can also edit the file by hand).')) : ''}</p>
+            <p class="npp-desc">${esc(L('系统自带链接可更换封面或隐藏；自定义链接可增删改。排序靠前的链接优先显示在首页和桌面卡片堆的最前面。', 'Built-in links can have their covers changed or be hidden; custom links can be added, edited and deleted. Links at the top are shown first on the home page and at the front of the desktop card stack.'))}${view.config.defaultsWritable ? esc(L(' 当前服务运行在项目源码目录：可「编辑默认」或把自定义链接「设为默认」，写入 backend/platform-promotions-defaults.json，提交并推送后即为所有环境的默认链接（也可以直接手动编辑这个文件）。', ' This server runs from the project source: use “Edit default” or “Make default” to write backend/platform-promotions-defaults.json; commit and push it to make it the default everywhere (you can also edit the file by hand).')) : ''}</p>
             ${links.length ? `<div class="npp-list">${rows}</div>` : `<div class="npp-desc">${esc(L('暂无推广链接', 'No promoted links yet'))}</div>`}
             ${view.editing ? renderLinkForm() : ''}`;
     }
@@ -322,6 +332,8 @@
         const links = view.draft.links;
         if (action === 'add') view.editing = { index: -1, link: clone(EMPTY_LINK) };
         else if (action === 'edit') view.editing = { index, link: clone(links[index]) };
+        else if (action === 'edit-cover') view.editing = { index, link: clone(links[index]), mode: 'cover' };
+        else if (action === 'clear-cover' && view.editing) view.editing.link.coverImage = '';
         else if (action === 'edit-default') view.editing = { index, link: clone(links[index]), mode: 'default' };
         else if (action === 'promote-default') {
             const link = links[index];
@@ -361,7 +373,37 @@
         } else if (target.dataset.edit && view.editing) {
             view.editing.link[target.dataset.edit] = target.value;
             if (target.dataset.edit === 'color') render();
+            if (target.dataset.edit === 'coverImage') {
+                const preview = view.content.querySelector('[data-cover-preview]');
+                preview.hidden = !target.value.trim();
+                if (target.value.trim()) preview.src = target.value.trim();
+                else preview.removeAttribute('src');
+            }
         }
+    }
+
+    async function selectCover(file) {
+        if (!file || !view.editing) return;
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) {
+            throw new Error(L('请选择不超过 10 MB 的 PNG、JPEG 或 WebP 图片', 'Choose a PNG, JPEG or WebP image up to 10 MB'));
+        }
+        const editing = view.editing;
+        const image = await createImageBitmap(file);
+        try {
+            const scale = Math.min(1, 1440 / image.width, 1440 / image.height);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(image.width * scale));
+            canvas.height = Math.max(1, Math.round(image.height * scale));
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            let data = canvas.toDataURL('image/jpeg', .88);
+            if (data.length > 699000) data = canvas.toDataURL('image/jpeg', .65);
+            if (data.length > 699000) throw new Error(L('图片压缩后仍超过 512 KB，请选择较小的图片', 'The compressed image exceeds 512 KB. Choose a smaller image.'));
+            if (view.editing !== editing) return;
+            editing.link.coverImage = data;
+            render();
+        } finally { image.close(); }
     }
 
     function rerenderSaveState() {
@@ -394,7 +436,11 @@
                 onClick(event).catch(error => { view.notice = { type: 'bad', text: error.message }; render(); });
             });
             content.addEventListener('input', event => { if (active() && event.target.type !== 'checkbox' && event.target.type !== 'radio') onInput(event); });
-            content.addEventListener('change', event => { if (active() && (event.target.type === 'checkbox' || event.target.type === 'radio')) onInput(event); });
+            content.addEventListener('change', event => {
+                if (!active()) return;
+                if (event.target.hasAttribute('data-cover-file')) selectCover(event.target.files[0]).catch(error => { view.notice = { type: 'bad', text: error.message }; render(); });
+                else if (event.target.type === 'checkbox' || event.target.type === 'radio') onInput(event);
+            });
         }
         view.notice = null;
         render();
