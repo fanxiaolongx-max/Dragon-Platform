@@ -1,6 +1,6 @@
 /* 首页右上角平台推广区：内置推广视频 + 推广链接（全局设置 › 平台推广 配置显示与自定义链接）。
  * - 同一时间只有一个推广项在悬浮小窗里显示（视频或链接），其余以横幅显示；点击横幅即互换。
- * - 视频：小窗用低码率版本、每次打开首页轮流播放下一个；点击小窗打开大窗，加载高清版并从头播放。
+ * - 首次打开优先展示推广链接，之后视频与链接混合随机轮换，一轮内不重复；视频小窗用低码率版本，点击放大高清观看。
  * - 链接：桌面端在屏幕右下角以置顶卡片堆打开（desktop-promo/），小窗显示其实时画面，点击弹出对应大窗；
  *   浏览器端显示封面卡片，点击在固定命名的标签页打开（已打开则直接切换过去），并预连接推广站点。
  * - 链接横幅最多显示 maxLinks 个，超出时每 rotateSeconds 秒轮换。
@@ -44,7 +44,7 @@
     const isEnglish = () => { try { return /^en/i.test((window.ToolsI18n && window.ToolsI18n.getLanguage && window.ToolsI18n.getLanguage()) || document.documentElement.lang || ''); } catch (_) { return false; } };
     const media = (key, kind) => isEnglish() && EN_FILES[key] ? '/assets/promotions/' + EN_FILES[key][kind] + '?v=' + VER : VIDEOS[key][kind];
     const ORDER = ['rfc', 'incentive', 'eos', 'guide'];
-    const LAST_VIDEO_KEY = 'tools.home.promoVideos.lastVideo';
+    const ROTATION_KEY = 'tools.home.promotions.rotation';
     const PROMO_API = '/api/platform-promotions';
     const FRAME_INTERVAL_MS = 1000;
     // 后端不可用（静态快照等）时只显示内置视频；推广链接的默认值统一在 backend/platform-promotions-defaults.json
@@ -88,8 +88,6 @@
     };
     function readDismissed() { try { return localStorage.getItem(STORE_KEY) === STORE_VALUE; } catch (_) { return false; } }
     function writeDismissed() { try { localStorage.setItem(STORE_KEY, STORE_VALUE); } catch (_) { /* 存储不可用时仅本次生效 */ } }
-    function readLastVideo() { try { return localStorage.getItem(LAST_VIDEO_KEY) || ''; } catch (_) { return ''; } }
-    function writeLastVideo(key) { try { localStorage.setItem(LAST_VIDEO_KEY, key); } catch (_) { /* noop */ } }
     const escapeHtml = value => String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
     const authHeaders = () => { try { const token = localStorage.getItem('tools_token'); return token ? { Authorization: 'Bearer ' + token } : {}; } catch (_) { return {}; } };
     const linkText = (link, key) => (isEnglish() && link[key + 'En']) || link[key] || '';
@@ -101,13 +99,36 @@
     function linkOf(key) { return isLink(key) ? config.links.find(link => 'link:' + link.id === key) || null : null; }
     const enabledVideos = () => ORDER.filter(key => (config.videos.find(video => video.id === key) || { enabled: true }).enabled !== false);
     const enabledLinks = () => config.links.filter(link => link.enabled !== false && link.url);
-    // 每次打开首页轮流播放下一个视频
-    function nextVideo() {
-        const videos = enabledVideos();
-        if (!videos.length) return null;
-        const index = videos.indexOf(readLastVideo());
-        const key = videos[(index + 1) % videos.length];
-        writeLastVideo(key);
+    // 首次展示第一个已启用链接；后续从视频和链接的洗牌队列取出一项，刷新不丢失进度。
+    function nextPromotion() {
+        const links = enabledLinks().map(link => 'link:' + link.id);
+        const keys = enabledVideos().concat(links);
+        if (!keys.length) return null;
+        let state;
+        try { state = JSON.parse(localStorage.getItem(ROTATION_KEY)); } catch (_) { /* 存储损坏或不可用时重新开始 */ }
+        const signature = keys.join('|');
+        const shuffle = values => {
+            for (let i = values.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [values[i], values[j]] = [values[j], values[i]];
+            }
+            return values;
+        };
+        let remaining = state?.signature === signature && Array.isArray(state.remaining)
+            ? [...new Set(state.remaining)].filter(key => keys.includes(key)) : [];
+        let key;
+        if (!state?.last && links.length) {
+            key = links[0];
+            remaining = shuffle(keys.filter(item => item !== key));
+        } else {
+            if (!remaining.length) {
+                remaining = shuffle([...keys]);
+                // 新一轮也避免与上次相同，只有一个可用项时继续展示该项。
+                if (remaining.length > 1 && remaining[0] === state?.last) [remaining[0], remaining[1]] = [remaining[1], remaining[0]];
+            }
+            key = remaining.shift();
+        }
+        try { localStorage.setItem(ROTATION_KEY, JSON.stringify({ signature, last: key, remaining })); } catch (_) { /* 存储不可用时仍正常展示 */ }
         return key;
     }
     async function api(method, path) {
@@ -509,7 +530,7 @@
         // 全局设置保存后即时生效
         window.addEventListener('tools:platform-promotions-changed', event => {
             if (event.detail && Array.isArray(event.detail.links)) config = event.detail;
-            if (current && !allKeys().includes(current)) setCurrent(readDismissed() ? null : (nextVideo() || allKeys()[0] || null));
+            if (current && !allKeys().includes(current)) setCurrent(readDismissed() ? null : nextPromotion());
             else translate();
             scheduleRotation();
             preconnect();
@@ -517,7 +538,7 @@
 
         translate();
         loadConfig().then(() => {
-            setCurrent(readDismissed() ? null : (nextVideo() || allKeys()[0] || null));
+            setCurrent(readDismissed() ? null : nextPromotion());
             scheduleRotation();
             connectDesktop();
         });

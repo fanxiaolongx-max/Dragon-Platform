@@ -54,7 +54,7 @@ app.whenReady().then(async () => {
     await until(() => document.querySelector('#nav-resource-version-display')?.textContent.includes('在线测试版'));
     assert.equal(await evaluate(() => document.querySelector('#nav-resource-version-display').textContent), `v${require('../package.json').version} · 在线测试版`);
     await until(() => !!document.querySelector('.nrv-banner[data-promo="link:portal-link"]'));
-    await evaluate(() => document.querySelector('.nrv-banner[data-promo="link:netcare"]').click());
+    assert.equal(await evaluate(() => document.querySelector('#nrvFloat .nrv-link').hidden), false, 'the first static homepage visit shows a promoted link');
     await until(() => !!document.querySelector('.nrv-link-image')?.naturalWidth);
     assert.ok(await evaluate(() => document.querySelector('.nrv-link-image').src.includes('/project/tp-static/frontend/assets/promotions/')), 'local cover resolves within a Pages project path');
     await evaluate(() => document.querySelector('.nrv-banner[data-promo="link:portal-link"]').click());
@@ -71,6 +71,19 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate(async () => (await fetch('/api/platform-promotions', { method: 'PUT', body: '{}' })).status), 403, 'promotion config stays read-only');
     await evaluate(() => document.getElementById('staticPermissionNotice')?.remove());
     await evaluate(() => document.querySelector('.nrv-banner[data-video="rfc"]').click());
+    const cycle = [await evaluate(() => JSON.parse(localStorage.getItem('tools.home.promotions.rotation')).last)];
+    for (let i = 0; i < 5; i++) {
+        await win.loadURL(base + 'index.html');
+        await until(() => !!document.querySelector('#nrvFloat') && !document.querySelector('#nrvFloat').hidden);
+        const selected = await evaluate(() => {
+            const state = JSON.parse(localStorage.getItem('tools.home.promotions.rotation'));
+            return { key: state.last, linkVisible: !document.querySelector('#nrvFloat .nrv-link').hidden, inBanners: !!document.querySelector('.nrv-banner[data-promo="' + state.last + '"]') };
+        });
+        assert.equal(selected.linkVisible, selected.key.startsWith('link:'));
+        assert.equal(selected.inBanners, false, 'the automatically selected item is displayed in the floating window');
+        cycle.push(selected.key);
+    }
+    assert.deepEqual(cycle.sort(), ['rfc', 'incentive', 'eos', 'guide', 'link:netcare', 'link:portal-link'].sort(), 'static homepage refreshes cycle through links and videos without repeats');
     assert.equal(await evaluate(() => !!document.getElementById('homeSidebar') && !!document.getElementById('statsBar') && !!document.getElementById('homePromotions')), true);
     assert.equal(await evaluate(() => document.querySelector('#dcDatacomPromo .dc-feature-new')?.textContent), 'NEW');
     await evaluate(() => document.getElementById('builtinToolsCompareBtn').click());

@@ -75,6 +75,22 @@ app.whenReady().then(async () => {
     await evaluate(() => window.dispatchEvent(new CustomEvent('tools:platform-promotions-changed', { detail: { videos: [], links: [{ id: 'netcare', enabled: true, name: 'NetCare', url: 'https://netcare.huawei.com/', coverImage: '/missing.jpg' }] } })));
     await until(() => !document.querySelector('#nrvFloat').classList.contains('has-link-image'));
     assert.equal(await evaluate(() => document.querySelector('.nrv-link-image').hidden), true, 'failed image falls back to readable gradient');
+    config = { ...config, videos: ['rfc', 'incentive', 'eos', 'guide'].map(id => ({ id, enabled: true })), links: [...config.links, { id: 'second', enabled: true, name: 'Second link', url: 'https://second.example/' }] };
+    await evaluate(() => localStorage.removeItem('tools.home.promotions.rotation'));
+    const cycle = [];
+    for (let i = 0; i < 6; i++) {
+        await win.loadURL(base);
+        await until(() => !!document.querySelector('#nrvFloat') && !document.querySelector('#nrvFloat').hidden);
+        const selected = await evaluate(() => {
+            const state = JSON.parse(localStorage.getItem('tools.home.promotions.rotation'));
+            return { key: state.last, linkVisible: !document.querySelector('#nrvFloat .nrv-link').hidden, inBanners: !!document.querySelector('.nrv-banner[data-promo="' + state.last + '"]') };
+        });
+        if (i === 0) assert.equal(selected.key, 'link:netcare', 'the first normal homepage visit prefers a link');
+        assert.equal(selected.linkVisible, selected.key.startsWith('link:'));
+        assert.equal(selected.inBanners, false);
+        cycle.push(selected.key);
+    }
+    assert.deepEqual(cycle.sort(), ['rfc', 'incentive', 'eos', 'guide', 'link:netcare', 'link:second'].sort(), 'normal homepage refreshes cycle through every enabled video and link');
     console.log('Promotion covers: default SVG, editable built-ins, local upload/resize, save/reload, bilingual narrow layout and image failure fallback passed.');
 }).catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
     win?.destroy(); server?.closeAllConnections(); server?.close();
