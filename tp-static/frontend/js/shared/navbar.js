@@ -1402,8 +1402,8 @@ function normalizeNavSettings(settings = {}) {
     platformNameEn = platformNameEn || (!rawHasNonAscii && rawName ? rawName : 'Dragon Platform');
     const platformSubtitle = clean(settings.platformSubtitle, 120) || '埃及 CS 工具与知识中心';
     const platformSubtitleEn = clean(settings.platformSubtitleEn, 120) || 'Egypt CS Tools & Knowledge Center';
-    const platformSlogan = clean(settings.platformSlogan, 200) || '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”';
-    const platformSloganEn = clean(settings.platformSloganEn, 200) || '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”';
+    const platformSlogan = clean(settings.platformSlogan, 200) || '“认真做好每一个工具，让日常工作更省心。”';
+    const platformSloganEn = clean(settings.platformSloganEn, 200) || '“Build every tool with care. Make everyday work easier.”';
     const platformName = rawName || platformNameZh;
 
     return {
@@ -1470,8 +1470,8 @@ function applyPlatformIdentity() {
 
     const zhSub = navState.settings?.platformSubtitle || '埃及 CS 工具与知识中心';
     const enSub = navState.settings?.platformSubtitleEn || 'Egypt CS Tools & Knowledge Center';
-    const zhSlogan = navState.settings?.platformSlogan || '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”';
-    const enSlogan = navState.settings?.platformSloganEn || '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”';
+    const zhSlogan = navState.settings?.platformSlogan || '“认真做好每一个工具，让日常工作更省心。”';
+    const enSlogan = navState.settings?.platformSloganEn || '“Build every tool with care. Make everyday work easier.”';
 
     const mainName = (isEn && navState.settings?.platformNameEn) ? enName : (navState.settings?.platformNameZh || navState.settings?.platformName || zhName);
     const secondaryName = (isEn && navState.settings?.platformNameEn) ? zhName : enName;
@@ -2797,7 +2797,7 @@ async function renderLogoSettings(content) {
         <div class="logo-settings-container">
             <div class="logo-settings-card">
                 <h3>✏️ ${text('平台标识与名称设定', 'Platform identity & names')}</h3>
-                <p>${text('支持配置中英文主名称、副标题与登录页专属标语。在中文界面优先显示中文名称，英文界面自动倒置为主英辅中。保存后自动同步为平台全局默认配置。', 'Configure Chinese and English platform names, subtitle and mystical login slogan. Display order reverses automatically based on current language. Saved values become the system defaults.')}</p>
+                <p>${text('支持配置中英文主名称、副标题与登录页专属标语。在中文界面优先显示中文名称，英文界面自动倒置为主英辅中。保存后自动同步为平台全局默认配置。', 'Configure Chinese and English platform names, subtitle and login slogan. Display order reverses automatically based on current language. Saved values become the system defaults.')}</p>
                 <form onsubmit="event.preventDefault(); savePlatformName()">
                     <input type="hidden" id="platformNameInput" value="${navEscape(navState.settings.platformName || '图特工具平台')}">
                     <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px;margin-top:12px;">
@@ -2818,12 +2818,12 @@ async function renderLogoSettings(content) {
                             <input id="platformSubtitleEnInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="120" value="${navEscape(navState.settings.platformSubtitleEn || 'Egypt CS Tools & Knowledge Center')}" placeholder="Egypt CS Tools & Knowledge Center" autocomplete="off">
                         </div>
                         <div style="grid-column: 1 / -1;">
-                            <label for="platformSloganInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">✨ ${text('登录页标语 (中文，神秘斜体引用)', 'Login Page Slogan (Chinese, mystical italic quote)')}</label>
-                            <input id="platformSloganInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="200" value="${navEscape(navState.settings.platformSlogan || '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”')}" placeholder="“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”" autocomplete="off">
+                            <label for="platformSloganInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">✨ ${text('登录页标语 (中文)', 'Login Page Slogan (Chinese)')}</label>
+                            <input id="platformSloganInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="200" value="${navEscape(navState.settings.platformSlogan || '“认真做好每一个工具，让日常工作更省心。”')}" placeholder="“认真做好每一个工具，让日常工作更省心。”" autocomplete="off">
                         </div>
                         <div style="grid-column: 1 / -1;">
                             <label for="platformSloganEnInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">✨ ${text('登录页标语 (英文)', 'Login Page Slogan (English)')}</label>
-                            <input id="platformSloganEnInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="200" value="${navEscape(navState.settings.platformSloganEn || '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”')}" placeholder="“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”" autocomplete="off">
+                            <input id="platformSloganEnInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="200" value="${navEscape(navState.settings.platformSloganEn || '“Build every tool with care. Make everyday work easier.”')}" placeholder="“Build every tool with care. Make everyday work easier.”" autocomplete="off">
                         </div>
                     </div>
                     <div style="margin-top:14px">
@@ -2928,8 +2928,8 @@ window.savePlatformName = async function () {
         : (rawInput || 'Dragon Platform');
     const platformSubtitle = (subInput ? clean(subInput.value, 120) : '') || navState.settings?.platformSubtitle || '埃及 CS 工具与知识中心';
     const platformSubtitleEn = (subEnInput ? clean(subEnInput.value, 120) : '') || navState.settings?.platformSubtitleEn || 'Egypt CS Tools & Knowledge Center';
-    const platformSlogan = (sloganInput ? clean(sloganInput.value, 200) : '') || navState.settings?.platformSlogan || '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”';
-    const platformSloganEn = (sloganEnInput ? clean(sloganEnInput.value, 200) : '') || navState.settings?.platformSloganEn || '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”';
+    const platformSlogan = (sloganInput ? clean(sloganInput.value, 200) : '') || navState.settings?.platformSlogan || '“认真做好每一个工具，让日常工作更省心。”';
+    const platformSloganEn = (sloganEnInput ? clean(sloganEnInput.value, 200) : '') || navState.settings?.platformSloganEn || '“Build every tool with care. Make everyday work easier.”';
     const platformName = rawInput || platformNameZh;
 
     button.disabled = true;
@@ -7604,6 +7604,12 @@ function ensureNavbarConfirmDialog() {
 
 function showNavbarConfirm({ title, message, hint, cancelText, confirmText, eyebrow, icon, tone = 'warning', notice = false }) {
     const modal = ensureNavbarConfirmDialog();
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl && fsEl !== document.documentElement && fsEl !== document.body) {
+        fsEl.appendChild(modal);
+    } else if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
     if (navConfirmResolver) {
         navConfirmResolver(false);
         navConfirmResolver = null;
@@ -7638,6 +7644,9 @@ window.resolveNavbarConfirm = function (confirmed) {
     const modal = document.getElementById('navbarConfirmModal');
     modal?.classList.remove('open');
     modal?.setAttribute('aria-hidden', 'true');
+    if (modal && modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
     const resolve = navConfirmResolver;
     navConfirmResolver = null;
     if (resolve) resolve(Boolean(confirmed));
@@ -7686,6 +7695,12 @@ function ensureNavbarFormDialog() {
 
 function showNavbarFormDialog({ title, message = '', hint = '', fields = [], cancelText, confirmText, eyebrow, icon = '✎', tone = 'info' }) {
     const modal = ensureNavbarFormDialog();
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl && fsEl !== document.documentElement && fsEl !== document.body) {
+        fsEl.appendChild(modal);
+    } else if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
     if (navFormDialogResolver) {
         navFormDialogResolver(null);
         navFormDialogResolver = null;
@@ -7769,6 +7784,9 @@ window.resolveNavbarFormDialog = function (confirmed) {
     const values = confirmed && form ? Object.fromEntries(new FormData(form).entries()) : null;
     modal?.classList.remove('open');
     modal?.setAttribute('aria-hidden', 'true');
+    if (modal && modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
     const resolve = navFormDialogResolver;
     navFormDialogResolver = null;
     if (resolve) resolve(values);

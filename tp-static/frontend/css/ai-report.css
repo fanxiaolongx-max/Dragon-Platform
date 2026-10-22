@@ -1,5 +1,5 @@
 /* AI report editor and its exported pages. */
-:root{--air-ink:#22364b;--air-muted:#6a7d90;--air-line:#dbe4ed;--air-soft:#f3f7fb;--air-accent:#1f5e95;--air-accent-soft:#e6f0fa;--air-card:#fff;--air-page:#e9eef3;--air-good:#2f8f6b;--air-bad:#c14d5f;--air-toolbar-h:52px;--air-chat-w:380px}
+:root{--air-ink:#22364b;--air-muted:#6a7d90;--air-line:#dbe4ed;--air-soft:#f3f7fb;--air-accent:#1f5e95;--air-accent-soft:#e6f0fa;--air-card:#fff;--air-page:#e9eef3;--air-good:#2f8f6b;--air-bad:#c14d5f;--air-toolbar-h:52px;--air-chat-w:360px;--air-report-w:1280px}
 body.ai-report-page{margin:0;background:var(--air-page);color:var(--air-ink);font:14px/1.65 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
 .ai-report-page button{font:inherit;cursor:pointer}
 .air-booting .air-layout{visibility:hidden}
@@ -34,10 +34,13 @@ body.ai-report-page{margin:0;background:var(--air-page);color:var(--air-ink);fon
 .air-menu-panel .air-danger{color:var(--air-bad)}
 
 /* Page: report paper centered, chat docked on the right when a cell is selected. */
+/* No overflow on the layout: it would become the chat's scroll container and stop the chat from sticking. */
 .air-layout{display:flex;justify-content:center;gap:16px;padding:20px 18px 60px}
-.air-report{position:relative;font-family:var(--rep-font,inherit);width:min(1280px,100%);box-sizing:border-box;background:var(--air-card);border:1px solid var(--air-line);border-radius:10px;box-shadow:0 6px 24px #102b470d;padding:36px 44px 48px}
-.air-chat-open .air-report{width:min(1280px,calc(100% - var(--air-chat-w) - 16px))}
-.air-chat{position:sticky;top:calc(var(--navbar-h,52px) + var(--air-toolbar-h) + 20px);width:var(--air-chat-w);flex:0 0 var(--air-chat-w);height:calc(100vh - var(--navbar-h,52px) - var(--air-toolbar-h) - 40px);display:flex;flex-direction:column;background:var(--air-card);border:1px solid var(--air-line);border-radius:10px;box-shadow:0 6px 24px #102b4712;overflow:hidden}
+.air-report{position:relative;font-family:var(--rep-font,inherit);width:var(--air-report-w);flex:0 0 auto;box-sizing:border-box;background:var(--air-card);border:1px solid var(--air-line);border-radius:10px;box-shadow:0 6px 24px #102b470d;padding:36px 44px 48px}
+/* The report has one fixed width everywhere (editor, preview, exports); with the chat open the chat takes every
+   remaining pixel. A window too narrow for both scrolls sideways rather than squeezing the report. */
+.air-chat-open .air-layout{justify-content:flex-start;gap:12px;padding-left:12px;padding-right:12px}
+.air-chat{position:sticky;top:calc(var(--navbar-h,52px) + var(--air-toolbar-h) + 20px);min-width:var(--air-chat-w);flex:1 1 var(--air-chat-w);height:calc(100vh - var(--navbar-h,52px) - var(--air-toolbar-h) - 32px);display:flex;flex-direction:column;background:var(--air-card);border:1px solid var(--air-line);border-radius:10px;box-shadow:0 6px 24px #102b4712;overflow:hidden}
 .air-chat[hidden]{display:none}
 .air-chat header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--air-line)}
 .air-chat header small{display:block;color:var(--air-muted);font-size:11px}
@@ -54,7 +57,7 @@ body.ai-report-page{margin:0;background:var(--air-page);color:var(--air-ink);fon
 .air-pull.is-loading .air-pull-icon{border:2px solid #c9dcee;border-top-color:var(--air-accent);background:transparent;color:transparent;animation:air-spin .8s linear infinite}
 @media(prefers-reduced-motion:reduce){.air-chat-track.is-settling{transition:none}}
 .air-chat-empty{color:var(--air-muted);font-size:13px;margin:0}
-.air-msg{max-width:92%;padding:9px 12px;border-radius:10px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.air-msg{max-width:min(92%,680px);padding:9px 12px;border-radius:10px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
 .air-msg-user{align-self:flex-end;background:var(--air-accent);color:#fff;border-bottom-right-radius:3px}
 .air-msg-ai{align-self:flex-start;background:var(--air-soft);border:1px solid var(--air-line);border-bottom-left-radius:3px}
 .air-msg-busy{display:flex;align-items:center;gap:8px;color:var(--air-muted)}
@@ -70,7 +73,7 @@ body.ai-report-page{margin:0;background:var(--air-page);color:var(--air-ink);fon
 .air-recipe summary{cursor:pointer;font-size:12px;color:var(--air-muted)}
 .air-recipe pre{max-height:220px;overflow:auto;background:#f6f8fa;border-radius:6px;padding:8px;font-size:11px;white-space:pre-wrap}
 .air-msg-note{color:#8a5a12;background:#fdf6e9;border-color:#efd9ad}
-.air-msg-prompt{align-self:stretch;max-width:none;background:#f3f8fd;border:1px solid #bcd5ec;border-radius:10px}
+.air-msg-prompt{align-self:stretch;max-width:760px;background:#f3f8fd;border:1px solid #bcd5ec;border-radius:10px}
 .air-msg-prompt>strong{display:block;font-size:12px;color:var(--air-accent);margin-bottom:4px}
 .air-prompt-actions{display:flex;align-items:center;gap:10px;margin-top:10px}
 .air-prompt-actions button{height:30px;padding:0 14px;border:0;border-radius:6px;background:var(--air-accent);color:#fff;font-size:12px;font-weight:600}
@@ -105,10 +108,11 @@ body.ai-report-page{margin:0;background:var(--air-page);color:var(--air-ink);fon
 .air-meta-item>b{padding:8px 10px;background:var(--air-soft);color:var(--air-muted);font-weight:600;overflow-wrap:anywhere}
 .air-meta-item>span{padding:8px 10px;min-width:0;overflow-wrap:anywhere}
 /* Editable text highlights as one box, so wrapped lines never cover each other. */
-[contenteditable]{display:inline-block;max-width:100%;min-width:2em;padding:0 3px;margin:0 -3px;outline:none;border-radius:4px;transition:background .15s;vertical-align:top}
+/* Template fields; in-cell text edits keep their own layout (a table cell must stay a table cell). */
+[contenteditable]:not(.air-text-editing){display:inline-block;max-width:100%;min-width:2em;padding:0 3px;margin:0 -3px;outline:none;border-radius:4px;transition:background .15s;vertical-align:top}
 .air-meta-item [contenteditable],.air-footer [contenteditable]{display:block}
-[contenteditable]:hover{background:#f1f6fb}
-[contenteditable]:focus{background:#eaf3fc;box-shadow:0 0 0 2px #b8d3ec}
+[contenteditable]:not(.air-text-editing):hover{background:#f1f6fb}
+[contenteditable]:not(.air-text-editing):focus{background:#eaf3fc;box-shadow:0 0 0 2px #b8d3ec}
 [contenteditable]:empty::before{content:attr(data-placeholder);color:#a9b7c4}
 .air-chapter{margin-top:30px}
 .air-chapter h2{display:flex;align-items:center;gap:10px;margin:0 0 14px;padding-bottom:8px;border-bottom:2px solid var(--air-accent);font-size:18px;color:var(--rep-heading,#132c45)}
@@ -124,9 +128,6 @@ body.ai-report-page{margin:0;background:var(--air-page);color:var(--air-ink);fon
 .air-cell{position:relative;display:flex;flex-direction:column;container-type:inline-size;min-width:0;min-height:96px;box-sizing:border-box;padding:14px;border:1px solid var(--air-line);border-radius:var(--rep-radius,8px);background:var(--rep-surface,#fff);overflow:auto;transition:border-color .15s,box-shadow .15s}
 .air-report:not(.is-preview) .air-cell:hover{border-color:#b3cbe1}
 .air-cell.is-selected{border-color:#3378b7;box-shadow:0 0 0 3px #3378b724}
-.air-cell.is-dragging{opacity:.45}
-.air-cell.is-drop-target,.air-add-cell.is-drop-target{overflow:visible}
-.air-cell.is-drop-target::before,.air-add-cell.is-drop-target::before{content:'';position:absolute;left:-8px;top:4px;bottom:4px;width:3px;border-radius:3px;background:#3378b7;box-shadow:0 0 0 3px #3378b72e;pointer-events:none}
 .air-add-cell{position:relative}
 .air-cell-tools{position:absolute;top:0;right:0;z-index:3;display:flex;gap:3px;padding:6px 6px 14px 28px;opacity:0;transition:opacity .15s}
 .air-cell-tools:hover,.air-cell-tools:focus-within{opacity:1}
@@ -205,10 +206,8 @@ body.air-export .air-report{margin:0 auto;padding:36px 44px}
 }
 @media(max-width:1100px){
     .air-layout{flex-direction:column;align-items:center}
-    .air-chat-open .air-report{width:100%}
+    .air-layout{align-items:flex-start}
     .air-chat{position:static;width:100%;flex:none;height:520px}
-    .air-report{padding:24px 18px}
-    .air-cell{grid-column:span 12!important}
     .air-toolbar{overflow-x:auto}
 }
 
@@ -254,6 +253,7 @@ body.air-export .air-report{margin:0 auto;padding:36px 44px}
 .kit-widget-chart{display:flex;flex-direction:column}
 .kit-chart-canvas{flex:1;min-height:0;width:100%}
 .kit-chart-canvas.is-drillable{cursor:pointer}
+.kit-drill-bar[hidden]{display:none}
 .kit-drill-bar{display:flex;align-items:center;flex-wrap:wrap;gap:4px;margin-bottom:4px;font-size:12px;color:var(--air-muted)}
 .kit-drill-bar button{border:0;background:transparent;padding:2px 4px;border-radius:4px;color:var(--air-accent);font:inherit;cursor:pointer}
 .kit-drill-bar button:hover{background:var(--air-accent-soft)}
@@ -264,3 +264,212 @@ body.air-export .air-report{margin:0 auto;padding:36px 44px}
 .kit-dt-clear{width:20px;height:20px;border:0;border-radius:50%;background:transparent;color:var(--air-muted);font-size:14px;line-height:1;cursor:pointer}
 .kit-dt-clear:hover{background:var(--air-soft);color:var(--air-ink)}
 @media print{.kit-drill-bar{display:none!important}}
+/* Undo on the latest final prompt, and the Gaussian dissolve of removed messages. */
+.air-prompt-actions .air-revert{margin-left:auto;height:28px;padding:0 10px;border:1px solid #c9d8e6;border-radius:6px;background:#fff;color:var(--air-muted);font-size:12px;font-weight:500;box-shadow:none}
+.air-prompt-actions .air-revert:hover:not(:disabled){color:var(--air-bad);border-color:#e3b3bc;background:#fdf3f5}
+.air-chat-log .air-particle{position:absolute;z-index:3;border-radius:50%;pointer-events:none;will-change:transform,opacity}
+.air-msg.is-collapsing{transition:height .4s cubic-bezier(.4,0,.2,1),margin .4s,padding .4s;margin:0!important;padding-top:0!important;padding-bottom:0!important;border-width:0!important}
+.air-chat.is-dissolving .air-chat-form,.air-chat.is-dissolving [data-make-prompt]{pointer-events:none;opacity:.6}
+
+/* Final prompt editing: edit button top-right of the card, the draft edits in place. */
+.air-prompt-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.air-msg-prompt .air-prompt-head>strong{margin:0}
+.air-prompt-tag{padding:0 7px;border-radius:9px;background:#fff3dc;color:#9a6a12;font-size:11px;line-height:18px}
+.air-prompt-edit{margin-left:auto;height:24px;padding:0 9px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--air-accent);font-size:12px;cursor:pointer}
+.air-prompt-edit:hover{background:#fff;border-color:#c9d8e6}
+.air-msg-prompt.is-editing{background:#fff;border-color:#8fb7dc;box-shadow:0 0 0 3px #3378b71a}
+.air-prompt-draft{min-height:80px;max-height:420px;overflow:auto;padding:8px 10px;border:1px dashed #b8cde0;border-radius:8px;background:#fbfdff;white-space:pre-wrap;outline:none;font-size:13px;line-height:1.65}
+.air-prompt-draft:focus{border-style:solid;border-color:#8fb7dc}
+.air-msg-prompt.is-editing .air-prompt-actions small{color:var(--air-muted)}
+/* A cell the user forced smaller keeps that exact height; charts inside are shrunk to fit. */
+.air-cell.is-fit{overflow:hidden}
+.air-cell.is-fit>.air-cell-body{min-height:0;overflow:hidden}
+/* A light copy button under every chat message, on the message's side. */
+.air-msg-copy{margin-top:-6px;padding:1px 6px;border:0;border-radius:5px;background:transparent;color:var(--air-muted);font-size:11px;line-height:18px;opacity:.45;cursor:pointer;transition:opacity .15s,background .15s,color .15s}
+.air-msg-copy-user{align-self:flex-end}
+.air-msg-copy-ai{align-self:flex-start}
+.air-msg:hover+.air-msg-copy,.air-msg-copy:hover,.air-msg-copy:focus-visible{opacity:1}
+.air-msg-copy:hover{background:var(--air-soft);color:var(--air-accent)}
+.air-msg-copy.is-copied{opacity:1;color:var(--air-good)}
+.air-cell.is-fit>.air-cell-body>*{flex-shrink:0}
+.kit-missing{color:#a9b7c4}
+/* Layout slots: named sub-blocks of a cell whose sizes the platform controls. */
+.kit-layout{display:flex;flex-direction:column;gap:12px;min-width:0}
+.kit-row{display:flex;gap:12px;align-items:flex-start;min-width:0}
+.kit-slot{position:relative;min-width:0;box-sizing:border-box}
+.kit-slot.has-height{overflow:hidden auto}
+@media(max-width:700px){.kit-row{flex-direction:column}.kit-row>.kit-slot{flex:1 1 auto!important;width:100%}}
+/* Editing affordances for layout slots (only added in edit mode): hover outline + name, edge handles, size badge. */
+.air-report:not(.is-preview) .air-cell .kit-slot{outline:1px dashed transparent;outline-offset:3px;border-radius:4px;transition:outline-color .15s}
+.air-report:not(.is-preview) .air-cell .kit-slot:hover,.air-cell .kit-slot.is-sizing{outline-color:#9ec0de}
+.kit-slot-tag{position:absolute;top:-2px;right:2px;z-index:3;padding:0 6px;border-radius:8px;background:#eaf2fa;color:var(--air-accent);font-size:10px;line-height:16px;opacity:0;pointer-events:none;transition:opacity .15s}
+.kit-slot:hover>.kit-slot-tag,.kit-slot.is-sizing>.kit-slot-tag{opacity:1}
+.kit-slot-edge{position:absolute;z-index:4}
+.kit-slot-edge-x{top:0;bottom:0;right:-9px;width:6px;cursor:col-resize}
+.kit-slot-edge-y{left:0;right:0;bottom:-6px;height:6px;cursor:row-resize}
+.kit-slot-edge::after{content:'';position:absolute;border-radius:3px;background:#3378b7;opacity:0;transition:opacity .15s}
+.kit-slot-edge-x::after{left:2px;top:30%;bottom:30%;width:2px}
+.kit-slot-edge-y::after{top:2px;left:30%;right:30%;height:2px}
+.kit-slot:hover>.kit-slot-edge::after{opacity:.35}
+.kit-slot-edge:hover::after,.kit-slot.is-sizing>.kit-slot-edge::after{opacity:1}
+.kit-slot-badge{position:absolute;left:50%;bottom:6px;z-index:5;transform:translateX(-50%);padding:2px 8px;border-radius:10px;background:#102b47;color:#fff;font-size:11px;white-space:nowrap;pointer-events:none}
+.kit-slot-badge:empty{display:none}
+.air-slot-sizing,.air-slot-sizing *{user-select:none}
+.kit-slot.has-height{overflow:visible}
+.kit-slot.has-height>:not(.kit-slot-tag):not(.kit-slot-edge):not(.kit-slot-badge){max-height:100%}
+/* Progress ring around a cell: the lit share of the perimeter is the progress, the colour is the stage. */
+.air-progress{position:absolute;inset:0;width:100%;height:100%;z-index:5;pointer-events:none;overflow:visible}
+.air-progress rect{x:1px;y:1px;width:calc(100% - 2px);height:calc(100% - 2px);rx:8px;ry:8px;fill:none;stroke:var(--ring);stroke-width:2.5}
+.air-progress-track{opacity:.12}
+.air-progress-bar{stroke-linecap:round;stroke-dasharray:var(--to) 100;filter:drop-shadow(0 0 3px var(--ring));animation:air-ring-grow .8s cubic-bezier(.3,.7,.3,1) both}
+.air-progress-glint{stroke:#fff;stroke-width:3.5;stroke-linecap:round;filter:drop-shadow(0 0 5px var(--ring));animation:air-ring-glint 1.4s ease-in-out .8s infinite both}
+@keyframes air-ring-grow{from{stroke-dasharray:var(--from) 100}to{stroke-dasharray:var(--to) 100}}
+@keyframes air-ring-glint{0%,100%{opacity:.15}50%{opacity:1}}
+.air-progress.is-done{animation:air-ring-done 1.3s ease forwards}
+@keyframes air-ring-done{0%,55%{opacity:1}100%{opacity:0}}
+.air-progress-queued{--ring:#9aa8b6}
+.air-progress-think{--ring:#6c8cff}
+.air-progress-prompt{--ring:#8b6cf0}
+.air-progress-compile{--ring:#e0a33a}
+.air-progress-compute{--ring:#2fa58e}
+.air-progress-narrative,.air-progress-done{--ring:#2f9e6b}
+.air-progress-error{--ring:#d0566b}
+.air-cell[aria-busy=true]{border-color:transparent}
+.air-skeleton{display:flex;flex-direction:column;gap:10px;padding:6px 2px}
+.air-skeleton i{display:block;height:10px;border-radius:5px;background:linear-gradient(90deg,#eef3f8 25%,#f7fafc 50%,#eef3f8 75%);background-size:200% 100%;animation:air-skeleton 1.6s linear infinite}
+.air-skeleton i:nth-child(1){width:70%}.air-skeleton i:nth-child(2){width:92%}.air-skeleton i:nth-child(3){width:46%}
+@keyframes air-skeleton{to{background-position:-200% 0}}
+@media(prefers-reduced-motion:reduce){.air-progress-bar,.air-progress-glint,.air-skeleton i{animation:none}.air-progress.is-done{animation-duration:.01s}}
+/* In-cell text editing: double-click generated text; the edit is written into the cell's prompt. */
+.air-report:not(.is-preview) .air-cell-body .air-text-editing{outline:2px solid var(--air-accent);outline-offset:2px;border-radius:3px;background:#fffdf3;cursor:text}
+.air-report:not(.is-preview) .air-cell-body .air-text-editing:is(td,th){outline-offset:-2px}
+/* Moving cells: the lifted card follows the pointer; a soft placeholder keeps its place while the others slide aside. */
+.air-cell.is-lifted{z-index:60;pointer-events:none;box-shadow:0 18px 40px #102b4733,0 4px 12px #102b471f;border-color:#b8d0e6;transform-origin:center}
+.air-cell-placeholder{min-height:96px;box-sizing:border-box;border:1.5px dashed #b9cde0;border-radius:var(--rep-radius,8px);background:linear-gradient(135deg,#f3f8fd,#eaf2fa);animation:air-placeholder-in .25s ease both}
+@keyframes air-placeholder-in{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
+body.air-moving,body.air-moving *{cursor:grabbing!important;user-select:none}
+/* Without this the browser scrolls to keep a card in view when the placeholder moves above it, so the page jumps. */
+html:has(body.air-moving){overflow-anchor:none}
+.air-cell-tools [data-cell-drag]{touch-action:none}
+@media(prefers-reduced-motion:reduce){.air-cell-placeholder{animation:none}}
+/* Content change splash: the old content blurs away as dots, which gather where the new content's ink is. */
+.air-splash-layer{position:absolute;inset:0;z-index:7;pointer-events:none;overflow:visible}
+.air-splash-ghost{position:absolute;margin:0;overflow:hidden}
+.air-splash-ghost>.air-cell-body{width:100%;height:100%}
+.air-splash-dot{position:absolute;border-radius:50%;will-change:transform,opacity}
+/* Under the user's own messages: copy and retry side by side. */
+.air-msg-tail{display:flex;gap:2px;margin-top:-6px}
+.air-msg-tail-user{align-self:flex-end}
+.air-msg-tail .air-msg-copy{margin-top:0}
+.air-msg:hover+.air-msg-tail .air-msg-copy,.air-msg-tail:hover .air-msg-copy{opacity:1}
+.air-msg-retry:disabled{opacity:.25!important;cursor:default;background:transparent!important;color:var(--air-muted)!important}
+/* Folding the top bars away: the platform bar slides up, the toolbar collapses, the report and chat move up. */
+.air-chrome-toggle{position:fixed;top:calc(var(--navbar-h,52px) + var(--air-toolbar-h));left:50%;z-index:41;transform:translateX(-50%);width:44px;height:16px;display:grid;place-items:center;padding:0;border:0;border-radius:0 0 9px 9px;background:#102b47;color:#c9d9ea;box-shadow:0 3px 8px #102b4726;opacity:.75;transition:top .32s cubic-bezier(.2,.8,.2,1),opacity .15s,background .15s}
+.air-chrome-toggle:hover,.air-chrome-toggle:focus-visible{opacity:1;background:#1b4268;color:#fff}
+.air-chrome-toggle svg{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+#app-navbar{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
+.air-toolbar{transition:height .32s cubic-bezier(.2,.8,.2,1),margin-top .32s cubic-bezier(.2,.8,.2,1),opacity .2s}
+.air-chat{transition:top .32s cubic-bezier(.2,.8,.2,1),height .32s cubic-bezier(.2,.8,.2,1)}
+html.air-chrome-hidden #app-navbar{transform:translateY(-105%);box-shadow:none}
+html.air-chrome-hidden .air-toolbar{height:0;margin-top:0;opacity:0;overflow:hidden;pointer-events:none}
+html.air-chrome-hidden .air-chat{top:20px;height:calc(100vh - 32px)}
+html.air-chrome-hidden .air-chrome-toggle{top:0}
+html.air-chrome-hidden .air-chrome-toggle svg{transform:rotate(180deg)}
+body.air-export .air-chrome-toggle,.air-preview-print .air-chrome-toggle{display:none}
+@media print{.air-chrome-toggle{display:none!important}}
+@media(prefers-reduced-motion:reduce){.air-chrome-toggle,.air-chrome-toggle svg,#app-navbar,.air-toolbar,.air-chat{transition:none}}
+/* Narrow cells stack their blocks top to bottom, whatever widths the recipe gave them (the cell is the container). */
+@container (max-width:480px){
+    .kit-row{flex-direction:column;align-items:stretch}
+    .kit-row>.kit-slot{flex:1 1 auto!important;width:100%}
+    .kit-slot-edge-x{display:none}
+}
+/* Troubleshooting details under a prompt: a quiet link until opened. */
+.air-msg-prompt .air-recipe{margin-top:6px;padding:0;border:0;background:transparent}
+.air-msg-prompt .air-recipe>summary{display:inline-block;list-style:none;font-size:11px;color:var(--air-muted);opacity:.7}
+.air-msg-prompt .air-recipe>summary::-webkit-details-marker{display:none}
+.air-msg-prompt .air-recipe>summary::before{content:'▸ ';}
+.air-msg-prompt .air-recipe[open]>summary::before{content:'▾ ';}
+.air-msg-prompt .air-recipe>summary:hover{opacity:1;color:var(--air-accent)}
+.air-msg-prompt .air-recipe[open]{margin-top:8px;padding:8px 10px;border:1px dashed #c9dcee;border-radius:8px;background:#fbfdff}
+.air-msg-prompt .air-recipe p{font-size:12px;color:var(--air-ink)}
+.air-prompt-mark{color:var(--air-accent);font-weight:600}
+/* Links between cells: navigation grids and inline links jump to a chapter or cell, which flashes on arrival. */
+.air-chapter,.air-cell{scroll-margin-top:calc(var(--navbar-h,52px) + var(--air-toolbar-h) + 16px)}
+html.air-chrome-hidden .air-chapter,html.air-chrome-hidden .air-cell{scroll-margin-top:16px}
+body.air-export .air-chapter,body.air-export .air-cell{scroll-margin-top:16px}
+html:has(body.air-export){scroll-behavior:smooth}
+.kit-link{color:var(--air-accent);text-decoration:none;border-bottom:1px dashed currentColor}
+.kit-link:hover{border-bottom-style:solid}
+.kit-nav{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.kit-nav-item{display:flex;align-items:baseline;gap:8px;min-width:0;padding:9px 12px;border:1px solid var(--air-line);border-radius:var(--rep-radius,8px);background:var(--rep-surface,#fff);color:var(--air-ink);text-decoration:none;transition:border-color .15s,background .15s,transform .15s}
+.kit-nav-item b{color:var(--air-accent);font-variant-numeric:tabular-nums}
+.kit-nav-item span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kit-nav-item small{margin-left:auto;color:var(--air-muted);font-size:11px;white-space:nowrap}
+a.kit-nav-item:hover{border-color:var(--air-accent);background:var(--air-accent-soft);transform:translateY(-1px)}
+.is-jump-target{animation:air-jump-flash 1.4s ease-out}
+@keyframes air-jump-flash{0%,30%{box-shadow:0 0 0 3px color-mix(in srgb,var(--air-accent) 45%,transparent)}100%{box-shadow:0 0 0 3px transparent}}
+@media(prefers-reduced-motion:reduce){.is-jump-target{animation:none}}
+/* Report frame (theme "frame"): double = a heavier outer rule and a fine inner rule; single; none = the plain card. */
+.air-report[data-frame=double]{border:2px solid var(--rep-frame-color,var(--rep-heading,#22364b));border-radius:var(--rep-radius,8px)}
+.air-report[data-frame=double]::after{content:'';position:absolute;inset:6px;border:1px solid var(--rep-frame-color,var(--rep-heading,#22364b));border-radius:max(0px,calc(var(--rep-radius,8px) - 5px));pointer-events:none}
+.air-report[data-frame=single]{border:1.5px solid var(--rep-frame-color,var(--rep-heading,#22364b));border-radius:var(--rep-radius,8px)}
+@media print{
+    .air-report[data-frame=double]{border:2px solid var(--rep-frame-color,var(--rep-heading,#22364b));padding:28px 32px}
+    .air-report[data-frame=single]{border:1.5px solid var(--rep-frame-color,var(--rep-heading,#22364b));padding:24px 28px}
+}
+/* Lines between cells (theme "dividers"): cells drop their card look and fine rules run through the gaps. */
+.air-report:is([data-dividers=line],[data-dividers=dashed]) .air-grid>.air-cell{border-color:transparent;background:transparent;box-shadow:none}
+.air-report:is([data-dividers=line],[data-dividers=dashed]):not(.is-preview) .air-grid>.air-cell:hover{border-color:#dde6ef}
+.air-report:is([data-dividers=line],[data-dividers=dashed]) .air-grid>.air-cell.is-selected{border-color:#3378b7;box-shadow:0 0 0 3px #3378b724}
+.air-report.is-preview:is([data-dividers=line],[data-dividers=dashed]) .air-cell{padding:8px 12px}
+.air-divider{position:absolute;z-index:1;pointer-events:none;border:0 solid var(--rep-divider-color,#cdd8e3)}
+.air-divider-v{width:0;border-left-width:1px;margin-left:-.5px}
+.air-divider-h{height:0;border-top-width:1px;margin-top:-.5px}
+.air-report[data-dividers=dashed] .air-divider{border-style:dashed}
+body.air-moving .air-divider,body.air-resizing .air-divider,body.air-slot-sizing .air-divider{opacity:0}
+/* Insert a chapter between chapters: the gap above each chapter shows a dashed line and a button on hover. */
+.air-chapter-insert{position:relative;height:30px;margin-bottom:-30px;z-index:2}
+.air-chapter-insert::before{content:'';position:absolute;left:0;right:0;top:50%;border-top:1.5px dashed #9ec0de;opacity:0;transition:opacity .15s}
+.air-chapter-insert button{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.92);opacity:0;padding:2px 14px;border:1px solid #9ec0de;border-radius:999px;background:#fff;color:var(--air-accent);font-size:12px;line-height:20px;white-space:nowrap;transition:opacity .15s,transform .15s}
+.air-chapter-insert:hover::before,.air-chapter-insert:hover button,.air-chapter-insert:focus-within button{opacity:1}
+.air-chapter-insert:hover button,.air-chapter-insert:focus-within button{transform:translate(-50%,-50%) scale(1)}
+.air-chapter-tools .air-chapter-drag{cursor:grab;touch-action:none}
+/* Moving a chapter: the report zooms out to show every chapter as a card; the lifted one floats above the rest. */
+.air-report.is-zoomed{will-change:transform}
+.air-report.is-zoomed>.air-chapter{outline:1px solid #d3dfea;outline-offset:10px;border-radius:12px;transition:outline-color .2s}
+.air-report.is-zoomed>.air-chapter:hover{outline-color:#9ec0de}
+.air-chapter.is-lifted{z-index:30;pointer-events:none;background:var(--air-card);border-radius:12px;outline:2px solid #9ec0de;outline-offset:10px;box-shadow:0 0 0 10px var(--air-card),0 40px 80px #102b4733,0 12px 30px #102b471f;transform:scale(1.02)}
+.air-chapter-placeholder{margin-top:30px;box-sizing:border-box;border:2px dashed #9ec0de;border-radius:12px;background:linear-gradient(135deg,#f1f7fd,#e7f0f9);animation:air-placeholder-in .25s ease both}
+body.air-zoomed .air-chapter-insert,body.air-zoomed .air-cell-tools,body.air-zoomed .air-resize,body.air-zoomed .air-add-cell,body.air-zoomed .air-add-chapter,body.air-zoomed .air-report-tools,body.air-zoomed .air-chrome-toggle{visibility:hidden}
+@media(prefers-reduced-motion:reduce){.air-chapter-placeholder{animation:none}}
+/* Chapters without a number (overview, navigation): the # toggle is struck through while off. */
+.air-chapter-tools .air-chapter-numbering{font-weight:700}
+.air-chapter-tools .air-chapter-numbering[aria-pressed=false]{color:#b0566a;text-decoration:line-through;border-color:#e6c3cb}
+/* Chapters without a title bar (navigation, overview): nothing in preview and exports, a faint slim bar while editing. */
+/* Title-less chapters show no title at all; while editing, their tools sit on the top edge as a small tab on hover. */
+.air-chapter.is-headless{position:relative;margin-top:18px}
+.air-chapter.is-headless+.air-chapter-insert+.air-chapter.is-headless,.air-chapter.is-headless+.air-chapter.is-headless{margin-top:12px}
+.air-chapter.is-headless>h2{position:absolute;top:-13px;right:14px;z-index:4;margin:0;padding:0;border:0;font-size:0;line-height:0}
+.air-chapter.is-headless>h2 [data-edit],.air-chapter.is-headless>h2 .air-chapter-no{display:none}
+.air-chapter.is-headless>h2 .air-chapter-tools{margin:0;padding:2px 4px;border-radius:7px;background:var(--air-card);box-shadow:0 1px 4px #102b4714}
+.air-report.is-preview .air-chapter.is-headless>h2{display:none}
+/* Theme "panels: box": title-less chapters become light framed panels, like cards at the top of the report. */
+.air-report[data-panels=box] .air-chapter.is-headless{padding:14px 16px;border:1px solid var(--rep-divider-color,#cdd8e3);border-radius:calc(var(--rep-radius,8px) + 2px);background:color-mix(in srgb,var(--air-accent-soft,#e6f0fa) 38%,transparent)}
+.air-report[data-panels=box] .air-chapter.is-headless .air-grid>.air-cell{background:transparent}
+.air-report[data-panels=box].is-preview .air-chapter.is-headless{padding:12px 14px}
+.air-chapter-tools .air-chapter-heading[aria-pressed=false]{color:#b0566a;text-decoration:line-through;border-color:#e6c3cb}
+/* No scrolling inside cells: wide content is trimmed at the edge (clip, which does not make the box scrollable) and
+   tall content shows in full; leftover scrollbars from recipe styles are hidden too. */
+.air-output{overflow:visible;overflow-x:clip;overflow-clip-margin:12px}
+.kit-slot.has-height{overflow:visible}
+.kit-tabs{overflow:visible;flex-wrap:wrap;width:auto}
+.air-cell-body,.air-cell-body *{scrollbar-width:none}
+.air-cell-body ::-webkit-scrollbar{display:none}
+/* A chart box clips its canvas: right after a resize the chart library redraws a frame later, and until then the old,
+   taller canvas would spill out (it used to show up as a scrollbar). */
+.kit-widget-chart,.kit-chart-canvas{overflow:hidden}
+.air-chapter-insert:has(+.air-chapter.is-headless){height:16px;margin-bottom:-16px}
+/* List markers sit inside the content box (the output clips at its edges): room for numbers like 10. or 100. */
+.kit-list{padding-left:1.4em}
+ol.kit-list{padding-left:2.6em}

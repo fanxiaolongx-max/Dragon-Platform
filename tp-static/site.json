@@ -62,8 +62,8 @@
       "platformNameEn": "Dragon Platform",
       "platformSubtitle": "埃及 CS 工具与知识中心",
       "platformSubtitleEn": "Egypt CS Tools & Knowledge Center",
-      "platformSlogan": "“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”",
-      "platformSloganEn": "“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”"
+      "platformSlogan": "“认真做好每一个工具，让日常工作更省心。”",
+      "platformSloganEn": "“Build every tool with care. Make everyday work easier.”"
     },
     "/api/nav-settings": {
       "platformGuideVideoUrl": "https://jx.huawei.com/community/comgroup/videoShareDetail/7207b25a9c0f42a08dfb1ab9832d44fe?commentId=0cca456df675451ca2df19c08b01ab11",
@@ -72,8 +72,8 @@
       "platformNameEn": "Dragon Platform",
       "platformSubtitle": "埃及 CS 工具与知识中心",
       "platformSubtitleEn": "Egypt CS Tools & Knowledge Center",
-      "platformSlogan": "“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”",
-      "platformSloganEn": "“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”"
+      "platformSlogan": "“认真做好每一个工具，让日常工作更省心。”",
+      "platformSloganEn": "“Build every tool with care. Make everyday work easier.”"
     },
     "/api/platform-logo/status": {
       "ok": true,
@@ -167,32 +167,50 @@
     },
     "datacom-protocol-expert/assets/ai-notes.js": {
       "url": "tp-static/payload/7876aa7d6b573427173049c4b69c0af74a067f27d9272979d77963c66b532d94.bin",
-      "iv": "CdSwwTM4ywnf75WT",
-      "hash": "0b0251a77df694393100ffe3f9a51faf348ec7c0d6710ff7a14d67726b9cdb90",
+      "iv": "LJb1NdFUqczYT6gn",
+      "hash": "0e2705369928ea798a047e63f284f6f922537263de51cde34c1f7c9d47908eb4",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/app.css": {
       "url": "tp-static/payload/88adb51d768da777c71d0e3b73c5182b65314c3298f34e118a614fa32f3d5d56.bin",
-      "iv": "mIPZpP9j8gyhXYiN",
-      "hash": "9bf1fe68b6079c6582c845159cf8d394454c0fe0f6cea8a767d0360c669c620c",
+      "iv": "pwjFz7ildbl/PNq3",
+      "hash": "4155d1a71686e9f7fe643efdc04129cd5250560a595ecd80fe0f7fb08b380ff4",
       "type": "text/css; charset=utf-8"
     },
     "datacom-protocol-expert/assets/app.js": {
       "url": "tp-static/payload/375c6626a6369c6c7885115a3cda0feaf868037de2553f8cf685facce502fc23.bin",
-      "iv": "Y7IBsW1Q/CaZniE2",
-      "hash": "7f25abb7ef958a1565aba76da88234fc4f1cbd1ba0937e7114285e80199745f9",
+      "iv": "Fn6p5OaYxZ29WtWp",
+      "hash": "24ea82a302e7a78d4ddcddd882e51fd169141188bb416c4231c5257120a8ebb5",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/diagram-kit.js": {
       "url": "tp-static/payload/be943fdc60ebb465ec8cea1cf23325c0816baaf11ad7afe0ab0f55bf13f60264.bin",
-      "iv": "9L0btG3opgjgs7vx",
-      "hash": "1256f6daf8b303fef4a54f7036296db7256acc22d7abd5c09a30e3b857e2dc7f",
+      "iv": "eZoV2gr2cqifSel0",
+      "hash": "137168e3c4bf8c15f9e0a704636f8057885e33d5099cf93df4b6341de4dd2949",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/engine3d.js": {
       "url": "tp-static/payload/2836827ce58f1c4fee7539de86e7ffbd1cec8eca5f36937e6ac4dca55a82499e.bin",
       "iv": "v7saYuoGd+Z1BfOK",
       "hash": "05a755bb7600e50cb594d63e8f89185d22fb14a0b71d801b7907b81596c2c92a",
+      "type": "text/javascript; charset=utf-8"
+    },
+    "datacom-protocol-expert/assets/field-explanations.js": {
+      "url": "tp-static/payload/c109748b31f4cde37bb432e1f92d0ed8eeffacf518eb84e789b65a57cd8a7536.bin",
+      "iv": "Le3JRE5P4Hqh6sv4",
+      "hash": "3c3f833d01b4b663b1ddf794e28d551add8d378896af62f3a05aaee72c7fb16c",
+      "type": "text/javascript; charset=utf-8"
+    },
+    "datacom-protocol-expert/assets/i18n-en.js": {
+      "url": "tp-static/payload/b3184681e730c9fb8940cccf17ae8c38bd50182f1d64bfbc583615f07bc5bb8e.bin",
+      "iv": "Qt6bXoq4xV0s2maE",
+      "hash": "1002ac42d4191b713eccd44049f2012d570b90b17399448df7fcc3c7dcb1b96f",
+      "type": "text/javascript; charset=utf-8"
+    },
+    "datacom-protocol-expert/assets/i18n.js": {
+      "url": "tp-static/payload/fdfb9dc7aef71f038178e8e8f140d382332342a5062b4c8493c3f177ae31f628.bin",
+      "iv": "HMLgHBxZQJaipNym",
+      "hash": "0977918c676ebf82ee86636d44ef87849f07e9a4276c14fae3913ec1d8419d68",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/junos-lessons.js": {
@@ -203,8 +221,8 @@
     },
     "datacom-protocol-expert/assets/knowledge-map.js": {
       "url": "tp-static/payload/a77b12fcfc5cdd5d144ebf322ff238e403991fc9a4c2880ab57bde0ccc99f340.bin",
-      "iv": "9cKjUa+DtZkuDJ2v",
-      "hash": "89980bfff759521bf85d8020253982f2c5f63410e2466c25b5a776453aa4dee7",
+      "iv": "3jmXZ7yrx+7BAKTZ",
+      "hash": "91558682515a44949ced277c5638eb2125616ab2b7ac58ee3b9a1c5763aa6088",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/labs.js": {
@@ -215,14 +233,14 @@
     },
     "datacom-protocol-expert/assets/markdown.js": {
       "url": "tp-static/payload/50bd85022a03f88ecf5c030a615ce5bd7006a01c51e9b71ba88cf0072157e8e9.bin",
-      "iv": "FkKss6wfChL2C0xz",
-      "hash": "4860c0039bd78a53807d4d97d3209637c2bf02f94fb422ac865ab8e4377d3131",
+      "iv": "rWtE5OLqys1MYoQi",
+      "hash": "d87d624e1decafe650e37b09c3682b9338925bf444e4c75db3003c52d3474fb7",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/mindmap.js": {
       "url": "tp-static/payload/fa75ea467889aa52aa824fbee02b7b81ef7c5678c508764129b4970cda92f765.bin",
-      "iv": "1HZSoBAGk1SCphlz",
-      "hash": "2b2c416ad3f7566ec6b88f0d65cbb95e7d2f15d19540792a4210b8cf47e9caf7",
+      "iv": "LlgUvW7exeG/9ss6",
+      "hash": "34b8bdcb3745c2b5623868eaf2b42c69c70ce12786de3dfb5d9298bb4a7e2b98",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/note-video.js": {
@@ -263,8 +281,8 @@
     },
     "datacom-protocol-expert/assets/notes-review.js": {
       "url": "tp-static/payload/089c2bf3c7e8fa7d8edeedfb0c08359f002df2773173b0f7fe68b638f5c3b1ab.bin",
-      "iv": "uGG4TpZedpuhpHj7",
-      "hash": "98105a6324af9d1b3259c800ab8f17b175dfe5ab0dc9209a603d7951bc852711",
+      "iv": "XttKo4rIxBYEqTOu",
+      "hash": "52d9a62bb3058d0a22110c9c2b30f0438e407701aa94e9c564085f6c8fdd33c1",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/ospf-lessons.js": {
@@ -281,8 +299,8 @@
     },
     "datacom-protocol-expert/assets/packet-lesson.js": {
       "url": "tp-static/payload/d4ef1ddf6ef3ce0a055de13629065ad343000e575cc7973186a219865a58ae3b.bin",
-      "iv": "7ZAGqIsO+b4ZLNjG",
-      "hash": "b973e055aabe60274d39c3f8a1fe7a4fccd9da9ef80cf3fca7619a79308b57f9",
+      "iv": "CIPFGVX2U6p8JQ1n",
+      "hash": "ae18f4e3aa44c5503ebf5daa12eaec9d8f0525d6300784c8b0e57fcc672797f5",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/reading-guides.js": {
@@ -293,8 +311,8 @@
     },
     "datacom-protocol-expert/assets/rfc-parser.js": {
       "url": "tp-static/payload/0986fd01149d1ab666d99a545b5952082c9a98860eca8ba9ba030173810bbc6a.bin",
-      "iv": "0RlflSdzcNcJlTpS",
-      "hash": "3100bc40d329a9d8b69cda5331b917051e51df3b6ad3ed99e13c368dba2f8e09",
+      "iv": "BH04Qfj3ioB8GAN9",
+      "hash": "469a72e79b543b6ad7c0545e5b05b3a417d80a3eb528143b0b1f0fa73cb900e2",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/scenes-junos.js": {
@@ -359,8 +377,8 @@
     },
     "datacom-protocol-expert/index.html": {
       "url": "tp-static/payload/350b556c16e392b0cc02319227bdbc6d6890a508d6bd9b1e85082d7619b87ac2.bin",
-      "iv": "jxcLaI3lk4k2Nq1v",
-      "hash": "999f899c18b2d40e5c73f39cb121987dfca900282eae896e3aabb79ca1c52f3a",
+      "iv": "wGdVOPnlYgYoG5FP",
+      "hash": "304e7ca08ffb25857855a9662e5ad243e869954f539d24301988965b97bbaec4",
       "type": "text/html; charset=utf-8"
     },
     "datacom-protocol-expert/THIRD_PARTY_NOTICES.md": {
@@ -445,8 +463,8 @@
     },
     "index.html": {
       "url": "tp-static/payload/0eb547304658805aad788d320f10bf1f292797b5e6d745a3bf617584da017051.bin",
-      "iv": "CC+Z23iQVDsovUw8",
-      "hash": "086f1f7dba810ae2e47a4601e0dec3e7f53bb26aa79b79198b88b0f2d7863f40",
+      "iv": "xm6S9rnQf0VPBqy/",
+      "hash": "d4b9a0978e9a657ff3dd701d4e52b275f902fafc89149f58d485fede2173ba4c",
       "type": "text/html; charset=utf-8"
     },
     "mayrig/index.html": {
@@ -1237,8 +1255,8 @@
     },
     "portal-data.json": {
       "url": "tp-static/payload/4187a00828abb3180acbb34476f6daf7e5f48cabcd5296e625824e9757bf3d25.bin",
-      "iv": "TcNHSE4umlCphM/N",
-      "hash": "946d6b15c86075ac70398161c0cf02d89cee301757b3be12dedb4d7cf099b3cd",
+      "iv": "EL0qOIXPSNUtu1m+",
+      "hash": "03ff76d1448d3c6a5bc1ed3f6c89500638e0b10197edf5b761b043bb3b700976",
       "type": "application/json; charset=utf-8"
     },
     "pr-2/index.html": {
@@ -1447,8 +1465,8 @@
     },
     "tool-ms4xb66s/index.html": {
       "url": "tp-static/payload/d62cf16e94eaa55fd1caf16047cbc0546e801fbcec97edb1d8f6fdd131294691.bin",
-      "iv": "7WjrQXNdJe5LL27X",
-      "hash": "2522ddc1887157157c25bcdad2a9b9b1e699b9a0ff051507a667eb17942c09bc",
+      "iv": "eF91winY6rMCJvrH",
+      "hash": "6e703b41f336c519d13be5b23e0f41f22cc0a7b0e0d3a91d74f1e1aa4b5a82d9",
       "type": "text/html; charset=utf-8"
     },
     "tool-msbmscxd/index.html": {

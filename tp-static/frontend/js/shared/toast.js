@@ -9,6 +9,12 @@ function showToast(message, type = 'success') {
         toast.className = 'toast';
         document.body.appendChild(toast);
     }
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl && fsEl !== document.documentElement && fsEl !== document.body) {
+        fsEl.appendChild(toast);
+    } else if (toast.parentElement !== document.body) {
+        document.body.appendChild(toast);
+    }
     toast.innerText = message;
     toast.className = `toast toast-${type} show`;
     clearTimeout(toast._timer);
