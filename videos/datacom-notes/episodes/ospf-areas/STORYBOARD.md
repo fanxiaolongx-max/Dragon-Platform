@@ -1,0 +1,100 @@
+# 教学分镜
+
+## Frame 1
+status: built
+src: compositions/intro.html
+rules: svg-path-draw, dynamic-content-sequencing
+
+分支只想知道：出口在哪儿？：总部地图很大，分支却常常只关心，出门往哪儿走。是不是一定要记住全网每一条外部路由？我是小码。这一集把区域边界画成一扇有规则的门，看普通区域、末节区域和 NSSA，怎样取舍地图的细节。
+
+教学结论：区域类型决定信息取舍；缺省路由提供兜底方向。
+
+## Frame 2
+status: built
+src: compositions/backbone.html
+rules: svg-path-draw, dynamic-content-sequencing
+
+先认骨干：区域间的公共通道：先画骨架。区域零是骨干，区域一和区域二通过边界路由器与骨干连接。常规区域间路由借助骨干传播。每个区域维护自己的链路状态视图；一二类拓扑资料不会原样跨过去。区域编号只是标识，不表示层级越大越偏远。这里先讲连续骨干的正常设计。
+
+教学结论：常规跨区通信依赖骨干；ABR 连接并隔离区域视图。
+
+## Frame 3
+status: built
+src: compositions/normal.html
+rules: svg-path-draw, dynamic-content-sequencing
+
+普通区域：各种路标都能接收：普通区域保留区域内的一二类资料，也可以接收三类区域间前缀，以及相关四类和五类外部信息。说可以接收，不是每张网络都一定存在这些类型。比如没有外部引入，就可能没有五类；也不是把所有区域的完整拓扑塞到一起。
+
+教学结论：普通区域允许 Type 3 / 4 / 5；是否出现取决于实际通告。
+
+## Frame 4
+status: built
+src: compositions/stub.html
+rules: svg-path-draw, dynamic-content-sequencing
+
+Stub：外部明细留在门外：末节区域，也就是 Stub，不接收五类外部 LSA，也不需要四类的外部发布者路标。三类区域间前缀仍然可以进入。边界路由器向里面发布三类缺省路由，让未匹配的目的地交给边界。标准 Stub 内部不能放一位引入外部路由的 ASBR，区域属性也要在成员间保持一致。
+
+教学结论：Stub：挡 Type 4 / 5；保留 Type 3，并由 ABR 通告三类缺省。
+
+## Frame 5
+status: built
+src: compositions/total.html
+rules: svg-path-draw, dynamic-content-sequencing
+
+Totally Stub：进一步收起区域间明细：如果分支连其他区域的明细也不想保存，常见厂商支持 Totally Stub。它在 Stub 基础上，再抑制普通的三类区域间明细，只留下三类缺省路由；区域内一二类资料仍然保留。这个名称和配置属于实现扩展，部署时要核对设备文档，不能照搬另一家命令。
+
+教学结论：常见 Totally Stub：区域内资料 + 三类缺省；厂商配置需核实。
+
+## Frame 6
+status: built
+src: compositions/nssa.html
+rules: svg-path-draw, dynamic-content-sequencing
+
+NSSA：我也想发布本地外部路由：但有个分支，自己还连着一套外部网络，需要把路由引进来。普通 Stub 做不到，于是使用 NSSA。它同样阻挡从外面来的五类，却允许本区 ASBR 发布七类。普通 NSSA 仍可保留三类区域间前缀。符合翻译条件的七类，再由翻译边界转成五类给其他区域。
+
+教学结论：NSSA：不接收外部 Type 5；允许本区产生 Type 7。
+
+## Frame 7
+status: built
+src: compositions/nssa-default.html
+rules: svg-path-draw, dynamic-content-sequencing
+
+NSSA 的缺省路由，别背成自动规律：这里最容易背错：NSSA 并不等于所有设备一定自动下发同一种缺省。普通 NSSA 常见使用七类缺省，但是否生成，以及有无条件，要看设备和配置。配置 no-summary 的 Totally NSSA，常见是边界发布三类缺省，同时保留本区七类。最终要查实际 LSA 类型、发布者和路由表。
+
+教学结论：区分标准机制与厂商缺省行为；以实际 LSA 和配置为证。
+
+## Frame 8
+status: built
+src: compositions/forwarding.html
+rules: svg-path-draw, dynamic-content-sequencing
+
+有缺省，不代表所有流量都走缺省：现在看转发。分支路由表里有一条区域内的十点一网段，还有一条零前缀缺省。目的地址属于十点一，就走更具体的路由；如果没有更具体的匹配，才使用缺省交给边界。先做最长前缀匹配，再谈同一前缀候选之间的优先级，不能把顺序颠倒。
+
+教学结论：转发先最长前缀匹配；只有更具体路由未匹配时才用缺省。
+
+## Frame 9
+status: built
+src: compositions/choose.html
+rules: svg-path-draw, dynamic-content-sequencing
+
+选区域类型，先问三个问题：真正选型时，先问三个问题：分支有没有本地外部路由要引入？需不需要保留其他区域的明细？边界通告的缺省，在上游故障时能否仍代表可用出口？简化数据库能减少信息量，但缺省只是一条方向指示，不会自动修复上游黑洞或错误出口。
+
+教学结论：区域设计必须连同缺省来源、上游可达性和故障行为一起验证。
+
+## Frame 10
+status: built
+src: compositions/quiz.html
+rules: svg-path-draw, dynamic-content-sequencing
+
+小测：分支要引入外部路由，选 Stub？：小测验：分支想阻挡总部的大量外部明细，又要把本地外部网段引进 OSPF，能直接选标准 Stub 吗？答案是不能，应该评估 NSSA。随后再决定是否需要区域间明细，以及用哪种缺省。区域类型不是越封闭越高级，而是信息取舍要符合业务。
+
+教学结论：需要本地外部引入：评估 NSSA，并核对翻译和缺省策略。
+
+## Frame 11
+status: built
+src: compositions/recap.html
+rules: svg-path-draw, dynamic-content-sequencing
+
+看门、看路标、看出口：最后记住三件事：第一，骨干连接区域，边界隔开拓扑细节。第二，Stub 挡外部，NSSA 允许本地七类，Totally 再减少区域间明细。第三，缺省怎么生成，要看实现和配置；真正转发先做最长前缀匹配。把门的规则和出口的可用性一起检查，才是完整的区域设计。
+
+教学结论：先看允许哪些 LSA，再验证缺省路由与真实出口。

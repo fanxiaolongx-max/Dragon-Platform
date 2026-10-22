@@ -1,0 +1,14 @@
+{
+  "duration": 353.202,
+  "frames": "10597",
+  "resolution": [
+    1920,
+    1080
+  ],
+  "fps": 30,
+  "audio": "aac",
+  "audioMeanDbFS": -19.6,
+  "audioPeakDbFS": -2.9,
+  "decodedSceneSamples": 13,
+  "checks": "lint/runtime/layout/contrast: 0 errors, 0 warnings; every scene midpoint decoded from final MP4"
+}

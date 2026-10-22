@@ -1,0 +1,220 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body><template><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&display=swap" rel="stylesheet"><style>*{box-sizing:border-box}html,body{margin:0;width:1920px;height:1080px;overflow:hidden}#root{position:absolute;inset:0;width:100%;height:100%;font-family:'Noto Sans SC',sans-serif;color:#173b38;overflow:hidden}.paper{position:absolute;inset:0;background:#f5f5ed;background-image:radial-gradient(#b8cec3 1px,transparent 1px);background-size:26px 26px}.wash{position:absolute;right:-200px;top:-400px;width:1000px;height:1000px;border-radius:50%;background:#e1eee5}.eyebrow{position:absolute;left:192px;top:72px;font-size:22px;letter-spacing:3px;font-weight:700;color:#4f716b}.series{position:absolute;right:192px;top:74px;font-size:20px;color:#4f716b}.scene-title{position:absolute;left:192px;top:140px;margin:0;font-size:62px;font-weight:800;line-height:1.25;max-width:1460px;letter-spacing:-2px}.step-tag{position:absolute;left:112px;top:155px;border-radius:12px;background:#173b38;color:#fff;font-size:24px;padding:6px 10px}.subtitle{position:absolute;left:196px;top:240px;font-size:26px;color:#4f716b}.diagram{position:absolute;left:170px;top:318px;width:1280px;height:430px;overflow:visible}.panel{position:absolute;left:192px;top:320px;width:1210px;border-radius:24px;border:2px solid #bdcec4;background:#ffffff;box-shadow:0 14px 0 #dce6dc;padding:24px 34px}.takeaway{position:absolute;left:192px;top:796px;width:1536px;min-height:68px;display:flex;align-items:center;padding:17px 24px;gap:20px;border:2px solid #bed2c6;border-left:8px solid #14876d;background:#e7f2e9;border-radius:14px;font-size:29px;font-weight:600}.takeaway:before{content:'记住';color:#087c68;font-size:22px;white-space:nowrap}.mascot{position:absolute;left:1468px;top:500px;width:270px;height:275px}.guide{position:absolute;left:1495px;top:300px;width:245px;border:2px solid #bed2c6;background:#fff;padding:15px;border-radius:20px;font-size:23px;line-height:1.45;white-space:pre-line;color:#375e57;box-shadow:0 8px 0 #dde9de}.guide b{display:block;color:#173b38;font-size:25px;margin-bottom:8px}.source{position:absolute;left:192px;top:1014px;font-size:16px;color:#5a756d}.progress{position:absolute;left:192px;right:192px;top:990px;height:4px;background:#d5e2d8;border-radius:2px}.progress i{display:block;height:100%;background:#14876d;transform-origin:0 50%}.cap-line{position:absolute;left:192px;top:900px;width:1536px;min-height:62px;display:flex;align-items:center;justify-content:center;padding:9px 22px;border-radius:14px;background:#173b38;color:#fff;font-size:36px;font-weight:500;line-height:1.25;text-align:center}.hero-q{position:absolute;left:192px;top:340px;width:1190px;font-size:75px;font-weight:800;line-height:1.5;letter-spacing:-2px}.hero-answer{position:absolute;left:196px;top:610px;font-size:37px;color:#087c68;max-width:1200px}.accent{color:#087c68}.small-label{font-size:23px;color:#4f716b}.fact-row{display:flex;align-items:center;min-height:106px;gap:28px;border-bottom:2px solid #e2e9e1;font-size:32px}.fact-row:last-child{border:0}.fact-row .num{display:grid;place-items:center;width:52px;height:52px;flex:none;border-radius:15px;background:#d6eee1;color:#086b58;font-size:29px;font-weight:800}.fact-row b{font-size:34px;line-height:1.5}.pill{display:inline-block;border:2px solid #bdd5c7;background:#e6f3ea;border-radius:30px;padding:6px 20px;font-size:28px;font-weight:700}.field-row{display:grid;grid-template-columns:420px 1fr;align-items:center;padding:20px 16px;border-bottom:2px solid #dce5db;min-height:110px;font-size:33px}.field-row:last-child{border:0}.field-row strong{color:#087c68}.field-row span{font-family:'Noto Sans SC',sans-serif;color:#183d38}.ranking{display:grid;grid-template-columns:100px 220px 250px 300px;align-items:center;gap:30px;min-height:100px;border-bottom:2px solid #e2e9e1;font-size:31px}.ranking.h{min-height:60px;color:#57756d;font-size:23px}.ranking.disabled{color:#8d5142}.ranking .candidate{border-radius:10px;padding:6px 16px;background:#def1e4;color:#086b58;text-align:center}.ranking .no{background:#f9e2d7;color:#9b4c35}.quiz-answer{position:absolute;left:192px;top:590px;width:1190px;min-height:100px;padding:22px;border-radius:20px;border:2px solid #087c68;color:#087c68;background:#e8f4e9;font-size:35px;font-weight:700}.tag-strip{position:absolute;left:192px;top:710px;display:flex;gap:18px}.tag-strip span{font-size:24px;border:1px solid #bdd3c5;border-radius:30px;padding:7px 20px;background:#fff}.float-note{position:absolute;left:218px;top:710px;color:#8b4a32;font-size:25px}.legend{position:absolute;left:210px;top:748px;font-size:22px;color:#4c6b63}.legend .green{color:#087c68}.legend .blue{color:#087c9b}
+
+.guide{font-size:26px}.guide b{font-size:26px}.tag-strip span{font-size:28px}</style><div id="root" data-composition-id="ospf-packets-trouble" data-width="1920" data-height="1080"><div class="paper"></div><div class="wash" data-layout-allow-overflow></div><div class="stage"></div></div><script>(function(){// 小码：原创 Codex 灵感讲解机器人；黑白终端面孔和薄荷绿配件，不复刻官方标志。
+function mascot(id){return `<svg viewBox="0 0 320 320" xmlns="http://www.w3.org/2000/svg"><ellipse cx="159" cy="288" rx="108" ry="15" fill="#adc6b5" opacity=".42"/><g id="${id}-all"><g id="${id}-legs"><rect x="106" y="235" width="38" height="43" rx="13" fill="#173b38"/><rect x="178" y="235" width="38" height="43" rx="13" fill="#173b38"/><path d="M99 277h49M174 277h49" stroke="#fff" stroke-width="7" stroke-linecap="round"/></g><g id="${id}-body"><path d="M98 169q-45 14-56 52" fill="none" stroke="#173b38" stroke-width="22" stroke-linecap="round"/><g id="${id}-arm"><path d="M226 171q43-13 49-58" fill="none" stroke="#173b38" stroke-width="22" stroke-linecap="round"/><circle cx="276" cy="108" r="19" fill="#fafbf7" stroke="#173b38" stroke-width="5"/></g><rect x="87" y="147" width="151" height="99" rx="37" fill="#fafbf7" stroke="#173b38" stroke-width="5"/><path d="M123 180l-15 15 15 15M200 180l15 15-15 15" stroke="#14876d" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/><rect x="147" y="184" width="29" height="24" rx="7" fill="#caead7"/><g id="${id}-head"><path d="M160 54V30" stroke="#173b38" stroke-width="7" stroke-linecap="round"/><circle cx="160" cy="24" r="11" fill="#73d5ba" stroke="#173b38" stroke-width="4"/><rect x="68" y="52" width="189" height="112" rx="38" fill="#fafbf7" stroke="#173b38" stroke-width="5"/><rect x="88" y="72" width="149" height="74" rx="23" fill="#173b38"/><g id="${id}-eyes" fill="#d7f8dc"><rect x="114" y="89" width="17" height="24" rx="8"/><rect x="192" y="89" width="17" height="24" rx="8"/></g><path id="${id}-mouth" d="M149 121q12 11 25 0" stroke="#73d5ba" stroke-width="5" fill="none" stroke-linecap="round"/><circle cx="103" cy="121" r="7" fill="#eea38c" opacity=".7"/><circle cx="222" cy="121" r="7" fill="#eea38c" opacity=".7"/></g></g></g></svg>`;}
+function act(tl,id,d,beats){
+ const body='#'+id+'-body',head='#'+id+'-head';
+ tl.fromTo('#'+id+'-all',{y:65,opacity:0},{y:0,opacity:1,duration:.65,ease:'back.out(1.25)'},.25);
+ tl.to(body,{y:-4,duration:1.8,repeat:Math.max(1,Math.floor((d-2)/1.8))-1,yoyo:true,ease:'sine.inOut'},1.1);
+ for(let t=3.2;t<d-1;t+=4.4)tl.to('#'+id+'-eyes',{scaleY:.15,svgOrigin:'160 101',duration:.09,repeat:1,yoyo:true},t);
+ beats.forEach((t,i)=>{if(t>d-1)return;tl.to(head,{rotation:i%2?-5:5,svgOrigin:'160 153',duration:.35,yoyo:true,repeat:1,ease:'sine.inOut'},t);tl.to('#'+id+'-arm',{rotation:-17,svgOrigin:'231 174',duration:.3,yoyo:true,repeat:1,ease:'sine.inOut'},t+.1);});
+}
+
+const NS='http://www.w3.org/2000/svg';
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function el(tag,cls,html){const e=document.createElement(tag);if(cls)e.className=cls;if(html)e.innerHTML=html;return e;}
+function svgEl(tag,attrs,text){const e=document.createElementNS(NS,tag);Object.entries(attrs||{}).forEach(([k,v])=>e.setAttribute(k,v));if(text!==undefined)e.textContent=text;return e;}
+function addText(svg,x,y,text,size=24,color='#375e57',weight=500){const e=svgEl('text',{x,y,fill:color,'font-size':size,'font-weight':weight,'text-anchor':'middle'},text);svg.appendChild(e);return e;}
+function makeSvg(st){const svg=svgEl('svg',{viewBox:'0 0 1280 430',class:'diagram',xmlns:NS});svg.innerHTML='<defs><marker id="'+S.id+'-arr" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8Z" fill="context-stroke"/></marker></defs>';st.appendChild(svg);return svg;}
+function pop(tl,e,t=.5){tl.fromTo(e,{opacity:0,y:18},{opacity:1,y:0,duration:.5,ease:'power3.out'},Math.max(.15,t));}
+function line(svg,a,b,{color='#bdd0c5',width=3,dash='',arrow=false,curve=false,offset=83}={}){const dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1;const p=[a[0]+dx/l*offset,a[1]+dy/l*offset],q=[b[0]-dx/l*offset,b[1]-dy/l*offset];const e=svgEl('path',{d:curve?`M${p} Q${(p[0]+q[0])/2} ${Math.min(p[1],q[1])-130} ${q}`:`M${p} L${q}`,fill:'none',stroke:color,'stroke-width':width,'stroke-linecap':'round'});if(dash)e.setAttribute('stroke-dasharray',dash);if(arrow)e.setAttribute('marker-end',`url(#${S.id}-arr)`);svg.insertBefore(e,svg.querySelector('g[data-node]'));return e;}
+function draw(tl,p,t,d=.75){const len=p.getTotalLength(),dash=p.getAttribute('stroke-dasharray');tl.fromTo(p,{strokeDasharray:len,strokeDashoffset:len,opacity:0},{strokeDashoffset:0,opacity:1,duration:d,ease:'power2.out'},t);tl.set(p,{strokeDasharray:dash||'none'},t+d);}
+function packet(tl,svg,p,t,color='#14876d',label=''){const plen=p.getTotalLength(),trail=Array.from({length:201},(_,i)=>p.getPointAtLength(plen*i/200));const dot=svgEl('circle',{r:9,fill:color,stroke:'#fff','stroke-width':3});svg.appendChild(dot);const driver={v:0};tl.fromTo(dot,{opacity:0},{opacity:1,duration:.12},t);tl.to(driver,{v:1,duration:1.4,ease:'none',onUpdate:()=>{const index=Math.min(199,Math.floor(driver.v*200)),f=driver.v*200-index;const pt={x:trail[index].x+(trail[index+1].x-trail[index].x)*f,y:trail[index].y+(trail[index+1].y-trail[index].y)*f};dot.setAttribute('cx',pt.x);dot.setAttribute('cy',pt.y);}},t);tl.to(dot,{opacity:0,duration:.15},t+1.3);return dot;}
+function node(svg,x,y,name,sub='',tone='#173b38',w=146){const g=svgEl('g',{'data-node':'1'});g.innerHTML=`<rect x="${x-w/2}" y="${y-42}" width="${w}" height="84" rx="20" fill="#fff" stroke="${tone}" stroke-width="3"/><text x="${x}" y="${y-3}" text-anchor="middle" fill="${tone}" font-size="29" font-weight="800">${esc(name)}</text><text x="${x}" y="${y+27}" text-anchor="middle" fill="#4f716b" font-size="20">${esc(sub)}</text>`;svg.appendChild(g);return g;}
+function tag(st,text,y=710){const e=el('div','float-note',esc(text));e.style.top=y+'px';st.appendChild(e);return e;}
+function showRows(tl,st,rows,times){const p=el('div','panel');st.appendChild(p);rows.forEach((text,i)=>{const r=el('div','fact-row',`<span class="num">${i+1}</span><b>${esc(text)}</b>`);p.appendChild(r);pop(tl,r,times[i]??1+i*2);});return p;}
+function take(tl,st,text,t){if(!text)return;const e=el('div','takeaway',esc(text));st.appendChild(e);pop(tl,e,t);}
+function time(q,fallback=1){const k=S.cueTimes?.[q];return k===undefined?fallback:k;}
+function build(tl,root){
+ const st=root.querySelector('.stage');st.appendChild(el('div','eyebrow','CODEX CLASSROOM · 数通协议专家'));st.appendChild(el('div','series',`机制科普 ${S.chapter} · ${S.sceneNo} / ${S.sceneCount}`));
+ const title=el('h1','scene-title',esc(S.title));st.appendChild(title);pop(tl,title,.1);
+ const mc=el('div','mascot');const id=S.id+'-bot';mc.innerHTML=mascot(id);st.appendChild(mc);
+ const guide=el('div','guide',`<b>小码的观察提示</b>${esc(S.guide||'跟着图里的箭头，先看条件，再看结果。')}`);st.appendChild(guide);pop(tl,guide,.7);
+ const source=el('div','source',S.sourceLabel||(S.chapter==='01'?'依据 RFC 2328 §7.3–7.5、§9.4、§12.4.2 · 图形为教学示意':'依据 RFC 2328 §12.4.4、§16.4；RFC 3101 §2.3、§3 · 图形为教学示意'));st.appendChild(source);
+ const progress=el('div','progress','<i></i>');st.appendChild(progress);tl.fromTo(progress.firstChild,{scaleX:0},{scaleX:1,duration:SDUR,ease:'none'},0);
+ act(tl,id,SDUR,[1.5,SDUR*.38,SDUR*.7]);(S.talk||[]).forEach(w=>{tl.to('#'+id+'-mouth',{scaleY:1.5,svgOrigin:'161 124',duration:.1},w.s);tl.to('#'+id+'-mouth',{scaleY:1,duration:.1},Math.max(w.s+.12,w.e-.1));});
+ const render=RENDER[S.kind];if(!render)throw Error('Unknown renderer '+S.kind);render(tl,st);
+ take(tl,st,S.takeaway,Math.max(2,SDUR-5.5));
+}
+const RENDER={
+ hook(tl,st){const q=el('div','hero-q',esc(S.question));st.appendChild(q);pop(tl,q,.6);const a=el('div','hero-answer',esc(S.answer));st.appendChild(a);pop(tl,a,time('今天',SDUR*.5));const strip=el('div','tag-strip',S.tags?S.tags.map(x=>'<span>'+esc(x)+'</span>').join(''):S.chapter==='01'?'<span>① 减少邻接</span><span>② 理解伪节点</span><span>③ 分清转发</span>':'<span>① 读懂字段</span><span>② 比较路径</span><span>③ 按步骤排障</span>');st.appendChild(strip);pop(tl,strip,SDUR*.65);},
+ quiz(tl,st){const q=el('div','hero-q',esc(S.question));q.style.fontSize='62px';st.appendChild(q);pop(tl,q,.5);const a=el('div','quiz-answer',esc(S.answer));st.appendChild(a);pop(tl,a,time(S.reveal||'不用',SDUR*.35));},
+ recap(tl,st){showRows(tl,st,S.points,[time(S.chapter==='01'||Number(S.chapter)>=3?'第一':'发布者',1),time(S.chapter==='01'||Number(S.chapter)>=3?'第二':'为零',SDUR*.37),time(S.chapter==='01'||Number(S.chapter)>=3?'第三':'非零',SDUR*.61)]);},
+ election(tl,st){const p=el('div','panel');p.style.padding='18px 30px';st.appendChild(p);p.innerHTML='<div class="ranking h"><span>候选</span><span>接口优先级</span><span>Router ID</span><span>是否有资格</span></div>';const rows=[['R1','100','1.1.1.1','参与比较'],['R2','100','2.2.2.2','同优先级，RID 更大'],['R3','0','9.9.9.9','不参选']];rows.forEach((r,i)=>{const e=el('div','ranking'+(i===2?' disabled':''),r.map((v,j)=>`<span class="${j===3?'candidate'+(i===2?' no':''):''}">${esc(v)}</span>`).join(''));p.appendChild(e);pop(tl,e,[1,time('相同',SDUR*.5),time('优先级为零',2)][i]);});},
+ scope(tl,st){const svg=makeSvg(st);const a=node(svg,190,200,'网段 A','Broadcast','#087c9b',230),b=node(svg,1090,200,'网段 B','Broadcast','#087c9b',230),c=node(svg,640,200,'同一台 R1','接口角色不同','#173b38',240);line(svg,[320,200],[510,200]);line(svg,[770,200],[960,200]);addText(svg,418,145,'GE0/0/1：DR',27,'#087c68',700);addText(svg,862,145,'GE0/0/2：DROther',25,'#087c9b',700);pop(tl,a,.7);pop(tl,c,.5);pop(tl,b,time('另一个',SDUR*.4));tag(st,'Point-to-Point：不选举 DR / BDR',714);},
+ 'dr-network'(tl,st){
+  const svg=makeSvg(st),pos=[[350,65],[940,65],[180,330],[650,330],[1120,330]],mode=S.mode;
+  if(mode==='pseudo'){
+   const n=[640,95],r=[[190,300],[640,330],[1090,300]];
+   const net=node(svg,...n,'共享网段','Type-2 LSA','#087c9b',260);pop(tl,net,.5);tl.to(net.querySelector('rect'),{fill:'#daf1e3',duration:.4},time('伪节点',2));
+   r.forEach((a,i)=>{const p=line(svg,a,n,{color:'#087c9b',width:4,arrow:true});draw(tl,p,1+i*.7);const nn=node(svg,...a,['R1','R3','R4'][i],'SPF 图里的路由器','#173b38',220);pop(tl,nn,.7+i*.4);});
+   addText(svg,380,170,'路由器 → 网段：接口 cost',24);addText(svg,935,170,'网段 → 路由器：0',24);addText(svg,640,408,'由 DR 生成 Network-LSA；这张图不表示实际数据绕行',24,'#087c68',700);return;
+  }
+  const pairs=[];for(let i=0;i<5;i++)for(let j=i+1;j<5;j++)if(mode==='mesh'||i<2)pairs.push([i,j]);
+  const lines={};pairs.forEach(([i,j],k)=>{const p=line(svg,pos[i],pos[j],{color:mode==='mesh'?'#a5bab0':i===0?'#087c9b':'#6ba999',width:mode==='mesh'?2.5:3.5});lines[i+'-'+j]=p;draw(tl,p,.6+k*.14);});
+  const roles=mode==='mesh'?['普通邻居','普通邻居','普通邻居','普通邻居','普通邻居']:['DR','BDR','DROther','DROther','DROther'];
+  const nodes=pos.map((p,i)=>{const n=node(svg,...p,'R'+(i+1),roles[i],i===0?'#087c9b':i===1?'#14876d':'#173b38');pop(tl,n,.5+i*.12);return n;});
+  if(mode==='adjacency'){const p=line(svg,pos[2],pos[3],{color:'#d47a58',width:4,dash:'8 10'});draw(tl,p,time('Two Way',SDUR*.5));addText(svg,413,405,'两个 DROther：2-Way',24,'#9e4e32',700);}
+  if(mode==='late'){const n=node(svg,640,202,'新来的 R6','Priority = 200','#bd6949',270);pop(tl,n,time('新设备',2));addText(svg,640,262,'已有角色保持；不直接抢占',25,'#9e4e32',700);}
+  if(mode==='data'){const p=line(svg,pos[2],pos[3],{color:'#14876d',width:9,arrow:true});draw(tl,p,time('直接',3));packet(tl,svg,p,time('直接',3)+.5);addText(svg,425,405,'R3 → R4：同一网段直接交付',25,'#087c68',700);}
+  if(mode==='flood'){
+   [[2,0],[2,1]].forEach(([a,b],i)=>{const p=line(svg,pos[a],pos[b],{color:'#087c9b',width:7,arrow:true});draw(tl,p,time('点六',3)+i*.2);packet(tl,svg,p,time('点六',3)+.4+i*.3,'#087c9b');});
+   [3,4].forEach((b,i)=>{const p=line(svg,pos[0],pos[b],{color:'#14876d',width:7,arrow:true});draw(tl,p,time('点五',SDUR*.58)+i*.2);packet(tl,svg,p,time('点五',SDUR*.58)+.3+i*.3);});
+   addText(svg,640,210,'.6：发给 DR / BDR',24,'#087c9b',700);addText(svg,640,250,'.5：发给全部 OSPF 路由器',23,'#087c68',700);
+  }
+  if(mode==='failover'){tl.to(nodes[0],{opacity:.18,duration:.5},time('故障',2));const label=svgEl('rect',{x:867,y:76,width:146,height:31,rx:10,fill:'#d6f0df'});svg.appendChild(label);const text=addText(svg,940,95,'新 DR',20,'#087c68',800);tl.to(nodes[1].querySelector('text:last-child'),{opacity:0,duration:.1},time('接任',4));pop(tl,label,time('接任',4));pop(tl,text,time('接任',4));addText(svg,650,210,'检测故障 → BDR 接任 → 选新 BDR',25,'#087c68',700);}
+ },
+ lsa(tl,st){const p=el('div','panel');st.appendChild(p);[['目的前缀','192.168.100.0/24'],['Advertising Router','R3 的 Router ID'],['Forwarding Address','0.0.0.0 或一个转发目标地址']].forEach(([a,b],i)=>{const r=el('div','field-row',`<strong>${a}</strong><span>${b}</span>`);p.appendChild(r);pop(tl,r,[time('目的前缀',1),time('Advertising Router',SDUR*.3),time('Forwarding Address',SDUR*.5)][i]);});},
+ 'fa-network'(tl,st){
+  const svg=makeSvg(st),pos=[[100,200],[430,200],[700,65],[970,200],[1190,200]],mode=S.mode;
+  svg.appendChild(svgEl('rect',{x:330,y:4,width:735,height:325,rx:35,fill:'#e3eee3',stroke:'#bfd1c1','stroke-width':2}));
+  addText(svg,700,370,'共享以太网 10.1.1.0/24 · 线条表示逻辑路径',24,'#4f716b');
+  [[0,1],[1,2],[2,3],[1,3],[3,4]].forEach(([i,j])=>line(svg,pos[i],pos[j],{color:'#bbcfc2',width:3}));
+  const control=line(svg,pos[2],pos[0],{color:'#087c9b',width:4,arrow:true,dash:'9 8',curve:true});pop(tl,control,.8);addText(svg,320,65,'R3 发布外部 LSA',23,'#087c9b',700);
+  const names=['R1','R2','R3','外部网关','目的网段'],subs=['内部观察者','下一跳 / ABR','ASBR · 发布者','10.1.1.254','192.168.100/24'];
+  const paths=mode==='zero'?[[0,1],[1,2],[2,3],[3,4]]:mode==='nonzero'?[[0,1],[1,3],[3,4]]:[];
+  paths.forEach(([a,b],i)=>{const p=line(svg,pos[a],pos[b],{color:'#14876d',width:8,arrow:true});const t=time(mode==='zero'?'于是包':'下一跳',SDUR*.4)+i*1.45;draw(tl,p,t,.5);packet(tl,svg,p,t+.25);});
+  pos.forEach((p,i)=>{const n=node(svg,...p,names[i],subs[i],i===2?'#087c9b':i===3?'#14876d':'#173b38',i===4?165:145);pop(tl,n,.4+i*.15);});
+  if(mode!=='topology'){const label=addText(svg,690,410,mode==='zero'?'FA = 0.0.0.0 → 内部路径到 ASBR':'FA = 10.1.1.254 → 内部路径到 FA',28,'#087c68',800);pop(tl,label,1.4);}
+ },
+ recursive(tl,st){const svg=makeSvg(st);const a=node(svg,190,190,'R1','当前观察者','#173b38',240),b=node(svg,650,190,'R2','实际直接下一跳','#14876d',250),c=node(svg,1080,190,'FA 目标','10.1.1.254','#087c9b',260);const p=line(svg,[190,190],[650,190],{color:'#14876d',width:8,arrow:true,offset:140});draw(tl,p,1.2);packet(tl,svg,p,time('先发给',SDUR*.5));const q=line(svg,[650,190],[1080,190],{color:'#14876d',width:6,dash:'10 8',arrow:true,offset:140});draw(tl,q,time('递归',SDUR*.6));addText(svg,640,335,'R1 的路由表：目的业务前缀 → 下一跳 R2',30,'#087c68',700);[a,b,c].forEach((x,i)=>pop(tl,x,.5+i*.3));},
+ unreachable(tl,st){showRows(tl,st,['LSDB：已收到外部 LSA，FA 非零','内部路由：无区域内 / 区域间路径到 FA','结果：不能据此安装外部业务路由'],[.6,time('区域内',SDUR*.25),time('不能',SDUR*.45)]);},
+ checklist(tl,st){showRows(tl,st,S.items,[.6,SDUR*.32,SDUR*.56]);},
+ nssa(tl,st){const svg=makeSvg(st);const a=node(svg,190,195,'NSSA ASBR','Type-7 发布者','#173b38',245),b=node(svg,640,195,'翻译 ABR','生成 Type-5','#087c9b',260),c=node(svg,1090,195,'其他区域','接收 Type-5','#173b38',245);const p=line(svg,[190,195],[640,195],{color:'#087c9b',width:6,arrow:true,offset:145}),q=line(svg,[640,195],[1090,195],{color:'#087c9b',width:6,arrow:true,offset:145});draw(tl,p,1);draw(tl,q,time('五类',SDUR*.2));[a,b,c].forEach((n,i)=>pop(tl,n,.5+i*.3));addText(svg,640,325,'Adv Router：ASBR → 翻译 ABR',29,'#087c9b',700);const txt=addText(svg,640,380,'FA：继续指向原来的转发目标',29,'#087c68',700);pop(tl,txt,time('保留下来',SDUR*.4));}
+};
+
+// OSPFv2 teaching figures. One data model per figure; timeline time owns every reveal.
+function label(tl,svg,x,y,text,t=.5,size=26,color='#375e57',weight=600){const e=addText(svg,x,y,text,size,color,weight);pop(tl,e,t);return e;}
+function box(svg,x,y,w,h,fill='#fff',stroke='#bed2c6'){const g=svgEl('g',{'data-node':'1'});g.appendChild(svgEl('rect',{x,y,width:w,height:h,rx:18,fill,stroke,'stroke-width':2.5}));svg.appendChild(g);return g;}
+function plainPath(svg,d,color='#087c9b',width=5,arrow=true){const p=svgEl('path',{d,fill:'none',stroke:color,'stroke-width':width,'stroke-linecap':'round','stroke-linejoin':'round'});if(arrow)p.setAttribute('marker-end',`url(#${S.id}-arr)`);svg.appendChild(p);return p;}
+Object.assign(RENDER,{
+ 'packet-envelope'(tl,st){
+  const svg=makeSvg(st);
+  const ip=box(svg,38,5,1190,370,'#e4eee5');pop(tl,ip,.4);
+  label(tl,svg,632,54,'IP 数据报 · Protocol = 89',.6,33,'#087c9b',800);
+  const head=box(svg,72,90,1122,115);pop(tl,head,time('二十四',SDUR*.33));
+  label(tl,svg,630,134,'OSPF 公共头 · 24 bytes',time('二十四',SDUR*.33),30,'#173b38',800);
+  label(tl,svg,630,178,'Version  |  Type  |  Length  |  Router ID  |  Area ID  |  校验 / 认证',time('二十四',SDUR*.33)+.3,24);
+  const body=box(svg,72,230,1122,112,'#dff2e7','#14876d');pop(tl,body,SDUR*.56);
+  label(tl,svg,630,276,'报文体：随 Type = 1 / 2 / 3 / 4 / 5 改变',SDUR*.56,29,'#087c68',700);
+  label(tl,svg,630,320,'Hello / DD / LSR / LSU / LSAck',SDUR*.56+.3,27);
+  label(tl,svg,630,420,'这里的 Type 是报文类型；LSA 另有自己的类型字段',time('类型字段',SDUR*.75),28,'#9e4e32',700);
+ },
+ 'message-flow'(tl,st){
+  const svg=makeSvg(st);label(tl,svg,125,35,'R1',.3,32,'#173b38',800);label(tl,svg,1145,35,'R2',.3,32,'#173b38',800);
+  const l=plainPath(svg,'M125 60V405','#bdcec4',3,false),r=plainPath(svg,'M1145 60V405','#bdcec4',3,false);draw(tl,l,.5);draw(tl,r,.5);
+  S.rows.forEach(([a,b],i)=>{const y=115+i*128,t=i===0?1:SDUR*(i===1?.34:.63);const reverse=i===1;
+   if(i===2){const g=box(svg,190,y-60,900,94,'#dff2e7','#14876d');pop(tl,g,t);label(tl,svg,640,y-23,a+' · '+b,t+.1,28,'#087c68',700);return;}
+   const both=a.includes('⇄')||a==='ExStart';
+   const p=plainPath(svg,reverse?`M1110 ${y}H160`:`M160 ${y}H1110`,'#087c9b',5,true);draw(tl,p,t);packet(tl,svg,p,t+.3,'#087c9b');
+   if(both){const q=plainPath(svg,reverse?`M160 ${y+15}H1110`:`M1110 ${y+15}H160`,'#087c9b',4,true);draw(tl,q,t+.2);}
+   label(tl,svg,635,y-44,a,t,28,'#087c9b',800);label(tl,svg,635,y-11,b,t+.12,28,'#173b38',600);
+  });
+ },
+ 'request-cards'(tl,st){
+  const svg=makeSvg(st);S.fields.forEach(([a,b],i)=>{const y=12+i*132,t=i===0?.7:SDUR*(i===1?.32:.6);const g=box(svg,30,y,1195,113);g.appendChild(svgEl('rect',{x:30,y,width:315,height:113,rx:18,fill:'#dff0e4'}));
+   g.appendChild(svgEl('text',{x:55,y:y+65,fill:'#087c68','font-size':28,'font-weight':800},a));
+   g.appendChild(svgEl('text',{x:375,y:y+65,fill:'#173b38','font-size':28,'font-weight':600},b));pop(tl,g,t);
+  });
+ },
+ 'packet-bundle'(tl,st){
+  const svg=makeSvg(st);const bag=box(svg,30,15,750,380,'#e4eee5');pop(tl,bag,.6);label(tl,svg,400,66,'LSU · 一个报文',.6,34,'#087c9b',800);
+  [0,1,2].forEach(i=>{const c=box(svg,75+i*220,106,195,230);c.appendChild(svgEl('path',{d:`M${95+i*220} 140H${250+i*220}`,stroke:'#14876d','stroke-width':6}));c.appendChild(svgEl('text',{x:173+i*220,y:198,'text-anchor':'middle',fill:'#087c68','font-size':31,'font-weight':800},'LSA '+(i+1)));c.appendChild(svgEl('text',{x:173+i*220,y:258,'text-anchor':'middle',fill:'#375e57','font-size':28},'头 + 正文'));pop(tl,c,1.2+i*.7);});
+  const db=box(svg,960,70,260,290,'#dff2e7','#14876d');pop(tl,db,SDUR*.48);label(tl,svg,1090,180,'LSDB',SDUR*.48,40,'#087c68',800);label(tl,svg,1090,235,'资料库',SDUR*.48+.2,30);
+  const p=plainPath(svg,'M800 220H935','#14876d',6);draw(tl,p,SDUR*.57);packet(tl,svg,p,SDUR*.57+.3);
+  label(tl,svg,638,426,'信封负责运输，LSA 才是描述网络的资料',SDUR*.7,28,'#087c68',700);
+ },
+ 'packet-timeline'(tl,st){
+  const svg=makeSvg(st);const items=[['Hello','认识 / 保活'],['DD','比目录'],['LSR','点名索取'],['LSU','补正文'],['LSAck','显式确认']];
+  items.forEach(([a,b],i)=>{const x=120+i*250,t=.5+i*SDUR*.105;const g=node(svg,x,165,a,b,i===4?'#14876d':'#087c9b',212);pop(tl,g,t);if(i){const p=plainPath(svg,`M${x-135} 165H${x-116}`,'#6d9683',4);draw(tl,p,t+.1);}});
+  const loop=plainPath(svg,'M1120 235Q1120 350 650 350H120Q45 350 70 238','#14876d',5);draw(tl,loop,SDUR*.62,1.1);
+  label(tl,svg,650,310,'Full 后：Hello 持续，变化仍用 LSU / 确认传播',SDUR*.62+.5,28,'#087c68',700);
+  label(tl,svg,650,418,'图示为需要完整邻接的初次同步；隐式确认未单独画出',SDUR*.75,24);
+ },
+ 'lsa-router'(tl,st){
+  const svg=makeSvg(st),a=[180,195],b=[900,70],c=[900,325];
+  const na=node(svg,...a,'R1','Type-1 始发者','#173b38',245);pop(tl,na,.5);
+  [[b,'R2',10],[c,'R3',30]].forEach(([p,name,cost],i)=>{const n=node(svg,...p,name,'本区域路由器','#173b38',220);pop(tl,n,1+i*.7);const q=line(svg,a,p,{color:'#087c9b',width:6,arrow:true,offset:135});draw(tl,q,1.3+i*SDUR*.23);label(tl,svg,560,i===0?82:334,'R1 → '+name+'：cost '+cost,1.3+i*SDUR*.23,29,'#087c9b',800);});
+  label(tl,svg,640,420,'示例 cost 为教学设定；另一方向由另一台路由器描述',SDUR*.63,28,'#9e4e32',700);
+ },
+ 'area-summary'(tl,st){
+  const svg=makeSvg(st);const ar=box(svg,8,10,460,365,'#e4eee5');pop(tl,ar,.4);label(tl,svg,238,60,'Area 1 · 细节',.5,30,'#173b38',800);
+  [[110,160],[355,145],[240,285]].forEach((p,i)=>{pop(tl,node(svg,...p,'R'+(i+1),'', '#173b38',135),.7+i*.25);});
+  [[110,160,355,145],[110,160,240,285],[355,145,240,285]].forEach(p=>{const l=line(svg,p.slice(0,2),p.slice(2),{offset:72});svg.appendChild(l);draw(tl,l,1);});
+  const abr=node(svg,645,195,'ABR','重新生成 Type 3','#087c9b',255);pop(tl,abr,SDUR*.28);
+  const card=box(svg,850,95,390,230,'#dff2e7','#14876d');pop(tl,card,SDUR*.46);label(tl,svg,1045,154,'Type 3 · 区域间路标',SDUR*.46,28,'#087c68',800);label(tl,svg,1045,215,'10.1.0.0/16',SDUR*.46+.2,32);label(tl,svg,1045,275,'Metric = 20（示例）',SDUR*.46+.4,27);
+  const p=plainPath(svg,'M493 195H502','#087c9b',4),q=plainPath(svg,'M793 195H830','#14876d',5);draw(tl,p,SDUR*.3);draw(tl,q,SDUR*.48);
+  label(tl,svg,640,420,'“Summary-LSA” 是类型名；地址聚合需另行配置',SDUR*.7,28,'#9e4e32',700);
+ },
+ 'lsa-external'(tl,st){
+  const svg=makeSvg(st);const cols=[['Type 4','ASBR 在哪里？','目标：ASBR 的 Router ID'],['Type 5','外部前缀在哪儿？','目标：192.0.2.0/24']];
+  cols.forEach(([a,b,c],i)=>{const x=25+i*645,t=i===0?SDUR*.3:.8;const card=box(svg,x,15,580,300,i?'#dff2e7':'#e3eef0',i?'#14876d':'#087c9b');pop(tl,card,t);label(tl,svg,x+290,80,a,t,43,i?'#087c68':'#087c9b',800);label(tl,svg,x+290,155,b,t+.2,33);label(tl,svg,x+290,240,c,t+.4,27);});
+  label(tl,svg,640,390,'若 FA 非零：还要按内部路由递归到 FA',SDUR*.7,30,'#9e4e32',700);
+ },
+ 'spf-demo'(tl,st){
+  const svg=makeSvg(st),ps=[[150,230],[640,70],[1130,230]];
+  const p=line(svg,ps[0],ps[1],{color:'#b2c7bd',width:4,arrow:true}),q=line(svg,ps[1],ps[2],{color:'#b2c7bd',width:4,arrow:true}),r=line(svg,ps[0],ps[2],{color:'#a5bdb1',width:4,arrow:true});
+  [p,q,r].forEach((x,i)=>draw(tl,x,.6+i*.2));ps.forEach((x,i)=>pop(tl,node(svg,...x,'R'+(i+1),i===0?'当前根节点':'',i===0?'#087c9b':'#173b38',168),.4+i*.2));
+  label(tl,svg,355,105,'10',.9,36,'#087c9b',800);label(tl,svg,930,105,'5',1.1,36,'#087c9b',800);label(tl,svg,640,272,'直达：30',.7,30,'#4f716b',700);
+  const t=time('先到',SDUR*.3);[p,q].forEach((l,i)=>{tl.to(l,{stroke:'#14876d',strokeWidth:8,duration:.45},t+i*1.5);packet(tl,svg,l,t+.3+i*1.5);});tl.to(r,{opacity:.32,duration:.5},t+3);
+  label(tl,svg,640,378,'经 R2：10 + 5 = 15 < 30',t+3,38,'#087c68',800);
+  label(tl,svg,640,425,'R1 到 R3 的下一跳：R2',t+3.3,28,'#087c68',700);
+ },
+ 'metric-compare'(tl,st){
+  const svg=makeSvg(st);const headers=['出口','内部代价','外部代价','E1：相加','E2：先比外部'];const xs=[100,340,570,810,1090];
+  headers.forEach((v,i)=>label(tl,svg,xs[i],50,v,.5,28,'#375e57',700));
+  [['A','5','20','25 · 更优','20'],['B','30','10','40','10 · 更优']].forEach((row,i)=>{const y=120+i*120;const g=box(svg,20,y-45,1220,95,i?'#eef4e9':'#fff');pop(tl,g,.9+i*.7);row.forEach((v,j)=>label(tl,svg,xs[j],y+15,v,j<3?.9+i*.7:time(j===3?'E1':'E2',j===3?SDUR*.4:SDUR*.6),j===0?31:32,j>=3?'#087c68':'#173b38',j>=3?800:600));});
+  label(tl,svg,640,370,'示例前提：同一外部前缀、同一外部类型、可达的内部路径',SDUR*.73,28,'#9e4e32',700);
+  label(tl,svg,640,418,'E2 外部 cost 相同，再比较内部代价等规则',SDUR*.78,28,'#087c68',700);
+ },
+ 'lsa-freshness'(tl,st){
+  const svg=makeSvg(st);const rows=[['1','序列号','有符号数值大者更新'],['2','校验和','序列相同：校验和值大者更新'],['3','MaxAge','序列 / 校验相同：唯一 MaxAge 实例优先'],['4','Age 差','否则：差 > 900s 选年轻者；其余同实例']];
+  rows.forEach(([n,a,b],i)=>{const t=.7+i*SDUR*.2,y=8+i*104,g=box(svg,28,y,1200,91,i===2?'#f5e8dc':'#fff');g.appendChild(svgEl('text',{x:55,y:y+58,fill:'#087c68','font-size':32,'font-weight':800},n+'  '+a));g.appendChild(svgEl('text',{x:340,y:y+58,fill:'#173b38','font-size':28,'font-weight':500},b));pop(tl,g,t);});
+ },
+ 'lsa-aging'(tl,st){
+  const svg=makeSvg(st);label(tl,svg,640,35,'同一实例的 LS age · 刷新产生新实例（Age 归零）',.5,28,'#375e57',700);const p=plainPath(svg,'M130 170H1120','#aec7b9',7);draw(tl,p,.7,1);
+  [[140,'0','始发'],[620,'1800s','刷新 → 新实例'],[1120,'3600s','未替换时 MaxAge']].forEach(([x,a,b],i)=>{const t=.5+i*SDUR*.21;const c=svgEl('circle',{cx:x,cy:170,r:13,fill:i===2?'#b55b38':'#14876d'});svg.appendChild(c);pop(tl,c,t);label(tl,svg,x,115,a,t,38,i===2?'#9e4e32':'#087c68',800);label(tl,svg,x,225,b,t+.2,30);});
+  const flush=plainPath(svg,'M280 315H1100Q1120 315 1120 195','#b96a47',5);draw(tl,flush,time('主动撤销',SDUR*.6),1);label(tl,svg,650,365,'主动撤销：设为 MaxAge，再泛洪',time('主动撤销',SDUR*.6)+.3,30,'#9e4e32',700);
+  label(tl,svg,640,425,'达到 MaxAge 后，仍须满足确认 / 邻接同步等清理条件',SDUR*.78,25);
+ },
+ 'area-backbone'(tl,st){
+  const svg=makeSvg(st);const rects=[[20,'Area 1'],[475,'Area 0 · 骨干'],[930,'Area 2']];
+  rects.forEach(([x,n],i)=>{const g=box(svg,x,15,325,340,i===1?'#dff2e7':'#e7ede3');pop(tl,g,.5+i*.3);label(tl,svg,x+162,80,n,.5+i*.3,31,i===1?'#087c68':'#173b38',800);});
+  [[182,'R1'],[637,'核心 R'],[1092,'R2']].forEach(([x,n])=>pop(tl,node(svg,x,225,n,'区域内','#173b38',150),.9));
+  const abrs=[[410,'ABR A'],[865,'ABR B']];abrs.forEach(([x,n],i)=>{const g=node(svg,x,225,n,'边界路由器','#087c9b',185);pop(tl,g,1+i*.4);});
+  [[265,309],[511,554],[720,764],[966,1009]].forEach(([a,b],i)=>{const p=plainPath(svg,`M${a} 225H${b}`,'#087c9b',5);draw(tl,p,1.6+i*.35);});
+  label(tl,svg,640,410,'区域内拓扑分别维护；常规区域间传播通过骨干',SDUR*.59,28,'#087c68',700);
+ },
+ 'area-gate'(tl,st){
+  const svg=makeSvg(st),m=S.mode;const modes={normal:['普通区域',[true,true,true]],stub:['Stub',[true,false,false]],total:['Totally Stub',[false,false,false]],nssa:['NSSA',[true,false,false]]};const [name,allow]=modes[m];
+  const area=box(svg,780,0,465,405,'#e5efe4');pop(tl,area,.4);label(tl,svg,1013,45,name,.5,32,'#087c68',800);
+  const gate=svgEl('path',{d:'M645 35V335',stroke:'#173b38','stroke-width':8,'stroke-linecap':'round'});svg.appendChild(gate);draw(tl,gate,.6);label(tl,svg,645,385,'ABR · 边界',.7,28,'#173b38',800);
+  ['Type 3 · 区域间明细','Type 4 · ASBR 路标','Type 5 · 外部前缀'].forEach((n,i)=>{const y=100+i*97,t=.8+i*SDUR*.15,ok=allow[i];label(tl,svg,240,y-20,n,t,29,'#173b38',700);const p=plainPath(svg,`M75 ${y+10}H${ok?1150:606}`,ok?'#087c9b':'#b96a47',5);draw(tl,p,t+.2,.85);packet(tl,svg,p,t+.4,ok?'#087c9b':'#b96a47');
+   label(tl,svg,ok?1015:700,y-9,ok?'允许':'阻挡',t+1.4,28,ok?'#087c68':'#9e4e32',800);
+  });
+  label(tl,svg,1014,355,m==='nssa'?'区域内 1 / 2 + 本地 7':'区域内 Type 1 / 2 保留',SDUR*.51,28,'#087c68',700);
+  if(m==='stub'||m==='total')label(tl,svg,1014,397,'+ Type 3 缺省 0.0.0.0/0',SDUR*.66,28,'#087c68',800);
+  if(m==='nssa')label(tl,svg,640,428,'本区 ASBR → Type 7 → 翻译 ABR → Type 5（满足条件时）',SDUR*.68,28,'#087c68',700);
+  if(m==='total')label(tl,svg,640,428,'Type 3 缺省是保留的例外；Totally 为常见厂商扩展',SDUR*.73,28,'#9e4e32',700);
+ },
+ 'area-default'(tl,st){
+  const svg=makeSvg(st);const rows=[['普通 NSSA','常见 Type 7 缺省','生成条件 / 自动行为：按厂商与配置核对'],['Totally NSSA','常见 Type 3 缺省','no-summary；仍保留本区 Type 7']];
+  rows.forEach(([a,b,c],i)=>{const t=i===0?.7:SDUR*.45,y=10+i*196,g=box(svg,28,y,1200,175,i?'#dff2e7':'#fff');pop(tl,g,t);label(tl,svg,260,y+67,a,t,34,'#087c68',800);label(tl,svg,850,y+64,b,t+.2,31,'#087c9b',800);label(tl,svg,640,y+137,c,t+.4,27);});
+ },
+ 'default-forward'(tl,st){
+  const svg=makeSvg(st);const r=box(svg,30,8,1200,144);pop(tl,r,.4);label(tl,svg,630,59,'路由表（示例）',.5,29,'#173b38',800);label(tl,svg,630,108,'10.1.0.0/16 → 区域内路径     0.0.0.0/0 → ABR',.7,29);
+  const branch=node(svg,215,295,'分支 R1','做最长前缀匹配','#173b38',255);pop(tl,branch,1);
+  const local=node(svg,1070,230,'本区域','10.1.2.3','#14876d',225),abr=node(svg,1070,375,'ABR','其他无明细的目的','#087c9b',225);
+  pop(tl,local,time('十点一',SDUR*.26));pop(tl,abr,time('如果没有',SDUR*.53));
+  const p=line(svg,[215,295],[1070,230],{color:'#14876d',width:7,arrow:true,offset:140});draw(tl,p,time('十点一',SDUR*.26));packet(tl,svg,p,time('十点一',SDUR*.26)+.4);
+  const q=line(svg,[215,295],[1070,375],{color:'#087c9b',width:7,arrow:true,offset:140});draw(tl,q,time('如果没有',SDUR*.53));packet(tl,svg,q,time('如果没有',SDUR*.53)+.4,'#087c9b');
+  label(tl,svg,640,229,'具体前缀优先匹配',time('十点一',SDUR*.26),28,'#087c68',700);label(tl,svg,640,411,'无更具体匹配，才用 /0',time('如果没有',SDUR*.53),28,'#087c9b',700);
+ }
+});
+Object.assign(RENDER,{
+ 'nssa-translation'(tl,st){const svg=makeSvg(st);const ps=[[180,190],[640,190],[1100,190]],names=['NSSA ASBR','翻译 ABR','其他允许区域'],subs=['区域内：Type 7','满足条件 → Type 5','接收 Type 5'];ps.forEach((p,i)=>pop(tl,node(svg,...p,names[i],subs[i],i===1?'#087c9b':'#173b38',280),.5+i*SDUR*.16));[[0,1],[1,2]].forEach(([a,b],i)=>{const p=line(svg,ps[a],ps[b],{color:'#087c9b',width:6,arrow:true,offset:160});draw(tl,p,1.3+i*SDUR*.28);packet(tl,svg,p,1.6+i*SDUR*.28,'#087c9b');});label(tl,svg,640,330,'Type 7 本身不跨区域；翻译者生成新的 Type 5',SDUR*.56,29,'#087c68',700);label(tl,svg,640,400,'检查 P-bit、FA、翻译者、选路及聚合等条件',SDUR*.73,28,'#9e4e32',700);}
+});
+
+Object.assign(RENDER,{'lsa-pseudonode'(tl,st){RENDER['dr-network'](tl,st);const svg=st.querySelector('.diagram');svg.querySelector('marker').setAttribute('orient','auto-start-reverse');svg.querySelectorAll(':scope > path[marker-end]').forEach(p=>p.setAttribute('marker-start',`url(#${S.id}-arr)`));svg.querySelectorAll('text').forEach(e=>{if(Number(e.getAttribute('font-size'))<28)e.setAttribute('font-size','28');});}});
+
+const S={"id": "trouble", "title": "卡在 ExStart / Exchange，查哪一层？", "kind": "checklist", "say": "如果应当完整邻接的两端，长期卡在 ExStart 或 Exchange，先别反复重启。先核对接口 MTU 和 DD 交换，再看路由器标识是否重复、主从协商是否稳定，以及是否丢包或被策略拦截。卡在 Loading，则重点追请求清单里缺哪条 LSA，以及更新和重传是否正常。", "takeaway": "先定位状态对应的报文，再查参数与收发证据。", "items": ["ExStart / Exchange：MTU、主从、重复 RID、丢包", "Loading：请求清单、LSU、重传与确认", "核对网络类型：两个 DROther 间 2-Way 可以正常"], "chapter": "03", "sceneNo": 9, "sceneCount": 11, "cueTimes": {}, "sourceLabel": "依据 RFC 2328 §7.2、§10.5–10.9、§13、Appendix A.3 · OSPFv2 教学示意", "talk": [{"s": 0.651, "e": 0.944375}, {"s": 1.352541, "e": 1.696916}, {"s": 2.0285830000000002, "e": 2.105124}, {"s": 2.908666, "e": 3.304082}, {"s": 3.5591660000000003, "e": 3.8525410000000004}, {"s": 4.872958, "e": 5.128041}, {"s": 6.148458, "e": 6.403541}, {"s": 6.582125, "e": 6.9392499999999995}, {"s": 8.08825, "e": 8.356125}, {"s": 8.7005, "e": 9.223458}, {"s": 9.567875, "e": 9.784708}, {"s": 10.014291, "e": 10.192874000000002}, {"s": 10.371416, "e": 10.524457}, {"s": 11.430083000000002, "e": 11.595916}, {"s": 12.208166, "e": 12.373999000000001}, {"s": 12.756625000000001, "e": 13.05}, {"s": 13.458166, "e": 14.019374000000001}, {"s": 14.631625000000001, "e": 15.065291}, {"s": 15.460708, "e": 15.945416000000002}, {"s": 16.544916, "e": 16.914832}, {"s": 17.514291, "e": 17.718374}, {"s": 17.896958, "e": 18.241333}, {"s": 19.414791, "e": 19.618874}, {"s": 19.810208, "e": 20.256624000000002}, {"s": 20.741333, "e": 21.149499000000002}, {"s": 21.340833, "e": 21.685208}, {"s": 22.144375, "e": 22.386708000000002}, {"s": 22.705625, "e": 22.909708000000002}, {"s": 23.356125000000002, "e": 23.611208}, {"s": 23.879083, "e": 24.121416}, {"s": 24.746416, "e": 25.180082000000002}, {"s": 25.345916, "e": 25.792332000000002}, {"s": 26.16225, "e": 26.697958}], "guide": "先核对条件，\n再观察箭头与结论。"};const SDUR=28.21;const tl=gsap.timeline({paused:true});build(tl,document.querySelector('[data-composition-id="ospf-packets-trouble"]'));window.__timelines['ospf-packets-trouble']=tl;})();</script></template></body></html>

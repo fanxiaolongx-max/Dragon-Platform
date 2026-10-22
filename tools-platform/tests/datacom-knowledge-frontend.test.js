@@ -15,8 +15,8 @@ test('video recommendations only use registered notes visible in the current cat
     const catalog = Object.keys(manifest).map(id => ({ id }));
     const before = catalog.map(article => article.id);
     const all = selectVideoRecommendations([...catalog, { id: 'private-note' }], manifest, 6, () => 0);
-    assert.equal(all.length, 5);
-    assert.equal(new Set(all.map(article => article.id)).size, 5);
+    assert.equal(all.length, Math.min(6, catalog.length));
+    assert.equal(new Set(all.map(article => article.id)).size, Math.min(6, catalog.length));
     assert.equal(all.some(article => article.id === 'private-note'), false);
     assert.deepEqual(catalog.map(article => article.id), before);
     assert.deepEqual(selectVideoRecommendations(catalog.slice(0, 1), manifest), catalog.slice(0, 1));

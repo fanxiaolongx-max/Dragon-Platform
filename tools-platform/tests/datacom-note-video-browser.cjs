@@ -10,6 +10,7 @@ const express = require('express');
 const ROOT = path.join(__dirname, '..');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'datacom-video-browser-'));
 const remote = process.argv.includes('--remote');
+const articleIds = (process.env.DATACOM_TEST_VIDEO_IDS || 'ospf-fsm').split(',').map(id => id.trim()).filter(Boolean);
 const release = 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/';
 app.setPath('userData', path.join(temp, 'profile'));
 let win;
@@ -67,12 +68,13 @@ app.whenReady().then(async () => {
         if (details.resourceType === 'media') responses.push({ url: details.url, status: details.statusCode });
     });
     win = new BrowserWindow({ show: false, width: 1300, height: 900, webPreferences: { contextIsolation: true, nodeIntegration: false } });
-    for (const mode of ['pages', 'single', 'platform']) {
+    const cases = ['pages', 'single', 'platform'].flatMap(mode => articleIds.map(articleId => ({ mode, articleId })));
+    for (const { mode, articleId } of cases) {
         const start = requests.length;
         if (mode === 'single') await win.loadFile(path.join(temp, 'single.html'));
         else await win.loadURL(base + (mode === 'pages' ? '/project/datacom-protocol-expert/index.html' : '/custom-tools/datacom-protocol-expert/index.html'));
         await until(() => !!document.querySelector('.dk-hero'));
-        await evaluate(() => { localStorage.setItem('dk_video_autoplay', 'off'); location.hash = '#/a/ospf-fsm'; });
+        await evaluate(id => { localStorage.setItem('dk_video_autoplay', 'off'); location.hash = '#/a/' + id; }, articleId);
         await until(() => document.querySelector('#articleVideo video')?.readyState >= 1);
         const source = await evaluate(() => {
             const v = document.querySelector('#articleVideo video');
@@ -82,6 +84,7 @@ app.whenReady().then(async () => {
         assert.equal(source.type, 'video/mp4', 'Safari needs an explicit type for Release download responses');
         assert.equal(source.direct, null, 'video src would override the typed source');
         assert.ok(source.duration > 100);
+        assert.ok(source.src.includes('/' + articleId + '.mp4'), 'play the requested article video');
         assert.ok(source.src.startsWith(mode === 'platform' ? base + '/assets/promotions/datacom/' : release));
         assert.ok(source.poster.startsWith(mode === 'single' ? 'data:image/jpeg;base64,' : base + '/'));
         await evaluate(async () => { const v = document.querySelector('#articleVideo video'); v.muted = true; await v.play(); });
@@ -91,17 +94,17 @@ app.whenReady().then(async () => {
         await evaluate(() => document.querySelector('.dk-video-hd').click());
         await until(() => document.querySelector('.dk-video-dialog video')?.readyState >= 1);
         const hdSource = await evaluate(() => document.querySelector('.dk-video-dialog video').currentSrc);
-        assert.ok(hdSource.includes('ospf-fsm-hd.mp4'));
+        assert.ok(hdSource.includes(articleId + '-hd.mp4'));
         assert.ok(hdSource.startsWith(mode === 'platform' ? base + '/assets/promotions/datacom/' : release));
         await evaluate(async () => { const v = document.querySelector('.dk-video-dialog video'); v.muted = true; await v.play(); });
         await until(() => { const v = document.querySelector('.dk-video-dialog video'); return !v.paused && v.currentTime > 20.15; });
         await evaluate(() => document.querySelector('.dk-video-dialog header button').click());
         const outgoing = requests.slice(start);
         if (mode === 'platform') assert.equal(outgoing.some(url => url.startsWith(release)), false);
-        else assert.equal(outgoing.some(url => url.includes('/api/') || url.includes('/assets/promotions/datacom/')), false, JSON.stringify(outgoing));
-        await evaluate(() => { location.hash = '#/a/ospf-lsa-handbook'; });
+        else assert.equal(outgoing.some(url => url.includes('/api/') || url.includes('/assets/promotions/datacom/')), false, JSON.stringify(outgoing.map(url => url.split('?')[0])));
+        await evaluate(() => { location.hash = '#/a/ospf-auth'; });
         await until(() => !!document.querySelector('#articleVideo[hidden]'));
-        console.log(`${mode}: metadata, inline playback, seeking, HD playback, poster and original platform URL selection passed`);
+        console.log(`${mode} / ${articleId}: metadata, inline playback, seeking, HD playback, poster and original platform URL selection passed`);
     }
     console.log(`Media response statuses (${remote ? 'real GitHub Release' : 'cross-origin fixture without CORS headers'}):`, [...new Set(responses.map(r => r.status))]);
 }).then(() => { process.exitCode = 0; }).catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {

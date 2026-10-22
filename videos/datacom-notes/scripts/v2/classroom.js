@@ -18,16 +18,16 @@ function build(tl,root){
  const title=el('h1','scene-title',esc(S.title));st.appendChild(title);pop(tl,title,.1);
  const mc=el('div','mascot');const id=S.id+'-bot';mc.innerHTML=mascot(id);st.appendChild(mc);
  const guide=el('div','guide',`<b>小码的观察提示</b>${esc(S.guide||'跟着图里的箭头，先看条件，再看结果。')}`);st.appendChild(guide);pop(tl,guide,.7);
- const source=el('div','source',S.chapter==='01'?'依据 RFC 2328 §7.3–7.5、§9.4、§12.4.2 · 图形为教学示意':'依据 RFC 2328 §12.4.4、§16.4；RFC 3101 §2.3、§3 · 图形为教学示意');st.appendChild(source);
+ const source=el('div','source',S.sourceLabel||(S.chapter==='01'?'依据 RFC 2328 §7.3–7.5、§9.4、§12.4.2 · 图形为教学示意':'依据 RFC 2328 §12.4.4、§16.4；RFC 3101 §2.3、§3 · 图形为教学示意'));st.appendChild(source);
  const progress=el('div','progress','<i></i>');st.appendChild(progress);tl.fromTo(progress.firstChild,{scaleX:0},{scaleX:1,duration:SDUR,ease:'none'},0);
  act(tl,id,SDUR,[1.5,SDUR*.38,SDUR*.7]);(S.talk||[]).forEach(w=>{tl.to('#'+id+'-mouth',{scaleY:1.5,svgOrigin:'161 124',duration:.1},w.s);tl.to('#'+id+'-mouth',{scaleY:1,duration:.1},Math.max(w.s+.12,w.e-.1));});
  const render=RENDER[S.kind];if(!render)throw Error('Unknown renderer '+S.kind);render(tl,st);
  take(tl,st,S.takeaway,Math.max(2,SDUR-5.5));
 }
 const RENDER={
- hook(tl,st){const q=el('div','hero-q',esc(S.question));st.appendChild(q);pop(tl,q,.6);const a=el('div','hero-answer',esc(S.answer));st.appendChild(a);pop(tl,a,time('今天',SDUR*.5));const strip=el('div','tag-strip',S.chapter==='01'?'<span>① 减少邻接</span><span>② 理解伪节点</span><span>③ 分清转发</span>':'<span>① 读懂字段</span><span>② 比较路径</span><span>③ 按步骤排障</span>');st.appendChild(strip);pop(tl,strip,SDUR*.65);},
- quiz(tl,st){const q=el('div','hero-q',esc(S.question));q.style.fontSize='62px';st.appendChild(q);pop(tl,q,.5);const a=el('div','quiz-answer',esc(S.answer));st.appendChild(a);pop(tl,a,time('不用',SDUR*.35));},
- recap(tl,st){showRows(tl,st,S.points,[time(S.chapter==='01'?'第一':'发布者',1),time(S.chapter==='01'?'第二':'为零',SDUR*.37),time(S.chapter==='01'?'第三':'非零',SDUR*.61)]);},
+ hook(tl,st){const q=el('div','hero-q',esc(S.question));st.appendChild(q);pop(tl,q,.6);const a=el('div','hero-answer',esc(S.answer));st.appendChild(a);pop(tl,a,time('今天',SDUR*.5));const strip=el('div','tag-strip',S.tags?S.tags.map(x=>'<span>'+esc(x)+'</span>').join(''):S.chapter==='01'?'<span>① 减少邻接</span><span>② 理解伪节点</span><span>③ 分清转发</span>':'<span>① 读懂字段</span><span>② 比较路径</span><span>③ 按步骤排障</span>');st.appendChild(strip);pop(tl,strip,SDUR*.65);},
+ quiz(tl,st){const q=el('div','hero-q',esc(S.question));q.style.fontSize='62px';st.appendChild(q);pop(tl,q,.5);const a=el('div','quiz-answer',esc(S.answer));st.appendChild(a);pop(tl,a,time(S.reveal||'不用',SDUR*.35));},
+ recap(tl,st){showRows(tl,st,S.points,[time(S.chapter==='01'||Number(S.chapter)>=3?'第一':'发布者',1),time(S.chapter==='01'||Number(S.chapter)>=3?'第二':'为零',SDUR*.37),time(S.chapter==='01'||Number(S.chapter)>=3?'第三':'非零',SDUR*.61)]);},
  election(tl,st){const p=el('div','panel');p.style.padding='18px 30px';st.appendChild(p);p.innerHTML='<div class="ranking h"><span>候选</span><span>接口优先级</span><span>Router ID</span><span>是否有资格</span></div>';const rows=[['R1','100','1.1.1.1','参与比较'],['R2','100','2.2.2.2','同优先级，RID 更大'],['R3','0','9.9.9.9','不参选']];rows.forEach((r,i)=>{const e=el('div','ranking'+(i===2?' disabled':''),r.map((v,j)=>`<span class="${j===3?'candidate'+(i===2?' no':''):''}">${esc(v)}</span>`).join(''));p.appendChild(e);pop(tl,e,[1,time('相同',SDUR*.5),time('优先级为零',2)][i]);});},
  scope(tl,st){const svg=makeSvg(st);const a=node(svg,190,200,'网段 A','Broadcast','#087c9b',230),b=node(svg,1090,200,'网段 B','Broadcast','#087c9b',230),c=node(svg,640,200,'同一台 R1','接口角色不同','#173b38',240);line(svg,[320,200],[510,200]);line(svg,[770,200],[960,200]);addText(svg,418,145,'GE0/0/1：DR',27,'#087c68',700);addText(svg,862,145,'GE0/0/2：DROther',25,'#087c9b',700);pop(tl,a,.7);pop(tl,c,.5);pop(tl,b,time('另一个',SDUR*.4));tag(st,'Point-to-Point：不选举 DR / BDR',714);},
  'dr-network'(tl,st){

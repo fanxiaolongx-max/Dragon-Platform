@@ -10,14 +10,16 @@ const root = path.join(__dirname, '..');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'datacom-video-overview-'));
 app.setPath('userData', path.join(temp, 'profile'));
 const seed = require('../backend/builtin-tools/datacom-protocol-expert/knowledge-seed.json');
+const videoManifest = require('../frontend/assets/promotions/datacom/manifest.json');
+const videoCount = seed.articles.filter(article => Object.hasOwn(videoManifest, article.id)).length;
 const data = { ...seed, articles: seed.articles.map(a => ({ ...a, revision: 1, bodyLength: a.bodyMd.length })) };
 let win, server;
 const requests = [];
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const evaluate = (fn, ...args) => win.webContents.executeJavaScript(`(${fn.toString()})(...${JSON.stringify(args)})`, true);
-async function until(fn) {
+async function until(fn, ...args) {
     for (let i = 0; i < 250; i++) {
-        if (await evaluate(fn)) return;
+        if (await evaluate(fn, ...args)) return;
         await wait(40);
     }
     throw new Error('Timed out: ' + fn.toString());
@@ -48,10 +50,10 @@ app.whenReady().then(async () => {
     await win.loadURL(`http://127.0.0.1:${server.address().port}/warm-module-cache`);
     await until(() => window.oldModuleCached === true);
     await win.loadURL(`http://127.0.0.1:${server.address().port}/custom-tools/datacom-protocol-expert/index.html`);
-    await until(() => document.querySelectorAll('[data-video-id]').length === 5 && !!document.querySelector('#homeVideos video'));
+    await until(count => document.querySelectorAll('[data-video-id]').length === count && !!document.querySelector('#homeVideos video'), Math.min(6, videoCount));
     await wait(300);
-    assert.equal(await evaluate(() => document.querySelectorAll('.dk-nav-video').length), 5);
-    assert.equal(await evaluate(() => !!document.querySelector('.dk-nav-link[href="#/a/ospf-lsa-handbook"] .dk-nav-video')), false);
+    assert.equal(await evaluate(() => document.querySelectorAll('.dk-nav-video').length), videoCount);
+    assert.equal(await evaluate(() => !!document.querySelector('.dk-nav-link[href="#/a/ospf-auth"] .dk-nav-video')), false);
     assert.equal(requests.filter(url => /\.mp4(?:\?|$)/.test(url)).length, 0, 'overview must not preload video data');
     assert.equal(requests.filter(url => url.includes('/manifest.json')).length, 1, 'directory and overview must share their manifest');
     const hash = fileHash(path.join(toolRoot, 'assets/note-video.js'));
@@ -118,7 +120,7 @@ app.whenReady().then(async () => {
     await wait(100);
     assert.ok(scrollStart > 0);
     fs.writeFileSync('/tmp/datacom-video-overview-mobile-classroom.png', (await win.webContents.capturePage()).toPNG());
-    console.log('Overview: 5 video badges, lazy media, shared manifest, inline/HD playback and seeking, shuffle, Escape/focus, route cleanup, light/dark and responsive layouts passed.');
+    console.log(`Overview: ${videoCount} video badges, lazy media, shared manifest, inline/HD playback and seeking, shuffle, Escape/focus, route cleanup, light/dark and responsive layouts passed.`);
 }).catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
     win?.destroy(); server?.closeAllConnections(); server?.close();
     fs.rmSync(temp, { recursive: true, force: true }); app.exit(process.exitCode || 0);
