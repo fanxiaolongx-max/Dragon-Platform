@@ -473,3 +473,4 @@ body.air-zoomed .air-chapter-insert,body.air-zoomed .air-cell-tools,body.air-zoo
 /* List markers sit inside the content box (the output clips at its edges): room for numbers like 10. or 100. */
 .kit-list{padding-left:1.4em}
 ol.kit-list{padding-left:2.6em}
+.kit-em{font-weight:700;color:var(--air-accent)}

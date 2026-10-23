@@ -62,7 +62,7 @@
       "platformNameEn": "Dragon Platform",
       "platformSubtitle": "埃及 CS 工具与知识中心",
       "platformSubtitleEn": "Egypt CS Tools & Knowledge Center",
-      "platformSlogan": "“认真做好每一个工具，让日常工作更省心。”",
+      "platformSlogan": "“认真做好每一个工具。”",
       "platformSloganEn": "“Build every tool with care. Make everyday work easier.”"
     },
     "/api/nav-settings": {
@@ -72,7 +72,7 @@
       "platformNameEn": "Dragon Platform",
       "platformSubtitle": "埃及 CS 工具与知识中心",
       "platformSubtitleEn": "Egypt CS Tools & Knowledge Center",
-      "platformSlogan": "“认真做好每一个工具，让日常工作更省心。”",
+      "platformSlogan": "“认真做好每一个工具。”",
       "platformSloganEn": "“Build every tool with care. Make everyday work easier.”"
     },
     "/api/platform-logo/status": {
@@ -249,6 +249,12 @@
       "hash": "de8d41c632ae1e8ba5bfe8a8312f6bd16570eeef1e040f65c58e28cf4ab81285",
       "type": "text/javascript; charset=utf-8"
     },
+    "datacom-protocol-expert/assets/note-videos/ospf-areas-poster.jpg": {
+      "url": "tp-static/payload/9fa2fb3429e82abcca1378cb9df024fa8ce8184ac4fbe6b42ec2f5297e75f171.bin",
+      "iv": "+cfNGt9ewu4qrwlr",
+      "hash": "ecd0533ee45dbbdbbf7923df2ac267f5b3d15c85fdc0396a5b4717c0b2303736",
+      "type": "image/jpeg"
+    },
     "datacom-protocol-expert/assets/note-videos/ospf-dr-bdr-poster.jpg": {
       "url": "tp-static/payload/e2f7cee8c9c1cb6543eb2f8e04cff3516d5bc06de3d465b888cdc49797954480.bin",
       "iv": "x2X2Iz8B7fvHo/EG",
@@ -265,6 +271,18 @@
       "url": "tp-static/payload/06db0214353052a08287daeed9ddaea47c2e54757c179a973264aadcdd8ab8ce.bin",
       "iv": "q8XCZAq2kmOlatii",
       "hash": "7f91f99a2ea403260e54e60045a202ac2f83899d1b8a9471e5f56ac125e38ae5",
+      "type": "image/jpeg"
+    },
+    "datacom-protocol-expert/assets/note-videos/ospf-lsa-handbook-poster.jpg": {
+      "url": "tp-static/payload/2fd884bf377d615e749e6bd457cb5e23e4219bbc5d4d71f7f4b40fe6c7a06081.bin",
+      "iv": "zW+hn59RlwaYJDQ7",
+      "hash": "289cc7267ae5ed8e55b1f293a28a5cc670620278eeb3eb916dac15047a54b0f7",
+      "type": "image/jpeg"
+    },
+    "datacom-protocol-expert/assets/note-videos/ospf-packets-poster.jpg": {
+      "url": "tp-static/payload/bb7d9506ec5cce2562202595c169f9623609f7a95fcc675953aa544786f2408d.bin",
+      "iv": "qBEO7eLuK6C+nS8a",
+      "hash": "22652432e48f306148e0a4c40fc6cb4df981d3985887fa041682ec89205e1fdc",
       "type": "image/jpeg"
     },
     "datacom-protocol-expert/assets/note-videos/ospf-router-id-poster.jpg": {
@@ -377,8 +395,8 @@
     },
     "datacom-protocol-expert/index.html": {
       "url": "tp-static/payload/350b556c16e392b0cc02319227bdbc6d6890a508d6bd9b1e85082d7619b87ac2.bin",
-      "iv": "wGdVOPnlYgYoG5FP",
-      "hash": "304e7ca08ffb25857855a9662e5ad243e869954f539d24301988965b97bbaec4",
+      "iv": "pgUG9wMNDpW826gt",
+      "hash": "7947ab636828ad67d97abf738bab1a10bc7bf4f0a1926a904a5493cb11134837",
       "type": "text/html; charset=utf-8"
     },
     "datacom-protocol-expert/THIRD_PARTY_NOTICES.md": {
@@ -1255,8 +1273,8 @@
     },
     "portal-data.json": {
       "url": "tp-static/payload/4187a00828abb3180acbb34476f6daf7e5f48cabcd5296e625824e9757bf3d25.bin",
-      "iv": "EL0qOIXPSNUtu1m+",
-      "hash": "03ff76d1448d3c6a5bc1ed3f6c89500638e0b10197edf5b761b043bb3b700976",
+      "iv": "z5UN6jsjYW38okgh",
+      "hash": "eeb777af789af7ef6cfa3f8beffa5557794a718da97e530f0025f9f6ac2928cf",
       "type": "application/json; charset=utf-8"
     },
     "pr-2/index.html": {
