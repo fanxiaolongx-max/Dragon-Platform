@@ -97,8 +97,8 @@
       "description": "导入夜间操作 Excel，按人员、周期和操作等级核算操作激励并生成分析与导出结果。",
       "href": "./tool-ms4xb66s/index.html",
       "encrypted": false,
-      "fingerprint": "b3f9e4fbbbf3143c7931e64a890295c5b4ea6b3ad501b8e6f202fabdb47b07e0",
-      "updatedAt": "2026-10-22T17:10:59.845Z"
+      "fingerprint": "9ee1ccd68d5186bb0e9ea48b508277b60043d3d813440c334e34f81a487e5dc2",
+      "updatedAt": "2026-10-23T23:10:43.077Z"
     },
     {
       "slug": "tool-mumxi3px",
