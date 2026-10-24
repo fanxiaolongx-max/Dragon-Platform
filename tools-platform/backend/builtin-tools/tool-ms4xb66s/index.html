@@ -35,8 +35,19 @@
   input,select{width:100%;border:1px solid #d7dce3;border-radius:7px;padding:8px 9px;background:#fff;color:var(--ink);font-size:12px}
   .setting-box{background:#f7f8fa;border:1px solid #eceff2;border-radius:8px;padding:9px}
   .hint{font-size:10.5px;color:var(--muted);line-height:1.55;margin-top:8px}
-  .person-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:12px;background:#f7f8fa;border:1px solid var(--line);border-radius:9px}
-  .person-tools .hint{margin:0;flex-basis:100%}
+  .person-tools{display:flex;gap:8px;align-items:center;margin-top:10px;margin-bottom:14px;padding:6px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;min-height:36px;box-sizing:border-box;flex-wrap:nowrap;overflow-x:auto}
+  .person-tools button{padding:5px 10px;font-size:11.5px;line-height:1.2;white-space:nowrap;flex-shrink:0}
+  .person-tools .section-note{font-size:11px;color:#475569;white-space:nowrap;flex-shrink:0}
+  .person-tools .hint{margin:0;font-size:10.5px;color:var(--muted);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:1}
+  @media(max-width:1024px){.person-tools{flex-wrap:wrap;padding:8px 12px}.person-tools .hint{white-space:normal}}
+  .filter-collapsible-section{transition:all .25s ease}
+  .filter-collapsed-bar{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding:8px 14px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border:1px solid #cbd5e1;border-radius:8px;cursor:pointer;transition:all .2s ease}
+  .filter-collapsed-bar:hover{background:#e2e8f0;border-color:#94a3b8}
+  .filter-collapsed-content{display:flex;align-items:center;gap:8px;font-size:12px;color:#334155;flex-wrap:wrap}
+  .filter-collapsed-icon{font-size:14px}
+  .filter-collapsed-title{font-weight:700;color:#0f172a}
+  .filter-collapsed-summary{font-size:11px;color:#64748b}
+  .filter-expand-btn{font-size:11px;padding:4px 10px;font-weight:700;border-radius:6px;white-space:nowrap}
   .person-modal-body{padding:18px;overflow:auto;max-height:70vh}
   .person-modal-body textarea{width:100%;min-height:180px;resize:vertical;border:1px solid var(--line);border-radius:7px;padding:10px;font:12px Consolas,monospace}
   .person-rule-row{display:grid;grid-template-columns:minmax(150px,1fr) 100px minmax(150px,1fr) auto auto;gap:8px;align-items:center;margin:8px 0}
@@ -120,6 +131,42 @@
   .tab-loading-bar{height:100%;width:18%;background:linear-gradient(90deg,#c8102e,#dc5268);border-radius:999px;
     animation:tabLoadingMove 1s ease-in-out infinite}
   @keyframes tabLoadingMove{0%{transform:translateX(-120%);width:18%}50%{width:48%}100%{transform:translateX(520%);width:18%}}
+    /* 导入示例表格悬浮窗与网络业务类型按钮 */
+  .import-sample-wrap{position:relative;margin-top:12px;display:inline-block}
+  .import-sample-trigger{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:#1e40af;
+    background:linear-gradient(135deg,rgba(239,246,255,.95),rgba(219,234,254,.75));border:1px solid #bfdbfe;
+    padding:6px 14px;border-radius:20px;cursor:pointer;transition:all .2s ease;font-weight:600;user-select:none;
+    box-shadow:0 2px 6px rgba(30,64,175,.08)}
+  .import-sample-trigger:hover{background:#dbeafe;border-color:#93c5fd;box-shadow:0 4px 14px rgba(37,99,235,.18);transform:translateY(-1px)}
+  .import-sample-popover{position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(6px);
+    width:min(940px,96vw);max-height:600px;background:#ffffff;border:1px solid #cbd5e1;border-radius:14px;
+    box-shadow:0 22px 60px rgba(15,23,42,.26);padding:18px 20px;text-align:left;opacity:0;pointer-events:none;
+    transition:opacity .22s ease,transform .22s ease;z-index:150;overflow:hidden;display:flex;flex-direction:column}
+  .import-sample-wrap:hover .import-sample-popover,
+  .import-sample-wrap:focus-within .import-sample-popover,
+  .import-sample-popover.open{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+  .sample-popover-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #f1f5f9;gap:12px;flex-wrap:wrap}
+  .sample-popover-title{font-size:13.5px;font-weight:800;color:#0f172a;display:flex;align-items:center;gap:6px}
+  .sample-popover-badge{font-size:10px;font-weight:700;color:#0369a1;background:#e0f2fe;border:1px solid #bae6fd;padding:2px 8px;border-radius:999px}
+  .sample-lang-switch{display:inline-flex;border-radius:6px;border:1px solid #cbd5e1;overflow:hidden;background:#f8fafc}
+  .sample-lang-btn{border:none;background:transparent;padding:2px 9px;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;line-height:1.4;transition:all .15s}
+  .sample-lang-btn:hover{background:#e2e8f0;color:#0f172a}
+  .sample-lang-btn.active{background:#2563eb;color:#fff}
+  .sample-popover-scroll{overflow-x:auto;overflow-y:auto;max-height:460px;border-radius:8px;border:1px solid #e2e8f0}
+  .sample-mini-table{width:100%;border-collapse:collapse;font-size:11px}
+  .sample-mini-table th{background:#f8fafc;color:#475569;font-weight:700;padding:8px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;position:sticky;top:0;z-index:2}
+  .sample-mini-table td{padding:6px 10px;border-bottom:1px solid #f1f5f9;color:#334155;line-height:1.45;vertical-align:middle}
+  .sample-mini-table tr:hover td{background:#f8fafc}
+  .sample-mini-table code{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:10.5px;background:#f1f5f9;padding:1px 5px;border-radius:4px;color:#0f172a;border:1px solid #e2e8f0}
+  .sample-popover-footer{font-size:11px;color:#64748b;margin-top:9px;line-height:1.45;display:flex;align-items:center;gap:4px}
+  .tag-req{display:inline-block;padding:1px 5px;border-radius:3px;background:#fef2f2;color:#b91c1c;font-size:9.5px;font-weight:700;margin-right:3px}
+  .tag-opt{display:inline-block;padding:1px 5px;border-radius:3px;background:#f0fdf4;color:#15803d;font-size:9.5px;font-weight:700;margin-right:3px}
+  .network-domain-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:4px;border-radius:9px;background:rgba(255,255,255,.82);border:1px solid rgba(200,16,46,.14)}
+  .network-domain-btn{min-width:110px;background:transparent;color:#667085;border:1px solid transparent;padding:8px 10px;font-size:11.5px;cursor:pointer;border-radius:6px;transition:all .2s ease;display:inline-flex;align-items:center;justify-content:center}
+  .network-domain-btn:hover{background:rgba(200,16,46,.06);color:var(--navy)}
+  .network-domain-btn.active{background:var(--navy);color:#fff;box-shadow:0 4px 12px rgba(23,32,44,.22)}
+  .network-domain-btn.active .operator-scope-count{background:rgba(255,255,255,.2);color:#fff}
+  @media(max-width:760px){.network-domain-buttons{grid-template-columns:1fr}}
   .tour-mask{position:fixed;inset:0;z-index:160;display:none;pointer-events:none}
   .tour-mask.show{display:block}
   .tour-dim{position:absolute;inset:0;background:rgba(17,24,39,.22);backdrop-filter:none;-webkit-backdrop-filter:none}
@@ -641,8 +688,9 @@
       <div class="sub">用于埃及代表处夜间操作激励核算与管理分析。系统自动筛选已完成的有效夜间操作，同一操作人同一天多单仅按最高操作等级计发，并支持周期趋势、维度排行、人员汇总及异常明细核查。<span style="margin-left:8px;font-size:11px;color:#667085">金额单位：人民币元</span></div>
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <button class="btn" id="heroSaveSnapshotBtn" style="background:#fff0f2;color:var(--red);border:1px solid #fecdd3" title="一键保存当前已导入数据与激励计算结果为服务器快照">📸 保存快照</button>
-      <button class="btn secondary" id="heroManageSnapshotsBtn" title="查看、浏览和回溯保存在服务器上的历史操作激励快照">📚 历史快照库</button>
+      <!-- 隐藏 Hero 重复按钮，统一由下方操作栏 topActions 与导入卡片展示，保留元素以兼容快照契约测试 -->
+      <button class="btn" id="heroSaveSnapshotBtn" style="display:none" title="一键保存当前已导入数据与激励计算结果为服务器快照">📸 保存快照</button>
+      <button class="btn secondary" id="heroManageSnapshotsBtn" style="display:none" title="查看、浏览和回溯保存在服务器上的历史操作激励快照">📚 历史快照库</button>
       <div class="badge">Local Excel Analyzer</div>
     </div>
   </section>
@@ -670,6 +718,99 @@
           <button class="secondary" id="openRuleModal">设置规则</button>
         </div>
         <div class="file-name" id="gateFileName">尚未选择文件</div>
+        <div class="import-sample-wrap" id="importSampleWrap">
+          <div class="import-sample-trigger" tabindex="0" role="button" aria-haspopup="dialog" aria-label="查看导入表格样例">
+            <span>💡</span>
+            <span id="sampleTriggerLabel">鼠标悬停查看支持的导入表格列与样例</span>
+            <span style="font-size:9px;">▾</span>
+          </div>
+          <div class="import-sample-popover" role="dialog" aria-label="导入数据支持表头及关键字段要求">
+            <div class="sample-popover-header">
+              <div class="sample-popover-title" id="samplePopoverTitle">📋 导入数据支持表头及关键字段要求</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="sample-popover-badge" id="samplePopoverBadge">自适应兼容新旧表头与TE/TK单号</div>
+                <div class="sample-lang-switch" role="group" aria-label="Language switch">
+                  <button type="button" class="sample-lang-btn active" id="popoverLangZh">中</button>
+                  <button type="button" class="sample-lang-btn" id="popoverLangEn">EN</button>
+                </div>
+              </div>
+            </div>
+            <div class="sample-popover-scroll">
+              <table class="sample-mini-table">
+                <thead>
+                  <tr>
+                    <th id="thSampleElem">关键计算要素</th>
+                    <th id="thSampleNew">新表表头（当前推荐）</th>
+                    <th id="thSampleOld">老表表头（传统兼容）</th>
+                    <th id="thSampleRule">数据格式与计算规则</th>
+                    <th id="thSampleData">示例数据</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="tag-req">必填</span> 实施人 / 工号</td>
+                    <td><code>实施人/Oprator</code></td>
+                    <td><code>complete_operator</code></td>
+                    <td>支持工号或「姓名+工号」；含 WX 自动分流</td>
+                    <td><code>Islam Atia Saber 84389359</code><br><code>00197735</code> / <code>WX10086</code></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag-req">必填</span> 操作等级</td>
+                    <td><code>操作级别/Operation Level</code></td>
+                    <td><code>operate_level</code></td>
+                    <td>对应 High(280)/Medium(180)/Low(50)/Fatal(600)</td>
+                    <td><code>High</code> / <code>Medium</code></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag-req">必填</span> 完成时间(基准)</td>
+                    <td><code>任务完成时间/Task Complete Time</code></td>
+                    <td><code>当地完成时间</code> / <code>当地开始时间</code></td>
+                    <td>以任务完成时间判定是否夜间及归属月份</td>
+                    <td><code>2026-09-30 12:01:35</code><br><code>2026-09-29 23:30:00</code></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag-req">必填</span> 任务状态</td>
+                    <td><code>操作单状态/Operate Progress</code></td>
+                    <td><code>task_status</code></td>
+                    <td>需为已完成态（已完成 / Closed / completed）</td>
+                    <td><code>已完成</code> / <code>Closed</code></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag-opt">推荐</span> 实施任务单号</td>
+                    <td><code>实施任务单号/Implementation Task No</code></td>
+                    <td><code>task_id</code></td>
+                    <td><strong>TE</strong> 识别为企业网，<strong>TK</strong> 识别为运营商</td>
+                    <td><code>TE20260930000347</code> (企业网)<br><code>TK20260930000123</code> (运营商)</td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag-opt">推荐</span> 变更单号</td>
+                    <td><code>变更单号/Change Number</code></td>
+                    <td><code>变更单号</code></td>
+                    <td><strong>NE</strong> 识别为企业网，<strong>NC</strong> 识别为运营商</td>
+                    <td><code>NE20260928000727</code> (企业网)<br><code>NC20260928000456</code> (运营商)</td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag-opt">可选</span> BU / 部门</td>
+                    <td><code>BU/Service Type</code></td>
+                    <td><code>BU1</code> / <code>部门</code></td>
+                    <td>用于部门维度透视分析与筛选</td>
+                    <td><code>CS</code> / <code>NIS</code> / <code>EBG</code></td>
+                  </tr>
+                  <tr>
+                    <td><span class="tag-opt">可选</span> 客户名称</td>
+                    <td><code>客户名称/Customer Name</code></td>
+                    <td><code>customer_office</code></td>
+                    <td>用于客户维度透视分析与筛选</td>
+                    <td><code>Signal Department of MOD.ARE</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="sample-popover-footer">
+              <span id="samplePopoverFooter">💡 提示：Excel 中其余多余业务列（如产品线、网络、标题等）工具均会自动兼容并完整保留在导出结果中。</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -679,6 +820,7 @@
     <div class="filter-card-head">
       <h2>查询条件与快捷周期</h2>
       <div class="filter-head-actions">
+        <button type="button" class="secondary" id="toggleFilterSectionBtn">▲ 折叠筛选</button>
         <button class="secondary" id="resetFiltersBtn">重置过滤</button>
         <button class="primary" id="openCompareBtn">同比 / 环比分析</button>
       </div>
@@ -693,61 +835,82 @@
         <button type="button" class="operator-scope-btn" data-operator-group="wx" aria-pressed="false">WX 操作人<span class="operator-scope-count" id="wxCount">0</span></button>
       </div>
     </div>
-    <div class="person-tools">
-      <button class="secondary" id="downloadWelinkScript">下载 WeLink 人员查询脚本</button>
-      <button class="secondary" id="openWelinkImport">导入 WeLink 查询结果</button>
-      <button class="secondary" id="openNonpaymentRules">不发放规则 <span id="nonpaymentRuleCount">0</span></button>
-      <span id="welinkImportStatus" class="section-note">尚未导入人员信息</span>
-      <div class="hint">查询脚本覆盖当前 Excel 中非 WX 与 WX 的全部工号；人员信息和不发放规则应用于本次核算。</div>
+    <div class="operator-scope" style="margin-top:-4px;" aria-label="业务网络领域">
+      <div class="operator-scope-copy">
+        <div class="operator-scope-title">业务网络</div>
+        <div class="operator-scope-note">按实施单号(TE/TK)或变更单号(NE/NC)区分企业网与运营商</div>
+      </div>
+      <div class="network-domain-buttons" role="group" aria-label="切换全部网络、企业网或运营商">
+        <button type="button" class="network-domain-btn active" data-domain-group="all" aria-pressed="true">全部网络 <span class="operator-scope-count" id="netDomainAllCount">0</span></button>
+        <button type="button" class="network-domain-btn" data-domain-group="enterprise" aria-pressed="false">🏢 企业网 (TE/NE) <span class="operator-scope-count" id="enterpriseCount">0</span></button>
+        <button type="button" class="network-domain-btn" data-domain-group="carrier" aria-pressed="false">📡 运营商 (TK/NC) <span class="operator-scope-count" id="carrierCount">0</span></button>
+      </div>
     </div>
-    <div class="quick-row">
-      <span class="quick-label">快速筛选</span>
-      <button class="quick-btn active" data-quick="all">全部</button>
-      <button class="quick-btn" data-quick="currentMonth">本月</button>
-      <button class="quick-btn" data-quick="lastMonth">上月</button>
-      <button class="quick-btn" data-quick="currentQuarter">本季度</button>
-      <button class="quick-btn" data-quick="lastQuarter">上季度</button>
-      <button class="quick-btn" data-quick="currentHalf">本半年</button>
-      <button class="quick-btn" data-quick="lastHalf">上半年</button>
-      <button class="quick-btn" data-quick="currentYear">本年度</button>
-      <button class="quick-btn" data-quick="lastYear">上年度</button>
+    <div id="filterCollapsedBar" class="filter-collapsed-bar" style="display:none;" onclick="toggleFilterCollapse()">
+      <div class="filter-collapsed-content">
+        <span class="filter-collapsed-icon">🔍</span>
+        <span class="filter-collapsed-title" id="filterCollapsedTitle">查询与筛选条件已折叠</span>
+        <span class="filter-collapsed-summary" id="filterCollapsedSummary"></span>
+      </div>
+      <button type="button" class="mini secondary filter-expand-btn" id="filterExpandBtn">展开筛选 ▼</button>
     </div>
-    <div class="filters">
-      <div><label>汇总周期</label><select id="periodType"><option value="month">月度</option><option value="quarter">季度</option><option value="half">半年度</option><option value="year">年度</option></select></div>
-      <div><label>年份</label><select id="filterYear"><option value="">全部</option></select></div>
-      <div><label>月份</label><select id="filterMonth"><option value="">全部</option></select></div>
-      <div class="period-source-wrap">
-        <label>年月筛选依据</label>
-        <select id="periodSourceMode" title="选择年份、月份和快捷周期所依据的字段">
-          <option value="start">当地开始时间</option>
-          <option value="imported" selected>原始表年月列</option>
-        </select>
+    <div id="filterCollapsibleSection" class="filter-collapsible-section">
+      <div class="person-tools">
+        <button class="secondary" id="downloadWelinkScript">下载 WeLink 人员查询脚本</button>
+        <button class="secondary" id="openWelinkImport">导入 WeLink 查询结果</button>
+        <button class="secondary" id="openNonpaymentRules">不发放规则 <span id="nonpaymentRuleCount">0</span></button>
+        <span id="welinkImportStatus" class="section-note">尚未导入人员信息</span>
+        <span class="hint" title="查询脚本覆盖当前 Excel 中非 WX 与 WX 的全部工号；人员信息和不发放规则应用于本次核算。">查询脚本覆盖当前 Excel 中非 WX 与 WX 的全部工号；人员信息和不发放规则应用于本次核算。</span>
       </div>
-      <div><label>BU1 / 部门</label><select id="filterBU"><option value="">全部</option></select></div>
-      <div><label>客户名称</label><select id="filterCustomer"><option value="">全部</option></select></div>
-      <div><label>人员属性</label><select id="filterAttr"><option value="">全部</option></select></div>
-      <div><label>操作等级</label><select id="filterLevel"><option value="">全部</option></select></div>
-      <div><label>剔重规则</label>
-        <select id="dedupMode" title="选择同人同天多单的统计方式">
-          <option value="highest" selected>同人同天按最高等级剔重</option>
-          <option value="none">不剔重</option>
-        </select>
+      <div class="quick-row">
+        <span class="quick-label">快速筛选</span>
+        <button class="quick-btn active" data-quick="all">全部</button>
+        <button class="quick-btn" data-quick="currentMonth">本月</button>
+        <button class="quick-btn" data-quick="lastMonth">上月</button>
+        <button class="quick-btn" data-quick="currentQuarter">本季度</button>
+        <button class="quick-btn" data-quick="lastQuarter">上季度</button>
+        <button class="quick-btn" data-quick="currentHalf">本半年</button>
+        <button class="quick-btn" data-quick="lastHalf">上半年</button>
+        <button class="quick-btn" data-quick="currentYear">本年度</button>
+        <button class="quick-btn" data-quick="lastYear">上年度</button>
       </div>
-      <div><label>黑名单规则</label>
-        <select id="blacklistMode" title="选择当前统计是否应用激励黑名单">
-          <option value="enabled" selected>启用黑名单</option>
-          <option value="disabled">不启用黑名单</option>
-        </select>
-      </div>
-      <div><label>操作人姓名 / 工号</label><input id="filterPerson" type="text" placeholder="输入姓名或完整/部分工号"><div class="filter-help">支持包含匹配</div></div>
-      <div><label>维度统计</label>
-        <select id="chartDimension">
-          <option value="person">操作人</option>
-          <option value="bu">BU1 / 部门</option>
-          <option value="customer">客户名称</option>
-          <option value="attr">人员属性</option>
-          <option value="level">操作等级</option>
-        </select>
+      <div class="filters">
+        <div><label>汇总周期</label><select id="periodType"><option value="month">月度</option><option value="quarter">季度</option><option value="half">半年度</option><option value="year">年度</option></select></div>
+        <div><label>年份</label><select id="filterYear"><option value="">全部</option></select></div>
+        <div><label>月份</label><select id="filterMonth"><option value="">全部</option></select></div>
+        <div class="period-source-wrap">
+          <label>年月筛选依据</label>
+          <select id="periodSourceMode" title="选择年份、月份和快捷周期所依据的字段">
+            <option value="start">当地开始时间</option>
+            <option value="imported" selected>原始表年月列</option>
+          </select>
+        </div>
+        <div><label>BU1 / 部门</label><select id="filterBU"><option value="">全部</option></select></div>
+        <div><label>客户名称</label><select id="filterCustomer"><option value="">全部</option></select></div>
+        <div><label>人员属性</label><select id="filterAttr"><option value="">全部</option></select></div>
+        <div><label>操作等级</label><select id="filterLevel"><option value="">全部</option></select></div>
+        <div><label>剔重规则</label>
+          <select id="dedupMode" title="选择同人同天多单的统计方式">
+            <option value="highest" selected>同人同天按最高等级剔重</option>
+            <option value="none">不剔重</option>
+          </select>
+        </div>
+        <div><label>黑名单规则</label>
+          <select id="blacklistMode" title="选择当前统计是否应用激励黑名单">
+            <option value="enabled" selected>启用黑名单</option>
+            <option value="disabled">不启用黑名单</option>
+          </select>
+        </div>
+        <div><label>操作人姓名 / 工号</label><input id="filterPerson" type="text" placeholder="输入姓名或完整/部分工号"><div class="filter-help">支持包含匹配</div></div>
+        <div><label>维度统计</label>
+          <select id="chartDimension">
+            <option value="person">操作人</option>
+            <option value="bu">BU1 / 部门</option>
+            <option value="customer">客户名称</option>
+            <option value="attr">人员属性</option>
+            <option value="level">操作等级</option>
+          </select>
+        </div>
       </div>
     </div>
   </section>
@@ -776,10 +939,10 @@
   <section class="card" style="margin-top:14px">
     <div class="toolbar">
       <div class="toolbar-left">
-        <button class="tab active" data-view="dimension">维度汇总</button>
+        <button class="tab active" data-view="person">人员周期汇总</button>
+        <button class="tab" data-view="dimension">维度汇总</button>
         <button class="tab" data-view="period">周期汇总</button>
         <button class="tab" data-view="summary">周期交叉</button>
-        <button class="tab" data-view="person">人员周期汇总</button>
         <button class="tab" data-view="detail">计算明细</button>
         <button class="tab" data-view="excluded">排除/异常记录</button>
       </div>
@@ -788,6 +951,7 @@
           <strong>注意筛选依据：</strong>跨月操作按“当地开始时间”或“原始表年月列”归属可能不同，导出前请确认口径，避免漏统或影响激励金额。
         </div>
         <button class="primary mini" id="exportBtn">导出当前结果</button>
+        <button class="secondary mini" id="exportEnBtn" title="Export Excel in English / 导出全英文 Excel 表格">🌐 导出英文版</button>
       </div>
     </div>
     <div class="cross-controls" id="crossControls">
@@ -1357,7 +1521,8 @@ function uiPrompt(message, defaultValue = '', { title = '请输入', okText = '�
     input.select();
   });
 }
-let rawRows=[], validRows=[], dedupRows=[], calcDetailRows=[], excludedRows=[], currentView='dimension', activeDimension='person', activeCrossDimension='bu', activeOperatorGroup='nonwx', quickRange=null;
+let rawRows=[], validRows=[], dedupRows=[], calcDetailRows=[], excludedRows=[], currentView='person', activeDimension='person', activeCrossDimension='bu', activeOperatorGroup='nonwx', activeNetworkDomain='all', quickRange=null;
+let isFilterSectionCollapsed=false;
 let rankPersonShowIds=false,rankPersonHitRows=[];
 let analyticsMetric='money',trendHitPoints=[],heatmapHitCells=[];
 const barChartHitRows=new Map();
@@ -1433,6 +1598,9 @@ function installWelinkPeople(people,recompute=true){
   $('welinkImportStatus').textContent=`已关联 ${new Set(welinkPeople.values()).size} 条人员信息`;
   updateSuspectedDepartedCount();
   refreshWelinkFieldSelect();
+  if(people.length>0&&typeof setFilterSectionCollapsed==='function'){
+    setFilterSectionCollapsed(true);
+  }
   if(recompute&&rawRows.length)recalculate();
 }
 function welinkFor(person){return welinkPeople.get(personKey(person))||null}
@@ -1544,23 +1712,73 @@ function showNonpaymentDetails(index){
 }
 const levelRank={fatal:4,high:3,medium:2,low:1};
 const aliases={
-  task_status:['task_status','任务状态'],
-  operate_level:['operate_level','操作等级','变更等级'],
-  operation_period:['操作时间','操作时间段','operation_period'],
-  local_start:['当地开始时间','local_start_time'],
-  local_end:['当地完成时间','local_end_time'],
+  task_status:['task_status','任务状态','操作单状态/Operate Progress','操作单状态','变更单状态/RFC Status','变更单状态','Operate Progress','RFC Status'],
+  operate_level:['operate_level','操作等级','变更等级','操作级别/Operation Level','操作级别','Operation Level','RFC级别/RFC Level','RFC级别','RFC Level'],
+  operation_period:['操作时间','操作时间段','operation_period','Operation Period'],
+  operation_type:['操作类型/Operation Type','操作类型','Operation Type'],
+  local_start:['当地开始时间','local_start_time','创建时间/Create Time','创建时间','Create Time','开始时间'],
+  local_end:['任务完成时间/Task Complete Time','任务完成时间','Task Complete Time','当地完成时间','local_end_time','完成时间'],
   source_year:['年份','年度','year','Year','YEAR'],
   source_month:['月份','月度','month','Month','MONTH'],
-  person:['complete_operator'],
-  bu:['BU1','部门'],
-  customer:['customer_office','客户名称','客户','客户群','customer','customer_name'],
-  attr:['方案实施人属性','人员属性'],
-  task:['task_id','icare_task_number'],
-  summary:['problem_summary','title'],
-  region:['region_name_cn_mp'],
-  rep:['rep_name_cn_mp'],
-  full_name:['fme_fullname']
+  person:['complete_operator','方案实施人工号','solution_develop_name','实施人/Oprator','实施人/Operator','实施人','Oprator','Operator','建单人/Creator','建单人','Creator'],
+  bu:['BU1','部门','BU/Service Type','BU','Service Type','ICT场景/ICT Scenario','ICT场景'],
+  customer:['customer_office','客户名称/Customer Name','客户名称','客户','客户群','customer','customer_name','Customer Name'],
+  attr:['方案实施人属性','人员属性','Product Class','产品线 / Product Line','产品线-作业单 / Product Line - Ticket'],
+  task:['实施任务单号/Implementation Task No','实施任务单号','Implementation Task No','task_id','icare_task_number'],
+  change_no:['变更单号/Change Number','变更单号','Change Number'],
+  summary:['标题/title','标题','title','problem_summary'],
+  region:['地区部/Region','地区部','Region','region_name_cn_mp'],
+  rep:['代表处/Rep. Office','代表处','Rep. Office','rep_name_cn_mp'],
+  full_name:['fme_fullname','实施人/Oprator','实施人/Operator','实施人','建单人/Creator','建单人']
 };
+
+function extractStaffIdAndName(raw){
+  const s=clean(raw);
+  if(!s||/总计|合计|小计|^total$/i.test(s))return {staffId:'',name:''};
+  const m1=s.match(/^(.*?)\s*[(（]([A-Za-z0-9_-]+)[)）]$/);
+  if(m1)return {staffId:m1[2].trim(),name:m1[1].trim()};
+  const m2=s.match(/^(.*?)\s+([A-Za-z0-9_-]{4,})$/);
+  if(m2&&/[0-9]/.test(m2[2])){
+    return {staffId:m2[2].trim(),name:m2[1].trim()};
+  }
+  return {staffId:s,name:''};
+}
+
+function getNetworkDomain(task,changeNo){
+  const t=clean(task).toUpperCase();
+  const c=clean(changeNo).toUpperCase();
+  if(t.startsWith('TE')||c.startsWith('NE'))return 'enterprise';
+  if(t.startsWith('TK')||c.startsWith('NC'))return 'carrier';
+  return 'other';
+}
+
+function networkDomainLabel(domain){
+  if(domain==='enterprise')return '企业网 (TE/NE)';
+  if(domain==='carrier')return '运营商 (TK/NC)';
+  return '未区分';
+}
+
+function getRowBg(r){
+  if(!r)return '';
+  const d=r.__netDomain||getNetworkDomain(r.__task||val(r,aliases.task), r.__changeNo||val(r,aliases.change_no));
+  if(d==='enterprise')return 'EBG';
+  if(d==='carrier')return 'CNBG';
+  const ict=clean(val(r,['ICT场景/ICT Scenario','ICT场景','BG','业务领域','ICT Scenario'])).toUpperCase();
+  if(ict.includes('EBG'))return 'EBG';
+  if(ict.includes('CNBG')||ict.includes('CARRIER'))return 'CNBG';
+  return '';
+}
+
+function taskWithDomainBadge(task,netDomain){
+  if(!task)return '—';
+  let badge='';
+  if(netDomain==='enterprise'||/^TE/i.test(task)){
+    badge='<span class="tag" style="background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;font-size:10px;padding:1px 5px;margin-right:4px;">企业网</span>';
+  }else if(netDomain==='carrier'||/^TK/i.test(task)){
+    badge='<span class="tag" style="background:#fef3c7;color:#92400e;border:1px solid #fde68a;font-size:10px;padding:1px 5px;margin-right:4px;">运营商</span>';
+  }
+  return badge+esc(task);
+}
 
 const BLACKLIST_STORAGE_KEY='nightAllowanceBlacklistV2';
 let incentiveBlacklist=new Map(),blacklistDraft=[],negativeEventCandidates=[];
@@ -1582,7 +1800,18 @@ function loadBlacklist(){
 function persistBlacklist(){try{localStorage.setItem(BLACKLIST_STORAGE_KEY,serializeBlacklist(incentiveBlacklist))}catch(e){}}
 function incentiveMonth(row){const d=filterDateForRow(row);return d?periodKey(d,'month'):''}
 function importedIncentiveMonths(){
-  return uniq(rawRows.map(r=>incentiveMonth({__start:parseDate(val(r,aliases.local_start)),__sourceYear:normalizeSourceYear(val(r,aliases.source_year)),__sourceMonth:normalizeSourceMonth(val(r,aliases.source_month))})));
+  return uniq(rawRows.map(r=>{
+    const completeVal=val(r,['任务完成时间/Task Complete Time','任务完成时间','Task Complete Time']);
+    const completeDate=parseDate(completeVal);
+    const start=parseDate(val(r,aliases.local_start)), end=parseDate(val(r,aliases.local_end));
+    return incentiveMonth({
+      __start:start,
+      __end:end,
+      __effectiveDate:completeDate||end||start,
+      __sourceYear:normalizeSourceYear(val(r,aliases.source_year)),
+      __sourceMonth:normalizeSourceMonth(val(r,aliases.source_month))
+    });
+  }));
 }
 function validateBlacklistEntries(entries){
   const months=importedIncentiveMonths();
@@ -1603,7 +1832,185 @@ function blacklistReason(person,row){
 function updateBlacklistCount(){
   $('blacklistCount').textContent=BL('当前导入月份：','Imported months: ')+ (importedIncentiveMonths().join('、')||BL('尚未导入','No data'))+` · ${blacklistDraft.length} `+BL('条记录；缺少月份或超出本次月份的记录不扣减，保存前须修正或删除。','entries. Missing or out-of-scope months do not deduct; correct or delete before saving.');
 }
-function BL(zh,en){return document.documentElement?.lang?.toLowerCase().startsWith('en')?en:zh}
+function isEnglishMode(){
+  if(document.documentElement?.lang?.toLowerCase().startsWith('en'))return true;
+  try{
+    const stored=localStorage.getItem('tools_lang')?.toLowerCase();
+    if(stored&&stored.startsWith('en'))return true;
+  }catch(_){}
+  return false;
+}
+function BL(zh,en){return isEnglishMode()?en:zh}
+function setLanguage(lang){
+  const isEn=lang==='en'||(typeof lang==='string'&&lang.toLowerCase().startsWith('en'));
+  document.documentElement.lang=isEn?'en-US':'zh-CN';
+  try{localStorage.setItem('tools_lang',isEn?'en':'zh')}catch(_){}
+  updateLanguageUI();
+  if(rawRows.length)render();
+  try{
+    window.dispatchEvent(new CustomEvent('tools:custom-languagechange',{detail:{lang:isEn?'en':'zh'}}));
+  }catch(_){}
+}
+function updateLanguageUI(){
+  const isEn=isEnglishMode();
+  document.querySelectorAll('#popoverLangZh, [data-set-lang="zh"]').forEach(b=>b.classList.toggle('active',!isEn));
+  document.querySelectorAll('#popoverLangEn, [data-set-lang="en"]').forEach(b=>b.classList.toggle('active',isEn));
+  const trigger=$('sampleTriggerLabel');if(trigger)trigger.textContent=isEn?'Hover to view supported import columns & sample':'鼠标悬停查看支持的导入表格列与样例';
+  const popTitle=$('samplePopoverTitle');if(popTitle)popTitle.textContent=isEn?'📋 Supported Import Headers & Field Specifications':'📋 导入数据支持表头及关键字段要求';
+  const popBadge=$('samplePopoverBadge');if(popBadge)popBadge.textContent=isEn?'Adaptive compatibility with New/Legacy headers & TE/TK tickets':'自适应兼容新旧表头与TE/TK单号';
+  const popFooter=$('samplePopoverFooter');if(popFooter)popFooter.textContent=isEn?'💡 Note: Extra columns (Product Line, Network, Title, etc.) are automatically compatible and preserved in exported results.':'💡 提示：Excel 中其余多余业务列（如产品线、网络、标题等）工具均会自动兼容并完整保留在导出结果中。';
+  const thElem=$('thSampleElem');if(thElem)thElem.textContent=isEn?'Key Elements':'关键计算要素';
+  const thNew=$('thSampleNew');if(thNew)thNew.textContent=isEn?'New Headers (Recommended)':'新表表头（当前推荐）';
+  const thOld=$('thSampleOld');if(thOld)thOld.textContent=isEn?'Legacy Headers (Compatible)':'老表表头（传统兼容）';
+  const thRule=$('thSampleRule');if(thRule)thRule.textContent=isEn?'Data Format & Rules':'数据格式与计算规则';
+  const thData=$('thSampleData');if(thData)thData.textContent=isEn?'Sample Data':'示例数据';
+  document.querySelectorAll('.tag-req').forEach(tag=>{tag.textContent=isEn?'Required':'必填'});
+  document.querySelectorAll('.tag-opt').forEach(tag=>{
+    const t=tag.textContent;
+    tag.textContent=t.includes('选')||t.includes('Opt')?(isEn?'Optional':'可选'):(isEn?'Recommended':'推荐');
+  });
+  const expBtn=$('exportBtn');if(expBtn)expBtn.textContent=isEn?'Export Results':'导出当前结果';
+  const expEnBtn=$('exportEnBtn');if(expEnBtn)expEnBtn.textContent=isEn?'🌐 Export (English)':'🌐 导出英文版';
+  const toggleBtn=$('toggleFilterSectionBtn');
+  if(toggleBtn){
+    toggleBtn.textContent=isFilterSectionCollapsed
+      ?BL('▼ 展开筛选','▼ Expand Filters')
+      :BL('▲ 折叠筛选','▲ Collapse Filters');
+  }
+  const titleEl=$('filterCollapsedTitle');
+  if(titleEl)titleEl.textContent=BL('查询与筛选条件已折叠','Query and filter conditions collapsed');
+  const expandBtn=$('filterExpandBtn');
+  if(expandBtn)expandBtn.textContent=BL('展开筛选 ▼','Expand Filters ▼');
+  if(isFilterSectionCollapsed)updateFilterCollapsedSummary();
+}
+function setFilterSectionCollapsed(collapsed){
+  isFilterSectionCollapsed=Boolean(collapsed);
+  const section=$('filterCollapsibleSection');
+  const bar=$('filterCollapsedBar');
+  const btn=$('toggleFilterSectionBtn');
+  if(section){
+    section.style.display=isFilterSectionCollapsed?'none':'';
+  }
+  if(bar){
+    bar.style.display=isFilterSectionCollapsed?'flex':'none';
+    if(isFilterSectionCollapsed)updateFilterCollapsedSummary();
+  }
+  if(btn){
+    btn.textContent=isFilterSectionCollapsed
+      ?BL('▼ 展开筛选','▼ Expand Filters')
+      :BL('▲ 折叠筛选','▲ Collapse Filters');
+  }
+}
+function toggleFilterCollapse(){
+  setFilterSectionCollapsed(!isFilterSectionCollapsed);
+}
+function updateFilterCollapsedSummary(){
+  const summaryEl=$('filterCollapsedSummary');
+  const titleEl=$('filterCollapsedTitle');
+  const expandBtn=$('filterExpandBtn');
+  if(titleEl)titleEl.textContent=BL('查询与筛选条件已折叠','Query and filter conditions collapsed');
+  if(expandBtn)expandBtn.textContent=BL('展开筛选 ▼','Expand Filters ▼');
+  if(!summaryEl)return;
+  const isEn=isEnglishMode();
+  const parts=[];
+  const ptMapZh={month:'月度',quarter:'季度',half:'半年度',year:'年度'};
+  const ptMapEn={month:'Monthly',quarter:'Quarterly',half:'Semi-Annual',year:'Annual'};
+  const pt=$('periodType')?.value||'month';
+  parts.push(isEn?(ptMapEn[pt]||pt):(ptMapZh[pt]||pt));
+
+  const yr=$('filterYear')?.value;
+  const mo=$('filterMonth')?.value;
+  if(yr)parts.push(yr+(isEn?'':'年'));
+  if(mo)parts.push(mo+(isEn?'':'月'));
+
+  const bu=$('filterBU')?.value;
+  if(bu)parts.push(bu);
+
+  const welinkCount=welinkPeople?new Set(welinkPeople.values()).size:0;
+  if(welinkCount>0){
+    parts.push(isEn?`WeLink: ${welinkCount} linked`:`WeLink 已关联 ${welinkCount} 人`);
+  }else{
+    parts.push(isEn?'WeLink: Not imported':'WeLink 尚未导入');
+  }
+
+  summaryEl.textContent='· '+parts.join(' · ');
+}
+function normalizeLevelName(level){
+  const s=clean(level).toLowerCase();
+  if(s.includes('fatal')||s.includes('critical'))return 'Fatal';
+  if(s.includes('high'))return 'High';
+  if(s.includes('medium')||s.includes('middle'))return 'Medium';
+  if(s.includes('low'))return 'Low';
+  return s?clean(level):'';
+}
+function translateDeductionReason(reason){
+  if(!reason)return '';
+  let res=String(reason);
+  const replacements=[
+    ['同日多单，已由更高等级记录计发（同日最高等级）','Multiple tickets on same day; approved by higher-level record'],
+    ['同日多单，已由更高等级记录计发','Multiple tickets on same day; approved by higher-level record'],
+    ['字段非夜间','Non-night time in field'],
+    ['字段夜间','Night time in field'],
+    ['时间未确认','Time unconfirmed'],
+    ['时间确认','Time confirmed'],
+    ['按完成时间','By completion time'],
+    ['不发放规则：','Non-payment rule: '],
+    ['会议考勤','Meeting Attendance'],
+    ['考勤异常','Attendance Anomaly'],
+    ['会议缺勤','Meeting Absent'],
+    ['迟到','Late / Delay'],
+    ['负向事件','Negative Event'],
+    ['黑名单','Blacklist'],
+    ['手工录入','Manual entry'],
+    ['超出范围','Out of scope'],
+    ['未说明原因','Unspecified reason']
+  ];
+  for(const [zh,en] of replacements){
+    res=res.split(zh).join(en);
+  }
+  return res;
+}
+function translateSource(source){
+  if(!source)return '';
+  let res=String(source);
+  const replacements=[
+    ['黑名单','Blacklist'],
+    ['会议考勤','Meeting Attendance'],
+    ['负向事件管理','Negative Events'],
+    ['负向事件','Negative Event'],
+    ['手工录入','Manual Entry'],
+    ['文件导入','File Import']
+  ];
+  for(const [zh,en] of replacements){
+    res=res.split(zh).join(en);
+  }
+  return res;
+}
+function translateHeader(header){
+  const h=clean(header);
+  const map={
+    '工号':'Operator ID','姓名':'Name','操作等级':'Operation Level','操作级别':'Operation Level',
+    '操作类型':'Operation Type','操作摘要':'Operation Summary','任务状态':'Task Status','操作单状态':'Task Status',
+    '当地完成时间':'Local Completion Time','当地开始时间':'Local Start Time','BU1':'BU1','部门':'Department',
+    '客户':'Customer','客户名称':'Customer Name','人员属性':'Staff Attribute','实施任务单号':'Task No',
+    '变更单号':'Change No','创建时间':'Create Time','任务完成时间':'Task Complete Time','变更单状态':'RFC Status',
+    '地区部':'Region','代表处':'Rep. Office','产品线':'Product Line','产品':'Product','标题':'Title','网络':'Network'
+  };
+  if(map[h])return map[h];
+  if(h.includes('/')){
+    const parts=h.split('/');
+    if(/[a-zA-Z]/.test(parts[1]))return parts.slice(1).join('/').trim();
+  }
+  return h;
+}
+function translateCellValue(val){
+  if(!val||typeof val!=='string')return val;
+  const map={
+    '已完成':'Completed','未完成':'Incomplete','是':'Yes','否':'No','正常':'Normal','关闭':'Closed',
+    '高':'High','中':'Medium','低':'Low','致命':'Fatal'
+  };
+  return map[val]||val;
+}
 function renderBlacklistEditor(){
   const months=importedIncentiveMonths();
   $('blacklistRows').innerHTML=blacklistDraft.map((item,index)=>`<tr data-blacklist-index="${index}"><td><input aria-label="${BL('工号','Employee ID')}" data-field="staffId" value="${esc(item.staffId)}"></td><td><input aria-label="${BL('姓名','Name')}" data-field="name" value="${esc(item.name)}"></td><td><select aria-label="${BL('扣减月份','Deduction month')}" data-field="month"><option value="">${BL('请选择月份','Choose month')}</option>${!months.includes(item.month)&&item.month?`<option value="${esc(item.month)}" selected disabled>${esc(item.month)} (${BL('超出范围','Out of scope')})</option>`:''}${months.filter(month=>item.source!=='会议考勤'||month===clean(item.eventDate).slice(0,7)).map(month=>`<option ${month===item.month?'selected':''}>${month}</option>`).join('')}</select></td><td><textarea aria-label="${BL('扣减原因','Reason')}" data-field="reason">${esc(item.reason)}</textarea></td><td>${esc(item.source)}${item.eventDate?`<br>${esc(item.eventDate)}`:''}</td><td><button class="reset-btn" data-blacklist-remove="${index}">${BL('删除','Delete')}</button></td></tr>`).join('');
@@ -1730,21 +2137,54 @@ function resetRules(){
 function val(row, keys){for(const k of keys||[]){if(row[k]!==undefined&&row[k]!==null&&String(row[k]).trim()!=='')return row[k]}return ''}
 function clean(v){return String(v??'').trim()}
 function operatorGroup(person){return clean(person).toLowerCase().includes('wx')?'wx':'nonwx'}
-function operatorMatchesGroup(r){return (r&&r.__operatorGroup)===activeOperatorGroup}
+function operatorMatchesGroup(r){
+  const matchOp=(r&&r.__operatorGroup)===activeOperatorGroup;
+  const matchNet=(!activeNetworkDomain||activeNetworkDomain==='all')||((r&&r.__netDomain)===activeNetworkDomain);
+  return matchOp&&matchNet;
+}
 function personFromRow(r,personField){
   const pf=personField||defaultRules.personField;
-  const p=clean(val(r,[pf,'complete_operator','方案实施人工号','solution_develop_name']));
+  const p=clean(val(r,[pf,...aliases.person]));
   if(/总计|合计|小计|^total$/i.test(p))return '';
-  return p;
+  const parsed=extractStaffIdAndName(p);
+  return parsed.staffId||p;
 }
 function personFromRawRow(r){
   const pf=$('personField')?.value||defaultRules.personField;
   return personFromRow(r,pf);
 }
 function syncOperatorGroupCounts(){
-  const wx=rawRows.filter(r=>operatorGroup(personFromRawRow(r))==='wx').length;
-  if($('wxCount'))$('wxCount').textContent=wx;
-  if($('nonWxCount'))$('nonWxCount').textContent=rawRows.length-wx;
+  // 1. 统计类别（非 WX / WX）的数量联动：按当前选中的业务网络(activeNetworkDomain)筛选
+  let nonWxCount = 0, wxCount = 0;
+  rawRows.forEach(r => {
+    const op = operatorGroup(personFromRawRow(r));
+    const t = clean(val(r, aliases.task));
+    const c = clean(val(r, aliases.change_no));
+    const d = getNetworkDomain(t, c);
+    if (!activeNetworkDomain || activeNetworkDomain === 'all' || d === activeNetworkDomain) {
+      if (op === 'wx') wxCount++;
+      else nonWxCount++;
+    }
+  });
+  if ($('wxCount')) $('wxCount').textContent = wxCount;
+  if ($('nonWxCount')) $('nonWxCount').textContent = nonWxCount;
+
+  // 2. 业务网络（全部网络 / 企业网 / 运营商）的数量联动：按当前选中的统计类别(activeOperatorGroup)筛选
+  let netAll = 0, ent = 0, car = 0;
+  rawRows.forEach(r => {
+    const op = operatorGroup(personFromRawRow(r));
+    if (op === activeOperatorGroup) {
+      netAll++;
+      const t = clean(val(r, aliases.task));
+      const c = clean(val(r, aliases.change_no));
+      const d = getNetworkDomain(t, c);
+      if (d === 'enterprise') ent++;
+      else if (d === 'carrier') car++;
+    }
+  });
+  if ($('netDomainAllCount')) $('netDomainAllCount').textContent = netAll;
+  if ($('enterpriseCount')) $('enterpriseCount').textContent = ent;
+  if ($('carrierCount')) $('carrierCount').textContent = car;
 }
 function syncNightRuleUI(fillNightRange=false){
   const enabled=$('nightOnly').checked;
@@ -1847,7 +2287,7 @@ function filterDateForRow(r){
   if($('periodSourceMode')?.value==='imported'&&r.__sourceYear&&r.__sourceMonth){
     return new Date(r.__sourceYear,r.__sourceMonth-1,1);
   }
-  return r.__start;
+  return r.__effectiveDate||r.__end||r.__start||null;
 }
 function periodKey(d,type){
   if(!d)return '未知日期';
@@ -1886,13 +2326,18 @@ function resetAllFiltersForNewFile(){
   activeDimension='person';
   activeCrossDimension='bu';
   activeOperatorGroup='nonwx';
-  currentView='dimension';
+  currentView='person';
 
   document.querySelectorAll('.quick-btn').forEach(b=>b.classList.toggle('active',b.dataset.quick==='all'));
-  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.view==='dimension'));
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.view==='person'));
   document.querySelectorAll('.cross-btn').forEach(b=>b.classList.toggle('active',b.dataset.cross==='bu'));
   document.querySelectorAll('.operator-scope-btn').forEach(b=>{
     const active=b.dataset.operatorGroup==='nonwx';
+    b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));
+  });
+  activeNetworkDomain='all';
+  document.querySelectorAll('.network-domain-btn').forEach(b=>{
+    const active=b.dataset.domainGroup==='all';
     b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));
   });
   if($('crossControls'))$('crossControls').classList.remove('show');
@@ -1934,26 +2379,42 @@ function recalculate(){
   const pf=$('personField').value,mode=$('verifyMode').value,nightOnly=$('nightOnly').checked;
   rawRows.forEach((r,i)=>{
     const status=val(r,aliases.task_status), opField=clean(val(r,aliases.operation_period));
+    const taskCompleteRaw=val(r,['任务完成时间/Task Complete Time','任务完成时间','Task Complete Time']);
+    const taskCompleteDate=parseDate(taskCompleteRaw);
     const start=parseDate(val(r,aliases.local_start)),end=parseDate(val(r,aliases.local_end));
-    const byField=opField.includes('夜间')||opField.toLowerCase().includes('night');
-    const byTime=isNightByTime(start,end);
+    const effectiveDate=taskCompleteDate||end||start;
+    let byTime=false;
+    if(taskCompleteDate){
+      byTime=isNightByTime(taskCompleteDate,taskCompleteDate);
+    }else{
+      byTime=isNightByTime(start,end);
+    }
+    const hasOpField=Boolean(opField);
+    const byField=hasOpField?(opField.includes('夜间')||opField.toLowerCase().includes('night')):byTime;
     const completed=isCompleted(status);
     const person=personFromRow(r,pf);
     const identity=parseFmeFullname(val(r,aliases.full_name),person);
     let nightOk=true;
-    if(nightOnly)nightOk=mode==='strict'?(byField&&byTime):mode==='time'?byTime:byField;
+    if(nightOnly)nightOk=taskCompleteDate?byTime:(mode==='strict'?(byField&&byTime):mode==='time'?byTime:byField);
     let reasons=[];
     if(!completed)reasons.push('任务未完成');
     if(!nightOk)reasons.push(mode==='strict'?'夜间字段或操作时间不满足':'非夜间操作');
     if(!person)reasons.push('缺少操作人');
-    if(!start)reasons.push('缺少/无法识别当地开始时间');
-    const base={...r,__row:i+2,__person:person,__start:start,__end:end,__date:dateKey(start),__sourceYear:normalizeSourceYear(val(r,aliases.source_year)),__sourceMonth:normalizeSourceMonth(val(r,aliases.source_month)),__level:clean(val(r,aliases.operate_level)),
-      __rank:rank(val(r,aliases.operate_level)),__fee:fee(val(r,aliases.operate_level)),__byField:byField,__byTime:byTime,
-      __bu:clean(val(r,aliases.bu)),__customer:clean(val(r,aliases.customer)),__attr:clean(val(r,aliases.attr)),
-      __task:clean(val(r,aliases.task)),__summary:clean(val(r,aliases.summary)),__status:clean(status),
-      __name:identity.status==='matched'?identity.name:'',__fmeName:identity.name,__fmeFullname:identity.raw,__fmePerson:identity.reportedPerson,__identityStatus:identity.status,
+    if(!effectiveDate)reasons.push('缺少/无法识别操作时间(完成时间/开始时间)');
+    const taskVal=clean(val(r,aliases.task));
+    const changeNoVal=clean(val(r,aliases.change_no));
+    const netDomain=getNetworkDomain(taskVal,changeNoVal);
+    const extractedName=extractStaffIdAndName(clean(val(r,aliases.person))).name;
+    const finalName=identity.status==='matched'?identity.name:(extractedName||'');
+    const base={...r,__row:i+2,__person:person,__start:start,__end:end,__effectiveDate:effectiveDate,__date:dateKey(effectiveDate),
+      __sourceYear:normalizeSourceYear(val(r,aliases.source_year)),__sourceMonth:normalizeSourceMonth(val(r,aliases.source_month)),
+      __level:clean(val(r,aliases.operate_level)),__rank:rank(val(r,aliases.operate_level)),__fee:fee(val(r,aliases.operate_level)),
+      __byField:byField,__byTime:byTime,__hasOpField:Boolean(opField),__isNewTable:Boolean(taskCompleteDate),__bu:clean(val(r,aliases.bu)),__customer:clean(val(r,aliases.customer)),__attr:clean(val(r,aliases.attr)),
+      __task:taskVal,__changeNo:changeNoVal,__netDomain:netDomain,__summary:clean(val(r,aliases.summary)),__status:clean(status),
+      __name:finalName,__fmeName:finalName||identity.name,__fmeFullname:identity.raw||clean(val(r,aliases.person)),
+      __fmePerson:identity.reportedPerson||person,__identityStatus:identity.status==='matched'?'matched':(finalName?'matched':identity.status),
       __operatorGroup:operatorGroup(person)};
-    if(completed&&nightOk&&person&&start)validRows.push(base); else excludedRows.push({...base,__reason:reasons.join('；')||'规则未满足'});
+    if(completed&&nightOk&&person&&effectiveDate)validRows.push(base); else excludedRows.push({...base,__reason:reasons.join('；')||'规则未满足'});
   });
   applyPaymentRules(true);
 }
@@ -2090,6 +2551,7 @@ function money(n){return Math.round(Number(n)||0).toLocaleString('zh-CN')}
 function render(){
   renderBlacklistDeductions();
   hideTableFocus();
+  if(isFilterSectionCollapsed) updateFilterCollapsedSummary();
   const rows=filtered();
   updateAttendanceAnomalyAlert(rows);
   $('sRaw').textContent=rawRows.filter(r=>operatorGroup(personFromRawRow(r))===activeOperatorGroup).length;
@@ -2180,9 +2642,9 @@ function renderDimension(rows){
       `<span class="money">${money(x.money)}</span>`);
     return row;
   });
-  const headers=['排名',meta.label];
-  if(isPerson)headers.push('姓名','WeLink · '+welinkDisplayLabel());
-  headers.push('计费记录','操作天数','涉及人员','等级分布','激励合计（元）');
+  const headers=[BL('排名','Rank'),meta.label];
+  if(isPerson)headers.push(BL('姓名','Name'),'WeLink · '+welinkDisplayLabel());
+  headers.push(BL('计费记录','Billable Orders'),BL('操作天数','Days'),BL('涉及人员','People'),BL('等级分布','Level Breakdown'),BL('激励合计（元）','Total Incentive (CNY)'));
   table(headers,data);
 }
 
@@ -2291,8 +2753,10 @@ function drawTrend(rows){
   rows.forEach(r=>{const k=periodKey(filterDateForRow(r),type);m.set(k,(m.get(k)||0)+(analyticsUsesMoney()?r.__fee:1))});
   const data=[...m.entries()].sort((a,b)=>a[0].localeCompare(b[0]));
   const unit=analyticsUsesMoney()?'元':'次';
-  $('trendTitle').textContent=`${analyticsUsesMoney()?'激励金额':'计发次数'}趋势（${analyticsDedupText()}）`;
-  $('trendDesc').textContent=`当前按${analyticsUsesMoney()?'金额':'次数'}、${analyticsDedupText()}口径展示；点击周期节点可下钻到对应周期。`;
+  const trendMetric=analyticsUsesMoney()?BL('激励金额','Incentive Amount'):BL('计发次数','Order Count');
+  const trendDedup=analyticsUsesRawRows()?BL('不剔重','No Dedup'):BL('剔重','Dedup');
+  $('trendTitle').textContent=BL(`${trendMetric}趋势（${trendDedup}）`,`${trendMetric} Trend (${trendDedup})`);
+  $('trendDesc').textContent=BL(`当前按${analyticsUsesMoney()?'金额':'次数'}、${analyticsDedupText()}口径展示；点击周期节点可下钻到对应周期。`,`Currently shown by ${analyticsUsesMoney()?'amount':'count'} (${trendDedup}); click cycle node to drill down.`);
   if(!data.length){trendHitPoints=[];drawEmpty(ctx,w,h,'暂无趋势数据');return}
   const max=Math.max(...data.map(x=>x[1]),1),pad={l:66,r:24,t:28,b:48};
   const {cw,ch}=drawGridY(ctx,pad,w,h,max,4,v=>fmtAxis(v,unit));
@@ -2349,8 +2813,9 @@ function drawRank(rows){
   const data=aggregateDimension(rows)
     .sort((a,b)=>analyticsUsesMoney()?b.money-a.money||b.count-a.count:b.count-a.count||b.money-a.money)
     .slice(0,8);
-  const metricLabel=analyticsUsesMoney()?'激励金额':'计发次数',unit=analyticsUsesMoney()?'元':'次';
-  $('rankTitle').textContent=`${meta.label}${metricLabel}排行（${analyticsDedupText()}，${unit}）`;
+  const metricLabel=analyticsUsesMoney()?BL('激励金额','Incentive Amount'):BL('计发次数','Order Count'),unit=analyticsUsesMoney()?BL('元','CNY'):BL('次','Orders');
+  const rankDedup=analyticsUsesRawRows()?BL('不剔重','No Dedup'):BL('剔重','Dedup');
+  $('rankTitle').textContent=BL(`${meta.label}${metricLabel}排行（${analyticsDedupText()}，${unit}）`,`${meta.label} ${metricLabel} Ranking (${rankDedup}, ${unit})`);
   $('rankDesc').textContent=activeDimension==='person'
     ? rankPersonShowIds
       ? '当前统一显示工号，点击左侧任意工号可全部切回姓名。'
@@ -2600,7 +3065,7 @@ function renderPeriod(rows){
       esc(Object.entries(x.levels).map(([k,v])=>`${k}:${v}`).join(' / ')),
       `<span class="money">${money(x.money)}</span>`
     ]);
-  table(['周期','计费记录','操作天数','涉及人员','等级分布','激励合计（元）'],data);
+  table([BL('周期','Period'),BL('计费记录','Billable Orders'),BL('操作天数','Days'),BL('涉及人员','People'),BL('等级分布','Level Breakdown'),BL('激励合计（元）','Total Incentive (CNY)')],data);
 }
 
 function renderSummary(rows){
@@ -2630,25 +3095,128 @@ function renderSummary(rows){
         `<span class="money">${money(x.money)}</span>`);
       return row;
     });
-  const headers=['周期',meta.label];
-  if(activeCrossDimension==='person')headers.push('姓名','WeLink · '+welinkDisplayLabel());
-  headers.push('计费记录','操作天数','涉及人员','等级分布','激励合计（元）');
+  const headers=[BL('周期','Period'),meta.label];
+  if(activeCrossDimension==='person')headers.push(BL('姓名','Name'),'WeLink · '+welinkDisplayLabel());
+  headers.push(BL('计费记录','Billable Orders'),BL('操作天数','Days'),BL('涉及人员','People'),BL('等级分布','Level Breakdown'),BL('激励合计（元）','Total Incentive (CNY)'));
   table(headers,data);
 }
-function renderPerson(rows){
+function getPersonnelPeriodSummaryData(rows){
   const type=$('periodType').value,m=new Map();
-  rows.forEach(r=>{const p=periodKey(filterDateForRow(r),type),k=p+'|'+r.__person;if(!m.has(k))m.set(k,{p,person:r.__person,name:'',bu:new Set(),c:new Set(),a:new Set(),days:new Set(),money:0,levels:{}});
-    const x=m.get(k);x.days.add(r.__date);x.money+=r.__fee;if(!x.name&&r.__name)x.name=r.__name;x.bu.add(r.__bu);x.c.add(r.__customer);x.a.add(r.__attr);x.levels[r.__level]=(x.levels[r.__level]||0)+1;
+  const isEn=isEnglishMode();
+  const baseRows=rowsForRuleMode({dedup:!isNoDedupMode(),blacklist:false}).filter(rowMatchesFilters);
+  baseRows.forEach(r=>{
+    const p=periodKey(filterDateForRow(r),type),k=p+'|'+r.__person;
+    if(!m.has(k))m.set(k,{p,person:r.__person,name:'',bu:new Set(),bgs:new Set(),days:new Set(),rawMoney:0,levels:{Fatal:0,High:0,Medium:0,Low:0},rows:[]});
+    const x=m.get(k);
+    x.days.add(r.__date);
+    x.rawMoney+=r.__fee;
+    if(!x.name&&(r.__name||r.__fmeName))x.name=r.__name||r.__fmeName;
+    if(r.__bu)x.bu.add(r.__bu);
+    const bg=getRowBg(r);
+    if(bg)x.bgs.add(bg);
+    const norm=normalizeLevelName(r.__level);
+    if(norm in x.levels)x.levels[norm]++;
+    else if(norm){x.levels[norm]=(x.levels[norm]||0)+1;}
+    x.rows.push(r);
   });
-  const data=[...m.values()].sort((a,b)=>b.p.localeCompare(a.p)||b.money-a.money||a.person.localeCompare(b.person,'zh-CN')).map(x=>{
-    const anom=getPersonAttendanceAnomaly(x.person,x.name,type==='month'?x.p:undefined);
-    const nameCell=esc(x.name||'—')+(anom?` <span class="tag bad" title="${esc(anom.anomalyDesc)}">⚠️ 考勤异常</span>`:'');
+
+  return [...m.values()].sort((a,b)=>b.p.localeCompare(a.p)||b.rawMoney-a.rawMoney||a.person.localeCompare(b.person,'zh-CN')).map(x=>{
+    const months=uniq(x.rows.map(r=>incentiveMonth(r)).filter(Boolean));
+    const sampleRow=x.rows[0]||{__date:x.p,__person:x.person};
+
+    // 1. Blacklist deduction reasons
+    const blReasons=isBlacklistEnabled()?uniq([
+      ...x.rows.map(r=>blacklistReason(x.person,r)).filter(Boolean),
+      ...[...incentiveBlacklist.values()].filter(item=>personKey(item.staffId)===personKey(x.person)&&(!months.length||months.includes(item.month))).map(item=>item.reason)
+    ]):[];
+
+    // 2. Nonpayment rules
+    const npReason=nonpaymentReason(x.person);
+
+    // 3. Attendance anomalies
+    const anomMonth=type==='month'?x.p:(months[0]||undefined);
+    const anom=getPersonAttendanceAnomaly(x.person,x.name,anomMonth);
+    const anomReason=anom?(anom.anomalyDesc||BL('考勤异常','Attendance anomaly')):'';
+
+    // Combined reasons
+    const allReasons=uniq([...blReasons,npReason,anomReason].filter(Boolean));
+    const isDeducted=(isBlacklistEnabled()&&blReasons.length>0)||Boolean(npReason)||Boolean(anomReason);
+    const finalMoney=((isBlacklistEnabled()&&blReasons.length>0)||npReason)?0:x.rawMoney;
+
+    // WeLink ID Change & Departure Status
+    const changeId=changedEmployeeId(x.person);
+    const changeText=changeId?(isEn?`ID Changed (Current: ${changeId})`:`工号有变更（现工号：${changeId}）`):'—';
+    const welinkRecord=welinkFor(x.person);
+    const hasWelink=Boolean(welinkRecord);
+    const departed=isSuspectedDeparted(x.person);
+    const departureText=departed?(isEn?'Suspected Departed':'疑似已离职'):(hasWelink?(isEn?'Active':'在职'):'—');
+
+    return {
+      p:x.p,
+      person:x.person,
+      name:x.name,
+      bg:[...x.bgs].filter(Boolean).sort().join(' / ')||'—',
+      bu:[...x.bu].filter(Boolean).join(' / '),
+      daysCount:x.days.size,
+      levels:x.levels,
+      fatalCount:x.levels.Fatal||0,
+      highCount:x.levels.High||0,
+      mediumCount:x.levels.Medium||0,
+      lowCount:x.levels.Low||0,
+      isDeducted,
+      deductionReason:allReasons.join('；')||'',
+      money:finalMoney,
+      anom,
+      changeId,
+      changeText,
+      hasWelink,
+      departed,
+      departureText
+    };
+  });
+}
+function renderPerson(rows){
+  const data=getPersonnelPeriodSummaryData(rows);
+  const isEn=isEnglishMode();
+  const tableRows=data.map(x=>{
+    const anomTag=x.anom?` <span class="tag bad" title="${esc(x.anom.anomalyDesc)}">⚠️ ${BL('考勤异常','Attendance Anomaly')}</span>`:'';
+    const nameCell=esc(x.name||'—')+anomTag;
+    const deductedCell=x.isDeducted?`<span class="tag bad">${BL('是','Yes')}</span>`:`<span class="tag ok">${BL('否','No')}</span>`;
+    const reasonCell=x.isDeducted?esc(isEn?translateDeductionReason(x.deductionReason):x.deductionReason):'—';
     return [
-      esc(x.p),esc(x.person)+personStatusTags(x.person),nameCell,personFieldCell(x.person),esc([...x.bu].filter(Boolean).join(' / ')),esc([...x.c].filter(Boolean).join(' / ')),
-      esc([...x.a].filter(Boolean).join(' / ')),x.days.size,esc(Object.entries(x.levels).map(([k,v])=>`${k}:${v}`).join(' / ')),`<span class="money">${money(x.money)}</span>`
+      esc(x.p),
+      esc(x.person)+personStatusTags(x.person),
+      nameCell,
+      personFieldCell(x.person),
+      esc(x.bg),
+      esc(x.bu),
+      x.fatalCount,
+      x.highCount,
+      x.mediumCount,
+      x.lowCount,
+      x.daysCount,
+      deductedCell,
+      reasonCell,
+      `<span class="money">${money(x.money)}</span>`
     ];
   });
-  table(['周期','操作人','姓名','WeLink · '+welinkDisplayLabel(),'BU1 / 部门','客户','人员属性','计费天数','等级分布','激励合计（元）'],data);
+  const headers=[
+    BL('周期','Period'),
+    BL('操作人','Operator ID'),
+    BL('姓名','Name'),
+    'WeLink · '+welinkDisplayLabel(),
+    'BG',
+    BL('BU1 / 部门','BU / Dept'),
+    BL('Fatal单数','Fatal Count'),
+    BL('High单数','High Count'),
+    BL('Medium单数','Medium Count'),
+    BL('Low单数','Low Count'),
+    BL('计费天数','Billable Days'),
+    BL('是否扣除激励','Incentive Deducted'),
+    BL('扣除原因','Deduction Reason'),
+    BL('激励合计（元）','Total Incentive (CNY)')
+  ];
+  table(headers,tableRows);
 }
 function renderDetail(rows){
   const sorted=[...rows].sort((a,b)=>
@@ -2674,18 +3242,18 @@ function renderDetail(rows){
       esc(r.__ignoreReason),
       !r.__counted?(esc(r.__selectedLevel)||'—'):'—',
       !r.__counted?(esc(r.__selectedTask)||'—'):'—',
-      esc(r.__bu),esc(r.__customer),esc(r.__attr),esc(r.__task),esc(r.__summary),
-      r.__byField?'<span class="tag ok">字段夜间</span>':'<span class="tag bad">字段非夜间</span>',
+      esc(r.__bu),esc(r.__customer),esc(r.__attr),taskWithDomainBadge(r.__task,r.__netDomain),esc(r.__summary),
+      (!r.__hasOpField?'<span class="tag ok" style="background:#f0fdf4;color:#166534;border:1px solid #bbf7d0;">按完成时间</span>':(r.__byField?'<span class="tag ok">字段夜间</span>':'<span class="tag bad">字段非夜间</span>')),
       r.__byTime?'<span class="tag ok">时间确认</span>':'<span class="tag mid">时间未确认</span>',
-      esc(r.__start?r.__start.toLocaleString('zh-CN'):'')
+      esc((r.__effectiveDate||r.__end||r.__start)?(r.__effectiveDate||r.__end||r.__start).toLocaleString('zh-CN'):'')
     ];
   });
-  table(['操作日期','操作人','姓名','WeLink · '+welinkDisplayLabel(),'姓名工号校验','计算状态','操作等级','本行激励（元）','忽略原因','当日计发等级','当日计发任务号','BU1','客户','人员属性','任务号','操作摘要','操作时间校验','当地时间校验','当地开始时间'],data);
+  table([BL('操作日期','Date'),BL('操作人','Operator ID'),BL('姓名','Name'),'WeLink · '+welinkDisplayLabel(),BL('姓名工号校验','Identity Check'),BL('计算状态','Status'),BL('操作等级','Level'),BL('本行激励（元）','Incentive (CNY)'),BL('忽略原因','Ignore Reason'),BL('当日计发等级','Day Approved Level'),BL('当日计发任务号','Day Approved Task'),BL('BU1','BU1'),BL('客户','Customer'),BL('人员属性','Staff Attr'),BL('实施任务单号','Task No'),BL('操作摘要','Summary'),BL('操作时间校验','Field Time Check'),BL('当地时间校验','Local Time Check'),BL('操作/完成时间','Operation / Complete Time')],data);
 }
 function renderExcluded(rows=filteredExcludedRows()){
-  const data=[...rows].sort((a,b)=>(b.__date||'').localeCompare(a.__date||'')||a.__row-b.__row).map(r=>[r.__row,esc(r.__reason),esc(r.__person)+personStatusTags(r.__person),esc(displayPersonName(r)),personFieldCell(r.__person),identityCheckCell(r),esc(r.__status),esc(r.__level),esc(r.__task),esc(r.__summary),
-    r.__byField?'是':'否',r.__byTime?'是':'否',esc(r.__start?r.__start.toLocaleString('zh-CN'):'')]);
-  table(['Excel行号','排除/异常原因','操作人','姓名','WeLink · '+welinkDisplayLabel(),'姓名工号校验','任务状态','等级','任务号','摘要','字段判定夜间','时间判定夜间','当地开始时间'],data);
+  const data=[...rows].sort((a,b)=>(b.__date||'').localeCompare(a.__date||'')||a.__row-b.__row).map(r=>[r.__row,esc(r.__reason),esc(r.__person)+personStatusTags(r.__person),esc(displayPersonName(r)),personFieldCell(r.__person),identityCheckCell(r),esc(r.__status),esc(r.__level),taskWithDomainBadge(r.__task,r.__netDomain),esc(r.__summary),
+    !r.__hasOpField?'免字段':(r.__byField?'是':'否'),r.__byTime?'是':'否',esc((r.__effectiveDate||r.__end||r.__start)?(r.__effectiveDate||r.__end||r.__start).toLocaleString('zh-CN'):'')]);
+  table([BL('Excel行号','Row'),BL('排除/异常原因','Exclusion Reason'),BL('操作人','Operator ID'),BL('姓名','Name'),'WeLink · '+welinkDisplayLabel(),BL('姓名工号校验','Identity Check'),BL('任务状态','Task Status'),BL('等级','Level'),BL('任务号','Task No'),BL('摘要','Summary'),BL('字段判定夜间','Night by Field'),BL('时间判定夜间','Night by Time'),BL('当地开始时间','Local Start Time')],data);
 }
 function hideTableFocus(){
   if($('tableFocusNotice'))$('tableFocusNotice').hidden=true;
@@ -2819,6 +3387,12 @@ function resetFilters(){
       $('filterPerson').value='';
       $('dedupMode').value='highest';
       $('blacklistMode').value='enabled';
+      activeNetworkDomain='all';
+      document.querySelectorAll('.network-domain-btn').forEach(b=>{
+        const active=b.dataset.domainGroup==='all';
+        b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));
+      });
+      syncOperatorGroupCounts();
       refreshFilters();
       bar.style.width='46%';step.textContent='46%';text.textContent='正在恢复全部周期';
       setTimeout(()=>{
@@ -2849,15 +3423,17 @@ function cloneCell(cell){
   });
   return out;
 }
-function exportCurrent(){
+function exportCurrent(forceEnglish=false){
   if(!window.XLSX){ uiAlert('Excel 组件未加载，请刷新页面后重试。', { icon: '⚠️' }); return; }
+  const XLSX=window.XLSX;
   if(!sourceWorksheet){
-    if(!rawRows.length){uiAlert('请先导入 Excel 文件');return}
+    if(!rawRows.length){uiAlert(BL('请先导入 Excel 文件','Please import an Excel file first'));return}
     sourceWorksheet=XLSX.utils.json_to_sheet(rawRows);
   }
 
+  const isEn=forceEnglish||isEnglishMode();
   const details=filteredCalcDetails().filter(r=>(r.__counted&&Number(r.__fee||0)>0)||(isBlacklistEnabled()&&blacklistReason(r.__person,r)));
-  if(!details.length){ uiAlert('当前筛选条件下没有计发或黑名单扣减记录', { icon: 'ℹ️' }); return; }
+  if(!details.length){ uiAlert(BL('当前筛选条件下没有计发或黑名单扣减记录','No billable or blacklist-deducted records under current filters'), { icon: 'ℹ️' }); return; }
 
   const detailByRow=new Map(details.map(r=>[r.__row,r]));
   const sourceRange=XLSX.utils.decode_range(sourceWorksheet['!ref']||'A1:A1');
@@ -2871,25 +3447,37 @@ function exportCurrent(){
       const srcAddr=XLSX.utils.encode_cell({r:srcRow,c});
       const outAddr=XLSX.utils.encode_cell({r:outRow,c});
       const copied=cloneCell(sourceWorksheet[srcAddr]);
-      if(copied)outWs[outAddr]=copied;
+      if(copied){
+        if(outRow===0&&isEn&&copied.v){
+          copied.v=translateHeader(copied.v);
+        }else if(outRow>0&&isEn&&typeof copied.v==='string'){
+          copied.v=translateCellValue(copied.v);
+        }
+        outWs[outAddr]=copied;
+      }
     }
     const extraAddr=XLSX.utils.encode_cell({r:outRow,c:outputLastCol-2});
     const personAddr=XLSX.utils.encode_cell({r:outRow,c:outputLastCol-1});
     const changeAddr=XLSX.utils.encode_cell({r:outRow,c:outputLastCol});
     const monthAddr=XLSX.utils.encode_cell({r:outRow,c:outputLastCol-5}),reasonAddr=XLSX.utils.encode_cell({r:outRow,c:outputLastCol-4}),statusAddr=XLSX.utils.encode_cell({r:outRow,c:outputLastCol-3});
     if(outRow===0){
-      outWs[monthAddr]={t:'s',v:'激励所属月份'};outWs[reasonAddr]={t:'s',v:'扣减原因'};outWs[statusAddr]={t:'s',v:'计发状态'};
-      outWs[extraAddr]={t:'s',v:'本行激励（元）'};
+      outWs[monthAddr]={t:'s',v:isEn?'Incentive Month':'激励所属月份'};
+      outWs[reasonAddr]={t:'s',v:isEn?'Deduction Reason':'扣减原因'};
+      outWs[statusAddr]={t:'s',v:isEn?'Payment Status':'计发状态'};
+      outWs[extraAddr]={t:'s',v:isEn?'Row Incentive (CNY)':'本行激励（元）'};
       outWs[personAddr]={t:'s',v:'WeLink · '+welinkDisplayLabel()};
-      outWs[changeAddr]={t:'s',v:'工号变更'};
+      outWs[changeAddr]={t:'s',v:isEn?'ID Change':'工号变更'};
       const firstHeader=sourceWorksheet[XLSX.utils.encode_cell({r:headerRow,c:sourceRange.s.c})];
       if(firstHeader?.s)outWs[extraAddr].s=cloneCell({s:firstHeader.s}).s;
     }else{
       const detail=detailByRow.get(srcRow+1);
-      outWs[monthAddr]={t:'s',v:incentiveMonth(detail)};outWs[reasonAddr]={t:'s',v:detail.__ignoreReason||''};outWs[statusAddr]={t:'s',v:detail.__counted?'计发':'扣减'};
+      outWs[monthAddr]={t:'s',v:incentiveMonth(detail)};
+      outWs[reasonAddr]={t:'s',v:isEn?translateDeductionReason(detail.__ignoreReason||''):(detail.__ignoreReason||'')};
+      outWs[statusAddr]={t:'s',v:detail.__counted?(isEn?'Approved':'计发'):(isEn?'Deducted':'扣减')};
       outWs[extraAddr]={t:'n',v:detail&&detail.__counted?Math.round(Number(detail.__fee||0)):0,z:'#,##0'};
       outWs[personAddr]={t:'s',v:personFieldValue(detail?.__person)};
-      outWs[changeAddr]={t:'s',v:changedEmployeeId(detail?.__person)?`工号有变更（现工号：${changedEmployeeId(detail.__person)}）`:''};
+      const changeId=changedEmployeeId(detail?.__person);
+      outWs[changeAddr]={t:'s',v:changeId?(isEn?`ID Changed (Current: ${changeId})`:`工号有变更（现工号：${changeId}）`):''};
       const sourceCell=sourceWorksheet[XLSX.utils.encode_cell({r:srcRow,c:sourceRange.e.c})];
       if(sourceCell?.s)outWs[extraAddr].s=cloneCell({s:sourceCell.s}).s;
     }
@@ -2933,15 +3521,68 @@ function exportCurrent(){
   }
 
   const wb=XLSX.utils.book_new();
-  const resultSheetName=sourceSheetName||'当前计算结果';
+
+  // Sheet 1: Operation Details
+  const resultSheetName=isEn?'Operation_Details':(sourceSheetName||'当前计算结果');
   XLSX.utils.book_append_sheet(wb,outWs,resultSheetName);
+
+  // Sheet 2: Personnel Period Summary (人员周期汇总)
+  const summaryData=getPersonnelPeriodSummaryData();
+  const summaryHeaders=isEn
+    ?['Period','Operator ID','Name','ID Change','Departure Status','WeLink · '+welinkDisplayLabel(),'BG','BU / Dept','Fatal Count','High Count','Medium Count','Low Count','Billable Days','Incentive Deducted','Deduction Reason','Total Incentive (CNY)']
+    :['周期','操作人','姓名','工号变更','是否离职','WeLink · '+welinkDisplayLabel(),'BG','BU1 / 部门','Fatal单数','High单数','Medium单数','Low单数','计费天数','是否扣除激励','扣除原因','激励合计（元）'];
+
+  const summarySheetRows=summaryData.map(x=>[
+    x.p,
+    x.person,
+    x.name||'—',
+    x.changeText,
+    x.departureText,
+    personFieldValue(x.person)||'—',
+    x.bg||'—',
+    x.bu||'—',
+    x.fatalCount,
+    x.highCount,
+    x.mediumCount,
+    x.lowCount,
+    x.daysCount,
+    x.isDeducted?(isEn?'Yes':'是'):(isEn?'No':'否'),
+    x.isDeducted?(isEn?translateDeductionReason(x.deductionReason):x.deductionReason):'—',
+    Math.round(x.money)
+  ]);
+  const summaryWs=XLSX.utils.aoa_to_sheet([summaryHeaders,...summarySheetRows]);
+  summaryWs['!cols']=[
+    {wch:12},{wch:14},{wch:22},{wch:26},{wch:14},{wch:20},{wch:14},{wch:16},
+    {wch:12},{wch:12},{wch:12},{wch:12},{wch:12},
+    {wch:16},{wch:38},{wch:18}
+  ];
+  XLSX.utils.book_append_sheet(wb,summaryWs,isEn?'Personnel_Summary':'人员周期汇总');
+
+  // Sheet 3: Blacklist Deductions
   const deductions=blacklistDeductionRows();
-  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(deductions,{header:['工号','姓名','扣减月份','扣减原因','来源','扣减激励（元）','扣减后激励（元）']}),resultSheetName==='黑名单扣减明细'?'扣减汇总':'黑名单扣减明细');
-  XLSX.writeFile(
-    wb,
-    `埃及代表处夜间操作激励统计结果_${activeOperatorGroup==='wx'?'WX':'非WX'}_${isNoDedupMode()?'不剔重':'同人同日最高等级'}_${isBlacklistEnabled()?'启用黑名单':'不启用黑名单'}_${new Date().toISOString().slice(0,10)}.xlsx`,
-    {cellStyles:true}
-  );
+  const deductionHeaders=isEn
+    ?['Operator ID','Name','Deduction Month','Deduction Reason','Source','Deducted Incentive (CNY)','Remaining Incentive (CNY)']
+    :['工号','姓名','扣减月份','扣减原因','来源','扣减激励（元）','扣减后激励（元）'];
+
+  const deductionSheetRows=deductions.map(d=>[
+    d['工号']||d.staffId||'',
+    d['姓名']||d.name||'',
+    d['扣减月份']||d.month||'',
+    isEn?translateDeductionReason(d['扣减原因']||d.reason||''):(d['扣减原因']||d.reason||''),
+    isEn?translateSource(d['来源']||d.source||''):(d['来源']||d.source||''),
+    Math.round(Number(d['扣减激励（元）']||0)),
+    Math.round(Number(d['扣减后激励（元）']||0))
+  ]);
+  const deductionWs=XLSX.utils.aoa_to_sheet([deductionHeaders,...deductionSheetRows]);
+  deductionWs['!cols']=[{wch:14},{wch:22},{wch:14},{wch:38},{wch:18},{wch:20},{wch:20}];
+  const deductionSheetName=isEn?'Deduction_Details':(resultSheetName==='黑名单扣减明细'?'扣减汇总':'黑名单扣减明细');
+  XLSX.utils.book_append_sheet(wb,deductionWs,deductionSheetName);
+
+  const fileName=isEn
+    ?`Egypt_Night_Operation_Incentive_Results_${activeOperatorGroup==='wx'?'WX':'Non-WX'}${activeNetworkDomain==='enterprise'?'_Enterprise_TE':(activeNetworkDomain==='carrier'?'_Carrier_TK':'')}_${isNoDedupMode()?'No_Dedup':'Highest_Level_Per_Day'}_${isBlacklistEnabled()?'Blacklist_Enabled':'No_Blacklist'}_${new Date().toISOString().slice(0,10)}.xlsx`
+    :`埃及代表处夜间操作激励统计结果_${activeOperatorGroup==='wx'?'WX':'非WX'}${activeNetworkDomain==='enterprise'?'_企业网TE':(activeNetworkDomain==='carrier'?'_运营商TK':'')}_${isNoDedupMode()?'不剔重':'同人同日最高等级'}_${isBlacklistEnabled()?'启用黑名单':'不启用黑名单'}_${new Date().toISOString().slice(0,10)}.xlsx`;
+
+  XLSX.writeFile(wb,fileName,{cellStyles:true});
 }
 const fileInput=$('fileInput');
 $('downloadWelinkScript').onclick=()=>{
@@ -2958,6 +3599,8 @@ $('applyWelinkImport').onclick=()=>{
   if(!people.length){$('welinkParseStatus').textContent='未解析出人员信息。若只粘贴一条空 data 的 JSON，请填写该次查询工号；完整脚本 TXT 请保留命令行。';return}
   installWelinkPeople(people);$('welinkParseStatus').textContent=`已解析 ${people.length} 条，匹配当前 Excel ${allImportedPeople().filter(id=>welinkFor(id)).length} 人；疑似已离职 ${suspectedDepartedPeople().length} 人，请二次确认。`;
   renderNonpaymentRules();
+  $('welinkImportModal').classList.remove('show');
+  setFilterSectionCollapsed(true);
 };
 $('clearWelinkData').onclick=()=>{$('welinkTxtInput').value='';$('welinkTxtFile').value='';$('welinkManualQueryId').value='';installWelinkPeople([]);$('welinkParseStatus').textContent='人员信息已清空';renderNonpaymentRules()};
 $('welinkDisplayField').onchange=e=>{welinkDisplayField=e.target.value;if(rawRows.length)render();renderNonpaymentRules()};
@@ -3018,6 +3661,21 @@ document.querySelectorAll('.operator-scope-btn').forEach(button=>button.onclick=
     item.classList.toggle('active',active);
     item.setAttribute('aria-pressed',String(active));
   });
+  syncOperatorGroupCounts();
+  refreshFilters();
+  render();
+  if($('compareModal').classList.contains('show'))populateComparePeriods();
+});
+
+document.querySelectorAll('.network-domain-btn').forEach(button=>button.onclick=()=>{
+  if(activeNetworkDomain===button.dataset.domainGroup)return;
+  activeNetworkDomain=button.dataset.domainGroup;
+  document.querySelectorAll('.network-domain-btn').forEach(item=>{
+    const active=item===button;
+    item.classList.toggle('active',active);
+    item.setAttribute('aria-pressed',String(active));
+  });
+  syncOperatorGroupCounts();
   refreshFilters();
   render();
   if($('compareModal').classList.contains('show'))populateComparePeriods();
@@ -3939,6 +4597,7 @@ setTimeout(()=>{
 
 
 
+if($('toggleFilterSectionBtn'))$('toggleFilterSectionBtn').onclick=toggleFilterCollapse;
 $('resetFiltersBtn').onclick=resetFilters;
 const compareModal=$('compareModal');
 $('openCompareBtn').onclick=()=>{
@@ -3954,9 +4613,26 @@ $('compareCurrent').onchange=()=>updateComparePreviousOptions(true);
 $('comparePrevious').onchange=renderComparison;
 
 $('exportBtn').onclick=()=>{
-  if(!rawRows.length){ uiAlert('请先导入 Excel 文件', { icon: 'ℹ️' }); return; }
+  if(!rawRows.length){ uiAlert(BL('请先导入 Excel 文件','Please import an Excel file first'), { icon: 'ℹ️' }); return; }
   exportCurrent();
 };
+if($('exportEnBtn'))$('exportEnBtn').onclick=()=>{
+  if(!rawRows.length){ uiAlert(BL('请先导入 Excel 文件','Please import an Excel file first'), { icon: 'ℹ️' }); return; }
+  exportCurrent(true);
+};
+if($('popoverLangZh'))$('popoverLangZh').onclick=()=>{
+  if(window.ToolsCustomI18n)window.ToolsCustomI18n.setLanguage('zh');
+  else setLanguage('zh');
+};
+if($('popoverLangEn'))$('popoverLangEn').onclick=()=>{
+  if(window.ToolsCustomI18n)window.ToolsCustomI18n.setLanguage('en');
+  else setLanguage('en');
+};
+window.addEventListener('tools:custom-languagechange',()=>{
+  updateLanguageUI();
+  if(rawRows.length)render();
+});
+updateLanguageUI();
 
 let snapshotsList = [];
 

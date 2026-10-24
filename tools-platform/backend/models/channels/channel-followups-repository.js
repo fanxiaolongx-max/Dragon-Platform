@@ -222,6 +222,8 @@ async function listThreadMessages(channel, kind, id, { limit = 40, before = '' }
             content: row.content || '',
             sender: channelEvent.sender || '',
             followups: events.filter(event => event?.type === 'followup').map(event => ({ action: event.action, id: event.id, title: event.title })),
+            // 主动推送（运营计划、测试、手动推送、跟进提醒）：时间线上标注来源
+            push: (event => (event ? { trigger: event.trigger || '', source: event.source || '' } : null))(events.find(item => item?.type === 'push')),
             createdAt: toIso(row.created_at),
             modelName: row.model_name || ''
         };

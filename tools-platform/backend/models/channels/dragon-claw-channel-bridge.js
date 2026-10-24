@@ -4,6 +4,8 @@
 // 对话归属：单聊为「welink:<账号>」；群聊为「welink-group:<群 ID>」，群里任何人 @助手 都接着同一个群对话。
 const { EventEmitter } = require('events');
 
+const CHANNEL_LABELS = { welink: 'WeLink', weixin: '微信', ops: '运营' };
+
 function createVirtualResponse(onEvent) {
     const res = new EventEmitter();
     let buffer = '';
@@ -91,11 +93,12 @@ async function usableSessionId(aiSessionId, owner) {
  * @param {string} [options.aiSessionId] 已绑定的平台对话会话（多轮上下文）
  * @param {string} [options.modelId] 对话模型映射 ID
  * @param {string} [options.contextNote] 附加上下文说明
+ * @param {boolean} [options.persist=true] 是否保存到聊天记录（运营内容生成等后台调用传 false）
  * @param {AbortSignal} [options.signal]
  * @param {(event:object)=>void} options.onEvent delta / status / done / error / http-json / start
  * @returns {Promise<void>} 本轮结束（含出错）时 resolve
  */
-async function runTurn({ channel, account, conversation, toolSessionId, text, aiSessionId, modelId, contextNote, signal, onEvent }) {
+async function runTurn({ channel, account, conversation, toolSessionId, text, aiSessionId, modelId, contextNote, persist = true, signal, onEvent }) {
     const aiRouter = require('../../routes/ai');
     if (typeof aiRouter.handleChatRequest !== 'function') throw new Error('Dragon Claw 对话入口不可用');
     const res = createVirtualResponse(onEvent);
@@ -111,10 +114,10 @@ async function runTurn({ channel, account, conversation, toolSessionId, text, ai
         body: {
             messages: [{ role: 'user', content: String(text || '') }],
             context: contextNote || '',
-            pageTitle: `${channel === 'welink' ? 'WeLink' : channel} 频道`,
+            pageTitle: `${CHANNEL_LABELS[channel] || channel} 频道`,
             pagePath: `/channels/${channel}`,
             sessionId: sessionId || undefined,
-            persist: true,
+            persist: persist !== false,
             stream: true,
             agent: 'dragon-claw-home',
             uiLanguage: 'zh-CN',

@@ -121,7 +121,15 @@
         const candidates = Object.keys(dictionary)
             .filter(key => key.length >= 2 && translated.includes(key))
             .sort((a, b) => b.length - a.length);
-        candidates.forEach(key => { translated = translated.split(key).join(dictionary[key]); });
+        candidates.forEach(key => {
+            if (/^[A-Za-z0-9_-]+$/.test(key)) {
+                const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(?<![A-Za-z0-9_])${escaped}(?![A-Za-z0-9_])`, 'g');
+                translated = translated.replace(regex, dictionary[key]);
+            } else {
+                translated = translated.split(key).join(dictionary[key]);
+            }
+        });
         return translated === trimmed ? source : preserveWhitespace(source, translated);
     }
 
@@ -170,7 +178,7 @@
         if (!root || applying) return;
         applying = true;
         try {
-            if (usesNativeLanguageControl()) {
+            if (usesNativeLanguageControl() && !Object.keys(translations).length) {
                 document.documentElement.lang = currentLang === 'en' ? 'en-US' : 'zh-CN';
                 updateButton();
                 return;

@@ -65,9 +65,19 @@ class WeLinkProvider {
      * @param {string} options.tenantId
      * @param {() => object} [options.getRuntimeStatus] 供 /status 命令展示
      * @param {(entry:object) => void} [options.log]
+     * @param {string} [options.channel] 频道标识；微信等频道复用本 Provider 的消息处理（访问控制、命令、回复、日志）
+     * @param {string} [options.label] 频道显示名，用于提示词与命令回复
+     * @param {{getConfig:Function}} [options.configRepo] 该频道的配置仓库
+     * @param {(account:string) => string|null} [options.defaultUserName] 联系人的默认显示名（频道拿不到昵称时使用，如微信 bot 的绑定人）
+     * @param {boolean} [options.accountIsReadable] 账号本身可读（WeLink 工号）时没有备注也用账号称呼；微信这类不透明 ID 设为 false
      */
-    constructor({ tenantId, getRuntimeStatus, log } = {}) {
+    constructor({ tenantId, getRuntimeStatus, log, channel = CHANNEL, label = 'WeLink', configRepo: repo = configRepo, defaultUserName, accountIsReadable = true } = {}) {
+        this.defaultUserName = defaultUserName || (() => null);
+        this.accountIsReadable = accountIsReadable;
         this.tenantId = tenantId || 'default';
+        this.channel = channel;
+        this.label = label;
+        this.configRepo = repo;
         this.getRuntimeStatus = getRuntimeStatus || (() => null);
         this.log = log || (() => {});
         this.outbound = null;
@@ -91,7 +101,7 @@ class WeLinkProvider {
         return this.inTenant(async () => {
             const toolSessionId = newId('wl');
             const conversation = access.resolveConversation(input);
-            await targetsRepo.upsertSession(CHANNEL, {
+            await targetsRepo.upsertSession(this.channel, {
                 toolSessionId,
                 title: input.title || '',
                 kind: conversation.kind,
@@ -106,7 +116,7 @@ class WeLinkProvider {
 
     async listSlashCommands() {
         return this.inTenant(async () => {
-            const config = await configRepo.getConfig();
+            const config = await this.configRepo.getConfig();
             return { slashCommands: config.slashCommandsEnabled ? SLASH_COMMANDS.slice() : [] };
         });
     }
@@ -138,24 +148,28 @@ class WeLinkProvider {
         const text = String(input.text || '');
         const messageId = newId('msg');
         const partId = `${messageId}_text`;
-        const config = await configRepo.getConfig();
-        let stored = toolSessionId ? await targetsRepo.getSession(CHANNEL, toolSessionId) : null;
+        const config = await this.configRepo.getConfig();
+        let stored = toolSessionId ? await targetsRepo.getSession(this.channel, toolSessionId) : null;
         const conversation = access.resolveConversation(input, stored);
         const targetId = conversation.kind === 'group' ? conversation.groupId : conversation.senderAccount;
-        await targetsRepo.upsertSession(CHANNEL, {
+        await targetsRepo.upsertSession(this.channel, {
             toolSessionId,
             kind: conversation.kind,
             targetId,
             senderAccount: conversation.senderAccount,
             ext: input.extParameters ? { platformExtParam: input.extParameters.platformExtParam || null } : null
         });
-        stored = await targetsRepo.getSession(CHANNEL, toolSessionId);
+        stored = await targetsRepo.getSession(this.channel, toolSessionId);
         if (conversation.kind === 'group') {
-            await targetsRepo.touchTarget(CHANNEL, { kind: 'group', id: conversation.groupId, displayName: stored?.title || null, toolSessionId });
-            await targetsRepo.touchTarget(CHANNEL, { kind: 'user', id: conversation.senderAccount, toolSessionId: null });
+            await targetsRepo.touchTarget(this.channel, { kind: 'group', id: conversation.groupId, displayName: stored?.title || null, toolSessionId });
+            await targetsRepo.touchTarget(this.channel, { kind: 'user', id: conversation.senderAccount, toolSessionId: null });
         } else {
-            await targetsRepo.touchTarget(CHANNEL, { kind: 'user', id: conversation.senderAccount, toolSessionId });
+            await targetsRepo.touchTarget(this.channel, { kind: 'user', id: conversation.senderAccount, displayName: this.defaultUserName(conversation.senderAccount), toolSessionId });
         }
+        // 发送人称呼：备注优先；账号不可读（微信 ID）时不把它当名字念出来
+        const senderTarget = conversation.senderAccount ? await targetsRepo.getTarget(this.channel, 'user', conversation.senderAccount) : null;
+        conversation.senderName = senderTarget && senderTarget.name !== conversation.senderAccount ? senderTarget.name : '';
+        conversation.greetName = senderTarget?.alias || (this.accountIsReadable ? conversation.senderAccount : '');
         this.stats.inbound += 1;
         this.stats.lastInboundAt = new Date().toISOString();
 
@@ -163,7 +177,7 @@ class WeLinkProvider {
         const baseLog = { toolSessionId, kind: conversation.kind, targetId, sender: conversation.senderAccount };
         if (!verdict.allowed) {
             this.stats.denied += 1;
-            await targetsRepo.logMessage(CHANNEL, { ...baseLog, direction: 'in', text, status: 'denied', error: access.describeDenial(verdict) });
+            await targetsRepo.logMessage(this.channel, { ...baseLog, direction: 'in', text, status: 'denied', error: access.describeDenial(verdict) });
             if (!input.context?.suppressReply && config.deniedReply) {
                 queue.push({ type: 'message.start', messageId });
                 queue.push({ type: 'text.done', messageId, partId, content: config.deniedReply });
@@ -171,7 +185,7 @@ class WeLinkProvider {
             }
             return { outcome: 'completed' };
         }
-        await targetsRepo.logMessage(CHANNEL, { ...baseLog, direction: 'in', text, status: 'ok' });
+        await targetsRepo.logMessage(this.channel, { ...baseLog, direction: 'in', text, status: 'ok' });
 
         queue.push({ type: 'message.start', messageId });
         const trimmed = text.trim();
@@ -183,7 +197,7 @@ class WeLinkProvider {
             const reply = await this.handleSlashCommand(command, { toolSessionId, conversation, stored });
             queue.push({ type: 'text.done', messageId, partId, content: reply });
             queue.push({ type: 'message.done', messageId });
-            await targetsRepo.logMessage(CHANNEL, { ...baseLog, direction: 'out', text: reply, status: 'ok', trigger: 'reply', source: command });
+            await targetsRepo.logMessage(this.channel, { ...baseLog, direction: 'out', text: reply, status: 'ok', trigger: 'reply', source: command });
             this.stats.replies += 1;
             return { outcome: 'completed' };
         }
@@ -191,7 +205,7 @@ class WeLinkProvider {
             const reply = this.ruleReply(trimmed, conversation);
             queue.push({ type: 'text.done', messageId, partId, content: reply });
             queue.push({ type: 'message.done', messageId });
-            await targetsRepo.logMessage(CHANNEL, { ...baseLog, direction: 'out', text: reply, status: 'ok', trigger: 'reply', source: 'rule' });
+            await targetsRepo.logMessage(this.channel, { ...baseLog, direction: 'out', text: reply, status: 'ok', trigger: 'reply', source: 'rule' });
             this.stats.replies += 1;
             return { outcome: 'completed' };
         }
@@ -204,8 +218,10 @@ class WeLinkProvider {
         let failure = null;
         let usage = null;
         const conversationRef = { kind: conversation.kind === 'group' ? 'group' : 'user', id: conversation.kind === 'group' ? conversation.groupId : conversation.senderAccount };
+        // 运营群组：叠加群画像、互动要求与运营话术规范（延迟加载，避免与运营服务循环依赖）
+        const opsNote = await require('./ops-service').interactionNote(this.channel, conversationRef.kind, conversationRef.id).catch(() => '');
         await dragonClawBridge.runTurn({
-            channel: CHANNEL,
+            channel: this.channel,
             account: conversation.senderAccount,
             conversation: conversationRef.id ? conversationRef : null,
             toolSessionId,
@@ -213,12 +229,12 @@ class WeLinkProvider {
             aiSessionId: stored?.aiSessionId || '',
             modelId: config.modelId,
             signal,
-            contextNote: `本次对话来自 WeLink ${conversation.kind === 'group' ? '群聊' : '单聊'}，发送人账号：${conversation.senderAccount || '未知'}。回复会显示在 WeLink 聊天窗口中，请使用简洁的 Markdown；不要输出平台内部相对链接以外的可执行内容。`,
+            contextNote: `本次对话来自 ${this.label} ${conversation.kind === 'group' ? '群聊' : '单聊'}，发送人：${conversation.senderName || '未设置备注'}（账号 ${conversation.senderAccount || '未知'}）。${this.accountIsReadable ? '' : '称呼对方时用备注名或直接说「你」，不要在回复里复述账号 ID。'}回复会显示在 ${this.label} 聊天窗口中，请使用简洁的 Markdown；不要输出平台内部相对链接以外的可执行内容。${opsNote ? `\n\n${opsNote}` : ''}`,
             onEvent: event => {
                 if (event.type === 'start' && event.sessionId) {
-                    if (event.sessionId !== stored?.aiSessionId) targetsRepo.bindAiSession(CHANNEL, toolSessionId, event.sessionId).catch(() => {});
+                    if (event.sessionId !== stored?.aiSessionId) targetsRepo.bindAiSession(this.channel, toolSessionId, event.sessionId).catch(() => {});
                     // 每个平台对话是该群/人时间线上的一段；/new 或换会话后从新段落开始
-                    if (conversationRef.id) followupsRepo.addSegment(CHANNEL, { ...conversationRef, toolSessionId, aiSessionId: event.sessionId }).catch(() => {});
+                    if (conversationRef.id) followupsRepo.addSegment(this.channel, { ...conversationRef, toolSessionId, aiSessionId: event.sessionId }).catch(() => {});
                 } else if (event.type === 'delta' && event.delta) {
                     streamed += event.delta;
                     queue.push({ type: 'text.delta', messageId, partId, content: String(event.delta) });
@@ -235,7 +251,7 @@ class WeLinkProvider {
         if (signal.aborted) {
             queue.push({ type: 'text.done', messageId, partId, content: `${streamed}${streamed ? '\n\n' : ''}（已停止生成）` });
             queue.push({ type: 'message.done', messageId, reason: 'aborted' });
-            await targetsRepo.logMessage(CHANNEL, { ...baseLog, direction: 'out', text: streamed, status: 'aborted', trigger: 'reply', source: 'dragon-claw' });
+            await targetsRepo.logMessage(this.channel, { ...baseLog, direction: 'out', text: streamed, status: 'aborted', trigger: 'reply', source: 'dragon-claw' });
             return { outcome: 'aborted' };
         }
         if (failure) {
@@ -244,20 +260,20 @@ class WeLinkProvider {
             const content = `${streamed}${streamed ? '\n\n' : ''}⚠️ ${failure}`;
             queue.push({ type: 'text.done', messageId, partId, content });
             queue.push({ type: 'message.done', messageId, reason: 'error' });
-            await targetsRepo.logMessage(CHANNEL, { ...baseLog, direction: 'out', text: content, status: 'error', trigger: 'reply', source: 'dragon-claw', error: failure });
+            await targetsRepo.logMessage(this.channel, { ...baseLog, direction: 'out', text: content, status: 'error', trigger: 'reply', source: 'dragon-claw', error: failure });
             return { outcome: 'failed', error: { code: 'provider_unavailable', message: failure.slice(0, 300), retryable: true } };
         }
         const content = finalText || streamed || '（无回复内容）';
         queue.push({ type: 'text.done', messageId, partId, content });
         queue.push({ type: 'message.done', messageId, ...(usage?.tokens ? { tokens: usage.tokens } : {}), ...(usage ? { cost: usage.cost } : {}) });
-        await targetsRepo.logMessage(CHANNEL, { ...baseLog, direction: 'out', text: content, status: 'ok', trigger: 'reply', source: 'dragon-claw' });
+        await targetsRepo.logMessage(this.channel, { ...baseLog, direction: 'out', text: content, status: 'ok', trigger: 'reply', source: 'dragon-claw' });
         this.stats.replies += 1;
         return { outcome: 'completed', usage: usage || undefined };
     }
 
     ruleReply(text, conversation) {
         if (/^(你好|您好|hello|hi|嗨|在吗)/i.test(text)) {
-            return `👋 你好${conversation.senderAccount ? `，${conversation.senderAccount}` : ''}！我是平台助理。输入 /help 查看可用命令。`;
+            return `👋 你好${conversation.greetName ? `，${conversation.greetName}` : ''}！我是平台助理。输入 /help 查看可用命令。`;
         }
         return `收到：「${text.slice(0, 200)}」\n\n当前助理为规则回复模式，管理员可在「全局设置 › 频道对接」切换为 Dragon Claw 智能回复。输入 /help 查看命令。`;
     }
@@ -267,7 +283,7 @@ class WeLinkProvider {
             return ['📖 可用命令：', ...SLASH_COMMANDS.map(item => `- \`${item.command}\` ${item.description}`), '', '直接发送文字即可与 Dragon Claw 对话，可询问平台工具、指标与报表数据。'].join('\n');
         }
         if (command === '/new') {
-            await targetsRepo.bindAiSession(CHANNEL, toolSessionId, null);
+            await targetsRepo.bindAiSession(this.channel, toolSessionId, null);
             return '🆕 已开启新对话，之前的上下文不再参与回答。';
         }
         if (command === '/whoami') {
@@ -298,7 +314,7 @@ class WeLinkProvider {
     }
 
     async closeSession(input = {}) {
-        await this.inTenant(() => targetsRepo.closeSession(CHANNEL, String(input.toolSessionId || '')));
+        await this.inTenant(() => targetsRepo.closeSession(this.channel, String(input.toolSessionId || '')));
         return { applied: true };
     }
 

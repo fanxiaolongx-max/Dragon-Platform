@@ -1,4 +1,4 @@
-// 首页对话侧栏的「WeLink」分类：按群/人合并的频道对话历史（只读）、对话上方的任务进度条，
+// 首页对话侧栏的频道分类（WeLink / 微信，只显示已对接的频道）：按群/人合并的频道对话历史（只读）、对话上方的任务进度条，
 // 以及右侧工作区的「跟进与记忆」卡片（任务、提醒人、频率、下次提醒、跟进记录、关闭情况）。
 // - 对话区借用 Dragon Claw 的渲染（window.DragonClaw.enterExternal），新对话 / 打开个人历史时自动退出；
 // - 右侧卡片借用工作区面板（window.DragonClawWorkspace.showExternal），工作区未启用时也可显示；
@@ -6,50 +6,57 @@
 (function () {
     'use strict';
 
-    const API = '/api/channels/welink';
+    const API_BASE = '/api/channels';
+    const CHANNEL_IDS = ['welink', 'weixin'];
     const SOURCE_KEY = 'home_chat_source';
     const PAGE_SIZE = 40;
     const REFRESH_MS = 20000;
+    const LIVE_MS = 4000; // 打开的会话轮询新消息的间隔
 
     const TEXT = {
         'zh-CN': {
-            mine: '我的对话', welink: 'WeLink', group: '群聊', person: '单聊', loading: '正在加载…', empty: '还没有 WeLink 对话', noMatch: '没有匹配的 WeLink 对话',
+            mine: '我的对话', welink: 'WeLink', weixin: '微信', group: '群聊', person: '单聊', loading: '正在加载…', empty: '还没有 {ch} 对话', noMatch: '没有匹配的 {ch} 对话',
             loadFailed: '加载失败', retry: '重试', openTasks: '{n} 项跟进中', allDone: '跟进已完成', segments: '{n} 段对话', messages: '{n} 条消息',
-            readonly: '只读 · 这是 WeLink {kind}「{name}」的对话记录，在 WeLink 里 @助手 即可继续对话。', back: '返回我的对话',
-            banner: 'WeLink {kind} · {name}', start: '对话开始', newContext: '新的对话上下文', newContextHint: '之前的内容不再作为上下文', loadMore: '加载更早的消息', noMessages: '这个会话还没有对话记录',
-            followTitle: '跟进与记忆', followMeta: '{n} 跟进中', noTasks: '该对话还没有跟进任务。在 WeLink 里对助手说「帮我记一下，后边跟进…」即可创建。',
+            readonly: '只读 · 这是 {ch} {kind}「{name}」的对话记录，在 {ch} 里 @助手 即可继续对话。', back: '返回我的对话',
+            banner: '{ch} {kind} · {name}', start: '对话开始', newContext: '新的对话上下文', newContextHint: '之前的内容不再作为上下文', loadMore: '加载更早的消息', noMessages: '这个会话还没有对话记录',
+            followTitle: '跟进与记忆', followMeta: '{n} 跟进中', noTasks: '该对话还没有跟进任务。在 {ch} 里对助手说「帮我记一下，后边跟进…」即可创建。',
             stageStart: '开始', stageActive: '进行', stageEnd: '结束', cancelledEnd: '已取消', details: '跟进详情',
             status_open: '跟进中', status_paused: '已暂停', status_done: '已完成', status_cancelled: '已取消',
             urgency_low: '低', urgency_normal: '普通', urgency_high: '高', urgency_urgent: '紧急',
             remindWho: '提醒', everyone: '群内相关人', frequency: '频率', urgency: '紧急度', nextRemind: '下次提醒', nextNote: '跟进内容', reminded: '已提醒 {n} 次', lastReminded: '上次 {time}',
             progress: '最新进展', noProgress: '暂无更新', closed: '关闭', closedBy: '{time} · {who}', due: '截止', creator: '提出人', detail: '任务详情', timeline: '跟进记录',
-            done: '完成', pause: '暂停', resume: '恢复', reopen: '重新打开', cancel: '取消任务', remindNow: '立即提醒', confirmRemind: '立即在 WeLink 中发送一次提醒？', confirmRemindTitle: '立即提醒',
+            done: '完成', pause: '暂停', resume: '恢复', reopen: '重新打开', cancel: '取消任务', remindNow: '立即提醒', confirmRemind: '立即在 {ch} 中发送一次提醒？', confirmRemindTitle: '立即提醒',
             confirmClose: '确认将「{title}」标记为{action}？', actionFailed: '操作失败：{error}', updated: '已更新', timezone: '时间为 {zone} 时间',
             event_created: '创建任务', event_updated: '修改任务', event_progress: '进展', event_reminded: '发送提醒', event_remind_failed: '提醒发送失败', event_paused: '暂停提醒', event_resumed: '恢复提醒',
             event_done: '完成', event_cancelled: '取消', event_reopened: '重新打开', event_limit: '达到提醒上限', chip_created: '已记录跟进任务', chip_exists: '任务已存在', chip_updated: '更新了跟进任务', chip_progress: '记录了进展', chip_done: '完成了跟进任务', chip_cancelled: '取消了跟进任务',
-            prevTask: '上一个任务', nextTask: '下一个任务', system: '系统'
+            readonly_weixin: '只读 · 这是微信{kind}「{name}」的对话记录，在微信里给助手发消息即可继续对话。', noTasks_weixin: '微信对话暂不支持跟进任务。',
+            prevTask: '上一个任务', nextTask: '下一个任务', system: '系统',
+            push: '主动推送', push_ops: '运营推送', push_test: '测试推送', push_followup: '跟进提醒'
         },
         'en-US': {
-            mine: 'My chats', welink: 'WeLink', group: 'Group', person: 'Direct', loading: 'Loading…', empty: 'No WeLink conversations yet', noMatch: 'No matching WeLink conversations',
+            mine: 'My chats', welink: 'WeLink', weixin: 'WeChat', group: 'Group', person: 'Direct', loading: 'Loading…', empty: 'No {ch} conversations yet', noMatch: 'No matching {ch} conversations',
             loadFailed: 'Could not load', retry: 'Retry', openTasks: '{n} in follow-up', allDone: 'Follow-ups done', segments: '{n} contexts', messages: '{n} messages',
-            readonly: 'Read only · WeLink {kind} "{name}". @mention the assistant in WeLink to continue.', back: 'Back to my chats',
-            banner: 'WeLink {kind} · {name}', start: 'Conversation start', newContext: 'New conversation context', newContextHint: 'Earlier messages are no longer in context', loadMore: 'Load earlier messages', noMessages: 'No messages in this conversation yet',
-            followTitle: 'Follow-ups & memory', followMeta: '{n} open', noTasks: 'No follow-up tasks yet. Ask the assistant in WeLink to "note this and follow up…".',
+            readonly: 'Read only · {ch} {kind} "{name}". @mention the assistant in {ch} to continue.', back: 'Back to my chats',
+            banner: '{ch} {kind} · {name}', start: 'Conversation start', newContext: 'New conversation context', newContextHint: 'Earlier messages are no longer in context', loadMore: 'Load earlier messages', noMessages: 'No messages in this conversation yet',
+            followTitle: 'Follow-ups & memory', followMeta: '{n} open', noTasks: 'No follow-up tasks yet. Ask the assistant in {ch} to "note this and follow up…".',
             stageStart: 'Start', stageActive: 'In progress', stageEnd: 'Done', cancelledEnd: 'Cancelled', details: 'Details',
             status_open: 'Open', status_paused: 'Paused', status_done: 'Done', status_cancelled: 'Cancelled',
             urgency_low: 'Low', urgency_normal: 'Normal', urgency_high: 'High', urgency_urgent: 'Urgent',
             remindWho: 'Remind', everyone: 'Group members', frequency: 'Frequency', urgency: 'Urgency', nextRemind: 'Next reminder', nextNote: 'Ask about', reminded: 'Reminded {n}×', lastReminded: 'last {time}',
             progress: 'Latest progress', noProgress: 'No update yet', closed: 'Closed', closedBy: '{time} · {who}', due: 'Due', creator: 'Raised by', detail: 'Task details', timeline: 'Follow-up log',
-            done: 'Done', pause: 'Pause', resume: 'Resume', reopen: 'Reopen', cancel: 'Cancel task', remindNow: 'Remind now', confirmRemind: 'Send a reminder in WeLink now?', confirmRemindTitle: 'Remind now',
+            done: 'Done', pause: 'Pause', resume: 'Resume', reopen: 'Reopen', cancel: 'Cancel task', remindNow: 'Remind now', confirmRemind: 'Send a reminder in {ch} now?', confirmRemindTitle: 'Remind now',
             confirmClose: 'Mark "{title}" as {action}?', actionFailed: 'Failed: {error}', updated: 'Updated', timezone: 'Times shown in {zone}',
             event_created: 'Created', event_updated: 'Edited', event_progress: 'Progress', event_reminded: 'Reminder sent', event_remind_failed: 'Reminder failed', event_paused: 'Paused', event_resumed: 'Resumed',
             event_done: 'Done', event_cancelled: 'Cancelled', event_reopened: 'Reopened', event_limit: 'Reminder limit reached', chip_created: 'Follow-up recorded', chip_exists: 'Task already exists', chip_updated: 'Follow-up updated', chip_progress: 'Progress recorded', chip_done: 'Follow-up completed', chip_cancelled: 'Follow-up cancelled',
-            prevTask: 'Previous task', nextTask: 'Next task', system: 'System'
+            readonly_weixin: 'Read only · WeChat {kind} "{name}". Message the assistant in WeChat to continue.', noTasks_weixin: 'Follow-up tasks are not available for WeChat yet.',
+            prevTask: 'Previous task', nextTask: 'Next task', system: 'System',
+            push: 'Proactive push', push_ops: 'Ops push', push_test: 'Test push', push_followup: 'Follow-up reminder'
         }
     };
 
     const state = {
         source: 'mine',
+        channels: [], // 已对接的频道：[{ id, label, connected }]
         threads: [],
         loaded: false,
         failed: false,
@@ -65,6 +72,8 @@
         focus: 0,
         api: null,
         refreshTimer: null,
+        liveTimer: null,
+        liveBusy: false,
         listTimer: null,
         openSeq: 0,
         highlight: ''
@@ -75,9 +84,21 @@
         return window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'en-US' : 'zh-CN';
     }
 
+    /** 当前频道：打开的会话所属频道优先，否则为当前侧栏分类。 */
+    function currentChannel() {
+        return state.active?.channel || (state.source !== 'mine' ? state.source : 'welink');
+    }
+
+    // 文案里的 {ch} 自动换成频道名；有「key_频道」的专属文案时优先使用
     function tx(key, params = {}) {
-        const template = TEXT[lang()][key] ?? TEXT['zh-CN'][key] ?? key;
-        return Object.keys(params).reduce((text, name) => text.replaceAll(`{${name}}`, params[name]), template);
+        const channel = currentChannel();
+        const table = TEXT[lang()];
+        const template = table[`${key}_${channel}`] ?? table[key] ?? TEXT['zh-CN'][key] ?? key;
+        const ch = table[channel] || channel;
+        // 中文频道名（微信）两侧不留西文间隔：「还没有微信对话」而不是「还没有 微信 对话」
+        const filled = /^[\u4e00-\u9fff]+$/.test(ch) ? template.replace(/ ?\{ch\} ?/g, '{ch}') : template;
+        params = { ch, ...params };
+        return Object.keys(params).reduce((text, name) => text.replaceAll(`{${name}}`, params[name]), filled);
     }
 
     function escapeHtml(value) {
@@ -148,7 +169,7 @@
         el.tabs = document.createElement('div');
         el.tabs.className = 'home-chat-tabs';
         el.tabs.setAttribute('role', 'tablist');
-        el.tabs.innerHTML = `<button type="button" role="tab" data-chat-source="mine"></button><button type="button" role="tab" data-chat-source="welink"></button><i class="home-chat-tabs-ink" aria-hidden="true"></i>`;
+        el.tabs.hidden = true; // 没有对接任何频道时只有「我的对话」，不显示分类
         el.chatList.before(el.tabs);
         el.list = document.createElement('div');
         el.list.className = 'home-chat-list wl-list';
@@ -166,31 +187,60 @@
             if (item) openThread(state.threads[Number(item.dataset.wlThread)]);
         });
         el.search?.addEventListener('input', () => {
-            if (state.source !== 'welink') return;
+            if (state.source === 'mine') return;
             clearTimeout(state.listTimer);
             state.listTimer = setTimeout(loadThreads, 220);
         });
         return true;
     }
 
+    function sources() {
+        return ['mine', ...state.channels.map(item => item.id)];
+    }
+
     function renderTabs() {
         if (!el.tabs) return;
+        const list = sources();
+        if (el.tabs.dataset.sources !== list.join(',')) {
+            el.tabs.dataset.sources = list.join(',');
+            el.tabs.innerHTML = `${list.map(source => `<button type="button" role="tab" data-chat-source="${source}"></button>`).join('')}<i class="home-chat-tabs-ink" aria-hidden="true"></i>`;
+        }
+        el.tabs.hidden = list.length < 2;
+        el.tabs.style.setProperty('--tab-count', String(list.length));
+        el.tabs.style.setProperty('--tab-index', String(Math.max(0, list.indexOf(state.source))));
         el.tabs.querySelectorAll('[data-chat-source]').forEach(button => {
             const selected = button.dataset.chatSource === state.source;
-            button.textContent = tx(button.dataset.chatSource);
+            button.textContent = TEXT[lang()][button.dataset.chatSource] || button.dataset.chatSource;
             button.setAttribute('aria-selected', String(selected));
             button.classList.toggle('is-active', selected);
         });
         el.tabs.dataset.active = state.source;
     }
 
-    function setSource(source) {
-        state.source = source === 'welink' ? 'welink' : 'mine';
-        storeSet(SOURCE_KEY, state.source);
+    function setSource(source, { remember = true } = {}) {
+        const next = sources().includes(source) ? source : 'mine';
+        const changed = next !== state.source;
+        state.source = next;
+        if (remember) storeSet(SOURCE_KEY, state.source);
+        if (changed) Object.assign(state, { threads: [], loaded: false, failed: false });
         renderTabs();
-        el.chatList.hidden = state.source === 'welink';
-        el.list.hidden = state.source !== 'welink';
-        if (state.source === 'welink') loadThreads();
+        el.chatList.hidden = state.source !== 'mine';
+        el.list.hidden = state.source === 'mine';
+        if (state.source !== 'mine') loadThreads();
+    }
+
+    /** 读取已对接的频道，刷新分类；当前分类的频道被停用时回到「我的对话」。 */
+    async function loadChannels() {
+        try {
+            const data = await request('GET', `${API_BASE}/available`);
+            state.channels = (Array.isArray(data.items) ? data.items : []).filter(item => CHANNEL_IDS.includes(item.id));
+        } catch {
+            return; // 读取失败保持现状
+        }
+        const stored = storeGet(SOURCE_KEY);
+        if (state.source === 'mine' && stored && stored !== 'mine' && sources().includes(stored)) setSource(stored);
+        else if (!sources().includes(state.source)) setSource('mine', { remember: false });
+        else renderTabs();
     }
 
     async function loadThreads() {
@@ -198,7 +248,7 @@
         if (!state.loaded) renderThreads();
         try {
             const query = el.search?.value.trim() || '';
-            const data = await request('GET', `${API}/threads?limit=200&q=${encodeURIComponent(query)}`);
+            const data = await request('GET', `${API_BASE}/${state.source}/threads?limit=200&q=${encodeURIComponent(query)}`);
             if (seq !== state.seq) return;
             state.threads = Array.isArray(data.items) ? data.items : [];
             state.failed = false;
@@ -225,7 +275,7 @@
             return;
         }
         el.list.innerHTML = state.threads.map((thread, index) => {
-            const active = state.active && state.active.kind === thread.kind && state.active.id === thread.id;
+            const active = state.active && state.active.channel === state.source && state.active.kind === thread.kind && state.active.id === thread.id;
             const open = thread.tasks?.open || 0;
             const finished = (thread.tasks?.done || 0) + (thread.tasks?.cancelled || 0);
             const badge = open
@@ -243,11 +293,12 @@
     // ── 打开会话：只读时间线 ───────────────────────────
     async function openThread(thread) {
         if (!thread) return;
+        const channel = CHANNEL_IDS.includes(thread.channel) ? thread.channel : (state.source !== 'mine' ? state.source : 'welink');
         const api = window.DragonClaw?.enterExternal?.({ onExit: ({ switching } = {}) => leaveThread(switching) });
         if (!api) return;
         const seq = ++state.openSeq;
         state.api = api;
-        state.active = { kind: thread.kind, id: thread.id, name: thread.name };
+        state.active = { channel, kind: thread.kind, id: thread.id, name: thread.name };
         state.items = [];
         state.segments = [];
         state.tasks = [];
@@ -260,7 +311,7 @@
         // 跟进卡片独立加载，不让较慢的侧栏请求挡住对话正文。
         loadTasks(seq);
         try {
-            const page = await request('GET', `${API}/threads/${thread.kind}/${encodeURIComponent(thread.id)}/messages?limit=${PAGE_SIZE}`);
+            const page = await request('GET', `${API_BASE}/${state.active.channel}/threads/${thread.kind}/${encodeURIComponent(thread.id)}/messages?limit=${PAGE_SIZE}`);
             if (seq !== state.openSeq) return;
             state.active.name = page.thread?.name || thread.name;
             state.items = page.items || [];
@@ -277,11 +328,41 @@
         state.refreshTimer = setInterval(() => {
             if (document.visibilityState === 'visible' && state.active) loadTasks(state.openSeq);
         }, REFRESH_MS);
+        clearInterval(state.liveTimer);
+        state.liveTimer = setInterval(pollNewMessages, LIVE_MS);
+    }
+
+    /** 频道里有新对话时追加到打开的时间线：停在底部则跟随到最新，往上翻看时保持位置。 */
+    async function pollNewMessages() {
+        if (!state.active || !state.api || state.liveBusy || state.loadingMore || document.visibilityState !== 'visible') return;
+        if (state.api.thread.hasAttribute('aria-busy')) return; // 首屏还在加载
+        const seq = state.openSeq;
+        state.liveBusy = true;
+        try {
+            const page = await request('GET', `${API_BASE}/${state.active.channel}/threads/${state.active.kind}/${encodeURIComponent(state.active.id)}/messages?limit=${PAGE_SIZE}`);
+            if (seq !== state.openSeq) return;
+            const known = new Set(state.items.map(item => item.id));
+            const fresh = (page.items || []).filter(item => !known.has(item.id));
+            if (!fresh.length) return;
+            const thread = state.api.thread;
+            const atBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 120;
+            if (!state.items.length) state.hasMore = Boolean(page.hasMore);
+            state.items = [...state.items, ...fresh];
+            state.segments = page.segments || state.segments;
+            renderTimeline({ scroll: atBottom ? 'bottom' : 'stay' });
+            if (state.source === state.active.channel) loadThreads(); // 侧栏的最后一条消息与时间一起更新
+        } catch {
+            /* 轮询失败等下一轮 */
+        } finally {
+            state.liveBusy = false;
+        }
     }
 
     function leaveThread(switching) {
         clearInterval(state.refreshTimer);
         state.refreshTimer = null;
+        clearInterval(state.liveTimer);
+        state.liveTimer = null;
         state.openSeq += 1;
         if (switching) return; // 切换到另一个 WeLink 会话：保留界面骨架
         state.active = null;
@@ -355,6 +436,7 @@
         thread.querySelector('[data-wl-more]')?.addEventListener('click', loadOlder);
         if (scroll === 'bottom') thread.scrollTop = thread.scrollHeight;
         else if (scroll === 'keep') thread.scrollTop = thread.scrollHeight - previousHeight + previousTop;
+        else if (scroll === 'stay') thread.scrollTop = previousTop;
     }
 
     function renderMessage(item) {
@@ -378,8 +460,18 @@
         }
         const meta = document.createElement('div');
         meta.className = 'wl-msg-meta';
-        meta.textContent = [item.role === 'user' && state.active.kind === 'group' ? item.sender : '', api.formatTime(item.createdAt)].filter(Boolean).join(' · ');
+        meta.textContent = [item.role === 'user' && state.active.kind === 'group' ? item.sender : '', pushLabel(item.push), api.formatTime(item.createdAt)].filter(Boolean).join(' · ');
         main.prepend(meta);
+    }
+
+    /** 主动推送的来源标签：运营计划 / 测试推送 / 跟进提醒 / 其他主动推送。 */
+    function pushLabel(push) {
+        if (!push) return '';
+        const source = String(push.source || '');
+        const ops = /^(ops|ops-test):([^@]+)/.exec(source);
+        if (source.startsWith('followup:')) return `📣 ${tx('push_followup')}`;
+        if (ops) return `📣 ${tx(ops[1] === 'ops-test' ? 'push_test' : 'push_ops')}「${ops[2].trim()}」`;
+        return `📣 ${tx('push')}`;
     }
 
     async function loadOlder() {
@@ -388,7 +480,7 @@
         const seq = state.openSeq;
         renderTimeline({ scroll: 'keep' });
         try {
-            const page = await request('GET', `${API}/threads/${state.active.kind}/${encodeURIComponent(state.active.id)}/messages?limit=${PAGE_SIZE}&before=${encodeURIComponent(state.items[0].id)}`);
+            const page = await request('GET', `${API_BASE}/${state.active.channel}/threads/${state.active.kind}/${encodeURIComponent(state.active.id)}/messages?limit=${PAGE_SIZE}&before=${encodeURIComponent(state.items[0].id)}`);
             if (seq !== state.openSeq) return;
             state.items = [...(page.items || []), ...state.items];
             state.hasMore = Boolean(page.hasMore);
@@ -403,7 +495,7 @@
     // ── 跟进任务：进度条 + 右侧卡片 ─────────────────────
     async function loadTasks(seq) {
         try {
-            const data = await request('GET', `${API}/threads/${state.active.kind}/${encodeURIComponent(state.active.id)}/followups`);
+            const data = await request('GET', `${API_BASE}/${state.active.channel}/threads/${state.active.kind}/${encodeURIComponent(state.active.id)}/followups`);
             if (seq !== state.openSeq) return;
             const focusedId = state.tasks[state.focus]?.id;
             state.tasks = Array.isArray(data.items) ? data.items : [];
@@ -588,8 +680,8 @@
         button.disabled = true;
         try {
             const data = action === 'remind'
-                ? await request('POST', `${API}/followups/${encodeURIComponent(id)}/remind`)
-                : await request('PATCH', `${API}/followups/${encodeURIComponent(id)}`, { action });
+                ? await request('POST', `${API_BASE}/${state.active.channel}/followups/${encodeURIComponent(id)}/remind`)
+                : await request('PATCH', `${API_BASE}/${state.active.channel}/followups/${encodeURIComponent(id)}`, { action });
             replaceTask(data.item);
             toast(tx('updated'));
         } catch (error) {
@@ -603,7 +695,7 @@
         if (!select) return;
         const id = select.closest('[data-wl-task-id]')?.dataset.wlTaskId;
         try {
-            const data = await request('PATCH', `${API}/followups/${encodeURIComponent(id)}`, { urgency: select.value, scheduleMode: 'auto' });
+            const data = await request('PATCH', `${API_BASE}/${state.active.channel}/followups/${encodeURIComponent(id)}`, { urgency: select.value, scheduleMode: 'auto' });
             replaceTask(data.item);
             toast(tx('updated'));
         } catch (error) {
@@ -623,7 +715,7 @@
 
     function applyTexts() {
         renderTabs();
-        if (state.source === 'welink') renderThreads();
+        if (state.source !== 'mine') renderThreads();
         if (state.active) {
             renderReadonly();
             renderStage();
@@ -635,10 +727,13 @@
 
     function init() {
         if (!mountTabs()) return;
-        setSource(storeGet(SOURCE_KEY) === 'welink' ? 'welink' : 'mine');
+        setSource('mine', { remember: false });
+        loadChannels();
         window.addEventListener('tools:languagechange', applyTexts);
         setInterval(() => {
-            if (state.source === 'welink' && document.visibilityState === 'visible' && !el.list.hidden) loadThreads();
+            if (document.visibilityState !== 'visible') return;
+            loadChannels();
+            if (state.source !== 'mine' && !el.list.hidden) loadThreads();
         }, 60000);
     }
 

@@ -435,7 +435,7 @@ app.use('/api', (req, res, next) => {
     if (req.method === 'POST' && req.path === '/ai/chat') return next(); // 登录用户都可对话；工作区内非管理员只拿到只读工具（路由与 agent-run-manager 内校验）
     if (req.method === 'POST' && req.path === '/ai/compact') return next(); // 登录用户仅可压缩本人会话的模型上下文，路由内校验归属
     if (req.method === 'POST' && req.path === '/report-msg/export') return next(); // 仅生成并返回当前用户的月报文件
-    if (req.method === 'POST' && req.path === '/channels/welink/push') return next(); // 路由内校验：管理员，或已开放普通用户推送且目标在默认推送范围内
+    if (req.method === 'POST' && /^\/channels\/(?:welink|weixin)\/push$/.test(req.path)) return next(); // 路由内校验：管理员，或已开放普通用户推送且目标在默认推送范围内
     if (/^\/agent-workspace(?:\/.*)?$/.test(req.path)) return next(); // 路由内按本机/桌面/管理员门禁与会话归属校验
     if (req.method !== 'GET') {
         return requireAdmin(req, res, next);
@@ -475,7 +475,7 @@ app.use('/api/recent-nav', require('./routes/recent-nav')); // 按租户和账�
 app.use('/api/desktop-pet', require('./routes/desktop-pet'));
 app.use('/api/ai-settings', aiSettingsRoutes); // Dragon Claw 智能体模型配置 API
 app.use('/api/agent-workspace', require('./routes/agent-workspace')); // Dragon Claw 工作区：本地目录联想、审批、变更撤销
-app.use('/api/channels', require('./routes/channels')); // 频道对接（WeLink 助理）：配置、连通性、名单、主动推送
+app.use('/api/channels', require('./routes/channels')); // 频道对接（WeLink / 微信助理）：配置、连通性、名单、主动推送
 app.use('/api/global-backup', globalBackupRoutes); // 当前租户核心数据备份与恢复 API（保留历史路由名）
 app.use('/api/external/metrics', externalMetricsRoutes); // 外部/移动端只读指标 API
 app.use('/api/alert-center', alertCenterRoutes); // 系统告警台 API
@@ -694,8 +694,15 @@ async function startServer() {
             require('./models/channels/welink-bridge-service')
                 .autoStartAll(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id))
                 .catch(err => console.error('[WeLink] 自动连接失败：', err.message));
+            // 微信助理（iLink bot）：已启用的租户自动开始长轮询
+            require('./models/channels/weixin-bridge-service')
+                .autoStartAll(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id))
+                .catch(err => console.error('[Weixin] 自动连接失败：', err.message));
             // 频道跟进任务：每分钟检查到期提醒，在原群/单聊 @ 相关人
             require('./models/channels/followup-scheduler')
+                .start(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id));
+            // 自动化运营：每分钟检查到期的运营计划，生成草稿或推送到运营群组
+            require('./models/channels/ops-service')
                 .start(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id));
         }, 5000);
     });

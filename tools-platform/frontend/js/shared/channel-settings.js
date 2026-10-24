@@ -1,4 +1,5 @@
-// 全局设置 › 频道对接：WeLink 助理的连接配置、扫码授权、连通性测试、黑白名单、推送范围、联系人与日志。
+// 全局设置 › 频道对接：WeLink / 微信助理的连接配置、扫码授权、连通性测试、黑白名单、推送范围、联系人与日志。
+// 两个频道只有「运行状态」「连接配置」不同，助理行为、访问控制、主动推送、联系人、日志共用同一套卡片。
 // 由 navbar.js 在切换到 channels 标签时按需加载；依赖 channels.js（目标选择器与 API）与 qr-code.js。
 (function () {
     'use strict';
@@ -27,7 +28,15 @@
         blacklist: ['黑名单禁止', 'Blocklist']
     };
 
+    const CHANNEL_TABS = [
+        { id: 'welink', icon: '💼', label: ['WeLink', 'WeLink'] },
+        { id: 'weixin', icon: '💬', label: ['微信', 'WeChat'] },
+        { id: 'ops', icon: '📣', label: ['运营', 'Ops'] } // 自动化运营群组（channel-ops-settings.js）
+    ];
+    const CHANNEL_STORE_KEY = 'tools_channel_settings_tab';
+
     const view = {
+        channel: (() => { try { const saved = localStorage.getItem(CHANNEL_STORE_KEY); return ['weixin', 'ops'].includes(saved) ? saved : 'welink'; } catch (_) { return 'welink'; } })(),
         content: null,
         config: null,
         draft: null,
@@ -48,14 +57,24 @@
     const MESSAGE_PAGE_SIZE = 30;
     const MESSAGE_PREVIEW_CHARS = 300;
 
-    const api = (...args) => window.ToolsChannels.request(...args);
+    const api = (method, path, body) => window.ToolsChannels.request(method, path, body, view.channel);
+    const isWeixin = () => view.channel === 'weixin';
+    const isOps = () => view.channel === 'ops';
+    const channelLabel = () => (isWeixin() ? L('微信', 'WeChat') : 'WeLink');
     const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 
-    function loadScript(src, globalName) {
-        if (window[globalName]) return Promise.resolve();
-        return new Promise((resolve, reject) => {
+    // 按需加载的组件带上内容版本号（与 navbar 的 loadNavLazyScript 一致），更新后浏览器不会继续用旧缓存
+    async function loadScript(src, globalName) {
+        if (window[globalName]) return;
+        let url = src;
+        try {
+            const res = await fetch(`/api/asset-version?path=${encodeURIComponent(src)}`, { cache: 'no-store' });
+            const data = res.ok ? await res.json() : null;
+            if (data && data.version) url = `${src}?v=${encodeURIComponent(data.version)}`;
+        } catch (_) { /* 拿不到版本号时按原地址加载 */ }
+        await new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = src;
+            script.src = url;
             script.onload = resolve;
             script.onerror = () => reject(new Error(`${src} load failed`));
             document.head.appendChild(script);
@@ -136,6 +155,13 @@
 .nch-link.danger{color:#b91c1c}
 .nch-code{margin:8px 0 0;padding:10px 12px;border-radius:8px;background:#0f172a;color:#e2e8f0;font-size:11px;line-height:1.6;overflow:auto;white-space:pre}
 .nch-diag pre{max-height:320px;overflow:auto;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:10px;font-size:11px;white-space:pre-wrap;word-break:break-all}
+.nch-tabs{display:flex;gap:8px;flex-wrap:wrap}
+.nch-tab{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border-radius:9px;border:1px solid #cbd5e1;background:#fff;color:#334155;font-size:13px;font-weight:800;cursor:pointer}
+.nch-tab.active{background:#0f172a;border-color:#0f172a;color:#fff}
+.nch-tab i{width:7px;height:7px;border-radius:50%;background:#cbd5e1;display:inline-block}
+.nch-tab i.ok{background:#22c55e}
+.nch-kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px 14px;margin-top:10px;font-size:12px}
+.nch-kv div{min-width:0;word-break:break-all}.nch-kv b{color:#475569;margin-right:6px}
 .nch-savebar{position:sticky;bottom:0;display:flex;gap:10px;align-items:center;justify-content:flex-end;padding:10px 12px;margin-top:-4px;border:1px solid #e2e8f0;border-radius:12px;background:rgba(255,255,255,.96);box-shadow:0 -6px 18px rgba(15,23,42,.06);z-index:2}
 .nch-savebar span{margin-right:auto;font-size:12px;color:#64748b}
 .nch-savebar span.dirty{color:#b45309;font-weight:800}
@@ -146,6 +172,12 @@
 
     // ── 数据 ─────────────────────────────────────────────
     async function loadAll() {
+        if (isOps()) {
+            // 运营面板自己加载数据；这里只占位，避免频道相关逻辑读到空配置
+            Object.assign(view, { config: {}, draft: {}, status: {}, dirty: false });
+            await loadScript('/js/shared/channel-ops-settings.js', 'ToolsChannelOps');
+            return;
+        }
         const [config, status, models] = await Promise.all([
             api('GET', '/config'),
             api('GET', '/status'),
@@ -154,6 +186,7 @@
         view.config = config;
         view.draft = clone(config);
         view.draft.sk = '';
+        view.draft.token = '';
         view.status = status;
         view.models = Array.isArray(models.items) ? models.items : (Array.isArray(models.models) ? models.models : []);
         view.dirty = false;
@@ -214,6 +247,7 @@
     }
 
     async function refreshStatus() {
+        if (isOps()) return;
         try {
             view.status = await api('GET', '/status');
             renderStatusCard();
@@ -246,14 +280,60 @@
     }
 
     // ── 渲染 ─────────────────────────────────────────────
-    function statePill(status) {
+    function statePill(status, name = L('网关', 'Gateway')) {
         const state = status?.runtime?.state || 'idle';
         const cls = state === 'ready' ? 'ok' : (['starting', 'reconnecting', 'stopping'].includes(state) ? 'warn' : (state === 'failed' ? 'bad' : ''));
         const label = STATE_LABEL[state] || [state, state];
-        return `<span class="nch-pill ${cls}"><i></i>${esc(L('网关', 'Gateway'))}：${esc(L(label[0], label[1]))}</span>`;
+        return `<span class="nch-pill ${cls}"><i></i>${esc(name)}：${esc(L(label[0], label[1]))}</span>`;
+    }
+
+    function renderWeixinStatusHtml() {
+        const status = view.status || {};
+        const summary = status.summary || {};
+        const running = Boolean(status.runtime && status.runtime.state !== 'idle');
+        const busy = view.busy;
+        const failure = status.runtime?.failureReason || status.lastError?.message;
+        const test = view.testResult;
+        const oc = status.openclaw || {};
+        const conflict = oc.sameToken && oc.pluginEnabled;
+        return `
+            <div class="nch-status">
+                <span class="nch-pill ${status.configured ? 'ok' : 'bad'}"><i></i>${esc(status.configured ? L('已登录 bot', 'Bot linked') : L('未登录', 'Not linked'))}</span>
+                ${statePill(status, L('长轮询', 'Polling'))}
+                <span class="nch-pill ${status.enabled ? 'ok' : ''}"><i></i>${esc(status.enabled ? L('已启用', 'Enabled') : L('未启用', 'Disabled'))}</span>
+                <span class="nch-muted">${esc(L(`联系人 ${summary.users || 0}（可推送 ${summary.pushableUsers || 0}）`, `Contacts ${summary.users || 0} (${summary.pushableUsers || 0} pushable)`))}</span>
+                <div class="nch-actions">
+                    <button type="button" class="nch-btn primary" data-action="test" ${busy ? 'disabled' : ''}>${esc(busy === 'test' ? L('测试中…', 'Testing…') : L('测试连通性', 'Test connection'))}</button>
+                    ${running
+                        ? `<button type="button" class="nch-btn" data-action="restart" ${busy ? 'disabled' : ''}>${esc(busy === 'restart' ? L('重启中…', 'Restarting…') : L('重启连接', 'Restart'))}</button>
+                           <button type="button" class="nch-btn danger" data-action="disconnect" ${busy ? 'disabled' : ''}>${esc(L('断开', 'Disconnect'))}</button>`
+                        : `<button type="button" class="nch-btn" data-action="connect" ${busy || !status.configured ? 'disabled' : ''}>${esc(busy === 'connect' ? L('连接中…', 'Connecting…') : L('立即连接', 'Connect'))}</button>`}
+                </div>
+            </div>
+            <div class="nch-kv">
+                <div><b>Bot</b>${esc(status.bot?.id || '—')}</div>
+                <div><b>${esc(L('绑定微信', 'Owner'))}</b>${esc(status.bot?.ownerUserId || '—')}</div>
+                <div><b>${esc(L('凭据来源', 'Source'))}</b>${esc(({ qrcode: L('平台扫码', 'QR login'), openclaw: L('OpenClaw 导入', 'From OpenClaw'), manual: L('手动', 'Manual') })[status.bot?.source] || '—')}</div>
+                <div><b>${esc(L('最近轮询', 'Last poll'))}</b>${esc(status.lastPollAt ? window.ToolsChannels.relativeTime(status.lastPollAt) : '—')}</div>
+            </div>
+            <div class="nch-sdk-row">
+                <span class="nch-muted">${esc(oc.available
+                    ? L(`本机 OpenClaw 已登录微信 bot ${oc.accountId}${oc.sameToken ? '（与平台当前使用的是同一个）' : ''}；OpenClaw 微信插件：${oc.pluginEnabled === false ? '已暂停' : '运行中'}`, `Local OpenClaw has WeChat bot ${oc.accountId}${oc.sameToken ? ' (same as the platform)' : ''}; OpenClaw WeChat plugin: ${oc.pluginEnabled === false ? 'paused' : 'running'}`)
+                    : L('未检测到本机 OpenClaw 的微信登录信息，可直接用下方「扫码登录」。', 'No local OpenClaw WeChat login found; use QR login below.'))}</span>
+                ${oc.available ? `<button type="button" class="nch-btn ${status.configured ? '' : 'primary'}" data-action="openclaw-import" ${busy ? 'disabled' : ''}>${esc(busy === 'openclaw-import' ? L('导入中…', 'Importing…') : L('导入 OpenClaw 微信凭据', 'Import from OpenClaw'))}</button>` : ''}
+                ${oc.available && oc.pluginEnabled !== false ? `<button type="button" class="nch-btn ${conflict ? 'primary' : ''}" data-action="openclaw-pause" ${busy ? 'disabled' : ''}>${esc(busy === 'openclaw-pause' ? L('暂停中…', 'Pausing…') : L('暂停 OpenClaw 微信', 'Pause OpenClaw WeChat'))}</button>` : ''}
+                ${oc.available && oc.pluginEnabled === false ? `<button type="button" class="nch-link" data-action="openclaw-resume" ${busy ? 'disabled' : ''}>${esc(L('恢复 OpenClaw 微信', 'Resume OpenClaw WeChat'))}</button>` : ''}
+            </div>
+            ${conflict ? `<div class="nch-alert">⚠️ ${esc(L('OpenClaw 微信插件仍在使用同一个 bot：一个 bot 同时只能由一个客户端收消息，两边会互相抢收。请点击「暂停 OpenClaw 微信」，优先保障本平台。', 'OpenClaw is still polling the same bot; only one client can receive messages. Pause the OpenClaw WeChat plugin.'))}</div>` : ''}
+            ${status.stale ? `<div class="nch-alert info">${esc(L('连接参数已修改，当前连接仍使用旧配置；点击「重启连接」生效。', 'Connection settings changed; restart the connection to apply them.'))}</div>` : ''}
+            ${failure && status.runtime?.state !== 'ready' ? `<div class="nch-alert bad">${esc(L('最近错误：', 'Last error: '))}${esc(failure)}</div>` : ''}
+            ${view.notice ? `<div class="nch-alert ${esc(view.notice.kind)}">${esc(view.notice.text)}</div>` : ''}
+            ${test ? `<div class="nch-alert ${test.ok ? 'ok' : 'bad'}"><b>${esc(test.ok ? L('连通性测试通过', 'Connection test passed') : L('连通性测试未通过', 'Connection test failed'))}</b>
+                <ul class="nch-steps">${test.steps.map(step => `<li><span>${step.ok ? '✅' : '❌'}</span><b>${esc(step.label)}</b><span>${esc(step.detail)}</span></li>`).join('')}</ul></div>` : ''}`;
     }
 
     function renderStatusCardHtml() {
+        if (isWeixin()) return renderWeixinStatusHtml();
         const status = view.status || {};
         const sdk = status.sdk || {};
         const summary = status.summary || {};
@@ -313,7 +393,28 @@
         return `<input data-path="${esc(path)}" value="${esc(value ?? '')}" ${attrs}>`;
     }
 
+    function renderWeixinConnectionCard() {
+        const d = view.draft;
+        const qr = view.qr;
+        return `
+            <h4>🔌 ${esc(L('连接配置', 'Connection'))}</h4>
+            <p class="nch-desc">${esc(L('平台通过微信 ClawBot（iLink 协议，与 OpenClaw 微信插件同一套接口）接入个人微信：可直接导入本机 OpenClaw 已登录的 bot，或在这里扫码登录一个。配置按租户隔离。', 'The platform connects to personal WeChat via ClawBot (iLink, the same API as the OpenClaw WeChat plugin): import the bot already linked in local OpenClaw, or scan to link one here. Settings are per tenant.'))}</p>
+            <label class="nch-switch" style="margin-bottom:12px"><input type="checkbox" data-path="enabled" ${d.enabled ? 'checked' : ''}> ${esc(L('启用微信助理（保存后自动连接，平台重启后自动恢复）', 'Enable WeChat assistant (connects after saving and on platform start)'))}</label>
+            <div class="nch-grid">
+                ${field('Bot Token', `<input type="password" data-path="token" value="" maxlength="500" autocomplete="new-password" placeholder="${esc(view.config.hasToken ? L(`已保存 ${view.config.maskedToken}，留空不修改`, `Saved ${view.config.maskedToken}; leave blank to keep`) : L('未设置，建议扫码或从 OpenClaw 导入', 'Not set; scan or import from OpenClaw'))}">`, L('只在服务端保存，界面与日志只显示掩码', 'Stored server-side only; masked in UI and logs'))}
+                ${field(L('接口地址', 'API base URL'), input('baseUrl', d.baseUrl, 'maxlength="500"'), L('扫码或导入时自动填写，一般无需修改', 'Filled by login/import; usually unchanged'))}
+                ${field('Bot Agent', input('botAgent', d.botAgent, 'maxlength="120"'), L('上报给微信的客户端标识（Name/Version）', 'Client identity reported to WeChat (Name/Version)'))}
+            </div>
+            <div class="nch-row">
+                <button type="button" class="nch-btn primary" data-action="qr" ${qr && qr.running ? 'disabled' : ''}>📱 ${esc(qr && qr.running ? L('等待扫码…', 'Waiting for scan…') : L('扫码登录', 'Scan to link'))}</button>
+                ${view.config.hasToken ? `<button type="button" class="nch-btn danger" data-action="clear-token">${esc(L('清除已保存 Token', 'Clear saved token'))}</button>` : ''}
+                <span class="nch-muted">${esc(L('用手机微信扫码并确认，成功后自动保存凭据并连接。', 'Scan with WeChat and confirm; credentials are saved and connected automatically.'))}</span>
+            </div>
+            ${qr ? renderQr(qr) : ''}`;
+    }
+
     function renderConnectionCard() {
+        if (isWeixin()) return renderWeixinConnectionCard();
         const d = view.draft;
         const qr = view.qr;
         return `
@@ -347,11 +448,12 @@
         }
         const messages = {
             starting: L('正在生成二维码…', 'Generating QR code…'),
-            qrcode_generated: L('请使用 WeLink 扫描二维码并确认授权。', 'Scan with WeLink and confirm.'),
+            qrcode_generated: isWeixin() ? L('请使用手机微信扫描二维码并确认。', 'Scan with WeChat and confirm.') : L('请使用 WeLink 扫描二维码并确认授权。', 'Scan with WeLink and confirm.'),
+            need_verifycode: qr.retry ? L('数字不匹配，请重新输入手机微信上显示的数字：', 'Mismatch. Re-enter the number shown in WeChat:') : L('请输入手机微信上显示的数字以继续：', 'Enter the number shown in WeChat to continue:'),
             scanned: L('已扫码，请在手机上确认授权…', 'Scanned. Confirm on your phone…'),
             expired: L('二维码已过期，正在刷新…', 'QR expired, refreshing…'),
             cancelled: L('已在手机上取消授权。', 'Authorization cancelled.'),
-            confirmed: L('授权成功，AK/SK 已保存。', 'Authorized. AK/SK saved.'),
+            confirmed: isWeixin() ? L('登录成功，凭据已保存。', 'Linked. Credentials saved.') : L('授权成功，AK/SK 已保存。', 'Authorized. AK/SK saved.'),
             failed: L('授权失败：', 'Authorization failed: '),
             error: L('授权失败：', 'Authorization failed: ')
         };
@@ -363,6 +465,7 @@
                 ${qr.expiresAt ? `<div>${esc(L('有效期至', 'Expires'))} ${esc(new Date(qr.expiresAt).toLocaleTimeString())}</div>` : ''}
                 ${display.pcUrl ? `<div><a href="${esc(display.pcUrl)}" target="_blank" rel="noopener">${esc(L('在 WeLink 桌面端打开授权', 'Open in WeLink desktop'))}</a></div>` : ''}
                 ${display.weUrl ? `<div class="nch-muted">${esc(display.weUrl)}</div>` : ''}
+                ${qr.type === 'need_verifycode' ? `<div class="nch-row"><input data-role="qr-verify-code" inputmode="numeric" maxlength="12" placeholder="${esc(L('手机上显示的数字', 'Number on phone'))}"><button type="button" class="nch-btn primary" data-action="qr-verify">${esc(L('提交', 'Submit'))}</button></div>` : ''}
                 ${qr.assistantInfo ? `<div>🤖 ${esc(qr.assistantInfo.name || '')} ${qr.assistantInfo.desc ? `· ${esc(qr.assistantInfo.desc)}` : ''}</div>` : ''}
             </div>
         </div>`;
@@ -373,7 +476,7 @@
         const modelOptions = view.models.map(model => `<option value="${esc(model.id)}" ${d.modelId === model.id ? 'selected' : ''}>${esc(model.name || model.id)}</option>`).join('');
         return `
             <h4>🧠 ${esc(L('助理行为', 'Assistant behavior'))}</h4>
-            <p class="nch-desc">${esc(L('WeLink 用户的消息默认交给 Dragon Claw 回答（只读平台知识与数据，不开放工作区与写操作），对话记录按「welink:账号」保存在聊天记录中心。', 'Messages are answered by Dragon Claw by default (read-only platform knowledge and data, no workspace or write tools). Conversations are saved in the chat history center as "welink:<account>".'))}</p>
+            <p class="nch-desc">${esc(L(`${channelLabel()} 用户的消息默认交给 Dragon Claw 回答（只读平台知识与数据，不开放工作区与写操作），对话记录按「${view.channel}:账号」保存在聊天记录中心。`, `Messages are answered by Dragon Claw by default (read-only platform knowledge and data, no workspace or write tools). Conversations are saved in the chat history center as "${view.channel}:<account>".`))}</p>
             <div class="nch-grid">
                 ${field(L('回复引擎', 'Reply engine'), `<select data-path="replyEngine"><option value="dragon-claw" ${d.replyEngine === 'dragon-claw' ? 'selected' : ''}>Dragon Claw ${esc(L('智能回复', 'AI reply'))}</option><option value="rule" ${d.replyEngine === 'rule' ? 'selected' : ''}>${esc(L('规则回复（不调用模型）', 'Rule reply (no model)'))}</option></select>`)}
                 ${field(L('对话模型', 'Model'), `<select data-path="modelId"><option value="">${esc(L('跟随当前激活方案', 'Follow active profile'))}</option>${modelOptions}</select>`, L('来自「AI 助手」中的模型映射', 'From model aliases in AI settings'))}
@@ -429,7 +532,7 @@
             : `<span class="nch-muted">${esc(L('未设置默认推送范围', 'No default recipients'))}</span>`;
         return `
             <h4>📨 ${esc(L('主动推送', 'Proactive push'))}</h4>
-            <p class="nch-desc">${esc(L('平台其他页面、后台任务与 Dragon Claw 可调用推送能力。未指定对象时推送到下方默认范围。只有与助理单聊过的人员、使用过助理的群才能接收推送（⚠️ 表示暂无可用会话）。', 'Other pages, background jobs and Dragon Claw can push messages. Without explicit recipients, messages go to the default scope below. Only people who have chatted with the assistant and groups that used it can receive pushes (⚠️ = no session yet).'))}</p>
+            <p class="nch-desc">${esc(isWeixin() ? L('平台其他页面、后台任务可调用推送能力（channel: \'weixin\'）。未指定对象时推送到下方默认范围。只有给助理发过消息的微信联系人才能接收推送（⚠️ 表示暂无可用会话）；微信助理暂不支持向群推送。', 'Other pages and jobs can push with channel \'weixin\'. Only contacts who have messaged the assistant can receive pushes (⚠️ = none yet); group push is not supported.') : L('平台其他页面、后台任务与 Dragon Claw 可调用推送能力。未指定对象时推送到下方默认范围。只有与助理单聊过的人员、使用过助理的群才能接收推送（⚠️ 表示暂无可用会话）。', 'Other pages, background jobs and Dragon Claw can push messages. Without explicit recipients, messages go to the default scope below. Only people who have chatted with the assistant and groups that used it can receive pushes (⚠️ = no session yet).'))}</p>
             <div class="nch-muted" style="margin-bottom:6px">${esc(L('默认推送范围', 'Default recipients'))} · ${push.defaultTargets.length}</div>
             <div class="nch-chips">${chips}</div>
             <div class="nch-row">
@@ -447,12 +550,12 @@
             </div>
             <details style="margin-top:10px"><summary class="nch-muted" style="cursor:pointer">${esc(L('开发者调用方式', 'Developer usage'))}</summary>
 <pre class="nch-code">// 前端页面（引入 /js/shared/channels.js）
-const targets = await ToolsChannels.pickTargets({ pushableOnly: true });
-await ToolsChannels.push({ text: '**月报已发布**', targets, source: '月报' });
+const targets = await ToolsChannels.pickTargets({ channel: '${view.channel}', pushableOnly: true });
+await ToolsChannels.push({ channel: '${view.channel}', text: '**月报已发布**', targets, source: '月报' });
 
 // 后端模块（请求上下文内，或先 runWithTenant）
 const channels = require('./models/channels');
-await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind: 'group', id: '群ID' }] });
+await channels.push({ channel: '${view.channel}', text: '告警：xxx', targets: [{ kind: '${isWeixin() ? 'user' : 'group'}', id: '${isWeixin() ? '微信用户ID' : '群ID'}' }] });
 
 // Dragon Claw（工作区模式）可调用工具 welink_list_targets / welink_send_message（需审批）</pre></details>`;
     }
@@ -525,8 +628,15 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
     function render() {
         const content = view.content;
         if (!content || !view.draft) return;
+        const tabs = `<div class="nch-tabs">${CHANNEL_TABS.map(tab => `<button type="button" class="nch-tab ${tab.id === view.channel ? 'active' : ''}" data-action="channel-tab" data-channel="${tab.id}">${tab.icon} ${esc(L(tab.label[0], tab.label[1]))}${tab.id === view.channel && tab.id !== 'ops' ? `<i class="${view.status?.connected ? 'ok' : ''}"></i>` : ''}</button>`).join('')}</div>`;
+        if (isOps()) {
+            content.innerHTML = `<div class="nch">${tabs}<div data-role="ops-root" style="display:flex;flex-direction:column;gap:14px"></div></div>`;
+            window.ToolsChannelOps.render(content.querySelector('[data-role="ops-root"]'));
+            return;
+        }
         content.innerHTML = `
             <div class="nch">
+                ${tabs}
                 <section class="nch-card" data-role="status-card"></section>
                 <section class="nch-card">${renderConnectionCard()}</section>
                 <section class="nch-card">${renderBehaviorCard()}</section>
@@ -603,16 +713,18 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
     async function save(extra = {}) {
         const payload = clone(view.draft);
         if (!payload.sk) delete payload.sk;
+        if (!payload.token) delete payload.token;
         Object.assign(payload, extra);
         const result = await api('PUT', '/config', payload);
         view.config = result.config;
         view.draft = clone(result.config);
         view.draft.sk = '';
+        view.draft.token = '';
         view.status = result.status;
         view.dirty = false;
         render();
         const st = result.status || {};
-        if (st.enabled && !st.connected && !st.sdk?.available) setNotice('ok', L('配置已保存（SDK 就绪后即可连接）', 'Settings saved (connect once the SDK is available)'));
+        if (st.enabled && !st.connected && !isWeixin() && !st.sdk?.available) setNotice('ok', L('配置已保存（SDK 就绪后即可连接）', 'Settings saved (connect once the SDK is available)'));
         else if (st.lastError && st.enabled && !st.connected) setNotice('bad', L(`已保存，但连接失败：${st.lastError.message}`, `Saved, but connection failed: ${st.lastError.message}`));
         else setNotice('ok', L('配置已保存', 'Settings saved'));
     }
@@ -622,10 +734,10 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
         view.qr = { type: 'starting', running: true };
         render();
         try {
-            const res = await fetch('/api/channels/welink/qrcode-auth', {
+            const res = await fetch(`/api/channels/${view.channel}/qrcode-auth`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeaders() },
-                body: JSON.stringify({ environment: view.draft.environment, channel: view.draft.channel })
+                body: JSON.stringify(isWeixin() ? {} : { environment: view.draft.environment, channel: view.draft.channel })
             });
             if (!res.ok || !res.body) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
             const reader = res.body.getReader();
@@ -640,7 +752,10 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
                 buffer = lines.pop();
                 lines.filter(Boolean).forEach(line => {
                     const event = JSON.parse(line);
-                    if (event.type === 'snapshot') view.qr = { ...event.snapshot, running: !['confirmed', 'cancelled', 'failed'].includes(event.snapshot.type) };
+                    if (event.type === 'snapshot') {
+                        // 等待输入验证码时保留已生成的二维码，避免重绘时清掉输入框外的内容
+                        view.qr = { ...event.snapshot, running: !['confirmed', 'cancelled', 'failed'].includes(event.snapshot.type) };
+                    }
                     if (event.type === 'error') view.qr = { type: 'error', error: event.error, running: false };
                     if (event.type === 'done') final = event;
                 });
@@ -649,7 +764,7 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
             if (view.qr) view.qr.running = false;
             if (final?.saved) {
                 await loadAll();
-                view.qr = { type: 'confirmed', assistantInfo: view.config.assistantInfo, running: false };
+                view.qr = { type: 'confirmed', assistantInfo: isWeixin() ? null : view.config.assistantInfo, running: false };
                 render();
                 return;
             }
@@ -669,7 +784,7 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
         const resultEl = view.content.querySelector('[data-role="push-result"]');
         resultEl.textContent = L('发送中…', 'Sending…');
         try {
-            const result = await window.ToolsChannels.push({ text, targets, source: L('频道对接 · 测试推送', 'Channels · test push') });
+            const result = await window.ToolsChannels.push({ channel: view.channel, text, targets, source: L('频道对接 · 测试推送', 'Channels · test push') });
             const failures = result.results.filter(item => !item.ok).map(item => `${item.name}：${item.error}`);
             resultEl.textContent = L(`成功 ${result.sent}，失败 ${result.failed}`, `${result.sent} sent, ${result.failed} failed`) + (failures.length ? ` — ${failures.slice(0, 3).join('；')}` : '');
             if (view.messageLog.loaded) await loadMessages({ reset: true });
@@ -716,6 +831,17 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
         });
     }
 
+    async function switchChannel(channel) {
+        if (!CHANNEL_TABS.some(tab => tab.id === channel) || channel === view.channel) return undefined;
+        if (view.dirty && !await confirmDialog(L('当前频道有未保存的修改，切换后将丢失。继续？', 'Unsaved changes will be lost. Continue?'), { title: L('切换频道', 'Switch channel'), confirmText: L('切换', 'Switch') })) return undefined;
+        view.channel = channel;
+        try { localStorage.setItem(CHANNEL_STORE_KEY, channel); } catch (_) { /* 仅记住选项卡 */ }
+        Object.assign(view, { notice: null, testResult: null, qr: null, busy: '', targetFilter: { kind: 'all', q: '' } });
+        view.content.innerHTML = `<div class="nav-settings-empty">${esc(L('正在加载频道对接配置…', 'Loading channel settings…'))}</div>`;
+        await loadAll();
+        return render();
+    }
+
     async function onClick(event) {
         const button = event.target.closest('[data-action]');
         if (!button || !view.content.contains(button)) return;
@@ -744,6 +870,42 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
             return runAction('save', () => save({ clearSk: true }));
         }
         if (action === 'qr') return runQr();
+        if (action === 'channel-tab') return switchChannel(button.dataset.channel);
+        if (action === 'qr-verify') {
+            const code = view.content.querySelector('[data-role="qr-verify-code"]')?.value || '';
+            await api('POST', '/qrcode-auth/verify', { code });
+            view.qr = { ...view.qr, type: 'scanned' };
+            return rerenderConnection();
+        }
+        if (action === 'clear-token') {
+            if (!await confirmDialog(L('确定清除已保存的微信 bot token？清除后微信助理将无法收发消息。', 'Clear the saved WeChat bot token? The assistant will stop working.'), { title: L('清除 Token', 'Clear token'), tone: 'danger', confirmText: L('清除', 'Clear') })) return undefined;
+            return runAction('save', () => save({ clearToken: true }));
+        }
+        if (action === 'openclaw-import') {
+            if (view.config.hasToken && !await confirmDialog(L('用本机 OpenClaw 已登录的微信 bot 覆盖当前凭据？', 'Replace the current credentials with the bot linked in local OpenClaw?'), { title: L('导入 OpenClaw 凭据', 'Import from OpenClaw'), confirmText: L('导入', 'Import') })) return undefined;
+            return runAction('openclaw-import', async () => {
+                if (view.dirty) await save();
+                const result = await api('POST', '/openclaw/import');
+                await loadAll();
+                render();
+                const oc = result.status?.openclaw || {};
+                setNotice('ok', L(`已导入 OpenClaw 微信 bot ${result.accountId}${oc.pluginEnabled !== false ? '。OpenClaw 仍在收这个 bot 的消息，请点击「暂停 OpenClaw 微信」' : ''}${result.status?.enabled ? '' : '；勾选「启用微信助理」并保存后开始收消息'}`, `Imported OpenClaw bot ${result.accountId}${oc.pluginEnabled !== false ? '. OpenClaw is still polling it; pause the OpenClaw WeChat plugin' : ''}`));
+            });
+        }
+        if (action === 'openclaw-pause' || action === 'openclaw-resume') {
+            const pause = action === 'openclaw-pause';
+            if (!await confirmDialog(pause
+                ? L('暂停 OpenClaw 的微信插件并重启 OpenClaw 网关？OpenClaw 将不再收发微信消息，其他频道不受影响（网关重启期间短暂不可用）。', 'Disable the OpenClaw WeChat plugin and restart the OpenClaw gateway? Other OpenClaw channels keep working.')
+                : L('恢复 OpenClaw 的微信插件并重启 OpenClaw 网关？若与本平台使用同一个 bot，两边会抢收消息。', 'Re-enable the OpenClaw WeChat plugin and restart its gateway? If it shares the bot with the platform, both will compete for messages.'),
+            { title: pause ? L('暂停 OpenClaw 微信', 'Pause OpenClaw WeChat') : L('恢复 OpenClaw 微信', 'Resume OpenClaw WeChat'), tone: pause ? 'danger' : undefined, confirmText: pause ? L('暂停', 'Pause') : L('恢复', 'Resume') })) return undefined;
+            return runAction(action, async () => {
+                const result = await api('POST', `/openclaw/${pause ? 'pause' : 'resume'}`);
+                view.status = result.status;
+                setNotice(result.restartNote ? 'bad' : 'ok', result.restartNote
+                    ? L(`已修改 OpenClaw 配置，但网关重启失败，请手动执行 openclaw gateway restart：${result.restartNote}`, `Config changed but gateway restart failed: ${result.restartNote}`)
+                    : (pause ? L('已暂停 OpenClaw 微信插件，OpenClaw 网关已重启', 'OpenClaw WeChat plugin paused; gateway restarted') : L('已恢复 OpenClaw 微信插件', 'OpenClaw WeChat plugin resumed')));
+            });
+        }
         if (action === 'access-mode') {
             view.draft.access[scope].mode = button.dataset.mode;
             markDirty();
@@ -754,6 +916,7 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
             const key = rule.mode === 'blacklist' ? 'blacklist' : 'whitelist';
             const kind = scope === 'users' ? 'user' : 'group';
             const picked = await window.ToolsChannels.pickTargets({
+                channel: view.channel,
                 title: `${scope === 'users' ? L('人员', 'People') : L('群组', 'Groups')} · ${key === 'blacklist' ? L('黑名单', 'Blocklist') : L('白名单', 'Allowlist')}`,
                 kind,
                 lockKind: true,
@@ -779,6 +942,7 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
         }
         if (action === 'push-pick') {
             const picked = await window.ToolsChannels.pickTargets({
+                channel: view.channel,
                 title: L('默认推送范围', 'Default recipients'),
                 description: L('可多选人员与群组，按最近使用由近及远排序；支持全选、反选与过滤。', 'Choose people and groups, most recent first; select all, invert and filter are supported.'),
                 selected: view.draft.push.defaultTargets,
@@ -804,7 +968,7 @@ await channels.push({ channel: 'welink', text: '告警：xxx', targets: [{ kind:
             return sendTestPush(undefined);
         }
         if (action === 'push-test-pick') {
-            const picked = await window.ToolsChannels.pickTargets({ title: L('选择测试推送对象', 'Choose test recipients'), pushableOnly: true });
+            const picked = await window.ToolsChannels.pickTargets({ channel: view.channel, title: L('选择测试推送对象', 'Choose test recipients'), pushableOnly: true });
             if (picked && picked.length) return sendTestPush(picked.map(item => ({ kind: item.kind, id: item.id })));
             return undefined;
         }

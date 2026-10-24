@@ -5,11 +5,13 @@
 //   if (targets) await ToolsChannels.push({ text: '**月报已发布**', targets, source: '月报' });
 //
 // targets 省略时推送到管理员配置的默认推送范围。普通用户需管理员开启「允许普通用户推送」。
+// 各方法可传 channel: 'welink'（默认）| 'weixin' 指定频道。
 (function () {
     'use strict';
     if (window.ToolsChannels) return;
 
-    const BASE = '/api/channels/welink';
+    const BASE = '/api/channels';
+    const CHANNELS = ['welink', 'weixin'];
     const L = (zh, en) => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? en : zh);
 
     function escapeHtml(value) {
@@ -21,8 +23,8 @@
         return { ...(json ? { 'Content-Type': 'application/json' } : {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) };
     }
 
-    async function request(method, path, body) {
-        const res = await fetch(`${BASE}${path}`, { method, headers: authHeaders(body !== undefined), body: body !== undefined ? JSON.stringify(body) : undefined });
+    async function request(method, path, body, channel = 'welink') {
+        const res = await fetch(`${BASE}/${CHANNELS.includes(channel) ? channel : 'welink'}${path}`, { method, headers: authHeaders(body !== undefined), body: body !== undefined ? JSON.stringify(body) : undefined });
         let data = {};
         try { data = await res.json(); } catch (_) { data = {}; }
         if (!res.ok) {
@@ -245,7 +247,7 @@
             render();
             $('[data-role="q"]').focus();
             const kindQuery = options.lockKind && options.kind && options.kind !== 'all' ? `&kind=${encodeURIComponent(options.kind)}` : '';
-            request('GET', `/targets?limit=2000${kindQuery}`).then(data => {
+            request('GET', `/targets?limit=2000${kindQuery}`, undefined, options.channel).then(data => {
                 state.items = Array.isArray(data.items) ? data.items : [];
             }).catch(error => {
                 state.error = error.message;
@@ -258,17 +260,17 @@
 
     window.ToolsChannels = {
         /** 推送消息；targets 省略时使用默认推送范围。返回 { ok, sent, failed, results } */
-        push: ({ text, targets, source, trigger } = {}) => request('POST', '/push', { text, targets, source: source || document.title, trigger }),
+        push: ({ text, targets, source, trigger, channel } = {}) => request('POST', '/push', { text, targets, source: source || document.title, trigger }, channel),
         /** 频道状态：{ connected, enabled, sdk, runtime, summary, ... } */
-        status: () => request('GET', '/status'),
+        status: ({ channel } = {}) => request('GET', '/status', undefined, channel),
         /** 历史人员/群组（按最近活跃由近及远） */
-        listTargets: ({ kind, q, pushableOnly, limit } = {}) => {
+        listTargets: ({ kind, q, pushableOnly, limit, channel } = {}) => {
             const params = new URLSearchParams();
             if (kind) params.set('kind', kind);
             if (q) params.set('q', q);
             if (pushableOnly) params.set('pushable', '1');
             if (limit) params.set('limit', String(limit));
-            return request('GET', `/targets?${params}`).then(data => data.items || []);
+            return request('GET', `/targets?${params}`, undefined, channel).then(data => data.items || []);
         },
         pickTargets,
         request,

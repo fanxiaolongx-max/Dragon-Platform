@@ -594,7 +594,7 @@ async function getRecentMessagesForContext(sessionId, limit = RECENT_CONTEXT_MES
     await ensureReady();
     const safeLimit = Math.max(2, Math.min(Number(limit) || RECENT_CONTEXT_MESSAGES, 20));
     const rows = await all(
-        `SELECT id, role, content, created_at
+        `SELECT id, role, content, events, created_at
          FROM ai_chat_messages
          WHERE session_id = ? AND rowid > COALESCE((
              SELECT rowid FROM ai_chat_messages WHERE id = (SELECT summary_until_message_id FROM ai_chat_sessions WHERE id = ?)

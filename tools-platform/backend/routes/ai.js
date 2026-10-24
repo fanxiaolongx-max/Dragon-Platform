@@ -23,6 +23,7 @@ const compactingChats = new Set();
 const chatLockKey = id => `${getTenantId()}::${id}`;
 const { proactiveAlertCircuit } = require('../models/ai-circuit-breaker');
 const followupAgent = require('../models/channels/followup-agent');
+const opsAgent = require('../models/channels/ops-agent');
 
 console.log('[AI] AI Assistant route loaded. Runtime config will be read from settings, with provider-specific env fallback.');
 
@@ -462,12 +463,23 @@ async function buildEffectiveMessages({ sessionId, incomingMessages, lastMessage
         return incomingMessages.slice(-10);
     }
     const recent = await aiChatRepo.getRecentMessagesForContext(sessionId, RECENT_CONTEXT_MESSAGES);
-    const effective = recent.map(msg => ({
+    // 频道主动推送（运营推送等）以助手消息存入对话：保留并标注，成员回复时模型知道刚推了什么
+    const isPush = msg => String(msg.events || '').includes('"type":"push"');
+    const items = recent.map(msg => ({
         role: msg.role === 'model' ? 'model' : 'user',
-        content: msg.content || ''
+        content: isPush(msg) ? `【你之前主动推送到这里的消息】\n${msg.content || ''}` : (msg.content || ''),
+        push: isPush(msg)
     }));
-    while (effective.length && effective[0].role !== 'user') {
-        effective.shift();
+    while (items.length && items[0].role !== 'user' && !items[0].push) {
+        items.shift();
+    }
+    if (items.length && items[0].role !== 'user') items.unshift({ role: 'user', content: '（会话开始）' });
+    // 推送后紧接着的回复等会形成连续同角色消息，合并后再交给模型（部分接口要求角色交替）
+    const effective = [];
+    for (const item of items) {
+        const previous = effective[effective.length - 1];
+        if (previous && previous.role === item.role) previous.content = `${previous.content}\n\n${item.content}`;
+        else effective.push({ role: item.role, content: item.content });
     }
     const lastRecent = effective[effective.length - 1];
     if (!lastRecent || lastRecent.role !== 'user' || lastRecent.content !== lastMessage.content) {
@@ -757,7 +769,7 @@ async function handleChatRequest(req, res) {
 
         // 频道对话的跟进任务：本会话已有任务与工具使用规则拼进系统提示
         let followupSetup = null;
-        if (channelTurn && homeAgent && !agentMode) {
+        if (channelTurn && channelTurn.channel === 'welink' && homeAgent && !agentMode) { // 跟进任务目前只支持 WeLink（提醒依赖群内 @）
             try {
                 const channelConfig = await require('../models/channels/welink-config-repository').getConfig();
                 if (channelConfig.followup.enabled) {
@@ -767,6 +779,16 @@ async function handleChatRequest(req, res) {
                 }
             } catch (followupError) {
                 console.warn('[AI] follow-up setup failed:', followupError.message || followupError);
+            }
+        }
+
+        // @ops-group：管理员在首页普通对话里配置自动化运营（工作区与频道对话不启用）
+        let opsSetup = null;
+        if (homeAgent && !agentMode && !channelTurn && req.user?.role === 'admin' && loadedSkills.selected.some(item => item.id === opsAgent.SKILL_ID)) {
+            try {
+                opsSetup = { ctx: { actor: req.user?.username || '' }, prompt: await opsAgent.buildPrompt() };
+            } catch (opsError) {
+                console.warn('[AI] ops setup failed:', opsError.message || opsError);
             }
         }
 
@@ -794,7 +816,7 @@ ${expertGrounding.businessConfigPrompt ? `\n与用户问题相关的只读业务
 ${expertGrounding.toolDataPrompt ? `\n平台工具业务数据（只读；来自工具保存的快照、状态、数据库或用户浏览器本地存储，已压缩为字段统计与汇总）：\n---\n${expertGrounding.toolDataPrompt}\n---\n` : ''}
 ${expertGrounding.dataPrompt ? `\n只读报表分析工具结果：\n---\n${expertGrounding.dataPrompt}\n---\n` : ''}
 ${expertGrounding.metricGraphPrompt ? `\n与本次问题相关的运营指标体系图谱节点：\n---\n${expertGrounding.metricGraphPrompt}\n---\n` : ''}
-${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${followupSetup ? `${followupSetup.prompt}\n` : ''}
+${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}
 **核心要求**：
 1. 默认使用${responseLanguage}回答，并与当前界面语言保持一致；用户明确指定其他语言时遵从用户要求。先直接回答结论，再根据问题难度给出必要细节；保持专业、清晰，不强制所有回答都极端简短。
 1.1 默认优先使用 Markdown 表格组织适合结构化展示的内容，尤其是指标与客户群对比、目标与实际值、历史趋势、配置清单、问题排查、方案比较和整改建议。先用一两句话给出结论，再用表格列出依据或行动；避免把同一组信息写成长段落。简单问答、单一事实和需要连贯解释的内容可使用简短文字；用户明确指定其他格式时遵从用户要求。
@@ -816,7 +838,7 @@ ${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n
 4.9 用户询问某个平台工具里的数据（人次、数量、金额、记录、趋势等）时，必须依据“平台工具业务数据”作答，并写明工具名、快照名或数据来源、数据期间。快照摘要（如 totalTransactions）和“表内合计行”是工具自身算出的口径，回答总数时优先采用；按日/按字段的统计只是辅助拆解，二者不一致时说明差异而不是自行改算。用户要的时间段没有对应快照时，明确说“没有覆盖该期间的数据”，并列出已有快照的期间；工具没有可读数据时如实说明，可建议打开工具导入后保存快照。不得编造任何数值。
 5. 历史报表使用入库时保存的得分和计分状态，不得用当前目标或计分规则重算。
 6. 把事实、基于数据的解读和可能原因分开。没有证据的原因必须标记为“可能”或“建议进一步核查”。
-${agentMode ? '7. 你没有修改平台业务数据（数据库、报表）的权限；但可以通过工具读写用户选定的本地工作目录。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
+${agentMode ? '7. 你没有修改平台业务数据（数据库、报表）的权限；但可以通过工具读写用户选定的本地工作目录。' : opsSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 ops_* 工具管理自动化运营（运营群组、计划、草稿、运营规范），只有工具返回成功后才能说已保存或已发送。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
 ${scopeRule}
 ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.systemPrompt}` : ''}`;
 
@@ -883,11 +905,26 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
+        const opsResult = !agentResult && !analysisResult && !followupResult && opsSetup
+            ? await opsAgent.runTurn({
+                client: aiClient,
+                systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
+                messages: effectiveMessages,
+                ctx: opsSetup.ctx,
+                signal: providerAbortController?.signal,
+                maxOutputTokens: aiSettings.maxOutputTokens,
+                temperature: aiSettings.temperature,
+                onDelta: streamRequested ? delta => {
+                    streamHasDelta = true;
+                    writeStreamEvent({ type: 'delta', delta });
+                } : undefined
+            })
+            : null;
         if (followupResult?.events?.length) {
             recordedEvents.push(...followupResult.events);
             if (streamRequested) followupResult.events.forEach(event => writeStreamEvent(event));
         }
-        const result = agentResult || followupResult || (analysisResult ? analysisResult.result : await generateResponse());
+        const result = agentResult || followupResult || opsResult || (analysisResult ? analysisResult.result : await generateResponse());
         const usageVideoFooter = analysisCode ? '' : await getUsageVideoFooter(lastMessage.content, uiLanguage);
         if (usageVideoFooter && !String(result.text || '').includes(usageVideoFooter.trim())) {
             result.text = String(result.text || '') + usageVideoFooter;
@@ -897,7 +934,10 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         // 历史记录只存文本：工作区模式附上工具调用摘要，便于下一轮延续。
         const responseText = redactText(agentResult && agentResult.toolLog.length
             ? `${result.text}\n\n（本轮调用工具 ${agentResult.toolCallCount} 次：${agentResult.toolLog.slice(0, 8).map(item => `${item.tool}${item.ok ? '' : '✗'}`).join('、')}${agentResult.toolLog.length > 8 ? '…' : ''}）`
-            : result.text, { secrets: sensitiveValues });
+            // 运营工具：附上结果摘要（含草稿 id），下一轮确认推送时能找到对应草稿
+            : opsResult && opsResult.toolLog.length
+                ? `${result.text}\n\n（运营工具：${opsResult.toolLog.slice(0, 8).map(item => `${item.tool}${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
+                : result.text, { secrets: sensitiveValues });
         
         let totalTokens = 0;
         let promptTokens = 0;
