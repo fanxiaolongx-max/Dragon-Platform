@@ -177,35 +177,34 @@ export function initAiNotes(app) {
 
     // ---------------- 悬浮问答框 ----------------
     let popAbort = null;
+    let popCleanup = null;
     function closePopover() {
         popAbort?.abort();
         popAbort = null;
+        popCleanup?.();
+        popCleanup = null;
         ui.pop?.remove();
         ui.pop = null;
     }
 
-    function placePopover(pop, rect) {
-        const width = Math.min(520, window.innerWidth - 24);
+    function fitPopover(pop) {
+        const gap = 12, maxWidth = Math.max(1, window.innerWidth - gap * 2), maxHeight = Math.max(1, window.innerHeight - gap * 2);
+        const width = Math.min(maxWidth, Math.max(Math.min(360, maxWidth), pop.offsetWidth));
+        const height = Math.min(maxHeight, Math.max(Math.min(360, maxHeight), pop.offsetHeight));
         pop.style.width = `${width}px`;
-        if (!rect) {
-            pop.style.left = `${(window.innerWidth - width) / 2}px`;
-            pop.style.top = '12vh';
-            return;
-        }
-        const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.left + rect.width / 2 - width / 2));
-        pop.style.left = `${left}px`;
-        // 放在空间更大的一侧，并限制高度，保证整个问答框都在窗口内
-        const spaceBelow = window.innerHeight - rect.bottom - 24;
-        const spaceAbove = rect.top - 72;
-        if (spaceBelow >= 420 || spaceBelow >= spaceAbove) {
-            pop.style.top = `${rect.bottom + 12}px`;
-            pop.style.maxHeight = `${Math.max(260, spaceBelow)}px`;
-        } else {
-            const height = Math.min(620, spaceAbove);
-            pop.style.top = `${rect.top - 12 - height}px`;
-            pop.style.maxHeight = `${height}px`;
-            pop.style.height = `${height}px`;
-        }
+        pop.style.height = `${height}px`;
+        pop.style.left = `${Math.max(gap, Math.min(window.innerWidth - width - gap, pop.offsetLeft))}px`;
+        pop.style.top = `${Math.max(gap, Math.min(window.innerHeight - height - gap, pop.offsetTop))}px`;
+    }
+
+    function placePopover(pop, rect) {
+        const width = Math.min(680, window.innerWidth - 24), height = Math.min(620, window.innerHeight - 24);
+        pop.style.width = `${width}px`;
+        pop.style.height = `${height}px`;
+        pop.style.left = `${rect ? rect.left + rect.width / 2 - width / 2 : (window.innerWidth - width) / 2}px`;
+        pop.style.top = `${rect && window.innerHeight - rect.bottom - 24 >= height ? rect.bottom + 12
+            : rect && rect.top - 24 >= height ? rect.top - height - 12 : (window.innerHeight - height) / 2}px`;
+        fitPopover(pop);
     }
 
     function openPopover(info) {
@@ -216,16 +215,18 @@ export function initAiNotes(app) {
         let mode = info.mode || 'qa';
         let annotationId = info.annotationId || null;
         let rewrite = null;
+        let sending = false;
         const available = S.status?.available;
         const render = () => {
             pop.innerHTML = `<header><div class="dk-ai-modes">${Object.entries(KIND).filter(([key]) => key !== 'rewrite' || (info.anchor.type === 'text' && user().admin)).map(([key, item]) => `<button class="${key === mode ? 'is-active' : ''}" data-switch="${key}" ${annotationId ? 'disabled' : ''}>${item.icon} ${key === 'qa' ? '问 AI' : key === 'note' ? 'AI 笔记' : 'AI 改写'}</button>`).join('')}</div>
                 <span class="dk-ai-drag" title="拖动">⠿</span><button class="dk-ai-x" data-close aria-label="关闭">×</button></header>
-                ${info.quote ? `<blockquote class="dk-ai-quote">${esc(info.quote.length > 220 ? `${info.quote.slice(0, 220)}…` : info.quote)}<small>${esc(anchorLabel({ anchor: info.anchor, quote: info.quote }))}</small></blockquote>` : ''}
+                <div class="dk-ai-context"><div class="dk-ai-reference">${info.quote ? `<blockquote class="dk-ai-quote">${esc(info.quote.length > 220 ? `${info.quote.slice(0, 220)}…` : info.quote)}<small>${esc(anchorLabel({ anchor: info.anchor, quote: info.quote }))}</small></blockquote>` : ''}
                 ${available === false ? '<div class="dk-ai-warn">平台尚未配置可用的 AI 模型。请管理员在平台的「AI 设置」中配置模型与 API Key 后再使用。</div>' : ''}
                 <div class="dk-ai-chips">${QUICK[mode].map(text => `<button data-quick="${esc(text)}">${esc(text)}</button>`).join('')}</div>
-                <form class="dk-ai-ask"><textarea rows="2" placeholder="${annotationId ? '继续追问…' : mode === 'qa' ? '想问什么？例如：为什么 P-bit 必须为 0？（回车发送）' : mode === 'note' ? '可选：笔记的关注点（直接回车即可生成）' : '可选：改写要求（直接回车即可生成）'}"></textarea><button class="dk-btn small" ${available === false ? 'disabled' : ''}>发送</button></form>
-                <div class="dk-ai-output" hidden><div class="dk-markdown dk-ai-answer"></div></div>
-                <footer class="dk-ai-foot" hidden></footer>`;
+                </div><form class="dk-ai-ask"><textarea rows="1" aria-label="提问或继续追问" title="Enter 或 Ctrl/⌘+Enter 发送，Shift+Enter 换行" placeholder="${annotationId ? '继续追问…' : mode === 'qa' ? '想问什么？例如：为什么 P-bit 必须为 0？' : mode === 'note' ? '可选：笔记的关注点（直接回车即可生成）' : '可选：改写要求（直接回车即可生成）'}"></textarea><button class="dk-btn small" ${available === false ? 'disabled' : ''}>发送</button></form>
+                </div><div class="dk-ai-output" role="region" aria-label="AI 回答" tabindex="0" hidden><div class="dk-markdown dk-ai-answer"></div></div>
+                <footer class="dk-ai-foot" hidden></footer>
+                <button type="button" class="dk-ai-pop-resize" data-pop-resize aria-label="调整问答浮窗大小" title="拖动调整大小，或用方向键微调">↘</button>`;
         };
         render();
         document.body.appendChild(pop);
@@ -236,25 +237,37 @@ export function initAiNotes(app) {
 
         const send = async () => {
             const textarea = pop.querySelector('textarea');
+            if (sending || available === false) return;
             const question = textarea.value.trim();
             if (mode === 'qa' && !question && !annotationId) { textarea.focus(); textarea.placeholder = '请先输入问题，或点上面的快捷问题'; return; }
             const output = pop.querySelector('.dk-ai-output');
             const answer = pop.querySelector('.dk-ai-answer');
             const foot = pop.querySelector('.dk-ai-foot');
+            sending = true;
             output.hidden = false;
+            output.setAttribute('aria-busy', 'true');
             foot.hidden = true;
             answer.innerHTML = '<div class="dk-ai-thinking"><i></i><i></i><i></i> AI 正在思考…</div>';
             pop.querySelector('.dk-ai-ask button').disabled = true;
             textarea.disabled = true;
+            pop.querySelectorAll('[data-switch], [data-quick]').forEach(button => { button.disabled = true; });
             let raw = '';
             let timer = null;
-            const flush = () => { timer = null; renderMarkdown(answer, visibleText(raw), { findArticle: app.findArticle }); answer.parentElement.scrollTop = answer.parentElement.scrollHeight; };
-            popAbort = new AbortController();
+            const flush = () => {
+                timer = null;
+                if (!pop.isConnected) return;
+                const followEnd = output.scrollHeight - output.scrollTop - output.clientHeight < 48;
+                renderMarkdown(answer, visibleText(raw), { findArticle: app.findArticle });
+                if (followEnd) output.scrollTop = output.scrollHeight;
+            };
+            const controller = new AbortController();
+            popAbort = controller;
             try {
                 const result = await stream({
                     mode, question, articleId: info.articleId, anchor: info.anchor, quote: info.quote, visualContext: info.visualContext, annotationId
-                }, delta => { raw += delta; if (!timer) timer = setTimeout(flush, 90); }, popAbort.signal);
+                }, delta => { raw += delta; if (!timer) timer = setTimeout(flush, 90); }, controller.signal);
                 clearTimeout(timer);
+                const followEnd = output.scrollHeight - output.scrollTop - output.clientHeight < 48;
                 if (result.rewrite) {
                     rewrite = result;
                     answer.innerHTML = `<div class="dk-ai-diff"><div><b>原文</b><del>${esc(result.rewrite.original)}</del></div><div><b>改写后</b><ins>${esc(result.rewrite.replacement)}</ins></div></div><p class="dk-mini-note">${esc(result.brief)}</p>`;
@@ -263,21 +276,26 @@ export function initAiNotes(app) {
                     const annotation = result.annotation;
                     annotationId = annotation.id;
                     renderMd(answer, annotation.turns.at(-1).a);
-                    foot.innerHTML = `<span class="dk-ai-saved">✔ 已保存：${esc(annotation.title)}</span><button class="dk-btn small ghost" data-follow>💬 追问</button><button class="dk-btn small ghost" data-open="${annotation.id}">在侧栏查看</button>`;
+                    foot.innerHTML = `<span class="dk-ai-saved">✔ 已保存：${esc(annotation.title)}</span><button class="dk-btn small ghost" data-open="${annotation.id}">在侧栏查看</button>`;
                     upsert(annotation);
                     refreshHighlights();
                 }
                 foot.hidden = false;
+                if (followEnd) output.scrollTop = output.scrollHeight;
             } catch (error) {
                 if (error.name === 'AbortError') return;
                 answer.innerHTML = `<div class="dk-ai-warn">${esc(error.message)}</div>`;
             } finally {
-                popAbort = null;
+                clearTimeout(timer);
+                sending = false;
+                if (popAbort === controller) popAbort = null;
                 if (pop.isConnected) {
+                    output.setAttribute('aria-busy', 'false');
+                    pop.querySelectorAll('[data-switch], [data-quick]').forEach(button => { button.disabled = Boolean(annotationId && button.hasAttribute('data-switch')); });
                     pop.querySelector('.dk-ai-ask button').disabled = false;
                     textarea.disabled = false;
                     textarea.value = '';
-                    if (annotationId) textarea.placeholder = '继续追问…（回车发送）';
+                    if (annotationId) textarea.placeholder = '继续追问…';
                 }
             }
         };
@@ -285,12 +303,11 @@ export function initAiNotes(app) {
         pop.addEventListener('click', async event => {
             if (event.target.closest('[data-close]')) return closePopover();
             const switchTo = event.target.closest('[data-switch]')?.dataset.switch;
-            if (switchTo && !annotationId) { mode = switchTo; render(); pop.querySelector('textarea').focus(); return; }
+            if (switchTo && !annotationId && !sending) { mode = switchTo; render(); pop.querySelector('textarea').focus(); return; }
             const quick = event.target.closest('[data-quick]')?.dataset.quick;
             if (quick) { pop.querySelector('textarea').value = quick; send(); return; }
-            if (event.target.closest('[data-follow]')) { pop.querySelector('textarea').focus(); return; }
             const openId = event.target.closest('[data-open]')?.dataset.open;
-            if (openId) { openPanel(); expandItem(openId); return; }
+            if (openId) { openPanel(); expandItem(openId, { jump: false }); return; }
             if (event.target.closest('[data-retry]')) { send(); return; }
             if (event.target.closest('[data-apply]') && rewrite) {
                 try {
@@ -306,17 +323,46 @@ export function initAiNotes(app) {
         });
         pop.addEventListener('submit', event => { event.preventDefault(); send(); });
         pop.addEventListener('keydown', event => {
-            if (event.key === 'Enter' && !event.shiftKey && event.target.matches('textarea')) { event.preventDefault(); send(); }
+            if (event.key === 'Enter' && !event.isComposing && event.keyCode !== 229 && event.target.matches('textarea')
+                && (event.ctrlKey || event.metaKey || !event.shiftKey)) { event.preventDefault(); send(); }
+            if (event.target.closest('[data-pop-resize]') && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+                event.preventDefault();
+                const step = event.shiftKey ? 48 : 16;
+                pop.style.width = `${pop.offsetWidth + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0)}px`;
+                pop.style.height = `${pop.offsetHeight + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0)}px`;
+                fitPopover(pop);
+            }
         });
-        // 拖动标题栏移动悬浮框
+        let finishDrag = null;
+        const fit = () => { finishDrag?.(); fitPopover(pop); };
+        window.addEventListener('resize', fit);
+        popCleanup = () => { finishDrag?.(); window.removeEventListener('resize', fit); };
+        // 标题栏拖动位置；右下角独立调整尺寸，始终保留关闭与发送按钮在视口内。
         pop.addEventListener('pointerdown', event => {
-            if (!event.target.closest('.dk-ai-drag')) return;
-            const startX = event.clientX - pop.offsetLeft;
-            const startY = event.clientY - pop.offsetTop;
-            const move = moveEvent => { pop.style.left = `${moveEvent.clientX - startX}px`; pop.style.top = `${moveEvent.clientY - startY}px`; };
-            const up = () => { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); };
+            const resizing = Boolean(event.target.closest('[data-pop-resize]'));
+            if (event.button !== 0 || (!resizing && !event.target.closest('.dk-ai-drag'))) return;
+            event.preventDefault();
+            finishDrag?.();
+            const start = { x: event.clientX, y: event.clientY, left: pop.offsetLeft, top: pop.offsetTop, width: pop.offsetWidth, height: pop.offsetHeight };
+            const move = e => {
+                if (e.pointerId !== event.pointerId) return;
+                if (resizing) {
+                    pop.style.width = `${Math.max(Math.min(360, window.innerWidth - 24), Math.min(window.innerWidth - start.left - 12, start.width + e.clientX - start.x))}px`;
+                    pop.style.height = `${Math.max(Math.min(360, window.innerHeight - 24), Math.min(window.innerHeight - start.top - 12, start.height + e.clientY - start.y))}px`;
+                } else {
+                    pop.style.left = `${Math.max(12, Math.min(window.innerWidth - pop.offsetWidth - 12, start.left + e.clientX - start.x))}px`;
+                    pop.style.top = `${Math.max(12, Math.min(window.innerHeight - pop.offsetHeight - 12, start.top + e.clientY - start.y))}px`;
+                }
+            };
+            finishDrag = () => {
+                document.removeEventListener('pointermove', move);
+                document.removeEventListener('pointerup', finishDrag);
+                document.removeEventListener('pointercancel', finishDrag);
+                finishDrag = null;
+            };
             document.addEventListener('pointermove', move);
-            document.addEventListener('pointerup', up);
+            document.addEventListener('pointerup', finishDrag);
+            document.addEventListener('pointercancel', finishDrag);
         });
         if (info.autoSend) send();
     }
@@ -578,6 +624,7 @@ export function initAiNotes(app) {
     }
 
     function openPanel() {
+        closePopover();
         if (!panel.hidden) return;
         panel.hidden = false;
         document.body.classList.add('has-ai-panel');

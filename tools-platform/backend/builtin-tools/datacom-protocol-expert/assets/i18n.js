@@ -57,7 +57,7 @@ export function originalSelection(range, root) {
     return { exact, prefix: before.slice(-80), suffix: after.slice(0, 80) };
 }
 
-const ignored = element => !element || Boolean(element.closest('script, style, noscript, textarea, [contenteditable="true"], [data-tools-i18n-ignore], #langBtn, #toolsCustomLanguageButton'));
+const ignored = (element, ignoreTextarea = true) => !element || Boolean(element.closest('script, style, noscript, [contenteditable="true"], [data-tools-i18n-ignore], #langBtn, #toolsCustomLanguageButton' + (ignoreTextarea ? ', textarea' : '')));
 function fitLabel(node) {
     const element = node.parentElement;
     if (element?.tagName.toLowerCase() !== 'text' || !element.closest('.dk-diagram, .dk-mm-svg')) return;
@@ -82,7 +82,8 @@ function applyText(node) {
     fitLabel(node);
 }
 function applyAttributes(element) {
-    if (ignored(element)) return;
+    // Translate form hints/accessibility labels, while keeping the user's input text untouched.
+    if (ignored(element, false)) return;
     let records = attributes.get(element);
     if (!records) { records = {}; attributes.set(element, records); }
     for (const name of ['title', 'placeholder', 'aria-label', 'alt', 'label', 'data-empty-text']) {
