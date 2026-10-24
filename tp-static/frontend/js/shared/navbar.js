@@ -586,6 +586,67 @@ function registerNavbarI18n() {
             'nav.page.report.confirmLatestAction': '确认删除',
             'nav.page.report.confirmRetain': '确定删除 {count} 条超出 {days} 天保留期或同日重复的快照吗？',
 
+            'nav.ai.clearSelectedHint': '清空当前选中模型的用量与计费统计',
+            'nav.ai.clearAllHint': '清空全部历史用量与计费统计',
+            'nav.ai.costLegend': '费用 CNY',
+            'nav.ai.usageHistory': '历史模型用量明细',
+            'nav.ai.usageHistoryHelp': '支持独立清空指定模型历史记录',
+            'nav.ai.unconfigured': '已不在配置中',
+            'nav.ai.clearingModel': '正在清空模型用量统计…',
+            'nav.ai.clearedModel': '已成功清空模型 “{name}” 统计信息',
+            'nav.ai.clearFail': '清空失败：',
+            'nav.ai.clearStatsFail': '清空统计失败：',
+            'nav.ai.clearingAll': '正在清空全部模型统计…',
+            'nav.ai.clearedAll': '全部模型统计信息已清空',
+            'nav.ai.categoryLabel': 'AI 模型分类',
+            'nav.ai.chatIcon': '文',
+            'nav.ai.imageIcon': '丹',
+            'nav.ai.chatTitle': '文心 · 对话模型',
+            'nav.ai.imageTitle': '丹青 · 绘图模型',
+            'nav.ai.chatSummary': '对话、分析、写作与月报生成 · {count} 套',
+            'nav.ai.imageSummary': '生成与修改图片 · {count} 套',
+            'nav.ai.imageEmpty': '还没有绘图模型',
+            'nav.ai.imageEmptyHelp': '添加一个能输出图片的模型（如 Gemini 的图片模型），AI 月报的图片对话就能生成真正的图片；没有时会用对话模型画 SVG 矢量图。',
+            'nav.ai.imageNew': '＋ 新建绘图模型',
+            'nav.ai.imageHelp': 'AI 月报的图片对话（LOGO 和以后格子里的图片）用这里“使用中”的绘图模型生成图片；它不会参与对话，也不会被自动切换。',
+            'nav.ai.imageProfiles': '绘图模型方案',
+            'nav.ai.chatProfiles': 'AI 配置方案',
+            'nav.ai.imageProfilesHelp': '可保存多套绘图模型；只有“使用中”的一套会用于生成图片。',
+            'nav.ai.chatProfilesHelp': '可保存多套供应商与模型参数；只有已激活方案会用于实际业务。',
+            'nav.ai.profileNew': '＋ 新建',
+            'nav.ai.profileClone': '⧉ 复制当前',
+            'nav.ai.profileActive': '使用中',
+            'nav.ai.tokenReady': '● Token 可用',
+            'nav.ai.tokenNotReady': '○ Token 未就绪',
+            'nav.ai.profileName': '方案名称',
+            'nav.ai.profileDefault': 'AI 配置',
+            'nav.ai.testConnection': '⌁ 测试连接',
+            'nav.ai.imageActive': '✓ 正在用于绘图',
+            'nav.ai.chatActive': '✓ 当前已激活',
+            'nav.ai.imageActivate': '⚡ 用于绘图',
+            'nav.ai.chatActivate': '⚡ 激活此方案',
+            'nav.ai.profileDelete': '删除',
+            'nav.ai.imageStatus': '图片生成正在使用此方案',
+            'nav.ai.chatStatus': '当前业务正在使用此方案',
+            'nav.ai.inactiveStatus': '正在编辑未激活方案',
+            'nav.ai.testResult': '连接测试结果',
+            'nav.ai.temperature': '温度（Temperature）',
+            'nav.ai.usageChartCost': '费用',
+            'nav.ai.switchSaveFail': '切换前保存失败：',
+            'nav.ai.creating': '正在创建…',
+            'nav.ai.created': '已创建，尚未激活',
+            'nav.ai.createFail': '创建失败：',
+            'nav.ai.newImageName': '新绘图模型',
+            'nav.ai.newChatName': '新 AI 配置',
+            'nav.ai.copySuffix': '副本',
+            'nav.ai.cloned': '已复制，尚未激活',
+            'nav.ai.cloneFail': '复制失败：',
+            'nav.ai.activating': '正在切换模型…',
+            'nav.ai.activated': '已激活，业务调用已切换',
+            'nav.ai.activateFail': '激活失败：',
+            'nav.ai.deleted': '配置已删除',
+            'nav.ai.deleteFail': '删除失败：',
+            'nav.ai.noProfile': '未选择 AI 配置',
             'nav.ai.empty': '正在加载 Dragon Claw 智能体配置...',
             'nav.ai.help': '这里管理 Dragon Claw 智能体与后台 AI 分析使用的模型方案。支持 Gemini、OpenAI、Anthropic、MiniMax 和 OpenAI 兼容网关；Token 保存于服务端，前端只显示脱敏状态。',
             'nav.ai.sourcePrefix': '当前 Token 来源：',
@@ -1082,6 +1143,67 @@ function registerNavbarI18n() {
             'nav.page.report.confirmLatestAction': 'Delete snapshots',
             'nav.page.report.confirmRetain': 'Delete {count} snapshots outside the {days}-day retention period or duplicated on the same day?',
 
+            'nav.ai.clearSelectedHint': 'Clear usage and cost statistics for the selected model',
+            'nav.ai.clearAllHint': 'Clear all historical usage and cost statistics',
+            'nav.ai.costLegend': 'Cost CNY',
+            'nav.ai.usageHistory': 'Historical model usage',
+            'nav.ai.usageHistoryHelp': 'Clear each model’s history separately',
+            'nav.ai.unconfigured': 'No longer configured',
+            'nav.ai.clearingModel': 'Clearing model usage statistics…',
+            'nav.ai.clearedModel': 'Statistics cleared for model “{name}”',
+            'nav.ai.clearFail': 'Failed to clear: ',
+            'nav.ai.clearStatsFail': 'Failed to clear statistics: ',
+            'nav.ai.clearingAll': 'Clearing statistics for all models…',
+            'nav.ai.clearedAll': 'Statistics cleared for all models',
+            'nav.ai.categoryLabel': 'AI model categories',
+            'nav.ai.chatIcon': 'C',
+            'nav.ai.imageIcon': 'I',
+            'nav.ai.chatTitle': 'Wenxin · Chat Models',
+            'nav.ai.imageTitle': 'Danqing · Image Models',
+            'nav.ai.chatSummary': 'Chat, analysis, writing and monthly reports · {count} profiles',
+            'nav.ai.imageSummary': 'Generate and edit images · {count} profiles',
+            'nav.ai.imageEmpty': 'No image models yet',
+            'nav.ai.imageEmptyHelp': 'Add a model that can output images, such as a Gemini image model, to generate images in AI Report image chat. Without one, the chat model creates SVG graphics.',
+            'nav.ai.imageNew': '＋ New image model',
+            'nav.ai.imageHelp': 'AI Report image chat (logos and images in report cells) uses the active image model here. This model is not used for chat or automatic fallback.',
+            'nav.ai.imageProfiles': 'Image Model Profiles',
+            'nav.ai.chatProfiles': 'AI Configuration Profiles',
+            'nav.ai.imageProfilesHelp': 'Save multiple image model profiles; only the active profile generates images.',
+            'nav.ai.chatProfilesHelp': 'Save multiple provider and model configurations; only the active profile is used for requests.',
+            'nav.ai.profileNew': '＋ New',
+            'nav.ai.profileClone': '⧉ Duplicate current',
+            'nav.ai.profileActive': 'In use',
+            'nav.ai.tokenReady': '● Token ready',
+            'nav.ai.tokenNotReady': '○ Token not ready',
+            'nav.ai.profileName': 'Profile name',
+            'nav.ai.profileDefault': 'AI Profile',
+            'nav.ai.testConnection': '⌁ Test connection',
+            'nav.ai.imageActive': '✓ In use for images',
+            'nav.ai.chatActive': '✓ Currently active',
+            'nav.ai.imageActivate': '⚡ Use for images',
+            'nav.ai.chatActivate': '⚡ Activate profile',
+            'nav.ai.profileDelete': 'Delete',
+            'nav.ai.imageStatus': 'Image generation is using this profile',
+            'nav.ai.chatStatus': 'Requests are using this profile',
+            'nav.ai.inactiveStatus': 'Editing an inactive profile',
+            'nav.ai.testResult': 'Connection test result',
+            'nav.ai.temperature': 'Temperature',
+            'nav.ai.usageChartCost': 'Cost',
+            'nav.ai.switchSaveFail': 'Failed to save before switching: ',
+            'nav.ai.creating': 'Creating…',
+            'nav.ai.created': 'Created, not yet active',
+            'nav.ai.createFail': 'Failed to create: ',
+            'nav.ai.newImageName': 'New image model',
+            'nav.ai.newChatName': 'New AI profile',
+            'nav.ai.copySuffix': 'Copy',
+            'nav.ai.cloned': 'Duplicated, not yet active',
+            'nav.ai.cloneFail': 'Failed to duplicate: ',
+            'nav.ai.activating': 'Switching model…',
+            'nav.ai.activated': 'Activated; requests now use this profile',
+            'nav.ai.activateFail': 'Failed to activate: ',
+            'nav.ai.deleted': 'Profile deleted',
+            'nav.ai.deleteFail': 'Failed to delete: ',
+            'nav.ai.noProfile': 'No AI profile selected',
             'nav.ai.empty': 'Loading Dragon Claw Agent configuration...',
             'nav.ai.help': 'Manage model profiles for the Dragon Claw Agent and background analysis. Supports Gemini, OpenAI, Anthropic, MiniMax, and OpenAI-compatible gateways. Tokens are stored on the server and masked in the UI.',
             'nav.ai.sourcePrefix': 'Current Token Source: ',
@@ -3137,12 +3259,12 @@ function buildAiUsageChart(series) {
         : '').join('');
     const tokenDots = rows.map((item, index) => `<circle cx="${x(index)}" cy="${tokenY(item.tokens)}" r="3" class="nav-ai-chart-token-dot"><title>${navEscape(item.label)} · ${Number(item.tokens || 0).toLocaleString()} Tokens</title></circle>`).join('');
     const costDots = rows.map((item, index) => `<circle cx="${x(index)}" cy="${costY(item.costCny)}" r="3" class="nav-ai-chart-cost-dot"><title>${navEscape(item.label)} · ¥${Number(item.costCny || 0).toFixed(4)}</title></circle>`).join('');
-    return `<svg class="nav-ai-usage-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="Token and cost trend">
+    return `<svg class="nav-ai-usage-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${navEscape(navT('nav.ai.usageTitle'))}">
         ${grid}
         <text x="8" y="${tokenBand.top + 10}" class="nav-ai-chart-band-title token">Token</text>
         <text x="8" y="${tokenBand.top + 24}" class="nav-ai-chart-band-max">${navEscape(formatAiUsageNumber(maxTokens))}</text>
         <polyline points="${tokenPoints}" class="nav-ai-chart-token-line"/>${tokenDots}
-        <text x="8" y="${costBand.top + 10}" class="nav-ai-chart-band-title cost">费用</text>
+        <text x="8" y="${costBand.top + 10}" class="nav-ai-chart-band-title cost">${navEscape(navT('nav.ai.usageChartCost'))}</text>
         <text x="8" y="${costBand.top + 24}" class="nav-ai-chart-band-max">¥${Number(maxCost).toFixed(4)}</text>
         <polyline points="${costPoints}" class="nav-ai-chart-cost-line"/>${costDots}${labels}
     </svg>`;
@@ -3170,9 +3292,9 @@ function renderAiUsageDashboard(data) {
             <button type="button" class="nav-settings-add ${selectedModel ? 'secondary' : ''}" onclick="setAiUsageModel('all')" style="margin:0;white-space:nowrap;">${navEscape(navT('nav.ai.usageAllModels'))}</button>
             ${shownModels.map(item => `<button type="button" class="nav-settings-add ${selectedModel?.key === item.key ? '' : 'secondary'}" onclick="setAiUsageModel('${navEscape(item.key)}')" style="margin:0;white-space:nowrap;">${navEscape(item.profileName || item.provider)} · ${navEscape(item.model)} · ${formatAiUsageNumber(item.totals?.tokens)}</button>`).join('')}
             ${selectedModel ? `
-                <button type="button" class="nav-settings-add danger" onclick="clearSelectedModelAiUsage()" style="margin:0 0 0 auto;white-space:nowrap;font-size:12px;padding:3px 10px;height:28px;" title="清空当前选中模型的用量与计费统计">🗑 ${navEscape(navT('nav.ai.clearModelUsage'))}</button>
+                <button type="button" class="nav-settings-add danger" onclick="clearSelectedModelAiUsage()" style="margin:0 0 0 auto;white-space:nowrap;font-size:12px;padding:3px 10px;height:28px;" title="${navEscape(navT('nav.ai.clearSelectedHint'))}">🗑 ${navEscape(navT('nav.ai.clearModelUsage'))}</button>
             ` : (models.length > 0 ? `
-                <button type="button" class="nav-settings-add secondary" onclick="promptClearAllAiUsage()" style="margin:0 0 0 auto;white-space:nowrap;font-size:12px;padding:3px 10px;height:28px;" title="清空全部历史用量与计费统计">🗑 ${navEscape(navT('nav.ai.clearAllModelUsage'))}…</button>
+                <button type="button" class="nav-settings-add secondary" onclick="promptClearAllAiUsage()" style="margin:0 0 0 auto;white-space:nowrap;font-size:12px;padding:3px 10px;height:28px;" title="${navEscape(navT('nav.ai.clearAllHint'))}">🗑 ${navEscape(navT('nav.ai.clearAllModelUsage'))}…</button>
             ` : '')}
         </div>
         <div style="font-size:11px;color:#64748b;margin-bottom:8px;">${navEscape(navT('nav.ai.usageByModel'))}${Number(unclassified.tokens || 0) > 0 ? ` · ${navEscape(navT('nav.ai.usageLegacy'))} ${formatAiUsageNumber(unclassified.tokens)} Tokens` : ''}</div>
@@ -3181,13 +3303,13 @@ function renderAiUsageDashboard(data) {
             <div><span>${navEscape(navT('nav.ai.usageCostCny'))}</span><strong>¥${Number(totals.costCny || 0).toFixed(4)}</strong><small>${navEscape(navT('nav.ai.usageCostUsd'))} $${Number(totals.costUsd || 0).toFixed(4)}</small></div>
             <div><span>${navEscape(navT('nav.ai.usageRequests'))}</span><strong>${Number(totals.requests || 0).toLocaleString()}</strong><small>${navEscape(navT('nav.ai.usagePeriod'))} ${formatAiUsageNumber(period.tokens)} tokens</small></div>
         </div>
-        <div class="nav-ai-usage-legend"><span class="tokens">Token</span><span class="cost">费用 CNY</span><b>${navEscape(navT('nav.ai.usagePeriod'))}：${formatAiUsageNumber(period.tokens)} Tokens · ¥${period.costCny.toFixed(4)}</b></div>
+        <div class="nav-ai-usage-legend"><span class="tokens">Token</span><span class="cost">${navEscape(navT('nav.ai.costLegend'))}</span><b>${navEscape(navT('nav.ai.usagePeriod'))}：${formatAiUsageNumber(period.tokens)} Tokens · ¥${period.costCny.toFixed(4)}</b></div>
         <div class="nav-ai-chart-wrap">${buildAiUsageChart(series)}</div>
         ${models.length > 0 ? `
         <div style="margin-top:12px;background:rgba(248,250,252,0.78);border:1px solid #e2e8f0;border-radius:10px;padding:10px 12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;">
-                <span style="font-size:12px;font-weight:600;color:#334155;">历史模型用量明细 (${models.length})</span>
-                <span style="font-size:11px;color:#64748b;">支持独立清空指定模型历史记录</span>
+                <span style="font-size:12px;font-weight:600;color:#334155;">${navEscape(navT('nav.ai.usageHistory'))} (${models.length})</span>
+                <span style="font-size:11px;color:#64748b;">${navEscape(navT('nav.ai.usageHistoryHelp'))}</span>
             </div>
             <div style="display:flex;flex-direction:column;gap:5px;max-height:150px;overflow-y:auto;padding-right:2px;">
                 ${models.map(item => {
@@ -3195,10 +3317,10 @@ function renderAiUsageDashboard(data) {
                     return `
                     <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #edf2f7;border-radius:8px;padding:5px 9px;font-size:12px;">
                         <div style="display:flex;align-items:center;gap:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                            <strong style="color:#1e293b;">${navEscape(displayName)}</strong>${configured.size && !isConfigured(item) ? '<em style="font-style:normal;font-size:10.5px;color:#94a3b8;border:1px solid #e2e8f0;border-radius:8px;padding:0 6px;">已不在配置中</em>' : ''}
+                            <strong style="color:#1e293b;">${navEscape(displayName)}</strong>${configured.size && !isConfigured(item) ? `<em style="font-style:normal;font-size:10.5px;color:#94a3b8;border:1px solid #e2e8f0;border-radius:8px;padding:0 6px;">${navEscape(navT('nav.ai.unconfigured'))}</em>` : ''}
                             <span style="color:#64748b;font-size:11px;">(${formatAiUsageNumber(item.totals?.tokens)} Tokens · ¥${Number(item.totals?.costCny || 0).toFixed(4)})</span>
                         </div>
-                        <button type="button" class="nav-settings-add danger" onclick="clearSpecificModelUsage('${navEscape(item.key)}', '${navEscape(displayName)}', ${item.totals?.tokens || 0}, ${Number(item.totals?.costCny || 0).toFixed(4)})" style="margin:0;font-size:11px;padding:2px 8px;height:24px;line-height:20px;" title="清空该模型的历史 Token 与计费统计">🗑 清空统计</button>
+                        <button type="button" class="nav-settings-add danger" onclick="clearSpecificModelUsage('${navEscape(item.key)}', '${navEscape(displayName)}', ${item.totals?.tokens || 0}, ${Number(item.totals?.costCny || 0).toFixed(4)})" style="margin:0;font-size:11px;padding:2px 8px;height:24px;line-height:20px;" title="${navEscape(navT('nav.ai.clearModelUsage'))}">🗑 ${navEscape(navT('nav.ai.clearModelUsage'))}</button>
                     </div>
                     `;
                 }).join('')}
@@ -3230,7 +3352,7 @@ window.clearSpecificModelUsage = async function (key, displayName, tokens, costC
     if (!confirmed) return;
 
     const indicator = document.getElementById('navSettingsSaveState');
-    if (indicator) indicator.textContent = '正在清空模型用量统计…';
+    if (indicator) indicator.textContent = navT('nav.ai.clearingModel');
     try {
         const res = await fetch(`/api/ai-settings/usage?key=${encodeURIComponent(key)}`, {
             method: 'DELETE',
@@ -3239,11 +3361,11 @@ window.clearSpecificModelUsage = async function (key, displayName, tokens, costC
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         if (navState.aiUsageModelKey === key) navState.aiUsageModelKey = 'all';
-        if (indicator) indicator.textContent = `已成功清空模型 “${displayName}” 统计信息`;
+        if (indicator) indicator.textContent = `${navT('nav.ai.clearedModel', { name: displayName })}`;
         await loadAiUsageDashboard(navState.aiUsageDimension);
     } catch (err) {
-        if (indicator) indicator.textContent = `清空失败：${err.message}`;
-        showNavbarNotice({ title: navT('nav.dialog.error'), message: `清空统计失败：${err.message}`, tone: 'error' });
+        if (indicator) indicator.textContent = navT('nav.ai.clearFail') + err.message;
+        showNavbarNotice({ title: navT('nav.dialog.error'), message: navT('nav.ai.clearStatsFail') + err.message, tone: 'error' });
     }
 };
 
@@ -3273,7 +3395,7 @@ window.promptClearAllAiUsage = async function () {
     if (!confirmed) return;
 
     const indicator = document.getElementById('navSettingsSaveState');
-    if (indicator) indicator.textContent = '正在清空全部模型统计…';
+    if (indicator) indicator.textContent = navT('nav.ai.clearingAll');
     try {
         const res = await fetch('/api/ai-settings/usage?clearAll=true', {
             method: 'DELETE',
@@ -3282,11 +3404,11 @@ window.promptClearAllAiUsage = async function () {
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         navState.aiUsageModelKey = 'all';
-        if (indicator) indicator.textContent = '全部模型统计信息已清空';
+        if (indicator) indicator.textContent = navT('nav.ai.clearedAll');
         await loadAiUsageDashboard(navState.aiUsageDimension);
     } catch (err) {
-        if (indicator) indicator.textContent = `清空失败：${err.message}`;
-        showNavbarNotice({ title: navT('nav.dialog.error'), message: `清空失败：${err.message}`, tone: 'error' });
+        if (indicator) indicator.textContent = navT('nav.ai.clearFail') + err.message;
+        showNavbarNotice({ title: navT('nav.dialog.error'), message: navT('nav.ai.clearFail') + err.message, tone: 'error' });
     }
 };
 
@@ -3365,34 +3487,34 @@ async function renderAiSettings(content) {
         const isImage = category === 'image';
         const isActiveProfile = !!settings?.isActive;
         const chatCount = allProfiles.filter(item => (item.category || 'chat') === 'chat').length, imageCount = allProfiles.length - chatCount;
-        const tabs = `<div class="nav-ai-tabs" role="tablist" aria-label="AI 模型分类">
-            <button type="button" role="tab" class="nav-ai-tab ${isImage ? '' : 'is-active'}" aria-selected="${!isImage}" onclick="switchAiCategory('chat')"><span class="nav-ai-tab-icon">文</span><span><b>文心 · 对话模型</b><small>对话、分析、写作与月报生成 · ${chatCount} 套</small></span></button>
-            <button type="button" role="tab" class="nav-ai-tab ${isImage ? 'is-active' : ''}" aria-selected="${isImage}" onclick="switchAiCategory('image')"><span class="nav-ai-tab-icon">丹</span><span><b>丹青 · 绘图模型</b><small>生成与修改图片 · ${imageCount} 套</small></span></button>
+        const tabs = `<div class="nav-ai-tabs" role="tablist" aria-label="${navEscape(navT('nav.ai.categoryLabel'))}">
+            <button type="button" role="tab" class="nav-ai-tab ${isImage ? '' : 'is-active'}" aria-selected="${!isImage}" onclick="switchAiCategory('chat')"><span class="nav-ai-tab-icon">${navEscape(navT('nav.ai.chatIcon'))}</span><span><b>${navEscape(navT('nav.ai.chatTitle'))}</b><small>${navEscape(navT('nav.ai.chatSummary', { count: chatCount }))}</small></span></button>
+            <button type="button" role="tab" class="nav-ai-tab ${isImage ? 'is-active' : ''}" aria-selected="${isImage}" onclick="switchAiCategory('image')"><span class="nav-ai-tab-icon">${navEscape(navT('nav.ai.imageIcon'))}</span><span><b>${navEscape(navT('nav.ai.imageTitle'))}</b><small>${navEscape(navT('nav.ai.imageSummary', { count: imageCount }))}</small></span></button>
         </div>`;
         if (!settings) {
-            content.innerHTML = `${tabs}<div class="nav-ai-tab-empty"><strong>还没有绘图模型</strong><span>添加一个能输出图片的模型（如 Gemini 的图片模型），AI 月报的图片对话就能生成真正的图片；没有时会用对话模型画 SVG 矢量图。</span><button type="button" class="nav-settings-add" onclick="createAiProfile()">＋ 新建绘图模型</button></div>`;
+            content.innerHTML = `${tabs}<div class="nav-ai-tab-empty"><strong>${navEscape(navT('nav.ai.imageEmpty'))}</strong><span>${navEscape(navT('nav.ai.imageEmptyHelp'))}</span><button type="button" class="nav-settings-add" onclick="createAiProfile()">${navEscape(navT('nav.ai.imageNew'))}</button></div>`;
             return;
         }
         content.innerHTML = `
             ${tabs}
-            <div class="nav-settings-help">${isImage ? 'AI 月报的图片对话（LOGO 和以后格子里的图片）用这里“使用中”的绘图模型生成图片；它不会参与对话，也不会被自动切换。' : navEscape(navT('nav.ai.help'))}</div>
+            <div class="nav-settings-help">${isImage ? navT('nav.ai.imageHelp') : navEscape(navT('nav.ai.help'))}</div>
             <section class="nav-ai-profile-panel">
                 <div class="nav-ai-profile-head">
                     <div>
-                        <strong>${isImage ? '绘图模型方案' : 'AI 配置方案'}</strong>
-                        <span>${isImage ? '可保存多套绘图模型；只有“使用中”的一套会用于生成图片。' : '可保存多套供应商与模型参数；只有已激活方案会用于实际业务。'}</span>
+                        <strong>${isImage ? navT('nav.ai.imageProfiles') : navT('nav.ai.chatProfiles')}</strong>
+                        <span>${isImage ? navT('nav.ai.imageProfilesHelp') : navT('nav.ai.chatProfilesHelp')}</span>
                     </div>
                     <div class="nav-ai-profile-head-actions">
-                        <button type="button" class="nav-settings-add" onclick="createAiProfile()">＋ 新建</button>
-                        <button type="button" class="nav-settings-add secondary" onclick="cloneAiProfile()">⧉ 复制当前</button>
+                        <button type="button" class="nav-settings-add" onclick="createAiProfile()">${navEscape(navT('nav.ai.profileNew'))}</button>
+                        <button type="button" class="nav-settings-add secondary" onclick="cloneAiProfile()">${navEscape(navT('nav.ai.profileClone'))}</button>
                     </div>
                 </div>
                 <div class="nav-ai-profile-list">
                     ${profiles.map(profile => `
                         <button type="button" class="nav-ai-profile-card ${profile.id === settings.id ? 'selected' : ''} ${profile.isActive ? 'active' : ''}" onclick="selectAiProfile('${navEscape(profile.id)}')">
-                            <span class="nav-ai-profile-card-top"><b>${navEscape(profile.name)}</b>${profile.isActive ? '<em>使用中</em>' : ''}</span>
+                            <span class="nav-ai-profile-card-top"><b>${navEscape(profile.name)}</b>${profile.isActive ? `<em>${navEscape(navT('nav.ai.profileActive'))}</em>` : ''}</span>
                             <span>${navEscape(profile.provider)} · ${navEscape(profile.model)}${profile.provider === 'anthropic' || /claude/i.test(profile.model) ? ` · ${profile.anthropicAuthType === 'ANTHROPIC_API_KEY' ? 'API_KEY' : 'AUTH_TOKEN'}` : ''}</span>
-                            <small class="${profile.keyLooksValid ? 'ready' : ''}">${profile.keyLooksValid ? '● Token 可用' : '○ Token 未就绪'}</small>
+                            <small class="${profile.keyLooksValid ? 'ready' : ''}">${profile.keyLooksValid ? navT('nav.ai.tokenReady') : navT('nav.ai.tokenNotReady')}</small>
                         </button>
                     `).join('')}
                 </div>
@@ -3402,19 +3524,19 @@ async function renderAiSettings(content) {
                 </label>`}
                 <div class="nav-ai-profile-toolbar">
                     <label>
-                        <span>方案名称</span>
-                        <input id="navAiProfileName" class="nav-settings-input" maxlength="60" value="${navEscape(settings.name || 'AI 配置')}" oninput="scheduleAiSettingsSave()">
+                        <span>${navEscape(navT('nav.ai.profileName'))}</span>
+                        <input id="navAiProfileName" class="nav-settings-input" maxlength="60" value="${navEscape(settings.name || navT('nav.ai.profileDefault'))}" oninput="scheduleAiSettingsSave()">
                     </label>
                     <div>
-                        <button type="button" class="nav-settings-add" onclick="testAiSettingsNow()">⌁ 测试连接</button>
-                        <button type="button" class="nav-settings-add activate" onclick="activateAiProfile()" ${isActiveProfile ? 'disabled' : ''}>${isActiveProfile ? (isImage ? '✓ 正在用于绘图' : '✓ 当前已激活') : (isImage ? '⚡ 用于绘图' : '⚡ 激活此方案')}</button>
-                        <button type="button" class="nav-settings-add danger" onclick="deleteAiProfile()" ${!isImage && profiles.length <= 1 ? 'disabled' : ''}>删除</button>
+                        <button type="button" class="nav-settings-add" onclick="testAiSettingsNow()">${navEscape(navT('nav.ai.testConnection'))}</button>
+                        <button type="button" class="nav-settings-add activate" onclick="activateAiProfile()" ${isActiveProfile ? 'disabled' : ''}>${isActiveProfile ? (isImage ? navT('nav.ai.imageActive') : navT('nav.ai.chatActive')) : (isImage ? navT('nav.ai.imageActivate') : navT('nav.ai.chatActivate'))}</button>
+                        <button type="button" class="nav-settings-add danger" onclick="deleteAiProfile()" ${!isImage && profiles.length <= 1 ? 'disabled' : ''}>${navEscape(navT('nav.ai.profileDelete'))}</button>
                     </div>
                 </div>
             </section>
             ${isImage ? '' : `<section class="nav-ai-profile-panel nav-ai-alias-panel" id="navAiAliasPanel">${renderAiModelAliasPanel()}</section>`}
             <div class="nav-ai-status">
-                <span>${isActiveProfile ? (isImage ? '图片生成正在使用此方案' : '当前业务正在使用此方案') : '正在编辑未激活方案'}</span>
+                <span>${isActiveProfile ? (isImage ? navT('nav.ai.imageStatus') : navT('nav.ai.chatStatus')) : navT('nav.ai.inactiveStatus')}</span>
                 <span>${navEscape(navT('nav.ai.sourcePrefix'))}${navEscape(sourceLabelForAiSettings(settings.apiKeySource))}</span>
                 <span class="${settings.hasApiKey && !settings.keyLooksValid ? 'warning' : ''}">${navEscape(keyHealthLabelForAiSettings(settings))}</span>
             </div>
@@ -3477,7 +3599,7 @@ async function renderAiSettings(content) {
                     </datalist>
                 </label>
                 <label class="nav-ai-field">
-                    <span>Temperature</span>
+                    <span>${navEscape(navT('nav.ai.temperature'))}</span>
                     <input id="navAiTemperature" type="number" min="0" max="2" step="0.1" class="nav-settings-input" value="${navEscape(settings.temperature)}" oninput="scheduleAiSettingsSave()">
                 </label>
                 <label class="nav-ai-field">
@@ -3501,7 +3623,7 @@ async function renderAiSettings(content) {
                     <textarea id="navAiSystemPrompt" class="nav-ai-textarea" maxlength="5000" placeholder="${navEscape(navT('nav.ai.plhPrompt'))}" oninput="scheduleAiSettingsSave()">${navEscape(settings.systemPrompt || '')}</textarea>
                 </label>
                 <div class="nav-ai-field nav-ai-field-wide">
-                    <span>连接测试结果</span>
+                    <span>${navEscape(navT('nav.ai.testResult'))}</span>
                     <div id="navAiTestResult" class="nav-ai-test-result"></div>
                 </div>
             </div>
@@ -3682,7 +3804,7 @@ window.switchAiCategory = async function (category) {
         navState.aiSelectedProfileId = (profiles.find(item => item.isActive) || profiles[0])?.id || null;
         renderAiSettings(document.getElementById('navSettingsContent'));
     } catch (error) {
-        if (indicator) indicator.textContent = `切换前保存失败：${error.message}`;
+        if (indicator) indicator.textContent = navT('nav.ai.switchSaveFail') + error.message;
     }
 };
 
@@ -3695,7 +3817,7 @@ window.selectAiProfile = async function (profileId) {
         navState.aiSelectedProfileId = profileId;
         renderAiSettings(document.getElementById('navSettingsContent'));
     } catch (error) {
-        if (indicator) indicator.textContent = `切换前保存失败：${error.message}`;
+        if (indicator) indicator.textContent = navT('nav.ai.switchSaveFail') + error.message;
     }
 };
 
@@ -3704,17 +3826,17 @@ window.createAiProfile = async function () {
     try {
         clearTimeout(navState.aiSaveTimer);
         await saveAiSettingsNow();
-        if (indicator) indicator.textContent = '正在创建…';
+        if (indicator) indicator.textContent = navT('nav.ai.creating');
         const data = await requestAiProfile('/api/ai-settings/profiles', {
             method: 'POST',
-            body: JSON.stringify(navState.aiCategory === 'image' ? { name: '新绘图模型', category: 'image', provider: 'gemini' } : { name: '新 AI 配置', category: 'chat' })
+            body: JSON.stringify(navState.aiCategory === 'image' ? { name: navT('nav.ai.newImageName'), category: 'image', provider: 'gemini' } : { name: navT('nav.ai.newChatName'), category: 'chat' })
         });
         navState.aiSettings = data;
         navState.aiSelectedProfileId = data.createdProfileId;
-        if (indicator) indicator.textContent = '已创建，尚未激活';
+        if (indicator) indicator.textContent = navT('nav.ai.created');
         renderAiSettings(document.getElementById('navSettingsContent'));
     } catch (error) {
-        if (indicator) indicator.textContent = `创建失败：${error.message}`;
+        if (indicator) indicator.textContent = navT('nav.ai.createFail') + error.message;
     }
 };
 
@@ -3728,14 +3850,14 @@ window.cloneAiProfile = async function () {
         const sourceName = document.getElementById('navAiProfileName')?.value.trim() || profile.name;
         const data = await requestAiProfile('/api/ai-settings/profiles', {
             method: 'POST',
-            body: JSON.stringify({ sourceProfileId: profile.id, name: `${sourceName} 副本` })
+            body: JSON.stringify({ sourceProfileId: profile.id, name: `${sourceName} ${navT('nav.ai.copySuffix')}` })
         });
         navState.aiSettings = data;
         navState.aiSelectedProfileId = data.createdProfileId;
-        if (indicator) indicator.textContent = '副本已创建，尚未激活';
+        if (indicator) indicator.textContent = navT('nav.ai.cloned');
         renderAiSettings(document.getElementById('navSettingsContent'));
     } catch (error) {
-        if (indicator) indicator.textContent = `复制失败：${error.message}`;
+        if (indicator) indicator.textContent = navT('nav.ai.cloneFail') + error.message;
     }
 };
 
@@ -3746,12 +3868,12 @@ window.activateAiProfile = async function () {
     try {
         clearTimeout(navState.aiSaveTimer);
         await saveAiSettingsNow();
-        if (indicator) indicator.textContent = '正在切换模型…';
+        if (indicator) indicator.textContent = navT('nav.ai.activating');
         navState.aiSettings = await requestAiProfile(`/api/ai-settings/profiles/${encodeURIComponent(profileId)}/activate`, { method: 'POST' });
-        if (indicator) indicator.textContent = '已激活，业务调用已切换';
+        if (indicator) indicator.textContent = navT('nav.ai.activated');
         renderAiSettings(document.getElementById('navSettingsContent'));
     } catch (error) {
-        if (indicator) indicator.textContent = `激活失败：${error.message}`;
+        if (indicator) indicator.textContent = navT('nav.ai.activateFail') + error.message;
     }
 };
 
@@ -3772,10 +3894,10 @@ window.deleteAiProfile = async function () {
         const data = await requestAiProfile(`/api/ai-settings/profiles/${encodeURIComponent(profile.id)}`, { method: 'DELETE' });
         navState.aiSettings = data;
         navState.aiSelectedProfileId = data.activeProfileId;
-        if (indicator) indicator.textContent = '配置已删除';
+        if (indicator) indicator.textContent = navT('nav.ai.deleted');
         renderAiSettings(document.getElementById('navSettingsContent'));
     } catch (error) {
-        if (indicator) indicator.textContent = `删除失败：${error.message}`;
+        if (indicator) indicator.textContent = navT('nav.ai.deleteFail') + error.message;
     }
 };
 
@@ -3858,7 +3980,7 @@ async function saveAiSettingsNow(options = {}) {
     const indicator = document.getElementById('navSettingsSaveState');
     if (indicator) indicator.textContent = navT('nav.ai.saving');
     const profileId = navState.aiSelectedProfileId;
-    if (!profileId) throw new Error('未选择 AI 配置');
+    if (!profileId) throw new Error(navT('nav.ai.noProfile'));
     const res = await fetch(`/api/ai-settings/profiles/${encodeURIComponent(profileId)}`, {
         method: 'PUT',
         headers: {
@@ -3887,7 +4009,7 @@ async function saveAiSettingsNow(options = {}) {
     const status = document.querySelector('.nav-ai-status');
     if (status) {
         status.innerHTML = `
-            <span>${savedProfile?.isActive ? '当前业务正在使用此方案' : '正在编辑未激活方案'}</span>
+            <span>${navEscape(navT(savedProfile?.isActive ? (savedProfile.category === 'image' ? 'nav.ai.imageStatus' : 'nav.ai.chatStatus') : 'nav.ai.inactiveStatus'))}</span>
             <span>${navEscape(navT('nav.ai.sourcePrefix'))}${navEscape(sourceLabelForAiSettings(savedProfile?.apiKeySource))}</span>
             <span class="${savedProfile?.hasApiKey && !savedProfile?.keyLooksValid ? 'warning' : ''}">${navEscape(keyHealthLabelForAiSettings(savedProfile || {}))}</span>
         `;

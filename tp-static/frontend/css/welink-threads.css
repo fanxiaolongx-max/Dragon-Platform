@@ -1,10 +1,10 @@
 /* 首页对话侧栏「WeLink」分类、只读时间线、任务进度条与工作区「跟进与记忆」卡片（js/home/welink-threads.js） */
 
-/* ── 侧栏：我的对话 / WeLink ───────────────────────── */
+/* ── 侧栏：我的对话 / 已对接的频道（WeLink、微信），标签数由 --tab-count 决定 ── */
 .home-chat-tabs {
     position: relative;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(var(--tab-count, 2), minmax(0, 1fr));
     flex: none;
     margin: 0 0 6px;
     padding: 3px;
@@ -33,13 +33,14 @@
     top: 3px;
     bottom: 3px;
     left: 3px;
-    width: calc(50% - 3px);
+    width: calc((100% - 6px) / var(--tab-count, 2));
     border-radius: 7px;
     background: linear-gradient(135deg, rgba(100, 255, 218, 0.16), rgba(96, 165, 250, 0.14));
     box-shadow: inset 0 0 0 1px rgba(100, 255, 218, 0.28);
+    transform: translateX(calc(100% * var(--tab-index, 0)));
     transition: transform 0.28s cubic-bezier(0.22, 0.8, 0.24, 1);
 }
-.home-chat-tabs[data-active="welink"] .home-chat-tabs-ink { transform: translateX(100%); }
+.home-chat-tabs[hidden] { display: none; }
 
 .home-chat-item.wl-item {
     grid-template-columns: auto minmax(0, 1fr) auto;
