@@ -227,7 +227,7 @@ app.use((req, res, next) => {
     const userAgent = req.get('user-agent') || '';
     const originalSend = res.send;
     res.send = function serviceStatusCaptureSend(body) {
-        res.locals.serviceStatusResponseBody = sanitizeResponseForStatus(body);
+        res.locals.serviceStatusResponseBody = req.suppressResponseLog ? '[omitted]' : sanitizeResponseForStatus(body);
         return originalSend.call(this, body);
     };
     res.on('finish', () => {
@@ -410,6 +410,7 @@ app.use('/api', (req, res, next) => {
     if (req.path.startsWith('/surveys')) return next(); // 调查模板和提交由模块内部控制权限
     if (req.method === 'POST' && req.path === '/db/config/monthly_report_titles') return next(); // 登录用户可编辑月报中英文标题，路由内继续校验数据
     if (/^\/monthly-snapshots(?:\/[^/]+)?$/.test(req.path)) return next(); // 登录用户可维护各月份月报快照
+    if (/^\/ai-report(?:\/.*)?$/.test(req.path)) return next(); // 登录用户可编辑 AI 月报、与格子 AI 对话
     if (/^\/duty-roster(?:\/.*)?$/.test(req.path)) return next(); // 登录用户可维护各月份值班表
     if (/^\/meeting-snapshots(?:\/.*)?$/.test(req.path)) return next(); // 登录用户可维护会议考勤历史快照与名单设置
     if (/^\/(?:operation-incentive-snapshots|incentive-snapshots)(?:\/[^/]+)?$/.test(req.path)) return next(); // 登录用户可维护操作激励历史快照
@@ -459,6 +460,7 @@ app.use('/api/meeting-snapshots', meetingSnapshotsRoutes); // 会议考勤历史
 app.use('/api/operation-incentive-snapshots', operationIncentiveSnapshotsRoutes); // 操作激励历史快照持久化 API
 app.use('/api/incentive-snapshots', operationIncentiveSnapshotsRoutes); // 别名路由
 app.use('/api/report-msg', require('./routes/report-msg')); // 月报 Outlook 邮件文件导出
+app.use('/api/ai-report', require('./routes/ai-report')); // AI 月报：格子对话、配方数据与报告文档
 app.use('/api/praudit', prauditRoutes); // PR审计配置 API
 app.use('/api/chat-history', chatHistoryRoutes); // 租户隔离的聊天记录中心
 app.use('/api/custom-tools', customToolsRoutes); // 自定义 HTML 工具注册 API
@@ -521,11 +523,10 @@ app.get('/expedite', (req, res) => {
     sendFrontendHtml(res, 'pages/expedite.html');
 });
 app.get('/monthly', (req, res) => {
-    sendFrontendHtml(res, 'pages/monthly-designer.html');
+    sendFrontendHtml(res, 'pages/ai-report.html'); // AI 月报编辑器（旧编辑器已归档于 backups/monthly-designer-classic-2026-10-21）
 });
-app.get('/monthly/legacy', (req, res) => {
-    sendFrontendHtml(res, 'pages/monthly.html');
-});
+// 旧月报编辑器与旧月报页面的书签统一跳到 AI 月报
+app.get(['/ai-report', '/monthly/legacy', '/pages/monthly-designer.html', '/pages/monthly.html'], (req, res) => res.redirect(302, '/monthly'));
 app.get(['/duty-roster', '/duty-roster.html'], (req, res) => {
     sendFrontendHtml(res, 'pages/duty-roster.html');
 });

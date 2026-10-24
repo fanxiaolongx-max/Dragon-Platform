@@ -2245,7 +2245,9 @@
         </div>
     </div>
 
+    <script src="/js/vendor/hls.min.js"></script>
     <script>
+        let activeHlsInstance = null;
         // --- 全局片库数据 ---
         let allVideos = [
             {
@@ -2433,9 +2435,34 @@
                 document.getElementById('heroBackdrop').src = backdrop;
             }
 
-            // 更新视频源
-            video.src = item.src;
+            // 更新视频源（支持本地直链、飞牛原生 Range 流与飞牛 HLS 自适应转码流）
+            if (activeHlsInstance) {
+                try { activeHlsInstance.destroy(); } catch (_) {}
+                activeHlsInstance = null;
+            }
+            if (item.hlsSrc && item.needsTranscode && window.Hls && window.Hls.isSupported()) {
+                activeHlsInstance = new window.Hls({
+                    enableWorker: true,
+                    lowLatencyMode: false
+                });
+                activeHlsInstance.loadSource(item.hlsSrc);
+                activeHlsInstance.attachMedia(video);
+                activeHlsInstance.on(window.Hls.Events.ERROR, function (_event, data) {
+                    if (data && data.fatal) {
+                        try { activeHlsInstance.destroy(); } catch (_) {}
+                        activeHlsInstance = null;
+                        video.src = item.src;
+                    }
+                });
+            } else if (item.hlsSrc && item.needsTranscode && video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = item.hlsSrc;
+            } else {
+                video.src = item.src;
+            }
             if (item.poster) video.poster = item.poster;
+            if (item.duration && Number(item.duration) > 0) {
+                timeTotal.textContent = formatSeconds(item.duration);
+            }
             updateEpisodeNavigation();
         }
 
@@ -2609,15 +2636,23 @@
             return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
         }
 
+        function getEffectiveDuration() {
+            if (Number.isFinite(video.duration) && video.duration > 0) return video.duration;
+            if (currentVideo && Number(currentVideo.duration) > 0) return Number(currentVideo.duration);
+            return 0;
+        }
+
         video.addEventListener('loadedmetadata', () => {
-            timeTotal.textContent = formatSeconds(video.duration);
+            timeTotal.textContent = formatSeconds(getEffectiveDuration());
         });
 
         video.addEventListener('timeupdate', () => {
-            if (!isUserSeeking) {
-                const percent = (video.currentTime / video.duration) * 100;
+            const totalDur = getEffectiveDuration();
+            if (!isUserSeeking && totalDur > 0) {
+                const percent = Math.min(100, (video.currentTime / totalDur) * 100);
                 progressPlayed.style.width = `${percent}%`;
                 timeCurrent.textContent = formatSeconds(video.currentTime);
+                timeTotal.textContent = formatSeconds(totalDur);
             }
 
             // 保存记忆续播进度（每个记录点只写入一次）
@@ -2628,20 +2663,21 @@
             }
 
             // 缓冲进度
-            if (video.buffered.length > 0) {
+            if (video.buffered.length > 0 && totalDur > 0) {
                 const bufferedEnd = video.buffered.end(video.buffered.length - 1);
-                const bufPercent = (bufferedEnd / video.duration) * 100;
+                const bufPercent = Math.min(100, (bufferedEnd / totalDur) * 100);
                 progressBuffer.style.width = `${bufPercent}%`;
             }
         });
 
         // --- 交互式进度条拖拽与时间预览 ---
         function updateProgressFromEvent(e) {
+            const totalDur = getEffectiveDuration();
             const rect = progressContainer.getBoundingClientRect();
             const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
             progressPlayed.style.width = `${pos * 100}%`;
-            timeCurrent.textContent = formatSeconds(pos * video.duration);
-            return pos * video.duration;
+            timeCurrent.textContent = formatSeconds(pos * totalDur);
+            return pos * totalDur;
         }
 
         progressContainer.addEventListener('mousedown', (e) => {
@@ -2665,16 +2701,18 @@
         });
 
         progressContainer.addEventListener('mousemove', (e) => {
+            const totalDur = getEffectiveDuration();
             const rect = progressContainer.getBoundingClientRect();
             const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-            const hoverTime = pos * video.duration;
+            const hoverTime = pos * totalDur;
             progressTooltip.textContent = formatSeconds(hoverTime);
             progressTooltip.style.left = `${pos * 100}%`;
         });
 
         // --- 快进快退 ---
         function skipTime(delta) {
-            video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + delta));
+            const totalDur = getEffectiveDuration() || video.duration || 0;
+            video.currentTime = Math.max(0, Math.min(totalDur, video.currentTime + delta));
         }
 
         // --- 音量调节 ---

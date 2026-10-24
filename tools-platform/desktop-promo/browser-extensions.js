@@ -106,6 +106,20 @@ function scanInstalledBrowserExtensions() {
     return [...found.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
 }
 
+// 只默认加载用户要求的 ICPM，不自动启用其它本机插件。
+const isIcpmExtension = item => /^ICPM(?:\s|插件|$)/i.test(String(item.name || '').trim());
+function selectIcpmExtension(installed, imported, disabled) {
+    if (disabled.includes('auto:icpm') || imported.some(isIcpmExtension)) return null;
+    return installed.filter(item => isIcpmExtension(item) && !disabled.includes(item.key))
+        .sort((a, b) => compareVersions(b.version, a.version) ||
+            Number(b.browser === 'Chrome') - Number(a.browser === 'Chrome') || a.key.localeCompare(b.key))[0] || null;
+}
+
+function compatibilityWarnings(manifest) {
+    const permissions = [...(manifest.permissions || []), ...(manifest.optional_permissions || [])];
+    return permissions.includes('nativeMessaging') ? ['nativeMessaging'] : [];
+}
+
 function createExtensionManager({ session, statePath }) {
     // 只有桌面运行时需要 Electron；插件目录扫描与元数据解析也供普通 Node 测试使用。
     const { app } = require('electron');
@@ -143,7 +157,7 @@ function createExtensionManager({ session, statePath }) {
         try {
             const ext = await session.loadExtension(dir, { allowFileAccess: false });
             const popup = manifest.action && manifest.action.default_popup || manifest.browser_action && manifest.browser_action.default_popup || '';
-            loaded.set(key, { key, source, id: ext.id, name, version: manifest.version, popup: popup ? popup.replace(/^\.?\//, '') : '', options: manifest.options_page || (manifest.options_ui && manifest.options_ui.page) || '' });
+            loaded.set(key, { key, source, id: ext.id, name, version: manifest.version, warnings: compatibilityWarnings(manifest), popup: popup ? popup.replace(/^\.?\//, '') : '', options: manifest.options_page || (manifest.options_ui && manifest.options_ui.page) || '' });
         } catch (error) {
             loaded.set(key, { key, source, name, version: manifest.version, error: error.message || String(error) });
             console.warn(`[DesktopBrowser] 加载插件失败 ${name}:`, error.message || error);
@@ -171,6 +185,11 @@ function createExtensionManager({ session, statePath }) {
 
     async function loadImported() {
         const installed = new Map(scanInstalledBrowserExtensions().map(item => [item.key, item]));
+        const automatic = selectIcpmExtension([...installed.values()], state.imported, state.disabled);
+        if (automatic) {
+            state.imported.push({ key: automatic.key, source: 'browser', name: automatic.name });
+            writeState();
+        }
         for (const item of state.imported) {
             if (item.source === 'browser') {
                 const current = installed.get(item.key);
@@ -227,6 +246,14 @@ function createExtensionManager({ session, statePath }) {
 
     async function toggleBrowserExtension(item, enabled) {
         if (enabled) {
+            // Chrome / Edge 同类插件只保留用户本次选择，避免两份内容脚本重复响应。
+            if (isIcpmExtension(item)) {
+                for (const other of state.imported.filter(entry => entry.source === 'browser' && isIcpmExtension(entry) && entry.key !== item.key)) {
+                    state.imported = state.imported.filter(entry => entry.key !== other.key);
+                    await unload(other.key);
+                }
+                state.disabled = state.disabled.filter(key => key !== 'auto:icpm');
+            }
             state.imported = state.imported.filter(entry => entry.key !== item.key).concat({ key: item.key, source: 'browser', name: item.name });
             writeState();
             await (ready = ready.catch(() => {}).then(() => loadDir(item.key, item.dir, 'browser')));
@@ -237,6 +264,7 @@ function createExtensionManager({ session, statePath }) {
 
     async function removeImported(key) {
         const entry = state.imported.find(item => item.key === key);
+        if (entry && isIcpmExtension(entry)) state.disabled = [...new Set([...state.disabled, 'auto:icpm'])];
         state.imported = state.imported.filter(item => item.key !== key);
         writeState();
         await unload(key);
@@ -265,4 +293,4 @@ function createExtensionManager({ session, statePath }) {
     };
 }
 
-module.exports = { createExtensionManager, scanInstalledBrowserExtensions, displayName, compareVersions };
+module.exports = { createExtensionManager, scanInstalledBrowserExtensions, displayName, compareVersions, selectIcpmExtension, compatibilityWarnings };

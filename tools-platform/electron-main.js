@@ -56,7 +56,7 @@ const petManager = require('./desktop-pet/pet-manager');
 const { resolveLogoAsset } = require('./backend/models/platform-logo-runtime');
 require('./backend/models/desktop-language').events.on('change', () => { refreshTrayMenu(); desktopPromotions.languageChanged(); });
 // 首页推广链接：登录后在右下角以置顶小窗卡片堆打开（desktop-promo/promo-stack.js），首页读取实时画面
-// 推广/桌面浏览器模块出错时换成空实现：只是这项功能不可用，不影响桌面端启动、托盘和本地服务
+// 推广/Dragon 浏览器模块出错时换成空实现：只是这项功能不可用，不影响桌面端启动、托盘和本地服务
 const desktopPromotions = (() => {
     try {
         const stack = require('./desktop-promo/promo-stack').createPromoStack({
@@ -77,8 +77,8 @@ const desktopPromotions = (() => {
         };
     }
 })();
-ipcMain.on('promo-card:action', (event, action) => {
-    try { desktopPromotions.handleAction(event.sender, action); } catch (error) { console.warn('[Electron] Promotion card action failed:', error.message || error); }
+ipcMain.on('promo-card:action', (event, action, payload) => {
+    try { desktopPromotions.handleAction(event.sender, action, payload); } catch (error) { console.warn('[Electron] Promotion card action failed:', error.message || error); }
 });
 
 function getAppIconPath() {
@@ -2008,13 +2008,13 @@ function refreshTrayMenu() {
             ]
         },
         {
-            label: petT('🪟 浮窗脚本（桌面浏览器）', '🪟 Floating scripts (desktop browser)'),
+            label: petT('🪟 浮窗脚本（Dragon 浏览器）', '🪟 Floating scripts (Dragon Browser)'),
             submenu: [
                 ...safeSiteScripts().map(site => ({
                     label: petT(`打开 ${site.name}（登录后自动运行）`, `Open ${site.name} (runs after sign-in)`),
                     click: () => desktopPromotions.runSiteScript(site.origin)
                 })),
-                ...(safeSiteScripts().length ? [{ type: 'separator' }] : [{ label: petT('还没有：在「数据抓取 → 📋 浮窗脚本」里点「🖥 桌面浏览器运行」', 'None yet: use “🖥 Run in desktop browser” in Data Capture'), enabled: false }]),
+                ...(safeSiteScripts().length ? [{ type: 'separator' }] : [{ label: petT('还没有：在「数据抓取 → 📋 浮窗脚本」里点「🖥 Dragon 浏览器」', 'None yet: use “🖥 Dragon Browser” in Data Capture'), enabled: false }]),
                 { label: petT('打开浮窗脚本列表…', 'Open the floating script list…'), click: () => openAppPath('/uivf12?siteScripts=1') }
             ]
         },
@@ -2088,7 +2088,7 @@ async function startTrayApp() {
         startDesktopLicenseRefresh();
         scheduleStartupUpdateCheck();
 
-        // 桌面浏览器：登录态与插件在启动时就绪（卡片堆仍等首页登录后再打开）
+        // Dragon 浏览器：登录态与插件在启动时就绪（卡片堆仍等首页登录后再打开）
         Promise.resolve().then(() => desktopPromotions.init()).catch(error => console.warn('[Electron] Desktop browser init failed:', error.message || error));
 
         // 启动桌面宠物组件

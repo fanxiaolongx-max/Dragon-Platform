@@ -470,6 +470,31 @@ router.post('/config/:key', (req, res) => {
     }));
 });
 
+// 月报趋势：每天的完整快照很大（含 sourceSections、工单明细），趋势计算只需要指标汇总
+// 月报 / 大屏只读汇总、指标、到期工单、手工调整等字段；sourceSections 是源表原始行（单份可达数 MB），这里不需要
+function withoutSourceSections(raw) {
+    if (!raw) return raw;
+    try {
+        const snapshot = JSON.parse(raw);
+        if (!Array.isArray(snapshot.sourceSections)) return raw;
+        snapshot.sourceSectionsCount = snapshot.sourceSections.length;
+        delete snapshot.sourceSections;
+        return JSON.stringify(snapshot);
+    } catch (_) {
+        return raw;
+    }
+}
+
+function slimTrendSnapshot(raw) {
+    if (!raw) return raw;
+    try {
+        const snapshot = JSON.parse(raw);
+        return JSON.stringify({ month: snapshot.month, timestamp: snapshot.timestamp, selectedTargetMonth: snapshot.selectedTargetMonth, topMetrics: snapshot.topMetrics || [] });
+    } catch (_) {
+        return null; // 前端解析失败时本就回退到 compliance_rate
+    }
+}
+
 router.get('/monthly_report_data', (req, res) => {
     const { startDate, endDate } = req.query;
     const whereParts = [];
@@ -547,7 +572,8 @@ router.get('/monthly_report_data', (req, res) => {
                         compliance_rate: complianceRate,
                         metrics_total: stats.total,
                         metrics_failing: stats.failing,
-                        raw_data_json: s.raw_data_json
+                        // 趋势图只用每日快照的 month / timestamp / topMetrics；完整快照（数 MB/天）只随 latest_snapshot 下发
+                        raw_data_json: slimTrendSnapshot(s.raw_data_json)
                     };
                 });
 
@@ -576,7 +602,7 @@ router.get('/monthly_report_data', (req, res) => {
                                         cat_scores: latestCatScores,
                                         metrics: latestMetrics,
                                         previous_metrics: prevMetrics,
-                                        raw_data_json: snapRow ? snapRow.raw_data_json : null
+                                        raw_data_json: snapRow ? withoutSourceSections(snapRow.raw_data_json) : null
                                     }
                                 });
                             });

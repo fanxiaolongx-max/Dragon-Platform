@@ -296,15 +296,19 @@ async function ask(input, { user, onDelta, signal, generate = null }) {
     }
     const visualContext = text(input?.visualContext, 6000);
     const prompt = buildPrompt({ mode, question, quote, anchor, article, section, visualContext, history });
+    const basePrompt = /^en(?:[-_]|$)/i.test(String(input?.language || ''))
+        ? BASE_PROMPT.replace('使用简体中文，专业、准确、简洁；术语保留英文原文（如 LSA、DR、P-bit）。', 'Answer in English, including the META title and brief. Be precise, clear and concise; preserve protocol and command identifiers. Translate any section headings and labels into English.')
+        : BASE_PROMPT;
+    const systemInstruction = `${basePrompt}\n${MODE_PROMPT[mode]}`;
     let output = '';
     if (generate) {
-        output = await generate({ prompt, systemInstruction: `${BASE_PROMPT}\n${MODE_PROMPT[mode]}`, onDelta });
+        output = await generate({ prompt, systemInstruction, onDelta });
     } else {
         const settings = await aiSettingsRepo.getRuntimeSettings();
         if (!settings.hasApiKey || !settings.keyLooksValid) throw knowledgeError('平台尚未配置可用的 AI 模型，请管理员在“AI 设置”中配置后再使用', 503, 'DATACOM_AI_UNAVAILABLE');
         const client = aiProviderClient.createClient(settings);
         const result = await client.generateText({
-            systemInstruction: `${BASE_PROMPT}\n${MODE_PROMPT[mode]}`,
+            systemInstruction,
             prompt,
             maxOutputTokens: Math.min(4096, Number(settings.maxOutputTokens) || 4096),
             temperature: mode === 'rewrite' ? 0.2 : 0.4,

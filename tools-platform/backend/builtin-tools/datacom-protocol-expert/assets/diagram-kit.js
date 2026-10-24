@@ -86,13 +86,13 @@ export function bitDiagram(layer, selected = -1, bitsPerRow = 32) {
     const unit = 768 / bitsPerRow;
     let out = text(56, 25, layer.name, 'region-title', 'start');
     for (let i = 0; i < bitsPerRow; i++) out += text(56 + (i + 0.5) * unit, 55, i, 'bit-ruler');
-    for (let r = 0; r < rows; r++) out += text(42, 94 + r * 52, `${r * bitsPerRow}`, 'bit-ruler', 'end');
+    for (let r = 0; r < rows; r++) out += text(42, 94 + r * 52, `${segments.some(f => f.variable && f.row < r) ? '?' : r * bitsPerRow}`, 'bit-ruler', 'end');
     segments.forEach((field) => {
         const x = 56 + field.col * unit,
             y = 70 + field.row * 52,
             w = field.take * unit;
         const label = w < 52 ? String(field.index + 1) : field.name;
-        out += `<g class="dk-field ${selected === field.index ? 'active' : ''}" role="button" tabindex="0" data-part="field-${field.index}" aria-label="${esc(`${field.name}，${field.bits} bit`)}"><title>${esc(field.name)} · ${field.bits} bit</title><rect x="${x + 1}" y="${y}" width="${w - 2}" height="46" rx="4"/>${text(x + w / 2, y + 20, label, 'field-title')}${w >= 65 ? text(x + w / 2, y + 37, `${field.continuation ? '续段 · ' : ''}${field.take} bit`, 'bit-ruler') : ''}</g>`;
+        out += `<g class="dk-field ${selected === field.index ? 'active' : ''}" role="button" tabindex="0" data-part="field-${field.index}" aria-label="${esc(`${field.name}，${field.variable ? '可变长' : `${field.bits} bit`}`)}"><title>${esc(field.name)} · ${field.variable ? '可变长' : `${field.bits} bit`}</title><rect x="${x + 1}" y="${y}" width="${w - 2}" height="46" rx="4"/>${text(x + w / 2, y + 20, label, 'field-title')}${w >= 65 ? text(x + w / 2, y + 37, `${field.variable ? '可变长' : `${field.continuation ? '续段 · ' : ''}${field.take} bit`}`, 'bit-ruler') : ''}</g>`;
     });
     return svg(out, `${layer.name}，每行 ${bitsPerRow} bit；窄字段用序号标识`, 90 + rows * 52);
 }

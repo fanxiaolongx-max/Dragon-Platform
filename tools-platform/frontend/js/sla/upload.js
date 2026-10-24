@@ -946,6 +946,7 @@ async function captureAndUploadSnapshot(fileNames, meta = {}) {
         window.SLAMetricSnapshotSync?.bind(context);
         try{const cached=JSON.parse(localStorage.getItem(SLA_WORKSPACE_CACHE_KEY)||'null');if(cached){cached.meta.metricSnapshotContext={...context,fingerprint:window.SLAMetricSnapshotSync?.fingerprint()};localStorage.setItem(SLA_WORKSPACE_CACHE_KEY,JSON.stringify(cached));}}catch(_){}
     }
+    window.MonthlyMetricUpdates?.notify();
     return snapshot;
 }
 

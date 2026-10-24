@@ -234,7 +234,14 @@ test('three-tier platform names and login slogan persist, normalize and flip ord
     assert.equal(defaultIdentity.platformNameZh, 'Dragon 工具平台');
     assert.equal(defaultIdentity.platformNameEn, 'Dragon Platform');
     assert.equal(defaultIdentity.platformSubtitle, '埃及 CS 工具与知识中心');
-    assert.ok(defaultIdentity.platformSlogan.includes('图特之羽'));
+    assert.equal(defaultIdentity.platformSlogan, '“认真做好每一个工具，让日常工作更省心。”');
+    assert.equal(defaultIdentity.platformSloganEn, '“Build every tool with care. Make everyday work easier.”');
+    const legacyDefaults = repo.normalizeSettings({
+        platformSlogan: '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”',
+        platformSloganEn: '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”'
+    });
+    assert.equal(legacyDefaults.platformSlogan, defaultIdentity.platformSlogan);
+    assert.equal(legacyDefaults.platformSloganEn, defaultIdentity.platformSloganEn);
 
     await repo.saveSettings({
         platformNameZh: '智慧之翼中台',

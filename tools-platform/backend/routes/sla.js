@@ -467,7 +467,8 @@ router.get('/snapshots/latest', async (_req, res) => {
 router.get('/snapshots', async (req, res) => {
     try {
         const { items, source } = await snapshotsRepo.listSnapshots({
-            mode: req.query.mode || 'auto'
+            mode: req.query.mode || 'auto',
+            view: req.query.view === 'summary' ? 'summary' : 'full' // summary：不含明细数据，供只需元数据的页面使用
         });
         res.setHeader('X-Data-Source', source);
         console.log(`[DATA SOURCE] GET /api/sla/snapshots -> ${source.toUpperCase()}`);

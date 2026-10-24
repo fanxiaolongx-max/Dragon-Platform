@@ -81,9 +81,10 @@ export async function exportPdf(deck, setStatusCallback) {
             
             setStatusCallback(`正在生成页面 ${i + 1}/${slides.length}`);
             
+            const isDark = slides[i].classList.contains('theme-dark') || slides[i].dataset.theme === 'dark';
             const canvas = await html2canvas(exportSlide, {
                 scale: 2,
-                backgroundColor: '#fbfbf9',
+                backgroundColor: isDark ? '#0b0f19' : (slides[i].style.backgroundColor || null),
                 useCORS: true,
                 windowWidth: 1920,
                 windowHeight: 1080,
@@ -170,9 +171,10 @@ export async function exportPptx(deck, setStatusCallback) {
                 continue;
             }
             
+            const isDark = slides[i].classList.contains('theme-dark') || slides[i].dataset.theme === 'dark';
             const canvas = await html2canvas(exportSlide, {
                 scale: 2,
-                backgroundColor: '#fbfbf9',
+                backgroundColor: isDark ? '#0b0f19' : (slides[i].style.backgroundColor || null),
                 useCORS: true,
                 windowWidth: 1920,
                 windowHeight: 1080,

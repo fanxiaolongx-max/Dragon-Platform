@@ -7,6 +7,7 @@ const { spawnSync } = require('node:child_process');
 
 const {
     DEFAULT_MEDIA_ORDER,
+    DEFAULT_FEINIU_URL,
     normalizeMediaOrder,
     compareMediaOrder,
     normalizeMediaCategoryOrder,
@@ -14,6 +15,10 @@ const {
     createCategoryPinRecord,
     verifyCategoryPin
 } = require('../backend/routes/media');
+const {
+    normalizeFeiniuUrl,
+    signFeiniuAuthx
+} = require('../backend/models/feiniu-service');
 
 test('龙餐馆在未设置优先级时默认排在普通视频之前', () => {
     assert.equal(normalizeMediaOrder(undefined, true), 0);
@@ -157,4 +162,36 @@ test('Windows 打包版使用可写媒体目录，不在 app.asar 内创建目�
 
     const electronSource = fs.readFileSync(path.join(__dirname, '../electron-main.js'), 'utf8');
     assert.match(electronSource, /if \(app\.isPackaged\) \{\s*process\.env\.TOOLS_MEDIA_DIR = path\.join\(userDataPath, 'media'\);/);
+});
+
+test('全局设置影视作品支持飞牛影视对接配置且默认链接为 https://feiniu.fanxiaolong.uk/v', () => {
+    assert.equal(DEFAULT_FEINIU_URL, 'https://feiniu.fanxiaolong.uk/v');
+    assert.deepEqual(normalizeFeiniuUrl(''), {
+        url: 'https://feiniu.fanxiaolong.uk/v',
+        origin: 'https://feiniu.fanxiaolong.uk',
+        apiPrefix: '/v/api/v1'
+    });
+    assert.deepEqual(normalizeFeiniuUrl('https://feiniu.fanxiaolong.uk/v/login'), {
+        url: 'https://feiniu.fanxiaolong.uk/v',
+        origin: 'https://feiniu.fanxiaolong.uk',
+        apiPrefix: '/v/api/v1'
+    });
+
+    const authx = signFeiniuAuthx('POST', '/v/api/v1/item/list', { page: 1 });
+    assert.match(authx, /^nonce=\d{6}&timestamp=\d+&sign=[0-9a-f]{32}$/);
+
+    const navbarSource = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+    const mediaSource = fs.readFileSync(path.join(__dirname, '../backend/routes/media.js'), 'utf8');
+    const cinemaSource = fs.readFileSync(path.join(__dirname, '../frontend/pages/cinema.html'), 'utf8');
+
+    assert.match(navbarSource, /id="feiniuUrlInput"/);
+    assert.match(navbarSource, /id="feiniuUsernameInput"/);
+    assert.match(navbarSource, /id="feiniuPasswordInput"/);
+    assert.match(navbarSource, /https:\/\/feiniu\.fanxiaolong\.uk\/v/);
+    assert.match(navbarSource, /saveFeiniuMediaConfig/);
+    assert.match(mediaSource, /\/admin\/feiniu\/config/);
+    assert.match(mediaSource, /\/public\/feiniu\/stream\/:guid/);
+    assert.match(mediaSource, /\/public\/feiniu\/hls\/:guid\/index\.m3u8/);
+    assert.match(mediaSource, /\/public\/feiniu\/image/);
+    assert.match(cinemaSource, /item\.hlsSrc && item\.needsTranscode/);
 });

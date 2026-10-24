@@ -31,7 +31,10 @@
 - 沿用现有种子升级机制：更新未人工编辑的种子文章；人工编辑、删除记录与用户文章保留。未直接操作运行数据库、备份或用户工具目录。
 - 避免把 FA、DR、NSSA 翻译、vrf-import 匹配、校验和检错等有前提的行为表述为无条件保证。
 - 教学拓扑、计时与链路参数是机制示例，不是设备模拟器或实测性能数据。
-- 英文切换覆盖新增教学界面控件和主要标题，原笔记与部分教学说明保留中文；语言切换不改变计算和图形状态。
+- 中英文切换覆盖 28 篇内置笔记的标题、摘要、正文、表格、代码注释、Mermaid 图、知识导图、教学步骤、图中对象、计算结果及辅助标签；视频素材保留中文。语言切换不改写笔记、编辑器或数据库，也不重载视频。
+- `assets/i18n.js` 负责显示翻译、原文选择映射和平台语言同步，`i18n-en.js` 保存随工具打包的英文内容，离线快照同样可用。新增或修改内置文案时同步补齐词库，并运行语言回归；导图先翻译再截断，Mermaid 按目标语言重新排版。
+- 图中字段通过 `field-explanations.js` 匹配当前图后面的原文表格或条目，另给协议作用、例子和实现边界。Interface MTU 包含 16 bit/字节、不分片含义、1500/9000 拒收例子、虚链路填 0 和 Huawei 配置边界。变长列表占位不再标成固定长度，普通树形流程图不会误判为报文位图。
+- AI 新回答及其标题、摘要跟随当前语言；英文选区映射回源段落，改写仍使用原有权限、版本和原文定位检查。
 
 主要核对资料：
 
@@ -55,14 +58,15 @@
 ```sh
 cd backend && npm run doctor
 # 以下在 tools-platform 根目录
-node --test tests/datacom-teaching.test.js tests/datacom-knowledge-frontend.test.js tests/datacom-knowledge.test.js tests/datacom-knowledge-snapshot.test.js tests/asset-versioning.test.js
+node --test tests/datacom-localization.test.js tests/datacom-teaching.test.js tests/datacom-knowledge-frontend.test.js tests/datacom-knowledge.test.js tests/datacom-knowledge-ai.test.js tests/datacom-knowledge-snapshot.test.js tests/asset-versioning.test.js
 node --test tests/custom-tool-i18n.test.js tests/builtin-tools-update.test.js tests/datacom-knowledge-ai.test.js
+node_modules/.bin/electron tests/datacom-localization-browser.cjs
 node_modules/.bin/electron tests/datacom-teaching-browser.cjs
 node_modules/.bin/electron tests/datacom-knowledge-snapshot-browser.cjs
 ```
 
-45 个定向 Node 测试通过。14 个本次改动或新增的前端模块通过 `node --check`，`git diff --check` 通过。
+本次中英文与对象解释改动的 48 个定向 Node 测试通过；改动或新增的前端模块通过 `node --check`，本次改动文件的 `git diff --check` 通过。
 
-浏览器验证使用临时数据：11 个场景的全部选项与步骤、播放/暂停、进度恢复、5 个实验室、非法前缀、星图与学习路径、全部正文 Mermaid、RFC 位图、深浅主题、390px 窄屏、英文控件和本地模拟的 AI 引用上下文。Pages 与 file:// 单文件快照均验证无业务 API 请求，单文件无 HTTP 请求。
+浏览器验证使用临时数据：11 个场景的全部选项与步骤、播放/暂停、进度恢复、5 个实验室、非法前缀、星图与学习路径、全部正文 Mermaid、RFC 位图、深浅主题、390px 窄屏、全部内置内容英文残留检查、中英往返、英文搜索、动态辅助标签、平台/独立语言开关同步，以及本地模拟的 AI 引用上下文。Pages 与 file:// 单文件快照均验证无业务 API 请求，单文件无 HTTP 请求。
 
-未验证：真实网络设备行为、已发布远端站点、实际 AI 服务生成结果以及完整 Electron 安装包。测试未向 AI 服务提交提问。
+未验证：真实网络设备行为、已发布远端站点、实际 AI 服务生成结果以及完整 Electron 安装包。自动化测试使用 AI 桩验证语言和权限，不向真实 AI 服务提交用户内容。

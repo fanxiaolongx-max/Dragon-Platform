@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-explorer-theme="light">
 
 <head>
     <meta charset="UTF-8">
@@ -137,7 +137,7 @@
         td:hover {
             background: #f8fafc;
         }
-        
+
         .json-cell {
             font-family: monospace;
             color: #059669;
@@ -152,12 +152,12 @@
             font-size: 14px;
             color: #64748b;
         }
-        
+
         .page-info {
             font-weight: 600;
             color: #334155;
         }
-        
+
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -195,19 +195,605 @@
             color: #64748b;
             font-size: 13px;
         }
+
+        /* ================= SQL Console Styles ================= */
+        .sql-console-card {
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .sql-console-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .sql-console-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .sql-console-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
+            font-size: 18px;
+            color: #1e293b;
+            font-weight: 700;
+        }
+
+        .sql-title-icon {
+            font-size: 20px;
+        }
+
+        .sql-badge {
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 3px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 0.2px;
+        }
+
+        .sql-shortcuts-hint {
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .sql-shortcuts-hint kbd {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #334155;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.06);
+        }
+
+        .sql-presets-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .sql-presets-bar[hidden] { display: none; }
+
+        .database-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        #database-select { flex: 1 1 280px; min-width: 0; max-width: 580px; }
+        #database-context { margin-bottom: 18px; overflow-wrap: anywhere; }
+
+        .presets-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+            margin-right: 2px;
+        }
+
+        .presets-note {
+            margin: 6px 0 12px;
+            color: #64748b;
+            font-size: 12px;
+        }
+
+        .sql-presets-bar > .presets-label {
+            flex: 0 0 90px;
+        }
+
+        .preset-pill {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 12px;
+            color: #334155;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            user-select: none;
+        }
+
+        .preset-pill:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .preset-pill:hover:not(:disabled) {
+            background: #eff6ff;
+            border-color: #93c5fd;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+        }
+
+        @media (max-width: 600px) {
+            .sql-presets-bar > .presets-label { flex-basis: 100%; }
+            .preset-pill { max-width: 100%; white-space: normal; text-align: left; }
+        }
+
+        .preset-pill:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+
+        .sql-editor-container {
+            position: relative;
+            margin-bottom: 14px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid #334155;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+        }
+
+        .sql-editor {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 14px 16px;
+            font-family: 'JetBrains Mono', 'Fira Code', 'SFMono-Regular', Consolas, Monaco, monospace;
+            font-size: 13.5px;
+            line-height: 1.6;
+            border: none;
+            outline: none;
+            resize: vertical;
+            min-height: 120px;
+            background: #0f172a;
+            color: #f8fafc;
+            caret-color: #38bdf8;
+            tab-size: 4;
+        }
+
+        .sql-editor::placeholder {
+            color: #64748b;
+        }
+
+        .sql-action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .sql-action-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .btn-execute-sql {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
+            transition: all 0.15s ease;
+        }
+
+        .btn-execute-sql:hover {
+            background: linear-gradient(135deg, #1d4ed8, #1e40af);
+            box-shadow: 0 4px 8px rgba(37, 99, 235, 0.35);
+        }
+
+        .kbd-shortcut-pill {
+            background: rgba(255, 255, 255, 0.22);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-family: monospace;
+            margin-left: 2px;
+        }
+
+        .sql-status-text {
+            font-size: 13px;
+            color: #64748b;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .sql-results-area {
+            margin-top: 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .sql-result-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #ffffff;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .sql-result-header {
+            padding: 10px 14px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .sql-result-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .sql-verb-tag {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-family: monospace;
+        }
+
+        .sql-verb-tag.verb-select, .sql-verb-tag.verb-query {
+            background: #e0f2fe;
+            color: #0284c7;
+        }
+
+        .sql-verb-tag.verb-insert {
+            background: #dcfce7;
+            color: #16a34a;
+        }
+
+        .sql-verb-tag.verb-update {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .sql-verb-tag.verb-delete {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+
+        .sql-verb-tag.verb-create, .sql-verb-tag.verb-drop, .sql-verb-tag.verb-alter {
+            background: #f3e8ff;
+            color: #9333ea;
+        }
+
+        .sql-stat-pill {
+            font-size: 12px;
+            color: #475569;
+            font-weight: 600;
+        }
+
+        .sql-result-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-result-action {
+            padding: 4px 10px;
+            font-size: 12px;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            cursor: pointer;
+            color: #334155;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 600;
+            transition: all 0.15s ease;
+        }
+
+        .btn-result-action:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+            color: #1e293b;
+        }
+
+        .sql-code-preview {
+            padding: 6px 14px;
+            background: #0f172a;
+            color: #94a3b8;
+            font-family: monospace;
+            font-size: 12px;
+            border-bottom: 1px solid #1e293b;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+
+        .sql-table-container {
+            max-height: 480px;
+            overflow: auto;
+            position: relative;
+        }
+
+        .sql-data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .sql-data-table th {
+            position: sticky;
+            top: 0;
+            background: #f8fafc;
+            color: #334155;
+            font-weight: 600;
+            padding: 8px 10px;
+            border-bottom: 1px solid #cbd5e1;
+            border-right: 1px solid #e2e8f0;
+            white-space: nowrap;
+            z-index: 2;
+        }
+
+        .sql-data-table td {
+            padding: 7px 10px;
+            border-bottom: 1px solid #f1f5f9;
+            border-right: 1px solid #f1f5f9;
+            color: #1e293b;
+            white-space: nowrap;
+            max-width: 380px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sql-data-table tr:hover td {
+            background: #f8fafc;
+        }
+
+        .sql-row-idx {
+            color: #94a3b8;
+            text-align: center;
+            width: 40px;
+            user-select: none;
+            background: #fafafa;
+        }
+
+        .val-null {
+            color: #cbd5e1;
+            font-style: italic;
+            font-size: 11px;
+        }
+
+        .sql-execute-banner {
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: #f0fdf4;
+            color: #166534;
+        }
+
+        .sql-error-banner {
+            padding: 16px 20px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            color: #991b1b;
+        }
+
+        .sql-error-title {
+            font-weight: 700;
+            font-size: 14px;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .sql-error-snippet {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: #ffffff;
+            border: 1px solid #fca5a5;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            color: #b91c1c;
+        }
     </style>
+    <link rel="stylesheet" href="/css/db-explorer.css">
 </head>
 
 <body>
     <div class="page-container">
         <div class="controls">
             <h2><span data-i18n="🗄️ 数据探索 (DB Explorer)">🗄️ 数据探索 (DB Explorer)</span></h2>
-            <div style="font-size: 13px; color: #64748b;" data-i18n="仅超级管理员可访问">
-                仅超级管理员可访问
+            <div class="explorer-header-actions">
+                <span class="explorer-access-label" data-i18n="仅超级管理员可访问">仅超级管理员可访问</span>
+                <label for="explorer-theme" data-i18n="外观">外观</label>
+                <select id="explorer-theme" onchange="ExplorerWorkspace.setTheme(this.value)">
+                    <option value="light" data-i18n="亮色">亮色</option>
+                    <option value="dark" data-i18n="暗色">暗色</option>
+                </select>
             </div>
         </div>
 
-        <div class="card">
+        <div class="explorer-layout">
+        <nav class="explorer-primary-nav" aria-label="Explorer modules">
+            <span class="primary-nav-brand" aria-hidden="true">DB</span>
+            <button type="button" class="primary-module active" data-target-module="sql" aria-controls="workspace-sql" aria-current="page"><span aria-hidden="true">⌘</span><small data-i18n="SQL 终端">SQL 终端</small></button>
+            <button type="button" class="primary-module" data-target-module="tables" aria-controls="workspace-tables"><span aria-hidden="true">▦</span><small data-i18n="数据表">数据表</small></button>
+            <button type="button" class="primary-module" data-target-module="logs" aria-controls="workspace-logs"><span aria-hidden="true">≡</span><small data-i18n="日志收集">日志收集</small></button>
+        </nav>
+        <aside class="explorer-sidebar" aria-label="Explorer secondary navigation">
+            <div class="sidebar-database">
+            <div class="database-toolbar">
+                <label for="database-select" class="presets-label" data-i18n="选择数据库:">选择数据库:</label>
+                <select id="database-select" disabled><option data-i18n="加载中...">加载中...</option></select>
+                <button type="button" id="refresh-databases" class="btn-secondary" onclick="refreshDatabases()" data-i18n="刷新数据库">刷新数据库</button>
+            </div>
+            <div id="database-context" class="presets-note" role="status"></div>
+            <p id="database-description" class="database-description"></p>
+            </div>
+            <nav class="explorer-navigation">
+                <section class="nav-module" data-module="sql">
+                    <header class="secondary-nav-heading"><span data-i18n="SQL 终端">SQL 终端</span><span class="module-mark">SQL</span></header>
+                    <div class="module-children">
+                        <button type="button" class="sidebar-item editor-item" onclick="ExplorerWorkspace.openEditor()"><strong data-i18n="自定义查询">自定义查询</strong><small data-i18n="编写 SQL 并查看执行结果">编写 SQL 并查看执行结果</small></button>
+                        <input type="search" id="sql-example-search" aria-label="Search SQL examples">
+            <!-- 第二级 SQL 示例：根据所选库的实际表结构启用 -->
+            <div class="sql-presets">
+
+                <p class="presets-note" data-i18n="查询所选数据库；灰色示例表示该库中不存在相关表。">查询所选数据库；灰色示例表示该库中不存在相关表。</p>
+                <div class="sql-presets-bar">
+                    <span class="presets-label" data-i18n="SLA 与规则">SLA 与规则</span>
+                    <button type="button" class="preset-pill" data-tables="sla_targets" disabled data-sql="SELECT * FROM sla_targets LIMIT 100;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        🎯 <span data-i18n="指标目标 (sla_targets)">指标目标 (sla_targets)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="sla_groups" disabled data-sql="SELECT * FROM sla_groups ORDER BY sort_order, id LIMIT 100;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        🧩 <span data-i18n="指标分类 (sla_groups)">指标分类 (sla_groups)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="sla_categories" disabled data-sql="SELECT name, created_at FROM sla_categories ORDER BY name LIMIT 100;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        🏷️ <span data-i18n="业务类别 (sla_categories)">业务类别 (sla_categories)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="sla_groups sla_group_items" disabled data-sql="SELECT g.name AS group_name, i.item_name, i.item_sort_order FROM sla_group_items i JOIN sla_groups g ON g.id = i.group_id ORDER BY g.sort_order, g.id, i.item_sort_order, i.id LIMIT 100;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        🔗 <span data-i18n="分类下的指标">分类下的指标</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="sla_snapshots" disabled data-sql="SELECT id, timestamp, updated_at FROM sla_snapshots ORDER BY timestamp DESC, id DESC LIMIT 20;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        📸 <span data-i18n="考评快照 (sla_snapshots)">考评快照 (sla_snapshots)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="sla_prefs" disabled data-sql="SELECT pref_key, pref_kind, payload_json, updated_at FROM sla_prefs ORDER BY updated_at DESC, pref_key LIMIT 100;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        ⚙️ <span data-i18n="SLA 配置 (sla_prefs)">SLA 配置 (sla_prefs)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="sla_rule_templates" disabled data-sql="SELECT template_key, template_text, updated_at FROM sla_rule_templates ORDER BY updated_at DESC, template_key LIMIT 100;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        📐 <span data-i18n="规则模板 (sla_rule_templates)">规则模板 (sla_rule_templates)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="sys_dictionaries" disabled data-sql="SELECT dict_key, dict_value, category, updated_at FROM sys_dictionaries ORDER BY category, dict_key LIMIT 100;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        🌐 <span data-i18n="翻译字典 (sys_dictionaries)">翻译字典 (sys_dictionaries)</span>
+                    </button>
+                </div>
+                <div class="sql-presets-bar">
+                    <span class="presets-label" data-i18n="导入与报表">导入与报表</span>
+                    <button type="button" class="preset-pill" data-tables="import_source_batches" disabled data-sql="SELECT id, source, target_month, created_at FROM import_source_batches ORDER BY created_at DESC, id DESC LIMIT 100;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        📦 <span data-i18n="导入批次 (import_source_batches)">导入批次 (import_source_batches)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="import_source_files" disabled data-sql="SELECT id, batch_id, name, kind, size, parse_status, parse_error, created_at FROM import_source_files ORDER BY created_at DESC, id DESC LIMIT 100;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        📄 <span data-i18n="原始文件 (import_source_files)">原始文件 (import_source_files)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="import_source_files import_source_sheets" disabled data-sql="SELECT s.id, f.name AS file_name, s.name AS sheet_name, s.row_count FROM import_source_sheets s JOIN import_source_files f ON f.id = s.file_id ORDER BY f.created_at DESC, f.id, s.name LIMIT 100;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        📑 <span data-i18n="工作表与行数">工作表与行数</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="import_source_snapshots" disabled data-sql="SELECT id, batch_id, captured_at, target_month FROM import_source_snapshots ORDER BY captured_at DESC, id DESC LIMIT 20;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        🗂️ <span data-i18n="数据源快照 (import_source_snapshots)">数据源快照 (import_source_snapshots)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="ai_report_documents" disabled data-sql="SELECT id, name, report_month, updated_at, updated_by FROM ai_report_documents ORDER BY updated_at DESC, id LIMIT 100;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        🤖 <span data-i18n="AI 月报 (ai_report_documents)">AI 月报 (ai_report_documents)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="monthly_report_snapshots" disabled data-sql="SELECT id, tool_key, topic_key, month, name, updated_at FROM monthly_report_snapshots ORDER BY month DESC, updated_at DESC, id DESC LIMIT 100;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        📊 <span data-i18n="月报快照 (monthly_report_snapshots)">月报快照 (monthly_report_snapshots)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="import_source_settings" disabled data-sql="SELECT id, upload_originals FROM import_source_settings LIMIT 1;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        📥 <span data-i18n="原文件上传设置">原文件上传设置</span>
+                    </button>
+                </div>
+                <div class="sql-presets-bar">
+                    <span class="presets-label" data-i18n="数据库结构">数据库结构</span>
+                    <button type="button" class="preset-pill" data-sql="SELECT name FROM sqlite_master WHERE type=&#x27;table&#x27; AND name NOT LIKE &#x27;sqlite_%&#x27; ORDER BY name ASC;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        📋 <span data-i18n="所有数据表 (sqlite_master)">所有数据表 (sqlite_master)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-sql="SELECT name, sql FROM sqlite_master WHERE type=&#x27;table&#x27; AND name NOT LIKE &#x27;sqlite_%&#x27; ORDER BY name;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        🛠️ <span data-i18n="建表语句">建表语句</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-sql="SELECT name, tbl_name, sql FROM sqlite_master WHERE type=&#x27;index&#x27; AND name NOT LIKE &#x27;sqlite_%&#x27; ORDER BY tbl_name, name;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        🔎 <span data-i18n="索引列表">索引列表</span>
+                    </button>
+                </div>
+
+            </div>
+
+                    </div>
+                </section>
+                <section class="nav-module" data-module="tables" hidden>
+                    <header class="secondary-nav-heading"><span data-i18n="数据表查看">数据表查看</span><span id="catalog-count" class="module-mark">0</span></header>
+                    <div class="module-children">
+                        <input type="search" id="table-search" aria-label="Search tables">
+                        <div id="table-catalog" role="list"></div>
+                    </div>
+                </section>
+                <section class="nav-module" data-module="logs" hidden>
+                    <header class="secondary-nav-heading"><span data-i18n="日志收集">日志收集</span><span class="module-mark">ZIP</span></header>
+                    <div class="module-children log-presets">
+                        <button type="button" class="sidebar-item" data-log-days="3" onclick="ExplorerWorkspace.logRange(3)"><strong data-i18n="最近 3 天">最近 3 天</strong><small data-i18n="收集近期运行与错误日志">收集近期运行与错误日志</small></button>
+                        <button type="button" class="sidebar-item" data-log-days="7" onclick="ExplorerWorkspace.logRange(7)"><strong data-i18n="最近 7 天">最近 7 天</strong><small data-i18n="查看一周内的运行情况">查看一周内的运行情况</small></button>
+                        <button type="button" class="sidebar-item" onclick="ExplorerWorkspace.setModule('logs')"><strong data-i18n="自定义日期">自定义日期</strong><small data-i18n="在右侧选择日期后导出">在右侧选择日期后导出</small></button>
+                    </div>
+                </section>
+            </nav>
+        </aside>
+        <main class="explorer-workspace">
+            <header class="workspace-heading"><div><span id="workspace-eyebrow"></span><h2 id="workspace-title"></h2><p id="workspace-description"></p></div></header>
+        <!-- ⚡ SQL 终端 / SQL 查询与执行卡片 -->
+        <section class="card sql-console-card workspace-panel" id="workspace-sql" aria-label="SQL Console">
+            <div class="sql-console-header">
+                <div class="sql-console-title-wrap">
+                    <h3 class="sql-console-title">
+                        <span class="sql-title-icon">⚡</span>
+                        <span data-i18n="SQL 终端 (SQL Console)">SQL 终端 (SQL Console)</span>
+                    </h3>
+                    <span class="sql-badge" data-i18n="支持任意 SQL 语句：SELECT 查询、INSERT 插入、UPDATE 更新、DELETE 删除、DDL 等">
+                        支持任意 SQL 语句：SELECT 查询、INSERT 插入、UPDATE 更新、DELETE 删除、DDL 等
+                    </span>
+                </div>
+                <div class="sql-shortcuts-hint">
+                    <span data-i18n="快捷键:">快捷键:</span>
+                    <kbd>Ctrl</kbd> + <kbd>Enter</kbd> <span data-i18n="或">或</span> <kbd>Cmd</kbd> + <kbd>Enter</kbd>
+                </div>
+            </div>
+
+            <!-- SQL 输入编辑区 -->
+            <div class="sql-editor-container">
+                <textarea id="sql-input" class="sql-editor" rows="2" spellcheck="false" placeholder="在此输入当前数据库的 SQL，例如：&#10;SELECT name FROM sqlite_master WHERE type = 'table';"></textarea>
+            </div>
+
+            <!-- 操作按钮栏 -->
+            <div class="sql-action-bar">
+                <div class="sql-action-left">
+                    <button type="button" class="btn-primary btn-execute-sql" id="btn-execute-sql" onclick="executeCustomSql()">
+                        <span class="btn-icon">⚡</span>
+                        <span data-i18n="执行 SQL">执行 SQL</span>
+                        <span class="kbd-shortcut-pill">Ctrl+↵</span>
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="clearSqlInput()" data-i18n="🧹 清空">
+                        🧹 清空
+                    </button>
+                    <button type="button" class="btn-secondary" onclick="formatSqlInput()" data-i18n="✨ 规整 SQL">
+                        ✨ 规整 SQL
+                    </button>
+                </div>
+                <div class="sql-action-right">
+                    <div id="sql-status" class="sql-status-text"></div>
+                </div>
+            </div>
+
+            <!-- 执行结果展示区 -->
+            <div id="sql-results-area" class="sql-results-area" style="display: none;"></div>
+        </section>
+
+        <section class="card workspace-panel" id="workspace-logs" aria-label="Logs" hidden>
             <div class="log-export-grid">
                 <div class="field-group">
                     <label for="log-from-date" data-i18n="日志开始日期">日志开始日期</label>
@@ -223,20 +809,28 @@
             <div class="helper-text" data-i18n="默认收集最近 3 天日志，压缩包包含每日目录日志以及旧累计日志按日期过滤后的内容。">
                 默认收集最近 3 天日志，压缩包包含每日目录日志以及旧累计日志按日期过滤后的内容。
             </div>
-        </div>
+        </section>
 
-        <div class="card">
+        <section class="card workspace-panel" id="workspace-tables" aria-label="Tables" hidden>
+            <div id="table-description" class="table-description"></div>
             <div class="table-selector-group">
-                <div style="display: flex; align-items: center; gap: 8px;">
+                <div hidden>
                     <label style="font-weight: 600; color: #475569;" data-i18n="选择数据表:">选择数据表:</label>
                     <select id="table-select" style="min-width: 250px;">
                         <option value="" data-i18n="加载中...">加载中...</option>
                     </select>
                 </div>
-                
+
                 <button class="btn-primary" onclick="loadTableData(true)" data-i18n="🔄 刷新数据">🔄 刷新数据</button>
+                <button class="btn-secondary" onclick="querySelectedTableInSqlConsole()" data-i18n="⚡ 在 SQL 终端中查询">⚡ 在 SQL 终端中查询</button>
             </div>
 
+            <div class="table-view-tabs" role="tablist" aria-label="Table view">
+                <button type="button" id="table-schema-tab" role="tab" aria-selected="true" onclick="ExplorerWorkspace.setTableView('schema')" data-i18n="字段结构">字段结构</button>
+                <button type="button" id="table-data-tab" role="tab" aria-selected="false" onclick="ExplorerWorkspace.setTableView('data')" data-i18n="表数据">表数据</button>
+            </div>
+            <div id="table-schema-view" role="tabpanel" aria-labelledby="table-schema-tab" hidden></div>
+            <div id="table-data-view" role="tabpanel" aria-labelledby="table-data-tab" hidden>
             <div id="table-content-area" style="display: none;">
                 <div class="data-table-container">
                     <table id="data-table">
@@ -265,10 +859,13 @@
                     </div>
                 </div>
             </div>
-            
+
+            </div>
             <div id="loading-state" class="empty-state" data-i18n="请在上方选择数据表">
                 请在上方选择数据表
             </div>
+        </section>
+        </main>
         </div>
     </div>
 
@@ -276,7 +873,8 @@
     <script src="/js/shared/toast.js"></script>
     <script src="/js/shared/platform-logo-upload.js"></script>
     <script src="/js/shared/navbar.js"></script>
-    
+
+    <script src="/js/db-explorer/workspace.js"></script>
     <script>
         // ================== 双语切换引擎 ==================
         const I18N_DICT = {
@@ -284,6 +882,25 @@
             "🗄️ 数据探索 (DB Explorer)": "🗄️ DB Explorer",
             "仅超级管理员可访问": "Super admin only",
             "选择数据表:": "Select Table:",
+            "选择数据库:": "Select Database:",
+            "SQL 终端": "SQL Console",
+            "数据表查看": "Tables",
+            "数据表": "Tables",
+            "日志收集": "Collect Logs",
+            "自定义查询": "Custom Query",
+            "编写 SQL 并查看执行结果": "Write SQL and inspect its results",
+            "字段结构": "Structure",
+            "表数据": "Data",
+            "最近 3 天": "Last 3 Days",
+            "最近 7 天": "Last 7 Days",
+            "收集近期运行与错误日志": "Recent runtime and error logs",
+            "查看一周内的运行情况": "Review runtime logs for a week",
+            "自定义日期": "Custom Range",
+            "在右侧选择日期后导出": "Choose dates on the right to export",
+            "刷新数据库": "Refresh Databases",
+            "外观": "Theme",
+            "亮色": "Light",
+            "暗色": "Dark",
             "加载中...": "Loading...",
             "🔄 刷新数据": "🔄 Refresh Data",
             "共 ": "Total ",
@@ -304,21 +921,86 @@
             "日志开始日期": "Log Start Date",
             "日志结束日期": "Log End Date",
             "⬇️ 下载日志压缩包": "⬇️ Download Logs ZIP",
-            "默认收集最近 3 天日志，压缩包包含每日目录日志以及旧累计日志按日期过滤后的内容。": "By default, the ZIP collects the last 3 days, including daily log folders and date-filtered legacy cumulative logs."
+            "默认收集最近 3 天日志，压缩包包含每日目录日志以及旧累计日志按日期过滤后的内容。": "By default, the ZIP collects the last 3 days, including daily log folders and date-filtered legacy cumulative logs.",
+            "SQL 终端 (SQL Console)": "SQL Console",
+            "支持任意 SQL 语句：SELECT 查询、INSERT 插入、UPDATE 更新、DELETE 删除、DDL 等": "Supports arbitrary SQL: SELECT, INSERT, UPDATE, DELETE, DDL, etc.",
+            "快捷键:": "Shortcuts:",
+            "或": "or",
+            "常用示例:": "Quick Examples:",
+            "指标目标 (sla_targets)": "Targets (sla_targets)",
+            "指标分类 (sla_groups)": "Groups (sla_groups)",
+            "考评快照 (sla_snapshots)": "Snapshots (sla_snapshots)",
+            "所有数据表 (sqlite_master)": "All Tables (sqlite_master)",
+            "查询所选数据库；灰色示例表示该库中不存在相关表。": "Queries use the selected database; grey examples require tables absent from this database.",
+            "SLA 与规则": "SLA & Rules",
+            "业务类别 (sla_categories)": "Categories (sla_categories)",
+            "分类下的指标": "Group Metrics",
+            "SLA 配置 (sla_prefs)": "SLA Preferences (sla_prefs)",
+            "规则模板 (sla_rule_templates)": "Rule Templates (sla_rule_templates)",
+            "翻译字典 (sys_dictionaries)": "Translations (sys_dictionaries)",
+            "导入与报表": "Imports & Reports",
+            "导入批次 (import_source_batches)": "Import Batches (import_source_batches)",
+            "原始文件 (import_source_files)": "Source Files (import_source_files)",
+            "工作表与行数": "Worksheets & Row Counts",
+            "数据源快照 (import_source_snapshots)": "Source Snapshots (import_source_snapshots)",
+            "AI 月报 (ai_report_documents)": "AI Reports (ai_report_documents)",
+            "月报快照 (monthly_report_snapshots)": "Report Snapshots (monthly_report_snapshots)",
+            "原文件上传设置": "Original Upload Settings",
+            "数据库结构": "Database Structure",
+            "建表语句": "Table Definitions",
+            "索引列表": "Indexes",
+            "执行 SQL": "Execute SQL",
+            "执行 SQL (Ctrl+Enter)": "Execute SQL (Ctrl+Enter)",
+            "🧹 清空": "🧹 Clear",
+            "✨ 规整 SQL": "✨ Format SQL",
+            "⚡ 在 SQL 终端中查询": "⚡ Query in SQL Console",
+            "正在执行 SQL...": "Executing SQL...",
+            "SQL 执行完成": "SQL execution completed",
+            "SQL 语句不能为空": "SQL statement cannot be empty",
+            "请先选择一个数据表": "Please select a table first",
+            "已复制 JSON 数据到剪贴板": "Copied JSON to clipboard",
+            "语句执行成功": "Statement executed successfully",
+            "受影响行数: ": "Affected rows: ",
+            "自增主键: ": "Last insert ID: ",
+            "耗时: ": "Duration: ",
+            "查询成功，返回 0 行记录": "Query succeeded, 0 rows returned",
+            "未检测到有效的 SQL 语句": "No valid SQL statements detected",
+            "无执行结果": "No results",
+            "执行出错": "Execution error",
+            "网络或执行失败": "Network or execution failed",
+            "SQL 执行失败": "SQL Execution Failed",
+            "出错语句:": "Failed Statement:",
+            "返回: ": "Returned: ",
+            "行": "rows",
+            "字段: ": "Columns: ",
+            "列": "cols",
+            "导出为 CSV 文件": "Export to CSV",
+            "复制为 JSON 格式": "Copy JSON"
         };
 
         let currentLang = 'zh';
+        let selectedDatabase = 'tools';
+        let databaseItems = [];
+        let databaseEpoch = 0;
+        let tableRequest = 0;
+        let databaseListRequest = 0;
 
         function applyLanguage(lang) {
             if (currentLang === lang) return;
             currentLang = lang;
-            
+
             document.querySelectorAll('[data-i18n]').forEach(el => {
                 const key = el.getAttribute('data-i18n');
                 if (currentLang === 'en' && I18N_DICT[key]) el.innerHTML = I18N_DICT[key];
                 else el.innerHTML = key;
             });
-            
+
+            updatePresetTitles();
+            renderDatabaseOptions();
+            renderDatabaseContext();
+            renderTableShortcuts();
+            ExplorerWorkspace.translate();
+
             // Re-render select placeholder if possible
             const loadingState = document.getElementById('loading-state');
             if (loadingState && loadingState.innerHTML.includes('❌') && currentLang === 'en') {
@@ -328,6 +1010,32 @@
 
         function tText(zh, en) {
             return currentLang === 'en' ? en : zh;
+        }
+
+        function updatePresetTitles() {
+            document.querySelectorAll('.preset-pill[data-tables]').forEach(button => {
+                const missing = button.dataset.missingTables;
+                button.title = missing
+                    ? tText('所选数据库中不存在这些表：', 'Tables absent from the selected database: ') + missing
+                    : button.disabled
+                        ? tText('正在检查数据表是否可用', 'Checking table availability')
+                        : button.dataset.sql;
+            });
+        }
+
+        function updatePresetAvailability(tables) {
+            const available = new Set(tables);
+            document.querySelectorAll('.preset-pill[data-tables]').forEach(button => {
+                const missing = button.dataset.tables.split(/\s+/).filter(table => !available.has(table));
+                button.dataset.missingTables = missing.join(', ');
+                button.disabled = missing.length > 0;
+            });
+            document.querySelectorAll('.sql-presets-bar').forEach(group => {
+                const required = [...group.querySelectorAll('.preset-pill[data-tables]')];
+                if (required.length) group.hidden = selectedDatabase !== 'tools' && required.every(button => button.disabled);
+            });
+            updatePresetTitles();
+            ExplorerWorkspace.filterExamples();
         }
 
         window.addEventListener('tools:languagechange', (e) => {
@@ -358,28 +1066,120 @@
             document.getElementById('log-to-date').value = formatDateInput(to);
         }
 
+        function databaseUrl(endpoint, params = {}, database = selectedDatabase) {
+            return `/api/db-explorer/${endpoint}?${new URLSearchParams({ ...params, database })}`;
+        }
+
+        function renderDatabaseOptions() {
+            const select = document.getElementById('database-select');
+            if (!databaseItems.length) return;
+            select.replaceChildren(...databaseItems.map(item => {
+                const label = currentLang === 'en' ? item.labelEn : item.label;
+                const option = new Option(`${label} · ${item.name}`, item.id);
+                option.title = (currentLang === 'en' ? item.descriptionEn : item.description) || '';
+                return option;
+            }));
+            select.value = selectedDatabase;
+        }
+
+        function renderDatabaseContext() {
+            const item = databaseItems.find(item => item.id === selectedDatabase);
+            if (!item) return;
+            document.getElementById('database-context').textContent = item.scope === 'platform'
+                ? tText('当前数据库：', 'Current database: ') + item.name + tText(' · 平台全局账号与租户控制库', ' · Global accounts and tenant control plane')
+                : tText('当前租户：', 'Current tenant: ') + item.tenantId + tText(' · 数据库：', ' · Database: ') + item.name;
+            document.getElementById('database-description').textContent = (currentLang === 'en' ? item.descriptionEn : item.description) || tText('此库用途尚未登记。', 'The purpose of this database is not registered yet.');
+        }
+
+        function renderTableShortcuts() {
+            const tables = [...document.getElementById('table-select').options].map(option => option.value).filter(Boolean);
+            const example = tables.length ? `SELECT * FROM "${tables[0].replace(/"/g, '""')}" LIMIT 100;` : "SELECT name FROM sqlite_master WHERE type = 'table';";
+            document.getElementById('sql-input').placeholder = tText('在此输入当前数据库的 SQL，例如：', 'Enter SQL for the selected database, for example:') + '\n' + example;
+        }
+
+        async function refreshDatabases() {
+            const executeButton = document.getElementById('btn-execute-sql');
+            if (databaseEpoch > 0 && executeButton.disabled) return;
+            const request = ++databaseListRequest;
+            const refresh = document.getElementById('refresh-databases');
+            refresh.disabled = true;
+            executeButton.disabled = true;
+            try {
+                const data = await API.get('/api/db-explorer/databases');
+                if (request !== databaseListRequest) return;
+                databaseItems = data.databases || [];
+                const requested = new URLSearchParams(window.location.search).get('database');
+                const candidate = databaseEpoch === 0 && requested ? requested : selectedDatabase;
+                const next = databaseItems.some(item => item.id === candidate) ? candidate : databaseItems[0]?.id;
+                if (!next) throw new Error(tText('暂无可用数据库', 'No databases available'));
+                selectedDatabase = next;
+                renderDatabaseOptions();
+                await switchDatabase(next);
+            } catch (err) {
+                document.getElementById('database-context').textContent = tText('数据库加载失败：', 'Database loading failed: ') + err.message;
+            } finally {
+                if (request === databaseListRequest) {
+                    refresh.disabled = false;
+                    executeButton.disabled = !databaseItems.some(item => item.id === selectedDatabase);
+                }
+            }
+        }
+
+        async function switchDatabase(id) {
+            if (!databaseItems.some(item => item.id === id)) return;
+            selectedDatabase = id;
+            document.getElementById('database-select').value = id;
+            const epoch = ++databaseEpoch;
+            ++tableRequest;
+            currentOffset = 0;
+            currentTotal = 0;
+            clearSqlInput();
+            ExplorerWorkspace.reset();
+            renderDatabaseContext();
+            const select = document.getElementById('table-select');
+            select.replaceChildren(new Option(tText('加载中...', 'Loading...'), ''));
+            select.disabled = true;
+            document.getElementById('table-content-area').style.display = 'none';
+            document.getElementById('table-head').replaceChildren();
+            document.getElementById('table-body').replaceChildren();
+            const loading = document.getElementById('loading-state');
+            loading.style.display = 'block';
+            loading.textContent = tText('⏳ 正在加载数据...', '⏳ Loading data...');
+            updatePresetAvailability([]);
+            renderTableShortcuts();
+            document.getElementById('btn-execute-sql').disabled = true;
+            try {
+                const catalog = await API.get(databaseUrl('catalog', {}, id));
+                const tables = catalog.tables.map(table => table.name);
+                if (epoch !== databaseEpoch) return;
+                ExplorerWorkspace.setCatalog(catalog.tables);
+                updatePresetAvailability(tables || []);
+                select.replaceChildren(new Option(tables.length ? tText('-- 请选择 --', '-- Select --') : tText('无可用数据表', 'No available tables'), ''),
+                    ...tables.map(table => new Option(table, table)));
+                loading.textContent = tables.length ? tText('请在上方选择数据表', 'Please select a table above') : tText('无可用数据表', 'No available tables');
+                renderTableShortcuts();
+            } catch (err) {
+                if (epoch !== databaseEpoch) return;
+                loading.textContent = tText('❌ 加载失败: ', '❌ Load Failed: ') + err.message;
+            } finally {
+                if (epoch === databaseEpoch) {
+                    select.disabled = false;
+                    document.getElementById('database-select').disabled = false;
+                    document.getElementById('btn-execute-sql').disabled = false;
+                }
+            }
+        }
+
         async function init() {
             initLogDateRange();
-            try {
-                const tables = await API.get('/api/db-explorer/tables');
-                const select = document.getElementById('table-select');
-                
-                if (!tables || tables.length === 0) {
-                    select.innerHTML = `<option value="">${tText('无可用数据表', 'No available tables')}</option>`;
-                    return;
-                }
-                
-                select.innerHTML = `<option value="">${tText('-- 请选择 --', '-- Select --')}</option>` + 
-                    tables.map(t => `<option value="${t}">${t}</option>`).join('');
-                    
-                select.addEventListener('change', () => {
-                    if (select.value) loadTableData(true);
-                });
-            } catch (err) {
-                console.error(err);
-                if (err.message.includes('403') || err.message.includes('权限')) {
-                    document.getElementById('loading-state').innerHTML = tText('⚠️ 权限不足，仅超级管理员可访问。', '⚠️ Permission denied, super admin only.');
-                }
+            ExplorerWorkspace.init();
+            document.getElementById('database-select').addEventListener('change', event => switchDatabase(event.target.value));
+            document.getElementById('table-select').addEventListener('change', () => loadTableData(true));
+            await refreshDatabases();
+            const querySql = new URLSearchParams(window.location.search).get('sql');
+            if (querySql && databaseItems.length) {
+                document.getElementById('sql-input').value = querySql;
+                executeCustomSql();
             }
         }
 
@@ -434,30 +1234,34 @@
         async function loadTableData(reset = false) {
             const table = document.getElementById('table-select').value;
             if (!table) return;
+            const epoch = databaseEpoch;
+            const request = ++tableRequest;
 
             const limit = parseInt(document.getElementById('limit-select').value, 10);
             if (reset) currentOffset = 0;
 
             const loading = document.getElementById('loading-state');
             const content = document.getElementById('table-content-area');
-            
+
             loading.style.display = 'block';
             loading.innerHTML = tText('⏳ 正在加载数据...', '⏳ Loading data...');
             content.style.display = 'none';
 
             try {
-                const data = await API.get(`/api/db-explorer/tables/${table}?limit=${limit}&offset=${currentOffset}`);
-                
+                const data = await API.get(databaseUrl(`tables/${encodeURIComponent(table)}`, { limit, offset: currentOffset, view: ExplorerWorkspace.getTableView() }));
+                if (epoch !== databaseEpoch || request !== tableRequest) return;
+
                 currentTotal = data.total;
-                
+                ExplorerWorkspace.renderTable(data);
+
                 // Render headers
                 const thead = document.getElementById('table-head');
-                thead.innerHTML = data.schema.map(col => `<th>${col.name} <span style="font-size:11px;color:#94a3b8;font-weight:normal;">(${col.type})</span></th>`).join('');
-                
+                thead.innerHTML = data.schema.map(col => `<th>${escapeHtml(col.name)} <span style="font-size:11px;color:#94a3b8;font-weight:normal;">(${escapeHtml(col.type)})</span></th>`).join('');
+
                 // Render body
                 const tbody = document.getElementById('table-body');
                 tbody.innerHTML = '';
-                
+
                 if (data.rows.length === 0) {
                     tbody.innerHTML = `<tr><td colspan="${data.schema.length}" style="text-align:center;color:#94a3b8;">${tText('暂无数据', 'No data')}</td></tr>`;
                 } else {
@@ -466,7 +1270,7 @@
                         data.schema.forEach(col => {
                             const td = document.createElement('td');
                             let val = row[col.name];
-                            
+
                             if (val === null) {
                                 td.innerHTML = '<span style="color:#cbd5e1;font-style:italic;">NULL</span>';
                             } else if (typeof val === 'object') {
@@ -506,10 +1310,10 @@
                 document.getElementById('total-rows').textContent = currentTotal;
                 const totalPages = Math.ceil(currentTotal / limit) || 1;
                 const currentPage = Math.floor(currentOffset / limit) + 1;
-                
+
                 document.getElementById('current-page').textContent = currentPage;
                 document.getElementById('total-pages').textContent = totalPages;
-                
+
                 document.getElementById('btn-prev').disabled = currentPage <= 1;
                 document.getElementById('btn-next').disabled = currentPage >= totalPages;
 
@@ -517,7 +1321,8 @@
                 content.style.display = 'block';
             } catch (err) {
                 console.error(err);
-                loading.innerHTML = `${tText('❌ 加载失败: ', '❌ Load Failed: ')}${err.message}`;
+                if (epoch !== databaseEpoch || request !== tableRequest) return;
+                loading.textContent = tText('❌ 加载失败: ', '❌ Load Failed: ') + err.message;
             }
         }
 
@@ -536,6 +1341,350 @@
                 loadTableData(false);
             }
         }
+
+        // ================== SQL Console Core Functions ==================
+        let _currentSqlResults = [];
+
+        function insertSqlPreset(sqlText, autoExecute = false) {
+            const input = document.getElementById('sql-input');
+            if (!input) return;
+            ExplorerWorkspace.setModule('sql');
+            input.value = sqlText;
+            input.focus();
+            if (autoExecute) {
+                executeCustomSql();
+            }
+        }
+
+        function clearSqlInput() {
+            _currentSqlResults = [];
+            const input = document.getElementById('sql-input');
+            if (input) {
+                input.value = '';
+                input.focus();
+            }
+            const resultsArea = document.getElementById('sql-results-area');
+            if (resultsArea) {
+                resultsArea.style.display = 'none';
+                resultsArea.innerHTML = '';
+            }
+            const status = document.getElementById('sql-status');
+            if (status) status.textContent = '';
+        }
+
+        function formatSqlInput() {
+            const input = document.getElementById('sql-input');
+            if (!input || !input.value.trim()) return;
+            let sql = input.value.trim();
+            const keywords = ['SELECT', 'FROM', 'WHERE', 'GROUP BY', 'HAVING', 'ORDER BY', 'LIMIT', 'OFFSET', 'LEFT JOIN', 'INNER JOIN', 'JOIN', 'INSERT INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE FROM', 'CREATE TABLE', 'DROP TABLE'];
+            keywords.forEach(kw => {
+                const re = new RegExp(`\\b${kw}\\b`, 'gi');
+                sql = sql.replace(re, kw);
+            });
+            input.value = sql;
+        }
+
+        function querySelectedTableInSqlConsole() {
+            const select = document.getElementById('table-select');
+            if (!select || !select.value) {
+                alert(tText('请先选择一个数据表', 'Please select a table first'));
+                return;
+            }
+            const tableName = select.value;
+            const sql = `SELECT * FROM "${tableName.replace(/"/g, '""')}" LIMIT 100;`;
+            insertSqlPreset(sql, true);
+            const consoleCard = document.querySelector('.sql-console-card');
+            if (consoleCard) {
+                consoleCard.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        async function executeCustomSql() {
+            const input = document.getElementById('sql-input');
+            const status = document.getElementById('sql-status');
+            const resultsArea = document.getElementById('sql-results-area');
+            const btn = document.getElementById('btn-execute-sql');
+
+            if (!input || btn.disabled) return;
+            const sql = input.value.trim();
+            if (!sql) {
+                if (typeof showToast === 'function') {
+                    showToast(tText('SQL 语句不能为空', 'SQL statement cannot be empty'), 'warning');
+                } else {
+                    alert(tText('SQL 语句不能为空', 'SQL statement cannot be empty'));
+                }
+                input.focus();
+                return;
+            }
+
+            const epoch = databaseEpoch;
+            const database = selectedDatabase;
+            btn.disabled = true;
+            document.getElementById('database-select').disabled = true;
+            document.getElementById('refresh-databases').disabled = true;
+            status.innerHTML = `<span style="color:#2563eb;">⏳ ${tText('正在执行 SQL...', 'Executing SQL...')}</span>`;
+            resultsArea.style.display = 'block';
+            resultsArea.innerHTML = `
+                <div class="empty-state" style="padding: 30px;">
+                    <div style="font-size:24px;margin-bottom:8px;">⏳</div>
+                    <div style="font-weight:600;color:#334155;">${tText('正在执行 SQL 语句...', 'Executing SQL statements...')}</div>
+                </div>
+            `;
+
+            try {
+                const token = localStorage.getItem('tools_token');
+                const res = await fetch(`${API_BASE}/api/db-explorer/query`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { Authorization: `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({ sql, database })
+                });
+
+                const data = await res.json();
+                if (epoch !== databaseEpoch) return;
+
+                if (!res.ok) {
+                    renderSqlError(data, resultsArea);
+                    status.innerHTML = `<span style="color:#dc2626;">❌ ${tText('执行出错', 'Execution error')}</span>`;
+                    return;
+                }
+
+                _currentSqlResults = data.results || [];
+                renderSqlResults(data, resultsArea);
+                status.innerHTML = `<span style="color:#16a34a;">✅ ${tText('SQL 执行完成', 'SQL execution completed')} (${data.totalDurationMs} ms)</span>`;
+            } catch (err) {
+                if (epoch !== databaseEpoch) return;
+                console.error(err);
+                renderSqlError({ error: err.message }, resultsArea);
+                status.innerHTML = `<span style="color:#dc2626;">❌ ${tText('网络或执行失败', 'Network or execution failed')}</span>`;
+            } finally {
+                if (epoch === databaseEpoch) {
+                    btn.disabled = false;
+                    document.getElementById('database-select').disabled = false;
+                    document.getElementById('refresh-databases').disabled = false;
+                }
+            }
+        }
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function toggleCellJson(cell, rawStr) {
+            if (cell.classList.contains('expanded')) {
+                cell.classList.remove('expanded');
+                cell.textContent = rawStr;
+            } else {
+                try {
+                    const parsed = JSON.parse(rawStr);
+                    cell.textContent = JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    cell.textContent = rawStr;
+                }
+                cell.classList.add('expanded');
+            }
+        }
+
+        function renderSqlResults(data, container) {
+            if (!data.results || data.results.length === 0) {
+                container.innerHTML = `<div class="empty-state">${tText('无执行结果', 'No results')}</div>`;
+                return;
+            }
+
+            let html = '';
+            data.results.forEach((resItem, idx) => {
+                const verb = (resItem.verb || 'SQL').toUpperCase();
+                const verbClass = 'verb-' + verb.toLowerCase();
+
+                html += `<div class="sql-result-card" id="sql-result-card-${idx}">`;
+                html += `
+                    <div class="sql-result-header">
+                        <div class="sql-result-meta">
+                            <span class="sql-verb-tag ${verbClass}">${verb}</span>
+                            <span class="sql-stat-pill">#${idx + 1}</span>
+                            ${resItem.type === 'query' ? `
+                                <span class="sql-stat-pill">${tText('返回: ', 'Rows: ')}<strong>${resItem.rowCount}</strong> ${tText('行', 'rows')}</span>
+                                <span class="sql-stat-pill">${tText('字段: ', 'Columns: ')}<strong>${resItem.columns.length}</strong> ${tText('列', 'cols')}</span>
+                            ` : `
+                                <span class="sql-stat-pill">${tText('受影响行数: ', 'Changes: ')}<strong>${resItem.changes}</strong></span>
+                                ${resItem.lastID > 0 ? `<span class="sql-stat-pill">${tText('自增主键: ', 'Last ID: ')}<strong>${resItem.lastID}</strong></span>` : ''}
+                            `}
+                            <span class="sql-stat-pill">${tText('耗时: ', 'Duration: ')}<strong>${resItem.durationMs}</strong> ms</span>
+                            ${resItem.truncated ? `<span style="color:#f59e0b; font-size:11px; font-weight:600;">⚠️ ${resItem.maxRowsNotice}</span>` : ''}
+                        </div>
+                        <div class="sql-result-actions">
+                            ${resItem.type === 'query' && resItem.rowCount > 0 ? `
+                                <button type="button" class="btn-result-action" onclick="exportSqlResultToCsv(${idx})" title="${tText('导出为 CSV 文件', 'Export to CSV')}">
+                                    📥 CSV
+                                </button>
+                                <button type="button" class="btn-result-action" onclick="copySqlResultAsJson(${idx})" title="${tText('复制为 JSON 格式', 'Copy JSON')}">
+                                    📋 JSON
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div class="sql-code-preview">${escapeHtml(resItem.sql)}</div>
+                `;
+
+                if (resItem.type === 'query') {
+                    if (resItem.rowCount === 0) {
+                        html += `
+                            <div class="empty-state" style="padding: 24px; color: #64748b; font-size: 13px;">
+                                ${tText('查询成功，返回 0 行记录', 'Query succeeded, 0 rows returned')} (${resItem.durationMs} ms)
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div class="sql-table-container">
+                                <table class="sql-data-table">
+                                    <thead>
+                                        <tr>
+                                            <th class="sql-row-idx">#</th>
+                                            ${resItem.columns.map(c => `<th>${escapeHtml(c)}</th>`).join('')}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                        `;
+                        resItem.rows.forEach((row, rowIdx) => {
+                            html += `<tr><td class="sql-row-idx">${rowIdx + 1}</td>`;
+                            resItem.columns.forEach(col => {
+                                let val = row[col];
+                                if (val === null || val === undefined) {
+                                    html += `<td><span class="val-null">NULL</span></td>`;
+                                } else if (typeof val === 'object') {
+                                    const jsonStr = escapeHtml(JSON.stringify(val));
+                                    html += `<td class="json-cell" onclick="this.classList.toggle('expanded')">${jsonStr}</td>`;
+                                } else {
+                                    const strVal = String(val);
+                                    const isJson = (strVal.startsWith('{') && strVal.endsWith('}')) || (strVal.startsWith('[') && strVal.endsWith(']'));
+                                    if (isJson) {
+                                        html += `<td class="json-cell" onclick="toggleCellJson(this, ${escapeHtml(JSON.stringify(strVal))})">${escapeHtml(strVal)}</td>`;
+                                    } else {
+                                        html += `<td>${escapeHtml(strVal)}</td>`;
+                                    }
+                                }
+                            });
+                            html += `</tr>`;
+                        });
+                        html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+                    }
+                } else {
+                    html += `
+                        <div class="sql-execute-banner">
+                            <div style="font-size: 24px;">✅</div>
+                            <div>
+                                <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">
+                                    ${tText('语句执行成功', 'Statement executed successfully')}
+                                </div>
+                                <div style="font-size: 12.5px; opacity: 0.9;">
+                                    ${tText('受影响行数: ', 'Affected rows: ')}<strong>${resItem.changes}</strong>
+                                    ${resItem.lastID > 0 ? ` | ${tText('自增主键 (Last Insert ID): ', 'Last Insert ID: ')}<strong>${resItem.lastID}</strong>` : ''}
+                                    | ${tText('耗时: ', 'Duration: ')}<strong>${resItem.durationMs}</strong> ms
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                html += `</div>`;
+            });
+
+            container.innerHTML = html;
+        }
+
+        function renderSqlError(errData, container) {
+            const errorMsg = errData.error || tText('SQL 执行发生未知错误', 'Unknown SQL error');
+            const failedSql = errData.failedSql || '';
+            const stmtIdx = errData.statementIndex ? `#${errData.statementIndex}` : '';
+
+            container.innerHTML = `
+                <div class="sql-error-banner">
+                    <div class="sql-error-title">
+                        <span>❌</span>
+                        <span>${tText('SQL 执行失败', 'SQL Execution Failed')} ${stmtIdx}</span>
+                    </div>
+                    <div style="font-size: 13px; line-height: 1.5;">${escapeHtml(errorMsg)}</div>
+                    ${failedSql ? `
+                        <div style="margin-top: 8px; font-size: 12px; font-weight: 600; color: #7f1d1d;">${tText('出错语句:', 'Failed Statement:')}</div>
+                        <div class="sql-error-snippet">${escapeHtml(failedSql)}</div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function exportSqlResultToCsv(index) {
+            const item = _currentSqlResults[index];
+            if (!item || !item.rows || item.rows.length === 0) return;
+            const cols = item.columns;
+            let csv = '\uFEFF';
+            csv += cols.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',') + '\r\n';
+            item.rows.forEach(r => {
+                csv += cols.map(c => {
+                    let val = r[c];
+                    if (val === null || val === undefined) return '""';
+                    if (typeof val === 'object') val = JSON.stringify(val);
+                    return `"${String(val).replace(/"/g, '""')}"`;
+                }).join(',') + '\r\n';
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `sql_result_${item.verb.toLowerCase()}_${Date.now()}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function copySqlResultAsJson(index) {
+            const item = _currentSqlResults[index];
+            if (!item || !item.rows) return;
+            const jsonStr = JSON.stringify(item.rows, null, 2);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(jsonStr).then(() => {
+                    if (typeof showToast === 'function') {
+                        showToast(tText('已复制 JSON 数据到剪贴板', 'Copied JSON to clipboard'), 'success');
+                    } else {
+                        alert(tText('已复制 JSON 数据到剪贴板', 'Copied JSON to clipboard'));
+                    }
+                });
+            } else {
+                const textarea = document.createElement('textarea');
+                textarea.value = jsonStr;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                if (typeof showToast === 'function') {
+                    showToast(tText('已复制 JSON 数据到剪贴板', 'Copied JSON to clipboard'), 'success');
+                } else {
+                    alert(tText('已复制 JSON 数据到剪贴板', 'Copied JSON to clipboard'));
+                }
+            }
+        }
+
+        // Support Ctrl+Enter / Cmd+Enter to execute SQL
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                const sqlInput = document.getElementById('sql-input');
+                if (document.activeElement === sqlInput || (sqlInput && sqlInput.value.trim())) {
+                    e.preventDefault();
+                    executeCustomSql();
+                }
+            }
+        });
 
         document.addEventListener('DOMContentLoaded', init);
     </script>

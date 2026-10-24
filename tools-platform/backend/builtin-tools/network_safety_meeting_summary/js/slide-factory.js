@@ -18,6 +18,17 @@ export function renderSlide(slideData) {
     
     const section = document.createElement('section');
     section.className = 'slide';
+
+    if (slideData.background) {
+        section.style.background = slideData.background;
+    }
+    if (slideData.theme) {
+        section.dataset.theme = slideData.theme;
+        section.classList.add(`theme-${slideData.theme}`);
+        if (slideData.theme === 'dark') {
+            section.classList.add('text-slate-100');
+        }
+    }
     
     if (slideData.layout === 'cover') {
         section.classList.add('cover-slide');
@@ -106,6 +117,12 @@ export function renderSlide(slideData) {
             </div>
             ${customFooter}
         `;
+        if (typeof window !== 'undefined' && !/(?:huawei-template|ppt-original-page|vision-template)/.test(String(slideData.html || ''))) {
+            section.querySelectorAll('.slide-pad h1, .slide-pad h2, .slide-pad h3, .slide-pad h4, .slide-pad h5, .slide-pad h6, .slide-pad p, .slide-pad li, .slide-pad th, .slide-pad td, .slide-pad .editable').forEach(el => {
+                el.classList.add('editable');
+                el.dataset.pptEditable = 'true';
+            });
+        }
     }
 
     wrap.appendChild(num);
@@ -120,6 +137,8 @@ export function slideToJson(slideWrap) {
     const data = {
         id: slideWrap.dataset.slideId || createId(),
         layout: 'custom',
+        background: section.style.background || '',
+        theme: section.dataset.theme || '',
         elements: []
     };
 

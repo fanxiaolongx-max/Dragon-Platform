@@ -11,6 +11,7 @@
   uivf12:{title:['数据抓取','Data capture'],tasks:[['repository','加载脚本仓库','Load script repository']]},
   sla:{title:['数据导入','Data import'],tasks:[['meta','读取数据来源','Read data sources'],['rules','加载指标规则','Load metric rules'],['targets','加载预警目标','Load warning targets'],['categories','加载业务分类','Load categories'],['workspace','恢复数据工作区','Restore workspace']]},
   report:{title:['报表看板','Reports'],tasks:[['data','加载快照与报表配置','Load snapshots and report settings']]},
+  monthly:{title:['AI 月报','AI report'],tasks:[['list','读取月报列表','Load report list'],['report','打开月报与格子内容','Open the report and its cells']]},
   expedite:{title:['一键催办','Reminders'],tasks:[['data','加载快照与催办数据','Load snapshot and reminder data'],['policy','加载分发策略','Load distribution policy'],['categories','加载业务分类','Load categories']]},
   bigscreen:{title:['大屏看板','Dashboard'],tasks:[['title','加载看板标题','Load dashboard title'],['contact','加载联系信息','Load contact information'],['data','加载趋势与指标','Load trends and metrics']]}
  };

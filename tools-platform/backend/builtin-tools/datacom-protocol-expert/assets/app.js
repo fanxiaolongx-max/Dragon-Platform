@@ -1,3 +1,4 @@
+import { initLanguage, originalText, translate, getLanguage } from './i18n.js';
 // 数通协议专家：知识库阅读 + 分步教学可视化 + 管理员维护（数据存放在后端 datacom-knowledge.db）
 import { createTeachingStage } from './teaching-stage.js';
 import { ospfLessons } from './ospf-lessons.js';
@@ -6,7 +7,7 @@ import { rfcLesson } from './packet-lesson.js';
 import { mountKnowledgeMap } from './knowledge-map.js';
 import { labs } from './labs.js';
 import { readingGuides } from './reading-guides.js';
-import { renderMarkdown, renderMermaid } from './markdown.js';
+import { renderMarkdown, renderMermaid, refreshMermaidLanguage } from './markdown.js';
 import { createSnapshotApi } from './snapshot-api.js';
 import { initAiNotes } from './ai-notes.js';
 import { mountNoteVideo, loadVideoManifest, mountVideoRecommendations } from './note-video.js';
@@ -455,11 +456,37 @@ function focusByText(text) {
 
 // ---------------- 搜索 ----------------
 let searchTimer = null;
+let searchGeneration = 0;
 async function runSearch(query) {
     const box = $('#searchResults');
+    const generation = ++searchGeneration;
     if (!query.trim()) { box.hidden = true; return; }
     try {
-        const { results } = await api(`/search?q=${encodeURIComponent(query)}`);
+        let { results } = await api(`/search?q=${encodeURIComponent(query)}`);
+        if (getLanguage() === 'en') {
+            // The same authorized article API supplies both language views; never
+            // search a bundled seed in place of a tenant's current content.
+            const articles = [];
+            const pending = [...state.catalog.articles];
+            await Promise.all(Array.from({ length: 4 }, async () => {
+                while (pending.length && generation === searchGeneration) {
+                    const item = pending.shift();
+                    try { articles.push(await loadArticle(item.id)); } catch (_) { /* retain API matches */ }
+                }
+            }));
+            const needle = query.trim().toLowerCase();
+            const matches = articles.flatMap(item => {
+                const title = translate(item.title);
+                const body = translate([item.summary, ...item.keyPoints, ...item.tags, item.bodyMd].join('\n'));
+                const index = body.toLowerCase().indexOf(needle);
+                if (!title.toLowerCase().includes(needle) && index < 0) return [];
+                return [{ ...item, title, snippet: body.slice(Math.max(0, index - 40), Math.max(0, index) + needle.length + 100).replace(/[#>*`|]/g, ' '), score: title.toLowerCase().includes(needle) ? 3 : 1 }];
+            });
+            const merged = new Map(results.map(item => [item.id, item]));
+            matches.forEach(item => merged.set(item.id, item));
+            results = [...merged.values()].sort((a, b) => (b.score || 0) - (a.score || 0));
+        }
+        if (generation !== searchGeneration) return;
         box.hidden = false;
         box.innerHTML = results.length ? results.slice(0, 12).map(item => `<a href="#/a/${item.id}"><strong>${esc(item.title)}</strong><span>${esc(item.snippet)}</span></a>`).join('') : '<div class="dk-mini-note">没有找到相关内容</div>';
     } catch (error) {
@@ -828,7 +855,7 @@ function openManager() {
 }
 
 function openRfcModal(code, title) {
-    const def = rfcLesson(code, title);
+    const def = rfcLesson(code, title, state.articles.get(state.route?.id)?.bodyMd || '');
     if (!def) return toast('无法解析该报文图', 'bad');
     const { root } = openModal(def.title, '<div class="dk-stage-host is-modal" data-modal-stage></div>', { wide: true });
     const handle = createTeachingStage(root.querySelector('[data-modal-stage]'), def);
@@ -1132,7 +1159,7 @@ function bindGlobalEvents() {
             const figure = rfc.closest('.dk-code');
             let heading = figure.previousElementSibling;
             while (heading && !/^H[1-4]$/.test(heading.tagName)) heading = heading.previousElementSibling;
-            openRfcModal(figure.querySelector('code').textContent, heading ? heading.textContent.replace(/^[#\s]+/, '').slice(0, 40) : '报文结构');
+            openRfcModal(originalText(figure.querySelector('code')), heading ? originalText(heading).replace(/^[#\s]+/, '') : '报文结构');
         }
         const toc = event.target.closest('[data-toc]');
         if (toc) {
@@ -1143,6 +1170,12 @@ function bindGlobalEvents() {
 }
 
 async function boot() {
+    initLanguage();
+    document.addEventListener('dk:languagechange', () => {
+        refreshMermaidLanguage(document.body, resolvedTheme() === 'dark');
+        const query = $('#searchInput').value;
+        if (query.trim()) runSearch(query);
+    });
     applyTheme();
     bindGlobalEvents();
     try {
@@ -1158,7 +1191,7 @@ async function boot() {
     });
     // 平台注入的语言开关放入导航栏，避免固定浮钮覆盖图表操作。
     const languageButton = document.getElementById('toolsCustomLanguageButton');
-    if (languageButton) document.querySelector('.dk-topbar').appendChild(languageButton);
+    if (languageButton) { languageButton.hidden = true; languageButton.style.display = 'none'; document.querySelector('.dk-topbar').appendChild(languageButton); }
     // AI 问答与笔记（只读快照中不可用）
     state.aiNotes = initAiNotes({
         readOnly: Boolean(snapshotApi), state, VISUALS, toast, findArticle: findArticleByTitle,

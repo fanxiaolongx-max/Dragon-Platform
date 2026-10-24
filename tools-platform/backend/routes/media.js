@@ -3,9 +3,22 @@ const router = express.Router();
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { exec, execSync } = require('child_process');
+const { Readable } = require('stream');
+const { exec, execSync, spawn } = require('child_process');
 const { checkAuth, requireAdmin } = require('../middleware/auth');
 const authSessionsRepo = require('../models/auth-sessions-repository');
+const {
+    DEFAULT_FEINIU_URL,
+    normalizeFeiniuUrl,
+    signFeiniuAuthx,
+    loadFeiniuConfig,
+    getPublicFeiniuConfig,
+    updateFeiniuConfig,
+    syncFeiniuCatalog,
+    getCachedFeiniuCatalog,
+    resolveFeiniuPlayback,
+    ensureFeiniuHlsSession
+} = require('../models/feiniu-service');
 
 const FRONTEND_DIR = path.resolve(__dirname, '../../frontend');
 const configuredMediaDir = String(process.env.TOOLS_MEDIA_DIR || '').trim();
@@ -377,13 +390,45 @@ function scanMediaList() {
         writeManifest(manifest);
     }
 
+    // 融合飞牛影视分类与视频
+    const feiniuCatalog = getCachedFeiniuCatalog();
+    const allCategories = [...(manifest.categories || [])];
+    const existingCatIds = new Set(allCategories.map(c => c.id));
+    (feiniuCatalog.categories || []).forEach(fnCat => {
+        if (!existingCatIds.has(fnCat.id)) {
+            allCategories.push(fnCat);
+            existingCatIds.add(fnCat.id);
+        }
+    });
+
+    (feiniuCatalog.videos || []).forEach(fnVideo => {
+        const savedMeta = (manifest.videos && manifest.videos[fnVideo.id]) || {};
+        const resolvedOrder = savedMeta.order !== undefined
+            ? normalizeMediaOrder(savedMeta.order, false)
+            : fnVideo.order;
+        videos.push({
+            ...fnVideo,
+            ...(savedMeta.title && { title: savedMeta.title }),
+            ...(savedMeta.category && { category: savedMeta.category }),
+            ...(savedMeta.categoryName && { categoryName: savedMeta.categoryName }),
+            ...(savedMeta.tags && { tags: savedMeta.tags }),
+            ...(savedMeta.description && { description: savedMeta.description }),
+            order: resolvedOrder
+        });
+    });
+
     // 默认排序：有指定 order 的优先，否则按文件名自然升序（适合 01_, 02_ 连载剧集）
     videos.sort(compareMediaOrder);
 
     return {
-        categories: sortMediaCategories(manifest.categories),
+        categories: sortMediaCategories(allCategories),
         videos
     };
+}
+
+async function scanMediaListAsync({ forceFeiniuSync = false } = {}) {
+    await syncFeiniuCatalog({ force: forceFeiniuSync, defaultMediaOrder: DEFAULT_MEDIA_ORDER });
+    return scanMediaList();
 }
 
 function videoMatchesAsset(video, relativePath) {
@@ -432,9 +477,9 @@ async function mediaAssetGuard(req, res, next) {
 // ============================================================
 // 公开点播 API (无需鉴权)
 // ============================================================
-router.get('/public/list', (req, res) => {
+router.get('/public/list', async (req, res) => {
     try {
-        const { categories, videos } = scanMediaList();
+        const { categories, videos } = await scanMediaListAsync();
         const { category, q, access } = req.query;
         const selectedCategory = category && category !== 'all' ? findMediaCategory(categories, category) : null;
         if (selectedCategory?.protected && !verifyCategoryAccess(access, selectedCategory.id)) {
@@ -475,6 +520,225 @@ router.get('/public/list', (req, res) => {
     }
 });
 
+/**
+ * 飞牛影视海报/剧照代理
+ */
+router.get('/public/feiniu/image', async (req, res) => {
+    try {
+        const rawPath = String(req.query.path || '').trim();
+        if (!rawPath || !rawPath.startsWith('/')) {
+            return res.status(400).json({ error: '无效的图片路径' });
+        }
+        const config = await loadFeiniuConfig();
+        const { origin } = normalizeFeiniuUrl(config.url);
+        const apiImgPath = `/v/api/v1/sys/img${rawPath}`;
+        const upstream = await fetch(`${origin}${apiImgPath}`, {
+            headers: {
+                authx: signFeiniuAuthx('GET', apiImgPath),
+                ...(config.token && {
+                    authorization: config.token,
+                    Cookie: `Trim-MC-token=${config.token}`
+                })
+            }
+        });
+        if (!upstream.ok) {
+            return res.redirect('/assets/videos/龙餐馆_poster.jpg');
+        }
+        const contentType = upstream.headers.get('content-type') || 'image/webp';
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        const arrayBuf = await upstream.arrayBuffer();
+        res.send(Buffer.from(arrayBuf));
+    } catch (_) {
+        res.redirect('/assets/videos/龙餐馆_poster.jpg');
+    }
+});
+
+/**
+ * 飞牛影视 HLS 播放列表代理
+ */
+router.get('/public/feiniu/hls/:guid/index.m3u8', async (req, res) => {
+    try {
+        const { guid } = req.params;
+        let session = await ensureFeiniuHlsSession(guid);
+        let upstream = await fetch(`${session.origin}${session.playLink}`, {
+            headers: {
+                ...(session.token && {
+                    authorization: session.token,
+                    Cookie: `Trim-MC-token=${session.token}`
+                })
+            }
+        });
+        if (upstream.status === 410 || upstream.status === 404) {
+            session = await ensureFeiniuHlsSession(guid, { forceNew: true });
+            upstream = await fetch(`${session.origin}${session.playLink}`, {
+                headers: {
+                    ...(session.token && {
+                        authorization: session.token,
+                        Cookie: `Trim-MC-token=${session.token}`
+                    })
+                }
+            });
+        }
+        if (!upstream.ok) {
+            return res.status(upstream.status).json({ error: '无法读取飞牛 HLS 播放列表' });
+        }
+        const playlistText = await upstream.text();
+        const encodedGuid = encodeURIComponent(guid);
+        const rewritten = playlistText.replace(
+            /^([A-Za-z0-9_.-]+\.ts)$/gm,
+            `/api/media/public/feiniu/hls/${encodedGuid}/$1`
+        );
+        res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.send(rewritten);
+    } catch (err) {
+        res.status(502).json({ error: err.message || '获取飞牛 HLS 播放列表失败' });
+    }
+});
+
+/**
+ * 飞牛影视 HLS 分片代理（支持会话过期自动重连）
+ */
+router.get('/public/feiniu/hls/:guid/:segment', async (req, res) => {
+    try {
+        const { guid, segment } = req.params;
+        if (!/^[A-Za-z0-9_.-]+\.ts$/.test(segment)) {
+            return res.status(400).json({ error: '无效的 HLS 分片名称' });
+        }
+        let session = await ensureFeiniuHlsSession(guid);
+        let upstream = await fetch(`${session.origin}${session.sessionBase}/${segment}`, {
+            headers: {
+                ...(session.token && {
+                    authorization: session.token,
+                    Cookie: `Trim-MC-token=${session.token}`
+                })
+            }
+        });
+        if (upstream.status === 410 || upstream.status === 404) {
+            const segNum = parseInt(segment, 10) || 0;
+            session = await ensureFeiniuHlsSession(guid, {
+                forceNew: true,
+                startTimestamp: segNum * 4
+            });
+            upstream = await fetch(`${session.origin}${session.sessionBase}/${segment}`, {
+                headers: {
+                    ...(session.token && {
+                        authorization: session.token,
+                        Cookie: `Trim-MC-token=${session.token}`
+                    })
+                }
+            });
+        }
+        if (!upstream.ok) {
+            return res.status(upstream.status).end();
+        }
+        res.setHeader('Content-Type', upstream.headers.get('content-type') || 'video/mp2t');
+        const contentLen = upstream.headers.get('content-length');
+        if (contentLen) res.setHeader('Content-Length', contentLen);
+        res.setHeader('Cache-Control', 'no-store');
+        const arrayBuf = await upstream.arrayBuffer();
+        res.send(Buffer.from(arrayBuf));
+    } catch (err) {
+        if (!res.headersSent) {
+            res.status(502).json({ error: err.message || '获取飞牛视频分片失败' });
+        }
+    }
+});
+
+/**
+ * 飞牛影视通用点播流代理（原生兼容视频走 HTTP Range 直链，特殊编码走转码流封装）
+ */
+router.get('/public/feiniu/stream/:guid', async (req, res) => {
+    try {
+        const { guid } = req.params;
+        const { origin, token, streamMeta } = await resolveFeiniuPlayback(guid);
+        const forceRaw = req.query.raw === '1';
+
+        if (streamMeta.directPlayable || forceRaw) {
+            const rangePath = `/v/api/v1/media/range/${streamMeta.mediaGuid}`;
+            const controller = new AbortController();
+            req.on('close', () => controller.abort());
+
+            const headers = {
+                authx: signFeiniuAuthx('GET', rangePath),
+                ...(token && {
+                    authorization: token,
+                    Cookie: `Trim-MC-token=${token}`
+                })
+            };
+            if (req.headers.range) {
+                headers.Range = req.headers.range;
+            }
+
+            const upstream = await fetch(`${origin}${rangePath}`, {
+                headers,
+                signal: controller.signal
+            });
+            if (!upstream.ok && upstream.status !== 206) {
+                return res.status(upstream.status).json({ error: '获取飞牛媒体流失败' });
+            }
+
+            res.status(upstream.status);
+            res.setHeader('Accept-Ranges', 'bytes');
+            const contentRange = upstream.headers.get('content-range');
+            if (contentRange) res.setHeader('Content-Range', contentRange);
+            const contentLength = upstream.headers.get('content-length');
+            if (contentLength) res.setHeader('Content-Length', contentLength);
+            res.setHeader('Content-Type', 'video/mp4');
+
+            if (upstream.body) {
+                const nodeStream = Readable.fromWeb(upstream.body);
+                nodeStream.on('error', () => {});
+                nodeStream.pipe(res);
+            } else {
+                res.end();
+            }
+            return;
+        }
+
+        // 非浏览器原生支持编码（如 RMVB rv40 / DTS / AC3 / ProRes），通过飞牛转码会话进行零拷贝 fMP4 流式输出
+        const startSec = Math.max(0, Math.floor(Number(req.query.start) || 0));
+        const session = await ensureFeiniuHlsSession(guid, {
+            forceNew: startSec > 0,
+            startTimestamp: startSec
+        });
+        const m3u8Url = `${session.origin}${session.playLink}`;
+        const ffmpegBin = fs.existsSync('/opt/homebrew/bin/ffmpeg') ? '/opt/homebrew/bin/ffmpeg' : 'ffmpeg';
+        const headerArg = session.token
+            ? `Authorization: ${session.token}\r\nCookie: Trim-MC-token=${session.token}\r\n`
+            : '';
+
+        const ffArgs = [];
+        if (headerArg) {
+            ffArgs.push('-headers', headerArg);
+        }
+        ffArgs.push(
+            '-i', m3u8Url,
+            '-c', 'copy',
+            '-bsf:a', 'aac_adtstoasc',
+            '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+            '-f', 'mp4',
+            'pipe:1'
+        );
+
+        res.setHeader('Content-Type', 'video/mp4');
+        res.setHeader('Cache-Control', 'no-store');
+        const ff = spawn(ffmpegBin, ffArgs, { stdio: ['ignore', 'pipe', 'ignore'] });
+        req.on('close', () => {
+            try { ff.kill('SIGTERM'); } catch (_) {}
+        });
+        ff.on('error', () => {
+            if (!res.headersSent) res.status(502).end();
+        });
+        ff.stdout.pipe(res);
+    } catch (err) {
+        if (!res.headersSent) {
+            res.status(502).json({ error: err.message || '飞牛影视流媒体播放失败' });
+        }
+    }
+});
+
 router.post('/public/unlock', (req, res) => {
     try {
         const { category, pin } = req.body || {};
@@ -506,9 +770,10 @@ router.use('/admin', checkAuth, requireAdmin);
 /**
  * 仪表盘总体概况
  */
-router.get('/admin/overview', (req, res) => {
+router.get('/admin/overview', async (req, res) => {
     try {
-        const { categories, videos } = scanMediaList();
+        const { categories, videos } = await scanMediaListAsync();
+        const feiniu = await getPublicFeiniuConfig();
         const disk = getDiskSpace();
         const totalBytes = videos.reduce((acc, v) => acc + (v.fileSize || 0), 0);
         const folderCounts = {};
@@ -523,7 +788,8 @@ router.get('/admin/overview', (req, res) => {
             totalCategories: categories.filter(category => category.id !== 'all').length,
             totalSizeFormatted: (totalBytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB',
             disk,
-            folderCounts
+            folderCounts,
+            feiniu
         });
     } catch (err) {
         res.status(err.statusCode || 500).json({ error: err.message });
@@ -531,11 +797,58 @@ router.get('/admin/overview', (req, res) => {
 });
 
 /**
+ * 飞牛影视对接配置读取与保存
+ */
+router.get('/admin/feiniu/config', async (req, res) => {
+    try {
+        const data = await getPublicFeiniuConfig();
+        res.json({ success: true, data });
+    } catch (err) {
+        res.status(500).json({ error: err.message || '获取飞牛影视配置失败' });
+    }
+});
+
+const handleSaveFeiniuConfig = async (req, res) => {
+    try {
+        const data = await updateFeiniuConfig(req.body || {});
+        res.json({
+            success: true,
+            message: data.enabled
+                ? `已成功对接飞牛影视「${data.serverName}」，共同步 ${data.totalVideos} 部视频`
+                : '已关闭飞牛影视对接',
+            data
+        });
+    } catch (err) {
+        res.status(err.statusCode || 400).json({ error: err.message || '保存飞牛影视配置失败' });
+    }
+};
+
+router.post('/admin/feiniu/config', handleSaveFeiniuConfig);
+router.put('/admin/feiniu/config', handleSaveFeiniuConfig);
+
+router.post('/admin/feiniu/sync', async (req, res) => {
+    try {
+        await syncFeiniuCatalog({ force: true, defaultMediaOrder: DEFAULT_MEDIA_ORDER });
+        const data = await getPublicFeiniuConfig();
+        if (!data.connected) {
+            return res.status(400).json({ error: data.lastError || '同步飞牛影视失败' });
+        }
+        res.json({
+            success: true,
+            message: `已同步飞牛影视「${data.serverName}」，共 ${data.totalVideos} 部视频`,
+            data
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message || '同步飞牛影视失败' });
+    }
+});
+
+/**
  * 获取分类/文件夹列表
  */
-router.get('/admin/folders', (req, res) => {
+router.get('/admin/folders', async (req, res) => {
     try {
-        const { categories, videos } = scanMediaList();
+        const { categories, videos } = await scanMediaListAsync();
         const foldersWithStats = categories.filter(category => category.id !== 'all').map(cat => {
             const matching = videos.filter(v => v.category === cat.id || v.folder === cat.folder);
             const sizeBytes = matching.reduce((acc, v) => acc + (v.fileSize || 0), 0);
@@ -655,9 +968,9 @@ router.delete('/admin/folders/:folderName', (req, res) => {
 /**
  * 获取完整视频列表（管理端视图）
  */
-router.get('/admin/videos', (req, res) => {
+router.get('/admin/videos', async (req, res) => {
     try {
-        const { categories, videos } = scanMediaList();
+        const { categories, videos } = await scanMediaListAsync();
         res.json({ success: true, count: videos.length, categories: categories.map(category => sanitizeCategory(category)), data: videos });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -667,7 +980,7 @@ router.get('/admin/videos', (req, res) => {
 /**
  * 编辑单个视频元数据
  */
-router.put('/admin/videos/:id', (req, res) => {
+router.put('/admin/videos/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { title, category, tags, description, order } = req.body || {};
@@ -678,6 +991,32 @@ router.put('/admin/videos/:id', (req, res) => {
 
         const manifest = readManifest();
         if (!manifest.videos) manifest.videos = {};
+
+        const isFeiniuVideo = String(id || '').startsWith('feiniu___');
+        if (isFeiniuVideo) {
+            const { categories } = await scanMediaListAsync();
+            let selectedCategory;
+            if (category !== undefined) {
+                selectedCategory = findMediaCategory(categories, category);
+                if (!selectedCategory) return res.status(400).json({ error: '请选择有效的媒体分类' });
+            }
+            manifest.videos[id] = {
+                ...(manifest.videos[id] || {}),
+                ...(title !== undefined && { title: title.trim() }),
+                ...(selectedCategory && { category: selectedCategory.id, categoryName: selectedCategory.name }),
+                ...(tags !== undefined && { tags: Array.isArray(tags) ? tags : String(tags).split(',').map(s => s.trim()).filter(Boolean) }),
+                ...(description !== undefined && { description: description.trim() }),
+                ...(order !== undefined && { order: parsedOrder })
+            };
+            writeManifest(manifest);
+            return res.json({
+                success: true,
+                message: '更新飞牛视频元数据成功',
+                id,
+                order: order !== undefined ? parsedOrder : undefined
+            });
+        }
+
         const decodedPath = decodeURIComponent(id).replace(/___/g, '/');
         const baseName = path.basename(decodedPath, path.extname(decodedPath));
         const manifestKey = [id, decodedPath, baseName].find(key => manifest.videos[key]) || id;
@@ -862,6 +1201,8 @@ router.post('/admin/extract-poster/:id', (req, res) => {
 module.exports = {
     router,
     scanMediaList,
+    scanMediaListAsync,
+    DEFAULT_FEINIU_URL,
     VIDEOS_DIR,
     DEFAULT_MEDIA_ORDER,
     normalizeMediaOrder,

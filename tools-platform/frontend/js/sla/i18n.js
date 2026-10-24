@@ -23,6 +23,9 @@
             'sla.modal.rulesTitle': '📚 全量指标规则总览',
             'sla.modal.rulesSearch': '搜索表名、指标名、字段、关键字、分类...',
             'sla.modal.crossOnly': '只看跨表规则',
+            'sla.rules.monthlyOrigin': '月报编辑器创建',
+            'sla.rules.monthlyScope': '此规则使用创建时选定的文件类型和工作表',
+            'sla.modal.aggFirst': '取原表首条（保留文本）',
             'sla.modal.editTitle': '✏️ 编辑指标规则',
             'sla.modal.editSubtitle': '修改模式、条件、展示统计和挂载关系',
             'sla.modal.metricName': '指标名称',
@@ -429,6 +432,9 @@
             'sla.modal.rulesTitle': '📚 All Metric Rules',
             'sla.modal.rulesSearch': 'Search table, metric, field, keyword, category...',
             'sla.modal.crossOnly': 'Cross-table rules only',
+            'sla.rules.monthlyOrigin': 'Created in monthly editor',
+            'sla.rules.monthlyScope': 'Uses the source type and worksheet selected when created',
+            'sla.modal.aggFirst': 'First source row (text allowed)',
             'sla.modal.editTitle': '✏️ Edit Metric Rule',
             'sla.modal.editSubtitle': 'Adjust mode, conditions, display statistics, and ownership',
             'sla.modal.metricName': 'Metric Name',
@@ -882,6 +888,9 @@
         const multiLabels = document.querySelectorAll('.metric-rule-edit-multi-only > span');
         if (multiLabels[0]) multiLabels[0].textContent = t('sla.modal.aggregation');
         if (multiLabels[1]) multiLabels[1].textContent = t('sla.modal.filterLogic');
+        const monthlyOnly = document.querySelector('#metric-rules-monthly-only')?.parentElement;
+        if (monthlyOnly) {const input=monthlyOnly.querySelector('input');monthlyOnly.textContent=' '+t('sla.rules.monthlyOrigin');monthlyOnly.prepend(input);}
+        setText('#metric-rule-edit-aggregation option[value="first"]', t('sla.modal.aggFirst'));
         setText('#metric-rule-edit-aggregation option[value="sum"]', t('sla.modal.aggSum'));
         setText('#metric-rule-edit-aggregation option[value="avg"]', t('sla.modal.aggAvg'));
         setText('#metric-rule-edit-aggregation option[value="max"]', t('sla.modal.aggMax'));

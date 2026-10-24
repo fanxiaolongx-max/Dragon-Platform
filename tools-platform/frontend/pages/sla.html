@@ -141,6 +141,7 @@
                 <div class="metric-rules-toolbar">
                     <input type="text" id="metric-rules-search" class="picker-search" placeholder="搜索表名、指标名、字段、关键字、分类..." oninput="renderAllMetricRules()">
                     <label class="metric-rules-check"><input type="checkbox" id="metric-rules-cross-only" onchange="renderAllMetricRules()"> 只看跨表规则</label>
+                    <label class="metric-rules-check"><input type="checkbox" id="metric-rules-monthly-only" onchange="renderAllMetricRules()"> 月报编辑器创建</label>
                 </div>
                 <div id="metric-rules-modal-list" class="metric-rules-list"></div>
             </div>
@@ -280,6 +281,7 @@
                     <label class="metric-rule-edit-field metric-rule-edit-multi-only">
                         <span>多行计算方法</span>
                         <select id="metric-rule-edit-aggregation">
+                            <option value="first">取原表首条（保留文本）</option>
                             <option value="sum">求和（默认）</option>
                             <option value="avg">平均值</option>
                             <option value="max">最大值</option>
@@ -468,7 +470,7 @@
     </div>
 
     <!-- 共享脚本 -->
-    <script src="/js/shared/api.js"></script>
+    <script src="/js/shared/api.js"></script><script src="/js/shared/monthly-metric-updates.js"></script>
     <script src="/js/shared/toast.js"></script>
     <script src="/js/shared/i18n.js"></script>
     <script src="/js/shared/platform-logo-upload.js"></script>
@@ -487,6 +489,7 @@
     <script src="/js/sla/row-detail.js"></script>
     <script src="/js/sla/section.js"></script>
     <script src="/js/sla/table.js"></script>
+    <script src="/js/shared/metric-extraction.js"></script>
     <script src="/js/sla/events.js"></script>
     <script src="/js/sla/metrics.js"></script>
     <script src="/js/sla/history.js"></script>
@@ -518,7 +521,8 @@
             const prefsMeta = (prefsPath && API.getLastDataSourceMeta(prefsPath)) || API.getLastDataSourceMeta(`/api/sla/config${catQuery}`) || API.getLastDataSourceMeta('/api/sla/config') || {};
             const categoryMeta = API.getLastDataSourceMeta(`/api/sla/categories${catQuery}`) || API.getLastDataSourceMeta('/api/sla/categories') || {};
             const groupsMeta = API.getLastDataSourceMeta(`/api/sla/groups${catQuery}`) || API.getLastDataSourceMeta('/api/sla/groups') || {};
-            const snapshotMeta = API.getLastDataSourceMeta(`/api/sla/snapshots${catQuery}`) || API.getLastDataSourceMeta('/api/sla/snapshots') || {};
+            const summaryPath = `/api/sla/snapshots?view=summary${mode === 'auto' ? '' : `&mode=${encodeURIComponent(mode)}`}`;
+            const snapshotMeta = API.getLastDataSourceMeta(summaryPath) || API.getLastDataSourceMeta(`/api/sla/snapshots${catQuery}`) || API.getLastDataSourceMeta('/api/sla/snapshots') || {};
 
             panel.dataset.loaded = '1';
             panel.innerHTML = `
@@ -538,7 +542,8 @@
             try { await API.get(`/api/sla/targets${query}`); } catch (e) {window.ToolsPageStartup?.issue('meta',e);}
             try { await API.get(`/api/sla/categories${query}`); } catch (e) {window.ToolsPageStartup?.issue('meta',e);}
             try { await API.get(`/api/sla/groups${query}`); } catch (e) {window.ToolsPageStartup?.issue('meta',e);}
-            try { await API.get(`/api/sla/snapshots${query}`); } catch (e) {window.ToolsPageStartup?.issue('meta',e);}
+            // 只为显示「快照来源」标签：取摘要视图，不下载整份历史快照
+            try { await API.get(`/api/sla/snapshots?view=summary${mode === 'auto' ? '' : `&mode=${encodeURIComponent(mode)}`}`); } catch (e) {window.ToolsPageStartup?.issue('meta',e);}
             renderSLASourcePanel();
         }
 

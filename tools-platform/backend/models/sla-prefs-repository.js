@@ -1,7 +1,8 @@
 const { run, get, all } = require('./app-db');
+const { getDataDir } = require('./tenant-context');
 
 
-let initPromise = null;
+const readiness = new Map();
 
 function normalizePrefs(items) {
     return items && typeof items === 'object' && !Array.isArray(items) ? items : {};
@@ -45,8 +46,9 @@ async function replacePrefsInDbRaw(items) {
 }
 
 async function ensureReady() {
-    if (!initPromise) {
-        initPromise = (async () => {
+    const tenantKey = getDataDir();
+    if (!readiness.has(tenantKey)) {
+        readiness.set(tenantKey, (async () => {
             await run(`
                 CREATE TABLE IF NOT EXISTS sys_dictionaries (
                     dict_key TEXT PRIMARY KEY,
@@ -84,12 +86,12 @@ async function ensureReady() {
             const row = await get('SELECT COUNT(1) AS count FROM sla_prefs');
             if (row && row.count > 0) return;
         })().catch(err => {
-            initPromise = null;
+            readiness.delete(tenantKey);
             throw err;
-        });
+        }));
     }
 
-    return initPromise;
+    return readiness.get(tenantKey);
 }
 
 async function readPrefsObjectFromDb() {

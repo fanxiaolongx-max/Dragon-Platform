@@ -192,11 +192,20 @@ function renderRankingCountInsight() {
     const el = document.getElementById('ranking-count-insight');
     if (!el) return;
     el.classList.add('loading');
-    el.innerHTML = rt('report.trend.metricCountLoading');
+    el.innerHTML = `<span class="insight-loading-spin">⏳</span><span class="insight-loading-text">${rt('report.trend.metricCountLoading') || '加载指标规模趋势...'}</span>`;
     loadMetricCountTrendData().then(data => {
         const recent = Array.isArray(data.recent) ? data.recent : [];
         if (!recent.length) {
-            el.innerHTML = rt('report.trend.metricCountNoHistory');
+            el.innerHTML = `
+                <div class="insight-card-icon">📊</div>
+                <div class="insight-card-content">
+                    <div class="insight-card-header">
+                        <span class="insight-card-badge is-blue">指标规模</span>
+                        <span class="insight-summary-lead">暂无历史数据</span>
+                    </div>
+                    <div class="insight-card-summary">快照入库后将自动呈现近3期整体与子指标走势</div>
+                </div>
+            `;
             return;
         }
         const latest = recent[0];
@@ -213,16 +222,44 @@ function renderRankingCountInsight() {
             })
         ).join('\n');
         el.classList.remove('loading');
-        el.title = `${title}\n${rt('report.trend.metricCountTitleHint')}`;
+        el.title = `${title}\n${rt('report.trend.metricCountTitleHint') || '点击查看指标体量历史趋势折线图'}`;
+
+        let deltaHtml = '';
+        let summaryHtml = '';
+
+        if (!changed) {
+            deltaHtml = `<span class="insight-delta is-stable">变化 0 / 0</span>`;
+            summaryHtml = `<span class="insight-summary-lead">指标体量持平</span>：考评体系与监控范围稳定，无增减变更`;
+        } else {
+            const overallSign = formatDelta(overallDelta);
+            const subSign = formatDelta(subDelta);
+            const isGrowth = overallDelta >= 0 && subDelta >= 0;
+            deltaHtml = `<span class="insight-delta ${isGrowth ? 'is-up' : 'is-down'}">变化 ${overallSign} / ${subSign}</span>`;
+            if (isGrowth) {
+                summaryHtml = `<span class="insight-summary-lead">指标规模扩充</span>：较上期净增 <strong>${overallDelta}</strong> 项整体、<strong>${subDelta}</strong> 项子指标`;
+            } else {
+                summaryHtml = `<span class="insight-summary-lead">指标适度精简</span>：较上期优化调整 <strong>${Math.abs(overallDelta)}</strong> 项整体指标`;
+            }
+        }
+
         el.innerHTML = `
-            <span>${rt('report.trend.lastThree', { sequence: escapeHTML(sequence) })}</span>
-            <span class="ranking-count-pill">${rt('report.trend.overallShort', { count: latest.overall_metric_count })}</span>
-            <span class="ranking-count-pill sub">${rt('report.trend.subShort', { count: latest.sub_metric_count })}</span>
-            <span class="ranking-count-delta ${changed ? 'changed' : ''}">${rt('report.trend.changePair', { first: formatDelta(overallDelta), second: formatDelta(subDelta) })}</span>
+            <div class="insight-card-icon">📊</div>
+            <div class="insight-card-content">
+                <div class="insight-card-header">
+                    <span class="insight-card-badge is-blue">指标规模</span>
+                    <span class="insight-seq-tag" title="近3期[整体/子指标]体量趋势">${escapeHTML(sequence)}</span>
+                    <span class="insight-pill"><strong>整体</strong> ${latest.overall_metric_count}</span>
+                    <span class="insight-pill sub"><strong>子指标</strong> ${latest.sub_metric_count}</span>
+                    ${deltaHtml}
+                </div>
+                <div class="insight-card-summary">
+                    ${summaryHtml}
+                </div>
+            </div>
         `;
     }).catch(err => {
         el.classList.remove('loading');
-        el.innerHTML = rt('report.trend.metricCountLoadFailed');
+        el.innerHTML = `<span class="insight-card-icon">⚠️</span><span class="insight-card-summary">${escapeHTML(err.message || String(err))}</span>`;
         el.title = err.message || String(err);
     });
 }
@@ -231,18 +268,26 @@ function renderExpiringWarningInsight() {
     const el = document.getElementById('expiring-warning-insight');
     if (!el) return;
     el.classList.add('loading');
-    el.innerHTML = rt('report.trend.warningLoading');
+    el.innerHTML = `<span class="insight-loading-spin">⏳</span><span class="insight-loading-text">${rt('report.trend.warningLoading') || '加载临期预警趋势...'}</span>`;
     loadExpiringWarningTrendData().then(data => {
         const recent = Array.isArray(data.recent) ? data.recent : [];
         if (!recent.length) {
-            el.innerHTML = rt('report.trend.warningNoHistory');
+            el.innerHTML = `
+                <div class="insight-card-icon">🔔</div>
+                <div class="insight-card-content">
+                    <div class="insight-card-header">
+                        <span class="insight-card-badge is-amber">临期预警</span>
+                        <span class="insight-summary-lead">暂无预警记录</span>
+                    </div>
+                    <div class="insight-card-summary">当前无历史临期单据预警数据</div>
+                </div>
+            `;
             return;
         }
         const latest = recent[0];
         const prev = recent[1] || null;
         const totalDelta = prev ? latest.total_warning_count - prev.total_warning_count : 0;
         const ticketDelta = prev ? latest.expiring_ticket_count - prev.expiring_ticket_count : 0;
-        const changed = totalDelta !== 0 || ticketDelta !== 0;
         const sequence = recent.slice().reverse().map(item => item.total_warning_count).join(' → ');
         const title = recent.slice().reverse().map(item =>
             rt('report.trend.warningTitleLine', {
@@ -253,16 +298,57 @@ function renderExpiringWarningInsight() {
             })
         ).join('\n');
         el.classList.remove('loading');
-        el.title = `${title}\n${rt('report.trend.warningTitleHint')}`;
+        el.title = `${title}\n${rt('report.trend.warningTitleHint') || '点击查看临期预警历史趋势折线图'}`;
+
+        let icon = '🔔';
+        let badgeClass = 'is-amber';
+        let deltaHtml = '';
+        let summaryHtml = '';
+
+        if (latest.total_warning_count === 0) {
+            icon = '✅';
+            badgeClass = 'is-success';
+            el.classList.add('is-clean');
+            deltaHtml = `<span class="insight-delta is-success">预警清零</span>`;
+            summaryHtml = `<span class="insight-summary-lead">业务流转健康</span>：当前各项单据推进正常无临期风险`;
+        } else if (totalDelta > 0) {
+            icon = '⚠️';
+            badgeClass = 'is-warning';
+            el.classList.remove('is-clean');
+            deltaHtml = `<span class="insight-delta is-danger">变化 +${totalDelta} / +${ticketDelta}</span>`;
+            summaryHtml = `<span class="insight-summary-lead">预警量反弹 +${totalDelta}项</span>：需紧盯临期单据催办督办，防范超期滞留`;
+        } else if (totalDelta < 0) {
+            icon = '📉';
+            badgeClass = 'is-info';
+            el.classList.remove('is-clean');
+            deltaHtml = `<span class="insight-delta is-success">变化 ${totalDelta} / ${ticketDelta}</span>`;
+            summaryHtml = `<span class="insight-summary-lead">预警量环比压降 ${Math.abs(totalDelta)}项</span>：超期风险有效收敛，推进态势良好`;
+        } else {
+            icon = '🔔';
+            badgeClass = 'is-amber';
+            el.classList.remove('is-clean');
+            deltaHtml = `<span class="insight-delta is-stable">变化 0 / 0</span>`;
+            summaryHtml = `<span class="insight-summary-lead">预警存量持平</span>：总计 ${latest.total_warning_count} 项，持续跟进重点单据流转`;
+        }
+
         el.innerHTML = `
-            <span>${rt('report.trend.warningSequence', { sequence: escapeHTML(sequence) })}</span>
-            <span class="ranking-count-pill">${rt('report.trend.totalShort', { count: latest.total_warning_count })}</span>
-            <span class="ranking-count-pill sub">${rt('report.trend.ticketShort', { count: latest.expiring_ticket_count })}</span>
-            <span class="ranking-count-delta ${changed ? 'changed' : ''}">${rt('report.trend.changePair', { first: formatDelta(totalDelta), second: formatDelta(ticketDelta) })}</span>
+            <div class="insight-card-icon">${icon}</div>
+            <div class="insight-card-content">
+                <div class="insight-card-header">
+                    <span class="insight-card-badge ${badgeClass}">临期预警</span>
+                    <span class="insight-seq-tag" title="近3期预警总数趋势">${escapeHTML(sequence)}</span>
+                    <span class="insight-pill"><strong>总</strong> ${latest.total_warning_count}</span>
+                    <span class="insight-pill sub"><strong>单据</strong> ${latest.expiring_ticket_count}</span>
+                    ${deltaHtml}
+                </div>
+                <div class="insight-card-summary">
+                    ${summaryHtml}
+                </div>
+            </div>
         `;
     }).catch(err => {
         el.classList.remove('loading');
-        el.innerHTML = rt('report.trend.warningLoadFailed');
+        el.innerHTML = `<span class="insight-card-icon">⚠️</span><span class="insight-card-summary">${escapeHTML(err.message || String(err))}</span>`;
         el.title = err.message || String(err);
     });
 }
@@ -1442,12 +1528,16 @@ function renderSnapshotOptions() {
 }
 
 function renderNoReportReadyState() {
+    document.getElementById('report-ranking-summary').replaceChildren();
+    document.getElementById('report-ranking-insights').replaceChildren();
     const content = document.getElementById('report-content');
     if (!content) return;
     content.innerHTML = `<div class="empty-state"><h3>${rt('report.empty.noReadyTitle')}</h3><p>${rt(reportSourceSnapshots.some(window.ReportSnapshotFilter.hasMetrics)?'report.empty.filteredBody':'report.empty.noReadyBody',{count:reportMinSourceTables})}</p></div>`;
 }
 
 function renderReportLoadFailedState() {
+    document.getElementById('report-ranking-summary').replaceChildren();
+    document.getElementById('report-ranking-insights').replaceChildren();
     const content = document.getElementById('report-content');
     if (!content) return;
     content.innerHTML = `<div class="empty-state"><h3>${rt('report.empty.loadFailedTitle')}</h3><p>${rt('report.empty.loadFailedBody')}</p></div>`;
@@ -1765,8 +1855,24 @@ function cleanMatrixCellFilterText(text) {
         .replace(/比例计分/g, '')
         .replace(/Proportional\s*ON/g, '')
         .replace(/Proportional/g, '')
-        .replace(/✏️[\s\S]*$/, '')
+        .replace(/[▲▼📈📉➖]/g, '')
+        .replace(/[⚖️✏️🗑️🔄🏷️📝]/g, '')
+        .replace(/\(\+[0-9.]+\)/g, '')
+        .replace(/[\r\n\t]+/g, ' ')
         .trim();
+}
+
+function getMatrixCellFilterValue(cell) {
+    if (!cell) return '';
+    const attr = cell.getAttribute('data-filter-value');
+    if (attr !== null && attr !== undefined) return attr.trim();
+    const trendLink = cell.querySelector('.metric-trend-link');
+    if (trendLink) return trendLink.textContent.trim();
+    const groupWrap = cell.querySelector('.group-cell-wrap');
+    if (groupWrap) return groupWrap.textContent.trim();
+    const scoreVal = cell.querySelector('.score-val');
+    if (scoreVal) return scoreVal.textContent.trim();
+    return cleanMatrixCellFilterText(cell.textContent);
 }
 
 function hasUsableMetricValue(metric) {
@@ -2356,7 +2462,7 @@ function renderReport(snap) {
             if (i === firstIdx) {
                 tableRows.push({ groupName: grpName, groupSize: size, isGroupStart: true, metric: m, groupWeight: groupWeightMap[grpName] || '-' });
             } else {
-                tableRows.push({ groupName: grpName, groupSize: 0, isGroupStart: false, metric: m });
+                tableRows.push({ groupName: grpName, groupSize: 0, isGroupStart: false, metric: m, groupWeight: groupWeightMap[grpName] || '-' });
             }
         }
         i++;
@@ -2366,26 +2472,33 @@ function renderReport(snap) {
 
     // Generate Matrix Table
     let matrixHtml = `
-        <div class="card" id="matrix-card">
+        <section class="report-section" id="matrix-card">
             <h3 class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
                 <span>${rt('report.card.matrixTitle')}</span>
-                <button onclick="toggleMatrixFullscreen()" style="padding:4px 10px; font-size:12px; background:#f0f4f8; border:1px solid #cbd5e1; border-radius:4px; cursor:pointer; color:#334155; display:flex; align-items:center; gap:4px; font-weight:normal;" title="${rt('report.action.fullscreenTitle')}">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-                    ${rt('report.action.fullscreen')}
-                </button>
+                <div class="card-title-actions">
+                    <button type="button" class="btn-matrix-fullscreen" id="fs-btn-matrix-card" onclick="toggleMatrixFullscreen('matrix-card')" title="${rt('report.action.fullscreenTitle') || '全屏查看指标矩阵'}">
+                        <span class="fs-icon">⛶</span>
+                        <span class="fs-text">${rt('report.action.fullscreen') || '全屏查看'}</span>
+                    </button>
+                </div>
             </h3>
-            <div class="matrix-container" style="background:#fff; height:100%;">
+            <div class="matrix-container">
             <table class="matrix-table" id="main-matrix-table">
+                <colgroup>
+                    ${hasGroups ? '<col style="width:4%"><col style="width:4%">' : ''}
+                    <col style="width:22%"><col style="width:4%"><col style="width:7%"><col style="width:9%">
+                    ${categories.map(() => '<col>').join('')}${categories.map(() => '<col>').join('')}
+                </colgroup>
                 <thead>
                     <tr>
-                        ${hasGroups ? `<th style="min-width:40px; max-width:60px; white-space:normal; position:sticky; top:0; z-index:11; background:#e8eaf6; color:#283593;">${getBilingual('分组')}</th>
-                                       <th style="min-width:40px; position:sticky; top:0; z-index:11; background:#e8eaf6; color:#283593;" title="${rt('report.tooltip.groupWeight')}">${getBilingual('总权重')}</th>` : ''}
-                        <th style="min-width:180px; text-align:left;">${getBilingual('考核的指标名称')}</th>
-                        <th style="min-width:60px;">${getBilingual('权重')}</th>
-                        <th style="min-width:100px;">${rt('report.table.targetMonth', { month: targetMonth })}</th>
-                        <th style="min-width:100px; background:#fff8e1; border-right:2px solid #ffe082; color:#ef6c00;">${getBilingual('全局总体达标')}</th>
-                        ${categories.map(cat => `<th>${escapeHTML(cat)}</th>`).join('')}
-                        ${categories.map(cat => `<th style="background:#e8f5e9;">${escapeHTML(cat)} ${rt('report.table.score')}</th>`).join('')}
+                        ${hasGroups ? `<th class="th-group" style="min-width:40px; max-width:60px; white-space:normal; position:sticky; top:0; z-index:11;">${getBilingual('分组')}</th>
+                                       <th class="th-group-weight" style="min-width:40px; position:sticky; top:0; z-index:11;" title="${rt('report.tooltip.groupWeight')}">${getBilingual('总权重')}</th>` : ''}
+                        <th class="th-metric-name" style="min-width:180px; text-align:left;">${getBilingual('考核的指标名称')}</th>
+                        <th class="th-weight" style="min-width:60px;">${getBilingual('权重')}</th>
+                        <th class="th-target" style="min-width:100px;">${rt('report.table.targetMonth', { month: targetMonth })}</th>
+                        <th class="th-global-target" style="min-width:100px;">${getBilingual('全局总体达标')}</th>
+                        ${categories.map(cat => `<th class="th-category">${escapeHTML(cat)}</th>`).join('')}
+                        ${categories.map(cat => `<th class="th-score">${escapeHTML(cat)} ${rt('report.table.score')}</th>`).join('')}
                     </tr>
                 </thead>
                 <tbody>
@@ -2437,25 +2550,21 @@ function renderReport(snap) {
             if (m.isManual) {
                 const targetData = labelToTargetMap[m.label] || {};
                 const isAuto = !!targetData.autoFill;
-                const autoColor = isAuto ? '#0288d1' : '#9e9e9e';
-                const autoBg = isAuto ? '#e1f5fe' : '#f5f5f5';
-                const autoBorder = isAuto ? '#81d4fa' : '#e0e0e0';
                 const sourceText = m.autoFillSource && m.autoFillSource.label ? ` · ${rt('report.auto.source')}: ${getTranslatedLabel(m.autoFillSource.label)}` : '';
                 const autoTextFull = isAuto ? `${rt('report.auto.on')}${sourceText}` : rt('report.auto.off');
                 const autoTitle = isAuto && sourceText ? rt('report.auto.sourceTitle', { label: getTranslatedLabel(m.autoFillSource.label) }) : autoTextFull;
-                autoFillBtn = `<span style="cursor:pointer; margin-left:4px; font-size:14px; opacity:${isAuto ? '1' : '0.4'}; transition: opacity 0.2s;" title="${escapeHTML(autoTitle)}" onclick='toggleAutoFill(${JSON.stringify(m.label)})' onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${isAuto ? '1' : '0.4'}'">🔄</span>`;
+                autoFillBtn = `<span class="metric-action-btn auto-btn" style="opacity:${isAuto ? '1' : '0.4'};" title="${escapeHTML(autoTitle)}" onclick='toggleAutoFill(${JSON.stringify(m.label)})'>🔄</span>`;
             }
             const manualActionButtons = m.isManual ? `
-                <span style="cursor:pointer; margin-left:4px; font-size:14px; opacity:0.6; transition: opacity 0.2s;" title="${rt('report.common.edit')}" onclick='editManualMetric(${JSON.stringify(m.label)})' onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">✏️</span>
-                <span style="cursor:pointer; margin-left:4px; font-size:14px; opacity:0.6; transition: opacity 0.2s;" title="${rt('report.common.delete')}" onclick='deleteManualMetric(${JSON.stringify(m.label)})' onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.6'">🗑️</span>
+                <span class="metric-action-btn edit-btn" title="${rt('report.common.edit')}" onclick='editManualMetric(${JSON.stringify(m.label)})'>✏️</span>
+                <span class="metric-action-btn delete-btn" title="${rt('report.common.delete')}" onclick='deleteManualMetric(${JSON.stringify(m.label)})'>🗑️</span>
                 ${autoFillBtn}
             ` : '';
             const proportionalEnabled = isProportionalScoringEnabled(targetData);
             const proportionalBtn = m.hasTarget ? `
-                <span style="cursor:pointer; margin-left:4px; font-size:14px; opacity:${proportionalEnabled ? '1' : '0.4'}; transition: opacity 0.2s;"
+                <span class="metric-action-btn prop-btn" style="opacity:${proportionalEnabled ? '1' : '0.4'};"
                     onclick="toggleProportionalScoring('${escapeHTML(m.label)}')"
-                    title="${proportionalEnabled ? rt('report.proportional.titleOn') : rt('report.proportional.titleOff')}"
-                    onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='${proportionalEnabled ? '1' : '0.4'}'">
+                    title="${proportionalEnabled ? rt('report.proportional.titleOn') : rt('report.proportional.titleOff')}">
                     ⚖️
                 </span>
             ` : '';
@@ -2466,24 +2575,36 @@ function renderReport(snap) {
 
             // Group column
             if (hasGroups) {
-                html += `<td class="matrix-group-cell" data-col="${colIdx++}" ${row.isGroupStart ? `rowspan="${row.groupSize}"` : `style="display:none;"`}>${getBilingual(row.groupName || '未分组')}</td>`;
-                html += `<td class="matrix-group-cell" data-col="${colIdx++}" ${row.isGroupStart ? `rowspan="${row.groupSize}"` : `style="display:none;"`} style="font-weight:bold; color:#1565c0;">${row.groupWeight || '-'}</td>`;
+                const groupFilterVal = getTranslatedLabel(row.groupName || '未分组');
+                const groupWeightVal = row.groupWeight || groupWeightMap[row.groupName] || '-';
+                html += `<td class="matrix-group-cell" data-col="${colIdx++}" data-filter-value="${escapeHTML(groupFilterVal)}" ${row.isGroupStart ? `rowspan="${row.groupSize}"` : `style="display:none;"`}>
+                    <div class="group-cell-wrap">${escapeHTML(groupFilterVal)}</div>
+                </td>`;
+                html += `<td class="matrix-group-weight-cell" data-col="${colIdx++}" data-filter-value="${escapeHTML(String(groupWeightVal))}" ${row.isGroupStart ? `rowspan="${row.groupSize}"` : `style="display:none;"`}>
+                    <span class="group-weight-pill">${escapeHTML(String(groupWeightVal))}</span>
+                </td>`;
             }
 
+            const metricFilterVal = getTranslatedLabel(m.label);
             html += `
-                <td data-col="${colIdx++}" style="text-align:left; font-weight:600; color:#2c3e50;">
-                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                        ${renderMetricTrendLink(m.label, 'metric')}${proportionalBtn}${manualActionButtons}
+                <td data-col="${colIdx++}" class="matrix-metric-cell" data-filter-value="${escapeHTML(metricFilterVal)}">
+                    <div class="metric-cell-inner">
+                        <div class="metric-title-group">
+                            ${renderMetricTrendLink(m.label, 'metric')}
+                        </div>
+                        <div class="metric-row-actions">
+                            ${proportionalBtn}${manualActionButtons}
+                        </div>
                     </div>
                 </td>
-                <td data-col="${colIdx++}" style="color:#666; font-weight:bold; background:#fafafa;">${weight}</td>
-                <td data-col="${colIdx++}" style="color:#0277bd; font-weight:bold; background:#f5f8fa;">${targetStr}</td>
-                <td data-col="${colIdx++}" style="background:#fff8e1; border-right:2px solid #ffe082;"><span class="${globalDisplayClass}"${globalTitleAttr}>${escapeHTML(String(m.value || '--'))}${renderMetricTrend(m.value, previousMetricValues[`${m.label}@@整体`])}</span></td>`;
+                <td data-col="${colIdx++}" class="matrix-weight-cell" data-filter-value="${escapeHTML(String(weight))}">${weight}</td>
+                <td data-col="${colIdx++}" class="matrix-target-cell" data-filter-value="${escapeHTML(String(targetStr))}">${targetStr}</td>
+                <td data-col="${colIdx++}" class="matrix-global-cell" data-filter-value="${escapeHTML(String(m.value || '--'))}"><span class="${globalDisplayClass}"${globalTitleAttr}>${escapeHTML(String(m.value || '--'))}${renderMetricTrend(m.value, previousMetricValues[`${m.label}@@整体`])}</span></td>`;
 
             categories.forEach(cat => {
                 const cell = catData[cat].values[m.label];
                 if (!cell || cell.raw === '--') {
-                    html += `<td data-col="${colIdx++}" class="val-none">--</td>`;
+                    html += `<td data-col="${colIdx++}" class="matrix-val-cell val-none" data-filter-value="--">--</td>`;
                 } else {
                     let displayClass = 'val-none';
                     let titleAttr = '';
@@ -2493,28 +2614,28 @@ function renderReport(snap) {
                             ? ` title="${escapeHTML(rt('report.tooltip.failed', { gap: cell.gapStr }))}"`
                             : ` title="${escapeHTML(rt('report.tooltip.passed'))}"`;
                     }
-                    html += `<td data-col="${colIdx++}"><span class="${displayClass}"${titleAttr}>${escapeHTML(cell.raw)}${renderMetricTrend(cell.raw, previousMetricValues[`${m.label}@@${cat}`])}</span></td>`;
+                    html += `<td data-col="${colIdx++}" class="matrix-val-cell" data-filter-value="${escapeHTML(String(cell.raw))}"><span class="${displayClass}"${titleAttr}>${escapeHTML(cell.raw)}${renderMetricTrend(cell.raw, previousMetricValues[`${m.label}@@${cat}`])}</span></td>`;
                 }
             });
 
             categories.forEach(cat => {
                 const cell = catData[cat].values[m.label];
                 if (!cell || cell.raw === '--') {
-                    html += `<td data-col="${colIdx++}" class="val-none" style="background:#f1f8e9;">--</td>`;
+                    html += `<td data-col="${colIdx++}" class="matrix-score-cell val-none" data-filter-value="--">--</td>`;
                 } else if (!m.hasTarget) {
-                    html += `<td data-col="${colIdx++}" class="val-none" style="background:#f1f8e9;" title="${rt('report.tooltip.noScore')}">--</td>`;
+                    html += `<td data-col="${colIdx++}" class="matrix-score-cell val-none" data-filter-value="--" title="${rt('report.tooltip.noScore')}">--</td>`;
                 } else {
                     const earned = cell.earnedScore !== undefined ? cell.earnedScore : (cell.isFailing ? 0 : (weight + (cell.bonusScore || 0)));
-                    const scoreColor = cell.isFailing ? '#d32f2f' : '#2e7d32';
-                    const bonusDisplay = cell.bonusScore ? ` <span style="font-size:10px; color:#e65100;">(+${cell.bonusScore.toFixed(2)})</span>` : '';
+                    const scoreStatusClass = cell.isFailing ? 'score-failing' : 'score-passing';
+                    const bonusDisplay = cell.bonusScore ? ` <span class="score-bonus">(+${cell.bonusScore.toFixed(2)})</span>` : '';
                     const ratioText = (cell.proportionalScoring || cell.negativePercentageScoring) && cell.isFailing
                         ? rt('report.tooltip.completionSuffix', { value: (cell.completionRatio * 100).toFixed(1) })
                         : '';
                     const scoreTitle = isOthersTable
                         ? rt('report.tooltip.extraScoreDetail', { weight, earned: formatScoreValue(earned), ratio: ratioText, bonus: cell.bonusScore || 0 })
                         : rt('report.tooltip.scoreDetail', { weight, earned: formatScoreValue(earned), ratio: ratioText, bonus: cell.bonusScore || 0 });
-                    const ratioBadge = (cell.proportionalScoring || cell.negativePercentageScoring) && cell.isFailing ? `<div style="font-size:9px; color:#ef6c00; font-weight:600; line-height:1.2;">${(cell.completionRatio * 100).toFixed(0)}%</div>` : '';
-                    html += `<td data-col="${colIdx++}" style="font-weight:bold; color:${scoreColor}; background:#f1f8e9;" title="${scoreTitle}">${formatScoreValue(earned)}${bonusDisplay}${ratioBadge}</td>`;
+                    const ratioBadge = (cell.proportionalScoring || cell.negativePercentageScoring) && cell.isFailing ? `<div class="score-ratio-badge">${(cell.completionRatio * 100).toFixed(0)}%</div>` : '';
+                    html += `<td data-col="${colIdx++}" class="matrix-score-cell ${scoreStatusClass}" data-filter-value="${escapeHTML(String(formatScoreValue(earned)))}" title="${scoreTitle}"><div class="score-cell-inner"><span class="score-val">${formatScoreValue(earned)}</span>${bonusDisplay}${ratioBadge}</div></td>`;
                 }
             });
 
@@ -2529,45 +2650,61 @@ function renderReport(snap) {
                 </tbody>
             </table>
             </div>
-            <div style="margin-top:12px; font-size:12px; color:#888;">
+            <div class="report-section-note">
                 ${rt('report.logic.autoScoring')} <strong>${rt('report.logic.autoScoringBody')}</strong><br>
                 ${rt('report.logic.proportional')}
             </div>
-        </div>
+        </section>
+    `;
+
+    // Keep trend entry points beside the report controls to keep the ranking small.
+    const rankingInsightsHtml = `
+                <button id="ranking-count-insight" class="ranking-count-insight loading" type="button" onclick="openMetricCountTrendModal()" title="${escapeHTML(rt('report.trend.metricCountTitleHint'))}">${escapeHTML(rt('report.trend.metricCountLoading'))}</button>
+                <button id="expiring-warning-insight" class="ranking-count-insight loading" type="button" onclick="openExpiringWarningTrendModal()" title="${escapeHTML(rt('report.trend.warningTitleHint'))}">${escapeHTML(rt('report.trend.warningLoading'))}</button>
     `;
 
     // Generate Ranking Table
     let rankingHtml = `
-        <div class="card">
-            <h3 class="card-title" style="color:#0277bd;">
-                <span>${rt('report.card.rankingTitle')}</span>
-                <button id="ranking-count-insight" class="ranking-count-insight loading" type="button" onclick="openMetricCountTrendModal()" title="${escapeHTML(rt('report.trend.metricCountTitleHint'))}">${escapeHTML(rt('report.trend.metricCountLoading'))}</button>
-                <button id="expiring-warning-insight" class="ranking-count-insight loading" type="button" onclick="openExpiringWarningTrendModal()" title="${escapeHTML(rt('report.trend.warningTitleHint'))}">${escapeHTML(rt('report.trend.warningLoading'))}</button>
-            </h3>
+        <aside class="card ranking-card">
+            <div class="ranking-overview">
+                <div class="ranking-title-wrap">
+                    <h3 class="card-title">${rt('report.card.rankingTitle')}</h3>
+                </div>
+            </div>
+            <div class="ranking-table-wrap" tabindex="0" role="region" aria-label="${escapeHTML(rt('report.card.rankingTitle'))}">
             <table class="ranking-table">
+                <colgroup>
+                    <col class="ranking-col-rank">
+                    <col class="ranking-col-category">
+                    <col class="ranking-col-standard">
+                    <col class="ranking-col-system">
+                    <col class="ranking-col-adjust">
+                    <col class="ranking-col-final">
+                </colgroup>
                 <thead>
                     <tr>
-                        <th style="width:60px;">${getBilingual('排名')}</th>
-                        <th style="text-align:left;">${getBilingual('客户群/代表处/区域')}</th>
-                        <th>${getBilingual('标准总分')}</th>
-                        <th>${getBilingual('系统得分')}</th>
-                        <th>${getBilingual('预留加减分 (手动)')}</th>
-                        <th>${getBilingual('最终得分')}</th>
+                        <th class="th-rank">${getBilingual('排名')}</th>
+                        <th class="th-cat" style="text-align:left;">${getBilingual('评定区域 / 客户群')}</th>
+                        <th class="th-std">${getBilingual('基准分')}</th>
+                        <th class="th-sys">${getBilingual('系统得分')}</th>
+                        <th class="th-adj">${getBilingual('加减分')}</th>
+                        <th class="th-final">${getBilingual('最终得分')}</th>
                     </tr>
                 </thead>
                 <tbody id="ranking-tbody">
                 </tbody>
             </table>
-        </div>
+            </div>
+        </aside>
     `;
 
     // Generate Manual Adjustments Table
     let adjustHtml = `
-        <div class="card" id="adjust-card" style="margin-top:20px; margin-bottom:20px;">
+        <section class="report-section report-adjust-section" id="adjust-card">
             <h3 class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
                 <span style="color:#e65100;">${rt('report.card.adjustTitle')}</span>
-                <div style="display:flex; align-items:center; gap:10px;">
-                    <span style="font-size:12px; font-weight:normal; color:#888; background:#f5f5f5; padding:4px 8px; border-radius:4px;">${rt('report.hint.autoSaved')}</span>
+                <div class="report-section-actions">
+                    <span class="report-autosave-hint">${rt('report.hint.autoSaved')}</span>
                     <button onclick="openManualAdjustSortModal()" style="padding:4px 10px; font-size:12px; background:#fff8e1; border:1px solid #ffe082; border-radius:4px; cursor:pointer; color:#e65100; display:flex; align-items:center; gap:4px; font-weight:normal;" title="${rt('report.action.sortAdjustTitle')}">
                         ↕️ ${rt('report.action.sortAdjust')}
                     </button>
@@ -2581,7 +2718,7 @@ function renderReport(snap) {
                     </button>
                 </div>
             </h3>
-            <div class="matrix-container" style="background:#fff;">
+            <div class="matrix-container">
             <table class="matrix-table" style="font-size:12px;">
                 <thead>
                     <tr>
@@ -2613,7 +2750,7 @@ function renderReport(snap) {
         const autoText = isAuto ? `${rt('report.auto.on')}${autoSource && autoSource.label ? ` · ${rt('report.auto.source')}: ${getTranslatedLabel(autoSource.label)}` : ''}` : rt('report.auto.off');
         const autoTitle = isAuto && autoSource && autoSource.label ? rt('report.auto.sourceTitle', { label: getTranslatedLabel(autoSource.label) }) : rt('report.auto.title');
         adjustHtml += `<tr>
-            <td style="color:${typeColor}; background:${typeBg}; font-weight:bold; text-align:center;">${getBilingual(item.type)}</td>
+            <td><span class="adjust-type-badge" style="color:${typeColor}; background:${typeBg};">${getBilingual(item.type)}</span></td>
             <td style="text-align:left;">
                 <div style="display:flex; flex-direction:row; align-items:center; flex-wrap:wrap; gap:8px;">
                     ${renderMetricTrendLink(item.name, 'manual')}
@@ -2631,7 +2768,7 @@ function renderReport(snap) {
             const attachmentCount = detailRecords.reduce((sum, record) => sum + record.attachments.length, 0);
             const hasDetail = detailRecords.some(record => record.reason || record.occurredAt || record.recorder || record.attachments.length);
             adjustHtml += `<td>
-                <div style="display:flex; align-items:center; justify-content:center; gap:4px; min-width:104px;">
+                <div class="adjust-entry-control">
                     <input type="number" class="manual-adjust-input" data-cat="${escapeHTML(cat)}" data-idx="${idx}" value="${val}" min="0" step="1" onchange="calculateManualAdjustments(); saveManualAdjustData(true);" style="width:58px; text-align:center; border:1px solid #ddd; padding:4px; border-radius:4px; box-sizing:border-box;">
                     <button type="button" class="manual-adjust-detail-btn" data-cat="${escapeHTML(cat)}" data-idx="${idx}" onclick="openManualAdjustDetailModal(this.dataset.cat, Number(this.dataset.idx))" title="${escapeHTML(rt('report.adjust.detailButtonTitle'))}" aria-label="${escapeHTML(rt('report.adjust.detailButtonTitle'))}" style="position:relative; min-width:30px; height:28px; padding:2px 6px; border:1px solid ${hasDetail ? '#fb923c' : '#d8dee7'}; border-radius:6px; background:${hasDetail ? '#fff7ed' : '#fff'}; color:${hasDetail ? '#c2410c' : '#64748b'}; cursor:pointer; line-height:1;">📝${attachmentCount ? `<span style="position:absolute; right:-5px; top:-6px; min-width:15px; height:15px; padding:0 3px; border-radius:8px; background:#ea580c; color:#fff; font-size:9px; line-height:15px; box-sizing:border-box;">${attachmentCount}</span>` : ''}</button>
                 </div>
@@ -2655,8 +2792,8 @@ function renderReport(snap) {
                 </tbody>
             </table>
             </div>
-            <div style="margin-top:8px; font-size:12px; color:#888;">${rt('report.logic.manualAdjust')}</div>
-        </div>
+            <div class="report-section-note">${rt('report.logic.manualAdjust')}</div>
+        </section>
     `;
 
     const rulesItems = getReportLang() === 'en-US'
@@ -2678,12 +2815,12 @@ function renderReport(snap) {
         ];
 
     let rulesHtml = `
-        <div class="card" style="margin-top:20px; margin-bottom:40px; background:#f8fbff; border:1px solid #bbdefb; box-shadow:0 2px 8px rgba(21,101,192,0.05);">
+        <div class="card report-rules">
             <h3 class="card-title" style="color:#0277bd; font-size:15px; border-bottom:1px solid #bbdefb; padding-bottom:10px; margin-bottom:12px;">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:text-bottom; margin-right:6px;"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
                 ${rt('report.card.rulesTitle')}
             </h3>
-            <div style="font-size:13px; color:#455a64; line-height:1.8;">
+            <div class="report-rules-body">
                 ${rulesItems.map(([title, body]) => `<p style="margin:0 0 8px;"><strong>${escapeHTML(title)}</strong>${escapeHTML(body)}</p>`).join('')}
             </div>
         </div>
@@ -2692,26 +2829,33 @@ function renderReport(snap) {
     let othersMatrixHtml = '';
     if (othersTableRows && othersTableRows.length > 0) {
         othersMatrixHtml = `
-        <div class="card" id="others-matrix-card" style="margin-top: 20px;">
+        <section class="report-section report-others-section" id="others-matrix-card">
             <h3 class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
-                <span style="color:#607d8b;">额外监控表-不计入总分 (Others 分组)</span>
-                <button onclick="toggleOthersMatrixFullscreen()" style="padding:4px 10px; font-size:12px; background:#f0f4f8; border:1px solid #cbd5e1; border-radius:4px; cursor:pointer; color:#334155; display:flex; align-items:center; gap:4px; font-weight:normal;" title="${rt('report.action.fullscreenTitle')}">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
-                    ${rt('report.action.fullscreen')}
-                </button>
+                <span>${rt('report.card.othersTitle')} <span class="report-section-tag">${rt('report.card.othersTag')}</span></span>
+                <div class="card-title-actions">
+                    <button type="button" class="btn-matrix-fullscreen" id="fs-btn-others-matrix-card" onclick="toggleMatrixFullscreen('others-matrix-card')" title="${rt('report.action.fullscreenTitle') || '全屏查看额外监控指标'}">
+                        <span class="fs-icon">⛶</span>
+                        <span class="fs-text">${rt('report.action.fullscreen') || '全屏查看'}</span>
+                    </button>
+                </div>
             </h3>
-            <div class="matrix-container" style="background:#fff; height:100%;">
+            <div class="matrix-container">
             <table class="matrix-table" id="others-matrix-table">
+                <colgroup>
+                    ${hasGroups ? '<col style="width:4%"><col style="width:4%">' : ''}
+                    <col style="width:22%"><col style="width:4%"><col style="width:7%"><col style="width:9%">
+                    ${categories.map(() => '<col>').join('')}${categories.map(() => '<col>').join('')}
+                </colgroup>
                 <thead>
                     <tr>
-                        ${hasGroups ? `<th style="min-width:40px; max-width:60px; white-space:normal; position:sticky; top:0; z-index:11; background:#eceff1; color:#37474f;">${getBilingual('分组')}</th>
-                                       <th style="min-width:40px; position:sticky; top:0; z-index:11; background:#eceff1; color:#37474f;" title="${rt('report.tooltip.groupWeight')}">${getBilingual('总权重')}</th>` : ''}
-                        <th style="min-width:180px; text-align:left;">${getBilingual('考核的指标名称')}</th>
-                        <th style="min-width:60px;">${getBilingual('权重')}</th>
-                        <th style="min-width:100px;">${rt('report.table.targetMonth', { month: targetMonth })}</th>
-                        <th style="min-width:100px; background:#fff8e1; border-right:2px solid #ffe082; color:#ef6c00;">${getBilingual('全局总体达标')}</th>
-                        ${categories.map(cat => `<th>${escapeHTML(cat)}</th>`).join('')}
-                        ${categories.map(cat => `<th style="background:#f1f8e9; color:#888;">${escapeHTML(cat)} ${rt('report.table.score')}</th>`).join('')}
+                        ${hasGroups ? `<th class="th-group" style="min-width:40px; max-width:60px; white-space:normal; position:sticky; top:0; z-index:11;">${getBilingual('分组')}</th>
+                                       <th class="th-group-weight" style="min-width:40px; position:sticky; top:0; z-index:11;" title="${rt('report.tooltip.groupWeight')}">${getBilingual('总权重')}</th>` : ''}
+                        <th class="th-metric-name" style="min-width:180px; text-align:left;">${getBilingual('考核的指标名称')}</th>
+                        <th class="th-weight" style="min-width:60px;">${getBilingual('权重')}</th>
+                        <th class="th-target" style="min-width:100px;">${rt('report.table.targetMonth', { month: targetMonth })}</th>
+                        <th class="th-global-target" style="min-width:100px;">${getBilingual('全局总体达标')}</th>
+                        ${categories.map(cat => `<th class="th-category">${escapeHTML(cat)}</th>`).join('')}
+                        ${categories.map(cat => `<th class="th-score">${escapeHTML(cat)} ${rt('report.table.score')}</th>`).join('')}
                     </tr>
                 </thead>
                 <tbody>
@@ -2719,14 +2863,16 @@ function renderReport(snap) {
                 </tbody>
             </table>
             </div>
-            <div style="margin-top:12px; font-size:12px; color:#888;">
-                ⚠️ 当前为 Others 分组的额外监控表，该表内指标支持比例计分展示，但不计入总分和排名。
-            </div>
-        </div>
+            <div class="report-section-note">${rt('report.logic.others')}</div>
+        </section>
         `;
     }
 
-    content.innerHTML = rankingHtml + matrixHtml + adjustHtml + othersMatrixHtml + rulesHtml;
+    document.getElementById('report-ranking-summary').innerHTML = rankingHtml;
+    document.getElementById('report-ranking-insights').innerHTML = rankingInsightsHtml;
+    renderDeficiencySummary(catData, orderedMetrics);
+    content.innerHTML = `<div class="report-workspace">${matrixHtml}${othersMatrixHtml}${adjustHtml}</div>`
+        + rulesHtml;
     window._currentCatData = catData;
     window._currentOrderedMetrics = orderedMetrics;
 
@@ -2758,21 +2904,19 @@ window.setupMatrixFilters = function () {
 
     headerCells.forEach((th, colIdx) => {
         const filterTh = document.createElement('th');
-        filterTh.style.padding = '4px';
-        filterTh.style.background = '#f1f5f9';
+        filterTh.className = 'matrix-filter-th';
         filterTh.style.position = 'sticky';
         filterTh.style.top = firstRowHeight + 'px';
         filterTh.style.zIndex = '20';
-        filterTh.style.borderBottom = '1px solid #cbd5e1';
 
         filterTh.innerHTML = `
-            <div class="custom-ms" data-col="${colIdx}" style="position:relative; width:100%; text-align:left; font-weight:normal;">
-                <div class="ms-btn" onclick="toggleMsDropdown(${colIdx}, event)" style="background:#fff; border:1px solid #cbd5e1; border-radius:3px; padding:2px 4px; font-size:11px; cursor:pointer; min-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; justify-content:space-between; align-items:center;" title="${rt('report.filter.all')}">
+            <div class="custom-ms" data-col="${colIdx}">
+                <div class="ms-btn" onclick="toggleMsDropdown(${colIdx}, event)" title="${rt('report.filter.all')}">
                     <span class="ms-text">${rt('report.filter.all')}</span>
-                    <span style="font-size:8px; color:#888;">▼</span>
+                    <span class="ms-arrow">▾</span>
                 </div>
-                <div class="ms-dropdown" id="ms-dropdown-${colIdx}" style="display:none; position:absolute; top:100%; left:0; min-width:120px; background:#fff; border:1px solid #ccc; box-shadow:0 4px 6px rgba(0,0,0,0.1); z-index:9999; max-height:250px; overflow-y:auto; padding:6px; border-radius:4px;">
-                    <label style="display:block; margin-bottom:4px; font-weight:bold; cursor:pointer; border-bottom:1px solid #eee; padding-bottom:6px; font-size:11px;">
+                <div class="ms-dropdown" id="ms-dropdown-${colIdx}" style="display:none;">
+                    <label class="ms-all-label">
                         <input type="checkbox" class="ms-all-cb" checked onchange="msSelectAll(${colIdx}, this.checked)"> ${rt('report.filter.selectAll')}
                     </label>
                     <div class="ms-options-container"></div>
@@ -2790,7 +2934,11 @@ window.setupMatrixFilters = function () {
         if (!e.target.closest('.custom-ms')) {
             document.querySelectorAll('.ms-dropdown').forEach(d => {
                 d.style.display = 'none';
-                if (d.closest('th')) d.closest('th').style.zIndex = '20';
+                const th = d.closest('th');
+                if (th) {
+                    th.classList.remove('is-open');
+                    th.style.zIndex = '20';
+                }
             });
         }
     });
@@ -2807,24 +2955,35 @@ window.setupMatrixFilters = function () {
 window.toggleMsDropdown = function (colIdx, e) {
     if (e) e.stopPropagation();
     const dropdown = document.getElementById(`ms-dropdown-${colIdx}`);
+    if (!dropdown) return;
     const isVisible = dropdown.style.display === 'block';
 
     // Close all
     document.querySelectorAll('.ms-dropdown').forEach(d => {
         d.style.display = 'none';
-        if (d.closest('th')) d.closest('th').style.zIndex = '20';
+        const th = d.closest('th');
+        if (th) {
+            th.classList.remove('is-open');
+            th.style.zIndex = '20';
+        }
     });
 
     if (!isVisible) {
         dropdown.style.display = 'block';
-        if (dropdown.closest('th')) dropdown.closest('th').style.zIndex = '30';
+        const th = dropdown.closest('th');
+        if (th) {
+            th.classList.add('is-open');
+            th.style.zIndex = '99999';
+        }
     }
 };
 
 window.populateFilterOptions = function () {
     const table = document.getElementById('main-matrix-table');
+    if (!table) return;
     const msContainers = table.querySelectorAll('.custom-ms');
     const tbody = table.querySelector('tbody');
+    if (!tbody) return;
     const rows = Array.from(tbody.querySelectorAll('tr.matrix-data-row'));
 
     msContainers.forEach(container => {
@@ -2835,7 +2994,7 @@ window.populateFilterOptions = function () {
         rows.forEach((row, rowIdx) => {
             const cell = row.querySelector(`td[data-col="${colIdx}"]`);
             if (cell) {
-                let val = cleanMatrixCellFilterText(cell.innerText);
+                let val = getMatrixCellFilterValue(cell);
                 if (val) {
                     uniqueValues.add(val);
                     if (valueToRowIdx[val] === undefined) valueToRowIdx[val] = rowIdx;
@@ -2845,9 +3004,11 @@ window.populateFilterOptions = function () {
 
         const sorted = Array.from(uniqueValues).sort();
         const optContainer = container.querySelector('.ms-options-container');
+        if (!optContainer) return;
         optContainer.innerHTML = '';
 
-        const headerText = table.querySelector(`thead tr:first-child th:nth-child(${colIdx + 1})`).innerText || '';
+        const headerTh = table.querySelector(`thead tr:first-child th:nth-child(${colIdx + 1})`);
+        const headerText = headerTh ? (headerTh.textContent || '') : '';
         const isTargetCol = headerText.includes('月目标值') || headerText.includes('Target');
         let allChecked = true;
 
@@ -2873,10 +3034,6 @@ window.populateFilterOptions = function () {
                 if (!cb.checked) allChecked = false;
             } else {
                 cb.checked = true;
-                if (isTargetCol && val === '--') {
-                    cb.checked = false;
-                    allChecked = false;
-                }
             }
             
             cb.value = val;
@@ -2896,6 +3053,7 @@ window.populateFilterOptions = function () {
 
 window.msSelectAll = function (colIdx, isChecked) {
     const container = document.querySelector(`.custom-ms[data-col="${colIdx}"]`);
+    if (!container) return;
     const cbs = container.querySelectorAll('.ms-opt-cb');
     cbs.forEach(cb => cb.checked = isChecked);
     updateMsBtnText(colIdx);
@@ -2904,11 +3062,12 @@ window.msSelectAll = function (colIdx, isChecked) {
 
 window.msCheckboxChange = function (colIdx) {
     const container = document.querySelector(`.custom-ms[data-col="${colIdx}"]`);
+    if (!container) return;
     const cbs = container.querySelectorAll('.ms-opt-cb');
     const allCb = container.querySelector('.ms-all-cb');
 
     const allChecked = Array.from(cbs).every(cb => cb.checked);
-    allCb.checked = allChecked;
+    if (allCb) allCb.checked = allChecked;
 
     updateMsBtnText(colIdx);
     filterMatrix();
@@ -2916,30 +3075,40 @@ window.msCheckboxChange = function (colIdx) {
 
 window.updateMsBtnText = function (colIdx) {
     const container = document.querySelector(`.custom-ms[data-col="${colIdx}"]`);
+    if (!container) return;
     const cbs = container.querySelectorAll('.ms-opt-cb');
     const checked = Array.from(cbs).filter(cb => cb.checked);
 
     const btnText = container.querySelector('.ms-text');
+    const msBtn = container.querySelector('.ms-btn');
+    if (!btnText) return;
+
     if (checked.length === cbs.length) {
         btnText.innerText = rt('report.filter.all');
         btnText.parentElement.title = rt('report.filter.all');
+        if (msBtn) msBtn.classList.remove('is-active');
     } else if (checked.length === 0) {
         btnText.innerText = rt('report.filter.none');
         btnText.parentElement.title = rt('report.filter.none');
+        if (msBtn) msBtn.classList.add('is-active');
     } else if (checked.length === 1) {
         btnText.innerText = checked[0].value;
         btnText.parentElement.title = checked[0].value;
+        if (msBtn) msBtn.classList.add('is-active');
     } else {
         btnText.innerText = rt('report.filter.selectedCount', { count: checked.length });
         btnText.parentElement.title = checked.map(c => c.value).join(', ');
+        if (msBtn) msBtn.classList.add('is-active');
     }
 };
 
 window.filterMatrix = function () {
     const table = document.getElementById('main-matrix-table');
+    if (!table) return;
     const msContainers = Array.from(table.querySelectorAll('.custom-ms'));
 
     const tbody = table.querySelector('tbody');
+    if (!tbody) return;
     const rows = Array.from(tbody.querySelectorAll('tr.matrix-data-row'));
 
     // Build filters map: colIdx -> set of allowed values
@@ -2949,9 +3118,9 @@ window.filterMatrix = function () {
         const colIdx = parseInt(container.getAttribute('data-col'));
         const allCb = container.querySelector('.ms-all-cb');
         
-        filterStateByRow[colIdx] = { all: allCb.checked, allowedRows: new Set() };
+        filterStateByRow[colIdx] = { all: allCb ? allCb.checked : true, allowedRows: new Set() };
         
-        if (!allCb.checked) {
+        if (allCb && !allCb.checked) {
             const checkedVals = Array.from(container.querySelectorAll('.ms-opt-cb:checked')).map(cb => cb.value);
             const valSet = new Set(checkedVals);
             filters[colIdx] = valSet;
@@ -2959,7 +3128,7 @@ window.filterMatrix = function () {
             rows.forEach((row, rowIdx) => {
                 const cell = row.querySelector(`td[data-col="${colIdx}"]`);
                 if (cell) {
-                    let text = cleanMatrixCellFilterText(cell.innerText);
+                    let text = getMatrixCellFilterValue(cell);
                     if (valSet.has(text)) {
                         filterStateByRow[colIdx].allowedRows.add(rowIdx);
                     }
@@ -2969,21 +3138,20 @@ window.filterMatrix = function () {
     });
     window._matrixFilterStateByRow = filterStateByRow;
 
-
-
     rows.forEach(row => {
         let match = true;
         for (let colIdx in filters) {
             const allowedSet = filters[colIdx];
             const cell = row.querySelector(`td[data-col="${colIdx}"]`);
             if (cell) {
-                let text = cleanMatrixCellFilterText(cell.innerText);
+                let text = getMatrixCellFilterValue(cell);
                 if (!allowedSet.has(text)) {
                     match = false;
                     break;
                 }
             } else {
-                match = false; break;
+                match = false;
+                break;
             }
         }
         row.style.display = match ? '' : 'none';
@@ -3037,12 +3205,6 @@ window.updateMatrixSummary = function () {
     if (!summaryRow) {
         summaryRow = document.createElement('tr');
         summaryRow.className = 'matrix-summary-row';
-        summaryRow.style.background = '#e8eaf6';
-        summaryRow.style.fontWeight = 'bold';
-        summaryRow.style.position = 'sticky';
-        summaryRow.style.bottom = '0';
-        summaryRow.style.zIndex = '12';
-        summaryRow.style.boxShadow = '0 -2px 10px rgba(0,0,0,0.1)';
         table.querySelector('tbody').appendChild(summaryRow);
     }
 
@@ -3067,119 +3229,98 @@ window.updateMatrixSummary = function () {
     });
 
     const headerCells = table.querySelectorAll('thead tr:first-child th');
+    const tbody = table.querySelector('tbody');
+    let emptyRow = table.querySelector('.matrix-empty-filter-row');
+
+    if (visibleRows.length === 0 && rows.length > 0) {
+        if (!emptyRow) {
+            emptyRow = document.createElement('tr');
+            emptyRow.className = 'matrix-empty-filter-row';
+            if (tbody) {
+                tbody.insertBefore(emptyRow, summaryRow);
+            }
+        }
+        emptyRow.style.display = '';
+        emptyRow.innerHTML = `
+            <td colspan="${headerCells.length}">
+                <div style="font-size: 26px; line-height: 1; margin-bottom: 8px;">🔍</div>
+                <div style="font-weight: 600; font-size: 13px; color: var(--rep-text-secondary); margin-bottom: 4px;">未匹配到符合筛选条件的指标</div>
+                <div style="font-size: 11px; color: var(--rep-text-muted);">已取消全选或无匹配项，请在上方列头下拉框中重新勾选或点击“（全选）”</div>
+            </td>
+        `;
+    } else if (emptyRow) {
+        emptyRow.style.display = 'none';
+    }
+
     let html = '';
     headerCells.forEach((th, colIdx) => {
         const headerText = th.innerText.trim();
         if (headerText.includes(getTranslatedLabel('考核的指标名称'))) {
-            html += `<td style="text-align:right; color:#283593; padding:8px;">${rt('report.summary.filtered')}</td>`;
+            html += `<td class="summary-label-cell">${rt('report.summary.filtered')}</td>`;
         } else if (headerText === getTranslatedLabel('权重') || headerText.includes(rt('report.table.score'))) {
             let sumVal = sums[colIdx] !== undefined ? sums[colIdx] : 0;
             sumVal = Math.round(sumVal * 100) / 100;
-            html += `<td style="color:#c62828; padding:8px;">${sumVal}</td>`;
+            html += `<td class="summary-val-cell"><span class="sum-num">${sumVal}</span></td>`;
         } else {
-            html += `<td style="color:#aaa; padding:8px;">-</td>`;
+            html += `<td class="summary-empty-cell">-</td>`;
         }
     });
     summaryRow.innerHTML = html;
 };
+window.toggleMatrixFullscreen = function (sectionId = "matrix-card") {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
 
-window.toggleMatrixFullscreen = function () {
-    const card = document.getElementById('matrix-card');
-    const table = card.querySelector('.matrix-table');
-    if (!card) return;
+    const isFullscreen = section.classList.contains("is-matrix-fullscreen");
+    const btn = document.getElementById("fs-btn-" + sectionId);
 
-    if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
-        // Enter fullscreen
-        if (card.requestFullscreen) {
-            card.requestFullscreen();
-        } else if (card.msRequestFullscreen) {
-            card.msRequestFullscreen();
-        } else if (card.mozRequestFullScreen) {
-            card.mozRequestFullScreen();
-        } else if (card.webkitRequestFullscreen) {
-            card.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+    if (isFullscreen) {
+        section.classList.remove("is-matrix-fullscreen");
+        document.body.classList.remove("has-matrix-fullscreen");
+        if (btn) {
+            btn.classList.remove("is-active");
+            btn.innerHTML = `<span class="fs-icon">⛶</span><span class="fs-text">${rt("report.action.fullscreen") || "全屏查看"}</span>`;
+            btn.title = rt("report.action.fullscreenTitle") || "全屏查看指标矩阵";
         }
-        card.style.overflow = 'auto'; // allow scrolling the whole card if necessary
-        card.style.display = 'flex';
-        card.style.flexDirection = 'column';
-        if (table) table.style.height = '100%';
-        const container = card.querySelector('.matrix-container');
-        if (container) {
-            container.style.flex = '1';
-            container.style.maxHeight = 'none';
+        if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
         }
     } else {
-        // Exit fullscreen
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.msExitFullscreen) {
-            document.msExitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-            document.mozCancelFullScreen();
-        } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
+        document.querySelectorAll(".report-section.is-matrix-fullscreen").forEach(sec => {
+            sec.classList.remove("is-matrix-fullscreen");
+            const otherBtn = document.getElementById("fs-btn-" + sec.id);
+            if (otherBtn) {
+                otherBtn.classList.remove("is-active");
+                otherBtn.innerHTML = `<span class="fs-icon">⛶</span><span class="fs-text">${rt("report.action.fullscreen") || "全屏查看"}</span>`;
+            }
+        });
+
+        section.classList.add("is-matrix-fullscreen");
+        document.body.classList.add("has-matrix-fullscreen");
+        if (btn) {
+            btn.classList.add("is-active");
+            btn.innerHTML = `<span class="fs-icon">✕</span><span class="fs-text">${rt("report.action.exitFullscreen") || "退出全屏"}</span>`;
+            btn.title = rt("report.action.exitFullscreenTitle") || "退出全屏模式 (Esc)";
         }
-        card.style.overflow = '';
-        card.style.display = '';
-        card.style.flexDirection = '';
-        if (table) table.style.height = '';
-        const container = card.querySelector('.matrix-container');
-        if (container) {
-            container.style.flex = '';
-            container.style.maxHeight = '';
+        if (!document.fullscreenElement) {
+            const reqFs = document.documentElement.requestFullscreen
+                || document.documentElement.webkitRequestFullscreen
+                || document.documentElement.mozRequestFullScreen
+                || document.documentElement.msRequestFullscreen;
+            if (reqFs) {
+                reqFs.call(document.documentElement).catch(() => {});
+            }
         }
     }
 };
 
 window.toggleOthersMatrixFullscreen = function () {
-    const card = document.getElementById('others-matrix-card');
-    const table = card.querySelector('.matrix-table');
-    if (!card) return;
-
-    if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
-        if (card.requestFullscreen) {
-            card.requestFullscreen();
-        } else if (card.msRequestFullscreen) {
-            card.msRequestFullscreen();
-        } else if (card.mozRequestFullScreen) {
-            card.mozRequestFullScreen();
-        } else if (card.webkitRequestFullscreen) {
-            card.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-        }
-        card.style.overflow = 'auto';
-        card.style.display = 'flex';
-        card.style.flexDirection = 'column';
-        if (table) table.style.height = '100%';
-        const container = card.querySelector('.matrix-container');
-        if (container) {
-            container.style.flex = '1';
-            container.style.maxHeight = 'none';
-        }
-    } else {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.msExitFullscreen) {
-            document.msExitFullscreen();
-        } else if (document.mozCancelFullScreen) {
-            document.mozCancelFullScreen();
-        } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
-        }
-        card.style.overflow = '';
-        card.style.display = '';
-        card.style.flexDirection = '';
-        if (table) table.style.height = '';
-        const container = card.querySelector('.matrix-container');
-        if (container) {
-            container.style.flex = '';
-            container.style.maxHeight = '';
-        }
-    }
+    window.toggleMatrixFullscreen("others-matrix-card");
 };
 
 window.toggleAdjustFullscreen = function () {
-    const card = document.getElementById('adjust-card');
-    const table = card.querySelector('.matrix-table');
+    const card = document.getElementById("adjust-card");
+    const table = card ? card.querySelector(".matrix-table") : null;
     if (!card) return;
 
     if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
@@ -3188,14 +3329,14 @@ window.toggleAdjustFullscreen = function () {
         else if (card.mozRequestFullScreen) card.mozRequestFullScreen();
         else if (card.webkitRequestFullscreen) card.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
 
-        card.style.overflow = 'auto';
-        card.style.display = 'flex';
-        card.style.flexDirection = 'column';
-        if (table) table.style.height = '100%';
-        const container = card.querySelector('.matrix-container');
+        card.style.overflow = "auto";
+        card.style.display = "flex";
+        card.style.flexDirection = "column";
+        if (table) table.style.height = "100%";
+        const container = card.querySelector(".matrix-container");
         if (container) {
-            container.style.flex = '1';
-            container.style.maxHeight = 'none';
+            container.style.flex = "1";
+            container.style.maxHeight = "none";
         }
     } else {
         if (document.exitFullscreen) document.exitFullscreen();
@@ -3203,18 +3344,155 @@ window.toggleAdjustFullscreen = function () {
         else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
         else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
 
-        card.style.overflow = '';
-        card.style.display = '';
-        card.style.flexDirection = '';
-        if (table) table.style.height = '';
-        const container = card.querySelector('.matrix-container');
+        card.style.overflow = "";
+        card.style.display = "";
+        card.style.flexDirection = "";
+        if (table) table.style.height = "";
+        const container = card.querySelector(".matrix-container");
         if (container) {
-            container.style.flex = '';
-            container.style.maxHeight = '';
+            container.style.flex = "";
+            container.style.maxHeight = "";
         }
     }
 };
 
+if (!window._matrixFsListenersAttached) {
+    window._matrixFsListenersAttached = true;
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+            const fsSection = document.querySelector(".report-section.is-matrix-fullscreen");
+            if (fsSection) {
+                window.toggleMatrixFullscreen(fsSection.id);
+            }
+        }
+    });
+
+    document.addEventListener("fullscreenchange", function () {
+        if (!document.fullscreenElement) {
+            document.querySelectorAll(".report-section.is-matrix-fullscreen").forEach(sec => {
+                sec.classList.remove("is-matrix-fullscreen");
+                const btn = document.getElementById("fs-btn-" + sec.id);
+                if (btn) {
+                    btn.classList.remove("is-active");
+                    btn.innerHTML = `<span class="fs-icon">⛶</span><span class="fs-text">${rt("report.action.fullscreen") || "全屏查看"}</span>`;
+                }
+            });
+            document.body.classList.remove("has-matrix-fullscreen");
+        }
+    });
+}
+
+window.renderDeficiencySummary = function (catData, orderedMetrics) {
+    const summaryContainer = document.getElementById("report-deficiency-summary");
+    if (!summaryContainer) return;
+
+    catData = catData || window._currentCatData;
+    orderedMetrics = orderedMetrics || window._currentOrderedMetrics || [];
+
+    if (!catData || Object.keys(catData).length === 0) {
+        summaryContainer.innerHTML = "";
+        summaryContainer.style.display = "none";
+        return;
+    }
+
+    const cats = Object.keys(catData);
+    const stdScore = (typeof standardTotalScore === "number" && !isNaN(standardTotalScore))
+        ? standardTotalScore
+        : ((globalConfig.prefs && globalConfig.prefs.customStandardTotalScore) ? parseFloat(globalConfig.prefs.customStandardTotalScore) : 100);
+
+    const failingCols = [];
+    const passingCols = [];
+    const metricFailStats = {};
+
+    cats.forEach(cat => {
+        const d = catData[cat];
+        if (!d) return;
+
+        const finalScore = d.finalScore !== undefined ? d.finalScore : ((d.baseScore || d.totalEarned || 0) + (d.manualScore || 0));
+        const gap = +(stdScore - finalScore).toFixed(2);
+        const failingMetrics = [];
+
+        orderedMetrics.forEach(m => {
+            const cell = (d.values && d.values[m.label]) || null;
+            if (cell && cell.isFailing && cell.raw !== "--") {
+                failingMetrics.push({
+                    label: m.label,
+                    raw: cell.raw,
+                    target: cell.targetValue,
+                    gap: cell.gapStr
+                });
+                metricFailStats[m.label] = (metricFailStats[m.label] || 0) + 1;
+            }
+        });
+
+        const isUnmet = finalScore < (stdScore - 0.001);
+        const colData = {
+            name: d.name || cat,
+            finalScore,
+            gap,
+            failingMetrics
+        };
+
+        if (isUnmet) {
+            failingCols.push(colData);
+        } else {
+            passingCols.push(colData);
+        }
+    });
+
+    failingCols.sort((a, b) => a.finalScore - b.finalScore);
+    passingCols.sort((a, b) => b.finalScore - a.finalScore);
+
+    const topShortfallMetrics = Object.keys(metricFailStats)
+        .sort((a, b) => metricFailStats[b] - metricFailStats[a])
+        .slice(0, 3)
+        .map(name => `【${escapeHTML(getTranslatedLabel(name))}】`);
+
+    let html = "";
+    if (failingCols.length > 0) {
+        summaryContainer.className = "report-deficiency-summary is-warning";
+
+        const colListHtml = failingCols.map(c => {
+            const gapStr = c.gap > 0 ? `-${c.gap}分` : "0分";
+            return `<span class="def-cat-pill" title="${escapeHTML(c.name)}: 最终得分 ${c.finalScore.toFixed(2)}分，距基准分缺 ${gapStr}，共 ${c.failingMetrics.length} 项未达标">
+                <strong class="def-cat-name">${escapeHTML(c.name)}</strong>
+                <span class="def-score">${c.finalScore.toFixed(2)}分</span>
+                <span class="def-gap">(${gapStr})</span>
+            </span>`;
+        }).join(" ");
+
+        const shortfallsHtml = topShortfallMetrics.length > 0
+            ? `<span class="def-shortfalls-text">短板主要集中在 ${topShortfallMetrics.join("、")}</span>`
+            : "";
+
+        const passingHtml = passingCols.length > 0
+            ? `<span class="def-pass-tag">达标领跑：${passingCols.map(c => `<strong>${escapeHTML(c.name)}</strong> (${c.finalScore.toFixed(2)}分)`).join("、")}</span>`
+            : "";
+
+        html = `
+            <div class="deficiency-icon">⚠️</div>
+            <div class="deficiency-content">
+                <span class="deficiency-badge">短板透视</span>
+                <span class="deficiency-lead">本月共 <strong>${failingCols.length}</strong> 个列整体未达标：</span>
+                <div class="def-pills-wrap">${colListHtml}</div>
+                ${shortfallsHtml}
+                ${passingHtml}
+            </div>
+        `;
+    } else {
+        summaryContainer.className = "report-deficiency-summary is-success";
+        html = `
+            <div class="deficiency-icon">✅</div>
+            <div class="deficiency-content">
+                <span class="deficiency-badge">考核全达标</span>
+                <span class="deficiency-text">本月所有参评列（<strong>${cats.map(c => escapeHTML(catData[c]?.name || c)).join("、")}</strong>）综合得分均达 <strong>${stdScore}分</strong> 标准线，各项运营指标全额达标，无整体短板！</span>
+            </div>
+        `;
+    }
+
+    summaryContainer.innerHTML = html;
+    summaryContainer.style.display = "flex";
+};
 window.calculateManualAdjustments = function () {
     const inputs = document.querySelectorAll('.manual-adjust-input');
     const catSums = {};
@@ -3703,10 +3981,10 @@ function renderRanking() {
     let html = '';
     sortedCats.forEach((cat, index) => {
         const d = catData[cat];
-        let medal = `${index + 1}`;
-        if (index === 0) medal = '<span class="rank-medal">🥇</span>';
-        if (index === 1) medal = '<span class="rank-medal">🥈</span>';
-        if (index === 2) medal = '<span class="rank-medal">🥉</span>';
+        let medal = `<span class="rank-number">${index + 1}</span>`;
+        if (index === 0) medal = '<span class="rank-medal" title="第1名">🥇</span>';
+        if (index === 1) medal = '<span class="rank-medal" title="第2名">🥈</span>';
+        if (index === 2) medal = '<span class="rank-medal" title="第3名">🥉</span>';
 
         let scoreClass = 'score-badge';
         const ratio = d.validWeightSum > 0 ? (d.baseScore / standardTotalScore) : 0;
@@ -3714,26 +3992,34 @@ function renderRanking() {
         if (ratio >= 0.95) scoreClass += ' success';
         else if (ratio < 0.8) scoreClass += ' danger';
 
+        const manualSign = d.manualScore > 0 ? `+${d.manualScore}` : (d.manualScore < 0 ? `${d.manualScore}` : '0');
+        const manualClass = d.manualScore > 0 ? 'adj-plus' : (d.manualScore < 0 ? 'adj-minus' : 'adj-zero');
+
         html += `
-            <tr>
-                <td style="font-weight:bold; color:#777; padding:8px;">${medal}</td>
-                <td style="text-align:left; padding:8px;" class="cat-name">${escapeHTML(d.name)}</td>
-                <td style="color:#666; font-weight:bold; padding:8px;">
-                    <span onclick="showStdScoreDetails()" style="cursor:pointer; border-bottom:1px dashed #999;" title="${rt('report.detail.clickTitle')}">${standardTotalScore}</span>
+            <tr class="ranking-row rank-pos-${index + 1}">
+                <td class="ranking-cell-rank">${medal}</td>
+                <td class="ranking-cell-name"><span class="cat-name">${escapeHTML(d.name)}</span></td>
+                <td class="ranking-cell-std">
+                    <button type="button" class="btn-cell-std" onclick="showStdScoreDetails()" title="${rt('report.detail.clickTitle')}">${standardTotalScore}</button>
                 </td>
-                <td style="color:#2c3e50; font-weight:bold; padding:8px;">
-                    <div onclick="showSysScoreDetails('${escapeHTML(cat)}')" style="cursor:pointer; border-bottom:1px dashed #0277bd; display:inline-block;" title="${rt('report.detail.clickCalc')}">${d.baseScore}</div>
-                    <div style="font-size:11px;color:#aaa;font-weight:normal;margin-top:2px;">(${rt('report.detail.earned')} ${formatScoreValue(d.earnedScore)} / ${rt('report.detail.fullWeight')} ${formatScoreValue(d.validWeightSum)})</div>
+                <td class="ranking-cell-sys">
+                    <div class="ranking-system-score">
+                        <button type="button" class="btn-sys-score" onclick="showSysScoreDetails('${escapeHTML(cat)}')" title="${rt('report.detail.clickCalc')}">${d.baseScore}</button>
+                        <span class="ranking-score-formula">(${formatScoreValue(d.earnedScore)} / ${formatScoreValue(d.validWeightSum)})</span>
+                    </div>
                 </td>
-                <td style="padding:8px;">
-                    <div onclick="showAdjScoreDetails('${escapeHTML(cat)}')" style="cursor:pointer; display:inline-block; border-bottom:1px dashed #e65100; font-weight:bold; color:${d.manualScore >= 0 ? '#2e7d32' : '#c62828'};" title="${rt('report.detail.clickAdj')}">${d.manualScore >= 0 ? '+' + d.manualScore : d.manualScore}</div>
+                <td class="ranking-cell-adj">
+                    <button type="button" class="btn-adj-score ${manualClass}" onclick="showAdjScoreDetails('${escapeHTML(cat)}')" title="${rt('report.detail.clickAdj')}">${manualSign}</button>
                 </td>
-                <td style="padding:8px;"><span class="${scoreClass}" style="padding:4px 12px; font-size:16px;">${d.finalScore}</span></td>
+                <td class="ranking-cell-final"><span class="${scoreClass}">${d.finalScore}</span></td>
             </tr>
         `;
     });
 
     tbody.innerHTML = html;
+    if (typeof renderDeficiencySummary === 'function') {
+        renderDeficiencySummary(catData, window._currentOrderedMetrics);
+    }
 }
 
 window.showScoreDetails = function (title, content) {
@@ -4430,11 +4716,10 @@ window.openAddMetricModal = function () {
 
     modal.querySelector('h3').innerHTML = rt('report.modal.addMetricTitle');
 
-    if (document.fullscreenElement) {
-        document.fullscreenElement.appendChild(modal);
-    } else if (document.webkitFullscreenElement) {
-        document.webkitFullscreenElement.appendChild(modal);
-    } else {
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl && fsEl !== document.documentElement && fsEl !== document.body) {
+        fsEl.appendChild(modal);
+    } else if (modal.parentElement !== document.body) {
         document.body.appendChild(modal);
     }
 
@@ -5717,6 +6002,9 @@ window.renderYuxiangPreview = function () {
     });
 
     tbody.innerHTML = html;
+    if (typeof renderDeficiencySummary === 'function') {
+        renderDeficiencySummary(catData, window._currentOrderedMetrics);
+    }
 };
 
 window.updateYuxiangPreviewData = function (r, c, value, el) {

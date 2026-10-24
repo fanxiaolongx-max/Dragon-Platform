@@ -133,8 +133,9 @@ router.delete('/welink/targets/:kind/:id', handle(async (req, res) => {
     res.json({ ok: await targetsRepo.deleteTarget(CHANNEL, req.params.kind, req.params.id) });
 }));
 
+// 消息日志：设置页滚动到日志时才加载，每页 limit 条（默认 30），before 为上一页最后一条 id
 router.get('/welink/messages', requireAdmin, handle(async (req, res) => {
-    res.json({ items: await targetsRepo.listMessages(CHANNEL, { limit: req.query.limit }) });
+    res.json(await targetsRepo.listMessagesPage(CHANNEL, { limit: req.query.limit, before: req.query.before }));
 }));
 
 router.post('/welink/push', handle(async (req, res) => {

@@ -162,23 +162,3 @@ test('default font size defaults to 16, validates within [8, 72], and guides sam
  }
 });
 
-test('designer page and styles provide default font size setting and CSS variable',()=>{
- const html=fs.readFileSync(path.join(__dirname,'../frontend/pages/monthly-designer.html'),'utf8');
- const css=fs.readFileSync(path.join(__dirname,'../frontend/css/monthly-designer.css'),'utf8');
- const studioUi=fs.readFileSync(path.join(__dirname,'../frontend/js/monthly-designer/studio-ui.js'),'utf8');
- const designerJs=fs.readFileSync(path.join(__dirname,'../frontend/js/monthly-designer/designer.js'),'utf8');
-
- assert.match(html, /id="defaultFontSizeSetting"/);
- assert.match(html, /id="defaultFontSizeSelect"/);
- assert.match(html, /value="16"/);
- assert.match(css, /--document-default-font-size:\s*16px/);
- assert.match(css, /var\(--document-default-font-size,\s*16px\)/);
- assert.match(css, /\.document-block h3[^{]*\{[^}]*var\(--document-default-font-size,\s*16px\)/);
- assert.match(css, /\.document-section h2[^{]*\{[^}]*var\(--document-default-font-size,\s*16px\)/);
- assert.match(css, /\.studio-menu-setting/);
- assert.match(studioUi, /#defaultFontSizeSetting/);
- assert.match(designerJs, /defaultFontSizeSelect/);
- assert.match(designerJs, /updateDefaultFontSize/);
- assert.match(designerJs, /clone\.querySelectorAll\('\.document-block h3, td > h3'\)/);
-});
-

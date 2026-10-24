@@ -57,8 +57,9 @@
             }catch(error){errors++;await request(`/api/upload/source-files/${encodeURIComponent(item.id)}/sheets`,json('PUT',{sheets:[],parseError:error.message}));}
         }
         message(label(`已永久保存 ${saved} 个原始表格${errors?`，${errors} 个表格解析失败（原文件仍已保存）`:''}。未配置提取规则的表格也可在月报中引用。`,`Permanently archived ${saved} source tables${errors?`; ${errors} parsing errors (originals retained)`:''}. Tables without extraction rules are available in the report designer.`));
-        const link=document.createElement('a');link.href='/pages/monthly-designer.html';link.textContent=label(' 打开数据资料库与月报编辑器',' Open source library & report designer');status.append(link);
+        const link=document.createElement('a');link.href='/monthly';link.textContent=label(' 打开 AI 月报',' Open AI monthly report');status.append(link);
         window.updateUploadStatusVisibility();
+        window.MonthlyMetricUpdates?.notify();
         return batch.id;
     }
     let busy=false;

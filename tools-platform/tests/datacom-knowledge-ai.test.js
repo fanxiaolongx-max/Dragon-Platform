@@ -157,3 +157,22 @@ test('a missing AI configuration is reported instead of failing silently', async
     assert.equal(result.code, 'DATACOM_AI_UNAVAILABLE');
     aiAvailable = true;
 });
+
+test('English requests generate English answers and metadata; Chinese remains the default', async () => {
+    const payload = { mode: 'qa', question: 'Explain Interface MTU', articleId: 'ospf-packets', anchor: { type: 'article' } };
+    await knowledgeAi.ask({ ...payload, language: 'en-US' }, {
+        user: { username: 'viewer', role: 'user' },
+        generate: async ({ systemInstruction }) => {
+            assert.match(systemInstruction, /Answer in English, including the META title and brief/);
+            assert.doesNotMatch(systemInstruction, /使用简体中文/);
+            return 'The limit is measured in bytes.\n<<<META>>>\n{"title":"Interface MTU","brief":"Maximum unfragmented IP datagram"}';
+        }
+    });
+    await knowledgeAi.ask(payload, {
+        user: { username: 'viewer', role: 'user' },
+        generate: async ({ systemInstruction }) => {
+            assert.match(systemInstruction, /使用简体中文/);
+            return '中文说明\n<<<META>>>\n{"title":"MTU","brief":"最大 IP 数据报"}';
+        }
+    });
+});

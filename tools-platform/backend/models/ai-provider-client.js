@@ -57,8 +57,13 @@ function normalizeMessages(messages = []) {
                     return out;
                 })
                 : null;
-            if (!content && !toolCalls) return null;
-            return toolCalls ? { role, content, toolCalls } : { role, content };
+            // Pictures the model should look at: [{ mimeType, data (base64) }] on user turns, raster formats only.
+            const images = role === 'user' && Array.isArray(msg.images)
+                ? msg.images.filter(image => image && /^image\/(png|jpeg|webp|gif)$/.test(image.mimeType) && typeof image.data === 'string' && image.data.length <= 10 * 1024 * 1024).slice(0, 6).map(image => ({ mimeType: image.mimeType, data: image.data }))
+                : [];
+            if (!content && !toolCalls && !images.length) return null;
+            if (toolCalls) return { role, content, toolCalls };
+            return images.length ? { role, content, images } : { role, content };
         })
         .filter(Boolean);
 }
@@ -108,6 +113,10 @@ function toOpenAiMessages(messages, systemInstruction, { model = '' } = {}) {
                     } : {})
                 }))
             });
+            return;
+        }
+        if (msg.images) {
+            out.push({ role: 'user', content: [...(msg.content ? [{ type: 'text', text: msg.content }] : []), ...msg.images.map(image => ({ type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.data}` } }))] });
             return;
         }
         out.push({ role: msg.role === 'model' ? 'assistant' : 'user', content: msg.content });
@@ -184,6 +193,7 @@ function toAnthropicMessages(messages) {
             msg.toolCalls.forEach(call => blocks.push({ type: 'tool_use', id: call.id, name: call.name, input: call.args || {} }));
             return { role: 'assistant', content: blocks };
         }
+        if (msg.images) return { role: 'user', content: [...msg.images.map(image => ({ type: 'image', source: { type: 'base64', media_type: image.mimeType, data: image.data } })), ...(msg.content ? [{ type: 'text', text: msg.content }] : [])] };
         return { role: msg.role === 'model' ? 'assistant' : 'user', content: msg.content };
     });
 }
@@ -244,6 +254,7 @@ function toGeminiContents(messages, { model = '' } = {}) {
             });
             return { role: 'model', parts };
         }
+        if (msg.images) return { role: 'user', parts: [...msg.images.map(image => ({ inlineData: { mimeType: image.mimeType, data: image.data } })), ...(msg.content ? [{ text: msg.content }] : [])] };
         return { role: msg.role === 'model' ? 'model' : 'user', parts: [{ text: msg.content }] };
     });
     // 兜底：Gemini 要求带 functionCall 的模型回合紧跟用户消息或工具结果；相邻的模型回合合并为一个（文字在前、调用在后）。
@@ -568,6 +579,37 @@ class AiProviderClient {
 
     async generateChat({ messages, systemInstruction = '', maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onDelta, signal, tools, toolChoice } = {}) {
         return this.generateText({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onDelta, signal, tools, toolChoice });
+    }
+
+    // Image generation with a Gemini image model: the prompt, optionally with reference pictures to edit or follow.
+    // Returns { images: [{ mimeType, data }], text, usage }.
+    async generateImage({ prompt, images = [], aspectRatio = '', signal } = {}) {
+        if (this.provider !== 'gemini') {
+            const error = new Error(`绘图模型目前支持 Gemini 图片模型；当前方案是 ${this.provider}`);
+            error.status = 400;
+            throw error;
+        }
+        const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+        const parts = [...images.filter(image => image && image.data && /^image\//.test(image.mimeType)).slice(0, 4).map(image => ({ inlineData: { mimeType: image.mimeType, data: image.data } })), { text: String(prompt || '') }];
+        const request = withRatio => fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'], ...(withRatio && aspectRatio ? { imageConfig: { aspectRatio } } : {}) } }),
+            signal
+        });
+        let res = await request(true);
+        // Older image models reject imageConfig; the ratio then only lives in the prompt.
+        if (res.status === 400 && aspectRatio) res = await request(false);
+        if (!res.ok) await parseErrorResponse(res, {});
+        const data = await readProviderJson(res);
+        const out = (data.candidates?.[0]?.content?.parts || []);
+        const usage = data.usageMetadata || {};
+        return {
+            images: out.filter(part => part.inlineData?.data).map(part => ({ mimeType: part.inlineData.mimeType || 'image/png', data: part.inlineData.data })),
+            text: out.filter(part => part.text).map(part => part.text).join('\n').trim(),
+            usage: { promptTokens: usage.promptTokenCount || 0, outputTokens: usage.candidatesTokenCount || 0, totalTokens: usage.totalTokenCount || 0 },
+            finishReason: String(data.candidates?.[0]?.finishReason || '')
+        };
     }
 
     async generateGemini({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, signal, tools }) {

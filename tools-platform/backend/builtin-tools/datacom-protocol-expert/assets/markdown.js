@@ -1,3 +1,4 @@
+import { translate, originalText, getLanguage } from './i18n.js';
 // Markdown 渲染：marked + Obsidian 风格扩展（callout、[[双链]]、$公式$）+ 懒加载 Mermaid + 安全清洗。
 import { isRfcDiagram } from './rfc-parser.js';
 
@@ -183,10 +184,15 @@ export async function renderMermaid(container, dark) {
     for (const block of blocks) {
         if (!block.isConnected) continue;
         // 原文 init 指令里的 'theme': 'base' 会覆盖暗色主题，渲染前去掉以跟随当前主题
-        const source = normalizeMermaid(block.querySelector('.dk-mermaid-src').textContent.replace(/%%\{init:[\s\S]*?\}%%/g, ''));
+        const original = block.dataset.originalSource || originalText(block.querySelector('.dk-mermaid-src'));
+        block.dataset.originalSource = original;
+        const source = normalizeMermaid(translate(original).replace(/%%\{init:[\s\S]*?\}%%/g, ''));
         const id = `dk-mermaid-${mermaidCounter += 1}`;
+        block.dataset.renderGeneration = id;
+        const language = getLanguage();
         try {
             const { svg } = await mermaid.render(id, source);
+            if (!block.isConnected || block.dataset.renderGeneration !== id || getLanguage() !== language) continue;
             // AI 操作栏可能已在异步渲染期间挂载，保留其按钮与笔记标记。
             const actions = block.querySelector(':scope > .dk-block-ai');
             block.dataset.source = source;
@@ -203,9 +209,25 @@ export async function renderMermaid(container, dark) {
             block.classList.remove('is-pending');
         } catch (error) {
             document.getElementById(`d${id}`)?.remove();
+            if (!block.isConnected || block.dataset.renderGeneration !== id || getLanguage() !== language) continue;
             block.classList.remove('is-pending');
             block.classList.add('is-failed');
             block.insertAdjacentHTML('afterbegin', '<div class="dk-mini-note">流程图语法有误，显示源码：</div>');
         }
     }
+}
+
+// Re-layout Mermaid from the same source so longer English labels have real room.
+// Keep diagram controls/annotation anchors and never rewrite the saved Markdown.
+export async function refreshMermaidLanguage(container, dark) {
+    container.querySelectorAll('.dk-mermaid[data-original-source]').forEach(block => {
+        const actions = block.querySelector(':scope > .dk-block-ai');
+        const pre = document.createElement('pre');
+        pre.className = 'dk-mermaid-src';
+        pre.textContent = block.dataset.originalSource;
+        block.replaceChildren(pre);
+        if (actions) block.prepend(actions);
+        block.classList.add('is-pending');
+    });
+    await renderMermaid(container, dark);
 }

@@ -20,7 +20,8 @@ const SCHEDULE_PROPS = {
     randomMinMinutes: { type: 'integer', description: 'random 模式的最短间隔分钟' },
     randomMaxMinutes: { type: 'integer', description: 'random 模式的最长间隔分钟' },
     allowOffHours: { type: 'boolean', description: '是否允许在非工作日（周五、周六）跟进；紧急任务默认允许' },
-    nextRemindAt: { type: 'string', description: '用户指定了具体时间（如「明天下午 3 点提醒」）时填 ISO 8601 时间（含时区偏移）' },
+    inMinutes: { type: 'integer', description: '相对当前时间多少分钟后首次提醒（例如用户说“2分钟后”填 2，“半小时后”填 30）。有明确相对时长时优先填此项，避免时区与夏令时换算偏差' },
+    nextRemindAt: { type: 'string', description: '用户指定了具体绝对时刻（如「明天下午 3 点提醒」）时填 ISO 8601 时间（需带当前时区偏移）' },
     nextRemindNote: { type: 'string', description: '下次提醒时要跟进/追问的具体内容，一句话' }
 };
 
@@ -37,7 +38,7 @@ function definitions() {
                     assignees: ASSIGNEE_SCHEMA,
                     dueAt: { type: 'string', description: '截止时间（ISO 8601），没有则省略' },
                     ...SCHEDULE_PROPS,
-                    firstRemindAt: { type: 'string', description: '第一次提醒时间（ISO 8601）；省略时按频率自动计算' }
+                    firstRemindAt: { type: 'string', description: '第一次提醒时间（ISO 8601，需带当前时区偏移）；相对时间如“2分钟后”请直接填 inMinutes；省略时按频率自动计算' }
                 },
                 required: ['title']
             }
@@ -101,10 +102,12 @@ function taskLine(task, calendar) {
 async function buildPrompt(ctx, calendar) {
     const tasks = await repo.listTasks(ctx.channel, { kind: ctx.conversation.kind, id: ctx.conversation.id, statuses: ['open', 'paused'], limit: 30 });
     const closed = await repo.listTasks(ctx.channel, { kind: ctx.conversation.kind, id: ctx.conversation.id, statuses: ['done', 'cancelled'], limit: 5 });
+    const now = new Date();
     return `
 **跟进任务（本会话的持久记忆）**
 你可以使用 followup_* 工具在平台中持久保存当前${ctx.conversation.kind === 'group' ? '群聊' : '单聊'}的跟进任务，平台会按频率自动在本会话里 @ 相关人提醒，任务进展在平台工作区可见。
-- 当前时间：${schedule.describeNow(new Date(), calendar)}。工作日历：周日至周四 ${calendar?.workStart || '09:00'}–${calendar?.workEnd || '18:00'}；紧急任务也可在周五/周六 ${calendar?.urgentStart || '09:00'}–${calendar?.urgentEnd || '21:00'} 跟进。
+- 当前时间：${schedule.describeNow(now, calendar)}。当前时刻 ISO 格式参考：${schedule.formatZoneIso(now, calendar?.timezone)}。工作日历：周日至周四 ${calendar?.workStart || '09:00'}–${calendar?.workEnd || '18:00'}；紧急任务也可在周五/周六 ${calendar?.urgentStart || '09:00'}–${calendar?.urgentEnd || '21:00'} 跟进。
+- 用户要求在相对时长后提醒（如“N分钟后/半小时后/2小时后”）时，必须优先在 followup_create 填 inMinutes（如 inMinutes=2），避免手动计算绝对时区时间的偏差。
 - 当前发言人账号：${ctx.actor || '未知'}。
 - 用户要求记录/跟进/提醒时必须调用 followup_create 真正保存，不要只在回复里写“已记录”；用户描述了频率就按描述设置，没描述就根据紧急程度判断（scheduleMode=auto）。
 - 有人汇报进展时用 followup_update 记录 progress；提出人或被提醒人表示已完成/不用跟进时用 followup_close。

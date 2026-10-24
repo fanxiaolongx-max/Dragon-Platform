@@ -1,5 +1,6 @@
 import { ETH, IP, FCS, ospfHeader, PAYLOADS, TYPE_NAMES } from './packet-data.js';
 import { parseRfcDiagram } from './rfc-parser.js';
+import { explainFields } from './field-explanations.js';
 import { bitDiagram } from './diagram-kit.js';
 const sources = [
     ['RFC 2328 · 报文与 LSA 格式', 'https://www.rfc-editor.org/rfc/rfc2328.html#appendix-A'],
@@ -7,11 +8,11 @@ const sources = [
 ];
 function fieldLesson(layers, caution, bits = 32) {
     const parts = layers.flatMap((layer, li) =>
-        layer.fields.map((f, i) => ({
+        (layer.explained ? layer.fields : explainFields(layer.fields, { context: layer.name })).map((f, i) => ({
             id: `l${li}-field-${i}`,
             name: f.name,
-            desc: f.desc || '字段含义请结合原文与协议规范确认。',
-            rows: [['所属层', layer.name], ['长度', `${f.bits} bit`], ...(f.value ? [['示例', f.value]] : [])],
+            desc: f.desc,
+            rows: [...(f.rows || []), ['所属层', layer.name], ['长度', f.variable ? (f.name === 'LSA Header' ? '20 字节 × N；图中为列表占位' : '可变长；图中为列表占位') : `${f.bits} bit`], ...(f.value ? [['示例', f.value]] : [])],
         })),
     );
     return {
@@ -72,19 +73,20 @@ export const packetLesson = {
         );
     },
 };
-export function rfcLesson(source, title = '报文字段') {
+export function rfcLesson(source, title = '报文字段', markdown = '') {
     const parsed = parseRfcDiagram(source);
     if (!parsed) return null;
     return {
         id: 'rfc-diagram',
         title: `${title} · 二维位图`,
         subtitle: '保留字段顺序与位宽；横向读位，纵向读偏移。',
-        sources: [],
+        sources,
         build() {
             const layer = {
                 name: title,
+                explained: true,
                 desc: '从原文 ASCII 边界推断位宽，空白续行按原图合并。',
-                fields: parsed.fields,
+                fields: explainFields(parsed.fields, { source, markdown, context: title }),
             };
             const result = fieldLesson(
                 [layer],

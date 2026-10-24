@@ -1,3 +1,4 @@
+import { translate } from './i18n.js';
 import { esc, svg, node, edge } from './diagram-kit.js';
 // 先按结构定位，再展开一跳关联；所有文章可检索，不用密集星点代替信息。
 export function mountKnowledgeMap(container, catalog) {
@@ -38,7 +39,7 @@ export function mountKnowledgeMap(container, catalog) {
             (a) =>
                 (!domain || categories.some((c) => c.id === a.categoryId && c.domainId === domain)) &&
                 (!category || a.categoryId === category) &&
-                (!query || [a.title, a.summary, ...(a.tags || [])].join(' ').toLowerCase().includes(query)),
+                (!query || translate([a.title, a.summary, ...(a.tags || [])].join(' ')).toLowerCase().includes(query)),
         );
         q('.dk-map-count').textContent =
             `${visible.length} / ${articles.length} 篇文章 · ${mode === 'path' ? '按推荐顺序学习' : '选择卡片展开关联'}`;
@@ -97,6 +98,7 @@ export function mountKnowledgeMap(container, catalog) {
             `<section class="dk-map-detail"><div class="dk-map-detail-head"><div><span class="dk-eyebrow">一跳知识关联</span><h3>${esc(a.title)}</h3></div><button class="dk-btn ghost" data-clear>收起</button></div><p>${esc(a.summary)}</p><a class="dk-btn" href="${href(a)}">阅读这篇文章 →</a><div class="dk-diagram-scroll" tabindex="0" aria-label="文章关联图">${svg(drawing, '左侧文章引用当前文章；右侧是当前文章的关联', height)}</div><p class="dk-mini-note">箭头表示知识库中的文章关联，不表示协议数据流或强制学习顺序。完整标题见下方链接。</p><div class="dk-map-relations"><div><b>哪些文章关联它</b>${incoming.map((b) => `<a href="${href(b)}">${esc(b.title)}</a>`).join('') || '<p>暂无入向关联</p>'}</div><div><b>它关联哪些文章</b>${outgoing.map((b) => `<a href="${href(b)}">${esc(b.title)}</a>`).join('') || '<p>暂无出向关联</p>'}</div></div></section>`;
     }
     function short(s) {
+        s = translate(s);
         return s.length > 13 ? s.slice(0, 12) + '…' : s;
     }
     root.addEventListener('input', (e) => {
@@ -145,8 +147,10 @@ export function mountKnowledgeMap(container, catalog) {
         }
     });
     render();
+    document.addEventListener('dk:languagechange', render);
     return {
         dispose() {
+            document.removeEventListener('dk:languagechange', render);
             root.remove();
         },
     };

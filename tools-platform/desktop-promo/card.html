@@ -29,6 +29,28 @@ button.danger:hover { background: #dc2626; }
 .url { flex: 1; min-width: 0; height: 26px; display: flex; align-items: center; padding: 0 10px; border-radius: 7px; background: rgba(2, 6, 23, .55); border: 1px solid rgba(148, 163, 184, .2); color: #94a3b8; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; user-select: text; }
 .url b { color: #e2e8f0; font-weight: 600; margin-right: 8px; }
 .sep { width: 1px; height: 18px; background: rgba(148, 163, 184, .25); margin: 0 2px; }
+.tabs-bar { position: fixed; inset: 0 0 auto; height: 34px; display: flex; align-items: center; gap: 6px; padding: 0 8px; background: #0b1220; -webkit-app-region: drag; }
+.browser-brand { flex: none; color: #5eead4; font-size: 11px; font-weight: 800; padding: 0 5px; }
+.tabs-list { display: flex; flex: 1; min-width: 0; gap: 4px; overflow-x: auto; scrollbar-width: none; -webkit-app-region: no-drag; }
+.tabs-list::-webkit-scrollbar { display: none; }
+.tab { display: flex; flex: 0 1 190px; min-width: 100px; max-width: 220px; height: 27px; border: 1px solid transparent; border-radius: 7px 7px 0 0; background: rgba(148,163,184,.08); }
+.tab[aria-selected="true"] { background: #1e293b; border-color: rgba(94,234,212,.3); }
+.tab-title { display: block; flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.tab-close { font-size: 14px; padding: 0 4px; min-width: 22px; }
+.tabs-bar > button { -webkit-app-region: no-drag; }
+body[data-browser="true"] .tool { top: 34px; }
+.address-form { display: flex; padding: 0 8px; margin: 0; }
+.address-form input { width: 100%; min-width: 0; color: inherit; background: transparent; border: 0; outline: 0; font: inherit; user-select: text; }
+.address-form:focus-within { border-color: var(--accent); color: #e2e8f0; }
+@media (prefers-color-scheme: light) {
+    body[data-browser="true"] { background: #eef4f8; color: #172c42; }
+    body[data-browser="true"] .tabs-bar { background: #e2eaf2; }
+    body[data-browser="true"] .browser-brand { color: #087f80; }
+    body[data-browser="true"] .tool { background: #f5f8fc; }
+    body[data-browser="true"] button { color: #334155; }
+    body[data-browser="true"] .tab[aria-selected="true"] { background: #f5f8fc; border-color: #98caca; }
+    body[data-browser="true"] .address-form { background: #fff; color: #334155; }
+}
 [hidden] { display: none !important; }
 @keyframes pulse { 70% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
 </style>
@@ -41,13 +63,18 @@ button.danger:hover { background: #dc2626; }
     <button type="button" data-act="expand" id="expandBtn">⤢</button>
     <button type="button" data-act="hide-stack" id="hideBtn">×</button>
 </div>
+<div class="tabs-bar" id="tabsBar" hidden>
+    <span class="browser-brand" id="browserBrand">Dragon 浏览器</span>
+    <div class="tabs-list" id="tabs" role="tablist"></div>
+    <button type="button" id="newTabBtn" data-act="new-tab">＋</button>
+</div>
 <div class="bar tool" id="tool" hidden>
     <span class="badge" id="toolBadge" style="margin-left:6px"></span>
     <button type="button" data-act="back" id="backBtn">‹</button>
     <button type="button" data-act="forward" id="forwardBtn">›</button>
     <button type="button" data-act="reload" id="reloadBtn">⟳</button>
     <button type="button" data-act="home" id="homeBtn">⌂</button>
-    <div class="url" id="url"></div>
+    <form class="url address-form" id="url"><input id="address" type="text" autocomplete="off" spellcheck="false"></form>
     <button type="button" data-act="plugins" id="pluginsBtn">🧩</button>
     <button type="button" data-act="scripts" id="scriptsBtn">🪟</button>
     <button type="button" data-act="external" id="externalBtn">↗</button>
@@ -69,7 +96,14 @@ window.promoCard.onState(state => {
     const t = TEXT[state.lang] || TEXT['zh-CN'];
     document.body.dataset.color = state.color;
     document.title = state.name;
-    const expanded = state.mode === 'expanded';
+    const browser = state.mode === 'browser';
+    const expanded = browser || state.mode === 'expanded';
+    document.body.dataset.browser = String(browser);
+    $('tabsBar').hidden = !browser;
+    $('browserBrand').textContent = state.lang === 'en-US' ? 'Dragon Browser' : 'Dragon 浏览器';
+    setTip('newTabBtn', state.lang === 'en-US' ? 'New tab (Ctrl/Cmd+T)' : '新标签页（Ctrl/Cmd+T）');
+    $('tabs').setAttribute('aria-label', state.lang === 'en-US' ? 'Browser tabs' : '浏览器标签页');
+    if (browser) renderTabs(state);
     $('card').hidden = expanded;
     $('tool').hidden = !expanded;
     $('badge').textContent = state.badge; $('toolBadge').textContent = state.badge;
@@ -84,14 +118,38 @@ window.promoCard.onState(state => {
     setTip('pluginsBtn', t.plugins); setTip('scriptsBtn', t.scripts); if (state.tool) setTip('homeBtn', t.toolHome);
     $('maxBtn').textContent = state.maximized ? '❐' : '□';
     $('backBtn').disabled = !state.canBack; $('forwardBtn').disabled = !state.canForward;
-    const url = $('url'); url.textContent = '';
-    const title = document.createElement('b'); title.textContent = state.title || state.name;
-    url.append(title, document.createTextNode(state.url));
-    url.title = state.url;
+    const address = $('address');
+    address.setAttribute('aria-label', state.lang === 'en-US' ? 'Address' : '网址');
+    address.placeholder = state.lang === 'en-US' ? 'Enter a website address' : '输入网址';
+    if (document.activeElement !== address) address.value = state.url === 'about:blank' ? '' : state.url;
+    $('url').title = state.url;
 });
+function renderTabs(state) {
+    const list = $('tabs');
+    const valid = new Set(state.tabs.map(tab => tab.id));
+    for (const node of [...list.children]) if (!valid.has(node.dataset.id)) node.remove();
+    for (const tab of state.tabs) {
+        let node = [...list.children].find(item => item.dataset.id === tab.id);
+        if (!node) {
+            node = document.createElement('div'); node.className = 'tab'; node.dataset.id = tab.id; node.setAttribute('role', 'tab');
+            const title = document.createElement('button'); title.className = 'tab-title'; title.dataset.act = 'tab-select'; title.dataset.tab = tab.id; title.type = 'button';
+            const close = document.createElement('button'); close.className = 'tab-close'; close.dataset.act = 'tab-close'; close.dataset.tab = tab.id; close.type = 'button'; close.textContent = '×';
+            node.append(title, close); list.append(node);
+        }
+        node.setAttribute('aria-selected', String(tab.id === state.activeId));
+        const title = node.querySelector('.tab-title'); title.textContent = (tab.loading ? '◌ ' : '') + tab.title; title.title = tab.url || tab.title;
+        node.querySelector('.tab-close').setAttribute('aria-label', (state.lang === 'en-US' ? 'Close tab: ' : '关闭标签：') + tab.title);
+    }
+    const selected = [...list.children].find(node => node.dataset.id === state.activeId);
+    if (selected && current?.activeId !== list.dataset.active) selected.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    list.dataset.active = state.activeId;
+}
+$('url').addEventListener('submit', event => { event.preventDefault(); window.promoCard.send('navigate', $('address').value); $('address').blur(); });
+$('address').addEventListener('keydown', event => { if (event.key === 'Escape') { $('address').value = current?.url || ''; $('address').blur(); } });
+window.promoCard.onFocusUrl(() => { $('address').focus(); $('address').select(); });
 document.addEventListener('click', event => {
     const button = event.target.closest('button[data-act]');
-    if (button) { event.stopPropagation(); window.promoCard.send(button.dataset.act); return; }
+    if (button) { event.stopPropagation(); window.promoCard.send(button.dataset.act, button.dataset.tab); return; }
     if (event.target.closest('#card')) window.promoCard.send('activate');
 });
 $('tool').addEventListener('dblclick', event => { if (!event.target.closest('button, .url')) window.promoCard.send('maximize'); });

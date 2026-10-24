@@ -81,10 +81,11 @@ async function saveSheets(fileId, sheets, parseError = '') {
     const file=await getFile(fileId),rules=await getTableRules(file);
     // Sheets are immutable after successful parsing; a retry may safely repeat the request.
     const current = await get('SELECT parse_status FROM import_source_files WHERE id=?',[fileId]);
-    if (current.parse_status === 'ready') return;
+    if (current.parse_status === 'ready') {await require('./monthly-quick-metrics').applyToFile(fileId);return;}
     const transformed=valid.map(sheet=>tableRules.apply(sheet,rules.rules));
     for (const sheet of transformed) await run(`INSERT INTO import_source_sheets (id,file_id,name,headers_json,rows_json,row_count) VALUES (?,?,?,?,?,?) ON CONFLICT(file_id,name) DO UPDATE SET headers_json=excluded.headers_json,rows_json=excluded.rows_json,row_count=excluded.row_count`,[id(),fileId,sheet.name,json(sheet.headers),json(sheet.rows),sheet.rows.length]);
     await run('UPDATE import_source_files SET parse_status=?, parse_error=? WHERE id=?',[parseError?'error':'ready',String(parseError).slice(0,500),fileId]);
+    if(!parseError)await require('./monthly-quick-metrics').applyToFile(fileId);
 }
 async function getFile(fileId, original = false) {
     if(String(fileId).startsWith('ms-'))return require('./meeting-source-tables').getFile(fileId,original);
@@ -102,7 +103,7 @@ async function registerSnapshot(snapshot, { allowMissingBatch = false } = {}) {
     const files = batchId ? (await all('SELECT id,name FROM import_source_files WHERE batch_id=?',[batchId])).map(file=>({...file,name:normalizeFileName(file.name)})) : [];
     const sourceSections = (Array.isArray(snapshot.sourceSections) ? snapshot.sourceSections : []).map(section => ({ ...section, fileIds:files.filter(file => (section.sourceFiles || []).includes(file.name)).map(file => file.id) }));
     const metrics = (Array.isArray(snapshot.topMetrics)?snapshot.topMetrics:[]).map((metric,index) => linkMetric({...metric,key:metric.key || `legacy:${metric.label || index}`},sourceSections,files,snapshot.files||[],normalizeFileName));
-    const payload = { id:snapshot.id, timestamp:snapshot.timestamp, sourceBatchId:batchId, files:snapshot.files || [], topMetrics:metrics, sourceSections, expiringTickets:snapshot.expiringTickets || [] };
+    const payload = { ...(snapshot.quickMetricFileId?{quickMetricFileId:snapshot.quickMetricFileId}:{}),...(snapshot.target_period?{target_period:snapshot.target_period}:{}),id:snapshot.id, timestamp:snapshot.timestamp, sourceBatchId:batchId, files:snapshot.files || [], topMetrics:metrics, sourceSections, expiringTickets:snapshot.expiringTickets || [] };
     await run(`INSERT INTO import_source_snapshots (id,batch_id,captured_at,target_month,payload_json) VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET batch_id=excluded.batch_id,captured_at=excluded.captured_at,target_month=excluded.target_month,payload_json=excluded.payload_json`,[snapshot.id,batchId,snapshot.timestamp || new Date().toISOString(),snapshot.selectedTargetMonth || null,json(payload)]);
     return payload;
 }
@@ -127,13 +128,13 @@ async function catalog(options = {}) {
         const batchFiles=lineageFiles.filter(file=>file.batch_id===row.batch_id);
         const linked=names=>batchFiles.filter(file=>(names||[]).map(normalizeFileName).includes(file.name)).map(file=>file.id);
         const sections=payload.sourceSections.map(section=>({...section,fileIds:linked(section.sourceFiles)}));
-        return {...row,kind:'extraction',payload_json:undefined,metrics:payload.topMetrics.map(metric=>({...linkMetric(metric,sections,batchFiles,payload.files||[],normalizeFileName),sourceSelections:undefined})),sections:sections.map(section=>({key:section.key,title:section.title,fileIds:section.fileIds,headers:section.headers,rowCount:section.rows?.length || 0}))};
+        return {...row,...(payload.target_period?{target_period:payload.target_period}:{}),...(payload.quickMetricFileId?{quickMetricFileId:payload.quickMetricFileId}:{}),kind:'extraction',payload_json:undefined,metrics:payload.topMetrics.map(metric=>({...linkMetric(metric,sections,batchFiles,payload.files||[],normalizeFileName),sourceSelections:undefined})),sections:sections.map(section=>({key:section.key,title:section.title,...(section.sheetName?{sheetName:section.sheetName}:{}),fileIds:section.fileIds,headers:section.headers,rowCount:section.rows?.length || 0}))};
         }catch(_){errors.push({stage:'extraction',id:row.id,code:'INVALID_SNAPSHOT'});return null;}
     }).filter(Boolean);
     mark('extraction',archived.length);const savedReports = await reportMetrics(files, archived,options);mark('assessment',savedReports.length);
     const virtual=async stage=>{if(options.stage==='core')return {files:[],batches:[]};try{const result=await require('./'+stage+'-source-tables').catalog(options);errors.push(...(result.errors||[]));mark(stage,result.files.length);return result;}catch(_){errors.push({stage,code:'SOURCE_DIRECTORY_FAILED'});return {files:[],batches:[]};}};
     const [topicSources,meetingSources]=await Promise.all([virtual('topic'),virtual('meeting')]);
-    const latest=new Map();for(const snapshot of archived){const key=JSON.stringify([snapshot.batch_id,snapshot.target_month]);if(!latest.has(key)||snapshotTime(snapshot.captured_at)>snapshotTime(latest.get(key).captured_at))latest.set(key,snapshot);}
+    const latest=new Map();for(const snapshot of archived){const key=JSON.stringify([snapshot.batch_id,snapshot.target_month,snapshot.quickMetricFileId?snapshot.quickMetricFileId+':'+snapshot.sections[0]?.key:'']);if(!latest.has(key)||snapshotTime(snapshot.captured_at)>snapshotTime(latest.get(key).captured_at))latest.set(key,snapshot);}
     const fileMetrics=[...latest.values()].flatMap(snapshot=>snapshot.metrics.flatMap(metric=>[metric,...(metric.subMetrics||[]).map(child=>({...child,label:`${metric.label} / ${child.category}`}))].map(item=>({...item,sourceBatchId:snapshot.batch_id}))));
     return require('./source-category-repository').annotate({ diagnostics:{stages,errors,elapsedMs:Date.now()-started,since},batches:[...batches,...topicSources.batches,...meetingSources.batches], files:[...files.map(file => {
         const dutyLabels = (file.kind === 'duty_roster' || file.source_key === '夜间运维值班表') ? ['夜间运维值班表', '值班人次'] : [];
@@ -201,6 +202,7 @@ async function updateSheet(sheetId,input){
     const result=await run('UPDATE import_source_sheets SET headers_json=?,rows_json=?,row_count=? WHERE id=? AND headers_json=? AND rows_json=?',[json(table.headers),json(table.rows),table.rows.length,sheetId,oldHeaders,oldRows]);
     if(!result.changes)fail('Source changed; reopen the preview',409);
     if(input.saveRules===true)await run('INSERT INTO source_table_rules (type_key,rules_json,updated_at) VALUES (?,?,?) ON CONFLICT(type_key) DO UPDATE SET rules_json=excluded.rules_json,updated_at=excluded.updated_at',[state.typeKey,json(rules),new Date().toISOString()]);
+    await require('./monthly-quick-metrics').applyToFile(state.file.id);
     return sheetEditor(sheetId);
 }
 async function getSection(snapshotId, key) {
@@ -249,7 +251,13 @@ async function saveDocumentUnlocked(document, options={}) {
     if(Object.hasOwn(options,'expectedRevision')&&document.id&&options.expectedRevision!==(previous?.revision??null))saveConflict();
     const month=engine.documentMonth(document);
     const documentId=previous&&month&&engine.documentMonth(previous.document)!==month?id():document.id||id();
-    document=engine.nextSaveVersion(document,documentId===previous?.id?previous.document:null);
+    if(options.autoSave&&previous&&documentId===previous.id){
+        // Automatic saves update content while retaining the manually published version number.
+        const legacyVersion=previous.document.meta.find(item=>item.label.zh==='报告编号')?.value.zh.match(/-V(\d+)\.\d+$/);
+        document.saveCount=Number.isSafeInteger(previous.document.saveCount)?previous.document.saveCount:Number(legacyVersion?.[1])||1;
+        const field=document.meta.find(item=>item.autoFill==='number'),stored=previous.document.meta.find(item=>item.autoFill==='number');
+        if(field&&stored)field.value=stored.value;
+    }else document=engine.nextSaveVersion(document,documentId===previous?.id?previous.document:null);
     const now=new Date().toISOString();
     const payload=json({...document,id:documentId});
     if(previous&&documentId===previous.id&&Object.hasOwn(options,'expectedRevision')){

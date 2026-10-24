@@ -388,7 +388,7 @@
         if (exportCsvBtn) exportCsvBtn.addEventListener('click', exportCsv);
         if (openDesignerBtn) {
             openDesignerBtn.addEventListener('click', () => {
-                window.location.href = '/pages/monthly-designer.html';
+                window.location.href = '/monthly';
             });
         }
 

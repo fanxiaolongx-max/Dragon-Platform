@@ -125,20 +125,6 @@ test('report-msg-export.js defines buildLocalOutlookEml with X-Unsent draft supp
     assert.match(source, /isProxyBlock/);
 });
 
-test('monthly designer offers the MSG export action with Excel attachment and email table conversion', () => {
-    const designerHtml = fs.readFileSync(path.join(__dirname, '../frontend/pages/monthly-designer.html'), 'utf8');
-    const designerJs = fs.readFileSync(path.join(__dirname, '../frontend/js/monthly-designer/designer.js'), 'utf8');
-    assert.match(designerHtml, /data-action="msg"/);
-    assert.match(designerHtml, /report-msg-export\.js/);
-    assert.match(designerHtml, /exceljs\.min\.js/);
-    assert.match(designerJs, /msg:\s*t\('导出 MSG 邮件',\s*'Export MSG email'\)/);
-    assert.match(designerJs, /function exportMsg\(/);
-    assert.match(designerJs, /function buildEmailWorkbook\(/);
-    assert.match(designerJs, /function prepareEmailClone\(/);
-    assert.match(designerJs, /if\(action==='msg'\)return exportMsg\(\)/);
-    assert.match(designerJs, /window\.ReportMsgExport\.download/);
-});
-
 test('report-msg-export.js preserves img tags, attributes, and styles for email rendering', () => {
     const source = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/report-msg-export.js'), 'utf8');
     assert.match(source, /'IMG'/);

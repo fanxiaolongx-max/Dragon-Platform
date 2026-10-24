@@ -71,8 +71,8 @@ button { font: inherit; }
     box-shadow: 0 0 18px rgba(99, 102, 241, 0.55);
 }
 .dk-search { position: relative; flex: 1; min-width: 0; max-width: 560px; margin-left: auto; }
-.dk-topbar #toolsCustomLanguageButton { position: static; flex: 0 0 auto; height: 32px; min-width: 48px; padding: 0 9px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel-2); color: var(--text); box-shadow: none; transform: none; z-index: auto; }
-.dk-topbar #toolsCustomLanguageButton:hover { background: var(--panel); border-color: var(--accent); transform: none; box-shadow: none; }
+.dk-topbar :is(#toolsCustomLanguageButton, #langBtn) { position: static; flex: 0 0 auto; height: 32px; min-width: 48px; padding: 0 9px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel-2); color: var(--text); box-shadow: none; transform: none; z-index: auto; }
+.dk-topbar :is(#toolsCustomLanguageButton, #langBtn):hover { background: var(--panel); border-color: var(--accent); transform: none; box-shadow: none; }
 .dk-search input {
     width: 100%; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line-2);
     background: var(--panel-2); color: var(--text); outline: none;
@@ -832,7 +832,7 @@ mark.dk-anno:hover { background: color-mix(in srgb, var(--anno-qa) 32%, transpar
     .dk-topbar .dk-brand > span:last-child { min-width: 0; }
     .dk-topbar .dk-brand b { overflow: hidden; text-overflow: ellipsis; }
     .dk-topbar #themeBtn { grid-column: 3; grid-row: 1; }
-    .dk-topbar #toolsCustomLanguageButton { grid-column: 4; grid-row: 1; }
+    .dk-topbar :is(#toolsCustomLanguageButton, #langBtn) { grid-column: 4; grid-row: 1; }
     .dk-topbar .dk-search { grid-column: 1 / 3; grid-row: 2; width: 100%; max-width: none; margin: 0; }
     .dk-topbar .dk-ai-toggle { grid-column: 3 / 5; grid-row: 2; }
     .dk-topbar:not(:has(.dk-ai-toggle)) .dk-search { grid-column: 1 / -1; }
@@ -1327,3 +1327,5 @@ select.dk-input { cursor: pointer; }
     .dk-video-dialog { padding: 10px; }
     .dk-video-dialog-box header strong { min-width: 0; font-size: 13px; }
 }
+
+.dk-part-copy p, .dk-part-copy dd { white-space: pre-line; overflow-wrap: anywhere; }

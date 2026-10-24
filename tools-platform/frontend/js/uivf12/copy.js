@@ -857,7 +857,7 @@ async function buildSiteFloatingScript(origin, { returnCode = false } = {}) {
     return { site, expanded, code, openUrl: openUrl || site.origin + '/' };
 }
 
-// 桌面端（Electron）自带浏览器：本机接口可用时，浮窗脚本列表多一个「桌面浏览器运行」按钮
+// 桌面端（Electron）自带浏览器：本机接口可用时，浮窗脚本列表多一个「Dragon 浏览器运行」按钮
 const UIV_DESKTOP_API = '/api/platform-promotions/desktop';
 let uivDesktopAvailable = null;
 async function isUivDesktopBrowserAvailable() {
@@ -884,7 +884,7 @@ async function runSiteScriptsInDesktop(origin) {
     }
 }
 
-// 打开数据抓取页时，把桌面浏览器里已缓存的站点脚本刷新成最新版本（不打开窗口）
+// 打开数据抓取页时，把Dragon 浏览器里已缓存的站点脚本刷新成最新版本（不打开窗口）
 async function refreshDesktopSiteScripts() {
     if (!(await isUivDesktopBrowserAvailable())) return;
     try {

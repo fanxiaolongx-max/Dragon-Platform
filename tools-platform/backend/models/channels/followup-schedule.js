@@ -168,12 +168,34 @@ function describeInterval(task) {
     return `${mode === 'auto' ? '按紧急度 · ' : ''}${text}${allowsOffHours(task) ? '（含非工作日）' : ''}`;
 }
 
-/** 当前时间在该时区的可读文本，例如「2026-10-20 周二 14:05（Africa/Cairo）」。 */
+function getZoneOffset(date = new Date(), timezone = DEFAULT_CALENDAR.timezone) {
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            timeZoneName: 'longOffset'
+        }).formatToParts(date);
+        const part = parts.find(p => p.type === 'timeZoneName');
+        return part?.value ? part.value.replace(/^GMT/, 'UTC') : '';
+    } catch {
+        return '';
+    }
+}
+
+function formatZoneIso(date = new Date(), timezone = DEFAULT_CALENDAR.timezone) {
+    const parts = zoneParts(date, timezone);
+    const pad = value => String(value).padStart(2, '0');
+    const offset = getZoneOffset(date, timezone).replace(/^UTC/, '');
+    return `${parts.year}-${pad(parts.month)}-${pad(parts.day)}T${pad(Math.floor(parts.minutes / 60))}:${pad(parts.minutes % 60)}:${pad(parts.seconds || 0)}${offset || 'Z'}`;
+}
+
+/** 当前时间在该时区的可读文本，例如「2026-10-20 周二 14:05（Africa/Cairo，UTC+03:00）」。 */
 function describeNow(date = new Date(), calendar = DEFAULT_CALENDAR) {
     const cal = normalizeCalendar(calendar);
     const parts = zoneParts(date, cal.timezone);
     const pad = value => String(value).padStart(2, '0');
-    return `${parts.year}-${pad(parts.month)}-${pad(parts.day)} 周${'日一二三四五六'[parts.weekday]} ${pad(Math.floor(parts.minutes / 60))}:${pad(parts.minutes % 60)}（${cal.timezone}）`;
+    const offset = getZoneOffset(date, cal.timezone);
+    const offsetLabel = offset ? `，${offset}` : '';
+    return `${parts.year}-${pad(parts.month)}-${pad(parts.day)} 周${'日一二三四五六'[parts.weekday]} ${pad(Math.floor(parts.minutes / 60))}:${pad(parts.minutes % 60)}（${cal.timezone}${offsetLabel}）`;
 }
 
 module.exports = {
@@ -188,5 +210,7 @@ module.exports = {
     nextReminder,
     allowsOffHours,
     describeInterval,
-    describeNow
+    describeNow,
+    getZoneOffset,
+    formatZoneIso
 };

@@ -2574,3 +2574,76 @@ body.presentation-mode .ppt-snap-guide {
 .vision-element { margin: 0; padding: 0; box-sizing: border-box; }
 .vision-text { white-space: pre-wrap; overflow: visible; min-height: 0; }
 .vision-visual > img { pointer-events: none; user-select: none; max-width: none; max-height: none; }
+
+/* --- Modern Slide Themes & Advanced Component Styles --- */
+.slide.theme-dark {
+    background: #0b0f19 !important;
+    color: #f1f5f9;
+}
+.slide.theme-dark .slide-title,
+.slide.theme-dark h1,
+.slide.theme-dark h2 {
+    color: #ffffff;
+}
+.slide.theme-dark .footer {
+    color: #64748b;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.slide.theme-dark .footer span.logo {
+    opacity: 0.6;
+}
+
+/* Modern Preset Components Default Visuals */
+.ppt-card.ht-created-metric {
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 16px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+    box-sizing: border-box;
+}
+
+.ppt-card.ht-created-process,
+.ppt-card.ht-created-comparison,
+.ppt-card.ht-created-bento {
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    border-radius: 18px;
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.06);
+    box-sizing: border-box;
+}
+
+.ppt-card.ht-created-quote {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    border: 1px solid rgba(51, 65, 85, 0.8);
+    border-radius: 20px;
+    box-shadow: 0 20px 35px -10px rgba(0, 0, 0, 0.4);
+    box-sizing: border-box;
+}
+
+/* Enhanced Component Floating Toolbar */
+.ppt-component-toolbar {
+    padding: 3px 6px;
+    border: 1px solid #475569;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+    gap: 4px;
+}
+
+.ppt-component-toolbar button {
+    width: 30px;
+    height: 30px;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+}
+
+.ppt-component-toolbar button:hover {
+    background: #334155;
+    transform: scale(1.05);
+}
+
+.ppt-component-toolbar button[data-action="ai-action"]:hover {
+    background: #4f46e5;
+    color: #fff;
+}

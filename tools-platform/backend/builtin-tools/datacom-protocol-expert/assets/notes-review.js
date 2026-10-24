@@ -1,3 +1,4 @@
+import { translate } from './i18n.js';
 // 「笔记问答」复习页：把 AI 问答与笔记按笔记分组放大呈现，支持检索筛选、展开全文和翻牌复习。
 // 这里展示时右侧 AI 侧栏会被收起（见 ai-notes.js setSuspended），同一份内容不会同时出现在两处。
 const VIEW_KEY = 'dk_review_view';
@@ -63,7 +64,7 @@ export function mountNotesReview(container, { notes, catalog, focusKey = null, t
         const query = ui.query.toLowerCase();
         return ui.list.filter(item => (ui.kind === 'all' || item.kind === ui.kind)
             && (ui.scope === 'all' || item.createdBy === me())
-            && (!query || `${item.title} ${item.brief} ${item.quote} ${item.turns.map(turn => `${turn.q || ''} ${turn.a || ''}`).join(' ')}`.toLowerCase().includes(query)));
+            && (!query || translate(`${item.title} ${item.brief} ${item.quote} ${item.turns.map(turn => `${turn.q || ''} ${turn.a || ''}`).join(' ')}`).toLowerCase().includes(query)));
     }
 
     function cardHtml(item) {

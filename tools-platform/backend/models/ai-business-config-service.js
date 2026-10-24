@@ -22,6 +22,7 @@ const PLATFORM_CONFIG_INTENT_RE = /平台配置|大屏|bigscreen|welink|月报�
 const DICTIONARY_INTENT_RE = /翻译|英文|中文|双语|字典|i18n/i;
 const TOOL_INTENT_RE = /自定义工具|html\s*工具|内置工具|自带工具|工具目录|custom\s*tool/i;
 const FULL_TARGET_LIST_RE = /(?:全部|完整|所有|58\s*条).{0,16}(?:指标)?(?:目标|预警|规则).{0,10}(?:规则|配置|明细|列表|展开|列出)?|展开.{0,10}(?:全部|所有).{0,16}(?:目标|指标|规则)|58\s*条.{0,16}(?:规则|目标)/i;
+const GENERAL_TARGET_QUERY_RE = /指标(?:的)?目标(?:值|规则|配置)?(?:都|分别|各自)?(?:是|为)?(?:多少|什么|哪些)|(?:各(?:个|项)?|每(?:个|项))指标.{0,8}目标|\b(?:all|each|every)\b.{0,35}\b(?:metric|indicator)s?\b.{0,25}\b(?:target|goal)s?\b|\b(?:target|goal)(?:\s+values?)?s?\b.{0,25}\b(?:all|each|every)\b.{0,20}\b(?:metric|indicator)s?\b/i;
 const TERM_ALIASES = [
     [/催办/, ['expedite', 'expeditetemplate', 'expediteignorekeywords']],
     [/人工调整|手工调整|加减分/, ['manualadjust', 'manualadjustitems', 'manualadjustautofill']],
@@ -433,13 +434,25 @@ function intentBoost(question, kind) {
     return score;
 }
 
+function wantsFullTargetList(query, documents) {
+    if (FULL_TARGET_LIST_RE.test(query) && (METRIC_INTENT_RE.test(query) || /58\s*条/.test(query))) return true;
+    if (!GENERAL_TARGET_QUERY_RE.test(query)) return false;
+    // “IBMS 指标目标值都是多少”仍是单项查询，不能被“都是多少”扩展成整个库。
+    return !documents.some(item => {
+        if (item.kind !== 'metric-target') return false;
+        const name = item.title.replace(/^指标目标规则：/, '').trim().toLowerCase();
+        const family = name.replace(/20\d{2}$/, '');
+        return name.length >= 2 && (query.includes(name) || (family.length >= 2 && query.includes(family)));
+    });
+}
+
 async function search(question, { limit = 7 } = {}) {
     const loaded = await loadDocuments();
     const query = String(question || '').toLowerCase();
     const terms = extractTerms(query);
-    const broadIntent = SCRIPT_INTENT_RE.test(query) || METRIC_INTENT_RE.test(query) || PLATFORM_CONFIG_INTENT_RE.test(query) || DICTIONARY_INTENT_RE.test(query) || TOOL_INTENT_RE.test(query);
+    const broadIntent = SCRIPT_INTENT_RE.test(query) || METRIC_INTENT_RE.test(query) || GENERAL_TARGET_QUERY_RE.test(query) || PLATFORM_CONFIG_INTENT_RE.test(query) || DICTIONARY_INTENT_RE.test(query) || TOOL_INTENT_RE.test(query);
     if (!terms.length && !broadIntent) return { results: [], status: loaded.status };
-    if (FULL_TARGET_LIST_RE.test(query) && (METRIC_INTENT_RE.test(query) || /58\s*条/.test(query))) {
+    if (wantsFullTargetList(query, loaded.documents)) {
         const document = loaded.documents.find(item => item.kind === 'metric-target-all');
         if (document) {
             return {

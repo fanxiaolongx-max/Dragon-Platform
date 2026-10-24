@@ -165,33 +165,6 @@
             font-size: 20px;
         }
 
-        .ranking-count-insight {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-            margin-left: 10px;
-            font-size: 12px;
-            font-weight: 600;
-            color: #64748b;
-            cursor: pointer;
-            border: 1px solid #e2e8f0;
-            background: linear-gradient(135deg, #ffffff, #f8fbff);
-            border-radius: 999px;
-            padding: 5px 10px;
-            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
-        }
-
-        .ranking-count-insight:hover {
-            transform: translateY(-1px);
-            border-color: #93c5fd;
-            box-shadow: 0 8px 22px rgba(37, 99, 235, .12);
-        }
-
-        .ranking-count-insight.loading {
-            color: #94a3b8;
-        }
-
         .metric-trend-link {
             border: 0;
             border-bottom: 1px dashed rgba(2, 119, 189, .42);
@@ -873,82 +846,90 @@
         [data-theme=dark] .report-snapshot-filter-setting{background:#26394f;color:#ccdcee;border-color:#4f6984}[data-theme=dark] .report-snapshot-filter-setting input{background:#203246;color:#e1edfa;border-color:#5c7690}
     </style>
     <link rel="stylesheet" href="/css/startup-screen.css">
+    <link rel="stylesheet" href="/css/report-layout.css">
 </head>
 
-<body>
+<body class="report-page">
     <script src="/js/shared/startup-screen.js" data-startup-page="report"></script>
     <div class="page-container">
-        <div class="controls">
-            <h2><span id="reportPageTitle">📈 报表看板</span> <span id="reportFrontendVersion"
-                    style="font-size:14px;color:#94a3b8;font-weight:normal;margin-left:8px;">v加载中</span></h2>
-            <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                <div>
-                    <span style="font-size:14px;color:#666;margin-right:6px;">考核月份：</span>
-                    <select id="target-month-select" onchange="renderCurrentSnapshot()"></select>
-                </div>
-                <div>
-                    <span style="font-size:14px;color:#666;margin-right:6px;">历史快照：</span>
-                    <select id="snapshot-select" onchange="loadSelectedSnapshot()"></select>
-                </div>
-                <label id="report-snapshot-filter-setting" class="report-snapshot-filter-setting">
-                    <span id="report-snapshot-filter-label">最少表源</span>
-                    <input type="number" id="report-min-source-tables" min="0" max="10000" step="1" value="20" required onchange="updateReportSnapshotFilter()" aria-label="最少表源">
-                    <span class="report-snapshot-filter-info" aria-hidden="true">ⓘ</span>
-                    <span id="report-snapshot-filter-help" class="report-snapshot-filter-help"></span>
-                </label>
-                <div
-                    style="display: flex; align-items: center; border: 1px solid #ccc; padding: 6px 12px; border-radius: 8px; background: #fff; gap: 8px; height: 34px; box-sizing: border-box;">
-                    <label style="font-size:13px;color:#333;cursor:pointer;display:flex;align-items:center;margin:0;">
-                        <input type="checkbox" id="auto-std-score-cb" onchange="toggleAutoStdScore()" checked
-                            style="margin-right:6px; cursor:pointer;"> 自动计算总分
-                    </label>
-                    <input type="number" id="custom-std-score-input" value="100"
-                        style="width: 50px; border: 1px solid #ddd; border-radius: 4px; padding: 2px 4px; font-size: 13px;"
-                        disabled onchange="updateCustomStdScore()">
-                </div>
-                <button onclick="saveDashboardToDB()"
-                    style="padding: 8px 14px; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #1565c0; font-weight: 600;">💾
-                    入库</button>
-                <button onclick="openTemplateMappingModal()"
-                    style="padding: 8px 14px; background: #fff3e0; border: 1px solid #ffb74d; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #e65100; font-weight: 600;">⚙️
-                    模板映射</button>
-                <button onclick="exportYuxiangExcel()"
-                    style="padding: 8px 14px; background: #fce4ec; border: 1px solid #f48fb1; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #ad1457; font-weight: 600;">🐴
-                    一键导出“于祥”的赛马表</button>
-                <button onclick="openGroupModal()"
-                    style="padding: 8px 14px; background: #e8eaf6; border: 1px solid #9fa8da; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #283593; font-weight: 600;">📂
-                    指标分组配置</button>
-                <button onclick="openWeightModal()"
-                    style="padding: 8px 14px; background: #fff; border: 1px solid #ccc; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #333; font-weight: 600;">⚖️
-                    权重配置</button>
-                <button onclick="openAddMetricModal()"
-                    style="padding: 8px 14px; background: #e8f5e9; border: 1px solid #c8e6c9; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #2e7d32; font-weight: 600;">➕
-                    手动增加指标</button>
-                <button onclick="openI18nModal()"
-                    style="padding: 8px 14px; background: #fff3e0; border: 1px solid #ffe0b2; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #e65100; font-weight: 600;">🌐
-                    中英翻译配置</button>
-            </div>
-        </div>
-        <div class="source-info-wrapper print-hide"
-            style="display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 14px;"
-            data-html2canvas-ignore="true">
-            <div class="data-source-controls">
-                <span class="data-source-note">SLA配置读源模式:</span>
-                <select id="reportSourceMode" class="data-source-select">
-                    <option value="auto">自动模式</option>
-                    <option value="sqlite">强制 SQLite</option>
-                </select>
+        <div class="report-header">
+            <div class="report-header-main">
+                <div class="report-header-card">
+                    <div class="report-top-bar">
+                        <div class="report-title-group">
+                            <h2 class="report-title">
+                                <span id="reportPageTitle">📈 报表看板</span>
+                                <span id="reportFrontendVersion" class="report-version-badge">v加载中</span>
+                            </h2>
+                        </div>
+                        <div class="report-toolbar-actions">
+                            <button type="button" class="btn-report-action btn-report-primary" onclick="saveDashboardToDB()" title="保存数据到数据库">
+                                <span class="btn-icon">💾</span>
+                                <span class="btn-text">入库</span>
+                            </button>
+                            <button type="button" class="btn-report-action btn-report-export" onclick="exportYuxiangExcel()" title="一键导出赛马考核Excel表">
+                                <span class="btn-icon">🐴</span>
+                                <span class="btn-text">一键导出“于祥”的赛马表</span>
+                            </button>
+                            <div class="report-action-separator"></div>
+                            <button type="button" class="btn-report-action btn-report-ghost" onclick="openTemplateMappingModal()" title="配置Excel模板映射">
+                                <span class="btn-icon">⚙️</span>
+                                <span class="btn-text">模板映射</span>
+                            </button>
+                            <button type="button" class="btn-report-action btn-report-ghost" onclick="openGroupModal()" title="配置指标分组与顺序">
+                                <span class="btn-icon">📂</span>
+                                <span class="btn-text">指标分组配置</span>
+                            </button>
+                            <button type="button" class="btn-report-action btn-report-ghost" onclick="openWeightModal()" title="配置指标考核权重">
+                                <span class="btn-icon">⚖️</span>
+                                <span class="btn-text">权重配置</span>
+                            </button>
+                            <button type="button" class="btn-report-action btn-report-ghost" onclick="openAddMetricModal()" title="手动新增自定义指标">
+                                <span class="btn-icon">➕</span>
+                                <span class="btn-text">手动增加指标</span>
+                            </button>
+                            <button type="button" class="btn-report-action btn-report-ghost" onclick="openI18nModal()" title="配置中英文双语字典">
+                                <span class="btn-icon">🌐</span>
+                                <span class="btn-text">中英翻译配置</span>
+                            </button>
+                        </div>
+                    </div>
 
+                    <div class="report-query-bar">
+                        <div class="report-control-field">
+                            <span class="control-label">考核月份：</span>
+                            <select id="target-month-select" class="report-select" onchange="renderCurrentSnapshot()"></select>
+                        </div>
+                        <div class="report-control-field">
+                            <span class="control-label">历史快照：</span>
+                            <select id="snapshot-select" class="report-select" onchange="loadSelectedSnapshot()"></select>
+                        </div>
+                        <label id="report-snapshot-filter-setting" class="report-snapshot-filter-setting">
+                            <span id="report-snapshot-filter-label">最少表源</span>
+                            <input type="number" id="report-min-source-tables" min="0" max="10000" step="1" value="20" required onchange="updateReportSnapshotFilter()" aria-label="最少表源">
+                            <span class="report-snapshot-filter-info" aria-hidden="true" title="表源数量下限过滤">ⓘ</span>
+                            <span id="report-snapshot-filter-help" class="report-snapshot-filter-help"></span>
+                        </label>
+                        <div class="report-score-control">
+                            <label class="score-calc-label">
+                                <input type="checkbox" id="auto-std-score-cb" onchange="toggleAutoStdScore()" checked> 自动计算总分
+                            </label>
+                            <input type="number" id="custom-std-score-input" value="100" disabled onchange="updateCustomStdScore()">
+                        </div>
+                    </div>
 
+                    <div class="report-sub-bar print-hide" data-html2canvas-ignore="true">
+                        <div id="report-deficiency-summary" class="report-deficiency-summary"></div>
+                        <div id="reportSourcePanel" class="data-source-panel" style="display:none !important;"></div>
+                        <select id="reportSourceMode" class="data-source-select" style="display:none !important;">
+                            <option value="auto">自动模式</option>
+                            <option value="sqlite">强制 SQLite</option>
+                        </select>
+                        <div id="report-ranking-insights" class="ranking-insights"></div>
+                    </div>
+                </div>
             </div>
-            <div id="reportSourcePanel" class="data-source-panel">
-                <span class="data-source-badge">快照来源: -</span>
-                <span class="data-source-badge">分类来源: -</span>
-                <span class="data-source-badge">分组来源: -</span>
-                <span class="data-source-badge">配置来源: -</span>
-                <span class="data-source-badge">目标来源: -</span>
-                <span class="data-source-note">报表看板当前读取的是 SLA 快照与配置，不是 report.db 主读。</span>
-            </div>
+            <div id="report-ranking-summary"></div>
         </div>
 
         <!-- Weight Config Modal -->

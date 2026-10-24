@@ -14,7 +14,7 @@ assert.ok(start >= 0 && end > start, 'metric rule helper functions should remain
 const helpers = vm.runInNewContext(`(() => {
     ${source.slice(start, end)}
     return { metricRuleRowMatches, parseMetricNumericValue, aggregateMetricRowValues };
-})()`);
+})()`, { window: { MetricExtraction: require('../frontend/js/shared/metric-extraction') } });
 
 test('legacy and single-row rules keep AND condition behavior', () => {
     const rule = {

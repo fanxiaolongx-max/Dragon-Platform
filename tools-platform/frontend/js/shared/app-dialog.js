@@ -76,15 +76,18 @@
                 </div>
             </section>`;
         // 页面已有 showModal() 打开的原生 <dialog> 时，其余区域是 inert 且被顶层遮挡：把弹窗也放进顶层 <dialog> 才能显示并操作
+        const targetContainer = (document.fullscreenElement && document.fullscreenElement !== document.documentElement && document.fullscreenElement !== document.body)
+            ? document.fullscreenElement
+            : document.body;
         const modalHost = hasOpenModalDialog() ? document.createElement('dialog') : null;
         if (modalHost) {
             modalHost.className = 'app-dialog-host';
             modalHost.addEventListener('cancel', event => event.preventDefault());
             modalHost.appendChild(root);
-            document.body.appendChild(modalHost);
+            targetContainer.appendChild(modalHost);
             modalHost.showModal();
         } else {
-            document.body.appendChild(root);
+            targetContainer.appendChild(root);
         }
         const input = root.querySelector('.app-dialog-input');
         return new Promise(resolve => {

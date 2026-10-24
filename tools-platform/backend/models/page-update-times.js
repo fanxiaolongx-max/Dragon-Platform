@@ -12,7 +12,7 @@ const PAGE_FILES = {
     '/sla': 'pages/sla.html',
     '/report': 'pages/report.html',
     '/expedite': 'pages/expedite.html',
-    '/monthly': 'pages/monthly-designer.html',
+    '/monthly': 'pages/ai-report.html',
     '/duty-roster': 'pages/duty-roster.html',
     '/bigscreen': 'pages/bigscreen.html',
     '/topic-analysis': 'pages/topic-analysis.html',

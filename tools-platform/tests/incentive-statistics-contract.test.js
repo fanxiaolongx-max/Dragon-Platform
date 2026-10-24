@@ -106,7 +106,8 @@ test('attendance warning and processing list follow the current incentive filter
           {__person:'A200',__name:'乙',__bu:'Wireless',__customer:'Orange',__attr:'TE',__level:'Low',__fee:50,__rank:1,__date:'2026-08-02',__start:new Date(2026,7,2),__operatorGroup:'nonwx'},
           {__person:'WX300',__name:'丙',__bu:'NIS',__customer:'ET',__attr:'FME',__level:'High',__fee:280,__rank:3,__date:'2026-09-02',__start:new Date(2026,8,2),__operatorGroup:'wx'}
         ];
-        attendanceResults = new Map(['a100','a200','wx300'].map(id=>[id,{hasAnomaly:true,anomalies:[{type:'absent',attendance:'Absent'}]}]));
+        rawRows=validRows.map(r=>({complete_operator:r.__person,'当地开始时间':r.__date+' 23:00'}));
+        attendanceResults = new Map(['a100','a200','wx300'].map(id=>[id,{hasAnomaly:true,anomalies:[{type:'absent',attendance:'Absent',actualDate:id==='a200'?'2026-08-10':'2026-09-10'}]}]));
         $('periodSourceMode').value='start';
         $('filterMonth').value='09';
         $('filterBU').value='NIS';
@@ -402,4 +403,159 @@ test('editing a nonpayment rule reuses parsed rows and attendance results withou
       ({sameParsed:parsed===validRows,requestsBefore:requestCount,requestsAfter:fetchCount,versionBefore:version,versionAfter:attendanceCheckVersion,attendanceKept:attendanceResults.has('a200'),paid:dedupRows.map(r=>r.__person)});
     `);
     assert.deepEqual(result, { sameParsed: true, requestsBefore: 1, requestsAfter: 1, versionBefore: 1, versionAfter: 1, attendanceKept: true, paid: ['A200'] });
+});
+
+test('blacklist deductions apply only to the selected imported month and use deduplicated amounts', () => {
+    const runtime = createToolRuntime();
+    const result = evaluate(runtime, `
+      rawRows=[
+        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-09-01 23:00',operate_level:'High'},
+        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-09-01 23:05',operate_level:'Low'},
+        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-10-01 23:00',operate_level:'Low'},
+        {task_status:'completed',complete_operator:'A200','当地开始时间':'2026-09-01 23:00',operate_level:'Low'}
+      ];
+      blacklistDraft=[{staffId:'a100',name:'甲',month:'2026-09',reason:'违规操作',source:'手工录入'}];
+      saveBlacklist();recalculate();
+      const summary=blacklistDeductionRows();
+      const paid=filtered().map(r=>({id:r.__person,month:incentiveMonth(r),fee:r.__fee}));
+      const reasons=filteredCalcDetails().filter(r=>r.__person==='A100').map(r=>({month:incentiveMonth(r),reason:r.__ignoreReason}));
+      $('dedupMode').value='none';const rawDeduction=blacklistDeductionRows()[0]['扣减激励（元）'];
+      $('blacklistMode').value='disabled';
+      ({paid,reasons,summary,rawDeduction,disabled:{deductions:blacklistDeductionRows().length,amount:filtered().reduce((s,r)=>s+r.__fee,0)}});
+    `);
+    assert.deepEqual(result.paid, [{ id: 'A200', month: '2026-09', fee: 50 }, { id: 'A100', month: '2026-10', fee: 50 }]);
+    assert.deepEqual(result.reasons, [{ month: '2026-09', reason: '违规操作' }, { month: '2026-09', reason: '违规操作' }, { month: '2026-10', reason: '' }]);
+    assert.equal(result.summary[0]['扣减激励（元）'], 280);
+    assert.equal(result.summary[0]['扣减后激励（元）'], 0);
+    assert.equal(result.rawDeduction, 330);
+    assert.deepEqual(result.disabled, { deductions: 0, amount: 430 });
+});
+
+test('month validation rejects out-of-scope and missing months atomically, including template imports', () => {
+    const runtime = createToolRuntime();
+    const result = evaluate(runtime, `
+      rawRows=[{complete_operator:'00123456','当地开始时间':'2026-09-01 23:00',年份:2026,月份:10}];
+      $('periodSourceMode').value='imported';
+      blacklistDraft=[{staffId:'00123456',month:'2026-10',reason:'有效原因'}];saveBlacklist();
+      const errors=[];
+      for(const month of ['', '2026-09','2025-10']){try{importBlacklistRows([{'工号':'00123456','扣减月份':month,'扣减原因':'测试'}])}catch(e){errors.push(e.message)}}
+      try{importBlacklistRows([{'工号':'00123456','扣减月份':'2026-10','扣减原因':''}])}catch(e){errors.push(e.message)}
+      const importedMonths=importedIncentiveMonths();$('periodSourceMode').value='start';
+      ({errors,draftCount:blacklistDraft.length,savedCount:incentiveBlacklist.size,importedMonths,startMonths:importedIncentiveMonths()});
+    `);
+    assert.equal(result.errors.length, 4);
+    assert.equal(result.draftCount, 1);
+    assert.equal(result.savedCount, 1);
+    assert.deepEqual(result.importedMonths, ['2026-10']);
+    assert.deepEqual(result.startMonths, ['2026-09']);
+});
+
+test('negative event import uses published events, imported months and unique employee IDs with original reasons', () => {
+    const runtime = createToolRuntime();
+    const result = evaluate(runtime, `
+      rawRows=[{complete_operator:'m00123456','当地开始时间':'2026-09-01 23:00'}, {complete_operator:'WX123456','当地开始时间':'2026-10-01 23:00'}];
+      const ruleSnapshot={svcModule:'操作',subModule:'执行',desc:'违反操作规范'};
+      const records=[
+        {id:'ok',staffId:'00123456',date:'2026-09-12',status:'published',remark:'未按方案执行',personSnapshot:{name:'甲'},ruleSnapshot},
+        {id:'wx',staffId:'mWX123456',date:'2026-10-02',status:'published',ruleSnapshot},
+        {id:'draft',staffId:'00123456',date:'2026-09-12',status:'draft',ruleSnapshot},
+        {id:'outside',staffId:'00123456',date:'2026-08-12',status:'published',ruleSnapshot},
+        {id:'lastYear',staffId:'00123456',date:'2025-09-12',status:'published',ruleSnapshot},
+        {id:'unknown',staffId:'999999',date:'2026-09-12',status:'published',personSnapshot:{name:'甲'},ruleSnapshot}
+      ];
+      const candidates=buildNegativeEventCandidates({records});
+      const combined=blacklistMap([...candidates,...candidates]);
+      rawRows.push({complete_operator:'00123456','当地开始时间':'2026-09-01 23:00'});
+      ({candidates,deduplicated:combined.size,ambiguous:buildNegativeEventCandidates({records}).map(x=>x.sourceId)});
+    `);
+    assert.deepEqual(result.candidates.map(x => x.sourceId), ['ok', 'wx']);
+    assert.equal(result.candidates[0].staffId, 'm00123456');
+    assert.equal(result.candidates[0].month, '2026-09');
+    assert.equal(result.candidates[0].eventDate, '2026-09-12');
+    assert.match(result.candidates[0].reason, /违反操作规范；未按方案执行/);
+    assert.equal(result.deduplicated, 2);
+    assert.deepEqual(result.ambiguous, ['wx']);
+});
+
+test('structured snapshots preserve deduction reasons and do not fabricate payment when all rows are blacklisted', () => {
+    const runtime = createToolRuntime();
+    const result = evaluate(runtime, `
+      rawRows=[{task_status:'completed',complete_operator:'A100','当地开始时间':'2026-09-01 23:00',operate_level:'High'}];
+      incentiveBlacklist=blacklistMap([{staffId:'A100',month:'2026-09',reason:'事件原因',source:'负向事件管理',sourceId:'event1',eventDate:'2026-09-02'}]);
+      recalculate();const snapshot=buildIncentiveSnapshotPayload('月度','2026-09');
+      incentiveBlacklist=new Map();restoreIncentiveSnapshot(snapshot);
+      const restored={entries:[...incentiveBlacklist.values()],paid:dedupRows.length,summary:snapshot.payload.personnelSummary,deductions:blacklistDeductionRows()};
+      restoreIncentiveSnapshot({title:'旧快照',payload:{rawRows:snapshot.payload.rawRows,blacklistText:'A100, 历史原因'}});
+      const legacy={paid:dedupRows.length,month:[...incentiveBlacklist.values()][0].month};
+      restoreIncentiveSnapshot({title:'无名单快照',payload:{rawRows:snapshot.payload.rawRows}});
+      ({restored,legacy,cleared:incentiveBlacklist.size});
+    `);
+    assert.equal(result.restored.entries[0].sourceId, 'event1');
+    assert.equal(result.restored.entries[0].reason, '事件原因');
+    assert.equal(result.restored.paid, 0);
+    assert.deepEqual(result.restored.summary, []);
+    assert.equal(result.restored.deductions[0]['扣减激励（元）'], 280);
+    assert.deepEqual(result.legacy, { paid: 1, month: '' });
+    assert.equal(result.cleared, 0);
+});
+
+test('attendance preview and deductions are grouped by meeting month and automatically enter the shared blacklist', () => {
+    const runtime = createToolRuntime();
+    const result = evaluate(runtime, `
+      rawRows=[
+        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-09-01 23:00',operate_level:'High'},
+        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-09-01 23:05',operate_level:'Low'},
+        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-10-01 23:00',operate_level:'Low'}
+      ];recalculate();
+      const sept={snapshotId:'meeting-1',meetingTitle:'质量例会',sessionName:'第一场',actualDate:'2026-09-22',attendance:'Absent',type:'absent'};
+      const oct={snapshotId:'meeting-1',meetingTitle:'质量例会',sessionName:'第二场',actualDate:'2026-10-02',attendance:'Delay',type:'delay',attendanceTime:'10:15'};
+      attendanceResults=new Map([['a100',{hasAnomaly:true,anomalies:[sept,oct,{...sept,actualDate:'2026-08-22'}]}]]);
+      updateAttendanceAnomalyAlert();
+      const preview=currentAttendanceAnomalies.map(x=>({month:x.month,fee:x.totalFee,count:x.orderCount,meetings:x.anomalies.length}));
+      document.querySelectorAll=selector=>selector==='.anomaly-row-cb'?[{checked:true,disabled:false,dataset:{idx:'0'}}]:[];
+      showToast=()=>{};applyAnomaliesToBlacklist();
+      const entries=[...incentiveBlacklist.values()];
+      const after={paid:filtered().map(r=>incentiveMonth(r)),deduction:blacklistDeductionRows()[0],editorOpen:$('blacklistModal').classList.contains('show'),draftCount:blacklistDraft.length};
+      const stored=JSON.parse(localStorage.getItem(BLACKLIST_STORAGE_KEY));
+      incentiveBlacklist=blacklistMap([...entries,attendanceBlacklistEntry({staffId:'A100',name:''},sept)]);
+      ({preview,entries,after,storedCount:stored.length,repeatedCount:incentiveBlacklist.size});
+    `);
+    assert.deepEqual(result.preview, [{ month: '2026-09', fee: 280, count: 1, meetings: 1 }, { month: '2026-10', fee: 50, count: 1, meetings: 1 }]);
+    assert.equal(result.entries[0].month, '2026-09');
+    assert.equal(result.entries[0].eventDate, '2026-09-22');
+    assert.match(result.entries[0].reason, /2026-09-22《质量例会》【第一场】：缺席（Absent）/);
+    assert.deepEqual(result.after.paid, ['2026-10']);
+    assert.equal(result.after.deduction['扣减激励（元）'], 280);
+    assert.match(result.after.deduction['扣减原因'], /质量例会/);
+    assert.equal(result.after.editorOpen, true);
+    assert.equal(result.after.draftCount, 1);
+    assert.equal(result.storedCount, 1);
+    assert.equal(result.repeatedCount, 1);
+});
+
+test('attendance preview shows the full monthly deduction behind filters and never guesses an unknown meeting month', () => {
+    const runtime = createToolRuntime();
+    const result = evaluate(runtime, `
+      rawRows=[
+        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-09-01 23:00',operate_level:'High',BU1:'NIS'},
+        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-09-02 23:00',operate_level:'Low',BU1:'Other'},
+        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-10-01 23:00',operate_level:'Low',BU1:'NIS'}
+      ];recalculate();$('filterBU').value='NIS';
+      attendanceResults=new Map([['a100',{hasAnomaly:true,anomalies:[
+        {snapshotId:'sept',title:'9月例会',actualDate:'2026-09-22',attendance:'Fake',type:'delay'},
+        {snapshotId:'invalid',title:'未定日期会议',actualDate:'2026-02-30',attendance:'Absent'},
+        {snapshotId:'outside',title:'旧会议',actualDate:'2025-09-22',attendance:'Absent'}
+      ]}]]);updateAttendanceAnomalyAlert();
+      const preview=currentAttendanceAnomalies.map(x=>({month:x.month,fee:x.totalFee,deductible:x.deductible}));
+      const badgeSept=Boolean(getPersonAttendanceAnomaly('A100','', '2026-09')),badgeOct=Boolean(getPersonAttendanceAnomaly('A100','','2026-10'));
+      const fakeReason=attendanceDeductionReason(currentAttendanceAnomalies[0].anomalies[0]);
+      const entry=attendanceBlacklistEntry(currentAttendanceAnomalies[0],currentAttendanceAnomalies[0].anomalies[0]);
+      let monthError='';try{validateBlacklistEntries([{...entry,month:'2026-10'}])}catch(e){monthError=e.message}
+      ({preview,badgeSept,badgeOct,fakeReason,monthError});
+    `);
+    assert.deepEqual(result.preview, [{ month: '2026-09', fee: 330, deductible: true }, { month: '', fee: 0, deductible: false }]);
+    assert.equal(result.badgeSept, true);
+    assert.equal(result.badgeOct, false);
+    assert.match(result.fakeReason, /虚假签到（Fake）/);
+    assert.match(result.monthError, /会议发生月份一致/);
 });

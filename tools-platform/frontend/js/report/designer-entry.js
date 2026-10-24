@@ -1,1 +1,0 @@
-(function(){function render(){const en=window.ToolsI18n?.getLanguage()==='en-US';document.querySelector('[data-designer-zh]').hidden=en;document.querySelector('[data-designer-en]').hidden=!en;}document.addEventListener('DOMContentLoaded',render);window.addEventListener('tools:languagechange',render);})();

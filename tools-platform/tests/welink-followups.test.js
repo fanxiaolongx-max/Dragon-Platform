@@ -279,3 +279,22 @@ test('接口权限：所有登录用户可查看 WeLink 对话与任务，修改
     const bad = await fetch(`${base}/followups/${task.id}`, { method: 'PATCH', headers: as('synthetic-admin'), body: JSON.stringify({ action: 'explode' }) });
     assert.equal(bad.status, 400);
 });
+
+test('夏令时与相对时长：支持 inMinutes 避免时区计算偏差，正确识别开罗夏令时（UTC+3）与冬令时（UTC+2）', async () => {
+    assert.equal(schedule.getZoneOffset(new Date('2026-10-21T12:00:00Z'), 'Africa/Cairo'), 'UTC+03:00');
+    assert.equal(schedule.getZoneOffset(new Date('2026-01-15T12:00:00Z'), 'Africa/Cairo'), 'UTC+02:00');
+    assert.match(schedule.describeNow(new Date('2026-10-21T12:47:00Z'), schedule.DEFAULT_CALENDAR), /Africa\/Cairo，UTC\+03:00/);
+    assert.equal(schedule.formatZoneIso(new Date('2026-10-21T12:47:00Z'), 'Africa/Cairo'), '2026-10-21T15:47:00+03:00');
+
+    await inTenant(async () => {
+        const start = Date.now();
+        const created = await agent.execute({ ...group, userText: '2分钟后提醒喝水' }, 'followup_create', {
+            title: '提醒喝水（相对分钟测试）',
+            inMinutes: 2
+        });
+        assert.equal(created.isError, undefined);
+        const task = await repo.getTask(created.event.id);
+        const diffMs = new Date(task.nextRemindAt).getTime() - start;
+        assert.ok(diffMs >= 115000 && diffMs <= 125000, `nextRemindAt 应在当前时间约 2 分钟后，实际差距 ${diffMs}ms`);
+    });
+});

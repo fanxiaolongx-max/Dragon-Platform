@@ -30,7 +30,7 @@ Tools Platform 是一个本地/内网质量运营工具中台：
 | 公共导航、鉴权、AI 助手 | `frontend/js/shared/` | `backend/middleware/`, `backend/routes/auth.js`, `backend/routes/ai*.js` | 平台库与租户业务库 |
 | UIVF12 脚本仓库 | `frontend/pages/uivf12.html`, `frontend/js/uivf12/` | `backend/routes/uiv*.js` | `tools.db` |
 | SLA 导入与规则 | `frontend/pages/sla.html`, `frontend/js/sla/` | `backend/routes/sla.js`, `backend/routes/upload.js` | `tools.db` |
-| 报表、月报、大屏、催办 | `frontend/pages/{report,monthly,bigscreen,expedite}.html`, `frontend/js/report/` | `backend/routes/db.js` | `report.db` |
+| 报表、AI 月报、大屏、催办 | `frontend/pages/{report,ai-report,bigscreen,expedite}.html`, `frontend/js/{report,ai-report}/` | `backend/routes/{db,ai-report,import-sources,report-msg}.js` | `report.db`, `tools.db` (`ai_report_documents`) |
 | 租户、初始化、备份恢复 | 全局设置和导航界面 | `backend/routes/{tenants,onboarding,global-backup}.js` | 平台库 + 租户目录 |
 | 自定义/内置工具 | `frontend/pages/custom-tool.html` | `backend/routes/custom-tools.js`, `backend/models/builtin-tools-sync.js` | `backend/data/custom-tools/`, `backend/builtin-tools/` |
 | 需求、问卷、PR 审计、FRT | 同名页面和脚本 | `backend/routes/{requirements,surveys,praudit,frt}.js` | 对应 SQLite 库 |

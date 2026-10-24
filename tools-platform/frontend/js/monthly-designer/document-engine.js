@@ -60,6 +60,26 @@
         if(month&&field){field.autoFill='number';field.value=bilingual('EGY-CS-'+month.replace('-','')+'-V'+draft.saveCount+'.0','EGY-CS-'+month.replace('-','')+'-V'+draft.saveCount+'.0');}
         return draft;
     }
+    function metricToken(key,reference=null){
+        if(typeof key!=='string'||!key||key.length>2000)throw new Error('Invalid metric key');
+        if(reference){if(!['report','fixed'].includes(reference.monthMode)||reference.monthMode==='fixed'&&!sourceRules.validMonth(reference.month)||typeof reference.live!=='boolean')throw new Error('Invalid metric reference');return '[[@metric:'+encodeURIComponent('~'+JSON.stringify({key,monthMode:reference.monthMode,month:reference.monthMode==='fixed'?reference.month:'',live:reference.live}))+']]';}
+        return '[[@metric:'+encodeURIComponent(key)+']]';
+    }
+    function parseMetricToken(token){
+        try{const match=String(token).match(/^\[\[@metric:([^\]\n]+)\]\]$/);if(!match)return null;const value=decodeURIComponent(match[1]);
+            if(value.startsWith('~{')){const {key,...reference}=JSON.parse(value.slice(1));metricToken(key,reference);return {key,reference};}
+            return {key:value,reference:null};
+        }catch(_){return null;}
+    }
+    function resolveTextMetric(token,catalog){
+        const parsed=parseMetricToken(token);if(!parsed)return null;const {key,reference}=parsed;
+        const data=reference?.live&&catalog.liveCatalog?{...catalog.liveCatalog,reportMonth:catalog.liveReportMonth??catalog.reportMonth}:catalog;
+        const period=reference?.monthMode==='fixed'?reference.month:data.reportMonth;
+        const scoped=period?{...data,snapshots:(data.snapshots||[]).filter(snapshot=>sourceRules.snapshotMonth(snapshot,data)===period).sort((a,b)=>sourceRules.time(b.captured_at)-sourceRules.time(a.captured_at)||String(b.id).localeCompare(String(a.id)))}:data;
+        const metric=reference?(scoped.snapshots||[]).flatMap(expandMetrics).find(item=>item.key===key):period?metricOptions(scoped).find(item=>item.keyAliases.includes(key)):null;
+        const resolved=resolve({kind:'metric',mode:'latest',metricKey:key,...(metric?.sourceSection?{sectionKey:metric.sourceSection}:{})},scoped,reference?[key]:undefined);
+        return resolved?{...resolved,key,reference,period:period||sourceRules.snapshotMonth(resolved.snapshot,data)}:null;
+    }
     function metricTextParts(text,catalog){
         const parts=[];let start=0;const pattern=/\[\[@(metric|formula):([^\]\n]+)\]\]/g;
         for(const match of String(text).matchAll(pattern)){
@@ -68,13 +88,10 @@
                 const formula=catalog.inlineFormulas?.find(item=>item.id===match[2]);let value='—',error='';
                 const operands=formula?formula.keys.map(key=>metricTextParts('[[@metric:'+encodeURIComponent(key)+']]',catalog)[0]):[],missing=!formula||operands.some(part=>part.missing);
                 if(!missing)try{value=formulas.display(formulas.evaluate(formula.expression,...operands.map(part=>part.value)),formula.digits,formula.percent);}catch(issue){error=issue.code||'invalid_expression';}
-                parts.push({token:match[0],key:'formula:'+match[2],formulaId:match[2],label:formula?operands.map((part,index)=>(index?'B: ':'A: ')+part.label).join(' / ')+' · '+formula.expression:match[2],value,missing,error,operandValues:operands.map(part=>part.value)});
+                parts.push({token:match[0],key:'formula:'+match[2],formulaId:match[2],label:formula?operands.map((part,index)=>(index?'B: ':'A: ')+part.label).join(' / ')+' · '+formula.expression:match[2],value,missing,error,live:operands.some(part=>part.live),operandValues:operands.map(part=>part.value)});
             }else{
-                let key;try{key=decodeURIComponent(match[2]);}catch(_){key='';}
-                const metricCatalog=catalog.reportMonth?{...catalog,snapshots:catalog.snapshots.filter(snapshot=>sourceRules.snapshotMonth(snapshot,catalog)===catalog.reportMonth).sort((a,b)=>sourceRules.time(b.captured_at)-sourceRules.time(a.captured_at)||String(b.id).localeCompare(String(a.id)))}:catalog;
-                const sectionKey=catalog.reportMonth&&key?metricOptions(metricCatalog).find(metric=>metric.keyAliases.includes(key))?.sourceSection||'':'';
-                const resolved=key?resolve({kind:'metric',mode:'latest',metricKey:key,...(sectionKey?{sectionKey}:{})},metricCatalog):null;
-                parts.push({token:match[0],key,label:resolved?.metric.label||key,value:resolved?.metric.value??'—',missing:!resolved});
+                const parsed=parseMetricToken(match[0]),key=parsed?.key||'',reference=parsed?.reference||null,resolved=resolveTextMetric(match[0],catalog);
+                parts.push({token:match[0],key,reference,live:reference?.live===true,label:resolved?.metric.label||key,value:resolved?.metric.value??'—',missing:!resolved});
             }
             start=match.index+match[0].length;
         }
@@ -187,6 +204,8 @@
             if(prefs.view!==undefined&&!['all','favorites','recent'].includes(prefs.view))error();
             if(prefs.category!==undefined&&!['','tickets','metrics','topic','meeting','raw'].includes(prefs.category))error();
             if(prefs.kind!==undefined&&(typeof prefs.kind!=='string'||prefs.kind.length>80))error();
+            if(prefs.metricOrigin!==undefined&&!['','monthly','import','assessment'].includes(prefs.metricOrigin))error();
+            if(prefs.metricMonthMode!==undefined&&!['report','data'].includes(prefs.metricMonthMode))error();
             if(prefs.advanced!==undefined&&typeof prefs.advanced!=='boolean')error();
             for(const key of ['expandedFileIds','expandedSheetIds'])if(!Array.isArray(prefs[key])||prefs[key].length>5000||prefs[key].some(id=>typeof id!=='string'||!/^[\w-]{1,80}$/.test(id)))error();
         }
@@ -224,6 +243,8 @@
                     }
                 }
                 if(item.nameMappings!==undefined){const mappings=typeof module==='object'&&module.exports?require('./name-mappings'):window.MonthlyNameMappings;mappings.validate(item.nameMappings);}
+                if(item.tablePresentation!==undefined){const presentation=typeof module==='object'&&module.exports?require('./table-presentation'):window.MonthlyTablePresentation;
+                    if(!item.tablePresentation||typeof item.tablePresentation.sourceKey!=='string'||item.tablePresentation.sourceKey.length>4500||item.tablePresentation.revision!==undefined&&(typeof item.tablePresentation.revision!=='string'||item.tablePresentation.revision.length>80))error();presentation.validate(item.tablePresentation.rules);}
                 if(item.dataFormats!==undefined){const formats=typeof module==='object'&&module.exports?require('./data-formats'):window.MonthlyDataFormats;formats.validate(item.dataFormats);}
                 if(item.dataFormatPresetId!==undefined&&(typeof item.dataFormatPresetId!=='string'||!/^[\w-]{1,80}$/.test(item.dataFormatPresetId)))error();
                 if(item.mappingPresetId!==undefined&&(typeof item.mappingPresetId!=='string'||!/^[\w-]{1,80}$/.test(item.mappingPresetId)))error();
@@ -325,5 +346,5 @@
 
     function summary(item, resolved, rows, language) { const metric = resolved?.metric; const facts = { label: metric?.label ?? '—', value: metric?.value ?? '—', date: resolved?.snapshot?.captured_at ?? resolved?.file?.created_at ?? '—', count: rows.length, rows: rows.length, target: metric?.savedTarget ?? '—', gap: metric?.gap ?? '—' }; return item.rule[language].replace(/\{(\w+)\}/g, (_, key) => String(facts[key] ?? '—')); }
     function group(rows, chart) { const values = new Map(); for (const row of rows) { const key = String(row[chart.x] ?? '—'); if (!values.has(key)) values.set(key, 0); if (chart.aggregation === 'count') values.set(key, values.get(key) + 1); else { const value = row[chart.y]; if (value !== null && String(value ?? '').trim() !== '' && Number.isFinite(Number(value))) values.set(key, values.get(key) + Number(value)); } } return [...values].map(([label, value]) => ({ label, value })); }
-    return { uid, bilingual, block, section, defaults, applyReportDefaults, documentMonth, prepareMonthlySave, nextSaveVersion, metricTextParts, restoreOverviewParagraphs, formatOverview, sampleOverview, normalize, mergeFiles, expandMetrics, metricOptions, resolve, filterRows, summary, group };
+    return { uid, bilingual, block, section, defaults, applyReportDefaults, documentMonth, prepareMonthlySave, nextSaveVersion, metricToken, parseMetricToken, resolveTextMetric, metricTextParts, restoreOverviewParagraphs, formatOverview, sampleOverview, normalize, mergeFiles, expandMetrics, metricOptions, resolve, filterRows, summary, group };
 });

@@ -8,7 +8,7 @@ const NAV_BUILTIN_LINKS = [
     { id: 'sla', href: '/sla', icon: '📊', label: '数据导入', labelKey: 'nav.sla', defaultCategory: 'business', match: p => p.startsWith('/sla') },
     { id: 'report', href: '/report', icon: '📈', label: '报表看板', labelKey: 'nav.report', defaultCategory: 'business', match: p => p.startsWith('/report') },
     { id: 'expedite', href: '/expedite', icon: '⚡', label: '一键催办', labelKey: 'nav.expedite', defaultCategory: 'business', match: p => p.startsWith('/expedite') },
-    { id: 'monthly', href: '/monthly', icon: '📅', label: '月报页面', labelKey: 'nav.monthly', defaultCategory: 'business', match: p => p.startsWith('/monthly') || p === '/pages/monthly-designer.html' || p === '/pages/monthly.html' },
+    { id: 'monthly', href: '/monthly', icon: '📅', label: '月报页面', labelKey: 'nav.monthly', defaultCategory: 'business', match: p => p.startsWith('/monthly') || p === '/pages/ai-report.html' },
     { id: 'duty-roster', href: '/duty-roster', icon: '🌙', label: '值班表', labelEn: 'Duty Roster', labelKey: 'nav.dutyRoster', defaultCategory: 'business', match: p => p.startsWith('/duty-roster') },
     { id: 'bigscreen', href: '/bigscreen', icon: '🖥️', label: '大屏看板', labelKey: 'nav.bigscreen', defaultCategory: 'business', match: p => p.startsWith('/bigscreen') },
     { id: 'topic-analysis', href: '/topic-analysis', icon: '📊', label: '专题分析', labelKey: 'nav.topicAnalysis', defaultCategory: 'cat_mshv1h0m', match: p => p.startsWith('/topic-analysis') },
@@ -1402,8 +1402,8 @@ function normalizeNavSettings(settings = {}) {
     platformNameEn = platformNameEn || (!rawHasNonAscii && rawName ? rawName : 'Dragon Platform');
     const platformSubtitle = clean(settings.platformSubtitle, 120) || '埃及 CS 工具与知识中心';
     const platformSubtitleEn = clean(settings.platformSubtitleEn, 120) || 'Egypt CS Tools & Knowledge Center';
-    const platformSlogan = clean(settings.platformSlogan, 200) || '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”';
-    const platformSloganEn = clean(settings.platformSloganEn, 200) || '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”';
+    const platformSlogan = clean(settings.platformSlogan, 200) || '“认真做好每一个工具，让日常工作更省心。”';
+    const platformSloganEn = clean(settings.platformSloganEn, 200) || '“Build every tool with care. Make everyday work easier.”';
     const platformName = rawName || platformNameZh;
 
     return {
@@ -1470,8 +1470,8 @@ function applyPlatformIdentity() {
 
     const zhSub = navState.settings?.platformSubtitle || '埃及 CS 工具与知识中心';
     const enSub = navState.settings?.platformSubtitleEn || 'Egypt CS Tools & Knowledge Center';
-    const zhSlogan = navState.settings?.platformSlogan || '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”';
-    const enSlogan = navState.settings?.platformSloganEn || '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”';
+    const zhSlogan = navState.settings?.platformSlogan || '“认真做好每一个工具，让日常工作更省心。”';
+    const enSlogan = navState.settings?.platformSloganEn || '“Build every tool with care. Make everyday work easier.”';
 
     const mainName = (isEn && navState.settings?.platformNameEn) ? enName : (navState.settings?.platformNameZh || navState.settings?.platformName || zhName);
     const secondaryName = (isEn && navState.settings?.platformNameEn) ? zhName : enName;
@@ -2797,7 +2797,7 @@ async function renderLogoSettings(content) {
         <div class="logo-settings-container">
             <div class="logo-settings-card">
                 <h3>✏️ ${text('平台标识与名称设定', 'Platform identity & names')}</h3>
-                <p>${text('支持配置中英文主名称、副标题与登录页专属标语。在中文界面优先显示中文名称，英文界面自动倒置为主英辅中。保存后自动同步为平台全局默认配置。', 'Configure Chinese and English platform names, subtitle and mystical login slogan. Display order reverses automatically based on current language. Saved values become the system defaults.')}</p>
+                <p>${text('支持配置中英文主名称、副标题与登录页专属标语。在中文界面优先显示中文名称，英文界面自动倒置为主英辅中。保存后自动同步为平台全局默认配置。', 'Configure Chinese and English platform names, subtitle and login slogan. Display order reverses automatically based on current language. Saved values become the system defaults.')}</p>
                 <form onsubmit="event.preventDefault(); savePlatformName()">
                     <input type="hidden" id="platformNameInput" value="${navEscape(navState.settings.platformName || '图特工具平台')}">
                     <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px;margin-top:12px;">
@@ -2818,12 +2818,12 @@ async function renderLogoSettings(content) {
                             <input id="platformSubtitleEnInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="120" value="${navEscape(navState.settings.platformSubtitleEn || 'Egypt CS Tools & Knowledge Center')}" placeholder="Egypt CS Tools & Knowledge Center" autocomplete="off">
                         </div>
                         <div style="grid-column: 1 / -1;">
-                            <label for="platformSloganInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">✨ ${text('登录页标语 (中文，神秘斜体引用)', 'Login Page Slogan (Chinese, mystical italic quote)')}</label>
-                            <input id="platformSloganInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="200" value="${navEscape(navState.settings.platformSlogan || '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”')}" placeholder="“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”" autocomplete="off">
+                            <label for="platformSloganInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">✨ ${text('登录页标语 (中文)', 'Login Page Slogan (Chinese)')}</label>
+                            <input id="platformSloganInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="200" value="${navEscape(navState.settings.platformSlogan || '“认真做好每一个工具，让日常工作更省心。”')}" placeholder="“认真做好每一个工具，让日常工作更省心。”" autocomplete="off">
                         </div>
                         <div style="grid-column: 1 / -1;">
                             <label for="platformSloganEnInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">✨ ${text('登录页标语 (英文)', 'Login Page Slogan (English)')}</label>
-                            <input id="platformSloganEnInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="200" value="${navEscape(navState.settings.platformSloganEn || '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”')}" placeholder="“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”" autocomplete="off">
+                            <input id="platformSloganEnInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="200" value="${navEscape(navState.settings.platformSloganEn || '“Build every tool with care. Make everyday work easier.”')}" placeholder="“Build every tool with care. Make everyday work easier.”" autocomplete="off">
                         </div>
                     </div>
                     <div style="margin-top:14px">
@@ -2928,8 +2928,8 @@ window.savePlatformName = async function () {
         : (rawInput || 'Dragon Platform');
     const platformSubtitle = (subInput ? clean(subInput.value, 120) : '') || navState.settings?.platformSubtitle || '埃及 CS 工具与知识中心';
     const platformSubtitleEn = (subEnInput ? clean(subEnInput.value, 120) : '') || navState.settings?.platformSubtitleEn || 'Egypt CS Tools & Knowledge Center';
-    const platformSlogan = (sloganInput ? clean(sloganInput.value, 200) : '') || navState.settings?.platformSlogan || '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”';
-    const platformSloganEn = (sloganEnInput ? clean(sloganEnInput.value, 200) : '') || navState.settings?.platformSloganEn || '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”';
+    const platformSlogan = (sloganInput ? clean(sloganInput.value, 200) : '') || navState.settings?.platformSlogan || '“认真做好每一个工具，让日常工作更省心。”';
+    const platformSloganEn = (sloganEnInput ? clean(sloganEnInput.value, 200) : '') || navState.settings?.platformSloganEn || '“Build every tool with care. Make everyday work easier.”';
     const platformName = rawInput || platformNameZh;
 
     button.disabled = true;
@@ -3152,17 +3152,23 @@ function renderAiUsageDashboard(data) {
     const host = document.getElementById('navAiUsageBody');
     if (!host) return;
     const models = Array.isArray(data?.models) ? data.models : [];
+    // Model buttons only for models configured in a profile now; older ones stay in the detail list below for clearing.
+    // Usage is grouped per profile and model: a group counts when that profile still exists and still uses that model.
+    const profiles = navState.aiSettings?.profiles || [];
+    const configured = new Set(profiles.map(profile => `${profile.id}|${profile.provider}|${profile.model}`));
+    const isConfigured = item => configured.has(`${item.profileId}|${item.provider}|${item.model}`);
+    const shownModels = configured.size ? models.filter(isConfigured) : models;
     const selectedKey = navState.aiUsageModelKey || 'all';
-    const selectedModel = models.find(item => item.key === selectedKey) || null;
+    const selectedModel = shownModels.find(item => item.key === selectedKey) || null;
     if (selectedKey !== 'all' && !selectedModel) navState.aiUsageModelKey = 'all';
     const totals = selectedModel?.totals || data?.totals || {};
     const series = Array.isArray(selectedModel?.series) ? selectedModel.series : (Array.isArray(data?.series) ? data.series : []);
     const period = series.reduce((sum, item) => ({ tokens: sum.tokens + Number(item.tokens || 0), costCny: sum.costCny + Number(item.costCny || 0) }), { tokens: 0, costCny: 0 });
     const unclassified = data?.unclassified || {};
     host.innerHTML = `
-        <div style="margin:12px 0 10px;display:flex;align-items:center;gap:7px;overflow-x:auto;padding-bottom:3px;">
+        <div style="margin:12px 0 10px;display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding-bottom:3px;">
             <button type="button" class="nav-settings-add ${selectedModel ? 'secondary' : ''}" onclick="setAiUsageModel('all')" style="margin:0;white-space:nowrap;">${navEscape(navT('nav.ai.usageAllModels'))}</button>
-            ${models.map(item => `<button type="button" class="nav-settings-add ${selectedModel?.key === item.key ? '' : 'secondary'}" onclick="setAiUsageModel('${navEscape(item.key)}')" style="margin:0;white-space:nowrap;">${navEscape(item.profileName || item.provider)} · ${navEscape(item.model)} · ${formatAiUsageNumber(item.totals?.tokens)}</button>`).join('')}
+            ${shownModels.map(item => `<button type="button" class="nav-settings-add ${selectedModel?.key === item.key ? '' : 'secondary'}" onclick="setAiUsageModel('${navEscape(item.key)}')" style="margin:0;white-space:nowrap;">${navEscape(item.profileName || item.provider)} · ${navEscape(item.model)} · ${formatAiUsageNumber(item.totals?.tokens)}</button>`).join('')}
             ${selectedModel ? `
                 <button type="button" class="nav-settings-add danger" onclick="clearSelectedModelAiUsage()" style="margin:0 0 0 auto;white-space:nowrap;font-size:12px;padding:3px 10px;height:28px;" title="清空当前选中模型的用量与计费统计">🗑 ${navEscape(navT('nav.ai.clearModelUsage'))}</button>
             ` : (models.length > 0 ? `
@@ -3189,7 +3195,7 @@ function renderAiUsageDashboard(data) {
                     return `
                     <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid #edf2f7;border-radius:8px;padding:5px 9px;font-size:12px;">
                         <div style="display:flex;align-items:center;gap:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                            <strong style="color:#1e293b;">${navEscape(displayName)}</strong>
+                            <strong style="color:#1e293b;">${navEscape(displayName)}</strong>${configured.size && !isConfigured(item) ? '<em style="font-style:normal;font-size:10.5px;color:#94a3b8;border:1px solid #e2e8f0;border-radius:8px;padding:0 6px;">已不在配置中</em>' : ''}
                             <span style="color:#64748b;font-size:11px;">(${formatAiUsageNumber(item.totals?.tokens)} Tokens · ¥${Number(item.totals?.costCny || 0).toFixed(4)})</span>
                         </div>
                         <button type="button" class="nav-settings-add danger" onclick="clearSpecificModelUsage('${navEscape(item.key)}', '${navEscape(displayName)}', ${item.totals?.tokens || 0}, ${Number(item.totals?.costCny || 0).toFixed(4)})" style="margin:0;font-size:11px;padding:2px 8px;height:24px;line-height:20px;" title="清空该模型的历史 Token 与计费统计">🗑 清空统计</button>
@@ -3348,16 +3354,33 @@ async function renderAiSettings(content) {
     try {
         const settingsStore = await fetchAiSettingsForNav();
         if (!aiModelAliasSaveTimer) navState.aiModelAliasDraft = null;
-        const profiles = Array.isArray(settingsStore.profiles) ? settingsStore.profiles : [];
-        const settings = profiles.find(item => item.id === navState.aiSelectedProfileId) || profiles[0] || settingsStore;
-        const isActiveProfile = settings.id === settingsStore.activeProfileId;
+        const allProfiles = Array.isArray(settingsStore.profiles) ? settingsStore.profiles : [];
+        // Two categories as tabs: 文心 (chat models) and 丹青 (image models); each lists, creates and activates its own.
+        const picked = allProfiles.find(item => item.id === navState.aiSelectedProfileId);
+        const category = navState.aiCategory || picked?.category || 'chat';
+        navState.aiCategory = category;
+        const profiles = allProfiles.filter(item => (item.category || 'chat') === category);
+        const settings = profiles.find(item => item.id === navState.aiSelectedProfileId) || profiles.find(item => item.isActive) || profiles[0] || null;
+        if (settings) navState.aiSelectedProfileId = settings.id;
+        const isImage = category === 'image';
+        const isActiveProfile = !!settings?.isActive;
+        const chatCount = allProfiles.filter(item => (item.category || 'chat') === 'chat').length, imageCount = allProfiles.length - chatCount;
+        const tabs = `<div class="nav-ai-tabs" role="tablist" aria-label="AI 模型分类">
+            <button type="button" role="tab" class="nav-ai-tab ${isImage ? '' : 'is-active'}" aria-selected="${!isImage}" onclick="switchAiCategory('chat')"><span class="nav-ai-tab-icon">文</span><span><b>文心 · 对话模型</b><small>对话、分析、写作与月报生成 · ${chatCount} 套</small></span></button>
+            <button type="button" role="tab" class="nav-ai-tab ${isImage ? 'is-active' : ''}" aria-selected="${isImage}" onclick="switchAiCategory('image')"><span class="nav-ai-tab-icon">丹</span><span><b>丹青 · 绘图模型</b><small>生成与修改图片 · ${imageCount} 套</small></span></button>
+        </div>`;
+        if (!settings) {
+            content.innerHTML = `${tabs}<div class="nav-ai-tab-empty"><strong>还没有绘图模型</strong><span>添加一个能输出图片的模型（如 Gemini 的图片模型），AI 月报的图片对话就能生成真正的图片；没有时会用对话模型画 SVG 矢量图。</span><button type="button" class="nav-settings-add" onclick="createAiProfile()">＋ 新建绘图模型</button></div>`;
+            return;
+        }
         content.innerHTML = `
-            <div class="nav-settings-help">${navEscape(navT('nav.ai.help'))}</div>
+            ${tabs}
+            <div class="nav-settings-help">${isImage ? 'AI 月报的图片对话（LOGO 和以后格子里的图片）用这里“使用中”的绘图模型生成图片；它不会参与对话，也不会被自动切换。' : navEscape(navT('nav.ai.help'))}</div>
             <section class="nav-ai-profile-panel">
                 <div class="nav-ai-profile-head">
                     <div>
-                        <strong>AI 配置方案</strong>
-                        <span>可保存多套供应商与模型参数；只有已激活方案会用于实际业务。</span>
+                        <strong>${isImage ? '绘图模型方案' : 'AI 配置方案'}</strong>
+                        <span>${isImage ? '可保存多套绘图模型；只有“使用中”的一套会用于生成图片。' : '可保存多套供应商与模型参数；只有已激活方案会用于实际业务。'}</span>
                     </div>
                     <div class="nav-ai-profile-head-actions">
                         <button type="button" class="nav-settings-add" onclick="createAiProfile()">＋ 新建</button>
@@ -3373,10 +3396,10 @@ async function renderAiSettings(content) {
                         </button>
                     `).join('')}
                 </div>
-                <label class="nav-settings-check" style="margin-top:8px;padding:9px 10px;border:1px solid rgba(129,140,248,.24);border-radius:10px;background:rgba(255,255,255,.68);display:flex;align-items:center;gap:8px;">
+                ${isImage ? '' : `<label class="nav-settings-check" style="margin-top:8px;padding:9px 10px;border:1px solid rgba(129,140,248,.24);border-radius:10px;background:rgba(255,255,255,.68);display:flex;align-items:center;gap:8px;">
                     <input id="navAiAutoSwitch" type="checkbox" ${settingsStore.autoSwitchEnabled ? 'checked' : ''} onchange="scheduleAiSettingsSave()">
                     <span><b>${navEscape(navT('nav.ai.autoSwitch'))}</b><small style="display:block;margin-top:2px;color:#64748b;font-weight:500;">${navEscape(navT('nav.ai.autoSwitchHelp'))}</small></span>
-                </label>
+                </label>`}
                 <div class="nav-ai-profile-toolbar">
                     <label>
                         <span>方案名称</span>
@@ -3384,14 +3407,14 @@ async function renderAiSettings(content) {
                     </label>
                     <div>
                         <button type="button" class="nav-settings-add" onclick="testAiSettingsNow()">⌁ 测试连接</button>
-                        <button type="button" class="nav-settings-add activate" onclick="activateAiProfile()" ${isActiveProfile ? 'disabled' : ''}>${isActiveProfile ? '✓ 当前已激活' : '⚡ 激活此方案'}</button>
-                        <button type="button" class="nav-settings-add danger" onclick="deleteAiProfile()" ${profiles.length <= 1 ? 'disabled' : ''}>删除</button>
+                        <button type="button" class="nav-settings-add activate" onclick="activateAiProfile()" ${isActiveProfile ? 'disabled' : ''}>${isActiveProfile ? (isImage ? '✓ 正在用于绘图' : '✓ 当前已激活') : (isImage ? '⚡ 用于绘图' : '⚡ 激活此方案')}</button>
+                        <button type="button" class="nav-settings-add danger" onclick="deleteAiProfile()" ${!isImage && profiles.length <= 1 ? 'disabled' : ''}>删除</button>
                     </div>
                 </div>
             </section>
-            <section class="nav-ai-profile-panel nav-ai-alias-panel" id="navAiAliasPanel">${renderAiModelAliasPanel()}</section>
+            ${isImage ? '' : `<section class="nav-ai-profile-panel nav-ai-alias-panel" id="navAiAliasPanel">${renderAiModelAliasPanel()}</section>`}
             <div class="nav-ai-status">
-                <span>${isActiveProfile ? '当前业务正在使用此方案' : '正在编辑未激活方案'}</span>
+                <span>${isActiveProfile ? (isImage ? '图片生成正在使用此方案' : '当前业务正在使用此方案') : '正在编辑未激活方案'}</span>
                 <span>${navEscape(navT('nav.ai.sourcePrefix'))}${navEscape(sourceLabelForAiSettings(settings.apiKeySource))}</span>
                 <span class="${settings.hasApiKey && !settings.keyLooksValid ? 'warning' : ''}">${navEscape(keyHealthLabelForAiSettings(settings))}</span>
             </div>
@@ -3491,7 +3514,7 @@ async function renderAiSettings(content) {
 
 // ── 对话模型名称映射（Aragon 等自定义名称 → 实际配置方案）──────────
 function renderAiModelAliasPanel() {
-    const profiles = Array.isArray(navState.aiSettings?.profiles) ? navState.aiSettings.profiles : [];
+    const profiles = (Array.isArray(navState.aiSettings?.profiles) ? navState.aiSettings.profiles : []).filter(item => (item.category || 'chat') === 'chat');
     if (!Array.isArray(navState.aiModelAliasDraft)) {
         navState.aiModelAliasDraft = (navState.aiSettings?.modelAliases || []).map(item => ({ ...item }));
     }
@@ -3620,7 +3643,9 @@ function collectAiSettingsPayload(options = {}) {
         usdToCny: document.getElementById('navAiUsdToCny')?.value || 7.2,
         systemPrompt: document.getElementById('navAiSystemPrompt')?.value || ''
     };
-    payload.autoSwitchEnabled = document.getElementById('navAiAutoSwitch')?.checked === true;
+    // Only the chat tab shows the failover switch; saving a drawing profile leaves the setting as it is.
+    const autoSwitch = document.getElementById('navAiAutoSwitch');
+    if (autoSwitch) payload.autoSwitchEnabled = autoSwitch.checked === true;
     const token = tokenInput ? tokenInput.value.trim() : '';
     if (token) payload.apiKey = token;
     if (options.clearApiKey) payload.clearApiKey = true;
@@ -3646,6 +3671,21 @@ async function requestAiProfile(url, options = {}) {
     return data;
 }
 
+window.switchAiCategory = async function (category) {
+    if (navState.aiCategory === category) return;
+    const indicator = document.getElementById('navSettingsSaveState');
+    try {
+        clearTimeout(navState.aiSaveTimer);
+        if (document.getElementById('navAiProvider')) await saveAiSettingsNow();
+        navState.aiCategory = category;
+        const profiles = (navState.aiSettings?.profiles || []).filter(item => (item.category || 'chat') === category);
+        navState.aiSelectedProfileId = (profiles.find(item => item.isActive) || profiles[0])?.id || null;
+        renderAiSettings(document.getElementById('navSettingsContent'));
+    } catch (error) {
+        if (indicator) indicator.textContent = `切换前保存失败：${error.message}`;
+    }
+};
+
 window.selectAiProfile = async function (profileId) {
     if (profileId === navState.aiSelectedProfileId) return;
     const indicator = document.getElementById('navSettingsSaveState');
@@ -3667,7 +3707,7 @@ window.createAiProfile = async function () {
         if (indicator) indicator.textContent = '正在创建…';
         const data = await requestAiProfile('/api/ai-settings/profiles', {
             method: 'POST',
-            body: JSON.stringify({ name: '新 AI 配置' })
+            body: JSON.stringify(navState.aiCategory === 'image' ? { name: '新绘图模型', category: 'image', provider: 'gemini' } : { name: '新 AI 配置', category: 'chat' })
         });
         navState.aiSettings = data;
         navState.aiSelectedProfileId = data.createdProfileId;
@@ -5354,6 +5394,16 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
 
     const activeFilter = navState.mediaCategoryFilter || 'all';
     const query = (navState.mediaSearchQuery || '').trim().toLowerCase();
+    const feiniu = overview.feiniu || {
+        url: 'https://feiniu.fanxiaolong.uk/v',
+        username: 'admin',
+        hasPassword: true,
+        enabled: true,
+        serverName: '雪花肥牛',
+        connected: false,
+        totalVideos: 0,
+        lastError: ''
+    };
 
     let filteredVideos = videos;
     if (activeFilter !== 'all') {
@@ -5386,6 +5436,50 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
                 <div style="background:linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
                     <div style="font-size:12px; color:#64748b; margin-bottom:4px;">💽 磁盘可用空间</div>
                     <div style="font-size:22px; font-weight:800; color:#10b981;">${overview.disk.freeGb} <span style="font-size:12px; font-weight:500; color:#64748b;">GB 可用</span></div>
+                </div>
+            </div>
+
+            <!-- 飞牛影视远程对接配置卡片 -->
+            <div style="background:linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); border:1px solid #bfdbfe; border-radius:12px; padding:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+                    <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                        <span style="font-size:15px; font-weight:800; color:#0f172a;">☁️ 飞牛影视对接</span>
+                        ${feiniu.connected
+                            ? `<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:999px; background:#dcfce7; color:#15803d; font-size:12px; font-weight:600;">● 已连接「${navEscape(feiniu.serverName || '飞牛影视')}」· 同步 ${Number(feiniu.totalVideos) || 0} 部视频</span>`
+                            : (!feiniu.enabled
+                                ? `<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:999px; background:#e2e8f0; color:#475569; font-size:12px; font-weight:600;">⏸️ 已暂停对接</span>`
+                                : `<span style="display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:999px; background:#fef3c7; color:#b45309; font-size:12px; font-weight:600;">⚠️ 未连接${feiniu.lastError ? '：' + navEscape(feiniu.lastError) : ''}</span>`
+                            )
+                        }
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#334155; cursor:pointer;">
+                            <input type="checkbox" id="feiniuEnabledInput" ${feiniu.enabled !== false ? 'checked' : ''} style="width:15px; height:15px; accent-color:#2563eb;">
+                            <span>启用飞牛片源接入</span>
+                        </label>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:minmax(220px, 1.8fr) minmax(130px, 1fr) minmax(130px, 1fr) auto; gap:10px; align-items:end;">
+                    <label style="display:block; font-size:12px; font-weight:600; color:#334155;">
+                        对接链接
+                        <input type="url" id="feiniuUrlInput" value="${navEscape(feiniu.url || 'https://feiniu.fanxiaolong.uk/v')}" placeholder="https://feiniu.fanxiaolong.uk/v" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; color:#0f172a; background:#fff;">
+                    </label>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#334155;">
+                        账号
+                        <input type="text" id="feiniuUsernameInput" value="${navEscape(feiniu.username || 'admin')}" placeholder="输入飞牛账号" autocomplete="username" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; color:#0f172a; background:#fff;">
+                    </label>
+                    <label style="display:block; font-size:12px; font-weight:600; color:#334155;">
+                        密码
+                        <input type="password" id="feiniuPasswordInput" value="${feiniu.hasPassword ? '********' : ''}" placeholder="输入飞牛密码" autocomplete="current-password" style="display:block; width:100%; box-sizing:border-box; margin-top:4px; padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; color:#0f172a; background:#fff;">
+                    </label>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" onclick="saveFeiniuMediaConfig(this)" style="height:36px; padding:0 14px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;">
+                            🔗 保存并对接
+                        </button>
+                        <button type="button" onclick="syncFeiniuMediaCatalog(this)" style="height:36px; padding:0 12px; background:#fff; color:#1e40af; border:1px solid #93c5fd; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap;" title="立即从飞牛影视同步影片列表">
+                            🔄 同步片库
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -5461,7 +5555,10 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
                                         </div>
                                     </td>
                                     <td style="padding:8px 12px;">
-                                        <div style="font-weight:600; color:#0f172a; margin-bottom:2px;" title="${navEscape(item.title)}">${navEscape(item.title)}</div>
+                                        <div style="font-weight:600; color:#0f172a; margin-bottom:2px; display:flex; align-items:center; gap:6px;" title="${navEscape(item.title)}">
+                                            <span>${navEscape(item.title)}</span>
+                                            ${item.source === 'feiniu' ? `<span style="padding:1px 6px; border-radius:999px; background:#dbeafe; color:#1d4ed8; font-size:10px; font-weight:700;">☁️ 飞牛</span>` : ''}
+                                        </div>
                                         <div class="nav-media-item-meta">
                                             <span class="nav-media-file-name">${navEscape(item.fileName)}</span>
                                             <label class="nav-media-priority" title="数字越小，在影视作品展播中越靠前">
@@ -5487,12 +5584,16 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
                                             <button type="button" class="nav-media-action" onclick="openEditMediaModal('${navEscape(item.id)}')" title="修改标题、分类与简介">
                                                 ✏️ 编辑
                                             </button>
-                                            <button type="button" class="nav-media-action" onclick="extractMediaPoster('${navEscape(item.id)}')" title="重新截取高清封面帧">
-                                                🖼️ 抽帧
-                                            </button>
-                                            <button type="button" class="nav-media-action danger" onclick="deleteMediaVideo('${navEscape(item.id)}', '${navEscape(item.title)}')" title="彻底删除该视频" aria-label="删除 ${navEscape(item.title)}">
-                                                🗑️
-                                            </button>
+                                            ${item.source === 'feiniu' ? `
+                                                <span style="font-size:11px; color:#64748b; padding:0 6px;" title="飞牛远程流媒体">☁️ 远程源</span>
+                                            ` : `
+                                                <button type="button" class="nav-media-action" onclick="extractMediaPoster('${navEscape(item.id)}')" title="重新截取高清封面帧">
+                                                    🖼️ 抽帧
+                                                </button>
+                                                <button type="button" class="nav-media-action danger" onclick="deleteMediaVideo('${navEscape(item.id)}', '${navEscape(item.title)}')" title="彻底删除该视频" aria-label="删除 ${navEscape(item.title)}">
+                                                    🗑️
+                                                </button>
+                                            `}
                                         </div>
                                     </td>
                                 </tr>
@@ -5508,7 +5609,8 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
                 <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(240px, 1fr)); gap:10px;">
                     ${managedCategories.map(cat => {
         const f = cat.folder || '';
-        const isSystem = !f || f === 'film';
+        const isFeiniuCat = cat.source === 'feiniu' || String(cat.id || '').startsWith('feiniu-');
+        const isSystem = !f || f === 'film' || isFeiniuCat;
         const cnt = categoryCount(cat);
         return `
                             <div style="border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
@@ -5521,14 +5623,16 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
                                     </label>
                                 </div>
                                 <div style="display:flex; gap:4px;">
-                                    <button type="button" onclick="openEditMediaCategoryModal('${navEscape(cat.id)}')" style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;" title="设置分类访问保护">
-                                        ${cat.protected ? '🔒 PIN' : '设置'}
-                                    </button>
+                                    ${!isFeiniuCat ? `
+                                        <button type="button" onclick="openEditMediaCategoryModal('${navEscape(cat.id)}')" style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer;" title="设置分类访问保护">
+                                            ${cat.protected ? '🔒 PIN' : '设置'}
+                                        </button>
+                                    ` : ''}
                                     ${!isSystem ? `
                                         <button type="button" onclick="deleteMediaFolder('${navEscape(f)}')" style="border:1px solid #fecaca; background:#fff; color:#ef4444; border-radius:6px; padding:3px 9px; font-size:11px; font-weight:600; cursor:pointer; transition:all .15s ease;" onmouseover="this.style.background='#fef2f2';this.style.borderColor='#f87171'" onmouseout="this.style.background='#fff';this.style.borderColor='#fecaca'" title="删除分类">
                                             删除
                                         </button>
-                                    ` : '<span style="font-size:11px; color:#94a3b8;">系统内置</span>'}
+                                    ` : `<span style="font-size:11px; color:#94a3b8;">${isFeiniuCat ? '飞牛媒体库' : '系统内置'}</span>`}
                                 </div>
                             </div>
                         `;
@@ -5538,6 +5642,87 @@ function renderMediaSettingsHtml(content, overview, videos, categories) {
         </div>
     `;
 }
+
+// 保存并对接飞牛影视配置
+window.saveFeiniuMediaConfig = async function (btn) {
+    const urlInput = document.getElementById('feiniuUrlInput');
+    const usernameInput = document.getElementById('feiniuUsernameInput');
+    const passwordInput = document.getElementById('feiniuPasswordInput');
+    const enabledInput = document.getElementById('feiniuEnabledInput');
+
+    const url = (urlInput?.value || 'https://feiniu.fanxiaolong.uk/v').trim() || 'https://feiniu.fanxiaolong.uk/v';
+    const username = (usernameInput?.value || 'admin').trim() || 'admin';
+    const password = passwordInput?.value || '';
+    const enabled = enabledInput ? Boolean(enabledInput.checked) : true;
+
+    const origText = btn ? btn.textContent : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ 正在对接...';
+    }
+    try {
+        const res = await fetch('/api/media/admin/feiniu/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() },
+            body: JSON.stringify({ url, username, password, enabled })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+        }
+        await renderMediaSettings(document.getElementById('navSettingsContent'));
+        showNavbarNotice({
+            title: '飞牛影视对接成功',
+            message: data.message || '飞牛影视配置已保存并完成影片同步。',
+            tone: 'success'
+        });
+    } catch (error) {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = origText || '🔗 保存并对接';
+        }
+        showNavbarNotice({
+            title: '飞牛影视对接失败',
+            message: error.message || '请检查飞牛影视地址、账号与密码是否正确。',
+            tone: 'error'
+        });
+    }
+};
+
+// 手动立即同步飞牛影视片库
+window.syncFeiniuMediaCatalog = async function (btn) {
+    const origText = btn ? btn.textContent : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ 同步中...';
+    }
+    try {
+        const res = await fetch('/api/media/admin/feiniu/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || `HTTP ${res.status}`);
+        }
+        await renderMediaSettings(document.getElementById('navSettingsContent'));
+        showNavbarNotice({
+            title: '飞牛片库已同步',
+            message: data.message || '已同步最新飞牛影视列表。',
+            tone: 'success'
+        });
+    } catch (error) {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = origText || '🔄 同步片库';
+        }
+        showNavbarNotice({
+            title: '同步失败',
+            message: error.message || '无法从飞牛影视拉取最新列表。',
+            tone: 'error'
+        });
+    }
+};
 
 // 客户端即时筛选分类
 window.switchMediaCategoryFilter = function (category) {
@@ -7604,6 +7789,12 @@ function ensureNavbarConfirmDialog() {
 
 function showNavbarConfirm({ title, message, hint, cancelText, confirmText, eyebrow, icon, tone = 'warning', notice = false }) {
     const modal = ensureNavbarConfirmDialog();
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl && fsEl !== document.documentElement && fsEl !== document.body) {
+        fsEl.appendChild(modal);
+    } else if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
     if (navConfirmResolver) {
         navConfirmResolver(false);
         navConfirmResolver = null;
@@ -7638,6 +7829,9 @@ window.resolveNavbarConfirm = function (confirmed) {
     const modal = document.getElementById('navbarConfirmModal');
     modal?.classList.remove('open');
     modal?.setAttribute('aria-hidden', 'true');
+    if (modal && modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
     const resolve = navConfirmResolver;
     navConfirmResolver = null;
     if (resolve) resolve(Boolean(confirmed));
@@ -7686,6 +7880,12 @@ function ensureNavbarFormDialog() {
 
 function showNavbarFormDialog({ title, message = '', hint = '', fields = [], cancelText, confirmText, eyebrow, icon = '✎', tone = 'info' }) {
     const modal = ensureNavbarFormDialog();
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fsEl && fsEl !== document.documentElement && fsEl !== document.body) {
+        fsEl.appendChild(modal);
+    } else if (modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
     if (navFormDialogResolver) {
         navFormDialogResolver(null);
         navFormDialogResolver = null;
@@ -7769,6 +7969,9 @@ window.resolveNavbarFormDialog = function (confirmed) {
     const values = confirmed && form ? Object.fromEntries(new FormData(form).entries()) : null;
     modal?.classList.remove('open');
     modal?.setAttribute('aria-hidden', 'true');
+    if (modal && modal.parentElement !== document.body) {
+        document.body.appendChild(modal);
+    }
     const resolve = navFormDialogResolver;
     navFormDialogResolver = null;
     if (resolve) resolve(values);

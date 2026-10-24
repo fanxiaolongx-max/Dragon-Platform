@@ -1,3 +1,4 @@
+import { translate } from './i18n.js';
 // 知识大纲 · 无限画布导图：知识库 → 一层目录（领域）→ 二层目录（分类）→ 笔记 → 知识点，从左到右由粗到细。
 // 拖拽平移、滚轮/双指以光标为中心缩放；节点可折叠；笔记之间的关联与共享知识点画成关联线，悬停高亮。
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -24,7 +25,7 @@ const store = {
 function clip(text, max) {
     let width = 0;
     let out = '';
-    for (const ch of String(text)) {
+    for (const ch of translate(text)) {
         width += ch.charCodeAt(0) > 255 ? 1 : 0.55;
         if (width > max) return `${out}…`;
         out += ch;
@@ -367,7 +368,7 @@ export function mountMindMap(container, { catalog, statusLabels = {}, currentArt
     let hitIndex = -1;
     searchInput.addEventListener('input', () => {
         const query = searchInput.value.trim().toLowerCase();
-        hits = query ? [...nodes.values()].filter(node => node.kind !== 'root' && `${node.label} ${node.title || ''}`.toLowerCase().includes(query)) : [];
+        hits = query ? [...nodes.values()].filter(node => node.kind !== 'root' && translate(`${node.label} ${node.title || ''}`).toLowerCase().includes(query)) : [];
         hitIndex = -1;
         searchCount.textContent = query ? `${hits.length} 个` : '';
         hits.forEach(reveal);
@@ -402,5 +403,6 @@ export function mountMindMap(container, { catalog, statusLabels = {}, currentArt
     });
     const onResize = () => applyTransform();
     window.addEventListener('resize', onResize);
-    return { dispose() { window.removeEventListener('resize', onResize); host.remove(); } };
+    document.addEventListener('dk:languagechange', draw);
+    return { dispose() { window.removeEventListener('resize', onResize); document.removeEventListener('dk:languagechange', draw); host.remove(); } };
 }

@@ -337,7 +337,13 @@ async function createTask(input, ctx, calendar) {
     if (!ctx?.conversation?.kind || !ctx.conversation.id) throw serviceError('FOLLOWUP_CONVERSATION_REQUIRED', '缺少任务所属的会话');
     const plan = normalizeSchedule(input);
     const createdAt = new Date();
-    const first = parseFuture(input.firstRemindAt, createdAt);
+    let first = null;
+    const inMin = Number(input.inMinutes);
+    if (Number.isFinite(inMin) && inMin > 0) {
+        first = new Date(createdAt.getTime() + Math.round(inMin) * 60000);
+    } else {
+        first = parseFuture(input.firstRemindAt, createdAt, calendar);
+    }
     const nextRemindAt = (first || schedule.nextReminder(plan, createdAt, calendar)).toISOString();
     const id = newId();
     const at = createdAt.toISOString();
@@ -349,19 +355,25 @@ async function createTask(input, ctx, calendar) {
     [id, ctx.channel || 'welink', ctx.conversation.kind, clip(ctx.conversation.id, 200), clip(ctx.toolSessionId, 200), clip(ctx.aiSessionId, 120), title,
         clip(input.detail, 6000), clip(input.sourceText, 6000), clip(input.creator || ctx.actor, 120), JSON.stringify(normalizeAssignees(input.assignees)),
         plan.urgency, plan.scheduleMode, plan.intervalMinutes, plan.randomMinMinutes, plan.randomMaxMinutes, plan.allowOffHours == null ? null : (plan.allowOffHours ? 1 : 0),
-        nextRemindAt, clip(input.nextRemindNote, 500), maxReminders, parseDate(input.dueAt), at, at]);
+        nextRemindAt, clip(input.nextRemindNote, 500), maxReminders, parseDate(input.dueAt, calendar), at, at]);
     await addEvent(id, 'created', { actor: ctx.actor, note: title, meta: { urgency: plan.urgency, nextRemindAt } });
     return getTask(id);
 }
 
-function parseDate(value) {
+function parseDate(value, calendar) {
     if (!value) return null;
-    const date = new Date(value);
+    const str = String(value).trim();
+    const naiveMatch = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(str);
+    if (naiveMatch) {
+        const [, y, m, d, hh, mm] = naiveMatch;
+        return schedule.fromZone(Number(y), Number(m), Number(d), Number(hh) * 60 + Number(mm), calendar?.timezone || schedule.DEFAULT_CALENDAR.timezone).toISOString();
+    }
+    const date = new Date(str);
     return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-function parseFuture(value, from) {
-    const iso = parseDate(value);
+function parseFuture(value, from, calendar) {
+    const iso = parseDate(value, calendar);
     return iso && new Date(iso) > from ? new Date(iso) : null;
 }
 
@@ -376,7 +388,7 @@ async function updateTask(id, patch = {}, { actor = '', calendar } = {}) {
     if (patch.detail !== undefined) set('detail', clip(patch.detail, 6000));
     if (patch.assignees !== undefined) set('assignees_json', JSON.stringify(normalizeAssignees(patch.assignees)));
     if (patch.nextRemindNote !== undefined) set('next_remind_note', clip(patch.nextRemindNote, 500));
-    if (patch.dueAt !== undefined) set('due_at', parseDate(patch.dueAt));
+    if (patch.dueAt !== undefined) set('due_at', parseDate(patch.dueAt, calendar));
     if (patch.progress !== undefined && String(patch.progress).trim()) set('progress', clip(String(patch.progress).trim(), 2000));
     const scheduleKeys = ['urgency', 'scheduleMode', 'intervalMinutes', 'randomMinMinutes', 'randomMaxMinutes', 'allowOffHours'];
     let nextRemindAt = null;
@@ -390,8 +402,13 @@ async function updateTask(id, patch = {}, { actor = '', calendar } = {}) {
         set('allow_off_hours', plan.allowOffHours == null ? null : (plan.allowOffHours ? 1 : 0));
         if (task.status === 'open') nextRemindAt = schedule.nextReminder(plan, new Date(), calendar).toISOString();
     }
-    const explicit = parseFuture(patch.nextRemindAt, new Date());
-    if (explicit && task.status === 'open') nextRemindAt = explicit.toISOString();
+    const inMin = Number(patch.inMinutes);
+    if (Number.isFinite(inMin) && inMin > 0 && task.status === 'open') {
+        nextRemindAt = new Date(Date.now() + Math.round(inMin) * 60000).toISOString();
+    } else {
+        const explicit = parseFuture(patch.nextRemindAt, new Date(), calendar);
+        if (explicit && task.status === 'open') nextRemindAt = explicit.toISOString();
+    }
     if (nextRemindAt) set('next_remind_at', nextRemindAt);
     if (!sets.length) return task;
     set('updated_at', now());

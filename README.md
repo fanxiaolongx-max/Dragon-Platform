@@ -57,7 +57,7 @@
 Dragon Platform 最初只是一个 HTML 页面，用来少做一点重复的表格活。现在它长成了一个完整的工具中台，但初心没变：**把日常工作里那些「又要手工弄一遍」的事，变成点一下就好的工具。**
 
 - **一个首页解决大多数事**：问问题、查数据、找工具、改代码，都从 Dragon Claw 对话框开始。
-- **一条数据主线**：网页数据自动抓取 → 多表导入与 SLA 合控 → 报表看板 → 月报编辑与导出 → 一键催办。
+- **一条数据主线**：网页数据自动抓取 → 多表导入与 SLA 合控 → 报表看板 → AI 月报生成与导出 → 一键催办。
 - **一个工具市场**：任何一个 HTML 页面都能变成平台工具，统一登录、统一入口、按租户隔离数据。
 - **数据留在本地**：服务跑在你自己的电脑或内网服务器上，SQLite 存储，按租户物理隔离。
 
@@ -74,7 +74,7 @@ mindmap
       UIVF12 自动抓取
       SLA 多表合控
       报表看板与运营大屏
-      通用月报编辑器
+      AI 月报
       一键催办
     🧰 工具矩阵
       专项治理 考勤 激励 奖惩
@@ -149,10 +149,10 @@ flowchart LR
     B --> C["⏱️ SLA 合控<br/>倒计时 · 超期预警"]
     C --> D["📸 快照入库<br/>按月留存 · 历史可追溯"]
     D --> E["📈 报表看板<br/>客户群排名 · 短板透视"]
-    D --> F["📝 通用月报<br/>拖拽排版 · 指标引用"]
+    D --> F["📝 AI 月报<br/>格子对话 · AI 配方自动生成"]
     D --> G["⚡ 一键催办<br/>自动生成文案"]
     D --> H["🖥️ 运营大屏"]
-    F --> I["📤 导出<br/>PDF · HTML · Excel · 图片 · MSG"]
+    F --> I["📤 导出<br/>HTML · PDF · MSG"]
     D -. 只读 .-> J["🐉 Dragon Claw 数据问答"]
 ```
 
@@ -160,16 +160,20 @@ flowchart LR
 | :---: | :---: |
 | <img src="tools-platform/docs/images/readme/shots/uivf12.jpg" alt="UIVF12 自动化脚本工程中心"> | <img src="tools-platform/docs/images/readme/shots/sla.jpg" alt="SLA 全局数据合控大台：工单与超期色标"> |
 | 脚本仓库按站点分组，填网址、贴接口样例，就能生成 UI.Vision 宏或 F12 控制台脚本，批量定时抓取。 | 一次拖入多张详单，自动归类到整改、风险、SR、漏洞等合集；每张工单按规则算出剩余时间，超期标红。 |
-| **第三站：月报编辑** | **第四站：专题分析** |
-| <img src="tools-platform/docs/images/readme/shots/monthly.jpg" alt="通用月报编辑器：资料库、画布与组件配置"> | <img src="tools-platform/docs/images/readme/shots/topic.jpg" alt="专题分析：EOS 收编进展月报"> |
-| 左侧资料库找数据，中间像写文档一样排月报，图表和指标随月份自动更新，模板跨月复用。 | 按租户沉淀 NetCare / DataFab 快照，生成 EOS 收编等专题月报，支持版本对比与多格式导出。 |
+| **第三站：AI 月报** | **第四站：专题分析** |
+| <img src="tools-platform/docs/images/readme/shots/monthly.jpg" alt="AI 月报：章节格子排版、对话定制与自动计算"> | <img src="tools-platform/docs/images/readme/shots/topic.jpg" alt="专题分析：EOS 收编进展月报"> |
+| **想改哪里点哪里**：点格子聊数据、点 LOGO 换图或让 AI 当场画徽标、点报头字段定每月自动更新规则、点章节统一排版（锁死数字只改外观）、点顶部换全篇配色；AI 自己翻表算数据，12 道质检关卡挡住假数字与拥挤排版，改坏了一秒粒子消散撤回；看到哪个词不顺眼双击直接改，拉窄格子自动重排，到了下个月切一下月份全篇自动重算，一键导出可离线 3 级下钻的 HTML、矢量 PDF 或 Outlook 邮件。 | 按租户沉淀 NetCare / DataFab 快照，生成 EOS 收编等专题月报，支持版本对比与多格式导出。 |
 
 <details>
-<summary>📷 再看一张：填好数据的月报编辑器</summary>
+<summary>📷 展开更多 AI 月报真实界面（格子对话、多列图表网格与整体风格顾问）</summary>
 
-<img src="tools-platform/docs/images/readme/monthly-editor.png" alt="通用月报编辑器：资料库、月报画布与组件配置" width="100%">
+<img src="tools-platform/docs/images/readme/monthly-editor.png" alt="AI 月报：左侧四宫格图表与表格联动，右侧格子对话与最终提示词" width="100%">
 
-*使用虚构团队与演示数据。具体操作见[月报编辑器指南](tools-platform/docs/monthly-designer.md)。*
+| 多列窄格图表网格与空白格直接提问 | 整体风格顾问与四分类全局规则 |
+| :---: | :---: |
+| <img src="tools-platform/docs/images/readme/shots/ai-report-cells.jpg" alt="AI 月报：风险治理六宫格柱状图与空白格输入框"> | <img src="tools-platform/docs/images/readme/shots/ai-report-style.jpg" alt="AI 月报：整体风格对话与四分类提示词"> |
+
+*注：截图取自真实 AI 月报页面（敏感部门、人员及具体指标数值已做模糊打码处理）。完整用法见 [AI 月报指南](tools-platform/docs/monthly-designer.md)。*
 </details>
 
 **这条线的每一站怎么用：** [数据抓取](tools-platform/README.md#21-自动化数据抓取与-uivf12-ai-网站适配器) · [SLA 与指标规则](tools-platform/README.md#22-sla-数据合控与指标规则引擎) · [报表与月报](tools-platform/README.md#23-报表看板月报工作区与运营大屏) · [催办与导出](tools-platform/README.md#24-一键精准催办与导出) · [默认快速上手包](tools-platform/README.md#默认快速上手包)
@@ -220,7 +224,7 @@ flowchart LR
 
 ## 📡 数通协议专家：把协议「演」给你看
 
-OSPF 邻居为什么卡在 2-Way？DR 是怎么选出来的？数通协议专家把一篇篇笔记做成了**分步动画、可调参数的实验和知识大纲**，每一步都告诉你发生了什么、为什么。
+OSPF 邻居为什么卡在 2-Way？DR 是怎么选出来的？数通协议专家把 28 篇笔记做成了**分步动画、可调参数的实验、报文逐字段拆解和知识大纲**，支持**中英双语**一键切换，每一步都告诉你发生了什么、为什么。
 
 <div align="center">
 <img src="tools-platform/docs/images/readme/shots/datacom-lesson.gif" alt="OSPF 建邻分步图解：从 Init 到 Full" width="88%"><br>
@@ -233,11 +237,17 @@ OSPF 邻居为什么卡在 2-Way？DR 是怎么选出来的？数通协议专家
 | **可视化实验室** | **知识大纲** |
 | <img src="tools-platform/docs/images/readme/shots/datacom-lab.jpg" alt="DR/BDR 选举交互实验"> | <img src="tools-platform/docs/images/readme/shots/datacom-outline.jpg" alt="知识大纲思维导图"> |
 
-还有配套的笔记讲解视频：
+还有配套的 8 集笔记讲解视频：
 
 | [<img src="tools-platform/docs/images/readme/shots/video-ospf-fsm.jpg" alt="OSPF 邻居状态机">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-fsm-20261020-1/ospf-fsm-hd%2Emp4) | [<img src="tools-platform/docs/images/readme/shots/video-ospf-router-types.jpg" alt="OSPF 路由器角色">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-router-types-20261020-2/ospf-router-types-hd%2Emp4) | [<img src="tools-platform/docs/images/readme/shots/video-ospf-router-id.jpg" alt="Router-ID 选举与生效">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-router-id-20261020-1/ospf-router-id-hd%2Emp4) |
 | :---: | :---: | :---: |
 | **OSPF 邻居状态机** · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-fsm-20261020-1/ospf-fsm%2Emp4) | **OSPF 路由器角色** · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-router-types-20261020-2/ospf-router-types%2Emp4) | **Router-ID 选举与生效** · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-router-id-20261020-1/ospf-router-id%2Emp4) |
+
+- **DR / BDR：路由器班会与三幅图** · [高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-dr-bdr-20261020-1/ospf-dr-bdr-hd%2Emp4) · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-dr-bdr-20261020-1/ospf-dr-bdr%2Emp4)
+- **Forwarding Address：消息来源与数据方向** · [高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-fa-20261020-1/ospf-fa-hd%2Emp4) · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-fa-20261020-1/ospf-fa%2Emp4)
+- **OSPF 五种报文：一次地图交接** · [高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-packets-20261022-1/ospf-packets-hd%2Emp4) · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-packets-20261022-1/ospf-packets%2Emp4)
+- **OSPF 区域：哪些路标可以进来** · [高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-areas-20261022-1/ospf-areas-hd%2Emp4) · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-areas-20261022-1/ospf-areas%2Emp4)
+- **LSA：从资料卡到路由地图** · [高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-lsa-handbook-20261022-1/ospf-lsa-handbook-hd%2Emp4) · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-lsa-handbook-20261022-1/ospf-lsa-handbook%2Emp4)
 
 ---
 
@@ -251,7 +261,7 @@ OSPF 邻居为什么卡在 2-Way？DR 是怎么选出来的？数通协议专家
 | [<img src="tools-platform/docs/images/readme/shots/video-eos-report-guide.jpg" width="220" alt="EOS 风险收编月报">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-20261019/eos-report-guide-hd%2Emp4) | **EOS 风险收编月报**<br>一键取数、测算目标、自动成稿 · 7:53 | [高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-20261019/eos-report-guide-hd%2Emp4) · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-20261019/eos-report-guide%2Emp4) | [HD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-en-20261019/eos-report-guide-en-hd%2Emp4) · [SD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-en-20261019/eos-report-guide-en%2Emp4) |
 | [<img src="tools-platform/docs/images/readme/shots/video-operation-incentive-guide.jpg" width="220" alt="操作激励统计">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-hd%2Emp4) | **操作激励统计**<br>夜间操作怎么算准每一笔、对得上 · 6:28 | [高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-hd%2Emp4) · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide%2Emp4) | [HD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-en-hd%2Emp4) · [SD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-en%2Emp4) |
 | [<img src="tools-platform/docs/images/readme/shots/video-netcare-rfc-ai-guide.jpg" width="220" alt="NetCare RFC 方案与 AI 审计">](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-hd%2Emp4) | **NetCare RFC 方案与 AI 审计**<br>浏览器扩展小助手，手把手教你用 · 3:32 | [高清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-hd%2Emp4) · [标清](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide%2Emp4) | [HD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-en-hd%2Emp4) · [SD](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-en%2Emp4) |
-| 数通笔记 × 3 | OSPF 邻居状态机 · 路由器角色 · Router-ID 选举，见[数通协议专家](#-数通协议专家把协议演给你看) | ✅ | — |
+| 数通笔记 × 8 | OSPF 邻居状态机 · 路由器角色 · Router-ID · DR/BDR · FA · 五种报文 · 区域 · LSA 手册，见[数通协议专家](#-数通协议专家把协议演给你看) | ✅ | — |
 | 项目演进 · 银河之旅 | 一个 HTML 页面如何长成一座工具中台，见[项目演进](#-项目演进) | ✅ | — |
 
 <sub>视频托管在 [Dragon-Platform-Media](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases) 的发布页；平台首页也会按需下载并缓存这些视频，离线也能看。</sub>
@@ -299,11 +309,11 @@ npm config get registry
 | 层 | 选型 | 特点 |
 | --- | --- | --- |
 | 前端 | 原生 HTML / CSS / JavaScript | 不依赖框架、不需要打包，改完刷新即生效；中英双语、深色界面 |
-| 后端 | Node.js + Express | 51 个路由模块，统一鉴权、租户上下文与管理员写保护 |
+| 后端 | Node.js + Express | 53 个路由模块，统一鉴权、租户上下文与管理员写保护 |
 | 存储 | SQLite（WAL） | 每个租户独立目录和数据库，启动自检与自动修复 |
 | 智能体 | 多模型函数调用 | 接入 Gemini、Claude、OpenAI、MiniMax 等，自动熔断与降级 |
 | 桌面端 | Electron | Windows 安装版 / 绿色版，macOS 签名公证版，自动增量更新 |
-| 质量 | `node --test` | 217 个测试文件覆盖业务规则、权限隔离、导出与界面回归 |
+| 质量 | `node --test` | 259 个测试文件覆盖业务规则、权限隔离、导出与界面回归 |
 
 <details>
 <summary>🗺️ 展开完整技术架构图</summary>
@@ -332,7 +342,7 @@ npm config get registry
 | --- | --- |
 | 全部功能的操作步骤、数据流、部署与排障 | 📘 [完整使用指南](tools-platform/README.md) |
 | 第一次装好后该做什么 | [新手入门 Day 1 清单](tools-platform/README.md#125-新手入门安装登录后需要做啥-day-1-checklist) |
-| 月报怎么编、数据从哪来、怎么导出 | [通用月报编辑器指南](tools-platform/docs/monthly-designer.md) |
+| AI 月报怎么用、格子配方怎么写、怎么导出 | [AI 月报指南](tools-platform/docs/monthly-designer.md) |
 | 专题月报 | [专题月报说明](tools-platform/docs/topic-monthly-reports.md) |
 | Dragon Claw 技能与安全加固 | [技能说明](tools-platform/docs/dragon-claw-skills.md) · [安全加固](tools-platform/docs/dragon-claw-hardening.md) |
 | 数通协议专家与视频发布 | [可视化学习设计](tools-platform/docs/datacom-visual-learning.md) · [视频发布流程](tools-platform/docs/datacom-video-publishing.md) |

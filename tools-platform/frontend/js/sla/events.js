@@ -148,61 +148,12 @@ function exportData(secId) {
 
 // ── 指标配置 ──────────────────────────────────────────────
 
-function getMetricRuleConditions(rule) {
-    return Array.isArray(rule && rule.conditions)
-        ? rule.conditions.filter(item => item && item.column && item.value !== undefined && String(item.value).trim() !== '')
-        : [];
-}
-
-function metricRuleCellMatches(cellVal, pattern) {
-    const str = cellVal !== undefined && cellVal !== null ? String(cellVal).trim() : '';
-    const expected = String(pattern === undefined || pattern === null ? '' : pattern).trim();
-    if (expected === '[空]') return str === '';
-    if (expected === '[非空]') return str !== '';
-    return str.includes(expected);
-}
-
-function metricRuleRowMatches(row, rule, includePrimary = true) {
-    const tests = [];
-    if (includePrimary && rule && rule.colX) {
-        tests.push(() => metricRuleCellMatches(row && row[rule.colX], rule.valY));
-    }
-    getMetricRuleConditions(rule).forEach(item => {
-        tests.push(() => metricRuleCellMatches(row && row[item.column], item.value));
-    });
-    if (!tests.length) return true;
-    const useOr = rule && rule.type === 'extract_multi' && rule.filterLogic === 'or';
-    return useOr ? tests.some(test => test()) : tests.every(test => test());
-}
-
-function parseMetricNumericValue(value) {
-    if (typeof value === 'number') return Number.isFinite(value) ? { value, isPercent: false } : null;
-    let text = String(value === undefined || value === null ? '' : value).trim();
-    if (!text) return null;
-    const isPercent = text.endsWith('%');
-    if (isPercent) text = text.slice(0, -1).trim();
-    const negativeByParentheses = /^\(.*\)$/.test(text);
-    if (negativeByParentheses) text = text.slice(1, -1).trim();
-    text = text.replace(/[,，\s]/g, '').replace(/^[¥￥$€£]/, '');
-    if (!/^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?$/i.test(text)) return null;
-    const number = Number(text);
-    if (!Number.isFinite(number)) return null;
-    return { value: negativeByParentheses ? -number : number, isPercent };
-}
-
-function aggregateMetricRowValues(rows, rule) {
-    const parsed = (rows || []).map(row => parseMetricNumericValue(row && row[rule.colZ])).filter(Boolean);
-    if (!parsed.length) return '--';
-    const method = rule.aggregation || 'sum';
-    let result;
-    if (method === 'count') result = parsed.length;
-    else if (method === 'avg') result = parsed.reduce((sum, item) => sum + item.value, 0) / parsed.length;
-    else if (method === 'max') result = Math.max(...parsed.map(item => item.value));
-    else if (method === 'min') result = Math.min(...parsed.map(item => item.value));
-    else result = parsed.reduce((sum, item) => sum + item.value, 0);
-    result = Number(result.toFixed(12));
-    return method !== 'count' && parsed.every(item => item.isPercent) ? `${result}%` : result;
-}
+// Keep existing call sites on the shared monthly/import extraction engine.
+function getMetricRuleConditions(rule) { return window.MetricExtraction.conditions(rule); }
+function metricRuleCellMatches(value, pattern) { return window.MetricExtraction.cellMatches(value, pattern); }
+function metricRuleRowMatches(row, rule, includePrimary = true) { return window.MetricExtraction.rowMatches(row, rule, includePrimary); }
+function parseMetricNumericValue(value) { return window.MetricExtraction.parseNumber(value); }
+function aggregateMetricRowValues(rows, rule) { return window.MetricExtraction.aggregate(rows, rule); }
 
 function buildMetricConditionFieldOptions(fields, selected = '') {
     return `<option value="">请选择条件列</option>` + (fields || []).map(field =>
@@ -643,6 +594,8 @@ async function removeMetricRuleTarget(record, rule) {
 function getSectionDisplayTitle(secId, prefKey) {
     const state = AppState && AppState[secId];
     if (state && state.title) return state.title;
+    const savedMeta = getSavedMetricRuleSourceMeta(prefKey, secId);
+    if (savedMeta?.createdFrom === 'monthly-designer' && savedMeta.title) return savedMeta.title;
     const normalized = normalizeMetricPrefSecId(secId || prefKey);
     if (SLA_PREF_TITLE_MAP[normalized]) return SLA_PREF_TITLE_MAP[normalized];
     if (String(normalized).startsWith('other_')) return SLAT('sla.rules.otherTable', { id: normalized });
@@ -658,7 +611,7 @@ function describeMetricRule(rule) {
         return `RATIO [${escapeHTML(rule.colZ)}] ${SLAT('sla.rules.contains')} '${escapeHTML(rule.valK)}' / ${rule.colX ? `[${escapeHTML(rule.colX)}] ${SLAT('sla.rules.contains')} '${escapeHTML(rule.valY)}'` : SLAT('sla.rules.totalRows')}`;
     }
     if (rule.type === 'extract_multi') {
-        const labels = { sum: 'SUM', avg: 'AVG', max: 'MAX', min: 'MIN', count: 'COUNT' };
+        const labels = { first: 'FIRST', sum: 'SUM', avg: 'AVG', max: 'MAX', min: 'MIN', count: 'COUNT' };
         return `${labels[rule.aggregation || 'sum'] || 'SUM'} [${escapeHTML(rule.colZ)}]`;
     }
     return `SHOW [${escapeHTML(rule.colZ)}]`;
@@ -727,6 +680,7 @@ function getMetricRuleSearchText(record) {
         ? '统计 count COUNT'
         : (ruleType === 'ratio' ? '占比 比例 ratio RATIO' : (ruleType === 'extract_multi' ? '提取多行 聚合 aggregate sum avg max min' : '提取 extract show SHOW'));
     return [
+        record.rule?.createdFrom === 'monthly-designer' ? '月报编辑器 monthly editor' : '',
         record.label,
         record.parentMetricName,
         record.subMetricName,
@@ -1204,6 +1158,8 @@ window.openMetricRuleEditor = function(index) {
     const scopeEl = document.getElementById('metric-rule-edit-scope');
     if (scopeEl) {
         scopeEl.value = rule.scope || 'current';
+        scopeEl.disabled = rule.createdFrom === 'monthly-designer';
+        scopeEl.title = rule.createdFrom === 'monthly-designer' ? SLAT('sla.rules.monthlyScope') : '';
     }
 
     document.querySelectorAll('.metric-rule-edit-sub-only').forEach(el => {
@@ -2058,6 +2014,8 @@ window.openMetricRulesModal = async function() {
     if (search) search.value = '';
     const crossOnly = document.getElementById('metric-rules-cross-only');
     if (crossOnly) crossOnly.checked = false;
+    const monthlyOnly = document.getElementById('metric-rules-monthly-only');
+    if (monthlyOnly) monthlyOnly.checked = false;
     const list = document.getElementById('metric-rules-modal-list');
     if (list) list.innerHTML = `<div class="metric-rules-empty">${SLAT('sla.rules.loading')}</div>`;
     await Promise.all([
@@ -2105,7 +2063,9 @@ window.renderAllMetricRules = function(justExpandedGroupKey = null) {
     const savedScrollTop = wrap ? wrap.scrollTop : 0;
     const term = (document.getElementById('metric-rules-search')?.value || '').trim().toLowerCase();
     const crossOnly = Boolean(document.getElementById('metric-rules-cross-only')?.checked);
+    const monthlyOnly = Boolean(document.getElementById('metric-rules-monthly-only')?.checked);
     const allFilteredRecords = collectMetricRuleRecords().filter(record => {
+        if (monthlyOnly && record.rule?.createdFrom !== 'monthly-designer') return false;
         if (crossOnly && !record.isCrossTable) return false;
         if (!term) return true;
         return (record.searchText || '').includes(term);
@@ -2159,7 +2119,7 @@ window.renderAllMetricRules = function(justExpandedGroupKey = null) {
             </div>
         `;
         rowParts.push(`
-            <tr class="metric-rule-main-row ${totalSubCount ? 'has-children' : ''}">
+            <tr class="metric-rule-main-row ${mainRecord.rule?.createdFrom === 'monthly-designer' ? 'metric-rule-monthly-row' : ''} ${totalSubCount ? 'has-children' : ''}">
                 <td>
                     <div class="metric-rule-tree-head">
                         ${totalSubCount ? `<button class="metric-rule-expand-btn ${isExpanded ? 'expanded' : ''}" onclick="toggleMetricRuleGroup('${escapeHTML(groupKey)}')" title="${isExpanded ? SLAT('sla.rules.collapse') : SLAT('sla.rules.expand')}">${isExpanded ? '▾' : '▸'}</button>` : '<span class="metric-rule-expand-placeholder"></span>'}
@@ -2168,7 +2128,7 @@ window.renderAllMetricRules = function(justExpandedGroupKey = null) {
                 </td>
                 <td title="${escapeHTML(mainRecord.tableTitle)}">${escapeHTML(translateMetricRuleSectionTitle(mainRecord.tableTitle))}</td>
                 <td title="${escapeHTML(mainRecord.filePrefixTitle)}"><span class="metric-rule-prefix">${escapeHTML(mainRecord.filePrefixText)}</span></td>
-                <td><span class="metric-rule-badge ${mainRecord.origin === '当前导入' ? 'main' : 'saved'}">${escapeHTML(getMetricRuleDisplayOrigin(mainRecord.origin))}</span></td>
+                <td>${mainRecord.rule?.createdFrom === 'monthly-designer' ? `<span class="metric-rule-badge monthly">${SLAT('sla.rules.monthlyOrigin')}</span>` : ''}<span class="metric-rule-badge ${mainRecord.origin === '当前导入' ? 'main' : 'saved'}">${escapeHTML(getMetricRuleDisplayOrigin(mainRecord.origin))}</span></td>
                 <td><span class="metric-rule-badge main">${SLAT('sla.rules.main')}</span>${totalSubCount ? `<span class="metric-rule-child-count">${matchedSubCount === totalSubCount ? totalSubCount : `${matchedSubCount}/${totalSubCount}`} ${SLAT('sla.rules.childUnit')}</span>` : ''}</td>
                 <td title="${escapeHTML(mainRecord.parentMetricName)}"><strong>${escapeHTML(translateMetricRuleLabel(mainRecord.parentMetricName))}</strong></td>
                 <td><span class="metric-rule-muted">${SLAT('sla.rules.folded')}</span></td>

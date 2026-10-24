@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AI 月报 - Tools Platform</title><script src="/js/ai-report/light-theme.js"></script><link rel="stylesheet" href="/css/shared.css"><link rel="stylesheet" href="/css/ai-report.css"><link rel="stylesheet" href="/css/startup-screen.css"></head>
+<body class="ai-report-page air-booting">
+<script src="/js/shared/startup-screen.js" data-startup-page="monthly"></script>
+<div id="navbar-container"></div>
+<script src="/js/shared/api.js"></script><script src="/js/shared/i18n.js"></script><script src="/js/shared/navbar.js"></script><script src="/js/shared/app-dialog.js"></script>
+<header class="air-toolbar">
+    <strong class="air-brand">AI 月报</strong>
+    <label class="air-month"><span>报告月份</span><input type="month" id="airMonth" aria-label="报告月份"></label>
+    <details class="air-menu air-report-menu"><summary><span id="airReportName">—</span></summary>
+        <div class="air-menu-panel"><div id="airReportList" class="air-report-list"></div><hr>
+            <button type="button" data-air="new">＋ 新建月报</button><button type="button" data-air="copy">另存为…</button><button type="button" data-air="rename">重命名…</button><button type="button" data-air="delete" class="air-danger">删除此月报</button></div></details>
+    <span class="air-spacer"></span>
+    <span id="airStatus" class="air-status" role="status"></span>
+    <button type="button" id="airNarratives" data-air="narratives" hidden></button>
+    <button type="button" data-air="language" title="切换报告语言"></button>
+    <button type="button" data-air="preview"></button>
+    <details class="air-menu"><summary>导出</summary>
+        <div class="air-menu-panel air-menu-right"><button type="button" data-air="export-html">HTML 文件</button><button type="button" data-air="export-print">打印 / 保存 PDF</button><button type="button" data-air="export-msg">Outlook 邮件（MSG）</button></div></details>
+    <button type="button" data-air="save" class="air-primary">保存</button>
+</header>
+<button type="button" class="air-chrome-toggle" data-air="chrome" aria-pressed="false" aria-label="收起顶部栏" title="收起顶部栏"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg></button>
+<main class="air-layout"><article id="airReport" class="air-report" aria-live="polite"></article><aside id="airChat" class="air-chat" hidden></aside></main>
+<script src="/js/vendor/echarts.min.js"></script><script src="/js/ai-report/render-kit.js"></script><script src="/js/ai-report/report-model.js"></script><script src="/js/ai-report/widgets.js"></script><script src="/js/ai-report/layout.js"></script><script src="/js/ai-report/sanitize.js"></script><script src="/js/ai-report/sandbox.js"></script><script src="/js/ai-report/trace.js"></script><script src="/js/ai-report/trace-viewer.js"></script><script src="/js/ai-report/runner.js"></script><script src="/js/ai-report/view.js"></script><script src="/js/ai-report/splash.js"></script><script src="/js/ai-report/image-library.js"></script><script src="/js/ai-report/cell-chat.js"></script><script src="/js/ai-report/export.js"></script><script src="/js/ai-report/app.js"></script>
+</body></html>

@@ -1,10 +1,10 @@
 // js/app.js
 import * as store from './store.js?v=20260623-1';
-import * as editor from './editor.js?v=20261006-2';
-import { createComponentEditor } from './component-editor.js?v=20261006-2';
+import * as editor from './editor.js?v=20261022-1';
+import { createComponentEditor } from './component-editor.js?v=20261022-1';
 import { initContextMenu } from './context-menu.js?v=20260623-1';
 import { defaultSlides } from './default-slides.js?v=20261007-1';
-import { renderSlide, slideToJson } from './slide-factory.js?v=20261006-2';
+import { renderSlide, slideToJson } from './slide-factory.js?v=20261022-1';
 import { initProjectWorkspace } from './project-workspace.js?v=20261006-2';
 
 import { createVisionSlide, refreshVisionAssetUrls } from './vision-template.js?v=20261007-1';
@@ -839,8 +839,10 @@ document.addEventListener('selectionchange', () => {
         savedEditableForColor = editable;
         const rect = range.getBoundingClientRect();
         rtToolbar.classList.remove('hidden');
-        rtToolbar.style.top = `${rect.top - 40}px`;
-        rtToolbar.style.left = `${rect.left + (rect.width / 2) - (rtToolbar.offsetWidth / 2)}px`;
+        const top = Math.max(12, rect.top - 46);
+        const left = Math.max(12, Math.min(window.innerWidth - rtToolbar.offsetWidth - 12, rect.left + (rect.width / 2) - (rtToolbar.offsetWidth / 2)));
+        rtToolbar.style.top = `${top}px`;
+        rtToolbar.style.left = `${left}px`;
         
         // Update font name and size labels
         const fontBtnSpan = document.querySelector('#rtFontNameBtn span');
@@ -926,6 +928,64 @@ rtToolbar?.querySelector('.rt-color')?.addEventListener('input', e => {
         selection.addRange(savedRangeForColor);
         document.execCommand('styleWithCSS', false, true);
         document.execCommand(e.target.dataset.command, false, e.target.value);
+    }
+});
+
+function stepRichTextFontSize(delta) {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    let el = range.commonAncestorContainer;
+    if (el.nodeType === 3) el = el.parentElement;
+    const currentSize = parseFloat(window.getComputedStyle(el).fontSize) || 24;
+    const newSize = Math.max(14, Math.min(120, Math.round(currentSize + delta)));
+    
+    if (selection.toString().trim().length > 0) {
+        document.execCommand('styleWithCSS', false, true);
+        const span = document.createElement('span');
+        span.style.fontSize = `${newSize}px`;
+        try {
+            const fragment = range.extractContents();
+            span.appendChild(fragment);
+            range.insertNode(span);
+            selection.selectAllChildren(span);
+        } catch (_e) {
+            el.style.fontSize = `${newSize}px`;
+        }
+    } else if (el) {
+        el.style.fontSize = `${newSize}px`;
+    }
+    saveDeck();
+    document.dispatchEvent(new Event('selectionchange'));
+}
+
+document.getElementById('rtSizeDown')?.addEventListener('mousedown', e => {
+    e.preventDefault();
+    stepRichTextFontSize(-4);
+});
+
+document.getElementById('rtSizeUp')?.addEventListener('mousedown', e => {
+    e.preventDefault();
+    stepRichTextFontSize(4);
+});
+
+document.getElementById('rtAiActionBtn')?.addEventListener('mousedown', e => {
+    e.preventDefault();
+    const selection = window.getSelection();
+    const text = selection?.toString()?.trim() || '';
+    const aiInput = document.getElementById('aiInput');
+    const aiSidebar = document.getElementById('aiSidebar');
+    if (aiSidebar && aiSidebar.style.marginRight !== '0px') {
+        aiSidebar.style.marginRight = '0px';
+    }
+    if (aiInput) {
+        if (text) {
+            aiInput.value = `请润色优化以下文案，使其更专业精炼，并保留核心数据：\n“${text}”`;
+        } else {
+            aiInput.value = '请帮我润色当前选中文本模块的表达，使其更具说服力。';
+        }
+        aiInput.focus();
+        aiInput.setSelectionRange(aiInput.value.length, aiInput.value.length);
     }
 });
 
@@ -1317,6 +1377,30 @@ document.querySelectorAll('.ai-shortcut-btn').forEach(btn => {
         if (action === 'polish') { promptText = '请帮我润色以下幻灯片页面的文本内容，使其更专业流畅。' + baseRule; displayMsg = '✨ 请帮我润色当前页面'; }
         if (action === 'translate_en') { promptText = '请将以下幻灯片页面的所有中文内容翻译为专业的英文。' + baseRule; displayMsg = '🌐 请将当前页面翻译为英文'; }
         if (action === 'translate_zh') { promptText = '请将以下幻灯片页面的所有英文内容翻译为中文。' + baseRule; displayMsg = '🇨🇳 请将当前页面翻译为中文'; }
+        if (action === 'to_metric') {
+            promptText = '请将当前页面重构为突出“大数字指标卡片”的高颜值现代化排版风格。提炼出核心量化指标（如百分比、完成度、时间提速等），大字号展示，并搭配精炼的结论阐述。必须使用 layout: "custom"，确保卡片带有 class="ppt-card ...", 且标题正文均带有 class="editable"。返回合法 JSON 数组。';
+            displayMsg = '📊 请将当前页提炼为大字指标卡';
+        }
+        if (action === 'to_comparison') {
+            promptText = '请将当前页面的核心论点重新梳理为清晰的“双列对比矩阵”（如：改造前痛点 vs 改造后收益，或方案 A vs 方案 B）。左右对比鲜明，突出成效与优势。必须使用 layout: "custom"，确保卡片带有 class="ppt-card ...", 且所有文字节点带有 class="editable"。返回合法 JSON 数组。';
+            displayMsg = '⚖️ 请将当前页转为双列对比';
+        }
+        if (action === 'to_process') {
+            promptText = '请将当前页面内容提炼为 3~4 个步骤的横向流程步骤卡片（带有 01、02、03 序号角标），突出每个阶段的核心举措与目标。必须使用 layout: "custom"，确保卡片带有 class="ppt-card ...", 且所有文字带有 class="editable"。返回合法 JSON 数组。';
+            displayMsg = '🪜 请将当前页提炼为流程步骤';
+        }
+        if (action === 'style_dark') {
+            promptText = '请将当前页面的视觉风格整体重构为科技深黑风（在 JSON 中设置 "background": "#0b0f19", "theme": "dark"，采用深色毛玻璃/暗灰高质感卡片，搭配醒目青色或靛蓝高亮，文字清晰锐利）。必须使用 layout: "custom"，确保卡片带有 class="ppt-card ...", 且文字均带有 class="editable"。返回合法 JSON 数组。';
+            displayMsg = '🌙 请将当前页重构为科技深黑风';
+        }
+        if (action === 'style_light') {
+            promptText = '请将当前页面的视觉风格整体重构为极简纯白现代风（在 JSON 中设置 "background": "#f8fafc"，采用纯白圆角卡片、细腻边框与阴影，层级分明）。必须使用 layout: "custom"，确保卡片带有 class="ppt-card ...", 且文字均带有 class="editable"。返回合法 JSON 数组。';
+            displayMsg = '☀️ 请将当前页重构为极简纯白风';
+        }
+        if (action === 'to_quote') {
+            promptText = '请将当前页的核心战略论断提炼为高冲击力的大字号金句卡片（搭配大引号符号与结论归属标签）。必须使用 layout: "custom"，确保卡片带有 class="ppt-card ...", 且文字均带有 class="editable"。返回合法 JSON 数组。';
+            displayMsg = '💬 请提炼核心战略金句卡';
+        }
         
         const slideJson = slideToJson(activeWrap);
         const htmlContext = JSON.stringify([slideJson], null, 2);

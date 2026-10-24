@@ -5,6 +5,7 @@ const STRUCTURAL_COMPONENTS = [
     '.rule-box',
     '.qr',
     '.agenda-table',
+    'table',
     '.speaker',
     '.case-layout',
     '.sticky-note',
@@ -12,6 +13,7 @@ const STRUCTURAL_COMPONENTS = [
     '.footer',
     '.template-component',
     '.ppt-created-element',
+    '.ppt-card',
     'img'
 ].join(', ');
 
@@ -19,12 +21,19 @@ const STANDALONE_TEXT = [
     '.slide-pad > .slide-title',
     '.slide-pad > .small-title',
     '.slide-pad > .plain-list',
-    '.slide-pad > .editable'
+    '.slide-pad > .editable',
+    '.slide-pad > h1',
+    '.slide-pad > h2',
+    '.slide-pad > h3',
+    '.slide-pad > h4',
+    '.slide-pad > h5',
+    '.slide-pad > h6',
+    '.slide-pad > p'
 ].join(', ');
 
 const COMPONENT_SELECTOR = `${STRUCTURAL_COMPONENTS}, ${STANDALONE_TEXT}`;
 const LOCKED_BY_DEFAULT = '.footer';
-const INTERNAL_TEXT_SELECTOR = '.editable, td, th, li, .case-cells > div, .case-labels > div, .template-editable';
+const INTERNAL_TEXT_SELECTOR = '.editable, td, th, li, .case-cells > div, .case-labels > div, .template-editable, h1, h2, h3, h4, h5, h6, p, blockquote';
 
 function createId() {
     if (window.crypto?.randomUUID) return window.crypto.randomUUID();
@@ -54,9 +63,11 @@ function componentName(element) {
         if (element.matches('.rule-head')) return '卡片标题';
         if (element.matches('.case-cells > div')) return '案例内容';
         if (element.matches('.case-labels > div')) return '案例标签';
+        if (element.matches('h1, h2, h3, h4, h5, h6')) return '标题';
+        if (element.matches('p')) return '段落';
         return '内部文本';
     }
-    if (element.classList.contains('agenda-table')) return '表格';
+    if (element.classList.contains('agenda-table') || element.matches('table')) return '表格';
     if (element.classList.contains('rule-box')) return '规则卡片';
     if (element.classList.contains('qr')) return '二维码';
     if (element.classList.contains('speaker')) return '人物介绍';
@@ -68,14 +79,79 @@ function componentName(element) {
     if (element.classList.contains('footer')) return '页脚';
     if (element.classList.contains('template-component')) return '模板组件';
     if (element.matches('img')) return '图片';
-    if (element.matches('.slide-title, .small-title')) return '标题';
-    if (element.classList.contains('box')) return '内容卡片';
+    if (element.matches('.slide-title, .small-title, h1, h2, h3, h4, h5, h6')) return '标题';
+    if (element.classList.contains('box') || element.classList.contains('ppt-card')) return '内容卡片';
     if (element.classList.contains('ppt-shape')) return '形状';
     if (element.classList.contains('ppt-line')) return '线条';
     if (element.classList.contains('ppt-icon')) return '图标';
     if (element.classList.contains('ppt-timeline')) return '时间轴';
-    if (element.classList.contains('ppt-card')) return '内容卡片';
+    if (element.matches('p')) return '段落';
     return '文本';
+}
+
+export function normalizeSlideElements(slide) {
+    if (!slide) return;
+    const pad = slide.querySelector('.slide-pad');
+    if (!pad) return;
+
+    // Never alter built-in vision template or cover slide
+    if (slide.classList.contains('cover-slide') || pad.querySelector('.vision-template')) return;
+
+    // 1. Mark all textual content elements with editable class and data-ppt-editable
+    pad.querySelectorAll('h1, h2, h3, h4, h5, h6, p, blockquote, li, td, th').forEach(el => {
+        el.classList.add('editable');
+        el.dataset.pptEditable = 'true';
+    });
+
+    // 2. Identify card-like container boxes and standalone content elements
+    const candidateContainers = Array.from(pad.querySelectorAll('div, section, article')).filter(container => {
+        if (container === pad) return false;
+        if (container.closest('.agenda-table, .case-layout, .two-col, .footer')) return false;
+        return true;
+    });
+
+    candidateContainers.forEach(container => {
+        const className = container.className || '';
+        // Skip layout wrappers that span full width/height unless they are styled cards
+        const isLayoutWrapper = /(?:h-full|w-full)/.test(className) && !/(?:shadow|rounded-[2-3]?xl|border-2)/.test(className);
+        if (isLayoutWrapper) return;
+
+        const isStyledCard = /(?:^|\s)(?:bg-white|bg-slate-\d+|bg-blue-\d+|bg-zinc-\d+|bg-gray-\d+|bg-neutral-\d+|rounded-|shadow-|border|card|box|panel|callout)/.test(className)
+            || Boolean(container.style.backgroundColor || container.style.border || container.style.boxShadow);
+
+        const parent = container.parentElement;
+        const parentIsGridOrFlex = parent && /(?:grid|flex)/.test(parent.className || '');
+        const hasTextContent = Boolean(container.querySelector('h1, h2, h3, h4, h5, h6, p, img, svg'));
+
+        if (isStyledCard || (parentIsGridOrFlex && hasTextContent)) {
+            const parentCard = container.parentElement?.closest('.ppt-element, .ppt-card');
+            if (!parentCard || parentCard === pad) {
+                container.classList.add('ppt-element', 'ppt-card');
+                container.dataset.pptElementType ||= '内容卡片';
+                const heading = container.querySelector('h1, h2, h3, h4, h5, h6');
+                if (heading && heading.textContent.trim()) {
+                    container.dataset.componentName ||= heading.textContent.trim().slice(0, 16);
+                }
+            }
+        }
+    });
+
+    // 3. Any standalone headings, paragraphs, tables, or lists not inside any .ppt-element
+    pad.querySelectorAll('h1, h2, h3, h4, h5, h6, p, table, ul, ol').forEach(el => {
+        if (el.closest('.ppt-element')) return;
+        el.classList.add('ppt-element', 'ppt-created-element');
+        if (el.matches('h1, h2, h3, h4, h5, h6')) {
+            el.dataset.pptElementType ||= '标题';
+            el.dataset.componentName ||= el.textContent.trim().slice(0, 16) || '页面标题';
+        } else if (el.matches('p')) {
+            el.dataset.pptElementType ||= '段落';
+            el.dataset.componentName ||= el.textContent.trim().slice(0, 16) || '正文文本';
+        } else if (el.matches('table')) {
+            el.dataset.pptElementType ||= '表格';
+        } else if (el.matches('ul, ol')) {
+            el.dataset.pptElementType ||= '列表';
+        }
+    });
 }
 
 export function createComponentEditor({ deck, getScale, onChange, onStatus, onSelectionChange }) {
@@ -99,6 +175,31 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
     let editingTarget = null;
     let formatPainter = null;
 
+    const COMPONENT_STYLES = [
+        { name: 'white', bg: '#ffffff', color: '#1e293b', border: '1px solid #e2e8f0', shadow: '0 10px 25px -5px rgba(0,0,0,0.06)' },
+        { name: 'dark', bg: '#0f172a', color: '#f8fafc', border: '1px solid #334155', shadow: '0 20px 25px -5px rgba(0,0,0,0.35)' },
+        { name: 'tint', bg: '#eef2ff', color: '#312e81', border: '1px solid #c7d2fe', shadow: '0 4px 12px rgba(99,102,241,0.08)' },
+        { name: 'clear', bg: 'transparent', color: 'inherit', border: '1px dashed #cbd5e1', shadow: 'none' }
+    ];
+
+    function cycleComponentStyle() {
+        const elements = getSelectedElements();
+        if (!elements.length) return;
+        elements.forEach(element => {
+            const currentIdx = parseInt(element.dataset.styleIdx || '-1', 10);
+            const nextIdx = (currentIdx + 1) % COMPONENT_STYLES.length;
+            const style = COMPONENT_STYLES[nextIdx];
+            element.dataset.styleIdx = String(nextIdx);
+            element.style.backgroundColor = style.bg;
+            element.style.color = style.color;
+            element.style.border = style.border;
+            element.style.boxShadow = style.shadow;
+        });
+        commitChange();
+        refreshMoveable();
+        positionToolbar();
+    }
+
     function ensureToolbar() {
         if (toolbar) return toolbar;
         toolbar = document.createElement('div');
@@ -107,9 +208,11 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
             <span class="ppt-component-name">组件</span>
             <button type="button" data-action="parent" title="选择父组件"><i class="ph-bold ph-arrow-bend-up-left"></i></button>
             <button type="button" data-action="edit" title="编辑文字（双击）"><i class="ph-bold ph-text-t"></i></button>
+            <button type="button" data-action="toggle-style" title="快速换肤（白底/暗色/浅蓝/清透）"><i class="ph-bold ph-paint-bucket"></i></button>
             <button type="button" data-action="duplicate" title="复制组件（Ctrl/Cmd+D）"><i class="ph-bold ph-copy"></i></button>
             <button type="button" data-action="lock" title="锁定/解锁"><i class="ph-bold ph-lock-key"></i></button>
             <button type="button" data-action="front" title="置于顶层"><i class="ph-bold ph-stack-simple"></i></button>
+            <button type="button" data-action="ai-action" class="text-indigo-400 hover:text-indigo-300" title="✨ AI局部调整"><i class="ph-bold ph-sparkle"></i></button>
             <button type="button" data-action="delete" title="删除（Delete）"><i class="ph-bold ph-trash"></i></button>
         `;
         document.body.appendChild(toolbar);
@@ -119,9 +222,25 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
             if (!action || !selectedSet.size) return;
             if (action === 'parent') selectParent();
             if (action === 'edit' && selectedSet.size === 1) startTextEditing(selected);
+            if (action === 'toggle-style') cycleComponentStyle();
             if (action === 'duplicate') duplicateSelected();
             if (action === 'lock') toggleLock();
             if (action === 'front') bringToFront();
+            if (action === 'ai-action') {
+                const el = selected;
+                if (!el) return;
+                const name = el.dataset.pptElementType || componentName(el);
+                const aiInput = document.getElementById('aiInput');
+                const aiSidebar = document.getElementById('aiSidebar');
+                if (aiSidebar && aiSidebar.style.marginRight !== '0px') {
+                    aiSidebar.style.marginRight = '0px';
+                }
+                if (aiInput) {
+                    aiInput.value = `针对选中的【${name}】进行修改：`;
+                    aiInput.focus();
+                    aiInput.setSelectionRange(aiInput.value.length, aiInput.value.length);
+                }
+            }
             if (action === 'delete') deleteSelected();
         });
         return toolbar;
@@ -179,7 +298,8 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
     function selectedEditable(element = selected) {
         if (!element) return null;
         if (element.classList.contains('ppt-inner-element')) return element;
-        return element.matches('.editable') ? element : element.querySelector('.editable');
+        if (element.matches('.editable, h1, h2, h3, h4, h5, h6, p, blockquote')) return element;
+        return element.querySelector('.editable, h1, h2, h3, h4, h5, h6, p, blockquote');
     }
 
     function captureFormat(element) {
@@ -246,7 +366,7 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
     function isLayoutBoundInner(element = selected) {
         if (!element || element.matches('table, .agenda-table')) return false;
         return Boolean(element.matches('td, th, li')
-            || (element.classList.contains('ppt-inner-element') && element.closest('table')));
+            || (element.classList.contains('ppt-inner-element') && (element.closest('table') || !element.style.position || element.style.position === 'static')));
     }
 
     function parentComponent(element = selected) {
@@ -264,7 +384,9 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
         const leafTargets = candidates.filter(candidate => {
             return !candidates.some(other => other !== candidate && candidate.contains(other));
         });
-        if (component.matches('.editable') && !leafTargets.length) leafTargets.push(component);
+        if ((component.matches('.editable') || component.matches('h1, h2, h3, h4, h5, h6, p')) && !leafTargets.length) {
+            leafTargets.push(component);
+        }
         return leafTargets;
     }
 
@@ -389,6 +511,11 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
     }
 
     function markComponents(root = deck) {
+        const slides = root.classList?.contains('slide')
+            ? [root]
+            : (root.matches?.('.slide-wrap') ? [root.querySelector('.slide')] : Array.from(root.querySelectorAll('.slide'))).filter(Boolean);
+        slides.forEach(slide => normalizeSlideElements(slide));
+
         root.querySelectorAll('.editable').forEach(editable => {
             editable.dataset.pptEditable = 'true';
             if (!editable.classList.contains('ppt-editing')) {
@@ -425,12 +552,17 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
     }
 
     function resolveComponent(target) {
+        if (!target) return null;
         const inner = target.closest('.ppt-inner-element');
         if (inner && inner.closest('.slide')) return inner;
+        const element = target.closest('.ppt-element');
+        if (element && element.closest('.slide')) return element;
         const structural = target.closest(STRUCTURAL_COMPONENTS);
         if (structural && structural.closest('.slide')) return structural;
         const text = target.closest(STANDALONE_TEXT);
-        return text && text.closest('.slide') ? text : null;
+        if (text && text.closest('.slide')) return text;
+        const editable = target.closest('.editable, h1, h2, h3, h4, h5, h6, p');
+        return editable && editable.closest('.slide') ? editable : null;
     }
 
     function positionToolbar() {
@@ -618,7 +750,7 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
     function startTextEditing(component, preferredEditable = null, point = null) {
         const editable = preferredEditable
             || (component.classList.contains('ppt-inner-element') ? component : null)
-            || (component.matches('.editable') ? component : component.querySelector('.editable'));
+            || (component.matches('.editable, h1, h2, h3, h4, h5, h6, p, blockquote') ? component : component.querySelector('.editable, h1, h2, h3, h4, h5, h6, p, blockquote'));
         if (!editable) {
             onStatus?.('该组件没有可编辑文字');
             return;
@@ -1191,7 +1323,7 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
         const component = resolveComponent(event.target);
         if (!component) return;
         select(component, false);
-        const exactTarget = event.target.closest('.ppt-inner-element, td, th, li, .editable');
+        const exactTarget = event.target.closest('.ppt-inner-element, td, th, li, .editable, h1, h2, h3, h4, h5, h6, p, blockquote');
         startTextEditing(component, exactTarget, { x: event.clientX, y: event.clientY });
         event.preventDefault();
         event.stopPropagation();
@@ -1276,6 +1408,104 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
                 <div class="ppt-timeline-item editable"><b>03</b><span>闭环验证</span><small>复盘结果并固化</small></div>
             `;
             Object.assign(element.style, { width: '1320px', height: '300px' });
+        } else if (kind === 'metric') {
+            element = document.createElement('div');
+            element.className = 'ppt-created-element ppt-card ht-created-metric bg-white rounded-2xl p-8 border border-slate-200/90 shadow-md flex flex-col justify-between';
+            element.dataset.componentName = '指标数据卡';
+            element.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <span class="text-xl font-bold text-slate-500 editable ppt-inner-element">关键业务指标</span>
+                    <span class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm font-bold editable ppt-inner-element">+15.8% ↑</span>
+                </div>
+                <div class="my-4">
+                    <span class="text-7xl font-black text-indigo-600 tracking-tight editable ppt-inner-element">99.98%</span>
+                </div>
+                <p class="text-xl text-slate-600 editable ppt-inner-element">核心系统无中断连续高可用运行保障</p>
+            `;
+            Object.assign(element.style, { width: '560px', minHeight: '270px' });
+        } else if (kind === 'process') {
+            element = document.createElement('div');
+            element.className = 'ppt-created-element ppt-card ht-created-process bg-white/95 rounded-2xl p-8 border border-slate-200/90 shadow-md';
+            element.dataset.componentName = '流程步骤';
+            element.innerHTML = `
+                <div class="grid grid-cols-3 gap-6">
+                    <div class="p-5 bg-slate-50 rounded-xl border border-slate-200/60 flex flex-col justify-between">
+                        <div class="w-12 h-12 rounded-xl bg-indigo-600 text-white font-black text-2xl flex items-center justify-center mb-3 editable ppt-inner-element">01</div>
+                        <h4 class="text-2xl font-bold text-slate-800 mb-2 editable ppt-inner-element">感知发现</h4>
+                        <p class="text-lg text-slate-500 editable ppt-inner-element">多源威胁情报实时汇聚感知</p>
+                    </div>
+                    <div class="p-5 bg-slate-50 rounded-xl border border-slate-200/60 flex flex-col justify-between">
+                        <div class="w-12 h-12 rounded-xl bg-indigo-600 text-white font-black text-2xl flex items-center justify-center mb-3 editable ppt-inner-element">02</div>
+                        <h4 class="text-2xl font-bold text-slate-800 mb-2 editable ppt-inner-element">分析定级</h4>
+                        <p class="text-lg text-slate-500 editable ppt-inner-element">自动化编排与风险影响评估</p>
+                    </div>
+                    <div class="p-5 bg-slate-50 rounded-xl border border-slate-200/60 flex flex-col justify-between">
+                        <div class="w-12 h-12 rounded-xl bg-indigo-600 text-white font-black text-2xl flex items-center justify-center mb-3 editable ppt-inner-element">03</div>
+                        <h4 class="text-2xl font-bold text-slate-800 mb-2 editable ppt-inner-element">闭环处置</h4>
+                        <p class="text-lg text-slate-500 editable ppt-inner-element">秒级拦截联动，沉淀防护规则</p>
+                    </div>
+                </div>
+            `;
+            Object.assign(element.style, { width: '1180px', minHeight: '260px' });
+        } else if (kind === 'comparison') {
+            element = document.createElement('div');
+            element.className = 'ppt-created-element ppt-card ht-created-comparison bg-white rounded-2xl p-8 border border-slate-200/90 shadow-md';
+            element.dataset.componentName = '对比矩阵';
+            element.innerHTML = `
+                <div class="grid grid-cols-2 gap-8">
+                    <div class="p-6 bg-rose-50/70 border border-rose-200 rounded-2xl">
+                        <span class="inline-block px-3 py-1 bg-rose-500 text-white text-sm font-bold rounded-full mb-3 editable ppt-inner-element">传统旧模式 (Before)</span>
+                        <h4 class="text-2xl font-bold text-rose-900 mb-3 editable ppt-inner-element">人工响应迟缓与割裂</h4>
+                        <ul class="space-y-2 text-lg text-slate-700">
+                            <li class="editable ppt-inner-element">✕ 告警日均超 1000 条，疲于应付</li>
+                            <li class="editable ppt-inner-element">✕ 平均处置时长超 3.5 小时</li>
+                        </ul>
+                    </div>
+                    <div class="p-6 bg-emerald-50/70 border border-emerald-200 rounded-2xl">
+                        <span class="inline-block px-3 py-1 bg-emerald-600 text-white text-sm font-bold rounded-full mb-3 editable ppt-inner-element">升级新模式 (After)</span>
+                        <h4 class="text-2xl font-bold text-emerald-900 mb-3 editable ppt-inner-element">自动化编排与秒级阻断</h4>
+                        <ul class="space-y-2 text-lg text-slate-700">
+                            <li class="editable ppt-inner-element">✓ 智能压降 90% 重复无效告警</li>
+                            <li class="editable ppt-inner-element">✓ 闭环自动化处置率达到 92%</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
+            Object.assign(element.style, { width: '1080px', minHeight: '290px' });
+        } else if (kind === 'bento') {
+            element = document.createElement('div');
+            element.className = 'ppt-created-element ppt-card ht-created-bento bg-white/95 rounded-2xl p-8 border border-slate-200/90 shadow-md';
+            element.dataset.componentName = 'Bento 栅格';
+            element.innerHTML = `
+                <div class="grid grid-cols-3 gap-6">
+                    <div class="col-span-2 p-6 bg-gradient-to-br from-indigo-50/60 to-white border border-indigo-100 rounded-2xl flex flex-col justify-between">
+                        <div>
+                            <span class="px-3 py-1 bg-indigo-600 text-white text-xs font-bold rounded-lg editable ppt-inner-element">战略重点</span>
+                            <h3 class="text-3xl font-extrabold text-slate-900 mt-4 mb-2 editable ppt-inner-element">新一代安全智能运营中枢</h3>
+                            <p class="text-xl text-slate-600 leading-relaxed editable ppt-inner-element">集成大数据流批处理与生成式 AI 研判引擎，实现全链路实时监测与自治防护。</p>
+                        </div>
+                    </div>
+                    <div class="p-6 bg-slate-50 border border-slate-200/80 rounded-2xl flex flex-col justify-between">
+                        <span class="text-sm font-bold text-slate-400 uppercase tracking-wider editable ppt-inner-element">运行战果</span>
+                        <div class="text-6xl font-black text-indigo-600 my-2 editable ppt-inner-element">0 事故</div>
+                        <p class="text-base text-slate-500 editable ppt-inner-element">连续安全无故障运行 730 天</p>
+                    </div>
+                </div>
+            `;
+            Object.assign(element.style, { width: '1180px', minHeight: '300px' });
+        } else if (kind === 'quote') {
+            element = document.createElement('div');
+            element.className = 'ppt-created-element ppt-card ht-created-quote bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-8 border border-slate-700 shadow-2xl flex flex-col justify-between';
+            element.dataset.componentName = '核心金句';
+            element.innerHTML = `
+                <span class="text-6xl text-indigo-400 font-serif leading-none">“</span>
+                <p class="text-3xl font-bold text-slate-100 my-4 leading-relaxed editable ppt-inner-element">安全不是业务奔跑的刹车皮，而是保障高速驰骋的安全带。</p>
+                <div class="flex items-center gap-4">
+                    <span class="px-3 py-1 bg-indigo-500 text-white text-sm font-semibold rounded-full editable ppt-inner-element">核心战略金句</span>
+                    <span class="text-lg text-slate-400 editable ppt-inner-element">网络安全工作研讨总结</span>
+                </div>
+            `;
+            Object.assign(element.style, { width: '920px', minHeight: '260px' });
         }
         if (!element) return;
         const createdCount = slide.querySelectorAll('.ppt-created-element').length;
@@ -1287,7 +1517,7 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
         markComponents(slide);
         select(element);
         commitChange();
-        if (['title', 'text', 'note', 'card', 'icon'].includes(kind)) {
+        if (['title', 'text', 'note', 'card', 'icon', 'metric', 'process', 'comparison', 'bento', 'quote'].includes(kind)) {
             startTextEditing(element);
         }
     }
@@ -2096,7 +2326,8 @@ export function createComponentEditor({ deck, getScale, onChange, onStatus, onSe
         bringToFront,
         toggleLock,
         isComponentSelected: (component) => selectedSet.has(component),
-        selectComponent: select
+        selectComponent: select,
+        normalizeSlide: normalizeSlideElements
     };
 }
 

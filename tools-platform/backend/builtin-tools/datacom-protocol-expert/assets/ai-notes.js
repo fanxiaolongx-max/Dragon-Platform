@@ -1,3 +1,4 @@
+import { getLanguage, translate, originalText, originalSelection } from './i18n.js';
 // AI 问答与笔记：选中文字 / 图表 / 代码 / 教学图组件 → 悬浮问答，自动保存为高亮；右侧可调宽的侧栏汇总并可跳回原位置。
 import { renderMarkdown, renderMermaid } from './markdown.js';
 
@@ -57,7 +58,7 @@ export function initAiNotes(app) {
         const response = await fetch(`${ENDPOINT}/ai/ask`, {
             method: 'POST', credentials: 'same-origin', signal,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tenantId: app.state.tenantId, ...body })
+            body: JSON.stringify({ tenantId: app.state.tenantId, ...body, language: getLanguage() })
         });
         if (!response.ok || !response.body) {
             const data = await response.json().catch(() => ({}));
@@ -91,7 +92,7 @@ export function initAiNotes(app) {
         const anchor = item.anchor || {};
         if (anchor.type === 'visual') return `🧊 ${app.VISUALS.get(anchor.visualId)?.title.split(' · ')[0] || anchor.visualId}${anchor.partName ? ` · ${anchor.partName}` : ''}`;
         if (anchor.type === 'block') return `${{ mermaid: '📊 流程图', code: '⌨️ 代码块', table: '▦ 表格', image: '🖼 图片' }[anchor.block] || '区块'}${anchor.heading ? ` · ${anchor.heading}` : ''}`;
-        if (anchor.type === 'text') return `“${squash(item.quote || anchor.exact).slice(0, 28)}${squash(item.quote || anchor.exact).length > 28 ? '…' : ''}”`;
+        if (anchor.type === 'text') return `“${squash(translate(item.quote || anchor.exact)).slice(0, 28)}${squash(item.quote || anchor.exact).length > 28 ? '…' : ''}”`;
         return '整篇文章';
     };
     const articleTitle = id => app.state.catalog.articles.find(article => article.id === id);
@@ -129,7 +130,7 @@ export function initAiNotes(app) {
         let heading = '';
         if (field === 'body') {
             const headings = [...root.querySelectorAll('h1, h2, h3, h4')].filter(node => node.compareDocumentPosition(range.startContainer) & Node.DOCUMENT_POSITION_FOLLOWING);
-            heading = squash(headings.at(-1)?.textContent || '');
+            heading = squash(headings.length ? originalText(headings.at(-1)) : '');
         }
         if (lab && app.state.route?.name === 'lab') {
             return { rect: range.getBoundingClientRect(), exact, anchor: { type: 'visual', visualId: app.state.route.id, partName: '选中文字' }, quote: exact, visualContext: labContext(lab) };
@@ -137,7 +138,7 @@ export function initAiNotes(app) {
         if (!field || app.state.route?.name !== 'article') {
             return { rect: range.getBoundingClientRect(), exact, anchor: { type: 'article' }, quote: exact, articleId: app.state.route?.name === 'article' ? app.state.route.id : null };
         }
-        return { rect: range.getBoundingClientRect(), exact, anchor: { type: 'text', field, exact, ...context, heading }, quote: exact, articleId: app.state.route.id };
+        return { rect: range.getBoundingClientRect(), exact, anchor: { type: 'text', field, ...context, ...originalSelection(range, root), heading }, quote: exact, articleId: app.state.route.id };
     }
 
     function hideToolbar() { ui.toolbar?.remove(); ui.toolbar = null; }
@@ -343,13 +344,13 @@ export function initAiNotes(app) {
 
     function findRange(root, anchor) {
         const { text, nodes } = textIndex(root);
-        const needle = squash(anchor.exact);
+        const needle = squash(translate(anchor.exact));
         if (!needle) return null;
         const hits = [];
         for (let i = text.indexOf(needle); i >= 0; i = text.indexOf(needle, i + 1)) hits.push(i);
         if (!hits.length) return null;
-        const before = squash(anchor.prefix);
-        const after = squash(anchor.suffix);
+        const before = squash(translate(anchor.prefix));
+        const after = squash(translate(anchor.suffix));
         const score = index => {
             const pre = text.slice(Math.max(0, index - before.length), index).trimEnd();
             const post = text.slice(index + needle.length).trimStart();
@@ -374,8 +375,9 @@ export function initAiNotes(app) {
         for (let node = walker.nextNode(); node; node = walker.nextNode()) if (range.intersectsNode(node)) texts.push(node);
         texts.forEach(node => {
             let target = node;
-            if (node === range.endContainer && range.endOffset < node.length) node.splitText(range.endOffset);
-            if (node === range.startContainer && range.startOffset > 0) target = node.splitText(range.startOffset);
+            const translated = originalText(node) !== node.nodeValue;
+            if (!translated && node === range.endContainer && range.endOffset < node.length) node.splitText(range.endOffset);
+            if (!translated && node === range.startContainer && range.startOffset > 0) target = node.splitText(range.startOffset);
             if (!target.nodeValue.trim()) return;
             const mark = document.createElement('mark');
             Object.entries(attrs).forEach(([key, value]) => mark.setAttribute(key, value));
@@ -597,7 +599,7 @@ export function initAiNotes(app) {
     function filtered() {
         const list = S.scope === 'all' ? S.all : S.list;
         const keyword = S.filter.toLowerCase();
-        return list.filter(item => (S.kind === 'all' || item.kind === S.kind) && (!keyword || `${item.title} ${item.brief} ${item.quote}`.toLowerCase().includes(keyword)));
+        return list.filter(item => (S.kind === 'all' || item.kind === S.kind) && (!keyword || translate(`${item.title} ${item.brief} ${item.quote}`).toLowerCase().includes(keyword)));
     }
 
     function itemHtml(item) {
@@ -782,6 +784,15 @@ export function initAiNotes(app) {
     }
     toggle?.addEventListener('click', () => (panel.hidden ? openPanel() : closePanel()));
     setWidth(Number(storeGet(WIDTH_KEY)) || 400);
+
+    document.addEventListener('dk:beforelanguagechange', () => {
+        clearHighlights();
+        // Join Chinese text fragments split by a highlight before translating.
+        for (const root of document.querySelectorAll('#articleBody, .dk-summary, .dk-keypoints ol')) root.normalize();
+    });
+    document.addEventListener('dk:languagechange', () => {
+        queueMicrotask(() => { refreshHighlights(); renderPanel(); });
+    });
 
     // ---------------- 与主应用的生命周期对接 ----------------
     async function loadPage(route) {

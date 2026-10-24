@@ -93,11 +93,17 @@ function decryptRequest(req, res, next) {
     }
 }
 
-// 获取需求列表
+// 获取需求列表：列表只显示一行描述，正文截断（详情页按 id 读取全文），避免把贴进来的大段日志整批下发
+const LIST_DESCRIPTION_CHARS = 300;
 router.get('/', (req, res) => {
+    // SELECT * 兼容旧租户库缺少后加列（category / urgent）的情况
     db.all('SELECT * FROM Requirements ORDER BY id DESC', (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
+        res.json(rows.map(row => {
+            const description = String(row.description || '');
+            if (description.length <= LIST_DESCRIPTION_CHARS) return row;
+            return { ...row, description: description.slice(0, LIST_DESCRIPTION_CHARS), description_truncated: true };
+        }));
     });
 });
 

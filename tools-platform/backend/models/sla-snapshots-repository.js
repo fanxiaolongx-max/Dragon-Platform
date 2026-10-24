@@ -72,9 +72,22 @@ async function listFromDb(options={}) {
     return rows.map(row => JSON.parse(row.payload_json));
 }
 
+// 摘要视图：去掉明细数据（sourceSections 表格行、到期工单），保留标识、时间、汇总与指标，只需元数据的页面不必下载整份快照
+const HEAVY_SNAPSHOT_KEYS = ['sourceSections', 'expiringTickets'];
+function summarizeSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return snapshot;
+    const summary = { ...snapshot };
+    for (const key of HEAVY_SNAPSHOT_KEYS) {
+        if (Array.isArray(summary[key])) summary[`${key}Count`] = summary[key].length;
+        delete summary[key];
+    }
+    summary.summaryView = true;
+    return summary;
+}
+
 async function listSnapshots(options={}) {
     const items = await listFromDb(options);
-    return { items, source: 'sqlite' };
+    return { items: options.view === 'summary' ? items.map(summarizeSnapshot) : items, source: 'sqlite' };
 }
 
 async function getLatestSnapshot() {

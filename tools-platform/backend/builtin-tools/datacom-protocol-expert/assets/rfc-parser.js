@@ -7,10 +7,10 @@ const SEPARATOR = /^\s*\+(?:[-+]+)\+?\s*$/;
 export function isRfcDiagram(text) {
     const lines = String(text || '').split('\n');
     const separators = lines.filter((line) => SEPARATOR.test(line) && line.includes('-'));
-    // 至少有一条分隔线带有字段边界（3 个以上 “+”），以排除普通的 ASCII 文本框
+    // 位图具有逐位刻度，或至少八个字段边界；排除普通文本框和树形流程图。
     return (
         separators.length >= 2 &&
-        separators.some((line) => (line.match(/\+/g) || []).length >= 3) &&
+        (separators.some((line) => (line.match(/\+/g) || []).length >= 9) || lines.some(line => /^\s*\d(?:\s+\d){7,}\s*$/.test(line))) &&
         lines.some((line) => /^\s*\|.*\|/.test(line))
     );
 }
@@ -36,7 +36,11 @@ export function parseRfcDiagram(text) {
             groupFirstField = null;
             return;
         }
-        if (!/^\s*\|/.test(line)) return;
+        // Variable-length LSA lists are labeled on a dashed continuation line.
+        // Retain that label instead of turning its blank rows into reserved bits.
+        const listLabel = /^\s*\+[- ]*(LSA Header|LSAs)[- ]*\+?\s*$/i.exec(line);
+        if (listLabel && groupFirstField) { groupFirstField.name = listLabel[1]; groupFirstField.variable = true; return; }
+        if (!/^\s*\|/.test(line) || line.indexOf('|') !== start) return;
         const pipes = [];
         for (let i = start; i <= start + width && i < line.length; i += 1) if (line[i] === '|') pipes.push(i);
         if (pipes[0] !== start) pipes.unshift(start);
@@ -55,6 +59,10 @@ export function parseRfcDiagram(text) {
         }
         const total = segments.reduce((sum, item) => sum + item.bits, 0);
         if (segments.length) segments[segments.length - 1].bits += bitsPerRow - total;
+        if (groupFirstField && segments.length === 1 && /^\(\d+\s*Bytes?\)$/i.test(segments[0].name)) {
+            groupFirstField.bits += bitsPerRow;
+            return;
+        }
         // 同一分隔区内的空白续行：字段跨越多个 32 bit 字
         if (groupFirstField && segments.every((item) => !item.name || item.name === '...' || item.name === '…')) {
             if (segments.every((item) => !item.name)) {
@@ -66,6 +74,7 @@ export function parseRfcDiagram(text) {
             const field = {
                 name: segment.name === '...' || segment.name === '…' ? '…（可重复）' : segment.name || '（保留）',
                 bits: segment.bits,
+                variable: segment.name === '...' || segment.name === '…',
                 desc: note && segments.length === 1 ? note : segment.name === '0' ? '保留位，置 0。' : '',
                 color: FIELD_COLORS[fields.length % FIELD_COLORS.length],
             };

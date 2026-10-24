@@ -144,38 +144,53 @@
                     <i class="ph ph-plus-circle"></i> 添加组件
                 </button>
                 <div id="addElementMenu"
-                    class="hidden absolute left-0 top-full mt-2 w-48 py-1 rounded-xl bg-zinc-800 border border-zinc-700 shadow-2xl z-50">
+                    class="hidden absolute left-0 top-full mt-2 w-52 py-1.5 rounded-xl bg-zinc-900 border border-zinc-700 shadow-2xl z-50">
+                    <div class="px-3 py-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">常用基础组件</div>
                     <button
-                        class="add-element-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-white text-left"
-                        data-element-kind="title"><i class="ph ph-text-h-two"></i> 标题</button>
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="title"><i class="ph ph-text-h-two text-purple-400"></i> 页面标题</button>
                     <button
-                        class="add-element-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-white text-left"
-                        data-element-kind="text"><i class="ph ph-text-t"></i> 文本框</button>
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="text"><i class="ph ph-text-t text-blue-400"></i> 正文文本框</button>
                     <button
-                        class="add-element-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-white text-left"
-                        data-element-kind="image"><i class="ph ph-image"></i> 图片</button>
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="image"><i class="ph ph-image text-emerald-400"></i> 图片占位</button>
                     <button
-                        class="add-element-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-white text-left"
-                        data-element-kind="table"><i class="ph ph-table"></i> 表格</button>
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="table"><i class="ph ph-table text-amber-400"></i> 数据表格</button>
                     <button
-                        class="add-element-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-white text-left"
-                        data-element-kind="note"><i class="ph ph-note"></i> 便签</button>
-                    <div class="h-px bg-zinc-700/60 my-1"></div>
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="note"><i class="ph ph-note text-yellow-400"></i> 重点便签</button>
+                    <div class="h-px bg-zinc-800 my-1"></div>
+                    <div class="px-3 py-1 text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">现代高阶排版块</div>
                     <button
-                        class="add-element-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-white text-left"
-                        data-element-kind="card"><i class="ph ph-square"></i> 内容卡片</button>
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="metric"><i class="ph ph-chart-line-up text-indigo-400"></i> 指标数据卡</button>
                     <button
-                        class="add-element-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-white text-left"
-                        data-element-kind="shape"><i class="ph ph-circle"></i> 形状</button>
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="process"><i class="ph ph-steps text-emerald-400"></i> 流程步骤条</button>
                     <button
-                        class="add-element-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-white text-left"
-                        data-element-kind="line"><i class="ph ph-minus"></i> 线条</button>
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="comparison"><i class="ph ph-columns text-rose-400"></i> 对比矩阵卡</button>
                     <button
-                        class="add-element-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-white text-left"
-                        data-element-kind="icon"><i class="ph ph-shield-check"></i> 图标</button>
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="bento"><i class="ph ph-squares-four text-cyan-400"></i> Bento 栅格组</button>
                     <button
-                        class="add-element-btn w-full flex items-center gap-3 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-white text-left"
-                        data-element-kind="timeline"><i class="ph ph-flow-arrow"></i> 时间轴</button>
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="quote"><i class="ph ph-quotes text-violet-400"></i> 核心观点金句</button>
+                    <button
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="timeline"><i class="ph ph-flow-arrow text-teal-400"></i> 横向时间轴</button>
+                    <div class="h-px bg-zinc-800 my-1"></div>
+                    <button
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="card"><i class="ph ph-square text-zinc-400"></i> 基础内容卡片</button>
+                    <button
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="shape"><i class="ph ph-circle text-zinc-400"></i> 强调圆形</button>
+                    <button
+                        class="add-element-btn w-full flex items-center gap-3 px-4 py-1.5 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white text-left transition-colors"
+                        data-element-kind="line"><i class="ph ph-minus text-zinc-400"></i> 分隔线</button>
                 </div>
             </div>
 
@@ -362,10 +377,28 @@
                 </div>
             </div>
 
-            <div class="px-4 py-2 bg-zinc-900 border-t border-zinc-800/50 flex flex-wrap gap-2">
+            <div class="px-4 py-2 bg-zinc-900 border-t border-zinc-800/50 flex flex-wrap gap-1.5">
                 <button
                     class="ai-shortcut-btn px-2 py-1 bg-zinc-800 hover:bg-purple-600/20 hover:text-purple-400 border border-zinc-700 hover:border-purple-500/50 rounded text-xs text-zinc-300 transition-colors shadow-sm"
-                    data-action="polish">✨ 润色当前页</button>
+                    data-action="polish">✨ 润色文字</button>
+                <button
+                    class="ai-shortcut-btn px-2 py-1 bg-zinc-800 hover:bg-indigo-600/20 hover:text-indigo-400 border border-zinc-700 hover:border-indigo-500/50 rounded text-xs text-zinc-300 transition-colors shadow-sm"
+                    data-action="to_metric">📊 提炼大字指标</button>
+                <button
+                    class="ai-shortcut-btn px-2 py-1 bg-zinc-800 hover:bg-rose-600/20 hover:text-rose-400 border border-zinc-700 hover:border-rose-500/50 rounded text-xs text-zinc-300 transition-colors shadow-sm"
+                    data-action="to_comparison">⚖️ 转双列对比</button>
+                <button
+                    class="ai-shortcut-btn px-2 py-1 bg-zinc-800 hover:bg-emerald-600/20 hover:text-emerald-400 border border-zinc-700 hover:border-emerald-500/50 rounded text-xs text-zinc-300 transition-colors shadow-sm"
+                    data-action="to_process">🪜 转流程步骤</button>
+                <button
+                    class="ai-shortcut-btn px-2 py-1 bg-zinc-800 hover:bg-cyan-600/20 hover:text-cyan-300 border border-zinc-700 hover:border-cyan-500/50 rounded text-xs text-zinc-300 transition-colors shadow-sm"
+                    data-action="style_dark">🌙 科技暗黑风</button>
+                <button
+                    class="ai-shortcut-btn px-2 py-1 bg-zinc-800 hover:bg-amber-600/20 hover:text-amber-300 border border-zinc-700 hover:border-amber-500/50 rounded text-xs text-zinc-300 transition-colors shadow-sm"
+                    data-action="style_light">☀️ 极简纯白风</button>
+                <button
+                    class="ai-shortcut-btn px-2 py-1 bg-zinc-800 hover:bg-violet-600/20 hover:text-violet-300 border border-zinc-700 hover:border-violet-500/50 rounded text-xs text-zinc-300 transition-colors shadow-sm"
+                    data-action="to_quote">💬 提炼金句卡</button>
                 <button
                     class="ai-shortcut-btn px-2 py-1 bg-zinc-800 hover:bg-blue-600/20 hover:text-blue-400 border border-zinc-700 hover:border-blue-500/50 rounded text-xs text-zinc-300 transition-colors shadow-sm"
                     data-action="translate_en">🌐 翻为英文</button>
@@ -378,9 +411,6 @@
                 <button
                     class="ai-shortcut-btn px-2 py-1 bg-zinc-800 hover:bg-cyan-600/20 hover:text-cyan-300 border border-zinc-700 hover:border-cyan-500/50 rounded text-xs text-zinc-300 transition-colors shadow-sm"
                     data-action="layout_page">🧩 重排当前页</button>
-                <button
-                    class="ai-shortcut-btn px-2 py-1 bg-zinc-800 hover:bg-rose-600/20 hover:text-rose-300 border border-zinc-700 hover:border-rose-500/50 rounded text-xs text-zinc-300 transition-colors shadow-sm"
-                    data-action="audit_layout">🔎 检查排版</button>
                 <button
                     class="ai-shortcut-btn px-2 py-1 bg-zinc-800 hover:bg-green-600/20 hover:text-green-300 border border-zinc-700 hover:border-green-500/50 rounded text-xs text-zinc-300 transition-colors shadow-sm"
                     data-action="fix_layout">🪄 修复排版</button>
@@ -732,82 +762,76 @@
     </aside>
 
     <!-- Floating Rich Text Toolbar -->
-            <div id="richTextToolbar"
-                class="fixed hidden z-[99999] bg-zinc-800 backdrop-blur-md border border-zinc-600 shadow-2xl rounded-lg p-1.5 flex items-center gap-1 transition-opacity">
-                <!-- Font Family Dropdown -->
-                <div class="relative rt-dropdown">
-                    <button id="rtFontNameBtn"
-                        class="rt-dropdown-toggle px-2 h-7 text-xs font-medium text-zinc-200 hover:text-white hover:bg-zinc-700 rounded flex items-center justify-center transition-colors truncate whitespace-nowrap max-w-[100px]"
-                        title="字体"><span>字体</span> <i
-                            class="ph-bold ph-caret-down ml-1 opacity-70 pointer-events-none shrink-0"></i></button>
-                    <div
-                        class="absolute bottom-full left-0 mb-1 hidden rt-dropdown-menu flex-col bg-zinc-800 border border-zinc-600 rounded-md shadow-lg p-1 w-32 z-50">
-                        <button
-                            class="rt-btn text-left px-2 py-1.5 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white rounded"
-                            data-command="fontName" data-value="Arial" style="font-family: Arial;">Arial</button>
-                        <button
-                            class="rt-btn text-left px-2 py-1.5 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white rounded"
-                            data-command="fontName" data-value="'Microsoft YaHei'"
-                            style="font-family: 'Microsoft YaHei';">微软雅黑</button>
-                        <button
-                            class="rt-btn text-left px-2 py-1.5 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white rounded"
-                            data-command="fontName" data-value="SimSun" style="font-family: SimSun;">宋体</button>
-                        <button
-                            class="rt-btn text-left px-2 py-1.5 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white rounded"
-                            data-command="fontName" data-value="SimHei" style="font-family: SimHei;">黑体</button>
-                        <button
-                            class="rt-btn text-left px-2 py-1.5 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white rounded"
-                            data-command="fontName" data-value="'PingFang SC'"
-                            style="font-family: 'PingFang SC';">苹方</button>
-                    </div>
-                </div>
-
-                <!-- Font Size Dropdown -->
-                <div class="relative rt-dropdown">
-                    <button id="rtFontSizeBtn"
-                        class="rt-dropdown-toggle px-2 h-7 text-xs font-medium text-zinc-200 hover:text-white hover:bg-zinc-700 rounded flex items-center justify-center transition-colors whitespace-nowrap shrink-0"
-                        title="字号"><span>字号</span> <i
-                            class="ph-bold ph-caret-down ml-1 opacity-70 pointer-events-none shrink-0"></i></button>
-                    <div
-                        class="absolute bottom-full left-0 mb-1 hidden rt-dropdown-menu flex-col bg-zinc-800 border border-zinc-600 rounded-md shadow-lg p-1 w-24 z-50">
-                        <button
-                            class="rt-btn text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white rounded"
-                            data-command="fontSize" data-value="1">极小</button>
-                        <button
-                            class="rt-btn text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white rounded"
-                            data-command="fontSize" data-value="2">较小</button>
-                        <button
-                            class="rt-btn text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white rounded"
-                            data-command="fontSize" data-value="3">常规</button>
-                        <button
-                            class="rt-btn text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white rounded"
-                            data-command="fontSize" data-value="4">中等</button>
-                        <button
-                            class="rt-btn text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white rounded"
-                            data-command="fontSize" data-value="5">较大</button>
-                        <button
-                            class="rt-btn text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white rounded"
-                            data-command="fontSize" data-value="6">极大</button>
-                        <button
-                            class="rt-btn text-left px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-700 hover:text-white rounded"
-                            data-command="fontSize" data-value="7">超大</button>
-                    </div>
-                </div>
-
-                <div class="w-px h-4 bg-zinc-500 mx-1"></div>
-                <button
-                    class="rt-btn font-bold text-zinc-200 hover:text-white hover:bg-zinc-700 w-7 h-7 rounded flex items-center justify-center transition-colors"
-                    data-command="bold" title="加粗">B</button>
-                <button
-                    class="rt-btn italic text-zinc-200 hover:text-white hover:bg-zinc-700 w-7 h-7 rounded flex items-center justify-center transition-colors"
-                    data-command="italic" title="斜体">I</button>
-                <button
-                    class="rt-btn underline text-zinc-200 hover:text-white hover:bg-zinc-700 w-7 h-7 rounded flex items-center justify-center transition-colors"
-                    data-command="underline" title="下划线">U</button>
-                <div class="w-px h-4 bg-zinc-500 mx-1"></div>
-                <input type="color" class="rt-color bg-transparent cursor-pointer w-6 h-6 p-0 border-0"
-                    data-command="foreColor" title="字体颜色">
+    <div id="richTextToolbar"
+        class="fixed hidden z-[99999] bg-zinc-900/95 backdrop-blur-md border border-zinc-700 shadow-2xl rounded-xl p-1 flex items-center gap-1 transition-all select-none">
+        <!-- Font Family Dropdown -->
+        <div class="relative rt-dropdown">
+            <button id="rtFontNameBtn"
+                class="rt-dropdown-toggle px-2 h-7 text-xs font-medium text-zinc-200 hover:text-white hover:bg-zinc-800 rounded flex items-center justify-center transition-colors truncate whitespace-nowrap max-w-[90px]"
+                title="字体"><span>字体</span> <i class="ph-bold ph-caret-down ml-1 opacity-70 pointer-events-none shrink-0 text-[10px]"></i></button>
+            <div class="absolute bottom-full left-0 mb-1 hidden rt-dropdown-menu flex-col bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-1 w-32 z-50">
+                <button class="rt-btn text-left px-2 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 hover:text-white rounded" data-command="fontName" data-value="Arial" style="font-family: Arial;">Arial</button>
+                <button class="rt-btn text-left px-2 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 hover:text-white rounded" data-command="fontName" data-value="'Microsoft YaHei'" style="font-family: 'Microsoft YaHei';">微软雅黑</button>
+                <button class="rt-btn text-left px-2 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 hover:text-white rounded" data-command="fontName" data-value="SimSun" style="font-family: SimSun;">宋体</button>
+                <button class="rt-btn text-left px-2 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 hover:text-white rounded" data-command="fontName" data-value="SimHei" style="font-family: SimHei;">黑体</button>
+                <button class="rt-btn text-left px-2 py-1.5 text-xs text-zinc-200 hover:bg-zinc-800 hover:text-white rounded" data-command="fontName" data-value="'PingFang SC'" style="font-family: 'PingFang SC';">苹方</button>
             </div>
+        </div>
+
+        <!-- Font Size Steppers -->
+        <button id="rtSizeDown"
+            class="w-7 h-7 text-xs font-bold text-zinc-300 hover:text-white hover:bg-zinc-800 rounded flex items-center justify-center transition-colors"
+            title="缩小字号 (A-)">A-</button>
+        <button id="rtSizeUp"
+            class="w-7 h-7 text-xs font-bold text-zinc-300 hover:text-white hover:bg-zinc-800 rounded flex items-center justify-center transition-colors"
+            title="放大字号 (A+)">A+</button>
+
+        <div class="w-px h-4 bg-zinc-700 mx-0.5"></div>
+
+        <!-- Basic Styling -->
+        <button class="rt-btn font-bold text-zinc-200 hover:text-white hover:bg-zinc-800 w-7 h-7 rounded flex items-center justify-center transition-colors" data-command="bold" title="加粗 (Ctrl+B)">B</button>
+        <button class="rt-btn italic text-zinc-200 hover:text-white hover:bg-zinc-800 w-7 h-7 rounded flex items-center justify-center transition-colors" data-command="italic" title="斜体 (Ctrl+I)">I</button>
+        <button class="rt-btn underline text-zinc-200 hover:text-white hover:bg-zinc-800 w-7 h-7 rounded flex items-center justify-center transition-colors" data-command="underline" title="下划线 (Ctrl+U)">U</button>
+        <button class="rt-btn line-through text-zinc-200 hover:text-white hover:bg-zinc-800 w-7 h-7 rounded flex items-center justify-center transition-colors" data-command="strikeThrough" title="删除线">S</button>
+
+        <div class="w-px h-4 bg-zinc-700 mx-0.5"></div>
+
+        <!-- Alignments -->
+        <button class="rt-btn text-zinc-300 hover:text-white hover:bg-zinc-800 w-7 h-7 rounded flex items-center justify-center transition-colors" data-command="justifyLeft" title="左对齐"><i class="ph-bold ph-text-align-left text-sm"></i></button>
+        <button class="rt-btn text-zinc-300 hover:text-white hover:bg-zinc-800 w-7 h-7 rounded flex items-center justify-center transition-colors" data-command="justifyCenter" title="居中"><i class="ph-bold ph-text-align-center text-sm"></i></button>
+        <button class="rt-btn text-zinc-300 hover:text-white hover:bg-zinc-800 w-7 h-7 rounded flex items-center justify-center transition-colors" data-command="justifyRight" title="右对齐"><i class="ph-bold ph-text-align-right text-sm"></i></button>
+        <button class="rt-btn text-zinc-300 hover:text-white hover:bg-zinc-800 w-7 h-7 rounded flex items-center justify-center transition-colors" data-command="insertUnorderedList" title="项目符号列表"><i class="ph-bold ph-list-bullets text-sm"></i></button>
+
+        <div class="w-px h-4 bg-zinc-700 mx-0.5"></div>
+
+        <!-- Color & Highlight -->
+        <div class="flex items-center px-1" title="文字颜色">
+            <input type="color" class="rt-color bg-transparent cursor-pointer w-6 h-6 p-0 border-0 rounded" data-command="foreColor" title="字体颜色">
+        </div>
+
+        <!-- Text Highlight Dropdown -->
+        <div class="relative rt-dropdown">
+            <button id="rtHiliteToggle" class="rt-dropdown-toggle px-1.5 h-7 text-xs text-amber-300 hover:bg-zinc-800 rounded flex items-center justify-center transition-colors" title="文字底色高亮">
+                <i class="ph-bold ph-highlighter text-sm"></i>
+            </button>
+            <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden rt-dropdown-menu flex gap-1 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-1.5 z-50">
+                <button class="rt-btn w-5 h-5 rounded-full bg-yellow-300 hover:scale-110 transition-transform" data-command="hiliteColor" data-value="#fef08a" title="明黄"></button>
+                <button class="rt-btn w-5 h-5 rounded-full bg-emerald-300 hover:scale-110 transition-transform" data-command="hiliteColor" data-value="#a7f3d0" title="浅绿"></button>
+                <button class="rt-btn w-5 h-5 rounded-full bg-sky-300 hover:scale-110 transition-transform" data-command="hiliteColor" data-value="#bae6fd" title="天蓝"></button>
+                <button class="rt-btn w-5 h-5 rounded-full bg-rose-300 hover:scale-110 transition-transform" data-command="hiliteColor" data-value="#fecdd3" title="粉红"></button>
+                <button class="rt-btn w-5 h-5 rounded-full bg-zinc-700 border border-zinc-600 hover:scale-110 transition-transform text-[9px] text-zinc-300 flex items-center justify-center" data-command="hiliteColor" data-value="transparent" title="无高亮">✕</button>
+            </div>
+        </div>
+
+        <div class="w-px h-4 bg-zinc-700 mx-0.5"></div>
+
+        <!-- AI Polish inline -->
+        <button id="rtAiActionBtn"
+            class="px-2.5 h-7 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium flex items-center gap-1 transition-all shadow-sm"
+            title="✨ AI润色选中文本">
+            <i class="ph-bold ph-sparkle text-amber-300 text-xs"></i> <span>AI润色</span>
+        </button>
+    </div>
 
     <!-- Slide Templates -->
     <template id="blankSlideTemplate">
@@ -841,7 +865,7 @@
     </template>
 
     <!-- App Logic -->
-    <script type="module" src="js/app.js?v=20261007-1"></script>
+    <script type="module" src="js/app.js?v=20261022-1"></script>
 </body>
 
 </html>

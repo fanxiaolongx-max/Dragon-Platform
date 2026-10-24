@@ -59,9 +59,12 @@ router.get('/source-files/:id/download',handle(async(req,res)=>{
 router.get('/source-sheets/:id/editor',handle(async(req,res)=>{
     res.setHeader('Cache-Control','no-store');
     const state=await repo.sheetEditor(req.params.id),canWrite=req.user?.role==='admin';
-    res.json({...state,editable:state.editable&&canWrite,readOnlyReason:!state.editable?'snapshot':!canWrite?'admin_required':''});
+    res.json({...state,editable:state.editable&&canWrite,canCreateMetric:canWrite,readOnlyReason:!state.editable?'snapshot':!canWrite?'admin_required':''});
 }));
 router.put('/source-sheets/:id/editor',requireAdmin,handle(async(req,res)=>res.json(await repo.updateSheet(req.params.id,req.body))));
+router.post('/source-sheets/:id/quick-metrics',requireAdmin,handle(async(req,res)=>res.json(await require('../models/monthly-quick-metrics').save(req.params.id,req.body))));
+router.get('/source-sheets/:id/presentation',handle(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json({...await require('../models/source-presentation-repository').read(req.params.id),canWrite:req.user?.role==='admin'});}));
+router.put('/source-sheets/:id/presentation',requireAdmin,handle(async(req,res)=>res.json(await require('../models/source-presentation-repository').save(req.params.id,req.body))));
 router.get('/source-sheets/:id',handle(async(req,res)=>{const sheet=await repo.getSheet(req.params.id);res.status(sheet?200:404).json(sheet || {error:'Worksheet not found'});}));
 router.get('/source-snapshots/:id',handle(async(req,res)=>{const snapshot=await repo.getArchivedSnapshot(req.params.id);res.status(snapshot?200:404).json(snapshot || {error:'Import snapshot not found'});}));
 router.get('/source-snapshots/:id/sections/:key',handle(async(req,res)=>{const section=await repo.getSection(req.params.id,req.params.key);res.status(section?200:404).json(section || {error:'Extracted source section not found'});}));
@@ -87,17 +90,18 @@ router.post('/monthly-default-template/sync-repository',handle(async(req,res)=>r
 router.get('/monthly-documents',handle(async(req,res)=>res.json(await repo.listDocuments())));
 const drafts=require('../models/monthly-draft-repository');
 const draftOwner=req=>req.user?.username;
-router.get('/monthly-drafts',handle(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json(await drafts.list(draftOwner(req)));}));
+router.get('/monthly-drafts',handle(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json(await drafts.list(draftOwner(req),{archived:req.query.archived==='1'}));}));
+router.post('/monthly-drafts/cleanup',requireAdmin,handle(async(req,res)=>res.json(await drafts.cleanup(draftOwner(req),req.body||{}))));
 router.get('/monthly-drafts/:id',handle(async(req,res)=>{res.setHeader('Cache-Control','no-store');res.json(await drafts.read(draftOwner(req),req.params.id));}));
 router.put('/monthly-drafts/:id',requireAdmin,handle(async(req,res)=>res.json(await drafts.save(draftOwner(req),req.params.id,req.body))));
-router.delete('/monthly-drafts/:id',requireAdmin,handle(async(req,res)=>res.json(await drafts.remove(draftOwner(req),req.params.id))));
+router.delete('/monthly-drafts/:id',requireAdmin,handle(async(req,res)=>res.json(await drafts.remove(draftOwner(req),req.params.id,req.body||{}))));
 router.delete('/monthly-documents',requireAdmin,handle(async(req,res)=>{if(req.body?.confirmed!==true)return res.status(400).json({error:'Confirm monthly report deletion',code:'IMPORT_SOURCE_ERROR'});res.json(await repo.deleteDocuments(req.body.ids));}));
 router.get('/monthly-documents/:id',handle(async(req,res)=>{res.setHeader('Cache-Control','no-store');const document=await repo.getDocument(req.params.id);res.status(document?200:404).json(document || {error:'Monthly document not found'});}));
 router.post('/monthly-documents',handle(async(req,res)=>{
-    const {expectedRevision:bodyRevision,...input}=req.body||{};let document;
+    const {expectedRevision:bodyRevision,autoSave=false,...input}=req.body||{};let document;
     const headerRevision=req.get('X-Monthly-Base-Revision'),expectedRevision=headerRevision==='missing'?null:headerRevision??bodyRevision;
     if(expectedRevision!==undefined&&expectedRevision!==null&&(typeof expectedRevision!=='string'||!/^[a-f0-9]{64}$/.test(expectedRevision)))return res.status(400).json({error:'Invalid base revision',code:'INVALID_MONTHLY_DOCUMENT'});
     try{document=engine.normalize(input);}catch(error){return res.status(400).json({error:error.message,code:'INVALID_MONTHLY_DOCUMENT'});}
-    res.json(await repo.saveDocument(document,expectedRevision===undefined?{}:{expectedRevision}));
+    res.json(await repo.saveDocument(document,{...(expectedRevision===undefined?{}:{expectedRevision}),autoSave:autoSave===true}));
 }));
 module.exports=router;

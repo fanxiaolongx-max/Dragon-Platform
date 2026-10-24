@@ -207,10 +207,28 @@ async function logMessage(channel, entry) {
     }
 }
 
+/**
+ * 消息日志分页（最新在前）：before 为上一页最后一条的 id，自增主键天然有序，不会漏行或重复。
+ * 返回 { items, hasMore, total }；total 为保留中的全部日志条数（最多约 MESSAGE_KEEP 条）。
+ */
+async function listMessagesPage(channel, { limit = 30, before = 0 } = {}) {
+    await ensureSchema();
+    const size = Math.max(1, Math.min(200, Math.floor(Number(limit)) || 30));
+    const cursor = Math.floor(Number(before)) || 0;
+    const rows = await all(`SELECT * FROM channel_messages WHERE channel = ?${cursor > 0 ? ' AND id < ?' : ''} ORDER BY id DESC LIMIT ?`,
+        cursor > 0 ? [channel, cursor, size + 1] : [channel, size + 1]);
+    const total = Number((await get('SELECT COUNT(*) AS total FROM channel_messages WHERE channel = ?', [channel]))?.total || 0);
+    return { items: rows.slice(0, size).map(mapMessageRow), hasMore: rows.length > size, total };
+}
+
 async function listMessages(channel, { limit = 100 } = {}) {
     await ensureSchema();
     const rows = await all('SELECT * FROM channel_messages WHERE channel = ? ORDER BY id DESC LIMIT ?', [channel, Math.max(1, Math.min(500, Number(limit) || 100))]);
-    return rows.map(row => ({
+    return rows.map(mapMessageRow);
+}
+
+function mapMessageRow(row) {
+    return {
         id: row.id,
         direction: row.direction,
         toolSessionId: row.tool_session_id || '',
@@ -223,7 +241,7 @@ async function listMessages(channel, { limit = 100 } = {}) {
         source: row.source || '',
         error: row.error || '',
         createdAt: row.created_at
-    }));
+    };
 }
 
 async function countSummary(channel) {
@@ -251,5 +269,6 @@ module.exports = {
     deleteTarget,
     logMessage,
     listMessages,
+    listMessagesPage,
     countSummary
 };

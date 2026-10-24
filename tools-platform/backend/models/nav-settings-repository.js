@@ -9,8 +9,8 @@ const FALLBACK_PLATFORM_IDENTITY = Object.freeze({
     platformNameEn: 'Dragon Platform',
     platformSubtitle: '埃及 CS 工具与知识中心',
     platformSubtitleEn: 'Egypt CS Tools & Knowledge Center',
-    platformSlogan: '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”',
-    platformSloganEn: '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”'
+    platformSlogan: '“认真做好每一个工具，让日常工作更省心。”',
+    platformSloganEn: '“Build every tool with care. Make everyday work easier.”'
 });
 
 function getDefaultPlatformIdentity() {
@@ -228,8 +228,9 @@ function normalizeSettings(input = {}) {
 
     const platformSubtitle = sanitizeText(input.platformSubtitle, defaultIdentity.platformSubtitle, 120);
     const platformSubtitleEn = sanitizeText(input.platformSubtitleEn, defaultIdentity.platformSubtitleEn, 120);
-    const platformSlogan = sanitizeText(input.platformSlogan, defaultIdentity.platformSlogan, 200);
-    const platformSloganEn = sanitizeText(input.platformSloganEn, defaultIdentity.platformSloganEn, 200);
+    // 旧版默认标语随内置文案更新；自定义标语继续保留。
+    const platformSlogan = sanitizeText(input.platformSlogan === '“以智慧之神图特之羽衡度万象，以数智之枢纽连接经验与效率。”' ? undefined : input.platformSlogan, defaultIdentity.platformSlogan, 200);
+    const platformSloganEn = sanitizeText(input.platformSloganEn === '“By the scales of Thoth, ancient god of wisdom — measuring order, uniting tools, and turning experience into efficiency.”' ? undefined : input.platformSloganEn, defaultIdentity.platformSloganEn, 200);
     const platformName = rawPlatformName || platformNameZh || defaultIdentity.platformName;
 
     return {

@@ -91,8 +91,7 @@ flowchart TD
 
     subgraph 展现与应用层["3. 展现与业务应用"]
         B5 --> C1["报表看板 (/report)<br/>(健康度排名/比例计分/手动调整填充)"]
-        B5 --> C2["月度质量报告与工作区 (/monthly)<br/>(行内富文本编辑/Diff比对/长图与MSG导出)"]
-        B5 --> C10["通用月报设计器 (/monthly-designer.html)<br/>(组件拖拽/画布排版/多维图表)"]
+        B5 --> C2["AI 月报 (/monthly)<br/>(格子对话/AI 配方沙箱/三级下钻/HTML·PDF·MSG)"]
         B5 --> C3["运营大屏 (/bigscreen)<br/>(会议室态势驾驶舱)"]
         B5 --> C4["一键催办 (/expedite)<br/>(文案组装/全屏截图/Excel导出/网络别名映射)"]
         B5 --> C5["专题分析中心 (/topic-analysis)<br/>(NetCare/DataFab历史快照/EOS收编进展)"]
@@ -519,20 +518,38 @@ flowchart TD
   - **比例计分系统**：根据实际达成值相对于目标基线的偏移比例动态计分。
   - **Others 额外监控弱化机制**：部分指标仅作为日常监控参考，在看板与月报中以弱化样式呈现，**自动不计入总分**，避免干扰主绩效。
   - **短板透视矩阵**：直接定位扣分严重、不达标频次最高的客户群与责任指标。
-- **月度质量报告与月报工作区 (`/monthly`)**：
-  - **标准化月报全功能交互工作区 (Monthly Workspace)**：
-    - **行内交互式富文本编辑**：点击月报正文段落或表格单元格直接就地修改；选中文本后弹出浮动工具栏，支持快速加粗、设为斜体，以及 5 种空间主题文字颜色高亮（琥珀色、红色、蓝色、绿色、深灰色）。
-    - **文案智能重置与展示控制**：提供“恢复本月自动文案”与“恢复固定文案”两级重置；支持一键切换“隐藏/显示月报导入时间与数据源小字”，满足正式汇报排版洁净度需求。
-    - **网络名称别名映射与临期预警阈值**：支持自定义网络归属别名映射规则（如 `EG-Egypt ET = ET`，支持跨大区/多网络映射，与一键催办共享映射体系）；支持自定义单据临期预警重点提示天数（含已超期单据统计）。
-    - **工程化版本管理与历史比对 (Diff)**：
-      - **📦 导出工程 / 📂 导入工程**：一键导出包含完整底层离线数据与全部中英文编辑内容的 `.json` 工程文件，支持离线流转与团队协同。
-      - **📸 保存快照 / 📚 快照库**：支持将当前月报数据、定制文案与排版保存为持久化历史快照（跨设备云端同步，存储于 `monthly_report_snapshots` 表）。
-      - **🔍 月报比对 (Diff)**：支持任意两个历史快照或快照与当前月报的分屏深度比对，自动高亮标注正文、表格数据及样式颜色的变更差异。
-    - **全矩阵多格式导出交付**：
-      - **长图 PNG 矩阵**：支持独立下载“🇨🇳 中文版 PNG（仅中文简报与图表）”、“🇬🇧 英文版 PNG（仅英文简报与图表）”、“🌐 中英文合一双语对照高清 PNG”以及“📦 一键打包下载全部（3张）”。
-      - **文档与表格导出**：支持一键导出排版规范的标准 **PDF** 报告、单文件离线 **HTML** 交互报告、原生带格式 **Excel** 表格。
-      - **Outlook 邮件格式 (`.msg`)**：通过后端专有路由 `/api/report-msg` 将富文本排版封装为标准 RTF，直接导出符合 Microsoft Outlook 规范的 `.msg` 邮件草稿，包含格式化表格与高亮短板，方便一键发送业务群组与领导层。
-  - **跨月长期演进趋势**：深度读取 `report.db` 入库快照，支持按月份、代表处、客户群进行多维交叉透视，直观展现同比、环比波动与短板攻坚改善效果。
+- **AI 月报 (`/monthly`，`pages/ai-report.html`)**：
+  - **入口统一与平滑演进**：`/monthly` 直接承载全新 **AI 月报编辑器**；历史路径 `/ai-report`、`/monthly/legacy`、`/pages/monthly-designer.html`、`/pages/monthly.html` 均自动 302 跳转至 `/monthly`（旧版三栏设计器已归档至 `backups/monthly-designer-classic-2026-10-21`）。完整操作与接口契约见 [AI 月报指南](docs/monthly-designer.md)。
+
+| 报头、快速跳转导航与本月概述总览 | 格子对话、最终提示词与子块布局联动 |
+| :---: | :---: |
+| ![AI 月报报头、章节导航与本月概述](docs/images/readme/shots/monthly.jpg) | ![AI 月报格子对话与最终提示词](docs/images/readme/monthly-editor.png) |
+| **多列窄格图表网格与空白格提问** | **「✦ 整体风格」全篇风格顾问** |
+| ![AI 月报六宫格图表与空白格输入](docs/images/readme/shots/ai-report-cells.jpg) | ![AI 月报整体风格对话面板](docs/images/readme/shots/ai-report-style.jpg) |
+  - **想改哪里点哪里：五个地方都能直接跟 AI 对话 (`cell-chat.js`, `app.js`, `backend/routes/ai-report.js`)**：
+    - **① 点格子聊数据 (`/api/ai-report/cell/{chat,prompt}`)**：在空白格内直接打字，或在右侧面板连续对话。你只需说日常用语，AI 会自己调用 7 个查数工具去翻当月导入的原始表格（哪怕刚导入还没点开解析过的表，它也会当场自动解析）、SLA 指标与 11 类业务工具数据。遇到列太多（超过 8 列）或口径有歧义时，它会弹出 2–5 个现成胶囊按钮让你点选；一旦需求明确，立刻帮你写好顶部的**「最终提示词」**并直接出图，不用多点一次“确认生成”。改坏了点一下 **`↶ 撤回`**，画面会像沙粒一样消散再瞬间聚合成上一版，不用重新等 AI 计算。
+    - **② 点左上角 LOGO 换图或画图 (`/api/ai-report/{images,image/chat,image/generate}`)**：点击报头 LOGO 打开「✦ 图片对话」，支持上传本地图片、从历史图片画廊里挑、调整显示宽度（`40–400px`），或者直接让 AI 画一个新徽标——配了「丹青」等绘图模型时会生成高清图，甚至能以当前 LOGO 为底图局部改色改字；没配绘图模型时也会自动手绘匹配月报主题色的 `512×512` 矢量 SVG，每次更换都能随时一步步撤回。
+    - **③ 点报头与页脚旁的 `✦` 定动态规则 (`/api/ai-report/template/field{,/chat,/prompt}`)**：主标题、副标题、信息栏每项（部门、报告时间、数据月份、审核人、报告目标）和页脚既可以直接双击改成固定文字，也能点旁边的 `✦` 设为按月自动生成的规则（如“报告时间永远写报告月份的下一个月，格式 `YYYYMM`”或“结合本月未达标格子写三段式报告目标”）。服务端会预先算好当月/上月/下月的精确日历值再交给 AI，绝不算错跨年与月份。
+    - **④ 点章节标题栏 `✦` 统一整章排版 (`/api/ai-report/chapter/{chat,prompt}`, `/api/ai-report/cell/restyle`)**：一句话统一本章所有格子的图表方向、配色或总结位置。重排时服务端在后台**死死锁住每个格子的取数来源与计算公式**，只允许改外层展示代码，保证换皮肤绝不换数字。
+    - **⑤ 点顶部「✦ 整体风格」换全篇主题 (`/api/ai-report/report/{chat,prompt,theme}`)**：按 `【风格与配色】`、`【数据与计算】`、`【文字与结论】`、`【排版与图表】` 四类维护全篇规矩。平时在单格子里随口说出的全局偏好（如“所有总结不超过两句”），AI 会在回复下方弹出「✦ 加入整体风格提示词」按钮供一键收录；修改整体风格时只精准改动你提到的那一条，绝不改乱其他规则，并实时刷新全篇配色、字体与边框。
+    - **多层规矩冲突时先问你听谁的 (`checkConflict`)**：如果你这次说的要求跟以前在「整体风格」或「章节样式」里定下的规矩矛盾（比如之前定过目标线用红虚线，这次说用蓝实线），AI 绝不会偷偷覆盖，而是把新旧两条要求并列摆出来，提供「以这次为准，替换原要求」「保留原来的要求」「只在这个格子例外」按钮让你拍板。
+  - **12 道自动质检关卡：宁可后台重做，绝不给你看假数字或乱排版 (`runner.js`, `sandbox.js`, `/api/ai-report/cell/compile`)**：
+    - AI 不直接填数字，而是把需求编译成一套可跨月复用的“取数 + 计算 + 渲染”配方（`recipe`），关进**完全断网的安全沙箱**里运行。
+    - 在画面呈现给你之前，系统会自动完成 **12 道质检**：严禁联网、严禁使用随机数或“示例数据”、严禁编造不存在的表名；如果因为指标名没写全（比如把 `TOPN 风险 / TE` 简写成 `TE`）或过滤条件写错导致有数据的表算出一堆 `0` 或空表、如果把“本月总数”错填进“环比增量”、如果并列第一时写出“某代表处最高又最低”的矛盾句子、如果画面漏出 `undefined`/`NaN`/源码标签、如果顶部有了总结下面又重复写总结，甚至渲染后发现**漏掉了你要求写的标题**或**左右并排两块把格子挤出了横向滚动条**——系统都会在几秒钟内自动把问题打回给 AI 回炉重做（最多 3 次），直到算准、排好才端上桌面。
+  - **图表能下钻 3 层、能跟表格联动 (`render-kit.js`, `widgets.js`)**：
+    - 生成的图表（`kit.chart`，高清 SVG）支持最多 **3 级点击下钻**（如从「大区」点进「代表处」再点进「单据明细」，带面包屑一键退回）；点击左边图表的柱子，右边的数据表（`kit.datatable`）会自动跟着筛选对应单据，并支持实时搜索、点击表头排序与翻页。
+    - KPI 卡片（`kit.kpi`）自动把变化量写成 `较上月 +2`、`与上月持平` 等人话；极值组件（`kit.extremes`）自动合并展示并列第一/垫底项；导览与概述里的指标名和数字支持一键平滑滚动定位到对应章节或格子。
+  - **看着画面直接上手微调，不用事事打字 (`app.js`, `layout.js`)**：
+    - **哪里不顺眼双击直接改 (`/api/ai-report/cell/text-edit`)**：双击表头、单元格、标题、KPI 或顶栏总结就能原地改字。AI 能自动听懂你是想把缩写替换成固定中文名（`replace`），还是想润色总结文风（`refine`），并自动把规则记进提示词。
+    - **像摆桌面图标一样拖拽格子与章节**：拖格子时旁边的卡片平滑让位；拖章节时**整篇长月报自动缩小成一屏总览（`zoomOut`）**，松手后再平滑放大落位；两章之间悬停随时点击 `＋ 插入章节`。
+    - **拉尺寸有 2.5 秒缓冲倒计时条（`.air-settle`）**：拉窄或拉矮已生成的格子后，底部会浮现一条 2.5 秒倒计时条（带「立即生成」和「撤销调整」），你继续拉扯时它会自动等你，调满意了再一次性让 AI 按新尺寸重排（缩窄到 4 列以内自动改成上下堆叠；若横轴名字超过 6 个字还会弹窗问你按哪种方式缩写）。格子内部左右分栏的缝隙也能直接用鼠标拉宽拉高，双击右下角或横线即可恢复自动高度。
+  - **想看底牌时随时翻看：排查信息与「开发者」全屏划词诊断 (`trace.js`, `trace-viewer.js`)**：
+    - 点开最终提示词下方的「排查信息」，就能看到这一格读了哪张表、用了什么计算和展示代码。
+    - 打开对话面板右上角的 **「开发者」** 开关，后台每一步思考、查表、重试和耗时都会实时记入「开发者记录」。点 **`⛶ 全屏`** 打开双栏阅读器后，可以点 **`✦ AI 总结全部内容`** 听大白话复盘、点 **`🩺 分析错误原因`** 找病根，或者**直接用鼠标划选任意一段看不懂的提示词、JSON 或报错文字**，点浮出的 **`✦ AI 对话`** 选中哪句问哪句（`/api/ai-report/debug/explain`）。
+  - **平时改一格全篇联动，下个月切一下月份直接导出 (`runner.js`, `export.js`)**：
+    - **总览格 0.4 秒自动跟随（`followReport`）**：只要你改了下面某个格子的算法、改了章节名或挪了顺序，顶部的导览和「本月概述」总览格会在 0.4 秒内自己静默重算。
+    - **下个月一键换月**：切换顶部「报告月份」，所有数据格、动态报头字段与顶部总览格按两阶段自动拉取新月份数据重算；旧总结自动亮起「✦ 更新总结（N）」供一键批量重写。
+    - **三种交付格式**：支持一键导出**独立交互式单文件 HTML**（发给同事断网双击打开也能做 3 级图表下钻和表格筛选）、**高清矢量 PDF**（自动冻结图表并展开全部分页表格）以及 **Outlook `.msg` 邮件草稿**（双击直接在 Outlook 发送）。
 - **运营质量大屏 (`/bigscreen`)**：
   - 专为会议室全屏展示与运维中枢大屏设计，包含态势总览、达标巡检雷达、风险客户群排行榜、短板指标分布与实时数据探针。
 
@@ -649,10 +666,11 @@ flowchart TD
   - 首页右上角推广区同时包含推广视频与推广链接，同一时间只有一个小窗（视频或链接画面），其余以横幅显示，颜色与角标区分类型。浏览器首次进入优先展示第一个已启用的推广链接；之后刷新或重新进入时，视频和链接混合随机轮换，每轮内不重复，跨轮避免连续展示相同项。没有推广链接时轮换视频，永久关闭小窗的偏好仍然保留；静态推送首页沿用相同行为。
   - 系统自带的视频与 NetCare 链接只能隐藏；自定义链接可增删改、排序。首页最多显示的链接数默认 3 个，超出后按设定间隔轮换。
   - 默认（系统自带）链接保存在受版本控制的 `backend/platform-promotions-defaults.json`：可直接手动编辑，或在源码目录运行的服务上用「编辑默认 / 设为默认」写回，提交并推送到 Git 后即为所有环境的默认链接（打包后的桌面版只读）。
-  - 桌面端登录后在屏幕右下角以置顶卡片堆打开推广链接（`desktop-promo/`，独立持久分区保存登录态），首页小窗显示其实时画面，点击弹出对应大窗；托盘可暂停，关闭卡片堆当天不再弹出，Windows 全屏/演示时自动隐藏。
+  - 桌面端登录后在屏幕右下角以置顶卡片堆打开推广链接（`desktop-promo/`，独立持久分区保存登录态），小窗按完整桌面视口等比缩小，隐藏主页面及 iframe 内的滚动条，锁定手势缩放；点击将当前页面移入 Dragon 浏览器标签并恢复原页面滚动样式；最小化或关闭浏览器后恢复预览。首页小窗显示其实时画面，点击推广链接在 Dragon 浏览器新增标签；浏览器打开期间首页可回退推广封面，右下角预览恢复后继续更新；托盘可暂停，关闭卡片堆当天不再弹出，Windows 全屏/演示时自动隐藏。
   - 浏览器访问时链接显示封面卡片，点击在固定命名的标签页打开（已打开则直接切换），NetCare 等禁止被嵌入的站点也能正常访问。
-  - 桌面浏览器（卡片堆大窗与浮窗脚本窗口共用）：没有有效期的会话 Cookie 自动续存 7 天，重启后免登录；工具栏「🧩」加载浏览器插件——项目自带插件随平台更新自动重新加载，也可导入打包好的 .zip / 插件文件夹或本机 Chrome / Edge 已安装的插件（原样加载，插件自带的 License 校验照常生效；Electron 不支持 chrome.commands、工具栏图标等少数接口）；「🪟」与托盘菜单一键打开浮窗脚本站点，登录跳回目标站点后自动运行。
-  - 数据抓取 →「📋 浮窗脚本」在桌面端多一个「🖥 桌面浏览器运行」按钮，脚本与「复制此站点」完全相同；打开数据抓取页时自动刷新桌面端缓存的站点脚本。
+  - Dragon 浏览器（所有入口共用一个多标签窗口）：没有有效期的会话 Cookie 自动续存 7 天，但服务端过期或撤销登录仍需重新认证，且不共享系统 Chrome / Edge 的登录态；工具栏「🧩」加载浏览器插件——项目自带插件随平台更新自动重新加载，也可导入打包好的 .zip / 插件文件夹或本机 Chrome / Edge 已安装的插件。启动时自动识别名称以 ICPM 开头的插件并加载一份：沿用已保存的选择，首次选择较新版本，同版本优先 Chrome；手动切换只保留一份，取消后不再自动启用。插件原样加载，License 校验照常生效；“已加载”只表示扩展加载成功，Electron 仅支持部分扩展接口，依赖 `nativeMessaging` 本机通信的插件会显示兼容性提示，不能据此承诺 XGate 等公司免密登录可用；需要完整企业认证环境时可通过工具栏「↗」在系统浏览器打开。「🪟」与托盘菜单在同一窗口新增浮窗脚本标签，登录跳回目标站点后自动运行。首页推广、网站的新窗口链接、插件面板和设置也在这个窗口打开标签；各标签独立保留页面和脚本状态，共享原有登录会话与插件。支持标签切换/关闭、新标签、地址栏，以及 Ctrl/Cmd+T、Ctrl/Cmd+W、Ctrl/Cmd+L、Ctrl/Cmd+Tab 快捷键。关闭最后一个标签关闭浏览器，右下角预览继续保留。
+  - Dragon 浏览器下载文件默认直接保存到系统“下载”目录，不再每次弹出保存位置选择框；同名文件自动追加 `(1)`、`(2)` 等序号，批量同时下载也不会相互覆盖。使用系统配置的下载目录，支持 Windows 将下载目录移动到其他磁盘。
+  - 数据抓取 →「📋 浮窗脚本」在桌面端多一个「🖥 Dragon 浏览器」按钮，脚本与「复制此站点」完全相同；打开数据抓取页时自动刷新桌面端缓存的站点脚本。
   - 点击统计（设置页底部）：按推广项汇总点击次数与去重人数，区分视频大窗 / 新标签页 / 首页弹出桌面大窗 / 卡片堆直接放大四种渠道，同一账号 5 秒内重复点击只算一次，不展示账号明细。
 
 ---
@@ -1127,13 +1145,21 @@ flowchart LR
 
 | 数据库 / 存储文件 | 宿主目录 | 存储内容与核心表 |
 | :--- | :--- | :--- |
-| **`tools.db`** | `backend/data/` | 账号鉴权 (`users`, `sessions`)、租户元数据 (`tenants`)、UIV 脚本仓库 (`uiv_categories`, `uiv_scripts`)、SLA 规则配置 (`sla_targets`, `sla_prefs`, `sla_groups`, `sla_snapshots`)、月报工作区快照 (`monthly_report_snapshots`)、专题快照 (`topic_snapshots`)、会议考勤与操作激励快照 (`meeting_attendance_snapshots`, `operation_incentive_snapshots`)、负向事件与奖惩 (`department_reward_penalty_*`)、正向激励 (`reward_program_*`)、静态推送 (`snapshot_publish_*`)、多源市场 (`tool_market_settings`)、FRT 规则、PR 审计配置、告警事件 (`alert_events`)、服务状态指标等 |
+| **`tools.db`** | `backend/data/` | 账号鉴权 (`users`, `sessions`)、租户元数据 (`tenants`)、UIV 脚本仓库 (`uiv_categories`, `uiv_scripts`)、SLA 规则配置 (`sla_targets`, `sla_prefs`, `sla_groups`, `sla_snapshots`)、AI 月报文档与图片资产 (`ai_report_documents`, `ai_report_images`)、归档源表与工作表 (`import_source_files`, `import_source_sheets`)、月报历史快照 (`monthly_report_snapshots`)、专题快照 (`topic_snapshots`)、会议考勤与操作激励快照 (`meeting_attendance_snapshots`, `operation_incentive_snapshots`)、负向事件与奖惩 (`department_reward_penalty_*`)、正向激励 (`reward_program_*`)、静态推送 (`snapshot_publish_*`)、多源市场 (`tool_market_settings`)、FRT 规则、PR 审计配置、告警事件 (`alert_events`)、服务状态指标等 |
 | **`report.db`** | `data/` | 报表看板入库历史快照、各代表处/客户群月度得分、全量指标计算明细数据、月报读取主库 |
 | **`requirements.db`** | `data/` | 需求广场提议记录 (`requirements`)、需求流转状态变更日志与评论 |
 | **`ai-knowledge.db`** | `backend/data/` | Dragon Claw 智能体代码与项目文档增量向量/BM25 索引缓存（可随源码更新随时重建） |
 | **`custom-tools/`** | `backend/data/` | 所有上传的自定义 HTML 工具与静态资源文件 |
 | **`images/`** | `data/` | 报表全屏高清截图、导出 Excel/PDF 临时缓存文件 |
 | **`desktop-pet-config.json`** | 用户数据目录 (`%APPDATA%` 或 `~/Library/Application Support/`) | 桌面宠物个性化运行配置（启停状态、当前可见性、小宠缩放比例、打字音效音量、声音方案、气泡显隐、打字反馈及屏幕坐标记忆） |
+
+管理员的“数据探索”默认使用当前租户的 `tools.db`，可在页首切换当前租户实际存在的 SQLite 运行库（报表、需求、AI 知识索引、聊天记录、数通知识库、仓储等）。报表库按 `TOOLS_REPORT_DATA_DIR` 解析，其余业务库按 `TOOLS_DATA_DIR`/当前租户目录解析；不会扫描备份、归档或其他租户目录。默认租户的 `tools.db` 同时包含平台控制面，命名租户可显式选择标有“全局”的平台账号与租户控制库。切换会重载表列表、清空旧结果，并按实际表生成查询示例；未初始化的库不显示。SQL 仍支持管理员执行增删改和 DDL，跨库文件操作须通过选择器完成，不支持 `ATTACH`/`DETACH`/`VACUUM INTO`。数据库查询正文和结果不写入请求或服务状态日志。
+
+探索页采用双列侧边栏与右侧工作区：最左侧窄列选择 SQL 终端、数据表查看或日志收集；第二列展示当前模块的常用示例、按业务分类的完整表目录或日志日期范围。目录支持搜索表名、业务分类和用途，不截断表数量。当前建表代码中定义的 126 张表提供中英文用途说明，历史或扩展表未登记时会明确提示；查看字段结构时不加载业务行，切到“表数据”后再分页读取。结构页同时展示字段类型、主键顺序、非空约束、默认值、索引、外键与建表语句。
+
+页面默认亮色，可在右上角切换暗色并记住本页的选择，不随操作系统自动变暗。SQL 输入框默认两行高，可拖动右下角调整。数据库选择器下方展示所选库的中英文用途；自动发现的 0 字节文件标注为“空数据库文件”，仅浏览其目录不会初始化文件。其余无法确认用途的扩展库明确标注“用途未登记”，不会按文件名猜测。
+
+接口兼容原有调用：`GET /api/db-explorer/databases` 返回可选库和默认标识；`GET /api/db-explorer/catalog` 返回所选库的完整表目录及用途分类；表列表、表数据接口通过 `?database=<id>` 选库，表数据接口另可使用 `view=schema` 只取结构。`POST /api/db-explorer/query`（以及 `/sql`）可在 JSON 中传入 `database`。省略时仍使用 `tools`，库标识须来自数据库列表，不能传入本地路径。
 
 ### 4.2 启动期完整性自检与自愈 (`sqlite-integrity-repair.js`)
 
@@ -1173,7 +1199,10 @@ flowchart TD
 | `sla_prefs` | `pref_key` (PK), `pref_json`, `updated_at` | 每张表的显示列、排序、冻结列与计算模式偏好 |
 | `sla_groups` | `id` (PK), `name`, `metrics_json`, `sort_order` | 指标大类与分组聚合配置 |
 | `sla_snapshots` | `id` (PK), `month`, `snapshot_name`, `data_json`, `created_at` | SLA 上传与计算的历史快照沉淀 |
-| `monthly_report_snapshots` | `id` (PK), `tool_key`, `topic_key`, `month`, `snapshot_name`, `summary_json`, `created_at` | 标准化月报工作区保存的历史快照（支持版本比对 Diff） |
+| `ai_report_documents` | `id` (PK), `name`, `report_month`, `payload_json`, `created_at`, `updated_at`, `updated_by` | AI 月报文档实体（报头、字段动态提示词、图片历史、全篇风格与主题、章节与章节样式、12 列网格格子、对话历史、最终提示词与配方缓存） |
+| `ai_report_images` | `id` (PK), `name`, `mime`, `bytes`, `source`, `prompt`, `created_at`, `created_by` | AI 月报上传与 AI 生成（丹青绘图 / 矢量 SVG）的 LOGO 及图片资产表 |
+| `import_source_files` / `import_source_sheets` | `id` (PK), `report_month`, `file_name`, `sheet_name`, `headers_json`, `rows_json` | 数据导入归档的原始文件与结构化工作表（供 AI 月报与资料库按月检索） |
+| `monthly_report_snapshots` | `id` (PK), `tool_key`, `topic_key`, `month`, `snapshot_name`, `summary_json`, `created_at` | 月报与专题历史快照沉淀（支持版本比对 Diff 与 AI 月报跨源读取） |
 | `topic_snapshots` | `id` (PK), `source`, `batch_id`, `captured_at`, `payload_json`, `created_at` | NetCare 与 DataFab 专题历史快照（保存原始 JSON 结构） |
 | `meeting_attendance_snapshots`| `id` (PK), `meeting_date`, `roster_json`, `summary_json`, `created_at` | 例会花名册、参会考勤与状态快照（支持智能工号去 m 与去重） |
 | `operation_incentive_snapshots`| `id` (PK), `period`, `records_json`, `summary_json`, `created_at` | 操作激励在册人员名单与周期激励快照 |
@@ -1330,8 +1359,7 @@ flowchart TD
 | **数据抓取** | `/uivf12` | 需登录 | UIVF12 脚本仓库、UI.Vision 批量调度与 F12 抓取控制台 |
 | **数据导入** | `/sla` | 需登录 (修改需Admin) | SLA 多表数据合并、列映射、指标规则管理与历史快照上传 |
 | **报表看板** | `/report` | 需登录 | 客户群健康度排名、比例计分、入库计算、短板透视矩阵 |
-| **月报工作区** | `/monthly` | 需登录 | 跨月历史指标演进趋势、标准化月报工作区（行内富文本编辑、快照比对 Diff、长图与 MSG 导出） |
-| **通用月报设计器** | `/monthly-designer.html` | 需登录 | 资料库组件自由拖拽、画布排版编辑、跨月指标动态绑定、ECharts 趋势图表定制与多格式交付导出 |
+| **AI 月报** | `/monthly` | 需登录 | 模板 + 12 列网格章节：每个格子用一句话描述需求，AI 查数据、追问确认后生成可跨月复用的配方（数据来源 + 计算 + 渲染），切换报告月份自动重算；支持 ECharts 三级下钻、双击就地改字、全局风格顾问与 HTML / PDF / MSG 导出（`/ai-report`、`/monthly/legacy`、`/pages/monthly-designer.html`、`/pages/monthly.html` 自动跳转至此） |
 | **一键催办** | `/expedite` | 需登录 | 基于快照自动生成催办文案、网络别名映射、全屏长截图与 Excel 导出 |
 | **大屏看板** | `/bigscreen` | 需登录 | 全屏运营态势驾驶舱、短板风险分布、雷达巡检 |
 | **专题分析** | `/topic-analysis.html` | 需登录 | NetCare/DataFab 租户级历史快照中心、EOS 收编进展月报、版本 Diff 比对与工程导出导入 |
@@ -1342,7 +1370,7 @@ flowchart TD
 | **FRT 核算** | `/frt` | 需登录 | FRT 动态规则引擎与 KPI 自动化核算平台 |
 | **需求广场** | `/requirements`| 需登录 | 平台功能需求提议、流转状态看板与评论日志追踪 |
 | **存储迁移** | `/storage` | 需登录 (修改需Admin) | SQLite/JSON 迁移进度核对、数据一致性 Parity 校验与安全清理 |
-| **数据探索** | `/db-explorer` | 需登录 (修改需Admin) | SQLite 底层物理表可视化查询与多日日志打包导出 |
+| **数据探索** | `/db-explorer` | 仅Admin | 当前租户多数据库切换、表与 SQL 查询、全局控制库管理及多日日志导出 |
 | **自定义工具** | `/custom-tool` / `/tools/:slug` | 按工具配置 | 运行与管理自定义 HTML/ZIP 工具，支持多源市场扩展 |
 | **License 管理** | `/desktop-license-admin` | 管理员专有 | 管理员签发、续期、失效与归档客户端 License（服务端专有） |
 | **桌面 License 激活** | `/desktop-license-activation.html` | 公开/桌面端 | 桌面客户端离线 License 激活页，展示激活状态与离线凭据导入 |
@@ -1373,7 +1401,9 @@ flowchart TD
 | `/api/sla` | `sla.js` | 需登录 (写需Admin) | SLA 指标规则、分月目标、跨表作用域、列映射偏好、批量替换守卫与快照入库 |
 | `/api/upload` | `upload.js` | 需登录 | 上传文件历史记录与临时附件处理 |
 | `/api/db` | `db.js` | 需登录 (写需Admin) | 报表看板计算、客户群得分、月报指标读取与配置存储 |
-| `/api/monthly-snapshots`| `monthly-snapshots.js`| 需登录 | 标准化月报工作区跨设备快照保存、列表读取与多版本 Diff 比对 |
+| `/api/ai-report` | `ai-report.js` | 需登录 | AI 月报模板与文档 CRUD、数据源/数据集/指标解析、五大 AI 对话（单格对话、LOGO 图片对话与绘图、报头/页脚字段对话、章节样式顾问、整体风格顾问）、多层级提示词冲突仲裁、配方编译与锁计算重排（`/cell/restyle`）、双击改字、一句话摘要（`gist`）及开发者全屏追踪 AI 诊断（`/debug/explain`） |
+| `/api/import-sources` | `import-sources.js` | 需登录 | 数据导入归档源表、工作表懒加载解析、关联指标树与展示映射管理 |
+| `/api/monthly-snapshots`| `monthly-snapshots.js`| 需登录 | 月报历史快照保存、列表读取与多版本 Diff 比对 |
 | `/api/report-msg` | `report-msg.js` | 需登录 | 月报富文本 RTF 封装与 Outlook `.msg` 邮件草稿一键生成与导出 |
 | `/api/topic-snapshots` | `topic-snapshots.js` | 需登录 | NetCare 与 DataFab 专题历史快照持久化管理与时间序列分析 |
 | `/api/department-reward-penalty`| `department-reward-penalty.js`| 需登录 (写需Admin)| 部门奖惩与负向事件治理、证据附件归档与静态单文件/Pages 自动化发布 |
@@ -1396,7 +1426,7 @@ flowchart TD
 | `/api/custom-tools` | `custom-tools.js` | 需登录 (写需Admin) | 自定义 HTML/ZIP 工具上传、多源市场源管理 (`/market/sources`) 与状态同步 |
 | `/api/global-backup` | `global-backup.js` | 需登录 (写需Admin) | 当前租户核心数据备份包生成、租户级自动备份调度与同租户恢复 |
 | `/api/storage` | `storage.js` | 需登录 (写需Admin) | SQLite/JSON 存储迁移状态、读源切换与遗留 JSON 安全清理 |
-| `/api/db-explorer` | `db-explorer.js` | 需登录 (写需Admin) | SQLite 物理表结构查询、数据探针与日志文件打包下载 |
+| `/api/db-explorer` | `db-explorer.js` | 仅Admin | 数据库列表与切换、SQLite 表结构与 SQL 查询、日志打包下载 |
 | `/api/agent-workspace` | `agent-workspace.js` | 需登录 | Dragon Claw 智能体专属本地代码工作区、目录补全、权限守卫、变更差异与 PR 自动化 |
 | `/api/python-updater` | `python-updater.js` | 需登录 (写需Admin) | Python 业务脚本版本仓库、版本差异比对与打包工程一键同步 |
 | `/api/platform-logo` | `platform-logo.js` | 需登录 (写需Admin) | 平台高清品牌资产、自动去底与多平台图标（1024/256/32）导出 |
@@ -1447,13 +1477,15 @@ privacy-policy/
     │   ├── pet-manager.js                 # 伴侣窗口生命周期、自愈修复与配置持久化
     │   └── pet-keyboard-hook.js           # 跨平台系统级全局按键监听与热力连击 (uiohook)
     │
+    ├── desktop-promo/                     # 桌面推广卡片堆独立视窗与管理器
+    │
     ├── backend/                           # Express 后端核心服务
     │   ├── server.js                      # 后端服务主入口、中间件装配、自检与后台任务调度
     │   ├── preflight.js                   # 启动前端口与系统环境预检
     │   ├── ecosystem.config.js            # PM2 生产运维配置文件
     │   ├── package.json                   # 后端依赖配置
-    │   ├── routes/                        # 40+ 个业务 API 路由模块 (含 agent-workspace, python-updater 等)
-    │   ├── models/                        # 数据库仓储 (app-db, report-store)、业务引擎与 AI 适配器
+    │   ├── routes/                        # 53 个业务 API 路由模块 (含 ai-report, agent-workspace, python-updater 等)
+    │   ├── models/                        # 数据库仓储 (app-db, report-store, ai-report-*)、业务引擎与 AI 适配器
     │   ├── middleware/                    # JWT 鉴权与管理员权限控制中间件
     │   ├── logger/                        # 日志按日轮转与格式化输出
     │   ├── builtin-tools/                 # 系统内置标准 HTML 工具包 (启动自动同步)
@@ -1461,22 +1493,24 @@ privacy-policy/
     │
     ├── frontend/                          # 原生多页面静态前端
     │   ├── index.html                     # 首页双模工作台主页面 (Dragon Claw Agent + 工具矩阵)
-    │   ├── pages/                         # 各独立业务页面 (uivf12, sla, report, monthly, topic-analysis, cinema 等)
-    │   ├── css/                           # 全局样式、设计系统与暗黑主题
+    │   ├── pages/                         # 各独立业务页面 (uivf12, sla, report, ai-report, topic-analysis, cinema 等)
+    │   ├── css/                           # 全局样式、设计系统与暗黑主题 (含 ai-report.css)
     │   ├── js/                            # 前端业务逻辑
     │   │   ├── shared/                    # 公共组件 (navbar, api, ai-assistant, 2D/3D知识图谱等)
     │   │   ├── uivf12/                    # 抓取脚本工程业务代码
     │   │   ├── sla/                       # SLA 导入与规则引擎
-    │   │   └── report/                    # 报表看板与月报交互
+    │   │   ├── report/                    # 报表看板与催办交互
+    │   │   └── ai-report/                 # AI 月报前端引擎 (格子对话、配方沙箱、AiReportKit、ECharts 下钻、布局与导出)
     │   └── assets/                        # 图标、免安装 Splash 与静态资源
     │
     ├── data/                              # 业务数据主目录 (report.db, requirements.db, images/ 等)
     ├── docs/                              # 专项开发与 API 文档
+    │   ├── monthly-designer.md            # AI 月报完整使用与架构指南
     │   ├── external-metrics-api.md        # 外部指标 OpenAPI 调用文档
     │   └── tools-platform-feature-overview-bilingual.html # 中英双语全景特性文档
     ├── iosapp/                            # 配套 iOS / Kotlin Multiplatform 移动端工程
     ├── scripts/                           # 运维、License 密钥同步与构建辅助脚本
-    └── tests/                             # 自动化单元测试与集成测试 (166 个测试套件，1,090+ 项用例)
+    └── tests/                             # 自动化单元测试与浏览器回归测试 (259 个测试文件)
 ```
 
 ---
@@ -1825,7 +1859,7 @@ flowchart TD
 4. **第四步：导入首份 SLA 数据并生成快照 (`/sla`)**
    - 进入“数据导入”页，拖入当月的多表数据（如风险表、整改表或工单表）。
    - 核对指标映射与达标阈值，点击“一键入库”，沉淀首份历史快照。
-   - 前往“报表看板” (`/report`) 与“月报页面” (`/monthly`) 查阅自动生成的健康度排名与短板透视矩阵。
+   - 前往“报表看板” (`/report`) 查阅健康度排名与短板透视矩阵，并在“AI 月报” (`/monthly`) 中通过格子对话生成月度质量报告。
 5. **第五步：体验 2D/3D 知识图谱**
    - 点击首页 Hero 区域的“项目知识图谱”按钮，探索平台模块拓扑、源码链路与指标体系。
 
@@ -1936,10 +1970,8 @@ sequenceDiagram
 - **Q: 绿色版与安装版如何共存或迁移？**
   - A: 两者数据均存储在当前用户的 `%APPDATA%/tools-platform/data` 目录下，直接关闭旧版本运行新版本 EXE 即可，数据完全无缝继承。
 
-### 页面启动加载
+### 页面启动加载与 AI 月报保存机制
 
-数据抓取、数据导入、报表看板、一键催办和大屏看板使用与通用月报编辑器一致的羽毛与毛玻璃加载界面。进度按页面实际初始化步骤更新，完成数据读取和首屏渲染后自动收起；平台菜单保持可见。加载详情可查看未完成的步骤，失败时可重新加载或进入页面。停止等待只关闭遮罩，不取消后台业务请求；页面后续手动刷新和大屏自动刷新不重新显示启动遮罩。共享视觉资源位于 `frontend/css/startup-screen.css` 和 `frontend/js/shared/startup-screen.js`。
+数据抓取、数据导入、报表看板、一键催办和大屏看板使用统一的羽毛与毛玻璃加载界面（`frontend/css/startup-screen.css`、`frontend/js/shared/startup-screen.js`）；AI 月报（`/monthly`）内置同风格的毛玻璃进度遮罩（`frontend/js/ai-report/splash.js`）。进度按页面实际初始化步骤更新（校验登录状态 → 读取报告列表与当前月报 → 渲染章节与格子），完成后平滑淡出，顶部导航保持可见。
 
-通用月报编辑器在编辑过程中约每 2.5 秒检查并保存修改到独立的 SQLite 草稿，草稿按当前租户、登录账号和编辑窗口隔离，不会递增正式报告编号。“保存到服务器”才更新正式月报；顶部单独显示草稿与正式保存状态。重新打开页面时会提示可恢复的草稿，也可以从“更多 → 草稿与恢复”查看、恢复或删除。网络故障时当前窗口保留修改并重试，未成功保存的内容仍需保持窗口打开。
-
-正式保存会核对打开月报时的服务器版本；其他窗口或用户已经保存新版本时，会提示冲突并保留当前修改。可以继续编辑、另存副本，或先保存当前草稿再载入服务器版本。跨月更新预览提供手填时间表述的定位核对，更新后也可从“更多 → 跨月文字核对”检查中英文旧月份及相对时间表述，系统不自动替换正文。右侧“展示样式 → 名称设置”支持搜索已配置规则和下拉候选名称，当前组件展示的列和行优先标记为“月报中”；候选行不再限于前 1000 项。
+AI 月报在修改报头、章节、格子布局、对话或配方后约 520ms 自动防抖持久化至当前租户的 `tools.db`（`ai_report_documents` 表），也可点击顶部「保存」按钮立即写入。当最终提示词更新并重跑配方时，系统自动将上一版最终提示词、计算配方与结果缓存保存在格子的 `previousPrompt` 快照中；点击对话面板顶部的 `↶ 撤回` 即可伴随高斯粒子消散动画一键回退到上一版状态。切换报告月份时，所有已配置配方的格子自动拉取新月份数据并在零网络 CSP 沙箱中重跑。

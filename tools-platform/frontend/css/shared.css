@@ -5676,3 +5676,64 @@ body.service-status-open { overflow: hidden; }
     font-size: 11px;
     font-family: ui-monospace, SFMono-Regular, monospace;
 }
+
+/* AI settings: model categories as tab cards (文心 · 对话模型 / 丹青 · 绘图模型) at the top of the right-hand pane. */
+.nav-ai-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 4px;
+    border-radius: 14px;
+    background: rgba(99, 102, 241, .07);
+}
+.nav-ai-tab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 9px 12px;
+    border: 1px solid transparent;
+    border-radius: 11px;
+    background: transparent;
+    color: #475569;
+    text-align: left;
+    cursor: pointer;
+    transition: background .18s, box-shadow .18s, border-color .18s, color .18s;
+}
+.nav-ai-tab:hover { background: rgba(255, 255, 255, .6); }
+.nav-ai-tab.is-active {
+    border-color: rgba(129, 140, 248, .35);
+    background: #fff;
+    color: #1e1b4b;
+    box-shadow: 0 6px 18px rgba(79, 70, 229, .12);
+}
+.nav-ai-tab-icon {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #e0e7ff, #ede9fe);
+    color: #4338ca;
+    font: 700 15px/1 "Songti SC", "STSong", serif;
+}
+.nav-ai-tab:nth-child(2) .nav-ai-tab-icon { background: linear-gradient(135deg, #fde7e1, #fce7f3); color: #b4235a; }
+.nav-ai-tab b { display: block; font-size: 13.5px; }
+.nav-ai-tab small { display: block; margin-top: 2px; color: #64748b; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nav-ai-tab:focus-visible { outline: 2px solid #818cf8; outline-offset: 2px; }
+.nav-ai-tab-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 22px 20px;
+    border: 1px dashed rgba(129, 140, 248, .45);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .7);
+    color: #475569;
+    line-height: 1.6;
+}
+.nav-ai-tab-empty strong { color: #1e1b4b; font-size: 14px; }
+@media (max-width: 640px) { .nav-ai-tabs { grid-template-columns: 1fr; } }

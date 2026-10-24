@@ -112,11 +112,20 @@ function uniqueProfileName(profiles, requested) {
     return `${requested} ${suffix}`;
 }
 
-function createProfileRecord(settings, name, id = crypto.randomUUID()) {
+// Profiles come in two categories: chat models (conversation, analysis, generation of text) and image models (drawing).
+// Older profiles without a category are sorted by model name, so an image model someone already added lands in the right one.
+const IMAGE_MODEL = /image|imagen|banana|gpt-image|dall-?e|flux|stable-?diffusion/i;
+function profileCategory(profile) {
+    if (profile && (profile.category === 'image' || profile.category === 'chat')) return profile.category;
+    return IMAGE_MODEL.test(String(profile && profile.model || '')) ? 'image' : 'chat';
+}
+
+function createProfileRecord(settings, name, id = crypto.randomUUID(), category = 'chat') {
     const now = new Date().toISOString();
     return {
         id: String(id),
         name: cleanProfileName(name, defaultProfileName(settings)),
+        category: category === 'image' ? 'image' : 'chat',
         ...normalizeSettings(settings),
         createdAt: now,
         updatedAt: now
@@ -133,6 +142,7 @@ function normalizeProfile(profile, index) {
     return {
         id: String(profile && profile.id || fallbackId).slice(0, 100),
         name: cleanProfileName(profile && profile.name, defaultProfileName(settings)),
+        category: profileCategory(profile),
         ...settings,
         createdAt: String(profile && profile.createdAt || new Date().toISOString()),
         updatedAt: String(profile && profile.updatedAt || new Date().toISOString())
@@ -143,10 +153,7 @@ async function getProfileStore() {
     const raw = await readKV('sys', PROFILE_STORE_KEY, null);
     if (raw && Array.isArray(raw.profiles) && raw.profiles.length) {
         const profiles = raw.profiles.map(normalizeProfile);
-        const activeProfileId = profiles.some(item => item.id === raw.activeProfileId)
-            ? raw.activeProfileId
-            : profiles[0].id;
-        return { version: 3, activeProfileId, autoSwitchEnabled: raw.autoSwitchEnabled === true, profiles };
+        return withActiveIds({ version: 3, activeProfileId: raw.activeProfileId, activeImageProfileId: raw.activeImageProfileId, autoSwitchEnabled: raw.autoSwitchEnabled === true, profiles });
     }
 
     // 无感迁移：历史单配置原样成为第一套方案，Token 不会丢失。
@@ -157,13 +164,24 @@ async function getProfileStore() {
     return migrated;
 }
 
+// The active chat profile is always a chat profile (the first one when the stored id is gone or is an image profile);
+// the active image profile is an image profile, or empty when there is none.
+function withActiveIds(store) {
+    const chats = store.profiles.filter(item => profileCategory(item) === 'chat'), pictures = store.profiles.filter(item => profileCategory(item) === 'image');
+    const activeProfileId = (chats.find(item => item.id === store.activeProfileId) || chats[0] || store.profiles[0]).id;
+    const activeImageProfileId = (pictures.find(item => item.id === store.activeImageProfileId) || pictures[0] || { id: '' }).id;
+    return { ...store, activeProfileId, activeImageProfileId };
+}
+
 async function writeProfileStore(store) {
-    const active = store.profiles.find(item => item.id === store.activeProfileId) || store.profiles[0];
+    const ids = withActiveIds({ ...store, profiles: store.profiles.map(normalizeProfile) });
+    const active = ids.profiles.find(item => item.id === ids.activeProfileId) || ids.profiles[0];
     const normalized = {
         version: 3,
         activeProfileId: active.id,
+        activeImageProfileId: ids.activeImageProfileId,
         autoSwitchEnabled: store.autoSwitchEnabled === true,
-        profiles: store.profiles.map(normalizeProfile)
+        profiles: ids.profiles
     };
     await writeKV('sys', PROFILE_STORE_KEY, normalized);
     // 同步旧键，确保旧版本回滚和历史脚本仍能读取当前激活配置。
@@ -222,11 +240,13 @@ function publicSettings(runtime) {
     };
 }
 
-function publicProfile(profile, activeProfileId) {
+function publicProfile(profile, activeProfileId, activeImageProfileId = '') {
+    const category = profileCategory(profile);
     return {
         id: profile.id,
         name: profile.name,
-        isActive: profile.id === activeProfileId,
+        category,
+        isActive: profile.id === (category === 'image' ? activeImageProfileId : activeProfileId),
         createdAt: profile.createdAt,
         updatedAt: profile.updatedAt,
         ...publicSettings(runtimeSettings(profileSettings(profile)))
@@ -250,10 +270,19 @@ async function getRuntimeSettings(options = {}) {
         profileName: profile.name
     });
     const primary = toRuntime(active);
+    // Failover only moves between chat models; an image model never answers a conversation.
     const fallbackProfiles = store.autoSwitchEnabled
-        ? store.profiles.filter(profile => profile.id !== active.id).map(toRuntime).filter(item => item.hasApiKey && item.keyLooksValid)
+        ? store.profiles.filter(profile => profile.id !== active.id && profileCategory(profile) === 'chat').map(toRuntime).filter(item => item.hasApiKey && item.keyLooksValid)
         : [];
     return { ...primary, autoSwitchEnabled: store.autoSwitchEnabled === true, fallbackProfiles };
+}
+
+// The image model in use (for drawing), or null when no image profile is configured.
+async function getImageRuntimeSettings() {
+    const store = await getProfileStore();
+    const profile = store.activeImageProfileId && findProfile(store, store.activeImageProfileId);
+    if (!profile) return null;
+    return runtimeSettings({ ...profileSettings(profile), profileId: profile.id, profileName: profile.name });
 }
 
 async function buildRuntimeSettings(payload = {}) {
@@ -273,8 +302,9 @@ async function getPublicSettings() {
     return {
         ...publicSettings(runtimeSettings(profileSettings(active))),
         activeProfileId: store.activeProfileId,
+        activeImageProfileId: store.activeImageProfileId || '',
         autoSwitchEnabled: store.autoSwitchEnabled === true,
-        profiles: store.profiles.map(item => publicProfile(item, store.activeProfileId)),
+        profiles: store.profiles.map(item => publicProfile(item, store.activeProfileId, store.activeImageProfileId)),
         modelAliases: await getModelAliases()
     };
 }
@@ -344,7 +374,7 @@ function buildModelChoices(store, aliases) {
         });
         return { mode: 'alias', defaultId: models[0].id, models };
     }
-    const ready = store.profiles.filter(profile => {
+    const ready = store.profiles.filter(profile => profileCategory(profile) === 'chat').filter(profile => {
         const runtime = runtimeSettings(profileSettings(profile));
         return runtime.hasApiKey && runtime.keyLooksValid;
     });
@@ -394,6 +424,7 @@ async function saveSettings(payload = {}) {
     delete nextPayload.profileId;
     delete nextPayload.name;
     delete nextPayload.autoSwitchEnabled;
+    delete nextPayload.category;
     if (payload.clearApiKey) {
         nextPayload.apiKey = '';
     } else if (!Object.prototype.hasOwnProperty.call(payload, 'apiKey') || String(payload.apiKey || '').trim() === '') {
@@ -406,6 +437,7 @@ async function saveSettings(payload = {}) {
         throw error;
     }
     Object.assign(profile, normalized, {
+        category: payload.category === 'image' || payload.category === 'chat' ? payload.category : profileCategory(profile),
         name: Object.prototype.hasOwnProperty.call(payload, 'name') ? cleanProfileName(payload.name, profile.name) : profile.name,
         updatedAt: new Date().toISOString()
     });
@@ -426,9 +458,10 @@ async function createProfile(payload = {}) {
     const settings = normalizeSettings(payload, base);
     if (!source && !Object.prototype.hasOwnProperty.call(payload, 'apiKey')) settings.apiKey = '';
     const requestedName = cleanProfileName(payload.name, source ? `${source.name} 副本` : defaultProfileName(settings));
-    const profile = createProfileRecord(settings, uniqueProfileName(store.profiles, requestedName));
+    const category = payload.category === 'image' || payload.category === 'chat' ? payload.category : (source ? profileCategory(source) : 'chat');
+    const profile = createProfileRecord(settings, uniqueProfileName(store.profiles, requestedName), crypto.randomUUID(), category);
     store.profiles.push(profile);
-    if (payload.activate === true) store.activeProfileId = profile.id;
+    if (payload.activate === true) store[category === 'image' ? 'activeImageProfileId' : 'activeProfileId'] = profile.id;
     await writeProfileStore(store);
     return { ...(await getPublicSettings()), createdProfileId: profile.id };
 }
@@ -437,7 +470,7 @@ async function activateProfile(profileId) {
     const store = await getProfileStore();
     const profile = findProfile(store, profileId);
     if (!profile) throw profileNotFoundError();
-    store.activeProfileId = profile.id;
+    store[profileCategory(profile) === 'image' ? 'activeImageProfileId' : 'activeProfileId'] = profile.id;
     await writeProfileStore(store);
     return getPublicSettings();
 }
@@ -451,9 +484,12 @@ async function deleteProfile(profileId) {
     }
     const index = store.profiles.findIndex(item => item.id === String(profileId));
     if (index < 0) throw profileNotFoundError();
-    const wasActive = store.activeProfileId === store.profiles[index].id;
+    if (profileCategory(store.profiles[index]) === 'chat' && store.profiles.filter(item => profileCategory(item) === 'chat').length <= 1) {
+        const error = new Error('至少需要保留一套对话模型配置');
+        error.statusCode = 400;
+        throw error;
+    }
     store.profiles.splice(index, 1);
-    if (wasActive) store.activeProfileId = store.profiles[Math.min(index, store.profiles.length - 1)].id;
     await writeProfileStore(store);
     return getPublicSettings();
 }
@@ -463,6 +499,7 @@ module.exports = {
     DEFAULT_SETTINGS,
     getStoredSettings,
     getRuntimeSettings,
+    getImageRuntimeSettings,
     buildRuntimeSettings,
     getPublicSettings,
     saveSettings,
