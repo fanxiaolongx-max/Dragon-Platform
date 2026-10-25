@@ -7,6 +7,8 @@ const { Readable } = require('stream');
 const { exec, execSync, spawn } = require('child_process');
 const { checkAuth, requireAdmin } = require('../middleware/auth');
 const authSessionsRepo = require('../models/auth-sessions-repository');
+const { getTenantId } = require('../models/tenant-context');
+const { getSubtitles, searchShooter, readLimitedBody } = require('../models/media-subtitles');
 const {
     DEFAULT_FEINIU_URL,
     normalizeFeiniuUrl,
@@ -17,7 +19,8 @@ const {
     syncFeiniuCatalog,
     getCachedFeiniuCatalog,
     resolveFeiniuPlayback,
-    ensureFeiniuHlsSession
+    ensureFeiniuHlsSession,
+    keepFeiniuHlsSessionAlive
 } = require('../models/feiniu-service');
 
 const FRONTEND_DIR = path.resolve(__dirname, '../../frontend');
@@ -477,6 +480,68 @@ async function mediaAssetGuard(req, res, next) {
 // ============================================================
 // 公开点播 API (无需鉴权)
 // ============================================================
+// Same visibility boundary as /public/list; the browser cannot supply a URL or file path.
+router.get('/public/subtitles/:id', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+        const { categories, videos } = scanMediaList();
+        const item = videos.find(video => video.id === req.params.id);
+        if (!item) return res.status(404).json({ error: '视频不存在', code: 'MEDIA_NOT_FOUND' });
+        const category = categoryForVideo(categories, item);
+        if (category?.protected && !verifyCategoryAccess(req.query.access, category.id) && !await hasAdminMediaSession(req)) {
+            return res.status(403).json({ error: '该媒体需要 PIN 验证', code: 'MEDIA_PIN_REQUIRED' });
+        }
+        const revision = item.source === 'feiniu' ? item.feiniuMediaGuid : item.mtime;
+        const key = JSON.stringify([getTenantId(), VIDEOS_DIR, item.id, item.fileSize, revision]);
+        const tracks = await getSubtitles(key, async () => {
+            if (item.source === 'feiniu') {
+                const { origin, token, streamMeta } = await resolveFeiniuPlayback(item.feiniuGuid);
+                const rangePath = `/v/api/v1/media/range/${encodeURIComponent(streamMeta.mediaGuid)}`;
+                let size = Number(streamMeta.fileSize) || Number(item.fileSize);
+                const readRange = async (offset, length) => {
+                    const upstream = await fetch(`${origin}${rangePath}`, {
+                        headers: {
+                            authx: signFeiniuAuthx('GET', rangePath),
+                            ...(token && { authorization: token, Cookie: `Trim-MC-token=${token}` }),
+                            Range: `bytes=${offset}-${offset + length - 1}`,
+                            'Accept-Encoding': 'identity'
+                        },
+                        signal: AbortSignal.timeout(6000), redirect: 'error'
+                    });
+                    const match = String(upstream.headers.get('content-range') || '').match(/^bytes (\d+)-(\d+)\/(\d+)$/);
+                    if (upstream.status !== 206 || !match || Number(match[1]) !== offset || Number(match[2]) !== offset + length - 1) {
+                        await upstream.body?.cancel();
+                        throw new Error('Media range unsupported');
+                    }
+                    size = Number(match[3]);
+                    return readLimitedBody(upstream, length);
+                };
+                if (!size) await readRange(0, 1);
+                return searchShooter({ size, readRange, fileName: streamMeta.fileName || item.fileName });
+            }
+            const filePath = await fs.promises.realpath(resolveMediaPath(item.relPath));
+            const mediaRoot = await fs.promises.realpath(VIDEOS_DIR);
+            if (!filePath.startsWith(mediaRoot + path.sep)) throw new Error('Invalid media path');
+            const handle = await fs.promises.open(filePath, 'r');
+            try {
+                const stat = await handle.stat();
+                return await searchShooter({
+                    size: stat.size, fileName: item.fileName,
+                    readRange: async (offset, length) => {
+                        const buffer = Buffer.alloc(length);
+                        const { bytesRead } = await handle.read(buffer, 0, length, offset);
+                        return buffer.subarray(0, bytesRead);
+                    }
+                });
+            } finally { await handle.close(); }
+        });
+        res.json({ success: true, source: 'shooter', tracks });
+    } catch (_) {
+        // Subtitle failure is optional and must never interrupt playback or expose upstream credentials.
+        res.json({ success: true, source: 'shooter', tracks: [] });
+    }
+});
+
 router.get('/public/list', async (req, res) => {
     try {
         const { categories, videos } = await scanMediaListAsync();
@@ -633,12 +698,20 @@ router.get('/public/feiniu/hls/:guid/:segment', async (req, res) => {
         if (!upstream.ok) {
             return res.status(upstream.status).end();
         }
+        keepFeiniuHlsSessionAlive(session, (parseInt(segment, 10) || 0) * 4);
         res.setHeader('Content-Type', upstream.headers.get('content-type') || 'video/mp2t');
         const contentLen = upstream.headers.get('content-length');
         if (contentLen) res.setHeader('Content-Length', contentLen);
         res.setHeader('Cache-Control', 'no-store');
-        const arrayBuf = await upstream.arrayBuffer();
-        res.send(Buffer.from(arrayBuf));
+        // Forward bytes as they arrive instead of buffering the whole segment first.
+        if (upstream.body) {
+            const nodeStream = Readable.fromWeb(upstream.body);
+            nodeStream.on('error', () => res.destroy());
+            req.on('close', () => nodeStream.destroy());
+            nodeStream.pipe(res);
+        } else {
+            res.end();
+        }
     } catch (err) {
         if (!res.headersSent) {
             res.status(502).json({ error: err.message || '获取飞牛视频分片失败' });

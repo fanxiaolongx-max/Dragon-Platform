@@ -23,7 +23,8 @@
     const TRIGGER = { schedule: ['定时', 'Scheduled'], manual: ['手动', 'Manual'], test: ['测试', 'Test'] };
     const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 
-    const state = { root: null, data: null, library: { topics: [], angles: [], presets: [] }, editing: null, busy: '', notice: null, openRuns: new Set() };
+    const RUN_PAGE_SIZE = 20;
+    const state = { root: null, data: null, library: { topics: [], angles: [], presets: [] }, editing: null, busy: '', notice: null, openRuns: new Set(), runsPage: 1, runsLoading: false, runsRequestSeq: 0, draftEdits: new Map() };
 
     function authHeaders() {
         const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token');
@@ -89,7 +90,7 @@
     }
 
     function planCard(plan) {
-        const drafts = state.data.runs.filter(run => run.planId === plan.id && run.status === 'draft').length;
+        const drafts = state.data.draftCounts?.[plan.id] || 0;
         return `<div class="nch-access-col" style="margin-top:10px">
             <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
                 <b style="font-size:14px">${esc(plan.name)}</b>
@@ -179,16 +180,56 @@
                 ${run.meta?.highlightTitles?.length || run.meta?.videoTitle ? `<div class="nch-id" style="margin-top:4px">${run.meta.highlightTitles?.length ? `${esc(L('亮点：', 'Highlights: '))}${esc(run.meta.highlightTitles.join('、'))}` : ''}${run.meta.angle ? ` · ${esc(L('角度：', 'Angle: '))}${esc(state.library.angles.find(item => item.id === run.meta.angle)?.name || run.meta.angle)}` : ''}${run.meta.videoTitle ? ` · ${esc(L('视频：', 'Video: '))}${esc(run.meta.videoTitle)}` : ''}</div>` : ''}
                 ${run.error ? `<div class="nch-id" style="color:#b91c1c;margin-top:4px">${esc(run.error)}</div>` : ''}
                 ${run.status === 'draft'
-                    ? `<textarea data-ops-draft="${esc(run.id)}" style="width:100%;height:150px;margin-top:8px;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;font:inherit;font-size:13px">${esc(run.content)}</textarea>
+                    ? `<textarea data-ops-draft="${esc(run.id)}" style="width:100%;height:150px;margin-top:8px;border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;font:inherit;font-size:13px">${esc(state.draftEdits.get(run.id) ?? run.content)}</textarea>
                        <div class="nch-row"><button type="button" class="nch-btn primary" data-ops-action="send-draft" data-id="${esc(run.id)}" ${state.busy ? 'disabled' : ''}>${esc(state.busy === `send-${run.id}` ? L('发送中…', 'Sending…') : L('确认推送', 'Send now'))}</button><button type="button" class="nch-btn" data-ops-action="save-draft" data-id="${esc(run.id)}">${esc(L('保存修改', 'Save edits'))}</button><button type="button" class="nch-link danger" data-ops-action="discard-draft" data-id="${esc(run.id)}">${esc(L('作废', 'Discard'))}</button></div>`
                     : open ? `<div class="nch-text" style="white-space:pre-wrap;margin-top:8px;font-size:12px;color:#334155">${esc(run.content)}</div>${run.results.length ? `<div class="nch-id" style="margin-top:4px">${esc(run.results.map(item => `${item.name}：${item.ok ? '✅' : `❌ ${item.error}`}`).join('；'))}</div>` : ''}` : ''}
             </div>`;
         }).join('');
-        return `<section class="nch-card">
-            <h4>🧾 ${esc(L('草稿与推送记录', 'Drafts & history'))} <button type="button" class="nch-link" data-ops-action="refresh">${esc(L('刷新', 'Refresh'))}</button></h4>
-            <p class="nch-desc">${esc(L('显示最近 40 条；系统最多保留最近 1000 条记录，更早的自动清理，不会无限增长。', 'Showing the latest 40. Only the latest 1000 records are kept; older ones are pruned automatically.'))}</p>
+        const pagination = state.data.runsPagination;
+        const disabled = state.busy || state.runsLoading;
+        return `<section class="nch-card" data-role="ops-runs" aria-busy="${state.runsLoading}">
+            <h4>🧾 ${esc(L('草稿与推送记录', 'Drafts & history'))} <button type="button" class="nch-link" data-ops-action="refresh-runs" ${disabled ? 'disabled' : ''}>${esc(state.runsLoading ? L('加载中…', 'Loading…') : L('刷新', 'Refresh'))}</button></h4>
+            <p class="nch-desc">${esc(L(`每页 ${RUN_PAGE_SIZE} 条，按时间从新到旧展示。`, `${RUN_PAGE_SIZE} records per page, newest first.`))}</p>
             ${rows || `<div class="nch-muted">${esc(L('还没有记录', 'No records yet'))}</div>`}
+            <div class="nch-row" data-role="ops-runs-pagination" style="justify-content:space-between;gap:10px">
+                <span class="nch-muted">${esc(L(`共 ${pagination.total} 条 · 第 ${pagination.page} / ${pagination.totalPages} 页`, `${pagination.total} records · Page ${pagination.page} / ${pagination.totalPages}`))}</span>
+                <div class="nch-row" style="margin-top:0">
+                    <button type="button" class="nch-btn" data-ops-action="runs-page" data-page="${pagination.page - 1}" ${disabled || pagination.page <= 1 ? 'disabled' : ''}>${esc(L('上一页', 'Previous'))}</button>
+                    <select data-ops-runs-page aria-label="${esc(L('跳转页码', 'Go to page'))}" class="nch-btn" ${disabled ? 'disabled' : ''}>${Array.from({ length: pagination.totalPages }, (_, index) => `<option value="${index + 1}" ${index + 1 === pagination.page ? 'selected' : ''}>${esc(L(`第 ${index + 1} 页`, `Page ${index + 1}`))}</option>`).join('')}</select>
+                    <button type="button" class="nch-btn" data-ops-action="runs-page" data-page="${pagination.page + 1}" ${disabled || pagination.page >= pagination.totalPages ? 'disabled' : ''}>${esc(L('下一页', 'Next'))}</button>
+                </div>
+            </div>
         </section>`;
+    }
+
+    function renderRunsOnly() {
+        const section = state.root?.querySelector('[data-role="ops-runs"]');
+        if (section) section.outerHTML = renderRuns();
+    }
+
+    async function loadRunsPage(page, scrollToTop = false) {
+        if (state.busy || state.runsLoading) return;
+        const root = state.root;
+        const requestSeq = ++state.runsRequestSeq;
+        state.runsLoading = true;
+        renderRunsOnly();
+        try {
+            const { items, ...pagination } = await request('GET', `/runs?page=${page}&pageSize=${RUN_PAGE_SIZE}`);
+            if (requestSeq !== state.runsRequestSeq || root !== state.root || !root.isConnected) return;
+            state.data.runs = items;
+            state.data.runsPagination = pagination;
+            state.runsPage = pagination.page;
+        } catch (error) {
+            if (requestSeq === state.runsRequestSeq) window.showToast?.(error.message);
+        } finally {
+            if (requestSeq === state.runsRequestSeq) {
+                state.runsLoading = false;
+                if (root === state.root && root.isConnected) {
+                    renderRunsOnly();
+                    if (scrollToTop) root.querySelector('[data-role="ops-runs"]')?.scrollIntoView({ block: 'start' });
+                }
+            }
+        }
     }
 
     function render() {
@@ -201,8 +242,12 @@
     }
 
     async function load() {
-        const [data, library] = await Promise.all([request('GET', '/overview'), state.library.presets.length ? state.library : request('GET', '/library').catch(() => state.library)]);
+        const root = state.root;
+        const requestSeq = ++state.runsRequestSeq;
+        const [data, library] = await Promise.all([request('GET', `/overview?runPage=${state.runsPage}&runPageSize=${RUN_PAGE_SIZE}`), state.library.presets.length ? state.library : request('GET', '/library').catch(() => state.library)]);
+        if (requestSeq !== state.runsRequestSeq || root !== state.root || !root.isConnected) return;
         state.data = data;
+        state.runsPage = data.runsPagination.page;
         state.library = library;
         render();
     }
@@ -211,7 +256,8 @@
     async function busy(name, task) {
         if (state.busy) return;
         state.busy = name;
-        const buttons = [...state.root.querySelectorAll('[data-ops-action]')];
+        const buttons = [...state.root.querySelectorAll('[data-ops-action], [data-ops-runs-page]')];
+        const disabledStates = buttons.map(button => button.disabled);
         const pressed = state.pressed;
         const label = pressed?.textContent;
         buttons.forEach(button => { button.disabled = true; });
@@ -223,7 +269,7 @@
             window.dispatchEvent(new Event('tools:ops-drafts-changed'));
         } catch (error) {
             state.busy = '';
-            buttons.forEach(button => { button.disabled = false; });
+            buttons.forEach((button, index) => { button.disabled = disabledStates[index]; });
             if (pressed) pressed.textContent = label;
             window.showToast?.(error.message);
         }
@@ -263,11 +309,13 @@
 
     async function onClick(event) {
         const button = event.target.closest('[data-ops-action]');
-        if (!button) return;
+        if (!button || state.busy || state.runsLoading) return;
         const action = button.dataset.opsAction;
         const id = button.dataset.id;
         state.pressed = button;
         state.notice = null;
+        if (action === 'runs-page') return loadRunsPage(Number(button.dataset.page), true);
+        if (action === 'refresh-runs') return loadRunsPage(state.runsPage);
         if (action === 'refresh') return busy('refresh', async () => {});
         // 先读取输入框再进入 busy：busy 会重绘面板，之后再读就只剩保存前的旧值
         if (action === 'save-settings') {
@@ -340,25 +388,36 @@
         }
         if (action === 'save-draft' || action === 'send-draft') {
             const content = state.root.querySelector(`[data-ops-draft="${CSS.escape(id)}"]`)?.value || '';
-            if (action === 'save-draft') return busy('draft', () => request('PUT', `/runs/${encodeURIComponent(id)}`, { content }));
+            if (action === 'save-draft') return busy('draft', async () => {
+                await request('PUT', `/runs/${encodeURIComponent(id)}`, { content });
+                state.draftEdits.delete(id);
+            });
             const run = state.data.runs.find(item => item.id === id);
             if (!await confirmDialog(L(`确认推送到：${run.targets.map(targetLabel).join('、')}？`, 'Send to the targets now?'), { title: L('确认推送', 'Send'), confirmText: L('推送', 'Send') })) return undefined;
             return busy(`send-${id}`, async () => {
                 const result = await request('POST', `/runs/${encodeURIComponent(id)}/send`, { content });
+                state.draftEdits.delete(id);
                 window.showToast?.(result.status === 'sent' ? L('已推送', 'Sent') : `${L('推送未全部成功：', 'Partly failed: ')}${result.error}`);
             });
         }
-        if (action === 'discard-draft') return busy('draft', () => request('POST', `/runs/${encodeURIComponent(id)}/discard`));
+        if (action === 'discard-draft') return busy('draft', async () => {
+            await request('POST', `/runs/${encodeURIComponent(id)}/discard`);
+            state.draftEdits.delete(id);
+        });
         if (action === 'toggle-run') {
             if (state.openRuns.has(id)) state.openRuns.delete(id);
             else state.openRuns.add(id);
-            return render();
+            return renderRunsOnly();
         }
         return undefined;
     }
 
     // 编辑区里切换「内容方式 / 定时方式」需要换字段：先读回当前值再重绘
     function onChange(event) {
+        if (event.target.matches?.('[data-ops-runs-page]')) {
+            loadRunsPage(Number(event.target.value), true);
+            return;
+        }
         if (event.target.matches?.('[data-ops-preset]')) {
             const preset = state.library.presets.find(item => item.id === event.target.value);
             if (!preset) return;
@@ -380,16 +439,24 @@
         state.root = root;
         state.editing = null;
         state.data = null;
+        state.runsPage = 1;
+        state.runsLoading = false;
+        state.runsRequestSeq += 1;
+        state.openRuns.clear();
+        state.draftEdits.clear();
         render();
         if (!root.dataset.opsBound) {
             root.dataset.opsBound = '1';
             root.addEventListener('click', event => { onClick(event).catch(error => window.showToast?.(error.message)); });
             root.addEventListener('change', onChange);
+            root.addEventListener('input', event => {
+                if (event.target.matches?.('[data-ops-draft]')) state.draftEdits.set(event.target.dataset.opsDraft, event.target.value);
+            });
         }
         try {
             await load();
         } catch (error) {
-            root.innerHTML = `<div class="nav-settings-empty">${esc(L('加载失败：', 'Failed to load: '))}${esc(error.message)}</div>`;
+            if (root === state.root && root.isConnected) root.innerHTML = `<div class="nav-settings-empty">${esc(L('加载失败：', 'Failed to load: '))}${esc(error.message)}</div>`;
         }
     }
 

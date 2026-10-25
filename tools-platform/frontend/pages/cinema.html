@@ -426,6 +426,7 @@
 
         .player-wrapper {
             position: relative;
+            z-index: 1;
             width: 100%;
             background: #000;
             border-radius: var(--radius-lg);
@@ -461,14 +462,20 @@
         }
 
         /* 动态氛围光 Ambient Light */
+        .player-stage {
+            position: relative;
+            isolation: isolate;
+        }
+
         .player-ambient-glow {
             position: absolute;
-            inset: -40px;
+            inset: -24px -28px;
+            width: calc(100% + 56px);
+            height: calc(100% + 48px);
             border-radius: 36px;
-            background: radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.28) 0%, rgba(168, 85, 247, 0.18) 45%, transparent 70%);
-            filter: blur(50px);
-            opacity: 0.85;
-            z-index: -1;
+            filter: blur(32px) saturate(1.5) brightness(1.35);
+            opacity: 0.8;
+            z-index: 0;
             pointer-events: none;
             transition: opacity 0.5s ease;
         }
@@ -579,6 +586,31 @@
         }
 
         /* 底部全功能专业控制条 */
+        .subtitle-control {
+            color-scheme: dark;
+            max-width: 112px;
+            height: 28px;
+            min-width: 52px;
+            padding: 0 4px;
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            border-radius: 7px;
+            color: #f8fafc;
+            background: rgba(22, 24, 30, 0.9);
+            font-size: 11px;
+        }
+        .subtitle-control:focus-visible { outline: 2px solid var(--primary-light); }
+        #mainVideo::cue { color: white; background: rgba(0, 0, 0, 0.65); font-size: 16px; }
+        #mainVideo[data-subtitle-size="medium"]::cue { font-size: 20px; }
+        #mainVideo[data-subtitle-size="large"]::cue { font-size: 26px; }
+        .subtitle-size-control { width: 44px; min-width: 40px; }
+        @media (max-width: 600px) {
+            .subtitle-control { max-width: 60px; }
+            .subtitle-size-control { max-width: 40px; }
+            #mainVideo::cue { font-size: 14px; }
+            #mainVideo[data-subtitle-size="medium"]::cue { font-size: 18px; }
+            #mainVideo[data-subtitle-size="large"]::cue { font-size: 22px; }
+        }
+
         .player-controls {
             position: absolute;
             bottom: 0;
@@ -600,6 +632,7 @@
         .video-box.paused .player-controls,
         .video-box.paused .player-top-bar,
         .video-box.episode-picker-open .player-controls,
+        .video-box .player-controls:focus-within,
         .video-box.episode-picker-open .player-top-bar {
             opacity: 1;
             pointer-events: auto;
@@ -1923,8 +1956,9 @@
 
         <!-- 专业内置 Web 播放器 -->
         <section class="player-section" id="playerSection">
+            <div class="player-stage">
             <!-- 动态环境背光 -->
-            <div class="player-ambient-glow" id="playerAmbientGlow"></div>
+            <canvas class="player-ambient-glow" id="playerAmbientGlow" width="48" height="27" aria-hidden="true"></canvas>
 
             <div class="player-wrapper">
                 <div class="video-box paused" id="videoBox">
@@ -2059,6 +2093,19 @@
                                     <span class="episode-nav-text">下一集</span><span aria-hidden="true">⏭</span>
                                 </button>
 
+                                <select class="subtitle-control" id="subtitleSelect" aria-label="字幕" title="字幕">
+                                    <option value="auto">自动</option>
+                                    <option value="bilingual">中英双语</option>
+                                    <option value="zh">中文</option>
+                                    <option value="en">English</option>
+                                    <option value="off">关闭</option>
+                                </select>
+                                <select class="subtitle-control subtitle-size-control" id="subtitleSizeSelect" aria-label="字幕字号" title="字幕字号">
+                                    <option value="small">小</option>
+                                    <option value="medium">中</option>
+                                    <option value="large">大</option>
+                                </select>
+
                                 <!-- 倍速选择器 -->
                                 <div class="speed-menu-wrap">
                                     <button class="ctrl-btn" id="speedBtn" onclick="toggleSpeedDropdown()" title="调节播放倍速">
@@ -2114,6 +2161,7 @@
                 </div>
             </div>
 
+            </div>
             <!-- 播放器下方详情展示卡片 -->
             <div class="player-info-card">
                 <div class="info-main">
@@ -2246,6 +2294,8 @@
     </div>
 
     <script src="/js/vendor/hls.min.js"></script>
+    <script src="/js/cinema/subtitles.js"></script>
+    <script src="/js/cinema/ambient-light.js"></script>
     <script>
         let activeHlsInstance = null;
         // --- 全局片库数据 ---
@@ -2281,11 +2331,11 @@
         let resumeDismissTimer = null;
         let lastProgressSavedSecond = -1;
         let isUserSeeking = false;
-        let ambientLightEnabled = true;
         let hideControlsTimeout = null;
 
         // DOM 元素引用
         const video = document.getElementById('mainVideo');
+        const cinemaSubtitles = new window.CinemaSubtitles(video, document.getElementById('subtitleSelect'), document.getElementById('subtitleSizeSelect'));
         const videoBox = document.getElementById('videoBox');
         const playerSection = document.getElementById('playerSection');
         const centerPlayBtn = document.getElementById('centerPlayBtn');
@@ -2303,7 +2353,7 @@
         const speedDropdown = document.getElementById('speedDropdown');
         const resumeToast = document.getElementById('resumeToast');
         const resumeTimeStr = document.getElementById('resumeTimeStr');
-        const playerAmbientGlow = document.getElementById('playerAmbientGlow');
+        const cinemaAmbientLight = new window.CinemaAmbientLight(video, document.getElementById('playerAmbientGlow'), document.getElementById('ambientToggleBtn'));
         const videoGrid = document.getElementById('videoGrid');
         const videoCountBadge = document.getElementById('videoCountBadge');
         const episodePicker = document.getElementById('episodePicker');
@@ -2327,6 +2377,7 @@
                             applyVideoToPage(defaultFilm);
                         } else {
                             currentVideo = null;
+                            cinemaSubtitles.clear();
                             video.removeAttribute('src');
                             video.load();
                         }
@@ -2403,6 +2454,7 @@
         }
 
         function applyVideoToPage(item) {
+            cinemaAmbientLight.reset();
             lastProgressSavedSecond = -1;
             toggleEpisodePicker(false);
             document.getElementById('playerVideoTitle').textContent = `${item.title} · 正片`;
@@ -2440,17 +2492,42 @@
                 try { activeHlsInstance.destroy(); } catch (_) {}
                 activeHlsInstance = null;
             }
+            // Keep speech pitch stable when the viewer changes speed.
+            video.preservesPitch = true;
+            video.webkitPreservesPitch = true;
+            video.mozPreservesPitch = true;
             if (item.hlsSrc && item.needsTranscode && window.Hls && window.Hls.isSupported()) {
+                // 飞牛实时转码偶尔慢于实时，放大前向缓冲以吸收单片抖动
                 activeHlsInstance = new window.Hls({
                     enableWorker: true,
-                    lowLatencyMode: false
+                    lowLatencyMode: false,
+                    maxBufferLength: 90,
+                    maxMaxBufferLength: 120,
+                    maxBufferSize: 200 * 1000 * 1000,
+                    fragLoadingTimeOut: 60000,
+                    fragLoadingMaxRetry: 4
                 });
                 activeHlsInstance.loadSource(item.hlsSrc);
                 activeHlsInstance.attachMedia(video);
-                activeHlsInstance.on(window.Hls.Events.ERROR, function (_event, data) {
-                    if (data && data.fatal) {
-                        try { activeHlsInstance.destroy(); } catch (_) {}
+                const itemHls = activeHlsInstance;
+                let mediaRecoveryAttempted = false;
+                itemHls.on(window.Hls.Events.ERROR, function (_event, data) {
+                    if (itemHls !== activeHlsInstance || !data?.fatal) return;
+                    // A decoder fault can leave audio distorted. Reset the media pipeline once
+                    // before falling back, retaining the current source and playback position.
+                    if (data.type === window.Hls.ErrorTypes.MEDIA_ERROR && !mediaRecoveryAttempted) {
+                        mediaRecoveryAttempted = true;
+                        itemHls.recoverMediaError();
+                    } else {
+                        const resumeAt = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+                        const shouldPlay = !video.paused;
+                        try { itemHls.destroy(); } catch (_) {}
                         activeHlsInstance = null;
+                        video.addEventListener('loadedmetadata', function restoreFallbackPosition() {
+                            if (currentVideo !== item || activeHlsInstance) return;
+                            if (resumeAt > 0) video.currentTime = resumeAt;
+                            if (shouldPlay) video.play().catch(() => {});
+                        }, { once: true });
                         video.src = item.src;
                     }
                 });
@@ -2463,6 +2540,8 @@
             if (item.duration && Number(item.duration) > 0) {
                 timeTotal.textContent = formatSeconds(item.duration);
             }
+            const subtitleAccess = readCategoryAccessTokens()[item.category];
+            void cinemaSubtitles.load(item, subtitleAccess);
             updateEpisodeNavigation();
         }
 
@@ -2873,13 +2952,7 @@
 
         // --- 动态环境背光开关 ---
         function toggleAmbientLight() {
-            ambientLightEnabled = !ambientLightEnabled;
-            playerAmbientGlow.classList.toggle('hidden', !ambientLightEnabled);
-            const ambientBtn = document.getElementById('ambientToggleBtn');
-            const ambientText = document.getElementById('ambientBtnText');
-            if (ambientBtn) ambientBtn.classList.toggle('active', ambientLightEnabled);
-            if (ambientText) ambientText.textContent = ambientLightEnabled ? '氛围光' : '氛围关';
-            if (ambientBtn) ambientBtn.title = ambientLightEnabled ? '关闭动态流光氛围背光' : '开启动态流光氛围背光';
+            cinemaAmbientLight.toggle();
         }
 
         // --- 断点续播存储 ---
@@ -2989,7 +3062,7 @@
         // --- 快捷键支持 ---
         document.addEventListener('keydown', (e) => {
             // 如果在输入框输入，不触发全局快捷键
-            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
 
             switch (e.code) {
                 case 'Space':

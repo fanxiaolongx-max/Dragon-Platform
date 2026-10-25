@@ -8,6 +8,12 @@ const FAILURE_DETAIL_LIMIT = 16000;
 const MAX_FAILURE_RECORDS = 5000;
 const RUNTIME_LOG_RETENTION_DAYS = 30;
 const MAX_RUNTIME_LOG_RECORDS = 50000;
+const EXPECTED_AUTH_CODES = new Set(['AUTH_REQUIRED', 'AUTH_EXPIRED']);
+// 旧记录没有分类标记，只识别平台明确返回的登录/会话过期错误码。
+const LEGACY_EXPECTED_AUTH_SQL = `(status_code = 401 AND COALESCE(json_extract(
+    CASE WHEN json_valid(response_body) THEN response_body ELSE '{}' END, '$.code'
+), '') IN ('AUTH_REQUIRED', 'AUTH_EXPIRED'))`;
+const EXPECTED_AUTH_SQL = `(expected_auth = 1 OR ${LEGACY_EXPECTED_AUTH_SQL})`;
 
 const SERVICE_DEFINITIONS = [
     {
@@ -89,6 +95,7 @@ async function ensureReady() {
                 request_count INTEGER NOT NULL DEFAULT 0,
                 success_count INTEGER NOT NULL DEFAULT 0,
                 client_error_count INTEGER NOT NULL DEFAULT 0,
+                expected_auth_count INTEGER NOT NULL DEFAULT 0,
                 server_error_count INTEGER NOT NULL DEFAULT 0,
                 total_duration_ms INTEGER NOT NULL DEFAULT 0,
                 max_duration_ms INTEGER NOT NULL DEFAULT 0,
@@ -106,8 +113,17 @@ async function ensureReady() {
                 status_code INTEGER NOT NULL,
                 duration_ms INTEGER NOT NULL DEFAULT 0,
                 request_body TEXT,
-                response_body TEXT
+                response_body TEXT,
+                expected_auth INTEGER NOT NULL DEFAULT 0
             )`);
+            const dailyColumns = await all('PRAGMA table_info(service_status_daily)');
+            if (!dailyColumns.some(column => column.name === 'expected_auth_count')) {
+                await run('ALTER TABLE service_status_daily ADD COLUMN expected_auth_count INTEGER NOT NULL DEFAULT 0');
+            }
+            const failureColumns = await all('PRAGMA table_info(service_status_failures)');
+            if (!failureColumns.some(column => column.name === 'expected_auth')) {
+                await run('ALTER TABLE service_status_failures ADD COLUMN expected_auth INTEGER NOT NULL DEFAULT 0');
+            }
             await run(`CREATE INDEX IF NOT EXISTS idx_service_status_failures_lookup
                 ON service_status_failures (request_at DESC, service_key, status_code)`);
             await run(`CREATE TABLE IF NOT EXISTS service_runtime_logs (
@@ -159,6 +175,16 @@ function normalizeFailureDetail(value) {
         : text;
 }
 
+function isExpectedAuthResponse(statusCode, responseBody) {
+    if (Number(statusCode) !== 401) return false;
+    try {
+        const body = typeof responseBody === 'string' ? JSON.parse(responseBody) : responseBody;
+        return EXPECTED_AUTH_CODES.has(body?.code);
+    } catch (_) {
+        return false;
+    }
+}
+
 async function trackRequest({ method, pathname, statusCode, durationMs, timestamp = new Date(), requestId, requestBody, responseBody }) {
     if (!shouldTrackRequest(method, pathname)) return { tracked: false };
     await ensureReady();
@@ -167,6 +193,7 @@ async function trackRequest({ method, pathname, statusCode, durationMs, timestam
     const duration = Math.max(0, Math.round(Number(durationMs) || 0));
     const success = status >= 200 && status < 400 ? 1 : 0;
     const clientError = status >= 400 && status < 500 ? 1 : 0;
+    const expectedAuth = isExpectedAuthResponse(status, responseBody) ? 1 : 0;
     const serverError = status >= 500 ? 1 : 0;
     const requestTime = timestamp instanceof Date ? timestamp : new Date(timestamp);
     const safeTime = Number.isFinite(requestTime.getTime()) ? requestTime : new Date();
@@ -176,25 +203,26 @@ async function trackRequest({ method, pathname, statusCode, durationMs, timestam
     await run(`
         INSERT INTO service_status_daily (
             service_key, status_date, request_count, success_count,
-            client_error_count, server_error_count, total_duration_ms,
+            client_error_count, expected_auth_count, server_error_count, total_duration_ms,
             max_duration_ms, last_status_code, last_request_at
-        ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(service_key, status_date) DO UPDATE SET
             request_count = service_status_daily.request_count + 1,
             success_count = service_status_daily.success_count + excluded.success_count,
             client_error_count = service_status_daily.client_error_count + excluded.client_error_count,
+            expected_auth_count = service_status_daily.expected_auth_count + excluded.expected_auth_count,
             server_error_count = service_status_daily.server_error_count + excluded.server_error_count,
             total_duration_ms = service_status_daily.total_duration_ms + excluded.total_duration_ms,
             max_duration_ms = MAX(service_status_daily.max_duration_ms, excluded.max_duration_ms),
             last_status_code = excluded.last_status_code,
             last_request_at = excluded.last_request_at
-    `, [service.id, date, success, clientError, serverError, duration, duration, status, iso]);
+    `, [service.id, date, success, clientError, expectedAuth, serverError, duration, duration, status, iso]);
     if (clientError || serverError) {
         await run(`
             INSERT INTO service_status_failures (
                 service_key, request_at, request_id, method, request_path,
-                status_code, duration_ms, request_body, response_body
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                status_code, duration_ms, request_body, response_body, expected_auth
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `, [
             service.id,
             iso,
@@ -204,7 +232,8 @@ async function trackRequest({ method, pathname, statusCode, durationMs, timestam
             status,
             duration,
             normalizeFailureDetail(requestBody),
-            normalizeFailureDetail(responseBody)
+            normalizeFailureDetail(responseBody),
+            expectedAuth
         ]);
         const cutoff = new Date(safeTime.getTime() - FAILURE_RETENTION_DAYS * 86400000).toISOString();
         await run('DELETE FROM service_status_failures WHERE request_at < ?', [cutoff]);
@@ -233,6 +262,9 @@ async function getFailures(filters = {}) {
     }
     if (String(filters.statusClass) === '4xx') where.push('status_code BETWEEN 400 AND 499');
     if (String(filters.statusClass) === '5xx') where.push('status_code >= 500');
+    const authCounts = await all(`SELECT COUNT(*) AS count FROM service_status_failures
+        WHERE ${where.join(' AND ')} AND ${EXPECTED_AUTH_SQL}`, params);
+    where.push(`NOT ${EXPECTED_AUTH_SQL}`);
     const limit = Math.min(100, Math.max(1, Number(filters.limit) || 50));
     params.push(limit);
     const rows = await all(`
@@ -244,6 +276,7 @@ async function getFailures(filters = {}) {
         LIMIT ?
     `, params);
     return {
+        excludedAuthResponses: Number(authCounts[0]?.count || 0),
         failures: rows.map(row => ({
             id: Number(row.id),
             serviceKey: row.service_key,
@@ -366,8 +399,16 @@ function dateRange(days) {
 function classifyDay(row) {
     if (!row || !Number(row.request_count || 0)) return 'no-data';
     if (Number(row.server_error_count || 0) > 0) return 'incident';
-    if (Number(row.client_error_count || 0) > 0) return 'degraded';
+    if (clientErrorCount(row) > 0) return 'degraded';
     return 'operational';
+}
+
+function expectedAuthCount(row) {
+    return Number(row.expected_auth_count || 0) + Number(row.legacy_auth_count || 0);
+}
+
+function clientErrorCount(row) {
+    return Math.max(0, Number(row.client_error_count || 0) - expectedAuthCount(row));
 }
 
 function percent(numerator, denominator) {
@@ -378,12 +419,13 @@ function summarizeRows(rows) {
     const summary = rows.reduce((result, row) => {
         result.requests += Number(row.request_count || 0);
         result.successes += Number(row.success_count || 0);
-        result.clientErrors += Number(row.client_error_count || 0);
+        result.clientErrors += clientErrorCount(row);
+        result.expectedAuthResponses += expectedAuthCount(row);
         result.serverErrors += Number(row.server_error_count || 0);
         result.totalDurationMs += Number(row.total_duration_ms || 0);
         result.maxDurationMs = Math.max(result.maxDurationMs, Number(row.max_duration_ms || 0));
         return result;
-    }, { requests: 0, successes: 0, clientErrors: 0, serverErrors: 0, totalDurationMs: 0, maxDurationMs: 0 });
+    }, { requests: 0, successes: 0, clientErrors: 0, expectedAuthResponses: 0, serverErrors: 0, totalDurationMs: 0, maxDurationMs: 0 });
     summary.availability = percent(summary.requests - summary.serverErrors, summary.requests);
     summary.successRate = percent(summary.successes, summary.requests);
     summary.averageDurationMs = summary.requests ? Math.round(summary.totalDurationMs / summary.requests) : 0;
@@ -431,12 +473,16 @@ async function getHistory(daysInput = 90) {
     const days = ALLOWED_WINDOWS.has(requestedDays) ? requestedDays : 90;
     const dates = dateRange(days);
     const rows = await all(`
-        SELECT service_key, status_date, request_count, success_count,
-               client_error_count, server_error_count, total_duration_ms,
-               max_duration_ms, last_status_code, last_request_at
-        FROM service_status_daily
-        WHERE status_date BETWEEN ? AND ?
-        ORDER BY status_date ASC, service_key ASC
+        SELECT daily.*, COALESCE(legacy.legacy_auth_count, 0) AS legacy_auth_count
+        FROM service_status_daily daily
+        LEFT JOIN (
+            SELECT service_key, substr(request_at, 1, 10) AS status_date, COUNT(*) AS legacy_auth_count
+            FROM service_status_failures
+            WHERE expected_auth = 0 AND ${LEGACY_EXPECTED_AUTH_SQL}
+            GROUP BY service_key, substr(request_at, 1, 10)
+        ) legacy ON legacy.service_key = daily.service_key AND legacy.status_date = daily.status_date
+        WHERE daily.status_date BETWEEN ? AND ?
+        ORDER BY daily.status_date ASC, daily.service_key ASC
     `, [dates[0], dates[dates.length - 1]]);
     const byService = new Map(SERVICE_DEFINITIONS.map(service => [service.id, new Map()]));
     rows.forEach(row => {
@@ -450,7 +496,8 @@ async function getHistory(daysInput = 90) {
             state: classifyDay(row),
             requests: Number(row?.request_count || 0),
             successes: Number(row?.success_count || 0),
-            clientErrors: Number(row?.client_error_count || 0),
+            clientErrors: row ? clientErrorCount(row) : 0,
+            expectedAuthResponses: row ? expectedAuthCount(row) : 0,
             serverErrors: Number(row?.server_error_count || 0),
             averageDurationMs: row?.request_count ? Math.round(Number(row.total_duration_ms || 0) / Number(row.request_count)) : 0,
             maxDurationMs: Number(row?.max_duration_ms || 0),

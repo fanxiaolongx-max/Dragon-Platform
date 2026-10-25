@@ -8826,6 +8826,9 @@ async function checkServerStatus() {
 
 let serviceStatusDays = 90;
 let serviceStatusView = 'overview';
+let serviceStatusTimer = null;
+let serviceStatusRequestSeq = 0;
+let serviceStatusRequestPending = false;
 let serviceRuntimeLogPage = 1;
 let serviceRuntimeLogTimer = null;
 let serviceRuntimeLogRequestSeq = 0;
@@ -9058,9 +9061,12 @@ window.openServiceFailureModal = async function (serviceKey = '', date = '', sta
     try {
         const data = await serviceStatusRequest(`/api/platform-metrics/service-status/failures?${query}`);
         const failures = data.failures || [];
+        const authNotice = data.excludedAuthResponses > 0
+            ? `<div class="service-status-notice">${serviceStatusBi('已排除', 'Excluded')} ${Number(data.excludedAuthResponses).toLocaleString()} ${serviceStatusBi('条正常登录或会话过期拦截，不计入服务异常；原始诊断记录仍保留。', 'expected login or session-expiry responses from service failures; original diagnostic records are retained.')}</div>`
+            : '';
         if (!failures.length) {
             const hasFilter = Boolean(serviceKey || date || statusClass);
-            content.innerHTML = `
+            content.innerHTML = `${authNotice}
                 <div class="service-failure-empty">
                     <strong>${date ? `${navEscape(date)} · ${serviceStatusBi('该时间点无失败请求记录', 'No failure records for this time point')}` : serviceStatusBi('暂无可查看的失败明细', 'No failure details available')}</strong>
                     <p>${date ? `${navEscape(serviceName)} ${serviceStatusBi('在所选时间点运行正常，未产生 4xx 或 5xx 请求异常。', 'operated normally at this time with no 4xx or 5xx exceptions.')}` : serviceStatusBi('失败明细从本功能启用后开始记录，历史统计仍会保留。', 'Failure details are recorded after this feature is enabled; historical totals remain available.')}</p>
@@ -9072,7 +9078,7 @@ window.openServiceFailureModal = async function (serviceKey = '', date = '', sta
                 </div>`;
             return;
         }
-        content.innerHTML = failures.map((failure, index) => `
+        content.innerHTML = authNotice + failures.map((failure, index) => `
             <details class="service-failure-item" ${index === 0 ? 'open' : ''}>
                 <summary>
                     <span class="service-failure-code ${failure.statusCode >= 500 ? 'server' : 'client'}">${Number(failure.statusCode)}</span>
@@ -9111,6 +9117,7 @@ window.closeServiceStatusModal = function () {
     const modal = document.getElementById('serviceStatusModal');
     if (modal) modal.style.display = 'none';
     document.body.classList.remove('service-status-open');
+    window.clearServiceStatusPolling();
     window.clearServiceRuntimeLogPolling();
 };
 
@@ -9123,10 +9130,12 @@ window.setServiceStatusView = function (view) {
         ? serviceStatusBi('后台全量控制台日志 · 自动脱敏', 'Complete backend console · automatically redacted')
         : serviceStatusBi('基于平台真实 API 请求返回结果生成', 'Generated from actual platform API responses');
     if (serviceStatusView === 'logs') {
+        window.clearServiceStatusPolling();
         window.renderServiceRuntimeLogShell();
         window.loadServiceRuntimeLogs(1);
     } else {
         window.clearServiceRuntimeLogPolling();
+        window.startServiceStatusPolling();
         window.loadServiceStatusHistory();
     }
 };
@@ -9134,6 +9143,20 @@ window.setServiceStatusView = function (view) {
 window.refreshServiceStatusView = function () {
     if (serviceStatusView === 'logs') window.loadServiceRuntimeLogs(serviceRuntimeLogPage);
     else window.loadServiceStatusHistory();
+};
+
+window.clearServiceStatusPolling = function () {
+    if (serviceStatusTimer) window.clearInterval(serviceStatusTimer);
+    serviceStatusTimer = null;
+    serviceStatusRequestSeq += 1;
+    serviceStatusRequestPending = false;
+};
+
+window.startServiceStatusPolling = function () {
+    window.clearServiceStatusPolling();
+    serviceStatusTimer = window.setInterval(() => {
+        window.loadServiceStatusHistory(true);
+    }, 5000);
 };
 
 window.clearServiceRuntimeLogPolling = function () {
@@ -9321,7 +9344,7 @@ function renderChannelsWatchdogHtml(channelsData, canInspectFailures) {
                         <span>${serviceStatusBi('频道对接与心跳保活检测', 'Channel Integration & Heartbeat Keepalive')}</span>
                     </div>
                     <div class="service-status-channels-sub">
-                        ${serviceStatusBi('30 秒定时抽查 · 断线超时自动重连自愈 · 上次抽查', 'Checked every 30s · Auto-heal reconnect on timeout · Last check')}: ${navEscape(lastCheckText)}${navEscape(recoveryText)}
+                        ${serviceStatusBi('30 秒定时抽查 · 面板每 5 秒更新 · 断线超时自动重连自愈 · 上次抽查', 'Checked every 30s · Panel refreshes every 5s · Auto-heal reconnect on timeout · Last check')}: ${navEscape(lastCheckText)}${navEscape(recoveryText)}
                     </div>
                 </div>
                 <div class="service-status-channels-action">
@@ -9377,23 +9400,36 @@ function renderServiceStatusHistory(data) {
             ${failureStat('warning', serviceStatusBi('客户端失败 4xx', 'Client errors 4xx'), overall.clientErrors, '4xx')}
             ${failureStat('danger', serviceStatusBi('服务端失败 5xx', 'Server errors 5xx'), overall.serverErrors, '5xx')}
         </section>
-        ${renderChannelsWatchdogHtml(data.channels, canInspectFailures)}
         ${Number(overall.requests || 0) ? '' : `<div class="service-status-notice">${serviceStatusBi('状态历史从本功能启用后开始累计；暂无历史请求时显示为灰色。', 'History starts accumulating after this feature is enabled; days without requests are gray.')}</div>`}
         <section class="service-status-grid">${cards}</section>
-        <div class="service-status-legend"><span><i class="operational"></i>${serviceStatusBi('正常', 'Operational')}</span><span><i class="degraded"></i>${serviceStatusBi('存在 4xx', 'Has 4xx')}</span><span><i class="incident"></i>${serviceStatusBi('存在 5xx', 'Has 5xx')}</span><span><i class="no-data"></i>${serviceStatusBi('无请求数据', 'No requests')}</span><em>${serviceStatusBi('可用率按“非 5xx 请求 ÷ 全部请求”计算。', 'Availability is calculated as non-5xx requests divided by all requests.')}</em></div>`;
+        <div class="service-status-legend"><span><i class="operational"></i>${serviceStatusBi('正常', 'Operational')}</span><span><i class="degraded"></i>${serviceStatusBi('存在 4xx', 'Has 4xx')}</span><span><i class="incident"></i>${serviceStatusBi('存在 5xx', 'Has 5xx')}</span><span><i class="no-data"></i>${serviceStatusBi('无请求数据', 'No requests')}</span><em>${serviceStatusBi('可用率按“非 5xx 请求 ÷ 全部请求”计算；正常登录拦截不计入 4xx 异常。', 'Availability is calculated as non-5xx requests divided by all requests; expected login responses are excluded from 4xx failures.')}</em></div>
+        ${renderChannelsWatchdogHtml(data.channels, canInspectFailures)}`;
 }
 
-window.loadServiceStatusHistory = async function () {
+window.loadServiceStatusHistory = async function (isLiveRefresh = false) {
+    if (serviceStatusView !== 'overview') return;
     const modal = ensureServiceStatusModal();
+    if (modal.style.display !== 'flex') return;
+    if (isLiveRefresh && (document.hidden || serviceStatusRequestPending)) return;
     const content = document.getElementById('serviceStatusContent');
     const range = document.getElementById('serviceStatusRange');
-    range.innerHTML = [30, 90, 180].map(days => `<button type="button" class="${days === serviceStatusDays ? 'active' : ''}" onclick="setServiceStatusDays(${days})">${days} ${serviceStatusBi('天', 'days')}</button>`).join('');
-    content.innerHTML = `<div class="service-status-loading"><span></span>${serviceStatusBi('正在读取服务状态…', 'Loading service status…')}</div>`;
+    const requestSeq = ++serviceStatusRequestSeq;
+    serviceStatusRequestPending = true;
+    if (!isLiveRefresh) {
+        range.innerHTML = [30, 90, 180].map(days => `<button type="button" class="${days === serviceStatusDays ? 'active' : ''}" onclick="setServiceStatusDays(${days})">${days} ${serviceStatusBi('天', 'days')}</button>`).join('');
+        content.innerHTML = `<div class="service-status-loading"><span></span>${serviceStatusBi('正在读取服务状态…', 'Loading service status…')}</div>`;
+    }
     try {
         const data = await serviceStatusRequest(`/api/platform-metrics/service-status?days=${serviceStatusDays}`);
-        if (modal.style.display !== 'none') renderServiceStatusHistory(data);
+        if (requestSeq !== serviceStatusRequestSeq || serviceStatusView !== 'overview' || modal.style.display !== 'flex') return;
+        const scrollTop = content.scrollTop;
+        renderServiceStatusHistory(data);
+        if (isLiveRefresh) content.scrollTop = scrollTop;
     } catch (error) {
+        if (requestSeq !== serviceStatusRequestSeq || serviceStatusView !== 'overview' || modal.style.display !== 'flex' || isLiveRefresh) return;
         content.innerHTML = `<div class="service-status-error"><strong>${serviceStatusBi('服务状态读取失败', 'Unable to load service status')}</strong><p>${navEscape(error.message)}</p><button type="button" onclick="loadServiceStatusHistory()">${serviceStatusBi('重试', 'Retry')}</button></div>`;
+    } finally {
+        if (requestSeq === serviceStatusRequestSeq) serviceStatusRequestPending = false;
     }
 };
 

@@ -4434,7 +4434,7 @@ body.service-status-open { overflow: hidden; }
 .service-status-legend em { margin-left: auto; color: #8a93a3; font-style: normal; }
 .service-status-notice { margin-bottom: 12px; padding: 9px 12px; color: #795c16; border: 1px solid #ecd79a; border-radius: 8px; background: #fff9e8; font-size: 11px; }
 .service-status-channels {
-    margin-bottom: 14px;
+    margin-top: 14px;
     padding: 15px 18px;
     border: 1px solid #dce2e8;
     border-radius: 13px;

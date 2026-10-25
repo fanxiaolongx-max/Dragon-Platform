@@ -157,6 +157,14 @@ test('收消息：复用 Provider 的访问控制、斜杠命令与 Dragon Claw 
 
     const status = await service.getStatus('default');
     assert.equal(status.connected, true);
+    const watchdog = require('../backend/models/channels/channel-watchdog');
+    const summary = await watchdog.inspectTenantNow('default');
+    const channel = summary.channels.find(item => item.id === 'weixin');
+    assert.equal(status.runtime.state, 'ready');
+    assert.equal(channel.state, 'operational');
+    assert.equal(channel.heartbeat.healthy, true);
+    assert.ok(channel.heartbeat.lastHeartbeatAt);
+    assert.equal(channel.lastError, null);
     assert.equal(status.provider.inbound, 4);
     assert.equal(status.provider.denied, 1);
     await inTenant(async () => {

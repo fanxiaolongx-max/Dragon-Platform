@@ -3,7 +3,7 @@
 // 遇到网络抖动、电脑休眠或 duplicate_connection 断线时在网关超时释放后自动重连自愈，
 // 并将实时抽查与心跳监控结果汇总至 TOOLS PLATFORM STATUS 服务状态中心。
 
-const { runWithTenant, DEFAULT_TENANT_ID } = require('../tenant-context');
+const { runWithTenant, getTenantId, normalizeTenantId, DEFAULT_TENANT_ID } = require('../tenant-context');
 const welink = require('./welink-bridge-service');
 const weixin = require('./weixin-bridge-service');
 const welinkConfigRepo = require('./welink-config-repository');
@@ -15,7 +15,9 @@ const MAX_CONSECUTIVE_RECOVERIES = 5;
 
 let watchdogTimer = null;
 let listTenantIdsFn = null;
-let isInspecting = false;
+let inspectionPromise = null;
+const tenantSummaries = new Map();
+const tenantInspections = new Map();
 
 // 记录各频道失败追踪与自愈状态（按 tenantId:channel 键）
 const channelTrackers = new Map();
@@ -322,8 +324,9 @@ async function inspectWeixin(tenantId) {
         } catch (_) {}
 
         const runtimeStateStr = String(status.runtime?.state || status.runtime || 'idle');
-        const isPolling = runtimeStateStr === 'polling';
-        const lastPollAt = diag?.runtime?.lastPollAt || (isPolling ? new Date().toISOString() : null);
+        const isPolling = status.connected && runtimeStateStr === 'ready';
+        const isConnecting = ['starting', 'reconnecting'].includes(runtimeStateStr);
+        const lastPollAt = status.lastPollAt || diag?.runtime?.lastPollAt || null;
 
         if (isPolling) {
             tracker.consecutiveFailures = 0;
@@ -341,7 +344,7 @@ async function inspectWeixin(tenantId) {
                 heartbeat: {
                     healthy: true,
                     type: 'iLink Long-Polling',
-                    lastHeartbeatAt: lastPollAt ? new Date(lastPollAt).toISOString() : new Date().toISOString()
+                    lastHeartbeatAt: lastPollAt ? new Date(lastPollAt).toISOString() : null
                 },
                 lastCheckAt: new Date().toISOString(),
                 autoHeal: {
@@ -360,9 +363,9 @@ async function inspectWeixin(tenantId) {
             tenantId,
             enabled: true,
             configured: true,
-            status: runtimeStateStr === 'reconnecting' ? 'reconnecting' : 'failed',
-            state: runtimeStateStr === 'reconnecting' ? 'degraded' : 'incident',
-            stateLabel: runtimeStateStr === 'reconnecting' ? '正在重连' : '轮询中断',
+            status: isConnecting ? 'reconnecting' : 'failed',
+            state: isConnecting ? 'degraded' : 'incident',
+            stateLabel: isConnecting ? (runtimeStateStr === 'starting' ? '正在连接' : '正在重连') : '轮询中断',
             heartbeat: {
                 healthy: false,
                 type: 'iLink Long-Polling',
@@ -378,117 +381,121 @@ async function inspectWeixin(tenantId) {
     });
 }
 
-/**
- * 执行一次全量频道心跳与连接状态抽查
- */
-async function inspectNow() {
-    if (isInspecting) return watchdogState.latestSummary || buildEmptySummary();
-    isInspecting = true;
+function buildSummary(channelResults, metadata) {
+    const enabledChannels = channelResults.filter(c => c.enabled);
+    const incidentCount = enabledChannels.filter(c => c.state === 'incident').length;
+    let overallHealth = 'operational';
+    if (!enabledChannels.length) overallHealth = 'no-channels';
+    else if (incidentCount === enabledChannels.length) overallHealth = 'incident';
+    else if (incidentCount > 0) overallHealth = 'degraded';
+    return {
+        enabled: true,
+        intervalMs: watchdogState.intervalMs,
+        ...metadata,
+        overallHealth,
+        channels: channelResults
+    };
+}
+
+/** 当前租户的独立抽查；同一租户的并发请求共享本次结果。 */
+async function inspectTenantNow(tenantId = getTenantId()) {
+    tenantId = normalizeTenantId(tenantId);
+    if (tenantInspections.has(tenantId)) return tenantInspections.get(tenantId);
+    const pending = (async () => {
+        const channelResults = [];
+        try {
+            const welinkResult = await inspectWeLink(tenantId);
+            channelResults.push(welinkResult);
+        } catch (err) {
+            channelResults.push({
+                id: 'welink',
+                name: 'WeLink',
+                tenantId,
+                enabled: false,
+                configured: false,
+                status: 'error',
+                state: 'incident',
+                stateLabel: '抽查异常',
+                heartbeat: { healthy: false, type: 'WebSocket Keepalive', lastHeartbeatAt: null },
+                lastError: err.message
+            });
+        }
+
+        try {
+            const weixinResult = await inspectWeixin(tenantId);
+            channelResults.push(weixinResult);
+        } catch (err) {
+            channelResults.push({
+                id: 'weixin',
+                name: '微信',
+                tenantId,
+                enabled: false,
+                configured: false,
+                status: 'error',
+                state: 'incident',
+                stateLabel: '抽查异常',
+                heartbeat: { healthy: false, type: 'iLink Long-Polling', lastHeartbeatAt: null },
+                lastError: err.message
+            });
+        }
+        const previous = tenantSummaries.get(tenantId);
+        const trackers = ['welink', 'weixin'].map(channel => getTracker(tenantId, channel));
+        const summary = buildSummary(channelResults, {
+            lastCheckAt: new Date().toISOString(),
+            checkCount: (previous?.checkCount || 0) + 1,
+            autoRecoveryCount: trackers.reduce((total, tracker) => total + tracker.totalRecoveries, 0),
+            lastRecoveryAt: trackers.map(tracker => tracker.lastRecoveredAt).filter(Boolean).sort().pop() || null
+        });
+        tenantSummaries.set(tenantId, summary);
+        return summary;
+    })();
+    tenantInspections.set(tenantId, pending);
     try {
+        return await pending;
+    } finally {
+        tenantInspections.delete(tenantId);
+    }
+}
+
+/** 后台定时巡检全部租户；全量结果仅供内部使用。 */
+async function inspectNow() {
+    if (inspectionPromise) return inspectionPromise;
+    inspectionPromise = (async () => {
         const tenantIds = new Set([DEFAULT_TENANT_ID]);
         if (typeof listTenantIdsFn === 'function') {
             try {
                 const ids = await listTenantIdsFn();
-                (ids || []).forEach(id => id && tenantIds.add(id));
+                (ids || []).forEach(id => id && tenantIds.add(normalizeTenantId(id)));
             } catch (err) {
                 console.warn('[ChannelWatchdog] 读取租户列表失败，默认检查 default 租户：', err.message);
             }
         }
-
         const channelResults = [];
         for (const tenantId of tenantIds) {
-            try {
-                const welinkResult = await inspectWeLink(tenantId);
-                channelResults.push(welinkResult);
-            } catch (err) {
-                channelResults.push({
-                    id: 'welink',
-                    name: 'WeLink',
-                    tenantId,
-                    enabled: false,
-                    configured: false,
-                    status: 'error',
-                    state: 'incident',
-                    stateLabel: '抽查异常',
-                    heartbeat: { healthy: false, type: 'WebSocket Keepalive', lastHeartbeatAt: null },
-                    lastError: err.message
-                });
-            }
-
-            try {
-                const weixinResult = await inspectWeixin(tenantId);
-                channelResults.push(weixinResult);
-            } catch (err) {
-                channelResults.push({
-                    id: 'weixin',
-                    name: '微信',
-                    tenantId,
-                    enabled: false,
-                    configured: false,
-                    status: 'error',
-                    state: 'incident',
-                    stateLabel: '抽查异常',
-                    heartbeat: { healthy: false, type: 'iLink Long-Polling', lastHeartbeatAt: null },
-                    lastError: err.message
-                });
-            }
+            const summary = await inspectTenantNow(tenantId);
+            channelResults.push(...summary.channels);
         }
-
         watchdogState.lastCheckAt = new Date().toISOString();
         watchdogState.checkCount += 1;
-
-        const enabledChannels = channelResults.filter(c => c.enabled);
-        const operationalCount = enabledChannels.filter(c => c.state === 'operational').length;
-        const incidentCount = enabledChannels.filter(c => c.state === 'incident').length;
-
-        let overallHealth = 'operational';
-        if (incidentCount > 0 && incidentCount === enabledChannels.length) {
-            overallHealth = 'incident';
-        } else if (incidentCount > 0) {
-            overallHealth = 'degraded';
-        } else if (enabledChannels.length === 0) {
-            overallHealth = 'no-channels';
-        }
-
-        const summary = {
-            enabled: true,
-            intervalMs: watchdogState.intervalMs,
+        watchdogState.latestSummary = buildSummary(channelResults, {
             lastCheckAt: watchdogState.lastCheckAt,
             checkCount: watchdogState.checkCount,
             autoRecoveryCount: watchdogState.autoRecoveryCount,
-            lastRecoveryAt: watchdogState.lastRecoveryAt,
-            overallHealth,
-            channels: channelResults
-        };
-
-        watchdogState.latestSummary = summary;
-        return summary;
+            lastRecoveryAt: watchdogState.lastRecoveryAt
+        });
+        return watchdogState.latestSummary;
+    })();
+    try {
+        return await inspectionPromise;
     } finally {
-        isInspecting = false;
+        inspectionPromise = null;
     }
 }
 
-function buildEmptySummary() {
-    return {
-        enabled: Boolean(watchdogTimer),
-        intervalMs: watchdogState.intervalMs,
-        lastCheckAt: watchdogState.lastCheckAt,
-        checkCount: watchdogState.checkCount,
-        autoRecoveryCount: watchdogState.autoRecoveryCount,
-        lastRecoveryAt: watchdogState.lastRecoveryAt,
-        overallHealth: 'operational',
-        channels: []
-    };
-}
-
-/**
- * 获取看门狗抽查摘要（如尚未运行过则立即触发一次）
- */
-async function getWatchdogSummary() {
-    if (!watchdogState.latestSummary) {
-        return inspectNow();
-    }
-    return watchdogState.latestSummary;
+/** 获取当前租户摘要；首次访问时只抽查该租户。 */
+async function getWatchdogSummary(tenantId = getTenantId()) {
+    tenantId = normalizeTenantId(tenantId);
+    return tenantSummaries.get(tenantId) || inspectTenantNow(tenantId);
 }
 
 /**
@@ -521,12 +528,15 @@ function stop() {
         clearInterval(watchdogTimer);
         watchdogTimer = null;
     }
-    isInspecting = false;
+    inspectionPromise = null;
 }
 
 function resetForTests() {
     stop();
     channelTrackers.clear();
+    tenantSummaries.clear();
+    tenantInspections.clear();
+    listTenantIdsFn = null;
     watchdogState.startedAt = null;
     watchdogState.lastCheckAt = null;
     watchdogState.checkCount = 0;
@@ -539,6 +549,7 @@ module.exports = {
     start,
     stop,
     inspectNow,
+    inspectTenantNow,
     getWatchdogSummary,
     resetForTests
 };

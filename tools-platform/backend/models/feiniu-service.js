@@ -10,6 +10,9 @@ const KV_CATEGORY = 'media_feiniu';
 const KV_CONFIG_KEY = 'config';
 const CATALOG_CACHE_TTL_MS = 45 * 1000;
 const REQUEST_TIMEOUT_MS = 10 * 1000;
+const HLS_SESSION_IDLE_TTL_MS = 10 * 60 * 1000;
+const HLS_KEEPALIVE_INTERVAL_MS = 15 * 1000;
+const HLS_MAX_BITRATE = 4 * 1000 * 1000;
 
 // Fallback active session tokens discovered from the user's Feiniu deployment
 const FALLBACK_FEINIU_TOKENS = [
@@ -735,8 +738,11 @@ async function resolveFeiniuPlayback(itemGuid) {
 }
 
 async function ensureFeiniuHlsSession(itemGuid, { forceNew = false, startTimestamp = 0 } = {}) {
+    // Reuse one transcode session per item while it is in use: every /play/play call starts a fresh
+    // Feiniu session whose segments are cut at different timestamps, so mixing sessions breaks A/V continuity.
     const cachedSession = hlsSessionCache.get(itemGuid);
-    if (!forceNew && cachedSession && (Date.now() - cachedSession.updatedAt < 20 * 1000) && startTimestamp === 0) {
+    if (!forceNew && cachedSession && (Date.now() - cachedSession.updatedAt < HLS_SESSION_IDLE_TTL_MS) && startTimestamp === 0) {
+        cachedSession.updatedAt = Date.now();
         return cachedSession;
     }
 
@@ -754,9 +760,11 @@ async function ensureFeiniuHlsSession(itemGuid, { forceNew = false, startTimesta
         }
     } catch (_) {}
 
-    const chosenQuality = qualities[0] || {
+    // qualities is ordered best-first and starts with the original bitrate; the NAS link through
+    // Cloudflare sustains roughly 7 Mbps, so cap transcodes to keep segments ahead of real time.
+    const chosenQuality = qualities.find(q => Number(q.bitrate) <= HLS_MAX_BITRATE) || qualities[qualities.length - 1] || {
         resolution: String(streamMeta.resolutionType || '720').replace(/p$/i, '') || '720',
-        bitrate: Math.min(Math.max(Number(streamMeta.bps) || 2000000, 500000), 8000000)
+        bitrate: Math.min(Math.max(Number(streamMeta.bps) || 2000000, 500000), HLS_MAX_BITRATE)
     };
 
     const playPayload = {
@@ -786,10 +794,37 @@ async function ensureFeiniuHlsSession(itemGuid, { forceNew = false, startTimesta
         playLink,
         sessionBase,
         updatedAt: Date.now(),
-        streamMeta
+        streamMeta,
+        itemGuid,
+        config,
+        playPayload,
+        lastKeepAliveAt: Date.now()
     };
     hlsSessionCache.set(itemGuid, sessionObj);
     return sessionObj;
+}
+
+// Feiniu reclaims a transcode session (HTTP 410) about 60s after /play/play unless the client keeps
+// posting /play/record, as its own web player does every 15s. Each reclaim forces a re-seek whose first
+// segment lands at a slightly different A/V offset, which hls.js accumulates into audio delay.
+function keepFeiniuHlsSessionAlive(session, positionSec = 0) {
+    if (!session || !session.playPayload) return;
+    const now = Date.now();
+    if (now - (session.lastKeepAliveAt || 0) < HLS_KEEPALIVE_INTERVAL_MS) return;
+    session.lastKeepAliveAt = now;
+    const { playPayload, streamMeta } = session;
+    feiniuApiRequest(session.config, 'POST', '/play/record', {
+        item_guid: session.itemGuid,
+        media_guid: playPayload.media_guid,
+        video_guid: playPayload.video_guid,
+        audio_guid: playPayload.audio_guid,
+        subtitle_guid: playPayload.subtitle_guid,
+        resolution: playPayload.resolution,
+        bitrate: playPayload.bitrate,
+        ts: Math.max(0, Math.floor(Number(positionSec) || 0)),
+        duration: Number(streamMeta?.duration) || 0,
+        play_link: session.playLink
+    }, session.token).catch(() => {});
 }
 
 module.exports = {
@@ -804,5 +839,6 @@ module.exports = {
     syncFeiniuCatalog,
     getCachedFeiniuCatalog,
     resolveFeiniuPlayback,
-    ensureFeiniuHlsSession
+    ensureFeiniuHlsSession,
+    keepFeiniuHlsSessionAlive
 };

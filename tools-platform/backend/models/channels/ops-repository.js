@@ -400,6 +400,24 @@ async function listRuns({ planId, status, limit = 30 } = {}) {
     return (await all(`SELECT * FROM ops_runs${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY created_at DESC LIMIT ?`, [...params, size])).map(mapRun);
 }
 
+async function listRunsPage({ page = 1, pageSize = 20 } = {}) {
+    await ensureSchema();
+    const sizeValue = Number(pageSize);
+    const size = Number.isFinite(sizeValue) && sizeValue > 0 ? Math.min(100, Math.max(1, Math.floor(sizeValue))) : 20;
+    const total = Number((await get('SELECT COUNT(*) AS total FROM ops_runs'))?.total || 0);
+    const totalPages = Math.max(1, Math.ceil(total / size));
+    const pageValue = Number(page);
+    const currentPage = Math.min(totalPages, Number.isFinite(pageValue) && pageValue > 0 ? Math.max(1, Math.floor(pageValue)) : 1);
+    const items = (await all('SELECT * FROM ops_runs ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?', [size, (currentPage - 1) * size])).map(mapRun);
+    return { items, total, page: currentPage, pageSize: size, totalPages };
+}
+
+async function getDraftCountsByPlan() {
+    await ensureSchema();
+    const rows = await all("SELECT plan_id, COUNT(*) AS total FROM ops_runs WHERE status = 'draft' GROUP BY plan_id");
+    return Object.fromEntries(rows.map(row => [row.plan_id || '', Number(row.total)]));
+}
+
 // 单独查询全部待确认记录，避免草稿被最近 40 条运行历史挤出确认入口。
 async function listPendingRuns({ limit = 20, offset = 0 } = {}) {
     await ensureSchema();
@@ -444,6 +462,8 @@ module.exports = {
     updateRun,
     getRun,
     listRuns,
+    listRunsPage,
+    getDraftCountsByPlan,
     listPendingRuns,
     changeDraft,
     sentVideoIds,

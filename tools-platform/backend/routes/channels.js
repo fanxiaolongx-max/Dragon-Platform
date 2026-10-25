@@ -249,9 +249,20 @@ router.get('/ops/pending', handle(async (req, res) => {
     res.json({ ...page, items, canManage: true });
 }));
 
-router.get('/ops/overview', requireAdmin, handle(async (_req, res) => {
-    const [settings, groups, plans, runs] = await Promise.all([opsRepo.getSettings(), opsRepo.listGroups(), opsRepo.listPlans(), opsRepo.listRuns({ limit: 40 })]);
-    res.json({ settings, groups, plans, runs });
+router.get('/ops/overview', requireAdmin, handle(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const [settings, groups, plans, runPage, draftCounts] = await Promise.all([
+        opsRepo.getSettings(), opsRepo.listGroups(), opsRepo.listPlans(),
+        opsRepo.listRunsPage({ page: req.query.runPage, pageSize: req.query.runPageSize || 40 }),
+        opsRepo.getDraftCountsByPlan()
+    ]);
+    const { items: runs, ...runsPagination } = runPage;
+    res.json({ settings, groups, plans, runs, runsPagination, draftCounts });
+}));
+
+router.get('/ops/runs', requireAdmin, handle(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json(await opsRepo.listRunsPage({ page: req.query.page, pageSize: req.query.pageSize }));
 }));
 
 router.put('/ops/settings', handle(async (req, res) => {

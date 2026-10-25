@@ -27,7 +27,7 @@ router.get('/service-status', async (req, res) => {
 router.post('/service-status/channels/inspect', requireAdmin, async (_req, res) => {
     try {
         res.setHeader('Cache-Control', 'no-store');
-        const summary = await channelWatchdog.inspectNow();
+        const summary = await channelWatchdog.inspectTenantNow();
         res.json(summary);
     } catch (err) {
         console.error('[platform-metrics] channel inspect failed:', err);
