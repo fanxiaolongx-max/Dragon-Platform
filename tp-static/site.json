@@ -167,20 +167,20 @@
     },
     "datacom-protocol-expert/assets/ai-notes.js": {
       "url": "tp-static/payload/7876aa7d6b573427173049c4b69c0af74a067f27d9272979d77963c66b532d94.bin",
-      "iv": "LJb1NdFUqczYT6gn",
-      "hash": "0e2705369928ea798a047e63f284f6f922537263de51cde34c1f7c9d47908eb4",
+      "iv": "+N9xdIbMAi7Rhr4g",
+      "hash": "d4867e529c78592bc5f5ac55e692b8ae7422ddfe74301f84ba9e2d993d6fcd0f",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/app.css": {
       "url": "tp-static/payload/88adb51d768da777c71d0e3b73c5182b65314c3298f34e118a614fa32f3d5d56.bin",
-      "iv": "pwjFz7ildbl/PNq3",
-      "hash": "4155d1a71686e9f7fe643efdc04129cd5250560a595ecd80fe0f7fb08b380ff4",
+      "iv": "zMJgE/H12qZI7L6c",
+      "hash": "3ee39cfe6950113239bc04a0c7b9ba47dbf0ed71a33dbdd311fb7411cbddb528",
       "type": "text/css; charset=utf-8"
     },
     "datacom-protocol-expert/assets/app.js": {
       "url": "tp-static/payload/375c6626a6369c6c7885115a3cda0feaf868037de2553f8cf685facce502fc23.bin",
-      "iv": "Fn6p5OaYxZ29WtWp",
-      "hash": "24ea82a302e7a78d4ddcddd882e51fd169141188bb416c4231c5257120a8ebb5",
+      "iv": "EUrHXXkIcsP0s7fz",
+      "hash": "409b843a680eaac72218067716edcd0f194eae0f5cd4ca853d2d5d29f19a97cd",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/diagram-kit.js": {
@@ -203,14 +203,14 @@
     },
     "datacom-protocol-expert/assets/i18n-en.js": {
       "url": "tp-static/payload/b3184681e730c9fb8940cccf17ae8c38bd50182f1d64bfbc583615f07bc5bb8e.bin",
-      "iv": "Qt6bXoq4xV0s2maE",
-      "hash": "1002ac42d4191b713eccd44049f2012d570b90b17399448df7fcc3c7dcb1b96f",
+      "iv": "HvwrLjJyxGd5gSh0",
+      "hash": "93348b93afd41c05b53de6a0717e324846f5dad3826c64052149910c3030587f",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/i18n.js": {
       "url": "tp-static/payload/fdfb9dc7aef71f038178e8e8f140d382332342a5062b4c8493c3f177ae31f628.bin",
-      "iv": "HMLgHBxZQJaipNym",
-      "hash": "0977918c676ebf82ee86636d44ef87849f07e9a4276c14fae3913ec1d8419d68",
+      "iv": "6fAI08AcvQPLmKVg",
+      "hash": "d0d759fda7d99902bb6206bf3cf986b0224448b854c27d6bf3365bc7afbf8850",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/junos-lessons.js": {
@@ -361,6 +361,12 @@
       "url": "tp-static/payload/13b82584a82308f1234c6eb466c3769f9ce248584c1063f8c98ada0089fa62ae.bin",
       "iv": "N37WMUMXnk2HeR+0",
       "hash": "cfb3cec6fc25fb9b3dcf47025d139b40b4eb6a375d0aed4b4c25f99713293eef",
+      "type": "text/javascript; charset=utf-8"
+    },
+    "datacom-protocol-expert/assets/toc-resize.js": {
+      "url": "tp-static/payload/137f2f470fb06cc105896a24c315b8ca7fdf9cfff9301cf35b02d1adfe7b43b5.bin",
+      "iv": "+31r7d1NbmeskmgK",
+      "hash": "e7fda31b84134326cd2c005c7bbbdcf49d9dad426fd7041c062d497cd7f330f3",
       "type": "text/javascript; charset=utf-8"
     },
     "datacom-protocol-expert/assets/vendor/marked.min.js": {
@@ -1273,8 +1279,8 @@
     },
     "portal-data.json": {
       "url": "tp-static/payload/4187a00828abb3180acbb34476f6daf7e5f48cabcd5296e625824e9757bf3d25.bin",
-      "iv": "a3tYjBaYMnvQ1jJe",
-      "hash": "c44315de19ef8c96eb266f3d7c8af102343d7f593ba996c58a62232554c2faf1",
+      "iv": "tsw/Vkh+MJkt/WEi",
+      "hash": "7c3a102841fd11fcbae13281f8f104862533137a7064d29f7cda98f6030d1ad0",
       "type": "application/json; charset=utf-8"
     },
     "pr-2/index.html": {
@@ -1483,8 +1489,8 @@
     },
     "tool-ms4xb66s/index.html": {
       "url": "tp-static/payload/d62cf16e94eaa55fd1caf16047cbc0546e801fbcec97edb1d8f6fdd131294691.bin",
-      "iv": "CWzy1Qt+dlHz/LGN",
-      "hash": "8d07d9f7861f23387ec5688138699a307fbf8f103ce50ae0a0b6a69822314dc9",
+      "iv": "1vQL/NeB4wb7CYxS",
+      "hash": "b03a533e251d5d9c47001b2784c132e02d797d2986da34f2484fa56022b03b89",
       "type": "text/html; charset=utf-8"
     },
     "tool-msbmscxd/index.html": {
