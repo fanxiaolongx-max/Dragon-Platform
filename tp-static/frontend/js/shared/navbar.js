@@ -8826,6 +8826,9 @@ async function checkServerStatus() {
 
 let serviceStatusDays = 90;
 let serviceStatusView = 'overview';
+let serviceStatusTimer = null;
+let serviceStatusRequestSeq = 0;
+let serviceStatusRequestPending = false;
 let serviceRuntimeLogPage = 1;
 let serviceRuntimeLogTimer = null;
 let serviceRuntimeLogRequestSeq = 0;
@@ -9059,7 +9062,17 @@ window.openServiceFailureModal = async function (serviceKey = '', date = '', sta
         const data = await serviceStatusRequest(`/api/platform-metrics/service-status/failures?${query}`);
         const failures = data.failures || [];
         if (!failures.length) {
-            content.innerHTML = `<div class="service-failure-empty"><strong>${serviceStatusBi('暂无可查看的失败明细', 'No failure details available')}</strong><p>${serviceStatusBi('失败明细从本功能启用后开始记录，历史统计仍会保留。', 'Failure details are recorded after this feature is enabled; historical totals remain available.')}</p></div>`;
+            const hasFilter = Boolean(serviceKey || date || statusClass);
+            content.innerHTML = `
+                <div class="service-failure-empty">
+                    <strong>${date ? `${navEscape(date)} · ${serviceStatusBi('该时间点无失败请求记录', 'No failure records for this time point')}` : serviceStatusBi('暂无可查看的失败明细', 'No failure details available')}</strong>
+                    <p>${date ? `${navEscape(serviceName)} ${serviceStatusBi('在所选时间点运行正常，未产生 4xx 或 5xx 请求异常。', 'operated normally at this time with no 4xx or 5xx exceptions.')}` : serviceStatusBi('失败明细从本功能启用后开始记录，历史统计仍会保留。', 'Failure details are recorded after this feature is enabled; historical totals remain available.')}</p>
+                    ${hasFilter ? `
+                        <div style="margin-top:14px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+                            ${date && serviceKey ? `<button type="button" class="service-failure-quick-btn" onclick="openServiceFailureModal('${navEscape(serviceKey)}','','')">${serviceStatusBi('查看该服务全部失败记录', 'View all failures for this service')}</button>` : ''}
+                            ${(date || serviceKey) ? `<button type="button" class="service-failure-quick-btn" onclick="openServiceFailureModal('','','')">${serviceStatusBi('查看全平台所有失败记录', 'View all platform failures')}</button>` : ''}
+                        </div>` : ''}
+                </div>`;
             return;
         }
         content.innerHTML = failures.map((failure, index) => `
@@ -9101,6 +9114,7 @@ window.closeServiceStatusModal = function () {
     const modal = document.getElementById('serviceStatusModal');
     if (modal) modal.style.display = 'none';
     document.body.classList.remove('service-status-open');
+    window.clearServiceStatusPolling();
     window.clearServiceRuntimeLogPolling();
 };
 
@@ -9113,10 +9127,12 @@ window.setServiceStatusView = function (view) {
         ? serviceStatusBi('后台全量控制台日志 · 自动脱敏', 'Complete backend console · automatically redacted')
         : serviceStatusBi('基于平台真实 API 请求返回结果生成', 'Generated from actual platform API responses');
     if (serviceStatusView === 'logs') {
+        window.clearServiceStatusPolling();
         window.renderServiceRuntimeLogShell();
         window.loadServiceRuntimeLogs(1);
     } else {
         window.clearServiceRuntimeLogPolling();
+        window.startServiceStatusPolling();
         window.loadServiceStatusHistory();
     }
 };
@@ -9124,6 +9140,20 @@ window.setServiceStatusView = function (view) {
 window.refreshServiceStatusView = function () {
     if (serviceStatusView === 'logs') window.loadServiceRuntimeLogs(serviceRuntimeLogPage);
     else window.loadServiceStatusHistory();
+};
+
+window.clearServiceStatusPolling = function () {
+    if (serviceStatusTimer) window.clearInterval(serviceStatusTimer);
+    serviceStatusTimer = null;
+    serviceStatusRequestSeq += 1;
+    serviceStatusRequestPending = false;
+};
+
+window.startServiceStatusPolling = function () {
+    window.clearServiceStatusPolling();
+    serviceStatusTimer = window.setInterval(() => {
+        window.loadServiceStatusHistory(true);
+    }, 5000);
 };
 
 window.clearServiceRuntimeLogPolling = function () {
@@ -9234,15 +9264,92 @@ window.setServiceStatusDays = function (days) {
     window.loadServiceStatusHistory();
 };
 
-function serviceStatusRequest(url) {
-    if (window.API?.get) return window.API.get(url);
-    return fetch(url, {
-        headers: localStorage.getItem('tools_token') ? { Authorization: `Bearer ${localStorage.getItem('tools_token')}` } : {}
-    }).then(async response => {
+function serviceStatusRequest(url, options = {}) {
+    if (window.API?.get && (!options.method || options.method === 'GET')) return window.API.get(url);
+    if (window.API?.post && options.method === 'POST') return window.API.post(url, options.body);
+    const fetchOptions = {
+        method: options.method || 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            ...(localStorage.getItem('tools_token') ? { Authorization: `Bearer ${localStorage.getItem('tools_token')}` } : {})
+        },
+        ...(options.body ? { body: JSON.stringify(options.body) } : {})
+    };
+    return fetch(url, fetchOptions).then(async response => {
         const body = await response.json();
         if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
         return body;
     });
+}
+
+window.inspectChannelsNow = async function () {
+    const btn = document.getElementById('serviceChannelInspectBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span>⏳</span> ${serviceStatusBi('抽查中…', 'Checking…')}`;
+    }
+    try {
+        await serviceStatusRequest('/api/platform-metrics/service-status/channels/inspect', { method: 'POST' });
+        await window.loadServiceStatusHistory();
+    } catch (err) {
+        alert(serviceStatusBi('频道抽查失败：', 'Channel inspection failed: ') + err.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `↻ <span>${serviceStatusBi('立即抽查', 'Inspect Now')}</span>`;
+        }
+    }
+};
+
+function renderChannelsWatchdogHtml(channelsData, canInspectFailures) {
+    if (!channelsData || !channelsData.enabled) return '';
+    const channels = channelsData.channels || [];
+    if (!channels.length) return '';
+    const lastCheckText = channelsData.lastCheckAt ? new Date(channelsData.lastCheckAt).toLocaleTimeString() : '—';
+    const recoveryText = channelsData.autoRecoveryCount > 0
+        ? ` · ${serviceStatusBi('已自动自愈', 'Auto-healed')} ${channelsData.autoRecoveryCount} ${serviceStatusBi('次', 'times')}`
+        : '';
+    const cards = channels.map(c => {
+        const icon = c.id === 'welink' ? '💼' : '💬';
+        const badgeClass = c.state || (c.enabled ? 'operational' : 'disabled');
+        const badgeLabel = c.stateLabel || (c.enabled ? serviceStatusBi('正常', 'Operational') : serviceStatusBi('未启用', 'Disabled'));
+        const heartbeatType = c.heartbeat?.type || (c.id === 'welink' ? 'WebSocket Keepalive' : 'Long-Polling');
+        const heartbeatState = c.heartbeat?.healthy ? serviceStatusBi('长连接活跃', 'Active') : (c.enabled ? serviceStatusBi('异常断开', 'Disconnected') : serviceStatusBi('未启用', 'Disabled'));
+        const lastHbText = c.heartbeat?.lastHeartbeatAt ? new Date(c.heartbeat.lastHeartbeatAt).toLocaleTimeString() : '—';
+        const autoHealInfo = c.autoHeal?.recoveredCount ? `${serviceStatusBi('已自愈', 'Recovered')} ${c.autoHeal.recoveredCount} ${serviceStatusBi('次', 'times')}` : serviceStatusBi('就绪保活中', 'Standby');
+        const clickAttr = canInspectFailures ? ` onclick="openServiceFailureModal('channels','','')" style="cursor:pointer;" title="${serviceStatusBi('点击查看频道服务失败明细', 'Click to view channel failures')}"` : '';
+        return `
+            <div class="service-channel-card ${navEscape(c.state || 'operational')} ${canInspectFailures ? 'clickable' : ''}"${clickAttr}>
+                <div class="service-channel-header">
+                    <div class="service-channel-name"><span>${icon}</span><span>${navEscape(c.name)} ${serviceStatusBi('助理', 'Assistant')}</span></div>
+                    <span class="service-channel-badge ${navEscape(badgeClass)}"><i></i>${navEscape(badgeLabel)}</span>
+                </div>
+                <div class="service-channel-body">
+                    <div class="service-channel-row"><span>${serviceStatusBi('心跳保活', 'Heartbeat')}</span><span>${navEscape(heartbeatType)} · <b>${navEscape(heartbeatState)}</b></span></div>
+                    <div class="service-channel-row"><span>${serviceStatusBi('最近心跳', 'Last Heartbeat')}</span><code>${navEscape(lastHbText)}</code></div>
+                    ${c.channel ? `<div class="service-channel-row"><span>${serviceStatusBi('频道标识', 'Channel')}</span><span><code>${navEscape(c.channel)}</code> (${navEscape(c.environment || 'prod')})</span></div>` : ''}
+                    <div class="service-channel-row"><span>${serviceStatusBi('自愈监控', 'Auto-heal Watchdog')}</span><span>${navEscape(autoHealInfo)}</span></div>
+                    ${c.lastError ? `<div class="service-channel-err" title="${navEscape(c.lastError)}">⚠️ ${navEscape(c.lastError)}</div>` : ''}
+                </div>
+            </div>`;
+    }).join('');
+    return `
+        <section class="service-status-channels">
+            <div class="service-status-channels-head">
+                <div>
+                    <div class="service-status-channels-title">
+                        <span>📡</span>
+                        <span>${serviceStatusBi('频道对接与心跳保活检测', 'Channel Integration & Heartbeat Keepalive')}</span>
+                    </div>
+                    <div class="service-status-channels-sub">
+                        ${serviceStatusBi('30 秒定时抽查 · 面板每 5 秒更新 · 断线超时自动重连自愈 · 上次抽查', 'Checked every 30s · Panel refreshes every 5s · Auto-heal reconnect on timeout · Last check')}: ${navEscape(lastCheckText)}${navEscape(recoveryText)}
+                    </div>
+                </div>
+                <div class="service-status-channels-action">
+                    <button type="button" class="service-channel-inspect-btn" id="serviceChannelInspectBtn" onclick="inspectChannelsNow()">↻ <span>${serviceStatusBi('立即抽查', 'Inspect Now')}</span></button>
+                </div>
+            </div>
+            <div class="service-status-channels-grid">${cards}</div>
+        </section>`;
 }
 
 function renderServiceStatusHistory(data) {
@@ -9262,49 +9369,64 @@ function renderServiceStatusHistory(data) {
         const meta = serviceStateMeta(service.currentState);
         const serviceAvailability = service.summary?.availability == null ? '—' : `${Number(service.summary.availability).toFixed(2)}%`;
         const bars = (service.history || []).map(day => {
-            const title = `${day.date} · ${serviceStateMeta(day.state).label}\n${serviceStatusBi('请求', 'Requests')}: ${day.requests} · ${serviceStatusBi('成功', 'Success')}: ${day.successes} · 4xx: ${day.clientErrors} · 5xx: ${day.serverErrors}\n${serviceStatusBi('平均响应', 'Avg response')}: ${day.averageDurationMs}ms`;
-            const clickable = canInspectFailures && (day.clientErrors || day.serverErrors);
+            const title = `${day.date} · ${serviceStateMeta(day.state).label}\n${serviceStatusBi('请求', 'Requests')}: ${day.requests} · ${serviceStatusBi('成功', 'Success')}: ${day.successes} · 4xx: ${day.clientErrors} · 5xx: ${day.serverErrors}\n${serviceStatusBi('平均响应', 'Avg response')}: ${day.averageDurationMs}ms\n${canInspectFailures ? serviceStatusBi('点击查看失败请求明细', 'Click to view failed request details') : ''}`;
+            const clickable = canInspectFailures;
             const action = clickable ? ` onclick="openServiceFailureModal('${navEscape(service.id)}','${navEscape(day.date)}','')"` : '';
             return `<button type="button" class="service-day-bar ${navEscape(day.state)} ${clickable ? 'clickable' : ''}" title="${navEscape(title)}" aria-label="${navEscape(title)}"${action}></button>`;
         }).join('');
         const name = window.ToolsI18n?.getLanguage?.() === 'en-US' ? service.nameEn : service.name;
         const description = window.ToolsI18n?.getLanguage?.() === 'en-US' ? service.descriptionEn : service.description;
+        const cardClickAttr = canInspectFailures ? ` style="cursor:pointer;" title="${serviceStatusBi('点击查看该服务失败明细', 'Click to view failures for this service')}"` : '';
         return `
             <article class="service-status-card" data-service-status-key="${navEscape(service.id)}" data-service-status-name="${navEscape(name)}">
-                <div class="service-status-card-head">
+                <div class="service-status-card-head"${cardClickAttr}${canInspectFailures ? ` onclick="openServiceFailureModal('${navEscape(service.id)}','','')"` : ''}>
                     <div><h3>${navEscape(name)}</h3><p>${navEscape(description)}</p></div>
                     <span class="service-state-icon ${navEscape(service.currentState)}" title="${navEscape(meta.label)}">${meta.icon}</span>
                 </div>
                 <div class="service-status-bars" style="--status-days:${data.days}">${bars}</div>
                 <div class="service-status-axis"><span>${navEscape(data.startDate)}</span><b>${serviceAvailability} ${serviceStatusBi('可用率', 'availability')}</b><span>${navEscape(data.endDate)}</span></div>
-                <div class="service-status-card-foot"><span class="service-state-label ${navEscape(service.currentState)}">${navEscape(meta.label)}</span><span>${Number(service.summary?.requests || 0).toLocaleString()} ${serviceStatusBi('次请求', 'requests')}</span><span>${Number(service.summary?.averageDurationMs || 0)}ms ${serviceStatusBi('平均', 'avg')}</span></div>
+                <div class="service-status-card-foot"${cardClickAttr}${canInspectFailures ? ` onclick="openServiceFailureModal('${navEscape(service.id)}','','')"` : ''}><span class="service-state-label ${navEscape(service.currentState)}">${navEscape(meta.label)}</span><span>${Number(service.summary?.requests || 0).toLocaleString()} ${serviceStatusBi('次请求', 'requests')}</span><span>${Number(service.summary?.averageDurationMs || 0)}ms ${serviceStatusBi('平均', 'avg')}</span></div>
             </article>`;
     }).join('');
     content.innerHTML = `
         <section class="service-status-overview">
-            <div class="service-status-current ${navEscape(overallMeta.state)}"><span class="service-state-icon ${navEscape(overallMeta.state)}">${overallMeta.icon}</span><div><small>${serviceStatusBi('当前状态', 'Current status')}</small><strong>${navEscape(overallMeta.label)}</strong><em class="${overallMeta.hasIssue ? 'warning' : ''}" title="${navEscape(overallMeta.detail)}">${navEscape(overallMeta.detail)}</em></div></div>
+            <div class="service-status-current ${navEscape(overallMeta.state)} ${canInspectFailures ? 'service-status-clickable' : ''}" ${canInspectFailures ? 'onclick="openServiceFailureModal(\'\',\'\',\'\')"' : ''}><span class="service-state-icon ${navEscape(overallMeta.state)}">${overallMeta.icon}</span><div><small>${serviceStatusBi('当前状态', 'Current status')}</small><strong>${navEscape(overallMeta.label)}</strong><em class="${overallMeta.hasIssue ? 'warning' : ''}" title="${navEscape(overallMeta.detail)}">${navEscape(overallMeta.detail)}</em></div></div>
             <div class="service-status-license ${navEscape(licenseMeta.state)}"><span class="service-state-icon ${navEscape(licenseMeta.state)}">${licenseMeta.icon}</span><div><small>${serviceStatusBi('License 可用状态', 'License availability')}</small><strong>${navEscape(licenseMeta.label)}</strong><em title="${navEscape(licenseMeta.detail)}">${navEscape(licenseMeta.detail)}</em></div></div>
-            <div class="service-status-stat"><small>${serviceStatusBi('可用率', 'Availability')}</small><strong>${availability}</strong></div>
-            <div class="service-status-stat"><small>${serviceStatusBi('成功返回', 'Successful')}</small><strong>${Number(overall.successes || 0).toLocaleString()}</strong></div>
+            <div class="service-status-stat ${canInspectFailures ? 'service-status-clickable' : ''}" ${canInspectFailures ? 'onclick="openServiceFailureModal(\'\',\'\',\'\')"' : ''}><small>${serviceStatusBi('可用率', 'Availability')}</small><strong>${availability}</strong></div>
+            <div class="service-status-stat ${canInspectFailures ? 'service-status-clickable' : ''}" ${canInspectFailures ? 'onclick="openServiceFailureModal(\'\',\'\',\'\')"' : ''}><small>${serviceStatusBi('成功返回', 'Successful')}</small><strong>${Number(overall.successes || 0).toLocaleString()}</strong></div>
             ${failureStat('warning', serviceStatusBi('客户端失败 4xx', 'Client errors 4xx'), overall.clientErrors, '4xx')}
             ${failureStat('danger', serviceStatusBi('服务端失败 5xx', 'Server errors 5xx'), overall.serverErrors, '5xx')}
         </section>
         ${Number(overall.requests || 0) ? '' : `<div class="service-status-notice">${serviceStatusBi('状态历史从本功能启用后开始累计；暂无历史请求时显示为灰色。', 'History starts accumulating after this feature is enabled; days without requests are gray.')}</div>`}
         <section class="service-status-grid">${cards}</section>
-        <div class="service-status-legend"><span><i class="operational"></i>${serviceStatusBi('正常', 'Operational')}</span><span><i class="degraded"></i>${serviceStatusBi('存在 4xx', 'Has 4xx')}</span><span><i class="incident"></i>${serviceStatusBi('存在 5xx', 'Has 5xx')}</span><span><i class="no-data"></i>${serviceStatusBi('无请求数据', 'No requests')}</span><em>${serviceStatusBi('可用率按“非 5xx 请求 ÷ 全部请求”计算。', 'Availability is calculated as non-5xx requests divided by all requests.')}</em></div>`;
+        <div class="service-status-legend"><span><i class="operational"></i>${serviceStatusBi('正常', 'Operational')}</span><span><i class="degraded"></i>${serviceStatusBi('存在 4xx', 'Has 4xx')}</span><span><i class="incident"></i>${serviceStatusBi('存在 5xx', 'Has 5xx')}</span><span><i class="no-data"></i>${serviceStatusBi('无请求数据', 'No requests')}</span><em>${serviceStatusBi('可用率按“非 5xx 请求 ÷ 全部请求”计算。', 'Availability is calculated as non-5xx requests divided by all requests.')}</em></div>
+        ${renderChannelsWatchdogHtml(data.channels, canInspectFailures)}`;
 }
 
-window.loadServiceStatusHistory = async function () {
+window.loadServiceStatusHistory = async function (isLiveRefresh = false) {
+    if (serviceStatusView !== 'overview') return;
     const modal = ensureServiceStatusModal();
+    if (modal.style.display !== 'flex') return;
+    if (isLiveRefresh && (document.hidden || serviceStatusRequestPending)) return;
     const content = document.getElementById('serviceStatusContent');
     const range = document.getElementById('serviceStatusRange');
-    range.innerHTML = [30, 90, 180].map(days => `<button type="button" class="${days === serviceStatusDays ? 'active' : ''}" onclick="setServiceStatusDays(${days})">${days} ${serviceStatusBi('天', 'days')}</button>`).join('');
-    content.innerHTML = `<div class="service-status-loading"><span></span>${serviceStatusBi('正在读取服务状态…', 'Loading service status…')}</div>`;
+    const requestSeq = ++serviceStatusRequestSeq;
+    serviceStatusRequestPending = true;
+    if (!isLiveRefresh) {
+        range.innerHTML = [30, 90, 180].map(days => `<button type="button" class="${days === serviceStatusDays ? 'active' : ''}" onclick="setServiceStatusDays(${days})">${days} ${serviceStatusBi('天', 'days')}</button>`).join('');
+        content.innerHTML = `<div class="service-status-loading"><span></span>${serviceStatusBi('正在读取服务状态…', 'Loading service status…')}</div>`;
+    }
     try {
         const data = await serviceStatusRequest(`/api/platform-metrics/service-status?days=${serviceStatusDays}`);
-        if (modal.style.display !== 'none') renderServiceStatusHistory(data);
+        if (requestSeq !== serviceStatusRequestSeq || serviceStatusView !== 'overview' || modal.style.display !== 'flex') return;
+        const scrollTop = content.scrollTop;
+        renderServiceStatusHistory(data);
+        if (isLiveRefresh) content.scrollTop = scrollTop;
     } catch (error) {
+        if (requestSeq !== serviceStatusRequestSeq || serviceStatusView !== 'overview' || modal.style.display !== 'flex' || isLiveRefresh) return;
         content.innerHTML = `<div class="service-status-error"><strong>${serviceStatusBi('服务状态读取失败', 'Unable to load service status')}</strong><p>${navEscape(error.message)}</p><button type="button" onclick="loadServiceStatusHistory()">${serviceStatusBi('重试', 'Retry')}</button></div>`;
+    } finally {
+        if (requestSeq === serviceStatusRequestSeq) serviceStatusRequestPending = false;
     }
 };
 
