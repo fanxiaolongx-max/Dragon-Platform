@@ -190,6 +190,35 @@ async function countActive(owner) {
     return Number(row?.count) || 0;
 }
 
+// 仅按当前频道、会话类型和目标精确匹配；普通用户只看自己的任务，管理员可查看租户内任务。
+async function listForTarget({ channel, kind, id, owner, admin = false }) {
+    if (!['welink', 'weixin'].includes(channel) || !['user', 'group'].includes(kind) || !id || (!admin && !owner)) return { items: [], truncated: false };
+    await ensureSchema();
+    const rows = await all(`SELECT * FROM dragon_claw_schedules
+        WHERE (? = 1 OR owner = ?) AND EXISTS (
+            SELECT 1 FROM json_each(CASE WHEN json_valid(targets_json) THEN targets_json ELSE '[]' END) target
+            WHERE json_extract(CASE WHEN target.type = 'object' THEN target.value ELSE '{}' END, '$.channel') = ?
+                AND json_extract(CASE WHEN target.type = 'object' THEN target.value ELSE '{}' END, '$.kind') = ?
+                AND json_extract(CASE WHEN target.type = 'object' THEN target.value ELSE '{}' END, '$.id') = ?
+        ) ORDER BY CASE status WHEN 'running' THEN 0 WHEN 'active' THEN 1 WHEN 'failed' THEN 2 ELSE 3 END,
+            next_run_at ASC, updated_at DESC LIMIT 201`, [admin ? 1 : 0, owner || '', channel, kind, id]);
+    return {
+        truncated: rows.length > 200,
+        items: rows.slice(0, 200).map(row => {
+            const item = toSchedule(row);
+            // 不返回原始个人对话、回答正文或其他推送对象。
+            const push = item.lastPush?.results?.find(target => target.channel === channel && target.kind === kind && target.id === id);
+            return {
+                id: item.id, instruction: item.instruction, kind: item.kind, description: item.description,
+                status: item.status, nextRunAt: item.nextRunAt, lastRunAt: item.lastRunAt,
+                lastStatus: item.lastStatus, lastError: item.lastError, runCount: item.runCount,
+                timezone: item.timezone, updatedAt: item.updatedAt,
+                lastPush: push ? { ok: push.ok === true, error: String(push.error || ''), at: item.lastPush.at } : null
+            };
+        })
+    };
+}
+
 async function cancel(id, owner) {
     await ensureSchema();
     const result = await run("UPDATE dragon_claw_schedules SET status = 'cancelled', next_run_at = NULL, updated_at = ? WHERE id = ? AND owner = ? AND status = 'active'", [now(), id, owner]);
@@ -377,4 +406,4 @@ function stop() {
     timer = null;
 }
 
-module.exports = { create, list, countActive, cancel, getForOwner, execute, runTenant, tick, start, stop, ensureSchema };
+module.exports = { create, list, listForTarget, countActive, cancel, getForOwner, execute, runTenant, tick, start, stop, ensureSchema };

@@ -20,6 +20,9 @@
             readonly: '只读 · 这是 {ch} {kind}「{name}」的对话记录，在 {ch} 里 @助手 即可继续对话。', back: '返回我的对话',
             banner: '{ch} {kind} · {name}', start: '对话开始', newContext: '新的对话上下文', newContextHint: '之前的内容不再作为上下文', loadMore: '加载更早的消息', noMessages: '这个会话还没有对话记录',
             followTitle: '跟进与记忆', followMeta: '{n} 跟进中', noTasks: '该对话还没有跟进任务。在 {ch} 里对助手说「帮我记一下，后边跟进…」即可创建。',
+            workspaceTasks: '会话任务', scheduledTitle: '定时任务', scheduledHint: '向当前会话推送结果的任务', scheduledEmpty: '暂无可查看的定时任务。创建定时任务时，将“推送到”选择为当前会话即可在这里查看。',
+            scheduleAll: '全部', scheduleUpcoming: '待执行', scheduleAttention: '需关注', scheduleHistory: '已结束', scheduleFilteredEmpty: '该状态下暂无任务', scheduleMore: '再显示 {n} 项', scheduleLimited: '最多显示 200 项，待执行任务优先',
+            scheduled_active: '等待执行', scheduled_running: '执行中', scheduled_done: '已完成', scheduled_cancelled: '已取消', scheduled_failed: '执行失败', scheduleNext: '下次执行', scheduleLast: '上次执行', scheduleRuns: '已执行 {n} 次', scheduleRule: '执行规则', scheduleError: '最近异常', schedulePushOk: '已推送到本会话', schedulePushFailed: '推送失败', schedulePreviousFailed: '上次执行失败', scheduleReload: '重新加载',
             stageStart: '开始', stageActive: '进行', stageEnd: '结束', cancelledEnd: '已取消', details: '跟进详情',
             status_open: '跟进中', status_paused: '已暂停', status_done: '已完成', status_cancelled: '已取消',
             urgency_low: '低', urgency_normal: '普通', urgency_high: '高', urgency_urgent: '紧急',
@@ -40,6 +43,9 @@
             readonly: 'Read only · {ch} {kind} "{name}". @mention the assistant in {ch} to continue.', back: 'Back to my chats',
             banner: '{ch} {kind} · {name}', start: 'Conversation start', newContext: 'New conversation context', newContextHint: 'Earlier messages are no longer in context', loadMore: 'Load earlier messages', noMessages: 'No messages in this conversation yet',
             followTitle: 'Follow-ups & memory', followMeta: '{n} open', noTasks: 'No follow-up tasks yet. Ask the assistant in {ch} to "note this and follow up…".',
+            workspaceTasks: 'Conversation tasks', scheduledTitle: 'Scheduled tasks', scheduledHint: 'Tasks that push results to this conversation', scheduledEmpty: 'No scheduled tasks are available. Select this conversation under “Push to” when creating a task to see it here.',
+            scheduleAll: 'All', scheduleUpcoming: 'Upcoming', scheduleAttention: 'Attention', scheduleHistory: 'Finished', scheduleFilteredEmpty: 'No tasks in this state', scheduleMore: 'Show {n} more', scheduleLimited: 'Showing up to 200 tasks, with upcoming tasks first',
+            scheduled_active: 'Waiting', scheduled_running: 'Running', scheduled_done: 'Completed', scheduled_cancelled: 'Cancelled', scheduled_failed: 'Failed', scheduleNext: 'Next run', scheduleLast: 'Last run', scheduleRuns: 'Ran {n} times', scheduleRule: 'Schedule', scheduleError: 'Latest issue', schedulePushOk: 'Delivered to this conversation', schedulePushFailed: 'Delivery failed', schedulePreviousFailed: 'Last run failed', scheduleReload: 'Reload',
             stageStart: 'Start', stageActive: 'In progress', stageEnd: 'Done', cancelledEnd: 'Cancelled', details: 'Details',
             status_open: 'Open', status_paused: 'Paused', status_done: 'Done', status_cancelled: 'Cancelled',
             urgency_low: 'Low', urgency_normal: 'Normal', urgency_high: 'High', urgency_urgent: 'Urgent',
@@ -69,6 +75,14 @@
         hasMore: false,
         loadingMore: false,
         tasks: [],
+        schedules: [],
+        scheduleLoading: false,
+        scheduleError: false,
+        scheduleTruncated: false,
+        scheduleFilter: 'all',
+        scheduleLimit: 8,
+        scheduleSeq: 0,
+        panelShown: false,
         calendar: null,
         canManage: false,
         canSend: false,
@@ -153,13 +167,13 @@
     }
 
     // 任务相关时间按工作日历的时区（默认开罗）显示，与提醒实际发送时间一致
-    function formatTime(value, withWeekday = false) {
+    function formatTime(value, withWeekday = false, timezone = state.calendar?.timezone) {
         if (!value) return '';
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return '';
         const options = { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, ...(withWeekday ? { weekday: 'short' } : {}) };
         try {
-            return date.toLocaleString(lang(), { ...options, timeZone: state.calendar?.timezone || undefined });
+            return date.toLocaleString(lang(), { ...options, timeZone: timezone || undefined });
         } catch {
             return date.toLocaleString(lang(), options);
         }
@@ -326,6 +340,12 @@
         state.items = [];
         state.segments = [];
         state.tasks = [];
+        state.schedules = [];
+        state.scheduleError = false;
+        state.scheduleTruncated = false;
+        state.scheduleFilter = 'all';
+        state.scheduleLimit = 8;
+        state.panelShown = false;
         state.focus = 0;
         state.highlight = '';
         renderThreads();
@@ -618,6 +638,7 @@
 
     // ── 跟进任务：进度条 + 右侧卡片 ─────────────────────
     async function loadTasks(seq) {
+        loadSchedules(seq);
         try {
             const data = await request('GET', `${API_BASE}/${state.active.channel}/threads/${state.active.kind}/${encodeURIComponent(state.active.id)}/followups`);
             if (seq !== state.openSeq) return;
@@ -633,6 +654,70 @@
         } catch {
             /* 任务读取失败不影响查看对话 */
         }
+    }
+
+    async function loadSchedules(seq) {
+        if (!state.active) return;
+        const requestSeq = ++state.scheduleSeq;
+        state.scheduleLoading = true;
+        renderPanel();
+        const { channel, kind, id } = state.active;
+        try {
+            const data = await request('GET', `${API_BASE}/${channel}/threads/${kind}/${encodeURIComponent(id)}/schedules`);
+            if (seq !== state.openSeq || requestSeq !== state.scheduleSeq) return;
+            state.schedules = Array.isArray(data.items) ? data.items : [];
+            state.scheduleTruncated = Boolean(data.truncated);
+            state.scheduleError = false;
+        } catch {
+            if (seq !== state.openSeq || requestSeq !== state.scheduleSeq) return;
+            state.scheduleError = true;
+        } finally {
+            if (seq === state.openSeq && requestSeq === state.scheduleSeq) {
+                state.scheduleLoading = false;
+                renderPanel();
+            }
+        }
+    }
+
+    function scheduleBucket(task) {
+        if (task.status === 'cancelled') return 'history';
+        if (task.status === 'failed' || task.lastStatus === 'failed' || task.lastPush?.ok === false) return 'attention';
+        return ['active', 'running'].includes(task.status) ? 'upcoming' : 'history';
+    }
+
+    function scheduleCard(task) {
+        const status = ['active', 'running', 'done', 'cancelled', 'failed'].includes(task.status) ? task.status : 'active';
+        const next = task.nextRunAt && ['active', 'running'].includes(status);
+        const error = task.lastError || (task.lastPush?.ok === false ? task.lastPush.error || tx('schedulePushFailed') : '');
+        const row = (label, value) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`;
+        const time = value => formatTime(value, false, task.timezone);
+        const issue = task.lastPush?.ok === false ? tx('schedulePushFailed') : task.lastStatus === 'failed' && status !== 'failed' ? tx('schedulePreviousFailed') : '';
+        return `<details class="wl-scheduled is-${status}${scheduleBucket(task) === 'attention' ? ' needs-attention' : ''}" data-wl-schedule="${escapeHtml(task.id)}">
+            <summary><span class="wl-scheduled-copy"><b>${escapeHtml(task.instruction)}</b><small>${escapeHtml(next ? tx('scheduleNext') : tx('scheduleLast'))} · ${escapeHtml(time(next ? task.nextRunAt : task.lastRunAt) || '—')}</small>${issue ? `<small class="wl-scheduled-issue">${escapeHtml(issue)}</small>` : ''}</span><span class="wl-scheduled-status is-${status}">${escapeHtml(tx(`scheduled_${status}`))}</span></summary>
+            <div class="wl-scheduled-detail"><dl class="wl-rows">${row(tx('scheduleRule'), task.description || '—')}${row(tx('scheduleRuns', { n: Number(task.runCount) || 0 }), task.lastRunAt ? time(task.lastRunAt) : '—')}</dl>${task.timezone ? `<p class="wl-scheduled-hint">${escapeHtml(tx('timezone', { zone: task.timezone }))}</p>` : ''}
+            ${task.lastStatus === 'failed' ? `<p class="wl-scheduled-error">${escapeHtml(tx('schedulePreviousFailed'))}</p>` : ''}
+            ${error ? `<p class="wl-scheduled-error">${escapeHtml(tx('scheduleError'))}：${escapeHtml(error)}</p>` : ''}
+            ${task.lastPush ? `<p class="wl-scheduled-delivery${task.lastPush.ok ? '' : ' is-failed'}">${escapeHtml(tx(task.lastPush.ok ? 'schedulePushOk' : 'schedulePushFailed'))}</p>` : ''}</div>
+        </details>`;
+    }
+
+    function renderSchedules() {
+        const counts = { all: state.schedules.length, upcoming: 0, attention: 0, history: 0 };
+        state.schedules.forEach(task => { counts[scheduleBucket(task)]++; });
+        const filters = [['all', 'scheduleAll'], ['upcoming', 'scheduleUpcoming'], ['attention', 'scheduleAttention'], ['history', 'scheduleHistory']];
+        const rank = { attention: 0, upcoming: 1, history: 2 };
+        const items = state.schedules.filter(task => state.scheduleFilter === 'all' || scheduleBucket(task) === state.scheduleFilter).slice().sort((a, b) => {
+            const group = rank[scheduleBucket(a)] - rank[scheduleBucket(b)];
+            if (group) return group;
+            if (a.status === 'running' || b.status === 'running') return a.status === b.status ? 0 : a.status === 'running' ? -1 : 1;
+            return scheduleBucket(a) === 'history' ? String(b.lastRunAt || b.updatedAt).localeCompare(String(a.lastRunAt || a.updatedAt)) : String(a.nextRunAt || '').localeCompare(String(b.nextRunAt || ''));
+        });
+        return `<section class="wl-schedules" aria-busy="${state.scheduleLoading}" aria-label="${escapeHtml(tx('scheduledTitle'))}"><header class="wl-section-head"><b>${escapeHtml(tx('scheduledTitle'))}</b><span>${counts.all}</span></header><p class="wl-scheduled-hint">${escapeHtml(tx('scheduledHint'))}</p>
+            ${counts.all ? `<div class="wl-schedule-filters" role="group" aria-label="${escapeHtml(tx('scheduledTitle'))}">${filters.map(([key, label]) => `<button type="button" data-wl-schedule-filter="${key}" aria-pressed="${state.scheduleFilter === key}">${escapeHtml(tx(label))}<span>${counts[key]}</span></button>`).join('')}</div>` : ''}
+            ${state.scheduleError ? `<div class="wl-scheduled-notice" role="status">${escapeHtml(tx('loadFailed'))}<button type="button" data-wl-schedule-retry>${escapeHtml(tx('scheduleReload'))}</button></div>` : ''}
+            <div class="wl-scheduled-list">${items.slice(0, state.scheduleLimit).map(scheduleCard).join('') || (state.scheduleError ? '' : `<p class="wl-scheduled-empty">${escapeHtml(tx(state.scheduleLoading ? 'loading' : counts.all ? 'scheduleFilteredEmpty' : 'scheduledEmpty'))}</p>`)}</div>
+            ${items.length > state.scheduleLimit ? `<button type="button" class="wl-schedule-more" data-wl-schedule-more>${escapeHtml(tx('scheduleMore', { n: Math.min(8, items.length - state.scheduleLimit) }))}</button>` : ''}
+            ${state.scheduleTruncated ? `<p class="wl-scheduled-hint">${escapeHtml(tx('scheduleLimited'))}</p>` : ''}</section>`;
     }
 
     function refreshThreadBadge() {
@@ -772,15 +857,30 @@
     function renderPanel() {
         if (!state.active) return;
         const open = state.tasks.filter(task => task.status === 'open').length;
-        const body = window.DragonClawWorkspace?.showExternal?.({ title: tx('followTitle'), meta: state.tasks.length ? tx('followMeta', { n: open }) : '', open: state.tasks.length ? undefined : false });
+        const hasTasks = state.tasks.length || state.schedules.length;
+        const body = window.DragonClawWorkspace?.showExternal?.({ title: tx('workspaceTasks'), meta: state.tasks.length ? tx('followMeta', { n: open }) : '', open: hasTasks && !state.panelShown ? undefined : false });
         if (!body) return;
+        if (hasTasks) state.panelShown = true;
         el.panelBody = body;
         // 保留各卡片的展开状态，定时刷新时不打断查看
         const openIds = new Set([...body.querySelectorAll('.wl-task[open]')].map(node => node.dataset.wlCard));
         const hadCards = body.querySelector('.wl-task');
-        body.innerHTML = state.tasks.length
+        const scheduleOpen = new Set([...body.querySelectorAll('[data-wl-schedule][open]')].map(node => node.dataset.wlSchedule));
+        const focused = body.contains(document.activeElement) ? document.activeElement : null;
+        const focusedSchedule = focused?.matches('summary') ? focused.parentElement.dataset.wlSchedule : null;
+        const focusedFilter = focused?.dataset.wlScheduleFilter;
+        const scrollContainer = body.closest('.home-workspace-panel') || body;
+        const scrollTop = scrollContainer.scrollTop;
+        const followups = state.tasks.length
             ? `<div class="wl-tasks">${state.tasks.map(taskCard).join('')}</div><p class="wl-zone">${escapeHtml(tx('timezone', { zone: state.calendar?.timezone || 'Africa/Cairo' }))}</p>`
             : `<div class="wsp-empty">${escapeHtml(tx('noTasks'))}</div>`;
+        body.innerHTML = renderSchedules() + (state.active.channel === 'welink' ? `<section class="wl-followups"><header class="wl-section-head"><b>${escapeHtml(tx('followTitle'))}</b><span>${state.tasks.length}</span></header>${followups}</section>` : '');
+        body.querySelectorAll('[data-wl-schedule]').forEach(node => { node.open = scheduleOpen.has(node.dataset.wlSchedule); });
+        const focusTarget = focusedSchedule
+            ? body.querySelector(`[data-wl-schedule="${CSS.escape(focusedSchedule)}"] > summary`)
+            : focusedFilter ? body.querySelector(`[data-wl-schedule-filter="${CSS.escape(focusedFilter)}"]`) : null;
+        focusTarget?.focus({ preventScroll: true });
+        scrollContainer.scrollTop = scrollTop;
         if (hadCards) body.querySelectorAll('.wl-task').forEach(node => { node.open = openIds.has(node.dataset.wlCard) || state.highlight === node.dataset.wlCard; });
         if (!body.dataset.wlBound) {
             body.dataset.wlBound = '1';
@@ -790,6 +890,16 @@
     }
 
     async function onPanelAction(event) {
+        const filter = event.target.closest('[data-wl-schedule-filter]');
+        if (filter) {
+            state.scheduleFilter = filter.dataset.wlScheduleFilter;
+            state.scheduleLimit = 8;
+            renderPanel();
+            el.panelBody?.querySelector(`[data-wl-schedule-filter="${state.scheduleFilter}"]`)?.focus({ preventScroll: true });
+            return;
+        }
+        if (event.target.closest('[data-wl-schedule-more]')) { state.scheduleLimit += 8; renderPanel(); return; }
+        if (event.target.closest('[data-wl-schedule-retry]')) return loadSchedules(state.openSeq);
         const button = event.target.closest('[data-wl-act]');
         if (!button || !el.panelBody?.contains(button)) return;
         const id = button.closest('[data-wl-task-id]')?.dataset.wlTaskId;

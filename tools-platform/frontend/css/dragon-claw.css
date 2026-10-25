@@ -985,6 +985,9 @@ body.dc-chatting .dc-composer {
 .dc-schedule-actions:empty { display: none; }
 .dc-schedule-card { grid-template-rows: auto minmax(0, 1fr) auto; }
 .dc-schedule-card:focus { outline: none; }
+.dc-schedule-card .dc-push-foot { flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.dc-schedule-card .dc-push-foot > span { flex: 1 1 280px; min-width: 0; line-height: 1.6; overflow-wrap: anywhere; }
+.dc-schedule-card .dc-push-foot .dc-action { flex: none; min-height: 36px; padding: 0 16px; white-space: nowrap; }
 .dc-btw {
     position: absolute;
     left: 0;

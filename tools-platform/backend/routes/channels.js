@@ -363,6 +363,14 @@ router.get(`/${CH}/threads/:kind/:id/messages`, handle(async (req, res) => {
     res.json({ thread: { ...thread, name: target?.name || thread.id }, ...page, canSend: Boolean(canSend) });
 }));
 
+router.get(`/${CH}/threads/:kind/:id/schedules`, handle(async (req, res) => {
+    const thread = threadParams(req, res);
+    if (!thread) return;
+    res.json(await require('../models/dragon-claw-schedules').listForTarget({
+        channel: req.params.channel, ...thread, owner: req.user?.username, admin: isAdmin(req)
+    }));
+}));
+
 // 微信暂不支持跟进任务：返回空列表，首页照常显示对话
 router.get('/weixin/threads/:kind/:id/followups', handle(async (_req, res) => {
     res.json({ items: [], calendar: null, enabled: false, canManage: false });
