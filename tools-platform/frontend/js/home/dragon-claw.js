@@ -462,6 +462,21 @@
         return el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight < 80;
     }
 
+    // 输入框换行增高/删行降低时会挤压对话区：保持对话区离底部的距离不变，最新消息跟着输入框一起上移或回落
+    function anchorThreadToComposer() {
+        const gapOf = () => el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight;
+        let gap = gapOf();
+        let lastHeight = el.thread.clientHeight;
+        el.thread.addEventListener('scroll', () => { gap = gapOf(); }, { passive: true });
+        new ResizeObserver(() => {
+            const height = el.thread.clientHeight;
+            if (height === lastHeight) return;
+            lastHeight = height;
+            // WeLink/微信记录页由 welink-threads.js 自己平滑处理底部面板
+            if (height && !external.active) el.thread.scrollTop = el.thread.scrollHeight - height - gap;
+        }).observe(el.thread);
+    }
+
     function scrollThread(force = false) {
         if (force || nearBottom()) el.thread.scrollTop = el.thread.scrollHeight;
     }
@@ -1793,6 +1808,7 @@
         el.resume.id = 'dcResume';
         el.resume.hidden = true;
         el.form.insertAdjacentElement('afterend', el.resume);
+        anchorThreadToComposer();
         bindEvents();
         bindChatList();
         window.DragonClaw = { startWithSkill, enterExternal, exitExternal, newChat, lang, isExternal: () => external.active };
