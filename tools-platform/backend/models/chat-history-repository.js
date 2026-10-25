@@ -4,6 +4,7 @@ const path = require('path');
 const readline = require('readline');
 const sqlite3 = require('sqlite3').verbose();
 const tenantPool = require('./tenant-sqlite-pool');
+const { isPinyinQuery, pinyinMatches } = require('./chat-pinyin-search');
 
 const DB_FILENAME = 'chat-history.db';
 const PARSER_VERSION = 2;
@@ -901,6 +902,13 @@ function parsePositiveInt(value, fallback, max) {
     return Math.min(parsed, max);
 }
 
+// 拼音（全拼/首字母）匹配无法用 LIKE 表达，先在内存里筛出命中的会话 ID 再交给 SQL 过滤。
+async function findPinyinConversationIds(q) {
+    const rows = await all(`SELECT c.id,c.display_name,s.relative_path
+        FROM chat_conversations c JOIN chat_sources s ON s.id=c.source_id`);
+    return rows.filter(row => pinyinMatches(row.display_name, q) || pinyinMatches(row.relative_path, q)).map(row => row.id);
+}
+
 async function listConversations(userId, filters = {}) {
     await ensureReady();
     const limit = parsePositiveInt(filters.limit, 40, 100);
@@ -909,8 +917,15 @@ async function listConversations(userId, filters = {}) {
     const conditions = [];
     const params = [userId, settings.my_sender_id || ''];
     if (filters.q) {
-        conditions.push('(c.display_name LIKE ? OR s.relative_path LIKE ?)');
-        params.push(`%${String(filters.q).trim()}%`, `%${String(filters.q).trim()}%`);
+        const q = String(filters.q).trim();
+        const pinyinIds = isPinyinQuery(q) ? await findPinyinConversationIds(q) : [];
+        if (pinyinIds.length) {
+            conditions.push('(c.display_name LIKE ? OR s.relative_path LIKE ? OR c.id IN (SELECT value FROM json_each(?)))');
+            params.push(`%${q}%`, `%${q}%`, JSON.stringify(pinyinIds));
+        } else {
+            conditions.push('(c.display_name LIKE ? OR s.relative_path LIKE ?)');
+            params.push(`%${q}%`, `%${q}%`);
+        }
     }
     if (['single', 'group', 'discussion', 'other'].includes(filters.type)) {
         conditions.push('c.conversation_type=?');
