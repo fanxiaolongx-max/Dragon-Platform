@@ -20,13 +20,32 @@ let messageId = 0;
 function append(target, content, source = '') { histories.get(key(target)).push({ id: String(++messageId), role: 'model', content, sessionId: `session-${key(target)}`, createdAt: '2026-10-25T08:00:00Z', ...(source ? { push: { source } } : {}) }); }
 append(GROUP, 'WeLink 原有对话'); append(ALICE, '微信原有对话');
 const draft = (id, targets = [GROUP]) => ({ id, targets, planName: `运营草稿 ${id}`, content: `消息正文 ${id}`, status: 'draft', createdAt: '2026-10-25T07:30:00Z' });
-let drafts = [draft('broadcast', [GROUP, ALICE]), draft('wechat', [ALICE])];
+const longContent = Array.from({ length: 30 }, (_, index) => `${index + 1}. 月报亮点：核对完整正文和收件对象后发送。`).join('\n') + '\nhttps://example.test/' + 'long-message-link/'.repeat(30);
+let drafts = [draft('broadcast', [GROUP, ALICE]), draft('wechat', [ALICE])].map(item => ({ ...item, content: longContent }));
 const manualCalls = [], opsCalls = [];
 const active = () => evaluate('HomeWelinkThreads.active()');
 const open = target => evaluate(`HomeWelinkThreads.open(${JSON.stringify(target)});void 0`);
 const review = () => evaluate('ToolsOpsInbox.open()');
 const fillManual = text => evaluate(`(()=>{const input=document.querySelector('[data-wl-compose]');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input',{bubbles:true}));})()`);
 const bot = async () => { await evaluate('document.querySelector("[data-wl-role=bot]").click()'); await until(() => evaluate('!!document.querySelector("[data-wl-compose]")'), 'Bot composer after role switch'); };
+async function checkReviewLayout() {
+    const layout = await evaluate(`(() => {
+        const panel = document.querySelector('.ops-inbox-panel');
+        const preview = panel.querySelector('.ops-preview');
+        const bounds = panel.getBoundingClientRect();
+        const thread = dcThread.getBoundingClientRect();
+        return {
+            centered: Math.abs(bounds.left + bounds.right - thread.left - thread.right) < 2,
+            contained: bounds.left >= thread.left && bounds.right <= thread.right,
+            threadScrolls: dcThread.scrollHeight > dcThread.clientHeight,
+            nestedScrollers: [panel, ...panel.querySelectorAll('*')].filter(node => /^(auto|scroll)$/.test(getComputedStyle(node).overflowY) && node.scrollHeight > node.clientHeight + 1).map(node => node.className),
+            fullPreview: preview.clientHeight > 260 && preview.scrollHeight <= preview.clientHeight + 1,
+            wrapsLinks: preview.scrollWidth <= preview.clientWidth + 1,
+            pageFits: document.documentElement.scrollWidth <= innerWidth
+        };
+    })()`);
+    assert.deepEqual(layout, { centered: true, contained: true, threadScrolls: true, nestedScrollers: [], fullPreview: true, wrapsLinks: true, pageFits: true }, 'review is centered in its conversation and long messages use only the conversation scrollbar');
+}
 app.whenReady().then(async () => {
     const web = express(); web.use(express.json());
     const storage = `<script>localStorage.setItem('tools_user','admin');localStorage.setItem('tools_tenant_id','default');localStorage.setItem('tools_token','test');</script>`;
@@ -92,7 +111,14 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('dcThread.textContent.includes("WeLink 原有对话")'), true, 'reminder opens the actual WeLink conversation');
     assert.equal(await evaluate('document.querySelectorAll(".ops-card").length'), 1, 'only drafts addressing this conversation are displayed');
     assert.equal(await evaluate('document.querySelector(".ops-recipients").textContent.includes("Alice")'), true, 'broadcast lists every recipient');
+    await checkReviewLayout();
     await wait(180); fs.writeFileSync(path.join(temp, 'welink-draft.png'), (await win.webContents.capturePage()).toPNG());
+    win.setContentSize(1366, 768);
+    await review();
+    await checkReviewLayout();
+    await wait(180);
+    fs.writeFileSync(path.join(temp, 'welink-laptop.png'), (await win.webContents.capturePage()).toPNG());
+    win.setContentSize(1440, 950);
     assert.equal(await evaluate('document.body.classList.contains("ops-reviewing")'), false, 'no separate confirmation conversation');
     await until(() => evaluate('!!document.querySelector("[data-wl-role=bot]")'), 'Bot role switch');
     assert.equal(await evaluate('document.querySelectorAll("[data-wl-compose]").length'), 0, 'role switch is explicit');
@@ -157,7 +183,11 @@ app.whenReady().then(async () => {
     await bot();
     win.setContentSize(390, 844);
     await evaluate('document.documentElement.dataset.theme="light";ToolsI18n.setLanguage("en-US")');
+    await evaluate('document.querySelector("[data-wl-role=view]").click()');
+    await review();
+    await checkReviewLayout();
     assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'), true);
+    await wait(180);
     fs.writeFileSync(path.join(temp, 'wechat-mobile.png'), (await win.webContents.capturePage()).toPNG());
     await evaluate('document.querySelector("[data-ops-inbox-action=send]").click()');
     await until(() => drafts.length === 0, 'last draft sent');

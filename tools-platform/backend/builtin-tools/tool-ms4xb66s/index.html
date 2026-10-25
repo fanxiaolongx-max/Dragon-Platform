@@ -208,19 +208,36 @@
   .reset-btn{background:#fff;color:#b42318;border:1px solid #efc8ce}
   .filter-help{font-size:9.5px;color:var(--muted);margin-top:3px}
   .filter-actions{display:flex;align-items:flex-end}
-  .filter-card-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
-  .filter-card-head h2{margin:0}
-  .filter-head-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .filter-head-actions button{white-space:nowrap}
-  .operator-scope{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 12px;padding:12px 14px;
-    border:1px solid rgba(200,16,46,.2);border-radius:10px;background:linear-gradient(100deg,rgba(200,16,46,.09),rgba(255,255,255,.68))}
-  .operator-scope-copy{min-width:180px}.operator-scope-title{font-size:12px;font-weight:800;color:var(--navy)}
-  .operator-scope-note{font-size:10px;color:var(--muted);margin-top:3px}
-  .operator-scope-buttons{display:grid;grid-template-columns:1fr 1fr;gap:5px;padding:4px;border-radius:9px;background:rgba(255,255,255,.82);border:1px solid rgba(200,16,46,.14)}
-  .operator-scope-btn{min-width:150px;background:transparent;color:#667085;border:1px solid transparent;padding:8px 13px}
+  .filter-card-head{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;margin-bottom:12px}
+  .filter-card-head h2{margin:0;font-size:14px;white-space:nowrap}
+  .filter-head-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-left:auto}
+  .filter-head-actions button{white-space:nowrap;font-size:11px;padding:8px 10px}
+  .operator-scope{display:flex;align-items:center;gap:7px;min-width:0}
+  .operator-scope-copy{position:relative;flex-shrink:0;cursor:help;border-radius:4px}
+  .operator-scope-title{font-size:10.5px;font-weight:700;color:var(--muted);white-space:nowrap;border-bottom:1px dotted var(--line);padding:3px 0}
+  .operator-scope-note{display:none;position:absolute;top:calc(100% + 8px);left:0;z-index:40;width:max-content;max-width:min(300px,75vw);padding:9px 11px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);font-size:11px;line-height:1.6;box-shadow:var(--shadow)}
+  .operator-scope-copy:hover .operator-scope-note,.operator-scope-copy:focus .operator-scope-note{display:block}
+  .operator-scope-copy:focus-visible{outline:2px solid var(--red);outline-offset:3px}
+  .operator-scope-buttons,.filter-card-head .network-domain-buttons{display:flex;gap:3px;padding:3px;border-radius:8px;background:var(--soft);border:1px solid var(--line)}
+  .operator-scope-btn,.filter-card-head .network-domain-btn{min-width:0;white-space:nowrap;padding:6px 8px;font-size:11px;line-height:1.3}
+  .operator-scope-btn{background:transparent;color:#667085;border:1px solid transparent}
   .operator-scope-btn.active{background:var(--red);color:#fff;box-shadow:0 5px 14px rgba(200,16,46,.2)}
   .operator-scope-count{display:inline-block;margin-left:5px;padding:1px 6px;border-radius:999px;background:rgba(102,112,133,.12);font-size:9px}
   .operator-scope-btn.active .operator-scope-count{background:rgba(255,255,255,.2)}
+  .filter-card-head :is(.operator-scope-btn,.network-domain-btn):focus-visible{outline:2px solid var(--red);outline-offset:2px}
+  :is([data-theme="dark"],.dark-theme) .filter-card-head{--card:#182230;--soft:#202c3c;--ink:#e4e7ec;--navy:#f2f4f7;--muted:#b9c1cc;--line:#344054;background:var(--card);border-radius:8px;padding:10px}
+  :is([data-theme="dark"],.dark-theme) .filter-card-head :is(.operator-scope-btn,.network-domain-btn){color:#b9c1cc}
+  :is([data-theme="dark"],.dark-theme) .filter-card-head .operator-scope-btn.active{color:#fff}
+  :is([data-theme="dark"],.dark-theme) .filter-card-head .network-domain-btn.active{background:#40536c;color:#fff}
+  @media(max-width:720px){
+    .filter-card-head{align-items:stretch;gap:10px}
+    .filter-card-head h2{flex-basis:100%}
+    .filter-card-head .operator-scope{flex-direction:row;align-items:center;width:100%}
+    .filter-card-head .operator-scope-copy{flex:0 0 48px}
+    .filter-card-head .operator-scope-buttons,.filter-card-head .network-domain-buttons{flex:1;min-width:0;width:auto;flex-wrap:wrap}
+    .filter-card-head :is(.operator-scope-btn,.network-domain-btn){flex:1 0 auto;padding:7px 6px}
+    .filter-head-actions{margin-left:0;justify-content:flex-end;width:100%}
+  }
   .night-rule-toggle{display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin:0;color:#344054}
   .night-rule-toggle input{width:auto;margin:2px 0 0;accent-color:var(--red)}
   .night-rule-status{font-size:10px;color:var(--muted);margin-top:5px}
@@ -831,31 +848,31 @@
   <section class="card" style="margin-top:14px">
     <div class="filter-card-head">
       <h2>查询条件与快捷周期</h2>
+      <div class="operator-scope" aria-label="操作人统计类别">
+        <div class="operator-scope-copy" tabindex="0" aria-describedby="operatorScopeNote">
+          <div class="operator-scope-title">统计类别</div>
+          <div class="operator-scope-note" id="operatorScopeNote" role="tooltip">导入时按操作人工号是否包含 WX 自动分组</div>
+        </div>
+        <div class="operator-scope-buttons" role="group" aria-label="切换 WX 或非 WX 统计结果">
+          <button type="button" class="operator-scope-btn active" data-operator-group="nonwx" aria-pressed="true">非 WX 操作人<span class="operator-scope-count" id="nonWxCount">0</span></button>
+          <button type="button" class="operator-scope-btn" data-operator-group="wx" aria-pressed="false">WX 操作人<span class="operator-scope-count" id="wxCount">0</span></button>
+        </div>
+      </div>
+      <div class="operator-scope" aria-label="业务网络领域">
+        <div class="operator-scope-copy" tabindex="0" aria-describedby="networkScopeNote">
+          <div class="operator-scope-title">业务网络</div>
+          <div class="operator-scope-note" id="networkScopeNote" role="tooltip">按实施单号(TE/TK)或变更单号(NE/NC)区分企业网与运营商</div>
+        </div>
+        <div class="network-domain-buttons" role="group" aria-label="切换全部网络、企业网或运营商">
+          <button type="button" class="network-domain-btn active" data-domain-group="all" aria-pressed="true">全部网络 <span class="operator-scope-count" id="netDomainAllCount">0</span></button>
+          <button type="button" class="network-domain-btn" data-domain-group="enterprise" aria-pressed="false">🏢 企业网 (TE/NE) <span class="operator-scope-count" id="enterpriseCount">0</span></button>
+          <button type="button" class="network-domain-btn" data-domain-group="carrier" aria-pressed="false">📡 运营商 (TK/NC) <span class="operator-scope-count" id="carrierCount">0</span></button>
+        </div>
+      </div>
       <div class="filter-head-actions">
         <button type="button" class="secondary" id="toggleFilterSectionBtn">▲ 折叠筛选</button>
         <button class="secondary" id="resetFiltersBtn">重置过滤</button>
         <button class="primary" id="openCompareBtn">同比 / 环比分析</button>
-      </div>
-    </div>
-    <div class="operator-scope" aria-label="操作人统计类别">
-      <div class="operator-scope-copy">
-        <div class="operator-scope-title">统计类别</div>
-        <div class="operator-scope-note">导入时按操作人工号是否包含 WX 自动分组</div>
-      </div>
-      <div class="operator-scope-buttons" role="group" aria-label="切换 WX 或非 WX 统计结果">
-        <button type="button" class="operator-scope-btn active" data-operator-group="nonwx" aria-pressed="true">非 WX 操作人<span class="operator-scope-count" id="nonWxCount">0</span></button>
-        <button type="button" class="operator-scope-btn" data-operator-group="wx" aria-pressed="false">WX 操作人<span class="operator-scope-count" id="wxCount">0</span></button>
-      </div>
-    </div>
-    <div class="operator-scope" style="margin-top:-4px;" aria-label="业务网络领域">
-      <div class="operator-scope-copy">
-        <div class="operator-scope-title">业务网络</div>
-        <div class="operator-scope-note">按实施单号(TE/TK)或变更单号(NE/NC)区分企业网与运营商</div>
-      </div>
-      <div class="network-domain-buttons" role="group" aria-label="切换全部网络、企业网或运营商">
-        <button type="button" class="network-domain-btn active" data-domain-group="all" aria-pressed="true">全部网络 <span class="operator-scope-count" id="netDomainAllCount">0</span></button>
-        <button type="button" class="network-domain-btn" data-domain-group="enterprise" aria-pressed="false">🏢 企业网 (TE/NE) <span class="operator-scope-count" id="enterpriseCount">0</span></button>
-        <button type="button" class="network-domain-btn" data-domain-group="carrier" aria-pressed="false">📡 运营商 (TK/NC) <span class="operator-scope-count" id="carrierCount">0</span></button>
       </div>
     </div>
     <div id="filterCollapsedBar" class="filter-collapsed-bar" style="display:none;" onclick="toggleFilterCollapse()">
@@ -1834,7 +1851,7 @@ function validateBlacklistEntries(entries){
     if(!months.includes(entry.month))throw new Error(BL(`第 ${index+1} 行：扣减月份必须属于本次导入月份`,`Row ${index+1}: deduction month must be one of the imported months`));
   });
 }
-function saveBlacklist(){validateBlacklistEntries(blacklistDraft);incentiveBlacklist=blacklistMap(blacklistDraft);persistBlacklist()}
+function saveBlacklist(){validateBlacklistEntries(blacklistDraft);incentiveBlacklist=blacklistMap(blacklistDraft);persistBlacklist();if(typeof setFilterSectionCollapsed==='function'){setFilterSectionCollapsed(true);}}
 function blacklistReason(person,row){
   if(!row)return '';
   const month=incentiveMonth(row);
@@ -1912,6 +1929,14 @@ function setFilterSectionCollapsed(collapsed){
       ?BL('▼ 展开筛选','▼ Expand Filters')
       :BL('▲ 折叠筛选','▲ Collapse Filters');
   }
+  const deductionPanel=$('blacklistDeductionPanel');
+  if(deductionPanel){
+    const rows=typeof blacklistDeductionRows==='function'?blacklistDeductionRows():[];
+    const months=typeof importedIncentiveMonths==='function'?importedIncentiveMonths():[];
+    const pending=rawRows?.length?[...incentiveBlacklist.values()].filter(x=>!months.includes(x.month)).length:0;
+    const hasContent=Boolean(rows.length||pending);
+    deductionPanel.style.display=(hasContent&&!isFilterSectionCollapsed)?'':'none';
+  }
 }
 function toggleFilterCollapse(){
   setFilterSectionCollapsed(!isFilterSectionCollapsed);
@@ -1943,6 +1968,12 @@ function updateFilterCollapsedSummary(){
     parts.push(isEn?`WeLink: ${welinkCount} linked`:`WeLink 已关联 ${welinkCount} 人`);
   }else{
     parts.push(isEn?'WeLink: Not imported':'WeLink 尚未导入');
+  }
+
+  const dRows=typeof blacklistDeductionRows==='function'?blacklistDeductionRows():[];
+  if(dRows.length>0){
+    const totalDeducted=dRows.reduce((sum,r)=>sum+Number(r['扣减激励（元）']||0),0);
+    parts.push(isEn?`Blacklist Deductions: ${dRows.length} (${totalDeducted>0?`¥${money(totalDeducted)}`:'None'})`:`黑名单扣减明细已折叠（${dRows.length} 条${totalDeducted>0?` · ¥${money(totalDeducted)}`:''}）`);
   }
 
   summaryEl.textContent='· '+parts.join(' · ');
@@ -2046,7 +2077,12 @@ function blacklistDeductionRows(){
 function renderBlacklistDeductions(){
   const rows=blacklistDeductionRows(),months=importedIncentiveMonths();
   const pending=rawRows.length?[...incentiveBlacklist.values()].filter(x=>!months.includes(x.month)).length:0;
-  $('blacklistDeductionPanel').hidden=!rows.length&&!pending;
+  const hasContent=Boolean(rows.length||pending);
+  const panel=$('blacklistDeductionPanel');
+  if(panel){
+    panel.hidden=!hasContent;
+    panel.style.display=(hasContent&&!isFilterSectionCollapsed)?'':'none';
+  }
   $('blacklistPendingNotice').hidden=!pending;$('reviewBlacklistBtn').hidden=!pending;
   $('blacklistPendingNotice').textContent=BL(`有 ${pending} 条黑名单未指定本次有效月份，暂不扣减。请检查并补齐月份或移除。`,`${pending} blacklist entries have no valid month in this import and do not deduct incentives. Review their months or remove them.`);
   $('blacklistDeductionTable').innerHTML='<table><thead><tr>'+['工号','姓名','扣减月份','扣减原因','来源','扣减激励（元）','扣减后激励（元）'].map(label=>`<th${label==='扣减原因'?' class="deduction-reason-cell"':''}>${esc(label)}</th>`).join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+Object.entries(row).map(([key,value])=>key==='扣减原因'?`<td class="deduction-reason-cell">${deductionReasonCell(value)}</td>`:`<td>${esc(value)}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
@@ -3875,7 +3911,7 @@ $('importBlacklistBtn').onclick=()=>$('blacklistFileInput').click();
 $('blacklistFileInput').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;const wb=XLSX.read(await file.arrayBuffer(),{type:'array'});importBlacklistRows(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false}))}catch(error){uiAlert(error.message)}finally{e.target.value=''}};
 $('importNegativeEventsBtn').onclick=loadNegativeEvents;
 $('addNegativeEventsBtn').onclick=addNegativeEventsToDraft;
-$('saveBlacklistBtn').onclick=()=>{try{saveBlacklist();if(rawRows.length)applyPaymentRules();blacklistModal.classList.remove('show')}catch(error){uiAlert(error.message)}};
+$('saveBlacklistBtn').onclick=()=>{try{saveBlacklist();if(rawRows.length)applyPaymentRules();blacklistModal.classList.remove('show');if(typeof setFilterSectionCollapsed==='function')setFilterSectionCollapsed(true)}catch(error){uiAlert(error.message)}};
 $('clearBlacklistBtn').onclick=()=>{blacklistDraft=[];renderBlacklistEditor()};
 const identityDetailsModal=$('identityDetailsModal');
 $('identityDetailsBtn').onclick=openIdentityDetails;
@@ -4098,6 +4134,7 @@ function applyAnomaliesToBlacklist() {
   blacklistDraft=[...incentiveBlacklist.values()].map(x=>({...x}));renderBlacklistEditor();
   $('blacklistMode').value='enabled';
   closeAttendanceAnomalyModal();
+  if(typeof setFilterSectionCollapsed==='function')setFilterSectionCollapsed(true);
   applyPaymentRules();
   openBlacklistConfig();
   showToast(BL(`已按会议月份扣减 ${selected.length} 个人员月份的激励，原因已自动加入激励黑名单配置。`,`Deducted ${selected.length} employee-months. Meeting reasons are available in the incentive blacklist.`), 'success');
@@ -5309,6 +5346,9 @@ function restoreIncentiveSnapshot(snapshot) {
     incentiveBlacklist = parseBlacklist(p.blacklistEntries ?? p.blacklistText ?? []);
     try { localStorage.setItem(BLACKLIST_STORAGE_KEY, serializeBlacklist(incentiveBlacklist)); } catch (e) {}
     blacklistDraft=[...incentiveBlacklist.values()].map(x=>({...x}));
+    if(incentiveBlacklist.size>0&&typeof setFilterSectionCollapsed==='function'){
+      setFilterSectionCollapsed(true);
+    }
   }
   welinkDisplayField=p.welinkDisplayField||'deptName';
   installWelinkPeople(Array.isArray(p.welinkPeople)?p.welinkPeople:[],false);

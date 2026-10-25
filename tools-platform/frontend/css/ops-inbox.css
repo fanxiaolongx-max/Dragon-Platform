@@ -66,7 +66,6 @@ body.home-mode-chat .ops-inbox-banner { display: none !important; }
 .ops-prompt-action { margin-left: auto; white-space: nowrap; color: var(--ops-accent); font-size: 11px; }
 .ops-inbox-panel { padding: 18px; background: var(--ops-bg); border-radius: inherit; min-width: 0; }
 .ops-inbox-panel[data-channel-thread-addon] { width: min(var(--dc-col, 760px), 100%); margin: 22px auto; border: 1px solid var(--ops-line); border-radius: 14px; }
-.ops-inbox-panel[data-channel-thread-addon] .ops-card-list { max-height: none; overflow: visible; }
 .ops-thread-picker { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: 11px; color: var(--ops-muted); }
 .ops-thread-picker select { min-width: 0; max-width: 100%; padding: 6px 8px; border: 1px solid var(--ops-line); border-radius: 7px; font: inherit; color: var(--ops-text); background: var(--ops-card); }
 .ops-inbox-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -76,7 +75,8 @@ body.home-mode-chat .ops-inbox-banner { display: none !important; }
 .ops-count { min-width: 24px; padding: 0 6px; border-radius: 7px; text-align: center; background: #2dd4bf19; color: var(--ops-accent); }
 .ops-total { color: var(--ops-muted); font-size: 10px; }
 .ops-inbox-description { margin: 10px 0 14px; color: var(--ops-muted); font-size: 12px; }
-.ops-card-list { display: grid; gap: 10px; max-height: min(55vh, 600px); overflow: auto; overscroll-behavior: contain; padding: 3px; }
+/* 列表和正文随内容展开，统一由会话区滚动，避免嵌套滚动条。 */
+.ops-card-list { display: grid; gap: 10px; padding: 3px; }
 .ops-card { border: 1px solid var(--ops-line); border-radius: 12px; background: var(--ops-card); min-width: 0; }
 .ops-card > summary { display: flex; align-items: center; gap: 10px; padding: 12px; cursor: pointer; list-style: none; }
 .ops-card > summary::-webkit-details-marker { display: none; }
@@ -89,7 +89,7 @@ body.home-mode-chat .ops-inbox-banner { display: none !important; }
 .ops-tag { color: var(--ops-accent); font-size: 10px; white-space: nowrap; }
 .ops-card-body { padding: 0 12px 14px; }
 .ops-recipients { padding: 8px 0; border-top: 1px solid var(--ops-line); color: var(--ops-muted); font-size: 11px; overflow-wrap: anywhere; }
-.ops-preview { white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.8 system-ui, sans-serif; margin: 8px 0 16px; max-height: 260px; overflow: auto; }
+.ops-preview { white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.8 system-ui, sans-serif; margin: 8px 0 16px; }
 .ops-edit-label { display: block; color: var(--ops-muted); font-size: 11px; }
 .ops-edit-label textarea { box-sizing: border-box; display: block; width: 100%; min-height: 170px; max-height: 340px; resize: vertical; margin: 5px 0 14px; padding: 12px; border: 1px solid var(--ops-line); border-radius: 9px; background: var(--ops-bg); color: var(--ops-text); font: 13px/1.8 system-ui, sans-serif; }
 .ops-card-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }

@@ -889,3 +889,68 @@ test('welink tools bar compression, auto-collapse after welink import, and manua
     // 手动再次折叠
     assert.equal(result.manualCollapsedState, true);
 });
+
+test('blacklist deduction panel auto-collapses after blacklist save and follows filter collapse toggle', () => {
+    const runtime = createToolRuntime();
+    const result = evaluate(runtime, `
+        rawRows = [
+            { task_status: 'completed', complete_operator: 'm00123456', '当地开始时间': '2026-09-01 23:00', operate_level: 'High' }
+        ];
+        recalculate();
+        const initialDisplay = $('blacklistDeductionPanel').style.display;
+
+        // 保存黑名单
+        blacklistDraft = [
+            { staffId: 'm00123456', name: '测试员工', month: '2026-09', reason: '人工核查', source: '手工录入' }
+        ];
+        saveBlacklist();
+        applyPaymentRules();
+
+        const afterSaveCollapsed = isFilterSectionCollapsed;
+        const afterSaveDeductionDisplay = $('blacklistDeductionPanel').style.display;
+        const afterSaveBtnText = $('toggleFilterSectionBtn').textContent;
+        const afterSaveSummary = $('filterCollapsedSummary').textContent;
+
+        // 手动展开筛选
+        toggleFilterCollapse();
+        const manualExpandedCollapsed = isFilterSectionCollapsed;
+        const manualExpandedDeductionDisplay = $('blacklistDeductionPanel').style.display;
+        const manualExpandedBtnText = $('toggleFilterSectionBtn').textContent;
+
+        // 手动再次折叠
+        toggleFilterCollapse();
+        const manualCollapsedState = isFilterSectionCollapsed;
+        const manualCollapsedDeductionDisplay = $('blacklistDeductionPanel').style.display;
+        const manualCollapsedBtnText = $('toggleFilterSectionBtn').textContent;
+
+        ({
+            initialDisplay,
+            afterSaveCollapsed,
+            afterSaveDeductionDisplay,
+            afterSaveBtnText,
+            afterSaveSummary,
+            manualExpandedCollapsed,
+            manualExpandedDeductionDisplay,
+            manualExpandedBtnText,
+            manualCollapsedState,
+            manualCollapsedDeductionDisplay,
+            manualCollapsedBtnText
+        });
+    `);
+
+    // 保存黑名单后自动折叠，不自动展开显示
+    assert.equal(result.afterSaveCollapsed, true);
+    assert.equal(result.afterSaveDeductionDisplay, 'none');
+    assert.equal(result.afterSaveBtnText, '▼ 展开筛选');
+    assert.ok(result.afterSaveSummary.includes('黑名单扣减明细已折叠'));
+
+    // 跟随展开
+    assert.equal(result.manualExpandedCollapsed, false);
+    assert.equal(result.manualExpandedDeductionDisplay, '');
+    assert.equal(result.manualExpandedBtnText, '▲ 折叠筛选');
+
+    // 跟随折叠
+    assert.equal(result.manualCollapsedState, true);
+    assert.equal(result.manualCollapsedDeductionDisplay, 'none');
+    assert.equal(result.manualCollapsedBtnText, '▼ 展开筛选');
+});

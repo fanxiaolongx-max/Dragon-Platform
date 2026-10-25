@@ -16,6 +16,7 @@ app.whenReady().then(async()=>{
     web.get('/api/department-reward-penalty/',(req,res)=>res.json(events));
     web.post('/api/meeting-snapshots/batch-attendance-check',(req,res)=>res.json({results:{}}));
     web.use('/js',express.static(path.join(root,'frontend/js')));
+    web.use('/css',express.static(path.join(root,'frontend/css')));
     web.get('/',(req,res)=>res.send(i18n.injectLanguageRuntime(fs.readFileSync(path.join(root,'backend/builtin-tools/tool-ms4xb66s/index.html'),'utf8'),'tool-ms4xb66s')));
     server=await new Promise(resolve=>{const listener=web.listen(0,'127.0.0.1',()=>resolve(listener))});
     win=new BrowserWindow({show:false,width:1440,height:1000,webPreferences:{contextIsolation:true,nodeIntegration:false,backgroundThrottling:false,offscreen:true}});
@@ -33,6 +34,13 @@ app.whenReady().then(async()=>{
     await run(`for(const [field,value] of Object.entries({staffId:'m00123456',name:'测试员工',reason:'人工核查',month:'2026-09'})){const input=document.querySelector('[data-field="'+field+'"]');input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));input.dispatchEvent(new Event('change',{bubbles:true}))} $('saveBlacklistBtn').click();`);
     assert.equal(await run(`Number($('sMoney').textContent)`),50);
     assert.match(await run(`$('blacklistDeductionTable').textContent`),/人工核查/);
+    assert.equal(await run(`$('blacklistDeductionPanel').style.display`),'none','Blacklist deduction panel is auto-collapsed by default after saving blacklist');
+    assert.equal(await run(`isFilterSectionCollapsed`),true);
+    assert.match(await run(`$('filterCollapsedSummary').textContent`),/黑名单扣减明细已折叠/);
+    await run(`$('toggleFilterSectionBtn').click()`);
+    assert.equal(await run(`$('blacklistDeductionPanel').style.display`),'','Expands with filter expand toggle');
+    await run(`$('toggleFilterSectionBtn').click()`);
+    assert.equal(await run(`$('blacklistDeductionPanel').style.display`),'none','Collapses with filter collapse toggle');
     await run(`$('exportBtn').click()`);
     let exported=await run(`(()=>{const {wb}=exportsCaptured.at(-1),reread=XLSX.read(XLSX.write(wb,{type:'array',bookType:'xlsx'}),{type:'array'});return {rows:XLSX.utils.sheet_to_json(reread.Sheets['源数据']),deductions:XLSX.utils.sheet_to_json(reread.Sheets['黑名单扣减明细'])}})()`);
     assert.equal(exported.rows.length,3);assert.equal(exported.rows[0]['本行激励（元）'],0);assert.equal(exported.rows[0]['扣减原因'],'人工核查');
