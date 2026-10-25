@@ -235,101 +235,12 @@ function getNavCategoryName(cat) {
     return cat.name;
 }
 
-// 导航搜索在浏览器本地完成，避免绿色版或离线环境依赖外部拼音服务。
-// 词表覆盖内置功能、默认自定义工具和常见命名；未收录汉字仍可通过拼音排序规则推断首字母。
-const NAV_PINYIN_SYLLABLES = Object.freeze({
-    工: 'gong', 具: 'ju', 中: 'zhong', 台: 'tai', 数: 'shu', 据: 'ju', 抓: 'zhua', 取: 'qu',
-    导: 'dao', 入: 'ru', 报: 'bao', 表: 'biao', 看: 'kan', 板: 'ban', 一: 'yi', 键: 'jian',
-    催: 'cui', 办: 'ban', 月: 'yue', 页: 'ye', 面: 'mian', 大: 'da', 屏: 'ping', 核: 'he',
-    算: 'suan', 稽: 'ji', 查: 'cha', 迁: 'qian', 移: 'yi', 状: 'zhuang', 态: 'tai', 探: 'tan',
-    索: 'suo', 审: 'shen', 计: 'ji', 与: 'yu', 系: 'xi', 统: 'tong', 治: 'zhi', 理: 'li',
-    五: 'wu', 个: 'ge', 端: 'duan', 到: 'dao', 实: 'shi', 用: 'yong', 网: 'wang', 络: 'luo',
-    安: 'an', 全: 'quan', 汇: 'hui', 呈: 'cheng', 现: 'xian', 自: 'zi', 定: 'ding', 义: 'yi',
-    行: 'xing', 政: 'zheng', 餐: 'can', 饮: 'yin', 休: 'xiu', 闲: 'xian', 娱: 'yu', 乐: 'yu',
-    重: 'zhong', 急: 'ji', 收: 'shou', 编: 'bian', 临: 'lin', 时: 'shi', 胶: 'jiao', 片: 'pian',
-    设: 'she', 六: 'liu', 博: 'bo', 客: 'ke', 爬: 'pa', 虫: 'chong', 上: 'shang', 传: 'chuan',
-    指: 'zhi', 南: 'nan', 膳: 'shan', 食: 'shi', 手: 'shou', 册: 'ce', 日: 'ri', 程: 'cheng',
-    排: 'pai', 透: 'tou', 视: 'shi', 欠: 'qian', 款: 'kuan', 对: 'dui', 账: 'zhang', 刷: 'shua',
-    卡: 'ka', 粒: 'li', 子: 'zi', 特: 'te', 效: 'xiao', 人: 'ren', 点: 'dian', 通: 'tong',
-    知: 'zhi', 平: 'ping', 介: 'jie', 绍: 'shao', 满: 'man', 意: 'yi', 度: 'du', 啊: 'a',
-    旅: 'lu', 游: 'you', 激: 'ji', 励: 'li', 扩: 'kuo', 展: 'zhan', 打: 'da', 包: 'bao',
-    外: 'wai', 三: 'san', 方: 'fang', 软: 'ruan', 件: 'jian', 分: 'fen', 析: 'xi', 要: 'yao',
-    求: 'qiu', 会: 'hui', 议: 'yi', 考: 'kao', 勤: 'qin', 光: 'guang', 码: 'ma', 文: 'wen',
-    景: 'jing', 题: 'ti', 库: 'ku', 助: 'zhu', 隐: 'yin', 私: 'si', 策: 'ce', 学: 'xue',
-    习: 'xi', 转: 'zhuan', 换: 'huan', 档: 'dang', 整: 'zheng', 辑: 'ji', 智: 'zhi',
-    能: 'neng', 调: 'diao', 脚: 'jiao', 本: 'ben', 仓: 'cang', 默: 'mo', 认: 'ren', 规: 'gui',
-    则: 'ze', 量: 'liang', 标: 'biao', 获: 'huo', 采: 'cai', 集: 'ji', 监: 'jian', 控: 'kong',
-    任: 'ren', 务: 'wu', 风: 'feng', 险: 'xian', 质: 'zhi', 生: 'sheng', 成: 'cheng', 合: 'he',
-    并: 'bing', 组: 'zu', 清: 'qing', 单: 'dan', 检: 'jian', 测: 'ce', 维: 'wei', 护: 'hu',
-    备: 'bei', 份: 'fen', 恢: 'hui', 复: 'fu', 记: 'ji', 录: 'lu', 志: 'zhi', 消: 'xiao',
-    息: 'xi', 告: 'gao', 警: 'jing', 资: 'zi', 产: 'chan', 户: 'hu', 员: 'yuan', 设: 'she',
-    部: 'bu', 门: 'men', 配: 'pei', 置: 'zhi', 管: 'guan', 服: 'fu', 心: 'xin', 总: 'zong',
-    览: 'lan', 快: 'kuai', 速: 'su', 搜: 'sou', 出: 'chu', 批: 'pi', 动: 'dong', 流: 'liu',
-    模: 'mo', 询: 'xun', 应: 'ying', 开: 'kai', 发: 'fa', 试: 'shi', 订: 'ding', 交: 'jiao',
-    付: 'fu', 改: 'gai', 洞: 'dong', 察: 'cha', 处: 'chu', 下: 'xia', 载: 'zai', 图: 'tu',
-    频: 'pin', 音: 'yin', 号: 'hao', 租: 'zu', 权: 'quan', 限: 'xian', 略: 'lue', 源: 'yuan',
-    健: 'jian', 康: 'kang', 完: 'wan', 性: 'xing', 修: 'xiu', 初: 'chu', 始: 'shi', 化: 'hua',
-    箱: 'xiang', 即: 'ji', 识: 'shi', 谱: 'pu', 示: 'shi', 提: 'ti', 醒: 'xing'
-});
-
-const NAV_PINYIN_INITIAL_BOUNDARIES = Object.freeze([
-    ['a', '阿'], ['b', '八'], ['c', '擦'], ['d', '搭'], ['e', '蛾'], ['f', '发'],
-    ['g', '噶'], ['h', '哈'], ['j', '击'], ['k', '喀'], ['l', '拉'], ['m', '妈'],
-    ['n', '拿'], ['o', '哦'], ['p', '啪'], ['q', '期'], ['r', '然'], ['s', '撒'],
-    ['t', '塌'], ['w', '挖'], ['x', '昔'], ['y', '压'], ['z', '匝']
-]);
-const NAV_PINYIN_COLLATOR = typeof Intl !== 'undefined' && Intl.Collator
-    ? new Intl.Collator('zh-Hans-CN-u-co-pinyin')
-    : null;
-
+// 拼音（全拼/首字母）匹配用平台共用的 shared/pinyin-search.js，词库较大，搜索框首次使用时再按需加载。
 function normalizeNavSearchTerm(value) {
     return String(value ?? '')
         .normalize('NFKC')
         .toLocaleLowerCase()
         .replace(/[^a-z0-9\u3400-\u9fff]+/g, '');
-}
-
-function inferNavPinyinInitial(char) {
-    if (!NAV_PINYIN_COLLATOR || !/[\u3400-\u9fff]/.test(char)) return '';
-    for (let index = NAV_PINYIN_INITIAL_BOUNDARIES.length - 1; index >= 0; index -= 1) {
-        const [initial, boundary] = NAV_PINYIN_INITIAL_BOUNDARIES[index];
-        if (NAV_PINYIN_COLLATOR.compare(char, boundary) >= 0) return initial;
-    }
-    return '';
-}
-
-function getNavPinyinAliases(value) {
-    const source = String(value ?? '').normalize('NFKC');
-    let fullPinyin = '';
-    let expandedInitials = '';
-    let compactInitials = '';
-
-    for (let index = 0; index < source.length;) {
-        const asciiMatch = source.slice(index).match(/^[a-z0-9]+/i);
-        if (asciiMatch) {
-            const rawToken = asciiMatch[0];
-            const token = rawToken.toLocaleLowerCase();
-            fullPinyin += token;
-            expandedInitials += token;
-            compactInitials += /^[A-Z0-9]+$/.test(rawToken) && rawToken.length <= 5 ? token : token[0];
-            index += rawToken.length;
-            continue;
-        }
-
-        const char = source[index];
-        const syllable = NAV_PINYIN_SYLLABLES[char];
-        const initial = syllable?.[0] || inferNavPinyinInitial(char);
-        if (syllable) fullPinyin += syllable;
-        if (initial) {
-            expandedInitials += initial;
-            compactInitials += initial;
-        }
-        index += 1;
-    }
-
-    return [fullPinyin, expandedInitials, compactInitials]
-        .map(normalizeNavSearchTerm)
-        .filter(Boolean);
 }
 
 function buildNavSearchIndex(item) {
@@ -338,7 +249,6 @@ function buildNavSearchIndex(item) {
     values.forEach(value => {
         const normalized = normalizeNavSearchTerm(value);
         if (normalized) aliases.add(normalized);
-        getNavPinyinAliases(value).forEach(alias => aliases.add(alias));
     });
     return Array.from(aliases).join('|');
 }
@@ -356,9 +266,23 @@ function isNavSearchSubsequence(query, candidate) {
 function matchesNavSearch(searchIndex, query) {
     const normalizedQuery = normalizeNavSearchTerm(query);
     if (!normalizedQuery) return true;
+    const pinyin = window.ToolsPinyinSearch;
+    const usePinyin = Boolean(pinyin && pinyin.isPinyinQuery(query));
     return String(searchIndex || '').split('|').some(candidate =>
         candidate.includes(normalizedQuery) || isNavSearchSubsequence(normalizedQuery, candidate)
+        || (usePinyin && pinyin.pinyinMatches(candidate, query))
     );
+}
+
+let navPinyinLoading = null;
+function ensureNavPinyinSearch() {
+    if (window.ToolsPinyinSearch) return Promise.resolve();
+    navPinyinLoading ||= loadNavLazyScript('/js/shared/pinyin-search.js', 'pinyin search could not load')
+        .catch(error => {
+            navPinyinLoading = null;
+            console.warn('[navbar]', error.message);
+        });
+    return navPinyinLoading;
 }
 
 function registerNavbarI18n() {
@@ -1984,8 +1908,15 @@ function bindNavMoreInteractions() {
     const content = menu.querySelector('.nav-more-content');
     const sidebar = menu.querySelector('.nav-more-sidebar');
 
-    menu.querySelector('.nav-more-search')?.addEventListener('input', event => {
+    const searchInput = menu.querySelector('.nav-more-search');
+    searchInput?.addEventListener('focus', () => { void ensureNavPinyinSearch(); });
+    searchInput?.addEventListener('input', event => {
         filterNavMoreItems(event.target.value);
+        if (!window.ToolsPinyinSearch) {
+            ensureNavPinyinSearch().then(() => {
+                if (window.ToolsPinyinSearch) filterNavMoreItems(searchInput.value);
+            });
+        }
     });
 
     let isClickScrolling = false;

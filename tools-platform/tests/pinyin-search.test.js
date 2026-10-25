@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isPinyinQuery, pinyinMatches } = require('../backend/models/chat-pinyin-search');
+const { isPinyinQuery, pinyinMatches } = require('../frontend/js/shared/pinyin-search');
 
 test('pinyin search matches full pinyin, initials and mixed input', () => {
     for (const q of ['weifuwu', 'wfw', 'weifw', 'wfuwu', 'WeiFuWu', 'wei fu wu', 'fuwujiao', 'weifuw']) {
