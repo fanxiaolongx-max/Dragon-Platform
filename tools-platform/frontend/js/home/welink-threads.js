@@ -408,10 +408,38 @@
         notifyThread(false);
         el.stage?.remove();
         el.stage = null;
+        el.anchor?.dispose();
+        el.anchor = null;
         el.readonly?.remove();
         el.readonly = null;
         window.DragonClawWorkspace?.hideExternal?.();
         renderThreads();
+    }
+
+    // 底部面板高度变化（切换身份、拖动输入框、发送提示）会挤压时间线：保持时间线离底部的距离不变，最新消息不被遮挡
+    function anchorThreadBottom(thread, panel) {
+        const gapOf = () => thread.scrollHeight - thread.scrollTop - thread.clientHeight;
+        const anchor = { gap: gapOf(), smooth: false, moving: false };
+        const onScroll = () => { if (!anchor.moving) anchor.gap = gapOf(); };
+        let lastHeight = 0;
+        let timer = 0;
+        const observer = new ResizeObserver(() => {
+            const height = panel.offsetHeight;
+            if (!height || height === lastHeight) { lastHeight = height; return; }
+            lastHeight = height;
+            const top = Math.max(0, thread.scrollHeight - thread.clientHeight - anchor.gap);
+            const smooth = anchor.smooth && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+            anchor.smooth = false;
+            anchor.moving = smooth && Math.abs(top - thread.scrollTop) > 1;
+            // 平滑滚动期间不记录中间位置，结束后以最终位置为准（不依赖 scrollend，兼容旧版 Safari）
+            clearTimeout(timer);
+            if (anchor.moving) timer = setTimeout(() => { anchor.moving = false; anchor.gap = gapOf(); }, 500);
+            thread.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+        });
+        thread.addEventListener('scroll', onScroll, { passive: true });
+        observer.observe(panel);
+        anchor.dispose = () => { clearTimeout(timer); observer.disconnect(); thread.removeEventListener('scroll', onScroll); };
+        return anchor;
     }
 
     function mountChrome() {
@@ -428,8 +456,9 @@
             el.readonly.addEventListener('click', event => {
                 if (event.target.closest('[data-wl-back]')) window.DragonClaw?.newChat?.();
                 const role = event.target.closest('[data-wl-role]')?.dataset.wlRole;
-                if (role && state.canSend) { state.botMode = role === 'bot'; renderReadonly(); }
+                if (role && state.canSend && state.botMode !== (role === 'bot')) { el.anchor.smooth = true; state.botMode = role === 'bot'; renderReadonly(); }
             });
+            el.anchor = anchorThreadBottom(thread, el.readonly);
             el.readonly.addEventListener('input', event => {
                 if (!event.target.matches('[data-wl-compose]')) return;
                 state.drafts.set(threadKey(state.active), event.target.value);
