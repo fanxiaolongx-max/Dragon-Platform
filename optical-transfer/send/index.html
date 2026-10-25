@@ -1,1 +1,162 @@
-<!doctype html><html lang="zh-CN" data-static-boot="1"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dragon Platform</title></head><body><p id="staticBootStatus">正在打开平台 / Opening platform…</p><script src="../../tp-static/boot.js?v=4d163a76e38b"></script></body></html>
+<!doctype html>
+<!-- Decimen Optical Transfer v0.3.0 — https://decimen.app — (c) 2026 Evan Crawley (Bash Alarmist) — SPDX-License-Identifier: MIT -->
+<html lang="en">
+  <head><script src="../../tp-static/session.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Decimen Optical Transfer — send</title>
+    <meta name="theme-color" content="#070a11" />
+    <link rel="icon" href="../decimen_logo.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+    <script type="module" crossorigin src="../assets/send-Br2nzDSu.js"></script>
+    <link rel="modulepreload" crossorigin href="../assets/dialog-Cf_qYgrT.js">
+    <link rel="modulepreload" crossorigin href="../assets/share-dialog-BHRwTNEG.js">
+    <link rel="modulepreload" crossorigin href="../assets/wake-lock-agyiBZ6i.js">
+    <link rel="stylesheet" crossorigin href="../assets/dialog-VZ1XWX8i.css">
+  <link rel="manifest" href="../manifest.webmanifest"></head>
+  <body class="tool-page">
+    <header class="site-header">
+      <a class="brand" href="../"><svg class="brand-logo" viewBox="0 0 543 554.1" fill="currentColor" aria-hidden="true"><g transform="translate(-241,789) scale(0.1,-0.1)"><path d="M2410 6513 l0 -1378 103 101 c540 531 1324 986 1984 1153 402 102 850 95 1268 -21 529 -146 1300 -581 1860 -1050 175 -146 212 -184 199 -205 -37 -63 -502 -432 -754 -600 -969 -644 -1785 -844 -2590 -634 -667 174 -1376 581 -1947 1118 l-123 115 0 -1382 0 -1381 1478 4 c1291 3 1491 5 1588 20 1345 194 2240 1124 2355 2446 17 195 7 620 -19 786 -192 1236 -1030 2069 -2262 2249 -217 32 -411 36 -1772 36 l-1368 0 0 -1377z"/><path d="M4945 5906 c-300 -68 -532 -287 -611 -577 -25 -89 -25 -289 0 -378 141 -513 724 -749 1179 -477 405 242 503 778 209 1148 -100 125 -258 229 -417 273 -82 22 -282 29 -360 11z"/></g></svg>Decimen Optical Transfer</a>
+      <!-- Byte-identical on both tool pages: the standalone build matches it
+           exactly to swap in a mode badge, and main.ts marks the current page. -->
+      <nav class="mode-nav" aria-label="Mode"><a href="../send/">Send</a><a href="../receive/">Receive</a></nav>
+    </header>
+    <main class="send-shell">
+      <section class="tool-intro">
+        <p class="eyebrow">Screen → camera</p>
+        <h1 id="tool-title">Send a file</h1>
+        <p>Nothing leaves your device until you scan with a receiver.</p>
+      </section>
+
+      <div class="mode-picker" id="mode-picker" role="radiogroup" aria-label="What to send">
+        <label>
+          <input type="radio" name="send-mode" value="file" checked />
+          <span>File</span>
+        </label>
+        <label>
+          <input type="radio" name="send-mode" value="snippet" />
+          <span>Text snippet</span>
+        </label>
+      </div>
+
+      <!-- The whole label is the click target; the native input is visually
+           hidden (but still focusable) and the styled span stands in for it. -->
+      <label class="file-picker" id="pane-file">
+        <span class="file-picker-button" id="file-picker-button">Select File</span>
+        <span class="file-picker-text" id="file-picker-label">Any file · up to 64 MB</span>
+        <input id="cfg-file" type="file" />
+      </label>
+
+      <div class="demo-picker" id="pane-demo" hidden>
+        <span>Demo payload</span>
+        <div class="demo-buttons">
+          <button type="button" data-demo="success.png">512 KB image</button>
+          <button type="button" data-demo="success-2mb.png">2 MB image</button>
+        </div>
+      </div>
+
+      <div class="note-composer" id="pane-snippet" hidden>
+        <label for="snippet-text" id="snippet-label">Text to send</label>
+        <textarea id="snippet-text" rows="7" placeholder="Paste or type anything — a URL, a config, a wall of text…"></textarea>
+        <button id="send-snippet" type="button">Start text stream</button>
+      </div>
+
+      <div class="stage" id="stage" hidden><canvas id="qr" width="16" height="16"></canvas></div>
+      <details class="settings">
+        <summary>Transfer settings</summary>
+        <div class="row">
+          <label>
+            tx fps
+            <!-- Options come from shared/send-settings.ts via htmlTokens() -->
+            <select id="cfg-fps"><option>10</option><option>15</option><option>20</option><option>24</option><option>30</option><option selected>60</option></select>
+          </label>
+          <label>
+            bytes / frame
+            <select id="cfg-bytes"><option>500</option><option>1000</option><option>1465</option><option>1850</option><option>2331</option><option selected>2953</option></select>
+          </label>
+          <label>
+            error correction
+            <select id="cfg-ecc">
+              <option selected>L</option><option>M</option><option>Q</option><option>H</option>
+            </select>
+          </label>
+          <label>
+            display size
+            <input id="cfg-size" type="range" min="300" max="1200" step="50" value="900" />
+          </label>
+          <label class="toggle-setting">
+            color boost
+            <span class="toggle-control">
+              <input id="cfg-color" type="checkbox" />
+              <span>Experimental · up to 2×</span>
+            </span>
+          </label>
+        </div>
+        <!-- What the knobs above actually produced; filled by main.ts when a
+             stream locks its first frame. -->
+        <dl class="stream-specs" id="stream-specs" hidden>
+          <div><dt>tx rate</dt><dd id="spec-fps">—</dd></div>
+          <div><dt>frame payload</dt><dd id="spec-frame">—</dd></div>
+          <div><dt>qr</dt><dd id="spec-qr">—</dd></div>
+          <div><dt>sending</dt><dd id="spec-payload">—</dd></div>
+          <div><dt>compression</dt><dd id="spec-compression">—</dd></div>
+          <div><dt>fountain blocks</dt><dd id="spec-k">—</dd></div>
+        </dl>
+      </details>
+      <div class="hint status-line" id="specs">Choose a file to begin</div>
+      <dialog class="help-dialog share-dialog" id="share-dialog" aria-labelledby="share-title" data-share-title="Decimen Optical Transfer — receiver">
+        <!-- Same focus dodge as the receiver's dialog: land focus on the title
+             so iOS doesn't paint the first button pre-highlighted. -->
+        <h2 id="share-title" tabindex="-1" autofocus>Share the receiver</h2>
+        <p class="share-hint">Scan this with the other device's camera, or send it the link.</p>
+        <canvas id="share-qr" width="16" height="16"></canvas>
+        <div class="share-url-row">
+          <!-- Token-substituted at build time; VITE_SITE_URL overrides it for
+               deploys living elsewhere. -->
+          <input id="share-url" data-share-path="../receive/" readonly value="https://localhost:3030/custom-tools/optical-transfer/receive/" aria-label="Receiver link" />
+          <button id="share-copy" class="secondary-button" type="button">Copy</button>
+        </div>
+        <div class="note-actions">
+          <button id="share-native" class="secondary-button" type="button" hidden>Share…</button>
+          <button id="share-close" class="secondary-button" type="button">Close</button>
+        </div>
+      </dialog>
+      <div class="hint footer-hint" id="footer-hint" hidden>
+        Open Receive on the other device. Turn up this screen's brightness.
+      </div>
+    </main>
+    <footer class="site-footer">
+      <span class="footer-id">
+        <span>Decimen Optical Transfer</span>
+        <span>v0.3.0 · build 29cba8f-dirty · © 2026 Evan Crawley (Bash Alarmist) · <a href="https://github.com/bashalarmistalt/decimen-optical-transfer/blob/main/LICENSE">MIT</a></span>
+      </span>
+      <nav class="footer-links" aria-label="Project links">
+        <a href="https://github.com/bashalarmistalt/decimen-optical-transfer">GitHub</a>
+        <a href="https://github.com/bashalarmistalt/decimen-optical-transfer/releases">Releases</a>
+      </nav>
+    </footer>
+  <script>if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    // Already controlled means this is an update rather than a first visit,
+    // and only then is a reload warranted when the new worker takes over.
+    const wasControlled = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!wasControlled || reloading) return;
+      reloading = true;
+      location.reload();
+    });
+    navigator.serviceWorker.register("../sw.js", { scope: "../" }).then((reg) => {
+      const promote = (worker) => worker && worker.postMessage({ type: "SKIP_WAITING" });
+      promote(reg.waiting);
+      reg.addEventListener("updatefound", () => {
+        const next = reg.installing;
+        if (!next) return;
+        next.addEventListener("statechange", () => {
+          if (next.state === "installed") promote(reg.waiting || next);
+        });
+      });
+    });
+  });
+}</script></body>
+</html>

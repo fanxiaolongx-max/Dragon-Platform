@@ -1,1 +1,138 @@
-<!doctype html><html lang="zh-CN" data-static-boot="1"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dragon Platform</title></head><body><p id="staticBootStatus">正在打开平台 / Opening platform…</p><script src="../../tp-static/boot.js?v=4d163a76e38b"></script></body></html>
+<!doctype html>
+<!-- Decimen Optical Transfer v0.3.0 — https://decimen.app — (c) 2026 Evan Crawley (Bash Alarmist) — SPDX-License-Identifier: MIT -->
+<html lang="en">
+  <head><script src="../../tp-static/session.js"></script>
+    <meta charset="UTF-8" />
+    <!-- No scale lock here; see the 16px note on the settings controls in style.css. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Decimen Optical Transfer — receive</title>
+    <meta name="theme-color" content="#070a11" />
+    <link rel="icon" href="../decimen_logo.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+    <script type="module" crossorigin src="../assets/receive-dc1fm69X.js"></script>
+    <link rel="modulepreload" crossorigin href="../assets/dialog-Cf_qYgrT.js">
+    <link rel="modulepreload" crossorigin href="../assets/wake-lock-agyiBZ6i.js">
+    <link rel="stylesheet" crossorigin href="../assets/dialog-VZ1XWX8i.css">
+  <link rel="manifest" href="../manifest.webmanifest"></head>
+  <body class="receiver-page">
+    <header class="site-header">
+      <a class="brand" href="../"><svg class="brand-logo" viewBox="0 0 543 554.1" fill="currentColor" aria-hidden="true"><g transform="translate(-241,789) scale(0.1,-0.1)"><path d="M2410 6513 l0 -1378 103 101 c540 531 1324 986 1984 1153 402 102 850 95 1268 -21 529 -146 1300 -581 1860 -1050 175 -146 212 -184 199 -205 -37 -63 -502 -432 -754 -600 -969 -644 -1785 -844 -2590 -634 -667 174 -1376 581 -1947 1118 l-123 115 0 -1382 0 -1381 1478 4 c1291 3 1491 5 1588 20 1345 194 2240 1124 2355 2446 17 195 7 620 -19 786 -192 1236 -1030 2069 -2262 2249 -217 32 -411 36 -1772 36 l-1368 0 0 -1377z"/><path d="M4945 5906 c-300 -68 -532 -287 -611 -577 -25 -89 -25 -289 0 -378 141 -513 724 -749 1179 -477 405 242 503 778 209 1148 -100 125 -258 229 -417 273 -82 22 -282 29 -360 11z"/></g></svg>Decimen Optical Transfer</a>
+      <!-- Byte-identical on both tool pages: the standalone build matches it
+           exactly to swap in a mode badge, and main.ts marks the current page. -->
+      <nav class="mode-nav" aria-label="Mode"><a href="../send/">Send</a><a href="../receive/">Receive</a></nav>
+    </header>
+    <main class="receiver-shell">
+      <section class="receiver-primary">
+        <div class="receiver-heading">
+          <div>
+            <p class="eyebrow">Camera → your device</p>
+            <h1>Receive</h1>
+          </div>
+          <div class="hint status-line" id="stats">Ready to scan a file or text stream</div>
+        </div>
+        <button id="start">Start camera</button>
+        <!-- The zone exists so the toast can hang just above the camera box:
+             .preview clips its children (overflow: hidden), this doesn't. -->
+        <div class="preview-zone" id="preview" style="display: none">
+          <!-- Absolutely positioned, so appearing never shifts the layout. -->
+          <div class="no-signal-toast" id="no-signal" role="status" hidden>
+            <span>Nothing happening?</span>
+            <button id="no-signal-help" class="text-button" type="button">Help</button>
+            <button id="no-signal-dismiss" class="text-button no-signal-dismiss" type="button">Dismiss</button>
+          </div>
+          <div class="preview">
+            <video id="video" muted playsinline></video>
+            <div class="transfer-hud">
+              <div class="progress-status" id="progress-status" style="display: none" aria-live="polite">
+                <strong id="progress-label">0% · 0 frames</strong>
+                <span id="eta-label">Estimating time…</span>
+              </div>
+              <div
+                class="progress"
+                id="progress"
+                style="display: none"
+                role="progressbar"
+                aria-label="Transfer recovery progress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+              ><div id="bar"></div></div>
+            </div>
+          </div>
+        </div>
+        <div id="result"></div>
+        <dialog class="help-dialog" id="no-signal-dialog" aria-labelledby="no-signal-title">
+          <!-- showModal() has to land focus somewhere, and with no autofocus
+               it picks the first button — which iOS paints pre-highlighted.
+               Send it to the title instead; the outline is styled away. -->
+          <h2 id="no-signal-title" tabindex="-1" autofocus>Troubleshooting tips</h2>
+          <!-- Tip list is filled by main.ts so the numbers in it stay tied to
+               the shared send-settings constants. -->
+          <ul id="no-signal-tips"></ul>
+          <button id="no-signal-close" class="secondary-button" type="button">Got it</button>
+        </dialog>
+        <details class="settings diagnostics" id="diagnostics" style="display: none">
+          <summary>Live diagnostics</summary>
+          <div class="metrics" id="metrics" style="display: none">
+            <div class="metric"><div class="k">capture fps</div><div class="v" id="m-cap">—</div></div>
+            <div class="metric"><div class="k">decode fps</div><div class="v amber" id="m-dec">—</div></div>
+            <div class="metric"><div class="k">goodput</div><div class="v amber" id="m-rate">—</div></div>
+            <div class="metric"><div class="k">elapsed</div><div class="v" id="m-time">—</div></div>
+            <div class="metric"><div class="k">frames new/dup</div><div class="v" id="m-frames">—</div></div>
+            <div class="metric"><div class="k">blocks K</div><div class="v" id="m-k">—</div></div>
+            <div class="metric"><div class="k">block len</div><div class="v" id="m-block">—</div></div>
+            <div class="metric"><div class="k">transfer</div><div class="v" id="m-payload">—</div></div>
+          </div>
+        </details>
+        <details class="settings" id="settings">
+          <summary>Receive settings</summary>
+          <div class="row">
+            <label>capture width
+              <select id="cfg-width"><option>960</option><option selected>1280</option><option>1920</option></select>
+            </label>
+            <label>capture fps
+              <select id="cfg-capfps"><option>30</option><option selected>60</option></select>
+            </label>
+            <label>decode workers
+              <select id="cfg-workers"><option>1</option><option selected>2</option><option>3</option></select>
+            </label>
+          </div>
+          <p class="hint settings-actual" id="camera-actual">Applied when the camera starts.</p>
+        </details>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <span class="footer-id">
+        <span>Decimen Optical Transfer</span>
+        <span>v0.3.0 · build 29cba8f-dirty · © 2026 Evan Crawley (Bash Alarmist) · <a href="https://github.com/bashalarmistalt/decimen-optical-transfer/blob/main/LICENSE">MIT</a></span>
+      </span>
+      <nav class="footer-links" aria-label="Project links">
+        <a href="https://github.com/bashalarmistalt/decimen-optical-transfer">GitHub</a>
+        <a href="https://github.com/bashalarmistalt/decimen-optical-transfer/releases">Releases</a>
+      </nav>
+    </footer>
+  <script>if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    // Already controlled means this is an update rather than a first visit,
+    // and only then is a reload warranted when the new worker takes over.
+    const wasControlled = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!wasControlled || reloading) return;
+      reloading = true;
+      location.reload();
+    });
+    navigator.serviceWorker.register("../sw.js", { scope: "../" }).then((reg) => {
+      const promote = (worker) => worker && worker.postMessage({ type: "SKIP_WAITING" });
+      promote(reg.waiting);
+      reg.addEventListener("updatefound", () => {
+        const next = reg.installing;
+        if (!next) return;
+        next.addEventListener("statechange", () => {
+          if (next.state === "installed") promote(reg.waiting || next);
+        });
+      });
+    });
+  });
+}</script></body>
+</html>

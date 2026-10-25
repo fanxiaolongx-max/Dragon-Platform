@@ -100,6 +100,26 @@ body.dc-external-view .dc-resume { display: none !important; }
 }
 body.dc-external-view .wl-readonly { display: flex; }
 .wl-readonly-text { flex: 1; min-width: 0; }
+.wl-readonly { flex-direction: column; align-items: stretch; flex: none; max-height: 42vh; overflow: auto; }
+.wl-conversation-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.wl-role-switch { display: flex; flex: none; gap: 3px; padding: 3px; border: 1px solid #94a3b833; border-radius: 9px; }
+.wl-role-switch button, .wl-manual-actions button { padding: 5px 10px; border: 0; border-radius: 6px; background: transparent; color: #9baec6; font: 600 11px/1.5 system-ui, sans-serif; cursor: pointer; }
+.wl-role-switch button[aria-pressed="true"] { color: #6ee7cf; background: #2dd4bf1a; }
+.wl-readonly.is-bot-mode { border-style: solid; border-color: #2dd4bf55; }
+.wl-manual-form { margin-top: 8px; }
+.wl-manual-form textarea { box-sizing: border-box; display: block; width: 100%; min-height: 72px; max-height: 180px; padding: 10px; resize: vertical; border: 1px solid #94a3b833; border-radius: 9px; background: #0b1626; color: #e2e8f0; font: 13px/1.6 system-ui, sans-serif; }
+.wl-manual-actions { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.wl-manual-actions small { flex: 1; min-width: 0; color: #8b9ab3; font-size: 10px; }
+.wl-manual-actions button { flex: none; background: #6ee7cf; color: #102030; }
+.wl-manual-actions button:disabled { opacity: .45; cursor: default; }
+.wl-send-feedback { margin-top: 6px; color: #6ee7cf; font-size: 11px; overflow-wrap: anywhere; }
+.wl-send-feedback.is-error { color: #ed8c84; }
+.wl-manual-form textarea:focus-visible, .wl-role-switch button:focus-visible, .wl-manual-actions button:focus-visible { outline: 2px solid #2dd4bf; outline-offset: 2px; }
+html[data-theme="light"] .wl-readonly, body.light-theme .wl-readonly { background: #f7fbff; color: #526c80; }
+html[data-theme="light"] .wl-manual-form textarea, body.light-theme .wl-manual-form textarea { background: #fff; color: #173247; }
+html[data-theme="light"] .wl-role-switch button, body.light-theme .wl-role-switch button { color: #526c80; }
+html[data-theme="light"] .wl-readonly .dc-ghost-btn, body.light-theme .wl-readonly .dc-ghost-btn { color: #526c80; border-color: #7295ac40; }
+html[data-theme="light"] .wl-role-switch button[aria-pressed="true"], body.light-theme .wl-role-switch button[aria-pressed="true"], html[data-theme="light"] .wl-send-feedback:not(.is-error), body.light-theme .wl-send-feedback:not(.is-error) { color: #087f78; }
 
 .wl-banner {
     display: flex;

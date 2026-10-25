@@ -219,6 +219,31 @@
         let frameTimer = null;
         let frameUrl = '';
         let frameBusy = false;
+        let reviewPending = false;
+        let resumeAfterReview = false;
+
+        // 待确认消息优先：临时隐藏推广，不改写用户的关闭偏好或抽屉状态。
+        function syncInboxPriority() {
+            const pending = document.body.classList.contains('ops-review-pending');
+            if (pending === reviewPending) return;
+            reviewPending = pending;
+            if (pending) {
+                resumeAfterReview = !mini.paused;
+                mini.pause();
+            }
+            stack.inert = pending || tucked;
+            if (pending || tucked) stack.setAttribute('aria-hidden', 'true');
+            else stack.removeAttribute('aria-hidden');
+            tab.inert = pending;
+            tab.setAttribute('aria-hidden', String(pending || !tucked));
+            tab.tabIndex = !pending && tucked ? 0 : -1;
+            updateFrameLoop();
+            if (!pending && resumeAfterReview && current && !isLink(current) && !tucked && !document.hidden && !dlg.open && ask.hidden && !ended) mini.play().catch(() => {});
+            if (!pending) resumeAfterReview = false;
+        }
+        window.addEventListener('tools:ops-inbox-state', syncInboxPriority);
+        // 覆盖已经发起、但在待办到达后才完成的异步播放请求。
+        mini.addEventListener('play', () => { if (reviewPending) mini.pause(); });
 
         // 横幅：所有已启用视频 + 最多 maxLinks 个链接（超出时定时轮换）；当前小窗里的项不重复出现
         function visibleLinkKeys() {
@@ -286,12 +311,13 @@
             renderBanners();
         }
         function playMini() {
-            if (isLink(current)) return;
+            if (isLink(current) || reviewPending) return;
             if (reducedMotion && !soundUnlocked) return;
             mini.muted = !wantSound; renderSound();
             const attempt = mini.play();
             if (!attempt || !attempt.catch) return;
             attempt.catch(() => {
+                if (reviewPending) return;
                 // 浏览器拦截带声音的自动播放：先静音播放，等用户首次与页面交互后恢复声音
                 mini.muted = true; renderSound();
                 soundBtn.classList.add('is-hint');
@@ -312,7 +338,7 @@
         }
         async function pullFrame() {
             const link = linkOf(current);
-            if (!desktop || !link || frameBusy || tucked || document.hidden || float.hidden) return;
+            if (!desktop || !link || frameBusy || tucked || reviewPending || document.hidden || float.hidden) return;
             frameBusy = true;
             try {
                 const res = await fetch(PROMO_API + '/desktop/frame/' + encodeURIComponent(link.id), { headers: authHeaders(), credentials: 'same-origin', cache: 'no-store' });
@@ -322,7 +348,7 @@
         }
         function updateFrameLoop() {
             clearInterval(frameTimer); frameTimer = null;
-            if (desktop && isLink(current) && !tucked) { pullFrame(); frameTimer = setInterval(pullFrame, FRAME_INTERVAL_MS); }
+            if (desktop && isLink(current) && !tucked && !reviewPending) { pullFrame(); frameTimer = setInterval(pullFrame, FRAME_INTERVAL_MS); }
         }
         // 浏览器端：固定命名的标签页；已打开过就切换过去，不重复打开、不重新加载
         function openInTab(link) {
@@ -360,7 +386,7 @@
                 const status = await res.json();
                 desktop = !!(status && status.available);
                 // 登录后打开 / 更新右下角卡片堆
-                if (desktop && config.desktopStack !== false) await api('POST', '/desktop/sync').catch(() => {});
+                if (desktop && !reviewPending && config.desktopStack !== false) await api('POST', '/desktop/sync').catch(() => {});
             } catch (_) { desktop = false; }
             translate();
             updateFrameLoop();
@@ -371,7 +397,7 @@
             const links = enabledLinks();
             if (links.length <= Math.max(1, Number(config.maxLinks) || 3)) return;
             rotateTimer = setInterval(() => {
-                if (tucked || document.hidden || stack.matches(':hover') || !ask.hidden) return;
+                if (tucked || reviewPending || document.hidden || stack.matches(':hover') || !ask.hidden) return;
                 linkOffset = (linkOffset + 1) % enabledLinks().length;
                 renderBanners();
             }, Math.max(10, Number(config.rotateSeconds) || 30) * 1000);
@@ -388,7 +414,7 @@
         stack.addEventListener('focusin', cancelAutoTuck);
         // 抽屉：收起到右侧边缘标签 / 从标签抽出
         function tuck() {
-            if (tucked) return;
+            if (tucked || reviewPending) return;
             cancelAutoTuck();
             tucked = true;
             resumeOnUntuck = !!current && !isLink(current) && !mini.paused && !ended;
@@ -399,7 +425,7 @@
             updateFrameLoop();
         }
         function untuck() {
-            if (!tucked) return;
+            if (!tucked || reviewPending) return;
             tucked = false;
             stack.classList.remove('is-tucked'); stack.removeAttribute('aria-hidden'); stack.inert = false;
             tab.classList.remove('is-shown'); tab.setAttribute('aria-hidden', 'true'); tab.tabIndex = -1;
@@ -424,6 +450,7 @@
             tuck();
         }
         function unlockSound() {
+            if (reviewPending) return;
             if (soundUnlocked && !mini.muted) return;
             soundUnlocked = true;
             if (current && !isLink(current) && !tucked && wantSound && mini.muted && !dlg.open && ask.hidden) {
@@ -538,6 +565,7 @@
         });
 
         translate();
+        syncInboxPriority();
         loadConfig().then(() => {
             setCurrent(readDismissed() ? null : nextPromotion());
             scheduleRotation();

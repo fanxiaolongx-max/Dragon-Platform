@@ -541,7 +541,7 @@ function registerNavbarI18n() {
             'nav.page.home.help': '逐个控制自定义 HTML 工具的新窗口直达地址是否需要登录。默认关闭公开访问；开启后，任何获得链接的人都可以访问该工具及其静态资源。',
             'nav.page.home.title': '自定义 HTML 访问鉴权',
             'nav.page.home.public': '允许免登录新窗口访问',
-            'nav.page.home.private': '免登录',
+            'nav.page.home.private': '需要登录',
             'nav.page.home.empty': '暂无自定义 HTML 工具。',
             'nav.page.report.help': '可单独备份和恢复历史快照与已入库内容，也可清理报表看板历史下拉列表中的冗余 SLA 源快照。所有操作只影响当前租户。',
             'nav.page.report.backupTitle': '报表历史数据独立备份与恢复',
@@ -10121,6 +10121,7 @@ async function checkBuiltinToolsSync() {
         || typeof API === 'undefined'
         || document.getElementById('builtinToolsSyncModal')
         || document.getElementById('defaultQuickStartModal')
+        || document.getElementById('navSettingsModal')
     ) return;
     builtinToolsSyncChecking = true;
     try {
@@ -10135,8 +10136,16 @@ async function checkBuiltinToolsSync() {
         if (cacheKey && Array.isArray(preview?.pending) && !preview.pending.length) {
             try { sessionStorage.setItem(cacheKey, String(Date.now())); } catch (_) { /* noop */ }
         }
-        if (!toolMarketOpened() && preview && Array.isArray(preview.pending) && preview.pending.length) {
-            openBuiltinToolsSyncModal(preview);
+        if (!toolMarketOpened() && preview && Array.isArray(preview.pending) && preview.pending.length && !document.getElementById('navSettingsModal')) {
+            // 如果所有待处理项都显式带有文件统计且变更均为 0（+0 / ~0 / -0），仅为接管或元数据标识差异，不弹窗打扰用户
+            const hasActionableTools = preview.pending.some(tool => {
+                if (!tool || !tool.counts) return true;
+                const c = tool.counts;
+                return (c.added || 0) > 0 || (c.modified || 0) > 0 || (c.removed || 0) > 0;
+            });
+            if (hasActionableTools) {
+                openBuiltinToolsSyncModal(preview);
+            }
         }
     } catch (error) {
         console.warn('[custom-tools] 读取系统工具更新失败：', error.message);
@@ -10194,6 +10203,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 mountNavbarEarly();
+
+// 全部平台页共用草稿提醒；组件自身排除 iframe，避免工具容器中重复提醒。
+loadNavLazyScript('./tp-static/frontend/js/shared/ops-inbox.js', 'Ops inbox could not load').catch(() => {});
 
 let navReloginPrompted = false;
 

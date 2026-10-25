@@ -9,7 +9,7 @@
 
 | 工具 | 标识（slug） | 简介 | 页面 |
 | --- | --- | --- | --- |
-| 光码传文件 | `optical-transfer` | 电脑屏幕播放动态二维码，手机摄像头连续扫码接收小文件或文本；文件内容不经过平台服务器。 | [打开页面](./optical-transfer/index.html) |
+| 光码传文件 🌐 | `optical-transfer` | 电脑屏幕播放动态二维码，手机摄像头连续扫码接收小文件或文本；文件内容不经过平台服务器。（免登录公开访问） | [打开页面](./optical-transfer/index.html) |
 | 粒子特效 | `particle-effects` | 可跟随内置音乐、音频文件或麦克风实时变化的 3D Chladni 粒子视觉特效。 | [打开页面](./particle-effects/index.html) |
 | 人数计数 | `tool-mrrgpqy4` | 轻量、适合移动端使用的现场人数计数器。 | [打开页面](./tool-mrrgpqy4/index.html) |
 | 旅游计时 | `tool-mrrn48dc` | 土耳其海边旅行倒计时页面。 | [打开页面](./tool-mrrn48dc/index.html) |
@@ -33,7 +33,7 @@
 | ParkSt菜单 | `parkst` | Park Street 餐厅的电子菜单，提供全天早午餐、牛油果系列、松饼、汉堡、披萨及各类主菜与甜品。支持按分类浏览菜品详情、价格及加料定制选项，适用于店内点餐参考。 | [打开页面](./parkst/index.html) |
 | PR透视 | `pr` | 由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。 | [打开页面](./pr/index.html) |
 | 外包 PR | `pr-2` | 由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。 | [打开页面](./pr-2/index.html) |
-| 浏览器扩展统一隐私政策 | `question-bank-assistant-privacy` | 题库与答题助手、NetCare RFC 方案与 AI 审计扩展中英文统一隐私政策，说明数据处理、本地隔离存储、大模型通信脱敏与用户控制。 | [打开页面](./question-bank-assistant-privacy/index.html) |
+| 浏览器扩展统一隐私政策 🌐 | `question-bank-assistant-privacy` | 题库与答题助手、NetCare RFC 方案与 AI 审计扩展中英文统一隐私政策，说明数据处理、本地隔离存储、大模型通信脱敏与用户控制。（免登录公开访问） | [打开页面](./question-bank-assistant-privacy/index.html) |
 | 题库学习与 Excel 转换 | `question-bank-study` | 导入题库与答题助手导出的单题库或多题库 JSON，在页面中搜索学习并转换为 Excel。 | [打开页面](./question-bank-study/index.html) |
 | 供应商报价比价 | `supplier-quotation-comparison` | 导入含 Week1 基础表和多个供应商报价页的 Excel，自动匹配商品、折算含税可比单价并生成推荐比价表。 | [打开页面](./supplier-quotation-comparison/index.html) |
 | 营业流水刷卡与微信就餐统计 | `tool-dining-card-wechat` | 支持同时导入营业流水刷卡 Excel 与微信账单，单独深度分析并智能合并到营业流水总盘；自动按餐别价格档位识别【自有-微信】与【非自有-微信】，支持历史数据快照保存与一键载入。 | [打开页面](./tool-dining-card-wechat/index.html) |
@@ -48,7 +48,7 @@
 | 满意度啊 | `tool-ms1saxuh` | 由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。 | [打开页面](./tool-ms1saxuh/index.html) |
 | 三方软件分析 | `tool-msbmscxd` | 由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。 | [打开页面](./tool-msbmscxd/index.html) |
 | 三方软件要求 | `tool-msbmu55i` | 由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。 | [打开页面](./tool-msbmu55i/index.html) |
-| 平台全景 | `tool-msh8aro4` | 双语展示平台核心业务模块、自定义及内置 HTML 工具、现场导入扩展与访问方式，支持工具搜索筛选和能力分类浏览。 | [打开页面](./tool-msh8aro4/index.html) |
+| 平台全景 🌐 | `tool-msh8aro4` | 双语展示平台核心业务模块、自定义及内置 HTML 工具、现场导入扩展与访问方式，支持工具搜索筛选和能力分类浏览。（免登录公开访问） | [打开页面](./tool-msh8aro4/index.html) |
 | 阿拉伯语互动课堂 | `tool-mtakhxqm` | 开罗埃及口语互动课堂：字母与拼读、词汇记忆、生活会话、字母抽查四大模块，支持配音、字形辨认与加速闯关。 | [打开页面](./tool-mtakhxqm/index.html) |
 | 餐单核验 | `tool-mtpx4vtr` | 用于餐厅采购订单数据清洗与核对，支持Excel导入、文本解析、数量单位纠错及多表差异比对。 | [打开页面](./tool-mtpx4vtr/index.html) |
 | 行政智控 | `tool-mttuw8kn` | 面向埃及行政运营的综合管控界面，覆盖任务进度、满意度反馈、餐饮月报、活动方案和影像归档等日常管理场景。 | [打开页面](./tool-mttuw8kn/index.html) |

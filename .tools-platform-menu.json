@@ -7,8 +7,9 @@
       "description": "电脑屏幕播放动态二维码，手机摄像头连续扫码接收小文件或文本；文件内容不经过平台服务器。",
       "href": "./optical-transfer/index.html",
       "encrypted": false,
-      "fingerprint": "d53ae95669d11c7f656829f8c5dcbb444cffa3569a7c63a10d61fd440a475422",
-      "updatedAt": "2026-09-28T18:30:32.995Z"
+      "publicAccess": true,
+      "fingerprint": "9e3e60aa2bc90c1291fa9ac1350fc49e7e8c1e6e7b477e13f758008b3f9c517e",
+      "updatedAt": "2026-10-25T15:10:46.272Z"
     },
     {
       "slug": "particle-effects",
@@ -16,8 +17,8 @@
       "description": "可跟随内置音乐、音频文件或麦克风实时变化的 3D Chladni 粒子视觉特效。",
       "href": "./particle-effects/index.html",
       "encrypted": false,
-      "fingerprint": "6f11c62aed2ec91648751a1c56fd21f3d86e233521d003626032cb935a0a0f8c",
-      "updatedAt": "2026-09-28T18:30:33.013Z"
+      "fingerprint": "5a2689cac70af2ef867f5dbec6fb6e7300a3875d888cda327978762da1850c0d",
+      "updatedAt": "2026-10-25T15:10:46.311Z"
     },
     {
       "slug": "tool-mrrgpqy4",
@@ -25,8 +26,8 @@
       "description": "轻量、适合移动端使用的现场人数计数器。",
       "href": "./tool-mrrgpqy4/index.html",
       "encrypted": false,
-      "fingerprint": "287001a8d16ce0d4a41be1575f1f9fdfce9208a36d88c568552de0b06388f717",
-      "updatedAt": "2026-09-28T18:30:33.018Z"
+      "fingerprint": "6859cede77cc3a8b43511e413c5980ab64408a45599ab1ab7cb1827d95df64e3",
+      "updatedAt": "2026-10-25T15:10:46.521Z"
     },
     {
       "slug": "tool-mrrn48dc",
@@ -34,8 +35,8 @@
       "description": "土耳其海边旅行倒计时页面。",
       "href": "./tool-mrrn48dc/index.html",
       "encrypted": false,
-      "fingerprint": "6aee83e96cddb3e7ebd155d65ac52220f0f9cc4b1d3942ec933d3b18196b1fbd",
-      "updatedAt": "2026-09-28T18:30:33.082Z"
+      "fingerprint": "ccb53c0c8de3c34c295c270b6275bb74c949bf4272a8c5783255d249f80c50cf",
+      "updatedAt": "2026-10-25T15:10:46.623Z"
     },
     {
       "slug": "tool-msqfmv82",
@@ -43,8 +44,8 @@
       "description": "一款在浏览器本地运行的 PDF 处理应用，可压缩、合并文件，排序、旋转或删除页面，并支持双页裁切拼接，适合日常文档整理。",
       "href": "./tool-msqfmv82/index.html",
       "encrypted": false,
-      "fingerprint": "5e531b0f673c67caf78b5eb4c8527690c92cfee7ac0482dd61d67dbf8d201488",
-      "updatedAt": "2026-09-28T18:30:33.091Z"
+      "fingerprint": "972fc001457946880c4a16accb0284cb4ad8cc78001b5830cb6c994c766471fd",
+      "updatedAt": "2026-10-25T15:10:46.734Z"
     },
     {
       "slug": "tool-msqfplq0",
@@ -52,8 +53,8 @@
       "description": "一款浏览器端PDF编辑应用，可添加文字、图片、遮盖、画笔与高亮标注，调整页面旋转和缩放，并保存工程或导出合成后的PDF。",
       "href": "./tool-msqfplq0/index.html",
       "encrypted": false,
-      "fingerprint": "18da61da38e43d6bbd393fda1e2176758cca4cb5d4d96ff5c4223888e118a752",
-      "updatedAt": "2026-09-28T18:30:33.104Z"
+      "fingerprint": "1349a2a2a0dd3dbf333392341c5483853fe4a63675d3c6d33848c27b472bafe2",
+      "updatedAt": "2026-10-25T15:10:46.768Z"
     },
     {
       "slug": "datacom-protocol-expert",
@@ -61,8 +62,8 @@
       "description": "数通协议知识库：OSPF、Juniper 跨厂商策略等知识的分类整理，配合二维拓扑、报文时序、按位图解与分步实验，理解复杂协议机制。",
       "href": "./datacom-protocol-expert/index.html",
       "encrypted": false,
-      "fingerprint": "12c63c20decc5603bfa0fe58671c4a4d1e8e01e6a4c6d8219afeed42303d0a20",
-      "updatedAt": "2026-10-25T05:10:55.039Z"
+      "fingerprint": "654067a0d95e42213a2825fd75398a4bcf050e205d02f511ca7c3386609e3bf3",
+      "updatedAt": "2026-10-25T15:10:46.028Z"
     },
     {
       "slug": "department-reward-penalty",
@@ -79,8 +80,8 @@
       "description": "独立的悬赏奖、岗位激励、操作激励与代表处评优申报、规则和审批公示工作台。",
       "href": "./reward-program/index.html",
       "encrypted": false,
-      "fingerprint": "8368b37e98bfccdef9712fbd68fe636c939ab6b86708e9707ca40169801c76af",
-      "updatedAt": "2026-10-20T06:41:23.358Z"
+      "fingerprint": "2bff2f6799f56276e01235e3806302d43f220e7fd27f2f899cdc988e133140dc",
+      "updatedAt": "2026-10-25T15:10:45.894Z"
     },
     {
       "slug": "tool-msf5b7nn",
@@ -88,8 +89,8 @@
       "description": "批量导入QR、RFC、WFM名单及线上线下签到表，合并去重参会人员，按最早签到时间判定准时、迟到、虚假签到或缺席，并支持检索与导出。",
       "href": "./tool-msf5b7nn/index.html",
       "encrypted": false,
-      "fingerprint": "89ca0e456578949b73f7d5579a993dc69a97f5101c8cbd2a5b5f0fedef3066fa",
-      "updatedAt": "2026-10-20T06:41:23.362Z"
+      "fingerprint": "0c03942fdf72751c967d577f2f0f9327f656211751525e0ac674cb0f3049aff1",
+      "updatedAt": "2026-10-25T15:10:45.904Z"
     },
     {
       "slug": "tool-ms4xb66s",
@@ -97,8 +98,8 @@
       "description": "导入夜间操作 Excel，按人员、周期和操作等级核算操作激励并生成分析与导出结果。",
       "href": "./tool-ms4xb66s/index.html",
       "encrypted": false,
-      "fingerprint": "4a02427429515419d022fca525b4a28bee272998fae376eb96a28ddd56eeebdc",
-      "updatedAt": "2026-10-25T05:10:54.935Z"
+      "fingerprint": "1b96f9c3f2532fb5b38ae61f1b56353fd1d3d9d5da7b085737dfaa25a88e6750",
+      "updatedAt": "2026-10-25T15:10:45.913Z"
     },
     {
       "slug": "tool-mumxi3px",
@@ -106,8 +107,8 @@
       "description": "查询产品是否属于强控业务比对范围，支持产品数据导入导出、服务器保存、模糊检索和静态快照同步。",
       "href": "./tool-mumxi3px/index.html",
       "encrypted": false,
-      "fingerprint": "156f565e9c77c2c4b9205c00ee74f72e636d1b71e1aedac35b2fdd09ddfafe95",
-      "updatedAt": "2026-10-24T19:10:47.123Z"
+      "fingerprint": "dfd6fe4d44b7c676f78f77f880f1938c4036246fba50c547494a841917c5edf5",
+      "updatedAt": "2026-10-25T15:10:45.920Z"
     },
     {
       "slug": "tool-mqp55fna",
@@ -115,8 +116,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-mqp55fna/index.html",
       "encrypted": false,
-      "fingerprint": "c9d33c9c2ec569401746674a71ed4ad96e2c635e9de719891abf8449928baee5",
-      "updatedAt": "2026-10-20T06:41:23.405Z"
+      "fingerprint": "45d346d09ff463bcf77133bb087f739d5f5256dd4fff98e862a57001f6901195",
+      "updatedAt": "2026-10-25T15:10:46.035Z"
     },
     {
       "slug": "acceptance-checklist",
@@ -124,8 +125,8 @@
       "description": "纯浏览器验收填报：验收结果下拉、多图证明、本地自动保存、含图片 Excel 导出与备份恢复。",
       "href": "./acceptance-checklist/index.html",
       "encrypted": false,
-      "fingerprint": "bb44147c07ba7d515dfe6b7b06e9d2f1154319061832846eefe2116ccd8b2ccd",
-      "updatedAt": "2026-10-20T06:41:23.408Z"
+      "fingerprint": "a9856a46bc8e4fef3141eecd3c9c3dde1b194c5f5a9275568226c3fa015383e5",
+      "updatedAt": "2026-10-25T15:10:46.046Z"
     },
     {
       "slug": "chat-history-center",
@@ -133,8 +134,8 @@
       "description": "租户共享的企业聊天记录导入、检索、收藏与人员活跃度分析工具。",
       "href": "./chat-history-center/index.html",
       "encrypted": false,
-      "fingerprint": "e200c196cbb7bd71ebf061515d02f364253379e80fac0ac3d0a175459d2c2b4e",
-      "updatedAt": "2026-10-20T06:41:23.410Z"
+      "fingerprint": "a344643ba2df7048fcff7a74decf30505fe56f83331fc97bbac59955c068c2f3",
+      "updatedAt": "2026-10-25T15:10:46.060Z"
     },
     {
       "slug": "cnbg-_",
@@ -142,8 +143,8 @@
       "description": "纯静态页面，可直接离线查看。",
       "href": "./cnbg-_/index.html",
       "encrypted": false,
-      "fingerprint": "0420c6cfb6a91644523c8ab1c80c4fad0e58038fc243190d5a63980e159b0916",
-      "updatedAt": "2026-10-20T06:41:23.458Z"
+      "fingerprint": "090c9bfee93390b4d50bbd872afd4d1fcfb0418579397375bbc1db96715c787a",
+      "updatedAt": "2026-10-25T15:10:46.128Z"
     },
     {
       "slug": "eos_tool-v8",
@@ -151,8 +152,8 @@
       "description": "重急EOS收编统计工具",
       "href": "./eos_tool-v8/index.html",
       "encrypted": false,
-      "fingerprint": "bef3e2f4e09d6f3d97091c530b6693919bd1dd99541434a2b521fdc77ad5da9f",
-      "updatedAt": "2026-10-20T06:41:23.461Z"
+      "fingerprint": "5973b5817c8cbd98c6bd7636f742ff0dcbe326bc7aa4426a387154ce713a0ebc",
+      "updatedAt": "2026-10-25T15:10:46.136Z"
     },
     {
       "slug": "esn-check",
@@ -160,8 +161,8 @@
       "description": "输入表1在网运行的临时license，表2全量license-2年，输出临时lic申请次数统计",
       "href": "./esn-check/index.html",
       "encrypted": false,
-      "fingerprint": "b90dd87f1858f64ff39aac3988b4300d8f442bbbacd5f8b66b7f9e46684c901a",
-      "updatedAt": "2026-10-20T06:41:23.464Z"
+      "fingerprint": "6b67a1d5300c80ac23affce4d08268f45c0f13b8f85fe60fe503775b3f49336a",
+      "updatedAt": "2026-10-25T15:10:46.154Z"
     },
     {
       "slug": "mayrig",
@@ -169,8 +170,8 @@
       "description": "Mayrig 亚美尼亚餐厅的电子菜单，提供详尽的热前菜、主菜、法太、配菜、甜品及特色饮料分类。页面包含每道菜品的中文名称、英文名称、价格及详细描述，支持用户快速浏览丝绸之路风味的特色美食。",
       "href": "./mayrig/index.html",
       "encrypted": false,
-      "fingerprint": "4e3f994a46f41d966a0708d566079067d5623e61dd0d6caaea0dcbfb6b47bd8d",
-      "updatedAt": "2026-10-20T06:41:23.467Z"
+      "fingerprint": "4ab65f76941708c118e2a6bcb517a781232642f0419f409732927b5753ea7266",
+      "updatedAt": "2026-10-25T15:10:46.161Z"
     },
     {
       "slug": "network_safety_meeting_summary",
@@ -187,8 +188,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./nis_2026h1_summary/index.html",
       "encrypted": false,
-      "fingerprint": "b631f4a6e9f7dc0b49415eb067912da5817a800f8e865d8ab8dd3e689c4b52a6",
-      "updatedAt": "2026-10-20T06:41:23.485Z"
+      "fingerprint": "2df5fad562e6f8bf4a9696f42e1c525a6593a84916fe344dc2668caded686bd1",
+      "updatedAt": "2026-10-25T15:10:46.174Z"
     },
     {
       "slug": "parkst",
@@ -196,8 +197,8 @@
       "description": "Park Street 餐厅的电子菜单，提供全天早午餐、牛油果系列、松饼、汉堡、披萨及各类主菜与甜品。支持按分类浏览菜品详情、价格及加料定制选项，适用于店内点餐参考。",
       "href": "./parkst/index.html",
       "encrypted": false,
-      "fingerprint": "2cde51a56b89ec4f9a23448144a79c746262729ef21715c426cfbdd304cbadae",
-      "updatedAt": "2026-10-20T06:41:23.500Z"
+      "fingerprint": "53050bfb107d54952118047c7fb8006ea51ff52dcc8cd4c67bcf537bce8f3307",
+      "updatedAt": "2026-10-25T15:10:46.281Z"
     },
     {
       "slug": "pr",
@@ -205,8 +206,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./pr/index.html",
       "encrypted": false,
-      "fingerprint": "781ab7403676034e57d98a7c9cfd95b28f3c5210179e81b3686c9fb0371988d9",
-      "updatedAt": "2026-10-20T06:41:23.507Z"
+      "fingerprint": "35e6e04ddabe117f358e9d03f81672149fb3d70b5d62c609e3961d7a770bf18e",
+      "updatedAt": "2026-10-25T15:10:46.335Z"
     },
     {
       "slug": "pr-2",
@@ -214,8 +215,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./pr-2/index.html",
       "encrypted": false,
-      "fingerprint": "a89f13f19c68d6eaac6fe3a1deedd2740ff9db4e5f266b6da4b4967946de58ef",
-      "updatedAt": "2026-10-20T06:41:23.509Z"
+      "fingerprint": "02f77eee4ef1d75568cdafbbba33ea921d06b3b627a19637df5832bd578ac8ec",
+      "updatedAt": "2026-10-25T15:10:46.343Z"
     },
     {
       "slug": "question-bank-assistant-privacy",
@@ -223,8 +224,9 @@
       "description": "题库与答题助手、NetCare RFC 方案与 AI 审计扩展中英文统一隐私政策，说明数据处理、本地隔离存储、大模型通信脱敏与用户控制。",
       "href": "./question-bank-assistant-privacy/index.html",
       "encrypted": false,
-      "fingerprint": "751c27bb272eaf1127ec5d29d5515c0ed0b0c135b71e58646b48aec57c4455e9",
-      "updatedAt": "2026-10-20T06:41:23.512Z"
+      "publicAccess": true,
+      "fingerprint": "f5e42425380cd26a60b20b69de690bb103eb409f5d089afbd4e5d06b7afb6b3f",
+      "updatedAt": "2026-10-25T15:10:46.354Z"
     },
     {
       "slug": "question-bank-study",
@@ -232,8 +234,8 @@
       "description": "导入题库与答题助手导出的单题库或多题库 JSON，在页面中搜索学习并转换为 Excel。",
       "href": "./question-bank-study/index.html",
       "encrypted": false,
-      "fingerprint": "3b0edad4b49b2c556a6f8d54b7e7e1bb79ec286cae572432ba86f6b63b16b0ee",
-      "updatedAt": "2026-10-20T06:41:23.514Z"
+      "fingerprint": "276c62875f8bdb4aaba89469292386cdf9078ad9214390dccb414b8bc19f3ed8",
+      "updatedAt": "2026-10-25T15:10:46.362Z"
     },
     {
       "slug": "supplier-quotation-comparison",
@@ -241,8 +243,8 @@
       "description": "导入含 Week1 基础表和多个供应商报价页的 Excel，自动匹配商品、折算含税可比单价并生成推荐比价表。",
       "href": "./supplier-quotation-comparison/index.html",
       "encrypted": false,
-      "fingerprint": "39ff20f39575172dc0306de24f7fc95b1e393a1098655936c1376ebbbab05e5f",
-      "updatedAt": "2026-10-20T06:41:23.529Z"
+      "fingerprint": "c93b49b4df45c3285c261bac791cbdaa14db65d70d978863dd16b6c1da94d96d",
+      "updatedAt": "2026-10-25T15:10:46.374Z"
     },
     {
       "slug": "tool-dining-card-wechat",
@@ -250,8 +252,8 @@
       "description": "支持同时导入营业流水刷卡 Excel 与微信账单，单独深度分析并智能合并到营业流水总盘；自动按餐别价格档位识别【自有-微信】与【非自有-微信】，支持历史数据快照保存与一键载入。",
       "href": "./tool-dining-card-wechat/index.html",
       "encrypted": false,
-      "fingerprint": "a9997e0992f40704616754db40592911a76e06c148efc75225f187ae0651dcc4",
-      "updatedAt": "2026-10-20T06:41:23.531Z"
+      "fingerprint": "7ede0e172b9599af25f84bc175a81b3ebebb44855ccb83cf86ccdd26b8f5c90f",
+      "updatedAt": "2026-10-25T15:10:46.386Z"
     },
     {
       "slug": "tool-mqtlwcrv",
@@ -259,8 +261,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-mqtlwcrv/index.html",
       "encrypted": false,
-      "fingerprint": "7be42eaf7c6405be44fd731d2a9ec76e4d52884dc06f6c9801b0120d6fb10f33",
-      "updatedAt": "2026-10-20T06:41:23.533Z"
+      "fingerprint": "40ed0a3bb862d8d7a341fc81730ea2b2ebe79647d6c7193eb57d320ea248c530",
+      "updatedAt": "2026-10-25T15:10:46.399Z"
     },
     {
       "slug": "tool-mr0vvmyi",
@@ -268,8 +270,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-mr0vvmyi/index.html",
       "encrypted": false,
-      "fingerprint": "bf9be412e3761e973bba228a54d3888a1dcf5764bcb7d0f6bae422254e60ab72",
-      "updatedAt": "2026-10-20T06:41:23.535Z"
+      "fingerprint": "427eb85b09ecdc3d2a7144fbbb88f1ed5d8ba1f45336c1a0f509530f96a05336",
+      "updatedAt": "2026-10-25T15:10:46.415Z"
     },
     {
       "slug": "tool-mr87218d",
@@ -277,8 +279,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-mr87218d/index.html",
       "encrypted": false,
-      "fingerprint": "fd80c8709e58a1251eec8fca0b9107134494a0263afe6ea4baed9d156acf35ea",
-      "updatedAt": "2026-10-20T06:41:23.537Z"
+      "fingerprint": "906925291c74d4554fe2d2b8b6f98e025e8551b26e55c7d4aa678b6659754d95",
+      "updatedAt": "2026-10-25T15:10:46.431Z"
     },
     {
       "slug": "tool-mr88gv9x",
@@ -286,8 +288,8 @@
       "description": "CS质量运营工具平台的能力、流程与应用场景介绍。",
       "href": "./tool-mr88gv9x/index.html",
       "encrypted": false,
-      "fingerprint": "43df4dd69713720355eef4ee38f9d7a0c5e5f228ed7cfc594d61667d5dc237aa",
-      "updatedAt": "2026-10-20T06:41:23.540Z"
+      "fingerprint": "04c00cfdacebc43735d6c1e747e35f576bbc7a91518553c2fdb43982140c1b39",
+      "updatedAt": "2026-10-25T15:10:46.447Z"
     },
     {
       "slug": "tool-mrhqjeya",
@@ -295,8 +297,8 @@
       "description": "年/月/周日程、导入导出与智能单据提醒：自动读取最新 SLA 快照，安排三次提醒及每日超期催办。",
       "href": "./tool-mrhqjeya/index.html",
       "encrypted": false,
-      "fingerprint": "3cbd390b4339b8135a4c9f85a184258d21d0609ba53db2358c2f51b7d673681b",
-      "updatedAt": "2026-10-20T06:41:23.544Z"
+      "fingerprint": "4465965b47d75ed672f986dce79858b738b02efbc40b95de3102f8ccc048c9ee",
+      "updatedAt": "2026-10-25T15:10:46.478Z"
     },
     {
       "slug": "tool-mrlpwjk3",
@@ -304,8 +306,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-mrlpwjk3/index.html",
       "encrypted": false,
-      "fingerprint": "8df65008b30f313d9fd64addebc3d5caaf8471c0d4ed53501e15efc8c5155451",
-      "updatedAt": "2026-10-20T06:41:23.546Z"
+      "fingerprint": "d026250d4952e9ef9fc7af20cdd1d182fa524f430f4e7f3c79a72c285958a24f",
+      "updatedAt": "2026-10-25T15:10:46.491Z"
     },
     {
       "slug": "tool-mro1gt5o",
@@ -313,8 +315,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-mro1gt5o/index.html",
       "encrypted": false,
-      "fingerprint": "b52133f0849e6840e9038d354e9c1158298c1c89297af0b01c439c686c740ba7",
-      "updatedAt": "2026-10-20T06:41:23.548Z"
+      "fingerprint": "5e8f8037f4a9b0c410d37397ff21f7144552506d69727e0b9428561cdeb58a60",
+      "updatedAt": "2026-10-25T15:10:46.505Z"
     },
     {
       "slug": "tool-mrsw86w8",
@@ -322,8 +324,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-mrsw86w8/index.html",
       "encrypted": false,
-      "fingerprint": "f2f355e34da1d23dca5ca8c4740a5f61fc382a8ec6c2b77ba580e55f3921a21d",
-      "updatedAt": "2026-10-20T06:41:23.561Z"
+      "fingerprint": "b7dd3189ff9d8374c54751bbb93583450c46175e3a37fccf9d0af6e3c7f1b9f9",
+      "updatedAt": "2026-10-25T15:10:46.637Z"
     },
     {
       "slug": "tool-ms1saxuh",
@@ -331,8 +333,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-ms1saxuh/index.html",
       "encrypted": false,
-      "fingerprint": "2271d1e0b3b49c59e3850a2067e268d19907378d1f156498b3a3c52d807c95e8",
-      "updatedAt": "2026-10-20T06:41:23.564Z"
+      "fingerprint": "1cf07bc4538ac73b4ee553e2fa5ecaee151bf7950010b8c39a0fc0481e580c31",
+      "updatedAt": "2026-10-25T15:10:46.654Z"
     },
     {
       "slug": "tool-msbmscxd",
@@ -340,8 +342,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-msbmscxd/index.html",
       "encrypted": false,
-      "fingerprint": "ad7230420b9867526074b12f6353bd947bf798e9090928ca318f058f76bb9f65",
-      "updatedAt": "2026-10-20T06:41:23.566Z"
+      "fingerprint": "e83b3bbbe4e88a822edc75b43ab0515823d38e671d91da3a9a6c4796e7f230cc",
+      "updatedAt": "2026-10-25T15:10:46.672Z"
     },
     {
       "slug": "tool-msbmu55i",
@@ -349,8 +351,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-msbmu55i/index.html",
       "encrypted": false,
-      "fingerprint": "6f4a513fc944bcbcc4f5e5cfcd4d808c11683592e5801173b086eefda86b34c9",
-      "updatedAt": "2026-10-20T06:41:23.568Z"
+      "fingerprint": "ef4117d132a0d68f085ed6cbeae340db49849f24e67ef67dba2df3b3d43af011",
+      "updatedAt": "2026-10-25T15:10:46.687Z"
     },
     {
       "slug": "tool-msh8aro4",
@@ -358,8 +360,9 @@
       "description": "双语展示平台核心业务模块、自定义及内置 HTML 工具、现场导入扩展与访问方式，支持工具搜索筛选和能力分类浏览。",
       "href": "./tool-msh8aro4/index.html",
       "encrypted": false,
-      "fingerprint": "a5be5758406816ad49d8dde65d1ce8f5fc89718e74dbfbdd5bd16ece5130f362",
-      "updatedAt": "2026-10-20T06:41:23.571Z"
+      "publicAccess": true,
+      "fingerprint": "891bccd2dd6d30c19b63fb136524e756af2366e7f883b1974df6d4c9ebd4cf05",
+      "updatedAt": "2026-10-25T15:10:46.705Z"
     },
     {
       "slug": "tool-mtakhxqm",
@@ -376,8 +379,8 @@
       "description": "用于餐厅采购订单数据清洗与核对，支持Excel导入、文本解析、数量单位纠错及多表差异比对。",
       "href": "./tool-mtpx4vtr/index.html",
       "encrypted": false,
-      "fingerprint": "109897220069049d03620578214facafc6001be0ac472721ce4f3d3ab0f4ba0a",
-      "updatedAt": "2026-10-20T06:41:23.777Z"
+      "fingerprint": "f45249e83448d67d0292c7e69c6e5008a97e357a3e9620b36a00bc67e2fad0c6",
+      "updatedAt": "2026-10-25T15:10:46.831Z"
     },
     {
       "slug": "tool-mttuw8kn",
@@ -385,8 +388,8 @@
       "description": "面向埃及行政运营的综合管控界面，覆盖任务进度、满意度反馈、餐饮月报、活动方案和影像归档等日常管理场景。",
       "href": "./tool-mttuw8kn/index.html",
       "encrypted": false,
-      "fingerprint": "d9003013ea1a1f064b0c9e1e300d011b7c4e1ae2f96240d0d28e284ba10750da",
-      "updatedAt": "2026-10-20T06:41:23.784Z"
+      "fingerprint": "ccde08bd63da3c488253ec105b25215282de21b5901995b02130ce849d443b46",
+      "updatedAt": "2026-10-25T15:10:46.845Z"
     },
     {
       "slug": "tool-mu2t8i0i",
@@ -394,8 +397,8 @@
       "description": "用于驻外薪资换汇盈亏测算，支持美元、埃镑和人民币汇率转换，按发薪日期与实际成交价比较收益变化。",
       "href": "./tool-mu2t8i0i/index.html",
       "encrypted": false,
-      "fingerprint": "d75dd9c43addcb925e3e69b9df5ea650f9f30f1427af9f12b878039fdb801fb5",
-      "updatedAt": "2026-10-20T06:41:23.791Z"
+      "fingerprint": "6eefe5290c5b372b78de4e4588fd6ec19c6f44b268c9775cb6abf7323da54394",
+      "updatedAt": "2026-10-25T15:10:46.855Z"
     },
     {
       "slug": "tool-mu2t8wi3",
@@ -403,8 +406,8 @@
       "description": "读取微信账单文件并按金额与开罗时间规则统计早餐、中餐、晚餐人数，支持多文件汇总及分文件明细导出。",
       "href": "./tool-mu2t8wi3/index.html",
       "encrypted": false,
-      "fingerprint": "c37f0d18d3a0064e038112838729768ca9e0892bfafdb39c4a48ea510672c9cb",
-      "updatedAt": "2026-10-20T06:41:23.797Z"
+      "fingerprint": "8fdb13a8707d5e0f51f40c8444ea282332d58ae45ec55237eee4f9b9c572a9dd",
+      "updatedAt": "2026-10-25T15:10:46.866Z"
     },
     {
       "slug": "tool-mv9strpn",
@@ -412,8 +415,8 @@
       "description": "译维仓储管理工具，支持货品档案、出入库、库存盘点、条码与资金账单。业务数据按租户保存到独立服务器 SQLite 数据库，支持 JSON 备份、旧浏览器数据迁移和数据库下载。",
       "href": "./tool-mv9strpn/index.html",
       "encrypted": false,
-      "fingerprint": "1cebb3fbdff1d9584f9052e0cb68b7ec46af6c30e4e7cc011cfd20a998946865",
-      "updatedAt": "2026-10-20T06:41:23.799Z"
+      "fingerprint": "6587444e9074548cb63c956d53130b3b6ed8dd093d90ed6f61d811ffde65c13f",
+      "updatedAt": "2026-10-25T15:10:46.885Z"
     }
   ]
 }
