@@ -244,9 +244,13 @@ function writeToolManifest(tool, options = {}) {
     const target = manifestPath(tool.slug);
     const temp = `${target}.${process.pid}.tmp`;
     const previousManifest = options.previousManifest || readToolManifest(tool.slug);
+    const normalized = normalizeToolRecord(tool, tool.slug);
+    if (previousManifest && previousManifest.tool && previousManifest.tool.updatedAt && options.preserveReleaseTimestamp !== false) {
+        normalized.updatedAt = previousManifest.tool.updatedAt;
+    }
     const manifest = {
         version: 1,
-        tool: normalizeToolRecord(tool, tool.slug),
+        tool: normalized,
         history: options.history !== undefined ? options.history : (previousManifest?.history || null)
     };
     if (options.builtIn !== undefined ? options.builtIn : previousManifest?.builtIn) {

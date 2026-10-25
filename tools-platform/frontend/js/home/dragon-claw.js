@@ -966,6 +966,7 @@
             if (grounding) reply.querySelector('.dc-msg-main').insertAdjacentHTML('beforeend', grounding);
             addMessageTools(reply, finalText, { modelName: data.model?.name || model?.name || '', usage: data.usage });
             window.DragonClawSkills?.offerSave?.(reply, finalText); // @create-skill 的草稿：回复下方提供「保存为技能」
+            if (keptSkills.includes('ops-group')) window.ToolsOpsInbox?.refresh();
         } catch (error) {
             const partial = renderer.finish();
             if (!reply.isConnected) return;

@@ -1,7 +1,7 @@
 // 运营草稿确认：主页对话卡片与跨工具提醒共享同一个编辑器。
 (function () {
     'use strict';
-    if (window.ToolsOpsInbox || window.top !== window.self || !/^https?:$/.test(location.protocol)) return;
+    if (window.ToolsOpsInbox || window.top !== window.self || window.__TP_STATIC_BASE__ || !/^https?:$/.test(location.protocol)) return;
     const API = '/api/channels/ops';
     const PAGE_SIZE = 20;
     const L = (zh, en) => /^(en|en-US)$/.test(window.ToolsI18n?.getLanguage?.() || window.ToolsCustomI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || '') ? en : zh;
@@ -11,6 +11,14 @@
 
     function identity() {
         return ['tools_user', 'tools_tenant_id', 'tools_token'].map(key => localStorage.getItem(key) || sessionStorage.getItem(key) || '').join('|');
+    }
+
+    function muteKey() {
+        return `tools_ops_inbox_muted:${localStorage.getItem('tools_user') || ''}:${localStorage.getItem('tools_tenant_id') || 'default'}`;
+    }
+
+    function readMuted() {
+        try { return sessionStorage.getItem(muteKey()) || ''; } catch { return ''; }
     }
 
     async function request(method, path, body) {
@@ -30,11 +38,13 @@
         state.epoch += 1;
         state.items = [];
         state.total = state.offset = 0;
+        state.loading = false;
         state.canManage = false;
         state.edits.clear();
         state.open.clear();
         state.editing.clear();
         state.notice = state.signature = state.muted = state.busy = '';
+        state.muted = readMuted();
         closeDialog();
         render();
     }
@@ -66,7 +76,7 @@
                 render();
             }
         } catch (error) {
-            if (epoch !== state.epoch) return;
+            if (epoch !== state.epoch || identity() !== state.identity) return;
             if (error.status === 401 || error.status === 403) resetIdentity();
             else if (force) {
                 state.notice = L('暂时无法刷新，已保留你的修改：', 'Could not refresh. Your edits are preserved: ') + error.message;
@@ -74,7 +84,7 @@
                 renderPanel();
             }
         } finally {
-            state.loading = false;
+            if (epoch === state.epoch) state.loading = false;
         }
     }
 
@@ -106,7 +116,7 @@
         const focusId = focused?.dataset?.opsEdit;
         const selection = focusId ? [focused.selectionStart, focused.selectionEnd] : null;
         const scroll = panel.querySelector('.ops-card-list')?.scrollTop || 0;
-        panel.innerHTML = `<header class="ops-inbox-heading"><div><span class="ops-eyebrow">${esc(L('消息待办', 'MESSAGE INBOX'))}</span><h3>${esc(L('待确认消息', 'Messages to review'))}<span class="ops-count">${state.total}</span></div><button type="button" data-ops-inbox-action="refresh" ${state.busy ? 'disabled' : ''}>${esc(L('刷新', 'Refresh'))}</button></header>
+        panel.innerHTML = `<header class="ops-inbox-heading"><div><span class="ops-eyebrow">${esc(L('消息待办', 'MESSAGE INBOX'))}</span><h3>${esc(L('待确认消息', 'Messages to review'))}</h3><span class="ops-count">${state.total}</span></div><button type="button" data-ops-inbox-action="refresh" ${state.busy ? 'disabled' : ''}>${esc(L('刷新', 'Refresh'))}</button></header>
             <p class="ops-inbox-description">${esc(L('草稿已准备好。核对发送对象和正文，也可以直接修改后发送。', 'Your drafts are ready. Check the recipients and message, or edit before sending.'))}</p>
             <div class="ops-feedback ${state.tone === 'error' ? 'is-error' : ''}" role="status" ${state.notice ? '' : 'hidden'}>${esc(state.notice)}</div>
             <div class="ops-card-list">${state.items.length ? state.items.map(card).join('') : `<div class="ops-empty">${esc(L('所有待确认消息已处理', 'All messages have been reviewed'))}</div>`}</div>
@@ -124,6 +134,11 @@
         const available = state.canManage && state.total > 0;
         const batch = state.items.map(item => item.id).join('|');
         banner.hidden = !available || batch === state.muted;
+        banner.setAttribute('aria-label', L('待确认消息提醒', 'Message review reminder'));
+        if (dialog) {
+            dialog.setAttribute('aria-label', L('待确认消息', 'Messages to review'));
+            dialog.querySelector('[data-ops-inbox-action="close"]').setAttribute('aria-label', L('关闭', 'Close'));
+        }
         banner.innerHTML = `<span class="ops-beacon" aria-hidden="true"><i></i>✦</span><span class="ops-banner-copy"><b>${esc(L(`${state.total} 条消息等待你确认`, `${state.total} messages ready for review`))}</b><small>${esc(L('草稿已就绪，查看后即可发送', 'Drafts are ready to review and send'))}</small></span><button type="button" class="ops-primary" data-ops-inbox-action="review">${esc(L('查看并确认', 'Review'))}<span aria-hidden="true"> ↗</span></button><button type="button" class="ops-dismiss" data-ops-inbox-action="mute" aria-label="${esc(L('暂时收起，有新消息时再提醒', 'Dismiss until the next new message'))}">×</button>`;
         if (home) {
             home.hidden = !available && !state.notice;
@@ -159,7 +174,12 @@
         if (!button) return;
         const kind = button.dataset.opsInboxAction;
         if (kind === 'close') return closeDialog();
-        if (kind === 'mute') { state.muted = state.items.map(item => item.id).join('|'); banner.hidden = true; return; }
+        if (kind === 'mute') {
+            state.muted = state.items.map(item => item.id).join('|');
+            try { sessionStorage.setItem(muteKey(), state.muted); } catch { /* 当前页面仍可收起 */ }
+            banner.hidden = true;
+            return;
+        }
         if (kind === 'review') return review();
         if (state.busy) return;
         if (kind === 'refresh' || kind === 'next' || kind === 'prev') {
@@ -195,13 +215,14 @@
             state.tone = kind === 'send' && result.status !== 'sent' ? 'error' : '';
             state.notice = kind === 'save' ? L('修改已保存，尚未发送。', 'Draft saved. It has not been sent.') : result.status === 'sent' ? L('消息已发送。', 'Message sent.') : L('发送未全部成功，请到频道对接的推送记录查看详情：', 'Some deliveries failed. Check channel history: ') + (result.error || result.status);
             if (kind === 'send') {
+                state.open.delete(id);
                 state.items = state.items.filter(entry => entry.id !== id);
                 state.total = Math.max(0, state.total - 1);
             }
             window.dispatchEvent(new Event('tools:ops-drafts-changed'));
             try { localStorage.setItem('tools_ops_drafts_changed', String(Date.now())); } catch { /* 当前页面仍会刷新 */ }
         } catch (error) {
-            if (epoch !== state.epoch) return;
+            if (epoch !== state.epoch || identity() !== state.identity) return;
             state.notice = error.message;
             state.tone = 'error';
         } finally {
@@ -214,6 +235,10 @@
         css.rel = 'stylesheet';
         css.href = '/css/ops-inbox.css';
         document.head.append(css);
+        fetch('/api/asset-version?path=%2Fcss%2Fops-inbox.css', { cache: 'no-store' })
+            .then(response => response.ok ? response.json() : null)
+            .then(data => { if (data?.version) css.href = `/css/ops-inbox.css?v=${encodeURIComponent(data.version)}`; })
+            .catch(() => {});
         banner = document.createElement('aside');
         banner.className = 'ops-inbox-banner';
         banner.dataset.toolsI18nIgnore = '1';
@@ -249,13 +274,15 @@
             const item = state.items.find(entry => entry.id === id);
             if (!item) return;
             state.edits.set(id, { base: state.edits.get(id)?.base ?? item.content, text: event.target.value });
-            event.target.closest('.ops-card').querySelector('[data-ops-inbox-action="send"]').disabled = !event.target.value.trim();
+            const edit = state.edits.get(id);
+            event.target.closest('.ops-card').querySelector('[data-ops-inbox-action="send"]').disabled = !edit.text.trim() || (edit.base !== item.content && edit.text !== item.content);
         });
         panel.addEventListener('toggle', event => {
             const id = event.target.dataset.opsCard;
             if (id) { if (event.target.open) state.open.add(id); else state.open.delete(id); }
         }, true);
         state.identity = identity();
+        state.muted = readMuted();
         refresh({ force: true }).then(() => { if (location.hash === '#ops-drafts') review(); });
         timer = setInterval(refresh, 20000);
         window.addEventListener('pagehide', () => clearInterval(timer));

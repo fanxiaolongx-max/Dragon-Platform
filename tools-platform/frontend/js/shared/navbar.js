@@ -10132,19 +10132,20 @@ async function checkBuiltinToolsSync() {
             if (checkedAt > 0 && age >= 0 && age < BUILTIN_SYNC_CHECK_TTL_MS) return;
         } catch (_) { /* 无法使用会话存储时按原逻辑扫描 */ }
         const preview = await API.get('/api/custom-tools/builtin-sync/preview');
-        // 过滤出真正存在程序文件变更的工具；若所有待处理项都只是版本标识差异或接管（+0 / ~0 / -0），自动检查时不弹窗打扰用户
-        const actionablePending = Array.isArray(preview?.pending)
-            ? preview.pending.filter(tool => {
-                const counts = tool.counts || {};
-                return (counts.added || 0) > 0 || (counts.modified || 0) > 0 || (counts.removed || 0) > 0;
-            })
-            : [];
         // 仅记住“没有待更新项”的成功检查，不复用可能过时的更新清单。
-        if (cacheKey && (!actionablePending.length || !preview?.pending?.length)) {
+        if (cacheKey && Array.isArray(preview?.pending) && !preview.pending.length) {
             try { sessionStorage.setItem(cacheKey, String(Date.now())); } catch (_) { /* noop */ }
         }
-        if (!toolMarketOpened() && actionablePending.length && !document.getElementById('navSettingsModal')) {
-            openBuiltinToolsSyncModal({ ...preview, pending: actionablePending });
+        if (!toolMarketOpened() && preview && Array.isArray(preview.pending) && preview.pending.length && !document.getElementById('navSettingsModal')) {
+            // 如果所有待处理项都显式带有文件统计且变更均为 0（+0 / ~0 / -0），仅为接管或元数据标识差异，不弹窗打扰用户
+            const hasActionableTools = preview.pending.some(tool => {
+                if (!tool || !tool.counts) return true;
+                const c = tool.counts;
+                return (c.added || 0) > 0 || (c.modified || 0) > 0 || (c.removed || 0) > 0;
+            });
+            if (hasActionableTools) {
+                openBuiltinToolsSyncModal(preview);
+            }
         }
     } catch (error) {
         console.warn('[custom-tools] 读取系统工具更新失败：', error.message);

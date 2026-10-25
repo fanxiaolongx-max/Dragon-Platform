@@ -21,7 +21,6 @@ function canonicalContent(relativePath, content) {
         if (manifest.tool && typeof manifest.tool === 'object') {
             const tool = { ...manifest.tool };
             delete tool.publicAccess;
-            delete tool.updatedAt;
             delete tool.createdAt;
             delete tool.nameEn;
             delete tool.descriptionEn;

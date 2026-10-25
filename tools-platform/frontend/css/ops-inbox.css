@@ -23,6 +23,8 @@ body.light-theme :is(.ops-inbox-banner, .ops-inbox-panel, .ops-inbox-dialog, .op
     color-scheme: light;
 }
 .ops-inbox-banner[hidden], .ops-home-inbox[hidden], .ops-feedback[hidden] { display: none !important; }
+/* 对话区已有就地入口，浏览工具时才需要浮动提醒。 */
+body.home-mode-chat .ops-inbox-banner { display: none !important; }
 .ops-inbox-banner {
     position: fixed;
     top: calc(var(--navbar-h, 52px) + 12px + env(safe-area-inset-top, 0px));
@@ -31,6 +33,7 @@ body.light-theme :is(.ops-inbox-banner, .ops-inbox-panel, .ops-inbox-dialog, .op
     display: flex;
     align-items: center;
     gap: 12px;
+    width: min(490px, calc(100vw - 32px));
     max-width: min(520px, calc(100vw - 32px));
     padding: 12px 14px;
     border: 1px solid color-mix(in srgb, var(--ops-accent) 35%, transparent);
@@ -97,7 +100,7 @@ body.light-theme :is(.ops-inbox-banner, .ops-inbox-panel, .ops-inbox-dialog, .op
 @keyframes ops-arrive { from { opacity: 0; transform: translateY(-12px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes ops-breathe { 0% { transform: scale(.85); opacity: .45; } 70%, 100% { transform: scale(1.5); opacity: 0; } }
 @media (max-width: 600px) {
-    .ops-inbox-banner { right: 12px; left: 12px; max-width: none; gap: 9px; padding: 10px; border-radius: 14px; }
+    .ops-inbox-banner { right: 12px; left: 12px; width: auto; max-width: none; gap: 9px; padding: 10px; border-radius: 14px; }
     .ops-banner-copy small { display: none; }
     .ops-banner-copy b { font-size: 11px; }
     .ops-inbox-banner button { padding: 7px 9px; font-size: 11px; }

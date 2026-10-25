@@ -220,6 +220,7 @@
             await task();
             state.busy = '';
             await load();
+            window.dispatchEvent(new Event('tools:ops-drafts-changed'));
         } catch (error) {
             state.busy = '';
             buttons.forEach(button => { button.disabled = false; });
