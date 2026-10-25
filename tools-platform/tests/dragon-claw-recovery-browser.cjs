@@ -45,7 +45,7 @@ app.whenReady().then(async () => {
         const addHistoryMessage = () => {}, rememberLastChat = () => {}, hideResumeCard = () => {}, setChatting = () => {}, scrollThread = () => {};
         const showToast = text => { window.lastToast = text; }, refreshResumeCard = () => {}, markActiveChat = () => {}, prefersReducedMotion = () => true;
         const AVATAR = '', renderMarkdown = value => value, autoResize = () => {};
-        const runSlashCommand = () => false, currentModel = () => null, buildContext = () => '', collectClientToolData = async () => [];
+        const runSlashCommand = () => false, isSideCommand = () => false, currentModel = () => null, buildContext = () => '', collectClientToolData = async () => [];
         const waitForAssistant = async () => ({ async requestStreamingChat(payload) { window.lastPayload = payload; return { reply: 'done' }; } });
         const addMessageTools = () => {}, addUserTools = () => {};
         const historyPaging = {}, resetHistoryPaging = () => {}, mountHistorySentinel = () => {};

@@ -32,7 +32,7 @@ app.whenReady().then(async () => {
         const scrollThread = () => {};
         const renderMarkdown = text => text ? '<p>' + escapeHtml(text) + '</p>' : '';
         const setChatting = () => {}, autoResize = () => {}, updateSendButton = () => {}, rememberLastChat = () => {}, addMessageTools = () => {}, addUserTools = () => {};
-        const runSlashCommand = () => false, currentModel = () => null, buildContext = () => '';
+        const runSlashCommand = () => false, isSideCommand = () => false, currentModel = () => null, buildContext = () => '';
         const collectClientToolData = async () => [];
         const waitForAssistant = async () => window.mockApi;
         const workspace = () => ({ getWorkspacePayload: () => null, applyDone() {}, finishMessage, handleEvent(message, event) {

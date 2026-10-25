@@ -9,6 +9,10 @@
         'zh-CN': {
             ctxCompacted: '上下文已压缩，下次回复后更新占用',
             slashCompact: '压缩当前对话上下文，保留完整历史', compactRunning: '正在压缩上下文…', compactEmpty: '先开始一段对话，再压缩上下文', compactSmall: '上下文已较精简，无需压缩', compactDone: '上下文已压缩，完整历史和工具记录仍保留', compactFailed: '压缩失败，未清除历史记录',
+            slashSchedule: '定时或延时执行一条指令（不带参数查看任务）', slashPlan: '先出步骤计划，确认后再执行', slashBtw: '顺便问一句，不打断、不写入当前对话',
+            scheduleTitle: '定时任务', scheduleEmpty: '还没有定时任务', scheduleHint: '新建：/schedule 时间 指令，例如「/schedule 明天 9:00 汇总昨天的告警」「/schedule 每个工作日 9:30 看一下待办」「/schedule 30分钟后 提醒我开会」', scheduleCreated: '已预约 · {when}：{text}', scheduleCreatedRecurring: '已预约 · {rule}，下次 {when}：{text}', scheduleFailed: '预约失败', scheduleNext: '下次 {time}', scheduleLast: '上次 {time}', scheduleCancel: '取消', scheduleCancelled: '已取消定时任务', scheduleOpen: '打开对话', scheduleViewAll: '查看定时任务', scheduleOnce: '一次性', scheduleStatus_active: '等待执行', scheduleStatus_running: '执行中', scheduleStatus_done: '已完成', scheduleStatus_cancelled: '已取消', scheduleStatus_failed: '失败', scheduleRunDone: '⏰ 定时任务已执行：{text}', scheduleRunFailed: '⏰ 定时任务执行失败：{text}', scheduleRuns: '已执行 {count} 次', scheduleLoadFailed: '定时任务加载失败',
+            planNeedTask: '请在 /plan 后写上要做的事', planPrompt: '请先为下面的任务制定（或根据我的意见修改上一版）执行计划，暂时不要执行：\n- 用编号列出步骤，每步写清要做什么、会动到哪些文件或数据、怎么确认做好了；\n- 需要我先决定的问题单独列出；\n- 可以只读查看必要的信息，但不要修改文件、执行命令或产生任何副作用；\n- 计划写完就停，等我确认后再执行。\n\n任务：{task}', planExecute: '执行计划', planRevise: '修改计划', planRevisePrefix: '/plan 调整：', planGo: '计划已确认，请按上面的计划逐步执行，每完成一步简要说明结果；遇到计划外的情况先停下来问我。', planGoShown: '✅ 按计划执行',
+            btwTitle: '顺便问', btwBadge: '不计入当前对话', btwNeedQuestion: '请在 /btw 后写上问题', btwClose: '关闭', btwFailed: '回答失败', btwPending: '（主对话里我刚问了：{text}，回复还在生成）',
             datacomTitle: '数通协议专家', datacomDescription: '协议图解 · 交互实验 · 视频讲解',
             badge: '全能智能体', newChat: '新对话', history: '历史',
             chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}',
@@ -57,6 +61,10 @@
         'en-US': {
             ctxCompacted: 'Context compacted. Usage updates after the next reply.',
             slashCompact: 'Compact context while keeping the full history', compactRunning: 'Compacting context…', compactEmpty: 'Start a conversation before compacting its context', compactSmall: 'The context is already compact', compactDone: 'Context compacted. Full chat and tool history kept.', compactFailed: 'Could not compact context. History was not deleted.',
+            slashSchedule: 'Run an instruction later or on a schedule (no args: list tasks)', slashPlan: 'Draft a step plan first, run it after you confirm', slashBtw: 'Quick side question that stays out of this chat',
+            scheduleTitle: 'Scheduled tasks', scheduleEmpty: 'No scheduled tasks yet', scheduleHint: 'Create: /schedule <time> <instruction>, e.g. "/schedule tomorrow 9:00 summarize yesterday\'s alerts", "/schedule weekdays 9:30 check my todos", "/schedule 30m remind me of the meeting"', scheduleCreated: 'Scheduled · {when}: {text}', scheduleCreatedRecurring: 'Scheduled · {rule}, next {when}: {text}', scheduleFailed: 'Could not schedule', scheduleNext: 'Next {time}', scheduleLast: 'Last {time}', scheduleCancel: 'Cancel', scheduleCancelled: 'Scheduled task cancelled', scheduleOpen: 'Open chat', scheduleViewAll: 'View scheduled tasks', scheduleOnce: 'One-time', scheduleStatus_active: 'Waiting', scheduleStatus_running: 'Running', scheduleStatus_done: 'Done', scheduleStatus_cancelled: 'Cancelled', scheduleStatus_failed: 'Failed', scheduleRunDone: '⏰ Scheduled task ran: {text}', scheduleRunFailed: '⏰ Scheduled task failed: {text}', scheduleRuns: 'Ran {count} times', scheduleLoadFailed: 'Could not load scheduled tasks',
+            planNeedTask: 'Add the task after /plan', planPrompt: 'Before doing anything, write (or revise per my feedback) a plan for the task below. Do not execute it yet:\n- Number the steps; for each, say what you will do, which files or data it touches, and how to verify it;\n- List any decisions I need to make first;\n- You may read what you need, but do not modify files, run commands, or cause side effects;\n- Stop after the plan and wait for my confirmation.\n\nTask: {task}', planExecute: 'Run plan', planRevise: 'Revise plan', planRevisePrefix: '/plan Revise: ', planGo: 'Plan confirmed. Execute it step by step, briefly reporting each step; if something falls outside the plan, stop and ask me first.', planGoShown: '✅ Run the plan',
+            btwTitle: 'By the way', btwBadge: 'Not added to this chat', btwNeedQuestion: 'Add a question after /btw', btwClose: 'Close', btwFailed: 'Could not answer', btwPending: '(In the main chat I just asked: {text}; the reply is still coming)',
             datacomTitle: 'Datacom Protocol Expert', datacomDescription: 'Visual guides · Interactive labs · Videos',
             badge: 'All-round agent', newChat: 'New chat', history: 'History',
             chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}',
@@ -815,32 +823,60 @@
     }
 
     function updateSendButton() {
-        const generating = Boolean(state.controller);
+        // 生成中输入了 /btw、/schedule：按钮恢复为发送（这类命令不打断当前回复）
+        const generating = Boolean(state.controller) && !isSideCommand(el.input.value);
         el.form.classList.toggle('is-generating', generating);
         el.send.setAttribute('aria-label', generating ? tx('stop') : tx('send'));
         el.send.title = generating ? tx('stop') : tx('send');
-        el.send.disabled = state.restoring || (!generating && !el.input.value.trim());
+        el.send.disabled = (state.restoring && !isSideCommand(el.input.value)) || (!generating && !el.input.value.trim());
     }
 
     // 斜杠命令：/session [关键词] 打开历史会话，/new 新对话；其他以 / 开头的内容照常发送
+    // needsArg：没写参数时只补全命令名等用户继续输入；side：生成回复期间也能用（不占用主对话）
     const SLASH_COMMANDS = [
         { name: '/session', aliases: ['/sessions', '/history'], text: 'slashSession' },
         { name: '/new', aliases: [], text: 'slashNew' },
-        { name: '/compact', aliases: ['/compress'], text: 'slashCompact' }
+        { name: '/compact', aliases: ['/compress'], text: 'slashCompact' },
+        { name: '/schedule', aliases: ['/schedules', '/remind'], text: 'slashSchedule', side: true },
+        { name: '/plan', aliases: [], text: 'slashPlan', needsArg: true },
+        { name: '/btw', aliases: [], text: 'slashBtw', needsArg: true, side: true }
     ];
 
-    function runSlashCommand(content) {
-        const match = content.match(/^(\/[a-z]+)(?:\s+(.*))?$/i);
-        if (!match) return false;
+    function findSlashCommand(content) {
+        const match = String(content || '').trim().match(/^(\/[a-z]+)(?:\s+([\s\S]*))?$/i);
+        if (!match) return null;
         const name = match[1].toLowerCase();
         const command = SLASH_COMMANDS.find(item => item.name === name || item.aliases.includes(name));
-        if (!command) return false;
+        return command ? { command, arg: (match[2] || '').trim() } : null;
+    }
+
+    // 生成回复期间仍可执行的命令（/btw、/schedule）
+    function isSideCommand(content) {
+        return Boolean(findSlashCommand(content)?.command.side);
+    }
+
+    function runSlashCommand(content) {
+        const found = findSlashCommand(content);
+        if (!found) return false;
+        const { command, arg } = found;
+        if (command.needsArg && !arg) {
+            el.input.value = `${command.name} `;
+            autoResize();
+            hideSlashHints();
+            el.input.focus();
+            return true;
+        }
+        if (state.controller && !command.side) return true;
         el.input.value = '';
         autoResize();
         hideSlashHints();
-        if (command.name === '/session') openSessionPicker(match[2] || '');
+        updateSendButton();
+        if (command.name === '/session') openSessionPicker(arg);
         else if (command.name === '/new') newChat();
         else if (command.name === '/compact') compactContext();
+        else if (command.name === '/schedule') { if (arg) createSchedule(arg); else openSchedulePanel(); }
+        else if (command.name === '/plan') startPlan(arg);
+        else if (command.name === '/btw') askBtw(arg);
         return true;
     }
 
@@ -885,10 +921,281 @@
         }
     }
 
-    async function send(text, displayText = text) {
+    // ── /schedule 定时指令 ───────────────────────
+    // 到点后由服务端以当前账号执行，结果写回发起定时的对话；页面开着时轮询，执行完给出提醒。
+    const SCHEDULE_POLL_MS = 60 * 1000;
+    const scheduleWatch = { since: '', timer: null, panel: null, items: [] };
+
+    function browserTimezone() {
+        try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; }
+    }
+
+    function formatScheduleTime(value) {
+        const date = new Date(value);
+        if (!value || Number.isNaN(date.getTime())) return '';
+        const locale = lang() === 'en-US' ? 'en-US' : 'zh-CN';
+        const sameYear = date.getFullYear() === new Date().getFullYear();
+        return date.toLocaleString(locale, { ...(sameYear ? {} : { year: 'numeric' }), month: 'short', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+    }
+
+    function clipText(text, max = 60) {
+        const value = String(text || '').replace(/\s+/g, ' ').trim();
+        return value.length > max ? `${value.slice(0, max)}…` : value;
+    }
+
+    // 对话中显示一条临时提示（不进入聊天记录）；不在对话视图时改用轻提示
+    function showThreadNote(text, actions = []) {
+        if (!document.body.classList.contains('dc-chatting')) return showToast(text);
+        const note = document.createElement('div');
+        note.className = 'dc-msg-note dc-cmd-note';
+        note.setAttribute('role', 'status');
+        note.innerHTML = `<span>${escapeHtml(text)}</span>${actions.map(item => `<button type="button" class="dc-cmd-link" ${item.attr}>${escapeHtml(item.label)}</button>`).join('')}`;
+        el.thread.appendChild(note);
+        scrollThread(true);
+        return note;
+    }
+
+    async function createSchedule(text) {
+        try {
+            const model = currentModel();
+            const res = await fetch('/api/ai/schedules', { method: 'POST',
+                headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, sessionId: state.sessionId || '', timezone: browserTimezone(), ...(model ? { modelId: model.id } : {}) }) });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            const item = data.item;
+            const when = formatScheduleTime(item.nextRunAt);
+            const message = item.kind === 'recurring'
+                ? tx('scheduleCreatedRecurring', { rule: item.description, when, text: clipText(item.instruction) })
+                : tx('scheduleCreated', { when, text: clipText(item.instruction) });
+            showThreadNote(`⏰ ${message}`, [{ label: tx('scheduleViewAll'), attr: 'data-dc-schedules' }]);
+            watchSchedules(true);
+        } catch (error) {
+            // 解析失败时把原文放回输入框，改一下时间即可重试
+            el.input.value = `/schedule ${text}`;
+            autoResize();
+            showThreadNote(`⚠️ ${tx('scheduleFailed')}：${error.message}`);
+        }
+    }
+
+    async function fetchSchedules(since = '') {
+        const res = await fetch(`/api/ai/schedules${since ? `?since=${encodeURIComponent(since)}` : ''}`, { headers: authHeaders() });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+    }
+
+    function renderSchedulePanel() {
+        const list = scheduleWatch.panel?.querySelector('.dc-session-list');
+        if (!list) return;
+        if (!scheduleWatch.items.length) {
+            list.innerHTML = `<div class="dc-session-empty">${escapeHtml(tx('scheduleEmpty'))}</div>`;
+            return;
+        }
+        list.innerHTML = scheduleWatch.items.map(item => {
+            const rule = item.kind === 'recurring' ? item.description : tx('scheduleOnce');
+            const times = [item.status === 'active' && item.nextRunAt ? tx('scheduleNext', { time: formatScheduleTime(item.nextRunAt) }) : '',
+                item.lastRunAt ? tx('scheduleLast', { time: formatScheduleTime(item.lastRunAt) }) : '',
+                item.kind === 'recurring' && item.runCount ? tx('scheduleRuns', { count: item.runCount }) : ''].filter(Boolean).join(' · ');
+            const detail = item.lastError ? `⚠️ ${item.lastError}` : (item.lastReply ? clipText(item.lastReply, 120) : '');
+            return `<div class="dc-session-item dc-schedule-item is-${escapeHtml(item.status)}">
+                <span class="dc-session-title">${escapeHtml(item.instruction)}<em class="dc-session-tag${item.status === 'active' ? ' is-current' : ''}">${escapeHtml(tx(`scheduleStatus_${item.status}`))}</em></span>
+                <span class="dc-session-meta">${escapeHtml(rule)}${times ? ` · ${escapeHtml(times)}` : ''}</span>
+                ${detail ? `<span class="dc-session-last">${escapeHtml(detail)}</span>` : ''}
+                <span class="dc-schedule-actions">
+                    ${item.sessionId && item.lastRunAt ? `<button type="button" class="dc-cmd-link" data-dc-schedule-open="${escapeHtml(item.id)}">${escapeHtml(tx('scheduleOpen'))}</button>` : ''}
+                    ${item.status === 'active' ? `<button type="button" class="dc-cmd-link is-danger" data-dc-schedule-cancel="${escapeHtml(item.id)}">${escapeHtml(tx('scheduleCancel'))}</button>` : ''}
+                </span>
+            </div>`;
+        }).join('');
+    }
+
+    function closeSchedulePanel() {
+        scheduleWatch.panel?.remove();
+        scheduleWatch.panel = null;
+        el.input.focus({ preventScroll: true });
+    }
+
+    async function openSchedulePanel() {
+        closeSchedulePanel();
+        const overlay = document.createElement('div');
+        overlay.className = 'dc-session-picker';
+        overlay.innerHTML = `
+            <div class="dc-session-backdrop" data-dc-schedule-close></div>
+            <div class="dc-session-card dc-schedule-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(tx('scheduleTitle'))}" tabindex="-1">
+                <div class="dc-session-head"><b>⏰ ${escapeHtml(tx('scheduleTitle'))}</b><button type="button" class="dc-session-close" data-dc-schedule-close aria-label="${escapeHtml(tx('btwClose'))}">×</button></div>
+                <div class="dc-session-list"><div class="dc-session-empty">${escapeHtml(tx('sessionLoading'))}</div></div>
+                <div class="dc-session-foot">${escapeHtml(tx('scheduleHint'))}</div>
+            </div>`;
+        document.body.appendChild(overlay);
+        scheduleWatch.panel = overlay;
+        overlay.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); closeSchedulePanel(); } });
+        overlay.addEventListener('click', async event => {
+            if (event.target.closest('[data-dc-schedule-close]')) return closeSchedulePanel();
+            const open = event.target.closest('[data-dc-schedule-open]');
+            if (open) {
+                const item = scheduleWatch.items.find(entry => entry.id === open.dataset.dcScheduleOpen);
+                if (!item || state.controller) return;
+                closeSchedulePanel();
+                return openSession({ id: item.sessionId });
+            }
+            const cancel = event.target.closest('[data-dc-schedule-cancel]');
+            if (cancel) {
+                cancel.disabled = true;
+                try {
+                    const res = await fetch(`/api/ai/schedules/${encodeURIComponent(cancel.dataset.dcScheduleCancel)}`, { method: 'DELETE', headers: authHeaders() });
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+                    scheduleWatch.items = scheduleWatch.items.map(entry => entry.id === data.item.id ? data.item : entry);
+                    renderSchedulePanel();
+                    showToast(tx('scheduleCancelled'));
+                } catch (error) {
+                    cancel.disabled = false;
+                    showToast(`${tx('scheduleFailed')}：${error.message}`);
+                }
+            }
+        });
+        overlay.querySelector('.dc-schedule-card').focus();
+        try {
+            const data = await fetchSchedules();
+            if (scheduleWatch.panel !== overlay) return;
+            scheduleWatch.items = data.items || [];
+            renderSchedulePanel();
+        } catch {
+            const list = overlay.querySelector('.dc-session-list');
+            if (list) list.innerHTML = `<div class="dc-session-empty">${escapeHtml(tx('scheduleLoadFailed'))}</div>`;
+        }
+    }
+
+    // 有进行中的任务时每分钟查一次「上次检查之后执行过的」，给出提醒；正看着那段对话就刷新它
+    async function pollSchedules() {
+        try {
+            if (!scheduleWatch.since) {
+                const data = await fetchSchedules();
+                scheduleWatch.since = data.serverTime;
+                return Number(data.active) > 0;
+            }
+            const since = scheduleWatch.since;
+            const data = await fetchSchedules(since);
+            scheduleWatch.since = data.serverTime || since;
+            for (const item of (data.items || []).filter(entry => entry.lastRunAt && entry.lastRunAt > since).reverse()) {
+                const failed = item.lastStatus === 'failed';
+                showToast(tx(failed ? 'scheduleRunFailed' : 'scheduleRunDone', { text: clipText(item.instruction, 40) }));
+                scheduleChatListRefresh();
+                if (item.sessionId && item.sessionId === state.sessionId && !state.controller && !state.restoring && !external.active) openSession({ id: item.sessionId });
+            }
+            if (scheduleWatch.panel && data.items?.length) {
+                scheduleWatch.items = (await fetchSchedules()).items || [];
+                renderSchedulePanel();
+            }
+            return Number(data.active) > 0;
+        } catch {
+            return true; // 网络抖动：继续轮询
+        }
+    }
+
+    async function watchSchedules(force = false) {
+        if (!authHeaders().Authorization) return;
+        if (scheduleWatch.timer && !force) return;
+        clearTimeout(scheduleWatch.timer);
+        scheduleWatch.timer = null;
+        const keep = await pollSchedules();
+        if (keep || force) scheduleWatch.timer = setTimeout(function loop() {
+            pollSchedules().then(more => { scheduleWatch.timer = more ? setTimeout(loop, SCHEDULE_POLL_MS) : null; });
+        }, SCHEDULE_POLL_MS);
+    }
+
+    // ── /plan 先计划后执行 ───────────────────────
+    function startPlan(task) {
+        if (!task) return showToast(tx('planNeedTask'));
+        send(tx('planPrompt', { task }), `/plan ${task}`, { workspaceMode: 'ask', onDone: addPlanActions });
+    }
+
+    function addPlanActions(reply, finalText) {
+        if (!String(finalText || '').trim() || !reply.isConnected) return;
+        const bar = document.createElement('div');
+        bar.className = 'dc-actions dc-plan-actions';
+        bar.innerHTML = `<button type="button" class="dc-action dc-action--primary" data-dc-plan-go>▶ ${escapeHtml(tx('planExecute'))}</button><button type="button" class="dc-action" data-dc-plan-revise>✎ ${escapeHtml(tx('planRevise'))}</button>`;
+        reply.querySelector('.dc-msg-main').appendChild(bar);
+        scrollThread();
+    }
+
+    // ── /btw 旁路提问 ────────────────────────────
+    // 带上当前对话最近的内容作背景，但不保存（persist:false、无 sessionId）、不进 state.messages，也不影响正在生成的回复。
+    const btw = { el: null, controller: null };
+
+    function closeBtw() {
+        btw.controller?.abort();
+        btw.controller = null;
+        btw.el?.remove();
+        btw.el = null;
+    }
+
+    async function askBtw(question) {
+        if (!question) return showToast(tx('btwNeedQuestion'));
+        closeBtw();
+        const card = document.createElement('div');
+        card.className = 'dc-btw';
+        card.setAttribute('role', 'region');
+        card.setAttribute('aria-label', tx('btwTitle'));
+        card.innerHTML = `<div class="dc-btw-head"><b>💬 ${escapeHtml(tx('btwTitle'))}</b><span class="dc-btw-badge">${escapeHtml(tx('btwBadge'))}</span><span class="dc-btw-tools"></span><button type="button" class="dc-session-close" data-dc-btw-close aria-label="${escapeHtml(tx('btwClose'))}" title="${escapeHtml(tx('btwClose'))}">×</button></div>
+            <div class="dc-btw-q"></div>
+            <div class="dc-btw-a dc-msg-body" aria-live="polite"><span class="dc-activity-orbit" aria-hidden="true"><i></i><i></i><i></i></span></div>`;
+        card.querySelector('.dc-btw-q').textContent = question;
+        card.querySelector('[data-dc-btw-close]').addEventListener('click', closeBtw);
+        el.form.appendChild(card);
+        btw.el = card;
+        const controller = new AbortController();
+        btw.controller = controller;
+        const answer = card.querySelector('.dc-btw-a');
+        // 主对话最后一条若是还在等回复的提问，并入本次问题，保证消息一问一答交替
+        const history = state.messages.slice(-10);
+        const pending = history.at(-1)?.role === 'user' ? history.pop() : null;
+        const content = pending ? `${tx('btwPending', { text: clipText(pending.content, 300) })}\n\n${question}` : question;
+        let text = '';
+        try {
+            const api = await waitForAssistant();
+            if (!api) throw new Error(tx('unavailable'));
+            const model = currentModel();
+            const data = await api.requestStreamingChat({
+                messages: [...history, { role: 'user', content }],
+                context: buildContext(),
+                pageTitle: 'Dragon Claw · 首页',
+                pagePath: '/',
+                uiLanguage: lang() === 'en-US' ? 'en' : 'zh',
+                agent: 'dragon-claw-home',
+                persist: false,
+                ...(model ? { modelId: model.id } : {})
+            }, {
+                signal: controller.signal,
+                onDelta: delta => {
+                    if (!delta || controller.signal.aborted) return;
+                    text += delta;
+                    answer.innerHTML = renderMarkdown(text);
+                }
+            });
+            if (controller.signal.aborted) return;
+            text = String(data.reply || text);
+            answer.innerHTML = renderMarkdown(text);
+            const tools = card.querySelector('.dc-btw-tools');
+            tools.innerHTML = iconButton('copy', tx('copy'), 'data-dc-copy');
+            tools.querySelector('[data-dc-copy]').dataset.dcCopy = text;
+        } catch (error) {
+            if (error?.name === 'AbortError' || controller.signal.aborted) return;
+            answer.innerHTML = renderMarkdown(`${text ? `${text}\n\n` : ''}> ⚠️ ${tx('btwFailed')}：${error?.message || error}`);
+        } finally {
+            if (btw.controller === controller) btw.controller = null;
+        }
+    }
+
+    // options.workspaceMode：本轮临时改用的工作区审批模式（/plan 出计划时用 ask，任何写入都要用户批准）
+    // options.onDone(reply, finalText)：回复完成后调用（/plan 在计划下方加确认按钮）
+    async function send(text, displayText = text, options = {}) {
         const content = String(text || '').trim();
-        if (!content || state.controller || state.restoring) return;
+        if (!content) return;
+        if (isSideCommand(content)) return runSlashCommand(content);
+        if (state.controller || state.restoring) return;
         if (runSlashCommand(content)) return;
+        el.thread.querySelectorAll('.dc-plan-actions').forEach(node => node.remove()); // 计划确认按钮只对最新一条计划有效
         setChatting(true);
         const shownText = String(displayText || content).trim();
         const userMessage = addMessage('user', shownText);
@@ -915,7 +1222,8 @@
         const renderer = createRenderer(reply, activity);
         // 发送时锁定模型：生成过程中切换只影响下一条消息。
         const model = currentModel();
-        const workspacePayload = workspace()?.getWorkspacePayload?.() || null;
+        const basePayload = workspace()?.getWorkspacePayload?.() || null;
+        const workspacePayload = basePayload && options.workspaceMode ? { ...basePayload, permissionMode: options.workspaceMode } : basePayload;
         const keptSkills = window.DragonClawSkills?.activeIds?.() || [];
         let started = false;
         try {
@@ -966,6 +1274,7 @@
             if (grounding) reply.querySelector('.dc-msg-main').insertAdjacentHTML('beforeend', grounding);
             addMessageTools(reply, finalText, { modelName: data.model?.name || model?.name || '', usage: data.usage });
             window.DragonClawSkills?.offerSave?.(reply, finalText); // @create-skill 的草稿：回复下方提供「保存为技能」
+            options.onDone?.(reply, finalText);
             if (keptSkills.includes('ops-group')) window.ToolsOpsInbox?.refresh();
         } catch (error) {
             const partial = renderer.finish();
@@ -1648,7 +1957,7 @@
     function bindEvents() {
         el.form.addEventListener('submit', event => {
             event.preventDefault();
-            if (state.controller) state.controller.abort();
+            if (state.controller && !isSideCommand(el.input.value)) state.controller.abort();
             else send(el.input.value);
         });
         el.input.addEventListener('input', () => {
@@ -1671,7 +1980,7 @@
                 }
                 if (event.key === 'Enter' && !event.shiftKey) {
                     event.preventDefault();
-                    if (!state.controller) runSlashCommand(item.name);
+                    runSlashCommand(item.name);
                     return;
                 }
             }
@@ -1679,9 +1988,13 @@
                 hideSlashHints();
                 return;
             }
+            if (event.key === 'Escape' && btw.el) {
+                closeBtw();
+                return;
+            }
             if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
                 event.preventDefault();
-                if (!state.controller) send(el.input.value);
+                if (!state.controller || isSideCommand(el.input.value)) send(el.input.value);
             }
         });
 
@@ -1696,6 +2009,18 @@
             if (target.closest('[data-dc-resume]')) return resumeChat();
             const slash = target.closest('[data-dc-slash]');
             if (slash) return runSlashCommand(slash.dataset.dcSlash);
+            if (target.closest('[data-dc-schedules]')) return openSchedulePanel();
+            if (target.closest('[data-dc-plan-go]')) {
+                if (!state.controller && !state.restoring) send(tx('planGo'), tx('planGoShown'));
+                return;
+            }
+            if (target.closest('[data-dc-plan-revise]')) {
+                el.input.value = tx('planRevisePrefix');
+                autoResize();
+                el.input.focus();
+                el.input.setSelectionRange(el.input.value.length, el.input.value.length);
+                return;
+            }
             const ask = target.closest('[data-dc-ask]');
             if (ask) {
                 if (ask.dataset.dcTool) state.focusedTool = tools().find(tool => tool.id === ask.dataset.dcTool) || state.focusedTool;
@@ -1795,6 +2120,7 @@
         el.form.insertAdjacentElement('afterend', el.resume);
         bindEvents();
         bindChatList();
+        watchSchedules();
         window.DragonClaw = { startWithSkill, enterExternal, exitExternal, newChat, lang, isExternal: () => external.active };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
         const linkedSkill = new URLSearchParams(location.search).get('skill');
