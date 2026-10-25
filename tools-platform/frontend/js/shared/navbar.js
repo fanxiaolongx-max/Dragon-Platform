@@ -1478,6 +1478,10 @@ let platformTitleApplied = null;
 let platformTitleObserver = null;
 
 function applyPlatformTitle() {
+    if (typeof window !== 'undefined' && window.ToolsPlatformTitle?.apply(navState.settings)) {
+        platformTitleApplied = document.title;
+        return;
+    }
     if (document.title !== platformTitleApplied) platformTitleOriginal = document.title;
     const isEn = typeof window !== 'undefined' && window.ToolsI18n?.getLanguage?.() === 'en-US';
     const mainName = (isEn && navState.settings?.platformNameEn)

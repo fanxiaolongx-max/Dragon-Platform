@@ -97,12 +97,12 @@ test('branding updates safe text and titles, preserves page names and handles la
     assert.equal(document.title, 'Another - 工具中台');
 });
 
-test('frontend index.html static title does not contain legacy names like EG CS HUB', () => {
+test('frontend index.html starts with a neutral title and applies cached branding before loading styles', () => {
     const html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
-    const match = html.match(/<title>([^<]+)<\/title>/);
+    const match = html.match(/<title\b[^>]*>([^<]+)<\/title>/);
     assert.ok(match, 'index.html should have a title tag');
-    assert.ok(!match[1].includes('EG CS HUB'), 'index.html static title must not contain EG CS HUB');
-    assert.ok(match[1].includes('图特工具平台'), 'index.html static title should contain 图特工具平台');
+    assert.equal(match[1], '工具中台', 'the static title must not flash any hardcoded platform name');
+    assert.ok(html.indexOf('src="/js/shared/platform-title.js"') < html.indexOf('rel="stylesheet"'), 'cached branding runs before render-blocking styles');
 });
 
 test('failed name saves keep the prior branding and release the save button', async () => {

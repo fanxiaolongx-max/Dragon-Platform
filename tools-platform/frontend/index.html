@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>图特工具平台 - 工具中台</title>
+    <title data-platform-page-title="工具中台" data-platform-page-title-en="Tool Hub">工具中台</title>
+    <script src="/js/shared/platform-title.js"></script>
     <meta name="description" content="统一工具平台入口：UIVF12 抓取引擎 & Task SLA 风险监控台">
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261006">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png?v=20261006">
@@ -967,6 +968,20 @@
     <!-- 首屏先确定模式，避免等待底部脚本时同时露出对话区和工具区。 -->
     <script id="homeModeBootstrap">
         if (location.hash === '#tools') document.body.classList.replace('home-mode-chat', 'home-mode-tools');
+        else if (performance.getEntriesByType('navigation')[0]?.type === 'reload') {
+            // 刷新欢迎页时从顶部开始；pageshow 后的首帧覆盖浏览器已保存的滚动位置。
+            const previousScrollRestoration = history.scrollRestoration;
+            history.scrollRestoration = 'manual';
+            window.addEventListener('pageshow', () => requestAnimationFrame(() => {
+                if (document.body.classList.contains('home-mode-chat') && !document.body.classList.contains('dc-chatting')) {
+                    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+                } else {
+                    history.scrollRestoration = previousScrollRestoration;
+                }
+            }), { once: true });
+            // 离开此页面时还原，后退/前进及其他页面仍由浏览器管理。
+            window.addEventListener('pagehide', () => { history.scrollRestoration = previousScrollRestoration; }, { once: true });
+        }
     </script>
     <div class="home-content home-workspace">
         <aside class="home-sidebar" id="homeSidebar" aria-label="首页导航">
@@ -1112,7 +1127,7 @@
                 <div class="dc-toast" id="dcToast" role="status" aria-live="polite"></div>
                 <!-- 工作区芯片：显示当前本地目录 / 选择目录入口（js/home/workspace-panel.js 渲染） -->
                 <div class="dc-workspace-chip" id="dcWorkspaceChip" hidden></div>
-                <textarea id="dcInput" rows="1" placeholder="给 Dragon Claw 发消息…" aria-label="给 Dragon Claw 发消息"></textarea>
+                <textarea id="dcInput" rows="1" placeholder="有什么我可以帮你？" aria-label="有什么我可以帮你？"></textarea>
                 <div class="dc-composer-bar">
                     <div class="dc-model" id="dcModel" hidden>
                         <button type="button" class="dc-model-btn" id="dcModelBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="dcModelMenu">
@@ -1768,7 +1783,7 @@
 
         const HOME_I18N = {
             'zh-CN': {
-                'home.title': '图特工具平台 - 工具中台',
+                'home.title': '工具中台',
                 'home.description': '统一工具平台入口：UIVF12 抓取引擎 & Task SLA 风险监控台',
                 'home.hero.desc': '统一工具中台 · 前后端分离架构 · 数据持久化存储<br>让每一个工具都更强大、更稳定、更易扩展',
                 'home.graph.title': '项目知识图谱',
@@ -1991,7 +2006,7 @@
                 'home.custom.delete': '删除自定义工具'
             },
             'en-US': {
-                'home.title': 'Dragon Platform',
+                'home.title': 'Tool Hub',
                 'home.description': 'Unified tool hub for data capture, SLA import, reporting, and operations workflows.',
                 'home.hero.desc': 'A unified tool hub · Decoupled frontend/backend · Persistent data storage<br>Make every tool stronger, steadier, and easier to extend',
                 'home.graph.title': 'Project Knowledge Graph',
@@ -2842,7 +2857,7 @@
 
         function applyHomeI18n() {
             const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
-            document.title = t('home.title');
+            if (!window.ToolsPlatformTitle?.apply(null, lang)) document.title = t('home.title');
             const metaDesc = document.querySelector('meta[name="description"]');
             if (metaDesc) metaDesc.setAttribute('content', t('home.description'));
             const heroDesc = document.querySelector('.hero p');
