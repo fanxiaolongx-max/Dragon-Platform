@@ -59,6 +59,14 @@ const SERVICE_DEFINITIONS = [
         prefixes: ['/api/custom-tools', '/api/slide-design', '/api/surveys']
     },
     {
+        id: 'channels',
+        name: '频道对接服务',
+        nameEn: 'Channel Integration',
+        description: 'WeLink、微信等外部频道接入、心跳保活与主动推送',
+        descriptionEn: 'WeLink, WeChat channel integration, heartbeat keepalive and active push',
+        prefixes: ['/api/channels']
+    },
+    {
         id: 'operations',
         name: '运维与告警',
         nameEn: 'Operations & Alerts',

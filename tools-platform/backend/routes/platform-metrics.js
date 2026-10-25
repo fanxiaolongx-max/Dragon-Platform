@@ -3,6 +3,7 @@ const router = express.Router();
 const metricsRepo = require('../models/platform-metrics-repository');
 const serviceStatusRepo = require('../models/service-status-repository');
 const desktopLicenseLocal = require('./desktop-license-local');
+const channelWatchdog = require('../models/channels/channel-watchdog');
 const { requireAdmin } = require('../middleware/auth');
 
 router.get('/service-status', async (req, res) => {
@@ -10,10 +11,27 @@ router.get('/service-status', async (req, res) => {
         res.setHeader('Cache-Control', 'no-store');
         const history = await serviceStatusRepo.getHistory(req.query.days);
         history.license = serviceStatusRepo.summarizeLicenseStatus(desktopLicenseLocal.getStatus());
+        try {
+            history.channels = await channelWatchdog.getWatchdogSummary();
+        } catch (channelErr) {
+            console.warn('[platform-metrics] 频道心跳状态读取失败：', channelErr.message);
+            history.channels = { enabled: false, error: channelErr.message, channels: [] };
+        }
         res.json(history);
     } catch (err) {
         console.error('[platform-metrics] service status failed:', err);
         res.status(500).json({ error: '读取服务状态统计失败' });
+    }
+});
+
+router.post('/service-status/channels/inspect', requireAdmin, async (_req, res) => {
+    try {
+        res.setHeader('Cache-Control', 'no-store');
+        const summary = await channelWatchdog.inspectNow();
+        res.json(summary);
+    } catch (err) {
+        console.error('[platform-metrics] channel inspect failed:', err);
+        res.status(500).json({ error: '抽查频道状态失败：' + (err.message || '未知错误') });
     }
 });
 

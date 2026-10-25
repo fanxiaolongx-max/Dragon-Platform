@@ -1,4 +1,4 @@
-// 首页对话侧栏的频道分类（WeLink / 微信，只显示已对接的频道）：按群/人合并的频道对话历史（只读）、对话上方的任务进度条，
+// 首页频道会话（WeLink / 微信）：查看记录、以 Bot 身份手动运营，以及会话内的草稿确认与任务跟进。
 // 以及右侧工作区的「跟进与记忆」卡片（任务、提醒人、频率、下次提醒、跟进记录、关闭情况）。
 // - 对话区借用 Dragon Claw 的渲染（window.DragonClaw.enterExternal），新对话 / 打开个人历史时自动退出；
 // - 右侧卡片借用工作区面板（window.DragonClawWorkspace.showExternal），工作区未启用时也可显示；
@@ -31,7 +31,8 @@
             event_done: '完成', event_cancelled: '取消', event_reopened: '重新打开', event_limit: '达到提醒上限', chip_created: '已记录跟进任务', chip_exists: '任务已存在', chip_updated: '更新了跟进任务', chip_progress: '记录了进展', chip_done: '完成了跟进任务', chip_cancelled: '取消了跟进任务',
             readonly_weixin: '只读 · 这是微信{kind}「{name}」的对话记录，在微信里给助手发消息即可继续对话。', noTasks_weixin: '微信对话暂不支持跟进任务。',
             prevTask: '上一个任务', nextTask: '下一个任务', system: '系统',
-            push: '主动推送', push_ops: '运营推送', push_test: '测试推送', push_followup: '跟进提醒'
+            push: '主动推送', push_ops: '运营推送', push_test: '测试推送', push_followup: '跟进提醒',
+            viewMode: '查看记录', viewInfo: '{ch} {kind}「{name}」· 可切换 Bot 身份手动发送消息。', botMode: '以 Bot 身份发送', botRecipient: '以 Bot 身份发送至 {ch} {kind}「{name}」', botHint: '消息将以已连接的 Bot 身份直接发给上述对象。Enter 发送，Shift + Enter 换行。', botPlaceholder: '输入要以 Bot 身份发送的消息…', send: '发送', sending: '发送中…', sent: '已发送至「{name}」', sendFailed: '发送失败：{error}', manualPush: '手动运营', roleLabel: '操作身份'
         },
         'en-US': {
             mine: 'My chats', welink: 'WeLink', weixin: 'WeChat', group: 'Group', person: 'Direct', loading: 'Loading…', empty: 'No {ch} conversations yet', noMatch: 'No matching {ch} conversations',
@@ -50,7 +51,8 @@
             event_done: 'Done', event_cancelled: 'Cancelled', event_reopened: 'Reopened', event_limit: 'Reminder limit reached', chip_created: 'Follow-up recorded', chip_exists: 'Task already exists', chip_updated: 'Follow-up updated', chip_progress: 'Progress recorded', chip_done: 'Follow-up completed', chip_cancelled: 'Follow-up cancelled',
             readonly_weixin: 'Read only · WeChat {kind} "{name}". Message the assistant in WeChat to continue.', noTasks_weixin: 'Follow-up tasks are not available for WeChat yet.',
             prevTask: 'Previous task', nextTask: 'Next task', system: 'System',
-            push: 'Proactive push', push_ops: 'Ops push', push_test: 'Test push', push_followup: 'Follow-up reminder'
+            push: 'Proactive push', push_ops: 'Ops push', push_test: 'Test push', push_followup: 'Follow-up reminder',
+            viewMode: 'View history', viewInfo: '{ch} {kind} "{name}" · Switch to Bot to send a message.', botMode: 'Send as Bot', botRecipient: 'Send as Bot to {ch} {kind} "{name}"', botHint: 'Messages are sent directly by the connected Bot to this recipient. Enter to send; Shift + Enter for a new line.', botPlaceholder: 'Write a message to send as Bot…', send: 'Send', sending: 'Sending…', sent: 'Sent to "{name}"', sendFailed: 'Send failed: {error}', manualPush: 'Manual operation', roleLabel: 'Role'
         }
     };
 
@@ -69,6 +71,13 @@
         tasks: [],
         calendar: null,
         canManage: false,
+        canSend: false,
+        botMode: false,
+        sending: '',
+        drafts: new Map(),
+        sendNotice: '',
+        sendError: false,
+        identity: '',
         focus: 0,
         api: null,
         refreshTimer: null,
@@ -131,6 +140,13 @@
 
     function storeGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
     function storeSet(key, value) { try { localStorage.setItem(key, value); } catch { /* 隐私模式 */ } }
+
+    const threadKey = thread => thread ? `${thread.channel}|${thread.kind}|${thread.id}` : '';
+    const identity = () => ['tools_user', 'tools_tenant_id', 'tools_token'].map(key => storeGet(key) || '').join('|');
+
+    function notifyThread(ready = true) {
+        window.dispatchEvent(new CustomEvent('home:channel-thread', { detail: { thread: state.active ? { ...state.active } : null, ready } }));
+    }
 
     function kindText(kind) {
         return tx(kind === 'group' ? 'group' : 'person');
@@ -290,15 +306,23 @@
         }).join('');
     }
 
-    // ── 打开会话：只读时间线 ───────────────────────────
+    // ── 打开会话：真实频道时间线与手动运营 ────────────────
     async function openThread(thread) {
-        if (!thread) return;
+        if (!thread) return false;
         const channel = CHANNEL_IDS.includes(thread.channel) ? thread.channel : (state.source !== 'mine' ? state.source : 'welink');
         const api = window.DragonClaw?.enterExternal?.({ onExit: ({ switching } = {}) => leaveThread(switching) });
-        if (!api) return;
+        if (!api) return false;
         const seq = ++state.openSeq;
         state.api = api;
         state.active = { channel, kind: thread.kind, id: thread.id, name: thread.name };
+        if (state.identity && state.identity !== identity()) state.drafts.clear();
+        state.identity = identity();
+        state.canSend = false;
+        state.botMode = false;
+        state.sendNotice = '';
+        state.sendError = false;
+        window.HomeMode?.set?.('chat', { updateHash: false });
+        if (sources().includes(channel)) setSource(channel);
         state.items = [];
         state.segments = [];
         state.tasks = [];
@@ -307,6 +331,7 @@
         renderThreads();
         mountChrome();
         api.beginLoading();
+        notifyThread(false);
         renderStage();
         // 跟进卡片独立加载，不让较慢的侧栏请求挡住对话正文。
         loadTasks(seq);
@@ -317,12 +342,16 @@
             state.items = page.items || [];
             state.segments = page.segments || [];
             state.hasMore = Boolean(page.hasMore);
+            state.canSend = page.canSend === true;
+            renderReadonly();
             renderTimeline({ scroll: 'bottom' });
             api.finishLoading();
+            notifyThread();
         } catch (error) {
             if (seq !== state.openSeq) return;
             api.finishLoading(false);
             api.thread.innerHTML = `<div class="wl-thread-loading is-error">${escapeHtml(tx('loadFailed'))}：${escapeHtml(error.message)}</div>`;
+            notifyThread();
         }
         clearInterval(state.refreshTimer);
         state.refreshTimer = setInterval(() => {
@@ -330,6 +359,7 @@
         }, REFRESH_MS);
         clearInterval(state.liveTimer);
         state.liveTimer = setInterval(pollNewMessages, LIVE_MS);
+        return true;
     }
 
     /** 频道里有新对话时追加到打开的时间线：停在底部则跟随到最新，往上翻看时保持位置。 */
@@ -341,6 +371,11 @@
         try {
             const page = await request('GET', `${API_BASE}/${state.active.channel}/threads/${state.active.kind}/${encodeURIComponent(state.active.id)}/messages?limit=${PAGE_SIZE}`);
             if (seq !== state.openSeq) return;
+            if (state.canSend !== (page.canSend === true)) {
+                state.canSend = page.canSend === true;
+                if (!state.canSend) state.botMode = false;
+                renderReadonly();
+            }
             const known = new Set(state.items.map(item => item.id));
             const fresh = (page.items || []).filter(item => !known.has(item.id));
             if (!fresh.length) return;
@@ -364,9 +399,13 @@
         clearInterval(state.liveTimer);
         state.liveTimer = null;
         state.openSeq += 1;
+        state.canSend = false;
+        state.botMode = false;
+        notifyThread(false);
         if (switching) return; // 切换到另一个 WeLink 会话：保留界面骨架
         state.active = null;
         state.api = null;
+        notifyThread(false);
         el.stage?.remove();
         el.stage = null;
         el.readonly?.remove();
@@ -388,6 +427,17 @@
             el.readonly.className = 'wl-readonly';
             el.readonly.addEventListener('click', event => {
                 if (event.target.closest('[data-wl-back]')) window.DragonClaw?.newChat?.();
+                const role = event.target.closest('[data-wl-role]')?.dataset.wlRole;
+                if (role && state.canSend) { state.botMode = role === 'bot'; renderReadonly(); }
+            });
+            el.readonly.addEventListener('input', event => {
+                if (!event.target.matches('[data-wl-compose]')) return;
+                state.drafts.set(threadKey(state.active), event.target.value);
+                el.readonly.querySelector('[data-wl-send]').disabled = Boolean(state.sending) || !event.target.value.trim();
+            });
+            el.readonly.addEventListener('submit', event => { event.preventDefault(); sendManual(); });
+            el.readonly.addEventListener('keydown', event => {
+                if (event.target.matches('[data-wl-compose]') && event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); sendManual(); }
             });
             document.getElementById('dcComposer')?.after(el.readonly);
         }
@@ -396,7 +446,44 @@
 
     function renderReadonly() {
         if (!el.readonly || !state.active) return;
-        el.readonly.innerHTML = `<span class="wl-readonly-icon" aria-hidden="true">🔒</span><span class="wl-readonly-text">${escapeHtml(tx('readonly', { kind: kindText(state.active.kind), name: state.active.name }))}</span><button type="button" class="dc-ghost-btn" data-wl-back>${escapeHtml(tx('back'))}</button>`;
+        const key = threadKey(state.active);
+        const text = state.drafts.get(key) || '';
+        const sending = Boolean(state.sending);
+        el.readonly.classList.toggle('is-bot-mode', state.botMode);
+        el.readonly.innerHTML = `<div class="wl-conversation-controls">${state.canSend ? `<div class="wl-role-switch" role="group" aria-label="${escapeHtml(tx('roleLabel'))}"><button type="button" data-wl-role="view" aria-pressed="${!state.botMode}">${escapeHtml(tx('viewMode'))}</button><button type="button" data-wl-role="bot" aria-pressed="${state.botMode}">${escapeHtml(tx('botMode'))}</button></div>` : `<span class="wl-readonly-icon" aria-hidden="true">🔒</span>`}<span class="wl-readonly-text">${escapeHtml(tx(state.botMode ? 'botRecipient' : state.canSend ? 'viewInfo' : 'readonly', { kind: kindText(state.active.kind), name: state.active.name }))}</span><button type="button" class="dc-ghost-btn" data-wl-back>${escapeHtml(tx('back'))}</button></div>
+            ${state.botMode ? `<form class="wl-manual-form"><textarea data-wl-compose rows="3" aria-label="${escapeHtml(tx('botPlaceholder'))}" placeholder="${escapeHtml(tx('botPlaceholder'))}" ${state.sending === key ? 'disabled' : ''}>${escapeHtml(text)}</textarea><div class="wl-manual-actions"><small>${escapeHtml(tx('botHint'))}</small><button type="submit" data-wl-send ${sending || !text.trim() ? 'disabled' : ''}>${escapeHtml(tx(sending ? 'sending' : 'send'))}</button></div></form>` : ''}
+            ${state.sendNotice ? `<div class="wl-send-feedback ${state.sendError ? 'is-error' : ''}" role="status">${escapeHtml(state.sendNotice)}</div>` : ''}`;
+    }
+
+    async function sendManual() {
+        if (!state.active || !state.botMode || !state.canSend || state.sending) return;
+        if (identity() !== state.identity) { state.drafts.clear(); window.DragonClaw?.newChat?.(); return; }
+        const target = { ...state.active };
+        const key = threadKey(target);
+        const text = (state.drafts.get(key) || '').trim();
+        if (!text) return;
+        const seq = state.openSeq;
+        state.sending = key;
+        state.sendNotice = '';
+        renderReadonly();
+        try {
+            const result = await request('POST', `${API_BASE}/${target.channel}/push`, { text, targets: [{ kind: target.kind, id: target.id }], source: 'manual-bot' });
+            const delivery = result.results?.find(item => item.kind === target.kind && item.id === target.id);
+            if (!delivery?.ok) throw new Error(delivery?.error || result.error || tx('loadFailed'));
+            if ((state.drafts.get(key) || '').trim() === text) state.drafts.delete(key);
+            if (seq !== state.openSeq || identity() !== state.identity) return;
+            state.sendNotice = tx('sent', { name: target.name });
+            state.sendError = false;
+            await pollNewMessages();
+            loadThreads();
+        } catch (error) {
+            if (seq !== state.openSeq || identity() !== state.identity) return;
+            state.sendNotice = tx('sendFailed', { error: error.message });
+            state.sendError = true;
+        } finally {
+            state.sending = '';
+            renderReadonly();
+        }
     }
 
     function segmentIndex(sessionId) {
@@ -415,6 +502,10 @@
         const thread = api.thread;
         const previousHeight = thread.scrollHeight;
         const previousTop = thread.scrollTop;
+        const addons = [...thread.querySelectorAll(':scope > [data-channel-thread-addon]')];
+        const focused = addons.some(node => node.contains(document.activeElement)) ? document.activeElement : null;
+        const selection = focused?.tagName === 'TEXTAREA' ? [focused.selectionStart, focused.selectionEnd] : null;
+        addons.forEach(node => node.remove());
         thread.innerHTML = `<div class="wl-banner"><span class="wl-avatar wl-avatar--${state.active.kind}">${ICONS[state.active.kind] || ICONS.user}</span><span><b>${escapeHtml(tx('banner', { kind: kindText(state.active.kind), name: state.active.name }))}</b><small>${escapeHtml(tx('segments', { n: state.segments.length }))} · ${escapeHtml(tx('messages', { n: state.items.length }))}${state.hasMore ? '+' : ''}</small></span></div>`;
         if (state.hasMore) thread.insertAdjacentHTML('beforeend', `<button type="button" class="dc-history-more" data-wl-more>${escapeHtml(tx(state.loadingMore ? 'loading' : 'loadMore'))}</button>`);
         if (!state.items.length) thread.insertAdjacentHTML('beforeend', `<div class="wl-thread-loading">${escapeHtml(tx('noMessages'))}</div>`);
@@ -433,6 +524,9 @@
             }
             renderMessage(item);
         }));
+        addons.forEach(node => thread.append(node));
+        notifyThread(!thread.hasAttribute('aria-busy'));
+        if (focused?.isConnected) { focused.focus({ preventScroll: true }); if (selection) focused.setSelectionRange(...selection); }
         thread.querySelector('[data-wl-more]')?.addEventListener('click', loadOlder);
         if (scroll === 'bottom') thread.scrollTop = thread.scrollHeight;
         else if (scroll === 'keep') thread.scrollTop = thread.scrollHeight - previousHeight + previousTop;
@@ -468,6 +562,7 @@
     function pushLabel(push) {
         if (!push) return '';
         const source = String(push.source || '');
+        if (source.startsWith('manual-bot:')) return `✎ ${tx('manualPush')} · ${source.slice('manual-bot:'.length)}`;
         const ops = /^(ops|ops-test):([^@]+)/.exec(source);
         if (source.startsWith('followup:')) return `📣 ${tx('push_followup')}`;
         if (ops) return `📣 ${tx(ops[1] === 'ops-test' ? 'push_test' : 'push_ops')}「${ops[2].trim()}」`;
@@ -729,7 +824,11 @@
         if (!mountTabs()) return;
         setSource('mine', { remember: false });
         loadChannels();
+        window.dispatchEvent(new Event('home:channel-threads-ready'));
         window.addEventListener('tools:languagechange', applyTexts);
+        window.addEventListener('storage', event => {
+            if (['tools_user', 'tools_tenant_id', 'tools_token'].includes(event.key) && state.active && state.identity !== identity()) { state.drafts.clear(); window.DragonClaw?.newChat?.(); }
+        });
         setInterval(() => {
             if (document.visibilityState !== 'visible') return;
             loadChannels();
@@ -737,7 +836,7 @@
         }, 60000);
     }
 
-    window.HomeWelinkThreads = { open: openThread, reload: loadThreads };
+    window.HomeWelinkThreads = { open: openThread, reload: loadThreads, active: () => state.active ? { ...state.active } : null, refresh: pollNewMessages };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();

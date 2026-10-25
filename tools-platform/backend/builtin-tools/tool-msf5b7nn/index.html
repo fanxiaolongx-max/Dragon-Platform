@@ -1354,6 +1354,20 @@
       font-weight: 680
     }
 
+    .bu-summary-table .absent-rate {
+      color: #c72c36;
+      font-weight: 680
+    }
+
+    .bu-summary-table .delay-rate {
+      color: #b87505;
+      font-weight: 680
+    }
+
+    .bu-summary-wrap .bu-comparison-table {
+      min-width: 760px
+    }
+
     .bu-summary-table tfoot td {
       background: #f3f4f6;
       border-top: 2px solid #d8dce4;
@@ -3849,6 +3863,11 @@
           const bu = btn.dataset.bu || ''; state.buFilter = state.buFilter === bu ? '' : bu; state.peoplePages.all = 1; renderPeopleResults();
           return;
         }
+        if (btn.dataset.action === 'copy-bu-comparison') {
+          const table = btn.closest('.chart-card')?.querySelector('.bu-summary-table');
+          copyBuComparisonTable(table);
+          return;
+        }
         if (btn.dataset.action === 'person-search') { runPersonSearch(); return; }
         if (btn.dataset.action === 'person-search-clear') { state.personSearch = { query: '', result: null, pages: { qr: 1, rfc: 1, wfm: 1, offline: 1, online: 1 } }; renderPersonSearchModal(); updateGlobalSearchButton(); return; }
         const searchCard = e.target.closest('[data-search-category]'); if (searchCard) { handleSearchPager(btn.dataset.action, searchCard.dataset.searchCategory); return; }
@@ -4538,6 +4557,114 @@
           </div>
         `;
       }
+      function copyBuComparisonTable(targetTable) {
+        const table = targetTable || document.querySelector('#buComparisonTable') || document.querySelector('.bu-comparison-table');
+        if (!table) return;
+        const rows = Array.from(table.querySelectorAll('tr'));
+        const lines = rows.map(tr => {
+          const cells = Array.from(tr.querySelectorAll('th, td'));
+          return cells.map(td => td.innerText.trim().replace(/\s+/g, ' ')).join('\t');
+        });
+        const tsv = lines.join('\n');
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(tsv).then(() => {
+            toast(bi('✅ 已复制 BU 考勤对比表至剪贴板', 'BU Attendance Comparison table copied to clipboard'));
+          }).catch(() => {
+            toast(bi('复制失败，请手动选择复制', 'Failed to copy, please select and copy manually'), 'error');
+          });
+        }
+      }
+      function renderBuOverallComparisonCard(sessions, all) {
+        const byBu = new Map();
+        const totals = { Absent: 0, 'Attend on Time': 0, Delay: 0, 'Fake Attendance': 0, Total: 0, departed: 0 };
+        const rate = (n, total) => total ? `${(n / total * 100).toFixed(1)}%` : '0.0%';
+
+        all.forEach(p => {
+          const requiredSessions = sessions.filter(s => p.sessionRecords?.[s.name]?.required);
+          if (!requiredSessions.length) return;
+          const bu = normalizeName(p.bu) || (state.lang === 'en' ? 'Unidentified BU' : '未识别 BU');
+          if (!byBu.has(bu)) {
+            byBu.set(bu, { Absent: 0, 'Attend on Time': 0, Delay: 0, 'Fake Attendance': 0, Total: 0, departed: 0 });
+          }
+          const item = byBu.get(bu);
+          requiredSessions.forEach(s => {
+            const rec = p.sessionRecords[s.name];
+            const att = rec.attendance;
+            const isDeparted = att === 'Suspected Departure or ID Change';
+            const statusKey = isDeparted ? 'Absent' : att;
+            item.Total++;
+            totals.Total++;
+            if (item[statusKey] !== undefined) item[statusKey]++;
+            if (totals[statusKey] !== undefined) totals[statusKey]++;
+            if (isDeparted) {
+              item.departed++;
+              totals.departed++;
+            }
+          });
+        });
+
+        const buRows = [...byBu.entries()].sort((a, b) => b[1].Total - a[1].Total || a[0].localeCompare(b[0])).map(([bu, x]) => {
+          const selected = state.buFilter === bu ? 'selected' : '';
+          const departedNote = x.departed ? ` title="${bi(`含疑似离职 ${x.departed} 人`, `incl. ${x.departed} suspected`)}"` : '';
+          return `
+            <tr class="${selected}" data-action="bu-filter" data-bu="${esc(bu)}" title="${state.buFilter === bu ? bi('点击取消筛选', 'Click to clear filter') : bi('点击筛选下方人员名单', 'Click to filter people list')}">
+              <td title="${esc(bu)}"><strong>${esc(bu)}</strong></td>
+              <td class="num absent"${departedNote}>${x.Absent}</td>
+              <td class="num ontime">${x['Attend on Time']}</td>
+              <td class="num delay">${x.Delay}</td>
+              <td class="num fake">${x['Fake Attendance']}</td>
+              <td class="num" style="font-weight:700">${x.Total}</td>
+              <td class="num absent-rate" style="font-weight:700" title="${x.Absent}/${x.Total} (${rate(x.Absent, x.Total)})">${rate(x.Absent, x.Total)}</td>
+              <td class="num delay-rate" style="font-weight:700" title="${x.Delay}/${x.Total} (${rate(x.Delay, x.Total)})">${rate(x.Delay, x.Total)}</td>
+            </tr>
+          `;
+        }).join('');
+
+        const grandDepartedNote = totals.departed ? ` title="${bi(`含疑似离职 ${totals.departed} 人`, `incl. ${totals.departed} suspected`)}"` : '';
+
+        return `
+          <div class="chart-card" style="margin-bottom:16px">
+            <div class="chart-head" style="margin-bottom:10px">
+              <div>
+                <h3>${bi('BU 考勤汇总对比表 (不区分月份)', 'BU Attendance Comparison Summary (All Sessions Combined)')}</h3>
+                <p>${bi('各 BU 整体考勤数据汇总对比（跨场次累计，不区分月份）；展示缺席、按时、迟到、异常考勤与对应比率。点击任意 BU 行可筛选下方名单。', 'Aggregated attendance comparison by BU without month distinction. Shows absent, on-time, late, abnormal attendance and rates. Click any BU row to filter people below.')}${state.buFilter ? `；${bi('当前筛选', 'Current filter')}：<strong>${esc(state.buFilter)}</strong>` : ''}</p>
+              </div>
+              <div class="sheet-actions" style="margin:0">
+                <button class="icon-btn" data-action="copy-bu-comparison" title="${bi('复制表格至剪贴板 (TSV格式，可直接粘贴至 Excel/PPT)', 'Copy table to clipboard (TSV format for Excel/PPT)')}">📋 ${bi('复制表格', 'Copy Table')}</button>
+              </div>
+            </div>
+            <div class="bu-summary-wrap">
+              <table id="buComparisonTable" class="bu-summary-table bu-comparison-table">
+                <thead>
+                  <tr>
+                    <th>BU Name</th>
+                    <th>Absent</th>
+                    <th>Attend on Time</th>
+                    <th>Late Attendance</th>
+                    <th>Abnormal Attendance</th>
+                    <th>Total</th>
+                    <th>Absence Rate</th>
+                    <th>Late Attendance Rate</th>
+                  </tr>
+                </thead>
+                <tbody>${buRows || `<tr><td colspan="8">${bi('暂无BU考勤数据', 'No BU attendance data')}</td></tr>`}</tbody>
+                <tfoot>
+                  <tr>
+                    <td>Total</td>
+                    <td class="num absent"${grandDepartedNote}>${totals.Absent}</td>
+                    <td class="num ontime">${totals['Attend on Time']}</td>
+                    <td class="num delay">${totals.Delay}</td>
+                    <td class="num fake">${totals['Fake Attendance']}</td>
+                    <td class="num" style="font-weight:700">${totals.Total}</td>
+                    <td class="num absent-rate" style="font-weight:700" title="${totals.Absent}/${totals.Total} (${rate(totals.Absent, totals.Total)})">${rate(totals.Absent, totals.Total)}</td>
+                    <td class="num delay-rate" style="font-weight:700" title="${totals.Delay}/${totals.Total} (${rate(totals.Delay, totals.Total)})">${rate(totals.Delay, totals.Total)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        `;
+      }
       function toggleMatrixFullscreen(next) {
         const shouldBeFullscreen = typeof next === 'boolean' ? next : !state.matrixFullscreen;
         state.matrixFullscreen = shouldBeFullscreen;
@@ -4678,6 +4805,7 @@
             contentHtml += `
               ${switcherHtml}
               ${renderMultiSessionOverview(sessions, data)}
+              ${renderBuOverallComparisonCard(sessions, all)}
               ${renderMultiSessionBuTable(sessions, all)}
               ${renderMultiSessionMatrixCard(sessions, all)}
               ${renderPeopleCard('qr', bi('QR 人员备用名单', 'QR People List'), qr)}
@@ -4974,16 +5102,33 @@
         }).join('');
         const byBu = new Map();
         rows.forEach(r => {
-          const bu = normalizeName(r.bu) || '未识别 BU';
-          if (!byBu.has(bu)) byBu.set(bu, { total: 0, 'Attend on Time': 0, Delay: 0, Absent: 0, 'Fake Attendance': 0 });
+          const bu = normalizeName(r.bu) || (state.lang === 'en' ? 'Unidentified BU' : '未识别 BU');
+          if (!byBu.has(bu)) byBu.set(bu, { total: 0, 'Attend on Time': 0, Delay: 0, Absent: 0, 'Fake Attendance': 0, departed: 0 });
           const x = byBu.get(bu);
           x.total++;
-          const statusKey = r.attendance === 'Suspected Departure or ID Change' ? 'Absent' : r.attendance;
+          const isDeparted = r.attendance === 'Suspected Departure or ID Change';
+          const statusKey = isDeparted ? 'Absent' : r.attendance;
           if (x[statusKey] !== undefined) x[statusKey]++;
+          if (isDeparted) x.departed++;
         });
-        const tableRows = [...byBu.entries()].sort((a, b) => b[1].total - a[1].total).map(([bu, x]) => `<tr class="${state.buFilter === bu ? 'selected' : ''}" data-action="bu-filter" data-bu="${esc(bu)}" title="${state.buFilter === bu ? bi('点击取消筛选', 'Click to clear filter') : bi('点击筛选该 BU', 'Click to filter this BU')}"><td title="${esc(bu)}">${esc(bu)}</td><td class="num">${x.total}</td><td class="num absent">${x.Absent}</td><td class="num ontime">${x['Attend on Time']}</td><td class="num delay">${x.Delay}</td><td class="num fake">${x['Fake Attendance']}</td><td class="num rate">${rate(x['Attend on Time'], x.total)}</td></tr>`).join('');
-        const table = tableRows ? `<div class="bu-summary-wrap"><table class="bu-summary-table"><thead><tr><th>BU</th><th>${bi('总人数', 'Total')}</th><th>Absent</th><th>Attend on Time</th><th>Delay</th><th>Fake Attendance</th><th>${bi('按时出席率', 'On-time Rate')}</th></tr></thead><tbody>${tableRows}</tbody><tfoot><tr><td>${bi('总计', 'Total')}</td><td class="num">${rows.length}</td><td class="num absent">${counts.Absent}</td><td class="num ontime">${counts['Attend on Time']}</td><td class="num delay">${counts.Delay}</td><td class="num fake">${counts['Fake Attendance']}</td><td class="num rate">${rate(counts['Attend on Time'], rows.length)}</td></tr></tfoot></table></div>` : `<div class="empty" style="padding:20px">${bi('暂无BU考勤数据', 'No BU attendance data')}</div>`;
-        return `<section class="attendance-dashboard"><div class="status-grid">${cards}</div><div class="chart-card"><div class="chart-head" style="margin-bottom:10px"><div><h3>${bi('BU考勤状态表', 'BU Attendance Summary')}</h3><p>${bi('点击任意BU行筛选下方合并名单，再次点击取消筛选', 'Click any BU row to filter the combined list; click again to clear')}${state.buFilter ? `；${bi('当前', 'Current')}：${esc(state.buFilter)}` : ''}</p></div></div>${table}</div></section>`;
+        const tableRows = [...byBu.entries()].sort((a, b) => b[1].total - a[1].total || a[0].localeCompare(b[0])).map(([bu, x]) => {
+          const departedNote = x.departed ? ` title="${bi(`含疑似离职 ${x.departed} 人`, `incl. ${x.departed} suspected`)}"` : '';
+          return `
+            <tr class="${state.buFilter === bu ? 'selected' : ''}" data-action="bu-filter" data-bu="${esc(bu)}" title="${state.buFilter === bu ? bi('点击取消筛选', 'Click to clear filter') : bi('点击筛选该 BU', 'Click to filter this BU')}">
+              <td title="${esc(bu)}"><strong>${esc(bu)}</strong></td>
+              <td class="num absent"${departedNote}>${x.Absent}</td>
+              <td class="num ontime">${x['Attend on Time']}</td>
+              <td class="num delay">${x.Delay}</td>
+              <td class="num fake">${x['Fake Attendance']}</td>
+              <td class="num" style="font-weight:700">${x.total}</td>
+              <td class="num absent-rate" style="font-weight:700" title="${x.Absent}/${x.total} (${rate(x.Absent, x.total)})">${rate(x.Absent, x.total)}</td>
+              <td class="num delay-rate" style="font-weight:700" title="${x.Delay}/${x.total} (${rate(x.Delay, x.total)})">${rate(x.Delay, x.total)}</td>
+            </tr>
+          `;
+        }).join('');
+        const grandDepartedNote = departedCount ? ` title="${bi(`含疑似离职 ${departedCount} 人`, `incl. ${departedCount} suspected`)}"` : '';
+        const table = tableRows ? `<div class="bu-summary-wrap"><table id="buComparisonTable" class="bu-summary-table bu-comparison-table"><thead><tr><th>BU Name</th><th>Absent</th><th>Attend on Time</th><th>Late Attendance</th><th>Abnormal Attendance</th><th>Total</th><th>Absence Rate</th><th>Late Attendance Rate</th></tr></thead><tbody>${tableRows}</tbody><tfoot><tr><td>Total</td><td class="num absent"${grandDepartedNote}>${counts.Absent}</td><td class="num ontime">${counts['Attend on Time']}</td><td class="num delay">${counts.Delay}</td><td class="num fake">${counts['Fake Attendance']}</td><td class="num" style="font-weight:700">${rows.length}</td><td class="num absent-rate" style="font-weight:700" title="${counts.Absent}/${rows.length} (${rate(counts.Absent, rows.length)})">${rate(counts.Absent, rows.length)}</td><td class="num delay-rate" style="font-weight:700" title="${counts.Delay}/${rows.length} (${rate(counts.Delay, rows.length)})">${rate(counts.Delay, rows.length)}</td></tr></tfoot></table></div>` : `<div class="empty" style="padding:20px">${bi('暂无BU考勤数据', 'No BU attendance data')}</div>`;
+        return `<section class="attendance-dashboard"><div class="status-grid">${cards}</div><div class="chart-card"><div class="chart-head" style="margin-bottom:10px"><div><h3>${bi('BU 考勤汇总对比表', 'BU Attendance Comparison Summary')}</h3><p>${bi('点击任意 BU 行筛选下方合并名单，再次点击取消筛选', 'Click any BU row to filter the combined list; click again to clear')}${state.buFilter ? `；${bi('当前', 'Current')}：<strong>${esc(state.buFilter)}</strong>` : ''}</p></div><div class="sheet-actions" style="margin:0"><button class="icon-btn" data-action="copy-bu-comparison" title="${bi('复制表格至剪贴板 (TSV格式)', 'Copy table to clipboard (TSV)')}">📋 ${bi('复制表格', 'Copy Table')}</button></div></div>${table}</div></section>`;
       }
       function renderCombinedPeopleCard(rows) {
         const kind = 'all', sortedRows = [...rows].sort((a, b) => (b.count || 0) - (a.count || 0) || (a.name || a.account).localeCompare(b.name || b.account, 'zh-CN')), filteredRows = state.buFilter ? sortedRows.filter(r => (normalizeName(r.bu) || '未识别 BU') === state.buFilter) : sortedRows, total = Math.max(1, Math.ceil(filteredRows.length / state.pageSize)); state.peoplePages[kind] = Math.min(Math.max(1, state.peoplePages[kind] || 1), total);
@@ -6872,7 +7017,7 @@
       function showLoading(on, text, percent) { $('#loading').classList.toggle('hidden', !on); if (text) $('#loadingText').textContent = text; if (percent != null) { const p = Math.max(0, Math.min(100, Math.round(percent))); $('#loadingBar').style.width = p + '%'; $('#loadingPercent').textContent = p + '%'; } }
       function nextPaint() { return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); }
       function toast(msg, type = '', duration = 2800) { const host = $('#toasts'); if (!host || typeof host.appendChild !== 'function') return; const t = document.createElement('div'); t.className = 'toast ' + type; t.textContent = msg; host.appendChild(t); setTimeout(() => t.remove?.(), duration); }
-      window.__meetingAttendance = { state, CATEGORIES, DEFAULT_COLUMNS, DEFAULT_CUSTOMER_MAPPINGS, DEFAULT_ATTENDANCE_RULES, PRESET_EXEMPTIONS, isInvalidStaffId, activeExemptions, handleDeveloperUnlock, disableDeveloperMode, parseDelimited, normalizeRows, classifySheet, defaultColumnIndices, getDisplayColumns, parsePeopleCell, parseQrPairedPeople, parseCreateTime, parseAttendanceMinute, beijingToCairoAttendance, buildAttendanceIndex, getAttendanceRecord, getExemption, determineAttendance, extractTicketDate, parseDateFromString, detectMeetingDate, getAllMeetingDates, getSheetMeetingDate, getSessionDominantDate, evaluateRecordAttendance, ATTENDANCE_RANK, getWindowDateRange, isOrderInWindow, isOrderInMeetingWindows, getPreviousDayDateString, parseRowTimestamp, isNightWfmTask, isPersonNightExemptForDate, normalizeMandatoryEntries, loadMandatoryAttendees, saveMandatoryAttendees, saveRostersToServer, syncRostersWithServer, openMandatoryModal, closeMandatoryModal, renderMandatoryRows, appendMandatoryRow, updateMandatoryBadge, applyBatchMandatoryText, buildWelinkScript, allExtractedPeopleIds, parseWelinkPeople, installWelinkPeople, loadWelinkPeopleList, getAllIdAliases, getCanonicalStaffId, getCanonicalPersonKey, welinkFor, changedEmployeeId, changedEmployeeTag, isSuspectedDeparted, suspectedDepartedPeople, openWelinkModal, closeWelinkModal, extractQrPeople, extractRfcPeople, extractWfmPeople, extractAttendanceSourcePeople, extractAllPeople, ensurePeopleCache, refreshCalculatedResults, invalidatePeopleCache, cleanSessionTitle, isGenericTitle, getSheetRowSessionNames, getSheetDefaultSessionName, getSheetSessionName, getRowSessionName, getMeetingSessions, getIgnoredMeetingSessions, getSessionPeopleRows, getSessionDisplayLabels, renderSessionSwitcher, renderSessionNoticeBar, renderMultiSessionOverview, renderMultiSessionBuTable, renderMultiSessionMatrixCard, toggleMatrixFullscreen, mapCustomerGroup, resolveSearchIdentities, getPersonSearchScope, getPersonSearchScopeKey, formatSearchWindowMonths, searchRequiredRows, searchAttendanceRows, renderSearchDetailCard, buildBusinessCoverageReport, missingBusinessCoverage, validBusinessTimes, formatDateRange, roleCounts, roleLabel, sheetFingerprint, removeDuplicateSheets, renderAttendanceDashboard, renderCombinedPeopleCard, renderPeopleCard, renderPersonSearchPanel, renderPersonSearchResults, getMultiSessionStatusLabel, buildAnalysisTables, buildAnalysisWorkbook, buildSnapshotPayload, restoreMeetingSnapshot, openSaveSnapshotModal, closeSaveSnapshotModal, openSnapshotManagerModal, filterSnapshotCards };
+      window.__meetingAttendance = { state, CATEGORIES, DEFAULT_COLUMNS, DEFAULT_CUSTOMER_MAPPINGS, DEFAULT_ATTENDANCE_RULES, PRESET_EXEMPTIONS, isInvalidStaffId, activeExemptions, handleDeveloperUnlock, disableDeveloperMode, parseDelimited, normalizeRows, classifySheet, defaultColumnIndices, getDisplayColumns, parsePeopleCell, parseQrPairedPeople, parseCreateTime, parseAttendanceMinute, beijingToCairoAttendance, buildAttendanceIndex, getAttendanceRecord, getExemption, determineAttendance, extractTicketDate, parseDateFromString, detectMeetingDate, getAllMeetingDates, getSheetMeetingDate, getSessionDominantDate, evaluateRecordAttendance, ATTENDANCE_RANK, getWindowDateRange, isOrderInWindow, isOrderInMeetingWindows, getPreviousDayDateString, parseRowTimestamp, isNightWfmTask, isPersonNightExemptForDate, normalizeMandatoryEntries, loadMandatoryAttendees, saveMandatoryAttendees, saveRostersToServer, syncRostersWithServer, openMandatoryModal, closeMandatoryModal, renderMandatoryRows, appendMandatoryRow, updateMandatoryBadge, applyBatchMandatoryText, buildWelinkScript, allExtractedPeopleIds, parseWelinkPeople, installWelinkPeople, loadWelinkPeopleList, getAllIdAliases, getCanonicalStaffId, getCanonicalPersonKey, welinkFor, changedEmployeeId, changedEmployeeTag, isSuspectedDeparted, suspectedDepartedPeople, openWelinkModal, closeWelinkModal, extractQrPeople, extractRfcPeople, extractWfmPeople, extractAttendanceSourcePeople, extractAllPeople, ensurePeopleCache, refreshCalculatedResults, invalidatePeopleCache, cleanSessionTitle, isGenericTitle, getSheetRowSessionNames, getSheetDefaultSessionName, getSheetSessionName, getRowSessionName, getMeetingSessions, getIgnoredMeetingSessions, getSessionPeopleRows, getSessionDisplayLabels, renderSessionSwitcher, renderSessionNoticeBar, renderMultiSessionOverview, renderMultiSessionBuTable, renderBuOverallComparisonCard, copyBuComparisonTable, renderMultiSessionMatrixCard, toggleMatrixFullscreen, mapCustomerGroup, resolveSearchIdentities, getPersonSearchScope, getPersonSearchScopeKey, formatSearchWindowMonths, searchRequiredRows, searchAttendanceRows, renderSearchDetailCard, buildBusinessCoverageReport, missingBusinessCoverage, validBusinessTimes, formatDateRange, roleCounts, roleLabel, sheetFingerprint, removeDuplicateSheets, renderAttendanceDashboard, renderCombinedPeopleCard, renderPeopleCard, renderPersonSearchPanel, renderPersonSearchResults, getMultiSessionStatusLabel, buildAnalysisTables, buildAnalysisWorkbook, buildSnapshotPayload, restoreMeetingSnapshot, openSaveSnapshotModal, closeSaveSnapshotModal, openSnapshotManagerModal, filterSnapshotCards };
       init();
     })();
   </script>

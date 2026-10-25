@@ -207,6 +207,11 @@ router.post(`/${CH}/push`, handle(async (req, res) => {
     const { repo, label } = ch(req);
     const body = req.body || {};
     const targets = Array.isArray(body.targets) ? repo.normalizeTargets(body.targets) : [];
+    if (body.source === 'manual-bot') {
+        if (targets.length !== 1 || body.targets.length !== 1) return res.status(400).json({ code: 'CHANNEL_MANUAL_TARGET_REQUIRED', error: '手动运营必须明确指定一个会话，不能使用默认推送范围' });
+        if (typeof body.text !== 'string' || !body.text.trim()) return res.status(400).json({ code: 'CHANNEL_MANUAL_TEXT_REQUIRED', error: '消息内容不能为空' });
+        if (req.params.channel === 'weixin' && targets[0].kind === 'group') return res.status(400).json({ code: 'CHANNEL_TARGET_UNSUPPORTED', error: '微信助理暂不支持群推送，请选择微信联系人' });
+    }
     if (!isAdmin(req)) {
         const config = await repo.getConfig();
         if (!config.push.allowUserPush) return res.status(403).json({ code: 'CHANNEL_FORBIDDEN', error: `仅管理员可推送${label}消息` });
@@ -221,7 +226,7 @@ router.post(`/${CH}/push`, handle(async (req, res) => {
         text: body.text,
         targets,
         trigger: ['scheduled', 'webhook', 'system'].includes(body.trigger) ? body.trigger : 'system',
-        source: `${req.user?.username || ''}${source ? ` @ ${source}` : ''}`
+        source: source === 'manual-bot' ? `manual-bot:${req.user?.username || ''}` : `${req.user?.username || ''}${source ? ` @ ${source}` : ''}`
     }));
 }));
 
@@ -338,7 +343,13 @@ router.get(`/${CH}/threads/:kind/:id/messages`, handle(async (req, res) => {
     if (!thread) return;
     const target = await targetsRepo.getTarget(req.params.channel, thread.kind, thread.id);
     const page = await followupsRepo.listThreadMessages(req.params.channel, thread.kind, thread.id, { limit: req.query.limit, before: req.query.before });
-    res.json({ thread: { ...thread, name: target?.name || thread.id }, ...page });
+    let canSend = isAdmin(req);
+    if (!canSend) {
+        const config = await ch(req).repo.getConfig();
+        canSend = config.push.allowUserPush && config.push.defaultTargets.some(item => item.kind === thread.kind && item.id === thread.id);
+    }
+    if (req.params.channel === 'weixin' && thread.kind === 'group') canSend = false;
+    res.json({ thread: { ...thread, name: target?.name || thread.id }, ...page, canSend: Boolean(canSend) });
 }));
 
 // 微信暂不支持跟进任务：返回空列表，首页照常显示对话

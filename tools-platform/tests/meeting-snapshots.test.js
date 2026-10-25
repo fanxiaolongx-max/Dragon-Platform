@@ -824,6 +824,7 @@ test('meeting-snapshots REST API routes respond correctly to GET, POST, PUT, DEL
     const server = app.listen(0);
     const port = server.address().port;
     const base = `http://127.0.0.1:${port}/api/meeting-snapshots`;
+    let rostersGetData;
 
     try {
         // 1. POST /api/meeting-snapshots
@@ -881,7 +882,7 @@ test('meeting-snapshots REST API routes respond correctly to GET, POST, PUT, DEL
         // 6. GET /api/meeting-snapshots/settings/rosters
         const rostersGetRes = await fetch(`${base}/settings/rosters`);
         assert.equal(rostersGetRes.status, 200);
-        const rostersGetData = await rostersGetRes.json();
+        rostersGetData = await rostersGetRes.json();
         assert.equal(rostersGetData.success, true);
         assert.ok(Array.isArray(rostersGetData.data.mandatoryAttendees));
         assert.ok(Array.isArray(rostersGetData.data.exemptions));
@@ -908,6 +909,16 @@ test('meeting-snapshots REST API routes respond correctly to GET, POST, PUT, DEL
         assert.equal(rostersPutData.data.exemptions[0].account, 'u_int_ex');
         assert.ok(rostersPutData.data.updatedAt);
     } finally {
+        const cleanMandatory = (rostersGetData?.data?.mandatoryAttendees || []).filter(p => p.account !== 'u_int_man');
+        const cleanExemptions = (rostersGetData?.data?.exemptions || []).filter(p => p.account !== 'u_int_ex');
+        await fetch(`${base}/settings/rosters`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mandatoryAttendees: cleanMandatory,
+                exemptions: cleanExemptions
+            })
+        }).catch(() => {});
         server.close();
     }
 });

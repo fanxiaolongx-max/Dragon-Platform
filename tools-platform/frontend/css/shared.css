@@ -4433,6 +4433,188 @@ body.service-status-open { overflow: hidden; }
 .service-status-legend i.no-data { background: #e4e8ed; border: 1px solid #d8dee6; }
 .service-status-legend em { margin-left: auto; color: #8a93a3; font-style: normal; }
 .service-status-notice { margin-bottom: 12px; padding: 9px 12px; color: #795c16; border: 1px solid #ecd79a; border-radius: 8px; background: #fff9e8; font-size: 11px; }
+.service-status-channels {
+    margin-bottom: 14px;
+    padding: 15px 18px;
+    border: 1px solid #dce2e8;
+    border-radius: 13px;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .03);
+}
+.service-status-channels-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.service-status-channels-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #242b35;
+}
+.service-status-channels-sub {
+    font-size: 11px;
+    color: #7a8493;
+    font-weight: normal;
+}
+.service-channel-inspect-btn {
+    padding: 4px 10px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    background: #f6f8fa;
+    color: #475467;
+    font-size: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all .15s ease;
+}
+.service-channel-inspect-btn:hover {
+    border-color: #16865d;
+    color: #16865d;
+    background: #f0fdf4;
+}
+.service-status-channels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+}
+.service-channel-card {
+    padding: 12px 14px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    transition: all .15s ease;
+}
+.service-channel-card.clickable {
+    cursor: pointer;
+}
+.service-channel-card.clickable:hover {
+    border-color: #94a3b8;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, .05);
+    transform: translateY(-1px);
+}
+.service-channel-card.operational {
+    border-left: 4px solid #22c55e;
+}
+.service-channel-card.degraded {
+    border-left: 4px solid #f59e0b;
+}
+.service-channel-card.incident {
+    border-left: 4px solid #ef4444;
+}
+.service-channel-card.disabled {
+    border-left: 4px solid #cbd5e1;
+    opacity: .75;
+}
+.service-channel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.service-channel-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #1e293b;
+}
+.service-channel-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 7px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+}
+.service-channel-badge i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+.service-channel-badge.operational {
+    background: #dcfce7;
+    color: #15803d;
+}
+.service-channel-badge.operational i {
+    background: #22c55e;
+}
+.service-channel-badge.degraded {
+    background: #fef3c7;
+    color: #b45309;
+}
+.service-channel-badge.degraded i {
+    background: #f59e0b;
+}
+.service-channel-badge.incident {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+.service-channel-badge.incident i {
+    background: #ef4444;
+}
+.service-channel-badge.disabled {
+    background: #f1f5f9;
+    color: #64748b;
+}
+.service-channel-badge.disabled i {
+    background: #94a3b8;
+}
+.service-channel-body {
+    display: grid;
+    gap: 4px;
+    font-size: 11px;
+    color: #475467;
+}
+.service-channel-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.service-channel-row span:first-child {
+    color: #64748b;
+}
+.service-channel-row code {
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+    color: #0f172a;
+    background: #f1f5f9;
+    padding: 1px 4px;
+    border-radius: 3px;
+}
+.service-channel-err {
+    margin-top: 6px;
+    padding: 4px 8px;
+    border-radius: 5px;
+    background: #fee2e2;
+    color: #991b1b;
+    font-size: 10px;
+    word-break: break-all;
+}
+.service-failure-quick-btn {
+    padding: 6px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    background: #f6f8fa;
+    color: #24292f;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all .15s ease;
+}
+.service-failure-quick-btn:hover {
+    background: #ebf0f4;
+    border-color: #16865d;
+    color: #16865d;
+}
 .service-status-loading,
 .service-status-error { min-height: 260px; display: grid; place-items: center; align-content: center; gap: 10px; color: #667085; text-align: center; }
 .service-status-loading span { width: 26px; height: 26px; border: 3px solid #dce2e8; border-top-color: #16865d; border-radius: 50%; animation: service-status-spin .7s linear infinite; }

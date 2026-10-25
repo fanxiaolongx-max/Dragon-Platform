@@ -154,7 +154,7 @@
     function renderPlans() {
         return `<section class="nch-card">
             <h4>🗓️ ${esc(L('运营计划', 'Plans'))}</h4>
-            <p class="nch-desc">${esc(L('每个计划决定推给哪些群、生成什么、什么时候发。新计划默认「到点生成草稿」，可在主页对话区、全局提醒或下方记录中修改并确认发送；跑稳后可切到自动发送。', 'Each plan defines targets, content and schedule. Review, edit and send drafts in home chat, the global reminder or the history below.'))}</p>
+            <p class="nch-desc">${esc(L('每个计划决定推给哪些群、生成什么、什么时候发。新计划默认「到点生成草稿」，点击主页提示条或全局提醒进入对应的微信 / WeLink 会话，修改并确认发送；也可在下方记录中处理。跑稳后可切到自动发送。', 'Each plan defines targets, content and schedule. Open the matching WeChat / WeLink conversation from the home prompt or global reminder to edit and send drafts, or use the history below.'))}</p>
             <div class="nch-row" style="margin-top:0">
                 <button type="button" class="nch-btn primary" data-ops-action="new-plan">${esc(L('新建计划', 'New plan'))}</button>
                 ${state.library.presets.length ? `<select data-ops-preset style="height:30px;border:1px solid #cbd5e1;border-radius:7px;padding:0 8px;font-size:12px;max-width:100%"><option value="">${esc(L('从内置模板新建…', 'New from template…'))}</option>${state.library.presets.map(preset => `<option value="${esc(preset.id)}" title="${esc(preset.description)}">${esc(preset.name)}</option>`).join('')}</select>` : ''}

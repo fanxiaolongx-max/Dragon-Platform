@@ -41,7 +41,7 @@ function parseJson(str, fallback = {}) {
     }
 }
 
-async function listSnapshots({ search, startDate, endDate, since, includePayload = false } = {}) {
+async function listSnapshots({ search, startDate, endDate, since, includePayload = false, latestPerMonth = false } = {}) {
     await ensureReady();
     const conditions = [];
     const params = [];
@@ -67,11 +67,23 @@ async function listSnapshots({ search, startDate, endDate, since, includePayload
         ${includePayload ? ', payload_json' : ''}
         FROM meeting_attendance_snapshots
         ${whereClause}
-        ORDER BY meeting_date DESC, updated_at DESC, id DESC
+        ORDER BY ${latestPerMonth
+            ? 'julianday(COALESCE(updated_at, created_at)) DESC, julianday(created_at) DESC, rowid DESC'
+            : 'meeting_date DESC, updated_at DESC, id DESC'}
     `;
 
     const rows = await all(query, params);
-    return rows.map(row => {
+    const seenMonths = new Set();
+    // Attendance checks use one complete saved version per calendar month, selected
+    // before matching people. Never resurrect a removed/corrected record from an older version.
+    const selectedRows = latestPerMonth ? rows.filter(row => {
+        const month = String(row.meeting_date || '').trim().match(/^(\d{4}-(?:0[1-9]|1[0-2]))(?:-|$)/)?.[1];
+        if (!month) return true; // Undated legacy snapshots must not share an artificial month.
+        if (seenMonths.has(month)) return false;
+        seenMonths.add(month);
+        return true;
+    }) : rows;
+    return selectedRows.map(row => {
         const item = {
             id: row.id,
             title: row.title,
@@ -130,11 +142,11 @@ async function saveSnapshot({ id, title, meetingDate, summary = {}, payload = {}
         INSERT INTO meeting_attendance_snapshots (
             id, title, meeting_date, created_at, updated_at, summary_json, payload_json
         )
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?)
+        VALUES (?, ?, ?, strftime('%Y-%m-%d %H:%M:%f', 'now'), strftime('%Y-%m-%d %H:%M:%f', 'now'), ?, ?)
         ON CONFLICT(id) DO UPDATE SET
             title = excluded.title,
             meeting_date = excluded.meeting_date,
-            updated_at = CURRENT_TIMESTAMP,
+            updated_at = excluded.updated_at,
             summary_json = excluded.summary_json,
             payload_json = excluded.payload_json
     `, [snapId, snapTitle, dateStr, summaryJson, payloadJson]);
@@ -150,7 +162,7 @@ async function renameSnapshot(id, newTitle) {
 
     const result = await run(`
         UPDATE meeting_attendance_snapshots
-        SET title = ?, updated_at = CURRENT_TIMESTAMP
+        SET title = ?, updated_at = strftime('%Y-%m-%d %H:%M:%f', 'now')
         WHERE id = ?
     `, [title, snapId]);
 
@@ -1146,7 +1158,7 @@ async function checkPersonAttendance({ staffId, name }) {
         return { found: false, hasRecords: false, hasAnomaly: false, records: [], anomalies: [], cleanCount: 0, anomalyCount: 0, totalMeetingsChecked: 0 };
     }
 
-    const snapshots = await listSnapshots({ includePayload: true });
+    const snapshots = await listSnapshots({ includePayload: true, latestPerMonth: true });
     const records = [];
     const anomalies = [];
     let cleanCount = 0;
@@ -1181,7 +1193,7 @@ async function checkPersonAttendance({ staffId, name }) {
 async function batchCheckAttendance(persons = []) {
     await ensureReady();
     if (!Array.isArray(persons) || !persons.length) return {};
-    const snapshots = await listSnapshots({ includePayload: false });
+    const snapshots = await listSnapshots({ includePayload: false, latestPerMonth: true });
 
     const getDigits = s => {
         const d = String(s || '').replace(/^[a-z]+/i, '').trim();

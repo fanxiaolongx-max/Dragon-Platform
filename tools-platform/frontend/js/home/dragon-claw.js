@@ -1552,7 +1552,7 @@
         el.input.focus();
     }
 
-    // ── 外部只读对话：WeLink 等频道的合并时间线（js/home/welink-threads.js）借用对话区渲染 ──
+    // ── 频道对话：WeLink / 微信的消息时间线与会话内运营操作 ──
     // 进入时离开当前对话、禁用输入框；新对话 / 打开个人历史时自动退出并回调 onExit。
     const external = { active: false, onExit: null };
 

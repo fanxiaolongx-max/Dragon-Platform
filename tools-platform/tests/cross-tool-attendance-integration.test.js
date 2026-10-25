@@ -425,7 +425,9 @@ test('Cross-tool attendance check & roster extraction integration test', async (
         const sheetSnap = {
             id: testSheetSnapId,
             title: '测试多列客户群Sheet快照',
-            meetingDate: '2026-09-23',
+            // Keep this independent roster fixture in another month: attendance
+            // checks intentionally use only the newest snapshot of each month.
+            meetingDate: '2026-10-23',
             summary: {},
             payload: {
                 sheets: [
