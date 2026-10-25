@@ -78,6 +78,12 @@ test('chat history imports, searches, preserves personal state and isolates tena
     assert.equal(conversations.total, 1);
     assert.equal(conversations.items[0].unread_count, 2);
     assert.equal(conversations.items[0].conversation_type, 'single');
+    for (const q of ['张三', '华北', 'zhangsan', 'zs', 'zhangs', 'huabei', 'hb']) {
+        assert.equal((await repo.listConversations('alice', { q })).total, 1, `会话搜索应命中：${q}`);
+    }
+    for (const q of ['lisi', 'zx', '李四']) {
+        assert.equal((await repo.listConversations('alice', { q })).total, 0, `会话搜索不应命中：${q}`);
+    }
 
     const messages = await repo.listMessages(imported.conversationId, 'alice', { limit: 20 });
     assert.equal(messages.items.length, 3);
