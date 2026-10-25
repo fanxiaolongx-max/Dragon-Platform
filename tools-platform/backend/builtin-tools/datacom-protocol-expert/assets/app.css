@@ -322,7 +322,7 @@ textarea.dk-input { resize: vertical; font-family: "JetBrains Mono", Menlo, Cons
 .dk-lab-page { display: grid; gap: 14px; }
 
 /* ---------- 文章 ---------- */
-.dk-article-layout { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 28px; width: 100%; }
+.dk-article-layout { display: grid; grid-template-columns: minmax(0, 1fr) var(--toc-w, 230px); gap: 28px; width: 100%; }
 .dk-article { min-width: 0; }
 .dk-article h1 { font-size: 28px; line-height: 1.35; margin: 4px 0 10px; }
 .dk-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }
@@ -343,7 +343,11 @@ textarea.dk-input { resize: vertical; font-family: "JetBrains Mono", Menlo, Cons
 .dk-stage-host.is-tall { height: calc(100vh - 150px); min-height: 520px; }
 .dk-stage-host.is-modal { height: 72vh; }
 .dk-stage-host:has(.dk-lab) { height: auto; min-height: 0; background: var(--panel); }
-.dk-toc { position: sticky; top: 84px; align-self: start; max-height: calc(100vh - 110px); overflow: auto; font-size: 13px; padding-left: 12px; border-left: 1px solid var(--line); }
+.dk-toc { position: sticky; top: 84px; align-self: start; max-height: calc(100vh - 110px); overflow: visible; min-width: 0; font-size: 13px; padding-left: 12px; border-left: 1px solid var(--line); }
+.dk-toc-scroll { max-height: inherit; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; overflow-wrap: anywhere; }
+.dk-toc-resize { position: absolute; left: -8px; top: 0; bottom: 0; width: 15px; padding: 0; border: 0; background: transparent; cursor: col-resize; touch-action: none; }
+.dk-toc-resize::after { content: "⋮"; position: absolute; top: 50%; left: 1px; transform: translateY(-50%); color: var(--muted); font-size: 18px; }
+.dk-toc-resize:hover, .dk-toc-resize:focus-visible { background: color-mix(in srgb, var(--accent) 25%, transparent); outline: 1px solid var(--accent); border-radius: 4px; }
 .dk-toc-title { font-weight: 700; margin-bottom: 6px; color: var(--text-2); }
 .dk-toc a { display: block; padding: 3px 0; color: var(--muted); line-height: 1.4; }
 .dk-toc a:hover { color: var(--text); text-decoration: none; }
@@ -697,7 +701,7 @@ body.has-ai-panel .dk-layout { grid-template-columns: var(--nav-col) minmax(0, 1
 body.is-resizing { cursor: col-resize; user-select: none; }
 body.is-resizing .dk-stage-canvas { pointer-events: none; }
 .dk-ai-panel {
-    position: sticky; top: var(--dk-header-h); height: calc(100vh - var(--dk-header-h)); overflow: hidden; display: flex; flex-direction: column;
+    position: sticky; top: var(--dk-header-h); align-self: start; min-width: 0; min-height: 0; height: calc(100dvh - var(--dk-header-h)); overflow: hidden; display: flex; flex-direction: column;
     border-left: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(10px);
 }
 .dk-ai-panel[hidden] { display: none; }
@@ -713,7 +717,9 @@ body.is-resizing .dk-stage-canvas { pointer-events: none; }
 .dk-ai-kinds { display: flex; gap: 4px; flex-wrap: wrap; }
 .dk-ai-kinds button { border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text-2); border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer; }
 .dk-ai-kinds button.is-active { border-color: var(--accent); color: var(--text); }
-.dk-ai-list { flex: 1; overflow: auto; padding: 10px 12px 30px; display: grid; gap: 8px; align-content: start; }
+.dk-ai-head, .dk-ai-panel-ask, .dk-ai-filters, .dk-ai-panel > .dk-ai-warning { flex-shrink: 0; }
+.dk-ai-panel-ask textarea { max-height: min(160px, 22dvh); }
+.dk-ai-list { flex: 1 1 0; min-height: 0; min-width: 0; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; grid-auto-rows: max-content; padding: 10px 12px 30px; display: grid; gap: 8px; align-content: start; }
 .dk-ai-empty { text-align: center; color: var(--muted); font-size: 13px; padding: 30px 10px; line-height: 1.8; }
 .dk-ai-item { border-radius: 12px; border: 1px solid var(--line); background: var(--panel); border-left: 3px solid var(--anno-qa); overflow: hidden; }
 .dk-ai-item.is-note { border-left-color: var(--anno-note); }

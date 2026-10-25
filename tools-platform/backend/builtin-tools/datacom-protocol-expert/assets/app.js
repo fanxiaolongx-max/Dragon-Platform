@@ -9,6 +9,7 @@ import { labs } from './labs.js';
 import { readingGuides } from './reading-guides.js';
 import { renderMarkdown, renderMermaid, refreshMermaidLanguage } from './markdown.js';
 import { createSnapshotApi } from './snapshot-api.js';
+import { mountTocResize } from './toc-resize.js';
 import { initAiNotes } from './ai-notes.js';
 import { mountNoteVideo, loadVideoManifest, mountVideoRecommendations } from './note-video.js';
 import { mountMindMap } from './mindmap.js';
@@ -418,7 +419,8 @@ async function renderArticle(id) {
         </article>
         <aside class="dk-toc" id="articleToc"></aside></div>`;
     const { toc } = renderMarkdown($('#articleBody'), article.bodyMd, { findArticle: findArticleByTitle });
-    $('#articleToc').innerHTML = toc.length ? `<div class="dk-toc-title">目录</div>${toc.map(item => `<a class="lvl-${item.level}" href="#${item.id}" data-toc="${item.id}">${esc(item.text)}</a>`).join('')}` : '';
+    $('#articleToc').innerHTML = toc.length ? `<button type="button" class="dk-toc-resize" aria-label="调整目录宽度" title="拖动调整目录宽度，双击恢复默认；方向键微调"></button><div class="dk-toc-scroll"><div class="dk-toc-title">目录</div>${toc.map(item => `<a class="lvl-${item.level}" href="#${item.id}" data-toc="${item.id}">${esc(item.text)}</a>`).join('')}</div>` : '';
+    state.mounted.push({ dispose: mountTocResize($('#articleToc')) });
     renderMermaid($('#articleBody'), resolvedTheme() === 'dark');
     document.dispatchEvent(new CustomEvent('dk:article-rendered', { detail: { article } }));
     if (state.pendingFocus) {

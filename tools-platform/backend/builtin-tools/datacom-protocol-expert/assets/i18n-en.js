@@ -1,5 +1,7 @@
 // Complete English copy for the bundled knowledge base and teaching UI. Protocol identifiers and commands retain their syntax.
 export const english = {
+  "调整目录宽度": "Resize the table of contents",
+  "拖动调整目录宽度，双击恢复默认；方向键微调": "Drag to resize the table of contents; double-click to reset; arrow keys to adjust",
   "数通协议专家": "Datacom Protocol Expert",
   "Datacom Protocol Expert · 3D 知识库": "Datacom Protocol Expert · 3D Knowledge Base",
   "搜索协议、字段、命令，如 FA、P-bit、vrf-import…": "Search protocols, fields, commands like FA, P-bit, vrf-import…",

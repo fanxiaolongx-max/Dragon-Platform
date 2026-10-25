@@ -11,7 +11,7 @@ const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'datacom-ai-popover-'));
 app.setPath('userData', path.join(temp, 'profile'));
 const seed = require(path.join(root, 'knowledge-seed.json'));
 const article = { ...seed.articles[0], id: 'popover-regression', title: '浮窗布局验证', visuals: [], tags: [], keyPoints: [], aiFields: [],
-    bodyMd: '# 浮窗布局验证\n\n```text\nR1 -> R2：发送报文\n核对邻居状态\n检查区域属性\n检查接口计时器\n检查认证方式\n最后观察重传\n```' };
+    bodyMd: '# 浮窗布局验证\n\n## 报文检查\n\n```text\nR1 -> R2：发送报文\n核对邻居状态\n检查区域属性\n检查接口计时器\n检查认证方式\n最后观察重传\n```' };
 let win, server, calls = [], saved = [], liveTimers = new Set();
 const errors = [];
 const evaluate = (fn, ...args) => win.webContents.executeJavaScript(`(${fn.toString()})(...${JSON.stringify(args)})`, true);
@@ -137,6 +137,39 @@ app.whenReady().then(async () => {
         assert.ok(g.client > 40 && g.scroll > g.client, 'long answer keeps its own scroll area on narrow/short screens');
         await shot(`viewport-${size.join('x')}`);
     }
+    win.setSize(1800, 1000); await wait(250);
+    await evaluate(() => { document.querySelector('.dk-ai-pop [data-close]').click(); });
+    await until(() => !!document.querySelector('.dk-ai-item.is-open .dk-ai-item-actions'));
+    const panelCheck = await evaluate(() => {
+        const list = document.querySelector('.dk-ai-list'), card = list.querySelector('.dk-ai-item');
+        const header = document.querySelector('.dk-ai-head').getBoundingClientRect().top;
+        list.scrollTop = list.scrollHeight;
+        const actions = card.querySelector('.dk-ai-item-actions').getBoundingClientRect(), r = list.getBoundingClientRect();
+        return { scroll: list.scrollHeight, client: list.clientHeight, card: card.clientHeight, content: card.scrollHeight,
+            actionsBottom: actions.bottom, bottom: r.bottom, top: r.top, actionsTop: actions.top,
+            header, headerAfter: document.querySelector('.dk-ai-head').getBoundingClientRect().top };
+    });
+    assert.ok(panelCheck.scroll > panelCheck.client + 1000, JSON.stringify(panelCheck));
+    assert.ok(panelCheck.content <= panelCheck.card + 2, 'expanded card must not clip its answer');
+    assert.ok(panelCheck.actionsBottom <= panelCheck.bottom && panelCheck.actionsTop >= panelCheck.top, 'bottom actions reachable');
+    assert.equal(panelCheck.header, panelCheck.headerAfter);
+    await shot('sidebar-long-answer-bottom');
+    await evaluate(() => { document.querySelector('#aiPanelBtn').click(); }); await wait(400);
+    const tocBefore = await evaluate(() => { const r = document.querySelector('.dk-toc-resize').getBoundingClientRect(); return { x: r.x + 7, y: r.y + 20, w: document.querySelector('#articleToc').getBoundingClientRect().width }; });
+    win.webContents.sendInputEvent({ type: 'mouseDown', x: Math.round(tocBefore.x), y: Math.round(tocBefore.y), button: 'left', clickCount: 1 });
+    win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(tocBefore.x - 80), y: Math.round(tocBefore.y) });
+    win.webContents.sendInputEvent({ type: 'mouseUp', x: Math.round(tocBefore.x - 80), y: Math.round(tocBefore.y), button: 'left', clickCount: 1 });
+    await wait(150);
+    const tocWidth = await evaluate(() => document.querySelector('#articleToc').getBoundingClientRect().width);
+    assert.ok(tocWidth > tocBefore.w + 60, JSON.stringify({tocBefore, tocWidth}));
+    await win.reload(); await until(() => !!document.querySelector('.dk-toc-resize')); await wait(200);
+    assert.equal(await evaluate(() => document.querySelector('#articleToc').getBoundingClientRect().width), tocWidth, 'TOC width survives reload');
+    await evaluate(() => document.querySelector('#aiPanelBtn').click()); await wait(400);
+    assert.ok(await evaluate(() => document.querySelector('.dk-article').getBoundingClientRect().width >= 320), 'AI sidebar leaves readable article width');
+    await shot('toc-resizable-with-sidebar');
+    win.setSize(740, 700); await wait(200);
+    assert.equal(await evaluate(() => getComputedStyle(document.querySelector('#articleToc')).display), 'none');
+    assert.ok(await evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no horizontal page overflow');
     assert.deepEqual(errors, []);
     console.log('AI popover: stable context during long streams, independent scroll, compact input, pointer resize, IME/shortcuts, duplicate-send guard, follow-up, sidebar transfer, English, themes and narrow viewports passed.');
 }).catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
