@@ -112,6 +112,7 @@ const DEFINITIONS = new Map([
     ["ai_chat_sessions", {"category": "ai", "description": "平台 AI 助手的会话配置与会话信息。", "descriptionEn": "Platform AI assistant sessions and configuration.", "source": "backend/models/ai-chat-repository.js"}],
     ["ai_chat_messages", {"category": "ai", "description": "平台 AI 助手会话中的消息记录。", "descriptionEn": "Messages in platform AI assistant sessions.", "source": "backend/models/ai-chat-repository.js"}],
     ["ai_question_suggestions", {"category": "ai", "description": "AI 助手推荐或维护的提问建议。", "descriptionEn": "Suggested questions maintained for the AI assistant.", "source": "backend/models/ai-chat-repository.js"}],
+    ["dragon_claw_schedules", {"category": "ai", "description": "Dragon Claw 定时指令的所有者、执行规则、关联会话及运行结果。", "descriptionEn": "Owners, execution rules, linked sessions and run results for Dragon Claw scheduled instructions.", "source": "backend/models/dragon-claw-schedules.js"}],
     ["ai_usage_daily", {"category": "ai", "description": "按日汇总的 AI 调用用量。", "descriptionEn": "Daily aggregated AI usage.", "source": "backend/models/ai-usage-repository.js"}],
     ["ai_usage_daily_models", {"category": "ai", "description": "按日及模型统计的 AI 用量。", "descriptionEn": "Daily AI usage broken down by model.", "source": "backend/models/ai-usage-repository.js"}],
     ["agent_session_transcripts", {"category": "ai", "description": "智能体工具调用与会话转录。", "descriptionEn": "Agent tool-call and session transcripts.", "source": "backend/models/agent-transcript-repository.js"}],

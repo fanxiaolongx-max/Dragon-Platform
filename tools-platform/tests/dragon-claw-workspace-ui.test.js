@@ -227,7 +227,46 @@ test('slash menu supports arrow-key selection; Enter runs and Tab completes the 
     const js = read('frontend/js/home/dragon-claw.js');
     assert.match(js, /if \(event\.key === 'ArrowDown' \|\| event\.key === 'ArrowUp'\) \{/);
     assert.match(js, /setSlashActive\(slashMenu\.active \+ \(event\.key === 'ArrowDown' \? 1 : -1\)\);/);
-    assert.match(js, /if \(!state\.controller\) runSlashCommand\(item\.name\);/, 'Enter runs the highlighted command, not the typed prefix');
+    // Exercise the menu and dispatcher together: side commands remain usable while a reply is generating.
+    const commands = js.slice(js.indexOf('    const SLASH_COMMANDS = ['), js.indexOf('    async function compactContext()'));
+    const keydown = js.match(/el\.input\.addEventListener\('keydown', (event => \{[\s\S]*?)\n        \}\);/)[1] + '\n}';
+    const calls = [];
+    const state = { controller: null };
+    const el = { input: { value: '/s', focus() {} } };
+    const slashMenu = { items: [{ name: '/session' }], active: 0 };
+    const onKeydown = new Function('state', 'el', 'slashMenu', 'calls', `
+        const autoResize = () => {}, hideSlashHints = () => {}, updateSendButton = () => {};
+        const slashMenuOpen = () => true;
+        const openSessionPicker = arg => calls.push(['session', arg]);
+        const newChat = () => calls.push(['new']);
+        const compactContext = () => calls.push(['compact']);
+        const createSchedule = arg => calls.push(['schedule', arg]);
+        const openSchedulePanel = () => calls.push(['schedules']);
+        const startPlan = arg => calls.push(['plan', arg]);
+        const askBtw = arg => calls.push(['btw', arg]);
+        ${commands}
+        return ${keydown};
+    `)(state, el, slashMenu, calls);
+    const enter = () => onKeydown({ key: 'Enter', preventDefault() {} });
+    enter();
+    assert.deepEqual(calls.splice(0), [['session', '']], 'Enter runs the highlighted command, not the typed prefix');
+    state.controller = {};
+    for (const name of ['/session', '/new', '/compact']) {
+        slashMenu.items[0].name = name;
+        el.input.value = name;
+        enter();
+        assert.deepEqual(calls, [], `${name} stays blocked during generation`);
+        assert.equal(el.input.value, name, 'blocked commands preserve the input');
+    }
+    slashMenu.items[0].name = '/schedule';
+    el.input.value = '/s';
+    enter();
+    assert.deepEqual(calls.splice(0), [['schedules']], '/schedule opens during generation');
+    slashMenu.items[0].name = '/btw';
+    el.input.value = '/b';
+    enter();
+    assert.equal(el.input.value, '/btw ', '/btw completes the command so a question can be entered');
+    assert.deepEqual(calls, [], 'a side question is not sent without arguments');
     assert.match(js, /el\.input\.value = `\$\{item\.name\} `;/, 'Tab completes the highlighted command');
     assert.match(js, /slashMenuOpen\(\) && !event\.isComposing/, 'IME composition keeps its own arrow/enter keys');
     assert.match(js, /el\.input\.setAttribute\('aria-activedescendant', `dcSlashOpt\$\{slashMenu\.active\}`\);/);
