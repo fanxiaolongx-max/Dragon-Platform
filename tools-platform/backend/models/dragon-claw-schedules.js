@@ -1,6 +1,7 @@
 // Dragon Claw「/schedule」定时指令（当前租户 tools.db 的 dragon_claw_schedules 表）：
 // - 一次性（run_at）或周期（rule_json，复用运营计划的 ops-schedule 规则）；时区取用户浏览器；
 // - 到点后以创建者身份走与首页相同的对话链路（handleChatRequest），结果写回发起定时的那段对话，没有则新开一段；
+// - 可选「推送到」WeLink/微信的人或群（targets_json）：执行成功后用频道公共推送把结果发过去，权限与频道推送接口一致；
 // - 每分钟轮询各租户；认领时先推进 next_run_at，同一次不会重复执行；对话正忙时 2 分钟后重试；停机期间错过的只补跑一次。
 const crypto = require('crypto');
 const { run, get, all, getDatabase } = require('./app-db');
@@ -12,6 +13,9 @@ const BUSY_RETRY_MS = 2 * 60 * 1000;
 const RUN_TIMEOUT_MS = 10 * 60 * 1000;
 const BATCH = 10;
 const MAX_ACTIVE_PER_USER = 20;
+const MAX_TARGETS = 10;
+const PUSH_MAX_CHARS = 7800;
+const CHANNEL_LABELS = { welink: 'WeLink', weixin: '微信' };
 const PAGE_TITLE = 'Dragon Claw · 首页';
 const initializations = new WeakMap();
 let timer = null;
@@ -57,6 +61,10 @@ async function ensureSchema() {
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
             )`);
+            // 后加的列：已有表补上（推送目标与最近一次推送结果）
+            const columns = new Set((await all('PRAGMA table_info(dragon_claw_schedules)')).map(column => column.name));
+            if (!columns.has('targets_json')) await run('ALTER TABLE dragon_claw_schedules ADD COLUMN targets_json TEXT');
+            if (!columns.has('last_push_json')) await run('ALTER TABLE dragon_claw_schedules ADD COLUMN last_push_json TEXT');
             await run('CREATE INDEX IF NOT EXISTS idx_dc_schedules_due ON dragon_claw_schedules(status, next_run_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_dc_schedules_owner ON dragon_claw_schedules(owner, updated_at DESC)');
         })();
@@ -81,6 +89,8 @@ function toSchedule(row) {
         lastStatus: row.last_status || '',
         lastError: row.last_error || '',
         lastReply: row.last_reply || '',
+        targets: parseJson(row.targets_json, []),
+        lastPush: parseJson(row.last_push_json, null),
         runCount: Number(row.run_count) || 0,
         createdAt: row.created_at,
         updatedAt: row.updated_at
@@ -97,13 +107,50 @@ async function workdays() {
     }
 }
 
-async function create({ owner, role, text, sessionId, timezone, modelId }) {
+function channelConfigRepo(channel) {
+    return require(channel === 'weixin' ? './channels/weixin-config-repository' : './channels/welink-config-repository');
+}
+
+/**
+ * 校验并补全推送目标：只接受频道里出现过、可主动推送的人/群；微信暂不支持群推送。
+ * 权限与 /api/channels/:channel/push 一致：管理员不限，普通用户需开启「允许普通用户推送」且只能推到默认推送范围。
+ */
+async function resolveTargets(input, role) {
+    const list = Array.isArray(input) ? input : [];
+    if (list.length > MAX_TARGETS) throw serviceError('SCHEDULE_TARGETS_LIMIT', `最多推送给 ${MAX_TARGETS} 个对象`);
+    const targetsRepo = require('./channels/channel-targets-repository');
+    const seen = new Set();
+    const resolved = [];
+    for (const item of list) {
+        const channel = item?.channel === 'weixin' ? 'weixin' : (item?.channel === 'welink' ? 'welink' : '');
+        const kind = item?.kind === 'group' ? 'group' : (item?.kind === 'user' ? 'user' : '');
+        const id = String(item?.id || '').trim().slice(0, 200);
+        if (!channel || !kind || !id) throw serviceError('SCHEDULE_TARGET_INVALID', '推送对象无效');
+        const key = `${channel}:${kind}:${id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        if (channel === 'weixin' && kind === 'group') throw serviceError('SCHEDULE_TARGET_UNSUPPORTED', '微信助理暂不支持群推送，请选择微信联系人');
+        const target = await targetsRepo.getTarget(channel, kind, id);
+        if (!target) throw serviceError('SCHEDULE_TARGET_NOT_FOUND', `${CHANNEL_LABELS[channel]}里找不到这个${kind === 'group' ? '群' : '联系人'}`);
+        if (!target.toolSessionId) throw serviceError('SCHEDULE_TARGET_NOT_PUSHABLE', `「${target.alias || target.name || id}」还不能主动推送（联系人需先与助理单聊过，群需在群里用过助理）`);
+        if (role !== 'admin') {
+            const config = await channelConfigRepo(channel).getConfig();
+            if (!config.push.allowUserPush) throw serviceError('SCHEDULE_TARGET_FORBIDDEN', `仅管理员可推送${CHANNEL_LABELS[channel]}消息`, 403);
+            if (!config.push.defaultTargets.some(entry => entry.kind === kind && entry.id === id)) throw serviceError('SCHEDULE_TARGET_FORBIDDEN', '只能推送到管理员配置的默认推送范围', 403);
+        }
+        resolved.push({ channel, kind, id, name: String(target.alias || target.name || id).slice(0, 120) });
+    }
+    return resolved;
+}
+
+async function create({ owner, role, text, sessionId, timezone, modelId, targets }) {
     await ensureSchema();
     if (!owner) throw serviceError('SCHEDULE_OWNER_REQUIRED', '请先登录', 401);
     const parsed = parser.parse(text, { timezone });
     const zone = require('./channels/followup-schedule').normalizeCalendar({ timezone }).timezone;
     const active = await get("SELECT COUNT(*) AS count FROM dragon_claw_schedules WHERE owner = ? AND status = 'active'", [owner]);
     if (Number(active?.count) >= MAX_ACTIVE_PER_USER) throw serviceError('SCHEDULE_LIMIT', `最多同时保留 ${MAX_ACTIVE_PER_USER} 个定时任务，请先取消一些`);
+    const pushTargets = await resolveTargets(targets, role);
     const nextRun = parsed.kind === 'once' ? parsed.runAt : parser.nextRecurring(parsed.rule, new Date(), zone, await workdays());
     if (!nextRun) throw serviceError('SCHEDULE_NO_NEXT_RUN', '按这个规则找不到下一次执行时间');
     if (sessionId) {
@@ -113,10 +160,10 @@ async function create({ owner, role, text, sessionId, timezone, modelId }) {
     }
     const id = `dcs_${Date.now().toString(36)}${crypto.randomBytes(4).toString('hex')}`;
     const at = now();
-    await run(`INSERT INTO dragon_claw_schedules (id, owner, role, instruction, kind, rule_json, timezone, session_id, model_id, status, next_run_at, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
+    await run(`INSERT INTO dragon_claw_schedules (id, owner, role, instruction, kind, rule_json, timezone, session_id, model_id, targets_json, status, next_run_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
     [id, owner, role === 'admin' ? 'admin' : 'user', parsed.instruction.slice(0, 4000), parsed.kind, parsed.rule ? JSON.stringify(parsed.rule) : null,
-        zone, sessionId || null, modelId ? String(modelId).slice(0, 120) : null, nextRun.toISOString(), at, at]);
+        zone, sessionId || null, modelId ? String(modelId).slice(0, 120) : null, pushTargets.length ? JSON.stringify(pushTargets) : null, nextRun.toISOString(), at, at]);
     return getForOwner(id, owner);
 }
 
@@ -205,6 +252,51 @@ async function runTurn(schedule, row, firedAt) {
     return { sessionId: finalPayload?.sessionId || sessionId, reply: String(finalPayload?.reply || streamed).trim() };
 }
 
+function pushText(schedule, reply) {
+    const head = `⏰ **定时任务** · ${schedule.instruction.length > 80 ? `${schedule.instruction.slice(0, 80)}…` : schedule.instruction}`;
+    const body = reply.length > PUSH_MAX_CHARS - head.length - 4 ? `${reply.slice(0, PUSH_MAX_CHARS - head.length - 5)}…` : reply;
+    return `${head}\n\n${body}`;
+}
+
+/** 把结果推给选中的人/群；按频道分批，执行时再校验一次权限（角色或推送范围可能已变）。返回每个对象的结果。 */
+async function pushResult(schedule, row, reply, push) {
+    const results = [];
+    const byChannel = new Map();
+    for (const target of schedule.targets) {
+        if (!byChannel.has(target.channel)) byChannel.set(target.channel, []);
+        byChannel.get(target.channel).push(target);
+    }
+    const text = pushText(schedule, reply);
+    for (const [channel, targets] of byChannel) {
+        let allowed = targets;
+        try {
+            await resolveTargets(targets, row.role);
+        } catch (error) {
+            // 单个对象不再允许时逐个判断，其余照常推送
+            allowed = [];
+            for (const target of targets) {
+                try {
+                    await resolveTargets([target], row.role);
+                    allowed.push(target);
+                } catch (targetError) {
+                    results.push({ ...target, ok: false, error: targetError.message });
+                }
+            }
+        }
+        if (!allowed.length) continue;
+        try {
+            const result = await push({ channel, text, targets: allowed.map(({ kind, id }) => ({ kind, id })), trigger: 'scheduled', source: `dragon-claw-schedule:${schedule.id}:${row.owner}` });
+            for (const target of allowed) {
+                const item = (result?.results || []).find(entry => entry.kind === target.kind && String(entry.id) === target.id);
+                results.push({ ...target, ok: Boolean(item ? item.ok : result?.sent), error: item?.error || (item || result?.sent ? '' : '推送未成功') });
+            }
+        } catch (error) {
+            allowed.forEach(target => results.push({ ...target, ok: false, error: error.message }));
+        }
+    }
+    return { at: now(), sent: results.filter(item => item.ok).length, failed: results.filter(item => !item.ok).length, results };
+}
+
 /** 认领：把 next_run_at 推进到下一次（一次性任务清空并标为执行中），返回是否抢到。 */
 async function claim(row, next) {
     const result = await run(`UPDATE dragon_claw_schedules SET next_run_at = ?, status = ?, updated_at = ?
@@ -213,12 +305,14 @@ async function claim(row, next) {
     return Boolean(result?.changes);
 }
 
-async function execute(row, firedAt = new Date()) {
+async function execute(row, firedAt = new Date(), { push = options => require('./channels').push(options) } = {}) {
     const schedule = toSchedule(row);
     const next = row.kind === 'recurring' ? parser.nextRecurring(schedule.rule, firedAt, schedule.timezone, await workdays()) : null;
     if (!(await claim(row, next))) return { skipped: true };
     try {
         const result = await runTurn(schedule, row, firedAt);
+        const pushed = schedule.targets.length && result.reply ? await pushResult(schedule, row, result.reply, push) : null;
+        if (pushed) await run('UPDATE dragon_claw_schedules SET last_push_json = ? WHERE id = ?', [JSON.stringify(pushed), row.id]);
         await run(`UPDATE dragon_claw_schedules SET session_id = ?, last_run_at = ?, last_status = 'ok', last_error = NULL, last_reply = ?,
             run_count = run_count + 1, status = CASE WHEN status = 'running' THEN 'done' ELSE status END, updated_at = ? WHERE id = ?`,
         [result.sessionId || row.session_id, now(), result.reply.slice(0, 600), now(), row.id]);
@@ -237,7 +331,7 @@ async function execute(row, firedAt = new Date()) {
     }
 }
 
-async function runTenant(tenantId, { now: at = new Date() } = {}) {
+async function runTenant(tenantId, { now: at = new Date(), push } = {}) {
     return runWithTenant(tenantId, async () => {
         await ensureSchema();
         // 服务重启时中断的一次性任务：标为失败，避免永远停在「执行中」
@@ -246,7 +340,7 @@ async function runTenant(tenantId, { now: at = new Date() } = {}) {
         const due = await all("SELECT * FROM dragon_claw_schedules WHERE status = 'active' AND next_run_at IS NOT NULL AND next_run_at <= ? ORDER BY next_run_at LIMIT ?", [at.toISOString(), BATCH]);
         let ran = 0;
         for (const row of due) {
-            const result = await execute(row, at);
+            const result = await execute(row, at, push ? { push } : undefined);
             if (result.ran) ran += 1;
         }
         return { checked: due.length, ran };

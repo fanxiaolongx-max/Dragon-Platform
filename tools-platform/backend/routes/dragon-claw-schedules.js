@@ -30,7 +30,8 @@ router.post('/', checkAuth, async (req, res) => {
             text: String(body.text || '').slice(0, 4200),
             sessionId: typeof body.sessionId === 'string' ? body.sessionId.slice(0, 120) : '',
             timezone: typeof body.timezone === 'string' ? body.timezone.slice(0, 64) : '',
-            modelId: body.modelId
+            modelId: body.modelId,
+            targets: Array.isArray(body.targets) ? body.targets : []
         });
         res.status(201).json({ item });
     } catch (error) {

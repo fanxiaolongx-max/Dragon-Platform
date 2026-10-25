@@ -10,7 +10,7 @@ const section=home.slice(start,home.indexOf('</section>',start)+10);
 let win,server;
 const evaluate=fn=>win.webContents.executeJavaScript(`(${fn.toString()})()`,true);
 app.whenReady().then(async()=>{
-    server=http.createServer((req,res)=>{res.setHeader('Content-Type',req.url.startsWith('/api/')?'application/json':'text/html; charset=utf-8');res.end(req.url.startsWith('/api/')?JSON.stringify({models:[],items:[]}):`<style>${read('frontend/css/dragon-claw.css')}body{background:#101b30;margin:0;font-family:system-ui}.dc{--navbar-h:0px;margin:20px}.dc-quick,.dc-scroll-hint{display:none}</style>${section}`);}).listen(0,'127.0.0.1');
+    server=http.createServer((req,res)=>{if(req.url.startsWith('/js/shared/pinyin-search.js')){res.setHeader('Content-Type','text/javascript');return res.end(read('frontend/js/shared/pinyin-search.js'));}res.setHeader('Content-Type',req.url.startsWith('/api/')?'application/json':'text/html; charset=utf-8');res.end(req.url.startsWith('/api/')?JSON.stringify({models:[],items:[]}):`<style>${read('frontend/css/dragon-claw.css')}body{background:#101b30;margin:0;font-family:system-ui}.dc{--navbar-h:0px;margin:20px}.dc-quick,.dc-scroll-hint{display:none}</style>${section}`);}).listen(0,'127.0.0.1');
     await new Promise(resolve=>server.once('listening',resolve));
     win=new BrowserWindow({show:false,width:1000,height:800,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false}});
     win.webContents.on('console-message',(_,level,message)=>{if(level===3)console.error('Renderer:',message);});
@@ -33,12 +33,16 @@ app.whenReady().then(async()=>{
         const nativeFetch=window.fetch.bind(window);
         const json=(data,status=200)=>Promise.resolve({ok:status<400,status,json:async()=>data});
         window.fetch=(url,options={})=>{
+            if(url==='/api/channels/available')return json({items:[{id:'welink',label:'WeLink',connected:true},{id:'weixin',label:'微信',connected:true}]});
+            if(String(url).startsWith('/api/channels/welink/targets'))return json({items:[{kind:'group',id:'grp-1',name:'运维值班群',canPush:true},{kind:'user',id:'zhang.san',name:'张三',canPush:true}]});
+            if(String(url).startsWith('/api/channels/weixin/targets'))return json({items:[{kind:'group',id:'wx-grp',name:'微信群',canPush:true},{kind:'user',id:'wx-li',name:'李四',canPush:true}]});
+            if(String(url).startsWith('/api/asset-version'))return json({});
             if(!String(url).startsWith('/api/ai/schedules'))return nativeFetch(url,options);
             scheduleCalls.push({url,method:options.method||'GET',body:options.body?JSON.parse(options.body):null});
             if(options.method==='POST'){
                 const body=JSON.parse(options.body);
                 if(!/明天/.test(body.text))return json({error:'没认出时间'},400);
-                const item={id:'dcs_1',instruction:'汇总告警',kind:'once',status:'active',description:'一次性',nextRunAt:'2026-10-26T06:00:00.000Z',sessionId:body.sessionId,runCount:0};
+                const item={id:'dcs_1',instruction:'汇总告警',kind:'once',status:'active',description:'一次性',nextRunAt:'2026-10-26T06:00:00.000Z',sessionId:body.sessionId,runCount:0,targets:body.targets.map(t=>({...t,name:t.id==='grp-1'?'运维值班群':'李四'})),lastPush:null};
                 schedules=[item];return json({item},201);
             }
             if(options.method==='DELETE'){schedules=schedules.map(item=>({...item,status:'cancelled',nextRunAt:null}));return json({item:schedules[0]});}
@@ -105,22 +109,46 @@ app.whenReady().then(async()=>{
     await evaluate(()=>{typeText('/schedule 随便 汇总告警');press('Enter')});
     await waitFor("document.getElementById('dcThread').textContent.includes('没认出时间')");
     assert.equal(await evaluate(()=>document.getElementById('dcInput').value),'/schedule 随便 汇总告警');
-    await evaluate(()=>{typeText('/schedule 明天 9:00 汇总告警');press('Enter')});
+    // 推送到：输入 /schedule 后出现，选择 WeLink 群和微信联系人（微信群不可选）
+    await waitFor("!document.querySelector('.dc-push-bar').hidden"); // push bar shows while the failed /schedule is back in the input
+    await evaluate(()=>typeText('今天天气'));
+    assert.equal(await evaluate(()=>document.querySelector('.dc-push-bar').hidden),true);
+    await evaluate(()=>typeText('/schedule 明天 9:00 汇总告警'));
+    await waitFor("!document.querySelector('.dc-push-bar').hidden");
+    await evaluate(()=>document.querySelector('[data-dc-push-pick]').click());
+    await waitFor("document.querySelectorAll('.dc-push-item').length===2");
+    await evaluate(()=>{const s=document.querySelector('.dc-push-card .dc-session-search');s.value='yunwei';s.dispatchEvent(new Event('input'));});
+    await waitFor("document.querySelectorAll('.dc-push-item').length===1 && document.querySelector('.dc-push-item').textContent.includes('运维值班群')"); // pinyin search
+    await evaluate(()=>{const s=document.querySelector('.dc-push-card .dc-session-search');s.value='值班';s.dispatchEvent(new Event('input'));});
+    await waitFor("document.querySelectorAll('.dc-push-item').length===1");
+    await evaluate(()=>document.querySelector('.dc-push-item').click());
+    await evaluate(()=>document.querySelector('[data-dc-push-tab="weixin"]').click());
+    await evaluate(()=>{const s=document.querySelector('.dc-push-card .dc-session-search');s.value='';s.dispatchEvent(new Event('input'));});
+    await waitFor("document.querySelectorAll('.dc-push-item').length===1");
+    assert.match(await evaluate(()=>document.querySelector('.dc-push-item').textContent),/李四/,'WeChat groups are not offered');
+    await evaluate(()=>document.querySelector('.dc-push-item').click());
+    assert.match(await evaluate(()=>document.querySelector('.dc-push-count').textContent),/2/);
+    await evaluate(()=>document.querySelector('.dc-push-foot [data-dc-push-close]').click());
+    assert.equal(await evaluate(()=>document.querySelectorAll('.dc-push-chip').length),2);
+    await evaluate(()=>press('Enter'));
     await waitFor("document.querySelector('.dc-cmd-note [data-dc-schedules]')");
     const post=await evaluate(()=>scheduleCalls.find(call=>call.method==='POST'&&/明天/.test(call.body.text)).body);
     assert.equal(post.text,'明天 9:00 汇总告警');
+    assert.deepEqual(post.targets,[{channel:'welink',kind:'group',id:'grp-1'},{channel:'weixin',kind:'user',id:'wx-li'}]);
+    assert.match(await evaluate(()=>[...document.querySelectorAll('.dc-cmd-note')].map(n=>n.textContent).join('|')),/推送给 运维值班群、李四/);
+    assert.equal(await evaluate(()=>document.querySelector('.dc-push-bar').hidden),true,'selection clears after creating');
     assert.equal(post.sessionId,'chat-A');
     assert.ok(post.timezone);
     assert.equal(await evaluate(()=>calls.length),5,'/schedule never becomes a model question');
     await evaluate(()=>{typeText('/schedule');press('Enter')});
     await waitFor("document.querySelector('[data-dc-schedule-cancel]')");
-    assert.match(await evaluate(()=>document.querySelector('.dc-schedule-card').textContent),/汇总告警[\s\S]*等待执行/);
+    assert.match(await evaluate(()=>document.querySelector('.dc-schedule-card').textContent),/汇总告警[\s\S]*等待执行[\s\S]*推送给 运维值班群、李四/);
     await evaluate(()=>document.querySelector('[data-dc-schedule-cancel]').click());
     await waitFor("document.querySelector('.dc-schedule-card').textContent.includes('已取消')");
     assert.equal(await evaluate(()=>scheduleCalls.some(call=>call.method==='DELETE'&&call.url.endsWith('/dcs_1'))),true);
     await evaluate(()=>document.querySelector('[data-dc-schedule-close]').click());
     assert.equal(await evaluate(()=>document.querySelector('.dc-schedule-card')),null);
 
-    process.stdout.write('PASS: slash menu, /plan prompt + ask mode + confirm/revise, /btw during generation without persistence or context, /schedule create/error/list/cancel.\n');
+    process.stdout.write('PASS: slash menu, /plan prompt + ask mode + confirm/revise, /btw during generation without persistence or context, /schedule create/error/list/cancel, push-to picker with pinyin search.\n');
     win.destroy();server.close();app.exit(0);
 }).catch(error=>{console.error(error);if(win&&!win.isDestroyed())win.destroy();server?.close();app.exit(1)});

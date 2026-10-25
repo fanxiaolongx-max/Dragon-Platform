@@ -1013,6 +1013,26 @@ body.dc-chatting .dc-composer {
 .dc-btw-a > :first-child { margin-top: 0; }
 .dc-btw-a > :last-child { margin-bottom: 0; }
 
+.dc-push-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; font-size: 12px; }
+.dc-push-bar[hidden] { display: none; }
+.dc-push-label { color: #94a3b8; }
+.dc-push-chip { display: inline-flex; align-items: center; gap: 4px; height: 24px; padding: 0 4px 0 9px; border: 1px solid rgba(100, 255, 218, 0.3); border-radius: 999px; background: rgba(100, 255, 218, 0.06); color: #e6fffa; }
+.dc-push-chip button { width: 18px; height: 18px; border: 0; border-radius: 50%; background: transparent; color: #94a3b8; cursor: pointer; }
+.dc-push-chip button:hover { background: rgba(148, 163, 184, 0.18); color: #e2e8f0; }
+.dc-push-add { height: 24px; padding: 0 10px; border: 1px dashed rgba(148, 163, 184, 0.35); border-radius: 999px; background: transparent; color: var(--dc-accent, #64ffda); font-size: 12px; cursor: pointer; }
+.dc-push-add:hover { border-color: rgba(100, 255, 218, 0.5); }
+.dc-push-card { grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.dc-push-tabs { display: flex; gap: 6px; align-items: center; }
+.dc-push-tabs .dc-session-search { flex: 1; min-width: 0; }
+.dc-push-tab { height: 32px; padding: 0 12px; border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 9px; background: transparent; color: #94a3b8; cursor: pointer; }
+.dc-push-tab.is-active { border-color: rgba(100, 255, 218, 0.45); color: var(--dc-accent, #64ffda); background: rgba(100, 255, 218, 0.06); }
+.dc-push-check { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 8px; border: 1px solid rgba(148, 163, 184, 0.4); border-radius: 4px; color: #04121f; font-size: 11px; vertical-align: -2px; }
+.dc-push-item.is-active .dc-push-check { border-color: transparent; background: var(--dc-accent, #64ffda); }
+.dc-push-foot { display: flex; align-items: center; gap: 10px; }
+.dc-push-foot .dc-push-count { color: #e2e8f0; }
+.dc-push-foot .dc-action { margin-left: auto; margin-top: 0; }
+.dc-schedule-push.is-failed { color: #fca5a5; }
+
 /* 手机：对话顶栏只保留头像、名称与两个紧凑按钮（工作区改用右侧停靠标签） */
 @media (max-width: 640px) {
     body.dc-chatting .dc-chat-head { gap: 8px; padding: 10px 12px; }

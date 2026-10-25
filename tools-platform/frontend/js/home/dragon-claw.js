@@ -13,6 +13,7 @@
             scheduleTitle: '定时任务', scheduleEmpty: '还没有定时任务', scheduleHint: '新建：/schedule 时间 指令，例如「/schedule 明天 9:00 汇总昨天的告警」「/schedule 每个工作日 9:30 看一下待办」「/schedule 30分钟后 提醒我开会」', scheduleCreated: '已预约 · {when}：{text}', scheduleCreatedRecurring: '已预约 · {rule}，下次 {when}：{text}', scheduleFailed: '预约失败', scheduleNext: '下次 {time}', scheduleLast: '上次 {time}', scheduleCancel: '取消', scheduleCancelled: '已取消定时任务', scheduleOpen: '打开对话', scheduleViewAll: '查看定时任务', scheduleOnce: '一次性', scheduleStatus_active: '等待执行', scheduleStatus_running: '执行中', scheduleStatus_done: '已完成', scheduleStatus_cancelled: '已取消', scheduleStatus_failed: '失败', scheduleRunDone: '⏰ 定时任务已执行：{text}', scheduleRunFailed: '⏰ 定时任务执行失败：{text}', scheduleRuns: '已执行 {count} 次', scheduleLoadFailed: '定时任务加载失败',
             planNeedTask: '请在 /plan 后写上要做的事', planPrompt: '请先为下面的任务制定（或根据我的意见修改上一版）执行计划，暂时不要执行：\n- 用编号列出步骤，每步写清要做什么、会动到哪些文件或数据、怎么确认做好了；\n- 需要我先决定的问题单独列出；\n- 可以只读查看必要的信息，但不要修改文件、执行命令或产生任何副作用；\n- 计划写完就停，等我确认后再执行。\n\n任务：{task}', planExecute: '执行计划', planRevise: '修改计划', planRevisePrefix: '/plan 调整：', planGo: '计划已确认，请按上面的计划逐步执行，每完成一步简要说明结果；遇到计划外的情况先停下来问我。', planGoShown: '✅ 按计划执行',
             btwTitle: '顺便问', btwBadge: '不计入当前对话', btwNeedQuestion: '请在 /btw 后写上问题', btwClose: '关闭', btwFailed: '回答失败', btwPending: '（主对话里我刚问了：{text}，回复还在生成）',
+            scheduleNew: '新建定时任务', pushTo: '推送到', pushAdd: '+ 选择 WeLink/微信 的人或群（可选）', pushAddMore: '+ 添加', pushRemove: '移除', pushTitle: '推送到', pushSearch: '搜索名称或账号，支持拼音…', pushGroup: '群', pushUser: '联系人', pushSelected: '已选 {count} 个', pushHint: '执行完成后把结果推送给所选对象', pushDone: '完成', pushEmpty: '还没有可推送的对象（联系人需先与助理单聊过，群需在群里用过助理）', pushNoMatch: '没有匹配的对象', pushNoChannel: '还没有对接 WeLink 或微信', pushLimit: '最多选择 10 个对象', scheduleCreatedPush: '，完成后推送给 {names}', schedulePushTo: '推送给 {names}', schedulePushResult: '上次推送：成功 {sent}，失败 {failed}',
             datacomTitle: '数通协议专家', datacomDescription: '协议图解 · 交互实验 · 视频讲解',
             badge: '全能智能体', newChat: '新对话', history: '历史',
             chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}',
@@ -65,6 +66,7 @@
             scheduleTitle: 'Scheduled tasks', scheduleEmpty: 'No scheduled tasks yet', scheduleHint: 'Create: /schedule <time> <instruction>, e.g. "/schedule tomorrow 9:00 summarize yesterday\'s alerts", "/schedule weekdays 9:30 check my todos", "/schedule 30m remind me of the meeting"', scheduleCreated: 'Scheduled · {when}: {text}', scheduleCreatedRecurring: 'Scheduled · {rule}, next {when}: {text}', scheduleFailed: 'Could not schedule', scheduleNext: 'Next {time}', scheduleLast: 'Last {time}', scheduleCancel: 'Cancel', scheduleCancelled: 'Scheduled task cancelled', scheduleOpen: 'Open chat', scheduleViewAll: 'View scheduled tasks', scheduleOnce: 'One-time', scheduleStatus_active: 'Waiting', scheduleStatus_running: 'Running', scheduleStatus_done: 'Done', scheduleStatus_cancelled: 'Cancelled', scheduleStatus_failed: 'Failed', scheduleRunDone: '⏰ Scheduled task ran: {text}', scheduleRunFailed: '⏰ Scheduled task failed: {text}', scheduleRuns: 'Ran {count} times', scheduleLoadFailed: 'Could not load scheduled tasks',
             planNeedTask: 'Add the task after /plan', planPrompt: 'Before doing anything, write (or revise per my feedback) a plan for the task below. Do not execute it yet:\n- Number the steps; for each, say what you will do, which files or data it touches, and how to verify it;\n- List any decisions I need to make first;\n- You may read what you need, but do not modify files, run commands, or cause side effects;\n- Stop after the plan and wait for my confirmation.\n\nTask: {task}', planExecute: 'Run plan', planRevise: 'Revise plan', planRevisePrefix: '/plan Revise: ', planGo: 'Plan confirmed. Execute it step by step, briefly reporting each step; if something falls outside the plan, stop and ask me first.', planGoShown: '✅ Run the plan',
             btwTitle: 'By the way', btwBadge: 'Not added to this chat', btwNeedQuestion: 'Add a question after /btw', btwClose: 'Close', btwFailed: 'Could not answer', btwPending: '(In the main chat I just asked: {text}; the reply is still coming)',
+            scheduleNew: 'New task', pushTo: 'Push to', pushAdd: '+ Pick WeLink/WeChat people or groups (optional)', pushAddMore: '+ Add', pushRemove: 'Remove', pushTitle: 'Push to', pushSearch: 'Search name or account (pinyin works)…', pushGroup: ' group', pushUser: ' contact', pushSelected: '{count} selected', pushHint: 'The result is pushed to them after it runs', pushDone: 'Done', pushEmpty: 'Nobody can be pushed to yet (contacts must chat with the assistant first; groups must have used it)', pushNoMatch: 'No matches', pushNoChannel: 'WeLink or WeChat is not connected yet', pushLimit: 'Pick up to 10', scheduleCreatedPush: ', then push to {names}', schedulePushTo: 'Push to {names}', schedulePushResult: 'Last push: {sent} sent, {failed} failed',
             datacomTitle: 'Datacom Protocol Expert', datacomDescription: 'Visual guides · Interactive labs · Videos',
             badge: 'All-round agent', newChat: 'New chat', history: 'History',
             chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}',
@@ -975,20 +977,24 @@
             const model = currentModel();
             const res = await fetch('/api/ai/schedules', { method: 'POST',
                 headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text, sessionId: state.sessionId || '', timezone: browserTimezone(), ...(model ? { modelId: model.id } : {}) }) });
+                body: JSON.stringify({ text, sessionId: state.sessionId || '', timezone: browserTimezone(), targets: schedulePush.selected.map(({ channel, kind, id }) => ({ channel, kind, id })), ...(model ? { modelId: model.id } : {}) }) });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
             const item = data.item;
             const when = formatScheduleTime(item.nextRunAt);
-            const message = item.kind === 'recurring'
+            const pushNote = item.targets?.length ? tx('scheduleCreatedPush', { names: item.targets.map(target => target.name).join('、') }) : '';
+            const message = (item.kind === 'recurring'
                 ? tx('scheduleCreatedRecurring', { rule: item.description, when, text: clipText(item.instruction) })
-                : tx('scheduleCreated', { when, text: clipText(item.instruction) });
+                : tx('scheduleCreated', { when, text: clipText(item.instruction) })) + pushNote;
+            schedulePush.selected = [];
+            renderPushBar();
             showThreadNote(`⏰ ${message}`, [{ label: tx('scheduleViewAll'), attr: 'data-dc-schedules' }]);
             watchSchedules(true);
         } catch (error) {
             // 解析失败时把原文放回输入框，改一下时间即可重试
             el.input.value = `/schedule ${text}`;
             autoResize();
+            renderPushBar();
             showThreadNote(`⚠️ ${tx('scheduleFailed')}：${error.message}`);
         }
     }
@@ -1012,10 +1018,14 @@
                 item.lastRunAt ? tx('scheduleLast', { time: formatScheduleTime(item.lastRunAt) }) : '',
                 item.kind === 'recurring' && item.runCount ? tx('scheduleRuns', { count: item.runCount }) : ''].filter(Boolean).join(' · ');
             const detail = item.lastError ? `⚠️ ${item.lastError}` : (item.lastReply ? clipText(item.lastReply, 120) : '');
+            const pushFailures = (item.lastPush?.results || []).filter(entry => !entry.ok).map(entry => `${entry.name}：${entry.error}`).join('；');
+            const pushLine = item.targets?.length ? [tx('schedulePushTo', { names: item.targets.map(target => target.name).join('、') }),
+                item.lastPush ? tx('schedulePushResult', { sent: item.lastPush.sent, failed: item.lastPush.failed }) : ''].filter(Boolean).join(' · ') + (pushFailures ? `（${pushFailures}）` : '') : '';
             return `<div class="dc-session-item dc-schedule-item is-${escapeHtml(item.status)}">
                 <span class="dc-session-title">${escapeHtml(item.instruction)}<em class="dc-session-tag${item.status === 'active' ? ' is-current' : ''}">${escapeHtml(tx(`scheduleStatus_${item.status}`))}</em></span>
                 <span class="dc-session-meta">${escapeHtml(rule)}${times ? ` · ${escapeHtml(times)}` : ''}</span>
                 ${detail ? `<span class="dc-session-last">${escapeHtml(detail)}</span>` : ''}
+                ${pushLine ? `<span class="dc-session-meta dc-schedule-push${item.lastPush?.failed ? ' is-failed' : ''}">📤 ${escapeHtml(pushLine)}</span>` : ''}
                 <span class="dc-schedule-actions">
                     ${item.sessionId && item.lastRunAt ? `<button type="button" class="dc-cmd-link" data-dc-schedule-open="${escapeHtml(item.id)}">${escapeHtml(tx('scheduleOpen'))}</button>` : ''}
                     ${item.status === 'active' ? `<button type="button" class="dc-cmd-link is-danger" data-dc-schedule-cancel="${escapeHtml(item.id)}">${escapeHtml(tx('scheduleCancel'))}</button>` : ''}
@@ -1039,13 +1049,19 @@
             <div class="dc-session-card dc-schedule-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(tx('scheduleTitle'))}" tabindex="-1">
                 <div class="dc-session-head"><b>⏰ ${escapeHtml(tx('scheduleTitle'))}</b><button type="button" class="dc-session-close" data-dc-schedule-close aria-label="${escapeHtml(tx('btwClose'))}">×</button></div>
                 <div class="dc-session-list"><div class="dc-session-empty">${escapeHtml(tx('sessionLoading'))}</div></div>
-                <div class="dc-session-foot">${escapeHtml(tx('scheduleHint'))}</div>
+                <div class="dc-session-foot dc-push-foot"><span>${escapeHtml(tx('scheduleHint'))}</span><button type="button" class="dc-action dc-action--primary" data-dc-schedule-new>${escapeHtml(tx('scheduleNew'))}</button></div>
             </div>`;
         document.body.appendChild(overlay);
         scheduleWatch.panel = overlay;
         overlay.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); closeSchedulePanel(); } });
         overlay.addEventListener('click', async event => {
             if (event.target.closest('[data-dc-schedule-close]')) return closeSchedulePanel();
+            if (event.target.closest('[data-dc-schedule-new]')) {
+                closeSchedulePanel();
+                el.input.value = '/schedule ';
+                el.input.dispatchEvent(new Event('input'));
+                return el.input.focus();
+            }
             const open = event.target.closest('[data-dc-schedule-open]');
             if (open) {
                 const item = scheduleWatch.items.find(entry => entry.id === open.dataset.dcScheduleOpen);
@@ -1117,6 +1133,173 @@
         if (keep || force) scheduleWatch.timer = setTimeout(function loop() {
             pollSchedules().then(more => { scheduleWatch.timer = more ? setTimeout(loop, SCHEDULE_POLL_MS) : null; });
         }, SCHEDULE_POLL_MS);
+    }
+
+    // ── /schedule 推送到 WeLink/微信 ──────────────
+    // 输入 /schedule 时输入框上方出现「推送到」，可直接从频道里出现过、可主动推送的人/群中选择（支持拼音搜索）。
+    const schedulePush = { selected: [], channels: null, targets: {}, picker: null, tab: '', query: '' };
+    const SCHEDULE_COMMAND_RE = /^\/(schedule|schedules|remind)(\s|$)/i;
+    const PUSH_CHANNEL_LABELS = { welink: 'WeLink', weixin: '微信' };
+
+    async function loadLazyScript(src) {
+        let url = src;
+        try {
+            const res = await fetch(`/api/asset-version?path=${encodeURIComponent(src)}`, { cache: 'no-store' });
+            const data = res.ok ? await res.json() : null;
+            if (data?.version) url = `${src}?v=${encodeURIComponent(data.version)}`;
+        } catch { /* 拿不到版本号时按原地址加载 */ }
+        await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = url;
+            script.onload = resolve;
+            script.onerror = () => reject(new Error(`${src} could not load`));
+            document.head.appendChild(script);
+        });
+    }
+
+    let pinyinLoading = null;
+    function ensurePinyin() {
+        if (window.ToolsPinyinSearch) return Promise.resolve();
+        pinyinLoading ||= loadLazyScript('/js/shared/pinyin-search.js').catch(() => { pinyinLoading = null; });
+        return pinyinLoading;
+    }
+
+    // 已对接的频道（只请求一次）；未对接任何频道时不显示「推送到」
+    async function pushChannels() {
+        if (schedulePush.channels) return schedulePush.channels;
+        try {
+            const res = await fetch('/api/channels/available', { headers: authHeaders() });
+            const data = res.ok ? await res.json() : { items: [] };
+            schedulePush.channels = (data.items || []).filter(item => PUSH_CHANNEL_LABELS[item.id]);
+        } catch {
+            return [];
+        }
+        return schedulePush.channels;
+    }
+
+    function targetKey(item) {
+        return `${item.channel}:${item.kind}:${item.id}`;
+    }
+
+    function targetLabel(item) {
+        return `${PUSH_CHANNEL_LABELS[item.channel]}${tx(item.kind === 'group' ? 'pushGroup' : 'pushUser')} · ${item.name}`;
+    }
+
+    async function renderPushBar() {
+        if (!el.pushBar) return;
+        const active = SCHEDULE_COMMAND_RE.test(el.input.value) && !external.active;
+        if (!active) {
+            el.pushBar.hidden = true;
+            return;
+        }
+        const channels = await pushChannels();
+        if (!channels.length || !SCHEDULE_COMMAND_RE.test(el.input.value)) {
+            el.pushBar.hidden = true;
+            return;
+        }
+        el.pushBar.innerHTML = `<span class="dc-push-label">📤 ${escapeHtml(tx('pushTo'))}</span>
+            ${schedulePush.selected.map(item => `<span class="dc-push-chip" title="${escapeHtml(item.id)}">${escapeHtml(targetLabel(item))}<button type="button" data-dc-push-remove="${escapeHtml(targetKey(item))}" aria-label="${escapeHtml(tx('pushRemove'))}">×</button></span>`).join('')}
+            <button type="button" class="dc-push-add" data-dc-push-pick>${escapeHtml(tx(schedulePush.selected.length ? 'pushAddMore' : 'pushAdd'))}</button>`;
+        el.pushBar.hidden = false;
+    }
+
+    async function loadPushTargets(channel) {
+        if (schedulePush.targets[channel]) return schedulePush.targets[channel];
+        const res = await fetch(`/api/channels/${channel}/targets?pushable=1&limit=500`, { headers: authHeaders() });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        // 微信助理暂不支持群推送
+        schedulePush.targets[channel] = (data.items || []).filter(item => item.canPush !== false && !(channel === 'weixin' && item.kind === 'group'))
+            .map(item => ({ channel, kind: item.kind, id: String(item.id), name: item.name || item.id, displayName: item.displayName || '' }));
+        return schedulePush.targets[channel];
+    }
+
+    function matchTarget(item, query) {
+        const q = query.trim().toLowerCase();
+        if (!q) return true;
+        const text = `${item.name}|${item.displayName}|${item.id}`;
+        if (text.toLowerCase().includes(q)) return true;
+        const pinyin = window.ToolsPinyinSearch;
+        return Boolean(pinyin?.isPinyinQuery(q) && [item.name, item.displayName].some(value => value && pinyin.pinyinMatches(value, q)));
+    }
+
+    async function renderPushPicker() {
+        const picker = schedulePush.picker;
+        if (!picker) return;
+        const list = picker.querySelector('.dc-session-list');
+        picker.querySelectorAll('[data-dc-push-tab]').forEach(tab => tab.classList.toggle('is-active', tab.dataset.dcPushTab === schedulePush.tab));
+        picker.querySelector('.dc-push-count').textContent = tx('pushSelected', { count: schedulePush.selected.length });
+        let items;
+        try {
+            items = await loadPushTargets(schedulePush.tab);
+        } catch (error) {
+            if (schedulePush.picker === picker) list.innerHTML = `<div class="dc-session-empty">${escapeHtml(error.message)}</div>`;
+            return;
+        }
+        if (schedulePush.picker !== picker) return;
+        const shown = items.filter(item => matchTarget(item, schedulePush.query));
+        const chosen = new Set(schedulePush.selected.map(targetKey));
+        list.innerHTML = shown.length ? shown.map((item, index) => `<button type="button" class="dc-session-item dc-push-item${chosen.has(targetKey(item)) ? ' is-active' : ''}" role="option" aria-selected="${chosen.has(targetKey(item))}" data-dc-push-index="${index}">
+                <span class="dc-session-title"><span class="dc-push-check" aria-hidden="true">${chosen.has(targetKey(item)) ? '✓' : ''}</span>${escapeHtml(item.name)}<em class="dc-session-tag">${escapeHtml(tx(item.kind === 'group' ? 'pushGroup' : 'pushUser'))}</em></span>
+                <span class="dc-session-meta">${escapeHtml(item.displayName && item.displayName !== item.name ? `${item.displayName} · ${item.id}` : item.id)}</span>
+            </button>`).join('') : `<div class="dc-session-empty">${escapeHtml(tx(items.length ? 'pushNoMatch' : 'pushEmpty'))}</div>`;
+        list._items = shown;
+    }
+
+    function closePushPicker() {
+        schedulePush.picker?.remove();
+        schedulePush.picker = null;
+        renderPushBar();
+        el.input.focus({ preventScroll: true });
+    }
+
+    async function openPushPicker() {
+        const channels = await pushChannels();
+        if (!channels.length) return showToast(tx('pushNoChannel'));
+        closePushPicker();
+        if (!channels.some(item => item.id === schedulePush.tab)) schedulePush.tab = channels[0].id;
+        schedulePush.query = '';
+        const overlay = document.createElement('div');
+        overlay.className = 'dc-session-picker';
+        overlay.innerHTML = `
+            <div class="dc-session-backdrop" data-dc-push-close></div>
+            <div class="dc-session-card dc-push-card" role="dialog" aria-modal="true" aria-label="${escapeHtml(tx('pushTitle'))}">
+                <div class="dc-session-head"><b>📤 ${escapeHtml(tx('pushTitle'))}</b><button type="button" class="dc-session-close" data-dc-push-close aria-label="${escapeHtml(tx('btwClose'))}">×</button></div>
+                <div class="dc-push-tabs">${channels.map(item => `<button type="button" class="dc-push-tab" data-dc-push-tab="${escapeHtml(item.id)}">${escapeHtml(PUSH_CHANNEL_LABELS[item.id])}</button>`).join('')}
+                    <input type="search" class="dc-session-search" placeholder="${escapeHtml(tx('pushSearch'))}" autocomplete="off" spellcheck="false"></div>
+                <div class="dc-session-list" role="listbox" aria-multiselectable="true"><div class="dc-session-empty">${escapeHtml(tx('sessionLoading'))}</div></div>
+                <div class="dc-session-foot dc-push-foot"><span class="dc-push-count"></span><span>${escapeHtml(tx('pushHint'))}</span><button type="button" class="dc-action dc-action--primary" data-dc-push-close>${escapeHtml(tx('pushDone'))}</button></div>
+            </div>`;
+        document.body.appendChild(overlay);
+        schedulePush.picker = overlay;
+        const search = overlay.querySelector('.dc-session-search');
+        overlay.addEventListener('click', event => {
+            if (event.target.closest('[data-dc-push-close]')) return closePushPicker();
+            const tab = event.target.closest('[data-dc-push-tab]');
+            if (tab) {
+                schedulePush.tab = tab.dataset.dcPushTab;
+                renderPushPicker();
+                return search.focus();
+            }
+            const option = event.target.closest('[data-dc-push-index]');
+            if (option) {
+                const item = overlay.querySelector('.dc-session-list')._items?.[Number(option.dataset.dcPushIndex)];
+                if (!item) return;
+                const key = targetKey(item);
+                if (schedulePush.selected.some(entry => targetKey(entry) === key)) schedulePush.selected = schedulePush.selected.filter(entry => targetKey(entry) !== key);
+                else if (schedulePush.selected.length >= 10) return showToast(tx('pushLimit'));
+                else schedulePush.selected = [...schedulePush.selected, item];
+                renderPushPicker();
+            }
+        });
+        overlay.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); closePushPicker(); } });
+        search.addEventListener('input', () => {
+            schedulePush.query = search.value;
+            ensurePinyin().then(renderPushPicker);
+        });
+        search.focus();
+        renderPushPicker();
+        ensurePinyin();
     }
 
     // ── /plan 先计划后执行 ───────────────────────
@@ -1978,6 +2161,7 @@
         el.input.addEventListener('input', () => {
             autoResize();
             renderSlashHints();
+            renderPushBar();
         });
         el.input.addEventListener('keydown', event => {
             if (slashMenuOpen() && !event.isComposing) {
@@ -2025,6 +2209,13 @@
             const slash = target.closest('[data-dc-slash]');
             if (slash) return runSlashCommand(slash.dataset.dcSlash);
             if (target.closest('[data-dc-schedules]')) return openSchedulePanel();
+            if (target.closest('[data-dc-push-pick]')) return openPushPicker();
+            const pushRemove = target.closest('[data-dc-push-remove]');
+            if (pushRemove) {
+                schedulePush.selected = schedulePush.selected.filter(item => targetKey(item) !== pushRemove.dataset.dcPushRemove);
+                renderPushBar();
+                return el.input.focus();
+            }
             if (target.closest('[data-dc-plan-go]')) {
                 if (!state.controller && !state.restoring) send(tx('planGo'), tx('planGoShown'));
                 return;
@@ -2114,6 +2305,11 @@
         el.modelName = document.getElementById('dcModelName');
         el.modelMenu = document.getElementById('dcModelMenu');
         el.toast = document.getElementById('dcToast');
+        el.pushBar = document.createElement('div');
+        el.pushBar.className = 'dc-push-bar';
+        el.pushBar.hidden = true;
+        el.pushBar.addEventListener('mousedown', event => event.preventDefault()); // 点选时输入框不失焦
+        el.input.insertAdjacentElement('beforebegin', el.pushBar);
         el.slash = document.createElement('div');
         el.slash.className = 'dc-slash';
         el.slash.hidden = true;

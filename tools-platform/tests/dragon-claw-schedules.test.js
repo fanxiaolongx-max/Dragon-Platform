@@ -164,3 +164,48 @@ test('周期任务推进下一次；对话忙时稍后重试，失败记录原�
     assert.equal(row.lastError, '模型不可用');
     nextResponse = 'ok';
 }));
+
+test('推送到 WeLink/微信：校验对象与权限，执行成功后推送并记录结果', async () => inTenant(async () => {
+    const targetsRepo = require('../backend/models/channels/channel-targets-repository');
+    await targetsRepo.touchTarget('welink', { kind: 'group', id: 'grp-1', displayName: '运维值班群', toolSessionId: 'ts-1' });
+    await targetsRepo.touchTarget('welink', { kind: 'user', id: 'u-silent', displayName: '没聊过的人' });
+    await targetsRepo.touchTarget('weixin', { kind: 'group', id: 'wx-grp', displayName: '微信群', toolSessionId: 'ts-2' });
+    await targetsRepo.touchTarget('weixin', { kind: 'user', id: 'wx-u', displayName: '张三', toolSessionId: 'ts-3' });
+
+    const base = { owner: 'dave', text: '10分钟后 汇总告警', timezone: ZONE };
+    await assert.rejects(schedules.create({ ...base, role: 'admin', targets: [{ channel: 'welink', kind: 'user', id: 'u-silent' }] }), /还不能主动推送/);
+    await assert.rejects(schedules.create({ ...base, role: 'admin', targets: [{ channel: 'weixin', kind: 'group', id: 'wx-grp' }] }), /不支持群推送/);
+    await assert.rejects(schedules.create({ ...base, role: 'admin', targets: [{ channel: 'welink', kind: 'group', id: 'nope' }] }), /找不到/);
+    await assert.rejects(schedules.create({ ...base, role: 'user', targets: [{ channel: 'welink', kind: 'group', id: 'grp-1' }] }), /仅管理员/);
+
+    const item = await schedules.create({ ...base, role: 'admin', targets: [
+        { channel: 'welink', kind: 'group', id: 'grp-1' }, { channel: 'weixin', kind: 'user', id: 'wx-u' }, { channel: 'welink', kind: 'group', id: 'grp-1' }] });
+    assert.deepEqual(item.targets.map(target => `${target.channel}:${target.name}`), ['welink:运维值班群', 'weixin:张三']);
+
+    const pushes = [];
+    const push = async options => {
+        pushes.push(options);
+        const failed = options.channel === 'weixin';
+        return { sent: failed ? 0 : 1, results: options.targets.map(target => ({ ...target, ok: !failed, error: failed ? '会话已过期' : '' })) };
+    };
+    nextResponse = 'ok';
+    await schedules.runTenant('default', { now: new Date(Date.now() + 11 * 60000), push });
+    assert.equal(pushes.length, 2, '按频道分批推送');
+    assert.deepEqual(pushes[0].targets, [{ kind: 'group', id: 'grp-1' }]);
+    assert.equal(pushes[0].trigger, 'scheduled');
+    assert.match(pushes[0].text, /定时任务[\s\S]*汇总告警[\s\S]*该开会了/);
+    const done = await schedules.getForOwner(item.id, 'dave');
+    assert.equal(done.status, 'done');
+    assert.equal(done.lastPush.sent, 1);
+    assert.equal(done.lastPush.failed, 1);
+    assert.equal(done.lastPush.results.find(entry => entry.channel === 'weixin').error, '会话已过期');
+
+    // 执行失败时不推送
+    const failing = await schedules.create({ ...base, role: 'admin', targets: [{ channel: 'welink', kind: 'group', id: 'grp-1' }] });
+    pushes.length = 0;
+    nextResponse = 'error';
+    await schedules.runTenant('default', { now: new Date(Date.now() + 11 * 60000), push });
+    assert.equal(pushes.length, 0);
+    assert.equal((await schedules.getForOwner(failing.id, 'dave')).lastPush, null);
+    nextResponse = 'ok';
+}));
