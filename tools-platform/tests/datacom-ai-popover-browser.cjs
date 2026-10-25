@@ -138,7 +138,7 @@ app.whenReady().then(async () => {
         await shot(`viewport-${size.join('x')}`);
     }
     win.setSize(1800, 1000); await wait(250);
-    await evaluate(() => { document.querySelector('.dk-ai-pop [data-close]').click(); });
+    await evaluate(() => { document.querySelector('.dk-ai-pop [data-close]').click(); }); await wait(200);
     await until(() => !!document.querySelector('.dk-ai-item.is-open .dk-ai-item-actions'));
     const panelCheck = await evaluate(() => {
         const list = document.querySelector('.dk-ai-list'), card = list.querySelector('.dk-ai-item');
@@ -153,6 +153,8 @@ app.whenReady().then(async () => {
     assert.ok(panelCheck.content <= panelCheck.card + 2, 'expanded card must not clip its answer');
     assert.ok(panelCheck.actionsBottom <= panelCheck.bottom && panelCheck.actionsTop >= panelCheck.top, 'bottom actions reachable');
     assert.equal(panelCheck.header, panelCheck.headerAfter);
+    await wait(200);
+    assert.ok(await evaluate(() => { const l = document.querySelector('.dk-ai-list'); return l.scrollTop + l.clientHeight >= l.scrollHeight - 2; }), 'scroll position remains at the end after rendering');
     await shot('sidebar-long-answer-bottom');
     await evaluate(() => { document.querySelector('#aiPanelBtn').click(); }); await wait(400);
     const tocBefore = await evaluate(() => { const r = document.querySelector('.dk-toc-resize').getBoundingClientRect(); return { x: r.x + 7, y: r.y + 20, w: document.querySelector('#articleToc').getBoundingClientRect().width }; });
