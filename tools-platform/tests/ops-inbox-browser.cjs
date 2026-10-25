@@ -27,7 +27,7 @@ app.whenReady().then(async () => {
     web.use(express.json());
     const bootstrap = `<script>
         localStorage.setItem('tools_user','admin');localStorage.setItem('tools_tenant_id','default');localStorage.setItem('tools_token','test');
-        window.ToolsI18n={getLanguage:()=>localStorage.getItem('tools_lang')||'zh-CN'};
+        window.ToolsI18n={getLanguage:()=>localStorage.getItem('tools_lang')||'zh-CN',register(){}};
         window.HomeMode={set:()=>document.body.classList.add('home-mode-chat')};
     </script><script src="/js/shared/ops-inbox.js"></script>`;
     web.get('/', (_, res) => {
@@ -37,6 +37,9 @@ app.whenReady().then(async () => {
         res.type('html').send(html);
     });
     web.get('/tool', (_, res) => res.type('html').send(`<!doctype html><html data-theme="light"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><h1>其他工具</h1><button id="work-button">当前操作</button>${bootstrap}</body></html>`));
+    web.get('/priority', (_, res) => res.type('html').send(`<!doctype html><html data-theme="dark"><head><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/css/home-promo-video.css"></head><body><h1>工具与待办优先级</h1>${bootstrap}<script src="/js/home/promo-video.js"></script></body></html>`));
+    web.get('/api/platform-promotions', (_, res) => res.json({ videos: ['rfc', 'incentive', 'eos', 'guide'].map(id => ({ id, enabled: false })), links: [{ id: 'demo', enabled: true, name: '推广信息', url: 'https://example.test/' }], maxLinks: 3 }));
+    web.get('/api/platform-promotions/desktop', (_, res) => res.json({ available: false }));
     web.get('/frame', (_, res) => res.type('html').send(`<!doctype html><html><body><script src="/js/shared/ops-inbox.js"></script></body></html>`));
     web.get('/api/asset-version', (_, res) => res.json({ version: 'test-hash' }));
     web.get('/api/channels/ops/pending', (req, res) => {
@@ -148,6 +151,36 @@ app.whenReady().then(async () => {
     await evaluate('let frame=document.createElement("iframe");frame.src="/frame";document.body.append(frame)');
     await until(() => evaluate('!!document.querySelector("iframe").contentDocument?.body'), 'iframe');
     assert.equal(await evaluate('!!document.querySelector("iframe").contentDocument.querySelector(".ops-inbox-banner")'), false);
+    // 多条待办只占一个横幅；推广自动避让，清空后恢复先前的展开/收起状态。
+    await win.loadURL(`${base}/priority`);
+    await until(() => evaluate('!!document.querySelector("#nrvFloat:not([hidden])")'), 'promotions initially visible');
+    const promotionVisibility = () => evaluate('getComputedStyle(document.querySelector("#nrvStack")).visibility');
+    assert.equal(await promotionVisibility(), 'visible');
+    drafts = Array.from({ length: 25 }, (_, index) => makeDraft(`priority-${index}`));
+    await evaluate('ToolsOpsInbox.refresh()');
+    await until(async () => await promotionVisibility() === 'hidden', 'promotions yield to pending messages');
+    assert.equal(await evaluate('document.querySelectorAll(".ops-inbox-banner").length'), 1);
+    assert.equal(await evaluate('document.querySelector(".ops-banner-copy b").textContent.includes("25")'), true);
+    assert.equal(await evaluate('document.querySelector("#nrvStack").inert && document.querySelector("#nrvTab").inert'), true);
+    assert.equal(await evaluate('getComputedStyle(document.querySelector("#nrvTab")).visibility'), 'hidden');
+    await evaluate('ToolsOpsInbox.open()');
+    assert.equal(await evaluate('document.querySelectorAll(".ops-card").length'), 20);
+    assert.equal(await evaluate('Array.from(document.querySelectorAll(".ops-card")).every((card,index,cards)=>!index||card.getBoundingClientRect().top>=cards[index-1].getBoundingClientRect().bottom)'), true);
+    await evaluate('document.querySelector("[data-ops-inbox-action=close]").click();document.querySelector("[data-ops-inbox-action=mute]").click()');
+    assert.equal(await promotionVisibility(), 'hidden', 'dismissing the banner does not bring promotions over pending work');
+    drafts = [];
+    await evaluate('ToolsOpsInbox.refresh()');
+    await until(async () => await promotionVisibility() === 'visible', 'promotions restored after last draft');
+    assert.equal(await evaluate('document.querySelector("#nrvStack").inert'), false);
+    await evaluate('document.body.dispatchEvent(new Event("pointerdown",{bubbles:true}))');
+    assert.equal(await evaluate('document.querySelector("#nrvStack").classList.contains("is-tucked")'), true);
+    drafts = [makeDraft('priority-new')];
+    await evaluate('ToolsOpsInbox.refresh()');
+    await until(() => evaluate('getComputedStyle(document.querySelector("#nrvTab")).visibility==="hidden"'), 'tucked promotion tab also hidden');
+    drafts = [];
+    await evaluate('ToolsOpsInbox.refresh()');
+    await until(() => evaluate('getComputedStyle(document.querySelector("#nrvTab")).visibility==="visible"'), 'original tucked tab restored');
+    assert.equal(await evaluate('document.querySelector("#nrvStack").classList.contains("is-tucked")'), true);
     assert.deepEqual(errors, []);
     console.log(`Ops inbox browser checks passed. Screenshots: ${temp}`);
 }).catch(error => { console.error(error); process.exitCode = 1; }).finally(() => { win?.destroy(); server?.close(); app.exit(process.exitCode || 0); });

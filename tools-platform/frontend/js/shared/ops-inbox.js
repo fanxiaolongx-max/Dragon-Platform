@@ -132,6 +132,9 @@
     function render() {
         if (!banner) return;
         const available = state.canManage && state.total > 0;
+        const priorityChanged = document.body.classList.contains('ops-review-pending') !== available;
+        document.body.classList.toggle('ops-review-pending', available);
+        if (priorityChanged) window.dispatchEvent(new Event('tools:ops-inbox-state'));
         const batch = state.items.map(item => item.id).join('|');
         banner.hidden = !available || batch === state.muted;
         banner.setAttribute('aria-label', L('待确认消息提醒', 'Message review reminder'));
