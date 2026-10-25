@@ -211,15 +211,19 @@ async function runPlan(planId, { trigger = 'manual', mode = 'draft', testTargets
 }
 
 /** 推送草稿；content 传入时先替换正文（确认前修改过）。 */
-async function sendRun(runId, { content, actor = '', trigger = 'system' } = {}) {
+async function sendRun(runId, { content, expectedContent, actor = '', trigger = 'system' } = {}) {
     let record = await opsRepo.getRun(runId);
     if (!record) throw serviceError('OPS_RUN_NOT_FOUND', '运营记录不存在', 404);
     if (record.status !== 'draft') throw serviceError('OPS_RUN_NOT_DRAFT', `只有草稿可以发送（当前状态：${record.status}）`);
     if (content !== undefined) {
         const text = String(content || '').trim();
         if (!text) throw serviceError('OPS_RUN_EMPTY', '消息内容不能为空');
-        record = await opsRepo.updateRun(runId, { content: text });
+        content = text;
     }
+    if (!await opsRepo.changeDraft(runId, { status: 'sending', content, expectedContent: expectedContent ?? record.content })) {
+        throw serviceError('OPS_DRAFT_CHANGED', '草稿已被修改或处理，请刷新后核对', 409);
+    }
+    record = { ...record, content: content ?? record.content };
     // 来源前缀 ops / ops-test：频道时间线据此标注「运营推送 / 测试推送」
     const prefix = record.trigger === 'test' ? 'ops-test' : 'ops';
     const results = await deliver(record.content, record.targets, { trigger, source: `${prefix}:${record.planName || record.planId}${actor ? ` @${actor}` : ''}` });
@@ -227,20 +231,26 @@ async function sendRun(runId, { content, actor = '', trigger = 'system' } = {}) 
     return opsRepo.updateRun(runId, { status, results, sentAt: new Date().toISOString(), error: status === 'sent' ? '' : results.filter(item => !item.ok).map(item => `${item.name}：${item.error}`).join('；') });
 }
 
-async function updateDraft(runId, content) {
+async function updateDraft(runId, content, expectedContent) {
     const record = await opsRepo.getRun(runId);
     if (!record) throw serviceError('OPS_RUN_NOT_FOUND', '运营记录不存在', 404);
     if (record.status !== 'draft') throw serviceError('OPS_RUN_NOT_DRAFT', '只有草稿可以修改');
     const text = String(content || '').trim();
     if (!text) throw serviceError('OPS_RUN_EMPTY', '消息内容不能为空');
-    return opsRepo.updateRun(runId, { content: text });
+    if (!await opsRepo.changeDraft(runId, { content: text, expectedContent: expectedContent ?? record.content })) {
+        throw serviceError('OPS_DRAFT_CHANGED', '草稿已被修改或处理，请刷新后核对', 409);
+    }
+    return opsRepo.getRun(runId);
 }
 
 async function discardRun(runId) {
     const record = await opsRepo.getRun(runId);
     if (!record) throw serviceError('OPS_RUN_NOT_FOUND', '运营记录不存在', 404);
     if (record.status !== 'draft') throw serviceError('OPS_RUN_NOT_DRAFT', '只有草稿可以作废');
-    return opsRepo.updateRun(runId, { status: 'discarded' });
+    if (!await opsRepo.changeDraft(runId, { status: 'discarded', expectedContent: record.content })) {
+        throw serviceError('OPS_DRAFT_CHANGED', '草稿已被修改或处理，请刷新后核对', 409);
+    }
+    return opsRepo.getRun(runId);
 }
 
 async function savePlan(input, actor = '') {

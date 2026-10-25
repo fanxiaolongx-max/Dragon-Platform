@@ -18,6 +18,18 @@ function canonicalContent(relativePath, content) {
         delete manifest.system;
         delete manifest.market;
         delete manifest.history;
+        if (manifest.tool && typeof manifest.tool === 'object') {
+            const tool = { ...manifest.tool };
+            delete tool.publicAccess;
+            delete tool.updatedAt;
+            delete tool.createdAt;
+            delete tool.nameEn;
+            delete tool.descriptionEn;
+            if (!Array.isArray(tool.tags) || tool.tags.length === 0) delete tool.tags;
+            if (!tool.href || tool.href === `/tools/${tool.slug}`) delete tool.href;
+            if (!tool.filePath || tool.filePath === `/custom-tools/${tool.slug}/index.html`) delete tool.filePath;
+            manifest.tool = tool;
+        }
         return Buffer.from(JSON.stringify(stableJson(manifest)), 'utf8');
     }
     if (content.includes(0)) return content;

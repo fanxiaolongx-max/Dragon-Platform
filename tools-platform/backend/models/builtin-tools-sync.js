@@ -124,8 +124,15 @@ function matchesLegacyBundledTool(source, targetToolDir, targetManifest) {
 }
 
 function buildTargetManifest(source, existingManifest) {
+    const existingTool = existingManifest && existingManifest.tool ? existingManifest.tool : {};
     return {
         ...source.manifest,
+        tool: {
+            ...source.manifest.tool,
+            ...(existingTool.publicAccess !== undefined ? { publicAccess: existingTool.publicAccess } : {}),
+            ...(existingTool.nameEn ? { nameEn: existingTool.nameEn } : {}),
+            ...(existingTool.descriptionEn ? { descriptionEn: existingTool.descriptionEn } : {})
+        },
         builtIn: true,
         system: {
             managedBy: SYSTEM_MARKER,

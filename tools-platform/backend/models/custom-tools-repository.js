@@ -243,11 +243,23 @@ function manifestPath(slug) {
 function writeToolManifest(tool, options = {}) {
     const target = manifestPath(tool.slug);
     const temp = `${target}.${process.pid}.tmp`;
+    const previousManifest = options.previousManifest || readToolManifest(tool.slug);
     const manifest = {
         version: 1,
         tool: normalizeToolRecord(tool, tool.slug),
-        history: options.history || null
+        history: options.history !== undefined ? options.history : (previousManifest?.history || null)
     };
+    if (options.builtIn !== undefined ? options.builtIn : previousManifest?.builtIn) {
+        manifest.builtIn = true;
+    }
+    const system = options.system !== undefined ? options.system : previousManifest?.system;
+    if (system) {
+        manifest.system = system;
+    }
+    const market = options.market !== undefined ? options.market : previousManifest?.market;
+    if (market) {
+        manifest.market = market;
+    }
     fs.writeFileSync(temp, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
     fs.renameSync(temp, target);
     return manifest;
@@ -277,15 +289,18 @@ async function getTool(slug) {
 async function updateToolAccess(slug, publicAccess) {
     return withRegistryMutation(async () => {
         await ensureRegistryReady();
+        const existingTool = await getTool(slug);
+        const nextAccess = Boolean(publicAccess);
+        if (existingTool && existingTool.publicAccess === nextAccess) return existingTool;
+        const previousManifest = readToolManifest(slug);
         const result = await run(
-            'UPDATE custom_tools SET public_access = ?, updated_at = ? WHERE slug = ?',
-            [publicAccess ? 1 : 0, new Date().toISOString(), slug]
+            'UPDATE custom_tools SET public_access = ? WHERE slug = ?',
+            [nextAccess ? 1 : 0, slug]
         );
         if (!result.changes) return null;
         await syncLegacyRegistryMirror();
         const tool = await getTool(slug);
-        const previousManifest = readToolManifest(slug);
-        writeToolManifest(tool, { history: previousManifest && previousManifest.history });
+        writeToolManifest(tool, { previousManifest });
         return tool;
     });
 }
@@ -304,6 +319,7 @@ async function updateToolName(slug, value) {
     }
     return withRegistryMutation(async () => {
         await ensureRegistryReady();
+        const previousManifest = readToolManifest(slug);
         const result = await run(
             'UPDATE custom_tools SET name = ?, updated_at = ? WHERE slug = ?',
             [name, new Date().toISOString(), slug]
@@ -311,8 +327,7 @@ async function updateToolName(slug, value) {
         if (!result.changes) return null;
         await syncLegacyRegistryMirror();
         const tool = await getTool(slug);
-        const previousManifest = readToolManifest(slug);
-        writeToolManifest(tool, { history: previousManifest && previousManifest.history });
+        writeToolManifest(tool, { previousManifest });
         return tool;
     });
 }

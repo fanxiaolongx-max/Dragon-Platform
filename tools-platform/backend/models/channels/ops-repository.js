@@ -13,7 +13,7 @@ const KINDS = ['user', 'group'];
 const CONTENT_MODES = ['ai', 'template'];
 const SEND_MODES = ['draft', 'auto'];
 const SOURCES = ['highlights', 'features', 'videos', 'metrics', 'chat'];
-const RUN_STATUSES = ['generating', 'draft', 'sent', 'partial', 'failed', 'discarded'];
+const RUN_STATUSES = ['generating', 'draft', 'sending', 'sent', 'partial', 'failed', 'discarded'];
 const MAX_TARGETS = 50;
 const RUN_KEEP = 1000;
 const SETTINGS_KEY = 'ops_settings';
@@ -400,6 +400,28 @@ async function listRuns({ planId, status, limit = 30 } = {}) {
     return (await all(`SELECT * FROM ops_runs${where.length ? ` WHERE ${where.join(' AND ')}` : ''} ORDER BY created_at DESC LIMIT ?`, [...params, size])).map(mapRun);
 }
 
+// 单独查询全部待确认记录，避免草稿被最近 40 条运行历史挤出确认入口。
+async function listPendingRuns({ limit = 20, offset = 0 } = {}) {
+    await ensureSchema();
+    const size = Math.min(100, Math.max(1, Math.floor(Number(limit) || 20)));
+    const start = Math.max(0, Math.floor(Number(offset) || 0));
+    const total = Number((await get("SELECT COUNT(*) AS total FROM ops_runs WHERE status = 'draft'"))?.total || 0);
+    const rows = await all("SELECT * FROM ops_runs WHERE status = 'draft' ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?", [size, start]);
+    return { items: rows.map(mapRun), total, offset: start, hasMore: start + rows.length < total };
+}
+
+// 主页、设置和多个浏览器标签可能同时确认；必须在开始推送前原子抢占草稿。
+async function changeDraft(id, { status = 'draft', content, expectedContent } = {}) {
+    await ensureSchema();
+    const sets = ['status = ?'];
+    const params = [status];
+    if (content !== undefined) { sets.push('content = ?'); params.push(content); }
+    params.push(id);
+    if (expectedContent !== undefined) params.push(expectedContent);
+    const result = await run(`UPDATE ops_runs SET ${sets.join(', ')} WHERE id = ? AND status = 'draft'${expectedContent !== undefined ? ' AND content = ?' : ''}`, params);
+    return result.changes > 0;
+}
+
 module.exports = {
     CHANNELS,
     CONTENT_MODES,
@@ -422,6 +444,8 @@ module.exports = {
     updateRun,
     getRun,
     listRuns,
+    listPendingRuns,
+    changeDraft,
     sentVideoIds,
     recentRunMetas,
     normalizeTargets

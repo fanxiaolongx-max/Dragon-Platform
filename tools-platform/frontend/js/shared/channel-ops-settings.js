@@ -14,6 +14,7 @@
     const STATUS = {
         generating: ['生成中', 'Generating', ''],
         draft: ['待确认', 'Draft', 'warn'],
+        sending: ['发送中', 'Sending', ''],
         sent: ['已发送', 'Sent', 'ok'],
         partial: ['部分成功', 'Partial', 'warn'],
         failed: ['失败', 'Failed', 'bad'],
@@ -153,7 +154,7 @@
     function renderPlans() {
         return `<section class="nch-card">
             <h4>🗓️ ${esc(L('运营计划', 'Plans'))}</h4>
-            <p class="nch-desc">${esc(L('每个计划决定推给哪些群、生成什么、什么时候发。新计划默认「到点生成草稿」，在下方确认后才会发到群里；跑稳后可切到自动发送。', 'Each plan defines targets, content and schedule. New plans create drafts that you confirm below.'))}</p>
+            <p class="nch-desc">${esc(L('每个计划决定推给哪些群、生成什么、什么时候发。新计划默认「到点生成草稿」，可在主页对话区、全局提醒或下方记录中修改并确认发送；跑稳后可切到自动发送。', 'Each plan defines targets, content and schedule. Review, edit and send drafts in home chat, the global reminder or the history below.'))}</p>
             <div class="nch-row" style="margin-top:0">
                 <button type="button" class="nch-btn primary" data-ops-action="new-plan">${esc(L('新建计划', 'New plan'))}</button>
                 ${state.library.presets.length ? `<select data-ops-preset style="height:30px;border:1px solid #cbd5e1;border-radius:7px;padding:0 8px;font-size:12px;max-width:100%"><option value="">${esc(L('从内置模板新建…', 'New from template…'))}</option>${state.library.presets.map(preset => `<option value="${esc(preset.id)}" title="${esc(preset.description)}">${esc(preset.name)}</option>`).join('')}</select>` : ''}

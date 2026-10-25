@@ -178,13 +178,15 @@ function injectLanguageRuntime(html, slug, options = {}) {
         source = source.replace(/<script id="__tools_html_meta_watermark_script__"[\s\S]*?<\/script>/gi, '');
     }
     const watermark = buildWatermark(slug, options);
+    // 直接打开工具也有跨工具草稿提醒；下载的独立 HTML 不依赖平台服务。
+    const inbox = options.standalone ? '' : '<script src="/js/shared/ops-inbox.js"></script>';
 
     if (source.includes('__TOOLS_CUSTOM_I18N__')) {
-        return injectBeforeLastBody(source, watermark);
+        return injectBeforeLastBody(source, `${watermark}\n${inbox}`);
     }
 
     const bootstrap = buildBootstrap(slug, options);
-    const combined = `${bootstrap}\n${watermark}`;
+    const combined = `${bootstrap}\n${watermark}\n${inbox}`;
     return injectBeforeLastBody(source, combined);
 }
 

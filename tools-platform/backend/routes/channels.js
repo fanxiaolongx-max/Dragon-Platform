@@ -232,6 +232,18 @@ const opsService = require('../models/channels/ops-service');
 const opsMaterials = require('../models/channels/ops-materials');
 const actorOf = req => req.user?.username || '';
 
+router.get('/ops/pending', handle(async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!isAdmin(req)) return res.json({ canManage: false, items: [], total: 0, hasMore: false, offset: 0 });
+    const page = await opsRepo.listPendingRuns({ limit: req.query.limit, offset: req.query.offset });
+    const groups = await opsRepo.listGroups();
+    const items = page.items.map(record => ({
+        ...record,
+        targets: record.targets.map(target => ({ ...target, name: groups.find(group => group.channel === target.channel && group.kind === target.kind && group.id === target.id)?.name || target.id }))
+    }));
+    res.json({ ...page, items, canManage: true });
+}));
+
 router.get('/ops/overview', requireAdmin, handle(async (_req, res) => {
     const [settings, groups, plans, runs] = await Promise.all([opsRepo.getSettings(), opsRepo.listGroups(), opsRepo.listPlans(), opsRepo.listRuns({ limit: 40 })]);
     res.json({ settings, groups, plans, runs });
@@ -283,11 +295,11 @@ router.post('/ops/plans/:id/test', handle(async (req, res) => {
 }));
 
 router.put('/ops/runs/:id', handle(async (req, res) => {
-    res.json(await opsService.updateDraft(req.params.id, req.body?.content));
+    res.json(await opsService.updateDraft(req.params.id, req.body?.content, req.body?.expectedContent));
 }));
 
 router.post('/ops/runs/:id/send', handle(async (req, res) => {
-    res.json(await opsService.sendRun(req.params.id, { content: req.body?.content, actor: actorOf(req) }));
+    res.json(await opsService.sendRun(req.params.id, { content: req.body?.content, expectedContent: req.body?.expectedContent, actor: actorOf(req) }));
 }));
 
 router.post('/ops/runs/:id/discard', handle(async (req, res) => {
