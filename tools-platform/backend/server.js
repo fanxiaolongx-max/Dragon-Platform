@@ -448,6 +448,7 @@ app.use('/api/sla', slaRoutes);         // SLA 配置持久化 API
 app.use('/api/upload', uploadRoutes);   // 文件上传历史 API
 app.use('/api/db', require('./routes/db')); // DB 保存 API
 app.use('/api/requirements', requirementsRoutes); // 需求管理 API
+app.use('/api/ai/schedules', require('./routes/dragon-claw-schedules')); // Dragon Claw /schedule 定时指令
 app.use('/api/ai', aiRoutes); // AI 服务 API
 app.use('/api/agent-skills', require('./routes/agent-skills')); // Skill 管理：内置 + 租户自定义（对话 @create-skill 创建或导入 SKILL 压缩包）
 app.use('/api/builtin-promotion', require('./routes/builtin-promotion')); // 自定义工具 / 技能 / 脚本「转为内置」写入项目源码目录，或取消内置
@@ -703,6 +704,9 @@ async function startServer() {
                 .start(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id));
             // 自动化运营：每分钟检查到期的运营计划，生成草稿或推送到运营群组
             require('./models/channels/ops-service')
+                .start(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id));
+            // Dragon Claw /schedule：每分钟检查到期的定时指令，以创建者身份执行并写回原对话
+            require('./models/dragon-claw-schedules')
                 .start(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id));
             // 频道心跳抽查与健康自愈看门狗：定时抽查每个频道的长连接与心跳状态，断线自动重连
             require('./models/channels/channel-watchdog')
