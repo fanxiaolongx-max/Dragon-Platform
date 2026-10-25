@@ -78,3 +78,34 @@ test('chat history center is a valid bundled platform-only HTML tool', () => {
     assert.match(css, /\.btn-danger/);
 });
 
+test('chat history center conversation list supports drag resizing and width memory', () => {
+    const sourceDir = path.join(__dirname, '../backend/builtin-tools');
+    const html = fs.readFileSync(path.join(sourceDir, 'chat-history-center/index.html'), 'utf8');
+    const css = fs.readFileSync(path.join(sourceDir, 'chat-history-center/chat-viewer.css'), 'utf8');
+    const js = fs.readFileSync(path.join(sourceDir, 'chat-history-center/chat-viewer.js'), 'utf8');
+
+    // HTML checks
+    assert.match(html, /id="conversationResizeHandle"/);
+    assert.match(html, /class="conversation-resize-handle"/);
+    assert.match(html, /chat_history_conv_pane_width_v1/);
+
+    // CSS checks
+    assert.match(css, /--conv-pane-width:\s*320px/);
+    assert.match(css, /grid-template-columns:\s*var\(--conv-pane-width/);
+    assert.match(css, /\.conversation-resize-handle\s*\{/);
+    assert.match(css, /cursor:\s*col-resize/);
+    assert.match(css, /body\.is-resizing-pane/);
+
+    // JS checks
+    assert.match(js, /CONVERSATION_PANE_WIDTH_STORAGE_KEY\s*=\s*'chat_history_conv_pane_width_v1'/);
+    assert.match(js, /setupConversationPaneResize/);
+    assert.match(js, /pointerdown/);
+    assert.match(js, /pointermove/);
+    assert.match(js, /dblclick/);
+    assert.match(js, /ArrowLeft/);
+    assert.match(js, /ArrowRight/);
+    assert.match(js, /localStorage\.setItem\(CONVERSATION_PANE_WIDTH_STORAGE_KEY/);
+    assert.match(js, /showToast\('已恢复会话列表默认宽度'\)/);
+});
+
+

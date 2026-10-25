@@ -84,6 +84,11 @@
         groups: [130, 85, 90, 90, 90, 130, 95, 120, 96],
         groupMembers: [120, 140, 140, 85, 95, 95, 110, 120]
     };
+    const CONVERSATION_PANE_WIDTH_STORAGE_KEY = 'chat_history_conv_pane_width_v1';
+    const CONVERSATION_PANE_DEFAULT_WIDTH = 320;
+    const CONVERSATION_PANE_MIN_WIDTH = 220;
+    const CONVERSATION_PANE_MAX_WIDTH = 680;
+    let applyConversationPaneWidth = null;
     let toastTimer;
     let conversationDebounce;
     let peopleDebounce;
@@ -520,6 +525,124 @@
         applyResizableTableWidth(tableName);
     }
 
+    function setupConversationPaneResize() {
+        const pane = document.querySelector('.conversation-pane');
+        const chatView = $('view-chat');
+        if (!pane || !chatView) return;
+
+        let handle = $('conversationResizeHandle') || pane.querySelector('.conversation-resize-handle');
+        if (!handle) {
+            handle = document.createElement('div');
+            handle.id = 'conversationResizeHandle';
+            handle.className = 'conversation-resize-handle';
+            handle.title = '拖动调整会话列表宽度，双击恢复默认';
+            handle.tabIndex = 0;
+            handle.setAttribute('role', 'separator');
+            handle.setAttribute('aria-orientation', 'vertical');
+            handle.setAttribute('aria-label', '调整会话列表宽度');
+            pane.append(handle);
+        }
+
+        let preferred = CONVERSATION_PANE_DEFAULT_WIDTH;
+        try {
+            const saved = Number(localStorage.getItem(CONVERSATION_PANE_WIDTH_STORAGE_KEY));
+            if (saved && !isNaN(saved)) preferred = saved;
+        } catch (_) {}
+        preferred = Math.max(CONVERSATION_PANE_MIN_WIDTH, Math.min(CONVERSATION_PANE_MAX_WIDTH, preferred));
+
+        const apply = () => {
+            const containerWidth = chatView.getBoundingClientRect().width || window.innerWidth;
+            if (containerWidth <= 760) return;
+            const detailPane = $('detailPane');
+            const detailOpen = detailPane && !detailPane.hidden && containerWidth > 1100;
+            const reservedRight = detailOpen ? 640 : 340;
+            const max = Math.max(CONVERSATION_PANE_MIN_WIDTH, Math.min(CONVERSATION_PANE_MAX_WIDTH, containerWidth - reservedRight));
+            const effective = Math.round(Math.max(CONVERSATION_PANE_MIN_WIDTH, Math.min(preferred, max)));
+            document.documentElement.style.setProperty('--conv-pane-width', `${effective}px`);
+            chatView.style.setProperty('--conv-pane-width', `${effective}px`);
+            handle.setAttribute('aria-valuenow', String(effective));
+            handle.setAttribute('aria-valuemin', String(CONVERSATION_PANE_MIN_WIDTH));
+            handle.setAttribute('aria-valuemax', String(CONVERSATION_PANE_MAX_WIDTH));
+        };
+        applyConversationPaneWidth = apply;
+
+        const save = width => {
+            preferred = Math.max(CONVERSATION_PANE_MIN_WIDTH, Math.min(CONVERSATION_PANE_MAX_WIDTH, width));
+            try {
+                localStorage.setItem(CONVERSATION_PANE_WIDTH_STORAGE_KEY, String(preferred));
+            } catch (_) {}
+            apply();
+        };
+
+        handle.addEventListener('pointerdown', event => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const startX = event.clientX;
+            const startWidth = pane.getBoundingClientRect().width;
+            document.body.classList.add('is-resizing-pane');
+            pane.classList.add('is-resizing');
+
+            const move = moveEvent => {
+                const width = startWidth + (moveEvent.clientX - startX);
+                save(width);
+            };
+
+            const finish = () => {
+                document.removeEventListener('pointermove', move);
+                document.removeEventListener('pointerup', finish);
+                document.removeEventListener('pointercancel', finish);
+                document.body.classList.remove('is-resizing-pane');
+                pane.classList.remove('is-resizing');
+            };
+
+            document.addEventListener('pointermove', move);
+            document.addEventListener('pointerup', finish, { once: true });
+            document.addEventListener('pointercancel', finish, { once: true });
+        });
+
+        handle.addEventListener('dblclick', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            save(CONVERSATION_PANE_DEFAULT_WIDTH);
+            showToast('已恢复会话列表默认宽度');
+        });
+
+        handle.addEventListener('keydown', event => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const step = event.shiftKey ? 32 : 16;
+            const current = pane.getBoundingClientRect().width || preferred;
+            if (event.key === 'Home') {
+                save(CONVERSATION_PANE_DEFAULT_WIDTH);
+            } else if (event.key === 'End') {
+                save(CONVERSATION_PANE_MAX_WIDTH);
+            } else if (event.key === 'ArrowRight') {
+                save(current + step);
+            } else if (event.key === 'ArrowLeft') {
+                save(current - step);
+            }
+        });
+
+        const detailPane = $('detailPane');
+        if (detailPane) {
+            try {
+                const mutObserver = new MutationObserver(apply);
+                mutObserver.observe(detailPane, { attributes: true, attributeFilter: ['hidden'] });
+            } catch (_) {}
+        }
+
+        try {
+            const observer = new ResizeObserver(apply);
+            observer.observe(chatView);
+        } catch (_) {
+            window.addEventListener('resize', apply);
+        }
+
+        apply();
+    }
+
     function closeTableFilterPopover() {
         $('tableFilterPopover').hidden = true;
         state.activeTableFilter = null;
@@ -662,6 +785,9 @@
         state.activeView = name;
         document.querySelectorAll('.top-tab').forEach(button => button.classList.toggle('active', button.dataset.view === name));
         document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.id === `view-${name}`));
+        if (name === 'chat') {
+            applyConversationPaneWidth?.();
+        }
         if (name === 'analytics') void loadStats();
         if (name === 'manage' && state.user && state.user.role === 'admin') {
             loadSources();
@@ -2141,6 +2267,7 @@
         });
         setupInteractiveTableHeads();
         setupAnalyticsLazyLoading();
+        setupConversationPaneResize();
         setLoading(true, '正在连接聊天记录服务…');
         try {
             const [user, settings] = await Promise.all([

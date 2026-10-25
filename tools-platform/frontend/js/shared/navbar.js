@@ -541,7 +541,7 @@ function registerNavbarI18n() {
             'nav.page.home.help': '逐个控制自定义 HTML 工具的新窗口直达地址是否需要登录。默认关闭公开访问；开启后，任何获得链接的人都可以访问该工具及其静态资源。',
             'nav.page.home.title': '自定义 HTML 访问鉴权',
             'nav.page.home.public': '允许免登录新窗口访问',
-            'nav.page.home.private': '免登录',
+            'nav.page.home.private': '需要登录',
             'nav.page.home.empty': '暂无自定义 HTML 工具。',
             'nav.page.report.help': '可单独备份和恢复历史快照与已入库内容，也可清理报表看板历史下拉列表中的冗余 SLA 源快照。所有操作只影响当前租户。',
             'nav.page.report.backupTitle': '报表历史数据独立备份与恢复',

@@ -54,9 +54,22 @@ async function collectHome(items) {
     const tools = (await require('./custom-tools-repository').listTools()).filter(t => !EXCLUDED.has(t.slug)).map(tool => {
         const item = items.find(i => i.slug === tool.slug);
         const { slug, name, nameEn, description, descriptionEn, tags, icon, builtIn, createdAt, updatedAt } = tool;
-        return { slug, name, nameEn, description, descriptionEn, tags, icon, builtIn, createdAt, updatedAt, href: item?.href || `/custom-tools/${slug}/index.html` };
+        return {
+            slug, name, nameEn, description, descriptionEn, tags, icon, builtIn, createdAt, updatedAt,
+            publicAccess: Boolean(tool.publicAccess || item?.publicAccess),
+            href: item?.href || `/custom-tools/${slug}/index.html`
+        };
     });
-    for (const item of items) if (!tools.some(tool => tool.slug === item.slug)) tools.push({ slug: item.slug, name: item.name, description: item.description, icon: '🧩', href: item.href });
+    for (const item of items) if (!tools.some(tool => tool.slug === item.slug)) {
+        tools.push({
+            slug: item.slug,
+            name: item.name,
+            description: item.description,
+            icon: '🧩',
+            publicAccess: Boolean(item.publicAccess),
+            href: item.href
+        });
+    }
     let summary = {};
     try { summary = await require('./platform-metrics-repository').getSummary(); } catch (_) { /* 没有业务指标时保持原页面的空状态。 */ }
     delete summary.generatedAt;
@@ -135,12 +148,20 @@ async function readPrevious(checkout, keep) {
     let key;
     const files = new Map();
     for (const [name, item] of Object.entries(manifest.files)) {
-        if (!safeName(name) || !payloadParts(item).length) throw new Error('旧静态站点清单路径无效');
+        if (!safeName(name)) throw new Error('旧静态站点清单路径无效');
+        if (!keep(name)) continue;
+        if (item.public) {
+            assertPath(checkout, name);
+            if (fs.existsSync(path.join(checkout, name))) {
+                files.set(name, fs.readFileSync(path.join(checkout, name)));
+            }
+            continue;
+        }
+        if (!payloadParts(item).length) throw new Error('旧静态站点清单路径无效');
         for (const part of payloadParts(item)) {
             if (!/^tp-static\/payload\/[a-f0-9]+\.bin$/.test(part.url)) throw new Error('旧静态站点清单路径无效');
             assertPath(checkout, part.url);
         }
-        if (!keep(name)) continue;
         key ||= await security.getKey(manifest.keyId);
         files.set(name, Buffer.concat(payloadParts(item).map(part => security.open(fs.readFileSync(path.join(checkout, part.url)), key, part.iv))));
     }
@@ -152,12 +173,27 @@ async function buildPortal(checkout, items, changedFiles) {
         const entry = item.href.slice(2), dir = path.posix.dirname(entry);
         return name === entry || dir !== '.' && name.startsWith(dir + '/');
     });
-    const refreshed = items.filter(item => changedFiles.has(item.href.slice(2))).map(item => item.href.slice(2));
-    const replaced = name => refreshed.some(entry => {
-        const dir = path.posix.dirname(entry);
-        return name === entry || dir !== '.' && name.startsWith(dir + '/');
+    const isPublicFile = name => items.some(item => {
+        if (!item.publicAccess) return false;
+        const entry = item.href.slice(2), dir = path.posix.dirname(entry);
+        return name === entry || (dir !== '.' && name.startsWith(dir + '/'));
     });
-    const previous = await readPrevious(checkout, name => belongs(name) && !replaced(name));
+    const refreshed = items.filter(item => changedFiles.has(item.href.slice(2))).map(item => item.href.slice(2));
+    const previous = await readPrevious(checkout, name => belongs(name));
+    const replaced = name => {
+        if (refreshed.some(entry => {
+            const dir = path.posix.dirname(entry);
+            return name === entry || (dir !== '.' && name.startsWith(dir + '/'));
+        })) return true;
+        return items.some(item => {
+            const entry = item.href.slice(2), dir = path.posix.dirname(entry);
+            const matches = name === entry || (dir !== '.' && name.startsWith(dir + '/'));
+            if (!matches) return false;
+            const wasPublic = Boolean(previous.manifest?.files?.[entry]?.public);
+            const isPublic = Boolean(item.publicAccess);
+            return wasPublic !== isPublic;
+        });
+    };
     const auth = await security.getSecurity();
     const home = await collectHome(items);
     const publicFiles = collectPublicFiles(home.identity, home.promotions, home.appVersion);
@@ -192,7 +228,15 @@ async function buildPortal(checkout, items, changedFiles) {
             bytes = Buffer.from(bytes.toString().replace(/<head([^>]*)>/i, `<head$1><script src="${depth}/tp-static/session.js"></script>`));
         }
         const hash = security.digest(bytes);
-        const old = previous.manifest?.keyId === auth.id && previous.manifest.files[name];
+        const isPublic = isPublicFile(name);
+
+        if (isPublic) {
+            write(checkout, name, bytes);
+            manifest.files[name] = { public: true, hash, type: mime(name) };
+            continue;
+        }
+
+        const old = previous.manifest?.keyId === auth.id && !previous.manifest.files[name]?.public && previous.manifest.files[name];
         let entry = old?.hash === hash && (bytes.length <= PAYLOAD_CHUNK_BYTES || old.parts) ? old : null;
         if (!entry) {
             const parts = [];
@@ -214,9 +258,9 @@ async function buildPortal(checkout, items, changedFiles) {
     }
     for (const [name, bytes] of publicFiles.files) write(checkout, name, bytes);
     manifest.files = Object.fromEntries(Object.entries(manifest.files).sort(([a], [b]) => a.localeCompare(b)));
-    const activePayloads = new Set(Object.values(manifest.files).flatMap(payloadParts).map(item => item.url));
+    const activePayloads = new Set(Object.values(manifest.files).flatMap(payloadParts).map(item => item.url).filter(Boolean));
     for (const item of Object.values(previous.manifest?.files || {}).flatMap(payloadParts)) {
-        if (!activePayloads.has(item.url) && fs.existsSync(path.join(checkout, item.url))) fs.unlinkSync(path.join(checkout, item.url));
+        if (item.url && !activePayloads.has(item.url) && fs.existsSync(path.join(checkout, item.url))) fs.unlinkSync(path.join(checkout, item.url));
     }
     write(checkout, 'tp-static/site.json', JSON.stringify(manifest, null, 2) + '\n');
     return { paths: ['index.html', 'login.html', 'project-evolution.html', 'tp-static-sw.js', 'tp-static', ...items.map(i => path.posix.dirname(i.href.slice(2))).filter(dir => dir !== '.')], manifest };

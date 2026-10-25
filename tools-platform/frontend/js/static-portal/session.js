@@ -9,8 +9,9 @@
             event.ports[0]?.postMessage(auth || null);
         }
         if (event.data?.type === 'LOCK') {
+            const hadSession = Boolean(sessionStorage.getItem('tp-static:' + base.pathname));
             sessionStorage.removeItem('tp-static:' + base.pathname);
-            location.replace(new URL('login.html', base));
+            if (hadSession) location.replace(new URL('login.html', base));
         }
     });
 })();

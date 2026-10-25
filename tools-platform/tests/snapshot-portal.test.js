@@ -102,3 +102,65 @@ test('portal keys and home data remain tenant scoped and omitted tools are inacc
     await portal.buildPortal(checkout, [], new Map());
     assert.equal(manifest().files['demo-tool/index.html'], undefined);
 });
+
+test('publicAccess tool is published unencrypted as plain HTML and plain files on disk, without bootHtml or payload encryption', async () => {
+    const publicItems = [{ slug: 'public-tool', name: 'Public Free Tool', href: './public-tool/index.html', publicAccess: true }];
+    const publicFiles = new Map([
+        ['public-tool/index.html', '<!doctype html><html><head><title>Public</title></head><body>PUBLIC_PAGE_CONTENT</body></html>'],
+        ['public-tool/data/info.json', '{"status":"public-open"}']
+    ]);
+    await portal.buildPortal(checkout, publicItems, publicFiles);
+    const meta = manifest();
+
+    // 1. In manifest, public files are marked public: true without payload bin url
+    assert.equal(meta.files['public-tool/index.html']?.public, true);
+    assert.equal(meta.files['public-tool/index.html']?.url, undefined);
+    assert.equal(meta.files['public-tool/data/info.json']?.public, true);
+
+    // 2. The HTML file on disk is the real HTML (with session.js injected), NOT bootHtml()
+    const onDiskHtml = fs.readFileSync(path.join(checkout, 'public-tool/index.html'), 'utf8');
+    assert.match(onDiskHtml, /PUBLIC_PAGE_CONTENT/);
+    assert.doesNotMatch(onDiskHtml, /data-static-boot="1"/);
+    assert.match(onDiskHtml, /session\.js/);
+
+    // 3. Companion data files exist on disk as plain files and are not unlinked
+    assert.equal(fs.existsSync(path.join(checkout, 'public-tool/data/info.json')), true);
+    assert.equal(fs.readFileSync(path.join(checkout, 'public-tool/data/info.json'), 'utf8'), '{"status":"public-open"}');
+
+    // 4. No payload .bin file was generated for this public tool
+    const payloads = Object.values(meta.files).filter(f => f.parts || f.url);
+    for (const p of payloads) {
+        assert.ok(!p.url?.includes('public-tool'), 'no public tool payload bin');
+    }
+});
+
+test('toggling publicAccess state between public and private cleanly replaces files and switches between payload and plain disk files', async () => {
+    const toolFiles = new Map([
+        ['switch-tool/index.html', '<!doctype html><html><head></head><body>TOGGLE_TEST_PAGE</body></html>'],
+        ['switch-tool/data/stat.json', '{"toggled":true}']
+    ]);
+
+    // Phase 1: Private
+    const privateItems = [{ slug: 'switch-tool', name: 'Switchable Tool', href: './switch-tool/index.html', publicAccess: false }];
+    await portal.buildPortal(checkout, privateItems, toolFiles);
+    let meta = manifest();
+    assert.equal(meta.files['switch-tool/index.html']?.public, undefined);
+    assert.match(fs.readFileSync(path.join(checkout, 'switch-tool/index.html'), 'utf8'), /data-static-boot="1"/);
+    assert.equal(fs.existsSync(path.join(checkout, 'switch-tool/data/stat.json')), false);
+
+    // Phase 2: Toggle to Public (simulate unchanged toolFiles)
+    const publicItems = [{ slug: 'switch-tool', name: 'Switchable Tool', href: './switch-tool/index.html', publicAccess: true }];
+    await portal.buildPortal(checkout, publicItems, toolFiles);
+    meta = manifest();
+    assert.equal(meta.files['switch-tool/index.html']?.public, true);
+    assert.match(fs.readFileSync(path.join(checkout, 'switch-tool/index.html'), 'utf8'), /TOGGLE_TEST_PAGE/);
+    assert.doesNotMatch(fs.readFileSync(path.join(checkout, 'switch-tool/index.html'), 'utf8'), /data-static-boot="1"/);
+    assert.equal(fs.existsSync(path.join(checkout, 'switch-tool/data/stat.json')), true);
+
+    // Phase 3: Toggle back to Private
+    await portal.buildPortal(checkout, privateItems, toolFiles);
+    meta = manifest();
+    assert.equal(meta.files['switch-tool/index.html']?.public, undefined);
+    assert.match(fs.readFileSync(path.join(checkout, 'switch-tool/index.html'), 'utf8'), /data-static-boot="1"/);
+    assert.equal(fs.existsSync(path.join(checkout, 'switch-tool/data/stat.json')), false);
+});

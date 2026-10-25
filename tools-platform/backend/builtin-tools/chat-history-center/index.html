@@ -11,6 +11,10 @@
             var isDark = t === 'dark' || (t === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
             if (isDark) document.documentElement.classList.add('dark-theme');
             document.documentElement.setAttribute('data-theme', t);
+            var savedWidth = Number(localStorage.getItem('chat_history_conv_pane_width_v1'));
+            if (savedWidth && savedWidth >= 220 && savedWidth <= 680) {
+                document.documentElement.style.setProperty('--conv-pane-width', savedWidth + 'px');
+            }
         } catch(e) {}
     })();
     </script>
@@ -65,6 +69,7 @@
             </div>
             <div id="conversationList" class="conversation-list"></div>
             <button id="loadMoreConversations" class="load-more" hidden>加载更多会话</button>
+            <div id="conversationResizeHandle" class="conversation-resize-handle" title="拖动调整会话列表宽度，双击恢复默认" role="separator" aria-orientation="vertical" aria-label="调整会话列表宽度" tabindex="0"></div>
         </aside>
 
         <section class="message-pane">

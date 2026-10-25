@@ -16,6 +16,7 @@ function validateItem(item) {
         || (item.description !== undefined && (typeof item.description !== 'string' || item.description.length > 300))
         || typeof item.href !== 'string' || !/^\.\/[\w./-]+\.html$/.test(item.href)
         || item.href.slice(2).split('/').some(part => !part || part === '.' || part === '..')
+        || (item.publicAccess !== undefined && typeof item.publicAccess !== 'boolean')
         || (item.fingerprint !== undefined && !/^[a-f0-9]{64}$/.test(item.fingerprint))
         || (item.updatedAt !== undefined && (typeof item.updatedAt !== 'string' || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(item.updatedAt) || !Number.isFinite(Date.parse(item.updatedAt))))) {
         throw bad('仓库工具菜单清单格式无效，请检查 ' + MENU_FILE);
@@ -26,6 +27,7 @@ function validateItem(item) {
         description: String(item.description || '').replace(/\s+/g, ' ').trim(),
         href: item.href,
         encrypted: Boolean(item.encrypted),
+        ...(item.publicAccess ? { publicAccess: true } : {}),
         ...(item.batchExcluded ? { batchExcluded: true } : {}),
         ...(item.fingerprint ? { fingerprint: item.fingerprint } : {}),
         ...(item.updatedAt ? { updatedAt: item.updatedAt } : {})
@@ -34,8 +36,9 @@ function validateItem(item) {
 
 function renderGuide(items) {
     const rows = items.map(item => {
-        const lock = item.encrypted ? ' 🔒' : '';
-        const desc = (item.description || '查看最新只读数据快照') + (item.encrypted ? '（受密码保护）' : '');
+        const lock = item.encrypted ? ' 🔒' : (item.publicAccess ? ' 🌐' : '');
+        const accessDesc = item.publicAccess ? '（免登录公开访问）' : (item.encrypted ? '（受密码保护）' : '');
+        const desc = (item.description || '查看最新只读数据快照') + accessDesc;
         return `| ${escapeTable(item.name)}${lock} | \`${item.slug}\` | ${escapeTable(desc)} | [打开页面](${item.href}) |`;
     }).join('\n');
     return `${GUIDE_START}

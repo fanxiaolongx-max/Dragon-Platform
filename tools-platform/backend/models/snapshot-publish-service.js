@@ -222,7 +222,7 @@ class ProviderRegistry extends Map {
 
 const providers = new ProviderRegistry();
 
-function fingerprintSnapshotBundle(output, mode) {
+function fingerprintSnapshotBundle(output, mode, isPublic = false) {
     const hash = crypto.createHash('sha256');
     const add = (name, contents) => {
         const bytes = Buffer.isBuffer(contents) ? contents : Buffer.from(String(contents));
@@ -230,6 +230,7 @@ function fingerprintSnapshotBundle(output, mode) {
         hash.update(bytes);
     };
     add('mode', mode);
+    add('isPublic', isPublic ? '1' : '0');
     add('index.html', output.html);
     for (const [name, contents] of [...output.files].sort(([a], [b]) => a.localeCompare(b))) add(name, contents);
     return hash.digest('hex');
@@ -1070,13 +1071,14 @@ async function publish(job, tenantId, settings, options = {}) {
                 ? await provider.buildPagesSnapshot(tenantId, snapshotOptions)
                 : { html: await provider.buildSnapshot(tenantId, snapshotOptions), files: new Map() };
             if (await skipHeavy(sizePolicy.measure(output))) continue;
+            const isPublic = Boolean(tool?.publicAccess);
             publishedSlugs.push(slug);
-            const fingerprint = fingerprintSnapshotBundle(output, config.publishMode);
+            const fingerprint = fingerprintSnapshotBundle(output, config.publishMode, isPublic);
 
             await recordCommandLog(job, {
                 at: new Date().toISOString(),
                 type: 'info',
-                msg: `[生成快照] 工具: ${toolName} (${slug})，模式: ${config.publishMode === 'pages' ? 'Pages' : '单文件'}${snapshotOptions.encryption.enabled ? ' (已开启访问密码保护)' : ''}，页面大小: ${formatSize(Buffer.byteLength(output.html, 'utf8'))}${config.publishMode === 'pages' ? `，提取数据文件: ${output.files.size} 个` : ''}`
+                msg: `[生成快照] 工具: ${toolName} (${slug})，模式: ${config.publishMode === 'pages' ? 'Pages' : '单文件'}${isPublic ? ' (已开启免登录公开访问)' : (snapshotOptions.encryption.enabled ? ' (已开启访问密码保护)' : '')}，页面大小: ${formatSize(Buffer.byteLength(output.html, 'utf8'))}${config.publishMode === 'pages' ? `，提取数据文件: ${output.files.size} 个` : ''}`
             });
 
             const destination = path.join(checkout, toolResolvedFile);
@@ -1150,6 +1152,7 @@ async function publish(job, tenantId, settings, options = {}) {
                 description: tool?.description || provider.description,
                 href: './' + toolResolvedFile,
                 encrypted: Boolean(snapshotOptions.encryption.enabled),
+                publicAccess: isPublic,
                 fingerprint,
                 batchExcluded: sizePolicy.measure(output).isHeavy
             });

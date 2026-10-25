@@ -54,7 +54,7 @@ self.addEventListener('fetch', event => {
         if (event.request.mode === 'navigate') manifestPromise = null;
         const site = await manifest();
         const file = site.files[name];
-        if (!file) return fetch(event.request);
+        if (!file || file.public) return fetch(event.request);
         if (!unlocked || unlocked.keyId !== site.keyId) await recover(site);
         if (!unlocked || unlocked.keyId !== site.keyId) {
             // 回到公开引导页，允许刷新后从当前标签页的会话恢复解密密钥。

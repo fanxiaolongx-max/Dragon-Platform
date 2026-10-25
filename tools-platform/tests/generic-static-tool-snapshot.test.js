@@ -309,3 +309,76 @@ test('upgrading a legacy password-protected tool removes its separate gate durin
     assert.doesNotMatch(html, /tpGatekeeperModal/);
     assert.ok(site.files['zip-demo-tool/index.html']);
 });
+
+test('publishing a publicAccess custom tool leaves HTML unencrypted on disk, and toggling publicAccess creates a new git commit without code change', async () => {
+    const bare = path.join(temp, 'public-access-remote.git'), mirror = path.join(temp, 'public-access-mirror');
+    const git = args => execFileSync('git', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    git(['init', '--bare', '--initial-branch=main', bare]);
+    git(['clone', bare, mirror]);
+    fs.writeFileSync(path.join(mirror, 'README.md'), '# Initial Repo\n');
+    git(['-C', mirror, 'add', 'README.md']);
+    git(['-C', mirror, '-c', 'user.name=Tester', '-c', 'user.email=tester@test.local', 'commit', '-m', 'Init']);
+    git(['-C', mirror, 'push', '-u', 'origin', 'HEAD:main']);
+
+    // Set static-demo-tool to publicAccess: true
+    await customToolsRepo.updateToolAccess('static-demo-tool', true);
+
+    const tools = (await publishService.getSettings()).tools.map(item => ({
+        toolSlug: item.toolSlug,
+        enabled: item.toolSlug === 'static-demo-tool',
+        encryptionEnabled: false
+    }));
+    await publishService.saveSettings({ repoDir: mirror, branch: 'main', file: '{toolSlug}/index.html', publishMode: 'single', tools });
+
+    async function publish(options = {}) {
+        const started = await publishService.startJob('default', options);
+        for (let i = 0; i < 100; i++) {
+            const job = await publishService.getJob(started.id);
+            if (job.status !== 'running') {
+                assert.equal(job.status, 'success', JSON.stringify(job.entries));
+                return job;
+            }
+            await new Promise(resolve => setTimeout(resolve, 40));
+        }
+        assert.fail('publish job timed out');
+    }
+
+    // 1. Initial publish with publicAccess = true
+    const job1 = await publish();
+    const commit1 = git(['--git-dir', bare, 'rev-parse', 'HEAD']).toString().trim();
+    assert.equal(job1.commit, commit1);
+
+    const site1 = JSON.parse(git(['--git-dir', bare, 'show', 'main:tp-static/site.json']).toString());
+    assert.equal(site1.files['static-demo-tool/index.html']?.public, true);
+    assert.equal(site1.files['static-demo-tool/index.html']?.url, undefined);
+
+    const html1 = git(['--git-dir', bare, 'show', 'main:static-demo-tool/index.html']).toString();
+    assert.match(html1, /Hello Static World/);
+    assert.doesNotMatch(html1, /data-static-boot="1"/);
+
+    const menu1 = JSON.parse(git(['--git-dir', bare, 'show', 'main:.tools-platform-menu.json']).toString());
+    assert.equal(menu1.items.find(i => i.slug === 'static-demo-tool')?.publicAccess, true);
+
+    const guide1 = git(['--git-dir', bare, 'show', 'main:README.md']).toString();
+    assert.match(guide1, /🌐/);
+    assert.match(guide1, /免登录公开访问/);
+
+    // 2. Change status: toggle publicAccess to false, WITHOUT changing tool code
+    await customToolsRepo.updateToolAccess('static-demo-tool', false);
+
+    // Publish again without force
+    const job2 = await publish();
+    const commit2 = git(['--git-dir', bare, 'rev-parse', 'HEAD']).toString().trim();
+    assert.notEqual(commit2, commit1, 'Toggling publicAccess must trigger a new commit even when tool code is unchanged');
+
+    const site2 = JSON.parse(git(['--git-dir', bare, 'show', 'main:tp-static/site.json']).toString());
+    assert.equal(site2.files['static-demo-tool/index.html']?.public, undefined);
+    assert.ok(site2.files['static-demo-tool/index.html']?.url || site2.files['static-demo-tool/index.html']?.parts);
+
+    const html2 = git(['--git-dir', bare, 'show', 'main:static-demo-tool/index.html']).toString();
+    assert.match(html2, /data-static-boot="1"/);
+    assert.doesNotMatch(html2, /Hello Static World/);
+
+    const menu2 = JSON.parse(git(['--git-dir', bare, 'show', 'main:.tools-platform-menu.json']).toString());
+    assert.equal(menu2.items.find(i => i.slug === 'static-demo-tool')?.publicAccess, undefined);
+});
