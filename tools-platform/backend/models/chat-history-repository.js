@@ -4,7 +4,7 @@ const path = require('path');
 const readline = require('readline');
 const sqlite3 = require('sqlite3').verbose();
 const tenantPool = require('./tenant-sqlite-pool');
-const { isPinyinQuery, pinyinMatches } = require('./chat-pinyin-search');
+const { isPinyinQuery, pinyinMatches } = require('../../frontend/js/shared/pinyin-search');
 
 const DB_FILENAME = 'chat-history.db';
 const PARSER_VERSION = 2;
