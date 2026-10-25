@@ -23,8 +23,10 @@
             }
         }
     </script>
-    <!-- Phosphor Icons -->
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Local icon fonts: editor controls must work without access to a public CDN. -->
+    <link rel="stylesheet" href="vendor/phosphor/regular/style.css">
+    <link rel="stylesheet" href="vendor/phosphor/bold/style.css">
+    <link rel="stylesheet" href="vendor/phosphor/fill/style.css">
     <!-- PDF Export Dependencies -->
     <script src="/js/shared/html2canvas.min.js"></script>
     <script src="/js/shared/jspdf.umd.min.js"></script>
@@ -34,7 +36,7 @@
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 
     <!-- Custom CSS for Slide Content -->
-    <link rel="stylesheet" href="css/app.css?v=20261006-3">
+    <link rel="stylesheet" href="css/app.css">
 </head>
 
 <body class="bg-zinc-950 text-zinc-100 font-sans h-screen w-screen overflow-hidden flex flex-col">
@@ -246,7 +248,7 @@
                     </button>
                     <label
                         class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-white transition-colors cursor-pointer">
-                        <i class="ph ph-import text-lg text-zinc-400"></i> 导入 JSON
+                        <i class="ph ph-arrow-square-in text-lg text-zinc-400"></i> 导入 JSON
                         <input id="importJsonInput" type="file" accept="application/json,.json" hidden>
                     </label>
                     <div class="h-px bg-zinc-700/50 my-1"></div>

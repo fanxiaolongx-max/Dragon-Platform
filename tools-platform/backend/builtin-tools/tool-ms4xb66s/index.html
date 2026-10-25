@@ -289,6 +289,18 @@
   .blacklist-table input:not([type=checkbox]),.blacklist-table select,.blacklist-table textarea{box-sizing:border-box;width:100%;min-width:100px;padding:7px;border:1px solid var(--line,#d9dfe7);border-radius:5px;background:var(--card,#fff);color:var(--ink,#182230)}
   .blacklist-table td:nth-child(4){min-width:230px}
   #blacklistDeductionTable td{white-space:normal;min-width:100px}
+  th.deduction-reason-cell,td.deduction-reason-cell{width:250px;min-width:250px;max-width:250px;white-space:normal;vertical-align:top}
+  .deduction-reason{width:230px;max-width:100%;font-size:11px;line-height:1.6}
+  .deduction-reason summary{display:flex;align-items:flex-start;gap:6px;cursor:pointer;list-style:none;color:inherit}
+  .deduction-reason summary::-webkit-details-marker{display:none}
+  .deduction-reason summary::before{content:'▸';flex:none}
+  .deduction-reason[open] summary::before{content:'▾'}
+  .deduction-reason-preview{min-width:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow-wrap:anywhere}
+  .deduction-reason-action{flex:none;color:var(--red);font-size:10px;white-space:nowrap}
+  .deduction-reason .reason-collapse,.deduction-reason[open] .reason-expand{display:none}
+  .deduction-reason[open] .reason-collapse{display:inline}
+  .deduction-reason[open] .deduction-reason-preview{display:none}
+  .deduction-reason-full{margin-top:6px;padding-top:6px;border-top:1px solid var(--line);white-space:pre-wrap;overflow-wrap:anywhere}
   .blacklist-help{font-size:10.5px;color:#667085;line-height:1.6;margin-bottom:10px}
   .blacklist-count{font-size:10px;color:#475467;font-weight:700;margin-top:9px}
   .identity-alert{margin-top:7px;padding:6px 9px;border:1px dashed rgba(102,112,133,.22);
@@ -1956,6 +1968,9 @@ function translateDeductionReason(reason){
     ['按完成时间','By completion time'],
     ['不发放规则：','Non-payment rule: '],
     ['会议考勤','Meeting Attendance'],
+    ['考勤：','Attendance: '],
+    ['缺席','Absent'],
+    ['虚假签到','False sign-in'],
     ['考勤异常','Attendance Anomaly'],
     ['会议缺勤','Meeting Absent'],
     ['迟到','Late / Delay'],
@@ -2034,7 +2049,7 @@ function renderBlacklistDeductions(){
   $('blacklistDeductionPanel').hidden=!rows.length&&!pending;
   $('blacklistPendingNotice').hidden=!pending;$('reviewBlacklistBtn').hidden=!pending;
   $('blacklistPendingNotice').textContent=BL(`有 ${pending} 条黑名单未指定本次有效月份，暂不扣减。请检查并补齐月份或移除。`,`${pending} blacklist entries have no valid month in this import and do not deduct incentives. Review their months or remove them.`);
-  $('blacklistDeductionTable').innerHTML='<table><thead><tr>'+['工号','姓名','扣减月份','扣减原因','来源','扣减激励（元）','扣减后激励（元）'].map(label=>`<th>${esc(label)}</th>`).join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+Object.values(row).map(value=>`<td>${esc(value)}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
+  $('blacklistDeductionTable').innerHTML='<table><thead><tr>'+['工号','姓名','扣减月份','扣减原因','来源','扣减激励（元）','扣减后激励（元）'].map(label=>`<th${label==='扣减原因'?' class="deduction-reason-cell"':''}>${esc(label)}</th>`).join('')+'</tr></thead><tbody>'+rows.map(row=>'<tr>'+Object.entries(row).map(([key,value])=>key==='扣减原因'?`<td class="deduction-reason-cell">${deductionReasonCell(value)}</td>`:`<td>${esc(value)}</td>`).join('')+'</tr>').join('')+'</tbody></table>';
 }
 function exportBlacklist(template=false){
   if(!window.XLSX){uiAlert('Excel 组件未加载，请刷新页面后重试。');return}
@@ -2604,10 +2619,17 @@ function openIdentityDetails(){
     </table>`:'<div class="empty">当前没有校验不通过记录</div>';
   $('identityDetailsModal').classList.add('show');
 }
-function table(headers,rows){
+function deductionReasonCell(reason){
+  const full=clean(reason);
+  if(!full)return '—';
+  const compact=full.replace(/\s+/g,' ').replace(/会议考勤异常：/g,'考勤：').replace(/；签到时间：[^；\n]*/g,'');
+  const preview=compact.length>42?compact.slice(0,42)+'…':compact;
+  return `<details class="deduction-reason"><summary><span class="deduction-reason-preview">${esc(preview)}</span><span class="deduction-reason-action"><span class="reason-expand">${BL('展开','Expand')}</span><span class="reason-collapse">${BL('收起','Collapse')}</span></span></summary><div class="deduction-reason-full">${esc(full)}</div></details>`;
+}
+function table(headers,rows,{reasonColumn=-1}={}){
   if(!rows.length){$('tableWrap').innerHTML='<div class="empty">当前条件下暂无数据</div>';return}
-  $('tableWrap').innerHTML=`<table><thead><tr>${headers.map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${
-    rows.map(r=>`<tr>${r.map((c,i)=>`<td>${c}</td>`).join('')}</tr>`).join('')
+  $('tableWrap').innerHTML=`<table><thead><tr>${headers.map((h,i)=>`<th${i===reasonColumn?' class="deduction-reason-cell"':''}>${esc(h)}</th>`).join('')}</tr></thead><tbody>${
+    rows.map(r=>`<tr>${r.map((c,i)=>`<td${i===reasonColumn?' class="deduction-reason-cell"':''}>${c}</td>`).join('')}</tr>`).join('')
   }</tbody></table>`;
 }
 
@@ -3100,9 +3122,11 @@ function renderSummary(rows){
   headers.push(BL('计费记录','Billable Orders'),BL('操作天数','Days'),BL('涉及人员','People'),BL('等级分布','Level Breakdown'),BL('激励合计（元）','Total Incentive (CNY)'));
   table(headers,data);
 }
-function getPersonnelPeriodSummaryData(rows){
+function getPersonnelPeriodSummaryData(rows=filtered()){
   const type=$('periodType').value,m=new Map();
   const isEn=isEnglishMode();
+  const paidTotals=new Map();
+  rows.forEach(r=>{const key=periodKey(filterDateForRow(r),type)+'|'+r.__person;paidTotals.set(key,(paidTotals.get(key)||0)+(Number(r.__fee)||0))});
   const baseRows=rowsForRuleMode({dedup:!isNoDedupMode(),blacklist:false}).filter(rowMatchesFilters);
   baseRows.forEach(r=>{
     const p=periodKey(filterDateForRow(r),type),k=p+'|'+r.__person;
@@ -3121,27 +3145,13 @@ function getPersonnelPeriodSummaryData(rows){
   });
 
   return [...m.values()].sort((a,b)=>b.p.localeCompare(a.p)||b.rawMoney-a.rawMoney||a.person.localeCompare(b.person,'zh-CN')).map(x=>{
-    const months=uniq(x.rows.map(r=>incentiveMonth(r)).filter(Boolean));
-    const sampleRow=x.rows[0]||{__date:x.p,__person:x.person};
-
-    // 1. Blacklist deduction reasons
-    const blReasons=isBlacklistEnabled()?uniq([
-      ...x.rows.map(r=>blacklistReason(x.person,r)).filter(Boolean),
-      ...[...incentiveBlacklist.values()].filter(item=>personKey(item.staffId)===personKey(x.person)&&(!months.length||months.includes(item.month))).map(item=>item.reason)
-    ]):[];
-
-    // 2. Nonpayment rules
-    const npReason=nonpaymentReason(x.person);
-
-    // 3. Attendance anomalies
-    const anomMonth=type==='month'?x.p:(months[0]||undefined);
+    // Only applied payment rules produce deduction status/reasons. Attendance warnings remain pending.
+    const appliedReasons=uniq(x.rows.filter(r=>Number(r.__fee)>0).map(r=>paymentBlockReason(x.person,isBlacklistEnabled(),r)).filter(Boolean));
+    const finalMoney=paidTotals.get(x.p+'|'+x.person)||0;
+    const deductedMoney=Math.max(0,x.rawMoney-finalMoney);
+    const isDeducted=deductedMoney>0&&appliedReasons.length>0;
+    const anomMonth=type==='month'?x.p:undefined;
     const anom=getPersonAttendanceAnomaly(x.person,x.name,anomMonth);
-    const anomReason=anom?(anom.anomalyDesc||BL('考勤异常','Attendance anomaly')):'';
-
-    // Combined reasons
-    const allReasons=uniq([...blReasons,npReason,anomReason].filter(Boolean));
-    const isDeducted=(isBlacklistEnabled()&&blReasons.length>0)||Boolean(npReason)||Boolean(anomReason);
-    const finalMoney=((isBlacklistEnabled()&&blReasons.length>0)||npReason)?0:x.rawMoney;
 
     // WeLink ID Change & Departure Status
     const changeId=changedEmployeeId(x.person);
@@ -3164,7 +3174,8 @@ function getPersonnelPeriodSummaryData(rows){
       mediumCount:x.levels.Medium||0,
       lowCount:x.levels.Low||0,
       isDeducted,
-      deductionReason:allReasons.join('；')||'',
+      deductedMoney,
+      deductionReason:isDeducted?appliedReasons.join('；'):'',
       money:finalMoney,
       anom,
       changeId,
@@ -3179,10 +3190,10 @@ function renderPerson(rows){
   const data=getPersonnelPeriodSummaryData(rows);
   const isEn=isEnglishMode();
   const tableRows=data.map(x=>{
-    const anomTag=x.anom?` <span class="tag bad" title="${esc(x.anom.anomalyDesc)}">⚠️ ${BL('考勤异常','Attendance Anomaly')}</span>`:'';
+    const anomTag=x.anom?` <span class="tag mid" title="${esc(x.anom.anomalyDesc)}">⚠️ ${BL('考勤待处理','Attendance pending')}</span>`:'';
     const nameCell=esc(x.name||'—')+anomTag;
-    const deductedCell=x.isDeducted?`<span class="tag bad">${BL('是','Yes')}</span>`:`<span class="tag ok">${BL('否','No')}</span>`;
-    const reasonCell=x.isDeducted?esc(isEn?translateDeductionReason(x.deductionReason):x.deductionReason):'—';
+    const deductedCell=x.isDeducted?`<span class="tag bad">${x.money>0?BL('部分扣除','Partially deducted'):BL('是','Yes')}</span>`:`<span class="tag ok">${BL('否','No')}</span>`;
+    const reasonCell=x.isDeducted?deductionReasonCell(isEn?translateDeductionReason(x.deductionReason):x.deductionReason):'—';
     return [
       esc(x.p),
       esc(x.person)+personStatusTags(x.person),
@@ -3216,7 +3227,7 @@ function renderPerson(rows){
     BL('扣除原因','Deduction Reason'),
     BL('激励合计（元）','Total Incentive (CNY)')
   ];
-  table(headers,tableRows);
+  table(headers,tableRows,{reasonColumn:12});
 }
 function renderDetail(rows){
   const sorted=[...rows].sort((a,b)=>
@@ -3239,7 +3250,7 @@ function renderDetail(rows){
       `${baseStatus}${attTag}`,
       esc(r.__level||'未识别'),
       `<span class="money">${money(r.__calcFee)}</span>`,
-      esc(r.__ignoreReason),
+      deductionReasonCell(r.__ignoreReason),
       !r.__counted?(esc(r.__selectedLevel)||'—'):'—',
       !r.__counted?(esc(r.__selectedTask)||'—'):'—',
       esc(r.__bu),esc(r.__customer),esc(r.__attr),taskWithDomainBadge(r.__task,r.__netDomain),esc(r.__summary),
@@ -3248,7 +3259,7 @@ function renderDetail(rows){
       esc((r.__effectiveDate||r.__end||r.__start)?(r.__effectiveDate||r.__end||r.__start).toLocaleString('zh-CN'):'')
     ];
   });
-  table([BL('操作日期','Date'),BL('操作人','Operator ID'),BL('姓名','Name'),'WeLink · '+welinkDisplayLabel(),BL('姓名工号校验','Identity Check'),BL('计算状态','Status'),BL('操作等级','Level'),BL('本行激励（元）','Incentive (CNY)'),BL('忽略原因','Ignore Reason'),BL('当日计发等级','Day Approved Level'),BL('当日计发任务号','Day Approved Task'),BL('BU1','BU1'),BL('客户','Customer'),BL('人员属性','Staff Attr'),BL('实施任务单号','Task No'),BL('操作摘要','Summary'),BL('操作时间校验','Field Time Check'),BL('当地时间校验','Local Time Check'),BL('操作/完成时间','Operation / Complete Time')],data);
+  table([BL('操作日期','Date'),BL('操作人','Operator ID'),BL('姓名','Name'),'WeLink · '+welinkDisplayLabel(),BL('姓名工号校验','Identity Check'),BL('计算状态','Status'),BL('操作等级','Level'),BL('本行激励（元）','Incentive (CNY)'),BL('忽略原因','Ignore Reason'),BL('当日计发等级','Day Approved Level'),BL('当日计发任务号','Day Approved Task'),BL('BU1','BU1'),BL('客户','Customer'),BL('人员属性','Staff Attr'),BL('实施任务单号','Task No'),BL('操作摘要','Summary'),BL('操作时间校验','Field Time Check'),BL('当地时间校验','Local Time Check'),BL('操作/完成时间','Operation / Complete Time')],data,{reasonColumn:8});
 }
 function renderExcluded(rows=filteredExcludedRows()){
   const data=[...rows].sort((a,b)=>(b.__date||'').localeCompare(a.__date||'')||a.__row-b.__row).map(r=>[r.__row,esc(r.__reason),esc(r.__person)+personStatusTags(r.__person),esc(displayPersonName(r)),personFieldCell(r.__person),identityCheckCell(r),esc(r.__status),esc(r.__level),taskWithDomainBadge(r.__task,r.__netDomain),esc(r.__summary),
@@ -3423,6 +3434,13 @@ function cloneCell(cell){
   });
   return out;
 }
+function wrapExportReasonColumn(sheet,column){
+  const range=window.XLSX.utils.decode_range(sheet['!ref']||'A1:A1');
+  for(let row=range.s.r;row<=range.e.r;row++){
+    const cell=sheet[window.XLSX.utils.encode_cell({r:row,c:column})];
+    if(cell)cell.s={...(cell.s||{}),alignment:{...(cell.s?.alignment||{}),wrapText:true,vertical:'top'}};
+  }
+}
 function exportCurrent(forceEnglish=false){
   if(!window.XLSX){ uiAlert('Excel 组件未加载，请刷新页面后重试。', { icon: '⚠️' }); return; }
   const XLSX=window.XLSX;
@@ -3494,7 +3512,7 @@ function exportCurrent(forceEnglish=false){
       catch(e){return {...x}}
     });
   }else outWs['!cols']=[];
-  outWs['!cols'][outputLastCol-5]={wch:18};outWs['!cols'][outputLastCol-4]={wch:60};outWs['!cols'][outputLastCol-3]={wch:14};
+  outWs['!cols'][outputLastCol-5]={wch:18};outWs['!cols'][outputLastCol-4]={wch:34};outWs['!cols'][outputLastCol-3]={wch:14};
   outWs['!cols'][outputLastCol-2]={wch:14};outWs['!cols'][outputLastCol-1]={wch:24};outWs['!cols'][outputLastCol]={wch:28};
 
   if(sourceWorksheet['!rows']){
@@ -3524,6 +3542,7 @@ function exportCurrent(forceEnglish=false){
 
   // Sheet 1: Operation Details
   const resultSheetName=isEn?'Operation_Details':(sourceSheetName||'当前计算结果');
+  wrapExportReasonColumn(outWs,outputLastCol-4);
   XLSX.utils.book_append_sheet(wb,outWs,resultSheetName);
 
   // Sheet 2: Personnel Period Summary (人员周期汇总)
@@ -3546,7 +3565,7 @@ function exportCurrent(forceEnglish=false){
     x.mediumCount,
     x.lowCount,
     x.daysCount,
-    x.isDeducted?(isEn?'Yes':'是'):(isEn?'No':'否'),
+    x.isDeducted?(x.money>0?(isEn?'Partially deducted':'部分扣除'):(isEn?'Yes':'是')):(isEn?'No':'否'),
     x.isDeducted?(isEn?translateDeductionReason(x.deductionReason):x.deductionReason):'—',
     Math.round(x.money)
   ]);
@@ -3554,8 +3573,9 @@ function exportCurrent(forceEnglish=false){
   summaryWs['!cols']=[
     {wch:12},{wch:14},{wch:22},{wch:26},{wch:14},{wch:20},{wch:14},{wch:16},
     {wch:12},{wch:12},{wch:12},{wch:12},{wch:12},
-    {wch:16},{wch:38},{wch:18}
+    {wch:16},{wch:34},{wch:18}
   ];
+  wrapExportReasonColumn(summaryWs,14);
   XLSX.utils.book_append_sheet(wb,summaryWs,isEn?'Personnel_Summary':'人员周期汇总');
 
   // Sheet 3: Blacklist Deductions
@@ -3574,7 +3594,8 @@ function exportCurrent(forceEnglish=false){
     Math.round(Number(d['扣减后激励（元）']||0))
   ]);
   const deductionWs=XLSX.utils.aoa_to_sheet([deductionHeaders,...deductionSheetRows]);
-  deductionWs['!cols']=[{wch:14},{wch:22},{wch:14},{wch:38},{wch:18},{wch:20},{wch:20}];
+  deductionWs['!cols']=[{wch:14},{wch:22},{wch:14},{wch:34},{wch:18},{wch:20},{wch:20}];
+  wrapExportReasonColumn(deductionWs,3);
   const deductionSheetName=isEn?'Deduction_Details':(resultSheetName==='黑名单扣减明细'?'扣减汇总':'黑名单扣减明细');
   XLSX.utils.book_append_sheet(wb,deductionWs,deductionSheetName);
 
@@ -3895,8 +3916,8 @@ function attendanceIssueLabel(a){
   return status||'考勤异常';
 }
 function attendanceDeductionReason(a){
-  const date=attendanceEventDate(a)||'日期未明',title=attendanceMeetingTitle(a),session=clean(a.sessionName),issue=attendanceIssueLabel(a),status=clean(a.attendance);
-  return `会议考勤异常：${date}《${title}》${session?`【${session}】`:''}：${issue}${status&&status!==issue?`（${status}）`:''}${a.attendanceTime?`；签到时间：${clean(a.attendanceTime)}`:''}`;
+  const date=attendanceEventDate(a)||'日期未明',title=attendanceMeetingTitle(a),session=clean(a.sessionName),issue=attendanceIssueLabel(a);
+  return `考勤：${date}《${title}》${session?`【${session}】`:''}：${issue}`;
 }
 function attendanceBlacklistEntry(item,a){
   const date=attendanceEventDate(a);

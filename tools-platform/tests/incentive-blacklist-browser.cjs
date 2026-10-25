@@ -21,7 +21,7 @@ app.whenReady().then(async()=>{
     win=new BrowserWindow({show:false,width:1440,height:1000,webPreferences:{contextIsolation:true,nodeIntegration:false,backgroundThrottling:false,offscreen:true}});
     win.webContents.on('console-message',(_e,level,message)=>{if(level===3)errors.push(message)});
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
-    await run(`window.exportsCaptured=[];window.alertsCaptured=[];XLSX.writeFile=(wb,name)=>{exportsCaptured.push({wb,name})};uiAlert=message=>alertsCaptured.push(message);showToast=()=>{};
+    await run(`endTour();window.exportsCaptured=[];window.alertsCaptured=[];XLSX.writeFile=(wb,name)=>{exportsCaptured.push({wb,name})};uiAlert=message=>alertsCaptured.push(message);showToast=()=>{};
       rawRows=[{task_status:'completed',complete_operator:'m00123456','当地开始时间':'2026-09-01 23:00',operate_level:'High'},
       {task_status:'completed',complete_operator:'m00123456','当地开始时间':'2026-09-01 23:05',operate_level:'Low'},
       {task_status:'completed',complete_operator:'m00123456','当地开始时间':'2026-10-01 23:00',operate_level:'Low'}];
@@ -69,6 +69,19 @@ app.whenReady().then(async()=>{
       {month:'2026-09',fee:280,deductible:true},{month:'2026-10',fee:50,deductible:true},{month:'',fee:0,deductible:false}
     ]);
     assert.equal(await run(`document.querySelectorAll('.anomaly-row-cb:disabled').length`),1);
+    // Merely opening/reviewing attendance anomalies does not mark or export deductions.
+    await run(`currentView='person';render();exportCurrent()`);
+    const pendingExport=await run(`(()=>{const wb=exportsCaptured.at(-1).wb;return {summary:XLSX.utils.sheet_to_json(wb.Sheets['人员周期汇总']),deductions:XLSX.utils.sheet_to_json(wb.Sheets['黑名单扣减明细'])}})()`);
+    assert.equal(pendingExport.summary.length,2);
+    assert.ok(pendingExport.summary.every(row=>row['是否扣除激励']==='否'&&row['扣除原因']==='—'));
+    assert.equal(pendingExport.summary.reduce((sum,row)=>sum+row['激励合计（元）'],0),330);
+    assert.equal(pendingExport.deductions.length,0);
+    await run(`exportCurrent(true)`);
+    const pendingEnglish=await run(`XLSX.utils.sheet_to_json(exportsCaptured.at(-1).wb.Sheets['Personnel_Summary'])`);
+    assert.ok(pendingEnglish.every(row=>row['Incentive Deducted']==='No'&&row['Deduction Reason']==='—'));
+    assert.equal(pendingEnglish.reduce((sum,row)=>sum+row['Total Incentive (CNY)'],0),330);
+    assert.equal(await run(`incentiveBlacklist.size`),0);
+
     await run(`document.querySelector('.anomaly-row-cb[data-idx="1"]').checked=false;updateAnomalySelectionSummary();$('confirmAddToBlacklistBtn').click()`);
     assert.equal(await run(`Number($('sMoney').textContent)`),50);
     assert.equal(await run(`$('blacklistModal').classList.contains('show')`),true);
@@ -79,6 +92,23 @@ app.whenReady().then(async()=>{
     const attendanceExport=await run(`(()=>{const wb=exportsCaptured.at(-1).wb;return XLSX.utils.sheet_to_json(wb.Sheets['黑名单扣减明细'])})()`);
     assert.equal(attendanceExport[0]['扣减月份'],'2026-09');assert.equal(attendanceExport[0]['扣减激励（元）'],280);
     assert.match(attendanceExport[0]['扣减原因'],/2026-09-22.*质量月度例会.*九月场.*缺席/);
+    const confirmedSummary=await run(`XLSX.utils.sheet_to_json(exportsCaptured.at(-1).wb.Sheets['人员周期汇总'])`);
+    assert.equal(confirmedSummary.find(row=>row['周期']==='2026-09')['是否扣除激励'],'是');
+    assert.equal(confirmedSummary.find(row=>row['周期']==='2026-09')['激励合计（元）'],0);
+    assert.equal(confirmedSummary.find(row=>row['周期']==='2026-10')['是否扣除激励'],'否');
+    assert.equal(confirmedSummary.find(row=>row['周期']==='2026-10')['激励合计（元）'],50);
+    assert.equal(await run(`exportsCaptured.at(-1).wb.Sheets['人员周期汇总']['!cols'][14].wch<=34`),true);
+    // Expand downward and collapse again without making the reason column wider.
+    await run(`$('closeBlacklistModal').click();currentView='person';render()`);
+    const reasonBefore=await run(`(()=>{const node=document.querySelector('#tableWrap .deduction-reason'),cell=node.closest('td');return {open:node.open,width:cell.getBoundingClientRect().width,height:cell.getBoundingClientRect().height}})()`);
+    assert.equal(reasonBefore.open,false);assert.ok(reasonBefore.width<=260);
+    await run(`document.querySelector('#tableWrap .deduction-reason summary').click()`);
+    const reasonExpanded=await run(`(()=>{const node=document.querySelector('#tableWrap .deduction-reason'),cell=node.closest('td');return {open:node.open,width:cell.getBoundingClientRect().width,height:cell.getBoundingClientRect().height}})()`);
+    assert.equal(reasonExpanded.open,true);assert.ok(reasonExpanded.height>reasonBefore.height);assert.ok(reasonExpanded.width<=260);
+    await run(`document.querySelector('#tableWrap .deduction-reason summary').click()`);
+    assert.equal(await run(`document.querySelector('#tableWrap .deduction-reason').open`),false);
+    if(process.env.INCENTIVE_SUMMARY_SCREENSHOT_PATH){await run(`document.querySelector('#tableWrap .deduction-reason summary').click();$('tableWrap').scrollLeft=$('tableWrap').scrollWidth;$('tableWrap').scrollIntoView({block:'center'})`);await run(`Promise.all(document.querySelector('.protected-content').getAnimations().map(animation=>animation.finished))`);await run(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);fs.writeFileSync(process.env.INCENTIVE_SUMMARY_SCREENSHOT_PATH,(await win.webContents.capturePage()).toPNG())}
+    await run(`$('topBlacklistBtn').click()`);
     const editorSize=await run(`(()=>{const modal=$('blacklistModal').querySelector('.rule-modal-card').getBoundingClientRect(),input=document.querySelector('[data-field="reason"]').getBoundingClientRect();return {wide:modal.width>=1300,tall:modal.height>=850,textareaHeight:input.height,textareaWidth:input.width}})()`);
     assert.equal(editorSize.wide,true);assert.equal(editorSize.tall,true);assert.ok(editorSize.textareaHeight>=90);assert.ok(editorSize.textareaWidth>=400);
     if(process.env.INCENTIVE_SCREENSHOT_PATH){await run(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`);fs.writeFileSync(process.env.INCENTIVE_SCREENSHOT_PATH,(await win.webContents.capturePage()).toPNG())}
@@ -94,7 +124,7 @@ app.whenReady().then(async()=>{
     await run(`document.documentElement.dataset.theme='light'`);
     assert.equal(await run(`getComputedStyle(document.querySelector('[data-field="reason"]')).backgroundColor`),'rgb(255, 255, 255)');
     assert.deepEqual(errors,[]);
-    console.log('PASS: table CRUD, month limits, event preview/import, template file input, all-blocked XLSX export, monthly attendance deduction and reason export, enlarged editor, English, light/dark themes and narrow Electron layout');
+    console.log('PASS: table CRUD, month limits, event preview/import, template file input, all-blocked XLSX export, monthly attendance deduction and reason export, enlarged editor, pending versus confirmed summaries and export, collapsible reason columns, English, light/dark themes and narrow Electron layout');
   }catch(error){console.error(error);process.exitCode=1}
   finally{if(win)win.destroy();if(server)await new Promise(resolve=>server.close(resolve));fs.rmSync(temp,{recursive:true,force:true});app.exit(process.exitCode||0)}
 });

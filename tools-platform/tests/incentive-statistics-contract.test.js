@@ -523,7 +523,7 @@ test('attendance preview and deductions are grouped by meeting month and automat
     assert.deepEqual(result.preview, [{ month: '2026-09', fee: 280, count: 1, meetings: 1 }, { month: '2026-10', fee: 50, count: 1, meetings: 1 }]);
     assert.equal(result.entries[0].month, '2026-09');
     assert.equal(result.entries[0].eventDate, '2026-09-22');
-    assert.match(result.entries[0].reason, /2026-09-22《质量例会》【第一场】：缺席（Absent）/);
+    assert.match(result.entries[0].reason, /2026-09-22《质量例会》【第一场】：缺席/);
     assert.deepEqual(result.after.paid, ['2026-10']);
     assert.equal(result.after.deduction['扣减激励（元）'], 280);
     assert.match(result.after.deduction['扣减原因'], /质量例会/);
@@ -556,6 +556,52 @@ test('attendance preview shows the full monthly deduction behind filters and nev
     assert.deepEqual(result.preview, [{ month: '2026-09', fee: 330, deductible: true }, { month: '', fee: 0, deductible: false }]);
     assert.equal(result.badgeSept, true);
     assert.equal(result.badgeOct, false);
-    assert.match(result.fakeReason, /虚假签到（Fake）/);
+    assert.match(result.fakeReason, /虚假签到/);
     assert.match(result.monthError, /会议发生月份一致/);
+});
+
+test('personnel summary separates pending attendance warnings from applied deductions and restores payment when disabled', () => {
+    const runtime = createToolRuntime();
+    const result = evaluate(runtime, `
+      rawRows=[
+        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-09-01 23:00',operate_level:'High'},
+        {task_status:'completed',complete_operator:'A100','当地开始时间':'2026-08-01 23:00',operate_level:'Low'},
+        {task_status:'completed',complete_operator:'A200','当地开始时间':'2026-09-01 23:00',operate_level:'Low'}
+      ];$('periodType').value='month';recalculate();
+      attendanceResults=new Map([['a100',{hasAnomaly:true,anomalies:[{snapshotId:'meeting-1',title:'质量例会',actualDate:'2026-09-22',attendance:'Absent',type:'absent'}]}]]);
+      render();openAttendanceAnomalyModal();
+      const pending=getPersonnelPeriodSummaryData().find(x=>x.person==='A100'&&x.p==='2026-09');
+      const pendingState={deducted:pending.isDeducted,reason:pending.deductionReason,money:pending.money,warning:Boolean(pending.anom),blacklist:incentiveBlacklist.size};
+      document.querySelectorAll=selector=>selector==='.anomaly-row-cb'?[{checked:true,disabled:false,dataset:{idx:'0'}}]:[];showToast=()=>{};
+      applyAnomaliesToBlacklist();
+      const applied=getPersonnelPeriodSummaryData().find(x=>x.person==='A100'&&x.p==='2026-09');
+      const appliedState={deducted:applied.isDeducted,reason:applied.deductionReason,money:applied.money};
+      $('periodType').value='quarter';const quarter=getPersonnelPeriodSummaryData().find(x=>x.person==='A100');
+      const partial={deducted:quarter.isDeducted,amount:quarter.deductedMoney,money:quarter.money,total:getPersonnelPeriodSummaryData().reduce((s,x)=>s+x.money,0),paid:filtered().reduce((s,r)=>s+r.__fee,0)};
+      $('periodType').value='month';$('blacklistMode').value='disabled';render();
+      const disabled=getPersonnelPeriodSummaryData().find(x=>x.person==='A100'&&x.p==='2026-09');
+      ({pendingState,appliedState,partial,disabled:{deducted:disabled.isDeducted,reason:disabled.deductionReason,money:disabled.money}});
+    `);
+    assert.deepEqual(result.pendingState, { deducted: false, reason: '', money: 280, warning: true, blacklist: 0 });
+    assert.equal(result.appliedState.deducted, true);
+    assert.equal(result.appliedState.money, 0);
+    assert.match(result.appliedState.reason, /考勤：2026-09-22《质量例会》：缺席/);
+    assert.deepEqual(result.partial, { deducted: true, amount: 280, money: 50, total: 100, paid: 100 });
+    assert.deepEqual(result.disabled, { deducted: false, reason: '', money: 280 });
+});
+
+test('reason cells show a short escaped preview with the complete reason in a collapsible body', () => {
+    const runtime = createToolRuntime();
+    const result = evaluate(runtime, `
+      const full='会议考勤异常：2026-09-22《季度质量例会》：缺席（Absent）；签到时间：10:02；'+ '<img src=x onerror=alert(1)>'+'补充说明'.repeat(30);
+      ({html:deductionReasonCell(full),empty:deductionReasonCell(''),simple:attendanceDeductionReason({actualDate:'2026-09-22',title:'质量例会',attendance:'Delay',type:'delay',attendanceTime:'10:02'})});
+    `);
+    assert.match(result.html, /<details class="deduction-reason">/);
+    assert.match(result.html, /reason-expand/);
+    assert.match(result.html, /reason-collapse/);
+    assert.match(result.html, /deduction-reason-full/);
+    assert.match(result.html, /&lt;img/);
+    assert.doesNotMatch(result.html, /<img/);
+    assert.equal(result.empty, '—');
+    assert.equal(result.simple, '考勤：2026-09-22《质量例会》：迟到');
 });

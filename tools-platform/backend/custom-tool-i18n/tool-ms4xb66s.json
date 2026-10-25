@@ -754,5 +754,9 @@
   "📸 保存操作激励快照至服务器": "📸 Save Operation Incentive Snapshot to Server",
   "🗑 删除": "🗑 Delete",
   "🙈 收起预览": "🙈 Collapse",
-  "🚫 一键将所选人员加入激励黑名单": "🚫 Add Selected Employees to Blacklist"
+  "🚫 一键将所选人员加入激励黑名单": "🚫 Add Selected Employees to Blacklist",
+  "考勤待处理": "Attendance pending",
+  "部分扣除": "Partially deducted",
+  "展开": "Expand",
+  "收起": "Collapse"
 }
