@@ -337,6 +337,7 @@ async function createTask(input, ctx, calendar) {
     const title = String(input.title || '').trim().slice(0, 200);
     if (!title) throw serviceError('FOLLOWUP_TITLE_REQUIRED', '跟进任务需要标题');
     if (!ctx?.conversation?.kind || !ctx.conversation.id) throw serviceError('FOLLOWUP_CONVERSATION_REQUIRED', '缺少任务所属的会话');
+    if (ctx.channel === 'weixin' && ctx.conversation.kind !== 'user') throw serviceError('FOLLOWUP_TARGET_UNSUPPORTED', '微信跟进任务仅支持当前单聊');
     const plan = normalizeSchedule(input);
     const createdAt = new Date();
     let first = null;
@@ -469,9 +470,9 @@ async function listTasks(channel, { kind, id, statuses = null, limit = 100 } = {
 }
 
 /** 到期待提醒的任务（调度器使用）。 */
-async function listDue(atIso = now(), limit = 20) {
+async function listDue(atIso = now(), limit = 20, channel = '') {
     await ensureSchema();
-    const rows = await all("SELECT * FROM channel_followups WHERE status = 'open' AND next_remind_at IS NOT NULL AND next_remind_at <= ? ORDER BY next_remind_at ASC LIMIT ?", [atIso, limit]);
+    const rows = await all(`SELECT * FROM channel_followups WHERE status = 'open' AND next_remind_at IS NOT NULL AND next_remind_at <= ? ${channel ? 'AND channel = ?' : ''} ORDER BY next_remind_at ASC LIMIT ?`, [atIso, ...(channel ? [channel] : []), limit]);
     return rows.map(mapTask);
 }
 

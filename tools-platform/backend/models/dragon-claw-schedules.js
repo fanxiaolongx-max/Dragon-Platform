@@ -65,6 +65,9 @@ async function ensureSchema() {
             const columns = new Set((await all('PRAGMA table_info(dragon_claw_schedules)')).map(column => column.name));
             if (!columns.has('targets_json')) await run('ALTER TABLE dragon_claw_schedules ADD COLUMN targets_json TEXT');
             if (!columns.has('last_push_json')) await run('ALTER TABLE dragon_claw_schedules ADD COLUMN last_push_json TEXT');
+            for (const name of ['origin_channel', 'origin_kind', 'origin_id', 'origin_actor']) {
+                if (!columns.has(name)) await run(`ALTER TABLE dragon_claw_schedules ADD COLUMN ${name} TEXT`);
+            }
             await run('CREATE INDEX IF NOT EXISTS idx_dc_schedules_due ON dragon_claw_schedules(status, next_run_at)');
             await run('CREATE INDEX IF NOT EXISTS idx_dc_schedules_owner ON dragon_claw_schedules(owner, updated_at DESC)');
         })();
@@ -143,14 +146,41 @@ async function resolveTargets(input, role) {
     return resolved;
 }
 
-async function create({ owner, role, text, sessionId, timezone, modelId, targets }) {
+// 频道内主动提出的预约只允许回到原会话，不受“平台普通用户主动推送范围”影响。
+// 创建与到期发送时均重新检查频道开关、发起人及原会话访问规则。
+async function resolveChannelTarget(origin, toolSessionId) {
+    const { channel, kind, id, actor } = origin || {};
+    if (!['welink', 'weixin'].includes(channel) || !['user', 'group'].includes(kind) || !id || !actor || (channel === 'weixin' && kind !== 'user')) {
+        throw serviceError('SCHEDULE_CHANNEL_INVALID', '无法识别预约所在会话');
+    }
+    const config = await channelConfigRepo(channel).getConfig();
+    const access = require('./channels/welink-access');
+    const verdict = access.checkInbound(config.access, { kind, senderAccount: actor, groupId: kind === 'group' ? id : '' });
+    if (!config.enabled || !verdict.allowed || !access.checkTarget(config.access, { kind, id }).allowed) {
+        throw serviceError('SCHEDULE_CHANNEL_FORBIDDEN', '该会话当前不允许预约或接收定时提醒', 403);
+    }
+    const target = await require('./channels/channel-targets-repository').getTarget(channel, kind, id);
+    if (!target?.toolSessionId || (toolSessionId && target.toolSessionId !== toolSessionId)) {
+        throw serviceError('SCHEDULE_CHANNEL_NOT_PUSHABLE', '当前会话暂不能接收主动提醒，请先重新给助手发送消息');
+    }
+    return [{ channel, kind, id, name: String(target.alias || target.name || id).slice(0, 120) }];
+}
+
+async function createForChannel({ channel, conversation, actor, toolSessionId, text, sessionId, timezone, modelId }) {
+    const origin = { channel, kind: conversation?.kind, id: conversation?.id, actor: String(actor || '') };
+    await resolveChannelTarget(origin, toolSessionId);
+    const owner = require('./channels/dragon-claw-channel-bridge').conversationUser(channel, conversation, actor).username;
+    return create({ owner, role: 'user', text, sessionId, timezone, modelId, origin });
+}
+
+async function create({ owner, role, text, sessionId, timezone, modelId, targets, origin }) {
     await ensureSchema();
     if (!owner) throw serviceError('SCHEDULE_OWNER_REQUIRED', '请先登录', 401);
     const parsed = parser.parse(text, { timezone });
     const zone = require('./channels/followup-schedule').normalizeCalendar({ timezone }).timezone;
     const active = await get("SELECT COUNT(*) AS count FROM dragon_claw_schedules WHERE owner = ? AND status = 'active'", [owner]);
     if (Number(active?.count) >= MAX_ACTIVE_PER_USER) throw serviceError('SCHEDULE_LIMIT', `最多同时保留 ${MAX_ACTIVE_PER_USER} 个定时任务，请先取消一些`);
-    const pushTargets = await resolveTargets(targets, role);
+    const pushTargets = origin ? await resolveChannelTarget(origin) : await resolveTargets(targets, role);
     const nextRun = parsed.kind === 'once' ? parsed.runAt : parser.nextRecurring(parsed.rule, new Date(), zone, await workdays());
     if (!nextRun) throw serviceError('SCHEDULE_NO_NEXT_RUN', '按这个规则找不到下一次执行时间');
     if (sessionId) {
@@ -160,10 +190,11 @@ async function create({ owner, role, text, sessionId, timezone, modelId, targets
     }
     const id = `dcs_${Date.now().toString(36)}${crypto.randomBytes(4).toString('hex')}`;
     const at = now();
-    await run(`INSERT INTO dragon_claw_schedules (id, owner, role, instruction, kind, rule_json, timezone, session_id, model_id, targets_json, status, next_run_at, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
+    await run(`INSERT INTO dragon_claw_schedules (id, owner, role, instruction, kind, rule_json, timezone, session_id, model_id, targets_json, status, next_run_at, created_at, updated_at, origin_channel, origin_kind, origin_id, origin_actor)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?)`,
     [id, owner, role === 'admin' ? 'admin' : 'user', parsed.instruction.slice(0, 4000), parsed.kind, parsed.rule ? JSON.stringify(parsed.rule) : null,
-        zone, sessionId || null, modelId ? String(modelId).slice(0, 120) : null, pushTargets.length ? JSON.stringify(pushTargets) : null, nextRun.toISOString(), at, at]);
+        zone, sessionId || null, modelId ? String(modelId).slice(0, 120) : null, pushTargets.length ? JSON.stringify(pushTargets) : null, nextRun.toISOString(), at, at,
+        origin?.channel || null, origin?.kind || null, origin?.id || null, origin?.actor || null]);
     return getForOwner(id, owner);
 }
 
@@ -240,6 +271,10 @@ function contextNote(schedule, firedAt) {
 
 /** 以创建者身份跑一轮对话；返回 { sessionId, reply }，失败抛错（busy=true 表示对话正忙，稍后重试）。 */
 async function runTurn(schedule, row, firedAt) {
+    // 简单频道提醒不依赖模型，避免到点时模型不可用或再次回复“已设置”。
+    if (row.origin_channel && /^(?:提醒|叫我|通知)/.test(schedule.instruction)) {
+        return { sessionId: schedule.sessionId, reply: `⏰ 提醒：${schedule.instruction.replace(/^(?:提醒(?:我|我们|大家)?|叫我|通知(?:我|我们|大家)?)\s*/, '')}` };
+    }
     const aiRouter = require('../routes/ai');
     const { createVirtualResponse } = require('./channels/dragon-claw-channel-bridge');
     let streamed = '';
@@ -267,6 +302,7 @@ async function runTurn(schedule, row, firedAt) {
                 pageTitle: PAGE_TITLE,
                 pagePath: '/',
                 sessionId: sessionId || undefined,
+                ...(row.origin_channel ? { persist: false } : {}),
                 stream: true,
                 agent: 'dragon-claw-home',
                 uiLanguage: 'zh-CN',
@@ -299,13 +335,19 @@ async function pushResult(schedule, row, reply, push) {
     for (const [channel, targets] of byChannel) {
         let allowed = targets;
         try {
-            await resolveTargets(targets, row.role);
+            if (row.origin_channel) {
+                const [target] = await resolveChannelTarget({ channel: row.origin_channel, kind: row.origin_kind, id: row.origin_id, actor: row.origin_actor });
+                if (targets.some(item => item.channel !== target.channel || item.kind !== target.kind || item.id !== target.id)) throw serviceError('SCHEDULE_CHANNEL_INVALID', '频道预约只能发送到原会话');
+            } else await resolveTargets(targets, row.role);
         } catch (error) {
             // 单个对象不再允许时逐个判断，其余照常推送
             allowed = [];
             for (const target of targets) {
                 try {
-                    await resolveTargets([target], row.role);
+                    if (row.origin_channel) {
+                        const [original] = await resolveChannelTarget({ channel: row.origin_channel, kind: row.origin_kind, id: row.origin_id, actor: row.origin_actor });
+                        if (target.channel !== original.channel || target.kind !== original.kind || target.id !== original.id) throw serviceError('SCHEDULE_CHANNEL_INVALID', '频道预约只能发送到原会话');
+                    } else await resolveTargets([target], row.role);
                     allowed.push(target);
                 } catch (targetError) {
                     results.push({ ...target, ok: false, error: targetError.message });
@@ -406,4 +448,4 @@ function stop() {
     timer = null;
 }
 
-module.exports = { create, list, listForTarget, countActive, cancel, getForOwner, execute, runTenant, tick, start, stop, ensureSchema };
+module.exports = { create, createForChannel, list, listForTarget, countActive, cancel, getForOwner, execute, runTenant, tick, start, stop, ensureSchema };

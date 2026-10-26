@@ -99,11 +99,15 @@ async function usableSessionId(aiSessionId, owner) {
  * @returns {Promise<void>} 本轮结束（含出错）时 resolve
  */
 async function runTurn({ channel, account, conversation, toolSessionId, text, aiSessionId, modelId, contextNote, persist = true, signal, onEvent }) {
+    const user = conversation ? conversationUser(channel, conversation, account) : channelUser(channel, account);
+    const sessionId = await usableSessionId(aiSessionId, user.username);
+    if (persist !== false && conversation && !signal?.aborted) {
+        const handled = await require('./channel-schedule-commands').handle({ channel, conversation, actor: account, toolSessionId, text, aiSessionId: sessionId, modelId, onEvent });
+        if (handled) return;
+    }
     const aiRouter = require('../../routes/ai');
     if (typeof aiRouter.handleChatRequest !== 'function') throw new Error('Dragon Claw 对话入口不可用');
     const res = createVirtualResponse(onEvent);
-    const user = conversation ? conversationUser(channel, conversation, account) : channelUser(channel, account);
-    const sessionId = await usableSessionId(aiSessionId, user.username);
     const req = {
         method: 'POST',
         path: '/chat',
@@ -113,7 +117,7 @@ async function runTurn({ channel, account, conversation, toolSessionId, text, ai
         get: () => '',
         body: {
             messages: [{ role: 'user', content: String(text || '') }],
-            context: contextNote || '',
+            context: `${contextNote || ''}${conversation ? '\n定时请求只有系统实际保存并返回任务编号才算创建成功。未获得工具或系统成功结果时，不得声称已设置、已预约、已取消或会在未来提醒；请用户提供明确时间和内容，或使用 /schedule 时间 指令。持续跟进任务仅在 followup_* 工具返回成功后才能确认已记录。' : ''}`,
             pageTitle: `${CHANNEL_LABELS[channel] || channel} 频道`,
             pagePath: `/channels/${channel}`,
             sessionId: sessionId || undefined,

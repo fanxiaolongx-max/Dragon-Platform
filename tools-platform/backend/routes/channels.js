@@ -29,7 +29,7 @@ const CHANNELS = {
         service: weixin,
         repo: weixinConfigRepo,
         label: '微信',
-        configKeys: [...BEHAVIOR_KEYS, 'baseUrl', 'token', 'clearToken', 'botAgent']
+        configKeys: [...BEHAVIOR_KEYS, 'baseUrl', 'token', 'clearToken', 'botAgent', 'followup']
     }
 };
 
@@ -328,7 +328,7 @@ router.get('/ops/materials', requireAdmin, handle(async (req, res) => {
     res.json({ items: await opsMaterials.recentFeatures(Math.min(90, Math.max(1, Number(req.query.days) || 7))) });
 }));
 
-// ── 频道对话历史（WeLink、微信）与跟进任务（仅 WeLink） ──────────
+// ── 频道对话历史与跟进任务（WeLink、微信） ──────────
 // 查看对所有登录用户开放（租户内共享）；修改任务、立即提醒仍需管理员（server.js 非 GET 统一门禁）。
 
 function threadParams(req, res) {
@@ -371,25 +371,31 @@ router.get(`/${CH}/threads/:kind/:id/schedules`, handle(async (req, res) => {
     }));
 }));
 
-// 微信暂不支持跟进任务：返回空列表，首页照常显示对话
-router.get('/weixin/threads/:kind/:id/followups', handle(async (_req, res) => {
-    res.json({ items: [], calendar: null, enabled: false, canManage: false });
-}));
-
-router.get('/welink/threads/:kind/:id/followups', handle(async (req, res) => {
+router.get(`/${CH}/threads/:kind/:id/followups`, handle(async (req, res) => {
     const thread = threadParams(req, res);
     if (!thread) return;
-    const config = await configRepo.getConfig();
-    const tasks = await followupsRepo.listTasks(CHANNEL, { ...thread, limit: 100 });
+    if (req.params.channel === 'weixin' && thread.kind !== 'user') return res.status(400).json({ code: 'FOLLOWUP_TARGET_UNSUPPORTED', error: '微信跟进任务仅支持单聊' });
+    const config = await ch(req).repo.getConfig();
+    const tasks = await followupsRepo.listTasks(req.params.channel, { ...thread, limit: 100 });
     res.json({ items: await tasksWithEvents(tasks), calendar: config.followup.calendar, enabled: config.followup.enabled, canManage: isAdmin(req) });
 }));
 
 const FOLLOWUP_ACTIONS = { done: 'done', cancel: 'cancelled', pause: 'paused', resume: 'open', reopen: 'open' };
 
-router.patch('/welink/followups/:id', handle(async (req, res) => {
+async function checkFollowupChannel(req, res) {
+    const task = await followupsRepo.getTask(req.params.id);
+    if (!task || task.channel !== req.params.channel) {
+        res.status(404).json({ code: 'FOLLOWUP_NOT_FOUND', error: '当前频道没有这个跟进任务' });
+        return false;
+    }
+    return true;
+}
+
+router.patch(`/${CH}/followups/:id`, requireAdmin, handle(async (req, res) => {
+    if (!(await checkFollowupChannel(req, res))) return;
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const actor = `platform:${req.user?.username || ''}`;
-    const { followup } = await configRepo.getConfig();
+    const { followup } = await ch(req).repo.getConfig();
     let task;
     if (body.action) {
         if (!FOLLOWUP_ACTIONS[body.action]) return res.status(400).json({ code: 'FOLLOWUP_ACTION_INVALID', error: '无效的操作' });
@@ -402,7 +408,8 @@ router.patch('/welink/followups/:id', handle(async (req, res) => {
     res.json({ item: (await tasksWithEvents([task]))[0] });
 }));
 
-router.post('/welink/followups/:id/remind', handle(async (req, res) => {
+router.post(`/${CH}/followups/:id/remind`, requireAdmin, handle(async (req, res) => {
+    if (!(await checkFollowupChannel(req, res))) return;
     const task = await followupScheduler.remindNow(req.params.id);
     res.json({ item: (await tasksWithEvents([task]))[0] });
 }));

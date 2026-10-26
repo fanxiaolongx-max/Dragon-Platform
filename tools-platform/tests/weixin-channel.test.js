@@ -209,6 +209,29 @@ test('推送写入对话记录：时间线带推送标记，联系人随后发�
     assert.equal(aiCalls[0].body.sessionId, pushed.sessionId, '回复接着推送所在的对话');
 });
 
+test('微信自然语言预约真正入库，到期通过 iLink 发回原会话并写入时间线', async () => {
+    const schedules = require('../backend/models/dragon-claw-schedules');
+    const before = fake.sent.length;
+    const modelCalls = aiCalls.length;
+    fake.batches.push([textMessage('alice@im.wechat', '一分钟后提醒我睡觉')]);
+    await waitFor(() => fake.sent.slice(before).some(item => item.text.includes('已创建定时任务')));
+    const receipt = fake.sent.slice(before).find(item => item.text.includes('已创建定时任务'));
+    assert.equal(receipt.to, 'alice@im.wechat');
+    const id = receipt.text.match(/dcs_[a-z0-9]+/)[0];
+    await inTenant(async () => {
+        const row = await appDb.get('SELECT * FROM dragon_claw_schedules WHERE id = ?', [id]);
+        assert.equal(row.origin_channel, 'weixin');
+        assert.equal(row.origin_id, 'alice@im.wechat');
+        await schedules.execute(row, new Date(row.next_run_at));
+        assert.equal((await schedules.getForOwner(id, row.owner)).lastPush.sent, 1);
+        const messages = await require('../backend/models/channels/channel-followups-repository').listThreadMessages('weixin', 'user', 'alice@im.wechat', { limit: 40 });
+        assert.ok(messages.items.some(item => item.content.includes('提醒：睡觉') && item.push?.source.startsWith(`dragon-claw-schedule:${id}:`)));
+    });
+    assert.equal(fake.sent.at(-1).to, 'alice@im.wechat');
+    assert.match(fake.sent.at(-1).text, /提醒：睡觉/);
+    assert.equal(aiCalls.length, modelCalls, 'creation and a simple reminder do not require an AI model');
+});
+
 test('token 失效（-14）时状态显示失败原因，断开后恢复 idle', async () => {
     await service.disconnect('default');
     fake.stale = true;

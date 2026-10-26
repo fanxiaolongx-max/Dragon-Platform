@@ -10,7 +10,7 @@ const STATUS_LABEL = { open: '跟进中', paused: '已暂停', done: '已完成'
 
 const ASSIGNEE_SCHEMA = {
     type: 'array',
-    description: '需要提醒的人；从消息中提取姓名与工号/账号（如「刘一然 00964704」→ name=刘一然, account=00964704）。没有明确指定时留空，提醒会发给群里所有相关人',
+    description: '任务相关人；从消息中提取姓名与工号/账号（如「刘一然 00964704」→ name=刘一然, account=00964704）。没有明确指定时留空。提醒只发原会话；微信中仅作备注，不会向其他人发送',
     items: { type: 'object', properties: { name: { type: 'string' }, account: { type: 'string' } } }
 };
 const SCHEDULE_PROPS = {
@@ -29,7 +29,7 @@ function definitions() {
     return [
         {
             name: 'followup_create',
-            description: '在当前群聊/单聊中记录一个需要后续跟进的任务，平台会按频率自动在本群 @ 提醒相关人。用户说「记一下」「帮我跟进」「提醒某人」「遗留任务」等时调用。先查看系统提示中本会话已有的任务，避免重复创建同一件事。',
+            description: '在当前群聊/单聊中记录一个需要持续跟进的任务，平台按频率在原会话发送提醒。用户说「记一下」「帮我跟进」「遗留任务」等时调用。微信只回当前单聊，不能联系其他人。先查看已有任务，避免重复创建。',
             parameters: {
                 type: 'object',
                 properties: {
@@ -105,12 +105,14 @@ async function buildPrompt(ctx, calendar) {
     const now = new Date();
     return `
 **跟进任务（本会话的持久记忆）**
-你可以使用 followup_* 工具在平台中持久保存当前${ctx.conversation.kind === 'group' ? '群聊' : '单聊'}的跟进任务，平台会按频率自动在本会话里 @ 相关人提醒，任务进展在平台工作区可见。
+你可以使用 followup_* 工具在平台中持久保存当前${ctx.conversation.kind === 'group' ? '群聊' : '单聊'}的跟进任务，平台会按频率自动在原会话发送提醒，任务进展在平台工作区可见。
+${ctx.channel === 'weixin' ? '- 当前是微信单聊：提醒只发回此联系人，不支持群聊 @，assignees 只作为任务备注；不得承诺给其他联系人发送消息。' : '- WeLink 群聊可以在原群 @ 相关人提醒。'}
 - 当前时间：${schedule.describeNow(now, calendar)}。当前时刻 ISO 格式参考：${schedule.formatZoneIso(now, calendar?.timezone)}。工作日历：周日至周四 ${calendar?.workStart || '09:00'}–${calendar?.workEnd || '18:00'}；紧急任务也可在周五/周六 ${calendar?.urgentStart || '09:00'}–${calendar?.urgentEnd || '21:00'} 跟进。
 - 用户要求在相对时长后提醒（如“N分钟后/半小时后/2小时后”）时，必须优先在 followup_create 填 inMinutes（如 inMinutes=2），避免手动计算绝对时区时间的偏差。
 - 当前发言人账号：${ctx.actor || '未知'}。
 - 用户要求记录/跟进/提醒时必须调用 followup_create 真正保存，不要只在回复里写“已记录”；用户描述了频率就按描述设置，没描述就根据紧急程度判断（scheduleMode=auto）。
 - 有人汇报进展时用 followup_update 记录 progress；提出人或被提醒人表示已完成/不用跟进时用 followup_close。
+- 有多个未结束的任务而用户未指明对象时，先询问任务标题或编号，不要任意更新、关闭或取消其他任务。
 - 保存成功后，用简洁的 Markdown 回复：任务、提醒谁、频率与下次提醒时间、任务 ID；不要再说“仅本次对话有效”或“无法跨会话跟进”。
 ${tasks.length ? `本会话进行中的任务：\n${tasks.map(task => taskLine(task, calendar)).join('\n')}` : '本会话暂无进行中的跟进任务。'}
 ${closed.length ? `最近关闭的任务：\n${closed.map(task => taskLine(task, calendar)).join('\n')}` : ''}`;
@@ -199,16 +201,27 @@ async function runTurn({ client, systemInstruction, messages, ctx, calendar, sig
     const toolLog = [];
     const events = [];
     let activeClient = client;
+    const isWeChat = ctx.channel === 'weixin';
+    const wantsFollowup = /跟进|催办|记一下|记录|进展|暂停|恢复|关闭|取消|完成|follow.?up|progress|pause|resume/i.test(ctx.userText || '');
+    const emitFinal = text => {
+        if (isWeChat) onDelta?.(text);
+        return text;
+    };
     for (let step = 1; step <= MAX_STEPS; step += 1) {
         if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
         let result;
         try {
-            result = await activeClient.generateText({ systemInstruction, messages: history, tools, maxOutputTokens, temperature, signal, onDelta });
+            // 微信一次性发送最终正文：工具未落库前不输出“已记录”等可能误导的中间文本。
+            result = await activeClient.generateText({ systemInstruction, messages: history, tools, maxOutputTokens, temperature, signal, onDelta: isWeChat ? undefined : onDelta });
         } catch (error) {
             // 模型/网关不支持函数调用：退回普通回复，跟进任务不可用但对话照常
             if (step === 1 && error?.code === 'AI_TOOLS_UNSUPPORTED') {
-                result = await activeClient.generateText({ systemInstruction: `${systemInstruction}\n\n（当前模型不支持工具调用，跟进任务暂不可保存；如用户要求记录任务，请说明需要管理员切换支持函数调用的模型。）`, messages: history, maxOutputTokens, temperature, signal, onDelta });
-                return { text: result.text || '', usage: result.usage || usage, toolLog, events, toolsUnsupported: true };
+                if (isWeChat && wantsFollowup) {
+                    const text = emitFinal('当前模型不支持跟进工具，尚未保存或修改任务。请管理员切换到支持工具调用的模型后重试。');
+                    return { text, usage, toolLog, events, toolsUnsupported: true };
+                }
+                result = await activeClient.generateText({ systemInstruction: `${systemInstruction}\n\n（当前模型不支持工具调用，跟进任务暂不可保存；如用户要求记录任务，请说明需要管理员切换支持函数调用的模型。）`, messages: history, maxOutputTokens, temperature, signal, onDelta: isWeChat ? undefined : onDelta });
+                return { text: emitFinal(result.text || ''), usage: result.usage || usage, toolLog, events, toolsUnsupported: true };
             }
             throw error;
         }
@@ -218,8 +231,14 @@ async function runTurn({ client, systemInstruction, messages, ctx, calendar, sig
         usage.outputTokens += Number(result.usage?.outputTokens || 0);
         usage.totalTokens += Number(result.usage?.totalTokens || 0);
         const calls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
-        if (!calls.length) return { text: result.text || '', usage, toolLog, events };
-        if (result.text && onDelta) onDelta('\n\n');
+        if (!calls.length) {
+            let text = result.text || '';
+            if (isWeChat && wantsFollowup && !events.length && /已(?:经)?[^。\n]{0,12}(?:记录|创建|保存|更新|暂停|恢复|关闭|取消)|(?:created|saved|updated)\s+(?:the\s+)?task/i.test(text)) {
+                text = '尚未通过跟进工具保存或修改任务。请补充任务标题、要记录的进展或需要执行的操作后重试；工作区中的任务记录才是实际状态。';
+            }
+            return { text: emitFinal(text), usage, toolLog, events };
+        }
+        if (!isWeChat && result.text && onDelta) onDelta('\n\n');
         history.push({ role: 'model', content: result.text || '', toolCalls: calls });
         const toolResults = [];
         for (const call of calls) {

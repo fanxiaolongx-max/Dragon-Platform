@@ -4,6 +4,7 @@
 // token 只在后端使用，对外只返回掩码。get_updates_buf 游标与各联系人 context_token 单独存放，避免每次保存配置都改写。
 const { readKV, writeKV } = require('../kv-store');
 const welinkConfig = require('./welink-config-repository');
+const followupSchedule = require('./followup-schedule');
 const { DEFAULT_BASE_URL } = require('./weixin-ilink-client');
 
 const CATEGORY = 'channels';
@@ -31,6 +32,7 @@ const DEFAULT_CONFIG = {
         defaultTargets: [],
         allowUserPush: false
     },
+    followup: { enabled: true, calendar: { ...followupSchedule.DEFAULT_CALENDAR } },
     updatedAt: null
 };
 
@@ -68,6 +70,10 @@ function normalizeConfig(input = {}) {
             defaultTargets: welinkConfig.normalizeTargets(push.defaultTargets),
             allowUserPush: push.allowUserPush === true
         },
+        followup: {
+            enabled: (input.followup || {}).enabled !== false,
+            calendar: followupSchedule.normalizeCalendar((input.followup || {}).calendar || {})
+        },
         updatedAt: base.updatedAt || null
     };
 }
@@ -93,6 +99,7 @@ async function saveConfig(patch = {}) {
     const next = { ...current, ...patch };
     if (patch.access) next.access = { ...current.access, ...patch.access };
     if (patch.push) next.push = { ...current.push, ...patch.push };
+    if (patch.followup) next.followup = { ...current.followup, ...patch.followup, calendar: { ...current.followup.calendar, ...(patch.followup.calendar || {}) } };
     const incoming = clean(patch.token, 500);
     if (patch.clearToken === true) next.token = '';
     else if (!incoming || incoming === welinkConfig.maskSecret(current.token)) next.token = current.token;

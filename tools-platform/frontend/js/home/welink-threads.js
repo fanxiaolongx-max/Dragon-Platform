@@ -26,15 +26,15 @@
             stageStart: '开始', stageActive: '进行', stageEnd: '结束', cancelledEnd: '已取消', details: '跟进详情',
             status_open: '跟进中', status_paused: '已暂停', status_done: '已完成', status_cancelled: '已取消',
             urgency_low: '低', urgency_normal: '普通', urgency_high: '高', urgency_urgent: '紧急',
-            remindWho: '提醒', everyone: '群内相关人', frequency: '频率', urgency: '紧急度', nextRemind: '下次提醒', nextNote: '跟进内容', reminded: '已提醒 {n} 次', lastReminded: '上次 {time}',
+            remindWho: '提醒', everyone: '群内相关人', currentWeChat: '当前微信单聊', relatedPeople: '相关人', frequency: '频率', urgency: '紧急度', nextRemind: '下次提醒', nextNote: '跟进内容', reminded: '已提醒 {n} 次', lastReminded: '上次 {time}',
             progress: '最新进展', noProgress: '暂无更新', closed: '关闭', closedBy: '{time} · {who}', due: '截止', creator: '提出人', detail: '任务详情', timeline: '跟进记录',
             done: '完成', pause: '暂停', resume: '恢复', reopen: '重新打开', cancel: '取消任务', remindNow: '立即提醒', confirmRemind: '立即在 {ch} 中发送一次提醒？', confirmRemindTitle: '立即提醒',
             confirmClose: '确认将「{title}」标记为{action}？', actionFailed: '操作失败：{error}', updated: '已更新', timezone: '时间为 {zone} 时间',
             event_created: '创建任务', event_updated: '修改任务', event_progress: '进展', event_reminded: '发送提醒', event_remind_failed: '提醒发送失败', event_paused: '暂停提醒', event_resumed: '恢复提醒',
             event_done: '完成', event_cancelled: '取消', event_reopened: '重新打开', event_limit: '达到提醒上限', chip_created: '已记录跟进任务', chip_exists: '任务已存在', chip_updated: '更新了跟进任务', chip_progress: '记录了进展', chip_done: '完成了跟进任务', chip_cancelled: '取消了跟进任务',
-            readonly_weixin: '只读 · 这是微信{kind}「{name}」的对话记录，在微信里给助手发消息即可继续对话。', noTasks_weixin: '微信对话暂不支持跟进任务。',
+            readonly_weixin: '只读 · 这是微信{kind}「{name}」的对话记录，在微信里给助手发消息即可继续对话。',
             prevTask: '上一个任务', nextTask: '下一个任务', system: '系统',
-            push: '主动推送', push_ops: '运营推送', push_test: '测试推送', push_followup: '跟进提醒',
+            push: '主动推送', push_ops: '运营推送', push_test: '测试推送', push_followup: '跟进提醒', push_schedule: '定时任务',
             viewMode: '查看记录', viewInfo: '{ch} {kind}「{name}」· 可切换 Bot 身份手动发送消息。', botMode: '以 Bot 身份发送', botRecipient: '以 Bot 身份发送至 {ch} {kind}「{name}」', botHint: '消息将以已连接的 Bot 身份直接发给上述对象。Enter 发送，Shift + Enter 换行。', botPlaceholder: '输入要以 Bot 身份发送的消息…', send: '发送', sending: '发送中…', sent: '已发送至「{name}」', sendFailed: '发送失败：{error}', manualPush: '手动运营', roleLabel: '操作身份'
         },
         'en-US': {
@@ -49,15 +49,15 @@
             stageStart: 'Start', stageActive: 'In progress', stageEnd: 'Done', cancelledEnd: 'Cancelled', details: 'Details',
             status_open: 'Open', status_paused: 'Paused', status_done: 'Done', status_cancelled: 'Cancelled',
             urgency_low: 'Low', urgency_normal: 'Normal', urgency_high: 'High', urgency_urgent: 'Urgent',
-            remindWho: 'Remind', everyone: 'Group members', frequency: 'Frequency', urgency: 'Urgency', nextRemind: 'Next reminder', nextNote: 'Ask about', reminded: 'Reminded {n}×', lastReminded: 'last {time}',
+            remindWho: 'Remind', everyone: 'Group members', currentWeChat: 'This WeChat contact', relatedPeople: 'People involved', frequency: 'Frequency', urgency: 'Urgency', nextRemind: 'Next reminder', nextNote: 'Ask about', reminded: 'Reminded {n}×', lastReminded: 'last {time}',
             progress: 'Latest progress', noProgress: 'No update yet', closed: 'Closed', closedBy: '{time} · {who}', due: 'Due', creator: 'Raised by', detail: 'Task details', timeline: 'Follow-up log',
             done: 'Done', pause: 'Pause', resume: 'Resume', reopen: 'Reopen', cancel: 'Cancel task', remindNow: 'Remind now', confirmRemind: 'Send a reminder in {ch} now?', confirmRemindTitle: 'Remind now',
             confirmClose: 'Mark "{title}" as {action}?', actionFailed: 'Failed: {error}', updated: 'Updated', timezone: 'Times shown in {zone}',
             event_created: 'Created', event_updated: 'Edited', event_progress: 'Progress', event_reminded: 'Reminder sent', event_remind_failed: 'Reminder failed', event_paused: 'Paused', event_resumed: 'Resumed',
             event_done: 'Done', event_cancelled: 'Cancelled', event_reopened: 'Reopened', event_limit: 'Reminder limit reached', chip_created: 'Follow-up recorded', chip_exists: 'Task already exists', chip_updated: 'Follow-up updated', chip_progress: 'Progress recorded', chip_done: 'Follow-up completed', chip_cancelled: 'Follow-up cancelled',
-            readonly_weixin: 'Read only · WeChat {kind} "{name}". Message the assistant in WeChat to continue.', noTasks_weixin: 'Follow-up tasks are not available for WeChat yet.',
+            readonly_weixin: 'Read only · WeChat {kind} "{name}". Message the assistant in WeChat to continue.',
             prevTask: 'Previous task', nextTask: 'Next task', system: 'System',
-            push: 'Proactive push', push_ops: 'Ops push', push_test: 'Test push', push_followup: 'Follow-up reminder',
+            push: 'Proactive push', push_ops: 'Ops push', push_test: 'Test push', push_followup: 'Follow-up reminder', push_schedule: 'Scheduled task',
             viewMode: 'View history', viewInfo: '{ch} {kind} "{name}" · Switch to Bot to send a message.', botMode: 'Send as Bot', botRecipient: 'Send as Bot to {ch} {kind} "{name}"', botHint: 'Messages are sent directly by the connected Bot to this recipient. Enter to send; Shift + Enter for a new line.', botPlaceholder: 'Write a message to send as Bot…', send: 'Send', sending: 'Sending…', sent: 'Sent to "{name}"', sendFailed: 'Send failed: {error}', manualPush: 'Manual operation', roleLabel: 'Role'
         }
     };
@@ -614,6 +614,7 @@
         if (source.startsWith('manual-bot:')) return `✎ ${tx('manualPush')} · ${source.slice('manual-bot:'.length)}`;
         const ops = /^(ops|ops-test):([^@]+)/.exec(source);
         if (source.startsWith('followup:')) return `📣 ${tx('push_followup')}`;
+        if (source.startsWith('dragon-claw-schedule:')) return `⏰ ${tx('push_schedule')}`;
         if (ops) return `📣 ${tx(ops[1] === 'ops-test' ? 'push_test' : 'push_ops')}「${ops[2].trim()}」`;
         return `📣 ${tx('push')}`;
     }
@@ -804,7 +805,8 @@
     }
 
     function assignees(task) {
-        const list = (task.assignees || []).map(item => `<span class="wl-person" title="${escapeHtml(item.account || '')}">@${escapeHtml(item.name || item.account)}</span>`);
+        const prefix = state.active?.channel === 'weixin' ? '' : '@';
+        const list = (task.assignees || []).map(item => `<span class="wl-person" title="${escapeHtml(item.account || '')}">${prefix}${escapeHtml(item.name || item.account)}</span>`);
         return list.length ? list.join('') : `<span class="wl-muted">${escapeHtml(tx('everyone'))}</span>`;
     }
 
@@ -831,7 +833,8 @@
             !closed ? `<select class="wl-urgency" data-wl-urgency aria-label="${escapeHtml(tx('urgency'))}">${['low', 'normal', 'high', 'urgent'].map(level => `<option value="${level}"${task.urgency === level ? ' selected' : ''}>${escapeHtml(tx('urgency'))} · ${escapeHtml(tx(`urgency_${level}`))}</option>`).join('')}</select>` : ''
         ].join('') : '';
         const rows = [
-            [tx('remindWho'), assignees(task)],
+            [tx('remindWho'), state.active.channel === 'weixin' ? escapeHtml(tx('currentWeChat')) : assignees(task)],
+            state.active.channel === 'weixin' && task.assignees?.length ? [tx('relatedPeople'), assignees(task)] : null,
             [tx('frequency'), `${escapeHtml(task.frequency)}<span class="wl-urgency-tag is-${task.urgency}">${escapeHtml(tx(`urgency_${task.urgency}`))}</span>`],
             task.status === 'open' && task.nextRemindAt ? [tx('nextRemind'), `<b>${escapeHtml(formatTime(task.nextRemindAt, true))}</b>${task.nextRemindNote ? `<span class="wl-note">${escapeHtml(task.nextRemindNote)}</span>` : ''}`] : null,
             task.remindCount ? ['', `<span class="wl-muted">${escapeHtml(tx('reminded', { n: task.remindCount }))}${task.lastRemindedAt ? ` · ${escapeHtml(tx('lastReminded', { time: formatTime(task.lastRemindedAt) }))}` : ''}</span>`] : null,
@@ -874,7 +877,7 @@
         const followups = state.tasks.length
             ? `<div class="wl-tasks">${state.tasks.map(taskCard).join('')}</div><p class="wl-zone">${escapeHtml(tx('timezone', { zone: state.calendar?.timezone || 'Africa/Cairo' }))}</p>`
             : `<div class="wsp-empty">${escapeHtml(tx('noTasks'))}</div>`;
-        body.innerHTML = renderSchedules() + (state.active.channel === 'welink' ? `<section class="wl-followups"><header class="wl-section-head"><b>${escapeHtml(tx('followTitle'))}</b><span>${state.tasks.length}</span></header>${followups}</section>` : '');
+        body.innerHTML = renderSchedules() + `<section class="wl-followups"><header class="wl-section-head"><b>${escapeHtml(tx('followTitle'))}</b><span>${state.tasks.length}</span></header>${followups}</section>`;
         body.querySelectorAll('[data-wl-schedule]').forEach(node => { node.open = scheduleOpen.has(node.dataset.wlSchedule); });
         const focusTarget = focusedSchedule
             ? body.querySelector(`[data-wl-schedule="${CSS.escape(focusedSchedule)}"] > summary`)

@@ -769,9 +769,9 @@ async function handleChatRequest(req, res) {
 
         // 频道对话的跟进任务：本会话已有任务与工具使用规则拼进系统提示
         let followupSetup = null;
-        if (channelTurn && channelTurn.channel === 'welink' && homeAgent && !agentMode) { // 跟进任务目前只支持 WeLink（提醒依赖群内 @）
+        if (channelTurn && ['welink', 'weixin'].includes(channelTurn.channel) && (channelTurn.channel !== 'weixin' || channelTurn.conversation.kind === 'user') && homeAgent && !agentMode) {
             try {
-                const channelConfig = await require('../models/channels/welink-config-repository').getConfig();
+                const channelConfig = await require(channelTurn.channel === 'weixin' ? '../models/channels/weixin-config-repository' : '../models/channels/welink-config-repository').getConfig();
                 if (channelConfig.followup.enabled) {
                     const calendar = channelConfig.followup.calendar;
                     const ctx = { channel: channelTurn.channel, conversation: channelTurn.conversation, toolSessionId: channelTurn.toolSessionId || '', aiSessionId: savedSessionId || '', actor: channelTurn.actor || '', userText: String(lastMessage.content || '').slice(0, 6000) };

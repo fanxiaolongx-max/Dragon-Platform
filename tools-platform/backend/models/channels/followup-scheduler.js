@@ -1,11 +1,10 @@
-// 跟进任务提醒调度：每分钟检查各租户到期的任务，在任务所在的群/单聊里 @ 相关人推送提醒。
+// 跟进任务提醒调度：每分钟检查各租户到期的任务，只向任务原会话推送提醒；WeLink 支持 @，微信直接回复。
 // - 下次提醒时间持久化在库里，服务重启后按计划继续；停机期间错过的提醒只补发一次；
 // - 认领时先把 next_remind_at 推进到下一次，同一任务不会被重复发送；发送失败 10 分钟后重试；
 // - 频道未启用、未连接或关闭了跟进功能的租户跳过，任务保持到期状态，连上后再发。
 const { runWithTenant } = require('../tenant-context');
 const repo = require('./channel-followups-repository');
 const schedule = require('./followup-schedule');
-const configRepo = require('./welink-config-repository');
 const { URGENCY_LABEL, assigneeText, formatTime } = require('./followup-agent');
 
 const TICK_MS = 60 * 1000;
@@ -22,14 +21,15 @@ function mentionLine(assignees) {
 /** 提醒文案：标题、提醒人、详情摘要、最新进展、本次要跟进的内容。 */
 function reminderText(task, calendar) {
     const lines = [];
-    const mention = mentionLine(task.assignees);
+    const mention = task.channel === 'weixin' ? (task.assignees || []).map(item => item.name || item.account).join('、') : mentionLine(task.assignees);
     lines.push(`⏰ **跟进提醒 · ${task.title}**${mention ? `\n${mention}` : ''}`);
     const detail = String(task.detail || '').trim();
     if (detail) lines.push(`**任务**：${detail.length > 400 ? `${detail.slice(0, 400)}…` : detail}`);
     lines.push(`**当前进展**：${task.progress || '暂无更新'}`);
+    if (task.channel === 'weixin') lines.push(`**任务编号**：${task.id}`);
     if (task.nextRemindNote) lines.push(`**本次跟进**：${task.nextRemindNote}`);
     if (task.dueAt) lines.push(`**截止**：${formatTime(task.dueAt, calendar)}`);
-    lines.push(`请 @我 回复最新进度；完成后说「完成」即可关闭任务。（第 ${task.remindCount + 1} 次提醒 · 紧急度 ${URGENCY_LABEL[task.urgency] || task.urgency} · ${task.frequency}）`);
+    lines.push(`请${task.channel === 'weixin' ? '直接' : ' @我 '}回复最新进度；完成后说明任务标题或编号即可关闭任务。（第 ${task.remindCount + 1} 次提醒 · 紧急度 ${URGENCY_LABEL[task.urgency] || task.urgency} · ${task.frequency}）`);
     return lines.join('\n\n').slice(0, 7800);
 }
 
@@ -52,17 +52,27 @@ async function remindTask(task, calendar, push) {
 /** 处理一个租户的到期任务。push 默认走频道公共推送（测试可注入）。 */
 async function runTenant(tenantId, { push, now = new Date() } = {}) {
     return runWithTenant(tenantId, async () => {
-        const config = await configRepo.getConfig();
-        if (!config.enabled || !config.followup.enabled) return { checked: 0, sent: 0 };
         const send = push || (options => require('./index').push(options));
-        const due = await repo.listDue(now.toISOString(), BATCH);
+        let checked = 0;
         let sent = 0;
-        for (const task of due) {
-            const result = await remindTask(task, config.followup.calendar, send);
-            if (result.sent) sent += 1;
+        for (const channel of ['welink', 'weixin']) {
+            const config = await channelConfig(channel);
+            if (!config.enabled || !config.followup.enabled) continue;
+            // 在 LIMIT 前按频道过滤，已停用频道的积压不会挡住其他频道。
+            const due = await repo.listDue(now.toISOString(), BATCH, channel);
+            checked += due.length;
+            for (const task of due) {
+                const result = await remindTask(task, config.followup.calendar, send);
+                if (result.sent) sent += 1;
+            }
         }
-        return { checked: due.length, sent };
+        return { checked, sent };
     });
+}
+
+async function channelConfig(channel) {
+    if (!['welink', 'weixin'].includes(channel)) throw Object.assign(new Error('不支持的跟进频道'), { statusCode: 400, code: 'FOLLOWUP_CHANNEL_INVALID' });
+    return require(channel === 'weixin' ? './weixin-config-repository' : './welink-config-repository').getConfig();
 }
 
 async function tick(listTenantIds) {
@@ -100,7 +110,8 @@ async function remindNow(id, push = options => require('./index').push(options))
     const task = await repo.getTask(id);
     if (!task) throw Object.assign(new Error('跟进任务不存在'), { statusCode: 404, code: 'FOLLOWUP_NOT_FOUND' });
     if (task.status !== 'open') throw Object.assign(new Error('只有跟进中的任务可以提醒'), { statusCode: 400, code: 'FOLLOWUP_NOT_OPEN' });
-    const config = await configRepo.getConfig();
+    const config = await channelConfig(task.channel);
+    if (!config.enabled || !config.followup.enabled) throw Object.assign(new Error('当前频道已关闭跟进提醒'), { statusCode: 400, code: 'FOLLOWUP_DISABLED' });
     const text = reminderText(task, config.followup.calendar);
     const result = await push({ channel: task.channel, text, targets: [{ kind: task.conversation.kind, id: task.conversation.id }], trigger: 'system', source: `followup:${task.id}` });
     if (!result?.sent) throw Object.assign(new Error(result?.results?.[0]?.error || '推送未成功'), { statusCode: 502, code: 'FOLLOWUP_PUSH_FAILED' });
