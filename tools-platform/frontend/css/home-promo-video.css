@@ -1,8 +1,8 @@
 /* 首页右上角平台推广区：推广视频与推广链接共用悬浮小窗 / 横幅 / 放大弹窗 */
 .nrv-stack { position: fixed; top: calc(var(--navbar-h, 52px) + 18px); right: 18px; z-index: 9500; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
 .nrv-stack > *, .nrv-banners > * { pointer-events: auto; }
-/* 确认待办优先于推广；清空待办后按原抽屉状态恢复。 */
-body.ops-review-pending :is(.nrv-stack, .nrv-tab) { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .25s ease, visibility 0s .25s; }
+/* 待确认提醒横幅显示时推广避让；横幅收起或清空后按原抽屉状态恢复。 */
+body.ops-banner-shown :is(.nrv-stack, .nrv-tab) { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .25s ease, visibility 0s .25s; }
 /* 抽屉：用户开始操作页面后整体滑出到右侧，留下边缘标签（样式与右下角 Dragon Claw 助手一致） */
 .nrv-stack { transition: translate .85s cubic-bezier(.22, .61, .36, 1), transform .5s cubic-bezier(.2, .8, .2, 1), opacity .35s ease, visibility 0s; }
 .nrv-stack.is-tucked { transform: translateX(calc(100% + 40px)); opacity: 0; visibility: hidden; transition: translate .85s cubic-bezier(.22, .61, .36, 1), transform .45s cubic-bezier(.4, 0, .2, 1), opacity .3s ease .1s, visibility 0s .45s; }
@@ -168,4 +168,4 @@ body.dc-chatting .nrv-stack, body.dc-chatting .nrv-tab { translate: 0 68px; }
     .nrv-banner { font-size: 11.5px; }
     .nrv-dialog { width: calc(100vw - 20px); border-radius: 14px; }
 }
-@media (prefers-reduced-motion: reduce) { .nrv-link-live i, .nrv-float, .nrv-float.nrv-swap, .nrv-banner, .nrv-tab-orb::before, .nrv-tab.is-shown .nrv-tab-label, .nrv-load-spinner { animation: none; } .nrv-stack, .nrv-stack.is-tucked, .nrv-tab, .nrv-tab.is-shown, body.ops-review-pending :is(.nrv-stack, .nrv-tab) { transition: none; } .nrv-sound.is-hint { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .nrv-link-live i, .nrv-float, .nrv-float.nrv-swap, .nrv-banner, .nrv-tab-orb::before, .nrv-tab.is-shown .nrv-tab-label, .nrv-load-spinner { animation: none; } .nrv-stack, .nrv-stack.is-tucked, .nrv-tab, .nrv-tab.is-shown, body.ops-banner-shown :is(.nrv-stack, .nrv-tab) { transition: none; } .nrv-sound.is-hint { animation: none; } }

@@ -134,6 +134,7 @@
             <div class="ops-card-actions"><button type="button" class="ops-primary" data-ops-inbox-action="send" ${disabled || (!text.trim() || conflict ? 'disabled' : '')}>${esc(state.busy === item.id ? L('处理中…', 'Working…') : L('确认并发送', 'Confirm & send'))}</button>
             <button type="button" data-ops-inbox-action="edit" ${disabled}>${esc(editing ? L('预览正文', 'Preview') : L('修改正文', 'Edit'))}</button>
             ${editing || text !== item.content ? `<button type="button" data-ops-inbox-action="save" ${disabled || (conflict ? 'disabled' : '')}>${esc(L('保存草稿', 'Save draft'))}</button>` : ''}
+            <button type="button" class="ops-discard" data-ops-inbox-action="discard" ${disabled}>${esc(L('丢弃', 'Discard'))}</button>
             <span class="ops-send-hint">${esc(L('确认后立即发送到上述全部对象', 'Confirmation sends immediately to all recipients listed above'))}</span></div></div>
         </details>`;
     }
@@ -144,14 +145,12 @@
         const focusId = focused?.dataset?.opsEdit;
         const selection = focusId ? [focused.selectionStart, focused.selectionEnd] : null;
         const scroll = panel.querySelector('.ops-card-list')?.scrollTop || 0;
-        const choices = pendingTargets();
         const activeKey = targetKey(state.activeThread);
         const items = state.items.filter(item => item.targets.some(target => targetKey(target) === activeKey));
         panel.innerHTML = `<header class="ops-inbox-heading"><div><span class="ops-eyebrow">${esc(L('会话内运营草稿', 'DRAFTS FOR THIS CONVERSATION'))}</span><h3>${esc(L('待确认消息', 'Messages to review'))}</h3><span class="ops-count">${items.length}</span><small class="ops-total">${esc(L(`全部 ${state.total} 条待确认`, `${state.total} pending overall`))}</small></div><button type="button" data-ops-inbox-action="refresh" ${state.busy ? 'disabled' : ''}>${esc(L('刷新', 'Refresh'))}</button></header>
-            <label class="ops-thread-picker">${esc(L('待确认会话', 'Conversations to review'))}<select data-ops-thread ${state.busy ? 'disabled' : ''}>${choices.some(target => targetKey(target) === activeKey) ? '' : `<option value="">${esc(L('选择其他待确认会话…', 'Choose a conversation…'))}</option>`}${choices.map(target => `<option value="${esc(targetKey(target))}" ${targetKey(target) === activeKey ? 'selected' : ''}>${esc(`${target.channel === 'weixin' ? L('微信', 'WeChat') : 'WeLink'} · ${target.name || target.id}`)}</option>`).join('')}</select></label>
             <p class="ops-inbox-description">${esc(L('这里显示发往当前会话的草稿。发送前请核对正文和完整收件对象。', 'Drafts for this conversation are shown here. Check the text and all recipients before sending.'))}</p>
             <div class="ops-feedback ${state.tone === 'error' ? 'is-error' : ''}" role="status" ${state.notice ? '' : 'hidden'}>${esc(state.notice)}</div>
-            <div class="ops-card-list">${items.length ? items.map(card).join('') : `<div class="ops-empty">${esc(state.total ? L('本页没有发往当前会话的草稿，可切换待确认会话或翻页查看。', 'No drafts for this conversation on this page. Switch conversations or pages to review others.') : L('所有待确认消息已处理', 'All messages have been reviewed'))}</div>`}</div>
+            <div class="ops-card-list">${items.length ? items.map(card).join('') : `<div class="ops-empty">${esc(state.total ? L('当前会话没有待确认草稿，其他会话的草稿请在左侧切换会话查看。', 'No drafts for this conversation. Select another conversation on the left to review its drafts.') : L('所有待确认消息已处理', 'All messages have been reviewed'))}</div>`}</div>
             ${state.offset || state.hasMore ? `<footer class="ops-paging"><button type="button" data-ops-inbox-action="prev" ${!state.offset || state.busy ? 'disabled' : ''}>${esc(L('上一页', 'Previous'))}</button><span>${state.offset + 1}–${state.offset + state.items.length} / ${state.total}</span><button type="button" data-ops-inbox-action="next" ${!state.hasMore || state.busy ? 'disabled' : ''}>${esc(L('下一页', 'Next'))}</button></footer>` : ''}`;
         panel.querySelector('.ops-card-list').scrollTop = scroll;
         if (focusId) {
@@ -164,12 +163,10 @@
     function render() {
         if (!banner) return;
         const available = state.canManage && state.total > 0;
-        const priorityChanged = document.body.classList.contains('ops-review-pending') !== available;
-        document.body.classList.toggle('ops-review-pending', available);
-        if (priorityChanged) window.dispatchEvent(new Event('tools:ops-inbox-state'));
         const batch = state.items.map(item => item.id).join('|');
         banner.hidden = !available || batch === state.muted;
         banner.setAttribute('aria-label', L('待确认消息提醒', 'Message review reminder'));
+        syncPriority();
         banner.innerHTML = `<span class="ops-beacon" aria-hidden="true"><i></i>✦</span><span class="ops-banner-copy"><b>${esc(L(`${state.total} 条消息等待你确认`, `${state.total} messages ready for review`))}</b><small>${esc(L('进入对应的微信 / WeLink 会话处理', 'Review in the matching WeChat / WeLink conversation'))}</small></span><button type="button" class="ops-primary" data-ops-inbox-action="review">${esc(L('进入对话', 'Open chat'))}<span aria-hidden="true"> ↗</span></button><button type="button" class="ops-dismiss" data-ops-inbox-action="mute" aria-label="${esc(L('暂时收起，有新消息时再提醒', 'Dismiss until the next new message'))}">×</button>`;
         mountThreadPanel();
         if (home) {
@@ -180,6 +177,14 @@
         if (available && visible.length && !visible.some(item => state.open.has(item.id))) state.open.add(visible[0].id);
         renderPanel();
         if (!available && !state.notice && !state.busy) closeReview();
+    }
+
+    // 只有浮动提醒横幅真正显示时才让推广避让（两者都在右上角）；主页对话区用就地入口，不影响推广和抽屉。
+    function syncPriority() {
+        const shown = Boolean(banner && !banner.hidden && !document.body.classList.contains('home-mode-chat'));
+        if (document.body.classList.contains('ops-banner-shown') === shown) return;
+        document.body.classList.toggle('ops-banner-shown', shown);
+        window.dispatchEvent(new Event('tools:ops-inbox-state'));
     }
 
     async function review(target) {
@@ -204,6 +209,14 @@
         panel?.remove();
     }
 
+    function confirmDiscard() {
+        const message = L('丢弃后这条草稿不会发送给任何对象，且无法恢复。确定丢弃？', 'This draft will not be sent to anyone and cannot be restored. Discard it?');
+        const options = { tone: 'danger', confirmText: L('丢弃', 'Discard'), cancelText: L('取消', 'Cancel') };
+        if (window.AppDialog?.confirm) return window.AppDialog.confirm(message, options);
+        if (window.showNavbarConfirm) return window.showNavbarConfirm({ message, ...options });
+        return Promise.resolve(window.confirm(message));
+    }
+
     async function action(event) {
         const button = event.target.closest('[data-ops-inbox-action]');
         if (!button) return;
@@ -212,6 +225,7 @@
             state.muted = state.items.map(item => item.id).join('|');
             try { sessionStorage.setItem(muteKey(), state.muted); } catch { /* 当前页面仍可收起 */ }
             banner.hidden = true;
+            syncPriority();
             return;
         }
         if (kind === 'review') return review();
@@ -234,9 +248,10 @@
             return;
         }
         if (kind === 'latest') { state.edits.delete(id); renderPanel(); return; }
-        if (kind !== 'send' && kind !== 'save') return;
-        // 不弹第二次确认；卡片已展示完整正文和目标，点击此按钮就是用户确认。
+        if (kind !== 'send' && kind !== 'save' && kind !== 'discard') return;
+        // 发送不弹第二次确认；卡片已展示完整正文和目标，点击此按钮就是用户确认。丢弃不可恢复，需要二次确认。
         if (identity() !== state.identity) { resetIdentity(); return refresh({ force: true }); }
+        if (kind === 'discard' && !await confirmDiscard()) return;
         const content = state.edits.get(id)?.text ?? item.content;
         if (!content.trim()) { setNotice(L('消息内容不能为空', 'Message cannot be empty'), 'error'); renderPanel(); return; }
         const epoch = state.epoch;
@@ -244,12 +259,14 @@
         setNotice('');
         renderPanel();
         try {
-            const result = await request(kind === 'send' ? 'POST' : 'PUT', `/runs/${encodeURIComponent(id)}${kind === 'send' ? '/send' : ''}`, { content, expectedContent: item.content });
+            const result = kind === 'discard'
+                ? await request('POST', `/runs/${encodeURIComponent(id)}/discard`)
+                : await request(kind === 'send' ? 'POST' : 'PUT', `/runs/${encodeURIComponent(id)}${kind === 'send' ? '/send' : ''}`, { content, expectedContent: item.content });
             if (epoch !== state.epoch || identity() !== state.identity) return;
             state.edits.delete(id);
             state.editing.delete(id);
-            setNotice(kind === 'save' ? L('修改已保存，尚未发送。', 'Draft saved. It has not been sent.') : result.status === 'sent' ? L('消息已发送。', 'Message sent.') : L('发送未全部成功，请到频道对接的推送记录查看详情：', 'Some deliveries failed. Check channel history: ') + (result.error || result.status), kind === 'send' && result.status !== 'sent' ? 'error' : '');
-            if (kind === 'send') {
+            setNotice(kind === 'discard' ? L('草稿已丢弃，不会发送。', 'Draft discarded. It will not be sent.') : kind === 'save' ? L('修改已保存，尚未发送。', 'Draft saved. It has not been sent.') : result.status === 'sent' ? L('消息已发送。', 'Message sent.') : L('发送未全部成功，请到频道对接的推送记录查看详情：', 'Some deliveries failed. Check channel history: ') + (result.error || result.status), kind === 'send' && result.status !== 'sent' ? 'error' : '');
+            if (kind === 'send' || kind === 'discard') {
                 state.open.delete(id);
                 state.items = state.items.filter(entry => entry.id !== id);
                 state.total = Math.max(0, state.total - 1);
@@ -304,15 +321,11 @@
             const edit = state.edits.get(id);
             event.target.closest('.ops-card').querySelector('[data-ops-inbox-action="send"]').disabled = !edit.text.trim() || (edit.base !== item.content && edit.text !== item.content);
         });
-        panel.addEventListener('change', event => {
-            if (!event.target.matches('[data-ops-thread]')) return;
-            const selected = pendingTargets().find(target => targetKey(target) === event.target.value);
-            if (selected) review(selected).catch(error => { setNotice(error.message, 'error'); renderPanel(); });
-        });
         panel.addEventListener('toggle', event => {
             const id = event.target.dataset.opsCard;
             if (id) { if (event.target.open) state.open.add(id); else state.open.delete(id); }
         }, true);
+        new MutationObserver(syncPriority).observe(document.body, { attributes: true, attributeFilter: ['class'] });
         state.identity = identity();
         state.muted = readMuted();
         state.activeThread = window.HomeWelinkThreads?.active?.() || null;
