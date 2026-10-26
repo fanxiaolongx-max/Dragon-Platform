@@ -141,7 +141,7 @@
         if (!discover || !input) return;
         const ids = mentionIds(input.value);
         if (ids.length && !loaded && !loading && !failed) load();
-        const unknown = loaded ? ids.filter(id => !metaOf(id)) : [];
+        const unknown = loaded ? ids.filter(id => !metaOf(id) && !window.HomeAgentDiscussion?.isAgentMention?.(id,input.value)) : [];
         discover.classList.toggle('is-warn', unknown.length > 0);
         discover.textContent = unknown.length
             ? words(`未识别的 Skill：${unknown.map(id => `@${id}`).join('、')}，发送后不会加载（输入 @ 查看可用列表）`, `Unknown Skill: ${unknown.map(id => `@${id}`).join(', ')} will not be loaded (type @ to see the list)`)

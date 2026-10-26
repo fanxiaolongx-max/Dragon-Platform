@@ -70,6 +70,8 @@
         threads: [],
         loaded: false,
         failed: false,
+        allThreads: [],
+        listIdentity: '',
         seq: 0,
         active: null, // { kind, id, name }
         items: [],
@@ -221,6 +223,7 @@
         });
         el.search?.addEventListener('input', () => {
             if (state.source === 'mine') return;
+            if (state.source === 'agents') return window.HomeDesktopAgents?.search?.();
             clearTimeout(state.listTimer);
             state.listTimer = setTimeout(loadThreads, 220);
         });
@@ -228,7 +231,7 @@
     }
 
     function sources() {
-        return ['mine', ...state.channels.map(item => item.id)];
+        return ['mine', ...state.channels.map(item => item.id), ...(window.HomeDesktopAgents?.available?.() ? ['agents'] : [])];
     }
 
     function renderTabs() {
@@ -243,7 +246,8 @@
         el.tabs.style.setProperty('--tab-index', String(Math.max(0, list.indexOf(state.source))));
         el.tabs.querySelectorAll('[data-chat-source]').forEach(button => {
             const selected = button.dataset.chatSource === state.source;
-            button.textContent = TEXT[lang()][button.dataset.chatSource] || button.dataset.chatSource;
+            button.textContent = button.dataset.chatSource === 'agents' ? (lang() === 'en-US' ? 'Agents' : '桌面 Agent') : TEXT[lang()][button.dataset.chatSource] || button.dataset.chatSource;
+            if(button.dataset.chatSource==='agents')button.title=lang()==='en-US'?'Desktop agents':'桌面 Agent';
             button.setAttribute('aria-selected', String(selected));
             button.classList.toggle('is-active', selected);
         });
@@ -253,13 +257,15 @@
     function setSource(source, { remember = true } = {}) {
         const next = sources().includes(source) ? source : 'mine';
         const changed = next !== state.source;
+        if(changed)window.HomeConversationList?.close();
         state.source = next;
         if (remember) storeSet(SOURCE_KEY, state.source);
         if (changed) Object.assign(state, { threads: [], loaded: false, failed: false });
         renderTabs();
         el.chatList.hidden = state.source !== 'mine';
-        el.list.hidden = state.source === 'mine';
-        if (state.source !== 'mine') loadThreads();
+        el.list.hidden = state.source === 'mine' || state.source === 'agents';
+        window.HomeDesktopAgents?.show?.(state.source === 'agents');
+        if (CHANNEL_IDS.includes(state.source)) loadThreads();
     }
 
     /** 读取已对接的频道，刷新分类；当前分类的频道被停用时回到「我的对话」。 */
@@ -283,7 +289,12 @@
             const query = el.search?.value.trim() || '';
             const data = await request('GET', `${API_BASE}/${state.source}/threads?limit=200&q=${encodeURIComponent(query)}`);
             if (seq !== state.seq) return;
-            state.threads = Array.isArray(data.items) ? data.items : [];
+            const cacheKey=identity()+':'+state.source;
+            if(state.listIdentity!==cacheKey){state.allThreads=[];state.listIdentity=cacheKey;}
+            const fetched=Array.isArray(data.items)?data.items:[];
+            if(!query)state.allThreads=fetched;
+            const aliases=query?state.allThreads.filter(t=>window.HomeConversationList?.get(state.source,t.kind+':'+t.id).title?.toLowerCase().includes(query.toLowerCase())):[];
+            state.threads=[...fetched,...aliases.filter(t=>!fetched.some(f=>f.kind===t.kind&&f.id===t.id))];
             state.failed = false;
         } catch {
             if (seq !== state.seq) return;
@@ -295,6 +306,7 @@
 
     function renderThreads() {
         if (!el.list) return;
+        const config={source:state.source,items:state.threads,id:t=>t.kind+':'+t.id,title:t=>t.name,date:t=>t.lastActiveAt,selector:'[data-wl-thread]',index:'wlThread'};
         if (!state.loaded) {
             el.list.innerHTML = '<div class="home-chat-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>';
             return;
@@ -305,9 +317,11 @@
         }
         if (!state.threads.length) {
             el.list.innerHTML = `<div class="home-chat-empty">${escapeHtml(tx(el.search?.value.trim() ? 'noMatch' : 'empty'))}</div>`;
+            window.HomeConversationList?.enhance(el.list,config);
             return;
         }
-        el.list.innerHTML = state.threads.map((thread, index) => {
+        const sections=window.HomeConversationList?.sections(state.threads,config)||[{label:'',entries:state.threads.map((item,index)=>({item,index,title:item.name}))}];
+        el.list.innerHTML = sections.map(section=>(section.label?`<div class="home-chat-group">${escapeHtml(section.label)}</div>`:'')+section.entries.map(({item:thread,index,title}) => {
             const active = state.active && state.active.channel === state.source && state.active.kind === thread.kind && state.active.id === thread.id;
             const open = thread.tasks?.open || 0;
             const finished = (thread.tasks?.done || 0) + (thread.tasks?.cancelled || 0);
@@ -315,12 +329,13 @@
                 ? `<span class="wl-badge is-open" title="${escapeHtml(tx('openTasks', { n: open }))}"><i></i>${open}</span>`
                 : finished ? `<span class="wl-badge is-done" title="${escapeHtml(tx('allDone'))}">✓</span>` : '';
             const subtitle = thread.lastMessage || `${kindText(thread.kind)} · ${tx('messages', { n: thread.messageCount })}`;
-            return `<button type="button" class="home-chat-item wl-item${active ? ' is-active' : ''}" role="listitem" data-wl-thread="${index}" title="${escapeHtml(thread.name)}"${active ? ' aria-current="true"' : ''}>
+            return `<button type="button" class="home-chat-item wl-item${active ? ' is-active' : ''}" role="listitem" data-wl-thread="${index}" title="${escapeHtml(title)}"${active ? ' aria-current="true"' : ''}>
                 <span class="wl-avatar wl-avatar--${thread.kind}">${ICONS[thread.kind] || ICONS.user}</span>
-                <span class="wl-item-text"><span class="home-chat-title">${escapeHtml(thread.name)}</span><span class="wl-item-sub">${escapeHtml(subtitle)}</span></span>
+                <span class="wl-item-text"><span class="home-chat-title">${escapeHtml(title)}</span><span class="wl-item-sub">${escapeHtml(subtitle)}</span></span>
                 <span class="wl-item-side"><span class="home-chat-meta">${escapeHtml(shortTime(thread.lastActiveAt))}</span>${badge}</span>
             </button>`;
-        }).join('');
+        }).join('')).join('') || `<div class="home-chat-empty">${escapeHtml(tx('noMatch'))}</div>`;
+        window.HomeConversationList?.enhance(el.list,config);
     }
 
     // ── 打开会话：真实频道时间线与手动运营 ────────────────
@@ -976,7 +991,7 @@
 
     function applyTexts() {
         renderTabs();
-        if (state.source !== 'mine') renderThreads();
+        if (CHANNEL_IDS.includes(state.source)) renderThreads();
         if (state.active) {
             renderReadonly();
             renderStage();
@@ -992,17 +1007,19 @@
         loadChannels();
         window.dispatchEvent(new Event('home:channel-threads-ready'));
         window.addEventListener('tools:languagechange', applyTexts);
+        window.addEventListener('home:conversation-list-changed',()=>renderThreads());
+        window.addEventListener('home:desktop-agents-ready', () => setSource(storeGet(SOURCE_KEY) || state.source, { remember:false }));
         window.addEventListener('storage', event => {
             if (['tools_user', 'tools_tenant_id', 'tools_token'].includes(event.key) && state.active && state.identity !== identity()) { state.drafts.clear(); window.DragonClaw?.newChat?.(); }
         });
         setInterval(() => {
             if (document.visibilityState !== 'visible') return;
             loadChannels();
-            if (state.source !== 'mine' && !el.list.hidden) loadThreads();
+            if (CHANNEL_IDS.includes(state.source) && !el.list.hidden) loadThreads();
         }, 60000);
     }
 
-    window.HomeWelinkThreads = { open: openThread, reload: loadThreads, active: () => state.active ? { ...state.active } : null, refresh: pollNewMessages };
+    window.HomeWelinkThreads = { setSource, open: openThread, reload: loadThreads, active: () => state.active ? { ...state.active } : null, refresh: pollNewMessages };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();

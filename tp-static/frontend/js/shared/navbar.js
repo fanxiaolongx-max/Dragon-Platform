@@ -1441,7 +1441,7 @@ function normalizeNavSettings(settings = {}) {
     let platformNameEn = clean(settings.platformNameEn, 80);
 
     if (platformNameZh && platformNameEn && platformNameZh.toLowerCase() === platformNameEn.toLowerCase() && !/[^\x00-\x7F]/.test(platformNameZh) && (platformNameEn.toLowerCase() === 'thoth platform' || platformNameEn.toLowerCase() === 'tools platform' || platformNameEn.toLowerCase() === 'eg cs hub')) {
-        platformNameZh = '图特工具平台';
+        platformNameZh = 'Dragon 工具平台';
     }
 
     platformNameZh = platformNameZh || (rawHasNonAscii ? rawName : 'Dragon 工具平台');
@@ -1486,7 +1486,7 @@ function applyPlatformTitle() {
     const isEn = typeof window !== 'undefined' && window.ToolsI18n?.getLanguage?.() === 'en-US';
     const mainName = (isEn && navState.settings?.platformNameEn)
         ? navState.settings.platformNameEn
-        : (navState.settings?.platformNameZh || navState.settings?.platformName || '图特工具平台');
+        : (navState.settings?.platformNameZh || navState.settings?.platformName || 'Dragon 工具平台');
     let next = platformTitleOriginal || '';
     if (next.includes('Tools Platform')) {
         next = next.split('Tools Platform').join(mainName);
@@ -2408,6 +2408,7 @@ function renderNavSettingsSidebar() {
         <button class="nav-settings-tab ${t === 'items' ? 'active' : ''}" data-tab="items" onclick="switchNavSettingsTab('items')">${renderNavSettingsTabLabel('↕️', navT('nav.set.tab.items'))}</button>
         <button class="nav-settings-tab ${t === 'ai' ? 'active' : ''}" data-tab="ai" onclick="switchNavSettingsTab('ai')">${renderNavSettingsTabLabel('🤖', navT('nav.set.tab.ai'))}</button>
         <button class="nav-settings-tab ${t === 'channels' ? 'active' : ''}" data-tab="channels" onclick="switchNavSettingsTab('channels')">${renderNavSettingsTabLabel('🔌', navT('nav.set.tab.channels'))}</button>
+        <button class="nav-settings-tab ${t === 'desktopAgents' ? 'active' : ''}" data-tab="desktopAgents" onclick="switchNavSettingsTab('desktopAgents')">${renderNavSettingsTabLabel('🖥️', navLocaleText('桌面 Agent', 'Desktop Agents'))}</button>
         <button class="nav-settings-tab ${t === 'update' ? 'active' : ''}" data-tab="update" onclick="switchNavSettingsTab('update')">${renderNavSettingsTabLabel('🔄', navT('nav.set.tab.update'))}</button>
         <button class="nav-settings-tab ${t === 'backup' ? 'active' : ''}" data-tab="backup" onclick="switchNavSettingsTab('backup')">${renderNavSettingsTabLabel('💾', navT('nav.set.tab.backup'))}</button>
         <button class="nav-settings-tab ${t === 'snapshotPublish' ? 'active' : ''}" data-tab="snapshotPublish" onclick="switchNavSettingsTab('snapshotPublish')">${renderNavSettingsTabLabel('📤', navT('nav.set.tab.snapshotPublish'))}</button>
@@ -2481,6 +2482,7 @@ function getNavSettingsTitle() {
     if (navState.settingsTab === 'accounts') return navT('nav.set.tab.accounts');
     if (navState.settingsTab === 'security') return navT('nav.set.tab.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.tab.ai');
+    if (navState.settingsTab === 'desktopAgents') return navLocaleText('桌面 Agent', 'Desktop Agents');
     if (navState.settingsTab === 'channels') return navT('nav.set.tab.channels');
     if (navState.settingsTab === 'update') return navT('nav.set.tab.update');
     if (navState.settingsTab === 'backup') return navT('nav.set.tab.backup');
@@ -2507,6 +2509,7 @@ function getNavSettingsSubtitle() {
     if (navState.settingsTab === 'accounts') return navT('nav.set.sub.accounts');
     if (navState.settingsTab === 'security') return navT('nav.set.sub.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.sub.ai');
+    if (navState.settingsTab === 'desktopAgents') return navLocaleText('连接本机原生桌面会话，同步最近对话并在 Web 继续交流。', 'Sync recent native desktop sessions and continue them from the Web.');
     if (navState.settingsTab === 'channels') return navT('nav.set.sub.channels');
     if (navState.settingsTab === 'update') return navT('nav.set.sub.update');
     if (navState.settingsTab === 'backup') return navT('nav.set.sub.backup');
@@ -2539,6 +2542,7 @@ function renderNavSettingsContent() {
     if (navState.settingsTab === 'accounts') return renderAccountSettings(content);
     if (navState.settingsTab === 'security') return renderSecuritySettings(content);
     if (navState.settingsTab === 'ai') return renderAiSettings(content);
+    if (navState.settingsTab === 'desktopAgents') return renderDesktopAgentSettings(content);
     if (navState.settingsTab === 'channels') return renderChannelSettings(content);
     if (navState.settingsTab === 'update') return renderUpdaterSettings(content);
     if (navState.settingsTab === 'backup') return renderBackupSettings(content);
@@ -2856,11 +2860,11 @@ async function renderLogoSettings(content) {
                 <h3>✏️ ${text('平台标识与名称设定', 'Platform identity & names')}</h3>
                 <p>${text('支持配置中英文主名称、副标题与登录页专属标语。在中文界面优先显示中文名称，英文界面自动倒置为主英辅中。保存后自动同步为平台全局默认配置。', 'Configure Chinese and English platform names, subtitle and login slogan. Display order reverses automatically based on current language. Saved values become the system defaults.')}</p>
                 <form onsubmit="event.preventDefault(); savePlatformName()">
-                    <input type="hidden" id="platformNameInput" value="${navEscape(navState.settings.platformName || '图特工具平台')}">
+                    <input type="hidden" id="platformNameInput" value="${navEscape(navState.settings.platformName || 'Dragon 工具平台')}">
                     <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:14px;margin-top:12px;">
                         <div>
                             <label for="platformNameZhInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">🇨🇳 ${text('主名称 (中文)', 'Main Name (Chinese)')}</label>
-                            <input id="platformNameZhInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="80" value="${navEscape(navState.settings.platformNameZh || (/[^\x00-\x7F]/.test(navState.settings.platformName || '') ? navState.settings.platformName : '图特工具平台'))}" placeholder="图特工具平台" autocomplete="off" oninput="document.getElementById('platformNameInput').value = this.value">
+                            <input id="platformNameZhInput" class="nav-settings-input" style="width:100%;box-sizing:border-box" maxlength="80" value="${navEscape(navState.settings.platformNameZh || (/[^\x00-\x7F]/.test(navState.settings.platformName || '') ? navState.settings.platformName : 'Dragon 工具平台'))}" placeholder="Dragon 工具平台" autocomplete="off" oninput="document.getElementById('platformNameInput').value = this.value">
                         </div>
                         <div>
                             <label for="platformNameEnInput" style="display:block;font-size:12.5px;font-weight:600;margin-bottom:6px;">🇬🇧 ${text('主名称 (英文)', 'Main Name (English)')}</label>
@@ -2978,8 +2982,8 @@ window.savePlatformName = async function () {
 
     const rawInput = clean(input.value, 80);
     const platformNameZh = zhInput
-        ? (clean(zhInput.value, 80) || rawInput || '图特工具平台')
-        : (rawInput || '图特工具平台');
+        ? (clean(zhInput.value, 80) || rawInput || 'Dragon 工具平台')
+        : (rawInput || 'Dragon 工具平台');
     const platformNameEn = enInput
         ? (clean(enInput.value, 80) || navState.settings?.platformNameEn || 'Dragon Platform')
         : (rawInput || 'Dragon Platform');
@@ -10335,4 +10339,14 @@ if (!document.querySelector('script[data-first-run-onboarding]')) {
     firstRunOnboardingScript.src = './tp-static/frontend/js/shared/first-run-onboarding.js';
     firstRunOnboardingScript.dataset.firstRunOnboarding = '1';
     document.head.appendChild(firstRunOnboardingScript);
+}
+
+async function renderDesktopAgentSettings(content) {
+    if (!window.ToolsDesktopAgentSettings) {
+        try {
+            window.desktopAgentSettingsScript ||= new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./tp-static/frontend/js/shared/desktop-agent-settings.js';script.onload=resolve;script.onerror=()=>{window.desktopAgentSettingsScript=null;reject(new Error('Desktop agent settings failed to load'));};document.head.append(script);});
+            await window.desktopAgentSettingsScript;
+        } catch(error) { if(content.isConnected)content.textContent=error.message;return; }
+    }
+    if(navState.settingsTab==='desktopAgents')return window.ToolsDesktopAgentSettings.render(content);
 }
