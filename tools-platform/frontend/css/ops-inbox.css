@@ -66,8 +66,6 @@ body.home-mode-chat .ops-inbox-banner { display: none !important; }
 .ops-prompt-action { margin-left: auto; white-space: nowrap; color: var(--ops-accent); font-size: 11px; }
 .ops-inbox-panel { padding: 18px; background: var(--ops-bg); border-radius: inherit; min-width: 0; }
 .ops-inbox-panel[data-channel-thread-addon] { width: min(var(--dc-col, 760px), 100%); margin: 22px auto; border: 1px solid var(--ops-line); border-radius: 14px; }
-.ops-thread-picker { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 12px; font-size: 11px; color: var(--ops-muted); }
-.ops-thread-picker select { min-width: 0; max-width: 100%; padding: 6px 8px; border: 1px solid var(--ops-line); border-radius: 7px; font: inherit; color: var(--ops-text); background: var(--ops-card); }
 .ops-inbox-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .ops-inbox-heading > div { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
 .ops-inbox-heading h3 { font: 650 19px/1.4 system-ui, sans-serif; color: var(--ops-text); margin: 0; padding: 0; }
@@ -93,6 +91,8 @@ body.home-mode-chat .ops-inbox-banner { display: none !important; }
 .ops-edit-label { display: block; color: var(--ops-muted); font-size: 11px; }
 .ops-edit-label textarea { box-sizing: border-box; display: block; width: 100%; min-height: 170px; max-height: 340px; resize: vertical; margin: 5px 0 14px; padding: 12px; border: 1px solid var(--ops-line); border-radius: 9px; background: var(--ops-bg); color: var(--ops-text); font: 13px/1.8 system-ui, sans-serif; }
 .ops-card-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.ops-inbox-panel button.ops-discard { margin-left: auto; color: #ed8c84; border-color: #ed8c8455; }
+.ops-inbox-panel button.ops-discard:hover { background: #e88c8018; }
 .ops-send-hint { width: 100%; color: var(--ops-muted); font-size: 10px; }
 .ops-warning { color: #d3943b; font-size: 12px; }
 .ops-feedback { margin: 10px 0; padding: 10px 12px; border-radius: 8px; color: var(--ops-accent); background: #2dd4bf10; overflow-wrap: anywhere; }
