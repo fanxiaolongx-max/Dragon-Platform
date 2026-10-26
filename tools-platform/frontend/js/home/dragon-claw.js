@@ -16,7 +16,7 @@
             scheduleNew: '新建定时任务', pushTo: '推送到', pushAdd: '+ 选择 WeLink/微信 的人或群（可选）', pushAddMore: '+ 添加', pushRemove: '移除', pushTitle: '推送到', pushSearch: '搜索名称或账号，支持拼音…', pushGroup: '群', pushUser: '联系人', pushSelected: '已选 {count} 个', pushHint: '执行完成后把结果推送给所选对象', pushDone: '完成', pushEmpty: '还没有可推送的对象（联系人需先与助理单聊过，群需在群里用过助理）', pushNoMatch: '没有匹配的对象', pushNoChannel: '还没有对接 WeLink 或微信', pushLimit: '最多选择 10 个对象', scheduleCreatedPush: '，完成后推送给 {names}', schedulePushTo: '推送给 {names}', schedulePushResult: '上次推送：成功 {sent}，失败 {failed}',
             datacomTitle: '数通协议专家', datacomDescription: '协议图解 · 交互实验 · 视频讲解',
             badge: '全能智能体', newChat: '新对话', history: '历史',
-            chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}',
+            chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}', chatDelete: '删除对话', chatDeleteConfirm: '删除「{title}」及其聊天记录？此操作无法撤销。', chatDeleteFailed: '删除失败，请稍后重试', chatDeleted: '对话已删除',
             activityThinking: '正在思考…', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
             resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
             tagline: '我是 Dragon Claw，你的全能智能体。问我任何问题，或者让我带你用好平台里的工具。',
@@ -49,7 +49,7 @@
             modeAsk: '请求批准', modeAskDesc: '写入、删除、重命名和命令都先征求你的同意', modeAuto: '帮我批准', modeAutoDesc: '读写文件自动执行；删除、重命名和命令仍需确认', modeFull: '完全访问', modeFullDesc: '全部自动执行，不再询问；命令以本机账号权限运行，不限于工作目录', readOnlyMode: '只读', readOnlyDesc: '当前账号不是管理员：可以查看和搜索文件，不能修改、删除、重命名或执行命令',
             modeChanged: '权限模式已切换为「{mode}」', approvalTitle: 'Dragon Claw 请求：{tool}', allow: '允许', deny: '拒绝', alwaysAllow: '本次会话总是允许',
             approved: '已允许', approvedAlways: '已允许（本次会话不再询问）', denied: '已拒绝', approvalTimeout: '审批超时，未执行', approvalAborted: '任务已中止', inDir: '目录：', recursive: '递归删除',
-            tool_list_directory: '列出目录', tool_read_file: '读取文件', tool_search: '搜索', tool_list_databases: '列出数据库', tool_database_schema: '查看数据库结构', tool_read_database_table: '读取业务表', tool_write_file: '写入文件', tool_edit_file: '编辑文件', tool_delete_path: '删除', tool_rename_path: '移动/重命名', tool_run_command: '执行命令', tool_welink_list_targets: '查看 WeLink 联系人', tool_welink_send_message: '发送 WeLink 消息',
+            tool_list_directory: '列出目录', tool_read_file: '读取文件', tool_search: '搜索', tool_list_databases: '列出数据库', tool_database_schema: '查看数据库结构', tool_read_database_table: '读取业务表', tool_insert_database_row: '新增业务数据', tool_update_database_rows: '更新业务数据', tool_delete_database_rows: '删除业务数据', tool_write_file: '写入文件', tool_edit_file: '编辑文件', tool_delete_path: '删除', tool_rename_path: '移动/重命名', tool_run_command: '执行命令', tool_welink_list_targets: '查看 WeLink 联系人', tool_welink_send_message: '发送 WeLink 消息',
             ctxUsed: '已使用 {percent}%', ctxMessages: '对话消息', ctxDirectory: '目录上下文', ctxSystem: '系统提示', ctxTools: '工具定义', ctxFree: '剩余空间',
             ctxEmpty: '发送第一条消息后显示上下文占用', ctxNoWorkspace: '选择目录后，这里显示上下文占用明细', ctxSourceProvider: '以模型返回的实际用量为准，分项按估算比例折算', ctxSourceEstimate: '按字符数估算（约 3.5 字符 / Token）',
             filePreview: '预览', fileCode: '代码', fileExpand: '放大', fileCollapse: '还原', fileDownload: '下载', fileLoading: '正在读取文件…', fileLines: '{count} 行', fileSandboxHint: '预览在隔离沙箱中运行，无法访问平台登录信息；同目录的相对资源不会加载', fileShowHint: '查看 {path}', noChanges: '本次会话尚未修改文件', viewDiff: '查看差异', revert: '撤销', reverted: '已撤销 {path}', diffEmpty: '（无文本差异）', createPr: '创建 PR',
@@ -69,7 +69,7 @@
             scheduleNew: 'New task', pushTo: 'Push to', pushAdd: '+ Pick WeLink/WeChat people or groups (optional)', pushAddMore: '+ Add', pushRemove: 'Remove', pushTitle: 'Push to', pushSearch: 'Search name or account (pinyin works)…', pushGroup: ' group', pushUser: ' contact', pushSelected: '{count} selected', pushHint: 'The result is pushed to them after it runs', pushDone: 'Done', pushEmpty: 'Nobody can be pushed to yet (contacts must chat with the assistant first; groups must have used it)', pushNoMatch: 'No matches', pushNoChannel: 'WeLink or WeChat is not connected yet', pushLimit: 'Pick up to 10', scheduleCreatedPush: ', then push to {names}', schedulePushTo: 'Push to {names}', schedulePushResult: 'Last push: {sent} sent, {failed} failed',
             datacomTitle: 'Datacom Protocol Expert', datacomDescription: 'Visual guides · Interactive labs · Videos',
             badge: 'All-round agent', newChat: 'New chat', history: 'History',
-            chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}',
+            chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}', chatDelete: 'Delete chat', chatDeleteConfirm: 'Delete “{title}” and its messages? This cannot be undone.', chatDeleteFailed: 'Could not delete this chat. Try again later.', chatDeleted: 'Chat deleted',
             activityThinking: 'Thinking…', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
             resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: '↑↓ to choose · Enter to run · Tab to complete', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
             tagline: 'I’m Dragon Claw, your all-round agent. Ask me anything, or let me show you around the tools on this platform.',
@@ -101,7 +101,7 @@
             modeAsk: 'Ask to approve', modeAskDesc: 'Writes, deletes, renames and commands always ask first', modeAuto: 'Approve for me', modeAutoDesc: 'Reads and writes run automatically; deletes, renames and commands still ask', modeFull: 'Full access', modeFullDesc: 'Everything runs without asking; commands run with this computer account\'s permissions, not limited to the folder', readOnlyMode: 'Read-only', readOnlyDesc: 'This account is not an administrator: you can view and search files, but not edit, delete, rename or run commands',
             modeChanged: 'Permission mode set to "{mode}"', approvalTitle: 'Dragon Claw wants to {tool}', allow: 'Allow', deny: 'Deny', alwaysAllow: 'Always allow this session',
             approved: 'Allowed', approvedAlways: 'Allowed (no more prompts this session)', denied: 'Denied', approvalTimeout: 'Approval timed out, not executed', approvalAborted: 'Task stopped', inDir: 'in', recursive: 'recursive',
-            tool_list_directory: 'list directory', tool_read_file: 'read file', tool_search: 'search', tool_list_databases: 'list databases', tool_database_schema: 'inspect database schema', tool_read_database_table: 'read business table', tool_write_file: 'write file', tool_edit_file: 'edit file', tool_delete_path: 'delete', tool_rename_path: 'move/rename', tool_run_command: 'run command', tool_welink_list_targets: 'list WeLink contacts', tool_welink_send_message: 'send a WeLink message',
+            tool_list_directory: 'list directory', tool_read_file: 'read file', tool_search: 'search', tool_list_databases: 'list databases', tool_database_schema: 'inspect database schema', tool_read_database_table: 'read business table', tool_insert_database_row: 'insert business data', tool_update_database_rows: 'update business data', tool_delete_database_rows: 'delete business data', tool_write_file: 'write file', tool_edit_file: 'edit file', tool_delete_path: 'delete', tool_rename_path: 'move/rename', tool_run_command: 'run command', tool_welink_list_targets: 'list WeLink contacts', tool_welink_send_message: 'send a WeLink message',
             ctxUsed: '{percent}% used', ctxMessages: 'Messages', ctxDirectory: 'Directory context', ctxSystem: 'System prompt', ctxTools: 'Tool definitions', ctxFree: 'Free space',
             ctxEmpty: 'Context usage appears after your first message', ctxNoWorkspace: 'Pick a directory to see the context breakdown here', ctxSourceProvider: 'Based on the model’s reported usage; parts scaled from estimates', ctxSourceEstimate: 'Estimated from characters (≈3.5 chars per token)',
             filePreview: 'Preview', fileCode: 'Code', fileExpand: 'Expand', fileCollapse: 'Restore', fileDownload: 'Download', fileLoading: 'Reading file…', fileLines: '{count} lines', fileSandboxHint: 'The preview runs in an isolated sandbox without access to your sign-in; relative assets next to the file are not loaded', fileShowHint: 'View {path}', noChanges: 'No files changed in this session', viewDiff: 'View diff', revert: 'Revert', reverted: 'Reverted {path}', diffEmpty: '(no text difference)', createPr: 'Create PR',
@@ -236,8 +236,7 @@
     function applyTexts() {
         el.root.querySelectorAll('[data-dc-i18n]').forEach(node => { node.textContent = tx(node.dataset.dcI18n); });
         el.greeting.textContent = lang() === 'en-US' ? greeting().replace('，', ', ') : greeting();
-        el.input.placeholder = tx('placeholder');
-        el.input.setAttribute('aria-label', tx('placeholder'));
+        applyPlaceholder();
         updateSendButton();
         renderPrompts();
         renderSpotlight();
@@ -845,7 +844,14 @@
         el.form.classList.toggle('is-generating', generating);
         el.send.setAttribute('aria-label', generating ? tx('stop') : tx('send'));
         el.send.title = generating ? tx('stop') : tx('send');
-        el.send.disabled = (state.restoring && !isSideCommand(el.input.value)) || (!generating && !el.input.value.trim());
+        el.send.disabled = (state.restoring && !isSideCommand(el.input.value)) || (!generating && !el.input.value.trim())
+            || (external.active && (!external.composer?.canSend || external.sending));
+    }
+
+    function applyPlaceholder() {
+        const text = (external.active && external.composer?.placeholder) || tx('placeholder');
+        el.input.placeholder = text;
+        el.input.setAttribute('aria-label', text);
     }
 
     // 斜杠命令：/session [关键词] 打开历史会话，/new 新对话；其他以 / 开头的内容照常发送
@@ -1415,14 +1421,39 @@
         }
     }
 
+    async function sendDesktopDiscussion(content,resumeJob=null) {
+        const plugin=window.HomeAgentDiscussion;
+        try{if(!resumeJob)plugin.validate(content);}catch(error){showToast(error.message);return;}
+        const epoch=resumeEpoch,controller=new AbortController();state.controller=controller;
+        setChatting(true);if(!resumeJob){addMessage('user',content);state.messages.push({role:'user',content});}
+        const reply=addMessage('ai'),activity=showThinking(reply);let started=false;
+        if(!resumeJob){el.input.value='';el.input.dispatchEvent(new Event('input'));}updateSendButton();
+        try{
+            const result=await plugin.run({text:content,sessionId:state.sessionId,resumeJob,signal:controller.signal,
+                onStarted:job=>{if(epoch!==resumeEpoch)return;started=true;state.sessionId=job.sessionId;rememberLastChat(job.sessionId);},
+                onUpdate:job=>{if(epoch===resumeEpoch&&reply.isConnected){reply.querySelector('.dc-msg-body').innerHTML=renderMarkdown(plugin.format(job));scrollThread();}}});
+            if(epoch!==resumeEpoch)return;
+            const text=plugin.format(result);state.messages.push({role:'model',content:text});addMessageTools(reply,text);
+        }catch(error){
+            if(epoch!==resumeEpoch)return;
+            const text=error.name==='AbortError'?tx('stopped')+' · '+(lang()==='en-US'?'Further dispatch stopped. Submitted desktop work may still run.':'已停止后续派发；已提交的桌面任务可能仍在运行。'):error.message;
+            reply.querySelector('.dc-msg-body').textContent=text;
+            if(!started&&!resumeJob){state.messages.pop();if(!el.input.value)el.input.value=content;el.input.dispatchEvent(new Event('input'));}
+        }finally{
+            activity.finish();if(state.controller===controller){state.controller=null;updateSendButton();}scheduleChatListRefresh();
+        }
+    }
+
     // options.workspaceMode：本轮临时改用的工作区审批模式（/plan 出计划时用 ask，任何写入都要用户批准）
     // options.onDone(reply, finalText)：回复完成后调用（/plan 在计划下方加确认按钮）
     async function send(text, displayText = text, options = {}) {
         const content = String(text || '').trim();
         if (!content) return;
+        if (external.active) return sendExternal(content);
         if (isSideCommand(content)) return runSlashCommand(content);
         if (state.controller || state.restoring) return;
         if (runSlashCommand(content)) return;
+        if (window.HomeAgentDiscussion?.handles(content)) return sendDesktopDiscussion(content);
         el.thread.querySelectorAll('.dc-plan-actions').forEach(node => node.remove()); // 计划确认按钮只对最新一条计划有效
         setChatting(true);
         const shownText = String(displayText || content).trim();
@@ -1730,6 +1761,8 @@
             if (epoch !== resumeEpoch) return;
             state.messages = resume.items.map(item => ({ role: item.role === 'model' ? 'model' : 'user', content: String(item.content) }));
             state.sessionId = resume.sessionId;
+            await window.HomeAgentDiscussion?.activateSession?.(resume.sessionId);
+            if(epoch!==resumeEpoch)return;
             state.focusedTool = null;
             resetHistoryPaging();
             window.DragonClawSkills?.reset?.();
@@ -1775,8 +1808,8 @@
 
     function renderSlashHints() {
         const value = el.input.value;
-        // 命令名后一旦出现空格就算输入完成（Tab 补全也会补上空格），收起提示
-        if (!value.startsWith('/') || /\s/.test(value)) return hideSlashHints();
+        // 命令名后一旦出现空格就算输入完成（Tab 补全也会补上空格），收起提示；外部会话里 / 原样发给对方
+        if (external.active || !value.startsWith('/') || /\s/.test(value)) return hideSlashHints();
         const typed = value.toLowerCase();
         const list = SLASH_COMMANDS.filter(item => [item.name, ...item.aliases].some(name => name.startsWith(typed)));
         if (!list.length) return hideSlashHints();
@@ -1925,7 +1958,7 @@
     }
 
     // ── 侧栏历史对话（对话模式左侧面板） ────────────
-    const chatList = { items: [], loaded: false, failed: false, seq: 0, timer: null, searchTimer: null };
+    const chatList = { items: [], loaded: false, failed: false, seq: 0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '' };
 
     function chatGroupKey(date) {
         const startOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
@@ -1943,6 +1976,8 @@
         return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
     }
 
+    function ownedListConfig() { return {source:'mine',items:chatList.items,id:item=>item.id,date:item=>item.updatedAt,title:item=>String(item.firstQuestion||item.lastQuestion||item.id).replace(/\s+/g,' ').trim(),selector:'[data-chat-index]',index:'chatIndex',onDelete:deleteChatFromList}; }
+
     function renderChatList() {
         if (!el.chatList) return;
         if (!chatList.loaded) {
@@ -1955,33 +1990,31 @@
         }
         if (!chatList.items.length) {
             el.chatList.innerHTML = `<div class="home-chat-empty">${escapeHtml(tx(el.chatSearch?.value.trim() ? 'chatNoMatch' : 'chatEmpty'))}</div>`;
+            window.HomeConversationList?.enhance(el.chatList,ownedListConfig());
             return;
         }
-        let currentGroup = '';
-        const html = [];
-        chatList.items.forEach((item, index) => {
-            const date = parseChatTime(item.updatedAt);
-            const valid = !Number.isNaN(date.getTime());
-            const group = valid ? chatGroupKey(date) : 'chatOlder';
-            if (group !== currentGroup) {
-                currentGroup = group;
-                html.push(`<div class="home-chat-group">${escapeHtml(tx(group))}</div>`);
-            }
-            const title = String(item.firstQuestion || item.lastQuestion || item.id).replace(/\s+/g, ' ').trim();
+        const config=ownedListConfig(),html=[];
+        const sections=window.HomeConversationList?.sections(chatList.items,config)||[{label:tx('chatToday'),entries:chatList.items.map((item,index)=>({item,index,title:config.title(item)}))}];
+        for(const section of sections){
+            html.push(`<div class="home-chat-group">${escapeHtml(section.label)}</div>`);
+            for(const {item,index,title} of section.entries){
+            const date=parseChatTime(item.updatedAt),valid=!Number.isNaN(date.getTime()),group=valid?chatGroupKey(date):'chatOlder';
             const root = item.agent?.root || '';
             const folder = root ? `<svg class="home-chat-folder" viewBox="0 0 16 16" aria-label="${escapeHtml(tx('chatFolderTitle', { root }))}"><title>${escapeHtml(tx('chatFolderTitle', { root }))}</title><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>` : '';
-            html.push(`<button type="button" class="home-chat-item${item.id === state.sessionId ? ' is-active' : ''}" role="listitem" data-chat-index="${index}" title="${escapeHtml(title)}"${item.id === state.sessionId ? ' aria-current="true"' : ''}>
-                <span class="home-chat-title">${escapeHtml(title)}</span>
-                <span class="home-chat-meta">${folder}<span>${valid ? escapeHtml(chatItemTime(date, group)) : ''}</span></span>
-            </button>`);
-        });
-        el.chatList.innerHTML = html.join('');
+            html.push(`<div class="home-chat-item home-chat-owned${item.id === state.sessionId ? ' is-active' : ''}" role="listitem">
+                <button type="button" class="home-chat-open" data-chat-index="${index}" title="${escapeHtml(title)}"${item.id === state.sessionId ? ' aria-current="true"' : ''}><span class="home-chat-title">${escapeHtml(title)}</span></button>
+                <span class="home-chat-actions"><span class="home-chat-meta">${folder}<span>${valid ? escapeHtml(chatItemTime(date, group)) : ''}</span></span>
+                </span>
+            </div>`);
+        }}
+        el.chatList.innerHTML = html.join('') || `<div class="home-chat-empty">${escapeHtml(tx('chatEmpty'))}</div>`;
+        window.HomeConversationList?.enhance(el.chatList,config);
     }
 
     function markActiveChat() {
         el.chatList?.querySelectorAll('[data-chat-index]').forEach(button => {
             const active = chatList.items[Number(button.dataset.chatIndex)]?.id === state.sessionId;
-            button.classList.toggle('is-active', active);
+            (button.closest('.home-chat-item') || button).classList.toggle('is-active', active);
             if (active) button.setAttribute('aria-current', 'true');
             else button.removeAttribute('aria-current');
         });
@@ -1996,7 +2029,12 @@
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             if (seq !== chatList.seq) return;
-            chatList.items = Array.isArray(data.items) ? data.items : [];
+            const account=currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'');
+            if(chatList.cacheIdentity!==account){chatList.cached=[];chatList.cacheIdentity=account;}
+            const fetched=Array.isArray(data.items)?data.items:[];
+            if(!query)chatList.cached=fetched;
+            const aliases=query?chatList.cached.filter(item=>window.HomeConversationList?.get('mine',item.id).title?.toLowerCase().includes(query.toLowerCase())):[];
+            chatList.items=[...fetched,...aliases.filter(item=>!fetched.some(row=>row.id===item.id))];
             chatList.failed = false;
         } catch {
             if (seq !== chatList.seq) return;
@@ -2021,6 +2059,33 @@
         }
         if (state.controller) return showToast(tx('chatBusy'));
         openSession(item);
+    }
+
+    async function deleteChatFromList(item) {
+        if (!item || chatList.deleting.has(item.id)) return;
+        if (item.id === state.sessionId && (state.controller || state.restoring)) return showToast(tx('chatBusy'));
+        const identity = () => ['tools_user','tools_tenant_id','tools_token'].map(key => localStorage.getItem(key) || sessionStorage.getItem(key) || '').join('|');
+        const account = identity(), title = String(item.firstQuestion || item.lastQuestion || item.id).replace(/\s+/g, ' ').trim().slice(0, 100);
+        chatList.deleting.add(item.id);
+        try {
+            const message = tx('chatDeleteConfirm', { title });
+            const ok = window.AppDialog ? await window.AppDialog.confirm(message, { title: tx('chatDelete'), confirmText: tx('chatDelete'), tone: 'danger' }) : window.confirm(message);
+            if (!ok || account !== identity()) return;
+            const response = await fetch(`/api/ai/sessions/${encodeURIComponent(item.id)}`, { method: 'DELETE', headers: authHeaders() });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || tx('chatDeleteFailed'));
+            if (account !== identity()) return;
+            ++chatList.seq; // Do not let an older list response put the deleted row back.
+            chatList.items = chatList.items.filter(row => row.id !== item.id);
+            chatList.cached=chatList.cached.filter(row=>row.id!==item.id);
+            if (readLastChat()?.sessionId === item.id) forgetLastChat();
+            if (state.sessionId === item.id) newChat();
+            else if (state.resume?.sessionId === item.id) { hideResumeCard(); state.resume = null; }
+            renderChatList();
+            showToast(tx('chatDeleted'));
+        } catch (error) {
+            if (account === identity()) showToast(error.message || tx('chatDeleteFailed'));
+        } finally { chatList.deleting.delete(item.id); }
     }
 
     function bindChatList() {
@@ -2062,6 +2127,7 @@
         });
         document.getElementById('homeChatNew')?.addEventListener('click', () => {
             window.HomeMode?.set?.('chat');
+            if (window.HomeDesktopAgents?.newChat?.()) return; // 「桌面 Agent」分类下：在选中的那家新建原生会话
             newChat();
         });
         renderChatList();
@@ -2069,6 +2135,7 @@
     }
 
     function newChat() {
+        window.HomeAgentDiscussion?.activateSession?.(null);
         exitExternal();
         resumeEpoch += 1;
         finishHistoryLoading(false);
@@ -2092,16 +2159,23 @@
 
     // ── 频道对话：WeLink / 微信的消息时间线与会话内运营操作 ──
     // 进入时离开当前对话、禁用输入框；新对话 / 打开个人历史时自动退出并回调 onExit。
-    const external = { active: false, onExit: null };
+    // composer：外部会话借用本输入框（桌面 Agent），{ placeholder, canSend, draft, onInput(value), send(text) → false 表示保留输入 }。
+    // owner：同一来源内切换会话时 onExit 收到 switching: true，换到另一来源时按完全退出清理。
+    const external = { active: false, onExit: null, owner: '', composer: null, sending: false, draft: '', entry: 0 };
 
-    function enterExternal({ onExit } = {}) {
+    function enterExternal({ onExit, owner = 'channel', composer = null } = {}) {
         if (state.controller) {
             showToast(tx('chatBusy'));
             return null;
         }
+        el.form.querySelector('[data-external-send-status]')?.remove();
         const previous = external.active ? external.onExit : null;
+        const sameOwner = external.active && external.owner === owner;
+        if (!external.active) external.draft = el.input.value; // 我的对话里没发出的草稿，返回时还原
+        el.input.value = ''; // 外部会话之间不带草稿，避免发错对象
+        autoResize();
         external.onExit = null;
-        previous?.({ switching: true });
+        previous?.({ switching: sameOwner });
         resumeEpoch += 1;
         finishHistoryLoading(false);
         state.restoring = false;
@@ -2114,9 +2188,15 @@
         el.thread.innerHTML = '';
         external.active = true;
         external.onExit = onExit || null;
+        external.owner = owner;
+        external.entry += 1;
+        external.composer = null;
+        external.sending = false;
         document.body.classList.add('dc-external-view');
         el.input.disabled = true;
-        updateSendButton();
+        el.input.value = composer?.draft || '';
+        setExternalComposer(composer);
+        autoResize();
         hideResumeCard();
         hideSlashHints();
         setChatting(true);
@@ -2132,18 +2212,55 @@
             addMessage: (role, text, options) => addMessage(role, text, options),
             addCopy: (message, text) => addMessageTools(message, text),
             scrollToBottom: () => scrollThread(true),
+            isNearBottom: () => el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight < 90,
+            setComposer: patch => { if (external.composer) setExternalComposer({ ...external.composer, ...patch }); },
+            toast: showToast,
             formatTime: formatChatTime
         };
+    }
+
+    function setExternalComposer(composer) {
+        external.composer = composer;
+        document.body.classList.toggle('dc-external-compose', Boolean(composer));
+        el.input.disabled = !composer?.canSend || external.sending;
+        applyPlaceholder();
+        updateSendButton();
+    }
+
+    async function sendExternal(content) {
+        const composer = external.composer, entry = external.entry;
+        if (!composer?.canSend || external.sending) return;
+        external.sending = true;
+        el.input.disabled = true;
+        updateSendButton();
+        if(!content.trim()){external.sending=false;setExternalComposer(external.composer);return;}
+        let status=el.form.querySelector('[data-external-send-status]');if(!status){status=document.createElement('div');status.dataset.externalSendStatus='';status.className='dc-external-send-status';status.setAttribute('role','status');el.form.append(status);}
+        status.classList.remove('is-error');status.textContent=lang()==='en-US'?'Sending to the desktop session…':'正在发送到桌面会话…';
+        let keep = true;
+        try { keep = (await composer.send(content)) === false;if(external.entry===entry)status.textContent=keep?(lang()==='en-US'?'Not sent. Your draft is preserved.':'尚未发送，已保留输入内容。'):(lang()==='en-US'?'Submitted. Waiting for the desktop agent.':'已提交，等待桌面 Agent 回复。'); } catch(error) { keep = true;if(external.entry===entry){status.textContent=error?.message||String(error);status.classList.add('is-error');} }
+        if (!external.active || external.entry !== entry) return; // 已切到别的会话：不动新会话的输入框
+        external.sending = false;
+        if (!keep) { el.input.value = ''; autoResize(); }
+        setExternalComposer(external.composer);
+        if (!el.input.disabled) el.input.focus({ preventScroll: true });
     }
 
     function exitExternal() {
         if (!external.active) return;
         external.active = false;
+        el.form.querySelector('[data-external-send-status]')?.remove();
         const callback = external.onExit;
         external.onExit = null;
-        document.body.classList.remove('dc-external-view');
+        external.owner = '';
+        external.entry += 1;
+        external.composer = null;
+        external.sending = false;
+        document.body.classList.remove('dc-external-view', 'dc-external-compose');
         el.input.disabled = false;
-        updateSendButton();
+        el.input.value = external.draft;
+        external.draft = '';
+        autoResize();
+        applyPlaceholder();
         callback?.({ switching: false });
     }
 
@@ -2186,15 +2303,18 @@
     function bindEvents() {
         el.form.addEventListener('submit', event => {
             event.preventDefault();
+            if(external.active){sendExternal(el.input.value.trim());return;}
             if (state.controller && !isSideCommand(el.input.value)) state.controller.abort();
             else send(el.input.value);
         });
         el.input.addEventListener('input', () => {
+            if (external.active) external.composer?.onInput?.(el.input.value); // 外部会话各自保存草稿
             autoResize();
             renderSlashHints();
             renderPushBar();
         });
         el.input.addEventListener('keydown', event => {
+            if(external.active&&event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();sendExternal(el.input.value.trim());return;}
             if (slashMenuOpen() && !event.isComposing) {
                 if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                     event.preventDefault();
@@ -2363,6 +2483,8 @@
         anchorThreadToComposer();
         bindEvents();
         bindChatList();
+        window.addEventListener('home:conversation-list-changed',()=>renderChatList());
+        window.addEventListener('home:resume-agent-discussion',event=>{if(!state.controller&&!state.restoring&&event.detail?.sessionId===state.sessionId)sendDesktopDiscussion('',event.detail);});
         watchSchedules();
         window.DragonClaw = { startWithSkill, enterExternal, exitExternal, newChat, lang, isExternal: () => external.active };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话

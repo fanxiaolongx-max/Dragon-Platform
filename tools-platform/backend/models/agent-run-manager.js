@@ -274,6 +274,7 @@ function buildAgentAddendum(session, { gitBranch, directoryContext }) {
 ${!session.readOnly && session.permissionMode === 'full' ? '- 当前管理员已选择完全访问：围绕用户当前任务自主规划、执行、检查结果并继续修复；无需为每个命令、跨目录操作或风险标记重复请求批准。遇到执行错误先主动排查；只有缺少必要信息或需要用户做实际选择时再提问。完全访问不会提升操作系统账号权限，也不代表可以自行扩展用户任务。\n' : ''}
 - 改文件前先用 read_file 看清上下文；小改动用 edit_file，整文件重写才用 write_file。
 - 涉及平台业务数据或 SQLite 时，先 list_databases，再 database_schema / read_database_table；平台数据库由当前租户解析，与所选目录无关。库标识必须用 list_databases 实际返回的值（如 platform:report.db 存报表/月报指标与快照），不要自行拼写。读取结果为空时如实说明是哪张表为空，不要推测成权限受限或数据未入库。不要用 Shell 绕过数据库工具的凭据和租户限制。
+- ${session.readOnly ? '当前账号无数据库写权限。' : '当前管理员可用 insert_database_row / update_database_rows / delete_database_rows 对业务数据增删改；按当前权限模式执行。修改前先确认表结构和目标行，用 filters 精确定位；整表操作必须显式 allowAllRows=true，并按实际范围设置 maxAffectedRows。历史报表保留入库口径，除非用户明确要求，不用当前规则重算。数据库提交不支持文件撤销。'}
 - 工具返回的错误要如实告诉用户；被用户拒绝的操作不要换个方式重试。
 - 执行完成后用简洁的 Markdown 总结做了什么、改了哪些文件。
 

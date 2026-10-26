@@ -434,6 +434,8 @@ app.use('/api', (req, res, next) => {
     if (req.method === 'POST' && req.path === '/ai/proactive-alert-message') return next(); // 只读 KPI 提醒文案，不修改业务数据
     if (req.method === 'POST' && req.path === '/ai/chat') return next(); // 登录用户都可对话；工作区内非管理员只拿到只读工具（路由与 agent-run-manager 内校验）
     if (req.method === 'POST' && req.path === '/ai/compact') return next(); // 登录用户仅可压缩本人会话的模型上下文，路由内校验归属
+    if (req.method === 'PUT' && req.path === '/ai/conversation-list') return next(); // 登录用户仅维护自己在当前租户的列表偏好
+    if (req.method === 'DELETE' && /^\/ai\/sessions\/[^/]+$/.test(req.path)) return next(); // 路由仅允许删除本人会话，运行中的对话不可删除
     if (req.method === 'POST' && req.path === '/report-msg/export') return next(); // 仅生成并返回当前用户的月报文件
     if (req.method === 'POST' && /^\/channels\/(?:welink|weixin)\/push$/.test(req.path)) return next(); // 路由内校验：管理员，或已开放普通用户推送且目标在默认推送范围内
     if (/^\/agent-workspace(?:\/.*)?$/.test(req.path)) return next(); // 路由内按本机/桌面/管理员门禁与会话归属校验

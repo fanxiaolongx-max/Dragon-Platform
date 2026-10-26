@@ -1,0 +1,45 @@
+// Isolated renderer preview; no real quota probes, login or business data.
+const {app,BrowserWindow,ipcMain}=require('electron');
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'quota-sidebar-preview-'));
+app.setPath('userData',path.join(temp,'profile'));app.disableHardwareAcceleration();
+let win;const messages=[];
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+const evaluate=expression=>win.webContents.executeJavaScript(expression,true);
+async function until(expression){for(let n=0;n<100;n++){if(await evaluate(expression))return;await wait(30);}throw Error(expression);}
+setTimeout(()=>app.exit(1),30000).unref();
+app.whenReady().then(async()=>{
+    ipcMain.handle('pet-get-language',()=> 'zh-CN');
+    for(const name of ['pet-quota-panel-ready','pet-quota-panel-hide','pet-quota-panel-menu','pet-quota-panel-dock','pet-quota-panel-drag','pet-open-quota-trends'])ipcMain.on(name,(_event,data)=>messages.push({name,data}));
+    win=new BrowserWindow({width:286,height:426,show:true,focusable:false,frame:false,transparent:true,webPreferences:{nodeIntegration:true,contextIsolation:false,backgroundThrottling:false}});
+    console.log('stage: load');
+    await win.loadFile(path.join(__dirname,'../desktop-pet/quota-panel.html'));
+    await until('document.querySelectorAll(".quota-cell").length===6');
+    const provider=(id,a,b,label,tier)=>({status:'live',membership:{label,tier,premium:true},groups:[{id,windows:[{id:'5h',remainingPercent:a},{id:'weekly',remainingPercent:b}]}]});
+    win.webContents.send('pet-quota-update',{codex:provider('codex',82,61,'Plus','plus'),claudecode:provider('claudecode',17,45,'Max','max'),antigravity:provider('gemini',94,73,'Ultra','ultra')});
+    console.log('stage: quota update');
+    await until('document.querySelector(".quota-value").textContent.includes("82")');
+    assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight'),true);
+    assert.equal(await evaluate('Array.from(document.querySelectorAll(".quota-row")).every(e=>e.scrollHeight<=e.clientHeight)'),true);
+    assert.equal(await evaluate('document.querySelectorAll(".quota-track").length'),6);
+    await wait(180);
+    console.log('stage: capture zh');
+    fs.writeFileSync(path.join(temp,'sidebar-zh.png'),(await win.webContents.capturePage()).toPNG());
+    await evaluate('document.querySelector(".quota-cell").click();document.getElementById("panelMenu").click();document.getElementById("panelHide").click()');
+    await wait(40);assert.deepEqual(messages.find(m=>m.name==='pet-open-quota-trends').data,{provider:'codex',groupId:'codex',windowId:'5h'});
+    assert.ok(messages.some(m=>m.name==='pet-quota-panel-menu'));assert.ok(messages.some(m=>m.name==='pet-quota-panel-hide'));
+    console.log('stage: pointer');
+    await win.webContents.debugger.attach('1.3');
+    for(const params of [{type:'mousePressed',x:75,y:27,button:'left',clickCount:1},{type:'mouseMoved',x:90,y:37,button:'left',buttons:1},{type:'mouseReleased',x:90,y:37,button:'left',clickCount:1}])await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',params);
+    await wait(60);assert.ok(messages.some(m=>m.name==='pet-quota-panel-drag'&&m.data==='start'));assert.ok(messages.some(m=>m.name==='pet-quota-panel-drag'&&m.data==='end'));
+    await win.webContents.debugger.detach();
+    console.log('stage: language');
+    await evaluate('PetI18n.setLanguage("en-US")');await until('document.getElementById("panelHide").getAttribute("aria-label")==="Hide quota sidebar"');
+    assert.match(await evaluate('document.body.textContent'),/5 hours/);assert.match(await evaluate('document.body.textContent'),/Weekly/);
+    await wait(180);
+    console.log('stage: capture en');
+    fs.writeFileSync(path.join(temp,'sidebar-en.png'),(await win.webContents.capturePage()).toPNG());
+    win.setContentSize(240,320);await wait(60);assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
+    console.log('PASS: sidebar rendering, Chinese/English, small screen, trends, hide/menu buttons and pointer dragging. Preview: '+temp);
+    win.destroy();app.exit(0);
+}).catch(error=>{console.error(error);win?.destroy();app.exit(1);});

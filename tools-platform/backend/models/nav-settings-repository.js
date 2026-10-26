@@ -50,7 +50,7 @@ function getDefaultPlatformIdentity() {
 
 function getDefaultPlatformName() {
     const identity = getDefaultPlatformIdentity();
-    return identity.platformNameZh || identity.platformName || '图特工具平台';
+    return identity.platformNameZh || identity.platformName || 'Dragon 工具平台';
 }
 
 const DEFAULT_GUIDE_VIDEO_URL = 'https://jx.huawei.com/community/comgroup/videoShareDetail/7207b25a9c0f42a08dfb1ab9832d44fe?commentId=0cca456df675451ca2df19c08b01ab11';

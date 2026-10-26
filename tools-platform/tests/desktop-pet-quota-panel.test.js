@@ -6,29 +6,26 @@ const os=require('node:os');
 const vm=require('node:vm');
 const {createRequire}=require('node:module');
 const {EventEmitter}=require('node:events');
-const {panelBounds}=require('../desktop-pet/quota-panel-layout');
+const {sidebarBounds,droppedSidebar}=require('../desktop-pet/quota-panel-layout');
 
-function separated(bounds,pet,anchor){const l=pet.x+anchor.x,r=l+anchor.width;return bounds.x+bounds.width<=l||bounds.x>=r;}
-test('panel stays beside the visible character, flips at screen edges and handles negative monitor origins',()=>{
-    const area={x:0,y:0,width:1440,height:900},anchor={x:90,y:120,width:110,height:160};
-    for(const [x,side]of [[1190,'left'],[0,'right']]){
-        const pet={x,y:570,width:218,height:293},b=panelBounds(pet,area,anchor);
-        assert.equal(b.side,side);assert.ok(separated(b,pet,anchor));assert.ok(b.x>=area.x);assert.ok(b.x+b.width<=area.width);
+test('sidebar defaults to the right edge and clamps saved positions on negative-origin and small displays',()=>{
+    for(const area of [{x:0,y:0,width:1440,height:900},{x:-1920,y:-100,width:1920,height:1080},{x:0,y:0,width:240,height:200}]){
+        const b=sidebarBounds(area);assert.equal(b.mode,'right');assert.equal(b.x+b.width,area.x+area.width-12);
+        assert.ok(b.y>=area.y&&b.y+b.height<=area.y+area.height);
+        const moved=sidebarBounds(area,{mode:'free',x:-99999,y:99999});assert.ok(moved.x>=area.x);assert.ok(moved.y+moved.height<=area.y+area.height);
     }
-    const negative={x:-1920,y:-100,width:1920,height:1080},pet={x:-1850,y:300,width:300,height:400};
-    const b=panelBounds(pet,negative,anchor);assert.equal(b.side,'right');assert.ok(b.x<0);assert.ok(b.y>=negative.y);
 });
-test('panel preserves its side near the center, remains readable at different pet scales and clamps tiny work areas',()=>{
-    const area={x:0,y:0,width:1920,height:1080},pet={x:800,y:500,width:725,height:975};
-    assert.equal(panelBounds(pet,area,{x:400,y:500,width:200,height:400},'left').side,'left');
-    const tiny=panelBounds({x:0,y:0,width:200,height:300},{x:0,y:0,width:240,height:200});
-    assert.ok(tiny.width<=224&&tiny.height<=184);assert.ok(tiny.x>=8&&tiny.y>=8);assert.ok(tiny.x+tiny.width<=232&&tiny.y+tiny.height<=192);
+test('drag release snaps either edge, keeps floating positions, and preserves the vertical position',()=>{
+    const area={x:-1440,y:40,width:1440,height:900};
+    assert.equal(droppedSidebar({x:-305,y:150,width:286,height:426},area).mode,'right');
+    assert.equal(droppedSidebar({x:-1420,y:150,width:286,height:426},area).mode,'left');
+    const free=droppedSidebar({x:-800,y:180,width:286,height:426},area);assert.equal(free.mode,'free');assert.equal(free.x,-800);assert.equal(free.y,180);
 });
 
 function manager(t,initialConfig){
     const root=fs.mkdtempSync(path.join(os.tmpdir(),'pet-panel-manager-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
     if(initialConfig)fs.writeFileSync(path.join(root,'desktop-pet-config.json'),JSON.stringify({scaleVersion:2,...initialConfig}));
-    const windows=[],listeners={},handles={},language=new EventEmitter();let calls=0;
+    const windows=[],listeners={},handles={},menus=[],cursor={x:0,y:0},language=new EventEmitter();let calls=0;
     const quotas={codex:{status:'live',groups:[{id:'codex',windows:[{id:'5h',remainingPercent:80}]}]}};
     class Window extends EventEmitter{
         constructor(options){super();this.options=options;this.bounds={x:options.x||0,y:options.y||0,width:options.width,height:options.height};this.visible=false;this.destroyed=false;
@@ -50,7 +47,7 @@ function manager(t,initialConfig){
         module:mod,exports:mod.exports,__dirname:path.join(__dirname,'../desktop-pet'),process,console:{log(){},warn(){}},
         setTimeout,clearTimeout,setInterval:()=>1,clearInterval(){},AbortController,
         require(name){
-            if(name==='electron')return{app:{getPath:()=>root},BrowserWindow:Window,screen:{getDisplayMatching:()=>layout,getPrimaryDisplay:()=>layout},ipcMain:{on:(n,f)=>listeners[n]=f,handle:(n,f)=>handles[n]=f}};
+            if(name==='electron')return{app:{getPath:()=>root},BrowserWindow:Window,Menu:{buildFromTemplate:items=>({popup:()=>menus.push(items)})},screen:{getDisplayMatching:()=>layout,getPrimaryDisplay:()=>layout,getCursorScreenPoint:()=>({...cursor})},ipcMain:{on:(n,f)=>listeners[n]=f,handle:(n,f)=>handles[n]=f}};
             if(name.endsWith('desktop-language'))return{events:language,getLanguage:()=> 'zh-CN'};
             if(name.endsWith('quota-detector'))return{detectAllQuotas:async()=>{calls++;return quotas;}};
             if(name.endsWith('pet-keyboard-hook'))return{startKeyboardHook(){},stopKeyboardHook(){}};
@@ -58,25 +55,29 @@ function manager(t,initialConfig){
         }
     });
     mod.exports.initDesktopPet();t.after(()=>mod.exports.cleanupDesktopPet());
-    return{api:mod.exports,windows,listeners,handles,language,quotas,root,calls:()=>calls};
+    return{api:mod.exports,windows,listeners,handles,menus,cursor,layout,language,quotas,root,calls:()=>calls};
 }
-test('default panel waits until ready, stays click-through, follows movement and hides/destroys with its pet',async t=>{
+test('default sidebar is independent, stays at its own location and hides without changing the pet',async t=>{
     const f=manager(t),pet=f.windows[0];pet.ready();
     const panel=f.windows.find(w=>w.file?.endsWith('quota-panel.html'));assert.ok(panel);
-    assert.equal(panel.options.focusable,false);assert.equal(panel.ignoresMouse,true);assert.equal(panel.visible,false);
+    assert.equal(panel.options.focusable,false);assert.equal(panel.ignoresMouse,false);assert.equal(panel.visible,false);
     f.listeners['pet-quota-panel-ready']({sender:{}});assert.equal(panel.visible,false);
     await new Promise(r=>setImmediate(r));
     panel.ready();f.listeners['pet-quota-panel-ready']({sender:panel.webContents});assert.equal(panel.visible,true);assert.equal(panel.inactive,true);
     assert.equal(panel.webContents.sent.some(m=>m.name==='pet-quota-update'&&m.data===f.quotas),true);
-    const x=panel.bounds.x;pet.setPosition(50,300);assert.notEqual(panel.bounds.x,x);
-    const before=panel.getBounds();f.listeners['pet-quota-anchor']({sender:{}},{x:0,y:0,width:100,height:100});assert.deepEqual(panel.getBounds(),before);
-    f.api.hidePetForNow();assert.equal(panel.visible,false);f.api.showPetForNow();assert.equal(panel.visible,true);
+    const before=panel.getBounds();pet.setPosition(50,300);assert.deepEqual(panel.getBounds(),before);
+    f.api.hidePetForNow();assert.equal(panel.visible,true);f.api.showPetForNow();assert.equal(panel.visible,true);
+    f.listeners['pet-quota-panel-hide']({sender:{}});assert.equal(panel.visible,true);
+    f.listeners['pet-quota-panel-hide']({sender:panel.webContents});assert.equal(panel.visible,false);assert.equal(pet.visible,true);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(f.root,'desktop-pet-config.json'),'utf8')).quotaPanelOn,false);
+    f.listeners['pet-config-changed']({sender:pet.webContents},{quotaStandalone:true,quotaPanelOn:false,eyeGazeOn:true});assert.equal(panel.visible,false,'a full settings sync does not undo an explicit hide');
+    f.api.setQuotaPanelEnabled(true);assert.equal(panel.visible,true);
     f.language.emit('change','en-US');assert.equal(panel.webContents.sent.at(-1).data,'en-US');
-    f.api.setPetEnabled(false);assert.equal(panel.destroyed,true);
+    f.api.setPetEnabled(false);assert.equal(panel.destroyed,false);assert.equal(panel.visible,true);
 });
 
 test('standalone HUD survives hiding and disabling the pet, persists and can open trends without a pet',async t=>{
-    const f=manager(t),pet=f.windows[0];pet.ready();const panel=f.windows[1];panel.ready();
+    const f=manager(t,{quotaStandalone:false}),pet=f.windows[0];pet.ready();const panel=f.windows[1];panel.ready();
     f.listeners['pet-quota-panel-ready']({sender:panel.webContents});
     f.listeners['pet-config-changed']({sender:panel.webContents},{quotaStandalone:true});assert.equal(f.api.isQuotaStandalone(),false);
     f.api.setQuotaStandalone(true);f.api.hidePetForNow();assert.equal(panel.visible,true);
@@ -107,11 +108,11 @@ test('panel preferences persist, reject foreign senders and do not expose story 
     assert.equal(panel.webContents.sent.some(m=>m.name==='pet-quota-panel-config'&&m.data.group==='third-party'),true);
     const config=JSON.parse(fs.readFileSync(path.join(f.root,'desktop-pet-config.json'),'utf8'));assert.equal(config.quotaPanelOn,true);assert.equal(config.quotaPanelGroup,'third-party');
 });
-test('quota clicks open only a validated trends window, mouse hit regions stay scoped, and disabling closes trends',async t=>{
-    const f=manager(t),pet=f.windows[0];pet.ready();const panel=f.windows[1];
-    f.listeners['pet-quota-panel-hit']({sender:{}},true);assert.equal(panel.ignoresMouse,true);
+test('quota clicks open only a validated trends window and disabling an opted-in pet closes trends',async t=>{
+    const f=manager(t,{quotaStandalone:false}),pet=f.windows[0];pet.ready();const panel=f.windows[1];
+    f.listeners['pet-quota-panel-hit']({sender:{}},true);assert.equal(panel.ignoresMouse,false);
     f.listeners['pet-quota-panel-hit']({sender:panel.webContents},true);assert.equal(panel.ignoresMouse,false);
-    f.listeners['pet-quota-panel-hit']({sender:panel.webContents},false);assert.equal(panel.ignoresMouse,true);
+    f.listeners['pet-quota-panel-hit']({sender:panel.webContents},false);assert.equal(panel.ignoresMouse,false);
     const selection={provider:'codex',groupId:'codex',windowId:'5h'};
     f.listeners['pet-open-quota-trends']({sender:{}},selection);assert.equal(f.windows.length,2);
     f.listeners['pet-open-quota-trends']({sender:panel.webContents},{...selection,provider:'unknown'});assert.equal(f.windows.length,2);
@@ -126,4 +127,27 @@ test('quota clicks open only a validated trends window, mouse hit regions stay s
     assert.equal(trends.webContents.sent.at(-1).data.windowId,'weekly');
     f.api.hidePetForNow();assert.equal(trends.visible,false);
     f.api.setPetEnabled(false);assert.equal(trends.destroyed,true);
+});
+
+test('drag IPC uses native cursor coordinates, persists placement and rejects other windows',t=>{
+    const f=manager(t),pet=f.windows[0];pet.ready();const panel=f.windows[1];f.listeners['pet-quota-panel-ready']({sender:panel.webContents});
+    const before=panel.getBounds(),event={sender:panel.webContents};
+    f.listeners['pet-quota-panel-drag']({sender:pet.webContents},'start');f.cursor.x=500;f.listeners['pet-quota-panel-drag'](event,'move');assert.deepEqual(panel.getBounds(),before);
+    f.listeners['pet-quota-panel-drag'](event,'start');f.cursor.x=100;f.cursor.y=20;f.listeners['pet-quota-panel-drag'](event,'move');
+    assert.equal(panel.bounds.x,before.x-400);pet.setPosition(0,0);assert.equal(panel.bounds.x,before.x-400,'pet ticks cannot reset a drag');
+    f.listeners['pet-quota-panel-drag'](event,'end');const saved=JSON.parse(fs.readFileSync(path.join(f.root,'desktop-pet-config.json'),'utf8')).quotaPanelPlacement;
+    assert.equal(saved.mode,'free');assert.equal(saved.x,before.x-400);
+    const restored=manager(t,{quotaPanelPlacement:saved});assert.equal(restored.windows[1].bounds.x,saved.x);assert.equal(restored.windows[1].bounds.y,saved.y);
+    pet.setPosition(100,100);assert.equal(panel.bounds.x,saved.x);
+    f.listeners['pet-quota-panel-dock']({sender:{}});assert.equal(panel.bounds.x,saved.x);
+    f.listeners['pet-quota-panel-dock']({sender:pet.webContents});assert.equal(panel.bounds.x+panel.bounds.width,1428);
+});
+test('sidebar right-click menu can hide only the sidebar and docking restores remain on screen',t=>{
+    const f=manager(t,{quotaPanelPlacement:{mode:'free',x:99999,y:99999}}),pet=f.windows[0];pet.ready();const panel=f.windows[1];f.listeners['pet-quota-panel-ready']({sender:panel.webContents});
+    assert.ok(panel.bounds.x+panel.bounds.width<=1440&&panel.bounds.y+panel.bounds.height<=900);
+    f.listeners['pet-quota-panel-menu']({sender:{}});assert.equal(f.menus.length,0);
+    panel.webContents.emit('context-menu');assert.equal(f.menus.length,1);
+    f.menus[0].find(item=>item.label==='停靠屏幕左侧').click();assert.equal(panel.bounds.x,12);
+    f.menus[0].find(item=>item.label==='隐藏额度侧栏').click();assert.equal(panel.visible,false);assert.equal(pet.visible,true);
+    f.api.setQuotaPanelEnabled(true);assert.equal(panel.visible,true);assert.equal(panel.bounds.x,12);
 });

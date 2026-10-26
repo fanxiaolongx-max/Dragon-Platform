@@ -359,6 +359,37 @@ async function setSessionArchived(sessionId, archived = true, { owner } = {}) {
     return getSession(sessionId);
 }
 
+async function deleteSession(sessionId, { owner } = {}) {
+    await ensureReady();
+    if (!owner) throw forbiddenSession();
+    if (!await assertSessionOwner(sessionId, owner)) return false;
+    // Triggers keep the session and its private transcript deletion atomic on
+    // this tenant's connection, without an interleavable BEGIN/COMMIT block.
+    await run(`CREATE TRIGGER IF NOT EXISTS ai_chat_delete_messages AFTER DELETE ON ai_chat_sessions
+        BEGIN DELETE FROM ai_chat_messages WHERE session_id=OLD.id; END`);
+    const tables = new Set((await all("SELECT name FROM sqlite_master WHERE type='table' AND name IN ('desktop_agent_discussion_runs','desktop_agent_discussions')")).map(row => row.name));
+    if (tables.has('desktop_agent_discussion_runs')) {
+        await run(`CREATE TRIGGER IF NOT EXISTS ai_chat_delete_discussion_runs BEFORE DELETE ON ai_chat_sessions BEGIN
+            SELECT RAISE(ABORT,'AI_CHAT_BUSY') WHERE EXISTS(SELECT 1 FROM desktop_agent_discussion_runs WHERE session_id=OLD.id AND status IN ('queued','running'));
+            DELETE FROM desktop_agent_discussion_runs WHERE session_id=OLD.id;
+        END`);
+    }
+    if (tables.has('desktop_agent_discussions')) {
+        await run(`CREATE TRIGGER IF NOT EXISTS ai_chat_delete_discussion_settings AFTER DELETE ON ai_chat_sessions
+            BEGIN DELETE FROM desktop_agent_discussions WHERE session_id=OLD.id; END`);
+    }
+    if (await get("SELECT 1 FROM sqlite_master WHERE type='table' AND name='conversation_list_preferences'")) {
+        await run(`CREATE TRIGGER IF NOT EXISTS ai_chat_delete_list_preference AFTER DELETE ON ai_chat_sessions
+            BEGIN DELETE FROM conversation_list_preferences WHERE source='mine' AND item_id=OLD.id AND owner=OLD.owner; END`);
+    }
+    try {
+        return (await run('DELETE FROM ai_chat_sessions WHERE id=? AND owner=?', [sessionId, owner])).changes > 0;
+    } catch (error) {
+        if (error.message.includes('AI_CHAT_BUSY')) throw Object.assign(new Error('讨论正在进行，请先停止或等待结束再删除'), { code: 'AI_CHAT_BUSY', statusCode: 409 });
+        throw error;
+    }
+}
+
 async function listSuggestions({ pagePath, limit = 8, owner } = {}) {
     await ensureReady();
     const normalizedPath = normalizePagePath(pagePath);
@@ -621,6 +652,7 @@ module.exports = {
     listMessages,
     getSession,
     setSessionArchived,
+    deleteSession,
     autoArchiveSessions,
     getMessagesForCompression,
     updateSessionSummary,

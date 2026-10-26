@@ -5,7 +5,22 @@
     <meta name="google-site-verification" content="Bkzm4lbFEHnJEXGJ3bIb5QLbY1uR1ecQa7JLa8vM0cw" />
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录 - 图特工具平台</title>
+    <title>登录 - Dragon 工具平台</title>
+    <script>
+        (function () {
+            try {
+                var lang = localStorage.getItem('tools_lang') || 'zh-CN';
+                var isEn = lang === 'en-US';
+                var ident = null;
+                try { ident = JSON.parse(localStorage.getItem('tools_platform_identity') || 'null'); } catch (_) {}
+                var rawName = (isEn ? ident?.platformNameEn : (ident?.platformNameZh || ident?.platformName))
+                    || localStorage.getItem('tools_platform_name');
+                if (rawName === '图特工具平台' || rawName === 'Thoth Platform') rawName = '';
+                var name = rawName || (isEn ? 'Dragon Platform' : 'Dragon 工具平台');
+                document.title = (isEn ? 'Sign In - ' : '登录 - ') + name;
+            } catch (_) {}
+        })();
+    </script>
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261006">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png?v=20261006">
     <link rel="apple-touch-icon" href="/assets/icon-mac.png?v=20261006">
@@ -1299,7 +1314,7 @@
         // --- 多语言国际化 (i18n) ---
         const LOGIN_I18N = {
             'zh-CN': {
-                'login.pageTitle': '登录 - 图特工具平台',
+                'login.pageTitle': '登录 - Dragon 工具平台',
                 'login.subtitle': '默认账号：admin / admin123',
                 'login.usernameLabel': '用户名',
                 'login.usernamePlaceholder': '请输入账号',
@@ -1363,9 +1378,17 @@
             const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
             const defaultPrefix = lang === 'en-US' ? 'Sign In' : '登录';
             const rawTitle = window.ToolsI18n?.t('login.pageTitle') || `${defaultPrefix} - Tools Platform`;
-            document.title = rawTitle.includes('Tools Platform')
-                ? rawTitle.split('Tools Platform').join(currentPlatformName)
-                : `${defaultPrefix} - ${currentPlatformName}`;
+            if (rawTitle.includes('Tools Platform')) {
+                document.title = rawTitle.split('Tools Platform').join(currentPlatformName);
+            } else if (rawTitle.includes('图特工具平台')) {
+                document.title = rawTitle.split('图特工具平台').join(currentPlatformName);
+            } else if (rawTitle.includes('Dragon 工具平台')) {
+                document.title = rawTitle.split('Dragon 工具平台').join(currentPlatformName);
+            } else if (rawTitle.includes('Dragon Platform')) {
+                document.title = rawTitle.split('Dragon Platform').join(currentPlatformName);
+            } else {
+                document.title = `${defaultPrefix} - ${currentPlatformName}`;
+            }
         }
 
         function renderLoginIdentityUI() {
@@ -1443,7 +1466,8 @@
         function applyLoginPlatformIdentity(data) {
             if (!data) return;
             if (typeof data === 'string') {
-                const cleaned = data.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80);
+                let cleaned = data.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80);
+                if (cleaned === '图特工具平台' || cleaned === 'Thoth Platform') cleaned = 'Dragon 工具平台';
                 if (cleaned) {
                     currentPlatformIdentity.platformName = cleaned;
                     const hasChinese = /[^\x00-\x7F]/.test(cleaned);
@@ -1475,7 +1499,7 @@
                 if (data.platformSubtitleEn) currentPlatformIdentity.platformSubtitleEn = String(data.platformSubtitleEn).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 120);
                 if (data.platformSlogan) currentPlatformIdentity.platformSlogan = String(data.platformSlogan).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 200);
                 if (data.platformSloganEn) currentPlatformIdentity.platformSloganEn = String(data.platformSloganEn).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 200);
-                currentPlatformName = currentPlatformIdentity.platformNameZh || currentPlatformIdentity.platformName || '图特工具平台';
+                currentPlatformName = currentPlatformIdentity.platformNameZh || currentPlatformIdentity.platformName || 'Dragon 工具平台';
             }
             renderLoginIdentityUI();
         }
@@ -1492,7 +1516,7 @@
                     if (parsed) applyLoginPlatformIdentity(parsed);
                 } else {
                     const cachedName = localStorage.getItem('tools_platform_name');
-                    if (cachedName) applyLoginPlatformName(cachedName);
+                    if (cachedName && cachedName !== '图特工具平台') applyLoginPlatformName(cachedName);
                     const tenant = localStorage.getItem('tools_tenant_id') || 'default';
                     const navCache = JSON.parse(localStorage.getItem(`tools_nav_cache:${tenant}`) || 'null');
                     if (navCache?.settings) {

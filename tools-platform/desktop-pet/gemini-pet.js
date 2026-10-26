@@ -394,7 +394,8 @@
     var row3 = menuRow(); row3.appendChild(menuLabel(petT('音量'))); row3.appendChild(volInput); row3.appendChild(volPct);
     var row4 = menuRow(); row4.appendChild(menuLabel(petT('配额'))); row4.appendChild(quotaViewSelect);
     var sourceRow = menuRow(); sourceRow.appendChild(menuLabel(petT('额度来源'))); sourceRow.appendChild(quotaSourceSelect);
-    var panelRow = menuRow(); panelRow.appendChild(menuLabel(petT('常驻额度面板'))); panelRow.appendChild(quotaPanelToggle);
+    var panelRow = menuRow(); panelRow.appendChild(menuLabel(petT('显示额度侧栏'))); panelRow.appendChild(quotaPanelToggle);
+    var panelDockRow = menuRow(), panelDockButton = document.createElement('button'); panelDockButton.type='button'; panelDockButton.textContent=petT('额度靠右停靠'); panelDockButton.addEventListener('click',function(){if(ipcRenderer)ipcRenderer.send('pet-quota-panel-dock');}); panelDockRow.appendChild(panelDockButton);
     var panelGroupRow = menuRow(); panelGroupRow.appendChild(menuLabel(petT('反重力额度组'))); panelGroupRow.appendChild(quotaPanelGroupSelect);
     var rowWork = menuRow(); rowWork.appendChild(menuLabel(petT('状态'))); rowWork.appendChild(workStateSelect);
     var rowSync = menuRow(); rowSync.appendChild(menuLabel(petT('跟随反重力'))); rowSync.appendChild(antigravitySyncSelect);
@@ -430,6 +431,7 @@
     menuBox.appendChild(row4);
     menuBox.appendChild(sourceRow);
     menuBox.appendChild(panelRow);
+    menuBox.appendChild(panelDockRow);
     menuBox.appendChild(panelGroupRow);
     menuBox.appendChild(rowWork);
     menuBox.appendChild(rowSync);

@@ -81,7 +81,7 @@ test('ask mode blocks on approval, allow executes, and "always" skips later prom
     assert.equal(result.context.source, 'provider');
     assert.match(client.calls[0].systemInstruction, /根目录：/);
     assert.match(client.calls[0].systemInstruction, /README\.md/);
-    assert.equal(client.calls[0].tools.length, 13);
+    assert.equal(client.calls[0].tools.length, 16);
     assert.equal(client.calls[1].messages.at(-1).role, 'tool');
     assert.equal(session.transcript.length > 0, true);
     session.changeLog.revert('README.md');
@@ -143,11 +143,52 @@ test('step cap, busy session and permission helpers', async () => {
     assert.equal(manager.classifyDecision(session, 'edit_file'), 'allow', 'auto mode writes freely');
     assert.equal(manager.classifyDecision(session, 'run_command'), 'ask');
     assert.equal(manager.classifyDecision(session, 'delete_path'), 'ask');
+    assert.equal(manager.classifyDecision(session, 'insert_database_row'), 'allow');
+    assert.equal(manager.classifyDecision(session, 'update_database_rows'), 'allow');
+    assert.equal(manager.classifyDecision(session, 'delete_database_rows'), 'ask');
     assert.equal(manager.classifyDecision(session, 'unknown_tool'), 'deny');
     assert.throws(() => manager.ensureSession({ agentSessionId: 'short', user, tenantId: 'default', root }), /无效/);
     assert.throws(() => manager.ensureSession({ agentSessionId: session.id, user: { username: 'other' }, tenantId: 'default', root }), /无权/);
     assert.equal(manager.getSession(session.id, user, 'default'), session);
     assert.equal(manager.getSession('missing-session-id', user, 'default'), null);
+});
+
+test('database edits run through real approvals and full access commits CRUD without prompts', async () => {
+    const sqlite3 = require('../backend/node_modules/sqlite3');
+    const file = path.join(root, 'agent-edits.db');
+    const db = await new Promise((resolve, reject) => {
+        const connection = new sqlite3.Database(file, error => error ? reject(error) : resolve(connection));
+    });
+    await new Promise((resolve, reject) => db.run('CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT)', error => error ? reject(error) : resolve()));
+    await new Promise(resolve => db.close(resolve));
+    const target = { database: 'local:agent-edits.db', table: 'items' };
+    const service = require('../backend/models/agent-database-service');
+    const read = () => service.readTable({ root: fs.realpathSync(root) }, target);
+    const askSession = manager.ensureSession({ agentSessionId: newSessionId(), user, tenantId: 'default', root, permissionMode: 'ask' });
+    const askEvents = collector();
+    const askClient = scriptedClient([
+        { toolCalls: [{ id: 'insert', name: 'insert_database_row', args: { ...target, values: '{"id":1,"title":"first"}' } }] }, { text: 'saved' }
+    ]);
+    const turn = manager.runAgentTurn({ session: askSession, client: askClient, systemInstruction: 'S', historyMessages: [{ role: 'user', content: 'insert' }], write: askEvents.write });
+    const approval = await waitFor(() => askEvents.events.find(event => event.type === 'approval'));
+    assert.equal(JSON.parse(approval.preview.diff).matchedRows, 1);
+    assert.equal((await read()).rows.length, 0);
+    manager.resolveApproval(approval.id, 'allow', user, 'default');
+    assert.equal((await turn).denied, 0);
+    assert.equal((await read()).rows[0].title, 'first');
+    const fullSession = manager.ensureSession({ agentSessionId: newSessionId(), user, tenantId: 'default', root, permissionMode: 'full' });
+    const fullEvents = collector();
+    const fullClient = scriptedClient([
+        { toolCalls: [{ id: 'update', name: 'update_database_rows', args: { ...target, values: '{"title":"second"}', filters: [{ column: 'id', op: 'eq', value: '1' }] } }] },
+        { toolCalls: [{ id: 'delete', name: 'delete_database_rows', args: { ...target, filters: [{ column: 'title', op: 'eq', value: 'second' }] } }] },
+        { text: 'done' }
+    ]);
+    const result = await manager.runAgentTurn({ session: fullSession, client: fullClient, systemInstruction: 'S', historyMessages: [{ role: 'user', content: 'update then delete' }], write: fullEvents.write });
+    assert.equal(fullEvents.events.some(event => event.type === 'approval'), false);
+    assert.equal(result.toolLog.every(item => item.ok), true);
+    assert.equal((await read()).rows.length, 0);
+    assert.match(fullClient.calls[0].systemInstruction, /insert_database_row/);
+    assert.equal(fullSession.changeLog.summary().length, 0, 'database commits are not advertised as reversible file edits');
 });
 
 test('tool transcript survives a restart of the run manager for the same agentSessionId', async () => {

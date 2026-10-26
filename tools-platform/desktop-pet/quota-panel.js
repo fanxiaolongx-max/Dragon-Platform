@@ -8,8 +8,10 @@
         const text=english?{title:'ACCOUNT QUOTA',five:'5 hours',week:'Weekly',desktop:'Desktop',gemini:'Gemini',third:'Claude / GPT',live:'Live',cached:'Cached'}:
             {title:'账户剩余额度',five:'5 小时',week:'每周',desktop:'桌面订阅',gemini:'Gemini',third:'Claude / GPT',live:'实时',cached:'缓存'};
         document.getElementById('panelTitle').textContent=text.title;
-        document.getElementById('columnFive').textContent=text.five;
-        document.getElementById('columnWeek').textContent=text.week;
+        document.getElementById('panelHint').textContent=english?'Drag header to move · Snap to an edge':'拖动标题移动 · 贴边停靠';
+        document.getElementById('panelDrag').title=english?'Drag to move; double-click to dock right':'拖动移动；双击标题靠右停靠';
+        document.getElementById('panelMenu').setAttribute('aria-label',english?'Quota sidebar menu':'额度侧栏菜单');
+        document.getElementById('panelHide').setAttribute('aria-label',english?'Hide quota sidebar':'隐藏额度侧栏');
         document.querySelector('section').setAttribute('aria-label',text.title);
         rows.replaceChildren();
         const entries=window.PetQuotaView.groups(quotas,english);
@@ -49,7 +51,9 @@
                 cell.addEventListener('click',()=>ipc.send('pet-open-quota-trends',{provider,groupId:available?entry.key.slice(provider.length+1):(provider==='antigravity'?group:provider),windowId:id}));
                 const number=document.createElement('div');number.className='quota-value';number.textContent=value==null?'—':String(Math.round(value));
                 if(value!=null){const unit=document.createElement('span');unit.className='quota-percent';unit.textContent='%';number.appendChild(unit);}
-                cell.append(number);row.appendChild(cell);
+                const caption=document.createElement('span');caption.className='quota-window-label';caption.textContent=label;
+                const track=document.createElement('span');track.className='quota-track';const fill=document.createElement('i');fill.style.width=value==null?'0%':Math.max(0,Math.min(100,value))+'%';track.append(fill);
+                cell.append(caption,number,track);row.appendChild(cell);
             }
             rows.appendChild(row);
         }
@@ -59,11 +63,18 @@
     ipc.on('pet-quota-update',(_event,data)=>{quotas=data;render();});
     ipc.on('pet-quota-panel-config',(_event,config)=>{group=config?.group==='third-party'?'third-party':'gemini';render();});
     window.addEventListener('pet:languagechange',render);
-    let hit=false;
-    document.addEventListener('mousemove',event=>{
-        const next=!!event.target.closest('.quota-cell');
-        if(next!==hit){hit=next;ipc.send('pet-quota-panel-hit',hit);}
+    const header=document.getElementById('panelDrag');
+    let dragging=null;
+    header.addEventListener('pointerdown',event=>{
+        if(event.button!==0||event.target.closest('button'))return;
+        dragging=event.pointerId;header.setPointerCapture(event.pointerId);
+        header.classList.add('is-dragging');ipc.send('pet-quota-panel-drag','start');
     });
-    document.addEventListener('mouseleave',()=>{hit=false;ipc.send('pet-quota-panel-hit',false);});
+    header.addEventListener('pointermove',event=>{if(dragging===event.pointerId)ipc.send('pet-quota-panel-drag','move');});
+    function finishDrag(event){if(dragging!==event.pointerId)return;dragging=null;header.classList.remove('is-dragging');ipc.send('pet-quota-panel-drag','end');}
+    header.addEventListener('pointerup',finishDrag);header.addEventListener('pointercancel',finishDrag);header.addEventListener('lostpointercapture',finishDrag);
+    header.addEventListener('dblclick',event=>{if(!event.target.closest('button'))ipc.send('pet-quota-panel-dock');});
+    document.getElementById('panelHide').addEventListener('click',()=>ipc.send('pet-quota-panel-hide'));
+    document.getElementById('panelMenu').addEventListener('click',()=>ipc.send('pet-quota-panel-menu'));
     render();ipc.send('pet-quota-panel-ready');
 })();

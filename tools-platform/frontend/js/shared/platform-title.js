@@ -14,8 +14,11 @@
             }
         } catch (_) { /* 存储不可用或缓存损坏时先显示页面名称。 */ }
         const clean = value => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80) : '';
-        const name = clean(language === 'en-US' ? identity?.platformNameEn : identity?.platformNameZh)
+        let name = clean(language === 'en-US' ? identity?.platformNameEn : identity?.platformNameZh)
             || clean(identity?.platformName) || clean(legacyName);
+        if (name === '图特工具平台' || name === 'Thoth Platform') {
+            name = language === 'en-US' ? 'Dragon Platform' : 'Dragon 工具平台';
+        }
         const pageName = (language === 'en-US' ? title.dataset.platformPageTitleEn : title.dataset.platformPageTitle)
             || title.dataset.platformPageTitle;
         const next = name ? `${name} - ${pageName}` : pageName;

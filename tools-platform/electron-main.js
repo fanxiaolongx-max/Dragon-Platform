@@ -1958,8 +1958,9 @@ function refreshTrayMenu() {
         { label: '打开数据导入', click: () => openAppPath('/sla') },
         { label: '打开报表看板', click: () => openAppPath('/report') },
         { type: 'separator' },
+        {label:petT('显示 Agent 额度侧栏','Show agent quota sidebar'),type:'checkbox',checked:petManager.isQuotaPanelEnabled(),click:item=>{petManager.setQuotaPanelEnabled(item.checked);refreshTrayMenu();}},
         {
-            label: petT('📊 独立显示 Agent 额度 HUD', '📊 Standalone agent quota HUD'),
+            label: petT('隐藏桌宠时保留额度侧栏', 'Keep quota sidebar when pet is hidden'),
             type: 'checkbox',
             checked: petManager.isQuotaStandalone(),
             click: item => { petManager.setQuotaStandalone(item.checked); refreshTrayMenu(); }

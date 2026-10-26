@@ -1,12 +1,15 @@
 // Localized desktop UI. Conversation messages and diagnostic payloads are never translated.
 (function () {
     const translations = {
+    "显示额度侧栏": "Show quota sidebar",
+    "额度靠右停靠": "Dock quotas to right",
     "常驻额度面板": "Always show quotas",
     "反重力额度组": "Antigravity group",
     "额度来源": "Quota source",
     "自动选择额度来源": "Auto-select quota source",
     "自然眼神与轻微动效": "Natural gaze and subtle eye motion",
     "随机眨眼与待机动作": "Random blinking and idle poses",
+    "隐藏桌宠时保留额度侧栏": "Keep quota sidebar when pet is hidden",
     "隐藏桌宠时保留额度 HUD": "Keep quota HUD when pet is hidden",
     "Dragon 主动讲故事": "Dragon's spontaneous stories",
     "故事间隔（分钟）": "Story interval (minutes)",

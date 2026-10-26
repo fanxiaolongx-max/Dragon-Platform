@@ -16,7 +16,7 @@ app.use((req, res, next) => { if (req.headers['x-user'])
     req.user = { username: req.headers['x-user'], role: req.headers['x-role'] || 'admin' }; runWithTenant(req.headers['x-tenant'] || 'default', next); });
 app.use('/api/desktop-agents', require('../backend/routes/desktop-agents'));
 function auth(verb, url, user = 'alice', tenant = 'default') { return request(httpServer)[verb]('/api/desktop-agents' + url).set('x-user', user).set('x-tenant', tenant); }
-let server, httpServer, posts = 0, busy = false;
+let server, httpServer, posts = 0, busy = false, steers = 0, startTask = false;
 function frame(x) { const data = Buffer.from(JSON.stringify(x)), h = Buffer.alloc(4); h.writeUInt32LE(data.length); return Buffer.concat([h, data]); }
 test.before(async () => {
     httpServer = await new Promise(resolve => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
@@ -59,7 +59,17 @@ test.before(async () => {
                     assert.equal(m.params.conversationId, ID);
                     const text = m.params.turnStart.request.input[0].text;
                     fs.appendFileSync(transcript, JSON.stringify({ type: 'response_item', timestamp: new Date().toISOString(), payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text }] } }) + '\n');
+                    if (startTask)
+                        fs.appendFileSync(transcript, JSON.stringify({ type: 'event_msg', timestamp: new Date().toISOString(), payload: { type: 'task_started' } }) + '\n');
                     response.result = { result: { turn: { id: 'native-turn' } } };
+                }
+                if (m.method === 'thread-follower-steer-turn') {
+                    steers++;
+                    assert.equal(m.version, 1);
+                    assert.equal(m.params.conversationId, ID);
+                    assert.equal(m.params.restoreMessage.id, m.params.clientUserMessageId);
+                    fs.appendFileSync(transcript, JSON.stringify({ type: 'response_item', timestamp: new Date().toISOString(), payload: { type: 'message', role: 'user', content: [{ type: 'input_text', text: m.params.input[0].text }] } }) + '\n');
+                    response.result = { result: { turnId: 'native-turn' } };
                 }
                 send(response);
             }
@@ -130,6 +140,139 @@ test('uncertain delivery is retained and a repeated request never silently resen
     }
     finally {
         ipc.send = original;
+    }
+});
+const until = async (check, ms = 9000) => { const end = Date.now() + ms; while (Date.now() < end) {
+    if (await check())
+        return;
+    await new Promise(r => setTimeout(r, 100));
+} throw Error('Timed out waiting for queue'); };
+const event = type => fs.appendFileSync(transcript, JSON.stringify({ type: 'event_msg', timestamp: new Date().toISOString(), payload: { type } }) + '\n');
+test('desktop wrappers are shown as the text the user typed and the running turn is detected', async () => {
+    assert.equal(catalog.userText('<send_user_message_question_reply>\n[{"questionItemId":"q","question":"Which?","answer":"Use one chat"}]\n</send_user_message_question_reply>'), 'Use one chat');
+    assert.equal(catalog.userText('# Files mentioned by the user:\n\n## a.png: /tmp/a.png\n\n## My request:\nWhy?\n\n<image name=[Image #1] path="/tmp/a.png">\n</image>'), 'Why?\n\n[图片 #1]');
+    assert.equal(catalog.userText('<wake reason="mention">\n<message from="human">/schedule a &amp; b</message>\n</wake>'), '/schedule a & b');
+    assert.equal(catalog.userText('<task-notification>x</task-notification>'), '');
+    assert.equal(catalog.userText('plain text \n'), 'plain text \n');
+    const [row] = await catalog.codex(20);
+    event('task_started');
+    assert.equal((await catalog.transcript(row)).busy, true);
+    event('task_complete');
+    assert.equal((await catalog.transcript(row)).busy, false);
+});
+test('a Claude turn stays running after end_turn until the stop hooks finish', async () => {
+    const native = '55555555-5555-4555-8555-555555555555', file = path.join(process.env.TOOLS_DESKTOP_AGENT_HOME, '.claude/projects/project', native + '.jsonl');
+    const row = { provider: 'claudecode', nativeId: native }, now = Date.now(), at = ms => new Date(now + ms).toISOString();
+    const write = events => fs.writeFileSync(file, events.map(e => JSON.stringify(e)).join('\n') + '\n');
+    const prompt = { type: 'user', timestamp: at(-5000), message: { role: 'user', content: 'Do it' } };
+    const answer = (ms) => ({ type: 'assistant', timestamp: at(ms), message: { role: 'assistant', stop_reason: 'end_turn', content: [{ type: 'text', text: 'Done' }] } });
+    try {
+        write([prompt, answer(-1000)]);
+        assert.equal((await catalog.transcript(row)).busy, true, 'hooks still running');
+        write([prompt, answer(-1000), { type: 'system', subtype: 'stop_hook_summary', timestamp: at(-500) }]);
+        assert.equal((await catalog.transcript(row)).busy, false);
+        write([{ ...prompt, timestamp: at(-120000) }, answer(-90000)]);
+        assert.equal((await catalog.transcript(row)).busy, false, 'sessions without hooks settle after a minute');
+    }
+    finally {
+        fs.rmSync(file, { force: true });
+    }
+});
+test('steer joins only a running Codex turn; other agents and idle turns are refused', async () => {
+    await auth('post', `/antigravity/sessions/33333333-3333-4333-8333-333333333333/messages`).send({ text: 'steer', requestId: 'a1111111-1111-4111-8111-111111111111', mode: 'steer' }).expect(400);
+    busy = true;
+    try {
+        await auth('post', `/codex/sessions/${ID}/messages`).send({ text: 'plain while busy', requestId: 'a2222222-2222-4222-8222-222222222222' }).expect(409);
+        const sent = (await auth('post', `/codex/sessions/${ID}/messages`).send({ text: 'Steer the running turn', requestId: 'a3333333-3333-4333-8333-333333333333', mode: 'steer' }).expect(202)).body;
+        assert.equal(sent.status, 'accepted');
+        assert.equal(steers, 1);
+    }
+    finally {
+        busy = false;
+    }
+    await auth('post', `/codex/sessions/${ID}/messages`).send({ text: 'steer idle', requestId: 'a4444444-4444-4444-8444-444444444444', mode: 'steer' }).expect(409);
+    assert.equal(steers, 1);
+});
+test('queued messages wait for the running turn, go out one at a time and can be cancelled', async () => {
+    const start = posts, path_ = `/codex/sessions/${ID}`;
+    event('task_started');
+    startTask = true;
+    try {
+        assert.equal((await auth('post', path_ + '/messages').send({ text: 'Queued first', requestId: 'b1111111-1111-4111-8111-111111111111', mode: 'queue' }).expect(202)).body.status, 'queued');
+        await auth('post', path_ + '/messages').send({ text: 'Queued second', requestId: 'b2222222-2222-4222-8222-222222222222', mode: 'queue' }).expect(202);
+        await auth('post', path_ + '/messages').send({ text: 'Queued third', requestId: 'b3333333-3333-4333-8333-333333333333', mode: 'queue' }).expect(202);
+        await auth('delete', path_ + '/queue/b3333333-3333-4333-8333-333333333333').expect(200);
+        assert.deepEqual((await auth('get', path_ + '/messages').expect(200)).body.queue.map(q => q.text), ['Queued first', 'Queued second']);
+        await new Promise(r => setTimeout(r, 2500));
+        assert.equal(posts, start, 'nothing is sent while the turn runs');
+        event('task_complete');
+        await until(() => posts === start + 1);
+        await new Promise(r => setTimeout(r, 2500));
+        assert.equal(posts, start + 1, 'the second waits for the turn the first one started');
+        event('task_complete');
+        await until(() => posts === start + 2);
+        const body = (await auth('get', path_ + '/messages').expect(200)).body;
+        assert.deepEqual(body.queue, []);
+        assert.deepEqual(body.items.filter(m => m.role === 'user').slice(-2).map(m => m.content), ['Queued first', 'Queued second']);
+    }
+    finally {
+        startTask = false;
+        event('task_complete');
+    }
+});
+test('Claude UI automation is opt-in, needs a transcript receipt and refuses same-titled sessions', async () => {
+    const claude = require('../backend/models/desktop-agents/claude-desktop'), original = { status: claude.status, send: claude.send };
+    const claudeFile = path.join(process.env.TOOLS_DESKTOP_AGENT_HOME, '.claude/projects/project', CID + '.jsonl');
+    const sentTo = [];
+    claude.status = async cfg => ({ canSend: Boolean(cfg.claudeAutomation), reason: cfg.claudeAutomation ? 'automation' : 'read-only' });
+    claude.send = async (row, text) => { sentTo.push(row.title); fs.appendFileSync(claudeFile, JSON.stringify({ uuid: 'c' + sentTo.length, type: 'user', timestamp: new Date().toISOString(), message: { role: 'user', content: text } }) + '\n'); };
+    try {
+        const url = `/claudecode/sessions/local_${CID}/messages`;
+        await auth('post', '/sync').expect(200);
+        await auth('post', url).send({ text: 'Before opt-in', requestId: 'c1111111-1111-4111-8111-111111111111' }).expect(409);
+        await auth('put', '/settings').send({ claudeAutomation: true }).expect(200);
+        assert.equal((await auth('get', url).expect(200)).body.canSend, true);
+        assert.equal((await auth('post', url).send({ text: 'Hello from the Web', requestId: 'c2222222-2222-4222-8222-222222222222' }).expect(202)).body.status, 'accepted');
+        assert.deepEqual(sentTo, ['Native Claude title']);
+        assert.equal((await auth('get', url).expect(200)).body.items.at(-1).content, 'Hello from the Web');
+        await auth('post', url).send({ text: 'Steer Claude', requestId: 'c3333333-3333-4333-8333-333333333333', mode: 'steer' }).expect(400);
+        const twin = path.join(process.env.TOOLS_DESKTOP_AGENT_HOME, 'Library/Application Support/Claude/claude-code-sessions/org/account/local_33333333-3333-4333-8333-333333333333.json');
+        fs.writeFileSync(twin, JSON.stringify({ sessionId: 'local_33333333-3333-4333-8333-333333333333', cliSessionId: '33333333-3333-4333-8333-333333333333', title: 'Native Claude title', lastActivityAt: 1792000000000 }));
+        try {
+            await auth('post', '/sync').expect(200);
+            assert.match((await auth('post', url).send({ text: 'Ambiguous', requestId: 'c4444444-4444-4444-8444-444444444444' }).expect(409)).body.error, /同名会话/);
+            assert.equal(sentTo.length, 1);
+        }
+        finally {
+            fs.rmSync(twin);
+            await auth('post', '/sync').expect(200);
+        }
+    }
+    finally {
+        Object.assign(claude, original);
+        await auth('put', '/settings').send({ claudeAutomation: false }).expect(200);
+    }
+});
+test('New chat creates a native session once and never retries an unconfirmed creation', async () => {
+    const mod = require('../backend/models/desktop-agents/new-conversation'), original = mod.createAndSend, calls = [];
+    mod.createAndSend = async (provider, text) => { calls.push([provider, text]); if (text === 'unsure') throw Object.assign(Error('未确认'), { code: 'DELIVERY_UNKNOWN' }); return { id: '66666666-6666-4666-8666-666666666666', status: 'accepted' }; };
+    try {
+        const body = { text: ' Start a new task ', requestId: 'd1111111-1111-4111-8111-111111111111' };
+        const created = (await auth('post', '/codex/new').send(body).expect(202)).body;
+        assert.equal(created.status, 'accepted');
+        assert.equal(created.id, '66666666-6666-4666-8666-666666666666');
+        assert.deepEqual(calls, [['codex', 'Start a new task']]);
+        await auth('post', '/codex/new').send(body).expect(202);
+        assert.equal(calls.length, 1, 'a repeated request is not created twice');
+        await auth('post', '/claudecode/new').send({ text: 'read-only', requestId: 'd2222222-2222-4222-8222-222222222222' }).expect(409);
+        await auth('post', '/codex/new').send({ text: 'password="nope-nope"', requestId: 'd3333333-3333-4333-8333-333333333333' }).expect(400);
+        const unsure = { text: 'unsure', requestId: 'd4444444-4444-4444-8444-444444444444' };
+        await auth('post', '/codex/new').send(unsure).expect(504);
+        assert.equal((await auth('post', '/codex/new').send(unsure).expect(202)).body.status, 'unknown');
+        assert.equal(calls.length, 2);
+    }
+    finally {
+        mod.createAndSend = original;
     }
 });
 test('disabling sends keeps history readable; disconnect releases the desktop and revokes old access', async () => {

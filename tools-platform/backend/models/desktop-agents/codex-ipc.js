@@ -13,43 +13,37 @@ class DesktopIPC extends EventEmitter {
     constructor(file = socketPath(), timeout = 8000) {
         super();
         this.timeout = timeout;
-        this.buffer = Buffer.alloc(0);
+        this.header = Buffer.alloc(4);
+        this.headerBytes = 0;
+        this.frame = null;
+        this.frameBytes = 0;
         this.pending = new Map();
         const stat = fs.statSync(file);
         if (!stat.isSocket() || process.getuid && stat.uid !== process.getuid())
             throw failure('DESKTOP_UNAVAILABLE', 'Codex 桌面连接不可用');
         this.socket = net.createConnection(file);
+        // Allocate each frame once. Repeated Buffer.concat makes large desktop
+        // histories quadratic and can time out before the first snapshot arrives.
         this.socket.on('data', data => {
-            this.buffer = Buffer.concat([this.buffer, data]);
-            while (this.buffer.length >= 4) {
-                const size = this.buffer.readUInt32LE(0);
-                if (size > 64 * 1024 * 1024) {
-                    this.close();
-                    return;
+            let offset=0;
+            while(offset<data.length){
+                if(!this.frame){
+                    const n=Math.min(4-this.headerBytes,data.length-offset);
+                    data.copy(this.header,this.headerBytes,offset,offset+n);this.headerBytes+=n;offset+=n;
+                    if(this.headerBytes<4)continue;
+                    const size=this.header.readUInt32LE(0);this.headerBytes=0;
+                    if(!size||size>256*1024*1024){this.close();return;}
+                    this.frame=Buffer.allocUnsafe(size);this.frameBytes=0;
                 }
-                if (this.buffer.length < size + 4)
-                    return;
-                let message;
-                try {
-                    message = JSON.parse(this.buffer.subarray(4, size + 4).toString());
-                }
-                catch {
-                    this.close();
-                    return;
-                }
-                this.buffer = this.buffer.subarray(size + 4);
-                if (message.type === 'client-discovery-request') {
-                    this.post({ type: 'client-discovery-response', requestId: message.requestId, response: { canHandle: false } });
-                    continue;
-                }
-                const pending = this.pending.get(message.requestId);
-                if (message.type === 'response' && pending) {
-                    clearTimeout(pending.timer);
-                    this.pending.delete(message.requestId);
-                    message.resultType === 'success' ? pending.resolve(message) : pending.reject(failure('DESKTOP_REJECTED', String(message.error || '桌面端拒绝请求')));
-                }
-                else
-                    this.emit('message', message);
+                const n=Math.min(this.frame.length-this.frameBytes,data.length-offset);
+                data.copy(this.frame,this.frameBytes,offset,offset+n);this.frameBytes+=n;offset+=n;
+                if(this.frameBytes<this.frame.length)continue;
+                const complete=this.frame;this.frame=null;this.frameBytes=0;
+                let message;try{message=JSON.parse(complete.toString());}catch{this.close();return;}
+                if(message.type==='client-discovery-request'){this.post({type:'client-discovery-response',requestId:message.requestId,response:{canHandle:false}});continue;}
+                const pending=this.pending.get(message.requestId);
+                if(message.type==='response'&&pending){clearTimeout(pending.timer);this.pending.delete(message.requestId);message.resultType==='success'?pending.resolve(message):pending.reject(failure('DESKTOP_REJECTED',String(message.error||'桌面端拒绝请求')));}
+                else this.emit('message',message);
             }
         });
         this.socket.on('error', () => this.rejectAll());
@@ -136,4 +130,16 @@ async function send(id, text, requestId) {
         return ipc.request('thread-follower-start-turn', 2, { conversationId: id, turnStart: { request: { threadId: id, input: [{ type: 'text', text, text_elements: [] }], clientUserMessageId: requestId }, context: { inheritThreadSettings: true } } }, owner);
     });
 }
-module.exports = { DesktopIPC, socketPath, read, send };
+// 引导：把消息并入正在运行的这一轮（与 Codex 桌面输入框运行中“引导”一致）；会话必须已在桌面打开且正在运行。
+async function steer(id, text, requestId, cwd) {
+    return connection(async (ipc) => {
+        const owner = await ipc.owner(id);
+        const state = await ipc.snapshot(id, owner);
+        ipc.follow(id, owner, false);
+        if (state.threadRuntimeStatus?.type !== 'active' && !(state.turns || []).some(t => ['inProgress', 'in_progress', 'running'].includes(t.status)))
+            throw failure('DESKTOP_IDLE', '这一轮已经结束，请直接发送');
+        const input = [{ type: 'text', text, text_elements: [] }];
+        return ipc.request('thread-follower-steer-turn', 1, { conversationId: id, clientUserMessageId: requestId, input, attachments: [], restoreMessage: { id: requestId, text, cwd: cwd || null, context: { workspaceRoots: cwd ? [cwd] : [], collaborationMode: null, commentAttachments: [] } } }, owner);
+    });
+}
+module.exports = { DesktopIPC, socketPath, read, send, steer };

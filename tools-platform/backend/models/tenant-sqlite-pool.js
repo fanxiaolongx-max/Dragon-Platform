@@ -37,6 +37,15 @@ function createDatabaseProxy(filename, scope = 'data') {
     });
 }
 
+// Transactions used by AI database edits must not share a connection with
+// unrelated requests. OPEN_READWRITE also prevents accidentally creating a DB.
+function openExistingConnection(filename, scope = 'data') {
+    return new Promise((resolve, reject) => {
+        const connection = new sqlite3.Database(databasePath(filename, scope), sqlite3.OPEN_READWRITE,
+            error => error ? reject(error) : resolve(connection));
+    });
+}
+
 async function closeAll() {
     const connections = [...pools.values()];
     pools.clear();
@@ -59,4 +68,4 @@ async function closeTenant(tenantId) {
     await closeConnections(matching.map(([, connection]) => connection));
 }
 
-module.exports = { closeAll, closeTenant, createDatabaseProxy, databasePath, getConnection };
+module.exports = { closeAll, closeTenant, createDatabaseProxy, databasePath, getConnection, openExistingConnection };

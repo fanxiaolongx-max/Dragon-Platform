@@ -1,0 +1,27 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const temp=fs.mkdtempSync(path.join(os.tmpdir(),'chat-delete-'));
+process.env.TOOLS_DATA_DIR=path.join(temp,'data');process.env.TOOLS_REPORT_DATA_DIR=path.join(temp,'reports');
+const chat=require('../backend/models/ai-chat-repository'),db=require('../backend/models/app-db'),platform=require('../backend/models/platform-db');
+const {runWithTenant}=require('../backend/models/tenant-context');
+test('chat deletion enforces ownership and tenant boundaries, removes messages and discussion state atomically',async t=>{
+ t.after(async()=>{await db.closeDatabase();await platform.closeDatabase();fs.rmSync(temp,{recursive:true,force:true})});
+ const id=await chat.addMessage({owner:'alice',pagePath:'/',role:'user',content:'private question'});
+ await chat.addMessage({owner:'alice',sessionId:id,role:'model',content:'private answer'});
+ await assert.rejects(chat.deleteSession(id,{owner:'bob'}),e=>e.code==='AI_SESSION_FORBIDDEN');
+ await assert.rejects(chat.deleteSession(id),e=>e.code==='AI_SESSION_FORBIDDEN');
+ assert.equal((await chat.listMessages(id,{owner:'alice'})).length,2);
+ await runWithTenant('delete-test',async()=>{await chat.ensureReady();await db.run('INSERT INTO ai_chat_sessions(id,owner) VALUES(?,?)',[id,'alice']);await chat.addMessage({owner:'alice',sessionId:id,role:'user',content:'other tenant'});});
+ await db.run('CREATE TABLE desktop_agent_discussions(session_id TEXT PRIMARY KEY,owner TEXT,settings TEXT)');
+ await db.run('CREATE TABLE desktop_agent_discussion_runs(id TEXT PRIMARY KEY,session_id TEXT,owner TEXT,status TEXT,payload TEXT)');
+ await db.run('INSERT INTO desktop_agent_discussions VALUES(?,?,?)',[id,'alice','{}']);
+ await db.run('INSERT INTO desktop_agent_discussion_runs VALUES(?,?,?,?,?)',['job',id,'alice','running','{}']);
+ await assert.rejects(chat.deleteSession(id,{owner:'alice'}),e=>e.statusCode===409);
+ assert.equal((await chat.listMessages(id,{owner:'alice'})).length,2,'busy rejection does not partially delete history');
+ assert.ok(await db.get('SELECT * FROM desktop_agent_discussions WHERE session_id=?',[id]));
+ await db.run("UPDATE desktop_agent_discussion_runs SET status='done'");
+ assert.equal(await chat.deleteSession(id,{owner:'alice'}),true);
+ assert.equal(await chat.getSession(id),undefined);
+ for(const table of ['ai_chat_messages','desktop_agent_discussions','desktop_agent_discussion_runs'])assert.equal((await db.get(`SELECT count(*) AS n FROM ${table} WHERE session_id=?`,[id])).n,0);
+ assert.equal(await chat.deleteSession(id,{owner:'alice'}),false);
+ await runWithTenant('delete-test',async()=>assert.equal((await chat.listMessages(id,{owner:'alice'}))[0].content,'other tenant'));
+});

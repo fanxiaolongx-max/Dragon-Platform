@@ -29,32 +29,83 @@
             return;
         }
         const cfg = config.settings;
-        content.innerHTML = `<section class="desktop-agent-settings"><p>${esc(L('连接的是运行平台服务这台电脑上的桌面 Agent。会话仅对当前绑定的平台账号和租户可见；网页会同步最近会话，发送消息回到选中的原生会话。', 'Connect to the desktop agents on the computer running this platform service. Conversations are private to the bound account and tenant. Web replies continue the selected native session.'))}</p>
-        <form class="desktop-agent-setting-fields">
-        <label><span>${L('启用本机桌面对话连接', 'Connect this desktop')}</span><input type="checkbox" name="enabled" ${cfg.enabled ? 'checked' : ''}></label>
-        <label><span>${L('自动同步最近对话', 'Automatically sync recent chats')}</span><input type="checkbox" name="autoSync" ${cfg.autoSync ? 'checked' : ''}></label>
-        <label><span>${L('允许从 Web 向原会话发送消息', 'Allow Web replies to native sessions')}</span><input type="checkbox" name="allowSend" ${cfg.allowSend ? 'checked' : ''}></label>
-        ${Object.entries(names).map(([id, name]) => `<label><span>${name}</span><input type="checkbox" name="${id}" ${cfg.providers[id] ? 'checked' : ''}></label>`).join('')}
-        <label><span>${L('最近对话数量（每家）', 'Recent chats per agent')}</span><input type="number" name="recentLimit" min="10" max="200" value="${cfg.recentLimit}"></label>
-        <label><span>${L('同步间隔（秒）', 'Sync interval (seconds)')}</span><input type="number" name="syncSeconds" min="10" max="300" value="${cfg.syncSeconds}"></label>
-        <div class="desktop-agent-setting-actions"><button type="submit">${L('保存连接设置', 'Save connection settings')}</button><button type="button" data-desktop-inspect ${cfg.enabled ? '' : 'disabled'}>${L('检测并同步', 'Check & sync')}</button></div></form>
-        <div class="desktop-agent-setting-result" role="status"></div>
-        <p>${esc(L('Codex 使用原生桌面 IPC；Antigravity 使用桌面连接；Claude Code 当前支持读取本机历史，发送连接尚未接通。不会自动改用 CLI 或平台模型代答。桌面客户端关闭、权限缺失或会话运行中时，会明确提示。', 'Codex uses native desktop IPC, Antigravity its desktop connection, and Claude Code currently supports local history only; sending is not connected. No automatic CLI or platform-model fallback. Closed clients, missing permissions and busy sessions are reported.'))}</p>
-        <p>${esc(L('DragonTAC 的网页升级与桌面对话是两个入口。当前升级原型的执行通道仍以任务中显示的实际能力为准；此设置不会把未接通的桌面能力标记为可用。', 'DragonTAC escalation and desktop conversations are separate entry points. Each escalation task continues to report its actual execution channel; these settings do not imply unavailable desktop capabilities are connected.'))}</p></section>`;
+        const toggle = (name, title, hint, on) => `<label class="da-row"><span><b>${title}</b>${hint ? `<small>${hint}</small>` : ''}</span><input type="checkbox" class="da-switch" name="${name}" ${on ? 'checked' : ''}></label>`;
+        const notes = { codex: L('原生桌面 IPC · 可发送、可读取运行状态', 'Native desktop IPC · send and live status'), claudecode: L('读取本机历史 · 可选模拟操作发送', 'Local history · optional UI automation sending'), antigravity: L('桌面页面连接 · 打开记录会切换桌面会话', 'Desktop page connection · opening a chat switches the desktop view') };
+        content.innerHTML = `<section class="desktop-agent-settings">
+            <form class="desktop-agent-setting-fields">
+                <div class="da-overview">
+                    <div class="da-card"><h4>${L('连接与发送', 'Connection & replies')}</h4>
+                        ${toggle('enabled', L('连接本机桌面 Agent', 'Connect local desktop agents'), L('仅当前账号和租户可见', 'Visible only to this account and tenant'), cfg.enabled)}
+                        ${toggle('allowSend', L('允许网页发送消息', 'Allow replies from the Web'), L('关闭后仍可查看会话', 'Turn off for read-only conversations'), cfg.allowSend)}
+                    </div>
+                    <div class="da-card"><h4>${L('最近对话列表', 'Recent conversation list')}</h4>
+                        ${toggle('autoSync', L('自动刷新列表', 'Automatically refresh the list'), '', cfg.autoSync)}
+                        <div class="da-inline">
+                            <label><span>${L('列表刷新间隔', 'List refresh interval')}</span><span class="da-unit"><input type="number" name="syncSeconds" min="10" max="300" value="${cfg.syncSeconds}"><em>${L('秒', 's')}</em></span></label>
+                            <label><span>${L('每个 Agent 显示', 'Chats per agent')}</span><span class="da-unit"><input type="number" name="recentLimit" min="10" max="200" value="${cfg.recentLimit}"><em>${L('条', '')}</em></span></label>
+                        </div>
+                        <p class="da-help">${L('只控制最近列表；打开的对话正文会独立自动刷新。', 'Applies to the recent list only. An open conversation refreshes independently.')}</p>
+                    </div>
+                </div>
+                <div class="da-connections-head"><h4>${L('桌面客户端', 'Desktop clients')}</h4><button type="button" data-desktop-inspect ${cfg.enabled ? '' : 'disabled'}>${L('检测连接', 'Check connections')}</button></div>
+                <div class="da-providers">
+                    ${Object.entries(names).map(([id, name]) => `<div class="da-provider" data-provider="${id}">
+                        <label class="da-provider-head"><span class="da-provider-title"><img src="/assets/desktop-agents/${id}.png" width="24" height="24" alt="" class="da-agent-icon" onerror="this.style.display='none'"><b>${name}</b></span><input type="checkbox" class="da-switch" name="${id}" ${cfg.providers[id] ? 'checked' : ''}></label>
+                        <small>${notes[id]}</small><span class="da-state" data-state="${id}"></span>
+                        ${id === 'claudecode' ? `<div class="da-provider-extra"><label class="da-sub"><span><b>${L('模拟操作发送', 'Send by UI automation')}</b><small>${L('仅 macOS，需辅助功能权限', 'macOS only · Accessibility required')}</small></span><input type="checkbox" class="da-switch" name="claudeAutomation" ${cfg.claudeAutomation ? 'checked' : ''}></label><details class="da-notes"><summary>${L('发送时会发生什么？', 'What happens when sending?')}</summary><p>${L('Claude 会切到前台，打开并核对目标会话后发送，再切回原应用。请在 macOS 系统设置中为运行平台的程序授予辅助功能权限。', 'Claude comes to the front, opens and verifies the target conversation, sends, then returns to the previous app. Grant Accessibility permission to the program running this platform in macOS settings.')}</p></details></div>` : ''}
+                    </div>`).join('')}
+                </div>
+                <div class="da-footer">
+                    <details class="da-notes"><summary>${L('连接说明与排障', 'Connection details & troubleshooting')}</summary><p>${esc(L('连接的是运行平台服务这台电脑上的客户端。Codex 使用桌面 IPC；Antigravity 使用桌面页面连接，打开记录会切换桌面会话；Claude Code 读取本机历史，可选模拟操作发送。未连接时请确认客户端已启动并登录。', 'Connects to desktop clients on the computer running this service. Codex uses desktop IPC; Antigravity uses a desktop page connection and opening a conversation switches its desktop view; Claude Code reads local history with optional UI automation. If offline, check the client is running and signed in.'))}</p><p>${esc(L('刷新列表会立即重新读取最近对话，不必等待自动刷新间隔。自动刷新关闭时仍可手动刷新；正文刷新不受列表开关影响。不会自动改用 CLI 或平台模型代答。', 'Refresh list immediately rereads recent conversations without waiting for the next interval. Manual refresh remains available when automatic list refresh is off; open conversations refresh separately. No CLI or platform-model fallback.'))}</p></details>
+                    <button type="submit" class="is-primary">${L('保存设置', 'Save settings')}</button>
+                </div>
+                <div class="desktop-agent-setting-result" role="status" aria-live="polite"></div>
+            </form>
+        </section>`;
         const form = content.querySelector('form'), result = content.querySelector('[role=status]');
-        let saving = false;
-        async function inspect() { try {
+        let saving = false, inspecting = false;
+        function updateAvailability() {
+            form.elements.syncSeconds.disabled = !form.elements.enabled.checked || !form.elements.autoSync.checked;
+            form.querySelector('[data-desktop-inspect]').disabled = !form.elements.enabled.checked || inspecting;
+        }
+        form.elements.enabled.addEventListener('change', updateAvailability);
+        form.elements.autoSync.addEventListener('change', updateAvailability);
+        updateAvailability();
+        // 每家 Agent 卡片与右侧看板显示实际连接能力：已连接/可发送、只读或未连接
+        function showStates(providers) { for (const p of providers || []) {
+            const node = content.querySelector(`[data-state="${p.id}"]`);
+            const level = !p.enabled ? 'off' : !p.connected ? 'down' : p.canSend ? 'ok' : 'read';
+            const labelText = { off: L('已停用', 'Disabled'), down: L('未连接', 'Not connected'), ok: L('已连接 · 可发送', 'Connected · can send'), read: L('已连接 · 只读', 'Connected · read-only') }[level];
+            if (node) {
+                node.dataset.level = level;
+                node.textContent = labelText;
+                node.title = p.reason || '';
+            }
+        } }
+        async function inspect() {
+            if (inspecting) return;
+            inspecting = true;
+            updateAvailability();
+            try {
+            result.dataset.tone = '';
             result.textContent = L('正在检测本机客户端…', 'Checking desktop clients…');
             const data = await request('POST', '/sync');
             if (!result.isConnected)
                 return;
-            result.textContent = (data.providers || []).map(p => `${names[p.id]} · ${p.connected ? L('已连接', 'Connected') : L('未连接', 'Disconnected')} · ${p.canSend ? L('可发送', 'Can send') : L('仅查看或不可用', 'Read-only / unavailable')}\n${p.reason || ''}`).join('\n\n');
+            showStates(data.providers);
+            result.dataset.tone = 'ok';
+            result.textContent = L('检测完成：', 'Checked: ') + (data.providers || []).filter(p => p.enabled).map(p => `${names[p.id]} ${p.connected ? (p.canSend ? L('可发送', 'can send') : L('只读', 'read-only')) : L('未连接', 'offline')}`).join(' · ');
             window.dispatchEvent(new Event('tools:desktop-agent-settings-changed'));
         }
         catch (error) {
-            if (result.isConnected)
+            if (result.isConnected) {
+                result.dataset.tone = 'error';
                 result.textContent = error.message;
-        } }
+            }
+        } finally { inspecting = false; updateAvailability(); } }
+        if (cfg.enabled)
+            request('GET', '/sessions').then(data => { if (content.isConnected)
+                showStates(data.providers); }).catch(() => { });
         form.addEventListener('submit', async (event) => {
             event.preventDefault();
             if (saving)
@@ -63,10 +114,11 @@
             const button = form.querySelector('[type=submit]');
             button.disabled = true;
             try {
-                const patch = { enabled: form.elements.enabled.checked, autoSync: form.elements.autoSync.checked, allowSend: form.elements.allowSend.checked, recentLimit: Number(form.elements.recentLimit.value), syncSeconds: Number(form.elements.syncSeconds.value), providers: Object.fromEntries(Object.keys(names).map(k => [k, form.elements[k].checked])) };
+                const patch = { enabled: form.elements.enabled.checked, autoSync: form.elements.autoSync.checked, allowSend: form.elements.allowSend.checked, claudeAutomation: form.elements.claudeAutomation.checked, recentLimit: Number(form.elements.recentLimit.value), syncSeconds: Number(form.elements.syncSeconds.value), providers: Object.fromEntries(Object.keys(names).map(k => [k, form.elements[k].checked])) };
                 await request('PUT', '/settings', patch);
                 if (!result.isConnected)
                     return;
+                result.dataset.tone = 'ok';
                 result.textContent = L('设置已保存。', 'Settings saved.');
                 form.querySelector('[data-desktop-inspect]').disabled = !patch.enabled;
                 window.dispatchEvent(new Event('tools:desktop-agent-settings-changed'));
@@ -74,8 +126,10 @@
                     await inspect();
             }
             catch (error) {
-                if (result.isConnected)
+                if (result.isConnected) {
+                    result.dataset.tone = 'error';
                     result.textContent = error.message;
+                }
             }
             finally {
                 saving = false;

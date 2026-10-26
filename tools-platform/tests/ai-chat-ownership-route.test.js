@@ -86,6 +86,22 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
     const own = await fetch(`${url}/sessions/${id}/messages`, { headers: { Authorization: 'Bearer synthetic-alice' } });
     assert.equal(own.status, 200);
     assert.equal((await own.json()).items[0].content, 'Alice private text');
+    const prefsHeaders = { ...headers, Authorization: 'Bearer synthetic-alice' };
+    assert.equal((await fetch(`${url}/conversation-list`)).status,401);
+    const listPref = await fetch(`${url}/conversation-list`, { method:'PUT', headers:prefsHeaders,body:JSON.stringify({source:'mine',id,pinned:true}) });
+    assert.equal(listPref.status,200);
+    assert.equal((await (await fetch(`${url}/conversation-list`,{headers:prefsHeaders})).json()).items[0].pinned,1);
+    assert.deepEqual((await (await fetch(`${url}/conversation-list`,{headers})).json()).items,[]);
+
+    const deniedDelete = await fetch(`${url}/sessions/${id}`, { method: 'DELETE', headers });
+    assert.equal(deniedDelete.status, 403, 'deleting another owner is forbidden');
+    assert.equal((await chat.listMessages(id, { owner: 'alice' })).length, 1);
+    const disposable = await chat.addMessage({ owner: 'alice', pagePath: '/', role: 'user', content: 'delete this test only' });
+    const deleted = await fetch(`${url}/sessions/${disposable}`, { method: 'DELETE', headers: { Authorization: 'Bearer synthetic-alice' } });
+    assert.equal(deleted.status, 200, 'viewers may delete their own chats');
+    assert.deepEqual(await deleted.json(), { deleted: true });
+    assert.equal((await fetch(`${url}/sessions/${disposable}`, { method: 'DELETE', headers: { Authorization: 'Bearer synthetic-alice' } })).status, 404);
+
     const root = fs.realpathSync(fs.mkdtempSync(path.join(sandbox, 'workspace-')));
     fs.writeFileSync(path.join(root, 'readme.txt'), 'workspace content');
     let turnCalls = 0;

@@ -190,7 +190,7 @@ test('unified diff and tool definitions are well formed', () => {
     assert.equal(diff.removed, 1);
     assert.match(diff.text, /^--- a\/a\.txt\n\+\+\+ b\/a\.txt\n@@/);
     const defs = tools.definitions();
-    assert.deepEqual(defs.map(item => item.name), ['list_directory', 'read_file', 'search', 'list_databases', 'database_schema', 'read_database_table', 'write_file', 'edit_file', 'delete_path', 'rename_path', 'run_command', 'welink_list_targets', 'welink_send_message']);
+    assert.deepEqual(defs.map(item => item.name), ['list_directory', 'read_file', 'search', 'list_databases', 'database_schema', 'read_database_table', 'insert_database_row', 'update_database_rows', 'delete_database_rows', 'write_file', 'edit_file', 'delete_path', 'rename_path', 'run_command', 'welink_list_targets', 'welink_send_message']);
     assert.deepEqual(tools.definitions({ readOnly: true }).map(item => item.name).filter(name => name.startsWith('welink_')), [], '只读账号不提供 WeLink 工具');
     assert.equal(tools.kindOf('welink_send_message'), 'external');
     defs.forEach(def => assert.equal(def.parameters.type, 'object'));

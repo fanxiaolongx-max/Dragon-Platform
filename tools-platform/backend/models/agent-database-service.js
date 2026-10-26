@@ -1,13 +1,14 @@
-// 工作区 SQLite 观察工具：结构化查询，禁止任意 SQL、控制面表、跨租户运行库及凭据字段。
+// 工作区 SQLite 工具：结构化增删改查，禁止任意 SQL、控制面表、跨租户运行库及凭据字段。
 const fs = require('fs');
 const path = require('path');
 const sqlite3 = require('sqlite3');
 const guard = require('./agent-path-guard');
 const tenant = require('./tenant-context');
-const { redactValue, REDACTED } = require('./ai-sensitive-data');
+const pool = require('./tenant-sqlite-pool');
+const { redactValue, containsSensitiveText, REDACTED } = require('./ai-sensitive-data');
 
 const EXT = /\.(?:db|sqlite|sqlite3)$/i;
-const PRIVATE_TABLE = /^(?:sqlite_|auth_|ai_|agent_|audit_|desktop_license|tenants?(?:_|$)|users?(?:_|$)|sessions?(?:_|$)|credentials?(?:_|$)|secrets?(?:_|$)|oauth|settings$)/i;
+const PRIVATE_TABLE = /^(?:sqlite_|auth_|ai_(?!(?:report_|knowledge_|usage_))|agent_|audit_|desktop_license|desktop_agent_(?:settings|host_bindings)|snapshot_portal_keys|tenants?(?:_|$)|users?(?:_|$)|sessions?(?:_|$)|credentials?(?:_|$)|secrets?(?:_|$)|oauth|settings$)/i;
 const PRIVATE_COLUMN = /(?:password|passwd|pwd|secret|token|cookie|authorization|credential|private.?key|api.?key|thought.?signature)/i;
 const quote = name => `"${String(name).replace(/"/g, '""')}"`;
 const fail = message => Object.assign(new Error(message), { code: 'AGENT_DATABASE_FORBIDDEN' });
@@ -16,7 +17,7 @@ function canonical(file) { return fs.realpathSync(file); }
 
 // 与 tenant-sqlite-pool 中 scope='report' 打开的库保持一致；其余平台库都在数据目录。
 const REPORT_SCOPED = ['report.db'];
-const SKIPPED_FILE = /backup|before|corrupt|repaired|chat-history/i;
+const SKIPPED_FILE = /backup|before|corrupt|repaired|archive|restore|\.bak|\.old|\.tmp/i;
 
 /**
  * 平台运行库按平台实际打开的位置解析，标识为 platform:<文件名>，与部署方式无关：
@@ -32,7 +33,8 @@ function platformFiles() {
         const file = path.join(dir, name);
         let stat;
         try { stat = fs.statSync(file); } catch (_error) { return; }
-        if (!stat.isFile() || stat.size === 0) return;
+        if (!stat.isFile() || stat.size === 0 || fs.lstatSync(file).isSymbolicLink()) return;
+        if (path.dirname(canonical(file)) !== canonical(dir)) return;
         items.push({ id: `platform:${name}`, file: canonical(file), size: stat.size, source: 'platform' });
     };
     if (fs.existsSync(dataDir)) {
@@ -70,6 +72,7 @@ function databaseFile(ctx, id) {
         const name = platformName(id);
         const item = platformFiles().find(entry => entry.id.slice('platform:'.length).toLowerCase() === name);
         if (!item) throw fail('数据库不属于当前租户，或不存在；请先调用 list_databases');
+        if (name === 'chat-history.db' && ctx.readOnly !== false) throw fail('聊天记录数据库仅对管理员开放');
         return item.file;
     }
     if (!String(id).startsWith('local:')) throw fail('请使用 list_databases 返回的数据库标识');
@@ -79,19 +82,32 @@ function databaseFile(ctx, id) {
     return file;
 }
 
-async function withDatabase(ctx, id, callback) {
+async function withDatabase(ctx, id, callback, writable = false) {
+    if (writable && ctx.readOnly !== false) throw fail('数据库写入仅对管理员开放');
+    if (ctx.signal?.aborted) throw Object.assign(new Error('任务已中止'), { name: 'AbortError' });
     const file = databaseFile(ctx, id);
-    const db = await new Promise((resolve, reject) => {
-        const connection = new sqlite3.Database(file, sqlite3.OPEN_READONLY, error => error ? reject(error) : resolve(connection));
-    });
+    const db = writable && String(id).startsWith('platform:')
+        ? await pool.openExistingConnection(path.basename(file), REPORT_SCOPED.includes(path.basename(file)) ? 'report' : 'data')
+        : await new Promise((resolve, reject) => {
+            const connection = new sqlite3.Database(file, writable ? sqlite3.OPEN_READWRITE : sqlite3.OPEN_READONLY, error => error ? reject(error) : resolve(connection));
+        });
+    db.configure('busyTimeout', 5000);
     const timer = setTimeout(() => db.interrupt(), 5000);
+    const onAbort = () => db.interrupt();
+    ctx.signal?.addEventListener('abort', onAbort, { once: true });
     const all = (sql, params = []) => new Promise((resolve, reject) => db.all(sql, params, (error, rows) => error ? reject(error) : resolve(rows)));
+    const run = (sql, params = []) => new Promise((resolve, reject) => db.run(sql, params, function (error) {
+        if (error) reject(error);
+        else resolve({ changes: this.changes, lastID: this.lastID });
+    }));
     try {
-        await all('PRAGMA query_only = ON');
+        if (!writable) await all('PRAGMA query_only = ON');
+        await all('PRAGMA foreign_keys = ON');
         await all('PRAGMA trusted_schema = OFF');
-        return await callback(all);
+        return await callback(all, run);
     } finally {
         clearTimeout(timer);
+        ctx.signal?.removeEventListener('abort', onAbort);
         await new Promise(resolve => db.close(() => resolve()));
     }
 }
@@ -108,7 +124,8 @@ async function columns(all, table) {
 }
 
 async function listDatabases(ctx, args = {}) {
-    const items = platformFiles().map(({ id, source, size }) => ({ id, source, size: formatSize(size) }));
+    const items = platformFiles().filter(item => ctx.readOnly === false || item.id !== 'platform:chat-history.db')
+        .map(({ id, source, size }) => ({ id, source, size: formatSize(size), writable: ctx.readOnly === false }));
     // path 只用于工作目录内的子目录；模型误传 platform:/local: 标识时按工作目录根扫描，不报 ENOENT
     const scanPath = /^(?:platform|local):/i.test(String(args.path || '')) ? '.' : (args.path || '.');
     const root = guard.resolveInsideRoot(ctx.root, scanPath);
@@ -136,7 +153,7 @@ async function listDatabases(ctx, args = {}) {
                 let size = 0;
                 try { checkLocal(canonical(file)); size = fs.statSync(file).size; } catch (_error) { continue; }
                 if (size === 0) continue;
-                items.push({ id: `local:${guard.toDisplayPath(ctx.root, file)}`, source: 'local', size: formatSize(size) });
+                items.push({ id: `local:${guard.toDisplayPath(ctx.root, file)}`, source: 'local', size: formatSize(size), writable: ctx.readOnly === false });
             }
         }
     }
@@ -190,4 +207,123 @@ async function readTable(ctx, args) {
     });
 }
 
-module.exports = { listDatabases, schema, readTable };
+function scalar(value) {
+    return value === null || typeof value === 'string' || typeof value === 'boolean'
+        || (typeof value === 'number' && Number.isFinite(value));
+}
+
+async function mutationPlan(all, args, ctx) {
+    if (!['insert', 'update', 'delete'].includes(args.operation)) throw fail('operation 必须为 insert、update 或 delete');
+    const available = await columns(all, args.table);
+    const names = new Set(available.map(row => row.name));
+    let values = args.values;
+    let entries = [];
+    if (args.operation !== 'delete') {
+        if (typeof values === 'string') {
+            try { values = JSON.parse(values); } catch (_error) { throw fail('values 必须为有效的 JSON 对象字符串'); }
+        }
+        if (!values || typeof values !== 'object' || Array.isArray(values)) throw fail('values 必须是列名到值的对象');
+        entries = Object.entries(values);
+        if (!entries.length || entries.some(([name, value]) => !names.has(name) || !scalar(value))) throw fail('写入列不存在、属于敏感字段，或值不是 SQLite 标量（JSON 请先序列化为字符串）');
+        if (Buffer.byteLength(JSON.stringify(values)) > 1024 * 1024) throw fail('单次写入不能超过 1MB');
+        if (entries.some(([, value]) => typeof value === 'string' && containsSensitiveText(value, { secrets: ctx.sensitiveValues }))) throw fail('禁止通过 AI 工具写入凭据内容');
+        if (entries.some(([name, value]) => /^(?:key|key_name|name|setting|setting_name|config_key)$/i.test(name) && PRIVATE_COLUMN.test(String(value)))) throw fail('禁止修改凭据配置项');
+    }
+    const filters = args.filters === undefined ? [] : args.filters;
+    if (!Array.isArray(filters) || filters.length > 16) throw fail('filters 必须是最多 16 个条件的数组');
+    const params = [];
+    const clauses = filters.map(filter => {
+        if (!filter || !names.has(filter.column) || !['eq', 'contains', 'is_null'].includes(filter.op)
+            || (filter.op !== 'is_null' && !scalar(filter.value))) throw fail('筛选列不存在、敏感，或筛选条件无效');
+        if (filter.op === 'is_null') return `${quote(filter.column)} IS NULL`;
+        if (filter.value === null) {
+            if (filter.op !== 'eq') throw fail('null 值仅支持 eq 筛选');
+            return `${quote(filter.column)} IS NULL`;
+        }
+        params.push(filter.value);
+        return filter.op === 'eq' ? `${quote(filter.column)} = ?` : `instr(CAST(${quote(filter.column)} AS TEXT), ?) > 0`;
+    });
+    if (args.operation === 'insert' && filters.length) throw fail('insert 不接受筛选条件');
+    if (args.operation !== 'insert' && !filters.length && args.allowAllRows !== true) throw fail('更新或删除必须提供 filters；操作整表需显式传 allowAllRows=true');
+    const where = clauses.length ? ` WHERE ${clauses.join(' AND ')}` : '';
+    const maxAffectedRows = args.maxAffectedRows === undefined ? 1000 : args.maxAffectedRows;
+    if (!Number.isSafeInteger(maxAffectedRows) || maxAffectedRows < 1) throw fail('maxAffectedRows 必须为正整数');
+    // Hidden side effects could bypass protected tables/fields. Refuse them
+    // rather than trying to parse arbitrary trigger SQL.
+    const triggers = await all("SELECT tbl_name FROM sqlite_master WHERE type = 'trigger'");
+    const cascades = [];
+    for (const row of await all("SELECT name, sql FROM sqlite_master WHERE type = 'table'")) {
+        if (!/^CREATE\s+TABLE\b/i.test(row.sql || '')) continue;
+        for (const fk of await all(`PRAGMA foreign_key_list(${quote(row.name)})`)) {
+            cascades.push({ parent: String(fk.table).toLowerCase(), child: row.name, column: fk.from,
+                delete: fk.on_delete, update: fk.on_update });
+        }
+    }
+    const affectedTables = new Set([`${args.operation}:${args.table.toLowerCase()}`]);
+    for (const item of affectedTables) {
+        const colon = item.indexOf(':');
+        const operation = item.slice(0, colon), name = item.slice(colon + 1);
+        if (triggers.some(row => row.tbl_name.toLowerCase() === name)) throw fail('目标表或级联表含触发器，无法确认写入边界；请使用对应业务 API');
+        for (const edge of cascades.filter(edge => edge.parent === name && ['CASCADE', 'SET NULL', 'SET DEFAULT'].includes(edge[operation]))) {
+            if (PRIVATE_TABLE.test(edge.child) || PRIVATE_COLUMN.test(edge.column)) throw fail('此操作可能级联修改受保护数据，请使用对应业务 API');
+            const nextOperation = operation === 'delete' && edge.delete === 'CASCADE' ? 'delete' : 'update';
+            affectedTables.add(`${nextOperation}:${edge.child.toLowerCase()}`);
+        }
+    }
+    const matchedRows = args.operation === 'insert' ? 1 : (await all(`SELECT count(*) AS n FROM ${quote(args.table)}${where}`, params))[0].n;
+    if (matchedRows > maxAffectedRows) throw fail(`匹配 ${matchedRows} 行，超过 maxAffectedRows=${maxAffectedRows}；请收窄筛选或显式提高上限`);
+    // Generic key/value tables may hide secrets in an otherwise ordinary value
+    // column. Never let a broad filter overwrite or delete those rows.
+    const keys = available.filter(row => /^(?:key|key_name|name|setting|setting_name|config_key)$/i.test(row.name));
+    if (args.operation !== 'insert' && keys.length) {
+        for (let offset = 0; offset < matchedRows; offset += 500) {
+            const fields = keys.map(row => `substr(CAST(${quote(row.name)} AS TEXT), 1, 120)`);
+            const rows = await all(`SELECT ${fields.join(', ')} FROM ${quote(args.table)}${where} LIMIT 500 OFFSET ?`, [...params, offset]);
+            if (rows.some(row => Object.values(row).some(value => PRIVATE_COLUMN.test(String(value))))) throw fail('匹配行包含凭据配置项，请收窄筛选');
+        }
+    }
+    let sql;
+    let bindings;
+    if (args.operation === 'insert') {
+        sql = `INSERT INTO ${quote(args.table)} (${entries.map(([name]) => quote(name)).join(', ')}) VALUES (${entries.map(() => '?').join(', ')})`;
+        bindings = entries.map(([, value]) => value);
+    } else if (args.operation === 'update') {
+        sql = `UPDATE ${quote(args.table)} SET ${entries.map(([name]) => `${quote(name)} = ?`).join(', ')}${where}`;
+        bindings = [...entries.map(([, value]) => value), ...params];
+    } else {
+        sql = `DELETE FROM ${quote(args.table)}${where}`;
+        bindings = params;
+    }
+    return { sql, bindings, matchedRows, maxAffectedRows };
+}
+
+async function previewWrite(ctx, args) {
+    if (ctx.readOnly !== false) throw fail('数据库写入仅对管理员开放');
+    return withDatabase(ctx, args.database, async all => {
+        const plan = await mutationPlan(all, args, ctx);
+        return { path: `${args.database} / ${args.table}`, diff: JSON.stringify({ operation: args.operation,
+            matchedRows: plan.matchedRows, maxAffectedRows: plan.maxAffectedRows, values: args.values, filters: args.filters,
+            allowAllRows: args.allowAllRows === true, note: '预览行数以执行时重新校验为准；数据库修改不支持文件撤销。' }, null, 2) };
+    });
+}
+
+async function writeTable(ctx, args) {
+    return withDatabase(ctx, args.database, async (all, run) => {
+        await run('BEGIN IMMEDIATE');
+        try {
+            const plan = await mutationPlan(all, args, ctx);
+            const result = await run(plan.sql, plan.bindings);
+            if (result.changes > plan.maxAffectedRows) throw fail('实际修改行数超过上限，已回滚');
+            if (ctx.signal?.aborted) throw Object.assign(new Error('任务已中止，写入已回滚'), { name: 'AbortError' });
+            await run('COMMIT');
+            return { database: args.database, table: args.table, operation: args.operation, changes: result.changes,
+                ...(args.operation === 'insert' ? { lastID: result.lastID } : {}),
+                note: '修改已提交；changes 为直接受影响行数，外键级联遵循数据库约束。数据库修改不支持文件撤销。' };
+        } catch (error) {
+            await run('ROLLBACK').catch(() => {});
+            throw error;
+        }
+    }, true);
+}
+
+module.exports = { listDatabases, schema, readTable, previewWrite, writeTable };

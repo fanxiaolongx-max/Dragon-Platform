@@ -1,7 +1,7 @@
 const db = require('../app-db');
 const ready = new WeakMap();
 const binding = require('./binding');
-const defaults = () => ({ enabled: false, owner: '', autoSync: true, syncSeconds: 20, recentLimit: 60, providers: { codex: true, claudecode: true, antigravity: true }, allowSend: true });
+const defaults = () => ({ enabled: false, owner: '', autoSync: true, syncSeconds: 20, recentLimit: 60, providers: { codex: true, claudecode: true, antigravity: true }, allowSend: true, claudeAutomation: false });
 async function ensure() {
     const connection = db.getDatabase();
     if (!ready.has(connection)) {
@@ -23,7 +23,7 @@ async function save(owner, patch) {
     if (!await binding.available(owner))
         throw error('本机桌面对话已绑定其他租户或账号');
     const next = { ...previous, owner, providers: { ...previous.providers } };
-    for (const key of ['enabled', 'autoSync', 'allowSend'])
+    for (const key of ['enabled', 'autoSync', 'allowSend', 'claudeAutomation'])
         if (patch[key] !== undefined) {
             if (typeof patch[key] !== 'boolean')
                 throw error('设置值无效', 400);

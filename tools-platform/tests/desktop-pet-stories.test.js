@@ -189,6 +189,7 @@ test('manager restricts story IPC and delivers queued story once without togglin
         }
     };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../desktop-pet/pet-manager.js'), 'utf8'), context);
+    fs.writeFileSync(path.join(sandbox, 'desktop-pet-config.json'), JSON.stringify({scaleVersion:2,quotaStandalone:false}));
     module.exports.initDesktopPet();
     const pet = windows[0];
     assert.equal(pet.getBounds().width, 218, 'pet window width at default 0.75 scale');

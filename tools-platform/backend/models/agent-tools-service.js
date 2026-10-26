@@ -29,6 +29,20 @@ const LIMITS = {
 
 const SECRET_ENV_RE = /KEY|TOKEN|SECRET|PASSWORD|PASS\b|COOKIE|AUTH|CREDENTIAL/i;
 
+const DATABASE_WRITE_PARAMETERS = {
+    type: 'object',
+    properties: {
+        database: { type: 'string' }, table: { type: 'string' },
+        values: { type: 'string', description: 'JSON 对象字符串，列名映射到 SQLite 标量（字符串、数字、布尔值或 null），例如 {"title":"新标题","count":3}；JSON 列的值应先序列化。' },
+        filters: { type: 'array', description: '所有条件以 AND 连接。eq 为相等；contains 为文本包含；is_null 匹配空值且无需 value。', items: { type: 'object', properties: {
+            column: { type: 'string' }, op: { type: 'string', enum: ['eq', 'contains', 'is_null'] }, value: { type: 'string', description: '用于匹配的文本；数值列可传数值的字符串表示' }
+        }, required: ['column', 'op'] } },
+        allowAllRows: { type: 'boolean', description: '无 filters 时更新/删除整张表必须显式设为 true' },
+        maxAffectedRows: { type: 'integer', description: '最大直接影响行数，默认 1000；超过则拒绝并回滚' }
+    },
+    required: ['database', 'table']
+};
+
 const DEFINITIONS = [
     {
         name: 'list_directory',
@@ -92,6 +106,21 @@ const DEFINITIONS = [
             limit: { type: 'integer' }, offset: { type: 'integer' },
             filter: { type: 'object', properties: { column: { type: 'string' }, op: { type: 'string', enum: ['eq', 'contains'] }, value: { type: 'string' } }, required: ['column', 'op', 'value'] }
         }, required: ['database', 'table'] }
+    },
+    {
+        name: 'insert_database_row', kind: 'write',
+        description: '管理员向 SQLite 业务表新增一行。先 list_databases、database_schema 再调用，必须提供 values。支持当前租户的全部业务库和工作目录本地库；凭据/控制面数据不开放。事务提交后返回 changes/lastID，不支持文件撤销。',
+        parameters: { ...DATABASE_WRITE_PARAMETERS, required: ['database', 'table', 'values'] }
+    },
+    {
+        name: 'update_database_rows', kind: 'write',
+        description: '管理员按结构化 filters 更新 SQLite 业务表，values 为待修改列；条件以 AND 连接。无筛选须显式 allowAllRows=true。执行时在事务内重新核对影响行数，失败回滚；不支持文件撤销。',
+        parameters: { ...DATABASE_WRITE_PARAMETERS, required: ['database', 'table', 'values'] }
+    },
+    {
+        name: 'delete_database_rows', kind: 'destructive',
+        description: '管理员按结构化 filters 删除 SQLite 业务行。无筛选须显式 allowAllRows=true。按删除类权限审批；执行时核对行数，失败回滚；不支持文件撤销。',
+        parameters: DATABASE_WRITE_PARAMETERS
     },
     {
         name: 'write_file',
@@ -731,6 +760,11 @@ const EXECUTORS = {
     list_databases: async (ctx, args) => ({ content: JSON.stringify(await databaseService.listDatabases(ctx, args)), summary: 'SQLite 数据库目录' }),
     database_schema: async (ctx, args) => ({ content: JSON.stringify(await databaseService.schema(ctx, args)), summary: `${args.database} ${args.table || '业务表'}` }),
     read_database_table: async (ctx, args) => ({ content: JSON.stringify(await databaseService.readTable(ctx, args)), summary: `${args.database} / ${args.table}` }),
+    ...Object.fromEntries(Object.entries({ insert_database_row: 'insert', update_database_rows: 'update', delete_database_rows: 'delete' })
+        .map(([name, operation]) => [name, async (ctx, args) => {
+            const result = await databaseService.writeTable(ctx, { ...args, operation });
+            return { content: JSON.stringify(result), summary: `${operation} ${args.database} / ${args.table}: ${result.changes} 行` };
+        }])),
     write_file: writeFile,
     edit_file: editFile,
     delete_path: deletePath,
@@ -762,6 +796,8 @@ async function sendWeLinkMessage(ctx, args = {}) {
 
 /** 审批卡片用的预览：对写操作提前算 diff，之后执行时复用同一计划。 */
 async function buildPreview(ctx, name, args = {}) {
+    const databaseOperation = { insert_database_row: 'insert', update_database_rows: 'update', delete_database_rows: 'delete' }[name];
+    if (databaseOperation) return databaseService.previewWrite(ctx, { ...args, operation: databaseOperation });
     if (name === 'write_file') {
         const plan = await previewWrite(ctx, args);
         return { path: plan.display, diff: plan.diff.text || (plan.exists ? '' : `（新建文件，${splitCount(plan.content)} 行）`), added: plan.diff.added, removed: plan.diff.removed };

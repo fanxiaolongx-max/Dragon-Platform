@@ -14,6 +14,36 @@ async function json(file, max = 1024 * 1024) { const stat = await fs.lstat(file)
 function readDb(file, sql, params = []) { return new Promise((resolve, reject) => { const d = new sqlite3.Database(file, sqlite3.OPEN_READONLY, e => { if (e)
     return reject(e); d.all(sql, params, (err, rows) => d.close(() => err ? reject(err) : resolve(rows))); }); }); }
 const safe = (text, max = 240) => redactText(String(text || '')).slice(0, max);
+// 桌面客户端会把附件清单、问答回执、频道唤醒、系统提醒等包进用户消息；这里还原成用户在客户端里实际看到的文字。
+const HIDDEN_USER = /^(?:<(?:system-reminder|environment_context|user_instructions|external_codex_apps_open_page|recommended_plugins|in-app-browser-context|task-notification|local-command-caveat|local-command-stdout|local-command-stderr|turn_aborted|user_shell_command)\b|# AGENTS\.md instructions)/;
+const unescapeXml = t => t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+function userText(raw) {
+    const original = String(raw || '');
+    let text = original.replace(/<(system-reminder|in-app-browser-context|environment_context)\b[\s\S]*?<\/\1>/g, '');
+    if (!text.trim() || HIDDEN_USER.test(text.trim()))
+        return '';
+    const command = text.match(/<command-name>([\s\S]*?)<\/command-name>/);
+    if (command)
+        return [command[1], text.match(/<command-args>([\s\S]*?)<\/command-args>/)?.[1]].map(x => (x || '').trim()).filter(Boolean).join(' ');
+    const reply = text.match(/<send_user_message_question_reply>([\s\S]*?)<\/send_user_message_question_reply>/);
+    if (reply) {
+        try {
+            return JSON.parse(reply[1]).map(a => String(a.answer ?? '').trim()).filter(Boolean).join('\n');
+        }
+        catch { /* Unknown receipt shape: fall through to the raw text. */ }
+    }
+    if (/^\s*<(?:wake|project_claude_message|relay)\b/.test(text)) {
+        const bodies = [...text.matchAll(/<message\b[^>]*>([\s\S]*?)<\/message>/g)].map(m => m[1]);
+        return unescapeXml((bodies.length ? bodies : [...text.matchAll(/<note>([\s\S]*?)<\/note>/g)].map(m => m[1])).map(x => x.trim()).join('\n\n'));
+    }
+    const request = text.match(/(?:^|\n)## My request:\n/);
+    if (request && /^\s*# (?:Files|Applications) mentioned by the user:/.test(text))
+        text = text.slice(request.index + request[0].length);
+    text = text.replace(/<image name=\[Image #(\d+)\][^>]*>\s*<\/image>/g, '[图片 #$1]').replace(/\[Image: source: [^\]\n]*\]/g, '[图片]').replace(/<\/?pasted_content\b[^>]*>/g, '');
+    return text === original ? original : text.trim();
+}
+const SETTLED = ['end_turn', 'stop_sequence', 'max_tokens', 'refusal'];
+const STALE_MS = 20 * 60 * 1000; // 客户端崩溃时日志停在半轮：太久没有新事件就不再当作运行中
 async function codex(limit) {
     const base = roots().codex;
     let rows = [];
@@ -100,6 +130,9 @@ async function transcript(session) {
         await h.close();
     }
     const items = [];
+    // 运行状态：Codex 看 task_started / task_complete，Claude 看最后一条消息是否已 end_turn
+    // Claude 写出 end_turn 后桌面还要跑结束钩子，等 stop_hook_summary 才算结束（没有钩子的会话最多再等 60 秒）
+    let busySince = null, lastStamp = null, settling = null;
     for (const line of text.split('\n')) {
         let event;
         try {
@@ -109,19 +142,54 @@ async function transcript(session) {
             continue;
         }
         let message, stamp = event.timestamp;
+        if (stamp)
+            lastStamp = stamp;
+        if (session.provider === 'codex' && event.type === 'event_msg') {
+            if (event.payload?.type === 'task_started')
+                busySince = stamp || new Date().toISOString();
+            if (['task_complete', 'turn_aborted'].includes(event.payload?.type))
+                busySince = null;
+        }
         if (session.provider === 'codex' && event.type === 'response_item' && event.payload?.type === 'message')
             message = event.payload;
-        if (session.provider === 'claudecode' && ['user', 'assistant'].includes(event.type) && !event.isSidechain)
+        if (session.provider === 'claudecode' && event.type === 'system' && event.subtype === 'stop_hook_summary' && !event.isSidechain) {
+            busySince = null;
+            settling = null;
+        }
+        if (session.provider === 'claudecode' && ['user', 'assistant'].includes(event.type) && !event.isSidechain) {
             message = event.message;
+            settling = null;
+            if (event.type === 'assistant') {
+                busySince = busySince || stamp;
+                if (SETTLED.includes(message?.stop_reason))
+                    settling = stamp || new Date().toISOString();
+            }
+            else if (!event.isMeta) {
+                const prompt = typeof message?.content === 'string' || (message?.content || []).some(x => x.type === 'text');
+                const said = typeof message?.content === 'string' ? message.content : (message?.content || []).find(x => x.type === 'text')?.text || '';
+                if (/^\[Request interrupted/.test(said)) {
+                    busySince = null;
+                    settling = null;
+                }
+                else if (prompt)
+                    busySince = stamp || new Date().toISOString();
+                else
+                    busySince = busySince || stamp;
+            }
+            if (event.isMeta || event.isCompactSummary)
+                continue;
+        }
         if (!message || !['user', 'assistant'].includes(message.role))
             continue;
         if (message.role === 'assistant' && message.channel && !['final', 'commentary'].includes(message.channel))
             continue;
-        const content = typeof message.content === 'string' ? message.content : (message.content || []).filter(x => ['text', 'input_text', 'output_text'].includes(x.type)).map(x => x.text).join('\n');
-        if (!content || /^<system-reminder>|^# AGENTS\.md instructions|^<environment_context>/.test(content))
+        const raw = typeof message.content === 'string' ? message.content : (message.content || []).filter(x => ['text', 'input_text', 'output_text'].includes(x.type)).map(x => x.text).join('\n');
+        const content = message.role === 'user' ? userText(raw) : raw;
+        if (!content || /^\[Request interrupted/.test(content))
             continue;
-        items.push({ id: event.uuid || event.payload?.id || String(items.length), role: message.role, content: safe(content, 40000), createdAt: stamp || null });
+        items.push({ id: event.uuid || event.payload?.id || String(items.length), role: message.role, content: safe(content, 40000), channel: message.channel || null, createdAt: stamp || null });
     }
-    return { items: items.slice(-200), available: true };
+    const busy = Boolean(busySince) && Date.now() - Date.parse(lastStamp || busySince) < STALE_MS && !(settling && Date.now() - Date.parse(settling) > 60000);
+    return { items: items.slice(-200), available: true, busy, busySince: busy ? busySince : null };
 }
-module.exports = { home, roots, entries, json, readDb, safe, codex, claude, transcript };
+module.exports = { home, roots, entries, json, readDb, safe, userText, codex, claude, transcript };

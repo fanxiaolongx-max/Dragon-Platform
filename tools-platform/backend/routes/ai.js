@@ -20,6 +20,7 @@ const { getTenantId } = require('../models/tenant-context');
 const contextCompaction = require('../models/ai-context-compaction');
 const activeChats = new Map();
 const compactingChats = new Set();
+const deletingChats = new Set();
 const chatLockKey = id => `${getTenantId()}::${id}`;
 const { proactiveAlertCircuit } = require('../models/ai-circuit-breaker');
 const followupAgent = require('../models/channels/followup-agent');
@@ -724,7 +725,7 @@ async function handleChatRequest(req, res) {
 
         if (persist !== false && savedSessionId) {
             const lockKey = chatLockKey(savedSessionId);
-            if (compactingChats.has(lockKey)) return res.status(409).json({ code: 'AI_CHAT_BUSY', error: '当前对话正在压缩上下文，请稍后再发送' });
+            if (compactingChats.has(lockKey) || deletingChats.has(lockKey)) return res.status(409).json({ code: 'AI_CHAT_BUSY', error: '当前对话正在整理，请稍后再发送' });
             activeChats.set(lockKey, (activeChats.get(lockKey) || 0) + 1);
             releaseChat = () => { const count = (activeChats.get(lockKey) || 1) - 1; if (count) activeChats.set(lockKey, count); else activeChats.delete(lockKey); };
             historyContext = { sessionId: savedSessionId, pagePath: normalizedPath, pageTitle, owner: req.user?.username || '', question: lastMessage.content };
@@ -847,7 +848,7 @@ ${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n
 4.9 用户询问某个平台工具里的数据（人次、数量、金额、记录、趋势等）时，必须依据“平台工具业务数据”作答，并写明工具名、快照名或数据来源、数据期间。快照摘要（如 totalTransactions）和“表内合计行”是工具自身算出的口径，回答总数时优先采用；按日/按字段的统计只是辅助拆解，二者不一致时说明差异而不是自行改算。用户要的时间段没有对应快照时，明确说“没有覆盖该期间的数据”，并列出已有快照的期间；工具没有可读数据时如实说明，可建议打开工具导入后保存快照。不得编造任何数值。
 5. 历史报表使用入库时保存的得分和计分状态，不得用当前目标或计分规则重算。
 6. 把事实、基于数据的解读和可能原因分开。没有证据的原因必须标记为“可能”或“建议进一步核查”。
-${agentMode ? '7. 你没有修改平台业务数据（数据库、报表）的权限；但可以通过工具读写用户选定的本地工作目录。' : opsSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 ops_* 工具管理自动化运营（运营群组、计划、草稿、运营规范），只有工具返回成功后才能说已保存或已发送。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
+${agentMode ? (agentSession.readOnly ? '7. 当前账号只读，没有修改平台业务数据或本地文件的权限。' : '7. 当前管理员可通过数据库工具对当前租户和所选项目的业务数据增删改查，并可通过文件工具修改工作目录；遵循工作区权限模式。只有工具返回提交成功后才能声称数据已修改；修改后重新查询验证，写入前的检索摘要不能作为修改后状态。凭据与平台控制面数据不开放。') : opsSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 ops_* 工具管理自动化运营（运营群组、计划、草稿、运营规范），只有工具返回成功后才能说已保存或已发送。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
 ${scopeRule}
 ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.systemPrompt}` : ''}`;
 
@@ -1086,7 +1087,7 @@ router.post('/compact', checkAuth, async (req, res) => {
     res.on('close', onClose);
     try {
         if (!id || !await aiChatRepo.assertSessionOwner(id, req.user.username)) return res.status(404).json({ code: 'AI_SESSION_NOT_FOUND', error: '对话不存在' });
-        if (activeChats.has(key) || compactingChats.has(key)) return res.status(409).json({ code: 'AI_CHAT_BUSY', error: '当前对话正在执行，请结束后再压缩上下文' });
+        if (activeChats.has(key) || compactingChats.has(key) || deletingChats.has(key)) return res.status(409).json({ code: 'AI_CHAT_BUSY', error: '当前对话正在执行，请结束后再压缩上下文' });
         compactingChats.add(key); locked = true;
         const saved = await aiChatRepo.getSession(id);
         let session = null;
@@ -1343,6 +1344,15 @@ router.get('/suggestions', checkAuth, async (req, res) => {
     }
 });
 
+router.get('/conversation-list', checkAuth, async (req,res) => {
+    try { res.setHeader('Cache-Control','no-store');res.json({items:await require('../models/conversation-list-repository').list(req.user.username)}); }
+    catch(error){res.status(500).json({error:'读取对话列表设置失败'});}
+});
+router.put('/conversation-list', checkAuth, async (req,res) => {
+    try { res.json({item:await require('../models/conversation-list-repository').save(req.user.username,req.body)}); }
+    catch(error){res.status(error.statusCode||500).json({code:error.code,error:error.statusCode?error.message:'保存对话列表设置失败'});}
+});
+
 router.get('/sessions', checkAuth, async (req, res) => {
     try {
         // /session：只列当前用户自己的会话（含已自动归档），可按内容搜索
@@ -1402,6 +1412,22 @@ router.post('/sessions/:sessionId/unarchive', checkAuth, async (req, res) => {
     } catch (err) {
         res.status(err.statusCode || 500).json({ code: err.code, error: '恢复归档会话失败: ' + err.message });
     }
+});
+
+router.delete('/sessions/:sessionId', checkAuth, async (req, res) => {
+    const key = chatLockKey(req.params.sessionId);
+    let locked = false;
+    try {
+        if (!await aiChatRepo.assertSessionOwner(req.params.sessionId, req.user.username)) return res.status(404).json({ error: '会话不存在' });
+        const session = await aiChatRepo.getSession(req.params.sessionId);
+        const agent = session?.agent_session_id ? agentRunManager.getSession(session.agent_session_id, req.user, getTenantId()) : null;
+        if (activeChats.has(key) || compactingChats.has(key) || deletingChats.has(key) || agent?.activeRun) return res.status(409).json({ code: 'AI_CHAT_BUSY', error: '对话正在执行，请先停止或等待结束再删除' });
+        deletingChats.add(key); locked = true;
+        if (!await aiChatRepo.deleteSession(req.params.sessionId, { owner: req.user.username })) return res.status(404).json({ error: '会话不存在' });
+        res.json({ deleted: true });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({ code: error.code, error: error.statusCode ? error.message : '删除对话失败' });
+    } finally { if (locked) deletingChats.delete(key); }
 });
 
 router.get('/sessions/:sessionId/messages', checkAuth, async (req, res) => {
