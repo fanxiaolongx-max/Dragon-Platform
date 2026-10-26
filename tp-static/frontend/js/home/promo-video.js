@@ -222,9 +222,9 @@
         let reviewPending = false;
         let resumeAfterReview = false;
 
-        // 待确认消息优先：临时隐藏推广，不改写用户的关闭偏好或抽屉状态。
+        // 待确认提醒横幅显示时临时避让，不改写用户的关闭偏好或抽屉状态。
         function syncInboxPriority() {
-            const pending = document.body.classList.contains('ops-review-pending');
+            const pending = document.body.classList.contains('ops-banner-shown');
             if (pending === reviewPending) return;
             reviewPending = pending;
             if (pending) {

@@ -15,6 +15,7 @@
 
     const TEXT = {
         'zh-CN': {
+            tac_awaiting_approval: '等待原发起人确认', tac_queued: '已排队', tac_running: '处理中', tac_done: '已完成', tac_failed: '未完成', tac_cancelled: '已取消', tac_expired: '确认已过期', tacReports: '成员结果', tacDelivery: '回传未成功', tacHint: '确认升级需由原发起人在原会话回复，并带上任务编号。',
             mine: '我的对话', welink: 'WeLink', weixin: '微信', group: '群聊', person: '单聊', loading: '正在加载…', empty: '还没有 {ch} 对话', noMatch: '没有匹配的 {ch} 对话',
             loadFailed: '加载失败', retry: '重试', openTasks: '{n} 项跟进中', allDone: '跟进已完成', segments: '{n} 段对话', messages: '{n} 条消息',
             readonly: '只读 · 这是 {ch} {kind}「{name}」的对话记录，在 {ch} 里 @助手 即可继续对话。', back: '返回我的对话',
@@ -38,6 +39,7 @@
             viewMode: '查看记录', viewInfo: '{ch} {kind}「{name}」· 可切换 Bot 身份手动发送消息。', botMode: '以 Bot 身份发送', botRecipient: '以 Bot 身份发送至 {ch} {kind}「{name}」', botHint: '消息将以已连接的 Bot 身份直接发给上述对象。Enter 发送，Shift + Enter 换行。', botPlaceholder: '输入要以 Bot 身份发送的消息…', send: '发送', sending: '发送中…', sent: '已发送至「{name}」', sendFailed: '发送失败：{error}', manualPush: '手动运营', roleLabel: '操作身份'
         },
         'en-US': {
+            tac_awaiting_approval: 'Awaiting requester approval', tac_queued: 'Queued', tac_running: 'Running', tac_done: 'Completed', tac_failed: 'Failed', tac_cancelled: 'Cancelled', tac_expired: 'Approval expired', tacReports: 'Agent reports', tacDelivery: 'Delivery failed', tacHint: 'The original requester must confirm in the original conversation with the task ID.',
             mine: 'My chats', welink: 'WeLink', weixin: 'WeChat', group: 'Group', person: 'Direct', loading: 'Loading…', empty: 'No {ch} conversations yet', noMatch: 'No matching {ch} conversations',
             loadFailed: 'Could not load', retry: 'Retry', openTasks: '{n} in follow-up', allDone: 'Follow-ups done', segments: '{n} contexts', messages: '{n} messages',
             readonly: 'Read only · {ch} {kind} "{name}". @mention the assistant in {ch} to continue.', back: 'Back to my chats',
@@ -75,6 +77,7 @@
         hasMore: false,
         loadingMore: false,
         tasks: [],
+        tacJobs: [],
         schedules: [],
         scheduleLoading: false,
         scheduleError: false,
@@ -340,6 +343,7 @@
         state.items = [];
         state.segments = [];
         state.tasks = [];
+        state.tacJobs = [];
         state.schedules = [];
         state.scheduleError = false;
         state.scheduleTruncated = false;
@@ -615,6 +619,7 @@
         const ops = /^(ops|ops-test):([^@]+)/.exec(source);
         if (source.startsWith('followup:')) return `📣 ${tx('push_followup')}`;
         if (source.startsWith('dragon-claw-schedule:')) return `⏰ ${tx('push_schedule')}`;
+        if (source.startsWith('dragon-tac:')) return '⚡ DragonTAC';
         if (ops) return `📣 ${tx(ops[1] === 'ops-test' ? 'push_test' : 'push_ops')}「${ops[2].trim()}」`;
         return `📣 ${tx('push')}`;
     }
@@ -640,6 +645,7 @@
     // ── 跟进任务：进度条 + 右侧卡片 ─────────────────────
     async function loadTasks(seq) {
         loadSchedules(seq);
+        loadTac(seq);
         try {
             const data = await request('GET', `${API_BASE}/${state.active.channel}/threads/${state.active.kind}/${encodeURIComponent(state.active.id)}/followups`);
             if (seq !== state.openSeq) return;
@@ -655,6 +661,22 @@
         } catch {
             /* 任务读取失败不影响查看对话 */
         }
+    }
+
+    async function loadTac(seq) {
+        if (!state.active) return;
+        const { channel, kind, id } = state.active;
+        try {
+            const data = await request('GET', `${API_BASE}/${channel}/threads/${kind}/${encodeURIComponent(id)}/tac`);
+            if (seq !== state.openSeq) return;
+            state.tacJobs = Array.isArray(data.items) ? data.items : [];
+            renderPanel();
+        } catch { /* 较旧服务端不影响会话和已有任务。 */ }
+    }
+
+    function renderTac() {
+        if (!state.tacJobs.length) return '';
+        return `<section class="wl-tac"><header class="wl-section-head"><b>⚡ DragonTAC</b><span>${state.tacJobs.length}</span></header>${state.tacJobs.map(job => `<details class="wl-task" data-tac-job="${escapeHtml(job.id)}"><summary><span class="wl-task-title">${escapeHtml(job.instruction)}</span><span class="wl-status">${escapeHtml(tx(`tac_${job.status}`))}</span></summary><p class="wl-note">${escapeHtml(job.id)} · ${escapeHtml(job.url)}</p>${job.status === 'awaiting_approval' ? `<p class="wl-note">${escapeHtml(tx('tacHint'))}</p>` : ''}${job.result || job.error ? `<pre class="wl-tac-result">${escapeHtml(job.result || job.error)}</pre>` : ''}${job.deliveryError ? `<p class="wl-note">${escapeHtml(tx('tacDelivery'))}：${escapeHtml(job.deliveryError)}</p>` : ''}<details class="wl-sub"><summary>${escapeHtml(tx('tacReports'))}</summary>${(job.reports || []).map(report => `<p>${escapeHtml(report.agent)} · ${escapeHtml(report.status)}</p><pre class="wl-tac-result">${escapeHtml(report.text || report.error || '')}</pre>`).join('')}</details></details>`).join('')}</section>`;
     }
 
     async function loadSchedules(seq) {
@@ -860,14 +882,14 @@
     function renderPanel() {
         if (!state.active) return;
         const open = state.tasks.filter(task => task.status === 'open').length;
-        const hasTasks = state.tasks.length || state.schedules.length;
+        const hasTasks = state.tasks.length || state.schedules.length || state.tacJobs.length;
         const body = window.DragonClawWorkspace?.showExternal?.({ title: tx('workspaceTasks'), meta: state.tasks.length ? tx('followMeta', { n: open }) : '', open: hasTasks && !state.panelShown ? undefined : false });
         if (!body) return;
         if (hasTasks) state.panelShown = true;
         el.panelBody = body;
         // 保留各卡片的展开状态，定时刷新时不打断查看
-        const openIds = new Set([...body.querySelectorAll('.wl-task[open]')].map(node => node.dataset.wlCard));
-        const hadCards = body.querySelector('.wl-task');
+        const openIds = new Set([...body.querySelectorAll('[data-wl-card][open]')].map(node => node.dataset.wlCard));
+        const hadCards = body.querySelector('[data-wl-card]');
         const scheduleOpen = new Set([...body.querySelectorAll('[data-wl-schedule][open]')].map(node => node.dataset.wlSchedule));
         const focused = body.contains(document.activeElement) ? document.activeElement : null;
         const focusedSchedule = focused?.matches('summary') ? focused.parentElement.dataset.wlSchedule : null;
@@ -877,14 +899,16 @@
         const followups = state.tasks.length
             ? `<div class="wl-tasks">${state.tasks.map(taskCard).join('')}</div><p class="wl-zone">${escapeHtml(tx('timezone', { zone: state.calendar?.timezone || 'Africa/Cairo' }))}</p>`
             : `<div class="wsp-empty">${escapeHtml(tx('noTasks'))}</div>`;
-        body.innerHTML = renderSchedules() + `<section class="wl-followups"><header class="wl-section-head"><b>${escapeHtml(tx('followTitle'))}</b><span>${state.tasks.length}</span></header>${followups}</section>`;
+        const tacOpen = new Set([...body.querySelectorAll('[data-tac-job][open]')].map(node => node.dataset.tacJob));
+        body.innerHTML = renderTac() + renderSchedules() + `<section class="wl-followups"><header class="wl-section-head"><b>${escapeHtml(tx('followTitle'))}</b><span>${state.tasks.length}</span></header>${followups}</section>`;
+        body.querySelectorAll('[data-tac-job]').forEach(node => { node.open = tacOpen.has(node.dataset.tacJob); });
         body.querySelectorAll('[data-wl-schedule]').forEach(node => { node.open = scheduleOpen.has(node.dataset.wlSchedule); });
         const focusTarget = focusedSchedule
             ? body.querySelector(`[data-wl-schedule="${CSS.escape(focusedSchedule)}"] > summary`)
             : focusedFilter ? body.querySelector(`[data-wl-schedule-filter="${CSS.escape(focusedFilter)}"]`) : null;
         focusTarget?.focus({ preventScroll: true });
         scrollContainer.scrollTop = scrollTop;
-        if (hadCards) body.querySelectorAll('.wl-task').forEach(node => { node.open = openIds.has(node.dataset.wlCard) || state.highlight === node.dataset.wlCard; });
+        if (hadCards) body.querySelectorAll('[data-wl-card]').forEach(node => { node.open = openIds.has(node.dataset.wlCard) || state.highlight === node.dataset.wlCard; });
         if (!body.dataset.wlBound) {
             body.dataset.wlBound = '1';
             body.addEventListener('click', onPanelAction);
