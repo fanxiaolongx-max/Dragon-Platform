@@ -48,6 +48,22 @@ test('natural reminder intent recognizes clear times, keeps follow-ups and expla
     assert.equal(commands.intent('> 引用：旧消息\n一分钟后提醒我睡觉').action, 'create');
 });
 
+test('WeLink invocation mentions are separate from the schedule, while reminder recipients and normal chat stay intact', () => {
+    for (const prefix of ['@埃及CS工具平台 ', '@埃及CS工具平台\u00a0', '@助手 @工具平台 ']) {
+        const command = commands.intent(`${prefix}1分钟后提醒 @Zhangting @李娴 早上好`, { channel: 'welink' });
+        assert.deepEqual(command, { action: 'create', text: '1分钟后提醒 @Zhangting @李娴 早上好' });
+    }
+    assert.deepEqual(commands.intent('@助手 一分钟后提醒 @Zhangting @李娴 早上好', { channel: 'welink' }), { action: 'create', text: '一分钟后提醒 @Zhangting @李娴 早上好' });
+    assert.deepEqual(commands.intent('@助手 /schedule 明天9:00 提醒 @小王 开会', { channel: 'welink' }), { action: 'create', text: '明天9:00 提醒 @小王 开会' });
+    assert.equal(commands.intent('@助手 定时任务', { channel: 'welink' }).action, 'list');
+    assert.deepEqual(commands.intent('@助手 取消定时任务 dcs_test', { channel: 'welink' }), { action: 'cancel', id: 'dcs_test' });
+    assert.equal(commands.intent('@助手 帮我跟进这个问题，两分钟后提醒 @小王', { channel: 'welink' }), null);
+    assert.equal(commands.intent('@助手 解释一分钟后提醒我的实现', { channel: 'welink' }), null);
+    assert.equal(commands.intent('@助手 你好 @小王', { channel: 'welink' }), null);
+    assert.equal(commands.intent('> @助手 一分钟后提醒 @小王 开会\n解释这条消息', { channel: 'welink' }), null);
+    assert.equal(commands.intent('@联系人 1分钟后提醒我休息', { channel: 'weixin' }).text, '@联系人 1分钟后提醒我休息', 'WeChat text is not normalized as a WeLink invocation');
+});
+
 test('legacy schedules migrate repeatably without changing existing rows', async () => inTenant(async () => {
     await db.run(`CREATE TABLE dragon_claw_schedules (
         id TEXT PRIMARY KEY, owner TEXT, role TEXT DEFAULT 'user', instruction TEXT, kind TEXT, rule_json TEXT,
@@ -113,6 +129,28 @@ test('WeLink recurring tasks, listing and cancellation stay in the original grou
     const cancelled = await turn(welink, `取消定时任务 ${row.id}`);
     assert.match(cancelled.done.reply, /^已取消/);
     assert.equal((await schedules.getForOwner(row.id, row.owner)).status, 'cancelled');
+}));
+
+test('WeLink group @assistant one-minute requests persist and deliver the original mentioned reminder without AI', async () => inTenant(async () => {
+    await wl.saveConfig({ enabled: true });
+    await targets.touchTarget('welink', { kind: 'group', id: 'ops-group', toolSessionId: 'wl-session' });
+    const before = Date.now();
+    const aiBefore = aiCalls.length;
+    const text = '@埃及CS工具平台 一分钟后提醒 @Zhangting @李娴 早上好';
+    const result = await turn(welink, text);
+    assert.ok(result.created, result.done?.reply);
+    const row = await db.get('SELECT * FROM dragon_claw_schedules WHERE id = ?', [result.created.id]);
+    assert.equal(row.instruction, '提醒 @Zhangting @李娴 早上好');
+    assert.ok(Date.parse(row.next_run_at) >= before + 59000 && Date.parse(row.next_run_at) < Date.now() + 61000);
+    assert.equal((await chat.listMessages(result.done.sessionId)).find(message => message.role === 'user').content, text, 'history retains the original request');
+    const sent = [];
+    await schedules.execute(row, new Date(row.next_run_at), { push: async input => { sent.push(input); return { sent: 1 }; } });
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].channel, 'welink');
+    assert.deepEqual(sent[0].targets, [{ kind: 'group', id: 'ops-group' }]);
+    assert.match(sent[0].text, /提醒：@Zhangting @李娴 早上好/);
+    assert.doesNotMatch(sent[0].text, /@埃及CS工具平台/);
+    assert.equal(aiCalls.length, aiBefore);
 }));
 
 test('invalid times and disabled or blocked channels never acknowledge a saved task', async () => inTenant(async () => {

@@ -5,8 +5,11 @@ const chat = require('../ai-chat-repository');
 
 const STATUS = { active: '等待执行', running: '执行中', done: '已完成', cancelled: '已取消', failed: '失败' };
 
-function intent(input) {
-    const original = String(input || '').split('\n').filter(line => !/^\s*>/.test(line)).join('\n').trim();
+function intent(input, { channel } = {}) {
+    let original = String(input || '').split('\n').filter(line => !/^\s*>/.test(line)).join('\n').trim();
+    // WeLink 群聊用前置 @ 唤起助手；它不是时间或收件人，不能交给时间解析器。
+    // 只去掉开头的提及，时间后的 @人员和提醒正文保持原样。
+    if (channel === 'welink') original = original.replace(/^(?:@[^\s@]+\s+)+/u, '').trim();
     const cancel = /^(?:\/(?:schedule|remind)\s+(?:cancel|取消)|取消(?:这个|该)?(?:定时任务|定时提醒|提醒|任务)?)\s*(dcs_[a-z0-9]+)[。.!！]?$/i.exec(original);
     if (cancel) return { action: 'cancel', id: cancel[1] };
     if (/^(?:取消(?:刚才|刚刚|这个|该)?(?:的)?(?:定时任务|定时提醒|提醒|任务)|\/(?:schedule|remind)\s+(?:cancel|取消))\s*[。.!！]?$/i.test(original)) return { action: 'cancel', id: '' };
@@ -42,7 +45,7 @@ function formatTime(value, timezone) {
 
 async function handle({ channel, conversation, actor, toolSessionId, text, aiSessionId, modelId, onEvent }) {
     if (!['welink', 'weixin'].includes(channel) || !conversation?.id) return false;
-    const command = intent(text);
+    const command = intent(text, { channel });
     if (!command) return false;
     const owner = require('./dragon-claw-channel-bridge').conversationUser(channel, conversation, actor).username;
     const pagePath = `/channels/${channel}`;
