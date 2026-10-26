@@ -244,6 +244,8 @@ test('slash menu supports arrow-key selection; Enter runs and Tab completes the 
         const openSchedulePanel = () => calls.push(['schedules']);
         const startPlan = arg => calls.push(['plan', arg]);
         const askBtw = arg => calls.push(['btw', arg]);
+        const external = { active: false };
+        const sendExternal = () => {};
         ${commands}
         return ${keydown};
     `)(state, el, slashMenu, calls);
