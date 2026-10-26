@@ -340,6 +340,43 @@ html[data-theme="light"] .wl-role-switch button[aria-pressed="true"], body.light
 .home-workspace-panel.is-external > .wsp-card:not([data-card="external"]) { display: none; }
 .home-workspace-panel:not(.is-external) > .wsp-card--external { display: none; }
 .wl-tasks { display: grid; gap: 10px; }
+.wl-schedules, .wl-followups { min-width: 0; }
+.wl-followups { margin-top: 20px; padding-top: 16px; border-top: 1px solid rgba(148, 163, 184, .12); }
+.wl-section-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; color: #e2e8f0; font-size: 12px; }
+.wl-section-head > span { color: #94a3b8; font-size: 11px; font-variant-numeric: tabular-nums; }
+.wl-scheduled-hint, .wl-scheduled-empty { margin: 0 0 12px; color: #94a3b8; font-size: 11px; line-height: 1.65; overflow-wrap: anywhere; }
+.wl-schedule-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin-bottom: 12px; }
+.wl-schedule-filters button { display: flex; justify-content: space-between; align-items: center; gap: 6px; min-height: 30px; padding: 5px 9px; border: 1px solid transparent; border-radius: 8px; background: rgba(148, 163, 184, .05); color: #94a3b8; font: inherit; font-size: 11px; cursor: pointer; }
+.wl-schedule-filters button span { font-variant-numeric: tabular-nums; opacity: .8; }
+.wl-schedule-filters button[aria-pressed="true"] { border-color: rgba(94, 234, 212, .24); background: rgba(94, 234, 212, .08); color: #b9f4e5; }
+.wl-schedule-filters button:focus-visible, .wl-scheduled > summary:focus-visible, .wl-schedule-more:focus-visible { outline: 2px solid #64ffda; outline-offset: 2px; }
+.wl-scheduled-list { display: grid; gap: 7px; }
+.wl-scheduled { min-width: 0; border: 1px solid rgba(148, 163, 184, .13); border-radius: 10px; background: rgba(15, 23, 42, .36); }
+.wl-scheduled > summary { display: flex; align-items: start; gap: 8px; padding: 11px; list-style: none; cursor: pointer; }
+.wl-scheduled > summary::-webkit-details-marker { display: none; }
+.wl-scheduled > summary::after { content: '⌄'; flex: none; color: #94a3b8; transition: transform .15s ease; }
+.wl-scheduled[open] > summary::after { transform: rotate(180deg); }
+.wl-scheduled-copy { flex: 1; min-width: 0; }
+.wl-scheduled-copy b { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; color: #e2e8f0; font-size: 12px; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
+.wl-scheduled-copy small { display: block; margin-top: 4px; color: #94a3b8; font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.wl-scheduled-copy .wl-scheduled-issue { color: #fda4af; }
+.wl-scheduled-status { flex: none; margin-top: 2px; padding: 2px 5px; border-radius: 5px; background: rgba(96, 165, 250, .1); color: #93c5fd; font-size: 10px; line-height: 1.5; white-space: nowrap; }
+.wl-scheduled-status.is-running { background: rgba(94, 234, 212, .13); color: #99f6e4; }
+.wl-scheduled-status.is-done { background: rgba(52, 211, 153, .1); color: #86efac; }
+.wl-scheduled-status.is-cancelled { background: rgba(148, 163, 184, .08); color: #94a3b8; }
+.wl-scheduled-status.is-failed { background: rgba(248, 113, 113, .1); color: #fca5a5; }
+.wl-scheduled.needs-attention { border-color: rgba(251, 146, 60, .3); }
+.wl-scheduled[open] .wl-scheduled-copy b { display: block; }
+.wl-scheduled-detail { padding: 0 11px 11px; }
+.wl-scheduled-detail .wl-rows { grid-template-columns: minmax(0, auto) minmax(0, 1fr); padding: 0; margin-bottom: 8px; font-size: 11px; }
+.wl-scheduled-detail .wl-rows dt { white-space: normal; }
+.wl-scheduled-error, .wl-scheduled-delivery { margin: 5px 0 0; font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.wl-scheduled-error, .wl-scheduled-delivery.is-failed { color: #fda4af; }
+.wl-scheduled-delivery { color: #99d8c8; }
+.wl-schedule-more { display: block; width: 100%; margin-top: 9px; padding: 8px; border: 1px solid rgba(148, 163, 184, .15); border-radius: 8px; background: transparent; color: #b6c4d6; font: inherit; font-size: 11px; cursor: pointer; }
+.wl-scheduled-notice { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; color: #fda4af; font-size: 11px; }
+.wl-scheduled-notice button { padding: 5px 8px; border: 1px solid rgba(148, 163, 184, .2); border-radius: 6px; background: transparent; color: #cbd5e1; font: inherit; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .wl-scheduled > summary::after { transition: none; } }
 .wl-task {
     border: 1px solid rgba(148, 163, 184, 0.14);
     border-radius: 11px;

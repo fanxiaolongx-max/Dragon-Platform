@@ -33,6 +33,11 @@ body.home-mode-chat .dc {
 }
 body.home-mode-chat .home-content.home-workspace { padding-bottom: 18px; }
 body.home-mode-chat.dc-chatting .dc { padding-bottom: 0; }
+/* 历史对话、目录芯片和推荐异步出现时向下展开，避免居中重排和浏览器滚动锚定抬高首屏。 */
+body.home-mode-chat:not(.dc-chatting) .dc {
+    justify-content: flex-start;
+    overflow-anchor: none;
+}
 
 /* 工具模式标题 */
 .home-tools-head {

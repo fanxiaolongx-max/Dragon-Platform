@@ -20,18 +20,21 @@
             readonly: '只读 · 这是 {ch} {kind}「{name}」的对话记录，在 {ch} 里 @助手 即可继续对话。', back: '返回我的对话',
             banner: '{ch} {kind} · {name}', start: '对话开始', newContext: '新的对话上下文', newContextHint: '之前的内容不再作为上下文', loadMore: '加载更早的消息', noMessages: '这个会话还没有对话记录',
             followTitle: '跟进与记忆', followMeta: '{n} 跟进中', noTasks: '该对话还没有跟进任务。在 {ch} 里对助手说「帮我记一下，后边跟进…」即可创建。',
+            workspaceTasks: '会话任务', scheduledTitle: '定时任务', scheduledHint: '向当前会话推送结果的任务', scheduledEmpty: '暂无可查看的定时任务。创建定时任务时，将“推送到”选择为当前会话即可在这里查看。',
+            scheduleAll: '全部', scheduleUpcoming: '待执行', scheduleAttention: '需关注', scheduleHistory: '已结束', scheduleFilteredEmpty: '该状态下暂无任务', scheduleMore: '再显示 {n} 项', scheduleLimited: '最多显示 200 项，待执行任务优先',
+            scheduled_active: '等待执行', scheduled_running: '执行中', scheduled_done: '已完成', scheduled_cancelled: '已取消', scheduled_failed: '执行失败', scheduleNext: '下次执行', scheduleLast: '上次执行', scheduleRuns: '已执行 {n} 次', scheduleRule: '执行规则', scheduleError: '最近异常', schedulePushOk: '已推送到本会话', schedulePushFailed: '推送失败', schedulePreviousFailed: '上次执行失败', scheduleReload: '重新加载',
             stageStart: '开始', stageActive: '进行', stageEnd: '结束', cancelledEnd: '已取消', details: '跟进详情',
             status_open: '跟进中', status_paused: '已暂停', status_done: '已完成', status_cancelled: '已取消',
             urgency_low: '低', urgency_normal: '普通', urgency_high: '高', urgency_urgent: '紧急',
-            remindWho: '提醒', everyone: '群内相关人', frequency: '频率', urgency: '紧急度', nextRemind: '下次提醒', nextNote: '跟进内容', reminded: '已提醒 {n} 次', lastReminded: '上次 {time}',
+            remindWho: '提醒', everyone: '群内相关人', currentWeChat: '当前微信单聊', relatedPeople: '相关人', frequency: '频率', urgency: '紧急度', nextRemind: '下次提醒', nextNote: '跟进内容', reminded: '已提醒 {n} 次', lastReminded: '上次 {time}',
             progress: '最新进展', noProgress: '暂无更新', closed: '关闭', closedBy: '{time} · {who}', due: '截止', creator: '提出人', detail: '任务详情', timeline: '跟进记录',
             done: '完成', pause: '暂停', resume: '恢复', reopen: '重新打开', cancel: '取消任务', remindNow: '立即提醒', confirmRemind: '立即在 {ch} 中发送一次提醒？', confirmRemindTitle: '立即提醒',
             confirmClose: '确认将「{title}」标记为{action}？', actionFailed: '操作失败：{error}', updated: '已更新', timezone: '时间为 {zone} 时间',
             event_created: '创建任务', event_updated: '修改任务', event_progress: '进展', event_reminded: '发送提醒', event_remind_failed: '提醒发送失败', event_paused: '暂停提醒', event_resumed: '恢复提醒',
             event_done: '完成', event_cancelled: '取消', event_reopened: '重新打开', event_limit: '达到提醒上限', chip_created: '已记录跟进任务', chip_exists: '任务已存在', chip_updated: '更新了跟进任务', chip_progress: '记录了进展', chip_done: '完成了跟进任务', chip_cancelled: '取消了跟进任务',
-            readonly_weixin: '只读 · 这是微信{kind}「{name}」的对话记录，在微信里给助手发消息即可继续对话。', noTasks_weixin: '微信对话暂不支持跟进任务。',
+            readonly_weixin: '只读 · 这是微信{kind}「{name}」的对话记录，在微信里给助手发消息即可继续对话。',
             prevTask: '上一个任务', nextTask: '下一个任务', system: '系统',
-            push: '主动推送', push_ops: '运营推送', push_test: '测试推送', push_followup: '跟进提醒',
+            push: '主动推送', push_ops: '运营推送', push_test: '测试推送', push_followup: '跟进提醒', push_schedule: '定时任务',
             viewMode: '查看记录', viewInfo: '{ch} {kind}「{name}」· 可切换 Bot 身份手动发送消息。', botMode: '以 Bot 身份发送', botRecipient: '以 Bot 身份发送至 {ch} {kind}「{name}」', botHint: '消息将以已连接的 Bot 身份直接发给上述对象。Enter 发送，Shift + Enter 换行。', botPlaceholder: '输入要以 Bot 身份发送的消息…', send: '发送', sending: '发送中…', sent: '已发送至「{name}」', sendFailed: '发送失败：{error}', manualPush: '手动运营', roleLabel: '操作身份'
         },
         'en-US': {
@@ -40,18 +43,21 @@
             readonly: 'Read only · {ch} {kind} "{name}". @mention the assistant in {ch} to continue.', back: 'Back to my chats',
             banner: '{ch} {kind} · {name}', start: 'Conversation start', newContext: 'New conversation context', newContextHint: 'Earlier messages are no longer in context', loadMore: 'Load earlier messages', noMessages: 'No messages in this conversation yet',
             followTitle: 'Follow-ups & memory', followMeta: '{n} open', noTasks: 'No follow-up tasks yet. Ask the assistant in {ch} to "note this and follow up…".',
+            workspaceTasks: 'Conversation tasks', scheduledTitle: 'Scheduled tasks', scheduledHint: 'Tasks that push results to this conversation', scheduledEmpty: 'No scheduled tasks are available. Select this conversation under “Push to” when creating a task to see it here.',
+            scheduleAll: 'All', scheduleUpcoming: 'Upcoming', scheduleAttention: 'Attention', scheduleHistory: 'Finished', scheduleFilteredEmpty: 'No tasks in this state', scheduleMore: 'Show {n} more', scheduleLimited: 'Showing up to 200 tasks, with upcoming tasks first',
+            scheduled_active: 'Waiting', scheduled_running: 'Running', scheduled_done: 'Completed', scheduled_cancelled: 'Cancelled', scheduled_failed: 'Failed', scheduleNext: 'Next run', scheduleLast: 'Last run', scheduleRuns: 'Ran {n} times', scheduleRule: 'Schedule', scheduleError: 'Latest issue', schedulePushOk: 'Delivered to this conversation', schedulePushFailed: 'Delivery failed', schedulePreviousFailed: 'Last run failed', scheduleReload: 'Reload',
             stageStart: 'Start', stageActive: 'In progress', stageEnd: 'Done', cancelledEnd: 'Cancelled', details: 'Details',
             status_open: 'Open', status_paused: 'Paused', status_done: 'Done', status_cancelled: 'Cancelled',
             urgency_low: 'Low', urgency_normal: 'Normal', urgency_high: 'High', urgency_urgent: 'Urgent',
-            remindWho: 'Remind', everyone: 'Group members', frequency: 'Frequency', urgency: 'Urgency', nextRemind: 'Next reminder', nextNote: 'Ask about', reminded: 'Reminded {n}×', lastReminded: 'last {time}',
+            remindWho: 'Remind', everyone: 'Group members', currentWeChat: 'This WeChat contact', relatedPeople: 'People involved', frequency: 'Frequency', urgency: 'Urgency', nextRemind: 'Next reminder', nextNote: 'Ask about', reminded: 'Reminded {n}×', lastReminded: 'last {time}',
             progress: 'Latest progress', noProgress: 'No update yet', closed: 'Closed', closedBy: '{time} · {who}', due: 'Due', creator: 'Raised by', detail: 'Task details', timeline: 'Follow-up log',
             done: 'Done', pause: 'Pause', resume: 'Resume', reopen: 'Reopen', cancel: 'Cancel task', remindNow: 'Remind now', confirmRemind: 'Send a reminder in {ch} now?', confirmRemindTitle: 'Remind now',
             confirmClose: 'Mark "{title}" as {action}?', actionFailed: 'Failed: {error}', updated: 'Updated', timezone: 'Times shown in {zone}',
             event_created: 'Created', event_updated: 'Edited', event_progress: 'Progress', event_reminded: 'Reminder sent', event_remind_failed: 'Reminder failed', event_paused: 'Paused', event_resumed: 'Resumed',
             event_done: 'Done', event_cancelled: 'Cancelled', event_reopened: 'Reopened', event_limit: 'Reminder limit reached', chip_created: 'Follow-up recorded', chip_exists: 'Task already exists', chip_updated: 'Follow-up updated', chip_progress: 'Progress recorded', chip_done: 'Follow-up completed', chip_cancelled: 'Follow-up cancelled',
-            readonly_weixin: 'Read only · WeChat {kind} "{name}". Message the assistant in WeChat to continue.', noTasks_weixin: 'Follow-up tasks are not available for WeChat yet.',
+            readonly_weixin: 'Read only · WeChat {kind} "{name}". Message the assistant in WeChat to continue.',
             prevTask: 'Previous task', nextTask: 'Next task', system: 'System',
-            push: 'Proactive push', push_ops: 'Ops push', push_test: 'Test push', push_followup: 'Follow-up reminder',
+            push: 'Proactive push', push_ops: 'Ops push', push_test: 'Test push', push_followup: 'Follow-up reminder', push_schedule: 'Scheduled task',
             viewMode: 'View history', viewInfo: '{ch} {kind} "{name}" · Switch to Bot to send a message.', botMode: 'Send as Bot', botRecipient: 'Send as Bot to {ch} {kind} "{name}"', botHint: 'Messages are sent directly by the connected Bot to this recipient. Enter to send; Shift + Enter for a new line.', botPlaceholder: 'Write a message to send as Bot…', send: 'Send', sending: 'Sending…', sent: 'Sent to "{name}"', sendFailed: 'Send failed: {error}', manualPush: 'Manual operation', roleLabel: 'Role'
         }
     };
@@ -69,6 +75,14 @@
         hasMore: false,
         loadingMore: false,
         tasks: [],
+        schedules: [],
+        scheduleLoading: false,
+        scheduleError: false,
+        scheduleTruncated: false,
+        scheduleFilter: 'all',
+        scheduleLimit: 8,
+        scheduleSeq: 0,
+        panelShown: false,
         calendar: null,
         canManage: false,
         canSend: false,
@@ -153,13 +167,13 @@
     }
 
     // 任务相关时间按工作日历的时区（默认开罗）显示，与提醒实际发送时间一致
-    function formatTime(value, withWeekday = false) {
+    function formatTime(value, withWeekday = false, timezone = state.calendar?.timezone) {
         if (!value) return '';
         const date = new Date(value);
         if (Number.isNaN(date.getTime())) return '';
         const options = { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, ...(withWeekday ? { weekday: 'short' } : {}) };
         try {
-            return date.toLocaleString(lang(), { ...options, timeZone: state.calendar?.timezone || undefined });
+            return date.toLocaleString(lang(), { ...options, timeZone: timezone || undefined });
         } catch {
             return date.toLocaleString(lang(), options);
         }
@@ -326,6 +340,12 @@
         state.items = [];
         state.segments = [];
         state.tasks = [];
+        state.schedules = [];
+        state.scheduleError = false;
+        state.scheduleTruncated = false;
+        state.scheduleFilter = 'all';
+        state.scheduleLimit = 8;
+        state.panelShown = false;
         state.focus = 0;
         state.highlight = '';
         renderThreads();
@@ -408,10 +428,38 @@
         notifyThread(false);
         el.stage?.remove();
         el.stage = null;
+        el.anchor?.dispose();
+        el.anchor = null;
         el.readonly?.remove();
         el.readonly = null;
         window.DragonClawWorkspace?.hideExternal?.();
         renderThreads();
+    }
+
+    // 底部面板高度变化（切换身份、拖动输入框、发送提示）会挤压时间线：保持时间线离底部的距离不变，最新消息不被遮挡
+    function anchorThreadBottom(thread, panel) {
+        const gapOf = () => thread.scrollHeight - thread.scrollTop - thread.clientHeight;
+        const anchor = { gap: gapOf(), smooth: false, moving: false };
+        const onScroll = () => { if (!anchor.moving) anchor.gap = gapOf(); };
+        let lastHeight = 0;
+        let timer = 0;
+        const observer = new ResizeObserver(() => {
+            const height = panel.offsetHeight;
+            if (!height || height === lastHeight) { lastHeight = height; return; }
+            lastHeight = height;
+            const top = Math.max(0, thread.scrollHeight - thread.clientHeight - anchor.gap);
+            const smooth = anchor.smooth && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+            anchor.smooth = false;
+            anchor.moving = smooth && Math.abs(top - thread.scrollTop) > 1;
+            // 平滑滚动期间不记录中间位置，结束后以最终位置为准（不依赖 scrollend，兼容旧版 Safari）
+            clearTimeout(timer);
+            if (anchor.moving) timer = setTimeout(() => { anchor.moving = false; anchor.gap = gapOf(); }, 500);
+            thread.scrollTo({ top, behavior: smooth ? 'smooth' : 'auto' });
+        });
+        thread.addEventListener('scroll', onScroll, { passive: true });
+        observer.observe(panel);
+        anchor.dispose = () => { clearTimeout(timer); observer.disconnect(); thread.removeEventListener('scroll', onScroll); };
+        return anchor;
     }
 
     function mountChrome() {
@@ -428,8 +476,9 @@
             el.readonly.addEventListener('click', event => {
                 if (event.target.closest('[data-wl-back]')) window.DragonClaw?.newChat?.();
                 const role = event.target.closest('[data-wl-role]')?.dataset.wlRole;
-                if (role && state.canSend) { state.botMode = role === 'bot'; renderReadonly(); }
+                if (role && state.canSend && state.botMode !== (role === 'bot')) { el.anchor.smooth = true; state.botMode = role === 'bot'; renderReadonly(); }
             });
+            el.anchor = anchorThreadBottom(thread, el.readonly);
             el.readonly.addEventListener('input', event => {
                 if (!event.target.matches('[data-wl-compose]')) return;
                 state.drafts.set(threadKey(state.active), event.target.value);
@@ -565,6 +614,7 @@
         if (source.startsWith('manual-bot:')) return `✎ ${tx('manualPush')} · ${source.slice('manual-bot:'.length)}`;
         const ops = /^(ops|ops-test):([^@]+)/.exec(source);
         if (source.startsWith('followup:')) return `📣 ${tx('push_followup')}`;
+        if (source.startsWith('dragon-claw-schedule:')) return `⏰ ${tx('push_schedule')}`;
         if (ops) return `📣 ${tx(ops[1] === 'ops-test' ? 'push_test' : 'push_ops')}「${ops[2].trim()}」`;
         return `📣 ${tx('push')}`;
     }
@@ -589,6 +639,7 @@
 
     // ── 跟进任务：进度条 + 右侧卡片 ─────────────────────
     async function loadTasks(seq) {
+        loadSchedules(seq);
         try {
             const data = await request('GET', `${API_BASE}/${state.active.channel}/threads/${state.active.kind}/${encodeURIComponent(state.active.id)}/followups`);
             if (seq !== state.openSeq) return;
@@ -604,6 +655,70 @@
         } catch {
             /* 任务读取失败不影响查看对话 */
         }
+    }
+
+    async function loadSchedules(seq) {
+        if (!state.active) return;
+        const requestSeq = ++state.scheduleSeq;
+        state.scheduleLoading = true;
+        renderPanel();
+        const { channel, kind, id } = state.active;
+        try {
+            const data = await request('GET', `${API_BASE}/${channel}/threads/${kind}/${encodeURIComponent(id)}/schedules`);
+            if (seq !== state.openSeq || requestSeq !== state.scheduleSeq) return;
+            state.schedules = Array.isArray(data.items) ? data.items : [];
+            state.scheduleTruncated = Boolean(data.truncated);
+            state.scheduleError = false;
+        } catch {
+            if (seq !== state.openSeq || requestSeq !== state.scheduleSeq) return;
+            state.scheduleError = true;
+        } finally {
+            if (seq === state.openSeq && requestSeq === state.scheduleSeq) {
+                state.scheduleLoading = false;
+                renderPanel();
+            }
+        }
+    }
+
+    function scheduleBucket(task) {
+        if (task.status === 'cancelled') return 'history';
+        if (task.status === 'failed' || task.lastStatus === 'failed' || task.lastPush?.ok === false) return 'attention';
+        return ['active', 'running'].includes(task.status) ? 'upcoming' : 'history';
+    }
+
+    function scheduleCard(task) {
+        const status = ['active', 'running', 'done', 'cancelled', 'failed'].includes(task.status) ? task.status : 'active';
+        const next = task.nextRunAt && ['active', 'running'].includes(status);
+        const error = task.lastError || (task.lastPush?.ok === false ? task.lastPush.error || tx('schedulePushFailed') : '');
+        const row = (label, value) => `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd>`;
+        const time = value => formatTime(value, false, task.timezone);
+        const issue = task.lastPush?.ok === false ? tx('schedulePushFailed') : task.lastStatus === 'failed' && status !== 'failed' ? tx('schedulePreviousFailed') : '';
+        return `<details class="wl-scheduled is-${status}${scheduleBucket(task) === 'attention' ? ' needs-attention' : ''}" data-wl-schedule="${escapeHtml(task.id)}">
+            <summary><span class="wl-scheduled-copy"><b>${escapeHtml(task.instruction)}</b><small>${escapeHtml(next ? tx('scheduleNext') : tx('scheduleLast'))} · ${escapeHtml(time(next ? task.nextRunAt : task.lastRunAt) || '—')}</small>${issue ? `<small class="wl-scheduled-issue">${escapeHtml(issue)}</small>` : ''}</span><span class="wl-scheduled-status is-${status}">${escapeHtml(tx(`scheduled_${status}`))}</span></summary>
+            <div class="wl-scheduled-detail"><dl class="wl-rows">${row(tx('scheduleRule'), task.description || '—')}${row(tx('scheduleRuns', { n: Number(task.runCount) || 0 }), task.lastRunAt ? time(task.lastRunAt) : '—')}</dl>${task.timezone ? `<p class="wl-scheduled-hint">${escapeHtml(tx('timezone', { zone: task.timezone }))}</p>` : ''}
+            ${task.lastStatus === 'failed' ? `<p class="wl-scheduled-error">${escapeHtml(tx('schedulePreviousFailed'))}</p>` : ''}
+            ${error ? `<p class="wl-scheduled-error">${escapeHtml(tx('scheduleError'))}：${escapeHtml(error)}</p>` : ''}
+            ${task.lastPush ? `<p class="wl-scheduled-delivery${task.lastPush.ok ? '' : ' is-failed'}">${escapeHtml(tx(task.lastPush.ok ? 'schedulePushOk' : 'schedulePushFailed'))}</p>` : ''}</div>
+        </details>`;
+    }
+
+    function renderSchedules() {
+        const counts = { all: state.schedules.length, upcoming: 0, attention: 0, history: 0 };
+        state.schedules.forEach(task => { counts[scheduleBucket(task)]++; });
+        const filters = [['all', 'scheduleAll'], ['upcoming', 'scheduleUpcoming'], ['attention', 'scheduleAttention'], ['history', 'scheduleHistory']];
+        const rank = { attention: 0, upcoming: 1, history: 2 };
+        const items = state.schedules.filter(task => state.scheduleFilter === 'all' || scheduleBucket(task) === state.scheduleFilter).slice().sort((a, b) => {
+            const group = rank[scheduleBucket(a)] - rank[scheduleBucket(b)];
+            if (group) return group;
+            if (a.status === 'running' || b.status === 'running') return a.status === b.status ? 0 : a.status === 'running' ? -1 : 1;
+            return scheduleBucket(a) === 'history' ? String(b.lastRunAt || b.updatedAt).localeCompare(String(a.lastRunAt || a.updatedAt)) : String(a.nextRunAt || '').localeCompare(String(b.nextRunAt || ''));
+        });
+        return `<section class="wl-schedules" aria-busy="${state.scheduleLoading}" aria-label="${escapeHtml(tx('scheduledTitle'))}"><header class="wl-section-head"><b>${escapeHtml(tx('scheduledTitle'))}</b><span>${counts.all}</span></header><p class="wl-scheduled-hint">${escapeHtml(tx('scheduledHint'))}</p>
+            ${counts.all ? `<div class="wl-schedule-filters" role="group" aria-label="${escapeHtml(tx('scheduledTitle'))}">${filters.map(([key, label]) => `<button type="button" data-wl-schedule-filter="${key}" aria-pressed="${state.scheduleFilter === key}">${escapeHtml(tx(label))}<span>${counts[key]}</span></button>`).join('')}</div>` : ''}
+            ${state.scheduleError ? `<div class="wl-scheduled-notice" role="status">${escapeHtml(tx('loadFailed'))}<button type="button" data-wl-schedule-retry>${escapeHtml(tx('scheduleReload'))}</button></div>` : ''}
+            <div class="wl-scheduled-list">${items.slice(0, state.scheduleLimit).map(scheduleCard).join('') || (state.scheduleError ? '' : `<p class="wl-scheduled-empty">${escapeHtml(tx(state.scheduleLoading ? 'loading' : counts.all ? 'scheduleFilteredEmpty' : 'scheduledEmpty'))}</p>`)}</div>
+            ${items.length > state.scheduleLimit ? `<button type="button" class="wl-schedule-more" data-wl-schedule-more>${escapeHtml(tx('scheduleMore', { n: Math.min(8, items.length - state.scheduleLimit) }))}</button>` : ''}
+            ${state.scheduleTruncated ? `<p class="wl-scheduled-hint">${escapeHtml(tx('scheduleLimited'))}</p>` : ''}</section>`;
     }
 
     function refreshThreadBadge() {
@@ -690,7 +805,8 @@
     }
 
     function assignees(task) {
-        const list = (task.assignees || []).map(item => `<span class="wl-person" title="${escapeHtml(item.account || '')}">@${escapeHtml(item.name || item.account)}</span>`);
+        const prefix = state.active?.channel === 'weixin' ? '' : '@';
+        const list = (task.assignees || []).map(item => `<span class="wl-person" title="${escapeHtml(item.account || '')}">${prefix}${escapeHtml(item.name || item.account)}</span>`);
         return list.length ? list.join('') : `<span class="wl-muted">${escapeHtml(tx('everyone'))}</span>`;
     }
 
@@ -717,7 +833,8 @@
             !closed ? `<select class="wl-urgency" data-wl-urgency aria-label="${escapeHtml(tx('urgency'))}">${['low', 'normal', 'high', 'urgent'].map(level => `<option value="${level}"${task.urgency === level ? ' selected' : ''}>${escapeHtml(tx('urgency'))} · ${escapeHtml(tx(`urgency_${level}`))}</option>`).join('')}</select>` : ''
         ].join('') : '';
         const rows = [
-            [tx('remindWho'), assignees(task)],
+            [tx('remindWho'), state.active.channel === 'weixin' ? escapeHtml(tx('currentWeChat')) : assignees(task)],
+            state.active.channel === 'weixin' && task.assignees?.length ? [tx('relatedPeople'), assignees(task)] : null,
             [tx('frequency'), `${escapeHtml(task.frequency)}<span class="wl-urgency-tag is-${task.urgency}">${escapeHtml(tx(`urgency_${task.urgency}`))}</span>`],
             task.status === 'open' && task.nextRemindAt ? [tx('nextRemind'), `<b>${escapeHtml(formatTime(task.nextRemindAt, true))}</b>${task.nextRemindNote ? `<span class="wl-note">${escapeHtml(task.nextRemindNote)}</span>` : ''}`] : null,
             task.remindCount ? ['', `<span class="wl-muted">${escapeHtml(tx('reminded', { n: task.remindCount }))}${task.lastRemindedAt ? ` · ${escapeHtml(tx('lastReminded', { time: formatTime(task.lastRemindedAt) }))}` : ''}</span>`] : null,
@@ -743,15 +860,30 @@
     function renderPanel() {
         if (!state.active) return;
         const open = state.tasks.filter(task => task.status === 'open').length;
-        const body = window.DragonClawWorkspace?.showExternal?.({ title: tx('followTitle'), meta: state.tasks.length ? tx('followMeta', { n: open }) : '', open: state.tasks.length ? undefined : false });
+        const hasTasks = state.tasks.length || state.schedules.length;
+        const body = window.DragonClawWorkspace?.showExternal?.({ title: tx('workspaceTasks'), meta: state.tasks.length ? tx('followMeta', { n: open }) : '', open: hasTasks && !state.panelShown ? undefined : false });
         if (!body) return;
+        if (hasTasks) state.panelShown = true;
         el.panelBody = body;
         // 保留各卡片的展开状态，定时刷新时不打断查看
         const openIds = new Set([...body.querySelectorAll('.wl-task[open]')].map(node => node.dataset.wlCard));
         const hadCards = body.querySelector('.wl-task');
-        body.innerHTML = state.tasks.length
+        const scheduleOpen = new Set([...body.querySelectorAll('[data-wl-schedule][open]')].map(node => node.dataset.wlSchedule));
+        const focused = body.contains(document.activeElement) ? document.activeElement : null;
+        const focusedSchedule = focused?.matches('summary') ? focused.parentElement.dataset.wlSchedule : null;
+        const focusedFilter = focused?.dataset.wlScheduleFilter;
+        const scrollContainer = body.closest('.home-workspace-panel') || body;
+        const scrollTop = scrollContainer.scrollTop;
+        const followups = state.tasks.length
             ? `<div class="wl-tasks">${state.tasks.map(taskCard).join('')}</div><p class="wl-zone">${escapeHtml(tx('timezone', { zone: state.calendar?.timezone || 'Africa/Cairo' }))}</p>`
             : `<div class="wsp-empty">${escapeHtml(tx('noTasks'))}</div>`;
+        body.innerHTML = renderSchedules() + `<section class="wl-followups"><header class="wl-section-head"><b>${escapeHtml(tx('followTitle'))}</b><span>${state.tasks.length}</span></header>${followups}</section>`;
+        body.querySelectorAll('[data-wl-schedule]').forEach(node => { node.open = scheduleOpen.has(node.dataset.wlSchedule); });
+        const focusTarget = focusedSchedule
+            ? body.querySelector(`[data-wl-schedule="${CSS.escape(focusedSchedule)}"] > summary`)
+            : focusedFilter ? body.querySelector(`[data-wl-schedule-filter="${CSS.escape(focusedFilter)}"]`) : null;
+        focusTarget?.focus({ preventScroll: true });
+        scrollContainer.scrollTop = scrollTop;
         if (hadCards) body.querySelectorAll('.wl-task').forEach(node => { node.open = openIds.has(node.dataset.wlCard) || state.highlight === node.dataset.wlCard; });
         if (!body.dataset.wlBound) {
             body.dataset.wlBound = '1';
@@ -761,6 +893,16 @@
     }
 
     async function onPanelAction(event) {
+        const filter = event.target.closest('[data-wl-schedule-filter]');
+        if (filter) {
+            state.scheduleFilter = filter.dataset.wlScheduleFilter;
+            state.scheduleLimit = 8;
+            renderPanel();
+            el.panelBody?.querySelector(`[data-wl-schedule-filter="${state.scheduleFilter}"]`)?.focus({ preventScroll: true });
+            return;
+        }
+        if (event.target.closest('[data-wl-schedule-more]')) { state.scheduleLimit += 8; renderPanel(); return; }
+        if (event.target.closest('[data-wl-schedule-retry]')) return loadSchedules(state.openSeq);
         const button = event.target.closest('[data-wl-act]');
         if (!button || !el.panelBody?.contains(button)) return;
         const id = button.closest('[data-wl-task-id]')?.dataset.wlTaskId;

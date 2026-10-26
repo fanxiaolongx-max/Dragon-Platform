@@ -62,8 +62,8 @@
       "description": "数通协议知识库：OSPF、Juniper 跨厂商策略等知识的分类整理，配合二维拓扑、报文时序、按位图解与分步实验，理解复杂协议机制。",
       "href": "./datacom-protocol-expert/index.html",
       "encrypted": false,
-      "fingerprint": "44412c40cdeec2b029c5831e8d6cb2cf651155fc9cb73aab25372d9db0f29409",
-      "updatedAt": "2026-10-25T16:48:43.711Z"
+      "fingerprint": "5f7f6a027dcda65dbe2c2ba008748adc0cb96870c6c3c924a4c899f82fa56842",
+      "updatedAt": "2026-10-26T02:48:50.609Z"
     },
     {
       "slug": "department-reward-penalty",
@@ -98,8 +98,8 @@
       "description": "导入夜间操作 Excel，按人员、周期和操作等级核算操作激励并生成分析与导出结果。",
       "href": "./tool-ms4xb66s/index.html",
       "encrypted": false,
-      "fingerprint": "1b96f9c3f2532fb5b38ae61f1b56353fd1d3d9d5da7b085737dfaa25a88e6750",
-      "updatedAt": "2026-10-25T15:10:45.913Z"
+      "fingerprint": "c3b6380bab319b7d0976ce87971ac8fbb76907cc4dcf7a6e3fbb06040e236fc5",
+      "updatedAt": "2026-10-26T02:48:50.486Z"
     },
     {
       "slug": "tool-mumxi3px",
@@ -107,8 +107,8 @@
       "description": "查询产品是否属于强控业务比对范围，支持产品数据导入导出、服务器保存、模糊检索和静态快照同步。",
       "href": "./tool-mumxi3px/index.html",
       "encrypted": false,
-      "fingerprint": "84d6ef311bf3b65e063a5c57682522f2088c808b0dd29dde77497aab3a6023fb",
-      "updatedAt": "2026-10-25T16:48:43.615Z"
+      "fingerprint": "4b9cf7c96e10262ee9f8f066cdab5cef6bc89c91d9ae9f28d1511d9ff85d9059",
+      "updatedAt": "2026-10-26T02:48:50.495Z"
     },
     {
       "slug": "tool-mqp55fna",
