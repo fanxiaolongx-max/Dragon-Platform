@@ -4,6 +4,8 @@ const { app, BrowserWindow } = require('electron');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
 const root=path.join(__dirname,'..'),temp=fs.mkdtempSync(path.join(os.tmpdir(),'dragon-commands-ui-'));
 app.setPath('userData',path.join(temp,'profile'));
+app.disableHardwareAcceleration();
+setTimeout(()=>{console.error('Command UI timed out');app.exit(1);},60000).unref();
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 const home=read('frontend/index.html'),start=home.indexOf('<section class="dc"');
 const section=home.slice(start,home.indexOf('</section>',start)+10);
@@ -12,7 +14,7 @@ const evaluate=fn=>win.webContents.executeJavaScript(`(${fn.toString()})()`,true
 app.whenReady().then(async()=>{
     server=http.createServer((req,res)=>{if(req.url.startsWith('/js/shared/pinyin-search.js')){res.setHeader('Content-Type','text/javascript');return res.end(read('frontend/js/shared/pinyin-search.js'));}res.setHeader('Content-Type',req.url.startsWith('/api/')?'application/json':'text/html; charset=utf-8');res.end(req.url.startsWith('/api/')?JSON.stringify({models:[],items:[]}):`<style>${read('frontend/css/dragon-claw.css')}body{background:#101b30;margin:0;font-family:system-ui}.dc{--navbar-h:0px;margin:20px}.dc-quick,.dc-scroll-hint{display:none}</style>${section}`);}).listen(0,'127.0.0.1');
     await new Promise(resolve=>server.once('listening',resolve));
-    win=new BrowserWindow({show:false,width:1000,height:800,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false}});
+    win=new BrowserWindow({show:false,width:1000,height:800,webPreferences:{sandbox:true,contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});
     win.webContents.on('console-message',(_,level,message)=>{if(level===3)console.error('Renderer:',message);});
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
     await win.webContents.executeJavaScript(`
