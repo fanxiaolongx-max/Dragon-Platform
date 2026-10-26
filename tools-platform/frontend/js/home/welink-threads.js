@@ -221,6 +221,7 @@
         });
         el.search?.addEventListener('input', () => {
             if (state.source === 'mine') return;
+            if (state.source === 'agents') return window.HomeDesktopAgents?.search?.();
             clearTimeout(state.listTimer);
             state.listTimer = setTimeout(loadThreads, 220);
         });
@@ -228,7 +229,7 @@
     }
 
     function sources() {
-        return ['mine', ...state.channels.map(item => item.id)];
+        return ['mine', ...state.channels.map(item => item.id), ...(window.HomeDesktopAgents?.available?.() ? ['agents'] : [])];
     }
 
     function renderTabs() {
@@ -243,7 +244,8 @@
         el.tabs.style.setProperty('--tab-index', String(Math.max(0, list.indexOf(state.source))));
         el.tabs.querySelectorAll('[data-chat-source]').forEach(button => {
             const selected = button.dataset.chatSource === state.source;
-            button.textContent = TEXT[lang()][button.dataset.chatSource] || button.dataset.chatSource;
+            button.textContent = button.dataset.chatSource === 'agents' ? (lang() === 'en-US' ? 'Agents' : '桌面 Agent') : TEXT[lang()][button.dataset.chatSource] || button.dataset.chatSource;
+            if(button.dataset.chatSource==='agents')button.title=lang()==='en-US'?'Desktop agents':'桌面 Agent';
             button.setAttribute('aria-selected', String(selected));
             button.classList.toggle('is-active', selected);
         });
@@ -258,8 +260,9 @@
         if (changed) Object.assign(state, { threads: [], loaded: false, failed: false });
         renderTabs();
         el.chatList.hidden = state.source !== 'mine';
-        el.list.hidden = state.source === 'mine';
-        if (state.source !== 'mine') loadThreads();
+        el.list.hidden = state.source === 'mine' || state.source === 'agents';
+        window.HomeDesktopAgents?.show?.(state.source === 'agents');
+        if (CHANNEL_IDS.includes(state.source)) loadThreads();
     }
 
     /** 读取已对接的频道，刷新分类；当前分类的频道被停用时回到「我的对话」。 */
@@ -976,7 +979,7 @@
 
     function applyTexts() {
         renderTabs();
-        if (state.source !== 'mine') renderThreads();
+        if (CHANNEL_IDS.includes(state.source)) renderThreads();
         if (state.active) {
             renderReadonly();
             renderStage();
@@ -992,17 +995,18 @@
         loadChannels();
         window.dispatchEvent(new Event('home:channel-threads-ready'));
         window.addEventListener('tools:languagechange', applyTexts);
+        window.addEventListener('home:desktop-agents-ready', () => setSource(storeGet(SOURCE_KEY) || state.source, { remember:false }));
         window.addEventListener('storage', event => {
             if (['tools_user', 'tools_tenant_id', 'tools_token'].includes(event.key) && state.active && state.identity !== identity()) { state.drafts.clear(); window.DragonClaw?.newChat?.(); }
         });
         setInterval(() => {
             if (document.visibilityState !== 'visible') return;
             loadChannels();
-            if (state.source !== 'mine' && !el.list.hidden) loadThreads();
+            if (CHANNEL_IDS.includes(state.source) && !el.list.hidden) loadThreads();
         }, 60000);
     }
 
-    window.HomeWelinkThreads = { open: openThread, reload: loadThreads, active: () => state.active ? { ...state.active } : null, refresh: pollNewMessages };
+    window.HomeWelinkThreads = { setSource, open: openThread, reload: loadThreads, active: () => state.active ? { ...state.active } : null, refresh: pollNewMessages };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();

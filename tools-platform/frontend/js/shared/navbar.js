@@ -2408,6 +2408,7 @@ function renderNavSettingsSidebar() {
         <button class="nav-settings-tab ${t === 'items' ? 'active' : ''}" data-tab="items" onclick="switchNavSettingsTab('items')">${renderNavSettingsTabLabel('↕️', navT('nav.set.tab.items'))}</button>
         <button class="nav-settings-tab ${t === 'ai' ? 'active' : ''}" data-tab="ai" onclick="switchNavSettingsTab('ai')">${renderNavSettingsTabLabel('🤖', navT('nav.set.tab.ai'))}</button>
         <button class="nav-settings-tab ${t === 'channels' ? 'active' : ''}" data-tab="channels" onclick="switchNavSettingsTab('channels')">${renderNavSettingsTabLabel('🔌', navT('nav.set.tab.channels'))}</button>
+        <button class="nav-settings-tab ${t === 'desktopAgents' ? 'active' : ''}" data-tab="desktopAgents" onclick="switchNavSettingsTab('desktopAgents')">${renderNavSettingsTabLabel('🖥️', navLocaleText('桌面 Agent 与 DragonTAC', 'Desktop agents & DragonTAC'))}</button>
         <button class="nav-settings-tab ${t === 'update' ? 'active' : ''}" data-tab="update" onclick="switchNavSettingsTab('update')">${renderNavSettingsTabLabel('🔄', navT('nav.set.tab.update'))}</button>
         <button class="nav-settings-tab ${t === 'backup' ? 'active' : ''}" data-tab="backup" onclick="switchNavSettingsTab('backup')">${renderNavSettingsTabLabel('💾', navT('nav.set.tab.backup'))}</button>
         <button class="nav-settings-tab ${t === 'snapshotPublish' ? 'active' : ''}" data-tab="snapshotPublish" onclick="switchNavSettingsTab('snapshotPublish')">${renderNavSettingsTabLabel('📤', navT('nav.set.tab.snapshotPublish'))}</button>
@@ -2481,6 +2482,7 @@ function getNavSettingsTitle() {
     if (navState.settingsTab === 'accounts') return navT('nav.set.tab.accounts');
     if (navState.settingsTab === 'security') return navT('nav.set.tab.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.tab.ai');
+    if (navState.settingsTab === 'desktopAgents') return navLocaleText('桌面 Agent 与 DragonTAC', 'Desktop agents & DragonTAC');
     if (navState.settingsTab === 'channels') return navT('nav.set.tab.channels');
     if (navState.settingsTab === 'update') return navT('nav.set.tab.update');
     if (navState.settingsTab === 'backup') return navT('nav.set.tab.backup');
@@ -2507,6 +2509,7 @@ function getNavSettingsSubtitle() {
     if (navState.settingsTab === 'accounts') return navT('nav.set.sub.accounts');
     if (navState.settingsTab === 'security') return navT('nav.set.sub.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.sub.ai');
+    if (navState.settingsTab === 'desktopAgents') return navLocaleText('连接本机原生桌面会话，同步最近对话并在 Web 继续交流。', 'Sync recent native desktop sessions and continue them from the Web.');
     if (navState.settingsTab === 'channels') return navT('nav.set.sub.channels');
     if (navState.settingsTab === 'update') return navT('nav.set.sub.update');
     if (navState.settingsTab === 'backup') return navT('nav.set.sub.backup');
@@ -2539,6 +2542,7 @@ function renderNavSettingsContent() {
     if (navState.settingsTab === 'accounts') return renderAccountSettings(content);
     if (navState.settingsTab === 'security') return renderSecuritySettings(content);
     if (navState.settingsTab === 'ai') return renderAiSettings(content);
+    if (navState.settingsTab === 'desktopAgents') return renderDesktopAgentSettings(content);
     if (navState.settingsTab === 'channels') return renderChannelSettings(content);
     if (navState.settingsTab === 'update') return renderUpdaterSettings(content);
     if (navState.settingsTab === 'backup') return renderBackupSettings(content);
@@ -10335,4 +10339,14 @@ if (!document.querySelector('script[data-first-run-onboarding]')) {
     firstRunOnboardingScript.src = '/js/shared/first-run-onboarding.js';
     firstRunOnboardingScript.dataset.firstRunOnboarding = '1';
     document.head.appendChild(firstRunOnboardingScript);
+}
+
+async function renderDesktopAgentSettings(content) {
+    if (!window.ToolsDesktopAgentSettings) {
+        try {
+            window.desktopAgentSettingsScript ||= new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='/js/shared/desktop-agent-settings.js';script.onload=resolve;script.onerror=()=>{window.desktopAgentSettingsScript=null;reject(new Error('Desktop agent settings failed to load'));};document.head.append(script);});
+            await window.desktopAgentSettingsScript;
+        } catch(error) { if(content.isConnected)content.textContent=error.message;return; }
+    }
+    if(navState.settingsTab==='desktopAgents')return window.ToolsDesktopAgentSettings.render(content);
 }

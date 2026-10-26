@@ -1,0 +1,103 @@
+// node_modules/.bin/electron tests/desktop-agents-browser.cjs
+// All desktop/API responses below are fixtures; no business message is sent.
+const { app, BrowserWindow } = require('electron');
+const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), assert = require('node:assert/strict'), express = require('express');
+const root = path.join(__dirname, '..'), temp = fs.mkdtempSync(path.join(os.tmpdir(), 'desktop-agents-ui-'));
+app.setPath('userData', path.join(temp, 'profile'));
+app.disableHardwareAcceleration();
+setTimeout(() => { console.error('Desktop agent UI timed out'); app.exit(1); }, 60000).unref();
+const ids = { codex: '11111111-1111-4111-8111-111111111111', claudecode: 'local_22222222-2222-4222-8222-222222222222', antigravity: '33333333-3333-4333-8333-333333333333' };
+let win, server, config = { enabled: true, autoSync: true, allowSend: true, syncSeconds: 20, recentLimit: 60, providers: { codex: true, claudecode: true, antigravity: true } }, sendError = false, holdSend = false, releaseSend;
+const calls = [], saves = [];
+const sessions = Object.entries(ids).map(([provider, id]) => ({ provider, id, title: provider + ' original desktop conversation', updatedAt: '2026-10-26T10:00:00Z', source: 'desktop-history' }));
+const histories = Object.fromEntries(Object.keys(ids).map(p => [p, [{ id: 'u1', role: 'user', content: p + ' original user message' }, { id: 'a1', role: 'assistant', content: p + ' original assistant reply' }]]));
+const providers = () => Object.keys(ids).map(id => ({ id, enabled: true, connected: true, canRead: true, canSend: config.allowSend, count: 1, reason: 'Native desktop fixture' }));
+const evaluate = code => win.webContents.executeJavaScript(/^(let |const )/.test(code) ? `(()=>{${code}})()` : code, true), wait = ms => new Promise(r => setTimeout(r, ms));
+async function until(code) { for (let n = 0; n < 160; n++) {
+    if (await evaluate(`Boolean(${code})`))
+        return;
+    await wait(30);
+} throw Error('Timed out: ' + code); }
+app.whenReady().then(async () => {
+    const web = express();
+    web.use(express.json());
+    const storage = `<script>localStorage.setItem('tools_user','admin');localStorage.setItem('tools_role','admin');localStorage.setItem('tools_tenant_id','default');localStorage.setItem('tools_token','test-only');</script>`;
+    web.get('/', (_req, res) => { let html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, ''); res.type('html').send(html.replace('</body>', storage + ['/js/shared/i18n.js', '/js/home/home-mode.js', '/js/home/dragon-claw.js', '/js/home/welink-threads.js', '/js/home/desktop-agents.js'].map(src => `<script src="${src}"></script>`).join('') + '</body>')); });
+    web.get('/settings', (_req, res) => res.type('html').send(`<!doctype html><html><head><link rel="stylesheet" href="/css/desktop-agents.css"></head><body style="font:14px system-ui;background:#142435;color:#dbeafe;padding:20px"><button class="nav-settings-tab active" data-tab="desktopAgents">Desktop agents</button><div id="settings"></div>${storage}<script src="/js/shared/i18n.js"></script><script src="/js/shared/desktop-agent-settings.js"></script><script>ToolsDesktopAgentSettings.render(document.getElementById('settings'));</script></body></html>`));
+    web.get('/api/desktop-agents/settings', (_req, res) => res.json({ owned: true, settings: config }));
+    web.put('/api/desktop-agents/settings', (req, res) => { saves.push(req.body); config = { ...config, ...req.body }; res.json({ settings: config }); });
+    web.get('/api/desktop-agents/sessions', (_req, res) => res.json({ items: sessions, providers: providers(), syncedAt: new Date().toISOString() }));
+    web.post('/api/desktop-agents/sync', (_req, res) => res.json({ items: sessions, providers: providers(), syncedAt: new Date().toISOString() }));
+    web.get('/api/desktop-agents/:provider/sessions/:id/messages', (req, res) => res.json({ session: sessions.find(s => s.provider === req.params.provider), items: histories[req.params.provider], canSend: config.allowSend, available: true }));
+    web.post('/api/desktop-agents/:provider/sessions/:id/messages', async (req, res) => { calls.push({ provider: req.params.provider, id: req.params.id, ...req.body }); if (holdSend)
+        await new Promise(resolve => { releaseSend = resolve; }); if (sendError)
+        return res.status(409).json({ error: 'Native desktop is busy' }); histories[req.params.provider].push({ id: 'u' + calls.length, role: 'user', content: req.body.text }, { id: 'a' + calls.length, role: 'assistant', content: 'native reply: ' + req.body.text }); res.status(202).json({ status: 'accepted', requestId: req.body.requestId }); });
+    web.get('/api/channels/available', (_req, res) => res.json({ items: [{id:'welink'},{id:'weixin'}] }));
+    web.get('/api/ai/models', (_req, res) => res.json({ models: [] }));
+    web.get('/api/ai/sessions', (_req, res) => res.json({ items: [] }));
+    web.get('/api/asset-version', (_req, res) => res.json({ version: 'test' }));
+    web.use(express.static(path.join(root, 'frontend')));
+    server = await new Promise(resolve => { const s = web.listen(0, '127.0.0.1', () => resolve(s)); });
+    const base = 'http://127.0.0.1:' + server.address().port;
+    win = new BrowserWindow({ show: false, width: 1440, height: 950, webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
+    await win.loadURL(base);
+    await until('!!document.querySelector("[data-chat-source=agents]")');
+    await evaluate('document.querySelector("[data-chat-source=agents]").click()');
+    await until('document.querySelectorAll("[data-desktop-session]").length===1');
+    assert.equal(await evaluate('document.getElementById("homeChatList").hidden'), true);
+    await evaluate('document.querySelector("[data-desktop-session]").click()');
+    await until('document.querySelector(".desktop-agent-composer textarea")');
+    assert.equal(await evaluate('dcInput.disabled'), true, 'platform model composer is disabled for external sessions');
+    assert.match(await evaluate('dcThread.textContent'), /codex original assistant reply/);
+    await evaluate('let input=document.querySelector(".desktop-agent-composer textarea");input.value="A Codex follow-up";input.dispatchEvent(new Event("input",{bubbles:true}));document.querySelector("[data-desktop-send]").click();document.querySelector("[data-desktop-send]")?.click();');
+    await until('dcThread.textContent.includes("native reply: A Codex follow-up")');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].id, ids.codex);
+    assert.equal(await evaluate('document.querySelector(".desktop-agent-composer textarea").value'), '');
+    const choose = async (provider) => { await evaluate(`let select=document.querySelector('[data-desktop-provider]');select.value=${JSON.stringify(provider)};select.dispatchEvent(new Event('change',{bubbles:true}));document.querySelector('[data-desktop-session]').click();`); await until(`dcThread.textContent.includes(${JSON.stringify(provider + ' original assistant reply')})`); };
+    await choose('claudecode');
+    await evaluate('let t=document.querySelector(".desktop-agent-composer textarea");t.value="Claude draft";t.dispatchEvent(new Event("input",{bubbles:true}));');
+    await choose('antigravity');
+    assert.equal(await evaluate('document.querySelector(".desktop-agent-composer textarea").value'), '');
+    await choose('claudecode');
+    assert.equal(await evaluate('document.querySelector(".desktop-agent-composer textarea").value'), 'Claude draft');
+    sendError = true;
+    await evaluate('document.querySelector("[data-desktop-send]").click()');
+    await until('document.querySelector(".desktop-agent-notice").textContent.includes("busy")');
+    assert.equal(await evaluate('document.querySelector(".desktop-agent-composer textarea").value'), 'Claude draft');
+    sendError = false;
+    holdSend = true;
+    await evaluate('document.querySelector("[data-desktop-send]").click()');
+    while (!releaseSend)
+        await wait(20);
+    await choose('antigravity');
+    releaseSend();
+    holdSend = false;
+    await wait(120);
+    assert.equal(calls.at(-1).provider, 'claudecode');
+    assert.doesNotMatch(await evaluate('dcThread.textContent'), /native reply: Claude draft/);
+    await evaluate('document.getElementById("homeChatSearch").value="no-match";document.getElementById("homeChatSearch").dispatchEvent(new Event("input",{bubbles:true}));');
+    assert.equal(await evaluate('document.querySelectorAll("[data-desktop-session]").length'), 0);
+    await evaluate('document.getElementById("homeChatSearch").value="";document.getElementById("homeChatSearch").dispatchEvent(new Event("input",{bubbles:true}));');
+    await evaluate('ToolsI18n.setLanguage("en-US")');
+    assert.match(await evaluate('document.querySelector("[data-chat-source=agents]").textContent'), /Agents/);
+    await wait(100);
+    fs.writeFileSync(path.join(temp, 'desktop-agents-wide.png'), (await win.webContents.capturePage()).toPNG());
+    win.setContentSize(390, 844);
+    await wait(80);
+    assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'), true);
+    fs.writeFileSync(path.join(temp, 'desktop-agents-mobile.png'), (await win.webContents.capturePage()).toPNG());
+    await win.loadURL(base + '/settings');
+    await until('document.querySelector("[name=enabled]")');
+    await evaluate('document.querySelector("[name=recentLimit]").value="40";document.querySelector("[name=autoSync]").checked=false;document.querySelector("[name=allowSend]").checked=false;document.querySelector("[type=submit]").click();');
+    await until('document.querySelector(".desktop-agent-setting-result").textContent.includes("Codex")');
+    assert.equal(saves.length, 1);
+    assert.equal(saves[0].recentLimit, 40);
+    assert.equal(saves[0].allowSend, false);
+    assert.equal(saves[0].autoSync, false);
+    fs.writeFileSync(path.join(temp, 'desktop-agent-settings.png'), (await win.webContents.capturePage()).toPNG());
+    console.log('PASS: desktop-agent tabs, three providers, original history/replies, drafts, duplicate sends, failures, switching races, search, mobile and settings. Screenshots: ' + temp);
+    win.destroy();
+    server.close();
+    app.exit(0);
+}).catch(error => { console.error(error); win?.destroy(); server?.close(); app.exit(1); });
