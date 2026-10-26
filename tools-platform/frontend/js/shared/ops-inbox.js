@@ -163,12 +163,10 @@
     function render() {
         if (!banner) return;
         const available = state.canManage && state.total > 0;
-        const priorityChanged = document.body.classList.contains('ops-review-pending') !== available;
-        document.body.classList.toggle('ops-review-pending', available);
-        if (priorityChanged) window.dispatchEvent(new Event('tools:ops-inbox-state'));
         const batch = state.items.map(item => item.id).join('|');
         banner.hidden = !available || batch === state.muted;
         banner.setAttribute('aria-label', L('待确认消息提醒', 'Message review reminder'));
+        syncPriority();
         banner.innerHTML = `<span class="ops-beacon" aria-hidden="true"><i></i>✦</span><span class="ops-banner-copy"><b>${esc(L(`${state.total} 条消息等待你确认`, `${state.total} messages ready for review`))}</b><small>${esc(L('进入对应的微信 / WeLink 会话处理', 'Review in the matching WeChat / WeLink conversation'))}</small></span><button type="button" class="ops-primary" data-ops-inbox-action="review">${esc(L('进入对话', 'Open chat'))}<span aria-hidden="true"> ↗</span></button><button type="button" class="ops-dismiss" data-ops-inbox-action="mute" aria-label="${esc(L('暂时收起，有新消息时再提醒', 'Dismiss until the next new message'))}">×</button>`;
         mountThreadPanel();
         if (home) {
@@ -179,6 +177,14 @@
         if (available && visible.length && !visible.some(item => state.open.has(item.id))) state.open.add(visible[0].id);
         renderPanel();
         if (!available && !state.notice && !state.busy) closeReview();
+    }
+
+    // 只有浮动提醒横幅真正显示时才让推广避让（两者都在右上角）；主页对话区用就地入口，不影响推广和抽屉。
+    function syncPriority() {
+        const shown = Boolean(banner && !banner.hidden && !document.body.classList.contains('home-mode-chat'));
+        if (document.body.classList.contains('ops-banner-shown') === shown) return;
+        document.body.classList.toggle('ops-banner-shown', shown);
+        window.dispatchEvent(new Event('tools:ops-inbox-state'));
     }
 
     async function review(target) {
@@ -219,6 +225,7 @@
             state.muted = state.items.map(item => item.id).join('|');
             try { sessionStorage.setItem(muteKey(), state.muted); } catch { /* 当前页面仍可收起 */ }
             banner.hidden = true;
+            syncPriority();
             return;
         }
         if (kind === 'review') return review();
@@ -318,6 +325,7 @@
             const id = event.target.dataset.opsCard;
             if (id) { if (event.target.open) state.open.add(id); else state.open.delete(id); }
         }, true);
+        new MutationObserver(syncPriority).observe(document.body, { attributes: true, attributeFilter: ['class'] });
         state.identity = identity();
         state.muted = readMuted();
         state.activeThread = window.HomeWelinkThreads?.active?.() || null;
