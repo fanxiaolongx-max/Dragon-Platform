@@ -263,6 +263,9 @@
                 ? await request('POST', `/runs/${encodeURIComponent(id)}/discard`)
                 : await request(kind === 'send' ? 'POST' : 'PUT', `/runs/${encodeURIComponent(id)}${kind === 'send' ? '/send' : ''}`, { content, expectedContent: item.content });
             if (epoch !== state.epoch || identity() !== state.identity) return;
+            // A save can finish before the follow-up refresh. Keep the confirmed
+            // text current so an immediate send uses the new expectedContent.
+            if (kind === 'save') item.content = typeof result.content === 'string' ? result.content : content;
             state.edits.delete(id);
             state.editing.delete(id);
             setNotice(kind === 'discard' ? L('草稿已丢弃，不会发送。', 'Draft discarded. It will not be sent.') : kind === 'save' ? L('修改已保存，尚未发送。', 'Draft saved. It has not been sent.') : result.status === 'sent' ? L('消息已发送。', 'Message sent.') : L('发送未全部成功，请到频道对接的推送记录查看详情：', 'Some deliveries failed. Check channel history: ') + (result.error || result.status), kind === 'send' && result.status !== 'sent' ? 'error' : '');

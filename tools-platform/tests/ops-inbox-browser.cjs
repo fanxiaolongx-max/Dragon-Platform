@@ -8,7 +8,9 @@ const express = require('express');
 const root = path.join(__dirname, '..');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'channel-ops-browser-'));
 app.setPath('userData', path.join(temp, 'profile'));
-let win, server, failSend = false, failRefresh = false, canSend = true, holdManual = false, releaseManual;
+app.disableHardwareAcceleration();
+const watchdog=setTimeout(()=>{console.error('Operations UI timed out');app.exit(1);},60000);watchdog.unref();
+let win, server, failSend = false, failRefresh = false, canSend = true, holdManual = false, releaseManual, holdSavedRefresh = false, releaseSavedRefresh;
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const evaluate = code => win.webContents.executeJavaScript(code, true).catch(error => { throw new Error(`Browser evaluation failed: ${code}`, { cause: error }); });
 async function until(check, label) { for (let n = 0; n < 180; n++) { if (await check()) return; await wait(25); } throw new Error(`Timed out: ${label}`); }
@@ -22,7 +24,7 @@ append(GROUP, 'WeLink 原有对话'); append(ALICE, '微信原有对话');
 const draft = (id, targets = [GROUP]) => ({ id, targets, planName: `运营草稿 ${id}`, content: `消息正文 ${id}`, status: 'draft', createdAt: '2026-10-25T07:30:00Z' });
 const longContent = Array.from({ length: 30 }, (_, index) => `${index + 1}. 月报亮点：核对完整正文和收件对象后发送。`).join('\n') + '\nhttps://example.test/' + 'long-message-link/'.repeat(30);
 let drafts = [draft('broadcast', [GROUP, ALICE]), draft('wechat', [ALICE])].map(item => ({ ...item, content: longContent }));
-const manualCalls = [], opsCalls = [];
+const manualCalls = [], opsCalls = [], discardCalls = [];
 const active = () => evaluate('HomeWelinkThreads.active()');
 const open = target => evaluate(`HomeWelinkThreads.open(${JSON.stringify(target)});void 0`);
 const review = () => evaluate('ToolsOpsInbox.open()');
@@ -64,8 +66,9 @@ app.whenReady().then(async () => {
         res.json({ thread: target, items: histories.get(key(target)) || [], segments: [], hasMore: false, canSend: canSend && !(target.channel === 'weixin' && target.kind === 'group') });
     });
     web.get('/api/channels/:channel/threads/:kind/:id/followups', (_, res) => res.json({ items: [], canManage: true }));
-    web.get('/api/channels/ops/pending', (req, res) => {
+    web.get('/api/channels/ops/pending', async (req, res) => {
         if (failRefresh) return res.status(503).json({ error: 'network unavailable' });
+        if (holdSavedRefresh) await new Promise(resolve => { releaseSavedRefresh = resolve; });
         const offset = Number(req.query.offset) || 0;
         res.json({ canManage: true, items: drafts.slice(offset, offset + 20), total: drafts.length, hasMore: offset + 20 < drafts.length, offset });
     });
@@ -83,6 +86,12 @@ app.whenReady().then(async () => {
         drafts = drafts.filter(entry => entry.id !== item.id);
         res.json({ ...item, status: 'sent' });
     });
+    web.post('/api/channels/ops/runs/:id/discard', (req, res) => {
+        const item = drafts.find(item => item.id === req.params.id);
+        if (!item) return res.status(404).json({ error: '草稿不存在' });
+        discardCalls.push(item.id);drafts = drafts.filter(entry => entry.id !== item.id);
+        res.json({ ...item, status: 'discarded' });
+    });
     web.post('/api/channels/:channel/push', async (req, res) => {
         manualCalls.push({ channel: req.params.channel, ...req.body });
         if (holdManual) await new Promise(resolve => { releaseManual = resolve; }); else await wait(100);
@@ -98,10 +107,12 @@ app.whenReady().then(async () => {
     web.use(express.static(path.join(root, 'frontend')));
     server = await new Promise(resolve => { const listener = web.listen(0, '127.0.0.1', () => resolve(listener)); });
     const base = `http://127.0.0.1:${server.address().port}`;
+    console.log("Operations mock server ready");
     win = new BrowserWindow({ show: false, width: 1440, height: 950, webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
     const errors = [];
     win.webContents.on('console-message', (_, level, message) => { if (level === 3 && !/status of (503|409|404)/.test(message)) errors.push(message); });
     await win.loadURL(base);
+    console.log("Operations page loaded");
     await until(() => evaluate('document.querySelector(".ops-home-inbox:not([hidden])")?.getBoundingClientRect().height>=30'), 'compact home reminder');
     assert.equal(await evaluate('document.querySelectorAll(".ops-card,.ops-inbox-panel").length'), 0);
     await wait(180); fs.writeFileSync(path.join(temp, 'home.png'), (await win.webContents.capturePage()).toPNG());
@@ -138,16 +149,24 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('document.activeElement===document.querySelector("[data-ops-edit]")'), true, 'background refresh preserves editing focus');
     failRefresh = true; await evaluate('ToolsOpsInbox.refresh()'); failRefresh = false;
     assert.equal(await evaluate('document.querySelector("[data-ops-edit]").value'), '运营草稿修改保留');
+    console.log('holding post-save refresh');
+    holdSavedRefresh = true;
     await evaluate('document.querySelector("[data-ops-inbox-action=save]").click()');
     await until(() => drafts[0].content === '运营草稿修改保留', 'saved draft is not sent');
     assert.equal(opsCalls.length, 0);
+    console.log('save acknowledged; refresh pending');
+    await until(() => Boolean(releaseSavedRefresh), 'post-save refresh held');
     await until(() => evaluate('!document.querySelector("[data-ops-inbox-action=send]").disabled'), 'draft unlocked');
     await evaluate('document.querySelector("[data-ops-inbox-action=send]").click()');
     await until(() => drafts.length === 1, 'broadcast sent');
+    assert.equal(opsCalls[0].expectedContent,'运营草稿修改保留','send uses the confirmed save even before refresh finishes');
+    console.log('broadcast delivered before refresh');
+    holdSavedRefresh = false;releaseSavedRefresh();
     assert.equal(histories.get(key(ALICE)).some(item => item.content === '运营草稿修改保留'), true);
     assert.equal((await active()).channel, 'welink', 'sending does not leave the actual channel conversation');
-    await until(() => evaluate('!!document.querySelector("[data-ops-thread]")'), 'pending conversation selector');
-    await evaluate(`let choice=document.querySelector('[data-ops-thread]');choice.value=${JSON.stringify(JSON.stringify([ALICE.channel, ALICE.kind, ALICE.id]))};choice.dispatchEvent(new Event('change',{bubbles:true}));`);
+    assert.equal(await evaluate('document.querySelector("[data-ops-thread]")'), null, 'conversation selection stays in the sidebar');
+    console.log('opening next conversation');
+    await open(ALICE);
     await until(async () => (await active())?.channel === 'weixin' && await evaluate('!!document.querySelector("[data-ops-card=wechat]")'), 'next pending draft opens WeChat');
     assert.equal(await evaluate('dcThread.textContent.includes("微信原有对话")'), true);
     await bot(); await fillManual('微信手动消息');
@@ -195,10 +214,20 @@ app.whenReady().then(async () => {
     assert.equal((await active()).channel, 'weixin');
     assert.equal(await evaluate('document.body.classList.contains("dc-external-view")'), true, 'channel remains open after last confirmation');
     assert.equal(await evaluate('document.querySelector(".ops-inbox-banner").hidden'), true);
+    console.log('checking discard');
+    drafts = [draft('discard-check', [ALICE])];await evaluate('ToolsOpsInbox.refresh()');
+    await until(() => evaluate('!!document.querySelector("[data-ops-card=discard-check]")'), 'discardable draft');
+    await evaluate('window.__discardAnswer=false;window.AppDialog={confirm:async()=>window.__discardAnswer};document.querySelector("[data-ops-inbox-action=discard]").click()');
+    await wait(100);assert.equal(discardCalls.length,0);assert.equal(drafts.length,1,'cancelled discard preserves the draft');
+    const sendsBeforeDiscard=opsCalls.length;
+    await evaluate('window.__discardAnswer=true;document.querySelector("[data-ops-inbox-action=discard]").click()');
+    await until(() => drafts.length===0,'confirmed discard');assert.deepEqual(discardCalls,['discard-check']);
+    assert.equal(opsCalls.length,sendsBeforeDiscard,'discard never sends a message');
     await evaluate('DragonClaw.newChat()');
     assert.equal(await evaluate('dcInput.disabled'), false);
     assert.equal(await evaluate('document.querySelectorAll(".wl-readonly").length'), 0);
 
+    console.log('checking pagination');
     drafts = Array.from({ length: 23 }, (_, index) => draft(`page-${index}`));
     await win.loadURL(`${base}/tool`);
     await until(() => evaluate('!!document.querySelector(".ops-inbox-banner:not([hidden])")'), 'global reminder');
@@ -216,11 +245,18 @@ app.whenReady().then(async () => {
     assert.equal(await active(), null);
     await open(GROUP); await until(() => evaluate('!!document.querySelector("[data-wl-role=bot]")'), 'new tenant thread'); await bot();
     assert.equal(await evaluate('document.querySelector("[data-wl-compose]").value'), '');
+    console.log('checking promotion priority');
     await win.loadURL(`${base}/?promos=1`);
     await until(() => evaluate('!!document.querySelector("#nrvFloat:not([hidden])")'), 'promotion ready');
     drafts = [draft('promo-check')];
     await evaluate('ToolsOpsInbox.refresh()');
-    await until(() => evaluate('getComputedStyle(nrvStack).visibility==="hidden"'), 'pending work hides promotions');
+    assert.equal(await evaluate('document.body.classList.contains("ops-banner-shown")'),false,'inline conversation reminders do not hide promotions');
+    assert.equal(await evaluate('getComputedStyle(nrvStack).visibility'), 'visible');
+    await evaluate('HomeMode.set("tools")');
+    await until(() => evaluate('getComputedStyle(nrvStack).visibility==="hidden"'), 'visible floating reminder hides promotions');
+    await evaluate('document.querySelector(".ops-inbox-banner [data-ops-inbox-action=mute]").click()');
+    await until(() => evaluate('getComputedStyle(nrvStack).visibility==="visible"'), 'dismissing floating reminder restores promotions while drafts remain');
+    assert.equal(drafts.length,1);
     drafts = []; await evaluate('ToolsOpsInbox.refresh()');
     await until(() => evaluate('getComputedStyle(nrvStack).visibility==="visible"'), 'promotion restores after pending work');
     assert.deepEqual(errors, []);
