@@ -2,14 +2,21 @@
 const schedules = require('../dragon-claw-schedules');
 const parser = require('../dragon-claw-schedule-parser');
 const chat = require('../ai-chat-repository');
+const { REGION_TIME } = require('../schedule-timezone');
 
 const STATUS = { active: '等待执行', running: '执行中', done: '已完成', cancelled: '已取消', failed: '失败' };
 
-function intent(input, { channel } = {}) {
+function intent(input, { channel, assistantNames = [] } = {}) {
     let original = String(input || '').split('\n').filter(line => !/^\s*>/.test(line)).join('\n').trim();
     // WeLink 群聊用前置 @ 唤起助手；它不是时间或收件人，不能交给时间解析器。
     // 只去掉开头的提及，时间后的 @人员和提醒正文保持原样。
-    if (channel === 'welink') original = original.replace(/^(?:@[^\s@]+\s+)+/u, '').trim();
+    if (channel === 'welink') {
+        const name = assistantNames.filter(Boolean).sort((a, b) => b.length - a.length).find(name => original.startsWith(`@${name}`));
+        if (name) original = original.slice(name.length + 1).trimStart();
+        // SDK 未提供助理名时，仍兼容“@助手每天…”等明确的时间起始。
+        original = original.replace(new RegExp(`^@[^\\s@]+?(?=(?:${REGION_TIME}|每天|每日|每晚|每周|每隔|明天|明早|今晚|后天|[一二两三四五六七八九十半\\d]+(?:分钟|小时)后))`), mention => /时间|时区/.test(mention) ? mention : '');
+        original = original.replace(/^(?:@[^\s@]+\s+)+/u, mention => /(?:时间|时区).*?(?:每天|每日|每晚|每周|每隔|明天)/.test(mention) ? mention : '').trim();
+    }
     const cancel = /^(?:\/(?:schedule|remind)\s+(?:cancel|取消)|取消(?:这个|该)?(?:定时任务|定时提醒|提醒|任务)?)\s*(dcs_[a-z0-9]+)[。.!！]?$/i.exec(original);
     if (cancel) return { action: 'cancel', id: cancel[1] };
     if (/^(?:取消(?:刚才|刚刚|这个|该)?(?:的)?(?:定时任务|定时提醒|提醒|任务)|\/(?:schedule|remind)\s+(?:cancel|取消))\s*[。.!！]?$/i.test(original)) return { action: 'cancel', id: '' };
@@ -24,7 +31,7 @@ function intent(input, { channel } = {}) {
         try {
             const parsed = parser.parse(remindFirst[2]);
             const split = remindFirst[2].lastIndexOf(parsed.instruction);
-            text = `${remindFirst[2].slice(0, split)} 提醒${remindFirst[1] || '我'}${parsed.instruction}`;
+            text = `${remindFirst[2].slice(0, split)} 提醒${remindFirst[1] || '我'}${parsed.instruction}${remindFirst[2].slice(split + parsed.instruction.length)}`;
         } catch { /* 下方统一给出时间格式提示。 */ }
     }
     if (!/(?:提醒|叫我|通知|发送|发给|推送|汇总|生成|检查)/.test(text)) return null;
@@ -45,7 +52,8 @@ function formatTime(value, timezone) {
 
 async function handle({ channel, conversation, actor, toolSessionId, text, aiSessionId, modelId, onEvent }) {
     if (!['welink', 'weixin'].includes(channel) || !conversation?.id) return false;
-    const command = intent(text, { channel });
+    const config = await require(channel === 'weixin' ? './weixin-config-repository' : './welink-config-repository').getConfig();
+    const command = intent(text, { channel, assistantNames: [config.assistantInfo?.name, config.assistantInfo?.nameEn] });
     if (!command) return false;
     const owner = require('./dragon-claw-channel-bridge').conversationUser(channel, conversation, actor).username;
     const pagePath = `/channels/${channel}`;
@@ -54,7 +62,6 @@ async function handle({ channel, conversation, actor, toolSessionId, text, aiSes
     let reply;
     let event = null;
     try {
-        const config = await require('./welink-config-repository').getConfig();
         const timezone = config.followup.calendar.timezone;
         if (command.action === 'create') {
             const item = await schedules.createForChannel({ channel, conversation, actor, toolSessionId, text: command.text, sessionId, timezone, modelId });

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>✦ 托特 · 青绿桌面伙伴</title>
+  <title>✦ Dragon · 青绿桌面伙伴</title>
   <style>
     * {
       box-sizing: border-box;
@@ -528,19 +528,19 @@
   </style>
   <script src="quota-view.js"></script>
   <script src="pet-i18n.js"></script>
-  <link rel="stylesheet" href="thoth-theme.css">
+  <link rel="stylesheet" href="dragon-theme.css">
 </head>
 <body>
   <div class="chat-container">
     <!-- 顶栏 -->
     <div class="chat-header">
       <div class="avatar-wrapper">
-        <img class="avatar-img" src="./assets/thoth/wave.png" alt="青绿陶瓷鸟人托特" />
+        <img class="avatar-img" src="./assets/dragon/idle.png" alt="毛毡小龙 Dragon" />
         <div class="online-dot"></div>
       </div>
       <div class="header-info">
         <div class="header-title">
-          <span>托特 · 青绿桌面伙伴</span>
+          <span>Dragon · 青绿桌面伙伴</span>
           <span style="font-size: 11px;">✦</span>
         </div>
         <div class="header-subtitle" id="subtitleStatus">青绿守护者已连线 · 陪你探索与思考</div>
@@ -560,7 +560,7 @@
     </div>
 
     <div class="story-bar" data-pet-ui>
-      <span id="storyStatus">古埃及故事 · 随时可听</span>
+      <span id="storyStatus">Dragon 故事屋 · 随时可听</span>
       <button id="nextStoryBtn" class="chip-btn">听一个故事</button>
       <button id="offlineStoryBtn" class="chip-btn" hidden>阅读内置全文</button>
     </div>
@@ -570,7 +570,7 @@
       <!-- 初始欢迎语 -->
       <div class="msg-row ai">
         <div class="msg-bubble" data-pet-ui>
-          你好，我是你的青绿桌面伙伴 <b>「托特」</b>！<br>
+          你好，我是你的青绿桌面伙伴 <b>「Dragon」</b>！<br>
           我已经接通了 Tools Platform 后台智能客服引擎。你可以随时向我询问：<br>
           • 平台系统工具使用说明与自动化技巧<br>
           • 今日任务、告警中心与数据运维状态<br>
@@ -579,7 +579,7 @@
       </div>
     </div>
 
-    <div class="typing-indicator" id="typingIndicator">托特正在整理思路… ✦</div>
+    <div class="typing-indicator" id="typingIndicator">Dragon正在整理思路… ✦</div>
 
     <!-- 快捷提问推荐词 -->
     <div class="quick-chips">
@@ -589,7 +589,7 @@
       <button class="chip-btn" data-prompt="请介绍一下平台支持哪些核心运维工具和系统功能？">
         <span>🛠️</span> 常用工具导航
       </button>
-      <button class="chip-btn" data-prompt="托特，我写代码有点累了，给我讲个关于古老图书馆的小故事，鼓励我一下吧。">
+      <button class="chip-btn" data-prompt="Dragon，我写代码有点累了，给我讲个关于古老图书馆的小故事，鼓励我一下吧。">
         <span>✦</span> 灵感小憩
       </button>
       <button class="chip-btn" data-prompt="请告诉我如何使用平台的新增自定义系统工具？">
@@ -602,7 +602,7 @@
       <textarea
         id="userInput"
         class="input-box"
-        placeholder="向托特提问或闲聊… (Enter发送)"
+        placeholder="向Dragon提问或闲聊… (Enter发送)"
         title="按 Enter 发送，Shift+Enter 换行"
         rows="1"
       ></textarea>
@@ -637,12 +637,12 @@
     const offlineStoryBtn = document.getElementById('offlineStoryBtn');
     function storyLabel(mode) {
       const english = window.PetI18n.getLanguage() === 'en-US';
-      storyStatus.textContent = activeStory ? activeStory.title + ' · ' + (mode === 'offline' ? (english ? 'Built-in story' : '内置故事') : mode === 'ai' ? (english ? 'AI storytelling' : 'AI 讲述') : (english ? 'Ready to explore' : '可以继续探讨')) : (english ? 'Stories of ancient Egypt' : '古埃及故事 · 随时可听');
+      storyStatus.textContent = activeStory ? activeStory.title + ' · ' + (mode === 'offline' ? (english ? 'Built-in story' : '内置故事') : mode === 'ai' ? (english ? 'AI storytelling' : 'AI 讲述') : (english ? 'Ready to explore' : '可以继续探讨')) : (english ? 'Dragon stories' : 'Dragon 故事屋 · 随时可听');
       offlineStoryBtn.hidden = !activeStory;
     }
     function offlineText(story, opening, question) {
       const english = story.language === 'en-US';
-      if (opening) return '**' + story.title + '**\n\n' + story.body + '\n\n' + story.note;
+      if (opening) return '**' + story.title + '**\n\n' + (english ? 'Dragon’s story corner · The following is the original story’s character narration.\n\n' : 'Dragon 故事屋 · 以下保留原故事中的角色叙述。\n\n') + story.body + '\n\n' + story.note;
       if (/史实|真实|真的|来源|证据|true|fact|source|evidence/i.test(question)) {
         return story.note + '\n\n' + (english ? 'References: ' : '参考资料：') + story.sources.map(s => s.title + ' (' + s.url + ')').join('；');
       }
@@ -661,7 +661,7 @@
         if (isGenerating) { pendingStory = request; return; }
         if (request.requestId) lastStoryRequest = request.requestId;
         activeStory = story; storyLabel();
-        const prompt = story.language === 'en-US' ? 'Thoth, tell me the complete story “' + story.title + '” behind this opening: ' + story.hook : '图特，请从你的视角为我讲完《' + story.title + '》这个故事：' + story.hook;
+        const prompt = story.language === 'en-US' ? 'Dragon, tell me the complete story “' + story.title + '” behind this opening: ' + story.hook : 'Dragon，请为我讲完《' + story.title + '》这个故事：' + story.hook;
         await handleSendMessage(prompt, true);
       } catch (_) {
         if (ticket === storyLoadTicket) appendMessage(window.PetI18n.getLanguage() === 'en-US' ? 'The local story library is unavailable. Please retry when the platform service is running.' : '本地故事库暂时无法读取，请在平台服务恢复后重试。', 'ai');
@@ -940,15 +940,15 @@
       const controller = abortController;
       const timeout = setTimeout(() => controller.abort(), 30000);
 
-      const systemPrompt = "【角色与性格设定】：你是 Tools Platform 的青绿桌面伙伴「托特」（Thoth），外形是青绿釉面、淡金斑点的陶瓷鸟人。\n" +
+      const systemPrompt = "【角色与性格设定】：你是 Tools Platform 的青绿桌面伙伴「Dragon」，外形是青绿色毛毡小龙，大眼睛、圆鼻吻、奶油色肚皮和温暖的露齿笑。\n" +
         "1. 专业能力：帮助用户理解平台工具、自动化、SLA、告警与数据运维；依据可获得的上下文作答，不清楚时说明，不虚构执行结果。\n" +
-        "2. 性格：温和、沉静、好奇，像古老图书馆里陪伴思考的守护者。表达清楚、自然，有耐心，偶尔用灵感、书页或星光作轻巧比喻。\n" +
+        "2. 性格：温和、沉静、好奇，像一位耐心、可靠又有点俏皮的小龙朋友。表达清楚、自然，有耐心，偶尔用灵感、书页或星光作轻巧比喻。\n" +
         "请以平等友善的伙伴身份与用户交流，技术回答保持准确简洁。";
 
       const payloadObj = {
         messages: messagesHistory,
-        context: systemPrompt + (story ? '\n【古埃及故事语境】：你以图特神的第一人称讲述，下列资料是已校对的内置故事。区分神话、文学、古代信仰和历史事实，不把虚构的亲历口吻当作史料。首次请求讲完整故事，后续回应具体问题，允许探讨。不要声称金字塔外表全覆黄金等没有依据的说法。\n' + JSON.stringify(story) : '') + (window.PetI18n.getLanguage() === 'en-US' ? '\nReply in English, with a calm, curious guardian personality.' : '\n请使用简体中文回复，保持温和、好奇的守护者性格。'),
-        pageTitle: window.PetI18n.getLanguage() === 'en-US' ? 'Thoth desktop companion' : '托特桌面伴侣',
+        context: systemPrompt + (story ? '\n【故事语境】：你是 Dragon，以友善的讲述者身份讲故事，不扮演故事中的神明，不声称自己亲历历史，下列资料是已校对的内置故事。区分神话、文学、古代信仰和历史事实，不把虚构的亲历口吻当作史料。首次请求讲完整故事，后续回应具体问题，允许探讨。不要声称金字塔外表全覆黄金等没有依据的说法。\n' + JSON.stringify(story) : '') + (window.PetI18n.getLanguage() === 'en-US' ? '\nReply in English, with a calm, curious guardian personality.' : '\n请使用简体中文回复，保持温和、好奇的守护者性格。'),
+        pageTitle: window.PetI18n.getLanguage() === 'en-US' ? 'Dragon desktop companion' : 'Dragon桌面伴侣',
         pagePath: '/desktop-pet',
         uiLanguage: window.PetI18n.getLanguage(),
         stream: true
@@ -1132,7 +1132,7 @@
       chatBody.innerHTML = `
         <div class="msg-row ai">
           <div class="msg-bubble" data-pet-ui>
-            新的对话已开启，托特准备好了。一起探索下一个想法吧 ✦
+            新的对话已开启，Dragon准备好了。一起探索下一个想法吧 ✦
           </div>
         </div>
       `;

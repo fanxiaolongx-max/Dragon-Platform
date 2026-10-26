@@ -91,6 +91,47 @@ test('解析失败给出可读提示', () => {
     assert.throws(() => parse('2030-01-01 09:00 太远了'), /一年以内/);
 });
 
+test('显式地区时区支持前置、钟点旁和末尾标注，正文中的地点保持不变', () => {
+    for (const text of [
+        '荷兰时间每天中午十二点提醒小王提交日报',
+        '按荷兰当地时间，每天中午十二点提醒小王提交日报',
+        '每天中午十二点（荷兰时间）提醒小王提交日报',
+        '每天中午十二点荷兰时间提醒小王提交日报',
+        '每天中午十二点提醒小王提交日报，按荷兰时间',
+        '每天中午十二点提醒小王提交日报（荷兰时间）',
+        'Europe/Amsterdam 每天12点提醒小王提交日报',
+        '时区：Europe/Amsterdam 每天12点提醒小王提交日报'
+    ]) {
+        const result = parse(text);
+        assert.equal(result.timezone, 'Europe/Amsterdam', text);
+        assert.equal(result.instruction, '提醒小王提交日报', text);
+        assert.deepEqual(result.rule.times, ['12:00'], text);
+    }
+    assert.equal(parse('北京时间每天十二点提醒我开会').timezone, 'Asia/Shanghai');
+    assert.equal(parse('每天12点提醒我查看荷兰时间').timezone, ZONE);
+    assert.equal(parse('每天12点提醒我查看荷兰时间').instruction, '提醒我查看荷兰时间');
+    assert.equal(parse('荷兰时间10分钟后提醒我休息').runAt.toISOString(), '2026-10-25T19:50:00.000Z');
+    const once = parser.parse('明天十二点（荷兰时间）提醒我开会', { now: new Date('2026-06-01T21:30:00Z'), timezone: ZONE });
+    assert.equal(once.runAt.toISOString(), '2026-06-02T10:00:00.000Z', 'tomorrow uses the Netherlands date rather than the Cairo date');
+});
+
+test('地区周期任务跨夏令时仍在当地每天中午执行，不使用固定 UTC 偏移', () => {
+    const { rule, timezone } = parse('荷兰时间每天中午十二点提醒我开会');
+    for (const [from, expected] of [
+        ['2026-01-05T00:00:00Z', '2026-01-05T11:00:00.000Z'],
+        ['2026-07-05T00:00:00Z', '2026-07-05T10:00:00.000Z'],
+        ['2026-03-28T12:00:00Z', '2026-03-29T10:00:00.000Z'],
+        ['2026-10-24T12:00:00Z', '2026-10-25T11:00:00.000Z']
+    ]) assert.equal(parser.nextRecurring(rule, new Date(from), timezone).toISOString(), expected);
+});
+
+test('不明确、不支持、无效或冲突的显式时区不得悄悄退回默认时区', () => {
+    for (const text of ['美国时间每天12点提醒我开会', '每天12点（美国时间）提醒我开会', '欧洲时间每天12点提醒我开会', '火星时间每天12点提醒我开会', 'Europe/Nowhere 每天12点提醒我开会', '每天12点提醒我开会，按美国时间']) {
+        assert.throws(() => parse(text), /时区/, text);
+    }
+    assert.throws(() => parse('荷兰时间每天12点（北京时间）提醒我开会'), /不同的时区/);
+});
+
 test('创建、查看、取消只作用于自己的任务', async () => inTenant(async () => {
     const item = await schedules.create({ owner: 'alice', role: 'user', text: '30分钟后 提醒我开会', timezone: ZONE });
     assert.equal(item.kind, 'once');

@@ -477,6 +477,7 @@ app.use('/api/desktop-pet', require('./routes/desktop-pet'));
 app.use('/api/ai-settings', aiSettingsRoutes); // Dragon Claw 智能体模型配置 API
 app.use('/api/agent-workspace', require('./routes/agent-workspace')); // Dragon Claw 工作区：本地目录联想、审批、变更撤销
 app.use('/api/channels', require('./routes/channels')); // 频道对接（WeLink / 微信助理）：配置、连通性、名单、主动推送
+app.use('/api/dragon-tac', require('./routes/dragon-tac'));
 app.use('/api/global-backup', globalBackupRoutes); // 当前租户核心数据备份与恢复 API（保留历史路由名）
 app.use('/api/external/metrics', externalMetricsRoutes); // 外部/移动端只读指标 API
 app.use('/api/alert-center', alertCenterRoutes); // 系统告警台 API
@@ -692,6 +693,7 @@ async function startServer() {
         setTimeout(() => {
             // 频道对接：已启用 WeLink 助理的租户自动连接网关（SDK 未安装时只记录提示，不影响启动）
             const tenantsRepo = require('./models/tenants-repository');
+            tenantsRepo.listManagedTenants().then(items => Promise.all(['default', ...items.filter(item => item.status === 'active').map(item => item.id)].map(id => runWithTenant(id, () => require('./models/dragon-tac/service').recover())))).catch(() => console.warn('[DragonTAC] 中断任务恢复失败'));
             require('./models/channels/welink-bridge-service')
                 .autoStartAll(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id))
                 .catch(err => console.error('[WeLink] 自动连接失败：', err.message));

@@ -942,17 +942,47 @@
     // 到点后由服务端以当前账号执行，结果写回发起定时的对话；页面开着时轮询，执行完给出提醒。
     const SCHEDULE_POLL_MS = 60 * 1000;
     const scheduleWatch = { since: '', timer: null, panel: null, items: [] };
+    const tacWatch = new Map();
+    let tacTimer = null;
+    function watchTac(id) {
+        if (!id || tacWatch.has(id)) return;
+        tacWatch.set(id, state.sessionId);
+        if (tacTimer) return;
+        const poll = async () => {
+            try {
+                const res = await fetch('/api/dragon-tac/jobs', { headers: authHeaders() });
+                if (!res.ok) return;
+                const data = await res.json();
+                for (const job of data.items || []) {
+                    if (!tacWatch.has(job.id) || !['done', 'failed', 'cancelled', 'expired'].includes(job.status)) continue;
+                    if (state.sessionId === job.sessionId && state.controller) continue;
+                    tacWatch.delete(job.id);
+                    if (job.status === 'done' || job.status === 'failed') {
+                        const text = job.result || `DragonTAC ${job.id}: ${job.error}`;
+                        if (state.sessionId === job.sessionId && !state.controller && !external.active) {
+                            const message = addMessage('ai', text); message.querySelector('.dc-msg-body').innerHTML = renderMarkdown(text); addMessageTools(message, text); state.messages.push({ role: 'model', content: text }); scrollThread(false);
+                        } else showToast(`DragonTAC · ${job.id} · ${job.status}`);
+                    }
+                }
+            } catch { /* 下轮重试，不伪造完成。 */ }
+            finally { if (!tacWatch.size) { clearInterval(tacTimer); tacTimer = null; } }
+        };
+        tacTimer = setInterval(poll, 4000);
+    }
 
     function browserTimezone() {
         try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; }
     }
 
-    function formatScheduleTime(value) {
+    function formatScheduleTime(value, timezone) {
         const date = new Date(value);
         if (!value || Number.isNaN(date.getTime())) return '';
         const locale = lang() === 'en-US' ? 'en-US' : 'zh-CN';
         const sameYear = date.getFullYear() === new Date().getFullYear();
-        return date.toLocaleString(locale, { ...(sameYear ? {} : { year: 'numeric' }), month: 'short', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+        const options = { ...(sameYear ? {} : { year: 'numeric' }), month: 'short', day: 'numeric', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false };
+        try {
+            return date.toLocaleString(locale, { ...options, ...(timezone ? { timeZone: timezone } : {}) }) + (timezone ? ` (${timezone})` : '');
+        } catch { return date.toLocaleString(locale, options); }
     }
 
     function clipText(text, max = 60) {
@@ -981,7 +1011,7 @@
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
             const item = data.item;
-            const when = formatScheduleTime(item.nextRunAt);
+            const when = formatScheduleTime(item.nextRunAt, item.timezone);
             const pushNote = item.targets?.length ? tx('scheduleCreatedPush', { names: item.targets.map(target => target.name).join('、') }) : '';
             const message = (item.kind === 'recurring'
                 ? tx('scheduleCreatedRecurring', { rule: item.description, when, text: clipText(item.instruction) })
@@ -1014,8 +1044,8 @@
         }
         list.innerHTML = scheduleWatch.items.map(item => {
             const rule = item.kind === 'recurring' ? item.description : tx('scheduleOnce');
-            const times = [item.status === 'active' && item.nextRunAt ? tx('scheduleNext', { time: formatScheduleTime(item.nextRunAt) }) : '',
-                item.lastRunAt ? tx('scheduleLast', { time: formatScheduleTime(item.lastRunAt) }) : '',
+            const times = [item.status === 'active' && item.nextRunAt ? tx('scheduleNext', { time: formatScheduleTime(item.nextRunAt, item.timezone) }) : '',
+                item.lastRunAt ? tx('scheduleLast', { time: formatScheduleTime(item.lastRunAt, item.timezone) }) : '',
                 item.kind === 'recurring' && item.runCount ? tx('scheduleRuns', { count: item.runCount }) : ''].filter(Boolean).join(' · ');
             const detail = item.lastError ? `⚠️ ${item.lastError}` : (item.lastReply ? clipText(item.lastReply, 120) : '');
             const pushFailures = (item.lastPush?.results || []).filter(entry => !entry.ok).map(entry => `${entry.name}：${entry.error}`).join('；');
@@ -1455,6 +1485,7 @@
                         state.sessionId = event.sessionId;
                         rememberLastChat(event.sessionId, workspacePayload ? { agentSessionId: workspacePayload.agentSessionId, root: workspacePayload.root } : null);
                     }
+                    if (event.type === 'tac' && event.status === 'queued') watchTac(event.id);
                     window.DragonClawSkills?.handleEvent(reply, event);
                     workspace()?.handleEvent(reply, event, workspacePayload);
                     activity.event(event);

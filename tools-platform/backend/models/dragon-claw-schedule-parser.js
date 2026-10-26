@@ -1,9 +1,10 @@
 // Dragon Claw「/schedule」的时间解析（纯函数，便于测试）：从「时间 + 指令」里取出开头的时间表达式。
 //   一次性：10m / 2h / 1d、10分钟后、半小时后、in 30 minutes、15:30、明天 9:00、下午3点半、2026-11-01 09:00、tomorrow 9am
 //   周期：每天 9:00、每个工作日 9:00、每周一、三 9:00、每隔 2 小时、daily 9:00、weekdays 9:00、every monday 9:00、every 2h
-// 周期规则复用运营计划的 ops-schedule（daily / weekly / interval），时区按用户浏览器、工作日按平台工作日历。
+// 周期规则复用运营计划的 ops-schedule（daily / weekly / interval）；显式地区时区优先，否则沿用调用方时区，工作日沿用平台日历。
 const opsSchedule = require('./channels/ops-schedule');
 const followupSchedule = require('./channels/followup-schedule');
+const scheduleTimezone = require('./schedule-timezone');
 
 const MIN_DELAY_MINUTES = 1;
 const MAX_DELAY_DAYS = 366;
@@ -188,23 +189,39 @@ function parseOnce(text, now, timezone) {
 
 /**
  * 解析「/schedule」后面的文字。
- * @returns {{ kind:'once', runAt:Date, instruction:string } | { kind:'recurring', rule:object, instruction:string }}
+ * @returns {{ kind:'once', runAt:Date, instruction:string, timezone:string } | { kind:'recurring', rule:object, instruction:string, timezone:string }}
  */
 function parse(input, { now = new Date(), timezone } = {}) {
-    const text = String(input || '').trim();
+    let text = String(input || '').trim();
     if (!text) throw parseError('请写明时间和要执行的指令，例如「/schedule 明天 9:00 汇总昨天的告警」');
-    const zone = followupSchedule.normalizeCalendar({ timezone }).timezone;
+    let explicitZone = '';
+    const useZone = zone => {
+        if (explicitZone && explicitZone !== zone) throw parseError('指定了不同的时区，请只保留一个执行时区');
+        explicitZone = zone;
+    };
+    const prefix = scheduleTimezone.take(text);
+    if (prefix) { useZone(prefix.timezone); text = prefix.rest; }
+    const suffix = scheduleTimezone.takeSuffix(text);
+    if (suffix) { useZone(suffix.timezone); text = suffix.rest; }
+    let zone = explicitZone || followupSchedule.normalizeCalendar({ timezone }).timezone;
     const recurring = parseRecurring(text);
-    if (recurring) {
-        const instruction = remainder(text, recurring.consumed);
-        if (!instruction) throw parseError('请在时间后面写上要执行的指令');
-        return { kind: 'recurring', rule: opsSchedule.normalize(recurring.rule), instruction };
+    let once = recurring ? null : parseOnce(text, now, zone);
+    if (!recurring && !once) throw parseError('没认出时间。支持如「10分钟后」「明天 9:00」「每天 9:00」「每周一 9:00」「每隔 2 小时」');
+    const consumed = (recurring || once).consumed;
+    let instruction = remainder(text, consumed);
+    const modifier = scheduleTimezone.take(instruction);
+    if (modifier) {
+        useZone(modifier.timezone);
+        zone = explicitZone;
+        instruction = modifier.rest;
+        // 绝对时间和“明天”必须在指定地区重新计算；相对时长保持不变。
+        if (once) once = parseOnce(text, now, zone);
     }
-    const once = parseOnce(text, now, zone);
-    if (!once) throw parseError('没认出时间。支持如「10分钟后」「明天 9:00」「每天 9:00」「每周一 9:00」「每隔 2 小时」');
-    const instruction = remainder(text, once.consumed);
     if (!instruction) throw parseError('请在时间后面写上要执行的指令');
-    return { kind: 'once', runAt: checkOnce(once.runAt, now), instruction };
+    if (recurring) {
+        return { kind: 'recurring', rule: opsSchedule.normalize(recurring.rule), instruction, timezone: zone };
+    }
+    return { kind: 'once', runAt: checkOnce(once.runAt, now), instruction, timezone: zone };
 }
 
 /** 周期规则在用户时区下的下一次时间（工作日沿用平台工作日历）。 */

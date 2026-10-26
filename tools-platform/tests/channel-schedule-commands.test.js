@@ -62,6 +62,14 @@ test('WeLink invocation mentions are separate from the schedule, while reminder 
     assert.equal(commands.intent('@助手 你好 @小王', { channel: 'welink' }), null);
     assert.equal(commands.intent('> @助手 一分钟后提醒 @小王 开会\n解释这条消息', { channel: 'welink' }), null);
     assert.equal(commands.intent('@联系人 1分钟后提醒我休息', { channel: 'weixin' }).text, '@联系人 1分钟后提醒我休息', 'WeChat text is not normalized as a WeLink invocation');
+    assert.equal(commands.intent('@埃及CS工具平台每天中午十二点提醒小王提交日报', { channel: 'welink' }).text, '每天中午十二点提醒小王提交日报');
+    assert.equal(commands.intent('@埃及CS工具平台荷兰时间每天中午十二点提醒小王提交日报', { channel: 'welink' }).text, '荷兰时间每天中午十二点提醒小王提交日报');
+    assert.equal(commands.intent('@埃及CS工具平台美国时间每天中午十二点提醒小王提交日报', { channel: 'welink' }).text, '美国时间每天中午十二点提醒小王提交日报');
+    const remindFirst = commands.intent('提醒我每天十二点开会（荷兰时间）', { channel: 'weixin' });
+    assert.equal(require('../backend/models/dragon-claw-schedule-parser').parse(remindFirst.text).timezone, 'Europe/Amsterdam');
+    const unknownZone = commands.intent('@助手火星时间每天十二点提醒 @小王 开会', { channel: 'welink' });
+    assert.match(unknownZone.text, /火星时间/, 'unknown attached timezone must not disappear into the assistant mention');
+    assert.throws(() => require('../backend/models/dragon-claw-schedule-parser').parse(unknownZone.text));
 });
 
 test('legacy schedules migrate repeatably without changing existing rows', async () => inTenant(async () => {
@@ -151,6 +159,46 @@ test('WeLink group @assistant one-minute requests persist and deliver the origin
     assert.match(sent[0].text, /提醒：@Zhangting @李娴 早上好/);
     assert.doesNotMatch(sent[0].text, /@埃及CS工具平台/);
     assert.equal(aiCalls.length, aiBefore);
+}));
+
+test('regional timezones persist end to end, including attached assistant names and DST recurrence', async () => inTenant(async () => {
+    await wl.saveConfig({ assistantInfo: { name: '埃及CS工具平台' } });
+    const result = await turn(welink, '@埃及CS工具平台荷兰时间每天中午十二点提醒 @Zhangting 提交日报');
+    assert.ok(result.created, result.done?.reply);
+    const row = await db.get('SELECT * FROM dragon_claw_schedules WHERE id = ?', [result.created.id]);
+    assert.equal(row.timezone, 'Europe/Amsterdam');
+    assert.equal(row.instruction, '提醒 @Zhangting 提交日报');
+    assert.match(result.done.reply, /Europe\/Amsterdam/);
+    assert.match(result.done.reply, /12:00:00/);
+    assert.equal(new Date(row.next_run_at).toLocaleTimeString('en-GB', { timeZone: row.timezone }), '12:00:00');
+    // 临时测试库中模拟一次冬夏令时切换前的执行，验证后续计划继续使用持久化时区。
+    const firedAt = new Date('2026-03-28T11:00:00Z');
+    row.next_run_at = firedAt.toISOString();
+    await db.run('UPDATE dragon_claw_schedules SET next_run_at = ? WHERE id = ?', [row.next_run_at, row.id]);
+    const pushed = [];
+    await schedules.execute(row, firedAt, { push: async input => { pushed.push(input); return { sent: 1 }; } });
+    assert.equal((await schedules.getForOwner(row.id, row.owner)).nextRunAt, '2026-03-29T10:00:00.000Z');
+    assert.match(pushed[0].text, /@Zhangting 提交日报/);
+    assert.deepEqual(pushed[0].targets, [{ kind: 'group', id: 'ops-group' }]);
+    const noSpace = await turn(welink, '@埃及CS工具平台每天中午十二点提醒我休息');
+    assert.ok(noSpace.created, noSpace.done?.reply);
+    const invalid = await turn(welink, '@埃及CS工具平台 美国时间每天中午十二点提醒我休息');
+    assert.equal(invalid.created, undefined);
+    assert.match(invalid.done.reply, /未创建.*时区/);
+}));
+
+test('WeChat uses its own default timezone and an explicit region overrides it for only that task', async () => inTenant(async () => {
+    const original = (await wx.getConfig()).followup.calendar;
+    try {
+        await wx.saveConfig({ followup: { calendar: { timezone: 'Asia/Shanghai' } } });
+        const local = await turn(wechat, '每天中午十二点提醒我休息');
+        assert.ok(local.created, local.done?.reply);
+        assert.equal((await schedules.getForOwner(local.created.id, 'weixin:wx-user')).timezone, 'Asia/Shanghai');
+        const regional = await turn(wechat, '每天中午十二点（荷兰时间）提醒我休息');
+        assert.ok(regional.created, regional.done?.reply);
+        assert.equal((await schedules.getForOwner(regional.created.id, 'weixin:wx-user')).timezone, 'Europe/Amsterdam');
+        assert.equal((await wx.getConfig()).followup.calendar.timezone, 'Asia/Shanghai');
+    } finally { await wx.saveConfig({ followup: { calendar: original } }); }
 }));
 
 test('invalid times and disabled or blocked channels never acknowledge a saved task', async () => inTenant(async () => {

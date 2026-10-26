@@ -104,6 +104,7 @@ async function runTurn({ channel, account, conversation, toolSessionId, text, ai
     if (persist !== false && conversation && !signal?.aborted) {
         const handled = await require('./channel-schedule-commands').handle({ channel, conversation, actor: account, toolSessionId, text, aiSessionId: sessionId, modelId, onEvent });
         if (handled) return;
+        if (await require('../dragon-tac/commands').handle({ channel, conversation, actor: account, text, aiSessionId: sessionId, onEvent })) return;
     }
     const aiRouter = require('../../routes/ai');
     if (typeof aiRouter.handleChatRequest !== 'function') throw new Error('Dragon Claw 对话入口不可用');

@@ -627,6 +627,15 @@ async function handleChatRequest(req, res) {
         }
     };
     try {
+        const tacMessage = Array.isArray(req.body?.messages) ? req.body.messages.at(-1) : null;
+        if (!channelTurn && req.user && req.body?.agent === 'dragon-claw-home' && !req.body?.workspace?.root && req.body?.persist !== false && tacMessage?.role === 'user' && require('../models/dragon-tac/commands').intent(tacMessage.content)) {
+            const streaming = req.body.stream === true;
+            let final;
+            if (streaming) res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+            await require('../models/dragon-tac/commands').handle({ channel: 'web', conversation: { kind: 'user', id: req.user.username }, actor: req.user.username, text: tacMessage.content, aiSessionId: req.body.sessionId, onEvent: payload => { if (streaming) res.write(`${JSON.stringify(payload)}\n`); else if (payload.type === 'done') final = payload; } });
+            if (streaming) res.end(); else res.json(final);
+            return;
+        }
         // 对话模型选择（如首页 Dragon Claw）：经映射解析到实际方案；未传则保持激活方案。
         const modelChoice = req.body?.modelId !== undefined
             ? await aiSettingsRepo.resolveModelChoice(req.body.modelId)

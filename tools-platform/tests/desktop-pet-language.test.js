@@ -78,20 +78,20 @@ function renderer() {
 test('pet menus and speech switch in both directions while conversation text stays intact', async () => {
     const runtime = renderer();
     const menu = runtime.text('发送');
-    const speech = runtime.text('✦ 我在这里，托特随时为你效劳');
+    const speech = runtime.text('✦ 我在这里，Dragon随时为你效劳');
     const message = runtime.text('发送', true);
-    const welcome = runtime.text('「托特」', true, true);
+    const welcome = runtime.text('「Dragon」', true, true);
     runtime.listeners['pet-language-change']({}, 'en-US');
     assert.equal(menu.nodeValue, 'Send');
     assert.match(speech.nodeValue, /right here/);
     assert.equal(message.nodeValue, '发送');
-    assert.equal(welcome.nodeValue, 'Thoth');
+    assert.equal(welcome.nodeValue, '“Dragon”');
     runtime.resolveInitial('zh-CN');
     await Promise.resolve();
     assert.equal(runtime.window.PetI18n.getLanguage(), 'en-US', 'late initial IPC must not undo a toggle');
     runtime.window.PetI18n.setLanguage('zh-CN');
     assert.equal(menu.nodeValue, '发送');
-    assert.equal(welcome.nodeValue, '「托特」');
+    assert.equal(welcome.nodeValue, '「Dragon」');
     runtime.window.PetI18n.setLanguage('en-US');
     menu.nodeValue = '正常在线'; // newly rendered quota text
     runtime.window.PetI18n.apply();
@@ -100,10 +100,10 @@ test('pet menus and speech switch in both directions while conversation text sta
 
 test('new pet windows initialize to the current desktop language', async () => {
     const runtime = renderer();
-    const title = runtime.text('托特桌宠设置');
+    const title = runtime.text('Dragon桌宠设置');
     runtime.resolveInitial('en-US');
     await Promise.resolve();
-    assert.equal(title.nodeValue, 'Thoth pet settings');
+    assert.equal(title.nodeValue, 'Dragon pet settings');
     assert.equal(runtime.document.documentElement.lang, 'en-US');
 });
 
@@ -165,7 +165,7 @@ test('AI requests use the selected language and preserve previous messages', asy
     await context.handleSendMessage('Hi');
     assert.equal(payloads[0].uiLanguage, 'en-US');
     assert.match(payloads[0].context, /Reply in English/);
-    assert.match(payloads[0].context, /托特.*Thoth/);
+    assert.match(payloads[0].context, /Dragon.*毛毡小龙/);
     assert.match(payloads[0].context, /guardian personality/);
     assert.doesNotMatch(payloads[0].context, /猫咪|喵|kitty/);
     selected = 'zh-CN';
@@ -197,7 +197,7 @@ test('desktop pet typing combo tiers and speech bubble text colors maintain high
     assert.ok(i18nJs.includes('✦ 30 连击！心流渐入佳境，专注力拉满 ✦'));
     assert.ok(i18nJs.includes('🔥 50 连击！键盘敲出残影了，这就是大神的手速吗？！'));
     assert.ok(i18nJs.includes('⚡ 100 连击突破！反重力编译器超频全开 ⚡'));
-    assert.ok(i18nJs.includes('𓁹 500 连击封神！托特的智慧之羽已被你的手速点燃 🪶✨'));
+    assert.ok(i18nJs.includes('🐉 500 连击！Dragon 的小尾巴都跟着你的手速摇起来了 ✨'));
     assert.ok(i18nJs.includes('✦ 1000 连击破壁！唯有绝对专注与智慧不可阻挡 ✦'));
 });
 

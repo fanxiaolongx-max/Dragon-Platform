@@ -44,7 +44,7 @@
     svg.setAttribute('width','0'); svg.setAttribute('height','0'); svg.setAttribute('aria-hidden','true');
     svg.style.cssText = 'position:absolute;pointer-events:none;overflow:hidden';
     // A valid initial feImage URI avoids an empty resource entry in Electron's dev checks.
-    svg.innerHTML = '<defs><filter id="thoth-gaze-filter" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feImage href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%221%22%20height=%221%22/%3E" preserveAspectRatio="none" result="mask"/><feComponentTransfer in="mask" result="shift"><feFuncR type="linear" slope="0" intercept="0.5"/><feFuncG type="linear" slope="0" intercept="0.5"/></feComponentTransfer><feDisplacementMap in="SourceGraphic" in2="shift" scale="3.2" xChannelSelector="R" yChannelSelector="G"/></filter></defs>';
+    svg.innerHTML = '<defs><filter id="dragon-gaze-filter" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB"><feImage href="data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%221%22%20height=%221%22/%3E" preserveAspectRatio="none" result="mask"/><feComponentTransfer in="mask" result="shift"><feFuncR type="linear" slope="0" intercept="0.5"/><feFuncG type="linear" slope="0" intercept="0.5"/></feComponentTransfer><feDisplacementMap in="SourceGraphic" in2="shift" scale="3.2" xChannelSelector="R" yChannelSelector="G"/></filter></defs>';
     document.body.appendChild(svg);
     var map = svg.querySelector('feImage'), funcX = svg.querySelector('feFuncR'), funcY = svg.querySelector('feFuncG');
     function setAxis(node, value) {
@@ -53,7 +53,7 @@
     }
     function neutral() {
       x = y = 0; target = {x:0,y:0}; lookingUntil = 0;
-      setAxis(funcX,0); setAxis(funcY,0); img.classList.remove('thoth-gaze-active'); active = false;
+      setAxis(funcX,0); setAxis(funcY,0); img.classList.remove('dragon-gaze-active'); active = false;
     }
     function makeMap() {
       var w = img.clientWidth, h = img.clientHeight, iw = img.naturalWidth, ih = img.naturalHeight;
@@ -61,9 +61,9 @@
       var ratio = Math.min(w / iw,h / ih), rw = iw*ratio, rh = ih*ratio;
       var ox = (w-rw)/2, oy = (h-rh)/2;
       var ellipses = profile.eyes.map(function (eye) {
-        return '<ellipse cx="'+(ox+eye[0]*rw)+'" cy="'+(oy+eye[1]*rh)+'" rx="'+(eye[2]*rw)+'" ry="'+(eye[3]*rh)+'" fill="url(#thoth-eye-weight)"/>';
+        return '<ellipse cx="'+(ox+eye[0]*rw)+'" cy="'+(oy+eye[1]*rh)+'" rx="'+(eye[2]*rw)+'" ry="'+(eye[3]*rh)+'" fill="url(#dragon-eye-weight)"/>';
       }).join('');
-      var content = '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'"><defs><radialGradient id="thoth-eye-weight"><stop offset="0" stop-color="white"/><stop offset=".45" stop-color="white"/><stop offset="1" stop-color="#808080"/></radialGradient></defs><rect width="'+w+'" height="'+h+'" fill="#808080"/>'+ellipses+'</svg>';
+      var content = '<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'"><defs><radialGradient id="dragon-eye-weight"><stop offset="0" stop-color="white"/><stop offset=".45" stop-color="white"/><stop offset="1" stop-color="#808080"/></radialGradient></defs><rect width="'+w+'" height="'+h+'" fill="#808080"/>'+ellipses+'</svg>';
       map.setAttribute('href','data:image/svg+xml;charset=utf-8,'+encodeURIComponent(content));
     }
     function setMirror(value) {
@@ -78,14 +78,14 @@
       if (turnTimer) { clearTimeout(turnTimer); turnTimer = null; }
       // Keep direct-facing and blink frames unmirrored immediately. No scale interpolation.
       if (!profile.side || reducedMotion.matches || !active || ui.busy()) { setMirror(next); return; }
-      img.classList.add('thoth-turning');
+      img.classList.add('dragon-turning');
       turnTimer = setTimeout(function () {
-        setMirror(profile.side && desiredFacing !== (profile.nativeFacing || 'right')); img.classList.remove('thoth-turning'); turnTimer = null;
+        setMirror(profile.side && desiredFacing !== (profile.nativeFacing || 'right')); img.classList.remove('dragon-turning'); turnTimer = null;
       }, 85);
     }
     function refreshSource() {
       if (turnTimer) clearTimeout(turnTimer);
-      turnTimer = null; img.classList.remove('thoth-turning');
+      turnTimer = null; img.classList.remove('dragon-turning');
       profile = profileFor(img.getAttribute('src'), Number(img.dataset.blinkFrame));
       neutral(); orient(); makeMap();
       ui.onSourceChange(img.getAttribute('src'));
@@ -130,7 +130,7 @@
         if (dt >= 25 || Math.abs(x-target.x)+Math.abs(y-target.y) > .003) {
           x=ease(x,target.x,dt); y=ease(y,target.y,dt);
           setAxis(funcX,x); setAxis(funcY,y);
-          if (!active) { img.classList.add('thoth-gaze-active'); active=true; }
+          if (!active) { img.classList.add('dragon-gaze-active'); active=true; }
         }
       }
       raf=requestAnimationFrame(tick);
@@ -143,5 +143,5 @@
   }
   var api = { create:create, facing:facing, ease:ease, gazeTarget:gazeTarget, profileFor:profileFor, registerProfile:registerProfile };
   if (typeof module !== 'undefined' && module.exports && !host) module.exports = api;
-  if (host) host.ThothPresence = api;
+  if (host) host.DragonPresence = api;
 })(typeof window !== 'undefined' ? window : null);

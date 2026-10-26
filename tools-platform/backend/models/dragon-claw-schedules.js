@@ -177,7 +177,7 @@ async function create({ owner, role, text, sessionId, timezone, modelId, targets
     await ensureSchema();
     if (!owner) throw serviceError('SCHEDULE_OWNER_REQUIRED', '请先登录', 401);
     const parsed = parser.parse(text, { timezone });
-    const zone = require('./channels/followup-schedule').normalizeCalendar({ timezone }).timezone;
+    const zone = parsed.timezone;
     const active = await get("SELECT COUNT(*) AS count FROM dragon_claw_schedules WHERE owner = ? AND status = 'active'", [owner]);
     if (Number(active?.count) >= MAX_ACTIVE_PER_USER) throw serviceError('SCHEDULE_LIMIT', `最多同时保留 ${MAX_ACTIVE_PER_USER} 个定时任务，请先取消一些`);
     const pushTargets = origin ? await resolveChannelTarget(origin) : await resolveTargets(targets, role);

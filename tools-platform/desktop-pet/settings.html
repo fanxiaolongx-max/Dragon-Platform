@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>✦ 托特桌宠设置</title>
+  <title>✦ Dragon桌宠设置</title>
   <style>
     * {
       box-sizing: border-box;
@@ -171,14 +171,14 @@
     }
   </style>
   <script src="pet-i18n.js"></script>
-  <link rel="stylesheet" href="thoth-theme.css">
+  <link rel="stylesheet" href="dragon-theme.css">
 </head>
 <body>
   <div class="settings-card">
     <div class="title-row">
       <div class="title-text">
-        <img class="settings-avatar" src="./assets/thoth/idle.png" alt="青绿陶瓷鸟人托特">
-        <span>托特桌宠设置</span>
+        <img class="settings-avatar" src="./assets/dragon/idle.png" alt="毛毡小龙 Dragon">
+        <span>Dragon桌宠设置</span>
       </div>
       <button class="close-btn" id="closeBtn" title="关闭设置">✕</button>
     </div>
@@ -212,8 +212,9 @@
       </label>
     </div>
 
+    <div class="menu-row"><label class="check-label"><input type="checkbox" id="quotaStandaloneCheck" class="check-input"><span>隐藏桌宠时保留额度 HUD</span></label></div>
     <div class="menu-row"><label class="check-label"><input type="checkbox" id="randomMotionCheck" class="check-input" checked><span>随机眨眼与待机动作</span></label></div>
-    <div class="menu-row"><label class="check-label"><input type="checkbox" id="proactiveStoriesCheck" class="check-input" checked><span>图特主动讲故事</span></label></div>
+    <div class="menu-row"><label class="check-label"><input type="checkbox" id="proactiveStoriesCheck" class="check-input" checked><span>Dragon 主动讲故事</span></label></div>
     <div class="menu-row"><label class="check-label"><input type="checkbox" id="eyeGazeCheck" class="check-input" checked><span>自然眼神与轻微动效</span></label></div>
     <div class="menu-row"><label for="storyInterval">故事间隔（分钟）</label><input id="storyInterval" type="number" min="1" max="30" value="3" class="number-badge" style="width:50px"></div>
 
@@ -264,6 +265,8 @@
     const volBadge = document.getElementById('volBadge');
     const bubbleCheck = document.getElementById('bubbleCheck');
     const typingCheck = document.getElementById('typingCheck');
+    const quotaStandaloneCheck = document.getElementById('quotaStandaloneCheck');
+    quotaStandaloneCheck.addEventListener('change', () => { if (ipcRenderer) ipcRenderer.send('pet-config-changed', { quotaStandalone: quotaStandaloneCheck.checked }); });
     const randomMotionCheck = document.getElementById('randomMotionCheck');
     const proactiveStoriesCheck = document.getElementById('proactiveStoriesCheck');
     const storyInterval = document.getElementById('storyInterval');
@@ -346,6 +349,7 @@
         }
         if (typeof cfg.bubbleOn === 'boolean') bubbleCheck.checked = cfg.bubbleOn;
         if (typeof cfg.eyeGazeOn === 'boolean') eyeGazeCheck.checked = cfg.eyeGazeOn;
+        quotaStandaloneCheck.checked = cfg.quotaStandalone === true;
         if (typeof cfg.randomMotionOn === 'boolean') randomMotionCheck.checked = cfg.randomMotionOn;
         if (typeof cfg.proactiveStoriesOn === 'boolean') proactiveStoriesCheck.checked = cfg.proactiveStoriesOn;
         if (cfg.storyIntervalMinutes !== undefined) storyInterval.value = cfg.storyIntervalMinutes;

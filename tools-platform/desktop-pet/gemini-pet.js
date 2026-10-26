@@ -1,6 +1,6 @@
 (function () {
-  if (window.__geminiThothWidget) return;
-  window.__geminiThothWidget = true;
+  if (window.__geminiDragonWidget) return;
+  window.__geminiDragonWidget = true;
 
   var petT = function (text) { return window.PetI18n ? window.PetI18n.t(text) : text; };
   var isElectron = typeof require !== 'undefined';
@@ -18,13 +18,13 @@
   var BUBBLE_MS = 5000;
 
   var IMAGES = {
-    idle: "./assets/thoth/idle.png",
-    dragged: "./assets/thoth/walk.png",
-    happy: "./assets/thoth/wave.png",
-    chill: "./assets/thoth/think.png",
-    fall: "./assets/thoth/walk.png",
-    pat: "./assets/thoth/wave.png",
-    typing: "./assets/thoth/think.png"
+    idle: './assets/dragon/idle.png',
+    dragged: './assets/dragon/dragged.png',
+    happy: './assets/dragon/wave.png',
+    chill: './assets/dragon/think.png',
+    fall: './assets/dragon/dragged.png',
+    pat: './assets/dragon/pat.png',
+    typing: './assets/dragon/think.png'
   };
 
   var SOUND_DATA = {
@@ -61,7 +61,7 @@
     '@keyframes gpet-aurora-shift{0%{background-position:0% 50%} 100%{background-position:300% 50%}}',
     '.gpet-img{position:absolute;right:0;bottom:0;width:62%;height:62%;display:block;pointer-events:none;-webkit-user-drag:none;user-select:none;object-fit:contain;filter:drop-shadow(0 6px 16px rgba(15,23,42,0.18));transform-origin:50% 98%;transition:transform .15s cubic-bezier(0.2,0.8,0.4,1)}',
     '.gpet-img.gpet-jelly, .gpet-body.gpet-jelly{animation:gpet-jelly .55s cubic-bezier(0.25,1,0.5,1) forwards !important;transition:none !important}',
-    '.gpet-img.gpet-squished, .gpet-body.gpet-squished{transform:scaleX(1.22) scaleY(0.78) !important;transition:transform .08s cubic-bezier(0.2,0,0,1) !important}',
+    '.gpet-img.gpet-squished, .gpet-body.gpet-squished{transform:scaleX(1.07) scaleY(0.93) !important;transition:transform .08s cubic-bezier(0.2,0,0,1) !important}',
     '@keyframes gpet-heart-float{0%{opacity:0;transform:translateY(0) scale(0.6) rotate(0deg)} 25%{opacity:1;transform:translateY(-16px) scale(1.15) rotate(-10deg)} 75%{opacity:0.9;transform:translateY(-45px) scale(1) rotate(8deg)} 100%{opacity:0;transform:translateY(-68px) scale(0.7) rotate(-5deg)}}',
     '.gpet-heart{position:absolute;pointer-events:none;font-size:22px;line-height:1;animation:gpet-heart-float 1.1s cubic-bezier(0.2,0.8,0.4,1) forwards;z-index:100;user-select:none;filter:drop-shadow(0 2px 8px rgba(20,125,122,0.45))}',
     '.gpet-bubble{position:absolute;left:0;top:0;width:100%;aspect-ratio:1026/700;pointer-events:none;z-index:1;--gpet-u:calc(var(--gpet-base) / 1026);opacity:0;visibility:hidden;transition:opacity .2s ease,visibility .2s}',
@@ -112,7 +112,7 @@
 
     var styleEl = document.createElement('style');
     styleEl.textContent = css;
-    var themeLink = document.querySelector('link[href^="thoth-theme.css"]');
+    var themeLink = document.querySelector('link[href^="dragon-theme.css"]');
     if (themeLink) themeLink.parentNode.insertBefore(styleEl, themeLink);
     else (document.head || document.body).appendChild(styleEl);
 
@@ -125,7 +125,7 @@
     var img = document.createElement('img');
     img.className = 'gpet-img gpet-breathe';
     img.src = IMAGES.idle;
-    img.alt = petT('青绿陶瓷鸟人托特');
+    img.alt = petT('毛毡小龙 Dragon');
     img.draggable = false;
 
     var bubbleBox = document.createElement('div');
@@ -209,7 +209,7 @@
 
     var titleRow = document.createElement('div');
     titleRow.className = 'gpet-menu-title';
-    titleRow.innerHTML = '<span>✦</span><span style="flex:1">托特设置</span>';
+    titleRow.innerHTML = '<span>✦</span><span style="flex:1">Dragon设置</span>';
     var closeMenuBtn = document.createElement('button');
     closeMenuBtn.type = 'button';
     closeMenuBtn.innerHTML = '✕';
@@ -523,23 +523,23 @@
       return '#83d8ce';
     }
 
-    // Ceramic guardian & coder dialogue (随着按压次数随机显示)
+    // Felt Dragon & coder dialogue (随着按压次数随机显示)
     var TEXT_QUOTES = [
       // 捏捏互动类 (Squish & touch reactions)
-      petT('轻一点，我的青绿釉面可要好好爱护。'),
+      petT('轻一点，我的毛毡小肚子怕痒。'),
       petT('碰一碰，今天的灵感就亮起来了。'),
-      petT('收到你的问候，心情像釉面一样闪闪发亮。'),
-      petT('青绿陶瓷，内置一点点好奇心。'),
+      petT('收到你的问候，开心得想摇摇尾巴。'),
+      petT('毛毡小龙，装着满满的好奇心。'),
       petT('再碰一下，灵感也许就要起飞了。'),
       petT('给我一点阳光，我就能陪你很久。'),
       petT('补充一点灵感，我们继续写代码吧。'),
       petT('今天也是与你并肩工作的一天 ✦'),
 
       // 陪伴与元气类 (Cheering & companion)
-      petT('我是托特，今天也陪你把想法变成代码 ✦'),
+      petT('我是Dragon，今天也陪你把想法变成代码 ✦'),
       petT('遇到 Bug 别慌，我们一起梳理线索。'),
       petT('愿今天的代码顺畅，测试全绿 ✦'),
-      petT('你敲代码真快，托特正在努力跟上。'),
+      petT('你敲代码真快，Dragon正在努力跟上。'),
       petT('一行一行，想法正在成为现实。'),
       petT('辛苦了，记得喝水，也让眼睛休息一下。'),
       petT('不急，慢慢来，我会一直在这里。'),
@@ -548,7 +548,7 @@
       // 程序员幽默与反重力彩蛋 (Coder humor & easter eggs)
       petT('代码没有 Bug，只是有独特的个性！'),
       petT('反重力编译中… 正在将咖啡因转化为可用代码！'),
-      petT('✦ 灵感之门开启，托特准备就绪！'),
+      petT('✦ 灵感之门开启，Dragon准备就绪！'),
       petT('Git commit: "又改了一堆玄学代码" (嘘)'),
       petT('正在向宇宙发射好运光波… 编译一次通过！'),
       petT('报错也是线索，下一步就从这里开始。'),
@@ -736,9 +736,9 @@
       pressCount = 2;
 
       var patQuotes = [
-        singleCenter('A', petT('谢谢你的摸摸，托特收到啦 ✦'), '#83d8ce', true),
+        singleCenter('A', petT('谢谢你的摸摸，Dragon收到啦 ✦'), '#83d8ce', true),
         singleCenter('A', petT('一点温暖，点亮今天的青绿时光 ✦'), '#83d8ce', true),
-        singleCenter('A', petT('我的釉面今天也闪闪发亮。'), '#fb7185', true),
+        singleCenter('A', petT('我的小尾巴今天也元气满满。'), '#fb7185', true),
         singleCenter('A', petT('摸摸头，愿今天的代码一路顺利 ✦'), '#83d8ce', true),
         singleCenter('A', petT('这会儿很安静，适合酝酿一个好想法。'), '#83d8ce', true),
         singleCenter('A', petT('温柔的问候，总会带来新的灵感 ✦'), '#83d8ce', true)
@@ -2024,7 +2024,7 @@
 
     var TYPING_QUOTES = [
       petT('键盘声响起来了，我们一起专注吧 ✦'),
-      petT('托特正在思考，愿下一次测试全绿 ✦'),
+      petT('Dragon正在思考，愿下一次测试全绿 ✦'),
       petT('键盘要敲冒烟啦！这就是传说中的手速吗？！(🔥)'),
       petT('先检查，再提交，让每一步都稳稳落地。'),
       petT('Ctrl+C，Ctrl+V… 别忘了留一点时间休息。'),
@@ -2133,7 +2133,7 @@
         text = petT('⚡ 100 连击突破！反重力编译器超频全开 ⚡');
         color = '#f472b6';
       } else if (combo === 500) {
-        text = petT('𓁹 500 连击封神！托特的智慧之羽已被你的手速点燃 🪶✨');
+        text = petT('🐉 500 连击！Dragon 的小尾巴都跟着你的手速摇起来了 ✨');
         color = '#fde047';
       } else if (combo === 1000) {
         text = petT('✦ 1000 连击破壁！唯有绝对专注与智慧不可阻挡 ✦');
@@ -2262,7 +2262,7 @@
             showCustomSpeechBubble(petT('✦ 反重力已连接，今天的灵感从哪里开始？'), '#83d8ce');
             try { ipcRenderer.send('pet-request-quota'); } catch (_) {}
           } else if (hasShownInitialGreeting) {
-            showCustomSpeechBubble(petT('✦ 反重力已退出，托特静静守候'), '#cbd5e1');
+            showCustomSpeechBubble(petT('✦ 反重力已退出，Dragon静静守候'), '#cbd5e1');
             setAgentWorking(false);
           }
           hasShownInitialGreeting = true;
@@ -2279,7 +2279,7 @@
           void img.offsetWidth;
           img.classList.add('gpet-jelly');
           playRelease();
-          showCustomSpeechBubble(petT('✦ 我在这里，托特随时为你效劳'), '#83d8ce');
+          showCustomSpeechBubble(petT('✦ 我在这里，Dragon随时为你效劳'), '#83d8ce');
         } catch (_) {}
       });
       ipcRenderer.on('pet-trigger-motion', function (e, motion) {
@@ -2358,7 +2358,7 @@
       });
       ipcRenderer.on('pet-farewell-exit', function () {
         try {
-          showCustomSpeechBubble(petT('✦ 反重力已退出，托特与你暂别'), '#ef4444');
+          showCustomSpeechBubble(petT('✦ 反重力已退出，Dragon与你暂别'), '#ef4444');
         } catch (_) {}
       });
       try {
@@ -2380,17 +2380,20 @@
     // Initialize
     applySoundSet();
     setupHitTest();
-    if (window.ThothPresence) presence = window.ThothPresence.create({
+    if (window.DragonPresence) presence = window.DragonPresence.create({
       img:img, ipc:ipcRenderer,
       busy:function () { return !!drag || pressing || inHappyReaction || !!gravityAnimId; },
       onSourceChange:updateHitTestProbe
     });
-    if (window.ThothLife) life = window.ThothLife.create({
+    if (window.DragonLife) life = window.DragonLife.create({
       img: img, ipc: ipcRenderer,
+      activity:function () {
+        return drag && drag.active && drag.moved ? 'dragged' : gravityAnimId ? 'fall' : inHappyReaction ? 'wave' : pressing ? 'pat' : inTypingMode || workStateMode === 'typing' ? 'typing' : workStateMode === 'happy' ? 'wave' : workStateMode === 'dragged' ? 'dragged' : workStateMode === 'fall' ? 'fall' : workStateMode === 'pat' ? 'pat' : isCurrentlyWorking() ? 'think' : 'idle';
+      },
       images: { idle: IMAGES.idle, wave: IMAGES.happy, think: IMAGES.chill },
       busy: function () { return !!drag || inHappyReaction || inTypingMode || pressing || menuOpen || bubbleShown || costBubbleActive || workStateMode !== 'auto' && workStateMode !== 'idle'; },
       bubblesOn: function () { return bubbleOn; },
-      onFrontReady:function () { syncSprite(); },
+      onFrontReady:function (art) { if (!art.front.length || !art.states || !art.wave) return; IMAGES.idle=art.front[0];IMAGES.chill=art.states[0];IMAGES.typing=art.states[1];IMAGES.happy=art.wave[2];IMAGES.dragged=art.states[2];IMAGES.fall=art.states[3];IMAGES.pat=art.states[7];syncSprite(); },
       setSprite: function (src, frame) { img.dataset.blinkFrame = frame === undefined ? '' : frame; img.src = src; img.dataset.curSrc = src; updateHitTestProbe(src); },
       clearStory: function () { if (selectedStoryHook) hideBubble(); },
       showStory: function (story) {
@@ -2441,7 +2444,7 @@
       }
     };
     updateMousePassThrough(false);
-    console.log('✦ 托特桌宠与账户额度已就绪！');
+    console.log('✦ Dragon桌宠与账户额度已就绪！');
   } // end of initWidget
 
   initWidget();

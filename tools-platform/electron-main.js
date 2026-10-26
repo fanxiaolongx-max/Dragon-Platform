@@ -1959,7 +1959,13 @@ function refreshTrayMenu() {
         { label: '打开报表看板', click: () => openAppPath('/report') },
         { type: 'separator' },
         {
-            label: petT('🐾 桌面宠物 (哈基米)', '🐾 Desktop pet (Hajimi)'),
+            label: petT('📊 独立显示 Agent 额度 HUD', '📊 Standalone agent quota HUD'),
+            type: 'checkbox',
+            checked: petManager.isQuotaStandalone(),
+            click: item => { petManager.setQuotaStandalone(item.checked); refreshTrayMenu(); }
+        },
+        {
+            label: petT('🐾 Dragon 桌面伙伴', '🐾 Dragon desktop companion'),
             submenu: [
                 {
                     label: petT('开机/启动自动运行桌宠', 'Start pet with app'),
@@ -1983,7 +1989,7 @@ function refreshTrayMenu() {
                     }
                 },
                 {
-                    label: petT('💬 呼出桌宠AI客服对话', '💬 Chat with Hajimi'),
+                    label: petT('💬 呼出桌宠AI客服对话', '💬 Chat with Dragon'),
                     enabled: petManager.isPetEnabled(),
                     click: () => {
                         petManager.createChatWindow().show();

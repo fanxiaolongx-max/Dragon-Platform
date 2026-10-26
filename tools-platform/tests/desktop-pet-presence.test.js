@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const presence = require('../desktop-pet/thoth-presence');
+const presence = require('../desktop-pet/dragon-presence');
 
 test('side-facing pet looks toward the middle of its own monitor, including negative origins', () => {
     const primary = { x:0, width:1440 };
@@ -23,8 +23,8 @@ test('center dead band prevents repeated turning near the middle and invalid geo
 });
 
 test('front-facing artwork is never classified for mirroring and closed frames suppress gaze', () => {
-    for (const name of ['idle','walk','think']) assert.equal(presence.profileFor(`./assets/thoth/${name}.png`).side,true);
-    assert.equal(presence.profileFor('./assets/thoth/wave.png').side,false);
+    for (const name of ['idle','walk','think']) assert.equal(presence.profileFor(`./assets/dragon/${name}.png`).side,true);
+    assert.equal(presence.profileFor('./assets/dragon/dragon-character.png').side,false);
     for (const frame of [0,1,4,5]) {
         const profile = presence.profileFor('data:image/png;base64,test',frame);
         assert.equal(profile.side,false); assert.equal(profile.closed,false);

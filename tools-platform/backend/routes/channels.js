@@ -345,6 +345,12 @@ async function tasksWithEvents(tasks) {
     return items;
 }
 
+router.get(`/${CH}/threads/:kind/:id/tac`, handle(async (req, res) => {
+    const thread = threadParams(req, res);
+    if (!thread) return;
+    res.json({ items: await require('../models/dragon-tac/repository').list({ channel: req.params.channel, ...thread }) });
+}));
+
 router.get(`/${CH}/threads`, handle(async (req, res) => {
     res.json({ items: await followupsRepo.listThreads(req.params.channel, { q: req.query.q, limit: req.query.limit }) });
 }));

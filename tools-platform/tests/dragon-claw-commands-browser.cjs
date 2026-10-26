@@ -18,7 +18,8 @@ app.whenReady().then(async()=>{
     await win.webContents.executeJavaScript(`
         localStorage.setItem('tools_token','t');
         window.calls=[];window.scheduleCalls=[];window.locale='zh-CN';window.chatId='chat-A';window.holds=[];
-        window.schedules=[];
+        window.schedules=[];window.tacJobs=[];window.tacPolls=[];
+        const taskInterval=window.setInterval;window.setInterval=(fn,ms)=>{if(ms===4000)tacPolls.push(fn);return taskInterval(fn,ms);};
         window.ToolsI18n={getLanguage:()=>locale};window.HomeWorkspace={getTools:()=>[]};
         window.DragonClawWorkspace={getWorkspacePayload:()=>({agentSessionId:'agent-A',root:'/fixture',permissionMode:'full'}),resetSession(){},handleEvent(){},applyDone(){},finishMessage(){}};
         // persist:false 的 /btw 立刻回答；主对话可用 holdMain 挂起，模拟生成中
@@ -27,6 +28,7 @@ app.whenReady().then(async()=>{
             calls.push(payload);
             if(payload.persist===false){handlers.onDelta('BTW answer');return {reply:'BTW answer'};}
             handlers.onEvent({type:'start',sessionId:chatId});
+            if(payload.messages.at(-1).content.startsWith('确认升级 tac_')){handlers.onEvent({type:'tac',id:'tac_0123456789abcdef',status:'queued'});handlers.onDelta('已确认升级 DragonTAC');return {sessionId:chatId,reply:'已确认升级 DragonTAC'};}
             if(holdMain) await new Promise((resolve,reject)=>{holds.push(resolve);handlers.signal?.addEventListener('abort',()=>reject(new DOMException('aborted','AbortError')));});
             handlers.onDelta('1. step one');return {sessionId:chatId,reply:'1. step one\\n2. step two'};
         }};
@@ -37,12 +39,13 @@ app.whenReady().then(async()=>{
             if(String(url).startsWith('/api/channels/welink/targets'))return json({items:[{kind:'group',id:'grp-1',name:'运维值班群',canPush:true},{kind:'user',id:'zhang.san',name:'张三',canPush:true}]});
             if(String(url).startsWith('/api/channels/weixin/targets'))return json({items:[{kind:'group',id:'wx-grp',name:'微信群',canPush:true},{kind:'user',id:'wx-li',name:'李四',canPush:true}]});
             if(String(url).startsWith('/api/asset-version'))return json({});
+            if(url==='/api/dragon-tac/jobs')return json({items:tacJobs});
             if(!String(url).startsWith('/api/ai/schedules'))return nativeFetch(url,options);
             scheduleCalls.push({url,method:options.method||'GET',body:options.body?JSON.parse(options.body):null});
             if(options.method==='POST'){
                 const body=JSON.parse(options.body);
                 if(!/明天/.test(body.text))return json({error:'没认出时间'},400);
-                const item={id:'dcs_1',instruction:'汇总告警',kind:'once',status:'active',description:'一次性',nextRunAt:'2026-10-26T06:00:00.000Z',sessionId:body.sessionId,runCount:0,targets:body.targets.map(t=>({...t,name:t.id==='grp-1'?'运维值班群':'李四'})),lastPush:null};
+                const item={id:'dcs_1',instruction:'汇总告警',kind:'once',status:'active',description:'一次性',nextRunAt:'2026-10-26T11:00:00.000Z',timezone:'Europe/Amsterdam',sessionId:body.sessionId,runCount:0,targets:body.targets.map(t=>({...t,name:t.id==='grp-1'?'运维值班群':'李四'})),lastPush:null};
                 schedules=[item];return json({item},201);
             }
             if(options.method==='DELETE'){schedules=schedules.map(item=>({...item,status:'cancelled',nextRunAt:null}));return json({item:schedules[0]});}
@@ -132,6 +135,7 @@ app.whenReady().then(async()=>{
     assert.equal(await evaluate(()=>document.querySelectorAll('.dc-push-chip').length),2);
     await evaluate(()=>press('Enter'));
     await waitFor("document.querySelector('.dc-cmd-note [data-dc-schedules]')");
+    assert.match(await evaluate(()=>document.querySelector('.dc-cmd-note [data-dc-schedules]').parentElement.textContent),/12:00.*Europe\/Amsterdam/);
     const post=await evaluate(()=>scheduleCalls.find(call=>call.method==='POST'&&/明天/.test(call.body.text)).body);
     assert.equal(post.text,'明天 9:00 汇总告警');
     assert.deepEqual(post.targets,[{channel:'welink',kind:'group',id:'grp-1'},{channel:'weixin',kind:'user',id:'wx-li'}]);
@@ -143,12 +147,17 @@ app.whenReady().then(async()=>{
     await evaluate(()=>{typeText('/schedule');press('Enter')});
     await waitFor("document.querySelector('[data-dc-schedule-cancel]')");
     assert.match(await evaluate(()=>document.querySelector('.dc-schedule-card').textContent),/汇总告警[\s\S]*等待执行[\s\S]*推送给 运维值班群、李四/);
+    assert.match(await evaluate(()=>document.querySelector('.dc-schedule-card').textContent),/12:00.*Europe\/Amsterdam/);
     await evaluate(()=>document.querySelector('[data-dc-schedule-cancel]').click());
     await waitFor("document.querySelector('.dc-schedule-card').textContent.includes('已取消')");
     assert.equal(await evaluate(()=>scheduleCalls.some(call=>call.method==='DELETE'&&call.url.endsWith('/dcs_1'))),true);
     await evaluate(()=>document.querySelector('[data-dc-schedule-close]').click());
     assert.equal(await evaluate(()=>document.querySelector('.dc-schedule-card')),null);
 
-    process.stdout.write('PASS: slash menu, /plan prompt + ask mode + confirm/revise, /btw during generation without persistence or context, /schedule create/error/list/cancel, push-to picker with pinyin search.\n');
+    await evaluate(()=>{typeText('确认升级 tac_0123456789abcdef');press('Enter')});
+    await waitFor("tacPolls.length>0 && !document.querySelector('.dc-composer.is-generating') && document.querySelector('.dc-thread').textContent.includes('已确认升级 DragonTAC')");
+    await evaluate(()=>{tacJobs=[{id:'tac_0123456789abcdef',sessionId:chatId,status:'done',result:'DragonTAC 浏览器分析结果已回传'}];return tacPolls.at(-1)();});
+    await waitFor("document.querySelector('.dc-thread').textContent.includes('DragonTAC 浏览器分析结果已回传')");
+    process.stdout.write('PASS: slash menu, /plan, /btw, /schedule create/error/list/cancel, push-to picker, DragonTAC asynchronous result.\n');
     win.destroy();server.close();app.exit(0);
 }).catch(error=>{console.error(error);if(win&&!win.isDestroyed())win.destroy();server?.close();app.exit(1)});

@@ -25,8 +25,9 @@ test('panel preserves its side near the center, remains readable at different pe
     assert.ok(tiny.width<=224&&tiny.height<=184);assert.ok(tiny.x>=8&&tiny.y>=8);assert.ok(tiny.x+tiny.width<=232&&tiny.y+tiny.height<=192);
 });
 
-function manager(t){
+function manager(t,initialConfig){
     const root=fs.mkdtempSync(path.join(os.tmpdir(),'pet-panel-manager-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+    if(initialConfig)fs.writeFileSync(path.join(root,'desktop-pet-config.json'),JSON.stringify({scaleVersion:2,...initialConfig}));
     const windows=[],listeners={},handles={},language=new EventEmitter();let calls=0;
     const quotas={codex:{status:'live',groups:[{id:'codex',windows:[{id:'5h',remainingPercent:80}]}]}};
     class Window extends EventEmitter{
@@ -72,6 +73,28 @@ test('default panel waits until ready, stays click-through, follows movement and
     f.api.hidePetForNow();assert.equal(panel.visible,false);f.api.showPetForNow();assert.equal(panel.visible,true);
     f.language.emit('change','en-US');assert.equal(panel.webContents.sent.at(-1).data,'en-US');
     f.api.setPetEnabled(false);assert.equal(panel.destroyed,true);
+});
+
+test('standalone HUD survives hiding and disabling the pet, persists and can open trends without a pet',async t=>{
+    const f=manager(t),pet=f.windows[0];pet.ready();const panel=f.windows[1];panel.ready();
+    f.listeners['pet-quota-panel-ready']({sender:panel.webContents});
+    f.listeners['pet-config-changed']({sender:panel.webContents},{quotaStandalone:true});assert.equal(f.api.isQuotaStandalone(),false);
+    f.api.setQuotaStandalone(true);f.api.hidePetForNow();assert.equal(panel.visible,true);
+    f.api.setPetEnabled(false);assert.equal(pet.destroyed,true);assert.equal(panel.destroyed,false);assert.equal(panel.visible,true);
+    assert.equal(panel.options.parent,undefined,'HUD does not inherit native pet-window lifecycle');
+    f.listeners['pet-open-quota-trends']({sender:panel.webContents},{provider:'codex',groupId:'codex',windowId:'5h'});
+    const trends=f.windows.find(w=>w.file?.endsWith('quota-trends.html'));assert.ok(trends);trends.ready();assert.equal(trends.visible,true);
+    const config=JSON.parse(fs.readFileSync(path.join(f.root,'desktop-pet-config.json'),'utf8'));assert.equal(config.quotaStandalone,true);assert.equal(config.enabled,false);
+    f.api.setQuotaStandalone(false);assert.equal(panel.visible,false);
+});
+
+test('standalone HUD cold-starts when pet startup is disabled and retains saved provider group',async t=>{
+    const f=manager(t,{enabled:false,quotaStandalone:true,quotaPanelOn:true,quotaPanelGroup:'third-party'});
+    assert.equal(f.windows.length,1);const panel=f.windows[0];assert.ok(panel.file.endsWith('quota-panel.html'));
+    panel.ready();f.listeners['pet-quota-panel-ready']({sender:panel.webContents});assert.equal(panel.visible,true);
+    assert.equal(panel.webContents.sent.find(m=>m.name==='pet-quota-panel-config').data.group,'third-party');
+    await new Promise(r=>setImmediate(r));assert.ok(f.calls()>0,'independent HUD refreshes quotas');
+    f.api.showPetForNow();assert.ok(f.windows.some(w=>w.file.endsWith('pet.html')));
 });
 test('panel preferences persist, reject foreign senders and do not expose story or authentication APIs',async t=>{
     const f=manager(t),pet=f.windows[0];pet.ready();const panel=f.windows[1];

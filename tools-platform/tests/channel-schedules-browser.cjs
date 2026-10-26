@@ -68,6 +68,7 @@ app.whenReady().then(async () => {
     web.get('/api/channels/:channel/threads', (_, res) => res.json({ items: [] }));
     web.get('/api/channels/:channel/threads/:kind/:id/messages', (_, res) => res.json({ items: [{ id: 'message', role: 'model', content: '⏰ 定时任务 · 发送消息测试', createdAt: '2026-10-25T20:00:00Z' }], segments: [], canSend: false }));
     web.get('/api/channels/:channel/threads/:kind/:id/followups', (req, res) => res.json({ items: req.params.channel === 'weixin' && req.params.id === 'wechat' ? followups : [], canManage: true, calendar: { timezone: 'Africa/Cairo' } }));
+    web.get('/api/channels/:channel/threads/:kind/:id/tac', (req, res) => res.json({ items: req.params.id === 'wechat' ? [{ id: 'tac_0123456789abcdef', instruction: '打开公开网页，分析长标题与内容并核对来源', status: 'awaiting_approval', url: 'https://example.com/', reports: [{ agent: 'Codex', status: 'pending' }] }, { id: 'tac_fedcba9876543210', instruction: '分析示例网站', status: 'done', url: 'https://example.com/', result: '依据浏览器实际页面快照，已完成分析。<script>window.badTac=true</script>', reports: [{ agent: 'Codex', status: 'done', text: '来源：https://example.com/' }] }] : [] }));
     web.patch('/api/channels/:channel/followups/:id', (req, res) => {
         assert.equal(req.params.channel, 'weixin');
         const task = followups.find(item => item.id === req.params.id);
@@ -89,6 +90,10 @@ app.whenReady().then(async () => {
     await open('weixin', 'user', 'wechat');
     await until('document.querySelectorAll("[data-wl-schedule]").length===8');
     await until('document.querySelectorAll("[data-wl-card]").length===3');
+    await until('document.querySelectorAll("[data-tac-job]").length===2');
+    assert.match(await evaluate('document.querySelector(".wl-tac").textContent'), /等待原发起人确认/);
+    assert.equal(await evaluate('!!window.badTac'), false, 'agent reports never execute HTML');
+    await evaluate('document.querySelector("[data-tac-job=tac_0123456789abcdef] summary").click()');
     assert.equal(await evaluate('document.querySelectorAll(".wl-followups .wl-status.is-open").length'), 1);
     assert.equal(await evaluate('document.querySelectorAll(".wl-followups .wl-status.is-paused").length'), 1);
     assert.equal(await evaluate('document.querySelectorAll(".wl-followups .wl-status.is-done").length'), 1);
@@ -106,6 +111,7 @@ app.whenReady().then(async () => {
     await evaluate('document.querySelector("[data-wl-schedule-more]").click()');
     assert.equal(await evaluate('document.querySelectorAll("[data-wl-schedule]").length'), 10);
     assert.equal(await evaluate('document.querySelector("[data-wl-schedule=\\"schedule-0\\"]").open'), true);
+    assert.equal(await evaluate('document.querySelector("[data-tac-job=tac_0123456789abcdef]").open'), true, 'refresh preserves TAC expansion');
     await evaluate('document.querySelector("[data-wl-schedule=\\"schedule-0\\"] summary").focus()');
     await evaluate('taskRefreshes.at(-1)()');
     await until('document.querySelector(".wl-schedules").getAttribute("aria-busy")==="false"');
@@ -146,6 +152,7 @@ app.whenReady().then(async () => {
     await open('weixin', 'user', 'wechat');
     await until('document.querySelectorAll("[data-wl-card]").length===3');
     assert.match(await evaluate('document.querySelector(".wl-followups").textContent'), /Paused/);
+    assert.match(await evaluate('document.querySelector(".wl-tac").textContent'), /Awaiting requester approval/);
     win.setSize(390, 844);
     await evaluate('new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))');
     assert.ok(await evaluate('dcWorkspacePanel.scrollWidth<=dcWorkspacePanel.clientWidth+1'), 'narrow panel has no horizontal overflow');

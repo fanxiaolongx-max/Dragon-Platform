@@ -1,11 +1,11 @@
-/* Shared ceramic palette for the pet, menu and companion windows. */
+/* Shared felt teal and warm cream palette for the pet, menu and companion windows. */
 :root {
   color-scheme: light;
   --pet-ink: #123743;
   --pet-muted: #52737a;
   --pet-accent: #147d7a;
   --pet-accent-deep: #105d61;
-  --pet-glaze: #83d8ce;
+  --pet-mint: #83d8ce;
   --pet-gold: #bda56e;
   --pet-paper: #f4faf5;
   --pet-panel: rgba(244, 250, 245, .97);
@@ -100,19 +100,24 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 
 /* Quiet, short idle gestures; interaction cancels them immediately. */
-.thoth-observe { animation: thoth-observe 2.8s ease-in-out !important; }
-.thoth-dream { animation: thoth-dream 3s ease-in-out !important; }
-.thoth-greet { animation: thoth-greet 2.5s ease-in-out !important; }
-@keyframes thoth-observe { 35% { rotate: -3deg; } 70% { rotate: 3deg; } }
-@keyframes thoth-dream { 50% { translate: 0 -4px; } }
-@keyframes thoth-greet { 30%, 65% { rotate: -2deg; translate: 0 -3px; } }
+.dragon-observe { animation: dragon-observe 2.8s ease-in-out !important; }
+.dragon-dream { animation: dragon-dream 3s ease-in-out !important; }
+.dragon-greet { animation: dragon-greet 2.5s ease-in-out !important; }
+@keyframes dragon-observe { 35% { rotate: -3deg; } 70% { rotate: 3deg; } }
+@keyframes dragon-dream { 50% { translate: 0 -4px; } }
+@keyframes dragon-greet { 30%, 65% { rotate: -2deg; translate: 0 -3px; } }
 .story-bar { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:8px 16px; border-bottom:1px solid var(--pet-line); font-size:11px; color:var(--pet-ink); }
 .story-bar .chip-btn { padding:5px 9px; font-size:11px; }
 .story-bar [hidden] { display:none; }
 .story-bar span { flex:1; min-width:120px; }
-@media (prefers-reduced-motion: reduce) { .thoth-observe, .thoth-dream, .thoth-greet { animation:none !important; } }
+@media (prefers-reduced-motion: reduce) { .dragon-observe, .dragon-dream, .dragon-greet { animation:none !important; } }
 
-.gpet-img.thoth-gaze-active { filter:url(#thoth-gaze-filter) drop-shadow(0 6px 16px rgba(15,23,42,.18)); }
+.gpet-img.dragon-gaze-active { filter:url(#dragon-gaze-filter) drop-shadow(0 6px 16px rgba(15,23,42,.18)); }
 .gpet-img { transition:transform .15s cubic-bezier(.2,.8,.4,1), opacity .12s ease; }
-.gpet-img.thoth-turning { opacity:.72; }
+.gpet-img.dragon-turning { opacity:.72; }
 @media (prefers-reduced-motion:reduce) { .gpet-img { transition:none !important; } }
+
+
+.gpet-img { transform-origin:50% 94%; }
+
+@keyframes gpet-breathe { 0%,100% {transform:scale(1);} 50% {transform:scale(1.006,1.009);} }

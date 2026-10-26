@@ -2,8 +2,8 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
-const artwork=require('../desktop-pet/thoth-artwork');
-const presence=require('../desktop-pet/thoth-presence');
+const artwork=require('../desktop-pet/dragon-artwork');
+const presence=require('../desktop-pet/dragon-presence');
 
 test('transparent frames ignore isolated specks and share a foot anchor without clipping',()=>{
  const width=20,height=30,pixels=new Uint8ClampedArray(width*height*4);
@@ -39,14 +39,14 @@ test('registered native left poses retain their direction and front portraits re
 
 async function fixture(){
  const timers=new Map(),intervals=[],listeners={},writes=[];
- let id=0,busy=false,source='original';const reduced={matches:false,addEventListener(_event,fn){this.change=fn;}};
- const ui={img:{classList:{remove(){},add(){}},getAttribute:()=>source},busy:()=>busy,images:{think:'think',wave:'wave'},bubblesOn:()=>false,clearStory(){},setSprite(src){source=src;writes.push(src);}};
- const window={matchMedia:()=>reduced,addEventListener(name,fn){listeners[name]=fn;},PetI18n:{getLanguage:()=> 'zh-CN'},ThothArtwork:{order:artwork.order,load:async()=>({front:['new-front'],left:Array.from({length:8},(_,i)=>'left-'+i),right:Array.from({length:8},(_,i)=>'right-'+i),blink:['b0','b1','b2','b3','b4','b5']})}};
+ let id=0,busy=false,activity='idle',now=0,source='original';const reduced={matches:false,addEventListener(_event,fn){this.change=fn;}};
+ const ui={img:{dataset:{},classList:{remove(){},add(){}},getAttribute:()=>source},activity:()=>activity,busy:()=>busy,images:{think:'think',wave:'wave'},bubblesOn:()=>false,clearStory(){},setSprite(src){source=src;writes.push(src);}};
+ const window={matchMedia:()=>reduced,addEventListener(name,fn){listeners[name]=fn;},PetI18n:{getLanguage:()=> 'zh-CN'},DragonArtwork:{order:artwork.order,load:async()=>({front:['new-front'],left:Array.from({length:8},(_,i)=>'left-'+i),right:Array.from({length:8},(_,i)=>'right-'+i),blink:['b0','b1','b2','b3','b4','b5'],wave:Array.from({length:8},(_,i)=>'wave-'+i),walk:Array.from({length:8},(_,i)=>'walk-'+i),states:Array.from({length:8},(_,i)=>'state-'+i)})}};
  const document={hidden:false,addEventListener(name,fn){listeners[name]=fn;}};
- vm.runInNewContext(fs.readFileSync(require.resolve('../desktop-pet/thoth-life'),'utf8'),{window,document,Math,Date,setTimeout(fn){timers.set(++id,fn);return id;},clearTimeout(key){timers.delete(key);},setInterval(fn){intervals.push(fn);return intervals.length;},clearInterval(){}});
- const life=window.ThothLife.create(ui);await Promise.resolve();await Promise.resolve();
+ vm.runInNewContext(fs.readFileSync(require.resolve('../desktop-pet/dragon-life'),'utf8'),{window,document,Math,Date:{now:()=>now},setTimeout(fn){timers.set(++id,fn);return id;},clearTimeout(key){timers.delete(key);},setInterval(fn){intervals.push(fn);return intervals.length;},clearInterval(){}});
+ const life=window.DragonLife.create(ui);await Promise.resolve();await Promise.resolve();
  const step=()=>{const item=timers.entries().next().value;if(item){timers.delete(item[0]);item[1]();}};
- return {life,writes,timers,reduced,document,listeners,intervals,step,setBusy(value){busy=value;},source:()=>source};
+ return {life,writes,timers,reduced,document,listeners,intervals,step,setBusy(value){busy=value;},setActivity(value){activity=value;},advance(ms){now+=ms;intervals[1]();},source:()=>source};
 }
 
 test('a complete head turn restores the new idle source; cancellation prevents delayed overwrite',async()=>{
@@ -68,4 +68,13 @@ test('disabling random actions cancels playback but permits explicit actions whe
  const f=await fixture();f.life.motion(true,'left');f.life.apply({randomMotionOn:false});assert.equal(f.timers.size,0);
  f.life.motion(false,'right');assert.equal(f.timers.size,0);
  f.life.motion(true,'right');assert.ok(f.timers.size>0);
+});
+
+test('interactive frames cancel idle playback, alternate while dragged and restore idle without stale writes',async()=>{
+ const f=await fixture();f.life.motion(true,'wave');assert.equal(f.source(),'wave-0');
+ f.setActivity('dragged');f.advance(100);assert.equal(f.source(),'state-2');assert.equal(f.timers.size,0);
+ f.advance(600);assert.equal(f.source(),'state-3');f.step();assert.equal(f.source(),'state-3');
+ f.document.hidden=true;f.advance(600);assert.equal(f.source(),'state-3');
+ f.document.hidden=false;f.setActivity('idle');f.advance(100);f.setActivity('think');f.advance(100);assert.equal(f.source(),'state-0');
+ f.setActivity('idle');f.advance(100);assert.equal(f.source(),'new-front');
 });

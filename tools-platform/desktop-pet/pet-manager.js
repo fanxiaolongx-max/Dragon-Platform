@@ -173,6 +173,7 @@ const DEFAULT_CONFIG = {
     soundSet: 'duck',
     bubbleOn: true,
     quotaPanelOn: true,
+    quotaStandalone: false,
     quotaPanelGroup: 'gemini',
     typingOn: true,
     eyeGazeOn: true,
@@ -325,12 +326,13 @@ function recordQuotaHistory(quotas) {
     return historyWrite;
 }
 function openQuotaTrends(selection) {
-    if (!petWin || petWin.isDestroyed()) return;
+    const anchorWindow = petWin && !petWin.isDestroyed() ? petWin : quotaPanelWin;
+    if (!anchorWindow || anchorWindow.isDestroyed()) return;
     if (!selection || !['codex','claudecode','antigravity'].includes(selection.provider) ||
         ![selection.groupId,selection.windowId].every(value=>typeof value==='string' && /^[a-zA-Z0-9_.:-]{1,100}$/.test(value))) return;
     quotaTrendsSelection = {provider:selection.provider,groupId:selection.groupId,windowId:selection.windowId};
     if (!quotaTrendsWin || quotaTrendsWin.isDestroyed()) {
-        const area = (screen.getDisplayMatching(petWin.getBounds()) || screen.getPrimaryDisplay()).workArea;
+        const area = (screen.getDisplayMatching(anchorWindow.getBounds()) || screen.getPrimaryDisplay()).workArea;
         const width = Math.min(1080,Math.max(1,area.width-32)),height = Math.min(800,Math.max(1,area.height-32));
         quotaTrendsWin = new BrowserWindow({width,height,minWidth:Math.min(520,width),minHeight:Math.min(480,height),
             x:Math.round(area.x+(area.width-width)/2),y:Math.round(area.y+(area.height-height)/2),
@@ -348,14 +350,16 @@ function openQuotaTrends(selection) {
 }
 
 function syncQuotaPanel() {
-    if (!petWin || petWin.isDestroyed() || !petWin.isVisible() || !quotaPanelOptions.enabled) {
+    const standalone = isQuotaStandalone();
+    const petVisible = petWin && !petWin.isDestroyed() && petWin.isVisible();
+    if ((!petVisible && !standalone) || !quotaPanelOptions.enabled) {
         if (quotaPanelWin && !quotaPanelWin.isDestroyed()) quotaPanelWin.hide();
         return;
     }
     if (!quotaPanelWin || quotaPanelWin.isDestroyed()) {
         quotaPanelReady = false;
         quotaPanelWin = new BrowserWindow({
-            width:PANEL_SIZE.width,height:PANEL_SIZE.height,parent:petWin,
+            width:PANEL_SIZE.width,height:PANEL_SIZE.height,
             frame:false,transparent:true,alwaysOnTop:true,resizable:false,skipTaskbar:true,
             hasShadow:false,show:false,focusable:false,backgroundColor:'#00000000',
             webPreferences:{nodeIntegration:true,contextIsolation:false}
@@ -364,9 +368,10 @@ function syncQuotaPanel() {
         quotaPanelWin.on('closed',()=>{quotaPanelWin=null;quotaPanelReady=false;});
         quotaPanelWin.loadFile(path.join(__dirname,'quota-panel.html')).catch(()=>closeQuotaPanel());
     }
-    const pet = petWin.getBounds();
+    const primary = screen.getPrimaryDisplay().workArea;
+    const pet = petVisible ? petWin.getBounds() : {x:primary.x+primary.width-24,y:primary.y+primary.height-24,width:0,height:0};
     const area = (screen.getDisplayMatching(pet) || screen.getPrimaryDisplay()).workArea;
-    const next = panelBounds(pet,area,quotaPanelAnchor,quotaPanelSide);
+    const next = panelBounds(pet,area,petVisible ? quotaPanelAnchor : {x:0,y:0,width:0,height:0},quotaPanelSide);
     quotaPanelSide = next.side;
     const {side,...bounds} = next;
     const current = quotaPanelWin.getBounds();
@@ -437,9 +442,9 @@ function createPetWindow() {
     petWin.on('show', sendPetEnvironment);
     petWin.on('hide', sendPetEnvironment);
     petWin.on('closed', () => {
-        closeQuotaPanel();
-        closeQuotaTrends();
         petWin = null;
+        if (!isQuotaStandalone()) { closeQuotaPanel(); closeQuotaTrends(); }
+        else syncQuotaPanel();
         stopKeyboardHook();
     });
 
@@ -797,8 +802,10 @@ function registerIpc() {
 
     // 配置更新
     ipcMain.on('pet-config-changed', (event, cfg) => {
+        if (!isPetSender(event) && !(settingsWin && !settingsWin.isDestroyed() && event.sender === settingsWin.webContents)) return;
+        if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) return;
         try {
-            const merged = savePetConfig(cfg);
+            const merged = savePetConfig({...cfg, ...(cfg.quotaStandalone === true ? {quotaPanelOn:true} : {})});
             quotaPanelOptions = {enabled:merged.quotaPanelOn !== false,group:merged.quotaPanelGroup === 'third-party' ? 'third-party' : 'gemini'};
             if (quotaPanelWin && !quotaPanelWin.isDestroyed() && quotaPanelReady) quotaPanelWin.webContents.send('pet-quota-panel-config',{group:quotaPanelOptions.group});
             syncQuotaPanel();
@@ -868,7 +875,7 @@ function registerIpc() {
  */
 function hidePetForNow() {
     stopKeyboardHook();
-    if (quotaTrendsWin && !quotaTrendsWin.isDestroyed()) quotaTrendsWin.hide();
+    if (!isQuotaStandalone() && quotaTrendsWin && !quotaTrendsWin.isDestroyed()) quotaTrendsWin.hide();
     if (chatWin && !chatWin.isDestroyed()) chatWin.hide();
     if (settingsWin && !settingsWin.isDestroyed()) settingsWin.hide();
     if (petWin && !petWin.isDestroyed()) petWin.hide();
@@ -900,12 +907,12 @@ function setPetEnabled(enabled) {
         // 彻底关闭并销毁窗口，恢复完全无桌宠状态
         if (chatWin && !chatWin.isDestroyed()) chatWin.destroy();
         if (settingsWin && !settingsWin.isDestroyed()) settingsWin.destroy();
-        closeQuotaPanel();
-        closeQuotaTrends();
+        if (!isQuotaStandalone()) { closeQuotaPanel(); closeQuotaTrends(); }
         if (petWin && !petWin.isDestroyed()) petWin.destroy();
         chatWin = null;
         settingsWin = null;
         petWin = null;
+        syncQuotaPanel();
     }
 }
 
@@ -924,6 +931,15 @@ function isPetVisible() {
     return Boolean(petWin && !petWin.isDestroyed() && petWin.isVisible());
 }
 
+function isQuotaStandalone() { return loadPetConfig().quotaStandalone === true; }
+function setQuotaStandalone(enabled) {
+    const cfg = savePetConfig({quotaStandalone:Boolean(enabled), ...(enabled ? {quotaPanelOn:true} : {})});
+    quotaPanelOptions = {enabled:cfg.quotaPanelOn !== false,group:cfg.quotaPanelGroup === 'third-party' ? 'third-party' : 'gemini'};
+    if (petWin && !petWin.isDestroyed()) petWin.webContents.send('pet-apply-config',cfg);
+    syncQuotaPanel();
+    if (enabled) refreshQuotas();
+}
+
 /**
  * 初始化桌宠服务
  */
@@ -933,13 +949,9 @@ function initDesktopPet({ port = 3030, baseUrl = 'http://localhost:3030' } = {})
     registerIpc();
 
     const cfg = loadPetConfig();
-    if (cfg.enabled === false) {
-        console.log('[PetManager] 桌面宠物处于永久隐藏状态（无桌宠模式），跳过加载');
-        return;
-    }
-
-    console.log('[PetManager] 启动桌面宠物组件...');
-    createPetWindow();
+    quotaPanelOptions = {enabled:cfg.quotaPanelOn !== false,group:cfg.quotaPanelGroup === 'third-party' ? 'third-party' : 'gemini'};
+    if (cfg.enabled !== false) createPetWindow();
+    if (cfg.quotaStandalone) { syncQuotaPanel(); refreshQuotas(); }
     if (!presencePollingTimer) presencePollingTimer = setInterval(() => {
         if (isPetVisible()) sendPetEnvironment();
     }, 250);
@@ -948,6 +960,7 @@ function initDesktopPet({ port = 3030, baseUrl = 'http://localhost:3030' } = {})
     if (!quotaPollingTimer) {
         quotaPollingTimer = setInterval(() => {
             if ((petWin && !petWin.isDestroyed() && petWin.isVisible()) ||
+                (quotaPanelWin && !quotaPanelWin.isDestroyed() && quotaPanelWin.isVisible()) ||
                 (chatWin && !chatWin.isDestroyed() && chatWin.isVisible()) ||
                 (quotaTrendsWin && !quotaTrendsWin.isDestroyed() && quotaTrendsWin.isVisible())) {
                 refreshQuotas();
@@ -978,6 +991,8 @@ module.exports = {
     cleanupDesktopPet,
     isPetEnabled,
     isPetVisible,
+    isQuotaStandalone,
+    setQuotaStandalone,
     setPetEnabled,
     showPetForNow,
     hidePetForNow,
