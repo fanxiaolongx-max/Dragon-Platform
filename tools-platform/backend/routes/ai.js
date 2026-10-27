@@ -25,6 +25,7 @@ const chatLockKey = id => `${getTenantId()}::${id}`;
 const { proactiveAlertCircuit } = require('../models/ai-circuit-breaker');
 const followupAgent = require('../models/channels/followup-agent');
 const opsAgent = require('../models/channels/ops-agent');
+const welinkCliAgent = require('../models/channels/welink-cli-agent');
 
 console.log('[AI] AI Assistant route loaded. Runtime config will be read from settings, with provider-specific env fallback.');
 
@@ -802,6 +803,16 @@ async function handleChatRequest(req, res) {
             }
         }
 
+        // @welink-office：管理员在首页普通对话里以本人身份查询 WeLink（welink-cli，只读）
+        let welinkCliSetup = null;
+        if (homeAgent && !agentMode && !channelTurn && !opsSetup && req.user?.role === 'admin' && loadedSkills.selected.some(item => item.id === welinkCliAgent.SKILL_ID)) {
+            try {
+                welinkCliSetup = { ctx: { actor: req.user?.username || '' }, prompt: await welinkCliAgent.buildPrompt() };
+            } catch (welinkCliError) {
+                console.warn('[AI] welink-cli setup failed:', welinkCliError.message || welinkCliError);
+            }
+        }
+
         // 构造 System Instruction
         const identityPrompt = homeAgent
             ? `你是 "Dragon Claw"，Tools Platform 工具中台首页的全能 AI 智能体。
@@ -826,7 +837,7 @@ ${expertGrounding.businessConfigPrompt ? `\n与用户问题相关的只读业务
 ${expertGrounding.toolDataPrompt ? `\n平台工具业务数据（只读；来自工具保存的快照、状态、数据库或用户浏览器本地存储，已压缩为字段统计与汇总）：\n---\n${expertGrounding.toolDataPrompt}\n---\n` : ''}
 ${expertGrounding.dataPrompt ? `\n只读报表分析工具结果：\n---\n${expertGrounding.dataPrompt}\n---\n` : ''}
 ${expertGrounding.metricGraphPrompt ? `\n与本次问题相关的运营指标体系图谱节点：\n---\n${expertGrounding.metricGraphPrompt}\n---\n` : ''}
-${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}
+${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}${welinkCliSetup ? `${welinkCliSetup.prompt}\n` : ''}
 **核心要求**：
 1. 默认使用${responseLanguage}回答，并与当前界面语言保持一致；用户明确指定其他语言时遵从用户要求。先直接回答结论，再根据问题难度给出必要细节；保持专业、清晰，不强制所有回答都极端简短。
 1.1 默认优先使用 Markdown 表格组织适合结构化展示的内容，尤其是指标与客户群对比、目标与实际值、历史趋势、配置清单、问题排查、方案比较和整改建议。先用一两句话给出结论，再用表格列出依据或行动；避免把同一组信息写成长段落。简单问答、单一事实和需要连贯解释的内容可使用简短文字；用户明确指定其他格式时遵从用户要求。
@@ -930,11 +941,26 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
+        const welinkCliResult = !agentResult && !analysisResult && !followupResult && !opsResult && welinkCliSetup
+            ? await welinkCliAgent.runTurn({
+                client: aiClient,
+                systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
+                messages: effectiveMessages,
+                ctx: welinkCliSetup.ctx,
+                signal: providerAbortController?.signal,
+                maxOutputTokens: aiSettings.maxOutputTokens,
+                temperature: aiSettings.temperature,
+                onDelta: streamRequested ? delta => {
+                    streamHasDelta = true;
+                    writeStreamEvent({ type: 'delta', delta });
+                } : undefined
+            })
+            : null;
         if (followupResult?.events?.length) {
             recordedEvents.push(...followupResult.events);
             if (streamRequested) followupResult.events.forEach(event => writeStreamEvent(event));
         }
-        const result = agentResult || followupResult || opsResult || (analysisResult ? analysisResult.result : await generateResponse());
+        const result = agentResult || followupResult || opsResult || welinkCliResult || (analysisResult ? analysisResult.result : await generateResponse());
         const usageVideoFooter = analysisCode ? '' : await getUsageVideoFooter(lastMessage.content, uiLanguage);
         if (usageVideoFooter && !String(result.text || '').includes(usageVideoFooter.trim())) {
             result.text = String(result.text || '') + usageVideoFooter;
@@ -947,7 +973,9 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             // 运营工具：附上结果摘要（含草稿 id），下一轮确认推送时能找到对应草稿
             : opsResult && opsResult.toolLog.length
                 ? `${result.text}\n\n（运营工具：${opsResult.toolLog.slice(0, 8).map(item => `${item.tool}${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
-                : result.text, { secrets: sensitiveValues });
+                : welinkCliResult && welinkCliResult.toolLog.length
+                    ? `${result.text}\n\n（WeLink 查询：${welinkCliResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`
+                    : result.text, { secrets: sensitiveValues });
         
         let totalTokens = 0;
         let promptTokens = 0;

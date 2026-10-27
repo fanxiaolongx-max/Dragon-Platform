@@ -8,6 +8,7 @@ const configRepo = require('../models/channels/welink-config-repository');
 const weixinConfigRepo = require('../models/channels/weixin-config-repository');
 const targetsRepo = require('../models/channels/channel-targets-repository');
 const sdkLoader = require('../models/channels/welink-sdk-loader');
+const welinkCli = require('../models/channels/welink-cli-runner');
 const welink = require('../models/channels/welink-bridge-service');
 const weixin = require('../models/channels/weixin-bridge-service');
 const followupsRepo = require('../models/channels/channel-followups-repository');
@@ -101,6 +102,59 @@ router.delete('/welink/sdk/import', handle(async (_req, res) => {
     const removed = sdkLoader.removeImportedSdk();
     res.json({ removed, status: await welink.getStatus(getTenantId()) });
 }));
+
+// ── welink-cli（本人身份，本机级配置，仅默认租户的管理员） ─────────────────
+const welinkCliAdmin = [requireAdmin, (_req, res, next) => {
+    try {
+        welinkCli.assertTenant();
+        next();
+    } catch (error) {
+        sendError(res, error);
+    }
+}];
+
+router.get('/welink-cli/status', welinkCliAdmin, handle(async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const install = await welinkCli.detect({ refresh: req.query.refresh === '1' });
+    const payload = { config: welinkCli.readConfig(), install };
+    // auth status 要连本机 WeLink PC，可能要几秒，前端单独请求
+    if (install.available && req.query.auth === '1') {
+        try {
+            payload.auth = await welinkCli.authStatus();
+        } catch (error) {
+            payload.auth = { loggedIn: null, text: '', error: error.message };
+        }
+    }
+    res.json(payload);
+}));
+
+router.put('/welink-cli/config', welinkCliAdmin, handle(async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const config = welinkCli.saveConfig({ enabled: body.enabled, cliPath: body.cliPath, env: body.env });
+    res.json({ config, install: await welinkCli.detect({ refresh: true }) });
+}));
+
+router.post('/welink-cli/autodiscover', welinkCliAdmin, handle(async (req, res) => {
+    res.json(await welinkCli.autodiscover(req.body?.email));
+}));
+
+router.post('/welink-cli/logout', welinkCliAdmin, handle(async (_req, res) => {
+    res.json(await welinkCli.logout());
+}));
+
+// 扫码登录：NDJSON 流式返回 CLI 输出的二维码链接与进度；页面关闭或取消即结束 CLI 进程。
+router.post('/welink-cli/login', welinkCliAdmin, async (req, res) => {
+    const write = ndjson(res);
+    const controller = new AbortController();
+    res.on('close', () => { if (!res.writableFinished) controller.abort(); });
+    try {
+        await welinkCli.login({ env: req.body?.env, signal: controller.signal, onEvent: event => write({ type: 'event', event }) });
+        write({ type: 'done', ok: true });
+    } catch (error) {
+        write({ type: 'error', code: error.code || 'WELINK_CLI_LOGIN_FAILED', error: error.message });
+    }
+    res.end();
+});
 
 router.post(`/${CH}/connect`, handle(async (req, res) => {
     res.json(await ch(req).service.connect(getTenantId()));
