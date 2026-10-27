@@ -1,5 +1,5 @@
 // Isolated renderer preview; no real quota probes, login or business data.
-const {app,BrowserWindow,ipcMain}=require('electron');
+const {app,BrowserWindow,ipcMain,nativeTheme}=require('electron');
 const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'quota-sidebar-preview-'));
 app.setPath('userData',path.join(temp,'profile'));app.disableHardwareAcceleration();
@@ -11,7 +11,8 @@ setTimeout(()=>app.exit(1),30000).unref();
 app.whenReady().then(async()=>{
     ipcMain.handle('pet-get-language',()=> 'zh-CN');
     for(const name of ['pet-quota-panel-ready','pet-quota-panel-hide','pet-quota-panel-menu','pet-quota-panel-dock','pet-quota-panel-drag','pet-open-quota-trends'])ipcMain.on(name,(_event,data)=>messages.push({name,data}));
-    win=new BrowserWindow({width:286,height:426,show:true,focusable:false,frame:false,transparent:true,webPreferences:{nodeIntegration:true,contextIsolation:false,backgroundThrottling:false}});
+    nativeTheme.themeSource='dark';
+    win=new BrowserWindow({width:416,height:58,show:true,focusable:false,frame:false,transparent:true,webPreferences:{nodeIntegration:true,contextIsolation:false,backgroundThrottling:false}});
     console.log('stage: load');
     await win.loadFile(path.join(__dirname,'../desktop-pet/quota-panel.html'));
     await until('document.querySelectorAll(".quota-cell").length===6');
@@ -24,13 +25,13 @@ app.whenReady().then(async()=>{
     assert.equal(await evaluate('document.querySelectorAll(".quota-track").length'),6);
     await wait(180);
     console.log('stage: capture zh');
-    fs.writeFileSync(path.join(temp,'sidebar-zh.png'),(await win.webContents.capturePage()).toPNG());
+    fs.writeFileSync(path.join(temp,'compact-top-zh.png'),(await win.webContents.capturePage()).toPNG());
     await evaluate('document.querySelector(".quota-cell").click();document.getElementById("panelMenu").click();document.getElementById("panelHide").click()');
     await wait(40);assert.deepEqual(messages.find(m=>m.name==='pet-open-quota-trends').data,{provider:'codex',groupId:'codex',windowId:'5h'});
     assert.ok(messages.some(m=>m.name==='pet-quota-panel-menu'));assert.ok(messages.some(m=>m.name==='pet-quota-panel-hide'));
     console.log('stage: pointer');
     await win.webContents.debugger.attach('1.3');
-    for(const params of [{type:'mousePressed',x:75,y:27,button:'left',clickCount:1},{type:'mouseMoved',x:90,y:37,button:'left',buttons:1},{type:'mouseReleased',x:90,y:37,button:'left',clickCount:1}])await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',params);
+    for(const params of [{type:'mousePressed',x:13,y:27,button:'left',clickCount:1},{type:'mouseMoved',x:18,y:30,button:'left',buttons:1},{type:'mouseReleased',x:18,y:30,button:'left',clickCount:1}])await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',params);
     await wait(60);assert.ok(messages.some(m=>m.name==='pet-quota-panel-drag'&&m.data==='start'));assert.ok(messages.some(m=>m.name==='pet-quota-panel-drag'&&m.data==='end'));
     await win.webContents.debugger.detach();
     console.log('stage: language');
@@ -38,8 +39,25 @@ app.whenReady().then(async()=>{
     assert.match(await evaluate('document.body.textContent'),/5 hours/);assert.match(await evaluate('document.body.textContent'),/Weekly/);
     await wait(180);
     console.log('stage: capture en');
-    fs.writeFileSync(path.join(temp,'sidebar-en.png'),(await win.webContents.capturePage()).toPNG());
-    win.setContentSize(240,320);await wait(60);assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
-    console.log('PASS: sidebar rendering, Chinese/English, small screen, trends, hide/menu buttons and pointer dragging. Preview: '+temp);
+    fs.writeFileSync(path.join(temp,'compact-top-en.png'),(await win.webContents.capturePage()).toPNG());
+    async function checkLayout(width,height,config,file) {
+        win.setContentSize(width,height);win.webContents.send('pet-quota-panel-config',config);await wait(100);
+        assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth&&document.documentElement.scrollHeight<=innerHeight'),true,file+' viewport');
+        assert.equal(await evaluate('Array.from(document.querySelectorAll(".quota-row,.quota-cell,.provider-name")).every(e=>e.scrollHeight<=e.clientHeight&&e.scrollWidth<=e.clientWidth)'),true,file+' cells');
+        assert.equal(await evaluate('Array.from(document.querySelectorAll(".quota-cell,#panelMenu,#panelHide")).every(e=>{const b=e.getBoundingClientRect();return b.x>=0&&b.y>=0&&b.right<=innerWidth&&b.bottom<=innerHeight})'),true,file+' controls');
+        fs.writeFileSync(path.join(temp,file+'.png'),(await win.webContents.capturePage()).toPNG());
+    }
+    await checkLayout(152,184,{orientation:'vertical'},'compact-side-en');
+    await evaluate('PetI18n.setLanguage("zh-CN")');
+    await checkLayout(152,184,{orientation:'vertical'},'compact-side-zh');
+    await checkLayout(286,426,{expanded:true},'detail-zh');
+    await checkLayout(240,58,{orientation:'horizontal'},'compact-narrow');
+    nativeTheme.themeSource='light';
+    await checkLayout(416,58,{orientation:'horizontal'},'compact-light');
+    win.webContents.send('pet-quota-update',{codex:{status:'cached',groups:[{id:'codex',windows:[{id:'5h',remainingPercent:60}]}]},claudecode:{status:'signed_out'},antigravity:{status:'offline'}});
+    await until('document.querySelector(".quota-row.cached")&&document.querySelectorAll(".quota-cell.unknown").length===5');
+    assert.match(await evaluate('document.querySelector(".claudecode").title'),/未登录/);
+    assert.match(await evaluate('document.querySelector(".codex").title'),/缓存/);
+    console.log('PASS: compact top/side, detail, Chinese/English, light/dark, small screen, missing/cache states, trends, hide/menu buttons and pointer dragging. Preview: '+temp);
     win.destroy();app.exit(0);
 }).catch(error=>{console.error(error);win?.destroy();app.exit(1);});

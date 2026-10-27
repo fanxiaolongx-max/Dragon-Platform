@@ -8,12 +8,29 @@ const {createRequire}=require('node:module');
 const {EventEmitter}=require('node:events');
 const {sidebarBounds,droppedSidebar}=require('../desktop-pet/quota-panel-layout');
 
-test('sidebar defaults to the right edge and clamps saved positions on negative-origin and small displays',()=>{
+test('compact bar defaults to the top and clamps saved positions on negative-origin and small displays',()=>{
     for(const area of [{x:0,y:0,width:1440,height:900},{x:-1920,y:-100,width:1920,height:1080},{x:0,y:0,width:240,height:200}]){
-        const b=sidebarBounds(area);assert.equal(b.mode,'right');assert.equal(b.x+b.width,area.x+area.width-12);
+        const b=sidebarBounds(area);assert.equal(b.mode,'top');assert.equal(b.y,area.y+12);assert.equal(b.orientation,'horizontal');
+        assert.ok(b.x>=area.x&&b.x+b.width<=area.x+area.width);assert.equal(b.height,58);
         assert.ok(b.y>=area.y&&b.y+b.height<=area.y+area.height);
         const moved=sidebarBounds(area,{mode:'free',x:-99999,y:99999});assert.ok(moved.x>=area.x);assert.ok(moved.y+moved.height<=area.y+area.height);
     }
+});
+test('compact placement rotates at all four edges, preserves free orientation and supports detailed panels',()=>{
+    const area={x:-1440,y:-100,width:1440,height:900};
+    for(const [mode,point] of [['top',{x:-800,y:-90}],['bottom',{x:-800,y:740}],['left',{x:-1430,y:180}],['right',{x:-430,y:180}]]){
+        const result=droppedSidebar({...point,width:416,height:58},area);
+        assert.equal(result.mode,mode);
+        assert.equal(result.orientation,['left','right'].includes(mode)?'vertical':'horizontal');
+        assert.equal(result.width,result.orientation==='vertical'?152:416);
+        assert.ok(result.x>=area.x&&result.x+result.width<=area.x+area.width);
+        assert.ok(result.y>=area.y&&result.y+result.height<=area.y+area.height);
+    }
+    const free=droppedSidebar({x:-800,y:180,width:152,height:184},area,{orientation:'vertical'});
+    assert.equal(free.mode,'free');assert.equal(free.orientation,'vertical');assert.equal(free.width,152);
+    const detail=sidebarBounds(area,{mode:'right',y:180},true);
+    assert.equal(detail.width,286);assert.equal(detail.height,426);assert.equal(detail.y,180);
+    assert.equal(sidebarBounds(area,{mode:'right',x:-286,y:180}).width,152,'old right-edge preferences become a compact side strip');
 });
 test('drag release snaps either edge, keeps floating positions, and preserves the vertical position',()=>{
     const area={x:-1440,y:40,width:1440,height:900};
@@ -133,7 +150,7 @@ test('drag IPC uses native cursor coordinates, persists placement and rejects ot
     const f=manager(t),pet=f.windows[0];pet.ready();const panel=f.windows[1];f.listeners['pet-quota-panel-ready']({sender:panel.webContents});
     const before=panel.getBounds(),event={sender:panel.webContents};
     f.listeners['pet-quota-panel-drag']({sender:pet.webContents},'start');f.cursor.x=500;f.listeners['pet-quota-panel-drag'](event,'move');assert.deepEqual(panel.getBounds(),before);
-    f.listeners['pet-quota-panel-drag'](event,'start');f.cursor.x=100;f.cursor.y=20;f.listeners['pet-quota-panel-drag'](event,'move');
+    f.listeners['pet-quota-panel-drag'](event,'start');f.cursor.x=100;f.cursor.y=200;f.listeners['pet-quota-panel-drag'](event,'move');
     assert.equal(panel.bounds.x,before.x-400);pet.setPosition(0,0);assert.equal(panel.bounds.x,before.x-400,'pet ticks cannot reset a drag');
     f.listeners['pet-quota-panel-drag'](event,'end');const saved=JSON.parse(fs.readFileSync(path.join(f.root,'desktop-pet-config.json'),'utf8')).quotaPanelPlacement;
     assert.equal(saved.mode,'free');assert.equal(saved.x,before.x-400);
@@ -141,6 +158,22 @@ test('drag IPC uses native cursor coordinates, persists placement and rejects ot
     pet.setPosition(100,100);assert.equal(panel.bounds.x,saved.x);
     f.listeners['pet-quota-panel-dock']({sender:{}});assert.equal(panel.bounds.x,saved.x);
     f.listeners['pet-quota-panel-dock']({sender:pet.webContents});assert.equal(panel.bounds.x+panel.bounds.width,1428);
+});
+test('menu changes orientation and detail size, persists preferences and restores compact mode',t=>{
+    const f=manager(t,{enabled:false,quotaStandalone:true}),panel=f.windows[0],event={sender:panel.webContents};
+    f.listeners['pet-quota-panel-ready'](event);
+    assert.equal(panel.bounds.width,416);assert.equal(panel.bounds.height,58);
+    f.listeners['pet-quota-panel-menu'](event);
+    const choose=label=>f.menus.at(-1).find(item=>item.label===label).click();
+    choose('停靠屏幕左侧');assert.equal(panel.bounds.width,152);assert.equal(panel.bounds.height,184);
+    assert.equal(panel.webContents.sent.filter(m=>m.name==='pet-quota-panel-config').at(-1).data.orientation,'vertical');
+    choose('详细额度面板');assert.equal(panel.bounds.width,286);assert.equal(panel.bounds.height,426);
+    const saved=JSON.parse(fs.readFileSync(path.join(f.root,'desktop-pet-config.json'),'utf8'));
+    assert.equal(saved.quotaPanelExpanded,true);assert.equal(saved.quotaPanelPlacement.mode,'left');
+    const restored=manager(t,saved);assert.equal(restored.windows[0].bounds.width,286);
+    choose('精简额度栏');assert.equal(panel.bounds.width,152);
+    choose('停靠屏幕顶部');assert.equal(panel.bounds.height,58);assert.equal(panel.bounds.y,12);
+    choose('停靠屏幕底部');assert.equal(panel.bounds.y+panel.bounds.height,888);
 });
 test('sidebar right-click menu can hide only the sidebar and docking restores remain on screen',t=>{
     const f=manager(t,{quotaPanelPlacement:{mode:'free',x:99999,y:99999}}),pet=f.windows[0];pet.ready();const panel=f.windows[1];f.listeners['pet-quota-panel-ready']({sender:panel.webContents});

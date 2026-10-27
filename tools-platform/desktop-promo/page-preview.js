@@ -52,7 +52,6 @@ function createPagePreview(contents, { isExpanded, getBounds, getDesktopSize }) 
         documentReady = true;
         previous = '';
         contents.setVisualZoomLevelLimits(1, 1).catch(() => {});
-        contents.setZoomFactor(1);
         update();
         syncStyles();
     });

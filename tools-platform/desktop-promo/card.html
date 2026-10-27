@@ -38,10 +38,34 @@ button.danger:hover { background: #dc2626; }
 .tab-title { display: block; flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
 .tab-close { font-size: 14px; padding: 0 4px; min-width: 22px; }
 .tabs-bar > button { -webkit-app-region: no-drag; }
+/* 浏览器标题栏由指针事件处理，保证双击行为不受系统标题栏偏好影响。 */
+body[data-browser="true"] .tabs-bar, body[data-browser="true"] .tool { -webkit-app-region: no-drag; touch-action: none; }
+.tab.dragging { opacity: .65; border-color: var(--accent); }
 body[data-browser="true"] .tool { top: 34px; }
 .address-form { display: flex; padding: 0 8px; margin: 0; }
 .address-form input { width: 100%; min-width: 0; color: inherit; background: transparent; border: 0; outline: 0; font: inherit; user-select: text; }
 .address-form:focus-within { border-color: var(--accent); color: #e2e8f0; }
+.chrome-panel, .find-bar, .download-notice { position: fixed; top: 74px; left: 0; right: 0; box-sizing: border-box; background: #111c31; border-bottom: 1px solid #475569; }
+.download-notice { height: 32px; display: flex; gap: 6px; align-items: center; padding: 0 12px; }
+.download-notice span { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.find-bar { height: 38px; display: flex; align-items: center; justify-content: flex-end; gap: 6px; padding: 4px 10px; }
+.chrome-input { border: 1px solid #64748b; border-radius: 5px; background: transparent; color: inherit; padding: 4px 8px; font: inherit; min-width: 0; }
+.find-bar input { width: min(240px, 40vw); }
+.chrome-panel { height: 240px; display: flex; flex-direction: column; padding: 6px 12px; gap: 4px; }
+.panel-header { display: flex; align-items: center; gap: 8px; flex: none; min-height: 28px; }
+.panel-header strong { flex: 1; }
+.panel-header input { width: min(200px, 30vw); }
+.panel-items { overflow: auto; flex: 1; min-height: 0; }
+.library-row { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #47556966; padding: 6px 0; }
+.library-info { flex: 1; min-width: 0; }
+.library-title, .library-detail { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.library-title { display: block; width: 100%; text-align: left; }
+.library-detail { color: #94a3b8; font-size: 11px; padding: 0 6px; }
+.download-progress { display: block; width: 100%; height: 4px; accent-color: var(--accent); margin: 4px 0; }
+.panel-empty { padding: 20px 6px; color: #94a3b8; }
+#downloadsBtn[data-active="true"] { color: #5eead4; background: #14b8a633; }
+#bookmarkBtn[data-saved="true"] { color: #fbbf24; }
+#zoomBtn { font-size: 10px; min-width: 38px; padding: 0 3px; }
 @media (prefers-color-scheme: light) {
     body[data-browser="true"] { background: #eef4f8; color: #172c42; }
     body[data-browser="true"] .tabs-bar { background: #e2eaf2; }
@@ -50,6 +74,10 @@ body[data-browser="true"] .tool { top: 34px; }
     body[data-browser="true"] button { color: #334155; }
     body[data-browser="true"] .tab[aria-selected="true"] { background: #f5f8fc; border-color: #98caca; }
     body[data-browser="true"] .address-form { background: #fff; color: #334155; }
+    body[data-browser="true"] .chrome-panel, body[data-browser="true"] .find-bar, body[data-browser="true"] .download-notice { background: #f5f8fc; border-color: #cbd5e1; }
+    body[data-browser="true"] .library-detail, body[data-browser="true"] .panel-empty { color: #52657a; }
+    body[data-browser="true"] #downloadsBtn[data-active="true"] { color: #087f80; }
+    body[data-browser="true"] #bookmarkBtn[data-saved="true"] { color: #a16207; }
 }
 [hidden] { display: none !important; }
 @keyframes pulse { 70% { box-shadow: 0 0 0 5px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
@@ -67,6 +95,9 @@ body[data-browser="true"] .tool { top: 34px; }
     <span class="browser-brand" id="browserBrand">Dragon 浏览器</span>
     <div class="tabs-list" id="tabs" role="tablist"></div>
     <button type="button" id="newTabBtn" data-act="new-tab">＋</button>
+    <button type="button" id="bookmarkBtn" data-act="bookmark">☆</button>
+    <button type="button" id="downloadsBtn" data-act="downloads">↓</button>
+    <button type="button" id="menuBtn" data-act="menu">⋮</button>
 </div>
 <div class="bar tool" id="tool" hidden>
     <span class="badge" id="toolBadge" style="margin-left:6px"></span>
@@ -75,6 +106,7 @@ body[data-browser="true"] .tool { top: 34px; }
     <button type="button" data-act="reload" id="reloadBtn">⟳</button>
     <button type="button" data-act="home" id="homeBtn">⌂</button>
     <form class="url address-form" id="url"><input id="address" type="text" autocomplete="off" spellcheck="false"></form>
+    <button type="button" id="zoomBtn" data-act="zoom-reset" hidden>100%</button>
     <button type="button" data-act="plugins" id="pluginsBtn">🧩</button>
     <button type="button" data-act="scripts" id="scriptsBtn">🪟</button>
     <button type="button" data-act="external" id="externalBtn">↗</button>
@@ -83,6 +115,18 @@ body[data-browser="true"] .tool { top: 34px; }
     <button type="button" data-act="maximize" id="maxBtn">□</button>
     <button type="button" data-act="close" class="danger" id="closeBtn">×</button>
 </div>
+<div class="download-notice" id="downloadNotice" role="status" hidden><span id="noticeText"></span><button type="button" id="noticeView" data-act="downloads"></button><button type="button" id="noticeClose" data-act="notice-close">×</button></div>
+<div class="find-bar" id="findBar" hidden>
+    <input class="chrome-input" id="findInput" type="search" maxlength="500">
+    <span id="findCount" role="status"></span>
+    <button type="button" id="findPrev">↑</button><button type="button" id="findNext">↓</button>
+    <button type="button" id="findClose" data-act="find-close">×</button>
+</div>
+<section class="chrome-panel" id="chromePanel" hidden>
+    <div class="panel-header"><strong id="panelTitle"></strong><input class="chrome-input" id="librarySearch" type="search"><button type="button" id="panelAction"></button><button type="button" id="panelClose" data-act="panel-close">×</button></div>
+    <div id="libraryError" role="status" hidden></div>
+    <div class="panel-items" id="panelItems"></div>
+</section>
 <script>
 const TEXT = {
     'zh-CN': { live: '实时', expand: '放大浏览', hide: '今天不再显示推广卡片', back: '后退', forward: '前进', reload: '刷新', home: '回到推广首页', external: '在系统浏览器打开', min: '缩回右下角', max: '最大化', restore: '还原', close: '关闭此推广页', front: '点击切换到这张卡片', plugins: '浏览器插件', scripts: '浮窗脚本', toolMin: '最小化', toolClose: '关闭窗口', toolHome: '回到站点首页' },
@@ -90,6 +134,8 @@ const TEXT = {
 };
 const $ = id => document.getElementById(id);
 let current = null;
+let tabDrag = null, titleDrag = null, suppressClick = false, dragFrame = 0;
+const L = (zh, en) => current?.lang === 'en-US' ? en : zh;
 function setTip(id, text) { $(id).title = text; $(id).setAttribute('aria-label', text); }
 window.promoCard.onState(state => {
     current = state;
@@ -104,6 +150,7 @@ window.promoCard.onState(state => {
     setTip('newTabBtn', state.lang === 'en-US' ? 'New tab (Ctrl/Cmd+T)' : '新标签页（Ctrl/Cmd+T）');
     $('tabs').setAttribute('aria-label', state.lang === 'en-US' ? 'Browser tabs' : '浏览器标签页');
     if (browser) renderTabs(state);
+    if (browser) renderChrome(state);
     $('card').hidden = expanded;
     $('tool').hidden = !expanded;
     $('badge').textContent = state.badge; $('toolBadge').textContent = state.badge;
@@ -128,7 +175,7 @@ function renderTabs(state) {
     const list = $('tabs');
     const valid = new Set(state.tabs.map(tab => tab.id));
     for (const node of [...list.children]) if (!valid.has(node.dataset.id)) node.remove();
-    for (const tab of state.tabs) {
+    for (const [index, tab] of state.tabs.entries()) {
         let node = [...list.children].find(item => item.dataset.id === tab.id);
         if (!node) {
             node = document.createElement('div'); node.className = 'tab'; node.dataset.id = tab.id; node.setAttribute('role', 'tab');
@@ -136,23 +183,191 @@ function renderTabs(state) {
             const close = document.createElement('button'); close.className = 'tab-close'; close.dataset.act = 'tab-close'; close.dataset.tab = tab.id; close.type = 'button'; close.textContent = '×';
             node.append(title, close); list.append(node);
         }
+        if (!tabDrag?.moving && list.children[index] !== node) list.insertBefore(node, list.children[index] || null);
         node.setAttribute('aria-selected', String(tab.id === state.activeId));
-        const title = node.querySelector('.tab-title'); title.textContent = (tab.loading ? '◌ ' : '') + tab.title; title.title = tab.url || tab.title;
+        const title = node.querySelector('.tab-title'); title.textContent = (tab.muted ? '🔇 ' : tab.loading ? '◌ ' : '') + tab.title; title.title = tab.url || tab.title;
         node.querySelector('.tab-close').setAttribute('aria-label', (state.lang === 'en-US' ? 'Close tab: ' : '关闭标签：') + tab.title);
     }
     const selected = [...list.children].find(node => node.dataset.id === state.activeId);
     if (selected && current?.activeId !== list.dataset.active) selected.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     list.dataset.active = state.activeId;
 }
+function renderChrome(state) {
+    $('downloadNotice').hidden = !state.notice;
+    if (state.notice) $('noticeText').textContent = (state.notice.state === 'completed' ? L('下载完成：', 'Download completed: ') : L('下载失败或中断：', 'Download failed or interrupted: ')) + state.notice.name;
+    $('noticeView').textContent = L('查看下载', 'View downloads'); setTip('noticeClose', L('关闭提醒', 'Dismiss notification'));
+    $('findBar').style.top = $('chromePanel').style.top = (74 + (state.notice ? 32 : 0)) + 'px';
+    $('zoomBtn').hidden = state.zoom === 100; $('zoomBtn').textContent = state.zoom + '%';
+    setTip('zoomBtn', L('重置页面缩放为 100%', 'Reset page zoom to 100%'));
+    $('bookmarkBtn').textContent = state.bookmarked ? '★' : '☆'; $('bookmarkBtn').dataset.saved = String(state.bookmarked);
+    setTip('bookmarkBtn', state.bookmarked ? L('取消收藏（Ctrl/Cmd+D）', 'Remove bookmark (Ctrl/Cmd+D)') : L('收藏此页面（Ctrl/Cmd+D）', 'Bookmark this page (Ctrl/Cmd+D)'));
+    const activeDownloads = state.downloads.filter(item => ['progressing', 'paused'].includes(item.state)).length;
+    $('downloadsBtn').dataset.active = String(activeDownloads > 0);
+    $('downloadsBtn').textContent = activeDownloads ? '↓ ' + activeDownloads : '↓';
+    setTip('downloadsBtn', L('下载内容（Ctrl/Cmd+J）', 'Downloads (Ctrl/Cmd+J)'));
+    setTip('menuBtn', L('浏览器菜单', 'Browser menu'));
+    $('findBar').hidden = !state.find.open;
+    if (document.activeElement !== $('findInput')) $('findInput').value = state.find.text;
+    $('findInput').setAttribute('aria-label', L('在页面中查找', 'Find in page'));
+    $('findInput').placeholder = L('在页面中查找', 'Find in page');
+    $('findCount').textContent = state.find.text ? `${state.find.activeMatch}/${state.find.matches}` : '';
+    setTip('findPrev', L('上一个（Shift+Enter）', 'Previous (Shift+Enter)')); setTip('findNext', L('下一个（Enter）', 'Next (Enter)')); setTip('findClose', L('关闭查找', 'Close find'));
+    const changed = $('chromePanel').dataset.panel !== state.panel;
+    $('chromePanel').dataset.panel = state.panel; $('chromePanel').hidden = !state.panel;
+    if (changed) $('librarySearch').value = '';
+    $('panelTitle').textContent = ({ downloads: L('下载内容', 'Downloads'), bookmarks: L('收藏夹', 'Bookmarks'), history: L('历史记录', 'History') })[state.panel] || '';
+    $('librarySearch').placeholder = L('搜索记录', 'Search records'); $('librarySearch').setAttribute('aria-label', L('搜索记录', 'Search records'));
+    $('panelAction').textContent = state.panel === 'downloads' ? L('打开下载文件夹', 'Open Downloads folder') : L('清空历史', 'Clear history');
+    $('panelAction').hidden = state.panel === 'bookmarks';
+    setTip('panelClose', L('关闭面板', 'Close panel'));
+    $('libraryError').hidden = !state.libraryError; $('libraryError').textContent = L('本地记录暂时无法读写，请检查磁盘空间和权限。', 'Local records unavailable. Check disk space and permissions.');
+    if (state.panel) renderPanel();
+}
+function bytes(value) {
+    if (!value) return '0 B';
+    const unit = Math.min(3, Math.floor(Math.log(value) / Math.log(1024)));
+    return (value / 1024 ** unit).toFixed(unit ? 1 : 0) + ' ' + ['B', 'KB', 'MB', 'GB'][unit];
+}
+function actionButton(label, action, payload) {
+    const button = document.createElement('button'); button.type = 'button'; button.textContent = label;
+    button.title = label; button.setAttribute('aria-label', label);
+    button.addEventListener('click', event => { event.stopPropagation(); window.promoCard.send(action, payload); });
+    return button;
+}
+function renderPanel() {
+    const list = $('panelItems'), scroll = list.scrollTop, query = $('librarySearch').value.toLowerCase();
+    const downloads = current.panel === 'downloads';
+    const items = (current[current.panel] || []).filter(item => `${item.name || item.title} ${item.url || ''}`.toLowerCase().includes(query));
+    const signature = JSON.stringify([current.panel, current.lang, query, downloads ? items.map(item => [item.id, item.state]) : items]);
+    if (downloads && list.dataset.signature === signature) {
+        // 下载进度只更新数值，保留按钮节点、焦点和正在进行的鼠标点击。
+        for (const item of items) updateDownload(list.querySelector(`[data-id="${item.id}"]`), item);
+        return;
+    }
+    list.dataset.signature = signature;
+    list.replaceChildren();
+    for (const item of items) {
+        const row = document.createElement('div'); row.className = 'library-row';
+        const info = document.createElement('div'); info.className = 'library-info';
+        const title = document.createElement(downloads ? 'div' : 'button'); title.className = 'library-title'; title.textContent = item.name || item.title; title.title = item.path || item.url;
+        if (!downloads) { title.type = 'button'; title.addEventListener('click', () => window.promoCard.send('library-open', item.url)); }
+        const detail = document.createElement('div'); detail.className = 'library-detail';
+        info.append(title, detail); row.append(info);
+        if (downloads) {
+            row.dataset.id = item.id;
+            if (['progressing', 'paused'].includes(item.state)) {
+                const progress = document.createElement('progress'); progress.className = 'download-progress'; progress.max = item.total || 1;
+                if (item.total) progress.value = item.received;
+                progress.setAttribute('aria-label', title.textContent); info.append(progress);
+                row.append(actionButton(item.state === 'paused' ? L('继续', 'Resume') : L('暂停', 'Pause'), 'download-action', { id: item.id, action: item.state === 'paused' ? 'resume' : 'pause' }), actionButton(L('取消', 'Cancel'), 'download-action', { id: item.id, action: 'cancel' }));
+            }
+            if (item.state === 'completed') row.append(actionButton(L('打开文件', 'Open file'), 'download-action', { id: item.id, action: 'open' }), actionButton(L('定位文件', 'Show in folder'), 'download-action', { id: item.id, action: 'show' }));
+            updateDownload(row, item);
+        } else {
+            detail.textContent = item.url;
+            if (current.panel === 'bookmarks') row.append(actionButton(L('移除', 'Remove'), 'bookmark-remove', item.url));
+        }
+        list.append(row);
+    }
+    if (!items.length) { const empty = document.createElement('div'); empty.className = 'panel-empty'; empty.textContent = L('暂无记录', 'No records'); list.append(empty); }
+    list.scrollTop = scroll;
+}
+function updateDownload(row, item) {
+    if (!row) return;
+    const states = { progressing: L('正在下载', 'Downloading'), paused: L('已暂停', 'Paused'), completed: L('下载完成', 'Completed'), cancelled: L('已取消', 'Cancelled'), interrupted: L('下载中断', 'Interrupted'), failed: L('保存失败，请检查下载目录和磁盘空间', 'Save failed. Check Downloads folder and disk space') };
+    row.querySelector('.library-detail').textContent = `${states[item.state] || item.state} · ${bytes(item.received)}${item.total ? ' / ' + bytes(item.total) : ''}`;
+    const progress = row.querySelector('progress');
+    if (progress) { progress.max = item.total || 1; if (item.total) progress.value = item.received; else progress.removeAttribute('value'); }
+}
+$('librarySearch').addEventListener('input', renderPanel);
+$('panelAction').addEventListener('click', () => {
+    if (current.panel === 'downloads') window.promoCard.send('downloads-folder');
+    else if (confirm(L('清空此浏览器的全部历史记录？', 'Clear all history in this browser?'))) window.promoCard.send('history-clear');
+});
+const sendFind = forward => window.promoCard.send('find', { text: $('findInput').value, forward });
+let findTimer;
+$('findInput').addEventListener('input', () => { clearTimeout(findTimer); findTimer = setTimeout(() => sendFind(true), 120); });
+$('findInput').addEventListener('keydown', event => { if (event.key === 'Enter') { event.preventDefault(); clearTimeout(findTimer); sendFind(!event.shiftKey); } });
+$('findPrev').addEventListener('click', () => sendFind(false)); $('findNext').addEventListener('click', () => sendFind(true));
+window.promoCard.onFocusFind(() => { $('findInput').focus(); $('findInput').select(); });
 $('url').addEventListener('submit', event => { event.preventDefault(); window.promoCard.send('navigate', $('address').value); $('address').blur(); });
 $('address').addEventListener('keydown', event => { if (event.key === 'Escape') { $('address').value = current?.url || ''; $('address').blur(); } });
 window.promoCard.onFocusUrl(() => { $('address').focus(); $('address').select(); });
 document.addEventListener('click', event => {
+    if (suppressClick) { event.preventDefault(); event.stopPropagation(); return; }
     const button = event.target.closest('button[data-act]');
     if (button) { event.stopPropagation(); window.promoCard.send(button.dataset.act, button.dataset.tab); return; }
     if (event.target.closest('#card')) window.promoCard.send('activate');
 });
-$('tool').addEventListener('dblclick', event => { if (!event.target.closest('button, .url')) window.promoCard.send('maximize'); });
+function titleBackground(target) { return target.closest('#tabsBar, #tool') && !target.closest('button, .url, .tab'); }
+document.addEventListener('pointerdown', event => {
+    suppressClick = false;
+    if (current?.mode !== 'browser' || event.button !== 0) return;
+    const tab = event.target.closest('.tab');
+    if (tab && !event.target.closest('.tab-close')) {
+        tabDrag = { id: tab.dataset.id, pointerId: event.pointerId, x: event.clientX, y: event.clientY, moving: false };
+    } else if (titleBackground(event.target)) {
+        titleDrag = { pointerId: event.pointerId, x: event.screenX, y: event.screenY, target: event.target };
+        event.target.setPointerCapture(event.pointerId);
+        window.promoCard.send('window-drag-start', { x: event.screenX, y: event.screenY });
+    }
+});
+function positionTab() {
+    if (!tabDrag?.moving) return;
+    const list = $('tabs'), node = [...list.children].find(item => item.dataset.id === tabDrag.id);
+    if (!node) { finishDrag(true); return; }
+    const bounds = list.getBoundingClientRect();
+    if (tabDrag.x < bounds.left + 28) list.scrollLeft -= 8;
+    else if (tabDrag.x > bounds.right - 28) list.scrollLeft += 8;
+    const before = [...list.children].find(item => item !== node && tabDrag.x < item.getBoundingClientRect().left + item.offsetWidth / 2);
+    if (node.nextElementSibling !== (before || null)) list.insertBefore(node, before || null);
+    dragFrame = requestAnimationFrame(positionTab);
+}
+document.addEventListener('pointermove', event => {
+    if (titleDrag?.pointerId === event.pointerId) {
+        if (Math.hypot(event.screenX - titleDrag.x, event.screenY - titleDrag.y) >= 4) suppressClick = true;
+        if (suppressClick) window.promoCard.send('window-drag', { x: event.screenX, y: event.screenY });
+    }
+    if (tabDrag?.pointerId !== event.pointerId) return;
+    if (!tabDrag.moving && Math.hypot(event.clientX - tabDrag.x, event.clientY - tabDrag.y) >= 5) {
+        tabDrag.moving = true; suppressClick = true;
+        $('tabs').setPointerCapture(event.pointerId);
+        document.querySelector(`.tab[data-id="${tabDrag.id}"]`)?.classList.add('dragging');
+        dragFrame = requestAnimationFrame(positionTab);
+    }
+    if (tabDrag.moving) { tabDrag.x = event.clientX; event.preventDefault(); }
+});
+function finishDrag(cancelled = false) {
+    cancelAnimationFrame(dragFrame);
+    if (titleDrag) window.promoCard.send('window-drag-end');
+    if (titleDrag?.target.hasPointerCapture(titleDrag.pointerId)) titleDrag.target.releasePointerCapture(titleDrag.pointerId);
+    if (tabDrag?.moving) {
+        const node = [...$('tabs').children].find(item => item.dataset.id === tabDrag.id);
+        node?.classList.remove('dragging');
+        if (!cancelled && node) window.promoCard.send('tab-move', { id: tabDrag.id, beforeId: node.nextElementSibling?.dataset.id || null });
+    }
+    for (const node of [document.querySelector('#tabs'), document.querySelector('#tabsBar'), document.querySelector('#tool')]) {
+        for (const drag of [tabDrag, titleDrag]) if (drag && node.hasPointerCapture(drag.pointerId)) node.releasePointerCapture(drag.pointerId);
+    }
+    tabDrag = null; titleDrag = null;
+    // 只拦截拖动结束时合成的那一次点击，不影响后续键盘或程序触发的按钮。
+    setTimeout(() => { suppressClick = false; }, 0);
+    if (cancelled && current?.mode === 'browser') renderTabs(current);
+}
+document.addEventListener('pointerup', () => finishDrag());
+document.addEventListener('pointercancel', () => finishDrag(true));
+window.addEventListener('blur', () => finishDrag(true));
+document.addEventListener('dblclick', event => {
+    if (current?.mode === 'browser' && !suppressClick && titleBackground(event.target)) window.promoCard.send('maximize');
+});
+$('tabs').addEventListener('contextmenu', event => {
+    const tab = event.target.closest('.tab');
+    if (tab) { event.preventDefault(); window.promoCard.send('tab-menu', tab.dataset.id); }
+});
+$('tabs').addEventListener('auxclick', event => {
+    const tab = event.target.closest('.tab');
+    if (event.button === 1 && tab) { event.preventDefault(); window.promoCard.send('tab-close', tab.dataset.id); }
+});
 </script>
 </body>
 </html>

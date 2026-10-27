@@ -13,7 +13,7 @@ desktopLanguage.events.on('change', (language) => {
     }
 });
 const { detectAllQuotas } = require('./quota-detector');
-const { sidebarBounds, droppedSidebar, SIDEBAR_SIZE } = require('./quota-panel-layout');
+const { sidebarBounds, sidebarSize, droppedSidebar, SIDEBAR_SIZE } = require('./quota-panel-layout');
 const { requestHistory } = require('./quota-history-client');
 const {
     startKeyboardHook,
@@ -176,6 +176,7 @@ const DEFAULT_CONFIG = {
     quotaPanelOn: true,
     quotaStandalone: true,
     quotaPanelPlacement: null,
+    quotaPanelExpanded: false,
     quotaPanelGroup: 'gemini',
     typingOn: true,
     eyeGazeOn: true,
@@ -353,7 +354,7 @@ function openQuotaTrends(selection) {
 
 function sendQuotaPanelConfig() {
     if (quotaPanelWin && !quotaPanelWin.isDestroyed() && quotaPanelReady)
-        quotaPanelWin.webContents.send('pet-quota-panel-config', {group:quotaPanelOptions.group,mode:quotaPanelPlacement?.mode || 'right'});
+        quotaPanelWin.webContents.send('pet-quota-panel-config', {group:quotaPanelOptions.group,mode:quotaPanelPlacement?.mode || 'top',orientation:quotaPanelPlacement?.orientation || 'horizontal',expanded:loadPetConfig().quotaPanelExpanded === true});
 }
 function isQuotaPanelEnabled() { return loadPetConfig().quotaPanelOn !== false; }
 function setQuotaPanelEnabled(enabled) {
@@ -366,20 +367,33 @@ function setQuotaPanelEnabled(enabled) {
     if (enabled) refreshQuotas();
 }
 function saveQuotaPlacement(placement) {
-    const {x,y,mode}=placement;
-    quotaPanelPlacement={x,y,mode};
+    const {x,y,mode,orientation}=placement;
+    quotaPanelPlacement={x,y,mode,orientation};
     savePetConfig({quotaPanelPlacement});
     sendQuotaPanelConfig();
 }
 function dockQuotaPanel(mode='right') {
     const area=(quotaPanelWin && !quotaPanelWin.isDestroyed()?screen.getDisplayMatching(quotaPanelWin.getBounds()):screen.getPrimaryDisplay()).workArea;
-    saveQuotaPlacement(sidebarBounds(area,{mode,y:quotaPanelWin?.getBounds().y}));
+    saveQuotaPlacement(sidebarBounds(area,{mode,x:quotaPanelWin?.getBounds().x,y:quotaPanelWin?.getBounds().y},loadPetConfig().quotaPanelExpanded === true));
     syncQuotaPanel();
+}
+function setQuotaPanelExpanded(expanded) {
+    quotaPanelDrag=null;
+    const cfg=savePetConfig({quotaPanelExpanded:Boolean(expanded)});
+    if (petWin && !petWin.isDestroyed()) petWin.webContents.send('pet-apply-config',cfg);
+    if (settingsWin && !settingsWin.isDestroyed()) settingsWin.webContents.send('pet-apply-config',cfg);
+    syncQuotaPanel();
+    sendQuotaPanelConfig();
 }
 function showQuotaPanelMenu() {
     if (!electron.Menu || !quotaPanelWin || quotaPanelWin.isDestroyed()) return;
     const t=(zh,en)=>desktopLanguage.getLanguage()==='en-US'?en:zh;
     electron.Menu.buildFromTemplate([
+        {label:t('精简额度栏','Compact quota bar'),type:'radio',checked:loadPetConfig().quotaPanelExpanded !== true,click:()=>setQuotaPanelExpanded(false)},
+        {label:t('详细额度面板','Detailed quota panel'),type:'radio',checked:loadPetConfig().quotaPanelExpanded === true,click:()=>setQuotaPanelExpanded(true)},
+        {type:'separator'},
+        {label:t('停靠屏幕顶部','Dock to top edge'),click:()=>dockQuotaPanel('top')},
+        {label:t('停靠屏幕底部','Dock to bottom edge'),click:()=>dockQuotaPanel('bottom')},
         {label:t('停靠屏幕右侧','Dock to right edge'),click:()=>dockQuotaPanel('right')},
         {label:t('停靠屏幕左侧','Dock to left edge'),click:()=>dockQuotaPanel('left')},
         {type:'separator'},
@@ -396,7 +410,7 @@ function syncQuotaPanel() {
         if (quotaPanelWin && !quotaPanelWin.isDestroyed()) quotaPanelWin.hide();
         return;
     }
-    if (!quotaPanelPlacement) quotaPanelPlacement=loadPetConfig().quotaPanelPlacement || {mode:'right'};
+    if (!quotaPanelPlacement) quotaPanelPlacement=loadPetConfig().quotaPanelPlacement || {mode:'top'};
     if (!quotaPanelWin || quotaPanelWin.isDestroyed()) {
         quotaPanelReady = false;
         quotaPanelWin = new BrowserWindow({
@@ -411,10 +425,11 @@ function syncQuotaPanel() {
         quotaPanelWin.loadFile(path.join(__dirname,'quota-panel.html')).catch(()=>closeQuotaPanel());
     }
     if (!quotaPanelDrag) {
-        const reference=Number.isFinite(quotaPanelPlacement.x)&&Number.isFinite(quotaPanelPlacement.y)?{...SIDEBAR_SIZE,x:quotaPanelPlacement.x,y:quotaPanelPlacement.y}:null;
+        const reference=Number.isFinite(quotaPanelPlacement.x)&&Number.isFinite(quotaPanelPlacement.y)?{...sidebarSize(quotaPanelPlacement,loadPetConfig().quotaPanelExpanded === true),x:quotaPanelPlacement.x,y:quotaPanelPlacement.y}:null;
         const area=(reference?screen.getDisplayMatching(reference):screen.getPrimaryDisplay()).workArea;
-        const next=sidebarBounds(area,quotaPanelPlacement);
-        const {mode,...bounds}=next;
+        const next=sidebarBounds(area,quotaPanelPlacement,loadPetConfig().quotaPanelExpanded === true);
+        const {mode,orientation,...bounds}=next;
+        quotaPanelPlacement={x:next.x,y:next.y,mode,orientation};
         const current=quotaPanelWin.getBounds();
         if (['x','y','width','height'].some(key=>bounds[key]!==current[key])) quotaPanelWin.setBounds(bounds);
     }
@@ -654,7 +669,7 @@ function registerIpc() {
         quotaPanelWin.setBounds(bounds);
         if(phase==='end'){
             quotaPanelDrag=null;
-            saveQuotaPlacement(droppedSidebar(bounds,(screen.getDisplayMatching(bounds)||screen.getPrimaryDisplay()).workArea));
+            saveQuotaPlacement(droppedSidebar(bounds,(screen.getDisplayMatching(bounds)||screen.getPrimaryDisplay()).workArea,quotaPanelPlacement,loadPetConfig().quotaPanelExpanded === true));
             syncQuotaPanel();
         }
     });

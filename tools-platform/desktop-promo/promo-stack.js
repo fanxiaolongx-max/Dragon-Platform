@@ -11,6 +11,7 @@ const { createSiteScriptStore } = require('./site-scripts');
 const { createPagePreview } = require('./page-preview');
 const { createDragonBrowser } = require('./dragon-browser');
 const { configureDownloads } = require('./downloads');
+const { createBrowserLibrary } = require('./browser-library');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -38,6 +39,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     let fullscreenWatcher = null;
     let sessionReady = false;
     let unregisterDownloads = null;
+    let browserLibrary = null;
     let state = readState();
 
     function readState() {
@@ -65,6 +67,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     const isBig = card => !!card.inBrowser;
     const browser = createDragonBrowser({
         partition: PARTITION, whenReady: () => extensions.whenReady(), getLanguage, getWorkArea: workArea,
+        getLibrary: () => browserLibrary, getDownloads: () => unregisterDownloads,
         onPageCreated: tab => {
             tab.page.webContents.on('did-finish-load', () => { if (tab.tool?.autoRun) runToolScript(tab, { onlyOnOrigin: true }); });
         },
@@ -80,7 +83,15 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         if (sessionReady) return;
         sessionReady = true;
         const promoSession = session.fromPartition(PARTITION);
-        unregisterDownloads = configureDownloads(promoSession, () => app.getPath('downloads'));
+        try {
+            browserLibrary = createBrowserLibrary(path.join(path.dirname(statePath), 'dragon-browser.db'));
+            browserLibrary.ready.then(() => browser.refreshLibrary()).catch(() => browser.libraryFailed());
+        } catch (_) { browser.libraryFailed(); }
+        unregisterDownloads = configureDownloads(promoSession, () => app.getPath('downloads'), {
+            library: browserLibrary,
+            onChange: (_items, change) => browser.downloadsChanged(change),
+            openFile: file => shell.openPath(file).catch(() => {}), showFile: file => shell.showItemInFolder(file)
+        });
         // 推广页面不需要摄像头、麦克风、通知等权限
         promoSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
         promoSession.setPermissionCheckHandler(() => false);
@@ -128,7 +139,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
             webPreferences: { preload: path.join(__dirname, 'card-preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false }
         });
         win.setAlwaysOnTop(true, 'floating');
-        const page = new BrowserView({ webPreferences: { partition: PARTITION, contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false } });
+        const page = new BrowserView({ webPreferences: { partition: PARTITION, preload: path.join(__dirname, 'page-preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false } });
         const shield = new BrowserView({ webPreferences: { preload: path.join(__dirname, 'card-preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false } });
         shield.setBackgroundColor('#00000000');
         const card = Object.assign(base, { link, win, page, shield, frame: null, frameAt: 0, maximized: false, ready: false });
@@ -579,6 +590,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
             browser.destroy();
             unregisterDownloads?.();
             unregisterDownloads = null;
+            browserLibrary?.close().catch(() => {});
             try { session.fromPartition(PARTITION).cookies.flushStore().catch(() => {}); } catch (_) { /* noop */ }
             clearInterval(rotateTimer);
             if (fullscreenWatcher) { fullscreenWatcher.kill(); fullscreenWatcher = null; }
