@@ -18,10 +18,16 @@
     ];
     const TABS = [['overview', '概览与标注', 'Overview'], ['fields', '字段', 'Fields'], ['sample', '样例数据', 'Sample'], ['query', '查询', 'Query'], ['sql', 'SQL', 'SQL']];
 
+    const DEFAULT_SIDEBAR_WIDTH = 380;
+    const MIN_SIDEBAR_WIDTH = 260;
+    const MAX_SIDEBAR_WIDTH = 750;
+
     const saved = (() => { try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch (_) { return {}; } })();
     const state = {
         scope: saved.scope === 'app' ? 'app' : 'business',
         q: '', category: '', status: 'all', tab: TABS.some(([id]) => id === saved.tab) ? saved.tab : 'overview',
+        sidebarWidth: (Number.isFinite(saved.sidebarWidth) && saved.sidebarWidth >= MIN_SIDEBAR_WIDTH && saved.sidebarWidth <= MAX_SIDEBAR_WIDTH) ? saved.sidebarWidth : DEFAULT_SIDEBAR_WIDTH,
+        sidebarCollapsed: Boolean(saved.sidebarCollapsed),
         catalog: null, loading: false, error: '',
         selected: '', detail: null, detailLoading: false, detailError: '',
         query: null, queryResult: null, queryBusy: false,
@@ -31,7 +37,14 @@
     const root = document.getElementById('nxApp');
 
     function remember() {
-        try { localStorage.setItem(STORE_KEY, JSON.stringify({ scope: state.scope, tab: state.tab })); } catch (_) { /* 仅记住视图 */ }
+        try {
+            localStorage.setItem(STORE_KEY, JSON.stringify({
+                scope: state.scope,
+                tab: state.tab,
+                sidebarWidth: state.sidebarWidth,
+                sidebarCollapsed: state.sidebarCollapsed
+            }));
+        } catch (_) { /* 仅记住视图 */ }
     }
 
     async function request(method, path, body) {
@@ -153,10 +166,27 @@
     function renderList() {
         const tables = state.catalog?.tables || [];
         const shown = tables.filter(matches);
+        if (state.sidebarCollapsed) {
+            return `<aside class="nx-card nx-list-card is-collapsed" data-nx-action="toggle-sidebar" title="${esc(L('点击展开表目录', 'Click to expand table list'))}">
+                <button type="button" class="nx-btn-icon" data-nx-action="toggle-sidebar" title="${esc(L('展开表目录', 'Expand table list'))}" aria-label="${esc(L('展开表目录', 'Expand table list'))}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+                <div class="nx-collapsed-rail">
+                    <span class="nx-collapsed-badge">${shown.length}</span>
+                    <span class="nx-collapsed-text">${esc(L('表目录', 'Tables'))}</span>
+                </div>
+            </aside>`;
+        }
         const categories = [...new Set(tables.map(item => item.category).filter(Boolean))].sort();
         return `<aside class="nx-card nx-list-card">
+            <div class="nx-resizer" data-nx-resizer role="separator" tabindex="0" aria-orientation="vertical" aria-label="${esc(L('调整侧栏宽度', 'Resize sidebar'))}" title="${esc(L('拖拽调整宽度，双击恢复默认', 'Drag to resize, double click to reset'))}"></div>
             <div class="nx-filters">
-                <input type="search" data-nx="q" value="${esc(state.q)}" placeholder="${esc(L('搜索表名 / 中文名 / 模块（支持拼音）', 'Search name / label / module'))}">
+                <div class="nx-search-row">
+                    <input type="search" data-nx="q" value="${esc(state.q)}" placeholder="${esc(L('搜索表名 / 中文名 / 模块（支持拼音）', 'Search name / label / module'))}">
+                    <button type="button" class="nx-btn-icon" data-nx-action="toggle-sidebar" title="${esc(L('收起侧栏', 'Collapse sidebar'))}" aria-label="${esc(L('收起侧栏', 'Collapse sidebar'))}">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                    </button>
+                </div>
                 <div class="nx-filter-row">
                     <select data-nx="category"><option value="">${esc(L('全部类别', 'All categories'))}</option>${categories.map(item => `<option value="${esc(item)}" ${item === state.category ? 'selected' : ''}>${esc(categoryLabel(item))}</option>`).join('')}</select>
                     <select data-nx="status">${STATUS_FILTERS.map(([id, zh, en]) => `<option value="${id}" ${id === state.status ? 'selected' : ''}>${esc(L(zh, en))}</option>`).join('')}</select>
@@ -202,6 +232,7 @@
 
     // 搜索 / 筛选只重绘左侧列表和统计，不动右侧表单里未保存的输入
     function refreshList() {
+        if (state.sidebarCollapsed) return render();
         const tables = state.catalog?.tables || [];
         const count = root.querySelector('[data-nx-role="count"]');
         const list = root.querySelector('[data-nx-role="list"]');
@@ -380,8 +411,15 @@
     }
 
     function renderDetail() {
+        const expandTip = state.sidebarCollapsed ? `<div class="nx-collapsed-tip">
+            <button type="button" class="nx-btn" data-nx-action="toggle-sidebar" title="${esc(L('展开表目录', 'Expand table list'))}">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                <span>${esc(L('展开表目录', 'Expand table list'))}</span>
+                ${state.catalog?.tables?.length ? `<span class="nx-pill" style="padding:1px 6px;margin-left:4px">${state.catalog.tables.length}</span>` : ''}
+            </button>
+        </div>` : '';
         if (!state.selected) {
-            return `<section class="nx-card nx-detail">${state.tab === 'sql'
+            return `<section class="nx-card nx-detail">${expandTip}${state.tab === 'sql'
                 ? `<div class="nx-tabs">${TABS.filter(([id]) => id === 'sql').map(([id, zh, en]) => `<button type="button" class="nx-tab active" data-nx-tab="${id}">${esc(L(zh, en))}</button>`).join('')}</div>${renderSql()}`
                 : `<div class="nx-empty">${esc(L('从左侧选择一张表，查看字段、样例数据并核对标注；也可以直接打开 SQL 控制台。', 'Pick a table on the left to inspect columns and sample rows, or open the SQL console.'))}<br><button type="button" class="nx-btn" style="margin-top:10px" data-nx-tab="sql">${esc(L('打开 SQL 控制台', 'Open SQL console'))}</button></div>`}</section>`;
         }
@@ -397,11 +435,17 @@
         else if (state.tab === 'query') body = renderQuery(detail);
         else body = renderOverview(detail, table);
         return `<section class="nx-card nx-detail">
+            ${expandTip}
             <div class="nx-detail-head">${table ? `<span class="nx-cat-chip" style="--cat:${categoryColor(table.category)}">${esc(categoryLabel(table.category))}</span>` : ''}<h2>${esc(state.selected)}</h2>${table?.nameCn ? `<span class="nx-cn">${esc(table.nameCn)}</span>` : ''}
                 <span class="nx-tags">${(table ? tagsOf(table) : []).map(([kind, text]) => `<span class="nx-tag ${kind}">${esc(text)}</span>`).join('')}</span></div>
             <div class="nx-tabs">${TABS.map(([id, zh, en]) => `<button type="button" class="nx-tab ${state.tab === id ? 'active' : ''}" data-nx-tab="${id}">${esc(L(zh, en))}</button>`).join('')}</div>
             ${body}
         </section>`;
+    }
+
+    function applySidebarWidth() {
+        const main = root.querySelector('.nx-main');
+        if (main) main.style.setProperty('--nx-sidebar-w', `${state.sidebarWidth}px`);
     }
 
     function render() {
@@ -414,7 +458,7 @@
             return;
         }
         const listScroll = root.querySelector('[data-nx-role="list"]')?.scrollTop || 0;
-        root.innerHTML = `${renderTop()}${renderStats()}<div class="nx-main">${renderList()}${renderDetail()}</div>`;
+        root.innerHTML = `${renderTop()}${renderStats()}<div class="nx-main ${state.sidebarCollapsed ? 'is-collapsed' : ''}" style="--nx-sidebar-w:${state.sidebarWidth}px">${renderList()}${renderDetail()}</div>`;
         const list = root.querySelector('[data-nx-role="list"]');
         if (list) list.scrollTop = listScroll;
     }
@@ -544,6 +588,11 @@
         if (!button) return undefined;
         const action = button.dataset.nxAction;
         try {
+            if (action === 'toggle-sidebar') {
+                state.sidebarCollapsed = !state.sidebarCollapsed;
+                remember();
+                return render();
+            }
             if (action === 'refresh') return loadCatalog({ refresh: true });
             if (action === 'open-settings') {
                 event.preventDefault();
@@ -627,8 +676,72 @@
         if (event.target.dataset?.nx === 'sql' && (event.metaKey || event.ctrlKey) && event.key === 'Enter') {
             event.preventDefault();
             runSql(false);
+        } else if (event.target.closest?.('[data-nx-resizer]')) {
+            if (event.key === 'ArrowLeft') {
+                event.preventDefault();
+                state.sidebarWidth = Math.max(MIN_SIDEBAR_WIDTH, state.sidebarWidth - 16);
+                applySidebarWidth();
+                remember();
+            } else if (event.key === 'ArrowRight') {
+                event.preventDefault();
+                const maxWidth = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth - 380));
+                state.sidebarWidth = Math.min(maxWidth, state.sidebarWidth + 16);
+                applySidebarWidth();
+                remember();
+            } else if (event.key === 'Enter' || event.key === 'Home') {
+                event.preventDefault();
+                state.sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
+                applySidebarWidth();
+                remember();
+            }
         }
     });
+
+    let drag = null;
+    root.addEventListener('pointerdown', event => {
+        const resizer = event.target.closest('[data-nx-resizer]');
+        if (!resizer || event.button !== 0 || state.sidebarCollapsed) return;
+        event.preventDefault();
+        const aside = root.querySelector('.nx-list-card');
+        if (!aside) return;
+        const startX = event.clientX;
+        const startWidth = aside.getBoundingClientRect().width;
+        drag = { startX, startWidth, pointerId: event.pointerId };
+        try { resizer.setPointerCapture(event.pointerId); } catch (_) {}
+        document.body.classList.add('nx-resizing');
+    });
+
+    window.addEventListener('pointermove', event => {
+        if (!drag) return;
+        const delta = event.clientX - drag.startX;
+        const maxWidth = Math.max(MIN_SIDEBAR_WIDTH, Math.min(MAX_SIDEBAR_WIDTH, window.innerWidth - 380));
+        const newWidth = Math.round(Math.max(MIN_SIDEBAR_WIDTH, Math.min(maxWidth, drag.startWidth + delta)));
+        state.sidebarWidth = newWidth;
+        applySidebarWidth();
+    });
+
+    const finishDrag = () => {
+        if (!drag) return;
+        const resizer = root.querySelector('[data-nx-resizer]');
+        if (resizer && drag.pointerId != null) {
+            try { resizer.releasePointerCapture(drag.pointerId); } catch (_) {}
+        }
+        drag = null;
+        document.body.classList.remove('nx-resizing');
+        remember();
+    };
+
+    window.addEventListener('pointerup', finishDrag);
+    window.addEventListener('pointercancel', finishDrag);
+
+    root.addEventListener('dblclick', event => {
+        if (event.target.closest('[data-nx-resizer]')) {
+            state.sidebarWidth = DEFAULT_SIDEBAR_WIDTH;
+            applySidebarWidth();
+            remember();
+        }
+    });
+
     window.addEventListener('tools:languagechange', render);
 
     loadCatalog();

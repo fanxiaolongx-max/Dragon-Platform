@@ -84,32 +84,143 @@ body {
 .nx-stat b { display: block; font-size: 20px; font-weight: 850; }
 .nx-stat span { font-size: 12px; color: var(--nx-muted); }
 
-.nx-main { display: grid; grid-template-columns: minmax(280px, 360px) minmax(0, 1fr); gap: 12px; align-items: start; }
+.nx-main { display: grid; grid-template-columns: var(--nx-sidebar-w, 380px) minmax(0, 1fr); gap: 12px; align-items: start; position: relative; }
+.nx-main.is-collapsed { grid-template-columns: 46px minmax(0, 1fr); }
 .nx-card { background: var(--nx-card); border: 1px solid var(--nx-border); border-radius: 12px; min-width: 0; }
 .nx-list-card { position: sticky; top: calc(var(--navbar-h) + 12px); display: flex; flex-direction: column; max-height: calc(100vh - var(--navbar-h) - 28px); }
+.nx-list-card.is-collapsed {
+    padding: 8px 0;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    overflow: hidden;
+    transition: border-color .2s, background .2s;
+}
+.nx-list-card.is-collapsed:hover {
+    border-color: var(--nx-accent);
+    background: var(--nx-accent-soft);
+}
+.nx-collapsed-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    color: var(--nx-muted);
+}
+.nx-collapsed-badge {
+    font-size: 11px;
+    font-weight: 850;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: var(--nx-head);
+    color: var(--nx-text);
+    border: 1px solid var(--nx-border);
+    line-height: 1.2;
+}
+.nx-collapsed-text {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    letter-spacing: 5px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--nx-muted);
+}
+.nx-collapsed-tip {
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.nx-search-row { display: flex; gap: 8px; align-items: center; }
+.nx-search-row input { flex: 1 1 auto; min-width: 0; }
+.nx-btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--nx-border-strong);
+    border-radius: 8px;
+    background: var(--nx-card);
+    color: var(--nx-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    transition: color .15s, border-color .15s, background .15s;
+}
+.nx-btn-icon:hover {
+    color: var(--nx-accent);
+    border-color: var(--nx-accent);
+    background: var(--nx-accent-soft);
+}
+.nx-resizer {
+    position: absolute;
+    top: 0;
+    right: -8px;
+    width: 14px;
+    height: 100%;
+    cursor: col-resize;
+    touch-action: none;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.nx-resizer::after {
+    content: '';
+    width: 2px;
+    height: 36px;
+    border-radius: 2px;
+    background: transparent;
+    transition: background .15s, height .15s, width .15s;
+}
+.nx-resizer:hover::after,
+body.nx-resizing .nx-resizer::after {
+    background: var(--nx-accent);
+    width: 3px;
+    height: 60px;
+}
+.nx-list-card.is-collapsed .nx-resizer { display: none; }
+body.nx-resizing,
+body.nx-resizing * {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
 .nx-filters { padding: 10px; display: flex; flex-direction: column; gap: 8px; border-bottom: 1px solid var(--nx-border); }
 .nx-filters input, .nx-filters select, .nx-input, .nx-select, .nx-textarea { height: 32px; border: 1px solid var(--nx-border-strong); border-radius: 8px; padding: 0 10px; font-size: 13px; background: var(--nx-card); color: var(--nx-text); min-width: 0; box-sizing: border-box; }
 .nx-textarea { height: auto; min-height: 64px; padding: 8px 10px; font-family: inherit; resize: vertical; width: 100%; }
 .nx-textarea.code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; min-height: 120px; }
 .nx-filter-row { display: flex; gap: 8px; }
 .nx-filter-row > * { flex: 1 1 0; }
-.nx-count { font-size: 12px; color: var(--nx-muted); padding: 6px 12px; border-bottom: 1px solid var(--nx-border); }
-.nx-list { overflow: auto; flex: 1 1 auto; }
-.nx-group-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; width: 100%; border: 0; border-bottom: 1px solid var(--nx-border); padding: 6px 12px; background: color-mix(in srgb, var(--cat) 9%, var(--nx-card)); color: var(--nx-text); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; text-align: left; }
+.nx-count { font-size: 12px; color: var(--nx-muted); padding: 6px 14px; border-bottom: 1px solid var(--nx-border); }
+.nx-list {
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex: 1 1 auto;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: var(--nx-border-strong) transparent;
+}
+.nx-list::-webkit-scrollbar { width: 6px; }
+.nx-list::-webkit-scrollbar-track { background: transparent; }
+.nx-list::-webkit-scrollbar-thumb { background: var(--nx-border-strong); border-radius: 999px; }
+.nx-list::-webkit-scrollbar-thumb:hover { background: var(--nx-muted); }
+.nx-group-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; width: 100%; border: 0; border-bottom: 1px solid var(--nx-border); padding: 6px 14px; background: color-mix(in srgb, var(--cat) 9%, var(--nx-card)); color: var(--nx-text); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; text-align: left; box-sizing: border-box; }
 .nx-group-head i { width: 8px; height: 8px; border-radius: 50%; background: var(--cat); flex: 0 0 auto; }
 .nx-group-head span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nx-group-head b { font-size: 11px; font-weight: 800; color: var(--nx-muted); background: var(--nx-card); border-radius: 999px; padding: 0 7px; line-height: 18px; }
 .nx-group-head:hover, .nx-group-head.active { background: color-mix(in srgb, var(--cat) 16%, var(--nx-card)); }
-.nx-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--nx-border); background: transparent; color: inherit; padding: 7px 12px 7px 14px; cursor: pointer; font: inherit; box-shadow: 3px 0 0 color-mix(in srgb, var(--cat) 55%, transparent) inset; }
+.nx-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--nx-border); background: transparent; color: inherit; padding: 7px 14px 7px 14px; cursor: pointer; font: inherit; box-shadow: 3px 0 0 color-mix(in srgb, var(--cat) 55%, transparent) inset; box-sizing: border-box; }
 .nx-item:hover { background: var(--nx-head); }
 .nx-item.active { background: color-mix(in srgb, var(--cat) 12%, var(--nx-card)); box-shadow: 4px 0 0 var(--cat) inset; }
 .nx-item-main { display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-width: 0; }
 .nx-item-title { font-size: 13px; font-weight: 700; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nx-item-title.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
 .nx-item-sub { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; color: var(--nx-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.nx-item-side { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+.nx-item-side { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; margin-left: auto; }
 .nx-grain { font-size: 10px; font-weight: 800; color: var(--nx-muted); border: 1px solid var(--nx-border-strong); border-radius: 4px; padding: 0 4px; line-height: 15px; }
-.nx-rows { font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
+.nx-rows { font-size: 12px; font-weight: 800; font-variant-numeric: tabular-nums; min-width: 42px; text-align: right; flex-shrink: 0; }
 .nx-rows.muted { color: var(--nx-faint); font-weight: 700; }
 .nx-icon { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; font-size: 10px; font-style: normal; font-weight: 900; background: var(--nx-head); color: var(--nx-muted); }
 .nx-icon.ok { background: var(--nx-ok-soft); color: var(--nx-ok); }
@@ -162,6 +273,8 @@ body {
 .nx-meta { font-size: 12px; color: var(--nx-muted); margin: 6px 0; }
 
 @media (max-width: 900px) {
-    .nx-main { grid-template-columns: 1fr; }
+    .nx-main, .nx-main.is-collapsed { grid-template-columns: 1fr; }
     .nx-list-card { position: static; max-height: 420px; }
+    .nx-list-card.is-collapsed { display: none; }
+    .nx-resizer { display: none; }
 }
