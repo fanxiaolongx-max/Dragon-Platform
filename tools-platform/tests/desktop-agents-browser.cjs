@@ -168,6 +168,14 @@ app.whenReady().then(async () => {
     config.syncSeconds = 25;
     await evaluate('window.__listTimers=[];window.__originalInterval=window.setInterval;window.setInterval=(fn,ms,...args)=>{window.__listTimers.push(ms);return window.__originalInterval(fn,ms,...args)};window.dispatchEvent(new Event("tools:desktop-agent-settings-changed"));');
     await until('window.__listTimers.includes(25000)');
+    // 一个桌面客户端都没启用时，对话列表上方不显示「桌面 Agent」分类；重新启用后恢复
+    const savedProviders = config.providers;
+    config = { ...config, providers: { codex: false, claudecode: false, antigravity: false } };
+    await evaluate('window.dispatchEvent(new Event("tools:desktop-agent-settings-changed"))');
+    await until('!document.querySelector("[data-chat-source=agents]")');
+    config = { ...config, providers: savedProviders };
+    await evaluate('window.dispatchEvent(new Event("tools:desktop-agent-settings-changed"))');
+    await until('document.querySelector("[data-chat-source=agents]")');
     win.setContentSize(1440, 950);
     await evaluate('localStorage.setItem("tools_lang","zh-CN")');
     await win.loadURL(base + '/settings');
