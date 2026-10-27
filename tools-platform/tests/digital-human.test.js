@@ -121,6 +121,9 @@ test('default config points at the beta base and stays disabled until imported',
     assert.equal(config.baseQueryUrl, configRepo.DEFAULT_QUERY_URL);
     assert.equal(config.appUuid, '');
     await assert.rejects(client.queryPage('SELECT 1 AS ok'), { code: 'DH_DISABLED' });
+    // 未启用时单表详情 / 查询不去连默认基座，直接说明未启用（409，不是 5xx）
+    await assert.rejects(catalog.describeTable('business', 'common_data_rep'), { code: 'DH_DISABLED', statusCode: 409 });
+    await assert.rejects(catalog.queryTable('business', { table: 'common_data_rep' }), { code: 'DH_DISABLED', statusCode: 409 });
 });
 
 test('read-only and app-write SQL guards', () => {
@@ -181,6 +184,8 @@ test('connection test reports each step, including base errors and unreachable h
     const down = await client.testConnection({ ...config, baseQueryUrl: 'http://127.0.0.1:1/digital-human/api/dh/query', timeoutSec: 3 });
     assert.equal(down.ok, false);
     assert.ok(down.steps.every(step => step.code === 'DH_NETWORK'));
+    // 基座侧失败用 424，避免 502/504 被本机代理替换掉错误正文
+    await assert.rejects(client.queryPage('SELECT 1 AS ok', { config: { ...config, baseQueryUrl: 'http://127.0.0.1:1/digital-human/api/dh/query', timeoutSec: 3 } }), { code: 'DH_NETWORK', statusCode: 424 });
 });
 
 test('catalog merges live tables with the audit seed and admin notes', async () => {

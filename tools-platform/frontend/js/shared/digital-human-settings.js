@@ -79,7 +79,7 @@
             <p class="nch-desc">${esc(L('粘贴写报告服务的 .env 配置文本（可从截图识别后粘贴），识别 BASE_QUERY_URL、APP_DATASOURCE_ID、APP_SCHEMA、APP_UUID、APP_LEVEL、BUSINESS_DATASOURCE_NAME、HTTP_TIMEOUT、HTTP_VERIFY_SSL；PORT、CORS 等 FastAPI 自身配置会被忽略。', 'Paste the .env text of the report service. Base URL, datasource, schema and identity keys are imported; FastAPI-only keys such as PORT and CORS are ignored.'))}</p>
             <label class="nch-field nch-wide"><textarea data-dh-import style="height:150px;font-family:ui-monospace,Menlo,monospace;font-size:12px" placeholder="BASE_QUERY_URL=https://…/digital-human/api/dh/query&#10;APP_DATASOURCE_ID=2&#10;APP_SCHEMA=…&#10;APP_UUID=…&#10;APP_LEVEL=BUSINESS&#10;BUSINESS_DATASOURCE_NAME=…">${esc(state.importText)}</textarea></label>
             <div class="nch-row">
-                <label class="nch-switch"><input type="checkbox" data-dh-import-enable checked> ${esc(L('导入后启用', 'Enable after import'))}</label>
+                <label class="nch-switch" style="white-space:nowrap;flex-shrink:0"><input type="checkbox" data-dh-import-enable checked> <span>${esc(L('导入后启用', 'Enable after import'))}</span></label>
                 <div class="nch-actions">
                     <button type="button" class="nch-btn" data-dh-action="parse" ${state.busy ? 'disabled' : ''}>${esc(L('解析预览', 'Preview'))}</button>
                     <button type="button" class="nch-btn primary" data-dh-action="import" ${state.busy ? 'disabled' : ''}>${esc(state.busy === 'import' ? L('导入中…', 'Importing…') : L('导入并保存', 'Import and save'))}</button>

@@ -42,7 +42,7 @@
             body: body !== undefined ? JSON.stringify(body) : undefined
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status, code: data.code, raw: data.raw });
+        if (!res.ok) throw Object.assign(new Error(data.error || L(`请求失败（HTTP ${res.status}），服务器没有返回原因`, `Request failed (HTTP ${res.status}) with no reason given`)), { status: res.status, code: data.code, raw: data.raw });
         return data;
     }
 
@@ -99,6 +99,44 @@
         }
     }
 
+    // 类别配色：常见类别固定颜色，新类别按名称散列到调色板（--nx-cat-0 ~ 13 定义在 netcare-explorer.css）
+    const CATEGORY_ORDER = ['风险', '整改', 'IOC运营', '任务/工单', '服务请求(问题单)', '事件/通知/调查', '网络', '维护/检修', 'License', '重大事件', '变更', '账务', '公共基础表（维表/关联关系）', '其他'];
+    function categoryColor(name) {
+        let index = CATEGORY_ORDER.indexOf(name);
+        if (index < 0) index = [...String(name)].reduce((sum, char) => sum + char.charCodeAt(0), 0) % (CATEGORY_ORDER.length - 1);
+        return `var(--nx-cat-${index})`;
+    }
+    const categoryLabel = name => String(name || L('其他', 'Other')).replace(/[（(][^）)]*[）)]$/, '');
+
+    // 行数缩写：12,345 → 1.2万，57,851,138 → 5785万，超过亿用亿
+    function shortRows(rows) {
+        const value = Number(rows) || 0;
+        if (window.ToolsI18n?.getLanguage?.() === 'en-US') return value >= 1e6 ? `${(value / 1e6).toFixed(value >= 1e7 ? 0 : 1)}M` : value >= 1e3 ? `${(value / 1e3).toFixed(value >= 1e4 ? 0 : 1)}K` : String(value);
+        if (value >= 1e8) return `${(value / 1e8).toFixed(1)}亿`;
+        if (value >= 1e4) return `${(value / 1e4).toFixed(value >= 1e6 ? 0 : 1)}万`;
+        return String(value);
+    }
+
+    // 粒度缩写：DWD / DWS / ODS / GA / 快照，日、月、小时粒度加前缀
+    function shortGrain(grain) {
+        const text = String(grain || '');
+        if (!text) return '';
+        const layer = /快照/.test(text) ? L('快照', 'Snap') : /ODS/.test(text) ? 'ODS' : /DWS|汇总/.test(text) ? 'DWS' : /DWD|明细/.test(text) ? 'DWD' : /GA|全量/.test(text) ? 'GA' : text.slice(0, 4);
+        const period = /^日/.test(text) ? L('日', 'D') : /^月/.test(text) ? L('月', 'M') : /^小时/.test(text) ? L('时', 'H') : '';
+        return period ? `${period}·${layer}` : layer;
+    }
+
+    // 列表只保留几个状态小图标，详细说明放在 title 里
+    function iconsOf(table) {
+        const icons = [];
+        if (table.status === 'missing') icons.push(['bad', '✕', L('库中已不存在', 'No longer in the database')]);
+        if (table.isNew) icons.push(['new', L('新', 'N'), L('新增表（盘点之后出现）', 'New since the audit')]);
+        if (table.review) icons.push(['bad', '!', table.review]);
+        if (table.family) icons.push(['warn', '⧉', L(`分区族 ${table.family}：同族多张表，取数前确认哪张有效`, `Partition family ${table.family}`)]);
+        if (table.verified) icons.push(['ok', '✓', L('已核对', 'Reviewed')]);
+        return icons;
+    }
+
     function tagsOf(table) {
         const tags = [];
         if (table.status === 'missing') tags.push(['bad', L('库中不存在', 'Missing')]);
@@ -120,7 +158,7 @@
             <div class="nx-filters">
                 <input type="search" data-nx="q" value="${esc(state.q)}" placeholder="${esc(L('搜索表名 / 中文名 / 模块（支持拼音）', 'Search name / label / module'))}">
                 <div class="nx-filter-row">
-                    <select data-nx="category"><option value="">${esc(L('全部类别', 'All categories'))}</option>${categories.map(item => `<option value="${esc(item)}" ${item === state.category ? 'selected' : ''}>${esc(item)}</option>`).join('')}</select>
+                    <select data-nx="category"><option value="">${esc(L('全部类别', 'All categories'))}</option>${categories.map(item => `<option value="${esc(item)}" ${item === state.category ? 'selected' : ''}>${esc(categoryLabel(item))}</option>`).join('')}</select>
                     <select data-nx="status">${STATUS_FILTERS.map(([id, zh, en]) => `<option value="${id}" ${id === state.status ? 'selected' : ''}>${esc(L(zh, en))}</option>`).join('')}</select>
                 </div>
             </div>
@@ -128,13 +166,38 @@
         </aside>`;
     }
 
+    function renderItem(table) {
+        const title = table.nameCn || table.name;
+        const rows = table.status === 'missing' ? '—' : table.empty ? L('空', 'empty') : shortRows(table.rows);
+        const hint = [table.name, table.nameCn, table.module && L(`模块：${table.module}`, `Module: ${table.module}`), table.grain, table.rows ? L(`约 ${fmt(table.rows)} 行`, `≈${fmt(table.rows)} rows`) : ''].filter(Boolean).join('\n');
+        return `<button type="button" class="nx-item ${table.name === state.selected ? 'active' : ''}" data-nx-table="${esc(table.name)}" style="--cat:${categoryColor(table.category)}" title="${esc(hint)}">
+            <span class="nx-item-main">
+                <span class="nx-item-title ${table.nameCn ? '' : 'mono'}">${esc(title)}</span>
+                ${table.nameCn ? `<span class="nx-item-sub">${esc(table.name)}</span>` : ''}
+            </span>
+            <span class="nx-item-side">
+                ${iconsOf(table).map(([kind, icon, text]) => `<i class="nx-icon ${kind}" title="${esc(text)}">${esc(icon)}</i>`).join('')}
+                ${table.grain ? `<span class="nx-grain">${esc(shortGrain(table.grain))}</span>` : ''}
+                <span class="nx-rows ${table.empty || table.status === 'missing' ? 'muted' : ''}">${esc(rows)}</span>
+            </span>
+        </button>`;
+    }
+
+    // 按类别分组：组头带颜色和数量，点组头只看该类别（再点取消）
     function renderListBody(shown, tables) {
-        return `<div class="nx-count" data-nx-role="count">${esc(L(`显示 ${shown.length} / ${tables.length} 张`, `${shown.length} of ${tables.length} tables`))}</div>
-            <div class="nx-list" data-nx-role="list">${shown.map(table => `<button type="button" class="nx-item ${table.name === state.selected ? 'active' : ''}" data-nx-table="${esc(table.name)}">
-                <div class="nx-item-name">${esc(table.name)}</div>
-                <div class="nx-item-cn ${table.nameCn ? '' : 'none'}">${esc(table.nameCn || L('（无中文名）', '(no label)'))}${table.module ? ` · ${esc(table.module)}` : ''}</div>
-                <div class="nx-tags">${tagsOf(table).map(([kind, text]) => `<span class="nx-tag ${kind}">${esc(text)}</span>`).join('')}</div>
-            </button>`).join('') || `<div class="nx-empty">${esc(L('没有匹配的表', 'No matching tables'))}</div>`}</div>`;
+        const groups = new Map();
+        for (const table of shown) {
+            const key = table.category || L('其他', 'Other');
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key).push(table);
+        }
+        const ordered = [...groups.entries()].sort((a, b) => (a[0] === '其他') - (b[0] === '其他') || b[1].length - a[1].length || a[0].localeCompare(b[0]));
+        const body = ordered.map(([category, items]) => `<div class="nx-group" style="--cat:${categoryColor(category)}">
+                <button type="button" class="nx-group-head ${state.category === category ? 'active' : ''}" data-nx-category="${esc(category)}" title="${esc(state.category === category ? L('显示全部类别', 'Show all categories') : L(`只看「${category}」`, `Only ${category}`))}"><i></i><span>${esc(categoryLabel(category))}</span><b>${items.length}</b></button>
+                ${items.map(renderItem).join('')}
+            </div>`).join('');
+        return `<div class="nx-count" data-nx-role="count">${esc(L(`显示 ${shown.length} / ${tables.length} 张`, `${shown.length} of ${tables.length} tables`))}${state.category ? ` · <button type="button" class="nx-link" data-nx-category="${esc(state.category)}">${esc(L(`清除「${categoryLabel(state.category)}」`, 'Clear category'))}</button>` : ''}</div>
+            <div class="nx-list" data-nx-role="list">${body || `<div class="nx-empty">${esc(L('没有匹配的表', 'No matching tables'))}</div>`}</div>`;
     }
 
     // 搜索 / 筛选只重绘左侧列表和统计，不动右侧表单里未保存的输入
@@ -151,6 +214,8 @@
         if (stats) stats.outerHTML = renderStats();
         const status = root.querySelector('[data-nx="status"]');
         if (status) status.value = state.status;
+        const category = root.querySelector('[data-nx="category"]');
+        if (category) category.value = state.category;
         return undefined;
     }
 
@@ -173,7 +238,8 @@
             <span class="nx-spacer"></span>
             <button type="button" class="nx-btn" data-nx-action="refresh" ${state.loading ? 'disabled' : ''}>${esc(state.loading ? L('加载中…', 'Loading…') : L('刷新表清单', 'Refresh'))}</button>
         </div>
-        ${catalog && !live ? `<div class="nx-alert bad">${esc(L('无法从基座读取实时表清单：', 'Could not read the live table list: '))}${esc(catalog.error || '')}。${esc(L('请在「全局设置 › 频道对接 › 数字人」检查配置；下方显示全表盘点的种子清单与已有标注。', 'Check Global settings › Channels › Digital Human; the audit seed and saved notes are shown below.'))}</div>` : ''}
+        ${catalog && !live && /未启用/.test(catalog.error || '') ? `<div class="nx-alert info">${esc(L('数字人对接还没启用，下面是全表盘点的 441 张种子清单与已有标注；启用后会改为实时表清单。', 'The digital human base is not enabled yet; showing the 441-table audit seed and saved notes.'))} <a href="#" data-nx-action="open-settings">${esc(L('去配置 →', 'Configure →'))}</a></div>` : ''}
+        ${catalog && !live && !/未启用/.test(catalog.error || '') ? `<div class="nx-alert bad">${esc(L('无法从基座读取实时表清单：', 'Could not read the live table list: '))}${esc(catalog.error || '')}。${esc(L('请在「全局设置 › 频道对接 › 数字人」检查配置；下方显示全表盘点的种子清单与已有标注。', 'Check Global settings › Channels › Digital Human; the audit seed and saved notes are shown below.'))}</div>` : ''}
         ${catalog?.seedSource && state.scope === 'business' ? `<div class="nx-meta">${esc(L('中文名 / 类别 / 粒度初始来源：', 'Initial labels from: '))}${esc(catalog.seedSource)}${esc(L('；管理员标注优先。', '; admin notes take precedence.'))}</div>` : ''}`;
     }
 
@@ -305,6 +371,14 @@
             ${result ? (result.kind ? `<div class="nx-alert info" style="margin-top:10px">${esc(L(`${result.kind.toUpperCase()} 已执行，影响 ${result.affectedRows ?? '?'} 行（${result.durationMs} ms）`, `${result.kind.toUpperCase()} executed, ${result.affectedRows ?? '?'} rows affected`))}</div>` : resultBlock(result, `${state.scope}-sql`)) : ''}`;
     }
 
+    // 未启用 / 连不上基座时：说明字段与样例要连上基座才能看，标注仍可离线填写
+    function detailErrorNote() {
+        const error = state.detailError;
+        if (error.code === 'DH_DISABLED') return `<div class="nx-alert info">${esc(L('数字人对接未启用，暂时看不到字段和样例数据；下面的分类、盘点备注和标注可以照常查看与填写。', 'The digital human base is not enabled, so columns and samples are unavailable; categories, audit notes and your notes still work.'))} <a href="#" data-nx-action="open-settings">${esc(L('去配置 →', 'Configure →'))}</a></div>`;
+        if (/^DH_(NETWORK|TIMEOUT)$/.test(error.code || '')) return `<div class="nx-alert">${esc(L('连不上数字人基座（当前网络可能不在内网），字段和样例暂不可用；标注可以照常填写。', 'Cannot reach the base (you may be off the intranet); columns and samples are unavailable, notes still work.'))}<div class="nx-meta">${esc(error.message)}</div></div>`;
+        return `<div class="nx-alert bad">${esc(error.message)}</div>`;
+    }
+
     function renderDetail() {
         if (!state.selected) {
             return `<section class="nx-card nx-detail">${state.tab === 'sql'
@@ -316,14 +390,14 @@
         let body;
         if (state.tab === 'sql') body = renderSql();
         else if (state.detailLoading) body = `<div class="nx-empty">${esc(L('正在读取表结构与样例…', 'Loading schema and samples…'))}</div>`;
-        else if (state.detailError) body = `<div class="nx-alert bad">${esc(state.detailError)}</div>${state.tab === 'overview' && table ? renderOverview(null, table) : ''}`;
+        else if (state.detailError) body = `${detailErrorNote()}${state.tab === 'overview' && table ? renderOverview(null, table) : ''}`;
         else if (!detail) body = '';
         else if (state.tab === 'fields') body = renderFields(detail);
         else if (state.tab === 'sample') body = `<div class="nx-actions"><span class="nx-note">${esc(L(`前 ${detail.sample.length} 行样例`, `First ${detail.sample.length} rows`))}</span><button type="button" class="nx-btn" data-nx-action="export-sample">${esc(L('导出 CSV', 'Export CSV'))}</button></div>${rowsTable(detail.sample, { columns: detail.columns.map(column => column.name) })}`;
         else if (state.tab === 'query') body = renderQuery(detail);
         else body = renderOverview(detail, table);
         return `<section class="nx-card nx-detail">
-            <div class="nx-detail-head"><h2>${esc(state.selected)}</h2>${table?.nameCn ? `<span class="nx-cn">${esc(table.nameCn)}</span>` : ''}
+            <div class="nx-detail-head">${table ? `<span class="nx-cat-chip" style="--cat:${categoryColor(table.category)}">${esc(categoryLabel(table.category))}</span>` : ''}<h2>${esc(state.selected)}</h2>${table?.nameCn ? `<span class="nx-cn">${esc(table.nameCn)}</span>` : ''}
                 <span class="nx-tags">${(table ? tagsOf(table) : []).map(([kind, text]) => `<span class="nx-tag ${kind}">${esc(text)}</span>`).join('')}</span></div>
             <div class="nx-tabs">${TABS.map(([id, zh, en]) => `<button type="button" class="nx-tab ${state.tab === id ? 'active' : ''}" data-nx-tab="${id}">${esc(L(zh, en))}</button>`).join('')}</div>
             ${body}
@@ -368,7 +442,7 @@
             const detail = await request('GET', `/tables/${encodeURIComponent(name)}?scope=${state.scope}`);
             if (state.selected === name) state.detail = detail;
         } catch (error) {
-            if (state.selected === name) state.detailError = error.message;
+            if (state.selected === name) state.detailError = { message: error.message, code: error.code || '' };
         } finally {
             if (state.selected === name) {
                 state.detailLoading = false;
@@ -447,6 +521,12 @@
             remember();
             return loadCatalog();
         }
+        const categoryButton = event.target.closest('[data-nx-category]');
+        if (categoryButton) {
+            state.category = state.category === categoryButton.dataset.nxCategory ? '' : categoryButton.dataset.nxCategory;
+            root.querySelector('[data-nx-role="list"]')?.scrollTo?.({ top: 0 });
+            return refreshList();
+        }
         const status = event.target.closest('[data-nx-status]')?.dataset.nxStatus;
         if (status) {
             state.status = state.status === status ? 'all' : status;
@@ -465,6 +545,13 @@
         const action = button.dataset.nxAction;
         try {
             if (action === 'refresh') return loadCatalog({ refresh: true });
+            if (action === 'open-settings') {
+                event.preventDefault();
+                try { localStorage.setItem('tools_channel_settings_tab', 'digital-human'); } catch (_) { /* 只影响默认标签 */ }
+                window.openNavSettingsModal?.();
+                window.switchNavSettingsTab?.('channels');
+                return undefined;
+            }
             if (action === 'count') {
                 button.disabled = true;
                 button.textContent = L('计数中…', 'Counting…');

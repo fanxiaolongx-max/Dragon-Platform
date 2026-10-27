@@ -104,6 +104,13 @@ async function saveNote(scope, name, patch = {}, actor = '') {
 }
 
 // ── 动态表清单 ───────────────────────────────────────
+// 单表详情 / 查询要真正请求基座：未启用时直接说明，不去连默认的 beta 域名
+async function liveConfig() {
+    const config = await configRepo.getConfig();
+    if (!config.enabled) throw client.dhError('DH_DISABLED', '数字人对接未启用：请到「全局设置 › 频道对接 › 数字人」导入配置并启用', { statusCode: 409 });
+    return config;
+}
+
 function schemaOf(config, scope) {
     return scope === 'app' ? config.appSchema : config.businessSchema;
 }
@@ -244,7 +251,7 @@ function profile(columns, rows) {
 }
 
 async function describeTable(scope, name, { sampleRows = SAMPLE_ROWS } = {}) {
-    const config = await configRepo.getConfig();
+    const config = await liveConfig();
     const schema = schemaOf(config, scope);
     client.ident(name);
     const columnResult = await client.queryAll(`SELECT COLUMN_NAME AS name, DATA_TYPE AS data_type, COLUMN_TYPE AS column_type, COLUMN_COMMENT AS comment, IS_NULLABLE AS nullable, COLUMN_KEY AS column_key, ORDINAL_POSITION AS position FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ${client.quote(schema)} AND TABLE_NAME = ${client.quote(name)} ORDER BY ORDINAL_POSITION`, { scope, config });
@@ -355,7 +362,7 @@ async function columnNames(config, scope, table) {
 
 /** 结构化查询：返回 { sql, rows, truncated, durationMs }；超过 1000 行时按 LIMIT/OFFSET 分页取齐。 */
 async function queryTable(scope, spec = {}) {
-    const config = await configRepo.getConfig();
+    const config = await liveConfig();
     client.ident(spec.table);
     const sql = buildSelect(config, scope, spec, await columnNames(config, scope, spec.table));
     const limit = Math.min(config.maxRows, Math.max(1, Number(spec.limit) || 200));

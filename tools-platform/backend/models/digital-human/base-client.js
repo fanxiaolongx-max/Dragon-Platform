@@ -14,8 +14,9 @@ const RAW_PREVIEW_CHARS = 4000;
 const MAX_RESPONSE_BYTES = 64 * 1024 * 1024;
 const agents = new Map();
 
+// 基座侧失败（连不上、超时、返回错误）统一用 424：502/504 这类网关状态码常被本机代理替换成自己的错误页，前端就拿不到原因
 function dhError(code, message, extra = {}) {
-    return Object.assign(new Error(message), { code, statusCode: extra.statusCode || 502, ...extra });
+    return Object.assign(new Error(message), { code, statusCode: extra.statusCode || 424, ...extra });
 }
 
 function agentFor(url, verifySsl) {
@@ -77,7 +78,7 @@ function send(config, { method = 'GET', path, query, body, signal }) {
             if (signal.aborted) return onAbort();
             signal.addEventListener('abort', onAbort, { once: true });
         }
-        req.on('timeout', () => req.destroy(dhError('DH_TIMEOUT', `基座请求超时（${config.timeoutSec} 秒）`, { statusCode: 504 })));
+        req.on('timeout', () => req.destroy(dhError('DH_TIMEOUT', `基座请求超时（${config.timeoutSec} 秒）`)));
         req.on('error', error => {
             if (error.code && String(error.code).startsWith('DH_')) return reject(error);
             const hint = error.code === 'ENOTFOUND' ? '（域名解析失败：请确认当前网络能访问内网基座）'
