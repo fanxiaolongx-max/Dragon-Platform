@@ -35,6 +35,15 @@ if (key === 'auth login') {
   process.exit(0);
 }
 if (key === 'im query-recent-conversation') { console.error('Error: not logged in, run welink-cli auth login'); process.exit(1); }
+// 邮箱：autodiscover 之前 mail list 报「找不到 Exchange 域」；onebox user-info 里带邮箱
+const marker = require('path').join(__dirname, 'autodiscovered');
+if (key === 'onebox user-info') { console.log(JSON.stringify({ cloudUserId: 22978732, email: 'me@example.com' })); process.exit(0); }
+if (key === 'mail autodiscover') { require('fs').writeFileSync(marker, args[3]); console.log(JSON.stringify({ success: true, serverDomain: 'imail.example.com' })); process.exit(0); }
+if (key === 'mail list') {
+  if (!require('fs').existsSync(marker)) { console.log('Error: Exchange server domain not found. Please run first: welink-cli mail autodiscover --email <your-email>'); process.exit(1); }
+  console.log(JSON.stringify([{ subject: 'RE: Weekly', conversationTopic: 'Weekly', displayTo: 'x; '.repeat(100), displayCc: 'cc', categories: [], changeKey: 'CQAAAB', conversationId: 'AAQk', itemId: 'AAMk1', isRead: false, location: null }]));
+  process.exit(0);
+}
 console.log('Connecting to WeLink PC...');
 console.log(JSON.stringify({ argv: args, data: [{ w3account: 'a00123456' }] }, null, 2));
 `);
@@ -304,6 +313,40 @@ test('runTurn shows the approval card before the tool row and only offers welink
     assert.deepEqual(tools, ['welink_query'], 'non-streaming turns cannot show approval cards');
     runner.saveConfig({ allowWrite: false });
     assert.match(await inDefault(() => agent.buildPrompt()), /允许写操作/);
+});
+
+test('mail commands autodiscover the mailbox on demand and get compact results', async () => {
+    runner.saveConfig({ cliPath: packageDir, enabled: true, email: '' });
+    const outcome = await inDefault(() => agent.execute({}, 'welink_query', { command: 'mail list', options: { 'is-read': 0 } }));
+    assert.equal(outcome.isError, undefined);
+    assert.match(outcome.summary, /已自动 autodiscover/);
+    assert.equal(runner.readConfig().email, 'me@example.com');
+    assert.equal(fs.readFileSync(path.join(packageDir, 'bin', 'autodiscovered'), 'utf8'), 'me@example.com');
+    const items = JSON.parse(outcome.content.slice(outcome.content.indexOf('\n') + 1));
+    assert.deepEqual(Object.keys(items[0]).sort(), ['displayCc', 'displayTo', 'isRead', 'itemId', 'subject']);
+    assert.ok(items[0].displayTo.length <= 161 && items[0].displayTo.endsWith('…'));
+    // 已发现过：直接查，不再补做；手动 autodiscover 会记住邮箱
+    assert.doesNotMatch((await inDefault(() => agent.execute({}, 'welink_query', { command: 'mail list' }))).summary, /autodiscover/);
+    await inDefault(() => agent.execute({}, 'welink_query', { command: 'mail autodiscover', options: { email: 'other@example.com' } }));
+    assert.equal(runner.readConfig().email, 'other@example.com');
+});
+
+test('runTurn asks once more without tools when a thinking model leaves the final reply empty', async () => {
+    runner.saveConfig({ cliPath: packageDir, enabled: true, verbose: false });
+    const replies = [
+        { text: '', toolCalls: [{ id: 'c1', name: 'welink_query', args: { command: 'search person', options: { text: '张三' } } }], usage: { promptTokens: 10, outputTokens: 5 } },
+        { text: '', toolCalls: [], usage: { promptTokens: 20, outputTokens: 2048 } },
+        { text: '找到张三。', toolCalls: [], usage: { promptTokens: 30, outputTokens: 50 } }
+    ];
+    const requests = [];
+    const client = { generateText: async options => { requests.push(options); return replies.shift(); } };
+    const result = await inDefault(() => agent.runTurn({ client, systemInstruction: '', messages: [{ role: 'user', content: '查张三' }], maxOutputTokens: 2048 }));
+    assert.equal(result.text, '找到张三。');
+    assert.equal(requests.length, 3);
+    assert.equal(requests[2].toolChoice, 'none');
+    assert.equal(requests[2].maxOutputTokens, 8192);
+    assert.match(requests[2].messages.at(-1).content, /不要再调用工具/);
+    assert.equal(result.usage.outputTokens, 2103);
 });
 
 test('welink-office skill is listed as a non-workspace builtin skill', () => {

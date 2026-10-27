@@ -12,6 +12,7 @@ const SKILL_ID = 'welink-office';
 const MAX_STEPS = 12;
 const RESULT_CHARS = 24 * 1024;
 const VERBOSE_OUTPUT_CHARS = 6000;
+const SUMMARY_OUTPUT_TOKENS = 8192;
 const MAX_VALUE_CHARS = 500;
 const MAX_LIST_ITEMS = 50;
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -425,6 +426,26 @@ function definitions({ write = false } = {}) {
     return tools;
 }
 
+// 模型用不到却很占篇幅的字段：EWS changeKey / conversationId、文件 md5、加密会议 ID
+const DROP_KEYS = new Set(['changeKey', 'conversationId', 'md5', 'enMeetingId', 'enParentMeetingId']);
+const RECIPIENT_KEYS = new Set(['displayTo', 'displayCc']);
+const RECIPIENT_CHARS = 160;
+
+/** 喂给模型前精简 JSON：去掉 null / 空数组 / 无用字段，收件人列表截短（详细模式仍显示原始输出）。 */
+function compactJson(value) {
+    if (Array.isArray(value)) return value.map(compactJson);
+    if (!value || typeof value !== 'object') return value;
+    const out = {};
+    for (const [key, item] of Object.entries(value)) {
+        if (item === null || item === undefined || DROP_KEYS.has(key) || (Array.isArray(item) && !item.length)) continue;
+        if (key === 'conversationTopic' && typeof value.subject === 'string' && value.subject.includes(item)) continue;
+        out[key] = RECIPIENT_KEYS.has(key) && typeof item === 'string' && item.length > RECIPIENT_CHARS
+            ? `${item.slice(0, RECIPIENT_CHARS)}…`
+            : compactJson(item);
+    }
+    return out;
+}
+
 function clamp(text) {
     const value = String(text || '');
     return value.length > RESULT_CHARS ? { content: `${value.slice(0, RESULT_CHARS)}\n…（结果过长已截断，请缩小查询范围或分页）`, truncated: true } : { content: value, truncated: false };
@@ -508,13 +529,32 @@ function outcomeOf(built, result) {
     if (!result.ok) {
         return { content: `welink-cli ${built.command} 失败：${result.error}`, summary: `${built.label}失败`, isError: true, cli, raw };
     }
-    const body = result.json !== null ? JSON.stringify(result.json) : result.text;
+    const body = result.json !== null ? JSON.stringify(compactJson(result.json)) : result.text;
     const clamped = clamp(body);
     const count = countOf(result.json);
     const savedTo = built.spec.output && result.json && typeof result.json === 'object' ? (result.json.path || result.json.output || result.json.file || '') : '';
     const summary = built.spec.write ? `${built.label}成功` : `${built.label}${count === null ? '' : ` ${count} 条`}${savedTo ? `：${savedTo}` : ''}`;
     const note = built.spec.output && !savedTo ? `\n（已下载到 ${runner.downloadDir()}）` : '';
     return { content: clamped.content + note, summary, truncated: clamped.truncated, cli, raw };
+}
+
+// 邮件 / 日历提示需要先 autodiscover（重新登录后 CLI 会丢掉邮箱服务器）：自动补做一次再重试
+const MAILBOX_COMMAND_RE = /^(mail|calendar) /;
+const AUTODISCOVER_NEEDED_RE = /Exchange server domain not found|mail autodiscover/i;
+
+async function autodiscoverMailbox(signal) {
+    let email = runner.readConfig().email;
+    if (!email) {
+        const info = await runner.run(['onebox', 'user-info'], { signal });
+        email = info.ok && info.json && typeof info.json.email === 'string' ? info.json.email.trim() : '';
+    }
+    if (!email) return '';
+    try {
+        await runner.autodiscover(email);
+        return email;
+    } catch {
+        return '';
+    }
 }
 
 /**
@@ -543,7 +583,19 @@ async function execute(ctx, name, args = {}) {
                 return { content: reason, summary: reason, isError: true, cli, declined: true };
             }
         }
-        return outcomeOf(built, await runBuilt(built, ctx.signal));
+        let result = await runBuilt(built, ctx.signal);
+        let autodiscovered = '';
+        if (!result.ok && MAILBOX_COMMAND_RE.test(built.command) && built.command !== 'mail autodiscover' && AUTODISCOVER_NEEDED_RE.test(result.error)) {
+            autodiscovered = await autodiscoverMailbox(ctx.signal);
+            if (autodiscovered) result = await runBuilt(built, ctx.signal);
+        }
+        if (built.command === 'mail autodiscover' && result.ok) runner.saveConfig({ email: built.args[built.args.indexOf('--email') + 1] });
+        const outcome = outcomeOf(built, result);
+        if (autodiscovered) {
+            outcome.content = `（已自动为 ${autodiscovered} 执行 mail autodiscover）\n${outcome.content}`;
+            outcome.summary = `${outcome.summary}（已自动 autodiscover）`;
+        }
+        return outcome;
     } catch (error) {
         return { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: error.message.slice(0, 120), isError: true };
     }
@@ -560,7 +612,7 @@ async function buildPrompt() {
         lines.push(
             '用 welink_query 以用户本人身份查询 WeLink，或把云空间文件 / 分享外链 / 邮件附件下载到本机下载目录。结果以工具返回为准，不要编造人员、消息、会议或邮件内容。',
             `今天是 ${new Date().toLocaleDateString('sv-SE')}，现在是 ${new Date().toLocaleTimeString('zh-CN', { hour12: false })}（平台服务器本地时间），当前 13 位毫秒时间戳约为 ${Date.now()}；meeting 的时间参数是 13 位毫秒时间戳，mail/calendar 的 --end 不包含当天（查某天要写次日），calendar create 的 start/end 写 YYYY-MM-DDTHH:mm:ss。`,
-            config.email ? `已为 ${config.email} 执行过 mail autodiscover。` : '首次查邮件或日历前，需先用 mail autodiscover 传入用户邮箱（不知道就先问用户）。',
+            `查邮件 / 日历时直接调用即可：CLI 提示未发现邮箱服务器时，平台会自动用${config.email ? ` ${config.email}` : '云空间资料里的邮箱'}执行 mail autodiscover 并重试，不需要先手动 autodiscover。`,
             config.allowWrite
                 ? '用户明确要求发消息、建群、撤回、建会/改会/取消、议题、云空间增删改与外链、发/回/转/移邮件、建日程、特别关注时，用 welink_action：每次调用都会弹出审批卡，用户允许后才真正执行。调用前把收件人/成员换成查询到的真实账号或邮箱（不知道就先用 search person / contact detail 查，查不到就问用户），不要猜；工具返回成功前不要说「已发送 / 已创建」，被拒绝时如实说明未执行。'
                 : '写操作（发消息、发邮件、建会、删除等）当前未开启：请告诉用户管理员可在「全局设置 › 频道对接 › WeLink › 个人身份（welink-cli）」开启「允许写操作」，开启后每次执行前都会在对话里请他确认。',
@@ -613,6 +665,19 @@ async function runTurn({ client, systemInstruction, messages, ctx = {}, signal, 
                 history.push({ role: 'model', content: text });
                 history.push({ role: 'user', content: '（系统提示：请现在直接调用工具执行，拿到结果后再回答，不要只描述将要做什么。）' });
                 continue;
+            }
+            // 思考型模型可能把输出额度全用在思考上，正文为空：不带工具、放宽额度补一轮总结
+            if (!text.trim() && toolLog.length) {
+                history.push({ role: 'user', content: '（系统提示：上一次回复为空。请不要再调用工具，少思考，直接根据上面的工具结果用简洁的中文回答用户的问题。）' });
+                if (onDelta) onDelta('\n\n');
+                const retry = await activeClient.generateText({
+                    systemInstruction, messages: history, tools, toolChoice: 'none',
+                    maxOutputTokens: Math.max(Number(maxOutputTokens) || 0, SUMMARY_OUTPUT_TOKENS), temperature, signal, onDelta
+                });
+                usage.inputTokens += Number(retry.usage?.promptTokens || 0);
+                usage.outputTokens += Number(retry.usage?.outputTokens || 0);
+                usage.totalTokens += Number(retry.usage?.totalTokens || 0);
+                return { text: String(retry.text || ''), usage, toolLog };
             }
             return { text, usage, toolLog };
         }

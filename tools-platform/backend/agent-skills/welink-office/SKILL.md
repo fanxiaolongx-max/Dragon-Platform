@@ -48,7 +48,7 @@ icon: 💼
 - 会议 ID：所有 `meeting-id` 都是会议主键（来自 query-list 的 meetingId），**不是视频会议号**。
 - 会议搜索：`{"command":"meeting fuzzy-search","options":{"result-type":"meeting","limit":10,"offset":0},"search":[{"type":"subject","content":"周会"}]}`，时间范围再加 `startTime` / `endTime` 条件（毫秒时间戳）。
 - 云空间：个人空间的 `space-id` 来自 `onebox user-info` 的 `cloudUserId`；根目录 `folder-id` 为 0；团队空间/群空间的 space-id 只能从用户提供的 onebox 网页链接里解析（`#teamspaceFile/<页>/<folder-id>/<space-id>`）。云空间接口每秒限 1 次，不要连续猛调。
-- 邮件/日历：首次使用前必须 `mail autodiscover`（传用户邮箱，不知道就问）。`start` 包含当天、`end` **不包含**当天：查 5 月 8 日要写 `start=2026-05-08, end=2026-05-09`。列表不含正文，需要正文再用 `mail get` / `calendar get`。默认时区 China Standard Time，用户在其他时区时传 `timezone`（如 `Egypt Standard Time`）。
+- 邮件/日历：直接查即可，CLI 提示未发现邮箱服务器时平台会自动 `mail autodiscover` 并重试；自动失败时再问用户邮箱手动执行。`start` 包含当天、`end` **不包含**当天：查 5 月 8 日要写 `start=2026-05-08, end=2026-05-09`。列表不含正文，需要正文再用 `mail get` / `calendar get`。默认时区 China Standard Time，用户在其他时区时传 `timezone`（如 `Egypt Standard Time`）。
 - 聊天里的图片/文件是 `/:um_begin{外链|类型|大小|文件名|0|...;提取码|...}/:um_end` 形式：第 1 段是外链，倒数第二组分号分隔的最后一段是提取码。用户要文件时用 `onebox file-share-link-download`（`link` + `plain-access-code`）下载。
 
 ## 常用流程
