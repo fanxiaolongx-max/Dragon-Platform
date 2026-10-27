@@ -696,7 +696,7 @@
     }
 
     function describeArgs(tool, args = {}) {
-        if (tool === 'run_command') return args.command || '';
+        if (tool === 'run_command' || tool === 'welink_query' || tool === 'welink_action') return args.command || '';
         if (tool === 'search') return `"${args.query || ''}"${args.path && args.path !== '.' ? ` in ${args.path}` : ''}`;
         if (tool === 'rename_path') return `${args.from || ''} → ${args.to || ''}`;
         if (tool === 'list_directory') return args.path || '.';
@@ -706,7 +706,7 @@
     }
 
     function toolIcon(tool) {
-        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨' }[tool] || '⚙';
+        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤' }[tool] || '⚙';
     }
 
     // ── 对话内：写入 / 编辑后的文件卡片（预览 / 代码） ─────
@@ -896,7 +896,9 @@
         const preview = event.preview || {};
         const kindLabel = tx(`tool_${event.tool}`);
         let detail = '';
-        if (preview.command) detail = `<pre class="dc-approval-cmd"><span class="dc-approval-prompt">$</span> ${escapeHtml(preview.command)}</pre><div class="dc-approval-cwd">${escapeHtml(tx('inDir'))} ${escapeHtml(shorten(preview.cwd || state.root))}</div>`;
+        // WeLink 写操作（welink_action）：逐项列出要执行的内容，完整命令折叠在下面
+        if (Array.isArray(preview.fields)) detail = `${preview.title ? `<div class="dc-approval-path"><b>${escapeHtml(preview.title)}</b>${preview.impact ? ` · ${escapeHtml(preview.impact)}` : ''}</div>` : ''}<table class="dc-approval-fields" style="width:100%;border-collapse:collapse;margin:6px 0;font-size:13px">${preview.fields.map(field => `<tr><th style="text-align:left;vertical-align:top;white-space:nowrap;padding:3px 10px 3px 0;font-weight:500;opacity:.75">${escapeHtml(field.label || field.name || '')}</th><td style="padding:3px 0;white-space:pre-wrap;word-break:break-word">${escapeHtml(field.value ?? '')}</td></tr>`).join('')}</table>${preview.command ? `<details><summary style="cursor:pointer;opacity:.75;font-size:12px">${escapeHtml(tx('approvalCommand'))}</summary><pre class="dc-approval-cmd">${escapeHtml(preview.command)}</pre></details>` : ''}`;
+        else if (preview.command) detail = `<pre class="dc-approval-cmd"><span class="dc-approval-prompt">$</span> ${escapeHtml(preview.command)}</pre><div class="dc-approval-cwd">${escapeHtml(tx('inDir'))} ${escapeHtml(shorten(preview.cwd || state.root))}</div>`;
         // 风险命令（访问目录外 / 主目录 / 密钥文件）：写明原因，且不提供「总是允许」
         const risk = Array.isArray(preview.risk) && preview.risk.length ? preview.risk : null;
         if (risk) detail += `<div class="dc-approval-risk"><b>⚠️ ${escapeHtml(tx('riskTitle'))}</b><ul>${risk.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul></div>`;
@@ -909,7 +911,7 @@
             ${detail}
             <div class="dc-approval-actions">
                 <button type="button" class="dc-action dc-action--primary" data-decision="allow">${escapeHtml(tx('allow'))}</button>
-                ${risk ? '' : `<button type="button" class="dc-action" data-decision="always">${escapeHtml(tx('alwaysAllow'))}</button>`}
+                ${risk || event.noAlways ? '' : `<button type="button" class="dc-action" data-decision="always">${escapeHtml(tx('alwaysAllow'))}</button>`}
                 <button type="button" class="dc-action dc-action--danger" data-decision="deny">${escapeHtml(tx('deny'))}</button>
             </div>
             <div class="dc-approval-status" hidden></div>`;
@@ -918,7 +920,9 @@
             if (!button || card.classList.contains('is-settled')) return;
             card.querySelectorAll('[data-decision]').forEach(node => { node.disabled = true; });
             try {
-                await request('POST', `${API}/approvals/${encodeURIComponent(event.id)}`, { decision: button.dataset.decision });
+                // 工作区审批走 agent-workspace；WeLink 写操作的审批卡带自己的地址（只接受该前缀）
+                const url = typeof event.approvalUrl === 'string' && event.approvalUrl.startsWith('/api/channels/welink-cli/approvals/') ? event.approvalUrl : `${API}/approvals/${encodeURIComponent(event.id)}`;
+                await request('POST', url, { decision: button.dataset.decision });
                 settleCard(card, button.dataset.decision);
             } catch (error) {
                 card.querySelectorAll('[data-decision]').forEach(node => { node.disabled = false; });

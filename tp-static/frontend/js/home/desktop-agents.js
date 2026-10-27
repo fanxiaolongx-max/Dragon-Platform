@@ -520,7 +520,9 @@
         window.addEventListener('pagehide', () => { clearInterval(poll); clearInterval(state.timer); clearInterval(state.tick); });
         window.dispatchEvent(new Event('home:desktop-agents-ready'));
     }
-    window.HomeDesktopAgents = { available: () => localStorage.getItem('tools_role') === 'admin', show: visible => { if(visible)autoSelect=true;state.visible = visible; if (root)
+    // 对话列表的「桌面 Agent」分类：管理员、已连接本机桌面，且至少启用了一个客户端才显示（设置读取完成前不显示，避免闪现）
+    const anyProviderEnabled = () => Boolean(state.settings?.enabled && Object.keys(names).some(id => state.settings.providers?.[id]));
+    window.HomeDesktopAgents = { available: () => localStorage.getItem('tools_role') === 'admin' && anyProviderEnabled(), show: visible => { if(visible)autoSelect=true;state.visible = visible; if (root)
             root.hidden = !visible; if (visible && state.settings?.enabled)
             {openFirst();sync();} }, search: render, refresh: () => sync(true), open, newChat };
     if (document.readyState === 'loading')

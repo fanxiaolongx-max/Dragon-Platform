@@ -1,4 +1,5 @@
-// 全局设置 › 频道对接：WeLink / 微信助理的连接配置、扫码授权、连通性测试、黑白名单、推送范围、联系人与日志。
+// 全局设置 › 频道对接：WeLink / 微信助理的连接配置、扫码授权、连通性测试、黑白名单、推送范围、联系人与日志；
+// WeLink 另有个人身份（welink-cli）卡片，见 welink-cli-settings.js。
 // 两个频道只有「运行状态」「连接配置」不同，助理行为、访问控制、主动推送、联系人、日志共用同一套卡片。
 // 由 navbar.js 在切换到 channels 标签时按需加载；依赖 channels.js（目标选择器与 API）与 qr-code.js。
 (function () {
@@ -639,6 +640,7 @@ await channels.push({ channel: '${view.channel}', text: '告警：xxx', targets:
                 ${tabs}
                 <section class="nch-card" data-role="status-card"></section>
                 <section class="nch-card">${renderConnectionCard()}</section>
+                ${isWeixin() ? '' : '<section class="nch-card" data-role="welink-cli-card"></section>'}
                 <section class="nch-card">${renderBehaviorCard()}</section>
                 <section class="nch-card" data-role="access-card">${renderAccessCard()}</section>
                 <section class="nch-card" data-role="push-card">${renderPushCard()}</section>
@@ -652,6 +654,16 @@ await channels.push({ channel: '${view.channel}', text: '告警：xxx', targets:
             </div>`;
         renderStatusCard();
         bindMessageLog();
+        renderWelinkCliCard();
+    }
+
+    // 个人身份（welink-cli）卡片独立维护状态，按需加载（welink-cli-settings.js）
+    function renderWelinkCliCard() {
+        const el = view.content?.querySelector('[data-role="welink-cli-card"]');
+        if (!el) return;
+        loadScript('./tp-static/frontend/js/shared/welink-cli-settings.js', 'ToolsWelinkCli')
+            .then(() => { if (document.body.contains(el)) window.ToolsWelinkCli.render(el); })
+            .catch(error => { el.innerHTML = `<p class="nch-desc">${esc(error.message)}</p>`; });
     }
 
     function rerenderSection(role, html) {
