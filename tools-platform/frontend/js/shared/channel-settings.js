@@ -1,5 +1,5 @@
 // 全局设置 › 频道对接：WeLink / 微信助理的连接配置、扫码授权、连通性测试、黑白名单、推送范围、联系人与日志；
-// WeLink 另有个人身份（welink-cli）卡片，见 welink-cli-settings.js。
+// WeLink 另有个人身份（welink-cli）卡片，见 welink-cli-settings.js；「数字人」标签是基座对接配置，见 digital-human-settings.js。
 // 两个频道只有「运行状态」「连接配置」不同，助理行为、访问控制、主动推送、联系人、日志共用同一套卡片。
 // 由 navbar.js 在切换到 channels 标签时按需加载；依赖 channels.js（目标选择器与 API）与 qr-code.js。
 (function () {
@@ -32,12 +32,18 @@
     const CHANNEL_TABS = [
         { id: 'welink', icon: '💼', label: ['WeLink', 'WeLink'] },
         { id: 'weixin', icon: '💬', label: ['微信', 'WeChat'] },
-        { id: 'ops', icon: '📣', label: ['运营', 'Ops'] } // 自动化运营群组（channel-ops-settings.js）
+        { id: 'ops', icon: '📣', label: ['运营', 'Ops'] }, // 自动化运营群组（channel-ops-settings.js）
+        { id: 'digital-human', icon: '🤖', label: ['数字人', 'Digital Human'] } // 数字人基座对接（digital-human-settings.js）
     ];
+    // 独立面板：自己加载数据和绑定事件，不走频道的配置 / 状态 / 保存栏
+    const PANELS = {
+        ops: { src: '/js/shared/channel-ops-settings.js', global: 'ToolsChannelOps' },
+        'digital-human': { src: '/js/shared/digital-human-settings.js', global: 'ToolsDigitalHuman' }
+    };
     const CHANNEL_STORE_KEY = 'tools_channel_settings_tab';
 
     const view = {
-        channel: (() => { try { const saved = localStorage.getItem(CHANNEL_STORE_KEY); return ['weixin', 'ops'].includes(saved) ? saved : 'welink'; } catch (_) { return 'welink'; } })(),
+        channel: (() => { try { const saved = localStorage.getItem(CHANNEL_STORE_KEY); return ['weixin', 'ops', 'digital-human'].includes(saved) ? saved : 'welink'; } catch (_) { return 'welink'; } })(),
         content: null,
         config: null,
         draft: null,
@@ -60,7 +66,7 @@
 
     const api = (method, path, body) => window.ToolsChannels.request(method, path, body, view.channel);
     const isWeixin = () => view.channel === 'weixin';
-    const isOps = () => view.channel === 'ops';
+    const isPanel = () => Boolean(PANELS[view.channel]);
     const channelLabel = () => (isWeixin() ? L('微信', 'WeChat') : 'WeLink');
     const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 
@@ -173,10 +179,10 @@
 
     // ── 数据 ─────────────────────────────────────────────
     async function loadAll() {
-        if (isOps()) {
-            // 运营面板自己加载数据；这里只占位，避免频道相关逻辑读到空配置
+        if (isPanel()) {
+            // 独立面板（运营 / 数字人）自己加载数据；这里只占位，避免频道相关逻辑读到空配置
             Object.assign(view, { config: {}, draft: {}, status: {}, dirty: false });
-            await loadScript('/js/shared/channel-ops-settings.js', 'ToolsChannelOps');
+            await loadScript(PANELS[view.channel].src, PANELS[view.channel].global);
             return;
         }
         const [config, status, models] = await Promise.all([
@@ -248,7 +254,7 @@
     }
 
     async function refreshStatus() {
-        if (isOps()) return;
+        if (isPanel()) return;
         try {
             view.status = await api('GET', '/status');
             renderStatusCard();
@@ -629,10 +635,10 @@ await channels.push({ channel: '${view.channel}', text: '告警：xxx', targets:
     function render() {
         const content = view.content;
         if (!content || !view.draft) return;
-        const tabs = `<div class="nch-tabs">${CHANNEL_TABS.map(tab => `<button type="button" class="nch-tab ${tab.id === view.channel ? 'active' : ''}" data-action="channel-tab" data-channel="${tab.id}">${tab.icon} ${esc(L(tab.label[0], tab.label[1]))}${tab.id === view.channel && tab.id !== 'ops' ? `<i class="${view.status?.connected ? 'ok' : ''}"></i>` : ''}</button>`).join('')}</div>`;
-        if (isOps()) {
-            content.innerHTML = `<div class="nch">${tabs}<div data-role="ops-root" style="display:flex;flex-direction:column;gap:14px"></div></div>`;
-            window.ToolsChannelOps.render(content.querySelector('[data-role="ops-root"]'));
+        const tabs = `<div class="nch-tabs">${CHANNEL_TABS.map(tab => `<button type="button" class="nch-tab ${tab.id === view.channel ? 'active' : ''}" data-action="channel-tab" data-channel="${tab.id}">${tab.icon} ${esc(L(tab.label[0], tab.label[1]))}${tab.id === view.channel && !PANELS[tab.id] ? `<i class="${view.status?.connected ? 'ok' : ''}"></i>` : ''}</button>`).join('')}</div>`;
+        if (isPanel()) {
+            content.innerHTML = `<div class="nch">${tabs}<div data-role="panel-root" style="display:flex;flex-direction:column;gap:14px"></div></div>`;
+            window[PANELS[view.channel].global].render(content.querySelector('[data-role="panel-root"]'));
             return;
         }
         content.innerHTML = `

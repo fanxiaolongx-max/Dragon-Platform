@@ -20,7 +20,8 @@ const PAGE_FILES = {
     '/requirements': 'pages/requirements.html',
     '/praudit': 'pages/praudit.html',
     '/storage': 'pages/storage.html',
-    '/db-explorer': 'pages/db-explorer.html'
+    '/db-explorer': 'pages/db-explorer.html',
+    '/netcare-explorer': 'pages/netcare-explorer.html'
 };
 
 const CACHE_TTL_MS = 10 * 60 * 1000;

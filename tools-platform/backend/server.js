@@ -479,6 +479,7 @@ app.use('/api/desktop-pet', require('./routes/desktop-pet'));
 app.use('/api/ai-settings', aiSettingsRoutes); // Dragon Claw 智能体模型配置 API
 app.use('/api/agent-workspace', require('./routes/agent-workspace')); // Dragon Claw 工作区：本地目录联想、审批、变更撤销
 app.use('/api/channels', require('./routes/channels')); // 频道对接（WeLink / 微信助理）：配置、连通性、名单、主动推送
+app.use('/api/digital-human', requireAdmin, require('./routes/digital-human')); // 数字人基座对接：NetCare 业务库只读查询、应用库读写、表目录（第一期仅管理员）
 app.use('/api/dragon-tac', require('./routes/dragon-tac'));
 app.use('/api/desktop-agents', require('./routes/desktop-agents'));
 app.use('/api/global-backup', globalBackupRoutes); // 当前租户核心数据备份与恢复 API（保留历史路由名）
@@ -549,6 +550,9 @@ app.get('/storage', (req, res) => {
 });
 app.get('/db-explorer', (req, res) => {
     sendFrontendHtml(res, 'pages/db-explorer.html');
+});
+app.get('/netcare-explorer', (req, res) => {
+    sendFrontendHtml(res, 'pages/netcare-explorer.html');
 });
 app.get('/privacy', (req, res) => {
     sendFrontendHtml(res, 'pages/privacy.html');
