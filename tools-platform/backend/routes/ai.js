@@ -950,8 +950,9 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 signal: providerAbortController?.signal,
                 maxOutputTokens: aiSettings.maxOutputTokens,
                 temperature: aiSettings.temperature,
-                // 每条 welink-cli 命令显示为对话里的工具行（随会话记录入库）
+                // 每条 welink-cli 命令显示为对话里的工具行（随会话记录入库）；写操作的审批卡也走这条流，非流式请求不能审批
                 onEvent: event => writeStreamEvent(event),
+                canApprove: Boolean(streamRequested),
                 onDelta: streamRequested ? delta => {
                     streamHasDelta = true;
                     writeStreamEvent({ type: 'delta', delta });

@@ -15,7 +15,7 @@ const LOGIN_TIMEOUT_MS = 5 * 60000;
 const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
 const INSTALL_HINT = `未检测到 welink-cli。请先安装：npm install -g ${PACKAGE_NAME} --registry=https://cmc.centralrepo.rnd.huawei.com/artifactory/api/npm/product_npm/ --strict-ssl=false，然后点击「重新检测」；也可以在「CLI 路径」里填写安装目录。`;
 const ANSI_RE = /\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b\][^\u0007]*\u0007/g;
-const DEFAULT_CONFIG = { enabled: false, cliPath: '', env: '', email: '', verbose: false, updatedAt: null };
+const DEFAULT_CONFIG = { enabled: false, allowWrite: false, cliPath: '', env: '', email: '', verbose: false, downloadDir: '', updatedAt: null };
 // 调用日志：最近若干条留在内存供设置页查看，同时追加写入本机日志文件（超过上限轮转一份）
 const LOG_FILE = path.join(BASE_DATA_DIR, 'logs', 'welink-cli.log');
 const LOG_MAX_BYTES = 2 * 1024 * 1024;
@@ -52,6 +52,8 @@ function saveConfig(patch = {}) {
         env: patch.env === undefined ? current.env : (patch.env === 'pro' ? 'pro' : ''),
         email: patch.email === undefined ? current.email : String(patch.email || '').trim().slice(0, 200),
         verbose: patch.verbose === undefined ? Boolean(current.verbose) : Boolean(patch.verbose),
+        allowWrite: patch.allowWrite === undefined ? Boolean(current.allowWrite) : Boolean(patch.allowWrite),
+        downloadDir: patch.downloadDir === undefined ? String(current.downloadDir || '') : String(patch.downloadDir || '').trim().slice(0, 500),
         updatedAt: new Date().toISOString()
     };
     const file = overrides.configFile || CONFIG_FILE;
@@ -59,6 +61,14 @@ function saveConfig(patch = {}) {
     fs.writeFileSync(file, JSON.stringify(next, null, 2), { mode: 0o600 });
     if (next.cliPath !== current.cliPath) cachedInstall = null;
     return next;
+}
+
+/** 下载（云空间文件、外链、邮件附件）统一落到这个目录；未配置时用 ~/Downloads/WeLink。 */
+function downloadDir() {
+    const configured = readConfig().downloadDir;
+    const dir = configured && path.isAbsolute(configured) ? configured : path.join(os.homedir(), 'Downloads', 'WeLink');
+    fs.mkdirSync(dir, { recursive: true });
+    return dir;
 }
 
 /** 本人身份的能力只开放给默认租户（桌面版 / 机器主人）。 */
@@ -505,7 +515,7 @@ function setOverridesForTest(next = {}) {
 
 module.exports = {
     PACKAGE_NAME, COMMAND_TIMEOUT_MS,
-    readConfig, saveConfig, tenantAllowed, assertTenant,
+    readConfig, saveConfig, downloadDir, tenantAllowed, assertTenant,
     detect, reset, run, version, authStatus, logout, autodiscover, login, logs, clearLogs,
     parseOutput, interpretAuthStatus, classifyLoginLine, entryFromCmdShim, entryFromCustomPath,
     setOverridesForTest

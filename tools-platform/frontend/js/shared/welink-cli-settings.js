@@ -24,6 +24,7 @@
         login: null, // { phase, qrUrl, qrText, elapsed, log: [], error }
         loginController: null,
         draftPath: null,
+        draftDownload: null,
         draftEmail: null,
         logs: null, // { items, running, file }
         logsOpen: false,
@@ -98,6 +99,7 @@
         state.config = data.config;
         state.install = data.install;
         state.draftPath = null;
+        state.draftDownload = null;
     }
 
     async function startLogin() {
@@ -260,22 +262,24 @@
         const emailValue = state.draftEmail ?? config.email ?? '';
         el.innerHTML = `
             <h4>🪪 ${esc(L('个人身份（welink-cli）', 'Personal identity (welink-cli)'))}</h4>
-            <p class="nch-desc">${esc(L('上面的助理以「机器人」身份收发消息；这里的 welink-cli 以你本人在本机 WeLink PC 上登录的身份工作，让 Dragon Claw 的 @welink-office 可以查询你的联系人、聊天记录、会议、云空间、邮件和日历（当前只读）。凭据保存在本机系统用户目录，仅默认租户的管理员可用。', 'The assistant above acts as a bot. welink-cli works as you (the account signed in to WeLink PC on this machine), letting Dragon Claw @welink-office query your contacts, chats, meetings, cloud drive, mail and calendar (read-only for now). Credentials stay in this machine’s user profile; default-tenant admins only.'))}</p>
+            <p class="nch-desc">${esc(L('上面的助理以「机器人」身份收发消息；这里的 welink-cli 以你本人在本机 WeLink PC 上登录的身份工作，让 Dragon Claw 的 @welink-office 可以查询你的联系人、聊天记录、会议、云空间、邮件和日历；开启写操作后还能发消息、建会、发邮件等（每次执行前都要你在对话里确认）。凭据保存在本机系统用户目录，仅默认租户的管理员可用。', 'The assistant above acts as a bot. welink-cli works as you (the account signed in to WeLink PC on this machine), letting Dragon Claw @welink-office query your contacts, chats, meetings, cloud drive, mail and calendar; with write actions on it can also send messages, create meetings, send mail and more (you confirm each one in the chat). Credentials stay in this machine’s user profile; default-tenant admins only.'))}</p>
             <div class="nch-status" style="margin-bottom:10px">
                 ${authPill()}
                 ${install.available ? `<span class="nch-muted">welink-cli ${esc(install.version || '')} · ${esc(install.entry || '')}</span>` : `<span class="nch-muted">${esc(install.hint || '')}</span>`}
             </div>
             ${state.auth?.text || state.auth?.error ? `<details style="margin-bottom:10px"><summary class="nch-muted">${esc(L('auth status 原始输出', 'auth status output'))}</summary><pre style="white-space:pre-wrap;font-size:12px;margin:6px 0">${esc(state.auth.error || state.auth.text)}</pre></details>` : ''}
             <label class="nch-switch" style="margin-bottom:8px"><input type="checkbox" data-cli-field="enabled" ${config.enabled ? 'checked' : ''} ${busy ? 'disabled' : ''}> ${esc(L('允许 Dragon Claw 通过 @welink-office 以我的身份查询 WeLink（查询结果会发送给当前 AI 模型）', 'Allow Dragon Claw @welink-office to query WeLink as me (results are sent to the current AI model)'))}</label>
+            <label class="nch-switch" style="margin-bottom:8px"><input type="checkbox" data-cli-field="allowWrite" ${config.allowWrite ? 'checked' : ''} ${busy || !config.enabled ? 'disabled' : ''}> ${esc(L('允许写操作：发消息、建群、撤回、建会/改会、云空间增删改、发/回/转邮件、建日程等（每一条都会在对话里弹出审批卡，点「允许」才执行）', 'Allow write actions: send messages, create groups, recall, create/update meetings, change cloud drive files, send/reply/forward mail, create events (each one shows an approval card in the chat and runs only after you allow it)'))}</label>
             <label class="nch-switch" style="margin-bottom:12px"><input type="checkbox" data-cli-field="verbose" ${config.verbose ? 'checked' : ''} ${busy ? 'disabled' : ''}> ${esc(L('详细模式：对话里每条 welink-cli 命令都可展开查看完整命令行和原始输出（输出会随聊天记录保存）', 'Verbose: each welink-cli command in the chat can be expanded to show the command line and raw output (saved with the chat history)'))}</label>
             <div class="nch-grid">
                 <label class="nch-field"><span>${esc(L('登录环境', 'Environment'))}</span><select data-cli-field="env" ${busy ? 'disabled' : ''}><option value="" ${config.env !== 'pro' ? 'selected' : ''}>${esc(L('默认', 'Default'))}</option><option value="pro" ${config.env === 'pro' ? 'selected' : ''}>${esc(L('生产 pro', 'Production (pro)'))}</option></select></label>
+                <label class="nch-field" style="grid-column:1/-1"><span>${esc(L('下载目录（可选）', 'Download folder (optional)'))}</span><input data-cli-field="downloadDir" value="${esc(state.draftDownload ?? config.downloadDir ?? '')}" maxlength="500" placeholder="${esc(L('留空为 用户目录/Downloads/WeLink；云空间文件、外链和邮件附件都下载到这里', 'Blank = <home>/Downloads/WeLink; cloud files, share links and mail attachments are saved here'))}"></label>
                 <label class="nch-field" style="grid-column:1/-1"><span>${esc(L('CLI 路径（可选）', 'CLI path (optional)'))}</span><input data-cli-field="cliPath" value="${esc(pathValue)}" maxlength="500" placeholder="${esc(L('留空自动查找 npm 全局目录；也可填 welink-cli.cmd 或安装目录', 'Blank = npm global; or welink-cli.cmd / install folder'))}"></label>
             </div>
             <div class="nch-row">
                 <button type="button" class="nch-btn primary" data-cli-action="login" ${!install.available || loginRunning || busy ? 'disabled' : ''}>📱 ${esc(loginRunning ? L('等待扫码…', 'Waiting for scan…') : L('扫码登录', 'Sign in with QR'))}</button>
                 <button type="button" class="nch-btn" data-cli-action="recheck" ${busy || loginRunning ? 'disabled' : ''}>${esc(busy === 'recheck' ? L('检测中…', 'Checking…') : L('重新检测', 'Re-detect'))}</button>
-                <button type="button" class="nch-btn" data-cli-action="save-path" ${busy || loginRunning ? 'disabled' : ''}>${esc(L('保存路径', 'Save path'))}</button>
+                <button type="button" class="nch-btn" data-cli-action="save-path" ${busy || loginRunning ? 'disabled' : ''}>${esc(L('保存路径', 'Save paths'))}</button>
                 ${install.available && state.auth?.loggedIn !== false ? `<button type="button" class="nch-btn danger" data-cli-action="logout" ${busy || loginRunning ? 'disabled' : ''}>${esc(L('注销', 'Sign out'))}</button>` : ''}
             </div>
             ${renderLogin()}
@@ -306,7 +310,7 @@
         } else if (action === 'login') startLogin();
         else if (action === 'login-cancel') cancelLogin();
         else if (action === 'recheck') runAction('recheck', async () => { await load({ refresh: true }); });
-        else if (action === 'save-path') runAction('save-path', async () => { await saveConfig({ cliPath: state.draftPath ?? state.config?.cliPath ?? '' }); if (state.install?.available) loadAuth(); });
+        else if (action === 'save-path') runAction('save-path', async () => { await saveConfig({ cliPath: state.draftPath ?? state.config?.cliPath ?? '', downloadDir: state.draftDownload ?? state.config?.downloadDir ?? '' }); if (state.install?.available) loadAuth(); });
         else if (action === 'logout') {
             const confirmed = window.AppDialog
                 ? window.AppDialog.confirm(L('注销后会清除本机 welink-cli 的全部凭据，需要重新扫码登录。', 'This clears all welink-cli credentials on this machine.'), { title: L('注销 welink-cli', 'Sign out'), tone: 'danger', confirmText: L('注销', 'Sign out'), cancelText: L('取消', 'Cancel') })
@@ -334,10 +338,12 @@
         // 输入框打字时不重绘，避免丢焦点；点「保存路径」/邮箱按钮时再提交
         if (field === 'cliPath') { state.draftPath = event.target.value; return; }
         if (field === 'email') { state.draftEmail = event.target.value; return; }
+        if (field === 'downloadDir') { state.draftDownload = event.target.value; return; }
         if (event.type !== 'change') return;
         if (field === 'enabled') runAction('enabled', () => saveConfig({ enabled: event.target.checked }));
         if (field === 'env') runAction('env', () => saveConfig({ env: event.target.value }));
         if (field === 'verbose') runAction('verbose', () => saveConfig({ verbose: event.target.checked }));
+        if (field === 'allowWrite') runAction('allowWrite', () => saveConfig({ allowWrite: event.target.checked }));
     }
 
     function bind(el) {

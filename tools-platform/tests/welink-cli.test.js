@@ -197,6 +197,115 @@ test('runTurn streams tool rows, adds raw output in verbose mode, and nudges a p
     runner.saveConfig({ verbose: false });
 });
 
+test('write commands only build in write mode, with validated recipients, files, meeting times and long bodies', () => {
+    const now = Date.UTC(2026, 9, 27, 8, 0, 0);
+    const attachment = path.join(sandbox, 'report.pdf');
+    fs.writeFileSync(attachment, 'pdf');
+    assert.throws(() => agent.buildArgs({ command: 'im send-to-user', options: { receiver: 'a', text: 'hi' } }), /welink_action/);
+    assert.throws(() => agent.buildArgs({ command: 'search person', options: { text: 'x' } }, { mode: 'write' }), /welink_query/);
+    assert.deepEqual(agent.buildArgs({ command: 'im send-to-user', options: { receiver: 'a00123456', text: '你好' } }, { mode: 'write' }).args,
+        ['im', 'send-to-user', '--receiver', 'a00123456', '--text', '你好']);
+    assert.throws(() => agent.buildArgs({ command: 'im send-to-user', options: { receiver: 'a00123456' } }, { mode: 'write' }), /至少提供/);
+    assert.deepEqual(agent.buildArgs({ command: 'im create-group', options: { name: '测试群', 'user-account': ['a1', 'b2'], notice: '公告', type: 0 } }, { mode: 'write' }).args,
+        ['im', 'create-group', '--name', '测试群', '--user-account', 'a1', 'b2', '--notice', '公告', '--type', '0']);
+
+    const start = now + 3600000;
+    const meeting = agent.buildArgs({ command: 'meeting create', options: { subject: '测试会议', 'start-time': start, 'end-time': start + 1800000, 'meeting-user-list': 'a1,b2' } }, { mode: 'write', now });
+    assert.deepEqual(meeting.args, ['meeting', 'create', '--subject', '测试会议', '--start-time', String(start), '--end-time', String(start + 1800000), '--meeting-user-list', 'a1', 'b2']);
+    assert.equal(meeting.fields.find(field => field.name === 'meeting-user-list').value, 'a1、b2');
+    for (const [s0, e0, re] of [[now - 60000, now + 3600000, /过去/], [start, start + 600000, /15 分钟/], [now + 40 * 86400000, now + 40 * 86400000 + 3600000, /31 天/]]) {
+        assert.throws(() => agent.buildArgs({ command: 'meeting create', options: { subject: 'x', 'start-time': s0, 'end-time': e0, 'meeting-user-list': ['a1'] } }, { mode: 'write', now }), re);
+    }
+
+    const mail = agent.buildArgs({ command: 'mail send', options: { to: ['a@huawei.com', 'b@huawei.com'], cc: 'c@huawei.com', subject: '周报', body: '第一行\n- 第二行', attachment: [attachment] } }, { mode: 'write' });
+    assert.deepEqual(mail.args, ['mail', 'send', '--to', 'a@huawei.com,b@huawei.com', '--cc', 'c@huawei.com', '--subject', '周报', '--body-path', '<正文临时文件>', '--attachment', attachment]);
+    assert.equal(mail.bodyFile, '第一行\n- 第二行');
+    assert.throws(() => agent.buildArgs({ command: 'mail send', options: { to: 'not-an-email', subject: 'x', body: 'y' } }, { mode: 'write' }), /不是有效邮箱/);
+    assert.throws(() => agent.buildArgs({ command: 'mail send', options: { to: 'a@huawei.com', subject: 'x', body: 'y', attachment: 'relative.pdf' } }, { mode: 'write' }), /完整路径/);
+    assert.throws(() => agent.buildArgs({ command: 'mail send', options: { to: 'a@huawei.com', subject: 'x', body: 'y', attachment: path.join(sandbox, 'missing.pdf') } }, { mode: 'write' }), /不存在/);
+
+    assert.deepEqual(agent.buildArgs({ command: 'onebox file-upload', options: { 'space-id': '9', parent: '0' }, file: attachment }, { mode: 'write' }).args,
+        ['onebox', 'file-upload', '--space-id', '9', '--parent', '0', attachment]);
+    assert.deepEqual(agent.buildArgs({ command: 'calendar create', options: { subject: '评审', start: '2026-10-28T14:00', end: '2026-10-28T15:00', attendee: ['a@huawei.com'] }, timezone: 'Egypt Standard Time' }, { mode: 'write' }).args,
+        ['calendar', '--timezone', 'Egypt Standard Time', 'create', '--subject', '评审', '--start', '2026-10-28T14:00:00', '--end', '2026-10-28T15:00:00', '--attendee', 'a@huawei.com']);
+
+    // 下载：输出目录由平台指定，模型传的 output 会被拒绝
+    runner.saveConfig({ downloadDir: path.join(sandbox, 'downloads') });
+    assert.deepEqual(agent.buildArgs({ command: 'onebox file-download', options: { 'space-id': '9', 'file-id': '7' } }).args,
+        ['onebox', 'file-download', '--space-id', '9', '--file-id', '7', '--output', `${path.join(sandbox, 'downloads')}${path.sep}`]);
+    assert.throws(() => agent.buildArgs({ command: 'onebox file-download', options: { 'space-id': '9', 'file-id': '7', output: '/etc' } }), /不支持参数 output/);
+    assert.equal(fs.existsSync(path.join(sandbox, 'downloads')), true);
+});
+
+test('welink_action waits for the approval card: allow runs the CLI, deny and other owners do not', async () => {
+    runner.saveConfig({ cliPath: packageDir, enabled: true, allowWrite: false, verbose: false });
+    const send = { command: 'im send-to-user', options: { receiver: 'a00123456', text: '测试' } };
+    await inDefault(async () => {
+        const blocked = await agent.execute({ canApprove: true, onEvent: () => {} }, 'welink_action', send);
+        assert.match(blocked.content, /允许写操作/);
+        runner.saveConfig({ allowWrite: true });
+        assert.match((await agent.execute({}, 'welink_action', send)).content, /审批/);
+
+        runner.clearLogs();
+        const decideWith = (decision, actor = 'admin') => event => {
+            if (event.type !== 'approval') return;
+            assert.equal(event.tool, 'welink_action');
+            assert.equal(event.noAlways, true);
+            assert.ok(event.approvalUrl.endsWith(event.id));
+            assert.deepEqual(event.preview.fields.map(field => field.label), ['接收人', '内容']);
+            if (actor !== 'admin') assert.throws(() => agent.decide(event.id, 'allow', actor), /发起这条对话/);
+            setImmediate(() => agent.decide(event.id, decision, 'admin'));
+        };
+        const denied = await agent.execute({ actor: 'admin', canApprove: true, callId: 'c1', onEvent: decideWith('deny', 'someone-else') }, 'welink_action', send);
+        assert.equal(denied.declined, true);
+        assert.match(denied.content, /拒绝/);
+        assert.equal(runner.logs().items.length, 0, 'a denied action never reaches the CLI');
+
+        const allowed = await agent.execute({ actor: 'admin', canApprove: true, callId: 'c2', onEvent: decideWith('allow') }, 'welink_action', send);
+        assert.equal(allowed.isError, undefined);
+        assert.deepEqual(JSON.parse(allowed.content).argv, ['im', 'send-to-user', '--receiver', 'a00123456', '--text', '测试']);
+        assert.equal(allowed.summary, '发消息给个人成功');
+
+        // 多行邮件正文走 --body-path 临时文件，执行完删除
+        const mail = await agent.execute({ actor: 'admin', canApprove: true, callId: 'c3', onEvent: event => { if (event.type === 'approval') setImmediate(() => agent.decide(event.id, 'allow', 'admin')); } },
+            'welink_action', { command: 'mail send', options: { to: 'a@huawei.com', subject: '周报', body: '第一行\n第二行' } });
+        const argv = JSON.parse(mail.content).argv;
+        const bodyPath = argv[argv.indexOf('--body-path') + 1];
+        assert.match(bodyPath, /welink-body-/);
+        assert.equal(fs.existsSync(bodyPath), false);
+
+        const controller = new AbortController();
+        const aborted = agent.execute({ actor: 'admin', canApprove: true, callId: 'c4', signal: controller.signal, onEvent: event => { if (event.type === 'approval') setImmediate(() => controller.abort()); } }, 'welink_action', send);
+        assert.match((await aborted).content, /已停止/);
+        assert.throws(() => agent.decide('nope', 'allow', 'admin'), /已结束/);
+    });
+    runner.saveConfig({ allowWrite: false });
+});
+
+test('runTurn shows the approval card before the tool row and only offers welink_action when writes are allowed', async () => {
+    runner.saveConfig({ cliPath: packageDir, enabled: true, allowWrite: true });
+    const offered = [];
+    const replies = [
+        { text: '', toolCalls: [{ id: 'w1', name: 'welink_action', args: { command: 'contact add_favorite', accounts: ['id1'] } }] },
+        { text: '已添加。' }
+    ];
+    const client = { generateText: async ({ tools }) => { offered.push(tools.map(tool => tool.name)); return replies.shift(); } };
+    const events = [];
+    await inDefault(() => agent.runTurn({
+        client, systemInstruction: '', messages: [{ role: 'user', content: '关注 id1' }], ctx: { actor: 'admin' }, canApprove: true,
+        onEvent: event => { events.push(event.type); if (event.type === 'approval') setImmediate(() => agent.decide(event.id, 'allow', 'admin')); }
+    }));
+    assert.deepEqual(offered[0], ['welink_query', 'welink_action']);
+    assert.deepEqual(events, ['approval', 'approval_result', 'tool_start', 'tool_result']);
+
+    const readOnly = [{ text: '好的' }];
+    let tools = null;
+    await inDefault(() => agent.runTurn({ client: { generateText: async options => { tools = options.tools.map(tool => tool.name); return readOnly.shift(); } }, systemInstruction: '', messages: [{ role: 'user', content: 'x' }], canApprove: false }));
+    assert.deepEqual(tools, ['welink_query'], 'non-streaming turns cannot show approval cards');
+    runner.saveConfig({ allowWrite: false });
+    assert.match(await inDefault(() => agent.buildPrompt()), /允许写操作/);
+});
+
 test('welink-office skill is listed as a non-workspace builtin skill', () => {
     const skills = require('../backend/models/agent-skills');
     const skill = skills.list().find(item => item.id === agent.SKILL_ID);

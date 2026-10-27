@@ -9,6 +9,7 @@ const weixinConfigRepo = require('../models/channels/weixin-config-repository');
 const targetsRepo = require('../models/channels/channel-targets-repository');
 const sdkLoader = require('../models/channels/welink-sdk-loader');
 const welinkCli = require('../models/channels/welink-cli-runner');
+const welinkCliAgent = require('../models/channels/welink-cli-agent');
 const welink = require('../models/channels/welink-bridge-service');
 const weixin = require('../models/channels/weixin-bridge-service');
 const followupsRepo = require('../models/channels/channel-followups-repository');
@@ -130,7 +131,7 @@ router.get('/welink-cli/status', welinkCliAdmin, handle(async (req, res) => {
 
 router.put('/welink-cli/config', welinkCliAdmin, handle(async (req, res) => {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const config = welinkCli.saveConfig({ enabled: body.enabled, cliPath: body.cliPath, env: body.env, verbose: body.verbose });
+    const config = welinkCli.saveConfig({ enabled: body.enabled, allowWrite: body.allowWrite, cliPath: body.cliPath, env: body.env, verbose: body.verbose, downloadDir: body.downloadDir });
     res.json({ config, install: await welinkCli.detect({ refresh: true }) });
 }));
 
@@ -143,6 +144,11 @@ router.get('/welink-cli/logs', welinkCliAdmin, handle(async (req, res) => {
 router.delete('/welink-cli/logs', welinkCliAdmin, handle(async (_req, res) => {
     welinkCli.clearLogs();
     res.json({ ok: true });
+}));
+
+// 写操作审批：对话里的审批卡点「允许 / 拒绝」后回到这里，唤醒正在等待的那一轮对话
+router.post('/welink-cli/approvals/:id', welinkCliAdmin, handle(async (req, res) => {
+    res.json(welinkCliAgent.decide(req.params.id, String(req.body?.decision || ''), req.user?.username || ''));
 }));
 
 router.post('/welink-cli/autodiscover', welinkCliAdmin, handle(async (req, res) => {

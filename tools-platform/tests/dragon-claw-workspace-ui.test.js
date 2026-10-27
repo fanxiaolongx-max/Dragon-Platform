@@ -173,7 +173,8 @@ test('read-only accounts, binary changes and the sidebar search box render prope
 test('risky commands show their reasons without "always allow", and undo conflicts ask first', () => {
     const panel = read('frontend/js/home/workspace-panel.js');
     assert.match(panel, /if \(risk\) detail \+= `<div class="dc-approval-risk">/);
-    assert.match(panel, /\$\{risk \? '' : `<button type="button" class="dc-action" data-decision="always">/);
+    // 风险命令与 WeLink 写操作（event.noAlways）都不提供「总是允许」
+    assert.match(panel, /\$\{risk \|\| event\.noAlways \? '' : `<button type="button" class="dc-action" data-decision="always">/);
     assert.match(panel, /error\.code === 'AGENT_CHANGE_CONFLICT' && !force/);
     assert.match(panel, /\{ path: filePath, root: target\.root, force \}/, 'undo works after a restart by passing the folder');
     assert.match(panel, /item\.source === 'command' \? `<em class="wsp-change-src"/);
