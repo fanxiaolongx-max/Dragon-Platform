@@ -130,8 +130,19 @@ router.get('/welink-cli/status', welinkCliAdmin, handle(async (req, res) => {
 
 router.put('/welink-cli/config', welinkCliAdmin, handle(async (req, res) => {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const config = welinkCli.saveConfig({ enabled: body.enabled, cliPath: body.cliPath, env: body.env });
+    const config = welinkCli.saveConfig({ enabled: body.enabled, cliPath: body.cliPath, env: body.env, verbose: body.verbose });
     res.json({ config, install: await welinkCli.detect({ refresh: true }) });
+}));
+
+// 调用日志：最近的命令、耗时、退出码与输出片段，以及正在执行（排队中）的命令
+router.get('/welink-cli/logs', welinkCliAdmin, handle(async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(welinkCli.logs({ limit: req.query.limit }));
+}));
+
+router.delete('/welink-cli/logs', welinkCliAdmin, handle(async (_req, res) => {
+    welinkCli.clearLogs();
+    res.json({ ok: true });
 }));
 
 router.post('/welink-cli/autodiscover', welinkCliAdmin, handle(async (req, res) => {

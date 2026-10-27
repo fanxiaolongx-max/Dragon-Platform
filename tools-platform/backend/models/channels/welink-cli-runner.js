@@ -15,10 +15,19 @@ const LOGIN_TIMEOUT_MS = 5 * 60000;
 const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
 const INSTALL_HINT = `未检测到 welink-cli。请先安装：npm install -g ${PACKAGE_NAME} --registry=https://cmc.centralrepo.rnd.huawei.com/artifactory/api/npm/product_npm/ --strict-ssl=false，然后点击「重新检测」；也可以在「CLI 路径」里填写安装目录。`;
 const ANSI_RE = /\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b\][^\u0007]*\u0007/g;
-const DEFAULT_CONFIG = { enabled: false, cliPath: '', env: '', email: '', updatedAt: null };
+const DEFAULT_CONFIG = { enabled: false, cliPath: '', env: '', email: '', verbose: false, updatedAt: null };
+// 调用日志：最近若干条留在内存供设置页查看，同时追加写入本机日志文件（超过上限轮转一份）
+const LOG_FILE = path.join(BASE_DATA_DIR, 'logs', 'welink-cli.log');
+const LOG_MAX_BYTES = 2 * 1024 * 1024;
+const LOG_KEEP = 200;
+const LOG_STDOUT_CHARS = 4000;
+const LOG_STDERR_CHARS = 2000;
 
 let cachedInstall = null;
 let queue = Promise.resolve();
+let logSeq = 0;
+let recentLogs = [];
+let running = null;
 // 测试注入：替换定位结果与 node 可执行文件
 let overrides = {};
 
@@ -42,6 +51,7 @@ function saveConfig(patch = {}) {
         cliPath: patch.cliPath === undefined ? current.cliPath : String(patch.cliPath || '').trim().slice(0, 500),
         env: patch.env === undefined ? current.env : (patch.env === 'pro' ? 'pro' : ''),
         email: patch.email === undefined ? current.email : String(patch.email || '').trim().slice(0, 200),
+        verbose: patch.verbose === undefined ? Boolean(current.verbose) : Boolean(patch.verbose),
         updatedAt: new Date().toISOString()
     };
     const file = overrides.configFile || CONFIG_FILE;
@@ -203,6 +213,41 @@ function parseOutput(stdout) {
     return { json: null, text };
 }
 
+// ── 调用日志 ─────────────────────────────────────────────
+function logFile() {
+    return overrides.logFile || LOG_FILE;
+}
+
+function appendLog(entry) {
+    recentLogs.push(entry);
+    if (recentLogs.length > LOG_KEEP) recentLogs = recentLogs.slice(-LOG_KEEP);
+    try {
+        const file = logFile();
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        try {
+            if (fs.statSync(file).size > LOG_MAX_BYTES) fs.renameSync(file, `${file}.1`);
+        } catch { /* 尚无日志文件 */ }
+        fs.appendFileSync(file, `${JSON.stringify(entry)}\n`, { mode: 0o600 });
+    } catch (error) {
+        console.warn('[welink-cli] 写调用日志失败:', error.message);
+    }
+}
+
+/** 最近的调用记录（新的在前）与正在执行的命令。 */
+function logs({ limit = 50 } = {}) {
+    const size = Math.max(1, Math.min(LOG_KEEP, Number(limit) || 50));
+    return {
+        items: recentLogs.slice(-size).reverse(),
+        running: running ? { ...running, elapsedMs: Date.now() - running.startedAt } : null,
+        file: logFile()
+    };
+}
+
+function clearLogs() {
+    recentLogs = [];
+    try { fs.rmSync(logFile(), { force: true }); } catch { /* 忽略 */ }
+}
+
 function enqueue(task) {
     const run = queue.then(task, task);
     queue = run.catch(() => {});
@@ -214,7 +259,25 @@ function killChild(child) {
     try { child.kill(); } catch { /* 已退出 */ }
 }
 
-async function spawnCli(args, { timeoutMs = COMMAND_TIMEOUT_MS, signal, onLine } = {}) {
+async function spawnCli(args, options = {}) {
+    const startedAt = Date.now();
+    const command = ['welink-cli', ...args].map(arg => (/[\s"]/.test(arg) ? JSON.stringify(arg) : arg)).join(' ');
+    const id = ++logSeq;
+    running = { id, command, startedAt, queuedMs: options.enqueuedAt ? startedAt - options.enqueuedAt : 0 };
+    const entry = { id, at: new Date(startedAt).toISOString(), command, queuedMs: running.queuedMs };
+    try {
+        const result = await spawnCliRaw(args, options);
+        appendLog({ ...entry, durationMs: Date.now() - startedAt, code: result.code, stdout: result.stdout.slice(0, LOG_STDOUT_CHARS), stdoutChars: result.stdout.length, stderr: result.stderr.slice(0, LOG_STDERR_CHARS) });
+        return result;
+    } catch (error) {
+        appendLog({ ...entry, durationMs: Date.now() - startedAt, code: null, error: `${error.code || 'ERROR'}: ${error.message}` });
+        throw error;
+    } finally {
+        if (running?.id === id) running = null;
+    }
+}
+
+async function spawnCliRaw(args, { timeoutMs = COMMAND_TIMEOUT_MS, signal, onLine } = {}) {
     const install = await detect();
     if (!install.available) throw cliError('WELINK_CLI_NOT_FOUND', install.hint, 404);
     const node = await resolveNode();
@@ -274,8 +337,9 @@ function failureMessage(result) {
 
 /** 执行一条命令（排队），返回 { ok, code, json, text, stderr }。 */
 function run(args, options = {}) {
+    const enqueuedAt = Date.now();
     return enqueue(async () => {
-        const result = await spawnCli(args, options);
+        const result = await spawnCli(args, { ...options, enqueuedAt });
         const parsed = parseOutput(result.stdout);
         // 有的 CLI 出错仍以 0 退出、只在 JSON 里写 success:false
         const jsonFailed = parsed.json && typeof parsed.json === 'object' && !Array.isArray(parsed.json) && parsed.json.success === false;
@@ -285,6 +349,7 @@ function run(args, options = {}) {
             json: parsed.json,
             text: parsed.text,
             stderr: result.stderr.trim(),
+            raw: result.stdout,
             error: result.code === 0 && !jsonFailed ? '' : (jsonFailed ? String(parsed.json.message || parsed.json.error || failureMessage(result)) : failureMessage(result))
         };
     });
@@ -296,22 +361,55 @@ async function version() {
     return match ? match[0] : '';
 }
 
-/** auth status 的输出格式未在文档里定义：给出原文，并尽量判断是否已登录（判断不了时 loggedIn 为 null）。 */
+/** 「  Key:   value」形式的行（auth status 的文本输出）读成 { key: value }，键统一小写。 */
+function readFields(text) {
+    const fields = {};
+    for (const line of String(text || '').split('\n')) {
+        const match = line.match(/^\s*([A-Za-z][\w ]*?)\s*:\s+(\S.*?)\s*$/);
+        if (match) fields[match[1].toLowerCase()] = match[2];
+    }
+    return fields;
+}
+
+/**
+ * 解析 auth status。1.0.16 的真实输出：
+ *   Configuration:
+ *     Environment:  pro
+ *   Credentials:
+ *     User Token:   valid (expires in 62m34s)
+ *     UID:          dwx1545337
+ * 「User Token」为 valid 即已登录；不是 valid 但有可用的 Refresh Token 时 CLI 会在调用时自动刷新，也算已登录。
+ * 其他格式退回关键字判断，判断不了时 loggedIn 为 null。
+ */
 function interpretAuthStatus(result) {
     const text = `${result.text}\n${result.stderr}`.trim();
     const json = result.json && typeof result.json === 'object' ? result.json : null;
+    const fields = readFields(text);
+    const isValid = value => /^valid\b/i.test(String(value || ''));
+    const userToken = fields['user token'];
+    const refreshToken = fields['refresh token'];
+    const expires = String(userToken || '').match(/expires\s+in\s+([^)]+)/i);
     let loggedIn = null;
     if (json) {
         for (const key of ['loggedIn', 'isLoggedIn', 'login', 'authenticated', 'isLogin']) {
             if (typeof json[key] === 'boolean') loggedIn = json[key];
         }
     }
+    if (loggedIn === null && userToken !== undefined) loggedIn = isValid(userToken) || isValid(refreshToken);
     if (loggedIn === null) {
         if (/not\s+logged\s*in|not\s+authenticated|no\s+(saved\s+)?credentials|未登录|未授权|please\s+(run\s+)?.*login/i.test(text)) loggedIn = false;
         else if (/logged\s*in|authenticated|已登录|已授权|token\s+valid/i.test(text)) loggedIn = true;
         else if (!result.ok) loggedIn = false;
     }
-    return { loggedIn, text: text.slice(0, 4000) };
+    return {
+        loggedIn,
+        uid: fields.uid || '',
+        environment: fields.environment || '',
+        token: userToken || '',
+        expiresIn: expires ? expires[1].trim() : '',
+        refreshing: loggedIn === true && userToken !== undefined && !isValid(userToken),
+        text: text.slice(0, 4000)
+    };
 }
 
 async function authStatus() {
@@ -362,11 +460,13 @@ function login({ env, onEvent = () => {}, signal } = {}) {
     const args = ['auth', 'login'];
     const chosen = env === undefined ? config.env : env;
     if (chosen === 'pro') args.push('--env', 'pro');
+    const enqueuedAt = Date.now();
     return enqueue(async () => {
         let succeeded = false;
         let qrLines = null;
         const result = await spawnCli(args, {
             timeoutMs: LOGIN_TIMEOUT_MS,
+            enqueuedAt,
             signal,
             onLine: raw => {
                 const line = raw.replace(/\s+$/, '');
@@ -399,12 +499,14 @@ function setOverridesForTest(next = {}) {
     overrides = next;
     cachedInstall = null;
     queue = Promise.resolve();
+    recentLogs = [];
+    running = null;
 }
 
 module.exports = {
     PACKAGE_NAME, COMMAND_TIMEOUT_MS,
     readConfig, saveConfig, tenantAllowed, assertTenant,
-    detect, reset, run, version, authStatus, logout, autodiscover, login,
+    detect, reset, run, version, authStatus, logout, autodiscover, login, logs, clearLogs,
     parseOutput, interpretAuthStatus, classifyLoginLine, entryFromCmdShim, entryFromCustomPath,
     setOverridesForTest
 };

@@ -24,7 +24,12 @@
         login: null, // { phase, qrUrl, qrText, elapsed, log: [], error }
         loginController: null,
         draftPath: null,
-        draftEmail: null
+        draftEmail: null,
+        logs: null, // { items, running, file }
+        logsOpen: false,
+        logsError: '',
+        logExpanded: new Set(),
+        logTimer: 0
     };
 
     function headers(json) {
@@ -70,6 +75,7 @@
         }
         state.authLoading = false;
         render();
+        if (state.logsOpen) loadLogs();
     }
 
     async function runAction(name, task) {
@@ -138,6 +144,64 @@
         else if (event.type === 'log' && event.text) login.log = [...login.log, event.text].slice(-8);
     }
 
+    // ── 调用日志 ─────────────────────────────────────────
+    async function loadLogs() {
+        clearTimeout(state.logTimer);
+        try {
+            state.logs = await request('GET', '/logs?limit=50');
+            state.logsError = '';
+        } catch (error) {
+            state.logsError = error.message;
+        }
+        renderLogs();
+        // 有命令在执行（或排队）时每 2 秒刷新，能看到卡在哪一条、已经跑了多久
+        if (state.logsOpen && state.logs?.running && state.el && document.body.contains(state.el)) state.logTimer = setTimeout(loadLogs, 2000);
+    }
+
+    function formatDuration(ms) {
+        const value = Number(ms) || 0;
+        return value >= 1000 ? `${(value / 1000).toFixed(1)}s` : `${value}ms`;
+    }
+
+    function renderLogs() {
+        const box = state.el?.querySelector('[data-role="cli-logs"]');
+        if (!box) return;
+        const logs = state.logs;
+        const items = logs?.items || [];
+        const head = `<div class="nch-row" style="justify-content:space-between;cursor:pointer" data-cli-action="logs-toggle">
+                <b>${state.logsOpen ? '▾' : '▸'} ${esc(L('调用日志', 'Call log'))}</b>
+                <span class="nch-muted">${esc(L('每条 welink-cli 命令的耗时、退出码和输出片段；也写入本机日志文件', 'Duration, exit code and output of each welink-cli command; also written to a local log file'))}</span>
+            </div>`;
+        if (!state.logsOpen) { box.innerHTML = head; return; }
+        const running = logs?.running
+            ? `<div class="nch-pill warn" style="margin:8px 0"><i></i>${esc(L(`正在执行：${logs.running.command} · 已 ${Math.round(logs.running.elapsedMs / 1000)} 秒`, `Running: ${logs.running.command} · ${Math.round(logs.running.elapsedMs / 1000)}s`))}</div>`
+            : '';
+        const rows = items.map(item => {
+            const ok = item.code === 0;
+            const status = item.error ? item.error : (ok ? L('退出码 0', 'exit 0') : L(`退出码 ${item.code}`, `exit ${item.code}`));
+            const open = state.logExpanded.has(item.id);
+            const output = [item.stdout ? item.stdout : '', item.stderr ? `--- stderr ---\n${item.stderr}` : '', item.stdoutChars > (item.stdout || '').length ? L(`…（共 ${item.stdoutChars} 字符，日志只保留前 ${item.stdout.length} 字符）`, `…(${item.stdoutChars} chars, first ${item.stdout.length} kept)`) : ''].filter(Boolean).join('\n');
+            return `<div style="border-top:1px solid rgba(127,127,127,.18);padding:6px 0">
+                <div class="nch-row" style="gap:8px;cursor:pointer;flex-wrap:nowrap" data-cli-action="log-expand" data-log-id="${esc(item.id)}">
+                    <span style="color:${ok ? '#16a34a' : '#dc2626'}">${ok ? '✓' : '✗'}</span>
+                    <span class="nch-muted" style="white-space:nowrap">${esc(new Date(item.at).toLocaleTimeString())}</span>
+                    <code style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px">${esc(item.command)}</code>
+                    <span class="nch-muted" style="white-space:nowrap">${esc(formatDuration(item.durationMs))}${item.queuedMs > 1000 ? esc(L(` · 排队 ${formatDuration(item.queuedMs)}`, ` · queued ${formatDuration(item.queuedMs)}`)) : ''}</span>
+                </div>
+                ${open ? `<div class="nch-muted" style="margin:4px 0">${esc(status)}</div><pre style="white-space:pre-wrap;word-break:break-all;font-size:12px;max-height:320px;overflow:auto;margin:4px 0;padding:8px;border-radius:6px;background:rgba(127,127,127,.08)">${esc(output || L('（无输出）', '(no output)'))}</pre>` : ''}
+            </div>`;
+        }).join('');
+        box.innerHTML = `${head}
+            <div class="nch-row" style="margin:8px 0">
+                <button type="button" class="nch-btn" data-cli-action="logs-refresh">${esc(L('刷新', 'Refresh'))}</button>
+                <button type="button" class="nch-btn" data-cli-action="logs-clear" ${items.length ? '' : 'disabled'}>${esc(L('清空', 'Clear'))}</button>
+                ${logs?.file ? `<span class="nch-muted" style="word-break:break-all">${esc(L('日志文件：', 'Log file: '))}${esc(logs.file)}</span>` : ''}
+            </div>
+            ${state.logsError ? `<p class="nch-desc" style="color:#b91c1c">${esc(state.logsError)}</p>` : ''}
+            ${running}
+            ${items.length ? rows : `<p class="nch-muted">${esc(logs ? L('还没有调用记录（服务重启后内存中的记录会清空，日志文件保留）。', 'No calls yet (in-memory list resets on restart; the log file is kept).') : L('加载中…', 'Loading…'))}</p>`}`;
+    }
+
     function cancelLogin() {
         state.loginController?.abort();
     }
@@ -147,7 +211,12 @@
         if (!state.install?.available) return `<span class="nch-pill bad"><i></i>${esc(L('未安装', 'Not installed'))}</span>`;
         if (state.authLoading) return `<span class="nch-pill warn"><i></i>${esc(L('检查登录中…', 'Checking…'))}</span>`;
         const loggedIn = state.auth?.loggedIn;
-        if (loggedIn === true) return `<span class="nch-pill ok"><i></i>${esc(L('已登录', 'Signed in'))}</span>`;
+        if (loggedIn === true) {
+            const auth = state.auth;
+            const detail = [auth.uid, auth.environment ? L(`环境 ${auth.environment}`, `env ${auth.environment}`) : '',
+                auth.refreshing ? L('令牌将在下次调用时自动刷新', 'token refreshes on next call') : (auth.expiresIn ? L(`令牌 ${auth.expiresIn} 后到期（会自动刷新）`, `token expires in ${auth.expiresIn} (auto-refresh)`) : '')].filter(Boolean).join(' · ');
+            return `<span class="nch-pill ok"><i></i>${esc(L('已登录', 'Signed in'))}${detail ? ` · ${esc(detail)}` : ''}</span>`;
+        }
         if (loggedIn === false) return `<span class="nch-pill bad"><i></i>${esc(L('未登录', 'Signed out'))}</span>`;
         return `<span class="nch-pill warn"><i></i>${esc(L('登录状态未知', 'Status unknown'))}</span>`;
     }
@@ -197,7 +266,8 @@
                 ${install.available ? `<span class="nch-muted">welink-cli ${esc(install.version || '')} · ${esc(install.entry || '')}</span>` : `<span class="nch-muted">${esc(install.hint || '')}</span>`}
             </div>
             ${state.auth?.text || state.auth?.error ? `<details style="margin-bottom:10px"><summary class="nch-muted">${esc(L('auth status 原始输出', 'auth status output'))}</summary><pre style="white-space:pre-wrap;font-size:12px;margin:6px 0">${esc(state.auth.error || state.auth.text)}</pre></details>` : ''}
-            <label class="nch-switch" style="margin-bottom:12px"><input type="checkbox" data-cli-field="enabled" ${config.enabled ? 'checked' : ''} ${busy ? 'disabled' : ''}> ${esc(L('允许 Dragon Claw 通过 @welink-office 以我的身份查询 WeLink（查询结果会发送给当前 AI 模型）', 'Allow Dragon Claw @welink-office to query WeLink as me (results are sent to the current AI model)'))}</label>
+            <label class="nch-switch" style="margin-bottom:8px"><input type="checkbox" data-cli-field="enabled" ${config.enabled ? 'checked' : ''} ${busy ? 'disabled' : ''}> ${esc(L('允许 Dragon Claw 通过 @welink-office 以我的身份查询 WeLink（查询结果会发送给当前 AI 模型）', 'Allow Dragon Claw @welink-office to query WeLink as me (results are sent to the current AI model)'))}</label>
+            <label class="nch-switch" style="margin-bottom:12px"><input type="checkbox" data-cli-field="verbose" ${config.verbose ? 'checked' : ''} ${busy ? 'disabled' : ''}> ${esc(L('详细模式：对话里每条 welink-cli 命令都可展开查看完整命令行和原始输出（输出会随聊天记录保存）', 'Verbose: each welink-cli command in the chat can be expanded to show the command line and raw output (saved with the chat history)'))}</label>
             <div class="nch-grid">
                 <label class="nch-field"><span>${esc(L('登录环境', 'Environment'))}</span><select data-cli-field="env" ${busy ? 'disabled' : ''}><option value="" ${config.env !== 'pro' ? 'selected' : ''}>${esc(L('默认', 'Default'))}</option><option value="pro" ${config.env === 'pro' ? 'selected' : ''}>${esc(L('生产 pro', 'Production (pro)'))}</option></select></label>
                 <label class="nch-field" style="grid-column:1/-1"><span>${esc(L('CLI 路径（可选）', 'CLI path (optional)'))}</span><input data-cli-field="cliPath" value="${esc(pathValue)}" maxlength="500" placeholder="${esc(L('留空自动查找 npm 全局目录；也可填 welink-cli.cmd 或安装目录', 'Blank = npm global; or welink-cli.cmd / install folder'))}"></label>
@@ -214,7 +284,9 @@
                 <button type="button" class="nch-btn" data-cli-action="autodiscover" ${!install.available || busy || loginRunning ? 'disabled' : ''}>${esc(busy === 'autodiscover' ? L('发现中…', 'Discovering…') : L('邮箱 autodiscover', 'Mail autodiscover'))}</button>
                 <span class="nch-muted">${esc(config.email ? L(`已为 ${config.email} 执行过`, `Done for ${config.email}`) : L('首次使用邮件/日历前执行一次', 'Run once before using mail/calendar'))}</span>
             </div>
-            ${state.notice ? `<p class="nch-desc" style="margin-top:10px;color:${state.notice.kind === 'bad' ? '#b91c1c' : '#166534'}">${esc(state.notice.text)}</p>` : ''}`;
+            ${state.notice ? `<p class="nch-desc" style="margin-top:10px;color:${state.notice.kind === 'bad' ? '#b91c1c' : '#166534'}">${esc(state.notice.text)}</p>` : ''}
+            <div data-role="cli-logs" style="margin-top:14px"></div>`;
+        renderLogs();
     }
 
     // ── 事件 ─────────────────────────────────────────────
@@ -222,7 +294,16 @@
         const button = event.target.closest('[data-cli-action]');
         if (!button || !state.el?.contains(button)) return;
         const action = button.dataset.cliAction;
-        if (action === 'login') startLogin();
+        if (action === 'logs-toggle') {
+            state.logsOpen = !state.logsOpen;
+            if (state.logsOpen) loadLogs(); else { clearTimeout(state.logTimer); renderLogs(); }
+        } else if (action === 'logs-refresh') loadLogs();
+        else if (action === 'logs-clear') request('DELETE', '/logs').then(() => { state.logExpanded.clear(); return loadLogs(); }).catch(error => { state.logsError = error.message; renderLogs(); });
+        else if (action === 'log-expand') {
+            const id = Number(button.dataset.logId);
+            if (state.logExpanded.has(id)) state.logExpanded.delete(id); else state.logExpanded.add(id);
+            renderLogs();
+        } else if (action === 'login') startLogin();
         else if (action === 'login-cancel') cancelLogin();
         else if (action === 'recheck') runAction('recheck', async () => { await load({ refresh: true }); });
         else if (action === 'save-path') runAction('save-path', async () => { await saveConfig({ cliPath: state.draftPath ?? state.config?.cliPath ?? '' }); if (state.install?.available) loadAuth(); });
@@ -256,6 +337,7 @@
         if (event.type !== 'change') return;
         if (field === 'enabled') runAction('enabled', () => saveConfig({ enabled: event.target.checked }));
         if (field === 'env') runAction('env', () => saveConfig({ env: event.target.value }));
+        if (field === 'verbose') runAction('verbose', () => saveConfig({ verbose: event.target.checked }));
     }
 
     function bind(el) {

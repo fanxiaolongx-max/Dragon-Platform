@@ -39,7 +39,7 @@ console.log('Connecting to WeLink PC...');
 console.log(JSON.stringify({ argv: args, data: [{ w3account: 'a00123456' }] }, null, 2));
 `);
 
-runner.setOverridesForTest({ configFile: path.join(sandbox, 'welink-cli.json') });
+runner.setOverridesForTest({ configFile: path.join(sandbox, 'welink-cli.json'), logFile: path.join(sandbox, 'logs', 'welink-cli.log') });
 const inDefault = fn => runWithTenant('default', fn);
 
 test.after(() => fs.rmSync(sandbox, { recursive: true, force: true }));
@@ -62,6 +62,13 @@ test('parses JSON after progress lines and interprets auth status loosely', () =
     assert.equal(runner.interpretAuthStatus({ ok: true, text: 'Logged in as a00123456', stderr: '' }).loggedIn, true);
     assert.equal(runner.interpretAuthStatus({ ok: true, json: { isLoggedIn: false }, text: '{}', stderr: '' }).loggedIn, false);
     assert.equal(runner.interpretAuthStatus({ ok: true, text: 'something new', stderr: '' }).loggedIn, null);
+    // welink-cli 1.0.16 的真实输出
+    const real = runner.interpretAuthStatus({ ok: true, stderr: '', text: 'Configuration:\n  Environment:  pro\n\nCredentials:\n  User Token:   valid (expires in 62m34s)\n  UID:          dwx1545337' });
+    assert.deepEqual({ loggedIn: real.loggedIn, uid: real.uid, environment: real.environment, expiresIn: real.expiresIn, refreshing: real.refreshing },
+        { loggedIn: true, uid: 'dwx1545337', environment: 'pro', expiresIn: '62m34s', refreshing: false });
+    assert.equal(runner.interpretAuthStatus({ ok: true, stderr: '', text: 'Credentials:\n  User Token:   expired\n  Refresh Token:   valid (expires in 6d)\n  UID:  dwx1' }).refreshing, true);
+    assert.equal(runner.interpretAuthStatus({ ok: true, stderr: '', text: 'Credentials:\n  User Token:   invalid\n  UID:  dwx1' }).loggedIn, false);
+    assert.equal(runner.interpretAuthStatus({ ok: true, stderr: '', text: 'Credentials:\n  User Token:   not found' }).loggedIn, false);
     assert.deepEqual(runner.classifyLoginLine('Waiting for scan... (elapsed 19 seconds)'), { type: 'waiting', elapsed: 19 });
     assert.equal(runner.classifyLoginLine('https://api.inner.welink.huawei.com/qrcodeg/service/internal/public/v1/qrcodes/img/AytLeg-PwOU').type, 'qrcode');
 });
@@ -128,6 +135,66 @@ test('login streams the QR URL, text QR and progress, then succeeds', async () =
     assert.equal(events.find(event => event.type === 'qrcode').url, 'https://api.inner.welink.huawei.com/qrcodeg/service/internal/public/v1/qrcodes/img/AbC-123');
     assert.deepEqual(events.find(event => event.type === 'waiting'), { type: 'waiting', elapsed: 3 });
     assert.ok(types.indexOf('scanned') < types.indexOf('success'));
+});
+
+test('every CLI call is logged with duration, exit code and output, in memory and on disk', async () => {
+    runner.saveConfig({ cliPath: packageDir, enabled: true });
+    runner.clearLogs();
+    await inDefault(async () => {
+        await runner.run(['search', 'person', '--text', '张 三']);
+        await runner.run(['im', 'query-recent-conversation']);
+    });
+    const { items, running, file } = runner.logs();
+    assert.equal(running, null);
+    assert.equal(items.length, 2);
+    assert.equal(items[0].command, 'welink-cli im query-recent-conversation');
+    assert.equal(items[0].code, 1);
+    assert.match(items[0].stderr, /not logged in/);
+    assert.equal(items[1].command, 'welink-cli search person --text "张 三"');
+    assert.equal(items[1].code, 0);
+    assert.match(items[1].stdout, /Connecting to WeLink PC/);
+    assert.equal(typeof items[1].durationMs, 'number');
+    const lines = fs.readFileSync(file, 'utf8').trim().split('\n').map(line => JSON.parse(line));
+    assert.deepEqual(lines.map(line => line.command), [items[1].command, items[0].command]);
+    runner.clearLogs();
+    assert.equal(runner.logs().items.length, 0);
+    assert.equal(fs.existsSync(file), false);
+});
+
+test('runTurn streams tool rows, adds raw output in verbose mode, and nudges a promise-only reply', async () => {
+    runner.saveConfig({ cliPath: packageDir, enabled: true, verbose: false });
+    const replies = [
+        { text: '好的，我来帮你查询，请稍等……' },
+        { text: '', toolCalls: [{ id: 'c1', name: 'welink_query', args: { command: 'search person', options: { text: '张三' } } }] },
+        { text: '找到 1 人。' }
+    ];
+    const seen = [];
+    const client = { generateText: async ({ messages }) => { seen.push(messages.map(item => item.role)); return replies.shift(); } };
+    const events = [];
+    const result = await inDefault(() => agent.runTurn({ client, systemInstruction: '', messages: [{ role: 'user', content: '找张三' }], onEvent: event => events.push(event) }));
+    assert.equal(result.text, '找到 1 人。');
+    assert.deepEqual(seen[1].slice(-2), ['model', 'user'], 'the promise-only reply gets one nudge');
+    assert.deepEqual(events.map(event => event.type), ['tool_start', 'tool_result']);
+    assert.equal(events[0].tool, 'welink_query');
+    assert.equal(events[0].args.command, 'welink-cli search person --text 张三');
+    assert.equal(events[1].ok, true);
+    assert.equal(events[1].output, undefined, 'raw output only in verbose mode');
+
+    runner.saveConfig({ verbose: true });
+    const verboseEvents = [];
+    const once = [{ text: '', toolCalls: [{ id: 'c2', name: 'welink_query', args: { command: 'im query-recent-conversation' } }] }, { text: '没登录' }];
+    await inDefault(() => agent.runTurn({ client: { generateText: async () => once.shift() }, systemInstruction: '', messages: [{ role: 'user', content: 'x' }], onEvent: event => verboseEvents.push(event) }));
+    const failed = verboseEvents.find(event => event.type === 'tool_result');
+    assert.equal(failed.ok, false);
+    assert.match(failed.output, /^\$ welink-cli im query-recent-conversation/);
+    assert.match(failed.output, /not logged in/);
+
+    // 没有「请稍等」之类的承诺语时不补提示
+    const plain = [{ text: '你好' }];
+    let calls = 0;
+    await inDefault(() => agent.runTurn({ client: { generateText: async () => { calls += 1; return plain.shift(); } }, systemInstruction: '', messages: [{ role: 'user', content: 'hi' }] }));
+    assert.equal(calls, 1);
+    runner.saveConfig({ verbose: false });
 });
 
 test('welink-office skill is listed as a non-workspace builtin skill', () => {

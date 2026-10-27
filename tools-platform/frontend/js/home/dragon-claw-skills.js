@@ -5,7 +5,7 @@
     const words = (zh, english) => en() ? english : zh;
     let input, menu, items = [], matches = [], active = 0, loading = false, loaded = false, failed = false, composing = false;
     // 会话内保持的 Skill：发送过的 @id 之后的消息继续生效，显示为输入框上方的标签，可移除
-    let kept = [], chips = null, discover = null;
+    let kept = [], chips = null, discover = null, restoreEpoch = 0;
     const pendingDecorate = new Set();
     // 与后端 agent-skills.js 的 mentions() 一致：中文可紧贴，邮箱、路径、扩展名不算
     const MENTION_RE = /(?<![A-Za-z0-9_.\\/@-])@([A-Za-z][A-Za-z0-9-]*)(?![A-Za-z0-9_\\/-]|\.[A-Za-z0-9])/g;
@@ -130,7 +130,19 @@
         if (changed) renderChips();
     }
 
+    // 恢复历史对话：重新保持其中用过的 Skill；需要工作目录的不自动恢复（目录可能已不在），避免下一条直接报错
+    async function restore(ids) {
+        const wanted = [...new Set((Array.isArray(ids) ? ids : []).filter(id => typeof id === 'string' && id))];
+        if (!wanted.length) return;
+        const epoch = ++restoreEpoch;
+        await load();
+        for (let waited = 0; loading && waited < 100; waited += 1) await new Promise(resolve => setTimeout(resolve, 100)); // 目录正由别处加载
+        if (epoch !== restoreEpoch || !loaded) return;
+        keep(wanted.filter(id => items.some(item => item.id === id && !item.workspace)));
+    }
+
     function reset() {
+        restoreEpoch += 1;
         kept = [];
         renderChips();
         updateDiscover();
@@ -352,6 +364,6 @@
     }
 
     window.addEventListener('skills:changed', refresh);
-    window.DragonClawSkills = { handleEvent, activeIds: () => kept.slice(), reset, badge, decorateUser, refresh, offerSave, use: useSkillNow };
+    window.DragonClawSkills = { handleEvent, activeIds: () => kept.slice(), restore, reset, badge, decorateUser, refresh, offerSave, use: useSkillNow };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
 })();

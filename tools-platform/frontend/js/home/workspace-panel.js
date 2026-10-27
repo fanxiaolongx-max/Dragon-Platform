@@ -696,7 +696,7 @@
     }
 
     function describeArgs(tool, args = {}) {
-        if (tool === 'run_command') return args.command || '';
+        if (tool === 'run_command' || tool === 'welink_query') return args.command || '';
         if (tool === 'search') return `"${args.query || ''}"${args.path && args.path !== '.' ? ` in ${args.path}` : ''}`;
         if (tool === 'rename_path') return `${args.from || ''} → ${args.to || ''}`;
         if (tool === 'list_directory') return args.path || '.';
@@ -706,7 +706,7 @@
     }
 
     function toolIcon(tool) {
-        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨' }[tool] || '⚙';
+        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼' }[tool] || '⚙';
     }
 
     // ── 对话内：写入 / 编辑后的文件卡片（预览 / 代码） ─────

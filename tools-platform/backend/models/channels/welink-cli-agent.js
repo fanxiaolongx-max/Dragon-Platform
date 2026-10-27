@@ -7,6 +7,7 @@ const runner = require('./welink-cli-runner');
 const SKILL_ID = 'welink-office';
 const MAX_STEPS = 10;
 const RESULT_CHARS = 24 * 1024;
+const VERBOSE_OUTPUT_CHARS = 6000;
 const MAX_VALUE_CHARS = 500;
 const MAX_LIST_ITEMS = 50;
 
@@ -201,20 +202,27 @@ function countOf(json) {
     return null;
 }
 
+function commandLine(args) {
+    return ['welink-cli', ...args].map(arg => (/[\s"]/.test(arg) ? JSON.stringify(arg) : arg)).join(' ');
+}
+
 async function execute(ctx, name, args = {}) {
     if (name !== 'welink_query') return { content: `未知工具：${name}`, summary: '未知工具', isError: true };
     try {
         runner.assertTenant();
         if (!runner.readConfig().enabled) throw toolError('WELINK_CLI_DISABLED', '管理员尚未在「全局设置 › 频道对接 › WeLink › 个人身份（welink-cli）」启用该能力');
         const built = buildArgs(args && typeof args === 'object' ? args : {});
+        const cli = commandLine(built.args);
         const result = await runner.run(built.args, { signal: ctx.signal });
+        // 详细模式：原始输出（含进度行与 stderr）随事件下发，对话里可展开查看
+        const raw = [result.raw, result.stderr].filter(Boolean).join('\n--- stderr ---\n');
         if (!result.ok) {
-            return { content: `welink-cli ${built.command} 失败：${result.error}`, summary: `${built.label}失败`, isError: true };
+            return { content: `welink-cli ${built.command} 失败：${result.error}`, summary: `${built.label}失败`, isError: true, cli, raw };
         }
         const body = result.json !== null ? JSON.stringify(result.json) : result.text;
         const clamped = clamp(body);
         const count = countOf(result.json);
-        return { content: clamped.content, summary: `${built.label}${count === null ? '' : ` ${count} 条`}`, truncated: clamped.truncated };
+        return { content: clamped.content, summary: `${built.label}${count === null ? '' : ` ${count} 条`}`, truncated: clamped.truncated, cli, raw };
     } catch (error) {
         return { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: error.message.slice(0, 120), isError: true };
     }
@@ -232,7 +240,8 @@ async function buildPrompt() {
             '用 welink_query 以用户本人身份查询 WeLink（只读）。结果以工具返回为准，不要编造人员、消息、会议或邮件内容。',
             `今天是 ${new Date().toLocaleDateString('sv-SE')}（平台服务器本地日期）；meeting 的时间参数是 13 位毫秒时间戳，mail/calendar 的 --end 不包含当天（查某天要写次日）。`,
             config.email ? `已为 ${config.email} 执行过 mail autodiscover。` : '首次查邮件或日历前，需先用 mail autodiscover 传入用户邮箱（不知道就先问用户）。',
-            '当前只能查询；用户要求发送、回复、建会、删除时，说明这一期还不支持，并给出可以手动执行的 welink-cli 命令供参考。'
+            '当前只能查询；用户要求发送、回复、建会、删除时，说明这一期还不支持，并给出可以手动执行的 welink-cli 命令供参考。',
+            '需要查询时在本轮直接调用 welink_query，不要只回复「请稍等 / 正在查询」就结束；查询结果出来后再回答。'
         );
     }
     return lines.join('\n');
@@ -242,11 +251,16 @@ async function buildPrompt() {
  * 带 welink_query 工具的一轮回复（与 @ops-group 相同的工具循环）。
  * @returns {Promise<{text, usage, toolLog}>}
  */
-async function runTurn({ client, systemInstruction, messages, ctx = {}, signal, onDelta, maxOutputTokens, temperature }) {
+// 模型只说「请稍等 / 正在查询」却没有调用工具：本轮补一次提示，让它真正去查
+const PROMISE_ONLY_RE = /请稍等|稍等|稍候|正在(为你|帮你|通过|查询|搜索|拉取|获取|调用)|我来(帮你|为你)?(查|搜|看|拉)|马上(帮你|为你)?(查|搜)/;
+
+async function runTurn({ client, systemInstruction, messages, ctx = {}, signal, onDelta, onEvent, maxOutputTokens, temperature }) {
     const tools = definitions();
     const history = messages.map(item => ({ ...item }));
     const usage = { promptTokens: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 };
     const toolLog = [];
+    const verbose = Boolean(runner.readConfig().verbose);
+    let nudged = false;
     let activeClient = client;
     for (let step = 1; step <= MAX_STEPS; step += 1) {
         if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
@@ -266,12 +280,31 @@ async function runTurn({ client, systemInstruction, messages, ctx = {}, signal, 
         usage.outputTokens += Number(result.usage?.outputTokens || 0);
         usage.totalTokens += Number(result.usage?.totalTokens || 0);
         const calls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
-        if (!calls.length) return { text: result.text || '', usage, toolLog };
+        if (!calls.length) {
+            const text = String(result.text || '');
+            if (!nudged && !toolLog.length && text.length < 400 && PROMISE_ONLY_RE.test(text)) {
+                nudged = true;
+                if (onDelta) onDelta('\n\n');
+                history.push({ role: 'model', content: text });
+                history.push({ role: 'user', content: '（系统提示：请现在直接调用 welink_query 执行查询，拿到结果后再回答，不要只描述将要做什么。）' });
+                continue;
+            }
+            return { text, usage, toolLog };
+        }
         if (result.text && onDelta) onDelta('\n\n');
         history.push({ role: 'model', content: result.text || '', toolCalls: calls });
         const toolResults = [];
         for (const call of calls) {
+            const callId = call.id || `welink-${step}-${toolResults.length}`;
+            const startedAt = Date.now();
+            let preview = '';
+            try { preview = commandLine(buildArgs(call.args && typeof call.args === 'object' ? call.args : {}).args); } catch { preview = String(call.args?.command || ''); }
+            onEvent?.({ type: 'tool_start', callId, tool: 'welink_query', args: { command: preview } });
             const outcome = await execute({ ...ctx, signal }, call.name, call.args);
+            const output = verbose
+                ? `$ ${outcome.cli || preview}\n${String(outcome.raw || outcome.content || '').slice(0, VERBOSE_OUTPUT_CHARS)}`
+                : (outcome.isError ? String(outcome.content || '').slice(0, 2000) : '');
+            onEvent?.({ type: 'tool_result', callId, tool: 'welink_query', ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 200), durationMs: Date.now() - startedAt, ...(output ? { output } : {}) });
             toolLog.push({ tool: call.name, ok: !outcome.isError, summary: outcome.summary });
             toolResults.push({ id: call.id, name: call.name, content: outcome.content, isError: Boolean(outcome.isError) });
         }
