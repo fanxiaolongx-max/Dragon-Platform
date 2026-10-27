@@ -2,7 +2,7 @@
 // task or a separate model. Every action is bound to its exact conversation ID.
 const fs = require('node:fs/promises'), path = require('node:path');
 const WebSocket = require('ws');
-const { home, safe } = require('./catalog');
+const { home, safe, antigravityTimestamps } = require('./catalog');
 const fail = (code, message) => Object.assign(new Error(message), { code });
 async function connect() {
     const active = path.join(home(), 'Library/Application Support/Antigravity/DevToolsActivePort');
@@ -54,7 +54,17 @@ function sidebarTime(value, now=Date.now()) {
 async function list(limit) {
     return using(async (c) => {
         const rows = await c.evaluate(`Array.from(document.querySelectorAll('[data-testid="conversation-row-sidebar"]')).map((e,i)=>({id:e.getAttribute('data-cascade-id'),title:e.querySelector('a')?.getAttribute('aria-label')||e.querySelector('span.truncate')?.textContent||e.textContent,order:i,time:e.querySelector('time')?.getAttribute('datetime')||Array.from(e.querySelectorAll('span,small')).find(n=>!n.children.length&&/^(?:[0-9]+[ ]*(?:s|m|h|d|w|mo|y)(?: ago)?|Yesterday|昨天)$/.test(n.textContent.trim()))?.textContent})).filter(r=>r.id)`);
-        return rows.filter(r => /^[a-f0-9-]{36}$/i.test(r.id)).slice(0, limit).map(r => ({ id: r.id, provider: 'antigravity', title: safe(r.title), updatedAt: sidebarTime(r.time), observedAt: new Date().toISOString(), order: r.order, source: 'desktop-sidebar' }));
+        const valid = rows.filter(r => /^[a-f0-9-]{36}$/i.test(r.id)).slice(0, limit);
+        const dbTimes = typeof antigravityTimestamps === 'function' ? await antigravityTimestamps(valid.map(r => r.id)) : new Map();
+        return valid.map(r => ({
+            id: r.id,
+            provider: 'antigravity',
+            title: safe(r.title),
+            updatedAt: dbTimes.get(r.id) || sidebarTime(r.time),
+            observedAt: new Date().toISOString(),
+            order: r.order,
+            source: 'desktop-sidebar'
+        }));
     });
 }
 async function select(c, id) {

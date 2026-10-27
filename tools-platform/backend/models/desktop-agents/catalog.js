@@ -2,7 +2,14 @@ const fs = require('node:fs/promises'), path = require('node:path'), os = requir
 const sqlite3 = require('sqlite3');
 const { redactText } = require('../ai-sensitive-data');
 const home = () => process.env.TOOLS_DESKTOP_AGENT_HOME || os.homedir();
-const roots = () => ({ codex: path.join(home(), '.codex'), claude: path.join(home(), 'Library/Application Support/Claude/claude-code-sessions'), projects: [path.join(home(), '.claude/projects'), path.join(home(), '.config/claude/projects')] });
+const roots = () => ({
+    codex: path.join(home(), '.codex'),
+    claude: path.join(home(), 'Library/Application Support/Claude/claude-code-sessions'),
+    projects: [path.join(home(), '.claude/projects'), path.join(home(), '.config/claude/projects')],
+    antigravityDb: process.env.ANTIGRAVITY_APP_DATA_DIR
+        ? path.join(process.env.ANTIGRAVITY_APP_DATA_DIR, 'conversation_summaries.db')
+        : path.join(home(), '.gemini/antigravity/conversation_summaries.db')
+});
 async function entries(folder) { try {
     return (await fs.readdir(folder, { withFileTypes: true })).filter(e => !e.isSymbolicLink());
 }
@@ -192,4 +199,29 @@ async function transcript(session) {
     const busy = Boolean(busySince) && Date.now() - Date.parse(lastStamp || busySince) < STALE_MS && !(settling && Date.now() - Date.parse(settling) > 60000);
     return { items: items.slice(-200), available: true, busy, busySince: busy ? busySince : null };
 }
-module.exports = { home, roots, entries, json, readDb, safe, userText, codex, claude, transcript };
+async function antigravityTimestamps(ids = []) {
+    const file = roots().antigravityDb;
+    try {
+        let sql = 'SELECT conversation_id, last_modified_time, last_user_input_time FROM conversation_summaries';
+        let params = [];
+        if (Array.isArray(ids) && ids.length > 0) {
+            sql += ' WHERE conversation_id IN (' + ids.map(() => '?').join(',') + ')';
+            params = ids;
+        }
+        const rows = await readDb(file, sql, params);
+        const map = new Map();
+        for (const r of rows) {
+            if (!r.conversation_id) continue;
+            const raw = r.last_modified_time || r.last_user_input_time;
+            if (!raw) continue;
+            const parsed = Date.parse(raw);
+            if (!Number.isNaN(parsed)) {
+                map.set(r.conversation_id, new Date(parsed).toISOString());
+            }
+        }
+        return map;
+    } catch {
+        return new Map();
+    }
+}
+module.exports = { home, roots, entries, json, readDb, safe, userText, codex, claude, transcript, antigravityTimestamps };

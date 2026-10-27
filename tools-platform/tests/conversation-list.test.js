@@ -25,3 +25,19 @@ test('Antigravity sidebar timestamps provide real coarse group dates instead of 
  const {sidebarTime}=require('../backend/models/desktop-agents/antigravity-cdp'),now=Date.UTC(2026,9,26,12);
  assert.equal(sidebarTime('4d',now),new Date(now-4*86400000).toISOString());assert.equal(sidebarTime('1mo',now),new Date(now-30*86400000).toISOString());assert.equal(sidebarTime('Yesterday',now),new Date(now-86400000).toISOString());assert.equal(sidebarTime('unknown',now),null);
 });
+test('Antigravity local sqlite backfill enriches missing sidebar times for active and unread chats',async t=>{
+ const sqlite3=require('sqlite3');
+ const {antigravityTimestamps}=require('../backend/models/desktop-agents/catalog');
+ const agDir=fs.mkdtempSync(path.join(os.tmpdir(),'ag-test-'));
+ t.after(()=>fs.rmSync(agDir,{recursive:true,force:true}));
+ process.env.ANTIGRAVITY_APP_DATA_DIR=agDir;
+ t.after(()=>delete process.env.ANTIGRAVITY_APP_DATA_DIR);
+ const dbPath=path.join(agDir,'conversation_summaries.db');
+ const db=new sqlite3.Database(dbPath);
+ await new Promise((res,rej)=>db.run('CREATE TABLE conversation_summaries (conversation_id TEXT PRIMARY KEY, last_modified_time TEXT, last_user_input_time TEXT)',err=>err?rej(err):res()));
+ await new Promise((res,rej)=>db.run("INSERT INTO conversation_summaries VALUES ('c1', '2026-10-26 20:00:00.000000+00:00', '2026-10-26 19:50:00.000000+00:00')",err=>err?rej(err):res()));
+ await new Promise(res=>db.close(res));
+ const map=await antigravityTimestamps(['c1','c2']);
+ assert.equal(map.get('c1'),'2026-10-26T20:00:00.000Z');
+ assert.equal(map.has('c2'),false);
+});

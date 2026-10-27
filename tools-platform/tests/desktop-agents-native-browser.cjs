@@ -32,6 +32,10 @@ app.whenReady().then(async () => {
     const native = require('../backend/models/desktop-agents/antigravity-cdp');
     const rows = await native.list(10);
     assert.equal(rows[0].title, 'Original desktop title', 'timestamps are not part of titles');
+    assert.ok(Date.now()-Date.parse(rows[0].updatedAt)>=4*3600000-1000,'visible relative times remain usable without a local database');
+    await win.webContents.executeJavaScript(`document.body.insertAdjacentHTML('afterbegin','<div data-testid="conversation-row-sidebar" data-cascade-id="44444444-4444-4444-8444-444444444444"><a aria-label="Old pinned chat without a timestamp"></a></div>')`);
+    assert.equal((await native.list(10))[0].updatedAt,null,'first or pinned rows must not acquire a fabricated current timestamp');
+    await win.webContents.executeJavaScript(`document.querySelector('[data-cascade-id="44444444-4444-4444-8444-444444444444"]').remove()`);
     assert.deepEqual(await native.send(id, 'A native follow-up'), { accepted: true }, 'another running conversation does not block this one');
     assert.deepEqual(await native.send(id, 'A native follow-up'), { accepted: true }, 'receipt requires a newly added user bubble');
     const messages = await native.messages(id);
