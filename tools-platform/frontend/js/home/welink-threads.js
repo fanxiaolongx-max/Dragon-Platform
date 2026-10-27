@@ -66,6 +66,8 @@
 
     const state = {
         source: 'mine',
+        sourceRevision:0,
+        openLatestSource:null,
         channels: [], // 已对接的频道：[{ id, label, connected }]
         threads: [],
         loaded: false,
@@ -214,7 +216,7 @@
         el.chatList.after(el.list);
         el.tabs.addEventListener('click', event => {
             const button = event.target.closest('[data-chat-source]');
-            if (button) setSource(button.dataset.chatSource);
+            if (button) { if(el.search)el.search.value='';setSource(button.dataset.chatSource,{openLatest:true}); }
         });
         el.list.addEventListener('click', event => {
             if (event.target.closest('[data-wl-retry]')) return loadThreads();
@@ -247,6 +249,8 @@
         el.tabs.querySelectorAll('[data-chat-source]').forEach(button => {
             const selected = button.dataset.chatSource === state.source;
             button.textContent = button.dataset.chatSource === 'agents' ? (lang() === 'en-US' ? 'Agents' : '桌面 Agent') : TEXT[lang()][button.dataset.chatSource] || button.dataset.chatSource;
+            const channel=state.channels.find(item=>item.id===button.dataset.chatSource);
+            if(channel)button.insertAdjacentHTML('beforeend',window.HomeConversationList?.healthDot(channel.health||{level:channel.connected===true?'ok':channel.connected===false?'error':'warning',reason:channel.connected===true?'connected':channel.connected===false?'offline':'checking'})||'');
             if(button.dataset.chatSource==='agents')button.title=lang()==='en-US'?'Desktop agents':'桌面 Agent';
             button.setAttribute('aria-selected', String(selected));
             button.classList.toggle('is-active', selected);
@@ -254,17 +258,22 @@
         el.tabs.dataset.active = state.source;
     }
 
-    function setSource(source, { remember = true } = {}) {
+    function setSource(source, { remember = true, openLatest=false } = {}) {
         const next = sources().includes(source) ? source : 'mine';
         const changed = next !== state.source;
         if(changed)window.HomeConversationList?.close();
         state.source = next;
         if (remember) storeSet(SOURCE_KEY, state.source);
-        if (changed) Object.assign(state, { threads: [], loaded: false, failed: false });
+        if (changed) { state.seq++;state.sourceRevision++;state.openLatestSource=null;Object.assign(state, { threads: [], loaded: false, failed: false }); }
+        if(openLatest){state.sourceRevision++;state.openLatestSource=CHANNEL_IDS.includes(next)?next:null;}
         renderTabs();
         el.chatList.hidden = state.source !== 'mine';
         el.list.hidden = state.source === 'mine' || state.source === 'agents';
         window.HomeDesktopAgents?.show?.(state.source === 'agents');
+        if(openLatest&&next==='mine'){
+            const revision=state.sourceRevision;
+            window.DragonClaw?.openLatest?.({isCurrent:()=>state.source==='mine'&&state.sourceRevision===revision});
+        }
         if (CHANNEL_IDS.includes(state.source)) loadThreads();
     }
 
@@ -274,6 +283,8 @@
             const data = await request('GET', `${API_BASE}/available`);
             state.channels = (Array.isArray(data.items) ? data.items : []).filter(item => CHANNEL_IDS.includes(item.id));
         } catch {
+            state.channels=state.channels.map(item=>({...item,health:{level:'error',reason:'offline'}}));
+            renderTabs();
             return; // 读取失败保持现状
         }
         const stored = storeGet(SOURCE_KEY);
@@ -284,11 +295,12 @@
 
     async function loadThreads() {
         const seq = ++state.seq;
+        const source=state.source,account=identity();
         if (!state.loaded) renderThreads();
         try {
             const query = el.search?.value.trim() || '';
             const data = await request('GET', `${API_BASE}/${state.source}/threads?limit=200&q=${encodeURIComponent(query)}`);
-            if (seq !== state.seq) return;
+            if (seq !== state.seq||source!==state.source||account!==identity()) return;
             const cacheKey=identity()+':'+state.source;
             if(state.listIdentity!==cacheKey){state.allThreads=[];state.listIdentity=cacheKey;}
             const fetched=Array.isArray(data.items)?data.items:[];
@@ -302,6 +314,12 @@
         }
         state.loaded = true;
         renderThreads();
+        if(state.openLatestSource===state.source&&!state.failed){
+            state.openLatestSource=null;
+            const config={source:state.source,id:t=>t.kind+':'+t.id,date:t=>t.lastActiveAt};
+            const latest=window.HomeConversationList?.latest(state.threads,config)||state.threads.filter(t=>!window.HomeConversationList?.get(state.source,t.kind+':'+t.id).hidden&&!window.HomeConversationList?.get(state.source,t.kind+':'+t.id).archived).sort((a,b)=>(Date.parse(b.lastActiveAt)||0)-(Date.parse(a.lastActiveAt)||0))[0];
+            if(latest)openThread(latest);
+        }
     }
 
     function renderThreads() {
@@ -341,6 +359,7 @@
     // ── 打开会话：真实频道时间线与手动运营 ────────────────
     async function openThread(thread) {
         if (!thread) return false;
+        state.openLatestSource=null;
         const channel = CHANNEL_IDS.includes(thread.channel) ? thread.channel : (state.source !== 'mine' ? state.source : 'welink');
         const api = window.DragonClaw?.enterExternal?.({ onExit: ({ switching } = {}) => leaveThread(switching) });
         if (!api) return false;

@@ -4,6 +4,7 @@ const temp=fs.mkdtempSync(path.join(os.tmpdir(),'tac-group-ui-')),root=path.join
 let win,server,hold=false,cancelled=0,nativeCalls=0,ordinaryCalls=0;const requests=[],jobs=new Map();
 const capabilities={owned:true,settings:{enabled:false,allowSend:true,claudeAutomation:false,providers:{codex:true,claudecode:true,antigravity:true}}};
 let providerStates=[{id:'codex',enabled:true,connected:false,canSend:false}];
+const savedModes=[],discussionModes=new Map([['chat_fresh_group',{mode:'group',version:2,bindings:{}}]]);
 const evaluate=s=>win.webContents.executeJavaScript(s,true),wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(s){for(let i=0;i<180;i++){if(await evaluate(`Boolean(${s})`))return;await wait(30);}throw Error(s);}
 setTimeout(()=>app.exit(1),45000).unref();
@@ -15,7 +16,8 @@ app.whenReady().then(async()=>{
  web.post('/api/desktop-agents/discussion-runs',(q,r)=>{requests.push(q.body);const job={id:q.body.requestId,sessionId:q.body.sessionId||'chat_fresh_group',status:'running',reports:['Codex','Claude Code','Antigravity'].map(agent=>({agent,round:1,status:'creating'}))};jobs.set(job.id,job);r.status(202).json(job);});
  web.get('/api/desktop-agents/discussion-runs/:id',(q,r)=>{const job=jobs.get(q.params.id);if(!hold){job.status='done';for(const row of job.reports){row.status='done';row.text=row.agent+' group reply';}}r.json(job);});
  web.post('/api/desktop-agents/discussion-runs/:id/cancel',(q,r)=>{cancelled++;const job=jobs.get(q.params.id);job.status='cancelled';r.json(job);});
- web.get('/api/desktop-agents/discussions/:id',(_q,r)=>r.json({settings:{mode:'group',version:2,bindings:{}},activeRun:null}));
+ web.get('/api/desktop-agents/discussions/:id',(q,r)=>r.json({settings:discussionModes.get(q.params.id)||null,activeRun:null}));
+ web.put('/api/desktop-agents/discussions/:id',(q,r)=>{savedModes.push(q.params.id);const cfg={mode:'group',version:2,bindings:{}};discussionModes.set(q.params.id,cfg);r.json({settings:cfg});});
  web.post('/api/ai/chat',(_q,r)=>{ordinaryCalls++;r.status(500).json({error:'No model fallback'});});web.get('/api/ai/models',(_q,r)=>r.json({models:[]}));web.get('/api/ai/sessions',(_q,r)=>r.json({items:[]}));web.get('/api/asset-version',(_q,r)=>r.json({version:'fixture'}));web.use(express.static(path.join(root,'frontend')));
  server=await new Promise(resolve=>{const s=web.listen(0,'127.0.0.1',()=>resolve(s));});win=new BrowserWindow({show:false,width:1400,height:960,webPreferences:{contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});await win.loadURL('http://127.0.0.1:'+server.address().port);await until('document.querySelector("[data-tac-start]")');
  assert.equal(await evaluate('document.querySelectorAll("[data-discussion-mode],[data-discussion-binding],.dc-agent-discussion").length'),0,'no modes or conversation picker');
@@ -51,10 +53,31 @@ app.whenReady().then(async()=>{
  assert.equal(await evaluate('HomeAgentDiscussion.handles()'),false,'second click cancels the selected mode');
  assert.equal(await evaluate('dcInput.value'),'Keep my draft');
  assert.equal(requests.length,0,'selecting and deselecting never creates desktop conversations');
+ await evaluate('HomeAgentDiscussion.activateSession("ordinary-history")');
+ await evaluate('dcInput.value="Keep the existing conversation draft";document.querySelector("[data-tac-start]").click()');
+ await until('document.querySelector("[data-tac-start]").title.includes("固定")');
+ assert.deepEqual(savedModes,['ordinary-history'],'enabling an existing chat persists group mode immediately');
+ assert.equal(await evaluate('document.querySelector("[data-tac-start]").disabled'),true);
+ await evaluate('document.querySelector("[data-tac-start]").click()');
+ assert.equal(await evaluate('HomeAgentDiscussion.handles()'),true,'established chats cannot switch back into ordinary mode');
+ assert.equal(await evaluate('dcInput.value'),'Keep the existing conversation draft');
+ await evaluate('DragonClaw.newChat()');
  await evaluate("DragonClaw.enterExternal({owner:'desktop-agent',composer:{canSend:true,draft:'Discuss this draft in a fresh group',send:async()=>{window.__nativeCalls=(window.__nativeCalls||0)+1;return true;}}});document.querySelector('[data-tac-start]').click();");
  assert.equal(await evaluate('DragonClaw.isExternal()'),false);assert.equal(await evaluate('dcInput.value'),'Discuss this draft in a fresh group');assert.equal(await evaluate('document.querySelector("[data-tac-start]").getAttribute("aria-pressed")'),'true');
  await evaluate('dcComposer.requestSubmit()');await until('dcThread.textContent.includes("Codex group reply")&&dcThread.textContent.includes("Claude Code group reply")&&dcThread.textContent.includes("Antigravity group reply")');await wait(60);
  assert.equal(requests.length,1);assert.equal(requests[0].settings,undefined);assert.equal(requests[0].sessionId,null);assert.equal(await evaluate('window.__nativeCalls||0'),0);assert.equal(ordinaryCalls,0);
+ assert.deepEqual(await evaluate('[...document.querySelectorAll(".dc-tac-report-avatar")].map(e=>e.getAttribute("src"))'),['/assets/desktop-agents/codex.png','/assets/desktop-agents/claudecode.png','/assets/desktop-agents/antigravity.png']);
+ assert.equal(await evaluate('getComputedStyle(document.querySelector(".dc-tac-message>.dc-msg-avatar")).display'),'none','member logos replace the outer generic avatar');
+ await until('[...document.querySelectorAll(".dc-tac-report-avatar")].every(img=>img.complete&&img.naturalWidth>0)');await wait(100);fs.writeFileSync(path.join(temp,'dragontac-member-avatars.png'),(await win.webContents.capturePage()).toPNG());
+ await evaluate(`(()=>{const host=document.createElement('div');host.id='avatar-fixture';host.innerHTML='<div class="dc-msg dc-msg--ai"><img class="dc-msg-avatar"><div class="dc-msg-main"><div class="dc-msg-body"></div></div></div>';dcThread.append(host);const message=host.firstChild;const job={reports:[{provider:'codex',agent:'Codex',status:'done',text:'First paragraph'},{provider:'codex',agent:'Codex',status:'done',text:'Continuation'},{provider:'claudecode',agent:'Claude Code',status:'done',text:'Another member'}]};HomeAgentDiscussion.renderReports(message,job,text=>'<p>'+text+'</p>');window.__firstAvatarRow=message.querySelector('.dc-tac-report');HomeAgentDiscussion.renderReports(message,job,text=>'<p>'+text+'</p>');})()`);
+ assert.equal(await evaluate('document.querySelector("#avatar-fixture .dc-tac-report")===window.__firstAvatarRow'),true,'polling keeps existing member nodes');
+ assert.equal(await evaluate('getComputedStyle(document.querySelectorAll("#avatar-fixture .dc-tac-report-avatar")[1]).visibility'),'hidden','consecutive replies from one member do not repeat avatars');
+ assert.equal(await evaluate('getComputedStyle(document.querySelectorAll("#avatar-fixture .dc-tac-report-avatar")[2]).visibility'),'visible','a different member has its own avatar');
+ assert.ok(await evaluate('parseFloat(getComputedStyle(document.querySelector("#avatar-fixture .dc-tac-report")).marginBottom)')<=14,'member spacing stays compact');
+ await evaluate(`(()=>{const host=document.getElementById('avatar-fixture');host.innerHTML=['codex','codex','antigravity'].map(()=>'<div class="dc-msg dc-msg--ai"><img class="dc-msg-avatar"><div class="dc-msg-main"><div class="dc-msg-body">Restored reply</div></div></div>').join('');[...host.children].forEach((node,i)=>HomeAgentDiscussion.decorateMessage(node,['codex','codex','antigravity'][i]));HomeAgentDiscussion.groupMessages(host);})()`);
+ assert.equal(await evaluate('document.querySelectorAll("#avatar-fixture .desktop-agent-cont").length'),1,'history groups only adjacent replies from the same provider');
+ await evaluate('document.getElementById("avatar-fixture").remove()');
+ assert.equal(await evaluate('document.querySelector("[data-tac-start]").disabled'),true,'a fresh group locks after its first submitted turn');
  await evaluate("dcInput.value='Continue the group discussion';dcInput.dispatchEvent(new Event('input',{bubbles:true}));dcComposer.requestSubmit();");await until('document.querySelectorAll(".dc-msg--user").length===2');await wait(1200);assert.equal(requests[1].sessionId,'chat_fresh_group');
  hold=true;await evaluate("dcInput.value='Third question';dcInput.dispatchEvent(new Event('input',{bubbles:true}));dcComposer.requestSubmit();");await until('dcThread.textContent.includes("正在新建专用")');await evaluate('dcSend.click()');await until('dcThread.textContent.includes("已停止后续")');await wait(80);assert.equal(cancelled,1);
  await evaluate('DragonClaw.newChat()');assert.equal(await evaluate('HomeAgentDiscussion.handles("Question")'),false);await evaluate("HomeAgentDiscussion.activateSession('chat_fresh_group')");assert.equal(await evaluate('HomeAgentDiscussion.handles("Question")'),true);
@@ -67,7 +90,7 @@ app.whenReady().then(async()=>{
  assert.equal(requests.length,before);
  capabilities.settings.enabled=true;
  await evaluate('window.dispatchEvent(new Event("tools:desktop-agent-settings-changed"))');
- await until('!document.querySelector("[data-tac-start]").disabled');
+ await until('document.querySelector("[data-tac-start]").title.includes("固定")');
  await evaluate('ToolsI18n.setLanguage("en-US")');assert.match(await evaluate('document.querySelector("[data-tac-start]").textContent'),/Agent group/);
  win.setContentSize(390,844);await wait(100);assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
  fs.writeFileSync(path.join(temp,'dragontac-mobile.png'),(await win.webContents.capturePage()).toPNG());

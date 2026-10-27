@@ -3,6 +3,7 @@
 const fs = require('node:fs/promises'), path = require('node:path');
 const WebSocket = require('ws');
 const { home, safe, antigravityTimestamps } = require('./catalog');
+const { composerText } = require('./composer-text');
 const fail = (code, message) => Object.assign(new Error(message), { code });
 async function connect() {
     const active = path.join(home(), 'Library/Application Support/Antigravity/DevToolsActivePort');
@@ -154,16 +155,26 @@ async function syncKeyboardState(c, route, text) {
     // space is removed only if focus, route and the exact resulting draft match.
     const before = await c.evaluate(`(() => {
         const input=document.querySelector('[role=combobox][contenteditable=true]');
-        if(location.pathname!==${JSON.stringify(route)}||input!==document.activeElement||input.innerText.trim()!==${JSON.stringify(text.trim())})return null;
+        if(location.pathname!==${JSON.stringify(route)}||input!==document.activeElement||(${composerText.toString()})(input.innerText)!==${JSON.stringify(composerText(text))})return null;
         const selection=window.getSelection();
         if(!selection?.isCollapsed||!input.contains(selection.anchorNode))return null;
         const range=document.createRange();range.selectNodeContents(input);range.collapse(false);selection.removeAllRanges();selection.addRange(range);
-        return input.innerText;
+        return true;
     })()`);
     if(before===null)return;
     await c.call('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',text:' ',windowsVirtualKeyCode:32});
     await c.call('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
-    const unchanged=await c.evaluate(`(() => {const input=document.querySelector('[role=combobox][contenteditable=true]');return location.pathname===${JSON.stringify(route)}&&input===document.activeElement&&(input.innerText===${JSON.stringify(before+' ')}||input.innerText===${JSON.stringify(before+String.fromCharCode(160))});})()`);
+    // Lexical may move a trailing paragraph break after the typed space. Verify
+    // the exact prepared content AND the space immediately before the caret,
+    // rather than relying on innerText's presentation of trailing blank lines.
+    const unchanged=await c.evaluate(`(() => {
+        const input=document.querySelector('[role=combobox][contenteditable=true]'),selection=window.getSelection();
+        if(location.pathname!==${JSON.stringify(route)}||input!==document.activeElement||(${composerText.toString()})(input.innerText)!==${JSON.stringify(composerText(text))}||!selection?.isCollapsed)return false;
+        const node=selection.anchorNode,offset=selection.anchorOffset;
+        if(!node||node.nodeType!==3||!input.contains(node)||offset<1||![' ',String.fromCharCode(160)].includes(node.textContent[offset-1]))return false;
+        const tail=document.createRange();tail.selectNodeContents(input);tail.setStart(node,offset);
+        return !tail.toString().trim();
+    })()`);
     if(!unchanged)throw fail('DESKTOP_TARGET_UNCONFIRMED','Antigravity 输入内容已改变，未发送；请核对草稿');
     await c.call('Input.dispatchKeyEvent',{type:'keyDown',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});
     await c.call('Input.dispatchKeyEvent',{type:'keyUp',key:'Backspace',code:'Backspace',windowsVirtualKeyCode:8});
@@ -177,7 +188,7 @@ async function submitPrepared(c, route, text) {
             if (location.pathname !== ${JSON.stringify(route)}) return 'changed';
             const inputs = document.querySelectorAll('[role=combobox][contenteditable=true]');
             const input = inputs[0], button = document.querySelector('[data-testid="send-button"]');
-            if (inputs.length !== 1 || input.innerText.trim() !== ${JSON.stringify(text.trim())}) return 'changed';
+            if (inputs.length !== 1 || (${composerText.toString()})(input.innerText) !== ${JSON.stringify(composerText(text))}) return 'changed';
             if (document.querySelector('[data-testid="agent-input-box"] button[aria-label="Stop execution"]')) return 'busy';
             if (!button || button.disabled || button.getAttribute('aria-disabled') === 'true') return 'waiting';
             button.click(); return 'submitted';
@@ -193,16 +204,16 @@ async function submitPrepared(c, route, text) {
 async function send(id, text) {
     return using(async (c) => {
         await select(c, id);
-        const ready = await c.evaluate(`(()=>{if(location.pathname!=='/c/'+${JSON.stringify(id)})return 'missing';const input=document.querySelector('[role=combobox][contenteditable=true]'),send=document.querySelector('[data-testid="send-button"]');if(!input||!send)return 'missing';if(document.querySelector('[data-testid="agent-input-box"] button[aria-label="Stop execution"]')||Array.from(document.querySelectorAll('[data-cascade-id]')).find(e=>e.dataset.cascadeId===${JSON.stringify(id)})?.querySelector('button[aria-label="Stop execution"]'))return 'busy';if(input.innerText.trim()&&input.innerText.trim()!==${JSON.stringify(text.trim())})return 'draft';input.focus();return input.innerText.trim()?'prepared':'ready';})()`);
+        const ready = await c.evaluate(`(()=>{if(location.pathname!=='/c/'+${JSON.stringify(id)})return 'missing';const input=document.querySelector('[role=combobox][contenteditable=true]'),send=document.querySelector('[data-testid="send-button"]');if(!input||!send)return 'missing';if(document.querySelector('[data-testid="agent-input-box"] button[aria-label="Stop execution"]')||Array.from(document.querySelectorAll('[data-cascade-id]')).find(e=>e.dataset.cascadeId===${JSON.stringify(id)})?.querySelector('button[aria-label="Stop execution"]'))return 'busy';if(input.innerText.trim()&&(${composerText.toString()})(input.innerText)!==${JSON.stringify(composerText(text))})return 'draft';input.focus();return input.innerText.trim()?'prepared':'ready';})()`);
         if (!['ready', 'prepared'].includes(ready))
             throw fail(ready === 'busy' ? 'DESKTOP_BUSY' : 'DESKTOP_DRAFT', ready === 'busy' ? '原会话正在运行，请等待当前回复结束' : '桌面输入框未就绪或有未发送内容');
-        const beforeCount = await c.evaluate(`Array.from(document.querySelectorAll('[data-testid="user-message-bubble"]')).filter(e=>(e.querySelector('[data-quotable="true"]')||e).innerText.trim()===${JSON.stringify(text.trim())}).length`);
+        const beforeCount = await c.evaluate(`Array.from(document.querySelectorAll('[data-testid="user-message-bubble"]')).filter(e=>(${composerText.toString()})((e.querySelector('[data-quotable="true"]')||e).innerText)===${JSON.stringify(composerText(text))}).length`);
         if (ready === 'ready') await typeText(c, text);
         await submitPrepared(c, '/c/' + id, text);
         // A button click is not a delivery receipt. Wait for the user message in the
         // timeline, bound to this conversation, without attempting a second send.
         for (let n = 0; n < 40; n++) {
-            if (await c.evaluate(`location.pathname==='/c/'+${JSON.stringify(id)}&&Array.from(document.querySelectorAll('[data-testid="user-message-bubble"]')).filter(e=>(e.querySelector('[data-quotable="true"]')||e).innerText.trim()===${JSON.stringify(text.trim())}).length>${beforeCount}`))
+            if (await c.evaluate(`location.pathname==='/c/'+${JSON.stringify(id)}&&Array.from(document.querySelectorAll('[data-testid="user-message-bubble"]')).filter(e=>(${composerText.toString()})((e.querySelector('[data-quotable="true"]')||e).innerText)===${JSON.stringify(composerText(text))}).length>${beforeCount}`))
                 return { accepted: true };
             await new Promise(r => setTimeout(r, 100));
         }
@@ -212,7 +223,7 @@ async function send(id, text) {
 async function createAndSend(text) {
     return using(async c=>{
         const before=await c.evaluate(`Array.from(document.querySelectorAll('[data-cascade-id]')).map(e=>e.dataset.cascadeId)`);
-        const ready=await c.evaluate(`(()=>{const input=document.querySelector('[role=combobox][contenteditable=true]');if(input?.innerText.trim()){if(location.pathname==='/'&&input.innerText.trim()===${JSON.stringify(text.trim())}){input.focus();return 'prepared';}return 'draft';}const button=document.querySelector('[data-testid="new-conversation-button"]');if(!button)return 'missing';button.click();return 'opening';})()`);
+        const ready=await c.evaluate(`(()=>{const input=document.querySelector('[role=combobox][contenteditable=true]');if(input?.innerText.trim()){if(location.pathname==='/'&&(${composerText.toString()})(input.innerText)===${JSON.stringify(composerText(text))}){input.focus();return 'prepared';}return 'draft';}const button=document.querySelector('[data-testid="new-conversation-button"]');if(!button)return 'missing';button.click();return 'opening';})()`);
         if(!['opening','prepared'].includes(ready))throw fail('DESKTOP_DRAFT',ready==='draft'?'Antigravity 输入框有未发草稿，未覆盖':'没有找到 Antigravity 新建对话按钮');
         let opened=ready==='prepared';
         for(let n=0;!opened&&n<30;n++){
@@ -224,7 +235,7 @@ async function createAndSend(text) {
         if(ready!=='prepared')await typeText(c,text);
         await submitPrepared(c,'/',text);
         for(let n=0;n<60;n++){
-            const id=await c.evaluate(`(()=>{const parts=location.pathname.split('/');const id=parts.length===3&&parts[1]==='c'&&/^[a-f0-9-]{36}$/i.test(parts[2])?parts[2]:null;return id&&!${JSON.stringify(before)}.includes(id)&&Array.from(document.querySelectorAll('[data-testid="user-message-bubble"]')).some(e=>(e.querySelector('[data-quotable="true"]')||e).innerText.trim()===${JSON.stringify(text.trim())})?id:null;})()`);
+            const id=await c.evaluate(`(()=>{const parts=location.pathname.split('/');const id=parts.length===3&&parts[1]==='c'&&/^[a-f0-9-]{36}$/i.test(parts[2])?parts[2]:null;return id&&!${JSON.stringify(before)}.includes(id)&&Array.from(document.querySelectorAll('[data-testid="user-message-bubble"]')).some(e=>(${composerText.toString()})((e.querySelector('[data-quotable="true"]')||e).innerText)===${JSON.stringify(composerText(text))})?id:null;})()`);
             if(id)return {id,status:'accepted'};
             await new Promise(r=>setTimeout(r,150));
         }

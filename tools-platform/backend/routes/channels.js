@@ -53,11 +53,12 @@ const ch = req => CHANNELS[req.params.channel];
 
 /** 已对接（已启用且已配置凭据）的频道，首页对话侧栏据此显示频道分类；所有登录用户可读。 */
 router.get('/available', handle(async (_req, res) => {
+    res.setHeader('Cache-Control','no-store');
     const items = [];
     for (const [id, { service, label }] of Object.entries(CHANNELS)) {
         try {
             const status = await service.getStatus(getTenantId());
-            if (status.enabled && status.configured) items.push({ id, label, connected: Boolean(status.connected) });
+            if (status.enabled && status.configured) items.push({ id, label, connected: Boolean(status.connected), health: require('../models/channels/connection-health').connectionHealth(status) });
         } catch {
             // 某个频道读取失败不影响其他频道
         }

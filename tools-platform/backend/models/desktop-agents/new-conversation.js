@@ -2,8 +2,15 @@
 // substitutes a CLI model. A new native UUID and its exact user receipt are required.
 const {execFile}=require('node:child_process');
 const catalog=require('./catalog'),claude=require('./claude-desktop'),ag=require('./antigravity-cdp');
+const {composerText}=require('./composer-text');
 const names={codex:'Codex',claudecode:'Claude Code',antigravity:'Antigravity'};
 const failure=(code,message)=>Object.assign(new Error(message),{code,status:code==='DELIVERY_UNKNOWN'?504:409});
+// Accessibility text can merge blank paragraphs; compare all actual lines and
+// characters while allowing only repeated blank-line presentation differences.
+function isNewClaudeComposer(snapshot,state,previous){
+ const newHeading=(snapshot.elements||[]).some(e=>e.role==='AXHeading'&&/^(?:新建会话|新对话|New conversation|New chat)$/i.test(e.title||e.desc||''));
+ return newHeading||Boolean(previous.current&&!state.current);
+}
 let uiTail=Promise.resolve();
 function exclusive(run){const pending=uiTail.then(run,run);uiTail=pending.catch(()=>{});return pending;}
 function exec(file,args,options={}){return new Promise((resolve,reject)=>execFile(file,args,{timeout:20000,maxBuffer:16*1024*1024,...options},(error,stdout)=>error?reject(failure('DESKTOP_UNAVAILABLE','桌面创建命令未完成')):resolve(stdout)));}
@@ -16,7 +23,7 @@ async function nativeRows(provider){return provider==='codex'?catalog.codex(200)
 async function receipt(provider,before,text,{readRows=nativeRows,readTranscript=catalog.transcript,wait=ms=>new Promise(r=>setTimeout(r,ms))}={}){
  const previous=new Set(before.map(s=>s.id));
  for(let n=0;n<60;n++){
-  for(const row of await readRows(provider)){if(previous.has(row.id))continue;const transcript=await readTranscript(row).catch(()=>({items:[]}));if(transcript.items.some(m=>m.role==='user'&&m.content.replace(/\r\n/g,'\n').trim()===text.replace(/\r\n/g,'\n').trim()))return {id:row.id,status:'accepted'};}
+  for(const row of await readRows(provider)){if(previous.has(row.id))continue;const transcript=await readTranscript(row).catch(()=>({items:[]}));if(transcript.items.some(m=>m.role==='user'&&composerText(m.content)===composerText(text)))return {id:row.id,status:'accepted'};}
   await wait(250);
  }
  throw failure('DELIVERY_UNKNOWN','已操作新建，但未确认新的原生会话与消息回执；请检查桌面，不会重试或改用旧会话');
@@ -33,7 +40,8 @@ async function createAndSend(provider,text,{driver=ui,readRows=nativeRows,readRe
   // Refuse overwriting an unsubmitted new-task draft. Drafts in existing named
   // conversations are retained by the desktop client's own New action.
   const existing=provider==='codex'?before.some(r=>r.title===snapshot.windowTitle):before.some(r=>r.title===view.current);
-  if(!existing&&view.composers.some(t=>t.trim()))throw failure('DESKTOP_DRAFT',names[provider]+' 的新会话输入框已有草稿，请先保存；不会覆盖');
+  const samePreparedDraft=view.composers.length===1&&composerText(view.composers[0])===composerText(text);
+  if(!existing&&view.composers.some(t=>t.trim())&&!samePreparedDraft)throw failure('DESKTOP_DRAFT',names[provider]+' 的新会话输入框已有草稿，请先保存；不会覆盖');
   let previous='';
   if(provider==='codex'){
    const uri=new URL('codex://threads/new');uri.searchParams.set('mode','codex');uri.searchParams.set('prompt',text);
@@ -42,15 +50,15 @@ async function createAndSend(provider,text,{driver=ui,readRows=nativeRows,readRe
    const focus=await driver(provider,'press',{title:'新建'});previous=focus.previous||'';
   }
   let ready=false;
-  for(let n=0;n<20;n++){
+  for(let n=0;n<60;n++){
    await wait(150);const current=await driver(provider,'snapshot'),state=claude.parse(current);
    if(state.composers.length!==1)continue;
-   if(provider==='codex'&&state.composers[0].trim()===text.trim()){ready=true;break;}
-   if(provider==='claudecode'&&state.current!==view.current&&!state.composers[0].trim()&&!state.busy){await driver(provider,'paste',{text});ready=true;break;}
+   if(provider==='codex'&&composerText(state.composers[0])===composerText(text)){ready=true;break;}
+   if(provider==='claudecode'&&isNewClaudeComposer(current,state,view)&&!state.composers[0].trim()&&!state.busy){await driver(provider,'paste',{text});ready=true;break;}
   }
   if(!ready)throw failure('DESKTOP_TARGET_UNCONFIRMED',names[provider]+' 未打开可确认的新会话，消息尚未发送');
   await driver(provider,'submit-text',{text,...(previous?{previous}:{})});
   return readReceipt(provider,before,text);
  });
 }
-module.exports={createAndSend,ui,receipt};
+module.exports={createAndSend,ui,receipt,composerText};

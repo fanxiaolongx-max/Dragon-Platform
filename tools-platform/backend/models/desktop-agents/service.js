@@ -1,4 +1,5 @@
 const repo = require('./repository'), catalog = require('./catalog'), codex = require('./codex-ipc'), ag = require('./antigravity-cdp'), claude = require('./claude-desktop');
+const {composerText}=require('./composer-text');
 const { getTenantId, runWithTenant } = require('../tenant-context');
 const { containsSensitiveText, redactText } = require('../ai-sensitive-data');
 const providers = ['codex', 'claudecode', 'antigravity'];
@@ -15,6 +16,7 @@ async function discover(owner, force = false) {
             return;
         }
         try {
+            const checkedAt = Date.now();
             const items = await (provider === 'codex' ? catalog.codex(cfg.recentLimit) : provider === 'claudecode' ? catalog.claude(cfg.recentLimit) : ag.list(cfg.recentLimit));
             rows.push(...items);
             let canSend = false, reason = '';
@@ -40,7 +42,7 @@ async function discover(owner, force = false) {
                 canSend = true;
                 reason = '原生桌面页面连接；打开记录会同步切换桌面会话';
             }
-            states.push({ id: provider, enabled: true, connected: provider === 'antigravity' || canSend || provider === 'claudecode' && items.length > 0, canRead: items.length > 0, canSend: cfg.allowSend && canSend, count: items.length, reason });
+            states.push({ id: provider, enabled: true, connected: provider === 'antigravity' || canSend || provider === 'claudecode' && items.length > 0, canRead: items.length > 0, canSend: cfg.allowSend && canSend, count: items.length, latencyMs: Date.now() - checkedAt, reason });
         }
         catch {
             states.push({ id: provider, enabled: true, connected: false, canRead: false, canSend: false, count: 0, reason: '本机桌面连接不可用，请打开对应客户端后刷新' });
@@ -98,7 +100,7 @@ async function send(owner, provider, id, { text, requestId, mode = 'send' }) {
             let acknowledged = false;
             for (let n = 0; n < 40; n++) {
                 const after = (await catalog.transcript(row)).items;
-                if (after.some(m => m.role === 'user' && m.content === text && Date.parse(m.createdAt) >= started - 1000 && !before.some(old => old.createdAt === m.createdAt && old.content === m.content))) {
+                if (after.some(m => m.role === 'user' && composerText(m.content) === composerText(text) && Date.parse(m.createdAt) >= started - 1000 && !before.some(old => old.createdAt === m.createdAt && old.content === m.content))) {
                     acknowledged = true;
                     break;
                 }
@@ -157,7 +159,7 @@ async function waitForReply(owner,provider,id,prompt,{signal,timeoutMs=180000,re
     while(Date.now()<deadline){
         signal?.throwIfAborted();
         const data=await read(owner,provider,id);
-        const index=data.items.findLastIndex(m=>m.role==='user'&&m.content.replace(/\r\n/g,'\n').trim()===prompt.replace(/\r\n/g,'\n').trim());
+        const index=data.items.findLastIndex(m=>m.role==='user'&&composerText(m.content)===composerText(prompt));
         if(index>=0){
             const tail=data.items.slice(index+1);
             if(tail.some(m=>m.role==='user'))throw repo.error('桌面原会话收到另一条用户消息，本次回复无法可靠关联，请在原会话核对',409);

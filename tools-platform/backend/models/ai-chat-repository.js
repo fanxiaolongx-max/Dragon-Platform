@@ -211,6 +211,13 @@ async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offs
          LIMIT ? OFFSET ?`,
         params
     );
+    const groupIds = new Set();
+    if (rows.length && await get("SELECT 1 FROM sqlite_master WHERE type='table' AND name='desktop_agent_discussions'")) {
+        const groups = await all(`SELECT session_id, settings FROM desktop_agent_discussions WHERE owner=? AND session_id IN (${rows.map(() => '?').join(',')})`, [owner, ...rows.map(row => row.id)]);
+        for (const group of groups) {
+            try { if (JSON.parse(group.settings)?.mode === 'group') groupIds.add(group.session_id); } catch { /* Ignore corrupt optional metadata. */ }
+        }
+    }
     return rows.map(row => ({
         id: row.id,
         createdAt: row.created_at,
@@ -218,6 +225,7 @@ async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offs
         archived: Boolean(row.is_archived),
         messageCount: Number(row.message_count) || 0,
         firstQuestion: String(row.first_question || '').slice(0, 160),
+        discussionMode: groupIds.has(row.id) ? 'group' : null,
         lastQuestion: String(row.last_question || '').slice(0, 160),
         agent: row.agent_session_id && row.agent_root ? { agentSessionId: row.agent_session_id, root: row.agent_root } : null
     }));

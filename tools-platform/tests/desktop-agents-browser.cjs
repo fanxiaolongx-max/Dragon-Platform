@@ -59,6 +59,7 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('document.querySelector(".wl-readonly")'), null, 'channel controls never appear for desktop agents');
     assert.match(await evaluate('dcInput.placeholder'), /Codex/);
     assert.match(await evaluate('dcThread.textContent'), /codex original assistant reply/);
+    assert.match(await evaluate('dcThread.querySelector(".dc-msg--ai .dc-msg-avatar").getAttribute("src")'),/desktop-agents\/codex\.png$/);
     await evaluate('dcInput.value="A Codex follow-up";dcInput.dispatchEvent(new Event("input",{bubbles:true}));dcSend.click();dcSend.click();');
     await until('dcThread.textContent.includes("native reply: A Codex follow-up")');
     assert.equal(calls.length, 1);

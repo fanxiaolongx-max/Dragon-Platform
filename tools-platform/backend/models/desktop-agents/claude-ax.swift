@@ -128,7 +128,11 @@ case "snapshot":
 case "submit-text":
     let (app, window) = requireWindow()
     let expected = argument["text"] as? String ?? ""
-    let normalize: (String) -> String = { $0.replacingOccurrences(of: "\r\n", with: "\n").trimmingCharacters(in: .whitespacesAndNewlines) }
+    let normalize: (String) -> String = {
+        $0.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\n{2,}", with: "\n", options: .regularExpression)
+    }
     let matches = collect(window).filter { $0.1["role"] as? String == "AXTextArea" && normalize($0.1["value"] as? String ?? "") == normalize(expected) }
     guard !expected.isEmpty, matches.count == 1 else { fail("DESKTOP_TARGET_UNCONFIRMED", "桌面输入框与新会话问题不一致，未发送") }
     let previous = frontmostId()

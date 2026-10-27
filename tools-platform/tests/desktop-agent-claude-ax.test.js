@@ -84,3 +84,13 @@ test('a composer that does not read back the exact text, or a switched session, 
         assert.equal(w.calls.at(-1), 'restore:com.google.Chrome');
     }
 });
+
+test('readback may merge empty paragraphs without changing message characters or indentation', async () => {
+    const expected='[DragonTAC:fixture]\n\nRules\n\n  exact indentation\n\n';
+    const w=fakeWindow({current:TARGET.title,pasteResult:'[DragonTAC:fixture]\nRules\n  exact indentation'});
+    await send(w,expected);
+    assert.equal(w.calls.some(c=>c.startsWith('submit')),true);
+    const changed=fakeWindow({current:TARGET.title,pasteResult:'[DragonTAC:fixture]\nRules\nwrong text'});
+    await assert.rejects(send(changed,expected),{code:'DESKTOP_REJECTED'});
+    assert.equal(changed.calls.some(c=>c.startsWith('submit')),false);
+});

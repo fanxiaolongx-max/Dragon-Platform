@@ -9,6 +9,7 @@
 const { execFile } = require('node:child_process');
 const fs = require('node:fs/promises'), path = require('node:path'), os = require('node:os'), crypto = require('node:crypto');
 const SOURCE = path.join(__dirname, 'claude-ax.swift');
+const { composerText } = require('./composer-text');
 const STOP = new Set(['停止', 'Stop', 'Stop response', '停止回复']);
 const failure = (code, message) => Object.assign(new Error(message), { code });
 const exec = (file, args, timeout) => new Promise((resolve, reject) => execFile(file, args, { timeout, maxBuffer: 16 * 1024 * 1024 }, (error, stdout, stderr) => error ? reject(Object.assign(error, { stderr })) : resolve(stdout)));
@@ -68,7 +69,7 @@ function rowFor(rows, title) {
         throw failure('DESKTOP_TARGET_UNCONFIRMED', matches.length ? 'Claude 侧栏有同名会话，无法确认发送目标' : '请在 Claude 桌面左侧栏中显示这个会话（Code 模式、展开所在项目）后重试');
     return matches[0];
 }
-const normalize = t => String(t || '').replace(/\r\n/g, '\n').trim();
+const normalize = composerText;
 async function status(cfg = {}, { driver: d = driver } = {}) {
     if (!cfg.claudeAutomation)
         return { canSend: false, reason: 'Claude 桌面历史可查看；在全局设置开启「模拟操作发送」后可从网页发送' };

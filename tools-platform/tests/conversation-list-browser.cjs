@@ -1,9 +1,9 @@
 // All conversation sources and actions below are isolated fixtures.
 const {app,BrowserWindow}=require('electron'),fs=require('node:fs'),path=require('node:path'),os=require('node:os'),assert=require('node:assert/strict'),express=require('express');
 const root=path.join(__dirname,'..'),temp=fs.mkdtempSync(path.join(os.tmpdir(),'conversation-lists-ui-'));
-app.setPath('userData',temp);app.disableHardwareAcceleration();let win,server,failSave=false;
+app.setPath('userData',temp);app.disableHardwareAcceleration();let win,server,failSave=false,delayChannel='';
 const dates=[0,4,10,40].map(age=>new Date(Date.now()-age*86400000).toISOString());
-const mine=dates.map((date,i)=>({id:'mine-'+i,firstQuestion:'Personal chat '+i,updatedAt:date}));
+const mine=dates.map((date,i)=>({id:'mine-'+i,discussionMode:i===0?'group':null,firstQuestion:'Personal chat '+i,updatedAt:date}));
 const threads=dates.map((date,i)=>({id:'channel-'+i,kind:'group',name:'Channel chat '+i,lastActiveAt:date,messageCount:2,tasks:{open:0},lastMessage:'Last message preview'}));
 const native=['codex','claudecode','antigravity'].flatMap((provider,p)=>dates.map((date,i)=>({provider,id:`11111111-1111-4111-8111-${String(p*10+i).padStart(12,'0')}`,title:provider+' chat '+i,updatedAt:date})));
 const preferences=[{source:'mine',id:'mine-1',pinned:1,archived:0,hidden:0,title:''}],mutations=[],deleted=[];
@@ -18,9 +18,11 @@ app.whenReady().then(async()=>{
  web.put('/api/ai/conversation-list',(req,res)=>{if(failSave)return res.status(503).json({error:'Save unavailable'});mutations.push(req.body);let p=preferences.find(p=>p.source===req.body.source&&p.id===req.body.id);if(!p){p={pinned:0,archived:0,hidden:0,title:'',source:req.body.source,id:req.body.id};preferences.push(p)}Object.assign(p,req.body);res.json({item:p})});
  web.get('/api/ai/models',(_,res)=>res.json({models:[]}));web.get('/api/ai/sessions',(req,res)=>res.json({items:mine.filter(i=>!req.query.query||i.firstQuestion.includes(req.query.query))}));
  web.delete('/api/ai/sessions/:id',(req,res)=>{deleted.push(req.params.id);mine.splice(mine.findIndex(i=>i.id===req.params.id),1);res.json({deleted:true})});
- web.get('/api/channels/available',(_,res)=>res.json({items:[{id:'welink'},{id:'weixin'}]}));web.get('/api/channels/:channel/threads',(req,res)=>res.json({items:threads.filter(i=>!req.query.q||i.name.includes(req.query.q))}));
+ web.get('/api/channels/available',(_,res)=>res.json({items:[{id:'welink',connected:true,health:{level:'ok',reason:'connected'}},{id:'weixin',connected:true,health:{level:'warning',reason:'delayed'}}]}));web.get('/api/channels/:channel/threads',(req,res)=>{const send=()=>res.json({items:threads.filter(i=>!req.query.q||i.name.includes(req.query.q))});if(req.params.channel===delayChannel)setTimeout(send,500);else send();});
+ web.get('/api/ai/sessions/:id/messages',(req,res)=>res.json({items:[{id:'u1',role:'user',content:'Latest personal '+req.params.id},{id:'m1',role:'model',content:'Personal answer'}],hasMore:false}));
+ web.get('/api/channels/:channel/threads/:kind/:id/messages',(req,res)=>res.json({thread:{name:'Channel '+req.params.id},items:[{id:'u1',direction:'inbound',content:'Latest channel '+req.params.channel+' '+req.params.id,createdAt:dates[0]}],segments:[],hasMore:false}));
  web.get('/api/desktop-agents/settings',(_,res)=>res.json({owned:true,settings:{enabled:true,allowSend:true,autoSync:false,syncSeconds:20}}));
- const providers=['codex','claudecode','antigravity'].map(id=>({id,enabled:true,connected:true,canSend:true,reason:'Native fixture'}));
+ const providers=['codex','claudecode','antigravity'].map(id=>({id,enabled:true,connected:id!=='antigravity',canSend:id==='codex',reason:'Native fixture'}));
  web.get('/api/desktop-agents/sessions',(_,res)=>res.json({items:native,providers,syncedAt:new Date().toISOString()}));
  web.post('/api/desktop-agents/sync',(_,res)=>res.json({items:native,providers,syncedAt:new Date().toISOString()}));
  web.get('/api/desktop-agents/:provider/sessions/:id/messages',(req,res)=>res.json({session:native.find(i=>i.id===req.params.id),items:[{id:'u1',role:'user',content:'Native user'},{id:'a1',role:'assistant',content:'Native reply'}],canSend:true,busy:false}));
@@ -28,10 +30,18 @@ app.whenReady().then(async()=>{
  win=new BrowserWindow({show:false,width:1440,height:960,webPreferences:{backgroundThrottling:false}});await win.loadURL('http://127.0.0.1:'+server.address().port);
  await until('document.querySelectorAll("#homeChatList .conversation-list-more").length===4');await until('document.querySelector("#homeChatList .home-chat-group")?.textContent==="置顶"');
  assert.equal(await ev('!!document.querySelector("[data-chat-delete]")'),false,'inline trash buttons removed');
+ assert.equal(await ev('document.querySelectorAll("#homeChatList .home-chat-tac").length'),1,'persisted group conversations have a leading icon');
+ assert.equal(await ev('document.querySelector("[data-chat-source=welink] .connection-status-dot").dataset.health'),'ok');
+ assert.equal(await ev('document.querySelector("[data-chat-source=weixin] .connection-status-dot").dataset.health'),'warning');
+ await ev('document.querySelector("[data-chat-source=mine]").click()');
+ await until('document.querySelector("#homeChatList [aria-current=true]")?.closest(".home-chat-owned").textContent.includes("Personal chat 0")');
+ assert.equal(await ev('DragonClaw.currentSessionId()'),'mine-0','latest personal chat opens rather than the older pinned chat');
+ await wait(100);fs.writeFileSync(path.join(temp,'conversation-status-and-group.png'),(await win.webContents.capturePage()).toPNG());
+
  assert.deepEqual(await ev('[...document.querySelectorAll("#homeChatList .home-chat-group")].map(e=>e.textContent)'),['置顶','最近','7 天前','一个月前']);
  assert.equal(await ev('getComputedStyle(document.querySelector("#homeChatList .home-chat-meta")).opacity'),'0');
  const point=await ev('(()=>{const r=document.querySelector("#homeChatList .home-chat-title").getBoundingClientRect();return {x:Math.round(r.x+15),y:Math.round(r.y+5)}})()');win.webContents.sendInputEvent({type:'mouseMove',...point});await wait(350);
- assert.equal(await ev('getComputedStyle(document.querySelector("#homeChatList .home-chat-meta")).opacity'),'1');assert.equal(await ev('getComputedStyle(document.querySelector("#homeChatList .conversation-list-more")).visibility'),'hidden');
+ await until('Number(getComputedStyle(document.querySelector("#homeChatList .home-chat-meta")).opacity)>.99');assert.equal(await ev('getComputedStyle(document.querySelector("#homeChatList .conversation-list-more")).visibility'),'hidden');
  await wait(1950);await until('Number(getComputedStyle(document.querySelector("#homeChatList .conversation-list-more")).opacity)>.5');assert.equal(await ev('getComputedStyle(document.querySelector("#homeChatList .home-chat-meta")).opacity'),'0');
  await ev('document.querySelector("#homeChatList .conversation-list-more").click()');await until('document.querySelector(".conversation-context-menu")');assert.equal(await ev('document.querySelector(".conversation-context-menu").textContent.includes("取消置顶")'),true);
  await choose('pin');await until('document.querySelector("#homeChatList .home-chat-group")?.textContent==="最近"');
@@ -49,11 +59,24 @@ app.whenReady().then(async()=>{
 
  await context('#homeChatList [data-chat-index="2"]');await choose('remove');await until('document.querySelectorAll("#homeChatList .conversation-list-row").length===3');assert.deepEqual(deleted,['mine-2']);
  await ev('document.querySelector("[data-chat-source=welink]").click()');await until('document.querySelectorAll("#homeWelinkList .conversation-list-row").length===4');
+ await until('HomeWelinkThreads.active()?.id==="channel-0"');
  assert.deepEqual(await ev('[...document.querySelectorAll("#homeWelinkList .home-chat-group")].map(e=>e.textContent)'),['最近','3 天前','7 天前','一个月前']);
+ await ev('document.querySelector("[data-chat-source=weixin]").click()');
+ await until('HomeWelinkThreads.active()?.channel==="weixin"&&HomeWelinkThreads.active()?.id==="channel-0"');
+ delayChannel='welink';
+ await ev('document.querySelector("[data-chat-source=welink]").click();document.querySelector("[data-chat-source=weixin]").click()');
+ await until('HomeWelinkThreads.active()?.channel==="weixin"&&HomeWelinkThreads.active()?.id==="channel-0"');
+ await wait(650);
+ assert.equal(await ev('HomeWelinkThreads.active()?.channel'),'weixin','a late response from the previous channel cannot steal the active view');
+ delayChannel='';
+ await ev('document.querySelector("[data-chat-source=welink]").click()');
+ await until('HomeWelinkThreads.active()?.channel==="welink"&&HomeWelinkThreads.active()?.id==="channel-0"');
  await context('#homeWelinkList [data-wl-thread="1"]');await choose('pin');await until('document.querySelector("#homeWelinkList .home-chat-group").textContent==="置顶"');
  await context('#homeWelinkList [data-wl-thread="2"]');await choose('remove');await until('document.querySelectorAll("#homeWelinkList .conversation-list-row").length===3');assert.equal(mutations.at(-1).hidden,true);assert.equal(mutations.at(-1).source,'welink');
  await ev('document.querySelector("[data-chat-source=agents]").click()');await until('document.querySelectorAll(".desktop-agent-list .conversation-list-row").length===4');
  assert.deepEqual(await ev('[...document.querySelectorAll(".desktop-agent-list .home-chat-group")].map(e=>e.textContent)'),['最近','3 天前','7 天前','一个月前']);
+ assert.deepEqual(await ev('[...document.querySelectorAll("[data-desktop-provider] .connection-status-dot")].map(e=>e.dataset.health)'),['ok','warning','error']);
+
  const heights=await ev('[...document.querySelectorAll(".desktop-agent-chat")].map(e=>e.getBoundingClientRect().height)');assert.ok(heights.every(h=>h===30),'native times never create a second row');
  await context('.desktop-agent-chat');await choose('archive');await until('document.querySelectorAll(".desktop-agent-list .conversation-list-row").length===3');assert.equal(mutations.at(-1).source,'desktop:codex');
  await ev('document.querySelector("[data-desktop-sync]").click()');await wait(100);assert.equal(await ev('document.querySelectorAll(".desktop-agent-list .conversation-list-row").length'),3,'sync does not resurrect archived entries');
