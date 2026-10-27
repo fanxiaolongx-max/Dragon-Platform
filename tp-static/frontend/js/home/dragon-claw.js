@@ -1431,7 +1431,7 @@
         try{
             const result=await plugin.run({text:content,sessionId:state.sessionId,resumeJob,signal:controller.signal,
                 onStarted:job=>{if(epoch!==resumeEpoch)return;started=true;state.sessionId=job.sessionId;rememberLastChat(job.sessionId);},
-                onUpdate:job=>{if(epoch===resumeEpoch&&reply.isConnected){reply.querySelector('.dc-msg-body').innerHTML=renderMarkdown(plugin.format(job));scrollThread();}}});
+                onUpdate:job=>{if(epoch===resumeEpoch&&reply.isConnected){plugin.renderReports(reply,job,renderMarkdown);scrollThread();}}});
             if(epoch!==resumeEpoch)return;
             const text=plugin.format(result);state.messages.push({role:'model',content:text});addMessageTools(reply,text);
         }catch(error){
@@ -1668,6 +1668,8 @@
         message.classList.add('dc-msg--history');
         if (role === 'model') {
             message.querySelector('.dc-msg-body').innerHTML = renderMarkdown(text);
+            const provider=(Array.isArray(events)?events:[]).find(event=>event.type==='desktop-discussion')?.provider||({'Codex Desktop':'codex','Claude Code Desktop':'claudecode','Antigravity Desktop':'antigravity'})[item.model_name];
+            window.HomeAgentDiscussion?.decorateMessage?.(message,provider);
             // 工具调用、审批、命令输出：按入库记录重放
             if (Array.isArray(events) && events.length) workspace()?.replayEvents?.(message, events);
             const skillIds = (Array.isArray(events) ? events : []).find(event => event?.type === 'skills')?.skills;
@@ -1719,6 +1721,7 @@
             const previousHeight = el.thread.scrollHeight;
             const previousTop = el.thread.scrollTop;
             page.items.forEach(item => addHistoryMessage(item.role, String(item.content), item.events, item, anchor));
+            window.HomeAgentDiscussion?.groupMessages?.(el.thread);
             el.thread.scrollTop = previousTop + (el.thread.scrollHeight - previousHeight);
             state.messages = [...page.items.map(item => ({ role: item.role === 'model' ? 'model' : 'user', content: String(item.content) })), ...state.messages];
             historyPaging.cursor = page.cursor;
@@ -1761,13 +1764,15 @@
             if (epoch !== resumeEpoch) return;
             state.messages = resume.items.map(item => ({ role: item.role === 'model' ? 'model' : 'user', content: String(item.content) }));
             state.sessionId = resume.sessionId;
-            await window.HomeAgentDiscussion?.activateSession?.(resume.sessionId);
+            const knownGroup=resume.discussionMode==='group'||chatList.items.some(item=>item.id===resume.sessionId&&item.discussionMode==='group')||resume.items.some(item=>item.events?.some(event=>event.type==='desktop-discussion'));
+            await window.HomeAgentDiscussion?.activateSession?.(resume.sessionId,{group:knownGroup});
             if(epoch!==resumeEpoch)return;
             state.focusedTool = null;
             resetHistoryPaging();
             window.DragonClawSkills?.reset?.();
             el.thread.innerHTML = `<div class="dc-history-banner"><span aria-hidden="true">↺</span>${escapeHtml(tx('resumeBanner', { time: resume.time }))}</div>`;
             batchMessages(() => resume.items.forEach(item => addHistoryMessage(item.role, String(item.content), item.events, item)));
+            window.HomeAgentDiscussion?.groupMessages?.(el.thread);
             Object.assign(historyPaging, { sessionId: resume.sessionId, cursor: resume.cursor || '', hasMore: Boolean(resume.hasMore && resume.cursor) });
             if (historyPaging.hasMore) mountHistorySentinel(el.thread.querySelector('.dc-history-banner').nextSibling);
             rememberLastChat(resume.sessionId, resume.agent);
@@ -1908,7 +1913,7 @@
             if (!items.length) throw new Error('Empty session');
             const local = readLastChat();
             const agent = item.agent || (local?.sessionId === item.id ? local.agent : null);
-            await resumeChat({ sessionId: item.id, items, cursor: page.cursor, hasMore: page.hasMore, total: page.total, time: formatChatTime(items[items.length - 1].created_at), agent }, epoch);
+            await resumeChat({ sessionId: item.id, discussionMode:item.discussionMode, items, cursor: page.cursor, hasMore: page.hasMore, total: page.total, time: formatChatTime(items[items.length - 1].created_at), agent }, epoch);
         } catch {
             if (epoch !== resumeEpoch) return;
             finishHistoryLoading(false);
@@ -1958,7 +1963,7 @@
     }
 
     // ── 侧栏历史对话（对话模式左侧面板） ────────────
-    const chatList = { items: [], loaded: false, failed: false, seq: 0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '' };
+    const chatList = { items: [], loaded: false, failed: false, seq: 0, latestSeq:0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '' };
 
     function chatGroupKey(date) {
         const startOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
@@ -2001,8 +2006,9 @@
             const date=parseChatTime(item.updatedAt),valid=!Number.isNaN(date.getTime()),group=valid?chatGroupKey(date):'chatOlder';
             const root = item.agent?.root || '';
             const folder = root ? `<svg class="home-chat-folder" viewBox="0 0 16 16" aria-label="${escapeHtml(tx('chatFolderTitle', { root }))}"><title>${escapeHtml(tx('chatFolderTitle', { root }))}</title><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>` : '';
+            const tac = item.discussionMode === 'group' ? `<span class="home-chat-tac" role="img" aria-label="DragonTAC" title="DragonTAC"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3" r="2"/><circle cx="3" cy="12" r="2"/><circle cx="13" cy="12" r="2"/><path d="M7 5 4 10m5-5 3 5M5 12h6" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></span>` : '';
             html.push(`<div class="home-chat-item home-chat-owned${item.id === state.sessionId ? ' is-active' : ''}" role="listitem">
-                <button type="button" class="home-chat-open" data-chat-index="${index}" title="${escapeHtml(title)}"${item.id === state.sessionId ? ' aria-current="true"' : ''}><span class="home-chat-title">${escapeHtml(title)}</span></button>
+                <button type="button" class="home-chat-open" data-chat-index="${index}" title="${escapeHtml(title)}"${item.id === state.sessionId ? ' aria-current="true"' : ''}>${tac}<span class="home-chat-title">${escapeHtml(title)}</span></button>
                 <span class="home-chat-actions"><span class="home-chat-meta">${folder}<span>${valid ? escapeHtml(chatItemTime(date, group)) : ''}</span></span>
                 </span>
             </div>`);
@@ -2024,12 +2030,12 @@
         if (!el.chatList) return;
         const seq = ++chatList.seq;
         const query = el.chatSearch?.value.trim() || '';
+        const account=currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'');
         try {
             const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=80&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
-            if (seq !== chatList.seq) return;
-            const account=currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'');
+            if (seq !== chatList.seq||account!==currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'')) return;
             if(chatList.cacheIdentity!==account){chatList.cached=[];chatList.cacheIdentity=account;}
             const fetched=Array.isArray(data.items)?data.items:[];
             if(!query)chatList.cached=fetched;
@@ -2052,13 +2058,24 @@
 
     function openChatFromList(item) {
         if (!item) return;
-        if (item.id === state.sessionId && state.messages.length) {
+        chatList.latestSeq++;
+        if (!external.active && item.id === state.sessionId && state.messages.length) {
             setChatting(true);
             el.input.focus({ preventScroll: true });
             return;
         }
         if (state.controller) return showToast(tx('chatBusy'));
         openSession(item);
+    }
+
+    async function openLatestChat({isCurrent=()=>true}={}) {
+        const version=++chatList.latestSeq;
+        const account=currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'');
+        await loadChatList();
+        if(version!==chatList.latestSeq||account!==currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'')||!isCurrent()||chatList.failed)return;
+        const config=ownedListConfig();
+        const item=window.HomeConversationList?.latest(chatList.items,config)||chatList.items.find(row=>!window.HomeConversationList?.get('mine',row.id).hidden&&!window.HomeConversationList?.get('mine',row.id).archived);
+        if(item)openChatFromList(item);else if(!state.controller)newChat();
     }
 
     async function deleteChatFromList(item) {
@@ -2135,6 +2152,7 @@
     }
 
     function newChat() {
+        chatList.latestSeq++;
         window.HomeAgentDiscussion?.activateSession?.(null);
         exitExternal();
         resumeEpoch += 1;
@@ -2168,6 +2186,7 @@
             showToast(tx('chatBusy'));
             return null;
         }
+        window.HomeAgentDiscussion?.activateSession?.(null);
         el.form.querySelector('[data-external-send-status]')?.remove();
         const previous = external.active ? external.onExit : null;
         const sameOwner = external.active && external.owner === owner;
@@ -2484,9 +2503,13 @@
         bindEvents();
         bindChatList();
         window.addEventListener('home:conversation-list-changed',()=>renderChatList());
+        window.addEventListener('home:agent-discussion-changed',event=>{
+            for(const item of [...chatList.items,...chatList.cached])if(item.id===event.detail?.sessionId)item.discussionMode='group';
+            renderChatList();scheduleChatListRefresh();
+        });
         window.addEventListener('home:resume-agent-discussion',event=>{if(!state.controller&&!state.restoring&&event.detail?.sessionId===state.sessionId)sendDesktopDiscussion('',event.detail);});
         watchSchedules();
-        window.DragonClaw = { startWithSkill, enterExternal, exitExternal, newChat, lang, isExternal: () => external.active };
+        window.DragonClaw = { startWithSkill, enterExternal, exitExternal, newChat, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
         const linkedSkill = new URLSearchParams(location.search).get('skill');
         if (linkedSkill) {

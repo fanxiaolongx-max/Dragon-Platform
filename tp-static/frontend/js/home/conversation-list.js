@@ -9,6 +9,13 @@
     const get=(source,id)=>prefs.get(key(source,id))||{};
     const signal=source=>window.dispatchEvent(new CustomEvent('home:conversation-list-changed',{detail:{source}}));
     const stamp=value=>{if(!value)return NaN;const s=String(value);return Date.parse(/^\d{4}-\d\d-\d\d \d\d:/.test(s)?s.replace(' ','T')+'Z':s)};
+    function latest(items,config){return items.filter(item=>{const p=get(config.source,config.id(item));return !p.hidden&&!p.archived;}).map((item,index)=>({item,index})).sort((a,b)=>(stamp(config.date(b.item))||0)-(stamp(config.date(a.item))||0)||a.index-b.index)[0]?.item;}
+    function healthDot(health={level:'warning',reason:'checking'}){
+        const level=['ok','warning','error'].includes(health.level)?health.level:'warning';
+        const labels={connected:L('连接正常','Connected'),offline:L('连接异常或未连接','Offline or unavailable'),checking:L('正在检查连接','Checking connection'),connecting:L('正在连接或重连','Connecting or reconnecting'),stale:L('连接配置待更新','Connection configuration needs updating'),delayed:L('连接延迟','Connection delayed'),degraded:L('连接可用，近期有异常','Connected with a recent issue'),readonly:L('可查看，暂不能发送','Readable, sending unavailable'),disabled:L('连接已停用','Connection disabled')};
+        const label=labels[health.reason]||labels.checking;
+        return `<span class="connection-status-dot" data-health="${level}" role="img" aria-label="${label}" title="${label}"></span>`;
+    }
     function bucket(value,now=new Date()){
         const date=new Date(stamp(value));if(Number.isNaN(date.getTime()))return 'unknown';
         const day=d=>Date.UTC(d.getFullYear(),d.getMonth(),d.getDate());
@@ -83,7 +90,7 @@
             if(get(config.source,config.id(item)).pinned){const pin=document.createElement('span');pin.className='conversation-pin';pin.innerHTML=icon('pin');pin.title=L('已置顶','Pinned');wrapper.append(pin);}
         }
     }
-    window.HomeConversationList={sections,enhance,bucket,get,close,refresh:load,isArchived:source=>views.get(source)==='archived'};
+    window.HomeConversationList={sections,enhance,bucket,get,latest,healthDot,close,refresh:load,isArchived:source=>views.get(source)==='archived'};
     document.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&!event.target.closest('[data-conversation-more]'))close();},true);
     window.addEventListener('scroll',()=>close(),true);
     window.addEventListener('resize',()=>close());window.addEventListener('blur',()=>close());

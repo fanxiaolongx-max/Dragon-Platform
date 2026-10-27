@@ -82,8 +82,18 @@
             scheduleListRefresh();
         }
     } }
+    function providerHealth(id) {
+        const p=state.providers.find(item=>item.id===id);
+        if(state.settings&&!state.settings.enabled)return {level:'error',reason:'disabled'};
+        if(!p)return {level:'warning',reason:'checking'};
+        if(!p.enabled)return {level:'error',reason:'disabled'};
+        if(!p.connected)return {level:'error',reason:'offline'};
+        const stale=p.stale||(state.active?.provider===id&&state.detail?.stale);
+        if(state.error||stale||p.warning||p.latencyMs>3000)return {level:'warning',reason:state.error?'degraded':stale?'stale':p.latencyMs>3000?'delayed':'degraded'};
+        return p.canSend?{level:'ok',reason:'connected'}:{level:'warning',reason:'readonly'};
+    }
     function renderControls() { if (!root)
-        return; const header = root.querySelector('.desktop-agents-controls'); header.innerHTML = `<div class="desktop-agent-providers" role="group" aria-label="${L('选择第三方 Agent', 'Select an agent')}">${Object.entries(names).map(([id, name]) => `<button type="button" class="desktop-agent-provider" data-desktop-provider="${id}" aria-pressed="${state.provider === id}" aria-label="${name}" title="${name}"><img src="./tp-static/frontend/assets/desktop-agents/${id}.png" width="24" height="24" alt="" draggable="false"></button>`).join('')}</div><button type="button" data-desktop-sync title="${L('立即重新读取最近对话列表，不必等待自动刷新；对话正文独立更新', 'Reread the recent conversation list now, without waiting. Open conversations update separately.')}" ${state.loading || !state.settings?.enabled ? 'disabled' : ''}>${L(state.loading ? '刷新中…' : '刷新列表', state.loading ? 'Refreshing…' : 'Refresh list')}</button><button type="button" data-desktop-settings title="${L('桌面 Agent 设置', 'Desktop agent settings')}" aria-label="${L('桌面 Agent 设置', 'Desktop agent settings')}">⚙</button>`; const status = state.providers.find(p => p.id === state.provider); root.querySelector('.desktop-agents-status').textContent = state.error || (!state.settings?.enabled ? L('在全局设置连接本机桌面后，最近对话会自动同步。', 'Connect this desktop in global settings to sync recent chats.') : status?.reason || L('正在读取桌面对话…', 'Reading desktop chats…')); }
+        return; const header = root.querySelector('.desktop-agents-controls'); header.innerHTML = `<div class="desktop-agent-providers" role="group" aria-label="${L('选择第三方 Agent', 'Select an agent')}">${Object.entries(names).map(([id, name]) => `<button type="button" class="desktop-agent-provider" data-desktop-provider="${id}" aria-pressed="${state.provider === id}" aria-label="${name}" title="${name}"><img src="./tp-static/frontend/assets/desktop-agents/${id}.png" width="24" height="24" alt="" draggable="false">${window.HomeConversationList?.healthDot(providerHealth(id))||''}</button>`).join('')}</div><button type="button" data-desktop-sync title="${L('立即重新读取最近对话列表，不必等待自动刷新；对话正文独立更新', 'Reread the recent conversation list now, without waiting. Open conversations update separately.')}" ${state.loading || !state.settings?.enabled ? 'disabled' : ''}>${L(state.loading ? '刷新中…' : '刷新列表', state.loading ? 'Refreshing…' : 'Refresh list')}</button><button type="button" data-desktop-settings title="${L('桌面 Agent 设置', 'Desktop agent settings')}" aria-label="${L('桌面 Agent 设置', 'Desktop agent settings')}">⚙</button>`; const status = state.providers.find(p => p.id === state.provider); root.querySelector('.desktop-agents-status').textContent = state.error || (!state.settings?.enabled ? L('在全局设置连接本机桌面后，最近对话会自动同步。', 'Connect this desktop in global settings to sync recent chats.') : status?.reason || L('正在读取桌面对话…', 'Reading desktop chats…')); }
     function shortTime(value) {
         const date = new Date(value), now = new Date(), pad = n => String(n).padStart(2, '0');
         if (date.toDateString() === now.toDateString())
@@ -140,7 +150,7 @@
     function current(epoch, session) { return epoch === state.viewEpoch && identity() === state.identity && state.active && key(state.active) === key(session); }
     function openFirst() {
         if (!state.visible || !autoSelect || !state.lastSync || state.drafting) return;
-        const first=state.items.find(item=>item.provider===state.provider&&!window.HomeConversationList?.get('desktop:'+state.provider,item.id).hidden&&!window.HomeConversationList?.get('desktop:'+state.provider,item.id).archived);
+        const candidates=state.items.filter(item=>item.provider===state.provider);const first=window.HomeConversationList?.latest(candidates,{source:'desktop:'+state.provider,id:item=>item.id,date:item=>item.updatedAt})||candidates.filter(item=>!window.HomeConversationList?.get('desktop:'+state.provider,item.id).hidden&&!window.HomeConversationList?.get('desktop:'+state.provider,item.id).archived).sort((a,b)=>(Date.parse(b.updatedAt)||0)-(Date.parse(a.updatedAt)||0))[0];
         if (first) { open(first); return; }
         const api=window.DragonClaw?.enterExternal?.({owner:'desktop-agent',onExit:exit});
         if (!api) return;
@@ -248,13 +258,17 @@
     // 只替换从第一个变化处开始的段落：前面的段落、代码块和选中的文字保持不动
     function morph(target, html) { const next = document.createElement('div'); next.innerHTML = html; const before = [...target.childNodes], after = [...next.childNodes]; let i = 0; while (i < before.length && i < after.length && before[i].isEqualNode(after[i]))
         i++; before.slice(i).forEach(n => n.remove()); target.append(...after.slice(i)); }
-    function fillMessage(node, item) { if (item.role !== 'user')
+    function fillMessage(node, item) { if (item.role !== 'user') {
+        const avatar=node.querySelector('.dc-msg-avatar');if(avatar){avatar.src=`./tp-static/frontend/assets/desktop-agents/${state.active.provider}.png`;avatar.alt=names[state.active.provider];}
+        node.classList.add('dc-provider-message');
         morph(node.querySelector('.dc-msg-body'), state.api.renderMarkdown(item.content));
+    }
     else
         node.querySelector('.dc-msg-body').textContent = item.content; const copy = node.querySelector('[data-dc-copy]'); if (copy)
         copy.dataset.dcCopy = item.content; }
     function thinkingNode() {
         const message = state.api.addMessage('ai', '');
+        const avatar=message.querySelector('.dc-msg-avatar');if(avatar){avatar.src=`./tp-static/frontend/assets/desktop-agents/${state.active.provider}.png`;avatar.alt=names[state.active.provider];}
         message.classList.add('desktop-agent-thinking');
         message.setAttribute('aria-busy', 'true');
         message.querySelector('.dc-msg-body').remove();
@@ -487,7 +501,7 @@
         list = root.querySelector('.desktop-agent-list');
         mine.after(root);
         root.addEventListener('click', e => { const provider=e.target.closest('[data-desktop-provider]');
-            if(provider&&provider.dataset.desktopProvider!==state.provider){
+            if(provider){
                 window.HomeConversationList?.close();
                 state.provider=provider.dataset.desktopProvider;
                 render();autoSelect=true;openFirst();
@@ -506,7 +520,7 @@
         window.addEventListener('pagehide', () => { clearInterval(poll); clearInterval(state.timer); clearInterval(state.tick); });
         window.dispatchEvent(new Event('home:desktop-agents-ready'));
     }
-    window.HomeDesktopAgents = { available: () => localStorage.getItem('tools_role') === 'admin', show: visible => { if(visible&&!state.visible)autoSelect=true;state.visible = visible; if (root)
+    window.HomeDesktopAgents = { available: () => localStorage.getItem('tools_role') === 'admin', show: visible => { if(visible)autoSelect=true;state.visible = visible; if (root)
             root.hidden = !visible; if (visible && state.settings?.enabled)
             {openFirst();sync();} }, search: render, refresh: () => sync(true), open, newChat };
     if (document.readyState === 'loading')
