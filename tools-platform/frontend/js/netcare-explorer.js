@@ -28,6 +28,7 @@
         q: '', category: '', status: 'all', tab: TABS.some(([id]) => id === saved.tab) ? saved.tab : 'overview',
         sidebarWidth: (Number.isFinite(saved.sidebarWidth) && saved.sidebarWidth >= MIN_SIDEBAR_WIDTH && saved.sidebarWidth <= MAX_SIDEBAR_WIDTH) ? saved.sidebarWidth : DEFAULT_SIDEBAR_WIDTH,
         sidebarCollapsed: Boolean(saved.sidebarCollapsed),
+        collapsedGroups: new Set(Array.isArray(saved.collapsedGroups) ? saved.collapsedGroups : []),
         catalog: null, loading: false, error: '',
         selected: '', detail: null, detailLoading: false, detailError: '',
         query: null, queryResult: null, queryBusy: false,
@@ -42,7 +43,8 @@
                 scope: state.scope,
                 tab: state.tab,
                 sidebarWidth: state.sidebarWidth,
-                sidebarCollapsed: state.sidebarCollapsed
+                sidebarCollapsed: state.sidebarCollapsed,
+                collapsedGroups: [...state.collapsedGroups]
             }));
         } catch (_) { /* 仅记住视图 */ }
     }
@@ -213,7 +215,7 @@
         </button>`;
     }
 
-    // 按类别分组：组头带颜色和数量，点组头只看该类别（再点取消）
+    // 按类别分组：组头带颜色和数量，点击组头折叠 / 展开该类别
     function renderListBody(shown, tables) {
         const groups = new Map();
         for (const table of shown) {
@@ -222,11 +224,21 @@
             groups.get(key).push(table);
         }
         const ordered = [...groups.entries()].sort((a, b) => (a[0] === '其他') - (b[0] === '其他') || b[1].length - a[1].length || a[0].localeCompare(b[0]));
-        const body = ordered.map(([category, items]) => `<div class="nx-group" style="--cat:${categoryColor(category)}">
-                <button type="button" class="nx-group-head ${state.category === category ? 'active' : ''}" data-nx-category="${esc(category)}" title="${esc(state.category === category ? L('显示全部类别', 'Show all categories') : L(`只看「${category}」`, `Only ${category}`))}"><i></i><span>${esc(categoryLabel(category))}</span><b>${items.length}</b></button>
-                ${items.map(renderItem).join('')}
-            </div>`).join('');
-        return `<div class="nx-count" data-nx-role="count">${esc(L(`显示 ${shown.length} / ${tables.length} 张`, `${shown.length} of ${tables.length} tables`))}${state.category ? ` · <button type="button" class="nx-link" data-nx-category="${esc(state.category)}">${esc(L(`清除「${categoryLabel(state.category)}」`, 'Clear category'))}</button>` : ''}</div>
+        const allCollapsed = ordered.length > 0 && ordered.every(([category]) => state.collapsedGroups.has(category));
+        const body = ordered.map(([category, items]) => {
+            const collapsed = state.collapsedGroups.has(category);
+            return `<div class="nx-group ${collapsed ? 'is-collapsed' : ''}" data-nx-group-wrap style="--cat:${categoryColor(category)}">
+                <button type="button" class="nx-group-head" data-nx-group="${esc(category)}" aria-expanded="${!collapsed}" title="${esc(collapsed ? L(`展开「${categoryLabel(category)}」`, `Expand ${categoryLabel(category)}`) : L(`折叠「${categoryLabel(category)}」`, `Collapse ${categoryLabel(category)}`))}">
+                    <svg class="nx-group-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+                    <i></i><span>${esc(categoryLabel(category))}</span><b>${items.length}</b>
+                </button>
+                <div class="nx-group-body">${items.map(renderItem).join('')}</div>
+            </div>`;
+        }).join('');
+        return `<div class="nx-count" data-nx-role="count">
+                <span>${esc(L(`显示 ${shown.length} / ${tables.length} 张`, `${shown.length} of ${tables.length} tables`))}${state.category ? ` · <button type="button" class="nx-link" data-nx-category="${esc(state.category)}">${esc(L(`清除「${categoryLabel(state.category)}」`, 'Clear category'))}</button>` : ''}</span>
+                ${ordered.length > 1 ? `<button type="button" class="nx-link" data-nx-action="toggle-all-groups">${esc(allCollapsed ? L('全部展开', 'Expand all') : L('全部折叠', 'Collapse all'))}</button>` : ''}
+            </div>
             <div class="nx-list" data-nx-role="list">${body || `<div class="nx-empty">${esc(L('没有匹配的表', 'No matching tables'))}</div>`}</div>`;
     }
 
@@ -565,6 +577,30 @@
             remember();
             return loadCatalog();
         }
+        const groupHead = event.target.closest('[data-nx-group]');
+        if (groupHead) {
+            const cat = groupHead.dataset.nxGroup;
+            if (state.collapsedGroups.has(cat)) state.collapsedGroups.delete(cat);
+            else state.collapsedGroups.add(cat);
+            remember();
+            const groupEl = groupHead.closest('.nx-group');
+            if (groupEl) {
+                const isCollapsed = state.collapsedGroups.has(cat);
+                groupEl.classList.toggle('is-collapsed', isCollapsed);
+                groupHead.setAttribute('aria-expanded', String(!isCollapsed));
+                groupHead.title = isCollapsed
+                    ? L(`展开「${categoryLabel(cat)}」`, `Expand ${categoryLabel(cat)}`)
+                    : L(`折叠「${categoryLabel(cat)}」`, `Collapse ${categoryLabel(cat)}`);
+                const toggleAllBtn = root.querySelector('[data-nx-action="toggle-all-groups"]');
+                if (toggleAllBtn) {
+                    const allGroups = [...root.querySelectorAll('.nx-group[data-nx-group-wrap]')];
+                    const allCollapsed = allGroups.length > 0 && allGroups.every(el => el.classList.contains('is-collapsed'));
+                    toggleAllBtn.textContent = allCollapsed ? L('全部展开', 'Expand all') : L('全部折叠', 'Collapse all');
+                }
+                return undefined;
+            }
+            return refreshList();
+        }
         const categoryButton = event.target.closest('[data-nx-category]');
         if (categoryButton) {
             state.category = state.category === categoryButton.dataset.nxCategory ? '' : categoryButton.dataset.nxCategory;
@@ -592,6 +628,18 @@
                 state.sidebarCollapsed = !state.sidebarCollapsed;
                 remember();
                 return render();
+            }
+            if (action === 'toggle-all-groups') {
+                const shown = (state.catalog?.tables || []).filter(matches);
+                const cats = [...new Set(shown.map(t => t.category || L('其他', 'Other')))];
+                const allCollapsed = cats.length > 0 && cats.every(c => state.collapsedGroups.has(c));
+                if (allCollapsed) {
+                    for (const c of cats) state.collapsedGroups.delete(c);
+                } else {
+                    for (const c of cats) state.collapsedGroups.add(c);
+                }
+                remember();
+                return refreshList();
             }
             if (action === 'refresh') return loadCatalog({ refresh: true });
             if (action === 'open-settings') {

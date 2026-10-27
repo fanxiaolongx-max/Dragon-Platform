@@ -193,7 +193,7 @@ body.nx-resizing * {
 .nx-textarea.code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; min-height: 120px; }
 .nx-filter-row { display: flex; gap: 8px; }
 .nx-filter-row > * { flex: 1 1 0; }
-.nx-count { font-size: 12px; color: var(--nx-muted); padding: 6px 14px; border-bottom: 1px solid var(--nx-border); }
+.nx-count { font-size: 12px; color: var(--nx-muted); padding: 6px 14px; border-bottom: 1px solid var(--nx-border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .nx-list {
     overflow-y: auto;
     overflow-x: hidden;
@@ -206,7 +206,10 @@ body.nx-resizing * {
 .nx-list::-webkit-scrollbar-track { background: transparent; }
 .nx-list::-webkit-scrollbar-thumb { background: var(--nx-border-strong); border-radius: 999px; }
 .nx-list::-webkit-scrollbar-thumb:hover { background: var(--nx-muted); }
-.nx-group-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; width: 100%; border: 0; border-bottom: 1px solid var(--nx-border); padding: 6px 14px; background: color-mix(in srgb, var(--cat) 9%, var(--nx-card)); color: var(--nx-text); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; text-align: left; box-sizing: border-box; }
+.nx-group-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 7px; width: 100%; border: 0; border-bottom: 1px solid var(--nx-border); padding: 6px 14px 6px 10px; background: color-mix(in srgb, var(--cat) 9%, var(--nx-card)); color: var(--nx-text); font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; text-align: left; box-sizing: border-box; user-select: none; }
+.nx-group-arrow { flex: 0 0 auto; color: var(--nx-muted); transition: transform .18s ease; }
+.nx-group.is-collapsed .nx-group-arrow { transform: rotate(-90deg); }
+.nx-group.is-collapsed .nx-group-body { display: none; }
 .nx-group-head i { width: 8px; height: 8px; border-radius: 50%; background: var(--cat); flex: 0 0 auto; }
 .nx-group-head span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nx-group-head b { font-size: 11px; font-weight: 800; color: var(--nx-muted); background: var(--nx-card); border-radius: 999px; padding: 0 7px; line-height: 18px; }
