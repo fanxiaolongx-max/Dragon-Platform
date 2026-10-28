@@ -369,11 +369,23 @@ async function install(slug, { force = false } = {}) {
         const settings = getSettings();
         const wheels = path.join(p.code, 'wheels');
         const offline = fs.existsSync(wheels) && fs.readdirSync(wheels).some(name => /\.(?:whl|tar\.gz|zip)$/i.test(name));
-        const args = ['-m', 'pip', 'install', '--no-input', '-r', path.join(p.code, 'requirements.txt')];
-        if (offline) args.push('--no-index', '--find-links', wheels);
-        else if (settings.pipIndexUrl) args.push('--index-url', settings.pipIndexUrl, ...(settings.pipTrustedHost ? ['--trusted-host', settings.pipTrustedHost] : []));
-        log(rt, offline ? '使用包内 wheels/ 离线安装依赖' : `在线安装依赖${settings.pipIndexUrl ? `（镜像 ${settings.pipIndexUrl}）` : ''}`);
-        await runStep(rt, venvPython(p.venv), args, { cwd: p.code, env: baseEnv(slug, {}, { withProxy: true }) }, '安装依赖');
+        const base = ['-m', 'pip', 'install', '--no-input', '-r', path.join(p.code, 'requirements.txt')];
+        const online = [...base, ...(settings.pipIndexUrl ? ['--index-url', settings.pipIndexUrl, ...(settings.pipTrustedHost ? ['--trusted-host', settings.pipTrustedHost] : [])] : [])];
+        const pipOptions = { cwd: p.code, env: baseEnv(slug, {}, { withProxy: true }) };
+        const onlineLabel = `在线安装依赖${settings.pipIndexUrl ? `（镜像 ${settings.pipIndexUrl}）` : ''}`;
+        if (offline) {
+            log(rt, '使用包内 wheels/ 离线安装依赖');
+            try {
+                await runStep(rt, venvPython(p.venv), [...base, '--no-index', '--find-links', wheels], pipOptions, '离线安装依赖');
+            } catch (_error) {
+                // wheels 常按打包机器的系统 / Python 版本下载（例如 macOS 专用），换平台装不上时改为在线安装
+                log(rt, `包内 wheels 与本机系统或 Python 版本不匹配，改为${onlineLabel}`);
+                await runStep(rt, venvPython(p.venv), [...online, '--find-links', wheels], pipOptions, '安装依赖');
+            }
+        } else {
+            log(rt, onlineLabel);
+            await runStep(rt, venvPython(p.venv), online, pipOptions, '安装依赖');
+        }
         await runStep(rt, venvPython(p.venv), ['-c', 'import uvicorn; print("uvicorn", uvicorn.__version__)'], { cwd: p.code, env: baseEnv(slug), timeout: 60000 }, '检查 uvicorn')
             .catch(() => { throw fail('依赖中缺少 uvicorn：请在 requirements.txt 中加入 uvicorn', 'HOSTED_APP_INSTALL'); });
         fs.writeFileSync(path.join(p.code, `${HOST_MODULE}.py`), HOST_SOURCE);

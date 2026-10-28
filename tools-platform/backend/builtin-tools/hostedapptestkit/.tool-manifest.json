@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "hostedapptestkit",
+    "name": "HostedAppTestKit",
+    "icon": "🐍",
+    "description": "托管 Python 应用自检台：覆盖反向代理、用户身份、沙箱、上传下载、流式、WebSocket、应用库增删改查与平台库只读等全部接口",
+    "tags": [
+      "Python 应用"
+    ],
+    "href": "/tools/hostedapptestkit",
+    "filePath": "/custom-tools/hostedapptestkit/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-10-28T17:44:18.720Z",
+    "updatedAt": "2026-10-28T19:55:53.039Z"
+  },
+  "history": null
+}
