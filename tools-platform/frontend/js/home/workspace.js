@@ -1,4 +1,6 @@
 // 首页工具模式：左侧分类与搜索，右侧按分类分组铺满的卡片网格，卡片底部显示「上次更新」。
+// 「全部工具」顶部依次是「最近使用」「收藏」两个快捷区（卡片副本），下面是各分类目录。
+// 卡片右上角星标收藏；拖到收藏区即收藏；管理员可拖动卡片调整顺序和所属目录，同步到顶部栏与「更多工具」。
 // 卡片仍由 index.html 渲染（内置为静态 HTML，自定义工具由 renderCustomToolCards 生成）；
 // 这里只做增强：分组排序、筛选、更新时间，不改动卡片自身的数据和事件。
 // 分类沿用导航设置（navbar.js 的 navState.settings），在导航中调整分类后首页同步变化。
@@ -7,19 +9,31 @@
 
     const TEXT = {
         'zh-CN': {
-            all: '全部工具', recent: '最近使用', groups: '分类', other: '其他', skills: '技能',
+            all: '全部工具', recent: '最近使用', favorites: '收藏', groups: '分类', other: '其他', skills: '技能',
             searchPlaceholder: '搜索工具 / 拼音首字母', empty: '没有匹配的工具', emptyRecent: '还没有最近使用的工具',
+            emptyFavorites: '还没有收藏的工具：点卡片右上角的 ☆，或把卡片拖到这里',
+            favAdd: '收藏', favRemove: '取消收藏', favAdded: '已收藏「{name}」', favRemoved: '已取消收藏「{name}」',
+            dropFavorite: '松开即收藏', dragHint: '拖到「收藏」区即可收藏；管理员还可拖到其他位置调整顺序和目录',
+            reordered: '已调整顺序，顶部栏与「更多工具」同步更新', moved: '已移到「{group}」，顶部栏与「更多工具」同步更新',
             updated: '{time}更新', justNow: '刚刚', minutes: '{n} 分钟前', hours: '{n} 小时前', days: '{n} 天前',
             updatedTitle: '上次更新：{time}', searchTitle: '搜索“{q}”', toolCount: '{n} 个工具'
         },
         'en-US': {
-            all: 'All tools', recent: 'Recent', groups: 'Categories', other: 'Other', skills: 'Skills',
+            all: 'All tools', recent: 'Recent', favorites: 'Favorites', groups: 'Categories', other: 'Other', skills: 'Skills',
             searchPlaceholder: 'Search tools', empty: 'No matching tools', emptyRecent: 'No recently used tools yet',
+            emptyFavorites: 'No favorites yet. Click ☆ on a card, or drag a card here',
+            favAdd: 'Add to favorites', favRemove: 'Remove from favorites', favAdded: 'Added “{name}” to favorites', favRemoved: 'Removed “{name}” from favorites',
+            dropFavorite: 'Drop to add to favorites', dragHint: 'Drop on Favorites to save it; admins can also drop elsewhere to reorder or move categories',
+            reordered: 'Order updated; the top bar and More menu follow', moved: 'Moved to “{group}”; the top bar and More menu follow',
             updated: 'Updated {time}', justNow: 'just now', minutes: '{n}m ago', hours: '{n}h ago', days: '{n}d ago',
             updatedTitle: 'Last updated: {time}', searchTitle: 'Search “{q}”', toolCount: '{n} tools'
         }
     };
     const GROUP_COLORS = ['#38bdf8', '#34d399', '#a78bfa', '#f59e0b', '#f472b6', '#22d3ee', '#fb7185', '#a3e635', '#818cf8', '#fbbf24'];
+    const STAR_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.9l1.8 3.7 4 .6-2.9 2.8.7 4L8 11.1 4.4 13l.7-4L2.2 6.2l4-.6z" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/></svg>';
+    const RECENT_LIMIT = 8;
+    const GROUP_ORDER_BASE = 1000; // 0–999 留给顶部的最近使用 / 收藏快捷区
+    const CARD_SELECTOR = ':scope > a.tool-card:not(.is-shortcut)';
     const CLOCK_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 4.6V8l2.3 1.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
 
     const state = { view: 'all', query: '', currentGroup: '' };
@@ -149,6 +163,14 @@
             if (!byGroup.has(groupId)) byGroup.set(groupId, []);
             byGroup.get(groupId).push(card);
         });
+        // 目录内顺序与「更多工具」一致：按导航设置的 itemOrder，未登记的保持页面原有顺序
+        const itemOrder = new Map((settings.itemOrder || []).map((id, index) => [id, index]));
+        const domIndex = new Map(cards.map((card, index) => [card, index]));
+        byGroup.forEach(list => list.sort((a, b) => {
+            const ai = itemOrder.has(cardItemId(a)) ? itemOrder.get(cardItemId(a)) : 100000 + domIndex.get(a);
+            const bi = itemOrder.has(cardItemId(b)) ? itemOrder.get(cardItemId(b)) : 100000 + domIndex.get(b);
+            return ai - bi;
+        }));
         const ordered = [...known.values()].filter(category => byGroup.has(category.id))
             .map(category => ({ id: category.id, name: categoryName(category), cards: byGroup.get(category.id) }));
         if (byGroup.has(SKILLS_GROUP)) ordered.push({ id: SKILLS_GROUP, name: tx('skills'), cards: byGroup.get(SKILLS_GROUP) });
@@ -161,8 +183,8 @@
     }
 
     function renderGroupHeads() {
-        const existing = new Map([...grid.querySelectorAll(':scope > .home-group-head')].map(head => [head.dataset.group, head]));
-        let order = 0;
+        const existing = new Map([...grid.querySelectorAll(':scope > .home-group-head:not(.home-shortcut-head)')].map(head => [head.dataset.group, head]));
+        let order = GROUP_ORDER_BASE;
         groups.forEach(group => {
             let head = existing.get(group.id);
             existing.delete(group.id);
@@ -195,11 +217,118 @@
         }
     }
 
+    function favoriteIds() {
+        try {
+            return window.NavFavorites?.get?.() || [];
+        } catch {
+            return [];
+        }
+    }
+
+    function cardTitle(card) {
+        const title = card.querySelector('.card-title')?.cloneNode(true);
+        title?.querySelectorAll('.new-badge, .tool-kind-badge').forEach(node => node.remove());
+        return title?.textContent.replace(/\s+/g, ' ').trim() || '';
+    }
+
+    function originalCards() {
+        return [...grid.querySelectorAll(CARD_SELECTOR)];
+    }
+
+    function canFavorite(card) {
+        return card.dataset.skillCard !== '1';
+    }
+
+    // 每张卡片右上角加星标（自定义工具放在下载按钮之后；内置卡片新建操作区）
+    function ensureFavoriteButton(card) {
+        if (!canFavorite(card) || card.querySelector(':scope > .custom-tool-actions > .card-fav-toggle, :scope > .card-quick-actions > .card-fav-toggle')) return;
+        let actions = card.querySelector(':scope > .custom-tool-actions');
+        if (!actions) {
+            actions = document.createElement('div');
+            actions.className = 'custom-tool-actions card-quick-actions';
+            card.prepend(actions);
+        }
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'custom-tool-action card-fav-toggle';
+        button.innerHTML = STAR_SVG;
+        const download = actions.querySelector(':scope > .custom-tool-action:not(.builtin-toggle):not(.delete)');
+        if (download && /downloadCustomTool/.test(download.getAttribute('onclick') || '')) download.after(button);
+        else actions.prepend(button);
+    }
+
+    function syncFavoriteButtons() {
+        const favorites = new Set(favoriteIds());
+        grid.querySelectorAll(':scope > a.tool-card .card-fav-toggle').forEach(button => {
+            const card = button.closest('a.tool-card');
+            const on = favorites.has(card.dataset.originId || cardItemId(card));
+            button.classList.toggle('is-favorite', on);
+            button.setAttribute('aria-pressed', String(on));
+            button.title = tx(on ? 'favRemove' : 'favAdd');
+            button.setAttribute('aria-label', button.title);
+            card.classList.toggle('is-favorite', on);
+        });
+    }
+
+    // 顶部快捷区：最近使用（只读）、收藏（可拖入、可拖动排序）。卡片是原卡片的副本，点击行为相同。
+    function shortcutHead(kind, count, color) {
+        let head = grid.querySelector(`:scope > .home-shortcut-head[data-shortcut="${kind}"]`);
+        if (!head) {
+            head = document.createElement('div');
+            head.className = 'home-group-head home-shortcut-head';
+            head.dataset.shortcut = kind;
+            head.dataset.group = `__${kind}`;
+            head.setAttribute('role', 'heading');
+            head.setAttribute('aria-level', '2');
+            grid.appendChild(head);
+        }
+        head.style.setProperty('--group-color', color);
+        head.innerHTML = `<span class="home-group-dot"></span><span class="home-group-name">${escapeHtml(tx(kind))}</span><span class="home-group-count">${count}</span>`;
+        return head;
+    }
+
+    function renderShortcuts() {
+        grid.querySelectorAll(':scope > .is-shortcut, :scope > .home-fav-empty').forEach(node => node.remove());
+        const byId = new Map(originalCards().filter(canFavorite).map(card => [cardItemId(card), card]));
+        const recent = recentIds().filter(id => byId.has(id)).slice(0, RECENT_LIMIT);
+        const favorites = favoriteIds().filter(id => byId.has(id));
+        let order = 0;
+        const place = (node, kind) => {
+            node.style.order = String(order++);
+            node.dataset.shortcut = kind;
+            grid.appendChild(node);
+        };
+        const cloneFor = (id, kind) => {
+            const clone = byId.get(id).cloneNode(true);
+            clone.classList.add('is-shortcut');
+            clone.classList.remove('is-filtered-out', 'is-dragging', 'drop-before', 'drop-after');
+            clone.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
+            clone.querySelector('.card-download-progress')?.remove();
+            clone.dataset.originId = id;
+            return clone;
+        };
+        const recentHead = shortcutHead('recent', recent.length, '#7dd3fc');
+        recentHead.style.order = String(order++);
+        recentHead.hidden = !recent.length;
+        recent.forEach(id => place(cloneFor(id, 'recent'), 'recent'));
+        const favoriteHead = shortcutHead('favorites', favorites.length, '#fbbf24');
+        favoriteHead.style.order = String(order++);
+        favoriteHead.hidden = false;
+        favorites.forEach(id => place(cloneFor(id, 'favorites'), 'favorites'));
+        if (!favorites.length) {
+            const empty = document.createElement('div');
+            empty.className = 'home-fav-empty';
+            empty.innerHTML = `${STAR_SVG}<span>${escapeHtml(tx('emptyFavorites'))}</span>`;
+            place(empty, 'favorites');
+        }
+    }
+
     function renderSidebar() {
         if (!sidebarNav) return;
         const total = groups.reduce((sum, group) => sum + group.cards.length, 0);
         const cardIds = new Set(groups.flatMap(group => group.cards.map(cardItemId)));
         const recentCount = recentIds().filter(id => cardIds.has(id)).length;
+        const favoriteCount = favoriteIds().filter(id => cardIds.has(id)).length;
         const item = (attrs, icon, name, count) => `
             <button type="button" class="home-cat-item" title="${escapeHtml(name)}" ${attrs}>
                 <span class="home-cat-icon" aria-hidden="true">${icon}</span>
@@ -209,6 +338,7 @@
         sidebarNav.innerHTML = [
             item('data-view="all"', '<svg viewBox="0 0 16 16"><path d="M2.5 2.5h4.5v4.5H2.5zM9 2.5h4.5v4.5H9zM2.5 9h4.5v4.5H2.5zM9 9h4.5v4.5H9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>', tx('all'), total),
             item('data-view="recent"', CLOCK_SVG, tx('recent'), recentCount),
+            item('data-view="favorites"', STAR_SVG, tx('favorites'), favoriteCount),
             `<div class="home-cat-label">${escapeHtml(tx('groups'))}</div>`,
             ...groups.map(group => item(`data-group="${escapeHtml(group.id)}" style="--group-color:${group.color}"`, '<span class="home-cat-dot"></span>', group.name, group.cards.length))
         ].join('');
@@ -236,14 +366,19 @@
     function renderToolsHead(visible) {
         if (!headTitle) return;
         const query = state.query.trim();
-        headTitle.textContent = query ? tx('searchTitle', { q: query }) : tx(state.view === 'recent' ? 'recent' : 'all');
+        headTitle.textContent = query ? tx('searchTitle', { q: query }) : tx(['recent', 'favorites'].includes(state.view) ? state.view : 'all');
         if (headCount) headCount.textContent = tx('toolCount', { n: visible });
     }
 
     function applyFilter() {
         const query = state.query.trim();
-        const recent = state.view === 'recent' && !query ? recentIds() : null;
+        const recent = !query && state.view === 'recent' ? recentIds() : !query && state.view === 'favorites' ? favoriteIds() : null;
         const flat = Boolean(recent || query);
+        // 快捷区只在「全部工具」浏览视图显示；筛选视图直接筛原卡片
+        grid.querySelectorAll(':scope > .is-shortcut, :scope > .home-fav-empty, :scope > .home-shortcut-head').forEach(node => {
+            node.classList.toggle('is-filtered-out', flat);
+            if (node.classList.contains('home-shortcut-head')) node.hidden = flat || (node.dataset.shortcut === 'recent' && !grid.querySelector(':scope > .is-shortcut[data-shortcut="recent"]'));
+        });
         let visible = 0;
         groups.forEach(group => {
             let groupVisible = 0;
@@ -264,7 +399,7 @@
         if (emptyEl) {
             emptyEl.hidden = visible > 0;
             const text = emptyEl.querySelector('#homeToolsEmptyText');
-            if (text) text.textContent = recent ? tx('emptyRecent') : tx('empty');
+            if (text) text.textContent = recent ? tx(state.view === 'favorites' ? 'emptyFavorites' : 'emptyRecent') : tx('empty');
         }
         renderToolsHead(visible);
         syncSidebarState();
@@ -274,10 +409,13 @@
 
     function layout() {
         layoutQueued = false;
-        const cards = [...grid.querySelectorAll(':scope > a.tool-card')];
+        const cards = originalCards();
         cards.forEach(renderCardMeta);
+        cards.forEach(ensureFavoriteButton);
         groups = buildGroups(cards);
         renderGroupHeads();
+        renderShortcuts();
+        syncFavoriteButtons();
         renderSidebar();
         applyFilter();
         if (!updates.toolsLoaded || cards.some(card => card.dataset.customToolCard === '1' && card.dataset.skillCard !== '1' && !updates.tools[card.dataset.toolSlug])) {
@@ -354,7 +492,11 @@
             state.query = '';
             if (searchInput) searchInput.value = '';
         }
-        if (view === 'all') renderGroupHeads();
+        if (view === 'all') {
+            renderGroupHeads();
+            renderShortcuts();
+            syncFavoriteButtons();
+        }
         applyFilter();
         scrollToTools();
     }
@@ -370,7 +512,11 @@
 
     function onSearch() {
         state.query = searchInput.value;
-        if (!state.query && state.view === 'all') renderGroupHeads();
+        if (!state.query && state.view === 'all') {
+            renderGroupHeads();
+            renderShortcuts();
+            syncFavoriteButtons();
+        }
         applyFilter();
     }
 
@@ -489,18 +635,131 @@
         });
         // navbar 加载/保存导航设置后会派发该事件，借此同步分类。
         window.addEventListener('tools:requirement-page-categories-change', scheduleLayout);
+        window.addEventListener('tools:favorites-change', scheduleLayout);
+        bindFavoritesAndDrag();
         window.addEventListener('home:mode', () => {
             if (isToolsMode()) requestAnimationFrame(updateCurrentGroup);
         });
 
         new MutationObserver(records => {
+            // 快捷区副本由本模块增删，不触发重排
             const cardsChanged = records.some(record => [...record.addedNodes, ...record.removedNodes]
-                .some(node => node.nodeType === 1 && node.matches('a.tool-card')));
+                .some(node => node.nodeType === 1 && node.matches('a.tool-card') && !node.classList.contains('is-shortcut')));
             if (cardsChanged) scheduleLayout();
         }).observe(grid, { childList: true });
 
         // 相对时间随时间推移刷新
         setInterval(() => grid.querySelectorAll(':scope > a.tool-card').forEach(renderCardMeta), 60 * 1000);
+    }
+
+    function toast(message, type) {
+        if (typeof window.showToast === 'function') window.showToast(message, type);
+    }
+
+    function isAdmin() {
+        return localStorage.getItem('tools_role') === 'admin';
+    }
+
+    function groupOfCard(card) {
+        return groups.find(group => group.cards.includes(card)) || null;
+    }
+
+    const drag = { itemId: '', source: null, target: null };
+
+    function clearDropMarks() {
+        grid.querySelectorAll('.drop-before, .drop-after, .drop-into').forEach(node => node.classList.remove('drop-before', 'drop-after', 'drop-into'));
+    }
+
+    // 解析拖放目标：收藏区（任何人）、目录内卡片或目录标题（仅管理员）；最近使用与技能不接受拖入
+    function resolveDrop(event) {
+        const card = event.target.closest('#toolsGrid > a.tool-card');
+        const head = event.target.closest('#toolsGrid > .home-group-head');
+        const empty = event.target.closest('#toolsGrid > .home-fav-empty');
+        if (empty || head?.dataset.shortcut === 'favorites') return { kind: 'favorites', node: empty || head };
+        if (card?.dataset.shortcut === 'favorites') {
+            const rect = card.getBoundingClientRect();
+            return { kind: 'favorites', node: card, refId: card.dataset.originId, after: event.clientX > rect.left + rect.width / 2 };
+        }
+        if (!isAdmin() || card?.dataset.shortcut || head?.dataset.shortcut) return null;
+        if (card && card.dataset.skillCard !== '1') {
+            const group = groupOfCard(card);
+            if (!group || group.id === SKILLS_GROUP || group.id === '__other') return null;
+            const rect = card.getBoundingClientRect();
+            return { kind: 'layout', node: card, refId: cardItemId(card), groupId: group.id, groupName: group.name, after: event.clientX > rect.left + rect.width / 2 };
+        }
+        if (head && head.dataset.group && ![SKILLS_GROUP, '__other'].includes(head.dataset.group)) {
+            const group = groups.find(item => item.id === head.dataset.group);
+            return group ? { kind: 'layout', node: head, groupId: group.id, groupName: group.name } : null;
+        }
+        return null;
+    }
+
+    function bindFavoritesAndDrag() {
+        grid.addEventListener('click', event => {
+            const button = event.target.closest('.card-fav-toggle');
+            if (!button) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const card = button.closest('a.tool-card');
+            const id = card.dataset.originId || cardItemId(card);
+            const on = window.NavFavorites?.toggle?.(id);
+            toast(tx(on ? 'favAdded' : 'favRemoved', { name: cardTitle(card) }));
+        }, true);
+
+        grid.addEventListener('dragstart', event => {
+            const card = event.target.closest?.('#toolsGrid > a.tool-card');
+            if (!card || !canFavorite(card) || event.target.closest('.custom-tool-actions')) return;
+            drag.itemId = card.dataset.originId || cardItemId(card);
+            drag.source = card;
+            event.dataTransfer.effectAllowed = 'copyMove';
+            event.dataTransfer.setData('text/plain', drag.itemId);
+            grid.classList.add('is-dragging-card');
+            grid.title = tx('dragHint');
+            requestAnimationFrame(() => card.classList.add('is-dragging'));
+        });
+
+        grid.addEventListener('dragover', event => {
+            if (!drag.itemId) return;
+            // 拖到窗口上下边缘时自动滚动
+            if (event.clientY < 80) window.scrollBy(0, -16);
+            else if (event.clientY > window.innerHeight - 80) window.scrollBy(0, 16);
+            const target = resolveDrop(event);
+            clearDropMarks();
+            drag.target = target;
+            if (!target || target.refId === drag.itemId) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = target.kind === 'favorites' ? 'copy' : 'move';
+            target.node.classList.add(target.refId ? (target.after ? 'drop-after' : 'drop-before') : 'drop-into');
+        });
+
+        grid.addEventListener('drop', event => {
+            const target = drag.target || resolveDrop(event);
+            if (!drag.itemId || !target) return;
+            event.preventDefault();
+            const id = drag.itemId;
+            if (target.kind === 'favorites') {
+                const before = favoriteIds();
+                const ids = before.filter(item => item !== id);
+                let index = ids.length;
+                if (target.refId && ids.includes(target.refId)) index = ids.indexOf(target.refId) + (target.after ? 1 : 0);
+                ids.splice(index, 0, id);
+                window.NavFavorites?.set?.(ids);
+                if (!before.includes(id)) toast(tx('favAdded', { name: cardTitle(drag.source) }));
+            } else if (window.NavLayout?.reorder?.(id, target.refId
+                ? { [target.after ? 'afterId' : 'beforeId']: target.refId, categoryId: target.groupId }
+                : { categoryId: target.groupId })) {
+                const fromGroup = groupOfCard(originalCards().find(card => cardItemId(card) === id));
+                toast(fromGroup && fromGroup.id !== target.groupId ? tx('moved', { group: target.groupName }) : tx('reordered'));
+            }
+        });
+
+        grid.addEventListener('dragend', () => {
+            drag.source?.classList.remove('is-dragging');
+            Object.assign(drag, { itemId: '', source: null, target: null });
+            clearDropMarks();
+            grid.classList.remove('is-dragging-card');
+            grid.removeAttribute('title');
+        });
     }
 
     function init() {

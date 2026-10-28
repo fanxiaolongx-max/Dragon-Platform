@@ -680,3 +680,59 @@ body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var
     .home-workspace .history-page-btn { padding: 0 9px; }
 }
 
+
+/* 托管 Python 应用卡片：保留入场动画，再叠加呼吸光晕（光晕样式见 shared.css） */
+.home-workspace .tool-card.custom-tool.is-hosted-app { animation: home-card-in 0.28s ease both, hosted-app-glow 4.5s ease-in-out 0.3s infinite; }
+.home-workspace .tool-card.custom-tool.is-hosted-app:hover { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+    .home-workspace .tool-card.custom-tool.is-hosted-app { animation: none; }
+}
+
+/* ── 收藏星标、顶部快捷区（最近使用 / 收藏）与拖动排序 ── */
+.home-workspace .tool-card { position: relative; }
+.home-workspace .tool-card:hover > .custom-tool-actions,
+.home-workspace .tool-card:focus-within > .custom-tool-actions { opacity: 1; transform: translateY(0); }
+.home-workspace .tool-card:has(> .card-quick-actions) .card-title { padding-right: 34px; }
+@media (min-width: 641px) {
+    /* 五个操作（下载、收藏、内置、改名、删除）排成 3 列两行 */
+    .home-workspace .custom-tool-actions:has(> :nth-child(5)) { grid-template-columns: repeat(3, 26px); }
+    .home-workspace .tool-card.custom-tool:has(.custom-tool-actions > :nth-child(5)) .card-title { padding-right: 92px; }
+}
+.card-fav-toggle svg { width: 14px; height: 14px; display: block; }
+.custom-tool-action.card-fav-toggle { color: #94a3b8; }
+.custom-tool-action.card-fav-toggle:hover { color: #fcd34d; }
+.custom-tool-action.card-fav-toggle.is-favorite { color: #fbbf24; }
+.custom-tool-action.card-fav-toggle.is-favorite svg path { fill: currentColor; }
+
+.home-workspace .home-fav-empty {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 54px;
+    padding: 12px 16px;
+    border: 1px dashed rgba(251, 191, 36, 0.32);
+    border-radius: 12px;
+    color: var(--ws-faint, #94a3b8);
+    font-size: 12.5px;
+    transition: background 0.18s ease, border-color 0.18s ease;
+}
+.home-workspace .home-fav-empty svg { width: 16px; height: 16px; flex: 0 0 auto; color: #fbbf24; }
+.home-workspace .home-fav-empty.is-filtered-out { display: none; }
+
+.home-workspace .tool-card.is-dragging { opacity: 0.38; }
+.home-workspace.is-dragging-card .home-shortcut-head[data-shortcut="favorites"],
+.tools-grid.is-dragging-card .home-shortcut-head[data-shortcut="favorites"] { color: #fcd34d; }
+.tools-grid.is-dragging-card .home-fav-empty { border-color: rgba(251, 191, 36, 0.6); background: rgba(251, 191, 36, 0.05); }
+.tools-grid .tool-card.drop-before,
+.tools-grid .tool-card.drop-after { animation: none; border-color: rgba(56, 189, 248, 0.7); }
+.tools-grid .tool-card.drop-before { box-shadow: -4px 0 0 0 #38bdf8, 0 0 18px rgba(56, 189, 248, 0.25); }
+.tools-grid .tool-card.drop-after { box-shadow: 4px 0 0 0 #38bdf8, 0 0 18px rgba(56, 189, 248, 0.25); }
+.tools-grid .tool-card.is-shortcut[data-shortcut="favorites"].drop-before { box-shadow: -4px 0 0 0 #fbbf24, 0 0 18px rgba(251, 191, 36, 0.22); border-color: rgba(251, 191, 36, 0.7); }
+.tools-grid .tool-card.is-shortcut[data-shortcut="favorites"].drop-after { box-shadow: 4px 0 0 0 #fbbf24, 0 0 18px rgba(251, 191, 36, 0.22); border-color: rgba(251, 191, 36, 0.7); }
+.tools-grid .home-group-head.drop-into { color: #fff; background: color-mix(in srgb, var(--group-color, #38bdf8) 14%, transparent); border-radius: 8px; }
+.tools-grid .home-fav-empty.drop-into { border-color: #fbbf24; background: rgba(251, 191, 36, 0.1); color: #fde68a; }
+@media (prefers-reduced-motion: reduce) {
+    .home-workspace .home-fav-empty { transition: none; }
+}

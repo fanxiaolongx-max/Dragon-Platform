@@ -2015,6 +2015,7 @@
                 'home.custom.defaultTag2': '平台入口',
                 'home.custom.download': '下载完整工具包',
                 'home.custom.downloadApp': '下载原始应用包',
+                'home.custom.downloading': '正在下载',
                 'home.custom.downloadedApp': '已下载导入时上传的应用包',
                 'home.custom.downloadedAppRebuilt': '已下载应用包（该应用导入较早，未保存原始包，已按当前代码重新打包）',
                 'home.custom.downloadedHtml': '已下载可独立运行的 HTML',
@@ -2252,6 +2253,7 @@
                 'home.custom.defaultTag2': 'Platform Entry',
                 'home.custom.download': 'Download complete package',
                 'home.custom.downloadApp': 'Download original app package',
+                'home.custom.downloading': 'Downloading',
                 'home.custom.downloadedApp': 'Downloaded the app package uploaded at import',
                 'home.custom.downloadedAppRebuilt': 'Downloaded the app package (imported before originals were kept, so it was rebuilt from the current code)',
                 'home.custom.downloadedHtml': 'Standalone HTML downloaded',
@@ -3189,6 +3191,7 @@
         function renderCustomToolCards(tools) {
             const grid = document.getElementById('toolsGrid');
             if (!grid) return;
+            window.__homeCustomTools = Array.isArray(tools) ? tools : [];
             grid.querySelectorAll('[data-custom-tool-card="1"]').forEach(el => el.remove());
             const role = localStorage.getItem('tools_role');
             (tools || []).forEach((tool, index) => {
@@ -3199,7 +3202,7 @@
                 const tags = hasTags ? tool.tags : [t('home.custom.defaultTag1'), t('home.custom.defaultTag2')];
                 const card = document.createElement('a');
                 card.href = tool.href;
-                card.className = 'tool-card custom-tool';
+                card.className = `tool-card custom-tool${tool.hostedApp ? ' is-hosted-app' : ''}`;
                 card.dataset.customToolCard = '1';
                 card.dataset.toolSlug = tool.slug;
                 card.style.setProperty('--card-accent', ['#38bdf8', '#34d399', '#f97316', '#e879f9'][index % 4]);
@@ -3216,7 +3219,9 @@
                     <div class="card-title">
                         ${escapeHtml(displayName || t('home.custom.defaultName'))}
                         ${isRecentlyChangedTool(tool) ? '<span class="new-badge">NEW!</span>' : ''}
-                        ${tool.builtIn === false ? `<span class="tool-kind-badge">${isEnglish ? 'CUSTOM' : '自定义'}</span>` : ''}
+                        ${tool.hostedApp
+                            ? `<span class="tool-kind-badge tool-kind-badge--python" title="${escapeHtml(isEnglish ? 'Python web app hosted by the platform' : '平台托管运行的 Python Web 应用')}">Python</span>`
+                            : tool.builtIn === false ? `<span class="tool-kind-badge">${isEnglish ? 'CUSTOM' : '自定义'}</span>` : ''}
                     </div>
                     <div class="card-desc">${escapeHtml(displayDescription || t('home.custom.defaultDesc'))}</div>
                     <div class="card-features">
@@ -4121,7 +4126,68 @@
             };
         }
 
+        // 卡片中心的圆环下载进度：有 Content-Length 时显示百分比，否则显示转动的圆环；完成后打勾淡出
+        function showCardDownloadProgress(slug) {
+            const card = document.querySelector(`.custom-tool[data-tool-slug="${CSS.escape(slug)}"]`);
+            if (!card) return { update() {}, done() {}, fail() {} };
+            card.querySelector('.card-download-progress')?.remove();
+            const RADIUS = 20;
+            const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+            const overlay = document.createElement('div');
+            overlay.className = 'card-download-progress is-indeterminate';
+            overlay.setAttribute('role', 'progressbar');
+            overlay.setAttribute('aria-label', t('home.custom.downloading'));
+            overlay.innerHTML = `
+                <div class="cdp-ring">
+                    <svg viewBox="0 0 48 48" aria-hidden="true">
+                        <circle class="cdp-track" cx="24" cy="24" r="${RADIUS}"></circle>
+                        <circle class="cdp-bar" cx="24" cy="24" r="${RADIUS}" stroke-dasharray="${CIRCUMFERENCE}" stroke-dashoffset="${CIRCUMFERENCE * 0.72}"></circle>
+                    </svg>
+                    <span class="cdp-value">↓</span>
+                </div>
+                <span class="cdp-size"></span>`;
+            ['click', 'mousedown'].forEach(type => overlay.addEventListener(type, event => { event.preventDefault(); event.stopPropagation(); }));
+            card.appendChild(overlay);
+            requestAnimationFrame(() => overlay.classList.add('visible'));
+            const bar = overlay.querySelector('.cdp-bar');
+            const value = overlay.querySelector('.cdp-value');
+            const size = overlay.querySelector('.cdp-size');
+            const formatSize = bytes => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+            const close = delay => setTimeout(() => {
+                overlay.classList.remove('visible');
+                setTimeout(() => overlay.remove(), 320);
+            }, delay);
+            return {
+                update(loaded, total) {
+                    if (total > 0) {
+                        const ratio = Math.min(1, loaded / total);
+                        overlay.classList.remove('is-indeterminate');
+                        bar.style.strokeDashoffset = String(CIRCUMFERENCE * (1 - ratio));
+                        value.textContent = `${Math.round(ratio * 100)}%`;
+                        overlay.setAttribute('aria-valuenow', String(Math.round(ratio * 100)));
+                        size.textContent = `${formatSize(loaded)} / ${formatSize(total)}`;
+                    } else {
+                        size.textContent = formatSize(loaded);
+                    }
+                },
+                done() {
+                    overlay.classList.remove('is-indeterminate');
+                    overlay.classList.add('is-done');
+                    bar.style.strokeDashoffset = '0';
+                    value.textContent = '✓';
+                    close(700);
+                },
+                fail() {
+                    overlay.classList.remove('is-indeterminate');
+                    overlay.classList.add('is-error');
+                    value.textContent = '!';
+                    close(1200);
+                }
+            };
+        }
+
         async function downloadCustomTool(slug) {
+            const progress = showCardDownloadProgress(slug);
             try {
                 const token = localStorage.getItem('tools_token');
                 const response = await fetch(`/api/custom-tools/${encodeURIComponent(slug)}/export`, {
@@ -4131,7 +4197,24 @@
                     const body = await response.json().catch(() => ({}));
                     throw new Error(body.error || `HTTP ${response.status}`);
                 }
-                const blob = await response.blob();
+                const total = Number(response.headers.get('Content-Length')) || 0;
+                let blob;
+                if (response.body && response.body.getReader) {
+                    const reader = response.body.getReader();
+                    const chunks = [];
+                    let loaded = 0;
+                    for (;;) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        chunks.push(value);
+                        loaded += value.length;
+                        progress.update(loaded, total);
+                    }
+                    blob = new Blob(chunks, { type: response.headers.get('Content-Type') || 'application/octet-stream' });
+                } else {
+                    blob = await response.blob();
+                }
+                progress.done();
                 const encodedName = response.headers.get('X-Tool-Export-Filename') || `${slug}.zip`;
                 let filename = encodedName;
                 try { filename = decodeURIComponent(encodedName); } catch (_) {}
@@ -4151,13 +4234,17 @@
                         ? t('home.custom.downloadedZip', { count: fileCount })
                         : t('home.custom.downloadedHtml'));
             } catch (error) {
+                progress.fail();
                 showToast(t('home.custom.downloadFailed', { message: error.message }), 'error');
             }
         }
 
         async function renameCustomTool(slug) {
-            const card = document.querySelector(`[data-custom-tool-card="1"][data-tool-slug="${CSS.escape(slug)}"]`);
-            const currentName = card?.querySelector('.card-title')?.textContent?.trim() || '';
+            // 用工具的真实名称：卡片标题里还有 NEW!、自定义 / Python 等标签文字
+            const tool = (window.__homeCustomTools || []).find(item => item.slug === slug);
+            const title = document.querySelector(`[data-custom-tool-card="1"][data-tool-slug="${CSS.escape(slug)}"] .card-title`)?.cloneNode(true);
+            title?.querySelectorAll('.new-badge, .tool-kind-badge').forEach(node => node.remove());
+            const currentName = tool?.name || title?.textContent?.replace(/\s+/g, ' ').trim() || '';
             const name = await AppDialog.prompt(t('home.prompt.rename'), { title: t('home.dialog.renameTitle'), defaultValue: currentName, maxLength: 80, confirmText: t('home.dialog.save') });
             if (name === null || name.trim() === currentName) return;
             if (!name.trim()) {

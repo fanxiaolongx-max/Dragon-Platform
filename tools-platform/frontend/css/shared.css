@@ -5919,3 +5919,42 @@ body.service-status-open { overflow: hidden; }
 }
 .nav-ai-tab-empty strong { color: #1e1b4b; font-size: 14px; }
 @media (max-width: 640px) { .nav-ai-tabs { grid-template-columns: 1fr; } }
+
+/* 托管 Python Web 应用：Python 标签（蓝黄配色）与卡片 / 菜单入口的柔和光晕，便于和普通工具区分 */
+.tool-kind-badge--python {
+    border-color: rgba(255, 212, 59, 0.5);
+    background: linear-gradient(90deg, rgba(55, 118, 171, 0.32), rgba(255, 212, 59, 0.2));
+    color: #ffe58a;
+}
+
+.tool-card.custom-tool.is-hosted-app {
+    border-color: rgba(255, 212, 59, 0.32);
+    box-shadow: 0 0 0 1px rgba(55, 118, 171, 0.28), 0 0 16px rgba(55, 118, 171, 0.32), 0 0 28px rgba(255, 212, 59, 0.1);
+    animation: hosted-app-glow 4.5s ease-in-out infinite;
+}
+
+.tool-card.custom-tool.is-hosted-app:hover {
+    border-color: rgba(255, 212, 59, 0.5);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 212, 59, 0.3), 0 0 22px rgba(55, 118, 171, 0.45), 0 0 34px rgba(255, 212, 59, 0.16);
+}
+
+.nav-link.is-hosted-app,
+.nav-more-item.is-hosted-app {
+    box-shadow: inset 0 0 0 1px rgba(255, 212, 59, 0.28), 0 0 10px rgba(55, 118, 171, 0.35);
+}
+
+.nav-link.is-hosted-app:hover,
+.nav-more-item.is-hosted-app:hover {
+    box-shadow: inset 0 0 0 1px rgba(255, 212, 59, 0.45), 0 0 14px rgba(55, 118, 171, 0.5);
+}
+
+@keyframes hosted-app-glow {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(55, 118, 171, 0.28), 0 0 14px rgba(55, 118, 171, 0.28), 0 0 26px rgba(255, 212, 59, 0.08); }
+    50% { box-shadow: 0 0 0 1px rgba(255, 212, 59, 0.3), 0 0 20px rgba(55, 118, 171, 0.4), 0 0 32px rgba(255, 212, 59, 0.14); }
+}
+
+.tool-card.custom-tool.is-hosted-app:hover { animation: none; }
+
+@media (prefers-reduced-motion: reduce) {
+    .tool-card.custom-tool.is-hosted-app { animation: none; }
+}

@@ -1,4 +1,4 @@
-// 卡片右上角「☆ 转为内置 / ★ 取消内置」（仅管理员）：自定义 HTML 工具、技能、F12 服务器脚本、Python 脚本。
+// 卡片右上角立方体图标「转为内置 / 取消内置」（仅管理员；星标留给收藏）：自定义 HTML 工具、技能、F12 服务器脚本、Python 脚本。
 // 各卡片只输出按钮（BuiltinPromotion.button），点击统一在这里处理：确认 → /api/builtin-promotion → 派发 builtin:changed 让各区块刷新。
 // 源码目录不可写（例如打包后的桌面版）时，body 加 builtin-promotion-readonly，按钮隐藏。
 (function () {
@@ -46,11 +46,14 @@
      * @param {string} id
      * @param {{ builtIn?: boolean, locked?: boolean, name?: string, className?: string }} options
      */
+    // 「打包进项目」的立方体：已内置时实心
+    const BUILTIN_ICON = filled => `<svg class="builtin-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M8 1.7 13.5 4.8v6.4L8 14.3 2.5 11.2V4.8z" fill="currentColor" fill-opacity="${filled ? '0.32' : '0'}" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/><path d="M2.7 4.9 8 7.9l5.3-3M8 7.9v6.2" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/></svg>`;
+
     function button(kind, id, { builtIn = false, locked = false, name = '', className = 'custom-tool-action' } = {}) {
         if (!isAdmin() || !id) return '';
         if (kind === 'tool' && builtIn && lockedTools.has(id)) locked = true;
         const title = locked ? tx('locked') : builtIn ? tx('demote') : tx('promote');
-        return `<button type="button" class="${escapeHtml(className)} builtin-toggle${builtIn ? ' is-builtin' : ''}${locked ? ' is-locked' : ''}" data-builtin-kind="${escapeHtml(kind)}" data-builtin-id="${escapeHtml(id)}" data-builtin-on="${builtIn ? '1' : '0'}" data-builtin-name="${escapeHtml(name)}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"${locked ? ' aria-disabled="true"' : ''}>${builtIn ? '★' : '☆'}</button>`;
+        return `<button type="button" class="${escapeHtml(className)} builtin-toggle${builtIn ? ' is-builtin' : ''}${locked ? ' is-locked' : ''}" data-builtin-kind="${escapeHtml(kind)}" data-builtin-id="${escapeHtml(id)}" data-builtin-on="${builtIn ? '1' : '0'}" data-builtin-name="${escapeHtml(name)}" title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}"${locked ? ' aria-disabled="true"' : ''}>${BUILTIN_ICON(builtIn)}</button>`;
     }
 
     function toast(message, type = 'success') {

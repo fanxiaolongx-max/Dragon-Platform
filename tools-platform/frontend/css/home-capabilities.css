@@ -401,8 +401,9 @@ body.home-mode-chat .home-caps { display: none !important; }
 
 /* ── 转为内置 / 取消内置（js/home/builtin-promotion.js） ── */
 .custom-tool-action.builtin-toggle { color: #94a3b8; font-size: 13px; }
-.custom-tool-action.builtin-toggle:hover { color: #fcd34d; }
-.custom-tool-action.builtin-toggle.is-builtin { color: #fbbf24; }
+.custom-tool-action.builtin-toggle:hover { color: #c7d2fe; }
+.custom-tool-action.builtin-toggle.is-builtin { color: #a5b4fc; }
+.builtin-toggle .builtin-icon { display: block; }
 .home-cap-card .home-cap-builtin {
     position: absolute;
     top: 7px;
@@ -430,3 +431,54 @@ body.home-mode-chat .home-caps { display: none !important; }
 .home-cap-card .home-cap-builtin.is-locked { cursor: default; opacity: 0.55; }
 .home-cap-card:has(.home-cap-builtin) .home-cap-card-arrow { display: none; }
 body.builtin-promotion-readonly .builtin-toggle { display: none !important; }
+
+/* 自定义工具卡片下载进度：卡片中心的小圆环，完成后打勾淡出 */
+.tool-card.custom-tool { position: relative; }
+.card-download-progress {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: inherit;
+    background: color-mix(in srgb, var(--bg-secondary, #0f172a) 58%, transparent);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity .28s ease;
+    cursor: progress;
+}
+.card-download-progress.visible { opacity: 1; }
+.cdp-ring { position: relative; width: 52px; height: 52px; }
+.cdp-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.cdp-track, .cdp-bar { fill: none; stroke-width: 3.5; }
+.cdp-track { stroke: color-mix(in srgb, var(--card-accent, #64ffda) 18%, transparent); }
+.cdp-bar {
+    stroke: var(--card-accent, #64ffda);
+    stroke-linecap: round;
+    transition: stroke-dashoffset .2s ease, stroke .2s ease;
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--card-accent, #64ffda) 45%, transparent));
+}
+.cdp-value {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary, #e6edf3);
+}
+.cdp-size { font-size: 11px; color: var(--text-secondary, #94a3b8); font-variant-numeric: tabular-nums; min-height: 1em; }
+.card-download-progress.is-indeterminate .cdp-ring svg { animation: cdp-spin 1s linear infinite; }
+.card-download-progress.is-done .cdp-value { color: var(--card-accent, #64ffda); font-size: 18px; }
+.card-download-progress.is-error .cdp-bar { stroke: #f87171; stroke-dashoffset: 0 !important; }
+.card-download-progress.is-error .cdp-value { color: #f87171; font-size: 18px; }
+@keyframes cdp-spin { to { transform: rotate(270deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .card-download-progress, .cdp-bar { transition: none; }
+    .card-download-progress.is-indeterminate .cdp-ring svg { animation-duration: 2.4s; }
+}

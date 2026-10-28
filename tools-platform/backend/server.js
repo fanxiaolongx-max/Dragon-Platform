@@ -429,6 +429,7 @@ app.use('/api', (req, res, next) => {
     if (req.method === 'POST' && req.path === '/uiv/run-uivision-macro') return next(); // 只生成临时 runner，不修改业务数据
     if (req.method === 'POST' && req.path === '/platform-metrics/open') return next(); // 登录用户记录工具打开量
     if (req.method === 'POST' && req.path === '/recent-nav') return next(); // 登录用户维护自己的最近使用
+    if (req.method === 'PUT' && req.path === '/favorite-nav') return next(); // 登录用户维护自己的收藏工具
     if ((req.method === 'POST' && req.path === '/datacom-knowledge/ai/ask') ||
         (req.method === 'PUT' && req.path === '/datacom-knowledge/preference') ||
         (['PUT', 'DELETE'].includes(req.method) && /^\/datacom-knowledge\/annotations\/[^/]+$/.test(req.path))) return next(); // 登录用户可向 AI 提问、记笔记、保存偏好；路由内校验归属，改写原文仍需管理员
@@ -480,6 +481,7 @@ app.use('/api/surveys', surveysRoutes); // 可配置调查模板与提交记录 
 app.use('/api/nav-settings', navSettingsRoutes); // 顶部导航全局设置 API
 app.use('/api/platform-logo', require('./routes/platform-logo')); // 平台 LOGO 与多端规格图标管理
 app.use('/api/recent-nav', require('./routes/recent-nav')); // 按租户和账号保存最近使用
+app.use('/api/favorite-nav', require('./routes/favorite-nav')); // 按租户和账号保存收藏工具（顺序可拖动）
 app.use('/api/desktop-pet', require('./routes/desktop-pet'));
 app.use('/api/ai-settings', aiSettingsRoutes); // Dragon Claw 智能体模型配置 API
 app.use('/api/agent-workspace', require('./routes/agent-workspace')); // Dragon Claw 工作区：本地目录联想、审批、变更撤销

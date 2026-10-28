@@ -81,7 +81,7 @@ test('a failed shared directory request still applies fresh navigation settings 
         API: { get: async () => { throw new Error('offline'); } },
         getAuthHeaderForNav: () => ({}), normalizeNavSettings: value => value,
         writeNavigationBootstrapCache() {}, notifyRequirementPageCategoriesChanged() {}, renderNavLinksFromState() {},
-        loadRecentNavTools: async () => {}, trackCurrentPageAsRecentNavTool() {},
+        loadRecentNavTools: async () => {}, loadFavoriteNavTools: async () => {}, trackCurrentPageAsRecentNavTool() {},
         document: { getElementById: () => null }, console
     };
     vm.createContext(context);
