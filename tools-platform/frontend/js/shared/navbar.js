@@ -1797,8 +1797,8 @@ window.NavFavorites = {
 };
 
 /**
- * 管理员拖动首页卡片后调整全局导航布局：itemOrder 决定「更多工具」与首页卡片顺序，
- * categoryId 改变所属目录，顶部栏（primaryIds）按新的先后顺序重排。保存沿用导航设置的防抖保存。
+ * 管理员拖动首页卡片后调整全局导航布局：itemOrder 决定「更多工具」与首页卡片顺序，categoryId 改变所属目录。
+ * 顶部栏主功能（primaryIds）的顺序只在导航设置里调整，拖动卡片不改变它。保存沿用导航设置的防抖保存。
  */
 function reorderNavItem(itemId, { beforeId = '', afterId = '', categoryId = '' } = {}) {
     if (localStorage.getItem('tools_role') !== 'admin' || !navState.settings || !itemId) return false;
@@ -1818,13 +1818,7 @@ function reorderNavItem(itemId, { beforeId = '', afterId = '', categoryId = '' }
     ids.splice(index, 0, itemId);
     const nextCategory = { ...settings.categoryByItem };
     if (categoryId && (settings.categories || []).some(category => category.id === categoryId)) nextCategory[itemId] = categoryId;
-    const position = new Map(ids.map((id, order) => [id, order]));
-    navState.settings = {
-        ...settings,
-        itemOrder: ids,
-        categoryByItem: nextCategory,
-        primaryIds: (settings.primaryIds || []).slice().sort((a, b) => (position.get(a) ?? 9999) - (position.get(b) ?? 9999))
-    };
+    navState.settings = { ...settings, itemOrder: ids, categoryByItem: nextCategory };
     scheduleNavSettingsSave();
     notifyRequirementPageCategoriesChanged();
     return true;

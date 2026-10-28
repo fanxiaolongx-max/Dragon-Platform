@@ -501,3 +501,8 @@ html[data-theme="light"] .conversation-context-menu,body.light-theme .conversati
 
 .home-chat-tac{display:inline-flex;align-items:center;flex:none;width:14px;height:14px;margin-right:6px;color:var(--ws-accent,#4fbcb4)}.home-chat-tac svg{width:14px;height:14px;fill:currentColor}
 .connection-status-dot{display:inline-block;flex:none;width:6px;height:6px;border-radius:50%;margin-left:5px;background:#94a3b8;vertical-align:middle}.connection-status-dot[data-health=ok]{background:#34b782}.connection-status-dot[data-health=warning]{background:#eab04b}.connection-status-dot[data-health=error]{background:#eb6b73}
+
+/* 页面刚加载时（index.html 已预先恢复侧栏状态）不播放侧栏展开/收起等过渡，避免闪动 */
+body.home-booting *,
+body.home-booting *::before,
+body.home-booting *::after { transition: none !important; }

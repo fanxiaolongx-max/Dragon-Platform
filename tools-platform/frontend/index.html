@@ -965,7 +965,21 @@
     <link rel="stylesheet" href="/css/home-mode.css">
     <link rel="stylesheet" href="/css/home-capabilities.css">
 </head>
-<body class="home-mode-chat">
+<body class="home-mode-chat home-booting">
+    <script>
+        // 首帧前恢复上次的侧栏收起状态与模式，避免对话列表先出现再收起（规则与 js/home/home-mode.js 一致）
+        (function () {
+            var body = document.body;
+            try {
+                if (location.hash === '#tools') { body.classList.remove('home-mode-chat'); body.classList.add('home-mode-tools'); }
+                if (window.innerWidth > 860) {
+                    var stored = localStorage.getItem('home_sidebar_mode');
+                    if (stored ? stored === 'collapsed' : window.innerWidth < 1280) body.classList.add('home-sidebar-collapsed');
+                }
+            } catch (e) { /* 无痕模式等读不到存储时按默认展开 */ }
+            setTimeout(function () { body.classList.remove('home-booting'); }, 1500); // 兜底：侧栏脚本未运行时也恢复动画
+        })();
+    </script>
     <!-- 首屏先确定模式，避免等待底部脚本时同时露出对话区和工具区。 -->
     <script id="homeModeBootstrap">
         if (location.hash === '#tools') document.body.classList.replace('home-mode-chat', 'home-mode-tools');

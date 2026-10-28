@@ -6,7 +6,8 @@
  * - 链接横幅最多显示 maxLinks 个，超出时每 rotateSeconds 秒轮换。
  * - 关闭小窗可选“仅本次关闭”（下次打开首页还会出现）或“永久关闭”；关闭后全部以横幅保留。
  * - 浏览器拦截带声音自动播放时降级为静音，首次点击页面后恢复声音。
- * - 用户开始使用页面（点击推广区以外的任意位置、聚焦输入框、打开菜单）后，推广区像抽屉一样收起到右侧边缘的小标签；点击标签再抽出。 */
+ * - 用户开始使用页面（点击推广区以外的任意位置、聚焦输入框、打开菜单）后，推广区像抽屉一样收起到右侧边缘的小标签；点击标签再抽出。
+ * - 每天第一次打开首页时弹出小窗与横幅；当天再刷新直接以收起状态出现（只留右侧标签，不自动播放）。 */
 (function () {
     'use strict';
     const STORE_KEY = 'tools.home.promoVideos.dismissed';
@@ -49,6 +50,17 @@
     const media = (key, kind) => isEnglish() && EN_FILES[key] ? '/assets/promotions/' + EN_FILES[key][kind] + '?v=' + VER : VIDEOS[key][kind];
     const ORDER = ['rfc', 'incentive', 'eos', 'guide', 'aiMonthly', 'welinkCli', 'welinkSdk', 'digitalHuman'];
     const ROTATION_KEY = 'tools.home.promotions.rotation';
+    const DAILY_KEY = 'tools.home.promotions.lastShownDay';
+    // 今天是否第一次打开首页（按本地日期）；读写失败时按第一次处理，照常展示
+    function firstShowToday() {
+        const now = new Date();
+        const today = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+        try {
+            if (localStorage.getItem(DAILY_KEY) === today) return false;
+            localStorage.setItem(DAILY_KEY, today);
+        } catch (_) { /* 存储不可用 */ }
+        return true;
+    }
     const PROMO_API = '/api/platform-promotions';
     const FRAME_INTERVAL_MS = 1000;
     // 后端不可用（静态快照等）时只显示内置视频；推广链接的默认值统一在 backend/platform-promotions-defaults.json
@@ -324,7 +336,7 @@
             renderBanners();
         }
         function playMini() {
-            if (isLink(current) || reviewPending) return;
+            if (isLink(current) || reviewPending || tucked) return;
             if (reducedMotion && !soundUnlocked) return;
             mini.muted = !wantSound; renderSound();
             const attempt = mini.play();
@@ -579,6 +591,8 @@
 
         translate();
         syncInboxPriority();
+        // 当天已经展示过：首帧前就收起到右侧标签（与创建在同一任务内，不会先弹出再收起）
+        if (!firstShowToday()) tuck();
         loadConfig().then(() => {
             setCurrent(readDismissed() ? null : nextPromotion());
             scheduleRotation();

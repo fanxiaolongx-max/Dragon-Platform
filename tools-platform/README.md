@@ -1,8 +1,10 @@
 # Dragon Platform
 
+本文按 **2026-10-28 当前工作区代码**核对，桌面版本为 **1.0.492**；发布版本以 [`package.json`](package.json) 和 `/api/app-version` 为准。
+
 > **把运营工作台装进口袋：通过 WeLink SDK 接入 Dragon Claw，出门也能用手机 WeLink 对话查指标、看风险进展、梳理待跟进事项。** [查看接入方法](#welink-sdk-频道对接手机上的运营助手)
 
-Dragon Platform（Tools Platform）是面向质量运营的本地/内网工具中台，串联数据抓取、SLA 合控、报表月报、风险跟进与专项治理。首页提供 Dragon Claw 对话工作台和工具矩阵，也可通过 WeLink 在手机上查询平台数据。
+Dragon Platform（Tools Platform）是面向质量运营的本地/内网工具中台，串联数据抓取、SLA 合控、报表月报、风险跟进与专项治理。首页提供 Dragon Claw 对话、桌面 Agent 会话与工具矩阵，也可通过 WeLink / 微信频道查询数据，并托管 Python Web 应用。
 
 项目采用 **Express + 原生多页前端 + SQLite**，支持源码部署、Windows 安装版/绿色版和 macOS 客户端，并配套 iOS/KMP 移动端工程。
 
@@ -141,8 +143,8 @@ flowchart TD
 
     subgraph 双模主画布系统["主画布双模态体系 (Dual Modes)"]
         MAIN -->|默认首屏 / 新对话| M1["Mode A: Dragon Claw Agent 协同工作区"]
-        MAIN -->|浏览工具 / 向下滚动 / 点击卡片| M2["Mode B: 全功能工具矩阵与活跃度视图"]
-        M1 <-->|"无缝热切换 (dcBackToTools / dcNewChat)"| M2
+        MAIN -->|左侧工具图标 / #tools| M2["Mode B: 全功能工具矩阵与活跃度视图"]
+        M1 <-->|"左侧模式图标切换"| M2
     end
 
     subgraph 智能体协同子系统["Mode A: Agent Workspace 深度协同体系"]
@@ -164,7 +166,10 @@ flowchart TD
     end
 ```
 
-- **首页介绍视频**：右上角提供 NetCare RFC 审计和平台五站使用指南，随中英文界面切换对应配音与字幕。小窗播放轻量版本，点击放大加载高清版本；可仅本次关闭或永久关闭小窗，保留视频入口。
+- **最近使用、收藏与排序**：工具模式的“全部工具”顶部展示最近使用与收藏；点星标或拖入收藏区即可收藏，收藏顺序可拖动，按账号和租户保存。管理员可拖动卡片排序或跨目录移动，同步“更多工具”；顶部主功能顺序在导航设置中单独调整。触屏长按后可拖动。
+- **模式与侧栏**：左侧图标切换对话和工具模式，再次点击同一图标可收起侧栏。工具模式以 `#tools` 保持。两种模式的侧栏可分别调整宽度，支持键盘调整和复位，按浏览器、账号与租户记忆；窄屏自动折叠。
+- **插件与脚本目录**：统一列出 F12 插件、Python 脚本和抓取浮窗脚本；首页导入入口按包内容识别 HTML / ZIP 工具、SKILL 技能包和 Python Web 应用。
+- **首页介绍视频**：右上角提供 RFC 审计、操作激励、平台指南、EOS 月报，以及新增的 AI 月报、WeLink CLI、WeLink SDK 和数字人基座教程。有英文资源的条目随界面语言切换，新四部教程目前复用中文版本。小窗播放轻量版本，点击放大加载高清版本；可仅本次关闭或永久关闭小窗，保留视频入口。
 - **渐进收起与窄屏适配**：视频区进入首页时靠上展示，3 秒后平滑下移，9 秒后在未观看或操作视频区时自动收起到右侧标签；开始操作页面也会收起，点击标签可展开。布局适配手机与 Electron 窄窗口，并尊重系统减少动态效果设置。
 
 ---
@@ -685,7 +690,7 @@ flowchart TD
     subgraph 工具接入["工具注册与部署"]
         T1["内置系统工具 (builtin-tools/)"] -->|启动自检与版本比对| T3["统一挂载与安全沙箱"]
         T2["上传自定义工具 (HTML / ZIP)"] -->|解压与校验清单| T3
-        T0["多源工具市场 (GitHub / 内网第三方源)"] -->|Ed25519 验签与解压| T3
+        T0["多源工具市场 (GitHub / 内网第三方源)"] -->|摘要校验与解压| T3
     end
     subgraph 运行时与分发["多语言与导出"]
         T3 --> T4["生成首页卡片与导航入口 (/tools/:slug)"]
@@ -718,7 +723,7 @@ flowchart TD
   - Web 按选择更新在工作线程中校验、备份和复制，仅扫描本次处理的工具；弹窗实时展示处理阶段、文件数量和进度，完成后刷新页面。同一租户的更新禁止重复提交，旧版接口保持兼容。
 - **多源工具市场生态 (`/api/custom-tools/market/sources`)**：
   - 支持聚合官方 GitHub `tool-market` 分支与多个第三方内网静态源（HTTP/HTTPS），可随时启停源仓库。
-  - 同名工具按优先级展示并支持一键安装/更新；支持 Ed25519 签名与 SHA-256 指纹校验，确保企业内网分发绝对可信。
+  - 同名工具按优先级展示并支持一键安装/更新；按目录信息核对下载包大小、SHA-256 与内容指纹；工具来源仍需管理员确认。
 - **多语言 (i18n) 运行时注入**：
   - 动态注入 `custom-tool-i18n-runtime.js`，支持单文件离线导出。
 - **强控业务比对检索 (`tool-mumxi3px`)**：
@@ -727,6 +732,18 @@ flowchart TD
   - 表格需要“产品 / Product”或“产品名称 / Product Name”表头，支持中英文双语表头、引号内换行。页面可展开查看 XLSX 表格和 UTF-8 CSV 示例；仅产品名称必填，其余列可留空或省略。单文件不超过 10 MB，最多 50000 条产品记录。
   - 产品数据导出为 JSON，可直接再次导入；查询与导出供登录用户使用，导入需要管理员权限。
   - 静态页面下载及推送的单文件 HTML / Pages 分离版包含生成时最新的服务器产品数据。静态页只保留查询，生成时自动移除数据管理区域、格式示例和导入导出代码；服务器数据变化后需再次推送，或使用已有的定时推送设置。
+
+#### 托管 Python Web 应用
+
+管理员从首页“导入 HTML / ZIP / SKILL”上传 Python Web 应用 ZIP，平台识别 ASGI / WSGI 入口，生成带 Python 标识的工具卡片。登录用户从 `/tools/:slug` 启动页访问，管理员可查看日志、启动、停止、重启及重新安装依赖。
+
+- 需要本机 Python 3.9+，`requirements.txt` 包含 `uvicorn`；可用 `platform-app.json` 声明入口。ZIP 上限 35 MB，解压上限 300 MB、3000 个文件；拒绝符号链接与越界路径。
+- 每个租户的每个应用使用独立虚拟环境和应用库，监听 `127.0.0.1` 随机端口。优先安装包内 `wheels/`，失败时回退在线安装；可在 Python 环境设置指定路径和 pip 镜像。离线环境需要与目标系统及 Python 版本匹配的完整依赖。
+- 同名包可选择更新或新建；更新保留应用数据库与访问配置。内置工具的 `hosted-app.zip` 首次打开时安装，后续包哈希变化时更新应用代码。管理员下载按钮导出应用 ZIP，运行中的业务数据库需单独备份。
+- 应用位于当前租户 `hosted-apps/<slug>/`，包含 `app/`、`venv/`、`data/app.db` 和运行日志；Python 路径及 pip 镜像是本机共享设置。应用可读写自己的库，受限只读查询平台业务库或已配置的 NetCare 数据。
+- 应用页面使用访问令牌与 iframe/CSP 隔离；Python 进程仍拥有宿主操作系统账号权限，应只导入可信应用。当前支持 ASGI / WSGI，不执行自带 `run.py`，不支持要求自定义启动命令的应用。
+
+包格式与接口见 [Python 应用托管说明](docs/hosted-python-apps.md)。最新安装回退、内置分发与下载行为见 [运行时](backend/models/hosted-apps/runtime.js)、[托管服务](backend/models/hosted-apps/service.js) 和 [工具路由](backend/routes/custom-tools.js)。
 
 #### F12 插件下载与 NetCare RFC 审计
 
@@ -744,13 +761,13 @@ flowchart TD
 
 全站统一使用推送时同步的当前租户平台账号登录，密码与本地一致，账号或密码修改后需再次推送。每个工具不再单独设置密码。业务页面、JSON 和工具资源采用 AES-GCM 加密，账号使用独立的 PBKDF2 密钥包装，平台明文密码、原始密码哈希和 Session 不写入发布仓库。站点需使用 HTTPS，浏览器需支持 Service Worker 和 Web Crypto；已下载副本与旧 Git 历史不会被撤回。站点密钥保存在租户 SQLite 中，随正常租户备份保留。
 
-右上角四组推广视频保留中文、英文普通版和高清版切换，登录页下方“项目演进”视频也会映射到独立媒体仓库的固定 Release 地址。封面和背景随页面发布，MP4 不进入代码仓库；播放视频需要联网，平台本地的同源播放与缓存保持不变。数通协议专家的已登记笔记讲解视频也按文章 ID 自动关联媒体 Release，支持普通版与高清版。
+右上角已登记推广视频保留普通与高清版，有英文资源的条目随语言切换，登录页下方“项目演进”视频也会映射到独立媒体仓库的固定 Release 地址。封面和背景随页面发布，MP4 不进入代码仓库；播放视频需要联网，平台本地的同源播放与缓存保持不变。数通协议专家的已登记笔记讲解视频也按文章 ID 自动关联媒体 Release，支持普通版与高清版。
 
 首页“平台推广”同时同步当前租户的推广链接、封面、视频开关、链接数量和轮换间隔；静态网站点击链接时在新标签页打开。登录页版本徽标和首页右上角版本号使用推送时主程序的版本并附加“在线测试版”（英文为 “Online test version”），登录页无需先登录即可显示版本。推广配置和版本号在重新推送后更新。
 
 管理员可在“全局设置 → 静态页面推送”配置远端仓库、分支、`{toolSlug}/index.html` 路径模板、单文件或 Pages 工具快照格式，以及自动推送周期。网站首页始终使用统一登录，工具格式只影响生成的工具内容。单工具推送保留其他已发布工具；全量推送会清理取消勾选的工具。默认推送仅提交发生变化的内容，强制推送可触发托管平台重新部署。
 
-当前工具的单文件 HTML / Pages ZIP 下载仍由平台管理员导出，用于独立只读查看，与网站的加密载荷不同。支持负向事件、奖励申报、会议考勤、操作激励、产品范围、数通知识库、调查模板及记录，以及原有纯静态 HTML/ZIP 工具。无需数据库接口的工具沿用通用适配器；依赖平台 API 的工具需像数通知识库一样配套数据导出。F12 等脚本插件仍保留原有平台使用与管理员下载能力，暂不发布到静态网站。
+当前工具的单文件 HTML / Pages ZIP 下载仍由平台管理员导出，用于独立只读查看，与网站的加密载荷不同。支持负向事件、奖励申报、会议考勤、操作激励、产品范围、数通知识库、调查模板及记录，以及原有纯静态 HTML/ZIP 工具。Python 托管应用依赖服务端进程与数据库，不属于可离线运行的静态工具。无需数据库接口的工具沿用通用适配器；依赖平台 API 的工具需像数通知识库一样配套数据导出。F12 等脚本插件仍保留原有平台使用与管理员下载能力，暂不发布到静态网站。
 
 详细实现、升级规则与验证命令见 [静态平台主页与统一登录](docs/static-portal.md)。
 
@@ -761,7 +778,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     Q["用户输入问题 / 指令"] --> INT{"意图识别与上下文探测"}
-    INT -->|源码/文档/开发问答| K1["代码与文档向量/BM25 增量知识库"]
+    INT -->|源码/文档/开发问答| K1["代码与文档代码/文档 增量知识库"]
     INT -->|指标/月报/排名业务数据| K2["只读数据检索器 (只读访问 report.db)"]
     INT -->|考勤/SLA/订单等业务工具| K4["动态工具数据嗅探服务 (aiToolDataService)"]
     INT -->|本地工程协同与代码编辑| K3["Agent Workspace 本地工作区调度引擎"]
@@ -787,7 +804,7 @@ flowchart TD
 
 **接入步骤**：
 
-1. 管理员打开 **全局设置 → 频道对接 → WeLink**，确认 SDK 已检测到。平台优先提供内置 SDK；缺失时可在页面导入 welink-cli 或 Bot 工程中的 `@wecode` 文件夹，也可指定 SDK 路径。文件结构见 [内置 SDK 说明](backend/vendor/@wecode/bridge-runtime-sdk/README.md)。
+1. 管理员打开 **全局设置 → 频道对接 → WeLink**，确认 SDK 已检测到。当前版本库的 vendor 目录仅提供集成说明，未携带 SDK 实现；未检测到可用 SDK 时可在页面导入 welink-cli 或 Bot 工程中的 `@wecode` 文件夹，也可指定 SDK 路径。文件结构见 [内置 SDK 说明](backend/vendor/@wecode/bridge-runtime-sdk/README.md)。
 2. 使用“扫码授权”创建助理并获取连接凭据（需 SDK 支持），或手动填写 WeLink 侧提供的 Channel、AK/SK 等参数；按实际环境配置网关。
 3. 在“助理行为”中选择 **Dragon Claw 智能回复**，模型可跟随当前激活方案，也可单独选择已配置的模型。需先在“AI 助手”中配置可用模型。
 4. 设置人员、群组的黑白名单，启用 WeLink 助理并保存，确认状态为已连接；保存后自动连接，平台重启后自动恢复。更新 SDK 或连接参数后，按页面提示“重启连接”。
@@ -806,7 +823,13 @@ flowchart TD
 - **统一对话列表**：「我的对话」、WeLink/微信和桌面 Agent 按「最近（3 天内）／3 天前／7 天前／一个月前」分组，置顶单独显示；时间默认隐藏，悬停才在右侧显示，停留 2 秒后换为「···」。右键或点击「···」可重命名、置顶、归档和删除；「已归档」可查看并恢复。偏好按账号和租户保存；外部会话的重命名和移除只影响本平台列表，原客户端内容保留。
 - **桌面 Agent 最近会话**：管理员在「全局设置 → 桌面 Agent」连接服务所在电脑后，首页对话侧栏新增「桌面 Agent」分类，自动同步 Codex、Claude Code、Antigravity 最近会话，并支持切换、搜索和手动同步。Codex、Antigravity 支持在 Web 继续选中的原生桌面会话；Claude Code 当前为历史只读，发送连接尚未接通。连接绑定单一账号及租户；设置、收发边界与实测见 [桌面对话连接说明](docs/desktop-agent-conversations.md)。
 - **同一对话内的桌面 Agent 讨论**：点击首页输入框或对话顶部的 DragonTAC 即创建讨论组；首次发送自动为 Codex、Claude Code、Antigravity 各新建一条原生桌面对话，后续消息沿用本讨论组自己的三条会话。回复按来源保存，无需手动选会话或讨论模式。自动新建 Codex、Claude 需要 macOS 辅助功能权限，Claude 还需开启模拟操作发送；成员不可用时明确显示原因。详见 [同会话讨论](docs/desktop-agent-conversations.md#同一-dragonclaw-对话内讨论)。
-- **DragonTAC 升级支持**：目标优先复用 Codex、Claude Code、Antigravity 的桌面会话，三家桌面端已完成 [实际收发与网页读取测试](docs/dragon-tac-desktop-probe.md)，持续桌面连接器尚未部署。当前另有可保留的 CLI 备用原型：首页或频道内说“打开 https://example.com 并分析页面”，系统展示实际可用成员、执行通道与任务编号，原发起人明确确认后，浏览器读取公开网页并由官方 CLI 分析/复核，结果回传原会话。当前 HUD 适配器可探测真实 MCP 工具，不将布局工具当成派发接口。执行边界、部署变量和尚未接通的部分见 [DragonTAC 说明](docs/dragon-tac.md)。
+- **DragonTAC 升级支持**：目标优先复用 Codex、Claude Code、Antigravity 的桌面会话，三家桌面端已完成 [实际收发与网页读取测试](docs/dragon-tac-desktop-probe.md)，首页已提供持续桌面会话连接；下述网页升级任务 API 仍采用独立的 CLI 备用链。当前另有可保留的 CLI 备用原型：首页或频道内说“打开 https://example.com 并分析页面”，系统展示实际可用成员、执行通道与任务编号，原发起人明确确认后，浏览器读取公开网页并由官方 CLI 分析/复核，结果回传原会话。当前 HUD 适配器可探测真实 MCP 工具，不将布局工具当成派发接口。执行边界、部署变量和尚未接通的部分见 [DragonTAC 说明](docs/dragon-tac.md)。
+
+#### 数字人基座与 NetCare 数据探查
+
+管理员在“全局设置 → 频道对接 → 数字人”导入连接配置并测试基座，在 `/netcare-explorer` 浏览实时表目录、字段画像、样例和结构化查询。业务库只读，应用 schema 允许受限写入；此接口当前整体要求管理员权限。
+
+表目录支持分类折叠、展开/收起全部及状态记忆；SQL 控制台保存最近 100 条执行历史，支持搜索、范围筛选、分页与回填。管理员在首页使用 `@netcare-data` 可调用只读查表、字段、查询和 SQL 工具，模型不获得应用库写权限。配置按租户保存，实际数据访问需要内网基座可达。详见 [数字人基座说明](docs/digital-human-netcare.md)。
 
 #### 2.9.1 Agent Workspace 本地代码协同工作区深度解析
 
@@ -928,7 +951,7 @@ sequenceDiagram
 
 - **双引擎只读安全检索架构**：
   - **项目源码与文档增量知识库**：
-    - 自动对 `README.md`、`docs/*.md`、前后端核心源码、UIV 脚本及自带/自定义 HTML 工具源码建立增量向量与 BM25 索引。
+    - 自动对 `README.md`、`docs/*.md`、前后端核心源码、UIV 脚本及自带/自定义 HTML 工具源码建立增量代码与文档 索引。
     - 回答底部附带“本次回答依据”卡片，严格区分“知识库规模”、“检索候选”与“实际引用”，仅将通过动态相关度门槛的片段作为证据，并精准展示文件相对路径、起始行号与代码片段。
   - **业务数据受限只读分析**：
     - 普通页面问答和频道问答针对指标当前值、分月得分、客户群排名或扣分矩阵等问题，通过专用只读配置与数据检索器定向查询当前租户报表快照，不执行自由 SQL 或业务数据写入。首页管理员普通对话可直接使用结构化工具对当前租户平台业务库执行增删改查；工作区对话按所选权限模式执行，也可操作项目本地 SQLite。
@@ -1129,8 +1152,8 @@ sequenceDiagram
    - 客户端激活页全面支持中英双语自适应，内置标准 License 格式示例展示与一键快捷复制。
    - 激活核验过程配备动态进度条与阶段里程碑跟踪（语法格式校验 $\rightarrow$ 离线公钥验签 $\rightarrow$ 租户权限初始化 $\rightarrow$ 在线可信时间确认），提供丝滑透明的用户体验。
 6. **单实例互斥锁与 SQLite 防死锁守护**：
-   - 桌面端启动期通过 Electron 原生 `app.requestSingleInstanceLock()` 机制实行单实例保护，重复启动将自动聚焦已打开的程序并退出当前进程，彻底避免多进程并发读写 SQLite。
-   - SQLite 底层驱动配置 `busy_timeout = 15000` (15秒等待)，杜绝启动与跨表批量写入时的瞬时锁冲突。
+   - 桌面端启动期通过 Electron 原生 `app.requestSingleInstanceLock()` 机制实行单实例保护，重复启动将自动聚焦已打开的程序并退出当前进程，减少重复启动导致的并发写入。
+   - SQLite 底层驱动配置 `busy_timeout = 5000`（5 秒等待），缓解短时写锁竞争；长事务仍可能导致锁等待或失败。
 
 #### 机器码与在线授权申请
 
@@ -1158,11 +1181,11 @@ flowchart LR
    - 无论是控制台输出、按日应用日志，还是失败链路追踪库 (`service_status_failures`)，系统均自动拦截并脱敏所有敏感字段。
    - 脱敏匹配键集合：`authorization`, `password`, `token`, `access_token`, `refresh_token`, `api_key`, `apikey`, `secret` 等；URL query 参数与 JSON 深度嵌套对象全程递归脱敏为 `[REDACTED]`。
 2. **多层级访问控制与静态资源保护 (`shouldProtectHtmlEntry`)**：
-   - 业务 HTML 页面全部受 JWT Session 强校验保护，未登录拦截重定向至登录页，防止退出登录后页面因浏览器缓存闪现。
+   - 业务 HTML 页面全部受 服务端 SQLite Session 校验保护，未登录拦截重定向至登录页，防止退出登录后页面因浏览器缓存闪现。
    - 公开资源白名单严格受限：仅限登录页、隐私声明、服务条款及非敏感静态资源 (`.css`, `.js`, `.png`, `.ico`)。
    - 自定义 HTML 工具按 `publicAccess` 字段实施细粒度权限隔离，支持管理员灵活开放免密公开访问或强制登录访问。
 3. **数据隐私驻留合规 (Data Privacy by Design)**：
-   - 平台采用纯本地/私有化部署架构，所有业务指标、快照数据与分析结论完全驻留于企业内网数据库，绝不向任何外部第三方服务器外发原始数据。
+   - 业务数据默认保存在部署机器与租户数据库中。启用 AI 模型、WeLink / 微信频道、数字人基座、远端备份或静态发布时，会按配置向相应服务发送必要上下文或发布内容；部署前应核对服务地址和数据范围。凭据等敏感内容由专用过滤器脱敏，不应放入提示词或业务日志。
 
 ---
 
@@ -1172,17 +1195,18 @@ flowchart LR
 
 | 数据库 / 存储文件 | 宿主目录 | 存储内容与核心表 |
 | :--- | :--- | :--- |
-| **`tools.db`** | `backend/data/` | 账号鉴权 (`users`, `sessions`)、租户元数据 (`tenants`)、UIV 脚本仓库 (`uiv_categories`, `uiv_scripts`)、SLA 规则配置 (`sla_targets`, `sla_prefs`, `sla_groups`, `sla_snapshots`)、AI 月报文档与图片资产 (`ai_report_documents`, `ai_report_images`)、归档源表与工作表 (`import_source_files`, `import_source_sheets`)、月报历史快照 (`monthly_report_snapshots`)、专题快照 (`topic_snapshots`)、会议考勤与操作激励快照 (`meeting_attendance_snapshots`, `operation_incentive_snapshots`)、负向事件与奖惩 (`department_reward_penalty_*`)、正向激励 (`reward_program_*`)、静态推送 (`snapshot_publish_*`)、多源市场 (`tool_market_settings`)、FRT 规则、PR 审计配置、告警事件 (`alert_events`)、服务状态指标等 |
-| **`report.db`** | `data/` | 报表看板入库历史快照、各代表处/客户群月度得分、全量指标计算明细数据、月报读取主库 |
-| **`requirements.db`** | `data/` | 需求广场提议记录 (`requirements`)、需求流转状态变更日志与评论 |
-| **`ai-knowledge.db`** | `backend/data/` | Dragon Claw 智能体代码与项目文档增量向量/BM25 索引缓存（可随源码更新随时重建） |
-| **`custom-tools/`** | `backend/data/` | 所有上传的自定义 HTML 工具与静态资源文件 |
-| **`images/`** | `data/` | 报表全屏高清截图、导出 Excel/PDF 临时缓存文件 |
-| **`desktop-pet-config.json`** | 用户数据目录 (`%APPDATA%` 或 `~/Library/Application Support/`) | 桌面宠物个性化运行配置（启停状态、当前可见性、小宠缩放比例、打字音效音量、声音方案、气泡显隐、打字反馈及屏幕坐标记忆） |
+| **`tools.db`** | `TOOLS_DATA_DIR`，默认 `backend/data/` | 默认租户原有业务表与平台账号、Session、租户控制面；命名租户业务表另存于租户目录 |
+| **`report.db`** | 默认 `data/`；配置 `TOOLS_DATA_DIR` 时跟随该目录，显式 `TOOLS_REPORT_DATA_DIR` 优先 | 历史报表快照、客户群得分、指标明细 |
+| **`requirements.db`** | 当前租户数据目录，默认 `backend/data/` | 需求与流转日志 |
+| **`ai-knowledge.db`** | 当前租户数据目录 | 代码与文档检索索引，可重建 |
+| **`chat-history.db`** | 当前租户数据目录 | 导入聊天正文、全文索引、用户个人状态 |
+| **`custom-tools/`、`hosted-apps/`** | 当前租户数据目录 | 工具源码、托管应用及各应用数据库 |
+| **`images/`、`slide-library/`** | 按对应模块及租户路径解析 | 图片与胶片素材；日常轻量备份排除项须单独归档 |
+| **桌面配置与浏览器库** | Electron `app.getPath('userData')` | 桌宠配置、授权状态、`dragon-browser.db` 等本机状态 |
 
 管理员的“数据探索”默认使用当前租户的 `tools.db`，可在页首切换当前租户实际存在的 SQLite 运行库（报表、需求、AI 知识索引、聊天记录、数通知识库、仓储等）。报表库按 `TOOLS_REPORT_DATA_DIR` 解析，其余业务库按 `TOOLS_DATA_DIR`/当前租户目录解析；不会扫描备份、归档或其他租户目录。默认租户的 `tools.db` 同时包含平台控制面，命名租户可显式选择标有“全局”的平台账号与租户控制库。切换会重载表列表、清空旧结果，并按实际表生成查询示例；未初始化的库不显示。SQL 仍支持管理员执行增删改和 DDL，跨库文件操作须通过选择器完成，不支持 `ATTACH`/`DETACH`/`VACUUM INTO`。数据库查询正文和结果不写入请求或服务状态日志。
 
-探索页采用双列侧边栏与右侧工作区：最左侧窄列选择 SQL 终端、数据表查看或日志收集；第二列展示当前模块的常用示例、按业务分类的完整表目录或日志日期范围。目录支持搜索表名、业务分类和用途，不截断表数量。当前建表代码中定义的 126 张表提供中英文用途说明，历史或扩展表未登记时会明确提示；查看字段结构时不加载业务行，切到“表数据”后再分页读取。结构页同时展示字段类型、主键顺序、非空约束、默认值、索引、外键与建表语句。
+探索页采用双列侧边栏与右侧工作区：最左侧窄列选择 SQL 终端、数据表查看或日志收集；第二列展示当前模块的常用示例、按业务分类的完整表目录或日志日期范围。目录支持搜索表名、业务分类和用途，不截断表数量。已登记的业务表提供中英文用途说明，历史或扩展表未登记时会明确提示；查看字段结构时不加载业务行，切到“表数据”后再分页读取。结构页同时展示字段类型、主键顺序、非空约束、默认值、索引、外键与建表语句。
 
 页面默认亮色，可在右上角切换暗色并记住本页的选择，不随操作系统自动变暗。SQL 输入框默认两行高，可拖动右下角调整。数据库选择器下方展示所选库的中英文用途；自动发现的 0 字节文件标注为“空数据库文件”，仅浏览其目录不会初始化文件。其余无法确认用途的扩展库明确标注“用途未登记”，不会按文件名猜测。
 
@@ -1199,7 +1223,7 @@ flowchart TD
     VAC --> VERIFY{"校验修复副本完整性"}
     VERIFY -->|"校验通过"| SWAP["安全原子替换原数据库文件"]
     SWAP --> RUN
-    VERIFY -->|"修复失败"| ERR["记录严重错误日志并阻止异常启动"]
+    VERIFY -->|"修复失败"| ERR["记录修复失败并保留诊断结果"]
 ```
 
 ### 4.3 配置变更指纹监控 (`config-change-monitor.js`)
@@ -1210,75 +1234,23 @@ flowchart TD
 - 提供从历史 JSON 配置向 SQLite 数据库迁移的全程可视化状态台。
 - 支持实时执行 **Parity 一致性校验**，精准比对 JSON 与 SQLite 中的数据条数与内容差异；确认迁移无损后，支持管理员一键安全清理遗留 JSON 文件。
 
-### 4.5 核心数据库物理表 Schema 字典
+### 4.5 核心表与建表源码索引
 
-平台采用领域驱动划分 SQLite 数据库边界，主要核心物理表设计如下：
+表结构以当前建表与兼容迁移代码为准。管理员可在“数据探索”查看实际字段、索引、外键与建表语句；下表列出主要入口，不作为完整 Schema 导出。
 
-#### 1. `backend/data/tools.db` (中台核心配置与运行库)
-| 表名 | 核心字段 | 业务用途与说明 |
-| :--- | :--- | :--- |
-| `users` | `username` (PK), `password_hash`, `role`, `created_at` | 用户身份认证、哈希密码存储与角色权限 |
-| `sessions` | `token` (PK), `username`, `expires_at`, `created_at` | 登录态 Session 凭据管理 |
-| `tenants` | `id` (PK), `name`, `status`, `created_at` | 租户注册表、租户生命周期与状态管理 |
-| `uiv_categories` | `id` (PK), `name`, `icon`, `sort_order` | UIVF12 抓取脚本分类体系 |
-| `uiv_scripts` | `id` (PK), `category_id`, `name`, `code`, `console_code`, `payload` | UI.Vision 宏与 F12 抓取脚本实体与版本 |
-| `sla_targets` | `metric_key` (PK), `target_json`, `weight`, `updated_at` | SLA 各指标 1~12 月基线目标与权重配置（带批量替换防清空守卫） |
-| `sla_prefs` | `pref_key` (PK), `pref_json`, `updated_at` | 每张表的显示列、排序、冻结列与计算模式偏好 |
-| `sla_groups` | `id` (PK), `name`, `metrics_json`, `sort_order` | 指标大类与分组聚合配置 |
-| `sla_snapshots` | `id` (PK), `month`, `snapshot_name`, `data_json`, `created_at` | SLA 上传与计算的历史快照沉淀 |
-| `ai_report_documents` | `id` (PK), `name`, `report_month`, `payload_json`, `created_at`, `updated_at`, `updated_by` | AI 月报文档实体（报头、字段动态提示词、图片历史、全篇风格与主题、章节与章节样式、12 列网格格子、对话历史、最终提示词与配方缓存） |
-| `ai_report_images` | `id` (PK), `name`, `mime`, `bytes`, `source`, `prompt`, `created_at`, `created_by` | AI 月报上传与 AI 生成（丹青绘图 / 矢量 SVG）的 LOGO 及图片资产表 |
-| `import_source_files` / `import_source_sheets` | `id` (PK), `report_month`, `file_name`, `sheet_name`, `headers_json`, `rows_json` | 数据导入归档的原始文件与结构化工作表（供 AI 月报与资料库按月检索） |
-| `monthly_report_snapshots` | `id` (PK), `tool_key`, `topic_key`, `month`, `snapshot_name`, `summary_json`, `created_at` | 月报与专题历史快照沉淀（支持版本比对 Diff 与 AI 月报跨源读取） |
-| `topic_snapshots` | `id` (PK), `source`, `batch_id`, `captured_at`, `payload_json`, `created_at` | NetCare 与 DataFab 专题历史快照（保存原始 JSON 结构） |
-| `meeting_attendance_snapshots`| `id` (PK), `meeting_date`, `roster_json`, `summary_json`, `created_at` | 例会花名册、参会考勤与状态快照（支持智能工号去 m 与去重） |
-| `operation_incentive_snapshots`| `id` (PK), `period`, `records_json`, `summary_json`, `created_at` | 操作激励在册人员名单与周期激励快照 |
-| `department_reward_penalty_items`| `id` (PK), `date`, `person_id`, `category`, `score_impact`, `evidence_json` | 部门奖惩与负向事件登记、证据归因与整改跟踪主表 |
-| `reward_program_applications` | `id` (PK), `category`, `rule_id`, `period`, `applicant`, `status`, `amount_minor` | 正向激励方案申报、审批流转与额度核算主表 |
-| `snapshot_publish_settings` | `tenant_id` (PK), `repo_url`, `branch`, `path_template`, `format`, `auto_push_minutes` | 静态页面 Git 仓库克隆与 Pages 自动化推送配置 |
-| `snapshot_publish_jobs` | `id` (PK), `tenant_id`, `trigger_type`, `status`, `logs_text`, `created_at` | 静态页面 Git 自动化发布调度历史与执行流水日志 |
-| `tool_market_settings` | `key` (PK), `value_json`, `updated_at` | 多源工具市场第三方仓库源与开关偏好设置 |
-| `custom_tools` | `slug` (PK), `name`, `version`, `entry`, `manifest_json`, `updated_at` | 自定义 HTML/ZIP 工具与内置系统工具注册表 |
-| `custom_tools_snapshots` | `id` (PK), `tool_slug`, `snapshot_name`, `data_json`, `created_at` | 自定义工具数据状态历史快照 |
-| `slide_design_projects` | `id` (PK), `title`, `slides_json`, `metadata_json`, `updated_at` | 胶片设计工作区项目实体与单页挑选清单 |
-| `slide_library_assets` | `id` (PK), `project_id`, `category`, `tags`, `thumb_path`, `asset_path` | 胶片素材库切片、分类标签与高清缩略图索引 |
-| `survey_templates` | `id` (PK), `title`, `schema_json`, `status`, `created_at` | 动态问卷调研设计模板 |
-| `survey_submissions` | `id` (PK), `template_id`, `submitter`, `answers_json`, `created_at` | 问卷调研填报记录与答卷结果 |
-| `praudit_configs` | `id` (PK), `rules_json`, `thresholds_json`, `updated_at` | PR 进展合规性审计规则与判定阈值 |
-| `frt_snapshots` | `id` (PK), `month`, `kpi_json`, `summary_json`, `created_at` | FRT KPI 动态核算结果与历史归档快照 |
-| `ai_chat_sessions` | `session_id` (PK), `tenant_id`, `page_route`, `title`, `status`, `created_at`, `updated_at` | Dragon Claw 智能体跨页面会话元数据与归档管理主表 |
-| `ai_chat_messages` | `id` (PK), `session_id`, `role`, `content`, `model`, `tokens`, `created_at` | 智能体会话流式消息内容、使用模型与 Token 计量明细 |
-| `ai_usage_daily_models` | `date_key`, `model_id` (PK), `prompt_tokens`, `completion_tokens`, `cost_estimate` | 单模型粒度日调用量、Token 消耗与财务成本核算 |
-| `alert_events` | `id` (PK), `event_type`, `severity`, `status`, `title`, `message`, `detail_json` | 系统告警事件、AI 诊断建议回填与流转记录 |
-| `service_status_daily` | `service_key`, `status_date` (PK), `request_count`, `success_count`, `duration_ms` | 平台 API 服务可用性与耗时统计日聚合表 |
-| `service_status_failures` | `id` (PK), `service_key`, `request_at`, `method`, `path`, `status_code`, `detail` | 4xx/5xx 异常链路追踪明细（自动脱敏） |
-| `config_fingerprints` | `scope` (PK), `hash`, `summary_json`, `updated_at` | 核心配置 SHA-256 指纹监控基准表 |
-| `auth_login_attempts` | `ip`, `username` (PK), `failed_count`, `locked_until`, `last_attempt_at` | 登录防暴力破解安全审计与动态 IP/账号封锁表 |
+| 数据库与边界 | 代表性表 | 源码依据 |
+| --- | --- | --- |
+| 全局控制面 `tools.db` | `auth_users`、`auth_sessions`、`tenants` | [平台连接](backend/models/platform-db.js)、[账号](backend/models/auth-users-repository.js)、[会话](backend/models/auth-sessions-repository.js)、[租户](backend/models/tenants-repository.js) |
+| 当前租户 `tools.db`：抓取与 SLA | `uiv_scripts`、`sla_targets`、`sla_prefs`、`sla_groups`、`sla_group_items`、`sla_snapshots` | [脚本](backend/models/uiv-scripts-repository.js)、[目标](backend/models/sla-targets-repository.js)、[偏好](backend/models/sla-prefs-repository.js)、[分组](backend/models/sla-groups-repository.js)、[快照](backend/models/sla-snapshots-repository.js) |
+| 当前租户 `tools.db`：月报与导入 | `ai_report_documents`、`ai_report_images`、`import_source_batches`、`import_source_files`、`import_source_sheets`、`topic_snapshots` | [月报](backend/models/ai-report-repository.js)、[图片](backend/models/ai-report-images.js)、[源表](backend/models/import-source-repository.js)、[专题](backend/models/topic-snapshots-repository.js) |
+| 当前租户 `tools.db`：工具与对话 | `custom_tools`、`ai_chat_sessions`、`ai_chat_messages` | [工具注册](backend/models/custom-tools-repository.js)、[AI 会话](backend/models/ai-chat-repository.js) |
+| 当前租户 `report.db` | `ReportSnapshots`、`ReportCategoryScores`、`ReportMetricData`、`PlatformConfig`、`BigscreenOwners` | [报表初始化与路由](backend/routes/db.js) |
+| 当前租户 `requirements.db` | `Requirements`、`RequirementLogs` | [需求路由](backend/routes/requirements.js) |
+| 当前租户 `ai-knowledge.db` | `ai_knowledge_documents`、`ai_knowledge_chunks`、`ai_knowledge_meta` | [知识检索服务](backend/models/ai-knowledge-service.js) |
+| 当前租户 `chat-history.db` | `chat_sources`、`chat_conversations`、`chat_messages`、`chat_messages_fts`、`chat_user_states`、`chat_favorites` | [聊天记录仓储](backend/models/chat-history-repository.js) |
+| 当前租户独立业务库 | `datacom-knowledge.db` 的 `dk_articles` 等；`ezscan-warehouse.db` 的 `warehouse_state` | [数通知识库](backend/models/datacom-knowledge-repository.js)、[仓储](backend/models/ezscan-warehouse-repository.js) |
 
-#### 2. `data/report.db` (报表看板与月报分析库)
-| 表名 | 核心字段 | 业务用途与说明 |
-| :--- | :--- | :--- |
-| `PlatformConfig` | `key` (PK), `value_json`, `updated_at` | 月报中英文标题、看板全局参数等中台配置 |
-| `snapshots` | `id` (PK), `month`, `snapshot_name`, `summary_json`, `created_at` | 月度质量入库基准快照 |
-| `metrics_data` | `snapshot_id`, `rep_office`, `customer_group`, `metric_key`, `score` | 客户群各维度指标计算得分与扣分明细 |
-
-#### 3. `data/requirements.db` (需求广场与协作流转库)
-| 表名 | 核心字段 | 业务用途与说明 |
-| :--- | :--- | :--- |
-| `requirements` | `id` (PK), `title`, `description`, `status`, `submitter`, `created_at` | 全民需求提议与流转状态 |
-| `requirement_logs` | `id` (PK), `requirement_id`, `actor`, `action`, `comment`, `created_at` | 需求评审、评估、开发与上线审计留痕 |
-
-#### 4. `backend/data/chat-history.db` (租户隔离的聊天记录中心与全文检索库)
-| 表名 | 核心字段 | 业务用途与说明 |
-| :--- | :--- | :--- |
-| `chat_conversations` | `conversation_id` (PK), `title`, `type`, `member_count`, `message_count`, `pinned` | 单聊/群组会话元数据、置顶状态与成员统计 |
-| `chat_messages` | `message_id` (PK), `conversation_id`, `sender_id`, `sender_name`, `sent_at`, `body` | 聊天记录历史消息正文、发送人与高精度时间戳 |
-| `chat_messages_fts` | `body`, `sender_name` (FTS5 Virtual Table) | 聊天正文高效分词全文检索虚表 |
-| `chat_person_directory` | `person_id` (PK), `display_name`, `staff_id`, `aliases_json`, `groups_json` | 发言人通讯录、工号去 m 别名归一化与归属群组索引 |
-| `chat_analytics_cache` | `cache_key` (PK), `data_json`, `expires_at` | 互动频次热力图、发言活跃度与人际拓扑关系图谱缓存 |
-| `chat_favorites` | `id` (PK), `username`, `message_id`, `created_at` | 用户个人重要消息与证据收藏夹 |
-| `chat_user_states` | `username`, `conversation_id` (PK), `last_read_message_id`, `read_at` | 个人维度的各会话已读位置与未读数管理 |
-| `chat_group_preferences`| `conversation_id`, `username` (PK), `is_pinned`, `alias` | 个人对群组的置顶与备注偏好 |
+默认租户的控制面与原有业务表共用原 `tools.db`；命名租户业务库位于 `TOOLS_DATA_DIR/tenants/<tenant-id>/`。新功能通过租户感知连接访问数据库，不能把业务数据写入全局控制面。历史报表优先使用入库时的目标、得分与计分模式。
 
 ---
 
@@ -1331,7 +1303,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     subgraph 韧性守护["1. 韧性守护机制"]
-        H1["PM2 256MB 软限制自动重启"]
+        H1["PM2 1GB 软限制自动重启"]
         H2["SQLite 启动自检与 VACUUM INTO 修复"]
         H3["配置指纹 SHA-256 变动探针"]
     end
@@ -1349,21 +1321,19 @@ flowchart TD
     end
 ```
 
-### 6.1 性能基准与高并发设计
-1. **轻量毫秒级响应**：
-   - 前端采用原生 HTML/JS 静态分发，无 SSR 构建开销；后端路由经过深度优化，常规 API 平均响应时间控制在 **< 15ms**。
-2. **SQLite WAL 高性能读写**：
-   - 数据库全面启用 WAL (Write-Ahead Logging) 模式，实现高并发场景下“读写互不阻塞”，单库轻松支撑百级运维并发吞吐。
-3. **内存与连接池自动回收**：
-   - Node.js 内存占用通过 PM2 设置 256MB 软限制自动平滑重启；数据库操作采用受控连接生命周期与自动关闭机制，杜绝连接泄露。
+### 6.1 性能与并发边界
+
+前端为原生多页静态资源，无前端构建步骤。SQLite 使用 WAL、写锁等待与按租户复用连接，恢复与关闭时释放连接。实际响应时间和吞吐受数据量、磁盘、AI 服务及导入任务影响，应通过服务监控实测评估；本说明不提供固定延迟或并发保证。
+
+PM2 当前配置为单实例、`max_memory_restart: '1G'`，达到阈值会重启服务，期间请求可能中断；配置见 [ecosystem.config.js](backend/ecosystem.config.js)。
 
 ### 6.2 全链路追踪与健康探针体系
 1. **统一链路追踪 ID (`X-Request-Id`)**：
    - 每个进入系统的 HTTP 请求自动分配全局唯一 `requestId`（如 `req_m7x9k2_a1b2c3d4`），在响应头和日志中全程透传，便于多系统日志联合排障。
 2. **7 大服务域健康监控 (`service-status-repository`)**：
-   - 自动将 API 划分为 `core` (平台核心)、`auth` (账号授权)、`automation` (抓取自动化)、`data` (数据报表)、`ai` (AI服务)、`tools` (自定义工具)、`operations` (运维告警) 七大域，按天统计请求量、成功率、P99/平均耗时。
+   - 自动将 API 划分为 `core` (平台核心)、`auth` (账号授权)、`automation` (抓取自动化)、`data` (数据报表)、`ai` (AI服务)、`tools` (自定义工具)、`operations` (运维告警) 七大域，按天统计请求量、成功率、平均及最大耗时。
 3. **标准运维探针端点**：
-   - **`/api/health`**：标准健康检查接口，用于 Kubernetes Liveness/Readiness 探针或 Nginx upstream 健康检查。
+   - **`/api/health`**：进程存活检查，返回状态与时间；不代表数据库、模型或其他依赖已经就绪。
    - **`/api/app-version`**：免鉴权读取版本号，用于桌面端与集群多节点版本一致性对比。
    - **`/api/migration-status`**：免鉴权获取数据自检与 JSON $\rightarrow$ SQLite 迁移诊断报告。
 
@@ -1459,6 +1429,12 @@ flowchart TD
 | `/api/platform-logo` | `platform-logo.js` | 需登录 (写需Admin) | 平台高清品牌资产、自动去底与多平台图标（1024/256/32）导出 |
 | `/api/desktop-pet` | `desktop-pet.js` | 需登录 | 桌面宠物古埃及故事集（40篇中英双语故事）分发与 AI 上下文展开 |
 | `/api/duty-roster` | `duty-roster.js` | 需登录 | 值班花名册、轮值规则与夜间运维考勤排班数据管理 |
+| `/api/favorite-nav` | `favorite-nav.js` | 需登录 | 当前账号与租户的收藏及顺序，普通用户可维护自己的列表 |
+| `/api/home-capabilities` | `home-capabilities.js` | 需登录 | 首页插件与脚本目录 |
+| `/api/hosted-apps` | `hosted-apps.js` | 需登录；设置与运维需 Admin | Python 应用识别、启动入口、日志及生命周期管理 |
+| `/api/digital-human` | `digital-human.js` | 仅 Admin | 数字人配置、NetCare 只读查询与应用 schema 受限写入 |
+| `/api/desktop-agents` | `desktop-agents.js` | 路由内校验绑定账号、租户及管理权限 | 桌面 Agent 会话连接与收发 |
+| `/api/dragon-tac` | `dragon-tac.js` | 需登录，任务确认与执行在路由内校验 | CLI 备用任务链与状态 |
 | `/api/recent-nav` | `recent-nav.js` | 需登录 | 按租户和账号持久化保存用户最近使用的功能与工具足迹 |
 | `/api/desktop-license` | `desktop-license-local.js` | 需登录 | 桌面客户端本地 License 授权状态检查 |
 | `/api/public/desktop-license` | `desktop-license-public.js` | 公开 | 桌面端 License 激活、心跳验签、机器码授权申请、审批结果查询与取消申请 |
@@ -1511,9 +1487,9 @@ privacy-policy/
     │   ├── preflight.js                   # 启动前端口与系统环境预检
     │   ├── ecosystem.config.js            # PM2 生产运维配置文件
     │   ├── package.json                   # 后端依赖配置
-    │   ├── routes/                        # 53 个业务 API 路由模块 (含 ai-report, agent-workspace, python-updater 等)
+    │   ├── routes/                        # 业务 API 路由模块 (含 ai-report, agent-workspace, python-updater 等)
     │   ├── models/                        # 数据库仓储 (app-db, report-store, ai-report-*)、业务引擎与 AI 适配器
-    │   ├── middleware/                    # JWT 鉴权与管理员权限控制中间件
+    │   ├── middleware/                    # Session 鉴权与管理员权限控制中间件
     │   ├── logger/                        # 日志按日轮转与格式化输出
     │   ├── builtin-tools/                 # 系统内置标准 HTML 工具包 (启动自动同步)
     │   └── data/                          # 后端运行数据库与配置 (tools.db, ai-knowledge.db 等)
@@ -1537,7 +1513,7 @@ privacy-policy/
     │   └── tools-platform-feature-overview-bilingual.html # 中英双语全景特性文档
     ├── iosapp/                            # 配套 iOS / Kotlin Multiplatform 移动端工程
     ├── scripts/                           # 运维、License 密钥同步与构建辅助脚本
-    └── tests/                             # 自动化单元测试与浏览器回归测试 (259 个测试文件)
+    └── tests/                             # 自动化单元测试与浏览器回归测试 （Node 测试与图形环境回归脚本）
 ```
 
 ---
@@ -1550,10 +1526,10 @@ privacy-policy/
 | :--- | :--- | :--- |
 | `PORT` | `3030` | HTTP 服务监听端口 |
 | `TOOLS_DATA_DIR` | `backend/data/` | 后端核心数据存储目录（桌面版自动重定向至系统用户数据目录） |
-| `TOOLS_REPORT_DATA_DIR` | `data/` | 报表核心数据存储目录 (`report.db`) |
+| `TOOLS_REPORT_DATA_DIR` | 未设置 `TOOLS_DATA_DIR` 时为 `data/`，否则跟随该目录 | 报表核心数据存储目录 (`report.db`) |
 | `SLIDE_IMPORT_MAX_MB` | `200` | PPTX 胶片包上传大小上限（单位：MB，支持 10~2048） |
 | `TOOLS_DAILY_LOGS` | `1` (生产) / `0` (桌面) | 是否开启按日归档日志写入 |
-| `TOOLS_DESKTOP_RUNTIME` | `0` | 是否处于 Windows Electron 桌面壳运行时环境 |
+| `TOOLS_DESKTOP_RUNTIME` | `0` | 是否处于 Electron 桌面运行时（Windows / macOS） |
 | `GEMINI_API_KEY` | - | Google Gemini AI 默认 API Key（设置中心配置优先于此变量） |
 | `NODE_ENV` | `development` | 运行环境（`production` / `development`） |
 | `TOOLS_SNAPSHOT_REPO_DIR` | - | 负向事件只读页面推送所参考的本地 Git 仓库路径；未在“全局设置 → 静态页面推送”保存配置时作为默认值。服务端读取其 `origin`，在临时目录克隆目标分支，只提交一个 HTML，不改写该仓库工作区。远端认证由服务器的 Git 凭据负责。 |
@@ -1566,33 +1542,33 @@ privacy-policy/
 
 ### 12.1 跨操作系统基础环境准备
 
-推荐运行环境为 **Node.js 20 LTS** 与 **npm 9+**。
+仓库启动检查与 CI 以 **Node.js 20** 为主要环境；请先验证原生 `sqlite3` 依赖可加载。服务端可只安装 `backend/` 依赖，桌面开发需在根目录安装依赖。前端无需打包。
 
 > [!IMPORTANT]
 > ### 华为内网源码安装特别强调 (Huawei Intranet Environment)
 > 如果在**华为内网环境**进行源码安装或拉取依赖，在执行任何 `npm install` 前**必须先设置华为内部 npm 镜像源**，否则由于网络隔离无法连接公共 npm 仓库，会导致依赖下载失败或连接超时：
 > ```powershell
 > # 1. 切换至华为内网镜像源
-> npm config set registry http://mirrors.tools.huawei.com/npm/
+> npm config set registry http://cmc-cd-mirror.rnd.huawei.com/npm
 > 
 > # 2. 检查验证当前生效镜像源
 > npm config get registry
-> # 正确输出应为: http://mirrors.tools.huawei.com/npm/
+> # 正确输出应为: http://cmc-cd-mirror.rnd.huawei.com/npm
 > ```
-> 确认输出为 `http://mirrors.tools.huawei.com/npm/` 后，再执行后续各系统的依赖安装命令。
+> 确认输出为 `http://cmc-cd-mirror.rnd.huawei.com/npm` 后，再执行后续各系统的依赖安装命令。
 
 #### 1. Linux (Ubuntu / Debian / CentOS / RHEL) 部署
 ```bash
-# 1. 安装 Node.js 20 LTS (以 Ubuntu 为例)
+# 1. 安装 Node.js 20 (以 Ubuntu 为例)
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt-get install -y nodejs build-essential
 
 # 2. 华为内网先配置镜像源 (外网环境可跳过)
-npm config set registry http://mirrors.tools.huawei.com/npm/
+npm config set registry http://cmc-cd-mirror.rnd.huawei.com/npm
 
 # 3. 拉取代码并安装后端依赖
 cd /opt/tools-platform/backend
-npm install --production
+npm ci --omit=dev
 
 # 4. 运行环境与启动自检
 npm run doctor
@@ -1610,7 +1586,7 @@ brew install node@20
 brew link node@20
 
 # 2. 华为内网先配置镜像源 (外网环境可跳过)
-npm config set registry http://mirrors.tools.huawei.com/npm/
+npm config set registry http://cmc-cd-mirror.rnd.huawei.com/npm
 
 # 3. 安装依赖并启动
 cd tools-platform/backend
@@ -1623,8 +1599,8 @@ npm start
 ```powershell
 # 1. 确保安装 Visual Studio Build Tools (勾选 Desktop development with C++)
 # 2. 华为内网先配置镜像源 (外网环境可跳过)
-npm config set registry http://mirrors.tools.huawei.com/npm/
-npm config get registry # 确认输出: http://mirrors.tools.huawei.com/npm/
+npm config set registry http://cmc-cd-mirror.rnd.huawei.com/npm
+npm config get registry # 确认输出: http://cmc-cd-mirror.rnd.huawei.com/npm
 
 # 3. 在 PowerShell 中进入后端目录安装依赖并启动
 cd tools-platform\backend
@@ -1644,7 +1620,7 @@ $env:PORT=3030; npm start
 ```mermaid
 flowchart LR
     M1["pm2 start ecosystem.config.js"] --> M2["主服务常驻 (端口 3030)"]
-    M2 --> M3["崩溃/内存超 256MB 自动重启"]
+    M2 --> M3["崩溃/内存超 1GB 自动重启"]
     M2 --> M4["按日日志轮转 (logs/YYYY-MM-DD/)"]
     M2 --> M5["pm2 startup (开机自启)"]
 ```
@@ -1663,7 +1639,7 @@ module.exports = {
     script: './server.js',
     instances: 1,
     autorestart: true,
-    max_memory_restart: '256M', // 内存超过 256MB 自动平滑重启
+    max_memory_restart: '1G', // 内存超过 1GB 自动重启
     env: {
       NODE_ENV: 'production',
       PORT: 3030
@@ -1682,7 +1658,7 @@ pm2 save                        # 保存当前进程列表
 pm2 startup                     # 生成并配置操作系统开机自启脚本
 pm2 status                      # 查看服务状态、CPU与内存占用
 pm2 logs tools-platform         # 实时跟踪输出日志
-pm2 restart tools-platform      # 平滑重启服务
+pm2 restart tools-platform      # 重启单实例服务，期间短暂不可用
 pm2 stop tools-platform         # 停止服务
 ```
 
@@ -1719,9 +1695,9 @@ pm2 stop tools-platform         # 停止服务
 
 ### 首页介绍视频的按需加载与离线缓存
 
-现有的 NetCare RFC / AI 审计、操作激励统计、平台五站指南共 3 个视频，各有中英文、小窗和高清版本，共 12 个 MP4；EOS 月报指南另有中英文小窗和高清 4 个 MP4。合计 16 个文件均从桌面安装包中排除，封面随包保留；其他未登记的视频仍按原有方式打包。
+现有的 NetCare RFC / AI 审计、操作激励统计、平台五站指南共 3 个视频，各有中英文、小窗和高清版本，共 12 个 MP4；EOS 月报指南另有中英文小窗和高清 4 个 MP4。合计 16 个文件均从桌面安装包中排除，封面随包保留；新增的 AI 月报、WeLink CLI、WeLink SDK、数字人基座四部教程各有普通与高清版，也从桌面包排除；当前固定主清单共 25 个 MP4，数通笔记视频单独登记。
 
-登录框下方另有“项目演进 · 银河之旅”入口，点击在新窗口打开 `/project-evolution` 播放 88 秒、1080p 高清视频。登录页不会预加载该视频；播放页及视频在登录前可访问，并复用相同的按需分段下载、校验、缓存及离线播放机制。采用原作品的 1080p 分享成品（约 53 MiB），不改动原视频工程；高清 MP4 也从桌面包中排除，封面随包保留，因此远程媒体清单共 17 个文件。视频发布在独立的 [项目演进媒体 Release](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/tag/project-evolution-galaxy-20261019)。
+登录框下方另有“项目演进 · 银河之旅”入口，点击在新窗口打开 `/project-evolution` 播放 88 秒、1080p 高清视频。登录页不会预加载该视频；播放页及视频在登录前可访问，并复用相同的按需分段下载、校验、缓存及离线播放机制。采用原作品的 1080p 分享成品（约 53 MiB），不改动原视频工程；高清 MP4 也从桌面包中排除，封面随包保留，该视频也登记在固定媒体清单中。视频发布在独立的 [项目演进媒体 Release](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/tag/project-evolution-galaxy-20261019)。
 
 - 首页只请求当前语言、当前播放的小窗版；切换视频才请求另一部。
 - 点击大窗才请求对应高清版。播放器通过本地服务分段读取 GitHub Releases 视频，首段到达即可播放，无需等待整个文件下载完成，并支持拖动进度。
@@ -1758,7 +1734,7 @@ flowchart LR
     end
 
     subgraph MacApp["macOS DMG / ZIP (原生应用版)"]
-        M1["应用程序目录:<br/>/Applications/Tools Platform.app"]
+        M1["应用程序目录:<br/>/Applications/Dragon Platform.app"]
         M2["Apple Gatekeeper 公证票据 (Stapled ticket)"]
     end
 
@@ -1779,22 +1755,22 @@ flowchart LR
 
 | 适用平台 / 版本 | 默认物理路径 | 生成文件清单 | 作用与生命周期说明 |
 | :--- | :--- | :--- | :--- |
-| **Windows 安装版 (Setup)** | `%LocalAppData%\Programs\tools-platform\` | • `Tools Platform.exe`<br/>• `Uninstall Tools Platform.exe`<br/>• `resources\app.asar`<br/>• 核心 DLLs 与运行环境 | **程序主程序与运行依赖库**。覆盖安装或卸载时变动。 |
-| **Windows 快捷方式** | `%USERPROFILE%\Desktop\`<br/>`%APPDATA%\Microsoft\Windows\Start Menu\Programs\` | • `Tools Platform.lnk` | **桌面与开始菜单快捷方式**。卸载时自动移除。 |
+| **Windows 安装版 (Setup)** | `%LocalAppData%\Programs\tools-platform\` | • `Dragon Platform.exe`<br/>• `Uninstall Dragon Platform.exe`<br/>• `resources\app.asar`<br/>• 核心 DLLs 与运行环境 | **程序主程序与运行依赖库**。覆盖安装或卸载时变动。 |
+| **Windows 快捷方式** | `%USERPROFILE%\Desktop\`<br/>`%APPDATA%\Microsoft\Windows\Start Menu\Programs\` | • `Dragon Platform.lnk` | **桌面与开始菜单快捷方式**。卸载时自动移除。 |
 | **Windows 绿色版 (Portable)** | `%TEMP%\electron-builder-portable\tools-platform-*\` | • 临时解包的 EXE 运行载荷与 asar 资源 | **临时自解压运行目录**。客户端退出时自动清理，0 残留。 |
-| **macOS 客户端 (DMG/ZIP)** | `/Applications/Tools Platform.app/` | • `Contents/MacOS/Tools Platform`<br/>• `Contents/Resources/app.asar`<br/>• `Contents/Frameworks/...` | **macOS 签名公证独立包**。包含全部原生模块、前后端代码与运行时。 |
+| **macOS 客户端 (DMG/ZIP)** | `/Applications/Dragon Platform.app/` | • `Contents/MacOS/Dragon Platform`<br/>• `Contents/Resources/app.asar`<br/>• `Contents/Frameworks/...` | **macOS 签名公证独立包**。包含全部原生模块、前后端代码与运行时。 |
 
 #### 12.4.3 持久化用户数据目录 (Windows vs macOS)
 
 > [!IMPORTANT]
 > **所有业务数据、配置、授权凭证均统一持久化存储于操作系统的专用数据目录下：**
-> - **Windows**：`%APPDATA%\Tools Platform\`（即 `C:\Users\<Username>\AppData\Roaming\Tools Platform\`）
-> - **macOS**：`~/Library/Application Support/Tools Platform/`
-> 这意味着在安装版与绿色版之间互相切换、升级新版或更换客户端时，**所有业务数据与桌宠个性化设置均 100% 自动继承且绝对不会丢失**。
+> - **Windows**：`%APPDATA%\Dragon Platform\`（即 `C:\Users\<Username>\AppData\Roaming\Tools Platform\`）
+> - **macOS**：`~/Library/Application Support/Dragon Platform/`
+> 这意味着在安装版与绿色版之间互相切换、升级新版或更换客户端时，**使用相同用户数据目录时可继承业务数据与桌宠配置，迁移前仍应停机备份**。
 
 ##### 用户数据目录完整拓扑结构：
 ```text
-用户数据目录/ (Windows: %APPDATA%\Tools Platform\ | macOS: ~/Library/Application Support/Tools Platform/)
+用户数据目录/ (Windows: %APPDATA%\Dragon Platform\ | macOS: ~/Library/Application Support/Dragon Platform/)
 ├── desktop-license.json                 # [授权] 客户端本地离线激活状态与硬件签名凭证
 ├── desktop-license-public-status.json   # [授权] 授权只读状态镜像 (供前端安全调用展示)
 ├── desktop-pet-config.json              # [桌宠] Dragon 个性化配置 (缩放、音量、打字开关、气泡开关、记忆坐标)
@@ -1849,16 +1825,16 @@ flowchart LR
 - **常见导出文件**：
   - `月度运营报告_YYYY-MM.xlsx`：月报分析导出的多维度 Excel 表格。
   - `SLA_催办提醒_*.html` / `*.txt`：一键催办生成的结构化邮件/即时通信模版。
-  - `tools-platform-backup-*.zip`：在“存储与备份”中导出的全局全量数据备份包。
+  - `tools-platform-backup-*.zip`：在“存储与备份”中导出的当前租户核心数据备份包。
   - `custom-tool-*.zip`：在“自定义工具”中导出的独立微工具包。
 
 #### 12.4.5 客户端数据清理、迁移与出厂重置指引
 
 | 运维场景 | 推荐操作步骤 | 预期结果与注意事项 |
 | :--- | :--- | :--- |
-| **仅卸载主程序 (保留业务数据)** | 通过 Windows“设置 $\rightarrow$ 应用 $\rightarrow$ 卸载”运行卸载向导，或直接删除 Portable.exe。 | 仅清理安装目录和快捷方式，`%APPDATA%\Tools Platform` 完整保留，后续重装可直接复用全部数据。 |
-| **全量迁移至新电脑** | 1. 退出旧电脑的 Tools Platform。<br/>2. 复制旧电脑的 `%APPDATA%\Tools Platform\data\` 文件夹到新电脑的对应路径。<br/>3. 在新电脑安装启动客户端并输入授权码。 | 新电脑无缝恢复所有配置、账号、历史月报、自定义工具与媒体素材。 |
-| **彻底清除数据 / 恢复出厂设置** | 1. 退出托盘客户端进程。<br/>2. 直接删除整个 `%APPDATA%\Tools Platform\` 文件夹。 | 清除所有本地数据与授权状态，下次启动时将进入全新首次初始化与激活向导。 |
+| **仅卸载主程序 (保留业务数据)** | 通过 Windows“设置 $\rightarrow$ 应用 $\rightarrow$ 卸载”运行卸载向导，或直接删除 Portable.exe。 | 仅清理安装目录和快捷方式，`%APPDATA%\Dragon Platform` 完整保留，后续重装可直接复用全部数据。 |
+| **全量迁移至新电脑** | 1. 退出旧电脑的 Tools Platform。<br/>2. 复制旧电脑的 `%APPDATA%\Dragon Platform\data\` 文件夹到新电脑的对应路径。<br/>3. 在新电脑安装启动客户端并输入授权码。 | 新电脑无缝恢复所有配置、账号、历史月报、自定义工具与媒体素材。 |
+| **彻底清除数据 / 恢复出厂设置** | 1. 退出托盘客户端进程。<br/>2. 直接删除整个 `%APPDATA%\Dragon Platform\` 文件夹。 | 清除所有本地数据与授权状态，下次启动时将进入全新首次初始化与激活向导。 |
 
 ---
 
@@ -1956,12 +1932,12 @@ sequenceDiagram
 ### 13.2 客户端平滑增量更新机制 (Electron-Updater)
 1. **Windows Blockmap 差量增量下载**：
    - 安装版客户端内置 `electron-updater`，启动时或托盘右键手动“检查更新”时，自动向 GitHub Releases 拉取 `latest.yml`。
-   - 比对本地版本号与远程版本号；若发现新版本，利用 `.blockmap` 索引仅下载变动的二进制 Block 数据，**节省 80%+ 的网络流量消耗**。
+   - 比对本地版本号与远程版本号；若发现新版本，利用 `.blockmap` 索引仅下载变动的二进制 Block 数据，**实际节省量取决于版本差异与更新源是否支持差量下载**。
 2. **macOS 自动升级机制**：
    - macOS 客户端自动向 GitHub Releases 拉取 `latest-mac.yml`，检测到新版本后下载对应架构的 ZIP 载荷，在后台解压并于用户确认后静默重启覆盖应用。
 3. **托盘日志与进度可视化**：
    - 下载进度实时推送到托盘与原生进度监控窗口。
-   - 下载完成后弹出“重启安装新版本”提示，用户点击后自动平滑重启恢复服务。
+   - 下载完成后弹出“重启安装新版本”提示，用户点击后自动重启恢复服务。
 
 ### 13.3 HTML 工具市场与独立发布
 
@@ -1995,10 +1971,33 @@ sequenceDiagram
 - **Q: Windows 安装版无法启动本地服务？**
   - A: 右键托盘图标打开“查看实时日志/更新进度”，检查系统用户数据目录下的 `logs/YYYY-MM-DD/error.log`。
 - **Q: 绿色版与安装版如何共存或迁移？**
-  - A: 两者数据均存储在当前用户的 `%APPDATA%/tools-platform/data` 目录下，直接关闭旧版本运行新版本 EXE 即可，数据完全无缝继承。
+  - A: 两者数据均存储在当前用户的 Electron `app.getPath('userData')` 下的 `data/` 目录下，直接关闭旧版本运行新版本 EXE 即可，数据完全无缝继承。
 
 ### 页面启动加载与 AI 月报保存机制
 
 数据抓取、数据导入、报表看板、一键催办和大屏看板使用统一的羽毛与毛玻璃加载界面（`frontend/css/startup-screen.css`、`frontend/js/shared/startup-screen.js`）；AI 月报（`/monthly`）内置同风格的毛玻璃进度遮罩（`frontend/js/ai-report/splash.js`）。进度按页面实际初始化步骤更新（校验登录状态 → 读取报告列表与当前月报 → 渲染章节与格子），完成后平滑淡出，顶部导航保持可见。
 
 AI 月报在修改报头、章节、格子布局、对话或配方后约 520ms 自动防抖持久化至当前租户的 `tools.db`（`ai_report_documents` 表），也可点击顶部「保存」按钮立即写入。当最终提示词更新并重跑配方时，系统自动将上一版最终提示词、计算配方与结果缓存保存在格子的 `previousPrompt` 快照中；点击对话面板顶部的 `↶ 撤回` 即可伴随高斯粒子消散动画一键回退到上一版状态。切换报告月份时，所有已配置配方的格子自动拉取新月份数据并在零网络 CSP 沙箱中重跑。
+
+
+### 验证命令
+
+从项目根目录执行；后端仅需部署时可以只安装 `backend/` 依赖。桌面根依赖与普通 Node 的原生模块 ABI 可能不同，按目标环境安装并检查 `sqlite3`。
+
+```bash
+npm --prefix backend run doctor
+npm test
+node --test tests/tenant-isolation.test.js tests/tenant-backup-boundaries.test.js
+node --test tests/report-snapshot-target-month.test.js tests/report-target-auto-fill.test.js tests/report-export-filenames.test.js
+node --check frontend/js/home/workspace.js
+```
+
+`npm test` 按根脚本串行运行 Node 测试；`*-browser.cjs` 等图形测试按脚本要求在 Electron / 浏览器环境单独执行。普通文档和代码修改无需打包。`npm run defaults:export` 会从运行库重写默认快照与 README 自动段，仅在明确刷新默认包时使用。
+
+### 专项文档与目录说明
+
+- [Python 应用托管](docs/hosted-python-apps.md)、[数字人基座](docs/digital-human-netcare.md)、[桌面 Agent 会话](docs/desktop-agent-conversations.md)、[DragonTAC](docs/dragon-tac.md)
+- [AI 月报](docs/monthly-designer.md)、[外部指标 API](docs/external-metrics-api.md)、[静态页面发布](docs/static-portal.md)、[数通视频发布](docs/datacom-video-publishing.md)
+- [在线验收表](backend/builtin-tools/acceptance-checklist/README.md)、[NetCare RFC 扩展](backend/builtin-tools/f12-to-extension/NETCARE_RFC_WORD_README.md)、[薪资换汇扩展](extensions/overseas-salary-calculator/README.md)
+- [Dragon 桌宠图片](desktop-pet/assets/dragon/README.md)、[桌面 Agent 图标](frontend/assets/desktop-agents/README.md)、[WeLink SDK 集成](backend/vendor/@wecode/bridge-runtime-sdk/README.md)
+- [阿语音频](backend/builtin-tools/tool-mtakhxqm/audio/README.md)、[发音示意底图](backend/builtin-tools/tool-mtakhxqm/assets/articulation/README.md)、[会议工具图标许可](backend/builtin-tools/network_safety_meeting_summary/vendor/phosphor/README.md)

@@ -1,6 +1,6 @@
 // 首页工具模式：左侧分类与搜索，右侧按分类分组铺满的卡片网格，卡片底部显示「上次更新」。
 // 「全部工具」顶部依次是「最近使用」「收藏」两个快捷区（卡片副本），下面是各分类目录。
-// 卡片右上角星标收藏；拖到收藏区即收藏；管理员可拖动卡片调整顺序和所属目录，同步到顶部栏与「更多工具」。
+// 卡片右上角星标收藏；拖到收藏区即收藏；管理员可拖动卡片调整顺序和所属目录，同步到「更多工具」（顶部栏主功能只在设置里调整）。
 // 卡片仍由 index.html 渲染（内置为静态 HTML，自定义工具由 renderCustomToolCards 生成）；
 // 这里只做增强：分组排序、筛选、更新时间，不改动卡片自身的数据和事件。
 // 分类沿用导航设置（navbar.js 的 navState.settings），在导航中调整分类后首页同步变化。
@@ -14,7 +14,7 @@
             emptyFavorites: '还没有收藏的工具：点卡片右上角的 ☆，或把卡片拖到这里',
             favAdd: '收藏', favRemove: '取消收藏', favAdded: '已收藏「{name}」', favRemoved: '已取消收藏「{name}」',
             dropFavorite: '松开即收藏', dragHint: '拖到「收藏」区即可收藏；管理员还可拖到其他位置调整顺序和目录',
-            reordered: '已调整顺序，顶部栏与「更多工具」同步更新', moved: '已移到「{group}」，顶部栏与「更多工具」同步更新',
+            reordered: '已调整顺序，「更多工具」同步更新', moved: '已移到「{group}」，「更多工具」同步更新',
             updated: '{time}更新', justNow: '刚刚', minutes: '{n} 分钟前', hours: '{n} 小时前', days: '{n} 天前',
             updatedTitle: '上次更新：{time}', searchTitle: '搜索“{q}”', toolCount: '{n} 个工具'
         },
@@ -24,7 +24,7 @@
             emptyFavorites: 'No favorites yet. Click ☆ on a card, or drag a card here',
             favAdd: 'Add to favorites', favRemove: 'Remove from favorites', favAdded: 'Added “{name}” to favorites', favRemoved: 'Removed “{name}” from favorites',
             dropFavorite: 'Drop to add to favorites', dragHint: 'Drop on Favorites to save it; admins can also drop elsewhere to reorder or move categories',
-            reordered: 'Order updated; the top bar and More menu follow', moved: 'Moved to “{group}”; the top bar and More menu follow',
+            reordered: 'Order updated; the More menu follows', moved: 'Moved to “{group}”; the More menu follows',
             updated: 'Updated {time}', justNow: 'just now', minutes: '{n}m ago', hours: '{n}h ago', days: '{n}d ago',
             updatedTitle: 'Last updated: {time}', searchTitle: 'Search “{q}”', toolCount: '{n} tools'
         }
@@ -668,7 +668,7 @@
 
     // ── iOS 式拖动排序：整张卡片浮起跟手，其他卡片平滑让位（FLIP 动画），松手落位 ──
     // 鼠标拖动超过 6px 开始；触屏长按 320ms 开始（不影响滚动）。收藏区任何人可拖入 / 排序；
-    // 目录内排序与跨目录移动仅管理员，提交后同步导航设置（顶部栏与「更多工具」）。
+    // 目录内排序与跨目录移动仅管理员，提交后同步导航设置（「更多工具」；顶部栏主功能顺序不变）。
     const SORT_THRESHOLD = 6;
     const LONG_PRESS_MS = 320;
     let sort = null;
