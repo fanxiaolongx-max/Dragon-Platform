@@ -1,10 +1,12 @@
-const { run, get, all } = require('./app-db');
+const { run, get, all, getDatabase } = require('./app-db');
 
 const DEFAULT_CATEGORIES = ['DataFab', 'NetCare中国', 'NetCare中东', 'NetCare德国', '默认分类'];
 
-let initPromise = null;
+const readyByConnection = new WeakMap();
 
 async function ensureReady() {
+    const connection = getDatabase();
+    let initPromise = readyByConnection.get(connection);
     if (!initPromise) {
         initPromise = (async () => {
             await run(`
@@ -35,9 +37,10 @@ async function ensureReady() {
                 throw err;
             }
         })().catch(err => {
-            initPromise = null;
+            readyByConnection.delete(connection);
             throw err;
         });
+        readyByConnection.set(connection, initPromise);
     }
 
     return initPromise;

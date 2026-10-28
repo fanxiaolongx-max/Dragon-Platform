@@ -6,6 +6,8 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const toolsService = require('./agent-tools-service');
+const skillCatalogContract = require('./ai-skill-catalog-contract');
+const scriptService = require('./agent-script-service');
 const contextStats = require('./agent-context-stats');
 const { AgentChangeLog } = require('./agent-change-log');
 const guard = require('./agent-path-guard');
@@ -273,6 +275,8 @@ function buildAgentAddendum(session, { gitBranch, directoryContext }) {
 - 文件工具的路径以根目录为范围（如 src/index.js）；根目录是 Shell 的默认工作位置，不是 Shell 的系统隔离边界。管理员可用命令访问任务所需的其他目录。
 ${!session.readOnly && session.permissionMode === 'full' ? '- 当前管理员已选择完全访问：围绕用户当前任务自主规划、执行、检查结果并继续修复；无需为每个命令、跨目录操作或风险标记重复请求批准。遇到执行错误先主动排查；只有缺少必要信息或需要用户做实际选择时再提问。完全访问不会提升操作系统账号权限，也不代表可以自行扩展用户任务。\n' : ''}
 - 改文件前先用 read_file 看清上下文；小改动用 edit_file，整文件重写才用 write_file。
+- 脚本专用保存允许鉴权逻辑与原有凭据，读取给模型/日志仍脱敏；不要沿用旧对话的“CSRF 占位符禁止克隆”结论。修复不代表删除授权；同名时按工具的 suggestedCall 原位 rebuild，不能先删后建或交付空框架。
+- 涉及 UIVF12 抓取脚本仓库（脚本、分类目录）的查询、新建、复制、修改、移动和删除时，优先 list_uiv_scripts / list_uiv_categories / read_uiv_script / save_uiv_script / move_uiv_script / delete_uiv_script / manage_uiv_category。专用工具可对完整长脚本做局部修改、校验语法并提交回读，避免 Shell 与截断 payload_json 的二次转义。用户已要求执行时不要停在方案或“可以入库”的描述。
 - 涉及平台业务数据或 SQLite 时，先 list_databases，再 database_schema / read_database_table；平台数据库由当前租户解析，与所选目录无关。库标识必须用 list_databases 实际返回的值（如 platform:report.db 存报表/月报指标与快照），不要自行拼写。读取结果为空时如实说明是哪张表为空，不要推测成权限受限或数据未入库。不要用 Shell 绕过数据库工具的凭据和租户限制。
 - ${session.readOnly ? '当前账号无数据库写权限。' : '当前管理员可用 insert_database_row / update_database_rows / delete_database_rows 对业务数据增删改；按当前权限模式执行。修改前先确认表结构和目标行，用 filters 精确定位；整表操作必须显式 allowAllRows=true，并按实际范围设置 maxAffectedRows。历史报表保留入库口径，除非用户明确要求，不用当前规则重算。数据库提交不支持文件撤销。'}
 - 工具返回的错误要如实告诉用户；被用户拒绝的操作不要换个方式重试。
@@ -284,7 +288,7 @@ ${directoryContext || '（空目录）'}`;
 
 // ── 审批 ────────────────────────────────────────────────
 function classifyDecision(session, toolName, args = null) {
-    const kind = toolsService.kindOf(toolName);
+    const kind = toolsService.kindOf(toolName, args);
     if (!kind) return 'deny';
     if (kind === 'read') return 'allow';
     if (session.readOnly) return 'readonly';
@@ -359,7 +363,7 @@ function beginRun(session, write, signal) {
     return run;
 }
 
-async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted }) {
+async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh' }) {
     const emit = write;
     write = event => emit(redactValue(event, { secrets: sensitiveValues }));
     const run = beginRun(session, write, signal);
@@ -379,7 +383,9 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     // 且工具调用始终紧跟用户消息或工具结果。
     const currentUser = historyMessages[historyMessages.length - 1];
     let messages = redactValue(transcriptRepo.mergeHistoryWithTranscript(historyMessages, session.transcript), { secrets: sensitiveValues });
-    const toolCtx = { root: session.root, changeLog: session.changeLog, signal, sensitiveValues, username: session.username, readOnly: session.readOnly, onProcess: child => run.processes.add(child) };
+    const toolCtx = { root: session.root, changeLog: session.changeLog, signal, sensitiveValues, username: session.username, readOnly: session.readOnly,
+        currentUserMessage: currentUser?.content || '', userMessages: historyMessages.filter(item => item.role === 'user').map(item => item.content),
+        onProcess: child => run.processes.add(child) };
     session.changeLog.sensitiveValues = sensitiveValues;
 
     let activeClient = client;
@@ -391,6 +397,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     let finalText = '';
     const turnTranscript = currentUser && currentUser.role === 'user' ? [{ role: 'user', content: String(currentUser.content || '') }] : [];
     const toolLog = [];
+    let scriptNudged = false;
     const initialTranscript = session.transcript;
     const recovery = redactValue({ version: 1, priorTranscript: initialTranscript, priorTurnCount: session.turnCount,
         permissionMode: session.permissionMode, chatSessionId, chatOwner: session.username }, { secrets: sensitiveValues });
@@ -421,6 +428,13 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
             lastPromptTokens = Number(result.usage?.promptTokens || 0) || lastPromptTokens;
             const toolCalls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
             if (!toolCalls.length) {
+                if (!scriptNudged && !session.readOnly && !denied && systemInstruction.includes('### @script-data')
+                    && scriptService.shouldContinue({ question: currentUser?.content, text: result.text, toolLog })) {
+                    scriptNudged = true;
+                    messages.push({ role: 'model', content: result.text || '' }, { role: 'user', content: '（执行提示：本轮缺少与结论对应的提交或回读依据。请先用专用脚本工具读取真实状态，按用户最新范围完成必要修改并核对；不要只说可以保存，也不要无依据声称已还原/已完成。缺少信息或工具拒绝时如实说明。）' });
+                    write({ type: 'delta', delta: '\n\n' });
+                    continue;
+                }
                 finalText = redactText(result.text || '', { secrets: sensitiveValues });
                 break;
             }
@@ -443,7 +457,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
                     try {
                         preview = await toolsService.preview(toolCtx, call.name, call.args);
                     } catch (error) {
-                        outcome = { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: error.message, isError: true };
+                        outcome = toolsService.errorResult(toolCtx, error);
                     }
                 }
                 if (!outcome && decision === 'ask') {
@@ -460,11 +474,11 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
                 if (!outcome) outcome = await toolsService.execute(toolCtx, call.name, call.args);
                 const durationMs = Date.now() - startedAt;
                 // 命令输出随事件下发（截断），界面可展开查看，也随会话记录入库
-                const output = call.name === 'run_command' && typeof outcome.content === 'string' ? outcome.content : undefined;
+                const output = (call.name === 'run_command' || /_uiv_/.test(call.name)) && typeof outcome.content === 'string' ? outcome.content : undefined;
                 write({ type: 'tool_result', runId: run.id, callId: call.id, tool: call.name, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 200), truncated: Boolean(outcome.truncated), durationMs, ...(output ? { output } : {}) });
                 if (outcome.change) write({ type: 'change', ...outcome.change });
                 (outcome.changes || []).forEach(change => write({ type: 'change', ...change }));
-                if (outcome.mutated || outcome.change || outcome.changes?.length || (!outcome.isError && ['write', 'destructive'].includes(toolsService.kindOf(call.name)))) await persistChanges(session);
+                if (outcome.mutated || outcome.change || outcome.changes?.length || (!outcome.isError && ['write', 'destructive'].includes(toolsService.kindOf(call.name, call.args)))) await persistChanges(session);
                 toolLog.push({ tool: call.name, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 120) });
                 toolResults.push({ id: call.id, name: call.name, content: outcome.content, isError: Boolean(outcome.isError) });
                 await checkpoint('running');
@@ -477,6 +491,9 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
             write({ type: 'delta', delta: finalText });
         }
         // 下一轮续写时保留本轮的工具转录（按整轮裁剪，避免无限增长）
+        const skillReferenceAudit = Array.isArray(skillCatalog)
+            ? skillCatalogContract.guardReply(finalText, skillCatalog, { language: skillLanguage }) : null;
+        if (skillReferenceAudit?.changed) finalText = skillReferenceAudit.text;
         if (finalText) turnTranscript.push({ role: 'model', content: finalText });
         session.transcript = transcriptRepo.normalizeTranscript(redactValue([...session.transcript, ...turnTranscript], { secrets: sensitiveValues }));
         session.turnCount += 1;
@@ -492,6 +509,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         await checkpoint('completed');
         await persistTranscript(session);
         return {
+            ...(skillReferenceAudit?.unknownIds.length ? { skillReferenceAudit: { unknownIds: skillReferenceAudit.unknownIds } } : {}),
             text: finalText,
             usage,
             steps: Math.min(steps, MAX_STEPS),

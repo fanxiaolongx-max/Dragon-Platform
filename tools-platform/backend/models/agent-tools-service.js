@@ -11,6 +11,7 @@ const { redactText, redactValue } = require('./ai-sensitive-data');
 const { unifiedDiff } = require('./agent-change-log');
 const commandGuard = require('./agent-command-guard');
 const databaseService = require('./agent-database-service');
+const scriptService = require('./agent-script-service');
 
 const LIMITS = {
     listEntries: 500,
@@ -121,6 +122,57 @@ const DEFINITIONS = [
         name: 'delete_database_rows', kind: 'destructive',
         description: '管理员按结构化 filters 删除 SQLite 业务行。无筛选须显式 allowAllRows=true。按删除类权限审批；执行时核对行数，失败回滚；不支持文件撤销。',
         parameters: DATABASE_WRITE_PARAMETERS
+    },
+    {
+        name: 'list_uiv_scripts', kind: 'read',
+        description: '查询当前租户 UIVF12 脚本仓库（数据抓取页「智能调度仓库」）的 ID、名称、分类、URL 和更新时间，不返回截断的 payload_json。query 按名称/分类模糊匹配；category 按页面分组口径精确筛选。pageCategory 出现时表示列与页面载荷不一致。优先于通用数据库或 Shell。',
+        parameters: { type: 'object', properties: { query: { type: 'string' }, category: { type: 'string', description: '精确分类名，按页面左侧目录筛选' }, offset: { type: 'integer' }, limit: { type: 'integer' } } }
+    },
+    {
+        name: 'list_uiv_categories', kind: 'read',
+        description: '读取当前租户已登记的脚本分类、页面实际显示的脚本数量，以及与前端三区生成共用的 NetCare 站点定义。移动分类或复制到其他站点前先读取；不得猜中东域名。',
+        parameters: { type: 'object', properties: {} }
+    },
+    {
+        name: 'read_uiv_script', kind: 'read',
+        description: '按 ID 分段读取抓取脚本真实字段，返回 revision 和 nextOffset。保存时传 expectedRevision；field 默认 metadata，code/consoleCode/payload 可分段继续读取，不经 Shell 二次转义。',
+        parameters: { type: 'object', properties: { id: { type: 'string' },
+            field: { type: 'string', enum: ['metadata', 'name', 'category', 'url', 'payload', 'code', 'consoleCode', 'configOptions', 'responseSample', 'responseFocusKeyword', 'responseFocusPath', 'responseFocusConfig', 'originalFileName'] },
+            offset: { type: 'integer' }, limit: { type: 'integer' } }, required: ['id'] }
+    },
+    {
+        name: 'save_uiv_script', kind: 'write',
+        description: '管理员新增(create)、复制(clone)、修改(update)或从完整原脚本重建坏副本(rebuild)并回读验证。clone 传 sourceId 和新名称，update/rebuild 传目标 id，均需 expectedRevision。rebuild 另需 sourceId/expectedSourceRevision。changes 只含修改字段；targetSite 仅切换站点地址，保留地区筛选；replacements 在完整原文上精确替换。提交前校验 JSON/JS 语法，不执行抓取代码。',
+        parameters: { type: 'object', properties: {
+            action: { type: 'string', enum: ['create', 'clone', 'update', 'rebuild'] }, id: { type: 'string' }, sourceId: { type: 'string' },
+            expectedSourceRevision: { type: 'string', description: 'rebuild 从完整原脚本重建坏副本时必填，需同时提供坏副本的 id/expectedRevision 和原脚本的 sourceId/expectedSourceRevision；保留目标 ID 与名称' },
+            expectedRevision: { type: 'string', description: 'clone 填原脚本 revision；update/rebuild 填目标脚本 revision。rebuild 还要另填 sourceId 和 expectedSourceRevision，不能省略。' }, targetSite: { type: 'string', enum: ['cn', 'ae', 'de'], description: 'NetCare目标站点；ae是中东。服务端同步 url、完整 code/consoleCode 内的已知站点地址，保留地区/代表处筛选。' },
+            allowCodeRewrite: { type: 'boolean', description: '仅用户明确要求整体重写时使用；普通复制不能覆盖完整代码' },
+            changes: { type: 'string', description: '仅需修改的字段，例如 {"name":"新脚本","configOptions":{"isPagination":true}}。clone 不得提供 code/consoleCode。' },
+            replacements: { type: 'array', items: { type: 'object', properties: {
+                field: { type: 'string', enum: ['code', 'consoleCode', 'payload'] }, oldText: { type: 'string' }, newText: { type: 'string' }, expectedOccurrences: { type: 'integer' }
+            }, required: ['field', 'oldText', 'newText', 'expectedOccurrences'] } }
+        }, required: ['action'] }
+    },
+    {
+        name: 'move_uiv_script', kind: 'write',
+        description: '管理员移动脚本分类；传真实分类名和最新 revision。单个用 id/expectedRevision，批量用 items（最多 50 项，逐项提交并逐项报告）。原子同步数据库 category 列和页面读取的 payload_json.category，回读核对；不改代码/站点/地区，也不受旧代码语法错误影响。返回 integrity 标明残缺脚本不能误报可运行。',
+        parameters: { type: 'object', properties: { id: { type: 'string' }, category: { type: 'string' }, expectedRevision: { type: 'string' },
+            items: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, expectedRevision: { type: 'string' } }, required: ['id', 'expectedRevision'] } }
+        }, required: ['category'] }
+    },
+    {
+        name: 'manage_uiv_category', kind: 'write',
+        description: '管理员管理数据抓取页左侧的脚本分类（目录）：create 新建、rename 改名、delete 删除。rename/delete 需 list_uiv_categories 返回的 expectedScriptCount；改名在同一事务内同步分类表、脚本 category 列与 payload_json.category。删除非空分类必须传 moveScriptsTo 先整体移走，不会删除脚本。内置分类（DataFab、NetCare中国/中东/德国、默认分类）不能改名或删除。delete 按删除类审批。',
+        parameters: { type: 'object', properties: {
+            action: { type: 'string', enum: ['create', 'rename', 'delete'] }, name: { type: 'string', description: '新建的分类名，或要改名/删除的现有分类' },
+            newName: { type: 'string' }, expectedScriptCount: { type: 'integer' }, moveScriptsTo: { type: 'string', description: '删除非空分类时，脚本整体移入的现有分类' }
+        }, required: ['action', 'name'] }
+    },
+    {
+        name: 'delete_uiv_script', kind: 'destructive',
+        description: '仅用户明确要求删除时，管理员删除指定 ID 的抓取脚本。修复、重建、同名冲突不得使用本工具腾位置，必须用 rebuild。需最新 expectedRevision，提交后回读，遵守原删除审批模式。',
+        parameters: { type: 'object', properties: { id: { type: 'string' }, expectedRevision: { type: 'string' } }, required: ['id', 'expectedRevision'] }
     },
     {
         name: 'write_file',
@@ -235,7 +287,9 @@ function definitions({ readOnly = false } = {}) {
         .map(({ name, description, parameters }) => ({ name, description, parameters }));
 }
 
-function kindOf(toolName) {
+function kindOf(toolName, args = null) {
+    // 分类工具的删除动作按删除类审批，新建/改名按普通写入
+    if (toolName === 'manage_uiv_category' && args?.action === 'delete') return 'destructive';
     return KIND_BY_NAME.get(toolName) || null;
 }
 
@@ -754,6 +808,31 @@ async function runCommandTracked(ctx, args = {}) {
 }
 
 const EXECUTORS = {
+    list_uiv_scripts: async (ctx, args) => ({ content: JSON.stringify(await scriptService.list(ctx, args)), summary: '抓取脚本目录' }),
+    list_uiv_categories: async ctx => ({ content: JSON.stringify(await scriptService.categories(ctx)), summary: '脚本分类与站点定义' }),
+    read_uiv_script: async (ctx, args) => ({ content: JSON.stringify(await scriptService.read(ctx, args)), summary: `抓取脚本 ${args.id} / ${args.field || 'metadata'}` }),
+    save_uiv_script: async (ctx, args) => {
+        if (!['create', 'clone', 'update', 'rebuild'].includes(args.action)) throw toolError('AGENT_SCRIPT_INVALID', '保存工具只支持 create、clone、update、rebuild');
+        const result = await scriptService.save(ctx, args);
+        return { content: JSON.stringify(result), isError: !result.verified, summary: `${result.action} ${result.name} · ${result.verified ? '已保存并回读' : '已提交，回读不一致'}` };
+    },
+    move_uiv_script: async (ctx, args) => {
+        const result = await scriptService.move(ctx, args);
+        return { content: JSON.stringify(result), isError: !result.verified,
+            summary: result.results ? `${result.moved} 个脚本 → ${result.category}${result.failed ? `，${result.failed} 个失败` : ' · 已逐项回读'}`
+                : `${result.name} → ${result.category} · ${result.verified ? '分类已回读' : '回读不一致'}${result.ready ? '' : '；原脚本仍不完整'}` };
+    },
+    manage_uiv_category: async (ctx, args) => {
+        const result = await scriptService.manageCategory(ctx, args);
+        const label = { create: '新建分类', rename: '分类改名', delete: '删除分类' }[result.action];
+        return { content: JSON.stringify(result), isError: !result.verified,
+            summary: `${label} ${result.previousName ? `${result.previousName} → ` : ''}${result.action === 'delete' ? result.previousName : result.category}${result.movedScripts ? ` · 同步 ${result.movedScripts} 个脚本` : ''} · ${result.verified ? '已回读' : '回读不一致'}` };
+    },
+    delete_uiv_script: async (ctx, args) => {
+        scriptService.assertDeletionRequested(ctx);
+        const result = await scriptService.save(ctx, { ...args, action: 'delete' });
+        return { content: JSON.stringify(result), summary: `删除 ${result.name} · ${result.verified ? '已核对' : '回读不一致'}` };
+    },
     list_directory: listDirectory,
     read_file: readFile,
     search,
@@ -762,6 +841,7 @@ const EXECUTORS = {
     read_database_table: async (ctx, args) => ({ content: JSON.stringify(await databaseService.readTable(ctx, args)), summary: `${args.database} / ${args.table}` }),
     ...Object.fromEntries(Object.entries({ insert_database_row: 'insert', update_database_rows: 'update', delete_database_rows: 'delete' })
         .map(([name, operation]) => [name, async (ctx, args) => {
+            assertScriptTool(args);
             const result = await databaseService.writeTable(ctx, { ...args, operation });
             return { content: JSON.stringify(result), summary: `${operation} ${args.database} / ${args.table}: ${result.changes} 行` };
         }])),
@@ -796,8 +876,15 @@ async function sendWeLinkMessage(ctx, args = {}) {
 
 /** 审批卡片用的预览：对写操作提前算 diff，之后执行时复用同一计划。 */
 async function buildPreview(ctx, name, args = {}) {
+    if (name === 'delete_uiv_script') scriptService.assertDeletionRequested(ctx);
+    if (name === 'move_uiv_script') return scriptService.move(ctx, args, true);
+    if (name === 'manage_uiv_category') return scriptService.manageCategory(ctx, args, true);
+    if (name === 'save_uiv_script' || name === 'delete_uiv_script') return scriptService.preview(ctx, { ...args, action: name === 'delete_uiv_script' ? 'delete' : args.action });
     const databaseOperation = { insert_database_row: 'insert', update_database_rows: 'update', delete_database_rows: 'delete' }[name];
-    if (databaseOperation) return databaseService.previewWrite(ctx, { ...args, operation: databaseOperation });
+    if (databaseOperation) {
+        assertScriptTool(args);
+        return databaseService.previewWrite(ctx, { ...args, operation: databaseOperation });
+    }
     if (name === 'write_file') {
         const plan = await previewWrite(ctx, args);
         return { path: plan.display, diff: plan.diff.text || (plan.exists ? '' : `（新建文件，${splitCount(plan.content)} 行）`), added: plan.diff.added, removed: plan.diff.removed };
@@ -826,6 +913,12 @@ async function buildPreview(ctx, name, args = {}) {
     return {};
 }
 
+function assertScriptTool(args) {
+    if (['uiv_scripts', 'uiv_categories'].includes(String(args.table).toLowerCase()) && /^platform:(?:(?:data|report)\/)?tools\.db$/i.test(String(args.database))) {
+        throw toolError('AGENT_SCRIPT_TOOL_REQUIRED', '脚本仓库与分类不能用通用数据库工具直接写单列或截断载荷；脚本用 save_uiv_script / move_uiv_script / delete_uiv_script（先读取完整元数据与 revision），分类用 manage_uiv_category。');
+    }
+}
+
 async function preview(ctx, name, args = {}) {
     return redactValue(await buildPreview(ctx, name, args), { secrets: ctx.sensitiveValues });
 }
@@ -846,9 +939,17 @@ async function execute(ctx, name, args = {}) {
         const clamped = clampResult(safe.content);
         return { ...safe, content: clamped.content, truncated: clamped.truncated || Boolean(result.truncated) };
     } catch (error) {
-        const message = redactText(error.message, { secrets: ctx.sensitiveValues });
-        return { content: `错误（${error.code || 'ERROR'}）：${message}`, summary: message, isError: true };
+        return errorResult(ctx, error);
     }
 }
 
-module.exports = { LIMITS, definitions, kindOf, preview, execute, scrubbedEnv, resolveShell, killTree };
+// 预览校验与实际执行都保留恢复参数，工作区不能在预览失败时丢掉 suggestedCall。
+function errorResult(ctx, error) {
+    const message = redactText(error.message, { secrets: ctx.sensitiveValues });
+    const content = error.details
+        ? JSON.stringify(redactValue({ error: { code: error.code || 'ERROR', message, details: error.details } }, { secrets: ctx.sensitiveValues }))
+        : `错误（${error.code || 'ERROR'}）：${message}`;
+    return { content, summary: message, isError: true };
+}
+
+module.exports = { LIMITS, definitions, kindOf, preview, execute, errorResult, scrubbedEnv, resolveShell, killTree };

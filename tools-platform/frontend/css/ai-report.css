@@ -1,6 +1,6 @@
 /* AI report editor and its exported pages. */
 :root{--air-ink:#22364b;--air-muted:#6a7d90;--air-line:#dbe4ed;--air-soft:#f3f7fb;--air-accent:#1f5e95;--air-accent-soft:#e6f0fa;--air-card:#fff;--air-page:#e9eef3;--air-good:#2f8f6b;--air-bad:#c14d5f;--air-toolbar-h:52px;--air-chat-w:360px;--air-report-w:1280px}
-body.ai-report-page{margin:0;background:var(--air-page);color:var(--air-ink);font:14px/1.65 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif}
+body.ai-report-page{margin:0;background:var(--air-page);color:var(--air-ink);font:14px/1.65 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",Arial,sans-serif;height:100vh;overflow:hidden}
 .ai-report-page button{font:inherit;cursor:pointer}
 .air-booting .air-layout{visibility:hidden}
 
@@ -33,14 +33,23 @@ body.ai-report-page{margin:0;background:var(--air-page);color:var(--air-ink);fon
 .air-menu-panel p{margin:8px 10px;color:var(--air-muted);font-size:12px}
 .air-menu-panel .air-danger{color:var(--air-bad)}
 
-/* Page: report paper centered, chat docked on the right when a cell is selected. */
-/* No overflow on the layout: it would become the chat's scroll container and stop the chat from sticking. */
-.air-layout{display:flex;justify-content:center;gap:16px;padding:20px 18px 60px}
+/* Page: report paper in its own scroll pane, chat docked on the right when a cell is selected. */
+.air-layout{display:flex;justify-content:center;gap:16px;height:calc(100vh - var(--navbar-h,52px) - var(--air-toolbar-h));overflow-x:auto;overflow-y:hidden;box-sizing:border-box;transition:height .32s cubic-bezier(.2,.8,.2,1)}
+html.air-chrome-hidden .air-layout{height:100vh}
+
+/* Report scroll pane: scrollbar lives right beside the monthly report card instead of at the far right window edge */
+.air-report-pane{height:100%;overflow-y:auto;overflow-x:hidden;flex:0 0 auto;display:flex;flex-direction:column;align-items:center;box-sizing:border-box;padding:20px 14px 60px 18px;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:#b9cadb transparent}
+.air-report-pane::-webkit-scrollbar{width:8px;height:8px}
+.air-report-pane::-webkit-scrollbar-track{background:transparent}
+.air-report-pane::-webkit-scrollbar-thumb{background:#b9cadb;border-radius:4px}
+.air-report-pane::-webkit-scrollbar-thumb:hover{background:#90a6be}
+
 .air-report{position:relative;font-family:var(--rep-font,inherit);width:var(--air-report-w);flex:0 0 auto;box-sizing:border-box;background:var(--air-card);border:1px solid var(--air-line);border-radius:10px;box-shadow:0 6px 24px #102b470d;padding:36px 44px 48px}
 /* The report has one fixed width everywhere (editor, preview, exports); with the chat open the chat takes every
    remaining pixel. A window too narrow for both scrolls sideways rather than squeezing the report. */
 .air-chat-open .air-layout{justify-content:flex-start;gap:12px;padding-left:12px;padding-right:12px}
-.air-chat{position:sticky;top:calc(var(--navbar-h,52px) + var(--air-toolbar-h) + 20px);min-width:var(--air-chat-w);flex:1 1 var(--air-chat-w);height:calc(100vh - var(--navbar-h,52px) - var(--air-toolbar-h) - 32px);display:flex;flex-direction:column;background:var(--air-card);border:1px solid var(--air-line);border-radius:10px;box-shadow:0 6px 24px #102b4712;overflow:hidden}
+.air-chat-open .air-report-pane{align-items:flex-start;padding:20px 8px 60px 12px}
+.air-chat{margin-top:20px;min-width:var(--air-chat-w);flex:1 1 var(--air-chat-w);height:calc(100% - 32px);display:flex;flex-direction:column;background:var(--air-card);border:1px solid var(--air-line);border-radius:10px;box-shadow:0 6px 24px #102b4712;overflow:hidden}
 .air-chat[hidden]{display:none}
 .air-chat header{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--air-line)}
 .air-chat header small{display:block;color:var(--air-muted);font-size:11px}
@@ -195,19 +204,22 @@ body.ai-report-page{margin:0;background:var(--air-page);color:var(--air-ink);fon
 /* Preview, export and print hide every editing affordance. */
 .air-report.is-preview .air-cell{border-color:transparent;padding:6px 0;overflow:visible}
 .air-report.is-preview .air-cell:has(.air-cell-body:empty){display:none}
-body.air-export{margin:0;background:#e9eef3;padding:24px}
+body.air-export{margin:0;background:#e9eef3;padding:24px;height:auto;overflow:visible}
 body.air-export .air-report{margin:0 auto;padding:36px 44px}
+body.air-export .air-layout,body.air-export .air-report-pane{height:auto;overflow:visible;display:block;padding:0}
+body.air-printing,body.air-printing .air-layout,body.air-printing .air-report-pane{height:auto;overflow:visible}
 @media print{
-    body.ai-report-page{background:#fff}
+    body.ai-report-page{background:#fff;height:auto!important;overflow:visible!important}
     #navbar-container,.air-toolbar,.air-chat{display:none!important}
-    .air-layout{padding:0}
+    .air-layout{padding:0;height:auto!important;overflow:visible!important;display:block!important}
+    .air-report-pane{height:auto!important;overflow:visible!important;display:block!important;padding:0!important}
     .air-report{border:0;box-shadow:none;padding:0;width:100%!important}
     .air-cell{break-inside:avoid}
 }
 @media(max-width:1100px){
-    .air-layout{flex-direction:column;align-items:center}
-    .air-layout{align-items:flex-start}
-    .air-chat{position:static;width:100%;flex:none;height:520px}
+    .air-layout{flex-direction:column;align-items:center;height:auto;overflow-y:auto}
+    .air-report-pane{height:auto;overflow:visible;width:100%}
+    .air-chat{position:static;width:100%;flex:none;height:520px;margin-top:0}
     .air-toolbar{overflow-x:auto}
 }
 
@@ -377,7 +389,7 @@ html.air-chrome-hidden .air-chrome-toggle{top:0}
 html.air-chrome-hidden .air-chrome-toggle svg{transform:rotate(180deg)}
 body.air-export .air-chrome-toggle,.air-preview-print .air-chrome-toggle{display:none}
 @media print{.air-chrome-toggle{display:none!important}}
-@media(prefers-reduced-motion:reduce){.air-chrome-toggle,.air-chrome-toggle svg,#app-navbar,.air-toolbar,.air-chat{transition:none}}
+@media(prefers-reduced-motion:reduce){.air-chrome-toggle,.air-chrome-toggle svg,#app-navbar,.air-toolbar,.air-chat,.air-layout{transition:none}}
 /* Narrow cells stack their blocks top to bottom, whatever widths the recipe gave them (the cell is the container). */
 @container (max-width:480px){
     .kit-row{flex-direction:column;align-items:stretch}

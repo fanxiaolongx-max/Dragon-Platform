@@ -6,6 +6,7 @@
 const JSZip = require('jszip');
 const { run, get, all, getDatabase } = require('./app-db');
 const builtinSkills = require('./agent-skills');
+const skillCatalogContract = require('./ai-skill-catalog-contract');
 
 const { ID_RE, MAX_SELECTED } = builtinSkills;
 const LIMITS = {
@@ -554,7 +555,7 @@ async function exportZip(id) {
 }
 
 /** 对话加载：与 agent-skills.load 相同的规则，但白名单是当前租户可见的全部 Skill */
-async function loadAll(content, { hasWorkspace = false, language = 'zh', extraIds = [] } = {}) {
+async function loadAll(content, { hasWorkspace = false, language = 'zh', extraIds = [], redactionSecrets = [] } = {}) {
     const catalog = await listAll();
     const visible = new Map(catalog.map(item => [item.id, item]));
     const { known: mentioned, unknown: notBuiltin } = builtinSkills.mentions(content);
@@ -599,6 +600,8 @@ async function loadAll(content, { hasWorkspace = false, language = 'zh', extraId
     return {
         selected: selected.map(({ builtIn, customized, hidden, renamed, fileCount, updatedAt, source, createdBy, createdAt, ...meta }) => meta),
         unknown,
+        catalog: catalog.map(({ id, name, nameEn, description, descriptionEn, workspace }) => ({ id, name, nameEn, description, descriptionEn, workspace })),
+        catalogPrompt: skillCatalogContract.buildPrompt(catalog, language, { secrets: redactionSecrets }),
         prompt: builtinSkills.buildPrompt(sections)
     };
 }

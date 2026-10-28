@@ -1,4 +1,5 @@
 const express = require('express');
+const hostedApps = require('../models/hosted-apps/service');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
@@ -143,7 +144,8 @@ function normalizeAiMetadata(payload = {}) {
 }
 
 router.get('/', async (req, res) => {
-    res.json(await repo.listTools());
+    // hostedApp：托管 Python 应用（卡片下载原始应用包，不提供只读快照）
+    res.json((await repo.listTools()).map(tool => hostedApps.isLauncherFile(path.join(repo.getToolRootDir(tool.slug) || '', 'index.html')) ? { ...tool, hostedApp: true } : tool));
 });
 
 router.get('/f12-to-extension/monthly-license', requireAdmin, (req, res) => {
@@ -587,6 +589,21 @@ router.post('/backup/restore', backupUpload.single('backup'), async (req, res) =
 
 router.get('/:slug/export', async (req, res) => {
     try {
+        // 托管 Python 应用：下载导入时上传的原始应用包；包内可能有 .env 等配置，仅管理员可下载
+        if (require('../models/hosted-apps/runtime').exists(req.params.slug)) {
+            if (req.user?.role !== 'admin') return res.status(403).json({ error: '应用包仅管理员可下载' });
+            const archive = await require('../models/hosted-apps/runtime').packageArchive(req.params.slug);
+            const encodedName = encodeURIComponent(archive.filename);
+            res.setHeader('Content-Type', 'application/zip');
+            res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodedName}`);
+            res.setHeader('X-Tool-Export-Filename', encodedName);
+            res.setHeader('X-Tool-Export-Type', 'python-app');
+            res.setHeader('X-Tool-Export-Original', archive.original ? '1' : '0');
+            res.setHeader('Content-Length', archive.buffer.length);
+            historyRepo.addHistory({ tool: 'custom', action: '下载 Python 应用包', detail: `${req.params.slug} / ${archive.original ? '原始上传包' : '按当前代码重新打包'}` })
+                .catch(err => console.error('[custom-tools] log app package export failed:', err.message));
+            return res.send(archive.buffer);
+        }
         const result = await customToolExportService.createToolExport(req.params.slug);
         const encodedName = encodeURIComponent(result.filename);
         res.setHeader('Content-Type', result.contentType);
@@ -664,7 +681,10 @@ router.delete('/:slug/history/:historyId', async (req, res) => {
 });
 
 async function importTool(payload) {
-    const tool = await repo.createTool(payload);
+    // Python Web 应用包：登记为工具入口并由平台托管运行（backend/models/hosted-apps）
+    const tool = await hostedApps.isPythonPayload(payload)
+        ? await hostedApps.importApp(payload, { createTool: repo.createTool })
+        : await repo.createTool(payload);
     customToolI18nGenerator.generateToolTranslations(tool).then(result => {
         console.log(`[custom-tools] bilingual resource ready: ${result.slug} (${result.generated} generated)`);
     }).catch(error => {
@@ -714,6 +734,7 @@ router.patch('/:slug/name', async (req, res) => {
 router.delete('/:slug', async (req, res) => {
     try {
         const tool = await repo.getTool(req.params.slug);
+        await hostedApps.removeIfHosted(req.params.slug);
         const deleted = await repo.deleteTool(req.params.slug);
         if (!deleted) return res.status(404).json({ error: '自定义工具不存在' });
         historyRepo.addHistory({

@@ -81,7 +81,7 @@ test('ask mode blocks on approval, allow executes, and "always" skips later prom
     assert.equal(result.context.source, 'provider');
     assert.match(client.calls[0].systemInstruction, /根目录：/);
     assert.match(client.calls[0].systemInstruction, /README\.md/);
-    assert.equal(client.calls[0].tools.length, 16);
+    assert.equal(client.calls[0].tools.length, 23);
     assert.equal(client.calls[1].messages.at(-1).role, 'tool');
     assert.equal(session.transcript.length > 0, true);
     session.changeLog.revert('README.md');
@@ -386,7 +386,7 @@ test('non-admin accounts are read-only in the workspace: write tools are not off
     ]);
     const { events, write } = collector();
     const result = await manager.runAgentTurn({ session, client, systemInstruction: 'S', historyMessages: [{ role: 'user', content: 'write it' }], write, signal: new AbortController().signal });
-    assert.deepEqual(client.calls[0].tools.map(item => item.name).sort(), ['database_schema', 'list_databases', 'list_directory', 'read_database_table', 'read_file', 'search']);
+    assert.deepEqual(client.calls[0].tools.map(item => item.name).sort(), ['database_schema', 'list_databases', 'list_directory', 'list_uiv_categories', 'list_uiv_scripts', 'read_database_table', 'read_file', 'read_uiv_script', 'search']);
     assert.equal(fs.existsSync(path.join(root, 'blocked.txt')), false);
     assert.equal(result.denied, 1);
     assert.equal(events.some(event => event.type === 'approval'), false, 'read-only refusals never prompt');

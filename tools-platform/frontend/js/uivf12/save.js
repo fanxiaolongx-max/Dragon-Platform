@@ -297,11 +297,7 @@ async function saveCurrentScript() {
         try { urlObj = new URL(url); } catch (e) {}
         if (urlObj && urlObj.pathname) {
             const path = urlObj.pathname + urlObj.search;
-            const regions = [
-                { cat: 'NetCare中国', domain: 'https://netcare.huawei.com',    suffix: '-CN' },
-                { cat: 'NetCare中东', domain: 'https://netcare-ae.gts.huawei.com', suffix: '-AE' },
-                { cat: 'NetCare德国', domain: 'https://netcare-de.gts.huawei.com', suffix: '-DE' }
-            ];
+            const regions = window.UIVSiteProfiles.map(site => ({ cat: site.category, domain: site.origin, suffix: site.suffix }));
             regions.forEach(r => {
                 const newUrl = r.domain + path;
                 itemsToSave.push({

@@ -1,5 +1,5 @@
 // 内置 Skill 是受版本控制的流程说明（backend/agent-skills/<id>/SKILL.md）；只按用户消息中的 @id
-// 或会话内保持的 Skill 标识加载白名单文件，不扫描用户路径。
+// 或任务自动匹配、会话内保持的 Skill 标识加载白名单文件，不扫描用户路径。
 // 名称、简介、是否需要工作区写在 SKILL.md 开头的 front-matter 里，新增 Skill 只需添加一个目录。
 const fs = require('fs');
 const path = require('path');
@@ -71,6 +71,20 @@ function select(content) {
     return list().filter(item => known.includes(item.id));
 }
 
+// 只路由平台抓取脚本任务，避免把普通 Python/Shell 脚本需求误当作脚本仓库操作。
+function autoSelect(content, { pagePath = '', extraIds = [], contextMessages = [] } = {}) {
+    const text = String(content || '');
+    if ([...mentions(text).known, ...(Array.isArray(extraIds) ? extraIds : [])].some(id => ['ops-group', 'welink-office', 'netcare-data'].includes(id))) return [];
+    const scriptOperation = /(?:复制|删除|修改|新增|改名|重命名|保存|编辑|查询|查看).{0,30}脚本/.test(text)
+        && !/python|shell|bash|powershell|本地|\.py\b|\.sh\b|\.js\b/i.test(text);
+    const domain = scriptOperation || /脚本.{0,40}(?:分类|目录|挪|移动|站点|迁移)|(?:站点|分类|目录).{0,30}脚本|uiv(?:f12|ision)?|uiv_scripts|\bf12\b|脚本仓库|抓取脚本|采集脚本|数据抓取|targetRegion|targetOffice|generatorOffice|capture script|scraping script/i.test(text)
+        || (/uivf12/.test(pagePath) && /脚本|script|抓取|采集/i.test(text));
+    const followup = /继续|再试|不对|不用改|不要改|你做吧|就按|保存|写入|入库|复制|改名|改成|删除|执行吧|确认/.test(text)
+        && (Array.isArray(contextMessages) ? contextMessages : []).filter(item => item?.role === 'user').slice(-3)
+            .some(item => autoSelect(item.content, { pagePath }).includes('script-data'));
+    return (domain || followup) && byId.has('script-data') ? ['script-data'] : [];
+}
+
 /**
  * @param {string} content 用户本条消息
  * @param {object} options
@@ -94,7 +108,7 @@ function buildPrompt(sections) {
     const drafting = sections.some(section => /^### @(?:create-skill|improve-skill)\n/.test(section));
     // 平台保存契约独立于可被租户完善的 Skill 正文，避免旧版或自定义说明让模型虚报成功。
     const draftRule = drafting ? `\n**平台技能保存规则**：聊天回复本身不会创建、保存或激活技能，用户回复“确认”也不会触发保存接口。生成或修改技能时，必须输出完整的 \`\`\`skill 代码块，其中包含 SKILL.md 的 front-matter（id、name、name_en、description、description_en、workspace）和执行步骤；id 必须是以字母开头的小写英文、数字、连字符，最长 41 字符。明确说明“草稿尚未保存，请点击回复下方的保存为技能/完善此技能按钮”；只有界面保存接口返回成功才算保存完成。不得用“已创建并激活”“已保存”“现在可以 @ 使用”等文字代替可保存的草稿。用户仅回复“确认”时，如上文尚未提供可保存草稿，应补全草稿。信息不足时先澄清，不要虚报成功。\n` : '';
-    return sections.length ? `\n用户为本条消息选择了以下 Skills。按任务需要使用其中流程；用户当前要求优先，Skill 不改变账号权限和审批模式，不要求额外审批。只使用实际可用的工具，不编造执行或验证结果。回复语言跟随用户。\n${sections.join('\n\n')}\n${draftRule}` : '';
+    return sections.length ? `\n以下 Skills 来自用户选择或任务自动匹配。按任务需要使用其中流程；用户当前要求优先，Skill 不改变账号权限和审批模式，不要求额外审批。只使用实际可用的工具，不编造执行或验证结果。回复语言跟随用户。\n${sections.join('\n\n')}\n${draftRule}` : '';
 }
 
 // 内置 Skill 原文与正文（下载、管理用）；不存在时返回 null
@@ -103,4 +117,4 @@ function builtin(id) {
     return item ? { meta: { ...item.meta }, order: item.order, raw: item.raw, body: item.body, dir: path.join(SKILLS_DIR, item.meta.id) } : null;
 }
 
-module.exports = { list, select, mentions, load, buildPrompt, builtin, reload, parseSkillFile, SKILLS_DIR, ID_RE, MAX_SELECTED };
+module.exports = { list, select, mentions, load, autoSelect, buildPrompt, builtin, reload, parseSkillFile, SKILLS_DIR, ID_RE, MAX_SELECTED };

@@ -1870,7 +1870,18 @@
                 'home.import.title': '导入自定义工具',
                 'home.import.subtitle': '一次填写工具信息并上传 HTML 或 ZIP 工具包（自动支持离线快照与 Pages 静态推送）。',
                 'home.import.fileTitle': '选择 HTML / ZIP / SKILL 文件',
-                'home.import.fileHint': 'HTML 或 ZIP 工具包（最大 35 MB）；含 SKILL.md 的技能包或单个 SKILL.md 会导入为技能',
+                'home.import.fileHint': 'HTML 或 ZIP 工具包（最大 35 MB）；含 SKILL.md 的会导入为技能；含 requirements.txt 的 Python Web 应用包（FastAPI 等）由平台托管运行',
+                'home.import.pyDetected': '已识别为 Python Web 应用（{entry}，{iface}）：导入后平台会创建独立环境、安装依赖并在工具菜单生成入口',
+                'home.import.pyOffline': '，使用包内 {count} 个离线依赖',
+                'home.import.pyNoPython': '已识别为 Python Web 应用，但{message}；仍可导入，配置好 Python 后在应用入口重新安装依赖',
+                'home.import.pyUpdate': '已托管同名应用「{name}」{version}。要更新它吗？更新会保留应用数据库和访问配置；选择「取消」则作为新应用导入。',
+                'home.import.pyUpdateTitle': '更新已托管的 Python 应用',
+                'home.import.pyConfirm': '导入后平台会在本机运行这个应用包里的 Python 代码。请只导入来源可信的应用包。应用只能经平台登录后访问，平台数据只读、仅能写自己的应用库。继续导入？',
+                'home.import.pyConfirmTitle': '导入 Python 应用',
+                'home.import.pySubmit': '导入应用',
+                'home.import.pyUpdateSubmit': '更新应用',
+                'home.import.pyImported': '已导入，正在后台安装依赖并启动；打开工具入口可查看进度',
+                'home.import.pyUpdated': '应用已更新，正在重新启动',
                 'home.import.skillChecking': '正在识别文件类型…',
                 'home.import.skillDetected': '已识别为 SKILL 技能包 @{id}：导入后出现在「全部工具 → 技能」，可在对话里 @{id} 使用',
                 'home.import.skillFiles': '，附带 {count} 个参考文件',
@@ -2003,6 +2014,9 @@
                 'home.custom.defaultTag1': '自定义 HTML',
                 'home.custom.defaultTag2': '平台入口',
                 'home.custom.download': '下载完整工具包',
+                'home.custom.downloadApp': '下载原始应用包',
+                'home.custom.downloadedApp': '已下载导入时上传的应用包',
+                'home.custom.downloadedAppRebuilt': '已下载应用包（该应用导入较早，未保存原始包，已按当前代码重新打包）',
                 'home.custom.downloadedHtml': '已下载可独立运行的 HTML',
                 'home.custom.downloadedZip': '已下载完整 ZIP 工具包（{count} 个文件）',
                 'home.custom.downloadFailed': '下载工具包失败：{message}',
@@ -2093,7 +2107,18 @@
                 'home.import.title': 'Import Custom Tool',
                 'home.import.subtitle': 'Enter all tool details and select an HTML or ZIP package in one place (with automatic offline snapshot and Pages publishing support).',
                 'home.import.fileTitle': 'Choose an HTML / ZIP / SKILL file',
-                'home.import.fileHint': 'HTML or ZIP tool package (up to 35 MB). A package with SKILL.md, or a single SKILL.md, is imported as a Skill',
+                'home.import.fileHint': 'HTML or ZIP tool package (up to 35 MB). A package with SKILL.md is imported as a Skill; a Python web app package with requirements.txt (FastAPI etc.) is hosted by the platform',
+                'home.import.pyDetected': 'Recognized as a Python web app ({entry}, {iface}). The platform will create an isolated environment, install dependencies and add a menu entry',
+                'home.import.pyOffline': ', using {count} bundled offline packages',
+                'home.import.pyNoPython': 'Recognized as a Python web app, but {message}. You can still import it and reinstall dependencies from the app entry once Python is configured',
+                'home.import.pyUpdate': 'An app named "{name}" {version} is already hosted. Update it? Updating keeps the app database and access settings; choose Cancel to import it as a new app.',
+                'home.import.pyUpdateTitle': 'Update hosted Python app',
+                'home.import.pyConfirm': 'The platform will run the Python code in this package on this machine. Only import packages from trusted sources. The app is reachable only after platform sign-in, reads platform data read-only and can write only its own database. Continue?',
+                'home.import.pyConfirmTitle': 'Import Python app',
+                'home.import.pySubmit': 'Import app',
+                'home.import.pyUpdateSubmit': 'Update app',
+                'home.import.pyImported': 'Imported. Dependencies are installing and the app will start in the background; open its entry to follow progress',
+                'home.import.pyUpdated': 'App updated and restarting',
                 'home.import.skillChecking': 'Checking the file type…',
                 'home.import.skillDetected': 'Recognized as Skill package @{id}. After import it appears in All tools → Skills and can be used with @{id} in chat',
                 'home.import.skillFiles': ', with {count} reference files',
@@ -2226,6 +2251,9 @@
                 'home.custom.defaultTag1': 'Custom HTML',
                 'home.custom.defaultTag2': 'Platform Entry',
                 'home.custom.download': 'Download complete package',
+                'home.custom.downloadApp': 'Download original app package',
+                'home.custom.downloadedApp': 'Downloaded the app package uploaded at import',
+                'home.custom.downloadedAppRebuilt': 'Downloaded the app package (imported before originals were kept, so it was rebuilt from the current code)',
                 'home.custom.downloadedHtml': 'Standalone HTML downloaded',
                 'home.custom.downloadedZip': 'Complete ZIP package downloaded ({count} files)',
                 'home.custom.downloadFailed': 'Failed to download tool package: {message}',
@@ -3177,7 +3205,7 @@
                 card.style.setProperty('--card-accent', ['#38bdf8', '#34d399', '#f97316', '#e879f9'][index % 4]);
                 card.innerHTML = `
                     <div class="custom-tool-actions">
-                        <button type="button" class="custom-tool-action" title="${escapeHtml(t('home.custom.download'))}" onclick="event.preventDefault(); event.stopPropagation(); downloadCustomTool('${escapeHtml(tool.slug)}')">↓</button>
+                        ${tool.hostedApp && role !== 'admin' ? '' : `<button type="button" class="custom-tool-action" title="${escapeHtml(t(tool.hostedApp ? 'home.custom.downloadApp' : 'home.custom.download'))}" onclick="event.preventDefault(); event.stopPropagation(); downloadCustomTool('${escapeHtml(tool.slug)}')">↓</button>`}
                         ${role === 'admin' ? `
                             ${window.BuiltinPromotion?.button('tool', tool.slug, { builtIn: tool.builtIn === true, name: displayName }) || ''}
                             <button type="button" class="custom-tool-action" title="${escapeHtml(t('home.custom.rename'))}" onclick="event.preventDefault(); event.stopPropagation(); renameCustomTool('${escapeHtml(tool.slug)}')">✎</button>
@@ -3256,6 +3284,8 @@
             let metadataGeneration = 0;
             // SKILL 技能包（ZIP 内含 SKILL.md，或单个 .md）：导入到「全部工具 → 技能」，而不是 HTML 工具
             let skillImport = null;
+            // Python Web 应用包（含 requirements.txt）：由平台托管运行，可更新已托管的同名应用
+            let pythonImport = null;
             const tagsField = document.getElementById('customToolTags')?.closest('.tool-import-field');
             const fileToBase64 = async file => {
                 const bytes = new Uint8Array(await file.arrayBuffer());
@@ -3277,6 +3307,26 @@
                 // 同时带网页入口的包按 HTML 工具处理（SKILL.md 比任何 HTML 都浅时才算技能包）
                 const html = names.filter(name => /\.html?$/i.test(name)).sort((a, b) => a.split('/').length - b.split('/').length)[0];
                 return !html || skill.split('/').length <= html.split('/').length;
+            };
+            const looksLikePythonApp = names => {
+                const depth = name => name.split('/').length;
+                const set = new Set(names);
+                const root = names.filter(name => /(^|\/)requirements\.txt$/i.test(name)).sort((a, b) => depth(a) - depth(b))
+                    .map(name => name.slice(0, name.length - 'requirements.txt'.length))
+                    .find(prefix => ['platform-app.json', 'run.py', 'app/main.py', 'main.py', 'app.py', 'server.py', 'asgi.py', 'wsgi.py'].some(file => set.has(prefix + file)));
+                if (root === undefined) return false;
+                const html = names.filter(name => /(^|\/)index\.html?$/i.test(name)).sort((a, b) => depth(a) - depth(b))[0];
+                return !html || depth(html) > depth(`${root}requirements.txt`);
+            };
+            const isPythonPackage = async file => {
+                if (!/\.zip$/i.test(file.name) || !window.JSZip) return false;
+                const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
+                return looksLikePythonApp(Object.values(zip.files).filter(entry => !entry.dir).map(entry => entry.name.replace(/\\/g, '/'))
+                    .filter(name => !name.split('/').some(part => part === '__MACOSX' || part.startsWith('._'))));
+            };
+            const setPythonMode = app => {
+                pythonImport = app;
+                if (!skillImport) submitBtn.textContent = t(app ? (app.updateSlug ? 'home.import.pyUpdateSubmit' : 'home.import.pySubmit') : 'home.import.submit');
             };
             const setSkillMode = skill => {
                 skillImport = skill;
@@ -3308,7 +3358,38 @@
                 if (generation !== metadataGeneration) return;
                 if (!preview) {
                     setSkillMode(null);
-                    void generateAiMetadata(file);
+                    let pythonApp = null;
+                    try {
+                        if (await isPythonPackage(file)) pythonApp = (await API.post('/api/hosted-apps/preview', { archiveBase64: await fileToBase64(file), archiveName: file.name })).app;
+                    } catch (error) {
+                        if (generation !== metadataGeneration) return;
+                        setPythonMode(null);
+                        setAiStatus(error.message, 'warning');
+                        return;
+                    }
+                    if (generation !== metadataGeneration) return;
+                    if (!pythonApp) {
+                        setPythonMode(null);
+                        void generateAiMetadata(file);
+                        return;
+                    }
+                    let updateSlug = '';
+                    const existing = pythonApp.existing && pythonApp.existing[0];
+                    if (existing && await AppDialog.confirm(t('home.import.pyUpdate', { name: existing.name, version: existing.version || '' }), { title: t('home.import.pyUpdateTitle'), confirmText: t('home.import.pyUpdateSubmit') })) {
+                        updateSlug = existing.slug;
+                    }
+                    if (generation !== metadataGeneration) return;
+                    setPythonMode({ ...pythonApp, updateSlug });
+                    if (updateSlug) nameInput.value = existing.name;
+                    else if (pythonApp.name && (!nameInput.value.trim() || nameInput.value === nameInput.dataset.autoValue)) nameInput.value = pythonApp.name;
+                    nameInput.dataset.autoValue = nameInput.value;
+                    if (pythonApp.description && !descriptionInput.value) descriptionInput.value = pythonApp.description;
+                    if (iconInput.value === '🧩') iconInput.value = '🐍';
+                    tagsInput.value = 'Python 应用';
+                    const detail = pythonApp.python.ok
+                        ? t('home.import.pyDetected', { entry: pythonApp.entry, iface: pythonApp.interface.toUpperCase() }) + (pythonApp.offlineWheels ? t('home.import.pyOffline', { count: pythonApp.offlineWheels }) : '')
+                        : t('home.import.pyNoPython', { message: pythonApp.python.message });
+                    setAiStatus(detail, pythonApp.python.ok ? 'success' : 'warning');
                     return;
                 }
                 setSkillMode(preview);
@@ -3439,6 +3520,7 @@
                 filePicker.classList.remove('has-file');
                 setAiStatus();
                 setSkillMode(null);
+                setPythonMode(null);
                 clearImportError();
             };
             const openImportModal = () => {
@@ -3507,9 +3589,11 @@
                     const name = nameInput.value.trim();
                     if (!name) throw new Error(t('home.validation.nameRequired'));
                     if (name.length > 80) throw new Error(t('home.validation.nameTooLong'));
+                    if (pythonImport && !pythonImport.updateSlug && !(await AppDialog.confirm(t('home.import.pyConfirm'), { title: t('home.import.pyConfirmTitle'), confirmText: t('home.import.pySubmit') }))) return;
                     submitBtn.disabled = true;
                     submitBtn.textContent = t('home.import.submitting');
                     const payload = {
+                        ...(pythonImport?.updateSlug ? { updateSlug: pythonImport.updateSlug } : {}),
                         name,
                         nameEn: nameEnInput.value.trim(),
                         icon: iconInput.value.trim() || '🧩',
@@ -3532,7 +3616,7 @@
                     uploadLogs.length = 0;
                     await CustomToolUpload.upload(payload, { onProgress: logUpload });
                     submitBtn.dataset.completed = 'true';
-                    showToast(t('home.toast.imported'));
+                    showToast(t(pythonImport ? (pythonImport.updateSlug ? 'home.import.pyUpdated' : 'home.import.pyImported') : 'home.toast.imported'));
                     await loadCustomTools();
                     if (window.refreshCustomToolNavLinks) await window.refreshCustomToolNavLinks();
                 } catch (e) {
@@ -3540,7 +3624,8 @@
                     showImportError(t('home.alert.importFailed', { message: e.message }));
                 } finally {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = t(submitBtn.dataset.completed === 'true' ? 'home.import.done' : skillImport ? 'home.import.skillSubmit' : 'home.import.submit');
+                    submitBtn.textContent = t(submitBtn.dataset.completed === 'true' ? 'home.import.done' : skillImport ? 'home.import.skillSubmit'
+                        : pythonImport ? (pythonImport.updateSlug ? 'home.import.pyUpdateSubmit' : 'home.import.pySubmit') : 'home.import.submit');
                 }
             });
         }
@@ -4060,9 +4145,11 @@
                 window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
                 const exportType = response.headers.get('X-Tool-Export-Type');
                 const fileCount = response.headers.get('X-Tool-Export-File-Count') || '1';
-                showToast(exportType === 'zip'
-                    ? t('home.custom.downloadedZip', { count: fileCount })
-                    : t('home.custom.downloadedHtml'));
+                showToast(exportType === 'python-app'
+                    ? t(response.headers.get('X-Tool-Export-Original') === '1' ? 'home.custom.downloadedApp' : 'home.custom.downloadedAppRebuilt')
+                    : exportType === 'zip'
+                        ? t('home.custom.downloadedZip', { count: fileCount })
+                        : t('home.custom.downloadedHtml'));
             } catch (error) {
                 showToast(t('home.custom.downloadFailed', { message: error.message }), 'error');
             }

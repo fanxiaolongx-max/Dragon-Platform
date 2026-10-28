@@ -12,12 +12,21 @@ function redactText(value, { secrets = [] } = {}) {
     for (const secret of secrets) {
         if (typeof secret === 'string' && secret.length >= 8) text = text.split(secret).join(REDACTED);
     }
+    // 工具结果/payload_json 是序列化 JSON：先逐字段脱敏，避免把代码中的 \"\" 等
+    // JSON 转义误当作 Token 值，或破坏嵌套脚本的引号和反斜杠。
+    if (/^\s*[\[{]/.test(text)) {
+        try {
+            const parsed = JSON.parse(text);
+            const safe = redactValue(parsed, { secrets });
+            return JSON.stringify(safe) === JSON.stringify(parsed) ? text : JSON.stringify(safe);
+        } catch { /* 非 JSON（如 JavaScript 源码）继续按文本处理 */ }
+    }
     text = text
         .replace(/-----BEGIN (?:[A-Z ]*PRIVATE KEY)-----[\s\S]*?-----END (?:[A-Z ]*PRIVATE KEY)-----/g, REDACTED)
         .replace(/^(\s*(?:authorization|proxy-authorization|cookie|set-cookie)\s*:\s*).*$/gim, `$1${REDACTED}`)
         .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+\/-]+=*/gi, match => `${match.split(/\s/)[0]} ${REDACTED}`)
         .replace(/(https?:\/\/|(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?):\/\/)([^\s/@:]+):([^\s/@]+)@/gi, `$1${REDACTED}@`)
-        .replace(QUOTED_FIELD, (_match, prefix, quote) => `${prefix}${quote}${REDACTED}${quote}`)
+        .replace(QUOTED_FIELD, (match, prefix, quote) => match.length === prefix.length + 2 ? match : `${prefix}${quote}${REDACTED}${quote}`)
         .replace(UNTERMINATED_FIELD, (_match, prefix, quote) => `${prefix}${quote}${REDACTED}${quote}`)
         .replace(BARE_FIELD, (_match, prefix) => `${prefix}${REDACTED}`)
         .replace(/\b(?:sk-(?:proj-|ant-)?[A-Za-z0-9_-]{16,}|AIza[A-Za-z0-9_-]{30,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[A-Z0-9]{16})\b/g, REDACTED);

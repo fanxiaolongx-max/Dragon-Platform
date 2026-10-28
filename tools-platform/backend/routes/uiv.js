@@ -407,22 +407,22 @@ router.delete('/scripts/:id', async (req, res) => {
 router.patch('/scripts/:id/category', async (req, res) => {
     const { category } = req.body;
     try {
-        const script = await scriptsRepo.moveScriptCategory(req.params.id, category);
+        const script = await scriptsRepo.moveScriptCategory(req.params.id, category, { expectedRevision: req.body.expectedRevision });
         if (!script) return res.status(404).json({ error: '脚本不存在' });
         configChangeMonitor.recordConfigChangeAlert({
             req,
             scope: 'uiv',
             action: '移动抓取脚本',
             before: { script_id: req.params.id },
-            after: { category },
+            after: { category: script.category },
             objectType: 'uiv_scripts',
             objectId: req.params.id,
-            message: `将脚本 ${req.params.id} 移动到了分类 ${category}`
+            message: `将脚本 ${req.params.id} 移动到了分类 ${script.category}`
         });
-        res.json({ success: true });
+        res.json({ success: script.moveVerification.verified, id: script.id, category: script.category, ...script.moveVerification });
     } catch (err) {
         console.error('[PATCH /api/uiv/scripts/:id/category] failed:', err);
-        res.status(500).json({ error: '移动分类失败' });
+        res.status(err.statusCode || 500).json({ code: err.code, error: err.statusCode ? err.message : '移动分类失败' });
     }
 });
 

@@ -58,6 +58,8 @@
             prFormTitle: '创建 Pull Request', prTitleLabel: '标题', prTitlePlaceholder: '例如：修复 README 首行', prBodyLabel: '说明（可选）', prBodyPlaceholder: '默认列出本次会话改动的文件', prBranchLabel: '新分支', prBaseBranch: '当前分支 {branch}', prFilesHint: '将只提交本次会话改动的 {count} 个文件', prSubmit: '开始创建', prCancel: '取消',
             prStepBranch: '新建分支', prStepAdd: '暂存本会话改动', prStepCommit: '提交', prStepPush: '推送到 origin', prStepCreate: '调用 gh pr create',
             prRunning: '正在创建 PR…', prDone: 'PR 已创建', prOpen: '打开 PR', prFailedAt: '「{step}」失败，流程已停止', prDeniedAt: '「{step}」被拒绝，流程已停止', prAborted: '创建 PR 已中止', prRetry: '重试', prClose: '关闭',
+            tool_list_uiv_scripts: '查找抓取脚本', tool_read_uiv_script: '读取抓取脚本', tool_save_uiv_script: '保存抓取脚本', tool_delete_uiv_script: '删除抓取脚本',
+            tool_list_uiv_categories: '查看脚本分类与站点', tool_move_uiv_script: '移动脚本分类', tool_manage_uiv_category: '管理脚本分类',
             workspaceDisabled: '工作区仅在本机或管理员账号下可用'
         },
         'en-US': {
@@ -111,6 +113,8 @@
             prFormTitle: 'Create Pull Request', prTitleLabel: 'Title', prTitlePlaceholder: 'e.g. Fix README headline', prBodyLabel: 'Description (optional)', prBodyPlaceholder: 'Defaults to the list of files changed in this session', prBranchLabel: 'New branch', prBaseBranch: 'from {branch}', prFilesHint: 'Only the {count} file(s) changed in this session will be committed', prSubmit: 'Create', prCancel: 'Cancel',
             prStepBranch: 'Create branch', prStepAdd: 'Stage session changes', prStepCommit: 'Commit', prStepPush: 'Push to origin', prStepCreate: 'Run gh pr create',
             prRunning: 'Creating PR…', prDone: 'PR created', prOpen: 'Open PR', prFailedAt: '"{step}" failed, flow stopped', prDeniedAt: '"{step}" was denied, flow stopped', prAborted: 'PR creation aborted', prRetry: 'Retry', prClose: 'Close',
+            tool_list_uiv_scripts: 'Find capture scripts', tool_read_uiv_script: 'Read capture script', tool_save_uiv_script: 'Save capture script', tool_delete_uiv_script: 'Delete capture script',
+            tool_list_uiv_categories: 'Script categories and sites', tool_move_uiv_script: 'Move script category', tool_manage_uiv_category: 'Manage script categories',
             workspaceDisabled: 'Workspace is available on this machine or for admins only'
         }
     };

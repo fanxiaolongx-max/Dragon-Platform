@@ -742,18 +742,29 @@
     const topOffset=()=>document.documentElement.classList.contains('air-chrome-hidden')?12:(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--navbar-h'))||52)+(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--air-toolbar-h'))||52)+12;
     const applyZoom=()=>{if(zoom)Object.assign(reportRoot.style,{transformOrigin:'50% 0',transform:`translateY(${zoom.dy}px) scale(${zoom.scale})`});};
     function zoomOut(){
+        const pane=reportRoot.closest('.air-report-pane');
         const rect=reportRoot.getBoundingClientRect(),top=topOffset(),room=innerHeight-top-16;
         zoom={scale:Math.max(.12,Math.min(1,room/reportRoot.offsetHeight)),dy:top-rect.top};
-        document.documentElement.style.overflow='hidden';document.body.classList.add('air-zoomed');reportRoot.classList.add('is-zoomed');
+        document.documentElement.style.overflow='hidden';if(pane)pane.style.overflow='hidden';document.body.classList.add('air-zoomed');reportRoot.classList.add('is-zoomed');
         reportRoot.style.transition=reducedMotion()?'none':`transform ${ZOOM_MS}ms ${ZOOM_EASE}`;applyZoom();
     }
     // Lands on `chapterId`: the page scrolls there under cover of the zoomed view, then the report grows back into place.
     function zoomIn(chapterId){
         if(!zoom)return;
-        const rect=reportRoot.getBoundingClientRect(),naturalTop=scrollY+rect.top-zoom.dy,target=reportRoot.querySelector(`[data-chapter="${CSS.escape(chapterId)}"]`);
+        const pane=reportRoot.closest('.air-report-pane');
+        const target=reportRoot.querySelector(`[data-chapter="${CSS.escape(chapterId)}"]`);
         document.documentElement.style.overflow='';
-        const scrollTarget=Math.max(0,Math.min(document.documentElement.scrollHeight-innerHeight,naturalTop+(target?target.offsetTop:0)-topOffset()));
-        reportRoot.style.transition='none';zoom.dy+=scrollTarget-scrollY;applyZoom();scrollTo(0,scrollTarget);void reportRoot.offsetWidth;
+        if(pane){
+            const maxScroll=Math.max(0,pane.scrollHeight-pane.clientHeight);
+            const scrollTarget=Math.max(0,Math.min(maxScroll,target?target.offsetTop:0));
+            reportRoot.style.transition='none';zoom.dy+=scrollTarget-pane.scrollTop;applyZoom();
+            pane.scrollTop=scrollTarget;pane.style.overflow='';
+        }else{
+            const rect=reportRoot.getBoundingClientRect(),naturalTop=scrollY+rect.top-zoom.dy;
+            const scrollTarget=Math.max(0,Math.min(document.documentElement.scrollHeight-innerHeight,naturalTop+(target?target.offsetTop:0)-topOffset()));
+            reportRoot.style.transition='none';zoom.dy+=scrollTarget-scrollY;applyZoom();scrollTo(0,scrollTarget);
+        }
+        void reportRoot.offsetWidth;
         const done=()=>{zoom=null;reportRoot.style.transition='';reportRoot.style.transform='';reportRoot.style.transformOrigin='';reportRoot.classList.remove('is-zoomed');document.body.classList.remove('air-zoomed');};
         if(reducedMotion())return done();
         reportRoot.style.transition=`transform ${ZOOM_MS}ms ${ZOOM_EASE}`;reportRoot.style.transform='translateY(0) scale(1)';
@@ -840,8 +851,13 @@
             flip(cards(),()=>grid.insertBefore(placeholder,anchor));
         }
         function autoScroll(){
+            const pane=reportRoot.closest('.air-report-pane');
             const edge=80,speed=pointer.y<edge+120?-(edge+120-pointer.y)/6:pointer.y>innerHeight-edge?(pointer.y-innerHeight+edge)/6:0;
-            if(speed){scrollBy(0,speed);retarget();}
+            if(speed){
+                if(pane)pane.scrollTop+=speed;
+                else scrollBy(0,speed);
+                retarget();
+            }
         }
         const move=moveEvent=>{
             pointer={x:moveEvent.clientX,y:moveEvent.clientY};
@@ -970,6 +986,14 @@
     });
     reportRoot.addEventListener('pointerdown',event=>{followCell(event);const slotHandle=event.target.closest('[data-slot-resize]');if(slotHandle)return startSlotResize(event,slotHandle);const chapterMover=event.target.closest('[data-chapter-drag]');if(chapterMover)return startChapterMove(event,chapterMover.dataset.chapterDrag);const mover=event.target.closest('[data-cell-drag]');if(mover)return startMove(event,mover.dataset.cellDrag);const handle=event.target.closest('[data-resize]');if(handle)startResize(event,handle.dataset.resize);});
     reportRoot.addEventListener('focusin',followCell);
+    const layoutHost=document.querySelector('.air-layout'),paneHost=document.getElementById('airReportPane');
+    if(layoutHost&&paneHost){
+        layoutHost.addEventListener('wheel',event=>{
+            if(!event.target.closest('#airChat, #airReportPane')){
+                paneHost.scrollTop+=event.deltaY;
+            }
+        },{passive:true});
+    }
     reportRoot.addEventListener('dblclick',event=>{
         if(event.target.closest('[data-resize],[data-slot-resize]'))return;
         const node=editableText(event.target);if(node)startTextEdit(node);

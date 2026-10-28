@@ -51,7 +51,10 @@ function versionPage(html, files) {
 async function collectHome(items) {
     const settings = await require('./nav-settings-repository').getSettings();
     settings.f12QuickDownloads = [];
-    const tools = (await require('./custom-tools-repository').listTools()).filter(t => !EXCLUDED.has(t.slug)).map(tool => {
+    const repo = require('./custom-tools-repository');
+    const { isLauncherFile } = require('./hosted-apps/service');
+    // 托管 Python 应用离不开平台运行，静态门户的工具菜单不列出
+    const tools = (await repo.listTools()).filter(t => !EXCLUDED.has(t.slug) && !isLauncherFile(require('path').join(repo.getToolRootDir(t.slug) || '', 'index.html'))).map(tool => {
         const item = items.find(i => i.slug === tool.slug);
         const { slug, name, nameEn, description, descriptionEn, tags, icon, builtIn, createdAt, updatedAt } = tool;
         return {

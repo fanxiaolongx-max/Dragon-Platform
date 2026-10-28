@@ -76,6 +76,7 @@ function databaseFile(ctx, id) {
         return item.file;
     }
     if (!String(id).startsWith('local:')) throw fail('请使用 list_databases 返回的数据库标识');
+    if (!ctx.root) throw fail('访问本地 SQLite 前请先选择工作目录；当前对话可直接访问当前租户的平台数据库');
     const file = canonical(guard.resolveInsideRoot(ctx.root, String(id).slice(6)));
     checkLocal(file);
     if (!EXT.test(file) || !fs.statSync(file).isFile()) throw fail('仅支持工作目录内的 SQLite 文件');
@@ -126,6 +127,7 @@ async function columns(all, table) {
 async function listDatabases(ctx, args = {}) {
     const items = platformFiles().filter(item => ctx.readOnly === false || item.id !== 'platform:chat-history.db')
         .map(({ id, source, size }) => ({ id, source, size: formatSize(size), writable: ctx.readOnly === false }));
+    if (!ctx.root) return { databases: items, incomplete: false, hint: '已列出当前租户实际使用的平台数据库；无需选择工作目录。访问其他本地 SQLite 请先选择其所在工作目录。' };
     // path 只用于工作目录内的子目录；模型误传 platform:/local: 标识时按工作目录根扫描，不报 ENOENT
     const scanPath = /^(?:platform|local):/i.test(String(args.path || '')) ? '.' : (args.path || '.');
     const root = guard.resolveInsideRoot(ctx.root, scanPath);
@@ -202,7 +204,7 @@ async function readTable(ctx, args) {
                 : offset > 0 ? '已超出表的行数，没有更多数据'
                     : '该表当前为 0 行，是真实的空表，不是权限限制；请确认 list_databases 返回的库标识是否正确';
         return { database: args.database, table: args.table, columns: selected, omittedColumns: available.length - selected.length,
-            rows: safeRows, offset, nextOffset: hasMore ? offset + safeRows.length : null, readOnly: true, ...(empty ? { empty } : {}),
+            rows: safeRows, offset, nextOffset: hasMore ? offset + safeRows.length : null, readOnly: true, writable: ctx.readOnly === false, ...(empty ? { empty } : {}),
             note: '凭据字段、账号/会话表不对 AI 开放；单格最多 1000 字符，BLOB 省略。分页期间数据库变更可能影响结果顺序。' };
     });
 }
@@ -212,7 +214,7 @@ function scalar(value) {
         || (typeof value === 'number' && Number.isFinite(value));
 }
 
-async function mutationPlan(all, args, ctx) {
+async function mutationPlan(all, args, ctx, { scriptContent = false } = {}) {
     if (!['insert', 'update', 'delete'].includes(args.operation)) throw fail('operation 必须为 insert、update 或 delete');
     const available = await columns(all, args.table);
     const names = new Set(available.map(row => row.name));
@@ -226,8 +228,10 @@ async function mutationPlan(all, args, ctx) {
         entries = Object.entries(values);
         if (!entries.length || entries.some(([name, value]) => !names.has(name) || !scalar(value))) throw fail('写入列不存在、属于敏感字段，或值不是 SQLite 标量（JSON 请先序列化为字符串）');
         if (Buffer.byteLength(JSON.stringify(values)) > 1024 * 1024) throw fail('单次写入不能超过 1MB');
-        if (entries.some(([, value]) => typeof value === 'string' && containsSensitiveText(value, { secrets: ctx.sensitiveValues }))) throw fail('禁止通过 AI 工具写入凭据内容');
-        if (entries.some(([name, value]) => /^(?:key|key_name|name|setting|setting_name|config_key)$/i.test(name) && PRIVATE_COLUMN.test(String(value)))) throw fail('禁止修改凭据配置项');
+        if (entries.some(([name, value]) => !(scriptContent && ['payload_json', 'url', 'name', 'category'].includes(name))
+            && typeof value === 'string' && containsSensitiveText(value, { secrets: ctx.sensitiveValues }))) throw fail('禁止通过 AI 工具写入凭据内容');
+        if (entries.some(([name, value]) => !(scriptContent && name === 'name')
+            && /^(?:key|key_name|name|setting|setting_name|config_key)$/i.test(name) && PRIVATE_COLUMN.test(String(value)))) throw fail('禁止修改凭据配置项');
     }
     const filters = args.filters === undefined ? [] : args.filters;
     if (!Array.isArray(filters) || filters.length > 16) throw fail('filters 必须是最多 16 个条件的数组');
@@ -275,7 +279,7 @@ async function mutationPlan(all, args, ctx) {
     // Generic key/value tables may hide secrets in an otherwise ordinary value
     // column. Never let a broad filter overwrite or delete those rows.
     const keys = available.filter(row => /^(?:key|key_name|name|setting|setting_name|config_key)$/i.test(row.name));
-    if (args.operation !== 'insert' && keys.length) {
+    if (args.operation !== 'insert' && keys.length && !scriptContent) {
         for (let offset = 0; offset < matchedRows; offset += 500) {
             const fields = keys.map(row => `substr(CAST(${quote(row.name)} AS TEXT), 1, 120)`);
             const rows = await all(`SELECT ${fields.join(', ')} FROM ${quote(args.table)}${where} LIMIT 500 OFFSET ?`, [...params, offset]);
@@ -307,11 +311,15 @@ async function previewWrite(ctx, args) {
     });
 }
 
-async function writeTable(ctx, args) {
+async function writeTable(ctx, args, internalOptions = {}) {
+    // 仅脚本专用服务传入第三参数；模型传在 args 中的同名字段无效。
+    // 脚本是可执行业务内容，允许包含鉴权逻辑和原有凭据；其余库/表的凭据保护保持不变。
+    const scriptContent = internalOptions.scriptContent === true && args.table === 'uiv_scripts'
+        && /^platform:(?:(?:data|report)\/)?tools\.db$/i.test(String(args.database));
     return withDatabase(ctx, args.database, async (all, run) => {
         await run('BEGIN IMMEDIATE');
         try {
-            const plan = await mutationPlan(all, args, ctx);
+            const plan = await mutationPlan(all, args, ctx, { scriptContent });
             const result = await run(plan.sql, plan.bindings);
             if (result.changes > plan.maxAffectedRows) throw fail('实际修改行数超过上限，已回滚');
             if (ctx.signal?.aborted) throw Object.assign(new Error('任务已中止，写入已回滚'), { name: 'AbortError' });
@@ -326,4 +334,20 @@ async function writeTable(ctx, args) {
     }, true);
 }
 
-module.exports = { listDatabases, schema, readTable, previewWrite, writeTable };
+// 专用工具的多语句原子写入（如分类改名同步脚本），复用写连接与中止/超时保护。
+async function transaction(ctx, id, callback) {
+    return withDatabase(ctx, id, async (all, run) => {
+        await run('BEGIN IMMEDIATE');
+        try {
+            const result = await callback(all, run);
+            if (ctx.signal?.aborted) throw Object.assign(new Error('任务已中止，写入已回滚'), { name: 'AbortError' });
+            await run('COMMIT');
+            return result;
+        } catch (error) {
+            await run('ROLLBACK').catch(() => {});
+            throw error;
+        }
+    }, true);
+}
+
+module.exports = { listDatabases, schema, readTable, previewWrite, writeTable, transaction, platformFiles, PRIVATE_TABLE, PRIVATE_COLUMN };

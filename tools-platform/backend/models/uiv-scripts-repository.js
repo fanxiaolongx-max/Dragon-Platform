@@ -1,5 +1,6 @@
 const { run, get, all } = require('./app-db');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 
 
 let initPromise = null;
@@ -141,18 +142,26 @@ async function deleteScriptById(id) {
     return [];
 }
 
-async function moveScriptCategory(id, category) {
-    await ensureReady();
-    const row = await get('SELECT payload_json FROM uiv_scripts WHERE id = ?', [id]);
+async function moveScriptCategory(id, category, { expectedRevision } = {}) {
+    const categories = (await require('./uiv-categories-repository').listCategories()).items;
+    const normalized = typeof category === 'string' ? category.trim().toLocaleLowerCase() : '';
+    const canonicalCategory = categories.find(name => name.toLocaleLowerCase() === normalized);
+    if (!canonicalCategory) throw Object.assign(new Error('目标分类不存在，请先读取分类列表并使用实际分类名称'), { code: 'UIV_CATEGORY_INVALID', statusCode: 400 });
+    const row = await get('SELECT id, name, url, category, payload_json FROM uiv_scripts WHERE id = ?', [id]);
     if (!row) return null;
-
-    const script = JSON.parse(row.payload_json);
-    script.category = category;
+    if (expectedRevision && crypto.createHash('sha256').update(row.payload_json).digest('hex') !== expectedRevision) throw Object.assign(new Error('脚本版本已变化，请重新读取后移动'), { code: 'UIV_SCRIPT_CONFLICT', statusCode: 409 });
+    const parsed = JSON.parse(row.payload_json);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('脚本内容不是有效对象');
+    // 页面读取 payload_json；列与载荷必须一起更新。旧记录可能缺失 id，不能因此插入一条幽灵记录。
+    const script = { ...parsed, id: row.id, name: row.name, url: row.url || '', category: canonicalCategory };
     script.updatedAt = new Date().toISOString();
-
-    await upsertScriptInDb(script);
-
-    return script;
+    const payload = JSON.stringify(script);
+    const result = await run('UPDATE uiv_scripts SET category = ?, payload_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND payload_json = ?',
+        [canonicalCategory, payload, id, row.payload_json]);
+    if (result.changes !== 1) throw Object.assign(new Error('脚本已被并发修改，分类移动未执行，请重新读取'), { code: 'UIV_SCRIPT_CONFLICT', statusCode: 409 });
+    const stored = await get('SELECT category, payload_json FROM uiv_scripts WHERE id = ?', [id]);
+    return { ...script, moveVerification: { committed: true, verified: stored?.category === canonicalCategory && stored?.payload_json === payload,
+        previousCategory: row.category, revision: crypto.createHash('sha256').update(payload).digest('hex') } };
 }
 
 function generateSchemaHash(str) {

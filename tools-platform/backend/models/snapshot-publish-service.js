@@ -56,7 +56,8 @@ function isStaticTool(slug) {
     const rootDir = getStaticToolRootDir(slug);
     if (!rootDir) return false;
     const indexPath = path.join(rootDir, 'index.html');
-    return fs.existsSync(indexPath) && fs.statSync(indexPath).isFile();
+    // 托管 Python 应用是动态服务，入口只是启动页，不能生成只读快照或推送到静态站点
+    return fs.existsSync(indexPath) && fs.statSync(indexPath).isFile() && !require('./hosted-apps/service').isLauncherFile(indexPath);
 }
 
 function collectStaticToolFiles(rootDir) {

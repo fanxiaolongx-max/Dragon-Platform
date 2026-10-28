@@ -114,12 +114,16 @@ const legacyJsonMigration = require('./models/legacy-json-migration');
 const configChangeMonitor = require('./models/config-change-monitor');
 const alertAiAnalyzer = require('./models/alert-ai-analyzer');
 const { checkAuth, requireAdmin, checkHtmlAuth } = require('./middleware/auth');
+const hostedAppsProxy = require('./models/hosted-apps/proxy');
 
 const app = express();
 
 // ============================================================
 // 中间件
 // ============================================================
+// 托管 Python 应用：反向代理与应用数据接口须在 CORS、JSON 解析和页面登录拦截之前，请求体原样转发
+app.use('/apps', hostedAppsProxy.handler);
+app.use('/hosted-api', require('./models/hosted-apps/data-api').createRouter());
 app.use(cors());
 app.use('/api/custom-tools/import-upload', express.json({ limit: 850000 }));
 app.use('/api/topic-snapshots/import-upload', express.json({ limit: 850000 }));
@@ -467,6 +471,7 @@ app.use('/api/ai-report', require('./routes/ai-report')); // AI 月报：格子�
 app.use('/api/praudit', prauditRoutes); // PR审计配置 API
 app.use('/api/chat-history', chatHistoryRoutes); // 租户隔离的聊天记录中心
 app.use('/api/custom-tools', customToolsRoutes); // 自定义 HTML 工具注册 API
+app.use('/api/hosted-apps', require('./routes/hosted-apps')); // 托管 Python Web 应用：启动页与运维
 app.use('/api/department-reward-penalty', require('./routes/department-reward-penalty'));
 app.use('/api/reward-program', require('./routes/reward-program'));
 app.use('/api/datacom-knowledge', require('./routes/datacom-knowledge')); // 数通协议专家知识库（独立 datacom-knowledge.db）
@@ -701,6 +706,10 @@ async function startServer() {
         setTimeout(() => {
             // 频道对接：已启用 WeLink 助理的租户自动连接网关（SDK 未安装时只记录提示，不影响启动）
             const tenantsRepo = require('./models/tenants-repository');
+            // 托管 Python 应用：恢复上次处于运行状态的应用
+            tenantsRepo.listManagedTenants().then(items => require('./models/hosted-apps/runtime')
+                .recover(['default', ...items.filter(item => item.status === 'active').map(item => item.id)]))
+                .catch(err => console.warn('[hosted-apps] 恢复运行失败：', err.message));
             tenantsRepo.listManagedTenants().then(items => Promise.all(['default', ...items.filter(item => item.status === 'active').map(item => item.id)].map(id => runWithTenant(id, () => require('./models/dragon-tac/service').recover())))).catch(() => console.warn('[DragonTAC] 中断任务恢复失败'));
             require('./models/channels/welink-bridge-service')
                 .autoStartAll(async () => (await tenantsRepo.listManagedTenants()).filter(item => item.status === 'active').map(item => item.id))
@@ -724,6 +733,10 @@ async function startServer() {
         }, 5000);
     });
 
+    // 托管 Python 应用的 WebSocket；其他路径没有 upgrade 处理方，直接关闭连接
+    server.on('upgrade', (req, socket, head) => {
+        if (!hostedAppsProxy.handleUpgrade(req, socket, head)) socket.destroy();
+    });
     server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
             console.error(`\n❌ 启动失败：端口 ${PORT} 已被占用。`);

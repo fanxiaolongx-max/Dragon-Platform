@@ -15,6 +15,7 @@ const customToolsRepo = require('../models/custom-tools-repository');
 const agentRunManager = require('../models/agent-run-manager');
 const agentWorkspaceAccess = require('../models/agent-workspace-access');
 const agentSkillsStore = require('../models/agent-skills-store');
+const skillCatalogContract = require('../models/ai-skill-catalog-contract');
 const { redactText, redactValue } = require('../models/ai-sensitive-data');
 const { getTenantId } = require('../models/tenant-context');
 const contextCompaction = require('../models/ai-context-compaction');
@@ -27,6 +28,7 @@ const followupAgent = require('../models/channels/followup-agent');
 const opsAgent = require('../models/channels/ops-agent');
 const welinkCliAgent = require('../models/channels/welink-cli-agent');
 const netcareAgent = require('../models/digital-human/netcare-agent');
+const databaseAgent = require('../models/ai-database-agent');
 
 console.log('[AI] AI Assistant route loaded. Runtime config will be read from settings, with provider-specific env fallback.');
 
@@ -701,10 +703,20 @@ async function handleChatRequest(req, res) {
         let loadedSkills = { selected: [], unknown: [], prompt: '' };
         if (homeAgent) {
             try {
+                let skillContextMessages = messages.slice(0, -1);
+                if (sessionId && persist !== false) {
+                    await aiChatRepo.assertSessionOwner(sessionId, req.user?.username || '');
+                    skillContextMessages = [...await aiChatRepo.getRecentMessagesForContext(sessionId, 20), ...skillContextMessages];
+                }
                 loadedSkills = await agentSkillsStore.loadAll(lastMessage.content, {
                     hasWorkspace: agentMode,
                     language: String(uiLanguage || '').startsWith('en') ? 'en' : 'zh',
-                    extraIds: Array.isArray(req.body?.skills) ? req.body.skills.slice(0, 8) : []
+                    redactionSecrets: sensitiveValues,
+                    extraIds: [
+                        ...(!channelTurn && (agentMode || req.user?.role === 'admin')
+                            ? require('../models/agent-skills').autoSelect(lastMessage.content, { pagePath, extraIds: req.body?.skills, contextMessages: skillContextMessages }) : []),
+                        ...(Array.isArray(req.body?.skills) ? req.body.skills.slice(0, 8) : [])
+                    ]
                 });
             } catch (skillError) {
                 // 缺少工作目录是可操作的前提提示，不包装成「AI 思考时出现异常」
@@ -825,16 +837,21 @@ async function handleChatRequest(req, res) {
             }
         }
 
+        // 首页管理员无需选择目录即可使用平台业务库；频道、页面助手及专用 Skill 保持各自权限。
+        const databaseMode = homeAgent && !agentMode && !channelTurn && req.user?.role === 'admin'
+            && !opsSetup && !welinkCliSetup && !netcareSetup && !analysisCode;
+        const dataIdentity = databaseMode || (agentMode && !agentSession.readOnly) ? '数据管理与分析专家' : '只读数据分析专家';
         // 构造 System Instruction
         const identityPrompt = homeAgent
             ? `你是 "Dragon Claw"，Tools Platform 工具中台首页的全能 AI 智能体。
-你首先是一个通用的高水平助手，能回答任何领域的问题（编程、写作、翻译、学习、分析、生活常识等）；同时你也是本平台的项目实现专家、只读数据分析专家和工具向导，能解释平台中各工具的用途、使用方法和代码实现逻辑。`
+你首先是一个通用的高水平助手，能回答任何领域的问题（编程、写作、翻译、学习、分析、生活常识等）；同时你也是本平台的项目实现专家、${dataIdentity}和工具向导，能解释平台中各工具的用途、使用方法和代码实现逻辑。`
             : `你是一个名为 "Tools Platform 智能助手" 的 AI，被集成在华为的一个工具中台中。
 你同时是项目实现专家、只读数据分析专家、运营分析专家和高级客服助手。`;
         const scopeRule = homeAgent
             ? `8. 不要声称自己只专注于本平台：与平台无关的问题，直接以通用助手身份完整、专业地回答，不必引用项目知识。只有问题涉及本平台时才使用上面的项目知识、业务配置和数据结果。推荐或提到平台工具时，使用 Markdown 链接 [工具名](路径)，路径只能取自“平台工具目录”，不得编造路径。`
             : `8. 如果用户的提问超出系统功能范畴，礼貌说明你专注于本工具中台。`;
         const systemInstruction = `${identityPrompt}
+${loadedSkills.catalogPrompt || ''}
 ${loadedSkills.prompt}
 当前页面标题: ${pageTitle || '未知'}
 ${homeAgent ? '平台工具目录与对话上下文' : '当前页面核心文本内容'}:
@@ -859,7 +876,7 @@ ${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n
 3.1 用户询问“每个月/分月/某月的目标值”时，这是当前目标配置问题：必须读取具体“指标目标规则”中 monthlyAndCategoryRules 的数字月份键，按月份完整列出；未出现的月份明确说“未配置”。不得用报表快照、历史入库值或其他同名指标替代。
 3.2 本次检索到的实时业务配置优先级高于历史对话、滚动摘要和之前的助手回答；如有冲突，应明确纠正旧答案。
 3.3 当只读业务配置返回“全部指标目标规则明细”时，表示用户已明确要求完整列表。必须输出全部记录，每条至少包含指标名、方向、权重和 1–12 月目标；使用紧凑的 Markdown 表格，不得因为普通检索上限而省略。
-4. 数据问题只能使用只读工具结果作为事实，明确说明月份、快照和数据时间。工具返回无数据时，不得估算或编造。
+4. 数据问题只能使用数据工具结果作为事实，明确说明月份、快照和数据时间。工具返回无数据时，不得估算或编造。
 4.1 用户询问某个具体指标的当前/实际值时，必须优先读取只读报表分析中 current.matchedMetrics：globalValue 是入库快照保存的全局值，customerGroups 是各客户群/系统部实际值。只要 matchedMetrics 已返回该指标，不得声称“没有返回当前值”；应同时列出全局值和所有已保存的分组值，无论该分组达标还是未达标，不得只列异常项。customerGroups 中 missing=true 或 actual=“--”表示未入库数值，必须显示为“无值”，不得解读为 0。
 4.2 “某指标呢/那么某指标呢”类省略式追问会继承上一个用户问题的查询意图和月份，但指标主体必须以当前追问为准，不得混入上一个指标的数值。
 4.3 如果提供了“运营指标体系图谱节点”，回答必须使用其中的月份、指标、分类和子指标归属来校验口径；不得把近似名指标当成同一节点。界面会自动附上可点击的图谱引用，正文无需伪造链接。
@@ -871,7 +888,7 @@ ${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n
 4.9 用户询问某个平台工具里的数据（人次、数量、金额、记录、趋势等）时，必须依据“平台工具业务数据”作答，并写明工具名、快照名或数据来源、数据期间。快照摘要（如 totalTransactions）和“表内合计行”是工具自身算出的口径，回答总数时优先采用；按日/按字段的统计只是辅助拆解，二者不一致时说明差异而不是自行改算。用户要的时间段没有对应快照时，明确说“没有覆盖该期间的数据”，并列出已有快照的期间；工具没有可读数据时如实说明，可建议打开工具导入后保存快照。不得编造任何数值。
 5. 历史报表使用入库时保存的得分和计分状态，不得用当前目标或计分规则重算。
 6. 把事实、基于数据的解读和可能原因分开。没有证据的原因必须标记为“可能”或“建议进一步核查”。
-${agentMode ? (agentSession.readOnly ? '7. 当前账号只读，没有修改平台业务数据或本地文件的权限。' : '7. 当前管理员可通过数据库工具对当前租户和所选项目的业务数据增删改查，并可通过文件工具修改工作目录；遵循工作区权限模式。只有工具返回提交成功后才能声称数据已修改；修改后重新查询验证，写入前的检索摘要不能作为修改后状态。凭据与平台控制面数据不开放。') : opsSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 ops_* 工具管理自动化运营（运营群组、计划、草稿、运营规范），只有工具返回成功后才能说已保存或已发送。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
+${agentMode ? (agentSession.readOnly ? '7. 当前账号只读，没有修改平台业务数据或本地文件的权限。' : '7. 当前管理员可通过数据库工具对当前租户和所选项目的业务数据增删改查，并可通过文件工具修改工作目录；遵循工作区权限模式。只有工具返回提交成功后才能声称数据已修改；修改后重新查询验证，写入前的检索摘要不能作为修改后状态。凭据与平台控制面数据不开放。') : databaseMode ? '7. 当前管理员可通过数据库工具直接对当前租户的平台业务数据增删改查，无需选择工作目录。按用户明确要求执行修改，提交成功后重新查询验证。凭据与平台控制面数据不开放。' : opsSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 ops_* 工具管理自动化运营（运营群组、计划、草稿、运营规范），只有工具返回成功后才能说已保存或已发送。' : followupSetup ? '7. 你没有修改业务数据的权限；唯一例外是用 followup_* 工具保存本会话的跟进任务，只有工具返回成功后才能说已记录。' : '7. 你没有修改业务数据的权限，不得声称已修改、删除或入库任何数据。'}
 ${scopeRule}
 ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.systemPrompt}` : ''}`;
 
@@ -912,6 +929,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 historyMessages: effectiveMessages,
+                skillCatalog: loadedSkills.catalog,
+                skillLanguage: uiLanguage,
                 write: event => {
                     if (event.type === 'delta') streamHasDelta = true;
                     writeStreamEvent(event);
@@ -990,7 +1009,31 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             recordedEvents.push(...followupResult.events);
             if (streamRequested) followupResult.events.forEach(event => writeStreamEvent(event));
         }
-        const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || (analysisResult ? analysisResult.result : await generateResponse());
+        const databaseResult = databaseMode
+            ? await databaseAgent.runTurn({
+                client: aiClient, systemInstruction, messages: effectiveMessages,
+                ctx: { readOnly: false, sensitiveValues }, signal: providerAbortController?.signal,
+                maxOutputTokens: aiSettings.maxOutputTokens, temperature: aiSettings.temperature,
+                onEvent: writeStreamEvent,
+                onDelta: streamRequested ? delta => {
+                    streamHasDelta = true;
+                    writeStreamEvent({ type: 'delta', delta });
+                } : undefined
+            })
+            : null;
+        const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || databaseResult || (analysisResult ? analysisResult.result : await generateResponse());
+        const skillReferenceAudit = homeAgent ? skillCatalogContract.guardReply(result.text, loadedSkills.catalog || [], {
+            language: uiLanguage, loadedIds: loadedSkills.selected.map(item => item.id)
+        }) : null;
+        if (skillReferenceAudit) skillReferenceAudit.unknownIds = [...new Set([
+            ...skillReferenceAudit.unknownIds, ...(result.skillReferenceAudit?.unknownIds || [])
+        ])];
+        if (skillReferenceAudit?.changed) {
+            result.text = skillReferenceAudit.text;
+        }
+        if (skillReferenceAudit?.unknownIds.length) {
+            recordedEvents.push({ type: 'skill-reference-audit', unknownIds: skillReferenceAudit.unknownIds });
+        }
         const usageVideoFooter = analysisCode ? '' : await getUsageVideoFooter(lastMessage.content, uiLanguage);
         if (usageVideoFooter && !String(result.text || '').includes(usageVideoFooter.trim())) {
             result.text = String(result.text || '') + usageVideoFooter;
@@ -1009,7 +1052,9 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                         : `（WeLink 查询：${welinkCliResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`)
                     : netcareResult && netcareResult.toolLog.length
                         ? `${result.text}\n\n（NetCare 查询：${netcareResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`
-                        : result.text, { secrets: sensitiveValues });
+                        : databaseResult && databaseResult.toolLog.length
+                            ? `${result.text}\n\n（数据库工具：${databaseResult.toolLog.slice(0, 8).map(item => `${item.tool}${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
+                            : result.text, { secrets: sensitiveValues });
         
         let totalTokens = 0;
         let promptTokens = 0;
@@ -1077,6 +1122,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
 
         const responsePayload = {
             reply: responseText,
+            ...(skillReferenceAudit?.unknownIds.length ? { skillReferenceAudit: { unknownIds: skillReferenceAudit.unknownIds } } : {}),
             ...(analysisResult ? { codeAnalysisAttempts: analysisResult.attempts } : {}),
             tokens: totalTokens,
             usage: { inputTokens, outputTokens },

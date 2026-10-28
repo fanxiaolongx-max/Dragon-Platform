@@ -1,0 +1,159 @@
+/* 托管 Python 应用启动页：状态卡片 + 全屏沙箱 iframe + 管理员运维胶囊 */
+:root {
+    --ha-bg: #f6f7f9;
+    --ha-card: #ffffff;
+    --ha-text: #1f2328;
+    --ha-muted: #656d76;
+    --ha-border: #d8dee4;
+    --ha-accent: #1f9d74;
+    --ha-danger: #cf222e;
+    --ha-log-bg: #0d1117;
+    --ha-log-text: #c9d1d9;
+}
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --ha-bg: #0f1218;
+        --ha-card: #171b22;
+        --ha-text: #e6edf3;
+        --ha-muted: #8b949e;
+        --ha-border: #2d333b;
+        --ha-accent: #3fb68b;
+        --ha-danger: #f85149;
+    }
+}
+:root[data-theme="dark"] {
+    --ha-bg: #0f1218;
+    --ha-card: #171b22;
+    --ha-text: #e6edf3;
+    --ha-muted: #8b949e;
+    --ha-border: #2d333b;
+    --ha-accent: #3fb68b;
+    --ha-danger: #f85149;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+    background: var(--ha-bg);
+    color: var(--ha-text);
+    font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    overflow: hidden;
+}
+.ha-stage { height: 100%; display: grid; place-items: center; padding: 16px; overflow: auto; }
+.ha-stage[hidden] { display: none; }
+.ha-card {
+    width: min(560px, 100%);
+    background: var(--ha-card);
+    border: 1px solid var(--ha-border);
+    border-radius: 14px;
+    padding: 28px 28px 24px;
+    text-align: center;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .06);
+}
+.ha-card.is-error .ha-title { color: var(--ha-danger); }
+.ha-title { font-size: 18px; margin: 4px 0 6px; font-weight: 600; }
+.ha-detail { margin: 0; color: var(--ha-muted); word-break: break-word; white-space: pre-wrap; }
+.ha-spinner {
+    width: 30px; height: 30px; margin: 0 auto 12px;
+    border-radius: 50%;
+    border: 3px solid var(--ha-border);
+    border-top-color: var(--ha-accent);
+    animation: ha-spin .9s linear infinite;
+}
+.ha-spinner[hidden] { display: none; }
+@keyframes ha-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ha-spinner { animation-duration: 2.4s; } }
+.ha-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 18px; }
+.ha-actions:empty { display: none; }
+.ha-btn {
+    border: 1px solid var(--ha-border);
+    background: transparent;
+    color: var(--ha-text);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font: inherit;
+    cursor: pointer;
+}
+.ha-btn:hover { border-color: var(--ha-accent); }
+.ha-btn.primary { background: var(--ha-accent); border-color: var(--ha-accent); color: #fff; }
+.ha-log, .ha-drawer pre {
+    margin: 16px 0 0;
+    max-height: 320px;
+    overflow: auto;
+    text-align: left;
+    background: var(--ha-log-bg);
+    color: var(--ha-log-text);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+.ha-log[hidden] { display: none; }
+.ha-frame { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
+.ha-bar { position: fixed; top: 8px; right: 8px; z-index: 10; }
+.ha-bar[hidden] { display: none; }
+.ha-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--ha-border);
+    background: var(--ha-card);
+    color: var(--ha-muted);
+    border-radius: 999px;
+    padding: 3px 10px;
+    font: 12px/1.6 inherit;
+    cursor: pointer;
+    opacity: .72;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+}
+.ha-pill:hover, .ha-pill[aria-expanded="true"] { opacity: 1; }
+.ha-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ha-muted); }
+.ha-dot[data-status="running"] { background: var(--ha-accent); }
+.ha-dot[data-status="crashed"], .ha-dot[data-status="install_failed"] { background: var(--ha-danger); }
+.ha-menu {
+    position: absolute; right: 0; top: calc(100% + 6px);
+    min-width: 220px;
+    background: var(--ha-card);
+    border: 1px solid var(--ha-border);
+    border-radius: 10px;
+    padding: 6px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .16);
+}
+.ha-menu[hidden] { display: none; }
+.ha-menu-meta { color: var(--ha-muted); font-size: 12px; padding: 4px 8px 8px; border-bottom: 1px solid var(--ha-border); margin-bottom: 4px; word-break: break-all; }
+.ha-menu-meta:empty { display: none; }
+.ha-menu button {
+    display: block; width: 100%;
+    text-align: left;
+    border: 0; background: transparent; color: var(--ha-text);
+    padding: 7px 10px; border-radius: 6px;
+    font: inherit; cursor: pointer;
+}
+.ha-menu button:hover { background: rgba(127, 127, 127, .12); }
+.ha-menu button.danger { color: var(--ha-danger); }
+.ha-drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; z-index: 20;
+    width: min(640px, 100%);
+    background: var(--ha-card);
+    border-left: 1px solid var(--ha-border);
+    display: flex; flex-direction: column;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, .18);
+}
+.ha-drawer[hidden] { display: none; }
+.ha-drawer header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--ha-border); }
+.ha-drawer header button { border: 0; background: transparent; color: var(--ha-muted); font-size: 20px; cursor: pointer; }
+.ha-drawer pre { flex: 1; max-height: none; margin: 12px; }
+@media (max-width: 600px) {
+    .ha-card { padding: 22px 16px 18px; }
+}
+.ha-settings { margin-top: 18px; text-align: left; display: grid; gap: 10px; }
+.ha-settings[hidden] { display: none; }
+.ha-settings label { display: grid; gap: 4px; font-size: 13px; color: var(--ha-muted); }
+.ha-settings input {
+    border: 1px solid var(--ha-border);
+    background: transparent;
+    color: var(--ha-text);
+    border-radius: 8px;
+    padding: 7px 10px;
+    font: inherit;
+}
+.ha-settings input:focus { outline: 2px solid var(--ha-accent); outline-offset: 1px; }
+.ha-settings-hint { margin: 0; font-size: 13px; color: var(--ha-text); }
