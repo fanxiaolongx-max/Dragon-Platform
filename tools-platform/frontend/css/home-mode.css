@@ -33,9 +33,10 @@ body.home-mode-chat .dc {
 }
 body.home-mode-chat .home-content.home-workspace { padding-bottom: 18px; }
 body.home-mode-chat.dc-chatting .dc { padding-bottom: 0; }
-/* 历史对话、目录芯片和推荐异步出现时向下展开，避免居中重排和浏览器滚动锚定抬高首屏。 */
+/* 欢迎区整体垂直居中；上下留白避开顶部工具入口，内容较多时由 min-height 自然撑高。 */
 body.home-mode-chat:not(.dc-chatting) .dc {
-    justify-content: flex-start;
+    justify-content: center;
+    padding-block: 64px;
     overflow-anchor: none;
 }
 

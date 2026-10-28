@@ -38,10 +38,24 @@ const COMMANDS = {
     },
     'meeting query-list': {
         label: '会议列表',
+        defaults: (refNow = Date.now()) => {
+            const start = new Date(refNow);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(refNow);
+            end.setHours(23, 59, 59, 999);
+            return {
+                'meeting-start-time': String(start.getTime()),
+                'meeting-end-time': String(end.getTime()),
+                type: 1,
+                'meeting-sort': 'asc',
+                page: 1,
+                size: 10
+            };
+        },
         options: {
-            'meeting-start-time': { type: 'ms', required: true }, 'meeting-end-time': { type: 'ms', required: true },
-            type: { type: 'int', min: 0, max: 5, required: true }, 'meeting-sort': { type: 'enum', values: ['asc', 'desc'], required: true },
-            page: { type: 'int', min: 0, max: 10000, required: true }, size: { type: 'int', min: 1, max: 30, required: true }
+            'meeting-start-time': { type: 'ms' }, 'meeting-end-time': { type: 'ms' },
+            type: { type: 'int', min: 0, max: 5 }, 'meeting-sort': { type: 'enum', values: ['asc', 'desc'] },
+            page: { type: 'int', min: 0, max: 10000 }, size: { type: 'int', min: 1, max: 30 }
         }
     },
     'meeting info': { label: '会议详情', options: { 'meeting-id': { type: 'string', required: true } } },
@@ -285,6 +299,7 @@ function buildArgs(input = {}, { mode = 'read', now } = {}) {
     const args = command.split(' ');
     const given = input.options && typeof input.options === 'object' && !Array.isArray(input.options) ? input.options : {};
     const byLoose = new Map(Object.keys(spec.options).map(name => [looseKey(name), name]));
+    const defaults = typeof spec.defaults === 'function' ? spec.defaults(now) : (spec.defaults || {});
     const values = {};
     for (const [rawKey, value] of Object.entries(given)) {
         if (value === undefined || value === null || value === '' || value === false) continue;
@@ -292,6 +307,15 @@ function buildArgs(input = {}, { mode = 'read', now } = {}) {
         const name = byLoose.get(looseKey(rawKey));
         if (!name) throw toolError('WELINK_ARG_NOT_ALLOWED', `命令 ${command} 不支持参数 ${rawKey}。可用参数：${Object.keys(spec.options).join('、') || '无'}`);
         values[name] = value;
+    }
+    for (const [name, defaultValue] of Object.entries(defaults)) {
+        if (values[name] === undefined) values[name] = defaultValue;
+    }
+    if (command === 'meeting query-list' && values['meeting-start-time'] && !values['meeting-end-time']) {
+        const s = Number(values['meeting-start-time']);
+        const endOfDay = new Date(s);
+        endOfDay.setHours(23, 59, 59, 999);
+        values['meeting-end-time'] = String(Math.max(endOfDay.getTime(), s + DAY_MS - 1));
     }
     for (const [name, optionSpec] of Object.entries(spec.options)) {
         if (optionSpec.required && values[name] === undefined) throw toolError('WELINK_ARG_REQUIRED', `命令 ${command} 缺少必填参数 ${name}`);
@@ -611,7 +635,7 @@ async function buildPrompt() {
     } else {
         lines.push(
             '用 welink_query 以用户本人身份查询 WeLink，或把云空间文件 / 分享外链 / 邮件附件下载到本机下载目录。结果以工具返回为准，不要编造人员、消息、会议或邮件内容。',
-            `今天是 ${new Date().toLocaleDateString('sv-SE')}，现在是 ${new Date().toLocaleTimeString('zh-CN', { hour12: false })}（平台服务器本地时间），当前 13 位毫秒时间戳约为 ${Date.now()}；meeting 的时间参数是 13 位毫秒时间戳，mail/calendar 的 --end 不包含当天（查某天要写次日），calendar create 的 start/end 写 YYYY-MM-DDTHH:mm:ss。`,
+            `今天是 ${new Date().toLocaleDateString('sv-SE')}，现在是 ${new Date().toLocaleTimeString('zh-CN', { hour12: false })}（平台服务器本地时间），当前 13 位毫秒时间戳约为 ${Date.now()}；meeting query-list 默认自动查询今日待参加会议（参数已内置智能默认值），mail/calendar 的 --end 不包含当天（查某天要写次日），calendar create 的 start/end 写 YYYY-MM-DDTHH:mm:ss。查询日程或会议完成后，务必在正文中按时间顺序列出清晰的事项、时间、地点与参会人清单。`,
             `查邮件 / 日历时直接调用即可：CLI 提示未发现邮箱服务器时，平台会自动用${config.email ? ` ${config.email}` : '云空间资料里的邮箱'}执行 mail autodiscover 并重试，不需要先手动 autodiscover。`,
             config.allowWrite
                 ? '用户明确要求发消息、建群、撤回、建会/改会/取消、议题、云空间增删改与外链、发/回/转/移邮件、建日程、特别关注时，用 welink_action：每次调用都会弹出审批卡，用户允许后才真正执行。调用前把收件人/成员换成查询到的真实账号或邮箱（不知道就先用 search person / contact detail 查，查不到就问用户），不要猜；工具返回成功前不要说「已发送 / 已创建」，被拒绝时如实说明未执行。'
@@ -620,6 +644,47 @@ async function buildPrompt() {
         );
     }
     return lines.join('\n');
+}
+
+function formatFallbackContent(history, toolLog) {
+    const lastToolMsg = [...history].reverse().find(m => m.role === 'tool' && Array.isArray(m.toolResults));
+    if (!lastToolMsg || !lastToolMsg.toolResults.length) {
+        return toolLog.length ? `已完成 WeLink 查询（${toolLog.map(t => t.summary || t.tool).join('；')}）。` : '';
+    }
+    const sections = [];
+    for (const res of lastToolMsg.toolResults) {
+        if (!res.content) continue;
+        if (res.isError) {
+            sections.push(`⚠️ ${res.content}`);
+            continue;
+        }
+        let parsed = null;
+        try { parsed = JSON.parse(res.content); } catch { /* ignore */ }
+        if (Array.isArray(parsed)) {
+            if (parsed.length === 0) {
+                sections.push('暂无相关记录。');
+            } else {
+                const lines = [`共查询到 ${parsed.length} 条记录：`];
+                parsed.slice(0, 10).forEach((item, idx) => {
+                    const title = item.subject || item.name || item.title || item.w3account || item.email || `记录 #${idx + 1}`;
+                    const time = item.start || (item.startTime ? new Date(Number(item.startTime)).toLocaleString('zh-CN', { hour12: false }) : '') || item.dateTimeReceived || '';
+                    const extra = item.organizer || item.from || (item.location ? `地点: ${item.location}` : '') || '';
+                    lines.push(`${idx + 1}. **${title}**${time ? `（${time}）` : ''}${extra ? ` - ${extra}` : ''}`);
+                });
+                if (parsed.length > 10) lines.push(`...等共 ${parsed.length} 条记录`);
+                sections.push(lines.join('\n'));
+            }
+        } else if (parsed && typeof parsed === 'object') {
+            const details = Object.entries(parsed)
+                .filter(([k, v]) => v !== null && v !== undefined && v !== '' && typeof v !== 'object')
+                .map(([k, v]) => `- **${k}**: ${v}`)
+                .join('\n');
+            sections.push(details || res.content);
+        } else {
+            sections.push(String(res.content).slice(0, 1500));
+        }
+    }
+    return sections.join('\n\n') || `已完成 WeLink 查询（${toolLog.map(t => t.summary || t.tool).join('；')}）。`;
 }
 
 // 模型只说「请稍等 / 正在查询」却没有调用工具：本轮补一次提示，让它真正去查
@@ -670,14 +735,24 @@ async function runTurn({ client, systemInstruction, messages, ctx = {}, signal, 
             if (!text.trim() && toolLog.length) {
                 history.push({ role: 'user', content: '（系统提示：上一次回复为空。请不要再调用工具，少思考，直接根据上面的工具结果用简洁的中文回答用户的问题。）' });
                 if (onDelta) onDelta('\n\n');
-                const retry = await activeClient.generateText({
-                    systemInstruction, messages: history, tools, toolChoice: 'none',
-                    maxOutputTokens: Math.max(Number(maxOutputTokens) || 0, SUMMARY_OUTPUT_TOKENS), temperature, signal, onDelta
-                });
-                usage.inputTokens += Number(retry.usage?.promptTokens || 0);
-                usage.outputTokens += Number(retry.usage?.outputTokens || 0);
-                usage.totalTokens += Number(retry.usage?.totalTokens || 0);
-                return { text: String(retry.text || ''), usage, toolLog };
+                let retryText = '';
+                try {
+                    const retry = await activeClient.generateText({
+                        systemInstruction, messages: history, tools, toolChoice: 'none',
+                        maxOutputTokens: Math.max(Number(maxOutputTokens) || 0, SUMMARY_OUTPUT_TOKENS), temperature, signal, onDelta
+                    });
+                    usage.inputTokens += Number(retry.usage?.promptTokens || 0);
+                    usage.outputTokens += Number(retry.usage?.outputTokens || 0);
+                    usage.totalTokens += Number(retry.usage?.totalTokens || 0);
+                    retryText = String(retry.text || '').trim();
+                } catch {
+                    // 模型不支持 toolChoice: 'none' 或重试失败时继续走兜底
+                }
+                if (retryText) return { text: retryText, usage, toolLog };
+                // 兜底：如果重试后模型依然返回空文本，直接根据工具结果构造回复，避免用户看到空白回答
+                const fallback = formatFallbackContent(history, toolLog);
+                if (onDelta && fallback) onDelta(fallback);
+                return { text: fallback, usage, toolLog };
             }
             return { text, usage, toolLog };
         }

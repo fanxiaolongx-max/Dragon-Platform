@@ -8648,6 +8648,15 @@ window.openToolsKnowledgeGraph = function (options = {}) {
     });
 };
 
+// 对话里的文件卡片与图片放大（ai-assistant.js 的 Markdown 渲染会用到），需先于助手脚本执行
+function ensureChatFilesScript() {
+    if (window.ChatFiles || document.querySelector('script[src^="/js/shared/chat-files.js"]')) return;
+    const script = document.createElement('script');
+    script.src = '/js/shared/chat-files.js';
+    script.async = false;
+    document.body.appendChild(script);
+}
+
 let toolsAiAssistantLoader = null;
 window.openToolsAIAssistant = function (options = {}) {
     if (window.ToolsAIAssistant?.open) return window.ToolsAIAssistant.open(options);
@@ -8658,7 +8667,9 @@ window.openToolsAIAssistant = function (options = {}) {
             script.addEventListener('load', resolve, { once: true });
             script.addEventListener('error', () => reject(new Error('AI 助手组件加载失败')), { once: true });
             if (!existing) {
+                ensureChatFilesScript();
                 script.src = '/js/shared/ai-assistant.js';
+                script.async = false;
                 document.body.appendChild(script);
             }
         }).catch(error => {
@@ -8680,8 +8691,10 @@ window.openToolsAIAssistant = function (options = {}) {
 
     // 确保不重复加载
     if (!document.querySelector('script[src^="/js/shared/ai-assistant.js"]')) {
+        ensureChatFilesScript();
         const aiScript = document.createElement('script');
         aiScript.src = '/js/shared/ai-assistant.js';
+        aiScript.async = false;
         document.body.appendChild(aiScript);
     }
 })();

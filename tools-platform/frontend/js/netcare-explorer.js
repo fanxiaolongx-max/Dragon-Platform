@@ -9,6 +9,8 @@
     const L = (zh, en) => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? en : zh);
     const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
     const STORE_KEY = 'netcare_explorer_view_v1';
+    const SQL_HISTORY_KEY = 'netcare_explorer_sql_history_v1';
+    const MAX_SQL_HISTORY = 100;
     const OPS = ['=', '!=', '>', '>=', '<', '<=', 'like', 'not like', 'in', 'not in', 'between', 'is null', 'is not null'];
     const AGGS = ['count', 'count_distinct', 'sum', 'avg', 'min', 'max'];
     const STATUS_FILTERS = [
@@ -22,6 +24,22 @@
     const MIN_SIDEBAR_WIDTH = 260;
     const MAX_SIDEBAR_WIDTH = 750;
 
+    function loadSqlHistory() {
+        try {
+            const raw = localStorage.getItem(SQL_HISTORY_KEY);
+            const list = JSON.parse(raw);
+            return Array.isArray(list) ? list : [];
+        } catch (_) {
+            return [];
+        }
+    }
+
+    function saveSqlHistory(list) {
+        try {
+            localStorage.setItem(SQL_HISTORY_KEY, JSON.stringify((list || []).slice(0, MAX_SQL_HISTORY)));
+        } catch (_) { /* 仅记住历史记录 */ }
+    }
+
     const saved = (() => { try { return JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch (_) { return {}; } })();
     const state = {
         scope: saved.scope === 'app' ? 'app' : 'business',
@@ -33,6 +51,11 @@
         selected: '', detail: null, detailLoading: false, detailError: '',
         query: null, queryResult: null, queryBusy: false,
         sqlText: '', sqlResult: null, sqlBusy: false,
+        sqlHistory: loadSqlHistory(),
+        sqlHistoryPage: 1,
+        sqlHistoryPageSize: [5, 10, 20, 50].includes(Number(saved.sqlHistoryPageSize)) ? Number(saved.sqlHistoryPageSize) : 10,
+        sqlHistoryFilter: '',
+        sqlHistoryScope: 'all',
         count: null, noteBusy: false
     };
     const root = document.getElementById('nxApp');
@@ -44,7 +67,8 @@
                 tab: state.tab,
                 sidebarWidth: state.sidebarWidth,
                 sidebarCollapsed: state.sidebarCollapsed,
-                collapsedGroups: [...state.collapsedGroups]
+                collapsedGroups: [...state.collapsedGroups],
+                sqlHistoryPageSize: state.sqlHistoryPageSize
             }));
         } catch (_) { /* 仅记住视图 */ }
     }
@@ -398,6 +422,188 @@
             ${rowsTable(result.rows)}`;
     }
 
+    function formatSqlTime(ts) {
+        if (!ts) return '';
+        const d = new Date(ts);
+        if (Number.isNaN(d.getTime())) return '';
+        const pad = n => String(n).padStart(2, '0');
+        const y = d.getFullYear();
+        const m = pad(d.getMonth() + 1);
+        const day = pad(d.getDate());
+        const h = pad(d.getHours());
+        const min = pad(d.getMinutes());
+        const s = pad(d.getSeconds());
+        const now = new Date();
+        if (d.toDateString() === now.toDateString()) return `${h}:${min}:${s}`;
+        if (y === now.getFullYear()) return `${m}-${day} ${h}:${min}:${s}`;
+        return `${y}-${m}-${day} ${h}:${min}`;
+    }
+
+    function getFilteredSqlHistory() {
+        let list = state.sqlHistory || [];
+        if (state.sqlHistoryScope && state.sqlHistoryScope !== 'all') {
+            list = list.filter(item => item.scope === state.sqlHistoryScope);
+        }
+        const q = (state.sqlHistoryFilter || '').trim().toLowerCase();
+        if (q) {
+            list = list.filter(item => (item.sql || '').toLowerCase().includes(q) || (item.table || '').toLowerCase().includes(q) || (item.error || '').toLowerCase().includes(q));
+        }
+        return list;
+    }
+
+    function renderPaginationNumbers(current, total) {
+        if (total <= 1) return '';
+        const pages = [];
+        if (total <= 7) {
+            for (let i = 1; i <= total; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            let left = Math.max(2, current - 1);
+            let right = Math.min(total - 1, current + 1);
+            if (current <= 3) {
+                right = 4;
+            } else if (current >= total - 2) {
+                left = total - 3;
+            }
+            if (left > 2) pages.push('...');
+            for (let i = left; i <= right; i++) pages.push(i);
+            if (right < total - 1) pages.push('...');
+            pages.push(total);
+        }
+        return pages.map(p => {
+            if (p === '...') return `<span class="nx-page-ellipsis">…</span>`;
+            return `<button type="button" class="nx-btn nx-btn-sm ${p === current ? 'primary' : ''}" data-nx-action="sql-history-page" data-page="${p}">${p}</button>`;
+        }).join('');
+    }
+
+    function applySqlToEditor(sql) {
+        if (!sql) return;
+        state.sqlText = sql;
+        const textarea = root.querySelector('[data-nx="sql"]');
+        if (textarea) {
+            textarea.value = sql;
+            textarea.focus();
+            textarea.classList.remove('nx-flash-highlight');
+            void textarea.offsetWidth;
+            textarea.classList.add('nx-flash-highlight');
+            textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            state.tab = 'sql';
+            render();
+        }
+        window.showToast?.(L('已填入 SQL 查询输入框', 'Inserted into SQL query box'), 'success');
+    }
+
+    function recordSqlHistory(entry) {
+        if (!entry || !entry.sql) return;
+        state.sqlHistory = [entry, ...(state.sqlHistory || []).filter(h => h.id !== entry.id)].slice(0, MAX_SQL_HISTORY);
+        saveSqlHistory(state.sqlHistory);
+        state.sqlHistoryPage = 1;
+    }
+
+    function renderSqlHistory() {
+        const rawTotal = (state.sqlHistory || []).length;
+        const list = getFilteredSqlHistory();
+        const pageSize = state.sqlHistoryPageSize || 10;
+        const total = list.length;
+        const totalPages = Math.max(1, Math.ceil(total / pageSize));
+        const page = Math.min(Math.max(1, state.sqlHistoryPage || 1), totalPages);
+        const startIdx = (page - 1) * pageSize;
+        const pageItems = list.slice(startIdx, startIdx + pageSize);
+
+        return `<div class="nx-history-section" data-nx-role="sql-history">
+            <div class="nx-history-header">
+                <div class="nx-history-title-wrap">
+                    <div class="nx-history-title">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                        <span>${esc(L('SQL 执行历史记录', 'SQL Execution History'))}</span>
+                    </div>
+                    <span class="nx-history-count" title="${esc(L(`最多保存最近 ${MAX_SQL_HISTORY} 次执行记录`, `Stores up to ${MAX_SQL_HISTORY} recent queries`))}">
+                        ${esc(L(`最近 ${rawTotal} 次`, `Last ${rawTotal} runs`))}
+                    </span>
+                </div>
+                <div class="nx-history-toolbar">
+                    <input type="search" class="nx-input nx-history-filter" data-nx="sql-history-filter" placeholder="${esc(L('搜索历史 SQL…', 'Filter history…'))}" value="${esc(state.sqlHistoryFilter || '')}">
+                    <select class="nx-select nx-history-scope-select" data-nx="sql-history-scope" title="${esc(L('按库类型过滤', 'Filter by scope'))}">
+                        <option value="all" ${state.sqlHistoryScope === 'all' ? 'selected' : ''}>${esc(L('全部库', 'All Scopes'))}</option>
+                        <option value="business" ${state.sqlHistoryScope === 'business' ? 'selected' : ''}>${esc(L('业务库', 'Business'))}</option>
+                        <option value="app" ${state.sqlHistoryScope === 'app' ? 'selected' : ''}>${esc(L('应用库', 'App'))}</option>
+                    </select>
+                    <label class="nx-history-pagesize-label">
+                        <span>${esc(L('每页', 'Per page'))}</span>
+                        <select class="nx-select nx-history-pagesize" data-nx="sql-history-pagesize">
+                            <option value="5" ${pageSize === 5 ? 'selected' : ''}>5</option>
+                            <option value="10" ${pageSize === 10 ? 'selected' : ''}>10</option>
+                            <option value="20" ${pageSize === 20 ? 'selected' : ''}>20</option>
+                            <option value="50" ${pageSize === 50 ? 'selected' : ''}>50</option>
+                        </select>
+                        <span>${esc(L('条', 'items'))}</span>
+                    </label>
+                    ${rawTotal > 0 ? `<button type="button" class="nx-btn danger nx-btn-sm" data-nx-action="clear-sql-history" title="${esc(L('清空所有 SQL 历史记录', 'Clear all history'))}">
+                        ${esc(L('清空历史', 'Clear history'))}
+                    </button>` : ''}
+                </div>
+            </div>
+
+            ${total === 0 ? `
+                <div class="nx-empty nx-history-empty">
+                    ${rawTotal === 0
+                        ? esc(L('暂无执行记录。在此处执行的 SQL 会自动保存在这里，支持一键填入与分页查看。', 'No execution history yet. SQL queries run here will be saved automatically.'))
+                        : esc(L('没有符合当前过滤条件的历史记录。', 'No history records match the filter.'))}
+                </div>
+            ` : `
+                <div class="nx-history-list">
+                    ${pageItems.map(item => `
+                        <div class="nx-history-item" data-history-id="${esc(item.id)}">
+                            <div class="nx-history-item-top">
+                                <div class="nx-history-meta-left">
+                                    <span class="nx-history-badge ${item.status === 'success' ? 'ok' : 'bad'}">${item.status === 'success' ? esc(L('成功', 'Success')) : esc(L('失败', 'Failed'))}</span>
+                                    <span class="nx-history-tag">${esc(item.scope === 'app' ? L('应用库', 'App') : L('业务库', 'Business'))}</span>
+                                    <span class="nx-history-time" title="${esc(new Date(item.createdAt).toLocaleString())}">${esc(formatSqlTime(item.createdAt))}</span>
+                                    ${item.durationMs != null ? `<span class="nx-history-stat">${item.durationMs}ms</span>` : ''}
+                                    ${item.rowCount != null ? `<span class="nx-history-stat">${item.rowCount} ${esc(L(item.kind === 'write' ? '行受影响' : '行', item.kind === 'write' ? 'rows affected' : 'rows'))}</span>` : ''}
+                                    ${item.table ? `<span class="nx-history-table-tag mono" title="${esc(item.table)}">${esc(item.table)}</span>` : ''}
+                                </div>
+                                <div class="nx-history-actions">
+                                    <button type="button" class="nx-btn primary nx-btn-sm" data-nx-action="apply-sql-history" data-id="${esc(item.id)}" title="${esc(L('一键填入到 SQL 查询输入框', 'Insert into query box'))}">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                        <span>${esc(L('一键填入', 'Apply'))}</span>
+                                    </button>
+                                    <button type="button" class="nx-btn nx-btn-sm" data-nx-action="copy-sql-history" data-id="${esc(item.id)}" title="${esc(L('复制 SQL 到剪贴板', 'Copy SQL'))}">
+                                        <span>${esc(L('复制', 'Copy'))}</span>
+                                    </button>
+                                    <button type="button" class="nx-btn danger nx-btn-sm nx-btn-icon-only" data-nx-action="delete-sql-history" data-id="${esc(item.id)}" title="${esc(L('删除此条记录', 'Delete record'))}">
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+                            <pre class="nx-history-sql" data-nx-action="apply-sql-history" data-id="${esc(item.id)}" title="${esc(L('点击一键填入到 SQL 查询框', 'Click to apply to query editor'))}"><code>${esc(item.sql)}</code></pre>
+                            ${item.error ? `<div class="nx-history-error">${esc(item.error)}</div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div class="nx-history-pagination">
+                    <div class="nx-history-pagination-info">
+                        ${esc(L(`第 ${page} / ${totalPages} 页 · 共 ${total} 条`, `Page ${page} of ${totalPages} · ${total} records`))}
+                    </div>
+                    <div class="nx-history-pagination-controls">
+                        <button type="button" class="nx-btn nx-btn-sm" data-nx-action="sql-history-page" data-page="${page - 1}" ${page <= 1 ? 'disabled' : ''}>
+                            ${esc(L('上一页', 'Prev'))}
+                        </button>
+                        ${renderPaginationNumbers(page, totalPages)}
+                        <button type="button" class="nx-btn nx-btn-sm" data-nx-action="sql-history-page" data-page="${page + 1}" ${page >= totalPages ? 'disabled' : ''}>
+                            ${esc(L('下一页', 'Next'))}
+                        </button>
+                    </div>
+                </div>
+            `}
+        </div>`;
+    }
+
     function renderSql() {
         const table = state.selected;
         const placeholder = state.scope === 'app' ? `SELECT * FROM ${table || 't_report_template'} LIMIT 50` : `SELECT * FROM netcare.${table || 'common_data_rep'} LIMIT 50`;
@@ -411,7 +617,8 @@
                 ${state.scope === 'app' ? `<button type="button" class="nx-btn danger" data-nx-action="sql-execute" ${state.sqlBusy ? 'disabled' : ''}>${esc(L('执行写入', 'Execute write'))}</button>` : ''}
                 <button type="button" class="nx-btn primary" data-nx-action="sql-run" ${state.sqlBusy ? 'disabled' : ''}>${esc(state.sqlBusy ? L('执行中…', 'Running…') : L('执行查询', 'Run query'))}</button>
             </div>
-            ${result ? (result.kind ? `<div class="nx-alert info" style="margin-top:10px">${esc(L(`${result.kind.toUpperCase()} 已执行，影响 ${result.affectedRows ?? '?'} 行（${result.durationMs} ms）`, `${result.kind.toUpperCase()} executed, ${result.affectedRows ?? '?'} rows affected`))}</div>` : resultBlock(result, `${state.scope}-sql`)) : ''}`;
+            ${result ? (result.kind ? `<div class="nx-alert info" style="margin-top:10px">${esc(L(`${result.kind.toUpperCase()} 已执行，影响 ${result.affectedRows ?? '?'} 行（${result.durationMs} ms）`, `${result.kind.toUpperCase()} executed, ${result.affectedRows ?? '?'} rows affected`))}</div>` : resultBlock(result, `${state.scope}-sql`)) : ''}
+            ${renderSqlHistory()}`;
     }
 
     // 未启用 / 连不上基座时：说明字段与样例要连上基座才能看，标注仍可离线填写
@@ -557,12 +764,37 @@
         }
         state.sqlBusy = true;
         render();
+        const start = Date.now();
+        const historyEntry = {
+            id: 'h_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+            sql: text.trim(),
+            scope: state.scope,
+            table: state.selected || '',
+            createdAt: Date.now(),
+            status: 'success',
+            durationMs: 0,
+            rowCount: null,
+            kind: write ? 'write' : 'query',
+            error: null
+        };
         try {
             state.sqlResult = write ? await request('POST', '/execute', { sql: text }) : await request('POST', '/sql', { scope: state.scope, sql: text });
+            historyEntry.status = 'success';
+            historyEntry.durationMs = state.sqlResult?.durationMs ?? (Date.now() - start);
+            if (state.sqlResult?.rows) {
+                historyEntry.rowCount = state.sqlResult.rows.length;
+            } else if (state.sqlResult?.affectedRows != null) {
+                historyEntry.rowCount = state.sqlResult.affectedRows;
+                historyEntry.kind = state.sqlResult.kind || 'write';
+            }
         } catch (error) {
             state.sqlResult = { error: error.message, raw: error.raw };
+            historyEntry.status = 'error';
+            historyEntry.durationMs = Date.now() - start;
+            historyEntry.error = error.message;
         } finally {
             state.sqlBusy = false;
+            recordSqlHistory(historyEntry);
             render();
         }
     }
@@ -693,6 +925,61 @@
             }
             if (action === 'sql-run') return runSql(false);
             if (action === 'sql-execute') return runSql(true);
+            if (action === 'apply-sql-history') {
+                const id = button.dataset.id || button.closest('[data-id]')?.dataset.id;
+                const item = (state.sqlHistory || []).find(h => h.id === id);
+                if (item) applySqlToEditor(item.sql);
+                return undefined;
+            }
+            if (action === 'copy-sql-history') {
+                const id = button.dataset.id;
+                const item = (state.sqlHistory || []).find(h => h.id === id);
+                if (item && item.sql) {
+                    try {
+                        await navigator.clipboard.writeText(item.sql);
+                        window.showToast?.(L('已复制 SQL 到剪贴板', 'SQL copied to clipboard'), 'success');
+                    } catch (_) {
+                        window.showToast?.(L('复制失败', 'Copy failed'), 'error');
+                    }
+                }
+                return undefined;
+            }
+            if (action === 'delete-sql-history') {
+                const id = button.dataset.id;
+                state.sqlHistory = (state.sqlHistory || []).filter(h => h.id !== id);
+                const list = getFilteredSqlHistory();
+                const maxPage = Math.max(1, Math.ceil(list.length / state.sqlHistoryPageSize));
+                if (state.sqlHistoryPage > maxPage) state.sqlHistoryPage = maxPage;
+                saveSqlHistory(state.sqlHistory);
+                render();
+                return undefined;
+            }
+            if (action === 'clear-sql-history') {
+                const confirmFn = window.AppDialog?.confirm
+                    ? (msg, opts) => window.AppDialog.confirm(msg, opts)
+                    : (msg) => Promise.resolve(window.confirm(msg));
+                const ok = await confirmFn(
+                    L('确定要清空所有 SQL 查询历史记录吗？', 'Are you sure you want to clear all SQL query history?'),
+                    { title: L('清空历史记录', 'Clear History'), tone: 'danger', confirmText: L('清空', 'Clear'), cancelText: L('取消', 'Cancel') }
+                );
+                if (!ok) return undefined;
+                state.sqlHistory = [];
+                state.sqlHistoryPage = 1;
+                saveSqlHistory([]);
+                render();
+                window.showToast?.(L('已清空历史记录', 'History cleared'), 'success');
+                return undefined;
+            }
+            if (action === 'sql-history-page') {
+                const page = Number(button.dataset.page);
+                const list = getFilteredSqlHistory();
+                const maxPage = Math.max(1, Math.ceil(list.length / state.sqlHistoryPageSize));
+                if (page >= 1 && page <= maxPage) {
+                    state.sqlHistoryPage = page;
+                    render();
+                }
+                return undefined;
+            }
         } catch (error) {
             window.showToast?.(error.message, 'error');
             render();
@@ -701,6 +988,7 @@
     });
 
     let searchTimer = null;
+    let historySearchTimer = null;
     root.addEventListener('input', event => {
         const key = event.target.dataset?.nx;
         if (key === 'q') {
@@ -708,6 +996,26 @@
             searchTimer = setTimeout(() => { state.q = event.target.value; refreshList(); }, 150);
         } else if (key === 'sql') {
             state.sqlText = event.target.value;
+        } else if (key === 'sql-history-filter') {
+            clearTimeout(historySearchTimer);
+            const val = event.target.value;
+            historySearchTimer = setTimeout(() => {
+                state.sqlHistoryFilter = val;
+                state.sqlHistoryPage = 1;
+                const section = root.querySelector('[data-nx-role="sql-history"]');
+                if (section) {
+                    const holder = document.createElement('div');
+                    holder.innerHTML = renderSqlHistory();
+                    section.replaceWith(holder.firstElementChild);
+                    const input = root.querySelector('[data-nx="sql-history-filter"]');
+                    if (input) {
+                        input.focus();
+                        input.setSelectionRange(input.value.length, input.value.length);
+                    }
+                } else {
+                    render();
+                }
+            }, 150);
         }
     });
     root.addEventListener('change', event => {
@@ -717,6 +1025,15 @@
             refreshList();
         } else if (event.target.matches?.('[data-nx-filter][data-key="op"]')) {
             readQueryForm();
+            render();
+        } else if (key === 'sql-history-pagesize') {
+            state.sqlHistoryPageSize = Number(event.target.value) || 10;
+            state.sqlHistoryPage = 1;
+            remember();
+            render();
+        } else if (key === 'sql-history-scope') {
+            state.sqlHistoryScope = event.target.value;
+            state.sqlHistoryPage = 1;
             render();
         }
     });
@@ -791,6 +1108,18 @@
     });
 
     window.addEventListener('tools:languagechange', render);
+
+    try {
+        window.__NetCareExplorer = {
+            state,
+            loadSqlHistory,
+            saveSqlHistory,
+            recordSqlHistory,
+            getFilteredSqlHistory,
+            applySqlToEditor,
+            renderSqlHistory
+        };
+    } catch (_) {}
 
     loadCatalog();
 })();

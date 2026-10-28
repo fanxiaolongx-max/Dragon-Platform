@@ -577,6 +577,7 @@ function compactRecordedEvent(event) {
 // 对话 @ 菜单：内置 + 当前租户的自定义 Skill（已删除的内置 Skill 不出现）
 router.get('/skills', checkAuth, async (_req, res) => {
     try {
+        res.setHeader('Cache-Control', 'no-store');
         res.json({ items: (await agentSkillsStore.listAll()).map(({ id, name, nameEn, description, descriptionEn, workspace, icon, builtIn }) => ({ id, name, nameEn, description, descriptionEn, workspace, icon, builtIn })) });
     } catch (error) {
         res.status(500).json({ error: `读取技能列表失败: ${error.message}` });
@@ -1003,7 +1004,9 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             : opsResult && opsResult.toolLog.length
                 ? `${result.text}\n\n（运营工具：${opsResult.toolLog.slice(0, 8).map(item => `${item.tool}${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
                 : welinkCliResult && welinkCliResult.toolLog.length
-                    ? `${result.text}\n\n（WeLink 查询：${welinkCliResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`
+                    ? (String(result.text || '').trim()
+                        ? `${result.text}\n\n（WeLink 查询：${welinkCliResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`
+                        : `（WeLink 查询：${welinkCliResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`)
                     : netcareResult && netcareResult.toolLog.length
                         ? `${result.text}\n\n（NetCare 查询：${netcareResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`
                         : result.text, { secrets: sensitiveValues });

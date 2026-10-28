@@ -91,7 +91,10 @@ function load(content, { hasWorkspace = false, language = 'zh', extraIds = [] } 
 
 // 内置与用户自定义 Skill（agent-skills-store.js）共用同一段系统说明
 function buildPrompt(sections) {
-    return sections.length ? `\n用户为本条消息选择了以下 Skills。按任务需要使用其中流程；用户当前要求优先，Skill 不改变账号权限和审批模式，不要求额外审批。只使用实际可用的工具，不编造执行或验证结果。回复语言跟随用户。\n${sections.join('\n\n')}\n` : '';
+    const drafting = sections.some(section => /^### @(?:create-skill|improve-skill)\n/.test(section));
+    // 平台保存契约独立于可被租户完善的 Skill 正文，避免旧版或自定义说明让模型虚报成功。
+    const draftRule = drafting ? `\n**平台技能保存规则**：聊天回复本身不会创建、保存或激活技能，用户回复“确认”也不会触发保存接口。生成或修改技能时，必须输出完整的 \`\`\`skill 代码块，其中包含 SKILL.md 的 front-matter（id、name、name_en、description、description_en、workspace）和执行步骤；id 必须是以字母开头的小写英文、数字、连字符，最长 41 字符。明确说明“草稿尚未保存，请点击回复下方的保存为技能/完善此技能按钮”；只有界面保存接口返回成功才算保存完成。不得用“已创建并激活”“已保存”“现在可以 @ 使用”等文字代替可保存的草稿。用户仅回复“确认”时，如上文尚未提供可保存草稿，应补全草稿。信息不足时先澄清，不要虚报成功。\n` : '';
+    return sections.length ? `\n用户为本条消息选择了以下 Skills。按任务需要使用其中流程；用户当前要求优先，Skill 不改变账号权限和审批模式，不要求额外审批。只使用实际可用的工具，不编造执行或验证结果。回复语言跟随用户。\n${sections.join('\n\n')}\n${draftRule}` : '';
 }
 
 // 内置 Skill 原文与正文（下载、管理用）；不存在时返回 null

@@ -275,6 +275,248 @@ body.nx-resizing * {
 .nx-link.danger { color: var(--nx-bad); }
 .nx-meta { font-size: 12px; color: var(--nx-muted); margin: 6px 0; }
 
+/* SQL 查询历史记录 */
+.nx-history-section {
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid var(--nx-border);
+}
+.nx-history-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+.nx-history-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.nx-history-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 850;
+    color: var(--nx-text);
+}
+.nx-history-count {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    background: var(--nx-head);
+    color: var(--nx-muted);
+    border: 1px solid var(--nx-border);
+}
+.nx-history-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+.nx-history-filter {
+    height: 28px !important;
+    font-size: 12px !important;
+    padding: 0 8px !important;
+    width: 140px;
+}
+.nx-history-scope-select {
+    height: 28px !important;
+    font-size: 12px !important;
+    padding: 0 6px !important;
+}
+.nx-history-pagesize-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--nx-muted);
+}
+.nx-history-pagesize {
+    height: 28px !important;
+    font-size: 12px !important;
+    padding: 0 6px !important;
+}
+.nx-btn-sm {
+    height: 26px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    border-radius: 6px !important;
+}
+.nx-btn-icon-only {
+    padding: 0 6px !important;
+    line-height: 1;
+}
+.nx-history-empty {
+    padding: 24px 16px;
+    background: var(--nx-head);
+    border: 1px dashed var(--nx-border-strong);
+    border-radius: 10px;
+    text-align: center;
+    color: var(--nx-muted);
+    font-size: 12px;
+}
+.nx-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.nx-history-item {
+    border: 1px solid var(--nx-border);
+    border-radius: 10px;
+    background: var(--nx-card);
+    overflow: hidden;
+    transition: border-color .15s, box-shadow .15s;
+}
+.nx-history-item:hover {
+    border-color: var(--nx-border-strong);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.nx-history-item-top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--nx-head);
+    border-bottom: 1px solid var(--nx-border);
+    font-size: 11px;
+}
+.nx-history-meta-left {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.nx-history-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 800;
+}
+.nx-history-badge.ok {
+    background: var(--nx-ok-soft);
+    color: var(--nx-ok);
+}
+.nx-history-badge.bad {
+    background: var(--nx-bad-soft);
+    color: var(--nx-bad);
+}
+.nx-history-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--nx-card);
+    color: var(--nx-muted);
+    border: 1px solid var(--nx-border);
+}
+.nx-history-time {
+    color: var(--nx-muted);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px;
+}
+.nx-history-stat {
+    color: var(--nx-muted);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px;
+    font-weight: 700;
+}
+.nx-history-table-tag {
+    padding: 0 5px;
+    border-radius: 4px;
+    font-size: 10px;
+    background: var(--nx-accent-soft);
+    color: var(--nx-accent);
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.nx-history-actions {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+}
+.nx-history-sql {
+    margin: 0;
+    padding: 8px 12px;
+    background: var(--nx-code);
+    color: var(--nx-code-text);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 120px;
+    overflow-y: auto;
+    cursor: pointer;
+    transition: background .15s;
+}
+.nx-history-sql:hover {
+    background: color-mix(in srgb, var(--nx-accent) 15%, var(--nx-code));
+}
+.nx-history-sql code {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    background: transparent;
+}
+.nx-history-error {
+    padding: 6px 12px;
+    font-size: 11px;
+    line-height: 1.4;
+    background: var(--nx-bad-soft);
+    color: var(--nx-bad);
+    border-top: 1px solid var(--nx-border);
+    font-family: ui-monospace, Menlo, Consolas, monospace;
+    word-break: break-all;
+}
+.nx-history-pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--nx-muted);
+}
+.nx-history-pagination-info {
+    font-variant-numeric: tabular-nums;
+    font-size: 12px;
+}
+.nx-history-pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.nx-page-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 26px;
+    color: var(--nx-faint);
+    font-size: 12px;
+}
+@keyframes nxFlash {
+    0% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--nx-accent) 60%, transparent); border-color: var(--nx-accent); }
+    100% { box-shadow: none; }
+}
+.nx-flash-highlight {
+    animation: nxFlash 1.2s ease-out;
+}
+
 @media (max-width: 900px) {
     .nx-main, .nx-main.is-collapsed { grid-template-columns: 1fr; }
     .nx-list-card { position: static; max-height: 420px; }

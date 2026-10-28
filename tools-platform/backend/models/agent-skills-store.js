@@ -1,5 +1,6 @@
-// 用户自定义 Skill（对话里 @create-skill 生成、或导入 SKILL 压缩包）与内置 Skill 的管理层。
+// 用户自定义 Skill（对话里 @create-skill / @improve-skill 生成、或导入 SKILL 压缩包）与内置 Skill 的管理层。
 // - 自定义 Skill 存在当前租户的 tools.db（agent_skills），按租户隔离；内置 Skill 仍是版本控制的 SKILL.md（agent-skills.js）。
+// - 支持完善内置技能与自定义技能，完善覆盖前自动备份历史版本；支持查看历史版本并随时一键回退。
 // - 内置 Skill 的改名、删除（隐藏）记在 agent_skill_overrides，不改动源文件，可随时恢复。
 // - 对话加载时合并两者：@id 只在白名单（当前租户可见的 Skill）中匹配，不读取任何用户路径。
 const JSZip = require('jszip');
@@ -50,6 +51,23 @@ async function ensureReady() {
         hidden INTEGER NOT NULL DEFAULT 0,
         updated_at TEXT NOT NULL
     )`);
+    await run(`CREATE TABLE IF NOT EXISTS agent_skill_backups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        skill_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        name_en TEXT NOT NULL DEFAULT '',
+        description TEXT NOT NULL DEFAULT '',
+        description_en TEXT NOT NULL DEFAULT '',
+        icon TEXT NOT NULL DEFAULT '✨',
+        workspace INTEGER NOT NULL DEFAULT 0,
+        body TEXT NOT NULL,
+        files_json TEXT NOT NULL DEFAULT '[]',
+        source TEXT NOT NULL DEFAULT '',
+        created_by TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL,
+        summary TEXT NOT NULL DEFAULT ''
+    )`);
+    await run(`CREATE INDEX IF NOT EXISTS idx_skill_backups_skill_id ON agent_skill_backups(skill_id, created_at DESC)`);
     readyConnections.add(connection);
 }
 
@@ -146,6 +164,7 @@ function rowToSkill(row) {
         icon: row.icon || '✨',
         workspace: Boolean(row.workspace),
         builtIn: false,
+        customized: false,
         hidden: false,
         source: row.source,
         fileCount: files.length,
@@ -171,19 +190,32 @@ async function listCustomRows() {
 /** 当前租户的 Skill 目录（不含正文）。includeHidden 用于管理界面显示被删除的内置 Skill */
 async function listAll({ includeHidden = false } = {}) {
     const [overrideMap, customRows] = await Promise.all([overrides(), listCustomRows()]);
+    const customMap = new Map(customRows.map(row => [row.id, row]));
     const builtins = builtinSkills.list().map(meta => {
         const override = overrideMap.get(meta.id);
+        const custom = customMap.get(meta.id);
+        const isCustomized = Boolean(custom);
+        let fileCount = 0;
+        if (custom) {
+            try { fileCount = JSON.parse(custom.files_json || '[]').length; } catch { fileCount = 0; }
+        }
         return {
             ...meta,
-            name: override?.name || meta.name,
+            name: custom?.name || override?.name || meta.name,
+            nameEn: custom?.name_en || meta.nameEn,
+            description: custom?.description || meta.description,
+            descriptionEn: custom?.description_en || meta.descriptionEn,
+            icon: custom?.icon || meta.icon,
+            workspace: custom ? Boolean(custom.workspace) : meta.workspace,
             builtIn: true,
+            customized: isCustomized,
             hidden: Boolean(override?.hidden),
-            renamed: Boolean(override?.name),
-            fileCount: 0,
-            updatedAt: ''
+            renamed: Boolean(override?.name || custom?.name),
+            fileCount,
+            updatedAt: custom?.updated_at || ''
         };
     });
-    // 同名时以内置为准（例如其他租户把同标识的技能转为了内置）
+    // 非内置的自定义技能
     const customs = customRows.filter(row => !builtinSkills.builtin(row.id)).map(row => {
         const { body, files, ...meta } = rowToSkill(row);
         return meta;
@@ -214,11 +246,188 @@ async function getCustom(id) {
     return row ? rowToSkill(row) : null;
 }
 
+/** 获取完整技能详情（支持内置技能、自定义技能以及被完善自定义的内置技能） */
+async function getSkill(id) {
+    await ensureReady();
+    const cleanId = String(id || '').toLowerCase();
+    const builtin = builtinSkills.builtin(cleanId);
+    const custom = await getCustom(cleanId);
+    if (!builtin && !custom) return null;
+    if (builtin) {
+        const override = (await overrides()).get(cleanId);
+        if (custom) {
+            return {
+                ...custom,
+                builtIn: true,
+                customized: true,
+                originalName: builtin.meta.name,
+                originalBody: builtin.body,
+                markdown: skillMarkdown(custom, custom.body)
+            };
+        }
+        const meta = { ...builtin.meta, name: override?.name || builtin.meta.name };
+        return {
+            ...meta,
+            builtIn: true,
+            customized: false,
+            source: 'builtin',
+            body: builtin.body,
+            files: [],
+            fileCount: 0,
+            markdown: skillMarkdown(meta, builtin.body)
+        };
+    }
+    return {
+        ...custom,
+        builtIn: false,
+        customized: false,
+        markdown: skillMarkdown(custom, custom.body)
+    };
+}
+
+/** 备份当前技能状态到 agent_skill_backups */
+async function createBackup(skillId, { createdBy = '', summary = '' } = {}) {
+    await ensureReady();
+    const cleanId = String(skillId || '').toLowerCase();
+    const current = await getSkill(cleanId);
+    if (!current) throw httpError('技能不存在，无法备份', 404, 'SKILL_NOT_FOUND');
+    const now = new Date().toISOString();
+    const res = await run(
+        `INSERT INTO agent_skill_backups (skill_id, name, name_en, description, description_en, icon, workspace, body, files_json, source, created_by, created_at, summary)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [cleanId, current.name, current.nameEn || current.name, current.description || '', current.descriptionEn || '', current.icon || '✨',
+         current.workspace ? 1 : 0, current.body || '', JSON.stringify(current.files || []), current.source || '', createdBy, now, summary || '技能备份']
+    );
+    return { id: res?.lastID, skillId: cleanId, createdAt: now, summary: summary || '技能备份' };
+}
+
+/** 获取某技能的所有历史备份列表（按时间倒序） */
+async function listBackups(skillId) {
+    await ensureReady();
+    const cleanId = String(skillId || '').toLowerCase();
+    const rows = await all(
+        `SELECT id, skill_id, name, name_en, description, description_en, icon, workspace, files_json, source, created_by, created_at, summary
+         FROM agent_skill_backups WHERE skill_id = ? ORDER BY created_at DESC, id DESC`,
+        [cleanId]
+    );
+    return rows.map(r => ({
+        id: r.id,
+        skillId: r.skill_id,
+        name: r.name,
+        nameEn: r.name_en,
+        description: r.description,
+        descriptionEn: r.description_en,
+        icon: r.icon,
+        workspace: Boolean(r.workspace),
+        fileCount: (() => { try { return JSON.parse(r.files_json || '[]').length; } catch { return 0; } })(),
+        source: r.source,
+        createdBy: r.created_by,
+        createdAt: r.created_at,
+        summary: r.summary
+    }));
+}
+
+/** 获取某个备份的完整内容 */
+async function getBackup(skillId, backupId) {
+    await ensureReady();
+    const cleanId = String(skillId || '').toLowerCase();
+    const row = await get(
+        `SELECT * FROM agent_skill_backups WHERE skill_id = ? AND id = ?`,
+        [cleanId, Number(backupId)]
+    );
+    if (!row) throw httpError('备份记录不存在', 404, 'BACKUP_NOT_FOUND');
+    let files = [];
+    try { files = JSON.parse(row.files_json || '[]'); } catch { files = []; }
+    return {
+        id: row.id,
+        skillId: row.skill_id,
+        name: row.name,
+        nameEn: row.name_en,
+        description: row.description,
+        descriptionEn: row.description_en,
+        icon: row.icon,
+        workspace: Boolean(row.workspace),
+        body: row.body,
+        files,
+        source: row.source,
+        createdBy: row.created_by,
+        createdAt: row.created_at,
+        summary: row.summary,
+        markdown: skillMarkdown({
+            id: row.skill_id,
+            name: row.name,
+            nameEn: row.name_en,
+            description: row.description,
+            descriptionEn: row.description_en,
+            icon: row.icon,
+            workspace: Boolean(row.workspace)
+        }, row.body)
+    };
+}
+
+/** 回退技能到指定备份版本，回退前先自动备份当前版本以便恢复 */
+async function rollback(skillId, backupId, { createdBy = '' } = {}) {
+    await ensureReady();
+    const cleanId = String(skillId || '').toLowerCase();
+    const targetBackup = await getBackup(cleanId, backupId);
+    if (!targetBackup) throw httpError('备份记录不存在', 404, 'BACKUP_NOT_FOUND');
+    const current = await getSkill(cleanId);
+    if (current) {
+        await createBackup(cleanId, { createdBy, summary: `回退到备份 #${backupId} 前自动备份` });
+    }
+    const isBuiltin = Boolean(builtinSkills.builtin(cleanId));
+    const now = new Date().toISOString();
+    await run(
+        `INSERT INTO agent_skills (id, name, name_en, description, description_en, icon, workspace, body, files_json, source, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'rollback', ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET name = excluded.name, name_en = excluded.name_en, description = excluded.description,
+             description_en = excluded.description_en, icon = excluded.icon, workspace = excluded.workspace, body = excluded.body,
+             files_json = excluded.files_json, source = excluded.source, updated_at = excluded.updated_at`,
+        [cleanId, targetBackup.name, targetBackup.nameEn, targetBackup.description, targetBackup.descriptionEn, targetBackup.icon,
+         targetBackup.workspace ? 1 : 0, targetBackup.body, JSON.stringify(targetBackup.files || []), createdBy, targetBackup.createdAt || now, now]
+    );
+    if (isBuiltin) {
+        await run('UPDATE agent_skill_overrides SET hidden = 0 WHERE id = ?', [cleanId]);
+    }
+    return getSkill(cleanId);
+}
+
+/** 内置技能恢复为初始版本（清除租户覆盖），清除前自动备份 */
+async function resetToBuiltin(id, { createdBy = '' } = {}) {
+    await ensureReady();
+    const cleanId = String(id || '').toLowerCase();
+    if (!builtinSkills.builtin(cleanId)) throw httpError('不是内置技能', 400, 'NOT_BUILTIN');
+    const custom = await getCustom(cleanId);
+    if (custom) {
+        await createBackup(cleanId, { createdBy, summary: '恢复内置初始版本前自动备份' });
+        await run('DELETE FROM agent_skills WHERE id = ?', [cleanId]);
+    }
+    await run('DELETE FROM agent_skill_overrides WHERE id = ?', [cleanId]);
+    return getSkill(cleanId);
+}
+
 async function saveSkill(skill, { files = [], source = 'chat', createdBy = '', overwrite = false } = {}) {
     await ensureReady();
-    if (builtinSkills.builtin(skill.id)) throw httpError(`@${skill.id} 是内置技能的标识，请换一个`, 409, 'SKILL_ID_RESERVED');
-    const existing = await getCustom(skill.id);
-    if (existing && !overwrite) throw httpError(`已存在技能 @${skill.id}`, 409, 'SKILL_EXISTS');
+    const cleanId = skill.id;
+    const isBuiltin = Boolean(builtinSkills.builtin(cleanId));
+    const existingCustom = await getCustom(cleanId);
+
+    // 未指定 overwrite 时做冲突检查
+    if (isBuiltin && !overwrite) {
+        throw httpError(`@${skill.id} 是内置技能的标识，请换一个`, 409, 'SKILL_ID_RESERVED');
+    }
+    if (existingCustom && !overwrite) {
+        throw httpError(`已存在技能 @${skill.id}`, 409, 'SKILL_EXISTS');
+    }
+
+    // 覆盖/完善已有技能前，自动备份原有版本
+    if (isBuiltin || existingCustom) {
+        await createBackup(cleanId, {
+            createdBy,
+            summary: existingCustom ? '完善技能前自动备份' : '完善技能前自动备份（内置初始版本）'
+        });
+    }
+
     const now = new Date().toISOString();
     await run(`INSERT INTO agent_skills (id, name, name_en, description, description_en, icon, workspace, body, files_json, source, created_by, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -226,13 +435,18 @@ async function saveSkill(skill, { files = [], source = 'chat', createdBy = '', o
                    description_en = excluded.description_en, icon = excluded.icon, workspace = excluded.workspace, body = excluded.body,
                    files_json = excluded.files_json, source = excluded.source, updated_at = excluded.updated_at`,
     [skill.id, skill.name, skill.nameEn, skill.description, skill.descriptionEn, skill.icon, skill.workspace ? 1 : 0, skill.body,
-        JSON.stringify(files), source, createdBy, existing?.createdAt || now, now]);
+        JSON.stringify(files), isBuiltin ? 'override' : source, createdBy, existingCustom?.createdAt || now, now]);
+
+    if (isBuiltin) {
+        await run('UPDATE agent_skill_overrides SET hidden = 0 WHERE id = ?', [cleanId]);
+    }
+
     const saved = await getCustom(skill.id);
     const { body, files: savedFiles, ...meta } = saved;
-    return meta;
+    return { ...meta, builtIn: isBuiltin, customized: isBuiltin };
 }
 
-/** 对话里 @create-skill 生成的 SKILL.md 文本，或用户上传的单个 SKILL.md */
+/** 对话里 @create-skill / @improve-skill 生成的 SKILL.md 文本，或用户上传的单个 SKILL.md */
 async function createFromMarkdown(markdown, options = {}) {
     const fallbackId = String(options.fileName || '').replace(/\.md$/i, '').replace(/(^|[-_.])skill$/i, '');
     const skill = normalizeSkillMarkdown(markdown, { fallbackId, overrides: options.overrides || {} });
@@ -279,15 +493,25 @@ async function rename(id, name) {
     return true;
 }
 
-/** 自定义 Skill 直接删除；内置 Skill 只是隐藏，可用 restoreBuiltins 恢复 */
+/** 自定义 Skill 直接删除；内置 Skill 只是隐藏，若有自定义修改则恢复内置并备份 */
 async function remove(id) {
     await ensureReady();
     const cleanId = String(id || '').toLowerCase();
     const now = new Date().toISOString();
     if (builtinSkills.builtin(cleanId)) {
+        const custom = await getCustom(cleanId);
+        if (custom) {
+            await createBackup(cleanId, { summary: '删除自定义修改前备份' });
+            await run('DELETE FROM agent_skills WHERE id = ?', [cleanId]);
+            return { builtIn: true, revertedCustomization: true };
+        }
         await run(`INSERT INTO agent_skill_overrides (id, name, hidden, updated_at) VALUES (?, NULL, 1, ?)
                    ON CONFLICT(id) DO UPDATE SET hidden = 1, updated_at = excluded.updated_at`, [cleanId, now]);
-        return { builtIn: true };
+        return { builtIn: true, hidden: true };
+    }
+    const existing = await getCustom(cleanId);
+    if (existing) {
+        await createBackup(cleanId, { summary: '删除技能前备份' });
     }
     const result = await run('DELETE FROM agent_skills WHERE id = ?', [cleanId]);
     if (!result?.changes) throw httpError('技能不存在', 404, 'SKILL_NOT_FOUND');
@@ -302,8 +526,8 @@ async function restoreBuiltins() {
 
 function skillMarkdown(meta, body) {
     const line = (key, value) => `${key}: ${String(value ?? '').replace(/\r?\n/g, ' ')}`;
-    return ['---', line('id', meta.id), line('name', meta.name), line('name_en', meta.nameEn), line('description', meta.description),
-        line('description_en', meta.descriptionEn), line('icon', meta.icon || '✨'), line('workspace', meta.workspace ? 'true' : 'false'), '---', '', body, ''].join('\n');
+    return ['---', line('id', meta.id), line('name', meta.name), line('name_en', meta.nameEn || meta.name), line('description', meta.description),
+        line('description_en', meta.descriptionEn || meta.description || meta.nameEn || meta.name), line('icon', meta.icon || '✨'), line('workspace', meta.workspace ? 'true' : 'false'), '---', '', (body || '').trim(), ''].join('\n');
 }
 
 /** 下载为标准 SKILL 压缩包：<id>/SKILL.md + 附带文件，可再次导入 */
@@ -312,14 +536,19 @@ async function exportZip(id) {
     const zip = new JSZip();
     const folder = zip.folder(cleanId);
     const builtin = builtinSkills.builtin(cleanId);
+    const custom = await getCustom(cleanId);
     if (builtin) {
-        const override = (await overrides()).get(cleanId);
-        folder.file('SKILL.md', skillMarkdown({ ...builtin.meta, name: override?.name || builtin.meta.name }, builtin.body));
+        if (custom) {
+            folder.file('SKILL.md', skillMarkdown(custom, custom.body));
+            custom.files.forEach(file => folder.file(file.path, file.content));
+        } else {
+            const override = (await overrides()).get(cleanId);
+            folder.file('SKILL.md', skillMarkdown({ ...builtin.meta, name: override?.name || builtin.meta.name }, builtin.body));
+        }
     } else {
-        const skill = await getCustom(cleanId);
-        if (!skill) throw httpError('技能不存在', 404, 'SKILL_NOT_FOUND');
-        folder.file('SKILL.md', skillMarkdown(skill, skill.body));
-        skill.files.forEach(file => folder.file(file.path, file.content));
+        if (!custom) throw httpError('技能不存在', 404, 'SKILL_NOT_FOUND');
+        folder.file('SKILL.md', skillMarkdown(custom, custom.body));
+        custom.files.forEach(file => folder.file(file.path, file.content));
     }
     return { buffer: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }), filename: `${cleanId}.zip` };
 }
@@ -341,6 +570,18 @@ async function loadAll(content, { hasWorkspace = false, language = 'zh', extraId
     const sections = [];
     for (const item of selected) {
         if (item.builtIn) {
+            const custom = await getCustom(item.id);
+            if (custom) {
+                let section = `### @${item.id}\n${custom.body}`;
+                let budget = LIMITS.promptFiles;
+                for (const file of custom.files) {
+                    if (file.content.length > budget) break;
+                    budget -= file.content.length;
+                    section += `\n\n#### 附带文件：${file.path}\n\`\`\`\n${file.content}\n\`\`\``;
+                }
+                sections.push(section);
+                continue;
+            }
             sections.push(`### @${item.id}\n${builtinSkills.builtin(item.id).body}`);
             continue;
         }
@@ -356,7 +597,7 @@ async function loadAll(content, { hasWorkspace = false, language = 'zh', extraId
         sections.push(section);
     }
     return {
-        selected: selected.map(({ builtIn, hidden, renamed, fileCount, updatedAt, source, createdBy, createdAt, ...meta }) => meta),
+        selected: selected.map(({ builtIn, customized, hidden, renamed, fileCount, updatedAt, source, createdBy, createdAt, ...meta }) => meta),
         unknown,
         prompt: builtinSkills.buildPrompt(sections)
     };
@@ -369,6 +610,7 @@ module.exports = {
     parseSkillArchive,
     listAll,
     getCustom,
+    getSkill,
     deleteRows,
     insertDemoted,
     createFromMarkdown,
@@ -378,6 +620,11 @@ module.exports = {
     rename,
     remove,
     restoreBuiltins,
+    resetToBuiltin,
+    createBackup,
+    listBackups,
+    getBackup,
+    rollback,
     exportZip,
     loadAll
 };

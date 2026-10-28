@@ -24,12 +24,21 @@ const LOG_STDOUT_CHARS = 4000;
 const LOG_STDERR_CHARS = 2000;
 
 let cachedInstall = null;
+let cachedUserInfo = null;
+let cachedUserInfoAt = 0;
+const USER_INFO_CACHE_TTL_MS = 15 * 60 * 1000;
 let queue = Promise.resolve();
 let logSeq = 0;
 let recentLogs = [];
 let running = null;
 // 测试注入：替换定位结果与 node 可执行文件
 let overrides = {};
+
+function clearCache() {
+    cachedInstall = null;
+    cachedUserInfo = null;
+    cachedUserInfoAt = 0;
+}
 
 function cliError(code, message, statusCode = 400) {
     return Object.assign(new Error(message), { code, statusCode });
@@ -59,7 +68,7 @@ function saveConfig(patch = {}) {
     const file = overrides.configFile || CONFIG_FILE;
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, JSON.stringify(next, null, 2), { mode: 0o600 });
-    if (next.cliPath !== current.cliPath) cachedInstall = null;
+    if (next.cliPath !== current.cliPath) clearCache();
     return next;
 }
 
@@ -347,13 +356,20 @@ function failureMessage(result) {
 
 /** 执行一条命令（排队），返回 { ok, code, json, text, stderr }。 */
 function run(args, options = {}) {
+    const isUserInfo = args.length === 2 && args[0] === 'onebox' && args[1] === 'user-info';
+    if (isUserInfo && !options.refresh && cachedUserInfo && Date.now() - cachedUserInfoAt < USER_INFO_CACHE_TTL_MS) {
+        return Promise.resolve(cachedUserInfo);
+    }
     const enqueuedAt = Date.now();
     return enqueue(async () => {
+        if (isUserInfo && !options.refresh && cachedUserInfo && Date.now() - cachedUserInfoAt < USER_INFO_CACHE_TTL_MS) {
+            return cachedUserInfo;
+        }
         const result = await spawnCli(args, { ...options, enqueuedAt });
         const parsed = parseOutput(result.stdout);
         // 有的 CLI 出错仍以 0 退出、只在 JSON 里写 success:false
         const jsonFailed = parsed.json && typeof parsed.json === 'object' && !Array.isArray(parsed.json) && parsed.json.success === false;
-        return {
+        const res = {
             ok: result.code === 0 && !jsonFailed,
             code: result.code,
             json: parsed.json,
@@ -362,6 +378,11 @@ function run(args, options = {}) {
             raw: result.stdout,
             error: result.code === 0 && !jsonFailed ? '' : (jsonFailed ? String(parsed.json.message || parsed.json.error || failureMessage(result)) : failureMessage(result))
         };
+        if (isUserInfo && res.ok && res.json) {
+            cachedUserInfo = res;
+            cachedUserInfoAt = Date.now();
+        }
+        return res;
     });
 }
 
@@ -502,12 +523,12 @@ function login({ env, onEvent = () => {}, signal } = {}) {
 }
 
 function reset() {
-    cachedInstall = null;
+    clearCache();
 }
 
 function setOverridesForTest(next = {}) {
     overrides = next;
-    cachedInstall = null;
+    clearCache();
     queue = Promise.resolve();
     recentLogs = [];
     running = null;

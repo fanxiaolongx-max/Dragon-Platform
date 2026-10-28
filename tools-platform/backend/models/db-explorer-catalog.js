@@ -123,6 +123,7 @@ const DEFINITIONS = new Map([
     ["agent_change_snapshots", {"category": "ai", "description": "智能体修改文件前后的变更快照。", "descriptionEn": "Snapshots of file changes made by agents.", "source": "backend/models/agent-change-repository.js"}],
     ["agent_skills", {"category": "ai", "description": "平台智能体可使用的技能定义。", "descriptionEn": "Skill definitions available to platform agents.", "source": "backend/models/agent-skills-store.js"}],
     ["agent_skill_overrides", {"category": "ai", "description": "对内置智能体技能的覆盖配置。", "descriptionEn": "Overrides for built-in agent skill definitions.", "source": "backend/models/agent-skills-store.js"}],
+    ["agent_skill_backups", {"category": "ai", "description": "智能体技能的历史修改与备份快照。", "descriptionEn": "Historical snapshots and backups of agent skills.", "source": "backend/models/agent-skills-store.js"}],
     ["ai_knowledge_documents", {"category": "knowledge", "description": "已索引文档的路径、内容指纹和索引时间。", "descriptionEn": "Indexed document paths, content hashes and indexing times.", "source": "backend/models/ai-knowledge-service.js"}],
     ["ai_knowledge_chunks", {"category": "knowledge", "description": "AI 检索使用的文档分块、行号与检索文本。", "descriptionEn": "Document chunks, source lines and searchable text for AI retrieval.", "source": "backend/models/ai-knowledge-service.js"}],
     ["ai_knowledge_meta", {"category": "knowledge", "description": "知识索引的状态及辅助元数据。", "descriptionEn": "Knowledge index state and supporting metadata.", "source": "backend/models/ai-knowledge-service.js"}],

@@ -124,4 +124,85 @@ test('routes, home page and chat are wired to the Skill catalog', () => {
     assert.match(read('frontend/js/home/dragon-claw-skills.js'), /```skill/);
     assert.match(read('frontend/js/home/workspace.js'), /SKILLS_GROUP = '__skills'/);
     assert.ok(fs.existsSync(path.join(__dirname, '../backend/agent-skills/create-skill/SKILL.md')));
+    assert.ok(fs.existsSync(path.join(__dirname, '../backend/agent-skills/improve-skill/SKILL.md')));
+});
+
+test('skills can be improved with automatic backups and rolled back', async () => {
+    // 1. 自定义技能完善与回退
+    const v1 = draft('audit-tool', '').replace('周报助手', '审计初版');
+    await store.createFromMarkdown(v1, { createdBy: 'alice' });
+
+    // 完善技能（覆盖保存，应自动备份 v1）
+    const v2 = v1.replace('审计初版', '审计完善版 v2').replace('目标：写周报。', '目标：执行整改与深度审计流程。');
+    const updated = await store.createFromMarkdown(v2, { createdBy: 'bob', overwrite: true });
+    assert.equal(updated.name, '审计完善版 v2');
+
+    // 检查备份列表
+    const backups = await store.listBackups('audit-tool');
+    assert.ok(backups.length >= 1, 'v1 should be backed up');
+    assert.equal(backups[0].name, '审计初版');
+    assert.match(backups[0].summary, /完善技能前自动备份/);
+
+    // 再次完善到 v3
+    const v3 = v2.replace('审计完善版 v2', '审计超强版 v3');
+    await store.createFromMarkdown(v3, { createdBy: 'carol', overwrite: true });
+
+    const backupsV3 = await store.listBackups('audit-tool');
+    assert.equal(backupsV3.length, 2);
+    assert.equal(backupsV3[0].name, '审计完善版 v2');
+    assert.equal(backupsV3[1].name, '审计初版');
+
+    // 读取某个备份详情
+    const v1Backup = await store.getBackup('audit-tool', backupsV3[1].id);
+    assert.equal(v1Backup.name, '审计初版');
+    assert.match(v1Backup.body, /目标：写周报。/);
+
+    // 回退到 v1
+    const rolledBack = await store.rollback('audit-tool', backupsV3[1].id, { createdBy: 'alice' });
+    assert.equal(rolledBack.name, '审计初版');
+    assert.match(rolledBack.body, /目标：写周报。/);
+
+    // 回退前自动留下了备份（v3 变成了新的最新备份）
+    const backupsAfterRollback = await store.listBackups('audit-tool');
+    assert.equal(backupsAfterRollback.length, 3);
+    assert.equal(backupsAfterRollback[0].name, '审计超强版 v3');
+    assert.match(backupsAfterRollback[0].summary, /回退到备份/);
+});
+
+test('built-in skills can be customized with automatic backup of pristine version and reset to default', async () => {
+    // 未加 overwrite 时依旧保护保留标识
+    await assert.rejects(store.createFromMarkdown(draft('debug')), { code: 'SKILL_ID_RESERVED' });
+
+    // 完善/覆盖内置技能（加 overwrite: true）
+    const improvedDebug = draft('debug').replace('周报助手', '增强排查').replace('目标：写周报。', '目标：结合整改和网络探查进行快速定位。');
+    const customized = await store.createFromMarkdown(improvedDebug, { createdBy: 'operator', overwrite: true });
+    assert.equal(customized.builtIn, true);
+    assert.equal(customized.customized, true);
+
+    // 目录中显示已自定义
+    const debugInCatalog = (await store.listAll()).find(item => item.id === 'debug');
+    assert.equal(debugInCatalog.name, '增强排查');
+    assert.equal(debugInCatalog.customized, true);
+
+    // 对话加载使用的是完善后的自定义正文
+    const loaded = await store.loadAll('@debug 查看问题', { hasWorkspace: true });
+    assert.match(loaded.prompt, /结合整改和网络探查进行快速定位/);
+
+    // 自动备份了内置初始版本
+    const debugBackups = await store.listBackups('debug');
+    assert.ok(debugBackups.length >= 1);
+    assert.match(debugBackups[0].summary, /内置初始版本/);
+
+    // 恢复内置技能默认版本
+    const reset = await store.resetToBuiltin('debug', { createdBy: 'operator' });
+    assert.equal(reset.customized, false);
+    assert.match(reset.body, /排查故障/);
+
+    // 目录中恢复为未自定义
+    const debugAfterReset = (await store.listAll()).find(item => item.id === 'debug');
+    assert.equal(debugAfterReset.customized, false);
+
+    // 对话加载恢复为内置正文
+    const loadedAfterReset = await store.loadAll('@debug 查看问题', { hasWorkspace: true });
+    assert.match(loadedAfterReset.prompt, /排查故障/);
 });

@@ -92,6 +92,15 @@ test('only whitelisted read commands with validated options become argument arra
         ['onebox', 'node-search', '--space-id', '1', '--name', '报告', '--with-path']);
     assert.deepEqual(agent.buildArgs({ command: 'meeting fuzzy-search', options: { resultType: 'meeting', limit: 5, offset: 0 }, search: [{ type: 'subject', content: '周会' }] }).args,
         ['meeting', 'fuzzy-search', '--result-type', 'meeting', '--limit', '5', '--offset', '0', '--search-type', 'subject', '--search-content', '周会']);
+    const testNow = 1761523200000;
+    const meetingDefault = agent.buildArgs({ command: 'meeting query-list' }, { now: testNow });
+    assert.deepEqual(meetingDefault.args.slice(0, 2), ['meeting', 'query-list']);
+    assert.ok(meetingDefault.args.includes('--type') && meetingDefault.args.includes('1'));
+    assert.ok(meetingDefault.args.includes('--meeting-sort') && meetingDefault.args.includes('asc'));
+    assert.ok(meetingDefault.args.includes('--page') && meetingDefault.args.includes('1'));
+    assert.ok(meetingDefault.args.includes('--size') && meetingDefault.args.includes('10'));
+    assert.ok(meetingDefault.args.includes('--meeting-start-time'));
+    assert.ok(meetingDefault.args.includes('--meeting-end-time'));
     for (const bad of [
         { command: 'im send-to-user', options: { receiver: 'a', text: 'hi' } },
         { command: 'mail send' },
@@ -347,6 +356,30 @@ test('runTurn asks once more without tools when a thinking model leaves the fina
     assert.equal(requests[2].maxOutputTokens, 8192);
     assert.match(requests[2].messages.at(-1).content, /不要再调用工具/);
     assert.equal(result.usage.outputTokens, 2103);
+});
+
+test('runTurn generates a fallback summary when a thinking model leaves both original and retry replies empty', async () => {
+    runner.saveConfig({ cliPath: packageDir, enabled: true, verbose: false });
+    const replies = [
+        { text: '', toolCalls: [{ id: 'c1', name: 'welink_query', args: { command: 'search person', options: { text: '张三' } } }] },
+        { text: '', toolCalls: [] },
+        { text: '', toolCalls: [] }
+    ];
+    const client = { generateText: async () => replies.shift() };
+    const result = await inDefault(() => agent.runTurn({ client, systemInstruction: '', messages: [{ role: 'user', content: '查张三' }] }));
+    assert.match(result.text, /共查询到|张三/);
+});
+
+test('caches onebox user-info in memory to avoid repeated cold starts', async () => {
+    runner.saveConfig({ cliPath: packageDir, enabled: true });
+    await inDefault(async () => {
+        const first = await runner.run(['onebox', 'user-info']);
+        assert.equal(first.ok, true);
+        assert.equal(first.json.cloudUserId, 22978732);
+        const second = await runner.run(['onebox', 'user-info']);
+        assert.equal(second.ok, true);
+        assert.equal(second.json.cloudUserId, 22978732);
+    });
 });
 
 test('welink-office skill is listed as a non-workspace builtin skill', () => {

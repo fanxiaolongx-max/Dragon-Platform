@@ -55,7 +55,9 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
     const url = `http://127.0.0.1:${server.address().port}/api/ai`;
     const headers = { Authorization: 'Bearer synthetic-bob', 'Content-Type': 'application/json' };
     assert.equal((await fetch(`${url}/skills`)).status, 401);
-    const catalog = await (await fetch(`${url}/skills`, { headers })).json();
+    const catalogResponse = await fetch(`${url}/skills`, { headers });
+    assert.equal(catalogResponse.headers.get('cache-control'), 'no-store');
+    const catalog = await catalogResponse.json();
     assert.equal(catalog.items.length, require('../backend/models/agent-skills').list().length, 'every built-in Skill, including @create-skill');
     assert.ok(catalog.items.some(item => item.id === 'create-skill'));
     assert.equal('prompt' in catalog.items[0], false);

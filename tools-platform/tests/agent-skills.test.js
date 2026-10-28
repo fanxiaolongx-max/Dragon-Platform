@@ -58,3 +58,16 @@ test('catalog metadata comes from SKILL.md front-matter, which is never sent to 
     const prompt = skills.load('@debug x', { hasWorkspace: true }).prompt;
     assert.doesNotMatch(prompt, /name_en:|description_en:|^---$/m);
 });
+
+test('skill authoring keeps the platform save contract even with customized instructions and confirmation-only follow-ups', () => {
+    for (const id of ['create-skill', 'improve-skill']) {
+        const prompt = skills.load('确认', { extraIds: [id] }).prompt;
+        assert.match(prompt, /平台技能保存规则/);
+        assert.match(prompt, /用户回复“确认”也不会触发保存接口/);
+        assert.match(prompt, /```skill/);
+        assert.match(prompt, /草稿尚未保存/);
+        const customized = skills.buildPrompt([`### @${id}\n目标：旧的自定义流程。`]);
+        assert.match(customized, /只有界面保存接口返回成功/);
+    }
+    assert.doesNotMatch(skills.load('@write-doc draft a document').prompt, /平台技能保存规则/);
+});

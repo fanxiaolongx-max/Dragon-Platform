@@ -1,4 +1,4 @@
-// Skill 管理 API（models/agent-skills-store.js）：列表与下载对登录用户开放；创建、导入、改名、删除仅管理员。
+// Skill 管理 API（models/agent-skills-store.js）：列表与下载对登录用户开放；创建、导入、改名、删除、备份与回退仅管理员。
 const express = require('express');
 const router = express.Router();
 const store = require('../models/agent-skills-store');
@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
     }
 });
 
-// 对话里 @create-skill 生成的草稿（SKILL.md 文本）或单个 SKILL.md 文件
+// 对话里 @create-skill / @improve-skill 生成的草稿（SKILL.md 文本）或单个 SKILL.md 文件
 router.post('/', requireAdmin, async (req, res) => {
     try {
         const markdown = String(req.body?.skillMd || '');
@@ -77,6 +77,74 @@ router.post('/restore-builtins', requireAdmin, async (_req, res) => {
         res.json({ restored: await store.restoreBuiltins() });
     } catch (error) {
         sendError(res, error, '恢复内置技能失败');
+    }
+});
+
+// 获取单个技能的完整信息（含 Markdown 正文）
+router.get('/:id', async (req, res) => {
+    try {
+        const skill = await store.getSkill(req.params.id);
+        if (!skill) return res.status(404).json({ error: '技能不存在' });
+        res.json({ skill });
+    } catch (error) {
+        sendError(res, error, '读取技能详情失败');
+    }
+});
+
+// 历史版本备份列表
+router.get('/:id/backups', async (req, res) => {
+    try {
+        const backups = await store.listBackups(req.params.id);
+        res.json({ backups });
+    } catch (error) {
+        sendError(res, error, '读取技能备份失败');
+    }
+});
+
+// 获取某个特定历史备份详情
+router.get('/:id/backups/:backupId', async (req, res) => {
+    try {
+        const backup = await store.getBackup(req.params.id, req.params.backupId);
+        res.json({ backup });
+    } catch (error) {
+        sendError(res, error, '读取备份详情失败');
+    }
+});
+
+// 手动为技能创建备份
+router.post('/:id/backups', requireAdmin, async (req, res) => {
+    try {
+        const backup = await store.createBackup(req.params.id, {
+            createdBy: req.user?.username || '',
+            summary: String(req.body?.summary || '手动备份').trim()
+        });
+        res.json({ success: true, backup });
+    } catch (error) {
+        sendError(res, error, '创建技能备份失败');
+    }
+});
+
+// 回退到指定历史备份版本
+router.post('/:id/rollback/:backupId', requireAdmin, async (req, res) => {
+    try {
+        const restored = await store.rollback(req.params.id, req.params.backupId, {
+            createdBy: req.user?.username || ''
+        });
+        res.json({ success: true, skill: restored });
+    } catch (error) {
+        sendError(res, error, '回退技能失败');
+    }
+});
+
+// 恢复内置技能为初始未自定义版本（清除自定义覆盖）
+router.post('/:id/reset', requireAdmin, async (req, res) => {
+    try {
+        const resetSkill = await store.resetToBuiltin(req.params.id, {
+            createdBy: req.user?.username || ''
+        });
+        res.json({ success: true, skill: resetSkill });
+    } catch (error) {
+        sendError(res, error, '恢复内置技能初始版本失败');
     }
 });
 
