@@ -2,10 +2,15 @@ import json,pathlib,shutil,re,math,html,sys,os
 B=pathlib.Path(__file__).resolve().parents[1];W=pathlib.Path(os.environ.get('VIDEO_WORK_DIR','/Volumes/256G/DragonVideoWork/feature-guides-20261028'));key=sys.argv[1];P=W/key
 spec=json.loads((B/'specs'/f'{key}.json').read_text());voice=json.loads((P/'voice.json').read_text());css=(B/'scripts/design.css').read_text();esc=html.escape
 (P/'compositions').mkdir(exist_ok=True);(P/'assets').mkdir(exist_ok=True)
-for name in ['gsap.min.js']:shutil.copy2(W/'common'/name,P/'assets'/name)
-shutil.copy2(W/'common/GuideSans.ttf',P/'assets/NotoSansSC.ttf')
-ui={'ai-monthly-guide':'ai-monthly.jpg','welink-cli-guide':'welink-cli.png','welink-sdk-guide':'welink-sdk.png','digital-human-guide':'digital-human.png'}[key];shutil.copy2(W/'ui'/ui,P/'assets'/ui)
-if key=='digital-human-guide':shutil.copy2(W/'ui/netcare-explorer.png',P/'assets/netcare-explorer.png')
+for name in ['gsap.min.js']:
+ src=W/'common'/name
+ if not src.exists():src=B/key/'assets'/name
+ shutil.copy2(src,P/'assets'/name)
+font=W/'common/GuideSans.ttf'
+if not font.exists():font=B/key/'assets/NotoSansSC.ttf'
+shutil.copy2(font,P/'assets/NotoSansSC.ttf')
+ui={'ai-monthly-guide':'ai-monthly.jpg','welink-cli-guide':'welink-cli.png','welink-sdk-guide':'welink-sdk.png','digital-human-guide':'digital-human.png'}[key];shutil.copy2(W/'ui'/ui if (W/'ui'/ui).exists() else B/key/'assets'/ui,P/'assets'/ui)
+if key=='digital-human-guide':shutil.copy2(W/'ui/netcare-explorer.png' if (W/'ui/netcare-explorer.png').exists() else B/key/'assets/netcare-explorer.png',P/'assets/netcare-explorer.png')
 for name in ['xiaolong-teach.png','xiaolong-listen.png']:shutil.copy2(B/'assets'/name,P/'assets'/name)
 svgrobot='<img id="xiaolong-rest" src="assets/xiaolong-listen.png" alt="小龙"><img id="xiaolong-teach" src="assets/xiaolong-teach.png" alt="小龙讲解" style="opacity:0">'
 def node(x,y,w,h,title,sub='',tone=''):

@@ -33,3 +33,9 @@
 - 新增内置视频需要同时登记前端 `promo-video.js`、后端 `BUILTIN_VIDEOS`、媒体清单、桌面排除规则及对应测试；英文界面注明普通话配音，未制作英语版时不得指向不存在的 `-en` 文件。
 
 默认启用四个新视频；平台推广设置仍允许逐个隐藏，保留原有视频和用户推广配置。
+
+## 新克隆重建
+
+在 256G 盘创建 Python venv 并安装 edge-tts、numpy；安装 FFmpeg 和 Node。设置 `VIDEO_WORK_DIR`、`TMPDIR`、`HYPERFRAMES_EXTRACT_CACHE_DIR` 到外置盘。逐集执行 `scripts/voice.py <id>` → `scripts/build.py <id>` → `scripts/score.py <id>`；进入外置盘该集目录运行 check / snapshot / preview 后，以 `render --workers 1 --quality delivery --output renders/<id>-hd.mp4` 生成高清片，最后执行 `scripts/finish.py <id>` 生成预览并核验。
+
+构建器在临时目录里找不到字体、GSAP 或界面截图时，会使用本仓库每集 assets 中保存的素材，因此新克隆不依赖本机旧缓存。更新界面时再运行本地 `capture-ui.cjs`；不要为截图读取真实用户数据。发布改片必须换媒体 Release 标签，不能覆盖本次附件。
