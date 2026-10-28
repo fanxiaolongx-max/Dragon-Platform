@@ -1,0 +1,109 @@
+{
+  "title": "WeLink CLI：把散落的办公信息找回来",
+  "short": "WeLink CLI",
+  "accent": "#147a65",
+  "entry": "全局设置 → 频道对接 → WeLink → 个人身份",
+  "source": [
+    "frontend/js/shared/welink-cli-settings.js",
+    "backend/routes/channels.js",
+    "backend/models/channels/welink-cli-{runner,agent}.js",
+    "backend/agent-skills/welink-office/SKILL.md"
+  ],
+  "scenes": [
+    {
+      "id": "pain",
+      "title": "会要开了，资料还散在各处",
+      "say": "开会前，你在聊天里找通知，在邮件里找附件，又去云空间翻材料。窗口越开越多，真正要准备的内容还没整理好。WeLink CLI 要解决的，就是这段反复找信息的路。",
+      "visual": "pain",
+      "labels": [
+        "聊天通知",
+        "邮件附件",
+        "会议材料"
+      ]
+    },
+    {
+      "id": "idea",
+      "title": "这一次，是以你本人的身份",
+      "say": "先分清两个能力：WeLink SDK 是把平台助手接进 WeLink；这一集的 CLI，是让电脑上的 Dragon Claw，通过你已授权的个人身份，查询 WeLink 办公信息。它看到什么，取决于这个账号本来就能访问什么。",
+      "visual": "identity",
+      "labels": [
+        "你本人",
+        "电脑上的 Dragon Claw",
+        "WeLink 办公信息"
+      ]
+    },
+    {
+      "id": "setup",
+      "title": "先登录，再打开办公能力",
+      "say": "管理员进入全局设置、频道对接、WeLink，找到个人身份卡片。检测本机 CLI，按页面提示扫码登录，再启用办公能力。邮件与日历还需要完成邮箱发现。当前这项能力仅供默认租户管理员使用。",
+      "visual": "screen",
+      "labels": [
+        "检测 CLI",
+        "扫码登录",
+        "启用 @welink-office"
+      ]
+    },
+    {
+      "id": "query",
+      "title": "从一个明确的问题开始",
+      "say": "在首页对话里使用办公技能，比如：查今天的会议，把我要准备的议题和材料列出来。你不必记命令，助手会按可用工具查询。需要读邮件时，说明主题或时间范围，比一句查一下邮件更容易得到有用结果。",
+      "visual": "prompt",
+      "labels": [
+        "@welink-office",
+        "查今天的会议",
+        "列出议题和材料"
+      ]
+    },
+    {
+      "id": "collect",
+      "title": "把信息，整理成开会前的清单",
+      "say": "它可以查会议详情和议题，找聊天记录、联系人与云空间文件，也能读取邮件和日历。需要的附件可以下载到指定的固定目录。这一页演示的是整理方法，具体结果以你账号和实际查询返回为准。",
+      "visual": "collect",
+      "labels": [
+        "会议与议题",
+        "邮件与附件",
+        "一份准备清单"
+      ]
+    },
+    {
+      "id": "approve",
+      "title": "查询之后，要发送就先确认",
+      "say": "查资料和替你发消息，是两件不同的事。若要发送消息、创建会议或发邮件，管理员还要开启写操作；随后每一条操作，都需要你在对话审批卡上点允许。先检查收件人、内容和时间，再让它执行。",
+      "visual": "approval",
+      "labels": [
+        "检查对象与内容",
+        "逐条点击允许",
+        "执行后看返回"
+      ]
+    },
+    {
+      "id": "check",
+      "title": "能执行，也要看得到结果",
+      "say": "执行后，看工具返回和执行日志，确认操作到底有没有成功。不是看到一句已安排就算完成。电脑环境、个人登录状态和企业权限都会影响可用性；会话失效时，回到个人身份卡片重新登录。",
+      "visual": "audit",
+      "labels": [
+        "工具返回",
+        "执行日志",
+        "必要时重新登录"
+      ]
+    },
+    {
+      "id": "end",
+      "title": "先把会议准备，交给一句话",
+      "say": "第一次试用，先做一个只读任务：查今天的会议，并列出材料清单。确认查得到、对得上，再逐步使用需要审批的操作。让助手帮你找齐信息，把决定权留在你手里。",
+      "visual": "end",
+      "labels": [
+        "先查，再核对",
+        "要修改，逐条确认",
+        "入口：@welink-office"
+      ]
+    }
+  ],
+  "id": "welink-cli-guide",
+  "version": "20261028-1",
+  "voice": {
+    "name": "zh-CN-XiaoxiaoNeural",
+    "rate": "-3%",
+    "pitch": "+0Hz"
+  }
+}

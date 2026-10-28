@@ -57,6 +57,7 @@
       "!frontend/assets/promotions/{netcare-rfc-ai-guide,operation-incentive-guide,platform-guide}{,-en}{,-hd}.mp4",
       "!frontend/assets/promotions/eos-report-guide{,-en}{,-hd}.mp4",
       "!frontend/assets/promotions/project-evolution-galaxy-hd.mp4",
+      "!frontend/assets/promotions/{ai-monthly-guide,welink-cli-guide,welink-sdk-guide,digital-human-guide}{,-hd}.mp4",
       "!frontend/assets/promotions/datacom/**/*.mp4",
       "!**/.env",
       "!**/.env.*",

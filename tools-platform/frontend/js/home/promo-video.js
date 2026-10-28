@@ -32,7 +32,11 @@
             mini: '/assets/promotions/platform-guide.mp4?v=' + VER,
             hd: '/assets/promotions/platform-guide-hd.mp4?v=' + VER,
             poster: '/assets/promotions/platform-guide-poster.jpg?v=' + VER
-        }
+        },
+        aiMonthly: { mini: '/assets/promotions/ai-monthly-guide.mp4?v=20261028-1', hd: '/assets/promotions/ai-monthly-guide-hd.mp4?v=20261028-1', poster: '/assets/promotions/ai-monthly-guide-poster.jpg?v=20261028-1' },
+        welinkCli: { mini: '/assets/promotions/welink-cli-guide.mp4?v=20261028-1', hd: '/assets/promotions/welink-cli-guide-hd.mp4?v=20261028-1', poster: '/assets/promotions/welink-cli-guide-poster.jpg?v=20261028-1' },
+        welinkSdk: { mini: '/assets/promotions/welink-sdk-guide.mp4?v=20261028-1', hd: '/assets/promotions/welink-sdk-guide-hd.mp4?v=20261028-1', poster: '/assets/promotions/welink-sdk-guide-poster.jpg?v=20261028-1' },
+        digitalHuman: { mini: '/assets/promotions/digital-human-guide.mp4?v=20261028-1', hd: '/assets/promotions/digital-human-guide-hd.mp4?v=20261028-1', poster: '/assets/promotions/digital-human-guide-poster.jpg?v=20261028-1' }
     };
     // 英文界面使用英文配音/字幕版本（文件名加 -en）
     const EN_FILES = {
@@ -43,7 +47,7 @@
     };
     const isEnglish = () => { try { return /^en/i.test((window.ToolsI18n && window.ToolsI18n.getLanguage && window.ToolsI18n.getLanguage()) || document.documentElement.lang || ''); } catch (_) { return false; } };
     const media = (key, kind) => isEnglish() && EN_FILES[key] ? '/assets/promotions/' + EN_FILES[key][kind] + '?v=' + VER : VIDEOS[key][kind];
-    const ORDER = ['rfc', 'incentive', 'eos', 'guide'];
+    const ORDER = ['rfc', 'incentive', 'eos', 'guide', 'aiMonthly', 'welinkCli', 'welinkSdk', 'digitalHuman'];
     const ROTATION_KEY = 'tools.home.promotions.rotation';
     const PROMO_API = '/api/platform-promotions';
     const FRAME_INTERVAL_MS = 1000;
@@ -52,6 +56,11 @@
     const i18n = window.ToolsI18n;
     if (i18n) i18n.register('home-promo-video', {
         'zh-CN': {
+            'home.nrv.aiMonthly.badge': '月报', 'home.nrv.aiMonthly.name': 'AI 月报：这个月做好，下个月接着用', 'home.nrv.aiMonthly.banner': 'AI 月报：这个月做好，下个月接着用',
+            'home.nrv.welinkCli.badge': '办公', 'home.nrv.welinkCli.name': 'WeLink CLI：把散落的办公信息找回来', 'home.nrv.welinkCli.banner': 'WeLink CLI：把散落的办公信息找回来',
+            'home.nrv.welinkSdk.badge': '手机', 'home.nrv.welinkSdk.name': 'WeLink SDK：把运营助手装进口袋', 'home.nrv.welinkSdk.banner': 'WeLink SDK：把运营助手装进口袋',
+            'home.nrv.digitalHuman.badge': '取数', 'home.nrv.digitalHuman.name': '数字人基座：从看不懂表，到查得清数据', 'home.nrv.digitalHuman.banner': '数字人基座：从看不懂表，到查得清数据',
+
             'home.nrv.rfc.badge': '新功能', 'home.nrv.rfc.name': 'NetCare RFC 方案与 AI 审计', 'home.nrv.rfc.banner': '新功能 · NetCare RFC 方案与 AI 审计介绍',
             'home.nrv.incentive.badge': '核算', 'home.nrv.incentive.name': '操作激励统计：怎么算准每一笔', 'home.nrv.incentive.banner': '核算指南 · 操作激励统计，算得准、对得上',
             'home.nrv.eos.badge': '月报', 'home.nrv.eos.name': 'EOS 风险收编：一键取数，自动成月报', 'home.nrv.eos.banner': '月报指南 · EOS 取数、测算目标、一键成月报',
@@ -65,6 +74,11 @@
             'home.nrv.link.hintDesktop': '点击在 Dragon 浏览器新标签页打开', 'home.nrv.link.hintTab': '点击在新标签页打开', 'home.nrv.link.live': '实时画面'
         },
         'en-US': {
+            'home.nrv.aiMonthly.badge': 'GUIDE', 'home.nrv.aiMonthly.name': 'AI Monthly Reports: build once, reuse next month (Mandarin)', 'home.nrv.aiMonthly.banner': 'AI Monthly Reports: build once, reuse next month · Mandarin narration',
+            'home.nrv.welinkCli.badge': 'GUIDE', 'home.nrv.welinkCli.name': 'WeLink CLI: personal office assistant (Mandarin)', 'home.nrv.welinkCli.banner': 'WeLink CLI: personal office assistant · Mandarin narration',
+            'home.nrv.welinkSdk.badge': 'GUIDE', 'home.nrv.welinkSdk.name': 'WeLink SDK: the platform assistant on your phone (Mandarin)', 'home.nrv.welinkSdk.banner': 'WeLink SDK: the platform assistant on your phone · Mandarin narration',
+            'home.nrv.digitalHuman.badge': 'GUIDE', 'home.nrv.digitalHuman.name': 'Digital Human Base: understand and query NetCare data (Mandarin)', 'home.nrv.digitalHuman.banner': 'Digital Human Base: understand and query NetCare data · Mandarin narration',
+
             'home.nrv.rfc.badge': 'NEW', 'home.nrv.rfc.name': 'NetCare RFC Plans and AI Audit', 'home.nrv.rfc.banner': 'New · NetCare RFC Plans and AI Audit intro',
             'home.nrv.incentive.badge': 'PAYOUT', 'home.nrv.incentive.name': 'Operation Incentive Statistics: getting every payout right', 'home.nrv.incentive.banner': 'Guide · Operation incentive statistics, accurate and verifiable',
             'home.nrv.eos.badge': 'REPORT', 'home.nrv.eos.name': 'EOS incorporation: one-click data, automatic monthly report', 'home.nrv.eos.banner': 'Guide · EOS data capture, target forecast, one-click report',

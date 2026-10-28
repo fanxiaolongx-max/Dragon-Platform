@@ -1,0 +1,20 @@
+[
+  {
+    "file": "welink-cli-guide-hd.mp4",
+    "bytes": 10097604,
+    "duration": 159.5,
+    "width": 1920,
+    "height": 1080,
+    "video": "h264",
+    "audio": "aac"
+  },
+  {
+    "file": "welink-cli-guide.mp4",
+    "bytes": 3791600,
+    "duration": 159.509,
+    "width": 1280,
+    "height": 720,
+    "video": "h264",
+    "audio": "aac"
+  }
+]

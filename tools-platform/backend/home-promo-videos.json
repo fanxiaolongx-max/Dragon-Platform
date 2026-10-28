@@ -767,6 +767,174 @@
         "0c7e4547211e6976d1ee778e31bb9c0a655c18746671078c38ac127d85a18e26"
       ],
       "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/project-evolution-galaxy-20261019/project-evolution-galaxy-hd.mp4"
+    },
+    "ai-monthly-guide.mp4": {
+      "size": 3715108,
+      "sha256": "dddb2113be7b9ea81e4b31509fe3b7716ae00d4c0f1e52acd76c9fd21a36f1d5",
+      "chunks": [
+        "7a7c6f40ceac72253eb9c14dd2e9b52d011c624a6cc5f1eb0b895332a935abc2",
+        "a2af0954ae499b668578e3099b220210b1419fe1dc24f855fcd9855b4b551c61",
+        "f137bc2509fab04497fffbb939a2cc542b8ee22dd557a1e867a061655b8e259c",
+        "012b2f61d1713b97453ce8c4dd658d4dfeec42698dc997f1e85074dec23253cb",
+        "75df7521ecf1a5276cecfdd988547a4957a42a6a928172925ecd5e50274ab0bb",
+        "f022eb66dd3f000768495b33f4fbfeaca5e155c4e426bce694031d2a91d3fa99",
+        "f970a55cfddeb3fe22f5046e8e1f0be2a72a705bbe2242c3bb3ad4462541500c",
+        "6a485443560ad6bafe1b170cd8bcfc3777dbfc492f06cb9dd4ca126678f0ce22"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/ai-monthly-guide.mp4"
+    },
+    "ai-monthly-guide-hd.mp4": {
+      "size": 9892337,
+      "sha256": "0d9fdf709957fdf59478e676d0cfdd056938b05c30bc4aa0bdef6905d1e2251a",
+      "chunks": [
+        "100017ac7c9ee42c81293d59780963f64b6f151e6ea5e0ae310c6333d0fae3ef",
+        "2cc0e994ec353b30eefcd7e0ea993d16def08a6d641a741e75bed898dd4df1b2",
+        "d5635296c228ae9e7268ed64ee9d13fc418e3c0d52b806d574fc711c99be5c0f",
+        "42dc8ad556a3b50415de8593f37a7eafa95250a78b475e84fe3fb4ae29e21e87",
+        "c21205d714f936199465369ba779dd5e1bc3eeefb5903d4bedfec2e11986a8cd",
+        "376e74500901c01b6a86fab7cd001f7167c516a65a6f44186b3079d772ba3be1",
+        "56d4ab683cb3d5e57f783ad088ccce57d273ef79065cf247fb965dd6ff6f6d99",
+        "9af99aa7d201b84428d4b01dc5d9b7b68d8bfc033903c66ab1a26b95992e2def",
+        "ceede0fed4caa77bf38e3bcdf04af29ce5bf44911bfbcbf6465e70b7d13180b8",
+        "b8f16a4875a191a5be563613aa7adabf6d8eb6576634073d8378dd55e767dd9d",
+        "1ee05dd00edb94db8443264dcb3d3788b8192fcbf6d61a4b24f2dc422733b9bb",
+        "9c961c541ada55581872693691c8ea38c14f5e1c1437c0ab8d0b220f511bfd06",
+        "86edfa2e0679ed98d387232c94dd121396cfb00a0b5b066e35fbe4d020d060ae",
+        "1d270b20c1dcff52a735d99a228feb95089ccca45aa292c8695bb54a5508c3b8",
+        "7240837346b848921d3637903dc0fe09ab6924feedde3f09e87a368193be9bde",
+        "e032fb41d084e764f5546f1ebf0afb11b0435601fe77990379759cd9725ca950",
+        "171b8c1361f3919e6fbcd59ac7ce9404ed927e728a1a3e5a61642710d5952839",
+        "d6187eb3c9397e7d70691c7a805331deeda53cff8544a4cde3fbb36d440811b6",
+        "1238a1907826ec39664c41938cd1daaee559b97e03081855182d7a531bcc036f"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/ai-monthly-guide-hd.mp4"
+    },
+    "welink-cli-guide.mp4": {
+      "size": 3791600,
+      "sha256": "a5c521c4f6d3cc71b9b14044ccf4c5f496b7aa23b26889d69261419075dda911",
+      "chunks": [
+        "cde2b6763a5f0f594696cb0d19993ee01ef7da027682de4674d94e02249a594c",
+        "729ec06e64d636568a7ecf84a992588d5ec5c8ce5460dc150b0d1c2bfab5a72e",
+        "81833b9b223e907205a0feecf98216f1fcdffe535b1a1e466f2cff0acc79e224",
+        "0c0fa09bffd9f28b90750c195a330d27866bf637652343d0def7a467e1e77b0f",
+        "df628e7114702d4f89cc22f4eadbf15d1914d8782c8cc35df014795f357597e0",
+        "a5ab007f051080f5dc2d91925a85ee3ae01a038640b30a35cbd2a1061dd28e06",
+        "f4d3507eb447f470f9c8c92ebda7f867fbfe39c607ea289d590fbf7fd8ecc792",
+        "2c6c13ff38bc1c5987fbe56f534ed24ff52ed4dd1ec3d291e8d9ae75b941f83f"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/welink-cli-guide.mp4"
+    },
+    "welink-cli-guide-hd.mp4": {
+      "size": 10097604,
+      "sha256": "f34af84c3ef2c76aa27b55bc6b0171bb7d6ba0df324a04b2bd36fd7ab610b8d2",
+      "chunks": [
+        "94ade039ff4edc146b7d695ca7b9db58441858b5b01391665e9e2aa9e3f8f680",
+        "c4e23c11cc14081949f3806fe9ab5a6e55215be17795a4e4ea65cb5dd86ecbc7",
+        "1c4790bc7c5c98b930c2094e60eb98aae0d6274aae334c06d1815558cb10257c",
+        "d34f62c600e6bf288b5c3278ce42d1ab45aa1fb80391269b212e48c4cd4e8ed2",
+        "6b065dd390e2b84d471f7f4c739c1a38b540914b8274d2f6df17ccbdc6f26696",
+        "4763de50be913bf174c27c13003758bf98242f348c59152d7265c69f5913abd6",
+        "4808884b141c3139e30c6c5596de90c103a480d52b386898d5f9cbafaa167bce",
+        "cb8ae2be7d22bb8ab1156d1679c39835131357a3f1776d7ea0088a37786d2ccb",
+        "8f187ea6f214bfc588edf610b315b151e7def0431cbbcced6d94f4e1e3467384",
+        "3b6c89f5a5a9f041da22bc1aec462a3c0691b866eada5ccc359c2915fd33f8c0",
+        "bb4b3f824272a7c4da4d4109c3a7257d336fef3f5f7e8b8705d64c4871204537",
+        "cb91f5f23694f36a7a44e2a5ece916cb057a3af12bf06ed1b1d57325b594e01a",
+        "2e60e47bcc65d9f257e12b0402c4885d96597f9871d08436f0fc30ba7db89886",
+        "e9ba491ecc8a3478772f1a47277af963ae8bb835871532e203da5fa317a106bb",
+        "f09902b0997ccdb84786c26e7dc339b80c68f384164221878b9cb208df17eaf2",
+        "1be34714d394f76bd623c7885fdc2415bd0ce1057c9e878aa5fa55899f3b9d8d",
+        "14cf0fe8fd760c88c8c2fe7de37f099eb52c47587833c4bda9f5a9c55fd247cd",
+        "603771157c7acb0e1ddd166b0e69253b1e9529adbbb5a69209434fc92017ad49",
+        "a99ac9dd7c058da77084713ba3fc8b5a8e898bfda7fd10a7381c4c978d3fc014",
+        "5f5ce70dfc22f0c5ca09dd583536ecaa5d995cd014e1b21aea8a0297a01ab4e2"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/welink-cli-guide-hd.mp4"
+    },
+    "welink-sdk-guide.mp4": {
+      "size": 3893876,
+      "sha256": "600683b871274ed5629d73a0bceb0f536774a6251aab795ff7cc77e370ae8f85",
+      "chunks": [
+        "99dba74b5e9c3aa99af4e9545dbeb014b37021a5a06441cd653ffea2d8ef07cf",
+        "14efdca6032b68776cec9d3f4371a6d3f86c8f24c6954f92269a470e89de78e7",
+        "c6634fdfe67addcf639dde321aedabe91aa305ea400f321262f12a812c576776",
+        "121cff5c02884b00ef9ff5a7e8e76caffe31fe7a3ae124f7ddfa1b7c10053613",
+        "3c29fe848c86556d45be4719306bddf67f00bd06ec461d7c0accf1b08d088c8a",
+        "a90ca0a030e7829f3d0bc87ad78adec08109219d0602cb0849457aa930b1e2c7",
+        "d2f44571ea0f10fd86d81c0a28c57f0c76a07ea04e8f4b9c341379b76a307258",
+        "36bda81eab0c7359bb5dc22052e9ae35257f0aa87cd7039d2c39148d501b903b"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/welink-sdk-guide.mp4"
+    },
+    "welink-sdk-guide-hd.mp4": {
+      "size": 10188632,
+      "sha256": "dc59b8b179928caf29081583fe60c15e57c55e80dd30ca89039e6736426bc5a9",
+      "chunks": [
+        "d9e43aa671494eb5c27b91d00bc514aef8922f41b67957735c5af5754523b8da",
+        "636f1d27df7b741c38572122ca27714dc5c2b561b043d46081f23dd7b8716cf5",
+        "5bbf4aa70efc2b752214c74e6935ecf48162b2ea4392b0cc6e4a302bd6425618",
+        "026cc46df16af65b1b8a70d26510338c7a3e15c5c14f499da821eb0e5f0b089d",
+        "8b772b7f413806e289d2fe52f78541dd4b0319e94ca78e30ce07f5dc1cfc0773",
+        "c66d30cec27847c89feca0b9ceb45dd0be2bbf81f16c05a4a8178bb6726adc22",
+        "7159c5073e53a9076f683026b0bf779d6da221ea5fad9f78b3069d51f343814c",
+        "a3b546735e398742d3f644a71e3e42bef70e666dbe579fd25cd4d336c8a0bcb6",
+        "b15cac05e793f02b1ec0d9db3fcfcb78c7aa8e9ab9207ae58e3a073c8c9fe6f4",
+        "3c1d64c61dccb5a4490b8ba758e3dc2c112cfa7bfb5c1f5340f2869a5e5660ba",
+        "fb069a78bcb361988a322cbf11f7ace53fe6448f425b65ad7b2a95f2331643f8",
+        "6d66059780b202c05b2f546a51922382b64672a5b4431a723df8bd697ff69005",
+        "ddb1683dd13bff6ef16b4e9a54142eb38c17ad2aa3e9a3f167dde454f2d4b12b",
+        "eb45982817b413b5e016bdd8730736dc8be1437e4d9187988d451b56a968031e",
+        "530d7718b89123808dce25978e344e3b44498f7ed17013587e380eaa13014e59",
+        "d77bc10189dd097fec7c89a4d4138f5ba827e72fa7a4f9c573ddfc7dd3d138c3",
+        "c129b38cafeaf1b62025de72ee38b8bf51128b9a4926ad4580588c0d5d1a18df",
+        "bde89dfffa01a70d0aa65b1e178347ca91a801cff7b65f2657fe0a0358d48de6",
+        "27a13d445f10632b63bd19deec48dfc84967f7b209e3e448c6186e499f1fbf6a",
+        "ef1724f9c35a15614cabce949127d17248e742a2308575f19ba0139d176e877e"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/welink-sdk-guide-hd.mp4"
+    },
+    "digital-human-guide.mp4": {
+      "size": 4062846,
+      "sha256": "0b981aef91f9c19633783ead027bb36b556028b39af68eb4a5486fc38c9a2e9a",
+      "chunks": [
+        "ff24437d7ff9244759c06443a7ea11a2a1ef51946adb5c707a06127a179fdb9a",
+        "852943a8247fd8c9f44cf93c328d5ffa0c3ea08813658f994aa3dc558bdcfa91",
+        "0a3a9f49815406ae2a8db6c5d8f0c1ae68d1ef68ce91c48a2132263bc78bf979",
+        "a985bbf57314fc26a4ca27aa2e70c85c4b4830f1fc69033e25e38cd5d6db6068",
+        "acbe36fb549714460f0bab0f2f29d831ea82a7752ca9bfe0852268e978d004cc",
+        "9f4b5212c71b1e241eb7c1a1828241ecc341d048839ea685b1b58ff0c67ce289",
+        "47db0ecbf6a3a1b6557e5d1b3869dc1f99fb44cbe9e7354367da6a829cb05e67",
+        "757b8b5072573cf1daeaa4dbf4788a6cf7689193a775a49e114ae81cb7b3a287"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/digital-human-guide.mp4"
+    },
+    "digital-human-guide-hd.mp4": {
+      "size": 10946488,
+      "sha256": "8e3d7a53e6e10b38c323101496bc9dd349edd741d3f8af14a24b9a6a25e442a6",
+      "chunks": [
+        "b0982fbb623a4a4f8c2d1df78a3f68d29369d446e9e295907e581b6f7d7f3006",
+        "3dd5a14699e0433e91b62c64ab89999486f7205b6950be92dafb586f420e6d64",
+        "959b19314507c08e057cb043073845c8584894488f3fcc0e0870b33270d8e360",
+        "ad7a40d45684b578ad0369bc18270d51322db118ecbb4127594b2160d7619718",
+        "a4759e447734a105efbd16ea618fba3605ab6110e6db34f8660ae29b0cbb5853",
+        "84bb1137968834e2bfa366d9ee7db45943ff4041f9a9a5348b79568f5a03f789",
+        "9475a7a2af1a7d2a1105ab4942e76f1f255c4531c7611764c194e47fbe006e81",
+        "2c42594baef30c47116ddceed2e7d300167e55760de2bb27848d6e63f191833f",
+        "14e2a462fe3226f217643442c943685d96f392cc8745d21d9d52fc3c62ada394",
+        "f82dda683a74bd0f7ce94909fedc2bbc63073a0c25be53f94fa54f8becf7205e",
+        "b3571a3aa4fb93eaddcea0ffe5782b3600ff0610e42f5e2268fac8bf24f34130",
+        "b2bfd99a1fef4811426dc6a6553d5408996fde85aefd9eee9bc0ab219986a6c9",
+        "99757ed730c02dfcdab5e745a0ad22a27d7ee852ff8aeb050b82c4bf1aad9b87",
+        "d71b94e256d480b970e5ff304bc021dcbf4137503b19a76b6d857b2d6fae575e",
+        "f8e9a452ec40a21bd4f98d36cb13d0d7ba10be57e6588118432aa560ca7db876",
+        "5ca520e8afc7525a93fc3f26633498911fac3d3d0586a53665a47ad439b2bc99",
+        "8822ecbf2bed9319ef6523337d431b7493ceb23716b969aec98ebc39933a5f79",
+        "ecc4dd7700d69c86f37962cf6faf16b75980360f62658a67ec64f80dcfad6819",
+        "c1c888f86f5f6087f858c20e0c537e54aec7a811bd483cce3e0ebb89047e1c7a",
+        "ad2ad8f89966a4442d0ec90e307107070ec9d7af89099f206f365fc0753d2498",
+        "75deaa413f01477311674a5ceb6c1f0db2718b2e400b65de8fe32fa92bcf7011"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/digital-human-guide-hd.mp4"
     }
   }
 }

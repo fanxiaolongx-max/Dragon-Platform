@@ -1,5 +1,5 @@
 /* 首页右上角平台推广区：推广视频与推广链接共用悬浮小窗 / 横幅 / 放大弹窗 */
-.nrv-stack { position: fixed; top: calc(var(--navbar-h, 52px) + 18px); right: 18px; z-index: 9500; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; }
+.nrv-stack { position: fixed; top: calc(var(--navbar-h, 52px) + 18px); right: 18px; z-index: 9500; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; pointer-events: none; max-height: calc(100dvh - var(--navbar-h, 52px) - 36px); }
 .nrv-stack > *, .nrv-banners > * { pointer-events: auto; }
 /* 待确认提醒横幅显示时推广避让；横幅收起或清空后按原抽屉状态恢复。 */
 body.ops-banner-shown :is(.nrv-stack, .nrv-tab) { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .25s ease, visibility 0s .25s; }
@@ -32,8 +32,8 @@ body.dc-chatting .nrv-stack, body.dc-chatting .nrv-tab { translate: 0 68px; }
 @media (hover: hover) { .nrv-tab:hover .nrv-tab-label, .nrv-tab:focus-visible .nrv-tab-label { max-width: 120px; margin-left: 9px; opacity: 1; animation: none; } }
 @keyframes nrv-tab-spin { to { transform: rotate(360deg); } }
 @keyframes nrv-tab-peek { 0% { max-width: 0; opacity: 0; margin-left: 0; } 15%, 80% { max-width: 120px; opacity: 1; margin-left: 9px; } 100% { max-width: 0; opacity: 0; margin-left: 0; } }
-.nrv-banners { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
-.nrv-float {
+.nrv-banners { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 3px 3px 8px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.nrv-float { flex-shrink: 0;
     position: relative; width: 320px; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: #0b1426;
     border: 1px solid rgba(148, 163, 184, .28); box-shadow: 0 16px 48px rgba(2, 6, 23, .5), 0 0 0 1px rgba(56, 189, 248, .08);
     animation: nrv-in .45s cubic-bezier(.2, .8, .2, 1) both;

@@ -1,0 +1,5 @@
+**/.hyperframes/
+**/renders/
+**/assets/voice/*.mp3
+**/assets/master.mp3
+*.log

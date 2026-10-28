@@ -1,0 +1,61 @@
+{
+  "duration": 165.833,
+  "scenes": [
+    {
+      "id": "pain",
+      "start": 0,
+      "duration": 20.1,
+      "audio": 19.176,
+      "title": "表很多，却不知道该查哪张"
+    },
+    {
+      "id": "idea",
+      "start": 20.1,
+      "duration": 20.267,
+      "audio": 19.344,
+      "title": "把基座数据，接进平台来理解"
+    },
+    {
+      "id": "setup",
+      "start": 40.367,
+      "duration": 19.933,
+      "audio": 19.032,
+      "title": "先确认连接，再开始找表"
+    },
+    {
+      "id": "tables",
+      "start": 60.3,
+      "duration": 20.833,
+      "audio": 19.92,
+      "title": "先认表，再看字段和样例"
+    },
+    {
+      "id": "query",
+      "start": 81.133,
+      "duration": 22.267,
+      "audio": 21.36,
+      "title": "把想问的事，变成可核对的查询"
+    },
+    {
+      "id": "natural",
+      "start": 103.4,
+      "duration": 21.3,
+      "audio": 20.376,
+      "title": "看懂以后，也能直接用人话问"
+    },
+    {
+      "id": "boundary",
+      "start": 124.7,
+      "duration": 22.433,
+      "audio": 21.504,
+      "title": "业务库只读，应用库另有边界"
+    },
+    {
+      "id": "end",
+      "start": 147.133,
+      "duration": 18.7,
+      "audio": 16.296,
+      "title": "先查清一张表，再回答一个问题"
+    }
+  ]
+}

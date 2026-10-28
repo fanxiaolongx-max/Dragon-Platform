@@ -43,11 +43,11 @@ async function fixture(t, options = {}) {
     return { cacheDir, requests, middleware, get: (headers = {}, route = urlPath, method = 'GET') => fetch(base + route, { method, headers }) };
 }
 
-test('all 17 source videos match the frozen manifest and have fast-start metadata; only these are excluded from desktop builds', () => {
+test('all 25 source videos match the frozen manifest and have fast-start metadata; only these are excluded from desktop builds', () => {
     const catalog = checkManifest();
     const { build } = require('../package.json');
     const excluded = picomatch(build.files.filter(item => item.startsWith('!')).map(item => item.slice(1)), { dot: true });
-    assert.equal(Object.keys(catalog.assets).length, 17);
+    assert.equal(Object.keys(catalog.assets).length, 25);
     for (const file of Object.keys(catalog.assets)) assert.ok(excluded(`frontend/assets/promotions/${file}`), file);
     assert.equal(excluded('frontend/assets/promotions/future-guide.mp4'), false);
     assert.equal(excluded('frontend/assets/promotions/datacom/future-lesson.mp4'), true);

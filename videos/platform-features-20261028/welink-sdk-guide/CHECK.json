@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "gates": {
+    "lint": true,
+    "runtime": true,
+    "layout": true,
+    "motion": true,
+    "contrast": true,
+    "craft": true
+  },
+  "audio": {
+    "loudness": {
+      "lufsIntegrated": -16.2,
+      "lufsShortTermMax": -14.8,
+      "samplePeakDb": -3.7,
+      "truePeakDb": -3.7,
+      "clipping": {
+        "count": 0,
+        "firstAt": null
+      }
+    },
+    "channels": 2,
+    "duration": 160.3
+  }
+}

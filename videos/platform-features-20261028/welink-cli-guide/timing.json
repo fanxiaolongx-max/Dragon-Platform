@@ -1,0 +1,61 @@
+{
+  "duration": 159.5,
+  "scenes": [
+    {
+      "id": "pain",
+      "start": 0,
+      "duration": 17.2,
+      "audio": 16.296,
+      "title": "会要开了，资料还散在各处"
+    },
+    {
+      "id": "idea",
+      "start": 17.2,
+      "duration": 20.3,
+      "audio": 19.368,
+      "title": "这一次，是以你本人的身份"
+    },
+    {
+      "id": "setup",
+      "start": 37.5,
+      "duration": 21.2,
+      "audio": 20.28,
+      "title": "先登录，再打开办公能力"
+    },
+    {
+      "id": "query",
+      "start": 58.7,
+      "duration": 20.9,
+      "audio": 19.992,
+      "title": "从一个明确的问题开始"
+    },
+    {
+      "id": "collect",
+      "start": 79.6,
+      "duration": 19.9,
+      "audio": 18.984,
+      "title": "把信息，整理成开会前的清单"
+    },
+    {
+      "id": "approve",
+      "start": 99.5,
+      "duration": 20.967,
+      "audio": 20.064,
+      "title": "查询之后，要发送就先确认"
+    },
+    {
+      "id": "check",
+      "start": 120.467,
+      "duration": 20.4,
+      "audio": 19.488,
+      "title": "能执行，也要看得到结果"
+    },
+    {
+      "id": "end",
+      "start": 140.867,
+      "duration": 18.633,
+      "audio": 16.224,
+      "title": "先把会议准备，交给一句话"
+    }
+  ]
+}

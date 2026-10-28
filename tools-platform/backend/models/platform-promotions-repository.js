@@ -22,7 +22,11 @@ const BUILTIN_VIDEOS = [
     { id: 'rfc', name: 'NetCare RFC 方案与 AI 审计', nameEn: 'NetCare RFC Plans and AI Audit' },
     { id: 'incentive', name: '操作激励统计：怎么算准每一笔', nameEn: 'Operation Incentive Statistics' },
     { id: 'eos', name: 'EOS 风险收编：一键取数，自动成月报', nameEn: 'EOS incorporation and monthly report' },
-    { id: 'guide', name: 'Dragon 平台五站使用指南', nameEn: 'Dragon Platform five-step guide' }
+    { id: 'guide', name: 'Dragon 平台五站使用指南', nameEn: 'Dragon Platform five-step guide' },
+    { id: 'aiMonthly', name: 'AI 月报：这个月做好，下个月接着用', nameEn: 'AI Monthly Reports: build once, reuse next month (Mandarin)' },
+    { id: 'welinkCli', name: 'WeLink CLI：把散落的办公信息找回来', nameEn: 'WeLink CLI: personal office assistant (Mandarin)' },
+    { id: 'welinkSdk', name: 'WeLink SDK：把运营助手装进口袋', nameEn: 'WeLink SDK: the platform assistant on your phone (Mandarin)' },
+    { id: 'digitalHuman', name: '数字人基座：从看不懂表，到查得清数据', nameEn: 'Digital Human Base: understand and query NetCare data (Mandarin)' }
 ];
 
 const DEFAULTS_FILE = process.env.TOOLS_PROMOTION_DEFAULTS_FILE || path.join(__dirname, '../platform-promotions-defaults.json');

@@ -21,7 +21,7 @@ const platformDb = require('../backend/models/platform-db');
 
 test('defaults show every built-in video and the NetCare link with three link slots', () => {
     const config = repo.normalizeConfig({});
-    assert.deepEqual(config.videos.map(video => [video.id, video.enabled]), [['rfc', true], ['incentive', true], ['eos', true], ['guide', true]]);
+    assert.deepEqual(config.videos.map(video => [video.id, video.enabled]), [['rfc', true], ['incentive', true], ['eos', true], ['guide', true], ['aiMonthly', true], ['welinkCli', true], ['welinkSdk', true], ['digitalHuman', true]]);
     assert.equal(config.links[0].id, 'netcare');
     assert.equal(config.links[0].builtin, true);
     assert.match(config.links[0].url, /^https:\/\/netcare\.huawei\.com\//);

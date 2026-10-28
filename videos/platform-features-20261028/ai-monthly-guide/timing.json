@@ -1,0 +1,61 @@
+{
+  "duration": 155.533,
+  "scenes": [
+    {
+      "id": "pain",
+      "start": 0,
+      "duration": 16.8,
+      "audio": 15.888,
+      "title": "又到月底，图表还要重做？"
+    },
+    {
+      "id": "idea",
+      "start": 16.8,
+      "duration": 18.633,
+      "audio": 17.712,
+      "title": "把需求，变成可复用的配方"
+    },
+    {
+      "id": "input",
+      "start": 35.433,
+      "duration": 19.333,
+      "audio": 18.408,
+      "title": "先说清口径，再谈画什么图"
+    },
+    {
+      "id": "proof",
+      "start": 54.767,
+      "duration": 20.533,
+      "audio": 19.632,
+      "title": "从详单到图表，有依据可核对"
+    },
+    {
+      "id": "edit",
+      "start": 75.3,
+      "duration": 18.6,
+      "audio": 17.688,
+      "title": "改一个要求，不用推倒重来"
+    },
+    {
+      "id": "reuse",
+      "start": 93.9,
+      "duration": 20.867,
+      "audio": 19.944,
+      "title": "换到下个月，配方接着算"
+    },
+    {
+      "id": "finish",
+      "start": 114.767,
+      "duration": 21.367,
+      "audio": 20.448,
+      "title": "从一格，到一份可交付月报"
+    },
+    {
+      "id": "end",
+      "start": 136.133,
+      "duration": 19.4,
+      "audio": 16.968,
+      "title": "先做好一格，再复用一整月"
+    }
+  ]
+}

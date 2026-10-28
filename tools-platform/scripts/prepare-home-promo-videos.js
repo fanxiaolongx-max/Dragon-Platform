@@ -10,7 +10,10 @@ const EOS_BASE_URL = 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/
 const EOS_EN_BASE_URL = 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-en-20261019';
 const EVOLUTION_BASE_URL = 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/project-evolution-galaxy-20261019';
 // Each later media release keeps its own tag; earlier files and cache identities stay untouched.
+const FEATURE_GUIDES = ['ai-monthly-guide', 'welink-cli-guide', 'welink-sdk-guide', 'digital-human-guide'];
+const FEATURE_BASE_URL = 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1';
 const RELEASE_URLS = {
+    ...Object.fromEntries(FEATURE_GUIDES.flatMap(name => [name + '.mp4', name + '-hd.mp4']).map(name => [name, FEATURE_BASE_URL])),
     'eos-report-guide.mp4': EOS_BASE_URL, 'eos-report-guide-hd.mp4': EOS_BASE_URL,
     'eos-report-guide-en.mp4': EOS_EN_BASE_URL, 'eos-report-guide-en-hd.mp4': EOS_EN_BASE_URL,
     'project-evolution-galaxy-hd.mp4': EVOLUTION_BASE_URL
@@ -18,7 +21,8 @@ const RELEASE_URLS = {
 // Preserve the original release URLs and cache identities when adding EOS.
 const FILES = ['netcare-rfc-ai-guide', 'operation-incentive-guide', 'platform-guide']
     .flatMap(base => ['', '-en'].flatMap(language => ['', '-hd'].map(quality => `${base}${language}${quality}.mp4`)))
-    .concat(['eos-report-guide.mp4', 'eos-report-guide-hd.mp4', 'eos-report-guide-en.mp4', 'eos-report-guide-en-hd.mp4', 'project-evolution-galaxy-hd.mp4']);
+    .concat(['eos-report-guide.mp4', 'eos-report-guide-hd.mp4', 'eos-report-guide-en.mp4', 'eos-report-guide-en-hd.mp4', 'project-evolution-galaxy-hd.mp4'])
+    .concat(FEATURE_GUIDES.flatMap(name => [name + '.mp4', name + '-hd.mp4']));
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 
 function assertFastStart(bytes, name) {

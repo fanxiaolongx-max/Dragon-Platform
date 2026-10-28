@@ -1,0 +1,20 @@
+[
+  {
+    "file": "ai-monthly-guide-hd.mp4",
+    "bytes": 9892337,
+    "duration": 155.533333,
+    "width": 1920,
+    "height": 1080,
+    "video": "h264",
+    "audio": "aac"
+  },
+  {
+    "file": "ai-monthly-guide.mp4",
+    "bytes": 3715108,
+    "duration": 155.541,
+    "width": 1280,
+    "height": 720,
+    "video": "h264",
+    "audio": "aac"
+  }
+]

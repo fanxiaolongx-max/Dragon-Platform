@@ -1,0 +1,20 @@
+[
+  {
+    "file": "digital-human-guide-hd.mp4",
+    "bytes": 10946488,
+    "duration": 165.833333,
+    "width": 1920,
+    "height": 1080,
+    "video": "h264",
+    "audio": "aac"
+  },
+  {
+    "file": "digital-human-guide.mp4",
+    "bytes": 4062846,
+    "duration": 165.845,
+    "width": 1280,
+    "height": 720,
+    "video": "h264",
+    "audio": "aac"
+  }
+]

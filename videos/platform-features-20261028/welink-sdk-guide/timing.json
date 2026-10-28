@@ -1,0 +1,61 @@
+{
+  "duration": 160.3,
+  "scenes": [
+    {
+      "id": "pain",
+      "start": 0,
+      "duration": 17.133,
+      "audio": 16.224,
+      "title": "人在外面，问题却等着你回答"
+    },
+    {
+      "id": "idea",
+      "start": 17.133,
+      "duration": 20.3,
+      "audio": 19.392,
+      "title": "给平台助手，加一个手机入口"
+    },
+    {
+      "id": "setup",
+      "start": 37.433,
+      "duration": 21.633,
+      "audio": 20.712,
+      "title": "管理员先把通道接好"
+    },
+    {
+      "id": "access",
+      "start": 59.067,
+      "duration": 19.767,
+      "audio": 18.864,
+      "title": "谁能用，先划清范围"
+    },
+    {
+      "id": "ask",
+      "start": 78.833,
+      "duration": 18.967,
+      "audio": 18.048,
+      "title": "带上月份和对象，回答更有用"
+    },
+    {
+      "id": "proof",
+      "start": 97.8,
+      "duration": 21.833,
+      "audio": 20.928,
+      "title": "回答的背后，仍是平台数据"
+    },
+    {
+      "id": "boundary",
+      "start": 119.633,
+      "duration": 21.267,
+      "audio": 20.352,
+      "title": "手机方便，权限也要说清楚"
+    },
+    {
+      "id": "end",
+      "start": 140.9,
+      "duration": 19.4,
+      "audio": 16.992,
+      "title": "下一次现场问数，先从手机开始"
+    }
+  ]
+}
