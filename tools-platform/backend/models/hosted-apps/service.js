@@ -99,9 +99,62 @@ async function importApp(payload, { createTool, user = '' }) {
     return { ...tool, hostedApp: runtime.status(tool.slug) };
 }
 
+// ── 随源码内置：工具目录里的 hosted-app.zip 是应用包（转为内置时写入，已剔除 .env） ──
+const BUNDLED_PACKAGE = 'hosted-app.zip';
+const ENV_FILE = /(^|\/)\.env(\.[^/]*)?$/i;
+const bundleLocks = new Map();
+
+/** 生成写入源码的应用包：原始包（或按当前代码重新打包）去掉 .env 等本地配置，.env.example 保留。 */
+async function packageForSource(slug) {
+    const archive = await runtime.packageArchive(slug);
+    if (!archive) throw Object.assign(new Error('应用不存在'), { status: 404 });
+    const JSZip = require('jszip');
+    const zip = await JSZip.loadAsync(archive.buffer);
+    const removed = [];
+    Object.keys(zip.files).forEach(name => {
+        if (ENV_FILE.test(name) && !/\.env\.example$/i.test(name)) { removed.push(name); zip.remove(name); }
+    });
+    return { buffer: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }), removed };
+}
+
+/**
+ * 内置工具在新环境 / 其他租户首次打开时，用随源码带来的应用包创建托管应用；
+ * 源码里的包更新后（哈希变化）更新应用代码，保留应用库与密钥。并发打开合并为一次。
+ */
+function ensureFromBundle(slug) {
+    const tenantId = tenant.getTenantId();
+    const key = `${tenantId}/${slug}`;
+    if (bundleLocks.has(key)) return bundleLocks.get(key);
+    const task = (async () => {
+        const repo = require('../custom-tools-repository');
+        const file = require('path').join(repo.getToolRootDir(slug) || '', BUNDLED_PACKAGE);
+        if (!require('fs').existsSync(file)) return false;
+        const buffer = require('fs').readFileSync(file);
+        const hash = require('crypto').createHash('sha256').update(buffer).digest('hex');
+        const state = runtime.readState(slug);
+        if (state && (!state.bundleHash || state.bundleHash === hash)) {
+            if (!state.bundleHash) runtime.updateState(slug, { bundleHash: hash });
+            return false;
+        }
+        const inspected = await appPackage.inspectArchive(buffer);
+        if (!state) {
+            const tool = await repo.getTool(slug);
+            runtime.createApp(slug, inspected, { name: tool?.name || inspected.config.name || slug, user: 'builtin' });
+        } else {
+            await runtime.updateApp(slug, inspected);
+        }
+        runtime.savePackage(slug, buffer, `${inspected.config.name || slug}.zip`);
+        runtime.updateState(slug, { bundleHash: hash, desired: 'running' });
+        return true;
+    })().finally(() => bundleLocks.delete(key));
+    bundleLocks.set(key, task);
+    return task;
+}
+
 /** 启动页调用：未运行则后台启动，运行中则签发当前用户的访问链接。 */
-function launch(slug, user) {
-    const state = runtime.status(runtime.assertSlug(slug));
+async function launch(slug, user) {
+    await ensureFromBundle(runtime.assertSlug(slug));
+    const state = runtime.status(slug);
     if (!state) return null;
     if (['stopped', 'crashed'].includes(state.status) && runtime.readState(slug)?.desired !== 'stopped') startInBackground(slug, tenant.getTenantId());
     const current = runtime.status(slug);
@@ -142,4 +195,4 @@ async function removeIfHosted(slug) {
     return runtime.removeApp(slug);
 }
 
-module.exports = { isPythonPayload, preview, importApp, launch, removeIfHosted, launcherHtml, isLauncherFile, LAUNCHER_TAG };
+module.exports = { isPythonPayload, preview, importApp, launch, removeIfHosted, launcherHtml, isLauncherFile, packageForSource, ensureFromBundle, BUNDLED_PACKAGE, LAUNCHER_TAG };

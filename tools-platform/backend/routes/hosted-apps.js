@@ -26,9 +26,9 @@ router.post('/preview', requireAdmin, async (req, res) => {
     } catch (error) { send(res, error, '识别应用包失败'); }
 });
 
-router.get('/:slug/launch', (req, res) => {
+router.get('/:slug/launch', async (req, res) => {
     try {
-        const result = service.launch(req.params.slug, req.user);
+        const result = await service.launch(req.params.slug, req.user);
         if (!result) return res.status(404).json({ error: '应用不存在' });
         res.json({ success: true, app: result });
     } catch (error) { send(res, error, '打开应用失败'); }

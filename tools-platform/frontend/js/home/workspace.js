@@ -409,6 +409,8 @@
 
     function layout() {
         layoutQueued = false;
+        // 拖动排序进行中不重排，结束后再补上
+        if (sort) { setTimeout(scheduleLayout, 300); return; }
         const cards = originalCards();
         cards.forEach(renderCardMeta);
         cards.forEach(ensureFavoriteButton);
@@ -664,38 +666,269 @@
         return groups.find(group => group.cards.includes(card)) || null;
     }
 
-    const drag = { itemId: '', source: null, target: null };
+    // ── iOS 式拖动排序：整张卡片浮起跟手，其他卡片平滑让位（FLIP 动画），松手落位 ──
+    // 鼠标拖动超过 6px 开始；触屏长按 320ms 开始（不影响滚动）。收藏区任何人可拖入 / 排序；
+    // 目录内排序与跨目录移动仅管理员，提交后同步导航设置（顶部栏与「更多工具」）。
+    const SORT_THRESHOLD = 6;
+    const LONG_PRESS_MS = 320;
+    let sort = null;
+    let suppressClick = false;
 
-    function clearDropMarks() {
-        grid.querySelectorAll('.drop-before, .drop-after, .drop-into').forEach(node => node.classList.remove('drop-before', 'drop-after', 'drop-into'));
+    function sortableNodes() {
+        return [...grid.querySelectorAll(':scope > a.tool-card:not(.is-filtered-out), :scope > .home-group-head:not([hidden]), :scope > .home-fav-empty:not(.is-filtered-out), :scope > .home-drop-slot')];
     }
 
-    // 解析拖放目标：收藏区（任何人）、目录内卡片或目录标题（仅管理员）；最近使用与技能不接受拖入
-    function resolveDrop(event) {
-        const card = event.target.closest('#toolsGrid > a.tool-card');
-        const head = event.target.closest('#toolsGrid > .home-group-head');
-        const empty = event.target.closest('#toolsGrid > .home-fav-empty');
-        if (empty || head?.dataset.shortcut === 'favorites') return { kind: 'favorites', node: empty || head };
-        if (card?.dataset.shortcut === 'favorites') {
-            const rect = card.getBoundingClientRect();
-            return { kind: 'favorites', node: card, refId: card.dataset.originId, after: event.clientX > rect.left + rect.width / 2 };
+    // 记录位置 → 调整 order → 让每个元素从旧位置平滑移到新位置
+    function flip(mutate) {
+        const nodes = sortableNodes().filter(node => node !== sort?.ghost);
+        const before = new Map(nodes.map(node => [node, node.getBoundingClientRect()]));
+        mutate();
+        const moved = [];
+        sortableNodes().forEach(node => {
+            const old = before.get(node);
+            if (!old) return;
+            const now = node.getBoundingClientRect();
+            const dx = old.left - now.left;
+            const dy = old.top - now.top;
+            if (!dx && !dy) return;
+            node.style.transition = 'none';
+            node.style.transform = `translate(${dx}px, ${dy}px)`;
+            moved.push(node);
+        });
+        if (!moved.length) return;
+        grid.getBoundingClientRect(); // 强制回流，让上面的起始位置生效
+        moved.forEach(node => {
+            node.style.transition = 'transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1)';
+            node.style.transform = '';
+        });
+        clearTimeout(flip.timer);
+        flip.timer = setTimeout(() => moved.forEach(node => { node.style.transition = ''; }), 260);
+    }
+
+    function favoriteCards() {
+        return [...grid.querySelectorAll(':scope > a.tool-card.is-shortcut[data-shortcut="favorites"]')]
+            .sort((a, b) => Number(a.style.order) - Number(b.style.order));
+    }
+
+    // 按预览目标重新编号：最近使用 → 收藏（含占位）→ 各目录（拖动的卡片插入目标目录）
+    function applyPreview(target) {
+        const recentHead = grid.querySelector(':scope > .home-shortcut-head[data-shortcut="recent"]');
+        const favoriteHead = grid.querySelector(':scope > .home-shortcut-head[data-shortcut="favorites"]');
+        const empty = grid.querySelector(':scope > .home-fav-empty');
+        let order = 0;
+        if (recentHead) recentHead.style.order = String(order++);
+        [...grid.querySelectorAll(':scope > a.tool-card.is-shortcut[data-shortcut="recent"]')]
+            .sort((a, b) => Number(a.dataset.baseOrder) - Number(b.dataset.baseOrder))
+            .forEach(card => { card.style.order = String(order++); });
+        if (favoriteHead) favoriteHead.style.order = String(order++);
+
+        const favorites = sort.favoriteBase.filter(card => card !== sort.favoritePlaceholder);
+        if (target?.kind === 'favorites') {
+            if (!sort.favoritePlaceholder) {
+                const slot = document.createElement('div');
+                slot.className = 'home-drop-slot';
+                slot.style.height = `${sort.rect.height}px`;
+                grid.appendChild(slot);
+                sort.favoritePlaceholder = slot;
+                sort.createdSlot = slot;
+            }
+            favorites.splice(Math.min(target.index, favorites.length), 0, sort.favoritePlaceholder);
+        } else if (sort.createdSlot) {
+            sort.createdSlot.remove();
+            sort.createdSlot = null;
+            sort.favoritePlaceholder = sort.sourceFavorite;
+        } else if (sort.sourceFavorite && sort.favoritePlaceholder) {
+            favorites.splice(Math.min(sort.sourceFavoriteIndex, favorites.length), 0, sort.favoritePlaceholder);
         }
-        if (!isAdmin() || card?.dataset.shortcut || head?.dataset.shortcut) return null;
-        if (card && card.dataset.skillCard !== '1') {
-            const group = groupOfCard(card);
-            if (!group || group.id === SKILLS_GROUP || group.id === '__other') return null;
-            const rect = card.getBoundingClientRect();
-            return { kind: 'layout', node: card, refId: cardItemId(card), groupId: group.id, groupName: group.name, after: event.clientX > rect.left + rect.width / 2 };
+        favorites.forEach(node => { node.style.order = String(order++); });
+        if (empty) {
+            empty.style.order = String(order++);
+            empty.classList.toggle('is-filtered-out', favorites.length > 0);
         }
-        if (head && head.dataset.group && ![SKILLS_GROUP, '__other'].includes(head.dataset.group)) {
-            const group = groups.find(item => item.id === head.dataset.group);
-            return group ? { kind: 'layout', node: head, groupId: group.id, groupName: group.name } : null;
+
+        order = GROUP_ORDER_BASE;
+        groups.forEach(group => {
+            const cards = group.cards.filter(card => card !== sort.original || target?.kind !== 'group');
+            if (target?.kind === 'group' && target.groupId === group.id) cards.splice(Math.min(target.index, cards.length), 0, sort.original);
+            if (group.head) group.head.style.order = String(order++);
+            cards.forEach(card => {
+                card.style.order = String(order++);
+                card.style.setProperty('--group-color', group.color);
+            });
+        });
+        // 目标为目录时原卡片就是占位（隐藏）；拖入收藏时原卡片留在原处、变淡
+        sort.original?.classList.toggle('is-sort-placeholder', target?.kind === 'group');
+        sort.original?.classList.toggle('is-sort-source', target?.kind !== 'group');
+        if (sort.sourceFavorite) sort.sourceFavorite.classList.toggle('is-sort-placeholder', sort.favoritePlaceholder === sort.sourceFavorite && target?.kind === 'favorites');
+    }
+
+    function sectionOf(node) {
+        if (!node) return null;
+        if (node.classList.contains('home-fav-empty') || node.dataset.shortcut === 'favorites') return { kind: 'favorites' };
+        if (node.dataset.shortcut) return null;
+        if (node.classList.contains('home-group-head')) {
+            return [SKILLS_GROUP, '__other'].includes(node.dataset.group) ? null : { kind: 'group', groupId: node.dataset.group, head: true };
         }
-        return null;
+        const group = groupOfCard(node);
+        return group && ![SKILLS_GROUP, '__other'].includes(group.id) ? { kind: 'group', groupId: group.id } : null;
+    }
+
+    // 根据指针下的元素计算目标位置（区块 + 插入下标，下标不含拖动项本身）
+    function hitTarget(x, y) {
+        const hit = document.elementFromPoint(x, y);
+        const node = hit?.closest('#toolsGrid > a.tool-card, #toolsGrid > .home-group-head, #toolsGrid > .home-fav-empty, #toolsGrid > .home-drop-slot');
+        if (!node) return sort.target;
+        if (node === sort.original || node === sort.favoritePlaceholder) return sort.target; // 停在空槽上保持不变
+        const section = sectionOf(node);
+        if (!section) return sort.target;
+        if (section.kind === 'group' && !isAdmin()) return sort.target;
+        if (section.kind === 'favorites') {
+            if (node.classList.contains('home-fav-empty') || node.classList.contains('home-shortcut-head')) return { kind: 'favorites', index: 0 };
+            const list = favoriteCards().filter(card => card !== sort.favoritePlaceholder);
+            const rect = node.getBoundingClientRect();
+            return { kind: 'favorites', index: list.indexOf(node) + (x > rect.left + rect.width / 2 ? 1 : 0) };
+        }
+        const group = groups.find(item => item.id === section.groupId);
+        if (section.head) return { kind: 'group', groupId: group.id, index: 0 };
+        const list = group.cards.filter(card => card !== sort.original);
+        const rect = node.getBoundingClientRect();
+        return { kind: 'group', groupId: group.id, index: list.indexOf(node) + (x > rect.left + rect.width / 2 ? 1 : 0) };
+    }
+
+    const sameTarget = (a, b) => (!a && !b) || (a && b && a.kind === b.kind && a.groupId === b.groupId && a.index === b.index);
+
+    function beginSort(card, event) {
+        const id = card.dataset.originId || cardItemId(card);
+        const original = originalCards().find(item => cardItemId(item) === id);
+        if (!original) return;
+        const rect = card.getBoundingClientRect();
+        const ghost = card.cloneNode(true);
+        ghost.classList.add('home-sort-ghost');
+        ghost.classList.remove('is-filtered-out', 'is-shortcut');
+        ghost.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
+        Object.assign(ghost.style, { width: `${rect.width}px`, height: `${rect.height}px`, left: `${rect.left}px`, top: `${rect.top}px`, order: '', transform: '', transition: '' });
+        // 放在工具区容器里，沿用卡片在首页的样式；fixed 定位跟随指针
+        (grid.closest('.home-workspace') || document.body).appendChild(ghost);
+        const favoriteBase = favoriteCards();
+        const sourceFavorite = card.dataset.shortcut === 'favorites' ? card : favoriteBase.find(item => item.dataset.originId === id) || null;
+        sort = {
+            id, card, original, ghost, rect,
+            offsetX: event.clientX - rect.left, offsetY: event.clientY - rect.top,
+            pointerX: event.clientX, pointerY: event.clientY,
+            favoriteBase, sourceFavorite, sourceFavoriteIndex: sourceFavorite ? favoriteBase.indexOf(sourceFavorite) : -1,
+            favoritePlaceholder: sourceFavorite, createdSlot: null,
+            startTarget: null, target: null, lastSwitch: 0
+        };
+        grid.querySelectorAll(':scope > a.tool-card.is-shortcut[data-shortcut="recent"]').forEach(item => { item.dataset.baseOrder = item.style.order; });
+        // 起始目标：从收藏区拖起 → 收藏原位；从目录拖起 → 目录原位（仅管理员可改目录顺序）
+        if (card.dataset.shortcut === 'favorites') sort.startTarget = { kind: 'favorites', index: sort.sourceFavoriteIndex };
+        else if (!card.dataset.shortcut && isAdmin()) {
+            const group = groupOfCard(original);
+            if (group && ![SKILLS_GROUP, '__other'].includes(group.id)) sort.startTarget = { kind: 'group', groupId: group.id, index: group.cards.indexOf(original) };
+        }
+        sort.target = sort.startTarget;
+        document.body.classList.add('home-sorting');
+        grid.classList.add('is-sorting');
+        flip(() => applyPreview(sort.target));
+        requestAnimationFrame(() => ghost.classList.add('is-lifted'));
+        autoScroll();
+    }
+
+    function moveSort(x, y) {
+        sort.pointerX = x;
+        sort.pointerY = y;
+        sort.ghost.style.left = `${x - sort.offsetX}px`;
+        sort.ghost.style.top = `${y - sort.offsetY}px`;
+        const target = hitTarget(x, y);
+        if (sameTarget(target, sort.target)) return;
+        // 让位动画进行中不立刻再次换位，避免卡片来回抖动；停下后补算一次，指针停在哪就落在哪
+        const wait = 140 - (performance.now() - sort.lastSwitch);
+        if (wait > 0) {
+            clearTimeout(sort.pending);
+            sort.pending = setTimeout(() => { if (sort) moveSort(sort.pointerX, sort.pointerY); }, wait + 10);
+            return;
+        }
+        sort.target = target;
+        sort.lastSwitch = performance.now();
+        flip(() => applyPreview(target));
+    }
+
+    function autoScroll() {
+        if (!sort) return;
+        const edge = 72;
+        const y = sort.pointerY;
+        const speed = y < edge ? -Math.ceil((edge - y) / 6) : y > window.innerHeight - edge ? Math.ceil((y - window.innerHeight + edge) / 6) : 0;
+        if (speed) {
+            window.scrollBy(0, speed);
+            moveSort(sort.pointerX, sort.pointerY);
+        }
+        sort.scrollFrame = requestAnimationFrame(autoScroll);
+    }
+
+    function finishSort(commit) {
+        const current = sort;
+        cancelAnimationFrame(current.scrollFrame);
+        clearTimeout(current.pending);
+        if (commit) {
+            const final = hitTarget(current.pointerX, current.pointerY);
+            if (!sameTarget(final, current.target)) {
+                current.target = final;
+                flip(() => applyPreview(final));
+            }
+        }
+        const target = commit ? current.target : null;
+        const changed = target && !sameTarget(target, current.startTarget);
+        const landing = changed
+            ? (target.kind === 'favorites' ? current.favoritePlaceholder : current.original)
+            : (current.card.isConnected ? current.card : current.original);
+        if (!changed) flip(() => applyPreview(current.startTarget));
+        const rect = landing.getBoundingClientRect();
+        current.ghost.classList.remove('is-lifted');
+        current.ghost.classList.add('is-dropping');
+        current.ghost.style.left = `${rect.left}px`;
+        current.ghost.style.top = `${rect.top}px`;
+        suppressClick = true;
+        setTimeout(() => { suppressClick = false; }, 50);
+        setTimeout(() => {
+            current.ghost.remove();
+            current.createdSlot?.remove();
+            current.original.classList.remove('is-sort-placeholder', 'is-sort-source');
+            current.sourceFavorite?.classList.remove('is-sort-placeholder');
+            document.body.classList.remove('home-sorting');
+            grid.classList.remove('is-sorting');
+            sort = null;
+            if (changed) commitSort(current, target);
+            else { renderGroupHeads(); renderShortcuts(); syncFavoriteButtons(); applyFilter(); }
+        }, 220);
+    }
+
+    function commitSort(current, target) {
+        if (target.kind === 'favorites') {
+            const before = favoriteIds();
+            const ids = before.filter(id => id !== current.id);
+            ids.splice(Math.min(target.index, ids.length), 0, current.id);
+            window.NavFavorites?.set?.(ids);
+            if (!before.includes(current.id)) toast(tx('favAdded', { name: cardTitle(current.original) }));
+            return;
+        }
+        const group = groups.find(item => item.id === target.groupId);
+        const list = group.cards.filter(card => card !== current.original);
+        const prev = list[target.index - 1];
+        const next = list[target.index];
+        const fromGroup = groupOfCard(current.original);
+        const ok = window.NavLayout?.reorder?.(current.id, prev ? { afterId: cardItemId(prev), categoryId: group.id }
+            : next ? { beforeId: cardItemId(next), categoryId: group.id } : { categoryId: group.id });
+        if (ok) toast(fromGroup && fromGroup.id !== group.id ? tx('moved', { group: group.name }) : tx('reordered'));
+        else scheduleLayout();
     }
 
     function bindFavoritesAndDrag() {
         grid.addEventListener('click', event => {
+            if (suppressClick && event.target.closest('a.tool-card')) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+            }
             const button = event.target.closest('.card-fav-toggle');
             if (!button) return;
             event.preventDefault();
@@ -706,60 +939,60 @@
             toast(tx(on ? 'favAdded' : 'favRemoved', { name: cardTitle(card) }));
         }, true);
 
+        // 关掉浏览器原生的链接拖拽（只会拖出一条网址）
         grid.addEventListener('dragstart', event => {
-            const card = event.target.closest?.('#toolsGrid > a.tool-card');
-            if (!card || !canFavorite(card) || event.target.closest('.custom-tool-actions')) return;
-            drag.itemId = card.dataset.originId || cardItemId(card);
-            drag.source = card;
-            event.dataTransfer.effectAllowed = 'copyMove';
-            event.dataTransfer.setData('text/plain', drag.itemId);
-            grid.classList.add('is-dragging-card');
-            grid.title = tx('dragHint');
-            requestAnimationFrame(() => card.classList.add('is-dragging'));
+            if (event.target.closest?.('#toolsGrid > a.tool-card')) event.preventDefault();
         });
 
-        grid.addEventListener('dragover', event => {
-            if (!drag.itemId) return;
-            // 拖到窗口上下边缘时自动滚动
-            if (event.clientY < 80) window.scrollBy(0, -16);
-            else if (event.clientY > window.innerHeight - 80) window.scrollBy(0, 16);
-            const target = resolveDrop(event);
-            clearDropMarks();
-            drag.target = target;
-            if (!target || target.refId === drag.itemId) return;
-            event.preventDefault();
-            event.dataTransfer.dropEffect = target.kind === 'favorites' ? 'copy' : 'move';
-            target.node.classList.add(target.refId ? (target.after ? 'drop-after' : 'drop-before') : 'drop-into');
+        grid.addEventListener('pointerdown', event => {
+            if (sort || event.button !== 0 || !event.isPrimary) return;
+            const card = event.target.closest('#toolsGrid > a.tool-card');
+            if (!card || !canFavorite(card) || event.target.closest('.custom-tool-actions, button, input, select, textarea')) return;
+            const startX = event.clientX;
+            const startY = event.clientY;
+            const touch = event.pointerType === 'touch' || event.pointerType === 'pen';
+            let pressTimer = null;
+            let started = false;
+            const start = moveEvent => {
+                started = true;
+                clearTimeout(pressTimer);
+                beginSort(card, moveEvent || event);
+                if (touch && navigator.vibrate) navigator.vibrate(10);
+            };
+            const onMove = moveEvent => {
+                if (started) {
+                    if (sort) moveSort(moveEvent.clientX, moveEvent.clientY);
+                    moveEvent.preventDefault();
+                    return;
+                }
+                const distance = Math.hypot(moveEvent.clientX - startX, moveEvent.clientY - startY);
+                if (touch) { if (distance > 8) cleanup(); } // 触屏移动即滚动，不拖
+                else if (distance > SORT_THRESHOLD) start(moveEvent);
+            };
+            const onUp = () => {
+                cleanup();
+                if (started && sort) finishSort(true);
+            };
+            const onKey = keyEvent => {
+                if (keyEvent.key !== 'Escape' || !sort) return;
+                cleanup();
+                finishSort(false);
+            };
+            const cleanup = () => {
+                clearTimeout(pressTimer);
+                window.removeEventListener('pointermove', onMove);
+                window.removeEventListener('pointerup', onUp);
+                window.removeEventListener('pointercancel', onUp);
+                window.removeEventListener('keydown', onKey);
+            };
+            if (touch) pressTimer = setTimeout(() => start(null), LONG_PRESS_MS);
+            window.addEventListener('pointermove', onMove, { passive: false });
+            window.addEventListener('pointerup', onUp);
+            window.addEventListener('pointercancel', onUp);
+            window.addEventListener('keydown', onKey);
         });
-
-        grid.addEventListener('drop', event => {
-            const target = drag.target || resolveDrop(event);
-            if (!drag.itemId || !target) return;
-            event.preventDefault();
-            const id = drag.itemId;
-            if (target.kind === 'favorites') {
-                const before = favoriteIds();
-                const ids = before.filter(item => item !== id);
-                let index = ids.length;
-                if (target.refId && ids.includes(target.refId)) index = ids.indexOf(target.refId) + (target.after ? 1 : 0);
-                ids.splice(index, 0, id);
-                window.NavFavorites?.set?.(ids);
-                if (!before.includes(id)) toast(tx('favAdded', { name: cardTitle(drag.source) }));
-            } else if (window.NavLayout?.reorder?.(id, target.refId
-                ? { [target.after ? 'afterId' : 'beforeId']: target.refId, categoryId: target.groupId }
-                : { categoryId: target.groupId })) {
-                const fromGroup = groupOfCard(originalCards().find(card => cardItemId(card) === id));
-                toast(fromGroup && fromGroup.id !== target.groupId ? tx('moved', { group: target.groupName }) : tx('reordered'));
-            }
-        });
-
-        grid.addEventListener('dragend', () => {
-            drag.source?.classList.remove('is-dragging');
-            Object.assign(drag, { itemId: '', source: null, target: null });
-            clearDropMarks();
-            grid.classList.remove('is-dragging-card');
-            grid.removeAttribute('title');
-        });
+        // 触屏拖动时阻止页面跟着滚动
+        grid.addEventListener('touchmove', event => { if (sort) event.preventDefault(); }, { passive: false });
     }
 
     function init() {

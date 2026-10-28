@@ -95,9 +95,18 @@ async function promoteTool(slug) {
     if (!tool || !fs.existsSync(path.join(runtimeDir, 'index.html'))) throw httpError('工具不存在或缺少 index.html', 404, 'TOOL_NOT_FOUND');
     assertWritable('tool');
     const staging = path.join(customTools.BUILTIN_TOOLS_DIR, `.promote-${slug}-${process.pid}.tmp`);
+    const hostedRuntime = require('./hosted-apps/runtime');
+    const hostedService = require('./hosted-apps/service');
+    let hostedBundle = null;
     fs.rmSync(staging, { recursive: true, force: true });
     try {
         fs.cpSync(runtimeDir, staging, { recursive: true, filter: source => !/(^|[\\/])\.DS_Store$/.test(source) });
+        // 托管 Python 应用：工具目录只有启动页，应用包另存为 hosted-app.zip 随源码发布（剔除 .env）
+        if (hostedRuntime.exists(slug)) {
+            const bundle = await hostedService.packageForSource(slug);
+            fs.writeFileSync(path.join(staging, hostedService.BUNDLED_PACKAGE), bundle.buffer);
+            hostedBundle = bundle;
+        }
         const now = new Date().toISOString();
         writeJsonAtomic(path.join(staging, customTools.TOOL_MANIFEST_FILE), {
             version: 1,
@@ -133,7 +142,12 @@ async function promoteTool(slug) {
         });
         if (result.invalid.length) throw httpError(`已写入内置目录，但登记运行副本失败：${result.invalid[0].error}`, 500);
     }
-    return { kind: 'tool', id: slug, builtIn: true, path: displayPath(builtinDir) };
+    if (hostedBundle) {
+        const hash = require('crypto').createHash('sha256').update(hostedBundle.buffer).digest('hex');
+        hostedRuntime.updateState(slug, { bundleHash: hash }); // 当前租户的应用即源码里的版本，不重复安装
+    }
+    return { kind: 'tool', id: slug, builtIn: true, path: displayPath(builtinDir),
+        ...(hostedBundle ? { hostedApp: true, packageBytes: hostedBundle.buffer.length, removedFiles: hostedBundle.removed } : {}) };
 }
 
 function tenantDataDirs() {

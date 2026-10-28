@@ -153,3 +153,42 @@ test('hosted apps keep their original package for download and never count as st
     assert.equal(service.isLauncherFile(path.join(sandbox, 'launcher', 'plain.html')), false);
     assert.equal(service.isLauncherFile(path.join(sandbox, 'missing.html')), false);
 });
+
+test('built-in Python apps ship their package without .env and self-install on first open in other environments', async () => {
+    const repo = require('../backend/models/custom-tools-repository');
+    const files = { 'kit/requirements.txt': 'uvicorn', 'kit/app/main.py': 'from fastapi import FastAPI\napp = FastAPI()\n', 'kit/.env': 'BASE_QUERY_URL=https://secret.example\nTOKEN=abc', 'kit/.env.example': 'PORT=5600', 'kit/sub/.env.local': 'X=1' };
+    await tenant.runWithTenant('default', async () => {
+        runtime.createApp('bundle-src', await appPackage.inspectArchive(await zipOf(files)), { name: 'Bundle' });
+        runtime.savePackage('bundle-src', await zipOf(files), 'kit.zip');
+        const bundle = await service.packageForSource('bundle-src');
+        const names = Object.keys((await JSZip.loadAsync(bundle.buffer)).files);
+        assert.deepEqual(bundle.removed.sort(), ['kit/.env', 'kit/sub/.env.local']);
+        assert.ok(names.includes('kit/.env.example') && !names.includes('kit/.env'));
+        await runtime.removeApp('bundle-src');
+
+        // 模拟新租户：内置同步把启动页和 hosted-app.zip 复制进工具目录，尚无托管应用
+        const tool = await repo.createTool({ name: '内置应用', htmlContent: service.launcherHtml('x', '内置应用') });
+        const toolDir = repo.getToolRootDir(tool.slug);
+        fs.writeFileSync(path.join(toolDir, service.BUNDLED_PACKAGE), bundle.buffer);
+        assert.equal(runtime.exists(tool.slug), false);
+        const [first, second] = await Promise.all([service.ensureFromBundle(tool.slug), service.ensureFromBundle(tool.slug)]);
+        assert.equal(first, true);
+        assert.equal(second, true, 'concurrent opens share one bootstrap');
+        const state = runtime.readState(tool.slug);
+        assert.equal(state.entry, 'app.main:app');
+        assert.equal(state.name, '内置应用');
+        assert.match(state.bundleHash, /^[a-f0-9]{64}$/);
+        assert.ok((await runtime.packageArchive(tool.slug)).original);
+        assert.equal(await service.ensureFromBundle(tool.slug), false, 'unchanged bundle is not reinstalled');
+
+        // 源码里的包更新：更新代码、保留应用库与密钥
+        const secret = state.secret;
+        const updated = await zipOf({ ...files, 'kit/app/main.py': 'from fastapi import FastAPI\napi = FastAPI()\n' });
+        fs.writeFileSync(path.join(toolDir, service.BUNDLED_PACKAGE), updated);
+        assert.equal(await service.ensureFromBundle(tool.slug), true);
+        const after = runtime.readState(tool.slug);
+        assert.equal(after.entry, 'app.main:api');
+        assert.equal(after.secret, secret);
+        await runtime.removeApp(tool.slug);
+    });
+});

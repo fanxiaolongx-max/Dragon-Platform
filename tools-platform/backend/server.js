@@ -595,6 +595,8 @@ app.use('/custom-tools', async (req, res, next) => {
         }
     });
 });
+// 随源码内置的 Python 应用包只供平台安装使用，不经工具静态地址下载（下载走管理员的工具导出接口）
+app.use('/custom-tools', (req, res, next) => (/\/hosted-app\.zip$/i.test(req.path) ? res.status(404).send('Not found') : next()));
 app.get('/custom-tools/:slug/index.html', async (req, res, next) => {
     try {
         const tool = await customToolsRepo.getTool(req.params.slug);
