@@ -8,16 +8,16 @@
 
 - **与网页版体验完全一致**：保留原有高清晰度专业卡片视觉设计（蓝底公司结汇、红底自己换回、深灰底最终得失核算、顶部实时汇率看板）。
 - **实时与历史汇率无缝获取**：
-  - 自动拉取今日官方收盘与实时汇率（USD/EGP、USD/CNY）。
-  - 支持回溯过去 45 天公司结算日的历史真实官方牌价。
+  - 读取第三方日汇率（USD/EGP、USD/CNY）。
+  - 可选择过去 45 天结算日请求历史日汇率；历史接口失败可能回退最新值、缓存或固定基准，应核对实际结汇凭证并手动修正。
   - 内置离线与断网降级机制，无网环境下亦可使用基准汇率或手动修改。
 - **状态自动记忆持久化**：
   - 自动记录上次输入的美元工资总额、结算日、成交汇率及换汇埃镑金额，重新打开插件无需繁琐重复输入。
 - **灵活视图模式**：
   - 默认 520px 黄金宽度 Popup 弹窗，即点即用，不打扰当前网页工作流。
   - 点击右上角「在新标签页打开（↗）」可一键切换为宽屏桌面完整版。
-- **100% 商店合规 (MV3)**：
-  - 纯本地 CSS 与原生 JavaScript 构建，无任何外部 CDN `<script>` 注入，符合 Chrome Web Store 及 Edge Add-ons 严格的安全内容策略（CSP）。
+- **Manifest V3 与本地界面资源**：
+  - 纯本地 CSS 与原生 JavaScript 构建，无任何外部 CDN `<script>` 注入，扩展使用本地页面脚本；是否获准上架仍取决于商店审核。
   - 配备 16x16、32x32、48x48、128x128、512x512 全套高品质图标。
 
 ---
@@ -37,10 +37,8 @@ overseas-salary-calculator/
 │   ├── icon48.png
 │   ├── icon128.png
 │   └── icon512.png
-├── dist/                      # 商店发布压缩包
-│   └── overseas-salary-calculator-v1.0.0-store.zip
 ├── README.md                  # 本文档
-└── STORE_SUBMISSION_GUIDE.md  # 谷歌与 Edge 应用商店上架图文实战指南
+└── store-assets/              # 商店展示图片
 ```
 
 ---
@@ -53,7 +51,7 @@ overseas-salary-calculator/
 1. 打开 Chrome，在地址栏输入 `chrome://extensions/` 并回车。
 2. 开启右上角的 **「开发者模式」** 开关。
 3. 点击左上角的 **「加载已解压的扩展程序」** 按钮。
-4. 选择本目录：`/Volumes/512G/06-工具开发/privacy-policy/tools-platform/extensions/overseas-salary-calculator`。
+4. 选择本目录：`项目中的 `extensions/overseas-salary-calculator/` 目录`。
 5. 安装完成！点击浏览器右上角拼图图标，将「💼 驻外薪资换汇计算器」固定到工具栏即可随时唤起。
 
 ### 在 Microsoft Edge 浏览器：
@@ -84,3 +82,7 @@ overseas-salary-calculator/
 
 详细的账户注册、上架表单填写、隐私权限理由说明请查阅同目录下的 **[STORE_SUBMISSION_GUIDE.md](./STORE_SUBMISSION_GUIDE.md)**。
 可以直接使用 `dist/overseas-salary-calculator-v1.0.0-store.zip` 上传审核。
+
+## 当前接入边界（2026-10-28）
+
+版本以 `manifest.json` 为准，当前为 1.0.0。权限为 `storage` 与 jsDelivr 主机访问；代码还包含 Pages 备用源，实际可用性受扩展主机权限与网络影响。输入通过扩展本地存储保存，不同步平台 SQLite。汇率是估算依据，不代表银行实际成交价、手续费或税费。修改后从项目根目录运行 `node --check extensions/overseas-salary-calculator/popup.js`，再在已加载扩展中刷新验证。

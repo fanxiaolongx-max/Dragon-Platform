@@ -22,3 +22,7 @@ node --check scripts/package-acceptance-checklist.js
 node_modules/.bin/electron tests/acceptance-checklist-browser.cjs
 node --test tests/asset-versioning.test.js
 ```
+
+## 当前维护入口（2026-10-28）
+
+页面入口为 [index.html](index.html)，交互与 IndexedDB 存储见 [app.js](app.js)。从项目根目录执行上述打包与验证命令；打包命令会写入指定输出文件，仅交付独立 HTML 时执行。平台内置源码和租户运行目录分别维护，修改源码后使用系统工具更新应用。中文与英文、深浅主题及窄屏均应在页面核对；工具 JSON 备份是跨设备交接入口，平台租户备份不包含浏览器 IndexedDB。

@@ -1,6 +1,6 @@
 # Dragon Platform
 
-本文按 **2026-10-28 当前工作区代码**核对，桌面版本为 **1.0.492**；发布版本以 [`package.json`](package.json) 和 `/api/app-version` 为准。
+本文按 **2026-10-28 当前工作区代码**核对，桌面版本为 **1.0.493**；发布版本以 [`package.json`](package.json) 和 `/api/app-version` 为准。
 
 > **把运营工作台装进口袋：通过 WeLink SDK 接入 Dragon Claw，出门也能用手机 WeLink 对话查指标、看风险进展、梳理待跟进事项。** [查看接入方法](#welink-sdk-频道对接手机上的运营助手)
 
@@ -39,6 +39,7 @@ Dragon Platform（Tools Platform）是面向质量运营的本地/内网工具�
    - [2.6 专项治理工具链](#26-专项治理工具链)
    - [2.7 平台效能大盘、服务监控与友情链接](#27-平台效能大盘服务监控与友情链接)
    - [2.8 自定义工具与多源工具市场生态](#28-自定义工具与多源工具市场生态)
+     - [Python 应用托管](#托管-python-web-应用)
      - [F12 插件与 RFC 审计](#f12-插件下载与-netcare-rfc-审计) · [静态快照与 Pages](#静态快照导出与-pages-发布)
    - [2.9 Dragon Claw 智能体、Agent Workspace 协同工作区与 2D/3D 双视图知识图谱](#29-dragon-claw-智能体agent-workspace-协同工作区与-2d3d-双视图知识图谱)
      - [WeLink SDK 频道对接：手机上的运营助手](#welink-sdk-频道对接手机上的运营助手)
@@ -64,6 +65,7 @@ Dragon Platform（Tools Platform）是面向质量运营的本地/内网工具�
     - [12.6 平台标识、品牌资产与使用视频](#126-平台标识品牌资产与使用视频)
 13. [CI/CD 自动化发布与客户端平滑升级机制](#13-cicd-自动化发布与客户端平滑升级机制)
 14. [开发约定与排障 FAQ](#14-开发约定与排障-faq)
+    - [验证命令](#验证命令) · [专项文档与目录说明](#专项文档与目录说明)
 
 ---
 
@@ -890,7 +892,7 @@ sequenceDiagram
 - **长消息折叠**：首页 Dragon Claw 的用户消息超过约六行时，发送后自动折叠，点击「展开全文 / 收起全文」可反复切换；历史消息恢复时同样适用。按实际显示高度判断，窗口变窄后自动适配，手动展开的消息保持展开。折叠只影响显示，复制、重新发送及模型上下文仍使用完整原文。支持中英文和键盘操作。
 - **内置 Skills（`@` 调用）**：首页输入 `@` 可搜索并选择项目导览、排查故障、代码审查、数据核查和编写文档；支持方向键选择、Enter/Tab 插入。发送后后端加载对应 `SKILL.md`，复用现有工具与账号权限；加载过的 Skill 显示为输入框上方的标签，本对话后续消息继续生效，点 × 停用。示例：`@project-map 帮我梳理项目入口和数据流`。需要读取项目/数据库的 Skill 请先选择工作目录；文档草稿可直接使用。详见 [Dragon Claw Skills 使用说明](docs/dragon-claw-skills.md)。
 - **数字人基座对接（NetCare 数据）**：「全局设置 › 频道对接 › 数字人」粘贴写报告服务的 `.env` 即可导入基座地址与应用身份（默认 beta 基座，可改），连通性测试逐步显示基座返回。管理员可在 `/netcare-explorer` 浏览 NetCare 业务库实时表清单（叠加全表盘点 441 张种子与人工标注，新表自动出现），查看字段画像与样例、结构化查询、只读 SQL，应用库支持写入；首页 `@netcare-data` 让 Dragon Claw 只读查询。平台直接请求基座 REST API，不经过 FastAPI。详见 [数字人基座对接](docs/digital-human-netcare.md)。
-- **托管 Python Web 应用**：首页「导入 HTML / ZIP / SKILL」可导入含 `requirements.txt` 的 Python Web 应用包（FastAPI、Flask 等，格式参照 AiOps-Report 设计文档）。平台为每个应用建立独立虚拟环境（包内 `wheels/` 离线安装，否则在线安装，可配置 pip 镜像），在 127.0.0.1 随机端口用 uvicorn 启动，并在工具菜单生成入口；崩溃自动重启，管理员可查看日志、重启、重装依赖、更新（保留数据）。数据接口与数字人基座 REST 兼容：应用独享可读写的 SQLite 应用库，平台库只读（EXPLAIN 核对，拦截账号/凭据表与敏感列），NetCare 业务库经已配置的基座只读转发。应用页面以沙箱独立来源运行，拿不到平台登录态；转发请求去掉 Cookie，改为签名的用户头。详见 [托管 Python Web 应用](docs/hosted-python-apps.md)。
+- **托管 Python Web 应用**：首页「导入 HTML / ZIP / SKILL」可导入含 `requirements.txt` 的 Python Web 应用包（FastAPI、Flask 等，格式参照 AiOps-Report 设计文档）。平台为每个应用建立独立虚拟环境（优先包内 `wheels/` 离线安装，失败回退在线安装，可配置 pip 镜像），在 127.0.0.1 随机端口用 uvicorn 启动，并在工具菜单生成入口；崩溃自动重启，管理员可查看日志、重启、重装依赖、更新（保留数据）。数据接口与数字人基座 REST 兼容：应用独享可读写的 SQLite 应用库，平台库只读（EXPLAIN 核对，拦截账号/凭据表与敏感列），NetCare 业务库经已配置的基座只读转发。应用页面以沙箱独立来源运行，拿不到平台登录态；转发请求去掉 Cookie，改为签名的用户头。详见 [托管 Python Web 应用](docs/hosted-python-apps.md)。
 - **抓取脚本自动 Skill**：首页的 UIVF12/F12、脚本仓库及抓取脚本增删改、分类移动任务自动加载 `@script-data`，不开数据抓取页也能完成脚本与分类目录的全部管理（目录新建/改名/删除、脚本批量移动；删除非空目录须先移走脚本，不连带删脚本），旧对话追问也结合当前账号的服务端历史匹配。专用工具支持完整原脚本复制、局部替换、授权后的坏副本重建和删除；站点迁移与前端三区生成共用站点定义，保留地区/代表处筛选。分类移动原子同步列与页面载荷，避免“数据库改了但界面没变”；通用数据库工具不能再直接写脚本仓库。提交前校验 JSON/JavaScript 语法和记录版本，提交后回读并返回代码长度、站点和默认筛选依据。管理员普通对话无需目录；工作区遵守原审批模式，普通用户仍只读。验证不会执行真实站点抓取。详见 [Dragon Claw Skills](docs/dragon-claw-skills.md)。
 - **运营消息确认**：频道对接的运营计划选择“到点生成草稿，确认后发送”后，主页只显示一行“有 N 条消息待确认 → 进入对话”。点击后直接打开收件对象的微信或 WeLink 会话，在真实消息时间线中查看、修改、保存和确认草稿；其他工具页右上方横幅也导航到该入口（`/#ops-drafts`）。不同收件对象的草稿可通过“待确认会话”选择器切换；多收件对象草稿会列出完整范围，确认时发送到全部列出的对象。最后一条处理成功后，成功提示短暂停留，草稿区域及提示条消失，会话和已发送消息仍保留；失败提示保留。页面可见时每 20 秒刷新，并在重新切回页面时刷新；暂时收起横幅后，有新草稿会再次提醒。原“全局设置 → 频道对接 → 运营 → 草稿与推送记录”入口保留，记录按时间倒序分页展示，每页 20 条，支持上一页、下一页及页码跳转，翻页保留未保存的草稿与上方表单；提醒与操作均限定当前租户，独立下载文件和静态快照不显示在线待办。
   多条待确认消息合并成一个汇总横幅，横幅上限为 1 条；打开后卡片纵向排列，每页最多 20 条。存在待确认消息时，页面上的推广浮窗、推广横幅和边缘入口自动隐藏，并暂停推广小视频；即使暂时收起待办提醒，推广也继续避让。待办清空后恢复推广原先的展开或收起状态，不改写永久关闭偏好。
@@ -1181,7 +1183,7 @@ flowchart LR
    - 无论是控制台输出、按日应用日志，还是失败链路追踪库 (`service_status_failures`)，系统均自动拦截并脱敏所有敏感字段。
    - 脱敏匹配键集合：`authorization`, `password`, `token`, `access_token`, `refresh_token`, `api_key`, `apikey`, `secret` 等；URL query 参数与 JSON 深度嵌套对象全程递归脱敏为 `[REDACTED]`。
 2. **多层级访问控制与静态资源保护 (`shouldProtectHtmlEntry`)**：
-   - 业务 HTML 页面全部受 服务端 SQLite Session 校验保护，未登录拦截重定向至登录页，防止退出登录后页面因浏览器缓存闪现。
+   - 业务 HTML 页面全部受服务端 SQLite Session 校验保护，未登录拦截重定向至登录页，防止退出登录后页面因浏览器缓存闪现。
    - 公开资源白名单严格受限：仅限登录页、隐私声明、服务条款及非敏感静态资源 (`.css`, `.js`, `.png`, `.ico`)。
    - 自定义 HTML 工具按 `publicAccess` 字段实施细粒度权限隔离，支持管理员灵活开放免密公开访问或强制登录访问。
 3. **数据隐私驻留合规 (Data Privacy by Design)**：
@@ -1430,7 +1432,7 @@ PM2 当前配置为单实例、`max_memory_restart: '1G'`，达到阈值会重�
 | `/api/desktop-pet` | `desktop-pet.js` | 需登录 | 桌面宠物古埃及故事集（40篇中英双语故事）分发与 AI 上下文展开 |
 | `/api/duty-roster` | `duty-roster.js` | 需登录 | 值班花名册、轮值规则与夜间运维考勤排班数据管理 |
 | `/api/favorite-nav` | `favorite-nav.js` | 需登录 | 当前账号与租户的收藏及顺序，普通用户可维护自己的列表 |
-| `/api/home-capabilities` | `home-capabilities.js` | 需登录 | 首页插件与脚本目录 |
+| `/api/home/capabilities` | `server.js` | 需登录 | 首页插件与脚本目录 |
 | `/api/hosted-apps` | `hosted-apps.js` | 需登录；设置与运维需 Admin | Python 应用识别、启动入口、日志及生命周期管理 |
 | `/api/digital-human` | `digital-human.js` | 仅 Admin | 数字人配置、NetCare 只读查询与应用 schema 受限写入 |
 | `/api/desktop-agents` | `desktop-agents.js` | 路由内校验绑定账号、租户及管理权限 | 桌面 Agent 会话连接与收发 |
@@ -1678,7 +1680,7 @@ pm2 stop tools-platform         # 停止服务
 | **开机自启** | 托盘菜单可直接一键勾选开机自启动 | 不写注册表启动项，纯绿色便携 | 托盘/Dock 支持配置登录项自动启动 |
 | **系统级桌宠** | **支持Dragon 桌宠全功能与全局键盘监听** | **支持Dragon 桌宠全功能与全局键盘监听** | **支持Dragon 桌宠全功能（需系统辅助功能权限）** |
 | **数据存储** | `%APPDATA%\Dragon Platform\` | 共享相同目录，更换 EXE **数据不丢失** | `~/Library/Application Support/Dragon Platform/` |
-| **安全机制** | 单实例锁 + SQLite 15s Busy Timeout | 单实例锁 + SQLite 15s Busy Timeout | **Apple Developer 签名 + Hardened Runtime + 官方公证** |
+| **安全机制** | 单实例锁 + SQLite 5s Busy Timeout | 单实例锁 + SQLite 5s Busy Timeout | **Apple Developer 签名 + Hardened Runtime + 官方公证** |
 
 #### 客户端获取与激活步骤：
 1. **下载对应版本**：从 GitHub Releases 下载适合操作系统的最新客户端。macOS 用户按芯片选择 `arm64` (M系列芯片) 或 `x64` (Intel芯片)。
