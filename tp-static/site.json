@@ -81,7 +81,7 @@
     },
     "/api/app-version": {
       "name": "tools-platform",
-      "version": "1.0.480"
+      "version": "1.0.482"
     }
   },
   "proof": {
@@ -401,8 +401,8 @@
     },
     "datacom-protocol-expert/index.html": {
       "url": "tp-static/payload/350b556c16e392b0cc02319227bdbc6d6890a508d6bd9b1e85082d7619b87ac2.bin",
-      "iv": "oGdwayOPFYcJVDFD",
-      "hash": "e0f461224dfa90b4bbd9e682e2b8737f52d6ddba33f98f6fe7a42cd7ad890b21",
+      "iv": "FN5aDchcxFP/BVS4",
+      "hash": "fad0da1bc2a60f770c8c693ca0060d0bec672976d23cb4211d2b9ab59eec57f3",
       "type": "text/html; charset=utf-8"
     },
     "datacom-protocol-expert/THIRD_PARTY_NOTICES.md": {
@@ -487,8 +487,8 @@
     },
     "index.html": {
       "url": "tp-static/payload/0eb547304658805aad788d320f10bf1f292797b5e6d745a3bf617584da017051.bin",
-      "iv": "W+chg0LE1CuLmQ2o",
-      "hash": "20c9cebf84a16a5c776a77aa5bc325bf7bd67fafe769fde67a859c853b779fb6",
+      "iv": "W8QNaM7miX5vNEfw",
+      "hash": "04b11a87ea324a4ca94020a2bf9c50845173cb7bde81361692b19bd984b225d9",
       "type": "text/html; charset=utf-8"
     },
     "mayrig/index.html": {
@@ -1254,8 +1254,8 @@
     },
     "portal-data.json": {
       "url": "tp-static/payload/4187a00828abb3180acbb34476f6daf7e5f48cabcd5296e625824e9757bf3d25.bin",
-      "iv": "WFRRKuu7Cdv9jk9Y",
-      "hash": "607065069bdd41d5e8b1aea8ef2a48a86ceab5bb0f72f3ac8047d3c50b86beb7",
+      "iv": "7op2pzfFH6NURT28",
+      "hash": "85624309854c29cce6a4d6a8ecf4402cc64548267c1c40564ce5284693cb73ce",
       "type": "application/json; charset=utf-8"
     },
     "pr-2/index.html": {
@@ -11600,8 +11600,8 @@
     },
     "tool-mumxi3px/index.html": {
       "url": "tp-static/payload/75d15759f83fc8f0e3a6cc7c39574b5443a39eabe4bc8bd9a60591224eac6eda.bin",
-      "iv": "ntAbQ3RfRcA7UM1U",
-      "hash": "1df9b8a25bedd94f34cfd73d46b04ea633f4a062ec1fa3903de96d9f7b53cec6",
+      "iv": "WybSMYrttTy3PgtZ",
+      "hash": "73414386a1ee8a3397422f843f3f100ea3e6e78cbddcfde7af1653601842c73e",
       "type": "text/html; charset=utf-8"
     },
     "tool-mv9strpn/index.html": {

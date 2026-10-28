@@ -15,7 +15,9 @@ const NAV_BUILTIN_LINKS = [
     { id: 'frt', href: '/frt', icon: '📊', label: 'FRT核算', labelKey: 'nav.frt', defaultCategory: 'audit', match: p => p.startsWith('/frt') },
     { id: 'praudit', href: '/praudit', icon: '📋', label: 'PR稽查', labelKey: 'nav.praudit', defaultCategory: 'audit', match: p => p.startsWith('/praudit') },
     { id: 'storage', href: '/storage', icon: '💽', label: '迁移状态', labelKey: 'nav.storage', defaultCategory: 'system', match: p => p.startsWith('/storage') },
-    { id: 'db-explorer', href: '/db-explorer', icon: '🗄️', label: '数据探索', labelKey: 'nav.dbExplorer', defaultCategory: 'system', match: p => p.startsWith('/db-explorer') }
+    { id: 'db-explorer', href: '/db-explorer', icon: '🗄️', label: '数据探索', labelKey: 'nav.dbExplorer', defaultCategory: 'system', match: p => p.startsWith('/db-explorer') },
+    // 数字人基座的 NetCare 业务库探查：接口第一期只开放给管理员，普通账号不显示入口
+    { id: 'netcare-explorer', href: '/netcare-explorer', icon: '🧭', label: 'NetCare 数据探查', labelEn: 'NetCare Explorer', labelKey: 'nav.netcareExplorer', defaultCategory: 'system', adminOnly: true, match: p => p.startsWith('/netcare-explorer') }
 ];
 
 const NAV_DEFAULT_SETTINGS = {
@@ -37,7 +39,7 @@ const NAV_DEFAULT_SETTINGS = {
         { id: 'cat_mshua5iu', name: '休闲娱乐', nameEn: 'Play' }
     ],
     categoryByItem: {
-        frt: 'audit', praudit: 'audit', storage: 'system', 'db-explorer': 'system', 'topic-analysis': 'cat_mshv1h0m',
+        frt: 'audit', praudit: 'audit', storage: 'system', 'db-explorer': 'system', 'netcare-explorer': 'system', 'topic-analysis': 'cat_mshv1h0m',
         'custom:eos_tool-v2': 'cat_mq0nny3v', 'custom:eos': 'cat_mq0nny3v',
         'custom:eos_tool-v4': 'cat_mq0nny3v', 'custom:eos_tool-v8': 'cat_mq0nny3v',
         'custom:esn-check': 'cat_mq0nny3v', 'custom:pr': 'audit',
@@ -302,6 +304,7 @@ function registerNavbarI18n() {
             'nav.praudit': 'PR稽查',
             'nav.storage': '迁移状态',
             'nav.dbExplorer': '数据探索',
+            'nav.netcareExplorer': 'NetCare 数据探查',
             'nav.f12packer': 'F12扩展打包',
             'nav.pythonUpdater': 'Python脚本更新',
             'nav.more': '更多工具',
@@ -859,6 +862,7 @@ function registerNavbarI18n() {
             'nav.praudit': 'PR Audit',
             'nav.storage': 'Migration',
             'nav.dbExplorer': 'Data Explorer',
+            'nav.netcareExplorer': 'NetCare Explorer',
             'nav.f12packer': 'F12 Packer',
             'nav.pythonUpdater': 'Python Updater',
             'nav.more': 'More Tools',
@@ -1601,7 +1605,8 @@ function getAllNavItems() {
         createdAt: tool.createdAt,
         updatedAt: tool.updatedAt
     }));
-    return [...NAV_BUILTIN_LINKS, ...customItems];
+    const isAdmin = localStorage.getItem('tools_role') === 'admin';
+    return [...NAV_BUILTIN_LINKS.filter(item => !item.adminOnly || isAdmin), ...customItems];
 }
 
 // 需求管理页以导航中的实际页面/工具作为分类来源，避免维护另一份容易过期的页面清单。
@@ -9406,7 +9411,7 @@ function trackCurrentToolOpen() {
     const pathname = (window.__TP_STATIC_PATH__ || window.location.pathname).replace(/\/+$/, '') || '/';
     const builtinTools = new Set([
         'uivf12', 'sla', 'report', 'expedite', 'monthly', 'bigscreen',
-        'frt', 'requirements', 'praudit', 'storage', 'db-explorer'
+        'frt', 'requirements', 'praudit', 'storage', 'db-explorer', 'netcare-explorer'
     ]);
     let toolKey = pathname.replace(/^\//, '');
     const customMatch = pathname.match(/^\/tools\/([^/]+)$/);
