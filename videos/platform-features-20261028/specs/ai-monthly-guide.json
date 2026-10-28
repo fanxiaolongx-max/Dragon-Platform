@@ -100,10 +100,17 @@
     }
   ],
   "id": "ai-monthly-guide",
-  "version": "20261028-1",
+  "version": "20261028-2",
   "voice": {
     "name": "zh-CN-XiaoxiaoNeural",
     "rate": "-3%",
     "pitch": "+0Hz"
-  }
+  },
+  "pronunciations": {
+    "重画": "崇画",
+    "重做": "崇做",
+    "重新": "崇新",
+    "重复": "崇复"
+  },
+  "pronunciationNote": "TTS 专用同音字提示：上述“重”一律 chóng；画面、字幕和旁白原稿保留正常汉字。"
 }

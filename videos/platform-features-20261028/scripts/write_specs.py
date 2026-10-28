@@ -38,6 +38,7 @@ EPISODES={
 ('boundary','业务库只读，应用库另有边界','当前功能只向管理员开放，真实基座还需要内网连通。业务库只读；应用库在人工确认后支持受限写入，建表改表不在这里做。模型只提供只读工具。基座离线时会提示回退种子目录，种子不是实时数据。','boundary',['业务库：只读','模型：只读工具','离线种子 ≠ 实时数据']),
 ('end','先查清一张表，再回答一个问题','第一次不要急着跨几十张表。先选一张业务表，补上中文名和口径，核对样例，再做一个简单统计。把不知道查什么，逐步变成知道数据从哪来、数字怎么算出来。','end',['入口：NetCare 数据探查','先核对一张表','再解决一个业务问题'])])}
 for key,spec in EPISODES.items():
+ if (BASE/'specs'/f'{key}.json').exists():continue  # Keep reviewed scripts and pronunciation fixes.
  spec.update(id=key,version='20261028-1',voice={'name':'zh-CN-XiaoxiaoNeural','rate':'-3%','pitch':'+0Hz'})
  spec['scenes']=[dict(id=x[0],title=x[1],say=x[2],visual=x[3],labels=x[4]) for x in spec['scenes']]
  (BASE/'specs'/f'{key}.json').write_text(json.dumps(spec,ensure_ascii=False,indent=2))

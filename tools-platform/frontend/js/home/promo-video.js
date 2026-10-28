@@ -33,7 +33,7 @@
             hd: '/assets/promotions/platform-guide-hd.mp4?v=' + VER,
             poster: '/assets/promotions/platform-guide-poster.jpg?v=' + VER
         },
-        aiMonthly: { mini: '/assets/promotions/ai-monthly-guide.mp4?v=20261028-1', hd: '/assets/promotions/ai-monthly-guide-hd.mp4?v=20261028-1', poster: '/assets/promotions/ai-monthly-guide-poster.jpg?v=20261028-1' },
+        aiMonthly: { mini: '/assets/promotions/ai-monthly-guide.mp4?v=20261028-2', hd: '/assets/promotions/ai-monthly-guide-hd.mp4?v=20261028-2', poster: '/assets/promotions/ai-monthly-guide-poster.jpg?v=20261028-2' },
         welinkCli: { mini: '/assets/promotions/welink-cli-guide.mp4?v=20261028-1', hd: '/assets/promotions/welink-cli-guide-hd.mp4?v=20261028-1', poster: '/assets/promotions/welink-cli-guide-poster.jpg?v=20261028-1' },
         welinkSdk: { mini: '/assets/promotions/welink-sdk-guide.mp4?v=20261028-1', hd: '/assets/promotions/welink-sdk-guide-hd.mp4?v=20261028-1', poster: '/assets/promotions/welink-sdk-guide-poster.jpg?v=20261028-1' },
         digitalHuman: { mini: '/assets/promotions/digital-human-guide.mp4?v=20261028-1', hd: '/assets/promotions/digital-human-guide-hd.mp4?v=20261028-1', poster: '/assets/promotions/digital-human-guide-poster.jpg?v=20261028-1' }

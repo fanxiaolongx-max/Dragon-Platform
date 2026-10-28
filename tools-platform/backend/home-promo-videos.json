@@ -769,45 +769,45 @@
       "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/project-evolution-galaxy-20261019/project-evolution-galaxy-hd.mp4"
     },
     "ai-monthly-guide.mp4": {
-      "size": 3715108,
-      "sha256": "dddb2113be7b9ea81e4b31509fe3b7716ae00d4c0f1e52acd76c9fd21a36f1d5",
+      "size": 3724623,
+      "sha256": "72dec06634c187c8f90d6a4520f14fbad29e6568c38d92c7b2b4e8fe392a73a4",
       "chunks": [
-        "7a7c6f40ceac72253eb9c14dd2e9b52d011c624a6cc5f1eb0b895332a935abc2",
-        "a2af0954ae499b668578e3099b220210b1419fe1dc24f855fcd9855b4b551c61",
-        "f137bc2509fab04497fffbb939a2cc542b8ee22dd557a1e867a061655b8e259c",
-        "012b2f61d1713b97453ce8c4dd658d4dfeec42698dc997f1e85074dec23253cb",
-        "75df7521ecf1a5276cecfdd988547a4957a42a6a928172925ecd5e50274ab0bb",
-        "f022eb66dd3f000768495b33f4fbfeaca5e155c4e426bce694031d2a91d3fa99",
-        "f970a55cfddeb3fe22f5046e8e1f0be2a72a705bbe2242c3bb3ad4462541500c",
-        "6a485443560ad6bafe1b170cd8bcfc3777dbfc492f06cb9dd4ca126678f0ce22"
+        "4664811d0a653264158b484cad38e5533135bc8718ba1ba665271d8f33b1e9ed",
+        "db1d703fbe93bace7cd91e19a04fba1acb077397c74ea63aa609d6f74e2bad09",
+        "84ec87980a363d4f7a406fac456b698b18950871e26110c7d7b1c1f6fde2467c",
+        "371a0d8d59b537b826913782f4c9cf132f08ee1f29595a680d64bba53e5c67b2",
+        "db22d59aa1c014eec6677f322cef0f436a3f0cd6f235b17100495250760398a6",
+        "5c81cf41790857784936c8f58956fc93aa1caf38c6a93b30794c45c6bc3320ec",
+        "5799dab9beea97cd0581ce81dfe4d94a2f9c5b21719eda8a746991844fa46c50",
+        "46751fe0c4824861dc1c7ec70e4d59b178988808002f79acf49d3d82c9f7151b"
       ],
-      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/ai-monthly-guide.mp4"
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/ai-monthly-guide-20261028-2/ai-monthly-guide.mp4"
     },
     "ai-monthly-guide-hd.mp4": {
-      "size": 9892337,
-      "sha256": "0d9fdf709957fdf59478e676d0cfdd056938b05c30bc4aa0bdef6905d1e2251a",
+      "size": 9813194,
+      "sha256": "987a4daa9be53825a5b92c101f210ab528cd5150a25b1af06c86819c51c72340",
       "chunks": [
-        "100017ac7c9ee42c81293d59780963f64b6f151e6ea5e0ae310c6333d0fae3ef",
-        "2cc0e994ec353b30eefcd7e0ea993d16def08a6d641a741e75bed898dd4df1b2",
-        "d5635296c228ae9e7268ed64ee9d13fc418e3c0d52b806d574fc711c99be5c0f",
-        "42dc8ad556a3b50415de8593f37a7eafa95250a78b475e84fe3fb4ae29e21e87",
-        "c21205d714f936199465369ba779dd5e1bc3eeefb5903d4bedfec2e11986a8cd",
-        "376e74500901c01b6a86fab7cd001f7167c516a65a6f44186b3079d772ba3be1",
-        "56d4ab683cb3d5e57f783ad088ccce57d273ef79065cf247fb965dd6ff6f6d99",
-        "9af99aa7d201b84428d4b01dc5d9b7b68d8bfc033903c66ab1a26b95992e2def",
-        "ceede0fed4caa77bf38e3bcdf04af29ce5bf44911bfbcbf6465e70b7d13180b8",
-        "b8f16a4875a191a5be563613aa7adabf6d8eb6576634073d8378dd55e767dd9d",
-        "1ee05dd00edb94db8443264dcb3d3788b8192fcbf6d61a4b24f2dc422733b9bb",
-        "9c961c541ada55581872693691c8ea38c14f5e1c1437c0ab8d0b220f511bfd06",
-        "86edfa2e0679ed98d387232c94dd121396cfb00a0b5b066e35fbe4d020d060ae",
-        "1d270b20c1dcff52a735d99a228feb95089ccca45aa292c8695bb54a5508c3b8",
-        "7240837346b848921d3637903dc0fe09ab6924feedde3f09e87a368193be9bde",
-        "e032fb41d084e764f5546f1ebf0afb11b0435601fe77990379759cd9725ca950",
-        "171b8c1361f3919e6fbcd59ac7ce9404ed927e728a1a3e5a61642710d5952839",
-        "d6187eb3c9397e7d70691c7a805331deeda53cff8544a4cde3fbb36d440811b6",
-        "1238a1907826ec39664c41938cd1daaee559b97e03081855182d7a531bcc036f"
+        "c6c8f2f9963ed747229182587b76e801f8863c3b427341c6ae31a2bdb98368a6",
+        "5289410c3761ad7805a1010f5be60a159a31f78025659706329c258258287364",
+        "05e0929ce0e1cd84f09f22d0bb31206172a4ed20eea570131a3d92a4be2faf85",
+        "5ac5a28d3b7c5557e3d5bb325c494fb409c945ce08961644ca6423fc1ddfedaf",
+        "a679a12e72d69216821593c5d64231cd7d49ace442789eca5f7a1f1fc21f2623",
+        "52fac28f3ce2dafaf49ed7710e34a864533df07c43469e495a9ce4904251546f",
+        "e53cde44860a61ac5d46cf32f28979d637d802496943c6e8a40bc38cffe6ec78",
+        "965ccd8bde7957ac1154846c57fcecdd768190e96d0b3822b38c819ad016cd5c",
+        "358ec5affeb35ada142a7374c03344881914463cd7132dda639a07e250e3bc47",
+        "5a03304b596aa8b277042c5bb9db7793cad0e6dd7e99476c070b40cf4def7e17",
+        "ac885072538acc5d2cb2c631322dfdb939518d816bb747998e3a6aad66c782da",
+        "dd8452bb01a252726a007e45ee0728cfca992f9181a06e42b33479a24405412f",
+        "a8afc7be87eaa7f8407ac091861dcae29741faf6e1ff46c2786bd3cff64c64fc",
+        "c663177d08bfe553aaddd941e6b882c3dcaa105ec240f97d0ca414c37c459933",
+        "5ac4c0445806bcff560c03070eba34baed7e21e0941df4999495882011b8f714",
+        "c49958327ca571264316a4a9e476f1a9d6def36c8f22dfcee85589bf8ec47d02",
+        "1992a429941abc8f9ec31348ef5e657c26de631dde2e251060447d9a81517e17",
+        "489c430db878c316cb9013e5ea55ec970a5267f552db286770fe12648da437b0",
+        "dfa5565b99f7486a301822521a4f30a88fc725fe6a057a1ba02448003c7bed5c"
       ],
-      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/ai-monthly-guide-hd.mp4"
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/ai-monthly-guide-20261028-2/ai-monthly-guide-hd.mp4"
     },
     "welink-cli-guide.mp4": {
       "size": 3791600,

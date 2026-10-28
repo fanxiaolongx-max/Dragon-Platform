@@ -8,3 +8,5 @@
 - 成片与配音不进主代码仓库。独立媒体仓库为 `fanxiaolongx-max/Dragon-Platform-Media`；已发布 Release 附件不可覆盖，改片使用新标签并重新生成 SHA-256 清单。
 - 首页接入与桌面排除规则参见 README.md；不得把未制作的英语版链接拼进页面，普通话版在英文界面明确标注 Mandarin。
 - 只清理本次生成且可再生成的缓存，保留成片、源码、角色原图、最终审阅证据和 HyperFrames 历史；不扫描删除别的项目或用户数据。
+
+- 配音多音字规则：AI 月报里“重复 / 重做 / 重画 / 重新”的重读 chóng；`specs/ai-monthly-guide.json` 的 pronunciations 仅供 TTS 使用，原文与字幕保留正确汉字。不要全局替换“重”，以免破坏“严重”等 zhòng 音词。修改发音或声音配置必须使语音缓存失效。

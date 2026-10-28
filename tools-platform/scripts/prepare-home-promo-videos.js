@@ -14,6 +14,8 @@ const FEATURE_GUIDES = ['ai-monthly-guide', 'welink-cli-guide', 'welink-sdk-guid
 const FEATURE_BASE_URL = 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1';
 const RELEASE_URLS = {
     ...Object.fromEntries(FEATURE_GUIDES.flatMap(name => [name + '.mp4', name + '-hd.mp4']).map(name => [name, FEATURE_BASE_URL])),
+    'ai-monthly-guide.mp4': 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/ai-monthly-guide-20261028-2',
+    'ai-monthly-guide-hd.mp4': 'https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/ai-monthly-guide-20261028-2',
     'eos-report-guide.mp4': EOS_BASE_URL, 'eos-report-guide-hd.mp4': EOS_BASE_URL,
     'eos-report-guide-en.mp4': EOS_EN_BASE_URL, 'eos-report-guide-en-hd.mp4': EOS_EN_BASE_URL,
     'project-evolution-galaxy-hd.mp4': EVOLUTION_BASE_URL

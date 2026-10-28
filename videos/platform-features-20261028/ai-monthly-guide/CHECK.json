@@ -12,14 +12,15 @@
     "loudness": {
       "lufsIntegrated": -16.2,
       "lufsShortTermMax": -14.5,
-      "samplePeakDb": -3.4,
-      "truePeakDb": -3.4,
+      "samplePeakDb": -3.5,
+      "truePeakDb": -3.5,
       "clipping": {
         "count": 0,
         "firstAt": null
       }
     },
     "channels": 2,
-    "duration": 155.533
-  }
+    "duration": 155.6
+  },
+  "pronunciation": "chóng: 重画/重做/重新/重复; zhòng: 严重 unchanged"
 }
