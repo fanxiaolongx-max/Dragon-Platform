@@ -6,7 +6,8 @@
  * - 链接横幅最多显示 maxLinks 个，超出时每 rotateSeconds 秒轮换。
  * - 关闭小窗可选“仅本次关闭”（下次打开首页还会出现）或“永久关闭”；关闭后全部以横幅保留。
  * - 浏览器拦截带声音自动播放时降级为静音，首次点击页面后恢复声音。
- * - 用户开始使用页面（点击推广区以外的任意位置、聚焦输入框、打开菜单）后，推广区像抽屉一样收起到右侧边缘的小标签；点击标签再抽出。 */
+ * - 用户开始使用页面（点击推广区以外的任意位置、聚焦输入框、打开菜单）后，推广区像抽屉一样收起到右侧边缘的小标签；点击标签再抽出。
+ * - 每天第一次打开首页时弹出小窗与横幅；当天再刷新直接以收起状态出现（只留右侧标签，不自动播放）。 */
 (function () {
     'use strict';
     const STORE_KEY = 'tools.home.promoVideos.dismissed';
@@ -32,7 +33,11 @@
             mini: './tp-static/frontend/assets/promotions/platform-guide.mp4?v=' + VER,
             hd: './tp-static/frontend/assets/promotions/platform-guide-hd.mp4?v=' + VER,
             poster: './tp-static/frontend/assets/promotions/platform-guide-poster.jpg?v=' + VER
-        }
+        },
+        aiMonthly: { mini: './tp-static/frontend/assets/promotions/ai-monthly-guide.mp4?v=20261028-2', hd: './tp-static/frontend/assets/promotions/ai-monthly-guide-hd.mp4?v=20261028-2', poster: './tp-static/frontend/assets/promotions/ai-monthly-guide-poster.jpg?v=20261028-2' },
+        welinkCli: { mini: './tp-static/frontend/assets/promotions/welink-cli-guide.mp4?v=20261028-1', hd: './tp-static/frontend/assets/promotions/welink-cli-guide-hd.mp4?v=20261028-1', poster: './tp-static/frontend/assets/promotions/welink-cli-guide-poster.jpg?v=20261028-1' },
+        welinkSdk: { mini: './tp-static/frontend/assets/promotions/welink-sdk-guide.mp4?v=20261028-1', hd: './tp-static/frontend/assets/promotions/welink-sdk-guide-hd.mp4?v=20261028-1', poster: './tp-static/frontend/assets/promotions/welink-sdk-guide-poster.jpg?v=20261028-1' },
+        digitalHuman: { mini: './tp-static/frontend/assets/promotions/digital-human-guide.mp4?v=20261028-1', hd: './tp-static/frontend/assets/promotions/digital-human-guide-hd.mp4?v=20261028-1', poster: './tp-static/frontend/assets/promotions/digital-human-guide-poster.jpg?v=20261028-1' }
     };
     // 英文界面使用英文配音/字幕版本（文件名加 -en）
     const EN_FILES = {
@@ -42,10 +47,21 @@
         guide: { mini: 'platform-guide-en.mp4', hd: 'platform-guide-en-hd.mp4', poster: 'platform-guide-en-poster.jpg' }
     };
     const isEnglish = () => { try { return /^en/i.test((window.ToolsI18n && window.ToolsI18n.getLanguage && window.ToolsI18n.getLanguage()) || document.documentElement.lang || ''); } catch (_) { return false; } };
-    const STATIC_MEDIA={"netcare-rfc-ai-guide.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide.mp4","netcare-rfc-ai-guide-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-hd.mp4","netcare-rfc-ai-guide-en.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-en.mp4","netcare-rfc-ai-guide-en-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-en-hd.mp4","operation-incentive-guide.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide.mp4","operation-incentive-guide-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-hd.mp4","operation-incentive-guide-en.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-en.mp4","operation-incentive-guide-en-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-en-hd.mp4","platform-guide.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide.mp4","platform-guide-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-hd.mp4","platform-guide-en.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-en.mp4","platform-guide-en-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-en-hd.mp4","eos-report-guide.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-20261019/eos-report-guide.mp4","eos-report-guide-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-20261019/eos-report-guide-hd.mp4","eos-report-guide-en.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-en-20261019/eos-report-guide-en.mp4","eos-report-guide-en-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-en-20261019/eos-report-guide-en-hd.mp4","project-evolution-galaxy-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/project-evolution-galaxy-20261019/project-evolution-galaxy-hd.mp4","autonomous-maintenance.jpg":"./tp-static/frontend/assets/promotions/autonomous-maintenance.jpg?v=0e56342a9203","eos-report-guide-en-poster.jpg":"./tp-static/frontend/assets/promotions/eos-report-guide-en-poster.jpg?v=ff9d39c43e75","eos-report-guide-poster.jpg":"./tp-static/frontend/assets/promotions/eos-report-guide-poster.jpg?v=fb300bf46616","netcare-operation-map.svg":"./tp-static/frontend/assets/promotions/netcare-operation-map.svg?v=812f0e1f650a","netcare-rfc-ai-guide-en-poster.jpg":"./tp-static/frontend/assets/promotions/netcare-rfc-ai-guide-en-poster.jpg?v=7919ad7f18a2","netcare-rfc-ai-guide-poster.jpg":"./tp-static/frontend/assets/promotions/netcare-rfc-ai-guide-poster.jpg?v=479f1183de06","operation-incentive-guide-en-poster.jpg":"./tp-static/frontend/assets/promotions/operation-incentive-guide-en-poster.jpg?v=dcf5e353de13","operation-incentive-guide-poster.jpg":"./tp-static/frontend/assets/promotions/operation-incentive-guide-poster.jpg?v=6112b979c708","platform-guide-en-poster.jpg":"./tp-static/frontend/assets/promotions/platform-guide-en-poster.jpg?v=deea6dcf4ff3","platform-guide-poster.jpg":"./tp-static/frontend/assets/promotions/platform-guide-poster.jpg?v=4d56213fccd1","project-evolution-galaxy-poster.jpg":"./tp-static/frontend/assets/promotions/project-evolution-galaxy-poster.jpg?v=c675cef814ba","project-evolution-stars.svg":"./tp-static/frontend/assets/promotions/project-evolution-stars.svg?v=8f51fb7b3764"};
+    const STATIC_MEDIA={"netcare-rfc-ai-guide.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide.mp4","netcare-rfc-ai-guide-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-hd.mp4","netcare-rfc-ai-guide-en.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-en.mp4","netcare-rfc-ai-guide-en-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/netcare-rfc-ai-guide-en-hd.mp4","operation-incentive-guide.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide.mp4","operation-incentive-guide-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-hd.mp4","operation-incentive-guide-en.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-en.mp4","operation-incentive-guide-en-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/operation-incentive-guide-en-hd.mp4","platform-guide.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide.mp4","platform-guide-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-hd.mp4","platform-guide-en.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-en.mp4","platform-guide-en-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/home-videos-20261019/platform-guide-en-hd.mp4","eos-report-guide.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-20261019/eos-report-guide.mp4","eos-report-guide-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-20261019/eos-report-guide-hd.mp4","eos-report-guide-en.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-en-20261019/eos-report-guide-en.mp4","eos-report-guide-en-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-en-20261019/eos-report-guide-en-hd.mp4","project-evolution-galaxy-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/project-evolution-galaxy-20261019/project-evolution-galaxy-hd.mp4","ai-monthly-guide.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/ai-monthly-guide-20261028-2/ai-monthly-guide.mp4","ai-monthly-guide-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/ai-monthly-guide-20261028-2/ai-monthly-guide-hd.mp4","welink-cli-guide.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/welink-cli-guide.mp4","welink-cli-guide-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/welink-cli-guide-hd.mp4","welink-sdk-guide.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/welink-sdk-guide.mp4","welink-sdk-guide-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/welink-sdk-guide-hd.mp4","digital-human-guide.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/digital-human-guide.mp4","digital-human-guide-hd.mp4":"https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/digital-human-guide-hd.mp4","ai-monthly-guide-poster.jpg":"./tp-static/frontend/assets/promotions/ai-monthly-guide-poster.jpg?v=e8f0a8a56b22","autonomous-maintenance.jpg":"./tp-static/frontend/assets/promotions/autonomous-maintenance.jpg?v=0e56342a9203","digital-human-guide-poster.jpg":"./tp-static/frontend/assets/promotions/digital-human-guide-poster.jpg?v=0d3dda7ab11f","eos-report-guide-en-poster.jpg":"./tp-static/frontend/assets/promotions/eos-report-guide-en-poster.jpg?v=ff9d39c43e75","eos-report-guide-poster.jpg":"./tp-static/frontend/assets/promotions/eos-report-guide-poster.jpg?v=fb300bf46616","netcare-operation-map.svg":"./tp-static/frontend/assets/promotions/netcare-operation-map.svg?v=812f0e1f650a","netcare-rfc-ai-guide-en-poster.jpg":"./tp-static/frontend/assets/promotions/netcare-rfc-ai-guide-en-poster.jpg?v=7919ad7f18a2","netcare-rfc-ai-guide-poster.jpg":"./tp-static/frontend/assets/promotions/netcare-rfc-ai-guide-poster.jpg?v=479f1183de06","operation-incentive-guide-en-poster.jpg":"./tp-static/frontend/assets/promotions/operation-incentive-guide-en-poster.jpg?v=dcf5e353de13","operation-incentive-guide-poster.jpg":"./tp-static/frontend/assets/promotions/operation-incentive-guide-poster.jpg?v=6112b979c708","platform-guide-en-poster.jpg":"./tp-static/frontend/assets/promotions/platform-guide-en-poster.jpg?v=deea6dcf4ff3","platform-guide-poster.jpg":"./tp-static/frontend/assets/promotions/platform-guide-poster.jpg?v=4d56213fccd1","project-evolution-galaxy-poster.jpg":"./tp-static/frontend/assets/promotions/project-evolution-galaxy-poster.jpg?v=c675cef814ba","project-evolution-stars.svg":"./tp-static/frontend/assets/promotions/project-evolution-stars.svg?v=8f51fb7b3764","welink-cli-guide-poster.jpg":"./tp-static/frontend/assets/promotions/welink-cli-guide-poster.jpg?v=36d546303535","welink-sdk-guide-poster.jpg":"./tp-static/frontend/assets/promotions/welink-sdk-guide-poster.jpg?v=24aea759adda"};
     const media = (key,kind) => {const file=isEnglish()&&EN_FILES[key]?EN_FILES[key][kind]:VIDEOS[key][kind].split('/').pop().split('?')[0];return STATIC_MEDIA[file]||('./tp-static/frontend/assets/promotions/'+file);};
-    const ORDER = ['rfc', 'incentive', 'eos', 'guide'];
+    const ORDER = ['rfc', 'incentive', 'eos', 'guide', 'aiMonthly', 'welinkCli', 'welinkSdk', 'digitalHuman'];
     const ROTATION_KEY = 'tools.home.promotions.rotation';
+    const DAILY_KEY = 'tools.home.promotions.lastShownDay';
+    // 今天是否第一次打开首页（按本地日期）；读写失败时按第一次处理，照常展示
+    function firstShowToday() {
+        const now = new Date();
+        const today = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+        try {
+            if (localStorage.getItem(DAILY_KEY) === today) return false;
+            localStorage.setItem(DAILY_KEY, today);
+        } catch (_) { /* 存储不可用 */ }
+        return true;
+    }
     const PROMO_API = '/api/platform-promotions';
     const FRAME_INTERVAL_MS = 1000;
     // 后端不可用（静态快照等）时只显示内置视频；推广链接的默认值统一在 backend/platform-promotions-defaults.json
@@ -53,6 +69,11 @@
     const i18n = window.ToolsI18n;
     if (i18n) i18n.register('home-promo-video', {
         'zh-CN': {
+            'home.nrv.aiMonthly.badge': '月报', 'home.nrv.aiMonthly.name': 'AI 月报：这个月做好，下个月接着用', 'home.nrv.aiMonthly.banner': 'AI 月报：这个月做好，下个月接着用',
+            'home.nrv.welinkCli.badge': '办公', 'home.nrv.welinkCli.name': 'WeLink CLI：把散落的办公信息找回来', 'home.nrv.welinkCli.banner': 'WeLink CLI：把散落的办公信息找回来',
+            'home.nrv.welinkSdk.badge': '手机', 'home.nrv.welinkSdk.name': 'WeLink SDK：把运营助手装进口袋', 'home.nrv.welinkSdk.banner': 'WeLink SDK：把运营助手装进口袋',
+            'home.nrv.digitalHuman.badge': '取数', 'home.nrv.digitalHuman.name': '数字人基座：从看不懂表，到查得清数据', 'home.nrv.digitalHuman.banner': '数字人基座：从看不懂表，到查得清数据',
+
             'home.nrv.rfc.badge': '新功能', 'home.nrv.rfc.name': 'NetCare RFC 方案与 AI 审计', 'home.nrv.rfc.banner': '新功能 · NetCare RFC 方案与 AI 审计介绍',
             'home.nrv.incentive.badge': '核算', 'home.nrv.incentive.name': '操作激励统计：怎么算准每一笔', 'home.nrv.incentive.banner': '核算指南 · 操作激励统计，算得准、对得上',
             'home.nrv.eos.badge': '月报', 'home.nrv.eos.name': 'EOS 风险收编：一键取数，自动成月报', 'home.nrv.eos.banner': '月报指南 · EOS 取数、测算目标、一键成月报',
@@ -66,6 +87,11 @@
             'home.nrv.link.hintDesktop': '点击在 Dragon 浏览器新标签页打开', 'home.nrv.link.hintTab': '点击在新标签页打开', 'home.nrv.link.live': '实时画面'
         },
         'en-US': {
+            'home.nrv.aiMonthly.badge': 'GUIDE', 'home.nrv.aiMonthly.name': 'AI Monthly Reports: build once, reuse next month (Mandarin)', 'home.nrv.aiMonthly.banner': 'AI Monthly Reports: build once, reuse next month · Mandarin narration',
+            'home.nrv.welinkCli.badge': 'GUIDE', 'home.nrv.welinkCli.name': 'WeLink CLI: personal office assistant (Mandarin)', 'home.nrv.welinkCli.banner': 'WeLink CLI: personal office assistant · Mandarin narration',
+            'home.nrv.welinkSdk.badge': 'GUIDE', 'home.nrv.welinkSdk.name': 'WeLink SDK: the platform assistant on your phone (Mandarin)', 'home.nrv.welinkSdk.banner': 'WeLink SDK: the platform assistant on your phone · Mandarin narration',
+            'home.nrv.digitalHuman.badge': 'GUIDE', 'home.nrv.digitalHuman.name': 'Digital Human Base: understand and query NetCare data (Mandarin)', 'home.nrv.digitalHuman.banner': 'Digital Human Base: understand and query NetCare data · Mandarin narration',
+
             'home.nrv.rfc.badge': 'NEW', 'home.nrv.rfc.name': 'NetCare RFC Plans and AI Audit', 'home.nrv.rfc.banner': 'New · NetCare RFC Plans and AI Audit intro',
             'home.nrv.incentive.badge': 'PAYOUT', 'home.nrv.incentive.name': 'Operation Incentive Statistics: getting every payout right', 'home.nrv.incentive.banner': 'Guide · Operation incentive statistics, accurate and verifiable',
             'home.nrv.eos.badge': 'REPORT', 'home.nrv.eos.name': 'EOS incorporation: one-click data, automatic monthly report', 'home.nrv.eos.banner': 'Guide · EOS data capture, target forecast, one-click report',
@@ -311,7 +337,7 @@
             renderBanners();
         }
         function playMini() {
-            if (isLink(current) || reviewPending) return;
+            if (isLink(current) || reviewPending || tucked) return;
             if (reducedMotion && !soundUnlocked) return;
             mini.muted = !wantSound; renderSound();
             const attempt = mini.play();
@@ -566,6 +592,8 @@
 
         translate();
         syncInboxPriority();
+        // 当天已经展示过：首帧前就收起到右侧标签（与创建在同一任务内，不会先弹出再收起）
+        if (!firstShowToday()) tuck();
         loadConfig().then(() => {
             setCurrent(readDismissed() ? null : nextPromotion());
             scheduleRotation();

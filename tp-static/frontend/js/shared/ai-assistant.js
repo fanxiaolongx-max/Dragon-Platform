@@ -1480,7 +1480,13 @@
 
         function inline(value) {
             const codeTokens = [];
-            let source = String(value || '').replace(/`([^`]+)`/g, (_match, code) => {
+            const keep = html => {
+                codeTokens.push(html);
+                return `\u0000CODE${codeTokens.length - 1}\u0000`;
+            };
+            // 本机文件 / 图片 / 文件引用 → 下载卡片与可放大图片（js/shared/chat-files.js）
+            let source = globalThis.ChatFiles ? globalThis.ChatFiles.transformInline(String(value || ''), keep) : String(value || '');
+            source = source.replace(/`([^`]+)`/g, (_match, code) => {
                 const token = `\u0000CODE${codeTokens.length}\u0000`;
                 codeTokens.push(`<code>${escapeHtml(code)}</code>`);
                 return token;
@@ -1497,7 +1503,7 @@
                 .replace(/__([^_]+)__/g, '<strong>$1</strong>')
                 .replace(/~~([^~]+)~~/g, '<del>$1</del>');
             codeTokens.forEach((html, index) => {
-                source = source.replace(`\u0000CODE${index}\u0000`, html);
+                source = source.replace(`\u0000CODE${index}\u0000`, () => html);
             });
             return source;
         }

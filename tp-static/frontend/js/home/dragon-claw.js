@@ -7,6 +7,7 @@
 
     const TEXT = {
         'zh-CN': {
+            messageExpand: '展开全文', messageCollapse: '收起全文',
             ctxCompacted: '上下文已压缩，下次回复后更新占用',
             slashCompact: '压缩当前对话上下文，保留完整历史', compactRunning: '正在压缩上下文…', compactEmpty: '先开始一段对话，再压缩上下文', compactSmall: '上下文已较精简，无需压缩', compactDone: '上下文已压缩，完整历史和工具记录仍保留', compactFailed: '压缩失败，未清除历史记录',
             slashSchedule: '定时或延时执行一条指令（不带参数查看任务）', slashPlan: '先出步骤计划，确认后再执行', slashBtw: '顺便问一句，不打断、不写入当前对话',
@@ -57,9 +58,12 @@
             prFormTitle: '创建 Pull Request', prTitleLabel: '标题', prTitlePlaceholder: '例如：修复 README 首行', prBodyLabel: '说明（可选）', prBodyPlaceholder: '默认列出本次会话改动的文件', prBranchLabel: '新分支', prBaseBranch: '当前分支 {branch}', prFilesHint: '将只提交本次会话改动的 {count} 个文件', prSubmit: '开始创建', prCancel: '取消',
             prStepBranch: '新建分支', prStepAdd: '暂存本会话改动', prStepCommit: '提交', prStepPush: '推送到 origin', prStepCreate: '调用 gh pr create',
             prRunning: '正在创建 PR…', prDone: 'PR 已创建', prOpen: '打开 PR', prFailedAt: '「{step}」失败，流程已停止', prDeniedAt: '「{step}」被拒绝，流程已停止', prAborted: '创建 PR 已中止', prRetry: '重试', prClose: '关闭',
+            tool_list_uiv_scripts: '查找抓取脚本', tool_read_uiv_script: '读取抓取脚本', tool_save_uiv_script: '保存抓取脚本', tool_delete_uiv_script: '删除抓取脚本',
+            tool_list_uiv_categories: '查看脚本分类与站点', tool_move_uiv_script: '移动脚本分类', tool_manage_uiv_category: '管理脚本分类',
             workspaceDisabled: '工作区仅在本机或管理员账号下可用'
         },
         'en-US': {
+            messageExpand: 'Show more', messageCollapse: 'Show less',
             ctxCompacted: 'Context compacted. Usage updates after the next reply.',
             slashCompact: 'Compact context while keeping the full history', compactRunning: 'Compacting context…', compactEmpty: 'Start a conversation before compacting its context', compactSmall: 'The context is already compact', compactDone: 'Context compacted. Full chat and tool history kept.', compactFailed: 'Could not compact context. History was not deleted.',
             slashSchedule: 'Run an instruction later or on a schedule (no args: list tasks)', slashPlan: 'Draft a step plan first, run it after you confirm', slashBtw: 'Quick side question that stays out of this chat',
@@ -109,6 +113,8 @@
             prFormTitle: 'Create Pull Request', prTitleLabel: 'Title', prTitlePlaceholder: 'e.g. Fix README headline', prBodyLabel: 'Description (optional)', prBodyPlaceholder: 'Defaults to the list of files changed in this session', prBranchLabel: 'New branch', prBaseBranch: 'from {branch}', prFilesHint: 'Only the {count} file(s) changed in this session will be committed', prSubmit: 'Create', prCancel: 'Cancel',
             prStepBranch: 'Create branch', prStepAdd: 'Stage session changes', prStepCommit: 'Commit', prStepPush: 'Push to origin', prStepCreate: 'Run gh pr create',
             prRunning: 'Creating PR…', prDone: 'PR created', prOpen: 'Open PR', prFailedAt: '"{step}" failed, flow stopped', prDeniedAt: '"{step}" was denied, flow stopped', prAborted: 'PR creation aborted', prRetry: 'Retry', prClose: 'Close',
+            tool_list_uiv_scripts: 'Find capture scripts', tool_read_uiv_script: 'Read capture script', tool_save_uiv_script: 'Save capture script', tool_delete_uiv_script: 'Delete capture script',
+            tool_list_uiv_categories: 'Script categories and sites', tool_move_uiv_script: 'Move script category', tool_manage_uiv_category: 'Manage script categories',
             workspaceDisabled: 'Workspace is available on this machine or for admins only'
         }
     };
@@ -235,6 +241,7 @@
 
     function applyTexts() {
         el.root.querySelectorAll('[data-dc-i18n]').forEach(node => { node.textContent = tx(node.dataset.dcI18n); });
+        el.thread.querySelectorAll('[data-dc-message-toggle]').forEach(updateMessageToggle);
         el.greeting.textContent = lang() === 'en-US' ? greeting().replace('，', ', ') : greeting();
         applyPlaceholder();
         updateSendButton();
@@ -476,8 +483,11 @@
         const gapOf = () => el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight;
         let gap = gapOf();
         let lastHeight = el.thread.clientHeight;
+        let lastWidth = el.thread.clientWidth;
         el.thread.addEventListener('scroll', () => { gap = gapOf(); }, { passive: true });
         new ResizeObserver(() => {
+            const width = el.thread.clientWidth;
+            if (width !== lastWidth) { lastWidth = width; scheduleUserMessageFolding(); }
             const height = el.thread.clientHeight;
             if (height === lastHeight) return;
             lastHeight = height;
@@ -511,6 +521,39 @@
 
     // 历史页先在片段中组装，避免每条消息插入后读取 scrollHeight 强制布局。
     let messageBatch = null;
+    let messageBodyId = 0, userFoldFrame = null;
+
+    function updateMessageToggle(button) {
+        button.textContent = tx(button.getAttribute('aria-expanded') === 'true' ? 'messageCollapse' : 'messageExpand');
+    }
+
+    // Measure after insertion (including history batches), and batch reads before writes.
+    // Folding only clips the rendered body; the stored text and request payload stay intact.
+    function scheduleUserMessageFolding() {
+        if (userFoldFrame !== null) return;
+        userFoldFrame = requestAnimationFrame(() => {
+            userFoldFrame = null;
+            const atBottom = nearBottom();
+            const threadTop = el.thread.getBoundingClientRect().top;
+            const anchor = atBottom ? null : [...el.thread.children].find(node => node.getBoundingClientRect().bottom > threadTop);
+            const anchorTop = anchor?.getBoundingClientRect().top;
+            const measurements = [...el.thread.querySelectorAll('.dc-msg--user')].map(message => {
+                const body = message.querySelector('.dc-msg-body');
+                const button = message.querySelector('[data-dc-message-toggle]');
+                if (!button || !body.clientWidth) return null;
+                const style = getComputedStyle(body);
+                const limit = parseFloat(style.lineHeight) * 6 + parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+                return { message, button, long: body.scrollHeight > limit + 1 };
+            });
+            measurements.filter(Boolean).forEach(({ message, button, long }) => {
+                button.hidden = !long;
+                message.classList.toggle('is-collapsed', long && button.getAttribute('aria-expanded') !== 'true');
+            });
+            if (atBottom) scrollThread(true);
+            else if (anchor) el.thread.scrollTop += anchor.getBoundingClientRect().top - anchorTop;
+        });
+    }
+
     function batchMessages(render) {
         const fragment = document.createDocumentFragment();
         const previous = messageBatch;
@@ -527,7 +570,21 @@
             ? `<img class="dc-msg-avatar" src="${AVATAR}" alt=""><div class="dc-msg-main"><div class="dc-msg-body"></div></div>`
             : `<div class="dc-msg-main"><div class="dc-msg-body"></div></div>`;
         const body = message.querySelector('.dc-msg-body');
-        if (role === 'user') body.textContent = text;
+        if (role === 'user') {
+            body.textContent = text;
+            body.id = `dc-user-body-${++messageBodyId}`;
+            message.classList.add('is-collapsed');
+            const toggle = document.createElement('button');
+            toggle.type = 'button';
+            toggle.className = 'dc-user-message-toggle';
+            toggle.dataset.dcMessageToggle = '';
+            toggle.hidden = true;
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.setAttribute('aria-controls', body.id);
+            updateMessageToggle(toggle);
+            body.after(toggle);
+            scheduleUserMessageFolding();
+        }
         if (before) {
             el.thread.insertBefore(message, before);
         } else {
@@ -1533,7 +1590,9 @@
             const grounding = api.renderGrounding ? api.renderGrounding(data.grounding) : '';
             if (grounding) reply.querySelector('.dc-msg-main').insertAdjacentHTML('beforeend', grounding);
             addMessageTools(reply, finalText, { modelName: data.model?.name || model?.name || '', usage: data.usage });
-            window.DragonClawSkills?.offerSave?.(reply, finalText); // @create-skill 的草稿：回复下方提供「保存为技能」
+            const skillCardScrollTop = nearBottom() ? el.thread.scrollTop : null;
+            await window.DragonClawSkills?.offerSave?.(reply, finalText); // 等待保存/恢复卡片挂载，再结束生成
+            if (skillCardScrollTop !== null && Math.abs(el.thread.scrollTop - skillCardScrollTop) < 2) scrollThread(true);
             options.onDone?.(reply, finalText);
             if (keptSkills.includes('ops-group')) window.ToolsOpsInbox?.refresh();
         } catch (error) {
@@ -2371,6 +2430,19 @@
 
         el.root.addEventListener('click', async event => {
             const target = event.target;
+            const messageToggle = target.closest('[data-dc-message-toggle]');
+            if (messageToggle) {
+                const message = messageToggle.closest('.dc-msg--user');
+                const expanded = messageToggle.getAttribute('aria-expanded') !== 'true';
+                messageToggle.setAttribute('aria-expanded', String(expanded));
+                message.classList.toggle('is-collapsed', !expanded);
+                updateMessageToggle(messageToggle);
+                if (!expanded) {
+                    const offset = message.getBoundingClientRect().top - el.thread.getBoundingClientRect().top;
+                    if (offset < 0) el.thread.scrollTop += offset;
+                }
+                return;
+            }
             const go = target.closest('[data-spot-go]');
             if (go) return introduceTool(go.dataset.spotGo);
             const stepBtn = target.closest('[data-spot-step]');

@@ -53,11 +53,19 @@ html[data-theme="light"] .dc-skill-mention, body.light-theme .dc-skill-mention {
     font-size: 19px;
 }
 .dc-skill-draft-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.dc-skill-draft-body b { overflow: hidden; color: #f1f5f9; font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
-.dc-skill-draft-body span { color: #9fb0c6; font-size: 12px; line-height: 1.5; }
-.dc-skill-draft-status { color: #7c8aa0; font-size: 11px; }
-.dc-skill-draft.is-saved .dc-skill-draft-status { color: #6ee7b7; }
+.dc-skill-draft-body b { overflow: hidden; color: var(--dc-text, #f1f5f9); font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
+.dc-skill-draft-body span { color: var(--dc-muted, #9fb0c6); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.dc-skill-draft-status { color: var(--dc-muted, #7c8aa0); font-size: 11px; }
+.dc-skill-draft.is-saved .dc-skill-draft-status { color: var(--dc-accent, #6ee7b7); }
 .dc-skill-draft-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+html[data-theme="light"] .dc-skill-draft, body.light-theme .dc-skill-draft {
+    --dc-text: #243447; --dc-muted: #526780;
+    background: linear-gradient(135deg, rgba(244, 114, 182, .06), rgba(96, 165, 250, .06)), #fff;
+}
+html[data-theme="light"] .dc-skill-draft.is-saved .dc-skill-draft-status,
+body.light-theme .dc-skill-draft.is-saved .dc-skill-draft-status { color: #087f78; }
+html[data-theme="light"] .dc-skill-draft .dc-action:not(.dc-action--primary),
+body.light-theme .dc-skill-draft .dc-action:not(.dc-action--primary) { color: var(--dc-text); }
 @media (max-width: 640px) {
     .dc-skill-draft { grid-template-columns: 36px minmax(0, 1fr); }
     .dc-skill-draft-actions { grid-column: 1 / -1; justify-content: flex-start; }

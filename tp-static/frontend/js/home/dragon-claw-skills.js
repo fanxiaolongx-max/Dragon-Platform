@@ -4,6 +4,7 @@
     const en = () => window.ToolsI18n?.getLanguage?.() === 'en-US';
     const words = (zh, english) => en() ? english : zh;
     let input, menu, items = [], matches = [], active = 0, loading = false, loaded = false, failed = false, composing = false;
+    let catalogPromise = null, catalogVersion = 0;
     // 会话内保持的 Skill：发送过的 @id 之后的消息继续生效，显示为输入框上方的标签，可移除
     let kept = [], chips = null, discover = null, restoreEpoch = 0;
     const pendingDecorate = new Set();
@@ -53,7 +54,7 @@
         menu.replaceChildren();
         const title = document.createElement('div');
         title.className = 'dc-skill-caption';
-        title.textContent = words('Skills · 仅用于本条消息（全部工具 → 技能 可管理）', 'Skills · This message only (manage in All tools → Skills)');
+        title.textContent = words('Skills · 发送后在本对话持续使用（全部工具 → 技能 可管理）', 'Skills · Active in this chat after sending (manage in All tools → Skills)');
         menu.appendChild(title);
         matches.forEach((item, index) => {
             const option = document.createElement('button');
@@ -80,23 +81,30 @@
         input.setAttribute('aria-controls', menu.id); input.setAttribute('aria-expanded', 'true'); input.removeAttribute('aria-activedescendant');
         highlight(Math.max(0, matches.findIndex(item => item.id === previous)));
     }
-    async function load() {
-        if (loading || loaded) return;
+    function load() {
+        if (loaded) return Promise.resolve();
+        if (catalogPromise) return catalogPromise;
         loading = true; failed = false; render();
-        try {
-            const auth = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token');
-            const response = await fetch('/api/ai/skills', { headers: auth ? { Authorization: `Bearer ${auth}` } : {} });
-            if (!response.ok) throw new Error('Skills unavailable');
-            const data = await response.json();
-            if (!Array.isArray(data.items)) throw new Error('Invalid skill catalog');
-            items = data.items; loaded = true;
-        } catch { failed = true; } finally { loading = false; render(); }
-        if (loaded) {
-            pendingDecorate.forEach(message => decorateUser(message));
-            pendingDecorate.clear();
-            renderChips();
-            updateDiscover();
-        }
+        const version = catalogVersion;
+        catalogPromise = (async () => {
+            try {
+                const auth = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token');
+                const response = await fetch('/api/ai/skills', { cache: 'no-store', headers: auth ? { Authorization: `Bearer ${auth}` } : {} });
+                if (!response.ok) throw new Error('Skills unavailable');
+                const data = await response.json();
+                if (!Array.isArray(data.items)) throw new Error('Invalid skill catalog');
+                if (version === catalogVersion) { items = data.items; loaded = true; }
+            } catch { if (version === catalogVersion) failed = true; } finally { loading = false; catalogPromise = null; render(); }
+            // 保存发生在旧目录请求途中时，丢弃旧结果并重新取目录。
+            if (version !== catalogVersion) return load();
+            if (loaded) {
+                pendingDecorate.forEach(message => decorateUser(message));
+                pendingDecorate.clear();
+                renderChips();
+                updateDiscover();
+            }
+        })();
+        return catalogPromise;
     }
 
     function renderChips() {
@@ -262,26 +270,31 @@
     }
     // 新建、导入、改名或删除 Skill 后重新读取目录（js/home/skills-tools.js 等派发 skills:changed）
     function refresh() {
+        catalogVersion += 1;
         loaded = false; failed = false;
-        load();
+        return load();
     }
 
     // ── @create-skill 生成的草稿：识别回复里的 ```skill 代码块，在回复下方提供「保存为技能」 ──
-    const DRAFT_RE = /```skill[^\S\r\n]*\r?\n([\s\S]*?)\r?\n```/g;
+    // 兼容模型误用 markdown/yaml 或不标语言，但只接受有 id、名称和正文的完整 SKILL.md。
+    const DRAFT_RE = /^(`{3,}|~{3,})(?:skill|markdown|md|ya?ml)?[^\S\r\n]*\r?\n([\s\S]*?)^\1[ \t]*$/gim;
 
     function draftFrom(text) {
-        const blocks = Array.from(String(text || '').matchAll(DRAFT_RE), match => match[1].trim()).filter(Boolean);
-        const markdown = blocks.pop();
-        if (!markdown) return null;
-        const head = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---/);
-        const fields = {};
-        (head ? head[1] : '').split(/\r?\n/).forEach(line => {
-            const pair = line.match(/^([a-z_]+):\s*(.*)$/i);
-            if (pair) fields[pair[1].toLowerCase()] = pair[2].trim().replace(/^(['"])(.*)\1$/, '$2');
-        });
-        const id = String(fields.id || '').toLowerCase();
-        return { markdown, id: /^[a-z][a-z0-9-]{0,40}$/.test(id) ? id : '', name: fields.name || fields.name_en || id, nameEn: fields.name_en || fields.name || id,
-            description: fields.description || '', descriptionEn: fields.description_en || fields.description || '', icon: fields.icon || '✨' };
+        const blocks = Array.from(String(text || '').matchAll(DRAFT_RE), match => match[2].trim()).filter(Boolean);
+        for (const markdown of blocks.reverse()) {
+            const head = markdown.match(/^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/);
+            if (!head || !markdown.slice(head[0].length).trim()) continue;
+            const fields = {};
+            head[1].split(/\r?\n/).forEach(line => {
+                const pair = line.match(/^([a-z_]+):\s*(.*)$/i);
+                if (pair) fields[pair[1].toLowerCase()] = pair[2].trim().replace(/^(['"])(.*)\1$/, '$2');
+            });
+            const id = String(fields.id || '').toLowerCase();
+            if (!/^[a-z][a-z0-9-]{0,40}$/.test(id) || !(fields.name || fields.name_en)) continue;
+            return { markdown, id, name: fields.name || fields.name_en || id, nameEn: fields.name_en || fields.name || id,
+                description: fields.description || '', descriptionEn: fields.description_en || fields.description || '', icon: fields.icon || '✨' };
+        }
+        return null;
     }
 
     function downloadDraft(draft) {
@@ -295,7 +308,9 @@
     function useSkillNow(id) {
         if (!input) return;
         const mention = `@${id} `;
-        if (!input.value.includes(`@${id}`)) input.value = `${mention}${input.value.replace(/^\s+/, '')}`;
+        const current = token();
+        if (current && id.startsWith(current.query)) input.setRangeText(mention, current.start, current.end, 'end');
+        else if (!mentionIds(input.value).includes(id)) input.value = `${mention}${input.value.replace(/^\s+/, '')}`;
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.focus({ preventScroll: true });
         input.setSelectionRange(input.value.length, input.value.length);
@@ -309,45 +324,95 @@
         try {
             const result = await window.API.post('/api/agent-skills', { skillMd: draft.markdown, overwrite });
             const id = result.skill.id;
+            // 使用保存接口返回的真实记录立即更新白名单，目录刷新失败也不会把刚保存的技能误报为未知。
+            items = [...items.filter(item => item.id !== id), result.skill];
+            render(); renderChips(); updateDiscover();
             card.classList.add('is-saved');
-            status.textContent = words(`已保存为 @${id}，已出现在「全部工具 → 技能」`, `Saved as @${id}. It now appears in All tools → Skills`);
+            const isImprove = Boolean(draft.isExisting || overwrite);
+            status.textContent = words(
+                isImprove ? `已完善技能 @${id}（原有版本已自动备份，可在技能管理中随时查看和回退）` : `已保存为 @${id}，已出现在「全部工具 → 技能」`,
+                isImprove ? `Improved Skill @${id} (previous version automatically backed up)` : `Saved as @${id}. It now appears in All tools → Skills`
+            );
             save.textContent = words(`立即使用 @${id}`, `Use @${id} now`);
             save.dataset.draftUse = id;
             delete save.dataset.draftSave;
             window.dispatchEvent(new CustomEvent('skills:changed', { detail: { id } }));
         } catch (error) {
             const code = error.body?.code;
-            if (code === 'SKILL_EXISTS' && await window.AppDialog?.confirm?.(words(`已有技能 @${draft.id}，要用这份草稿覆盖吗？`, `@${draft.id} already exists. Replace it with this draft?`), { title: words('覆盖技能', 'Replace Skill'), confirmText: words('覆盖', 'Replace') })) {
-                return saveDraft(card, draft, true);
+            if (code === 'SKILL_EXISTS' || code === 'SKILL_ID_RESERVED') {
+                const isBuiltin = code === 'SKILL_ID_RESERVED';
+                const message = words(
+                    `已有技能 @${draft.id}${isBuiltin ? '（内置技能）' : ''}。完善覆盖前系统会自动备份当前版本，支持随时回退。确认完善并更新吗？`,
+                    `Skill @${draft.id}${isBuiltin ? ' (built-in)' : ''} already exists. The system will back up the current version before updating. Proceed?`
+                );
+                if (await window.AppDialog?.confirm?.(message, {
+                    title: words('完善技能并备份', 'Improve Skill & Backup'),
+                    confirmText: words('完善更新', 'Update & Backup')
+                })) {
+                    return saveDraft(card, draft, true);
+                }
             }
-            status.textContent = code === 'SKILL_ID_RESERVED'
-                ? words('这个标识被内置技能占用了，请让我换一个 id 后重新生成', 'This id belongs to a built-in Skill. Ask me to regenerate with another id')
-                : `${words('保存失败', 'Save failed')}：${error.message}`;
+            status.textContent = `${words('保存失败', 'Save failed')}：${error.message}`;
         } finally {
             save.disabled = false;
         }
     }
 
-    function offerSave(message, text) {
+    async function offerSave(message, text) {
         const draft = draftFrom(text);
         const main = message?.querySelector?.('.dc-msg-main');
-        if (!draft || !main) return;
+        if (!main) return;
+        if (!draft) {
+            // 旧回复可能只有“已创建并激活”的文字。实际目录不存在时给出恢复入口，绝不把说明文字自动入库。
+            const claimed = /(?:技能|skill)[^\n。]{0,100}(?:已[^\n。]{0,12}(?:创建|保存|激活|更新)|(?:created|saved|activated|updated)\b)|(?:已[^\n。]{0,12}(?:创建|保存|激活|更新)|(?:created|saved|activated|updated)\b)[^\n。]{0,100}(?:技能|skill)/i.test(text);
+            const mentioned = mentionIds(text).filter(id => !['create-skill', 'improve-skill'].includes(id));
+            if (!claimed || !mentioned.length) return;
+            await load();
+            if (!loaded || !main.isConnected || main.querySelector('.dc-skill-draft')) return;
+            const missing = mentioned.filter(id => !metaOf(id));
+            if (!missing.length) return;
+            const note = document.createElement('div'); note.className = 'dc-skill-draft';
+            note.setAttribute('role', 'status');
+            const icon = document.createElement('span'); icon.className = 'dc-skill-draft-icon'; icon.textContent = '⚠️';
+            const body = document.createElement('div'); body.className = 'dc-skill-draft-body';
+            const title = document.createElement('b'); title.textContent = words('技能尚未保存', 'Skill has not been saved');
+            const detail = document.createElement('span');
+            detail.textContent = words(`当前技能目录中没有 ${missing.map(id => `@${id}`).join('、')}。这条回复未提供可保存的草稿；AI 的成功文字不代表实际保存。`, `The catalog has no ${missing.map(id => `@${id}`).join(', ')}. This reply contains no saveable draft; the AI's success message does not confirm a save.`);
+            body.append(title, detail);
+            const action = document.createElement('button'); action.type = 'button'; action.className = 'dc-action dc-action--primary';
+            action.textContent = words('生成可保存草稿', 'Generate a saveable draft');
+            action.dataset.dcAsk = words(
+                `@create-skill 请根据上文约定，为 ${missing.map(id => `@${id}`).join('、')} 补全可保存的技能草稿。请输出完整的 skill 代码块，包含 front-matter（id、name、name_en、description、description_en、workspace）和执行步骤。尚未保存，不要声称已经创建或激活；提醒我点击「保存为技能」。`,
+                `@create-skill Based on the agreed workflow above, provide a complete saveable draft for ${missing.map(id => `@${id}`).join(', ')} in a skill code fence, including front-matter (id, name, name_en, description, description_en, workspace) and steps. It has not been saved. Ask me to click Save as Skill.`
+            );
+            const actions = document.createElement('div'); actions.className = 'dc-skill-draft-actions'; actions.appendChild(action);
+            note.append(icon, body, actions); main.appendChild(note);
+            return;
+        }
         main.querySelector('.dc-skill-draft')?.remove();
+        const existing = metaOf(draft.id);
+        draft.isExisting = Boolean(existing);
         const admin = localStorage.getItem('tools_role') === 'admin';
         const card = document.createElement('div');
         card.className = 'dc-skill-draft';
+        if (existing) card.classList.add('is-existing');
         const icon = document.createElement('span'); icon.className = 'dc-skill-draft-icon'; icon.textContent = draft.icon;
         const body = document.createElement('div'); body.className = 'dc-skill-draft-body';
-        const title = document.createElement('b'); title.textContent = `${en() ? draft.nameEn : draft.name}${draft.id ? ` · @${draft.id}` : ''}`;
+        const title = document.createElement('b');
+        title.textContent = `${en() ? draft.nameEn : draft.name}${draft.id ? ` · @${draft.id}` : ''}${existing ? ` (${words('完善更新', 'Update')})` : ''}`;
         const desc = document.createElement('span'); desc.textContent = en() ? draft.descriptionEn : draft.description;
         const status = document.createElement('small'); status.className = 'dc-skill-draft-status';
-        status.textContent = admin ? words('确认无误后保存，即可在对话里 @ 使用', 'Save it to @ this Skill in chat')
+        status.textContent = admin
+            ? (existing
+                ? words('检测到已有技能，保存将自动备份当前版本并更新技能能力', 'Existing Skill detected. Saving will auto-backup current version and update.')
+                : words('草稿尚未保存；点击「保存为技能」后才会出现在 @ 列表', 'Draft not saved. Click Save as Skill to add it to the @ list'))
             : words('仅管理员可保存；可下载 SKILL.md 交给管理员导入', 'Only admins can save. Download SKILL.md for an admin to import');
         body.append(title, desc, status);
         const actions = document.createElement('div'); actions.className = 'dc-skill-draft-actions';
         if (admin) {
             const save = document.createElement('button'); save.type = 'button'; save.className = 'dc-action dc-action--primary';
-            save.dataset.draftSave = '1'; save.textContent = words('保存为技能', 'Save as Skill');
+            save.dataset.draftSave = '1';
+            save.textContent = existing ? words('完善此技能', 'Improve Skill') : words('保存为技能', 'Save as Skill');
             actions.appendChild(save);
         }
         const download = document.createElement('button'); download.type = 'button'; download.className = 'dc-action';
@@ -358,7 +423,7 @@
             if (event.target.closest('[data-draft-download]')) return downloadDraft(draft);
             const use = event.target.closest('[data-draft-use]');
             if (use) return useSkillNow(use.dataset.draftUse);
-            if (event.target.closest('[data-draft-save]')) saveDraft(card, draft);
+            if (event.target.closest('[data-draft-save]')) saveDraft(card, draft, Boolean(existing));
         });
         main.appendChild(card);
     }

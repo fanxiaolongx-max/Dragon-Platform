@@ -680,3 +680,82 @@ body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var
     .home-workspace .history-page-btn { padding: 0 9px; }
 }
 
+
+/* 托管 Python 应用卡片：保留入场动画，再叠加呼吸光晕（光晕样式见 shared.css） */
+.home-workspace .tool-card.custom-tool.is-hosted-app { animation: home-card-in 0.28s ease both, hosted-app-glow 4.5s ease-in-out 0.3s infinite; }
+.home-workspace .tool-card.custom-tool.is-hosted-app:hover { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+    .home-workspace .tool-card.custom-tool.is-hosted-app { animation: none; }
+}
+
+/* ── 收藏星标、顶部快捷区（最近使用 / 收藏）与拖动排序 ── */
+.home-workspace .tool-card { position: relative; }
+.home-workspace .tool-card:hover > .custom-tool-actions,
+.home-workspace .tool-card:focus-within > .custom-tool-actions { opacity: 1; transform: translateY(0); }
+.home-workspace .tool-card:has(> .card-quick-actions) .card-title { padding-right: 34px; }
+@media (min-width: 641px) {
+    /* 五个操作（下载、收藏、内置、改名、删除）排成 3 列两行 */
+    .home-workspace .custom-tool-actions:has(> :nth-child(5)) { grid-template-columns: repeat(3, 26px); }
+    .home-workspace .tool-card.custom-tool:has(.custom-tool-actions > :nth-child(5)) .card-title { padding-right: 92px; }
+}
+.card-fav-toggle svg { width: 14px; height: 14px; display: block; }
+.custom-tool-action.card-fav-toggle { color: #94a3b8; }
+.custom-tool-action.card-fav-toggle:hover { color: #fcd34d; }
+.custom-tool-action.card-fav-toggle.is-favorite { color: #fbbf24; }
+.custom-tool-action.card-fav-toggle.is-favorite svg path { fill: currentColor; }
+
+.home-workspace .home-fav-empty {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 54px;
+    padding: 12px 16px;
+    border: 1px dashed rgba(251, 191, 36, 0.32);
+    border-radius: 12px;
+    color: var(--ws-faint, #94a3b8);
+    font-size: 12.5px;
+    transition: background 0.18s ease, border-color 0.18s ease;
+}
+.home-workspace .home-fav-empty svg { width: 16px; height: 16px; flex: 0 0 auto; color: #fbbf24; }
+.home-workspace .home-fav-empty.is-filtered-out { display: none; }
+
+.home-workspace .tool-card { -webkit-touch-callout: none; }
+/* 拖动排序：浮起的卡片跟随指针，原位置留空槽，其他卡片由脚本做让位动画 */
+body.home-sorting { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+.tools-grid.is-sorting .tool-card { animation: none !important; cursor: grabbing; }
+.tools-grid.is-sorting .tool-card:hover { transform: none; }
+.tools-grid.is-sorting .custom-tool-actions { opacity: 0 !important; }
+.home-workspace .tool-card.home-sort-ghost {
+    position: fixed;
+    z-index: 2000;
+    margin: 0;
+    pointer-events: none;
+    animation: none !important;
+    cursor: grabbing;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, left 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), top 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    will-change: left, top, transform;
+}
+.home-workspace .tool-card.home-sort-ghost:not(.is-dropping) { transition: transform 0.18s ease, box-shadow 0.18s ease; }
+.home-workspace .tool-card.home-sort-ghost.is-lifted {
+    transform: scale(1.045) rotate(-0.6deg);
+    border-color: color-mix(in srgb, var(--card-accent, #64ffda) 55%, transparent);
+    background: linear-gradient(180deg, rgba(30, 41, 59, 0.97), rgba(15, 23, 42, 0.97));
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5), 0 0 0 1px color-mix(in srgb, var(--card-accent, #64ffda) 30%, transparent);
+}
+.home-workspace .tool-card.home-sort-ghost .custom-tool-actions { display: none; }
+.home-workspace .tool-card.is-sort-placeholder,
+.home-workspace .home-drop-slot {
+    border: 1.5px dashed rgba(148, 163, 184, 0.38) !important;
+    background: rgba(148, 163, 184, 0.05) !important;
+    box-shadow: none !important;
+    animation: none !important;
+    border-radius: 14px;
+}
+.home-workspace .tool-card.is-sort-placeholder > * { visibility: hidden; }
+.home-workspace .home-drop-slot { border-color: rgba(251, 191, 36, 0.55) !important; background: rgba(251, 191, 36, 0.06) !important; min-height: 136px; }
+.home-workspace .tool-card.is-sort-source { opacity: 0.35; }
+@media (prefers-reduced-motion: reduce) {
+    .home-workspace .home-fav-empty { transition: none; }
+}

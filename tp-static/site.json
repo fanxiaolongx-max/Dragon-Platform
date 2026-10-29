@@ -41,7 +41,17 @@
     "eos-report-guide-en.mp4": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-en-20261019/eos-report-guide-en.mp4",
     "eos-report-guide-en-hd.mp4": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/eos-guide-en-20261019/eos-report-guide-en-hd.mp4",
     "project-evolution-galaxy-hd.mp4": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/project-evolution-galaxy-20261019/project-evolution-galaxy-hd.mp4",
+    "ai-monthly-guide.mp4": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/ai-monthly-guide-20261028-2/ai-monthly-guide.mp4",
+    "ai-monthly-guide-hd.mp4": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/ai-monthly-guide-20261028-2/ai-monthly-guide-hd.mp4",
+    "welink-cli-guide.mp4": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/welink-cli-guide.mp4",
+    "welink-cli-guide-hd.mp4": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/welink-cli-guide-hd.mp4",
+    "welink-sdk-guide.mp4": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/welink-sdk-guide.mp4",
+    "welink-sdk-guide-hd.mp4": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/welink-sdk-guide-hd.mp4",
+    "digital-human-guide.mp4": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/digital-human-guide.mp4",
+    "digital-human-guide-hd.mp4": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/feature-guides-20261028-1/digital-human-guide-hd.mp4",
+    "ai-monthly-guide-poster.jpg": "./tp-static/frontend/assets/promotions/ai-monthly-guide-poster.jpg?v=e8f0a8a56b22",
     "autonomous-maintenance.jpg": "./tp-static/frontend/assets/promotions/autonomous-maintenance.jpg?v=0e56342a9203",
+    "digital-human-guide-poster.jpg": "./tp-static/frontend/assets/promotions/digital-human-guide-poster.jpg?v=0d3dda7ab11f",
     "eos-report-guide-en-poster.jpg": "./tp-static/frontend/assets/promotions/eos-report-guide-en-poster.jpg?v=ff9d39c43e75",
     "eos-report-guide-poster.jpg": "./tp-static/frontend/assets/promotions/eos-report-guide-poster.jpg?v=fb300bf46616",
     "netcare-operation-map.svg": "./tp-static/frontend/assets/promotions/netcare-operation-map.svg?v=812f0e1f650a",
@@ -52,7 +62,9 @@
     "platform-guide-en-poster.jpg": "./tp-static/frontend/assets/promotions/platform-guide-en-poster.jpg?v=deea6dcf4ff3",
     "platform-guide-poster.jpg": "./tp-static/frontend/assets/promotions/platform-guide-poster.jpg?v=4d56213fccd1",
     "project-evolution-galaxy-poster.jpg": "./tp-static/frontend/assets/promotions/project-evolution-galaxy-poster.jpg?v=c675cef814ba",
-    "project-evolution-stars.svg": "./tp-static/frontend/assets/promotions/project-evolution-stars.svg?v=8f51fb7b3764"
+    "project-evolution-stars.svg": "./tp-static/frontend/assets/promotions/project-evolution-stars.svg?v=8f51fb7b3764",
+    "welink-cli-guide-poster.jpg": "./tp-static/frontend/assets/promotions/welink-cli-guide-poster.jpg?v=36d546303535",
+    "welink-sdk-guide-poster.jpg": "./tp-static/frontend/assets/promotions/welink-sdk-guide-poster.jpg?v=24aea759adda"
   },
   "identity": {
     "/api/platform-identity": {
@@ -81,7 +93,7 @@
     },
     "/api/app-version": {
       "name": "tools-platform",
-      "version": "1.0.482"
+      "version": "1.0.494"
     }
   },
   "proof": {
@@ -103,8 +115,8 @@
     },
     "acceptance-checklist/README.md": {
       "url": "tp-static/payload/8c7e17d50afcef58d7b951a04cb178c54bb506d293ba86a22d763ea454526e67.bin",
-      "iv": "eT3k8dDw5EeaW2Lw",
-      "hash": "0214c24314197b9b4678af977badf2b4864df6edab50c0af37f9511fdf9e6fc4",
+      "iv": "c7zPXdKIdAml22/d",
+      "hash": "1f4da881ba3ca2780a5b7f9365a1743d0377cfae39ff6f830a2c1e42bac6d60d",
       "type": "application/octet-stream"
     },
     "acceptance-checklist/style.css": {
@@ -401,8 +413,8 @@
     },
     "datacom-protocol-expert/index.html": {
       "url": "tp-static/payload/350b556c16e392b0cc02319227bdbc6d6890a508d6bd9b1e85082d7619b87ac2.bin",
-      "iv": "FN5aDchcxFP/BVS4",
-      "hash": "fad0da1bc2a60f770c8c693ca0060d0bec672976d23cb4211d2b9ab59eec57f3",
+      "iv": "eA2NJpMRZ9Eq+rKx",
+      "hash": "9c36bb749a6fe5d1112685ca0873ac4f1e928a9dea6ee32d5fd0de0e3a9510e5",
       "type": "text/html; charset=utf-8"
     },
     "datacom-protocol-expert/THIRD_PARTY_NOTICES.md": {
@@ -487,8 +499,8 @@
     },
     "index.html": {
       "url": "tp-static/payload/0eb547304658805aad788d320f10bf1f292797b5e6d745a3bf617584da017051.bin",
-      "iv": "W8QNaM7miX5vNEfw",
-      "hash": "04b11a87ea324a4ca94020a2bf9c50845173cb7bde81361692b19bd984b225d9",
+      "iv": "nMeu0XGJv6Nl1QWs",
+      "hash": "837b9d78da854b2c908bb978f244db128d5b5e3442c54abf13858d161a370127",
       "type": "text/html; charset=utf-8"
     },
     "mayrig/index.html": {
@@ -1254,8 +1266,8 @@
     },
     "portal-data.json": {
       "url": "tp-static/payload/4187a00828abb3180acbb34476f6daf7e5f48cabcd5296e625824e9757bf3d25.bin",
-      "iv": "7op2pzfFH6NURT28",
-      "hash": "85624309854c29cce6a4d6a8ecf4402cc64548267c1c40564ce5284693cb73ce",
+      "iv": "BCkuRoYb8dm4dNJx",
+      "hash": "df5383a8ac0f8fd27016f902952c6be8c871b525b86c6a62e96460157bfaa574",
       "type": "application/json; charset=utf-8"
     },
     "pr-2/index.html": {
@@ -11600,8 +11612,8 @@
     },
     "tool-mumxi3px/index.html": {
       "url": "tp-static/payload/75d15759f83fc8f0e3a6cc7c39574b5443a39eabe4bc8bd9a60591224eac6eda.bin",
-      "iv": "WybSMYrttTy3PgtZ",
-      "hash": "73414386a1ee8a3397422f843f3f100ea3e6e78cbddcfde7af1653601842c73e",
+      "iv": "bI9Jyptj4jUKgGhO",
+      "hash": "cb767268af29aa13f4789855e2d53266001fb64d5dba9e91afd6b8ddcad90ca5",
       "type": "text/html; charset=utf-8"
     },
     "tool-mv9strpn/index.html": {

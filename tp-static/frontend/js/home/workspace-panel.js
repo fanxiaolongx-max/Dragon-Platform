@@ -696,6 +696,10 @@
     }
 
     function describeArgs(tool, args = {}) {
+        if (tool === 'list_uiv_scripts' || tool === 'list_uiv_categories') return args.query || args.category || '';
+        if (tool === 'move_uiv_script') return `${Array.isArray(args.items) ? `${args.items.length} 个脚本` : args.id || ''} → ${args.category || ''}`;
+        if (tool === 'manage_uiv_category') return `${args.action || ''} ${args.name || ''}${args.newName ? ` → ${args.newName}` : ''}${args.moveScriptsTo ? ` → ${args.moveScriptsTo}` : ''}`.trim();
+        if (tool === 'read_uiv_script' || tool === 'save_uiv_script' || tool === 'delete_uiv_script') return `${args.action || ''} ${args.id || args.sourceId || ''}${args.field ? ` / ${args.field}` : ''}`.trim();
         if (tool === 'run_command' || tool === 'welink_query' || tool === 'welink_action' || /^netcare_/.test(tool)) return args.command || '';
         if (tool === 'search') return `"${args.query || ''}"${args.path && args.path !== '.' ? ` in ${args.path}` : ''}`;
         if (tool === 'rename_path') return `${args.from || ''} → ${args.to || ''}`;

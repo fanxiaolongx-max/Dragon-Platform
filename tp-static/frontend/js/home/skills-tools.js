@@ -1,6 +1,6 @@
 // 首页「全部工具 → 技能」：内置与自定义 Skill 以工具卡片形式出现在 #toolsGrid（分组与搜索由 js/home/workspace.js 统一处理）。
 // 点击卡片：切到对话模式、新建对话并在输入框填入 @技能（js/home/dragon-claw.js 的 DragonClaw.startWithSkill）。
-// 卡片操作与自定义工具一致：下载（所有人）、改名与删除（管理员；内置技能删除为隐藏，可在分组标题处恢复）。
+// 卡片操作：完善技能（⚡）、版本历史与回退（⏱）、下载（所有人）、改名与删除（管理员）。
 // 数据来自 /api/agent-skills（backend/routes/agent-skills.js）；对话里保存或导入新技能后派发 skills:changed 自动刷新。
 (function () {
     'use strict';
@@ -12,7 +12,18 @@
             save: '保存', deleteTitle: '删除技能', deleteBuiltin: '内置技能「{name}」会从列表和 @ 菜单中隐藏，之后可在「技能」分类标题处恢复。确定删除吗？',
             deleteCustom: '确定删除技能「{name}」吗？删除后对话里将无法再 @{id}。', confirmDelete: '删除', renamed: '已重命名', deleted: '已删除技能',
             downloaded: '已下载 {file}', failed: '操作失败：{message}', restore: '恢复内置技能 {n}', restored: '已恢复内置技能',
-            useHint: '点击开始对话并使用 @{id}'
+            useHint: '点击开始对话并使用 @{id}',
+            improve: '完善技能', history: '版本历史与回退', customized: '已自定义',
+            historyTitle: '技能版本历史 · @{id}',
+            rollback: '回退到此版本',
+            rollbackConfirm: '确定将技能「{name}」回退到该版本吗？当前版本会自动备份。',
+            rollbackSuccess: '技能已成功回退',
+            resetToDefault: '恢复内置初始版本',
+            resetConfirm: '确定清除自定义修改，恢复为内置初始版本吗？当前版本会自动备份。',
+            resetSuccess: '已恢复为内置初始版本',
+            viewContent: '查看正文', hideContent: '收起正文',
+            noBackups: '暂无历史备份版本（修改或完善技能时会自动备份）',
+            close: '关闭'
         },
         'en-US': {
             builtin: 'Built-in Skill', custom: 'Custom Skill', imported: 'Imported Skill', workspace: 'Needs a folder', defaultDesc: 'Use this Skill with @ in chat',
@@ -20,7 +31,18 @@
             save: 'Save', deleteTitle: 'Delete Skill', deleteBuiltin: 'The built-in Skill “{name}” will be hidden from the list and the @ menu. You can restore it from the Skills heading. Delete it?',
             deleteCustom: 'Delete the Skill “{name}”? @{id} will no longer work in chat.', confirmDelete: 'Delete', renamed: 'Renamed', deleted: 'Skill deleted',
             downloaded: 'Downloaded {file}', failed: 'Failed: {message}', restore: 'Restore built-in Skills {n}', restored: 'Built-in Skills restored',
-            useHint: 'Click to start a chat with @{id}'
+            useHint: 'Click to start a chat with @{id}',
+            improve: 'Improve Skill', history: 'Version History & Rollback', customized: 'Customized',
+            historyTitle: 'Skill History · @{id}',
+            rollback: 'Rollback to this version',
+            rollbackConfirm: 'Rollback Skill “{name}” to this version? Current version will be backed up.',
+            rollbackSuccess: 'Skill rolled back successfully',
+            resetToDefault: 'Reset to Built-in Default',
+            resetConfirm: 'Clear customizations and reset to built-in default? Current version will be backed up.',
+            resetSuccess: 'Reset to built-in default',
+            viewContent: 'View Content', hideContent: 'Hide Content',
+            noBackups: 'No backups yet (auto-created on update)',
+            close: 'Close'
         }
     };
 
@@ -71,6 +93,8 @@
             const kind = item.builtIn ? tx('builtin') : item.source === 'import' ? tx('imported') : tx('custom');
             card.innerHTML = `
                 <div class="custom-tool-actions">
+                    <button type="button" class="custom-tool-action action-improve" data-skill-action="improve" title="${escapeHtml(tx('improve'))}">⚡</button>
+                    <button type="button" class="custom-tool-action action-history" data-skill-action="history" title="${escapeHtml(tx('history'))}">⏱</button>
                     <button type="button" class="custom-tool-action" data-skill-action="download" title="${escapeHtml(tx('download'))}">↓</button>
                     ${admin ? `
                         ${window.BuiltinPromotion?.button('skill', item.id, { builtIn: item.builtIn, name: displayName(item) }) || ''}
@@ -82,6 +106,7 @@
                 <div class="card-desc">${escapeHtml(displayDescription(item))}</div>
                 <div class="card-features">
                     <span class="feature-tag">${escapeHtml(kind)}</span>
+                    ${item.customized ? `<span class="feature-tag feature-tag--customized">${escapeHtml(tx('customized'))}</span>` : ''}
                     ${item.workspace ? `<span class="feature-tag">${escapeHtml(tx('workspace'))}</span>` : ''}
                 </div>
                 <div class="card-impact"></div>`;
@@ -175,6 +200,137 @@
         }
     }
 
+    // 完善技能：切到对话并在输入框填入 @improve-skill @目标技能
+    function improve(item) {
+        window.HomeMode?.set?.('chat');
+        if (typeof window.DragonClaw?.newChat === 'function') window.DragonClaw.newChat();
+        const input = document.getElementById('dcInput');
+        if (input) {
+            input.value = `@improve-skill @${item.id} `;
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.focus({ preventScroll: true });
+            input.setSelectionRange(input.value.length, input.value.length);
+        }
+    }
+
+    // 版本历史与回退弹窗
+    async function showHistory(item) {
+        const overlay = document.createElement('div');
+        overlay.className = 'skill-history-overlay';
+        overlay.innerHTML = `
+            <div class="skill-history-card">
+                <div class="skill-history-header">
+                    <div class="skill-history-title-wrap">
+                        <span class="skill-history-icon">⏱</span>
+                        <div>
+                            <h3 class="skill-history-title">${escapeHtml(tx('historyTitle', { id: item.id }))}</h3>
+                            <small style="color: #94a3b8;">${escapeHtml(displayName(item))}${item.customized ? ` · <b style="color: #38bdf8;">${escapeHtml(tx('customized'))}</b>` : ''}</small>
+                        </div>
+                    </div>
+                    <div class="skill-history-header-actions">
+                        ${item.customized && isAdmin() ? `<button type="button" class="skill-btn skill-btn--danger" data-skill-reset="1">${escapeHtml(tx('resetToDefault'))}</button>` : ''}
+                        <button type="button" class="skill-history-close" aria-label="${escapeHtml(tx('close'))}">✕</button>
+                    </div>
+                </div>
+                <div class="skill-history-body">
+                    <div style="color: #94a3b8; font-size: 13px; text-align: center; padding: 20px;">正在加载版本记录…</div>
+                </div>
+            </div>`;
+
+        document.body.appendChild(overlay);
+
+        const close = () => { overlay.remove(); };
+        overlay.querySelector('.skill-history-close')?.addEventListener('click', close);
+        overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+        const bodyEl = overlay.querySelector('.skill-history-body');
+
+        // 恢复内置初始默认
+        overlay.querySelector('[data-skill-reset="1"]')?.addEventListener('click', async () => {
+            if (!await window.AppDialog.confirm(tx('resetConfirm'), { title: tx('resetToDefault'), tone: 'danger', confirmText: tx('resetToDefault') })) return;
+            try {
+                await window.API.post(`/api/agent-skills/${encodeURIComponent(item.id)}/reset`);
+                toast(tx('resetSuccess'));
+                close();
+                window.dispatchEvent(new CustomEvent('skills:changed', { detail: { id: item.id } }));
+            } catch (error) {
+                window.AppDialog.alert(tx('failed', { message: error.message }), { tone: 'error' });
+            }
+        });
+
+        try {
+            const data = await window.API.get(`/api/agent-skills/${encodeURIComponent(item.id)}/backups`);
+            const backups = Array.isArray(data.backups) ? data.backups : [];
+            if (!backups.length) {
+                bodyEl.innerHTML = `<div class="skill-history-empty">${escapeHtml(tx('noBackups'))}</div>`;
+                return;
+            }
+
+            bodyEl.innerHTML = '';
+            backups.forEach(b => {
+                const dateStr = b.createdAt ? new Date(b.createdAt).toLocaleString(lang() === 'en-US' ? 'en-US' : 'zh-CN') : '-';
+                const row = document.createElement('div');
+                row.className = 'skill-history-item';
+                row.dataset.backupId = String(b.id);
+                row.innerHTML = `
+                    <div class="skill-history-item-top">
+                        <span class="skill-history-item-summary">${escapeHtml(b.summary || tx('history'))}</span>
+                        <span class="skill-history-item-time">${escapeHtml(dateStr)}</span>
+                    </div>
+                    <div class="skill-history-item-meta">
+                        <span>${escapeHtml(b.name)}</span>
+                        ${b.createdBy ? `<span>${escapeHtml(b.createdBy)}</span>` : ''}
+                    </div>
+                    <div class="skill-history-item-actions">
+                        <button type="button" class="skill-btn" data-backup-action="view">${escapeHtml(tx('viewContent'))}</button>
+                        ${isAdmin() ? `<button type="button" class="skill-btn skill-btn--primary" data-backup-action="rollback">${escapeHtml(tx('rollback'))}</button>` : ''}
+                    </div>
+                    <pre class="skill-history-preview" style="display: none;"></pre>`;
+
+                const previewEl = row.querySelector('.skill-history-preview');
+                const viewBtn = row.querySelector('[data-backup-action="view"]');
+                let loadedContent = null;
+
+                viewBtn?.addEventListener('click', async () => {
+                    if (previewEl.style.display !== 'none') {
+                        previewEl.style.display = 'none';
+                        viewBtn.textContent = tx('viewContent');
+                        return;
+                    }
+                    if (!loadedContent) {
+                        viewBtn.textContent = '…';
+                        try {
+                            const res = await window.API.get(`/api/agent-skills/${encodeURIComponent(item.id)}/backups/${b.id}`);
+                            loadedContent = res.backup?.markdown || res.backup?.body || '';
+                        } catch (err) {
+                            loadedContent = `加载失败: ${err.message}`;
+                        }
+                    }
+                    previewEl.textContent = loadedContent;
+                    previewEl.style.display = 'block';
+                    viewBtn.textContent = tx('hideContent');
+                });
+
+                row.querySelector('[data-backup-action="rollback"]')?.addEventListener('click', async () => {
+                    const confirmMsg = tx('rollbackConfirm', { name: displayName(item) });
+                    if (!await window.AppDialog.confirm(confirmMsg, { title: tx('rollback'), tone: 'warning', confirmText: tx('rollback') })) return;
+                    try {
+                        await window.API.post(`/api/agent-skills/${encodeURIComponent(item.id)}/rollback/${b.id}`);
+                        toast(tx('rollbackSuccess'));
+                        close();
+                        window.dispatchEvent(new CustomEvent('skills:changed', { detail: { id: item.id } }));
+                    } catch (err) {
+                        window.AppDialog.alert(tx('failed', { message: err.message }), { tone: 'error' });
+                    }
+                });
+
+                bodyEl.appendChild(row);
+            });
+        } catch (error) {
+            bodyEl.innerHTML = `<div class="skill-history-empty" style="color: #f87171;">${escapeHtml(tx('failed', { message: error.message }))}</div>`;
+        }
+    }
+
     function onGridClick(event) {
         const card = event.target.closest('a[data-skill-card="1"]');
         if (!card || !grid.contains(card)) return;
@@ -184,9 +340,12 @@
             event.preventDefault();
             event.stopPropagation();
             if (!item) return;
-            if (action.dataset.skillAction === 'download') download(item.id);
-            else if (action.dataset.skillAction === 'rename') rename(item);
-            else if (action.dataset.skillAction === 'delete') remove(item);
+            const act = action.dataset.skillAction;
+            if (act === 'improve') improve(item);
+            else if (act === 'history') showHistory(item);
+            else if (act === 'download') download(item.id);
+            else if (act === 'rename') rename(item);
+            else if (act === 'delete') remove(item);
             return;
         }
         // 新标签打开（Ctrl/⌘/中键）时走 /?skill= 链接，由 dragon-claw.js 处理
@@ -205,7 +364,7 @@
         load();
     }
 
-    window.HomeSkills = { reload: load, items: () => state.items.slice() };
+    window.HomeSkills = { reload: load, items: () => state.items.slice(), improve, showHistory };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();

@@ -377,6 +377,8 @@
         bindEvents();
         applyTexts();
         setMode(modeFromHash(), { updateHash: false });
+        // 首帧沿用 index.html 里预先恢复的状态，期间关闭过渡；两帧后恢复正常动画
+        requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.remove('home-booting')));
     }
 
     window.HomeMode = {

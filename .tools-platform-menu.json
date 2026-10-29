@@ -62,8 +62,8 @@
       "description": "数通协议知识库：OSPF、Juniper 跨厂商策略等知识的分类整理，配合二维拓扑、报文时序、按位图解与分步实验，理解复杂协议机制。",
       "href": "./datacom-protocol-expert/index.html",
       "encrypted": false,
-      "fingerprint": "590502fbd7aee6d226cbbafa810bc9f967304f435b05aa9a393c75240e056ace",
-      "updatedAt": "2026-10-28T04:48:45.731Z"
+      "fingerprint": "bc36105ad828b97a311f17b8ad21280690e6a2a66cac22e22bafafef115f514e",
+      "updatedAt": "2026-10-29T00:48:50.444Z"
     },
     {
       "slug": "department-reward-penalty",
@@ -107,8 +107,8 @@
       "description": "查询产品是否属于强控业务比对范围，支持产品数据导入导出、服务器保存、模糊检索和静态快照同步。",
       "href": "./tool-mumxi3px/index.html",
       "encrypted": false,
-      "fingerprint": "4405ad4df2684d466886c817b0592d184936731a9dfa383f78f2b022d72c974d",
-      "updatedAt": "2026-10-28T04:48:45.637Z"
+      "fingerprint": "b633038b0b27464b0132c88f7a686d09a98fb371d20f3eca76b3236fa92d62bf",
+      "updatedAt": "2026-10-29T00:48:50.354Z"
     },
     {
       "slug": "tool-mqp55fna",
@@ -125,8 +125,8 @@
       "description": "纯浏览器验收填报：验收结果下拉、多图证明、本地自动保存、含图片 Excel 导出与备份恢复。",
       "href": "./acceptance-checklist/index.html",
       "encrypted": false,
-      "fingerprint": "a9856a46bc8e4fef3141eecd3c9c3dde1b194c5f5a9275568226c3fa015383e5",
-      "updatedAt": "2026-10-25T15:10:46.046Z"
+      "fingerprint": "612fab5685a5f64d330362e44a4c5b046ccee6daf3c3d670a88bf3fd8b66ebe1",
+      "updatedAt": "2026-10-29T00:48:50.474Z"
     },
     {
       "slug": "chat-history-center",

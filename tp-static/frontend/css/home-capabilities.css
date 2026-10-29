@@ -182,6 +182,208 @@ body.home-mode-chat .home-caps { display: none !important; }
     font: 650 10.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
     letter-spacing: 0;
 }
+.home-workspace .skill-card .feature-tag--customized {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+.custom-tool-action.action-improve {
+    color: #38bdf8;
+}
+.custom-tool-action.action-improve:hover {
+    color: #7dd3fc;
+    border-color: rgba(56, 189, 248, 0.4);
+}
+.custom-tool-action.action-history {
+    color: #a78bfa;
+}
+.custom-tool-action.action-history:hover {
+    color: #c4b5fd;
+    border-color: rgba(167, 139, 250, 0.4);
+}
+
+/* ── 技能版本历史与回退弹窗 ── */
+.skill-history-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483645;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(2, 6, 23, 0.76);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: skillFadeIn 0.16s ease;
+}
+.skill-history-card {
+    display: flex;
+    flex-direction: column;
+    width: min(680px, 94vw);
+    max-height: 86vh;
+    border: 1px solid #2b3d5a;
+    border-radius: 16px;
+    background: linear-gradient(180deg, #111e31, #0c1727);
+    color: #dbeafe;
+    box-shadow: 0 28px 80px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+}
+.skill-history-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid #1f2d42;
+    background: rgba(15, 23, 42, 0.6);
+}
+.skill-history-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+.skill-history-icon {
+    font-size: 20px;
+}
+.skill-history-title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #f1f5f9;
+}
+.skill-history-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.skill-history-close {
+    padding: 4px 10px;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 16px;
+    cursor: pointer;
+}
+.skill-history-close:hover {
+    color: #f1f5f9;
+    border-color: #64748b;
+}
+.skill-history-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.skill-history-empty {
+    padding: 36px 20px;
+    text-align: center;
+    color: #64748b;
+    font-size: 13.5px;
+}
+.skill-history-item {
+    border: 1px solid #203148;
+    border-radius: 11px;
+    padding: 12px 14px;
+    background: rgba(15, 23, 42, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: border-color 0.15s ease;
+}
+.skill-history-item:hover {
+    border-color: #3b506e;
+}
+.skill-history-item-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.skill-history-item-summary {
+    font-weight: 600;
+    font-size: 13.5px;
+    color: #e2e8f0;
+}
+.skill-history-item-time {
+    color: #718096;
+    font-size: 11.5px;
+}
+.skill-history-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #94a3b8;
+    font-size: 12px;
+}
+.skill-history-item-meta span {
+    background: rgba(148, 163, 184, 0.1);
+    padding: 1px 7px;
+    border-radius: 5px;
+}
+.skill-history-item-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 4px;
+}
+.skill-btn {
+    padding: 5px 12px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid #334155;
+    background: #1e293b;
+    color: #cbd5e1;
+    transition: all 0.15s ease;
+}
+.skill-btn:hover {
+    background: #334155;
+    color: #f8fafc;
+}
+.skill-btn--primary {
+    background: #2563eb;
+    border-color: #3b82f6;
+    color: #fff;
+}
+.skill-btn--primary:hover {
+    background: #1d4ed8;
+}
+.skill-btn--danger {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+}
+.skill-btn--danger:hover {
+    background: rgba(239, 68, 68, 0.28);
+    color: #fecaca;
+}
+.skill-history-preview {
+    margin: 8px 0 0;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #091321;
+    border: 1px solid #1a273b;
+    color: #93c5fd;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11.5px;
+    line-height: 1.5;
+    max-height: 220px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+@keyframes skillFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
 .home-group-head .skill-restore {
     order: 3;
     flex: none;
@@ -199,8 +401,9 @@ body.home-mode-chat .home-caps { display: none !important; }
 
 /* ── 转为内置 / 取消内置（js/home/builtin-promotion.js） ── */
 .custom-tool-action.builtin-toggle { color: #94a3b8; font-size: 13px; }
-.custom-tool-action.builtin-toggle:hover { color: #fcd34d; }
-.custom-tool-action.builtin-toggle.is-builtin { color: #fbbf24; }
+.custom-tool-action.builtin-toggle:hover { color: #c7d2fe; }
+.custom-tool-action.builtin-toggle.is-builtin { color: #a5b4fc; }
+.builtin-toggle .builtin-icon { display: block; }
 .home-cap-card .home-cap-builtin {
     position: absolute;
     top: 7px;
@@ -228,3 +431,54 @@ body.home-mode-chat .home-caps { display: none !important; }
 .home-cap-card .home-cap-builtin.is-locked { cursor: default; opacity: 0.55; }
 .home-cap-card:has(.home-cap-builtin) .home-cap-card-arrow { display: none; }
 body.builtin-promotion-readonly .builtin-toggle { display: none !important; }
+
+/* 自定义工具卡片下载进度：卡片中心的小圆环，完成后打勾淡出 */
+.tool-card.custom-tool { position: relative; }
+.card-download-progress {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: inherit;
+    background: color-mix(in srgb, var(--bg-secondary, #0f172a) 58%, transparent);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    opacity: 0;
+    transition: opacity .28s ease;
+    cursor: progress;
+}
+.card-download-progress.visible { opacity: 1; }
+.cdp-ring { position: relative; width: 52px; height: 52px; }
+.cdp-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.cdp-track, .cdp-bar { fill: none; stroke-width: 3.5; }
+.cdp-track { stroke: color-mix(in srgb, var(--card-accent, #64ffda) 18%, transparent); }
+.cdp-bar {
+    stroke: var(--card-accent, #64ffda);
+    stroke-linecap: round;
+    transition: stroke-dashoffset .2s ease, stroke .2s ease;
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--card-accent, #64ffda) 45%, transparent));
+}
+.cdp-value {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-primary, #e6edf3);
+}
+.cdp-size { font-size: 11px; color: var(--text-secondary, #94a3b8); font-variant-numeric: tabular-nums; min-height: 1em; }
+.card-download-progress.is-indeterminate .cdp-ring svg { animation: cdp-spin 1s linear infinite; }
+.card-download-progress.is-done .cdp-value { color: var(--card-accent, #64ffda); font-size: 18px; }
+.card-download-progress.is-error .cdp-bar { stroke: #f87171; stroke-dashoffset: 0 !important; }
+.card-download-progress.is-error .cdp-value { color: #f87171; font-size: 18px; }
+@keyframes cdp-spin { to { transform: rotate(270deg); } }
+@media (prefers-reduced-motion: reduce) {
+    .card-download-progress, .cdp-bar { transition: none; }
+    .card-download-progress.is-indeterminate .cdp-ring svg { animation-duration: 2.4s; }
+}

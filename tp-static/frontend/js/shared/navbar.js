@@ -85,6 +85,10 @@ function isLocalOnlyNavTool(item) {
 }
 
 function renderNavToolBadges(item) {
+    // 托管 Python 应用用 Python 标签代替「自定义」
+    if (item?.hostedApp) {
+        return `<span class="nav-tool-badges"><span class="tool-kind-badge tool-kind-badge--python" title="${navEscape(navLocaleText('平台托管运行的 Python Web 应用', 'Python web app hosted by the platform'))}">Python</span></span>`;
+    }
     const localOnly = isLocalOnlyNavTool(item);
     const custom = item?.id?.startsWith('custom:') && item.builtIn === false;
     if (!localOnly && !custom) return '';
@@ -313,6 +317,8 @@ function registerNavbarI18n() {
             'nav.moreAll': '全部',
             'nav.moreRecent': '最近使用',
             'nav.moreRecentBadge': '常用直达',
+            'nav.moreFavorites': '收藏',
+            'nav.moreFavoritesBadge': '我的收藏',
             'nav.moreNoResults': '没有找到匹配的工具',
             'nav.requirements': '需求',
             'nav.alertCenter': '告警台',
@@ -871,6 +877,8 @@ function registerNavbarI18n() {
             'nav.moreAll': 'All',
             'nav.moreRecent': 'Recently used',
             'nav.moreRecentBadge': 'Quick Access',
+            'nav.moreFavorites': 'Favorites',
+            'nav.moreFavoritesBadge': 'Mine',
             'nav.moreNoResults': 'No matching tools',
             'nav.requirements': 'Requests',
             'nav.alertCenter': 'Alerts',
@@ -1602,6 +1610,7 @@ function getAllNavItems() {
         defaultCategory: 'custom',
         match: p => p === tool.href || p.startsWith(`${tool.href}/`),
         builtIn: typeof tool.builtIn === 'boolean' ? tool.builtIn : undefined,
+        hostedApp: tool.hostedApp === true,
         createdAt: tool.createdAt,
         updatedAt: tool.updatedAt
     }));
@@ -1720,6 +1729,130 @@ function trackCurrentPageAsRecentNavTool() {
     } catch (_) {}
 }
 
+// ── 收藏的工具：按账号保存在服务端（/api/favorite-nav），本地缓存用于首屏；首页卡片与「更多工具」共用 ──
+const NAV_FAVORITE_STORAGE_KEY = 'tools_favorite_nav_tools';
+let favoriteNavIds = null;
+let favoriteNavWriteQueue = Promise.resolve();
+
+function favoriteStorageKey() {
+    return `${NAV_FAVORITE_STORAGE_KEY}:${localStorage.getItem('tools_tenant_id') || 'default'}`;
+}
+
+function getFavoriteNavToolIds() {
+    if (favoriteNavIds) return favoriteNavIds.slice();
+    try {
+        const parsed = JSON.parse(localStorage.getItem(favoriteStorageKey()) || '[]');
+        return Array.isArray(parsed) ? parsed.filter(id => typeof id === 'string') : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+function setFavoriteNavToolIds(ids) {
+    favoriteNavIds = [...new Set((ids || []).filter(id => typeof id === 'string' && id))].slice(0, 60);
+    try { localStorage.setItem(favoriteStorageKey(), JSON.stringify(favoriteNavIds)); } catch (_) {}
+    refreshNavMoreRecent();
+    window.dispatchEvent(new CustomEvent('tools:favorites-change', { detail: { ids: favoriteNavIds.slice() } }));
+    if (!hasNavAuthToken()) return;
+    const snapshot = favoriteNavIds.slice();
+    favoriteNavWriteQueue = favoriteNavWriteQueue.then(async () => {
+        const response = await fetch('/api/favorite-nav', {
+            method: 'PUT',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() },
+            body: JSON.stringify({ ids: snapshot })
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    }).catch(error => console.warn('[Navbar] save favorite tools failed:', error));
+}
+
+function toggleFavoriteNavTool(toolId) {
+    const ids = getFavoriteNavToolIds();
+    const next = ids.includes(toolId) ? ids.filter(id => id !== toolId) : [...ids, toolId];
+    setFavoriteNavToolIds(next);
+    return next.includes(toolId);
+}
+
+async function loadFavoriteNavTools() {
+    if (!hasNavAuthToken()) return;
+    try {
+        const response = await fetch('/api/favorite-nav', { headers: getAuthHeaderForNav() });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (!Array.isArray(data.ids)) return;
+        favoriteNavIds = data.ids.filter(id => typeof id === 'string');
+        try { localStorage.setItem(favoriteStorageKey(), JSON.stringify(favoriteNavIds)); } catch (_) {}
+        refreshNavMoreRecent();
+        window.dispatchEvent(new CustomEvent('tools:favorites-change', { detail: { ids: favoriteNavIds.slice() } }));
+    } catch (error) {
+        console.warn('[Navbar] load favorite tools failed:', error);
+    }
+}
+
+window.NavFavorites = {
+    get: getFavoriteNavToolIds,
+    set: setFavoriteNavToolIds,
+    toggle: toggleFavoriteNavTool,
+    has: id => getFavoriteNavToolIds().includes(id)
+};
+
+/**
+ * 管理员拖动首页卡片后调整全局导航布局：itemOrder 决定「更多工具」与首页卡片顺序，categoryId 改变所属目录。
+ * 顶部栏主功能（primaryIds）的顺序只在导航设置里调整，拖动卡片不改变它。保存沿用导航设置的防抖保存。
+ */
+function reorderNavItem(itemId, { beforeId = '', afterId = '', categoryId = '' } = {}) {
+    if (localStorage.getItem('tools_role') !== 'admin' || !navState.settings || !itemId) return false;
+    const settings = navState.settings;
+    const ordered = sortNavItems(getAllNavItems(), settings.itemOrder).map(item => item.id);
+    if (!ordered.includes(itemId)) return false;
+    const ids = ordered.filter(id => id !== itemId);
+    let index = ids.length;
+    if (beforeId && ids.includes(beforeId)) index = ids.indexOf(beforeId);
+    else if (afterId && ids.includes(afterId)) index = ids.indexOf(afterId) + 1;
+    else if (categoryId) {
+        // 放到目录末尾：插在该目录最后一个工具之后
+        const categoryOf = id => settings.categoryByItem[id] || getAllNavItems().find(item => item.id === id)?.defaultCategory || 'custom';
+        const last = ids.map((id, position) => [id, position]).filter(([id]) => categoryOf(id) === categoryId).pop();
+        if (last) index = last[1] + 1;
+    }
+    ids.splice(index, 0, itemId);
+    const nextCategory = { ...settings.categoryByItem };
+    if (categoryId && (settings.categories || []).some(category => category.id === categoryId)) nextCategory[itemId] = categoryId;
+    navState.settings = { ...settings, itemOrder: ids, categoryByItem: nextCategory };
+    scheduleNavSettingsSave();
+    notifyRequirementPageCategoriesChanged();
+    return true;
+}
+
+window.NavLayout = { reorder: reorderNavItem, itemOrder: () => (navState.settings?.itemOrder || []).slice() };
+
+function renderNavFavoriteSection(itemById) {
+    const items = getFavoriteNavToolIds().map(id => itemById.get(id)).filter(Boolean).slice(0, 12);
+    if (!items.length) return '';
+    const path = (window.__TP_STATIC_PATH__ || window.location.pathname);
+    const itemsHtml = items.map(item => {
+        const label = navEscape(getNavLabel(item));
+        return `
+            <a href="${item.href}" class="nav-more-recent-item${item.hostedApp ? ' is-hosted-app' : ''} ${item.match(path) ? 'active' : ''}" data-nav-item-id="${navEscape(item.id)}" data-nav-search="${navEscape(buildNavSearchIndex(item))}" title="${label}">
+                <span class="nav-more-recent-item-icon">${item.icon}</span>
+                <span class="nav-more-recent-item-label">${label}</span>
+            </a>`;
+    }).join('');
+    return `
+        <section class="nav-more-recent nav-more-favorites" id="navMoreFavorites">
+            <div class="nav-more-recent-header">
+                <div class="nav-more-recent-title">
+                    <span class="nav-more-recent-icon" aria-hidden="true">⭐</span>
+                    <span>${navEscape(navT('nav.moreFavorites'))}</span>
+                </div>
+                <span class="nav-more-recent-badge">${navEscape(navT('nav.moreFavoritesBadge'))}</span>
+            </div>
+            <div class="nav-more-recent-grid" style="--recent-cols: ${Math.min(4, items.length)}">
+                ${itemsHtml}
+            </div>
+        </section>`;
+}
+
 function getRecentNavDisplayItems(itemById, primaryIds, overflowItems) {
     const recentIds = getRecentNavToolIds();
     const recentItems = [];
@@ -1775,7 +1908,7 @@ function renderNavRecentSection(recentItems) {
 
 function refreshNavMoreRecent() {
     const menuEl = document.getElementById('navMoreMenu');
-    if (!menuEl) return;
+    if (!menuEl || !navState.settings) return;
     const settings = navState.settings;
     const allItems = getAllNavItems();
     const itemById = new Map(allItems.map(item => [item.id, item]));
@@ -1795,6 +1928,10 @@ function refreshNavMoreRecent() {
         const toolbar = menuEl.querySelector('.nav-more-toolbar');
         if (toolbar) toolbar.insertAdjacentHTML('afterend', newHtml);
     }
+    const existingFavorites = menuEl.querySelector('#navMoreFavorites');
+    const favoritesHtml = renderNavFavoriteSection(itemById);
+    if (existingFavorites) existingFavorites.outerHTML = favoritesHtml;
+    else if (favoritesHtml) (menuEl.querySelector('#navMoreRecent') || menuEl.querySelector('.nav-more-toolbar'))?.insertAdjacentHTML('afterend', favoritesHtml);
 }
 
 function renderNavItem(item, className) {
@@ -1809,7 +1946,7 @@ function renderNavItem(item, className) {
     }
     content += renderNavToolBadges(item);
 
-    return `<a href="${item.href}" class="${className} ${item.match(path) ? 'active' : ''}" data-nav-item-id="${navEscape(item.id)}" data-nav-search="${navEscape(buildNavSearchIndex(item))}" title="${label}">${content}</a>`;
+    return `<a href="${item.href}" class="${className}${item.hostedApp ? ' is-hosted-app' : ''} ${item.match(path) ? 'active' : ''}" data-nav-item-id="${navEscape(item.id)}" data-nav-search="${navEscape(buildNavSearchIndex(item))}" title="${label}">${content}</a>`;
 }
 
 function renderNavLinksFromState() {
@@ -1859,6 +1996,7 @@ function renderNavLinksFromState() {
             <kbd>Esc</kbd>
         </div>
         ${renderNavRecentSection(recentItems)}
+        ${renderNavFavoriteSection(itemById)}
         <div class="nav-more-layout">
             <aside class="nav-more-sidebar" aria-label="${navEscape(navT('nav.more'))}">
                 ${categoryButtons}
@@ -2088,7 +2226,7 @@ async function loadNavigationData() {
     }
     notifyRequirementPageCategoriesChanged();
     renderNavLinksFromState();
-    await loadRecentNavTools();
+    await Promise.all([loadRecentNavTools(), loadFavoriteNavTools()]);
     trackCurrentPageAsRecentNavTool();
     if (document.getElementById('navSettingsModal')) renderNavSettingsContent();
 }
@@ -8648,6 +8786,15 @@ window.openToolsKnowledgeGraph = function (options = {}) {
     });
 };
 
+// 对话里的文件卡片与图片放大（ai-assistant.js 的 Markdown 渲染会用到），需先于助手脚本执行
+function ensureChatFilesScript() {
+    if (window.ChatFiles || document.querySelector('script[src^="./tp-static/frontend/js/shared/chat-files.js"]')) return;
+    const script = document.createElement('script');
+    script.src = './tp-static/frontend/js/shared/chat-files.js';
+    script.async = false;
+    document.body.appendChild(script);
+}
+
 let toolsAiAssistantLoader = null;
 window.openToolsAIAssistant = function (options = {}) {
     if (window.ToolsAIAssistant?.open) return window.ToolsAIAssistant.open(options);
@@ -8658,7 +8805,9 @@ window.openToolsAIAssistant = function (options = {}) {
             script.addEventListener('load', resolve, { once: true });
             script.addEventListener('error', () => reject(new Error('AI 助手组件加载失败')), { once: true });
             if (!existing) {
+                ensureChatFilesScript();
                 script.src = './tp-static/frontend/js/shared/ai-assistant.js';
+                script.async = false;
                 document.body.appendChild(script);
             }
         }).catch(error => {
@@ -8680,8 +8829,10 @@ window.openToolsAIAssistant = function (options = {}) {
 
     // 确保不重复加载
     if (!document.querySelector('script[src^="./tp-static/frontend/js/shared/ai-assistant.js"]')) {
+        ensureChatFilesScript();
         const aiScript = document.createElement('script');
         aiScript.src = './tp-static/frontend/js/shared/ai-assistant.js';
+        aiScript.async = false;
         document.body.appendChild(aiScript);
     }
 })();
