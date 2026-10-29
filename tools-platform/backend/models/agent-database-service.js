@@ -8,7 +8,7 @@ const pool = require('./tenant-sqlite-pool');
 const { redactValue, containsSensitiveText, REDACTED } = require('./ai-sensitive-data');
 
 const EXT = /\.(?:db|sqlite|sqlite3)$/i;
-const PRIVATE_TABLE = /^(?:sqlite_|auth_|ai_(?!(?:report_|knowledge_|usage_))|agent_|audit_|desktop_license|desktop_agent_(?:settings|host_bindings)|snapshot_portal_keys|tenants?(?:_|$)|users?(?:_|$)|sessions?(?:_|$)|credentials?(?:_|$)|secrets?(?:_|$)|oauth|settings$)/i;
+const PRIVATE_TABLE = /^(?:hosted_adc_|sqlite_|auth_|ai_(?!(?:report_|knowledge_|usage_))|agent_|audit_|desktop_license|desktop_agent_(?:settings|host_bindings)|snapshot_portal_keys|tenants?(?:_|$)|users?(?:_|$)|sessions?(?:_|$)|credentials?(?:_|$)|secrets?(?:_|$)|oauth|settings$)/i;
 const PRIVATE_COLUMN = /(?:password|passwd|pwd|secret|token|cookie|authorization|credential|private.?key|api.?key|thought.?signature)/i;
 const quote = name => `"${String(name).replace(/"/g, '""')}"`;
 const fail = message => Object.assign(new Error(message), { code: 'AGENT_DATABASE_FORBIDDEN' });

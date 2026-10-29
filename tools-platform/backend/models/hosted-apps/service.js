@@ -19,6 +19,8 @@ function launcherHtml(slug, name) {
 </head>
 <body data-hosted-app="${escape(slug)}">
 <script src="/js/shared/app-dialog.js"></script>
+<script src="/js/shared/toast.js"></script>
+<script src="/js/shared/ide-highlighter.js"></script>
 <script src="/js/hosted-app-launcher.js"></script>
 </body>
 </html>

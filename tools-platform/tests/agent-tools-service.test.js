@@ -190,7 +190,7 @@ test('unified diff and tool definitions are well formed', () => {
     assert.equal(diff.removed, 1);
     assert.match(diff.text, /^--- a\/a\.txt\n\+\+\+ b\/a\.txt\n@@/);
     const defs = tools.definitions();
-    assert.deepEqual(defs.map(item => item.name), ['list_directory', 'read_file', 'search', 'list_databases', 'database_schema', 'read_database_table', 'insert_database_row', 'update_database_rows', 'delete_database_rows', 'list_uiv_scripts', 'list_uiv_categories', 'read_uiv_script', 'save_uiv_script', 'move_uiv_script', 'manage_uiv_category', 'delete_uiv_script', 'write_file', 'edit_file', 'delete_path', 'rename_path', 'run_command', 'welink_list_targets', 'welink_send_message']);
+    assert.deepEqual(defs.map(item => item.name), ['list_directory', 'read_file', 'search', 'list_databases', 'database_schema', 'read_database_table', 'insert_database_row', 'update_database_rows', 'delete_database_rows', 'list_uiv_scripts', 'list_uiv_categories', 'read_uiv_script', 'save_uiv_script', 'move_uiv_script', 'manage_uiv_category', 'delete_uiv_script', 'write_file', 'edit_file', 'delete_path', 'rename_path', 'run_command', 'welink_list_targets', 'welink_send_message', 'read_document', 'query_data', 'diff_files', 'multi_edit', 'zip_files', 'unzip_file', 'memory']);
     assert.deepEqual(tools.definitions({ readOnly: true }).map(item => item.name).filter(name => name.startsWith('welink_')), [], '只读账号不提供 WeLink 工具');
     assert.equal(tools.kindOf('welink_send_message'), 'external');
     defs.forEach(def => assert.equal(def.parameters.type, 'object'));
@@ -235,7 +235,7 @@ test('renaming an existing file can be undone and read-only users only get read 
     fs.rmSync(path.join(ROOT, 'before.txt'));
 
     const readOnly = tools.definitions({ readOnly: true }).map(item => item.name).sort();
-    assert.deepEqual(readOnly, ['database_schema', 'list_databases', 'list_directory', 'list_uiv_categories', 'list_uiv_scripts', 'read_database_table', 'read_file', 'read_uiv_script', 'search']);
+    assert.deepEqual(readOnly, ['database_schema', 'diff_files', 'list_databases', 'list_directory', 'list_uiv_categories', 'list_uiv_scripts', 'query_data', 'read_database_table', 'read_document', 'read_file', 'read_uiv_script', 'search']);
     assert.ok(tools.definitions().some(item => item.name === 'run_command'));
 });
 

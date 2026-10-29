@@ -260,14 +260,103 @@ async function assertSafeReadPlan(db, sql) {
     }
 }
 
+async function handleInformationSchema(db, text, limit) {
+    if (!/information_schema\.(?:tables|columns)\b/i.test(text)) return null;
+    const bare = skeleton(text);
+    if (/information_schema\.tables\b/i.test(bare)) {
+        const matchTable = /LOWER\(TABLE_NAME\)\s*=\s*['"]([^'"]+)['"]/i.exec(text) || /TABLE_NAME\s*=\s*['"]([^'"]+)['"]/i.exec(text);
+        const targetTable = matchTable ? matchTable[1].toLowerCase() : null;
+
+        const masterRows = await allOf(db, "SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%'");
+        let seedTables = {};
+        try {
+            seedTables = require('../digital-human/netcare-table-seed.json').tables || {};
+        } catch (_e) {}
+
+        const results = [];
+        for (const row of masterRows) {
+            const tName = row.name;
+            if (targetTable && tName.toLowerCase() !== targetTable) continue;
+            const meta = seedTables[tName.toLowerCase()] || {};
+            results.push({
+                TABLE_NAME: tName,
+                name: tName,
+                TABLE_COMMENT: meta.nameCn || meta.note || '',
+                comment: meta.nameCn || meta.note || '',
+                TABLE_ROWS: meta.rows !== undefined ? meta.rows : 0,
+                est_rows: meta.rows !== undefined ? meta.rows : 0,
+                TABLE_TYPE: row.type === 'view' ? 'VIEW' : 'BASE TABLE',
+                table_type: row.type === 'view' ? 'VIEW' : 'BASE TABLE',
+                CREATE_TIME: '2026-01-01 00:00:00',
+                create_time: '2026-01-01 00:00:00',
+                UPDATE_TIME: '2026-10-29 00:00:00',
+                update_time: '2026-10-29 00:00:00'
+            });
+        }
+        const lim = limitOf(limit);
+        return { rows: normalizeRows(results.slice(0, lim)), truncated: results.length > lim };
+    }
+
+    if (/information_schema\.columns\b/i.test(bare)) {
+        const isCount = /COUNT\(\s*\*\s*\)\s+AS\s+C\b/i.test(bare);
+        const isGroup = /GROUP\s+BY\s+TABLE_NAME\b/i.test(bare);
+        const matchTable = /LOWER\(TABLE_NAME\)\s*=\s*['"]([^'"]+)['"]/i.exec(text) || /TABLE_NAME\s*=\s*['"]([^'"]+)['"]/i.exec(text);
+        const targetTable = matchTable ? matchTable[1].toLowerCase() : null;
+
+        if (isGroup) {
+            const masterRows = await allOf(db, "SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%'");
+            const results = [];
+            for (const r of masterRows) {
+                const cols = await allOf(db, `PRAGMA table_xinfo("${r.name.replace(/"/g, '""')}")`);
+                results.push({
+                    name: r.name,
+                    TABLE_NAME: r.name,
+                    column_count: cols.length,
+                    C: cols.length
+                });
+            }
+            return { rows: normalizeRows(results), truncated: false };
+        }
+
+        if (targetTable) {
+            const cols = await allOf(db, `PRAGMA table_xinfo("${targetTable.replace(/"/g, '""')}")`);
+            if (isCount) {
+                return { rows: [{ C: cols.length }], truncated: false };
+            }
+            const results = cols.map((c, idx) => ({
+                COLUMN_NAME: c.name,
+                name: c.name,
+                DATA_TYPE: c.type || 'TEXT',
+                data_type: c.type || 'TEXT',
+                COLUMN_TYPE: c.type || 'TEXT',
+                column_type: c.type || 'TEXT',
+                COLUMN_COMMENT: '',
+                comment: '',
+                ORDINAL_POSITION: idx + 1,
+                position: idx + 1,
+                IS_NULLABLE: c.notnull ? 'NO' : 'YES',
+                nullable: c.notnull ? 'NO' : 'YES',
+                COLUMN_KEY: c.pk ? 'PRI' : '',
+                column_key: c.pk ? 'PRI' : ''
+            }));
+            const lim = limitOf(limit);
+            return { rows: normalizeRows(results.slice(0, lim)), truncated: results.length > lim };
+        }
+    }
+    return null;
+}
+
 async function queryPlatform(name, sql, limit) {
-    const text = assertRead(sql);
+    let text = assertRead(sql);
     const item = platformFile(name);
     const db = await open(item.file, sqlite3.OPEN_READONLY);
     try {
         db.configure('busyTimeout', 5000);
         await allOf(db, 'PRAGMA query_only = ON');
         await allOf(db, 'PRAGMA trusted_schema = OFF');
+        const info = await handleInformationSchema(db, text, limit);
+        if (info) return info;
+        text = text.replace(/`?netcare`?\./gi, '');
         return await withTimeout(db, async () => {
             await assertSafeReadPlan(db, text);
             const { rows, truncated } = await eachRows(db, text, limitOf(limit));
@@ -350,6 +439,22 @@ async function runQuery(app, body = {}) {
     const netcare = await refreshNetcareName();
     if (name === netcare || name.toLowerCase() === 'netcare') return queryNetcare(sql, limit);
     throw fail(`未知数据源：${name}；可调用 /query/datasources 查看`, 'HOSTED_DATA_NOT_FOUND', 404);
+}
+
+// AI 只能读：复用租户/应用边界，并对应用库同样检查实际读取的敏感表和列。
+function queryForAI(app, body = {}, request) {
+    const sql = assertRead(body.sql);
+    return limited(app, async () => {
+        if (!isApp(app, body)) return runQuery(app, { ...body, sql });
+        const db = await appDatabase(app.tenantId, app.slug);
+        return withTimeout(db, async () => {
+            const info = await handleInformationSchema(db, sql, body.limit);
+            if (info) return info;
+            await assertSafeReadPlan(db, sql);
+            const { rows, truncated } = await eachRows(db, sql, limitOf(body.limit));
+            return { rows: normalizeRows(rows), truncated };
+        });
+    }, request);
 }
 
 function execute(app, body = {}, request) {
@@ -449,5 +554,5 @@ function createRouter() {
     return router;
 }
 
-module.exports = { createRouter, query, execute, applyInitSql, listDatasources, findTableDatasource, closeAppDatabase, datasourceNames, refreshNetcareName,
+module.exports = { createRouter, query, queryForAI, execute, applyInitSql, listDatasources, findTableDatasource, closeAppDatabase, datasourceNames, refreshNetcareName,
     assertRead, assertAppWrite, assertSafeReadPlan, isDirectLoopback };

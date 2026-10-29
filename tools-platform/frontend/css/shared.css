@@ -244,11 +244,11 @@ html.is-page-scrolling::-webkit-scrollbar-thumb {
     top: calc(var(--navbar-h) + 8px);
     left: 12px;
     width: min(680px, calc(100vw - 24px));
-    /* 大窗口使用半屏高度，小窗口保留阅读空间，并始终避开导航栏和底边。 */
-    --nav-more-min-height: 560px;
+    /* 大窗口显示更多工具，小窗口自动收缩，并始终避开导航栏和底边。 */
+    --nav-more-min-height: 720px;
     --nav-more-bottom-gap: 24px;
-    height: min(max(var(--nav-more-min-height), 50vh), calc(100vh - var(--navbar-h) - var(--nav-more-bottom-gap)));
-    height: min(max(var(--nav-more-min-height), 50dvh), calc(100dvh - var(--navbar-h) - var(--nav-more-bottom-gap)));
+    height: min(max(var(--nav-more-min-height), 75vh), calc(100vh - var(--navbar-h) - var(--nav-more-bottom-gap)));
+    height: min(max(var(--nav-more-min-height), 75dvh), calc(100dvh - var(--navbar-h) - var(--nav-more-bottom-gap)));
     overflow: hidden;
     border-radius: 14px;
     border: 1px solid rgba(148,163,184,0.24);

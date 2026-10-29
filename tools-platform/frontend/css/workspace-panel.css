@@ -428,6 +428,25 @@
 .dc-tool-spin { width: 12px; height: 12px; border: 2px solid rgba(96, 165, 250, 0.25); border-top-color: #60a5fa; border-radius: 50%; animation: dc-tool-spin 0.8s linear infinite; }
 @keyframes dc-tool-spin { to { transform: rotate(360deg); } }
 
+/* 任务清单（update_plan）与智能体提问（ask_user） */
+.dc-todo { margin-bottom: 8px; padding: 8px 12px; border: 1px solid rgba(148, 163, 184, 0.14); border-radius: 10px; background: rgba(2, 6, 23, 0.35); color: var(--dc-muted, #8b9ab3); font-size: 12.5px; }
+.dc-todo-head { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+.dc-todo-head b { color: var(--dc-text, #e2e8f0); font-weight: 650; }
+.dc-todo ol { display: grid; gap: 3px; margin: 0; padding: 0; list-style: none; }
+.dc-todo li { display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 6px; align-items: baseline; overflow-wrap: anywhere; }
+.dc-todo-mark { display: inline-grid; place-items: center; width: 13px; height: 13px; border: 1px solid rgba(148, 163, 184, 0.45); border-radius: 4px; font-size: 9px; line-height: 1; }
+.dc-todo li.is-in_progress { color: var(--dc-text, #e2e8f0); }
+.dc-todo li.is-in_progress .dc-todo-mark { border-color: var(--dc-accent-2, #60a5fa); color: var(--dc-accent-2, #60a5fa); }
+.dc-todo li.is-completed > span:last-child { color: var(--dc-faint, #64748b); text-decoration: line-through; }
+.dc-todo li.is-completed .dc-todo-mark { border-color: #4ade80; color: #4ade80; }
+.dc-question { margin-top: 10px; }
+.dc-question-hint { margin-bottom: 6px; color: var(--dc-faint, #64748b); font-size: 11.5px; }
+.dc-question-options { display: flex; flex-wrap: wrap; gap: 6px; }
+.dc-question-options .dc-action { max-width: 100%; text-align: left; white-space: normal; }
+.dc-question-options .dc-action.is-chosen { border-color: var(--dc-accent, #64ffda); color: var(--dc-accent, #64ffda); }
+.dc-question.is-history .dc-action:not(.is-chosen) { opacity: 0.55; }
+@media (prefers-reduced-motion: no-preference) { .dc-todo li { transition: color 0.2s ease; } }
+
 .dc-approval {
     padding: 12px 14px;
     border: 1px solid rgba(245, 158, 11, 0.4);

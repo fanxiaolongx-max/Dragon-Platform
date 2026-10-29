@@ -3,8 +3,10 @@
 // 工具只能读写本会话的跟进任务，不开放平台其他写能力；模型不支持函数调用时退回普通回复。
 const repo = require('./channel-followups-repository');
 const schedule = require('./followup-schedule');
+const agentLoop = require('../agent-loop');
 
-const MAX_STEPS = 6;
+// 频道对话的工具步数上限（到上限时引擎会不带工具总结进展）
+const MAX_STEPS = 12;
 const URGENCY_LABEL = { low: '低', normal: '普通', high: '高', urgent: '紧急' };
 const STATUS_LABEL = { open: '跟进中', paused: '已暂停', done: '已完成', cancelled: '已取消' };
 
@@ -191,67 +193,35 @@ async function execute(ctx, name, args = {}, calendar) {
 }
 
 /**
- * 带跟进工具的一轮回复。
+ * 带跟进工具的一轮回复：工具循环用 agent-loop（与工作区同一套引擎）。频道里没有审批卡，工具只能读写本会话的任务。
  * @returns {Promise<{text, usage, toolLog, events}>}
  */
-async function runTurn({ client, systemInstruction, messages, ctx, calendar, signal, onDelta, maxOutputTokens, temperature }) {
-    const tools = definitions();
-    const history = messages.map(item => ({ ...item }));
-    const usage = { promptTokens: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 };
-    const toolLog = [];
+async function runTurn({ client, systemInstruction, messages, ctx, calendar, signal, onDelta, onEvent, maxOutputTokens, temperature, model }) {
     const events = [];
-    let activeClient = client;
     const isWeChat = ctx.channel === 'weixin';
     const wantsFollowup = /跟进|催办|记一下|记录|进展|暂停|恢复|关闭|取消|完成|follow.?up|progress|pause|resume/i.test(ctx.userText || '');
-    const emitFinal = text => {
-        if (isWeChat) onDelta?.(text);
-        return text;
-    };
-    for (let step = 1; step <= MAX_STEPS; step += 1) {
-        if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
-        let result;
-        try {
-            // 微信一次性发送最终正文：工具未落库前不输出“已记录”等可能误导的中间文本。
-            result = await activeClient.generateText({ systemInstruction, messages: history, tools, maxOutputTokens, temperature, signal, onDelta: isWeChat ? undefined : onDelta });
-        } catch (error) {
-            // 模型/网关不支持函数调用：退回普通回复，跟进任务不可用但对话照常
-            if (step === 1 && error?.code === 'AI_TOOLS_UNSUPPORTED') {
-                if (isWeChat && wantsFollowup) {
-                    const text = emitFinal('当前模型不支持跟进工具，尚未保存或修改任务。请管理员切换到支持工具调用的模型后重试。');
-                    return { text, usage, toolLog, events, toolsUnsupported: true };
-                }
-                result = await activeClient.generateText({ systemInstruction: `${systemInstruction}\n\n（当前模型不支持工具调用，跟进任务暂不可保存；如用户要求记录任务，请说明需要管理员切换支持函数调用的模型。）`, messages: history, maxOutputTokens, temperature, signal, onDelta: isWeChat ? undefined : onDelta });
-                return { text: emitFinal(result.text || ''), usage: result.usage || usage, toolLog, events, toolsUnsupported: true };
-            }
-            throw error;
-        }
-        if (result.providerClient) activeClient = result.providerClient;
-        usage.promptTokens = Number(result.usage?.promptTokens || 0);
-        usage.inputTokens += Number(result.usage?.promptTokens || 0);
-        usage.outputTokens += Number(result.usage?.outputTokens || 0);
-        usage.totalTokens += Number(result.usage?.totalTokens || 0);
-        const calls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
-        if (!calls.length) {
-            let text = result.text || '';
-            if (isWeChat && wantsFollowup && !events.length && /已(?:经)?[^。\n]{0,12}(?:记录|创建|保存|更新|暂停|恢复|关闭|取消)|(?:created|saved|updated)\s+(?:the\s+)?task/i.test(text)) {
-                text = '尚未通过跟进工具保存或修改任务。请补充任务标题、要记录的进展或需要执行的操作后重试；工作区中的任务记录才是实际状态。';
-            }
-            return { text: emitFinal(text), usage, toolLog, events };
-        }
-        if (!isWeChat && result.text && onDelta) onDelta('\n\n');
-        history.push({ role: 'model', content: result.text || '', toolCalls: calls });
-        const toolResults = [];
-        for (const call of calls) {
+    const result = await agentLoop.runToolLoop({
+        client, model, systemPrompt: systemInstruction, messages, tools: definitions(), maxSteps: MAX_STEPS,
+        builtins: ['calculate'], // 频道里没有任务清单和选项卡片，只给精确计算（日期、工作日）
+        // 微信一次性发送最终正文：工具未落库前不输出“已记录”等可能误导的中间文本。
+        write: event => (event.type === 'delta' ? (isWeChat ? undefined : onDelta?.(event.delta)) : onEvent?.(event)),
+        signal, maxOutputTokens, temperature, task: String(ctx.userText || messages.at(-1)?.content || ''), callIdPrefix: 'followup',
+        executeCall: async call => {
             const outcome = await execute(ctx, call.name, call.args, calendar);
-            toolLog.push({ tool: call.name, ok: !outcome.isError, summary: outcome.summary });
             if (outcome.event) events.push(outcome.event);
-            toolResults.push({ id: call.id, name: call.name, content: outcome.content, isError: Boolean(outcome.isError) });
-        }
-        history.push({ role: 'tool', toolResults });
+            return outcome;
+        },
+        // 模型/网关不支持函数调用：退回普通回复，跟进任务不可用但对话照常
+        toolsUnsupported: () => (isWeChat && wantsFollowup
+            ? { text: '当前模型不支持跟进工具，尚未保存或修改任务。请管理员切换到支持工具调用的模型后重试。' }
+            : { note: '（当前模型不支持工具调用，跟进任务暂不可保存；如用户要求记录任务，请说明需要管理员切换支持函数调用的模型。）' })
+    });
+    let text = result.text || '';
+    if (isWeChat && wantsFollowup && !events.length && /已(?:经)?[^。\n]{0,12}(?:记录|创建|保存|更新|暂停|恢复|关闭|取消)|(?:created|saved|updated)\s+(?:the\s+)?task/i.test(text)) {
+        text = '尚未通过跟进工具保存或修改任务。请补充任务标题、要记录的进展或需要执行的操作后重试；工作区中的任务记录才是实际状态。';
     }
-    const text = '已达到单轮最大工具调用步数，请再发一条消息继续。';
-    onDelta?.(text);
-    return { text, usage, toolLog, events };
+    if (isWeChat) onDelta?.(text);
+    return { text, usage: result.usage, toolLog: result.toolLog, events, ...(result.toolsUnsupported ? { toolsUnsupported: true } : {}) };
 }
 
 module.exports = { definitions, buildPrompt, execute, runTurn, URGENCY_LABEL, STATUS_LABEL, assigneeText, formatTime };

@@ -82,7 +82,7 @@ test('ask mode blocks on approval, allow executes, and "always" skips later prom
     assert.equal(result.context.source, 'provider');
     assert.match(client.calls[0].systemInstruction, /根目录：/);
     assert.match(client.calls[0].systemInstruction, /README\.md/);
-    assert.deepEqual(client.calls[0].tools.map(item => item.name), ['list_directory', 'read_file', 'search', 'list_databases', 'database_schema', 'read_database_table', 'write_file', 'edit_file', 'delete_path', 'rename_path', 'run_command', 'tool_search'],
+    assert.deepEqual(client.calls[0].tools.map(item => item.name), ['update_plan', 'ask_user', 'calculate', 'list_directory', 'read_file', 'search', 'list_databases', 'database_schema', 'read_database_table', 'write_file', 'edit_file', 'delete_path', 'rename_path', 'run_command', 'tool_search'],
         'only the core tools and tool_search are sent up front; load_skill needs a skill catalog');
     assert.match(client.calls[0].systemInstruction, /按需工具[\s\S]*insert_database_row/, 'deferred tools are listed by name');
     assert.equal(client.calls[1].messages.at(-1).role, 'tool');
@@ -396,7 +396,7 @@ test('non-admin accounts are read-only in the workspace: write tools are not off
     ]);
     const { events, write } = collector();
     const result = await manager.runAgentTurn({ session, client, systemInstruction: 'S', historyMessages: [{ role: 'user', content: 'write it' }], write, signal: new AbortController().signal });
-    assert.deepEqual(client.calls[0].tools.map(item => item.name).sort(), ['database_schema', 'list_databases', 'list_directory', 'read_database_table', 'read_file', 'search', 'tool_search']);
+    assert.deepEqual(client.calls[0].tools.map(item => item.name).sort(), ['ask_user', 'calculate', 'database_schema', 'list_databases', 'list_directory', 'read_database_table', 'read_file', 'search', 'tool_search', 'update_plan']);
     assert.doesNotMatch(client.calls[0].systemInstruction, /insert_database_row|welink_send_message/, 'write tools are not even listed for read-only accounts');
     assert.equal(fs.existsSync(path.join(root, 'blocked.txt')), false);
     assert.equal(result.denied, 1);

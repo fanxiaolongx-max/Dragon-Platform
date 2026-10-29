@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const runtime = require('../models/hosted-apps/runtime');
 const service = require('../models/hosted-apps/service');
+const editorService = require('../models/hosted-apps/editor-service');
 const { requireAdmin } = require('../middleware/auth');
 
 const send = (res, error, fallback) => res.status(error.status || 500).json({ error: error.message || fallback, code: error.code });
@@ -49,11 +50,31 @@ router.get('/:slug/config', requireAdmin, async (req, res) => {
         const dataApi = require('../models/hosted-apps/data-api');
         const datasources = await dataApi.listDatasources({ uuid: state.uuid });
         const { netcareName } = dataApi.datasourceNames();
+        const businessDatasource = state.businessDatasource || netcareName || 'platform:report.db';
         res.json({
             success: true,
             slug: req.params.slug,
             name: state.name || state.packageName,
-            businessDatasource: state.businessDatasource || netcareName || 'platform:report.db',
+            uuid: state.uuid,
+            businessDatasource,
+            appDatabase: {
+                name: 'app',
+                schema: state.uuid,
+                file: 'app.db',
+                writable: true,
+                env: {
+                    APP_DATASOURCE_ID: 'app',
+                    APP_SCHEMA: state.uuid
+                }
+            },
+            businessDatabase: {
+                name: businessDatasource,
+                remark: 'NetCare 业务库（只读，含全量 441 张业务表及上游源表视图）',
+                writable: false,
+                env: {
+                    BUSINESS_DATASOURCE_NAME: businessDatasource
+                }
+            },
             availableDatasources: datasources.filter(d => d.type !== 'APP_CUSTOM').map(d => d.name),
             env: state.env || {}
         });
@@ -99,6 +120,134 @@ router.post('/:slug/:action(start|stop|restart|reinstall)', requireAdmin, async 
         await actions[req.params.action](req.params.slug);
         res.json({ success: true, app: runtime.status(req.params.slug) });
     } catch (error) { send(res, error, '操作失败'); }
+});
+
+// ── 在线 IDE 与版本管理 ─────────────────────────────────────────
+router.get('/:slug/editor/tree', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const tree = editorService.getFileTree(req.params.slug);
+        res.json({ success: true, tree });
+    } catch (error) { send(res, error, '读取文件树失败'); }
+});
+
+router.get('/:slug/editor/file', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const file = editorService.readFile(req.params.slug, req.query.path);
+        res.json({ success: true, file });
+    } catch (error) { send(res, error, '读取文件失败'); }
+});
+
+router.put('/:slug/editor/file', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const { path: filePath, content, autoCommit, commitMessage } = req.body || {};
+        if (filePath === undefined || content === undefined) return res.status(400).json({ error: '缺少 path 或 content 参数' });
+        const result = editorService.saveFile(req.params.slug, filePath, content, { autoCommit, commitMessage });
+        res.json({ success: true, ...result });
+    } catch (error) { send(res, error, '保存文件失败'); }
+});
+
+router.post('/:slug/editor/create', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const { path: itemPath, isDir } = req.body || {};
+        if (!itemPath) return res.status(400).json({ error: '路径不能为空' });
+        const result = editorService.createItem(req.params.slug, itemPath, Boolean(isDir));
+        res.json({ success: true, ...result });
+    } catch (error) { send(res, error, '创建失败'); }
+});
+
+router.post('/:slug/editor/delete', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const { path: itemPath } = req.body || {};
+        if (!itemPath) return res.status(400).json({ error: '路径不能为空' });
+        const result = editorService.deleteItem(req.params.slug, itemPath);
+        res.json({ success: true, ...result });
+    } catch (error) { send(res, error, '删除失败'); }
+});
+
+router.post('/:slug/editor/rename', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const { oldPath, newPath } = req.body || {};
+        if (!oldPath || !newPath) return res.status(400).json({ error: '缺少 oldPath 或 newPath 参数' });
+        const result = editorService.renameItem(req.params.slug, oldPath, newPath);
+        res.json({ success: true, ...result });
+    } catch (error) { send(res, error, '重命名失败'); }
+});
+
+router.get('/:slug/editor/git/status', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const status = editorService.getGitStatus(req.params.slug);
+        res.json({ success: true, status });
+    } catch (error) { send(res, error, '读取 Git 状态失败'); }
+});
+
+router.get('/:slug/editor/git/history', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const limit = parseInt(req.query.limit, 10) || 40;
+        const history = editorService.getGitHistory(req.params.slug, limit);
+        res.json({ success: true, history });
+    } catch (error) { send(res, error, '读取版本历史失败'); }
+});
+
+router.get('/:slug/editor/git/diff', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const { commit, file } = req.query || {};
+        const result = editorService.getDiff(req.params.slug, { commitHash: commit, filePath: file });
+        res.json({ success: true, ...result });
+    } catch (error) { send(res, error, '获取 Diff 失败'); }
+});
+
+router.post('/:slug/editor/git/commit', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const { message } = req.body || {};
+        const result = editorService.commitChanges(req.params.slug, message, req.user?.username || req.user?.email || '');
+        res.json({ success: true, ...result });
+    } catch (error) { send(res, error, '提交修改失败'); }
+});
+
+router.post('/:slug/editor/git/revert', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const { commitHash } = req.body || {};
+        if (!commitHash) return res.status(400).json({ error: '缺少 commitHash 参数' });
+        const result = editorService.revertToCommit(req.params.slug, commitHash);
+        res.json({ success: true, ...result });
+    } catch (error) { send(res, error, '版本回退失败'); }
+});
+
+router.post('/:slug/editor/git/remote', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const { remoteUrl } = req.body || {};
+        const result = editorService.setGitRemote(req.params.slug, remoteUrl);
+        res.json({ success: true, ...result });
+    } catch (error) { send(res, error, '配置远程仓库失败'); }
+});
+
+router.post('/:slug/editor/git/push', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const { force } = req.body || {};
+        const result = editorService.pushToRemote(req.params.slug, { force: Boolean(force) });
+        res.json({ success: true, ...result });
+    } catch (error) { send(res, error, '推送到远程仓库失败'); }
+});
+
+router.post('/:slug/editor/git/pull', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const result = editorService.pullFromRemote(req.params.slug);
+        res.json({ success: true, ...result });
+    } catch (error) { send(res, error, '从远程仓库拉取失败'); }
 });
 
 module.exports = router;

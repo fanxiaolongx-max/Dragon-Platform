@@ -7,8 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const toolsService = require('./agent-tools-service');
 const toolRegistry = require('./agent-tool-registry');
-const artifacts = require('./agent-artifacts');
-const compaction = require('./ai-context-compaction');
+const agentLoop = require('./agent-loop');
 const skillCatalogContract = require('./ai-skill-catalog-contract');
 const scriptService = require('./agent-script-service');
 const contextStats = require('./agent-context-stats');
@@ -19,15 +18,6 @@ const commandGuard = require('./agent-command-guard');
 const changeRepo = require('./agent-change-repository');
 const { redactText, redactValue } = require('./ai-sensitive-data');
 
-// 单轮工具步数上限只防失控；到上限时让模型不带工具总结进展，而不是直接截断（参考 Claude Code / Codex 的做法）
-const MAX_STEPS = 60;
-// 回答被输出上限截断时自动续写的次数；模型返回空回复时提示它继续的次数
-const MAX_CONTINUATIONS = 3;
-const MAX_EMPTY_NUDGES = 2;
-const TRUNCATED_RE = /^(length|max_tokens|max_output_tokens)$/i;
-// 自动压缩：上下文到触发线（agent-context-stats.compactThreshold）时把较早内容整理成摘要；最近约 25% 窗口的步骤保留原文
-const MAX_COMPACTIONS = 6;
-const COMPACT_KEEP_RATIO = 0.25;
 const APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
 const SESSION_IDLE_MS = 6 * 60 * 60 * 1000;
 const MAX_SESSIONS = 50;
@@ -363,59 +353,6 @@ function resolveApproval(approvalId, decision, user, tenantId) {
     return { ok: true, decision: normalized };
 }
 
-// ── 自动压缩 ─────────────────────────────────────────────
-/**
- * 从后往前找切分点：只在一步的开头切（用户消息，或带工具调用的模型消息），工具调用与结果不拆开；
- * 执行提示等临时消息不作切分点。最近的部分保留原文（不超过 keepTokens，至少保留最后一步）。
- */
-function compactionCut(messages, keepTokens, ephemeral) {
-    const boundaries = [];
-    messages.forEach((message, index) => {
-        if (index > 0 && !ephemeral.has(message) && (message.role === 'user' || (message.role === 'model' && message.toolCalls?.length))) boundaries.push(index);
-    });
-    if (!boundaries.length) return 0;
-    let cut = boundaries[boundaries.length - 1];
-    for (let index = boundaries.length - 2; index >= 0; index -= 1) {
-        if (contextStats.estimateRequest('', [], messages.slice(boundaries[index])) > keepTokens) break;
-        cut = boundaries[index];
-    }
-    return cut;
-}
-
-/**
- * 规划一次压缩：保留的最近步骤按「触发线以下的余量」定（扣除系统提示和工具说明这部分固定占用），尽量压到明显低于触发线，
- * 免得下一步又触发。能压缩的内容不到窗口 10%、或压完省下不到窗口 5% 时不值得再调用一次模型，返回 null 交给整轮裁剪。
- * 最近一步本身就很大（一步里并行调用多个工具）时照样压缩较早部分，不能因此直接落到裁剪报错。
- */
-function planCompaction(messages, { windowTokens, threshold, baseTokens, usedTokens, ephemeral }) {
-    const keepTokens = Math.max(0, Math.min(windowTokens * COMPACT_KEEP_RATIO, (threshold - baseTokens) * 0.4));
-    const cut = compactionCut(messages, keepTokens, ephemeral);
-    const older = messages.slice(0, cut).filter(message => !ephemeral.has(message));
-    if (!older.length || contextStats.estimateRequest('', [], older) < windowTokens * 0.1) return null;
-    const recent = messages.slice(cut);
-    const SUMMARY_TOKENS = 3000; // 真实模型的摘要常接近 4000 字上限
-    if (usedTokens - (baseTokens + SUMMARY_TOKENS + contextStats.estimateRequest('', [], recent)) < windowTokens * 0.05) return null;
-    return { older, recent };
-}
-
-/** 较早部分整理成摘要，替换为一条（或一问一答两条）压缩记录；失败时抛错，由调用方退回整轮裁剪 */
-async function compactMessages({ client, plan, task, windowTokens, sensitiveValues, signal }) {
-    const { older, recent } = plan;
-    const summary = await compaction.summarize({ client, entries: older, task, secrets: sensitiveValues, signal, maxChars: Math.min(60000, Math.floor(windowTokens * 1.5)) });
-    const header = transcriptRepo.COMPACTED_HEADER;
-    // 保留部分以用户消息开头时用一问一答；以工具步骤开头时合成一条用户消息，写明当前任务，让模型的工具调用仍紧跟用户回合
-    const prefix = recent[0]?.role === 'user'
-        ? [{ role: 'user', content: header }, { role: 'model', content: summary }]
-        : [{ role: 'user', content: `${header}\n\n${summary}\n\n当前任务（用户原话）：${task}\n\n请接着上面的进度继续。` }];
-    return { messages: [...prefix, ...recent], summarized: older.length };
-}
-
-// ── 工具循环 ─────────────────────────────────────────────
-function previewArgs(args) {
-    const text = JSON.stringify(args || {});
-    return text.length > 2000 ? JSON.parse(JSON.stringify(args, (key, value) => typeof value === 'string' && value.length > 400 ? `${value.slice(0, 400)}…` : value)) : args;
-}
-
 /**
  * 执行一轮对话（可能包含多步工具调用）。
  * @returns {{ text, usage, steps, toolCallCount, denied, context, changes, gitBranch }}
@@ -465,7 +402,6 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         skillIds: Array.isArray(skillIds) ? skillIds : [...String(systemInstruction).matchAll(/^### @([a-z][a-z0-9-]*)$/gm)].map(match => match[1]) });
     const skillPrompts = registry.startPrompt();
     const fullSystem = redactText(`${systemInstruction}\n${addendum}${skillPrompts ? `\n${skillPrompts}` : ''}${registry.catalogPrompt()}`, { secrets: sensitiveValues });
-    let tools = registry.definitions();
     const opsCtx = { actor: session.username, createdRunIds: new Set() };
     const toolCtx = { root: session.root, changeLog: session.changeLog, signal, sensitiveValues, username: session.username, readOnly: session.readOnly,
         fullResults: true, artifactOwner: session.owner,
@@ -473,197 +409,86 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         onProcess: child => run.processes.add(child) };
     session.changeLog.sensitiveValues = sensitiveValues;
 
-    let activeClient = client;
-    const usage = { promptTokens: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0, cachedTokens: 0 }; // inputTokens：各步输入之和，用于展示本轮实际消耗
-    let lastUsage = null; // 最后一步的上下文占用（含缓存命中），上下文面板以它为准
-    const windowOf = () => Number(activeClient?.settings?.contextWindowTokens || client?.settings?.contextWindowTokens || 0);
-    let steps = 0;
     let toolCallCount = 0;
     let denied = 0;
     let finalText = '';
     const turnTranscript = currentUser && currentUser.role === 'user' ? [{ role: 'user', content: String(currentUser.content || '') }] : [];
-    const toolLog = [];
     let scriptNudged = false;
-    let partialText = ''; // 被输出上限截断的回答，续写后拼接
-    let continuations = 0;
-    let emptyNudges = 0;
-    let stepMaxOutput = maxOutputTokens;
-    const ephemeral = new WeakSet(); // 执行提示、续写用的半截回答：只发给模型，不进转录、不作压缩切分点
-    let compactions = 0;
-    let compactFailed = false;
-    let compacted = false;
     const initialTranscript = session.transcript;
     const recovery = redactValue({ version: 1, priorTranscript: initialTranscript, priorTurnCount: session.turnCount,
         permissionMode: session.permissionMode, chatSessionId, chatOwner: session.username }, { secrets: sensitiveValues });
     const checkpoint = status => transcriptRepo.saveTurn({ runId: run.id, agentSessionId: session.id, owner: session.owner, root: session.root,
         transcript: redactValue(turnTranscript, { secrets: sensitiveValues }), status, recovery });
 
+    // 每个工具调用：tool_search / load_skill → 工具名当命令 → 专用 Skill 工具 → 审批 → 执行。
+    // 运营按类别走审批，NetCare 只读、WeLink 办公写命令自带审批卡，直接执行
+    const executeCall = async (call, { start }) => {
+        start();
+        let outcome;
+        if (registry.isMeta(call.name)) outcome = await registry.runMeta(call);
+        const misnamed = call.name === 'run_command' && registry.commandNamingTool(call.args?.command);
+        if (misnamed) outcome = { content: `${misnamed} 是工具名，不是 Shell 命令。请直接调用 ${misnamed} 工具（已加载它的参数说明），不要用 run_command 执行。`, summary: `${misnamed} 是工具，不是命令`, isError: true };
+        const toolset = !outcome && registry.toolset(call.name);
+        const toolsetKind = toolset?.kindOf?.(call.name) || null;
+        if (toolset && !toolset.kindOf) outcome = await toolset.execute(call, { opsCtx, signal, write });
+        let decision = outcome ? 'allow' : classifyDecision(session, call.name, call.args, toolset ? toolsetKind : undefined);
+        if (!outcome && decision !== 'deny') registry.noteCall(call.name);
+        let preview = {};
+        if (!outcome && decision !== 'deny' && decision !== 'readonly') {
+            try {
+                preview = toolset ? await toolset.preview(call.name, call.args) : await toolsService.preview(toolCtx, call.name, call.args);
+            } catch (error) {
+                outcome = toolsService.errorResult(toolCtx, error);
+            }
+        }
+        if (!outcome && decision === 'ask') {
+            const answer = await awaitApproval(run, call, preview);
+            if (answer === 'always') session.alwaysAllow.add(call.name);
+            decision = answer === 'allow' || answer === 'always' ? 'allow' : answer;
+            write({ type: 'approval_result', runId: run.id, callId: call.id, decision: answer });
+        }
+        if (!outcome && decision !== 'allow') {
+            denied += 1;
+            const reason = decision === 'readonly' ? '当前账号为只读权限（非管理员），不能修改文件或执行命令' : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
+            outcome = { content: reason, summary: reason, isError: true };
+        }
+        if (!outcome) outcome = toolset ? await toolset.execute(call, { opsCtx, signal, write }) : await toolsService.execute(toolCtx, call.name, call.args);
+        // 命令输出随事件下发（截断），界面可展开查看，也随会话记录入库
+        const output = (call.name === 'run_command' || /_uiv_/.test(call.name)) && typeof outcome.content === 'string' ? outcome.content.slice(0, toolsService.LIMITS.resultChars) : undefined;
+        return { ...outcome, output };
+    };
+
     try {
         await checkpoint('running');
-        for (steps = 1; steps <= MAX_STEPS; steps += 1) {
-            if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
-            tools = registry.definitions(); // 上一步用 tool_search / load_skill 加载的工具追加在末尾
-            // 上下文到触发线：先把较早内容整理成摘要；摘要失败才由下面的整轮裁剪兜底
-            const windowTokens = contextStats.windowFor(model || activeClient?.model, windowOf());
-            const usedTokens = Math.max(contextStats.estimateRequest(fullSystem, tools, messages), Number(lastUsage?.promptTokens || 0));
-            const threshold = contextStats.compactThreshold(windowTokens, maxOutputTokens);
-            const plan = !compactFailed && compactions < MAX_COMPACTIONS && usedTokens >= threshold
-                ? planCompaction(messages, { windowTokens, threshold, usedTokens, baseTokens: contextStats.estimateRequest(fullSystem, tools, []), ephemeral }) : null;
-            if (plan) {
-                compactions += 1;
-                write({ type: 'compaction', phase: 'start', usedTokens, windowTokens });
-                try {
-                    const result = await compactMessages({ client: activeClient, plan, task: String(currentUser?.content || ''), windowTokens, sensitiveValues, signal });
-                    messages = result.messages;
-                    compacted = true;
-                    lastUsage = null; // 上一步的用量是压缩前的，不能再拿来判断
-                    write({ type: 'compaction', phase: 'done', summarized: result.summarized, beforeTokens: usedTokens, afterTokens: contextStats.estimateRequest(fullSystem, tools, messages), windowTokens });
-                } catch (error) {
-                    if (signal?.aborted || error?.name === 'AbortError') throw error;
-                    compactFailed = true;
-                    write({ type: 'compaction', phase: 'failed', error: redactText(String(error.message || error), { secrets: sensitiveValues }) });
-                }
-            }
-            const fitted = contextStats.fitMessages({ model: model || activeClient?.model, contextWindow: windowOf(), systemPrompt: fullSystem, messages, tools, maxOutputTokens });
-            messages = fitted.messages;
-            if (fitted.droppedTurns) write({ type: 'status', status: `较早的 ${fitted.droppedTurns} 轮已移出模型上下文，完整记录仍保留在会话档案中。` });
-            const result = await activeClient.generateText({
-                systemInstruction: fullSystem,
-                messages,
-                tools,
-                maxOutputTokens: stepMaxOutput,
-                temperature,
-                signal,
-                onDelta: delta => write({ type: 'delta', delta }),
-                onReasoning: delta => write({ type: 'thinking', delta })
-            });
-            if (result.providerClient) activeClient = result.providerClient;
-            usage.promptTokens = Number(result.usage?.promptTokens || 0);
-            usage.inputTokens += Number(result.usage?.promptTokens || 0);
-            usage.outputTokens += Number(result.usage?.outputTokens || 0);
-            usage.totalTokens += Number(result.usage?.totalTokens || 0);
-            usage.cachedTokens += Number(result.usage?.cachedTokens || 0);
-            const contextTokens = Number(result.usage?.contextPromptTokens || result.usage?.promptTokens || 0);
-            if (contextTokens) lastUsage = { promptTokens: contextTokens, cachedTokens: Number(result.usage?.cachedTokens || 0), cacheWriteTokens: Number(result.usage?.cacheWriteTokens || 0) };
-            const toolCalls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
-            if (!toolCalls.length) {
-                const text = String(result.text || '');
-                // 回答写到一半碰到输出上限：保留已写部分，请模型从断点接着写；推理就耗尽了上限、一个字没写时，调高上限再试
-                if (TRUNCATED_RE.test(String(result.finishReason || '')) && continuations < MAX_CONTINUATIONS) {
-                    continuations += 1;
-                    if (text.trim()) {
-                        partialText += text;
-                        const pair = [{ role: 'model', content: text }, { role: 'user', content: '（执行提示：上一条回复因输出长度上限被截断。请从断点处直接接着写，不要重复已写内容，也不要重新开头。）' }];
-                        pair.forEach(item => ephemeral.add(item));
-                        messages.push(...pair);
-                    } else {
-                        stepMaxOutput = Math.max(Number(stepMaxOutput) || 2048, 8192);
-                    }
-                    write({ type: 'status', status: '回答超出单次输出上限，正在接着生成…' });
-                    continue;
-                }
-                // 工具调用之后模型给了空回复：提示它根据已有结果作答或继续调用工具，不把空白当成最终回答
-                if (!text.trim() && !partialText && emptyNudges < MAX_EMPTY_NUDGES) {
-                    emptyNudges += 1;
-                    const nudge = { role: 'user', content: '（执行提示：你上一条回复是空的。请根据上面的工具结果直接回答用户的问题；如果还需要查询，就继续调用工具。）' };
-                    ephemeral.add(nudge);
-                    messages.push(nudge);
-                    write({ type: 'status', status: '模型没有给出回答，正在提示它继续…' });
-                    continue;
-                }
-                if (!scriptNudged && !session.readOnly && !denied && systemInstruction.includes('### @script-data')
-                    && scriptService.shouldContinue({ question: currentUser?.content, text: result.text, toolLog })) {
-                    scriptNudged = true;
-                    const pair = [{ role: 'model', content: result.text || '' }, { role: 'user', content: '（执行提示：本轮缺少与结论对应的提交或回读依据。请先用专用脚本工具读取真实状态，按用户最新范围完成必要修改并核对；不要只说可以保存，也不要无依据声称已还原/已完成。缺少信息或工具拒绝时如实说明。）' }];
-                    pair.forEach(item => ephemeral.add(item));
-                    messages.push(...pair);
-                    write({ type: 'delta', delta: '\n\n' });
-                    continue;
-                }
-                finalText = redactText(partialText + text, { secrets: sensitiveValues });
-                break;
-            }
-            if (result.text) write({ type: 'delta', delta: '\n\n' });
-            const modelMessage = { role: 'model', content: result.text || '', toolCalls };
-            messages.push(modelMessage);
-            turnTranscript.push(modelMessage);
-            const toolResults = [];
-            const toolMessage = { role: 'tool', toolResults };
-            turnTranscript.push(toolMessage);
-            await checkpoint('running');
-            for (const call of toolCalls) {
-                toolCallCount += 1;
-                const startedAt = Date.now();
-                write({ type: 'tool_start', runId: run.id, callId: call.id, tool: call.name, args: previewArgs(call.args) });
-                let outcome;
-                // tool_search / load_skill 只加载说明；专用 Skill 工具：运营按类别走下面的审批，NetCare 只读、WeLink 办公写命令自带审批卡，直接执行
-                if (registry.isMeta(call.name)) outcome = await registry.runMeta(call);
-                const misnamed = call.name === 'run_command' && registry.commandNamingTool(call.args?.command);
-                if (misnamed) outcome = { content: `${misnamed} 是工具名，不是 Shell 命令。请直接调用 ${misnamed} 工具（已加载它的参数说明），不要用 run_command 执行。`, summary: `${misnamed} 是工具，不是命令`, isError: true };
-                const toolset = !outcome && registry.toolset(call.name);
-                const toolsetKind = toolset?.kindOf?.(call.name) || null;
-                if (toolset && !toolset.kindOf) outcome = await toolset.execute(call, { opsCtx, signal, write });
-                let decision = outcome ? 'allow' : classifyDecision(session, call.name, call.args, toolset ? toolsetKind : undefined);
-                if (!outcome && decision !== 'deny') registry.noteCall(call.name);
-                let preview = {};
-                if (!outcome && decision !== 'deny' && decision !== 'readonly') {
-                    try {
-                        preview = toolset ? await toolset.preview(call.name, call.args) : await toolsService.preview(toolCtx, call.name, call.args);
-                    } catch (error) {
-                        outcome = toolsService.errorResult(toolCtx, error);
-                    }
-                }
-                if (!outcome && decision === 'ask') {
-                    const answer = await awaitApproval(run, call, preview);
-                    if (answer === 'always') session.alwaysAllow.add(call.name);
-                    decision = answer === 'allow' || answer === 'always' ? 'allow' : answer;
-                    write({ type: 'approval_result', runId: run.id, callId: call.id, decision: answer });
-                }
-                if (!outcome && decision !== 'allow') {
-                    denied += 1;
-                    const reason = decision === 'readonly' ? '当前账号为只读权限（非管理员），不能修改文件或执行命令' : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
-                    outcome = { content: reason, summary: reason, isError: true };
-                }
-                if (!outcome) outcome = toolset ? await toolset.execute(call, { opsCtx, signal, write }) : await toolsService.execute(toolCtx, call.name, call.args);
-                const durationMs = Date.now() - startedAt;
-                // 命令输出随事件下发（截断），界面可展开查看，也随会话记录入库
-                const output = (call.name === 'run_command' || /_uiv_/.test(call.name)) && typeof outcome.content === 'string' ? outcome.content.slice(0, toolsService.LIMITS.resultChars) : undefined;
-                // 大结果完整存成本人的文件，上下文只留开头、结尾和路径（工具说明与 read_file 分页结果除外）
-                let artifact = null;
-                if (typeof outcome.content === 'string' && !registry.isMeta(call.name) && call.name !== 'read_file') {
-                    const spilled = await artifacts.spill({ owner: session.owner, sessionId: session.id, callId: call.id, toolName: call.name, content: redactText(outcome.content, { secrets: sensitiveValues }) });
-                    artifact = spilled.artifact;
-                    if (artifact) outcome = { ...outcome, content: spilled.content, truncated: true };
-                }
-                write({ type: 'tool_result', runId: run.id, callId: call.id, tool: call.name, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 200), truncated: Boolean(outcome.truncated), durationMs, ...(output ? { output } : {}), ...(artifact ? { artifact } : {}) });
+        const loop = await agentLoop.runToolLoop({
+            client, model, systemPrompt: fullSystem, messages, tools: () => registry.definitions(), executeCall, write,
+            signal, maxOutputTokens, temperature, sensitiveValues, task: String(currentUser?.content || ''),
+            eventFields: { runId: run.id }, artifactOwner: session.owner, artifactSession: session.id,
+            // 工具说明不存文件
+            spillable: name => !registry.isMeta(name),
+            review: ({ text, toolLog }) => {
+                if (scriptNudged || session.readOnly || denied || !systemInstruction.includes('### @script-data')
+                    || !scriptService.shouldContinue({ question: currentUser?.content, text, toolLog })) return null;
+                scriptNudged = true;
+                return { nudge: '（执行提示：本轮缺少与结论对应的提交或回读依据。请先用专用脚本工具读取真实状态，按用户最新范围完成必要修改并核对；不要只说可以保存，也不要无依据声称已还原/已完成。缺少信息或工具拒绝时如实说明。）' };
+            },
+            onToolCalls: async (modelMessage, toolMessage) => {
+                turnTranscript.push(modelMessage, toolMessage);
+                await checkpoint('running');
+            },
+            afterCall: async (call, outcome) => {
                 if (outcome.change) write({ type: 'change', ...outcome.change });
                 (outcome.changes || []).forEach(change => write({ type: 'change', ...change }));
                 if (outcome.mutated || outcome.change || outcome.changes?.length || (!outcome.isError && ['write', 'destructive'].includes(toolsService.kindOf(call.name, call.args)))) await persistChanges(session);
-                toolLog.push({ tool: call.name, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 120) });
-                toolResults.push({ id: call.id, name: call.name, content: outcome.content, isError: Boolean(outcome.isError) });
                 await checkpoint('running');
-                if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
             }
-            messages.push(toolMessage);
-        }
-        if (!finalText && steps > MAX_STEPS) {
-            // 步数用完：不带工具再问一次，让模型总结已完成的部分和剩下的步骤，用户回复“继续”即可接着做
-            const notice = `\n\n（已达到单轮最大工具调用步数 ${MAX_STEPS}，回复“继续”可接着处理。）`;
-            let summary = '';
-            try {
-                const closing = await activeClient.generateText({
-                    systemInstruction: fullSystem,
-                    messages: [...messages, { role: 'user', content: `（执行提示：本轮工具调用已达上限 ${MAX_STEPS} 步，不能再调用工具。请根据已有结果回答用户：已经查明或完成了什么、还差哪些步骤。）` }],
-                    tools, toolChoice: 'none', maxOutputTokens, temperature, signal,
-                    onDelta: delta => write({ type: 'delta', delta })
-                });
-                summary = String(closing.text || '');
-            } catch (error) {
-                if (signal?.aborted) throw error;
-            }
-            finalText = redactText(`${partialText}${summary}`.trim() + notice, { secrets: sensitiveValues });
-            write({ type: 'delta', delta: notice });
-        }
+        });
+        finalText = loop.text;
+        toolCallCount = loop.toolCallCount;
+        const { usage, toolLog, compacted, lastUsage, tools } = loop;
+        const activeClient = loop.client;
+        const windowOf = () => Number(activeClient?.settings?.contextWindowTokens || client?.settings?.contextWindowTokens || 0);
+        messages = loop.messages;
         // 下一轮续写时保留本轮的工具转录（按整轮裁剪，避免无限增长）
         const skillReferenceAudit = Array.isArray(skillCatalog)
             ? skillCatalogContract.guardReply(finalText, skillCatalog, { language: skillLanguage }) : null;
@@ -672,7 +497,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         if (finalEntry) turnTranscript.push(finalEntry);
         // 本轮做过自动压缩：以压缩后的上下文作为会话转录（完整过程仍在本轮档案里），下一轮不必再从头压缩
         const nextTranscript = compacted
-            ? [...messages.filter(message => !ephemeral.has(message)), ...(finalEntry ? [finalEntry] : [])]
+            ? [...loop.nonEphemeral, ...(finalEntry ? [finalEntry] : [])]
             : [...session.transcript, ...turnTranscript];
         session.transcript = transcriptRepo.normalizeTranscript(redactValue(nextTranscript, { secrets: sensitiveValues }));
         session.turnCount += 1;
@@ -695,7 +520,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
             ...(skillReferenceAudit?.unknownIds.length ? { skillReferenceAudit: { unknownIds: skillReferenceAudit.unknownIds } } : {}),
             text: finalText,
             usage,
-            steps: Math.min(steps, MAX_STEPS),
+            steps: loop.steps,
             toolCallCount,
             denied,
             toolLog,
@@ -730,7 +555,7 @@ module.exports = {
     ensureScratchSession,
     ownerKey,
     isAdminUser,
-    MAX_STEPS,
+    MAX_STEPS: agentLoop.MAX_STEPS,
     APPROVAL_TIMEOUT_MS,
     PERMISSION_MODES,
     normalizePermissionMode,

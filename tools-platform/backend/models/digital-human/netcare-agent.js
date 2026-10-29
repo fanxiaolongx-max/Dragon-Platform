@@ -1,14 +1,13 @@
 // @netcare-data Skill 的工具：管理员在首页 Dragon Claw（普通对话，不选工作目录）里经数字人基座只读查询 NetCare。
 // netcare_tables / netcare_describe / netcare_query / netcare_sql 全部只读，直接执行；应用库写入不开放给模型。
-// 工具循环与 @welink-office 相同。
+// 工具循环用 agent-loop（与工作区同一套引擎）。
 const configRepo = require('./config-repository');
 const client = require('./base-client');
 const catalog = require('./table-catalog');
+const agentLoop = require('../agent-loop');
 
 const SKILL_ID = 'netcare-data';
-const MAX_STEPS = 14;
 const RESULT_CHARS = 24 * 1024;
-const SUMMARY_OUTPUT_TOKENS = 8192;
 const MAX_MODEL_ROWS = 500;
 const TOOL_NAMES = ['netcare_tables', 'netcare_describe', 'netcare_query', 'netcare_sql'];
 
@@ -219,76 +218,31 @@ async function buildPrompt() {
 const PROMISE_ONLY_RE = /请稍等|稍等|稍候|正在(为你|帮你|通过|查询|搜索|拉取|获取|调用)|我来(帮你|为你)?(查|搜|看|拉)|马上(帮你|为你)?(查|搜)/;
 
 /**
- * 带 netcare_* 只读工具的一轮回复（与 @welink-office 相同的工具循环）。
+ * 带 netcare_* 只读工具的一轮回复：工具循环用 agent-loop（与工作区同一套引擎，含续写、空回复提示、自动压缩）。
  * @returns {Promise<{text, usage, toolLog}>}
  */
-async function runTurn({ client: aiClient, systemInstruction, messages, signal, onDelta, onEvent, maxOutputTokens, temperature }) {
-    const tools = definitions();
-    const history = messages.map(item => ({ ...item }));
-    const usage = { promptTokens: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 };
-    const toolLog = [];
+async function runTurn({ client: aiClient, systemInstruction, messages, signal, onDelta, onEvent, maxOutputTokens, temperature, model }) {
     let nudged = false;
-    let activeClient = aiClient;
-    for (let step = 1; step <= MAX_STEPS; step += 1) {
-        if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
-        let result;
-        try {
-            result = await activeClient.generateText({ systemInstruction, messages: history, tools, maxOutputTokens, temperature, signal, onDelta });
-        } catch (error) {
-            if (step === 1 && error?.code === 'AI_TOOLS_UNSUPPORTED') {
-                result = await activeClient.generateText({ systemInstruction: `${systemInstruction}\n\n（当前模型不支持工具调用，NetCare 查询暂不可用；请说明需要管理员切换支持函数调用的模型。）`, messages: history, maxOutputTokens, temperature, signal, onDelta });
-                return { text: result.text || '', usage: result.usage || usage, toolLog, toolsUnsupported: true };
-            }
-            throw error;
-        }
-        if (result.providerClient) activeClient = result.providerClient;
-        usage.promptTokens = Number(result.usage?.promptTokens || 0);
-        usage.inputTokens += Number(result.usage?.promptTokens || 0);
-        usage.outputTokens += Number(result.usage?.outputTokens || 0);
-        usage.totalTokens += Number(result.usage?.totalTokens || 0);
-        const calls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
-        if (!calls.length) {
-            const text = String(result.text || '');
-            if (!nudged && !toolLog.length && text.length < 400 && PROMISE_ONLY_RE.test(text)) {
-                nudged = true;
-                if (onDelta) onDelta('\n\n');
-                history.push({ role: 'model', content: text });
-                history.push({ role: 'user', content: '（系统提示：请现在直接调用工具执行，拿到结果后再回答，不要只描述将要做什么。）' });
-                continue;
-            }
-            if (!text.trim() && toolLog.length) {
-                history.push({ role: 'user', content: '（系统提示：上一次回复为空。请不要再调用工具，少思考，直接根据上面的工具结果用简洁的中文回答用户的问题。）' });
-                if (onDelta) onDelta('\n\n');
-                const retry = await activeClient.generateText({
-                    systemInstruction, messages: history, tools, toolChoice: 'none',
-                    maxOutputTokens: Math.max(Number(maxOutputTokens) || 0, SUMMARY_OUTPUT_TOKENS), temperature, signal, onDelta
-                });
-                usage.inputTokens += Number(retry.usage?.promptTokens || 0);
-                usage.outputTokens += Number(retry.usage?.outputTokens || 0);
-                usage.totalTokens += Number(retry.usage?.totalTokens || 0);
-                return { text: String(retry.text || ''), usage, toolLog };
-            }
-            return { text, usage, toolLog };
-        }
-        if (result.text && onDelta) onDelta('\n\n');
-        history.push({ role: 'model', content: result.text || '', toolCalls: calls });
-        const toolResults = [];
-        for (const call of calls) {
-            const callId = call.id || `netcare-${step}-${toolResults.length}`;
+    const result = await agentLoop.runToolLoop({
+        client: aiClient, model, systemPrompt: systemInstruction, messages, tools: definitions(),
+        write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
+        signal, maxOutputTokens, temperature, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'netcare',
+        maxEmptyNudges: 1, // 查询结果出来后回复为空：直接不带工具、放宽额度再问一次
+        executeCall: async (call, { start }) => {
             const args = call.args && typeof call.args === 'object' ? call.args : {};
-            const name = TOOL_NAMES.includes(call.name) ? call.name : 'netcare_query';
-            const startedAt = Date.now();
-            onEvent?.({ type: 'tool_start', callId, tool: name, args: { command: describeCall(call.name, args) } });
+            start({ tool: TOOL_NAMES.includes(call.name) ? call.name : 'netcare_query', args: { command: describeCall(call.name, args) } });
             const outcome = await execute(call.name, args);
-            onEvent?.({ type: 'tool_result', callId, tool: name, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 200), durationMs: Date.now() - startedAt, ...(outcome.isError ? { output: String(outcome.content || '').slice(0, 2000) } : {}) });
-            toolLog.push({ tool: call.name, ok: !outcome.isError, summary: outcome.summary });
-            toolResults.push({ id: call.id, name: call.name, content: outcome.content, isError: Boolean(outcome.isError) });
-        }
-        history.push({ role: 'tool', toolResults });
-    }
-    const text = '已达到单轮最大工具调用步数，请再发一条消息继续。';
-    onDelta?.(text);
-    return { text, usage, toolLog };
+            return { ...outcome, ...(outcome.isError ? { output: String(outcome.content || '').slice(0, 2000) } : {}) };
+        },
+        // 模型只说「请稍等 / 正在查询」却没有调用工具：补一次提示，让它真正去查
+        review: ({ text, toolLog }) => {
+            if (nudged || toolLog.length || text.length >= 400 || !PROMISE_ONLY_RE.test(text)) return null;
+            nudged = true;
+            return { nudge: '（系统提示：请现在直接调用工具执行，拿到结果后再回答，不要只描述将要做什么。）' };
+        },
+        toolsUnsupported: () => ({ note: '（当前模型不支持工具调用，NetCare 查询暂不可用；请说明需要管理员切换支持函数调用的模型。）' })
+    });
+    return { text: result.text, usage: result.usage, toolLog: result.toolLog, ...(result.toolsUnsupported ? { toolsUnsupported: true } : {}) };
 }
 
 module.exports = { SKILL_ID, TOOL_NAMES, definitions, execute, buildPrompt, runTurn, rowsText };

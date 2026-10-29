@@ -7,12 +7,11 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const runner = require('./welink-cli-runner');
+const agentLoop = require('../agent-loop');
 
 const SKILL_ID = 'welink-office';
-const MAX_STEPS = 12;
 const RESULT_CHARS = 24 * 1024;
 const VERBOSE_OUTPUT_CHARS = 6000;
-const SUMMARY_OUTPUT_TOKENS = 8192;
 const MAX_VALUE_CHARS = 500;
 const MAX_LIST_ITEMS = 50;
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
@@ -691,112 +690,51 @@ function formatFallbackContent(history, toolLog) {
 const PROMISE_ONLY_RE = /请稍等|稍等|稍候|正在(为你|帮你|通过|查询|搜索|拉取|获取|调用|发送|创建)|我来(帮你|为你)?(查|搜|看|拉|发|建)|马上(帮你|为你)?(查|搜|发|建)/;
 
 /**
- * 带 welink_query / welink_action 工具的一轮回复（与 @ops-group 相同的工具循环）。
+ * 带 welink_query / welink_action 工具的一轮回复：工具循环用 agent-loop（与工作区同一套引擎）。
  * canApprove：本轮能否弹审批卡（流式请求才行）。
  * @returns {Promise<{text, usage, toolLog}>}
  */
-async function runTurn({ client, systemInstruction, messages, ctx = {}, signal, onDelta, onEvent, canApprove = false, maxOutputTokens, temperature }) {
+async function runTurn({ client, systemInstruction, messages, ctx = {}, signal, onDelta, onEvent, canApprove = false, maxOutputTokens, temperature, model }) {
     const config = runner.readConfig();
-    const tools = definitions({ write: Boolean(config.allowWrite && canApprove) });
-    const history = messages.map(item => ({ ...item }));
-    const usage = { promptTokens: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 };
-    const toolLog = [];
     const verbose = Boolean(config.verbose);
     let nudged = false;
-    let activeClient = client;
-    for (let step = 1; step <= MAX_STEPS; step += 1) {
-        if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
-        let result;
-        try {
-            result = await activeClient.generateText({ systemInstruction, messages: history, tools, maxOutputTokens, temperature, signal, onDelta });
-        } catch (error) {
-            if (step === 1 && error?.code === 'AI_TOOLS_UNSUPPORTED') {
-                result = await activeClient.generateText({ systemInstruction: `${systemInstruction}\n\n（当前模型不支持工具调用，WeLink 查询暂不可用；请说明需要管理员切换支持函数调用的模型。）`, messages: history, maxOutputTokens, temperature, signal, onDelta });
-                return { text: result.text || '', usage: result.usage || usage, toolLog, toolsUnsupported: true };
-            }
-            throw error;
-        }
-        if (result.providerClient) activeClient = result.providerClient;
-        usage.promptTokens = Number(result.usage?.promptTokens || 0);
-        usage.inputTokens += Number(result.usage?.promptTokens || 0);
-        usage.outputTokens += Number(result.usage?.outputTokens || 0);
-        usage.totalTokens += Number(result.usage?.totalTokens || 0);
-        const calls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
-        if (!calls.length) {
-            const text = String(result.text || '');
-            if (!nudged && !toolLog.length && text.length < 400 && PROMISE_ONLY_RE.test(text)) {
-                nudged = true;
-                if (onDelta) onDelta('\n\n');
-                history.push({ role: 'model', content: text });
-                history.push({ role: 'user', content: '（系统提示：请现在直接调用工具执行，拿到结果后再回答，不要只描述将要做什么。）' });
-                continue;
-            }
-            // 思考型模型可能把输出额度全用在思考上，正文为空：不带工具、放宽额度补一轮总结
-            if (!text.trim() && toolLog.length) {
-                history.push({ role: 'user', content: '（系统提示：上一次回复为空。请不要再调用工具，少思考，直接根据上面的工具结果用简洁的中文回答用户的问题。）' });
-                if (onDelta) onDelta('\n\n');
-                let retryText = '';
-                try {
-                    const retry = await activeClient.generateText({
-                        systemInstruction, messages: history, tools, toolChoice: 'none',
-                        maxOutputTokens: Math.max(Number(maxOutputTokens) || 0, SUMMARY_OUTPUT_TOKENS), temperature, signal, onDelta
-                    });
-                    usage.inputTokens += Number(retry.usage?.promptTokens || 0);
-                    usage.outputTokens += Number(retry.usage?.outputTokens || 0);
-                    usage.totalTokens += Number(retry.usage?.totalTokens || 0);
-                    retryText = String(retry.text || '').trim();
-                } catch {
-                    // 模型不支持 toolChoice: 'none' 或重试失败时继续走兜底
-                }
-                if (retryText) return { text: retryText, usage, toolLog };
-                // 兜底：如果重试后模型依然返回空文本，直接根据工具结果构造回复，避免用户看到空白回答
-                const fallback = formatFallbackContent(history, toolLog);
-                if (onDelta && fallback) onDelta(fallback);
-                return { text: fallback, usage, toolLog };
-            }
-            return { text, usage, toolLog };
-        }
-        if (result.text && onDelta) onDelta('\n\n');
-        history.push({ role: 'model', content: result.text || '', toolCalls: calls });
-        const toolResults = [];
-        for (const call of calls) {
-            const callId = call.id || `welink-${step}-${toolResults.length}`;
+    const result = await agentLoop.runToolLoop({
+        client, model, systemPrompt: systemInstruction, messages, tools: definitions({ write: Boolean(config.allowWrite && canApprove) }),
+        write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
+        signal, maxOutputTokens, temperature, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'welink',
+        maxEmptyNudges: 1, // 思考型模型可能把输出额度全用在思考上：不带工具、放宽额度再问一次，仍为空时用工具结果兜底
+        executeCall: async (call, { callId, start }) => {
             const write = call.name === 'welink_action';
-            const toolName = write ? 'welink_action' : 'welink_query';
+            const tool = write ? 'welink_action' : 'welink_query';
             let preview = '';
             try { preview = commandLine(buildArgs(call.args && typeof call.args === 'object' ? call.args : {}, { mode: write ? 'write' : 'read' }).args); } catch { preview = String(call.args?.command || ''); }
             // 查询：先出「执行中」工具行；写操作：先出审批卡，允许后才出工具行
-            let startedAt = Date.now();
-            let started = false;
-            const start = () => {
-                if (started) return;
-                started = true;
-                startedAt = Date.now();
-                onEvent?.({ type: 'tool_start', callId, tool: toolName, args: { command: preview } });
-            };
-            if (!write) start();
+            const show = () => start({ tool, args: { command: preview } });
+            if (!write) show();
             const outcome = await execute({
                 ...ctx, signal, callId, canApprove,
                 onEvent: event => {
                     onEvent?.(event);
-                    if (event.type === 'approval_result' && event.decision === 'allow') start();
+                    if (event.type === 'approval_result' && event.decision === 'allow') show();
                 }
             }, call.name, call.args);
-            if (!outcome.declined) {
-                start();
-                const output = verbose
-                    ? `$ ${outcome.cli || preview}\n${String(outcome.raw || outcome.content || '').slice(0, VERBOSE_OUTPUT_CHARS)}`
-                    : (outcome.isError ? String(outcome.content || '').slice(0, 2000) : '');
-                onEvent?.({ type: 'tool_result', callId, tool: toolName, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 200), durationMs: Date.now() - startedAt, ...(output ? { output } : {}) });
-            }
-            toolLog.push({ tool: call.name, ok: !outcome.isError, summary: outcome.summary });
-            toolResults.push({ id: call.id, name: call.name, content: outcome.content, isError: Boolean(outcome.isError) });
-        }
-        history.push({ role: 'tool', toolResults });
-    }
-    const text = '已达到单轮最大工具调用步数，请再发一条消息继续。';
-    onDelta?.(text);
-    return { text, usage, toolLog };
+            if (!outcome.declined) show();
+            const output = verbose
+                ? `$ ${outcome.cli || preview}\n${String(outcome.raw || outcome.content || '').slice(0, VERBOSE_OUTPUT_CHARS)}`
+                : (outcome.isError ? String(outcome.content || '').slice(0, 2000) : '');
+            return { ...outcome, output };
+        },
+        // 模型只说「请稍等 / 正在查询」却没有调用工具：补一次提示，让它真正去查
+        review: ({ text, toolLog }) => {
+            if (nudged || toolLog.length || text.length >= 400 || !PROMISE_ONLY_RE.test(text)) return null;
+            nudged = true;
+            return { nudge: '（系统提示：请现在直接调用工具执行，拿到结果后再回答，不要只描述将要做什么。）' };
+        },
+        // 重试后仍为空：直接根据工具结果构造回复，避免用户看到空白回答
+        fallback: ({ messages: history, toolLog }) => formatFallbackContent(history, toolLog),
+        toolsUnsupported: () => ({ note: '（当前模型不支持工具调用，WeLink 查询暂不可用；请说明需要管理员切换支持函数调用的模型。）' })
+    });
+    return { text: result.text, usage: result.usage, toolLog: result.toolLog, ...(result.toolsUnsupported ? { toolsUnsupported: true } : {}) };
 }
 
 module.exports = { SKILL_ID, COMMANDS, READ_COMMANDS, WRITE_COMMANDS, definitions, buildArgs, execute, decide, buildPrompt, runTurn };

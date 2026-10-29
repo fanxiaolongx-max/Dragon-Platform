@@ -603,7 +603,7 @@ async function handleChatRequest(req, res) {
     // 频道对话（WeLink 等）由桥接层在虚拟请求上挂 channelTurn；HTTP 请求无法设置该属性
     const channelTurn = req.channelTurn && typeof req.channelTurn === 'object' && req.channelTurn.conversation?.kind && req.channelTurn.conversation?.id ? req.channelTurn : null;
     const channelUserEvents = channelTurn ? [{ type: 'channel', channel: channelTurn.channel, kind: channelTurn.conversation.kind, sender: channelTurn.actor || '' }] : null;
-    const RECORDED_EVENT_TYPES = new Set(['tool_start', 'tool_result', 'approval', 'approval_result']);
+    const RECORDED_EVENT_TYPES = new Set(['tool_start', 'tool_result', 'approval', 'approval_result', 'plan', 'question']);
     const recordEvent = payload => {
         if (!payload) return;
         if (payload.type === 'delta') streamedText += String(payload.delta || '');
@@ -852,6 +852,9 @@ async function handleChatRequest(req, res) {
         // 首页管理员无需选择目录即可使用平台业务库；频道、页面助手及专用 Skill 保持各自权限。
         const databaseMode = homeAgent && !agentMode && !channelTurn && req.user?.role === 'admin'
             && !opsSetup && !welinkCliSetup && !netcareSetup && !analysisCode;
+        // 长期记忆：管理员在首页对话（工作区或普通对话）里让智能体记住的偏好与约定；频道对话是多人场景，不带
+        const memoryPrompt = homeAgent && !channelTurn && req.user?.role === 'admin' && (agentMode || databaseMode)
+            ? await require('../models/agent-memory-repository').promptFor(req.user.username).catch(() => '') : '';
         const dataIdentity = databaseMode || (agentMode && !agentSession.readOnly) ? '数据管理与分析专家' : '只读数据分析专家';
         // 构造 System Instruction
         const identityPrompt = homeAgent
@@ -878,7 +881,7 @@ ${expertGrounding.businessConfigPrompt ? `\n与用户问题相关的只读业务
 ${expertGrounding.toolDataPrompt ? `\n平台工具业务数据（只读；来自工具保存的快照、状态、数据库或用户浏览器本地存储，已压缩为字段统计与汇总）：\n---\n${expertGrounding.toolDataPrompt}\n---\n` : ''}
 ${expertGrounding.dataPrompt ? `\n只读报表分析工具结果：\n---\n${expertGrounding.dataPrompt}\n---\n` : ''}
 ${expertGrounding.metricGraphPrompt ? `\n与本次问题相关的运营指标体系图谱节点：\n---\n${expertGrounding.metricGraphPrompt}\n---\n` : ''}
-${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}${welinkCliSetup ? `${welinkCliSetup.prompt}\n` : ''}${netcareSetup ? `${netcareSetup.prompt}\n` : ''}
+${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n` : ''}${followupSetup ? `${followupSetup.prompt}\n` : ''}${opsSetup ? `${opsSetup.prompt}\n` : ''}${welinkCliSetup ? `${welinkCliSetup.prompt}\n` : ''}${netcareSetup ? `${netcareSetup.prompt}\n` : ''}${memoryPrompt}
 **核心要求**：
 1. 默认使用${responseLanguage}回答，并与当前界面语言保持一致；用户明确指定其他语言时遵从用户要求。先直接回答结论，再根据问题难度给出必要细节；保持专业、清晰，不强制所有回答都极端简短。
 1.1 默认优先使用 Markdown 表格组织适合结构化展示的内容，尤其是指标与客户群对比、目标与实际值、历史趋势、配置清单、问题排查、方案比较和整改建议。先用一两句话给出结论，再用表格列出依据或行动；避免把同一组信息写成长段落。简单问答、单一事实和需要连贯解释的内容可使用简短文字；用户明确指定其他格式时遵从用户要求。
@@ -966,6 +969,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 signal: providerAbortController?.signal,
                 maxOutputTokens: aiSettings.maxOutputTokens,
                 temperature: aiSettings.temperature,
+                model: aiSettings.model,
                 onDelta: streamRequested ? delta => {
                     streamHasDelta = true;
                     writeStreamEvent({ type: 'delta', delta });
@@ -981,6 +985,9 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 signal: providerAbortController?.signal,
                 maxOutputTokens: aiSettings.maxOutputTokens,
                 temperature: aiSettings.temperature,
+                model: aiSettings.model,
+                // 思考过程、工具行随流下发（工具行随会话记录入库）
+                onEvent: event => writeStreamEvent(event),
                 onDelta: streamRequested ? delta => {
                     streamHasDelta = true;
                     writeStreamEvent({ type: 'delta', delta });
@@ -996,6 +1003,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 signal: providerAbortController?.signal,
                 maxOutputTokens: aiSettings.maxOutputTokens,
                 temperature: aiSettings.temperature,
+                model: aiSettings.model,
                 // 每条 welink-cli 命令显示为对话里的工具行（随会话记录入库）；写操作的审批卡也走这条流，非流式请求不能审批
                 onEvent: event => writeStreamEvent(event),
                 canApprove: Boolean(streamRequested),
@@ -1013,6 +1021,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 signal: providerAbortController?.signal,
                 maxOutputTokens: aiSettings.maxOutputTokens,
                 temperature: aiSettings.temperature,
+                model: aiSettings.model,
                 onEvent: event => writeStreamEvent(event),
                 onDelta: streamRequested ? delta => {
                     streamHasDelta = true;
@@ -1027,8 +1036,10 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         const databaseResult = databaseMode
             ? await databaseAgent.runTurn({
                 client: aiClient, systemInstruction, messages: effectiveMessages,
-                ctx: { readOnly: false, sensitiveValues }, signal: providerAbortController?.signal,
-                maxOutputTokens: aiSettings.maxOutputTokens, temperature: aiSettings.temperature,
+                // 大结果存成本人的文件（按租户::账号隔离），模型可按行读取
+                ctx: { readOnly: false, sensitiveValues, owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', username: req.user?.username || '' },
+                signal: providerAbortController?.signal,
+                maxOutputTokens: aiSettings.maxOutputTokens, temperature: aiSettings.temperature, model: aiSettings.model,
                 onEvent: writeStreamEvent,
                 onDelta: streamRequested ? delta => {
                     streamHasDelta = true;

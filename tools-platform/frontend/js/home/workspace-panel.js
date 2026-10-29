@@ -704,6 +704,14 @@
         if (tool === 'manage_uiv_category') return `${args.action || ''} ${args.name || ''}${args.newName ? ` → ${args.newName}` : ''}${args.moveScriptsTo ? ` → ${args.moveScriptsTo}` : ''}`.trim();
         if (tool === 'read_uiv_script' || tool === 'save_uiv_script' || tool === 'delete_uiv_script') return `${args.action || ''} ${args.id || args.sourceId || ''}${args.field ? ` / ${args.field}` : ''}`.trim();
         if (tool === 'run_command' || tool === 'welink_query' || tool === 'welink_action' || /^netcare_/.test(tool)) return args.command || '';
+        if (tool === 'calculate') return Array.isArray(args.expressions) ? args.expressions.join('；') : args.expression || '';
+        if (tool === 'read_document') return `${args.path || ''}${args.sheet ? ` / ${args.sheet}` : ''}`;
+        if (tool === 'query_data') return args.sql || args.path || '';
+        if (tool === 'diff_files') return `${args.path || 'A'} ⇄ ${args.otherPath || 'B'}`;
+        if (tool === 'multi_edit') return `${args.path || ''}${Array.isArray(args.edits) ? ` · ${args.edits.length}` : ''}`;
+        if (tool === 'zip_files') return `${Array.isArray(args.paths) ? args.paths.join(', ') : ''} → ${args.output || ''}`;
+        if (tool === 'unzip_file') return `${args.path || ''}${args.to ? ` → ${args.to}` : ''}`;
+        if (tool === 'memory') return `${args.action || ''}${args.id ? ` #${args.id}` : ''} ${args.content || ''}`.trim();
         if (tool === 'search') return `"${args.query || ''}"${args.path && args.path !== '.' ? ` in ${args.path}` : ''}`;
         if (tool === 'rename_path') return `${args.from || ''} → ${args.to || ''}`;
         if (tool === 'tool_search') return [...(Array.isArray(args.select) ? args.select : []), args.query || ''].filter(Boolean).join(', ');
@@ -715,7 +723,7 @@
     }
 
     function toolIcon(tool) {
-        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
+        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', calculate: '🧮', read_document: '📑', query_data: '📊', diff_files: '⇄', multi_edit: '✏️', zip_files: '🗜', unzip_file: '🗜', memory: '🧠', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
     }
 
     // ── 对话内：写入 / 编辑后的文件卡片（预览 / 代码） ─────
@@ -887,6 +895,33 @@
             if (event.artifact?.path && window.ChatFiles) row.insertAdjacentHTML('afterend', `<div class="dc-tool-artifact">${window.ChatFiles.chipHtml(event.artifact.path, tx('toolArtifact', { lines: event.artifact.lines || '' }))}</div>`);
             // 写入 / 编辑成功：挂文件卡片，可在对话内预览或看代码；实时生成的 HTML/SVG/Markdown 直接展开预览
             if (event.ok && row.dataset.filePath) attachFileCard(row, row.dataset.filePath, !replaying);
+        } else if (event.type === 'plan') {
+            // 任务清单：每次更新整份替换，放在工具行上方
+            let box = messageEl.querySelector('.dc-todo');
+            if (!box) {
+                box = document.createElement('div');
+                box.className = 'dc-todo';
+                const log = toolLogFor(messageEl);
+                log.parentNode.insertBefore(box, log);
+            }
+            const items = Array.isArray(event.items) ? event.items : [];
+            const done = items.filter(item => item.status === 'completed').length;
+            box.innerHTML = `<div class="dc-todo-head"><b>${escapeHtml(tx('todoTitle'))}</b><span>${done}/${items.length}</span></div><ol>${items.map(item => `<li class="is-${escapeHtml(item.status)}"><span class="dc-todo-mark" aria-hidden="true">${item.status === 'completed' ? '✓' : item.status === 'in_progress' ? '●' : ''}</span><span>${escapeHtml(item.content)}</span></li>`).join('')}</ol>`;
+        } else if (event.type === 'question') {
+            // 智能体提问：选项按钮点一下就作为下一条消息发送；历史记录里的只读
+            const card = document.createElement('div');
+            card.className = `dc-question${replaying ? ' is-history' : ''}`;
+            const options = Array.isArray(event.options) ? event.options : [];
+            card.innerHTML = `<div class="dc-question-hint">${escapeHtml(tx('questionHint'))}</div><div class="dc-question-options">${options.map((option, index) => `<button type="button" class="dc-action" data-answer="${escapeHtml(option)}"${replaying ? ' disabled' : ''}>${index + 1}. ${escapeHtml(option)}</button>`).join('')}</div>`;
+            card.addEventListener('click', clickEvent => {
+                const button = clickEvent.target.closest('[data-answer]');
+                if (!button || card.classList.contains('is-history')) return;
+                card.classList.add('is-history');
+                button.classList.add('is-chosen');
+                card.querySelectorAll('[data-answer]').forEach(node => { node.disabled = true; });
+                window.dispatchEvent(new CustomEvent('dragon-claw:answer', { detail: { text: button.dataset.answer } }));
+            });
+            (messageEl.querySelector('.dc-msg-main') || messageEl).appendChild(card);
         } else if (event.type === 'approval') {
             renderApproval(messageEl, event);
         } else if (event.type === 'approval_result') {

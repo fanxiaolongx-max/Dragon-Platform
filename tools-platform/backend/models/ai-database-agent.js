@@ -1,12 +1,12 @@
-// 首页普通对话的数据库工具循环；无需工作目录，不开放文件、Shell 或频道工具。
+// 首页普通对话的数据库工具：无需工作目录，不开放文件、Shell 或频道工具。工具循环用 agent-loop（与工作区同一套引擎）。
 const toolsService = require('./agent-tools-service');
+const agentLoop = require('./agent-loop');
 const { redactText, redactValue } = require('./ai-sensitive-data');
-const contextStats = require('./agent-context-stats');
 const scriptService = require('./agent-script-service');
 
 const TOOL_NAMES = new Set(['list_databases', 'database_schema', 'read_database_table',
     'insert_database_row', 'update_database_rows', 'delete_database_rows',
-    'list_uiv_scripts', 'list_uiv_categories', 'read_uiv_script', 'save_uiv_script', 'move_uiv_script', 'delete_uiv_script', 'manage_uiv_category']);
+    'list_uiv_scripts', 'list_uiv_categories', 'read_uiv_script', 'save_uiv_script', 'move_uiv_script', 'delete_uiv_script', 'manage_uiv_category', 'memory']);
 
 const PROMPT = `
 **当前对话的数据库能力**
@@ -22,71 +22,41 @@ filters 精确定位；整表操作需要用户明确要求该范围，并显式
 历史报表保留入库口径，除非用户明确要求，不用当前规则重算。数据库提交不能通过文件撤销回滚。
 账号、会话、租户控制面、凭据及其他租户数据仍不开放。其他本地 SQLite 需要先选择工作目录；当前工具不支持 MySQL/PostgreSQL 等外部数据库连接，也不提供任意 SQL 或 DDL。`;
 
-async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature }) {
+/**
+ * ctx.owner（租户::账号）与 ctx.chatSessionId 用于把大结果存成本人文件；不给时结果按原上限截断。ctx.username 用于长期记忆。
+ * @returns {Promise<{text, usage, toolLog, toolsUnsupported?}>}
+ */
+async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model }) {
     if (ctx.readOnly !== false) throw Object.assign(new Error('数据库写入仅对管理员开放'), { code: 'AGENT_DATABASE_FORBIDDEN' });
     const tools = toolsService.definitions().filter(tool => TOOL_NAMES.has(tool.name));
+    const sensitiveValues = ctx.sensitiveValues || [];
     // 普通对话不接受客户端提供的文件根目录或其他执行上下文。
-    const toolCtx = { readOnly: false, sensitiveValues: ctx.sensitiveValues || [], signal,
+    const toolCtx = { readOnly: false, sensitiveValues, signal, fullResults: Boolean(ctx.owner), username: ctx.username || '',
         currentUserMessage: messages.at(-1)?.content || '', userMessages: messages.filter(item => item.role === 'user').map(item => item.content) };
-    const safe = value => redactValue(value, { secrets: toolCtx.sensitiveValues });
-    const prompt = redactText(`${systemInstruction}\n${PROMPT}`, { secrets: toolCtx.sensitiveValues });
-    let history = safe(messages.map(item => ({ ...item })));
-    const toolLog = [];
+    const safe = value => redactValue(value, { secrets: sensitiveValues });
     let scriptNudged = false;
-    const usage = { promptTokens: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 };
-    const collectUsage = result => {
-        usage.promptTokens = Number(result.usage?.promptTokens || 0);
-        usage.inputTokens += usage.promptTokens;
-        usage.outputTokens += Number(result.usage?.outputTokens || 0);
-        usage.totalTokens += Number(result.usage?.totalTokens || 0);
-    };
-    for (let step = 1; step <= 25; step++) {
-        if (signal?.aborted) throw Object.assign(new Error('任务已中止'), { name: 'AbortError' });
-        history = contextStats.fitMessages({ model: client.model, contextWindow: client.settings?.contextWindowTokens, systemPrompt: prompt, messages: history, tools, maxOutputTokens }).messages;
-        let result;
-        try {
-            result = await client.generateText({ systemInstruction: prompt, messages: history, tools, signal, onDelta, onReasoning: onEvent ? delta => onEvent({ type: 'thinking', delta }) : undefined, maxOutputTokens, temperature });
-        } catch (error) {
-            if (step !== 1 || error.code !== 'AI_TOOLS_UNSUPPORTED') throw error;
-            result = await client.generateChat({ systemInstruction: `${prompt}\n当前模型不支持工具调用，本轮无法读取或修改数据库。请说明需切换支持工具调用的模型，不得声称已执行。`, messages: history, signal, onDelta, maxOutputTokens, temperature });
-            return { ...result, toolLog, toolsUnsupported: true };
-        }
-        if (result.providerClient) client = result.providerClient;
-        collectUsage(result);
-        const calls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
-        if (!calls.length) {
-            if (!scriptNudged && systemInstruction.includes('### @script-data')
-                && scriptService.shouldContinue({ question: messages.at(-1)?.content, text: result.text, toolLog })) {
-                scriptNudged = true;
-                history.push({ role: 'model', content: result.text || '' }, { role: 'user', content: '（执行提示：本轮缺少与结论对应的提交或回读依据。请先用专用工具读取真实状态，按用户最新范围完成必要修改并核对；不要只说建议入库，也不要无依据声称已还原/已完成。缺少信息或工具拒绝时如实说明。）' });
-                onDelta?.('\n\n');
-                continue;
-            }
-            return { text: result.text || '', usage, toolLog };
-        }
-        if (result.text) onDelta?.('\n\n');
-        history.push(safe({ role: 'model', content: result.text || '', toolCalls: calls }));
-        const toolResults = [];
-        for (const call of calls) {
-            if (signal?.aborted) throw Object.assign(new Error('任务已中止'), { name: 'AbortError' });
+    const result = await agentLoop.runToolLoop({
+        client, model, systemPrompt: redactText(`${systemInstruction}\n${PROMPT}`, { secrets: sensitiveValues }), messages, tools,
+        write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
+        signal, maxOutputTokens, temperature, sensitiveValues, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'database',
+        artifactOwner: ctx.owner || '', artifactSession: ctx.chatSessionId || 'home',
+        executeCall: async (call, { start }) => {
             const args = safe(call.args && typeof call.args === 'object' ? call.args : {});
-            const callId = call.id || `database-${step}-${toolResults.length}`;
-            const startedAt = Date.now();
-            onEvent?.(safe({ type: 'tool_start', callId, tool: call.name, args }));
+            start({ args });
             const outcome = TOOL_NAMES.has(call.name)
                 ? await toolsService.execute(toolCtx, call.name, args)
                 : { content: '当前对话不提供该工具', summary: '工具不可用', isError: true };
-            const content = redactText(outcome.content, { secrets: toolCtx.sensitiveValues });
-            const summary = redactText(outcome.summary || '', { secrets: toolCtx.sensitiveValues });
-            onEvent?.({ type: 'tool_result', callId, tool: call.name, ok: !outcome.isError, summary, durationMs: Date.now() - startedAt, output: content });
-            toolLog.push({ tool: call.name, ok: !outcome.isError, summary });
-            toolResults.push({ id: call.id, name: call.name, content, isError: Boolean(outcome.isError) });
-        }
-        history.push({ role: 'tool', toolResults });
-    }
-    const text = '已达到单轮最大工具调用步数，请继续发送消息核对当前数据库状态。';
-    onDelta?.(text);
-    return { text, usage, toolLog };
+            return { ...outcome, output: String(outcome.content || '').slice(0, toolsService.LIMITS.resultChars) };
+        },
+        review: ({ text, toolLog }) => {
+            if (scriptNudged || !systemInstruction.includes('### @script-data')
+                || !scriptService.shouldContinue({ question: messages.at(-1)?.content, text, toolLog })) return null;
+            scriptNudged = true;
+            return { nudge: '（执行提示：本轮缺少与结论对应的提交或回读依据。请先用专用工具读取真实状态，按用户最新范围完成必要修改并核对；不要只说建议入库，也不要无依据声称已还原/已完成。缺少信息或工具拒绝时如实说明。）' };
+        },
+        toolsUnsupported: () => ({ note: '当前模型不支持工具调用，本轮无法读取或修改数据库。请说明需切换支持工具调用的模型，不得声称已执行。' })
+    });
+    return { text: result.text, usage: result.usage, toolLog: result.toolLog, ...(result.toolsUnsupported ? { toolsUnsupported: true } : {}) };
 }
 
 module.exports = { runTurn };

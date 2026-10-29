@@ -13,6 +13,8 @@ const commandGuard = require('./agent-command-guard');
 const databaseService = require('./agent-database-service');
 const scriptService = require('./agent-script-service');
 const artifacts = require('./agent-artifacts');
+const toolkit = require('./agent-toolkit');
+const memoryRepo = require('./agent-memory-repository');
 
 const LIMITS = {
     listEntries: 500,
@@ -277,6 +279,105 @@ const DEFINITIONS = [
             },
             required: ['text']
         }
+    },
+    // ── 常用工具（agent-toolkit.js，离线）──────────────────
+    {
+        name: 'read_document',
+        kind: 'read',
+        description: '读取 Office 文档：Excel（.xlsx/.xlsm，可选工作表）与 CSV/TSV 按行输出带行号的表格，Word（.docx）输出段落和表格，PPT（.pptx）按页输出文字和备注。PDF、旧版 .doc/.xls 暂不支持；纯文本文件用 read_file。',
+        parameters: {
+            type: 'object',
+            properties: {
+                path: { type: 'string', description: '相对工作目录的文件路径' },
+                sheet: { type: 'string', description: 'Excel 工作表名，默认第一个有数据的工作表' },
+                startRow: { type: 'integer', description: '表格起始行（从 1 开始），默认 1' },
+                maxRows: { type: 'integer', description: '表格读取行数，默认 200，最多 2000' }
+            },
+            required: ['path']
+        }
+    },
+    {
+        name: 'query_data',
+        kind: 'read',
+        description: '把 Excel / CSV 表格载入临时内存数据库，用一条只读 SQL（SELECT / WITH）统计、筛选、分组、关联，结果比自己数行或心算准确。第一行是表头；单个文件的表名是 data，多个来源用 sources 并分别起表名。不传 sql 时返回表结构和样例行。',
+        parameters: {
+            type: 'object',
+            properties: {
+                path: { type: 'string', description: '表格文件路径（单个来源）' },
+                sheet: { type: 'string', description: 'Excel 工作表名；不填时每个工作表各成一张表（表名为工作表名）' },
+                sources: { type: 'array', description: '多个来源：[{ path, sheet?, table }]，最多 8 个', items: { type: 'object', properties: { path: { type: 'string' }, sheet: { type: 'string' }, table: { type: 'string' } }, required: ['path'] } },
+                sql: { type: 'string', description: '一条 SELECT，如 SELECT "地区", COUNT(*) FROM data GROUP BY 1；列名有中文或空格时用双引号' },
+                maxRows: { type: 'integer', description: '最多返回行数，默认 200，最多 1000' }
+            }
+        }
+    },
+    {
+        name: 'diff_files',
+        kind: 'read',
+        description: '逐行比较两个文本文件（或两段文字）的差异，输出统一 diff 格式。path / text 是一边，otherPath / otherText 是另一边。',
+        parameters: {
+            type: 'object',
+            properties: {
+                path: { type: 'string' }, otherPath: { type: 'string' },
+                text: { type: 'string', description: '直接比较文字时使用' }, otherText: { type: 'string' },
+                context: { type: 'integer', description: '差异上下文行数，默认 3' }
+            }
+        }
+    },
+    {
+        name: 'multi_edit',
+        kind: 'write',
+        description: '对同一个文件按顺序做多处精确替换，一次提交：任何一处匹配失败都不会改动文件。每处规则与 edit_file 相同（oldString 必须唯一，除非 replaceAll）。',
+        parameters: {
+            type: 'object',
+            properties: {
+                path: { type: 'string' },
+                edits: { type: 'array', description: '按顺序执行的替换，最多 50 处', items: { type: 'object', properties: { oldString: { type: 'string' }, newString: { type: 'string' }, replaceAll: { type: 'boolean' } }, required: ['oldString', 'newString'] } }
+            },
+            required: ['path', 'edits']
+        }
+    },
+    {
+        name: 'zip_files',
+        kind: 'write',
+        description: '把工作目录里的文件或目录打包成 .zip（跳过密钥文件和 node_modules 等依赖目录）。',
+        parameters: {
+            type: 'object',
+            properties: {
+                paths: { type: 'array', items: { type: 'string' }, description: '要打包的文件或目录' },
+                output: { type: 'string', description: '输出的 .zip 路径' },
+                overwrite: { type: 'boolean', description: '输出文件已存在时覆盖，默认 false' }
+            },
+            required: ['paths', 'output']
+        }
+    },
+    {
+        name: 'unzip_file',
+        kind: 'write',
+        description: '把 .zip 解压到工作目录（默认解压到同名目录）。已有同名文件时报错，除非 overwrite=true；压缩包里跳出目标目录的路径会被拒绝。',
+        parameters: {
+            type: 'object',
+            properties: {
+                path: { type: 'string', description: '.zip 文件路径' },
+                to: { type: 'string', description: '解压到的目录，默认与压缩包同名' },
+                overwrite: { type: 'boolean', description: '覆盖已有文件，默认 false' }
+            },
+            required: ['path']
+        }
+    },
+    {
+        name: 'memory',
+        kind: 'write',
+        description: '长期记忆：保存用户明确要求记住、或反复用到的偏好与约定（跨对话有效，已有的记忆会列在系统提示里）。action=add 新增、update 修改、delete 删除（按 id）、list 列出。不要保存密码、密钥等凭据，也不要保存一次性的任务细节。',
+        parameters: {
+            type: 'object',
+            properties: {
+                action: { type: 'string', enum: ['add', 'update', 'delete', 'list'] },
+                id: { type: 'integer', description: 'update / delete 时的记忆编号' },
+                content: { type: 'string', description: '记忆内容，一句话，最多 500 字' }
+            },
+            required: ['action']
+        }
     }
 ];
 
@@ -293,6 +394,7 @@ function definitions({ readOnly = false } = {}) {
 function kindOf(toolName, args = null) {
     // 分类工具的删除动作按删除类审批，新建/改名按普通写入
     if (toolName === 'manage_uiv_category' && args?.action === 'delete') return 'destructive';
+    if (toolName === 'memory' && args?.action === 'list') return 'read';
     return KIND_BY_NAME.get(toolName) || null;
 }
 
@@ -603,6 +705,48 @@ async function editFile(ctx, args = {}) {
     };
 }
 
+async function previewMultiEdit(ctx, args = {}) {
+    if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
+    const edits = Array.isArray(args.edits) ? args.edits : [];
+    if (!edits.length || edits.length > 50) throw toolError('AGENT_ARGS', 'edits 需要 1–50 处替换');
+    const abs = guard.resolveInsideRoot(ctx.root, args.path);
+    guard.assertNotSecretFile(abs);
+    if (guard.looksBinaryByName(abs)) throw toolError('AGENT_BINARY', '请通过相应业务接口修改数据库或二进制文件');
+    const display = guard.toDisplayPath(ctx.root, abs);
+    const stat = await fsp.stat(abs).catch(() => null);
+    if (!stat || !stat.isFile()) throw toolError('AGENT_NOT_FOUND', `文件不存在：${display}`);
+    const before = await fsp.readFile(abs, 'utf8');
+    let after = before;
+    let replaced = 0;
+    edits.forEach((edit, index) => {
+        const label = `第 ${index + 1} 处`;
+        if (typeof edit?.oldString !== 'string' || typeof edit?.newString !== 'string' || !edit.oldString) throw toolError('AGENT_ARGS', `${label}：oldString/newString 必须是字符串且 oldString 不能为空`);
+        const occurrences = after.split(edit.oldString).length - 1;
+        if (occurrences === 0) throw toolError('AGENT_EDIT_NO_MATCH', `${label}：${display} 中找不到 oldString（已按顺序应用前面的修改），文件未改动；请先 read_file 确认精确内容`);
+        if (occurrences > 1 && !edit.replaceAll) throw toolError('AGENT_EDIT_AMBIGUOUS', `${label}：oldString 出现 ${occurrences} 次；请扩大 oldString 使其唯一，或设置 replaceAll=true。文件未改动`);
+        after = edit.replaceAll ? after.split(edit.oldString).join(edit.newString) : after.replace(edit.oldString, () => edit.newString);
+        replaced += edit.replaceAll ? occurrences : 1;
+    });
+    assertTextSize(after);
+    return { abs, display, after, diff: unifiedDiff(display, before, after), replaced };
+}
+
+async function multiEdit(ctx, args = {}) {
+    const plan = await previewMultiEdit(ctx, args);
+    ctx.changeLog?.snapshotBefore(plan.display, plan.abs);
+    await atomicWrite(plan.abs, plan.after);
+    const entry = ctx.changeLog?.recordAfter(plan.display);
+    return {
+        content: `已修改 ${plan.display}（${args.edits.length} 处修改共替换 ${plan.replaced} 处，+${plan.diff.added} −${plan.diff.removed}）\n${plan.diff.text}`,
+        summary: `${plan.display} +${plan.diff.added} −${plan.diff.removed}`,
+        change: entry ? summarizeEntry(entry) : null
+    };
+}
+
+async function memoryTool(ctx, args = {}) {
+    return memoryRepo.execute(ctx, args);
+}
+
 async function deletePath(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
     const abs = guard.resolveInsideRoot(ctx.root, args.path);
@@ -853,6 +997,19 @@ const EXECUTORS = {
         }])),
     write_file: writeFile,
     edit_file: editFile,
+    multi_edit: multiEdit,
+    read_document: toolkit.readDocument,
+    query_data: toolkit.queryData,
+    diff_files: toolkit.diffFiles,
+    zip_files: async (ctx, args) => {
+        const { changeEntry, ...result } = await toolkit.zipFiles(ctx, args);
+        return { ...result, change: changeEntry ? summarizeEntry(changeEntry) : null };
+    },
+    unzip_file: async (ctx, args) => {
+        const { changeEntries, ...result } = await toolkit.unzipFile(ctx, args);
+        return { ...result, changes: (changeEntries || []).map(summarizeEntry), mutated: true };
+    },
+    memory: memoryTool,
     delete_path: deletePath,
     rename_path: renamePath,
     run_command: runCommandTracked,
@@ -899,6 +1056,19 @@ async function buildPreview(ctx, name, args = {}) {
         const plan = await previewEdit(ctx, args);
         return { path: plan.display, diff: plan.diff.text, added: plan.diff.added, removed: plan.diff.removed };
     }
+    if (name === 'multi_edit') {
+        const plan = await previewMultiEdit(ctx, args);
+        return { path: plan.display, diff: plan.diff.text, added: plan.diff.added, removed: plan.diff.removed };
+    }
+    if (name === 'zip_files') {
+        const plan = await toolkit.planZip(ctx, args);
+        return { title: '打包', fields: [{ label: '输出', value: plan.outDisplay }, { label: '文件', value: `${plan.entries.length} 个，约 ${(plan.total / 1024).toFixed(1)} KB` }] };
+    }
+    if (name === 'unzip_file') {
+        const plan = await toolkit.planUnzip(ctx, args);
+        return { title: '解压', fields: [{ label: '压缩包', value: plan.file.display }, { label: '解压到', value: `${plan.targetDisplay}/` }, { label: '文件', value: `${plan.items.length} 个${plan.conflicts ? `（覆盖 ${plan.conflicts} 个已有文件）` : ''}` }] };
+    }
+    if (name === 'memory') return memoryRepo.preview(ctx, args);
     if (name === 'delete_path') {
         const abs = guard.resolveInsideRoot(ctx.root, args.path || '');
         return { path: guard.toDisplayPath(ctx.root, abs), recursive: args.recursive === true };

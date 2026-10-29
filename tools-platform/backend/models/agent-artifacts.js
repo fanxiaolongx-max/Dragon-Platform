@@ -44,6 +44,22 @@ function belongsTo(owner, abs) {
     return guard.isInside(realOrSelf(ownerDir(owner)), realOrSelf(abs));
 }
 
+/** JSON 里各数组的项数（顶层和第二层），如「tables：7 项」 */
+function jsonShape(value) {
+    const parts = [];
+    if (Array.isArray(value)) parts.push(`顶层数组 ${value.length} 项`);
+    else if (value && typeof value === 'object') {
+        for (const [key, child] of Object.entries(value)) {
+            if (Array.isArray(child)) parts.push(`${key}：${child.length} 项`);
+            else if (child && typeof child === 'object') {
+                for (const [inner, grand] of Object.entries(child)) if (Array.isArray(grand)) parts.push(`${key}.${inner}：${grand.length} 项`);
+            }
+            if (parts.length >= 8) break;
+        }
+    }
+    return parts.join('，');
+}
+
 async function prune(dir) {
     const cutoff = Date.now() - LIMITS.keepDays * 24 * 60 * 60 * 1000;
     const sessions = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
@@ -65,8 +81,18 @@ async function prune(dir) {
  * 写文件失败时退回掐头去尾，不影响本轮继续。
  */
 async function spill({ owner, sessionId, callId, toolName, content }) {
-    const text = String(content ?? '');
+    let text = String(content ?? '');
     if (text.length <= LIMITS.spillChars) return { content: text, artifact: null };
+    // 数据库等工具返回的是单行 JSON：展开成多行，文件才能按行分段读取；顺便数出各数组有几项，写进说明，
+    // 免得模型只看到开头结尾就去猜数量
+    let shape = '';
+    if (!text.includes('\n')) {
+        try {
+            const parsed = JSON.parse(text);
+            text = JSON.stringify(parsed, null, 1);
+            shape = jsonShape(parsed);
+        } catch (_error) { /* 不是 JSON 就按原样存 */ }
+    }
     const full = text.length > LIMITS.fileChars ? `${text.slice(0, LIMITS.fileChars)}\n…（超过 ${LIMITS.fileChars} 字符的部分未保存）` : text;
     const lines = full.split('\n').length;
     const head = text.slice(0, LIMITS.headChars);
@@ -82,7 +108,7 @@ async function spill({ owner, sessionId, callId, toolName, content }) {
         console.warn('[agent] failed to save a large tool result:', error.message);
         return { content: `${head}\n…（结果过长，已截断，共 ${text.length} 字符）…\n${tail}`, artifact: null };
     }
-    const note = `…（结果共 ${text.length} 字符、${lines} 行，中间部分没有放进上下文。完整内容已保存到 ${file}；需要时用 read_file 读取该路径并指定 startLine，查找内容可先按行号分段读取。）…`;
+    const note = `…（结果共 ${text.length} 字符、${lines} 行，中间部分没有放进上下文。${shape ? `JSON 结构：${shape}。` : ''}完整内容已保存到 ${file}；回答数量、完整列表或中间的内容前，必须先用 read_file 读取该路径（指定 startLine 分段读），不能根据开头和结尾推测。）…`;
     return { content: `${head}\n${note}\n${tail}`, artifact: { path: file, size: Buffer.byteLength(full), lines } };
 }
 

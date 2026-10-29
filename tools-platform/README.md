@@ -745,6 +745,8 @@ flowchart TD
 - 应用位于当前租户 `hosted-apps/<slug>/`，包含 `app/`、`venv/`、`data/app.db` 和运行日志；Python 路径及 pip 镜像是本机共享设置。应用可读写自己的库，受限只读查询平台业务库或已配置的 NetCare 数据。
 - 应用页面使用访问令牌与 iframe/CSP 隔离；Python 进程仍拥有宿主操作系统账号权限，应只导入可信应用。当前支持 ASGI / WSGI，不执行自带 `run.py`，不支持要求自定义启动命令的应用。
 
+AiOps-Report 的 ADCChat v1.4 页面可通过平台兼容层使用当前租户配置的 AI 模型；原应用文件保持原样。下方「原 ADC 聊天页」打开平台聊天页，支持模型切换、历史与新建会话；模型可只读查询当前应用库及当前租户业务库，并展示实际查询依据。此功能需要服务端运行本版本代码，并配置可用的对话模型。
+
 包格式与接口见 [Python 应用托管说明](docs/hosted-python-apps.md)。最新安装回退、内置分发与下载行为见 [运行时](backend/models/hosted-apps/runtime.js)、[托管服务](backend/models/hosted-apps/service.js) 和 [工具路由](backend/routes/custom-tools.js)。
 
 #### F12 插件下载与 NetCare RFC 审计

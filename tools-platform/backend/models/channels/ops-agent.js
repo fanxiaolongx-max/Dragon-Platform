@@ -7,9 +7,9 @@ const opsMaterials = require('./ops-materials');
 const opsSchedule = require('./ops-schedule');
 const opsLibrary = require('./ops-library');
 const targetsRepo = require('./channel-targets-repository');
+const agentLoop = require('../agent-loop');
 
 const SKILL_ID = 'ops-group';
-const MAX_STEPS = 10;
 const CHANNEL_LABELS = { welink: 'WeLink', weixin: '微信' };
 
 const TARGET_SCHEMA = {
@@ -300,48 +300,20 @@ async function buildPrompt() {
 }
 
 /**
- * 带运营工具的一轮回复（与跟进任务相同的工具循环）。
+ * 带运营工具的一轮回复：工具循环用 agent-loop（与工作区同一套引擎）。
+ * 普通对话没有审批卡：真实推送靠 send_draft 的规则把关（本轮刚生成的草稿不能直接发送，必须等用户下一条消息确认）。
  * @returns {Promise<{text, usage, toolLog}>}
  */
-async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, maxOutputTokens, temperature }) {
-    const tools = definitions();
-    const history = messages.map(item => ({ ...item }));
-    const usage = { promptTokens: 0, inputTokens: 0, outputTokens: 0, totalTokens: 0 };
-    const toolLog = [];
+async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model }) {
     const turnCtx = { ...ctx, createdRunIds: new Set() };
-    let activeClient = client;
-    for (let step = 1; step <= MAX_STEPS; step += 1) {
-        if (signal?.aborted) throw Object.assign(new Error('aborted'), { name: 'AbortError' });
-        let result;
-        try {
-            result = await activeClient.generateText({ systemInstruction, messages: history, tools, maxOutputTokens, temperature, signal, onDelta });
-        } catch (error) {
-            if (step === 1 && error?.code === 'AI_TOOLS_UNSUPPORTED') {
-                result = await activeClient.generateText({ systemInstruction: `${systemInstruction}\n\n（当前模型不支持工具调用，运营配置暂不可用；请说明需要管理员切换支持函数调用的模型。）`, messages: history, maxOutputTokens, temperature, signal, onDelta });
-                return { text: result.text || '', usage: result.usage || usage, toolLog, toolsUnsupported: true };
-            }
-            throw error;
-        }
-        if (result.providerClient) activeClient = result.providerClient;
-        usage.promptTokens = Number(result.usage?.promptTokens || 0);
-        usage.inputTokens += Number(result.usage?.promptTokens || 0);
-        usage.outputTokens += Number(result.usage?.outputTokens || 0);
-        usage.totalTokens += Number(result.usage?.totalTokens || 0);
-        const calls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
-        if (!calls.length) return { text: result.text || '', usage, toolLog };
-        if (result.text && onDelta) onDelta('\n\n');
-        history.push({ role: 'model', content: result.text || '', toolCalls: calls });
-        const toolResults = [];
-        for (const call of calls) {
-            const outcome = await execute(turnCtx, call.name, call.args);
-            toolLog.push({ tool: call.name, ok: !outcome.isError, summary: outcome.summary });
-            toolResults.push({ id: call.id, name: call.name, content: outcome.content, isError: Boolean(outcome.isError) });
-        }
-        history.push({ role: 'tool', toolResults });
-    }
-    const text = '已达到单轮最大工具调用步数，请再发一条消息继续。';
-    onDelta?.(text);
-    return { text, usage, toolLog };
+    const result = await agentLoop.runToolLoop({
+        client, model, systemPrompt: systemInstruction, messages, tools: definitions(),
+        write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
+        signal, maxOutputTokens, temperature, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'ops',
+        executeCall: async call => execute(turnCtx, call.name, call.args),
+        toolsUnsupported: () => ({ note: '（当前模型不支持工具调用，运营配置暂不可用；请说明需要管理员切换支持函数调用的模型。）' })
+    });
+    return { text: result.text, usage: result.usage, toolLog: result.toolLog, ...(result.toolsUnsupported ? { toolsUnsupported: true } : {}) };
 }
 
 module.exports = { SKILL_ID, definitions, execute, kindOf, preview, buildPrompt, runTurn };

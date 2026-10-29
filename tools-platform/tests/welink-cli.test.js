@@ -313,13 +313,13 @@ test('runTurn shows the approval card before the tool row and only offers welink
         client, systemInstruction: '', messages: [{ role: 'user', content: '关注 id1' }], ctx: { actor: 'admin' }, canApprove: true,
         onEvent: event => { events.push(event.type); if (event.type === 'approval') setImmediate(() => agent.decide(event.id, 'allow', 'admin')); }
     }));
-    assert.deepEqual(offered[0], ['welink_query', 'welink_action']);
+    assert.deepEqual(offered[0], ['update_plan', 'ask_user', 'calculate', 'welink_query', 'welink_action']);
     assert.deepEqual(events, ['approval', 'approval_result', 'tool_start', 'tool_result']);
 
     const readOnly = [{ text: '好的' }];
     let tools = null;
     await inDefault(() => agent.runTurn({ client: { generateText: async options => { tools = options.tools.map(tool => tool.name); return readOnly.shift(); } }, systemInstruction: '', messages: [{ role: 'user', content: 'x' }], canApprove: false }));
-    assert.deepEqual(tools, ['welink_query'], 'non-streaming turns cannot show approval cards');
+    assert.deepEqual(tools, ['update_plan', 'ask_user', 'calculate', 'welink_query'], 'non-streaming turns cannot show approval cards');
     runner.saveConfig({ allowWrite: false });
     assert.match(await inDefault(() => agent.buildPrompt()), /允许写操作/);
 });

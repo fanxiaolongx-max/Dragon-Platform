@@ -1,5 +1,5 @@
 // 托管 Python 应用启动页：轮询状态 → 应用就绪后以沙箱 iframe 打开平台签发的访问链接。
-// 应用页面没有平台登录态；它的 localStorage 由代理注入的兼容脚本按「应用 + 用户」保存在平台服务端。
+// 内置在线 IDE（多标签代码编辑、实时热重启、本地 Git 版本回退与远程仓库协作）。
 (function () {
     const slug = document.body.dataset.hostedApp;
     const SANDBOX = 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals';
@@ -12,6 +12,7 @@
     let pollTimer = null;
     let renewTimer = null;
     let logsOpen = false;
+    let barCollapseTimer = null;
 
     document.body.innerHTML = `
         <main class="ha-stage" id="haStage">
@@ -31,13 +32,15 @@
             </section>
         </main>
         <div class="ha-bar" id="haBar" hidden>
-            <button type="button" class="ha-pill" id="haPill" aria-haspopup="menu" aria-expanded="false" title="应用运维">
+            <button type="button" class="ha-pill" id="haPill" aria-haspopup="menu" aria-controls="haMenu" aria-expanded="false" aria-label="应用运维" title="应用运维">
                 <span class="ha-dot" id="haDot"></span><span id="haPillText">运行中</span>
             </button>
             <div class="ha-menu" id="haMenu" role="menu" hidden>
                 <div class="ha-menu-meta" id="haMeta"></div>
                 <button type="button" role="menuitem" data-action="restart">重启应用</button>
                 <button type="button" role="menuitem" data-action="logs">查看运行日志</button>
+                <button type="button" role="menuitem" data-action="db-info">🗄️ 查看分配的数据库</button>
+                <button type="button" role="menuitem" data-action="ide">💻 在线修改代码 (IDE)</button>
                 <button type="button" role="menuitem" data-action="reinstall">重新安装依赖</button>
                 <button type="button" role="menuitem" data-action="settings">Python 环境设置</button>
                 <button type="button" role="menuitem" data-action="stop" class="danger">停止应用</button>
@@ -46,18 +49,276 @@
         <aside class="ha-drawer" id="haDrawer" hidden>
             <header><strong>运行日志</strong><button type="button" id="haDrawerClose" aria-label="关闭">×</button></header>
             <pre id="haDrawerLog"></pre>
-        </aside>`;
+        </aside>
+
+        <!-- ── 查看分配的数据库弹窗 ───────────────────────── -->
+        <div class="ha-db-modal-overlay" id="haDbModal" hidden>
+            <div class="ha-db-modal-window">
+                <header class="ha-db-modal-header">
+                    <div class="ha-db-modal-title">
+                        <span>🗄️</span>
+                        <h3 id="haDbModalTitle">已分配的数据库配置</h3>
+                    </div>
+                    <button type="button" class="ha-db-modal-close" id="haDbModalClose">✕</button>
+                </header>
+                <div class="ha-db-modal-body">
+                    <!-- 业务数据库卡片 -->
+                    <section class="ha-db-card">
+                        <div class="ha-db-card-header">
+                            <span class="ha-db-badge biz">业务数据库 (只读)</span>
+                            <span class="ha-db-perm">SELECT 保护</span>
+                        </div>
+                        <div class="ha-db-field">
+                            <label>分配库名 (Datasource Name):</label>
+                            <div class="ha-db-val-row">
+                                <code class="ha-db-code" id="haDbBizName">platform:report.db</code>
+                                <button type="button" class="ha-db-copy-btn" data-copy-target="haDbBizName">复制</button>
+                            </div>
+                        </div>
+                        <div class="ha-db-field">
+                            <label>注入环境变量:</label>
+                            <div class="ha-db-val-row">
+                                <code class="ha-db-code" id="haDbBizEnv">BUSINESS_DATASOURCE_NAME=platform:report.db</code>
+                                <button type="button" class="ha-db-copy-btn" data-copy-target="haDbBizEnv">复制</button>
+                            </div>
+                        </div>
+                        <div class="ha-db-desc">
+                            包含 NetCare 全量 441 张业务表、上游源表视图及主题表，供应用只读直查与指标抽取。
+                        </div>
+                    </section>
+
+                    <!-- 应用数据库卡片 -->
+                    <section class="ha-db-card">
+                        <div class="ha-db-card-header">
+                            <span class="ha-db-badge app">应用私有数据库 (读写)</span>
+                            <span class="ha-db-perm">读写权限</span>
+                        </div>
+                        <div class="ha-db-field">
+                            <label>分配库名 (ID / Schema):</label>
+                            <div class="ha-db-val-row">
+                                <code class="ha-db-code" id="haDbAppName">app</code>
+                                <button type="button" class="ha-db-copy-btn" data-copy-target="haDbAppName">复制</button>
+                            </div>
+                        </div>
+                        <div class="ha-db-field">
+                            <label>注入环境变量:</label>
+                            <div class="ha-db-val-row">
+                                <code class="ha-db-code" id="haDbAppEnv">APP_DATASOURCE_ID=app, APP_SCHEMA=...</code>
+                                <button type="button" class="ha-db-copy-btn" data-copy-target="haDbAppEnv">复制</button>
+                            </div>
+                        </div>
+                        <div class="ha-db-field">
+                            <label>物理存储文件:</label>
+                            <code class="ha-db-code" id="haDbAppFile">app.db</code>
+                        </div>
+                        <div class="ha-db-desc">
+                            应用专属私有存储库，供应用存放自身业务表（如 t_report_template、t_report_block 等）。
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── 在线 IDE 大弹窗 ───────────────────────────────── -->
+        <div class="ha-ide-overlay" id="haIdeModal" hidden>
+            <div class="ha-ide-window" id="haIdeWindow">
+                <header class="ha-ide-header">
+                    <div class="ha-ide-brand">
+                        <span class="ha-ide-icon">💻</span>
+                        <span class="ha-ide-app-name" id="haIdeAppName">应用代码</span>
+                        <span class="ha-ide-badge">在线 IDE</span>
+                        <span class="ha-ide-git-branch" id="haIdeGitBranch" title="Git 当前分支">🌿 main</span>
+                        <span class="ha-ide-git-remote-pill" id="haIdeGitRemotePill" title="点击配置远程 Git 仓库">☁️ <span id="haIdeRemoteName">未配置远端</span></span>
+                        <span class="ha-ide-dirty-badge" id="haIdeDirtyBadge" hidden>● 未保存修改</span>
+                    </div>
+                    <div class="ha-ide-actions">
+                        <button type="button" class="ha-ide-btn" id="haIdeBtnSave" title="保存当前文件 (Ctrl+S / ⌘S)">💾 保存</button>
+                        <button type="button" class="ha-ide-btn primary" id="haIdeBtnRestart" title="保存全部修改并立即重启测试应用 (Ctrl+Enter / ⌘R)">⚡ 保存并重启测试</button>
+                        <button type="button" class="ha-ide-btn" id="haIdeBtnHistory" title="查看本地 Git 提交历史与版本撤回">⏱️ 历史 & 撤回</button>
+                        <button type="button" class="ha-ide-btn" id="haIdeBtnGit" title="配置远程 Git 仓库、推送与拉取">☁️ Git 仓库</button>
+                        <button type="button" class="ha-ide-btn icon-only" id="haIdeBtnFullscreen" title="切换全屏">⛶</button>
+                        <button type="button" class="ha-ide-btn icon-only" id="haIdeBtnClose" title="关闭 IDE">✕</button>
+                    </div>
+                </header>
+
+                <div class="ha-ide-body">
+                    <!-- 左侧文件管理器 -->
+                    <aside class="ha-ide-sidebar" id="haIdeSidebar">
+                        <div class="ha-ide-sidebar-header">
+                            <span>📁 资源管理器</span>
+                            <div class="ha-ide-sidebar-actions">
+                                <button type="button" id="haIdeBtnNewFile" title="新建文件">📄+</button>
+                                <button type="button" id="haIdeBtnNewFolder" title="新建文件夹">📁+</button>
+                                <button type="button" id="haIdeBtnRefreshTree" title="刷新文件树">🔄</button>
+                            </div>
+                        </div>
+                        <div class="ha-ide-search-box">
+                            <input type="text" id="haIdeSearchInput" placeholder="过滤文件..." autocomplete="off">
+                        </div>
+                        <div class="ha-ide-file-tree" id="haIdeFileTree"></div>
+                    </aside>
+
+                    <!-- 右侧多 Tab 代码编辑区 -->
+                    <main class="ha-ide-editor-area">
+                        <div class="ha-ide-tabs-bar" id="haIdeTabsBar"></div>
+                        <div class="ha-ide-subbar" id="haIdeSubbar">
+                            <div class="ha-ide-breadcrumb" id="haIdeBreadcrumb">选择左侧文件开始编辑</div>
+                            <div class="ha-ide-subbar-tools">
+                                <button type="button" class="ha-ide-tool-btn" id="haIdeBtnFind" title="在当前文件中查找 (Ctrl+F / ⌘F)">🔍 查找</button>
+                                <button type="button" class="ha-ide-tool-btn" id="haIdeBtnDiscard" title="放弃当前文件修改">↩ 放弃更改</button>
+                            </div>
+                        </div>
+
+                        <div class="ha-ide-find-bar" id="haIdeFindBar" hidden>
+                            <input type="text" id="haIdeFindInput" placeholder="查找内容...">
+                            <input type="text" id="haIdeReplaceInput" placeholder="替换为...">
+                            <button type="button" class="ha-ide-btn sm" id="haIdeBtnFindNext">查找下一个</button>
+                            <button type="button" class="ha-ide-btn sm" id="haIdeBtnReplace">替换</button>
+                            <button type="button" class="ha-ide-btn sm" id="haIdeBtnReplaceAll">全部替换</button>
+                            <button type="button" class="ha-ide-btn sm icon-only" id="haIdeBtnFindClose">✕</button>
+                        </div>
+
+                        <div class="ha-ide-editor-container" id="haIdeEditorContainer">
+                            <!-- 优雅的动态加载圆环与进度提示 -->
+                            <div class="ha-ide-loading" id="haIdeLoading" hidden>
+                                <div class="ha-ide-loading-card">
+                                    <div class="ha-ide-spinner-ring">
+                                        <svg viewBox="0 0 50 50" class="ha-ide-circular">
+                                            <circle class="ha-ide-path-bg" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>
+                                            <circle class="ha-ide-path" cx="25" cy="25" r="20" fill="none" stroke-width="4"></circle>
+                                        </svg>
+                                    </div>
+                                    <div class="ha-ide-loading-filename" id="haIdeLoadingFilename">📄 代码文件</div>
+                                    <div class="ha-ide-loading-status" id="haIdeLoadingStatus">正在载入代码并解析语法…</div>
+                                </div>
+                            </div>
+
+                            <div class="ha-ide-welcome" id="haIdeWelcome">
+                                <div class="ha-ide-welcome-inner">
+                                    <div class="ha-ide-welcome-icon">⚡</div>
+                                    <h2>在线代码修改 (IDE)</h2>
+                                    <p>点击左侧文件树打开代码，支持多标签快速修改、高亮渲染与即时重启测试</p>
+                                    <div class="ha-ide-welcome-shortcuts">
+                                        <div><span>保存文件</span><kbd>⌘S</kbd> / <kbd>Ctrl+S</kbd></div>
+                                        <div><span>保存并重启测试</span><kbd>⌘R</kbd> / <kbd>Ctrl+Enter</kbd></div>
+                                        <div><span>在文件中查找</span><kbd>⌘F</kbd> / <kbd>Ctrl+F</kbd></div>
+                                        <div><span>缩进 / 反缩进</span><kbd>Tab</kbd> / <kbd>Shift+Tab</kbd></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="ha-ide-editor-view" id="haIdeEditorView" hidden>
+                                <div class="ha-ide-gutter" id="haIdeGutter"></div>
+                                <div class="ha-ide-code-wrap" id="haIdeCodeWrap">
+                                    <pre class="ha-ide-pre" id="haIdePre" aria-hidden="true"><code id="haIdeCode"></code></pre>
+                                    <textarea class="ha-ide-textarea" id="haIdeTextarea" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea>
+                                </div>
+                            </div>
+
+                            <div class="ha-ide-binary-notice" id="haIdeBinaryNotice" hidden>
+                                <p>该文件为二进制或超大文件，不支持在线编辑。</p>
+                            </div>
+                        </div>
+
+                        <footer class="ha-ide-statusbar">
+                            <div class="ha-ide-status-left">
+                                <span id="haIdeCursorPos">行 1，列 1</span>
+                                <span id="haIdeSelectionInfo"></span>
+                            </div>
+                            <div class="ha-ide-status-right">
+                                <span id="haIdeDocLength">0 行</span>
+                                <span id="haIdeLanguage">Plain Text</span>
+                                <span>UTF-8</span>
+                                <span>空格: 4</span>
+                            </div>
+                        </footer>
+                    </main>
+                </div>
+
+                <!-- 历史与回退抽屉 -->
+                <div class="ha-ide-drawer" id="haIdeHistoryDrawer" hidden>
+                    <div class="ha-ide-drawer-header">
+                        <h3>⏱️ 本地 Git 版本历史 & 撤回</h3>
+                        <button type="button" class="ha-ide-drawer-close" id="haIdeHistoryClose">✕</button>
+                    </div>
+                    <div class="ha-ide-drawer-body">
+                        <p class="ha-ide-drawer-hint">历史版本由本地 Git 自动记录。可随时回退到指定节点恢复代码：</p>
+                        <div class="ha-ide-commit-list" id="haIdeCommitList"></div>
+                    </div>
+                </div>
+
+                <!-- Git 远端协作抽屉 -->
+                <div class="ha-ide-drawer" id="haIdeGitDrawer" hidden>
+                    <div class="ha-ide-drawer-header">
+                        <h3>☁️ Git 仓库配置与远端协作</h3>
+                        <button type="button" class="ha-ide-drawer-close" id="haIdeGitClose">✕</button>
+                    </div>
+                    <div class="ha-ide-drawer-body">
+                        <section class="ha-ide-git-section">
+                            <h4>远程仓库地址</h4>
+                            <p class="ha-ide-drawer-hint">配置专属远程 Git 仓库（如 GitHub）支持团队多人协作与远端回退：</p>
+                            <div class="ha-ide-input-row">
+                                <input type="text" id="haIdeGitRemoteInput" placeholder="https://github.com/user/repo.git">
+                                <button type="button" class="ha-ide-btn primary" id="haIdeBtnSaveRemote">保存</button>
+                            </div>
+                        </section>
+                        <section class="ha-ide-git-section">
+                            <h4>提交当前修改</h4>
+                            <div class="ha-ide-input-col">
+                                <input type="text" id="haIdeGitCommitMsg" placeholder="提交描述，例如：fix: 修复数据探查空表逻辑">
+                                <div class="ha-ide-btn-row">
+                                    <button type="button" class="ha-ide-btn" id="haIdeBtnCommitOnly">仅提交到本地</button>
+                                    <button type="button" class="ha-ide-btn primary" id="haIdeBtnCommitAndPush">提交并推送到远端</button>
+                                </div>
+                            </div>
+                        </section>
+                        <section class="ha-ide-git-section">
+                            <h4>远端同步</h4>
+                            <div class="ha-ide-btn-row">
+                                <button type="button" class="ha-ide-btn" id="haIdeBtnPull">📥 从远端拉取 (Pull)</button>
+                                <button type="button" class="ha-ide-btn" id="haIdeBtnPush">📤 推送到远端 (Push)</button>
+                                <label class="ha-ide-checkbox-label"><input type="checkbox" id="haIdeForcePush"> 覆盖推送 (Force)</label>
+                            </div>
+                        </section>
+                        <section class="ha-ide-git-section">
+                            <h4>Git 执行记录</h4>
+                            <pre class="ha-ide-git-console" id="haIdeGitConsole">就绪</pre>
+                        </section>
+                    </div>
+                </div>
+
+                <!-- Diff 预览弹窗 -->
+                <div class="ha-ide-diff-modal" id="haIdeDiffModal" role="dialog" aria-modal="true" aria-labelledby="haIdeDiffTitle" hidden>
+                    <div class="ha-ide-diff-window">
+                        <div class="ha-ide-diff-header">
+                            <h3 id="haIdeDiffTitle">版本差异比较 (Diff)</h3>
+                            <button type="button" class="ha-ide-drawer-close" id="haIdeDiffClose" aria-label="关闭 / Close">✕</button>
+                        </div>
+                        <div class="ha-ide-diff-content" id="haIdeDiffContent"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
     const $ = id => document.getElementById(id);
+    const toast = (msg, type = 'success') => {
+        if (window.showToast) window.showToast(msg, type);
+        else console.log(`[${type}] ${msg}`);
+    };
 
     async function api(path, options = {}) {
-        const response = await fetch(`/api/hosted-apps/${encodeURIComponent(slug)}${path}`, { credentials: 'same-origin', ...options,
-            headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
+        const response = await fetch(`/api/hosted-apps/${encodeURIComponent(slug)}${path}`, {
+            credentials: 'same-origin',
+            ...options,
+            headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
+        });
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw Object.assign(new Error(body.error || `请求失败（${response.status}）`), { status: response.status });
         return body;
     }
 
-    // ── 渲染 ─────────────────────────────────────────
+    // ── 渲染基座与运维条 ─────────────────────────────────────────
     function setCard({ title, detail = '', busy = false, error = false, actions = [] }) {
         $('haStage').hidden = false;
         $('haCard').classList.toggle('is-error', error);
@@ -75,8 +336,41 @@
         });
     }
 
+    function scheduleBarCollapse() {
+        clearTimeout(barCollapseTimer);
+        if ($('haBar').hidden || !$('haMenu').hidden) return;
+        barCollapseTimer = setTimeout(() => {
+            if (!$('haBar').querySelector(':focus-visible')) {
+                $('haBar').classList.add('is-collapsed');
+            }
+        }, 2500);
+    }
+
+    function setMenuOpen(open) {
+        $('haMenu').hidden = !open;
+        $('haPill').setAttribute('aria-expanded', String(open));
+        if (open) {
+            clearTimeout(barCollapseTimer);
+            $('haBar').classList.remove('is-collapsed');
+        } else {
+            scheduleBarCollapse();
+        }
+    }
+
+    function setBarVisible(visible) {
+        const wasHidden = $('haBar').hidden;
+        $('haBar').hidden = !visible;
+        if (!visible) {
+            setMenuOpen(false);
+            clearTimeout(barCollapseTimer);
+            $('haBar').classList.remove('is-collapsed');
+        } else if (wasHidden) {
+            scheduleBarCollapse();
+        }
+    }
+
     function updateBar(app) {
-        $('haBar').hidden = !app.isAdmin || !frame;
+        setBarVisible(app.isAdmin && !!frame);
         $('haDot').dataset.status = app.status;
         $('haPillText').textContent = STATUS_TEXT[app.status] || app.status;
         const meta = [app.packageName && `${app.packageName}${app.version ? ` ${app.version}` : ''}`, app.entry && `入口 ${app.entry}`,
@@ -119,8 +413,8 @@
             updateBar(app);
             return false;
         }
-        if (frame) { frame.remove(); frame = null; $('haBar').hidden = true; }
-        const adminActions = app.isAdmin ? [{ label: '查看日志', action: 'logs-inline' }] : [];
+        if (frame) { frame.remove(); frame = null; setBarVisible(false); }
+        const adminActions = app.isAdmin ? [{ label: '查看日志', action: 'logs-inline' }, { label: '在线修改代码 (IDE)', action: 'ide' }] : [];
         if (app.status === 'installing' || app.status === 'starting') {
             setCard({ title: STATUS_TEXT[app.status], detail: app.status === 'installing' ? '首次打开需要创建虚拟环境并安装依赖，可能需要几分钟。' : '应用正在启动，请稍候。', busy: true, actions: adminActions });
             return true;
@@ -153,10 +447,9 @@
         }
     }
 
-    // Python 路径与 pip 镜像是本机设置，对所有托管应用生效
     async function openSettings() {
         const form = $('haSettings');
-        if (frame) { frame.remove(); frame = null; $('haBar').hidden = true; setCard({ title: 'Python 环境设置' }); }
+        if (frame) { frame.remove(); frame = null; setBarVisible(false); setCard({ title: 'Python 环境设置' }); }
         try {
             const response = await fetch('/api/hosted-apps/settings?refresh=1', { credentials: 'same-origin' });
             const body = await response.json();
@@ -187,9 +480,891 @@
     });
     $('haSettingsCancel').addEventListener('click', () => { $('haSettings').hidden = true; load(); });
 
+    // ── 在线 IDE 控制中心 ─────────────────────────────────────────
+    const ideState = {
+        tabs: [], // { path, name, ext, isBinary, originalContent, currentContent, isDirty, lang }
+        activePath: null,
+        tree: [],
+        expandedFolders: new Set(['app', 'app/routers', 'app/services', 'app/dao']),
+        filterQuery: '',
+        git: { branch: 'main', remoteUrl: '', clean: true }
+    };
+
+    function getFileIcon(fileName, isDir = false, isOpen = false) {
+        if (isDir) return isOpen ? '📂' : '📁';
+        const ext = String(fileName || '').split('.').pop().toLowerCase();
+        switch (ext) {
+            case 'py': return '🐍';
+            case 'js':
+            case 'mjs':
+            case 'ts': return '🟨';
+            case 'html':
+            case 'htm': return '🌐';
+            case 'css':
+            case 'scss': return '🎨';
+            case 'sql': return '🗄️';
+            case 'json': return '📋';
+            case 'md':
+            case 'markdown': return '📝';
+            case 'sh':
+            case 'bash': return '💻';
+            case 'txt':
+            case 'version': return '📄';
+            default: return '📄';
+        }
+    }
+
+    function openIde() {
+        $('haIdeModal').hidden = false;
+        $('haIdeAppName').textContent = current?.name || current?.packageName || slug;
+        loadIdeTree();
+        loadGitStatus();
+    }
+
+    function closeIde() {
+        const hasDirty = ideState.tabs.some(t => t.isDirty);
+        if (hasDirty) {
+            const proceed = confirm('当前有未保存的代码修改，确定要关闭 IDE 吗？未保存的变动将丢失。');
+            if (!proceed) return;
+        }
+        $('haIdeModal').hidden = true;
+    }
+
+    async function loadGitStatus() {
+        try {
+            const { status } = await api('/editor/git/status');
+            ideState.git = status;
+            $('haIdeGitBranch').textContent = `🌿 ${status.branch || 'main'}`;
+            if (status.remoteUrl) {
+                const shortRemote = status.remoteUrl.replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '');
+                $('haIdeRemoteName').textContent = shortRemote;
+                $('haIdeGitRemotePill').title = `远程仓库：${status.remoteUrl}`;
+            } else {
+                $('haIdeRemoteName').textContent = '配置远端';
+                $('haIdeGitRemotePill').title = '尚未配置远程仓库，点击配置';
+            }
+            $('haIdeGitRemoteInput').value = status.remoteUrl || '';
+            updateDirtyBadges();
+        } catch (_e) {}
+    }
+
+    async function loadIdeTree() {
+        try {
+            const { tree } = await api('/editor/tree');
+            ideState.tree = tree || [];
+            renderFileTree();
+        } catch (error) {
+            toast(error.message, 'error');
+        }
+    }
+
+    function renderFileTree() {
+        const container = $('haIdeFileTree');
+        container.innerHTML = '';
+        const q = ideState.filterQuery.trim().toLowerCase();
+
+        function renderNodes(nodes, depth = 0) {
+            for (const node of nodes) {
+                if (q && !node.isDir && !node.name.toLowerCase().includes(q)) continue;
+                const item = document.createElement('div');
+                item.className = 'ha-ide-tree-item';
+                item.dataset.treePath = node.path;
+                if (ideState.activePath === node.path) item.classList.add('is-active');
+                if (loadingFiles.has(node.path)) item.classList.add('is-loading');
+                item.style.paddingLeft = `${depth * 14 + 8}px`;
+
+                const isOpen = ideState.expandedFolders.has(node.path);
+                const arrow = node.isDir ? (isOpen ? '▾' : '▸') : '';
+                const icon = getFileIcon(node.name, node.isDir, isOpen);
+
+                item.innerHTML = `
+                    <div class="ha-ide-tree-label">
+                        <span class="ha-ide-tree-arrow">${arrow}</span>
+                        <span>${icon}</span>
+                        <span>${node.name}</span>
+                    </div>
+                    <div class="ha-ide-tree-item-actions">
+                        ${node.isDir ? `<button type="button" class="ha-ide-tree-btn" data-tree-act="new-file" data-path="${node.path}" title="在此目录下新建文件">+</button>` : ''}
+                        <button type="button" class="ha-ide-tree-btn" data-tree-act="rename" data-path="${node.path}" title="重命名">✏️</button>
+                        <button type="button" class="ha-ide-tree-btn" data-tree-act="delete" data-path="${node.path}" title="删除">🗑️</button>
+                    </div>
+                `;
+
+                item.addEventListener('click', e => {
+                    if (e.target.closest('.ha-ide-tree-item-actions')) return;
+                    if (node.isDir) {
+                        if (ideState.expandedFolders.has(node.path)) ideState.expandedFolders.delete(node.path);
+                        else ideState.expandedFolders.add(node.path);
+                        renderFileTree();
+                    } else {
+                        openFileInTab(node.path, node.isBinary);
+                    }
+                });
+
+                container.appendChild(item);
+
+                if (node.isDir && (isOpen || q) && node.children?.length) {
+                    renderNodes(node.children, depth + 1);
+                }
+            }
+        }
+
+        renderNodes(ideState.tree, 0);
+    }
+
+    const loadingFiles = new Set();
+
+    function showIdeLoading(filePath) {
+        const fileName = filePath.split('/').pop();
+        const icon = getFileIcon(fileName);
+        $('haIdeLoadingFilename').innerHTML = `<span>${icon}</span> <span>${fileName}</span>`;
+        $('haIdeLoadingStatus').textContent = '正在载入代码并解析语法…';
+        $('haIdeBreadcrumb').textContent = `正在打开: ${filePath} ...`;
+        $('haIdeLoading').hidden = false;
+        const el = document.querySelector(`[data-tree-path="${CSS.escape(filePath)}"]`);
+        if (el) el.classList.add('is-loading');
+    }
+
+    function hideIdeLoading(filePath) {
+        $('haIdeLoading').hidden = true;
+        if (filePath) {
+            const el = document.querySelector(`[data-tree-path="${CSS.escape(filePath)}"]`);
+            if (el) el.classList.remove('is-loading');
+        }
+    }
+
+    let highlighterLoading = null;
+    function ensureHighlighter() {
+        if (window.IdeHighlighter) return Promise.resolve();
+        // 已安装的旧启动页可能只有 launcher 引用，在这里补齐编辑器依赖。
+        if (!highlighterLoading) {
+            highlighterLoading = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = '/js/shared/ide-highlighter.js';
+                script.onload = () => {
+                    if (window.IdeHighlighter) resolve();
+                    else reject(new Error('代码高亮组件初始化失败，请刷新后重试'));
+                };
+                script.onerror = () => reject(new Error('代码高亮组件加载失败，请检查网络后重试'));
+                document.head.appendChild(script);
+            }).catch(error => { highlighterLoading = null; throw error; });
+        }
+        return highlighterLoading;
+    }
+
+    async function openFileInTab(filePath, isBinary = false) {
+        // 1. 如果已在打开列表中，直接切换激活，防止重复创建标签页
+        let tab = ideState.tabs.find(t => t.path === filePath);
+        if (tab) {
+            activateTab(tab.path);
+            return;
+        }
+
+        // 2. 如果正在加载中，避免重复请求
+        if (loadingFiles.has(filePath)) return;
+        loadingFiles.add(filePath);
+
+        // 3. 立即呈现优雅的动态进度圆环与加载态
+        showIdeLoading(filePath);
+
+        try {
+            await ensureHighlighter();
+            const { file } = await api(`/editor/file?path=${encodeURIComponent(filePath)}`);
+            const lang = window.IdeHighlighter ? window.IdeHighlighter.detectLanguage(filePath) : 'text';
+
+            // 二次防并发重复检查
+            tab = ideState.tabs.find(t => t.path === file.path);
+            if (!tab) {
+                tab = {
+                    path: file.path,
+                    name: file.name,
+                    ext: file.ext,
+                    isBinary: file.isBinary || isBinary,
+                    originalContent: file.content || '',
+                    currentContent: file.content || '',
+                    isDirty: false,
+                    lang,
+                    scrollTop: 0,
+                    scrollLeft: 0,
+                    cursor: { line: 1, col: 1 }
+                };
+                ideState.tabs.push(tab);
+            }
+            activateTab(tab.path);
+        } catch (error) {
+            toast(`无法打开文件：${error.message}`, 'error');
+            if (!ideState.activePath) {
+                $('haIdeWelcome').hidden = false;
+                $('haIdeEditorView').hidden = true;
+                $('haIdeBreadcrumb').textContent = '选择左侧文件开始编辑';
+            }
+        } finally {
+            loadingFiles.delete(filePath);
+            hideIdeLoading(filePath);
+        }
+    }
+
+    function activateTab(filePath) {
+        // 自动过滤去重，确保每个文件仅存在一个标签页
+        const seen = new Set();
+        ideState.tabs = ideState.tabs.filter(t => {
+            if (seen.has(t.path)) return false;
+            seen.add(t.path);
+            return true;
+        });
+
+        const prevTab = ideState.tabs.find(t => t.path === ideState.activePath);
+        if (prevTab && !prevTab.isBinary) {
+            const ta = $('haIdeTextarea');
+            prevTab.scrollTop = ta.scrollTop;
+            prevTab.scrollLeft = ta.scrollLeft;
+        }
+
+        ideState.activePath = filePath;
+        const tab = ideState.tabs.find(t => t.path === filePath);
+
+        renderTabs();
+        renderFileTree();
+
+        if (!tab) {
+            $('haIdeWelcome').hidden = false;
+            $('haIdeEditorView').hidden = true;
+            $('haIdeBinaryNotice').hidden = true;
+            $('haIdeBreadcrumb').textContent = '选择左侧文件开始编辑';
+            return;
+        }
+
+        $('haIdeWelcome').hidden = true;
+        $('haIdeBreadcrumb').textContent = tab.path.replace(/\//g, ' > ');
+        $('haIdeLanguage').textContent = tab.lang.toUpperCase();
+
+        if (tab.isBinary) {
+            $('haIdeEditorView').hidden = true;
+            $('haIdeBinaryNotice').hidden = false;
+            return;
+        }
+
+        $('haIdeBinaryNotice').hidden = true;
+        $('haIdeEditorView').hidden = false;
+
+        const ta = $('haIdeTextarea');
+        ta.value = tab.currentContent;
+        highlightEditor(tab);
+        updateLineNumbers(tab.currentContent);
+
+        setTimeout(() => {
+            ta.scrollTop = tab.scrollTop || 0;
+            ta.scrollLeft = tab.scrollLeft || 0;
+            syncScroll();
+            ta.focus();
+        }, 0);
+    }
+
+    function closeTab(filePath, event) {
+        if (event) event.stopPropagation();
+        const tabIndex = ideState.tabs.findIndex(t => t.path === filePath);
+        if (tabIndex === -1) return;
+        const tab = ideState.tabs[tabIndex];
+        if (tab.isDirty) {
+            const proceed = confirm(`文件 ${tab.name} 尚未保存，确定要关闭吗？`);
+            if (!proceed) return;
+        }
+        ideState.tabs.splice(tabIndex, 1);
+        if (ideState.activePath === filePath) {
+            const nextTab = ideState.tabs[Math.max(0, tabIndex - 1)];
+            activateTab(nextTab ? nextTab.path : null);
+        } else {
+            renderTabs();
+        }
+        updateDirtyBadges();
+    }
+
+    function renderTabs() {
+        const bar = $('haIdeTabsBar');
+        bar.innerHTML = '';
+        ideState.tabs.forEach(tab => {
+            const el = document.createElement('div');
+            el.className = `ha-ide-tab${tab.path === ideState.activePath ? ' is-active' : ''}${tab.isDirty ? ' is-dirty' : ''}`;
+            el.innerHTML = `
+                <span>${getFileIcon(tab.name)}</span>
+                <span class="ha-ide-tab-title" title="${tab.path}">${tab.name}</span>
+                <span class="ha-ide-tab-dot"></span>
+                <button type="button" class="ha-ide-tab-close" title="关闭 (⌘W)">✕</button>
+            `;
+            el.addEventListener('click', () => activateTab(tab.path));
+            el.querySelector('.ha-ide-tab-close').addEventListener('click', e => closeTab(tab.path, e));
+            bar.appendChild(el);
+        });
+        updateDirtyBadges();
+    }
+
+    function updateDirtyBadges() {
+        const dirtyCount = ideState.tabs.filter(t => t.isDirty).length;
+        const badge = $('haIdeDirtyBadge');
+        if (dirtyCount > 0) {
+            badge.hidden = false;
+            badge.textContent = `● ${dirtyCount} 个未保存修改`;
+        } else {
+            badge.hidden = true;
+        }
+    }
+
+    function highlightEditor(tab) {
+        const codeEl = $('haIdeCode');
+        const code = tab.currentContent;
+        if (window.IdeHighlighter) {
+            codeEl.innerHTML = window.IdeHighlighter.highlight(code, tab.lang) + '\n';
+        } else {
+            codeEl.textContent = code + '\n';
+        }
+    }
+
+    function updateLineNumbers(text) {
+        const lineCount = (text.match(/\n/g) || []).length + 1;
+        const gutter = $('haIdeGutter');
+        let nums = '';
+        for (let i = 1; i <= lineCount; i++) {
+            nums += `${i}\n`;
+        }
+        gutter.textContent = nums;
+        $('haIdeDocLength').textContent = `${lineCount} 行`;
+    }
+
+    function syncScroll() {
+        const ta = $('haIdeTextarea');
+        const pre = $('haIdePre');
+        const gutter = $('haIdeGutter');
+        pre.scrollTop = ta.scrollTop;
+        pre.scrollLeft = ta.scrollLeft;
+        gutter.scrollTop = ta.scrollTop;
+    }
+
+    function updateCursorInfo() {
+        const ta = $('haIdeTextarea');
+        const pos = ta.selectionStart;
+        const text = ta.value.slice(0, pos);
+        const lines = text.split('\n');
+        const line = lines.length;
+        const col = lines[lines.length - 1].length + 1;
+        $('haIdeCursorPos').textContent = `行 ${line}，列 ${col}`;
+
+        const selLen = Math.abs(ta.selectionEnd - ta.selectionStart);
+        $('haIdeSelectionInfo').textContent = selLen > 0 ? `(选中 ${selLen} 字符)` : '';
+    }
+
+    // ── 编辑器键盘与输入处理 ─────────────────────────────────
+    $('haIdeTextarea').addEventListener('input', () => {
+        const tab = ideState.tabs.find(t => t.path === ideState.activePath);
+        if (!tab) return;
+        tab.currentContent = $('haIdeTextarea').value;
+        tab.isDirty = tab.currentContent !== tab.originalContent;
+        highlightEditor(tab);
+        updateLineNumbers(tab.currentContent);
+        renderTabs();
+        updateCursorInfo();
+    });
+
+    $('haIdeTextarea').addEventListener('scroll', syncScroll);
+    $('haIdeTextarea').addEventListener('keyup', updateCursorInfo);
+    $('haIdeTextarea').addEventListener('click', updateCursorInfo);
+
+    $('haIdeTextarea').addEventListener('keydown', e => {
+        const ta = $('haIdeTextarea');
+        // Tab 缩进处理 (4 空格)
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const start = ta.selectionStart;
+            const end = ta.selectionEnd;
+            if (e.shiftKey) {
+                // 反缩进
+                const before = ta.value.slice(0, start);
+                const lineStart = before.lastIndexOf('\n') + 1;
+                if (ta.value.slice(lineStart, lineStart + 4) === '    ') {
+                    ta.value = ta.value.slice(0, lineStart) + ta.value.slice(lineStart + 4);
+                    ta.selectionStart = ta.selectionEnd = Math.max(lineStart, start - 4);
+                }
+            } else {
+                // 缩进 4 格
+                ta.value = ta.value.substring(0, start) + '    ' + ta.value.substring(end);
+                ta.selectionStart = ta.selectionEnd = start + 4;
+            }
+            ta.dispatchEvent(new Event('input'));
+            return;
+        }
+
+        // 回车自动继承前一行缩进，若前一行以 : 结尾则增加 4 空格
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const start = ta.selectionStart;
+            const before = ta.value.slice(0, start);
+            const line = before.split('\n').pop();
+            const indentMatch = line.match(/^(\s*)/);
+            let indent = indentMatch ? indentMatch[1] : '';
+            if (line.trim().endsWith(':')) {
+                indent += '    ';
+            }
+            const insert = '\n' + indent;
+            ta.value = ta.value.substring(0, start) + insert + ta.value.substring(ta.selectionEnd);
+            ta.selectionStart = ta.selectionEnd = start + insert.length;
+            ta.dispatchEvent(new Event('input'));
+            return;
+        }
+
+        // 保存快捷键 (⌘S / Ctrl+S)
+        if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+            e.preventDefault();
+            saveCurrentFile();
+            return;
+        }
+
+        // 保存并重启快捷键 (⌘R / Ctrl+Enter)
+        if ((e.metaKey && e.key === 'r') || (e.ctrlKey && e.key === 'Enter')) {
+            e.preventDefault();
+            saveAndRestartApp();
+            return;
+        }
+
+        // 查找快捷键 (⌘F / Ctrl+F)
+        if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+            e.preventDefault();
+            toggleFindBar(true);
+            return;
+        }
+    });
+
+    // ── 文件保存与重启测试 ─────────────────────────────────
+    async function saveCurrentFile({ quiet = false } = {}) {
+        const tab = ideState.tabs.find(t => t.path === ideState.activePath);
+        if (!tab || tab.isBinary) return;
+        try {
+            await api('/editor/file', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    path: tab.path,
+                    content: tab.currentContent,
+                    autoCommit: true,
+                    commitMessage: `chore(ide): update ${tab.path}`
+                })
+            });
+            tab.originalContent = tab.currentContent;
+            tab.isDirty = false;
+            renderTabs();
+            loadGitStatus();
+            if (!quiet) toast(`已保存 ${tab.name}`);
+        } catch (error) {
+            toast(`保存失败：${error.message}`, 'error');
+        }
+    }
+
+    async function saveAndRestartApp() {
+        // 保存所有未保存的 Tab
+        const dirtyTabs = ideState.tabs.filter(t => t.isDirty);
+        for (const tab of dirtyTabs) {
+            await api('/editor/file', {
+                method: 'PUT',
+                body: JSON.stringify({
+                    path: tab.path,
+                    content: tab.currentContent,
+                    autoCommit: false
+                })
+            });
+            tab.originalContent = tab.currentContent;
+            tab.isDirty = false;
+        }
+        renderTabs();
+
+        // 提交本次保存修改
+        try {
+            await api('/editor/git/commit', {
+                method: 'POST',
+                body: JSON.stringify({ message: `update(ide): quick save and test at ${new Date().toLocaleTimeString('zh-CN')}` })
+            });
+        } catch (_e) {}
+
+        // 立即触发后台热重启
+        try {
+            await api('/restart', { method: 'POST', body: '{}' });
+            toast('已保存修改并重启应用，正在重新加载…', 'success');
+            loadGitStatus();
+            setTimeout(() => {
+                if (frame) {
+                    try { frame.contentWindow.location.reload(); } catch (_e) {}
+                }
+            }, 1200);
+        } catch (error) {
+            toast(`重启失败：${error.message}`, 'error');
+        }
+    }
+
+    // ── 历史版本与回退 (Git History & Revert) ────────────────
+    async function openHistoryDrawer() {
+        $('haIdeHistoryDrawer').hidden = false;
+        const container = $('haIdeCommitList');
+        container.innerHTML = '<p class="ha-ide-drawer-hint">正在加载提交历史…</p>';
+        try {
+            const { history } = await api('/editor/git/history?limit=30');
+            if (!history?.length) {
+                container.innerHTML = '<p class="ha-ide-drawer-hint">暂无提交记录</p>';
+                return;
+            }
+            container.innerHTML = '';
+            history.forEach(c => {
+                const card = document.createElement('div');
+                card.className = 'ha-ide-commit-card';
+                card.innerHTML = `
+                    <div class="ha-ide-commit-header">
+                        <span class="ha-ide-commit-hash" title="${c.hash}">${c.shortHash}</span>
+                        <span>${c.date.slice(0, 19)} · ${c.author}</span>
+                    </div>
+                    <div class="ha-ide-commit-msg">${c.message}</div>
+                    <div class="ha-ide-commit-actions">
+                        <button type="button" class="ha-ide-btn sm" data-diff="${c.hash}">查看改动 (Diff)</button>
+                        <button type="button" class="ha-ide-btn sm primary" data-revert="${c.hash}">回退到此版本</button>
+                    </div>
+                `;
+                card.querySelector('[data-diff]').addEventListener('click', () => showDiff(c.hash, c.message));
+                card.querySelector('[data-revert]').addEventListener('click', () => revertToCommit(c.hash));
+                container.appendChild(card);
+            });
+        } catch (error) {
+            container.innerHTML = `<p class="ha-ide-drawer-hint" style="color:var(--ha-danger)">加载失败：${error.message}</p>`;
+        }
+    }
+
+    let diffViewerLoading = null;
+    let diffSequence = 0;
+    function ensureDiffViewer() {
+        if (window.IdeDiffViewer) return Promise.resolve();
+        if (!diffViewerLoading) {
+            diffViewerLoading = new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = '/js/shared/ide-diff-viewer.js';
+                script.onload = () => window.IdeDiffViewer ? resolve() : reject(new Error('差异视图初始化失败'));
+                script.onerror = () => reject(new Error('差异视图加载失败，请重试'));
+                document.head.appendChild(script);
+            }).catch(error => { diffViewerLoading = null; throw error; });
+        }
+        return diffViewerLoading;
+    }
+
+    async function showDiff(commitHash, title) {
+        const sequence = ++diffSequence;
+        $('haIdeDiffModal').hidden = false;
+        $('haIdeDiffTitle').textContent = `提交差异：${title} (${commitHash.slice(0, 7)})`;
+        $('haIdeDiffContent').classList.remove('ide-diff-view');
+        $('haIdeDiffContent').textContent = '正在计算差异…';
+        $('haIdeDiffClose').focus();
+        try {
+            const [{ diff }] = await Promise.all([
+                api(`/editor/git/diff?commit=${encodeURIComponent(commitHash)}`),
+                ensureDiffViewer(), ensureHighlighter().catch(() => {})
+            ]);
+            if (sequence !== diffSequence || $('haIdeDiffModal').hidden) return;
+            window.IdeDiffViewer.render($('haIdeDiffContent'), diff);
+        } catch (error) {
+            if (sequence === diffSequence && !$('haIdeDiffModal').hidden) $('haIdeDiffContent').textContent = error.message;
+        }
+    }
+
+    async function revertToCommit(commitHash) {
+        const proceed = confirm(`确定要将代码完全回退到版本 ${commitHash.slice(0, 7)} 吗？回退后当前工作区将恢复至该历史时刻。`);
+        if (!proceed) return;
+        try {
+            await api('/editor/git/revert', {
+                method: 'POST',
+                body: JSON.stringify({ commitHash })
+            });
+            toast(`已成功回退到 ${commitHash.slice(0, 7)}`);
+            $('haIdeHistoryDrawer').hidden = true;
+            ideState.tabs = [];
+            activateTab(null);
+            loadIdeTree();
+            loadGitStatus();
+        } catch (error) {
+            toast(`回退失败：${error.message}`, 'error');
+        }
+    }
+
+    // ── 远程 Git 协作 (Push, Pull, Remote) ────────────────────
+    function openGitDrawer() {
+        $('haIdeGitDrawer').hidden = false;
+        $('haIdeGitRemoteInput').value = ideState.git.remoteUrl || '';
+        $('haIdeGitConsole').textContent = `当前分支: ${ideState.git.branch || 'main'}\n远程仓库: ${ideState.git.remoteUrl || '未配置'}\n未提交文件: ${ideState.git.modified?.length || 0}`;
+    }
+
+    async function saveGitRemote() {
+        const url = $('haIdeGitRemoteInput').value.trim();
+        try {
+            await api('/editor/git/remote', { method: 'POST', body: JSON.stringify({ remoteUrl: url }) });
+            toast('已更新远程仓库配置');
+            loadGitStatus();
+            $('haIdeGitConsole').textContent += `\n[OK] 远程地址已配置为: ${url || '（已移除）'}`;
+        } catch (error) {
+            toast(`配置失败：${error.message}`, 'error');
+        }
+    }
+
+    async function gitCommitAndPush(push = false) {
+        const msg = $('haIdeGitCommitMsg').value.trim();
+        const consoleEl = $('haIdeGitConsole');
+        consoleEl.textContent += `\n>> 正在执行提交${push ? '与推送' : ''}...`;
+        try {
+            const commitRes = await api('/editor/git/commit', { method: 'POST', body: JSON.stringify({ message: msg }) });
+            consoleEl.textContent += `\n[Commit OK] ${commitRes.message || commitRes.hash}`;
+            toast('本地提交成功');
+            if (push) {
+                const force = $('haIdeForcePush').checked;
+                const pushRes = await api('/editor/git/push', { method: 'POST', body: JSON.stringify({ force }) });
+                consoleEl.textContent += `\n[Push OK] ${pushRes.output || '推送成功'}`;
+                toast('推送至远端成功！');
+            }
+            $('haIdeGitCommitMsg').value = '';
+            loadGitStatus();
+        } catch (error) {
+            consoleEl.textContent += `\n[Error] ${error.message}`;
+            toast(error.message, 'error');
+        }
+    }
+
+    async function gitPull() {
+        const consoleEl = $('haIdeGitConsole');
+        consoleEl.textContent += '\n>> 正在从远端拉取更新 (git pull)...';
+        try {
+            const res = await api('/editor/git/pull', { method: 'POST', body: '{}' });
+            consoleEl.textContent += `\n[Pull OK] ${res.output || '拉取完成'}`;
+            toast('远端代码拉取成功');
+            loadIdeTree();
+            loadGitStatus();
+        } catch (error) {
+            consoleEl.textContent += `\n[Pull Error] ${error.message}`;
+            toast(error.message, 'error');
+        }
+    }
+
+    async function gitPushOnly() {
+        const consoleEl = $('haIdeGitConsole');
+        const force = $('haIdeForcePush').checked;
+        consoleEl.textContent += `\n>> 正在推送到远端 (force: ${force})...`;
+        try {
+            const res = await api('/editor/git/push', { method: 'POST', body: JSON.stringify({ force }) });
+            consoleEl.textContent += `\n[Push OK] ${res.output || '推送完成'}`;
+            toast('推送至远端成功！');
+            loadGitStatus();
+        } catch (error) {
+            consoleEl.textContent += `\n[Push Error] ${error.message}`;
+            toast(error.message, 'error');
+        }
+    }
+
+    // ── 文件操作 (新建、重命名、删除) ─────────────────────────
+    async function createNewItem(isDir = false, parentPath = '') {
+        const name = prompt(`请输入新建${isDir ? '目录' : '文件'}名称：`);
+        if (!name) return;
+        const targetPath = parentPath ? `${parentPath}/${name}` : name;
+        try {
+            await api('/editor/create', { method: 'POST', body: JSON.stringify({ path: targetPath, isDir }) });
+            toast(`已创建 ${name}`);
+            await loadIdeTree();
+            if (!isDir) openFileInTab(targetPath);
+        } catch (error) {
+            toast(`创建失败：${error.message}`, 'error');
+        }
+    }
+
+    async function renameTreeItem(oldPath) {
+        const oldName = oldPath.split('/').pop();
+        const newName = prompt('请输入新名称：', oldName);
+        if (!newName || newName === oldName) return;
+        const dir = oldPath.includes('/') ? oldPath.slice(0, oldPath.lastIndexOf('/')) : '';
+        const newPath = dir ? `${dir}/${newName}` : newName;
+        try {
+            await api('/editor/rename', { method: 'POST', body: JSON.stringify({ oldPath, newPath }) });
+            toast(`已重命名为 ${newName}`);
+            const openTab = ideState.tabs.find(t => t.path === oldPath);
+            if (openTab) {
+                openTab.path = newPath;
+                openTab.name = newName;
+                openTab.ext = newName.includes('.') ? newName.split('.').pop() : '';
+            }
+            if (ideState.activePath === oldPath) ideState.activePath = newPath;
+            await loadIdeTree();
+            renderTabs();
+        } catch (error) {
+            toast(`重命名失败：${error.message}`, 'error');
+        }
+    }
+
+    async function deleteTreeItem(itemPath) {
+        const name = itemPath.split('/').pop();
+        const proceed = confirm(`确定要永久删除 ${name} 吗？`);
+        if (!proceed) return;
+        try {
+            await api('/editor/delete', { method: 'POST', body: JSON.stringify({ path: itemPath }) });
+            toast(`已删除 ${name}`);
+            closeTab(itemPath);
+            await loadIdeTree();
+            loadGitStatus();
+        } catch (error) {
+            toast(`删除失败：${error.message}`, 'error');
+        }
+    }
+
+    // ── 查找与替换 ─────────────────────────────────────────
+    function toggleFindBar(show) {
+        const bar = $('haIdeFindBar');
+        bar.hidden = show !== undefined ? !show : !bar.hidden;
+        if (!bar.hidden) $('haIdeFindInput').focus();
+    }
+
+    function findNext() {
+        const q = $('haIdeFindInput').value;
+        if (!q) return;
+        const ta = $('haIdeTextarea');
+        const start = ta.selectionEnd;
+        let pos = ta.value.indexOf(q, start);
+        if (pos === -1) pos = ta.value.indexOf(q, 0);
+        if (pos !== -1) {
+            ta.selectionStart = pos;
+            ta.selectionEnd = pos + q.length;
+            ta.focus();
+            updateCursorInfo();
+        } else {
+            toast('未找到匹配内容', 'info');
+        }
+    }
+
+    function replaceCurrent() {
+        const q = $('haIdeFindInput').value;
+        const r = $('haIdeReplaceInput').value;
+        const ta = $('haIdeTextarea');
+        if (ta.selectionStart !== ta.selectionEnd && ta.value.substring(ta.selectionStart, ta.selectionEnd) === q) {
+            const start = ta.selectionStart;
+            ta.value = ta.value.substring(0, start) + r + ta.value.substring(ta.selectionEnd);
+            ta.selectionStart = start;
+            ta.selectionEnd = start + r.length;
+            ta.dispatchEvent(new Event('input'));
+            findNext();
+        } else {
+            findNext();
+        }
+    }
+
+    function replaceAll() {
+        const q = $('haIdeFindInput').value;
+        const r = $('haIdeReplaceInput').value;
+        if (!q) return;
+        const ta = $('haIdeTextarea');
+        const count = (ta.value.split(q).length - 1);
+        if (count === 0) return toast('未找到匹配内容', 'info');
+        ta.value = ta.value.split(q).join(r);
+        ta.dispatchEvent(new Event('input'));
+        toast(`已替换 ${count} 处匹配`);
+    }
+
+    // ── IDE 顶部及侧栏交互绑定 ─────────────────────────────
+    $('haIdeBtnSave').addEventListener('click', () => saveCurrentFile());
+    $('haIdeBtnRestart').addEventListener('click', () => saveAndRestartApp());
+    $('haIdeBtnHistory').addEventListener('click', openHistoryDrawer);
+    $('haIdeBtnGit').addEventListener('click', openGitDrawer);
+    $('haIdeGitRemotePill').addEventListener('click', openGitDrawer);
+    $('haIdeBtnFullscreen').addEventListener('click', () => $('haIdeWindow').classList.toggle('is-fullscreen'));
+    $('haIdeBtnClose').addEventListener('click', closeIde);
+    $('haIdeHistoryClose').addEventListener('click', () => $('haIdeHistoryDrawer').hidden = true);
+    $('haIdeGitClose').addEventListener('click', () => $('haIdeGitDrawer').hidden = true);
+    $('haIdeDiffClose').addEventListener('click', () => $('haIdeDiffModal').hidden = true);
+
+    $('haIdeBtnNewFile').addEventListener('click', () => createNewItem(false));
+    $('haIdeBtnNewFolder').addEventListener('click', () => createNewItem(true));
+    $('haIdeBtnRefreshTree').addEventListener('click', loadIdeTree);
+    $('haIdeSearchInput').addEventListener('input', e => {
+        ideState.filterQuery = e.target.value;
+        renderFileTree();
+    });
+
+    $('haIdeFileTree').addEventListener('click', e => {
+        const btn = e.target.closest('[data-tree-act]');
+        if (!btn) return;
+        const act = btn.dataset.treeAct;
+        const p = btn.dataset.path;
+        if (act === 'new-file') createNewItem(false, p);
+        if (act === 'rename') renameTreeItem(p);
+        if (act === 'delete') deleteTreeItem(p);
+    });
+
+    $('haIdeBtnFind').addEventListener('click', () => toggleFindBar(true));
+    $('haIdeBtnFindClose').addEventListener('click', () => toggleFindBar(false));
+    $('haIdeBtnFindNext').addEventListener('click', findNext);
+    $('haIdeBtnReplace').addEventListener('click', replaceCurrent);
+    $('haIdeBtnReplaceAll').addEventListener('click', replaceAll);
+    $('haIdeBtnDiscard').addEventListener('click', () => {
+        const tab = ideState.tabs.find(t => t.path === ideState.activePath);
+        if (!tab || !tab.isDirty) return;
+        if (confirm(`确定放弃 ${tab.name} 的全部未保存修改吗？`)) {
+            tab.currentContent = tab.originalContent;
+            tab.isDirty = false;
+            activateTab(tab.path);
+            toast('已放弃更改');
+        }
+    });
+
+    $('haIdeBtnSaveRemote').addEventListener('click', saveGitRemote);
+    $('haIdeBtnCommitOnly').addEventListener('click', () => gitCommitAndPush(false));
+    $('haIdeBtnCommitAndPush').addEventListener('click', () => gitCommitAndPush(true));
+    $('haIdeBtnPull').addEventListener('click', gitPull);
+    $('haIdeBtnPush').addEventListener('click', gitPushOnly);
+
+    // 全局快捷键处理 (当 IDE 打开时)
+    window.addEventListener('keydown', e => {
+        if ($('haIdeModal').hidden) return;
+        if (e.key === 'Escape' && !$('haIdeDiffModal').hidden) {
+            $('haIdeDiffModal').hidden = true;
+            return;
+        }
+        if (e.key === 'Escape' && !$('haIdeFindBar').hidden) {
+            toggleFindBar(false);
+            return;
+        }
+    });
+
+    // ── 数据库信息弹窗 ─────────────────────────────────
+    async function openDbInfoModal() {
+        $('haDbModal').hidden = false;
+        $('haDbModalTitle').textContent = `${current?.name || slug} · 已分配数据库`;
+        try {
+            const { appDatabase, businessDatabase, businessDatasource } = await api('/config');
+            const biz = businessDatabase?.name || businessDatasource || 'platform:report.db';
+            $('haDbBizName').textContent = biz;
+            $('haDbBizEnv').textContent = `BUSINESS_DATASOURCE_NAME=${biz}`;
+            if (appDatabase) {
+                $('haDbAppName').textContent = `app (Schema: ${appDatabase.schema || 'default'})`;
+                $('haDbAppEnv').textContent = `APP_DATASOURCE_ID=app, APP_SCHEMA=${appDatabase.schema || ''}`;
+                $('haDbAppFile').textContent = appDatabase.file || 'app.db';
+            }
+        } catch (error) {
+            toast(`读取数据库配置失败: ${error.message}`, 'error');
+        }
+    }
+
+    $('haDbModalClose').addEventListener('click', () => $('haDbModal').hidden = true);
+    document.addEventListener('click', e => {
+        const copyBtn = e.target.closest('[data-copy-target]');
+        if (copyBtn) {
+            const targetId = copyBtn.dataset.copyTarget;
+            const text = $(targetId)?.textContent || '';
+            if (text && navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => {
+                    toast('已复制到剪贴板');
+                }).catch(() => {});
+            }
+        }
+    });
+
+    // ── 运维胶囊动作分发 ─────────────────────────────────
     async function runAction(action) {
         if (action === 'retry') return load();
         if (action === 'settings') return openSettings();
+        if (action === 'db-info') return openDbInfoModal();
+        if (action === 'ide') return openIde();
         if (action === 'logs-inline') {
             logsOpen = true;
             $('haCardLog').hidden = false;
@@ -212,6 +1387,7 @@
         try {
             await api(`/${action}`, { method: 'POST', body: '{}' });
             if (frame) { frame.remove(); frame = null; }
+            setBarVisible(false);
             setTimeout(load, 600);
         } catch (error) {
             if (window.AppDialog) AppDialog.alert(error.message, { title: '操作失败', tone: 'danger' });
@@ -220,17 +1396,43 @@
 
     $('haPill').addEventListener('click', event => {
         event.stopPropagation();
-        const open = $('haMenu').hidden;
-        $('haMenu').hidden = !open;
-        $('haPill').setAttribute('aria-expanded', String(open));
+        setMenuOpen($('haMenu').hidden);
     });
     $('haMenu').addEventListener('click', event => {
         const action = event.target.closest('button')?.dataset.action;
         if (!action) return;
-        $('haMenu').hidden = true;
+        setMenuOpen(false);
         runAction(action);
     });
-    document.addEventListener('click', () => { $('haMenu').hidden = true; });
+    document.addEventListener('click', event => {
+        if (!$('haBar').contains(event.target)) setMenuOpen(false);
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !$('haDbModal').hidden) {
+            $('haDbModal').hidden = true;
+            return;
+        }
+        if (event.key === 'Escape' && !$('haMenu').hidden) {
+            setMenuOpen(false);
+            $('haPill').focus();
+        }
+    });
+    $('haBar').addEventListener('pointerenter', () => clearTimeout(barCollapseTimer));
+    $('haBar').addEventListener('pointerleave', scheduleBarCollapse);
+    $('haBar').addEventListener('focusin', () => {
+        clearTimeout(barCollapseTimer);
+        $('haBar').classList.remove('is-collapsed');
+    });
+    $('haBar').addEventListener('focusout', scheduleBarCollapse);
+
+    window.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (frame && document.activeElement === frame) {
+                setMenuOpen(false);
+                $('haBar').classList.add('is-collapsed');
+            }
+        }, 0);
+    });
     $('haDrawerClose').addEventListener('click', () => { $('haDrawer').hidden = true; logsOpen = false; });
 
     load();

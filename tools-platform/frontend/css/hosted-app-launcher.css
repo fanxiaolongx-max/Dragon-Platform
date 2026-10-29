@@ -90,7 +90,11 @@ body {
 }
 .ha-log[hidden] { display: none; }
 .ha-frame { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #fff; }
-.ha-bar { position: fixed; top: 8px; right: 8px; z-index: 10; }
+.ha-bar {
+    position: fixed; top: 8px; right: 8px; z-index: 10;
+    transition: transform .22s ease;
+}
+.ha-bar.is-collapsed { transform: translateX(calc(100% + 8px - 24px)); }
 .ha-bar[hidden] { display: none; }
 .ha-pill {
     display: inline-flex; align-items: center; gap: 6px;
@@ -105,12 +109,13 @@ body {
     box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
 }
 .ha-pill:hover, .ha-pill[aria-expanded="true"] { opacity: 1; }
-.ha-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ha-muted); }
+.ha-pill:focus-visible { outline: 2px solid var(--ha-accent); outline-offset: 2px; }
+.ha-dot { flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--ha-muted); }
 .ha-dot[data-status="running"] { background: var(--ha-accent); }
 .ha-dot[data-status="crashed"], .ha-dot[data-status="install_failed"] { background: var(--ha-danger); }
 .ha-menu {
     position: absolute; right: 0; top: calc(100% + 6px);
-    min-width: 220px;
+    width: min(220px, calc(100vw - 16px));
     background: var(--ha-card);
     border: 1px solid var(--ha-border);
     border-radius: 10px;
@@ -141,6 +146,7 @@ body {
 .ha-drawer header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--ha-border); }
 .ha-drawer header button { border: 0; background: transparent; color: var(--ha-muted); font-size: 20px; cursor: pointer; }
 .ha-drawer pre { flex: 1; max-height: none; margin: 12px; }
+@media (prefers-reduced-motion: reduce) { .ha-bar { transition: none; } }
 @media (max-width: 600px) {
     .ha-card { padding: 22px 16px 18px; }
 }
@@ -157,3 +163,484 @@ body {
 }
 .ha-settings input:focus { outline: 2px solid var(--ha-accent); outline-offset: 1px; }
 .ha-settings-hint { margin: 0; font-size: 13px; color: var(--ha-text); }
+
+/* ── 在线 IDE（开发者代码修改与 Git 协作） ───────────────────────── */
+.ha-ide-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(8, 12, 18, 0.82);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+}
+.ha-ide-overlay[hidden] { display: none !important; }
+.ha-ide-window {
+    width: 96vw; height: 93vh; max-width: 1750px;
+    background: #161a23; color: #d8e1ec;
+    border: 1px solid #2b3342;
+    border-radius: 12px;
+    display: flex; flex-direction: column;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+    position: relative;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+.ha-ide-window.is-fullscreen {
+    width: 100vw; height: 100vh; max-width: none; border-radius: 0; border: none;
+}
+.ha-ide-header {
+    height: 48px; background: #12151d; border-bottom: 1px solid #252c38;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; flex-shrink: 0; user-select: none;
+}
+.ha-ide-brand { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; }
+.ha-ide-icon { font-size: 16px; }
+.ha-ide-app-name { color: #f0f6fc; font-weight: 600; }
+.ha-ide-badge { background: #1f2937; color: #58a6ff; font-size: 11px; padding: 2px 7px; border-radius: 4px; font-weight: 600; }
+.ha-ide-git-branch { background: #162620; color: #7ee787; font-size: 11px; padding: 2px 8px; border-radius: 4px; border: 1px solid #234033; }
+.ha-ide-git-remote-pill { background: #222033; color: #b392f0; font-size: 11px; padding: 2px 8px; border-radius: 4px; border: 1px solid #3c3359; cursor: pointer; }
+.ha-ide-git-remote-pill:hover { border-color: #8b6ad8; background: #29263e; }
+.ha-ide-dirty-badge { color: #f2994a; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.ha-ide-dirty-badge[hidden] { display: none !important; }
+.ha-ide-actions { display: flex; align-items: center; gap: 8px; }
+.ha-ide-btn {
+    background: #202632; border: 1px solid #303949; color: #e1e7f0;
+    border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; font-family: inherit;
+    transition: all .15s ease;
+}
+.ha-ide-btn:hover { background: #2b3343; border-color: #445168; }
+.ha-ide-btn.primary { background: #1f9d74; border-color: #1f9d74; color: #fff; font-weight: 500; }
+.ha-ide-btn.primary:hover { background: #25b889; border-color: #25b889; }
+.ha-ide-btn.sm { padding: 3px 8px; font-size: 11px; }
+.ha-ide-btn.icon-only { padding: 4px 8px; font-size: 14px; min-width: 28px; justify-content: center; }
+.ha-ide-body {
+    flex: 1; display: flex; min-height: 0; position: relative; overflow: hidden;
+}
+.ha-ide-sidebar {
+    width: 270px; background: #13161f; border-right: 1px solid #232a36;
+    display: flex; flex-direction: column; flex-shrink: 0; user-select: none;
+}
+.ha-ide-sidebar-header {
+    height: 38px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid #202633; font-size: 12px; color: #8c97a8; font-weight: 600;
+}
+.ha-ide-sidebar-actions button {
+    background: transparent; border: 0; color: #8c97a8; cursor: pointer;
+    padding: 3px 6px; border-radius: 4px; font-size: 12px;
+}
+.ha-ide-sidebar-actions button:hover { background: #202633; color: #fff; }
+.ha-ide-search-box {
+    padding: 8px 10px; border-bottom: 1px solid #202633;
+}
+.ha-ide-search-box input {
+    width: 100%; background: #1a1e28; border: 1px solid #293140; border-radius: 6px;
+    color: #e1e7f0; font-size: 12px; padding: 5px 8px; outline: none; box-sizing: border-box;
+}
+.ha-ide-search-box input:focus { border-color: #58a6ff; }
+.ha-ide-file-tree {
+    flex: 1; overflow-y: auto; overflow-x: hidden; padding: 6px 0;
+}
+.ha-ide-tree-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 4px 10px 4px 8px; font-size: 12px; cursor: pointer; color: #abb7c7;
+    border-radius: 4px; margin: 1px 4px; line-height: 1.4;
+}
+.ha-ide-tree-item:hover { background: #1e2430; color: #e6edf3; }
+.ha-ide-tree-item.is-active { background: #232e40; color: #58a6ff; font-weight: 500; }
+.ha-ide-tree-label { display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.ha-ide-tree-arrow { display: inline-block; width: 14px; text-align: center; color: #647082; font-size: 10px; }
+.ha-ide-tree-item-actions { display: none; gap: 4px; }
+.ha-ide-tree-item:hover .ha-ide-tree-item-actions { display: flex; }
+.ha-ide-tree-btn {
+    background: transparent; border: 0; color: #768396; cursor: pointer;
+    padding: 1px 4px; border-radius: 3px; font-size: 11px;
+}
+.ha-ide-tree-btn:hover { background: #2b3547; color: #f85149; }
+.ha-ide-editor-area {
+    flex: 1; display: flex; flex-direction: column; min-width: 0; background: #161a23; position: relative;
+}
+.ha-ide-tabs-bar {
+    height: 38px; background: #12151d; border-bottom: 1px solid #232a36;
+    display: flex; align-items: stretch; overflow-x: auto; overflow-y: hidden;
+    user-select: none;
+}
+.ha-ide-tabs-bar::-webkit-scrollbar { height: 3px; }
+.ha-ide-tabs-bar::-webkit-scrollbar-thumb { background: #2a3342; }
+.ha-ide-tab {
+    display: inline-flex; align-items: center; gap: 8px; padding: 0 12px;
+    font-size: 12px; color: #8b949e; background: #151821;
+    border-right: 1px solid #202633; border-top: 2px solid transparent;
+    cursor: pointer; white-space: nowrap;
+    min-width: 100px; max-width: 200px;
+}
+.ha-ide-tab:hover { background: #1a1e28; color: #c9d1d9; }
+.ha-ide-tab.is-active, .ha-ide-tab.is-active:hover {
+    background: #253b57; color: #f0f7ff; border-top-color: #58a6ff; font-weight: 600;
+    box-shadow: inset 0 -2px 0 rgba(88, 166, 255, .35);
+}
+.ha-ide-tab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.ha-ide-tab-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: #f2994a; display: none;
+}
+.ha-ide-tab.is-dirty .ha-ide-tab-dot { display: block; }
+.ha-ide-tab-close {
+    border: 0; background: transparent; color: #6e7681; border-radius: 4px;
+    width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 12px; line-height: 1;
+}
+.ha-ide-tab-close:hover { background: #2b3342; color: #f85149; }
+.ha-ide-tab.is-active .ha-ide-tab-close { color: #bddbff; }
+.ha-ide-tab.is-active .ha-ide-tab-close:hover { color: #f85149; }
+.ha-ide-subbar {
+    height: 30px; background: #141720; border-bottom: 1px solid #222834;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 12px; font-size: 11px; color: #768396; user-select: none;
+}
+.ha-ide-subbar-tools { display: flex; gap: 8px; }
+.ha-ide-tool-btn {
+    background: transparent; border: 0; color: #768396; font-size: 11px;
+    cursor: pointer; padding: 2px 6px; border-radius: 3px;
+}
+.ha-ide-tool-btn:hover { background: #232b3a; color: #58a6ff; }
+.ha-ide-find-bar {
+    background: #1a1f2a; border-bottom: 1px solid #293242; padding: 6px 12px;
+    display: flex; align-items: center; gap: 8px; z-index: 10;
+}
+.ha-ide-find-bar[hidden] { display: none !important; }
+.ha-ide-find-bar input {
+    background: #12151d; border: 1px solid #2c3546; color: #e1e7f0;
+    border-radius: 4px; padding: 4px 8px; font-size: 12px; outline: none; width: 170px;
+}
+.ha-ide-find-bar input:focus { border-color: #58a6ff; }
+.ha-ide-editor-container {
+    flex: 1; position: relative; overflow: hidden; display: flex;
+}
+.ha-ide-welcome {
+    flex: 1; display: grid; place-items: center; text-align: center; color: #647082;
+}
+.ha-ide-welcome[hidden] { display: none !important; }
+.ha-ide-welcome-inner { max-width: 440px; }
+.ha-ide-welcome-icon { font-size: 40px; margin-bottom: 12px; }
+.ha-ide-welcome h2 { font-size: 18px; color: #abb7c7; margin: 0 0 8px; }
+.ha-ide-welcome p { font-size: 13px; margin: 0 0 20px; line-height: 1.5; }
+.ha-ide-welcome-shortcuts {
+    background: #13161e; border: 1px solid #232a36; border-radius: 8px; padding: 12px 16px;
+    display: grid; gap: 8px; text-align: left; font-size: 12px;
+}
+.ha-ide-welcome-shortcuts div { display: flex; justify-content: space-between; align-items: center; }
+.ha-ide-welcome-shortcuts kbd {
+    background: #232b3a; border: 1px solid #333d52; color: #cbd5e1;
+    padding: 1px 6px; border-radius: 4px; font-family: monospace; font-size: 11px;
+}
+.ha-ide-editor-view {
+    flex: 1; display: flex; position: relative; overflow: hidden; background: #161a23;
+}
+.ha-ide-editor-view[hidden] { display: none !important; }
+.ha-ide-gutter {
+    white-space: pre;
+    width: 52px; background: #13161e; border-right: 1px solid #202633;
+    padding: 14px 8px 14px 4px; text-align: right; color: #4e596b;
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    user-select: none; overflow: hidden; flex-shrink: 0;
+}
+.ha-ide-code-wrap {
+    flex: 1; position: relative; overflow: hidden;
+}
+.ha-ide-pre, .ha-ide-textarea {
+    position: absolute; inset: 0; margin: 0;
+    padding: 14px 16px;
+    font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    tab-size: 4; -moz-tab-size: 4;
+    white-space: pre; word-wrap: normal;
+    box-sizing: border-box;
+    letter-spacing: normal;
+}
+.ha-ide-pre {
+    pointer-events: none; overflow: hidden; color: #d8e1ec; background: transparent; z-index: 1;
+}
+.ha-ide-textarea {
+    z-index: 2; color: transparent; background: transparent;
+    caret-color: #58a6ff; border: none; outline: none; resize: none;
+    overflow: auto;
+}
+.ha-ide-textarea::selection {
+    background: rgba(56, 139, 253, 0.35);
+}
+.ha-ide-binary-notice {
+    flex: 1; display: grid; place-items: center; text-align: center; color: #8b949e;
+}
+.ha-ide-binary-notice[hidden] { display: none !important; }
+
+/* ── 在线 IDE 文件加载动效与动态进度圆环 ────────────────── */
+.ha-ide-loading {
+    position: absolute; inset: 0; z-index: 30;
+    background: rgba(18, 22, 31, 0.78);
+    backdrop-filter: blur(5px);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    animation: ha-ide-fade-in .15s ease-out;
+}
+.ha-ide-loading[hidden] { display: none !important; }
+@keyframes ha-ide-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.ha-ide-loading-card {
+    background: #191d27;
+    border: 1px solid #2a3344;
+    border-radius: 12px;
+    padding: 24px 36px;
+    display: flex; flex-direction: column; align-items: center;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    min-width: 250px;
+    animation: ha-ide-zoom-in .2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes ha-ide-zoom-in {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+}
+.ha-ide-spinner-ring {
+    width: 48px; height: 48px; margin-bottom: 14px;
+    position: relative;
+}
+.ha-ide-circular {
+    animation: ha-ide-rotate 1.8s linear infinite;
+    height: 100%; width: 100%;
+    transform-origin: center center;
+}
+.ha-ide-path-bg {
+    stroke: rgba(88, 166, 255, 0.16);
+}
+.ha-ide-path {
+    stroke: #58a6ff;
+    stroke-linecap: round;
+    animation: ha-ide-dash 1.4s ease-in-out infinite;
+}
+@keyframes ha-ide-rotate {
+    100% { transform: rotate(360deg); }
+}
+@keyframes ha-ide-dash {
+    0% {
+        stroke-dasharray: 1, 150;
+        stroke-dashoffset: 0;
+    }
+    50% {
+        stroke-dasharray: 90, 150;
+        stroke-dashoffset: -35;
+    }
+    100% {
+        stroke-dasharray: 90, 150;
+        stroke-dashoffset: -124;
+    }
+}
+.ha-ide-loading-filename {
+    font-size: 13px; font-weight: 600; color: #f0f6fc;
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 8px;
+}
+.ha-ide-loading-status {
+    font-size: 12px; color: #8c97a8;
+}
+
+/* 侧边栏文件加载中态 */
+.ha-ide-tree-item.is-loading {
+    background: #1c2638;
+    color: #58a6ff;
+}
+.ha-ide-tree-item.is-loading .ha-ide-tree-arrow {
+    display: inline-block;
+    animation: ha-ide-rotate 1s linear infinite;
+}
+
+.tok-keyword { color: #ff7b72; font-weight: 500; }
+.tok-builtin { color: #79c0ff; }
+.tok-string { color: #a5d6ff; }
+.tok-comment { color: #8b949e; font-style: italic; }
+.tok-number { color: #d2a8ff; }
+.tok-decorator { color: #ffa657; }
+.tok-operator { color: #ff7b72; }
+.tok-tag { color: #7ee787; }
+.tok-attr { color: #79c0ff; }
+.tok-key { color: #7ee787; }
+.ha-ide-statusbar {
+    height: 24px; background: #12151d; border-top: 1px solid #202633;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 12px; font-size: 11px; color: #717d8f; user-select: none;
+}
+.ha-ide-status-left, .ha-ide-status-right { display: flex; align-items: center; gap: 14px; }
+.ha-ide-drawer {
+    position: absolute; top: 48px; right: 0; bottom: 24px; width: 450px;
+    background: #151822; border-left: 1px solid #283141; z-index: 50;
+    display: flex; flex-direction: column; box-shadow: -12px 0 35px rgba(0, 0, 0, 0.4);
+}
+.ha-ide-drawer[hidden] { display: none !important; }
+.ha-ide-drawer-header {
+    padding: 12px 16px; border-bottom: 1px solid #232b3a; display: flex; align-items: center; justify-content: space-between;
+}
+.ha-ide-drawer-header h3 { margin: 0; font-size: 14px; color: #e1e7f0; }
+.ha-ide-drawer-close {
+    background: transparent; border: 0; color: #768396; font-size: 16px; cursor: pointer;
+}
+.ha-ide-drawer-close:hover { color: #fff; }
+.ha-ide-drawer-body { flex: 1; overflow-y: auto; padding: 16px; display: grid; gap: 16px; }
+.ha-ide-drawer-hint { margin: 0; font-size: 12px; color: #8b949e; line-height: 1.5; }
+.ha-ide-commit-list { display: grid; gap: 8px; }
+.ha-ide-commit-card {
+    background: #1a1e28; border: 1px solid #293242; border-radius: 6px; padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 6px;
+}
+.ha-ide-commit-header { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #768396; }
+.ha-ide-commit-hash { font-family: monospace; color: #58a6ff; font-weight: 600; }
+.ha-ide-commit-msg { font-size: 12px; color: #d8e1ec; font-weight: 500; word-break: break-all; }
+.ha-ide-commit-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 4px; }
+.ha-ide-git-section { display: grid; gap: 8px; }
+.ha-ide-git-section h4 { margin: 0; font-size: 13px; color: #e1e7f0; }
+.ha-ide-input-row { display: flex; gap: 8px; }
+.ha-ide-input-row input, .ha-ide-input-col input {
+    flex: 1; background: #101319; border: 1px solid #283141; color: #e1e7f0;
+    padding: 6px 10px; border-radius: 6px; font-size: 12px; outline: none;
+}
+.ha-ide-input-row input:focus, .ha-ide-input-col input:focus { border-color: #58a6ff; }
+.ha-ide-input-col { display: grid; gap: 8px; }
+.ha-ide-btn-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ha-ide-checkbox-label { font-size: 11px; color: #8b949e; display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.ha-ide-git-console {
+    background: #0b0d12; border: 1px solid #1e2432; border-radius: 6px; padding: 8px 10px;
+    font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: #8b949e;
+    max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+}
+.ha-ide-diff-modal {
+    position: absolute; inset: 0; z-index: 60; background: rgba(8, 12, 18, 0.75);
+    display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.ha-ide-diff-modal[hidden] { display: none !important; }
+.ha-ide-diff-window {
+    width: min(1440px, 98%); height: 92%; max-height: 96%; background: #151822; border: 1px solid #283243;
+    border-radius: 10px; display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+.ha-ide-diff-header {
+    padding: 12px 16px; border-bottom: 1px solid #232b3a; display: flex; justify-content: space-between; align-items: center;
+}
+.ha-ide-diff-header h3 { margin: 0; font-size: 14px; color: #e1e7f0; }
+.ha-ide-diff-content {
+    flex: 1; margin: 0; padding: 14px; overflow: auto;
+    font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: #c9d1d9;
+    background: #0b0e14; white-space: pre-wrap; word-break: break-all;
+}
+
+
+/* 按文件组织的只读 Git 差异视图 */
+.ha-ide-diff-header { gap: 16px; }
+.ha-ide-diff-header h3 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ha-ide-diff-content.ide-diff-view { padding: 0; display: flex; flex-direction: column; overflow: hidden; min-height: 0; white-space: normal; word-break: normal; }
+.ide-diff-view [hidden] { display: none !important; }
+.ide-diff-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #30394a; background: #171e2b; flex-shrink: 0; font: 12px/1.5 system-ui,sans-serif; }
+.ide-diff-plus { color: #7ee7a2; white-space: nowrap; }
+.ide-diff-minus { color: #ffa8ae; white-space: nowrap; }
+.ide-diff-only { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; }
+.ide-diff-only input { accent-color: #58a6ff; }
+.ide-diff-body { display: flex; flex: 1; min-height: 0; }
+.ide-diff-nav { flex: 0 0 240px; min-width: 0; overflow: auto; padding: 12px; background: #111722; border-right: 1px solid #30394a; }
+.ide-diff-filter { width: 100%; padding: 8px; margin-bottom: 10px; background: #0b1018; color: #e1e7f0; border: 1px solid #35435b; border-radius: 6px; font: 12px system-ui,sans-serif; }
+.ide-diff-nav button { width: 100%; display: block; overflow: hidden; text-overflow: ellipsis; text-align: left; margin: 4px 0; }
+.ide-diff-nav button[aria-current="true"] { background: #253b57; border-color: #58a6ff; color: #f0f7ff; }
+.ide-diff-files { flex: 1; min-width: 0; padding: 14px; overflow: auto; }
+.ide-diff-file { border: 1px solid #30394a; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+.ide-diff-file > summary { padding: 12px; background: #1b2332; cursor: pointer; font: 12px/1.6 system-ui,sans-serif; overflow-wrap: anywhere; }
+.ide-diff-path { margin: 0 14px 0 8px; }
+.ide-diff-status { color: #b1bed1; margin-left: 6px; }
+.ide-diff-file > summary .ide-diff-plus { margin-right: 8px; }
+.ide-diff-meta { padding: 10px 14px; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: #91a1b8; font: 12px/1.5 ui-monospace,monospace; }
+.ide-diff-hunk > summary { padding: 8px 12px; color: #9bcaff; background: #14243a; font: 12px/1.5 ui-monospace,monospace; cursor: pointer; overflow-wrap: anywhere; }
+.ide-diff-lines { overflow-x: auto; }
+.ide-diff-line { display: flex; width: max-content; min-width: 100%; font: 12px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace; }
+.ide-diff-line.added { background: #102d24; box-shadow: inset 3px 0 #41c887; }
+.ide-diff-line.removed { background: #351b23; box-shadow: inset 3px 0 #ef7181; }
+.ide-diff-line.context { color: #9cabbf; }
+.ide-diff-line.note { color: #d5b87b; }
+.ide-diff-number { flex: 0 0 52px; padding: 0 8px; text-align: right; color: #8191a6; user-select: none; border-right: 1px solid #30394a; }
+.ide-diff-sign { flex: 0 0 26px; text-align: center; user-select: none; }
+.ide-diff-line.added .ide-diff-sign { color: #7ee7a2; }
+.ide-diff-line.removed .ide-diff-sign { color: #ffa8ae; }
+.ide-diff-line code { display: block; font: inherit; white-space: pre; tab-size: 4; padding-right: 12px; min-height: 1.7em; }
+.ide-diff-line mark { color: inherit; border-radius: 2px; }
+.ide-diff-line.added mark { background: #236344; color: #d5ffe5; }
+.ide-diff-line.removed mark { background: #7b3043; color: #ffe0e5; }
+.ide-diff-files.changes-only .context { display: none; }
+.ide-diff-raw { flex: 1; min-height: 0; margin: 0; padding: 16px; overflow: auto; white-space: pre; font: 12px/1.6 ui-monospace,monospace; }
+.ide-diff-view button:focus-visible, .ide-diff-view input:focus-visible, .ide-diff-view summary:focus-visible { outline: 2px solid #58a6ff; outline-offset: -2px; }
+@media (max-width: 700px) {
+    .ha-ide-diff-modal { padding: 6px; }
+    .ha-ide-diff-window { width: 100%; height: 98%; max-height: 100%; }
+    .ide-diff-body { flex-direction: column; }
+    .ide-diff-nav { display: flex; gap: 6px; flex: 0 0 auto; padding: 6px; border-right: 0; border-bottom: 1px solid #30394a; }
+    .ide-diff-nav .ide-diff-filter { flex: 0 0 130px; width: 130px; margin: 0; }
+    .ide-diff-nav button { flex: 0 0 auto; max-width: 180px; width: auto; margin: 0; }
+    .ide-diff-files { padding: 6px; }
+    .ide-diff-number { flex-basis: 38px; padding: 0 4px; }
+    .ide-diff-toolbar { padding: 8px; gap: 8px; }
+}
+
+/* ── 查看分配的数据库弹窗 ───────────────────────── */
+.ha-db-modal-overlay {
+    position: fixed; inset: 0; z-index: 1000;
+    background: rgba(8, 12, 18, 0.82);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px;
+}
+.ha-db-modal-overlay[hidden] { display: none !important; }
+.ha-db-modal-window {
+    width: min(600px, 94vw);
+    background: #161a23; color: #d8e1ec;
+    border: 1px solid #2b3342;
+    border-radius: 12px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    animation: ha-ide-zoom-in .2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ha-db-modal-header {
+    height: 48px; background: #12151d; border-bottom: 1px solid #252c38;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px; flex-shrink: 0;
+}
+.ha-db-modal-title { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: #f0f6fc; }
+.ha-db-modal-title h3 { margin: 0; font-size: 14px; }
+.ha-db-modal-close {
+    background: transparent; border: 0; color: #768396; font-size: 16px; cursor: pointer; padding: 4px 8px; border-radius: 4px;
+}
+.ha-db-modal-close:hover { color: #fff; background: #222834; }
+.ha-db-modal-body {
+    padding: 18px; display: grid; gap: 16px; max-height: 80vh; overflow-y: auto;
+}
+.ha-db-card {
+    background: #191e28; border: 1px solid #2b3546; border-radius: 10px; padding: 14px 16px;
+    display: grid; gap: 10px;
+}
+.ha-db-card-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px;
+}
+.ha-db-badge {
+    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;
+}
+.ha-db-badge.biz { background: #162a22; color: #7ee7a2; border: 1px solid #264a39; }
+.ha-db-badge.app { background: #261f38; color: #b392f0; border: 1px solid #433266; }
+.ha-db-perm { font-size: 11px; color: #8c97a8; }
+.ha-db-field { display: grid; gap: 4px; }
+.ha-db-field label { font-size: 11px; color: #8c97a8; font-weight: 500; }
+.ha-db-val-row { display: flex; align-items: center; gap: 8px; }
+.ha-db-code {
+    background: #10131b; border: 1px solid #242c3b; color: #79c0ff;
+    padding: 4px 8px; border-radius: 6px; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    flex: 1; word-break: break-all;
+}
+.ha-db-copy-btn {
+    background: #232a38; border: 1px solid #323d50; color: #c9d1d9;
+    border-radius: 5px; padding: 3px 8px; font-size: 11px; cursor: pointer;
+}
+.ha-db-copy-btn:hover { background: #2e374a; color: #fff; }
+.ha-db-desc {
+    font-size: 11px; color: #7a8698; line-height: 1.5; border-top: 1px dashed #283244; padding-top: 8px; margin-top: 2px;
+}

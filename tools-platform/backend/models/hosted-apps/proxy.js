@@ -251,6 +251,7 @@ function handler(req, res) {
             return res.end(SHIM);
         }
         if (rest === '/__platform/storage') return handleStorage(req, res, slug, claims);
+        if (rest.startsWith('/__platform/adc/')) return require('./adc-bridge').handle(req, res, rest.slice('/__platform/adc'.length), claims);
         if (req.method === 'OPTIONS' && req.headers['access-control-request-method']) {
             res.statusCode = 204;
             res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
@@ -294,7 +295,7 @@ function handler(req, res) {
                 chunks.push(chunk);
             });
             response.on('end', () => {
-                const body = Buffer.from(injectShim(Buffer.concat(chunks).toString('utf8'), prefix), 'utf8');
+                const body = Buffer.from(injectShim(require('./adc-bridge').adaptHtml(Buffer.concat(chunks).toString('utf8'), prefix), prefix), 'utf8');
                 res.setHeader('Content-Length', body.length);
                 res.end(body);
             });
