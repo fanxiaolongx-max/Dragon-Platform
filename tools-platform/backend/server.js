@@ -438,6 +438,7 @@ app.use('/api', (req, res, next) => {
     if (req.method === 'POST' && req.path === '/platform-promotions/clicks') return next(); // 登录用户上报推广点击，路由内校验推广项
     if (req.method === 'POST' && req.path === '/ai/proactive-alert-message') return next(); // 只读 KPI 提醒文案，不修改业务数据
     if (req.method === 'POST' && req.path === '/ai/chat') return next(); // 登录用户都可对话；工作区内非管理员只拿到只读工具（路由与 agent-run-manager 内校验）
+    if (req.method === 'POST' && req.path === '/ai/uploads') return next(); // 登录用户上传本人对话附件，只存进本人附件目录（路由内按 租户::账号 分目录）
     if (req.method === 'POST' && req.path === '/ai/compact') return next(); // 登录用户仅可压缩本人会话的模型上下文，路由内校验归属
     if (req.method === 'PUT' && req.path === '/ai/conversation-list') return next(); // 登录用户仅维护自己在当前租户的列表偏好
     if (req.method === 'DELETE' && /^\/ai\/sessions\/[^/]+$/.test(req.path)) return next(); // 路由仅允许删除本人会话，运行中的对话不可删除

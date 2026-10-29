@@ -214,6 +214,22 @@ body.dc-chatting .dc-feature-link { display: none; }
 
 /* 模型选择：输入框左下角的弹出菜单（切换从下一条消息生效） */
 .dc-composer { position: relative; z-index: 5; }
+/* 对话附件：输入框上方的待发送附件、附件按钮、拖入时的高亮；用户消息里的附件卡片 */
+.dc-attachments { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.dc-attachments[hidden] { display: none; }
+.dc-attachment { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 28px; padding: 0 4px 0 10px; border: 1px solid rgba(148, 163, 184, 0.22); border-radius: 9px; background: rgba(2, 6, 23, 0.35); color: var(--dc-text); font-size: 12px; }
+.dc-attachment-name { overflow: hidden; max-width: 220px; text-overflow: ellipsis; white-space: nowrap; }
+.dc-attachment-meta { flex: none; color: var(--dc-faint); font-size: 11px; }
+.dc-attachment.is-uploading { border-color: rgba(96, 165, 250, 0.35); }
+.dc-attachment.is-error { border-color: rgba(248, 113, 113, 0.45); }
+.dc-attachment.is-error .dc-attachment-meta { color: #f87171; }
+.dc-attachment-remove { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--dc-muted); font-size: 15px; line-height: 1; cursor: pointer; }
+.dc-attachment-remove:hover, .dc-attachment-remove:focus-visible { background: rgba(148, 163, 184, 0.16); color: var(--dc-text); }
+.dc-attach { display: grid; flex: none; place-items: center; width: 28px; height: 28px; padding: 0; border: 1px solid transparent; border-radius: 9px; background: transparent; color: var(--dc-muted); cursor: pointer; }
+.dc-attach svg { width: 18px; height: 18px; }
+.dc-attach:hover, .dc-attach:focus-visible { border-color: rgba(148, 163, 184, 0.22); color: var(--dc-text); }
+.dc-composer.is-dropping { border-color: var(--dc-accent); box-shadow: 0 0 0 3px rgba(100, 255, 218, 0.14); }
+.dc-msg-attachments { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-top: 6px; }
 .dc-model { position: relative; flex: none; }
 .dc-model[hidden], .dc-model-menu[hidden] { display: none; }
 .dc-model-btn {

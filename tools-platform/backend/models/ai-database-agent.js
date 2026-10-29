@@ -3,6 +3,7 @@ const toolsService = require('./agent-tools-service');
 const agentLoop = require('./agent-loop');
 const { redactText, redactValue } = require('./ai-sensitive-data');
 const scriptService = require('./agent-script-service');
+const filesAgent = require('./ai-files-agent');
 
 const TOOL_NAMES = new Set(['list_databases', 'database_schema', 'read_database_table',
     'insert_database_row', 'update_database_rows', 'delete_database_rows',
@@ -23,12 +24,14 @@ filters 精确定位；整表操作需要用户明确要求该范围，并显式
 账号、会话、租户控制面、凭据及其他租户数据仍不开放。其他本地 SQLite 需要先选择工作目录；当前工具不支持 MySQL/PostgreSQL 等外部数据库连接，也不提供任意 SQL 或 DDL。`;
 
 /**
- * ctx.owner（租户::账号）与 ctx.chatSessionId 用于把大结果存成本人文件；不给时结果按原上限截断。ctx.username 用于长期记忆。
+ * ctx.owner（租户::账号）与 ctx.chatSessionId 用于把大结果存成本人文件；不给时结果按原上限截断。ctx.username 用于长期记忆，ctx.uploads 是对话里的附件。
  * @returns {Promise<{text, usage, toolLog, toolsUnsupported?}>}
  */
 async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model }) {
     if (ctx.readOnly !== false) throw Object.assign(new Error('数据库写入仅对管理员开放'), { code: 'AGENT_DATABASE_FORBIDDEN' });
-    const tools = toolsService.definitions().filter(tool => TOOL_NAMES.has(tool.name));
+    // 对话里上传过附件时，带上只读的附件工具（read_file / read_document / query_data / diff_files）
+    const files = filesAgent.toolset({ ...ctx, signal });
+    const tools = [...toolsService.definitions().filter(tool => TOOL_NAMES.has(tool.name)), ...(files ? files.definitions : [])];
     const sensitiveValues = ctx.sensitiveValues || [];
     // 普通对话不接受客户端提供的文件根目录或其他执行上下文。
     const toolCtx = { readOnly: false, sensitiveValues, signal, fullResults: Boolean(ctx.owner), username: ctx.username || '',
@@ -36,13 +39,14 @@ async function runTurn({ client, systemInstruction, messages, ctx, signal, onDel
     const safe = value => redactValue(value, { secrets: sensitiveValues });
     let scriptNudged = false;
     const result = await agentLoop.runToolLoop({
-        client, model, systemPrompt: redactText(`${systemInstruction}\n${PROMPT}`, { secrets: sensitiveValues }), messages, tools,
+        client, model, systemPrompt: redactText(`${systemInstruction}\n${PROMPT}${files ? files.prompt : ''}`, { secrets: sensitiveValues }), messages, tools,
         write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
         signal, maxOutputTokens, temperature, sensitiveValues, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'database',
         artifactOwner: ctx.owner || '', artifactSession: ctx.chatSessionId || 'home',
         executeCall: async (call, { start }) => {
             const args = safe(call.args && typeof call.args === 'object' ? call.args : {});
             start({ args });
+            if (files?.names.has(call.name)) return files.execute(call.name, args);
             const outcome = TOOL_NAMES.has(call.name)
                 ? await toolsService.execute(toolCtx, call.name, args)
                 : { content: '当前对话不提供该工具', summary: '工具不可用', isError: true };

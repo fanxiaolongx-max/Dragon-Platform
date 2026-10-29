@@ -16,7 +16,7 @@
             btwTitle: '顺便问', btwBadge: '不计入当前对话', btwNeedQuestion: '请在 /btw 后写上问题', btwClose: '关闭', btwFailed: '回答失败', btwPending: '（主对话里我刚问了：{text}，回复还在生成）',
             scheduleNew: '新建定时任务', pushTo: '推送到', pushAdd: '+ 选择 WeLink/微信 的人或群（可选）', pushAddMore: '+ 添加', pushRemove: '移除', pushTitle: '推送到', pushSearch: '搜索名称或账号，支持拼音…', pushGroup: '群', pushUser: '联系人', pushSelected: '已选 {count} 个', pushHint: '执行完成后把结果推送给所选对象', pushDone: '完成', pushEmpty: '还没有可推送的对象（联系人需先与助理单聊过，群需在群里用过助理）', pushNoMatch: '没有匹配的对象', pushNoChannel: '还没有对接 WeLink 或微信', pushLimit: '最多选择 10 个对象', scheduleCreatedPush: '，完成后推送给 {names}', schedulePushTo: '推送给 {names}', schedulePushResult: '上次推送：成功 {sent}，失败 {failed}',
             datacomTitle: '数通协议专家', datacomDescription: '协议图解 · 交互实验 · 视频讲解',
-            badge: '全能智能体', newChat: '新对话', history: '历史', exportLog: '导出日志', exportLogEmpty: '当前对话还没有保存的记录，发送一条消息后再导出', exportLogDone: '对话日志已导出', exportLogFailed: '导出失败', exportLogBusy: '回复完成后再导出，日志才完整',
+            badge: '全能智能体', newChat: '新对话', history: '历史', attach: '添加附件（Excel、CSV、Word、PPT、文本等，单个不超过 20MB）', attachLabel: '附件', attachUploading: '上传中…', attachFailed: '上传失败', attachRemove: '移除', attachTooMany: '一次最多 5 个附件', attachPending: '附件还在上传，请稍候', attachDrop: '松开即可添加附件', exportLog: '导出日志', exportLogEmpty: '当前对话还没有保存的记录，发送一条消息后再导出', exportLogDone: '对话日志已导出', exportLogFailed: '导出失败', exportLogBusy: '回复完成后再导出，日志才完整',
             chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}', chatDelete: '删除对话', chatDeleteConfirm: '删除「{title}」及其聊天记录？此操作无法撤销。', chatDeleteFailed: '删除失败，请稍后重试', chatDeleted: '对话已删除',
             activityThinking: '正在思考…', activityCompacting: '上下文快满了，正在把较早内容整理成摘要…', compactDone: '已自动压缩上下文：较早的 {count} 条记录整理成摘要（约 {before} → {after} tokens），完整过程仍保留在会话档案中', compactFailed: '自动压缩没有成功（{error}），改为移出较早的轮次', thinkLabel: '思考过程', thinkDone: '已思考', thinkPhase_ponder: '构思', thinkPhase_plan: '规划', thinkPhase_search: '检索', thinkPhase_analyze: '分析', thinkPhase_calc: '计算', thinkPhase_verify: '核对', thinkPhase_code: '推敲代码', thinkPhase_conclude: '归纳', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
             resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolArtifact: '完整结果（{lines} 行）', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
@@ -72,7 +72,7 @@
             btwTitle: 'By the way', btwBadge: 'Not added to this chat', btwNeedQuestion: 'Add a question after /btw', btwClose: 'Close', btwFailed: 'Could not answer', btwPending: '(In the main chat I just asked: {text}; the reply is still coming)',
             scheduleNew: 'New task', pushTo: 'Push to', pushAdd: '+ Pick WeLink/WeChat people or groups (optional)', pushAddMore: '+ Add', pushRemove: 'Remove', pushTitle: 'Push to', pushSearch: 'Search name or account (pinyin works)…', pushGroup: ' group', pushUser: ' contact', pushSelected: '{count} selected', pushHint: 'The result is pushed to them after it runs', pushDone: 'Done', pushEmpty: 'Nobody can be pushed to yet (contacts must chat with the assistant first; groups must have used it)', pushNoMatch: 'No matches', pushNoChannel: 'WeLink or WeChat is not connected yet', pushLimit: 'Pick up to 10', scheduleCreatedPush: ', then push to {names}', schedulePushTo: 'Push to {names}', schedulePushResult: 'Last push: {sent} sent, {failed} failed',
             datacomTitle: 'Datacom Protocol Expert', datacomDescription: 'Visual guides · Interactive labs · Videos',
-            badge: 'All-round agent', newChat: 'New chat', history: 'History', exportLog: 'Export log', exportLogEmpty: 'Nothing saved in this chat yet. Send a message first.', exportLogDone: 'Chat log exported', exportLogFailed: 'Export failed', exportLogBusy: 'Export after the reply finishes so the log is complete',
+            badge: 'All-round agent', newChat: 'New chat', history: 'History', attach: 'Attach files (Excel, CSV, Word, PowerPoint, text…, up to 20 MB each)', attachLabel: 'Attachments', attachUploading: 'Uploading…', attachFailed: 'Upload failed', attachRemove: 'Remove', attachTooMany: 'Up to 5 attachments at a time', attachPending: 'Attachments are still uploading', attachDrop: 'Drop to attach', exportLog: 'Export log', exportLogEmpty: 'Nothing saved in this chat yet. Send a message first.', exportLogDone: 'Chat log exported', exportLogFailed: 'Export failed', exportLogBusy: 'Export after the reply finishes so the log is complete',
             chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}', chatDelete: 'Delete chat', chatDeleteConfirm: 'Delete “{title}” and its messages? This cannot be undone.', chatDeleteFailed: 'Could not delete this chat. Try again later.', chatDeleted: 'Chat deleted',
             activityThinking: 'Thinking…', activityCompacting: 'Context is nearly full; summarizing earlier steps…', compactDone: 'Context compacted automatically: {count} earlier entries were summarized (about {before} → {after} tokens). The full record stays in the session archive.', compactFailed: 'Automatic compaction failed ({error}); dropping the earliest turns instead', thinkLabel: 'Thinking', thinkDone: 'Thought for', thinkPhase_ponder: 'Pondering', thinkPhase_plan: 'Planning', thinkPhase_search: 'Searching', thinkPhase_analyze: 'Analyzing', thinkPhase_calc: 'Calculating', thinkPhase_verify: 'Verifying', thinkPhase_code: 'Coding', thinkPhase_conclude: 'Concluding', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
             resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolArtifact: 'Full result ({lines} lines)', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: '↑↓ to choose · Enter to run · Tab to complete', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
@@ -126,6 +126,7 @@
 
     const state = {
         messages: [],
+        attachments: [], // 输入框上方待发送的附件：{ id, name, size, status: uploading | ready | error, path }
         sessionId: null,
         controller: null,
         restoring: false,
@@ -241,6 +242,8 @@
 
     function applyTexts() {
         el.root.querySelectorAll('[data-dc-i18n]').forEach(node => { node.textContent = tx(node.dataset.dcI18n); });
+        el.root.querySelectorAll('[data-dc-i18n-title]').forEach(node => { node.title = tx(node.dataset.dcI18nTitle); node.setAttribute('aria-label', tx(node.dataset.dcI18nTitle)); });
+        renderAttachments();
         el.thread.querySelectorAll('[data-dc-message-toggle]').forEach(updateMessageToggle);
         el.greeting.textContent = lang() === 'en-US' ? greeting().replace('，', ', ') : greeting();
         applyPlaceholder();
@@ -591,7 +594,9 @@
             : `<div class="dc-msg-main"><div class="dc-msg-body"></div></div>`;
         const body = message.querySelector('.dc-msg-body');
         if (role === 'user') {
-            body.textContent = text;
+            const { text: plain, files } = splitAttachments(text);
+            body.textContent = plain;
+            if (files.length && window.ChatFiles) body.insertAdjacentHTML('afterend', `<div class="dc-msg-attachments">${files.map(file => window.ChatFiles.chipHtml(file.path, file.name)).join('')}</div>`);
             body.id = `dc-user-body-${++messageBodyId}`;
             message.classList.add('is-collapsed');
             const toggle = document.createElement('button');
@@ -1030,7 +1035,8 @@
         el.form.classList.toggle('is-generating', generating);
         el.send.setAttribute('aria-label', generating ? tx('stop') : tx('send'));
         el.send.title = generating ? tx('stop') : tx('send');
-        el.send.disabled = (state.restoring && !isSideCommand(el.input.value)) || (!generating && !el.input.value.trim())
+        const readyAttachments = !external.active && state.attachments.some(item => item.status === 'ready');
+        el.send.disabled = (state.restoring && !isSideCommand(el.input.value)) || (!generating && !el.input.value.trim() && !readyAttachments)
             || (external.active && (!external.composer?.canSend || external.sending));
     }
 
@@ -1635,8 +1641,66 @@
     // 智能体提问卡片上点选的回答，作为下一条消息发送
     window.addEventListener('dragon-claw:answer', event => { if (event.detail?.text) send(String(event.detail.text)); });
 
+    // ── 对话附件 ───────────────────────────────────────
+    // 选中即上传到本人附件目录；发送时把文件链接附在消息末尾（模型用文件工具按路径读取，历史里显示成文件卡片）
+    const ATTACH_MARK = '📎 附件：';
+    const ATTACH_BLOCK_RE = new RegExp(`\\n*${ATTACH_MARK}\\n((?:- \\[[^\\]\\n]*\\]\\(<[^>\\n]+>\\)\\n?)+)\\s*$`);
+    function splitAttachments(text) {
+        const value = String(text || '');
+        const match = value.match(ATTACH_BLOCK_RE);
+        if (!match) return { text: value, files: [] };
+        const files = [...match[1].matchAll(/- \[([^\]\n]*)\]\(<([^>\n]+)>\)/g)].map(item => ({ name: item[1], path: item[2] }));
+        return { text: value.slice(0, match.index).trim(), files };
+    }
+    function attachmentBlock() {
+        const ready = state.attachments.filter(item => item.status === 'ready');
+        return ready.length ? `\n\n${ATTACH_MARK}\n${ready.map(item => `- [${item.name.replace(/[\[\]]/g, '')}](<${item.path}>)`).join('\n')}` : '';
+    }
+    function formatBytes(bytes) {
+        return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    }
+    function renderAttachments() {
+        if (!el.attachments) return;
+        el.attachments.hidden = !state.attachments.length;
+        el.attachments.innerHTML = state.attachments.map(item => `<span class="dc-attachment is-${item.status}" title="${escapeHtml(item.error || item.name)}">
+            <span class="dc-attachment-name">${escapeHtml(item.name)}</span>
+            <span class="dc-attachment-meta">${escapeHtml(item.status === 'uploading' ? tx('attachUploading') : item.status === 'error' ? tx('attachFailed') : formatBytes(item.size))}</span>
+            <button type="button" class="dc-attachment-remove" data-attachment-remove="${item.id}" aria-label="${escapeHtml(tx('attachRemove'))}" title="${escapeHtml(tx('attachRemove'))}">×</button></span>`).join('');
+        updateSendButton();
+    }
+    async function addAttachments(fileList) {
+        const files = Array.from(fileList || []);
+        if (!files.length) return;
+        const room = 5 - state.attachments.length;
+        if (files.length > room) showToast(tx('attachTooMany'));
+        const items = files.slice(0, Math.max(0, room)).map(file => ({ id: `a${++attachmentSeq}`, name: file.name, size: file.size, status: 'uploading', file }));
+        if (!items.length) return;
+        state.attachments.push(...items);
+        renderAttachments();
+        await Promise.all(items.map(async item => {
+            try {
+                const form = new FormData();
+                form.append('files', item.file, item.file.name);
+                const res = await fetch('/api/ai/uploads', { method: 'POST', headers: authHeaders(), body: form });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.files?.[0]) throw new Error(data.error || `HTTP ${res.status}`);
+                Object.assign(item, { status: 'ready', path: data.files[0].path, name: data.files[0].name, size: data.files[0].size });
+            } catch (error) {
+                Object.assign(item, { status: 'error', error: error.message });
+                showToast(`${tx('attachFailed')}：${item.name} · ${error.message}`);
+            } finally {
+                delete item.file;
+                renderAttachments();
+            }
+        }));
+    }
+    let attachmentSeq = 0;
+
     async function send(text, displayText = text, options = {}) {
-        const content = String(text || '').trim();
+        let content = String(text || '').trim();
+        const withAttachments = Boolean(options.fromComposer) && state.attachments.some(item => item.status === 'ready');
+        if (options.fromComposer && state.attachments.some(item => item.status === 'uploading')) { showToast(tx('attachPending')); return; }
+        if (!content && withAttachments) content = displayText = lang() === 'en-US' ? 'Please look at the attached files.' : '请看一下附件。';
         if (!content) return;
         if (external.active) return sendExternal(content);
         if (isSideCommand(content)) return runSlashCommand(content);
@@ -1646,6 +1710,14 @@
         el.thread.querySelectorAll('.dc-plan-actions').forEach(node => node.remove()); // 计划确认按钮只对最新一条计划有效
         el.thread.querySelectorAll('.dc-question:not(.is-history)').forEach(card => { card.classList.add('is-history'); card.querySelectorAll('[data-answer]').forEach(node => { node.disabled = true; }); }); // 用户自己回复后，旧问题的选项失效
         setChatting(true);
+        // 输入框里的附件随这条消息发出（点选提问选项、快捷提问等其他入口不带）
+        if (withAttachments) {
+            const block = attachmentBlock();
+            displayText = String(displayText || content).trim() + block;
+            content += block;
+            state.attachments = [];
+            renderAttachments();
+        }
         const shownText = String(displayText || content).trim();
         const userMessage = addMessage('user', shownText);
         addUserTools(userMessage, content, shownText);
@@ -2347,6 +2419,8 @@
 
     function newChat() {
         chatList.latestSeq++;
+        state.attachments = [];
+        renderAttachments();
         window.HomeAgentDiscussion?.activateSession?.(null);
         exitExternal();
         resumeEpoch += 1;
@@ -2518,7 +2592,34 @@
             event.preventDefault();
             if(external.active){sendExternal(el.input.value.trim());return;}
             if (state.controller && !isSideCommand(el.input.value)) state.controller.abort();
-            else send(el.input.value);
+            else send(el.input.value, undefined, { fromComposer: true });
+        });
+        // 附件：按钮选择、拖到输入框、粘贴文件
+        el.attach?.addEventListener('click', () => el.attachInput.click());
+        el.attachInput?.addEventListener('change', () => { addAttachments(el.attachInput.files); el.attachInput.value = ''; });
+        el.attachments?.addEventListener('click', event => {
+            const id = event.target.closest('[data-attachment-remove]')?.dataset.attachmentRemove;
+            if (!id) return;
+            state.attachments = state.attachments.filter(item => item.id !== id);
+            renderAttachments();
+        });
+        el.form.addEventListener('dragover', event => {
+            if (external.active || !event.dataTransfer?.types?.includes('Files')) return;
+            event.preventDefault();
+            el.form.classList.add('is-dropping');
+        });
+        el.form.addEventListener('dragleave', event => { if (!el.form.contains(event.relatedTarget)) el.form.classList.remove('is-dropping'); });
+        el.form.addEventListener('drop', event => {
+            el.form.classList.remove('is-dropping');
+            if (external.active || !event.dataTransfer?.files?.length) return;
+            event.preventDefault();
+            addAttachments(event.dataTransfer.files);
+        });
+        el.input.addEventListener('paste', event => {
+            const files = [...(event.clipboardData?.files || [])];
+            if (external.active || !files.length) return;
+            event.preventDefault();
+            addAttachments(files);
         });
         el.input.addEventListener('input', () => {
             if (external.active) external.composer?.onInput?.(el.input.value); // 外部会话各自保存草稿
@@ -2557,7 +2658,7 @@
             }
             if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
                 event.preventDefault();
-                if (!state.controller || isSideCommand(el.input.value)) send(el.input.value);
+                if (!state.controller || isSideCommand(el.input.value)) send(el.input.value, undefined, { fromComposer: true });
             }
         });
 
@@ -2670,6 +2771,9 @@
         el.form = document.getElementById('dcComposer');
         el.input = document.getElementById('dcInput');
         el.send = document.getElementById('dcSend');
+        el.attachments = document.getElementById('dcAttachments');
+        el.attach = document.getElementById('dcAttach');
+        el.attachInput = document.getElementById('dcAttachInput');
         el.prompts = document.getElementById('dcPrompts');
         el.spotlight = document.getElementById('dcSpotlight');
         el.greeting = document.getElementById('dcGreeting');

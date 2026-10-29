@@ -538,8 +538,8 @@ async function readLineWindow(abs, startLine, maxLines, maxBytes, fileSize, prot
 
 async function readFile(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
-    // 本人的大结果文件（agent-artifacts）在工作目录之外，也允许按行读取
-    const artifact = ctx.artifactOwner && path.isAbsolute(String(args.path)) && artifacts.belongsTo(ctx.artifactOwner, String(args.path));
+    // 本人的大结果文件和对话附件在工作目录之外，也允许按行读取
+    const artifact = ctx.artifactOwner && path.isAbsolute(String(args.path)) && artifacts.ownsFile(ctx.artifactOwner, String(args.path));
     const abs = artifact ? path.resolve(String(args.path)) : guard.resolveInsideRoot(ctx.root, args.path);
     const display = artifact ? abs : guard.toDisplayPath(ctx.root, abs);
     guard.assertNotSecretFile(abs);

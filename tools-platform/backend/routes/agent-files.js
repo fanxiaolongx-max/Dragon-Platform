@@ -61,9 +61,10 @@ async function resolveFile(req, raw) {
     const agentMedia = AGENT_MEDIA_DIRS.some(dir => { try { return guard.isInside(fs.realpathSync(dir), real); } catch (_error) { return false; } });
     if (!agentMedia && real.split(/[\\/]/).some(part => part.startsWith('.') && part !== '.' && part !== '..')) throw fileError(403, 'AGENT_FILE_HIDDEN', '不能读取隐藏目录中的文件');
     try { guard.assertNotSecretFile(real); } catch (error) { throw fileError(403, error.code, error.message); }
-    // Agent 的大结果文件只给本人：管理员也不能读别人的
-    const ownArtifact = artifacts.isUnderBase(real) && artifacts.belongsTo(`${getTenantId()}::${req.user?.username || ''}`, real);
-    if (artifacts.isUnderBase(real) && !ownArtifact) throw fileError(403, 'AGENT_FILE_FORBIDDEN', '只能查看自己的 Agent 结果文件');
+    // Agent 的大结果文件和对话附件只给本人：管理员也不能读别人的
+    const privateFile = artifacts.isUnderBase(real) || artifacts.isUnderUploads(real);
+    const ownArtifact = privateFile && artifacts.ownsFile(`${getTenantId()}::${req.user?.username || ''}`, real);
+    if (privateFile && !ownArtifact) throw fileError(403, 'AGENT_FILE_FORBIDDEN', '只能查看自己的 Agent 结果文件和附件');
     if (!ownArtifact && !access.isAgentWorkspaceAllowed(req)) {
         const roots = extraRoots().map(root => { try { return fs.realpathSync(root); } catch (_error) { return null; } }).filter(Boolean);
         if (!roots.some(root => guard.isInside(root, real))) throw fileError(403, 'AGENT_FILE_FORBIDDEN', '该文件仅本机或管理员可查看');

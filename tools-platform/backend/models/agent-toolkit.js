@@ -200,9 +200,12 @@ function parseDelimited(text, delimiter) {
 
 async function resolveFile(ctx, filePath) {
     if (!filePath) throw toolError('AGENT_ARGS', '缺少 path');
-    const abs = guard.resolveInsideRoot(ctx.root, filePath);
+    // 本人的对话附件和大结果文件可以用完整路径读取，即使不在工作目录里（或没有工作目录）
+    const owned = ctx.artifactOwner && path.isAbsolute(String(filePath)) && require('./agent-artifacts').ownsFile(ctx.artifactOwner, String(filePath));
+    if (!owned && !ctx.root) throw toolError('AGENT_PATH_OUTSIDE', '没有工作目录时只能读取本人上传的附件（用附件的完整路径）');
+    const abs = owned ? path.resolve(String(filePath)) : guard.resolveInsideRoot(ctx.root, filePath);
     guard.assertNotSecretFile(abs);
-    const display = guard.toDisplayPath(ctx.root, abs);
+    const display = owned ? path.basename(abs) : guard.toDisplayPath(ctx.root, abs);
     const stat = await fsp.stat(abs).catch(() => null);
     if (!stat) throw toolError('AGENT_NOT_FOUND', `文件不存在：${display}`);
     if (stat.isDirectory()) throw toolError('AGENT_IS_DIR', `${display} 是目录`);

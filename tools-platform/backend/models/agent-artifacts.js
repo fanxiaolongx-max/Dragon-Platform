@@ -15,6 +15,12 @@ const LIMITS = {
     keepDays: 14
 };
 
+// 对话附件（首页对话里上传的文件）：与大结果文件同样按 租户/账号 分目录、只给本人，保留 30 天
+const UPLOAD_KEEP_DAYS = 30;
+const UPLOAD_LIMITS = { fileBytes: 20 * 1024 * 1024, files: 5 };
+const UPLOAD_EXTENSIONS = new Set(['xlsx', 'xlsm', 'csv', 'tsv', 'txt', 'md', 'json', 'log', 'xml', 'yaml', 'yml', 'html', 'htm', 'docx', 'pptx', 'zip',
+    'js', 'ts', 'py', 'java', 'go', 'sql', 'sh', 'css', 'ini', 'conf', 'png', 'jpg', 'jpeg', 'gif', 'webp']);
+
 function baseDir() {
     return path.join(process.env.TOOLS_DATA_DIR || path.join(__dirname, '../data'), 'agent-artifacts');
 }
@@ -32,6 +38,16 @@ function ownerDir(owner) {
     return path.join(baseDir(), safeName(tenant || 'default'), safeName(user.join('::')));
 }
 
+function uploadsBase() {
+    return path.join(process.env.TOOLS_DATA_DIR || path.join(__dirname, '../data'), 'agent-uploads');
+}
+
+/** 本人的附件根目录：不选工作目录时，文件类工具以它为根 */
+function uploadDir(owner) {
+    const [tenant, ...user] = String(owner || '').split('::');
+    return path.join(uploadsBase(), safeName(tenant || 'default'), safeName(user.join('::')));
+}
+
 function realOrSelf(target) {
     try { return fs.realpathSync(target); } catch (_error) { return path.resolve(target); }
 }
@@ -42,6 +58,15 @@ function isUnderBase(abs) {
 
 function belongsTo(owner, abs) {
     return guard.isInside(realOrSelf(ownerDir(owner)), realOrSelf(abs));
+}
+
+function isUnderUploads(abs) {
+    return guard.isInside(realOrSelf(uploadsBase()), realOrSelf(abs));
+}
+
+/** 本人的大结果文件或对话附件：在工作目录之外也允许读取 */
+function ownsFile(owner, abs) {
+    return Boolean(owner) && (belongsTo(owner, abs) || guard.isInside(realOrSelf(uploadDir(owner)), realOrSelf(abs)));
 }
 
 /** JSON 里各数组的项数（顶层和第二层），如「tables：7 项」 */
@@ -60,8 +85,8 @@ function jsonShape(value) {
     return parts.join('，');
 }
 
-async function prune(dir) {
-    const cutoff = Date.now() - LIMITS.keepDays * 24 * 60 * 60 * 1000;
+async function prune(dir, keepDays = LIMITS.keepDays) {
+    const cutoff = Date.now() - keepDays * 24 * 60 * 60 * 1000;
     const sessions = await fsp.readdir(dir, { withFileTypes: true }).catch(() => []);
     for (const entry of sessions) {
         if (!entry.isDirectory()) continue;
@@ -112,4 +137,34 @@ async function spill({ owner, sessionId, callId, toolName, content }) {
     return { content: `${head}\n${note}\n${tail}`, artifact: { path: file, size: Buffer.byteLength(full), lines } };
 }
 
-module.exports = { LIMITS, baseDir, ownerDir, isUnderBase, belongsTo, spill, prune };
+/**
+ * 保存一个对话附件：放进本人附件目录下按时间新建的子目录，文件名只保留安全字符。
+ * @returns {{ path, name, size }}
+ */
+async function saveUpload(owner, { originalname, buffer }) {
+    const name = String(originalname || 'file').normalize('NFC').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, '_').replace(/^\.+/, '').slice(-120) || 'file';
+    const ext = path.extname(name).slice(1).toLowerCase();
+    if (!UPLOAD_EXTENSIONS.has(ext)) throw Object.assign(new Error(`不支持上传 .${ext || '（无扩展名）'} 文件`), { code: 'AGENT_UPLOAD_TYPE', statusCode: 400 });
+    guard.assertNotSecretFile(name);
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*$/, '').replace('T', '-');
+    const dir = path.join(uploadDir(owner), `${stamp}-${crypto.randomBytes(3).toString('hex')}`);
+    await fsp.mkdir(dir, { recursive: true, mode: 0o700 });
+    const file = path.join(dir, name);
+    await fsp.writeFile(file, buffer, { mode: 0o600 });
+    if (Math.random() < 0.1) prune(uploadDir(owner), UPLOAD_KEEP_DAYS).catch(() => {});
+    return { path: file, name, size: buffer.length };
+}
+
+/** 文本里出现的、属于本人的附件路径（附件说明用 Markdown 链接 [名称](<路径>) 写进用户消息） */
+function uploadsIn(owner, texts) {
+    const base = uploadDir(owner);
+    const found = new Set();
+    for (const text of texts) {
+        for (const match of String(text || '').matchAll(/\(<([^>]+)>\)/g)) {
+            if (guard.isInside(realOrSelf(base), realOrSelf(match[1])) && fs.existsSync(match[1])) found.add(match[1]);
+        }
+    }
+    return [...found];
+}
+
+module.exports = { LIMITS, UPLOAD_LIMITS, UPLOAD_EXTENSIONS, baseDir, ownerDir, isUnderBase, belongsTo, uploadsBase, uploadDir, isUnderUploads, ownsFile, saveUpload, uploadsIn, spill, prune };

@@ -154,3 +154,17 @@ test('agent result files are readable only by their owner, even for admins', asy
     const other = await get('/raw', saved.artifact.path, { 'x-test-role': 'admin', 'x-test-user': 'bob' });
     assert.equal(other.status, 403, 'another account, even a local admin, cannot');
 });
+
+test('chat attachments are stored per account and readable only by their owner', async () => {
+    const artifacts = require('../backend/models/agent-artifacts');
+    const saved = await artifacts.saveUpload('default::alice', { originalname: '../销售 明细.csv', buffer: Buffer.from('地区,金额\n华东,10\n') });
+    assert.ok(saved.path.startsWith(path.join(sandbox, 'data', 'agent-uploads')));
+    assert.equal(saved.name, '_销售 明细.csv', 'path separators are stripped from the name');
+    const own = await get('/raw', saved.path, { 'x-test-role': 'viewer', 'x-test-remote': '1', 'x-test-user': 'alice' });
+    assert.equal(own.status, 200);
+    assert.equal(await own.text(), '地区,金额\n华东,10\n');
+    assert.equal((await get('/raw', saved.path, { 'x-test-role': 'admin', 'x-test-user': 'bob' })).status, 403);
+    await assert.rejects(artifacts.saveUpload('default::alice', { originalname: 'tool.exe', buffer: Buffer.from('x') }), /不支持上传/);
+    assert.deepEqual(artifacts.uploadsIn('default::alice', [`看看 📎 附件：\n- [a](<${saved.path}>)`, '- [x](</etc/hosts>)']), [saved.path]);
+    assert.deepEqual(artifacts.uploadsIn('default::bob', [`- [a](<${saved.path}>)`]), [], 'another account cannot reference it');
+});

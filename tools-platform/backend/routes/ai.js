@@ -29,6 +29,9 @@ const opsAgent = require('../models/channels/ops-agent');
 const welinkCliAgent = require('../models/channels/welink-cli-agent');
 const netcareAgent = require('../models/digital-human/netcare-agent');
 const databaseAgent = require('../models/ai-database-agent');
+const filesAgent = require('../models/ai-files-agent');
+const agentArtifacts = require('../models/agent-artifacts');
+const multer = require('multer');
 
 console.log('[AI] AI Assistant route loaded. Runtime config will be read from settings, with provider-specific env fallback.');
 
@@ -852,6 +855,11 @@ async function handleChatRequest(req, res) {
         // 首页管理员无需选择目录即可使用平台业务库；频道、页面助手及专用 Skill 保持各自权限。
         const databaseMode = homeAgent && !agentMode && !channelTurn && req.user?.role === 'admin'
             && !opsSetup && !welinkCliSetup && !netcareSetup && !analysisCode;
+        // 对话附件：消息里引用的、属于本人的上传文件（频道对话不带）
+        const uploadFiles = homeAgent && !channelTurn
+            ? agentArtifacts.uploadsIn(agentRunManager.ownerKey(req.user, getTenantId()), effectiveMessages.map(item => item.content)) : [];
+        // 不选目录、没有其他工具的首页对话（如非管理员）有附件时，用只读的附件工具读取
+        const filesMode = homeAgent && !agentMode && !channelTurn && !databaseMode && !opsSetup && !welinkCliSetup && !netcareSetup && !analysisCode && uploadFiles.length > 0;
         // 长期记忆：管理员在首页对话（工作区或普通对话）里让智能体记住的偏好与约定；频道对话是多人场景，不带
         const memoryPrompt = homeAgent && !channelTurn && req.user?.role === 'admin' && (agentMode || databaseMode)
             ? await require('../models/agent-memory-repository').promptFor(req.user.username).catch(() => '') : '';
@@ -1037,7 +1045,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             ? await databaseAgent.runTurn({
                 client: aiClient, systemInstruction, messages: effectiveMessages,
                 // 大结果存成本人的文件（按租户::账号隔离），模型可按行读取
-                ctx: { readOnly: false, sensitiveValues, owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', username: req.user?.username || '' },
+                ctx: { readOnly: false, sensitiveValues, owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', username: req.user?.username || '', uploads: uploadFiles },
                 signal: providerAbortController?.signal,
                 maxOutputTokens: aiSettings.maxOutputTokens, temperature: aiSettings.temperature, model: aiSettings.model,
                 onEvent: writeStreamEvent,
@@ -1047,7 +1055,19 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
-        const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || databaseResult || (analysisResult ? analysisResult.result : await generateResponse());
+        const filesResult = filesMode
+            ? await filesAgent.runTurn({
+                client: aiClient, systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }), messages: effectiveMessages,
+                ctx: { owner: agentRunManager.ownerKey(req.user, getTenantId()), uploads: uploadFiles, sensitiveValues, chatSessionId: savedSessionId || '' },
+                signal: providerAbortController?.signal, maxOutputTokens: aiSettings.maxOutputTokens, temperature: aiSettings.temperature, model: aiSettings.model,
+                onEvent: writeStreamEvent,
+                onDelta: streamRequested ? delta => {
+                    streamHasDelta = true;
+                    writeStreamEvent({ type: 'delta', delta });
+                } : undefined
+            })
+            : null;
+        const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || databaseResult || filesResult || (analysisResult ? analysisResult.result : await generateResponse());
         const skillReferenceAudit = homeAgent ? skillCatalogContract.guardReply(result.text, loadedSkills.catalog || [], {
             language: uiLanguage, loadedIds: loadedSkills.selected.map(item => item.id)
         }) : null;
@@ -1211,6 +1231,34 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
     }
 }
 router.post('/chat', checkAuth, handleChatRequest);
+
+// multer 按 latin1 解出文件名：中文名还原成 UTF-8
+function uploadFilename(value) {
+    const raw = String(value || '').replace(/\\/g, '/').split('/').pop().normalize('NFC');
+    if (!/[\u0080-\u00ff]/.test(raw)) return raw;
+    const decoded = Buffer.from(raw, 'latin1').toString('utf8').normalize('NFC');
+    return !decoded.includes('\ufffd') ? decoded : raw;
+}
+
+/**
+ * POST /api/ai/uploads：首页对话的附件。存进本人附件目录（只有本人能读），返回完整路径；
+ * 前端把路径写进用户消息，模型用 read_document / query_data 等只读工具读取。
+ */
+router.post('/uploads', checkAuth, (req, res, next) => multer({ storage: multer.memoryStorage(), limits: { fileSize: agentArtifacts.UPLOAD_LIMITS.fileBytes, files: agentArtifacts.UPLOAD_LIMITS.files } })
+    .array('files', agentArtifacts.UPLOAD_LIMITS.files)(req, res, error => (error
+        ? res.status(400).json({ code: error.code, error: error.code === 'LIMIT_FILE_SIZE' ? '单个文件不能超过 20MB' : error.code === 'LIMIT_FILE_COUNT' || error.code === 'LIMIT_UNEXPECTED_FILE' ? '一次最多上传 5 个文件' : error.message })
+        : next())), async (req, res) => {
+    try {
+        const files = Array.isArray(req.files) ? req.files : [];
+        if (!files.length) return res.status(400).json({ code: 'AGENT_UPLOAD_EMPTY', error: '没有收到文件' });
+        const owner = agentRunManager.ownerKey(req.user, getTenantId());
+        const saved = [];
+        for (const file of files) saved.push(await agentArtifacts.saveUpload(owner, { originalname: uploadFilename(file.originalname), buffer: file.buffer }));
+        res.json({ files: saved });
+    } catch (error) {
+        res.status(error.statusCode || 500).json({ code: error.code || 'AGENT_UPLOAD_FAILED', error: error.message });
+    }
+});
 
 router.post('/compact', checkAuth, async (req, res) => {
     const id = String(req.body?.sessionId || '');

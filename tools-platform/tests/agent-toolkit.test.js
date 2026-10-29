@@ -181,3 +181,35 @@ test('the engine shows the task list without tool rows, ends the turn on ask_use
     assert.match(loaded.content, /### read_document[\s\S]*### query_data[\s\S]*### diff_files/);
     assert.doesNotMatch(loaded.content, /### (multi_edit|zip_files|unzip_file|memory)/, 'read-only accounts only get the read tools');
 });
+
+test('without a folder, the files preset reads the owner\'s attachments by full path and nothing else', async () => {
+    const artifacts = require('../backend/models/agent-artifacts');
+    const filesAgent = require('../backend/models/ai-files-agent');
+    const saved = await artifacts.saveUpload('default::alice', { originalname: 'sales.csv', buffer: Buffer.from('region,amount\nEast,10\nEast,5\nSouth,7\n') });
+    const other = await artifacts.saveUpload('default::bob', { originalname: 'secret.csv', buffer: Buffer.from('a\n1\n') });
+    const requests = [];
+    const replies = [
+        () => ({ toolCalls: [
+            { id: 'q', name: 'query_data', args: { path: saved.path, sql: 'SELECT region, SUM(amount) AS total FROM data GROUP BY 1 ORDER BY 1' } },
+            { id: 'b', name: 'read_file', args: { path: other.path } },
+            { id: 'r', name: 'read_document', args: { path: 'sales.csv' } },
+            { id: 'w', name: 'write_file', args: { path: saved.path, content: 'x' } }
+        ] }),
+        () => ({ text: 'East 15，South 7。' })
+    ];
+    const result = await filesAgent.runTurn({
+        client: { generateText: async options => { requests.push(options); return replies.shift()(); } }, systemInstruction: 'sys',
+        messages: [{ role: 'user', content: `汇总一下\n\n📎 附件：\n- [sales.csv](<${saved.path}>)` }],
+        ctx: { owner: 'default::alice', uploads: [saved.path], sensitiveValues: [] }
+    });
+    assert.equal(result.text, 'East 15，South 7。');
+    assert.match(requests[0].systemInstruction, /对话附件[\s\S]*sales\.csv（1 KB）/);
+    assert.deepEqual(requests[0].tools.map(tool => tool.name).filter(name => !['update_plan', 'ask_user', 'calculate'].includes(name)).sort(), ['diff_files', 'query_data', 'read_document', 'read_file']);
+    const [query, foreign, relative, write] = requests[1].messages.at(-1).toolResults;
+    assert.match(query.content, /East\t15\nSouth\t7/);
+    assert.equal(foreign.isError, true, 'another account\'s upload is refused');
+    assert.equal(relative.isError, true, 'without a folder only full attachment paths work');
+    assert.equal(write.isError, true);
+    assert.equal(fs.readFileSync(saved.path, 'utf8'), 'region,amount\nEast,10\nEast,5\nSouth,7\n');
+    assert.equal(filesAgent.toolset({ owner: 'default::alice', uploads: [] }), null);
+});
