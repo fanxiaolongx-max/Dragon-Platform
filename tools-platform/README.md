@@ -742,6 +742,7 @@ flowchart TD
 - 需要本机 Python 3.9+，`requirements.txt` 包含 `uvicorn`；可用 `platform-app.json` 声明入口。ZIP 上限 35 MB，解压上限 300 MB、3000 个文件；拒绝符号链接与越界路径。
 - 每个租户的每个应用使用独立虚拟环境和应用库，监听 `127.0.0.1` 随机端口。优先安装包内 `wheels/`，失败时回退在线安装；可在 Python 环境设置指定路径和 pip 镜像。离线环境需要与目标系统及 Python 版本匹配的完整依赖。
 - 同名包可选择更新或新建；更新保留应用数据库与访问配置。内置工具的 `hosted-app.zip` 首次打开时安装，后续包哈希变化时更新应用代码。管理员下载按钮导出应用 ZIP，运行中的业务数据库需单独备份。
+- 本机开发内置 Python 应用时，可执行 `npm run hosted:sync:enable`：仅在本机 Git 配置中启用自动同步，每次提交前从 `backend/data/hosted-apps/<slug>/app/` 重新生成已被 Git 跟踪的内置 ZIP，并将 ZIP 加入该次提交；推送前检查是否还有漏打包或未提交的包。同步只读取默认租户的应用代码，保留源码、静态资源、初始化 SQL 与 wheels，排除 `.env`（保留 `.env.example`）、数据库、密钥文件、日志、Git 目录和运行缓存；没有安装的应用保持原包。手动同步用 `npm run hosted:sync`，只检查用 `npm run hosted:sync:check`，关闭本机自动同步用 `npm run hosted:sync:disable`。通过 `--no-verify` 跳过 Git 钩子时需手动同步。修改运行目录里的应用代码不会自动更新原始上传包或其他租户的数据。
 - 应用位于当前租户 `hosted-apps/<slug>/`，包含 `app/`、`venv/`、`data/app.db` 和运行日志；Python 路径及 pip 镜像是本机共享设置。应用可读写自己的库，受限只读查询平台业务库或已配置的 NetCare 数据。
 - 应用页面使用访问令牌与 iframe/CSP 隔离；Python 进程仍拥有宿主操作系统账号权限，应只导入可信应用。当前支持 ASGI / WSGI，不执行自带 `run.py`，不支持要求自定义启动命令的应用。
 

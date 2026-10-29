@@ -354,9 +354,16 @@ body {
     white-space: pre; word-wrap: normal;
     box-sizing: border-box;
     letter-spacing: normal;
+    font-variant-ligatures: none;
 }
 .ha-ide-pre {
     pointer-events: none; overflow: hidden; color: #d8e1ec; background: transparent; z-index: 1;
+}
+.ha-ide-pre code {
+    font: inherit;
+}
+.ha-ide-pre .tok-keyword, .ha-ide-pre .tok-comment {
+    font-weight: inherit; font-style: normal;
 }
 .ha-ide-textarea {
     z-index: 2; color: transparent; background: transparent;

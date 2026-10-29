@@ -521,10 +521,22 @@
         loadGitStatus();
     }
 
-    function closeIde() {
+    async function closeIde() {
         const hasDirty = ideState.tabs.some(t => t.isDirty);
         if (hasDirty) {
-            const proceed = confirm('当前有未保存的代码修改，确定要关闭 IDE 吗？未保存的变动将丢失。');
+            let proceed = false;
+            if (window.AppDialog) {
+                proceed = await AppDialog.confirm('当前有未保存的代码修改，确定要关闭 IDE 吗？\n未保存的变动将丢失。', {
+                    title: '未保存修改',
+                    icon: '⚠️',
+                    eyebrow: '代码编辑器',
+                    tone: 'warning',
+                    confirmText: '放弃修改并关闭',
+                    cancelText: '继续编辑'
+                });
+            } else {
+                proceed = confirm('当前有未保存的代码修改，确定要关闭 IDE 吗？未保存的变动将丢失。');
+            }
             if (!proceed) return;
         }
         $('haIdeModal').hidden = true;
@@ -760,13 +772,25 @@
         }, 0);
     }
 
-    function closeTab(filePath, event) {
+    async function closeTab(filePath, event) {
         if (event) event.stopPropagation();
         const tabIndex = ideState.tabs.findIndex(t => t.path === filePath);
         if (tabIndex === -1) return;
         const tab = ideState.tabs[tabIndex];
         if (tab.isDirty) {
-            const proceed = confirm(`文件 ${tab.name} 尚未保存，确定要关闭吗？`);
+            let proceed = false;
+            if (window.AppDialog) {
+                proceed = await AppDialog.confirm(`文件「${tab.name}」尚未保存，确定要关闭吗？`, {
+                    title: '未保存修改',
+                    icon: '⚠️',
+                    eyebrow: '代码编辑器',
+                    tone: 'warning',
+                    confirmText: '关闭文件',
+                    cancelText: '取消'
+                });
+            } else {
+                proceed = confirm(`文件 ${tab.name} 尚未保存，确定要关闭吗？`);
+            }
             if (!proceed) return;
         }
         ideState.tabs.splice(tabIndex, 1);
@@ -811,12 +835,16 @@
 
     function highlightEditor(tab) {
         const codeEl = $('haIdeCode');
-        const code = tab.currentContent;
+        // Use the textarea's normalized text so both layers share character offsets.
+        const code = $('haIdeTextarea').value;
         if (window.IdeHighlighter) {
             codeEl.innerHTML = window.IdeHighlighter.highlight(code, tab.lang) + '\n';
+            // A malformed highlighter must not move visible text away from the caret.
+            if (codeEl.textContent !== code + '\n') codeEl.textContent = code + '\n';
         } else {
             codeEl.textContent = code + '\n';
         }
+        syncScroll();
     }
 
     function updateLineNumbers(text) {
@@ -1067,7 +1095,19 @@
     }
 
     async function revertToCommit(commitHash) {
-        const proceed = confirm(`确定要将代码完全回退到版本 ${commitHash.slice(0, 7)} 吗？回退后当前工作区将恢复至该历史时刻。`);
+        let proceed = false;
+        if (window.AppDialog) {
+            proceed = await AppDialog.confirm(`确定要将代码完全回退到版本 ${commitHash.slice(0, 7)} 吗？\n回退后当前工作区将恢复至该历史时刻。`, {
+                title: '版本回退确认',
+                icon: '⏮️',
+                eyebrow: '版本控制',
+                tone: 'danger',
+                confirmText: '确认回退',
+                cancelText: '取消'
+            });
+        } else {
+            proceed = confirm(`确定要将代码完全回退到版本 ${commitHash.slice(0, 7)} 吗？回退后当前工作区将恢复至该历史时刻。`);
+        }
         if (!proceed) return;
         try {
             await api('/editor/git/revert', {
@@ -1158,12 +1198,30 @@
 
     // ── 文件操作 (新建、重命名、删除) ─────────────────────────
     async function createNewItem(isDir = false, parentPath = '') {
-        const name = prompt(`请输入新建${isDir ? '目录' : '文件'}名称：`);
-        if (!name) return;
+        const title = isDir ? '新建目录' : '新建文件';
+        const label = parentPath ? `将在目录「${parentPath}」下创建：` : '输入名称（支持多级相对路径，如 app/test.py）：';
+        const placeholder = isDir ? '例如: routers' : '例如: test.py';
+        let name = null;
+        if (window.AppDialog) {
+            name = await AppDialog.prompt(label, {
+                title,
+                icon: isDir ? '📁' : '📄',
+                eyebrow: '资源管理器',
+                label: isDir ? '目录名称' : '文件名称',
+                placeholder,
+                confirmText: '创建',
+                cancelText: '取消'
+            });
+        } else {
+            name = prompt(`请输入${title}名称：`);
+        }
+        if (!name || !name.trim()) return;
+        name = name.trim();
         const targetPath = parentPath ? `${parentPath}/${name}` : name;
         try {
             await api('/editor/create', { method: 'POST', body: JSON.stringify({ path: targetPath, isDir }) });
             toast(`已创建 ${name}`);
+            if (parentPath) ideState.expandedFolders.add(parentPath);
             await loadIdeTree();
             if (!isDir) openFileInTab(targetPath);
         } catch (error) {
@@ -1173,8 +1231,23 @@
 
     async function renameTreeItem(oldPath) {
         const oldName = oldPath.split('/').pop();
-        const newName = prompt('请输入新名称：', oldName);
-        if (!newName || newName === oldName) return;
+        let newName = null;
+        if (window.AppDialog) {
+            newName = await AppDialog.prompt(`重命名「${oldName}」：`, {
+                title: '重命名',
+                icon: '✏️',
+                eyebrow: '资源管理器',
+                label: '新名称',
+                defaultValue: oldName,
+                placeholder: oldName,
+                confirmText: '确认重命名',
+                cancelText: '取消'
+            });
+        } else {
+            newName = prompt('请输入新名称：', oldName);
+        }
+        if (!newName || !newName.trim() || newName.trim() === oldName) return;
+        newName = newName.trim();
         const dir = oldPath.includes('/') ? oldPath.slice(0, oldPath.lastIndexOf('/')) : '';
         const newPath = dir ? `${dir}/${newName}` : newName;
         try {
@@ -1196,7 +1269,19 @@
 
     async function deleteTreeItem(itemPath) {
         const name = itemPath.split('/').pop();
-        const proceed = confirm(`确定要永久删除 ${name} 吗？`);
+        let proceed = false;
+        if (window.AppDialog) {
+            proceed = await AppDialog.confirm(`确定要永久删除「${name}」吗？\n删除后不可恢复。`, {
+                title: '删除确认',
+                icon: '🗑️',
+                eyebrow: '资源管理器',
+                tone: 'danger',
+                confirmText: '删除',
+                cancelText: '取消'
+            });
+        } else {
+            proceed = confirm(`确定要永久删除 ${name} 吗？`);
+        }
         if (!proceed) return;
         try {
             await api('/editor/delete', { method: 'POST', body: JSON.stringify({ path: itemPath }) });
@@ -1296,10 +1381,23 @@
     $('haIdeBtnFindNext').addEventListener('click', findNext);
     $('haIdeBtnReplace').addEventListener('click', replaceCurrent);
     $('haIdeBtnReplaceAll').addEventListener('click', replaceAll);
-    $('haIdeBtnDiscard').addEventListener('click', () => {
+    $('haIdeBtnDiscard').addEventListener('click', async () => {
         const tab = ideState.tabs.find(t => t.path === ideState.activePath);
         if (!tab || !tab.isDirty) return;
-        if (confirm(`确定放弃 ${tab.name} 的全部未保存修改吗？`)) {
+        let proceed = false;
+        if (window.AppDialog) {
+            proceed = await AppDialog.confirm(`确定放弃「${tab.name}」的全部未保存修改吗？\n放弃后将还原为磁盘上的原始内容。`, {
+                title: '放弃修改',
+                icon: '↩️',
+                eyebrow: '代码编辑器',
+                tone: 'warning',
+                confirmText: '放弃更改',
+                cancelText: '继续编辑'
+            });
+        } else {
+            proceed = confirm(`确定放弃 ${tab.name} 的全部未保存修改吗？`);
+        }
+        if (proceed) {
             tab.currentContent = tab.originalContent;
             tab.isDirty = false;
             activateTab(tab.path);

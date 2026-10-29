@@ -14,6 +14,24 @@
             .replace(/'/g, '&#39;');
     }
 
+    function highlightHtmlTag(tag) {
+        const head = /^(<\/?)([a-zA-Z][\w:-]*)/.exec(tag);
+        let result = escapeHtml(head[1]) + `<span class="tok-tag">${escapeHtml(head[2])}</span>`;
+        const attrs = /(\s+)([^\s=/>]+)(?:(\s*=\s*)("[^"]*"|'[^']*'|[^\s>]+))?/g;
+        attrs.lastIndex = head[0].length;
+        let cursor = head[0].length;
+        let attr;
+        while ((attr = attrs.exec(tag))) {
+            result += escapeHtml(tag.slice(cursor, attr.index)) + escapeHtml(attr[1]);
+            result += `<span class="tok-attr">${escapeHtml(attr[2])}</span>`;
+            if (attr[3]) {
+                result += escapeHtml(attr[3]) + `<span class="tok-string">${escapeHtml(attr[4])}</span>`;
+            }
+            cursor = attrs.lastIndex;
+        }
+        return result + escapeHtml(tag.slice(cursor));
+    }
+
     const LANGUAGES = {
         python: {
             keywords: new Set([
@@ -94,7 +112,8 @@
         },
         html: {
             custom: function (text) {
-                // Highlighting for HTML tags, attributes, strings, comments
+                // Tokenize source only: generated spans must never be parsed as attributes.
+                // Preserve every source character, including whitespace and embedded code.
                 const parts = [];
                 let i = 0;
                 while (i < text.length) {
@@ -104,19 +123,24 @@
                         parts.push(`<span class="tok-comment">${escapeHtml(c)}</span>`);
                         i += c.length;
                     } else if (text[i] === '<') {
-                        const close = text.indexOf('>', i);
-                        if (close !== -1) {
-                            const tagContent = text.slice(i, close + 1);
-                            const highlighted = tagContent.replace(/^(<\/?)([a-zA-Z0-9_\-:]+)/, '$1<span class="tok-tag">$2</span>')
-                                .replace(/\s+([a-zA-Z0-9_\-:]+)(?:=("[^"]*"|'[^']*'|[^\s>]+))?/g, (_m, attr, val) => {
-                                    let res = ` <span class="tok-attr">${escapeHtml(attr)}</span>`;
-                                    if (val) {
-                                        res += `=${val.startsWith('"') || val.startsWith('\'') ? `<span class="tok-string">${escapeHtml(val)}</span>` : escapeHtml(val)}`;
-                                    }
-                                    return res;
-                                });
-                            parts.push(highlighted);
-                            i += tagContent.length;
+                        const remaining = text.slice(i);
+                        const declaration = /^<!doctype\b(?:[^"'<>]|"[^"]*"|'[^']*')*>/i.exec(remaining);
+                        const tag = /^<\/?([a-zA-Z][\w:-]*)(?=[\s/>])(?:[^"'<>]|"[^"]*"|'[^']*')*>/.exec(remaining);
+                        if (declaration) {
+                            parts.push(escapeHtml(declaration[0]));
+                            i += declaration[0].length;
+                        } else if (tag) {
+                            parts.push(highlightHtmlTag(tag[0]));
+                            i += tag[0].length;
+                            const name = tag[1].toLowerCase();
+                            if ((name === 'script' || name === 'style') && !tag[0].startsWith('</') && !tag[0].endsWith('/>')) {
+                                const closing = new RegExp(`</${name}\\s*>`, 'ig');
+                                closing.lastIndex = i;
+                                const end = closing.exec(text);
+                                const bodyEnd = end ? end.index : text.length;
+                                parts.push(highlight(text.slice(i, bodyEnd), name === 'script' ? 'javascript' : 'css'));
+                                i = bodyEnd;
+                            }
                         } else {
                             parts.push('&lt;');
                             i++;
