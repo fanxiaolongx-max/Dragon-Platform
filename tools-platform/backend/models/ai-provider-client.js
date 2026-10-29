@@ -327,7 +327,13 @@ function extractGeminiText(data) {
 
 function extractGeminiDeltaText(data) {
     const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
-    return Array.isArray(parts) ? parts.map(part => part.text || '').join('') : '';
+    return Array.isArray(parts) ? parts.map(part => part.thought ? '' : part.text || '').join('') : '';
+}
+
+// includeThoughts 时 Gemini 把思考摘要放在 thought=true 的部件里
+function extractGeminiThoughtText(data) {
+    const parts = data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
+    return Array.isArray(parts) ? parts.map(part => part.thought ? part.text || '' : '').join('') : '';
 }
 
 function extractAnthropicText(data) {
@@ -450,11 +456,92 @@ async function readSseResponse(res, onData) {
     }
 }
 
+// 推理模型的思考内容：DeepSeek / Qwen 等的 reasoning_content、OpenRouter 的 reasoning、MiniMax reasoning_split 的 reasoning_details
+function openAiDeltaReasoning(delta) {
+    if (!delta) return '';
+    if (typeof delta.reasoning_content === 'string') return delta.reasoning_content;
+    if (typeof delta.reasoning === 'string') return delta.reasoning;
+    if (Array.isArray(delta.reasoning_details)) return delta.reasoning_details.map(item => item && typeof item.text === 'string' ? item.text : '').join('');
+    return '';
+}
+
+/**
+ * 流式输出里直接写在正文中的 <think>…</think>：思考部分交给 onReasoning，其余照常输出。
+ * 标签可能被切在两个分片之间，未确定的尾部先留着等下一片。最终文本仍由 stripReasoningText 统一清理。
+ */
+function createThinkSplitter(onText, onReasoning) {
+    let buffer = '';
+    let inThink = false;
+    const OPEN = /<think(?:ing)?\b[^>]*>/i;
+    const CLOSE = /<\/think(?:ing)?>/i;
+    const pendingTag = text => {
+        const at = text.lastIndexOf('<');
+        return at >= 0 && at > text.length - 12 && !text.slice(at).includes('>') ? at : -1;
+    };
+    const drain = final => {
+        for (;;) {
+            const match = buffer.match(inThink ? CLOSE : OPEN);
+            if (match) {
+                const before = buffer.slice(0, match.index);
+                if (before) (inThink ? onReasoning : onText)(before);
+                buffer = buffer.slice(match.index + match[0].length);
+                inThink = !inThink;
+                continue;
+            }
+            const hold = final ? -1 : pendingTag(buffer);
+            const ready = hold >= 0 ? buffer.slice(0, hold) : buffer;
+            if (ready) (inThink ? onReasoning : onText)(ready);
+            buffer = hold >= 0 ? buffer.slice(hold) : '';
+            return;
+        }
+    };
+    return { push(chunk) { buffer += String(chunk || ''); drain(false); }, flush() { drain(true); } };
+}
+
 function openAiDeltaText(delta) {
     const content = delta && delta.content;
     if (typeof content === 'string') return content;
     if (!Array.isArray(content)) return '';
     return content.map(item => typeof item === 'string' ? item : (item && (item.text || item.content) || '')).join('');
+}
+
+// 统一各家用量口径：promptTokens 始终是本次请求实际送进模型的全部输入（含缓存命中），
+// cachedTokens 是其中命中缓存的部分；Anthropic 的 input_tokens 不含缓存读写，需要加回。
+// billablePromptTokens 沿用各家原先的计费口径，费用估算不因缓存统计而变化。
+function usageFromOpenAi(usage = {}) {
+    const promptTokens = Number(usage.prompt_tokens || 0);
+    const outputTokens = Number(usage.completion_tokens || 0);
+    return {
+        promptTokens,
+        outputTokens,
+        totalTokens: Number(usage.total_tokens || 0) || promptTokens + outputTokens,
+        cachedTokens: Number(usage.prompt_tokens_details?.cached_tokens || usage.prompt_cache_hit_tokens || usage.cached_tokens || 0),
+        cacheWriteTokens: 0,
+        reasoningTokens: Number(usage.completion_tokens_details?.reasoning_tokens || 0),
+        billablePromptTokens: promptTokens
+    };
+}
+
+function usageFromGemini(usage = {}) {
+    const promptTokens = Number(usage.promptTokenCount || 0);
+    return {
+        promptTokens,
+        outputTokens: Number(usage.candidatesTokenCount || 0),
+        totalTokens: Number(usage.totalTokenCount || 0),
+        cachedTokens: Number(usage.cachedContentTokenCount || 0),
+        cacheWriteTokens: 0,
+        reasoningTokens: Number(usage.thoughtsTokenCount || 0),
+        billablePromptTokens: promptTokens
+    };
+}
+
+function usageFromAnthropic(usage = {}) {
+    const input = Number(usage.input_tokens || 0);
+    const cachedTokens = Number(usage.cache_read_input_tokens || 0);
+    const cacheWriteTokens = Number(usage.cache_creation_input_tokens || 0);
+    const promptTokens = input + cachedTokens + cacheWriteTokens;
+    const outputTokens = Number(usage.output_tokens || 0);
+    return { promptTokens, outputTokens, totalTokens: promptTokens + outputTokens, cachedTokens, cacheWriteTokens, reasoningTokens: 0, billablePromptTokens: input };
 }
 
 function assertStreamProducedText(text, toolCalls = []) {
@@ -498,7 +585,7 @@ class AiProviderClient {
         return headers;
     }
 
-    async generateText({ prompt, systemInstruction = '', messages = null, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onRetry, onDelta, signal, tools = null, toolChoice } = {}) {
+    async generateText({ prompt, systemInstruction = '', messages = null, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onRetry, onDelta, onReasoning, signal, tools = null, toolChoice } = {}) {
         const protection = { secrets: [this.apiKey] };
         systemInstruction = redactText(systemInstruction, protection);
         const finalMessages = redactValue(messages ? normalizeMessages(messages) : [{ role: 'user', content: String(prompt || '') }], protection);
@@ -527,14 +614,16 @@ class AiProviderClient {
                 onDelta(text);
             };
             try {
+                // 思考内容只用于界面展示，不计入 emitted（不影响失败回退与自动切换判断）
+                const reasoning = typeof onReasoning === 'function' ? delta => { const text = String(delta || ''); if (text) onReasoning(text); } : null;
                 if (this.usesMiniMaxProtocol) {
-                    result = await this.generateMiniMaxStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, signal, ...toolOptions });
+                    result = await this.generateMiniMaxStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, onReasoning: reasoning, signal, ...toolOptions });
                 } else if (this.provider === 'openai' || this.provider === 'openai-compatible') {
-                    result = await this.generateOpenAiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, signal, ...toolOptions });
+                    result = await this.generateOpenAiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, onReasoning: reasoning, signal, ...toolOptions });
                 } else if (this.provider === 'anthropic') {
                     result = await this.generateAnthropicStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, onDelta: emit, signal, ...toolOptions });
                 } else {
-                    result = await this.generateGeminiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, thinkingBudget, onDelta: emit, signal, ...toolOptions });
+                    result = await this.generateGeminiStream({ messages: finalMessages, systemInstruction, maxOutputTokens, temperature, thinkingBudget, onDelta: emit, onReasoning: reasoning, signal, ...toolOptions });
                 }
             } catch (error) {
                 const status = Number(error && (error.status || error.statusCode));
@@ -553,8 +642,9 @@ class AiProviderClient {
             const promptTokens = Number(usage.promptTokens || 0);
             const outputTokens = Number(usage.outputTokens || 0);
             const totalTokens = Number(usage.totalTokens || 0) || promptTokens + outputTokens;
+            const billablePromptTokens = Number(usage.billablePromptTokens ?? promptTokens);
             const costUsd = (
-                promptTokens * Number(this.settings.inputCostPerMillionUsd || 0) +
+                billablePromptTokens * Number(this.settings.inputCostPerMillionUsd || 0) +
                 outputTokens * Number(this.settings.outputCostPerMillionUsd || 0)
             ) / 1000000;
             await aiUsageRepo.recordUsage({
@@ -577,8 +667,8 @@ class AiProviderClient {
         return result;
     }
 
-    async generateChat({ messages, systemInstruction = '', maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onDelta, signal, tools, toolChoice } = {}) {
-        return this.generateText({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onDelta, signal, tools, toolChoice });
+    async generateChat({ messages, systemInstruction = '', maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onDelta, onReasoning, signal, tools, toolChoice } = {}) {
+        return this.generateText({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, onDelta, onReasoning, signal, tools, toolChoice });
     }
 
     // Image generation with a Gemini image model: the prompt, optionally with reference pictures to edit or follow.
@@ -612,7 +702,7 @@ class AiProviderClient {
         };
     }
 
-    async generateGemini({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, signal, tools }) {
+    async generateGemini({ messages, systemInstruction, maxOutputTokens, temperature, responseMimeType, json, thinkingBudget, signal, tools, toolChoice }) {
         const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
         const body = {
             contents: toGeminiContents(messages, { model: this.model }),
@@ -628,6 +718,7 @@ class AiProviderClient {
         if (isJsonMode({ responseMimeType, json })) body.generationConfig.responseMimeType = 'application/json';
         const geminiTools = toGeminiTools(tools);
         if (geminiTools.length) body.tools = geminiTools;
+        if (geminiTools.length && toolChoice === 'none') body.toolConfig = { functionCallingConfig: { mode: 'NONE' } };
 
         const res = await fetch(url, {
             method: 'POST',
@@ -642,11 +733,7 @@ class AiProviderClient {
         return {
             text: stripReasoningText(extractGeminiText(data)),
             toolCalls: extractGeminiToolCalls(data),
-            usage: {
-                promptTokens: usage.promptTokenCount || 0,
-                outputTokens: usage.candidatesTokenCount || 0,
-                totalTokens: usage.totalTokenCount || 0
-            },
+            usage: usageFromGemini(usage),
             finishReason: String(candidate && candidate.finishReason || ''),
             raw: data
         };
@@ -682,17 +769,13 @@ class AiProviderClient {
         return {
             text: stripReasoningText(choice && choice.message && choice.message.content),
             toolCalls: collectOpenAiToolCalls(choice && choice.message && choice.message.tool_calls),
-            usage: {
-                promptTokens: usage.prompt_tokens || 0,
-                outputTokens: usage.completion_tokens || 0,
-                totalTokens: usage.total_tokens || 0
-            },
+            usage: usageFromOpenAi(usage),
             finishReason: String(choice && choice.finish_reason || ''),
             raw: data
         };
     }
 
-    async generateOpenAiStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, signal, tools, toolChoice }) {
+    async generateOpenAiStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, onReasoning, signal, tools, toolChoice }) {
         const body = {
             model: this.model,
             messages: toOpenAiMessages(messages, systemInstruction, { model: this.model }),
@@ -721,6 +804,7 @@ class AiProviderClient {
         let finishReason = '';
         let usage = {};
         const toolCallAccumulator = createOpenAiToolCallAccumulator();
+        const splitter = onReasoning ? createThinkSplitter(onDelta, onReasoning) : null;
         await readSseResponse(res, payload => {
             if (payload === '[DONE]') return;
             let data;
@@ -729,28 +813,28 @@ class AiProviderClient {
             const choice = data.choices && data.choices[0];
             if (choice && choice.finish_reason) finishReason = String(choice.finish_reason);
             if (choice && choice.delta && choice.delta.tool_calls) toolCallAccumulator.push(choice.delta.tool_calls);
+            const thought = onReasoning ? openAiDeltaReasoning(choice && choice.delta) : '';
+            if (thought) onReasoning(thought);
             const delta = openAiDeltaText(choice && choice.delta);
             if (delta) {
                 text += delta;
-                onDelta(delta);
+                if (splitter) splitter.push(delta);
+                else onDelta(delta);
             }
         });
+        splitter?.flush();
         const toolCalls = toolCallAccumulator.finish();
         assertStreamProducedText(text, toolCalls);
         return {
             text: stripReasoningText(text),
             toolCalls,
-            usage: {
-                promptTokens: usage.prompt_tokens || 0,
-                outputTokens: usage.completion_tokens || 0,
-                totalTokens: usage.total_tokens || 0
-            },
+            usage: usageFromOpenAi(usage),
             finishReason,
             raw: null
         };
     }
 
-    async generateGeminiStream({ messages, systemInstruction, maxOutputTokens, temperature, thinkingBudget, onDelta, signal, tools }) {
+    async generateGeminiStream({ messages, systemInstruction, maxOutputTokens, temperature, thinkingBudget, onDelta, onReasoning, signal, tools, toolChoice }) {
         const url = `${this.baseUrl}/models/${encodeURIComponent(this.model)}:streamGenerateContent?alt=sse&key=${encodeURIComponent(this.apiKey)}`;
         const body = {
             contents: toGeminiContents(messages, { model: this.model }),
@@ -762,9 +846,12 @@ class AiProviderClient {
         if (Number.isFinite(Number(thinkingBudget)) && isGeminiThinkingCapable(this.model)) {
             body.generationConfig.thinkingConfig = { thinkingBudget: Math.max(0, Math.round(Number(thinkingBudget))) };
         }
+        // 界面要展示思考过程时请 Gemini 返回思考摘要（thought 部件），正文不受影响
+        if (onReasoning && isGeminiThinkingCapable(this.model)) body.generationConfig.thinkingConfig = { ...(body.generationConfig.thinkingConfig || {}), includeThoughts: true };
         if (systemInstruction) body.systemInstruction = { parts: [{ text: systemInstruction }] };
         const geminiTools = toGeminiTools(tools);
         if (geminiTools.length) body.tools = geminiTools;
+        if (geminiTools.length && toolChoice === 'none') body.toolConfig = { functionCallingConfig: { mode: 'NONE' } };
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' },
@@ -784,6 +871,8 @@ class AiProviderClient {
             if (candidate && candidate.finishReason) finishReason = String(candidate.finishReason);
             // functionCall 部件整块到达，按出现顺序合成 id。
             toolCalls.push(...extractGeminiToolCalls(data, toolCalls.length));
+            const thought = onReasoning ? extractGeminiThoughtText(data) : '';
+            if (thought) onReasoning(thought);
             const delta = extractGeminiDeltaText(data);
             if (delta) {
                 text += delta;
@@ -794,17 +883,13 @@ class AiProviderClient {
         return {
             text: stripReasoningText(text),
             toolCalls,
-            usage: {
-                promptTokens: usage.promptTokenCount || 0,
-                outputTokens: usage.candidatesTokenCount || 0,
-                totalTokens: usage.totalTokenCount || 0
-            },
+            usage: usageFromGemini(usage),
             finishReason,
             raw: null
         };
     }
 
-    async generateMiniMaxStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, signal, tools, toolChoice }) {
+    async generateMiniMaxStream({ messages, systemInstruction, maxOutputTokens, temperature, onDelta, onReasoning, signal, tools, toolChoice }) {
         const configuredLimit = Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048));
         const body = {
             model: this.model,
@@ -834,6 +919,7 @@ class AiProviderClient {
         let finishReason = '';
         let usage = {};
         const toolCallAccumulator = createOpenAiToolCallAccumulator();
+        const splitter = onReasoning ? createThinkSplitter(onDelta, onReasoning) : null;
         await readSseResponse(res, payload => {
             if (payload === '[DONE]') return;
             let data;
@@ -842,23 +928,22 @@ class AiProviderClient {
             const choice = data.choices && data.choices[0];
             if (choice && choice.finish_reason) finishReason = String(choice.finish_reason);
             if (choice && choice.delta && choice.delta.tool_calls) toolCallAccumulator.push(choice.delta.tool_calls);
+            const thought = onReasoning ? openAiDeltaReasoning(choice && choice.delta) : '';
+            if (thought) onReasoning(thought);
             const delta = openAiDeltaText(choice && choice.delta);
             if (delta) {
                 text += delta;
-                onDelta(delta);
+                if (splitter) splitter.push(delta);
+                else onDelta(delta);
             }
         });
+        splitter?.flush();
         const toolCalls = toolCallAccumulator.finish();
         assertStreamProducedText(text, toolCalls);
         return {
             text: stripReasoningText(text),
             toolCalls,
-            usage: {
-                promptTokens: usage.prompt_tokens || 0,
-                outputTokens: usage.completion_tokens || 0,
-                totalTokens: usage.total_tokens || 0,
-                reasoningTokens: Number(usage.completion_tokens_details && usage.completion_tokens_details.reasoning_tokens || 0)
-            },
+            usage: usageFromOpenAi(usage),
             finishReason,
             raw: null
         };
@@ -873,7 +958,8 @@ class AiProviderClient {
         const configuredLimit = Math.round(Number(maxOutputTokens || this.settings.maxOutputTokens || 2048));
         const firstLimit = Math.min(Math.max(configuredLimit, 8192), 16384);
         const limits = [firstLimit, Math.min(Math.max(firstLimit * 2, 16384), 32768)];
-        const aggregateUsage = { promptTokens: 0, outputTokens: 0, totalTokens: 0, reasoningTokens: 0 };
+        // 重试会多次计费，promptTokens 累加；contextPromptTokens / cachedTokens 只取最后一次，代表上下文实际占用
+        const aggregateUsage = { promptTokens: 0, outputTokens: 0, totalTokens: 0, reasoningTokens: 0, cachedTokens: 0, contextPromptTokens: 0 };
         let lastData = null;
         let lastFinishReason = '';
 
@@ -907,6 +993,8 @@ class AiProviderClient {
             const reasoningTokens = Number(usage.completion_tokens_details && usage.completion_tokens_details.reasoning_tokens || 0);
             aggregateUsage.promptTokens += Number(usage.prompt_tokens || 0);
             aggregateUsage.outputTokens += Number(usage.completion_tokens || 0);
+            aggregateUsage.contextPromptTokens = Number(usage.prompt_tokens || 0);
+            aggregateUsage.cachedTokens = usageFromOpenAi(usage).cachedTokens;
             aggregateUsage.totalTokens += Number(usage.total_tokens || 0);
             aggregateUsage.reasoningTokens += reasoningTokens;
             lastData = data;
@@ -974,11 +1062,7 @@ class AiProviderClient {
         return {
             text: stripReasoningText(extractAnthropicText(data)),
             toolCalls: extractAnthropicToolCalls(data),
-            usage: {
-                promptTokens: usage.input_tokens || 0,
-                outputTokens: usage.output_tokens || 0,
-                totalTokens: (usage.input_tokens || 0) + (usage.output_tokens || 0)
-            },
+            usage: usageFromAnthropic(usage),
             finishReason: String(data.stop_reason || ''),
             raw: data
         };
@@ -1007,17 +1091,17 @@ class AiProviderClient {
         if (!res.ok) await parseErrorResponse(res, { toolsSent: anthropicTools.length > 0 });
         let text = '';
         let finishReason = '';
-        let inputTokens = 0;
-        let outputTokens = 0;
+        let streamUsage = {};
         // tool_use 块：content_block_start 给 id/name，input_json_delta 拼 JSON，content_block_stop 收口。
         const openBlocks = new Map();
         const toolCalls = [];
         await readSseResponse(res, payload => {
             let data;
             try { data = JSON.parse(payload); } catch (_error) { return; }
-            if (data.type === 'message_start') inputTokens = Number(data.message?.usage?.input_tokens || 0);
+            // message_start 带输入与缓存用量，message_delta 带累计输出（新版也可能带累计输入）
+            if (data.type === 'message_start') streamUsage = { ...(data.message?.usage || {}) };
             if (data.type === 'message_delta') {
-                outputTokens = Number(data.usage?.output_tokens || outputTokens);
+                streamUsage = { ...streamUsage, ...Object.fromEntries(Object.entries(data.usage || {}).filter(([, value]) => value !== null && value !== undefined)) };
                 if (data.delta?.stop_reason) finishReason = String(data.delta.stop_reason);
             }
             if (data.type === 'content_block_start' && data.content_block?.type === 'tool_use') {
@@ -1044,11 +1128,7 @@ class AiProviderClient {
         return {
             text: stripReasoningText(text),
             toolCalls,
-            usage: {
-                promptTokens: inputTokens,
-                outputTokens,
-                totalTokens: inputTokens + outputTokens
-            },
+            usage: usageFromAnthropic(streamUsage),
             finishReason,
             raw: null
         };

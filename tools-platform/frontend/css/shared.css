@@ -244,7 +244,11 @@ html.is-page-scrolling::-webkit-scrollbar-thumb {
     top: calc(var(--navbar-h) + 8px);
     left: 12px;
     width: min(680px, calc(100vw - 24px));
-    height: min(560px, calc(100vh - var(--navbar-h) - 24px));
+    /* 大窗口使用半屏高度，小窗口保留阅读空间，并始终避开导航栏和底边。 */
+    --nav-more-min-height: 560px;
+    --nav-more-bottom-gap: 24px;
+    height: min(max(var(--nav-more-min-height), 50vh), calc(100vh - var(--navbar-h) - var(--nav-more-bottom-gap)));
+    height: min(max(var(--nav-more-min-height), 50dvh), calc(100dvh - var(--navbar-h) - var(--nav-more-bottom-gap)));
     overflow: hidden;
     border-radius: 14px;
     border: 1px solid rgba(148,163,184,0.24);
@@ -644,7 +648,8 @@ html.is-page-scrolling::-webkit-scrollbar-thumb {
 
 @media (max-width: 620px) {
     .nav-more-menu {
-        height: min(620px, calc(100vh - var(--navbar-h) - 16px));
+        --nav-more-min-height: 620px;
+        --nav-more-bottom-gap: 16px;
     }
     .nav-more-layout {
         grid-template-columns: 1fr;

@@ -10,6 +10,10 @@
 - `https://netcare.huawei.com/p/netcare/index.html`
 - `https://netcare-de.gts.huawei.com/p/netcare/index.html`
 
+## 支持的单号
+
+支持运营商 NC 和企业网 NE 开头、后接 14 位数字的 RFC 单号，可在同一批次混合输入；小写输入自动转为大写。跨区接续、脱敏方案（DNC / DNE）、材料缓存、快照、审计与日志均接受两种前缀，并继续校验具体单号与页面身份。企业网方案仍需使用上述受支持的 NetCare / KDP 页面和原生导出接口；不同页面结构需另行适配。
+
 ## 安装和使用
 
 1. 解压生成的 ZIP。

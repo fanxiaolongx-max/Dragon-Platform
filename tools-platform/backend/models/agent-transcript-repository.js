@@ -105,6 +105,9 @@ function sanitizeEntry(entry) {
  * 保证模型的工具调用总紧跟在用户消息或工具结果之后（Gemini 等供应商强制要求）。
  * 第一个用户消息之前的条目（旧格式转录或残缺的一轮）直接丢弃。
  */
+// 压缩后转录的第一条（手动 /compact 与工作区自动压缩共用）
+const COMPACTED_HEADER = '以下是已压缩的历史上下文，请据此接续任务。';
+
 function normalizeTranscript(transcript) {
     const turns = [];
     for (const entry of (Array.isArray(transcript) ? transcript : []).map(sanitizeEntry).filter(Boolean)) {
@@ -136,6 +139,8 @@ function mergeHistoryWithTranscript(historyMessages, transcript) {
     const prior = history.slice(0, -1);
     const entries = Array.isArray(transcript) ? transcript : [];
     if (!entries.length) return [...prior, current].filter(Boolean);
+    // 转录已被压缩（以摘要开头）：更早的纯文字历史都已并入摘要，不再重复带上
+    if (String(entries[0]?.content || '').startsWith(COMPACTED_HEADER)) return [...entries, current].filter(Boolean);
     const transcriptQuestions = new Set(entries.filter(entry => entry.role === 'user').map(entry => String(entry.content || '').trim()));
     const cut = prior.findIndex(message => message && message.role === 'user' && transcriptQuestions.has(String(message.content || '').trim()));
     const before = cut >= 0 ? prior.slice(0, cut) : prior;
@@ -248,13 +253,39 @@ async function listTurns({ agentSessionId, owner, root, limit = 5, offset = 0 })
     return rows.map(row => ({ runId: row.run_id, status: row.status, createdAt: row.created_at, transcript: JSON.parse(row.transcript) }));
 }
 
-async function save({ agentSessionId, owner, root, permissionMode, transcript, turnCount, context = null }) {
+/**
+ * 导出对话日志用：本人在该智能体会话下的全部轮次（含完整工具调用与结果）及会话汇总，按时间正序。
+ * 同一个工作目录的智能体会话会被多个对话复用；给了 chatSessionId 时只保留记录属于该对话的轮次。
+ */
+async function exportSession({ agentSessionId, owner, chatSessionId = '', limit = 200 }) {
+    await ensureReady();
+    const record = await get('SELECT owner FROM agent_session_owners WHERE agent_session_id = ?', [String(agentSessionId || '')]);
+    if (!record || record.owner !== owner) return null;
+    const parse = (text, fallback) => { try { return JSON.parse(text); } catch (_error) { return fallback; } };
+    const summary = await get('SELECT root, permission_mode, turn_count, context, updated_at FROM agent_session_transcripts WHERE agent_session_id = ?', [agentSessionId]);
+    const rows = (await all(`SELECT run_id, root, status, transcript, recovery, created_at, updated_at FROM agent_session_turns
+        WHERE agent_session_id = ? AND owner = ? ORDER BY rowid DESC LIMIT ?`, [agentSessionId, owner, Math.min(500, Math.max(1, Number(limit) || 200))]))
+        .filter(row => !chatSessionId || [chatSessionId, ''].includes(String(parse(row.recovery || '{}', {}).chatSessionId || '')));
+    return {
+        agentSessionId,
+        root: summary?.root || rows[0]?.root || '',
+        permissionMode: summary?.permission_mode || '',
+        turnCount: summary?.turn_count || 0,
+        lastContext: summary?.context ? parse(summary.context, null) : null,
+        updatedAt: summary?.updated_at || '',
+        turns: rows.reverse().map(row => ({ runId: row.run_id, root: row.root, status: row.status, createdAt: row.created_at, updatedAt: row.updated_at, transcript: parse(row.transcript, []) }))
+    };
+}
+
+/** compacted：本轮做过自动压缩，保存的转录即为准，重启恢复时不再用轮次档案拼回未压缩的原文 */
+async function save({ agentSessionId, owner, root, permissionMode, transcript, turnCount, context = null, compacted = false }) {
     await ensureReady();
     const existing = await load(agentSessionId);
     if (existing && existing.owner !== owner) throw Object.assign(new Error('无权覆盖该智能体会话'), { code: 'AGENT_SESSION_FORBIDDEN', statusCode: 403 });
     await claimSession(agentSessionId, owner);
     const entries = normalizeTranscript(redactValue(transcript));
     const contextJson = context && typeof context === 'object' ? JSON.stringify(context).slice(0, 64 * 1024) : '';
+    const compactedThrough = compacted ? (await get('SELECT COALESCE(MAX(rowid), 0) AS seq FROM agent_session_turns WHERE agent_session_id = ?', [String(agentSessionId)])).seq : 0;
     const result = await run(
         `INSERT INTO agent_session_transcripts (agent_session_id, owner, root, permission_mode, transcript, turn_count, context, compacted_through_rowid)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -268,7 +299,7 @@ async function save({ agentSessionId, owner, root, permissionMode, transcript, t
              compacted_through_rowid = MAX(agent_session_transcripts.compacted_through_rowid, excluded.compacted_through_rowid),
              updated_at = CURRENT_TIMESTAMP
          WHERE agent_session_transcripts.owner = excluded.owner`,
-        [String(agentSessionId), String(owner || ''), String(root || ''), String(permissionMode || 'ask'), JSON.stringify(entries), Math.max(0, Number(turnCount) || 0), contextJson, 0]
+        [String(agentSessionId), String(owner || ''), String(root || ''), String(permissionMode || 'ask'), JSON.stringify(entries), Math.max(0, Number(turnCount) || 0), contextJson, compactedThrough]
     );
     if (!result.changes) throw Object.assign(new Error('无权覆盖该智能体会话'), { code: 'AGENT_SESSION_FORBIDDEN', statusCode: 403 });
     return entries;
@@ -299,4 +330,4 @@ async function prune(days = 30) {
     return result.changes || 0;
 }
 
-module.exports = { ensureReady, claimSession, load, save, saveTurn, listTurns, syncChatSession, findLatestSessionId, remove, prune, normalizeTranscript, mergeHistoryWithTranscript, MAX_ENTRIES, MAX_JSON_BYTES };
+module.exports = { COMPACTED_HEADER, ensureReady, claimSession, load, save, saveTurn, listTurns, exportSession, syncChatSession, findLatestSessionId, remove, prune, normalizeTranscript, mergeHistoryWithTranscript, MAX_ENTRIES, MAX_JSON_BYTES };

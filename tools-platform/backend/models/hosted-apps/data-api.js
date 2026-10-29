@@ -330,7 +330,8 @@ function rateLimit(key) {
 function isApp(app, body) {
     const hasApp = body.datasourceId !== undefined || body.schema !== undefined;
     if (!hasApp) return false;
-    if (String(body.datasourceId ?? 'app') !== 'app' || (body.schema !== undefined && String(body.schema) !== app.uuid)) {
+    const dsId = String(body.datasourceId ?? 'app');
+    if ((dsId !== 'app' && dsId !== '0') || (body.schema !== undefined && String(body.schema) !== app.uuid)) {
         throw fail('只能访问本应用的应用库（datasourceId=app，schema=APP_SCHEMA）', 'HOSTED_DATA_FORBIDDEN', 403);
     }
     return true;
@@ -393,7 +394,7 @@ async function findTableDatasource(app, table) {
     return hits;
 }
 
-const ok = (res, data, extra = {}) => res.json({ code: 200, success: true, message: 'success', data, ...extra });
+const ok = (res, data, extra = {}) => res.json({ code: 0, status: 200, success: true, message: 'success', data, ...extra });
 
 function sendError(res, error) {
     const status = error.status || (error.statusCode >= 400 ? error.statusCode : 0) || (/SQLITE_/.test(error.code || '') ? 400 : 500);
@@ -433,7 +434,12 @@ function createRouter() {
     router.get('/:token/dh/query/find-table-datasource', wrap(async (req, res) => ok(res, await findTableDatasource(req.hostedApp, req.query.table))));
     router.post('/:token/dh/query', wrap(async (req, res) => {
         const result = await query(req.hostedApp, req.body || {}, req.hostedRequest);
-        ok(res, result.rows, { total: result.rows.length, truncated: result.truncated });
+        // data 为结构体（含 rows 与 total），同时顶层也挂 rows 保证兼容直接解构 data 或顶层数组的客户端
+        ok(res, { rows: result.rows, total: result.rows.length, truncated: result.truncated }, {
+            rows: result.rows,
+            total: result.rows.length,
+            truncated: result.truncated
+        });
     }));
     router.post('/:token/dh/execute', wrap(async (req, res) => {
         const result = await execute(req.hostedApp, req.body || {}, req.hostedRequest);

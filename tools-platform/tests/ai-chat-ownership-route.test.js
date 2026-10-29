@@ -165,4 +165,20 @@ test('real chat endpoints isolate histories and reject foreign session IDs befor
     const continued = await fetch(`${url}/chat`, { method: 'POST', headers: aliceHeaders, body: JSON.stringify({ agent: 'dragon-claw-home', sessionId: compactId, messages: [{ role: 'user', content: 'continue' }] }) });
     assert.equal(continued.status, 200);
     assert.match((await continued.json()).reply, /Continued/);
+
+    // 导出对话日志：只能导出自己的；按配置的密钥脱敏，普通账号不含模型网关等配置
+    assert.equal((await fetch(`${url}/sessions/${id}/export`, { headers })).status, 403);
+    await chat.addMessage({ owner: 'alice', sessionId: id, pagePath: '/', role: 'model', content: 'token is sk-export-secret-1', events: [{ type: 'tool_result', tool: 'search', ok: true, summary: 'done' }] });
+    settings.getRedactionSecrets = async () => ['sk-export-secret-1'];
+    const exported = await fetch(`${url}/sessions/${id}/export`, { headers: { Authorization: 'Bearer synthetic-alice' } });
+    assert.equal(exported.status, 200);
+    assert.match(exported.headers.get('content-disposition'), /^attachment; filename="dragon-claw-log-.*\.json"$/);
+    const log = await exported.json();
+    assert.equal(log.format, 'dragon-claw-chat-log');
+    assert.deepEqual(log.messages.map(item => item.role), ['user', 'model']);
+    assert.deepEqual(log.messages[1].events, [{ type: 'tool_result', tool: 'search', ok: true, summary: 'done' }]);
+    assert.equal(JSON.stringify(log).includes('sk-export-secret-1'), false, 'configured secrets are redacted');
+    assert.deepEqual(Object.keys(log.model).sort(), ['model', 'provider'], 'non-admins do not get gateway settings');
+    assert.equal(log.agent, null);
+    settings.getRedactionSecrets = async () => [];
 });

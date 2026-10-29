@@ -4,6 +4,7 @@ name_en: Capture script management
 description: 不打开数据抓取页也能完成脚本仓库的全部管理：查询、新建、复制、修改、跨站点迁移、移动/批量移动、删除脚本，以及新建/改名/删除分类目录
 description_en: Manage the whole UIVF12 capture script repository without the page - scripts (find, create, clone, edit, cross-site, move, delete) and category folders (create, rename, delete)
 workspace: false
+tools: uiv
 order: 4.5
 icon: 🧩
 ---

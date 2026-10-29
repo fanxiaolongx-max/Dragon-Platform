@@ -4,6 +4,7 @@ name_en: NetCare data
 description: 经数字人基座只读查询 NetCare 业务库：找表、看字段与样例、按条件统计
 description_en: Read-only NetCare business data through the digital human base: find tables, inspect columns and samples, aggregate
 workspace: false
+tools: netcare
 order: 9
 icon: 🧭
 ---

@@ -5,7 +5,7 @@
   function sanitize(value){
     if(!value||!Number.isInteger(value.tabId)||!Number.isInteger(value.rootTabId)||!['main','route','online'].includes(value.role)||!finite(value.at,1,Date.now()+10000))throw Error('Invalid performance sample');
     for(const [key,max] of [['heap',1e12],['heapLimit',1e12],['busy',100],['lag',3600000]])if(value[key]!=null&&!finite(value[key],0,max))throw Error('Invalid performance '+key);
-    if(value.order&&!/^NC\d{14}$/.test(value.order))throw Error('Invalid performance RFC');
+    if(value.order&&!/^N[CE]\d{14}$/.test(value.order))throw Error('Invalid performance RFC');
     return {tabId:value.tabId,rootTabId:value.rootTabId,role:value.role,order:value.order||'',at:value.at,heap:value.heap??null,heapLimit:value.heapLimit??null,busy:value.busy??null,lag:value.hidden?null:value.lag??null,hidden:value.hidden===true,origin:String(value.origin||'').slice(0,100)};
   }
   const max=(a,b)=>a==null?b:b==null?a:Math.max(a,b);

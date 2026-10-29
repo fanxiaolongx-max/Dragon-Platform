@@ -554,6 +554,29 @@ async function exportZip(id) {
     return { buffer: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }), filename: `${cleanId}.zip` };
 }
 
+// 一个技能在系统提示中的段落：自定义正文优先（含附带文件，受 promptFiles 预算限制），否则用内置正文
+async function skillSection(item) {
+    const custom = await getCustom(item.id);
+    if (item.builtIn && !custom) return `### @${item.id}\n${builtinSkills.builtin(item.id).body}`;
+    if (!custom) return '';
+    let section = `### @${item.id}\n${custom.body}`;
+    let budget = LIMITS.promptFiles;
+    for (const file of custom.files) {
+        if (file.content.length > budget) break;
+        budget -= file.content.length;
+        section += `\n\n#### 附带文件：${file.path}\n\`\`\`\n${file.content}\n\`\`\``;
+    }
+    return section;
+}
+
+/** 模型在工作区里用 load_skill 自行加载：只接受当前租户目录中可见的技能 */
+async function loadSection(id) {
+    const item = (await listAll()).find(entry => entry.id === String(id || '').toLowerCase());
+    if (!item) return null;
+    const section = await skillSection(item);
+    return section ? { meta: { id: item.id, name: item.name, workspace: item.workspace }, section } : null;
+}
+
 /** 对话加载：与 agent-skills.load 相同的规则，但白名单是当前租户可见的全部 Skill */
 async function loadAll(content, { hasWorkspace = false, language = 'zh', extraIds = [], redactionSecrets = [] } = {}) {
     const catalog = await listAll();
@@ -568,35 +591,7 @@ async function loadAll(content, { hasWorkspace = false, language = 'zh', extraId
     if (missing.length) throw Object.assign(new Error(language === 'en'
         ? `Choose a workspace folder before using ${missing.map(item => `@${item.id}`).join(', ')}.`
         : `请先选择工作目录，再使用 ${missing.map(item => `@${item.id}`).join('、')}。`), { code: 'SKILL_WORKSPACE_REQUIRED', statusCode: 400, skills: missing.map(item => item.id) });
-    const sections = [];
-    for (const item of selected) {
-        if (item.builtIn) {
-            const custom = await getCustom(item.id);
-            if (custom) {
-                let section = `### @${item.id}\n${custom.body}`;
-                let budget = LIMITS.promptFiles;
-                for (const file of custom.files) {
-                    if (file.content.length > budget) break;
-                    budget -= file.content.length;
-                    section += `\n\n#### 附带文件：${file.path}\n\`\`\`\n${file.content}\n\`\`\``;
-                }
-                sections.push(section);
-                continue;
-            }
-            sections.push(`### @${item.id}\n${builtinSkills.builtin(item.id).body}`);
-            continue;
-        }
-        const skill = await getCustom(item.id);
-        if (!skill) continue;
-        let section = `### @${item.id}\n${skill.body}`;
-        let budget = LIMITS.promptFiles;
-        for (const file of skill.files) {
-            if (file.content.length > budget) break;
-            budget -= file.content.length;
-            section += `\n\n#### 附带文件：${file.path}\n\`\`\`\n${file.content}\n\`\`\``;
-        }
-        sections.push(section);
-    }
+    const sections = (await Promise.all(selected.map(skillSection))).filter(Boolean);
     return {
         selected: selected.map(({ builtIn, customized, hidden, renamed, fileCount, updatedAt, source, createdBy, createdAt, ...meta }) => meta),
         unknown,
@@ -608,6 +603,7 @@ async function loadAll(content, { hasWorkspace = false, language = 'zh', extraId
 
 module.exports = {
     LIMITS,
+    loadSection,
     parseFrontMatter,
     normalizeSkillMarkdown,
     parseSkillArchive,

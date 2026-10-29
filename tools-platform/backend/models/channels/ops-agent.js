@@ -145,6 +145,42 @@ function runSummary(run, full = false) {
     };
 }
 
+// 工作区 Agent 里按类别走审批卡（与文件、数据库工具同一套权限模式）：write 改运营配置、destructive 删除、external 真实推送
+const KINDS = {
+    ops_overview: 'read', ops_list_targets: 'read', ops_list_presets: 'read', ops_list_runs: 'read', ops_materials: 'read',
+    ops_save_group: 'write', ops_save_plan: 'write', ops_preview: 'write', ops_update_draft: 'write', ops_discard_draft: 'write', ops_save_settings: 'write',
+    ops_remove_group: 'destructive', ops_delete_plan: 'destructive',
+    ops_test_send: 'external', ops_send_draft: 'external'
+};
+const TITLES = {
+    ops_save_group: '保存运营群组', ops_save_plan: '保存运营计划', ops_preview: '生成草稿（不发送）', ops_update_draft: '修改草稿', ops_discard_draft: '作废草稿',
+    ops_save_settings: '保存运营规范', ops_remove_group: '取消运营群组', ops_delete_plan: '删除运营计划', ops_test_send: '测试推送', ops_send_draft: '推送草稿到运营群组'
+};
+const FIELD_LABELS = { channel: '频道', kind: '类型', id: 'ID', name: '名称', profile: '群画像', interactionPrompt: '互动人设', enabled: '启用', planId: '计划', runId: '草稿',
+    content: '正文', styleGuide: '运营规范', publicBaseUrl: '访问地址', targets: '推送对象', confirmed: '已确认' };
+
+function kindOf(name) { return KINDS[name] || null; }
+
+const targetText = targets => (Array.isArray(targets) ? targets : []).map(item => `${CHANNEL_LABELS[item.channel] || item.channel || ''}${item.kind === 'group' ? '群' : '联系人'}:${item.id}`).join('、');
+
+/** 审批卡内容：标题、影响说明和参数表；推送草稿时带上将要发出的正文和推送对象 */
+async function preview(name, args = {}) {
+    const input = args && typeof args === 'object' ? args : {};
+    const fields = Object.entries(input).filter(([, value]) => value !== undefined && value !== '').map(([key, value]) => ({
+        label: FIELD_LABELS[key] || key,
+        value: key === 'targets' ? targetText(value) : (typeof value === 'string' ? value : JSON.stringify(value)).slice(0, 1200)
+    }));
+    let impact = KINDS[name] === 'external' ? '会真实发送消息' : KINDS[name] === 'destructive' ? '删除后不能撤销' : '修改自动化运营配置';
+    if (name === 'ops_send_draft' && input.runId) {
+        const run = await opsRepo.getRun(input.runId).catch(() => null);
+        if (run) {
+            impact = `会发送到：${targetText(run.targets) || '计划的运营群组'}`;
+            fields.push({ label: '计划', value: run.planName }, { label: '正文', value: String(run.content || '').slice(0, 2000) });
+        }
+    }
+    return { title: `运营 · ${TITLES[name] || name}`, impact, fields };
+}
+
 function ok(payload, summary, extra = {}) {
     return { content: JSON.stringify({ ok: true, ...payload }), summary, ...extra };
 }
@@ -308,4 +344,4 @@ async function runTurn({ client, systemInstruction, messages, ctx, signal, onDel
     return { text, usage, toolLog };
 }
 
-module.exports = { SKILL_ID, definitions, execute, buildPrompt, runTurn };
+module.exports = { SKILL_ID, definitions, execute, kindOf, preview, buildPrompt, runTurn };

@@ -42,10 +42,10 @@ async function runTurn({ client, systemInstruction, messages, ctx, signal, onDel
     };
     for (let step = 1; step <= 25; step++) {
         if (signal?.aborted) throw Object.assign(new Error('任务已中止'), { name: 'AbortError' });
-        history = contextStats.fitMessages({ model: client.model, systemPrompt: prompt, messages: history, tools, maxOutputTokens }).messages;
+        history = contextStats.fitMessages({ model: client.model, contextWindow: client.settings?.contextWindowTokens, systemPrompt: prompt, messages: history, tools, maxOutputTokens }).messages;
         let result;
         try {
-            result = await client.generateText({ systemInstruction: prompt, messages: history, tools, signal, onDelta, maxOutputTokens, temperature });
+            result = await client.generateText({ systemInstruction: prompt, messages: history, tools, signal, onDelta, onReasoning: onEvent ? delta => onEvent({ type: 'thinking', delta }) : undefined, maxOutputTokens, temperature });
         } catch (error) {
             if (step !== 1 || error.code !== 'AI_TOOLS_UNSUPPORTED') throw error;
             result = await client.generateChat({ systemInstruction: `${prompt}\n当前模型不支持工具调用，本轮无法读取或修改数据库。请说明需切换支持工具调用的模型，不得声称已执行。`, messages: history, signal, onDelta, maxOutputTokens, temperature });

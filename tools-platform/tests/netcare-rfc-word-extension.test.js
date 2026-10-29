@@ -206,6 +206,11 @@ test('batch input normalizes separators, case and duplicates, and refuses invali
     const { parseNetcareRfcOrders: parse } = batchHarness();
     assert.deepEqual(Array.from(parse('nc20260921001984，NC20261005000019\nNC20260921001984; NC20261005100013、NC20260901100036')),
         ['NC20260921001984', 'NC20261005000019', 'NC20261005100013', 'NC20260901100036']);
+    assert.deepEqual(Array.from(parse('ne20260921001984,NC20260921001984;NE20260921001984')),
+        ['NE20260921001984', 'NC20260921001984']);
+    for (const invalid of ['NX20260921001984', 'NE2026092100198', 'NE202609210019840', 'DNE20260921001984', 'NE20260921001984x']) {
+        assert.throws(() => parse(invalid), /NC.*NE/);
+    }
     assert.throws(() => parse(''), /请输入/);
     assert.throws(() => parse('NC20260921001984 invalid'), /invalid/i);
 });

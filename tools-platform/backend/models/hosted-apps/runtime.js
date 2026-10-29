@@ -256,14 +256,17 @@ function appEnv(slug, state, port) {
     const platformPort = process.env.PORT || '3030';
     const base = `http://127.0.0.1:${platformPort}/hosted-api/${state.dataToken}/dh`;
     const { netcareName } = require('./data-api').datasourceNames();
+    const defaultBiz = netcareName || 'platform:report.db';
+    const businessName = state.businessDatasource || defaultBiz;
     return baseEnv(slug, {
         PORT: String(port), HOST: '127.0.0.1', RELOAD: 'false', WORKERS: '1', DEBUG: 'false',
         APP_NAME: state.packageName || state.name || slug, ...(state.version ? { APP_VERSION: state.version } : {}),
         // 与数字人基座 REST 约定同名：BASE_QUERY_URL 去掉 /query 即基础地址
         BASE_QUERY_URL: `${base}/query`, APP_DATASOURCE_ID: 'app', APP_SCHEMA: state.uuid, APP_UUID: state.uuid, APP_LEVEL: 'BUSINESS',
-        BUSINESS_DATASOURCE_NAME: netcareName || 'platform:report.db', HTTP_VERIFY_SSL: 'false',
+        BUSINESS_DATASOURCE_NAME: businessName, HTTP_VERIFY_SSL: 'false',
         PLATFORM_APP_SLUG: slug, PLATFORM_APP_SECRET: state.secret, PLATFORM_DATA_API: base,
-        PLATFORM_APP_ENTRY: state.entry, PLATFORM_APP_FACTORY: state.factory ? '1' : '0', PLATFORM_APP_INTERFACE: state.interface
+        PLATFORM_APP_ENTRY: state.entry, PLATFORM_APP_FACTORY: state.factory ? '1' : '0', PLATFORM_APP_INTERFACE: state.interface,
+        ...(state.env || {})
     });
 }
 
@@ -424,14 +427,47 @@ function probeHealth(port, healthPath) {
     });
 }
 
-// 原基座由 DBA 手工建表；平台上应用包可带 db/init.sqlite.sql，首次启动（或脚本变化）时在应用库执行一次
+function transpileMysqlToSqlite(sql) {
+    if (!sql) return '';
+    let out = sql;
+    out = out.replace(/`?(\w+)`?\s+INT(?:EGER)?(?:\(\d+\))?\s+NOT\s+NULL\s+AUTO_INCREMENT\b/gi, '`$1` INTEGER PRIMARY KEY AUTOINCREMENT');
+    out = out.replace(/`?(\w+)`?\s+INT(?:EGER)?(?:\(\d+\))?\s+AUTO_INCREMENT\b/gi, '`$1` INTEGER PRIMARY KEY AUTOINCREMENT');
+    out = out.replace(/,\s*PRIMARY\s+KEY\s*\([^)]+\)/gi, '');
+    out = out.replace(/\s+COMMENT\s+'(?:[^'\\]|\\.)*'/gi, '');
+    out = out.replace(/\s+COMMENT\s+"(?:[^"\\]|\\.)*"/gi, '');
+    out = out.replace(/,\s*(?:KEY|INDEX)\s+`?\w+`?\s*\([^)]+\)/gi, '');
+    out = out.replace(/(?:UNIQUE\s+(?:KEY|INDEX)\s+`?\w+`?)\s*(\([^)]+\))/gi, 'UNIQUE $1');
+    out = out.replace(/\)\s*ENGINE\s*=\s*\w+[^;]*/gi, ')');
+    out = out.replace(/\)\s*DEFAULT\s+CHARSET\s*=\s*\w+[^;]*/gi, ')');
+    out = out.replace(/INSERT\s+INTO\b([\s\S]*?)ON\s+DUPLICATE\s+KEY\s+UPDATE\b[\s\S]*?;/gi, (match, p1) => {
+        return `INSERT OR REPLACE INTO ${p1.trim()};`;
+    });
+    return out;
+}
+
+// 原基座由 DBA 手工建表；平台上应用包可带 db/init.sqlite.sql（或 MySQL init.sql 自动转译），首次启动（或脚本变化）时在应用库执行一次
 async function applyInitSql(rt, state) {
-    const file = path.join(paths(rt.slug, rt.tenantId).code, 'db', 'init.sqlite.sql');
-    if (!fs.existsSync(file)) return state;
-    const sql = fs.readFileSync(file, 'utf8');
+    const codeDir = paths(rt.slug, rt.tenantId).code;
+    const candidates = [
+        path.join(codeDir, 'db', 'init.sqlite.sql'),
+        path.join(codeDir, 'db', 'init.sql'),
+        path.join(codeDir, 'init.sqlite.sql'),
+        path.join(codeDir, 'init.sql')
+    ];
+    let chosen = null;
+    for (const c of candidates) {
+        if (fs.existsSync(c)) { chosen = c; break; }
+    }
+    if (!chosen) return state;
+
+    const rawSql = fs.readFileSync(chosen, 'utf8');
+    const isMysql = !chosen.endsWith('.sqlite.sql') && (/AUTO_INCREMENT/i.test(rawSql) || /ENGINE\s*=/i.test(rawSql) || /COMMENT\s*['"]/i.test(rawSql));
+    const sql = isMysql ? transpileMysqlToSqlite(rawSql) : rawSql;
     const hash = crypto.createHash('sha256').update(sql).digest('hex');
     if (state.initSqlHash === hash) return state;
-    log(rt, '执行应用库初始化脚本 db/init.sqlite.sql');
+
+    const rel = path.relative(codeDir, chosen);
+    log(rt, `执行应用库初始化脚本 ${rel}${isMysql ? '（已自动转译为 SQLite 方言）' : ''}`);
     try {
         await require('./data-api').applyInitSql(rt.tenantId, rt.slug, sql);
     } catch (error) {

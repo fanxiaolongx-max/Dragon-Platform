@@ -7,20 +7,20 @@
 function parseNetcareRfcOrders(value) {
   const orders = [...new Set(value.trim().toUpperCase().split(/[\s,，;；、]+/).filter(Boolean))];
   if (!orders.length) throw new Error('请输入 RFC 单号 / Enter RFC numbers');
-  const invalid = orders.filter(order => !/^NC\d{14}$/.test(order));
-  if (invalid.length) throw new Error(`单号格式应为 NC + 14 位数字：${invalid.join(', ')}`);
+  const invalid = orders.filter(order => !/^N[CE]\d{14}$/.test(order));
+  if (invalid.length) throw new Error(`单号格式应为 NC 或 NE + 14 位数字 / Expected NC or NE + 14 digits: ${invalid.join(', ')}`);
   if (orders.length > 50) throw new Error('每批最多 50 个 RFC / Maximum 50 RFCs per batch');
   return orders;
 }
 
-function netcareNativeOrder(value){try{const raw=String(value||'');let decoded=raw;for(let i=0;i<3;i++){try{const d=decodeURIComponent(decoded);if(d===decoded)break;decoded=d;}catch{break;}}const u=new URL(raw,typeof location!=='undefined'?location.href:undefined);const queries=[u.searchParams,new URLSearchParams(u.hash.replace(/^#/,'').split('?')[1]||''),new URLSearchParams(decoded.replace(/^[^?]*\?/,''))];const found=new Set();for(const q of queries)for(const [key,val] of q)if(['orderid','order_id','docid','id'].includes(key.toLowerCase())&&/^NC\d{14}$/.test(val))found.add(val);for(const m of (raw+' '+decoded).matchAll(/(?:orderid|order_id|docid|id)=(NC\d{14})/gi))found.add(m[1]);if(found.size>1)return '!ambiguous';if(found.size)return [...found][0];}catch{}return '';}
+function netcareNativeOrder(value){try{const raw=String(value||'');let decoded=raw;for(let i=0;i<3;i++){try{const d=decodeURIComponent(decoded);if(d===decoded)break;decoded=d;}catch{break;}}const u=new URL(raw,typeof location!=='undefined'?location.href:undefined);const queries=[u.searchParams,new URLSearchParams(u.hash.replace(/^#/,'').split('?')[1]||''),new URLSearchParams(decoded.replace(/^[^?]*\?/,''))];const found=new Set();for(const q of queries)for(const [key,val] of q)if(['orderid','order_id','docid','id'].includes(key.toLowerCase())&&/^N[CE]\d{14}$/.test(val))found.add(val);for(const m of (raw+' '+decoded).matchAll(/(?:orderid|order_id|docid|id)=(N[CE]\d{14})/gi))found.add(m[1]);if(found.size>1)return '!ambiguous';if(found.size)return [...found][0];}catch{}return '';}
 
 // The export frame's URL is also its storage authorization identity. Never reuse
 // a first RFC's frame for another RFC, or replace a selected DNC document with NC.
 function netcareWordWorkerIdentity(value,order){
   const url=new URL(value),docId=url.searchParams.get('id')||'';
   if(url.protocol!=='https:'||url.username||url.password||url.port||!/(^|\.)kdp\.(?:gts|idp)\.huawei\.com$/.test(url.hostname)
-    ||url.pathname!=='/ows1/static/editor/IdpLiteView/PublishLiteView.html'||!/^NC\d{14}$/.test(order)||!/^D?NC\d{14}$/i.test(docId)||docId.replace(/^D/i,'').toUpperCase()!==order)
+    ||url.pathname!=='/ows1/static/editor/IdpLiteView/PublishLiteView.html'||!/^N[CE]\d{14}$/.test(order)||!/^D?N[CE]\d{14}$/i.test(docId)||docId.replace(/^D/i,'').toUpperCase()!==order)
     throw Error('导出连接与当前方案不匹配，请重新运行该单号 / Export worker does not match this RFC; run it again');
   return {key:url.origin+'\n'+docId,origin:url.origin,docId,url:url.href};
 }
@@ -89,7 +89,7 @@ function netcareSearchRedirects(win,order,forward){
 // Inspect every candidate, without reading a cross-origin iframe's document.
 function netcareOnlineFrames(documents, order, baseUrl, isVisible) {
   const result = [], seen = new Set();
-  const matches = value => /^D?NC\d{14}$/i.test(value || '') && value.replace(/^D/i, '').toUpperCase() === order;
+  const matches = value => /^D?N[CE]\d{14}$/i.test(value || '') && value.replace(/^D/i, '').toUpperCase() === order;
   for (const doc of new Set(documents)) {
     for (const frame of doc?.querySelectorAll?.('iframe') || []) {
       if (seen.has(frame)) continue;
@@ -104,7 +104,7 @@ function netcareOnlineFrames(documents, order, baseUrl, isVisible) {
         candidate.pathOk = u.pathname === '/ows1/static/editor/IdpLiteView/OwsPage.html';
         candidate.docIdParam = u.searchParams.get('docId') || u.searchParams.get('id') || '';
         candidate.orderIdParam = u.searchParams.get('order_id') || '';
-        candidate.orderOk = /^NC\d{14}$/.test(order) && matches(candidate.docIdParam) && (!candidate.orderIdParam || matches(candidate.orderIdParam));
+        candidate.orderOk = /^N[CE]\d{14}$/.test(order) && matches(candidate.docIdParam) && (!candidate.orderIdParam || matches(candidate.orderIdParam));
       } catch { /* Keep malformed candidates in diagnostics, never open them. */ }
       candidate.valid = candidate.hostOk && candidate.pathOk && candidate.orderOk;
       result.push(candidate);
@@ -1369,8 +1369,8 @@ async function netcareCaptureEvidence(element,renderer,signal){
 function mountNetcareCollector() {
   const params = new URL(location.href).searchParams;
   const rawOrder = params.get('order_id') || params.get('docId') || params.get('id') || '';
-  const order = /^NC\d{14}$/.test(rawOrder) ? rawOrder : (/^D(NC\d{14})$/i.test(rawOrder) ? rawOrder.slice(1).toUpperCase() : '');
-  if (!/^NC\d{14}$/.test(order)) return;
+  const order = /^N[CE]\d{14}$/.test(rawOrder) ? rawOrder : (/^D(N[CE]\d{14})$/i.test(rawOrder) ? rawOrder.slice(1).toUpperCase() : '');
+  if (!/^N[CE]\d{14}$/.test(order)) return;
   if (window.__netcareCollectorMounted) {
     console.warn('[NetCare] 采集浮窗已在当前页挂载，忽略重复挂载 / Collector already mounted');
     return;
@@ -1916,11 +1916,11 @@ function mountNetcareCollector() {
     'https://netcare-de.gts.huawei.com'
   ]);
   const ID = 'netcare-rfc-word-panel';
-  const validOrder = value => /^NC\d{14}$/.test(value);
+  const validOrder = value => /^N[CE]\d{14}$/.test(value);
   const netcareMatchesOrder = (candidate, order) => {
     if (!candidate || !order) return false;
     if (candidate === order) return true;
-    return candidate.toUpperCase() === ('D' + order).toUpperCase() || (candidate.toUpperCase().endsWith(order.toUpperCase()) && /^D?NC\d{14}$/i.test(candidate));
+    return candidate.toUpperCase() === ('D' + order).toUpperCase() || (candidate.toUpperCase().endsWith(order.toUpperCase()) && /^D?N[CE]\d{14}$/i.test(candidate));
   };
   const validExport = value => {
     const u = new URL(value);
@@ -2196,7 +2196,7 @@ function mountNetcareCollector() {
     '通过网站原生搜索定位作业单…': 'Finding RFC through the site search…',
     '调用网站原生下载入口，检查授权…': 'Checking authorization through the native download action…',
     '授权入口已通过，开始生成 Word…': 'Authorization passed; generating Word…',
-    '单号格式应为 NC + 14 位数字。': 'RFC must be NC followed by 14 digits.'
+    '单号格式应为 NC 或 NE + 14 位数字。': 'RFC must be NC or NE followed by 14 digits.'
   };
   const translate = text => translations[text] ? `${text} / ${translations[text]}` : text;
   const log = text => {

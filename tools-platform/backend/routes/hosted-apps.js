@@ -42,6 +42,39 @@ router.get('/:slug/status', requireAdmin, (req, res) => {
     } catch (error) { send(res, error, '读取状态失败'); }
 });
 
+router.get('/:slug/config', requireAdmin, async (req, res) => {
+    try {
+        const state = runtime.readState(req.params.slug);
+        if (!state) return res.status(404).json({ error: '应用不存在' });
+        const dataApi = require('../models/hosted-apps/data-api');
+        const datasources = await dataApi.listDatasources({ uuid: state.uuid });
+        const { netcareName } = dataApi.datasourceNames();
+        res.json({
+            success: true,
+            slug: req.params.slug,
+            name: state.name || state.packageName,
+            businessDatasource: state.businessDatasource || netcareName || 'platform:report.db',
+            availableDatasources: datasources.filter(d => d.type !== 'APP_CUSTOM').map(d => d.name),
+            env: state.env || {}
+        });
+    } catch (error) { send(res, error, '读取应用配置失败'); }
+});
+
+router.put('/:slug/config', requireAdmin, async (req, res) => {
+    try {
+        const state = runtime.readState(req.params.slug);
+        if (!state) return res.status(404).json({ error: '应用不存在' });
+        const patch = {};
+        if (req.body.businessDatasource !== undefined) patch.businessDatasource = String(req.body.businessDatasource || '');
+        if (req.body.env && typeof req.body.env === 'object') patch.env = req.body.env;
+        const updated = runtime.updateState(req.params.slug, patch);
+        if (updated.status === 'running') {
+            runtime.restart(req.params.slug).catch(() => {});
+        }
+        res.json({ success: true, app: runtime.status(req.params.slug) });
+    } catch (error) { send(res, error, '更新应用配置失败'); }
+});
+
 router.get('/:slug/logs', requireAdmin, (req, res) => {
     try {
         if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });

@@ -27,7 +27,9 @@ function parseSkillFile(id, raw) {
             description: fields.description,
             descriptionEn: fields.description_en,
             icon: fields.icon || '✨',
-            workspace: fields.workspace === 'true'
+            workspace: fields.workspace === 'true',
+            // 加载该技能时一并加载的工具分组（agent-tool-registry.js 的 GROUPS / TOOLSETS）
+            tools: String(fields.tools || '').split(/[,\s]+/).filter(Boolean)
         },
         order: Number(fields.order) || 999,
         raw: String(raw),

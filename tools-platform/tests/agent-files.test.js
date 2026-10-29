@@ -8,6 +8,7 @@ const vm = require('node:vm');
 const sandbox = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'tools-platform-agent-files-')));
 const outputsRoot = path.join(sandbox, 'outputs');
 process.env.TOOLS_AGENT_FILE_ROOTS = outputsRoot;
+process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
 
 const express = require('../backend/node_modules/express');
 const router = require('../backend/routes/agent-files');
@@ -30,7 +31,7 @@ test.before(async () => {
     const app = express();
     app.use((req, _res, next) => {
         const role = req.headers['x-test-role'];
-        if (role) req.user = { username: 'u', role };
+        if (role) req.user = { username: req.headers['x-test-user'] || 'u', role };
         Object.defineProperty(req.socket, 'remoteAddress', { configurable: true, value: req.headers['x-test-remote'] ? '192.0.2.1' : '127.0.0.1' });
         next();
     });
@@ -141,4 +142,15 @@ test('chat markdown turns local files into download cards and images into zoomab
 
     const hostile = render('![x](javascript:alert(1)) [y](/Volumes/a/"><img onerror=1>.pdf)');
     assert.ok(!hostile.tokens.some(html => /javascript:|<img onerror/.test(html)));
+});
+
+test('agent result files are readable only by their owner, even for admins', async () => {
+    const artifacts = require('../backend/models/agent-artifacts');
+    const saved = await artifacts.spill({ owner: 'default::alice', sessionId: 's1', callId: 'c1', toolName: 'run_command', content: 'r'.repeat(artifacts.LIMITS.spillChars + 10) });
+    assert.ok(saved.artifact && saved.artifact.path.startsWith(path.join(sandbox, 'data', 'agent-artifacts')));
+    const own = await get('/raw', saved.artifact.path, { 'x-test-role': 'viewer', 'x-test-remote': '1', 'x-test-user': 'alice' });
+    assert.equal(own.status, 200, 'the owner reads it even as a remote non-admin');
+    assert.equal((await own.text()).length, artifacts.LIMITS.spillChars + 10);
+    const other = await get('/raw', saved.artifact.path, { 'x-test-role': 'admin', 'x-test-user': 'bob' });
+    assert.equal(other.status, 403, 'another account, even a local admin, cannot');
 });

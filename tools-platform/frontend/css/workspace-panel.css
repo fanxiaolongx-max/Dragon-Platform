@@ -204,6 +204,7 @@
 .wsp-ctx-legend i { width: 10px; height: 10px; border-radius: 3px; }
 .wsp-ctx-legend b { font-weight: 650; }
 .wsp-ctx-legend em { color: var(--wsp-faint); font-style: normal; text-align: right; }
+.wsp-ctx-cache { margin-top: 9px; color: var(--wsp-muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .wsp-ctx-note { margin-top: 9px; color: var(--wsp-faint); font-size: 10.5px; }
 
 /* 更改卡 */
@@ -609,3 +610,6 @@ body.dc-file-expanded { overflow: hidden; }
     .dc-file-name { flex: 1; }
     .dc-file-frame { height: 280px; }
 }
+
+/* 大工具结果的完整文件 */
+.dc-tool-artifact { margin: 4px 0 6px 26px; }

@@ -266,3 +266,30 @@ test('Word-only mode still saves the requested Word when cache storage is unavai
         assert.deepEqual(worker.saved, [first + '_Solution.docx']);
     } finally { worker.close(); }
 });
+
+
+test('enterprise NE and sanitized DNE export through the real relay, cache, logs and snapshot without accepting NC identity', async () => {
+    const bg = background(), order = first.replace(/^NC/, 'NE');
+    for (const docId of [order, 'D' + order]) {
+        const worker = exportWorker(exportUrl(docId), bg);
+        try {
+            const result = await worker.run(order);
+            assert.equal(result.type, 'done', result.text);
+            assert.ok(worker.requests.length > 2);
+            assert.equal(worker.requests[0].searchParams.get('id'), docId);
+            assert.ok(worker.requests.slice(2).every(url => url.searchParams.get('docId') === docId));
+        } finally { worker.close(); }
+    }
+    const files = await bg.cache.list([order]);
+    assert.ok(files.length > 0);
+    const file = files[0];
+    const denied = await bg.dispatch({ type: 'TP_RFC_ARTIFACT_REQUEST', action: 'read', order: first, fileId: file.id, index: 0 }, exportUrl('D' + order));
+    assert.equal(denied.ok, false, 'NC and NE with identical digits are different RFCs');
+    const log = await bg.cache.log({ action: 'audit.result', order, category: 'audit', message: 'Enterprise audit' });
+    assert.ok(log);
+    await bg.cache.saveSnapshot([{ order, wordFilename: file.name, items: [], reports: [] }], 'Enterprise');
+    const snapshots = await bg.cache.history();
+    assert.equal(snapshots.length, 1);
+    assert.throws(() => utility.netcareWordWorkerIdentity(exportUrl('D' + order), first), /does not match/);
+    await bg.cache.close();
+});

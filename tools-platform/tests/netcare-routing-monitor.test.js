@@ -226,3 +226,18 @@ test('native redirect requests reject foreign owners, invalid destinations, expi
  h.values.netcareRouteJobs[id].expires=Date.now()-1;assert.equal((await h.send('TP_RFC_ROUTE_OPEN',id,1,{url})).ok,false);
  await h.send('TP_RFC_ROUTE_ARM',id);await h.send('TP_RFC_ROUTE_CANCEL',id);assert.equal((await h.send('TP_RFC_ROUTE_OPEN',id,1,{url})).ok,false);assert.equal(h.created.length,0);
 });
+
+
+test('NE cross-region handoff retains the prefix and rejects an NC RFC with identical digits', async () => {
+ const h=harness(),id=crypto.randomUUID(),enterprise=order.replace(/^NC/,'NE');
+ assert.equal((await h.send('TP_RFC_ROUTE_ARM',id,1,{order:enterprise})).ok,true);
+ h.tabs.set(2,{id:2,url:origins[2]+'/p/netcare/index.html?orderid='+order});h.events.created({id:2,openerTabId:1});await h.drain();
+ assert.equal(h.values.netcareRouteJobs[id].phase,'searching');
+ h.tabs.set(3,{id:3,url:origins[2]+'/p/netcare/index.html#/detail?orderid='+enterprise});h.events.created({id:3,openerTabId:1});await h.drain();
+ assert.equal(h.values.netcareRouteJobs[id].currentTabId,3);
+ assert.ok(h.notifications.some(m=>m.type==='TP_RFC_ROUTE_LAUNCH'&&m.data.order===enterprise));
+ assert.equal(route.urlOrder(origins[0]+'/p/netcare/index.html?docId=D'+enterprise),enterprise);
+ assert.equal(route.urlOrder(origins[0]+'/p/netcare/index.html?docId='+enterprise+'#/?orderid='+order),'!ambiguous');
+ const sample=monitor.sanitize({tabId:3,rootTabId:1,role:'online',at:Date.now(),order:enterprise});
+ assert.equal(sample.order,enterprise);
+});

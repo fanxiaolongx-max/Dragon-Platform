@@ -4,6 +4,7 @@ name_en: Data check
 description: 只读核对表结构、口径和数据异常
 description_en: Check schemas, definitions and anomalies read-only
 workspace: true
+tools: database
 order: 4
 icon: 📊
 ---

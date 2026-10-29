@@ -12,6 +12,7 @@ const { unifiedDiff } = require('./agent-change-log');
 const commandGuard = require('./agent-command-guard');
 const databaseService = require('./agent-database-service');
 const scriptService = require('./agent-script-service');
+const artifacts = require('./agent-artifacts');
 
 const LIMITS = {
     listEntries: 500,
@@ -25,6 +26,8 @@ const LIMITS = {
     commandTimeoutMs: 60000,
     commandMaxTimeoutMs: 300000,
     commandOutputBytes: 32 * 1024,
+    // 工作区循环会把大输出完整存成文件（agent-artifacts），命令输出按这个更大的上限收集
+    commandArtifactBytes: 4 * 1024 * 1024,
     resultChars: 24 * 1024
 };
 
@@ -433,8 +436,10 @@ async function readLineWindow(abs, startLine, maxLines, maxBytes, fileSize, prot
 
 async function readFile(ctx, args = {}) {
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
-    const abs = guard.resolveInsideRoot(ctx.root, args.path);
-    const display = guard.toDisplayPath(ctx.root, abs);
+    // 本人的大结果文件（agent-artifacts）在工作目录之外，也允许按行读取
+    const artifact = ctx.artifactOwner && path.isAbsolute(String(args.path)) && artifacts.belongsTo(ctx.artifactOwner, String(args.path));
+    const abs = artifact ? path.resolve(String(args.path)) : guard.resolveInsideRoot(ctx.root, args.path);
+    const display = artifact ? abs : guard.toDisplayPath(ctx.root, abs);
     guard.assertNotSecretFile(abs);
     const stat = await fsp.stat(abs).catch(() => null);
     if (!stat) throw toolError('AGENT_NOT_FOUND', `文件不存在：${display}`);
@@ -729,8 +734,9 @@ async function runCommand(ctx, args = {}) {
     const shellArgs = [...resolved.args, command];
     const started = Date.now();
     return new Promise(resolve => {
-        const stdout = createOutputCollector(LIMITS.commandOutputBytes);
-        const stderr = createOutputCollector(LIMITS.commandOutputBytes);
+        const outputLimit = ctx.fullResults ? LIMITS.commandArtifactBytes : LIMITS.commandOutputBytes;
+        const stdout = createOutputCollector(outputLimit);
+        const stderr = createOutputCollector(outputLimit);
         let child;
         try {
             child = spawn(shell, shellArgs, { cwd: ctx.root, env: scrubbedEnv(), stdio: ['ignore', 'pipe', 'pipe'], detached: !isWin, windowsHide: true });
@@ -936,6 +942,8 @@ async function execute(ctx, name, args = {}) {
     try {
         const result = await executor(ctx, args && typeof args === 'object' ? args : {});
         const safe = redactValue(result, { secrets: ctx.sensitiveValues });
+        // fullResults：调用方（工作区循环）自己把大结果存成文件，这里不再掐头去尾；read_file 本身已按行分页
+        if (ctx.fullResults && name !== 'read_file') return { ...safe, content: String(safe.content ?? ''), truncated: Boolean(result.truncated) };
         const clamped = clampResult(safe.content);
         return { ...safe, content: clamped.content, truncated: clamped.truncated || Boolean(result.truncated) };
     } catch (error) {

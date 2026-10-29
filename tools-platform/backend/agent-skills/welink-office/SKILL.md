@@ -4,6 +4,7 @@ name_en: WeLink office
 description: 以本人身份使用 WeLink：查联系人/聊天/会议/云空间/邮件/日历，确认后发消息、建会、发邮件
 description_en: Use WeLink as yourself: query contacts, chats, meetings, drive, mail and calendar; send, schedule and mail after you confirm
 workspace: false
+tools: welink-office
 order: 8
 icon: 💼
 ---

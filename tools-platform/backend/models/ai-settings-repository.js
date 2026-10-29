@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS = {
     model: 'gemini-2.5-flash',
     apiKey: '',
     maxOutputTokens: 2048,
+    contextWindowTokens: 0, // 0 = 按模型名自动识别（agent-context-stats.windowFor）
     temperature: 0.7,
     inputCostPerMillionUsd: 0.075,
     outputCostPerMillionUsd: 0.3,
@@ -47,6 +48,12 @@ function clampNumber(value, fallback, min, max) {
     return Math.min(max, Math.max(min, num));
 }
 
+// 上下文窗口：0 表示自动；手填时限定在 4K～1000 万之间
+function normalizeContextWindow(value) {
+    const num = Math.round(Number(value) || 0);
+    return num > 0 ? Math.round(clampNumber(num, 0, 4096, 10000000)) : 0;
+}
+
 function normalizeSettings(input = {}, previous = {}) {
     const base = { ...DEFAULT_SETTINGS, ...previous, ...input };
     const provider = normalizeProvider(base.provider);
@@ -57,6 +64,7 @@ function normalizeSettings(input = {}, previous = {}) {
         model: String(base.model || DEFAULT_MODELS[provider] || DEFAULT_SETTINGS.model).trim() || DEFAULT_MODELS[provider],
         apiKey: String(base.apiKey || '').trim(),
         maxOutputTokens: Math.round(clampNumber(base.maxOutputTokens, DEFAULT_SETTINGS.maxOutputTokens, 128, 8192)),
+        contextWindowTokens: normalizeContextWindow(base.contextWindowTokens),
         temperature: clampNumber(base.temperature, DEFAULT_SETTINGS.temperature, 0, 2),
         inputCostPerMillionUsd: clampNumber(base.inputCostPerMillionUsd, DEFAULT_SETTINGS.inputCostPerMillionUsd, 0, 999),
         outputCostPerMillionUsd: clampNumber(base.outputCostPerMillionUsd, DEFAULT_SETTINGS.outputCostPerMillionUsd, 0, 999),
@@ -227,6 +235,7 @@ function publicSettings(runtime) {
         apiBaseUrl: runtime.apiBaseUrl,
         model: runtime.model,
         maxOutputTokens: runtime.maxOutputTokens,
+        contextWindowTokens: runtime.contextWindowTokens,
         temperature: runtime.temperature,
         inputCostPerMillionUsd: runtime.inputCostPerMillionUsd,
         outputCostPerMillionUsd: runtime.outputCostPerMillionUsd,

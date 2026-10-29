@@ -920,7 +920,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                     onDelta: streamRequested ? delta => {
                         streamHasDelta = true;
                         writeStreamEvent({ type: 'delta', delta });
-                    } : undefined
+                    } : undefined,
+                    onReasoning: streamRequested ? delta => writeStreamEvent({ type: 'thinking', delta }) : undefined
                 });
             } catch (error) {
                 if (streamHasDelta) error.partialOutput = true;
@@ -943,6 +944,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 historyMessages: effectiveMessages,
                 skillCatalog: loadedSkills.catalog,
                 skillLanguage: uiLanguage,
+                skillPrompt: redactText(`${loadedSkills.catalogPrompt || ''}\n${loadedSkills.prompt || ''}`.trim(), { secrets: sensitiveValues }),
+                skillIds: loadedSkills.selected.map(item => item.id),
                 write: event => {
                     if (event.type === 'delta') streamHasDelta = true;
                     writeStreamEvent(event);
@@ -1561,6 +1564,59 @@ router.get('/sessions/:sessionId/messages', checkAuth, async (req, res) => {
     } catch (err) {
         console.error('[AI] session messages failed:', err);
         res.status(err.statusCode || 500).json({ code: err.code, error: '读取历史消息失败: ' + err.message });
+    }
+});
+
+/**
+ * GET /api/ai/sessions/:sessionId/export
+ * 导出对话日志（JSON），给研发定位问题：消息与工具过程、工作区智能体的完整工具调用记录、模型配置与平台版本。
+ * 只能导出自己的会话；全部内容按已配置的密钥脱敏，不含 API Key；模型网关地址等配置只对管理员导出。
+ */
+router.get('/sessions/:sessionId/export', checkAuth, async (req, res) => {
+    try {
+        const owner = req.user.username;
+        const sessionId = req.params.sessionId;
+        const messages = await aiChatRepo.listMessages(sessionId, { owner });
+        const session = await aiChatRepo.getSession(sessionId);
+        const agent = session?.agent_session_id
+            ? await require('../models/agent-transcript-repository').exportSession({ agentSessionId: session.agent_session_id, owner: `${getTenantId()}::${owner}`, chatSessionId: sessionId })
+            : null;
+        const settings = await aiSettingsRepo.getPublicSettings();
+        const isAdmin = req.user.role === 'admin';
+        const model = isAdmin ? {
+            provider: settings.provider, model: settings.model, apiBaseUrl: String(settings.apiBaseUrl || '').replace(/[?#].*$/, ''),
+            maxOutputTokens: settings.maxOutputTokens, contextWindowTokens: settings.contextWindowTokens, temperature: settings.temperature,
+            autoSwitchEnabled: settings.autoSwitchEnabled, systemPrompt: settings.systemPrompt,
+            profiles: (settings.profiles || []).map(item => ({ id: item.id, name: item.name, category: item.category, isActive: item.isActive, provider: item.provider, model: item.model, maxOutputTokens: item.maxOutputTokens, contextWindowTokens: item.contextWindowTokens })),
+            modelAliases: settings.modelAliases
+        } : { provider: settings.provider, model: settings.model };
+        let version = '';
+        try { version = require('../../package.json').version; } catch (_error) { /* 打包版本可能没有根 package.json */ }
+        const log = redactValue({
+            format: 'dragon-claw-chat-log',
+            formatVersion: 1,
+            exportedAt: new Date().toISOString(),
+            exportedBy: owner,
+            tenant: getTenantId(),
+            platform: { version, node: process.version, os: `${process.platform}-${process.arch}`, desktop: process.env.TOOLS_DESKTOP_RUNTIME === '1' },
+            model,
+            session: session ? {
+                id: session.id, pageTitle: session.page_title, pagePath: session.page_path, createdAt: session.created_at, updatedAt: session.updated_at,
+                archived: Boolean(session.is_archived), summary: session.summary, agentSessionId: session.agent_session_id, agentRoot: session.agent_root
+            } : null,
+            messages: messages.map(item => ({
+                id: item.id, role: item.role, createdAt: item.created_at, model: item.model_name || '',
+                inputTokens: item.input_tokens || 0, outputTokens: item.output_tokens || 0, content: item.content, events: item.events
+            })),
+            agent
+        }, { secrets: await aiSettingsRepo.getRedactionSecrets() });
+        const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*$/, '');
+        res.setHeader('Content-Disposition', `attachment; filename="dragon-claw-log-${String(sessionId).replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40)}-${stamp}.json"`);
+        res.setHeader('Cache-Control', 'no-store');
+        res.json(log);
+    } catch (err) {
+        console.error('[AI] export session failed:', err);
+        res.status(err.statusCode || 500).json({ code: err.code, error: '导出对话日志失败: ' + err.message });
     }
 });
 

@@ -4,6 +4,7 @@ name_en: Group operations
 description: 配置、测试、检查与推送运营群组的自动化运营内容
 description_en: Configure, test, review and push automated group operations
 workspace: false
+tools: ops
 order: 7
 icon: 📣
 ---

@@ -738,6 +738,39 @@ body.dc-chatting .dc-composer {
 .dc-activity.is-waiting { color: var(--dc-muted); }
 .dc-activity.is-waiting .dc-activity-orbit { animation-play-state: paused; }
 @keyframes dc-orbit { to { transform: rotate(360deg); } }
+.dc-activity-time { color: var(--dc-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* 思考过程：默认收起，点击标题展开；思考中标题旁显示阶段词和用时 */
+.dc-think { margin: 2px 0 10px; }
+.dc-think-head {
+    display: inline-flex; align-items: center; gap: 8px; max-width: 100%;
+    padding: 3px 10px 3px 6px; border: 1px solid transparent; border-radius: 8px;
+    background: none; color: var(--dc-muted); font: inherit; font-size: 13px; cursor: pointer;
+}
+.dc-think-head:hover, .dc-think-head:focus-visible { border-color: var(--dc-border); color: var(--dc-text); outline: none; }
+.dc-think-chevron { width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 0.18s ease; }
+.dc-think.is-open .dc-think-chevron { transform: rotate(45deg); }
+.dc-think-label { font-weight: 500; }
+.dc-think.is-active .dc-think-label {
+    background: linear-gradient(90deg, var(--dc-muted) 0%, var(--dc-accent) 50%, var(--dc-muted) 100%);
+    background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: dc-think-shimmer 2.2s linear infinite;
+}
+.dc-think-phase { padding: 1px 8px; border-radius: 999px; background: rgba(100, 255, 218, 0.1); color: var(--dc-accent); font-size: 12px; }
+.dc-think-phase[hidden] { display: none; }
+.dc-think-phase.is-changed { animation: dc-think-phase-in 0.32s ease; }
+.dc-think-time { color: var(--dc-faint); font-size: 12px; font-variant-numeric: tabular-nums; }
+.dc-think-body {
+    max-height: 280px; overflow-y: auto; margin: 6px 0 0 9px; padding: 4px 0 4px 14px;
+    border-left: 2px solid var(--dc-border); color: var(--dc-muted); font-size: 13px; line-height: 1.7;
+    white-space: pre-wrap; word-break: break-word;
+}
+.dc-think-sep { margin: 8px 0; border: 0; border-top: 1px dashed var(--dc-border); }
+@keyframes dc-think-shimmer { to { background-position: -200% 0; } }
+@keyframes dc-think-phase-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+    .dc-think.is-active .dc-think-label, .dc-think-phase.is-changed { animation: none; }
+}
 
 .dc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .dc-action {

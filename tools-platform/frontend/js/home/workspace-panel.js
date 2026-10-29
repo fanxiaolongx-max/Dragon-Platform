@@ -167,8 +167,9 @@
             el.ctxBody.innerHTML = `<div class="wsp-empty">${escapeHtml(tx(state.root ? 'ctxEmpty' : 'ctxNoWorkspace'))}</div>`;
             return;
         }
-        const order = ['messages', 'directory', 'system', 'tools', 'free'];
-        const colors = { messages: '#60a5fa', directory: '#64ffda', system: '#a78bfa', tools: '#f59e0b', free: 'rgba(148,163,184,0.18)' };
+        // 旧会话存档里没有的分项（skills、toolResults、reserve）不显示
+        const order = ['messages', 'toolResults', 'directory', 'system', 'skills', 'tools', 'reserve', 'free'].filter(key => key in ctx.parts);
+        const colors = { messages: '#60a5fa', toolResults: '#22d3ee', directory: '#64ffda', system: '#a78bfa', skills: '#f472b6', tools: '#f59e0b', reserve: 'rgba(148,163,184,0.42)', free: 'rgba(148,163,184,0.18)' };
         const total = Math.max(1, ctx.windowTokens || 1);
         const percent = Math.min(100, Math.round((ctx.usedTokens / total) * 100));
         el.ctxMeta.textContent = `${percent}%`;
@@ -180,7 +181,9 @@
             <ul class="wsp-ctx-legend">
                 ${order.map(key => `<li><i style="background:${colors[key]}"></i><span>${escapeHtml(tx(`ctx${key[0].toUpperCase()}${key.slice(1)}`))}</span><b>${formatTokens(ctx.parts[key] || 0)}</b><em>${((ctx.parts[key] || 0) / total * 100).toFixed(1)}%</em></li>`).join('')}
             </ul>
-            <div class="wsp-ctx-note">${escapeHtml(tx(ctx.source === 'provider' ? 'ctxSourceProvider' : 'ctxSourceEstimate'))}</div>`;
+            ${ctx.tools?.deferred ? `<div class="wsp-ctx-cache">${escapeHtml(tx('ctxDeferredTools', { loaded: ctx.tools.loaded, count: ctx.tools.deferred, tokens: formatTokens(ctx.tools.deferredTokens) }))}</div>` : ''}
+            ${ctx.cache ? `<div class="wsp-ctx-cache">${escapeHtml(ctx.cache.cachedTokens > 0 ? tx('ctxCache', { percent: Math.round(ctx.cache.hitRate * 100), tokens: formatTokens(ctx.cache.cachedTokens) }) : tx('ctxCacheNone'))}</div>` : ''}
+            <div class="wsp-ctx-note">${escapeHtml(tx(ctx.source === 'provider' ? 'ctxSourceProvider' : 'ctxSourceEstimate'))}${ctx.windowSource ? ` · ${escapeHtml(tx(ctx.windowSource === 'configured' ? 'ctxWindowConfigured' : 'ctxWindowModel'))}` : ''}</div>`;
     }
 
     // ── 更改卡 ──────────────────────────────────────────
@@ -703,6 +706,8 @@
         if (tool === 'run_command' || tool === 'welink_query' || tool === 'welink_action' || /^netcare_/.test(tool)) return args.command || '';
         if (tool === 'search') return `"${args.query || ''}"${args.path && args.path !== '.' ? ` in ${args.path}` : ''}`;
         if (tool === 'rename_path') return `${args.from || ''} → ${args.to || ''}`;
+        if (tool === 'tool_search') return [...(Array.isArray(args.select) ? args.select : []), args.query || ''].filter(Boolean).join(', ');
+        if (tool === 'load_skill') return args.id ? `@${String(args.id).replace(/^@/, '')}` : '';
         if (tool === 'list_directory') return args.path || '.';
         if (tool === 'list_databases') return args.path || '.';
         if (tool === 'database_schema' || tool === 'read_database_table') return `${args.database || ''}${args.table ? ` / ${args.table}` : ''}`;
@@ -710,7 +715,7 @@
     }
 
     function toolIcon(tool) {
-        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
+        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
     }
 
     // ── 对话内：写入 / 编辑后的文件卡片（预览 / 代码） ─────
@@ -878,6 +883,8 @@
             row.querySelector('.dc-tool-state').innerHTML = `${event.ok ? '✓' : '✗'} <span>${escapeHtml(event.summary || '')}</span>${event.durationMs > 1500 ? ` <small>${(event.durationMs / 1000).toFixed(1)}s</small>` : ''}`;
             // 命令输出：折叠在工具行下方，需要时展开查看
             if (event.output) row.insertAdjacentHTML('afterend', `<details class="dc-tool-output"><summary>${escapeHtml(tx('toolOutput'))}</summary><pre>${escapeHtml(event.output)}</pre></details>`);
+            // 大结果已完整存成文件：挂文件卡片，可打开或下载
+            if (event.artifact?.path && window.ChatFiles) row.insertAdjacentHTML('afterend', `<div class="dc-tool-artifact">${window.ChatFiles.chipHtml(event.artifact.path, tx('toolArtifact', { lines: event.artifact.lines || '' }))}</div>`);
             // 写入 / 编辑成功：挂文件卡片，可在对话内预览或看代码；实时生成的 HTML/SVG/Markdown 直接展开预览
             if (event.ok && row.dataset.filePath) attachFileCard(row, row.dataset.filePath, !replaying);
         } else if (event.type === 'approval') {

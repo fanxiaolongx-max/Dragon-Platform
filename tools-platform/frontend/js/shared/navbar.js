@@ -602,6 +602,7 @@ function registerNavbarI18n() {
             'nav.ai.plhApiUrl': '留空使用供应商默认地址；兼容网关填 /v1 基地址',
             'nav.ai.lblModel': '模型名称',
             'nav.ai.lblMax': '最大输出 Tokens',
+            'nav.ai.lblContext': '上下文窗口 Tokens（0 = 按模型自动）',
             'nav.ai.lblInputCost': '输入成本 USD / 1M Tokens',
             'nav.ai.lblOutputCost': '输出成本 USD / 1M Tokens',
             'nav.ai.lblUsdCny': '美元兑人民币',
@@ -1162,6 +1163,7 @@ function registerNavbarI18n() {
             'nav.ai.plhApiUrl': 'Leave empty for provider default; compatible gateways should use the /v1 base URL',
             'nav.ai.lblModel': 'Model Name',
             'nav.ai.lblMax': 'Max Output Tokens',
+            'nav.ai.lblContext': 'Context Window Tokens (0 = auto by model)',
             'nav.ai.lblInputCost': 'Input Cost (USD / 1M)',
             'nav.ai.lblOutputCost': 'Output Cost (USD / 1M)',
             'nav.ai.lblUsdCny': 'USD to CNY Exchange Rate',
@@ -3689,6 +3691,10 @@ async function renderAiSettings(content) {
                     <input id="navAiMaxTokens" type="number" min="128" max="8192" step="128" class="nav-settings-input" value="${navEscape(settings.maxOutputTokens)}" oninput="scheduleAiSettingsSave()">
                 </label>
                 <label class="nav-ai-field">
+                    <span>${navEscape(navT('nav.ai.lblContext'))}</span>
+                    <input id="navAiContextWindow" type="number" min="0" max="10000000" step="1000" class="nav-settings-input" value="${navEscape(settings.contextWindowTokens || 0)}" oninput="scheduleAiSettingsSave()">
+                </label>
+                <label class="nav-ai-field">
                     <span>${navEscape(navT('nav.ai.lblInputCost'))}</span>
                     <input id="navAiInputCost" type="number" min="0" step="0.001" class="nav-settings-input" value="${navEscape(settings.inputCostPerMillionUsd)}" oninput="scheduleAiSettingsSave()">
                 </label>
@@ -3842,6 +3848,7 @@ function collectAiSettingsPayload(options = {}) {
         model: document.getElementById('navAiModel')?.value || 'gemini-2.5-flash',
         temperature: document.getElementById('navAiTemperature')?.value || 0.7,
         maxOutputTokens: document.getElementById('navAiMaxTokens')?.value || 2048,
+        contextWindowTokens: document.getElementById('navAiContextWindow')?.value || 0,
         inputCostPerMillionUsd: document.getElementById('navAiInputCost')?.value || 0.075,
         outputCostPerMillionUsd: document.getElementById('navAiOutputCost')?.value || 0.3,
         usdToCny: document.getElementById('navAiUsdToCny')?.value || 7.2,
