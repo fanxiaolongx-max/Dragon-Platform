@@ -562,6 +562,12 @@ function logs(slug, limit = 300) {
     return lines.slice(-Math.min(MAX_LOG_LINES, Math.max(1, Number(limit) || 300)));
 }
 
+/** 是否有安装 / 启动 / 运行中的后台任务（状态文件写着「安装中」但这里为 false，说明任务没在跑，需要重新开始）。 */
+function isActive(slug, tenantId = tenant.getTenantId()) {
+    const rt = runtimes.get(keyOf(tenantId, slug));
+    return Boolean(rt && (rt.busy || rt.installer || rt.child));
+}
+
 /** 代理用：返回正在运行的端口；未运行返回 null。 */
 function target(slug, tenantId = tenant.getTenantId()) {
     const rt = runtimes.get(keyOf(tenantId, slug));
@@ -710,5 +716,5 @@ process.once('exit', shutdownAll);
 
 module.exports = {
     paths, readState, updateState, getSettings, saveSettings, findPython, appEnv, install, start, stop, restart, status, logs, target,
-    createApp, updateApp, removeApp, exists, listApps, savePackage, packageArchive, recover, shutdownAll, resolveDataToken, assertSlug, HOST_SOURCE
+    createApp, updateApp, removeApp, exists, listApps, isActive, savePackage, packageArchive, recover, shutdownAll, resolveDataToken, assertSlug, HOST_SOURCE
 };

@@ -156,7 +156,9 @@ async function launch(slug, user) {
     await ensureFromBundle(runtime.assertSlug(slug));
     const state = runtime.status(slug);
     if (!state) return null;
-    if (['stopped', 'crashed'].includes(state.status) && runtime.readState(slug)?.desired !== 'stopped') startInBackground(slug, tenant.getTenantId());
+    // 停止 / 崩溃 → 重新启动；「安装中 / 启动中」但后台没有任务（内置应用刚从源码包创建、或安装中途平台重启）→ 重新开始安装
+    const stalled = ['installing', 'starting'].includes(state.status) && !runtime.isActive(slug);
+    if ((['stopped', 'crashed'].includes(state.status) || stalled) && runtime.readState(slug)?.desired !== 'stopped') startInBackground(slug, tenant.getTenantId());
     const current = runtime.status(slug);
     const result = { ...current, isAdmin: user.role === 'admin' };
     if (current.status === 'running') {

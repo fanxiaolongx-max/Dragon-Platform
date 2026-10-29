@@ -192,3 +192,24 @@ test('built-in Python apps ship their package without .env and self-install on f
         await runtime.removeApp(tool.slug);
     });
 });
+
+test('opening an app whose install never started (fresh built-in bootstrap or interrupted install) starts it again', async () => {
+    await tenant.runWithTenant('default', async () => {
+        runtime.createApp('stalled-app', await appPackage.inspectArchive(await zipOf({ 'requirements.txt': 'uvicorn', 'main.py': 'from fastapi import FastAPI\napp = FastAPI()\n' })), { name: 'Stalled' });
+        assert.equal(runtime.readState('stalled-app').status, 'installing');
+        assert.equal(runtime.isActive('stalled-app'), false);
+        const originalStart = runtime.start;
+        let started = 0;
+        runtime.start = async () => { started += 1; };
+        try {
+            await service.launch('stalled-app', { username: 'alice', role: 'admin' });
+            assert.equal(started, 1, 'stalled install is restarted');
+            runtime.updateState('stalled-app', { desired: 'stopped', status: 'installing' });
+            await service.launch('stalled-app', { username: 'alice', role: 'admin' });
+            assert.equal(started, 1, 'apps an admin stopped stay stopped');
+        } finally {
+            runtime.start = originalStart;
+            await runtime.removeApp('stalled-app');
+        }
+    });
+});

@@ -865,7 +865,8 @@
             const row = document.createElement('div');
             row.className = 'dc-tool-row is-running';
             row.innerHTML = `<span class="dc-tool-icon" aria-hidden="true">${toolIcon(event.tool)}</span><span class="dc-tool-name">${escapeHtml(tx(`tool_${event.tool}`))}</span><span class="dc-tool-args" title="${escapeHtml(describeArgs(event.tool, event.args))}">${escapeHtml(describeArgs(event.tool, event.args))}</span><span class="dc-tool-state"><i class="dc-tool-spin" aria-hidden="true"></i></span>`;
-            if (FILE_TOOLS.has(event.tool) && event.args?.path) row.dataset.filePath = event.args.path;
+            // 文件卡片只用于用户选择的目录；没选目录（对话传入 null，隐藏临时目录）时不挂预览。重放历史时不传，沿用原行为
+            if (sourceWorkspace !== null && FILE_TOOLS.has(event.tool) && event.args?.path) row.dataset.filePath = event.args.path;
             toolLogFor(messageEl).appendChild(row);
             toolRows.set(event.callId, row);
             messageEl.querySelector('.dc-thinking')?.remove();
@@ -885,7 +886,7 @@
             const card = approvalCards.get(event.callId);
             if (card) settleCard(card, event.decision);
         } else if (event.type === 'change') {
-            if (sourceWorkspace && (sourceWorkspace.root !== state.root || sourceWorkspace.agentSessionId !== state.agentSessionId)) return;
+            if (sourceWorkspace === null || (sourceWorkspace && (sourceWorkspace.root !== state.root || sourceWorkspace.agentSessionId !== state.agentSessionId))) return;
             const index = state.changes.findIndex(item => item.path === event.path);
             const entry = { path: event.path, kind: event.kind, added: event.added, removed: event.removed, from: event.from, revertible: event.revertible !== false, source: event.source || 'agent' };
             if (index >= 0) state.changes[index] = entry; else state.changes.unshift(entry);

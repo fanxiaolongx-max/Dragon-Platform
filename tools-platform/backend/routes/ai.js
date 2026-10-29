@@ -634,7 +634,8 @@ async function handleChatRequest(req, res) {
     };
     try {
         const tacMessage = Array.isArray(req.body?.messages) ? req.body.messages.at(-1) : null;
-        if (!channelTurn && req.user && req.body?.agent === 'dragon-claw-home' && !req.body?.workspace?.root && req.body?.persist !== false && tacMessage?.role === 'user' && require('../models/dragon-tac/commands').intent(tacMessage.content)) {
+        // Dragon TAC 指令（升级给外部 Agent）：选不选工作目录都识别
+        if (!channelTurn && req.user && req.body?.agent === 'dragon-claw-home' && req.body?.persist !== false && tacMessage?.role === 'user' && require('../models/dragon-tac/commands').intent(tacMessage.content)) {
             const streaming = req.body.stream === true;
             let final;
             if (streaming) res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
@@ -687,7 +688,7 @@ async function handleChatRequest(req, res) {
                 return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
             }
         }
-        const agentMode = Boolean(agentSession);
+        let agentMode = Boolean(agentSession);
         const responseLanguage = String(uiLanguage || '').toLowerCase().startsWith('en') ? 'English' : '简体中文';
         
         if (!messages || !Array.isArray(messages)) {
@@ -708,7 +709,7 @@ async function handleChatRequest(req, res) {
                     await aiChatRepo.assertSessionOwner(sessionId, req.user?.username || '');
                     skillContextMessages = [...await aiChatRepo.getRecentMessagesForContext(sessionId, 20), ...skillContextMessages];
                 }
-                loadedSkills = await agentSkillsStore.loadAll(lastMessage.content, {
+                const loadSkills = () => agentSkillsStore.loadAll(lastMessage.content, {
                     hasWorkspace: agentMode,
                     language: String(uiLanguage || '').startsWith('en') ? 'en' : 'zh',
                     redactionSecrets: sensitiveValues,
@@ -718,6 +719,17 @@ async function handleChatRequest(req, res) {
                         ...(Array.isArray(req.body?.skills) ? req.body.skills.slice(0, 8) : [])
                     ]
                 });
+                try {
+                    loadedSkills = await loadSkills();
+                } catch (needWorkspace) {
+                    // 需要文件 / 命令的 Skill 但用户没选目录：自动使用该账号的隐藏临时目录（用户不可见），走同一套工作区流程
+                    if (needWorkspace.code !== 'SKILL_WORKSPACE_REQUIRED' || agentMode || channelTurn || !streamRequested
+                        || !agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) throw needWorkspace;
+                    agentSession = agentRunManager.ensureScratchSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId });
+                    if (agentSession.activeRun) return res.status(409).json({ code: 'AGENT_RUN_BUSY', error: '该会话有正在进行的任务，请等待完成或先停止' });
+                    agentMode = true;
+                    loadedSkills = await loadSkills();
+                }
             } catch (skillError) {
                 // 缺少工作目录是可操作的前提提示，不包装成「AI 思考时出现异常」
                 if (skillError.code === 'SKILL_WORKSPACE_REQUIRED') return res.status(400).json({ code: skillError.code, error: skillError.message, skills: skillError.skills });
@@ -1109,7 +1121,8 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                         modelName: replyModelName
                     });
                 }
-                if (agentSession) await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username });
+                // 隐藏临时目录不记到对话上：恢复这个对话时不能把它当成用户选过的目录
+                if (agentSession && !agentSession.scratch) await aiChatRepo.setSessionAgent(savedSessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username });
                 await aiChatRepo.recordQuestion({
                     owner: req.user.username,
                     pagePath: normalizedPath,
@@ -1141,8 +1154,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                     toolCalls: agentResult.toolCallCount,
                     denied: agentResult.denied,
                     permissionMode: agentSession.permissionMode,
-                    root: agentSession.root,
-                    gitBranch: agentResult.gitBranch
+                    ...(agentSession.scratch ? { scratch: true } : { root: agentSession.root, gitBranch: agentResult.gitBranch })
                 }
             } : {})
         };
@@ -1154,7 +1166,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         }
     } catch (error) {
         if (agentSession && historyContext) {
-            await aiChatRepo.setSessionAgent(historyContext.sessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username }).catch(() => {});
+            if (!agentSession.scratch) await aiChatRepo.setSessionAgent(historyContext.sessionId, { agentSessionId: agentSession.id, root: agentSession.root, owner: req.user.username }).catch(() => {});
         }
         if (providerAbortController?.signal.aborted && error?.name === 'AbortError') {
             await saveInterruptedTurn('（已停止生成）');

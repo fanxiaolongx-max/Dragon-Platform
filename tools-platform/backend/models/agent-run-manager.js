@@ -65,6 +65,21 @@ function isAdminUser(user) {
     return Boolean(user && user.role === 'admin');
 }
 
+/**
+ * 没选工作目录、但需要文件 / 命令时使用的隐藏临时目录：每个租户账号一个（跨对话保留文件，系统临时目录下，用户不可见），
+ * 智能体会话按对话区分。权限模式为「帮我批准」：文件写入自动执行，命令与删除仍弹审批卡。
+ */
+function ensureScratchSession({ user, tenantId, chatSessionId }) {
+    const owner = ownerKey(user, tenantId);
+    const userHash = crypto.createHash('sha256').update(owner).digest('hex').slice(0, 16);
+    const root = path.join(require('os').tmpdir(), 'dragon-claw-scratch', userHash);
+    fs.mkdirSync(root, { recursive: true });
+    const chatHash = crypto.createHash('sha256').update(`${owner}\n${chatSessionId || 'new'}`).digest('hex').slice(0, 24);
+    const session = ensureSession({ agentSessionId: `scratch-${chatHash}`, user, tenantId, root, permissionMode: 'auto' });
+    session.scratch = true;
+    return session;
+}
+
 function ensureSession({ agentSessionId, user, tenantId, root, permissionMode }) {
     const id = String(agentSessionId || '').slice(0, 100);
     if (!/^[\w-]{8,100}$/.test(id)) throw managerError('AGENT_SESSION_INVALID', 'agentSessionId 无效');
@@ -266,10 +281,16 @@ function buildDirectoryContext(root) {
 
 function buildAgentAddendum(session, { gitBranch, directoryContext }) {
     const modeText = { ask: '请求批准（写入、删除、命令都会先征求用户同意）', auto: '帮我批准（读写自动，删除/重命名/命令需用户同意）', full: '完全访问（管理员的文件操作和命令自动执行，不再逐项审批；Shell 以服务进程的系统账号权限运行）' }[session.permissionMode];
-    return `
-## 工作区（本地目录）
+    const location = session.scratch
+        ? `## 工作区（临时目录）
+用户没有选择工作目录。需要文件或命令时，你在一个私有临时目录里工作：可以在其中创建、读取、修改文件并执行命令。
+- 不要向用户提及或展示该目录的路径；需要交付的内容直接写在回复里，或说明生成的文件名与内容摘要。
+- 用户要处理自己电脑上的项目时，请提示用户在输入框上方选择工作目录。`
+        : `## 工作区（本地目录）
 用户已选择本地目录作为上下文，你可以通过工具读取、搜索、修改其中的文件并执行命令。
-- 根目录：${session.root}
+- 根目录：${session.root}`;
+    return `
+${location}
 - 操作系统：${process.platform}${gitBranch ? `\n- Git 分支：${gitBranch}` : ''}
 - 权限模式：${session.readOnly ? '只读（当前账号不是管理员，只能查看和搜索文件，不能修改、删除、重命名或执行命令；需要改动时请告诉用户联系管理员）' : modeText}
 - 文件工具的路径以根目录为范围（如 src/index.js）；根目录是 Shell 的默认工作位置，不是 Shell 的系统隔离边界。管理员可用命令访问任务所需的其他目录。
@@ -284,6 +305,34 @@ ${!session.readOnly && session.permissionMode === 'full' ? '- 当前管理员已
 
 目录概览（前两层）：
 ${directoryContext || '（空目录）'}`;
+}
+
+// ── 专用 Skill 工具 ──────────────────────────────────────
+async function loadSkillToolsets(session, systemInstruction) {
+    if (session.readOnly) return [];
+    const loaded = id => systemInstruction.includes(`### @${id}`);
+    const sets = [];
+    const netcare = require('./digital-human/netcare-agent');
+    if (loaded(netcare.SKILL_ID)) {
+        const definitions = netcare.definitions();
+        sets.push({ definitions, names: new Set(definitions.map(item => item.name)), prompt: await netcare.buildPrompt().catch(() => ''),
+            execute: call => netcare.execute(call.name, call.args) });
+    }
+    const ops = require('./channels/ops-agent');
+    if (loaded(ops.SKILL_ID)) {
+        const definitions = ops.definitions();
+        sets.push({ definitions, names: new Set(definitions.map(item => item.name)), prompt: await ops.buildPrompt().catch(() => ''),
+            execute: (call, { opsCtx }) => ops.execute(opsCtx, call.name, call.args) });
+    }
+    const welink = require('./channels/welink-cli-agent');
+    if (loaded(welink.SKILL_ID)) {
+        let allowWrite = false;
+        try { allowWrite = Boolean(require('./channels/welink-cli-runner').readConfig().allowWrite); } catch (_error) { /* 未配置 welink-cli 时只读 */ }
+        const definitions = welink.definitions({ write: allowWrite });
+        sets.push({ definitions, names: new Set(definitions.map(item => item.name)), prompt: await welink.buildPrompt().catch(() => ''),
+            execute: (call, { signal, write }) => welink.execute({ actor: session.username, signal, callId: call.id, canApprove: true, onEvent: event => write(event) }, call.name, call.args) });
+    }
+    return sets;
 }
 
 // ── 审批 ────────────────────────────────────────────────
@@ -377,8 +426,13 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     const gitBranch = readGitBranch(session.root);
     const directoryContext = buildDirectoryContext(session.root);
     const addendum = buildAgentAddendum(session, { gitBranch, directoryContext });
-    const fullSystem = redactText(`${systemInstruction}\n${addendum}`, { secrets: sensitiveValues });
-    const tools = toolsService.definitions({ readOnly: session.readOnly });
+    // 专用 Skill 的工具（@netcare-data / @ops-group / @welink-office）在工作区对话里同样提供（管理员），与首页普通对话一致
+    const skillToolsets = await loadSkillToolsets(session, systemInstruction);
+    const skillPrompts = skillToolsets.map(set => set.prompt).filter(Boolean).join('\n');
+    const fullSystem = redactText(`${systemInstruction}\n${addendum}${skillPrompts ? `\n${skillPrompts}` : ''}`, { secrets: sensitiveValues });
+    const tools = [...toolsService.definitions({ readOnly: session.readOnly }), ...skillToolsets.flatMap(set => set.definitions)];
+    const skillToolset = name => skillToolsets.find(set => set.names.has(name));
+    const opsCtx = { actor: session.username, createdRunIds: new Set() };
     // 同一会话前几轮的工具转录（按轮保存、含用户消息）替换对应的文字历史，让模型记得自己做过什么，
     // 且工具调用始终紧跟用户消息或工具结果。
     const currentUser = historyMessages[historyMessages.length - 1];
@@ -451,9 +505,12 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
                 const startedAt = Date.now();
                 write({ type: 'tool_start', runId: run.id, callId: call.id, tool: call.name, args: previewArgs(call.args) });
                 let outcome;
-                let decision = classifyDecision(session, call.name, call.args);
+                // 专用 Skill 工具按各自的规则执行：NetCare 只读、运营与普通对话一致直接执行、WeLink 写命令自带审批卡
+                const toolset = skillToolset(call.name);
+                if (toolset) outcome = await toolset.execute(call, { opsCtx, signal, write });
+                let decision = toolset ? 'allow' : classifyDecision(session, call.name, call.args);
                 let preview = {};
-                if (decision !== 'deny' && decision !== 'readonly') {
+                if (!outcome && decision !== 'deny' && decision !== 'readonly') {
                     try {
                         preview = await toolsService.preview(toolCtx, call.name, call.args);
                     } catch (error) {
@@ -544,6 +601,7 @@ function stats() {
 }
 
 module.exports = {
+    ensureScratchSession,
     ownerKey,
     isAdminUser,
     MAX_STEPS,

@@ -412,3 +412,41 @@ test('transcripts are saved per tenant database, including a tenant opened later
     await runWithTenant('tenant-three', () => aiChatRepo.addMessage({ sessionId: sessionB, pagePath: '/', pageTitle: 'b', role: 'user', content: 'hi' }));
     assert.equal((await runWithTenant('tenant-three', () => aiChatRepo.listMessages(sessionB))).length, 1);
 });
+
+test('workspace chats get the dedicated skill tools (@netcare-data / @ops-group / @welink-office) without approval prompts for read-only queries', async () => {
+    const session = manager.ensureSession({ agentSessionId: newSessionId(), user, tenantId: 'default', root, permissionMode: 'ask' });
+    const client = scriptedClient([
+        { toolCalls: [{ id: 'n1', name: 'netcare_tables', args: { keyword: 'risk' } }] },
+        { text: 'ok' }
+    ]);
+    const { events, write } = collector();
+    await manager.runAgentTurn({ session, client, write, signal: new AbortController().signal,
+        systemInstruction: 'SYS\n### @netcare-data\n...\n### @ops-group\n...\n### @welink-office\n...', historyMessages: [{ role: 'user', content: '查 NetCare' }] });
+    const names = client.calls[0].tools.map(tool => tool.name);
+    for (const name of ['netcare_tables', 'netcare_sql', 'ops_overview', 'ops_save_plan', 'welink_query']) assert.ok(names.includes(name), `${name} offered`);
+    assert.ok(names.includes('read_file'), 'workspace tools still offered');
+    assert.equal(events.some(event => event.type === 'approval'), false, 'read-only NetCare query is not gated by approval');
+    const result = events.find(event => event.type === 'tool_result' && event.callId === 'n1');
+    assert.ok(result, 'NetCare tool executed (it reports the base status when not configured)');
+
+    const plain = manager.ensureSession({ agentSessionId: newSessionId(), user, tenantId: 'default', root, permissionMode: 'ask' });
+    const plainClient = scriptedClient([{ text: 'hi' }]);
+    await manager.runAgentTurn({ session: plain, client: plainClient, systemInstruction: 'SYS', historyMessages: [{ role: 'user', content: 'hi' }], write: () => {}, signal: new AbortController().signal });
+    assert.equal(plainClient.calls[0].tools.some(tool => /^(netcare|ops)_/.test(tool.name)), false, 'skill tools only when the skill is loaded');
+});
+
+test('chats without a folder use a hidden per-account scratch workspace that is never shown to the model or the user', async () => {
+    const scratch = manager.ensureScratchSession({ user, tenantId: 'default', chatSessionId: 'chat-1' });
+    assert.equal(scratch.scratch, true);
+    assert.equal(scratch.permissionMode, 'auto');
+    assert.ok(scratch.root.startsWith(fs.realpathSync(os.tmpdir())) && fs.statSync(scratch.root).isDirectory());
+    assert.equal(manager.ensureScratchSession({ user, tenantId: 'default', chatSessionId: 'chat-1' }).id, scratch.id, 'same chat reuses its agent session');
+    const other = manager.ensureScratchSession({ user, tenantId: 'default', chatSessionId: 'chat-2' });
+    assert.notEqual(other.id, scratch.id);
+    assert.equal(other.root, scratch.root, 'files persist across chats of the same account');
+    assert.notEqual(manager.ensureScratchSession({ user: { username: 'bob', role: 'admin' }, tenantId: 'default', chatSessionId: 'chat-1' }).root, scratch.root);
+    const client = scriptedClient([{ text: 'done' }]);
+    await manager.runAgentTurn({ session: scratch, client, systemInstruction: 'SYS', historyMessages: [{ role: 'user', content: 'hi' }], write: () => {}, signal: new AbortController().signal });
+    assert.equal(client.calls[0].systemInstruction.includes(scratch.root), false, 'scratch path is not given to the model');
+    assert.match(client.calls[0].systemInstruction, /临时目录/);
+});
