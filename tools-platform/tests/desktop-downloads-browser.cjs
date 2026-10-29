@@ -36,7 +36,7 @@ app.whenReady().then(async () => {
         })));
     });
     fs.writeFileSync(path.join(downloads, 'report.txt'), 'keep existing');
-    stack.open({ id: 'fixture', name: 'Downloads fixture', url: base });
+    stack.openInBrowser({ id: 'fixture', name: 'Downloads fixture', url: base });
     const win = BrowserWindow.getAllWindows()[0];
     const wc = win.getBrowserViews()[0].webContents;
     await new Promise(resolve => wc.once('did-finish-load', resolve));

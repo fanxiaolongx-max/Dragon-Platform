@@ -83,7 +83,7 @@ app.whenReady().then(async () => {
     console.log('Checked script entry points and shared window.');
 
     // 首页推广每次点击新增标签。
-    stack.open(link); stack.open(link);
+    stack.openInBrowser(link); stack.openInBrowser(link);
     await until(() => count(dragon).then(n => n === 6));
     assert.equal(BrowserWindow.getAllWindows().length, 2);
     await clickTab(dragon, firstId);
@@ -136,7 +136,7 @@ app.whenReady().then(async () => {
     assert.ok(frame === null || Buffer.isBuffer(frame), 'during view transfer the thumbnail either resolves or falls back to its cover, never hangs');
     stack.handleAction(dragon.webContents, 'minimize');
     await until(() => evaluate(preview, () => !!document.getElementById('tools-desktop-preview-scrollbars')));
-    stack.open(link);
+    stack.openInBrowser(link);
     await until(() => count(dragon).then(n => n === 8));
     assert.equal(BrowserWindow.getAllWindows().length, 2);
     await clickTab(dragon, firstId);
@@ -168,7 +168,7 @@ app.whenReady().then(async () => {
     await until(() => evaluate(preview, () => !!document.getElementById('tools-desktop-preview-scrollbars')));
     assert.equal(await evaluate(preview, () => document.querySelector('#value').value), 'preview input');
     await until(() => first.isDestroyed());
-    stack.open(link);
+    stack.openInBrowser(link);
     const reopened = BrowserWindow.getAllWindows().find(win => win !== compact);
     assert.notEqual(reopened, dragon);
     await until(() => count(reopened).then(n => n === 1));

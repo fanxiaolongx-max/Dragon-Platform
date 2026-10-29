@@ -1,6 +1,6 @@
-// 桌面推广卡片堆：登录后在屏幕右下角以置顶、无边框的小窗打开推广链接，像蜘蛛纸牌一样错落叠放。
+// 桌面推广卡片堆：在设置里打开后（默认关闭），登录后在屏幕右下角以置顶、无边框的小窗打开推广链接，像蜘蛛纸牌一样错落叠放。
 // - 后面的卡片只露出顶部标题条，点击标题条把它换到最前；点击最前卡片的页面区域放大为普通窗口。
-// - 所有大窗入口统一在 Dragon 浏览器新增标签；预览页面可移入标签，最小化时移回卡片堆。
+// - 卡片堆里的大窗入口统一在 Dragon 浏览器新增标签；预览页面可移入标签，最小化时移回卡片堆。首页推广的点击用系统默认浏览器打开。
 // - 首页通过本机接口读取每张卡片的实时画面（capturePage），点击首页画面直接弹出对应大窗。
 // - 防打扰：托盘可暂停；关闭卡片堆当天不再自动弹出；Windows 检测到全屏/演示时自动隐藏卡片堆。
 // 页面运行在独立持久分区（persist:platform-promo），登录态只保存在本机；没有有效期的会话 Cookie 自动续存 7 天。
@@ -62,7 +62,10 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     const hiddenToday = () => state.hiddenDate === today();
     const english = () => getLanguage() === 'en-US';
     const label = (link, key) => (english() && link[`${key}En`]) || link[key] || '';
-    const stackAllowed = () => !!config && config.desktopStack && !state.paused && !hiddenToday() && !fullscreenBusy;
+    // 卡片堆默认关闭（设置里打开 desktopStack）；托盘「显示推广卡片」在本次运行中临时打开
+    let manualShow = false;
+    const stackWanted = () => !!config && (config.desktopStack || manualShow);
+    const stackAllowed = () => stackWanted() && !state.paused && !hiddenToday() && !fullscreenBusy;
     const T = (zh, en) => (english() ? en : zh);
     const isBig = card => !!card.inBrowser;
     const browser = createDragonBrowser({
@@ -238,7 +241,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
 
     function rebuild() {
         // 暂停、当天关闭或关闭桌面推广时释放全部卡片（正在放大的大窗除外）；全屏只是临时隐藏
-        const alive = !!config && config.desktopStack && !state.paused && !hiddenToday();
+        const alive = stackWanted() && !state.paused && !hiddenToday();
         const links = alive ? enabledLinks() : [];
         const limit = Math.max(1, Number(config && config.maxLinks) || 3);
         const wanted = links.slice(0, limit);
@@ -510,7 +513,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
             return {
                 paused: state.paused,
                 hiddenToday: hiddenToday(),
-                enabled: !!(config && config.desktopStack),
+                enabled: stackWanted(),
                 items: cards.map((card, depth) => ({
                     id: card.link.id,
                     depth,
@@ -544,8 +547,16 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
             card.frameAt = Date.now();
             return card.frame;
         },
-        // 首页推广每次显式点击都在 Dragon 浏览器打开新标签。
+        // 首页推广的显式点击用系统默认浏览器打开；Dragon 浏览器只用于卡片堆放大、浮窗脚本等桌面内的场景
         open(link, nextConfig) {
+            if (nextConfig) config = nextConfig;
+            const url = String(link?.url || '');
+            if (!/^https?:\/\//i.test(url)) return false;
+            shell.openExternal(url).catch(error => console.warn('[DesktopPromo] 系统浏览器打开失败：', error.message || error));
+            return true;
+        },
+        // 在 Dragon 浏览器新标签打开（卡片堆、浮窗脚本等桌面内入口）
+        openInBrowser(link, nextConfig) {
             ensureSession();
             if (nextConfig) config = nextConfig;
             browser.open({ link });
@@ -553,6 +564,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         },
         isPaused: () => state.paused,
         isHiddenToday: hiddenToday,
+        isShowing: () => stackWanted() && !state.paused && !hiddenToday(),
         hasCards: () => cards.length > 0,
         setPaused(paused) {
             state.paused = !!paused;
@@ -562,6 +574,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
             onChange();
         },
         showNow() {
+            manualShow = true;
             state.hiddenDate = '';
             if (state.paused) state.paused = false;
             writeState();

@@ -26,7 +26,9 @@ test('defaults show every built-in video and the NetCare link with three link sl
     assert.equal(config.links[0].builtin, true);
     assert.match(config.links[0].url, /^https:\/\/netcare\.huawei\.com\//);
     assert.equal(config.maxLinks, 3);
-    assert.equal(config.desktopStack, true);
+    assert.equal(config.desktopStack, false, 'the desktop card stack is off by default');
+    assert.equal(repo.normalizeConfig({ schemaVersion: 1, desktopStack: true }).desktopStack, false, 'old saved configs carried the old default');
+    assert.equal(repo.normalizeConfig({ schemaVersion: 2, desktopStack: true }).desktopStack, true);
 });
 
 test('built-ins can only be hidden; custom links are validated and keep their order', () => {

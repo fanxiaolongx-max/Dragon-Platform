@@ -55,7 +55,7 @@ if (process.env.TOOLS_DAILY_LOGS === undefined) {
 const petManager = require('./desktop-pet/pet-manager');
 const { resolveLogoAsset } = require('./backend/models/platform-logo-runtime');
 require('./backend/models/desktop-language').events.on('change', () => { refreshTrayMenu(); desktopPromotions.languageChanged(); });
-// 首页推广链接：登录后在右下角以置顶小窗卡片堆打开（desktop-promo/promo-stack.js），首页读取实时画面
+// 首页推广链接：点击用系统浏览器打开；设置里打开卡片堆后（默认关闭），登录后在右下角以置顶小窗卡片堆显示（desktop-promo/promo-stack.js），首页读取实时画面
 // 推广/Dragon 浏览器模块出错时换成空实现：只是这项功能不可用，不影响桌面端启动、托盘和本地服务
 const desktopPromotions = (() => {
     try {
@@ -73,7 +73,7 @@ const desktopPromotions = (() => {
         const noop = () => {};
         return {
             init: () => Promise.resolve(), handleAction: noop, destroy: noop, languageChanged: noop, setPaused: noop, showNow: noop,
-            isPaused: () => false, isHiddenToday: () => false, listSiteScripts: () => [], runSiteScript: () => false
+            isPaused: () => false, isHiddenToday: () => false, isShowing: () => false, listSiteScripts: () => [], runSiteScript: () => false
         };
     }
 })();
@@ -2009,7 +2009,7 @@ function refreshTrayMenu() {
                 },
                 {
                     label: petT('👀 显示推广卡片', '👀 Show promotion cards'),
-                    enabled: desktopPromotions.isPaused() || desktopPromotions.isHiddenToday(),
+                    enabled: !(desktopPromotions.isShowing?.() ?? true) || desktopPromotions.isPaused() || desktopPromotions.isHiddenToday(),
                     click: () => desktopPromotions.showNow()
                 }
             ]

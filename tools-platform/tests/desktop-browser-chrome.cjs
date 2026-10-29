@@ -41,7 +41,7 @@ app.whenReady().then(async () => {
     stack = createPromoStack({ statePath: path.join(temp, 'stack.json'), extensionsStatePath, getLanguage: () => language });
     ipcMain.on('promo-card:action', (event, action, payload) => stack.handleAction(event.sender, action, payload));
     await stack.init();
-    for (const suffix of ['/one', '/two', '/three']) stack.open({ name: suffix, url: base + suffix });
+    for (const suffix of ['/one', '/two', '/three']) stack.openInBrowser({ name: suffix, url: base + suffix });
     win = BrowserWindow.getAllWindows()[0];
     win.webContents.on('console-message', (_e, level, message) => { if (level >= 3) errors.push(message); });
     await until(() => order().then(items => items.length === 3));
@@ -154,7 +154,7 @@ app.whenReady().then(async () => {
     // 整个浏览器配置重建后，收藏、历史和已完成下载仍存在。
     stack.destroy(); await wait(250);
     stack = createPromoStack({ statePath: path.join(temp, 'stack.json'), extensionsStatePath, getLanguage: () => language });
-    await stack.init(); stack.open({ name: 'restored', url: base + '/three' });
+    await stack.init(); stack.openInBrowser({ name: 'restored', url: base + '/three' });
     win = BrowserWindow.getAllWindows()[0];
     await until(() => ui(() => document.querySelector('#bookmarkBtn').dataset.saved === 'true'));
     stack.handleAction(win.webContents, 'downloads');

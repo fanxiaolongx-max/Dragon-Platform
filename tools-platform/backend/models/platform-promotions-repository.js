@@ -8,7 +8,8 @@ const path = require('path');
 const { readKV, writeKV } = require('./kv-store');
 
 const CONFIG_KEY = 'platform_promotions_config';
-const CONFIG_SCHEMA_VERSION = 1;
+// 2：桌面端右下角推广卡片堆改为默认关闭；旧版本保存的 desktopStack=true 来自旧默认值，不再沿用
+const CONFIG_SCHEMA_VERSION = 2;
 const MAX_CUSTOM_LINKS = 30;
 const DEFAULT_MAX_LINKS = 3;
 const MAX_LINKS_LIMIT = 10;
@@ -186,7 +187,7 @@ function normalizeConfig(input = {}) {
         schemaVersion: CONFIG_SCHEMA_VERSION,
         maxLinks: clampInt(source.maxLinks, 1, MAX_LINKS_LIMIT, DEFAULT_MAX_LINKS),
         rotateSeconds: clampInt(source.rotateSeconds, MIN_ROTATE_SECONDS, MAX_ROTATE_SECONDS, DEFAULT_ROTATE_SECONDS),
-        desktopStack: source.desktopStack !== false,
+        desktopStack: Number(source.schemaVersion) >= 2 && source.desktopStack === true,
         videos,
         links: ordered,
         defaultsWritable: defaultsWritable(),
@@ -200,7 +201,8 @@ async function getConfig() {
 }
 
 async function saveConfig(input) {
-    const config = normalizeConfig({ ...(input || {}), updatedAt: new Date().toISOString() });
+    // 设置页提交的就是当前版本的配置（管理员明确勾选才打开卡片堆）
+    const config = normalizeConfig({ ...(input || {}), schemaVersion: CONFIG_SCHEMA_VERSION, updatedAt: new Date().toISOString() });
     const { defaultsWritable: _writable, ...stored } = config;
     // 与默认封面相同时继承源码默认值，避免普通保存把旧默认封面永久固定。
     const defaults = builtinLinks();
