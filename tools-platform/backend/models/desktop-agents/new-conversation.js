@@ -8,7 +8,7 @@ const failure=(code,message)=>Object.assign(new Error(message),{code,status:code
 // Accessibility text can merge blank paragraphs; compare all actual lines and
 // characters while allowing only repeated blank-line presentation differences.
 function isNewClaudeComposer(snapshot,state,previous){
- const newHeading=(snapshot.elements||[]).some(e=>e.role==='AXHeading'&&/^(?:新建会话|新对话|New conversation|New chat)$/i.test(e.title||e.desc||''));
+ const newHeading=(snapshot.elements||[]).some(e=>e.role==='AXHeading'&&/^(?:新建会话|新会话|新对话|New conversation|New session|New chat)$/i.test(e.title||e.desc||''));
  return newHeading||Boolean(previous.current&&!state.current);
 }
 let uiTail=Promise.resolve();

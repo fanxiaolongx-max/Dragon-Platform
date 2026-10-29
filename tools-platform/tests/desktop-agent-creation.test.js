@@ -40,3 +40,10 @@ test('Claude recognizes the real titled New conversation heading even when both 
  const d=driverFixture('claudecode',{titledNewHeading:true});await createAndSend('claudecode',prompt,d);
  assert.equal(d.calls.filter(c=>c.command==='paste').length,1);assert.equal(d.calls.filter(c=>c.command==='submit-text').length,1);
 });
+test('Claude Code tab already on its untitled 新会话 page is confirmed as the new composer, an unchanged named session is not',async()=>{
+ const stay=heading=>{const calls=[];return{calls,driver:async(_p,command,arg)=>{calls.push({command,arg});if(command==='status')return{trusted:true,running:true};if(command==='snapshot')return{windowTitle:'Claude',elements:[{role:'AXHeading',title:'',desc:heading},{role:'AXTextArea',value:'\n'}]};if(command==='press'||command==='paste')return{previous:'com.example.front'};if(command==='submit-text')return{ok:true};throw Error(command);},readRows:async()=>[{id,title:'Existing desktop task'}],readReceipt:async()=>({id:fresh,status:'accepted'}),wait:async()=>{},platform:'darwin'};};
+ const blank=stay('新会话');assert.equal((await createAndSend('claudecode',prompt,blank)).status,'accepted');
+ assert.equal(blank.calls.filter(c=>c.command==='paste').length,1);assert.equal(blank.calls.filter(c=>c.command==='submit-text').length,1);
+ const old=stay('Existing desktop task');await assert.rejects(createAndSend('claudecode',prompt,old),{code:'DESKTOP_TARGET_UNCONFIRMED'});
+ assert.equal(old.calls.some(c=>c.command==='paste'||c.command==='submit-text'),false);
+});

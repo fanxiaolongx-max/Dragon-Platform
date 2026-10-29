@@ -1,7 +1,7 @@
 // Isolated group UI; all desktop responses are fixtures, no business message is sent.
 const {app,BrowserWindow}=require('electron');const fs=require('fs'),path=require('path'),os=require('os'),assert=require('assert/strict'),express=require('express');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'tac-group-ui-')),root=path.join(__dirname,'..');app.setPath('userData',path.join(temp,'profile'));app.disableHardwareAcceleration();
-let win,server,hold=false,cancelled=0,nativeCalls=0,ordinaryCalls=0;const requests=[],jobs=new Map();
+let win,server,hold=false,cancelled=0,nativeCalls=0,ordinaryCalls=0,historyEnabled=false,failNextRead=false;const requests=[],jobs=new Map(),jobReads=new Map();
 const capabilities={owned:true,settings:{enabled:false,allowSend:true,claudeAutomation:false,providers:{codex:true,claudecode:true,antigravity:true}}};
 let providerStates=[{id:'codex',enabled:true,connected:false,canSend:false}];
 const savedModes=[],discussionModes=new Map([['chat_fresh_group',{mode:'group',version:2,bindings:{}}]]);
@@ -14,11 +14,11 @@ app.whenReady().then(async()=>{
  web.get('/api/desktop-agents/settings',(_q,r)=>r.json(capabilities));
  web.get('/api/desktop-agents/sessions',(_q,r)=>r.json({providers:providerStates,items:[]}));
  web.post('/api/desktop-agents/discussion-runs',(q,r)=>{requests.push(q.body);const job={id:q.body.requestId,sessionId:q.body.sessionId||'chat_fresh_group',status:'running',reports:['Codex','Claude Code','Antigravity'].map(agent=>({agent,round:1,status:'creating'}))};jobs.set(job.id,job);r.status(202).json(job);});
- web.get('/api/desktop-agents/discussion-runs/:id',(q,r)=>{const job=jobs.get(q.params.id);if(!hold){job.status='done';for(const row of job.reports){row.status='done';row.text=row.agent+' group reply';}}r.json(job);});
+ web.get('/api/desktop-agents/discussion-runs/:id',(q,r)=>{jobReads.set(q.params.id,(jobReads.get(q.params.id)||0)+1);if(failNextRead){failNextRead=false;return r.status(503).json({error:'Temporary progress connection failure'});}const job=jobs.get(q.params.id);if(!hold){job.status='done';for(const row of job.reports){row.status='done';row.text=row.agent+' group reply';}}r.json(job);});
  web.post('/api/desktop-agents/discussion-runs/:id/cancel',(q,r)=>{cancelled++;const job=jobs.get(q.params.id);job.status='cancelled';r.json(job);});
- web.get('/api/desktop-agents/discussions/:id',(q,r)=>r.json({settings:discussionModes.get(q.params.id)||null,activeRun:null}));
+ web.get('/api/desktop-agents/discussions/:id',(q,r)=>r.json({settings:discussionModes.get(q.params.id)||null,activeRun:[...jobs.values()].find(job=>job.sessionId===q.params.id&&['queued','running'].includes(job.status))||null}));
  web.put('/api/desktop-agents/discussions/:id',(q,r)=>{savedModes.push(q.params.id);const cfg={mode:'group',version:2,bindings:{}};discussionModes.set(q.params.id,cfg);r.json({settings:cfg});});
- web.post('/api/ai/chat',(_q,r)=>{ordinaryCalls++;r.status(500).json({error:'No model fallback'});});web.get('/api/ai/models',(_q,r)=>r.json({models:[]}));web.get('/api/ai/sessions',(_q,r)=>r.json({items:[]}));web.get('/api/asset-version',(_q,r)=>r.json({version:'fixture'}));web.use(express.static(path.join(root,'frontend')));
+ web.post('/api/ai/chat',(_q,r)=>{ordinaryCalls++;r.status(500).json({error:'No model fallback'});});web.get('/api/ai/models',(_q,r)=>r.json({models:[]}));web.get('/api/ai/sessions',(_q,r)=>r.json({items:historyEnabled?[{id:'chat_fresh_group',discussionMode:'group',firstQuestion:'Existing discussion',updated_at:'2026-10-29T12:00:00Z'}]:[]}));web.get('/api/ai/sessions/:id/messages',(_q,r)=>r.json({items:[{id:'saved-question',role:'user',content:'Existing discussion question',created_at:'2026-10-29T12:00:00Z'}],total:1,hasMore:false}));web.get('/api/asset-version',(_q,r)=>r.json({version:'fixture'}));web.use(express.static(path.join(root,'frontend')));
  server=await new Promise(resolve=>{const s=web.listen(0,'127.0.0.1',()=>resolve(s));});win=new BrowserWindow({show:false,width:1400,height:960,webPreferences:{contextIsolation:true,nodeIntegration:false,backgroundThrottling:false}});await win.loadURL('http://127.0.0.1:'+server.address().port);await until('document.querySelector("[data-tac-start]")');
  assert.equal(await evaluate('document.querySelectorAll("[data-discussion-mode],[data-discussion-binding],.dc-agent-discussion").length'),0,'no modes or conversation picker');
  assert.equal(await evaluate('document.querySelectorAll("[data-tac-start]").length'),1);
@@ -79,7 +79,38 @@ app.whenReady().then(async()=>{
  await evaluate('document.getElementById("avatar-fixture").remove()');
  assert.equal(await evaluate('document.querySelector("[data-tac-start]").disabled'),true,'a fresh group locks after its first submitted turn');
  await evaluate("dcInput.value='Continue the group discussion';dcInput.dispatchEvent(new Event('input',{bubbles:true}));dcComposer.requestSubmit();");await until('document.querySelectorAll(".dc-msg--user").length===2');await wait(1200);assert.equal(requests[1].sessionId,'chat_fresh_group');
- hold=true;await evaluate("dcInput.value='Third question';dcInput.dispatchEvent(new Event('input',{bubbles:true}));dcComposer.requestSubmit();");await until('dcThread.textContent.includes("正在新建专用")');await evaluate('dcSend.click()');await until('dcThread.textContent.includes("已停止后续")');await wait(80);assert.equal(cancelled,1);
+ hold=true;await evaluate("dcInput.value='Third question';dcInput.dispatchEvent(new Event('input',{bubbles:true}));dcComposer.requestSubmit();");await until('dcThread.textContent.includes("正在新建专用")');assert.equal(await evaluate('document.querySelector("[data-tac-resume]").hidden'),true,'live progress needs no resume button');await evaluate('dcSend.click()');await until('dcThread.textContent.includes("已停止后续")');await wait(80);assert.equal(cancelled,1);
+ assert.equal(await evaluate('document.querySelector("[data-tac-resume]").hidden'),true,'cancelled discussions have no resume button');
+ // Reloading the page disconnects the viewer but must not restart the native job.
+ const recovered={id:'recovered-run',sessionId:'chat_fresh_group',status:'running',reports:[{agent:'Codex',status:'waiting'}]};jobs.set(recovered.id,recovered);historyEnabled=true;
+ const sentBeforeRecovery=requests.length,cancelledBeforeRecovery=cancelled;
+ await win.loadURL('http://127.0.0.1:'+server.address().port);await until('window.HomeAgentDiscussion&&window.DragonClaw');
+ await evaluate('DragonClaw.openLatest()');await until('!document.querySelector("[data-tac-resume]").hidden&&!dcInput.disabled');
+ assert.equal(await evaluate('document.querySelector("[data-tac-resume]").textContent'),'恢复查看进度');
+ await evaluate('ToolsI18n.setLanguage("en-US")');assert.equal(await evaluate('document.querySelector("[data-tac-resume]").textContent'),'Resume viewing progress');await evaluate('ToolsI18n.setLanguage("zh-CN")');
+ // Leaving the restored history hides its recovery action; returning restores it.
+ await evaluate('DragonClaw.newChat()');assert.equal(await evaluate('document.querySelector("[data-tac-resume]").hidden'),true);
+ await evaluate('DragonClaw.openLatest()');await until('!document.querySelector("[data-tac-resume]").hidden&&!dcInput.disabled');
+ await evaluate('dcInput.value="Keep the unsent recovery draft";dcInput.dispatchEvent(new Event("input",{bubbles:true}));document.querySelector("[data-tac-resume]").click();document.querySelector("[data-tac-resume]").click()');
+ await until('document.querySelector("[data-tac-resume]").hidden&&[...dcThread.querySelectorAll(".dc-tac-report-body")].some(node=>node.textContent.includes("正在思考"))');
+ assert.equal(jobReads.get(recovered.id),1,'rapid recovery clicks attach only one viewer');
+ failNextRead=true;await until('dcThread.textContent.includes("Temporary progress connection failure")&&!document.querySelector("[data-tac-resume]").hidden');
+ assert.equal(await evaluate('dcInput.value'),'Keep the unsent recovery draft');
+ win.setContentSize(390,844);await wait(100);assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'recovery action fits narrow screens');
+ fs.writeFileSync(path.join(temp,'dragontac-recover-mobile.png'),(await win.webContents.capturePage()).toPNG());
+ await evaluate('ToolsI18n.setLanguage("en-US");document.documentElement.dataset.theme="light"');await wait(100);
+ assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true,'English recovery action fits narrow screens');
+ assert.equal(await evaluate('(()=>{const a=document.querySelector("[data-tac-resume]").getBoundingClientRect(),b=dcSend.getBoundingClientRect();return a.right<=b.left||a.bottom<=b.top})()'),true,'recovery and send actions do not overlap');
+ fs.writeFileSync(path.join(temp,'dragontac-recover-mobile-light-en.png'),(await win.webContents.capturePage()).toPNG());
+ await evaluate('ToolsI18n.setLanguage("zh-CN");document.documentElement.dataset.theme="dark"');win.setContentSize(1400,960);
+ const readsBeforeRetry=jobReads.get(recovered.id);
+ await evaluate('document.querySelector("[data-tac-resume]").click()');await until('document.querySelector("[data-tac-resume]").hidden');
+ for(let i=0;i<100&&(jobReads.get(recovered.id)||0)<=readsBeforeRetry;i++)await wait(30);
+ assert.ok(jobReads.get(recovered.id)>readsBeforeRetry,'retry fetches the existing job');
+ hold=false;await until('dcThread.textContent.includes("Codex group reply")&&!dcComposer.classList.contains("is-generating")');
+ assert.equal(await evaluate('document.querySelector("[data-tac-resume]").hidden'),true,'completed progress no longer needs recovery');
+ assert.equal(await evaluate('dcInput.value'),'Keep the unsent recovery draft');
+ assert.equal(requests.length,sentBeforeRecovery,'viewing and retrying never send another question');assert.equal(cancelled,cancelledBeforeRecovery,'a progress connection failure does not cancel desktop work');
  await evaluate('DragonClaw.newChat()');assert.equal(await evaluate('HomeAgentDiscussion.handles("Question")'),false);await evaluate("HomeAgentDiscussion.activateSession('chat_fresh_group')");assert.equal(await evaluate('HomeAgentDiscussion.handles("Question")'),true);
  capabilities.settings.enabled=false;
  await evaluate('window.dispatchEvent(new Event("tools:desktop-agent-settings-changed"))');
@@ -94,5 +125,5 @@ app.whenReady().then(async()=>{
  await evaluate('ToolsI18n.setLanguage("en-US")');assert.match(await evaluate('document.querySelector("[data-tac-start]").textContent'),/Agent group/);
  win.setContentSize(390,844);await wait(100);assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
  fs.writeFileSync(path.join(temp,'dragontac-mobile.png'),(await win.webContents.capturePage()).toPNG());
- console.log('PASS: single composer toggle, draft-preserving cancellation, actual desktop capability gating, native-view handoff, three authors, continuation, stop, history restore, English and mobile. Screenshots: '+temp);win.destroy();server.close();app.exit(0);
+ console.log('PASS: single composer toggle, draft-preserving cancellation, actual desktop capability gating, native-view handoff, three authors, continuation, stop, reload recovery, progress retry without resending, English and mobile. Screenshots: '+temp);win.destroy();server.close();app.exit(0);
 }).catch(e=>{console.error(e);win?.destroy();server?.close();app.exit(1);});
