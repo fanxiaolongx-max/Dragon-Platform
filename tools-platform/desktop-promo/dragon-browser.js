@@ -431,7 +431,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
     }
 
     return {
-        open, showTab, handleAction, list: () => [...tabs], isVisible: () => shown,
+        open, showTab, closeTab, handleAction, list: () => [...tabs], isVisible: () => shown,
         refreshLibrary, libraryFailed() { libraryError = true; pushState(); },
         downloadsChanged(change) {
             if (change?.started) { panel = 'downloads'; closeFind(); layout(); }

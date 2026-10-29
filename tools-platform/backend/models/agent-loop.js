@@ -146,6 +146,7 @@ async function compactMessages({ client, plan, task, windowTokens, sensitiveValu
  * @param {object} [options.eventFields] 附在 tool_start / tool_result 上的字段（如 runId）
  * @param {string} [options.artifactOwner] 设了才把大结果存成本人文件（租户::账号）
  * @param {Function} [options.spillable] (name) => 该工具的结果是否参与存文件，默认全部
+ * @param {object} [options.extras] 附加工具组（agent-extra-tools.forChat）：浏览器、MCP 等，按需加载并自带审批
  * @param {string[]} [options.builtins] 引擎自带的工具：update_plan / ask_user / calculate，默认全部
  * @param {number} [options.maxEmptyNudges] 空回复时提示的次数（最后一次不带工具），默认 2
  * @param {Function} [options.review] ({ text, toolLog }) => null | { nudge, keepReply }：模型给出最终回答前的检查，返回提示时继续一步
@@ -158,10 +159,11 @@ async function compactMessages({ client, plan, task, windowTokens, sensitiveValu
 async function runToolLoop({
     client, model = '', systemPrompt, messages: initialMessages, tools: toolSource = [], executeCall, write: emit,
     signal, maxOutputTokens, temperature, sensitiveValues = [], task = '', maxSteps = MAX_STEPS, callIdPrefix = 'call',
-    eventFields = {}, artifactOwner = '', artifactSession = '', spillable = () => true, maxEmptyNudges = MAX_EMPTY_NUDGES, builtins = BUILTINS,
+    eventFields = {}, artifactOwner = '', artifactSession = '', spillable = () => true, maxEmptyNudges = MAX_EMPTY_NUDGES, builtins = BUILTINS, extras = null,
     review, fallback, toolsUnsupported, onToolCalls, afterCall
 }) {
     const secrets = { secrets: sensitiveValues };
+    if (extras?.prompt) systemPrompt = `${systemPrompt}${extras.prompt}`;
     const write = event => emit?.(redactValue(event, secrets));
     let activeClient = client;
     let messages = redactValue(initialMessages.map(item => ({ ...item })), secrets);
@@ -174,7 +176,7 @@ async function runToolLoop({
     const builtinNames = new Set(builtinTools.map(tool => tool.name));
     // 自带工具放最前面、固定不变，后面按需加载的工具往末尾追加，提示缓存才能继续命中
     const currentTools = () => {
-        const list = [...builtinTools, ...(typeof toolSource === 'function' ? toolSource() : toolSource)];
+        const list = [...builtinTools, ...(typeof toolSource === 'function' ? toolSource() : toolSource), ...(extras ? extras.definitions() : [])];
         return readerEnabled && !list.some(tool => tool.name === 'read_file') ? [...list, ARTIFACT_READER] : list;
     };
     let plan = [];
@@ -351,6 +353,7 @@ async function runToolLoop({
                 write({ type: 'tool_start', ...eventFields, callId, tool: shown, args: args === undefined ? previewArgs(call.args) : args });
             };
             let outcome = builtinNames.has(call.name) ? runBuiltin(call)
+                : extras?.handles(call.name) ? await extras.execute(call, { callId, start })
                 : ownReader(call.name) ? await readArtifact(call, { owner: artifactOwner, sensitiveValues, start })
                     : await executeCall(call, { callId, step: steps, start });
             outcome = outcome || { content: '工具没有返回结果', summary: '无结果', isError: true };
@@ -374,7 +377,8 @@ async function runToolLoop({
             }
             // 任务清单、提问这类不出工具行的调用不计入工具记录（回复末尾的工具摘要、调用次数）
             if (outcome.silent) toolCallCount -= 1;
-            else toolLog.push({ tool: call.name, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 120) });
+            else require('./agent-tool-usage').record(call.name, !outcome.isError); // 工具清单里的调用次数
+            if (!outcome.silent) toolLog.push({ tool: call.name, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 120) });
             toolResults.push({ id: call.id, name: call.name, content: outcome.content, isError: Boolean(outcome.isError) });
             await afterCall?.(call, outcome);
             if (signal?.aborted) throw abortError();
@@ -436,4 +440,4 @@ async function readArtifact(call, { owner, sensitiveValues, start }) {
     return toolsService.execute({ artifactOwner: owner, sensitiveValues }, 'read_file', { path: target, startLine: call.args?.startLine, limit: call.args?.limit });
 }
 
-module.exports = { MAX_STEPS, runToolLoop, previewArgs, compactionCut, planCompaction, compactMessages };
+module.exports = { MAX_STEPS, BUILTIN_DEFINITIONS, runToolLoop, previewArgs, compactionCut, planCompaction, compactMessages };

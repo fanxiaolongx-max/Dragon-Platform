@@ -202,7 +202,9 @@ async function getRedactionSecrets() {
     const store = await getProfileStore();
     // 频道对接凭据（WeLink SK）同样不得进入模型上下文与日志
     const channelSecrets = await require('./channels/welink-config-repository').getSecrets().catch(() => []);
-    return [...new Set([...store.profiles.map(profile => runtimeSettings(profile).apiKey), ...channelSecrets].filter(Boolean))];
+    // MCP 服务的环境变量与请求头（Token 等）同样不发给模型
+    const mcpSecrets = await require('./agent-mcp').secrets().catch(() => []);
+    return [...new Set([...store.profiles.map(profile => runtimeSettings(profile).apiKey), ...channelSecrets, ...mcpSecrets].filter(Boolean))];
 }
 
 function findProfile(store, profileId) {

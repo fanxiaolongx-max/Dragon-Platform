@@ -42,11 +42,12 @@ ${lines.join('\n')}
  * 只有附件工具的一轮回复（非管理员、或没有其他工具的首页对话）。
  * @returns {Promise<{text, usage, toolLog}>}
  */
-async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model }) {
+async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null }) {
     const files = toolset({ ...ctx, signal });
     if (!files) throw Object.assign(new Error('没有可读取的附件'), { code: 'AGENT_UPLOAD_MISSING' });
     const sensitiveValues = ctx.sensitiveValues || [];
     const result = await agentLoop.runToolLoop({
+        extras, // 附加工具组：浏览器、MCP（管理员的首页对话）
         client, model, systemPrompt: redactText(`${systemInstruction}\n${files.prompt}`, { secrets: sensitiveValues }), messages, tools: files.definitions,
         write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
         signal, maxOutputTokens, temperature, sensitiveValues, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'files',

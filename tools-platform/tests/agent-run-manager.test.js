@@ -7,6 +7,7 @@ const path = require('node:path');
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'tools-platform-agent-run-'));
 process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
 process.env.TOOLS_REPORT_DATA_DIR = path.join(sandbox, 'report-data');
+process.env.TOOLS_AGENT_BROWSER = 'off'; // 工具列表不随本机是否装了 Chrome 变化
 
 const manager = require('../backend/models/agent-run-manager');
 const contextStats = require('../backend/models/agent-context-stats');

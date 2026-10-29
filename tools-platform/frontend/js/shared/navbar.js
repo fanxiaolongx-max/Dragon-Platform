@@ -2552,6 +2552,7 @@ function renderNavSettingsSidebar() {
         <button class="nav-settings-tab ${t === 'categories' ? 'active' : ''}" data-tab="categories" onclick="switchNavSettingsTab('categories')">${renderNavSettingsTabLabel('🗂️', navT('nav.set.tab.categories'))}</button>
         <button class="nav-settings-tab ${t === 'items' ? 'active' : ''}" data-tab="items" onclick="switchNavSettingsTab('items')">${renderNavSettingsTabLabel('↕️', navT('nav.set.tab.items'))}</button>
         <button class="nav-settings-tab ${t === 'ai' ? 'active' : ''}" data-tab="ai" onclick="switchNavSettingsTab('ai')">${renderNavSettingsTabLabel('🤖', navT('nav.set.tab.ai'))}</button>
+        <button class="nav-settings-tab ${t === 'agentTools' ? 'active' : ''}" data-tab="agentTools" onclick="switchNavSettingsTab('agentTools')">${renderNavSettingsTabLabel('🧰', navLocaleText('智能体工具', 'Agent tools'))}</button>
         <button class="nav-settings-tab ${t === 'channels' ? 'active' : ''}" data-tab="channels" onclick="switchNavSettingsTab('channels')">${renderNavSettingsTabLabel('🔌', navT('nav.set.tab.channels'))}</button>
         <button class="nav-settings-tab ${t === 'desktopAgents' ? 'active' : ''}" data-tab="desktopAgents" onclick="switchNavSettingsTab('desktopAgents')">${renderNavSettingsTabLabel('🖥️', navLocaleText('桌面 Agent', 'Desktop Agents'))}</button>
         <button class="nav-settings-tab ${t === 'update' ? 'active' : ''}" data-tab="update" onclick="switchNavSettingsTab('update')">${renderNavSettingsTabLabel('🔄', navT('nav.set.tab.update'))}</button>
@@ -2627,6 +2628,7 @@ function getNavSettingsTitle() {
     if (navState.settingsTab === 'accounts') return navT('nav.set.tab.accounts');
     if (navState.settingsTab === 'security') return navT('nav.set.tab.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.tab.ai');
+    if (navState.settingsTab === 'agentTools') return navLocaleText('智能体工具', 'Agent tools');
     if (navState.settingsTab === 'desktopAgents') return navLocaleText('桌面 Agent', 'Desktop Agents');
     if (navState.settingsTab === 'channels') return navT('nav.set.tab.channels');
     if (navState.settingsTab === 'update') return navT('nav.set.tab.update');
@@ -2654,6 +2656,7 @@ function getNavSettingsSubtitle() {
     if (navState.settingsTab === 'accounts') return navT('nav.set.sub.accounts');
     if (navState.settingsTab === 'security') return navT('nav.set.sub.security');
     if (navState.settingsTab === 'ai') return navT('nav.set.sub.ai');
+    if (navState.settingsTab === 'agentTools') return navLocaleText('Dragon Claw 的 MCP 服务与工具清单：哪些工具常驻、哪些按需加载、占多少上下文、被调用了多少次。', 'Dragon Claw MCP servers and tool catalog: what is always loaded, what loads on demand, context cost and call counts.');
     if (navState.settingsTab === 'desktopAgents') return navLocaleText('连接本机原生桌面会话，同步最近对话并在 Web 继续交流。', 'Sync recent native desktop sessions and continue them from the Web.');
     if (navState.settingsTab === 'channels') return navT('nav.set.sub.channels');
     if (navState.settingsTab === 'update') return navT('nav.set.sub.update');
@@ -2687,6 +2690,7 @@ function renderNavSettingsContent() {
     if (navState.settingsTab === 'accounts') return renderAccountSettings(content);
     if (navState.settingsTab === 'security') return renderSecuritySettings(content);
     if (navState.settingsTab === 'ai') return renderAiSettings(content);
+    if (navState.settingsTab === 'agentTools') return renderAgentToolsSettings(content);
     if (navState.settingsTab === 'desktopAgents') return renderDesktopAgentSettings(content);
     if (navState.settingsTab === 'channels') return renderChannelSettings(content);
     if (navState.settingsTab === 'update') return renderUpdaterSettings(content);
@@ -3540,6 +3544,16 @@ async function renderChannelSettings(content) {
     try {
         if (!window.ToolsChannelSettings) await loadNavLazyScript('/js/shared/channel-settings.js', navLocaleText('无法加载频道对接组件', 'Channel settings component could not load'));
         await window.ToolsChannelSettings.render(content);
+    } catch (error) {
+        content.innerHTML = `<div class="nav-settings-empty">${navEscape(error.message)}</div>`;
+    }
+}
+
+// 智能体工具设置页（MCP 服务、工具清单）按需加载，逻辑在 shared/agent-tools-settings.js
+async function renderAgentToolsSettings(content) {
+    try {
+        if (!window.ToolsAgentToolsSettings) await loadNavLazyScript('/js/shared/agent-tools-settings.js', navLocaleText('无法加载智能体工具组件', 'Agent tools component could not load'));
+        await window.ToolsAgentToolsSettings.render(content);
     } catch (error) {
         content.innerHTML = `<div class="nav-settings-empty">${navEscape(error.message)}</div>`;
     }

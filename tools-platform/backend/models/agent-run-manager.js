@@ -353,6 +353,58 @@ function resolveApproval(approvalId, decision, user, tenantId) {
     return { ok: true, decision: normalized };
 }
 
+// ── 不选目录的对话：附加工具（浏览器、MCP）的审批 ─────────────
+// 没有工作区会话，按对话在内存里记「已加载的工具」和「总是允许」；每轮建一个轻量运行，审批卡与工作区共用
+// pendingApprovals / resolveApproval（POST /api/agent-workspace/approvals/:id）。
+const chatSessions = new Map();
+const MAX_CHAT_SESSIONS = 300;
+
+function chatSession(owner, chatSessionId) {
+    const key = `${owner}\n${chatSessionId || 'new'}`;
+    let session = chatSessions.get(key);
+    if (!session) {
+        session = { id: `chat-${crypto.createHash('sha256').update(key).digest('hex').slice(0, 24)}`, owner, readOnly: false, permissionMode: 'ask',
+            alwaysAllow: new Set(), loadedTools: new Set(), loadedSkills: new Set() };
+        chatSessions.set(key, session);
+        if (chatSessions.size > MAX_CHAT_SESSIONS) chatSessions.delete(chatSessions.keys().next().value);
+    }
+    return session;
+}
+
+function beginChatRun({ owner, chatSessionId, write, signal }) {
+    const run = { id: crypto.randomUUID(), session: chatSession(owner, chatSessionId), write, signal, pending: new Map(), processes: new Set() };
+    const onAbort = () => run.pending.forEach(settle => settle('abort'));
+    signal?.addEventListener('abort', onAbort, { once: true });
+    run.end = () => {
+        signal?.removeEventListener('abort', onAbort);
+        run.pending.forEach(settle => settle('abort'));
+    };
+    return run;
+}
+
+/**
+ * 按类别决定一次调用：允许则返回 {}，否则返回 { outcome }（拒绝 / 超时 / 预览出错）。
+ * preview 是函数，只在需要审批时才调用；key 是「总是允许」的粒度（如浏览器按站点）。
+ */
+async function decideCall(run, call, { kind, preview, key = call.name }) {
+    let decision = classifyDecision(run.session, key, call.args, kind);
+    if (decision === 'ask') {
+        let shown = {};
+        try {
+            shown = await preview();
+        } catch (error) {
+            return { outcome: { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: String(error.message || '').slice(0, 120), isError: true } };
+        }
+        const answer = await awaitApproval(run, call, shown);
+        if (answer === 'always') run.session.alwaysAllow.add(key);
+        run.write({ type: 'approval_result', runId: run.id, callId: call.id, decision: answer });
+        decision = answer === 'allow' || answer === 'always' ? 'allow' : answer;
+    }
+    if (decision === 'allow') return {};
+    const reason = decision === 'readonly' ? '当前账号为只读权限，不能执行该操作' : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
+    return { outcome: { content: reason, summary: reason, isError: true, denied: true } };
+}
+
 /**
  * 执行一轮对话（可能包含多步工具调用）。
  * @returns {{ text, usage, steps, toolCallCount, denied, context, changes, gitBranch }}
@@ -399,6 +451,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     let messages = redactValue(transcriptRepo.mergeHistoryWithTranscript(historyMessages, session.transcript), { secrets: sensitiveValues });
     // 工具登记表：常驻工具 + tool_search / load_skill；用户选择的技能（@netcare-data / @ops-group / @welink-office 等）带上各自的专用工具
     const registry = await toolRegistry.create({ session, messages, sensitiveValues, skillCatalog: Array.isArray(skillCatalog) && skillCatalog.length > 0,
+        extraToolsets: await require('./agent-extra-tools').toolsets({ owner: session.owner, readOnly: session.readOnly }),
         skillIds: Array.isArray(skillIds) ? skillIds : [...String(systemInstruction).matchAll(/^### @([a-z][a-z0-9-]*)$/gm)].map(match => match[1]) });
     const skillPrompts = registry.startPrompt();
     const fullSystem = redactText(`${systemInstruction}\n${addendum}${skillPrompts ? `\n${skillPrompts}` : ''}${registry.catalogPrompt()}`, { secrets: sensitiveValues });
@@ -431,7 +484,9 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         const toolset = !outcome && registry.toolset(call.name);
         const toolsetKind = toolset?.kindOf?.(call.name) || null;
         if (toolset && !toolset.kindOf) outcome = await toolset.execute(call, { opsCtx, signal, write });
-        let decision = outcome ? 'allow' : classifyDecision(session, call.name, call.args, toolset ? toolsetKind : undefined);
+        // 「总是允许」的粒度：附加工具组可以更细（浏览器打开网页按站点）
+        const allowKey = toolset?.alwaysKey?.(call.name, call.args) || call.name;
+        let decision = outcome ? 'allow' : classifyDecision(session, allowKey, call.args, toolset ? toolsetKind : undefined);
         if (!outcome && decision !== 'deny') registry.noteCall(call.name);
         let preview = {};
         if (!outcome && decision !== 'deny' && decision !== 'readonly') {
@@ -443,7 +498,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         }
         if (!outcome && decision === 'ask') {
             const answer = await awaitApproval(run, call, preview);
-            if (answer === 'always') session.alwaysAllow.add(call.name);
+            if (answer === 'always') session.alwaysAllow.add(allowKey);
             decision = answer === 'allow' || answer === 'always' ? 'allow' : answer;
             write({ type: 'approval_result', runId: run.id, callId: call.id, decision: answer });
         }
@@ -568,6 +623,9 @@ module.exports = {
     loadSessionState,
     beginRun,
     requestApproval: awaitApproval,
+    chatSession,
+    beginChatRun,
+    decideCall,
     getSession,
     readGitBranch,
     buildDirectoryContext,

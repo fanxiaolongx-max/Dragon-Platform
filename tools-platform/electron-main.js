@@ -67,6 +67,8 @@ const desktopPromotions = (() => {
             openAppPath: target => openAppPath(target)
         });
         require('./backend/models/platform-promotions-desktop').configureDesktopPromotions(stack);
+        // Dragon Claw 浏览器工具在桌面端使用 Dragon 浏览器（页面显示在用户眼前，沿用已登录的站点）
+        require('./backend/models/agent-browser').configureDesktopBrowser({ openPage: options => stack.openAgentPage(options) });
         return stack;
     } catch (error) {
         console.warn('[Electron] Desktop promotions disabled:', error.message || error);

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@tutao/oxmsg": "^0.2.3",
     "acorn": "^8.17.0",
     "cors": "^2.8.5",

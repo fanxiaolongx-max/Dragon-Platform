@@ -704,6 +704,12 @@
         if (tool === 'manage_uiv_category') return `${args.action || ''} ${args.name || ''}${args.newName ? ` → ${args.newName}` : ''}${args.moveScriptsTo ? ` → ${args.moveScriptsTo}` : ''}`.trim();
         if (tool === 'read_uiv_script' || tool === 'save_uiv_script' || tool === 'delete_uiv_script') return `${args.action || ''} ${args.id || args.sourceId || ''}${args.field ? ` / ${args.field}` : ''}`.trim();
         if (tool === 'run_command' || tool === 'welink_query' || tool === 'welink_action' || /^netcare_/.test(tool)) return args.command || '';
+        if (tool === 'browser_navigate') return args.url || '';
+        if (tool === 'browser_click' || tool === 'browser_type') return `${args.ref || ''}${args.text ? ` ← ${args.text}` : ''}`;
+        if (tool === 'browser_network') return [args.type, args.filter].filter(Boolean).join(' ');
+        if (tool === 'browser_network_body') return args.requestId || '';
+        if (tool === 'browser_evaluate') return args.expression || '';
+        if (tool === 'browser_wait') return args.text || (args.timeoutMs ? `${args.timeoutMs}ms` : '');
         if (tool === 'calculate') return Array.isArray(args.expressions) ? args.expressions.join('；') : args.expression || '';
         if (tool === 'read_document') return `${args.path || ''}${args.sheet ? ` / ${args.sheet}` : ''}`;
         if (tool === 'query_data') return args.sql || args.path || '';
@@ -723,7 +729,7 @@
     }
 
     function toolIcon(tool) {
-        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', calculate: '🧮', read_document: '📑', query_data: '📊', diff_files: '⇄', multi_edit: '✏️', zip_files: '🗜', unzip_file: '🗜', memory: '🧠', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
+        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', calculate: '🧮', read_document: '📑', query_data: '📊', diff_files: '⇄', multi_edit: '✏️', zip_files: '🗜', unzip_file: '🗜', memory: '🧠', browser_navigate: '🌐', browser_snapshot: '🌐', browser_click: '🖱', browser_type: '⌨️', browser_scroll: '🌐', browser_wait: '⏳', browser_network: '📡', browser_network_body: '📡', browser_console: '🧾', browser_screenshot: '📸', browser_tabs: '🗂', browser_evaluate: '⚡', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
     }
 
     // ── 对话内：写入 / 编辑后的文件卡片（预览 / 代码） ─────

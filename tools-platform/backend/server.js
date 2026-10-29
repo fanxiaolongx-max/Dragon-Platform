@@ -489,6 +489,7 @@ app.use('/api/agent-workspace', require('./routes/agent-workspace')); // Dragon 
 app.use('/api/agent-files', require('./routes/agent-files')); // 对话里引用的本机文件：图片预览、文件下载（本机/管理员全盘，其他账号仅 outputs）
 app.use('/api/channels', require('./routes/channels')); // 频道对接（WeLink / 微信助理）：配置、连通性、名单、主动推送
 app.use('/api/digital-human', requireAdmin, require('./routes/digital-human')); // 数字人基座对接：NetCare 业务库只读查询、应用库读写、表目录（第一期仅管理员）
+app.use('/api/agent-mcp', requireAdmin, require('./routes/agent-mcp')); // 智能体工具：MCP 服务配置（默认租户）与工具清单（仅管理员）
 app.use('/api/dragon-tac', require('./routes/dragon-tac'));
 app.use('/api/desktop-agents', require('./routes/desktop-agents'));
 app.use('/api/global-backup', globalBackupRoutes); // 当前租户核心数据备份与恢复 API（保留历史路由名）
@@ -680,6 +681,7 @@ async function startServer() {
     }
 
     const server = app.listen(PORT, () => {
+        require('./models/agent-mcp').warmup().catch(error => console.warn('[agent] MCP 预连接失败：', error.message || error));
         console.log(`\n✅ Tools Platform 已启动`);
         console.log(`   🌐 访问地址: http://localhost:${PORT}`);
         console.log(`   📦 UIVF12:   http://localhost:${PORT}/uivf12`);

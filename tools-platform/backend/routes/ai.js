@@ -967,6 +967,13 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 model: aiSettings.model
             })
             : null;
+        // 附加工具组（浏览器、MCP）：管理员不选目录的首页对话按需加载，审批卡与工作区共用；只有流式请求能弹审批卡
+        const chatExtras = !agentMode && homeAgent && !channelTurn && streamRequested && req.user?.role === 'admin' && !analysisCode
+            && (databaseMode || opsSetup || welinkCliSetup || netcareSetup || filesMode)
+            ? await require('../models/agent-extra-tools').forChat({ owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', readOnly: false,
+                write: event => writeStreamEvent(event), signal: providerAbortController?.signal, sensitiveValues }).catch(error => { console.warn('[AI] extra tools unavailable:', error.message || error); return null; })
+            : null;
+        if (chatExtras) res.once('close', () => chatExtras.end());
         const followupResult = !agentResult && !analysisResult && followupSetup
             ? await followupAgent.runTurn({
                 client: aiClient,
@@ -986,6 +993,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             : null;
         const opsResult = !agentResult && !analysisResult && !followupResult && opsSetup
             ? await opsAgent.runTurn({
+                extras: chatExtras,
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
@@ -1004,6 +1012,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             : null;
         const welinkCliResult = !agentResult && !analysisResult && !followupResult && !opsResult && welinkCliSetup
             ? await welinkCliAgent.runTurn({
+                extras: chatExtras,
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
@@ -1023,6 +1032,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             : null;
         const netcareResult = !agentResult && !analysisResult && !followupResult && !opsResult && !welinkCliResult && netcareSetup
             ? await netcareAgent.runTurn({
+                extras: chatExtras,
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
@@ -1043,6 +1053,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         }
         const databaseResult = databaseMode
             ? await databaseAgent.runTurn({
+                extras: chatExtras,
                 client: aiClient, systemInstruction, messages: effectiveMessages,
                 // 大结果存成本人的文件（按租户::账号隔离），模型可按行读取
                 ctx: { readOnly: false, sensitiveValues, owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', username: req.user?.username || '', uploads: uploadFiles },
@@ -1057,6 +1068,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             : null;
         const filesResult = filesMode
             ? await filesAgent.runTurn({
+                extras: chatExtras,
                 client: aiClient, systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }), messages: effectiveMessages,
                 ctx: { owner: agentRunManager.ownerKey(req.user, getTenantId()), uploads: uploadFiles, sensitiveValues, chatSessionId: savedSessionId || '' },
                 signal: providerAbortController?.signal, maxOutputTokens: aiSettings.maxOutputTokens, temperature: aiSettings.temperature, model: aiSettings.model,
@@ -1099,7 +1111,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                     : netcareResult && netcareResult.toolLog.length
                         ? `${result.text}\n\n（NetCare 查询：${netcareResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`
                         : databaseResult && databaseResult.toolLog.length
-                            ? `${result.text}\n\n（数据库工具：${databaseResult.toolLog.slice(0, 8).map(item => `${item.tool}${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
+                            ? `${result.text}\n\n（工具：${databaseResult.toolLog.slice(0, 8).map(item => `${item.tool}${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
                             : result.text, { secrets: sensitiveValues });
         
         let totalTokens = 0;

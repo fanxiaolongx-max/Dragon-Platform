@@ -88,12 +88,18 @@ function summaryOf(description) {
  * @param {Array} [input.messages]   送给模型的历史；其中调用过的工具视为已加载，保证历史与工具列表一致
  * @param {boolean} [input.skillCatalog] 系统提示里有技能目录时才提供 load_skill
  */
-async function create({ session, skillIds = [], messages = [], skillCatalog = false, sensitiveValues = [] }) {
+async function create({ session, skillIds = [], messages = [], skillCatalog = false, sensitiveValues = [], core: withCore = true, extraToolsets = [] }) {
     const readOnly = Boolean(session.readOnly);
     if (!(session.loadedTools instanceof Set)) session.loadedTools = new Set();
     if (!(session.loadedSkills instanceof Set)) session.loadedSkills = new Set();
-    const core = toolsService.definitions({ readOnly });
+    const core = withCore ? toolsService.definitions({ readOnly }) : [];
     const coreByName = new Map(core.map(item => [item.name, item]));
+    // 附加工具组（浏览器、MCP 服务）：整组按需加载，执行与审批由各组自己的 kindOf / preview / execute 提供
+    const extraGroups = new Map(extraToolsets.map(set => [set.id, { ...set, names: new Set(set.definitions.map(item => item.name)) }]));
+    const extraByName = new Map([...extraGroups.values()].flatMap(set => set.definitions.map(def => [def.name, { def, set }])));
+    const knownTool = name => coreByName.has(name) || extraByName.has(name);
+    const groupNames = name => GROUPS[name]?.names || extraGroups.get(name)?.definitions.map(item => item.name) || null;
+    const groupOf = name => GROUP_OF.get(name) || extraByName.get(name)?.set.id;
     const toolsets = new Map(); // group → { definitions, names, prompt, execute }
     const userSkills = new Set(skillIds);
 
@@ -107,7 +113,7 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
     const loadNames = names => {
         const added = [];
         for (const name of names) {
-            if (!coreByName.has(name) || ALWAYS.has(name) || session.loadedTools.has(name)) continue;
+            if (!knownTool(name) || (coreByName.has(name) && ALWAYS.has(name)) || session.loadedTools.has(name)) continue;
             session.loadedTools.add(name);
             added.push(name);
         }
@@ -142,22 +148,22 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
         core.filter(item => ALWAYS.has(item.name)).forEach(push);
         META.filter(item => item.name !== 'load_skill' || skillCatalog).forEach(push);
         startToolsets.forEach(group => toolsets.get(group).definitions.forEach(push));
-        session.loadedTools.forEach(name => push(coreByName.get(name)));
+        session.loadedTools.forEach(name => push(coreByName.get(name) || extraByName.get(name)?.def));
         toolsets.forEach(set => set.definitions.forEach(push));
         return list;
     };
-    const deferred = () => core.filter(item => !ALWAYS.has(item.name) && !session.loadedTools.has(item.name));
+    const deferred = () => [...core.filter(item => !ALWAYS.has(item.name)), ...[...extraByName.values()].map(item => item.def)].filter(item => !session.loadedTools.has(item.name));
 
     const catalogPrompt = () => {
         const rest = deferred();
         if (!rest.length) return '';
         const byGroup = new Map();
         for (const item of rest) {
-            const group = GROUP_OF.get(item.name) || 'other';
+            const group = groupOf(item.name) || 'other';
             if (!byGroup.has(group)) byGroup.set(group, []);
             byGroup.get(group).push(`  - ${item.name}：${summaryOf(item.description)}`);
         }
-        const lines = [...byGroup].map(([group, items]) => `- ${GROUPS[group]?.label || '其他'}（分组 ${group}）\n${items.join('\n')}`);
+        const lines = [...byGroup].map(([group, items]) => `- ${GROUPS[group]?.label || extraGroups.get(group)?.label || '其他'}（分组 ${group}）\n${items.join('\n')}`);
         return `\n**按需工具**：下列是工具名（不是 Shell 命令，不要用 run_command 执行），当前没有附带参数说明。需要时先调用 tool_search（select 填工具名或分组名）加载，加载后在本会话内一直可用；也可以直接按名称调用，同组工具会一并加载。${skillCatalog ? '技能目录中的技能可用 load_skill 自行加载完整流程。' : ''}\n${lines.join('\n')}\n`;
     };
 
@@ -165,21 +171,22 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
         const wanted = [];
         for (const raw of Array.isArray(select) ? select : (select ? [select] : [])) {
             const key = String(raw || '').trim();
-            if (GROUPS[key]) wanted.push(...GROUPS[key].names);
+            if (groupNames(key)) wanted.push(...groupNames(key));
             else wanted.push(key);
         }
         const terms = String(query || '').toLowerCase().split(/[\s,，、]+/).filter(Boolean);
         if (terms.length) {
-            const scored = core.filter(item => !ALWAYS.has(item.name)).map(item => {
-                const text = `${item.name} ${GROUP_OF.get(item.name) || ''} ${GROUPS[GROUP_OF.get(item.name)]?.label || ''} ${item.description}`.toLowerCase();
+            const scored = [...core.filter(item => !ALWAYS.has(item.name)), ...[...extraByName.values()].map(entry => entry.def)].map(item => {
+                const group = groupOf(item.name) || '';
+                const text = `${item.name} ${group} ${GROUPS[group]?.label || extraGroups.get(group)?.label || ''} ${item.description}`.toLowerCase();
                 return { name: item.name, score: terms.filter(term => text.includes(term)).length };
             }).filter(item => item.score > 0).sort((a, b) => b.score - a.score);
             wanted.push(...scored.slice(0, SEARCH_LIMIT).map(item => item.name));
         }
-        const found = [...new Set(wanted)].filter(name => coreByName.has(name));
-        const unknown = [...new Set(wanted)].filter(name => !coreByName.has(name));
+        const found = [...new Set(wanted)].filter(knownTool);
+        const unknown = [...new Set(wanted)].filter(name => !knownTool(name));
         const added = loadNames(found);
-        const tools = found.map(name => coreByName.get(name));
+        const tools = found.map(name => coreByName.get(name) || extraByName.get(name).def);
         const lines = tools.map(item => `### ${item.name}\n${item.description}\n参数：${JSON.stringify(item.parameters)}`);
         if (unknown.length) lines.push(readOnly ? `未找到或当前账号无权使用：${unknown.join('、')}` : `未找到：${unknown.join('、')}`);
         if (!tools.length && !unknown.length) lines.push('没有匹配的工具。请换个关键词，或参考系统提示里的按需工具列表。');
@@ -221,16 +228,16 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
             if (call.name === 'load_skill' && skillCatalog) return loadSkill(call.args || {});
             return { content: `工具 ${call.name} 不可用。`, summary: '工具不可用', isError: true };
         },
-        toolset: name => [...toolsets.values()].find(set => set.names.has(name)) || null,
+        toolset: name => [...toolsets.values()].find(set => set.names.has(name)) || extraByName.get(name)?.set || null,
         // 模型直接调用了延后的核心工具：照常走审批执行，之后的步骤带上它所在整组的说明（同组工具往往接着要用）
-        noteCall: name => loadNames(GROUPS[GROUP_OF.get(name)]?.names || [name]),
+        noteCall: name => loadNames(groupNames(groupOf(name)) || [name]),
         // run_command 的命令只是一个工具名（模型把工具当成 Shell 命令）：返回该工具名并加载它，调用方直接提示，不走审批
         commandNamingTool(command) {
             const name = String(command || '').trim().split(/[\s(]/)[0];
             if (!name || name === 'run_command' || !/^[a-z][a-z0-9_]+$/.test(name)) return null;
-            const known = coreByName.has(name) || [...toolsets.values()].some(set => set.names.has(name)) || META_NAMES.has(name);
+            const known = knownTool(name) || [...toolsets.values()].some(set => set.names.has(name)) || META_NAMES.has(name);
             if (!known) return null;
-            loadNames(GROUPS[GROUP_OF.get(name)]?.names || [name]);
+            loadNames(groupNames(groupOf(name)) || [name]);
             return name;
         }
     };
