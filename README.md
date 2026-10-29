@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="tools-platform/docs/images/readme/hero.svg" alt="Dragon Platform：做好每一个工具" width="100%">
+<img src="tools-platform/docs/images/readme/hero.png" alt="Dragon Platform：做好每一个工具" width="100%">
 
 **一个跑在你自己电脑或内网里的工具中台：首页是能聊天、能看数据、能改代码的智能体，背后是从数据抓取到月报交付的整条流水线，外加 40 多个随取随用的小工具。**
 
