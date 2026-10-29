@@ -238,6 +238,7 @@ html.is-page-scrolling::-webkit-scrollbar-thumb {
 }
 
 .nav-more-menu {
+    color-scheme: dark;
     display: none;
     position: fixed;
     top: calc(var(--navbar-h) + 8px);
@@ -419,7 +420,10 @@ html.is-page-scrolling::-webkit-scrollbar-thumb {
 }
 
 .nav-more-sidebar {
+    min-height: 0;
+    min-width: 0;
     padding: 12px 10px;
+    overflow-x: hidden;
     overflow-y: auto;
     border-right: 1px solid rgba(148,163,184,0.14);
     background: rgba(8,15,29,0.56);
@@ -464,8 +468,69 @@ html.is-page-scrolling::-webkit-scrollbar-thumb {
     overflow-y: auto;
     scroll-behavior: smooth;
     padding: 10px 16px 20px;
+}
+
+/* 目录与工具列表共用轻量滚动条，避免 Windows 原生浅色轨道割裂深色菜单。 */
+.nav-more-sidebar,
+.nav-more-content {
+    --nav-scroll-thumb: rgba(148, 163, 184, .28);
+    --nav-scroll-thumb-hover: rgba(100, 255, 218, .5);
     scrollbar-width: thin;
-    scrollbar-color: rgba(148,163,184,.32) transparent;
+    scrollbar-color: var(--nav-scroll-thumb) transparent;
+    overscroll-behavior: contain;
+}
+
+.nav-more-sidebar:hover,
+.nav-more-sidebar:focus-within,
+.nav-more-content:hover,
+.nav-more-content:focus-within {
+    --nav-scroll-thumb: rgba(100, 255, 218, .32);
+}
+
+/* Chromium / Electron 使用像素宽度；支持标准属性时也保留圆角滑块。 */
+@supports selector(::-webkit-scrollbar) {
+    .nav-more-sidebar,
+    .nav-more-content {
+        scrollbar-width: auto;
+        scrollbar-color: auto;
+    }
+}
+
+.nav-more-sidebar::-webkit-scrollbar,
+.nav-more-content::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.nav-more-sidebar::-webkit-scrollbar-track,
+.nav-more-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.nav-more-sidebar::-webkit-scrollbar-thumb,
+.nav-more-content::-webkit-scrollbar-thumb {
+    min-height: 28px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: var(--nav-scroll-thumb);
+    background-clip: padding-box;
+}
+
+.nav-more-sidebar::-webkit-scrollbar-thumb:hover,
+.nav-more-content::-webkit-scrollbar-thumb:hover {
+    background-color: var(--nav-scroll-thumb-hover);
+}
+
+.nav-more-sidebar::-webkit-scrollbar-button,
+.nav-more-content::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+.nav-more-sidebar::-webkit-scrollbar-corner,
+.nav-more-content::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 .nav-more-category {
@@ -583,11 +648,13 @@ html.is-page-scrolling::-webkit-scrollbar-thumb {
     }
     .nav-more-layout {
         grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
     }
     .nav-more-sidebar {
         display: flex;
         gap: 6px;
         overflow-x: auto;
+        overflow-y: hidden;
         padding: 8px 10px;
         border-right: 0;
         border-bottom: 1px solid rgba(148,163,184,0.14);

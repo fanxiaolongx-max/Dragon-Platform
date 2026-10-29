@@ -8,7 +8,8 @@
   <script src="pet-i18n.js"></script>
   <script src="quota-view.js"></script>
 </head>
-<body class="compact horizontal">
+<body class="compact horizontal" data-mode="top">
+  <button id="edgeSensor" type="button" aria-label="展开额度托盘"><span></span></button>
   <section class="quota-panel" aria-label="账户剩余额度">
     <header id="panelDrag" title="拖动移动，靠近屏幕边缘自动停靠">
       <span class="drag-grip" aria-hidden="true">⠿</span>
@@ -20,6 +21,12 @@
     <div id="quotaRows"></div>
     <footer id="panelHint">拖动标题移动 · 贴边停靠</footer>
   </section>
+  <aside id="quotaPeek" aria-label="额度详情">
+    <div class="peek-top"><img id="peekIcon" alt=""><strong id="peekTitle"></strong><span id="peekPlan"></span></div>
+    <div class="peek-status"><span id="peekState"></span><span id="peekGroup"></span></div>
+    <div id="peekQuotas"></div>
+    <div class="peek-footer"><span id="peekUpdated"></span><span id="peekHint"></span></div>
+  </aside>
   <script src="quota-panel.js"></script>
 </body>
 </html>

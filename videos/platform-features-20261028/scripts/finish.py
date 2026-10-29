@@ -21,11 +21,11 @@ shutil.copytree(p/'compositions',source/'compositions',dirs_exist_ok=True,ignore
 for name in ['gsap.min.js','NotoSansSC.ttf']:
  shutil.copy2(p/'assets'/name,source/'assets'/name)
 for f in (p/'assets').glob('*.png'):
- # Character masters are shared at the series root; avoid duplicate files in every episode.
+ # Material assets are copied directly so Windows extractions and zip archives do not fail on symlinks.
  if f.name.startswith('xiaolong-'):
   target=source/'assets'/f.name
   if target.exists() or target.is_symlink():target.unlink()
-  target.symlink_to('../../assets/'+f.name)
+  shutil.copy2(B/'assets'/f.name,target)
  else:shutil.copy2(f,source/'assets'/f.name)
 for f in (p/'assets').glob('*.jpg'):shutil.copy2(f,source/'assets'/f.name)
 (source/'REVIEW.md').write_text('''# 成片审阅\n\n采用“一个工作任务”的路线，另外两条路线见 STORYLINES.md。用户提供的小龙参考图决定青绿色毛毡角色；本片统一使用透明讲解/倾听姿态，做短促指示动作。\n\n核对当前页面、脚本、路由与服务的能力边界。真实组件通过本地假接口截取，无真实账号、凭据或私有业务数据；示例数据与概念手机流程明确标注。\n\n自动 check 的 lint、runtime、layout、contrast 无错误；已查看场景、接缝、360px 缩略图，以及最终 MP4 逐场景解码帧。分辨率、时长、H.264/AAC、双声道与 fast-start 由工具验证。语音和音乐做响度测量，没有人工试听，不宣称真人配音。\n\n保留的 craft 提示：辅助来源与截图图内文字可小于主标签；解释段落允许短暂停留，不用装饰性漂移掩盖。逐步构图时连接线暂早于末端节点、以及裁切窗口内的截图平移属于设计，最终连线和画面完整。\n\n较弱镜头是设置页面信息密度；主要操作用大字标注，完整参数应回实际页面查看，不把视频当逐项配置手册。\n''')
