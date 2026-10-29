@@ -1348,6 +1348,18 @@
                 </div>
                 <div class="card-arrow">进入模块 →</div>
             </a>
+
+            <a href="/netcare-explorer" class="tool-card" style="--card-accent: #14b8a6;" hidden>
+                <div class="card-icon">🧭</div>
+                <div class="card-title">NetCare 数据探查</div>
+                <div class="card-desc">浏览 NetCare 业务库的表结构与数据，使用只读 SQL 核对业务内容，并维护表名、模块与字段标注。</div>
+                <div class="card-features">
+                    <span class="feature-tag">🗂️ 表结构与数据</span>
+                    <span class="feature-tag">🔍 只读 SQL 查询</span>
+                    <span class="feature-tag">📝 业务标注</span>
+                </div>
+                <div class="card-arrow">进入模块 →</div>
+            </a>
         </div>
         <!-- 插件与脚本：藏在各工具内部的小功能（js/home/capabilities.js） -->
         <section class="home-caps" id="homeCaps" aria-labelledby="homeCapsTitle" hidden></section>
@@ -2344,6 +2356,12 @@
                 title: { 'zh-CN': '数据探索', 'en-US': 'Data Explorer' },
                 desc: { 'zh-CN': '全平台底层数据的上帝视角，直接查询 SQLite 物理表结构与内容，提供 SQL 般直观的浏览体验。', 'en-US': 'Inspect platform data from the ground up by browsing SQLite table structures and contents with an SQL-like experience.' },
                 tags: { 'zh-CN': ['🗄️ SQLite 可视化', '🔍 关系型表查询', '⚡ 实时数据探针'], 'en-US': ['🗄️ SQLite visualization', '🔍 Relational table browsing', '⚡ Live data probe'] },
+                arrow: 'home.arrow.module'
+            },
+            '/netcare-explorer': {
+                title: { 'zh-CN': 'NetCare 数据探查', 'en-US': 'NetCare Explorer' },
+                desc: { 'zh-CN': '浏览 NetCare 业务库的表结构与数据，使用只读 SQL 核对业务内容，并维护表名、模块与字段标注。', 'en-US': 'Browse NetCare business tables and data, verify records with read-only SQL, and maintain table names, modules, and field annotations.' },
+                tags: { 'zh-CN': ['🗂️ 表结构与数据', '🔍 只读 SQL 查询', '📝 业务标注'], 'en-US': ['🗂️ Tables and data', '🔍 Read-only SQL', '📝 Business annotations'] },
                 arrow: 'home.arrow.module'
             }
         };
