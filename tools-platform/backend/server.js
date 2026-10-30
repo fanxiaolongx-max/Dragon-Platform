@@ -473,6 +473,7 @@ app.use('/api/ai-report', require('./routes/ai-report')); // AI 月报：格子�
 app.use('/api/praudit', prauditRoutes); // PR审计配置 API
 app.use('/api/chat-history', chatHistoryRoutes); // 租户隔离的聊天记录中心
 app.use('/api/custom-tools', customToolsRoutes); // 自定义 HTML 工具注册 API
+app.use('/api/gallery', require('./routes/gallery')); // 图屿：租户图库、图片版本与 AI 整理
 app.use('/api/hosted-apps', require('./routes/hosted-apps')); // 托管 Python Web 应用：启动页与运维
 app.use('/api/department-reward-penalty', require('./routes/department-reward-penalty'));
 app.use('/api/reward-program', require('./routes/reward-program'));

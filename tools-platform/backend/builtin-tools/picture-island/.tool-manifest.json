@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "tool": {
+    "slug": "picture-island",
+    "name": "图屿",
+    "nameEn": "Picture Island",
+    "icon": "🏞️",
+    "description": "海报版本与生活图片的一站式图库：快速搜索、历史对比、自动压缩与 AI 分类，菜单收藏随时找。",
+    "descriptionEn": "A searchable home for poster versions and everyday pictures, with comparisons, compressed previews and AI organization.",
+    "tags": ["图库", "图片管理", "版本对比", "菜单", "AI"],
+    "href": "/tools/picture-island",
+    "filePath": "/custom-tools/picture-island/index.html",
+    "publicAccess": false,
+    "createdAt": "2026-10-30T00:00:00.000Z",
+    "updatedAt": "2026-10-30T00:00:00.000Z"
+  },
+  "history": null
+}

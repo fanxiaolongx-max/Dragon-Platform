@@ -137,50 +137,75 @@ async function listSegments(channel, kind, id) {
  * 按群/人列出有对话或跟进任务的会话，最近活跃在前。
  * 名称取自 channel_targets（别名优先），统计段落数、消息数与任务状态。
  */
-async function listThreads(channel, { q = '', limit = 100 } = {}) {
+/**
+ * 频道会话列表（左侧「微信 / WeLink」）：按最后活跃时间倒序分页。
+ * 每个会话的分段数、消息数、最后时间、跟进任务计数用一条汇总 SQL 算出，排序后只取当前页，
+ * 再只给这一页的会话查「最后一条用户消息」，不再逐个会话查库。q 匹配名称、会话 ID 或任一条用户消息。
+ * @returns {Promise<{ items, total, hasMore }>}
+ */
+async function listThreadsPage(channel, { q = '', limit = 50, offset = 0 } = {}) {
     await ensureSchema();
     const chat = await get("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'ai_chat_messages'");
-    const rows = await all(`SELECT conv_kind AS kind, conv_id AS id FROM channel_conversation_segments WHERE channel = ?
-        UNION SELECT conv_kind AS kind, conv_id AS id FROM channel_followups WHERE channel = ?`, [channel, channel]);
+    const rows = await all(`WITH convs AS (
+            SELECT conv_kind AS kind, conv_id AS id FROM channel_conversation_segments WHERE channel = ?
+            UNION SELECT conv_kind AS kind, conv_id AS id FROM channel_followups WHERE channel = ?),
+        seg AS (SELECT conv_kind AS kind, conv_id AS id, COUNT(*) AS segments, MAX(started_at) AS seg_at
+            FROM channel_conversation_segments WHERE channel = ? GROUP BY conv_kind, conv_id),
+        task AS (SELECT conv_kind AS kind, conv_id AS id, MAX(updated_at) AS task_at, SUM(status = 'open') AS open, SUM(status = 'paused') AS paused,
+                SUM(status = 'done') AS done, SUM(status = 'cancelled') AS cancelled
+            FROM channel_followups WHERE channel = ? GROUP BY conv_kind, conv_id)
+        ${chat ? `, msg AS (SELECT s.conv_kind AS kind, s.conv_id AS id, COUNT(m.rowid) AS total, MAX(m.created_at) AS last_at
+            FROM channel_conversation_segments s JOIN ai_chat_messages m ON m.session_id = s.ai_session_id WHERE s.channel = ? GROUP BY s.conv_kind, s.conv_id)` : ''}
+        SELECT c.kind, c.id, t.display_name, t.alias, t.last_active_at, seg.segments, seg.seg_at, task.task_at,
+            task.open, task.paused, task.done, task.cancelled${chat ? ', msg.total, msg.last_at' : ''}
+        FROM convs c
+        LEFT JOIN channel_targets t ON t.channel = ? AND t.kind = c.kind AND t.target_id = c.id
+        LEFT JOIN seg ON seg.kind = c.kind AND seg.id = c.id
+        LEFT JOIN task ON task.kind = c.kind AND task.id = c.id
+        ${chat ? 'LEFT JOIN msg ON msg.kind = c.kind AND msg.id = c.id' : ''}`,
+    [channel, channel, channel, channel, ...(chat ? [channel] : []), channel]).catch(error => {
+        // 旧库没有 channel_targets 表时不带名称
+        if (!/no such table: channel_targets/.test(String(error.message))) throw error;
+        return [];
+    });
     const keyword = String(q || '').trim().toLowerCase();
-    const threads = [];
-    for (const row of rows) {
-        const target = await get('SELECT display_name, alias, last_active_at FROM channel_targets WHERE channel = ? AND kind = ? AND target_id = ?', [channel, row.kind, row.id]).catch(() => null);
-        const segments = await all('SELECT ai_session_id, started_at FROM channel_conversation_segments WHERE channel = ? AND conv_kind = ? AND conv_id = ?', [channel, row.kind, row.id]);
-        let messageCount = 0;
-        let lastMessageAt = '';
-        let lastMessage = '';
-        if (chat && segments.length) {
-            const ids = segments.map(item => item.ai_session_id);
-            const marks = ids.map(() => '?').join(',');
-            const stats = await get(`SELECT COUNT(*) AS total, MAX(created_at) AS last_at FROM ai_chat_messages WHERE session_id IN (${marks})`, ids);
-            messageCount = Number(stats?.total || 0);
-            lastMessageAt = stats?.last_at || '';
-            const last = await get(`SELECT content FROM ai_chat_messages WHERE session_id IN (${marks}) AND role = 'user' ORDER BY created_at DESC, rowid DESC LIMIT 1`, ids);
-            lastMessage = String(last?.content || '').replace(/\s+/g, ' ').slice(0, 120);
-        }
-        const tasks = await all('SELECT status, updated_at FROM channel_followups WHERE channel = ? AND conv_kind = ? AND conv_id = ?', [channel, row.kind, row.id]);
-        const name = target?.alias || target?.display_name || row.id;
-        if (keyword && ![name, row.id, lastMessage].some(value => String(value || '').toLowerCase().includes(keyword))) continue;
+    let matched = null;
+    if (keyword && chat) {
+        const hits = await all(`SELECT DISTINCT s.conv_kind AS kind, s.conv_id AS id FROM channel_conversation_segments s
+            JOIN ai_chat_messages m ON m.session_id = s.ai_session_id
+            WHERE s.channel = ? AND m.role = 'user' AND lower(m.content) LIKE ? ESCAPE '\\'`, [channel, `%${keyword.replace(/[\\%_]/g, char => `\\${char}`)}%`]);
+        matched = new Set(hits.map(hit => `${hit.kind}\n${hit.id}`));
+    }
+    const threads = rows.map(row => {
+        const name = row.alias || row.display_name || row.id;
         // ai_chat_messages.created_at 为 SQLite UTC「YYYY-MM-DD HH:MM:SS」，统一换成 ISO 再比较
-        const times = [toIso(lastMessageAt), target?.last_active_at, ...tasks.map(task => task.updated_at), ...segments.map(item => item.started_at)].filter(Boolean).sort();
-        threads.push({
+        const times = [toIso(row.last_at), row.last_active_at, row.task_at, row.seg_at].filter(Boolean).sort();
+        return {
             kind: row.kind,
             id: row.id,
             name,
-            segmentCount: segments.length,
-            messageCount,
-            lastMessage,
+            segmentCount: Number(row.segments || 0),
+            messageCount: Number(row.total || 0),
+            lastMessage: '',
             lastActiveAt: times[times.length - 1] || '',
-            tasks: {
-                open: tasks.filter(task => task.status === 'open').length,
-                paused: tasks.filter(task => task.status === 'paused').length,
-                done: tasks.filter(task => task.status === 'done').length,
-                cancelled: tasks.filter(task => task.status === 'cancelled').length
-            }
-        });
+            tasks: { open: Number(row.open || 0), paused: Number(row.paused || 0), done: Number(row.done || 0), cancelled: Number(row.cancelled || 0) }
+        };
+    }).filter(thread => !keyword || [thread.name, thread.id].some(value => String(value || '').toLowerCase().includes(keyword)) || matched?.has(`${thread.kind}\n${thread.id}`))
+        .sort((a, b) => String(b.lastActiveAt).localeCompare(String(a.lastActiveAt)));
+    const start = Math.max(0, Math.floor(Number(offset)) || 0);
+    const page = threads.slice(start, start + Math.max(1, Math.min(500, Number(limit) || 50)));
+    if (chat) {
+        for (const thread of page) {
+            const last = await get(`SELECT m.content FROM channel_conversation_segments s JOIN ai_chat_messages m ON m.session_id = s.ai_session_id
+                WHERE s.channel = ? AND s.conv_kind = ? AND s.conv_id = ? AND m.role = 'user' ORDER BY m.created_at DESC, m.rowid DESC LIMIT 1`, [channel, thread.kind, thread.id]);
+            thread.lastMessage = String(last?.content || '').replace(/\s+/g, ' ').slice(0, 120);
+        }
     }
-    return threads.sort((a, b) => String(b.lastActiveAt).localeCompare(String(a.lastActiveAt))).slice(0, Math.max(1, Math.min(500, Number(limit) || 100)));
+    return { items: page, total: threads.length, hasMore: start + page.length < threads.length };
+}
+
+async function listThreads(channel, options = {}) {
+    return (await listThreadsPage(channel, { limit: 100, ...options })).items;
 }
 
 function toIso(value) {
@@ -506,6 +531,7 @@ module.exports = {
     addSegment,
     listSegments,
     listThreads,
+    listThreadsPage,
     listThreadMessages,
     createTask,
     updateTask,

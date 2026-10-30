@@ -25,7 +25,7 @@
             send: '发送', stop: '停止生成', you: '你',
             greetEarly: '夜深了', greetMorning: '早上好', greetNoon: '中午好', greetAfternoon: '下午好', greetEvening: '晚上好',
             spotFrequent: '你常用的', spotRandom: '随手推荐', spotAsk: '想感受一下「{name}」吗？',
-            spotGo: '带我看看', spotOpen: '直接打开', spotGem: '隐藏小功能', spotGemAsk: '发现一个小功能：「{name}」', spotGemOpen: '去试试', introWhere: '在哪里找到它：', spotMore: '也可以试试', spotPrev: '上一个', spotNext: '下一个',
+            spotGo: '带我看看', spotOpen: '直接打开', spotGem: '隐藏小功能', spotGemAsk: '发现一个小功能：「{name}」', spotGemOpen: '去试试', introWhere: '在哪里找到它：', spotMore: '也可以试试', spotPrev: '上一个', spotNext: '下一个', spotDismiss: '关闭推荐，本次登录不再显示',
             tryTool: '想体验一下「{name}」', introCan: '它能帮你做什么', introGroup: '分类：{group}', introUpdated: '{time}更新',
             introOpen: '打开 {name}', introAskLogic: '讲讲它的实现逻辑', introAskHow: '怎么上手使用？',
             introFooter: '点下面的按钮就能直接使用；想了解实现细节或使用技巧，也可以继续问我。',
@@ -81,7 +81,7 @@
             send: 'Send', stop: 'Stop generating', you: 'You',
             greetEarly: 'Working late', greetMorning: 'Good morning', greetNoon: 'Good afternoon', greetAfternoon: 'Good afternoon', greetEvening: 'Good evening',
             spotFrequent: 'Your frequent tool', spotRandom: 'Picked for you', spotAsk: 'Want to try “{name}”?',
-            spotGo: 'Show me', spotOpen: 'Open it', spotGem: 'Hidden gem', spotGemAsk: 'Did you know about “{name}”?', spotGemOpen: 'Try it', introWhere: 'Where to find it:', spotMore: 'Or try', spotPrev: 'Previous', spotNext: 'Next',
+            spotGo: 'Show me', spotOpen: 'Open it', spotGem: 'Hidden gem', spotGemAsk: 'Did you know about “{name}”?', spotGemOpen: 'Try it', introWhere: 'Where to find it:', spotMore: 'Or try', spotPrev: 'Previous', spotNext: 'Next', spotDismiss: 'Hide recommendations until you sign in again',
             tryTool: 'I’d like to try “{name}”', introCan: 'What it can do for you', introGroup: 'Category: {group}', introUpdated: 'updated {time}',
             introOpen: 'Open {name}', introAskLogic: 'Explain how it works', introAskHow: 'How do I get started?',
             introFooter: 'Use the button below to open it right away, or keep asking me about how it works.',
@@ -123,6 +123,7 @@
     const CONTEXT_MAX_CHARS = 11000;
     const MODEL_STORAGE_KEY = 'dragon_claw_model';
     const LAST_CHAT_KEY = 'dragon_claw_last_chat'; // 本浏览器里当前用户最近一次对话的 sessionId（服务端会话不分用户，不能从列表里猜）
+    const SPOTLIGHT_DISMISSED_KEY = 'dragon_claw_spotlight_dismissed'; // 登录成功时清除；刷新和同次登录的其他标签页继续隐藏。
 
     const state = {
         messages: [],
@@ -134,6 +135,7 @@
         spotlight: [],
         spotIndex: 0,
         spotSignature: '',
+        spotDismissed: false,
         models: [],
         defaultModelId: '',
         modelId: '',
@@ -294,10 +296,23 @@
         renderSpotlight();
     }
 
+    function isSpotlightDismissed() {
+        try { return localStorage.getItem(SPOTLIGHT_DISMISSED_KEY) === '1'; }
+        catch { return state.spotDismissed; }
+    }
+
+    function dismissSpotlight() {
+        state.spotDismissed = true;
+        try { localStorage.setItem(SPOTLIGHT_DISMISSED_KEY, '1'); } catch { /* 存储不可用时仍可关闭当前页面。 */ }
+        renderSpotlight();
+        el.input.focus({ preventScroll: true });
+    }
+
     function renderSpotlight() {
         const items = state.spotlight;
-        if (!items.length) {
+        if (!items.length || isSpotlightDismissed()) {
             el.spotlight.hidden = true;
+            el.spotlight.replaceChildren(); // 同时停止轮播动画，避免关闭后继续切换。
             return;
         }
         const tool = items[state.spotIndex % items.length];
@@ -305,6 +320,7 @@
         el.spotlight.hidden = false;
         el.spotlight.style.setProperty('--spot-color', tool.color || '#64ffda');
         el.spotlight.innerHTML = `
+            <button type="button" class="dc-spot-dismiss" data-spot-dismiss aria-label="${escapeHtml(tx('spotDismiss'))}" title="${escapeHtml(tx('spotDismiss'))}"><span aria-hidden="true">×</span></button>
             <div class="dc-spot-blob" aria-hidden="true"><span></span><span></span></div>
             <div class="dc-spot-card">
                 <div class="dc-spot-icon" aria-hidden="true">${escapeHtml(tool.icon || '✨')}</div>
@@ -336,6 +352,7 @@
     }
 
     function stepSpotlight(step, absoluteIndex) {
+        if (isSpotlightDismissed()) return;
         const count = state.spotlight.length;
         if (!count) return;
         const next = absoluteIndex ?? (state.spotIndex + step + count) % count;
@@ -2236,7 +2253,9 @@
     }
 
     // ── 侧栏历史对话（对话模式左侧面板） ────────────
-    const chatList = { items: [], loaded: false, failed: false, seq: 0, latestSeq:0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '' };
+    // 对话列表按页加载：每页 CHAT_PAGE 条，滚到底部附近再加载下一页；serverCount 是已从服务端取到的条数（翻页偏移）
+    const CHAT_PAGE = 40;
+    const chatList = { items: [], loaded: false, failed: false, seq: 0, latestSeq:0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '', serverCount: 0, hasMore: false, loadingMore: false };
 
     function chatGroupKey(date) {
         const startOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
@@ -2288,6 +2307,7 @@
         }}
         el.chatList.innerHTML = html.join('') || `<div class="home-chat-empty">${escapeHtml(tx('chatEmpty'))}</div>`;
         window.HomeConversationList?.enhance(el.chatList,config);
+        window.HomeConversationList?.pager(el.chatList,{hasMore:chatList.hasMore,loading:chatList.loadingMore,onMore:loadMoreChats});
     }
 
     function markActiveChat() {
@@ -2304,13 +2324,20 @@
         const seq = ++chatList.seq;
         const query = el.chatSearch?.value.trim() || '';
         const account=currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'');
+        // 刷新时取回已经加载过的条数（最多 100 条），列表不会一刷新就缩回第一页
+        const limit = Math.min(100, Math.max(CHAT_PAGE, query === chatList.query ? chatList.serverCount : 0));
         try {
-            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=80&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
+            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${limit}&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             if (seq !== chatList.seq||account!==currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'')) return;
-            if(chatList.cacheIdentity!==account){chatList.cached=[];chatList.cacheIdentity=account;}
-            const fetched=Array.isArray(data.items)?data.items:[];
+            if(chatList.cacheIdentity!==account){chatList.cached=[];chatList.cacheIdentity=account;chatList.serverCount=0;}
+            let fetched=Array.isArray(data.items)?data.items:[];
+            // 之前已经往下加载了超过 100 条：刷新只替换前面这部分，后面的保留
+            if(query===chatList.query&&fetched.length===limit&&chatList.serverCount>limit){const seen=new Set(fetched.map(item=>item.id));fetched=[...fetched,...chatList.items.slice(limit).filter(item=>!seen.has(item.id))];}
+            chatList.hasMore=fetched.length>=limit&&(query!==chatList.query||chatList.serverCount<=limit||chatList.hasMore);
+            chatList.serverCount=fetched.length;
+            chatList.query=query;
             if(!query)chatList.cached=fetched;
             const aliases=query?chatList.cached.filter(item=>window.HomeConversationList?.get('mine',item.id).title?.toLowerCase().includes(query.toLowerCase())):[];
             chatList.items=[...fetched,...aliases.filter(item=>!fetched.some(row=>row.id===item.id))];
@@ -2321,6 +2348,33 @@
         }
         chatList.loaded = true;
         renderChatList();
+    }
+
+    // 滚到列表底部附近：按偏移量取下一页，接在后面（同一个对话不会重复出现）
+    async function loadMoreChats() {
+        if (chatList.loadingMore || !chatList.hasMore) return;
+        const seq = chatList.seq;
+        const query = chatList.query || '';
+        chatList.loadingMore = true;
+        renderChatList();
+        try {
+            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${CHAT_PAGE}&offset=${chatList.serverCount}&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            // 期间列表被刷新或换了搜索词：这一页作废
+            if (seq !== chatList.seq || query !== (chatList.query || '')) return;
+            const page = Array.isArray(data.items) ? data.items : [];
+            const seen = new Set(chatList.items.map(item => item.id));
+            chatList.items.push(...page.filter(item => !seen.has(item.id)));
+            chatList.serverCount += page.length;
+            chatList.hasMore = page.length >= CHAT_PAGE;
+            if (!query) chatList.cached = chatList.items.slice();
+        } catch {
+            // 加载失败：保留「加载更多」，滚动或点击可以再试
+        } finally {
+            chatList.loadingMore = false;
+            renderChatList();
+        }
     }
 
     function scheduleChatListRefresh(delay = 600) {
@@ -2684,6 +2738,7 @@
                 }
                 return;
             }
+            if (target.closest('[data-spot-dismiss]')) return dismissSpotlight();
             const go = target.closest('[data-spot-go]');
             if (go) return introduceTool(go.dataset.spotGo);
             const stepBtn = target.closest('[data-spot-step]');
@@ -2820,6 +2875,12 @@
         el.form.insertAdjacentElement('afterend', el.resume);
         anchorThreadToComposer();
         bindEvents();
+        window.addEventListener('storage', event => {
+            if (event.key === SPOTLIGHT_DISMISSED_KEY || event.key === null) {
+                state.spotDismissed = false;
+                renderSpotlight();
+            }
+        });
         bindChatList();
         window.addEventListener('home:conversation-list-changed',()=>renderChatList());
         window.addEventListener('home:agent-discussion-changed',event=>{

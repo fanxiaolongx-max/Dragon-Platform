@@ -464,6 +464,10 @@ body.home-sidebar-resizing * { cursor: col-resize !important; user-select: none 
 
 /* Shared compact conversation lists. Time occupies no second line. */
 .conversation-list-toolbar { display:flex;gap:3px;align-items:center;padding:2px 4px;margin:1px 0 3px; }
+/* 对话列表滚动懒加载的末尾提示行 */
+.conversation-list-pager { display:block;width:100%;margin:4px 0 8px;padding:8px 0;border:0;border-radius:8px;background:transparent;color:var(--ws-muted,#94a3b8);font:inherit;font-size:11.5px;cursor:pointer; }
+.conversation-list-pager:hover:not(:disabled) { background:rgba(148,163,184,.08);color:var(--ws-text,#e2e8f0); }
+.conversation-list-pager:disabled { cursor:default;opacity:.7; }
 .conversation-list-toolbar:has(+[hidden]) { display:none; }
 .conversation-list-toolbar button { font:inherit;font-size:10.5px;color:var(--ws-muted,#94a3b8);border:0;border-radius:6px;background:transparent;padding:4px 8px;cursor:pointer; }
 .conversation-list-toolbar button[aria-pressed=true] { color:var(--ws-text,#dbeafe);background:rgba(148,163,184,.1); }

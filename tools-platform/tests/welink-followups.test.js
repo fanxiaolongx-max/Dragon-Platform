@@ -168,6 +168,20 @@ test('对话时间线：同一群的多段对话合并，段落标注新的上�
         assert.equal(thread.segmentCount, 2);
         assert.equal(thread.messageCount, 3);
         assert.equal((await repo.listThreads('welink', { q: '工具群' })).length, 1);
+        assert.ok((await repo.listThreads('welink', { q: '第一段问题' })).some(item => item.id === 'g-merge'), 'the keyword matches any user message, not only the last one');
+        assert.equal(thread.lastMessage, '/new 之后的问题');
+
+        // 分页：按最后活跃时间倒序，limit / offset 翻页，hasMore 供左侧列表滚动加载
+        const all = await repo.listThreadsPage('welink', { limit: 500 });
+        assert.ok(all.total >= 2);
+        const firstPage = await repo.listThreadsPage('welink', { limit: 1 });
+        assert.equal(firstPage.items.length, 1);
+        assert.equal(firstPage.hasMore, true);
+        assert.equal(firstPage.total, all.total);
+        const rest = await repo.listThreadsPage('welink', { limit: 500, offset: 1 });
+        assert.equal(rest.hasMore, false);
+        assert.deepEqual([...firstPage.items, ...rest.items].map(item => item.id), all.items.map(item => item.id));
+        assert.ok(all.items.every((item, index) => index === 0 || String(all.items[index - 1].lastActiveAt) >= String(item.lastActiveAt)));
         await assert.rejects(repo.listThreadMessages('welink', 'group', 'g-merge', { before: 'msg_not_here' }), /游标/);
     });
 });

@@ -424,7 +424,8 @@ router.get(`/${CH}/threads/:kind/:id/tac`, handle(async (req, res) => {
 }));
 
 router.get(`/${CH}/threads`, handle(async (req, res) => {
-    res.json({ items: await followupsRepo.listThreads(req.params.channel, { q: req.query.q, limit: req.query.limit }) });
+    // 分页：limit / offset，返回 hasMore 供左侧列表滚动加载
+    res.json(await followupsRepo.listThreadsPage(req.params.channel, { q: req.query.q, limit: req.query.limit, offset: req.query.offset }));
 }));
 
 router.get(`/${CH}/threads/:kind/:id/messages`, handle(async (req, res) => {

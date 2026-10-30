@@ -366,6 +366,27 @@ body.dc-chatting .dc-feature-link { display: none; }
     transition: --spot-color 0.9s ease, border-color 0.9s ease;
 }
 .dc-spotlight[hidden] { display: none; }
+.dc-spot-dismiss {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--dc-muted);
+    font: inherit;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+.dc-spot-dismiss:hover { background: rgba(148, 163, 184, .14); color: var(--dc-text); }
+.dc-spot-dismiss:focus-visible { outline: 2px solid var(--dc-accent); outline-offset: 1px; }
 .dc-spot-blob { position: absolute; inset: 0; z-index: -1; pointer-events: none; }
 .dc-spot-blob span {
     position: absolute;
@@ -386,6 +407,7 @@ body.dc-chatting .dc-feature-link { display: none; }
 
 .dc-spot-card {
     display: grid;
+    padding-right: 20px;
     grid-template-columns: 48px minmax(0, 1fr) auto;
     align-items: center;
     gap: 14px;
