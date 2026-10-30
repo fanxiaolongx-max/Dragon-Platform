@@ -737,7 +737,11 @@
         };
         const refresh = () => {
             if (approvals.size) show('activityApproval');
-            else if (running.size) show('activityTool', { tool: tx(`tool_${[...running.values()].at(-1)}`) });
+            else if (running.size) {
+                const tool = [...running.values()].at(-1);
+                const label = tx(`tool_${tool}`);
+                show('activityTool', { tool: label !== `tool_${tool}` ? label : (/^mcp__.+?__(.+)$/.exec(tool)?.[1] ? `MCP · ${/^mcp__.+?__(.+)$/.exec(tool)[1]}` : tool) });
+            }
             else show('activityOrganizing');
         };
         show('activityThinking');

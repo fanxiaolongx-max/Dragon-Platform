@@ -728,6 +728,15 @@
         return args.path || '';
     }
 
+    // 工具显示名：有翻译用翻译；MCP 工具（mcp__服务__工具）显示「MCP · 工具」；其余直接用工具名
+    function toolLabel(tool) {
+        const key = `tool_${tool}`;
+        const text = tx(key);
+        if (text && text !== key) return text;
+        const mcp = /^mcp__(.+?)__(.+)$/.exec(String(tool || ''));
+        return mcp ? `MCP · ${mcp[2]}` : String(tool || '');
+    }
+
     function toolIcon(tool) {
         return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', calculate: '🧮', read_document: '📑', query_data: '📊', diff_files: '⇄', multi_edit: '✏️', zip_files: '🗜', unzip_file: '🗜', memory: '🧠', browser_navigate: '🌐', browser_snapshot: '🌐', browser_click: '🖱', browser_type: '⌨️', browser_scroll: '🌐', browser_wait: '⏳', browser_network: '📡', browser_network_body: '📡', browser_console: '🧾', browser_screenshot: '📸', browser_tabs: '🗂', browser_evaluate: '⚡', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
     }
@@ -883,7 +892,7 @@
         if (event.type === 'tool_start') {
             const row = document.createElement('div');
             row.className = 'dc-tool-row is-running';
-            row.innerHTML = `<span class="dc-tool-icon" aria-hidden="true">${toolIcon(event.tool)}</span><span class="dc-tool-name">${escapeHtml(tx(`tool_${event.tool}`))}</span><span class="dc-tool-args" title="${escapeHtml(describeArgs(event.tool, event.args))}">${escapeHtml(describeArgs(event.tool, event.args))}</span><span class="dc-tool-state"><i class="dc-tool-spin" aria-hidden="true"></i></span>`;
+            row.innerHTML = `<span class="dc-tool-icon" aria-hidden="true">${toolIcon(event.tool)}</span><span class="dc-tool-name">${escapeHtml(toolLabel(event.tool))}</span><span class="dc-tool-args" title="${escapeHtml(describeArgs(event.tool, event.args))}">${escapeHtml(describeArgs(event.tool, event.args))}</span><span class="dc-tool-state"><i class="dc-tool-spin" aria-hidden="true"></i></span>`;
             // 文件卡片只用于用户选择的目录；没选目录（对话传入 null，隐藏临时目录）时不挂预览。重放历史时不传，沿用原行为
             if (sourceWorkspace !== null && FILE_TOOLS.has(event.tool) && event.args?.path) row.dataset.filePath = event.args.path;
             toolLogFor(messageEl).appendChild(row);
@@ -947,7 +956,7 @@
         card.className = 'dc-approval';
         card.dataset.approvalId = event.id;
         const preview = event.preview || {};
-        const kindLabel = tx(`tool_${event.tool}`);
+        const kindLabel = toolLabel(event.tool);
         let detail = '';
         // WeLink 写操作（welink_action）：逐项列出要执行的内容，完整命令折叠在下面
         if (Array.isArray(preview.fields)) detail = `${preview.title ? `<div class="dc-approval-path"><b>${escapeHtml(preview.title)}</b>${preview.impact ? ` · ${escapeHtml(preview.impact)}` : ''}</div>` : ''}<table class="dc-approval-fields" style="width:100%;border-collapse:collapse;margin:6px 0;font-size:13px">${preview.fields.map(field => `<tr><th style="text-align:left;vertical-align:top;white-space:nowrap;padding:3px 10px 3px 0;font-weight:500;opacity:.75">${escapeHtml(field.label || field.name || '')}</th><td style="padding:3px 0;white-space:pre-wrap;word-break:break-word">${escapeHtml(field.value ?? '')}</td></tr>`).join('')}</table>${preview.command ? `<details><summary style="cursor:pointer;opacity:.75;font-size:12px">${escapeHtml(tx('approvalCommand'))}</summary><pre class="dc-approval-cmd">${escapeHtml(preview.command)}</pre></details>` : ''}`;
