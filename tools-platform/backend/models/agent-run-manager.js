@@ -402,7 +402,9 @@ async function decideCall(run, call, { kind, preview, key = call.name }) {
     }
     if (decision === 'allow') return {};
     const reason = decision === 'readonly' ? '当前账号为只读权限，不能执行该操作' : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
-    return { outcome: { content: reason, summary: reason, isError: true, denied: true } };
+    // 被拒绝后不要换个写法再试同一件事：用已有结果回答，或说明需要用户做什么
+    const hint = decision === 'deny' || decision === 'timeout' ? '。不要换一种写法重试同样的操作；请用已经拿到的结果回答，或说明还需要用户做什么。' : '';
+    return { outcome: { content: `${reason}${hint}`, summary: reason, isError: true, denied: true } };
 }
 
 /**
@@ -505,7 +507,8 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         if (!outcome && decision !== 'allow') {
             denied += 1;
             const reason = decision === 'readonly' ? '当前账号为只读权限（非管理员），不能修改文件或执行命令' : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
-            outcome = { content: reason, summary: reason, isError: true };
+            const hint = decision === 'deny' || decision === 'timeout' ? '。不要换一种写法重试同样的操作；请用已经拿到的结果回答，或说明还需要用户做什么。' : '';
+            outcome = { content: `${reason}${hint}`, summary: reason, isError: true };
         }
         if (!outcome) outcome = toolset ? await toolset.execute(call, { opsCtx, signal, write }) : await toolsService.execute(toolCtx, call.name, call.args);
         // 命令输出随事件下发（截断），界面可展开查看，也随会话记录入库

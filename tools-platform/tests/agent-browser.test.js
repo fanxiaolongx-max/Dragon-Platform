@@ -25,7 +25,7 @@ test.before(async () => {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         res.end(`<title>测试页</title><h1>销售看板</h1><table><tr><th>地区</th><th>金额</th></tr><tr><td>华东</td><td>150</td></tr></table>
             <a href="/search?q=link">详情</a><form action="/search"><input name="q" placeholder="搜索"><button>搜</button></form><div id="out"></div>
-            <script>fetch('/api/items').then(r => r.json()).then(d => { document.getElementById('out').textContent = '接口条数 ' + d.items.length; console.error('loaded ' + d.items.length); });</script>`);
+            <script>fetch('/api/items', { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer page-secret' }, body: JSON.stringify({ q: '华东' }) }).then(r => r.json()).then(d => { document.getElementById('out').textContent = '接口条数 ' + d.items.length; console.error('loaded ' + d.items.length); });</script>`);
     });
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     base = `http://127.0.0.1:${server.address().port}`;
@@ -48,7 +48,10 @@ test('browser tools open a page, read it, capture fetch responses and console, t
     const network = (await run('browser_network', { type: 'fetch' })).content;
     assert.match(network, /共 1 个请求/);
     const requestId = network.split('\n')[1].split('\t')[0];
-    assert.match((await run('browser_network_body', { requestId })).content, /"name":"华东","amount":150/);
+    assert.match(network, /\tPOST\+body\t200\t/);
+    const body = (await run('browser_network_body', { requestId })).content;
+    assert.match(body, /^请求：POST .*\/api\/items\n[\s\S]*  content-type: application\/json\n请求体：\{"q":"华东"\}\n\n响应：状态 200 · application\/json\n.*"name":"华东","amount":150/);
+    assert.doesNotMatch(body, /page-secret|authorization/i, 'credential headers are not recorded');
     assert.match((await run('browser_console', { level: 'error' })).content, /\[error\] loaded 2/);
     assert.match((await run('browser_type', { ref: 'e2', text: '华东 销售', submit: true })).content, /当前页面：结果/);
     assert.match((await run('browser_snapshot')).content, /你搜索了 华东 销售/);

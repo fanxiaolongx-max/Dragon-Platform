@@ -108,16 +108,18 @@ async function prune(dir, keepDays = LIMITS.keepDays) {
 async function spill({ owner, sessionId, callId, toolName, content }) {
     let text = String(content ?? '');
     if (text.length <= LIMITS.spillChars) return { content: text, artifact: null };
-    // 数据库等工具返回的是单行 JSON：展开成多行，文件才能按行分段读取；顺便数出各数组有几项，写进说明，
-    // 免得模型只看到开头结尾就去猜数量
+    // 工具返回的 JSON 常在一行里（数据库结果、接口响应、MCP 结果）：超长的 JSON 行展开成多行，文件才能按行分段读取；
+    // 顺便数出各数组有几项，写进说明，免得模型只看到开头结尾就去猜数量
     let shape = '';
-    if (!text.includes('\n')) {
+    text = text.split('\n').map(line => {
+        const trimmed = line.trim();
+        if (trimmed.length < 2000 || !/^[[{]/.test(trimmed)) return line;
         try {
-            const parsed = JSON.parse(text);
-            text = JSON.stringify(parsed, null, 1);
-            shape = jsonShape(parsed);
-        } catch (_error) { /* 不是 JSON 就按原样存 */ }
-    }
+            const parsed = JSON.parse(trimmed);
+            shape = shape || jsonShape(parsed);
+            return JSON.stringify(parsed, null, 1);
+        } catch (_error) { return line; } // 不是 JSON 就按原样存
+    }).join('\n');
     const full = text.length > LIMITS.fileChars ? `${text.slice(0, LIMITS.fileChars)}\n…（超过 ${LIMITS.fileChars} 字符的部分未保存）` : text;
     const lines = full.split('\n').length;
     const head = text.slice(0, LIMITS.headChars);

@@ -12,6 +12,7 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const WebSocket = require('ws');
 
+const SECRET_HEADER_RE = /^(cookie|authorization|proxy-authorization|x-csrf-token|x-xsrf-token|x-api-key|x-auth-token)$/i;
 const LIMITS = { tabs: 6, network: 400, console: 200, snapshotChars: 40000, bodyChars: 2 * 1024 * 1024, navigateMs: 30000, idleMs: 15 * 60 * 1000 };
 
 function browserError(code, message) {
@@ -74,7 +75,10 @@ function createPage({ id, send, close, label = '' }) {
         },
         onEvent(method, params = {}) {
             if (method === 'Network.requestWillBeSent') {
-                network.set(params.requestId, { id: params.requestId, method: params.request.method, url: params.request.url, type: params.type || '', status: 0, mimeType: '', size: 0, startedAt: Date.now() });
+                // 请求体（POST 参数）和请求头一起记下；Cookie、Authorization 等凭据头不记
+                const headers = Object.fromEntries(Object.entries(params.request.headers || {}).filter(([key]) => !SECRET_HEADER_RE.test(key)));
+                network.set(params.requestId, { id: params.requestId, method: params.request.method, url: params.request.url, type: params.type || '', status: 0, mimeType: '', size: 0, startedAt: Date.now(),
+                    headers, postData: typeof params.request.postData === 'string' ? params.request.postData.slice(0, 64 * 1024) : '', hasPostData: Boolean(params.request.hasPostData) });
                 if (network.size > LIMITS.network) network.delete(network.keys().next().value);
             } else if (method === 'Network.responseReceived') {
                 const entry = network.get(params.requestId);
@@ -174,7 +178,9 @@ function createPage({ id, send, close, label = '' }) {
         async responseBody(requestId) {
             const entry = network.get(requestId);
             if (!entry) throw browserError('BROWSER_REQUEST', `没有请求 ${requestId}（只保留当前页面最近 ${LIMITS.network} 个）`);
-            const result = await send('Network.getResponseBody', { requestId }).catch(error => { throw browserError('BROWSER_REQUEST', `取不到响应内容：${error.message}`); });
+            if (entry.hasPostData && !entry.postData) entry.postData = String((await send('Network.getRequestPostData', { requestId }).catch(() => ({}))).postData || '').slice(0, 64 * 1024);
+            const result = await send('Network.getResponseBody', { requestId }).catch(error => ({ error }));
+            if (result.error) return { entry, body: null, error: result.error.message };
             return { entry, body: result.body, base64: result.base64Encoded };
         },
         async refreshInfo() {
@@ -437,7 +443,7 @@ const DEFINITIONS = [
         parameters: { type: 'object', properties: { text: { type: 'string' }, timeoutMs: { type: 'integer', description: '默认 10000，最多 30000' }, ...TAB_PROP } } },
     { name: 'browser_network', kind: 'read', description: '列出当前页面打开以来的网络请求（方法、状态码、类型、大小、地址），可按地址关键词 / 类型（xhr、fetch、document、script 等）过滤。接口数据用 browser_network_body 读取响应内容。',
         parameters: { type: 'object', properties: { filter: { type: 'string' }, type: { type: 'string' }, limit: { type: 'integer', description: '默认 80' }, ...TAB_PROP } } },
-    { name: 'browser_network_body', kind: 'read', description: '读取某个网络请求的响应内容（requestId 来自 browser_network），常用于直接拿接口返回的 JSON 数据。',
+    { name: 'browser_network_body', kind: 'read', description: '读取某个网络请求的完整内容：请求地址、请求头、请求体（POST 参数）和响应（requestId 来自 browser_network）。拿接口返回的 JSON 数据、查看接口参数都用它。',
         parameters: { type: 'object', properties: { requestId: { type: 'string' }, ...TAB_PROP }, required: ['requestId'] } },
     { name: 'browser_console', kind: 'read', description: '读取页面控制台日志与脚本报错（排查页面问题时用）。',
         parameters: { type: 'object', properties: { level: { type: 'string', description: 'error / warning / 全部（默认）' }, ...TAB_PROP } } },
@@ -445,7 +451,7 @@ const DEFINITIONS = [
         parameters: { type: 'object', properties: { fullPage: { type: 'boolean' }, ...TAB_PROP } } },
     { name: 'browser_tabs', kind: 'read', description: '列出智能体打开的标签页；action=select 切换当前标签页，action=close 关闭标签页。',
         parameters: { type: 'object', properties: { action: { type: 'string', enum: ['list', 'select', 'close'] }, ...TAB_PROP } } },
-    { name: 'browser_evaluate', kind: 'external', description: '在页面里执行一段 JavaScript 表达式并返回结果（可 await）。只在读页面和网络请求都拿不到所需数据时使用。',
+    { name: 'browser_evaluate', kind: 'external', description: '在页面里执行一段 JavaScript 表达式并返回结果（可 await）。每次都要用户审批：读页面内容（含表格、列表）先用 browser_snapshot，接口数据与参数用 browser_network / browser_network_body；不要用脚本重复抓取页面或重放接口请求，只在这些都拿不到所需数据时使用。',
         parameters: { type: 'object', properties: { expression: { type: 'string' }, ...TAB_PROP }, required: ['expression'] } }
 ];
 const KIND = new Map(DEFINITIONS.map(item => [item.name, item.kind]));
@@ -513,15 +519,20 @@ async function execute(ctx, name, args = {}) {
             const list = page.networkList().filter(item => (!filter || item.url.toLowerCase().includes(filter)) && (!type || item.type.toLowerCase() === type));
             const limit = Math.min(400, Math.max(1, Number(args.limit) || 80));
             const shown = list.slice(-limit);
-            const lines = shown.map(item => `${item.id}\t${item.method}\t${item.failed ? `失败(${item.failed})` : item.status || '…'}\t${item.type}\t${item.mimeType}\t${formatSize(item.size)}\t${item.url.slice(0, 300)}`);
+            const lines = shown.map(item => `${item.id}\t${item.method}${item.postData || item.hasPostData ? '+body' : ''}\t${item.failed ? `失败(${item.failed})` : item.status || '…'}\t${item.type}\t${item.mimeType}\t${formatSize(item.size)}\t${item.url.slice(0, 300)}`);
             return { content: `共 ${list.length} 个请求${list.length > shown.length ? `，显示最近 ${shown.length} 个` : ''}（requestId / 方法 / 状态 / 类型 / MIME / 大小 / 地址）：\n${lines.join('\n')}`, summary: `${list.length} 个请求` };
         }
         if (name === 'browser_network_body') {
-            const { entry, body, base64 } = await page.responseBody(String(args.requestId || ''));
+            const { entry, body, base64, error } = await page.responseBody(String(args.requestId || ''));
+            // 先给出完整的请求（地址、请求头、请求体），再给响应：接口的查询参数常在 POST 请求体里
+            const request = [`请求：${entry.method} ${entry.url}`,
+                ...Object.entries(entry.headers || {}).filter(([key]) => /^(content-type|accept|referer|origin|x-)/i.test(key)).map(([key, value]) => `  ${key}: ${String(value).slice(0, 300)}`),
+                ...(entry.postData ? [`请求体：${entry.postData}`] : [])].join('\n');
+            if (body === null) return { content: `${request}\n\n取不到响应内容：${error}`, summary: '响应已不可读', isError: true };
             const textual = !base64 || /json|text|xml|javascript|html|csv/i.test(entry.mimeType);
             const content = base64 ? (textual ? Buffer.from(body, 'base64').toString('utf8') : null) : body;
-            if (content === null) return { content: `${entry.url}\n响应是二进制内容（${entry.mimeType}，${formatSize(Buffer.byteLength(body, 'base64'))}），不能按文本读取。`, summary: '二进制响应' };
-            return { content: `${entry.method} ${entry.url}\n状态 ${entry.status} · ${entry.mimeType}\n\n${content.slice(0, LIMITS.bodyChars)}`, summary: `${entry.status} ${entry.mimeType} ${formatSize(content.length)}` };
+            if (content === null) return { content: `${request}\n\n响应是二进制内容（${entry.mimeType}，${formatSize(Buffer.byteLength(body, 'base64'))}），不能按文本读取。`, summary: '二进制响应' };
+            return { content: `${request}\n\n响应：状态 ${entry.status} · ${entry.mimeType}\n${content.slice(0, LIMITS.bodyChars)}`, summary: `${entry.status} ${entry.mimeType} ${formatSize(content.length)}` };
         }
         if (name === 'browser_console') {
             const level = String(args.level || '').toLowerCase();

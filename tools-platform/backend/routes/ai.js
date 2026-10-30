@@ -638,7 +638,11 @@ async function handleChatRequest(req, res) {
     try {
         const tacMessage = Array.isArray(req.body?.messages) ? req.body.messages.at(-1) : null;
         // Dragon TAC 指令（升级给外部 Agent）：选不选工作目录都识别
-        if (!channelTurn && req.user && req.body?.agent === 'dragon-claw-home' && req.body?.persist !== false && tacMessage?.role === 'user' && require('../models/dragon-tac/commands').intent(tacMessage.content)) {
+        const tacIntent = !channelTurn && req.user && req.body?.agent === 'dragon-claw-home' && req.body?.persist !== false && tacMessage?.role === 'user'
+            ? require('../models/dragon-tac/commands').intent(tacMessage.content) : null;
+        // 管理员有浏览器工具时，「打开 / 读取某个网址」由 Dragon Claw 自己处理；明确提到 DragonTAC 才提议升级（确认、取消、查看照旧）
+        const ownBrowser = tacIntent?.action === 'propose' && !/DragonTAC/i.test(String(tacMessage.content)) && req.user?.role === 'admin' && Boolean(require('../models/agent-browser').available());
+        if (tacIntent && !ownBrowser) {
             const streaming = req.body.stream === true;
             let final;
             if (streaming) res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
@@ -1100,10 +1104,10 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         const persistedQuestion = analysisResult ? analysisResult.content : lastMessage.content;
         // 历史记录只存文本：工作区模式附上工具调用摘要，便于下一轮延续。
         const responseText = redactText(agentResult && agentResult.toolLog.length
-            ? `${result.text}\n\n（本轮调用工具 ${agentResult.toolCallCount} 次：${agentResult.toolLog.slice(0, 8).map(item => `${item.tool}${item.ok ? '' : '✗'}`).join('、')}${agentResult.toolLog.length > 8 ? '…' : ''}）`
+            ? `${result.text}\n\n（本轮调用工具 ${agentResult.toolCallCount} 次：${agentResult.toolLog.slice(0, 8).map(item => `\`${item.tool}\`${item.ok ? '' : '✗'}`).join('、')}${agentResult.toolLog.length > 8 ? '…' : ''}）`
             // 运营工具：附上结果摘要（含草稿 id），下一轮确认推送时能找到对应草稿
             : opsResult && opsResult.toolLog.length
-                ? `${result.text}\n\n（运营工具：${opsResult.toolLog.slice(0, 8).map(item => `${item.tool}${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
+                ? `${result.text}\n\n（运营工具：${opsResult.toolLog.slice(0, 8).map(item => `\`${item.tool}\`${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
                 : welinkCliResult && welinkCliResult.toolLog.length
                     ? (String(result.text || '').trim()
                         ? `${result.text}\n\n（WeLink 查询：${welinkCliResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`
@@ -1111,7 +1115,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                     : netcareResult && netcareResult.toolLog.length
                         ? `${result.text}\n\n（NetCare 查询：${netcareResult.toolLog.slice(0, 8).map(item => `${item.summary || item.tool}${item.ok ? '' : '✗'}`).join('；')}）`
                         : databaseResult && databaseResult.toolLog.length
-                            ? `${result.text}\n\n（工具：${databaseResult.toolLog.slice(0, 8).map(item => `${item.tool}${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
+                            ? `${result.text}\n\n（工具：${databaseResult.toolLog.slice(0, 8).map(item => `\`${item.tool}\`${item.ok ? '' : '✗'} ${item.summary || ''}`.trim()).join('；')}）`
                             : result.text, { secrets: sensitiveValues });
         
         let totalTokens = 0;
