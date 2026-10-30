@@ -119,7 +119,7 @@
                     <input type="number" min="10" max="600" step="5" data-path="rotateSeconds" value="${esc(d.rotateSeconds)}">
                     <small>${esc(L('首页横幅按此间隔轮换；桌面卡片堆最短 60 秒轮换一次', 'Home banners rotate at this interval; the desktop card stack rotates at most once a minute'))}</small></label>
                 <div class="npp-field npp-wide">
-                    <label class="npp-switch"><input type="checkbox" data-path="desktopStack" ${d.desktopStack ? 'checked' : ''}>${esc(L('桌面端登录后在屏幕右下角打开推广卡片堆', 'Desktop app: open the promotion card stack at the bottom right after login'))}</label>
+                    <label class="npp-switch"><input type="checkbox" data-path="desktopStack" ${d.desktopStack ? 'checked' : ''}>${esc(L('桌面端登录后在屏幕右下角打开推广卡片堆（默认关闭）', 'Desktop app: open the promotion card stack at the bottom right after login (off by default)'))}</label>
                     <small>${esc(L('卡片可在托盘菜单暂停；关闭卡片堆后当天不再自动弹出；Windows 全屏或演示时自动隐藏。浏览器访问时改为封面卡片 + 新标签页打开。', 'Cards can be paused from the tray menu; closing the stack hides it for the day; it hides during full-screen apps or presentations on Windows. In a browser, links show a cover card and open in a new tab.'))}</small>
                 </div>
             </div>`;

@@ -167,8 +167,9 @@
             el.ctxBody.innerHTML = `<div class="wsp-empty">${escapeHtml(tx(state.root ? 'ctxEmpty' : 'ctxNoWorkspace'))}</div>`;
             return;
         }
-        const order = ['messages', 'directory', 'system', 'tools', 'free'];
-        const colors = { messages: '#60a5fa', directory: '#64ffda', system: '#a78bfa', tools: '#f59e0b', free: 'rgba(148,163,184,0.18)' };
+        // 旧会话存档里没有的分项（skills、toolResults、reserve）不显示
+        const order = ['messages', 'toolResults', 'directory', 'system', 'skills', 'tools', 'reserve', 'free'].filter(key => key in ctx.parts);
+        const colors = { messages: '#60a5fa', toolResults: '#22d3ee', directory: '#64ffda', system: '#a78bfa', skills: '#f472b6', tools: '#f59e0b', reserve: 'rgba(148,163,184,0.42)', free: 'rgba(148,163,184,0.18)' };
         const total = Math.max(1, ctx.windowTokens || 1);
         const percent = Math.min(100, Math.round((ctx.usedTokens / total) * 100));
         el.ctxMeta.textContent = `${percent}%`;
@@ -180,7 +181,9 @@
             <ul class="wsp-ctx-legend">
                 ${order.map(key => `<li><i style="background:${colors[key]}"></i><span>${escapeHtml(tx(`ctx${key[0].toUpperCase()}${key.slice(1)}`))}</span><b>${formatTokens(ctx.parts[key] || 0)}</b><em>${((ctx.parts[key] || 0) / total * 100).toFixed(1)}%</em></li>`).join('')}
             </ul>
-            <div class="wsp-ctx-note">${escapeHtml(tx(ctx.source === 'provider' ? 'ctxSourceProvider' : 'ctxSourceEstimate'))}</div>`;
+            ${ctx.tools?.deferred ? `<div class="wsp-ctx-cache">${escapeHtml(tx('ctxDeferredTools', { loaded: ctx.tools.loaded, count: ctx.tools.deferred, tokens: formatTokens(ctx.tools.deferredTokens) }))}</div>` : ''}
+            ${ctx.cache ? `<div class="wsp-ctx-cache">${escapeHtml(ctx.cache.cachedTokens > 0 ? tx('ctxCache', { percent: Math.round(ctx.cache.hitRate * 100), tokens: formatTokens(ctx.cache.cachedTokens) }) : tx('ctxCacheNone'))}</div>` : ''}
+            <div class="wsp-ctx-note">${escapeHtml(tx(ctx.source === 'provider' ? 'ctxSourceProvider' : 'ctxSourceEstimate'))}${ctx.windowSource ? ` · ${escapeHtml(tx(ctx.windowSource === 'configured' ? 'ctxWindowConfigured' : 'ctxWindowModel'))}` : ''}</div>`;
     }
 
     // ── 更改卡 ──────────────────────────────────────────
@@ -701,8 +704,24 @@
         if (tool === 'manage_uiv_category') return `${args.action || ''} ${args.name || ''}${args.newName ? ` → ${args.newName}` : ''}${args.moveScriptsTo ? ` → ${args.moveScriptsTo}` : ''}`.trim();
         if (tool === 'read_uiv_script' || tool === 'save_uiv_script' || tool === 'delete_uiv_script') return `${args.action || ''} ${args.id || args.sourceId || ''}${args.field ? ` / ${args.field}` : ''}`.trim();
         if (tool === 'run_command' || tool === 'welink_query' || tool === 'welink_action' || /^netcare_/.test(tool)) return args.command || '';
+        if (tool === 'browser_navigate') return args.url || '';
+        if (tool === 'browser_click' || tool === 'browser_type') return `${args.ref || ''}${args.text ? ` ← ${args.text}` : ''}`;
+        if (tool === 'browser_network') return [args.type, args.filter].filter(Boolean).join(' ');
+        if (tool === 'browser_network_body') return args.requestId || '';
+        if (tool === 'browser_evaluate') return args.expression || '';
+        if (tool === 'browser_wait') return args.text || (args.timeoutMs ? `${args.timeoutMs}ms` : '');
+        if (tool === 'calculate') return Array.isArray(args.expressions) ? args.expressions.join('；') : args.expression || '';
+        if (tool === 'read_document') return `${args.path || ''}${args.sheet ? ` / ${args.sheet}` : ''}`;
+        if (tool === 'query_data') return args.sql || args.path || '';
+        if (tool === 'diff_files') return `${args.path || 'A'} ⇄ ${args.otherPath || 'B'}`;
+        if (tool === 'multi_edit') return `${args.path || ''}${Array.isArray(args.edits) ? ` · ${args.edits.length}` : ''}`;
+        if (tool === 'zip_files') return `${Array.isArray(args.paths) ? args.paths.join(', ') : ''} → ${args.output || ''}`;
+        if (tool === 'unzip_file') return `${args.path || ''}${args.to ? ` → ${args.to}` : ''}`;
+        if (tool === 'memory') return `${args.action || ''}${args.id ? ` #${args.id}` : ''} ${args.content || ''}`.trim();
         if (tool === 'search') return `"${args.query || ''}"${args.path && args.path !== '.' ? ` in ${args.path}` : ''}`;
         if (tool === 'rename_path') return `${args.from || ''} → ${args.to || ''}`;
+        if (tool === 'tool_search') return [...(Array.isArray(args.select) ? args.select : []), args.query || ''].filter(Boolean).join(', ');
+        if (tool === 'load_skill') return args.id ? `@${String(args.id).replace(/^@/, '')}` : '';
         if (tool === 'list_directory') return args.path || '.';
         if (tool === 'list_databases') return args.path || '.';
         if (tool === 'database_schema' || tool === 'read_database_table') return `${args.database || ''}${args.table ? ` / ${args.table}` : ''}`;
@@ -710,7 +729,7 @@
     }
 
     function toolIcon(tool) {
-        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
+        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', calculate: '🧮', read_document: '📑', query_data: '📊', diff_files: '⇄', multi_edit: '✏️', zip_files: '🗜', unzip_file: '🗜', memory: '🧠', browser_navigate: '🌐', browser_snapshot: '🌐', browser_click: '🖱', browser_type: '⌨️', browser_scroll: '🌐', browser_wait: '⏳', browser_network: '📡', browser_network_body: '📡', browser_console: '🧾', browser_screenshot: '📸', browser_tabs: '🗂', browser_evaluate: '⚡', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
     }
 
     // ── 对话内：写入 / 编辑后的文件卡片（预览 / 代码） ─────
@@ -865,7 +884,8 @@
             const row = document.createElement('div');
             row.className = 'dc-tool-row is-running';
             row.innerHTML = `<span class="dc-tool-icon" aria-hidden="true">${toolIcon(event.tool)}</span><span class="dc-tool-name">${escapeHtml(tx(`tool_${event.tool}`))}</span><span class="dc-tool-args" title="${escapeHtml(describeArgs(event.tool, event.args))}">${escapeHtml(describeArgs(event.tool, event.args))}</span><span class="dc-tool-state"><i class="dc-tool-spin" aria-hidden="true"></i></span>`;
-            if (FILE_TOOLS.has(event.tool) && event.args?.path) row.dataset.filePath = event.args.path;
+            // 文件卡片只用于用户选择的目录；没选目录（对话传入 null，隐藏临时目录）时不挂预览。重放历史时不传，沿用原行为
+            if (sourceWorkspace !== null && FILE_TOOLS.has(event.tool) && event.args?.path) row.dataset.filePath = event.args.path;
             toolLogFor(messageEl).appendChild(row);
             toolRows.set(event.callId, row);
             messageEl.querySelector('.dc-thinking')?.remove();
@@ -877,15 +897,44 @@
             row.querySelector('.dc-tool-state').innerHTML = `${event.ok ? '✓' : '✗'} <span>${escapeHtml(event.summary || '')}</span>${event.durationMs > 1500 ? ` <small>${(event.durationMs / 1000).toFixed(1)}s</small>` : ''}`;
             // 命令输出：折叠在工具行下方，需要时展开查看
             if (event.output) row.insertAdjacentHTML('afterend', `<details class="dc-tool-output"><summary>${escapeHtml(tx('toolOutput'))}</summary><pre>${escapeHtml(event.output)}</pre></details>`);
+            // 大结果已完整存成文件：挂文件卡片，可打开或下载
+            if (event.artifact?.path && window.ChatFiles) row.insertAdjacentHTML('afterend', `<div class="dc-tool-artifact">${window.ChatFiles.chipHtml(event.artifact.path, tx('toolArtifact', { lines: event.artifact.lines || '' }))}</div>`);
             // 写入 / 编辑成功：挂文件卡片，可在对话内预览或看代码；实时生成的 HTML/SVG/Markdown 直接展开预览
             if (event.ok && row.dataset.filePath) attachFileCard(row, row.dataset.filePath, !replaying);
+        } else if (event.type === 'plan') {
+            // 任务清单：每次更新整份替换，放在工具行上方
+            let box = messageEl.querySelector('.dc-todo');
+            if (!box) {
+                box = document.createElement('div');
+                box.className = 'dc-todo';
+                const log = toolLogFor(messageEl);
+                log.parentNode.insertBefore(box, log);
+            }
+            const items = Array.isArray(event.items) ? event.items : [];
+            const done = items.filter(item => item.status === 'completed').length;
+            box.innerHTML = `<div class="dc-todo-head"><b>${escapeHtml(tx('todoTitle'))}</b><span>${done}/${items.length}</span></div><ol>${items.map(item => `<li class="is-${escapeHtml(item.status)}"><span class="dc-todo-mark" aria-hidden="true">${item.status === 'completed' ? '✓' : item.status === 'in_progress' ? '●' : ''}</span><span>${escapeHtml(item.content)}</span></li>`).join('')}</ol>`;
+        } else if (event.type === 'question') {
+            // 智能体提问：选项按钮点一下就作为下一条消息发送；历史记录里的只读
+            const card = document.createElement('div');
+            card.className = `dc-question${replaying ? ' is-history' : ''}`;
+            const options = Array.isArray(event.options) ? event.options : [];
+            card.innerHTML = `<div class="dc-question-hint">${escapeHtml(tx('questionHint'))}</div><div class="dc-question-options">${options.map((option, index) => `<button type="button" class="dc-action" data-answer="${escapeHtml(option)}"${replaying ? ' disabled' : ''}>${index + 1}. ${escapeHtml(option)}</button>`).join('')}</div>`;
+            card.addEventListener('click', clickEvent => {
+                const button = clickEvent.target.closest('[data-answer]');
+                if (!button || card.classList.contains('is-history')) return;
+                card.classList.add('is-history');
+                button.classList.add('is-chosen');
+                card.querySelectorAll('[data-answer]').forEach(node => { node.disabled = true; });
+                window.dispatchEvent(new CustomEvent('dragon-claw:answer', { detail: { text: button.dataset.answer } }));
+            });
+            (messageEl.querySelector('.dc-msg-main') || messageEl).appendChild(card);
         } else if (event.type === 'approval') {
             renderApproval(messageEl, event);
         } else if (event.type === 'approval_result') {
             const card = approvalCards.get(event.callId);
             if (card) settleCard(card, event.decision);
         } else if (event.type === 'change') {
-            if (sourceWorkspace && (sourceWorkspace.root !== state.root || sourceWorkspace.agentSessionId !== state.agentSessionId)) return;
+            if (sourceWorkspace === null || (sourceWorkspace && (sourceWorkspace.root !== state.root || sourceWorkspace.agentSessionId !== state.agentSessionId))) return;
             const index = state.changes.findIndex(item => item.path === event.path);
             const entry = { path: event.path, kind: event.kind, added: event.added, removed: event.removed, from: event.from, revertible: event.revertible !== false, source: event.source || 'agent' };
             if (index >= 0) state.changes[index] = entry; else state.changes.unshift(entry);

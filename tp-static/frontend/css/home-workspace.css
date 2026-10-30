@@ -1,6 +1,8 @@
 /* 首页工作台布局：左侧图标栏 + 面板（对话 / 工具两种模式，见 home-mode.css）+ 右侧主区（配合 js/home/workspace.js）。
    覆盖 index.html 内联样式中的旧版大卡片布局，因此在其之后加载。 */
 
+.home-workspace .tool-card[hidden] { display: none; }
+
 .home-content.home-workspace {
     --ws-border: rgba(148, 163, 184, 0.13);
     --ws-panel: rgba(15, 23, 42, 0.55);

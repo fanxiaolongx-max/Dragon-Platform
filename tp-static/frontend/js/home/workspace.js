@@ -232,7 +232,12 @@
     }
 
     function originalCards() {
-        return [...grid.querySelectorAll(CARD_SELECTOR)];
+        return [...grid.querySelectorAll(CARD_SELECTOR)].filter(card => {
+            const builtin = typeof NAV_BUILTIN_LINKS !== 'undefined' ? NAV_BUILTIN_LINKS.find(item => item.id === cardItemId(card)) : null;
+            if (!builtin?.adminOnly) return true;
+            card.hidden = !isAdmin();
+            return !card.hidden;
+        });
     }
 
     function canFavorite(card) {
@@ -523,7 +528,7 @@
     }
 
     function visibleCards() {
-        return [...grid.querySelectorAll(':scope > a.tool-card:not(.is-filtered-out)')]
+        return [...grid.querySelectorAll(':scope > a.tool-card:not(.is-filtered-out):not([hidden])')]
             .sort((a, b) => Number(a.style.order || 0) - Number(b.style.order || 0));
     }
 
