@@ -433,7 +433,7 @@ function beginRun(session, write, signal) {
     return run;
 }
 
-async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh', skillPrompt = '', skillIds = null }) {
+async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh', skillPrompt = '', skillIds = null, vision = null }) {
     const emit = write;
     write = event => emit(redactValue(event, { secrets: sensitiveValues }));
     const run = beginRun(session, write, signal);
@@ -451,6 +451,8 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     // 且工具调用始终紧跟用户消息或工具结果。
     const currentUser = historyMessages[historyMessages.length - 1];
     let messages = redactValue(transcriptRepo.mergeHistoryWithTranscript(historyMessages, session.transcript), { secrets: sensitiveValues });
+    // 本轮用户消息附带的图片（能看图的模型）：合并转录后仍挂在最后一条用户消息上
+    if (currentUser?.images?.length && messages.at(-1)?.role === 'user' && !messages.at(-1).images) messages[messages.length - 1] = { ...messages.at(-1), images: currentUser.images };
     // 工具登记表：常驻工具 + tool_search / load_skill；用户选择的技能（@netcare-data / @ops-group / @welink-office 等）带上各自的专用工具
     const registry = await toolRegistry.create({ session, messages, sensitiveValues, skillCatalog: Array.isArray(skillCatalog) && skillCatalog.length > 0,
         extraToolsets: await require('./agent-extra-tools').toolsets({ owner: session.owner, readOnly: session.readOnly }),
@@ -521,7 +523,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         const loop = await agentLoop.runToolLoop({
             client, model, systemPrompt: fullSystem, messages, tools: () => registry.definitions(), executeCall, write,
             signal, maxOutputTokens, temperature, sensitiveValues, task: String(currentUser?.content || ''),
-            eventFields: { runId: run.id }, artifactOwner: session.owner, artifactSession: session.id,
+            eventFields: { runId: run.id }, artifactOwner: session.owner, artifactSession: session.id, vision, root: session.root,
             // 工具说明不存文件
             spillable: name => !registry.isMeta(name),
             review: ({ text, toolLog }) => {

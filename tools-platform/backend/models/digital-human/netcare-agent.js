@@ -221,10 +221,11 @@ const PROMISE_ONLY_RE = /请稍等|稍等|稍候|正在(为你|帮你|通过|查
  * 带 netcare_* 只读工具的一轮回复：工具循环用 agent-loop（与工作区同一套引擎，含续写、空回复提示、自动压缩）。
  * @returns {Promise<{text, usage, toolLog}>}
  */
-async function runTurn({ client: aiClient, systemInstruction, messages, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null }) {
+async function runTurn({ client: aiClient, systemInstruction, messages, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null }) {
     let nudged = false;
     const result = await agentLoop.runToolLoop({
         extras, // 附加工具组：浏览器、MCP（管理员的首页对话）
+        vision, // 看图：view_image 与工具取得的图片
         client: aiClient, model, systemPrompt: systemInstruction, messages, tools: definitions(),
         write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
         signal, maxOutputTokens, temperature, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'netcare',

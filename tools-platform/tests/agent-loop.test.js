@@ -6,7 +6,11 @@ const path = require('node:path');
 
 const sandbox = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'tools-platform-agent-loop-')));
 process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
-test.after(() => fs.rmSync(sandbox, { recursive: true, force: true }));
+// 引擎在后台记录工具调用次数（写临时库），稍等再删目录
+test.after(async () => {
+    await new Promise(resolve => setTimeout(resolve, 300));
+    fs.rmSync(sandbox, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+});
 
 const agentLoop = require('../backend/models/agent-loop');
 const opsAgent = require('../backend/models/channels/ops-agent');

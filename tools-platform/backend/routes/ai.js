@@ -29,6 +29,7 @@ const opsAgent = require('../models/channels/ops-agent');
 const welinkCliAgent = require('../models/channels/welink-cli-agent');
 const netcareAgent = require('../models/digital-human/netcare-agent');
 const databaseAgent = require('../models/ai-database-agent');
+const { planProjectKnowledgeSearch } = require('../models/ai-knowledge-plan');
 const filesAgent = require('../models/ai-files-agent');
 const agentArtifacts = require('../models/agent-artifacts');
 const multer = require('multer');
@@ -91,20 +92,6 @@ function estimateMessagesChars(messages = []) {
     return messages.reduce((sum, msg) => sum + String(msg.content || '').length, 0);
 }
 
-function planProjectKnowledgeSearch(question, pagePath = '') {
-    const text = String(question || '');
-    const implementationIntent = /怎么实现|实现逻辑|代码|文件|接口|api|路由|模块|数据源|存在哪|读取逻辑|计算逻辑|readme|项目结构|脚本实现/i.test(text);
-    const operationalDataIntent = /指标|子指标|报表|月报|得分|排名|快照|目标|权重|达标/i.test(text)
-        && /当前|最新|实际|多少|哪些|每个月|分月|\d{1,2}\s*月|趋势|差距|对比/i.test(text);
-    const pageIntent = /这个页面|当前页面|本页|核心功能|如何使用|怎么用/i.test(text);
-    const projectIntent = /项目|客服|助手|功能|页面|前端|后端|数据库|配置文件/i.test(text);
-    const performed = implementationIntent || pageIntent || (!operationalDataIntent && projectIntent);
-    const normalizedPath = String(pagePath || '').split('?')[0].replace(/^\/+|\/+$/g, '');
-    const pageFile = !normalizedPath
-        ? 'frontend/index.html'
-        : `frontend/pages/${normalizedPath.split('/').pop()}.html`;
-    return { performed, pathHints: pageIntent ? [pageFile] : [] };
-}
 
 function selectRelevantKnowledge(candidates = []) {
     if (!candidates.length) return { items: [], threshold: null, topScore: null };
@@ -862,6 +849,15 @@ async function handleChatRequest(req, res) {
         // 对话附件：消息里引用的、属于本人的上传文件（频道对话不带）
         const uploadFiles = homeAgent && !channelTurn
             ? agentArtifacts.uploadsIn(agentRunManager.ownerKey(req.user, getTenantId()), effectiveMessages.map(item => item.content)) : [];
+        // 看图：对话模型能看图时，本条消息里的图片附件直接附给它；不能看图时先用绘图模型识别成文字附在消息末尾
+        const vision = homeAgent && !channelTurn ? await require('../models/agent-vision').forTurn({ chatSettings: aiSettings, signal: providerAbortController?.signal }) : null;
+        const currentImages = vision ? agentArtifacts.uploadsIn(agentRunManager.ownerKey(req.user, getTenantId()), [lastMessage.content]).filter(require('../models/agent-vision').isImagePath) : [];
+        if (currentImages.length && effectiveMessages.at(-1)?.role === 'user') {
+            if (!vision.capable) writeStreamEvent({ type: 'status', status: '当前对话模型不能看图，正在用绘图模型识别图片…' });
+            const prepared = await vision.prepare(effectiveMessages.at(-1), currentImages);
+            effectiveMessages[effectiveMessages.length - 1] = prepared.message;
+            if (prepared.note) writeStreamEvent({ type: 'status', status: prepared.note });
+        }
         // 不选目录、没有其他工具的首页对话（如非管理员）有附件时，用只读的附件工具读取
         const filesMode = homeAgent && !agentMode && !channelTurn && !databaseMode && !opsSetup && !welinkCliSetup && !netcareSetup && !analysisCode && uploadFiles.length > 0;
         // 长期记忆：管理员在首页对话（工作区或普通对话）里让智能体记住的偏好与约定；频道对话是多人场景，不带
@@ -961,6 +957,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 skillLanguage: uiLanguage,
                 skillPrompt: redactText(`${loadedSkills.catalogPrompt || ''}\n${loadedSkills.prompt || ''}`.trim(), { secrets: sensitiveValues }),
                 skillIds: loadedSkills.selected.map(item => item.id),
+                vision,
                 write: event => {
                     if (event.type === 'delta') streamHasDelta = true;
                     writeStreamEvent(event);
@@ -998,6 +995,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         const opsResult = !agentResult && !analysisResult && !followupResult && opsSetup
             ? await opsAgent.runTurn({
                 extras: chatExtras,
+                vision,
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
@@ -1017,6 +1015,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         const welinkCliResult = !agentResult && !analysisResult && !followupResult && !opsResult && welinkCliSetup
             ? await welinkCliAgent.runTurn({
                 extras: chatExtras,
+                vision,
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
@@ -1037,6 +1036,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         const netcareResult = !agentResult && !analysisResult && !followupResult && !opsResult && !welinkCliResult && netcareSetup
             ? await netcareAgent.runTurn({
                 extras: chatExtras,
+                vision,
                 client: aiClient,
                 systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }),
                 messages: effectiveMessages,
@@ -1058,6 +1058,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         const databaseResult = databaseMode
             ? await databaseAgent.runTurn({
                 extras: chatExtras,
+                vision,
                 client: aiClient, systemInstruction, messages: effectiveMessages,
                 // 大结果存成本人的文件（按租户::账号隔离），模型可按行读取
                 ctx: { readOnly: false, sensitiveValues, owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', username: req.user?.username || '', uploads: uploadFiles },
@@ -1073,6 +1074,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         const filesResult = filesMode
             ? await filesAgent.runTurn({
                 extras: chatExtras,
+                vision,
                 client: aiClient, systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }), messages: effectiveMessages,
                 ctx: { owner: agentRunManager.ownerKey(req.user, getTenantId()), uploads: uploadFiles, sensitiveValues, chatSessionId: savedSessionId || '' },
                 signal: providerAbortController?.signal, maxOutputTokens: aiSettings.maxOutputTokens, temperature: aiSettings.temperature, model: aiSettings.model,

@@ -704,6 +704,7 @@
         if (tool === 'manage_uiv_category') return `${args.action || ''} ${args.name || ''}${args.newName ? ` → ${args.newName}` : ''}${args.moveScriptsTo ? ` → ${args.moveScriptsTo}` : ''}`.trim();
         if (tool === 'read_uiv_script' || tool === 'save_uiv_script' || tool === 'delete_uiv_script') return `${args.action || ''} ${args.id || args.sourceId || ''}${args.field ? ` / ${args.field}` : ''}`.trim();
         if (tool === 'run_command' || tool === 'welink_query' || tool === 'welink_action' || /^netcare_/.test(tool)) return args.command || '';
+        if (tool === 'view_image') return `${String(args.path || '').split('/').pop()}${args.question ? ` · ${args.question}` : ''}`;
         if (tool === 'browser_navigate') return args.url || '';
         if (tool === 'browser_click' || tool === 'browser_type') return `${args.ref || ''}${args.text ? ` ← ${args.text}` : ''}`;
         if (tool === 'browser_network') return [args.type, args.filter].filter(Boolean).join(' ');
@@ -738,7 +739,7 @@
     }
 
     function toolIcon(tool) {
-        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', calculate: '🧮', read_document: '📑', query_data: '📊', diff_files: '⇄', multi_edit: '✏️', zip_files: '🗜', unzip_file: '🗜', memory: '🧠', browser_navigate: '🌐', browser_snapshot: '🌐', browser_click: '🖱', browser_type: '⌨️', browser_scroll: '🌐', browser_wait: '⏳', browser_network: '📡', browser_network_body: '📡', browser_console: '🧾', browser_screenshot: '📸', browser_tabs: '🗂', browser_evaluate: '⚡', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
+        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', calculate: '🧮', read_document: '📑', query_data: '📊', diff_files: '⇄', multi_edit: '✏️', zip_files: '🗜', unzip_file: '🗜', memory: '🧠', view_image: '🖼', browser_navigate: '🌐', browser_snapshot: '🌐', browser_click: '🖱', browser_type: '⌨️', browser_scroll: '🌐', browser_wait: '⏳', browser_network: '📡', browser_network_body: '📡', browser_console: '🧾', browser_screenshot: '📸', browser_tabs: '🗂', browser_evaluate: '⚡', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
     }
 
     // ── 对话内：写入 / 编辑后的文件卡片（预览 / 代码） ─────
@@ -906,6 +907,11 @@
             row.querySelector('.dc-tool-state').innerHTML = `${event.ok ? '✓' : '✗'} <span>${escapeHtml(event.summary || '')}</span>${event.durationMs > 1500 ? ` <small>${(event.durationMs / 1000).toFixed(1)}s</small>` : ''}`;
             // 命令输出：折叠在工具行下方，需要时展开查看
             if (event.output) row.insertAdjacentHTML('afterend', `<details class="dc-tool-output"><summary>${escapeHtml(tx('toolOutput'))}</summary><pre>${escapeHtml(event.output)}</pre></details>`);
+            // 网页截图、看过的图片：工具行下方显示缩略图，点击放大（与对话里的图片同一套预览）
+            if (Array.isArray(event.images) && event.images.length && window.ChatFiles) {
+                const cf = window.ChatFiles;
+                row.insertAdjacentHTML('afterend', `<div class="dc-tool-images">${event.images.map(file => { const name = String(file).split(/[\\/]/).pop(); return cf.imageHtml(cf.fileUrl(file), name, cf.fileUrl(file, true), name); }).join('')}</div>`);
+            }
             // 大结果已完整存成文件：挂文件卡片，可打开或下载
             if (event.artifact?.path && window.ChatFiles) row.insertAdjacentHTML('afterend', `<div class="dc-tool-artifact">${window.ChatFiles.chipHtml(event.artifact.path, tx('toolArtifact', { lines: event.artifact.lines || '' }))}</div>`);
             // 写入 / 编辑成功：挂文件卡片，可在对话内预览或看代码；实时生成的 HTML/SVG/Markdown 直接展开预览

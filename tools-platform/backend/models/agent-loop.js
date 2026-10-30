@@ -72,7 +72,14 @@ const BUILTIN_DEFINITIONS = {
         }
     }
 };
+// 看图：只在传了 vision（agent-vision.forTurn）时提供
+BUILTIN_DEFINITIONS.view_image = {
+    name: 'view_image',
+    description: '看一张图片：用户上传的图片、浏览器截图（工具结果里给出的完整路径），或工作目录里的图片（png / jpg / webp / gif）。当前模型能看图时图片会直接附给你；不能看图时由看图模型识别成文字返回，question 写你想从图里了解什么。',
+    parameters: { type: 'object', properties: { path: { type: 'string' }, question: { type: 'string', description: '想从图里了解什么（可选）' } }, required: ['path'] }
+};
 const BUILTINS = Object.keys(BUILTIN_DEFINITIONS);
+const KEEP_IMAGE_MESSAGES = 2; // 只保留最近两次工具取得的图片，较早的换成文字说明
 const PLAN_STATUS = new Set(['pending', 'in_progress', 'completed']);
 
 function planText(plan) {
@@ -146,6 +153,8 @@ async function compactMessages({ client, plan, task, windowTokens, sensitiveValu
  * @param {object} [options.eventFields] 附在 tool_start / tool_result 上的字段（如 runId）
  * @param {string} [options.artifactOwner] 设了才把大结果存成本人文件（租户::账号）
  * @param {Function} [options.spillable] (name) => 该工具的结果是否参与存文件，默认全部
+ * @param {object} [options.vision] 看图能力（agent-vision.forTurn）：提供 view_image，能看图时把工具取得的图片附给模型
+ * @param {string} [options.root] 工作目录（view_image 可读其中的图片）
  * @param {object} [options.extras] 附加工具组（agent-extra-tools.forChat）：浏览器、MCP 等，按需加载并自带审批
  * @param {string[]} [options.builtins] 引擎自带的工具：update_plan / ask_user / calculate，默认全部
  * @param {number} [options.maxEmptyNudges] 空回复时提示的次数（最后一次不带工具），默认 2
@@ -159,7 +168,7 @@ async function compactMessages({ client, plan, task, windowTokens, sensitiveValu
 async function runToolLoop({
     client, model = '', systemPrompt, messages: initialMessages, tools: toolSource = [], executeCall, write: emit,
     signal, maxOutputTokens, temperature, sensitiveValues = [], task = '', maxSteps = MAX_STEPS, callIdPrefix = 'call',
-    eventFields = {}, artifactOwner = '', artifactSession = '', spillable = () => true, maxEmptyNudges = MAX_EMPTY_NUDGES, builtins = BUILTINS, extras = null,
+    eventFields = {}, artifactOwner = '', artifactSession = '', spillable = () => true, maxEmptyNudges = MAX_EMPTY_NUDGES, builtins = BUILTINS, extras = null, vision = null, root = '',
     review, fallback, toolsUnsupported, onToolCalls, afterCall
 }) {
     const secrets = { secrets: sensitiveValues };
@@ -172,7 +181,7 @@ async function runToolLoop({
     const windowOf = () => Number(activeClient?.settings?.contextWindowTokens || client?.settings?.contextWindowTokens || 0);
     const modelName = () => model || activeClient?.model;
     let readerEnabled = false;
-    const builtinTools = builtins.filter(name => BUILTIN_DEFINITIONS[name]).map(name => BUILTIN_DEFINITIONS[name]);
+    const builtinTools = builtins.filter(name => BUILTIN_DEFINITIONS[name] && (name !== 'view_image' || vision)).map(name => BUILTIN_DEFINITIONS[name]);
     const builtinNames = new Set(builtinTools.map(tool => tool.name));
     // 自带工具放最前面、固定不变，后面按需加载的工具往末尾追加，提示缓存才能继续命中
     const currentTools = () => {
@@ -181,8 +190,27 @@ async function runToolLoop({
     };
     let plan = [];
     let question = null;
-    const runBuiltin = call => {
+    const pendingImages = [];
+    // view_image 能读的图片：本人的附件与结果文件（含浏览器截图），以及工作目录里的图片
+    const resolveImage = target => {
+        const file = String(target || '');
+        if (require('path').isAbsolute(file) && artifacts.ownsFile(artifactOwner, file)) return file;
+        if (root) return require('./agent-path-guard').resolveInsideRoot(root, file);
+        throw Object.assign(new Error('只能看本人上传的图片、浏览器截图或工作目录里的图片（用工具结果里给出的完整路径）'), { code: 'VISION_PATH' });
+    };
+    const runBuiltin = async call => {
         const args = call.args && typeof call.args === 'object' ? call.args : {};
+        if (call.name === 'view_image') {
+            try {
+                const image = require('./agent-vision').loadImage(resolveImage(args.path));
+                const file = resolveImage(args.path);
+                if (vision.capable) return { content: `图片「${image.name}」已附在下一条消息里，请直接看图。`, summary: `看图 ${image.name}`, images: [image], previewPaths: [file] };
+                const text = await vision.describe([image], { question: String(args.question || '') });
+                return { content: `（当前对话模型不能直接看图，以下是看图模型对「${image.name}」的识别结果）\n${text}`, summary: `看图模型识别 ${image.name}`, previewPaths: [file] };
+            } catch (error) {
+                return { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: String(error.message || '').slice(0, 120), isError: true };
+            }
+        }
         if (call.name === 'calculate') {
             try { return toolkit.calculate(args); } catch (error) { return { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: error.message, isError: true }; }
         }
@@ -239,6 +267,9 @@ async function runToolLoop({
     for (steps = 1; steps <= maxSteps; steps += 1) {
         if (signal?.aborted) throw abortError();
         tools = currentTools(); // 上一步用 tool_search / load_skill 加载的工具追加在末尾
+        // 只保留最近两条带图片的执行消息，较早的图片换成文字说明，免得每一步都重复发送
+        const withImages = messages.filter(message => ephemeral.has(message) && message.images?.length);
+        withImages.slice(0, -KEEP_IMAGE_MESSAGES).forEach(message => { delete message.images; message.content = `${message.content}（图片已移出上下文，需要时可再用 view_image 查看）`; });
         // 上下文到触发线：先把较早内容整理成摘要；摘要失败才由下面的整轮裁剪兜底
         const windowTokens = contextStats.windowFor(modelName(), windowOf());
         const usedTokens = Math.max(contextStats.estimateRequest(systemPrompt, tools, messages), Number(lastUsage?.promptTokens || 0));
@@ -352,12 +383,34 @@ async function runToolLoop({
                 startedAt = Date.now();
                 write({ type: 'tool_start', ...eventFields, callId, tool: shown, args: args === undefined ? previewArgs(call.args) : args });
             };
-            let outcome = builtinNames.has(call.name) ? runBuiltin(call)
+            let outcome = builtinNames.has(call.name) ? await runBuiltin(call)
                 : extras?.handles(call.name) ? await extras.execute(call, { callId, start })
                 : ownReader(call.name) ? await readArtifact(call, { owner: artifactOwner, sensitiveValues, start })
                     : await executeCall(call, { callId, step: steps, start });
             outcome = outcome || { content: '工具没有返回结果', summary: '无结果', isError: true };
             if (!outcome.declined && !outcome.silent) start();
+            if (outcome.images?.length) pendingImages.push(...outcome.images);
+            // 浏览器截图等带图片文件的结果：能看图时一并附上，不能看图时提示可用 view_image 识别
+            for (const file of outcome.imagePaths || []) {
+                if (vision?.capable) {
+                    try { pendingImages.push(require('./agent-vision').loadImage(file)); } catch (_error) { /* 读不了就只留路径 */ }
+                }
+            }
+            if (outcome.imagePaths?.length && vision) {
+                let note = '（截图已附在下一条消息里，可以直接看。）';
+                // 对话模型看不到图：截图交给看图模型识别一次，结果附在工具结果里，免得模型凭页面文字去猜样式
+                if (!vision.capable) {
+                    try {
+                        const shots = outcome.imagePaths.slice(0, 2).map(file => require('./agent-vision').loadImage(file));
+                        note = `（当前对话模型不能直接看图，以下是看图模型对截图的识别结果）\n${String(await vision.describe(shots, { question: '页面的配色、版式与主要内容' })).slice(0, 6000)}`;
+                    } catch (error) {
+                        note = `（当前对话模型不能直接看图，看图模型也没能识别：${error.message}）`;
+                    }
+                }
+                outcome = { ...outcome, content: `${outcome.content}\n${note}` };
+            }
+            const { images: _images, ...plainOutcome } = outcome;
+            outcome = plainOutcome;
             const durationMs = Date.now() - startedAt;
             // 大结果完整存成本人的文件，上下文只留开头、结尾和路径（read_file 分页结果除外）
             let artifact = null;
@@ -372,8 +425,10 @@ async function runToolLoop({
                 }
             }
             if (!outcome.declined && !outcome.silent) {
+                // 截图、看过的图片：界面在工具行下显示缩略图，点击看大图（随会话记录入库，历史里也能看）
+                const previews = [...(outcome.imagePaths || []), ...(outcome.previewPaths || [])].slice(0, 4);
                 write({ type: 'tool_result', ...eventFields, callId, tool: shown, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 200), truncated: Boolean(outcome.truncated), durationMs,
-                    ...(outcome.output ? { output: outcome.output } : {}), ...(artifact ? { artifact } : {}) });
+                    ...(outcome.output ? { output: outcome.output } : {}), ...(artifact ? { artifact } : {}), ...(previews.length ? { images: previews } : {}) });
             }
             // 任务清单、提问这类不出工具行的调用不计入工具记录（回复末尾的工具摘要、调用次数）
             if (outcome.silent) toolCallCount -= 1;
@@ -384,6 +439,12 @@ async function runToolLoop({
             if (signal?.aborted) throw abortError();
         }
         messages.push(toolMessage);
+        // 工具取得的图片（view_image、浏览器截图）：模型能看图时作为下一条消息附上；只发给模型，不进转录
+        if (vision?.capable && pendingImages.length) {
+            const shown = pendingImages.splice(0);
+            pushEphemeral({ role: 'user', content: `（以下是刚才工具取得的图片：${shown.map(image => image.name).join('、')}）`, images: shown.map(({ mimeType, data }) => ({ mimeType, data })) });
+        }
+        pendingImages.length = 0;
         // ask_user：把问题和选项写成回复正文（频道、历史记录里也能看到），本轮结束，等用户回答
         if (question) {
             const text = `${question.question}\n\n${question.options.map((option, index) => `${index + 1}. ${option}`).join('\n')}`;

@@ -39,8 +39,8 @@ function redactValue(value, options) {
     if (!value || typeof value !== 'object') return value;
     return Object.fromEntries(Object.entries(value).map(([key, item]) => [
         key,
-        // thoughtSignature 是供应商协议的不透明签名，必须原样回传，不能当作凭据修改。
-        /^(?:thoughtSignature|thought_signature)$/.test(key) ? item : SENSITIVE_FIELD.test(key) ? REDACTED : redactValue(item, options)
+        // thoughtSignature 是供应商协议的不透明签名，必须原样回传，不能当作凭据修改；images 是发给模型看的图片数据（base64），不逐字扫描。
+        /^(?:thoughtSignature|thought_signature|images)$/.test(key) ? item : SENSITIVE_FIELD.test(key) ? REDACTED : redactValue(item, options)
     ]));
 }
 

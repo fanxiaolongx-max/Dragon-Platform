@@ -304,10 +304,11 @@ async function buildPrompt() {
  * 普通对话没有审批卡：真实推送靠 send_draft 的规则把关（本轮刚生成的草稿不能直接发送，必须等用户下一条消息确认）。
  * @returns {Promise<{text, usage, toolLog}>}
  */
-async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null }) {
+async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null }) {
     const turnCtx = { ...ctx, createdRunIds: new Set() };
     const result = await agentLoop.runToolLoop({
         extras, // 附加工具组：浏览器、MCP（管理员的首页对话）
+        vision, // 看图：view_image 与工具取得的图片
         client, model, systemPrompt: systemInstruction, messages, tools: definitions(),
         write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
         signal, maxOutputTokens, temperature, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'ops',

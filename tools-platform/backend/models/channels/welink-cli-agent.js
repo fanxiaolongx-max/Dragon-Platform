@@ -694,12 +694,13 @@ const PROMISE_ONLY_RE = /请稍等|稍等|稍候|正在(为你|帮你|通过|查
  * canApprove：本轮能否弹审批卡（流式请求才行）。
  * @returns {Promise<{text, usage, toolLog}>}
  */
-async function runTurn({ client, systemInstruction, messages, ctx = {}, signal, onDelta, onEvent, canApprove = false, maxOutputTokens, temperature, model, extras = null }) {
+async function runTurn({ client, systemInstruction, messages, ctx = {}, signal, onDelta, onEvent, canApprove = false, maxOutputTokens, temperature, model, extras = null, vision = null }) {
     const config = runner.readConfig();
     const verbose = Boolean(config.verbose);
     let nudged = false;
     const result = await agentLoop.runToolLoop({
         extras, // 附加工具组：浏览器、MCP（管理员的首页对话）
+        vision, // 看图：view_image 与工具取得的图片
         client, model, systemPrompt: systemInstruction, messages, tools: definitions({ write: Boolean(config.allowWrite && canApprove) }),
         write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
         signal, maxOutputTokens, temperature, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'welink',

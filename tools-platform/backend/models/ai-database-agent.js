@@ -27,7 +27,7 @@ filters 精确定位；整表操作需要用户明确要求该范围，并显式
  * ctx.owner（租户::账号）与 ctx.chatSessionId 用于把大结果存成本人文件；不给时结果按原上限截断。ctx.username 用于长期记忆，ctx.uploads 是对话里的附件。
  * @returns {Promise<{text, usage, toolLog, toolsUnsupported?}>}
  */
-async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null }) {
+async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null }) {
     if (ctx.readOnly !== false) throw Object.assign(new Error('数据库写入仅对管理员开放'), { code: 'AGENT_DATABASE_FORBIDDEN' });
     // 对话里上传过附件时，带上只读的附件工具（read_file / read_document / query_data / diff_files）
     const files = filesAgent.toolset({ ...ctx, signal });
@@ -40,6 +40,7 @@ async function runTurn({ client, systemInstruction, messages, ctx, signal, onDel
     let scriptNudged = false;
     const result = await agentLoop.runToolLoop({
         extras, // 附加工具组：浏览器、MCP（管理员的首页对话）
+        vision, // 看图：view_image 与工具取得的图片
         client, model, systemPrompt: redactText(`${systemInstruction}\n${PROMPT}${files ? files.prompt : ''}`, { secrets: sensitiveValues }), messages, tools,
         write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
         signal, maxOutputTokens, temperature, sensitiveValues, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'database',

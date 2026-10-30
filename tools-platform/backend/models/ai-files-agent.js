@@ -29,7 +29,7 @@ function toolset(ctx) {
     const prompt = `
 **对话附件**（用户上传的文件，只读）：
 ${lines.join('\n')}
-读取附件时 path 填上面的完整路径：Excel / CSV / Word / PPT 用 read_document，统计、筛选、汇总表格用 query_data（比自己数行或心算准确），纯文本用 read_file，比较两份文件用 diff_files。回答以文件实际内容为准。`;
+读取附件时 path 填上面的完整路径：Excel / CSV / Word / PPT 用 read_document，统计、筛选、汇总表格用 query_data（比自己数行或心算准确），纯文本用 read_file，比较两份文件用 diff_files，图片：本条消息里的图片已经直接附给你（或已识别成文字附在消息里），不要再用 view_image 看同一张；view_image 用于之前消息里的图片、截图，或想就某处细节追问时。回答以文件实际内容为准。`;
     // 没有工作目录：只能按完整路径读本人的附件和大结果文件
     const fileCtx = { readOnly: true, sensitiveValues: ctx.sensitiveValues || [], signal: ctx.signal, artifactOwner: ctx.owner, fullResults: true };
     return {
@@ -42,12 +42,13 @@ ${lines.join('\n')}
  * 只有附件工具的一轮回复（非管理员、或没有其他工具的首页对话）。
  * @returns {Promise<{text, usage, toolLog}>}
  */
-async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null }) {
+async function runTurn({ client, systemInstruction, messages, ctx, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null, vision = null }) {
     const files = toolset({ ...ctx, signal });
     if (!files) throw Object.assign(new Error('没有可读取的附件'), { code: 'AGENT_UPLOAD_MISSING' });
     const sensitiveValues = ctx.sensitiveValues || [];
     const result = await agentLoop.runToolLoop({
         extras, // 附加工具组：浏览器、MCP（管理员的首页对话）
+        vision, // 看图：view_image 与工具取得的图片
         client, model, systemPrompt: redactText(`${systemInstruction}\n${files.prompt}`, { secrets: sensitiveValues }), messages, tools: files.definitions,
         write: event => (event.type === 'delta' ? onDelta?.(event.delta) : onEvent?.(event)),
         signal, maxOutputTokens, temperature, sensitiveValues, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'files',

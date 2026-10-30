@@ -545,7 +545,7 @@ async function execute(ctx, name, args = {}) {
             fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
             const file = path.join(dir, `${new Date().toISOString().replace(/[-:]/g, '').replace(/\..*$/, '')}-${page.id}.png`);
             fs.writeFileSync(file, png, { mode: 0o600 });
-            return { content: `截图已保存：${file}（${formatSize(png.length)}）。在回复里写出这个路径，用户就能直接查看图片；你自己看不到图片内容，读页面请用 browser_snapshot。`, summary: `截图 ${formatSize(png.length)}`, artifactPath: file };
+            return { content: `截图已保存：${file}（${formatSize(png.length)}）。在回复里写出这个路径，用户就能直接查看图片；读页面文字请用 browser_snapshot。`, summary: `截图 ${formatSize(png.length)}`, artifactPath: file, imagePaths: [file] };
         }
         if (name === 'browser_evaluate') {
             const value = await page.evaluate(String(args.expression || ''));

@@ -1,8 +1,13 @@
 // Dragon Claw 工作区：右侧「上下文」面板的 token 统计（中英混排按 3.5 字符/Token 估算分项）。
 // 供应商返回 promptTokens（含缓存命中）时总数以其为准，各分项按估算比例缩放，并给出缓存命中率。
 
+// 图片按每张约 1,500 token 计（各家供应商对常见尺寸截图的计费量级），不把 base64 当文字估算
+const IMAGE_TOKENS = 1500;
+const IMAGE_STANDIN = 'i'.repeat(IMAGE_TOKENS * 3);
+const withoutImageData = (key, value) => (key === 'images' && Array.isArray(value) ? value.map(() => IMAGE_STANDIN) : value);
+
 function estimateTokens(value) {
-    const text = typeof value === 'string' ? value : JSON.stringify(value || '');
+    const text = typeof value === 'string' ? value : JSON.stringify(value || '', withoutImageData);
     return Math.ceil(String(text || '').length / 3.5);
 }
 
@@ -42,7 +47,7 @@ function compactThreshold(windowTokens, maxOutputTokens = 2048) {
 
 // 一次请求的估算 token：中日韩文字密度更高，不能一律按 3.5 字符估算
 function estimateRequest(systemPrompt, tools, messages) {
-    const payload = JSON.stringify([systemPrompt, tools, messages]);
+    const payload = JSON.stringify([systemPrompt, tools, messages], withoutImageData);
     const dense = (payload.match(/[\u2e80-\u9fff\uac00-\ud7af]/g) || []).length;
     return Math.ceil((payload.length - dense) / 3 + dense * 1.5);
 }
@@ -56,7 +61,7 @@ function estimateMessages(messages) {
 function estimateConversation(messages) {
     return (Array.isArray(messages) ? messages : []).reduce((sum, msg) => {
         if (!msg) return sum;
-        sum.messages += estimateTokens(msg.content || '') + 4;
+        sum.messages += estimateTokens(msg.content || '') + 4 + (Array.isArray(msg.images) ? msg.images.length * IMAGE_TOKENS : 0);
         if (Array.isArray(msg.toolCalls)) sum.messages += estimateTokens(msg.toolCalls);
         if (Array.isArray(msg.toolResults)) sum.toolResults += msg.toolResults.reduce((acc, item) => acc + estimateTokens(item.content || ''), 0);
         return sum;

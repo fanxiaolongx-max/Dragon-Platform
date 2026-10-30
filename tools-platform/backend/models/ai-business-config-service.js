@@ -19,7 +19,8 @@ const STOP_TERMS = new Set([
 const SCRIPT_INTENT_RE = /脚本|宏代码|console\s*code|uiv|ui\.vision|数据抓取|生成器|cpc|nid|adapter|login\s*probe/i;
 const METRIC_INTENT_RE = /指标|子指标|目标|权重|达标|计分|分类|分组|sla|custommetrics|比例计分|超额得分|月度规则/i;
 const PLATFORM_CONFIG_INTENT_RE = /平台配置|大屏|bigscreen|welink|月报标题|联系人|owner|运营配置/i;
-const DICTIONARY_INTENT_RE = /翻译|英文|中文|双语|字典|i18n/i;
+// 平台术语的中英文（指标、字段、菜单等）；「帮我翻译这段英文」之类的通用翻译不算
+const DICTIONARY_INTENT_RE = /字典|i18n|(?:指标|字段|报表|平台|菜单|术语|名称)[^，。？！]{0,10}(?:翻译|英文|中文|双语)|(?:翻译|英文|中文|双语)[^，。？！]{0,10}(?:指标|字段|报表|平台|菜单|术语|名称)/i;
 const TOOL_INTENT_RE = /自定义工具|html\s*工具|内置工具|自带工具|工具目录|custom\s*tool/i;
 const FULL_TARGET_LIST_RE = /(?:全部|完整|所有|58\s*条).{0,16}(?:指标)?(?:目标|预警|规则).{0,10}(?:规则|配置|明细|列表|展开|列出)?|展开.{0,10}(?:全部|所有).{0,16}(?:目标|指标|规则)|58\s*条.{0,16}(?:规则|目标)/i;
 const GENERAL_TARGET_QUERY_RE = /指标(?:的)?目标(?:值|规则|配置)?(?:都|分别|各自)?(?:是|为)?(?:多少|什么|哪些)|(?:各(?:个|项)?|每(?:个|项))指标.{0,8}目标|\b(?:all|each|every)\b.{0,35}\b(?:metric|indicator)s?\b.{0,25}\b(?:target|goal)s?\b|\b(?:target|goal)(?:\s+values?)?s?\b.{0,25}\b(?:all|each|every)\b.{0,20}\b(?:metric|indicator)s?\b/i;
@@ -446,12 +447,18 @@ function wantsFullTargetList(query, documents) {
     });
 }
 
+// 问题里的外部网址不是业务配置的检索词：脚本正文里到处是 https 链接，留着会把无关脚本排到前面
+const EXTERNAL_URL_RE = /https?:\/\/\S+/gi;
+
 async function search(question, { limit = 7 } = {}) {
     const loaded = await loadDocuments();
-    const query = String(question || '').toLowerCase();
+    const raw = String(question || '').toLowerCase();
+    const query = raw.replace(EXTERNAL_URL_RE, ' ').replace(/\s+/g, ' ').trim();
     const terms = extractTerms(query);
     const broadIntent = SCRIPT_INTENT_RE.test(query) || METRIC_INTENT_RE.test(query) || GENERAL_TARGET_QUERY_RE.test(query) || PLATFORM_CONFIG_INTENT_RE.test(query) || DICTIONARY_INTENT_RE.test(query) || TOOL_INTENT_RE.test(query);
     if (!terms.length && !broadIntent) return { results: [], status: loaded.status };
+    // 讲外部网页（打开 / 抓取某个网址）且没有业务配置意图：不检索平台配置
+    if (!broadIntent && query !== raw.trim()) return { results: [], status: loaded.status };
     if (wantsFullTargetList(query, loaded.documents)) {
         const document = loaded.documents.find(item => item.kind === 'metric-target-all');
         if (document) {
@@ -483,14 +490,20 @@ async function search(question, { limit = 7 } = {}) {
             // shorter parent indicator such as “重急EOS”.
             else if (metricFamily !== metricName && metricFamily.length >= 2 && query.includes(metricFamily)) score += 180;
         }
+        // 标题或来源命中了问题里的词：两个字的常见词（如「邮件」）只在问题本身很短（像在输关键词）时才算
+        let named = false;
+        const counts = term => term.length >= 3 || query.length <= 8;
         for (const term of terms) {
             score += countOccurrences(document.searchText, term) * Math.max(1, term.length / 2);
-            if (document.title.toLowerCase().includes(term)) score += 12;
-            if (document.source.toLowerCase().includes(term)) score += 7;
+            if (document.title.toLowerCase().includes(term)) { score += 12; named = named || counts(term); }
+            if (document.source.toLowerCase().includes(term)) { score += 7; named = named || counts(term); }
         }
-        if (query.length >= 4 && document.searchText.includes(query)) score += 22;
-        return { document, score };
-    }).filter(item => item.score > 0).sort((a, b) => b.score - a.score);
+        if (query.length >= 4 && document.searchText.includes(query)) { score += 22; named = true; }
+        return { document, score, named };
+    })
+        // 没有脚本 / 指标 / 配置 / 工具等业务意图时，只在正文里碰巧出现过问题里的词不算相关，标题或来源要命中
+        .filter(item => item.score > 0 && (broadIntent || item.named))
+        .sort((a, b) => b.score - a.score);
     const safeLimit = Math.max(1, Math.min(Number(limit) || 7, 10));
     const perKind = new Map();
     const results = [];
