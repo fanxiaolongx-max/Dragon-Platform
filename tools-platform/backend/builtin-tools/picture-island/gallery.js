@@ -13,6 +13,7 @@
     const uploadManual = new Set();
     let deletionEntries = [];
     let viewerItems = [];
+    let galleryLoad=null, viewerTransition=null;
     let zoomMotion=null, zoomFrame=0, zoomIdleTimer, zoomSnapTimer;
     const byteSize = bytes => bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
     const date = value => new Date(value).toLocaleDateString(english ? 'en-GB' : 'zh-CN');
@@ -66,11 +67,11 @@
         const overview = view === 'albums', query = $('search').value.trim().toLocaleLowerCase();
         const visible = overview ? albums.filter(a => a.name.toLocaleLowerCase().includes(query)) : albums.slice(0,6);
         $('albumSection').hidden = !overview;
-        $('albumGrid').innerHTML = visible.map(a => `<button class="album-card" data-album="${escape(a.id)}">${a.cover_id ? `<img src="/api/gallery/versions/${escape(a.cover_id)}/thumbnail" data-reading-preview="/api/gallery/versions/${escape(a.cover_id)}/preview" alt="" loading="lazy">` : '<span class="album-symbol">▣</span>'}<span><strong>${escape(a.name)}</strong><small>${a.item_count} ${t('张图片', 'pictures')}</small></span><span aria-hidden="true">↗</span></button>`).join('');
+        $('albumGrid').innerHTML = visible.map(a => `<button class="album-card picture-loading" data-album="${escape(a.id)}">${a.cover_id ? `<img src="/api/gallery/versions/${escape(a.cover_id)}/thumbnail" data-reading-preview="/api/gallery/versions/${escape(a.cover_id)}/preview" alt="" loading="lazy">` : '<span class="album-symbol">▣</span>'}<span><strong>${escape(a.name)}</strong><small>${a.item_count} ${t('张图片', 'pictures')}</small></span><span aria-hidden="true">↗</span></button>`).join('');
         for (const id of ['uploadAlbum','metaAlbum']) { const value = $(id).value; $(id).innerHTML = albumOptions(value); }
         const value = $('batchAlbum').value;
         $('batchAlbum').innerHTML = `<option value="" disabled ${!value ? 'selected' : ''}>${t('选择目标相册', 'Choose album')}</option>` + albums.map(a => `<option value="${escape(a.id)}" ${value === a.id ? 'selected' : ''}>${escape(a.name)}</option>`).join('') + `<option value="none" ${value === 'none' ? 'selected' : ''}>${t('移出相册', 'Remove from album')}</option>`;
-        if (overview) $('resultCount').textContent = t(`${visible.length} 个相册`, `${visible.length} albums`);
+        if (overview) {$('resultCount').textContent = t(`${visible.length} 个相册`, `${visible.length} albums`);if(galleryLoad?.phase==='images')trackGalleryImages(galleryLoad.request);}
     }
     async function refreshAlbums() { const data = await Promise.all([api('/albums'),api('/categories')]); albums = data[0]; categories = data[1]; renderCategories(); renderAlbums(); }
     function renderSelection() {
@@ -131,7 +132,7 @@
         $('resultCount').textContent = t(`${result.total} 件收藏`, `${result.total} collections`);
         $('grid').innerHTML = result.items.map(item => `<article class="card ${selectedItems.has(item.id) ? 'selected' : ''}">
             ${selectionMode && canWrite ? `<label class="card-select"><input type="checkbox" data-select="${escape(item.id)}" aria-label="${escape(t('选择 ', 'Select ') + item.title)}" ${selectedItems.has(item.id) ? 'checked' : ''}></label>` : ''}
-            <button class="card-open" data-open="${escape(item.id)}"><div class="card-picture"><img src="/api/gallery/versions/${escape(item.cover_id)}/thumbnail" data-reading-preview="/api/gallery/versions/${escape(item.cover_id)}/preview" alt="" loading="lazy"><span class="version-badge">${item.version_count} ${t('个版本', item.version_count === 1 ? 'version' : 'versions')}</span></div><div class="card-content"><strong class="card-title">${escape(item.title)}</strong><p class="card-meta">${escape(categoryName(item.category_id))} · ${item.is_example ? t('内置示例', 'Example') : date(item.updated_at)}</p><div class="card-tags">${item.tags.slice(0, 3).map(tag => `<span class="tag">${escape(tag)}</span>`).join('') || `<span class="tag">${item.scope === 'life' ? t('生活', 'Life') : t('工作', 'Work')}</span>`}</div></div></button>
+            <button class="card-open" data-open="${escape(item.id)}"><div class="card-picture picture-loading"><img src="/api/gallery/versions/${escape(item.cover_id)}/thumbnail" data-reading-preview="/api/gallery/versions/${escape(item.cover_id)}/preview" alt="" loading="lazy"><span class="version-badge">${item.version_count} ${t('个版本', item.version_count === 1 ? 'version' : 'versions')}</span></div><div class="card-content"><strong class="card-title">${escape(item.title)}</strong><p class="card-meta">${escape(categoryName(item.category_id))} · ${item.is_example ? t('内置示例', 'Example') : date(item.updated_at)}</p><div class="card-tags">${item.tags.slice(0, 3).map(tag => `<span class="tag">${escape(tag)}</span>`).join('') || `<span class="tag">${item.scope === 'life' ? t('生活', 'Life') : t('工作', 'Work')}</span>`}</div></div></button>
             ${item.album_name ? `<button class="card-album text-button" data-album="${escape(item.album_id)}">▣ ${escape(item.album_name)}</button>` : ''}
             ${canWrite && !selectionMode ? `<button class="icon card-star" data-favorite="${escape(item.id)}" aria-label="${t('切换收藏', 'Toggle favorite')}" aria-pressed="${item.favorite}">${item.favorite ? '★' : '☆'}</button>` : ''}</article>`).join('');
         $('empty').hidden = result.total > 0;
@@ -142,9 +143,53 @@
         $('prev').disabled = result.page <= 1; $('next').disabled = result.page >= result.pages;
         $('pageInfo').textContent = `${result.page} / ${result.pages}`;
         renderAlbums(); renderSelection();
+        if(galleryLoad?.phase==='images')trackGalleryImages(galleryLoad.request);
+    }
+    function beginGalleryLoad(request) {
+        galleryLoad?.cleanup?.();clearTimeout(galleryLoad?.timer);
+        const state=galleryLoad={request,phase:'data',cleanup:null,timer:null};
+        $('empty').hidden=true;$('grid').setAttribute('aria-busy','true');$('albumGrid').setAttribute('aria-busy','true');
+        document.querySelectorAll('.nav.loading,[data-category].loading').forEach(el=>el.classList.remove('loading'));
+        const active=document.querySelector(category?`[data-category="${CSS.escape(category)}"]`:album?'[data-view="albums"]':`[data-view="${view}"]`);
+        active?.classList.add('loading');state.active=active;
+        $('galleryProgress').setAttribute('aria-label',t('图库加载进度','Library loading progress'));$('galleryProgress').removeAttribute('value');$('galleryLoadText').textContent=t('正在整理图库…','Loading library…');
+        state.timer=setTimeout(()=>{if(galleryLoad===state)$('galleryLoad').hidden=false;},90);
+    }
+    function endGalleryLoad(state,failed=false) {
+        if(galleryLoad!==state)return;
+        state.phase='complete';state.cleanup?.();clearTimeout(state.timer);state.active?.classList.remove('loading');
+        $('grid').setAttribute('aria-busy','false');$('albumGrid').setAttribute('aria-busy','false');
+        $('galleryProgress').max=1;$('galleryProgress').value=1;
+        $('galleryLoadText').textContent=failed?t('加载未完成，可重试','Could not finish loading'):t('图库已就绪','Library ready');
+        state.timer=setTimeout(()=>{if(galleryLoad===state){$('galleryLoad').hidden=true;galleryLoad=null;}},260);
+    }
+    function trackGalleryImages(request) {
+        const state=galleryLoad;if(!state||state.request!==request)return;
+        state.cleanup?.();state.phase='images';
+        const root=view==='albums'?$('albumGrid'):$('grid');
+        // Only count the current viewport; offscreen lazy thumbnails must not stall progress.
+        const images=[...root.querySelectorAll('img')].filter(img=>{const r=img.getBoundingClientRect();return r.width&&r.bottom>0&&r.top<innerHeight+120;});
+        const pending=new Set(images.filter(img=>!img.complete)),total=images.length;
+        const update=()=>{
+            if(galleryLoad!==state)return;
+            $('galleryProgress').max=Math.max(1,total);$('galleryProgress').value=total-pending.size;
+            $('galleryLoadText').textContent=t(`正在载入缩略图 ${total-pending.size} / ${total}`,`Loading thumbnails ${total-pending.size} / ${total}`);
+            if(!pending.size)endGalleryLoad(state);
+        };
+        const settled=event=>{if(pending.delete(event.target))update();};
+        root.addEventListener('load',settled,true);root.addEventListener('error',settled,true);
+        state.cleanup=()=>{root.removeEventListener('load',settled,true);root.removeEventListener('error',settled,true);};
+        update();
+    }
+    function thumbnailReady(event) {
+        if(!(event.target instanceof HTMLImageElement))return;
+        const tile=event.target.closest('.card-picture,.album-card');
+        tile?.classList.remove('picture-loading');
+        if(event.type==='error'){tile?.classList.add('picture-failed');event.target.alt=t('图片未能加载','Picture unavailable');}
     }
     async function loadList() {
-        const request = ++listRequest, params = new URLSearchParams({ page, sort: $('sort').value, q: $('search').value });
+        const request = ++listRequest;beginGalleryLoad(request);
+        const params = new URLSearchParams({ page, sort: $('sort').value, q: $('search').value });
         if (view === 'work' || view === 'life') params.set('scope', view);
         if (view === 'favorites') params.set('favorite', '1');
         if (view === 'pending') params.set('pending', '1');
@@ -156,8 +201,8 @@
         try {
             const data = await api('/items?' + params);
             if (request !== listRequest) return;
-            selectedItems.clear(); result = data; page = data.page; $('error').hidden = true; renderList();
-        } catch (error) { if (request === listRequest) { $('error').textContent = error.message; $('error').hidden = false; } }
+            selectedItems.clear(); result = data; page = data.page; $('error').hidden = true; renderList();trackGalleryImages(request);
+        } catch (error) { if (request === listRequest) { endGalleryLoad(galleryLoad,true);$('error').textContent = error.message; $('error').hidden = false; } }
     }
     function navigate(nextView, nextCategory = '', nextAlbum = '') {
         view = nextView; category = nextCategory; album = nextAlbum; page = 1; selectionMode = false; selectedItems.clear();
@@ -266,7 +311,7 @@
     }
     function releaseOriginal() {
         originalRequest?.controller.abort(); originalRequest = null;
-        if (originalUrl) URL.revokeObjectURL(originalUrl);
+        if (originalUrl) {if(viewerTransition?.heldUrl===originalUrl)viewerTransition.revokeUrl=originalUrl;else URL.revokeObjectURL(originalUrl);}
         originalUrl = ''; originalState = '';
     }
     function notifyViewer(open) {
@@ -277,6 +322,7 @@
         return index >= 0 ? {previous:viewerItems[index-1],next:viewerItems[index+1],index} : {previous:current?.album_previous,next:current?.album_next,index:-1};
     }
     function setInfo(open) {
+        cancelViewerTransition();
         $('detailDialog').classList.toggle('with-info',open); $('toggleInfo').setAttribute('aria-expanded',String(open));
         if (!open) $('pictureStage').focus({preventScroll:true});
     }
@@ -286,7 +332,7 @@
         $('viewerMeta').textContent = `${neighbors.index >= 0 ? `${neighbors.index+1} / ${viewerItems.length} · ` : ''}${versionLabel(a)} · ${a.width} × ${a.height}`;
         $('toggleCompare').hidden = current.versions.length < 2;
         if ($('viewMode').value !== 'single') $('viewerAdvanced').hidden = false;
-        $('toggleCompare').setAttribute('aria-pressed',String(!$('viewerAdvanced').hidden));
+        $('toggleCompare').setAttribute('aria-pressed', String(!$('viewerAdvanced').hidden && $('viewMode').value !== 'single'));
         $('filmstripMode').options[1].disabled = current.versions.length < 2;
         if (current.versions.length < 2) $('filmstripMode').value = 'pictures';
         const versions = $('filmstripMode').value === 'versions';
@@ -469,7 +515,7 @@
         try {
             await preview.animation.finished;
             if (swipePreview!==preview || !$('detailDialog').open || current.id!==preview.id) return;
-            if (commit&&next) await openDetail(next.id);
+            if (commit&&next) await openDetail(next.id,false);
         } catch (error) { if(error.name!=='AbortError')toast(error.message); }
         finally { if(swipePreview===preview)resetSwipe(); }
     }
@@ -479,7 +525,7 @@
     }
     imageStage.addEventListener('wheel',event=>{
         if ($('viewMode').value!=='single' || event.shiftKey) return;
-        event.preventDefault();resetSwipe();
+        event.preventDefault();cancelViewerTransition();resetSwipe();
         const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?imageStage.clientHeight:1);
         zoomPicture(Math.exp(Math.max(-.7,Math.min(.7,-delta*.002))),event.clientX,event.clientY);
     },{passive:false});
@@ -487,7 +533,7 @@
         if ($('viewMode').value!=='single' || swipePreview?.settling || (event.pointerType==='mouse'&&event.button!==0)) return;
         event.preventDefault();imageStage.focus({preventScroll:true});
         imagePointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
-        if(imagePointers.size===1) {clearZoomSnap();imageGesture={x:event.clientX,y:event.clientY,lastX:event.clientX,lastTime:performance.now(),velocity:0,touch:event.pointerType==='touch',canSwipe:imageStage.scrollWidth<=imageStage.clientWidth+4,pinched:false,axis:''};}
+        if(imagePointers.size===1) {cancelViewerTransition();clearZoomSnap();imageGesture={x:event.clientX,y:event.clientY,lastX:event.clientX,lastTime:performance.now(),velocity:0,touch:event.pointerType==='touch',canSwipe:imageStage.scrollWidth<=imageStage.clientWidth+4,pinched:false,axis:''};}
         if(imagePointers.size>1) {imageGesture.pinched=true;resetSwipe();clearZoomSnap();}
         imageStage.setPointerCapture(event.pointerId);imageStage.classList.add('dragging');
     });
@@ -564,8 +610,52 @@
         if (ready) $('detailAiMode').value = a.ai_mode;
         renderViewerChrome();
     }
-    async function openDetail(id) {
+    function cancelViewerTransition() {
+        const transition=viewerTransition;if(!transition)return;
+        viewerTransition=null;transition.animation?.cancel();transition.layer.remove();
+        transition.figure.style.visibility=transition.visibility;
+        if(transition.revokeUrl)URL.revokeObjectURL(transition.revokeUrl);
+    }
+    function transitionImage(bounds) {
+        const picture=$('pictureA'),r=picture.getBoundingClientRect(),style=getComputedStyle(picture),copy=document.createElement('img');
+        copy.src=picture.currentSrc||picture.src;
+        Object.assign(copy.style,{position:'absolute',left:`${r.left-bounds.left}px`,top:`${r.top-bounds.top}px`,width:`${r.width}px`,height:`${r.height}px`,padding:style.padding,objectFit:style.objectFit});
+        return copy;
+    }
+    function beginViewerTransition(direction) {
+        cancelViewerTransition();clearZoomSnap();resetSwipe();
+        const bounds=imageStage.getBoundingClientRect(),host=imageStage.parentElement.getBoundingClientRect();
+        const layer=document.createElement('div');layer.className='viewer-transition';layer.setAttribute('aria-hidden','true');layer.dataset.direction=direction>0?'next':'previous';
+        Object.assign(layer.style,{left:`${bounds.left-host.left}px`,top:`${bounds.top-host.top}px`,width:`${bounds.width}px`,height:`${bounds.height}px`});
+        const track=document.createElement('div');track.className='transition-track';track.append(transitionImage(bounds));layer.append(track);
+        imageStage.parentElement.append(layer);
+        const figure=$('pictureA').closest('figure');
+        viewerTransition={layer,track,figure,visibility:figure.style.visibility,direction,width:bounds.width,heldUrl:originalUrl};
+        figure.style.visibility='hidden';return viewerTransition;
+    }
+    async function completeViewerTransition(transition) {
+        if(!transition)return;
+        const picture=$('pictureA');
+        // Keep the previous image visible while the incoming preview decodes.
+        if(!picture.complete||!picture.naturalWidth)await new Promise(resolve=>{
+            const done=()=>{clearTimeout(timer);picture.removeEventListener('load',done);picture.removeEventListener('error',done);resolve();};
+            const timer=setTimeout(done,900);picture.addEventListener('load',done);picture.addEventListener('error',done);
+        });
+        if(viewerTransition!==transition||!$('detailDialog').open)return;
+        const bounds=imageStage.getBoundingClientRect(),incoming=document.createElement('div');incoming.className='transition-incoming';
+        incoming.style.transform=`translateX(${transition.direction*(transition.width+16)}px)`;incoming.append(transitionImage(bounds));transition.track.append(incoming);
+        const duration=matchMedia('(prefers-reduced-motion: reduce)').matches?0:280;
+        transition.animation=transition.track.animate([{transform:'translate3d(0,0,0)'},{transform:`translate3d(${-transition.direction*(transition.width+16)}px,0,0)`}],{duration,easing:'cubic-bezier(.22,.7,.25,1)',fill:'forwards'});
+        try {await transition.animation.finished;}catch(error){if(error.name!=='AbortError')throw error;}
+        finally {if(viewerTransition===transition)cancelViewerTransition();}
+    }
+    async function openDetail(id, animate = true) {
         const request = ++detailRequest;
+        cancelViewerTransition();
+        if($('detailDialog').open&&current?.id===id)return;
+        const oldIndex=viewerItems.findIndex(item=>item.id===current?.id),newIndex=viewerItems.findIndex(item=>item.id===id);
+        const direction=newIndex>=0&&oldIndex>=0?Math.sign(newIndex-oldIndex):id===current?.album_previous?.id?-1:1;
+        const shouldAnimate=animate&&$('detailDialog').open&&id!==current?.id&&$('viewMode').value==='single';
         const loaded = await api('/items/' + id); if (request !== detailRequest) return;
         if (!$('detailDialog').open) {
             viewerItems = result.items.slice();
@@ -573,9 +663,11 @@
             $('viewerFilmstrip').hidden = false; $('toggleFilmstrip').setAttribute('aria-pressed','true'); $('filmstripMode').value = 'pictures';
         }
         if (!viewerItems.some(item=>item.id===loaded.id)) viewerItems.unshift({id:loaded.id,title:loaded.title,cover_id:loaded.versions[0]?.id});
+        const transition=shouldAnimate?beginViewerTransition(direction):null;
         $('viewerAdvanced').hidden = true;
         resetSwipe(); current = loaded; $('viewMode').value = 'single'; $('versionA').innerHTML = $('versionB').innerHTML = ''; $('aiConfirm').checked = false;
         if (!$('detailDialog').open) $('detailDialog').showModal(); fillDetail(); notifyViewer(true);
+        await completeViewerTransition(transition);
     }
     async function saveMeta(event) {
         event.preventDefault(); if (!current || !canWrite) return;
@@ -650,6 +742,7 @@
         if (button) { if (selectionMode) selectItem(button.dataset.open,!selectedItems.has(button.dataset.open)); else await openDetail(button.dataset.open); }
     }));
     $('grid').addEventListener('change', event => { if (event.target.matches('[data-select]')) selectItem(event.target.dataset.select,event.target.checked); });
+    for(const root of [$('grid'),$('albumGrid')]) {root.addEventListener('load',thumbnailReady,true);root.addEventListener('error',thumbnailReady,true);}
     $('albumGrid').addEventListener('load',topPreview,true);
     $('albumGrid').onclick = event => { const button = event.target.closest('[data-album]'); if (button) openAlbum(button.dataset.album); };
     $('selectPictures').onclick = () => { selectionMode = !selectionMode; selectedItems.clear(); renderList(); };
@@ -666,18 +759,33 @@
     $('albumNext').onclick = guarded(() => current.album_next && openDetail(current.album_next.id));
     $('openCurrentAlbum').onclick = () => { const id = current.album_id; $('detailDialog').close(); openAlbum(id); };
     $('grid').addEventListener('load', topPreview, true); $('versionList').addEventListener('load', topPreview, true);
-    $('fitWidth').onclick = () => {clearZoomSnap();setReader('width');}; $('fitWhole').onclick = () => {clearZoomSnap();setReader('whole');};
-    const buttonZoom = factor => {clearZoomSnap();resetSwipe();const r=imageStage.getBoundingClientRect();zoomPicture(factor,r.left+r.width/2,r.top+r.height/2,'button');};
+    $('fitWidth').onclick = () => {cancelViewerTransition();clearZoomSnap();setReader('width');}; $('fitWhole').onclick = () => {cancelViewerTransition();clearZoomSnap();setReader('whole');};
+    const buttonZoom = factor => {cancelViewerTransition();clearZoomSnap();resetSwipe();const r=imageStage.getBoundingClientRect();zoomPicture(factor,r.left+r.width/2,r.top+r.height/2,'button');};
     $('zoomIn').onclick = () => buttonZoom(1.25); $('zoomOut').onclick = () => buttonZoom(.8);
-    $('detailDialog').addEventListener('close', () => { releaseOriginal(); readerVersion = ''; $('pictureA').removeAttribute('src'); notifyViewer(false); });
+    $('detailDialog').addEventListener('close', () => { ++detailRequest;cancelViewerTransition();releaseOriginal(); readerVersion = ''; $('pictureA').removeAttribute('src'); notifyViewer(false); });
     $('toggleInfo').onclick = () => setInfo(!$('detailDialog').classList.contains('with-info')); $('closeInfo').onclick = () => setInfo(false);
     $('viewerPrevious').onclick = guarded(() => {const item=viewerNeighbors().previous;if(item)return openDetail(item.id);});
     $('viewerNext').onclick = guarded(() => {const item=viewerNeighbors().next;if(item)return openDetail(item.id);});
     $('pictureFilmstrip').addEventListener('load',topPreview,true);
     $('pictureFilmstrip').onclick = guarded(async event => {const button=event.target.closest('[data-picture]');if(button)await openDetail(button.dataset.picture);});
     $('filmstripMode').onchange = renderViewerChrome;
-    $('toggleFilmstrip').onclick = () => { $('viewerFilmstrip').hidden = !$('viewerFilmstrip').hidden; $('toggleFilmstrip').setAttribute('aria-pressed',String(!$('viewerFilmstrip').hidden)); renderViewerChrome(); };
-    $('toggleCompare').onclick = () => { $('viewerAdvanced').hidden = !$('viewerAdvanced').hidden; if ($('viewerAdvanced').hidden) $('viewMode').value='single'; renderPicture(); };
+    $('toggleFilmstrip').onclick = () => { cancelViewerTransition();$('viewerFilmstrip').hidden = !$('viewerFilmstrip').hidden; $('toggleFilmstrip').setAttribute('aria-pressed',String(!$('viewerFilmstrip').hidden)); renderViewerChrome(); };
+    $('toggleCompare').onclick = () => {
+        cancelViewerTransition();
+        const isComparing = !$('viewerAdvanced').hidden && $('viewMode').value !== 'single';
+        if (isComparing) {
+            $('viewerAdvanced').hidden = true;
+            $('viewMode').value = 'single';
+        } else {
+            $('viewerAdvanced').hidden = false;
+            $('viewMode').value = 'side';
+            if (current?.versions?.length >= 2) {
+                $('versionA').value = current.versions[0].id;
+                $('versionB').value = current.versions[1].id;
+            }
+        }
+        renderPicture();
+    };
     $('uploadButton').onclick = $('emptyUpload').onclick = () => openUpload();
     $('files').onchange = () => chooseFiles($('files').files);
     $('uploadTarget').onchange = () => { $('seriesTitleField').hidden = !['new-series','new-album'].includes($('uploadTarget').value); };
@@ -690,7 +798,12 @@
     $('uploadDialog').addEventListener('cancel', event => { if (uploading) event.preventDefault(); });
     document.querySelectorAll('[data-close]').forEach(button => { button.onclick = () => { if (button.dataset.close === 'uploadDialog' && uploading) return; $(button.dataset.close).close(); }; });
     $('viewMode').onchange = $('versionA').onchange = $('versionB').onchange = $('opacity').oninput = () => { $('aiConfirm').checked = false; renderPicture(); };
-    $('versionList').onclick = event => { const button = event.target.closest('[data-version]'); if (button) { $('versionA').value = button.dataset.version; $('aiConfirm').checked = false; renderPicture(); } };
+    $('versionList').onclick = guarded(async event => {
+        const button=event.target.closest('[data-version]');if(!button||button.dataset.version===$('versionA').value)return;
+        const oldIndex=current.versions.findIndex(v=>v.id===$('versionA').value),index=current.versions.findIndex(v=>v.id===button.dataset.version);
+        const transition=$('viewMode').value==='single'?beginViewerTransition(Math.sign(index-oldIndex)||1):null;
+        $('versionA').value=button.dataset.version;$('aiConfirm').checked=false;renderPicture();await completeViewerTransition(transition);
+    });
     $('metaForm').addEventListener('submit', guarded(saveMeta));
     $('favorite').onclick = guarded(() => toggleFavorite(current.id));
     $('addVersion').onclick = () => openUpload(null, current);
@@ -727,5 +840,5 @@
     document.addEventListener('paste', event => { if (!canWrite || uploading || event.target.matches('input,textarea')) return; const files = Array.from(event.clipboardData?.files || []); if (files.length) { event.preventDefault(); if ($('uploadDialog').open) chooseFiles(files); else openUpload(files, $('detailDialog').open ? current : null); } });
     window.addEventListener('beforeunload', event => { if (uploading) { event.preventDefault(); event.returnValue = ''; } });
     applyTheme(); translate(); permissions(); notifyViewer(false);
-    (async () => { try { const [permissionsResult, categoryResult, albumResult] = await Promise.all([api('/capabilities'), api('/categories'), api('/albums')]); canWrite = permissionsResult.canWrite; categories = categoryResult; albums = albumResult; renderCategories(); permissions(); await loadList(); } catch (error) { $('error').textContent = error.message; $('error').hidden = false; } })();
+    (async () => { beginGalleryLoad(listRequest);try { const [permissionsResult, categoryResult, albumResult] = await Promise.all([api('/capabilities'), api('/categories'), api('/albums')]); canWrite = permissionsResult.canWrite; categories = categoryResult; albums = albumResult; renderCategories(); permissions(); await loadList(); } catch (error) { if(galleryLoad)endGalleryLoad(galleryLoad,true);$('error').textContent = error.message; $('error').hidden = false; } })();
 })();
