@@ -194,9 +194,20 @@ function isLauncherFile(indexPath) {
     }
 }
 
+async function updatePackage(slug, payload) {
+    const inspected = await appPackage.inspectArchive(archiveBuffer(payload));
+    const tenantId = tenant.getTenantId();
+    const assertedSlug = runtime.assertSlug(String(slug));
+    const { wasRunning } = await runtime.updateApp(assertedSlug, inspected);
+    runtime.savePackage(assertedSlug, archiveBuffer(payload), payload.archiveName);
+    if (wasRunning || runtime.readState(assertedSlug)?.desired === 'running') startInBackground(assertedSlug, tenantId);
+    const tool = await require('../custom-tools-repository').getTool(assertedSlug);
+    return { ...(tool || { slug: assertedSlug }), hostedApp: runtime.status(assertedSlug), updated: true, config: inspected.config };
+}
+
 async function removeIfHosted(slug) {
     if (!runtime.exists(slug)) return false;
     return runtime.removeApp(slug);
 }
 
-module.exports = { isPythonPayload, preview, importApp, launch, removeIfHosted, launcherHtml, isLauncherFile, packageForSource, ensureFromBundle, BUNDLED_PACKAGE, LAUNCHER_TAG };
+module.exports = { isPythonPayload, preview, importApp, updatePackage, launch, removeIfHosted, launcherHtml, isLauncherFile, packageForSource, ensureFromBundle, BUNDLED_PACKAGE, LAUNCHER_TAG };

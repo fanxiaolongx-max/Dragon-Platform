@@ -709,9 +709,10 @@ flowchart TD
   - 加密分块需要 HTTPS 或 localhost 的浏览器安全环境；导入请求数据上限为 50 MB（ZIP 文件原有 35 MB 限制仍适用）。服务重启后未完成的分块需重新上传；格式、权限等业务错误直接提示，不能通过拆分解决。
   - 数据导入页的 NetCare/DataFab 专题模拟浮窗也复用该传输机制：归档 JSON 请求达到 800,000 字节时直接加密分块，小请求先直接上传。浮窗底部保留进度和过程日志；合并后仍执行原有管理员权限、专题格式和 45 MB 快照上限校验，并按快照内容去重。专题上传会话与工具上传会话相互隔离，临时数据存于当前租户的 `tmp/encrypted-topic-imports/`。无结构化业务错误信息的网关 403 可回退分块，真实权限拒绝不会重试。
 - **图屿 · 图片与版本管理 (`/tools/picture-island`)**：
+  - 同一家餐厅的多页菜单可归入“相册”，已有图片支持批量归组，上传时也可直接建立相册；搜索餐厅名一起找到，详情支持上一张/下一张连续查看。每张图片仍独立保留历史版本。
   - 批量上传、拖拽或粘贴 PNG/JPEG/WebP；原图与缩略图、预览图一并保留。海报不同版本归入同一作品，支持并排和透明叠加对比。
-  - 按工作/生活、分类、收藏筛选；搜索覆盖标题、标签、备注及历史版本识别文字。AI 不可用时仍可手动分类、新建分类和保存图片。
-  - AI 复用当前租户的模型配置，按需发送单张 1024px 或 1536px 识别图；结果先作为建议展示，确认后保存。登录用户可浏览、下载和系统分享；管理员可上传、整理。完整说明见 [图屿使用说明](docs/picture-island.md)。
+  - 按工作/生活、分类、收藏筛选；搜索覆盖标题、标签、备注及历史版本识别文字。AI 不可用时仍可手动分类、新建分类和保存图片。主页优先展示图片，多选支持移入可恢复的回收站；工作图片即使归入相册也默认展示在“全部图片”，生活图片归入相册后从此列表移走。点击图片进入铺满浏览器内容区的查看器，默认收起信息表单，支持缩略图连续浏览和键盘切换。
+  - 上传默认启用 AI，复用当前租户的模型配置，使用 1024px 或 1536px 识别图自动补齐未手填的信息，判断相册/版本/独立保存；手动设置优先。自动判断版本时最多增加 2 张压缩参考图。登录用户可浏览、下载和系统分享；管理员可上传、整理。完整说明见 [图屿使用说明](docs/picture-island.md)。
 - **译维仓储管理 (`/tools/tool-mv9strpn`)**：
   - 货品、仓库、库存单据、扫码记录和资金账款统一保存到服务器独立 SQLite 文件 `ezscan-warehouse.db`，不写入平台 `tools.db` 或浏览器 localStorage。默认租户文件位于 `TOOLS_DATA_DIR/ezscan-warehouse.db`（未配置时为 `backend/data/ezscan-warehouse.db`）；命名租户位于 `TOOLS_DATA_DIR/tenants/<tenant-id>/ezscan-warehouse.db`。
   - 同一租户跨浏览器、跨设备读取同一份仓储数据；登录账号可查看，管理员可修改。保存状态在服务器确认后更新；其他窗口已保存新版本时会阻止旧版本覆盖，可先导出未保存内容再重新加载。
@@ -2010,3 +2011,5 @@ node --check frontend/js/home/workspace.js
 - [在线验收表](backend/builtin-tools/acceptance-checklist/README.md)、[NetCare RFC 扩展](backend/builtin-tools/f12-to-extension/NETCARE_RFC_WORD_README.md)、[薪资换汇扩展](extensions/overseas-salary-calculator/README.md)
 - [Dragon 桌宠图片](desktop-pet/assets/dragon/README.md)、[桌面 Agent 图标](frontend/assets/desktop-agents/README.md)、[WeLink SDK 集成](backend/vendor/@wecode/bridge-runtime-sdk/README.md)
 - [阿语音频](backend/builtin-tools/tool-mtakhxqm/audio/README.md)、[发音示意底图](backend/builtin-tools/tool-mtakhxqm/assets/articulation/README.md)、[会议工具图标许可](backend/builtin-tools/network_safety_meeting_summary/vendor/phosphor/README.md)
+
+图屿（Picture Island）为内置图库工具，附带 9 组、11 个版本的示例图片。安装包仅带约 426 KB 缩略图，原图按需从独立媒体仓库获取并校验，详见 [图屿使用说明](docs/picture-island.md)。

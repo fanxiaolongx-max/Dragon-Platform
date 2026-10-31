@@ -1,0 +1,531 @@
+{
+  "version": 1,
+  "baseUrl": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/gallery-examples-20261031-v1",
+  "albums": [
+    {
+      "id": "sample-album-1",
+      "name": "日料🇯🇵秘鲁菜"
+    },
+    {
+      "id": "sample-album-2",
+      "name": "网络安全宣传海报"
+    }
+  ],
+  "assets": {
+    "gallery-example-c18939d5d1e2af8f.png": {
+      "size": 866732,
+      "sha256": "c18939d5d1e2af8f2300578f41377868c48000db2bcb8054b108ab77d9c1a777",
+      "mime": "image/png",
+      "width": 1520,
+      "height": 7247,
+      "thumbnail": "c18939d5d1e2af8f.jpg",
+      "thumbnailSha256": "2ffebd78e21e93cc0547c863a17b68d674e9046e7ae1620d2cc8b9febdf9563f"
+    },
+    "gallery-example-99239806bb657378.png": {
+      "size": 1009732,
+      "sha256": "99239806bb6573781ab13d8f26f4b3f64c1770e1dbd298f868b5299f03cf4106",
+      "mime": "image/png",
+      "width": 1520,
+      "height": 7963,
+      "thumbnail": "99239806bb657378.jpg",
+      "thumbnailSha256": "00bd1d90133cf3f322a620c13e0fe38c4a17384482ea08f9ec28c08234eb217a"
+    },
+    "gallery-example-55c99221ecb8b334.png": {
+      "size": 1922947,
+      "sha256": "55c99221ecb8b3348eaed47cfbc6054d05b75acc481885b80240ed1fc5f7425b",
+      "mime": "image/png",
+      "width": 1086,
+      "height": 1448,
+      "thumbnail": "55c99221ecb8b334.jpg",
+      "thumbnailSha256": "600655126503847c5ed3b0349ae78ee1db59b0fa8e11c55caf44fd6b5d457232"
+    },
+    "gallery-example-ba71b73559b87a02.png": {
+      "size": 1939106,
+      "sha256": "ba71b73559b87a02ff6e5cdd8df510e6b0a6f8470aa2a3aaa1a78e37bfb9dc65",
+      "mime": "image/png",
+      "width": 1086,
+      "height": 1448,
+      "thumbnail": "ba71b73559b87a02.jpg",
+      "thumbnailSha256": "455cb0d5ffae030785fe95e90cc32aa410092411b7185a77096fe41b77be66c0"
+    },
+    "gallery-example-c7a047094aac111f.png": {
+      "size": 1947094,
+      "sha256": "c7a047094aac111fd44e2bc46ed7108870f69d3fe782afcf1a42626d0e90a011",
+      "mime": "image/png",
+      "width": 1086,
+      "height": 1448,
+      "thumbnail": "c7a047094aac111f.jpg",
+      "thumbnailSha256": "58bbbd5620d9b8bbe894b1c8c07b30ab751564a168c2f5002306c2ee11e8aa94"
+    },
+    "gallery-example-330bbf90d6ada65c.png": {
+      "size": 1978561,
+      "sha256": "330bbf90d6ada65c8f2abc113a1336a35da06c27534f5729d983d6dd3bf9cb16",
+      "mime": "image/png",
+      "width": 1086,
+      "height": 1448,
+      "thumbnail": "330bbf90d6ada65c.jpg",
+      "thumbnailSha256": "d3e9539067d45369a1044c99a4362c0a7edcc9be72ef2d85981b76336222c205"
+    },
+    "gallery-example-5ba81767a8d656fa.png": {
+      "size": 1924534,
+      "sha256": "5ba81767a8d656fa3c7e9add17cf7556e4271899bbd8abcb2452686f64f10abf",
+      "mime": "image/png",
+      "width": 1086,
+      "height": 1448,
+      "thumbnail": "5ba81767a8d656fa.jpg",
+      "thumbnailSha256": "2535b5c49ae8c20adaf3d5e1165f0e3732ae29182adacf0028afe6858c90d1c9"
+    },
+    "gallery-example-6fa77a5c10764b71.png": {
+      "size": 1964686,
+      "sha256": "6fa77a5c10764b71db5d8110a3488497741b6441d4c9336875678a94965715fa",
+      "mime": "image/png",
+      "width": 1086,
+      "height": 1448,
+      "thumbnail": "6fa77a5c10764b71.jpg",
+      "thumbnailSha256": "1d01940d2cf99acd59a41bf884356051614c6db11a107c5661f43d240d570d92"
+    },
+    "gallery-example-1b526d92bb08a229.png": {
+      "size": 1881604,
+      "sha256": "1b526d92bb08a2293dd44a1b374da76771bcf5d5d0fc2e6e6fd7db84bc31b5a1",
+      "mime": "image/png",
+      "width": 1086,
+      "height": 1448,
+      "thumbnail": "1b526d92bb08a229.jpg",
+      "thumbnailSha256": "9ddde6172afab518cab117ac31dc4e964c78f2089c412dc3ceca307f725d26d7"
+    },
+    "gallery-example-57ad0ef019774a1c.png": {
+      "size": 2076316,
+      "sha256": "57ad0ef019774a1c685f8833e519759d5ef75cae2d5f420971f470e553c0a67b",
+      "mime": "image/png",
+      "width": 1086,
+      "height": 1448,
+      "thumbnail": "57ad0ef019774a1c.jpg",
+      "thumbnailSha256": "d53a371e4435539419656c489d5bf7671da61d176301900a630f533e79e5f186"
+    },
+    "gallery-example-3c7a4149fa384dec.png": {
+      "size": 2078193,
+      "sha256": "3c7a4149fa384dec40802449a7d7c68e61a73cccb646e5640f5bd9f9f40b2640",
+      "mime": "image/png",
+      "width": 1086,
+      "height": 1448,
+      "thumbnail": "3c7a4149fa384dec.jpg",
+      "thumbnailSha256": "35c62574357787363e4d39aecb6efdcc388009b46496ee6f0a896fffc36f3215"
+    }
+  },
+  "items": [
+    {
+      "id": "sample-item-1",
+      "title": "菜单_上",
+      "scope": "life",
+      "categoryId": "menus",
+      "albumId": "sample-album-1",
+      "tags": [
+        "日秘料理",
+        "菜单",
+        "寿司",
+        "生鱼片",
+        "酸橘汁腌鱼",
+        "美食"
+      ],
+      "note": "一份日式与秘鲁风味融合的餐厅菜单，包含前菜沙拉、生鱼片、酸橘汁腌鱼、炙烤握寿司及寿司拼盘。",
+      "createdAt": "2026-10-30T21:44:08.085Z",
+      "versions": [
+        {
+          "id": "sample-version-c18939d5d1e2af8f",
+          "file": "gallery-example-c18939d5d1e2af8f.png",
+          "filename": "菜单_上.png",
+          "label": "菜单_上",
+          "aiMode": "precise",
+          "analysis": {
+            "title": "日秘料理融合菜单",
+            "summary": "日秘料理融合餐厅菜单，包含前菜沙拉、秘鲁生鱼片、酸橘汁腌鱼、炙烤握寿司及寿司分享拼盘。",
+            "text": "日秘料理（秘鲁×日本融合菜单）。前菜沙拉：日秘藜麦沙拉、蟹柳鲜虾沙拉、金枪鱼粉丝沙拉。秘鲁生鱼片：三文鱼、炙烤金枪鱼、卡亚俄生鱼片。酸橘汁腌鱼：蓬塔卡纳、招牌金枪鱼、松露三文鱼、龙虾、卡亚俄、三重奏。炙烤握寿司：炉鱼、炙烤三文鱼、金枪鱼、金枪鱼肝、安格斯牛肉。寿司分享拼盘：三穗（22贯）、宝珠（33贯）、若宫（44贯）。",
+            "tags": [
+              "日秘料理",
+              "融合菜",
+              "菜单",
+              "寿司",
+              "刺身"
+            ],
+            "scope": "life",
+            "categoryId": "menus",
+            "suggestedCategory": "餐厅菜单",
+            "versionLabel": ""
+          }
+        }
+      ]
+    },
+    {
+      "id": "sample-item-2",
+      "title": "菜单_下",
+      "scope": "life",
+      "categoryId": "menus",
+      "albumId": "sample-album-1",
+      "tags": [
+        "秘鲁菜",
+        "寿司卷",
+        "炭烤串",
+        "主菜",
+        "甜品",
+        "菜单"
+      ],
+      "note": "一份包含寿司卷、秘鲁炭烤串、主菜、招牌菜、特色配菜及甜品的餐厅菜单。",
+      "createdAt": "2026-10-30T21:44:14.394Z",
+      "versions": [
+        {
+          "id": "sample-version-99239806bb657378",
+          "file": "gallery-example-99239806bb657378.png",
+          "filename": "菜单_下.png",
+          "label": "菜单_下",
+          "aiMode": "balanced",
+          "analysis": {
+            "title": "秘鲁风味餐厅菜单",
+            "summary": "一份包含寿司卷、秘鲁炭烤串、主菜、招牌菜、特色配菜及甜品的餐厅菜单。",
+            "text": "寿司卷：秘鲁黄辣椒卷、招牌炉鱼卷、三文鱼卷、烧汁风味卷、炙烤黄金鲑鱼卷、秘鲁炒牛柳卷。秘鲁炭烤串：鸡肉串、安格斯牛柳串、炉鱼串。主菜：秘鲁炒牛柳、照烧三文鱼、安格斯牛排、经典夏多布里昂、智利海鲈。招牌菜：日式牛肉炒饭、秘鲁海鲜饭、慢炖安格斯牛肋。特色配菜：白米饭、时令蔬菜、烤芦笋、熏土豆泥、有机土豆角。甜品：香料布丁、椰奶西米露、秘鲁夹心饼、三奶蛋糕、金色巧克力火山。",
+            "tags": [
+              "秘鲁菜",
+              "寿司卷",
+              "炭烤串",
+              "主菜",
+              "甜品",
+              "菜单"
+            ],
+            "scope": "life",
+            "categoryId": "menus",
+            "suggestedCategory": "餐厅菜单"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sample-item-3",
+      "title": "夏令时保障",
+      "scope": "work",
+      "categoryId": "posters",
+      "albumId": "",
+      "tags": [
+        "华为",
+        "沃达丰",
+        "网络支持",
+        "夏令时",
+        "埃及",
+        "运维"
+      ],
+      "note": "华为为沃达丰埃及提供的夏令时结束网络时间调整支持方案，包含现场支持、运维准备及监控措施。",
+      "createdAt": "2026-10-30T21:49:53.155Z",
+      "versions": [
+        {
+          "id": "sample-version-55c99221ecb8b334",
+          "file": "gallery-example-55c99221ecb8b334.png",
+          "filename": "埃及时间回拨网络支持.png",
+          "label": "埃及时间回拨网络支持",
+          "aiMode": "balanced",
+          "analysis": {
+            "title": "华为埃及沃达丰网络时间调整支持",
+            "summary": "华为为埃及沃达丰提供的夏令时结束网络时间调整支持方案，包含现场支持、运营准备及监控计划。",
+            "text": "HUAWEI FOR VODAFONE EGYPT. EGYPT TIME CHANGE NETWORK SUPPORT. DAYLIGHT SAVING TIME ENDS. THURSDAY NIGHT CLOCKS BACK 1 HOUR. Our team is ready to support a smooth time change. ONSITE SUPPORT: Customer Support will be onsite. OPERATIONAL READINESS: Support resources are prepared. POST-CHANGE MONITORING: Continuous network monitoring. ON-DUTY TEAM & CONTACTS: Onsite Support Team, On-Call Support Team, Escalation Contact. Egypt Network Assurance & O&M Dept.",
+            "tags": [
+              "华为",
+              "沃达丰",
+              "网络支持",
+              "夏令时",
+              "埃及",
+              "运维"
+            ],
+            "scope": "work",
+            "categoryId": "posters",
+            "suggestedCategory": "工作海报"
+          }
+        },
+        {
+          "id": "sample-version-ba71b73559b87a02",
+          "file": "gallery-example-ba71b73559b87a02.png",
+          "filename": "周四夜晚，时钟回拨一小时.png",
+          "label": "周四夜晚，时钟回拨一小时",
+          "aiMode": "balanced",
+          "analysis": {
+            "title": "沃达丰埃及夏令时结束网络支持",
+            "summary": "华为为沃达丰埃及提供的夏令时结束网络保障支持海报，包含现场支持、运维准备及监控计划。",
+            "text": "华为与沃达丰埃及：埃及夏令时结束网络支持。周四晚时钟拨回1小时（24:00至23:00）。支持内容：现场支持、运维准备、变更后监控。包含值班团队及联系方式。",
+            "tags": [
+              "华为",
+              "沃达丰",
+              "网络支持",
+              "夏令时",
+              "埃及",
+              "运维"
+            ],
+            "scope": "work",
+            "categoryId": "posters",
+            "suggestedCategory": "工作海报"
+          }
+        },
+        {
+          "id": "sample-version-c7a047094aac111f",
+          "file": "gallery-example-c7a047094aac111f.png",
+          "filename": "午夜银色时钟与开罗夜景.png",
+          "label": "午夜银色时钟与开罗夜景",
+          "aiMode": "balanced",
+          "analysis": {
+            "title": "华为与沃达丰埃及网络时间调整支持",
+            "summary": "华为为沃达丰埃及提供的夏令时结束网络时间调整支持方案，包含现场支持、运维准备及监控措施。",
+            "text": "华为与沃达丰埃及：埃及时间调整网络支持。夏令时结束，周四晚时钟拨回1小时（24:00至23:00）。支持措施：现场支持、运维准备、变更后监控。包含值班团队及联系方式，确保网络服务平稳运行。",
+            "tags": [
+              "华为",
+              "沃达丰",
+              "网络支持",
+              "夏令时",
+              "埃及",
+              "运维"
+            ],
+            "scope": "work",
+            "categoryId": "posters",
+            "suggestedCategory": "工作海报"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sample-item-4",
+      "title": "10分钟网络事件上报流程图",
+      "scope": "work",
+      "categoryId": "posters",
+      "albumId": "sample-album-2",
+      "tags": [
+        "华为",
+        "网络安全",
+        "故障上报",
+        "流程规范",
+        "埃及办公室"
+      ],
+      "note": "华为埃及办公室关于重大网络故障需在10分钟内上报的流程指引海报。",
+      "createdAt": "2026-10-30T21:51:11.686Z",
+      "versions": [
+        {
+          "id": "sample-version-330bbf90d6ada65c",
+          "file": "gallery-example-330bbf90d6ada65c.png",
+          "filename": "10分钟网络事件上报流程图.png",
+          "label": "网络安全日",
+          "aiMode": "balanced",
+          "analysis": {
+            "title": "华为埃及办公室网络安全故障上报流程",
+            "summary": "华为埃及办公室关于重大网络故障需在10分钟内上报的流程指引海报。",
+            "text": "防风险、除隐患、守住网络稳定运行生命线！重大网络故障需在10分钟内上报。上报路径：FSE/CSE/BO/TL -> PD/SPM/NOC Manager/NPO/TD -> CSM -> AMS/FR/D&S VP/AR。SPM需立即通知管理组，并根据严重程度升级。",
+            "tags": [
+              "华为",
+              "网络安全",
+              "故障上报",
+              "流程规范",
+              "埃及办公室"
+            ],
+            "scope": "work",
+            "categoryId": "posters",
+            "suggestedCategory": "工作海报"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sample-item-5",
+      "title": "网络安全三项选择海报",
+      "scope": "work",
+      "categoryId": "posters",
+      "albumId": "sample-album-2",
+      "tags": [
+        "华为",
+        "网络安全",
+        "运维规范",
+        "1-3-1要求",
+        "埃及办公室"
+      ],
+      "note": "华为埃及办公室发布的网络安全运维规范，强调操作需遵循1-3-1原则：即1个工单、3项正确选择及1项技术审批。",
+      "createdAt": "2026-10-30T21:51:16.239Z",
+      "versions": [
+        {
+          "id": "sample-version-5ba81767a8d656fa",
+          "file": "gallery-example-5ba81767a8d656fa.png",
+          "filename": "网络安全三项选择海报.png",
+          "label": "网络安全日",
+          "aiMode": "balanced",
+          "analysis": {
+            "title": "华为埃及办公室网络安全1-3-1要求",
+            "summary": "华为埃及办公室发布的网络安全运维规范，强调操作需遵循1-3-1原则：即1个工单、3项正确选择及1项技术审批。",
+            "text": "1-3-1 REQUIREMENTS：1. ONE TICKET（必须有有效工单：RFC/WFM或QR）；2. THREE CORRECT SELECTIONS（产品+场景+网络环境）；3. ONE TECHNICAL APPROVAL（技术审批人核实后批准）。Network Safety Lifeline: 100-1=0。",
+            "tags": [
+              "华为",
+              "网络安全",
+              "运维规范",
+              "1-3-1要求",
+              "埃及办公室"
+            ],
+            "scope": "work",
+            "categoryId": "posters",
+            "suggestedCategory": "工作规范"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sample-item-6",
+      "title": "网络安全高风险操作拦截流程",
+      "scope": "work",
+      "categoryId": "posters",
+      "albumId": "sample-album-2",
+      "tags": [
+        "华为",
+        "网络安全",
+        "操作规范",
+        "安全意识",
+        "IT运维"
+      ],
+      "note": "华为埃及办公室发布的网络安全海报，强调高风险操作的拦截流程：停止、检查、报告。",
+      "createdAt": "2026-10-30T21:51:20.084Z",
+      "versions": [
+        {
+          "id": "sample-version-6fa77a5c10764b71",
+          "file": "gallery-example-6fa77a5c10764b71.png",
+          "filename": "网络安全高风险操作拦截流程.png",
+          "label": "网络安全日",
+          "aiMode": "balanced",
+          "analysis": {
+            "title": "华为埃及办公室网络安全操作指南",
+            "summary": "华为埃及办公室发布的网络安全海报，强调高风险操作的拦截流程：停止、检查、报告。",
+            "text": "防风险、除隐患、守住网络稳定运行生命线！INTERCEPT HIGH-RISK OPERATIONS。流程：STOP（拦截高风险命令或操作）、CHECK（核对WFM工单）、REPORT（向TD或TL报告异常）。Network Safety Lifeline 100-1=0。Egypt Network Assurance & O&M Dept。",
+            "tags": [
+              "华为",
+              "网络安全",
+              "操作规范",
+              "安全意识",
+              "IT运维"
+            ],
+            "scope": "work",
+            "categoryId": "posters",
+            "suggestedCategory": "工作海报"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sample-item-7",
+      "title": "网络安全与MOP质量海报",
+      "scope": "work",
+      "categoryId": "posters",
+      "albumId": "sample-album-2",
+      "tags": [
+        "MOP",
+        "网络安全",
+        "操作规范",
+        "华为",
+        "流程管理"
+      ],
+      "note": "华为埃及办公室发布的网络操作规范海报，强调MOP流程的制定、审核、执行及验证，确保网络安全。",
+      "createdAt": "2026-10-30T21:51:24.359Z",
+      "versions": [
+        {
+          "id": "sample-version-1b526d92bb08a229",
+          "file": "gallery-example-1b526d92bb08a229.png",
+          "filename": "网络安全与MOP质量海报.png",
+          "label": "网络安全日",
+          "aiMode": "balanced",
+          "analysis": {
+            "title": "MOP操作质量规范海报",
+            "summary": "华为埃及办公室发布的网络操作规范海报，强调MOP流程的制定、审核、执行及验证，确保网络安全。",
+            "text": "MOP QUALITY MATTERS. 1. Develop a complete MOP. 2. Review and approve before operation. 3. Follow the approved MOP. 4. Verify results and report abnormalities. Pre-operation Checklist: Correct ticket selected. Every modification operation has a WFM ticket. Network Safety Lifeline: 100-1=0.",
+            "tags": [
+              "MOP",
+              "网络安全",
+              "操作规范",
+              "华为",
+              "流程管理"
+            ],
+            "scope": "work",
+            "categoryId": "posters",
+            "suggestedCategory": "工作海报"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sample-item-8",
+      "title": "网络变更三道防线海报",
+      "scope": "work",
+      "categoryId": "posters",
+      "albumId": "sample-album-2",
+      "tags": [
+        "网络安全",
+        "运维规范",
+        "华为",
+        "流程管理",
+        "安全防线"
+      ],
+      "note": "华为埃及办公室发布的网络变更安全指南，强调人员、流程、平台三道防线，确保运维操作的稳定与安全。",
+      "createdAt": "2026-10-30T21:51:28.603Z",
+      "versions": [
+        {
+          "id": "sample-version-57ad0ef019774a1c",
+          "file": "gallery-example-57ad0ef019774a1c.png",
+          "filename": "网络变更三道防线海报.png",
+          "label": "网络安全日",
+          "aiMode": "balanced",
+          "analysis": {
+            "title": "网络变更三道防线安全指南",
+            "summary": "华为埃及办公室发布的网络变更安全指南，强调人员、流程、平台三道防线，确保运维操作的稳定与安全。",
+            "text": "NETWORK CHANGE THREE LINES OF DEFENSE: People, Process, Platform. 1. BEFORE OPERATION: Verify FME qualifications, Review MOP quality, Obtain approvals. 2. DURING OPERATION: Operate within authorization, No high-risk commands, Intercept abnormalities. 3. AFTER OPERATION: Compare services, Observe traffic peaks, Audit logs. Network Safety Lifeline: 100-1=0.",
+            "tags": [
+              "网络安全",
+              "运维规范",
+              "华为",
+              "流程管理",
+              "安全防线"
+            ],
+            "scope": "work",
+            "categoryId": "posters",
+            "suggestedCategory": "工作海报"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sample-item-9",
+      "title": "网络安全授权七要素海报",
+      "scope": "work",
+      "categoryId": "posters",
+      "albumId": "sample-album-2",
+      "tags": [
+        "华为",
+        "网络安全",
+        "操作规范",
+        "埃及办公室",
+        "合规",
+        "MOP"
+      ],
+      "note": "华为埃及办公室发布的网络安全操作规范海报，强调遵循授权计划、MOP流程及合规操作要求。",
+      "createdAt": "2026-10-30T21:51:32.636Z",
+      "versions": [
+        {
+          "id": "sample-version-3c7a4149fa384dec",
+          "file": "gallery-example-3c7a4149fa384dec.png",
+          "filename": "网络安全授权七要素海报.png",
+          "label": "网络安全日",
+          "aiMode": "balanced",
+          "analysis": {
+            "title": "华为埃及办公室网络安全规范海报",
+            "summary": "华为埃及办公室发布的网络安全操作规范海报，强调遵循授权计划、MOP流程及合规操作要求。",
+            "text": "FOLLOW THE AUTHORIZED PLAN。1. Operate only within the approved authorization and scope. 2. Follow the approved MOP and verify each step. 3. Report any abnormality immediately. 4. Operate only within the approved maintenance window. 5. Do not add or change approved steps without re-approval. 6. Daytime operations require prior approval via FR/BU -> VP. 7. Authorization must cover all 7 required elements。Network Safety Lifeline: 100-1=0。Egypt Network Assurance & O&M Dept。",
+            "tags": [
+              "华为",
+              "网络安全",
+              "操作规范",
+              "埃及办公室",
+              "合规",
+              "MOP"
+            ],
+            "scope": "work",
+            "categoryId": "posters",
+            "suggestedCategory": "工作海报"
+          }
+        }
+      ]
+    }
+  ]
+}

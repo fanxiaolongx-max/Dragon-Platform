@@ -57,3 +57,14 @@ test('plain text and existing Python, JavaScript and SQL highlighting preserve s
         ['sql', 'SELECT id, name FROM users WHERE id = 1']
     ]) assertSourcePreserved(source, lang);
 });
+
+test('CSS numbers never skip preceding whitespace, comments or identifiers in HTML style blocks', () => {
+    const css = '\n/* 顶栏与浮窗 */\n:root { --navbar-h:0px; --font:"Segoe UI"; }\nbody { margin: 12px; color: #a5d6ff; transition: opacity 200ms; }\n';
+    const rendered = assertSourcePreserved(css, 'css');
+    assert.ok(rendered.includes('<span class="tok-number">12px</span>'));
+    assert.ok(rendered.includes('<span class="tok-number">#a5d6ff</span>'));
+    assert.ok(rendered.includes('<span class="tok-comment">/* 顶栏与浮窗 */</span>'));
+    const html = '<!doctype html>\n<style>' + css + '</style>\n<script>\nconst value = 2;\n</script>\n';
+    const mixed = assertSourcePreserved(html);
+    assert.ok(mixed.includes('<span class="tok-keyword">const</span>'));
+});

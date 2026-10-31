@@ -31,7 +31,7 @@
     };
     const GROUP_COLORS = ['#38bdf8', '#34d399', '#a78bfa', '#f59e0b', '#f472b6', '#22d3ee', '#fb7185', '#a3e635', '#818cf8', '#fbbf24'];
     const STAR_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.9l1.8 3.7 4 .6-2.9 2.8.7 4L8 11.1 4.4 13l.7-4L2.2 6.2l4-.6z" fill="none" stroke="currentColor" stroke-width="1.35" stroke-linejoin="round"/></svg>';
-    const RECENT_LIMIT = 8;
+    const RECENT_LIMIT = 6;
     const GROUP_ORDER_BASE = 1000; // 0–999 留给顶部的最近使用 / 收藏快捷区
     const CARD_SELECTOR = ':scope > a.tool-card:not(.is-shortcut)';
     const CLOCK_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 4.6V8l2.3 1.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';

@@ -213,3 +213,36 @@ test('opening an app whose install never started (fresh built-in bootstrap or in
         }
     });
 });
+
+test('service.updatePackage updates app code, preserves state/env, and records package', async () => {
+    await tenant.runWithTenant('default', async () => {
+        const slug = 'test-update-pkg';
+        const v1Zip = await zipOf({
+            'requirements.txt': 'fastapi\n',
+            'main.py': 'from fastapi import FastAPI\napp = FastAPI()\n',
+            'platform-app.json': JSON.stringify({ name: 'Test App', version: '1.0.0', entry: 'main:app' })
+        });
+        const inspected1 = await appPackage.inspectArchive(v1Zip);
+        runtime.createApp(slug, inspected1, { name: 'Test App' });
+        runtime.savePackage(slug, v1Zip, 'test-app-v1.zip');
+        const state1 = runtime.readState(slug);
+        assert.equal(state1.version, '1.0.0');
+
+        const v2Zip = await zipOf({
+            'requirements.txt': 'fastapi\nuvicorn\n',
+            'main.py': 'from fastapi import FastAPI\napp = FastAPI()\n# updated v2\n',
+            'platform-app.json': JSON.stringify({ name: 'Test App', version: '1.1.0', entry: 'main:app' })
+        });
+        const result = await service.updatePackage(slug, {
+            archiveBase64: v2Zip.toString('base64'),
+            archiveName: 'test-app-v2.zip'
+        });
+        assert.equal(result.updated, true);
+        const state2 = runtime.readState(slug);
+        assert.equal(state2.version, '1.1.0');
+        assert.equal(state2.uuid, state1.uuid);
+        assert.equal(state2.secret, state1.secret);
+        assert.match(fs.readFileSync(path.join(runtime.paths(slug).code, 'main.py'), 'utf8'), /updated v2/);
+        await runtime.removeApp(slug);
+    });
+});

@@ -16,7 +16,7 @@ async function create(slug) {
     const app = { slug, uuid: state.uuid, tenantId: tenant.getTenantId() };
     const listed = await data.listDatasources(app);
     const sources = listed.map(item => ({ source: item.id === 'app' ? 'app' : item.name, type: item.type, readonly: true }));
-    const business = state.env?.BUSINESS_DATASOURCE_NAME || state.businessDatasource || data.datasourceNames().netcareName || 'platform:report.db';
+    const business = state.env?.BUSINESS_DATASOURCE_NAME || state.businessDatasource || data.datasourceNames().netcareName || (state.databaseContract === 'digital-human' ? 'netcare' : 'platform:report.db');
     const resolve = source => {
         const name = source === 'netcare' ? business : String(source || '');
         if (!sources.some(item => item.source === name)) throw invalid('数据源不可用，请先调用 adc_sources');

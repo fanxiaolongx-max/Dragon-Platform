@@ -114,6 +114,7 @@ async function inspectArchive(archive) {
     const versionFile = files.find(([name]) => /^[^/]+\.version$/i.test(name));
     const healthPath = String(manifest.healthPath || '/');
     if (!/^\/[\w\-./]*$/.test(healthPath)) throw fail('healthPath 必须是以 / 开头的路径');
+    if (manifest.databaseContract !== undefined && !['platform', 'digital-human'].includes(manifest.databaseContract)) throw fail('databaseContract 只支持 platform 或 digital-human');
     const requirements = read('requirements.txt');
     const wheels = files.filter(([name]) => /^wheels\/[^/]+\.(?:whl|tar\.gz|zip)$/i.test(name)).map(([name]) => name);
     return {
@@ -126,6 +127,7 @@ async function inspectArchive(archive) {
             factory: manifest.factory === undefined ? Boolean(detected?.factory) : manifest.factory === true,
             interface: iface,
             healthPath,
+            ...(manifest.databaseContract ? { databaseContract: manifest.databaseContract } : {}),
             description: String(manifest.description || '').slice(0, 1000)
         },
         requirementsHash: crypto.createHash('sha256').update(requirements).update(wheels.join('\n')).digest('hex'),

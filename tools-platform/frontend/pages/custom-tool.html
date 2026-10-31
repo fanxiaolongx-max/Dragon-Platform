@@ -127,6 +127,9 @@
         }
         .custom-tool-host { position: relative; min-height: 0; background: #fff; }
         .custom-tool-frame[hidden] { display: none; }
+        body.gallery-viewer-open { overflow: hidden; }
+        .gallery-viewer-open .custom-tool-head { display: none; }
+        .gallery-viewer-open .custom-tool-frame { position: fixed; inset: 0; width: 100vw; height: 100dvh; z-index: 2147483000; }
         .custom-tool-loader { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 24px; background: #eef3f8; }
         .custom-tool-loader[hidden] { display: none; }
         .custom-tool-loader-card { width: min(480px, 86vw); padding: 20px; border: 1px solid #d7e1ec; border-radius: 14px; background: #fff; box-shadow: 0 18px 48px rgba(42, 63, 86, .12); }
@@ -198,6 +201,7 @@
     </div>
 
     <script src="/js/shared/api.js"></script>
+    <script src="/js/shared/gallery-viewer-host.js"></script>
     <script src="/js/shared/toast.js"></script>
     <script src="/js/shared/platform-logo-upload.js"></script>
     <script src="/js/shared/navbar.js"></script>
@@ -306,6 +310,7 @@
                     : 'autoplay; fullscreen; microphone; display-capture';
                 const frame = document.createElement('iframe');
                 frame.className = 'custom-tool-frame';
+                frame.dataset.toolSlug = tool.slug;
                 const cleanFilePath = tool.filePath || '';
                 // 外层地址的参数（如首页「插件与脚本」入口带的 ?script=）透传给工具页，便于直达具体脚本
                 const frameUrl = new URL(cleanFilePath, location.origin);

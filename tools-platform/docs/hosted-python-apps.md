@@ -65,9 +65,22 @@ my_app/                     # ZIP 里可以有一层顶级目录
 
 `{base}` 是 `BASE_QUERY_URL` 去掉末尾的 `/query`。每次最多返回 1000 行，单次结果不超过 16 MB，单条语句执行超过 15 秒会被中止，每个应用每秒约 20 次请求。
 
-- **应用库**：每个应用独立的 SQLite（约 1 GB 上限），可以建表。注意方言：原基座应用库是 MySQL，迁移时建表和 SQL 需改成 SQLite 写法；建表脚本放在 `db/init.sqlite.sql`，首次启动时执行，内容变化后才再次执行。
+- **应用库**：每个应用独立的 SQLite（约 1 GB 上限）。默认模式在首次启动时执行 `db/init.sqlite.sql`，内容变化后再执行；基座契约模式由管理员显式部署，运行期禁止 DDL，见下文。
 - **平台库**：只读连接，只接受单条 SELECT / WITH 语句。执行前用 SQLite `EXPLAIN` 核对实际读取的表和列：账号、会话、租户、凭据、智能体内部状态等表（包括经视图、子查询间接读取），以及名称含 password、token、secret、api_key 等的列，一律拒绝。读取包含敏感列的表时请列出需要的列，不要用 `*`。聊天记录库不开放。
 - **NetCare 业务库**：沿用平台数字人基座的只读校验，只能执行查询语句。
+
+## 基座数据库契约（AiOps-Report）
+
+应用包的 `platform-app.json` 可声明 `"databaseContract": "digital-human"`。未声明的旧应用保留原模式；AiOps-Report 1.4.3 的平台导入包启用此契约，需先更新平台代码再导入。宿主注入 `PLATFORM_APP_DATABASE_CONTRACT`，新版 AiOps 拒绝在未启用契约的旧宿主上冒充基座模拟。
+
+- 导入、更新、启动、重启和业务请求都不自动补表。管理员在右上角运维菜单选择「初始化应用表」或「升级应用表」，预览并确认 `db/init.sqlite.sql` / `db/upgrade.sqlite.sql`。脚本哈希变化后须重新确认；同一脚本重复部署会跳过。事务失败回滚，只作用于当前租户、当前应用数据库。部署 API 的预览和执行均要求管理员。
+- 运行期 `/execute` 只允许单条 INSERT / UPDATE / DELETE，UPDATE / DELETE 必须有外层 WHERE。DDL、REPLACE、CTE 写入均拒绝；不返回 `lastInsertId`，应用按业务键反查。查询接口也拒绝隐藏在 WITH 中的写入。
+- 应用表走 `datasourceId + schema`；业务表只读，走已配置 NetCare 基座的 `datasourceName`。严格模式不把未配置的 NetCare 自动替换为平台 `report.db`，也不开放 `platform:*` 作为替代数据源。身份与限流失败保留 HTTP 错误；业务 SQL 失败用非零 `code` 表达。
+- 本次对齐数据库相关红线（需求 #142 第 1/2/3/6/7/8/9/12 条）。月报主页和页内开发者弹窗遵从用户后续产品要求。平台仍使用 SQLite 与单进程宿主，不代表复刻 MySQL 引擎、基座网关、身份注入或多进程行为；真实基座需另行验收。
+
+基座侧由 DBA 在基座分配的应用 `APP_SCHEMA` 中执行 MySQL `db/init.sql` / `db/upgrade.sql`；不会通过业务 API 执行建表，也未引入未经证实的 init/update 导包钩子。AiOps 的 AIR 文档、格子、提示词复用 `t_report_template`、`t_report_block`、`t_report_config`，没有新增 AIR 请求表。
+
+新增接口：`GET /api/hosted-apps/:slug/database-script?kind=init|upgrade` 预览；`POST` 同路径提交 `{kind,hash}` 执行。请使用管理员界面审阅脚本后操作。
 
 ## 安全边界
 

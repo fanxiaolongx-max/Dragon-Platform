@@ -27,6 +27,22 @@ router.post('/preview', requireAdmin, async (req, res) => {
     } catch (error) { send(res, error, '识别应用包失败'); }
 });
 
+router.post('/:slug/preview', requireAdmin, async (req, res) => {
+    req.suppressBodyLog = true;
+    try {
+        res.json({ success: true, app: await service.preview(req.body || {}) });
+    } catch (error) { send(res, error, '识别应用包失败'); }
+});
+
+router.post('/:slug/package', requireAdmin, async (req, res) => {
+    req.suppressBodyLog = true;
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const result = await service.updatePackage(req.params.slug, req.body || {});
+        res.json({ success: true, ...result });
+    } catch (error) { send(res, error, '更新应用包失败'); }
+});
+
 router.get('/:slug/launch', async (req, res) => {
     try {
         const result = await service.launch(req.params.slug, req.user);
@@ -43,14 +59,25 @@ router.get('/:slug/status', requireAdmin, (req, res) => {
     } catch (error) { send(res, error, '读取状态失败'); }
 });
 
+router.get('/:slug/database-script', requireAdmin, (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try { res.json({ success: true, script: require('../models/hosted-apps/schema-deployment').inspect(req.params.slug, req.query.kind) }); }
+    catch (error) { send(res, error, '读取数据库部署脚本失败'); }
+});
+router.post('/:slug/database-script', requireAdmin, async (req, res) => {
+    req.suppressBodyLog = true;
+    try { res.json({ success: true, deployment: await require('../models/hosted-apps/schema-deployment').apply(req.params.slug, req.body?.kind, req.body?.hash) }); }
+    catch (error) { send(res, error, '执行数据库部署脚本失败'); }
+});
+
 router.get('/:slug/config', requireAdmin, async (req, res) => {
     try {
         const state = runtime.readState(req.params.slug);
         if (!state) return res.status(404).json({ error: '应用不存在' });
         const dataApi = require('../models/hosted-apps/data-api');
-        const datasources = await dataApi.listDatasources({ uuid: state.uuid });
+        const datasources = await dataApi.listDatasources({ uuid: state.uuid, slug: req.params.slug, tenantId: require('../models/tenant-context').getTenantId() });
         const { netcareName } = dataApi.datasourceNames();
-        const businessDatasource = state.businessDatasource || netcareName || 'platform:report.db';
+        const businessDatasource = state.businessDatasource || netcareName || (state.databaseContract === 'digital-human' ? 'netcare' : 'platform:report.db');
         res.json({
             success: true,
             slug: req.params.slug,

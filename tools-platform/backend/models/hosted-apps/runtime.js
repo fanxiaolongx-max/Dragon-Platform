@@ -252,11 +252,11 @@ function baseEnv(slug, extra = {}, { withProxy = false } = {}) {
     return { ...env, ...extra };
 }
 
-function appEnv(slug, state, port) {
+function appEnv(slug, state, port, tenantNetcareName) {
     const platformPort = process.env.PORT || '3030';
     const base = `http://127.0.0.1:${platformPort}/hosted-api/${state.dataToken}/dh`;
-    const { netcareName } = require('./data-api').datasourceNames();
-    const defaultBiz = netcareName || 'platform:report.db';
+    const netcareName = tenantNetcareName === undefined ? require('./data-api').datasourceNames().netcareName : tenantNetcareName;
+    const defaultBiz = netcareName || (state.databaseContract === 'digital-human' ? 'netcare' : 'platform:report.db');
     const businessName = state.businessDatasource || defaultBiz;
     return baseEnv(slug, {
         PORT: String(port), HOST: '127.0.0.1', RELOAD: 'false', WORKERS: '1', DEBUG: 'false',
@@ -266,7 +266,8 @@ function appEnv(slug, state, port) {
         BUSINESS_DATASOURCE_NAME: businessName, HTTP_VERIFY_SSL: 'false',
         PLATFORM_APP_SLUG: slug, PLATFORM_APP_SECRET: state.secret, PLATFORM_DATA_API: base,
         PLATFORM_APP_ENTRY: state.entry, PLATFORM_APP_FACTORY: state.factory ? '1' : '0', PLATFORM_APP_INTERFACE: state.interface,
-        ...(state.env || {})
+        ...(state.env || {}),
+        PLATFORM_APP_DATABASE_CONTRACT: state.databaseContract || 'platform'
     });
 }
 
@@ -446,7 +447,9 @@ function transpileMysqlToSqlite(sql) {
 }
 
 // 原基座由 DBA 手工建表；平台上应用包可带 db/init.sqlite.sql（或 MySQL init.sql 自动转译），首次启动（或脚本变化）时在应用库执行一次
-async function applyInitSql(rt, state) {
+async function applyStartupSql(rt, state) {
+    // 基座契约下建表属于管理员部署动作，启动/业务请求不得自动补表。
+    if (state.databaseContract === 'digital-human') return state;
     const codeDir = paths(rt.slug, rt.tenantId).code;
     const candidates = [
         path.join(codeDir, 'db', 'init.sqlite.sql'),
@@ -480,8 +483,8 @@ async function launch(rt, initial) {
     const p = paths(rt.slug, rt.tenantId);
     // 每次启动都写入当前版本的宿主模块，平台升级后已安装的应用也能用上修复
     fs.writeFileSync(path.join(p.code, `${HOST_MODULE}.py`), HOST_SOURCE);
-    const state = await applyInitSql(rt, initial);
-    await require('./data-api').refreshNetcareName();
+    const state = await applyStartupSql(rt, initial);
+    const tenantNetcareName = await require('./data-api').refreshNetcareName();
     const port = await freePort();
     rt.status = 'starting';
     rt.stopping = false;
@@ -489,7 +492,7 @@ async function launch(rt, initial) {
     const args = ['-m', 'uvicorn', `${HOST_MODULE}:app`, '--host', '127.0.0.1', '--port', String(port), '--workers', '1',
         '--no-server-header', '--timeout-graceful-shutdown', '5', '--log-level', 'info'];
     log(rt, `启动应用：127.0.0.1:${port}（入口 ${state.entry}${state.factory ? '，工厂函数' : ''}，${state.interface.toUpperCase()}）`);
-    const child = spawn(venvPython(p.venv), args, { cwd: p.code, env: tenant.runWithTenant(rt.tenantId, () => appEnv(rt.slug, state, port)),
+    const child = spawn(venvPython(p.venv), args, { cwd: p.code, env: tenant.runWithTenant(rt.tenantId, () => appEnv(rt.slug, state, port, tenantNetcareName)),
         stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true, detached: process.platform !== 'win32' });
     rt.child = child;
     rt.startedAt = Date.now();
@@ -584,7 +587,7 @@ function status(slug) {
     const live = rt.child ? rt.status : ['installing', 'install_failed'].includes(rt.status) ? rt.status
         : state.status === 'running' || state.status === 'starting' ? 'stopped' : state.status;
     return { slug, name: state.name, packageName: state.packageName, version: state.version, entry: state.entry, interface: state.interface, factory: state.factory,
-        healthPath: state.healthPath, status: rt.busy && !rt.child && live !== 'installing' ? 'starting' : live, port: rt.port, pid: rt.child?.pid || null,
+        healthPath: state.healthPath, databaseContract: state.databaseContract || 'platform', status: rt.busy && !rt.child && live !== 'installing' ? 'starting' : live, port: rt.port, pid: rt.child?.pid || null,
         startedAt: rt.child ? new Date(rt.startedAt).toISOString() : null, lastError: state.lastError || '', installedAt: state.installedAt || null,
         python: state.python || null, offlineWheels: state.offlineWheels || 0, createdAt: state.createdAt, updatedAt: state.updatedAt };
 }
@@ -633,6 +636,7 @@ function createApp(slug, inspected, meta = {}) {
         const state = writeState(slug, {
             slug, name: meta.name || inspected.config.name || slug, packageName: inspected.config.name || '', version: inspected.config.version,
             entry: inspected.config.entry, factory: inspected.config.factory, interface: inspected.config.interface, healthPath: inspected.config.healthPath,
+            databaseContract: inspected.config.databaseContract || 'platform',
             requirementsHash: inspected.requirementsHash, offlineWheels: inspected.offlineWheels, uuid: crypto.randomUUID(),
             secret: crypto.randomBytes(32).toString('base64url'), dataToken: crypto.randomBytes(32).toString('base64url'),
             status: 'installing', desired: 'running', createdAt: now, updatedAt: now, createdBy: meta.user || ''
@@ -655,16 +659,30 @@ async function updateApp(slug, inspected) {
     const wasRunning = Boolean(rt.child);
     await stop(slug, { keepDesired: true });
     const p = paths(slug, tenantId);
+    const gitDir = path.join(p.code, '.git');
+    const hasGit = fs.existsSync(gitDir);
     const staging = `${p.code}.new`;
     fs.rmSync(staging, { recursive: true, force: true });
     writeCode(staging, inspected.files);
+    if (hasGit) {
+        try { fs.renameSync(gitDir, path.join(staging, '.git')); } catch (_e) {}
+    }
     fs.rmSync(`${p.code}.old`, { recursive: true, force: true });
     if (fs.existsSync(p.code)) fs.renameSync(p.code, `${p.code}.old`);
     fs.renameSync(staging, p.code);
     fs.rmSync(`${p.code}.old`, { recursive: true, force: true });
+    if (hasGit) {
+        try {
+            const { execFileSync } = require('child_process');
+            execFileSync('git', ['-C', p.code, 'add', '-A'], { encoding: 'utf8', stdio: 'pipe' });
+            const msg = `chore: update package${inspected.config.version ? ` to ${inspected.config.version}` : ''}`;
+            execFileSync('git', ['-C', p.code, 'commit', '-m', msg], { encoding: 'utf8', stdio: 'pipe' });
+        } catch (_e) {}
+    }
     log(rt, `应用代码已更新${inspected.config.version ? `到 ${inspected.config.version}` : ''}`);
     writeState(slug, { ...state, packageName: inspected.config.name || state.packageName, version: inspected.config.version, entry: inspected.config.entry,
         factory: inspected.config.factory, interface: inspected.config.interface, healthPath: inspected.config.healthPath,
+        databaseContract: inspected.config.databaseContract || state.databaseContract || 'platform',
         requirementsHash: inspected.requirementsHash, offlineWheels: inspected.offlineWheels, updatedAt: new Date().toISOString() }, tenantId);
     return { state: readState(slug, tenantId), wasRunning };
 }
@@ -752,5 +770,5 @@ process.once('exit', shutdownAll);
 
 module.exports = {
     paths, readState, updateState, getSettings, saveSettings, findPython, appEnv, install, start, stop, restart, status, logs, target,
-    createApp, updateApp, removeApp, exists, listApps, isActive, savePackage, packageArchive, recover, shutdownAll, resolveDataToken, assertSlug, HOST_SOURCE
+    applyStartupSql, createApp, updateApp, removeApp, exists, listApps, isActive, savePackage, packageArchive, recover, shutdownAll, resolveDataToken, assertSlug, HOST_SOURCE
 };

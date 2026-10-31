@@ -5,6 +5,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 const { checkManifest: checkDatacom, mediaDir, manifestPath, digest } = require('./prepare-datacom-videos');
 const { checkManifest: checkHome } = require('./prepare-home-promo-videos');
+const gallery = require('./prepare-gallery-examples');
 const REPO_MEDIA = 'fanxiaolongx-max/Dragon-Platform-Media';
 const root = path.resolve(__dirname, '..');
 
@@ -33,7 +34,7 @@ function planReleases(catalogs) {
             const prefix = `/${REPO_MEDIA}/releases/download/`;
             if (url.origin !== 'https://github.com' || !url.pathname.startsWith(prefix)) throw Error(`Invalid media repository: ${key}`);
             const parts = url.pathname.slice(prefix.length).split('/');
-            if (parts.length !== 2 || !/^[a-z0-9-]+$/.test(parts[0]) || !/^[a-z0-9-]+\.mp4$/.test(parts[1])) throw Error(`Invalid media release path: ${key}`);
+            if (parts.length !== 2 || !/^[a-z0-9-]+$/.test(parts[0]) || !/^[a-z0-9-]+\.(mp4|png|jpg|webp)$/.test(parts[1])) throw Error(`Invalid media release path: ${key}`);
             const [tag, file] = parts;
             if (!groups.has(tag)) groups.set(tag, { tag, manifests: new Set(), assets: [] });
             const group = groups.get(tag);
@@ -52,9 +53,10 @@ function verifyAsset(tag, expected, actual) {
     }
     if (hash !== `sha256:${expected.meta.sha256}`) throw Error(`Remote checksum mismatch: ${tag}/${expected.file}; publish a NEW version, never overwrite`);
 }
-function sync({ check = false, datacomOnly = false } = {}) {
-    const catalogs = [{ catalog: checkDatacom(), directory: mediaDir, manifest: manifestPath }];
-    if (!datacomOnly) catalogs.unshift({ catalog: checkHome(), directory: path.join(root, 'frontend/assets/promotions'), manifest: path.join(root, 'backend/home-promo-videos.json') });
+function sync({ check = false, datacomOnly = false, galleryOnly = false } = {}) {
+    const catalogs = galleryOnly ? [] : [{ catalog: checkDatacom(), directory: mediaDir, manifest: manifestPath }];
+    if (!datacomOnly && !galleryOnly) catalogs.unshift({ catalog: checkHome(), directory: path.join(root, 'frontend/assets/promotions'), manifest: path.join(root, 'backend/home-promo-videos.json') });
+    if (!datacomOnly) catalogs.push({catalog:gallery.checkManifest(),directory:gallery.mediaDir,manifest:gallery.manifestPath});
     const groups = planReleases(catalogs);
     for (const group of groups) {
         let remote = release(group.tag);
@@ -67,7 +69,7 @@ function sync({ check = false, datacomOnly = false } = {}) {
                 if (!fs.existsSync(item.local) || digest(fs.readFileSync(item.local)) !== item.meta.sha256) throw Error(`Missing/changed local asset: ${item.local}`);
             }
             if (!remote) {
-                gh(['release', 'create', group.tag, '--repo', REPO_MEDIA, '--draft', '--title', `Media · ${group.tag}`, '--notes', 'Immutable public product videos. Application code and private data are excluded.']);
+                gh(['release', 'create', group.tag, '--repo', REPO_MEDIA, '--draft', '--title', `Media · ${group.tag}`, '--notes', 'Immutable public product media. Application code, credentials and unrelated user data are excluded.']);
             }
             gh(['release', 'upload', group.tag, ...missing.map(item => item.local), '--repo', REPO_MEDIA]);
             remote = release(group.tag);
@@ -84,7 +86,7 @@ function sync({ check = false, datacomOnly = false } = {}) {
     }
 }
 if (require.main === module) {
-    try { sync({ check: process.argv.includes('--check'), datacomOnly: process.argv.includes('--datacom') }); }
+    try { sync({ check: process.argv.includes('--check'), datacomOnly: process.argv.includes('--datacom'), galleryOnly: process.argv.includes('--gallery') }); }
     catch (error) { console.error(`[sync-media] ${error.stderr?.toString().trim() || error.message}`); process.exitCode = 1; }
 }
 module.exports = { planReleases, verifyAsset, sync };

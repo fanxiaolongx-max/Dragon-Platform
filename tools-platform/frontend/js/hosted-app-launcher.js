@@ -3,6 +3,7 @@
 (function () {
     const slug = document.body.dataset.hostedApp;
     const SANDBOX = 'allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals';
+    const schemaText = (zh, en) => { try { return /^en/i.test(window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || document.documentElement.lang) ? en : zh; } catch (_) { return zh; } };
     const STATUS_TEXT = {
         installing: '正在安装依赖…', starting: '正在启动…', running: '运行中', stopped: '已停止',
         crashed: '异常退出', install_failed: '依赖安装失败'
@@ -41,6 +42,9 @@
                 <button type="button" role="menuitem" data-action="logs">查看运行日志</button>
                 <button type="button" role="menuitem" data-action="db-info">🗄️ 查看分配的数据库</button>
                 <button type="button" role="menuitem" data-action="ide">💻 在线修改代码 (IDE)</button>
+                <button type="button" role="menuitem" data-action="package-update">📦 更新上传包</button>
+                <button type="button" role="menuitem" data-action="schema-init" hidden>${schemaText('初始化应用表（模拟基座 DBA）', 'Initialize app tables (DBA simulation)')}</button>
+                <button type="button" role="menuitem" data-action="schema-upgrade" hidden>${schemaText('升级应用表（模拟基座 DBA）', 'Upgrade app tables (DBA simulation)')}</button>
                 <button type="button" role="menuitem" data-action="reinstall">重新安装依赖</button>
                 <button type="button" role="menuitem" data-action="settings">Python 环境设置</button>
                 <button type="button" role="menuitem" data-action="stop" class="danger">停止应用</button>
@@ -119,6 +123,80 @@
             </div>
         </div>
 
+        <!-- ── 更新上传包弹窗 ───────────────────────────────── -->
+        <div class="ha-upload-modal-overlay" id="haUploadModal" hidden>
+            <div class="ha-upload-modal-window">
+                <header class="ha-upload-modal-header">
+                    <div class="ha-upload-modal-title">
+                        <span>📦</span>
+                        <h3>更新应用代码包</h3>
+                    </div>
+                    <button type="button" class="ha-upload-modal-close" id="haUploadModalClose">✕</button>
+                </header>
+                <div class="ha-upload-modal-body">
+                    <section class="ha-upload-app-card">
+                        <div class="ha-upload-app-meta">
+                            <span class="ha-upload-app-badge">当前托管应用</span>
+                            <strong id="haUploadCurrentAppName">应用代码</strong>
+                            <span class="ha-upload-app-version" id="haUploadCurrentVersion"></span>
+                        </div>
+                        <p class="ha-upload-hint">上传新的 ZIP 代码包将全量更新应用代码文件；应用私有数据库 (<code>app.db</code>)、环境变量与 Git 远端配置将完整保留。</p>
+                    </section>
+
+                    <div class="ha-upload-dropzone" id="haUploadDropzone" tabindex="0" role="button" aria-label="上传应用代码包">
+                        <input type="file" id="haUploadFileInput" accept=".zip,application/zip" hidden>
+                        <div class="ha-upload-drop-icon">☁️⬆️</div>
+                        <div class="ha-upload-drop-text">点击或拖拽应用 ZIP 包到此处</div>
+                        <div class="ha-upload-drop-subtext">支持包含 <code>requirements.txt</code> 与 Python 入口文件的 .zip 压缩包（最大 35MB）</div>
+                    </div>
+
+                    <div class="ha-upload-preview" id="haUploadPreview" hidden>
+                        <div class="ha-upload-preview-header">
+                            <span class="ha-upload-preview-status">✅ 应用包结构校验通过</span>
+                            <span class="ha-upload-file-size" id="haUploadFileSize"></span>
+                        </div>
+                        <div class="ha-upload-preview-grid">
+                            <div class="ha-upload-field">
+                                <label>包内应用名：</label>
+                                <span id="haUploadPkgName">-</span>
+                            </div>
+                            <div class="ha-upload-field">
+                                <label>包版本号：</label>
+                                <span id="haUploadPkgVersion">-</span>
+                            </div>
+                            <div class="ha-upload-field">
+                                <label>应用入口 (Entry)：</label>
+                                <code id="haUploadPkgEntry">-</code>
+                            </div>
+                            <div class="ha-upload-field">
+                                <label>接口类型：</label>
+                                <span id="haUploadPkgInterface">ASGI</span>
+                            </div>
+                            <div class="ha-upload-field">
+                                <label>包含文件：</label>
+                                <span id="haUploadPkgFiles">-</span>
+                            </div>
+                            <div class="ha-upload-field">
+                                <label>Python 环境：</label>
+                                <span id="haUploadPkgPython" class="ha-upload-py-status">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ha-upload-error-box" id="haUploadErrorBox" hidden></div>
+
+                    <div class="ha-upload-progress" id="haUploadProgress" hidden>
+                        <div class="ha-upload-spinner"></div>
+                        <div class="ha-upload-progress-text" id="haUploadProgressText">正在上传并更新代码包，请稍候…</div>
+                    </div>
+                </div>
+                <footer class="ha-upload-modal-footer">
+                    <button type="button" class="ha-btn" id="haUploadCancelBtn">取消</button>
+                    <button type="button" class="ha-btn primary" id="haUploadSubmitBtn" disabled>确认上传并更新</button>
+                </footer>
+            </div>
+        </div>
+
         <!-- ── 在线 IDE 大弹窗 ───────────────────────────────── -->
         <div class="ha-ide-overlay" id="haIdeModal" hidden>
             <div class="ha-ide-window" id="haIdeWindow">
@@ -136,6 +214,7 @@
                         <button type="button" class="ha-ide-btn primary" id="haIdeBtnRestart" title="保存全部修改并立即重启测试应用 (Ctrl+Enter / ⌘R)">⚡ 保存并重启测试</button>
                         <button type="button" class="ha-ide-btn" id="haIdeBtnHistory" title="查看本地 Git 提交历史与版本撤回">⏱️ 历史 & 撤回</button>
                         <button type="button" class="ha-ide-btn" id="haIdeBtnGit" title="配置远程 Git 仓库、推送与拉取">☁️ Git 仓库</button>
+                        <button type="button" class="ha-ide-btn" id="haIdeBtnPackageUpdate" title="上传新的应用 ZIP 包以完整更新代码">📦 更新上传包</button>
                         <button type="button" class="ha-ide-btn icon-only" id="haIdeBtnFullscreen" title="切换全屏">⛶</button>
                         <button type="button" class="ha-ide-btn icon-only" id="haIdeBtnClose" title="关闭 IDE">✕</button>
                     </div>
@@ -370,6 +449,7 @@
     }
 
     function updateBar(app) {
+        for (const item of document.querySelectorAll('[data-action^="schema-"]')) item.hidden = app.databaseContract !== 'digital-human';
         setBarVisible(app.isAdmin && !!frame);
         $('haDot').dataset.status = app.status;
         $('haPillText').textContent = STATUS_TEXT[app.status] || app.status;
@@ -539,6 +619,8 @@
             }
             if (!proceed) return;
         }
+        closeHistoryDrawer();
+        closeGitDrawer();
         $('haIdeModal').hidden = true;
     }
 
@@ -1025,8 +1107,38 @@
     }
 
     // ── 历史版本与回退 (Git History & Revert) ────────────────
+    function closeHistoryDrawer() {
+        $('haIdeHistoryDrawer').hidden = true;
+        $('haIdeBtnHistory')?.classList.remove('active');
+    }
+
+    function closeGitDrawer() {
+        $('haIdeGitDrawer').hidden = true;
+        $('haIdeBtnGit')?.classList.remove('active');
+    }
+
+    function toggleHistoryDrawer() {
+        if (!$('haIdeHistoryDrawer').hidden) {
+            closeHistoryDrawer();
+        } else {
+            closeGitDrawer();
+            openHistoryDrawer();
+        }
+    }
+
+    function toggleGitDrawer() {
+        if (!$('haIdeGitDrawer').hidden) {
+            closeGitDrawer();
+        } else {
+            closeHistoryDrawer();
+            openGitDrawer();
+        }
+    }
+
     async function openHistoryDrawer() {
+        closeGitDrawer();
         $('haIdeHistoryDrawer').hidden = false;
+        $('haIdeBtnHistory')?.classList.add('active');
         const container = $('haIdeCommitList');
         container.innerHTML = '<p class="ha-ide-drawer-hint">正在加载提交历史…</p>';
         try {
@@ -1115,7 +1227,7 @@
                 body: JSON.stringify({ commitHash })
             });
             toast(`已成功回退到 ${commitHash.slice(0, 7)}`);
-            $('haIdeHistoryDrawer').hidden = true;
+            closeHistoryDrawer();
             ideState.tabs = [];
             activateTab(null);
             loadIdeTree();
@@ -1127,7 +1239,9 @@
 
     // ── 远程 Git 协作 (Push, Pull, Remote) ────────────────────
     function openGitDrawer() {
+        closeHistoryDrawer();
         $('haIdeGitDrawer').hidden = false;
+        $('haIdeBtnGit')?.classList.add('active');
         $('haIdeGitRemoteInput').value = ideState.git.remoteUrl || '';
         $('haIdeGitConsole').textContent = `当前分支: ${ideState.git.branch || 'main'}\n远程仓库: ${ideState.git.remoteUrl || '未配置'}\n未提交文件: ${ideState.git.modified?.length || 0}`;
     }
@@ -1349,13 +1463,17 @@
     // ── IDE 顶部及侧栏交互绑定 ─────────────────────────────
     $('haIdeBtnSave').addEventListener('click', () => saveCurrentFile());
     $('haIdeBtnRestart').addEventListener('click', () => saveAndRestartApp());
-    $('haIdeBtnHistory').addEventListener('click', openHistoryDrawer);
-    $('haIdeBtnGit').addEventListener('click', openGitDrawer);
-    $('haIdeGitRemotePill').addEventListener('click', openGitDrawer);
+    $('haIdeBtnHistory').addEventListener('click', toggleHistoryDrawer);
+    $('haIdeBtnGit').addEventListener('click', toggleGitDrawer);
+    $('haIdeBtnPackageUpdate').addEventListener('click', openUploadModal);
+    $('haIdeGitRemotePill').addEventListener('click', () => {
+        if (!$('haIdeGitDrawer').hidden) closeGitDrawer();
+        else { closeHistoryDrawer(); openGitDrawer(); }
+    });
     $('haIdeBtnFullscreen').addEventListener('click', () => $('haIdeWindow').classList.toggle('is-fullscreen'));
     $('haIdeBtnClose').addEventListener('click', closeIde);
-    $('haIdeHistoryClose').addEventListener('click', () => $('haIdeHistoryDrawer').hidden = true);
-    $('haIdeGitClose').addEventListener('click', () => $('haIdeGitDrawer').hidden = true);
+    $('haIdeHistoryClose').addEventListener('click', closeHistoryDrawer);
+    $('haIdeGitClose').addEventListener('click', closeGitDrawer);
     $('haIdeDiffClose').addEventListener('click', () => $('haIdeDiffModal').hidden = true);
 
     $('haIdeBtnNewFile').addEventListener('click', () => createNewItem(false));
@@ -1414,13 +1532,23 @@
     // 全局快捷键处理 (当 IDE 打开时)
     window.addEventListener('keydown', e => {
         if ($('haIdeModal').hidden) return;
-        if (e.key === 'Escape' && !$('haIdeDiffModal').hidden) {
-            $('haIdeDiffModal').hidden = true;
-            return;
-        }
-        if (e.key === 'Escape' && !$('haIdeFindBar').hidden) {
-            toggleFindBar(false);
-            return;
+        if (e.key === 'Escape') {
+            if (!$('haIdeDiffModal').hidden) {
+                $('haIdeDiffModal').hidden = true;
+                return;
+            }
+            if (!$('haIdeFindBar').hidden) {
+                toggleFindBar(false);
+                return;
+            }
+            if (!$('haIdeHistoryDrawer').hidden) {
+                closeHistoryDrawer();
+                return;
+            }
+            if (!$('haIdeGitDrawer').hidden) {
+                closeGitDrawer();
+                return;
+            }
         }
     });
 
@@ -1457,12 +1585,189 @@
         }
     });
 
+    // ── 更新上传包 (Package Upload & Update) ─────────────────────
+    let selectedPackagePayload = null;
+
+    function resetUploadModal() {
+        selectedPackagePayload = null;
+        if ($('haUploadFileInput')) $('haUploadFileInput').value = '';
+        $('haUploadCurrentAppName').textContent = current?.name || current?.packageName || slug;
+        $('haUploadCurrentVersion').textContent = current?.version ? `v${current.version}` : '';
+        $('haUploadPreview').hidden = true;
+        $('haUploadErrorBox').hidden = true;
+        $('haUploadErrorBox').textContent = '';
+        $('haUploadProgress').hidden = true;
+        $('haUploadSubmitBtn').disabled = true;
+        $('haUploadSubmitBtn').textContent = '确认上传并更新';
+        $('haUploadCancelBtn').disabled = false;
+        $('haUploadDropzone').classList.remove('is-dragover');
+    }
+
+    function openUploadModal() {
+        resetUploadModal();
+        $('haUploadModal').hidden = false;
+    }
+
+    function closeUploadModal() {
+        if (!$('haUploadProgress').hidden) return;
+        $('haUploadModal').hidden = true;
+        resetUploadModal();
+    }
+
+    async function handlePackageFile(file) {
+        if (!file) return;
+        if (!/\.zip$/i.test(file.name)) {
+            $('haUploadErrorBox').textContent = '仅支持上传 .zip 格式的压缩包';
+            $('haUploadErrorBox').hidden = false;
+            $('haUploadPreview').hidden = true;
+            $('haUploadSubmitBtn').disabled = true;
+            return;
+        }
+        if (file.size > 35 * 1024 * 1024) {
+            $('haUploadErrorBox').textContent = 'ZIP 文件不能超过 35 MB；依赖较多时可去掉 wheels/ 改为在线安装';
+            $('haUploadErrorBox').hidden = false;
+            $('haUploadPreview').hidden = true;
+            $('haUploadSubmitBtn').disabled = true;
+            return;
+        }
+
+        $('haUploadErrorBox').hidden = true;
+        $('haUploadPreview').hidden = true;
+        $('haUploadSubmitBtn').disabled = true;
+        $('haUploadProgress').hidden = false;
+        $('haUploadProgressText').textContent = '正在读取并解析应用包结构…';
+
+        try {
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            const chunkSize = 0x8000;
+            let binary = '';
+            for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+                binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+            }
+            const archiveBase64 = btoa(binary);
+
+            const { app: preview } = await api('/preview', {
+                method: 'POST',
+                body: JSON.stringify({ archiveBase64, archiveName: file.name })
+            });
+
+            $('haUploadProgress').hidden = true;
+            selectedPackagePayload = { archiveBase64, archiveName: file.name, preview };
+
+            $('haUploadFileSize').textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+            $('haUploadPkgName').textContent = preview.name || current?.name || slug;
+            $('haUploadPkgVersion').textContent = preview.version ? `v${preview.version}` : '未指定版本';
+            $('haUploadPkgEntry').textContent = preview.entry || '-';
+            $('haUploadPkgInterface').textContent = (preview.interface || 'asgi').toUpperCase();
+            $('haUploadPkgFiles').textContent = `${preview.fileCount} 个文件 · 解压 ${(preview.totalBytes / 1024 / 1024).toFixed(2)} MB`;
+            if (preview.python?.ok) {
+                $('haUploadPkgPython').textContent = `Python ${preview.python.version || '正常'}`;
+                $('haUploadPkgPython').className = 'ha-upload-py-status ok';
+            } else {
+                $('haUploadPkgPython').textContent = preview.python?.message || '未检测到可用环境';
+                $('haUploadPkgPython').className = 'ha-upload-py-status warn';
+            }
+
+            $('haUploadPreview').hidden = false;
+            $('haUploadSubmitBtn').disabled = false;
+        } catch (error) {
+            $('haUploadProgress').hidden = true;
+            $('haUploadErrorBox').textContent = error.message || '应用包解析失败，请检查压缩包是否完整';
+            $('haUploadErrorBox').hidden = false;
+            $('haUploadSubmitBtn').disabled = true;
+        }
+    }
+
+    async function submitPackageUpdate() {
+        if (!selectedPackagePayload) return;
+        $('haUploadSubmitBtn').disabled = true;
+        $('haUploadCancelBtn').disabled = true;
+        $('haUploadErrorBox').hidden = true;
+        $('haUploadProgress').hidden = false;
+        $('haUploadProgressText').textContent = '正在上传应用包并替换代码…';
+
+        try {
+            await api('/package', {
+                method: 'POST',
+                body: JSON.stringify({
+                    archiveBase64: selectedPackagePayload.archiveBase64,
+                    archiveName: selectedPackagePayload.archiveName
+                })
+            });
+
+            toast('应用包更新成功！已保留数据库并重启应用');
+            closeUploadModal();
+
+            if (!$('haIdeModal').hidden) {
+                ideState.tabs = [];
+                activateTab(null);
+                loadIdeTree();
+                loadGitStatus();
+            }
+
+            if (frame) { frame.remove(); frame = null; }
+            setBarVisible(false);
+            setTimeout(load, 800);
+        } catch (error) {
+            $('haUploadProgress').hidden = true;
+            $('haUploadSubmitBtn').disabled = false;
+            $('haUploadCancelBtn').disabled = false;
+            $('haUploadErrorBox').textContent = error.message || '更新应用包失败';
+            $('haUploadErrorBox').hidden = false;
+            toast(`更新失败：${error.message}`, 'error');
+        }
+    }
+
+    $('haUploadDropzone').addEventListener('click', () => $('haUploadFileInput').click());
+    $('haUploadDropzone').addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            $('haUploadFileInput').click();
+        }
+    });
+    $('haUploadFileInput').addEventListener('change', e => {
+        const file = e.target.files?.[0];
+        if (file) handlePackageFile(file);
+    });
+    $('haUploadDropzone').addEventListener('dragover', e => {
+        e.preventDefault();
+        $('haUploadDropzone').classList.add('is-dragover');
+    });
+    $('haUploadDropzone').addEventListener('dragleave', e => {
+        e.preventDefault();
+        $('haUploadDropzone').classList.remove('is-dragover');
+    });
+    $('haUploadDropzone').addEventListener('drop', e => {
+        e.preventDefault();
+        $('haUploadDropzone').classList.remove('is-dragover');
+        const file = e.dataTransfer?.files?.[0];
+        if (file) handlePackageFile(file);
+    });
+
+    $('haUploadModalClose').addEventListener('click', closeUploadModal);
+    $('haUploadCancelBtn').addEventListener('click', closeUploadModal);
+    $('haUploadSubmitBtn').addEventListener('click', submitPackageUpdate);
+
     // ── 运维胶囊动作分发 ─────────────────────────────────
     async function runAction(action) {
+        if (action === 'schema-init' || action === 'schema-upgrade') {
+            const kind = action === 'schema-init' ? 'init' : 'upgrade';
+            try {
+                const { script } = await api(`/database-script?kind=${kind}`);
+                if (script.applied) { toast(schemaText('当前脚本已部署，无需重复执行', 'This script is already deployed')); return; }
+                if (!window.AppDialog) { toast(schemaText('请刷新页面后使用数据库部署功能', 'Refresh the page to enable database deployment'), 'error'); return; }
+                const approved = await AppDialog.confirm(schemaText(`仅在当前应用库执行 ${script.file}，不操作业务库。请核对下方脚本后执行。`, `Run ${script.file} in this app database only. Review the script below before deploying.`), { title: kind === 'init' ? schemaText('初始化应用表', 'Initialize app tables') : schemaText('升级应用表', 'Upgrade app tables'), details: script.sql, tone: 'warning', confirmText: schemaText('执行部署脚本', 'Deploy script'), cancelText: schemaText('取消', 'Cancel') });
+                if (!approved) return;
+                await api('/database-script', { method: 'POST', body: JSON.stringify({ kind, hash: script.hash }) });
+                toast(schemaText('应用表部署完成，请刷新应用页面', 'Database deployed. Refresh the application page'));
+            } catch (error) { toast(schemaText(`数据库部署失败：${error.message}`, `Database deployment failed: ${error.message}`), 'error'); }
+            return;
+        }
         if (action === 'retry') return load();
         if (action === 'settings') return openSettings();
         if (action === 'db-info') return openDbInfoModal();
         if (action === 'ide') return openIde();
+        if (action === 'package-update') return openUploadModal();
         if (action === 'logs-inline') {
             logsOpen = true;
             $('haCardLog').hidden = false;
@@ -1506,6 +1811,10 @@
         if (!$('haBar').contains(event.target)) setMenuOpen(false);
     });
     document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && !$('haUploadModal').hidden) {
+            closeUploadModal();
+            return;
+        }
         if (event.key === 'Escape' && !$('haDbModal').hidden) {
             $('haDbModal').hidden = true;
             return;

@@ -83,15 +83,26 @@ function assertRead(sql) {
     const text = singleStatement(sql);
     const bare = skeleton(text);
     if (!READ_RE.test(bare)) throw fail('查询接口只接受 SELECT / WITH 语句；写入请调用 /execute');
+    if (/\b(?:insert|update|delete|create|alter|drop|truncate)\b/i.test(bare)) throw fail('查询接口只读，不能通过 WITH 等语句执行写入', 'HOSTED_DATA_FORBIDDEN', 403);
     if (ESCAPE_RE.test(bare)) throw fail(`查询语句不能包含 ${ESCAPE_RE.exec(bare)[1].toUpperCase()}`);
     return text;
 }
 
-function assertAppWrite(sql) {
+function assertAppWrite(sql, { baseCompatible = false } = {}) {
     const text = singleStatement(sql);
     const bare = skeleton(text);
     const kind = /^\s*(insert|update|delete|replace|create|alter|drop|with)\b/i.exec(bare)?.[1]?.toLowerCase();
     if (!kind) throw fail('写入接口支持 INSERT / UPDATE / DELETE / REPLACE，以及在应用库内 CREATE / ALTER / DROP');
+    if (baseCompatible) {
+        if (!['insert', 'update', 'delete'].includes(kind)) throw fail('基座契约只允许 INSERT / UPDATE / DELETE；建表改表请由管理员执行部署脚本', 'HOSTED_DATA_BASE_CONTRACT', 400);
+        let depth = 0, where = false;
+        for (const token of bare.match(/\(|\)|\b\w+\b/g) || []) {
+            if (token === '(') depth++;
+            else if (token === ')') depth--;
+            else if (depth === 0 && token.toLowerCase() === 'where') where = true;
+        }
+        if (['update', 'delete'].includes(kind) && !where) throw fail('基座契约要求 UPDATE / DELETE 带 WHERE 条件', 'HOSTED_DATA_BASE_CONTRACT', 400);
+    }
     if (ESCAPE_RE.test(bare)) throw fail(`不能执行 ${ESCAPE_RE.exec(bare)[1].toUpperCase()}：应用只能操作自己的库`);
     if (/\bcreate\s+virtual\b/i.test(bare)) throw fail('不支持创建虚拟表');
     return { sql: text, kind };
@@ -156,6 +167,21 @@ async function applyInitSql(tenantId, slug, sql) {
     await withTimeout(db, () => new Promise((resolve, reject) => db.exec(sql, error => error ? reject(error) : resolve())));
 }
 
+function applyDeploymentSql(tenantId, slug, sql) {
+    if (/(?:^|;)\s*(?:begin|commit|rollback|savepoint|release|end)\b/i.test(skeleton(sql))) throw fail('部署脚本的事务由平台管理，请移除事务控制语句');
+    return limited({ tenantId, slug }, async () => {
+        const db = await appDatabase(tenantId, slug);
+        await runOf(db, 'BEGIN IMMEDIATE');
+        try {
+            await applyInitSql(tenantId, slug, sql);
+            await runOf(db, 'COMMIT');
+        } catch (error) {
+            await runOf(db, 'ROLLBACK').catch(() => {});
+            throw error;
+        }
+    });
+}
+
 function normalizeRows(rows) {
     let bytes = 0;
     return rows.map(row => {
@@ -197,12 +223,18 @@ async function queryApp(app, sql, limit) {
 }
 
 async function executeApp(app, sql) {
-    const checked = assertAppWrite(sql);
+    const state = require('./runtime').readState(app.slug, app.tenantId);
+    const baseCompatible = state?.databaseContract === 'digital-human';
+    const checked = assertAppWrite(sql, { baseCompatible });
     const db = await appDatabase(app.tenantId, app.slug);
     return withTimeout(db, async () => {
         const result = await runOf(db, checked.sql);
-        return { kind: checked.kind, affectedRows: result.changes, lastInsertId: checked.kind === 'insert' || checked.kind === 'replace' ? result.lastID : null };
+        return { kind: checked.kind, affectedRows: result.changes, ...(baseCompatible ? {} : { lastInsertId: checked.kind === 'insert' || checked.kind === 'replace' ? result.lastID : null }) };
     });
+}
+
+function baseContract(app) {
+    return require('./runtime').readState(app.slug, app.tenantId)?.databaseContract === 'digital-human';
 }
 
 // ── 平台库（只读 + EXPLAIN 核对访问对象）─────────────────────
@@ -435,7 +467,10 @@ async function runQuery(app, body = {}) {
     if (isApp(app, body)) return queryApp(app, sql, limit);
     const name = String(body.datasourceName || '');
     if (!name) throw fail('请提供 datasourceName（业务库）或 datasourceId + schema（应用库）');
-    if (/^platform:/i.test(name)) return queryPlatform(name, sql, limit);
+    if (/^platform:/i.test(name)) {
+        if (baseContract(app)) throw fail('基座契约不使用平台业务库替代 NetCare 数据源，请配置真实基座数据源', 'HOSTED_DATA_BASE_CONTRACT', 400);
+        return queryPlatform(name, sql, limit);
+    }
     const netcare = await refreshNetcareName();
     if (name === netcare || name.toLowerCase() === 'netcare') return queryNetcare(sql, limit);
     throw fail(`未知数据源：${name}；可调用 /query/datasources 查看`, 'HOSTED_DATA_NOT_FOUND', 404);
@@ -469,7 +504,7 @@ async function runExecute(app, body = {}) {
 
 async function listDatasources(app) {
     const items = [{ id: 'app', name: '应用库', type: 'APP_CUSTOM', schema: app.uuid, writable: true }];
-    for (const item of databases.platformFiles()) {
+    for (const item of baseContract(app) ? [] : databases.platformFiles()) {
         const name = item.id.slice('platform:'.length);
         if (PROTECTED_DATABASES.has(name.toLowerCase())) continue;
         items.push({ name: item.id, type: 'PLATFORM_READONLY', writable: false });
@@ -483,7 +518,7 @@ async function findTableDatasource(app, table) {
     const name = String(table || '').trim();
     if (!/^[\w$\-一-龥]{1,128}$/.test(name)) throw fail('table 参数无效');
     const hits = [];
-    for (const item of databases.platformFiles()) {
+    for (const item of baseContract(app) ? [] : databases.platformFiles()) {
         if (PROTECTED_DATABASES.has(item.id.slice('platform:'.length).toLowerCase())) continue;
         try {
             if ((await platformTables(item)).some(entry => entry.toLowerCase() === name.toLowerCase())) hits.push({ datasourceName: item.id, type: 'PLATFORM_READONLY' });
@@ -501,10 +536,11 @@ async function findTableDatasource(app, table) {
 
 const ok = (res, data, extra = {}) => res.json({ code: 0, status: 200, success: true, message: 'success', data, ...extra });
 
-function sendError(res, error) {
+function sendError(res, error, { baseCompatible = false } = {}) {
     const status = error.status || (error.statusCode >= 400 ? error.statusCode : 0) || (/SQLITE_/.test(error.code || '') ? 400 : 500);
     const message = /SQLITE_/.test(error.code || '') ? `SQL 执行失败：${String(error.message).replace(/^SQLITE_\w+:\s*/, '')}` : error.message || '数据接口异常';
-    res.status(status).json({ code: status, success: false, message, errorCode: error.code || 'HOSTED_DATA_ERROR' });
+    const businessFailure = baseCompatible && ![401, 403, 429, 499].includes(status);
+    res.status(businessFailure ? 200 : status).json({ code: businessFailure && /SQLITE_/.test(error.code || '') ? 500 : status, success: false, message, data: null, errorCode: error.code || 'HOSTED_DATA_ERROR' });
 }
 
 // 只接受本机直连：隧道/反向代理转发进来的请求带有转发头，一律拒绝
@@ -526,14 +562,14 @@ function createRouter() {
             const state = require('./runtime').readState(found.slug, found.tenantId);
             if (!state) return res.status(401).json({ code: 401, success: false, message: '应用不存在' });
             try { rateLimit(`${found.tenantId}/${found.slug}`); } catch (error) { return sendError(res, error); }
-            req.hostedApp = { tenantId: found.tenantId, slug: found.slug, uuid: state.uuid };
+            req.hostedApp = { tenantId: found.tenantId, slug: found.slug, uuid: state.uuid, databaseContract: state.databaseContract };
             req.hostedRequest = { aborted: false };
             res.on('close', () => { if (!res.writableFinished) req.hostedRequest.aborted = true; });
             next();
         });
     });
     const wrap = handler => (req, res) => tenant.runWithTenant(req.hostedApp.tenantId, async () => {
-        try { await handler(req, res); } catch (error) { sendError(res, error); }
+        try { await handler(req, res); } catch (error) { sendError(res, error, { baseCompatible: req.hostedApp.databaseContract === 'digital-human' }); }
     });
     router.get('/:token/dh/query/datasources', wrap(async (req, res) => ok(res, await listDatasources(req.hostedApp))));
     router.get('/:token/dh/query/find-table-datasource', wrap(async (req, res) => ok(res, await findTableDatasource(req.hostedApp, req.query.table))));
@@ -554,5 +590,5 @@ function createRouter() {
     return router;
 }
 
-module.exports = { createRouter, query, queryForAI, execute, applyInitSql, listDatasources, findTableDatasource, closeAppDatabase, datasourceNames, refreshNetcareName,
+module.exports = { createRouter, query, queryForAI, execute, applyInitSql, applyDeploymentSql, listDatasources, findTableDatasource, closeAppDatabase, datasourceNames, refreshNetcareName,
     assertRead, assertAppWrite, assertSafeReadPlan, isDirectLoopback };

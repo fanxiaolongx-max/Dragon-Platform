@@ -1,3 +1,4 @@
+process.env.TOOLS_GALLERY_EXAMPLES = '0';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
@@ -177,4 +178,168 @@ test('invalid uploads and unknown assets do not create incomplete groups', async
     await request(app).get('/api/gallery/versions/missing/preview').expect(404);
     await request(app).get('/api/gallery/versions/missing/ai_balanced').expect(404);
     assert.equal((await repo.list()).total,before);
+});
+
+test('albums collect independent pages, search by restaurant and keep each page history intact', async () => {
+    const first = (await upload(png(91),{title:'菜单_上',scope:'life'}).expect(201)).body;
+    const second = (await upload(png(92),{title:'菜单_下',scope:'life'}).expect(201)).body;
+    await upload(png(93),{itemId:first.item.id,label:'Updated prices'}).expect(201);
+    const album = (await request(app).post('/api/gallery/albums').send({name:'日秘料理'}).expect(201)).body;
+    assert.equal((await request(app).post('/api/gallery/albums').send({name:'日秘料理'})).body.id,album.id);
+    const entries = [first,second].map(row=>({id:row.item.id,revision:row.item.revision}));
+    await request(app).post(`/api/gallery/albums/${album.id}/items`).send({items:entries}).expect(200);
+    const items = (await request(app).get('/api/gallery/items').query({album:album.id,sort:'title'}).expect(200)).body;
+    assert.deepEqual(items.items.map(row=>row.title),['菜单_上','菜单_下']);
+    const top = await repo.read(first.item.id), bottom = await repo.read(second.item.id);
+    assert.equal(top.versions.length,2);assert.equal(bottom.versions.length,1);
+    assert.equal(top.album_name,'日秘料理');assert.equal(top.album_previous,null);assert.equal(top.album_next.id,bottom.id);
+    assert.equal(bottom.album_previous.id,top.id);assert.equal(bottom.album_next,null);
+    assert.deepEqual((await repo.asset(first.versionId,'original')).bytes,png(91));
+    assert.deepEqual((await repo.asset(second.versionId,'original')).bytes,png(92));
+    assert.equal((await repo.list({q:'日秘料理'})).total,2);
+    assert.equal((await repo.albums()).find(row=>row.id===album.id).item_count,2);
+    await request(app).patch('/api/gallery/items/'+bottom.id).send({revision:bottom.revision,archived:true}).expect(200);
+    assert.equal((await repo.albums()).find(row=>row.id===album.id).item_count,1);
+    assert.equal((await repo.read(top.id)).album_next,null);
+    await request(app).patch('/api/gallery/items/'+top.id).send({revision:top.revision,album_id:''}).expect(200);
+    assert.equal((await repo.read(top.id)).album_id,'');assert.equal((await repo.read(top.id)).versions.length,2);
+    const added = (await upload(png(94),{title:'New album page',album:album.id}).expect(201)).body;
+    assert.equal(added.item.album_id,album.id);
+    await request(app).post('/api/gallery/albums/none/items').send({items:[{id:added.item.id,revision:added.item.revision}]}).expect(200);
+    assert.equal((await repo.read(added.item.id)).album_id,'');
+});
+
+test('album bulk moves are atomic, reject stale selections and enforce tenant and writer boundaries', async () => {
+    const a = (await upload(png(95),{title:'Atomic A'}).expect(201)).body.item;
+    const b = (await upload(png(96),{title:'Atomic B'}).expect(201)).body.item;
+    const album = await repo.addAlbum('Atomic album');
+    const url = `/api/gallery/albums/${album.id}/items`, entries = [a,b].map(row=>({id:row.id,revision:row.revision}));
+    await repo.update(a.id,{revision:a.revision,note:'Changed in another window'});
+    await request(app).post(url).send({items:entries}).expect(409);
+    assert.equal((await repo.read(a.id)).album_id,'');assert.equal((await repo.read(b.id)).album_id,'');
+    await request(app).post(url).send({items:[entries[1],{id:'missing',revision:0}]}).expect(404);
+    assert.equal((await repo.read(b.id)).album_id,'');
+    await request(app).post(url).send({items:[entries[1],entries[1]]}).expect(400);
+    await request(app).post(url).set('x-tenant','album-other').send({items:[entries[1]]}).expect(404);
+    await request(app).get('/api/gallery/items').set('x-tenant','album-other').query({album:album.id}).expect(404);
+    const own = (await request(app).post('/api/gallery/albums').set('x-tenant','album-other').send({name:'Private album'}).expect(201)).body;
+    await request(app).post(`/api/gallery/albums/${own.id}/items`).set('x-tenant','album-other').send({items:[entries[1]]}).expect(404);
+    assert.ok(!(await repo.albums()).some(row=>row.id===own.id));
+    for(const role of ['viewer','user']) {
+        await request(app).get('/api/gallery/albums').set('x-role',role).expect(200);
+        await request(app).post('/api/gallery/albums').set('x-role',role).send({name:'Forbidden'}).expect(403);
+        await request(app).post(url).set('x-role',role).send({items:[entries[1]]}).expect(403);
+    }
+    await request(app).get('/api/gallery/albums').set('x-role','anonymous').expect(401);
+});
+
+test('album schema migration is repeatable and preserves existing gallery rows',async()=>{
+    await context.runWithTenant('gallery-legacy-albums',async()=>{
+        await db.run(`CREATE TABLE gallery_items(id TEXT PRIMARY KEY,title TEXT NOT NULL,scope TEXT NOT NULL DEFAULT 'work',category_id TEXT NOT NULL DEFAULT '',tags_json TEXT NOT NULL DEFAULT '[]',note TEXT NOT NULL DEFAULT '',favorite INTEGER NOT NULL DEFAULT 0,archived INTEGER NOT NULL DEFAULT 0,revision INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)`);
+        await db.run('INSERT INTO gallery_items(id,title,note,created_at,updated_at) VALUES(?,?,?,?,?)',['legacy','Existing menu','Keep this note','2026-01-01','2026-01-01']);
+        await repo.init();await repo.init();
+        const row = await repo.read('legacy');
+        assert.equal(row.album_id,'');assert.equal(row.title,'Existing menu');assert.equal(row.note,'Keep this note');
+        const album = await repo.addAlbum('Legacy restaurant');
+        await repo.assignAlbum(album.id,[{id:row.id,revision:row.revision}]);
+        assert.equal((await repo.read('legacy')).album_id,album.id);
+    });
+});
+
+test('automatic upload fills metadata, creates albums and keeps filed images out of unfiled results',async()=>{
+    await context.runWithTenant('auto-gallery',async()=>{
+        const client={generateChat:async options=>{
+            assert.ok(options.messages[0].images.length<=3);assert.equal(options.maxOutputTokens,900);
+            return {text:JSON.stringify({title:'01_招牌菜单',scope:'life',suggestedCategory:'特色菜单',albumName:'Island Kitchen',storageMode:'album',tags:['餐厅','中文'],note:'开罗店 · 中文菜单',versionLabel:'中文版',summary:'菜单上半部'})};
+        }};
+        const fields={title:'scan',scope:'auto',autoAi:'1',manualFields:'[]'};
+        const saved=await service.upload({buffer:png(101),originalname:'scan.png'},null,fields,client);
+        assert.equal(saved.aiOrganized,true);assert.equal(saved.item.title,'01_招牌菜单');assert.equal(saved.item.scope,'life');
+        assert.deepEqual(saved.item.tags,['餐厅','中文']);assert.equal(saved.item.note,'开罗店 · 中文菜单');
+        assert.equal(saved.item.album_name,'Island Kitchen');assert.ok(saved.item.category_id);assert.equal(saved.version.label,'中文版');
+        assert.equal((await repo.list({unfiled:'1'})).total,0);assert.equal((await repo.list({q:'Island Kitchen'})).total,1);
+        const duplicate=await service.upload({buffer:png(101),originalname:'scan-copy.png'},null,fields,{generateChat(){throw Error('must not call');}});
+        assert.equal(duplicate.duplicate,true);assert.equal(duplicate.item.id,saved.item.id);
+    });
+});
+
+test('manual upload choices override AI title, category, album, purpose, tags, notes, mode and version label',async()=>{
+    await context.runWithTenant('manual-gallery',async()=>{
+        const category=await repo.addCategory('Human category'),album=await repo.addAlbum('Human album');
+        const fields={autoAi:'1',manualFields:JSON.stringify(['title','category_id','album_id','scope','tags','note','storage','version_label']),title:'Human title',category:category.id,album:album.id,scope:'work',tags:'Human tag',note:'Human note',label:'Human version'};
+        const saved=await service.upload({buffer:png(102),originalname:'human.png'},null,fields,{generateChat:async()=>({text:JSON.stringify({title:'AI title',scope:'life',suggestedCategory:'AI category',albumName:'AI album',storageMode:'album',tags:['AI tag'],note:'AI note',versionLabel:'AI version'})})});
+        assert.equal(saved.item.title,'Human title');assert.equal(saved.item.category_id,category.id);assert.equal(saved.item.album_id,album.id);
+        assert.equal(saved.item.scope,'work');assert.deepEqual(saved.item.tags,['Human tag']);assert.equal(saved.item.note,'Human note');assert.equal(saved.version.label,'Human version');
+    });
+});
+
+test('automatic version detection appends only a validated visual candidate, preserving the original history',async()=>{
+    await context.runWithTenant('version-gallery',async()=>{
+        const first=await service.upload({buffer:png(103),originalname:'poster-v1.png'},null,{title:'Campaign'});
+        const next=await service.upload({buffer:png(104),originalname:'poster-v2.png'},null,{title:'fallback',autoAi:'1',manualFields:'[]'},
+            {generateChat:async options=>{assert.equal(options.messages[0].images.length,2);return {text:JSON.stringify({title:'Campaign',storageMode:'version',versionOf:'0',confidence:.98,versionLabel:'客户确认稿'})};}});
+        assert.equal(next.item.id,first.item.id);assert.equal(next.item.versions.length,2);assert.equal(next.item.versions[0].label,'客户确认稿');
+        assert.deepEqual((await repo.asset(next.versionId,'original')).bytes,png(104));assert.equal((await repo.list()).total,1);
+        const other=await service.upload({buffer:png(105),originalname:'menu.png'},null,{title:'fallback',autoAi:'1',manualFields:'[]'},
+            {generateChat:async()=>({text:JSON.stringify({title:'Another menu page',storageMode:'version',versionOf:'forged-tenant-id',confidence:1})})});
+        assert.notEqual(other.item.id,first.item.id);assert.equal(other.item.versions.length,1);
+    });
+});
+
+test('manual edits during recognition win, and AI outage preserves the uploaded original',async()=>{
+    await context.runWithTenant('concurrent-gallery',async()=>{
+        let release;
+        const pending=service.upload({buffer:png(106),originalname:'concurrent.png'},null,{title:'concurrent',autoAi:'1',manualFields:'[]'},
+            {generateChat:()=>new Promise(resolve=>{release=resolve;})});
+        while(!release)await new Promise(resolve=>setTimeout(resolve,5));
+        const source=(await repo.list()).items[0];await repo.update(source.id,{revision:source.revision,note:'My note',scope:'life'});
+        release({text:JSON.stringify({title:'AI title',note:'AI overwrite',scope:'work'})});
+        const result=await pending;assert.equal(result.item.note,'My note');assert.equal(result.item.scope,'life');
+        const offline=await service.upload({buffer:png(107),originalname:'offline.png'},null,{title:'offline',autoAi:'1',manualFields:'[]'},
+            {generateChat:async()=>{throw Error('password=never-show');}});
+        assert.ok(offline.aiWarning);assert.ok(!offline.aiWarning.includes('never-show'));assert.deepEqual((await repo.asset(offline.versionId,'original')).bytes,png(107));
+    });
+});
+
+test('different named menu pages cannot be merged as versions even if AI proposes a confident match',async()=>{
+    await context.runWithTenant('menu-page-safety',async()=>{
+        const top=await service.upload({buffer:png(111),originalname:'菜单_上.png'},null,{title:'菜单_上'});
+        const bottom=await service.upload({buffer:png(112),originalname:'菜单_下.png'},null,{autoAi:'1',manualFields:'[]'},
+            {generateChat:async()=>({text:JSON.stringify({title:'菜单下半部',storageMode:'version',versionOf:'0',confidence:1,albumName:'Menu restaurant',scope:'life'})})});
+        assert.notEqual(top.item.id,bottom.item.id);assert.equal(bottom.item.versions.length,1);assert.equal(bottom.item.album_name,'Menu restaurant');
+    });
+});
+
+test('home includes filed work posters and unfiled life pictures while keeping filed life pictures in albums',async()=>{
+    await context.runWithTenant('gallery-home-work',async()=>{
+        const album=await repo.addAlbum('Collection');
+        const files=[];
+        for(const [color,title,scope,group] of [[121,'Filed poster','work',album.id],[122,'Unfiled poster','work',''],[123,'Filed menu','life',album.id],[124,'Loose life picture','life','']]){
+            files.push((await service.upload({buffer:png(color),originalname:title+'.png'},null,{title,scope,album:group})).item);
+        }
+        assert.deepEqual((await repo.list({home:'1',sort:'title'})).items.map(item=>item.title),['Filed poster','Loose life picture','Unfiled poster']);
+        assert.equal((await repo.list({album:album.id})).total,2);
+        const poster=files[0];await repo.update(poster.id,{revision:poster.revision,archived:true});
+        assert.equal((await repo.list({home:'1'})).total,2);
+        assert.equal((await context.runWithTenant('gallery-home-other',()=>repo.list({home:'1'}))).total,0);
+    });
+});
+
+test('batch delete is confirmed, tenant isolated, atomic and reversible with all versions intact',async()=>{
+    const a=(await upload(png(108),{title:'Trash A'},'trash-gallery').expect(201)).body;
+    const b=(await upload(png(109),{title:'Trash B'},'trash-gallery').expect(201)).body;
+    const entries=[a,b].map(row=>({id:row.item.id,revision:row.item.revision}));
+    await request(app).delete('/api/gallery/items').set('x-tenant','trash-gallery').send({items:entries}).expect(400);
+    await request(app).delete('/api/gallery/items').set('x-tenant','other-trash').send({items:entries,confirmed:true}).expect(404);
+    await request(app).delete('/api/gallery/items').set('x-tenant','trash-gallery').set('x-role','viewer').send({items:entries,confirmed:true}).expect(403);
+    await request(app).delete('/api/gallery/items').set('x-tenant','trash-gallery').send({items:[entries[0],{id:'missing',revision:0}],confirmed:true}).expect(404);
+    assert.equal((await request(app).get('/api/gallery/items').set('x-tenant','trash-gallery')).body.total,2);
+    await request(app).delete('/api/gallery/items').set('x-tenant','trash-gallery').send({items:entries,confirmed:true}).expect(200);
+    assert.equal((await request(app).get('/api/gallery/items').set('x-tenant','trash-gallery')).body.total,0);
+    const deleted=(await request(app).get('/api/gallery/items').set('x-tenant','trash-gallery').query({trash:'1'})).body.items;
+    assert.equal(deleted.length,2);
+    await request(app).patch('/api/gallery/items/'+a.item.id).set('x-tenant','trash-gallery').send({revision:deleted[0].revision,title:'No resurrection'}).expect(409);
+    await request(app).post('/api/gallery/items/restore').set('x-tenant','trash-gallery').send({items:deleted.map(row=>({id:row.id,revision:row.revision}))}).expect(200);
+    assert.equal((await request(app).get('/api/gallery/items').set('x-tenant','trash-gallery')).body.total,2);
+    await context.runWithTenant('trash-gallery',async()=>assert.deepEqual((await repo.asset(a.versionId,'original')).bytes,png(108)));
 });

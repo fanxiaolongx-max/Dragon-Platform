@@ -85,6 +85,7 @@ async function assertTemplateContainsNoGoogleApiKeys() {
 }
 
 async function main() {
+    require('./prepare-gallery-examples').checkManifest();
     require('./prepare-home-promo-videos').checkManifest();
     require('./prepare-datacom-videos').checkManifest();
     assertReleaseFile(path.join(projectRoot,'backend/builtin-templates/monthly-report.json'));

@@ -18,12 +18,20 @@ const handle = fn => async (req, res, next) => {
     }
 };
 router.get('/capabilities', (req, res) => res.json({ canWrite: req.user.role === 'admin' }));
+router.get('/albums', handle(async (_req,res) => res.json(await repo.albums())));
+router.post('/albums', requireAdmin, handle(async (req,res) => res.status(201).json(await repo.addAlbum(req.body?.name))));
+router.post('/albums/:id/items', requireAdmin, handle(async (req,res) => res.json(await repo.assignAlbum(req.params.id === 'none' ? '' : req.params.id,req.body?.items))));
 router.get('/categories', handle(async (_req, res) => res.json(await repo.categories())));
 router.post('/categories', requireAdmin, handle(async (req, res) => res.status(201).json(await repo.addCategory(req.body?.name))));
 router.get('/items', handle(async (req, res) => res.json(await repo.list(req.query))));
+router.delete('/items',requireAdmin,handle(async (req,res) => {
+    if (req.body?.confirmed !== true) throw repo.fail('请确认移入回收站');
+    res.json(await repo.trash(req.body?.items));
+}));
+router.post('/items/restore',requireAdmin,handle(async (req,res) => res.json(await repo.trash(req.body?.items,true))));
 router.get('/items/:id', handle(async (req, res) => res.json(await repo.read(req.params.id))));
 router.patch('/items/:id', requireAdmin, handle(async (req, res) => res.json(await repo.update(req.params.id, req.body || {}))));
-const multipart = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, files: 2, fields: 8, fieldSize: 2000 } }).fields([{ name: 'file', maxCount: 1 }, { name: 'raster', maxCount: 1 }]);
+const multipart = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024, files: 2, fields: 16, fieldSize: 2000 } }).fields([{ name: 'file', maxCount: 1 }, { name: 'raster', maxCount: 1 }]);
 router.post('/upload', requireAdmin, (req, res, next) => {
     const tenant = getTenantId();
     multipart(req, res, error => runWithTenant(tenant, () => {
@@ -31,7 +39,7 @@ router.post('/upload', requireAdmin, (req, res, next) => {
         next();
     }));
 }, handle(async (req, res) => res.status(201).json(await service.upload(req.files?.file?.[0], req.files?.raster?.[0], req.body || {}))));
-router.post('/versions/:id/analyze', requireAdmin, handle(async (req, res) => res.json(await service.analyze(req.params.id, req.body?.mode, req.body?.confirmed === true))));
+router.post('/versions/:id/analyze', requireAdmin, handle(async (req, res) => res.json(await service.recognizeAndOrganize(req.params.id, req.body?.mode, req.body?.confirmed === true))));
 router.get('/versions/:id/:kind', handle(async (req, res) => {
     if (!['thumbnail','preview','original'].includes(req.params.kind)) throw repo.fail('图片类型不存在', 404);
     const image = await repo.asset(req.params.id, req.params.kind);

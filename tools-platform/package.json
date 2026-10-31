@@ -31,7 +31,9 @@
     "promo:sync-media": "node scripts/sync-media-releases.js",
     "datacom:publish-videos": "node scripts/prepare-datacom-videos.js --write && node scripts/sync-media-releases.js --datacom",
     "datacom:verify-videos": "node scripts/prepare-datacom-videos.js && node scripts/sync-media-releases.js --datacom --check",
-    "media:install-hook": "git config core.hooksPath .githooks"
+    "media:install-hook": "git config core.hooksPath .githooks",
+    "gallery:publish-examples": "node scripts/prepare-gallery-examples.js && node scripts/sync-media-releases.js --gallery",
+    "gallery:verify-examples": "node scripts/prepare-gallery-examples.js && node scripts/sync-media-releases.js --gallery --check"
   },
   "build": {
     "appId": "com.toolsplatform.app",
