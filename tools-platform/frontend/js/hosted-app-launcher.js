@@ -51,7 +51,36 @@
             </div>
         </div>
         <aside class="ha-drawer" id="haDrawer" hidden>
-            <header><strong>运行日志</strong><button type="button" id="haDrawerClose" aria-label="关闭">×</button></header>
+            <header>
+                <div class="ha-drawer-title-area">
+                    <strong>运行日志</strong>
+                    <span class="ha-drawer-badge" id="haDrawerBadge">展示最近 200 行</span>
+                </div>
+                <div class="ha-drawer-actions">
+                    <button type="button" class="ha-drawer-icon-btn" id="haDrawerRefresh" title="刷新最新日志">🔄</button>
+                    <button type="button" class="ha-drawer-icon-btn" id="haDrawerExpand" title="切换全宽/半宽">⛶</button>
+                    <button type="button" class="ha-drawer-close-btn" id="haDrawerClose" aria-label="关闭">×</button>
+                </div>
+            </header>
+            <div class="ha-drawer-toolbar">
+                <div class="ha-drawer-tool-group">
+                    <button type="button" class="ha-drawer-btn" id="haDrawerExportRecent" title="导出当前窗口展示的最近日志">
+                        📥 导出当前
+                    </button>
+                </div>
+                <div class="ha-drawer-tool-group">
+                    <label for="haDrawerDateSelect" class="ha-drawer-label">按日期：</label>
+                    <select id="haDrawerDateSelect" class="ha-drawer-select">
+                        <option value="">加载中...</option>
+                    </select>
+                    <button type="button" class="ha-drawer-btn secondary" id="haDrawerExportDate" title="导出所选日期的完整历史日志">
+                        导出当日
+                    </button>
+                    <button type="button" class="ha-drawer-btn text" id="haDrawerExportAll" title="导出全部历史运行日志">
+                        全量导出
+                    </button>
+                </div>
+            </div>
             <pre id="haDrawerLog"></pre>
         </aside>
 
@@ -474,12 +503,80 @@
     async function refreshLogs(target) {
         if (!current?.isAdmin) return;
         try {
-            const { lines } = await api('/logs?limit=200');
+            const { lines = [] } = await api('/logs?limit=200');
             target.textContent = lines.join('\n') || '（暂无日志）';
             target.scrollTop = target.scrollHeight;
+            const badge = $('haDrawerBadge');
+            if (badge) {
+                badge.textContent = `展示最近 ${lines.length} 行`;
+            }
         } catch (error) {
             target.textContent = error.message;
         }
+    }
+
+    async function loadLogDates() {
+        const select = $('haDrawerDateSelect');
+        if (!select) return;
+        try {
+            const { dates } = await api('/logs/dates');
+            if (dates && dates.length) {
+                const today = new Date().toISOString().slice(0, 10);
+                select.innerHTML = dates.map(d => {
+                    const label = d === today ? `${d} (今天)` : d;
+                    return `<option value="${d}">${label}</option>`;
+                }).join('');
+            } else {
+                const today = new Date().toISOString().slice(0, 10);
+                select.innerHTML = `<option value="${today}">${today} (今天)</option>`;
+            }
+        } catch (_e) {
+            const today = new Date().toISOString().slice(0, 10);
+            select.innerHTML = `<option value="${today}">${today}</option>`;
+        }
+    }
+
+    async function downloadLogFile(url, fallbackFilename) {
+        try {
+            const response = await fetch(url, { credentials: 'same-origin' });
+            if (!response.ok) {
+                const body = await response.json().catch(() => ({}));
+                throw new Error(body.error || `下载失败（${response.status}）`);
+            }
+            let filename = fallbackFilename;
+            const disposition = response.headers.get('Content-Disposition');
+            if (disposition && disposition.includes('filename=')) {
+                const m = disposition.match(/filename="?([^";]+)"?/);
+                if (m && m[1]) filename = decodeURIComponent(m[1]);
+            }
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        } catch (err) {
+            if (window.AppToast) window.AppToast.error(err.message);
+            else alert(err.message);
+        }
+    }
+
+    function exportCurrentLogs() {
+        const text = $('haDrawerLog').textContent || '';
+        const today = new Date().toISOString().slice(0, 10);
+        const filename = `${slug}-runtime-recent-${today}.log`;
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
     }
 
     function openFrame(app) {
@@ -1811,6 +1908,7 @@
         if (action === 'logs') {
             logsOpen = true;
             $('haDrawer').hidden = false;
+            loadLogDates();
             return refreshLogs($('haDrawerLog'));
         }
         const confirmations = {
@@ -1876,6 +1974,20 @@
         }, 0);
     });
     $('haDrawerClose').addEventListener('click', () => { $('haDrawer').hidden = true; logsOpen = false; });
+    $('haDrawerRefresh')?.addEventListener('click', () => refreshLogs($('haDrawerLog')));
+    $('haDrawerExpand')?.addEventListener('click', () => {
+        const isExp = $('haDrawer').classList.toggle('is-expanded');
+        $('haDrawerExpand').title = isExp ? '切换半宽' : '切换全宽';
+    });
+    $('haDrawerExportRecent')?.addEventListener('click', exportCurrentLogs);
+    $('haDrawerExportDate')?.addEventListener('click', () => {
+        const date = $('haDrawerDateSelect')?.value;
+        if (!date) return;
+        downloadLogFile(`/api/hosted-apps/${encodeURIComponent(slug)}/logs/export?date=${encodeURIComponent(date)}`, `${slug}-runtime-${date}.log`);
+    });
+    $('haDrawerExportAll')?.addEventListener('click', () => {
+        downloadLogFile(`/api/hosted-apps/${encodeURIComponent(slug)}/logs/export?all=1`, `${slug}-runtime-all.log`);
+    });
 
     load();
 })();

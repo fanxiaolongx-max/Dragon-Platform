@@ -273,3 +273,42 @@ test('runtime.status and editorService automatically sync version with actual co
         await runtime.removeApp(slug);
     });
 });
+
+test('runtime.availableLogDates and exportLogs extract dates and export historical logs', async () => {
+    await tenant.runWithTenant('default', async () => {
+        const slug = 'test-log-export';
+        const zip = await zipOf({
+            'requirements.txt': 'fastapi\n',
+            'main.py': 'from fastapi import FastAPI\napp = FastAPI()\n'
+        });
+        const inspected = await appPackage.inspectArchive(zip);
+        runtime.createApp(slug, inspected, { name: 'Log Test App' });
+
+        const logFile = runtime.paths(slug).log;
+        fs.mkdirSync(path.dirname(logFile), { recursive: true });
+        fs.writeFileSync(logFile, [
+            '[2026-10-29T10:00:00.000Z] [平台] 安装依赖中...',
+            '[2026-10-30T12:00:00.000Z] INFO: Server started',
+            '[2026-10-31T08:00:00.000Z] INFO: 200 OK GET /health',
+            '[2026-10-31T09:00:00.000Z] INFO: 200 OK GET /api/data'
+        ].join('\n') + '\n', 'utf8');
+
+        const dates = runtime.availableLogDates(slug);
+        assert.deepEqual(dates, ['2026-10-31', '2026-10-30', '2026-10-29']);
+
+        // 按日期导出
+        const exportDate = runtime.exportLogs(slug, { date: '2026-10-31' });
+        assert.equal(exportDate.filename, 'test-log-export-runtime-2026-10-31.log');
+        assert.ok(exportDate.content.includes('GET /health'));
+        assert.ok(exportDate.content.includes('GET /api/data'));
+        assert.ok(!exportDate.content.includes('安装依赖中'));
+
+        // 全量导出
+        const exportAll = runtime.exportLogs(slug, { all: true });
+        assert.ok(exportAll.filename.startsWith('test-log-export-runtime-full-'));
+        assert.ok(exportAll.content.includes('安装依赖中'));
+        assert.ok(exportAll.content.includes('GET /api/data'));
+
+        await runtime.removeApp(slug);
+    });
+});

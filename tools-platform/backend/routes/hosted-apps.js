@@ -130,6 +130,24 @@ router.get('/:slug/logs', requireAdmin, (req, res) => {
     } catch (error) { send(res, error, '读取日志失败'); }
 });
 
+router.get('/:slug/logs/dates', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        res.json({ success: true, dates: runtime.availableLogDates(req.params.slug) });
+    } catch (error) { send(res, error, '获取日志日期失败'); }
+});
+
+router.get('/:slug/logs/export', requireAdmin, (req, res) => {
+    try {
+        if (!runtime.exists(req.params.slug)) return res.status(404).json({ error: '应用不存在' });
+        const { date, all } = req.query;
+        const result = runtime.exportLogs(req.params.slug, { date, all: all === '1' || all === 'true' });
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
+        res.send(result.content);
+    } catch (error) { send(res, error, '导出日志失败'); }
+});
+
 // 运维操作立即返回，安装/启动在后台进行，启动页轮询状态
 const actions = {
     start: slug => { runtime.updateState(slug, { desired: 'running' }); runtime.start(slug).catch(() => {}); },

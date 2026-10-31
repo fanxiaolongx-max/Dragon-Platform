@@ -137,10 +137,8 @@ function syncStateFromCode(slug, tenantId = tenant.getTenantId()) {
         }
     }
 
-    // 若代码中存在数字人基座契约文件，自动补齐数字人基座数据库契约
-    if (!manifestContract && fs.existsSync(path.join(codeDir, 'app/utils/sql_contract.py'))) {
-        manifestContract = 'digital-human';
-    }
+    // 注意：不再通过硬编码探测 sql_contract.py 强行覆盖 databaseContract
+    // 而是严格遵循 platform-app.json 标准清单声明，保障基座契约解耦与规范性
 
     const resolvedPkgName = manifestName || versionFileName || state.packageName || '';
     const patch = {};
@@ -715,6 +713,77 @@ function logs(slug, limit = 300) {
     return lines.slice(-Math.min(MAX_LOG_LINES, Math.max(1, Number(limit) || 300)));
 }
 
+/** 获取该应用所有包含运行日志的历史日期列表（最新在前）。 */
+function availableLogDates(slug, tenantId = tenant.getTenantId()) {
+    const p = paths(slug, tenantId);
+    const dates = new Set();
+    const files = [];
+    if (fs.existsSync(`${p.log}.1`)) files.push(`${p.log}.1`);
+    if (fs.existsSync(p.log)) files.push(p.log);
+
+    const regex = /^\[(\d{4}-\d{2}-\d{2})/gm;
+    for (const f of files) {
+        try {
+            const content = fs.readFileSync(f, 'utf8');
+            let m;
+            while ((m = regex.exec(content)) !== null) {
+                dates.add(m[1]);
+            }
+        } catch (_e) {}
+    }
+    if (!dates.size) {
+        dates.add(new Date().toISOString().slice(0, 10));
+    }
+    return Array.from(dates).sort().reverse();
+}
+
+/** 按日期或全量导出历史日志内容及推荐下载文件名。 */
+function exportLogs(slug, { date, all = false } = {}, tenantId = tenant.getTenantId()) {
+    const p = paths(slug, tenantId);
+    const rt = runtimes.get(keyOf(tenantId, slug));
+    if (rt && rt.pending?.length) {
+        flushLog(rt);
+    }
+
+    const files = [];
+    if (fs.existsSync(`${p.log}.1`)) files.push(`${p.log}.1`);
+    if (fs.existsSync(p.log)) files.push(p.log);
+
+    let content = '';
+    for (const f of files) {
+        try { content += fs.readFileSync(f, 'utf8') + '\n'; } catch (_e) {}
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    if (all || !date || date === 'all') {
+        return {
+            filename: `${slug}-runtime-full-${todayStr}.log`,
+            content: content || '（暂无日志）'
+        };
+    }
+
+    const targetDate = String(date).trim();
+    const lines = content.split('\n');
+    const matched = lines.filter(line => {
+        if (!line) return false;
+        if (line.startsWith(`[${targetDate}`)) return true;
+        const m = line.match(/^\[(\d{4}-\d{2}-\d{2}T[\d:.]+Z)\]/);
+        if (m) {
+            try {
+                const d = new Date(m[1]);
+                const localStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                if (localStr === targetDate) return true;
+            } catch (_e) {}
+        }
+        return false;
+    });
+
+    return {
+        filename: `${slug}-runtime-${targetDate}.log`,
+        content: matched.length ? matched.join('\n') : `（${targetDate} 当日无日志记录）`
+    };
+}
+
 /** 是否有安装 / 启动 / 运行中的后台任务（状态文件写着「安装中」但这里为 false，说明任务没在跑，需要重新开始）。 */
 function isActive(slug, tenantId = tenant.getTenantId()) {
     const rt = runtimes.get(keyOf(tenantId, slug));
@@ -883,6 +952,6 @@ function shutdownAll() {
 process.once('exit', shutdownAll);
 
 module.exports = {
-    paths, readState, updateState, syncStateFromCode, getSettings, saveSettings, findPython, appEnv, install, start, stop, restart, status, logs, target,
+    paths, readState, updateState, syncStateFromCode, getSettings, saveSettings, findPython, appEnv, install, start, stop, restart, status, logs, availableLogDates, exportLogs, target,
     applyStartupSql, createApp, updateApp, removeApp, exists, listApps, isActive, savePackage, packageArchive, recover, shutdownAll, resolveDataToken, assertSlug, HOST_SOURCE
 };
