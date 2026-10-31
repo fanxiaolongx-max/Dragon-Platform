@@ -59,6 +59,89 @@ function updateState(slug, patch, tenantId) {
     return writeState(slug, { ...state, ...patch }, tenantId);
 }
 
+/**
+ * 从应用实际代码目录 (p.code) 同步最新版本与包名，确保 state.json 与磁盘实际代码保持一致。
+ */
+function syncStateFromCode(slug, tenantId = tenant.getTenantId()) {
+    const state = readState(slug, tenantId);
+    if (!state) return null;
+    const codeDir = paths(slug, tenantId).code;
+    if (!fs.existsSync(codeDir)) return state;
+
+    let versionFileVer = '';
+    let versionFileName = '';
+    let versionFileMtime = 0;
+    try {
+        const entries = fs.readdirSync(codeDir, { withFileTypes: true });
+        const vEntry = entries.find(e => e.isFile() && (/^[^/]+\.version$/i.test(e.name) || /^VERSION(?:\.txt)?$/i.test(e.name)));
+        if (vEntry) {
+            const fullPath = path.join(codeDir, vEntry.name);
+            const raw = fs.readFileSync(fullPath, 'utf8').trim().split(/\s/)[0] || '';
+            if (raw) {
+                versionFileVer = raw.replace(/^v/i, '').slice(0, 32);
+                if (/\.version$/i.test(vEntry.name)) {
+                    versionFileName = path.basename(vEntry.name, path.extname(vEntry.name)).slice(0, 80);
+                }
+                try { versionFileMtime = fs.statSync(fullPath).mtimeMs; } catch (_e) {}
+            }
+        }
+    } catch (_e) {}
+
+    let manifestVer = '';
+    let manifestName = '';
+    let manifestMtime = 0;
+    const manifestPath = path.join(codeDir, 'platform-app.json');
+    if (fs.existsSync(manifestPath)) {
+        try {
+            const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+            if (manifest && typeof manifest === 'object' && !Array.isArray(manifest)) {
+                if (manifest.version) manifestVer = String(manifest.version).trim().replace(/^v/i, '').slice(0, 32);
+                if (manifest.name) manifestName = String(manifest.name).trim().slice(0, 80);
+                try { manifestMtime = fs.statSync(manifestPath).mtimeMs; } catch (_e) {}
+            }
+        } catch (_e) {}
+    }
+
+    let resolvedVersion = '';
+    if (versionFileVer && manifestVer) {
+        resolvedVersion = manifestMtime > versionFileMtime ? manifestVer : versionFileVer;
+    } else {
+        resolvedVersion = versionFileVer || manifestVer;
+    }
+
+    if (!resolvedVersion) {
+        const fallbacks = ['pyproject.toml', 'app/config.py', 'config.py', 'app/__init__.py', 'app/main.py', 'main.py'];
+        for (const rel of fallbacks) {
+            const fp = path.join(codeDir, rel);
+            if (!fs.existsSync(fp)) continue;
+            try {
+                const text = fs.readFileSync(fp, 'utf8');
+                const m = rel === 'pyproject.toml'
+                    ? /^\s*version\s*=\s*["']([^"'\s]+)["']/m.exec(text)
+                    : /(?:APP_VERSION|__version__|VERSION)\s*(?::\s*str\s*)?=\s*["']([^"'\s]+)["']/.exec(text);
+                if (m && m[1]) {
+                    resolvedVersion = m[1].trim().replace(/^v/i, '').slice(0, 32);
+                    break;
+                }
+            } catch (_e) {}
+        }
+    }
+
+    const resolvedPkgName = manifestName || versionFileName || state.packageName || '';
+    const patch = {};
+    if (resolvedVersion && resolvedVersion !== state.version) {
+        patch.version = resolvedVersion;
+    }
+    if (resolvedPkgName && resolvedPkgName !== state.packageName) {
+        patch.packageName = resolvedPkgName;
+    }
+
+    if (Object.keys(patch).length > 0) {
+        return updateState(slug, patch, tenantId);
+    }
+    return state;
+}
+
 function listSlugs(tenantId) {
     const root = appsRoot(tenantId);
     if (!fs.existsSync(root)) return [];
@@ -483,7 +566,8 @@ async function launch(rt, initial) {
     const p = paths(rt.slug, rt.tenantId);
     // 每次启动都写入当前版本的宿主模块，平台升级后已安装的应用也能用上修复
     fs.writeFileSync(path.join(p.code, `${HOST_MODULE}.py`), HOST_SOURCE);
-    const state = await applyStartupSql(rt, initial);
+    const synced = syncStateFromCode(rt.slug, rt.tenantId) || initial;
+    const state = await applyStartupSql(rt, synced);
     const tenantNetcareName = await require('./data-api').refreshNetcareName();
     const port = await freePort();
     rt.status = 'starting';
@@ -581,7 +665,7 @@ async function restart(slug) {
 
 function status(slug) {
     const tenantId = tenant.getTenantId();
-    const state = readState(assertSlug(slug), tenantId);
+    const state = syncStateFromCode(assertSlug(slug), tenantId);
     if (!state) return null;
     const rt = runtimeOf(slug, tenantId);
     const live = rt.child ? rt.status : ['installing', 'install_failed'].includes(rt.status) ? rt.status
@@ -769,6 +853,6 @@ function shutdownAll() {
 process.once('exit', shutdownAll);
 
 module.exports = {
-    paths, readState, updateState, getSettings, saveSettings, findPython, appEnv, install, start, stop, restart, status, logs, target,
+    paths, readState, updateState, syncStateFromCode, getSettings, saveSettings, findPython, appEnv, install, start, stop, restart, status, logs, target,
     applyStartupSql, createApp, updateApp, removeApp, exists, listApps, isActive, savePackage, packageArchive, recover, shutdownAll, resolveDataToken, assertSlug, HOST_SOURCE
 };

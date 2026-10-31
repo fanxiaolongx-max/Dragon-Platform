@@ -228,12 +228,15 @@ function saveFile(slug, relativePath, content, { autoCommit = false, commitMessa
         }
     }
 
+    const synced = runtime.syncStateFromCode(slug);
+
     return {
         success: true,
         path: cleanRel,
         size: stat.size,
         mtime: stat.mtimeMs,
-        commit: commitResult
+        commit: commitResult,
+        version: synced?.version || ''
     };
 }
 
@@ -329,6 +332,8 @@ function getGitStatus(slug) {
         behind = b || 0;
     } catch (_e) {}
 
+    const synced = runtime.syncStateFromCode(slug);
+
     return {
         branch,
         remoteUrl,
@@ -336,7 +341,9 @@ function getGitStatus(slug) {
         modified,
         untracked,
         ahead,
-        behind
+        behind,
+        version: synced?.version || '',
+        packageName: synced?.packageName || ''
     };
 }
 
@@ -383,7 +390,8 @@ function revertToCommit(slug, commitHash) {
         throw err;
     }
     runGit(codeDir, ['reset', '--hard', cleanHash]);
-    return { success: true, commitHash: cleanHash };
+    const synced = runtime.syncStateFromCode(slug);
+    return { success: true, commitHash: cleanHash, version: synced?.version || '' };
 }
 
 function setGitRemote(slug, remoteUrl) {
@@ -433,7 +441,8 @@ function pullFromRemote(slug) {
     }
     const branch = status.branch || 'main';
     const output = runGit(codeDir, ['pull', 'origin', branch]);
-    return { success: true, output };
+    const synced = runtime.syncStateFromCode(slug);
+    return { success: true, output, version: synced?.version || '' };
 }
 
 function getDiff(slug, { commitHash = null, filePath = null } = {}) {

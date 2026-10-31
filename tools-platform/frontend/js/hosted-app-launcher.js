@@ -431,6 +431,7 @@
         if (open) {
             clearTimeout(barCollapseTimer);
             $('haBar').classList.remove('is-collapsed');
+            refreshStatus();
         } else {
             scheduleBarCollapse();
         }
@@ -453,9 +454,21 @@
         setBarVisible(app.isAdmin && !!frame);
         $('haDot').dataset.status = app.status;
         $('haPillText').textContent = STATUS_TEXT[app.status] || app.status;
-        const meta = [app.packageName && `${app.packageName}${app.version ? ` ${app.version}` : ''}`, app.entry && `入口 ${app.entry}`,
+        const appLabel = app.packageName || app.name || '';
+        const meta = [appLabel && `${appLabel}${app.version ? ` ${app.version}` : ''}`, app.entry && `入口 ${app.entry}`,
             app.python && `Python ${app.python}`, app.offlineWheels ? '离线依赖' : ''].filter(Boolean);
         $('haMeta').textContent = meta.join(' · ');
+    }
+
+    async function refreshStatus() {
+        if (!current?.isAdmin) return;
+        try {
+            const { app } = await api('/status');
+            if (app) {
+                current = { ...current, ...app };
+                updateBar(current);
+            }
+        } catch (_e) {}
     }
 
     async function refreshLogs(target) {
@@ -638,6 +651,11 @@
                 $('haIdeGitRemotePill').title = '尚未配置远程仓库，点击配置';
             }
             $('haIdeGitRemoteInput').value = status.remoteUrl || '';
+            if (current) {
+                if (status.version) current.version = status.version;
+                if (status.packageName) current.packageName = status.packageName;
+                updateBar(current);
+            }
             updateDirtyBadges();
         } catch (_e) {}
     }

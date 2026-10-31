@@ -246,3 +246,30 @@ test('service.updatePackage updates app code, preserves state/env, and records p
         await runtime.removeApp(slug);
     });
 });
+
+test('runtime.status and editorService automatically sync version with actual code files on disk', async () => {
+    const editorService = require('../backend/models/hosted-apps/editor-service');
+    await tenant.runWithTenant('default', async () => {
+        const slug = 'test-version-sync';
+        const initialZip = await zipOf({
+            'requirements.txt': 'fastapi\n',
+            'AiOps-Report.version': '1.2.5\n',
+            'app/main.py': 'from fastapi import FastAPI\ndef create_app(): return FastAPI()\n'
+        });
+        const inspected = await appPackage.inspectArchive(initialZip);
+        runtime.createApp(slug, inspected, { name: 'AiOps-Report' });
+        assert.equal(runtime.status(slug).version, '1.2.5');
+
+        // 模拟通过 Git 拉取或 IDE 修改了 .version 文件
+        fs.writeFileSync(path.join(runtime.paths(slug).code, 'AiOps-Report.version'), '1.4.0\n', 'utf8');
+        assert.equal(runtime.status(slug).version, '1.4.0');
+        assert.equal(runtime.readState(slug).version, '1.4.0');
+
+        // 模拟在 IDE 中保存 .version 文件更新到 1.4.3
+        const saveRes = editorService.saveFile(slug, 'AiOps-Report.version', '1.4.3\n');
+        assert.equal(saveRes.version, '1.4.3');
+        assert.equal(runtime.status(slug).version, '1.4.3');
+
+        await runtime.removeApp(slug);
+    });
+});
