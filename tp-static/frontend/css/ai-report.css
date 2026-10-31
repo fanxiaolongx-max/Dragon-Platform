@@ -376,7 +376,7 @@ html:has(body.air-moving){overflow-anchor:none}
 .air-msg:hover+.air-msg-tail .air-msg-copy,.air-msg-tail:hover .air-msg-copy{opacity:1}
 .air-msg-retry:disabled{opacity:.25!important;cursor:default;background:transparent!important;color:var(--air-muted)!important}
 /* Folding the top bars away: the platform bar slides up, the toolbar collapses, the report and chat move up. */
-.air-chrome-toggle{position:fixed;top:calc(var(--navbar-h,52px) + var(--air-toolbar-h));left:50%;z-index:41;transform:translateX(-50%);width:44px;height:16px;display:grid;place-items:center;padding:0;border:0;border-radius:0 0 9px 9px;background:#102b47;color:#c9d9ea;box-shadow:0 3px 8px #102b4726;opacity:.75;transition:top .32s cubic-bezier(.2,.8,.2,1),opacity .15s,background .15s}
+.air-chrome-toggle{position:fixed;top:calc(var(--navbar-h,52px) + var(--air-toolbar-h));left:50%;z-index:31;transform:translateX(-50%);width:44px;height:16px;display:grid;place-items:center;padding:0;border:0;border-radius:0 0 9px 9px;background:#102b47;color:#c9d9ea;box-shadow:0 3px 8px #102b4726;opacity:.75;transition:top .32s cubic-bezier(.2,.8,.2,1),opacity .15s,background .15s}
 .air-chrome-toggle:hover,.air-chrome-toggle:focus-visible{opacity:1;background:#1b4268;color:#fff}
 .air-chrome-toggle svg{transition:transform .32s cubic-bezier(.2,.8,.2,1)}
 #app-navbar{transition:transform .32s cubic-bezier(.2,.8,.2,1)}

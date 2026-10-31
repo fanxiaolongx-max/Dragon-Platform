@@ -170,7 +170,7 @@
                 { type: 'comment', regex: /^\/\*[\s\S]*?\*\// },
                 { type: 'string', regex: /^"(?:\\.|[^"\\])*"|^'(?:\\.|[^'\\])*'/ },
                 { type: 'attr', regex: /^[a-zA-Z\-]+(?=\s*:)/ },
-                { type: 'number', regex: /^[#0-9a-fA-F]+|\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|s|ms)?/ },
+                { type: 'number', regex: /^(?:#[0-9a-fA-F]+\b|\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|ms|s)?)/ },
                 { type: 'operator', regex: /^[{}:;,]/ }
             ]
         }
@@ -196,7 +196,7 @@
             // Test custom regex patterns
             for (const p of patterns) {
                 const m = p.regex.exec(sub);
-                if (m && m[0].length > 0) {
+                if (m && m.index === 0 && m[0].length > 0) {
                     const token = m[0];
                     out.push(`<span class="tok-${p.type}">${escapeHtml(token)}</span>`);
                     i += token.length;

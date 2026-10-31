@@ -29,6 +29,8 @@
             .app-dialog-eyebrow { color: #67e8f9; font-size: 10.5px; font-weight: 800; letter-spacing: .14em; }
             .app-dialog-title { margin: 2px 0 0; font-size: 16px; font-weight: 750; color: #f1f5f9; }
             .app-dialog-message { grid-column: 2; margin: 8px 0 0; color: #a9bad0; font-size: 13px; line-height: 1.7; white-space: pre-line; word-break: break-word; }
+            .app-dialog.has-details .app-dialog-card { width: min(880px, 100%); max-height: calc(100dvh - 40px); overflow: auto; }
+            .app-dialog-details { grid-column: 1 / -1; min-width: 0; max-width: 100%; margin: 12px 0 0; padding: 12px; max-height: 40dvh; overflow: auto; white-space: pre; background: #091321; border: 1px solid #2b3d5a; border-radius: 8px; color: #c6d5e7; font: 12px/1.6 ui-monospace, monospace; }
             .app-dialog-label { grid-column: 2; margin-top: 12px; color: #b9c9dc; font-size: 12px; font-weight: 700; }
             .app-dialog-label + .app-dialog-input { margin-top: 6px; }
             .app-dialog-input { grid-column: 2; width: 100%; box-sizing: border-box; margin-top: 12px; padding: 9px 11px; border: 1px solid #3a4a64; border-radius: 9px; background: #091321; color: #dbeafe; font: inherit; font-size: 13px; resize: vertical; }
@@ -59,13 +61,14 @@
         const tone = options.tone || (kind === 'confirm' ? 'warning' : 'info');
         const previousFocus = document.activeElement;
         const root = document.createElement('div');
-        root.className = 'app-dialog';
+        root.className = 'app-dialog' + (options.details ? ' has-details' : '');
         root.dataset.tone = tone;
         root.innerHTML = `
             <section class="app-dialog-card" role="${kind === 'alert' ? 'alertdialog' : 'dialog'}" aria-modal="true" aria-labelledby="appDialogTitle">
                 <div class="app-dialog-icon" aria-hidden="true">${escapeHtml(options.icon || TONE_ICON[tone] || '?')}</div>
                 <div><div class="app-dialog-eyebrow">${escapeHtml(options.eyebrow || TONE_EYEBROW[tone] || '提示')}</div><h3 class="app-dialog-title" id="appDialogTitle">${escapeHtml(options.title || (kind === 'prompt' ? '请输入' : kind === 'confirm' ? '确认操作' : '提示'))}</h3></div>
                 ${message ? `<p class="app-dialog-message">${escapeHtml(message)}</p>` : ''}
+                ${options.details ? `<pre class="app-dialog-details" tabindex="0">${escapeHtml(options.details)}</pre>` : ''}
                 ${kind === 'prompt' && options.label ? `<label class="app-dialog-label" for="appDialogInput">${escapeHtml(options.label)}</label>` : ''}
                 ${kind === 'prompt' ? (options.multiline
                     ? `<textarea class="app-dialog-input" id="appDialogInput" rows="3" maxlength="${Number(options.maxLength) || 500}" placeholder="${escapeHtml(options.placeholder || '')}">${escapeHtml(options.defaultValue || '')}</textarea>`
@@ -153,7 +156,7 @@
             return open('alert', message, options);
         },
         confirm(message, options = {}) {
-            if (hasNavbarDialogs()) {
+            if (hasNavbarDialogs() && !options.details) {
                 return liftWhileOpen('navbarConfirmModal', window.showNavbarConfirm({ title: options.title || '确认操作', message, hint: options.hint, tone: options.tone || 'warning', confirmText: options.confirmText, cancelText: options.cancelText }));
             }
             return open('confirm', message, options);
