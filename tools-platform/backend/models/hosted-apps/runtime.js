@@ -90,6 +90,11 @@ function syncStateFromCode(slug, tenantId = tenant.getTenantId()) {
     let manifestVer = '';
     let manifestName = '';
     let manifestMtime = 0;
+    let manifestContract = '';
+    let manifestHealth = '';
+    let manifestEntry = '';
+    let manifestFactory = undefined;
+    let manifestInterface = '';
     const manifestPath = path.join(codeDir, 'platform-app.json');
     if (fs.existsSync(manifestPath)) {
         try {
@@ -97,6 +102,11 @@ function syncStateFromCode(slug, tenantId = tenant.getTenantId()) {
             if (manifest && typeof manifest === 'object' && !Array.isArray(manifest)) {
                 if (manifest.version) manifestVer = String(manifest.version).trim().replace(/^v/i, '').slice(0, 32);
                 if (manifest.name) manifestName = String(manifest.name).trim().slice(0, 80);
+                if (['digital-human', 'platform'].includes(manifest.databaseContract)) manifestContract = manifest.databaseContract;
+                if (typeof manifest.healthPath === 'string' && manifest.healthPath.startsWith('/')) manifestHealth = manifest.healthPath;
+                if (typeof manifest.entry === 'string' && manifest.entry.includes(':')) manifestEntry = manifest.entry;
+                if (manifest.factory !== undefined) manifestFactory = manifest.factory === true;
+                if (['asgi', 'wsgi'].includes(String(manifest.interface).toLowerCase())) manifestInterface = String(manifest.interface).toLowerCase();
                 try { manifestMtime = fs.statSync(manifestPath).mtimeMs; } catch (_e) {}
             }
         } catch (_e) {}
@@ -127,6 +137,11 @@ function syncStateFromCode(slug, tenantId = tenant.getTenantId()) {
         }
     }
 
+    // 若代码中存在数字人基座契约文件，自动补齐数字人基座数据库契约
+    if (!manifestContract && fs.existsSync(path.join(codeDir, 'app/utils/sql_contract.py'))) {
+        manifestContract = 'digital-human';
+    }
+
     const resolvedPkgName = manifestName || versionFileName || state.packageName || '';
     const patch = {};
     if (resolvedVersion && resolvedVersion !== state.version) {
@@ -134,6 +149,21 @@ function syncStateFromCode(slug, tenantId = tenant.getTenantId()) {
     }
     if (resolvedPkgName && resolvedPkgName !== state.packageName) {
         patch.packageName = resolvedPkgName;
+    }
+    if (manifestContract && manifestContract !== state.databaseContract) {
+        patch.databaseContract = manifestContract;
+    }
+    if (manifestHealth && manifestHealth !== state.healthPath) {
+        patch.healthPath = manifestHealth;
+    }
+    if (manifestEntry && manifestEntry !== state.entry) {
+        patch.entry = manifestEntry;
+    }
+    if (manifestFactory !== undefined && manifestFactory !== state.factory) {
+        patch.factory = manifestFactory;
+    }
+    if (manifestInterface && manifestInterface !== state.interface) {
+        patch.interface = manifestInterface;
     }
 
     if (Object.keys(patch).length > 0) {
