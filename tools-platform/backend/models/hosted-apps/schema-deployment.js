@@ -30,6 +30,7 @@ function inspect(slug, kind) {
 }
 
 async function apply(slug, kind, expectedHash) {
+    if(require('./data-environment').mode({slug,tenantId:require('../tenant-context').getTenantId()})==='remote')throw Object.assign(new Error('当前为远端环境，请使用远端基座的导入/升级脚本部署，不能初始化本地库'),{status:409});
     const tenantId = tenant.getTenantId(), key = `${tenantId}/${runtime.assertSlug(slug)}`;
     if (pending.has(key)) throw fail('该应用正在部署数据库脚本', 'HOSTED_SCHEMA_BUSY', 409);
     pending.add(key);

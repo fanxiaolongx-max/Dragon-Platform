@@ -105,6 +105,7 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
 
     const attachToolset = async group => {
         if (readOnly || toolsets.has(group) || !TOOLSETS[group]) return toolsets.get(group) || null;
+        if (await require('./agent-skills-store').unavailableReason(TOOLSETS[group].skillId)) return null;
         const built = await TOOLSETS[group].build(session);
         const set = { ...built, names: new Set(built.definitions.map(item => item.name)) };
         toolsets.set(group, set);
@@ -197,6 +198,8 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
     const loadSkill = async ({ id } = {}) => {
         const cleanId = String(id || '').replace(/^@/, '').trim().toLowerCase();
         if (!builtinSkills.ID_RE.test(cleanId)) return { content: '技能 ID 无效。', summary: '技能 ID 无效', isError: true };
+        const unavailable = await require('./agent-skills-store').unavailableReason(cleanId);
+        if (unavailable) return { content: unavailable, summary: 'NetCare 连接未启用' };
         if (userSkills.has(cleanId)) return { content: `@${cleanId} 已在系统提示中加载，直接按其中的流程执行。`, summary: `@${cleanId} 已加载` };
         const loaded = await require('./agent-skills-store').loadSection(cleanId);
         if (!loaded) return { content: `技能目录中没有 @${cleanId}。只能加载目录中列出的技能。`, summary: `没有 @${cleanId}`, isError: true };
@@ -224,7 +227,28 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
         startPrompt: () => startToolsets.map(group => toolsets.get(group).prompt).filter(Boolean).join('\n'),
         isMeta: name => META_NAMES.has(name),
         async runMeta(call) {
-            if (call.name === 'tool_search') return search(call.args || {});
+            if (call.name === 'tool_search') {
+                const args = call.args || {};
+                const select = (Array.isArray(args.select) ? args.select : args.select ? [args.select] : [])
+                    .map(value => String(value || '').trim());
+                const isSkill = value => TOOLSET_OF_SKILL.has(value.replace(/^@/, '').toLowerCase());
+                const query = String(args.query || '').trim();
+                const skillQuery = isSkill(query);
+                const ids = [...new Set([...select.filter(isSkill), ...(skillQuery ? [query] : [])])];
+                const rest = select.filter(value => !isSkill(value));
+                if (!ids.length) return search(args);
+                const results = [];
+                for (const raw of ids) {
+                    const id = raw.replace(/^@/, '').toLowerCase();
+                    const unavailable = await require('./agent-skills-store').unavailableReason(id);
+                    if (unavailable) results.push({ content: unavailable, summary: 'NetCare 连接未启用' });
+                    else if (skillCatalog) results.push(await loadSkill({ id }));
+                    else results.push({ content: `@${id} 是技能名，请在输入框选择 @${id} 后使用；当前对话没有提供技能加载工具。`, summary: `请选择 @${id}` });
+                }
+                if (rest.length || (query && !skillQuery)) results.push(search({ select: rest, query: skillQuery ? '' : query }));
+                return { content: results.map(item => item.content).join('\n\n'), summary: results.map(item => item.summary).join('；'),
+                    isError: results.some(item => item.isError) };
+            }
             if (call.name === 'load_skill' && skillCatalog) return loadSkill(call.args || {});
             return { content: `工具 ${call.name} 不可用。`, summary: '工具不可用', isError: true };
         },

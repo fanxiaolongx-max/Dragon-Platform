@@ -50,3 +50,49 @@ test('播放器控制按钮仅显示图标且保留无障碍名称', () => {
     assert.match(source, /id="fullscreenBtn"[^>]*aria-label="切换全屏"/);
     assert.match(source, /id="episodePickerBtn"[^>]*aria-label="打开选集"/);
 });
+
+test('大厅视图与视频详情播放视图二态分离且具备返回大厅功能', () => {
+    assert.match(source, /id="hallView"/);
+    assert.match(source, /id="watchView"/);
+    assert.match(source, /class="btn-back-hall"/);
+    assert.match(source, /function showHallView\(/);
+    assert.match(source, /function showWatchView\(/);
+});
+
+test('视频缩略图包含左下角播放次数/人气与右下角时长', () => {
+    assert.match(source, /cover-stat-left/);
+    assert.match(source, /cover-stat-right/);
+    assert.match(source, /card-cover-stats/);
+    assert.match(source, /getVideoViews/);
+    assert.match(source, /card-duration/);
+    assert.match(source, /card-badge-ep/);
+    assert.match(source, /card-author/);
+});
+
+test('播放详情页具备二栏布局、核心操作栏与右侧选集推荐列表', () => {
+    assert.match(source, /class="watch-layout"/);
+    assert.match(source, /class="watch-main-col"/);
+    assert.match(source, /class="watch-sidebar-col"/);
+    assert.match(source, /id="likeBtn"/);
+    assert.match(source, /id="coinBtn"/);
+    assert.match(source, /id="favBtn"/);
+    assert.match(source, /id="shareBtn"/);
+    assert.match(source, /function handleLike\(/);
+    assert.match(source, /function handleCoin\(/);
+    assert.match(source, /function handleFavorite\(/);
+    assert.match(source, /function handleShare\(/);
+    assert.match(source, /class="up-profile-card"/);
+    assert.match(source, /id="upAvatar"/);
+    assert.match(source, /id="upName"/);
+    assert.match(source, /id="followBtn"/);
+    assert.match(source, /id="sidebarPlaylistTitle"/);
+    assert.match(source, /id="sidebarVideoList"/);
+    assert.match(source, /function renderSidebarPlaylist\(/);
+});
+
+test('支持浅色与深色主题切换', () => {
+    assert.match(source, /id="themeToggleBtn"/);
+    assert.match(source, /function toggleTheme\(/);
+    assert.match(source, /data-theme="dark"/);
+});
+

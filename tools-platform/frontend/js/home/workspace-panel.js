@@ -26,6 +26,7 @@
         openDiff: null,
         pr: null, // { phase: 'checking'|'blocked'|'form'|'running'|'done'|'failed', preflight, steps, url, error, controller }
         open: false,
+        filePreview: null,
         external: null, // { previousOpen }：显示外部卡片（WeLink 跟进与记忆）时隐藏环境/上下文/更改
         picker: { items: [], active: -1, timer: null, lastInput: null, exists: false, isDir: false, requestId: 0 }
     };
@@ -86,12 +87,13 @@
 
     // ── 面板开关 ──────────────────────────────────────────
     function setOpen(open) {
-        state.open = Boolean(open) && (state.enabled || Boolean(state.external));
+        if (!open && state.filePreview) { window.ChatFiles?.closePreview(); return; }
+        state.open = Boolean(open) && (state.enabled || Boolean(state.external) || Boolean(state.filePreview));
         document.body.classList.toggle('dc-workspace-open', state.open);
         el.panel.hidden = !state.open;
         el.toggle?.setAttribute('aria-pressed', String(state.open));
         el.fab?.setAttribute('aria-pressed', String(state.open));
-        try { localStorage.setItem(PANEL_KEY, state.open ? '1' : '0'); } catch { /* ignore */ }
+        try { if (!state.filePreview) localStorage.setItem(PANEL_KEY, state.open ? '1' : '0'); } catch { /* ignore */ }
         if (state.open) requestAnimationFrame(() => { if (state.open) el.panel.classList.add('is-drawer-open'); });
         else el.panel.classList.remove('is-drawer-open');
     }
@@ -1219,6 +1221,22 @@
         init,
         showExternal,
         hideExternal,
+        mountFilePreview(node) {
+            if (!el.panel) return false;
+            if (!state.filePreview) state.filePreview = { previousOpen: state.open, scrollTop: el.panel.scrollTop };
+            el.panel.classList.add('has-file-preview');
+            el.panel.appendChild(node);
+            setOpen(true);
+            return true;
+        },
+        unmountFilePreview() {
+            if (!state.filePreview) return;
+            const { previousOpen, scrollTop } = state.filePreview;
+            state.filePreview = null;
+            el.panel.classList.remove('has-file-preview');
+            setOpen(previousOpen);
+            el.panel.scrollTop = scrollTop;
+        },
         openPanel: () => setOpen(true),
         isPanelOpen: () => state.open,
         isEnabled: () => state.enabled,

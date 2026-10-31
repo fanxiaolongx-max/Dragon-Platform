@@ -217,6 +217,7 @@ async function queryApp(app, sql, limit) {
     const text = assertRead(sql);
     const db = await appDatabase(app.tenantId, app.slug);
     return withTimeout(db, async () => {
+        const metadata=await handleInformationSchema(db,text,limit);if(metadata)return metadata;
         const { rows, truncated } = await eachRows(db, text, limitOf(limit));
         return { rows: normalizeRows(rows), truncated };
     });
@@ -378,16 +379,19 @@ async function handleInformationSchema(db, text, limit) {
     return null;
 }
 
-async function queryPlatform(name, sql, limit) {
+async function queryPlatform(name, sql, limit, simulationFile) {
     let text = assertRead(sql);
-    const item = platformFile(name);
+    const item = simulationFile?{file:simulationFile}:platformFile(name);
     const db = await open(item.file, sqlite3.OPEN_READONLY);
     try {
         db.configure('busyTimeout', 5000);
         await allOf(db, 'PRAGMA query_only = ON');
         await allOf(db, 'PRAGMA trusted_schema = OFF');
         const info = await handleInformationSchema(db, text, limit);
-        if (info) return info;
+        if (info) {
+            if(simulationFile)for(const row of info.rows){if('TABLE_ROWS' in row)row.TABLE_ROWS=12;if('est_rows' in row)row.est_rows=12;}
+            return info;
+        }
         text = text.replace(/`?netcare`?\./gi, '');
         return await withTimeout(db, async () => {
             await assertSafeReadPlan(db, text);
@@ -464,6 +468,12 @@ function query(app, body = {}, request) {
 
 async function runQuery(app, body = {}) {
     const { sql, limit } = body;
+    const environment=require('./data-environment');
+    if(environment.mode(app)==='remote'){
+        const scope=isApp(app,body)?'app':'business';
+        if(scope==='business'&&(!body.datasourceName||/^platform:/i.test(body.datasourceName)))throw fail('远端环境只允许基座业务库', 'HOSTED_DATA_FORBIDDEN',403);
+        return require('../digital-human/base-client').queryPage(assertRead(sql),{scope,limit:limitOf(limit),config:await environment.remoteConfig()});
+    }
     if (isApp(app, body)) return queryApp(app, sql, limit);
     const name = String(body.datasourceName || '');
     if (!name) throw fail('请提供 datasourceName（业务库）或 datasourceId + schema（应用库）');
@@ -472,7 +482,7 @@ async function runQuery(app, body = {}) {
         return queryPlatform(name, sql, limit);
     }
     const netcare = await refreshNetcareName();
-    if (name === netcare || name.toLowerCase() === 'netcare') return queryNetcare(sql, limit);
+    if (name === netcare || name.toLowerCase() === 'netcare' || name === (await require('../digital-human/config-repository').getConfig()).businessDatasourceName || name === require('./runtime').readState(app.slug,app.tenantId)?.businessDatasource) return queryPlatform('platform:report.db',sql,limit,await require('./simulated-business').ensure(app.tenantId));
     throw fail(`未知数据源：${name}；可调用 /query/datasources 查看`, 'HOSTED_DATA_NOT_FOUND', 404);
 }
 
@@ -480,7 +490,7 @@ async function runQuery(app, body = {}) {
 function queryForAI(app, body = {}, request) {
     const sql = assertRead(body.sql);
     return limited(app, async () => {
-        if (!isApp(app, body)) return runQuery(app, { ...body, sql });
+        if (require('./data-environment').mode(app)==='remote'||!isApp(app, body)) return runQuery(app, { ...body, sql });
         const db = await appDatabase(app.tenantId, app.slug);
         return withTimeout(db, async () => {
             const info = await handleInformationSchema(db, sql, body.limit);
@@ -499,10 +509,21 @@ function execute(app, body = {}, request) {
 async function runExecute(app, body = {}) {
     if (body.datasourceName && !isApp(app, body)) throw fail('业务库只读，写操作只能作用于本应用的应用库', 'HOSTED_DATA_FORBIDDEN', 403);
     if (!isApp(app, { datasourceId: body.datasourceId ?? 'app', schema: body.schema })) throw fail('请提供 datasourceId=app');
+    if(require('./data-environment').mode(app)==='remote'){
+        const config=await require('./data-environment').remoteConfig(),client=require('../digital-human/base-client');
+        const checked=assertAppWrite(body.sql,{baseCompatible:true});
+        const response=await client.send(config,{method:'POST',path:'/execute',body:{datasourceId:config.appDatasourceId,schema:config.appSchema,sql:checked.sql}});
+        const error=client.failureOf(response);if(error)throw error;
+        return {affectedRows:client.affectedOf(response.json)};
+    }
     return executeApp(app, body.sql);
 }
 
 async function listDatasources(app) {
+    if(require('./data-environment').mode(app)==='remote'){
+        const config=await require('./data-environment').remoteConfig();
+        return [{id:'app',name:'应用库',type:'APP_CUSTOM',schema:app.uuid,writable:true},{name:config.businessDatasourceName,type:'NETCARE_READONLY',writable:false}];
+    }
     const items = [{ id: 'app', name: '应用库', type: 'APP_CUSTOM', schema: app.uuid, writable: true }];
     for (const item of baseContract(app) ? [] : databases.platformFiles()) {
         const name = item.id.slice('platform:'.length);
@@ -510,34 +531,27 @@ async function listDatasources(app) {
         items.push({ name: item.id, type: 'PLATFORM_READONLY', writable: false });
     }
     const netcare = await refreshNetcareName();
-    if (netcare) items.push({ name: netcare, type: 'NETCARE_READONLY', writable: false });
+    items.push({name:'netcare',type:'SIMULATED_BUSINESS',writable:false});
+    if (netcare && netcare!=='netcare') items.push({ name: netcare, type: 'SIMULATED_BUSINESS', writable: false });
     return items;
 }
 
 async function findTableDatasource(app, table) {
-    const name = String(table || '').trim();
-    if (!/^[\w$\-一-龥]{1,128}$/.test(name)) throw fail('table 参数无效');
-    const hits = [];
-    for (const item of baseContract(app) ? [] : databases.platformFiles()) {
-        if (PROTECTED_DATABASES.has(item.id.slice('platform:'.length).toLowerCase())) continue;
-        try {
-            if ((await platformTables(item)).some(entry => entry.toLowerCase() === name.toLowerCase())) hits.push({ datasourceName: item.id, type: 'PLATFORM_READONLY' });
-        } catch (_error) { /* 库暂不可读 */ }
+    const name=String(table||'').trim();
+    if(!/^[\w$\-一-龥]{1,128}$/.test(name))throw fail('table 参数无效');
+    if(require('./data-environment').mode(app)==='remote'){
+        const config=await require('./data-environment').remoteConfig();
+        const result=await require('../digital-human/base-client').findTableDatasource(name,{config});
+        return result.data?[{datasourceName:config.businessDatasourceName,type:'NETCARE_READONLY',detail:result.data}]:[];
     }
-    const config = await netcareConfig();
-    if (config) {
-        try {
-            const result = await require('../digital-human/base-client').findTableDatasource(name, { config });
-            if (result.data) hits.push({ datasourceName: config.businessDatasourceName, type: 'NETCARE_READONLY', detail: result.data });
-        } catch (_error) { /* 基座不可达时只返回平台库结果 */ }
-    }
-    return hits;
+    const item={file:await require('./simulated-business').ensure(app.tenantId)};
+    return (await platformTables(item)).some(t=>t.toLowerCase()===name.toLowerCase())?[{datasourceName:'netcare',type:'SIMULATED_BUSINESS'}]:[];
 }
 
 const ok = (res, data, extra = {}) => res.json({ code: 0, status: 200, success: true, message: 'success', data, ...extra });
 
 function sendError(res, error, { baseCompatible = false } = {}) {
-    const status = error.status || (error.statusCode >= 400 ? error.statusCode : 0) || (/SQLITE_/.test(error.code || '') ? 400 : 500);
+    const status = error.httpStatus===429?429:error.status || (error.statusCode >= 400 ? error.statusCode : 0) || (/SQLITE_/.test(error.code || '') ? 400 : 500);
     const message = /SQLITE_/.test(error.code || '') ? `SQL 执行失败：${String(error.message).replace(/^SQLITE_\w+:\s*/, '')}` : error.message || '数据接口异常';
     const businessFailure = baseCompatible && ![401, 403, 429, 499].includes(status);
     res.status(businessFailure ? 200 : status).json({ code: businessFailure && /SQLITE_/.test(error.code || '') ? 500 : status, success: false, message, data: null, errorCode: error.code || 'HOSTED_DATA_ERROR' });
@@ -561,7 +575,7 @@ function createRouter() {
         tenant.runWithTenant(found.tenantId, () => {
             const state = require('./runtime').readState(found.slug, found.tenantId);
             if (!state) return res.status(401).json({ code: 401, success: false, message: '应用不存在' });
-            try { rateLimit(`${found.tenantId}/${found.slug}`); } catch (error) { return sendError(res, error); }
+            try { if(!req.path.endsWith('/environment'))rateLimit(`${found.tenantId}/${found.slug}`); } catch (error) { return sendError(res, error); }
             req.hostedApp = { tenantId: found.tenantId, slug: found.slug, uuid: state.uuid, databaseContract: state.databaseContract };
             req.hostedRequest = { aborted: false };
             res.on('close', () => { if (!res.writableFinished) req.hostedRequest.aborted = true; });
@@ -573,6 +587,11 @@ function createRouter() {
     });
     router.get('/:token/dh/query/datasources', wrap(async (req, res) => ok(res, await listDatasources(req.hostedApp))));
     router.get('/:token/dh/query/find-table-datasource', wrap(async (req, res) => ok(res, await findTableDatasource(req.hostedApp, req.query.table))));
+    router.get('/:token/dh/environment',wrap(async(req,res)=>ok(res,await require('./data-environment').describe(req.hostedApp))));
+    router.post('/:token/dh/environment',wrap(async(req,res)=>{
+        if(runningByApp.get(`${req.hostedApp.tenantId}/${req.hostedApp.slug}`))throw fail('数据请求正在执行，请稍后切换','HOSTED_DATA_BUSY',409);
+        ok(res,await require('./data-environment').change(req.hostedApp,req.body?.mode,req.headers,req.hostedRequest));
+    }));
     router.post('/:token/dh/query', wrap(async (req, res) => {
         const result = await query(req.hostedApp, req.body || {}, req.hostedRequest);
         // data 为结构体（含 rows 与 total），同时顶层也挂 rows 保证兼容直接解构 data 或顶层数组的客户端

@@ -48,7 +48,7 @@
         $('zoomOut').ariaLabel = t('缩小', 'Zoom out'); $('zoomIn').ariaLabel = t('放大', 'Zoom in');
         $('pictureStage').ariaLabel = t('图片查看区域，可滚动阅读', 'Picture viewer, scroll to read');
         $('detailDialog').ariaLabel = t('图片查看器','Picture viewer'); $('filmstripMode').ariaLabel = t('缩略图内容','Thumbnail contents');
-        for (const [id,zh,en] of [['toggleInfo','信息与整理','Info and organize'],['toggleCompare','版本对比','Compare versions'],['toggleFilmstrip','缩略图','Thumbnails'],['viewerPrevious','上一张','Previous picture'],['viewerNext','下一张','Next picture'],['share','分享图片','Share picture'],['closeInfo','关闭信息','Close info']]) $(id).title = $(id).ariaLabel = t(zh,en);
+        for (const [id,zh,en] of [['toggleInfo','信息与整理','Info and organize'],['toggleCompare','版本对比','Compare versions'],['toggleFilmstrip','缩略图','Thumbnails'],['viewerPrevious','上一张','Previous picture'],['viewerNext','下一张','Next picture'],['pagePrevious','上一张图片','Previous picture'],['pageNext','下一张图片','Next picture'],['share','分享图片','Share picture'],['closeInfo','关闭信息','Close info']]) $(id).title = $(id).ariaLabel = t(zh,en);
         renderCategories(); renderList();
         if (current) { renderVersionOptions(); renderPicture(); }
     }
@@ -329,12 +329,18 @@
     function renderViewerChrome() {
         const neighbors = viewerNeighbors(), a = activeVersion();
         $('viewerPrevious').disabled = !neighbors.previous; $('viewerNext').disabled = !neighbors.next;
+        $('pagePrevious').disabled=!neighbors.previous;$('pageNext').disabled=!neighbors.next;
+        $('viewerPageNavigation').hidden=!neighbors.previous&&!neighbors.next;
+        $('viewerPageNavigation').setAttribute('aria-label',t('图片翻页','Picture navigation'));
         $('viewerMeta').textContent = `${neighbors.index >= 0 ? `${neighbors.index+1} / ${viewerItems.length} · ` : ''}${versionLabel(a)} · ${a.width} × ${a.height}`;
         $('toggleCompare').hidden = current.versions.length < 2;
-        if ($('viewMode').value !== 'single') $('viewerAdvanced').hidden = false;
-        $('toggleCompare').setAttribute('aria-pressed', String(!$('viewerAdvanced').hidden && $('viewMode').value !== 'single'));
-        $('filmstripMode').options[1].disabled = current.versions.length < 2;
-        if (current.versions.length < 2) $('filmstripMode').value = 'pictures';
+        $('viewerAdvanced').hidden = true;
+        const comparing=$('viewMode').value!=='single';
+        $('toggleCompare').setAttribute('aria-pressed',String(comparing));
+        renderVersionRails(comparing);
+        renderNewVersionBadges(comparing);
+        $('filmstripMode').options[1].disabled = comparing || current.versions.length < 2;
+        if (comparing || current.versions.length < 2) $('filmstripMode').value = 'pictures';
         const versions = $('filmstripMode').value === 'versions';
         $('versionList').hidden = !versions; $('pictureFilmstrip').hidden = versions;
         $('pictureFilmstrip').innerHTML = viewerItems.map(item=>`<button class="film-picture ${item.id === current.id ? 'active' : ''}" data-picture="${escape(item.id)}" title="${escape(item.title)}" aria-label="${escape(item.title)}" aria-pressed="${item.id === current.id}"><img src="/api/gallery/versions/${escape(item.cover_id)}/thumbnail" data-reading-preview="/api/gallery/versions/${escape(item.cover_id)}/preview" alt="" loading="lazy"><span>${escape(item.title)}</span></button>`).join('');
@@ -567,7 +573,96 @@
     imageStage.addEventListener('pointerup',endImagePointer);imageStage.addEventListener('pointercancel',endImagePointer);
     imageStage.addEventListener('lostpointercapture',event=>{if(!imagePointers.delete(event.pointerId))return;if(!imagePointers.size){imageGesture=null;imageStage.classList.remove('dragging');if(swipePreview&&!swipePreview.settling)void finishSwipe(false);}});
     $('pictureA').addEventListener('dragstart',event=>event.preventDefault());
-    $('detailDialog').addEventListener('close',()=>{imagePointers.clear();imageGesture=null;resetSwipe();clearZoomSnap();imageStage.classList.remove('dragging');});
+    $('detailDialog').addEventListener('close',()=>{if($('detailDialog').open)return;imagePointers.clear();imageGesture=null;resetSwipe();clearZoomSnap();imageStage.classList.remove('dragging');});
+    function renderNewVersionBadges(comparing) {
+        const a=activeVersion(),b=current.versions.find(v=>v.id===$('versionB').value);
+        // Sequence numbers define revision order, even when uploads share a timestamp.
+        let order=a&&b?Number(a.version_no)-Number(b.version_no):0;
+        if(!Number.isFinite(order)||order===0)order=a&&b?Date.parse(a.created_at)-Date.parse(b.created_at):0;
+        for(const [side,v,newer] of [['A',a,order>0],['B',b,order<0]]) {
+            const badge=$('newVersion'+side);
+            badge.hidden=!comparing||!a||!b||a.id===b.id||!newer;
+            if(v){const label=t('相较另一侧，这是较新的版本：','Newer than the other picture: ')+versionLabel(v);badge.title=label;badge.setAttribute('aria-label',label);}
+        }
+        placeNewVersionBadges();
+    }
+    function placeNewVersionBadges() {
+        if(!current||$('versionNavigation').hidden)return;
+        const stage=$('pictureStage').getBoundingClientRect();
+        for(const side of ['A','B']) {
+            const badge=$('newVersion'+side),v=current.versions.find(v=>v.id===$('version'+side).value);
+            if(badge.hidden||!v)continue;
+            const picture=$('picture'+side),rect=picture.getBoundingClientRect(),style=getComputedStyle(picture);
+            const left=parseFloat(style.paddingLeft)||0,right=parseFloat(style.paddingRight)||0,top=parseFloat(style.paddingTop)||0,bottom=parseFloat(style.paddingBottom)||0;
+            const width=rect.width-left-right,height=rect.height-top-bottom,scale=Math.min(width/v.width,height/v.height);
+            const imageRight=rect.left+left+(width+v.width*scale)/2;
+            const outside=rect.right-imageRight>=badge.offsetWidth+16;
+            badge.style.left=`${imageRight-stage.left+(outside?badge.offsetWidth+8:-8)}px`;
+            badge.style.top=`${rect.top-stage.top+top+(height-v.height*scale)/2+8}px`;
+        }
+    }
+    function placeVersionRails() {
+        const stage=$('pictureStage'),nav=$('versionNavigation');
+        nav.style.top=`${stage.offsetTop}px`;nav.style.height=`${stage.clientHeight}px`;
+        $('viewerPageNavigation').style.top=`${stage.offsetTop}px`;$('viewerPageNavigation').style.height=`${stage.clientHeight}px`;nav.style.setProperty('--rail-stage-height',`${stage.clientHeight}px`);placeNewVersionBadges();
+    }
+    function paintRail(rail,index=null) {
+        const buttons=[...rail.querySelectorAll('.rail-tick')];
+        for(const [i,button] of buttons.entries()) {
+            const distance=index===null?Infinity:Math.abs(i-index);
+            const length=distance===0?32:distance===1?24:distance===2?16:distance===3?10:6;
+            button.style.setProperty('--tick-scale',String((index===null&&button.getAttribute('aria-pressed')==='true'?22:length)/32));
+            button.style.setProperty('--tick-opacity',String(distance===0?1:distance===1?.75:distance===2?.5:button.getAttribute('aria-pressed')==='true'?.85:.28));
+        }
+        const label=rail.querySelector('.rail-version-label'),v=index===null?null:current.versions[index];
+        label.hidden=!v;if(!v)return;
+        label.dataset.railVersion=v.id;label.querySelector('strong').textContent=versionLabel(v);
+        label.querySelector('time').textContent=new Date(v.created_at).toLocaleString(english?'en-GB':'zh-CN',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+        label.querySelector('time').dateTime=v.created_at;
+        const button=buttons[index],list=rail.querySelector('.rail-ticks');
+        label.style.top=`${Math.max(0,Math.min(rail.clientHeight-48,button.offsetTop-list.scrollTop+(button.offsetHeight-48)/2))}px`;
+    }
+    function renderVersionRails(comparing) {
+        $('versionNavigation').hidden=!comparing||current.versions.length<2;
+        $('pictureStage').classList.toggle('comparing',comparing);
+        for(const side of ['A','B']) {
+            const rail=$('versionRail'+side),signature=current.versions.map(v=>v.id).join('|');
+            rail.setAttribute('aria-label',side==='A'?t('左图历史版本','Left picture versions'):t('右图历史版本','Right picture versions'));
+            if(rail.dataset.versions!==signature) {
+                rail.dataset.versions=signature;delete rail.dataset.hoverIndex;
+                rail.innerHTML=`<div class="rail-ticks">${current.versions.map((v,i)=>`<button class="rail-tick" type="button" data-rail-version="${escape(v.id)}" data-index="${i}" aria-label="${escape(versionLabel(v)+' · '+new Date(v.created_at).toLocaleString())}"><span></span></button>`).join('')}</div><button class="rail-version-label" type="button" hidden><strong></strong><time></time></button>`;
+            }
+            for(const button of rail.querySelectorAll('.rail-tick'))button.setAttribute('aria-pressed',String(button.dataset.railVersion===$('version'+side).value));
+            for(const button of rail.querySelectorAll('.rail-tick')){const v=current.versions[Number(button.dataset.index)];button.setAttribute('aria-label',versionLabel(v)+' · '+new Date(v.created_at).toLocaleString(english?'en-GB':'zh-CN'));}
+            const focused=rail.querySelector('.rail-tick:focus'),hover=rail.dataset.hoverIndex;paintRail(rail,hover!==undefined?Number(hover):focused?Number(focused.dataset.index):null);
+        }
+        placeVersionRails();
+    }
+    async function selectRailVersion(side,id) {
+        if(!current.versions.some(v=>v.id===id)||$('version'+side).value===id)return;
+        cancelViewerTransition();$('version'+side).value=id;$('aiConfirm').checked=false;renderPicture();
+        const picture=$('picture'+side);
+        try {await picture.decode();}catch(_) {return;}
+        if($('version'+side).value!==id||!$('detailDialog').open)return;
+        picture.getAnimations().forEach(animation=>animation.cancel());
+        if(!matchMedia('(prefers-reduced-motion: reduce)').matches)picture.animate([{opacity:.5},{opacity:1}],{duration:180,easing:'ease-out'});
+    }
+    for(const side of ['A','B']) {
+        const rail=$('versionRail'+side);
+        rail.addEventListener('pointermove',event=>{const button=event.target.closest('.rail-tick');if(button){rail.dataset.hoverIndex=button.dataset.index;paintRail(rail,Number(button.dataset.index));}});
+        rail.addEventListener('pointerleave',()=>{delete rail.dataset.hoverIndex;const focused=rail.querySelector('.rail-tick:focus-visible');paintRail(rail,focused?Number(focused.dataset.index):null);});
+        rail.addEventListener('focusin',event=>{if(event.target.matches('.rail-tick'))paintRail(rail,Number(event.target.dataset.index));});
+        rail.addEventListener('focusout',event=>{if(!rail.contains(event.relatedTarget))paintRail(rail);});
+        rail.addEventListener('click',guarded(async event=>{const button=event.target.closest('[data-rail-version]');if(button)await selectRailVersion(side,button.dataset.railVersion);}));
+        rail.addEventListener('keydown',event=>{
+            const buttons=[...rail.querySelectorAll('.rail-tick')],index=buttons.indexOf(event.target);
+            if(index<0||!['ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
+            event.preventDefault();const target=event.key==='Home'?0:event.key==='End'?buttons.length-1:Math.max(0,Math.min(buttons.length-1,index+(event.key==='ArrowDown'?1:-1)));
+            buttons[target].focus({preventScroll:true});buttons[target].scrollIntoView({block:'nearest'});
+        });
+        rail.addEventListener('scroll',()=>{const focused=rail.querySelector('.rail-tick:focus');if(focused)paintRail(rail,Number(focused.dataset.index));else paintRail(rail);},true);
+    }
+    new ResizeObserver(placeVersionRails).observe($('pictureStage'));
     function renderVersionOptions() {
         const a = $('versionA').value, b = $('versionB').value;
         const options = current.versions.map(v => `<option value="${escape(v.id)}">${escape(versionLabel(v))}</option>`).join('');
@@ -593,7 +688,7 @@
         if (!a) return;
         const mode = $('viewMode').value, compare = mode !== 'single';
         renderReader(a, compare); $('captionA').textContent = `${versionLabel(a)} · ${a.width} × ${a.height}${a.source === 'builtin-example' ? t(' · 内置示例 · 原图需联网', ' · Example · Original requires internet') : ''}`;
-        if (b) { $('pictureB').src = b.previewUrl; $('captionB').textContent = versionLabel(b); }
+        if (b) { if($('pictureB').getAttribute('src')!==b.previewUrl)$('pictureB').src = b.previewUrl; $('captionB').textContent = versionLabel(b); }
         $('figureB').hidden = $('versionB').hidden = $('versus').hidden = $('compareHint').hidden = !compare;
         $('opacityControl').hidden = mode !== 'overlay'; $('pictureStage').classList.toggle('overlay', mode === 'overlay');
         $('figureB').style.opacity = mode === 'overlay' ? $('opacity').value / 100 : '';
@@ -616,10 +711,11 @@
         transition.figure.style.visibility=transition.visibility;
         if(transition.revokeUrl)URL.revokeObjectURL(transition.revokeUrl);
     }
-    function transitionImage(bounds) {
-        const picture=$('pictureA'),r=picture.getBoundingClientRect(),style=getComputedStyle(picture),copy=document.createElement('img');
+    function transitionImage(bounds,side='A') {
+        const picture=$('picture'+side),r=picture.getBoundingClientRect(),style=getComputedStyle(picture),copy=document.createElement('img');
         copy.src=picture.currentSrc||picture.src;
         Object.assign(copy.style,{position:'absolute',left:`${r.left-bounds.left}px`,top:`${r.top-bounds.top}px`,width:`${r.width}px`,height:`${r.height}px`,padding:style.padding,objectFit:style.objectFit});
+        copy.style.opacity=getComputedStyle(picture.closest('figure')).opacity;
         return copy;
     }
     function beginViewerTransition(direction) {
@@ -627,7 +723,7 @@
         const bounds=imageStage.getBoundingClientRect(),host=imageStage.parentElement.getBoundingClientRect();
         const layer=document.createElement('div');layer.className='viewer-transition';layer.setAttribute('aria-hidden','true');layer.dataset.direction=direction>0?'next':'previous';
         Object.assign(layer.style,{left:`${bounds.left-host.left}px`,top:`${bounds.top-host.top}px`,width:`${bounds.width}px`,height:`${bounds.height}px`});
-        const track=document.createElement('div');track.className='transition-track';track.append(transitionImage(bounds));layer.append(track);
+        const track=document.createElement('div');track.className='transition-track';track.append(transitionImage(bounds));if(!$('figureB').hidden)track.append(transitionImage(bounds,'B'));layer.append(track);
         imageStage.parentElement.append(layer);
         const figure=$('pictureA').closest('figure');
         viewerTransition={layer,track,figure,visibility:figure.style.visibility,direction,width:bounds.width,heldUrl:originalUrl};
@@ -635,28 +731,28 @@
     }
     async function completeViewerTransition(transition) {
         if(!transition)return;
-        const picture=$('pictureA');
-        // Keep the previous image visible while the incoming preview decodes.
-        if(!picture.complete||!picture.naturalWidth)await new Promise(resolve=>{
+        const pictures=[$('pictureA'),...(!$('figureB').hidden?[$('pictureB')]:[])];
+        // Decode both comparison panes before sliding the next picture into view.
+        await Promise.all(pictures.map(picture=>picture.complete&&picture.naturalWidth?Promise.resolve():new Promise(resolve=>{
             const done=()=>{clearTimeout(timer);picture.removeEventListener('load',done);picture.removeEventListener('error',done);resolve();};
             const timer=setTimeout(done,900);picture.addEventListener('load',done);picture.addEventListener('error',done);
-        });
+        })));
         if(viewerTransition!==transition||!$('detailDialog').open)return;
         const bounds=imageStage.getBoundingClientRect(),incoming=document.createElement('div');incoming.className='transition-incoming';
-        incoming.style.transform=`translateX(${transition.direction*(transition.width+16)}px)`;incoming.append(transitionImage(bounds));transition.track.append(incoming);
+        incoming.style.transform=`translateX(${transition.direction*(transition.width+16)}px)`;incoming.append(transitionImage(bounds));if(!$('figureB').hidden)incoming.append(transitionImage(bounds,'B'));transition.track.append(incoming);
         const duration=matchMedia('(prefers-reduced-motion: reduce)').matches?0:280;
         transition.animation=transition.track.animate([{transform:'translate3d(0,0,0)'},{transform:`translate3d(${-transition.direction*(transition.width+16)}px,0,0)`}],{duration,easing:'cubic-bezier(.22,.7,.25,1)',fill:'forwards'});
         try {await transition.animation.finished;}catch(error){if(error.name!=='AbortError')throw error;}
         finally {if(viewerTransition===transition)cancelViewerTransition();}
     }
     async function openDetail(id, animate = true) {
-        const request = ++detailRequest;
+        const request = ++detailRequest, wasOpen=$('detailDialog').open;
         cancelViewerTransition();
         if($('detailDialog').open&&current?.id===id)return;
         const oldIndex=viewerItems.findIndex(item=>item.id===current?.id),newIndex=viewerItems.findIndex(item=>item.id===id);
         const direction=newIndex>=0&&oldIndex>=0?Math.sign(newIndex-oldIndex):id===current?.album_previous?.id?-1:1;
-        const shouldAnimate=animate&&$('detailDialog').open&&id!==current?.id&&$('viewMode').value==='single';
-        const loaded = await api('/items/' + id); if (request !== detailRequest) return;
+        const shouldAnimate=animate&&$('detailDialog').open&&id!==current?.id;
+        const loaded = await api('/items/' + id); if (request !== detailRequest || (wasOpen&&!$('detailDialog').open)) return;
         if (!$('detailDialog').open) {
             viewerItems = result.items.slice();
             $('detailDialog').classList.remove('with-info'); $('toggleInfo').setAttribute('aria-expanded','false');
@@ -665,7 +761,7 @@
         if (!viewerItems.some(item=>item.id===loaded.id)) viewerItems.unshift({id:loaded.id,title:loaded.title,cover_id:loaded.versions[0]?.id});
         const transition=shouldAnimate?beginViewerTransition(direction):null;
         $('viewerAdvanced').hidden = true;
-        resetSwipe(); current = loaded; $('viewMode').value = 'single'; $('versionA').innerHTML = $('versionB').innerHTML = ''; $('aiConfirm').checked = false;
+        resetSwipe(); current = loaded; $('viewMode').value = loaded.versions.length > 1 ? 'side' : 'single'; $('versionA').innerHTML = $('versionB').innerHTML = ''; $('aiConfirm').checked = false;
         if (!$('detailDialog').open) $('detailDialog').showModal(); fillDetail(); notifyViewer(true);
         await completeViewerTransition(transition);
     }
@@ -762,22 +858,23 @@
     $('fitWidth').onclick = () => {cancelViewerTransition();clearZoomSnap();setReader('width');}; $('fitWhole').onclick = () => {cancelViewerTransition();clearZoomSnap();setReader('whole');};
     const buttonZoom = factor => {cancelViewerTransition();clearZoomSnap();resetSwipe();const r=imageStage.getBoundingClientRect();zoomPicture(factor,r.left+r.width/2,r.top+r.height/2,'button');};
     $('zoomIn').onclick = () => buttonZoom(1.25); $('zoomOut').onclick = () => buttonZoom(.8);
-    $('detailDialog').addEventListener('close', () => { ++detailRequest;cancelViewerTransition();releaseOriginal(); readerVersion = ''; $('pictureA').removeAttribute('src'); notifyViewer(false); });
+    $('detailDialog').addEventListener('close', () => { if($('detailDialog').open)return;cancelViewerTransition();releaseOriginal(); readerVersion = ''; $('pictureA').removeAttribute('src'); notifyViewer(false); });
     $('toggleInfo').onclick = () => setInfo(!$('detailDialog').classList.contains('with-info')); $('closeInfo').onclick = () => setInfo(false);
     $('viewerPrevious').onclick = guarded(() => {const item=viewerNeighbors().previous;if(item)return openDetail(item.id);});
     $('viewerNext').onclick = guarded(() => {const item=viewerNeighbors().next;if(item)return openDetail(item.id);});
+    $('pagePrevious').onclick=()=>{$('viewerPrevious').click();};$('pageNext').onclick=()=>{$('viewerNext').click();};
     $('pictureFilmstrip').addEventListener('load',topPreview,true);
     $('pictureFilmstrip').onclick = guarded(async event => {const button=event.target.closest('[data-picture]');if(button)await openDetail(button.dataset.picture);});
     $('filmstripMode').onchange = renderViewerChrome;
     $('toggleFilmstrip').onclick = () => { cancelViewerTransition();$('viewerFilmstrip').hidden = !$('viewerFilmstrip').hidden; $('toggleFilmstrip').setAttribute('aria-pressed',String(!$('viewerFilmstrip').hidden)); renderViewerChrome(); };
     $('toggleCompare').onclick = () => {
         cancelViewerTransition();
-        const isComparing = !$('viewerAdvanced').hidden && $('viewMode').value !== 'single';
+        const isComparing = $('viewMode').value !== 'single';
         if (isComparing) {
             $('viewerAdvanced').hidden = true;
             $('viewMode').value = 'single';
         } else {
-            $('viewerAdvanced').hidden = false;
+            $('viewerAdvanced').hidden = true;
             $('viewMode').value = 'side';
             if (current?.versions?.length >= 2) {
                 $('versionA').value = current.versions[0].id;

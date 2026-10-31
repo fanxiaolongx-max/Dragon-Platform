@@ -15,6 +15,7 @@
     "hosted:sync:enable": "node scripts/sync-builtin-hosted-apps.js --enable",
     "hosted:sync:disable": "node scripts/sync-builtin-hosted-apps.js --disable",
     "assets:pack-audio": "node backend/builtin-tools/tool-mtakhxqm/pack-audio.mjs",
+    "tools:release:stamp": "node scripts/stamp-tool-release.js",
     "tools:market:build": "node scripts/build-tools-market.js",
     "license:sync-desktop-key": "node scripts/sync-desktop-license-public-key.js",
     "license:verify-desktop-config": "node scripts/verify-desktop-license-client-config.js",

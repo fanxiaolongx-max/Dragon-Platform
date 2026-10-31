@@ -10,7 +10,7 @@ const source = '<!doctype html>\n<html>\n<head>\n<style>\n/* toolbar */\n:root {
     + Array.from({length: 760}, (_, i) => `const value${i} = ${i}; // 中文注释与 HTML <tag> 字符`).join('\n')
     + '\n</script>\n<img src=x onerror="window.__sourceExecuted=true">\n</body>\n</html>\n';
 const errors = [];
-let strictContract=false, deploymentCalls=0;
+let strictContract=false, deploymentCalls=0, packageCalls=0, failPackage=false;
 const deploymentSql='CREATE TABLE IF NOT EXISTS reports(id INTEGER PRIMARY KEY);\n'+('-- <img src=x onerror=alert(1)> preview only\n'.repeat(180));
 const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://fixture');
@@ -26,6 +26,13 @@ const server = http.createServer((req, res) => {
         if(req.method==='POST'){deploymentCalls++;json({success:true,deployment:{skipped:false}});}
         else json({script:{kind:url.searchParams.get('kind'),file:'db/'+url.searchParams.get('kind')+'.sqlite.sql',hash:'fixture-hash',sql:deploymentSql,applied:false}});
     }
+    else if (url.pathname.endsWith('/preview')) {
+        let body=''; req.on('data', chunk=>body+=chunk); req.on('end',()=>{
+            const payload=JSON.parse(body);
+            setTimeout(()=>json({app:{name:payload.archiveName,version:'2',entry:'main:app',fileCount:2,totalBytes:200,python:{ok:true}}}),payload.archiveName==='slow.zip'?250:0);
+        });
+    }
+    else if (url.pathname.endsWith('/package')) { packageCalls++; if(failPackage) {res.statusCode=500;json({error:'fixture update failed'});} else json({success:true}); }
     else if (url.pathname.endsWith('/editor/tree')) json({tree:[{name:'index.html',path:'static/index.html',isDir:false,isBinary:false}]});
     else if (url.pathname.endsWith('/editor/git/status')) json({status:{branch:'main',clean:true}});
     else if (url.pathname.endsWith('/editor/file')) json({file:{path:'static/index.html',name:'index.html',ext:'html',content:source,isBinary:false}});
@@ -84,6 +91,31 @@ let browser;
     await page.keyboard.insertText('8');
     assert.equal(await page.locator('#haIdeCode').textContent(),edited+'\n');
     assert(await page.locator('#haIdeCode .tok-tag').count()>0);
+    await page.locator('#haIdeBtnPackageUpdate').click();
+    const drop=page.locator('#haUploadDropzone');
+    await drop.click({trial:true}); // Upload must be above the IDE, not merely visible in DOM.
+    const file=page.locator('#haUploadFileInput');
+    await file.setInputFiles({name:'slow.zip',mimeType:'application/zip',buffer:Buffer.from('first')});
+    await page.waitForTimeout(100); // Let first preview reach server before choosing again.
+    await file.setInputFiles({name:'new.zip',mimeType:'application/zip',buffer:Buffer.from('second')});
+    await page.waitForFunction(()=>document.querySelector('#haUploadPkgName').textContent==='new.zip');
+    await page.waitForTimeout(350);
+    assert.equal(await page.locator('#haUploadPkgName').textContent(),'new.zip','Stale preview must not replace latest selection');
+    await page.locator('#haUploadSubmitBtn').click();
+    await page.locator('.app-dialog-details').waitFor();
+    await page.locator('[data-dialog="cancel"]').click();
+    assert.equal(packageCalls,0,'Unsaved edits require confirmation');
+    assert.equal(await page.locator('#haIdeTextarea').inputValue(),edited);
+    failPackage=true;
+    await page.locator('#haUploadSubmitBtn').click();
+    await page.locator('[data-dialog="ok"]').click();
+    await page.locator('#haUploadErrorBox').filter({hasText:'fixture update failed'}).waitFor();
+    assert(await page.locator('#haUploadSubmitBtn').isEnabled(),'Failure must allow retry');
+    failPackage=false;
+    await page.locator('#haUploadSubmitBtn').click();
+    await page.locator('[data-dialog="ok"]').click();
+    await page.locator('#haUploadModal').waitFor({state:'hidden'});
+    assert.equal(packageCalls,2,'Retry sends one update request');
     strictContract=true;
     await page.goto('http://127.0.0.1:'+server.address().port+'/launcher');
     await page.locator('#haBar:not([hidden])').waitFor();
@@ -94,6 +126,7 @@ let browser;
     assert.equal(await page.locator('.app-dialog-details').textContent(),deploymentSql);
     assert.equal(await page.locator('.app-dialog-details img').count(),0);
     await page.setViewportSize({width:390,height:640});
+    await page.waitForTimeout(250); // Wait for dialog entry and viewport resize transitions.
     const preview=await page.locator('.app-dialog-card').boundingBox();
     assert(preview.x>=0 && preview.x+preview.width<=391 && preview.y>=0 && preview.y+preview.height<=641,'SQL preview must fit narrow screens');
     await page.locator('[data-dialog="cancel"]').click();
@@ -106,5 +139,5 @@ let browser;
     assert.equal(deploymentCalls,1,'Explicit confirmation must execute deployment once');
     if(process.env.HOSTED_EDITOR_SCREENSHOT) await page.screenshot({path:process.env.HOSTED_EDITOR_SCREENSHOT});
     assert.deepEqual(errors,[]);
-    console.log('PASS: long HTML with embedded CSS/JavaScript keeps highlighting and source alignment; editing, scrolling, dark/light and narrow-screen indicator position and explicit SQL deployment preview/cancel/confirm verified.');
-})().catch(error => { console.error(String(error).split('Call log:')[0]); process.exitCode=1; }).finally(async () => { await browser?.close(); server.close(); });
+    console.log('PASS: long HTML with embedded CSS/JavaScript keeps highlighting and source alignment; editing, scrolling, dark/light and narrow-screen indicator position SQL deployment preview/cancel/confirm, and package upload layering, stale previews, unsaved-edit confirmation, failure retry and success close verified.');
+})().catch(error => { console.error(error.stack); process.exitCode=1; }).finally(async () => { await browser?.close(); server.close(); });

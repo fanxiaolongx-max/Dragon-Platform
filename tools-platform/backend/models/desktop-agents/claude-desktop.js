@@ -79,7 +79,7 @@ async function status(cfg = {}, { driver: d = driver } = {}) {
             return { canSend: false, reason: '模拟操作需要辅助功能权限：在“系统设置 → 隐私与安全性 → 辅助功能”中允许运行平台服务的程序' };
         if (!state.running)
             return { canSend: false, reason: 'Claude 桌面未运行，可查看已保存记录' };
-        return { canSend: true, reason: '模拟操作发送：发送时 Claude 切到前台并打开目标会话，确认后自动切回' };
+        return { canSend: true, reason: '模拟操作发送：发送时切到前台并自动切回' };
     }
     catch (error) {
         return { canSend: false, reason: error.message };

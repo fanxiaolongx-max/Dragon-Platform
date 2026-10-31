@@ -1952,6 +1952,8 @@ sequenceDiagram
 ### 13.3 HTML 工具市场与独立发布
 
 - 首页管理员区域提供“工具市场”，可比较本地版本、目录版本、包大小和 SHA-256 指纹，并支持按需安装或更新。
+- 发布内置工具的新内容前，运行 `npm run tools:release:stamp -- <tool-slug>`，将实际更新时间以带毫秒的 UTC ISO 时间写入该工具的 `.tool-manifest.json`，并与代码一起提交；不要把时间手写成当天零点。随后运行 `npm run tools:market:build`，默认版本号包含 UTC 时分秒（如 `2026.10.31.14.25.36`），`releasedAt` 保留完整时间。显式指定的 `tool.releaseVersion` 仍作为自定义版本号保留。构建不会把未修改工具标记为刚更新。
+- 弹窗分别显示本地、随包内置和市场的更新时间，精确到秒并显示当前设备时区；本地安装时间不参与新旧判断。历史仅有日期的数据标注“未记录时分秒”，历史写为零点的数据保持原值，无法反推出真实时间。
 - `.github/workflows/tools-market.yml` 在 `backend/builtin-tools/` 变化时独立生成每工具 ZIP 和 `catalog.json`，发布到 `tool-market` 分支，不递增桌面端版本、不重新构建 EXE。
 - 客户端默认读取官方仓库的 `tool-market` 分支；私有部署可用 `TOOLS_MARKET_CATALOG_URL` 替换目录地址，并用 `TOOLS_MARKET_ALLOWED_HOSTS` 增加逗号分隔的可信下载域名。
 - 工具市场右上角的齿轮可添加多个第三方 `catalog.json` 仓库，并分别启停 GitHub 和第三方仓库。启用时 GitHub 优先；同名工具只显示优先仓库的版本。某个仓库不可用时，其余仓库仍会正常显示。设置按租户保存在 `tools.db`。

@@ -206,3 +206,26 @@ test('built-in skills can be customized with automatic backup of pristine versio
     const loadedAfterReset = await store.loadAll('@debug 查看问题', { hasWorkspace: true });
     assert.match(loadedAfterReset.prompt, /排查故障/);
 });
+
+
+test('NetCare recommendations follow the current tenant configuration without hiding management entries', async () => {
+    const config = require('../backend/models/digital-human/config-repository');
+    assert.ok((await store.listAll()).some(item => item.id === 'netcare-data'));
+    const disabled = await store.loadAll('本月哪些指标没达标');
+    assert.equal(disabled.catalog.some(item => item.id === 'netcare-data'), false);
+    assert.doesNotMatch(disabled.catalogPrompt, /netcare-data/);
+    const explicit = await store.loadAll('@netcare-data 查询', { extraIds: ['netcare-data'] });
+    assert.equal(explicit.selected.length, 0);
+    assert.match(explicit.prompt, /NetCare 数据连接尚未启用/);
+    assert.equal(await store.loadSection('netcare-data'), null);
+    await config.saveConfig({ enabled: true });
+    try {
+        assert.ok((await store.loadAll('查指标')).catalog.some(item => item.id === 'netcare-data'));
+        assert.match((await store.loadSection('netcare-data')).section, /### @netcare-data/);
+        await runWithTenant('acme', async () => {
+            assert.equal((await store.loadAll('查指标')).catalog.some(item => item.id === 'netcare-data'), false);
+        });
+    } finally {
+        await config.saveConfig({ enabled: false });
+    }
+});

@@ -1374,9 +1374,9 @@ document.querySelectorAll('.ai-shortcut-btn').forEach(btn => {
         let displayMsg = '';
         const baseRule = '【非常重要】以下是当前幻灯片的 JSON 数据。请只润色/翻译文本内容（如标题、列表、正文等），严格保持 `layout`、`id`、原有的 HTML 结构、类名(class) 和非文本元素完全不变！必须返回合法的 JSON 数组，包含修改后的这页数据。';
         
-        if (action === 'polish') { promptText = '请帮我润色以下幻灯片页面的文本内容，使其更专业流畅。' + baseRule; displayMsg = '✨ 请帮我润色当前页面'; }
-        if (action === 'translate_en') { promptText = '请将以下幻灯片页面的所有中文内容翻译为专业的英文。' + baseRule; displayMsg = '🌐 请将当前页面翻译为英文'; }
-        if (action === 'translate_zh') { promptText = '请将以下幻灯片页面的所有英文内容翻译为中文。' + baseRule; displayMsg = '🇨🇳 请将当前页面翻译为中文'; }
+        if (action === 'polish') { displayMsg = '✨ 请帮我润色当前页面'; await transformSlideTexts('polish', displayMsg); return; }
+        if (action === 'translate_en') { displayMsg = '🌐 请将当前页面翻译为英文'; await transformSlideTexts('translate_en', displayMsg); return; }
+        if (action === 'translate_zh') { displayMsg = '🇨🇳 请将当前页面翻译为中文'; await transformSlideTexts('translate_zh', displayMsg); return; }
         if (action === 'to_metric') {
             promptText = '请将当前页面重构为突出“大数字指标卡片”的高颜值现代化排版风格。提炼出核心量化指标（如百分比、完成度、时间提速等），大字号展示，并搭配精炼的结论阐述。必须使用 layout: "custom"，确保卡片带有 class="ppt-card ...", 且标题正文均带有 class="editable"。返回合法 JSON 数组。';
             displayMsg = '📊 请将当前页提炼为大字指标卡';
@@ -1402,13 +1402,136 @@ document.querySelectorAll('.ai-shortcut-btn').forEach(btn => {
             displayMsg = '💬 请提炼核心战略金句卡';
         }
         
-        const slideJson = slideToJson(activeWrap);
+        let slideJson = slideToJson(activeWrap);
+        // 如果页面包含内置复杂模板或体积过大，提取核心文字要点，防止 prompt 膨胀及生成截断
+        if (activeWrap.querySelector('.vision-template') || (slideJson?.html && slideJson.html.length > 3000)) {
+            const texts = extractTextTargets(activeWrap.querySelector('.slide')).map(el => el.innerText.trim()).filter(Boolean);
+            slideJson = {
+                id: slideJson.id,
+                layout: slideJson.layout,
+                theme: slideJson.theme,
+                background: slideJson.background,
+                title: activeWrap.querySelector('.slide-title, .vision-text, h1, h2')?.innerText?.trim() || '',
+                contentOutline: texts
+            };
+        }
         const htmlContext = JSON.stringify([slideJson], null, 2);
         
         aiReplacingSlide = true;
         sendAiMessage(promptText + '\n\n```json\n' + htmlContext + '\n```', displayMsg);
     });
 });
+
+function extractTextTargets(root) {
+    if (!root) return [];
+    const selector = '.editable, .template-editable, [data-ppt-editable="true"], .slide-title, .small-title, h1, h2, h3, h4, h5, h6, p, li, td, th, blockquote, .sticky-note';
+    const all = Array.from(root.querySelectorAll(selector));
+    
+    return all.filter(el => {
+        if (el.closest('.footer, .slide-number, script, style, .ppt-hidden')) return false;
+        const text = el.innerText?.trim();
+        if (!text) return false;
+        const hasTextChild = all.some(other => other !== el && el.contains(other) && other.innerText?.trim());
+        return !hasTextChild;
+    });
+}
+
+function getTargetsFromElement(el) {
+    const list = extractTextTargets(el);
+    if (list.length > 0) return list;
+    if (el.innerText?.trim() && !el.closest('.footer, .slide-number, script, style, .ppt-hidden')) {
+        return [el];
+    }
+    return [];
+}
+
+async function transformSlideTexts(action, displayMsg = null) {
+    const activeWrap = deck.querySelector('.slide-wrap.is-active');
+    if (!activeWrap) return;
+
+    const selectedElements = componentEditor?.getSelectedElements() || [];
+    let targets = [];
+    let scopeLabel = '当前页面';
+    if (selectedElements.length > 0) {
+        targets = Array.from(new Set(selectedElements.flatMap(el => getTargetsFromElement(el))));
+        scopeLabel = `${selectedElements.length} 个选中组件`;
+    } else {
+        targets = extractTextTargets(activeWrap.querySelector('.slide'));
+    }
+
+    const actionLabel = action === 'translate_en' ? '翻译为英文' : (action === 'translate_zh' ? '翻译为中文' : '润色文字');
+    const defaultDisplay = action === 'translate_en' ? '🌐 请将当前页面翻译为英文' : (action === 'translate_zh' ? '🇨🇳 请将当前页面翻译为中文' : '✨ 请帮我润色当前页面');
+
+    if (!targets.length) {
+        appendAiMessage('model', `当前页未发现可${actionLabel}的文本。`);
+        return;
+    }
+
+    appendAiMessage('user', displayMsg || defaultDisplay);
+    const loadingId = 'ai-loading-' + Date.now();
+    const loadDiv = document.createElement('div');
+    loadDiv.id = loadingId;
+    loadDiv.className = "flex items-start space-x-2 mt-4 opacity-50";
+    loadDiv.innerHTML = `<div class="w-8 h-8 rounded bg-purple-600/20 text-purple-400 flex items-center justify-center shrink-0"><i class="ph-fill ph-robot animate-pulse"></i></div><div class="bg-zinc-800 text-zinc-200 rounded-lg rounded-tl-none p-3 text-xs">正在${actionLabel}（${scopeLabel}共 ${targets.length} 处文本）...</div>`;
+    aiChatWindow.appendChild(loadDiv);
+    aiChatWindow.scrollTop = aiChatWindow.scrollHeight;
+
+    try {
+        const items = targets.map((el, index) => ({
+            id: index,
+            text: el.innerText.trim()
+        }));
+
+        const token = getAuthToken();
+        const res = await fetch('/api/ai/ppt-transform-text', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': token ? 'Bearer ' + token : ''
+            },
+            body: JSON.stringify({
+                action,
+                items
+            })
+        });
+
+        loadDiv.remove();
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || '请求失败');
+        }
+
+        const data = await res.json();
+        const results = Array.isArray(data.results) ? data.results : [];
+        let updatedCount = 0;
+
+        results.forEach(item => {
+            const el = targets[item.id];
+            if (el && typeof item.text === 'string' && item.text.trim()) {
+                const newText = item.text.trim();
+                if (newText.includes('\n')) {
+                    el.innerHTML = escapeHtml(newText).replace(/\n/g, '<br>');
+                } else {
+                    el.textContent = newText;
+                }
+                updatedCount++;
+            }
+        });
+
+        componentEditor?.refresh();
+        saveDeck();
+        scheduleThumbnails();
+        const slide = activeWrap.querySelector('.slide');
+        if (slide && window.autoFitSlide) {
+            window.autoFitSlide(slide);
+        }
+
+        appendAiMessage('model', `✨ **${actionLabel}完成！** 已将 ${scopeLabel} 的 ${updatedCount} 处文本成功更新。`);
+    } catch (error) {
+        document.getElementById(loadingId)?.remove();
+        appendAiMessage('model', `⚠️ ${actionLabel}失败: ${error.message}`);
+    }
+}
 
 async function modifyWithStructuredAi(scope = 'selection') {
     const context = scope === 'page'
@@ -1537,6 +1660,30 @@ async function sendAiMessage(hiddenContent = null, displayMsg = null) {
     // 如果用户的输入明显是“生成/新建页面”的意图，即使选中了组件，也强制走全局生成逻辑
     const isGenerationPrompt = /^(生成|写一个|创建|新建|帮我写|帮我做|增加一页)/.test(text);
 
+    // 智能识别针对当前页面或选中组件的原本文本翻译与润色诉求，走轻量精准的原地转换逻辑
+    const isTranslateToEn = /(翻译|翻成|转为|转成|换成).*(英文|英语|english)/i.test(text) || /(translate).*(en|english)/i.test(text);
+    const isTranslateToZh = /(翻译|翻成|转为|转成|换成).*(中文|汉语|chinese)/i.test(text) || /(translate).*(zh|chinese)/i.test(text);
+    const isTextPolish = /(润色|优化|精简|提炼).*(文字|文案|内容|文本)/i.test(text) || /(polish).*(text|wording)/i.test(text);
+    const isSlideOrPageTarget = /(当前|整页|这页|本页|全部|页面|幻灯片|slide|page)/i.test(text) || !isGenerationPrompt;
+
+    if (!hiddenContent && !isGenerationPrompt) {
+        if (isTranslateToEn && isSlideOrPageTarget) {
+            aiInput.value = '';
+            await transformSlideTexts('translate_en', `🌐 ${text}`);
+            return;
+        }
+        if (isTranslateToZh && isSlideOrPageTarget) {
+            aiInput.value = '';
+            await transformSlideTexts('translate_zh', `🇨🇳 ${text}`);
+            return;
+        }
+        if (isTextPolish && isSlideOrPageTarget && !componentEditor?.getSelectionContext()) {
+            aiInput.value = '';
+            await transformSlideTexts('polish', `✨ ${text}`);
+            return;
+        }
+    }
+
     if (!hiddenContent && !isGenerationPrompt && componentEditor?.getSelectionContext()) {
         await modifyWithStructuredAi('selection');
         return;
@@ -1563,8 +1710,13 @@ async function sendAiMessage(hiddenContent = null, displayMsg = null) {
         let currentTemplateBlock = '';
         const activeWrap = deck.querySelector('.slide-wrap.is-active');
         if (activeWrap && !aiReplacingSlide) {
-            const currentJson = slideToJson(activeWrap);
-            currentTemplateBlock = `\n【参考排版风格】\n你可以参考以下这页 PPT 的排版风格和结构（这是用户当前选中的页面）：\n\`\`\`json\n${JSON.stringify([currentJson])}\n\`\`\`\n如果用户的需求适合这种排版，请尽量沿用这种布局结构。\n`;
+            // 避免将内置大图或超长复杂页面作为底层 HTML 参考注入模版，防止 prompt 异常膨胀
+            if (!activeWrap.querySelector('.vision-template')) {
+                const currentJson = slideToJson(activeWrap);
+                if (currentJson && (!currentJson.html || currentJson.html.length <= 3000)) {
+                    currentTemplateBlock = `\n【参考排版风格】\n你可以参考以下这页 PPT 的排版风格和结构（这是用户当前选中的页面）：\n\`\`\`json\n${JSON.stringify([currentJson])}\n\`\`\`\n如果用户的需求适合这种排版，请尽量沿用这种布局结构。\n`;
+                }
+            }
         }
         
         const templates = `${rulesBlock}${currentTemplateBlock}`;
@@ -1584,7 +1736,10 @@ async function sendAiMessage(hiddenContent = null, displayMsg = null) {
         });
         
         loadDiv.remove();
-        if (!res.ok) throw new Error('请求失败');
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || '请求失败');
+        }
         
         const data = await res.json();
         let reply = data.reply || '';

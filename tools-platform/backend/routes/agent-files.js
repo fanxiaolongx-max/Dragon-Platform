@@ -17,7 +17,7 @@ const PLATFORM_ROOT = path.resolve(__dirname, '../..');
 const AGENT_MEDIA_DIRS = ['.codex/generated_images', '.codex/attachments'].map(dir => path.join(os.homedir(), dir));
 
 const IMAGE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp', '.avif': 'image/avif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
-const TEXT_TYPES = new Set(['.txt', '.md', '.csv', '.tsv', '.json', '.log', '.yaml', '.yml', '.xml', '.sql']);
+const TEXT_TYPES = new Set(['.txt', '.md', '.csv', '.tsv', '.json', '.log', '.yaml', '.yml', '.xml', '.sql', '.css', '.jsx', '.tsx', '.vue', '.svelte', '.toml', '.ini', '.cfg', '.conf', '.c', '.h', '.cpp', '.hpp', '.java', '.kt', '.kts', '.swift', '.rb', '.go', '.rs', '.r', '.lua', '.bash', '.zsh']);
 const DOWNLOAD_TYPES = new Set(['.pdf', '.xlsx', '.xls', '.xlsm', '.csv', '.docx', '.doc', '.pptx', '.ppt', '.zip', '.7z', '.rar', '.gz', '.tgz', '.tar', '.html', '.htm', '.mp4', '.mov', '.webm', '.mp3', '.wav', '.m4a', '.ndjson', '.py', '.js', '.ts', '.sh', '.ps1']);
 
 function allowedExtension(ext) {

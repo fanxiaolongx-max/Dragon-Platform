@@ -378,7 +378,8 @@ function appEnv(slug, state, port, tenantNetcareName) {
         PLATFORM_APP_SLUG: slug, PLATFORM_APP_SECRET: state.secret, PLATFORM_DATA_API: base,
         PLATFORM_APP_ENTRY: state.entry, PLATFORM_APP_FACTORY: state.factory ? '1' : '0', PLATFORM_APP_INTERFACE: state.interface,
         ...(state.env || {}),
-        PLATFORM_APP_DATABASE_CONTRACT: state.databaseContract || 'platform'
+        PLATFORM_APP_DATABASE_CONTRACT: state.databaseContract || 'platform',
+        ...(state.databaseContract==='digital-human'?{BASE_QUERY_URL:`${base}/query`,BASE_EXECUTE_URL:`${base}/execute`,BASE_DATASOURCES_URL:`${base}/query/datasources`,BASE_FIND_TABLE_URL:`${base}/query/find-table-datasource`,APP_DATASOURCE_ID:'app',APP_SCHEMA:state.uuid,APP_UUID:state.uuid,BUSINESS_DATASOURCE_NAME:businessName,PLATFORM_DATA_API:base}:{} )
     });
 }
 
@@ -464,6 +465,7 @@ async function install(slug, { force = false } = {}) {
     const tenantId = tenant.getTenantId();
     const rt = runtimeOf(slug, tenantId);
     const state = readState(slug, tenantId);
+    if (rt.updating) throw fail('应用正在更新代码', 'HOSTED_APP_BUSY', 409);
     if (!state) throw fail('应用不存在', 'HOSTED_APP_NOT_FOUND', 404);
     const p = paths(slug, tenantId);
     if (!force && state.installedHash === state.requirementsHash && fs.existsSync(venvPython(p.venv))) return state;
@@ -655,6 +657,7 @@ async function launch(rt, initial) {
 function start(slug) {
     const tenantId = tenant.getTenantId();
     const rt = runtimeOf(assertSlug(slug), tenantId);
+    if (rt.updating) return Promise.reject(fail('应用正在更新代码，请稍后再启动', 'HOSTED_APP_BUSY', 409));
     if (rt.status === 'running' && rt.child) return Promise.resolve(status(slug));
     if (rt.busy) return rt.busy;
     rt.busy = (async () => {
@@ -699,7 +702,7 @@ function status(slug) {
     const live = rt.child ? rt.status : ['installing', 'install_failed'].includes(rt.status) ? rt.status
         : state.status === 'running' || state.status === 'starting' ? 'stopped' : state.status;
     return { slug, name: state.name, packageName: state.packageName, version: state.version, entry: state.entry, interface: state.interface, factory: state.factory,
-        healthPath: state.healthPath, databaseContract: state.databaseContract || 'platform', status: rt.busy && !rt.child && live !== 'installing' ? 'starting' : live, port: rt.port, pid: rt.child?.pid || null,
+        healthPath: state.healthPath, databaseContract: state.databaseContract || 'platform', status: rt.updating ? 'updating' : rt.busy && !rt.child && live !== 'installing' ? 'starting' : live, port: rt.port, pid: rt.child?.pid || null,
         startedAt: rt.child ? new Date(rt.startedAt).toISOString() : null, lastError: state.lastError || '', installedAt: state.installedAt || null,
         python: state.python || null, offlineWheels: state.offlineWheels || 0, createdAt: state.createdAt, updatedAt: state.updatedAt };
 }
@@ -787,7 +790,7 @@ function exportLogs(slug, { date, all = false } = {}, tenantId = tenant.getTenan
 /** 是否有安装 / 启动 / 运行中的后台任务（状态文件写着「安装中」但这里为 false，说明任务没在跑，需要重新开始）。 */
 function isActive(slug, tenantId = tenant.getTenantId()) {
     const rt = runtimes.get(keyOf(tenantId, slug));
-    return Boolean(rt && (rt.busy || rt.installer || rt.child));
+    return Boolean(rt && (rt.updating || rt.busy || rt.installer || rt.child));
 }
 
 /** 代理用：返回正在运行的端口；未运行返回 null。 */
@@ -833,41 +836,77 @@ function createApp(slug, inspected, meta = {}) {
 }
 
 /** 更新代码：保留应用库、虚拟环境与密钥；依赖清单变化时重新安装。 */
-async function updateApp(slug, inspected) {
+async function updateApp(slug, inspected, { archive, archiveName } = {}) {
     const tenantId = tenant.getTenantId();
     const state = readState(assertSlug(slug), tenantId);
     if (!state) throw fail('要更新的应用不存在', 'HOSTED_APP_NOT_FOUND', 404);
     const rt = runtimeOf(slug, tenantId);
-    if (rt.busy || rt.status === 'installing') throw fail('应用正在安装或启动，请稍后再更新', 'HOSTED_APP_BUSY', 409);
-    const wasRunning = Boolean(rt.child);
-    await stop(slug, { keepDesired: true });
+    if (rt.updating || rt.busy || rt.status === 'installing') throw fail('应用正在更新、安装或启动，请稍后再更新', 'HOSTED_APP_BUSY', 409);
+    if (state.databaseContract === 'digital-human' && inspected.config.databaseContract === 'platform') throw fail('更新包不能降低当前应用的数据库约束', 'HOSTED_APP_CONTRACT', 409);
     const p = paths(slug, tenantId);
-    const gitDir = path.join(p.code, '.git');
-    const hasGit = fs.existsSync(gitDir);
-    const staging = `${p.code}.new`;
-    fs.rmSync(staging, { recursive: true, force: true });
-    writeCode(staging, inspected.files);
-    if (hasGit) {
-        try { fs.renameSync(gitDir, path.join(staging, '.git')); } catch (_e) {}
+    const staging = `${p.code}.new`, backup = `${p.code}.old`;
+    const previousState = fs.readFileSync(p.state);
+    const previousPackage = archive && fs.existsSync(p.package) ? fs.readFileSync(p.package) : null;
+    const wasRunning = Boolean(rt.child);
+    rt.updating = true;
+    let swapped = false, moved = false;
+    // 本地配置优先于上传包；不跟随符号链接读取宿主文件。
+    const preserve = (source, destination, inGit = false) => {
+        for (const entry of fs.readdirSync(source, { withFileTypes: true })) {
+            const from = path.join(source, entry.name), to = path.join(destination, entry.name);
+            const selected = inGit || entry.name === '.git' || (/^\.env(?:\..*)?$/i.test(entry.name) && entry.name.toLowerCase() !== '.env.example');
+            if (entry.isSymbolicLink()) {
+                if (selected) throw fail('本地配置或 Git 目录包含符号链接，请先处理后再更新', 'HOSTED_APP_UPDATE_LINK', 409);
+                continue;
+            }
+            if (entry.isDirectory()) {
+                if (!selected && /^(?:venv|\.venv|node_modules|__pycache__|logs)$/.test(entry.name)) continue;
+                fs.mkdirSync(to, { recursive: true });
+                preserve(from, to, selected);
+            } else if (selected) {
+                fs.mkdirSync(path.dirname(to), { recursive: true });
+                fs.copyFileSync(from, to);
+            }
+        }
+    };
+    try {
+        fs.rmSync(staging, { recursive: true, force: true });
+        writeCode(staging, inspected.files);
+        preserve(p.code, staging);
+        await stop(slug, { keepDesired: true });
+        fs.rmSync(backup, { recursive: true, force: true });
+        fs.renameSync(p.code, backup);
+        moved = true;
+        fs.renameSync(staging, p.code);
+        swapped = true;
+        writeState(slug, { ...readState(slug, tenantId), packageName: inspected.config.name || state.packageName,
+            version: inspected.config.version, entry: inspected.config.entry, factory: inspected.config.factory,
+            interface: inspected.config.interface, healthPath: inspected.config.healthPath,
+            databaseContract: inspected.config.databaseContract || state.databaseContract || 'platform',
+            requirementsHash: inspected.requirementsHash, offlineWheels: inspected.offlineWheels,
+            updatedAt: new Date().toISOString() }, tenantId);
+        if (archive) savePackage(slug, archive, archiveName);
+        // 保留完整 Git 历史，但不自动暂存或提交上传包里的敏感文件。
+        log(rt, `应用代码已更新${inspected.config.version ? `到 ${inspected.config.version}` : ''}；上一版代码保留在 app.old`);
+        return { state: readState(slug, tenantId), wasRunning };
+    } catch (error) {
+        if (swapped) fs.rmSync(p.code, { recursive: true, force: true });
+        if (moved) fs.renameSync(backup, p.code);
+        fs.writeFileSync(p.state, previousState);
+        if (archive) {
+            if (previousPackage) fs.writeFileSync(p.package, previousPackage);
+            else fs.rmSync(p.package, { force: true });
+        }
+        if (wasRunning && !rt.child) {
+            rt.updating = false;
+            start(slug).catch(e => log(rt, `恢复旧版启动失败：${e.message}`));
+        }
+        throw error;
+    } finally {
+        rt.updating = false;
+        fs.rmSync(staging, { recursive: true, force: true });
+        if (archive) fs.rmSync(`${p.package}.tmp`, { force: true });
     }
-    fs.rmSync(`${p.code}.old`, { recursive: true, force: true });
-    if (fs.existsSync(p.code)) fs.renameSync(p.code, `${p.code}.old`);
-    fs.renameSync(staging, p.code);
-    fs.rmSync(`${p.code}.old`, { recursive: true, force: true });
-    if (hasGit) {
-        try {
-            const { execFileSync } = require('child_process');
-            execFileSync('git', ['-C', p.code, 'add', '-A'], { encoding: 'utf8', stdio: 'pipe' });
-            const msg = `chore: update package${inspected.config.version ? ` to ${inspected.config.version}` : ''}`;
-            execFileSync('git', ['-C', p.code, 'commit', '-m', msg], { encoding: 'utf8', stdio: 'pipe' });
-        } catch (_e) {}
-    }
-    log(rt, `应用代码已更新${inspected.config.version ? `到 ${inspected.config.version}` : ''}`);
-    writeState(slug, { ...state, packageName: inspected.config.name || state.packageName, version: inspected.config.version, entry: inspected.config.entry,
-        factory: inspected.config.factory, interface: inspected.config.interface, healthPath: inspected.config.healthPath,
-        databaseContract: inspected.config.databaseContract || state.databaseContract || 'platform',
-        requirementsHash: inspected.requirementsHash, offlineWheels: inspected.offlineWheels, updatedAt: new Date().toISOString() }, tenantId);
-    return { state: readState(slug, tenantId), wasRunning };
 }
 
 async function removeApp(slug) {
@@ -875,6 +914,7 @@ async function removeApp(slug) {
     const state = readState(assertSlug(slug), tenantId);
     if (!state) return false;
     const rt = runtimeOf(slug, tenantId);
+    if (rt.updating) throw fail('应用正在更新代码', 'HOSTED_APP_BUSY', 409);
     if (rt.installer) killChild(rt.installer);
     await stop(slug, { keepDesired: true });
     await require('./data-api').closeAppDatabase(tenantId, slug);

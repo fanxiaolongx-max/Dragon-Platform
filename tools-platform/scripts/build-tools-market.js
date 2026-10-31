@@ -36,7 +36,7 @@ function releaseVersion(tool) {
     }
     const timestamp = Date.parse(tool.updatedAt);
     if (!Number.isFinite(timestamp)) throw new Error(`${tool.slug}: releaseVersion or a valid updatedAt is required`);
-    return new Date(timestamp).toISOString().slice(0, 10).replace(/-/g, '.');
+    return new Date(timestamp).toISOString().slice(0, 19).replace(/[-:T]/g, '.');
 }
 
 function validateManifest(slug, raw) {
@@ -128,7 +128,9 @@ async function main() {
     console.log(`Built ${tools.length} tool packages in ${path.relative(projectRoot, outputRoot)}`);
 }
 
-main().catch(error => {
+module.exports = { releaseVersion };
+
+if (require.main === module) main().catch(error => {
     console.error(error.stack || error.message);
     process.exitCode = 1;
 });

@@ -29,6 +29,8 @@ test('market compares release content despite stale inventories and extra local 
         const installed = { ...manifest, system: { managedBy: 'tools-platform', fingerprint: 'stale', files: ['index.html'] } };
         fs.writeFileSync(path.join(target, '.tool-manifest.json'), JSON.stringify(installed));
         const compare = () => compareCatalogTool(item, { sourceDir, targetDir });
+        assert.equal(compare().localUpdatedAt, installed.tool.updatedAt);
+        assert.equal(compare().marketUpdatedAt, item.releasedAt);
         assert.equal(compare().status, 'unchanged');
         assert.equal(compare().selectedSource, 'market');
         // Generated audio retained locally is outside the market release inventory.
@@ -49,8 +51,13 @@ test('market compares release content despite stale inventories and extra local 
         assert.equal(compare().status, 'unchanged');
         fs.writeFileSync(path.join(target, 'index.html'), 'modified');
         assert.equal(compare().status, 'update');
-        // A newer bundled release must use its full inventory, including new assets.
-        manifest.tool.updatedAt = '2026-09-06T00:00:00.000Z';
+        installed.market.releasedAt = '2026-09-05T09:10:11.123Z';
+        installed.market.installedAt = '2026-09-07T23:59:59.000Z';
+        fs.writeFileSync(path.join(target, '.tool-manifest.json'), JSON.stringify(installed));
+        assert.equal(compare().localUpdatedAt, installed.market.releasedAt);
+        assert.equal(compare().selectedSource, 'market');
+        // A newer bundled release on the same day must use its full inventory, including new assets.
+        manifest.tool.updatedAt = '2026-09-05T18:30:45.123Z';
         fs.writeFileSync(path.join(source, '.tool-manifest.json'), JSON.stringify(manifest));
         assert.equal(compare().selectedSource, 'builtin');
         assert.equal(compare().status, 'update');

@@ -900,6 +900,7 @@ ${sessionSummary ? `\n历史会话滚动摘要：\n---\n${sessionSummary}\n---\n
 3.2 本次检索到的实时业务配置优先级高于历史对话、滚动摘要和之前的助手回答；如有冲突，应明确纠正旧答案。
 3.3 当只读业务配置返回“全部指标目标规则明细”时，表示用户已明确要求完整列表。必须输出全部记录，每条至少包含指标名、方向、权重和 1–12 月目标；使用紧凑的 Markdown 表格，不得因为普通检索上限而省略。
 4. 数据问题只能使用数据工具结果作为事实，明确说明月份、快照和数据时间。工具返回无数据时，不得估算或编造。
+用户询问“本月/当前”指标而当前月尚无入库数据时，可以使用最新已入库快照，但必须先明确“当前最新已入库的是 X 年 X 月目标数据，以下按该批数据分析”，并说明本月暂无入库数据。目标月份以 targetMonth/month 为准，不能用快照生成日期替代，也不能把最新已入库月份称作本月。
 4.1 用户询问某个具体指标的当前/实际值时，必须优先读取只读报表分析中 current.matchedMetrics：globalValue 是入库快照保存的全局值，customerGroups 是各客户群/系统部实际值。只要 matchedMetrics 已返回该指标，不得声称“没有返回当前值”；应同时列出全局值和所有已保存的分组值，无论该分组达标还是未达标，不得只列异常项。customerGroups 中 missing=true 或 actual=“--”表示未入库数值，必须显示为“无值”，不得解读为 0。
 4.2 “某指标呢/那么某指标呢”类省略式追问会继承上一个用户问题的查询意图和月份，但指标主体必须以当前追问为准，不得混入上一个指标的数值。
 4.3 如果提供了“运营指标体系图谱节点”，回答必须使用其中的月份、指标、分类和子指标归属来校验口径；不得把近似名指标当成同一节点。界面会自动附上可点击的图谱引用，正文无需伪造链接。
@@ -1789,6 +1790,83 @@ ${firstRaw.slice(0, 6000)}`;
 });
 
 /**
+ * POST /api/ai/ppt-transform-text
+ * 针对 PPT 页面或选中组件的纯文本进行批量翻译或润色（原地更新，不破坏原有 HTML 结构、样式与 SVG）
+ */
+router.post('/ppt-transform-text', checkAuth, async (req, res) => {
+    try {
+        const aiSettings = await aiSettingsRepo.getRuntimeSettings();
+        if (!aiSettings.hasApiKey || !aiSettings.keyLooksValid) {
+            return res.status(503).json({ error: 'AI API Token 未配置或格式无效。' });
+        }
+        const { action, items } = req.body || {};
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ error: '缺少需要转换的文本列表 (items)' });
+        }
+
+        let systemInstruction = '';
+        if (action === 'translate_en') {
+            systemInstruction = `你是一个专业的演示文稿（PPT）英文翻译助手。
+你的任务是将用户提供的每段文本准确、专业、地道地翻译为英文。
+要求：
+1. 保持原有的换行、列表序号与标点逻辑。
+2. 专业术语翻译得当（如业务、技术、管理规范等），符合高管或专业会议胶片的风格。
+3. 必须返回合法的 JSON 数组，每个元素包含相同的 "id" 和翻译后的 "text"，例如：[{"id": 0, "text": "Translated English text"}]
+4. 不要返回任何 Markdown 或解释，只返回 JSON 数组。`;
+        } else if (action === 'translate_zh') {
+            systemInstruction = `你是一个专业的演示文稿（PPT）中文翻译助手。
+你的任务是将用户提供的每段英文文本准确、流畅、地道地翻译为中文。
+要求：
+1. 保持原有的换行、列表序号与标点逻辑。
+2. 符合中文商业与技术汇报的语境习惯，凝练有力。
+3. 必须返回合法的 JSON 数组，每个元素包含相同的 "id" 和翻译后的 "text"，例如：[{"id": 0, "text": "翻译后的中文文本"}]
+4. 不要返回任何 Markdown 或解释，只返回 JSON 数组。`;
+        } else {
+            // polish
+            systemInstruction = `你是一个专业的商业与技术演示文稿（PPT）润色大师。
+你的任务是对用户提供的每段文本进行精炼、专业、有力的润色。
+要求：
+1. 保持原文的主语言（中文保持中文，英文保持英文），严禁擅自翻译为其他语言！
+2. 提炼重点，消除口语化或冗余字句，使其更具冲击力与商业汇报水准。
+3. 保持原有的换行和序号。
+4. 必须返回合法的 JSON 数组，每个元素包含相同的 "id" 和润色后的 "text"，例如：[{"id": 0, "text": "润色后的文本"}]
+5. 不要返回任何 Markdown 或解释，只返回 JSON 数组。`;
+        }
+
+        const aiClient = aiProviderClient.createClient(aiSettings);
+        const prompt = JSON.stringify(items);
+        const result = await runAiWithRetry(() => aiClient.generateText({
+            prompt,
+            systemInstruction,
+            maxOutputTokens: 8192,
+            temperature: 0.2,
+            responseMimeType: 'application/json'
+        }));
+
+        let parsed = [];
+        try {
+            const raw = stripJsonFence(result.text);
+            const data = JSON.parse(raw);
+            if (Array.isArray(data)) {
+                parsed = data;
+            } else if (data && Array.isArray(data.items)) {
+                parsed = data.items;
+            } else if (data && Array.isArray(data.results)) {
+                parsed = data.results;
+            }
+        } catch (e) {
+            console.warn('[AI PPT Transform Text] parse failed:', e.message, result.text);
+            return res.status(500).json({ error: 'AI 返回数据格式解析失败，请重试' });
+        }
+
+        res.json({ results: parsed });
+    } catch (error) {
+        console.error('[AI PPT Transform Text] error:', error);
+        res.status(500).json({ error: 'AI 文本转换失败: ' + error.message });
+    }
+});
+
+/**
  * POST /api/ai/ppt-copilot
  * 专为 PPT Copilot 优化的 AI 生成接口，直接返回 HTML 代码格式的幻灯片
  */
@@ -1894,6 +1972,12 @@ ${templates || ''}`;
             originalJsonShape: summarizePptCopilotOutput(originalResponseText).jsonShape,
             ...summarizePptCopilotOutput(responseText)
         }));
+
+        if (result.finishReason === 'MAX_TOKENS' && normalizedResponse.normalization === 'invalid-json') {
+            return res.status(422).json({
+                error: 'AI 生成的内容因超过最大长度限制被截断，请尝试减少单次生成的篇幅，或对大页面进行分步处理。'
+            });
+        }
 
         res.json({ reply: responseText });
     } catch (error) {

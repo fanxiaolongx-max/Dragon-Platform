@@ -70,8 +70,7 @@ async function importApp(payload, { createTool, user = '' }) {
     const tenantId = tenant.getTenantId();
     if (payload.updateSlug) {
         const slug = runtime.assertSlug(String(payload.updateSlug));
-        const { wasRunning } = await runtime.updateApp(slug, inspected);
-        runtime.savePackage(slug, archiveBuffer(payload), payload.archiveName);
+        const { wasRunning } = await runtime.updateApp(slug, inspected, { archive: archiveBuffer(payload), archiveName: payload.archiveName });
         if (wasRunning || runtime.readState(slug)?.desired === 'running') startInBackground(slug, tenantId);
         const tool = await require('../custom-tools-repository').getTool(slug);
         return { ...(tool || { slug }), hostedApp: runtime.status(slug), updated: true };
@@ -198,8 +197,7 @@ async function updatePackage(slug, payload) {
     const inspected = await appPackage.inspectArchive(archiveBuffer(payload));
     const tenantId = tenant.getTenantId();
     const assertedSlug = runtime.assertSlug(String(slug));
-    const { wasRunning } = await runtime.updateApp(assertedSlug, inspected);
-    runtime.savePackage(assertedSlug, archiveBuffer(payload), payload.archiveName);
+    const { wasRunning } = await runtime.updateApp(assertedSlug, inspected, { archive: archiveBuffer(payload), archiveName: payload.archiveName });
     if (wasRunning || runtime.readState(assertedSlug)?.desired === 'running') startInBackground(assertedSlug, tenantId);
     const tool = await require('../custom-tools-repository').getTool(assertedSlug);
     return { ...(tool || { slug: assertedSlug }), hostedApp: runtime.status(assertedSlug), updated: true, config: inspected.config };

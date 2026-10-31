@@ -22,6 +22,7 @@ const {
     ensureFeiniuHlsSession,
     keepFeiniuHlsSessionAlive
 } = require('../models/feiniu-service');
+const { getPlatformMediaCatalog } = require('../models/platform-media-catalog');
 
 const FRONTEND_DIR = path.resolve(__dirname, '../../frontend');
 const configuredMediaDir = String(process.env.TOOLS_MEDIA_DIR || '').trim();
@@ -101,8 +102,9 @@ function verifyCategoryAccess(token, categoryId) {
 }
 
 function findMediaCategory(categories, value) {
+    if (!value) return null;
     return (categories || []).find(category => category.id !== 'all' && (
-        category.id === value || category.folder === value || category.name === value
+        category.id === value || (category.folder && category.folder === value) || (category.name && category.name === value)
     ));
 }
 
@@ -420,6 +422,35 @@ function scanMediaList() {
         });
     });
 
+    // 融合平台内置与知识类视频 (平台类 / 知识类)
+    try {
+        const platformCatalog = getPlatformMediaCatalog();
+        (platformCatalog.categories || []).forEach(platCat => {
+            if (!existingCatIds.has(platCat.id)) {
+                allCategories.push(platCat);
+                existingCatIds.add(platCat.id);
+            }
+        });
+
+        (platformCatalog.videos || []).forEach(platVideo => {
+            const savedMeta = (manifest.videos && manifest.videos[platVideo.id]) || {};
+            const resolvedOrder = savedMeta.order !== undefined
+                ? normalizeMediaOrder(savedMeta.order, false)
+                : platVideo.order;
+            videos.push({
+                ...platVideo,
+                ...(savedMeta.title && { title: savedMeta.title }),
+                ...(savedMeta.category && { category: savedMeta.category }),
+                ...(savedMeta.categoryName && { categoryName: savedMeta.categoryName }),
+                ...(savedMeta.tags && { tags: savedMeta.tags }),
+                ...(savedMeta.description && { description: savedMeta.description }),
+                order: resolvedOrder
+            });
+        });
+    } catch (e) {
+        console.warn('[Media] 融合平台与知识类视频清单异常:', e.message);
+    }
+
     // 默认排序：有指定 order 的优先，否则按文件名自然升序（适合 01_, 02_ 连载剧集）
     videos.sort(compareMediaOrder);
 
@@ -491,6 +522,9 @@ router.get('/public/subtitles/:id', async (req, res) => {
         if (category?.protected && !verifyCategoryAccess(req.query.access, category.id) && !await hasAdminMediaSession(req)) {
             return res.status(403).json({ error: '该媒体需要 PIN 验证', code: 'MEDIA_PIN_REQUIRED' });
         }
+        if (item.source === 'platform-promo' || item.source === 'datacom-knowledge') {
+            return res.json({ success: true, source: 'builtin', tracks: [] });
+        }
         const revision = item.source === 'feiniu' ? item.feiniuMediaGuid : item.mtime;
         const key = JSON.stringify([getTenantId(), VIDEOS_DIR, item.id, item.fileSize, revision]);
         const tracks = await getSubtitles(key, async () => {
@@ -556,7 +590,7 @@ router.get('/public/list', async (req, res) => {
             return !videoCategory?.protected || videoCategory.id === selectedCategory?.id;
         });
         if (category && category !== 'all') {
-            filtered = filtered.filter(v => v.category === selectedCategory?.id || v.folder === selectedCategory?.folder);
+            filtered = filtered.filter(v => v.category === selectedCategory?.id || (Boolean(selectedCategory?.folder) && v.folder === selectedCategory.folder));
         }
         if (q) {
             const query = q.trim().toLowerCase();
@@ -1066,7 +1100,8 @@ router.put('/admin/videos/:id', async (req, res) => {
         if (!manifest.videos) manifest.videos = {};
 
         const isFeiniuVideo = String(id || '').startsWith('feiniu___');
-        if (isFeiniuVideo) {
+        const isBuiltinRemote = String(id || '').startsWith('promo___') || String(id || '').startsWith('datacom___');
+        if (isFeiniuVideo || isBuiltinRemote) {
             const { categories } = await scanMediaListAsync();
             let selectedCategory;
             if (category !== undefined) {
@@ -1084,7 +1119,7 @@ router.put('/admin/videos/:id', async (req, res) => {
             writeManifest(manifest);
             return res.json({
                 success: true,
-                message: '更新飞牛视频元数据成功',
+                message: isFeiniuVideo ? '更新飞牛视频元数据成功' : '更新平台视频元数据成功',
                 id,
                 order: order !== undefined ? parsedOrder : undefined
             });
@@ -1132,6 +1167,9 @@ router.put('/admin/videos/:id', async (req, res) => {
 router.delete('/admin/videos/:id', (req, res) => {
     try {
         const { id } = req.params;
+        if (id.startsWith('feiniu___') || id.startsWith('promo___') || id.startsWith('datacom___')) {
+            return res.status(400).json({ error: '平台内置与远端媒体资源不支持直接从磁盘删除' });
+        }
         const decodedPath = decodeURIComponent(id).replace(/___/g, '/');
         const fullPath = path.join(VIDEOS_DIR, decodedPath);
 

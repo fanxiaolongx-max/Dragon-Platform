@@ -81,6 +81,7 @@ function json(res, status, value) {
     res.end(JSON.stringify(value));
 }
 async function handle(req, res, route, claims) {
+    const requestId=crypto.randomUUID();res.setHeader('X-Request-Id',requestId);
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Referrer-Policy', 'no-referrer');
     const assets = { '/client.js': ['adc-client.js', 'application/javascript'], '/chat.js': ['adc-chat.js', 'application/javascript'], '/chat.css': ['adc-chat.css', 'text/css'], '/chat': ['adc-chat.html', 'text/html'] };
@@ -106,7 +107,11 @@ async function handle(req, res, route, claims) {
         if (!res.destroyed) json(res, 200, result);
     } catch (error) {
         // Provider errors may contain request URLs/credentials; do not expose them to hosted apps.
-        if (!res.destroyed) json(res, error.expose ? error.status : 502, { error: error.expose ? error.message : 'AI 请求失败，请检查平台模型配置或稍后重试', code: 'HOSTED_ADC_ERROR' });
+        const status=Number(error.status||error.statusCode)||0;
+        const code=/^[A-Z0-9_]{1,64}$/.test(String(error.code||error.cause?.code||''))?String(error.code||error.cause.code):'UNKNOWN';
+        console.error('[hosted-adc]',JSON.stringify({requestId,route,name:/^[A-Za-z0-9_]{1,64}$/.test(error.name)?error.name:'Error',code,status,frames:String(error.stack||'').split('\n').slice(1).filter(line=>/^\s*at .*?(?:\/|node:)/.test(line)&&!line.includes('http')).slice(0,3)}));
+        const detail=error.expose?error.message:code==='ADC_DATA_INVALID'?'AI 数据工具处理失败':status>=400?`模型服务返回 HTTP ${status}`:'平台 AI 调用异常';
+        if(!res.destroyed)json(res,error.expose?error.status:502,{error:`${detail}（请求编号 ${requestId}）`,code:'HOSTED_ADC_ERROR',requestId,category:code,upstreamStatus:status||undefined});
     } finally { clearTimeout(timeout); }
 }
 module.exports = { adaptHtml, handle, dispatch };

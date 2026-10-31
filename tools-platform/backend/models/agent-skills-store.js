@@ -569,9 +569,18 @@ async function skillSection(item) {
     return section;
 }
 
+// 只影响对话能力推荐；管理列表仍保留未启用的技能，方便配置与维护。
+async function unavailableReason(id) {
+    if (id !== 'netcare-data') return '';
+    const config = await require('./digital-human/config-repository').getConfig();
+    return config.enabled ? '' : 'NetCare 数据连接尚未启用；如需查询，请到「全局设置 › 频道对接 › 数字人」配置并启用。平台已入库的 SQLite 数据仍可正常查询。';
+}
+
 /** 模型在工作区里用 load_skill 自行加载：只接受当前租户目录中可见的技能 */
 async function loadSection(id) {
-    const item = (await listAll()).find(entry => entry.id === String(id || '').toLowerCase());
+    const cleanId = String(id || '').toLowerCase();
+    if (await unavailableReason(cleanId)) return null;
+    const item = (await listAll()).find(entry => entry.id === cleanId);
     if (!item) return null;
     const section = await skillSection(item);
     return section ? { meta: { id: item.id, name: item.name, workspace: item.workspace }, section } : null;
@@ -579,7 +588,13 @@ async function loadSection(id) {
 
 /** 对话加载：与 agent-skills.load 相同的规则，但白名单是当前租户可见的全部 Skill */
 async function loadAll(content, { hasWorkspace = false, language = 'zh', extraIds = [], redactionSecrets = [] } = {}) {
-    const catalog = await listAll();
+    const allSkills = await listAll();
+    const unavailable = new Map();
+    for (const item of allSkills) {
+        const reason = await unavailableReason(item.id);
+        if (reason) unavailable.set(item.id, reason);
+    }
+    const catalog = allSkills.filter(item => !unavailable.has(item.id));
     const visible = new Map(catalog.map(item => [item.id, item]));
     const { known: mentioned, unknown: notBuiltin } = builtinSkills.mentions(content);
     const known = [...mentioned, ...notBuiltin].filter(id => visible.has(id));
@@ -597,13 +612,15 @@ async function loadAll(content, { hasWorkspace = false, language = 'zh', extraId
         unknown,
         catalog: catalog.map(({ id, name, nameEn, description, descriptionEn, workspace }) => ({ id, name, nameEn, description, descriptionEn, workspace })),
         catalogPrompt: skillCatalogContract.buildPrompt(catalog, language, { secrets: redactionSecrets }),
-        prompt: builtinSkills.buildPrompt(sections)
+        prompt: [builtinSkills.buildPrompt(sections), ...[...new Set([...mentioned, ...(Array.isArray(extraIds) ? extraIds : [])])]
+            .filter(id => unavailable.has(id)).map(id => `能力状态：${unavailable.get(id)}`)].filter(Boolean).join('\n')
     };
 }
 
 module.exports = {
     LIMITS,
     loadSection,
+    unavailableReason,
     parseFrontMatter,
     normalizeSkillMarkdown,
     parseSkillArchive,

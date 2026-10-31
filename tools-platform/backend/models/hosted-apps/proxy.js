@@ -229,8 +229,18 @@ function resolveRequest(req) {
 
 /** Express 中间件：挂在 /apps，位于 JSON 解析与页面登录拦截之前，请求体原样转发。 */
 function handler(req, res) {
+    // Opaque-origin app frames need readable error responses too, including expired links.
+    corsHeaders(res);
+    if(req.method==='OPTIONS'&&req.headers['access-control-request-method']){
+        res.statusCode=204;res.setHeader('Access-Control-Allow-Methods','GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers',String(req.headers['access-control-request-headers']||'Content-Type'));
+        res.setHeader('Access-Control-Max-Age','600');return res.end();
+    }
     const resolved = resolveRequest(req);
-    if (resolved.error) return sendPage(res, ...resolved.error);
+    if (resolved.error) {
+        if(/\/(?:api|__platform)\//.test(req.url)){res.statusCode=resolved.error[0];res.setHeader('Content-Type','application/json; charset=utf-8');return res.end(JSON.stringify({code:resolved.error[0],error:resolved.error[1]+'：'+resolved.error[2],message:resolved.error[1]+'：'+resolved.error[2]}));}
+        return sendPage(res,...resolved.error);
+    }
     if (resolved.redirectToLauncher) {
         res.statusCode = 302;
         res.setHeader('Location', `/tools/${resolved.slug}`);

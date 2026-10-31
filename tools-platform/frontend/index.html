@@ -3832,6 +3832,23 @@
                 if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
                 return `${(value / 1024 / 1024).toFixed(1)} MB`;
             };
+            const formatMarketTime = value => {
+                if (!value) return text('未知', 'Unknown');
+                const raw = String(value).trim();
+                if (/^\d{4}[.-]\d{1,2}[.-]\d{1,2}$/.test(raw)) {
+                    return `${raw.replace(/\./g, '-')} (${text('未记录时分秒', 'time not recorded')})`;
+                }
+                // Version identifiers are not timestamps. Never infer a time from them.
+                if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(raw)) return raw;
+                const date = new Date(raw);
+                if (!Number.isFinite(date.getTime())) return raw;
+                return new Intl.DateTimeFormat(english() ? 'en-GB' : 'zh-CN', {
+                    year: 'numeric', month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit', second: '2-digit',
+                    hourCycle: 'h23', timeZoneName: 'shortOffset'
+                }).format(date);
+            };
+
             const labels = () => ({
                 unchanged: text('已是最新', 'Up to date'),
                 missing: text('可安装', 'Available'),
@@ -3937,8 +3954,10 @@
                             <p>${escapeHtml(description || '')}</p>${localModified}${conflict}
                             <div class="tool-market-meta">
                                 <span>${escapeHtml(tool.sourceName || 'GitHub')} · ${escapeHtml(sourceLabel)}</span>
-                                <span>${text('内置', 'Bundled')} ${escapeHtml(tool.builtinVersion || '-')} / ${text('市场', 'Market')} ${escapeHtml(tool.marketVersion)}</span>
-                                <span>${text('本地', 'Local')} ${escapeHtml(tool.localVersion || (tool.localSource === 'bundled' ? text('随平台内置', 'Bundled') : '-'))} → ${escapeHtml(tool.releaseVersion || '-')}</span>
+                                <span>${text('本地更新时间', 'Local updated')}：${escapeHtml(formatMarketTime(tool.localUpdatedAt || tool.localVersion))}</span>
+                                <span>${text('内置更新时间', 'Bundled updated')}：${escapeHtml(formatMarketTime(tool.builtinVersion))}</span>
+                                <span>${text('市场更新时间', 'Market updated')}：${escapeHtml(formatMarketTime(tool.marketUpdatedAt || tool.releasedAt || tool.marketVersion))}</span>
+                                <span>${text('版本', 'Version')} ${escapeHtml(tool.localVersion || '-')} → ${escapeHtml(tool.releaseVersion || '-')}</span>
                                 ${tool.selectedSource === 'market' ? `<span>${size(tool.packageSize)}</span><span>${text('需平台', 'Requires')} ${escapeHtml(tool.minPlatformVersion)}+</span>` : ''}
                                 <span class="tool-market-fingerprint" title="SHA-256 ${escapeHtml(tool.fingerprint)}">SHA-256 ${escapeHtml(tool.fingerprint.slice(0, 12))}…</span>
                             </div>

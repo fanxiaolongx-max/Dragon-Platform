@@ -64,6 +64,8 @@ test('home administrator can commit and verify database edits without a workspac
             assert.ok(options.tools.some(tool => tool.name === 'update_database_rows'));
             assert.equal(options.tools.some(tool => tool.name === 'run_command' || tool.name === 'write_file'), false);
             assert.match(options.systemInstruction, /无需选择工作目录/);
+            assert.match(options.systemInstruction, /当前最新已入库的是 X 年 X 月目标数据/);
+            assert.doesNotMatch(options.systemInstruction, /### @netcare-data/);
             assert.doesNotMatch(options.systemInstruction, /你没有修改业务数据的权限/);
             if (step === 1) {
                 const listed = JSON.parse(options.messages.at(-1).toolResults[0].content);

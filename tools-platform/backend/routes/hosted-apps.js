@@ -8,6 +8,17 @@ const { requireAdmin } = require('../middleware/auth');
 
 const send = (res, error, fallback) => res.status(error.status || 500).json({ error: error.message || fallback, code: error.code });
 
+// 更新等待旧进程退出期间，禁止编辑、Git 和配置等写操作交叉修改同一应用。
+router.use('/:slug', (req, res, next) => {
+    try {
+        if (req.method !== 'GET' && runtime.status(req.params.slug)?.status === 'updating') {
+            return res.status(409).json({ error: '应用正在更新代码，请稍后再操作', code: 'HOSTED_APP_BUSY' });
+        }
+        next();
+    } catch (error) { send(res, error, '读取应用状态失败'); }
+});
+
+
 router.get('/settings', requireAdmin, async (req, res) => {
     const python = await runtime.findPython({ refresh: req.query.refresh === '1' });
     res.json({ success: true, settings: runtime.getSettings(), python, apps: runtime.listApps() });

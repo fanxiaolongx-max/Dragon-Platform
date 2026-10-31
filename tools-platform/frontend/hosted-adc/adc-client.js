@@ -5,8 +5,8 @@
     document.head.append(style);
     let sessionId = '', modelId = '', controller = null;
     async function api(path, body, signal) {
-        const response = await fetch(base + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal } : { signal });
-        const result = await response.json();
+        let response;try{response = await fetch(base + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal } : { signal });}catch(error){if(error.name==='AbortError')throw error;throw new Error('平台 AI 通道连接中断：'+path+'。未收到 HTTP 响应，请检查网络、代理超时或重新打开应用。');}
+        let result;try{result=await response.json();}catch(_){throw new Error('平台 AI 通道返回非 JSON（HTTP '+response.status+'，'+path+'），请检查代理或平台日志');}
         if (!response.ok) throw new Error(result.error || '请求失败');
         return result;
     }

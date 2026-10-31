@@ -95,3 +95,15 @@ test('native export skips hidden parent groups and preserves literal text, style
         assert.equal(rgbHex('#C7000B'),'C7000B');
     } finally { global.getComputedStyle=previous; }
 });
+
+test('ppt copilot text transformations use dedicated in-place transform instead of regenerating large DOMs', () => {
+    const app = fs.readFileSync(path.join(root, 'js/app.js'), 'utf8');
+    const aiRoute = fs.readFileSync(path.resolve(__dirname, '../backend/routes/ai.js'), 'utf8');
+
+    assert.match(aiRoute, /router\.post\('\/ppt-transform-text'/, 'ai.js must define POST /ppt-transform-text');
+    assert.match(aiRoute, /result\.finishReason === 'MAX_TOKENS'/, 'ai.js must detect MAX_TOKENS truncation on ppt-copilot');
+    assert.match(app, /transformSlideTexts\('translate_en'/, 'app.js must route translate_en to transformSlideTexts');
+    assert.match(app, /transformSlideTexts\('translate_zh'/, 'app.js must route translate_zh to transformSlideTexts');
+    assert.match(app, /transformSlideTexts\('polish'/, 'app.js must route polish to transformSlideTexts');
+    assert.match(app, /!activeWrap\.querySelector\('\.vision-template'\)/, 'app.js must not inject vision-template into AI reference templates');
+});

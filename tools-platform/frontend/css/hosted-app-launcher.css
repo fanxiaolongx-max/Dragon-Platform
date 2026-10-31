@@ -776,7 +776,7 @@ body {
 
 /* ── 更新上传包弹窗 ───────────────────────────────── */
 .ha-upload-modal-overlay {
-    position: fixed; inset: 0; z-index: 1000;
+    position: fixed; inset: 0; z-index: 1100;
     background: rgba(8, 12, 18, 0.82);
     backdrop-filter: blur(8px);
     display: flex; align-items: center; justify-content: center;
@@ -785,6 +785,7 @@ body {
 .ha-upload-modal-overlay[hidden] { display: none !important; }
 .ha-upload-modal-window {
     width: min(580px, 94vw);
+    max-height: calc(100dvh - 32px);
     background: #161a23; color: #d8e1ec;
     border: 1px solid #2b3342;
     border-radius: 12px;

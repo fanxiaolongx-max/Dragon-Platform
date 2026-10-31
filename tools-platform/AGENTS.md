@@ -113,6 +113,7 @@ npm run start:desktop
 - 报表变更：检查 report snapshot、target month、auto-fill 及导出文件名相关测试。
 - 前端 JavaScript 变更：对改动文件运行 `node --check <file>`，并在需要时做页面级运行验证。
 - 修改默认脚本/指标规则后，只在用户明确要求刷新快照时运行 `npm run defaults:export`，因为它会改写版本化文件和 README 片段。
+- 修改 `backend/builtin-tools/<slug>/` 中的工具内容后，在发布前运行 `npm run tools:release:stamp -- <slug>` 并提交对应 manifest 的精确 UTC 更新时间；不要使用仅日期或人为补零的发布时间，也不要批量刷新未修改工具的时间。
 - 不要为普通代码修改运行 Electron 打包命令；打包耗时且包含授权配置前置检查。
 
 ## 工作方式

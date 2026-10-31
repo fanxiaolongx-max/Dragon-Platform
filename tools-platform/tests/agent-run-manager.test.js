@@ -425,7 +425,11 @@ test('transcripts are saved per tenant database, including a tenant opened later
     assert.equal((await runWithTenant('tenant-three', () => aiChatRepo.listMessages(sessionB))).length, 1);
 });
 
-test('workspace chats get the dedicated skill tools (@netcare-data / @ops-group / @welink-office) without approval prompts for read-only queries', async () => {
+test('workspace chats get the dedicated skill tools (@netcare-data / @ops-group / @welink-office) without approval prompts for read-only queries', async t => {
+    const config = require('../backend/models/digital-human/config-repository');
+    await config.saveConfig({ enabled: true });
+    t.after(() => config.saveConfig({ enabled: false }));
+    t.mock.method(require('../backend/models/digital-human/table-catalog'), 'listTables', async () => ({ tables: [] }));
     const session = manager.ensureSession({ agentSessionId: newSessionId(), user, tenantId: 'default', root, permissionMode: 'ask' });
     const client = scriptedClient([
         { toolCalls: [{ id: 'n1', name: 'netcare_tables', args: { keyword: 'risk' } }] },
@@ -439,7 +443,7 @@ test('workspace chats get the dedicated skill tools (@netcare-data / @ops-group 
     assert.ok(names.includes('read_file'), 'workspace tools still offered');
     assert.equal(events.some(event => event.type === 'approval'), false, 'read-only NetCare query is not gated by approval');
     const result = events.find(event => event.type === 'tool_result' && event.callId === 'n1');
-    assert.ok(result, 'NetCare tool executed (it reports the base status when not configured)');
+    assert.ok(result, 'NetCare read tool executed without an approval prompt');
 
     const plain = manager.ensureSession({ agentSessionId: newSessionId(), user, tenantId: 'default', root, permissionMode: 'ask' });
     const plainClient = scriptedClient([{ text: 'hi' }]);
@@ -513,7 +517,10 @@ test('read-only accounts cannot load write tools; a deferred tool called directl
     assert.equal(result.denied, 1);
 });
 
-test('load_skill loads a catalog skill and its tools; ops writes and pushes go through approval cards', async () => {
+test('load_skill loads a catalog skill and its tools; ops writes and pushes go through approval cards', async t => {
+    const config = require('../backend/models/digital-human/config-repository');
+    await config.saveConfig({ enabled: true });
+    t.after(() => config.saveConfig({ enabled: false }));
     const session = manager.ensureSession({ agentSessionId: newSessionId(), user, tenantId: 'default', root, permissionMode: 'ask' });
     const catalog = [{ id: 'netcare-data' }, { id: 'ops-group' }, { id: 'data-check' }];
     const client = scriptedClient([

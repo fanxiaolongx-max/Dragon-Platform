@@ -20,6 +20,7 @@ fs.writeFileSync(report, 'xlsx-bytes');
 fs.writeFileSync(path.join(sandbox, 'work', 'chart.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
 fs.writeFileSync(path.join(sandbox, 'work', 'page.html'), '<script>alert(1)</script>');
 fs.writeFileSync(path.join(sandbox, 'work', 'notes.md'), '# hi');
+fs.writeFileSync(path.join(sandbox, 'work', 'theme.css'), 'body { color: red; }');
 fs.writeFileSync(path.join(sandbox, 'work', '.env'), 'SECRET=1');
 fs.writeFileSync(path.join(sandbox, 'work', '.ssh', 'config.txt'), 'Host x');
 fs.writeFileSync(path.join(sandbox, 'work', 'data.db'), 'sqlite');
@@ -72,6 +73,17 @@ test('images preview inline; html is always an attachment and sandboxed', async 
     assert.match(page.headers.get('content-disposition'), /^attachment/);
     assert.equal(page.headers.get('content-type'), 'application/octet-stream');
     assert.match(page.headers.get('content-security-policy'), /sandbox/);
+});
+
+test('source text files can be previewed as inert plain text', async () => {
+    const filePath = path.join(sandbox, 'work', 'theme.css');
+    const info = await (await get('/stat', filePath, adminRemote)).json();
+    assert.equal(info.previewable, true);
+    const response = await get('/raw', filePath, adminRemote);
+    assert.match(response.headers.get('content-type'), /^text\/plain/);
+    assert.match(response.headers.get('content-security-policy'), /sandbox/);
+    assert.equal(await response.text(), 'body { color: red; }');
+    assert.equal((await get('/raw', filePath, viewerRemote)).status, 403);
 });
 
 test('secrets, hidden folders, databases, relative paths and missing files are refused', async () => {

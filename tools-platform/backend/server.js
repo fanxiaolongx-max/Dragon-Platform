@@ -280,7 +280,10 @@ const PUBLIC_HTML_PATHS = new Set([
     '/googlea8435fd020ce60ab.html',
     '/cinema',
     '/cinema.html',
-    '/pages/cinema.html'
+    '/pages/cinema.html',
+    '/cinama',
+    '/cinama.html',
+    '/pages/cinama.html'
 ]);
 const PUBLIC_ASSET_EXTS = new Set([
     '.css', '.js', '.mjs', '.map',
@@ -518,7 +521,7 @@ app.get('/login.html', (req, res) => {
 app.get(['/project-evolution', '/project-evolution.html'], (req, res) => {
     sendFrontendHtml(res, 'pages/project-evolution.html');
 });
-app.get(['/cinema', '/cinema.html'], (req, res) => {
+app.get(['/cinema', '/cinema.html', '/cinama', '/cinama.html'], (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');

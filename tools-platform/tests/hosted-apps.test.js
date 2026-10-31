@@ -224,6 +224,7 @@ test('service.updatePackage updates app code, preserves state/env, and records p
         });
         const inspected1 = await appPackage.inspectArchive(v1Zip);
         runtime.createApp(slug, inspected1, { name: 'Test App' });
+        await runtime.stop(slug);
         runtime.savePackage(slug, v1Zip, 'test-app-v1.zip');
         const state1 = runtime.readState(slug);
         assert.equal(state1.version, '1.0.0');
@@ -310,5 +311,75 @@ test('runtime.availableLogDates and exportLogs extract dates and export historic
         assert.ok(exportAll.content.includes('GET /api/data'));
 
         await runtime.removeApp(slug);
+    });
+});
+
+test('package update keeps local config, Git history and tenant data; blocks overlapping updates', async () => {
+    const { execFileSync } = require('node:child_process');
+    const v1 = await appPackage.inspectArchive(await zipOf({ 'requirements.txt': '', 'main.py': 'from fastapi import FastAPI\napp = FastAPI()\n', 'platform-app.json': '{"entry":"main:app","version":"1"}' }));
+    const v2 = await appPackage.inspectArchive(await zipOf({ 'requirements.txt': '', 'main.py': 'from fastapi import FastAPI\napp = FastAPI()\n# next', '.env': 'uploaded-value', 'secret.key': 'new-package-key', 'platform-app.json': '{"entry":"main:app","version":"2"}' }));
+    for (const id of ['default', 'update-other']) await tenant.runWithTenant(id, async () => {
+        runtime.createApp('update-safe', v1);
+        await runtime.stop('update-safe');
+        const p = runtime.paths('update-safe');
+        fs.mkdirSync(p.data, { recursive: true });
+        fs.writeFileSync(path.join(p.data, 'sentinel.txt'), id);
+        fs.writeFileSync(path.join(p.code, '.env'), 'local-value');
+        fs.mkdirSync(path.join(p.code, 'config'));
+        fs.writeFileSync(path.join(p.code, 'config/.env.local'), 'nested-local');
+        execFileSync('git', ['init', p.code], { stdio: 'ignore' });
+        execFileSync('git', ['-C', p.code, 'config', 'user.name', 'Test']);
+        execFileSync('git', ['-C', p.code, 'config', 'user.email', 'test@example.test']);
+        execFileSync('git', ['-C', p.code, 'add', 'main.py']);
+        execFileSync('git', ['-C', p.code, 'commit', '-m', 'before'], { stdio: 'ignore' });
+    });
+    await tenant.runWithTenant('default', async () => {
+        const p = runtime.paths('update-safe');
+        const oldHead = execFileSync('git', ['-C', p.code, 'rev-parse', 'HEAD'], { encoding: 'utf8' });
+        const first = runtime.updateApp('update-safe', v2);
+        await assert.rejects(runtime.updateApp('update-safe', v2), { code: 'HOSTED_APP_BUSY' });
+        await first;
+        assert.equal(fs.readFileSync(path.join(p.code, '.env'), 'utf8'), 'local-value');
+        assert.equal(fs.readFileSync(path.join(p.code, 'config/.env.local'), 'utf8'), 'nested-local');
+        assert.equal(execFileSync('git', ['-C', p.code, 'rev-parse', 'HEAD'], { encoding: 'utf8' }), oldHead);
+        assert.equal(execFileSync('git', ['-C', p.code, 'ls-files', 'secret.key'], { encoding: 'utf8' }), '');
+        assert.equal(fs.readFileSync(path.join(p.data, 'sentinel.txt'), 'utf8'), 'default');
+        assert.equal(fs.readFileSync(path.join(p.code + '.old', 'main.py'), 'utf8'), v1.files.find(([name]) => name === 'main.py')[1].toString());
+    });
+    await tenant.runWithTenant('update-other', async () => {
+        assert.equal(runtime.readState('update-safe').version, '1');
+        assert.equal(fs.readFileSync(path.join(runtime.paths('update-safe').data, 'sentinel.txt'), 'utf8'), 'update-other');
+    });
+    for (const id of ['default', 'update-other']) await tenant.runWithTenant(id, () => runtime.removeApp('update-safe'));
+});
+
+test('failed package swap restores old code/state/archive and releases update lock', async () => {
+    const archive = await zipOf({ 'requirements.txt': '', 'main.py': 'from fastapi import FastAPI\napp = FastAPI()\n' });
+    const inspected = await appPackage.inspectArchive(archive);
+    await tenant.runWithTenant('default', async () => {
+        runtime.createApp('update-rollback', inspected);
+        await runtime.stop('update-rollback');
+        runtime.savePackage('update-rollback', archive, 'old.zip');
+        const p = runtime.paths('update-rollback');
+        const originalRename = fs.renameSync;
+        fs.renameSync = (from, to) => {
+            if (from === p.code + '.new' && to === p.code) throw new Error('injected swap failure');
+            return originalRename(from, to);
+        };
+        try { await assert.rejects(runtime.updateApp('update-rollback', inspected, { archive }), /injected swap failure/); }
+        finally { fs.renameSync = originalRename; }
+        assert.ok(fs.existsSync(path.join(p.code, 'main.py')));
+        assert.equal(runtime.readState('update-rollback').packageFile, 'old.zip');
+        assert.ok(fs.readFileSync(p.package).equals(archive));
+        fs.renameSync = (from, to) => {
+            if (from === p.package + '.tmp') throw new Error('injected archive failure');
+            return originalRename(from, to);
+        };
+        try { await assert.rejects(runtime.updateApp('update-rollback', inspected, { archive }), /injected archive failure/); }
+        finally { fs.renameSync = originalRename; }
+        assert.ok(fs.existsSync(path.join(p.code, 'main.py')));
+        assert.ok(fs.readFileSync(p.package).equals(archive));
+        await runtime.updateApp('update-rollback', inspected);
+        await runtime.removeApp('update-rollback');
     });
 });
