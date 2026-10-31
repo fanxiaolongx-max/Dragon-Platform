@@ -9,12 +9,13 @@
 
     const LOCAL_PATH_RE = /^(?:file:\/\/)?(?:~\/|\/(?:Volumes|Users|private|tmp|home|var|opt|mnt|srv|data|root|Applications|workspace)\/|[A-Za-z]:[\\/])/;
     const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'svg', 'ico'];
+    const TEXT_EXT = new Set(['txt', 'md', 'csv', 'tsv', 'json', 'log', 'yaml', 'yml', 'xml', 'sql', 'ndjson', 'html', 'htm', 'py', 'js', 'ts', 'sh', 'ps1', 'css', 'jsx', 'tsx', 'vue', 'svelte', 'toml', 'ini', 'cfg', 'conf', 'c', 'h', 'cpp', 'hpp', 'java', 'kt', 'kts', 'swift', 'rb', 'go', 'rs', 'r', 'lua', 'bash', 'zsh']);
     // 正文里不带链接的裸路径只认常见产出物扩展名，避免把普通文字误判成文件
-    const BARE_EXT = [...IMAGE_EXT, 'pdf', 'xlsx', 'xls', 'xlsm', 'csv', 'tsv', 'docx', 'doc', 'pptx', 'ppt', 'zip', '7z', 'rar', 'gz', 'tgz', 'html', 'htm', 'md', 'txt', 'json', 'log', 'mp4', 'mov', 'webm', 'mp3', 'wav', 'm4a'];
+    const BARE_EXT = [...IMAGE_EXT, ...TEXT_EXT, 'pdf', 'xlsx', 'xls', 'xlsm', 'csv', 'tsv', 'docx', 'doc', 'pptx', 'ppt', 'zip', '7z', 'rar', 'gz', 'tgz', 'html', 'htm', 'md', 'txt', 'json', 'log', 'mp4', 'mov', 'webm', 'mp3', 'wav', 'm4a'];
     const BARE_PATH_RE = new RegExp(String.raw`(^|[\s(（:：，,、"“'])((?:~\/|\/(?:Volumes|Users|private|tmp|home|var|opt|mnt|srv|data|root|Applications|workspace)\/)[^\s<>"'\`，。；、（）()\[\]{}|]*?\.(?:${BARE_EXT.join('|')}))((?::\d+){0,2})(?=$|[\s，。；、）),.:;!?！？"”'])`, 'gi');
 
     const lang = () => String(window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || document.documentElement.lang || 'zh').toLowerCase().startsWith('en') ? 'en' : 'zh';
-    const T = { zh: { download: '下载', open: '打开', missing: '文件不存在或无权限', close: '关闭', prev: '上一张', next: '下一张', reset: '原始大小', preview: '点击放大' }, en: { download: 'Download', open: 'Open', missing: 'Missing or no access', close: 'Close', prev: 'Previous', next: 'Next', reset: 'Reset zoom', preview: 'Click to zoom' } };
+    const T = { zh: { download: '下载', open: '打开', missing: '文件不存在或无权限', close: '关闭', prev: '上一张', next: '下一张', reset: '原始大小', preview: '点击放大', filePreview: '文件预览', loading: '正在读取…', unsupported: '此类型暂不支持内嵌预览，请下载查看', tooLarge: '文件超过 5 MB，请下载查看', resize: '拖动调整预览宽度（方向键微调）' }, en: { download: 'Download', open: 'Open', missing: 'Missing or no access', close: 'Close', prev: 'Previous', next: 'Next', reset: 'Reset zoom', preview: 'Click to zoom', filePreview: 'File preview', loading: 'Loading…', unsupported: 'Preview is unavailable for this file type. Download to view it.', tooLarge: 'File exceeds 5 MB. Download to view it.', resize: 'Drag to resize preview (arrow keys to adjust)' } };
     const t = key => T[lang()][key];
 
     function esc(value) {
@@ -48,7 +49,7 @@
         const name = baseName(filePath);
         const ext = extOf(filePath);
         const text = label && label !== filePath ? label : name;
-        return `<span class="ai-file-chip" data-ai-file="${esc(filePath)}" data-ext="${esc(ext)}"><span class="ai-file-chip-icon" aria-hidden="true">${esc((ext || 'file').slice(0, 4).toUpperCase())}</span><span class="ai-file-chip-text"><a class="ai-file-chip-name" href="${esc(fileUrl(filePath))}" target="_blank" rel="noopener" title="${esc(String(rawPath))}">${esc(text)}</a><span class="ai-file-chip-meta">${esc(text === name ? '' : name)}</span></span><a class="ai-file-chip-download" href="${esc(fileUrl(filePath, true))}" download="${esc(name)}" title="${esc(t('download'))} ${esc(name)}" aria-label="${esc(t('download'))} ${esc(name)}"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg><span>${esc(t('download'))}</span></a></span>`;
+        return `<span class="ai-file-chip" data-ai-file="${esc(filePath)}" data-ext="${esc(ext)}"><span class="ai-file-chip-icon" aria-hidden="true">${esc((ext || 'file').slice(0, 4).toUpperCase())}</span><span class="ai-file-chip-text"><a class="ai-file-chip-name" href="${esc(fileUrl(filePath))}" title="${esc(String(rawPath))}">${esc(text)}</a><span class="ai-file-chip-meta">${esc(text === name ? '' : name)}</span></span><a class="ai-file-chip-download" href="${esc(fileUrl(filePath, true))}" download="${esc(name)}" title="${esc(t('download'))} ${esc(name)}" aria-label="${esc(t('download'))} ${esc(name)}"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg><span>${esc(t('download'))}</span></a></span>`;
     }
 
     function imageHtml(src, alt, downloadHref, name) {
@@ -127,6 +128,135 @@
                 if (meta) meta.textContent = [meta.textContent, formatSize(info.size)].filter(Boolean).join(' · ');
             });
         });
+    }
+
+    // 预览独立于外部会话卡片，关闭时保留原卡片 DOM、滚动位置和面板开关。
+    const PREVIEW_LIMIT = 5 * 1024 * 1024;
+    let filePreview = null;
+    let previewWidth = null;
+    function bindPreviewResize(current) {
+        const handle = current.node.querySelector('.ai-file-preview-resize');
+        const target = () => current.mounted ? current.node.parentElement : current.node;
+        const limit = () => {
+            const layout = current.mounted && window.innerWidth > 860 ? target().closest('.home-workspace') : null;
+            if (!layout) return Math.max(240, window.innerWidth - 32);
+            const main = layout.querySelector('.home-main');
+            return Math.max(240, target().getBoundingClientRect().right - main.getBoundingClientRect().left - 340);
+        };
+        const resize = width => {
+            previewWidth = Math.round(Math.max(Math.min(280, limit()), Math.min(width, limit())));
+            document.body.style.setProperty('--ai-preview-width', `${previewWidth}px`);
+            handle.setAttribute('aria-valuenow', String(previewWidth));
+        };
+        let drag = null;
+        const end = () => { drag = null; document.body.classList.remove('ai-preview-resizing'); };
+        handle.addEventListener('pointerdown', event => {
+            if (event.button !== 0) return;
+            event.preventDefault();
+            drag = { x: event.clientX, width: target().getBoundingClientRect().width };
+            handle.setPointerCapture(event.pointerId);
+            document.body.classList.add('ai-preview-resizing');
+        });
+        const move = event => { if (drag) resize(drag.width + drag.x - event.clientX); };
+        document.addEventListener('pointermove', move);
+        document.addEventListener('pointerup', end);
+        document.addEventListener('pointercancel', end);
+        handle.addEventListener('lostpointercapture', end);
+        handle.addEventListener('keydown', event => {
+            if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+            event.preventDefault();
+            resize(target().getBoundingClientRect().width + (event.key === 'ArrowLeft' ? 40 : -40));
+        });
+        const onResize = () => { if (previewWidth !== null) resize(previewWidth); };
+        window.addEventListener('resize', onResize);
+        current.cleanupResize = () => {
+            end();
+            document.removeEventListener('pointermove', move);
+            document.removeEventListener('pointerup', end);
+            document.removeEventListener('pointercancel', end);
+            window.removeEventListener('resize', onResize);
+        };
+        if (previewWidth !== null) resize(previewWidth);
+    }
+    function closePreview() {
+        if (!filePreview) return;
+        const current = filePreview;
+        filePreview = null;
+        current.cleanupResize?.();
+        current.controller.abort();
+        if (current.url) URL.revokeObjectURL(current.url);
+        current.node.remove();
+        if (current.mounted) window.DragonClawWorkspace?.unmountFilePreview();
+        document.body.classList.remove('ai-file-preview-open');
+        document.body.style.removeProperty('--ai-preview-width');
+        document.removeEventListener('keydown', onPreviewKey, true);
+        current.opener?.focus?.({ preventScroll: true });
+    }
+    function onPreviewKey(event) {
+        if (event.key !== 'Escape' || !filePreview) return;
+        event.preventDefault();
+        event.stopPropagation();
+        closePreview();
+    }
+    async function openPreview(filePath, opener) {
+        if (filePreview) {
+            filePreview.cleanupResize?.();
+            filePreview.controller.abort();
+            if (filePreview.url) URL.revokeObjectURL(filePreview.url);
+            filePreview.node.remove();
+        }
+        const node = document.createElement('section');
+        node.className = 'ai-file-preview';
+        node.setAttribute('role', 'region');
+        node.setAttribute('aria-label', t('filePreview'));
+        node.innerHTML = `<span class="ai-file-preview-resize" role="separator" tabindex="0" aria-orientation="vertical" aria-label="${esc(t('resize'))}" title="${esc(t('resize'))}"></span><header><strong title="${esc(filePath)}">${esc(baseName(filePath))}</strong><a href="${esc(fileUrl(filePath, true))}" download="${esc(baseName(filePath))}">${esc(t('download'))}</a><button type="button" aria-label="${esc(t('close'))}">✕</button></header><div class="ai-file-preview-body" aria-live="polite"></div>`;
+        const current = { node, opener, controller: new AbortController(), mounted: false, url: null };
+        filePreview = current;
+        current.mounted = Boolean(window.DragonClawWorkspace?.mountFilePreview(node));
+        if (!current.mounted) { node.classList.add('ai-file-preview--floating'); document.body.appendChild(node); }
+        document.body.classList.add('ai-file-preview-open');
+        bindPreviewResize(current);
+        node.querySelector('button').addEventListener('click', closePreview);
+        node.querySelector('button').focus({ preventScroll: true });
+        document.addEventListener('keydown', onPreviewKey, true);
+        const body = node.querySelector('.ai-file-preview-body');
+        body.textContent = t('loading');
+        try {
+            const info = await stat(filePath);
+            if (filePreview !== current) return;
+            if (info.error) throw new Error(info.error);
+            const ext = extOf(filePath);
+            if (!TEXT_EXT.has(ext) && ext !== 'pdf') { body.textContent = t('unsupported'); return; }
+            if (info.size > PREVIEW_LIMIT) { body.textContent = t('tooLarge'); return; }
+            const response = await fetch(fileUrl(filePath), { credentials: 'same-origin', headers: authHeaders(), signal: current.controller.signal });
+            if (!response.ok) throw new Error(t('missing'));
+            // 限制实际读取量，防止 stat 后文件增长导致预览占用过多内存。
+            const reader = response.body.getReader();
+            const chunks = [];
+            let size = 0;
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                size += value.byteLength;
+                if (size > PREVIEW_LIMIT) { await reader.cancel(); throw new Error(t('tooLarge')); }
+                chunks.push(value);
+            }
+            if (filePreview !== current) return;
+            const blob = new Blob(chunks, { type: ext === 'pdf' ? 'application/pdf' : 'text/plain' });
+            if (ext === 'pdf') {
+                current.url = URL.createObjectURL(blob);
+                const frame = document.createElement('iframe');
+                frame.title = baseName(filePath);
+                frame.src = current.url;
+                body.replaceChildren(frame);
+            } else {
+                const pre = document.createElement('pre');
+                pre.textContent = await blob.text();
+                if (filePreview === current) body.replaceChildren(pre);
+            }
+        } catch (error) {
+            if (filePreview === current && error.name !== 'AbortError') body.textContent = error.message || t('missing');
+        }
     }
 
     // —— 图片放大预览 ——
@@ -222,6 +352,12 @@
     }
 
     document.addEventListener('click', event => {
+        const link = event.target.closest?.('.ai-file-chip-name');
+        if (link && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+            event.preventDefault();
+            openPreview(link.closest('[data-ai-file]').dataset.aiFile, link);
+            return;
+        }
         const img = event.target.closest?.('img[data-ai-zoom]');
         if (!img || event.button !== 0) return;
         event.preventDefault();
@@ -241,7 +377,7 @@
 
     const style = document.createElement('style');
     style.textContent = `
-        .ai-file-chip { display: inline-flex; align-items: center; gap: 10px; max-width: 100%; margin: 4px 2px; padding: 8px 8px 8px 10px; border-radius: 12px; border: 1px solid rgba(125, 211, 252, 0.28); background: rgba(14, 165, 233, 0.08); vertical-align: middle; box-sizing: border-box; line-height: 1.3; }
+        .ai-file-chip { display: flex; width: fit-content; align-items: center; gap: 10px; max-width: 100%; margin: 8px 0; padding: 8px 8px 8px 10px; border-radius: 12px; border: 1px solid rgba(125, 211, 252, 0.28); background: rgba(14, 165, 233, 0.08); vertical-align: middle; box-sizing: border-box; line-height: 1.3; }
         .ai-file-chip-icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em; color: #fff; background: #64748b; }
         .ai-file-chip[data-ext^="xls"] .ai-file-chip-icon, .ai-file-chip[data-ext="csv"] .ai-file-chip-icon, .ai-file-chip[data-ext="tsv"] .ai-file-chip-icon { background: #16a34a; }
         .ai-file-chip[data-ext^="doc"] .ai-file-chip-icon, .ai-file-chip[data-ext="md"] .ai-file-chip-icon, .ai-file-chip[data-ext="txt"] .ai-file-chip-icon { background: #2563eb; }
@@ -257,9 +393,33 @@
         .ai-file-chip a.ai-file-chip-download:hover { background: #bae6fd; }
         .ai-file-chip.is-missing { opacity: .6; border-style: dashed; }
         .ai-file-chip.is-missing a.ai-file-chip-download { pointer-events: none; opacity: .5; }
-        .ai-md-image { display: inline-block; max-width: 100%; margin: 6px 0; vertical-align: top; }
+        .ai-md-image { display: block; width: fit-content; max-width: 100%; margin: 6px 0; vertical-align: top; }
         .ai-md-image img { display: block; max-width: min(100%, 520px); max-height: 360px; border-radius: 10px; border: 1px solid rgba(148, 163, 184, .3); cursor: zoom-in; object-fit: contain; background: rgba(148, 163, 184, .08); }
         .ai-md-image.is-missing { padding: 8px 12px; border-radius: 10px; border: 1px dashed rgba(148, 163, 184, .5); font-size: 13px; opacity: .7; }
+        .home-workspace-panel.has-file-preview > :not(.ai-file-preview) { display: none !important; }
+        .ai-file-preview { display: flex; flex-direction: column; min-width: 0; position: relative; height: auto; color: var(--wsp-text, var(--text-primary, #e2e8f0)); background: var(--wsp-panel, var(--bg-secondary, #0f172a)); border-radius: 12px; overflow: hidden; }
+        .ai-file-preview--floating { position: fixed; right: 16px; top: calc(var(--navbar-h, 60px) + 16px); bottom: 18px; width: min(var(--ai-preview-width, 560px), calc(100vw - 32px)); max-height: none; z-index: 10010; border: 1px solid #94a3b855; box-shadow: 0 12px 40px #0004; }
+        .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h) - 36px); max-height: none; box-sizing: border-box; overflow: hidden; }
+        .home-workspace-panel.has-file-preview > .ai-file-preview { flex: 1 1 auto; min-height: 0; }
+        .ai-file-preview-resize { position: absolute; left: 0; top: 0; bottom: 0; width: 8px; z-index: 2; cursor: col-resize; touch-action: none; border-radius: 5px; }
+        .ai-file-preview-resize::after { content: ""; position: absolute; left: 3px; top: calc(50% - 24px); width: 2px; height: 48px; border-radius: 2px; background: #94a3b877; }
+        .ai-file-preview-resize:hover, .ai-file-preview-resize:focus-visible { background: #38bdf866; outline: none; }
+        body.ai-preview-resizing { cursor: col-resize; user-select: none; }
+        body.ai-preview-resizing .ai-file-preview iframe { pointer-events: none; }
+        @media (min-width: 861px) {
+            body.ai-file-preview-open.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-side) minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
+            body.ai-file-preview-open.home-sidebar-collapsed.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
+        }
+        @media (max-width: 860px) {
+            .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h)); width: min(var(--ai-preview-width, 360px), calc(100vw - 32px)); }
+        }
+        .ai-file-preview header { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid #94a3b844; }
+        .ai-file-preview header strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+        .ai-file-preview header a, .ai-file-preview header button { flex: none; color: inherit; font: inherit; }
+        .ai-file-preview header button { background: transparent; border: 0; cursor: pointer; padding: 6px; }
+        .ai-file-preview-body { flex: 1; min-height: 0; overflow: auto; padding: 12px; }
+        .ai-file-preview pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 13px/1.7 ui-monospace, monospace; color: inherit; background: transparent; }
+        .ai-file-preview iframe { width: 100%; height: 100%; border: 0; background: white; }
         .ai-lightbox { position: fixed; inset: 0; z-index: 2147483000; background: rgba(2, 6, 23, .9); display: flex; flex-direction: column; }
         .ai-lightbox[hidden] { display: none; }
         .ai-lightbox-stage { flex: 1; min-height: 0; display: grid; place-items: center; overflow: hidden; cursor: zoom-out; }
@@ -275,5 +435,5 @@
     `;
     document.head.appendChild(style);
 
-    window.ChatFiles = { transformInline, chipHtml, imageHtml, isLocalFile, cleanPath, fileUrl, hydrate };
+    window.ChatFiles = { transformInline, chipHtml, imageHtml, isLocalFile, cleanPath, fileUrl, hydrate, openPreview, closePreview };
 })();
