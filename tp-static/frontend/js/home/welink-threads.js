@@ -64,8 +64,14 @@
         }
     };
 
+    // 会话列表按页加载：每页 THREAD_PAGE 条，滚到底部附近再加载下一页（serverCount 为已取到的条数，作翻页偏移）
+    const THREAD_PAGE = 50;
     const state = {
         source: 'mine',
+        serverCount: 0,
+        hasMore: false,
+        loadingMore: false,
+        listQuery: '',
         sourceRevision:0,
         openLatestSource:null,
         channels: [], // 已对接的频道：[{ id, label, connected }]
@@ -299,11 +305,17 @@
         if (!state.loaded) renderThreads();
         try {
             const query = el.search?.value.trim() || '';
-            const data = await request('GET', `${API_BASE}/${state.source}/threads?limit=200&q=${encodeURIComponent(query)}`);
-            if (seq !== state.seq||source!==state.source||account!==identity()) return;
             const cacheKey=identity()+':'+state.source;
+            // 刷新时取回已经加载过的条数，列表不会一刷新就缩回第一页
+            const same=state.listIdentity===cacheKey&&query===state.listQuery;
+            const limit=Math.min(500,Math.max(THREAD_PAGE,same?state.serverCount:0));
+            const data = await request('GET', `${API_BASE}/${state.source}/threads?limit=${limit}&q=${encodeURIComponent(query)}`);
+            if (seq !== state.seq||source!==state.source||account!==identity()) return;
             if(state.listIdentity!==cacheKey){state.allThreads=[];state.listIdentity=cacheKey;}
             const fetched=Array.isArray(data.items)?data.items:[];
+            state.serverCount=fetched.length;
+            state.hasMore=Boolean(data.hasMore);
+            state.listQuery=query;
             if(!query)state.allThreads=fetched;
             const aliases=query?state.allThreads.filter(t=>window.HomeConversationList?.get(state.source,t.kind+':'+t.id).title?.toLowerCase().includes(query.toLowerCase())):[];
             state.threads=[...fetched,...aliases.filter(t=>!fetched.some(f=>f.kind===t.kind&&f.id===t.id))];
@@ -354,6 +366,30 @@
             </button>`;
         }).join('')).join('') || `<div class="home-chat-empty">${escapeHtml(tx('noMatch'))}</div>`;
         window.HomeConversationList?.enhance(el.list,config);
+        window.HomeConversationList?.pager(el.list,{hasMore:state.hasMore,loading:state.loadingMore,onMore:loadMoreThreads});
+    }
+
+    // 滚到列表底部附近：按偏移量取下一页，接在后面
+    async function loadMoreThreads() {
+        if (state.loadingMore || !state.hasMore) return;
+        const seq = state.seq, source = state.source, query = state.listQuery;
+        state.loadingMore = true;
+        renderThreads();
+        try {
+            const data = await request('GET', `${API_BASE}/${source}/threads?limit=${THREAD_PAGE}&offset=${state.serverCount}&q=${encodeURIComponent(query)}`);
+            if (seq !== state.seq || source !== state.source || query !== state.listQuery) return;
+            const page = Array.isArray(data.items) ? data.items : [];
+            const seen = new Set(state.threads.map(thread => `${thread.kind}:${thread.id}`));
+            state.threads.push(...page.filter(thread => !seen.has(`${thread.kind}:${thread.id}`)));
+            state.serverCount += page.length;
+            state.hasMore = Boolean(data.hasMore);
+            if (!query) state.allThreads = state.threads.slice();
+        } catch {
+            // 加载失败：保留「加载更多」，滚动或点击可以再试
+        } finally {
+            state.loadingMore = false;
+            renderThreads();
+        }
     }
 
     // ── 打开会话：真实频道时间线与手动运营 ────────────────

@@ -25,7 +25,7 @@
             send: '发送', stop: '停止生成', you: '你',
             greetEarly: '夜深了', greetMorning: '早上好', greetNoon: '中午好', greetAfternoon: '下午好', greetEvening: '晚上好',
             spotFrequent: '你常用的', spotRandom: '随手推荐', spotAsk: '想感受一下「{name}」吗？',
-            spotGo: '带我看看', spotOpen: '直接打开', spotGem: '隐藏小功能', spotGemAsk: '发现一个小功能：「{name}」', spotGemOpen: '去试试', introWhere: '在哪里找到它：', spotMore: '也可以试试', spotPrev: '上一个', spotNext: '下一个',
+            spotGo: '带我看看', spotOpen: '直接打开', spotGem: '隐藏小功能', spotGemAsk: '发现一个小功能：「{name}」', spotGemOpen: '去试试', introWhere: '在哪里找到它：', spotMore: '也可以试试', spotPrev: '上一个', spotNext: '下一个', spotDismiss: '关闭推荐，本次登录不再显示',
             tryTool: '想体验一下「{name}」', introCan: '它能帮你做什么', introGroup: '分类：{group}', introUpdated: '{time}更新',
             introOpen: '打开 {name}', introAskLogic: '讲讲它的实现逻辑', introAskHow: '怎么上手使用？',
             introFooter: '点下面的按钮就能直接使用；想了解实现细节或使用技巧，也可以继续问我。',
@@ -50,7 +50,7 @@
             modeAsk: '请求批准', modeAskDesc: '写入、删除、重命名和命令都先征求你的同意', modeAuto: '帮我批准', modeAutoDesc: '读写文件自动执行；删除、重命名和命令仍需确认', modeFull: '完全访问', modeFullDesc: '全部自动执行，不再询问；命令以本机账号权限运行，不限于工作目录', readOnlyMode: '只读', readOnlyDesc: '当前账号不是管理员：可以查看和搜索文件，不能修改、删除、重命名或执行命令',
             modeChanged: '权限模式已切换为「{mode}」', approvalTitle: 'Dragon Claw 请求：{tool}', allow: '允许', deny: '拒绝', alwaysAllow: '本次会话总是允许',
             approved: '已允许', approvedAlways: '已允许（本次会话不再询问）', denied: '已拒绝', approvalTimeout: '审批超时，未执行', approvalAborted: '任务已中止', inDir: '目录：', recursive: '递归删除',
-            tool_list_directory: '列出目录', tool_read_file: '读取文件', tool_search: '搜索', tool_list_databases: '列出数据库', tool_database_schema: '查看数据库结构', tool_read_database_table: '读取业务表', tool_insert_database_row: '新增业务数据', tool_update_database_rows: '更新业务数据', tool_delete_database_rows: '删除业务数据', tool_write_file: '写入文件', tool_edit_file: '编辑文件', tool_delete_path: '删除', tool_rename_path: '移动/重命名', tool_run_command: '执行命令', tool_welink_list_targets: '查看 WeLink 联系人', tool_welink_send_message: '发送 WeLink 消息', tool_welink_query: 'WeLink 查询', tool_welink_action: 'WeLink 操作', tool_netcare_tables: 'NetCare 找表', tool_netcare_describe: 'NetCare 表结构', tool_netcare_query: 'NetCare 查询', tool_netcare_sql: 'NetCare SQL', tool_tool_search: '加载工具', tool_ops_overview: '查看运营概况', tool_ops_list_targets: '查看可推送对象', tool_ops_save_group: '保存运营群组', tool_ops_list_presets: '查看运营模板', tool_ops_remove_group: '取消运营群组', tool_ops_save_plan: '保存运营计划', tool_ops_delete_plan: '删除运营计划', tool_ops_preview: '生成运营草稿', tool_ops_test_send: '运营测试推送', tool_ops_update_draft: '修改运营草稿', tool_ops_send_draft: '推送运营草稿', tool_ops_discard_draft: '作废运营草稿', tool_ops_list_runs: '查看推送记录', tool_ops_materials: '查看运营素材', tool_ops_save_settings: '保存运营规范', tool_load_skill: '加载技能', tool_calculate: '计算', tool_read_document: '读取文档', tool_query_data: '表格查询', tool_diff_files: '比较差异', tool_multi_edit: '批量修改', tool_zip_files: '打包', tool_unzip_file: '解压', tool_memory: '长期记忆', tool_browser_navigate: '打开网页', tool_browser_snapshot: '读取网页', tool_browser_click: '点击网页', tool_browser_type: '网页输入', tool_browser_scroll: '滚动网页', tool_browser_wait: '等待网页', tool_browser_network: '网络请求', tool_browser_network_body: '请求内容', tool_browser_console: '网页控制台', tool_browser_screenshot: '网页截图', tool_browser_tabs: '浏览器标签页', tool_browser_evaluate: '网页脚本', todoTitle: '任务清单', questionHint: '点选一个回答，或直接在输入框里回复', approvalCommand: '查看完整命令',
+            tool_list_directory: '列出目录', tool_read_file: '读取文件', tool_search: '搜索', tool_list_databases: '列出数据库', tool_database_schema: '查看数据库结构', tool_read_database_table: '读取业务表', tool_insert_database_row: '新增业务数据', tool_update_database_rows: '更新业务数据', tool_delete_database_rows: '删除业务数据', tool_write_file: '写入文件', tool_edit_file: '编辑文件', tool_delete_path: '删除', tool_rename_path: '移动/重命名', tool_run_command: '执行命令', tool_welink_list_targets: '查看 WeLink 联系人', tool_welink_send_message: '发送 WeLink 消息', tool_welink_query: 'WeLink 查询', tool_welink_action: 'WeLink 操作', tool_netcare_tables: 'NetCare 找表', tool_netcare_describe: 'NetCare 表结构', tool_netcare_query: 'NetCare 查询', tool_netcare_sql: 'NetCare SQL', tool_tool_search: '加载工具', tool_ops_overview: '查看运营概况', tool_ops_list_targets: '查看可推送对象', tool_ops_save_group: '保存运营群组', tool_ops_list_presets: '查看运营模板', tool_ops_remove_group: '取消运营群组', tool_ops_save_plan: '保存运营计划', tool_ops_delete_plan: '删除运营计划', tool_ops_preview: '生成运营草稿', tool_ops_test_send: '运营测试推送', tool_ops_update_draft: '修改运营草稿', tool_ops_send_draft: '推送运营草稿', tool_ops_discard_draft: '作废运营草稿', tool_ops_list_runs: '查看推送记录', tool_ops_materials: '查看运营素材', tool_ops_save_settings: '保存运营规范', tool_load_skill: '加载技能', tool_calculate: '计算', tool_read_document: '读取文档', tool_query_data: '表格查询', tool_diff_files: '比较差异', tool_multi_edit: '批量修改', tool_zip_files: '打包', tool_unzip_file: '解压', tool_memory: '长期记忆', tool_view_image: '看图', tool_browser_navigate: '打开网页', tool_browser_snapshot: '读取网页', tool_browser_click: '点击网页', tool_browser_type: '网页输入', tool_browser_scroll: '滚动网页', tool_browser_wait: '等待网页', tool_browser_network: '网络请求', tool_browser_network_body: '请求内容', tool_browser_console: '网页控制台', tool_browser_screenshot: '网页截图', tool_browser_tabs: '浏览器标签页', tool_browser_evaluate: '网页脚本', todoTitle: '任务清单', questionHint: '点选一个回答，或直接在输入框里回复', approvalCommand: '查看完整命令',
             ctxUsed: '已使用 {percent}%', ctxMessages: '对话消息', ctxToolResults: '工具结果', ctxDirectory: '目录上下文', ctxSystem: '系统提示', ctxSkills: 'Skill', ctxTools: '工具定义', ctxReserve: '压缩预留', ctxFree: '剩余空间', ctxCache: '缓存命中 {percent}% · {tokens}', ctxCacheNone: '本次未命中缓存', ctxDeferredTools: '已加载 {loaded} 个工具，另有 {count} 个按需加载（约 {tokens}，未计入）', ctxWindowConfigured: '窗口来自模型配置', ctxWindowModel: '窗口按模型名自动识别，可在 AI 模型配置中填写准确值',
             ctxEmpty: '发送第一条消息后显示上下文占用', ctxNoWorkspace: '选择目录后，这里显示上下文占用明细', ctxSourceProvider: '以模型返回的实际用量为准，分项按估算比例折算', ctxSourceEstimate: '按字符数估算（约 3.5 字符 / Token）',
             filePreview: '预览', fileCode: '代码', fileExpand: '放大', fileCollapse: '还原', fileDownload: '下载', fileLoading: '正在读取文件…', fileLines: '{count} 行', fileSandboxHint: '预览在隔离沙箱中运行，无法访问平台登录信息；同目录的相对资源不会加载', fileShowHint: '查看 {path}', noChanges: '本次会话尚未修改文件', viewDiff: '查看差异', revert: '撤销', reverted: '已撤销 {path}', diffEmpty: '（无文本差异）', createPr: '创建 PR',
@@ -81,7 +81,7 @@
             send: 'Send', stop: 'Stop generating', you: 'You',
             greetEarly: 'Working late', greetMorning: 'Good morning', greetNoon: 'Good afternoon', greetAfternoon: 'Good afternoon', greetEvening: 'Good evening',
             spotFrequent: 'Your frequent tool', spotRandom: 'Picked for you', spotAsk: 'Want to try “{name}”?',
-            spotGo: 'Show me', spotOpen: 'Open it', spotGem: 'Hidden gem', spotGemAsk: 'Did you know about “{name}”?', spotGemOpen: 'Try it', introWhere: 'Where to find it:', spotMore: 'Or try', spotPrev: 'Previous', spotNext: 'Next',
+            spotGo: 'Show me', spotOpen: 'Open it', spotGem: 'Hidden gem', spotGemAsk: 'Did you know about “{name}”?', spotGemOpen: 'Try it', introWhere: 'Where to find it:', spotMore: 'Or try', spotPrev: 'Previous', spotNext: 'Next', spotDismiss: 'Hide recommendations until you sign in again',
             tryTool: 'I’d like to try “{name}”', introCan: 'What it can do for you', introGroup: 'Category: {group}', introUpdated: 'updated {time}',
             introOpen: 'Open {name}', introAskLogic: 'Explain how it works', introAskHow: 'How do I get started?',
             introFooter: 'Use the button below to open it right away, or keep asking me about how it works.',
@@ -105,7 +105,7 @@
             modeAsk: 'Ask to approve', modeAskDesc: 'Writes, deletes, renames and commands always ask first', modeAuto: 'Approve for me', modeAutoDesc: 'Reads and writes run automatically; deletes, renames and commands still ask', modeFull: 'Full access', modeFullDesc: 'Everything runs without asking; commands run with this computer account\'s permissions, not limited to the folder', readOnlyMode: 'Read-only', readOnlyDesc: 'This account is not an administrator: you can view and search files, but not edit, delete, rename or run commands',
             modeChanged: 'Permission mode set to "{mode}"', approvalTitle: 'Dragon Claw wants to {tool}', allow: 'Allow', deny: 'Deny', alwaysAllow: 'Always allow this session',
             approved: 'Allowed', approvedAlways: 'Allowed (no more prompts this session)', denied: 'Denied', approvalTimeout: 'Approval timed out, not executed', approvalAborted: 'Task stopped', inDir: 'in', recursive: 'recursive',
-            tool_list_directory: 'list directory', tool_read_file: 'read file', tool_search: 'search', tool_list_databases: 'list databases', tool_database_schema: 'inspect database schema', tool_read_database_table: 'read business table', tool_insert_database_row: 'insert business data', tool_update_database_rows: 'update business data', tool_delete_database_rows: 'delete business data', tool_write_file: 'write file', tool_edit_file: 'edit file', tool_delete_path: 'delete', tool_rename_path: 'move/rename', tool_run_command: 'run command', tool_welink_list_targets: 'list WeLink contacts', tool_welink_send_message: 'send a WeLink message', tool_welink_query: 'WeLink query', tool_welink_action: 'WeLink action', tool_netcare_tables: 'NetCare tables', tool_netcare_describe: 'NetCare schema', tool_netcare_query: 'NetCare query', tool_netcare_sql: 'NetCare SQL', tool_tool_search: 'load tools', tool_ops_overview: 'ops overview', tool_ops_list_targets: 'list push targets', tool_ops_save_group: 'save ops group', tool_ops_list_presets: 'list ops templates', tool_ops_remove_group: 'remove ops group', tool_ops_save_plan: 'save ops plan', tool_ops_delete_plan: 'delete ops plan', tool_ops_preview: 'draft ops message', tool_ops_test_send: 'ops test push', tool_ops_update_draft: 'edit ops draft', tool_ops_send_draft: 'push ops draft', tool_ops_discard_draft: 'discard ops draft', tool_ops_list_runs: 'list push records', tool_ops_materials: 'list ops materials', tool_ops_save_settings: 'save ops style guide', tool_load_skill: 'load skill', tool_calculate: 'calculate', tool_read_document: 'read document', tool_query_data: 'query table', tool_diff_files: 'compare', tool_multi_edit: 'multi edit', tool_zip_files: 'zip', tool_unzip_file: 'unzip', tool_memory: 'memory', tool_browser_navigate: 'open page', tool_browser_snapshot: 'read page', tool_browser_click: 'click', tool_browser_type: 'type', tool_browser_scroll: 'scroll', tool_browser_wait: 'wait', tool_browser_network: 'network requests', tool_browser_network_body: 'response body', tool_browser_console: 'page console', tool_browser_screenshot: 'screenshot', tool_browser_tabs: 'browser tabs', tool_browser_evaluate: 'page script', todoTitle: 'Tasks', questionHint: 'Pick an answer, or reply in the input box', approvalCommand: 'Show full command',
+            tool_list_directory: 'list directory', tool_read_file: 'read file', tool_search: 'search', tool_list_databases: 'list databases', tool_database_schema: 'inspect database schema', tool_read_database_table: 'read business table', tool_insert_database_row: 'insert business data', tool_update_database_rows: 'update business data', tool_delete_database_rows: 'delete business data', tool_write_file: 'write file', tool_edit_file: 'edit file', tool_delete_path: 'delete', tool_rename_path: 'move/rename', tool_run_command: 'run command', tool_welink_list_targets: 'list WeLink contacts', tool_welink_send_message: 'send a WeLink message', tool_welink_query: 'WeLink query', tool_welink_action: 'WeLink action', tool_netcare_tables: 'NetCare tables', tool_netcare_describe: 'NetCare schema', tool_netcare_query: 'NetCare query', tool_netcare_sql: 'NetCare SQL', tool_tool_search: 'load tools', tool_ops_overview: 'ops overview', tool_ops_list_targets: 'list push targets', tool_ops_save_group: 'save ops group', tool_ops_list_presets: 'list ops templates', tool_ops_remove_group: 'remove ops group', tool_ops_save_plan: 'save ops plan', tool_ops_delete_plan: 'delete ops plan', tool_ops_preview: 'draft ops message', tool_ops_test_send: 'ops test push', tool_ops_update_draft: 'edit ops draft', tool_ops_send_draft: 'push ops draft', tool_ops_discard_draft: 'discard ops draft', tool_ops_list_runs: 'list push records', tool_ops_materials: 'list ops materials', tool_ops_save_settings: 'save ops style guide', tool_load_skill: 'load skill', tool_calculate: 'calculate', tool_read_document: 'read document', tool_query_data: 'query table', tool_diff_files: 'compare', tool_multi_edit: 'multi edit', tool_zip_files: 'zip', tool_unzip_file: 'unzip', tool_memory: 'memory', tool_view_image: 'view image', tool_browser_navigate: 'open page', tool_browser_snapshot: 'read page', tool_browser_click: 'click', tool_browser_type: 'type', tool_browser_scroll: 'scroll', tool_browser_wait: 'wait', tool_browser_network: 'network requests', tool_browser_network_body: 'response body', tool_browser_console: 'page console', tool_browser_screenshot: 'screenshot', tool_browser_tabs: 'browser tabs', tool_browser_evaluate: 'page script', todoTitle: 'Tasks', questionHint: 'Pick an answer, or reply in the input box', approvalCommand: 'Show full command',
             ctxUsed: '{percent}% used', ctxMessages: 'Messages', ctxToolResults: 'Tool results', ctxDirectory: 'Directory context', ctxSystem: 'System prompt', ctxSkills: 'Skills', ctxTools: 'Tool definitions', ctxReserve: 'Compaction reserve', ctxFree: 'Free space', ctxCache: 'Cache hit {percent}% · {tokens}', ctxCacheNone: 'No cache hit this time', ctxDeferredTools: '{loaded} tools loaded, {count} more load on demand (about {tokens}, not counted)', ctxWindowConfigured: 'Window size from the model settings', ctxWindowModel: 'Window size guessed from the model name; set the exact value in AI model settings',
             ctxEmpty: 'Context usage appears after your first message', ctxNoWorkspace: 'Pick a directory to see the context breakdown here', ctxSourceProvider: 'Based on the model’s reported usage; parts scaled from estimates', ctxSourceEstimate: 'Estimated from characters (≈3.5 chars per token)',
             filePreview: 'Preview', fileCode: 'Code', fileExpand: 'Expand', fileCollapse: 'Restore', fileDownload: 'Download', fileLoading: 'Reading file…', fileLines: '{count} lines', fileSandboxHint: 'The preview runs in an isolated sandbox without access to your sign-in; relative assets next to the file are not loaded', fileShowHint: 'View {path}', noChanges: 'No files changed in this session', viewDiff: 'View diff', revert: 'Revert', reverted: 'Reverted {path}', diffEmpty: '(no text difference)', createPr: 'Create PR',
@@ -123,6 +123,7 @@
     const CONTEXT_MAX_CHARS = 11000;
     const MODEL_STORAGE_KEY = 'dragon_claw_model';
     const LAST_CHAT_KEY = 'dragon_claw_last_chat'; // 本浏览器里当前用户最近一次对话的 sessionId（服务端会话不分用户，不能从列表里猜）
+    const SPOTLIGHT_DISMISSED_KEY = 'dragon_claw_spotlight_dismissed'; // 登录成功时清除；刷新和同次登录的其他标签页继续隐藏。
 
     const state = {
         messages: [],
@@ -134,6 +135,7 @@
         spotlight: [],
         spotIndex: 0,
         spotSignature: '',
+        spotDismissed: false,
         models: [],
         defaultModelId: '',
         modelId: '',
@@ -294,10 +296,23 @@
         renderSpotlight();
     }
 
+    function isSpotlightDismissed() {
+        try { return localStorage.getItem(SPOTLIGHT_DISMISSED_KEY) === '1'; }
+        catch { return state.spotDismissed; }
+    }
+
+    function dismissSpotlight() {
+        state.spotDismissed = true;
+        try { localStorage.setItem(SPOTLIGHT_DISMISSED_KEY, '1'); } catch { /* 存储不可用时仍可关闭当前页面。 */ }
+        renderSpotlight();
+        el.input.focus({ preventScroll: true });
+    }
+
     function renderSpotlight() {
         const items = state.spotlight;
-        if (!items.length) {
+        if (!items.length || isSpotlightDismissed()) {
             el.spotlight.hidden = true;
+            el.spotlight.replaceChildren(); // 同时停止轮播动画，避免关闭后继续切换。
             return;
         }
         const tool = items[state.spotIndex % items.length];
@@ -305,6 +320,7 @@
         el.spotlight.hidden = false;
         el.spotlight.style.setProperty('--spot-color', tool.color || '#64ffda');
         el.spotlight.innerHTML = `
+            <button type="button" class="dc-spot-dismiss" data-spot-dismiss aria-label="${escapeHtml(tx('spotDismiss'))}" title="${escapeHtml(tx('spotDismiss'))}"><span aria-hidden="true">×</span></button>
             <div class="dc-spot-blob" aria-hidden="true"><span></span><span></span></div>
             <div class="dc-spot-card">
                 <div class="dc-spot-icon" aria-hidden="true">${escapeHtml(tool.icon || '✨')}</div>
@@ -336,6 +352,7 @@
     }
 
     function stepSpotlight(step, absoluteIndex) {
+        if (isSpotlightDismissed()) return;
         const count = state.spotlight.length;
         if (!count) return;
         const next = absoluteIndex ?? (state.spotIndex + step + count) % count;
@@ -768,8 +785,11 @@
                 else if (event.type === 'approval_result') { approvals.delete(event.callId); refresh(); }
                 else if (event.type === 'tool_result') { running.delete(event.callId); approvals.delete(event.callId); refresh(); }
             },
-            status() {
-                if (!running.size && !approvals.size) show('activityThinking');
+            // 后端的文字状态（如「正在用绘图模型识别图片…」「回答超出单次输出上限…」）直接显示；其他状态回到「正在思考」
+            status(status) {
+                if (running.size || approvals.size) return;
+                show('activityThinking');
+                if (typeof status === 'string' && status.trim()) row.querySelector('.dc-activity-text').textContent = status.trim();
             },
             streaming() {
                 if (disposed) return;
@@ -1775,7 +1795,7 @@
                     started = true;
                     renderer.append(delta);
                 },
-                onStatus: () => activity.status(),
+                onStatus: status => activity.status(status),
                 onEvent: event => {
                     if (controller.signal.aborted || !reply.isConnected) return;
                     if (event.type === 'start' && event.sessionId) {
@@ -2233,7 +2253,9 @@
     }
 
     // ── 侧栏历史对话（对话模式左侧面板） ────────────
-    const chatList = { items: [], loaded: false, failed: false, seq: 0, latestSeq:0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '' };
+    // 对话列表按页加载：每页 CHAT_PAGE 条，滚到底部附近再加载下一页；serverCount 是已从服务端取到的条数（翻页偏移）
+    const CHAT_PAGE = 40;
+    const chatList = { items: [], loaded: false, failed: false, seq: 0, latestSeq:0, timer: null, searchTimer: null, deleting: new Set(), cached: [], cacheIdentity: '', serverCount: 0, hasMore: false, loadingMore: false };
 
     function chatGroupKey(date) {
         const startOfDay = value => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
@@ -2285,6 +2307,7 @@
         }}
         el.chatList.innerHTML = html.join('') || `<div class="home-chat-empty">${escapeHtml(tx('chatEmpty'))}</div>`;
         window.HomeConversationList?.enhance(el.chatList,config);
+        window.HomeConversationList?.pager(el.chatList,{hasMore:chatList.hasMore,loading:chatList.loadingMore,onMore:loadMoreChats});
     }
 
     function markActiveChat() {
@@ -2301,13 +2324,20 @@
         const seq = ++chatList.seq;
         const query = el.chatSearch?.value.trim() || '';
         const account=currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'');
+        // 刷新时取回已经加载过的条数（最多 100 条），列表不会一刷新就缩回第一页
+        const limit = Math.min(100, Math.max(CHAT_PAGE, query === chatList.query ? chatList.serverCount : 0));
         try {
-            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=80&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
+            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${limit}&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const data = await res.json();
             if (seq !== chatList.seq||account!==currentUser()+':'+(localStorage.getItem('tools_tenant_id')||'')) return;
-            if(chatList.cacheIdentity!==account){chatList.cached=[];chatList.cacheIdentity=account;}
-            const fetched=Array.isArray(data.items)?data.items:[];
+            if(chatList.cacheIdentity!==account){chatList.cached=[];chatList.cacheIdentity=account;chatList.serverCount=0;}
+            let fetched=Array.isArray(data.items)?data.items:[];
+            // 之前已经往下加载了超过 100 条：刷新只替换前面这部分，后面的保留
+            if(query===chatList.query&&fetched.length===limit&&chatList.serverCount>limit){const seen=new Set(fetched.map(item=>item.id));fetched=[...fetched,...chatList.items.slice(limit).filter(item=>!seen.has(item.id))];}
+            chatList.hasMore=fetched.length>=limit&&(query!==chatList.query||chatList.serverCount<=limit||chatList.hasMore);
+            chatList.serverCount=fetched.length;
+            chatList.query=query;
             if(!query)chatList.cached=fetched;
             const aliases=query?chatList.cached.filter(item=>window.HomeConversationList?.get('mine',item.id).title?.toLowerCase().includes(query.toLowerCase())):[];
             chatList.items=[...fetched,...aliases.filter(item=>!fetched.some(row=>row.id===item.id))];
@@ -2318,6 +2348,33 @@
         }
         chatList.loaded = true;
         renderChatList();
+    }
+
+    // 滚到列表底部附近：按偏移量取下一页，接在后面（同一个对话不会重复出现）
+    async function loadMoreChats() {
+        if (chatList.loadingMore || !chatList.hasMore) return;
+        const seq = chatList.seq;
+        const query = chatList.query || '';
+        chatList.loadingMore = true;
+        renderChatList();
+        try {
+            const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${CHAT_PAGE}&offset=${chatList.serverCount}&query=${encodeURIComponent(query)}`, { headers: authHeaders() });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            // 期间列表被刷新或换了搜索词：这一页作废
+            if (seq !== chatList.seq || query !== (chatList.query || '')) return;
+            const page = Array.isArray(data.items) ? data.items : [];
+            const seen = new Set(chatList.items.map(item => item.id));
+            chatList.items.push(...page.filter(item => !seen.has(item.id)));
+            chatList.serverCount += page.length;
+            chatList.hasMore = page.length >= CHAT_PAGE;
+            if (!query) chatList.cached = chatList.items.slice();
+        } catch {
+            // 加载失败：保留「加载更多」，滚动或点击可以再试
+        } finally {
+            chatList.loadingMore = false;
+            renderChatList();
+        }
     }
 
     function scheduleChatListRefresh(delay = 600) {
@@ -2681,6 +2738,7 @@
                 }
                 return;
             }
+            if (target.closest('[data-spot-dismiss]')) return dismissSpotlight();
             const go = target.closest('[data-spot-go]');
             if (go) return introduceTool(go.dataset.spotGo);
             const stepBtn = target.closest('[data-spot-step]');
@@ -2817,6 +2875,12 @@
         el.form.insertAdjacentElement('afterend', el.resume);
         anchorThreadToComposer();
         bindEvents();
+        window.addEventListener('storage', event => {
+            if (event.key === SPOTLIGHT_DISMISSED_KEY || event.key === null) {
+                state.spotDismissed = false;
+                renderSpotlight();
+            }
+        });
         bindChatList();
         window.addEventListener('home:conversation-list-changed',()=>renderChatList());
         window.addEventListener('home:agent-discussion-changed',event=>{

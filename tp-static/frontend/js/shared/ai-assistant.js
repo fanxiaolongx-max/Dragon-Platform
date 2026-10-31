@@ -1646,7 +1646,8 @@
         let cacheHtml = '';
         let metricGraphHtml = '';
         const knowledgeCache = grounding.knowledgeCache;
-        if (knowledgeCache) {
+        // 只有真正引用了项目片段才显示这一行；没用到（不需要或没找到相关片段）时不占位，整块依据可能因此不显示
+        if (knowledgeCache && knowledgeCache.state === 'hit') {
             const hitText = knowledgeCache.state === 'hit'
                 ? aiT('hitChunks', Number(knowledgeCache.hitCount) || 0)
                 : knowledgeCache.state === 'not_needed'

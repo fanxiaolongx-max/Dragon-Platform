@@ -90,7 +90,20 @@
             if(get(config.source,config.id(item)).pinned){const pin=document.createElement('span');pin.className='conversation-pin';pin.innerHTML=icon('pin');pin.title=L('已置顶','Pinned');wrapper.append(pin);}
         }
     }
-    window.HomeConversationList={sections,enhance,bucket,get,latest,healthDot,close,refresh:load,isArchived:source=>views.get(source)==='archived'};
+    // 滚动懒加载：列表末尾放一个提示行，滚到离底部约 300px 时自动加载下一页（也可以点它）；没有更多时去掉
+    const pagers=new WeakMap();
+    function scroller(node){for(let el=node;el&&el!==document.body;el=el.parentElement){const y=getComputedStyle(el).overflowY;if((y==='auto'||y==='scroll')&&el.scrollHeight>el.clientHeight)return el;}return null;}
+    function pager(list,{hasMore=false,loading=false,onMore}={}){
+        if(!list)return;const old=pagers.get(list);old?.observer?.disconnect();old?.node?.remove();pagers.delete(list);
+        if(!hasMore)return;
+        const node=document.createElement('button');node.type='button';node.className='conversation-list-pager';node.textContent=loading?L('正在加载…','Loading…'):L('加载更多','Load more');node.disabled=loading;
+        node.addEventListener('click',()=>onMore?.());list.append(node);
+        const entry={node,observer:null};pagers.set(list,entry);
+        if(loading||!('IntersectionObserver' in window))return;
+        entry.observer=new IntersectionObserver(items=>{if(items.some(item=>item.isIntersecting)){entry.observer.disconnect();onMore?.();}},{root:scroller(list),rootMargin:'0px 0px 300px 0px'});
+        entry.observer.observe(node);
+    }
+    window.HomeConversationList={sections,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,isArchived:source=>views.get(source)==='archived'};
     document.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&!event.target.closest('[data-conversation-more]'))close();},true);
     window.addEventListener('scroll',()=>close(),true);
     window.addEventListener('resize',()=>close());window.addEventListener('blur',()=>close());

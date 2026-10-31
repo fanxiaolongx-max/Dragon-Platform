@@ -1286,6 +1286,7 @@
                 localStorage.setItem('tools_user', data.username);
                 localStorage.setItem('tools_role', data.role);
                 localStorage.setItem('tools_tenant_id', data.tenantId || 'default');
+                localStorage.removeItem('dragon_claw_spotlight_dismissed');
 
                 btn.innerHTML = window.ToolsI18n ? window.ToolsI18n.t('login.success') : '登录成功';
                 btn.removeAttribute('aria-busy');
