@@ -150,7 +150,7 @@
                         <div class="ha-upload-drop-subtext">支持包含 <code>requirements.txt</code> 与 Python 入口文件的 .zip 压缩包（最大 35MB）</div>
                     </div>
 
-                    <div class="ha-upload-preview" id="haUploadPreview" hidden>
+                    <div class="ha-upload-preview" id="haUploadPreview" hidden style="display:none">
                         <div class="ha-upload-preview-header">
                             <span class="ha-upload-preview-status">✅ 应用包结构校验通过</span>
                             <span class="ha-upload-file-size" id="haUploadFileSize"></span>
@@ -183,11 +183,11 @@
                         </div>
                     </div>
 
-                    <div class="ha-upload-error-box" id="haUploadErrorBox" hidden></div>
+                    <div class="ha-upload-error-box" id="haUploadErrorBox" hidden style="display:none"></div>
 
-                    <div class="ha-upload-progress" id="haUploadProgress" hidden>
+                    <div class="ha-upload-progress" id="haUploadProgress" hidden style="display:none">
                         <div class="ha-upload-spinner"></div>
-                        <div class="ha-upload-progress-text" id="haUploadProgressText">正在上传并更新代码包，请稍候…</div>
+                        <div class="ha-upload-progress-text" id="haUploadProgressText">正在读取并解析应用包结构…</div>
                     </div>
                 </div>
                 <footer class="ha-upload-modal-footer">
@@ -1612,9 +1612,13 @@
         $('haUploadCurrentAppName').textContent = current?.name || current?.packageName || slug;
         $('haUploadCurrentVersion').textContent = current?.version ? `v${current.version}` : '';
         $('haUploadPreview').hidden = true;
+        $('haUploadPreview').style.display = 'none';
         $('haUploadErrorBox').hidden = true;
+        $('haUploadErrorBox').style.display = 'none';
         $('haUploadErrorBox').textContent = '';
         $('haUploadProgress').hidden = true;
+        $('haUploadProgress').style.display = 'none';
+        $('haUploadProgressText').textContent = '正在读取并解析应用包结构…';
         $('haUploadSubmitBtn').disabled = true;
         $('haUploadSubmitBtn').textContent = '确认上传并更新';
         $('haUploadCancelBtn').disabled = false;
@@ -1637,22 +1641,29 @@
         if (!/\.zip$/i.test(file.name)) {
             $('haUploadErrorBox').textContent = '仅支持上传 .zip 格式的压缩包';
             $('haUploadErrorBox').hidden = false;
+            $('haUploadErrorBox').style.display = '';
             $('haUploadPreview').hidden = true;
+            $('haUploadPreview').style.display = 'none';
             $('haUploadSubmitBtn').disabled = true;
             return;
         }
         if (file.size > 35 * 1024 * 1024) {
             $('haUploadErrorBox').textContent = 'ZIP 文件不能超过 35 MB；依赖较多时可去掉 wheels/ 改为在线安装';
             $('haUploadErrorBox').hidden = false;
+            $('haUploadErrorBox').style.display = '';
             $('haUploadPreview').hidden = true;
+            $('haUploadPreview').style.display = 'none';
             $('haUploadSubmitBtn').disabled = true;
             return;
         }
 
         $('haUploadErrorBox').hidden = true;
+        $('haUploadErrorBox').style.display = 'none';
         $('haUploadPreview').hidden = true;
+        $('haUploadPreview').style.display = 'none';
         $('haUploadSubmitBtn').disabled = true;
         $('haUploadProgress').hidden = false;
+        $('haUploadProgress').style.display = '';
         $('haUploadProgressText').textContent = '正在读取并解析应用包结构…';
 
         try {
@@ -1670,6 +1681,7 @@
             });
 
             $('haUploadProgress').hidden = true;
+            $('haUploadProgress').style.display = 'none';
             selectedPackagePayload = { archiveBase64, archiveName: file.name, preview };
 
             $('haUploadFileSize').textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
@@ -1687,11 +1699,14 @@
             }
 
             $('haUploadPreview').hidden = false;
+            $('haUploadPreview').style.display = '';
             $('haUploadSubmitBtn').disabled = false;
         } catch (error) {
             $('haUploadProgress').hidden = true;
+            $('haUploadProgress').style.display = 'none';
             $('haUploadErrorBox').textContent = error.message || '应用包解析失败，请检查压缩包是否完整';
             $('haUploadErrorBox').hidden = false;
+            $('haUploadErrorBox').style.display = '';
             $('haUploadSubmitBtn').disabled = true;
         }
     }
@@ -1701,7 +1716,9 @@
         $('haUploadSubmitBtn').disabled = true;
         $('haUploadCancelBtn').disabled = true;
         $('haUploadErrorBox').hidden = true;
+        $('haUploadErrorBox').style.display = 'none';
         $('haUploadProgress').hidden = false;
+        $('haUploadProgress').style.display = '';
         $('haUploadProgressText').textContent = '正在上传应用包并替换代码…';
 
         try {

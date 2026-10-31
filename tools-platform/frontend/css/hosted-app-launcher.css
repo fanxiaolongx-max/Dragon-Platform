@@ -75,6 +75,18 @@ body {
 }
 .ha-btn:hover { border-color: var(--ha-accent); }
 .ha-btn.primary { background: var(--ha-accent); border-color: var(--ha-accent); color: #fff; }
+.ha-btn:disabled, .ha-btn[disabled] {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+}
+.ha-btn.primary:disabled, .ha-btn.primary[disabled] {
+    background: #1b352a !important;
+    border-color: #264a3b !important;
+    color: #63937d !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+}
 .ha-log, .ha-drawer pre {
     margin: 16px 0 0;
     max-height: 320px;
@@ -734,6 +746,7 @@ body {
     background: #131720; border: 1px solid #293344; border-radius: 10px; padding: 14px 16px;
     display: grid; gap: 10px; animation: ha-ide-zoom-in .15s ease;
 }
+.ha-upload-preview[hidden] { display: none !important; }
 .ha-upload-preview-header {
     display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #202735; padding-bottom: 8px;
 }
@@ -754,10 +767,12 @@ body {
     background: rgba(248, 81, 73, 0.12); border: 1px solid rgba(248, 81, 73, 0.35); color: #f85149;
     padding: 10px 14px; border-radius: 8px; font-size: 12px; line-height: 1.5;
 }
+.ha-upload-error-box[hidden] { display: none !important; }
 .ha-upload-progress {
     display: flex; align-items: center; gap: 12px; background: #131720; border: 1px solid #283344;
     padding: 12px 16px; border-radius: 8px; font-size: 12px; color: #79c0ff;
 }
+.ha-upload-progress[hidden] { display: none !important; }
 .ha-upload-spinner {
     width: 18px; height: 18px; border: 2px solid rgba(88, 166, 255, 0.2); border-top-color: #58a6ff;
     border-radius: 50%; animation: ha-spin .7s linear infinite; flex-shrink: 0;
