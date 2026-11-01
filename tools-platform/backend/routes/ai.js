@@ -593,7 +593,7 @@ async function handleChatRequest(req, res) {
     // 频道对话（WeLink 等）由桥接层在虚拟请求上挂 channelTurn；HTTP 请求无法设置该属性
     const channelTurn = req.channelTurn && typeof req.channelTurn === 'object' && req.channelTurn.conversation?.kind && req.channelTurn.conversation?.id ? req.channelTurn : null;
     const channelUserEvents = channelTurn ? [{ type: 'channel', channel: channelTurn.channel, kind: channelTurn.conversation.kind, sender: channelTurn.actor || '' }] : null;
-    const RECORDED_EVENT_TYPES = new Set(['tool_start', 'tool_result', 'approval', 'approval_result', 'plan', 'question']);
+    const RECORDED_EVENT_TYPES = new Set(['tool_start', 'tool_result', 'approval', 'approval_result', 'plan', 'question', 'followup']);
     const recordEvent = payload => {
         if (!payload) return;
         if (payload.type === 'delta') streamedText += String(payload.delta || '');
@@ -612,7 +612,7 @@ async function handleChatRequest(req, res) {
         try {
             if (agentRunId && agentSession) {
                 await aiChatRepo.upsertAgentTurn({ ...historyContext, runId: agentRunId, agentSessionId: agentSession.id, root: agentSession.root,
-                    transcript: [{ role: 'user', content: historyContext.question }],
+                    userEvents: channelUserEvents, transcript: [{ role: 'user', content: historyContext.question }],
                     content: `${streamedText.trim()}${streamedText.trim() ? '\n\n' : ''}> ${redactText(note, { secrets: sensitiveValues })}`, events: recordedEvents, final: true });
                 return;
             }
@@ -662,6 +662,10 @@ async function handleChatRequest(req, res) {
         // 首页 Dragon Claw 是全能智能体：不限于平台问题，context 为平台工具目录而非页面文本。
         const homeAgent = agent === 'dragon-claw-home';
         const streamRequested = stream === true;
+        const fullWeLink = channelTurn?.channel === 'welink' && channelTurn.fullAccess === true && req.user?.role === 'admin';
+        if (homeAgent && streamRequested && fullWeLink) {
+            agentSession = agentRunManager.ensureWeLinkSession({ user: req.user, tenantId: getTenantId(), chatSessionId: sessionId });
+        }
         // 工作区模式：用户选了本地目录，走工具调用循环（仅流式、仅本机/桌面/管理员）。
         if (homeAgent && streamRequested && workspace && workspace.root) {
             if (!agentWorkspaceAccess.isAgentWorkspaceAllowed(req)) {
@@ -708,7 +712,8 @@ async function handleChatRequest(req, res) {
                     language: String(uiLanguage || '').startsWith('en') ? 'en' : 'zh',
                     redactionSecrets: sensitiveValues,
                     extraIds: [
-                        ...(!channelTurn && (agentMode || req.user?.role === 'admin')
+                        ...(fullWeLink && agentSession.loadedSkills instanceof Set ? [...agentSession.loadedSkills] : []),
+                        ...((!channelTurn || fullWeLink) && (agentMode || req.user?.role === 'admin')
                             ? require('../models/agent-skills').autoSelect(lastMessage.content, { pagePath, extraIds: req.body?.skills, contextMessages: skillContextMessages }) : []),
                         ...(Array.isArray(req.body?.skills) ? req.body.skills.slice(0, 8) : [])
                     ]
@@ -730,6 +735,10 @@ async function handleChatRequest(req, res) {
                 throw skillError;
             }
             // 随回复入库，恢复历史时仍能显示「已加载 Skill」
+            if (fullWeLink) {
+                if (!(agentSession.loadedSkills instanceof Set)) agentSession.loadedSkills = new Set();
+                loadedSkills.selected.forEach(skill => agentSession.loadedSkills.add(skill.id));
+            }
             if (loadedSkills.selected.length) recordedEvents.push({ type: 'skills', skills: loadedSkills.selected.map(item => item.id) });
         }
 
@@ -800,7 +809,7 @@ async function handleChatRequest(req, res) {
 
         // 频道对话的跟进任务：本会话已有任务与工具使用规则拼进系统提示
         let followupSetup = null;
-        if (channelTurn && ['welink', 'weixin'].includes(channelTurn.channel) && (channelTurn.channel !== 'weixin' || channelTurn.conversation.kind === 'user') && homeAgent && !agentMode) {
+        if (channelTurn && ['welink', 'weixin'].includes(channelTurn.channel) && (channelTurn.channel !== 'weixin' || channelTurn.conversation.kind === 'user') && homeAgent && (!agentMode || fullWeLink)) {
             try {
                 const channelConfig = await require(channelTurn.channel === 'weixin' ? '../models/channels/weixin-config-repository' : '../models/channels/welink-config-repository').getConfig();
                 if (channelConfig.followup.enabled) {
@@ -850,7 +859,7 @@ async function handleChatRequest(req, res) {
         const uploadFiles = homeAgent && !channelTurn
             ? agentArtifacts.uploadsIn(agentRunManager.ownerKey(req.user, getTenantId()), effectiveMessages.map(item => item.content)) : [];
         // 看图：对话模型能看图时，本条消息里的图片附件直接附给它；不能看图时先用绘图模型识别成文字附在消息末尾
-        const vision = homeAgent && !channelTurn ? await require('../models/agent-vision').forTurn({ chatSettings: aiSettings, signal: providerAbortController?.signal }) : null;
+        const vision = homeAgent && (!channelTurn || fullWeLink) ? await require('../models/agent-vision').forTurn({ chatSettings: aiSettings, signal: providerAbortController?.signal }) : null;
         const currentImages = vision ? agentArtifacts.uploadsIn(agentRunManager.ownerKey(req.user, getTenantId()), [lastMessage.content]).filter(require('../models/agent-vision').isImagePath) : [];
         if (currentImages.length && effectiveMessages.at(-1)?.role === 'user') {
             if (!vision.capable) writeStreamEvent({ type: 'status', status: '当前对话模型不能看图，正在用绘图模型识别图片…' });
@@ -948,6 +957,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         const agentResult = agentMode
             ? await agentRunManager.runAgentTurn({
                 chatSessionId: persist !== false ? savedSessionId : '',
+                userEvents: channelUserEvents,
                 onRunStarted: runId => { agentRunId = runId; },
                 sensitiveValues,
                 session: agentSession,
@@ -959,6 +969,14 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 skillPrompt: redactText(`${loadedSkills.catalogPrompt || ''}\n${loadedSkills.prompt || ''}`.trim(), { secrets: sensitiveValues }),
                 skillIds: loadedSkills.selected.map(item => item.id),
                 vision,
+                extraToolsets: followupSetup ? [{
+                    id: 'followup', label: '当前频道会话的持续跟进任务', definitions: followupAgent.definitions(),
+                    execute: async call => {
+                        const outcome = await followupAgent.execute(followupSetup.ctx, call.name, call.args, followupSetup.calendar);
+                        if (outcome.event) writeStreamEvent(outcome.event);
+                        return outcome;
+                    }
+                }] : [],
                 write: event => {
                     if (event.type === 'delta') streamHasDelta = true;
                     writeStreamEvent(event);
@@ -1146,7 +1164,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 historySaved = true;
                 if (agentRunId && agentSession) {
                     await aiChatRepo.upsertAgentTurn({ sessionId: savedSessionId, owner: req.user.username, runId: agentRunId,
-                        agentSessionId: agentSession.id, root: agentSession.root, transcript: [{ role: 'user', content: persistedQuestion }],
+                        agentSessionId: agentSession.id, root: agentSession.root, userEvents: channelUserEvents, transcript: [{ role: 'user', content: persistedQuestion }],
                         content: responseText, events: recordedEvents, tokens: totalTokens, cost: costMao, final: true,
                         inputTokens, outputTokens, modelName: replyModelName });
                 } else {

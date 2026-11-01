@@ -81,6 +81,15 @@ function ensureScratchSession({ user, tenantId, chatSessionId }) {
     return session;
 }
 
+/** WeLink SDK 专用工作区：租户/会话归属隔离，文件跨 /new 保留，工具转录按聊天会话隔离。 */
+function ensureWeLinkSession({ user, tenantId, chatSessionId }) {
+    const owner = ownerKey(user, tenantId);
+    const hash = value => crypto.createHash('sha256').update(value).digest('hex').slice(0, 32);
+    const root = path.join(require('./tenant-context').getDataDir(tenantId), 'channel-workspaces', 'welink-sdk', hash(owner));
+    fs.mkdirSync(root, { recursive: true });
+    return ensureSession({ agentSessionId: `welink-${hash(`${owner}\n${chatSessionId}`)}`, user, tenantId, root, permissionMode: 'full' });
+}
+
 function ensureSession({ agentSessionId, user, tenantId, root, permissionMode }) {
     const id = String(agentSessionId || '').slice(0, 100);
     if (!/^[\w-]{8,100}$/.test(id)) throw managerError('AGENT_SESSION_INVALID', 'agentSessionId 无效');
@@ -434,7 +443,7 @@ function beginRun(session, write, signal) {
     return run;
 }
 
-async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh', skillPrompt = '', skillIds = null, vision = null }) {
+async function runAgentTurn({ session, client, systemInstruction, historyMessages, write, signal, maxOutputTokens, temperature, model, sensitiveValues = [], chatSessionId = '', onRunStarted, skillCatalog, skillLanguage = 'zh', skillPrompt = '', skillIds = null, vision = null, extraToolsets = [], userEvents = [] }) {
     const emit = write;
     write = event => emit(redactValue(event, { secrets: sensitiveValues }));
     const run = beginRun(session, write, signal);
@@ -456,8 +465,9 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     if (currentUser?.images?.length && messages.at(-1)?.role === 'user' && !messages.at(-1).images) messages[messages.length - 1] = { ...messages.at(-1), images: currentUser.images };
     // 工具登记表：常驻工具 + tool_search / load_skill；用户选择的技能（@netcare-data / @ops-group / @welink-office 等）带上各自的专用工具
     const registry = await toolRegistry.create({ session, messages, sensitiveValues, skillCatalog: Array.isArray(skillCatalog) && skillCatalog.length > 0,
-        extraToolsets: await require('./agent-extra-tools').toolsets({ owner: session.owner, readOnly: session.readOnly }),
+        extraToolsets: [...await require('./agent-extra-tools').toolsets({ owner: session.owner, readOnly: session.readOnly }), ...extraToolsets],
         skillIds: Array.isArray(skillIds) ? skillIds : [...String(systemInstruction).matchAll(/^### @([a-z][a-z0-9-]*)$/gm)].map(match => match[1]) });
+    if (extraToolsets.length) await registry.runMeta({ name: 'tool_search', args: { select: extraToolsets.map(set => set.id) } });
     const skillPrompts = registry.startPrompt();
     const fullSystem = redactText(`${systemInstruction}\n${addendum}${skillPrompts ? `\n${skillPrompts}` : ''}${registry.catalogPrompt()}`, { secrets: sensitiveValues });
     const opsCtx = { actor: session.username, createdRunIds: new Set() };
@@ -474,7 +484,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
     let scriptNudged = false;
     const initialTranscript = session.transcript;
     const recovery = redactValue({ version: 1, priorTranscript: initialTranscript, priorTurnCount: session.turnCount,
-        permissionMode: session.permissionMode, chatSessionId, chatOwner: session.username }, { secrets: sensitiveValues });
+        permissionMode: session.permissionMode, chatSessionId, chatOwner: session.username, userEvents }, { secrets: sensitiveValues });
     const checkpoint = status => transcriptRepo.saveTurn({ runId: run.id, agentSessionId: session.id, owner: session.owner, root: session.root,
         transcript: redactValue(turnTranscript, { secrets: sensitiveValues }), status, recovery });
 
@@ -614,6 +624,7 @@ function stats() {
 
 module.exports = {
     ensureScratchSession,
+    ensureWeLinkSession,
     ownerKey,
     isAdminUser,
     MAX_STEPS: agentLoop.MAX_STEPS,

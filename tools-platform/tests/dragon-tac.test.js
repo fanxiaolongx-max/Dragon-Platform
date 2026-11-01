@@ -43,7 +43,7 @@ test('only explicit webpage requests and confirmation commands enter DragonTAC',
 
 test('real channel bridge asks first, binds consent to original actor and conversation, and schedules only once', async () => inTenant(async () => {
     const c = { ...ctx('consent-owner'), channel: 'welink', conversation: { kind: 'group', id: 'group-a' } };
-    const initial = await turn(c, '打开 https://example.com 并分析页面');
+    const initial = await turn(c, '请 DragonTAC 打开 https://example.com 并分析页面');
     const proposal = initial.find(e => e.type === 'tac');
     assert.ok(proposal);
     assert.match(initial.find(e => e.type === 'done').reply, /是否上升到 DragonTAC/);

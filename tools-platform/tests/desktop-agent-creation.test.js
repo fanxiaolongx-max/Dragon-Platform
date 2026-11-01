@@ -3,7 +3,7 @@ const {createAndSend,receipt,composerText}=require('../backend/models/desktop-ag
 const id='11111111-1111-4111-8111-111111111111',fresh='22222222-2222-4222-8222-222222222222',prompt='[DragonTAC:test] new native group question';
 function driverFixture(provider,{wrong=false,draft=false,text=prompt,collapseParagraphs=false,titledNewHeading=false}={}){
  let opened=false,pasted=false;const calls=[];
- const driver=async(_provider,command,arg)=>{calls.push({command,arg});if(command==='status')return{trusted:true,running:true};if(command==='snapshot')return {windowTitle:opened?'Codex':'Existing desktop task',elements:[{role:'AXHeading',title:titledNewHeading?(opened?'新建会话':'Existing desktop task'):'',desc:titledNewHeading?'':opened?'':'Existing desktop task'},{role:'AXTextArea',value:opened?(wrong?'unrelated input':provider==='codex'||pasted?(collapseParagraphs?composerText(text):text):''):draft?'unsent draft':''}]};if(command==='press'){opened=true;return{previous:'com.example.front'};}if(command==='paste'){pasted=true;return{previous:'com.example.front'};}if(command==='submit-text')return{ok:true};throw Error(command);};
+ const driver=async(_provider,command,arg)=>{calls.push({command,arg});if(command==='status')return{trusted:true,running:true};if(command==='prepare')return{previous:'com.example.front'};if(command==='restore')return{ok:true};if(command==='snapshot')return {windowTitle:opened?'Codex':'Existing desktop task',elements:[{role:'AXHeading',title:titledNewHeading?(opened?'新建会话':'Existing desktop task'):'',desc:titledNewHeading?'':opened?'':'Existing desktop task'},{role:'AXTextArea',value:opened?(wrong?'unrelated input':provider==='codex'||pasted?(collapseParagraphs?composerText(text):text):''):draft?'unsent draft':''}]};if(command==='press'){opened=true;return{previous:'com.example.front'};}if(command==='paste'){pasted=true;return{previous:'com.example.front'};}if(command==='submit-text')return{ok:true};throw Error(command);};
  return{calls,driver,open:async uri=>{opened=true;const u=new URL(uri);assert.equal(u.hostname,'threads');assert.equal(u.pathname,'/new');assert.equal(u.searchParams.get('prompt'),text);},readRows:async()=>draft?[]:[{id,title:'Existing desktop task'}],readReceipt:async()=>({id:fresh,status:'accepted'}),wait:async()=>{},platform:'darwin'};
 }
 test('Codex creation uses a new native route and submits only the exact prepared question',async()=>{
@@ -41,9 +41,27 @@ test('Claude recognizes the real titled New conversation heading even when both 
  assert.equal(d.calls.filter(c=>c.command==='paste').length,1);assert.equal(d.calls.filter(c=>c.command==='submit-text').length,1);
 });
 test('Claude Code tab already on its untitled 新会话 page is confirmed as the new composer, an unchanged named session is not',async()=>{
- const stay=heading=>{const calls=[];return{calls,driver:async(_p,command,arg)=>{calls.push({command,arg});if(command==='status')return{trusted:true,running:true};if(command==='snapshot')return{windowTitle:'Claude',elements:[{role:'AXHeading',title:'',desc:heading},{role:'AXTextArea',value:'\n'}]};if(command==='press'||command==='paste')return{previous:'com.example.front'};if(command==='submit-text')return{ok:true};throw Error(command);},readRows:async()=>[{id,title:'Existing desktop task'}],readReceipt:async()=>({id:fresh,status:'accepted'}),wait:async()=>{},platform:'darwin'};};
+ const stay=heading=>{const calls=[];return{calls,driver:async(_p,command,arg)=>{calls.push({command,arg});if(command==='status')return{trusted:true,running:true};if(command==='prepare')return{previous:'com.example.front'};if(command==='restore')return{ok:true};if(command==='snapshot')return{windowTitle:'Claude',elements:[{role:'AXHeading',title:'',desc:heading},{role:'AXTextArea',value:'\n'}]};if(command==='press'||command==='paste')return{previous:'com.example.front'};if(command==='submit-text')return{ok:true};throw Error(command);},readRows:async()=>[{id,title:'Existing desktop task'}],readReceipt:async()=>({id:fresh,status:'accepted'}),wait:async()=>{},platform:'darwin'};};
  const blank=stay('新会话');assert.equal((await createAndSend('claudecode',prompt,blank)).status,'accepted');
  assert.equal(blank.calls.filter(c=>c.command==='paste').length,1);assert.equal(blank.calls.filter(c=>c.command==='submit-text').length,1);
  const old=stay('Existing desktop task');await assert.rejects(createAndSend('claudecode',prompt,old),{code:'DESKTOP_TARGET_UNCONFIRMED'});
  assert.equal(old.calls.some(c=>c.command==='paste'||c.command==='submit-text'),false);
+});
+
+test('Claude creation prepares its controls before reading drafts and preserves the pre-activation foreground',async()=>{
+ const d=driverFixture('claudecode'),original=d.driver;let ready=false;
+ d.driver=async(provider,command,arg)=>{
+  if(command==='prepare'){ready=true;d.calls.push({command,arg});return {previous:'com.google.Chrome'};}
+  if(command==='snapshot')assert(ready,'Must prepare before reading an existing or new-task draft');
+  return original(provider,command,arg);
+ };
+ assert.equal((await createAndSend('claudecode',prompt,d)).status,'accepted');
+ assert.equal(d.calls.find(c=>c.command==='submit-text').arg.previous,'com.google.Chrome');
+});
+
+test('Claude preparation does not allow overwriting a new-task draft and restores foreground on failure',async()=>{
+ const d=driverFixture('claudecode',{draft:true});
+ await assert.rejects(createAndSend('claudecode',prompt,d),{code:'DESKTOP_DRAFT'});
+ assert(!d.calls.some(c=>['press','paste','submit-text'].includes(c.command)));
+ assert.equal(d.calls.at(-1).command,'restore');assert.equal(d.calls.at(-1).arg.previous,'com.example.front');
 });

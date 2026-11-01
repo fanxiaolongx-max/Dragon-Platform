@@ -36,29 +36,36 @@ async function createAndSend(provider,text,{driver=ui,readRows=nativeRows,readRe
   const status=await driver(provider,'status');
   if(!status.trusted)throw failure('AX_PERMISSION',names[provider]+' 自动新建需要辅助功能权限：请在 macOS“系统设置 → 隐私与安全性 → 辅助功能”中允许运行平台服务的程序（PM2 使用的 node）');
   if(!status.running)throw failure('DESKTOP_UNAVAILABLE',names[provider]+' 桌面客户端未运行，请先打开客户端');
-  const before=await readRows(provider),snapshot=await driver(provider,'snapshot'),view=claude.parse(snapshot);
-  // Refuse overwriting an unsubmitted new-task draft. Drafts in existing named
-  // conversations are retained by the desktop client's own New action.
-  const existing=provider==='codex'?before.some(r=>r.title===snapshot.windowTitle):before.some(r=>r.title===view.current);
-  const samePreparedDraft=view.composers.length===1&&composerText(view.composers[0])===composerText(text);
-  if(!existing&&view.composers.some(t=>t.trim())&&!samePreparedDraft)throw failure('DESKTOP_DRAFT',names[provider]+' 的新会话输入框已有草稿，请先保存；不会覆盖');
   let previous='';
-  if(provider==='codex'){
-   const uri=new URL('codex://threads/new');uri.searchParams.set('mode','codex');uri.searchParams.set('prompt',text);
-   await open(uri.toString());
-  }else{
-   const focus=await driver(provider,'press',{title:'新建'});previous=focus.previous||'';
+  try {
+   if(provider==='claudecode')previous=(await driver(provider,'prepare')).previous||'';
+   const before=await readRows(provider),snapshot=await driver(provider,'snapshot'),view=claude.parse(snapshot);
+   // Refuse overwriting an unsubmitted new-task draft. Drafts in existing named
+   // conversations are retained by the desktop client's own New action.
+   const existing=provider==='codex'?before.some(r=>r.title===snapshot.windowTitle):before.some(r=>r.title===view.current);
+   const samePreparedDraft=view.composers.length===1&&composerText(view.composers[0])===composerText(text);
+   if(!existing&&view.composers.some(t=>t.trim())&&!samePreparedDraft)throw failure('DESKTOP_DRAFT',names[provider]+' 的新会话输入框已有草稿，请先保存；不会覆盖');
+   if(provider==='codex'){
+    const uri=new URL('codex://threads/new');uri.searchParams.set('mode','codex');uri.searchParams.set('prompt',text);
+    await open(uri.toString());
+   }else{
+    const focus=await driver(provider,'press',{title:'新建'});previous ||= focus.previous||'';
+   }
+   let ready=false;
+   for(let n=0;n<60;n++){
+    await wait(150);const current=await driver(provider,'snapshot'),state=claude.parse(current);
+    if(state.composers.length!==1)continue;
+    if(provider==='codex'&&composerText(state.composers[0])===composerText(text)){ready=true;break;}
+    if(provider==='claudecode'&&isNewClaudeComposer(current,state,view)&&!state.composers[0].trim()&&!state.busy){await driver(provider,'paste',{text});ready=true;break;}
+   }
+   if(!ready)throw failure('DESKTOP_TARGET_UNCONFIRMED',names[provider]+' 未打开可确认的新会话，消息尚未发送');
+   await driver(provider,'submit-text',{text,...(previous?{previous}:{})});
+   previous=''; // submit-text already restored the foreground
+   return await readReceipt(provider,before,text);
+  } catch(error) {
+   if(previous)await driver(provider,'restore',{previous}).catch(()=>{});
+   throw error;
   }
-  let ready=false;
-  for(let n=0;n<60;n++){
-   await wait(150);const current=await driver(provider,'snapshot'),state=claude.parse(current);
-   if(state.composers.length!==1)continue;
-   if(provider==='codex'&&composerText(state.composers[0])===composerText(text)){ready=true;break;}
-   if(provider==='claudecode'&&isNewClaudeComposer(current,state,view)&&!state.composers[0].trim()&&!state.busy){await driver(provider,'paste',{text});ready=true;break;}
-  }
-  if(!ready)throw failure('DESKTOP_TARGET_UNCONFIRMED',names[provider]+' 未打开可确认的新会话，消息尚未发送');
-  await driver(provider,'submit-text',{text,...(previous?{previous}:{})});
-  return readReceipt(provider,before,text);
  });
 }
 module.exports={createAndSend,ui,receipt,composerText};

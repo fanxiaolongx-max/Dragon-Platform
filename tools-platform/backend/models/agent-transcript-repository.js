@@ -227,7 +227,7 @@ async function syncChatTurn(row) {
     if (!recovery.chatSessionId || !recovery.chatOwner) return;
     await require('./ai-chat-repository').upsertAgentTurn({ sessionId: recovery.chatSessionId, owner: recovery.chatOwner,
         runId: row.run_id, agentSessionId: row.agent_session_id, root: row.root,
-        transcript: restoreInterruptedTranscript(JSON.parse(row.transcript), row.status) });
+        userEvents: recovery.userEvents, transcript: restoreInterruptedTranscript(JSON.parse(row.transcript), row.status) });
 }
 
 async function syncChatSession(sessionId, owner) {

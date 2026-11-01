@@ -263,7 +263,7 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
 }
 
 // runId 生成稳定消息 ID；检查点更新同一对消息，正常结束或恢复不会重复追加。
-async function upsertAgentTurn({ sessionId, owner, runId, agentSessionId, root, transcript = [], content, events, tokens = 0, cost = 0, final = false, inputTokens = 0, outputTokens = 0, modelName = '' }) {
+async function upsertAgentTurn({ sessionId, owner, runId, agentSessionId, root, transcript = [], content, events, userEvents = [], tokens = 0, cost = 0, final = false, inputTokens = 0, outputTokens = 0, modelName = '' }) {
     await ensureReady();
     const session = await assertSessionOwner(sessionId, owner);
     if (!session) throw forbiddenSession();
@@ -278,7 +278,7 @@ async function upsertAgentTurn({ sessionId, owner, runId, agentSessionId, root, 
     const answer = content ?? transcript.filter(entry => entry.role === 'model' && entry.content).map(entry => entry.content).join('\n\n');
     for (const role of ['user', 'model']) {
         const text = role === 'user' ? question : answer;
-        const savedEvents = role === 'model' ? events || generatedEvents : [];
+        const savedEvents = role === 'model' ? events || generatedEvents : userEvents || [];
         const id = `agent_${runId}_${role}`;
         const existing = await get('SELECT session_id FROM ai_chat_messages WHERE id = ?', [id]);
         if (existing && existing.session_id !== sessionId) throw forbiddenSession();

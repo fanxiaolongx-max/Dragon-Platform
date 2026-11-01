@@ -388,3 +388,22 @@ test('welink-office skill is listed as a non-workspace builtin skill', () => {
     assert.equal(skill.workspace, false);
     assert.deepEqual(skills.select('@welink-office 看看今天的会').map(item => item.id), ['welink-office']);
 });
+
+
+test('full access executes WeLink writes without a card but still requires allowWrite and default tenant', async () => {
+    const send = { command: 'im send-to-user', options: { receiver: 'a00123456', text: 'full access test' } };
+    runner.saveConfig({ cliPath: packageDir, enabled: true, allowWrite: false });
+    await inDefault(async () => {
+        assert.match((await agent.execute({ actor: 'welink:alice', permissionMode: 'full' }, 'welink_action', send)).content, /允许写操作/);
+        runner.saveConfig({ allowWrite: true });
+        const events = [];
+        const result = await agent.execute({ actor: 'welink:alice', permissionMode: 'full', onEvent: event => events.push(event) }, 'welink_action', send);
+        assert.equal(result.isError, undefined);
+        assert.equal(events.length, 0, '完全访问不创建无人处理的审批卡');
+        assert.match(await agent.buildPrompt({ permissionMode: 'full' }), /无需逐项审批/);
+        assert.match(agent.definitions({ write: true, permissionMode: 'full' }).find(tool => tool.name === 'welink_action').description, /无需逐项审批/);
+    });
+    const blocked = await runWithTenant('other-tenant', () => agent.execute({ permissionMode: 'full' }, 'welink_action', send));
+    assert.equal(blocked.isError, true);
+    assert.match(blocked.content, /默认租户/);
+});

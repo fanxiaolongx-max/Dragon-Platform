@@ -49,7 +49,7 @@ async function run(command, argument) {
         throw failure(result.code || 'DESKTOP_REJECTED', result.error || 'Claude 桌面操作失败');
     return result;
 }
-const driver = { status: () => run('status'), snapshot: () => run('snapshot'), press: title => run('press', { title }), paste: text => run('paste', { text }), submit: previous => run('submit', { previous }), restore: previous => run('restore', { previous }) };
+const driver = { status: () => run('status'), prepare: () => run('prepare'), snapshot: () => run('snapshot'), press: title => run('press', { title }), paste: text => run('paste', { text }), submit: previous => run('submit', { previous }), restore: previous => run('restore', { previous }) };
 // Reads the parts of the window the flow relies on. The session heading is the
 // only heading with a description but no title; sidebar rows are titled buttons.
 function parse(snapshot) {
@@ -89,6 +89,10 @@ async function status(cfg = {}, { driver: d = driver } = {}) {
 async function send(row, text, options = {}) {
     const d = options.driver || driver, focus = { previous: '' };
     try {
+        // Electron can expose an empty web accessibility tree until its window
+        // has been activated. Prepare before looking up a title, not after it.
+        if (d.prepare)
+            focus.previous = (await d.prepare()).previous || '';
         await attempt(row, text, d, options.wait || (ms => new Promise(r => setTimeout(r, ms))), focus);
     }
     catch (error) {
@@ -99,8 +103,15 @@ async function send(row, text, options = {}) {
 }
 async function attempt(row, text, d, wait, focus) {
     let view = parse(await d.snapshot());
+    for (let n = 0; n < 20 && !view.current && !view.rows.length && !view.composers.length; n++) {
+        await wait(100);
+        view = parse(await d.snapshot());
+    }
+    if (!view.current && !view.rows.length && !view.composers.length)
+        throw failure('DESKTOP_UI_NOT_READY', 'Claude 界面尚未提供会话控件，未输入任何内容；请等待界面加载后重试');
     if (view.current !== row.title) {
-        focus.previous = (await d.press(rowFor(view.rows, row.title))).previous || '';
+        const opened = await d.press(rowFor(view.rows, row.title));
+        focus.previous ||= opened.previous || '';
         for (let n = 0; n < 34 && view.current !== row.title; n++) {
             await wait(150);
             view = parse(await d.snapshot());

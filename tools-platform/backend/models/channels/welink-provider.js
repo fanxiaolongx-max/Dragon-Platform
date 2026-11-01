@@ -229,7 +229,7 @@ class WeLinkProvider {
             aiSessionId: stored?.aiSessionId || '',
             modelId: config.modelId,
             signal,
-            contextNote: `本次对话来自 ${this.label} ${conversation.kind === 'group' ? '群聊' : '单聊'}，发送人：${conversation.senderName || '未设置备注'}（账号 ${conversation.senderAccount || '未知'}）。${this.accountIsReadable ? '' : '称呼对方时用备注名或直接说「你」，不要在回复里复述账号 ID。'}回复会显示在 ${this.label} 聊天窗口中，请使用简洁的 Markdown；不要输出平台内部相对链接以外的可执行内容。${opsNote ? `\n\n${opsNote}` : ''}`,
+            contextNote: `本次对话来自 ${this.label} ${conversation.kind === 'group' ? '群聊' : '单聊'}，发送人：${conversation.senderName || '未设置备注'}（账号 ${conversation.senderAccount || '未知'}）。${this.accountIsReadable ? '' : '称呼对方时用备注名或直接说「你」，不要在回复里复述账号 ID。'}回复会显示在 ${this.label} 聊天窗口中，请使用简洁的 Markdown；${this.channel === 'welink' ? '可以按用户要求调用实际可用的工具和 Skill，只有工具成功后才能报告完成。' : '不要输出平台内部相对链接以外的可执行内容。'}${opsNote ? `\n\n${opsNote}` : ''}`,
             onEvent: event => {
                 if (event.type === 'start' && event.sessionId) {
                     if (event.sessionId !== stored?.aiSessionId) targetsRepo.bindAiSession(this.channel, toolSessionId, event.sessionId).catch(() => {});

@@ -404,7 +404,7 @@ const SHARED_PROPERTIES = {
     timezone: { type: 'string', description: 'mail/calendar 的时区 ID，默认 China Standard Time；如 Egypt Standard Time' }
 };
 
-function definitions({ write = false } = {}) {
+function definitions({ write = false, permissionMode = 'ask' } = {}) {
     const tools = [{
         name: 'welink_query',
         description: [
@@ -431,7 +431,7 @@ function definitions({ write = false } = {}) {
             name: 'welink_action',
             description: [
                 '以当前用户本人身份执行会改变 WeLink 状态的命令：发消息、建群/拉人/撤回、建会/改会/取消/议题、云空间上传/复制/移动/改名/删除/外链、发/回复/转发/移动邮件、建日程、特别关注。',
-                '每次调用都会在对话里弹出审批卡，用户点「允许」才执行，拒绝或超时则不执行；一次只做一件事，不要批量连发。',
+                permissionMode === 'full' ? '当前是完全访问模式，按用户明确要求直接执行，无需逐项审批。' : '每次调用都会在对话里弹出审批卡，用户点「允许」才执行，拒绝或超时则不执行；一次只做一件事，不要批量连发。',
                 '收件人、内容、时间等必须来自用户明确的要求或前面查询到的结果，不要自行编造；拿不准时先问用户。',
                 '本机文件参数（image、file、attachment、onebox file-upload 的 file）要用完整路径。'
             ].join(''),
@@ -590,7 +590,7 @@ async function execute(ctx, name, args = {}) {
     try {
         guard({ write });
         const built = buildArgs(args && typeof args === 'object' ? args : {}, { mode: write ? 'write' : 'read' });
-        if (write) {
+        if (write && ctx.permissionMode !== 'full') {
             if (!ctx.canApprove || typeof ctx.onEvent !== 'function') throw toolError('WELINK_APPROVAL_UNAVAILABLE', '写操作需要在 Dragon Claw 对话里审批确认，当前请求无法弹出审批卡');
             const { id, promise } = waitForApproval({ owner: ctx.actor || '', signal: ctx.signal });
             const cli = commandLine(built.args);
@@ -624,7 +624,7 @@ async function execute(ctx, name, args = {}) {
     }
 }
 
-async function buildPrompt() {
+async function buildPrompt({ permissionMode = 'ask' } = {}) {
     const config = runner.readConfig();
     const lines = ['', '【WeLink 个人身份工具（@welink-office）】'];
     if (!runner.tenantAllowed()) {
@@ -637,7 +637,7 @@ async function buildPrompt() {
             `今天是 ${new Date().toLocaleDateString('sv-SE')}，现在是 ${new Date().toLocaleTimeString('zh-CN', { hour12: false })}（平台服务器本地时间），当前 13 位毫秒时间戳约为 ${Date.now()}；meeting query-list 默认自动查询今日待参加会议（参数已内置智能默认值），mail/calendar 的 --end 不包含当天（查某天要写次日），calendar create 的 start/end 写 YYYY-MM-DDTHH:mm:ss。查询日程或会议完成后，务必在正文中按时间顺序列出清晰的事项、时间、地点与参会人清单。`,
             `查邮件 / 日历时直接调用即可：CLI 提示未发现邮箱服务器时，平台会自动用${config.email ? ` ${config.email}` : '云空间资料里的邮箱'}执行 mail autodiscover 并重试，不需要先手动 autodiscover。`,
             config.allowWrite
-                ? '用户明确要求发消息、建群、撤回、建会/改会/取消、议题、云空间增删改与外链、发/回/转/移邮件、建日程、特别关注时，用 welink_action：每次调用都会弹出审批卡，用户允许后才真正执行。调用前把收件人/成员换成查询到的真实账号或邮箱（不知道就先用 search person / contact detail 查，查不到就问用户），不要猜；工具返回成功前不要说「已发送 / 已创建」，被拒绝时如实说明未执行。'
+                ? `用户明确要求发消息、建群、撤回、建会/改会/取消、议题、云空间增删改与外链、发/回/转/移邮件、建日程、特别关注时，用 welink_action：${permissionMode === 'full' ? '当前是完全访问模式，按明确要求直接执行，无需逐项审批。' : '每次调用都会弹出审批卡，用户允许后才真正执行。'}调用前把收件人/成员换成查询到的真实账号或邮箱（不知道就先用 search person / contact detail 查，查不到就问用户），不要猜；工具返回成功前不要说「已发送 / 已创建」，被拒绝时如实说明未执行。`
                 : '写操作（发消息、发邮件、建会、删除等）当前未开启：请告诉用户管理员可在「全局设置 › 频道对接 › WeLink › 个人身份（welink-cli）」开启「允许写操作」，开启后每次执行前都会在对话里请他确认。',
             '需要查询或执行时在本轮直接调用工具，不要只回复「请稍等 / 正在查询」就结束；工具结果出来后再回答。'
         );

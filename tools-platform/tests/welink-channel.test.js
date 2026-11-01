@@ -16,11 +16,11 @@ require.cache[aiRoutePath] = {
     id: aiRoutePath, filename: aiRoutePath, loaded: true,
     exports: {
         handleChatRequest: async (req, res) => {
-            aiCalls.push({ user: req.user, body: req.body });
+            aiCalls.push({ user: req.user, body: req.body, channelTurn: req.channelTurn });
             res.status(200);
             res.setHeader('Content-Type', 'application/x-ndjson');
             res.flushHeaders();
-            res.write(`${JSON.stringify({ type: 'start', sessionId: 'ai-session-1' })}\n`);
+            res.write(`${JSON.stringify({ type: 'start', sessionId: req.body.sessionId || 'ai-session-1' })}\n`);
             res.write(`${JSON.stringify({ type: 'delta', delta: '你好，' })}\n${JSON.stringify({ type: 'delta', delta: '我是 Dragon Claw' })}\n`);
             res.write(`${JSON.stringify({ type: 'done', reply: '你好，我是 Dragon Claw', tokens: 12, cost: 0.1, usage: { inputTokens: 8, outputTokens: 4 } })}\n`);
             res.end();
@@ -338,13 +338,14 @@ test('Dragon Claw 回复：流式 delta 映射为 text.delta，并绑定平台�
     assert.equal(facts.find(fact => fact.type === 'text.done').content, '你好，我是 Dragon Claw');
     const call = aiCalls.at(-1);
     assert.equal(call.user.username, 'welink:carol');
-    assert.equal(call.user.role, 'user');
+    assert.equal(call.user.role, 'admin');
+    assert.equal(call.channelTurn.fullAccess, true, '只有服务端桥接授予完整工具权限');
     assert.equal(call.body.modelId, 'aragon');
-    assert.equal(call.body.workspace, undefined, '频道对话不开启工作区');
+    assert.equal(call.body.workspace, undefined, '专用工作目录由服务端分配，不接受 SDK 指定任意根目录');
     const stored = await runWithTenant('default', () => targetsRepo.getSession('welink', session.toolSessionId));
-    assert.equal(stored.aiSessionId, 'ai-session-1');
+    assert.equal(stored.aiSessionId, call.body.sessionId);
     await collect(await provider.runMessage({ traceId: 'd3', runId: 'dr2', toolSessionId: session.toolSessionId, text: '继续', context: { sendUserAccount: 'carol' } }));
-    assert.equal(aiCalls.at(-1).body.sessionId, 'ai-session-1');
+    assert.equal(aiCalls.at(-1).body.sessionId, stored.aiSessionId);
 });
 
 test('连接失败时错误信息不泄露 SK；诊断与日志同样脱敏', async () => {

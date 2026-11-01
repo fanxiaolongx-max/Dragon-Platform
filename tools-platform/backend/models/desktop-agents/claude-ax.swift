@@ -77,6 +77,30 @@ func waitFrontmost(_ app: NSRunningApplication) -> Bool {
     }
     return false
 }
+// Chromium may initially expose only its outer HTML container while the app is
+// in the background. Activate first and wait for actual controls, so a cold AX
+// tree is not mistaken for a missing sidebar conversation. No typing occurs.
+func prepareWindow() -> (NSRunningApplication, AXUIElement, String) {
+    let (app, _) = requireWindow()
+    let previous = frontmostId()
+    // Existing OS permission does not initialize Electron's web accessibility
+    // tree. This is Electron's documented assistive-technology entry point:
+    // https://www.electronjs.org/docs/latest/tutorial/accessibility
+    let root = AXUIElementCreateApplication(app.processIdentifier)
+    AXUIElementSetAttributeValue(root, "AXManualAccessibility" as CFString, kCFBooleanTrue)
+    guard waitFrontmost(app) else { activate(previous); fail("DESKTOP_FOCUS", "无法把 Claude 切到前台") }
+    for _ in 0..<30 {
+        if let window = mainWindow(app) {
+            let items = collect(window)
+            if items.contains(where: { $0.1["role"] as? String == "AXTextArea" }) && items.contains(where: { $0.1["role"] as? String == "AXButton" }) {
+                return (app, window, previous)
+            }
+        }
+        pause(0.1)
+    }
+    activate(previous)
+    fail("DESKTOP_UI_NOT_READY", "Claude 界面尚未提供会话控件，未输入任何内容；请等待界面加载后重试")
+}
 // Claude's sidebar ignores the synthetic AXPress, so a session row gets a real
 // mouse click — only after a hit test proves that point belongs to that row.
 func frame(_ element: AXUIElement) -> CGRect? {
@@ -125,6 +149,9 @@ case "status":
 case "snapshot":
     let (_, window) = requireWindow()
     emit(["ok": true, "frontmost": frontmostId() == bundleId, "windowTitle": text(window, kAXTitleAttribute), "elements": collect(window).map { $0.1 }])
+case "prepare":
+    let (_, _, previous) = prepareWindow()
+    emit(["ok": true, "previous": previous])
 case "submit-text":
     let (app, window) = requireWindow()
     let expected = argument["text"] as? String ?? ""
@@ -146,12 +173,10 @@ case "submit-text":
 case "press":
     // Press the one button whose title is exactly argument.title (a sidebar session row).
     // Claude ignores the press while it is in the background, so bring it forward first.
-    let (app, window) = requireWindow()
+    let (_, window, previous) = prepareWindow()
     let wanted = argument["title"] as? String ?? ""
     let matches = collect(window).filter { $0.1["role"] as? String == "AXButton" && $0.1["title"] as? String == wanted }
-    guard matches.count == 1 else { fail("DESKTOP_TARGET_UNCONFIRMED", "Claude 侧栏中找到 \(matches.count) 个同名会话") }
-    let previous = frontmostId()
-    guard waitFrontmost(app) else { activate(previous); fail("DESKTOP_FOCUS", "无法把 Claude 切到前台") }
+    guard matches.count == 1 else { activate(previous); fail("DESKTOP_TARGET_UNCONFIRMED", "Claude 侧栏中找到 \(matches.count) 个同名会话") }
     let row = matches[0].0
     AXUIElementPerformAction(row, "AXScrollToVisible" as CFString)
     pause(0.25)

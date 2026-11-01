@@ -94,3 +94,31 @@ test('readback may merge empty paragraphs without changing message characters or
     await assert.rejects(send(changed,expected),{code:'DESKTOP_REJECTED'});
     assert.equal(changed.calls.some(c=>c.startsWith('submit')),false);
 });
+
+test('cold Electron controls are prepared before target lookup and preserve the original foreground', async () => {
+    const w=fakeWindow(),snapshot=w.driver.snapshot;let prepared=false,emptyReads=0;
+    w.driver.prepare=async()=>{w.calls.push('prepare');prepared=true;return {previous:'com.google.Chrome'};};
+    w.driver.snapshot=async()=>{assert(prepared,'Never decide that a target is missing from an unprepared window');if(emptyReads++<2){w.calls.push('empty-snapshot');return {elements:[]};}return snapshot();};
+    await send(w);
+    assert.equal(w.calls[0],'prepare');
+    assert.equal(w.calls.filter(c=>c==='empty-snapshot').length,2);
+    assert.equal(w.calls.filter(c=>c==='paste').length,1);
+    assert.equal(w.calls.at(-1),'submit:com.google.Chrome','Opening the target must not replace the original foreground with Claude');
+});
+
+test('a permanently empty accessibility tree is bounded and never receives input', async () => {
+    const w=fakeWindow();let reads=0;
+    w.driver.prepare=async()=>({previous:'com.google.Chrome'});
+    w.driver.snapshot=async()=>{reads++;return {elements:[]};};
+    await assert.rejects(send(w),{code:'DESKTOP_UI_NOT_READY'});
+    assert(reads<=21);assert(!w.calls.includes('paste'));assert(!w.calls.some(c=>c.startsWith('press:')||c.startsWith('submit:')));
+    assert.equal(w.calls.at(-1),'restore:com.google.Chrome');
+});
+
+test('after preparing, missing targets and existing drafts still refuse typing and restore focus', async () => {
+    for(const state of [{rows:['Other chat']},{current:TARGET.title,composers:['retained draft']}]){
+        const w=fakeWindow(state);w.driver.prepare=async()=>({previous:'com.google.Chrome'});
+        await assert.rejects(send(w));assert(!w.calls.includes('paste'));assert(!w.calls.some(c=>c.startsWith('submit:')));
+        assert.equal(w.calls.at(-1),'restore:com.google.Chrome');
+    }
+});

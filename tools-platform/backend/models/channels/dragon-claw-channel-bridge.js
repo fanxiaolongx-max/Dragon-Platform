@@ -1,6 +1,6 @@
 // 让频道消息（如 WeLink）走与首页 Dragon Claw 完全相同的对话链路：
 // 构造虚拟 req/res 调用 routes/ai.js 的 handleChatRequest，逐行解析 NDJSON 事件回调给调用方。
-// 频道用户以非管理员角色对话，不开启工作区，因此只有只读的平台知识与数据能力，外加本会话的跟进任务工具。
+// WeLink 入站消息复核访问名单后使用完整工作区工具；其他频道和后台生成保持原权限。
 // 对话归属：单聊为「welink:<账号>」；群聊为「welink-group:<群 ID>」，群里任何人 @助手 都接着同一个群对话。
 const { EventEmitter } = require('events');
 
@@ -100,11 +100,26 @@ async function usableSessionId(aiSessionId, owner) {
  */
 async function runTurn({ channel, account, conversation, toolSessionId, text, aiSessionId, modelId, contextNote, persist = true, signal, onEvent }) {
     const user = conversation ? conversationUser(channel, conversation, account) : channelUser(channel, account);
-    const sessionId = await usableSessionId(aiSessionId, user.username);
+    let sessionId = await usableSessionId(aiSessionId, user.username);
+    const fullAccess = channel === 'welink' && persist !== false && Boolean(conversation?.id);
+    if (fullAccess) {
+        const access = require('./welink-access');
+        const config = await require('./welink-config-repository').getConfig();
+        const verdict = access.checkInbound(config.access, { kind: conversation.kind, groupId: conversation.kind === 'group' ? conversation.id : '', senderAccount: String(account || '') });
+        if (!account || !verdict.allowed) {
+            onEvent({ type: 'error', error: account ? access.describeDenial(verdict) : '无法识别 WeLink 发送人' });
+            return;
+        }
+        // 仅在服务端桥接中授权，保留原频道归属；HTTP body 无法授予此身份。
+        user.role = 'admin';
+        sessionId = await require('../ai-chat-repository').getOrCreateSession({ sessionId, owner: user.username, pagePath: '/channels/welink', pageTitle: 'WeLink 频道' });
+    }
     if (persist !== false && conversation && !signal?.aborted) {
         const handled = await require('./channel-schedule-commands').handle({ channel, conversation, actor: account, toolSessionId, text, aiSessionId: sessionId, modelId, onEvent });
         if (handled) return;
-        if (await require('../dragon-tac/commands').handle({ channel, conversation, actor: account, text, aiSessionId: sessionId, onEvent })) return;
+        const tacIntent = require('../dragon-tac/commands').intent(text);
+        const ownBrowser = fullAccess && tacIntent?.action === 'propose' && !/DragonTAC/i.test(text) && Boolean(require('../agent-browser').available());
+        if (!ownBrowser && await require('../dragon-tac/commands').handle({ channel, conversation, actor: account, text, aiSessionId: sessionId, onEvent })) return;
     }
     const aiRouter = require('../../routes/ai');
     if (typeof aiRouter.handleChatRequest !== 'function') throw new Error('Dragon Claw 对话入口不可用');
@@ -114,7 +129,7 @@ async function runTurn({ channel, account, conversation, toolSessionId, text, ai
         path: '/chat',
         headers: {},
         user,
-        channelTurn: conversation ? { channel, conversation, toolSessionId: toolSessionId || '', actor: String(account || '') } : null,
+        channelTurn: conversation ? { channel, conversation, toolSessionId: toolSessionId || '', actor: String(account || ''), fullAccess } : null,
         get: () => '',
         body: {
             messages: [{ role: 'user', content: String(text || '') }],

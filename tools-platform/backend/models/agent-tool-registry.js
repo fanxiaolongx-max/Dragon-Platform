@@ -42,8 +42,8 @@ const TOOLSETS = {
             const welink = require('./channels/welink-cli-agent');
             let allowWrite = false;
             try { allowWrite = Boolean(require('./channels/welink-cli-runner').readConfig().allowWrite); } catch (_error) { /* 未配置 welink-cli 时只读 */ }
-            return { definitions: welink.definitions({ write: allowWrite }), prompt: await welink.buildPrompt().catch(() => ''),
-                execute: (call, { signal, write }) => welink.execute({ actor: session.username, signal, callId: call.id, canApprove: true, onEvent: event => write(event) }, call.name, call.args) };
+            return { definitions: welink.definitions({ write: allowWrite, permissionMode: session.permissionMode }), prompt: await welink.buildPrompt({ permissionMode: session.permissionMode }).catch(() => ''),
+                execute: (call, { signal, write }) => welink.execute({ actor: session.username, permissionMode: session.permissionMode, signal, callId: call.id, canApprove: true, onEvent: event => write(event) }, call.name, call.args) };
         }
     }
 };
