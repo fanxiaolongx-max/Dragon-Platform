@@ -64,9 +64,14 @@ test('adjacent read-only calls run in parallel, writes stay in order, and result
 test('the crew roster never repeats a name or colour within a turn', () => {
     const next = subagent.roster(() => 0.42);
     const crew = Array.from({ length: subagent.COLORS.length }, () => next());
+    assert.equal(crew.length, 20, '20 dinosaurs configured');
     assert.equal(new Set(crew.map(item => item.name)).size, crew.length);
     assert.equal(new Set(crew.map(item => item.color)).size, crew.length);
     assert.ok(crew.every(item => item.emoji && /^#[0-9a-f]{6}$/.test(item.color)));
+    // 验证名字格式：性格脾气或正在做的事情 + 恐龙物种名，如「吃草的霸王龙」或「抑郁的尖齿龙」
+    const speciesList = subagent.DINOSAURS.map(d => d.species);
+    assert.ok(crew.every(item => speciesList.some(species => item.name.endsWith(species))));
+    assert.ok(crew.every(item => item.name.includes('的')));
 });
 
 test('task sends read-only subagents in parallel, shows them as cards and returns only their conclusions', async () => {

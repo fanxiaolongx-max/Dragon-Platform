@@ -20,26 +20,54 @@ const DEFINITION = {
     }
 };
 
-// 名字、图标、颜色：一轮里按顺序取，不重复；颜色彼此区分明显
-const CREW = [
-    { name: '翻垃圾浣熊', emoji: '🦝' }, { name: '熬夜猫头鹰', emoji: '🦉' }, { name: '八爪翻页侠', emoji: '🐙' }, { name: '刺猬检索员', emoji: '🦔' },
-    { name: '考古霸王龙', emoji: '🦖' }, { name: '囤货松鼠', emoji: '🐿️' }, { name: '海獭档案员', emoji: '🦦' }, { name: '呱呱情报员', emoji: '🐸' },
-    { name: '单脚火烈鸟', emoji: '🦩' }, { name: '摸鱼侦探', emoji: '🐟' }, { name: '树懒加急组', emoji: '🦥' }, { name: '企鹅快递员', emoji: '🐧' },
-    { name: '熊猫调研员', emoji: '🐼' }, { name: '狐狸放大镜', emoji: '🦊' }, { name: '勤劳小蜜蜂', emoji: '🐝' }, { name: '稳健蜗牛', emoji: '🐌' },
-    { name: '骆驼背书包', emoji: '🐫' }, { name: '螃蟹横着查', emoji: '🦀' }, { name: '鹦鹉复读机', emoji: '🦜' }, { name: '水母漂流记', emoji: '🪼' }
+// 名字、图标、颜色：20 种经典恐龙角色，配上专属图标与龙族主题色；前缀融合性格脾气或正在做的事情，随机组合出可爱生动的角色
+const DINOSAURS = [
+    { species: '霸王龙', emoji: '🦖', color: '#f87171' },
+    { species: '尖齿龙', emoji: '🦖', color: '#fb923c' },
+    { species: '三角龙', emoji: '🦏', color: '#34d399' },
+    { species: '腕龙', emoji: '🦕', color: '#60a5fa' },
+    { species: '剑龙', emoji: '🦕', color: '#a3e635' },
+    { species: '翼手龙', emoji: '🪽', color: '#38bdf8' },
+    { species: '迅猛龙', emoji: '🦎', color: '#2dd4bf' },
+    { species: '甲龙', emoji: '🐢', color: '#fbbf24' },
+    { species: '雷龙', emoji: '🦕', color: '#818cf8' },
+    { species: '棘龙', emoji: '🐊', color: '#10b981' },
+    { species: '厚头龙', emoji: '🐏', color: '#f59e0b' },
+    { species: '梁龙', emoji: '🦕', color: '#22d3ee' },
+    { species: '始祖鸟', emoji: '🦤', color: '#f472b6' },
+    { species: '沧龙', emoji: '🐬', color: '#06b6d4' },
+    { species: '镰刀龙', emoji: '🐾', color: '#c084fc' },
+    { species: '异特龙', emoji: '🦖', color: '#e11d48' },
+    { species: '副栉龙', emoji: '🦕', color: '#4ade80' },
+    { species: '恐爪龙', emoji: '🦅', color: '#e879f9' },
+    { species: '蛇颈龙', emoji: '🐉', color: '#0ea5e9' },
+    { species: '冥河龙', emoji: '🐲', color: '#f43f5e' }
 ];
-const COLORS = ['#f472b6', '#60a5fa', '#34d399', '#fbbf24', '#a78bfa', '#f87171', '#22d3ee', '#fb923c', '#a3e635', '#e879f9'];
 
-/** 一轮对话的子智能体名册：随机起点，之后依次取，名字和颜色都不重复（超过名册长度再循环） */
+const TRAITS = [
+    '吃草的', '抑郁的', '暴躁的', '发呆的', '社恐的', '傲娇的', '话痨的', '胆小的', '贪吃的', '呆萌的',
+    '佛系的', '沉思的', '亢奋的', '摆烂的', '困困的', '认真的', '迷茫的', '害羞的', '碎碎念的', '假装正经的',
+    '叛逆的', '踩水坑的', '抓蝴蝶的', '啃骨头的', '晒太阳的', '追尾巴的', '磨爪子的', '堆沙堡的', '荡秋千的', '练嗓子的',
+    '找妈妈的', '吐泡泡的', '藏零食的', '打哈欠的', '巡视领地的', '躲猫猫的', '数星星的', '翻跟头的', '照镜子的', '偷瞄四周的'
+];
+
+const CREW = DINOSAURS.map(d => ({ name: d.species, emoji: d.emoji, color: d.color }));
+const COLORS = DINOSAURS.map(d => d.color);
+
+/** 一轮对话的子智能体名册：随机起点，恐龙种类、性格/动作前缀与适配颜色在同一轮里互不重复 */
 function roster(random = Math.random) {
-    const start = Math.floor(random() * CREW.length);
-    const colorStart = Math.floor(random() * COLORS.length);
+    const dinoStart = Math.floor(random() * DINOSAURS.length);
+    const traitStart = Math.floor(random() * TRAITS.length);
     let index = 0;
     return () => {
-        const crew = CREW[(start + index * 7) % CREW.length]; // 步长 7 与 20 互质：走完一圈才重复
-        const color = COLORS[(colorStart + index) % COLORS.length];
+        const dino = DINOSAURS[(dinoStart + index * 7) % DINOSAURS.length]; // 7 与 20 互质：走完一圈 20 种恐龙不重复
+        const trait = TRAITS[(traitStart + index * 13) % TRAITS.length];    // 13 与 40 互质：走完一圈 40 个性格动作不重复
         index += 1;
-        return { ...crew, color };
+        return {
+            name: `${trait}${dino.species}`,
+            emoji: dino.emoji,
+            color: dino.color
+        };
     };
 }
 
@@ -115,4 +143,4 @@ async function run({ call, identity, client, model, tools, executeCall, isReadOn
     }
 }
 
-module.exports = { DEFINITION, MAX_STEPS, CREW, COLORS, roster, run };
+module.exports = { DEFINITION, MAX_STEPS, DINOSAURS, TRAITS, CREW, COLORS, roster, run };
