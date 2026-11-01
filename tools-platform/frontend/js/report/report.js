@@ -3472,11 +3472,15 @@ window.renderDeficiencySummary = function (catData, orderedMetrics) {
         html = `
             <div class="deficiency-icon">⚠️</div>
             <div class="deficiency-content">
-                <span class="deficiency-badge">短板透视</span>
-                <span class="deficiency-lead">本月共 <strong>${failingCols.length}</strong> 个列整体未达标：</span>
-                <div class="def-pills-wrap">${colListHtml}</div>
-                ${shortfallsHtml}
-                ${passingHtml}
+                <div class="deficiency-header">
+                    <span class="deficiency-badge">短板透视</span>
+                    <span class="deficiency-lead">共 <strong>${failingCols.length}</strong> 列未达标</span>
+                    ${passingCols.length > 0 ? `<span class="def-pass-tag" title="达标领跑列">达标 ${passingCols.length} 列</span>` : ''}
+                </div>
+                <div class="deficiency-summary-row" title="${escapeHTML(failingCols.map(c => `${c.name} (${c.gap > 0 ? `-${c.gap}分` : '0分'})`).join('、'))}">
+                    <div class="def-pills-wrap">${colListHtml}</div>
+                    ${shortfallsHtml}
+                </div>
             </div>
         `;
     } else {
@@ -3484,8 +3488,13 @@ window.renderDeficiencySummary = function (catData, orderedMetrics) {
         html = `
             <div class="deficiency-icon">✅</div>
             <div class="deficiency-content">
-                <span class="deficiency-badge">考核全达标</span>
-                <span class="deficiency-text">本月所有参评列（<strong>${cats.map(c => escapeHTML(catData[c]?.name || c)).join("、")}</strong>）综合得分均达 <strong>${stdScore}分</strong> 标准线，各项运营指标全额达标，无整体短板！</span>
+                <div class="deficiency-header">
+                    <span class="deficiency-badge">考核全达标</span>
+                    <span class="deficiency-lead">全员达标 · 无整体短板</span>
+                </div>
+                <div class="deficiency-summary-row deficiency-text" title="本月所有参评列综合得分均达 ${stdScore} 分标准线，各项运营指标全额达标">
+                    <span>所有参评列均达 <strong>${stdScore}分</strong> 标准线</span>
+                </div>
             </div>
         `;
     }
