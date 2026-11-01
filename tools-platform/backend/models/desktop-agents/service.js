@@ -61,9 +61,18 @@ async function selected(owner, provider, id) { if (!providers.includes(provider)
 } if (!row)
     throw repo.error('会话已移除或不属于当前桌面连接', 404); return { state, row }; }
 async function messages(owner, provider, id, { passive = false } = {}) { const { state, row } = await selected(owner, provider, id), queue = queued(owner, provider, id); const content = provider === 'antigravity' ? await ag.messages(id, { passive }) : await catalog.transcript(row); const status = state.providers.find(p => p.id === provider); return { ...content, session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
+// 空消息、超长、请求编号错误分别说明，避免长消息被误报成“编号无效”。
+const MAX_MESSAGE = 20000;
+function checkMessage(text, requestId) {
+    if (typeof text !== 'string' || !text.trim())
+        throw repo.error('消息为空', 400);
+    if (text.length > MAX_MESSAGE)
+        throw repo.error(`消息过长（${text.length} 字，上限 ${MAX_MESSAGE} 字），请精简，或把长内容存成文件作为附件发送`, 400);
+    if (typeof requestId !== 'string' || !/^[a-f0-9-]{36}$/i.test(requestId))
+        throw repo.error('请求编号无效，请刷新页面后重试', 400);
+}
 async function send(owner, provider, id, { text, requestId, mode = 'send' }) {
-    if (typeof text !== 'string' || !text.trim() || text.length > 20000 || typeof requestId !== 'string' || !/^[a-f0-9-]{36}$/i.test(requestId))
-        throw repo.error('消息或请求编号无效', 400);
+    checkMessage(text, requestId);
     if (!['send', 'steer'].includes(mode) || mode === 'steer' && provider !== 'codex')
         throw repo.error('这个桌面 Agent 不支持运行中引导，请改用排队', 400);
     if (containsSensitiveText(text))
@@ -124,8 +133,7 @@ async function send(owner, provider, id, { text, requestId, mode = 'send' }) {
 async function create(owner, provider, { text, requestId }, { createAndSend = require('./new-conversation').createAndSend } = {}) {
     if (!providers.includes(provider))
         throw repo.error('未知桌面 Agent', 400);
-    if (typeof text !== 'string' || !text.trim() || text.length > 20000 || typeof requestId !== 'string' || !/^[a-f0-9-]{36}$/i.test(requestId))
-        throw repo.error('消息或请求编号无效', 400);
+    checkMessage(text, requestId);
     if (containsSensitiveText(text))
         throw repo.error('消息包含凭据，请移除密码或 Token 后再发送', 400);
     const state = await discover(owner);
@@ -179,8 +187,7 @@ const queues = new Map();
 function queueKey(owner, provider, id) { return [getTenantId(), owner, provider, id].join(':'); }
 function queued(owner, provider, id) { return (queues.get(queueKey(owner, provider, id))?.items || []).map(({ requestId, text, status, error, createdAt }) => ({ requestId, text, status, error, createdAt })); }
 async function enqueue(owner, provider, id, { text, requestId }) {
-    if (typeof text !== 'string' || !text.trim() || text.length > 20000 || typeof requestId !== 'string' || !/^[a-f0-9-]{36}$/i.test(requestId))
-        throw repo.error('消息或请求编号无效', 400);
+    checkMessage(text, requestId);
     if (containsSensitiveText(text))
         throw repo.error('消息包含凭据，请移除密码或 Token 后再发送', 400);
     const { state } = await selected(owner, provider, id);

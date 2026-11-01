@@ -126,6 +126,12 @@ test('Web send reaches the same native desktop ID, requires a transcript receipt
     await auth('post', `/codex/sessions/${ID}/messages`).send({ text: 'password="do-not-send-me"', requestId: '55555555-5555-4555-8555-555555555555' }).expect(400);
     assert.equal(posts, 1);
     await auth('post', `/codex/sessions/${ID}/messages`, 'bob').send({ text: 'not yours', requestId: '66666666-6666-4666-8666-666666666666' }).expect(403);
+    // 超长、空消息、错误编号分别说明原因，都不投递
+    const long = (await auth('post', `/codex/sessions/${ID}/messages`).send({ text: 'x'.repeat(20001), requestId: '77777777-7777-4777-8777-777777777777' }).expect(400)).body;
+    assert.match(long.error, /消息过长（20001 字，上限 20000 字）/);
+    assert.equal((await auth('post', `/codex/sessions/${ID}/messages`).send({ text: '  ', requestId: '88888888-8888-4888-8888-888888888888' }).expect(400)).body.error, '消息为空');
+    assert.match((await auth('post', `/codex/sessions/${ID}/messages`).send({ text: 'hi', requestId: 'not-a-uuid' }).expect(400)).body.error, /请求编号无效/);
+    assert.equal(posts, 1);
 });
 test('uncertain delivery is retained and a repeated request never silently resends', async () => {
     const original = ipc.send;

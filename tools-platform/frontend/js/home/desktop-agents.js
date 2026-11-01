@@ -15,6 +15,10 @@
     const key = s => s.provider + ':' + s.id;
     async function request(method, url, body) { const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token'); const response = await fetch(API + url, { method, credentials: 'same-origin', cache: 'no-store', headers: { Authorization: 'Bearer ' + token, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); const data = await response.json().catch(() => ({})); if (!response.ok)
         throw Object.assign(new Error(data.error || `HTTP ${response.status}`), { status: response.status, code: data.code }); return data; }
+    // 与后端上限一致：超长时不发请求，直接说明字数（保留输入框里的内容）
+    const MAX_MESSAGE = 20000;
+    function tooLong(text) { if (String(text || '').length > MAX_MESSAGE)
+        throw new Error(L(`消息过长（${String(text).length} 字，上限 ${MAX_MESSAGE} 字），请精简，或把长内容存成文件作为附件发送`, `Message too long (${String(text).length} characters, limit ${MAX_MESSAGE}). Shorten it or attach it as a file.`)); }
     function reset() { clearInterval(state.timer); state.lastRefreshAt = 0; state.epoch++; state.loading = false; state.sending = false; state.settings = null; state.items = []; state.providers = []; state.drafts.clear(); state.notices.clear(); state.unknown.clear(); state.identity = identity(); if (state.active)
         window.DragonClaw?.newChat?.(); state.active = null; state.error = ''; render(); }
     function settings() { window.openNavSettingsModal?.(); window.switchNavSettingsTab?.('desktopAgents'); }
@@ -176,6 +180,7 @@
         let api;
         const create = async text => {
             const epoch = state.viewEpoch, thread = api.thread;
+            tooLong(text);
             const pending = api.addMessage('user', text), working = api.addMessage('ai', '');
             working.classList.add('desktop-agent-thinking');
             working.querySelector('.dc-msg-body').remove();
@@ -447,7 +452,7 @@
         }
     }
     async function send(text) { const session = state.active; if (!session || !session.canSend || state.sending || state.unknown.has(key(session)))
-        return false; const epoch = state.viewEpoch, account = state.identity, mode = state.detail?.busy || state.pending ? busyMode() : 'send'; state.sending = true; try {
+        return false; tooLong(text); const epoch = state.viewEpoch, account = state.identity, mode = state.detail?.busy || state.pending ? busyMode() : 'send'; state.sending = true; try {
         const result = await request('POST', `/${session.provider}/sessions/${encodeURIComponent(session.id)}/messages`, { text, requestId: crypto.randomUUID(), mode });
         if (account !== state.identity || account !== identity())
             return false;

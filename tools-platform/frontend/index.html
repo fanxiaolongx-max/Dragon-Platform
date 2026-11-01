@@ -1128,7 +1128,10 @@
                 <div class="dc-chat-actions">
                     <button type="button" class="dc-ghost-btn dc-workspace-toggle" id="dcWorkspaceToggle" hidden aria-pressed="false"><span class="dc-workspace-toggle-dot" aria-hidden="true"></span><span data-dc-i18n="workspace">工作区</span></button>
                     <button type="button" class="dc-ghost-btn dc-history-btn" id="dcHistoryBtn" data-dc-i18n="history">历史</button>
-                    <button type="button" class="dc-ghost-btn" id="dcExportLog" data-dc-i18n="exportLog" title="导出本次对话的完整日志（JSON），便于研发定位问题">导出日志</button>
+                    <div class="dc-export" id="dcExport">
+                        <button type="button" class="dc-ghost-btn" id="dcExportLog" aria-haspopup="menu" aria-expanded="false" aria-controls="dcExportMenu"><span data-dc-i18n="exportLog">导出日志</span><svg class="dc-model-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+                        <div class="dc-model-menu dc-export-menu" id="dcExportMenu" role="menu" hidden></div>
+                    </div>
                     <button type="button" class="dc-ghost-btn" id="dcNewChat" data-dc-i18n="newChat">新对话</button>
                     <button type="button" class="dc-ghost-btn" id="dcBackToTools" data-dc-i18n="backToTools">浏览工具</button>
                 </div>
@@ -1790,6 +1793,7 @@
     <script src="/js/home/skills-tools.js"></script>
     <script src="/js/home/workspace-panel.js"></script>
     <script src="/js/home/conversation-list.js"></script>
+    <script src="/js/home/dragon-claw-export.js"></script>
     <script src="/js/home/dragon-claw.js"></script>
     <script src="/js/home/welink-threads.js"></script>
     <script src="/js/home/desktop-agents.js"></script>

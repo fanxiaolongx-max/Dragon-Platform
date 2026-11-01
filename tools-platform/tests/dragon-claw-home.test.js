@@ -69,3 +69,23 @@ test('dragon-claw styles grounding basis chips for dark theme and prevents light
     assert.match(css, /\.dc-msg\s+\.ai-grounding-graph\.metric-reference/);
 });
 
+
+test('export-log button offers an HTML snapshot and the JSON debug log', () => {
+    const html = read('frontend/index.html');
+    const script = read('frontend/js/home/dragon-claw.js');
+    const exporter = read('frontend/js/home/dragon-claw-export.js');
+    assert.match(html, /id="dcExportLog"[^>]*aria-haspopup="menu"/);
+    assert.match(html, /id="dcExportMenu"[^>]*role="menu"/);
+    assert.ok(html.indexOf('/js/home/dragon-claw-export.js') < html.indexOf('/js/home/dragon-claw.js'), 'exporter loads before Dragon Claw');
+    assert.match(script, /kind === 'html' \? exportChatHtml\(\) : exportChatLog\(\)|if \(kind === 'html'\) exportChatHtml\(\); else exportChatLog\(\);/);
+    // 分页的更早记录按需加载到导出范围，快照才完整
+    assert.match(script, /await loadExportHistory\(\);[\s\S]*?DragonClawExport\.buildHtml/);
+    // 快照内联图片和文件，大文件按上限跳过；重复图片只存一份
+    assert.match(exporter, /const FILE_LIMIT = /);
+    assert.match(exporter, /\/api\/agent-files\/stat\?path=/);
+    assert.match(exporter, /function dedupeImages/);
+    // 太久远的不导出：只取最近一段时间、最多若干条
+    assert.match(script, /const EXPORT_DAYS = \d+;/);
+    assert.match(script, /const EXPORT_MAX_MESSAGES = \d+;/);
+    assert.match(exporter, /function trimToRecent/);
+});

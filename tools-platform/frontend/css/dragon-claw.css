@@ -612,6 +612,15 @@ body.dc-chatting .dc-chat-head {
     cursor: pointer;
 }
 .dc-ghost-btn:hover { border-color: rgba(100, 255, 218, 0.4); color: #e6fffa; }
+/* 导出日志下拉：网页快照 / 研发日志（js/home/dragon-claw.js），复用模型菜单的面板与选项样式 */
+/* 头部的入场动画会建立层叠上下文，下拉需要整个头部压在对话区之上 */
+body.dc-chatting .dc-chat-head:has(.dc-export.is-open) { position: relative; z-index: 20; }
+.dc-export { position: relative; flex: none; }
+.dc-export .dc-ghost-btn { display: inline-flex; align-items: center; gap: 4px; }
+.dc-export .dc-ghost-btn:disabled { opacity: 0.6; cursor: progress; }
+.dc-export.is-open .dc-model-caret { transform: rotate(180deg); }
+.dc-export-menu { top: calc(100% + 8px); right: 0; bottom: auto; left: auto; z-index: 30; min-width: 280px; }
+.dc-export-icon { flex: none; width: 22px; font-size: 16px; text-align: center; }
 
 body.dc-chatting .dc-thread {
     display: block;
