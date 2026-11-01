@@ -24,6 +24,7 @@
         context: null,
         changes: [],
         openDiff: null,
+        expandChanges: false,
         pr: null, // { phase: 'checking'|'blocked'|'form'|'running'|'done'|'failed', preflight, steps, url, error, controller }
         open: false,
         filePreview: null,
@@ -189,6 +190,7 @@
     }
 
     // ── 更改卡 ──────────────────────────────────────────
+    const CHANGES_COLLAPSE_THRESHOLD = 8;
     function renderChanges() {
         const list = state.changes || [];
         const added = list.reduce((sum, item) => sum + (item.added || 0), 0);
@@ -198,10 +200,16 @@
             el.changesBody.innerHTML = `<div class="wsp-empty">${escapeHtml(tx('noChanges'))}</div>`;
             return;
         }
+        // 如果打开的 diff 在折叠范围之外，自动展开以保持 diff 可见
+        if (state.openDiff && list.findIndex(item => item.path === state.openDiff.path) >= CHANGES_COLLAPSE_THRESHOLD) {
+            state.expandChanges = true;
+        }
+        const isFolded = list.length > CHANGES_COLLAPSE_THRESHOLD && !state.expandChanges;
+        const visibleList = isFolded ? list.slice(0, CHANGES_COLLAPSE_THRESHOLD) : list;
         const kindLabel = { create: 'A', modify: 'M', delete: 'D', rename: 'R' };
         el.changesBody.innerHTML = `
             <ul class="wsp-changes">
-                ${list.map(item => `
+                ${visibleList.map(item => `
                     <li class="wsp-change${state.openDiff?.path === item.path ? ' is-open' : ''}">
                         <button type="button" class="wsp-change-main" data-wsp-diff="${escapeHtml(item.path)}" title="${escapeHtml(tx('viewDiff'))}">
                             <span class="wsp-change-kind wsp-change-kind--${item.kind}">${kindLabel[item.kind] || '?'}</span>
@@ -215,6 +223,13 @@
                             : `<button type="button" class="wsp-btn wsp-btn-quiet" data-wsp-revert="${escapeHtml(item.path)}" ${item.revertible === false ? 'disabled' : ''} title="${escapeHtml(tx('revert'))}">↶</button>`}
                         ${state.openDiff?.path === item.path ? `<pre class="wsp-diff">${renderDiff(state.openDiff.text)}</pre>` : ''}
                     </li>`).join('')}
+                ${list.length > CHANGES_COLLAPSE_THRESHOLD ? `
+                    <li class="wsp-changes-fold">
+                        <button type="button" class="wsp-changes-more" data-wsp-changes-toggle="${state.expandChanges ? 'collapse' : 'expand'}">
+                            <span class="wsp-changes-more-arrow">${state.expandChanges ? '▲' : '▼'}</span>
+                            <span>${escapeHtml(state.expandChanges ? tx('changesShowLess') : tx('changesShowMore', { count: list.length - CHANGES_COLLAPSE_THRESHOLD }))}</span>
+                        </button>
+                    </li>` : ''}
             </ul>
             ${!isReadOnly() && (list.some(item => item.source !== 'git') || state.pr) ? renderPr() : ''}`;
         mountPrLog();
@@ -696,6 +711,7 @@
         state.context = null;
         state.changes = [];
         state.openDiff = null;
+        state.expandChanges = false;
         state.pr?.controller?.abort();
         state.pr = null;
         let previousRoot = '';
@@ -720,6 +736,7 @@
         state.context = null;
         state.changes = [];
         state.openDiff = null;
+        state.expandChanges = false;
         state.pr?.controller?.abort();
         state.pr = null;
         setOpen(false);
@@ -1281,6 +1298,12 @@
             if (mode) return setMode(mode.dataset.wspMode);
             const diff = event.target.closest('[data-wsp-diff]');
             if (diff) return toggleDiff(diff.dataset.wspDiff);
+            const toggleChangesBtn = event.target.closest('[data-wsp-changes-toggle]');
+            if (toggleChangesBtn && el.panel.contains(toggleChangesBtn)) {
+                state.expandChanges = !state.expandChanges;
+                renderChanges();
+                return;
+            }
             const revertBtn = event.target.closest('[data-wsp-revert]');
             if (revertBtn) return revert(revertBtn.dataset.wspRevert);
             const prBtn = event.target.closest('[data-wsp-pr]');
@@ -1506,6 +1529,7 @@
             try { sessionStorage.setItem(SESSION_ROOT_KEY, root); } catch { /* ignore */ }
             state.changes = [];
             state.openDiff = null;
+            state.expandChanges = false;
             state.context = null;
             renderContext();
             renderChanges();
@@ -1520,6 +1544,7 @@
             state.agentSessionId = newSessionId();
             state.changes = [];
             state.openDiff = null;
+            state.expandChanges = false;
             state.context = null;
             approvalCards.clear();
             toolRows.clear();

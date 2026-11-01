@@ -148,11 +148,17 @@ test('resuming selects the old folder, restores context and shows live changes i
     assert.match(panel, /setInterval\(\(\) => \{ if \(state\.open && document\.visibilityState === 'visible'\) refreshChanges\(\); \}, 15000\)/);
     assert.match(panel, /isReadOnly\(\) \? '' : item\.source === 'git'\n\s+\? `<span class="wsp-change-ext"/);
     assert.match(panel, /!isReadOnly\(\) && \(list\.some\(item => item\.source !== 'git'\) \|\| state\.pr\) \? renderPr\(\) : ''/);
+    // 更改过多时默认折叠：超过阈值显示折叠按钮，避免撑长面板
+    assert.match(panel, /const CHANGES_COLLAPSE_THRESHOLD = 8;/);
+    assert.match(panel, /data-wsp-changes-toggle/);
+    assert.match(panel, /state\.expandChanges = !state\.expandChanges/);
     const js = read('frontend/js/home/dragon-claw.js');
-    for (const key of ['resumeDirMissing', 'externalTag', 'externalChange']) {
+    for (const key of ['resumeDirMissing', 'externalTag', 'externalChange', 'changesShowMore', 'changesShowLess']) {
         assert.equal(js.split(`${key}: '`).length - 1, 2, `${key} has zh and en texts`);
     }
     assert.match(read('frontend/css/workspace-panel.css'), /\.wsp-change-ext \{/);
+    assert.match(read('frontend/css/workspace-panel.css'), /\.wsp-changes-fold \{/);
+    assert.match(read('frontend/css/workspace-panel.css'), /\.wsp-changes-more \{/);
 });
 
 test('read-only accounts, binary changes and the sidebar search box render properly', () => {
