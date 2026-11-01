@@ -78,7 +78,7 @@
 }
 
 .report-header:has(.ranking-card) {
-    grid-template-columns: minmax(0, 1fr) minmax(500px, 38%);
+    grid-template-columns: minmax(0, 1fr) minmax(440px, 34%);
 }
 
 .report-header-main,
@@ -102,7 +102,7 @@
     padding: 12px 16px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 10px;
     flex: 1;
     height: 100%;
@@ -346,19 +346,19 @@
     text-align: center;
 }
 
-/* Sub-bar: Deficiency Summary + Insights */
+/* Sub-bar: Deficiency Summary + Insights (三大模块 1:1:1 等宽对称排布) */
 .report-sub-bar {
     display: flex;
     align-items: stretch;
     justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px 12px;
+    flex-wrap: nowrap;
+    gap: 8px 10px;
     padding-top: 8px;
     border-top: 1px dashed var(--rep-line-subtle);
     margin-top: auto;
 }
 
-/* Deficiency Executive Summary Banner (短板诊断精炼总结) */
+/* 模块 1: 左侧短板诊断/排名概况 (与右侧两模块保持 1:1:1 严格等宽) */
 .report-deficiency-summary {
     display: flex;
     align-items: center;
@@ -367,9 +367,9 @@
     border-radius: var(--rep-radius-sm);
     font-size: 12px;
     line-height: 1.45;
-    flex: 1 1 480px;
-    box-sizing: border-box;
+    flex: 1 1 0;
     min-width: 0;
+    box-sizing: border-box;
     transition: all 0.2s ease;
 }
 
@@ -396,10 +396,33 @@
 
 .deficiency-content {
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 5px 8px;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
     min-width: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+}
+
+.deficiency-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 5px 6px;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.deficiency-summary-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 5px 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    font-size: 11px;
 }
 
 .deficiency-badge {
@@ -411,6 +434,7 @@
     font-weight: 700;
     letter-spacing: 0.2px;
     flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .report-deficiency-summary.is-warning .deficiency-badge {
@@ -426,18 +450,28 @@
 .deficiency-lead {
     font-weight: 600;
     color: #78350f;
+    white-space: nowrap;
 }
 
 .def-pills-wrap {
     display: inline-flex;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 4px;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+.def-pills-wrap::-webkit-scrollbar {
+    display: none;
 }
 
 .def-cat-pill {
     display: inline-flex;
     align-items: center;
+    white-space: nowrap;
+    flex-shrink: 0;
     gap: 4px;
     padding: 1px 6px;
     background: #ffffff;
@@ -523,13 +557,13 @@
     color: var(--rep-text-light);
 }
 
-/* Ranking Insights Cards (Metric count / Expiring warnings matching left card) */
+/* Ranking Insights Cards (右侧容器占 2/3，内部两模块等分各占 1/3) */
 .ranking-insights {
     display: flex;
     align-items: stretch;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 8px 10px;
-    flex: 1 1 480px;
+    flex: 2 1 0;
     box-sizing: border-box;
     min-width: 0;
 }
@@ -542,7 +576,7 @@
     border-radius: var(--rep-radius-sm);
     font-size: 12px;
     line-height: 1.45;
-    flex: 1 1 250px;
+    flex: 1 1 0;
     min-width: 0;
     box-sizing: border-box;
     text-align: left;
@@ -565,7 +599,7 @@
     transform: translateY(0);
 }
 
-/* Metric Scale Insight Card (Blue theme) */
+/* Metric Scale Insight Card (Blue theme) - 指标规模模块 (与其余两模块严格等宽) */
 #ranking-count-insight {
     background: #f0f7ff;
     border-color: #bae6fd;
@@ -582,7 +616,7 @@
     color: #ffffff;
 }
 
-/* Expiring Warning Insight Card (Amber/Warning or Green/Success theme) */
+/* Expiring Warning Insight Card (Amber/Warning or Green/Success theme) - 临期预警模块 (与其余两模块严格等宽) */
 #expiring-warning-insight {
     background: #fffbeb;
     border-color: #fde68a;
@@ -625,7 +659,7 @@
     color: #ffffff;
 }
 
-/* Insight Card Inner Structure */
+/* Insight Card Inner Structure: 数据行与描述行各自独立一行，不折行 */
 .insight-card-icon {
     font-size: 16px;
     flex-shrink: 0;
@@ -635,16 +669,21 @@
 .insight-card-content {
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 3px;
     min-width: 0;
     flex: 1 1 auto;
+    overflow: hidden;
 }
 
 .insight-card-header {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 4px 6px;
+    white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .insight-card-badge {
@@ -656,6 +695,7 @@
     font-weight: 700;
     letter-spacing: 0.2px;
     flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .insight-seq-tag {
@@ -664,6 +704,8 @@
     font-family: monospace, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
     opacity: 0.85;
     margin-right: 2px;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .insight-pill {
@@ -676,6 +718,8 @@
     border-radius: 4px;
     font-size: 10.5px;
     color: inherit;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .insight-delta {
@@ -685,6 +729,8 @@
     border-radius: 4px;
     font-size: 10.5px;
     font-weight: 700;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .insight-delta.is-danger {
@@ -719,6 +765,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     opacity: 0.95;
+    min-width: 0;
 }
 
 .insight-summary-lead {
@@ -1950,7 +1997,7 @@ body.has-matrix-fullscreen {
    ============================================================ */
 @media (max-width: 1400px) {
     .report-header:has(.ranking-card) {
-        grid-template-columns: minmax(0, 1fr) 480px;
+        grid-template-columns: minmax(0, 1fr) 440px;
     }
 }
 
@@ -1960,6 +2007,22 @@ body.has-matrix-fullscreen {
     }
     #report-ranking-summary {
         width: 100%;
+    }
+}
+
+@media (max-width: 950px) {
+    .report-sub-bar {
+        flex-wrap: wrap;
+    }
+    .report-deficiency-summary {
+        flex: 1 1 100%;
+    }
+    .ranking-insights {
+        flex: 1 1 100%;
+        flex-wrap: wrap;
+    }
+    .ranking-count-insight {
+        flex: 1 1 100%;
     }
 }
 

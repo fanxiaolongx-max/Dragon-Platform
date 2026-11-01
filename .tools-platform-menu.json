@@ -62,8 +62,8 @@
       "description": "数通协议知识库：OSPF、Juniper 跨厂商策略等知识的分类整理，配合二维拓扑、报文时序、按位图解与分步实验，理解复杂协议机制。",
       "href": "./datacom-protocol-expert/index.html",
       "encrypted": false,
-      "fingerprint": "1543c9f2d0fad74343a08539080dd0b399ceab4d19a435c873480aa509c7fb17",
-      "updatedAt": "2026-11-01T08:48:54.377Z"
+      "fingerprint": "8289dd5d31701b4f5389ed843cd7834b5d28fb3d4c36a33d2608d077af4bdd2e",
+      "updatedAt": "2026-11-01T18:48:57.771Z"
     },
     {
       "slug": "department-reward-penalty",
@@ -107,8 +107,8 @@
       "description": "查询产品是否属于强控业务比对范围，支持产品数据导入导出、服务器保存、模糊检索和静态快照同步。",
       "href": "./tool-mumxi3px/index.html",
       "encrypted": false,
-      "fingerprint": "6a2f72446519b7655e06db409b38ff4c16aa0b733b9f86825257e954337774c9",
-      "updatedAt": "2026-11-01T08:48:54.280Z"
+      "fingerprint": "1e45663f511936e8dedd645e84b6b3ae60a41094f722760662bce7cb8cdb24b8",
+      "updatedAt": "2026-11-01T18:48:57.639Z"
     },
     {
       "slug": "tool-mqp55fna",
