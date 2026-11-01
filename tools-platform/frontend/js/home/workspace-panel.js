@@ -983,8 +983,8 @@
         const cards = [...group.querySelectorAll(':scope > .dc-sub')];
         const running = cards.filter(card => card.classList.contains('is-running')).length;
         group.classList.toggle('is-single', cards.length < 2);
-        group.querySelector('.dc-sub-group-head b').textContent = tx('subGroup', { count: cards.length });
-        group.querySelector('.dc-sub-group-head span').textContent = running ? tx('subGroupRunning', { count: running }) : tx('subGroupDone');
+        group.querySelector('.dc-sub-group-title').textContent = tx('subGroup', { count: cards.length });
+        group.querySelector('.dc-sub-group-state').textContent = running ? tx('subGroupRunning', { count: running }) : tx('subGroupDone');
         group.classList.toggle('is-running', running > 0);
     }
 
@@ -1049,7 +1049,7 @@
             if (!group) {
                 group = document.createElement('div');
                 group.className = 'dc-sub-group is-single';
-                group.innerHTML = `<div class="dc-sub-group-head"><span class="dc-sub-group-icon" aria-hidden="true">🚀</span><b></b><span></span></div>`;
+                group.innerHTML = `<div class="dc-sub-group-head"><span class="dc-sub-group-icon" aria-hidden="true">🚀</span><b class="dc-sub-group-title"></b><span class="dc-sub-group-state"></span></div>`;
                 log.appendChild(group);
             }
             group.appendChild(card);
@@ -1083,7 +1083,7 @@
         const peek = card.querySelector('.dc-sub-peek');
         if (event.ok && event.result) {
             // 结论：卡片下方显示第一段，展开看完整 Markdown
-            const first = String(event.result).split('\n').map(line => line.replace(/^[#>*\-\s]+/, '').trim()).find(Boolean) || '';
+            const first = String(event.result).split('\n').map(line => line.replace(/^[#>*\-\s]+/, '').replace(/[`*_]/g, '').trim()).find(Boolean) || '';
             peek.innerHTML = `<div class="dc-sub-peek-result">${escapeHtml(first)}</div>`;
             const render = window.ToolsAIAssistant?.renderMarkdown;
             const wrap = card.querySelector('.dc-sub-result-wrap');

@@ -279,3 +279,19 @@ test('slash menu supports arrow-key selection; Enter runs and Tab completes the 
     for (const text of ["slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全'", "slashHint: '↑↓ to choose · Enter to run · Tab to complete'"]) assert.ok(js.includes(text), text);
     assert.match(read('frontend/css/dragon-claw.css'), /\.dc-slash-item\.is-active \{ box-shadow: inset 2px 0 0/);
 });
+
+test('subagent cards, continue-after-crash and per-turn rewind are wired into the chat', () => {
+    const panel = read('frontend/js/home/workspace-panel.js');
+    assert.match(panel, /if \(event\.type === 'subagent'\) \{\s*renderSubagent\(messageEl, event\);/);
+    assert.match(panel, /card\.style\.setProperty\('--sub', event\.color\)/, 'each subagent card uses its own colour');
+    assert.match(panel, /messageEl\?\.querySelectorAll\('\.dc-sub\.is-running'\)/, 'unfinished subagents settle when the turn ends');
+    assert.match(panel, /`\$\{API\}\/checkpoints\/\$\{encodeURIComponent\(target\.id\)\}\/rewind`/);
+    assert.match(panel, /decorateCheckpoints,/);
+    const js = read('frontend/js/home/dragon-claw.js');
+    assert.match(js, /if \(resume\.items\.at\(-1\)\?\.interrupted\) offerContinue/);
+    assert.match(js, /if \(data\.runId\) reply\.dataset\.runId = data\.runId;/);
+    for (const key of ['subGroup', 'subRunning', 'continueAction', 'continuePrompt', 'rewindAction', 'rewindConfirmLater']) assert.equal(js.split(`${key}: '`).length - 1, 2, key);
+    const css = read('frontend/css/workspace-panel.css');
+    assert.match(css, /\.dc-sub \{[\s\S]*--sub:/);
+    assert.match(css, /prefers-reduced-motion[\s\S]*\.dc-sub\.is-running \.dc-sub-avatar/);
+});
