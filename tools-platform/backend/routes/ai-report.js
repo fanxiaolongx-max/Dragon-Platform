@@ -7,6 +7,7 @@ const aiSettingsRepo = require('../models/ai-settings-repository');
 const aiProviderClient = require('../models/ai-provider-client');
 const images = require('../models/ai-report-images');
 const multer = require('multer');
+const { redactValue, redactText } = require('../models/ai-sensitive-data');
 
 const { AsyncLocalStorage } = require('node:async_hooks');
 
@@ -16,32 +17,58 @@ const MAX_TOOL_STEPS = 8;
 // Developer mode: a request carrying _debug:true records every exchange with the model (what was sent, what came
 // back, tool calls, retries) and returns it as _trace next to the normal answer, including on errors.
 const traceStore = new AsyncLocalStorage();
-const TRACE_TEXT = 40000;
-const clip = value => { const text = typeof value === 'string' ? value : JSON.stringify(value, null, 1) || ''; return text.length > TRACE_TEXT ? `${text.slice(0, TRACE_TEXT)}\n…（共 ${text.length} 字，后面已截断）` : text; };
-function trace(entry) { const item = { at: new Date().toISOString(), ...entry }, store = traceStore.getStore(); if (store && store.length < 120) store.push(item); return item; }
+const clip = value => typeof value === 'string' ? value : JSON.stringify(value, null, 1) || '';
+function progress(stage, name = '', status = '') { traceStore.getStore()?.emit?.({ type: 'progress', stage, name, status, at: new Date().toISOString() }); }
+function publishTrace(item) { const store = traceStore.getStore(); if (store?.debug) store.emit?.({ type: 'trace', step: redactValue(item) }); }
+function trace(entry) {
+    const store = traceStore.getStore(), item = { id: 's' + (store ? ++store.seq : 0), at: new Date().toISOString(), ...entry };
+    if (store?.debug) { store.steps.push(item); publishTrace(item); }
+    return item;
+}
 router.use((req, res, next) => {
-    if (req.body?._debug !== true) return next();
-    delete req.body._debug;
-    const store = [], json = res.json.bind(res);
-    res.json = body => json(body && typeof body === 'object' && !Array.isArray(body) ? { ...body, _trace: store } : body);
+    const debug = req.body?._debug === true, streaming = req.body?._stream === true;
+    if (!debug && !streaming) return next();
+    const requestBody = debug ? redactValue(req.body) : null;
+    delete req.body._debug; delete req.body._stream;
+    const store = { debug, steps: [], seq: 0 }, json = res.json.bind(res);
+    const started = Date.now(), request = requestBody;
+    let heartbeat;
+    if (streaming) {
+        res.set({ 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-store, no-transform', 'X-Accel-Buffering': 'no' });
+        res.flushHeaders();
+        store.emit = event => { if (!res.destroyed && !res.writableEnded) res.write(JSON.stringify(event) + '\n'); };
+        store.emit({ type: 'progress', stage: 'received', requestId: req.requestId || '', at: new Date().toISOString() });
+        heartbeat = setInterval(() => store.emit({ type: 'heartbeat' }), 15000);
+        res.on('close', () => clearInterval(heartbeat));
+    }
+    res.json = body => {
+        const result = body && typeof body === 'object' && !Array.isArray(body) ? { ...body, ...(debug ? { _trace: redactValue(store.steps), _request: request } : {}) } : body;
+        if (!streaming) return json(result);
+        clearInterval(heartbeat);
+        store.emit({ type: 'result', status: res.statusCode, requestId: req.requestId || '', ms: Date.now() - started, body: result });
+        res.end(); return res;
+    };
     traceStore.run(store, next);
 });
 const traced = client => !client || client.__traced ? client : new Proxy(client, { get(target, key, receiver) {
     if (key === '__traced') return true;
     if (key === 'generateImage') return async options => {
-        const started = Date.now(), entry = trace({ kind: 'ai', system: '（绘图模型）', messages: clip({ prompt: options.prompt, referenceImages: (options.images || []).length, aspectRatio: options.aspectRatio || '' }), tools: [] });
-        try { const result = await target.generateImage(options); Object.assign(entry, { ms: Date.now() - started, reply: clip({ images: result.images.map(image => `${image.mimeType} ${Math.round(image.data.length * 0.75 / 1024)}KB`), text: result.text, usage: result.usage }) }); return result; }
-        catch (error) { Object.assign(entry, { ms: Date.now() - started, error: error.message }); throw error; }
+        progress('image');
+        const started = Date.now(), entry = trace({ kind: 'ai', status: 'running', system: '（绘图模型）', messages: clip({ prompt: options.prompt, referenceImages: (options.images || []).length, aspectRatio: options.aspectRatio || '' }), tools: [] });
+        try { const result = await target.generateImage(options); Object.assign(entry, { ms: Date.now() - started, reply: clip({ images: result.images.map(image => `${image.mimeType} ${Math.round(image.data.length * 0.75 / 1024)}KB`), text: result.text, usage: result.usage }) }); entry.status = 'success'; publishTrace(entry); progress('model_done'); return result; }
+        catch (error) { Object.assign(entry, { status: 'error', ms: Date.now() - started, error: redactText(error.message) }); publishTrace(entry); throw error; }
     };
     if (key !== 'generateChat') return Reflect.get(target, key, receiver);
     return async options => {
-        const started = Date.now(), entry = trace({ kind: 'ai', system: clip(options.systemInstruction || ''), messages: clip((options.messages || []).map(item => ({ role: item.role, content: item.content, ...(item.toolCalls ? { toolCalls: item.toolCalls } : {}), ...(item.toolResults ? { toolResults: item.toolResults } : {}) }))), tools: (options.tools || []).map(tool => tool.name) });
+        progress('model');
+        const started = Date.now(), entry = trace({ kind: 'ai', status: 'running', system: clip(options.systemInstruction || ''), messages: clip((options.messages || []).map(item => ({ role: item.role, content: item.content, ...(item.toolCalls ? { toolCalls: item.toolCalls } : {}), ...(item.toolResults ? { toolResults: item.toolResults } : {}) }))), tools: (options.tools || []).map(tool => tool.name) });
         try {
             const result = await target.generateChat(options);
             Object.assign(entry, { ms: Date.now() - started, reply: clip(result.text || ''), toolCalls: result.toolCalls?.length ? clip(result.toolCalls.map(call => ({ name: call.name, args: call.args }))) : '' });
+            entry.status = 'success'; publishTrace(entry); progress('model_done');
             if (result.providerClient) result.providerClient = traced(result.providerClient);
             return result;
-        } catch (error) { Object.assign(entry, { ms: Date.now() - started, error: error.message }); throw error; }
+        } catch (error) { Object.assign(entry, { status: 'error', ms: Date.now() - started, error: redactText(error.message) }); publishTrace(entry); throw error; }
     };
 } });
 const TOOL_RESULT_CHARS = 14000;
@@ -74,6 +101,7 @@ router.get('/template', handle(async (req, res) => {
 router.get('/sources', handle(async (req, res) => res.json(await data.listSources(req.query.month))));
 router.post('/run-data', handle(async (req, res) => {
     const recipe = model.normalizeRecipe(req.body?.recipe);
+    progress('data');
     const { input, missing } = await data.recipeInput(req.body?.month, recipe.sources);
     res.json({ input, missing });
 }));
@@ -112,12 +140,14 @@ const DATA_TOOLS_GUIDE = '可用工具：list_sources（本月导入的原始表
 // Conversation: answer questions about the data and settle what the cell should show. No recipes here.
 // Conflicts come first: a new requirement that contradicts an existing prompt (this one or another level) is never
 // silently applied; the user picks which side wins from clickable choices.
-const CONFLICT_RULE = `- 冲突优先询问：用户这次的要求如果和已有提示词里的某条要求冲突（包括当前这段提示词，以及给出的章节样式提示词、月报整体风格提示词、格子提示词），先不要回复 ready，回复 ask：用一两句话说明冲突在哪，两边都引用原文（如“现在的要求：事故写本月起数并和目标比较；你这次说：事故只写增量”），choices 给出 2-4 个可以直接点选的处理方式，每个不超过 20 个字，例如“以这次为准，替换原要求”“保留原来的要求”“只在这个格子例外”“两条都保留：……”。只是补充、细化而不矛盾时不算冲突，不要问。冲突的提问必须用 ask（带 choices），绝不能写在 answer 里让用户打字回答。用户选好后按选择处理，并在复述里说明哪条要求被替换或保留；用户没有选、而是提了别的要求时，先处理新要求，回答末尾再提一句之前的冲突还没确认。`;
+const CONFLICT_RULE = `- 用户明确要求取消、替换当前格子的展示组件或改为仅文字，视为已给出选择，直接按新要求执行；不要反复要求确认旧方案。未明确取舍的冲突优先询问：用户这次的要求如果和已有提示词里的某条要求冲突（包括当前这段提示词，以及给出的章节样式提示词、月报整体风格提示词、格子提示词），先不要回复 ready，回复 ask：用一两句话说明冲突在哪，两边都引用原文（如“现在的要求：事故写本月起数并和目标比较；你这次说：事故只写增量”），choices 给出 2-4 个可以直接点选的处理方式，每个不超过 20 个字，例如“以这次为准，替换原要求”“保留原来的要求”“只在这个格子例外”“两条都保留：……”。只是补充、细化而不矛盾时不算冲突，不要问。冲突的提问必须用 ask（带 choices），绝不能写在 answer 里让用户打字回答。用户选好后按选择处理，并在复述里说明哪条要求被替换或保留；用户没有选、而是提了别的要求时，先处理新要求，回答末尾再提一句之前的冲突还没确认。`;
 
 const CONFLICT_RETRY = '这是在问用户冲突怎么处理：请改用 {"type":"ask","question":"…","choices":["…","…"]}，choices 给出 2-4 个可以直接点选的处理方式。';
 const asksAboutConflict = reply => reply?.type === 'answer' && /冲突/.test(String(reply.text || '')) && /[？?]\s*$/.test(String(reply.text || '').trim());
 
-const CHAT_PROMPT = `你是“AI 月报”的格子助手。月报由许多格子组成，每个格子最终由一段“提示词”描述：用哪些数据、怎么筛选和计算、用什么形式展示、要不要文字总结。
+const CHAT_PROMPT = `
+【需求优先级与修改规则】数据真实、只读权限、沙箱和输出协议属于技术边界；展示默认值不能覆盖用户明确要求。用户确认的格子级例外优先于章节、整体风格的展示默认规则；范围仅限当前格子。最新确认修改替换冲突的旧要求，其余要求保留。默认规则提到某种组件，不表示必须添加该组件。仅修改展示形式时，保留数据来源与计算，删除被替换的旧图表、指标卡、表格、布局要求；不要只在旧要求后面再追加新要求。不要把“没有额外总结”理解成“不要任何文字”，也不要把“只写总结”理解成“总结外还要加卡片”。
+你是“AI 月报”的格子助手。月报由许多格子组成，每个格子最终由一段“提示词”描述：用哪些数据、怎么筛选和计算、用什么形式展示、要不要文字总结。
 现在是和用户讨论这个格子的阶段：
 - 用户问数据相关的问题（有哪些表、有哪些列、某个值是多少、数据大概什么样），就用工具查清后直接回答，回答要具体、简短。不要生成配方，也不要每次都给出表格方案。
 - 用户提出要展示的内容时，帮他把需求说清楚：数据来源、口径、筛选、计算、展示形式。不清楚就提问，并给出 2-5 个具体选项。
@@ -137,8 +167,10 @@ ${DATA_TOOLS_GUIDE}
 不要输出 Markdown 代码块或其它文字。用户用中文就用中文回答。`;
 
 // Summary: the whole conversation becomes one self-contained cell prompt.
-const PROMPT_SUMMARY = `把下面这段关于月报格子的对话总结成这个格子的“最终提示词”。要求：
-- 写成给数据分析助手的一段清晰指令（中文，3-10 句或分行要点），只依据对话中用户确认过的内容，不要加入用户没提过的要求。
+const PROMPT_SUMMARY = `
+【需求优先级与修改规则】数据真实、只读权限、沙箱和输出协议属于技术边界；展示默认值不能覆盖用户明确要求。用户确认的格子级例外优先于章节、整体风格的展示默认规则；范围仅限当前格子。最新确认修改替换冲突的旧要求，其余要求保留。默认规则提到某种组件，不表示必须添加该组件。仅修改展示形式时，保留数据来源与计算，删除被替换的旧图表、指标卡、表格、布局要求；不要只在旧要求后面再追加新要求。不要把“没有额外总结”理解成“不要任何文字”，也不要把“只写总结”理解成“总结外还要加卡片”。
+把下面这段关于月报格子的对话总结成这个格子的“最终提示词”。要求：
+- 写成给数据分析助手的一段清晰指令（中文，按需求复杂度使用必要的句子或分行要点），只依据对话中用户确认过的内容，不要加入用户没提过的要求。
 - 必须写清：数据来源（表名/工作表/指标名）、筛选条件（默认报告月份）、需要的列或字段、计算与排序、展示形式（表格/指标卡/柱状图/折线图/饼图/文字等）、是否需要文字总结以及总结重点。
 - 这个格子每个月都会用当月数据重新生成，所以时间要写成“报告月份”“上个月”等相对说法，不要写死具体年月（除非用户明确要求固定某个月）。
 - 数据来源只能写对话里查到并说明过的真实来源（指标名称、导入表名、数据集名），不要自己编“xx 原始数据表”这类名称；指标只写名称，不要写 key（key 换月会变）。
@@ -196,8 +228,10 @@ async function textEditTurn(client, { month, prompt, place, kind, before, after,
 }
 
 // Compile: a confirmed prompt becomes a recipe that reruns every month.
-const COMPILE_PROMPT = `你要把月报格子的“最终提示词”编译成一个可以每月重复运行的配方。数字必须由 compute 代码从数据算出，不能写死在代码里。
-如果给了“月报整体风格提示词”，其中的通用要求每个格子都要遵守；它和下面的默认做法冲突时以它为准（JSON 格式、kit 用法、数据来源格式等技术约束除外）。
+const COMPILE_PROMPT = `
+【需求优先级与修改规则】数据真实、只读权限、沙箱和输出协议属于技术边界；展示默认值不能覆盖用户明确要求。用户确认的格子级例外优先于章节、整体风格的展示默认规则；范围仅限当前格子。最新确认修改替换冲突的旧要求，其余要求保留。默认规则提到某种组件，不表示必须添加该组件。仅修改展示形式时，保留数据来源与计算，删除被替换的旧图表、指标卡、表格、布局要求；不要只在旧要求后面再追加新要求。不要把“没有额外总结”理解成“不要任何文字”，也不要把“只写总结”理解成“总结外还要加卡片”。
+你要把月报格子的“最终提示词”编译成一个可以每月重复运行的配方。数字必须由 compute 代码从数据算出，不能写死在代码里。
+如果给了“月报整体风格提示词”，其中的通用要求作为默认；用户确认的格子例外优先于它，其余要求仍遵守；它和下面的默认做法冲突时以它为准（JSON 格式、kit 用法、数据来源格式等技术约束除外）。
 ${DATA_TOOLS_GUIDE} 编译前先用工具确认表和列确实存在。
 
 配方格式：
@@ -213,7 +247,7 @@ ${DATA_TOOLS_GUIDE} 编译前先用工具确认表和列确实存在。
 ${KIT_GUIDE}
 - 配色交给平台：kit.chart 的 ECharts 配置里一般不要写颜色，平台会自动套用月报主题色；确需区分时只能用 6 位十六进制色值，绝不能在 ECharts 配置里写 var(...)。只有自己拼接的 HTML 内联样式可以用 var(--air-accent)、var(--kit-c0) 到 var(--kit-c7)。
 - 坐标轴标签、图例和文字不能超出图表或格子的上下左右边界：长分类名缩写或截断（ECharts 用 axisLabel 的 width + overflow:'truncate' 或 rotate），并在 tooltip 里显示全称；不要让图表上方留出大块空白。
-- 提示词里如果有【尺寸约束】，全部内容必须在给定的宽高内完整显示：kit.chart 的 height 按剩余空间设置（减去标题、文字总结和表格占用的高度）；日期缩短为 MM-DD 或 M/D；用 splitNumber 减少刻度；grid 边距收紧并 containLabel:true；图例放顶部单行或省略；表格只保留最关键的列和行（其余用 kit.datatable 分页）；文字总结一到两句；按约束里给出的规则缩写长名称。
+- 提示词里如果有【尺寸约束】，全部内容必须在给定的宽高内完整显示：kit.chart 的 height 按剩余空间设置（减去标题、文字总结和表格占用的高度）；日期缩短为 MM-DD 或 M/D；用 splitNumber 减少刻度；grid 边距收紧并 containLabel:true；图例放顶部单行或省略；表格只保留最关键的列和行（其余用 kit.datatable 分页）；未指定总结长度时默认一到两句，用户明确的长度优先；按约束里给出的规则缩写长名称。
 - 鼠标悬停、高亮、选中等交互效果只能让元素变深或变浅，不能让任何图形或文字消失：不要把 emphasis/blur/select 的颜色设成 transparent 或 none，不要把透明度设得很低，不要用 emphasis.focus 让其他元素几乎看不见。表格、文字等其他内容同样不能在悬停时被隐藏。
 - 格子里不能出现滚动条或需要滑动的区域：不要写 overflow:auto/scroll、max-height 之类限制高度的样式，不要用 ECharts 的 dataZoom；放不下时精简内容、调小图表，长表格用 kit.datatable 分页。
 - 提示词要求了标题（如“标题为 X”）时，必须把这个标题显示出来：用 kit.layout(rows,{title:'X'}) 或 kit.chart(option,{title:'X'})，不要只写在 ECharts 配置以外的说明里，也不要漏掉。
@@ -224,7 +258,7 @@ ${KIT_GUIDE}
 - 提示词里的数据来源名称不一定和实际名称完全一样：导入表里找不到时，一定再查 list_metrics 和 list_datasets，按含义匹配（如“日志回传率”对应指标“日志回传”）；都找不到就回复 ask 说明，绝不能拿无关的数据代替。
 - render 里不能写死描述数据的句子（如“ORG 最高”），结论文字要用 result 里的数据拼出来，或交给 narrative。
 - 快速跳转导航：用 include:'outline' 的月报内容源，compute 把章节（或格子）整理成 [{label, anchor, no}]，render 用 kit.nav 显示；默认只列 numbered 为 true 的章节（不编号的总览、导航等不列），编号用数据里的 no；提示词没有特别说明时只列章节、不列格子，kit.nav 用 columns:4（每行 4 个按钮），不加标题、不需要文字总结（narrative 为 null）；提示词说了几行几个时按它算 columns；章节名、编号和 anchor 都从数据里取，不能写死（章节改名、调整顺序后要自动跟着变）。
-- 总览 / 汇总：用 include:'results' 的月报内容源。每个格子都有 summary（没有自己总结的格子，平台已经用 AI 从它的结果里提炼了一句，summaryFrom 为 'result'；summary 为空字符串表示没有要点可写），结论直接用 summary，不要在代码里自己从 result 拼要点句子；每个格子的 result 结构各不相同（字段由各自的配方决定），绝不能假设里面有 items、metrics、status 之类的字段；要判断达标与否，就看 summary 里有没有“未达标”；数字只能来自这些结果，取不到就不写；可以用 kit.link 链接到对应格子方便跳转。整体总结（“本月整体…”这类话）必须交给 narrative（设置 narrative:{prompt:'根据各格子的结论概括本月整体情况…'}），render 里不能写任何整体评价或套话。
+- 总览 / 汇总：用 include:'results' 的月报内容源。每个格子都有 summary（没有自己总结的格子，平台已经用 AI 从它的结果里提炼了一句，summaryFrom 为 'result'；summary 为空字符串表示没有要点可写），结论直接用 summary，不要在代码里自己从 result 拼要点句子；每个格子的 result 结构各不相同（字段由各自的配方决定），绝不能假设里面有 items、metrics、status 之类的字段；要判断达标与否，就看 summary 里有没有“未达标”；数字只能来自这些结果，取不到就不写；可以用 kit.link 链接到对应格子方便跳转。整体总结默认交给 narrative，用户明确指定其它展示位置时允许由 render 使用计算结果生成（设置 narrative:{prompt:'根据各格子的结论概括本月整体情况…'}），不得写没有数据依据的整体评价或套话。
 - 写“最高/最低、最优/最差”这类结论时必须处理并列：用 kit.extremes；全部相等时写“各运营商持平，均为 100”这类话，不写最高最低；并列时列出全部名称（如“TE、ORG 并列最高”）。
 - compute 里读取的每个指标名称都必须写进对应指标源的 names（例如要显示“路由器”整体值和“路由器 / TE”等分项时，names 里两者都要有）。指标一律按 list_metrics 返回的名称 label 原样取值（如 input.m1.values['事故']），不要用 key（key 换月可能会变），也不要拿名称去匹配 key；取不到（undefined）要能被发现，不要先填 0 再静默保留。
 - compute 返回的字段名必须和 render 读取的字段名完全一致（包括 kit.table 的 columns.key）；运行时会检查，读取不存在的字段会被判为错误。
@@ -334,9 +368,19 @@ async function runWithTools(client, { system, month, messages, accept, fallback,
             const toolResults = [];
             for (const call of result.toolCalls) {
                 toolLog.push(call.name);
-                try { toolResults.push({ id: call.id, name: call.name, content: JSON.stringify(await runTool(call, month, context)).slice(0, TOOL_RESULT_CHARS) }); }
-                catch (error) { toolResults.push({ id: call.id, name: call.name, content: error.message, isError: true }); }
-                const done = toolResults.at(-1);trace({ kind: 'tool', name: call.name, args: clip(call.args || {}), result: clip(done.content), ...(done.isError ? { error: done.content } : {}) });
+                progress('tool', call.name, 'running');
+                const started = Date.now(), entry = trace({ kind: 'tool', name: call.name, args: redactValue(call.args || {}), status: 'running' });
+                try {
+                    const value = await runTool(call, month, context);
+                    const content = JSON.stringify(redactValue(value)) ?? 'null';
+                    toolResults.push({ id: call.id, name: call.name, content: content.slice(0, TOOL_RESULT_CHARS) });
+                    Object.assign(entry, { status: 'success', result: redactValue(value), modelResult: redactText(content.slice(0, TOOL_RESULT_CHARS)), modelTruncated: content.length > TOOL_RESULT_CHARS, ms: Date.now() - started });
+                } catch (error) {
+                    const message = redactText(error.message);
+                    toolResults.push({ id: call.id, name: call.name, content: message, isError: true });
+                    Object.assign(entry, { status: 'error', result: { error: message }, error: message, ms: Date.now() - started });
+                }
+                publishTrace(entry); progress('tool_done', call.name, entry.status);
             }
             messages.push({ role: 'tool', toolResults });
             continue;
@@ -346,6 +390,7 @@ async function runWithTools(client, { system, month, messages, accept, fallback,
         if (outcome.result) return outcome.result;
         const reason = parsed.error ? `JSON 无法解析（${parsed.error}）。请检查括号是否配对、代码字符串里的反斜杠和换行是否转义，重新输出完整 JSON。` : outcome.retry;
         retries.push(parsed.error ? `parse: ${parsed.error}` : outcome.retry.slice(0, 120));
+        progress('retry');
         trace({ kind: 'retry', text: reason });
         messages.push({ role: 'model', content: result.text || '' }, { role: 'user', content: reason });
     }
@@ -354,7 +399,7 @@ async function runWithTools(client, { system, month, messages, accept, fallback,
 }
 
 // Conversation turn: answers data questions or asks; never compiles a recipe.
-const styleLine = style => style ? `月报整体风格提示词（每个格子都要遵守：【风格与配色】决定样式、配色和语气；其它分类是每个格子生成内容时的通用要求，和默认做法冲突时以这里为准）：\n${style}` : '';
+const styleLine = style => style ? `月报整体风格默认要求（格子已确认的局部例外优先：【风格与配色】决定样式、配色和语气；其它分类是每个格子生成内容时的通用要求，和默认做法冲突时以这里为准）：\n${style}` : '';
 
 function cellTurn(client, { month, prompt, chat, message, style = '', outline = null }) {
     const context = [`报告月份：${month}`, prompt ? `这个格子当前的最终提示词：\n${prompt}` : '这个格子还没有最终提示词', styleLine(style)].filter(Boolean).join('\n');
@@ -378,7 +423,7 @@ function tidyRecipe(recipe) {
 // Compiles the confirmed prompt; an error from a previous run is passed back so the model can fix it.
 function compileTurn(client, { month, prompt, recipe, error, style = '', outline = null, previousPrompt = '' }) {
     // A working recipe from an earlier prompt is the base, so a small prompt change does not reroll the title or layout.
-    const base = recipe && !error && previousPrompt && previousPrompt !== prompt ? `之前的提示词：\n${previousPrompt}\n\n按之前提示词做出、能正常运行的配方：${JSON.stringify(recipe).slice(0, 12000)}\n在这个配方基础上按提示词的变化修改：提示词没变的部分（标题、布局、配色、文字写法等）保持原样；提示词里有而这个配方还没做到的要求（例如要显示的标题）必须补上；数据来源换了时重新用工具查清新来源的准确名称。` : '';
+    const base = recipe && !error && previousPrompt && previousPrompt !== prompt ? `之前的提示词：\n${previousPrompt}\n\n按之前提示词做出、能正常运行的配方：${JSON.stringify(recipe).slice(0, 12000)}\n在这个配方基础上按提示词的变化修改：没有被新要求替换的部分保持原样；展示形式变化时，旧 render、图表/卡片及小格子布局必须重建，旧配方只作数据与计算参考；提示词里有而这个配方还没做到的要求（例如要显示的标题）必须补上；数据来源换了时重新用工具查清新来源的准确名称。` : '';
     const content = [`报告月份：${month}`, `最终提示词：\n${prompt}`, styleLine(style), recipe && error ? `上一次的配方：${JSON.stringify(recipe).slice(0, 12000)}\n运行出错：${error}\n请修正。` : base].filter(Boolean).join('\n\n');
     return runWithTools(client, { system: COMPILE_PROMPT, month, messages: [{ role: 'user', content }], context: { outline }, fallback: { type: 'ask', question: '这个提示词我还没能编译成可运行的配方，能在对话里补充一下用哪张表、哪些列吗？', choices: [] }, accept: async (reply, toolLog) => {
         if (reply?.type === 'ask' && reply.question) return { result: askResult(reply, toolLog) };
@@ -389,7 +434,7 @@ function compileTurn(client, { month, prompt, recipe, error, style = '', outline
             // Made-up sources would only ever show "no data"; send them back while the model can still look them up.
             const unknown = await data.unknownSources(month, normalized.sources).catch(() => []);
             if (unknown.length) return { retry: `这些数据来源在系统里不存在：${unknown.join('；')}。不要编造 sourceKey、指标名称或数据集 id，只能用 list_sources、list_datasets 返回的值和 list_metrics 返回的指标名称；提示词里的名称可能和实际名称不同，请按含义在导入表、指标和数据集里查找。确实找不到就回复 ask 说明。` };
-            return { result: { type: 'recipe', reply: String(reply.reply || '').slice(0, 2000), recipe: normalized, tools: toolLog } };
+            return { result: { type: 'recipe', reply: String(reply.reply || '').slice(0, 2000), recipe: model.presentationRecipe(normalized,prompt), tools: toolLog } };
         }
         return { retry: '请只输出约定的 JSON 对象（type 为 recipe 或 ask）。' };
     } });
@@ -398,13 +443,19 @@ function compileTurn(client, { month, prompt, recipe, error, style = '', outline
 async function summarizePrompt(client, { month, prompt, chat, instruction = PROMPT_SUMMARY }) {
     const transcript = historyMessages(chat).map(item => `${item.role === 'user' ? '用户' : 'AI'}：${item.content}`).join('\n').slice(-30000);
     const content = [`报告月份：${month}`, prompt ? `之前的最终提示词：\n${prompt}` : '', `对话：\n${transcript}`].filter(Boolean).join('\n\n');
-    const reply = parseReply((await client.generateChat({ systemInstruction: instruction, messages: [{ role: 'user', content }], maxOutputTokens: 2000, temperature: 0.2 })).text);
-    if (!reply?.prompt) {
-        const error = new Error('AI 没有返回有效的提示词，请再点一次');
-        error.status = 502;
-        throw error;
+    const rule=instruction===PROMPT_SUMMARY?model.presentationOf(prompt,chat):null;
+    const messages=[{role:'user',content}];
+    for(let attempt=0;attempt<3;attempt++){
+        const raw=await client.generateChat({systemInstruction:instruction,messages,maxOutputTokens:2000,temperature:0.2});
+        const reply=parseReply(raw?.text);
+        if(!reply?.prompt)throw Object.assign(new Error('AI 没有返回有效的提示词，请重试'),{status:502});
+        const issue=reply?.prompt&&rule?model.presentationConflict(reply.prompt,rule):'';
+        if(reply?.prompt&&!issue)return (rule?model.withPresentation(String(reply.prompt).slice(0,rule.mode==='text'?3700:4000),rule):String(reply.prompt).slice(0,4000));
+        const reason=issue||'AI 没有返回有效的提示词';
+        trace({kind:'retry',text:reason});
+        messages.push({role:'model',content:raw.text||''},{role:'user',content:reason+'。重新输出完整提示词，删除冲突的旧展示要求，保留原数据来源与计算。只输出 JSON。'});
     }
-    return String(reply.prompt).slice(0, 4000);
+    throw Object.assign(new Error('最终提示词未满足已确认的要求，请重试；旧内容保留'),{status:502});
 }
 
 // The report outline the editor sends (chapters, cells, anchors, short summaries), kept small for the AI.
@@ -475,7 +526,9 @@ ${CONFLICT_RULE}
 {"type":"ask","question":"要问用户的问题","choices":["选项1","选项2"]}
 {"type":"ready","text":"一两句话复述要应用的风格"}`;
 
-const STYLE_SUMMARY = `把下面对话里用户确认的修改，总结成“月报整体风格提示词”的修改清单。不要重写整份提示词，只列出要改的条目，其余条目由系统原样保留。
+const STYLE_SUMMARY = `
+【需求优先级与修改规则】数据真实、只读权限、沙箱和输出协议属于技术边界；展示默认值不能覆盖用户明确要求。用户确认的格子级例外优先于章节、整体风格的展示默认规则；范围仅限当前格子。最新确认修改替换冲突的旧要求，其余要求保留。默认规则提到某种组件，不表示必须添加该组件。仅修改展示形式时，保留数据来源与计算，删除被替换的旧图表、指标卡、表格、布局要求；不要只在旧要求后面再追加新要求。不要把“没有额外总结”理解成“不要任何文字”，也不要把“只写总结”理解成“总结外还要加卡片”。
+把下面对话里用户确认的修改，总结成“月报整体风格提示词”的修改清单。不要重写整份提示词，只列出要改的条目，其余条目由系统原样保留。
 只输出 JSON：{"changes":[...]}，每一项是以下之一：
 {"action":"add","section":"分类名（不带【】，例如 排版与图表；需要新分类时写新的分类名）","item":"新条目，完整的一句话"}
 {"action":"remove","item":"要删除的条目原文（从当前提示词里逐字照抄那一条，不带开头的“- ”）"}
@@ -566,7 +619,9 @@ ${CONFLICT_RULE}
 {"type":"ask","question":"要问用户的问题","choices":["选项1","选项2"]}
 {"type":"ready","text":"一两句话复述要统一的样式"}`;
 
-const CHAPTER_SUMMARY = `把下面对话里用户确认的样式要求，整理成这个章节的“章节样式提示词”：每条一行、以“- ”开头，写成每个格子都能照做的通用样式要求（标题、配色、图表样式、排版、文字总结的位置与写法等）。
+const CHAPTER_SUMMARY = `
+【需求优先级与修改规则】数据真实、只读权限、沙箱和输出协议属于技术边界；展示默认值不能覆盖用户明确要求。用户确认的格子级例外优先于章节、整体风格的展示默认规则；范围仅限当前格子。最新确认修改替换冲突的旧要求，其余要求保留。默认规则提到某种组件，不表示必须添加该组件。仅修改展示形式时，保留数据来源与计算，删除被替换的旧图表、指标卡、表格、布局要求；不要只在旧要求后面再追加新要求。不要把“没有额外总结”理解成“不要任何文字”，也不要把“只写总结”理解成“总结外还要加卡片”。
+把下面对话里用户确认的样式要求，整理成这个章节的“章节样式提示词”：每条一行、以“- ”开头，写成每个格子都能照做的通用样式要求（标题、配色、图表样式、排版、文字总结的位置与写法等）。
 如果之前已有章节样式提示词，在它基础上按对话修改：保留没提到的条目，替换冲突的条目，删除用户要求去掉的条目。
 不能写任何数据来源、指标、筛选或计算方面的要求；不要写具体某个格子的名称或数字。
 只输出 JSON：{"prompt":"章节样式提示词"}`;
@@ -598,24 +653,24 @@ router.post('/chapter/prompt', handle(async (req, res) => {
 }));
 
 const RESTYLE_TASK = `这是一次章节样式统一，不是重新做格子：
-- 下面给出这个格子当前能正常运行的配方。sources 和 compute 必须逐字照抄（系统也会强制换回原样），只修改 render，让展示符合【本章节样式要求】。
+- 下面给出这个格子当前能正常运行的配方。sources 和 compute 必须逐字照抄（系统也会强制换回原样），修改 render，必要时同步 narrative 的位置或写法，让展示符合【本章节样式要求】并保留格子已确认的局部例外。
 - render 只能读取 compute 已经返回的字段，不能新增需要计算的数字；格子最终提示词里关于数据、口径、计算和要显示哪些内容的要求保持不变。
-- 样式方面（标题样式、配色、图表样式、排版、文字总结的位置和写法）和最终提示词冲突时，以【本章节样式要求】为准；最终提示词要求显示的标题文字照样显示。
-- narrative 不为 null 时可以按章节样式调整总结的写法要求，但总结依据的数据不变；原来为 null 的保持 null。`;
+- 章节样式作为统一默认；格子已有明确的组件类型、展示数量或局部例外时必须保留，不得借样式调整新增组件或改回旧展示形式；最终提示词要求显示的标题文字照样显示。
+- narrative 不为 null 时可以按章节样式调整总结的写法要求，但总结依据的数据不变；只有用户明确调整总结的位置或写法时才可在 narrative 和 render 之间迁移总结，不能凭空新增总结，不能重复显示。`;
 
 router.post('/cell/restyle', handle(async (req, res) => {
     const { month, prompt = '', recipe = null, attempt = null, error = '' } = req.body || {};
     if (!model.validMonth(month)) return res.status(400).json({ error: 'A valid report month is required' });
     if (!String(prompt).trim() || !recipe) return res.status(400).json({ error: '这个格子还没有生成过' });
     const original = model.normalizeRecipe(recipe), style = String(req.body.style || '').slice(0, 8000);
-    const content = [`报告月份：${month}`, `最终提示词：\n${String(prompt).slice(0, 4000)}`, styleLine(style), RESTYLE_TASK, `当前配方：${JSON.stringify(original).slice(0, 14000)}`, attempt && error ? `上一次改出来的配方：${JSON.stringify(attempt).slice(0, 12000)}\n运行出错：${String(error).slice(0, 2000)}\n请修正（仍然只改 render）。` : ''].filter(Boolean).join('\n\n');
+    const content = [`报告月份：${month}`, `最终提示词：\n${String(prompt).slice(0, 4000)}`, styleLine(style), RESTYLE_TASK, `当前配方：${JSON.stringify(original).slice(0, 14000)}`, attempt && error ? `上一次改出来的配方：${JSON.stringify(attempt).slice(0, 12000)}\n运行出错：${String(error).slice(0, 2000)}\n请修正展示层，仍须保留 sources 和 compute。` : ''].filter(Boolean).join('\n\n');
     const reply = await runWithTools(await aiClient(), { system: COMPILE_PROMPT, month, messages: [{ role: 'user', content }], tools: false, fallback: null, accept: async (value) => {
-        if (value?.type !== 'recipe') return { retry: '请只输出 {"type":"recipe","reply":"…","recipe":{…}}，sources 和 compute 照抄，只改 render。' };
+        if (value?.type !== 'recipe') return { retry: '请只输出 {"type":"recipe","reply":"…","recipe":{…}}，sources 和 compute 照抄，只改展示层（render 及必要的 narrative），不要改 sources 和 compute。' };
         let normalized;
         try { normalized = model.normalizeRecipe(tidyRecipe({ ...value.recipe, sources: original.sources, compute: original.compute })); }
         catch (problem) { return { retry: `配方无效：${problem.message}。请修正后只输出 JSON。` }; }
         // Data stays the cell's own: whatever came back, sources and compute are the original ones.
-        return { result: { type: 'recipe', reply: String(value.reply || '').slice(0, 2000), recipe: { ...normalized, sources: original.sources, compute: original.compute, ...(original.narrative ? {} : { narrative: null }) } } };
+        return { result: { type: 'recipe', reply: String(value.reply || '').slice(0, 2000), recipe: { ...normalized, sources: original.sources, compute: original.compute,  } } };
     } });
     if (reply?.type !== 'recipe') { const failure = new Error('AI 没能按章节样式改好这个格子'); failure.status = 502; throw failure; }
     res.json(reply);
@@ -627,13 +682,17 @@ router.post('/cell/narrative', handle(async (req, res) => {
     const normalized = model.normalizeRecipe(recipe);
     const client = await aiClient();
     const { toolContext } = await data.recipeInput(month, normalized.sources.filter(source => source.kind === 'tool'));
-    const instruction = '你为月报格子写总结。只能使用给定的计算结果和资料，不要编造数字。格子需求要求突出、加粗或标色关键数字时，用 **…** 包住要突出的数字或词（每段最多 4 处），平台会显示为加粗主题色；总结是纯文字，不能写 HTML 标签、颜色或样式（要求标红时也只用 **…**）。只写数据能证明的事实：数据里没有的原因（如“进度滞后”“更新不及时”）不能推测或编造，需要说明原因时只能点名数据里未达标的运营商和数值。格子需求里对总结写法的要求（格式、措辞、替换规则、不要写的内容）必须遵守，优先于总结要求。输出 JSON：{"zh":"中文 1-3 句","en":"English 1-3 sentences"}，不要输出其它内容。';
+    const instruction = '你为月报格子写总结。只能使用给定的计算结果和资料，不要编造数字。格子需求要求突出、加粗或标色关键数字时，用 **…** 包住要突出的数字或词（每段最多 4 处），平台会显示为加粗主题色；总结是纯文字，不能写 HTML 标签、颜色或样式（要求标红时也只用 **…**）。只写数据能证明的事实：数据里没有的原因（如“进度滞后”“更新不及时”）不能推测或编造，需要说明原因时只能点名数据里未达标的运营商和数值。格子需求里对总结写法的要求（格式、措辞、替换规则、不要写的内容）必须遵守，优先于总结要求。输出 JSON：{"zh":"中文总结（长度遵守格子要求，未指定时默认 1-3 句）","en":"English summary (follow the requested length)"}，不要输出其它内容。';
     const content = [`报告月份：${month}`, `格子需求：${prompt}`, styleLine(String(req.body.style || '').slice(0, 8000)), `总结要求：${normalized.narrative?.prompt || '概括本月要点'}`, `计算结果：${JSON.stringify(result ?? null).slice(0, 20000)}`, toolContext ? `其他工具资料：\n${toolContext}` : ''].filter(Boolean).join('\n');
-    const reply = parseReply((await client.generateChat({ systemInstruction: instruction, messages: [{ role: 'user', content }], maxOutputTokens: 1200, temperature: 0.3 })).text);
-    if (!reply?.zh) return res.status(502).json({ error: 'AI 没有返回有效的总结' });
-    // The summary shows as text: tags such as <span style=…> would appear literally, so only their words are kept.
-    const plain = text => String(text || '').replace(/<\/?[a-z][^<>]{0,300}>/gi, '').slice(0, 2000);
-    res.json({ zh: plain(reply.zh), en: plain(reply.en) });
+    const plain=text=>String(text||'').replace(/<\/?[a-z][^<>]{0,300}>/gi,'').trim().slice(0,2000);
+    const messages=[{role:'user',content}];
+    for(let attempt=0;attempt<3;attempt++){
+        const raw=await client.generateChat({systemInstruction:instruction,messages,maxOutputTokens:2000,temperature:0.2});
+        const reply=parseReply(raw.text),issue=reply?.zh?(model.summaryConflict(plain(reply.zh),prompt)||model.summaryConflict(plain(reply.en),prompt)):'AI 没有返回有效的总结';
+        if(!issue)return res.json({zh:plain(reply.zh),en:plain(reply.en)});
+        trace({kind:'retry',text:issue});messages.push({role:'model',content:raw.text||''},{role:'user',content:issue+'。请根据同一份数据重新写完整总结，严格遵守格子要求。'});
+    }
+    throw Object.assign(new Error('总结未满足格子的长度要求，请重试'),{status:502});
 }));
 
 // Header fields as prompt engineering: one field's text written from its prompt, with the dates already worked out so
@@ -675,7 +734,9 @@ ${CONFLICT_RULE}
 {"type":"answer","text":"回答"}
 {"type":"ask","question":"要问用户的问题","choices":["选项1","选项2"]}
 {"type":"ready","text":"一两句话复述要怎么写这个字段"}`;
-const FIELD_SUMMARY = `把下面关于月报开头一个字段的对话，总结成这个字段的“字段提示词”。
+const FIELD_SUMMARY = `
+【需求优先级与修改规则】数据真实、只读权限、沙箱和输出协议属于技术边界；展示默认值不能覆盖用户明确要求。用户确认的格子级例外优先于章节、整体风格的展示默认规则；范围仅限当前格子。最新确认修改替换冲突的旧要求，其余要求保留。默认规则提到某种组件，不表示必须添加该组件。仅修改展示形式时，保留数据来源与计算，删除被替换的旧图表、指标卡、表格、布局要求；不要只在旧要求后面再追加新要求。不要把“没有额外总结”理解成“不要任何文字”，也不要把“只写总结”理解成“总结外还要加卡片”。
+把下面关于月报开头一个字段的对话，总结成这个字段的“字段提示词”。
 - 用户要的是一段固定不变的文字时，写成“固定文字：”后面紧跟这段文字（原样，不加引号）。
 - 否则写成给 AI 的生成要求：依据什么写（报告月份、上下月、各章节格子的结论等）、格式、长度、语气，一到四句；日期写成“报告月份的下一个月”这类相对说法，不写死具体年月。
 - 如果之前已有字段提示词，在它基础上按对话修改；只依据对话里用户确认过的内容。

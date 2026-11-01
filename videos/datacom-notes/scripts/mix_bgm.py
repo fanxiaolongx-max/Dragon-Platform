@@ -11,12 +11,17 @@ src = 'assets/music/bgm_even.wav'
 if not os.path.exists(src):
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', 'assets/music/bgm_raw.wav', '-af', 'highpass=f=35,loudnorm=I=-20:TP=-2:LRA=7', '-ar', '44100', src], check=True)
 dur = probe(src)
-# 1) 不够长就用中段交叉淡入循环续上
+# 1) 不够长就从 40s 处起反复交叉淡入续接，直到够长
 ext = src
 if dur < total + 1:
-    ext = f'assets/music/{note}-bgm_long.wav'; need = total + 6 - dur
-    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', src, '-ss', str(min(40, dur / 3)), '-t', str(need + 6), '-i', src,
-                    '-filter_complex', '[0][1]acrossfade=d=5:c1=tri:c2=tri', ext], check=True)
+    ext = f'assets/music/{note}-bgm_long.wav'; cur = src; n = 0
+    while probe(cur) < total + 1:
+        n += 1; nxt = f'assets/music/{note}-bgm_long{n}.wav'
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', cur, '-ss', str(min(40, dur / 3)), '-i', src,
+                        '-filter_complex', '[0][1]acrossfade=d=5:c1=tri:c2=tri', nxt], check=True)
+        cur = nxt
+    os.replace(cur, ext)
+    for k in range(1, n): os.remove(f'assets/music/{note}-bgm_long{k}.wav')
 # 2) 旁白轨
 nar = f'assets/music/{note}-narration.wav'
 args = ['ffmpeg', '-v', 'error', '-y']
@@ -27,7 +32,7 @@ subprocess.run(args + ['-filter_complex', fc, '-map', '[out]', '-t', str(total),
 # 3) 侧链压缩：有人声时音乐降约 10~12 dB，停顿时 0.6 秒内回升
 fc = ('[0]aresample=44100,pan=stereo|c0=c0|c1=c0,highpass=f=40,volume=0.8[m];[1]aresample=44100,pan=stereo|c0=c0|c1=c0,volume=2.5[sc];'
       '[m][sc]sidechaincompress=threshold=0.02:ratio=10:attack=40:release=650:makeup=1:knee=4[d];'
-      f'[d]alimiter=limit=0.9,afade=t=in:d=1,afade=t=out:st={total-4}:d=4[o]')
+      f'[d]apad,alimiter=limit=0.9,afade=t=in:d=1,afade=t=out:st={total-4}:d=4[o]')
 subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', ext, '-i', nar, '-filter_complex', fc,
                 '-map', '[o]', '-t', str(total), '-ar', '44100', '-b:a', '192k', f'assets/music/{note}-bgm.mp3'], check=True)
 print('total', total, 'voices', len(voices))

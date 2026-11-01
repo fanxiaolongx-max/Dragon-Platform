@@ -794,7 +794,7 @@ function scrubbedEnv() {
         env[key] = value;
     });
     env.DRAGON_CLAW_AGENT = '1';
-    return env;
+    return require('./agent-trash-shim').withShim(env); // rm 移到废纸篓（macOS）
 }
 
 const terminatingProcesses = new WeakSet();

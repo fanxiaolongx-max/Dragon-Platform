@@ -113,6 +113,51 @@ async function withDatabase(ctx, id, callback, writable = false) {
     }
 }
 
+// ── 写前备份 ─────────────────────────────────────────────
+// 智能体在一次会话里第一次改某个平台库之前，先用 VACUUM INTO 复制一份到备份目录的 agent-db/（不进全局备份列表）。
+// 一小时内已有备份就不再复制；每个库只保留最近 3 份。备份失败则不写入。
+const BACKUP_KEEP = 3;
+const BACKUP_FRESH_MS = 60 * 60 * 1000;
+const backedUp = new WeakMap(); // 会话（changeLog）→ 已备份的库文件
+
+function backupDir() {
+    return path.join(require('./global-backup-repository').getBackupDir(), 'agent-db');
+}
+
+async function backupBeforeWrite(ctx, id) {
+    if (!String(id).startsWith('platform:')) return null;
+    const file = databaseFile(ctx, id);
+    const key = ctx.changeLog || ctx;
+    if (!backedUp.has(key)) backedUp.set(key, new Set());
+    const done = backedUp.get(key);
+    if (done.has(file)) return null;
+    const dir = backupDir();
+    fs.mkdirSync(dir, { recursive: true });
+    const prefix = `${path.basename(file, path.extname(file))}--`;
+    const existing = () => fs.readdirSync(dir).filter(name => name.startsWith(prefix) && name.endsWith('.db')).sort();
+    const latest = existing().at(-1);
+    if (latest && Date.now() - fs.statSync(path.join(dir, latest)).mtimeMs < BACKUP_FRESH_MS) {
+        done.add(file);
+        return null;
+    }
+    const target = path.join(dir, `${prefix}${new Date().toISOString().replace(/[:.]/g, '-')}.db`);
+    try {
+        await new Promise((resolve, reject) => {
+            const db = new sqlite3.Database(file, sqlite3.OPEN_READONLY, error => {
+                if (error) return reject(error);
+                db.configure('busyTimeout', 5000);
+                db.run('VACUUM INTO ?', [target], runError => db.close(() => (runError ? reject(runError) : resolve())));
+            });
+        });
+    } catch (error) {
+        fs.rmSync(target, { force: true });
+        throw Object.assign(new Error(`写入前自动备份失败，没有修改数据：${error.message}`), { code: 'AGENT_DATABASE_BACKUP_FAILED' });
+    }
+    existing().slice(0, -BACKUP_KEEP).forEach(name => fs.rmSync(path.join(dir, name), { force: true }));
+    done.add(file);
+    return target;
+}
+
 async function tables(all) {
     const rows = await all("SELECT name, sql FROM sqlite_master WHERE type = 'table' ORDER BY name LIMIT 2000");
     return rows.filter(row => !PRIVATE_TABLE.test(row.name) && /^CREATE\s+TABLE\b/i.test(row.sql || ''));
@@ -316,6 +361,7 @@ async function writeTable(ctx, args, internalOptions = {}) {
     // 脚本是可执行业务内容，允许包含鉴权逻辑和原有凭据；其余库/表的凭据保护保持不变。
     const scriptContent = internalOptions.scriptContent === true && args.table === 'uiv_scripts'
         && /^platform:(?:(?:data|report)\/)?tools\.db$/i.test(String(args.database));
+    const backup = ctx.readOnly === false ? await backupBeforeWrite(ctx, args.database) : null;
     return withDatabase(ctx, args.database, async (all, run) => {
         await run('BEGIN IMMEDIATE');
         try {
@@ -326,7 +372,7 @@ async function writeTable(ctx, args, internalOptions = {}) {
             await run('COMMIT');
             return { database: args.database, table: args.table, operation: args.operation, changes: result.changes,
                 ...(args.operation === 'insert' ? { lastID: result.lastID } : {}),
-                note: '修改已提交；changes 为直接受影响行数，外键级联遵循数据库约束。数据库修改不支持文件撤销。' };
+                note: `修改已提交；changes 为直接受影响行数，外键级联遵循数据库约束。数据库修改不支持文件撤销${backup ? `，修改前的整库备份：${backup}` : ''}。` };
         } catch (error) {
             await run('ROLLBACK').catch(() => {});
             throw error;
@@ -336,6 +382,7 @@ async function writeTable(ctx, args, internalOptions = {}) {
 
 // 专用工具的多语句原子写入（如分类改名同步脚本），复用写连接与中止/超时保护。
 async function transaction(ctx, id, callback) {
+    if (ctx.readOnly === false) await backupBeforeWrite(ctx, id);
     return withDatabase(ctx, id, async (all, run) => {
         await run('BEGIN IMMEDIATE');
         try {
@@ -350,4 +397,4 @@ async function transaction(ctx, id, callback) {
     }, true);
 }
 
-module.exports = { listDatabases, schema, readTable, previewWrite, writeTable, transaction, platformFiles, PRIVATE_TABLE, PRIVATE_COLUMN };
+module.exports = { listDatabases, schema, readTable, previewWrite, writeTable, transaction, platformFiles, backupDir, PRIVATE_TABLE, PRIVATE_COLUMN };

@@ -241,6 +241,24 @@ const KNOWN_DATACOM_META = {
         description: '数通协议知识 · Type-5 / Type-7 LSA 中的 Forwarding Address 字段解析，防止次优路径与环路的关键机制。',
         tags: ['数通协议', 'OSPF', 'FA地址', '路由选路'],
         duration: 267
+    },
+    'ospf-filter': {
+        title: 'OSPF 为什么只能在边界过滤',
+        description: '数通协议知识 · 区域内泛洪一致性与数据库完整性解析，为什么路由过滤只能在 ABR / ASBR 边界执行。',
+        tags: ['数通协议', 'OSPF', '路由过滤', 'ABR边界'],
+        duration: 117
+    },
+    'ospf-lsa-philosophy': {
+        title: '区域内给地图，区域间只给路标',
+        description: '数通协议知识 · 链路状态与距离矢量设计的结合：区域内 SPF 拓扑地图计算，区域间纯网络汇总路标。',
+        tags: ['数通协议', 'OSPF', 'LSA设计', '区域架构'],
+        duration: 126
+    },
+    'ospf-network-types': {
+        title: '为什么要选 DR：从共享电缆到点到点',
+        description: '数通协议知识 · 从早期以太网同轴电缆共享介质到全双工交换机时代，网络类型演进与 DR 机制的来龙去脉。',
+        tags: ['数通协议', 'OSPF', '网络类型', 'DR选举'],
+        duration: 139
     }
 };
 

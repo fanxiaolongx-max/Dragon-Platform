@@ -193,7 +193,7 @@ router.post('/forget', async (req, res) => {
 
 router.post('/approvals/:id', (req, res) => {
     try {
-        res.json(runManager.resolveApproval(req.params.id, req.body && req.body.decision, req.user, getTenantId()));
+        res.json(runManager.resolveApproval(req.params.id, req.body && req.body.decision, req.user, getTenantId(), req.body && req.body.scope));
     } catch (error) {
         res.status(error.statusCode || 500).json({ code: error.code, error: error.message });
     }

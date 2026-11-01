@@ -1,0 +1,24 @@
+:root { color-scheme: light dark; font-family: -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC",sans-serif; }
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: transparent; pointer-events: none; user-select: none; }
+.visitor { position: absolute; inset: 0; opacity: 1; }
+.speech { position: absolute; z-index: 2; top: 8px; left: 8px; right: 8px; padding: 10px 13px; border-radius: 18px 18px 18px 5px; background: #fff5f6; border: 1px solid #d78eab; color: #652e4a; font-size: 13px; line-height: 1.45; text-align: center; box-shadow: 0 3px 14px #33172524; }
+.portrait { position: absolute; bottom: 0; left: 50%; width: 192px; height: 208px; transform: translateX(-50%); overflow: hidden; }
+.sprite { display: block; width: 192px; height: 208px; object-fit: contain; }
+.peek-sprite { display: none; position: absolute; right: -16px; bottom: 8px; width: min(168px, 75vw); height: auto; transform-origin: 100% 65%; }
+[data-phase="loading"], [data-phase="hidden"] { opacity: 0; }
+[data-phase="greeting"] .portrait { animation: arrive .45s ease-out both; }
+[data-phase="leaving"] .speech, [data-phase="bye"] .speech { opacity: 0; }
+[data-phase="leaving"] .portrait { transform: translateX(calc(-50% + var(--exit, 0) * 300px)); }
+[data-phase="peek"] .portrait, [data-phase="bye"] .portrait { display: none; }
+[data-phase="peek"] .peek-sprite, [data-phase="bye"] .peek-sprite { display: block; }
+[data-phase="peek"] .speech { top: auto; bottom: 190px; left: auto; right: 22px; min-width: 110px; font-size: 16px; font-weight: 700; border-radius: 16px 16px 5px 16px; }
+[data-phase="peek"] .peek-sprite { animation: side-peek .6s cubic-bezier(.2,.8,.25,1) both; }
+[data-phase="peek"] .speech { animation: farewell-caption .75s ease-out both; }
+[data-phase="bye"] .peek-sprite { animation: side-retreat .5s ease-in both; }
+@keyframes arrive { from { opacity: 0; transform: translate(-50%,32px) scale(.7); } to { opacity: 1; transform: translate(-50%,0) scale(1); } }
+@keyframes side-peek { 0% { transform: translateX(110%) rotate(8deg); } 72% { transform: translateX(-4px) rotate(-2deg); } 100% { transform: translateX(0) rotate(0); } }
+@keyframes side-retreat { from { transform: translateX(0) rotate(0); } to { transform: translateX(110%) rotate(8deg); } }
+@keyframes farewell-caption { 0%,65% { opacity: 0; } 100% { opacity: 1; } }
+@media (prefers-color-scheme: dark) { .speech { background: #3e2434; color: #ffe6ee; border-color: #b57795; } }
+@media (prefers-reduced-motion: reduce) { .portrait, .peek-sprite, .speech { animation: none !important; } [data-phase="bye"], [data-phase="leaving"] { opacity: 0; } }

@@ -37,7 +37,7 @@
     // The report style, plus the style of the chapter the cell sits in (it wins on looks; data stays the cell's own).
     const styleOf=cell=>{
         const base=state.doc.style.prompt||'',own=cell?.id&&M.findCell(state.doc,cell.id)?.chapter?.style?.prompt;
-        return own?`${base}\n\n【本章节样式要求】（只管这个章节里格子的样式和风格，和上面关于样式的要求冲突时以这里为准；不改变数据来源、口径和计算）\n${own}`:base;
+        return own?`${base}\n\n【本章节样式要求】（只管这个章节里格子的样式和风格，和上面关于样式的要求冲突时以这里为准；不改变数据来源、口径和计算；格子已确认的局部展示例外仍优先）\n${own}`:base;
     };
     const widgetLookup=(cellId,widgetId)=>find(cellId)?.cell?.output?.widgets?.find(item=>item.id===widgetId);
     const imageLibrary=AiReportImageLibrary.create({API,t,find,render,aiStep,actions:record=>withUndo(record,IMAGE_ACTIONS())});
@@ -182,7 +182,7 @@
     async function writePrompt(cellId,cell){
         state.busy.set(cellId,t('正在总结对话，生成最终提示词…','Summarizing into the final prompt…'));render();
         const {prompt}=await AiReportTrace.post(cellId,t('生成最终提示词','Write the final prompt'),cellId===REPORT?'/api/ai-report/report/prompt':fieldKeyOf(cellId)?'/api/ai-report/template/field/prompt':chapterOf(cellId)?'/api/ai-report/chapter/prompt':'/api/ai-report/cell/prompt',{month:state.doc.reportMonth,prompt:cell.prompt,chat:cell.chat});
-        cell.prompt=prompt;cell.chat.push({role:'ai',kind:'prompt',text:prompt});if(cellId!==REPORT&&!chapterOf(cellId)&&!fieldKeyOf(cellId))syncNarrowLayout(cell);
+        cell.prompt=prompt;if(M.presentationOf(prompt).mode==='text')cell.layout={};cell.chat.push({role:'ai',kind:'prompt',text:prompt});if(cellId!==REPORT&&!chapterOf(cellId)&&!fieldKeyOf(cellId))syncNarrowLayout(cell);
     }
     // A failed run goes back to the compiler once with the error, so most code slips fix themselves.
     async function compileAndRun(cellId,cell){
@@ -442,7 +442,8 @@
     function syncNarrowLayout(cell){
         if(!cell?.prompt||!cell.span)return;
         const without=String(cell.prompt).replace(new RegExp(`\\n*${NARROW_MARK}[^\\n]*`,'g'),'').trim();
-        const next=cell.span<=NARROW_SPAN?`${without}\n${NARROW_MARK}格子较窄（${cell.span}/12 栏）：标题、图表、表格、文字总结等所有内容必须从上到下排列，一行只放一个内容块，不要左右并排；用 kit.layout 时每行只放一个小格子。`:without;
+        const horizontal=M.horizontalLayout(without);
+        const next=cell.span<=NARROW_SPAN&&!horizontal?`${without}\n${NARROW_MARK}格子较窄（${cell.span}/12 栏）：标题、图表、表格、文字总结等所有内容必须从上到下排列，一行只放一个内容块，不要左右并排；用 kit.layout 时每行只放一个小格子。`:without;
         if(next===cell.prompt)return;
         const latest=cell.chat[promptIndexes(cell).at(-1)];
         if(latest&&latest.text===cell.prompt)latest.text=next;if(cell.recipePrompt===cell.prompt)cell.recipePrompt=next;cell.prompt=next;

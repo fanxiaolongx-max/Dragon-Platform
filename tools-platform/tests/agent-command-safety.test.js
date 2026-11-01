@@ -58,6 +58,9 @@ test('admin full access auto-approves risky commands while ask and auto still re
     assert.equal(manager.classifyDecision(session, 'run_command', { command: 'npm test' }), 'allow');
     assert.equal(manager.classifyDecision(session, 'run_command', { command: 'cat ../secrets.txt' }), 'allow');
     session.alwaysAllow.add('run_command');
+    // 危险类别（这里是读取密钥文件）在完全访问下也要审批，「总是允许命令」不覆盖它
+    assert.equal(manager.classifyDecision(session, 'run_command', { command: 'cat .env' }), 'ask');
+    session.dangerAllowed.add('secret-read');
     assert.equal(manager.classifyDecision(session, 'run_command', { command: 'cat .env' }), 'allow');
     assert.equal(manager.classifyDecision(session, 'run_command', { command: 'ls' }), 'allow');
     assert.equal(manager.classifyDecision(session, 'unknown_tool'), 'deny');

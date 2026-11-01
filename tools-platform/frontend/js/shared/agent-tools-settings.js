@@ -45,6 +45,7 @@
 .nat-btn:disabled{opacity:.55;cursor:not-allowed}
 .nat-tools{grid-column:1/-1;font-size:12px;color:#475569}
 .nat-tools summary{cursor:pointer;font-weight:700}
+.nat-tools ul{margin:6px 0 0;padding-left:20px;list-style:disc outside}
 .nat-tools li{margin:3px 0;overflow-wrap:anywhere}
 .nat-form{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px 14px;margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1}
 .nat-field{display:flex;flex-direction:column;gap:5px;font-size:12px;min-width:0}
@@ -65,6 +66,15 @@
 .nat-table td:first-child code{white-space:nowrap;overflow-wrap:normal}
 .nat-summary{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:#475569}
 .nat-summary b{color:#0f172a;font-size:15px}
+.nat-danger{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;padding:10px 0;border-top:1px solid #f1f5f9}
+.nat-danger:first-of-type{border-top:0}
+.nat-danger-label{font-weight:800;font-size:13px}
+.nat-danger-desc{color:#64748b;font-size:12px;line-height:1.55}
+.nat-danger-rules{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
+.nat-rule{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:2px 4px 2px 10px;border-radius:999px;background:#fff7ed;color:#9a3412;font-size:11.5px;font-weight:700}
+.nat-rule span{overflow-wrap:anywhere}
+.nat-rule button{border:0;background:transparent;color:#c2410c;font-size:11.5px;font-weight:800;cursor:pointer;padding:2px 6px;border-radius:999px}
+.nat-rule button:hover{background:#ffedd5}
 `;
         document.head.appendChild(style);
     }
@@ -134,6 +144,20 @@
             </div>`).join('')}`;
     }
 
+    function renderDanger() {
+        const danger = view.danger;
+        if (!danger) return `<p class="nat-desc">${esc(L('正在加载…', 'Loading…'))}</p>`;
+        return danger.categories.map(category => {
+            const rules = danger.rules.filter(rule => rule.category === category.id);
+            const global = rules.some(rule => rule.scope === 'global');
+            return `<div class="nat-danger">
+                <div><div class="nat-danger-label">${esc(category.label)}</div><div class="nat-danger-desc">${esc(category.description)}</div></div>
+                <div class="nat-actions">${global ? '' : `<button type="button" class="nat-btn" data-action="danger-allow" data-category="${esc(category.id)}" ${view.busy ? 'disabled' : ''}>${esc(L('永久不再询问', 'Never ask'))}</button>`}</div>
+                ${rules.length ? `<div class="nat-danger-rules">${rules.map(rule => `<span class="nat-rule" title="${esc(`${rule.by || ''} ${rule.createdAt || ''}`.trim())}"><span>${esc(rule.scope === 'global' ? L('永久不再询问（含频道）', 'Never ask (incl. channels)') : L(`不再询问：${rule.root}`, `Never ask in ${rule.root}`))}</span><button type="button" data-action="danger-revoke" data-rule="${esc(rule.id)}" ${view.busy ? 'disabled' : ''}>${esc(L('撤销', 'Revoke'))}</button></span>`).join('')}</div>` : ''}
+            </div>`;
+        }).join('');
+    }
+
     function render() {
         const content = view.content;
         if (!content) return;
@@ -148,6 +172,7 @@
                 ${view.editing && !view.editing.id ? renderForm(view.editing) : ''}
                 ${view.editing ? '' : `<div class="nat-actions" style="justify-content:flex-start;margin-top:8px"><button type="button" class="nat-btn is-primary" data-action="add">${esc(L('添加服务', 'Add server'))}</button></div>`}` : ''}
             </section>
+            <section class="nat-card" data-section="danger"><h4>⛔ ${esc(L('危险操作', 'Dangerous actions'))}</h4><p class="nat-desc">${esc(L('智能体执行的命令命中下面几类时，即使选了「完全访问」也会弹审批卡；可以在审批卡上按类别选择本对话、这个工作目录或永久不再询问。WeLink 频道等无人值守的对话没人审批，这几类命令不会执行，除非在这里设为永久不再询问。识别靠检查命令文本，写在脚本里的操作识别不到；命令里的 rm 会移到废纸篓，智能体改平台数据库前会自动备份。', 'Agent commands in these categories ask for approval even with full access; on the card you can stop asking for this chat, this folder or always. Unattended chats such as WeLink channels skip them unless set to never ask here. Detection reads the command text and cannot see inside scripts; rm moves files to the Trash and platform databases are backed up before the agent changes them.'))}</p>${renderDanger()}</section>
             <section class="nat-card"><h4>🧰 ${esc(L('工具清单', 'Tool catalog'))}</h4><p class="nat-desc">${esc(L('Dragon Claw 首页对话能用的工具，按来源分组；token 是工具说明占用的上下文，按需加载的工具只在用到时才占用。', 'Tools Dragon Claw home chats can use, grouped by source; tokens are the context each description takes, and deferred tools only count once loaded.'))}</p>${renderCatalog()}</section>
         </div>`;
     }
@@ -177,6 +202,11 @@
         }
     }
 
+    async function loadDanger() {
+        try { view.danger = await api('GET', '/danger-rules'); } catch (error) { view.danger = { categories: [], rules: [] }; view.notice = { type: 'error', text: error.message }; }
+        render();
+    }
+
     async function loadCatalog() {
         try { view.catalog = await api('GET', '/catalog'); } catch (error) { view.catalog = { groups: [] }; view.notice = { type: 'error', text: error.message }; }
         render();
@@ -189,6 +219,17 @@
             const action = button.dataset.action;
             const id = button.closest('[data-id]')?.dataset.id;
             const server = view.servers.find(item => item.id === id);
+            if (action === 'danger-allow' || action === 'danger-revoke') {
+                view.busy = true; render();
+                try {
+                    if (action === 'danger-allow') await api('POST', '/danger-rules', { category: button.dataset.category });
+                    else await api('DELETE', `/danger-rules/${encodeURIComponent(button.dataset.rule)}`);
+                    view.notice = { type: 'ok', text: action === 'danger-allow' ? L('已设为永久不再询问，下一轮对话生效', 'Saved; applies from the next turn') : L('已撤销，下一轮对话生效', 'Revoked; applies from the next turn') };
+                } catch (error) { view.notice = { type: 'error', text: error.message }; }
+                view.busy = false;
+                await loadDanger();
+                return;
+            }
             if (action === 'add') { view.editing = { ...EMPTY }; view.notice = null; render(); return; }
             if (action === 'cancel') { view.editing = null; render(); return; }
             if (action === 'edit' && server) { view.editing = JSON.parse(JSON.stringify(server)); view.notice = null; render(); return; }
@@ -241,6 +282,7 @@
             if (!/默认租户|default tenant/i.test(error.message)) view.notice = { type: 'error', text: error.message };
         }
         render();
+        loadDanger();
         loadCatalog();
     }
 

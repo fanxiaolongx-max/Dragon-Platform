@@ -8,7 +8,10 @@ note = sys.argv[1]
 spec = json.load(open(f'scripts/notes/{note}.json', encoding='utf8'))
 words = {w['id']: w for w in json.load(open(f'assets/voice/{note}/words.json', encoding='utf8'))}
 css = open('scripts/shared.css', encoding='utf8').read()
-lib = open('scripts/lib.js', encoding='utf8').read() + '\n' + open('scripts/clawd.js', encoding='utf8').read()
+THEME = spec.get('theme', 'dark')  # dark（默认）/ light：追加 scripts/theme-light.css
+if THEME == 'light': css += '\n' + open('scripts/theme-light.css', encoding='utf8').read()
+BG = '#f5f7fb' if THEME == 'light' else '#0b1226'
+lib = open('scripts/lib.js', encoding='utf8').read() + '\n' + open(f"scripts/{spec.get('host', 'clawd')}.js", encoding='utf8').read()  # host: clawd（默认）/ dragon
 FONTS = '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">'
 PUN = r'[，。！？；：、,.!?;:\s“”"\'（）()—…\-/·↔→<>《》]'
 strip = lambda s: re.sub(PUN, '', s)
@@ -104,8 +107,8 @@ for i, (seg, S, cp, d, vd) in enumerate(scenes):
   <div class="cap"></div>
 </div>
 <script>
-{lib}
 {data}
+{lib}
 (function(){{var root=document.querySelector('[data-composition-id="{cid}"]');var tl=gsap.timeline({{paused:true}});scene(tl,root);window.__timelines["{cid}"]=tl;}})();
 </script>
 </template></body></html>
@@ -123,8 +126,8 @@ html = f'''<!doctype html>
 <html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=1920, height=1080">
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">{FONTS}
-<style>*{{margin:0;padding:0;box-sizing:border-box}}html,body{{width:1920px;height:1080px;overflow:hidden;background:#0b1226}}
-#root{{position:relative;width:100%;height:100%;background:#0b1226;overflow:hidden}}
+<style>*{{margin:0;padding:0;box-sizing:border-box}}html,body{{width:1920px;height:1080px;overflow:hidden;background:{BG}}}
+#root{{position:relative;width:100%;height:100%;background:{BG};overflow:hidden}}
 #root>div[data-composition-src]{{position:absolute;inset:0}}
 .trn{{position:absolute;inset:0;z-index:100;pointer-events:none;overflow:hidden}}.trn i{{position:absolute;top:-200px;left:-300px;width:2600px;height:1480px;transform:skewX(-14deg)}}.trn i:nth-child(2){{left:-200px}}.trn i:nth-child(3){{left:2280px;width:60px}}</style></head>
 <body>

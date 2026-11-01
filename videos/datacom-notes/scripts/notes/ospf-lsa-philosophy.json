@@ -1,0 +1,308 @@
+{
+  "id": "ospf-lsa-philosophy",
+  "title": "区域内给地图，区域间只给路标",
+  "host": "dragon",
+  "theme": "light",
+  "source": "knowledge-seed.json#ospf-lsa-philosophy",
+  "sources": [
+    "McQuillan, Richer, Rosen, The New Routing Algorithm for the ARPANET, IEEE Trans. Commun. 28(5), 1980",
+    "Kleinrock & Kamoun, Hierarchical Routing for Large Networks, Computer Networks 1, 1977",
+    "RFC 1131 (1989) OSPF v1；RFC 2328 (1998) OSPF v2：区域、Summary-LSA、骨干与虚链路"
+  ],
+  "spoken": [
+    [
+      "ARPANET",
+      "ARPA net"
+    ],
+    [
+      "Kamoun",
+      "Ka moon"
+    ]
+  ],
+  "segments": [
+    {
+      "id": "hook",
+      "type": "question",
+      "head": "OSPF · LSA 为什么这样分工",
+      "say": "嗨，我是小龙！OSPF 号称链路状态协议，每台路由器都拿着一张完整的地图。可一跨区域，它只告诉你：那边有个网段，开销多少，地图却不给了。这不是自相矛盾吗？",
+      "term": {
+        "cmd": "display ospf lsdb",
+        "rows": [
+          {
+            "cells": [
+              "区域内",
+              "1/2 类",
+              "整张地图"
+            ],
+            "tone": "ok",
+            "cue": "完整的地图"
+          },
+          {
+            "cells": [
+              "跨区域",
+              "3 类",
+              "只有网段+开销"
+            ],
+            "tone": "warn",
+            "cue": "一跨区域"
+          }
+        ]
+      },
+      "question": [
+        {
+          "t": "跨了区域，就不给地图？",
+          "cue": "自相矛盾"
+        }
+      ]
+    },
+    {
+      "id": "origin",
+      "type": "timeline",
+      "head": "链路状态从哪来",
+      "say": "先看链路状态从哪来。1980 年，ARPANET 换上新的路由算法：每个节点保存全网拓扑，用最短路径优先来算路。1989 年，OSPF 把这套思路带进了 IP 网络。代价也很清楚：网越大，地图越大，一有变动，人人都要重算。",
+      "events": [
+        {
+          "year": "1980",
+          "t": "ARPANET 新算法",
+          "sub": "每个节点存全网拓扑，SPF 算路",
+          "cue": "1980",
+          "tone": "info"
+        },
+        {
+          "year": "1989",
+          "t": "OSPF 第一版",
+          "sub": "链路状态进入 IP 网络",
+          "cue": "1989",
+          "tone": "info"
+        },
+        {
+          "year": "代价",
+          "t": "网越大，越吃力",
+          "sub": "地图越大，一变动人人重算",
+          "cue": "代价",
+          "tone": "bad"
+        }
+      ]
+    },
+    {
+      "id": "layer",
+      "type": "compare",
+      "head": "分层：近处记细节，远处记大概",
+      "say": "其实更早的 1977 年，Kleinrock 和 Kamoun 就算过：网络很大时，把它分层，近处记细节，远处只记个大概，路由表能缩小很多，路径却几乎不变长。OSPF 的区域，用的就是这个思路。",
+      "caption": "分层路由：Kleinrock & Kamoun（1977）",
+      "cols": [
+        "",
+        "近处：本区域",
+        "远处：别的区域"
+      ],
+      "widths": [
+        0.8,
+        1.4,
+        1.4
+      ],
+      "colTones": [
+        null,
+        "info",
+        "purple"
+      ],
+      "rows": [
+        {
+          "cells": [
+            "记什么",
+            "完整拓扑：谁连着谁",
+            "只记网段 + 开销"
+          ],
+          "tone": "info",
+          "cue": "近处记细节"
+        },
+        {
+          "cells": [
+            "靠哪类 LSA",
+            "1 类、2 类",
+            "3 类"
+          ],
+          "tone": "info",
+          "cue": "远处只记"
+        },
+        {
+          "cells": [
+            "换来什么",
+            "算得准，不会绕",
+            "表小，抖动传不过来"
+          ],
+          "tone": "ok",
+          "cue": "缩小很多"
+        }
+      ]
+    },
+    {
+      "id": "fold",
+      "type": "fsm",
+      "head": "ABR：把地图折成一句话",
+      "say": "具体怎么做？ABR 站在区域边界，把 Area 1 里的整张拓扑，折叠成一句话：去这个网段找我，开销是 10。Area 1 里面怎么抖动，Area 0 都感觉不到，这就是故障隔离。",
+      "nodes": [
+        {
+          "id": "a1",
+          "label": "Area 1",
+          "sub": "整张地图：谁连谁、开销多少",
+          "cue": "整张拓扑",
+          "at": [
+            300,
+            430
+          ]
+        },
+        {
+          "id": "abr",
+          "label": "ABR",
+          "sub": "站在区域边界",
+          "cue": "ABR",
+          "at": [
+            790,
+            430
+          ]
+        },
+        {
+          "id": "a0",
+          "label": "Area 0",
+          "sub": "只看到：网段 + 开销 10",
+          "cue": "一句话",
+          "at": [
+            1280,
+            430
+          ],
+          "final": true
+        }
+      ],
+      "edges": [
+        {
+          "from": "a1",
+          "to": "abr",
+          "label": "拓扑细节",
+          "cue": "整张拓扑"
+        },
+        {
+          "from": "abr",
+          "to": "a0",
+          "label": "3 类 LSA",
+          "cue": "一句话"
+        }
+      ],
+      "note": {
+        "t": "里面怎么抖，外面都感觉不到",
+        "cue": "怎么抖动"
+      }
+    },
+    {
+      "id": "cost",
+      "type": "compare",
+      "head": "代价：必须有 Area 0",
+      "say": "可这句话，本质就是距离矢量：只说方向和距离，不给地图。距离矢量最怕路由兜圈子。OSPF 的解法很硬：所有区域都必须连到 Area 0，区域之间只能经过骨干转，形成星型。连不上骨干？只能用虚链路打补丁。",
+      "caption": "区域间像距离矢量，所以要用星型结构防环",
+      "cols": [
+        "规定",
+        "为什么"
+      ],
+      "widths": [
+        1.2,
+        1.6
+      ],
+      "rows": [
+        {
+          "cells": [
+            "所有区域必须连 Area 0",
+            "星型结构，路由不会兜圈子"
+          ],
+          "tone": "info",
+          "cue": "都必须连"
+        },
+        {
+          "cells": [
+            "区域间只经骨干中转",
+            "ABR 只把本区域的路由送进骨干"
+          ],
+          "tone": "info",
+          "cue": "经过骨干"
+        },
+        {
+          "cells": [
+            "连不上骨干",
+            "只能用虚链路打补丁"
+          ],
+          "tone": "warn",
+          "cue": "连不上"
+        }
+      ]
+    },
+    {
+      "id": "today",
+      "type": "compare",
+      "head": "今天还是最优解吗",
+      "say": "那今天还是最优解吗？不完全是。如今的路由器算力强得多，几百上千台设备放在一个区域也很常见。分区仍然是隔离抖动、做汇总的好工具；但 Area 0 必须居中的规定，已经写进协议，只能沿用。",
+      "caption": "1989 年的最优解，放到今天",
+      "cols": [
+        "",
+        "1989 年",
+        "今天"
+      ],
+      "widths": [
+        1,
+        1.4,
+        1.6
+      ],
+      "colTones": [
+        null,
+        "bad",
+        "ok"
+      ],
+      "rows": [
+        {
+          "cells": [
+            "路由器算力",
+            "弱，算全图很吃力",
+            "强，单区域上千台也常见"
+          ],
+          "tone": "info",
+          "cue": "算力"
+        },
+        {
+          "cells": [
+            "为什么分区",
+            "不分就跑不动",
+            "隔离抖动、做汇总"
+          ],
+          "tone": "info",
+          "cue": "隔离抖动"
+        },
+        {
+          "cells": [
+            "Area 0 居中",
+            "为防环而定",
+            "写进协议，只能沿用"
+          ],
+          "tone": "warn",
+          "cue": "写进协议"
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "type": "recap",
+      "head": "一句话总结",
+      "say": "一句话总结：区域内给地图，算得准；区域间只给路标，表才小、抖动传不远；代价是必须有 Area 0。这是八十年代算力下的最优解，今天依然好用，但不再是唯一选择。我是小龙，下次见！",
+      "points": [
+        {
+          "t": "区域内给地图：1/2 类 LSA，算得准",
+          "cue": "区域内给地图"
+        },
+        {
+          "t": "区域间只给路标：3 类 LSA，表小、隔离抖动",
+          "cue": "区域间只给"
+        },
+        {
+          "t": "代价：必须有 Area 0，今天不是唯一解",
+          "cue": "代价"
+        }
+      ]
+    }
+  ]
+}

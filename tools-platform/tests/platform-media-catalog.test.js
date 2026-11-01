@@ -182,8 +182,8 @@ test('平台类与知识类视频自动附带循序渐进短序号/第几集标�
     assert.equal(platformVideos[0].title, '第01集 · Dragon 平台五站使用指南');
     assert.equal(platformVideos[1].title, 'EP02 · Dragon Platform Five-Step Guide (English)');
 
-    // 知识类 8 集循序渐进学习顺序校验（从身份 Router-ID 到五种报文、状态机、角色、DR/BDR、区域、LSA、FA）
-    assert.equal(knowledgeVideos.length, 8);
+    // 知识类 11 集循序渐进学习顺序校验（从身份 Router-ID 到五种报文、状态机、角色、DR/BDR、区域、LSA、FA 及新增精讲）
+    assert.equal(knowledgeVideos.length, 11);
     const expectedKnowledgeOrder = [
         '第01集 · Router-ID 选举与生效',
         '第02集 · OSPF 五种报文：一次地图交接',
@@ -192,9 +192,12 @@ test('平台类与知识类视频自动附带循序渐进短序号/第几集标�
         '第05集 · DR / BDR：路由器班会与三幅图',
         '第06集 · OSPF 区域：哪些路标可以进来',
         '第07集 · LSA：从资料卡到路由地图',
-        '第08集 · Forwarding Address：消息来源与数据方向'
+        '第08集 · Forwarding Address：消息来源与数据方向',
+        '第09集 · OSPF 为什么只能在边界过滤',
+        '第10集 · 区域内给地图，区域间只给路标',
+        '第11集 · 为什么要选 DR：从共享电缆到点到点'
     ];
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 11; i++) {
         const v = knowledgeVideos[i];
         assert.equal(v.episode, i + 1);
         assert.equal(v.episodeFormatted, `第${String(i + 1).padStart(2, '0')}集`);

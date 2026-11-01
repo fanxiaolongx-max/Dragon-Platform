@@ -5,8 +5,12 @@
     document.head.append(style);
     let sessionId = '', modelId = '', controller = null;
     async function api(path, body, signal) {
-        let response;try{response = await fetch(base + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal } : { signal });}catch(error){if(error.name==='AbortError')throw error;throw new Error('平台 AI 通道连接中断：'+path+'。未收到 HTTP 响应，请检查网络、代理超时或重新打开应用。');}
-        let result;try{result=await response.json();}catch(_){throw new Error('平台 AI 通道返回非 JSON（HTTP '+response.status+'，'+path+'），请检查代理或平台日志');}
+        const diagnostic=window.AiOpsDiagnostics?.capture()||(()=>{}),started=Date.now();
+        const request={method:body?'POST':'GET',path,body:body??null};
+        diagnostic(path==='/sessions'?'session_init':'request',{request,transport:'platform-adc'});
+        let response;try{response = await fetch(base + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal } : { signal });}catch(error){diagnostic(error.name==='AbortError'?'stopped':'failed',{request,error:error.message,ms:Date.now()-started});if(error.name==='AbortError')throw error;throw new Error('平台 AI 通道连接中断：'+path+'。未收到 HTTP 响应，请检查网络、代理超时或重新打开应用。');}
+        let result;try{result=await response.json();}catch(_){diagnostic('failed',{request,httpStatus:response.status,error:'Non-JSON response',ms:Date.now()-started});throw new Error('平台 AI 通道返回非 JSON（HTTP '+response.status+'，'+path+'），请检查代理或平台日志');}
+        diagnostic('response',{request,response:result,httpStatus:response.status,requestId:response.headers.get('x-request-id')||'',ms:Date.now()-started,transport:'platform-adc'});
         if (!response.ok) throw new Error(result.error || '请求失败');
         return result;
     }

@@ -22,6 +22,47 @@
         }
         return out;
     }
+    // Presentation is a cell requirement; defaults and a previous recipe cannot add components to it.
+    const PRESENTATION_MARK='【展示约束】';
+    function horizontalLayout(prompt){return /左右|并排|横向排列|一行.{0,5}(?:两个|2个|三列|3列)/.test(String(prompt||'').replace(/【(?:窄格子布局|尺寸约束)】[^\n]*/g,'').replace(/(?:不要|不需要|禁止)[^。；;\n]*/g,''));}
+    function presentationOf(prompt='',chat=[]){
+        let mode='auto',maxSentences=null,explicitVisual=false;
+        const inspect=value=>{
+            const text=String(value||'');
+            const only=/(?:只|仅)(?:需要|要|保留|显示|展示|呈现|输出|用)?\s*(?:一[句段行]|1[句段行]|两句|2句|纯文字|文字|文本)|(?:不需要|不要|取消|去掉|移除)(?:任何)?图表[^。！？\n]{0,50}(?:总结|文字|几句话)/i.test(text);
+            const positive=text.replace(/(?:不要|不需要|不得|禁止|取消|去掉|移除|不显示)[^。；;\n]*/g,'');
+            const visual=/(?:添加|增加|恢复|改成|改为|展示|显示|绘制|生成|换成)[^。；;\n]{0,12}(?:图表|表格|指标卡|柱状图|折线图|饼图)|(?:用|做)(?:一个|一张|个|张)?(?:表格|柱状图|折线图|饼图|指标卡)/.test(positive);
+            if(only&&!/(?:图表|表格|指标卡|柱状图|折线图|饼图)/.test(positive)){mode='text';maxSentences=null;explicitVisual=false;}
+            else if(visual){mode='auto';maxSentences=null;explicitVisual=true;}
+            if(mode==='text'){const n=text.match(/(?:最多|不超过|仅|只|用|保留|显示|展示|呈现|输出)?\s*(一|1|两|二|2|三|3)\s*句/);if(n)maxSentences=({'一':1,'两':2,'二':2,'三':3}[n[1]]||Number(n[1]));}
+        };
+        // A marked prompt is authoritative even if old content elsewhere still mentions a card.
+        const marker=String(prompt).split('\n').find(line=>line.startsWith(PRESENTATION_MARK));
+        inspect(marker||prompt);
+        for(const item of chat)if(item?.role==='user'||(item?.kind==='prompt'&&item.edited))inspect(item.text);
+        return {mode,maxSentences,explicitVisual};
+    }
+    function presentationConflict(prompt,rule){
+        if(rule.explicitVisual&&presentationOf(prompt).mode==='text')return '用户已要求恢复可视化，提示词仍残留仅文字限制';
+        if(rule.mode!=='text')return '';
+        const lines=String(prompt).replace(/【(?:格子内部布局|窄格子布局|尺寸约束)】[^\n]*/g,'').split(/[。；;\n]/);
+        return lines.some(line=>!/(?:不要|禁止|不得|不显示|不需要|取消|移除|删除)/.test(line)&&/指标卡(?:展示|显示)|(?:展示|显示|绘制|生成|输出)[^，,]{0,10}(?:指标卡|图表|表格|柱状图|折线图|饼图)/.test(line))?'用户已确认仅文字，但提示词仍要求图表、表格或指标卡':'';
+    }
+    function withPresentation(prompt,rule){
+        let text=String(prompt).replace(/\n*【展示约束】[^\n]*/g,'').trim();
+        if(rule.mode!=='text')return text;
+        text=text.replace(/\n*【(?:格子内部布局|窄格子布局)】[^\n]*/g,'').trim();
+        return text+'\n'+PRESENTATION_MARK+'仅显示文字'+(rule.maxSentences?'，最多 '+rule.maxSentences+' 句':'')+'；不显示指标卡、图表、表格或其它可视化组件。';
+    }
+    function presentationRecipe(recipe,prompt){
+        const rule=presentationOf(prompt);if(rule.mode!=='text')return recipe;
+        return {...recipe,render:'function render(result, kit){ return ""; }',narrative:{prompt:('只输出基于计算结果的文字总结，不添加图表、指标卡、表格或额外标题。'+(rule.maxSentences?'最多 '+rule.maxSentences+' 句。':'')+'格子要求：'+prompt).slice(0,2000)}};
+    }
+    function summaryConflict(text,prompt){
+        const rule=presentationOf(prompt);if(!rule.maxSentences)return '';
+        const sentences=String(text||'').trim().split(/[。！？!?]+\s*|\.(?=\s|$)|\n+/).filter(item=>item.trim());
+        return sentences.length>rule.maxSentences?'总结超过用户确认的 '+rule.maxSentences+' 句上限':'';
+    }
     function cell(input={}){
         return {id:id(input.id,'cell'),span:clamp(input.span,1,12,6),height:input.height?clamp(input.height,60,1600,0):0,fit:input.fit===true&&!!input.height,abbreviation:str(input.abbreviation,500),layout:normalizeLayout(input.layout),prompt:str(input.prompt,LIMITS.prompt),recipePrompt:str(input.recipePrompt,LIMITS.prompt),chat:normalizeChat(input.chat),recipe:input.recipe?normalizeRecipe(input.recipe):null,output:input.output?normalizeOutput(input.output):null};
     }
@@ -210,5 +251,5 @@
     function text(value,language='zh'){return value?(value[language]||value.zh||value.en||''):'';}
     function cells(doc){return doc.chapters.flatMap(item=>item.cells);}
     function findCell(doc,cellId){for(const item of doc.chapters){const index=item.cells.findIndex(entry=>entry.id===cellId);if(index>=0)return {chapter:item,cell:item.cells[index],index};}return null;}
-    return {IMAGE_BASE,IMAGE_KEY,imageUrl,FIELD_KEY,FIXED_PREFIX,fixedText,LIMITS,DEFAULT_STYLE,structuredStyle,styleSections,applyStyleChanges,withStyleText,validMonth,uid,bilingual,cell,chapter,normalize,normalizeRecipe,normalizeOutput,normalizeTheme,fromLegacyTemplate,text,cells,findCell};
+    return {horizontalLayout,presentationOf,presentationConflict,withPresentation,presentationRecipe,summaryConflict,IMAGE_BASE,IMAGE_KEY,imageUrl,FIELD_KEY,FIXED_PREFIX,fixedText,LIMITS,DEFAULT_STYLE,structuredStyle,styleSections,applyStyleChanges,withStyleText,validMonth,uid,bilingual,cell,chapter,normalize,normalizeRecipe,normalizeOutput,normalizeTheme,fromLegacyTemplate,text,cells,findCell};
 });

@@ -1,0 +1,307 @@
+{
+  "id": "ospf-filter",
+  "title": "OSPF 为什么只能在边界过滤",
+  "host": "dragon",
+  "theme": "light",
+  "source": "knowledge-seed.json#ospf-filter",
+  "sources": [
+    "RFC 2328 (1998)：每台路由器维护相同的链路状态数据库，据此各自计算最短路径树",
+    "RFC 1583 (1994)：同一区域内路由器拥有相同的拓扑数据库",
+    "华为 VRP：filter-policy import/export、abr-summary not-advertise、filter import/export、ospf filter-lsa-out（厂商扩展）"
+  ],
+  "spoken": [
+    [
+      "filter-policy import",
+      "filter policy import"
+    ],
+    [
+      "filter-lsa-out",
+      "filter LSA out"
+    ],
+    [
+      "RFC 2328",
+      "RFC 二三二八"
+    ]
+  ],
+  "segments": [
+    {
+      "id": "hook",
+      "type": "question",
+      "head": "OSPF · 过滤为什么这么别扭",
+      "say": "嗨，我是小龙！在 R3 上配了 filter-policy import，把一条路由挡掉了，R3 的路由表里确实没了。可下游的 R5，照样学到了这条路由。过滤是不是失灵了？",
+      "term": {
+        "cmd": "display ospf lsdb / ip routing-table",
+        "rows": [
+          {
+            "cells": [
+              "R3 路由表",
+              "10.10.1.0",
+              "已挡掉"
+            ],
+            "tone": "ok",
+            "cue": "确实没了"
+          },
+          {
+            "cells": [
+              "R3 LSDB",
+              "10.10.1.0",
+              "还在"
+            ],
+            "tone": "warn",
+            "cue": "下游"
+          },
+          {
+            "cells": [
+              "R5 路由表",
+              "10.10.1.0",
+              "照样有"
+            ],
+            "tone": "bad",
+            "cue": "照样学到"
+          }
+        ]
+      },
+      "question": [
+        {
+          "t": "过滤失灵了？",
+          "cue": "失灵"
+        }
+      ]
+    },
+    {
+      "id": "rule",
+      "type": "compare",
+      "head": "链路状态的铁律",
+      "say": "这要从链路状态的铁律说起。RFC 2328 写得很清楚：每台路由器维护同一份数据库。大家拿着同一张地图，各自算最短路，结果才互相吻合。要是有人私自擦掉一条，他算的路就和邻居对不上，流量可能兜圈子，或者掉进黑洞。",
+      "caption": "同一区域内，链路状态数据库必须完全一致",
+      "cols": [
+        "",
+        "地图一致",
+        "有人私自擦掉一条"
+      ],
+      "widths": [
+        0.9,
+        1.4,
+        1.5
+      ],
+      "colTones": [
+        null,
+        "ok",
+        "bad"
+      ],
+      "rows": [
+        {
+          "cells": [
+            "各自算路",
+            "结果互相吻合",
+            "和邻居对不上"
+          ],
+          "tone": "info",
+          "cue": "同一张地图"
+        },
+        {
+          "cells": [
+            "转发结果",
+            "路径正确",
+            "兜圈子，或进黑洞"
+          ],
+          "tone": "info",
+          "cue": "私自擦掉"
+        }
+      ]
+    },
+    {
+      "id": "dv",
+      "type": "compare",
+      "head": "距离矢量为什么就能随便过滤",
+      "say": "距离矢量就不一样。RIP、BGP 每台只把自己的结论告诉邻居，哪条不想说，不说就是，所以过滤很自然。链路状态传的是原始地图，中途不能改。所以要做复杂的路由策略，大家往往交给 BGP。",
+      "caption": "传结论，还是传地图",
+      "cols": [
+        "",
+        "距离矢量：RIP / BGP",
+        "链路状态：OSPF"
+      ],
+      "widths": [
+        0.9,
+        1.5,
+        1.5
+      ],
+      "colTones": [
+        null,
+        "info",
+        "purple"
+      ],
+      "rows": [
+        {
+          "cells": [
+            "传的是什么",
+            "结论：去哪、多远",
+            "原始地图：谁连谁"
+          ],
+          "tone": "info",
+          "cue": "结论"
+        },
+        {
+          "cells": [
+            "中途能删吗",
+            "不想说就不说",
+            "不能删，地图会不一致"
+          ],
+          "tone": "info",
+          "cue": "不想说"
+        },
+        {
+          "cells": [
+            "复杂策略",
+            "天生适合",
+            "交给 BGP 更合适"
+          ],
+          "tone": "ok",
+          "cue": "复杂的路由策略"
+        }
+      ]
+    },
+    {
+      "id": "where",
+      "type": "fsm",
+      "head": "那能在哪儿真正删 LSA",
+      "say": "所以 OSPF 只在两个边界上真正删 LSA。ASBR 在源头：外部路由不引进来，就不生成五类。ABR 在区域边界：地图本来就要重新折成三类，它可以选择不生成。其余普通路由器，只能挡自己的路由表，LSDB 照常同步。",
+      "nodes": [
+        {
+          "id": "asbr",
+          "label": "ASBR",
+          "sub": "源头：不生成 5 类",
+          "cue": "ASBR",
+          "at": [
+            300,
+            420
+          ]
+        },
+        {
+          "id": "abr",
+          "label": "ABR",
+          "sub": "区域边界：不生成 3 类",
+          "cue": "ABR",
+          "at": [
+            790,
+            420
+          ]
+        },
+        {
+          "id": "r",
+          "label": "普通路由器",
+          "sub": "只挡本机路由表",
+          "cue": "普通路由器",
+          "at": [
+            1280,
+            420
+          ],
+          "final": true
+        }
+      ],
+      "edges": [
+        {
+          "from": "asbr",
+          "to": "abr",
+          "label": "5 类 LSA",
+          "cue": "五类"
+        },
+        {
+          "from": "abr",
+          "to": "r",
+          "label": "3 类 LSA",
+          "cue": "三类"
+        }
+      ],
+      "note": {
+        "t": "中间的路由器：LSDB 照常同步",
+        "cue": "照常同步"
+      }
+    },
+    {
+      "id": "tools",
+      "type": "compare",
+      "head": "华为命令怎么选",
+      "compact": true,
+      "say": "对应到华为命令：ASBR 上用 filter-policy export；ABR 上用 abr-summary 不通告，或者 filter export、filter import；普通路由器的 filter-policy import 只管自己。还有个 filter-lsa-out，能在出接口剔掉 LSA，但它是厂商扩展，等于故意让两边地图不一样，要慎用。",
+      "caption": "在哪儿删、删掉什么、影响谁",
+      "cols": [
+        "命令",
+        "在哪",
+        "效果"
+      ],
+      "widths": [
+        1.5,
+        0.8,
+        1.6
+      ],
+      "rows": [
+        {
+          "cells": [
+            "filter-policy export",
+            "ASBR",
+            "源头不生成 5 类，全网都没有"
+          ],
+          "tone": "ok",
+          "cue": "filter-policy export"
+        },
+        {
+          "cells": [
+            "abr-summary … not-advertise",
+            "ABR",
+            "不生成 3 类"
+          ],
+          "tone": "ok",
+          "cue": "abr-summary"
+        },
+        {
+          "cells": [
+            "filter export / import",
+            "ABR",
+            "按区域进出过滤 3 类"
+          ],
+          "tone": "ok",
+          "cue": "filter export"
+        },
+        {
+          "cells": [
+            "filter-policy import",
+            "任意",
+            "只挡本机路由表，LSDB 不变"
+          ],
+          "tone": "info",
+          "cue": "只管自己"
+        },
+        {
+          "cells": [
+            "filter-lsa-out",
+            "出接口",
+            "厂商扩展：两边地图不一致，慎用"
+          ],
+          "tone": "warn",
+          "cue": "filter-lsa-out"
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "type": "recap",
+      "head": "一句话总结",
+      "say": "一句话总结：OSPF 要保证同一区域的地图一致，所以真正删 LSA 只能在 ASBR 和 ABR 这两个边界，中间的路由器只能管自己的路由表。这不是缺陷，是链路状态换来正确性的代价。我是小龙，下次见！",
+      "points": [
+        {
+          "t": "同一区域：每台的地图必须一致",
+          "cue": "地图一致"
+        },
+        {
+          "t": "真正删 LSA：只在 ASBR、ABR 两个边界",
+          "cue": "这两个边界"
+        },
+        {
+          "t": "filter-policy import：只管本机路由表",
+          "cue": "中间的路由器"
+        }
+      ]
+    }
+  ]
+}

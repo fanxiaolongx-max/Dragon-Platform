@@ -7,7 +7,9 @@ const path = require('path');
 const fs = require('fs');
 const { URL } = require('url');
 const desktopLanguage = require('../backend/models/desktop-language');
+const { createVisitor } = require('./taotao-visit');
 desktopLanguage.events.on('change', (language) => {
+    taotaoVisitor.languageChanged();
     for (const win of [petWin, chatWin, settingsWin, quotaPanelWin, quotaPeekWin, quotaTrendsWin]) {
         if (win && !win.isDestroyed()) win.webContents.send('pet-language-change', language);
     }
@@ -24,6 +26,8 @@ const {
 } = require('./pet-keyboard-hook');
 
 let petWin = null;
+const taotaoVisitor = createVisitor({ BrowserWindow, screen, getPet: () => petWin,
+    getLanguage: () => desktopLanguage.getLanguage() });
 let chatWin = null;
 let settingsWin = null;
 let quotaPanelWin = null;
@@ -576,8 +580,9 @@ function createPetWindow() {
     petWin.on('move', sendPetEnvironment);
     petWin.on('resize', sendPetEnvironment);
     petWin.on('show', sendPetEnvironment);
-    petWin.on('hide', sendPetEnvironment);
+    petWin.on('hide', () => { taotaoVisitor.close(); sendPetEnvironment(); });
     petWin.on('closed', () => {
+        taotaoVisitor.close();
         petWin = null;
         if (!isQuotaStandalone()) { closeQuotaPanel(); closeQuotaTrends(); }
         else syncQuotaPanel();
@@ -730,6 +735,12 @@ function registerIpc() {
     ipcRegistered = true;
     ipcMain.handle('pet-get-language', () => desktopLanguage.getLanguage());
     const isPetSender = event => petWin && !petWin.isDestroyed() && event.sender === petWin.webContents;
+    ipcMain.on('pet-taotao-surprise', (event, rect) => {
+        if (!isPetSender(event)) return;
+        try { taotaoVisitor.start(rect); } catch (_) { taotaoVisitor.close(); }
+    });
+    ipcMain.on('pet-taotao-ready', event => taotaoVisitor.ready(event.sender));
+    ipcMain.on('pet-taotao-failed', event => taotaoVisitor.failed(event.sender));
     const isQuotaPanelSender = event => quotaPanelWin && !quotaPanelWin.isDestroyed() && event.sender === quotaPanelWin.webContents;
     const isQuotaPeekSender = event => quotaPeekWin && !quotaPeekWin.isDestroyed() && event.sender === quotaPeekWin.webContents;
     const isChatSender = event => chatWin && !chatWin.isDestroyed() && event.sender === chatWin.webContents;
@@ -1056,6 +1067,7 @@ function registerIpc() {
  * 本次临时隐藏
  */
 function hidePetForNow() {
+    taotaoVisitor.close();
     stopKeyboardHook();
     if (!isQuotaStandalone() && quotaTrendsWin && !quotaTrendsWin.isDestroyed()) quotaTrendsWin.hide();
     if (chatWin && !chatWin.isDestroyed()) chatWin.hide();
@@ -1085,6 +1097,7 @@ function setPetEnabled(enabled) {
     if (enabled) {
         showPetForNow();
     } else {
+        taotaoVisitor.close();
         stopKeyboardHook();
         // 彻底关闭并销毁窗口，恢复完全无桌宠状态
         if (chatWin && !chatWin.isDestroyed()) chatWin.destroy();
@@ -1153,6 +1166,7 @@ function initDesktopPet({ port = 3030, baseUrl = 'http://localhost:3030' } = {})
 }
 
 function cleanupDesktopPet() {
+    taotaoVisitor.close();
     if (presencePollingTimer) { clearInterval(presencePollingTimer); presencePollingTimer = null; }
     stopKeyboardHook();
     if (quotaPollingTimer) {

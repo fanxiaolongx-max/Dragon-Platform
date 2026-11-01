@@ -1,0 +1,271 @@
+<!doctype html><html><head><meta charset="UTF-8"></head><body>
+<template><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>#root{position:absolute;inset:0;overflow:hidden;color:var(--ink);font-family:"Noto Sans SC",sans-serif;--ink:#e8eefc;--mute:#94a3b8;--navy:#0b1226;--blue:#2563eb;--purple:#7c3aed;--amber:#f59e0b;--ok:#22c55e;--bad:#ef4444;--card:rgba(15,25,52,.88);--line:rgba(148,163,184,.28)}
+#root *{box-sizing:border-box}
+.board{position:absolute;inset:0;background-color:#0b1226;background-image:radial-gradient(60% 55% at 12% 8%,rgba(37,99,235,.22),transparent 70%),radial-gradient(55% 50% at 92% 95%,rgba(124,58,237,.22),transparent 70%),linear-gradient(rgba(148,163,184,.10) 1.5px,transparent 1.5px),linear-gradient(90deg,rgba(148,163,184,.10) 1.5px,transparent 1.5px),linear-gradient(rgba(148,163,184,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.045) 1px,transparent 1px);background-size:100% 100%,100% 100%,240px 240px,240px 240px,48px 48px,48px 48px}
+.vig{position:absolute;inset:0;background:radial-gradient(120% 100% at 50% 45%,transparent 60%,rgba(2,6,18,.6))}
+.head{position:absolute;left:100px;top:60px;display:flex;align-items:center;gap:22px}
+.chip{font-size:34px;font-weight:700;color:#fff;padding:8px 26px 10px;border-radius:12px;background:linear-gradient(90deg,var(--blue),var(--purple));box-shadow:0 0 0 1px rgba(255,255,255,.12) inset,0 8px 24px rgba(37,99,235,.35);white-space:nowrap}
+.series{position:absolute;right:100px;top:70px;font-size:28px;color:var(--mute);letter-spacing:.06em;white-space:nowrap}
+.series b{color:var(--amber);font-weight:700}
+.mono{font-family:"JetBrains Mono",monospace}
+.abs{position:absolute}
+.card{position:absolute;background:var(--card);border:2px solid var(--line);border-radius:22px;box-shadow:0 18px 40px rgba(0,0,0,.35)}
+.node{position:absolute;display:flex;align-items:center;justify-content:center;font-family:"JetBrains Mono",monospace;font-weight:700;font-size:48px;color:#fff;background:linear-gradient(160deg,rgba(37,99,235,.35),rgba(124,58,237,.30));border:3px solid #3b82f6;border-radius:22px;white-space:nowrap}
+.node.final{border-color:var(--ok);background:linear-gradient(160deg,rgba(34,197,94,.30),rgba(37,99,235,.25))}
+.nsub{position:absolute;font-size:30px;color:#cbd5e1;text-align:center;white-space:nowrap}
+.elab{position:absolute;font-size:28px;color:#fde68a;background:rgba(11,18,38,.92);border:1.5px solid rgba(245,158,11,.55);border-radius:999px;padding:4px 18px 6px;white-space:nowrap;transform:translate(-50%,-50%)}
+.note{position:absolute;display:flex;align-items:center;gap:16px;font-size:36px;color:#fff;background:rgba(245,158,11,.12);border:2px solid var(--amber);border-radius:16px;padding:14px 28px 16px;white-space:nowrap}
+.note i{font-style:normal;color:var(--amber);font-weight:900;font-size:40px}
+.cap{position:absolute;left:0;right:0;bottom:44px;height:92px;z-index:60}
+.cap .c{position:absolute;left:50%;top:0;transform:translateX(-50%);white-space:nowrap;font-size:46px;font-weight:500;line-height:1;color:#fff;background:rgba(5,10,24,.86);border:1.5px solid rgba(148,163,184,.35);border-radius:16px;padding:16px 38px 18px;box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0}
+.clawdbox{position:absolute;left:1560px;top:610px;z-index:40}
+.ttl{position:absolute;left:100px;top:300px;font-size:128px;font-weight:900;color:#fff;letter-spacing:.02em;white-space:nowrap}
+.uline{position:absolute;left:104px;top:470px;height:10px;width:640px;border-radius:6px;background:linear-gradient(90deg,var(--blue),var(--purple),var(--amber));transform-origin:0 50%}
+.sub{position:absolute;left:100px;top:520px;font-size:48px;color:#cbd5e1;white-space:nowrap}
+.tags{position:absolute;left:100px;top:620px;display:flex;gap:20px}
+.tag{font-size:32px;color:#fde68a;border:2px solid var(--amber);border-radius:999px;padding:6px 24px 8px;white-space:nowrap;background:rgba(245,158,11,.08)}
+.strip{position:absolute;left:100px;top:770px;display:flex;gap:12px}
+.strip span{font-family:"JetBrains Mono",monospace;font-size:26px;color:#94a3b8;border:1.5px solid rgba(148,163,184,.35);border-radius:10px;padding:6px 14px;white-space:nowrap}
+.term{position:absolute;left:100px;top:220px;width:900px;background:#050a18;border:2px solid rgba(59,130,246,.5);border-radius:18px;overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.45)}
+.term .bar{height:50px;display:flex;align-items:center;gap:10px;padding:0 20px;background:rgba(37,99,235,.18);border-bottom:1.5px solid rgba(59,130,246,.35)}
+.term .bar i{width:14px;height:14px;border-radius:50%;display:block;background:#475569}
+.term .cmd{font-family:"JetBrains Mono",monospace;font-size:34px;color:#93c5fd;padding:24px 30px 10px;white-space:pre}
+.term .tr{display:flex;font-family:"JetBrains Mono",monospace;font-size:36px;color:#e2e8f0;padding:14px 30px}
+.term .tr span{width:200px;white-space:nowrap}.term .tr span:nth-child(2){width:300px}
+.badge{font-weight:700;border-radius:10px;padding:2px 16px;border:2px solid}
+.qbox{position:absolute;left:1060px;top:300px;width:460px;height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center}
+.qbox .q{font-size:200px;font-weight:900;line-height:1;color:var(--amber);text-shadow:0 0 40px rgba(245,158,11,.45)}
+.qbox .qt{font-size:50px;font-weight:700;color:#fff;white-space:nowrap}
+.tbl{position:absolute;left:100px;top:290px;width:1400px}
+.tcap{position:absolute;left:100px;top:200px;font-size:36px;color:#c4b5fd;white-space:nowrap}
+.trow{position:relative;display:flex;align-items:center;height:104px;margin-bottom:14px;border-radius:16px;background:var(--card);border:2px solid var(--line);overflow:hidden}
+.trow.h{height:70px;background:rgba(124,58,237,.22);border-color:rgba(124,58,237,.55)}
+.trow .td{padding:0 30px;font-size:38px;white-space:nowrap}
+.trow.h .td{font-size:30px;color:#ddd6fe;font-weight:700}
+.trow .st{position:absolute;left:0;top:0;bottom:0;width:10px}
+.pkt{position:absolute;left:100px;top:300px;width:1400px;height:150px;display:flex;border:3px solid #3b82f6;border-radius:18px;overflow:hidden}
+.fld{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-right:2px solid rgba(59,130,246,.5);background:rgba(37,99,235,.10)}
+.fld:last-child{border-right:none}
+.fld .fn{font-size:28px;color:#94a3b8;white-space:nowrap}
+.fld .fv{font-family:"JetBrains Mono",monospace;font-size:52px;font-weight:700;color:#fff}
+.fld.dim{background:repeating-linear-gradient(-45deg,rgba(148,163,184,.08) 0 12px,transparent 12px 24px)}
+.fld.dim .fv{color:#64748b}
+.ptitle{position:absolute;left:100px;top:210px;font-size:38px;font-weight:700;color:#93c5fd;white-space:nowrap}
+.rtr{position:absolute;top:560px;width:420px;height:220px;display:flex;align-items:center;gap:26px;padding:0 34px}
+.rtr .nm{font-size:44px;font-weight:900;color:#fff}
+.rtr .rid{font-family:"JetBrains Mono",monospace;font-size:34px;color:#93c5fd}
+.role{position:absolute;top:-26px;right:24px;font-size:30px;font-weight:900;border-radius:10px;padding:4px 18px 6px}
+.vs{position:absolute;left:640px;top:635px;font-size:60px;font-weight:900;color:#64748b}
+.pt{position:absolute;left:100px;width:1380px;height:140px;display:flex;align-items:center;gap:34px;padding:0 40px}
+.pt .n{width:76px;height:76px;flex:none;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:900;color:#fff;background:linear-gradient(135deg,var(--blue),var(--purple))}
+.pt .t{font-size:50px;font-weight:700;color:#fff;white-space:nowrap}
+.pt .ck{margin-left:auto;font-size:56px;color:var(--amber);font-weight:900}
+.tbl.cpt .trow{height:88px;margin-bottom:10px}.tbl.cpt .trow.h{height:62px}.tbl.cpt .trow .td{font-size:34px}
+.tl-axis{position:absolute;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--blue),var(--purple))}
+.tl-card{position:absolute;height:250px;padding:26px 30px;display:flex;flex-direction:column;gap:10px}
+.tl-card .yr{font-size:60px;font-weight:900;line-height:1;font-family:"JetBrains Mono","Noto Sans SC",monospace}
+.tl-card .tt{font-size:40px;font-weight:700;line-height:1.2}
+.tl-card .sb{font-size:30px;line-height:1.35;color:var(--mute)}
+.tl-stem{position:absolute;width:3px;opacity:.55}
+.tl-dot{position:absolute;width:30px;height:30px;border-radius:50%;border:6px solid;background:#fff}
+.mesh-panel .mt{position:absolute;left:0;right:0;top:26px;text-align:center;font-size:40px;font-weight:700}
+.mesh-node{position:absolute;width:68px;height:68px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:"JetBrains Mono",monospace;font-size:24px;font-weight:700;color:#fff;background:#2563eb;box-shadow:0 6px 16px rgba(37,99,235,.35);z-index:2}
+.mesh-node.bdr{background:#7c3aed;box-shadow:0 6px 16px rgba(124,58,237,.35)}
+.mesh-node.dr{width:92px;height:92px;font-size:32px;background:#f59e0b;color:#1a1020;box-shadow:0 8px 22px rgba(245,158,11,.45)}
+.mesh-stat{position:absolute;text-align:center;font-size:44px;font-weight:900;z-index:3}
+.mesh-extra{position:absolute;font-size:32px;font-weight:700;padding:10px 26px;border-radius:14px;border:2px solid var(--amber);background:rgba(245,158,11,.12);white-space:nowrap}
+.mesh-arrow{position:absolute;font-size:72px;font-weight:900;color:var(--amber);z-index:3}
+
+/* 亮色主题（讲解稿 "theme":"light"）：象牙白底 + 细网格，白卡片轻阴影，深墨蓝正文，琥珀色只用于强调 */
+#root{--ink:#0f172a;--mute:#5b6478;--card:#ffffff;--line:#e3e8f0;--amber:#d97706;color:var(--ink)}
+.board{background-color:#f6f7fb;background-image:radial-gradient(55% 50% at 8% 0%,rgba(37,99,235,.10),transparent 70%),radial-gradient(50% 45% at 100% 100%,rgba(124,58,237,.09),transparent 70%),linear-gradient(rgba(15,23,42,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(15,23,42,.045) 1px,transparent 1px);background-size:100% 100%,100% 100%,48px 48px,48px 48px}
+.vig{display:none}
+.chip{box-shadow:0 8px 20px rgba(37,99,235,.22)}
+.series{color:#64748b}.series b{color:#b45309}
+.card{background:#fff;border:1.5px solid #e3e8f0;box-shadow:0 14px 34px rgba(15,23,42,.08),0 2px 6px rgba(15,23,42,.04)}
+.tcap{color:#5b21b6;font-weight:700}
+.trow{background:#fff;border:1.5px solid #e3e8f0;box-shadow:0 6px 16px rgba(15,23,42,.05)}
+.trow.h{background:#eef2ff;border-color:#c7d2fe;box-shadow:none}
+.trow.h .td{color:#3730a3}
+.trow .td{color:#0f172a}
+.note{background:#fffbeb;border-color:#f59e0b;color:#0f172a}.note i{color:#b45309}
+.node{color:#1e3a8a;background:#eff6ff;border-color:#3b82f6}
+.node.final{background:#f0fdf4;border-color:#16a34a;color:#14532d}
+.nsub{color:#475569}
+.elab{background:#fff;color:#92400e;border-color:#fcd34d;box-shadow:0 4px 10px rgba(15,23,42,.06)}
+.term{box-shadow:0 22px 50px rgba(15,23,42,.22);border-color:#1e293b}
+.qbox .qt{color:#0f172a}.qbox .q{color:#d97706;text-shadow:0 10px 30px rgba(217,119,6,.25)}
+.ttl{color:#0f172a}.sub{color:#475569}
+.tag{color:#92400e;background:#fffbeb;border-color:#f59e0b}
+.pt .t{color:#0f172a}
+.cap .c{background:rgba(15,23,42,.9);border:none;color:#fff;box-shadow:0 12px 30px rgba(15,23,42,.25)}
+.tl-card .tt{color:#0f172a}
+.tl-dot{background:#fff}
+.mesh-panel .mt{color:#0f172a}
+.mesh-extra{color:#92400e;background:#fffbeb;border-color:#f59e0b}
+.mesh-arrow{color:#d97706}
+.qbox{left:1030px;width:500px}.qbox .qt{font-size:46px}
+</style>
+<div id="root" data-composition-id="ospf-network-types-now" data-width="1920" data-height="1080">
+  <div class="board"></div><div class="vig"></div>
+  <div class="stage abs" style="inset:0"></div>
+  <div class="cap"></div>
+</div>
+<script>
+var S={"id": "now", "type": "timeline", "head": "后来，世界变了", "say": "后来世界变了。1990 年有了双绞线和集线器，但线还是共享的。到九十年代后期，交换机和全双工普及，今天一根以太网线，往往只连两台设备。可 OSPF 看到以太网口，还是默认当成广播网，照样选班长、等四十秒。", "events": [{"year": "1990", "t": "双绞线 + 集线器", "sub": "换了线，仍是共享介质", "ct": 1.6, "cue": "1990", "tone": "info"}, {"year": "1997", "t": "交换机 + 全双工", "sub": "一根线往往只连两台", "ct": 6.13, "cue": "交换机", "tone": "ok"}, {"year": "今天", "t": "默认仍是广播网", "sub": "照样选 DR，先等 40 秒", "ct": 15.5, "cue": "默认当成", "tone": "bad"}], "series": "为什么要选 DR：从共享电缆到点到点"};var CAPS=[{"t": "后来世界变了", "s": 0.5, "e": 1.44}, {"t": "1990 年有了双绞线和集线器", "s": 1.95, "e": 4.43}, {"t": "但线还是共享的", "s": 4.82, "e": 5.97}, {"t": "到九十年代后期，交换机和全双工普及", "s": 6.48, "e": 9.66}, {"t": "今天一根以太网线，往往只连两台设备", "s": 10.01, "e": 12.72}, {"t": "可 OSPF 看到以太网口", "s": 13.24, "e": 15.59}, {"t": "还是默认当成广播网", "s": 15.85, "e": 17.26}, {"t": "照样选班长、等四十秒", "s": 17.47, "e": 19.27}];var SDUR=20.63;
+/* 数据驱动场景渲染：build.py 注入 S（分段数据，cue 已换算成场景内秒数 ct）、CAPS、SDUR。 */
+function el(tag,cls,html,style,id){var e=document.createElement(tag);if(cls)e.className=cls;if(html!=null)e.innerHTML=html;if(style)e.setAttribute("style",style);if(id)e.id=id;return e;}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+var LIGHT=typeof S!=="undefined"&&S.theme==="light";
+var TONE=LIGHT?{ok:"#15803d",info:"#1d4ed8",warn:"#b45309",bad:"#b91c1c",amber:"#b45309",purple:"#6d28d9"}:{ok:"#22c55e",info:"#3b82f6",warn:"#f59e0b",bad:"#ef4444",amber:"#f59e0b",purple:"#a78bfa"};
+var ACC=LIGHT?"#b45309":"#f59e0b";
+function pop(tl,sel,t,o){o=o||{};tl.fromTo(sel,{opacity:0,y:o.y==null?24:o.y,scale:o.s||.94},{opacity:1,y:0,scale:1,duration:o.d||.5,ease:"back.out(1.5)"},t);}
+function slideIn(tl,sel,t,x){tl.fromTo(sel,{opacity:0,x:x==null?-50:x},{opacity:1,x:0,duration:.45,ease:"power3.out"},t);}
+function glow(tl,sel,t,c){tl.fromTo(sel,{boxShadow:"0 0 0px 0px "+c},{boxShadow:"0 0 34px 6px "+c,duration:.35,yoyo:true,repeat:3,ease:"sine.inOut"},t);}
+function captions(tl,box){CAPS.forEach(function(c){var e=el("div","c");e.textContent=c.t;box.appendChild(e);
+ tl.fromTo(e,{opacity:0,y:10},{opacity:1,y:0,duration:.22,ease:"sine.out"},c.s-.05);
+ tl.to(e,{opacity:0,y:-6,duration:.16,ease:"sine.in"},Math.max(c.s+.3,c.e-.1));});}
+function scene(tl,root){var st=root.querySelector(".stage"),P=S.id+"-",cid=P+"cl";
+ var hd=el("div","head",'<span class="chip">'+esc(S.head)+'</span>');st.appendChild(hd);
+ st.appendChild(el("div","series",'数通协议专家 · <b>'+esc(S.series)+'</b>'));
+ tl.fromTo(hd,{opacity:0,x:-40},{opacity:1,x:0,duration:.5,ease:"power3.out"},.15);
+ var cb=el("div","clawdbox");cb.id=P+"cb";cb.innerHTML=clawd(cid,{w:270});st.appendChild(cb);
+ cEnter(tl,"#"+P+"cb",.3);cIdle(tl,cid,.9,SDUR-1);
+ var R=RENDER[S.type];R(tl,st,P,cid);
+ (S.clawd||[]).forEach(function(a){if(a.pose==="point")cPoint(tl,cid,a.ct,a.hold);else if(a.pose==="think")cThink(tl,cid,a.ct,a.hold);else if(a.pose==="nod")cNod(tl,cid,a.ct,a.n);});
+ captions(tl,root.querySelector(".cap"));}
+var RENDER={
+ title:function(tl,st,P,cid){
+  var t=el("div","ttl",esc(S.title));st.appendChild(t);var u=el("div","uline");st.appendChild(u);
+  var s=el("div","sub",esc(S.subtitle||""));st.appendChild(s);
+  tl.fromTo(t,{opacity:0,y:40},{opacity:1,y:0,duration:.7,ease:"power3.out"},.4);
+  tl.fromTo(u,{scaleX:0},{scaleX:1,duration:.7,ease:"power2.inOut"},.9);
+  tl.fromTo(s,{opacity:0,y:20},{opacity:1,y:0,duration:.5},1.3);
+  var tg=el("div","tags");st.appendChild(tg);(S.tags||[]).forEach(function(x,i){var e=el("span","tag",esc(x.t));tg.appendChild(e);pop(tl,e,x.ct+i*.18);});
+  if(S.strip){var sp=el("div","strip");st.appendChild(sp);var items=S.strip.items.map(function(x){var e=el("span",null,esc(x));sp.appendChild(e);return e;});
+   tl.fromTo(items,{opacity:0,y:16},{opacity:1,y:0,duration:.3,stagger:.12},S.strip.ct-.2);
+   items.forEach(function(e,i){var t0=S.strip.ct+1+i*.28;tl.to(e,{color:"#fff",borderColor:"#f59e0b",backgroundColor:"rgba(245,158,11,.18)",duration:.18},t0);
+    if(i<items.length-1)tl.to(e,{color:"#94a3b8",borderColor:"rgba(148,163,184,.35)",backgroundColor:"rgba(0,0,0,0)",duration:.25},t0+.3);});}
+  cPoint(tl,cid,1.2,1.4);},
+ question:function(tl,st,P,cid){var T=S.term;
+  var tm=el("div","term",'<div class="bar"><i></i><i></i><i></i></div><div class="cmd"></div>');st.appendChild(tm);
+  pop(tl,tm,.5);var cmd=tm.querySelector(".cmd");cmd.innerHTML=("&lt;R1&gt; "+esc(T.cmd)).replace(/(&[a-z]+;|.)/g,'<span style="opacity:0">$1</span>');
+  tl.to(cmd.children,{opacity:1,duration:.01,stagger:1.1/cmd.children.length},.9);
+  T.rows.forEach(function(r,i){var c=TONE[r.tone]||"#94a3b8";var e=el("div","tr",'<span>'+esc(r.cells[0])+'</span><span>'+esc(r.cells[1])+'</span><span><b class="badge" style="color:'+c+';border-color:'+c+'">'+esc(r.cells[2])+'</b></span>');tm.appendChild(e);
+   slideIn(tl,e,r.ct-.15+(i===2?.2:0),-30);if(r.tone!=="ok")glow(tl,e.querySelector(".badge"),r.ct+.4,c);});
+  var q=el("div","qbox",'<div class="q">?</div><div class="qt"></div>');q.querySelector(".qt").textContent=S.question[0].t;st.appendChild(q);
+  pop(tl,q,S.question[0].ct-.2,{s:.6});cThink(tl,cid,1.2,Math.max(1.5,S.question[0].ct-1.6));},
+ fsm:function(tl,st,P,cid){var W=S.nw||270,H=110,N={};
+  var svgNS="http://www.w3.org/2000/svg",svg=document.createElementNS(svgNS,"svg");svg.setAttribute("width","1920");svg.setAttribute("height","1080");svg.setAttribute("style","position:absolute;left:0;top:0;overflow:visible");st.appendChild(svg);
+  S.edges.forEach(function(e){S.nodes.forEach(function(nd){if(nd.id===e.from&&e.ct<nd.ct)nd.ct=e.ct;});});
+  var n=S.nodes.length;S.nodes.forEach(function(nd,i){var at=nd.at||[100+W/2+i*((1400-W)/Math.max(1,n-1)),440];N[nd.id]={x:at[0],y:at[1],nd:nd};});
+  function clip(a,b){var dx=b.x-a.x,dy=b.y-a.y,k=Math.min(Math.abs(dx)>0?(W/2+14)/Math.abs(dx):1e9,Math.abs(dy)>0?(H/2+14)/Math.abs(dy):1e9);return [a.x+dx*k,a.y+dy*k];}
+  S.edges.forEach(function(e,i){var A=N[e.from],B=N[e.to],p,lab,ang,d;
+   if(e.arc){var mx=(A.x+B.x)/2,my=Math.min(A.y,B.y)-150,C={x:mx,y:my},s=clip(A,C),f=clip(B,C);d="M"+s[0]+" "+s[1]+" Q"+mx+" "+my+" "+f[0]+" "+f[1];lab=[.25*s[0]+.5*mx+.25*f[0],.25*s[1]+.5*my+.25*f[1]];ang=Math.atan2(f[1]-my,f[0]-mx);p=f;}
+   else{var s2=clip(A,B),f2=clip(B,A);d="M"+s2[0]+" "+s2[1]+" L"+f2[0]+" "+f2[1];lab=[(s2[0]+f2[0])/2,(s2[1]+f2[1])/2-(Math.abs(A.y-B.y)<2?40:0)];ang=Math.atan2(f2[1]-s2[1],f2[0]-s2[0]);p=f2;}
+   var path=document.createElementNS(svgNS,"path");path.setAttribute("d",d);path.setAttribute("fill","none");path.setAttribute("stroke","#f59e0b");path.setAttribute("stroke-width","5");path.setAttribute("stroke-linecap","round");path.setAttribute("pathLength","1");path.setAttribute("stroke-dasharray","1");path.setAttribute("stroke-dashoffset","1");svg.appendChild(path);
+   var hd=document.createElementNS(svgNS,"path");var c=Math.cos(ang),sn=Math.sin(ang);hd.setAttribute("d","M"+(p[0]-22*c+12*sn)+" "+(p[1]-22*sn-12*c)+" L"+p[0]+" "+p[1]+" L"+(p[0]-22*c-12*sn)+" "+(p[1]-22*sn+12*c)+" Z");hd.setAttribute("fill","#f59e0b");hd.setAttribute("opacity","0");svg.appendChild(hd);
+   var lb=el("div","elab",esc(e.label),"left:"+lab[0]+"px;top:"+lab[1]+"px");st.appendChild(lb);
+   tl.to(path,{strokeDashoffset:0,duration:.55,ease:"power2.out"},e.ct-.3);tl.to(hd,{opacity:1,duration:.1},e.ct+.2);
+   tl.fromTo(lb,{opacity:0,scale:.7},{opacity:1,scale:1,duration:.3,ease:"back.out(2)"},e.ct-.1);});
+  var prev=null;S.nodes.forEach(function(nd){var q=N[nd.id];var b=el("div","node"+(nd.final?" final":""),esc(nd.label),"left:"+(q.x-W/2)+"px;top:"+(q.y-H/2)+"px;width:"+W+"px;height:"+H+"px");st.appendChild(b);
+   var sb=el("div","nsub",esc(nd.sub||""),"left:"+(q.x-260)+"px;width:520px;top:"+(nd.subUp?q.y-H/2-56:q.y+H/2+16)+"px");st.appendChild(sb);
+   pop(tl,b,nd.ct-.1,{s:.6});tl.fromTo(sb,{opacity:0},{opacity:1,duration:.3},nd.ct+.25);
+   var gc=nd.final?"rgba(34,197,94,.75)":"rgba(245,158,11,.7)";
+   tl.to(b,{boxShadow:"0 0 36px 6px "+gc,borderColor:nd.final?"#22c55e":"#f59e0b",duration:.3},nd.ct+.2);
+   if(prev)tl.to(prev,{boxShadow:"0 0 0px 0px rgba(0,0,0,0)",borderColor:"#3b82f6",duration:.3},nd.ct+.2);prev=b;});
+  if(S.note){var nt=el("div","note",'<i>!</i>'+esc(S.note.t),"left:100px;top:"+(S.note.y||760)+"px");st.appendChild(nt);pop(tl,nt,S.note.ct-.2);}
+  cPoint(tl,cid,S.nodes[Math.min(1,n-1)].ct,1);if(S.note)cPoint(tl,cid,S.note.ct+.2,1);},
+ compare:function(tl,st,P,cid){var w=S.widths||[1.35,1,1.25],sum=w.reduce(function(a,b){return a+b;},0);
+  if(S.caption){var cp=el("div","tcap","◆ "+esc(S.caption));st.appendChild(cp);slideIn(tl,cp,.6,-30);}
+  var tb=el("div",S.compact?"tbl cpt":"tbl");st.appendChild(tb);
+  function row(cells,cls,tone){var r=el("div","trow"+(cls?" "+cls:""));if(tone)r.appendChild(el("i","st",null,"background:"+TONE[tone]));
+   cells.forEach(function(c,j){var d=el("div",j===0&&!cls&&/^[\x00-\x7f]+$/.test(c)?"td mono":"td",esc(c),"width:"+(1396*w[j]/sum)+"px"+(!cls&&S.colTones?(S.colTones[j]?";color:"+TONE[S.colTones[j]]+";font-weight:700":""):(j===1&&tone&&!cls?";color:"+TONE[tone]+";font-weight:700":"")));r.appendChild(d);});tb.appendChild(r);return r;}
+  var h=row(S.cols,"h");slideIn(tl,h,.8,-30);
+  var rows=S.rows.map(function(r){var e=row(r.cells,null,r.tone);slideIn(tl,e,r.ct-.15);return e;});
+  if(S.flash){var cell=rows[S.flash.row].children[S.flash.col+1];tl.to(cell,{color:ACC,fontWeight:900,duration:.2},S.flash.ct);glow(tl,rows[S.flash.row],S.flash.ct,"rgba(245,158,11,.6)");cPoint(tl,cid,S.flash.ct,1.2);}
+  cPoint(tl,cid,S.rows[0].ct+.2,1);},
+ packet:function(tl,st,P,cid){var pt=el("div","ptitle","▸ "+esc(S.packet));st.appendChild(pt);
+  var bar=el("div","pkt");st.appendChild(bar);var sum=S.fields.reduce(function(a,f){return a+(f.w||1);},0);
+  tl.fromTo(bar,{opacity:0,scaleX:.3},{opacity:1,scaleX:1,duration:.5,ease:"power3.out",transformOrigin:"0 50%"},S.packetCt-.6);slideIn(tl,pt,S.packetCt-.8,-30);
+  S.fields.forEach(function(f){var e=el("div","fld"+(f.dim?" dim":""),'<span class="fn">'+esc(f.name)+'</span><span class="fv">'+esc(f.val)+'</span>',"width:"+(1394*(f.w||1)/sum)+"px");bar.appendChild(e);
+   tl.fromTo(e.querySelector(".fv"),{opacity:0,y:16},{opacity:1,y:0,duration:.3,ease:"back.out(2)"},Math.max(f.ct,S.packetCt)-.1);
+   if(f.hl)tl.to(e,{backgroundColor:"rgba(245,158,11,.28)",duration:.25},f.ct);});
+  var D=S.duel;if(D){var L=el("div","rtr card",'<svg width="96" height="96" viewBox="0 0 96 96"><circle cx="48" cy="48" r="40" fill="rgba(37,99,235,.25)" stroke="#3b82f6" stroke-width="4"/><path d="M28 40h40M56 30l12 10-12 10M68 58H28M40 48L28 58l12 10" stroke="#e2e8f0" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><div><div class="nm">'+esc(D.left.name)+'</div><div class="rid">RID '+esc(D.left.rid)+'</div></div>',"left:180px");
+   var Rr=el("div","rtr card",L.innerHTML.replace(esc(D.left.name),esc(D.right.name)).replace(esc(D.left.rid),esc(D.right.rid)),"left:820px");
+   st.appendChild(L);st.appendChild(Rr);var vs=el("div","vs","VS");st.appendChild(vs);
+   pop(tl,L,D.ct-.2);pop(tl,Rr,D.ct);pop(tl,vs,D.ct+.2,{s:.5});
+   var W2=D.winner==="right"?Rr:L,Lo=D.winner==="right"?L:Rr;
+   var m=el("div","role","Master","background:#f59e0b;color:#1a1020");W2.appendChild(m);var s=el("div","role","Slave","background:#334155;color:#cbd5e1");Lo.appendChild(s);
+   pop(tl,m,D.winCt-.1,{s:.4});pop(tl,s,D.winCt+.2,{s:.4});tl.to(W2,{borderColor:"#f59e0b",duration:.3},D.winCt);glow(tl,W2,D.winCt,"rgba(245,158,11,.55)");tl.to(Lo,{opacity:.6,duration:.4},D.winCt+.3);
+   cPoint(tl,cid,D.winCt,1.4);}},
+
+ timeline:function(tl,st,P,cid){var ev=S.events,n=ev.length,x0=130,x1=1440,Y=640,span=(x1-x0)/n;
+  var ax=el("div","tl-axis",null,"left:"+x0+"px;top:"+(Y-3)+"px;width:"+(x1-x0)+"px");st.appendChild(ax);
+  tl.fromTo(ax,{scaleX:0},{scaleX:1,duration:.8,ease:"power2.inOut",transformOrigin:"0 50%"},.5);
+  if(S.caption){var cp=el("div","tcap","◆ "+esc(S.caption));st.appendChild(cp);slideIn(tl,cp,.6,-30);}
+  ev.forEach(function(e,i){var cx=x0+span*(i+.5),w=Math.min(420,span-36),c=TONE[e.tone]||TONE.info;
+   var cd=el("div","tl-card card",'<div class="yr" style="color:'+c+'">'+esc(e.year)+'</div><div class="tt">'+esc(e.t)+'</div><div class="sb">'+esc(e.sub||"")+'</div>',"left:"+(cx-w/2)+"px;top:"+(S.cardTop||250)+"px;width:"+w+"px;border-top:6px solid "+c);st.appendChild(cd);
+   var ct0=(S.cardTop||250)+250,ln=el("div","tl-stem",null,"left:"+(cx-1.5)+"px;top:"+ct0+"px;height:"+(Y-ct0)+"px;background:"+c);st.appendChild(ln);tl.fromTo(ln,{scaleY:0},{scaleY:1,duration:.3,transformOrigin:"50% 0"},e.ct-.05);
+   var dt=el("div","tl-dot",null,"left:"+(cx-15)+"px;top:"+(Y-15)+"px;border-color:"+c);st.appendChild(dt);
+   pop(tl,cd,e.ct-.15,{y:30});tl.fromTo(dt,{scale:0},{scale:1,duration:.35,ease:"back.out(3)"},e.ct-.15);
+   if(e.tone==="bad"||e.tone==="warn")glow(tl,cd,e.ct+.4,LIGHT?"rgba(185,28,28,.25)":"rgba(239,68,68,.45)");});
+  cPoint(tl,cid,ev[n-1].ct,1.2);},
+ mesh:function(tl,st,P,cid){var svgNS="http://www.w3.org/2000/svg";
+  function panel(px,cfg,star){var pw=640,top=210,ph=560,cx=px+pw/2,cy=top+285,R=148,n=cfg.n||6;
+   var pn=el("div","mesh-panel card",'<div class="mt">'+esc(cfg.title)+'</div>',"left:"+px+"px;top:"+top+"px;width:"+pw+"px;height:"+ph+"px");st.appendChild(pn);
+   var svg=document.createElementNS(svgNS,"svg");svg.setAttribute("width","1920");svg.setAttribute("height","1080");svg.setAttribute("style","position:absolute;left:0;top:0;overflow:visible");st.appendChild(svg);
+   var pts=[];for(var i=0;i<n;i++){var a=-Math.PI/2+i*2*Math.PI/n;pts.push([cx+R*Math.cos(a),cy+R*Math.sin(a)]);}
+   var lines=[];function line(a,b,col,wid,dash){var l=document.createElementNS(svgNS,"line");l.setAttribute("x1",a[0]);l.setAttribute("y1",a[1]);l.setAttribute("x2",b[0]);l.setAttribute("y2",b[1]);l.setAttribute("stroke",col);l.setAttribute("stroke-width",wid);l.setAttribute("stroke-linecap","round");if(dash)l.setAttribute("stroke-dasharray",dash);svg.appendChild(l);lines.push(l);}
+   if(!star){for(var i=0;i<n;i++)for(var j=i+1;j<n;j++)line(pts[i],pts[j],LIGHT?"#ef4444":"#f87171",3);}
+   else{pts.forEach(function(p,i){line(p,[cx,cy],LIGHT?"#16a34a":"#4ade80",4,i===1?"10 8":null);});}
+   tl.fromTo(pn,{opacity:0,y:30},{opacity:1,y:0,duration:.45,ease:"power3.out"},cfg.ct-.45);
+   tl.fromTo(lines,{opacity:0},{opacity:1,duration:.12,stagger:.6/lines.length},cfg.ct-.1);
+   pts.forEach(function(p,i){var lab=star&&i===1?"BDR":"R"+(i+1);var nd=el("div","mesh-node"+(star&&i===1?" bdr":""),lab,"left:"+(p[0]-34)+"px;top:"+(p[1]-34)+"px");st.appendChild(nd);tl.fromTo(nd,{scale:0},{scale:1,duration:.3,ease:"back.out(2.5)"},cfg.ct-.35+i*.04);});
+   if(star){var dr=el("div","mesh-node dr","DR","left:"+(cx-46)+"px;top:"+(cy-46)+"px");st.appendChild(dr);tl.fromTo(dr,{scale:0},{scale:1,duration:.4,ease:"back.out(2.5)"},cfg.ct-.3);}
+   var sc=el("div","mesh-stat",esc(cfg.stat),"left:"+px+"px;width:"+pw+"px;top:"+(top+ph-82)+"px;color:"+(star?TONE.ok:TONE.bad));st.appendChild(sc);
+   tl.fromTo(sc,{opacity:0,y:12},{opacity:1,y:0,duration:.35},cfg.ct+.3);
+   if(cfg.card){var cc=el("div","mesh-extra",esc(cfg.card),"left:"+(px+40)+"px;top:"+(top+ph+18)+"px");st.appendChild(cc);pop(tl,cc,cfg.cardCt-.2);}
+   return sc;}
+  panel(100,S.left,false);var rs=panel(800,S.right,true);
+  var ar=el("div","mesh-arrow","→","left:742px;top:445px");st.appendChild(ar);tl.fromTo(ar,{opacity:0,x:-20},{opacity:1,x:0,duration:.35},S.right.ct-.5);
+  if(S.flash){tl.fromTo(rs,{scale:1},{scale:1.12,duration:.25,yoyo:true,repeat:3,ease:"sine.inOut"},S.flash.ct);}
+  cPoint(tl,cid,S.right.ct,1.4);},
+ recap:function(tl,st,P,cid){S.points.forEach(function(p,i){var e=el("div","pt card",'<span class="n">'+(i+1)+'</span><span class="t">'+esc(p.t)+'</span><span class="ck">✓</span>',"top:"+(230+i*180)+"px");st.appendChild(e);
+  slideIn(tl,e,p.ct-.2,-60);tl.fromTo(e.querySelector(".ck"),{opacity:0,scale:0},{opacity:1,scale:1,duration:.35,ease:"back.out(3)"},p.ct+.25);tl.to(e,{borderColor:"rgba(245,158,11,.7)",duration:.3},p.ct+.25);cNod(tl,cid,p.ct+.3,2);});
+  cPoint(tl,cid,SDUR-3.2,1.2);}
+};
+
+/* 毛绒小龙主持人（讲解稿 "host":"dragon" 时替代 clawd.js，接口相同）。
+   素材：assets/mascot/dragon-stand-s.png（待机）/ dragon-point-s.png（抬手指向），已是透明 PNG、同一画布对齐。
+   姿态：cIdle 呼吸+轻摆、cPoint 切换指向图+小跳、cThink 歪头+问号泡、cNod 点头、cEnter 入场。 */
+function clawd(id,o){o=o||{};var w=300,h=Math.round(w*460/399);
+ return '<div id="'+id+'" style="position:relative;left:-14px;top:-96px;width:'+w+'px;height:'+h+'px">'+
+ '<div style="position:absolute;left:12%;right:12%;bottom:-6px;height:22px;border-radius:50%;background:rgba(0,0,0,.45);filter:blur(6px)"></div>'+
+ '<div id="'+id+'-hop" style="position:absolute;inset:0;transform-origin:50% 100%">'+
+  '<div id="'+id+'-sway" style="position:absolute;inset:0;transform-origin:50% 100%">'+
+   '<div id="'+id+'-body" style="position:absolute;inset:0;transform-origin:50% 100%">'+
+    '<img id="'+id+'-stand" src="assets/mascot/dragon-stand-s.png" style="position:absolute;inset:0;width:100%;height:100%">'+
+    '<img id="'+id+'-point" src="assets/mascot/dragon-point-s.png" style="position:absolute;inset:0;width:100%;height:100%;opacity:0">'+
+ '</div></div></div>'+
+ '<div id="'+id+'-think" style="position:absolute;left:-30px;top:-10px;width:78px;height:78px;border-radius:50%;background:#f8fafc;border:3px solid #b45309;display:flex;align-items:center;justify-content:center;font:900 52px/1 sans-serif;color:#b45309;opacity:0">?</div>'+
+ '</div>';}
+function cIdle(tl,id,t,dur){var n=Math.max(1,Math.floor(dur/1.8)),m=Math.max(1,Math.floor(dur/3.2));
+ tl.fromTo("#"+id+"-body",{scaleY:1,scaleX:1},{scaleY:1.022,scaleX:.992,duration:.9,repeat:n*2-1,yoyo:true,ease:"sine.inOut"},t);
+ tl.fromTo("#"+id+"-sway",{rotation:-1.2},{rotation:1.2,duration:1.6,repeat:m*2-1,yoyo:true,ease:"sine.inOut"},t);}
+function cEnter(tl,sel,t){tl.fromTo(sel,{opacity:0,y:120},{opacity:1,y:0,duration:.55,ease:"back.out(1.5)"},t);}
+function cPoint(tl,id,t,hold){hold=hold||1;
+ tl.to("#"+id+"-point",{opacity:1,duration:.14,ease:"none"},t);tl.to("#"+id+"-stand",{opacity:0,duration:.14,ease:"none"},t);
+ tl.to("#"+id+"-hop",{y:-12,duration:.16,yoyo:true,repeat:1,ease:"power2.out"},t);
+ tl.to("#"+id+"-stand",{opacity:1,duration:.18,ease:"none"},t+.3+hold);tl.to("#"+id+"-point",{opacity:0,duration:.18,ease:"none"},t+.3+hold);}
+function cThink(tl,id,t,hold){hold=hold||2;
+ tl.to("#"+id+"-hop",{rotation:-5,duration:.3,ease:"sine.out"},t);
+ tl.fromTo("#"+id+"-think",{opacity:0,scale:.5},{opacity:1,scale:1,duration:.3,ease:"back.out(2)"},t+.1);
+ tl.to("#"+id+"-think",{y:-8,duration:.5,yoyo:true,repeat:Math.max(1,Math.floor(hold/.5)-1),ease:"sine.inOut"},t+.4);
+ tl.to("#"+id+"-think",{opacity:0,duration:.2},t+hold);tl.to("#"+id+"-hop",{rotation:0,duration:.3,ease:"sine.inOut"},t+hold);}
+function cNod(tl,id,t,n){n=n||2;tl.to("#"+id+"-hop",{y:9,duration:.16,yoyo:true,repeat:n*2-1,ease:"sine.inOut"},t);}
+
+(function(){var root=document.querySelector('[data-composition-id="ospf-network-types-now"]');var tl=gsap.timeline({paused:true});scene(tl,root);window.__timelines["ospf-network-types-now"]=tl;})();
+</script>
+</template></body></html>

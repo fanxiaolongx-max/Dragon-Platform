@@ -1,0 +1,297 @@
+{
+  "id": "ospf-network-types",
+  "title": "为什么要选 DR：从共享电缆到点到点",
+  "host": "dragon",
+  "theme": "light",
+  "source": "knowledge-seed.json#ospf-network-types",
+  "sources": [
+    "RFC 1131 (1989) OSPF v1, §7.3–7.4 Designated / Backup Designated Router",
+    "RFC 2328 (1998) OSPF v2",
+    "RFC 5309 (2008) Point-to-Point Operation over LAN in Link State Routing Protocols",
+    "Radia Perlman, Interconnections 2nd ed., §18 Protocol Design Folklore（DR 选举：稳定 vs 确定性）",
+    "IEEE 802.3 (1983) 10BASE5；802.3i (1990) 10BASE-T；802.3x (1997) 全双工"
+  ],
+  "spoken": [
+    [
+      "RFC 1131",
+      "RFC 一一三一"
+    ],
+    [
+      "RFC 5309",
+      "RFC 五三零九"
+    ],
+    [
+      "IS-IS",
+      "I S I S"
+    ],
+    [
+      "DIS",
+      "D I S"
+    ],
+    [
+      "network-type p2p",
+      "network type P 2 P"
+    ]
+  ],
+  "segments": [
+    {
+      "id": "hook",
+      "type": "question",
+      "head": "OSPF · 为什么要选 DR",
+      "say": "嗨，我是小龙！今天两台路由器，常常就用一根网线直连。可 OSPF 一看是以太网口，还要先等四十秒，选一个 DR 当班长。就两个人，选什么班长？这是设计缺陷，还是历史原因？",
+      "term": {
+        "cmd": "display ospf interface GE0/0/1",
+        "rows": [
+          {
+            "cells": [
+              "类型",
+              "Broadcast",
+              "默认"
+            ],
+            "tone": "warn",
+            "cue": "以太网口"
+          },
+          {
+            "cells": [
+              "状态",
+              "Waiting",
+              "40 秒"
+            ],
+            "tone": "bad",
+            "cue": "四十秒"
+          },
+          {
+            "cells": [
+              "DR",
+              "10.0.0.2",
+              "班长"
+            ],
+            "tone": "info",
+            "cue": "选一个"
+          }
+        ]
+      },
+      "question": [
+        {
+          "t": "就两台，也要选班长？",
+          "cue": "就两个人"
+        }
+      ]
+    },
+    {
+      "id": "era",
+      "type": "timeline",
+      "head": "回到 OSPF 诞生的年代",
+      "say": "要回答它，得回到 OSPF 诞生的年代。1983 年以太网标准化，一根粗同轴电缆上挂着很多台设备，谁说话大家都听得见。1989 年，OSPF 第一版 RFC 1131 发布，DR 从那时就有了。在它眼里，一根线就等于很多邻居。",
+      "events": [
+        {
+          "year": "1983",
+          "t": "以太网标准化",
+          "sub": "一根同轴电缆，挂着很多台设备",
+          "cue": "1983",
+          "tone": "info"
+        },
+        {
+          "year": "1989",
+          "t": "OSPF 第一版",
+          "sub": "RFC 1131，已经设计了 DR / BDR",
+          "cue": "1989",
+          "tone": "info"
+        },
+        {
+          "year": "当时",
+          "t": "一根线 = 很多邻居",
+          "sub": "共享介质，一人说话全员听见",
+          "cue": "一根线就等于",
+          "tone": "amber"
+        }
+      ]
+    },
+    {
+      "id": "why",
+      "type": "mesh",
+      "head": "DR 解决了什么",
+      "say": "线上挂了很多台，麻烦就来了。如果两两都建邻接，十台路由器就是四十五对，每台还要在数据库里写一遍和所有人相连。DR 的办法是：大家只跟班长、副班长同步，再由班长替这条网段发一张网段卡。四十五对，一下变成十七对。",
+      "left": {
+        "title": "两两建邻接",
+        "stat": "10 台 → 45 对",
+        "cue": "两两"
+      },
+      "right": {
+        "title": "选出 DR 当班长",
+        "stat": "10 台 → 17 对",
+        "cue": "只跟班长",
+        "card": "+ 1 张网段 LSA（2 类），代表整条线",
+        "cardCue": "网段卡"
+      },
+      "flash": {
+        "cue": "十七对"
+      }
+    },
+    {
+      "id": "stable",
+      "type": "compare",
+      "head": "为什么选了不让位",
+      "say": "可换一次班长，所有人都得重新同步，代价很大。所以 OSPF 选择了稳定：班长一旦选上，来了更强的也不让位；再提前备好副班长 BDR，班长挂了马上接班。同时代的 IS-IS 走了另一条路：更强的立刻上位，也不设副班长。",
+      "caption": "同一个问题，两种取舍（参考 Perlman《Interconnections》）",
+      "cols": [
+        "",
+        "OSPF 的 DR",
+        "IS-IS 的 DIS"
+      ],
+      "widths": [
+        1,
+        1.3,
+        1.3
+      ],
+      "rows": [
+        {
+          "cells": [
+            "设计取向",
+            "稳定优先",
+            "确定性优先"
+          ],
+          "tone": "info",
+          "cue": "选择了稳定"
+        },
+        {
+          "cells": [
+            "来了更强的",
+            "不让位",
+            "立刻上位"
+          ],
+          "tone": "info",
+          "cue": "不让位"
+        },
+        {
+          "cells": [
+            "备份",
+            "BDR 随时接班",
+            "不设备份"
+          ],
+          "tone": "ok",
+          "cue": "副班长 BDR"
+        }
+      ],
+      "colTones": [
+        null,
+        "info",
+        "purple"
+      ]
+    },
+    {
+      "id": "now",
+      "type": "timeline",
+      "head": "后来，世界变了",
+      "say": "后来世界变了。1990 年有了双绞线和集线器，但线还是共享的。到九十年代后期，交换机和全双工普及，今天一根以太网线，往往只连两台设备。可 OSPF 看到以太网口，还是默认当成广播网，照样选班长、等四十秒。",
+      "events": [
+        {
+          "year": "1990",
+          "t": "双绞线 + 集线器",
+          "sub": "换了线，仍是共享介质",
+          "cue": "1990",
+          "tone": "info"
+        },
+        {
+          "year": "1997",
+          "t": "交换机 + 全双工",
+          "sub": "一根线往往只连两台",
+          "cue": "交换机",
+          "tone": "ok"
+        },
+        {
+          "year": "今天",
+          "t": "默认仍是广播网",
+          "sub": "照样选 DR，先等 40 秒",
+          "cue": "默认当成",
+          "tone": "bad"
+        }
+      ]
+    },
+    {
+      "id": "fix",
+      "type": "compare",
+      "head": "为什么不直接改默认",
+      "say": "为什么不直接改默认？因为协议看不出这根线以后会不会再接第三台，贸然改掉，老网络就会出问题。所以 2008 年的 RFC 5309 给了办法：只有两台的以太网，就按点到点来跑。在华为设备上，一条命令 ospf network-type p2p 就行。",
+      "caption": "RFC 5309（2008）：两台的以太网，按点到点运行",
+      "cols": [
+        "",
+        "默认：广播型",
+        "配成 P2P"
+      ],
+      "widths": [
+        1,
+        1.2,
+        1.5
+      ],
+      "rows": [
+        {
+          "cells": [
+            "选 DR / BDR",
+            "要选",
+            "不选"
+          ],
+          "tone": "ok",
+          "cue": "按点到点"
+        },
+        {
+          "cells": [
+            "开局等待",
+            "等 40 秒",
+            "直接建邻"
+          ],
+          "tone": "ok",
+          "cue": "按点到点"
+        },
+        {
+          "cells": [
+            "网段 LSA",
+            "要发",
+            "不用发"
+          ],
+          "tone": "ok",
+          "cue": "按点到点"
+        },
+        {
+          "cells": [
+            "华为命令",
+            "—",
+            "ospf network-type p2p"
+          ],
+          "tone": "ok",
+          "cue": "一条命令"
+        }
+      ],
+      "flash": {
+        "row": 3,
+        "col": 2,
+        "cue": "一条命令"
+      },
+      "colTones": [
+        null,
+        "bad",
+        "ok"
+      ]
+    },
+    {
+      "id": "recap",
+      "type": "recap",
+      "head": "一句话总结",
+      "say": "一句话总结：DR 是为一根线挂很多台的年代设计的，在那时它就是最优解。今天两台直连的以太网，配成点到点更合适；默认值没改，是为了兼容。我是小龙，下次见！",
+      "points": [
+        {
+          "t": "DR：为「一根线挂很多台」而生",
+          "cue": "为一根线"
+        },
+        {
+          "t": "两台直连的以太网：配成 P2P 更合适",
+          "cue": "今天两台"
+        },
+        {
+          "t": "默认值不改：为了兼容老网络",
+          "cue": "默认值没改"
+        }
+      ]
+    }
+  ]
+}

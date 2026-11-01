@@ -862,37 +862,6 @@
                                 <span id="reportFrontendVersion" class="report-version-badge">v加载中</span>
                             </h2>
                         </div>
-                        <div class="report-toolbar-actions">
-                            <button type="button" class="btn-report-action btn-report-primary" onclick="saveDashboardToDB()" title="保存数据到数据库">
-                                <span class="btn-icon">💾</span>
-                                <span class="btn-text">入库</span>
-                            </button>
-                            <button type="button" class="btn-report-action btn-report-export" onclick="exportYuxiangExcel()" title="一键导出赛马考核Excel表">
-                                <span class="btn-icon">🐴</span>
-                                <span class="btn-text">一键导出“于祥”的赛马表</span>
-                            </button>
-                            <div class="report-action-separator"></div>
-                            <button type="button" class="btn-report-action btn-report-ghost" onclick="openTemplateMappingModal()" title="配置Excel模板映射">
-                                <span class="btn-icon">⚙️</span>
-                                <span class="btn-text">模板映射</span>
-                            </button>
-                            <button type="button" class="btn-report-action btn-report-ghost" onclick="openGroupModal()" title="配置指标分组与顺序">
-                                <span class="btn-icon">📂</span>
-                                <span class="btn-text">指标分组配置</span>
-                            </button>
-                            <button type="button" class="btn-report-action btn-report-ghost" onclick="openWeightModal()" title="配置指标考核权重">
-                                <span class="btn-icon">⚖️</span>
-                                <span class="btn-text">权重配置</span>
-                            </button>
-                            <button type="button" class="btn-report-action btn-report-ghost" onclick="openAddMetricModal()" title="手动新增自定义指标">
-                                <span class="btn-icon">➕</span>
-                                <span class="btn-text">手动增加指标</span>
-                            </button>
-                            <button type="button" class="btn-report-action btn-report-ghost" onclick="openI18nModal()" title="配置中英文双语字典">
-                                <span class="btn-icon">🌐</span>
-                                <span class="btn-text">中英翻译配置</span>
-                            </button>
-                        </div>
                     </div>
 
                     <div class="report-query-bar">
@@ -916,6 +885,38 @@
                             </label>
                             <input type="number" id="custom-std-score-input" value="100" disabled onchange="updateCustomStdScore()">
                         </div>
+                    </div>
+
+                    <div class="report-toolbar-actions">
+                        <button type="button" class="btn-report-action btn-report-primary" onclick="saveDashboardToDB()" title="保存数据到数据库">
+                            <span class="btn-icon">💾</span>
+                            <span class="btn-text">入库</span>
+                        </button>
+                        <button type="button" class="btn-report-action btn-report-export" onclick="exportYuxiangExcel()" title="一键导出赛马考核Excel表">
+                            <span class="btn-icon">🐴</span>
+                            <span class="btn-text">一键导出“于祥”的赛马表</span>
+                        </button>
+                        <div class="report-action-separator"></div>
+                        <button type="button" class="btn-report-action btn-report-ghost" onclick="openTemplateMappingModal()" title="配置Excel模板映射">
+                            <span class="btn-icon">⚙️</span>
+                            <span class="btn-text">模板映射</span>
+                        </button>
+                        <button type="button" class="btn-report-action btn-report-ghost" onclick="openGroupModal()" title="配置指标分组与顺序">
+                            <span class="btn-icon">📂</span>
+                            <span class="btn-text">指标分组配置</span>
+                        </button>
+                        <button type="button" class="btn-report-action btn-report-ghost" onclick="openWeightModal()" title="配置指标考核权重">
+                            <span class="btn-icon">⚖️</span>
+                            <span class="btn-text">权重配置</span>
+                        </button>
+                        <button type="button" class="btn-report-action btn-report-ghost" onclick="openAddMetricModal()" title="手动新增自定义指标">
+                            <span class="btn-icon">➕</span>
+                            <span class="btn-text">手动增加指标</span>
+                        </button>
+                        <button type="button" class="btn-report-action btn-report-ghost" onclick="openI18nModal()" title="配置中英文双语字典">
+                            <span class="btn-icon">🌐</span>
+                            <span class="btn-text">中英翻译配置</span>
+                        </button>
                     </div>
 
                     <div class="report-sub-bar print-hide" data-html2canvas-ignore="true">

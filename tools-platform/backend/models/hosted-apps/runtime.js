@@ -544,15 +544,18 @@ function probeHealth(port, healthPath) {
 function transpileMysqlToSqlite(sql) {
     if (!sql) return '';
     let out = sql;
-    out = out.replace(/`?(\w+)`?\s+INT(?:EGER)?(?:\(\d+\))?\s+NOT\s+NULL\s+AUTO_INCREMENT\b/gi, '`$1` INTEGER PRIMARY KEY AUTOINCREMENT');
-    out = out.replace(/`?(\w+)`?\s+INT(?:EGER)?(?:\(\d+\))?\s+AUTO_INCREMENT\b/gi, '`$1` INTEGER PRIMARY KEY AUTOINCREMENT');
+    out = out.replace(/\bSTART\s+TRANSACTION\b;?/gi, '');
+    out = out.replace(/\bCOMMIT\b;?/gi, '');
+    out = out.replace(/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+\w+_bak\s+AS\s+SELECT[\s\S]*?;/gi, '');
+    out = out.replace(/`?(\w+)`?\s+(?:BIG|SMALL|TINY|MEDIUM)?INT(?:EGER)?(?:\(\d+\))?\s+NOT\s+NULL\s+AUTO_INCREMENT\b/gi, '`$1` INTEGER PRIMARY KEY AUTOINCREMENT');
+    out = out.replace(/`?(\w+)`?\s+(?:BIG|SMALL|TINY|MEDIUM)?INT(?:EGER)?(?:\(\d+\))?\s+AUTO_INCREMENT\b/gi, '`$1` INTEGER PRIMARY KEY AUTOINCREMENT');
+    out = out.replace(/\s+ON\s+UPDATE\s+CURRENT_TIMESTAMP\b/gi, '');
     out = out.replace(/,\s*PRIMARY\s+KEY\s*\([^)]+\)/gi, '');
     out = out.replace(/\s+COMMENT\s+'(?:[^'\\]|\\.)*'/gi, '');
     out = out.replace(/\s+COMMENT\s+"(?:[^"\\]|\\.)*"/gi, '');
     out = out.replace(/,\s*(?:KEY|INDEX)\s+`?\w+`?\s*\([^)]+\)/gi, '');
     out = out.replace(/(?:UNIQUE\s+(?:KEY|INDEX)\s+`?\w+`?)\s*(\([^)]+\))/gi, 'UNIQUE $1');
-    out = out.replace(/\)\s*ENGINE\s*=\s*\w+[^;]*/gi, ')');
-    out = out.replace(/\)\s*DEFAULT\s+CHARSET\s*=\s*\w+[^;]*/gi, ')');
+    out = out.replace(/\)\s*(?:ENGINE|DEFAULT\s+CHARSET|COLLATE)\s*=\s*[^;]*/gi, ')');
     out = out.replace(/INSERT\s+INTO\b([\s\S]*?)ON\s+DUPLICATE\s+KEY\s+UPDATE\b[\s\S]*?;/gi, (match, p1) => {
         return `INSERT OR REPLACE INTO ${p1.trim()};`;
     });
@@ -587,6 +590,7 @@ async function applyStartupSql(rt, state) {
     try {
         await require('./data-api').applyInitSql(rt.tenantId, rt.slug, sql);
     } catch (error) {
+        log(rt, `应用库初始化失败：${error.message}`);
         throw fail(`应用库初始化失败：${error.message}`, 'HOSTED_APP_INIT_SQL');
     }
     return tenant.runWithTenant(rt.tenantId, () => updateState(rt.slug, { initSqlHash: hash }, rt.tenantId));

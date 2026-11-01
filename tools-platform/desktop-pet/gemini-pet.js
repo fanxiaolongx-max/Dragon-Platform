@@ -482,6 +482,10 @@
     var life = null;
     var selectedStoryHook = null;
     var drag = null;
+    var taotaoClicks = window.TaotaoEgg ? window.TaotaoEgg.createClicks() : null;
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden && taotaoClicks) taotaoClicks.reset();
+    });
     var shown = null;
     var animId = null;
     var bubbleShown = false;
@@ -1753,13 +1757,22 @@
       root.classList.remove('gpet-dragging');
       pressUp(dragMoved);
 
+      if ((dragMoved || !clickAllowed) && taotaoClicks) taotaoClicks.reset();
+
       if (clickAllowed && !dragMoved) {
+        var surprise = taotaoClicks && taotaoClicks.click();
         if (happyTimer) clearTimeout(happyTimer);
         inHappyReaction = true;
         img.src = IMAGES.happy;
         showBubble();
         if (ipcRenderer) {
-          try { ipcRenderer.send('pet-toggle-chat'); } catch (_) {}
+          try {
+            if (surprise) {
+              var visitorAnchor = img.getBoundingClientRect();
+              ipcRenderer.send('pet-taotao-surprise', { x: visitorAnchor.left, y: visitorAnchor.top,
+                width: visitorAnchor.width, height: visitorAnchor.height });
+            } else ipcRenderer.send('pet-toggle-chat');
+          } catch (_) {}
         }
         happyTimer = setTimeout(function () {
           inHappyReaction = false;
@@ -2357,6 +2370,9 @@
           antigravitySyncMode = c.antigravitySyncMode;
           if (antigravitySyncSelect) antigravitySyncSelect.value = antigravitySyncMode;
         }
+      });
+      ipcRenderer.on('pet-taotao-greeting', function () {
+        showCustomSpeechBubble(petT('桃桃来啦！一起打个招呼～'), '#f0b1c6');
       });
       ipcRenderer.on('pet-farewell-exit', function () {
         try {

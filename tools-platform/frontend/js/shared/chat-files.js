@@ -31,11 +31,12 @@
     }
     function isLocalFile(value) {
         const clean = cleanPath(unwrap(value));
-        return LOCAL_PATH_RE.test(clean) && /\.[A-Za-z0-9]{1,8}$/.test(clean.split(/[\\/]/).pop() || '');
+        // 扩展名前要有文件名：~/.ssh、.config 这类以点开头的隐藏目录不是文件
+        return LOCAL_PATH_RE.test(clean) && /[^.\\/]\.[A-Za-z0-9]{1,8}$/.test(clean.split(/[\\/]/).pop() || '');
     }
     function extOf(value) {
         const name = cleanPath(value).split(/[\\/]/).pop() || '';
-        return name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+        return name.lastIndexOf('.') > 0 ? name.split('.').pop().toLowerCase() : '';
     }
     const isImage = value => IMAGE_EXT.includes(extOf(String(value).split(/[?#]/)[0]));
     const baseName = value => cleanPath(value).split(/[\\/]/).pop() || value;

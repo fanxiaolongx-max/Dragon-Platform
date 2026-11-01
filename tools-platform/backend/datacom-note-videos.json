@@ -4,8 +4,11 @@
     "ospf-areas": "20261022-1",
     "ospf-dr-bdr": "20261020-1",
     "ospf-fa": "20261020-1",
+    "ospf-filter": "20261101-1",
     "ospf-fsm": "20261020-1",
     "ospf-lsa-handbook": "20261022-1",
+    "ospf-lsa-philosophy": "20261101-1",
+    "ospf-network-types": "20261101-2",
     "ospf-packets": "20261022-1",
     "ospf-router-id": "20261020-1",
     "ospf-router-types": "20261020-2"
@@ -275,6 +278,49 @@
       ],
       "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-fa-20261020-1/ospf-fa-hd.mp4"
     },
+    "datacom/ospf-filter.mp4": {
+      "size": 4153207,
+      "sha256": "6a48344725f57ee1616f9bc1ed21730954a43499af39b79b10be0b889272c738",
+      "chunks": [
+        "bc448ff3f45bf9f495a9405bf7bc657a7f4f8e74acc4b3ca3982bf81e04f5f7a",
+        "c54f0d0ffd07ebdf817ce47c3f480754b534cb82ed29518b93bd7eb81793b77d",
+        "1b4e61f7581fc59fb716d79075fca328f7d58ec221200d99ac53d7177429c3aa",
+        "c8b92b72f54404499866fe4bff84637fd1ddfd3065879335a586decf37f48140",
+        "1747778954f50d013cb117f31827d22d57849f31aa0b4f2a67d931d8ad0b74c8",
+        "84cb123a24a932b00e97f22d3286b1aacb35837b8fb8169ae6cf04d487b32b38",
+        "d51b50c94d28aea3e546a064dc64840fae6128c3acfc67efac9562b344f28c8f",
+        "715abc153001294b1753f358a5481efcfebf7b582ac885dbbccaa31d600300ad"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-filter-20261101-1/ospf-filter.mp4"
+    },
+    "datacom/ospf-filter-hd.mp4": {
+      "size": 10860160,
+      "sha256": "8dec0511f56d5bfaf7bc0d3386b719b4987172880b1d8ff315cb215f963deb01",
+      "chunks": [
+        "127cff14d35a605cc77eadcb8b86206c44b8fd31ac7c3a55186ca679db8847c8",
+        "c95c413965fe66ef795affb7c722cc8dfe3b04bb85f86578d98c1cbaacd25944",
+        "304cf63ae6a30dfeed88cfd12f26ad1d05fdbc12000314e995ddd9d1f2036235",
+        "9ffd33be0e01ccac1099efc93effabcfbe26f9b1cc2d118fb9aa806fb366cad5",
+        "09292d6114ff5ec9b0fee9ade70e61357a4b33f7bbdbf09a556db7bd11d16b70",
+        "8087a3b297dafd42f78e9bd44be9a55db9023c7542442f2d40309978a18a0e88",
+        "60865e91790d185031d0911da98aa74b39faa4460813c549047070040a1ef3b6",
+        "5f8ba9fdda197a7765dce4448589cf7947090f98c006fb9100fc214c719cbd20",
+        "1aeb72cf6d8fbe3b60a3f7878f7712a3228ab525e21bed69291596ea8ae01d29",
+        "b3108776910fcf94a4ba37bff4983b6967c4cd49df9815e1a18313b674abde7b",
+        "f558aa9d0aeb4799cddd4d72a2fbebd9065e908a6472c5eab4a870f95ec85966",
+        "69b61cf04978117d71b67d07e5a0e1922037e24e612d0c15fa3f00aafc05251b",
+        "6f6be40df40860a605debcd84c1582494bf9e5b95b84a68781dc7679f2cc133d",
+        "e25057abdd3942881c76b0c6859467bf6f7a70549efa8c85abc26d07fbb73da1",
+        "c8a7490a7f282970847463c1fef72d6441e1f49e186586ca5bfebcb87171b1fd",
+        "f02ebb836e3868cb7a0c803c866121f40050b2da4d0238df476ba4fa7e80407b",
+        "7353519a7516acbe210e68179cb41d83f035e5452487e68e69f7fb64f08df974",
+        "add3de1994103f14981c0dc6b3b5a4f1a6c8db29eed6e3ef120c307d93502077",
+        "bc60d162ee2fb972dd24ed100d8007ae4a6dde92acc519440307024b706ccfd9",
+        "cd268b6eb2cf589b0b9f63fd266aa345f36be5e8299677fdceca0ac2cea00815",
+        "a5181e1c268c2c6bd8928e8b3d33f288ca0171c7f356f12899ec459f3f52f617"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-filter-20261101-1/ospf-filter-hd.mp4"
+    },
     "datacom/ospf-fsm.mp4": {
       "size": 3649194,
       "sha256": "d5e1246abe59ed3f659558d894fce7a6c3a89309c542bef38a7639469a165ce8",
@@ -420,6 +466,101 @@
         "d2079f6f225289b03ecc9ca043c0fe58f7e7212bc6146b029fe7cfd967cb2e25"
       ],
       "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-lsa-handbook-20261022-1/ospf-lsa-handbook-hd.mp4"
+    },
+    "datacom/ospf-lsa-philosophy.mp4": {
+      "size": 4468772,
+      "sha256": "9b122230dacf8b2181adb04ba58cbb86c712e004e42b61a6080ab2a0dd4e6c75",
+      "chunks": [
+        "70f6bb3d25a56f0c9c5200d7f75896d33477d7117377f6219d0667083e6951fd",
+        "c8dd99f8de4c82573f2b9ec4f69f12a9c3b98d357d7b2b7a346dc70185b5b495",
+        "083c5f1be97ba3364dbd4bd5ffe8a333e71190cafb1bd03aa0dbf67d6b05dccf",
+        "2066648f47b2ce2cbe042d565e6f9866292f896eda737ec79e88d1d0776d1985",
+        "a2ecf67da6c7bde94c990a14a799b5601bd686aea4467fc492234a9f3810dcf8",
+        "e4bbe8a8b28813d0b3753217828b12d19ce92d7eb5d177f75eab3f804e6ff1dd",
+        "f1cc425013205b8cc6dffcf0f49688b70c9c706c928aad27058a53dd0deae3d3",
+        "346874d596311280f450713f804712e677fc69f1acc68df63f989f65e25ecad4",
+        "420d0cf258704dae88025bceaf4e324fa9aae4fc6435d4f2ae3e6e81c086c625"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-lsa-philosophy-20261101-1/ospf-lsa-philosophy.mp4"
+    },
+    "datacom/ospf-lsa-philosophy-hd.mp4": {
+      "size": 11766903,
+      "sha256": "92514f13627dff28f297efc60f0b5eeb0d516931915ea651cf0d4bc8fe4d816a",
+      "chunks": [
+        "17c9fda6705496db73b1c7f55f62c2a46a0c8e0eb68e64a903883eb92b62aa25",
+        "b4c459607b01d68ff193fce4547edaef30e24520e6e9f136449511e5cbc2655b",
+        "52523ac58ef9c2a1a096281b83569bd57b9b5c188573ed745abda745165d7b9b",
+        "dfb97ca9581963edf11c19e229153c2e0f540cec003ddf0e54f83d5110403056",
+        "186023315fbb557621692e4ac362d4d953b0b21a196f641e4609e8a275b87554",
+        "d0d668d882011fcb5f62d453cf7a851f59074f977b20787aae888f31fa480e1b",
+        "fab6ad0359be1f7a7e960bf4516c816bd1bc38cfdfee69ffd1720776356a6eed",
+        "5c88a188b2b073b73d26b36eb0503576ab428c4fb7b227b105b48f36ee82ab7d",
+        "e92ffea0de8a1a4f36e6c75c06cd776af9615fd63599df991023f8a1808686a2",
+        "ecac450d16867b59c48cd0a504c275103eb236bfd606a99afac7b093d8632153",
+        "1fd941930010cf01c1342e4e3c4d2f6bdbebb01c0ae9cfe8c5cf9c2785a18dd0",
+        "cbcec3d9b9ccb3995214f648246d876e2a4f3eb67642c644b9e2e837e028f93b",
+        "8ca8b1de88332d6405a99d7b43448629b599d94660fa4220a696f2f6da3d58b2",
+        "23b7ca41a31efc65e2148b7c7ea88ceeadc0e1c48c847dcc33e9e395874439ee",
+        "567f2e8a244d5c40b854ba03d1c837cc0f99b0be8e5b843034c1f5f5473de402",
+        "613c4933bd2bbc6243bc9649b6111f84ad00216c04aa2307965d55be4ccc5c66",
+        "3cedbf9fc9eb5868b69d576ac95c7104b2fbb5e31344474016a056821058372f",
+        "5a680344f7fe7a4018d2d37903e1d8bdc66ec3476ed19e136692be86a27b0343",
+        "aebfa0e2b35dbc8d26ae00b5b71879322dd474e647ff192ff490bb4e5acf030f",
+        "cd3a5ea7c79e7cf64aab449c18dee0e572151850a1f9564efc54d5e204761bb6",
+        "89eea26a30ec72425c8f7575bca16e8e57ea81c67b1813ad618250c0fb0635ab",
+        "d634588f6e3127649763aace7337c5cab2c9a1866e38b1b60c5c6a6c246b0803",
+        "bec8f1d785d859f34fa3d2a12f81d8c4408f429a8a7800442dc00de8c0f45f75"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-lsa-philosophy-20261101-1/ospf-lsa-philosophy-hd.mp4"
+    },
+    "datacom/ospf-network-types.mp4": {
+      "size": 4939250,
+      "sha256": "c1e0376e7cd213c717e5aa822970894f77eb619c21da175154b8e981e8fd3692",
+      "chunks": [
+        "5904a17160aeb09e5c248306d311c44185752db0a064723bea87fc0ff2b286c5",
+        "3aa48a7cc1b4a1f59018edd9f5f31d08c0e23ac58bca317abe1580534c8d46e9",
+        "30336e20347fe40430056ab199e6a0fe675281c9047688b59a623adcbc0de6cc",
+        "f96ab7f91441b40ab96be838a4d81957153993ede6c2b9d81bb457f565912e6e",
+        "5c9b812b816256c5307f3e7cbe81914d429a95b998919c49ef9c3c747d621f05",
+        "7f90c392a279279299e77c68eddfde2158dddc8c15dff0900fa82918ec783d6d",
+        "ab0f12cadff505d9a10bdb7b690fa496ea025927f8b0abfcca321c14ac5cb144",
+        "29c37722794b901d3b312652d8712bcf755d777ef3a7da69733fa3e718b2561c",
+        "03eb29b66968910f6338adc0e57a154e78696fbb928da3fc94167dad7fbdc9a0",
+        "4c3d49c30fa105fc409049ebf732d37f276679319964326d04f7f580b0cbc2a6"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-network-types-20261101-2/ospf-network-types.mp4"
+    },
+    "datacom/ospf-network-types-hd.mp4": {
+      "size": 12920869,
+      "sha256": "fd130e0bc806fa25184a901b2c450a37279d8eeacfd49b7e3eb8f04f491688d9",
+      "chunks": [
+        "906ba192ed0108f389ce37eef3cc145045c934135a9c15ff24cbde3462b6ebe3",
+        "f06620381b4db71ccd323b39b28fc2091c965f2d6715fd77cd992afb45d278a1",
+        "961e4eb4312c2d15d42f8ac06f1a253c5825decffcbe484bd3a89ce39efa447a",
+        "d03aa6bbe32a0b8510e9ff9ddac2adc490ec9d164ce060d9e094c71aa5b16173",
+        "8349c714e79448b6fea089147e45f0b1a9c0f716e9c219b6f505ec40aca6db9c",
+        "ce7362fc6834de467ed8b50916464b4cbc6742dfc4f83645e7862366273ca1a2",
+        "f0bec151f89d1fe7acc12426f410717f8dca8c5ff5525283f7eb93fb5202812c",
+        "e6734d1a4bea9dd9b71d9594b4e7f2de4fcb6a5555fcded3e75f3ae1424ce9fc",
+        "1ef275e19df5f08f248641ada6446317ea6da269cd83f7c15543bb05db59560f",
+        "b82cac8b0c31e01914a75c08043c307f252ab77159410a2ec608e29333659878",
+        "4039514dc81ceeb2b480b23f1bcee75f51865a3181535b1817947fcc05b63319",
+        "bad72ce5c471f3a346bb2f3397dd9a2db50ded36ef62af7ccbe2fdd22d2cc7cb",
+        "d4269d68e46b1a0e141c754afdf36ecb1f3c3c455e3be73816b58b0f69bc5654",
+        "26483080f1a5514949ffef1db53f25790403925caebd807afacfdeb8b5820b3d",
+        "a9f66b9db98278279ca0f6a76ccb8a1c303121ff6726fd6b8cb74494524cb02b",
+        "5f6443253316189e80d15d041131ec77f9319cf47c76b987b6cf2a0056b762ef",
+        "92d13d0911275c2c100bd6303bd14adbb3ee4c6a733d65022555fb9646aa9689",
+        "40b53f4d1a44128d41fdce5d237d4d60a213ea998e88143979641dd952d6a8f4",
+        "79001be0dcc6397e3a1ff68b5e0f324e5601ea9a268c423481c74cd9830f469f",
+        "5f5548c88e72cda4883c146e0bca708736e5f5f18f9ee96339034dedce0b4bbe",
+        "2f0c02c1cfb5a76ee31340fa748434bf97df82dcc6460dff29d7af597affb93a",
+        "c8a9b7c37c5e029d0d2a64c6efa818c83f761856db516167fc2750b44a0014b6",
+        "f1507dc3b3db7a69963e17a33cda56ab99ba7fe8d0805ec000e17341168635b0",
+        "4a6235461f4d60d4f11334a51f83c78dae7c271b7d7f04422e8fd2ac5cb7a102",
+        "29d2f68083dbfabc1459d5cf5e106e24fb4295ca2da1245815d97946df137af4"
+      ],
+      "url": "https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/download/datacom-ospf-network-types-20261101-2/ospf-network-types-hd.mp4"
     },
     "datacom/ospf-packets.mp4": {
       "size": 7985063,

@@ -33,8 +33,8 @@ const auth = (token, verb, url) => request(app)[verb](`/api/channels/ops${url}`)
 
 test.before(async () => {
     fs.mkdirSync(path.join(sandbox, 'data', 'tenants', 'other'), { recursive: true });
-    for (const [token, role, tenant] of [['admin-test', 'admin', 'default'], ['viewer-test', 'readonly', 'default'], ['other-test', 'admin', 'other']]) {
-        await sessions.saveSession(token, token, role, Date.now() + 60000, tenant);
+    for (const [token, role, tenant] of [['inbox-admin', 'admin', 'default'], ['inbox-viewer', 'readonly', 'default'], ['inbox-other', 'admin', 'other']]) {
+        await sessions.saveSession(token, token, role, Date.now() + 3600000, tenant);
     }
 });
 test.after(async () => {
@@ -53,8 +53,8 @@ test('pending inbox finds older drafts, counts and pages drafts only, enforces l
         for (let index = 0; index < 45; index++) await repo.createRun({ status: 'sent', content: 'recent sent history' });
     });
     await request(app).get('/api/channels/ops/pending').expect(401);
-    const first = (await auth('admin-test', 'get', '/pending?limit=20')).body;
-    const second = (await auth('admin-test', 'get', '/pending?limit=20&offset=20')).body;
+    const first = (await auth('inbox-admin', 'get', '/pending?limit=20')).body;
+    const second = (await auth('inbox-admin', 'get', '/pending?limit=20&offset=20')).body;
     assert.equal(first.total, 25);
     assert.equal(first.items.length, 20);
     assert.equal(first.hasMore, true);
@@ -62,19 +62,19 @@ test('pending inbox finds older drafts, counts and pages drafts only, enforces l
     assert.equal(second.hasMore, false);
     assert.equal(new Set([...first.items, ...second.items].map(item => item.id)).size, 25);
     assert.ok(first.items.every(item => item.status === 'draft' && item.targets[0].name === '运营一群'));
-    const viewer = (await auth('viewer-test', 'get', '/pending')).body;
+    const viewer = (await auth('inbox-viewer', 'get', '/pending')).body;
     assert.deepEqual(viewer, { canManage: false, items: [], total: 0, hasMore: false, offset: 0 });
-    assert.equal((await auth('other-test', 'get', '/pending')).body.total, 0);
+    assert.equal((await auth('inbox-other', 'get', '/pending')).body.total, 0);
     const id = first.items[0].id;
-    await auth('viewer-test', 'post', `/runs/${id}/send`).send({ content: 'no' }).expect(403);
-    await auth('other-test', 'post', `/runs/${id}/send`).send({ content: 'no' }).expect(404);
-    await auth('admin-test', 'put', `/runs/${id}`).send({ content: '编辑后的草稿', expectedContent: first.items[0].content }).expect(200);
-    await auth('admin-test', 'post', `/runs/${id}/send`).send({ content: '过时的正文', expectedContent: first.items[0].content }).expect(409);
+    await auth('inbox-viewer', 'post', `/runs/${id}/send`).send({ content: 'no' }).expect(403);
+    await auth('inbox-other', 'post', `/runs/${id}/send`).send({ content: 'no' }).expect(404);
+    await auth('inbox-admin', 'put', `/runs/${id}`).send({ content: '编辑后的草稿', expectedContent: first.items[0].content }).expect(200);
+    await auth('inbox-admin', 'post', `/runs/${id}/send`).send({ content: '过时的正文', expectedContent: first.items[0].content }).expect(409);
     assert.equal(pushes.length, 0);
-    const sent = await auth('admin-test', 'post', `/runs/${id}/send`).send({ content: '最终正文', expectedContent: '编辑后的草稿' }).expect(200);
+    const sent = await auth('inbox-admin', 'post', `/runs/${id}/send`).send({ content: '最终正文', expectedContent: '编辑后的草稿' }).expect(200);
     assert.equal(sent.body.status, 'sent');
     assert.equal(pushes[0].text, '最终正文');
-    assert.equal((await auth('admin-test', 'get', '/pending')).body.total, 24);
+    assert.equal((await auth('inbox-admin', 'get', '/pending')).body.total, 24);
 });
 
 test('simultaneous confirmations claim a draft once and reject edits or discard during delivery', () => runWithTenant('default', async () => {

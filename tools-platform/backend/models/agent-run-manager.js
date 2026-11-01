@@ -15,6 +15,7 @@ const { AgentChangeLog } = require('./agent-change-log');
 const guard = require('./agent-path-guard');
 const transcriptRepo = require('./agent-transcript-repository');
 const commandGuard = require('./agent-command-guard');
+const dangerRules = require('./agent-danger-rules');
 const changeRepo = require('./agent-change-repository');
 const { redactText, redactValue } = require('./ai-sensitive-data');
 
@@ -87,7 +88,9 @@ function ensureWeLinkSession({ user, tenantId, chatSessionId }) {
     const hash = value => crypto.createHash('sha256').update(value).digest('hex').slice(0, 32);
     const root = path.join(require('./tenant-context').getDataDir(tenantId), 'channel-workspaces', 'welink-sdk', hash(owner));
     fs.mkdirSync(root, { recursive: true });
-    return ensureSession({ agentSessionId: `welink-${hash(`${owner}\n${chatSessionId}`)}`, user, tenantId, root, permissionMode: 'full' });
+    const session = ensureSession({ agentSessionId: `welink-${hash(`${owner}\n${chatSessionId}`)}`, user, tenantId, root, permissionMode: 'full' });
+    session.unattended = true; // 频道里没有人能点审批卡：危险类别直接不执行
+    return session;
 }
 
 function ensureSession({ agentSessionId, user, tenantId, root, permissionMode }) {
@@ -108,6 +111,8 @@ function ensureSession({ agentSessionId, user, tenantId, root, permissionMode })
             permissionMode: normalizePermissionMode(permissionMode),
             readOnly: !isAdminUser(user),
             alwaysAllow: new Set(),
+            dangerAllowed: new Set(), // 本对话不再询问的危险类别
+            dangerRules: [],
             changeLog: new AgentChangeLog(realRoot),
             transcript: [],
             hydrated: false,
@@ -125,6 +130,7 @@ function ensureSession({ agentSessionId, user, tenantId, root, permissionMode })
         session.turnCount = 0;
         session.hydrated = false; // 换目录后仍需校验持久归属；旧根目录的转录不会被恢复。
         session.alwaysAllow.clear();
+        session.dangerAllowed.clear();
     }
     if (permissionMode) session.permissionMode = normalizePermissionMode(permissionMode);
     session.lastUsedAt = Date.now();
@@ -305,7 +311,7 @@ ${location}
 - 操作系统：${process.platform}${gitBranch ? `\n- Git 分支：${gitBranch}` : ''}
 - 权限模式：${session.readOnly ? '只读（当前账号不是管理员，只能查看和搜索文件，不能修改、删除、重命名或执行命令；需要改动时请告诉用户联系管理员）' : modeText}
 - 文件工具的路径以根目录为范围（如 src/index.js）；根目录是 Shell 的默认工作位置，不是 Shell 的系统隔离边界。管理员可用命令访问任务所需的其他目录。
-${!session.readOnly && session.permissionMode === 'full' ? '- 当前管理员已选择完全访问：围绕用户当前任务自主规划、执行、检查结果并继续修复；无需为每个命令、跨目录操作或风险标记重复请求批准。遇到执行错误先主动排查；只有缺少必要信息或需要用户做实际选择时再提问。完全访问不会提升操作系统账号权限，也不代表可以自行扩展用户任务。\n' : ''}
+${!session.readOnly && session.permissionMode === 'full' ? '- 当前管理员已选择完全访问：围绕用户当前任务自主规划、执行、检查结果并继续修复；无需为每个命令、跨目录操作或风险标记重复请求批准。遇到执行错误先主动排查；只有缺少必要信息或需要用户做实际选择时再提问。完全访问不会提升操作系统账号权限，也不代表可以自行扩展用户任务。读取密钥凭据、用 Shell 直接动平台数据、把文件发到外部、删除工作目录之外的内容、改系统设置这几类命令仍会请用户审批（用户可按类别设为不再询问），被拒绝时不要换写法绕过。\n' : ''}
 - 改文件前先用 read_file 看清上下文；小改动用 edit_file，整文件重写才用 write_file。
 - 脚本专用保存允许鉴权逻辑与原有凭据，读取给模型/日志仍脱敏；不要沿用旧对话的“CSRF 占位符禁止克隆”结论。修复不代表删除授权；同名时按工具的 suggestedCall 原位 rebuild，不能先删后建或交付空框架。
 - 涉及 UIVF12 抓取脚本仓库（脚本、分类目录）的查询、新建、复制、修改、移动和删除时，优先 list_uiv_scripts / list_uiv_categories / read_uiv_script / save_uiv_script / move_uiv_script / delete_uiv_script / manage_uiv_category。专用工具可对完整长脚本做局部修改、校验语法并提交回读，避免 Shell 与截断 payload_json 的二次转义。用户已要求执行时不要停在方案或“可以入库”的描述。
@@ -320,10 +326,18 @@ ${directoryContext || '（空目录）'}`;
 }
 
 // ── 审批 ────────────────────────────────────────────────
+/** 命令命中、且没有被放开（本对话 / 这个工作目录 / 永久）的危险类别 */
+function dangerHits(session, toolName, args) {
+    if (toolName !== 'run_command' || !args) return [];
+    return dangerRules.pending(dangerRules.detect(args.command, session.root), { sessionAllowed: session.dangerAllowed, rules: session.dangerRules, root: session.root });
+}
+
 function classifyDecision(session, toolName, args = null, kind = toolsService.kindOf(toolName, args)) {
     if (!kind) return 'deny';
     if (kind === 'read') return 'allow';
     if (session.readOnly) return 'readonly';
+    // 危险类别在任何模式下都要审批（包括完全访问），除非用户已选择不再询问；无人值守的对话直接不执行
+    if (dangerHits(session, toolName, args).length) return session.unattended ? 'unattended' : 'ask';
     // 完全访问是管理员明确授权的自主执行模式；风险标记不再把它降级为逐项审批。
     if (session.permissionMode === 'full') return 'allow';
     // ask / auto 仍逐条确认风险命令，不受某类工具「总是允许」影响。
@@ -333,16 +347,35 @@ function classifyDecision(session, toolName, args = null, kind = toolsService.ki
     return 'ask';
 }
 
+/** 危险类别选择「不再询问」：本对话记在内存；这个工作目录 / 永久写入规则 */
+async function allowDanger(session, hits, scope) {
+    for (const hit of hits) {
+        if (scope === 'session') { session.dangerAllowed.add(hit.category); continue; }
+        try {
+            const rule = await dangerRules.add({ category: hit.category, scope, root: session.root, by: session.username });
+            if (!session.dangerRules.some(item => item.id === rule.id)) session.dangerRules.push(rule);
+        } catch (error) {
+            console.warn('[agent] failed to save danger rule:', error.message || error);
+            session.dangerAllowed.add(hit.category); // 保存失败至少本对话不再询问
+        }
+    }
+}
+
 function awaitApproval(run, call, preview) {
+    return waitApproval(run, call, preview).then(result => result.decision);
+}
+
+/** 等待审批卡的结果：{ decision, scope }（scope 只在危险类别卡选择「不再询问」时有值） */
+function waitApproval(run, call, preview) {
     const id = crypto.randomUUID();
     return new Promise(resolve => {
-        const settle = decision => {
+        const settle = (decision, scope = '') => {
             const pending = pendingApprovals.get(id);
             if (!pending) return;
             clearTimeout(pending.timer);
             pendingApprovals.delete(id);
             run.pending.delete(id);
-            resolve(decision);
+            resolve({ decision, scope });
         };
         const timer = setTimeout(() => settle('timeout'), APPROVAL_TIMEOUT_MS);
         if (typeof timer.unref === 'function') timer.unref();
@@ -353,14 +386,15 @@ function awaitApproval(run, call, preview) {
 }
 
 /** 由 POST /api/agent-workspace/approvals/:id 调用；只结算 Promise，不触库。 */
-function resolveApproval(approvalId, decision, user, tenantId) {
+function resolveApproval(approvalId, decision, user, tenantId, scope = '') {
     if (!isAdminUser(user)) throw managerError('AGENT_SESSION_FORBIDDEN', '只读账号无权批准写入或命令', 403);
     const pending = pendingApprovals.get(String(approvalId || ''));
     if (!pending) throw managerError('AGENT_APPROVAL_NOT_FOUND', '审批已过期或不存在', 404);
     if (pending.owner !== ownerKey(user, tenantId)) throw managerError('AGENT_SESSION_FORBIDDEN', '无权处理该审批', 403);
     const normalized = ['allow', 'deny', 'always'].includes(decision) ? decision : 'deny';
-    pending.settle(normalized);
-    return { ok: true, decision: normalized };
+    const normalizedScope = normalized === 'always' && dangerRules.SCOPES.includes(scope) ? scope : '';
+    pending.settle(normalized, normalizedScope);
+    return { ok: true, decision: normalized, ...(normalizedScope ? { scope: normalizedScope } : {}) };
 }
 
 // ── 不选目录的对话：附加工具（浏览器、MCP）的审批 ─────────────
@@ -452,6 +486,8 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         if (sessions.get(session.id) === session && !session.hydrated) sessions.delete(session.id);
         throw error;
     }
+    // 持久的「不再询问」规则（这个工作目录 / 永久）每轮重新读取，设置页撤销后下一轮生效
+    session.dangerRules = await dangerRules.list().catch(error => { console.warn('[agent] failed to load danger rules:', error.message || error); return []; });
     onRunStarted?.(run.id);
 
     const gitBranch = readGitBranch(session.root);
@@ -511,16 +547,25 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
                 outcome = toolsService.errorResult(toolCtx, error);
             }
         }
+        const danger = !outcome && ['ask', 'unattended'].includes(decision) ? dangerHits(session, allowKey, call.args) : [];
+        if (danger.length && decision === 'ask') {
+            preview = { ...preview, danger, dangerScopes: session.scratch ? ['session', 'global'] : dangerRules.SCOPES };
+        }
         if (!outcome && decision === 'ask') {
-            const answer = await awaitApproval(run, call, preview);
-            if (answer === 'always') session.alwaysAllow.add(allowKey);
+            const { decision: answer, scope } = await waitApproval(run, call, preview);
+            if (answer === 'always' && danger.length) await allowDanger(session, danger, scope || 'session');
+            else if (answer === 'always') session.alwaysAllow.add(allowKey);
             decision = answer === 'allow' || answer === 'always' ? 'allow' : answer;
-            write({ type: 'approval_result', runId: run.id, callId: call.id, decision: answer });
+            write({ type: 'approval_result', runId: run.id, callId: call.id, decision: answer, ...(danger.length && answer === 'always' ? { scope: scope || 'session' } : {}) });
         }
         if (!outcome && decision !== 'allow') {
             denied += 1;
-            const reason = decision === 'readonly' ? '当前账号为只读权限（非管理员），不能修改文件或执行命令' : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
-            const hint = decision === 'deny' || decision === 'timeout' ? '。不要换一种写法重试同样的操作；请用已经拿到的结果回答，或说明还需要用户做什么。' : '';
+            const labels = danger.map(hit => `「${hit.label}」`).join('');
+            const reason = decision === 'readonly' ? '当前账号为只读权限（非管理员），不能修改文件或执行命令'
+                : decision === 'unattended' ? `该命令属于${labels}，这是无人值守的频道对话，没有人能审批，所以没有执行`
+                    : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
+            const hint = decision === 'unattended' ? '。不要换一种写法绕过；请告诉用户：可以到 Dragon Claw 网页端执行，或在「全局设置 › 智能体工具 › 危险操作」里把这一类设为永久不再询问。'
+                : decision === 'deny' || decision === 'timeout' ? '。不要换一种写法重试同样的操作；请用已经拿到的结果回答，或说明还需要用户做什么。' : '';
             outcome = { content: `${reason}${hint}`, summary: reason, isError: true };
         }
         if (!outcome) outcome = toolset ? await toolset.execute(call, { opsCtx, signal, write }) : await toolsService.execute(toolCtx, call.name, call.args);

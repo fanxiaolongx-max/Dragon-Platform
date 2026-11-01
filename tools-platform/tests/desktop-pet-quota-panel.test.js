@@ -273,3 +273,19 @@ test('a slow first peek load cannot reopen a provider after the pointer has left
     assert.equal(peek.visible,false);
     f.listeners['pet-quota-panel-peek'](event,'codex');assert.equal(peek.visible,true,'returning hover uses the ready window');
 });
+
+test('hidden visitor IPC accepts only Dragon clicks and its own readiness, and hides with Dragon',t=>{
+    const f=manager(t),pet=f.windows[0];pet.ready();
+    const before=f.windows.length;
+    f.listeners['pet-taotao-surprise']({sender:{}});
+    assert.equal(f.windows.length,before,'other windows cannot summon the hidden visitor');
+    f.listeners['pet-taotao-surprise']({sender:pet.webContents});
+    const visitor=f.windows.at(-1);
+    assert.ok(visitor.file.endsWith('taotao.html'));
+    f.listeners['pet-taotao-ready']({sender:pet.webContents});assert.equal(visitor.visible,false);
+    f.listeners['pet-taotao-ready']({sender:visitor.webContents});assert.equal(visitor.visible,true);
+    assert.equal(visitor.ignoresMouse,true);assert.equal(visitor.focused,undefined);
+    assert.equal(pet.webContents.sent.some(m=>m.name==='pet-taotao-greeting'),true);
+    f.listeners['pet-taotao-surprise']({sender:pet.webContents});assert.equal(f.windows.length,before+1);
+    f.api.hidePetForNow();assert.equal(visitor.destroyed,true);
+});

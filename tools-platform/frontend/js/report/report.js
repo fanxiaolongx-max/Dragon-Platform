@@ -6011,9 +6011,6 @@ window.renderYuxiangPreview = function () {
     });
 
     tbody.innerHTML = html;
-    if (typeof renderDeficiencySummary === 'function') {
-        renderDeficiencySummary(catData, window._currentOrderedMetrics);
-    }
 };
 
 window.updateYuxiangPreviewData = function (r, c, value, el) {

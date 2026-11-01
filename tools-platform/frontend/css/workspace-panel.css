@@ -589,6 +589,14 @@ body.dc-workspace-enabled .wsp-fab:not([hidden]) { display: inline-flex; }
 .dc-approval-risk { margin-top: 8px; padding: 8px 10px; border: 1px solid rgba(248, 113, 113, 0.35); border-radius: 8px; background: rgba(248, 113, 113, 0.08); color: #fecaca; font-size: 12px; line-height: 1.55; }
 .dc-approval-risk b { display: block; margin-bottom: 2px; font-weight: 650; }
 .dc-approval-risk ul { margin: 0; padding-left: 18px; }
+.dc-approval-danger { border-color: rgba(251, 146, 60, 0.45); background: rgba(251, 146, 60, 0.1); color: #fed7aa; }
+.dc-approval-never { display: inline-flex; align-items: stretch; }
+.dc-approval-never .dc-action { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.dc-approval-scope { min-width: 0; padding: 0 8px; border: 1px solid rgba(148, 163, 184, 0.3); border-left: 0; border-radius: 0 9px 9px 0; background: rgba(2, 6, 23, 0.55); color: var(--dc-text, #e2e8f0); font: inherit; font-size: 12px; cursor: pointer; }
+@container (max-width: 340px) {
+    .dc-approval-never { grid-column: 1 / -1; order: 1; }
+    .dc-approval-never .dc-action { flex: 1; }
+}
 .wsp-change-src { margin-left: 6px; padding: 0 5px; border-radius: 4px; background: rgba(96, 165, 250, 0.14); color: #93c5fd; font-size: 10px; font-style: normal; font-family: inherit; direction: ltr; }
 /* 命令输出（折叠） */
 .dc-tool-output { margin: 2px 0 6px 26px; font-size: 11.5px; }

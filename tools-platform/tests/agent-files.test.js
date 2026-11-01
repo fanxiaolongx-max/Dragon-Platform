@@ -148,6 +148,12 @@ test('chat markdown turns local files into download cards and images into zoomab
     assert.equal(bare.out, '已保存到：#0#，请查收');
     assert.match(bare.tokens[0], /data-ext="pptx"/);
 
+    // 以点开头的隐藏目录（~/.ssh、.config）不是文件，保持代码样式；目录里的文件照常变卡片
+    const hidden = render('不能读取 `~/.ssh` 和 `/Users/me/.config` 目录，但 `~/.ssh/id_rsa.pub` 是文件');
+    assert.equal(hidden.tokens[0], '<code>~/.ssh</code>');
+    assert.equal(hidden.tokens[1], '<code>/Users/me/.config</code>');
+    assert.match(hidden.tokens[2], /class="ai-file-chip"[^>]*data-ext="pub"/);
+
     const site = render('[打开报表](/report.html) 和 `npm test`');
     assert.equal(site.out, '[打开报表](/report.html) 和 #0#');
     assert.equal(site.tokens[0], '<code>npm test</code>');

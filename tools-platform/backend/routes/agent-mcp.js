@@ -26,4 +26,22 @@ router.get('/catalog', async (req, res) => {
     } catch (error) { fail(res, error); }
 });
 
+// 危险操作：类别说明与「不再询问」规则（这个工作目录 / 永久，当前租户）；撤销后下一轮对话生效
+router.get('/danger-rules', async (_req, res) => {
+    try {
+        const danger = require('../models/agent-danger-rules');
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ categories: danger.catalog(), rules: await danger.list() });
+    } catch (error) { fail(res, error); }
+});
+
+// 设置页只能加「永久」规则；「这个工作目录」在对话的审批卡上选
+router.post('/danger-rules', async (req, res) => {
+    try { res.json({ rule: await require('../models/agent-danger-rules').add({ category: req.body?.category, scope: 'global', by: req.user?.username }) }); } catch (error) { fail(res, error); }
+});
+
+router.delete('/danger-rules/:id', async (req, res) => {
+    try { res.json(await require('../models/agent-danger-rules').remove(req.params.id)); } catch (error) { fail(res, error); }
+});
+
 module.exports = router;

@@ -1,0 +1,29 @@
+/* 亮色主题（讲解稿 "theme":"light"）：象牙白底 + 细网格，白卡片轻阴影，深墨蓝正文，琥珀色只用于强调 */
+#root{--ink:#0f172a;--mute:#5b6478;--card:#ffffff;--line:#e3e8f0;--amber:#d97706;color:var(--ink)}
+.board{background-color:#f6f7fb;background-image:radial-gradient(55% 50% at 8% 0%,rgba(37,99,235,.10),transparent 70%),radial-gradient(50% 45% at 100% 100%,rgba(124,58,237,.09),transparent 70%),linear-gradient(rgba(15,23,42,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(15,23,42,.045) 1px,transparent 1px);background-size:100% 100%,100% 100%,48px 48px,48px 48px}
+.vig{display:none}
+.chip{box-shadow:0 8px 20px rgba(37,99,235,.22)}
+.series{color:#64748b}.series b{color:#b45309}
+.card{background:#fff;border:1.5px solid #e3e8f0;box-shadow:0 14px 34px rgba(15,23,42,.08),0 2px 6px rgba(15,23,42,.04)}
+.tcap{color:#5b21b6;font-weight:700}
+.trow{background:#fff;border:1.5px solid #e3e8f0;box-shadow:0 6px 16px rgba(15,23,42,.05)}
+.trow.h{background:#eef2ff;border-color:#c7d2fe;box-shadow:none}
+.trow.h .td{color:#3730a3}
+.trow .td{color:#0f172a}
+.note{background:#fffbeb;border-color:#f59e0b;color:#0f172a}.note i{color:#b45309}
+.node{color:#1e3a8a;background:#eff6ff;border-color:#3b82f6}
+.node.final{background:#f0fdf4;border-color:#16a34a;color:#14532d}
+.nsub{color:#475569}
+.elab{background:#fff;color:#92400e;border-color:#fcd34d;box-shadow:0 4px 10px rgba(15,23,42,.06)}
+.term{box-shadow:0 22px 50px rgba(15,23,42,.22);border-color:#1e293b}
+.qbox .qt{color:#0f172a}.qbox .q{color:#d97706;text-shadow:0 10px 30px rgba(217,119,6,.25)}
+.ttl{color:#0f172a}.sub{color:#475569}
+.tag{color:#92400e;background:#fffbeb;border-color:#f59e0b}
+.pt .t{color:#0f172a}
+.cap .c{background:rgba(15,23,42,.9);border:none;color:#fff;box-shadow:0 12px 30px rgba(15,23,42,.25)}
+.tl-card .tt{color:#0f172a}
+.tl-dot{background:#fff}
+.mesh-panel .mt{color:#0f172a}
+.mesh-extra{color:#92400e;background:#fffbeb;border-color:#f59e0b}
+.mesh-arrow{color:#d97706}
+.qbox{left:1030px;width:500px}.qbox .qt{font-size:46px}

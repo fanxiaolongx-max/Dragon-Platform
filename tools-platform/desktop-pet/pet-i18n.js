@@ -1,6 +1,7 @@
 // Localized desktop UI. Conversation messages and diagnostic payloads are never translated.
 (function () {
     const translations = {
+    "桃桃来啦！一起打个招呼～": "Taotao is here! Let's say hello!",
     "显示额度侧栏": "Show quota sidebar",
     "额度靠右停靠": "Dock quotas to right",
     "常驻额度面板": "Always show quotas",

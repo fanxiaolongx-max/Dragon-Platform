@@ -36,7 +36,7 @@
         const narrative=output&&AiReportModel.text(output.narrative,options.lang);
         // The AI summary may mark key numbers with **…**; they show bold in the theme colour.
         if(narrative)parts.push(`<div class="air-narrative${output.narrativeMonth!==options.month&&options.mode==='edit'?' is-stale':''}">${multiline(narrative).replace(/\*\*([^*<]{1,80}?)\*\*/g,'<strong class="kit-em">$1</strong>')}</div>`);
-        if(output?.html)parts.push(`<div class="air-output">${AiReportSanitize.clean(output.html)}</div>`);
+        if(output?.html)parts.push(`<div class="air-output"${AiReportModel.horizontalLayout(cell.prompt)?' data-horizontal="true"':''}>${AiReportSanitize.clean(output.html)}</div>`);
         if(cell.missing?.length&&options.mode==='edit')parts.push(`<div class="air-note">${esc(t('本月缺少数据：','Missing this month: ')+cell.missing.map(item=>item.label||item.id).join('、'))}</div>`);
         if(!parts.length&&options.mode==='edit'){
             const last=cell.chat[cell.chat.length-1],label=cell.prompt&&!cell.recipe?t('提示词已生成，打开对话点“试一下”看效果','Prompt ready — open the chat and use “Try it”'):last?.kind==='ask'?t('AI 有问题需要你确认，点这里继续','AI has a question — continue here'):t('点这里继续对话','Continue the conversation');

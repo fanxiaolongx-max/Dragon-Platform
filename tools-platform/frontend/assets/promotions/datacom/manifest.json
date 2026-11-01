@@ -38,5 +38,20 @@
     "v": "20261022-1",
     "duration": 353.2,
     "title": "LSA：从资料卡到路由地图"
+  },
+  "ospf-network-types": {
+    "v": "20261101-2",
+    "duration": 139.4,
+    "title": "为什么要选 DR：从共享电缆到点到点"
+  },
+  "ospf-lsa-philosophy": {
+    "v": "20261101-1",
+    "duration": 125.8,
+    "title": "区域内给地图，区域间只给路标"
+  },
+  "ospf-filter": {
+    "v": "20261101-1",
+    "duration": 117.0,
+    "title": "OSPF 为什么只能在边界过滤"
   }
 }

@@ -9,7 +9,7 @@ setTimeout(() => { console.error('Desktop agent UI timed out'); app.exit(1); }, 
 const ids = { codex: '11111111-1111-4111-8111-111111111111', claudecode: 'local_22222222-2222-4222-8222-222222222222', antigravity: '33333333-3333-4333-8333-333333333333' };
 const queuedFixture = [], created = [], newHistory = {};
 let busyNow = false, claudeWritable = true, win, server, config = { enabled: true, autoSync: true, allowSend: true, syncSeconds: 20, recentLimit: 60, providers: { codex: true, claudecode: true, antigravity: true } }, sendError = false, holdSend = false, releaseSend;
-const calls = [], saves = [];let hiddenProvider='', manualRefreshes=0;
+const calls = [], saves = [];let hiddenProvider='', manualRefreshes=0, historyMode='normal';
 const sessions = Object.entries(ids).map(([provider, id]) => ({ provider, id, title: provider + ' original desktop conversation', updatedAt: '2026-10-26T10:00:00Z', source: 'desktop-history' }));
 const histories = Object.fromEntries(Object.keys(ids).map(p => [p, [{ id: 'u1', role: 'user', content: p + ' original user message' }, { id: 'a1', role: 'assistant', content: p + ' original assistant reply' }]]));
 const providers = () => Object.keys(ids).map(id => ({ id, enabled: true, connected: true, canRead: true, canSend: config.allowSend, count: 1, reason: 'Native desktop fixture' }));
@@ -29,7 +29,7 @@ app.whenReady().then(async () => {
     web.put('/api/desktop-agents/settings', (req, res) => { saves.push(req.body); config = { ...config, ...req.body }; res.json({ settings: config }); });
     web.get('/api/desktop-agents/sessions', (_req, res) => res.json({ items: sessions.filter(s=>s.provider!==hiddenProvider), providers: providers(), syncedAt: new Date().toISOString() }));
     web.post('/api/desktop-agents/sync', (_req, res) => { manualRefreshes++; res.json({ items: sessions.filter(s=>s.provider!==hiddenProvider), providers: providers(), syncedAt: new Date().toISOString() }); });
-    web.get('/api/desktop-agents/:provider/sessions/:id/messages', (req, res) => res.json({ session: sessions.find(s => s.provider === req.params.provider && s.id === req.params.id) || sessions.find(s => s.provider === req.params.provider), items: newHistory[req.params.id] || histories[req.params.provider], canSend: config.allowSend && req.params.provider !== 'claudecode' || config.allowSend && claudeWritable, available: true, canSteer: req.params.provider === 'codex', queue: req.params.provider === 'codex' ? queuedFixture : [], busy: busyNow, busySince: busyNow ? new Date(Date.now() - 65000).toISOString() : null }));
+    web.get('/api/desktop-agents/:provider/sessions/:id/messages', (req, res) => { if(historyMode==='error') return res.status(503).json({error:'Desktop fixture unavailable'}); if(historyMode==='empty') return res.json({items:[],canSend:true,busy:false}); res.json({ session: sessions.find(s => s.provider === req.params.provider && s.id === req.params.id) || sessions.find(s => s.provider === req.params.provider), items: newHistory[req.params.id] || histories[req.params.provider], canSend: config.allowSend && req.params.provider !== 'claudecode' || config.allowSend && claudeWritable, available: true, canSteer: req.params.provider === 'codex', queue: req.params.provider === 'codex' ? queuedFixture : [], busy: busyNow, busySince: busyNow ? new Date(Date.now() - 65000).toISOString() : null }); });
     web.post('/api/desktop-agents/:provider/sessions/:id/messages', async (req, res) => { if (req.body.mode === 'queue') {
         queuedFixture.push({ requestId: req.body.requestId, text: req.body.text, status: 'queued', error: '' });
         return res.status(202).json({ status: 'queued', requestId: req.body.requestId, queue: queuedFixture });
@@ -104,7 +104,23 @@ app.whenReady().then(async () => {
     const choose = async (provider) => { await evaluate(`document.querySelector('[data-desktop-provider="${provider}"]').click()`); await until(`dcThread.textContent.includes(${JSON.stringify(provider + ' original assistant reply')})`); assert.equal(await evaluate(`document.querySelector('[data-desktop-provider="${provider}"]').getAttribute('aria-pressed')`),'true'); };
     await choose('claudecode');
     await evaluate('dcInput.value="Claude draft";dcInput.dispatchEvent(new Event("input",{bubbles:true}));');
-    await choose('antigravity');
+    historyMode='empty';
+    await evaluate(`document.querySelector('[data-desktop-provider="antigravity"]').click()`);
+    await until('document.querySelector(".desktop-agent-history-progress")');
+    await wait(300);
+    assert.match(await evaluate('dcThread.textContent'), /正在加载 Antigravity/);
+    assert.equal(await evaluate('dcThread.hasAttribute("aria-busy")'),true);
+    fs.writeFileSync(path.join(temp,'desktop-history-loading.png'),(await win.webContents.capturePage()).toPNG());
+    historyMode='error';
+    await evaluate('document.querySelector("[data-desktop-refresh]").click()');
+    await until('document.querySelector("[data-history-retry]")');
+    assert.match(await evaluate('dcThread.textContent'),/Desktop fixture unavailable/);
+    assert.equal(await evaluate('!!document.querySelector(".desktop-agent-history-progress")'),false);
+    historyMode='normal';
+    await evaluate('document.querySelector("[data-history-retry]").click()');
+    await until('dcThread.textContent.includes("antigravity original assistant reply")');
+    assert.equal(await evaluate('!!document.querySelector(".desktop-agent-history-load")'),false);
+
     assert.equal(await evaluate('dcInput.value'), '');
     await choose('claudecode');
     assert.equal(await evaluate('dcInput.value'), 'Claude draft');

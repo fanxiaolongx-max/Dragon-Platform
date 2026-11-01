@@ -174,7 +174,10 @@ test('risky commands show their reasons without "always allow", and undo conflic
     const panel = read('frontend/js/home/workspace-panel.js');
     assert.match(panel, /if \(risk\) detail \+= `<div class="dc-approval-risk">/);
     // 风险命令与 WeLink 写操作（event.noAlways）都不提供「总是允许」
-    assert.match(panel, /\$\{risk \|\| event\.noAlways \? '' : `<button type="button" class="dc-action" data-decision="always">/);
+    assert.match(panel, /: risk \|\| event\.noAlways \? '' : `<button type="button" class="dc-action" data-decision="always">/);
+    // 危险类别卡：「不再询问此类」带范围选择，结果按范围显示
+    assert.match(panel, /data-decision="always">\$\{escapeHtml\(tx\('dangerNever'\)\)\}<\/button><select class="dc-approval-scope"/);
+    assert.match(panel, /\{ decision: button\.dataset\.decision, \.\.\.\(scope \? \{ scope \} : \{\}\) \}/);
     assert.match(panel, /error\.code === 'AGENT_CHANGE_CONFLICT' && !force/);
     assert.match(panel, /\{ path: filePath, root: target\.root, force \}/, 'undo works after a restart by passing the folder');
     assert.match(panel, /item\.source === 'command' \? `<em class="wsp-change-src"/);

@@ -949,7 +949,7 @@
             renderApproval(messageEl, event);
         } else if (event.type === 'approval_result') {
             const card = approvalCards.get(event.callId);
-            if (card) settleCard(card, event.decision);
+            if (card) settleCard(card, event.decision, event.scope);
         } else if (event.type === 'change') {
             if (sourceWorkspace === null || (sourceWorkspace && (sourceWorkspace.root !== state.root || sourceWorkspace.agentSessionId !== state.agentSessionId))) return;
             const index = state.changes.findIndex(item => item.path === event.path);
@@ -972,6 +972,10 @@
         // 风险命令（访问目录外 / 主目录 / 密钥文件）：写明原因，且不提供「总是允许」
         const risk = Array.isArray(preview.risk) && preview.risk.length ? preview.risk : null;
         if (risk) detail += `<div class="dc-approval-risk"><b>⚠️ ${escapeHtml(tx('riskTitle'))}</b><ul>${risk.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul></div>`;
+        // 危险类别（完全访问下也会询问）：可按类别选择不再询问的范围
+        const danger = Array.isArray(preview.danger) && preview.danger.length ? preview.danger : null;
+        const scopes = danger ? (Array.isArray(preview.dangerScopes) && preview.dangerScopes.length ? preview.dangerScopes : ['session']) : [];
+        if (danger) detail += `<div class="dc-approval-risk dc-approval-danger"><b>⛔ ${escapeHtml(tx('dangerTitle', { labels: danger.map(hit => hit.label).join('、') }))}</b><ul>${danger.map(hit => `<li>${escapeHtml(hit.reason)}</li>`).join('')}</ul></div>`;
         else if (preview.diff) detail = `<details class="dc-approval-diff" open><summary>${escapeHtml(preview.path || '')} <span class="wsp-add">+${preview.added || 0}</span> <span class="wsp-del">−${preview.removed || 0}</span></summary><pre class="wsp-diff">${renderDiff(preview.diff)}</pre></details>`;
         else if (preview.to) detail = `<div class="dc-approval-path">${escapeHtml(preview.path)} → ${escapeHtml(preview.to)}</div>`;
         else if (preview.path) detail = `<div class="dc-approval-path">${escapeHtml(preview.path)}${preview.recursive ? ` <em>(${escapeHtml(tx('recursive'))})</em>` : ''}</div>`;
@@ -981,7 +985,8 @@
             ${detail}
             <div class="dc-approval-actions">
                 <button type="button" class="dc-action dc-action--primary" data-decision="allow">${escapeHtml(tx('allow'))}</button>
-                ${risk || event.noAlways ? '' : `<button type="button" class="dc-action" data-decision="always">${escapeHtml(tx('alwaysAllow'))}</button>`}
+                ${danger ? `<span class="dc-approval-never"><button type="button" class="dc-action" data-decision="always">${escapeHtml(tx('dangerNever'))}</button><select class="dc-approval-scope" aria-label="${escapeHtml(tx('dangerScope'))}">${scopes.map(scope => `<option value="${escapeHtml(scope)}">${escapeHtml(tx(`scope_${scope}`))}</option>`).join('')}</select></span>`
+                    : risk || event.noAlways ? '' : `<button type="button" class="dc-action" data-decision="always">${escapeHtml(tx('alwaysAllow'))}</button>`}
                 <button type="button" class="dc-action dc-action--danger" data-decision="deny">${escapeHtml(tx('deny'))}</button>
             </div>
             <div class="dc-approval-status" hidden></div>`;
@@ -989,11 +994,12 @@
             const button = clickEvent.target.closest('[data-decision]');
             if (!button || card.classList.contains('is-settled')) return;
             card.querySelectorAll('[data-decision]').forEach(node => { node.disabled = true; });
+            const scope = danger && button.dataset.decision === 'always' ? card.querySelector('.dc-approval-scope')?.value || 'session' : '';
             try {
                 // 工作区审批走 agent-workspace；WeLink 写操作的审批卡带自己的地址（只接受该前缀）
                 const url = typeof event.approvalUrl === 'string' && event.approvalUrl.startsWith('/api/channels/welink-cli/approvals/') ? event.approvalUrl : `${API}/approvals/${encodeURIComponent(event.id)}`;
-                await request('POST', url, { decision: button.dataset.decision });
-                settleCard(card, button.dataset.decision);
+                await request('POST', url, { decision: button.dataset.decision, ...(scope ? { scope } : {}) });
+                settleCard(card, button.dataset.decision, scope);
             } catch (error) {
                 card.querySelectorAll('[data-decision]').forEach(node => { node.disabled = false; });
                 toast(error.message);
@@ -1006,11 +1012,12 @@
         card.querySelector('[data-decision="allow"]').focus({ preventScroll: true });
     }
 
-    function settleCard(card, decision) {
+    function settleCard(card, decision, scope = '') {
         card.classList.add('is-settled', `is-${decision}`);
         card.querySelector('.dc-approval-actions').hidden = true;
         const status = card.querySelector('.dc-approval-status');
         status.hidden = false;
+        if (decision === 'always' && scope) { status.textContent = tx('approvedDanger', { scope: tx(`scope_${scope}`) }); return; }
         status.textContent = { allow: tx('approved'), always: tx('approvedAlways'), deny: tx('denied'), timeout: tx('approvalTimeout'), abort: tx('approvalAborted') }[decision] || decision;
     }
 
