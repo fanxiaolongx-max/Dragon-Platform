@@ -452,7 +452,9 @@ const DEFINITIONS = [
     { name: 'browser_tabs', kind: 'read', description: '列出智能体打开的标签页；action=select 切换当前标签页，action=close 关闭标签页。',
         parameters: { type: 'object', properties: { action: { type: 'string', enum: ['list', 'select', 'close'] }, ...TAB_PROP } } },
     { name: 'browser_evaluate', kind: 'external', description: '在页面里执行一段 JavaScript 表达式并返回结果（可 await）。每次都要用户审批：读页面内容（含表格、列表）先用 browser_snapshot，接口数据与参数用 browser_network / browser_network_body；不要用脚本重复抓取页面或重放接口请求，只在这些都拿不到所需数据时使用。',
-        parameters: { type: 'object', properties: { expression: { type: 'string' }, ...TAB_PROP }, required: ['expression'] } }
+        parameters: { type: 'object', properties: { expression: { type: 'string' }, ...TAB_PROP }, required: ['expression'] } },
+    { name: 'browser_scrape', kind: 'read', description: '智能提取网页数据（优先使用 Scrapling 隐身引擎抗反爬，并支持复用当前 Dragon 浏览器标签页提取已登录页面的真实 DOM）。支持按 CSS 选择器、XPath 提取特定数据或正文表格。',
+        parameters: { type: 'object', properties: { url: { type: 'string', description: '要抓取的网页地址。不传或 fromCurrentTab=true 时，直接复用当前 Dragon 浏览器标签页已加载的内容（保留登录态与 Cookie）。' }, css: { type: 'string', description: 'CSS 选择器，例如 "article h2", "table tr", ".content" 等' }, xpath: { type: 'string', description: 'XPath 表达式' }, fromCurrentTab: { type: 'boolean', description: '是否从当前 Dragon 浏览器标签页提取（抓取需要登录的内部系统时使用）' }, mode: { type: 'string', enum: ['markdown', 'text', 'json'], description: '输出格式，默认 markdown' }, maxChars: { type: 'integer', description: '最多返回字数，默认 40000' }, ...TAB_PROP } } }
 ];
 const KIND = new Map(DEFINITIONS.map(item => [item.name, item.kind]));
 
@@ -481,6 +483,73 @@ async function execute(ctx, name, args = {}) {
             for (const page of tabs.values()) await page.refreshInfo();
             const lines = [...tabs.values()].map(page => `${page.id === state.active ? '*' : ' '} [${page.id}] ${page.title || '（无标题）'} ${page.url}`);
             return { content: lines.length ? lines.join('\n') : '没有打开的标签页。', summary: `${lines.length} 个标签页` };
+        }
+        if (name === 'browser_scrape') {
+            const scrapling = require('./scrapling-service');
+            const targetUrl = args.url ? webUrl(args.url) : null;
+            const useCurrentTab = args.fromCurrentTab === true || !targetUrl || Boolean(args.tabId);
+
+            if (useCurrentTab) {
+                const active = await activePage(owner, args.tabId);
+                const html = await active.evaluate('document.documentElement.outerHTML');
+                await active.refreshInfo();
+                if (scrapling.available()) {
+                    const parsed = await scrapling.parseHtml({
+                        html,
+                        css: args.css,
+                        xpath: args.xpath,
+                        mode: args.mode,
+                        maxChars: args.maxChars
+                    });
+                    return {
+                        content: `[Dragon 浏览器复用提取] 当前页面：${active.title || '（无标题）'}\n网址：${active.url}\n${parsed.count ? `匹配数量：${parsed.count}\n` : ''}\n${parsed.text}`,
+                        summary: `从当前标签页抓取 ${parsed.count ? `${parsed.count} 项` : active.title}`.slice(0, 120)
+                    };
+                }
+                const snap = await active.snapshot(args.maxChars);
+                return {
+                    content: `[Dragon 浏览器快照提取] 页面：${active.title}\n网址：${active.url}\n\n${snap.text}`,
+                    summary: `标签页提取：${active.title}`.slice(0, 120)
+                };
+            }
+
+            if (scrapling.available()) {
+                try {
+                    const res = await scrapling.fetchUrl({
+                        url: targetUrl,
+                        css: args.css,
+                        xpath: args.xpath,
+                        mode: args.mode,
+                        maxChars: args.maxChars
+                    });
+                    return {
+                        content: `[Scrapling 快速隐身抓取] 状态：${res.status} · ${res.title || targetUrl}\n网址：${res.url}\n${res.count ? `匹配项数：${res.count}\n` : ''}\n${res.text}`,
+                        summary: `隐身抓取：${res.title || res.url}`.slice(0, 120)
+                    };
+                } catch (fetchErr) {
+                    const { page: fallbackPage } = await openPage(owner, targetUrl, false);
+                    const html = await fallbackPage.evaluate('document.documentElement.outerHTML');
+                    await fallbackPage.refreshInfo();
+                    const parsed = await scrapling.parseHtml({
+                        html,
+                        css: args.css,
+                        xpath: args.xpath,
+                        mode: args.mode,
+                        maxChars: args.maxChars
+                    });
+                    return {
+                        content: `[Scrapling 快速抓取遇到渲染限制，已自动回退至 Dragon 浏览器打开并提取]\n当前页面：${fallbackPage.title}\n网址：${fallbackPage.url}\n\n${parsed.text}`,
+                        summary: `回退浏览器提取：${fallbackPage.title}`.slice(0, 120)
+                    };
+                }
+            }
+
+            const { page: directPage } = await openPage(owner, targetUrl, false);
+            const snap = await directPage.snapshot(args.maxChars);
+            return {
+                content: `[Dragon 浏览器打开提取] 页面：${directPage.title}\n网址：${directPage.url}\n\n${snap.text}`,
+                summary: `打开并提取：${directPage.title}`.slice(0, 120)
+            };
         }
         const page = await activePage(owner, args.tabId);
         if (name === 'browser_snapshot') {
@@ -576,6 +645,14 @@ async function preview(ctx, name, args = {}) {
         const page = await activePage(ctx.owner, args.tabId);
         await page.refreshInfo();
         return { title: '在网页执行脚本', fields: [{ label: '页面', value: `${page.title}\n${page.url}` }], command: String(args.expression || '') };
+    }
+    if (name === 'browser_scrape') {
+        const fields = [];
+        if (args.url && !args.fromCurrentTab) fields.push({ label: '目标网址', value: String(args.url) });
+        else fields.push({ label: '提取来源', value: '复用 Dragon 浏览器当前标签页' });
+        if (args.css) fields.push({ label: 'CSS 选择器', value: String(args.css) });
+        if (args.xpath) fields.push({ label: 'XPath', value: String(args.xpath) });
+        return { title: '智能抓取网页数据', fields };
     }
     return {};
 }

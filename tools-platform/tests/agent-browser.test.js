@@ -59,6 +59,15 @@ test('browser tools open a page, read it, capture fetch responses and console, t
     assert.ok(fs.statSync(shot.artifactPath).size > 1000);
     assert.ok(shot.artifactPath.startsWith(path.join(sandbox, 'data', 'agent-artifacts')));
     assert.match((await run('browser_evaluate', { expression: 'document.title' })).content, /结果/);
+    // 测试复用当前标签页的 live DOM 结构化提取
+    const scrapeTab = await run('browser_scrape', { css: 'h1, p' });
+    assert.match(scrapeTab.content, /Dragon 浏览器.*提取/);
+    assert.match(scrapeTab.content, /搜索结果/);
+
+    // 测试通过 Scrapling 快速隐身抓取外部 URL
+    const scrapeUrl = await run('browser_scrape', { url: `${base}/`, css: 'h1' });
+    assert.match(scrapeUrl.content, /销售看板/);
+
     assert.match((await run('browser_tabs')).content, /^\* \[\w+\] 结果/);
     const bob = await browser.execute({ owner: 'default::bob' }, 'browser_snapshot', {});
     assert.match(bob.content, /先用 browser_navigate/, 'each account has its own browser and tabs');

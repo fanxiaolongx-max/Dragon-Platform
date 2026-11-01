@@ -46,6 +46,57 @@ test('stopped generation is not committed', async () => {
     await assert.rejects(bridge.dispatch('/chat', 'POST', { sessionId: id, message: 'stop', signal: controller.signal }, alice, async () => { controller.abort(); return { text: 'late result' }; }), { status: 499 });
     assert.equal((await call('/sessions/' + id)).messages.length, 0);
 });
+test('application JSON protocol preserves tool and recipe replies without a second ADC tool loop', async () => {
+    const { id } = await call('/sessions', 'POST');
+    let calls = 0;
+    const generate = async options => {
+        calls++;
+        assert.equal(options.tools, undefined);
+        assert.doesNotMatch(options.systemInstruction, /JSON 查询协议|adc_schema/);
+        return { text: calls === 1 ? '{"tool":"list_tables","args":{"source":"netcare"}}' : '{"sources":[],"compute":"function compute(){return {missing:true}}"}' };
+    };
+    const envelope = '【系统上下文，请勿向用户复述】【系统指令】\n只输出格子配方 JSON。\n【任务内容】\n统计数据\n用户问题：（按上面的任务处理）';
+    const first = await bridge.dispatch('/chat', 'POST', { sessionId: id, message: envelope }, alice, generate);
+    assert.equal(JSON.parse(first.text).tool, 'list_tables');
+    const next = await bridge.dispatch('/chat', 'POST', { sessionId: id, message: '工具查询结果：3行。请继续。' }, alice, generate);
+    assert.deepEqual(JSON.parse(next.text).sources, []);
+    assert.equal(calls, 2, 'one model turn per application round, including legacy continuation');
+    const fresh = await call('/sessions', 'POST');
+    await bridge.dispatch('/chat', 'POST', { sessionId: fresh.id, protocol: 'application-json-v1', message: '统计数据' }, alice, async options => {
+        assert.equal(options.tools, undefined);
+        return { text: '{"tool":"list_report_cells","args":{}}' };
+    });
+});
+test('model and tool failures retain readable JSON diagnostics without gateway status or secret disclosure', async t => {
+    const http = require('node:http');
+    const settings = require('../backend/models/ai-settings-repository');
+    const provider = require('../backend/models/ai-provider-client');
+    t.mock.method(settings, 'getRuntimeSettings', async () => ({ hasApiKey: true, keyLooksValid: true }));
+    let failure = Object.assign(new Error('vendor URL contains fake-secret-never-expose'), { status: 503 });
+    t.mock.method(provider, 'createClient', () => ({ generateChat: async () => { throw failure; } }));
+    const logs = [];
+    t.mock.method(console, 'error', (...args) => logs.push(args.join(' ')));
+    const { id } = await call('/sessions', 'POST');
+    const server = http.createServer((req, res) => { res.setHeader('Access-Control-Allow-Origin', '*'); bridge.handle(req, res, '/chat', alice); });
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    try {
+        const request = () => fetch('http://127.0.0.1:' + server.address().port, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sessionId: id, protocol: 'application-json-v1', message: 'test' }) });
+        const response = await request(), result = await response.json();
+        assert.equal(response.status, 424);
+        assert.equal(response.headers.get('access-control-allow-origin'), '*');
+        assert.equal(result.requestId, response.headers.get('x-request-id'));
+        assert.match(result.error, /HTTP 503/);
+        assert.doesNotMatch(JSON.stringify(result) + logs.join('\n'), /fake-secret-never-expose/);
+        failure = Object.assign(new Error('查询步骤达到上限，请缩小查询范围后重试'), { code: 'ADC_DATA_INVALID' });
+        const second = await request();
+        assert.equal(second.status, 422);
+        assert.match((await second.json()).error, /查询步骤达到上限/);
+        failure = Object.assign(new Error('模型没有返回正文，请重试'), { status: 502, expose: true });
+        const empty = await request();
+        assert.equal(empty.status, 424);
+        assert.match((await empty.json()).error, /模型没有返回正文/);
+    } finally { await new Promise(resolve => server.close(resolve)); }
+});
 test('HTML adaptation is narrow and leaves business scripts and unrelated applications intact', () => {
     const html = '<html><script>\n/*\n * ADCChat v1.4 example\n */\nwindow.ADCChat = {};\n</script><iframe id="aiBarFrame"></iframe><script>const onSite = ADC_ORIGINS.includes(location.origin); frame.src = location.origin +\n\'/adc-agent/static/deepagent-sandbox/index.html?project_name=OperationsDigitalHuman\' +\n\'&module_name=OperationsDigitalHuman&deepAgent_name=agent_OperationsDigitalHuman\'; fetch("/api/reports");</script></html>';
     const adapted = bridge.adaptHtml(html, '/apps/test/~signed');

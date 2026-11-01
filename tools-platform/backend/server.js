@@ -80,7 +80,7 @@ const customToolI18nService = require('./models/custom-tool-i18n-service');
 const assetVersioning = require('./models/asset-versioning');
 const pageUpdateTimes = require('./models/page-update-times');
 const { initializeTenantBuiltinTools } = require('./models/builtin-tools-startup');
-const { ensureBuiltinToolAssets } = require('./models/builtin-assets-unpacker');
+const { ensureBuiltinToolAssets, ensureToolAudioReady } = require('./models/builtin-assets-unpacker');
 const { DATA_DIR } = require('./models/store');
 const navSettingsRoutes = require('./routes/nav-settings');
 const aiSettingsRoutes = require('./routes/ai-settings');
@@ -635,11 +635,24 @@ app.get('/custom-tools/:slug/index.html', async (req, res, next) => {
         next(err);
     }
 });
-app.use('/custom-tools/:slug', (req, res, next) => {
+app.use('/custom-tools/:slug', async (req, res, next) => {
     const requestedPath = (req.path.endsWith('/') || !req.path) ? `${req.path || '/'}index.html` : req.path;
-    const assetPath = customToolsRepo.getToolAssetPath(req.params.slug, requestedPath);
+    let assetPath = customToolsRepo.getToolAssetPath(req.params.slug, requestedPath);
+    if (!assetPath && req.params.slug === 'tool-mtakhxqm' && requestedPath.startsWith('/audio/') && requestedPath.endsWith('.mp3')) {
+        try {
+            await ensureToolAudioReady(req.params.slug);
+            assetPath = customToolsRepo.getToolAssetPath(req.params.slug, requestedPath);
+        } catch (downloadErr) {
+            console.warn(`[custom-tools] 按需下载音频失败 (${req.params.slug}):`, downloadErr.message);
+        }
+    }
     if (!assetPath) return next();
     if (/\.html?$/i.test(assetPath)) {
+        if (req.params.slug === 'tool-mtakhxqm') {
+            ensureToolAudioReady(req.params.slug).catch(err => {
+                console.warn(`[custom-tools] 预热 ${req.params.slug} 音频包提示:`, err.message);
+            });
+        }
         try {
             const html = fs.readFileSync(assetPath, 'utf8');
             const stat = fs.existsSync(assetPath) ? fs.statSync(assetPath) : null;

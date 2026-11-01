@@ -52,13 +52,22 @@ async function dispatch(route, method, body, claims, generate = null) {
         const secrets = await settings.getRedactionSecrets();
         const clean = value => redactText(value, { secrets });
         const messages = [...row.messages.slice(-40), { role: 'user', content: clean(question) }];
-        const dataTools = require('./adc-data-tools');
-        const access = await dataTools.create(claims.s);
         const client = generate ? null : provider.createClient(config);
-        const result = await dataTools.answer({
-            generate: generate || (options => client.generateChat(options)), access, clean,
-            options: { messages, systemInstruction: config.systemPrompt || '你是 Dragon Claw，帮助用户分析网络运营数据。', maxOutputTokens: config.maxOutputTokens || 8192, signal: body.signal }
-        });
+        const invoke = generate || (options => client.generateChat(options));
+        const options = { messages, systemInstruction: config.systemPrompt || '你是 Dragon Claw，帮助用户分析网络运营数据。', maxOutputTokens: config.maxOutputTokens || 8192, signal: body.signal };
+        // The monthly report executes its own JSON tools through its guarded application APIs.
+        // Injecting ADC tools here consumes/replaces those JSON replies and can loop forever.
+        // Recognize the exact legacy envelope so installed versions work without losing page edits.
+        const applicationProtocol = body.protocol === 'application-json-v1' || (claims.s === 'aiops-report' && messages.some(item => item.role === 'user'
+            && item.content.startsWith('【系统上下文，请勿向用户复述】【系统指令】\n')
+            && item.content.endsWith('\n用户问题：（按上面的任务处理）')));
+        let result;
+        if (applicationProtocol) result = await invoke(options);
+        else {
+            const dataTools = require('./adc-data-tools');
+            const access = await dataTools.create(claims.s);
+            result = await dataTools.answer({ generate: invoke, access, clean, options });
+        }
         if (body.signal?.aborted) throw fail(499, '已停止');
         const text = clean(String(result.text || ''));
         if (!text.trim()) throw fail(502, '模型没有返回正文，请重试');
@@ -110,8 +119,11 @@ async function handle(req, res, route, claims) {
         const status=Number(error.status||error.statusCode)||0;
         const code=/^[A-Z0-9_]{1,64}$/.test(String(error.code||error.cause?.code||''))?String(error.code||error.cause.code):'UNKNOWN';
         console.error('[hosted-adc]',JSON.stringify({requestId,route,name:/^[A-Za-z0-9_]{1,64}$/.test(error.name)?error.name:'Error',code,status,frames:String(error.stack||'').split('\n').slice(1).filter(line=>/^\s*at .*?(?:\/|node:)/.test(line)&&!line.includes('http')).slice(0,3)}));
-        const detail=error.expose?error.message:code==='ADC_DATA_INVALID'?'AI 数据工具处理失败':status>=400?`模型服务返回 HTTP ${status}`:'平台 AI 调用异常';
-        if(!res.destroyed)json(res,error.expose?error.status:502,{error:`${detail}（请求编号 ${requestId}）`,code:'HOSTED_ADC_ERROR',requestId,category:code,upstreamStatus:status||undefined});
+        const detail=error.expose?error.message:code==='ADC_DATA_INVALID'?error.message:status>=400?`模型服务返回 HTTP ${status}`:'平台 AI 调用异常';
+        // These are application/dependency failures, not an unreachable HTTP gateway.
+        // Some reverse proxies replace 502 bodies, hiding our JSON/CORS diagnostics.
+        const responseStatus=error.expose&&error.status<500?error.status:code==='ADC_DATA_INVALID'?422:424;
+        if(!res.destroyed)json(res,responseStatus,{error:`${detail}（请求编号 ${requestId}）`,code:'HOSTED_ADC_ERROR',requestId,category:code,upstreamStatus:status||undefined});
     } finally { clearTimeout(timeout); }
 }
 module.exports = { adaptHtml, handle, dispatch };

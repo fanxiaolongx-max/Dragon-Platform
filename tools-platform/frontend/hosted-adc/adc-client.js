@@ -33,7 +33,7 @@
             controller = new AbortController();
             try {
                 if (!sessionId) sessionId = (await api('/sessions', {}, controller.signal)).id;
-                const result = await api('/chat', { sessionId, modelId, message: question }, controller.signal);
+                const result = await api('/chat', { sessionId, modelId, message: question, ...(options.protocol === 'application-json-v1' ? { protocol: options.protocol } : {}) }, controller.signal);
                 modelId = result.modelId; options.onUpdate?.(result.text); notify(); return result.text;
             } finally { controller = null; }
         }
