@@ -12,11 +12,15 @@ test('desktop packages exclude local data and credentials while keeping shipped 
         'backend/logs/runtime.txt', 'backend/tmp/upload.xlsx', 'backend/runtime/state.json',
         'backend/node_modules/sqlite3/build/Release/node_sqlite3.node',
         'frontend/assets/videos/local.mov', 'backend/.env.production', 'backend/private.p12',
-        'backend/models/desktop-license-authority.js'
+        'backend/models/desktop-license-authority.js',
+        'backend/builtin-tools/tool-mtakhxqm/audio/audio.bundle.zip',
+        'backend/builtin-tools/tool-mtakhxqm/audio/sound.mp3',
+        'backend/builtin-tools/f12-to-extension/chrome-capture-pro/bundle.js'
     ]) assert.ok(excluded(file), `Must exclude ${file}`);
     for (const file of [
         'backend/defaults/quick-start-bundle.json',
-        'backend/builtin-tools/tool-mtakhxqm/audio/audio.bundle.zip',
+        'backend/builtin-tools/tool-mtakhxqm/audio/manifest.json',
+        'backend/builtin-tools/f12-to-extension/chrome-capture-pro.template.zip',
         'frontend/downloads/uivision-extension-9.6.1.zip',
         'frontend/desktop-license-client-config.json', 'desktop-pet/pet-manager.js',
         'desktop-pet/pet-keyboard-hook.js'
