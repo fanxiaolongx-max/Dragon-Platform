@@ -1007,7 +1007,8 @@
 
     function renderSubTool(item, event) {
         let line = item.tools.get(event.callId);
-        if (!line) {
+        if (!line || (event.state === 'running' && !line.classList.contains('is-running'))) {
+            item.toolCount += 1;
             line = document.createElement('li');
             line.className = 'dc-sub-tool';
             line.innerHTML = `<span class="dc-sub-tool-icon" aria-hidden="true">${toolIcon(event.tool)}</span><span class="dc-sub-tool-name">${escapeHtml(toolLabel(event.tool))}</span><span class="dc-sub-tool-args"></span><span class="dc-sub-tool-state"></span>`;
@@ -1025,8 +1026,9 @@
         // 卡片下方的「最近动态」：只留最近几条
         const peek = item.card.querySelector('.dc-sub-peek');
         if (item.card.classList.contains('is-running')) {
-            peek.innerHTML = [...item.tools.values()].slice(-SUB_PEEK).map(node => `<div class="dc-sub-peek-line ${node.classList.contains('is-running') ? 'is-running' : ''}">${node.querySelector('.dc-sub-tool-icon').outerHTML}<span>${escapeHtml(node.querySelector('.dc-sub-tool-name').textContent)}</span><em>${escapeHtml(node.querySelector('.dc-sub-tool-args').textContent)}</em></div>`).join('');
-            const hidden = item.tools.size - SUB_PEEK;
+            const lines = [...item.card.querySelectorAll('.dc-sub-tools > .dc-sub-tool')];
+            peek.innerHTML = lines.slice(-SUB_PEEK).map(node => `<div class="dc-sub-peek-line ${node.classList.contains('is-running') ? 'is-running' : ''}">${node.querySelector('.dc-sub-tool-icon').outerHTML}<span>${escapeHtml(node.querySelector('.dc-sub-tool-name').textContent)}</span><em>${escapeHtml(node.querySelector('.dc-sub-tool-args').textContent)}</em></div>`).join('');
+            const hidden = lines.length - SUB_PEEK;
             if (hidden > 0) peek.insertAdjacentHTML('afterbegin', `<div class="dc-sub-peek-more">${escapeHtml(tx('subMore', { count: hidden }))}</div>`);
         }
     }
@@ -1034,7 +1036,7 @@
     function renderSubagent(messageEl, event) {
         let item = subagents.get(event.id);
         if (event.phase === 'start' || !item) {
-            if (item?.card.isConnected) return; // 重复的开始事件
+            if (item?.card.isConnected && messageEl.contains(item.card) && item.card.classList.contains('is-running')) return; // 重复的开始事件
             const card = document.createElement('div');
             card.className = 'dc-sub is-running';
             card.dataset.subId = event.id;
@@ -1079,7 +1081,6 @@
             if (event.phase === 'start') return;
         }
         if (event.phase === 'tool') {
-            if (!item.tools.has(event.callId)) item.toolCount += 1;
             renderSubTool(item, event);
             updateSubStats(item, item.started ? Date.now() - item.started : undefined);
         } else if (event.phase === 'status') {
@@ -1109,8 +1110,7 @@
         } else {
             peek.innerHTML = event.error ? `<div class="dc-sub-peek-result is-error">${escapeHtml(event.error)}</div>` : '';
         }
-        item.tools.forEach(line => {
-            if (!line.classList.contains('is-running')) return;
+        card.querySelectorAll('.dc-sub-tools > .dc-sub-tool.is-running').forEach(line => {
             line.className = 'dc-sub-tool is-fail';
             line.querySelector('.dc-sub-tool-state').textContent = '—';
         });

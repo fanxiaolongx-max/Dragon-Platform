@@ -289,6 +289,7 @@ test('slash menu supports arrow-key selection; Enter runs and Tab completes the 
 test('subagent cards, continue-after-crash and per-turn rewind are wired into the chat', () => {
     const panel = read('frontend/js/home/workspace-panel.js');
     assert.match(panel, /if \(event\.type === 'subagent'\) \{\s*renderSubagent\(messageEl, event\);/);
+    assert.match(panel, /if \(item\?\.card\.isConnected && messageEl\.contains\(item\.card\) && item\.card\.classList\.contains\('is-running'\)\) return;/, 'duplicate start check is scoped to a running card inside the same message');
     assert.match(panel, /card\.style\.setProperty\('--sub', event\.color\)/, 'each subagent card uses its own colour');
     assert.match(panel, /messageEl\?\.querySelectorAll\('\.dc-sub\.is-running'\)/, 'unfinished subagents settle when the turn ends');
     assert.match(panel, /`\$\{API\}\/checkpoints\/\$\{encodeURIComponent\(target\.id\)\}\/rewind`/);

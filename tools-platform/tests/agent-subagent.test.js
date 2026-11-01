@@ -131,3 +131,35 @@ test('task sends read-only subagents in parallel, shows them as cards and return
     assert.match(refused.summary, /只读/);
     assert.ok(result.usage.totalTokens >= 110 * 6, 'subagent tokens count toward the turn');
 });
+
+test('Gemini-style repeated tool call IDs (task:0 across turns and read_file:0 across steps) get unique subagent card and tool IDs', async () => {
+    const next = subagent.roster(() => 0.1);
+    const events = [];
+    let step = 0;
+    const client = {
+        model: 'gemini-mock',
+        async generateText() {
+            step += 1;
+            if (step === 1 || step === 2) return { toolCalls: [{ id: 'read_file:0', name: 'read_file', args: { path: 'README.md' } }], text: '', usage };
+            return { text: '结论', toolCalls: [], usage };
+        }
+    };
+    const common = {
+        client,
+        tools: () => [{ name: 'read_file', description: 'read' }],
+        isReadOnly: () => true,
+        executeCall: async (_call, { start }) => { start(); return { content: 'ok', summary: 'ok' }; },
+        write: event => events.push(event)
+    };
+    await subagent.run({ ...common, call: { id: 'task:0', name: 'task', args: { description: '第一轮', prompt: 'p1' } }, identity: next() });
+    step = 0;
+    await subagent.run({ ...common, call: { id: 'task:0', name: 'task', args: { description: '第二轮', prompt: 'p2' } }, identity: next() });
+
+    const starts = events.filter(event => event.type === 'subagent' && event.phase === 'start');
+    assert.equal(starts.length, 2);
+    assert.notEqual(starts[0].id, starts[1].id, 'two task:0 calls get unique subagent card IDs');
+
+    const firstSubTools = events.filter(event => event.type === 'subagent' && event.phase === 'tool' && event.state === 'running' && event.id === starts[0].id);
+    assert.equal(firstSubTools.length, 2);
+    assert.notEqual(firstSubTools[0].callId, firstSubTools[1].callId, 'two read_file:0 steps inside a subagent get unique callIds');
+});

@@ -77,6 +77,8 @@ const SYSTEM_PROMPT = `你是 Dragon Claw 派出的子智能体，负责独立�
 - 结论要具体：给出文件路径（含行号）、关键代码或数据、你的判断依据；没查到的如实说明查过哪些地方。
 - 结论用简洁的 Markdown，不超过 1500 字；不要寒暄，也不要复述任务本身。`;
 
+let subSeq = 0;
+
 /**
  * 执行一个子智能体。
  * @param {object} options
@@ -91,19 +93,28 @@ async function run({ call, identity, client, model, tools, executeCall, isReadOn
     const args = call.args && typeof call.args === 'object' ? call.args : {};
     const description = String(args.description || '').trim().slice(0, 40) || '子任务';
     const prompt = String(args.prompt || '').trim().slice(0, 20000);
-    const id = call.id;
+    // Gemini 等模型每轮从 task:0 重新编号，拼接自增序号保证跨轮次/跨步骤的子智能体卡片 id 唯一
+    subSeq += 1;
+    const id = `${call.id || 'task'}-${subSeq}`;
     const started = Date.now();
     const base = { type: 'subagent', ...eventFields, id, ...identity, description };
     if (!prompt) return { content: 'task 需要 prompt：写清楚要子智能体查什么', summary: '缺少任务说明', isError: true };
     write({ ...base, phase: 'start', prompt: prompt.slice(0, 2000) });
     let toolCount = 0;
-    // 子智能体的工具事件改成 subagent/tool 事件，挂在卡片里，不进主对话的工具行
+    const pendingCalls = new Map();
+    // 子智能体的工具事件改成 subagent/tool 事件，挂在卡片里，不进主对话的工具行；每次调用生成唯一 callId 防止跨步重名覆盖
     const nestedWrite = event => {
         if (event.type === 'tool_start') {
             toolCount += 1;
-            write({ ...base, phase: 'tool', callId: event.callId, tool: event.tool, args: event.args, state: 'running' });
+            const callId = `${id}-t${toolCount}`;
+            const list = pendingCalls.get(event.callId) || [];
+            list.push(callId);
+            pendingCalls.set(event.callId, list);
+            write({ ...base, phase: 'tool', callId, tool: event.tool, args: event.args, state: 'running' });
         } else if (event.type === 'tool_result') {
-            write({ ...base, phase: 'tool', callId: event.callId, tool: event.tool, state: event.ok ? 'done' : 'failed', summary: event.summary, durationMs: event.durationMs });
+            const list = pendingCalls.get(event.callId);
+            const callId = list?.length ? list.shift() : event.callId;
+            write({ ...base, phase: 'tool', callId, tool: event.tool, state: event.ok ? 'done' : 'failed', summary: event.summary, durationMs: event.durationMs });
         } else if (event.type === 'status') {
             write({ ...base, phase: 'status', status: event.status });
         }
