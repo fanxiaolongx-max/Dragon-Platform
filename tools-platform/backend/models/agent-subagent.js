@@ -9,14 +9,12 @@ const PREVIEW_CHARS = 4000;
 
 const DEFINITION = {
     name: 'task',
-    description: '派一个子智能体去完成一件独立的调研任务，它只把结论带回来：适合大范围搜代码 / 文档、对比多个文件或资料、查清某个逻辑在哪里等会产生大量中间结果的工作，主对话上下文不会被撑满。'
-        + '子智能体只能用只读工具（读文件、搜索、查表、网页搜索等），不能修改文件、不能执行命令；它看不到当前对话，prompt 里要写清楚背景、要查什么、结论要包含什么。'
-        + '互不相关的几件调研可以在同一步里同时派出多个子智能体并行执行。简单的一两次读取直接用工具，不要派子智能体。',
+    description: '派一个只读子智能体独立调研（大范围搜代码 / 文档、对比多份资料），只带回结论，不占主对话上下文；它看不到当前对话，prompt 要写清背景和要查什么。几件互不相关的调研可在同一步派多个，并行执行。一两次读取直接用工具。',
     parameters: {
         type: 'object',
         properties: {
-            description: { type: 'string', description: '3–12 个字的任务标题，如「查找审批流程入口」' },
-            prompt: { type: 'string', description: '交给子智能体的完整说明：背景、要查什么、在哪些范围找、结论的格式' }
+            description: { type: 'string', description: '3–12 字的任务标题' },
+            prompt: { type: 'string', description: '完整说明：背景、要查什么、范围、结论格式' }
         },
         required: ['description', 'prompt']
     }

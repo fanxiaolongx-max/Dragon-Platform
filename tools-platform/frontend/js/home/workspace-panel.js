@@ -484,6 +484,59 @@
         renderChanges();
     }
 
+    // ── 按轮回退：改过文件的回答下面显示「回退到这一轮之前」 ──────
+    let checkpointRequest = 0;
+    async function decorateCheckpoints() {
+        const thread = document.getElementById('dcThread');
+        if (!thread) return;
+        const clear = () => thread.querySelectorAll('.dc-rewind-btn').forEach(node => node.remove());
+        if (!state.enabled || !state.root || !state.agentSessionId || isReadOnly()) { clear(); return; }
+        const ticket = ++checkpointRequest;
+        const target = { root: state.root, id: state.agentSessionId };
+        let runs = [];
+        try {
+            runs = (await request('GET', `${API}/checkpoints/${encodeURIComponent(target.id)}?root=${encodeURIComponent(target.root)}`)).runs || [];
+        } catch { return; }
+        if (ticket !== checkpointRequest || state.root !== target.root || state.agentSessionId !== target.id) return;
+        const byRun = new Map(runs.map(item => [item.runId, item]));
+        thread.querySelectorAll('.dc-msg--ai[data-run-id]').forEach(message => {
+            const run = byRun.get(message.dataset.runId);
+            const existing = message.querySelector('.dc-rewind-btn');
+            if (!run) { existing?.remove(); return; }
+            if (existing) return;
+            const bar = message.querySelector('.dc-msg-tools');
+            if (!bar) return;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'dc-rewind-btn';
+            button.title = tx('rewindTitle', { count: run.files });
+            button.innerHTML = `<span aria-hidden="true">↶</span>${escapeHtml(tx('rewindAction'))}<small>${escapeHtml(tx('rewindFiles', { count: run.files }))}</small>`;
+            button.addEventListener('click', () => rewindTurn(run, target, message));
+            bar.appendChild(button);
+        });
+    }
+
+    async function rewindTurn(run, target, message) {
+        if (state.root !== target.root || state.agentSessionId !== target.id) return;
+        const later = [...document.querySelectorAll('#dcThread .dc-msg--ai[data-run-id]')];
+        const index = later.indexOf(message);
+        const laterCount = later.slice(index + 1).filter(node => node.querySelector('.dc-rewind-btn')).length;
+        const files = run.paths.slice(0, 8).join('\n') + (run.paths.length > 8 ? `\n${tx('rewindMoreFiles', { count: run.paths.length - 8 })}` : '');
+        const options = { title: tx('rewindConfirmTitle'), message: `${tx(laterCount ? 'rewindConfirmLater' : 'rewindConfirm', { count: laterCount })}\n\n${files}`, confirmText: tx('rewindAction'), tone: 'danger' };
+        const ok = typeof window.showNavbarConfirm === 'function' ? await window.showNavbarConfirm(options) : await window.AppDialog.confirm(options.message, options);
+        if (!ok) return;
+        try {
+            const data = await request('POST', `${API}/checkpoints/${encodeURIComponent(target.id)}/rewind`, { root: target.root, runId: run.runId });
+            if (state.root !== target.root || state.agentSessionId !== target.id) return;
+            applyChanges(data.changes);
+            message.querySelector('.dc-msg-main')?.insertAdjacentHTML('beforeend', `<div class="dc-rewound">↶ ${escapeHtml(tx('rewindDone', { count: data.restored.length }))}${data.skipped?.length ? ` · ${escapeHtml(tx('rewindSkipped', { count: data.skipped.length }))}` : ''}</div>`);
+            toast(tx('rewindDone', { count: data.restored.length }));
+        } catch (error) {
+            toast(error.message);
+        }
+        decorateCheckpoints();
+    }
+
     // ── 输入框上方的工作区芯片 ───────────────────────────
     function renderChip() {
         if (!el.chip) return;
@@ -1206,6 +1259,7 @@
         renderChanges();
         renderEnv();
         refreshChanges(); // 合并 git 工作区里的其他改动
+        decorateCheckpoints();
     }
 
     // ── 事件绑定 ────────────────────────────────────────
@@ -1503,6 +1557,7 @@
             messageEl.querySelectorAll('.dc-approval').forEach(card => card.classList.add('is-history'));
         },
         applyDone,
+        decorateCheckpoints,
         applyCompaction(data) {
             if (data.agentSessionId !== state.agentSessionId || data.root !== state.root) return;
             state.context = null; // 下一轮请求按压缩后的实际内容重新计算，避免继续展示旧占用。

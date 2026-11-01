@@ -111,10 +111,29 @@ class AgentChangeLog {
     constructor(root) {
         this.root = root;
         this.entries = new Map(); // displayPath -> entry
+        this.turn = null; // 当前一轮：{ runId, seen:Set, pending:[] }，供「回退到这一轮之前」
+    }
+
+    /** 一轮开始：之后每个文件在本轮第一次被改之前的状态记为本轮检查点 */
+    beginTurn(runId) {
+        this.turn = runId ? { runId, seen: new Set(), pending: [] } : null;
+    }
+
+    captureTurn(displayPath, absPath, before = null) {
+        if (!this.turn || this.turn.seen.has(displayPath)) return;
+        this.turn.seen.add(displayPath);
+        const snap = before || readSnapshot(absPath);
+        this.turn.pending.push({ runId: this.turn.runId, path: displayPath, existed: Boolean(snap.exists), content: snap.content || null, tooLarge: Boolean(snap.tooLarge) });
+    }
+
+    /** 取走还没落库的本轮检查点 */
+    takeCheckpoints() {
+        return this.turn ? this.turn.pending.splice(0) : [];
     }
 
     /** 在修改前调用，保存该路径在会话中的首个快照。 */
     snapshotBefore(displayPath, absPath) {
+        this.captureTurn(displayPath, absPath);
         if (this.entries.has(displayPath)) return this.entries.get(displayPath);
         const before = readSnapshot(absPath);
         const entry = {
@@ -140,6 +159,7 @@ class AgentChangeLog {
      * 该文件已有会话记录时保留最早的原始内容，只重算统计。
      */
     recordExternal(displayPath, absPath, { originalExists, original = null, originalTooLarge = false, source = 'command' } = {}) {
+        this.captureTurn(displayPath, absPath, { exists: originalExists, content: original, tooLarge: originalTooLarge || (originalExists && !original) });
         if (!this.entries.has(displayPath)) {
             this.entries.set(displayPath, {
                 path: displayPath,
@@ -185,6 +205,7 @@ class AgentChangeLog {
     }
 
     recordRename(fromDisplay, fromAbs, toDisplay, toAbs) {
+        this.captureTurn(toDisplay, toAbs, { exists: false }); // 改名前目标不存在（rename_path 不覆盖已有文件）
         const source = this.entries.get(fromDisplay);
         const originalExists = source ? source.originalExists : true;
         const origin = originalExists ? source?.renamedFrom || fromDisplay : null;
@@ -207,6 +228,23 @@ class AgentChangeLog {
         this.entries.delete(fromDisplay);
         this.entries.set(toDisplay, entry);
         return this.recordAfter(toDisplay);
+    }
+
+    /**
+     * 文件被外部恢复（回退到某一轮之前）后重新核对记录：改名的源文件回来、目标消失时整条记录作废；
+     * 与会话初始状态一致的记录去掉，其余重算统计。
+     */
+    reconcile(paths) {
+        const touched = new Set(paths);
+        for (const entry of [...this.entries.values()]) {
+            if (!touched.has(entry.path) && !(entry.renamedFrom && touched.has(entry.renamedFrom))) continue;
+            const exists = fs.existsSync(entry.absPath);
+            if (entry.renamedFrom && !exists && entry.renamedFromAbs && fs.existsSync(entry.renamedFromAbs)) {
+                const back = readSnapshot(entry.renamedFromAbs);
+                if (back.content && entry.original && back.content.equals(entry.original)) { this.entries.delete(entry.path); continue; }
+            }
+            this.recordAfter(entry.path);
+        }
     }
 
     summary() {

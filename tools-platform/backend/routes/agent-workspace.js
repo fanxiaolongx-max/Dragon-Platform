@@ -291,6 +291,38 @@ router.post('/changes/:agentSessionId/revert', async (req, res) => {
     }
 });
 
+// 按轮回退：哪些轮次改过文件（对话里的回答据此显示「回退到这一轮之前」），以及执行回退
+router.get('/checkpoints/:agentSessionId', async (req, res) => {
+    try {
+        const root = resolveRoot(null, String(req.query.root || ''));
+        if (!root) return res.json({ runs: [] });
+        const session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId())
+            || await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), root);
+        if (!session || session.root !== root) return res.json({ runs: [] });
+        res.setHeader('Cache-Control', 'no-store');
+        res.json({ runs: await require('../models/agent-change-repository').listCheckpointRuns(session.id, session.owner) });
+    } catch (error) {
+        const status = error.statusCode || (['AGENT_ROOT_NOT_FOUND', 'AGENT_ROOT_NOT_DIR', 'AGENT_ROOT_REQUIRED'].includes(error.code) ? 400 : 500);
+        res.status(status).json({ code: error.code, error: error.message });
+    }
+});
+
+router.post('/checkpoints/:agentSessionId/rewind', async (req, res) => {
+    if (!requireWriter(req, res)) return;
+    try {
+        let session = runManager.getSession(req.params.agentSessionId, req.user, getTenantId());
+        if (!session && req.body && req.body.root) {
+            session = await runManager.restoreSession(req.params.agentSessionId, req.user, getTenantId(), resolveRoot(null, req.body.root));
+        }
+        if (!session) return res.status(404).json({ code: 'AGENT_SESSION_NOT_FOUND', error: '会话不存在或已过期' });
+        const result = await runManager.rewindToBefore(session, String(req.body && req.body.runId || ''));
+        res.json({ ...result, ...await workspaceChanges.collect(session.root, session.changeLog.summary()) });
+    } catch (error) {
+        const status = error.statusCode || (['AGENT_ROOT_NOT_FOUND', 'AGENT_ROOT_NOT_DIR'].includes(error.code) ? 400 : 500);
+        res.status(status).json({ code: error.code, error: error.message });
+    }
+});
+
 // ── 创建 PR ──────────────────────────────────────────
 router.get('/pr/:agentSessionId/preflight', async (req, res) => {
     try {

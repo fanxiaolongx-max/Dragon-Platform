@@ -526,13 +526,15 @@ async function listArchivedSessions({ query = '', limit = 60, offset = 0, archiv
     };
 }
 
-const MESSAGE_COLUMNS = 'id, session_id, role, content, tokens, cost, created_at, events, input_tokens, output_tokens, model_name';
+const MESSAGE_COLUMNS = 'id, session_id, role, content, tokens, cost, created_at, events, input_tokens, output_tokens, model_name, agent_final';
 
 function mapMessageRow(row) {
     let events = [];
     try { events = row.events ? JSON.parse(row.events) : []; } catch (_error) { events = []; }
-    const { seq: _seq, ...rest } = row;
-    return { ...rest, events };
+    const { seq: _seq, agent_final: agentFinal, ...rest } = row;
+    // 工作区回答没有结束记录：进程重启或崩溃时中断（用户停止、出错都会写成已结束），界面可提供「继续执行」
+    const interrupted = row.role === 'model' && String(row.id || '').startsWith('agent_') && !Number(agentFinal);
+    return { ...rest, events, ...(interrupted ? { interrupted: true } : {}) };
 }
 
 async function listMessages(sessionId, { owner } = {}) {

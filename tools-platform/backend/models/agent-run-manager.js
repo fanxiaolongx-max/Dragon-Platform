@@ -170,13 +170,46 @@ async function hydrateSession(session) {
     return session;
 }
 
-/** 更改与撤销快照落库（每次文件改动后、撤销后调用）；失败只记日志。 */
+/** 更改与撤销快照、本轮检查点落库（每次文件改动后、撤销后调用）；失败只记日志。 */
 async function persistChanges(session) {
     try {
         await changeRepo.save({ agentSessionId: session.id, owner: session.owner, root: session.root, records: session.changeLog.toRecords() });
+        await changeRepo.appendCheckpoints({ agentSessionId: session.id, owner: session.owner, items: session.changeLog.takeCheckpoints?.() || [] });
     } catch (error) {
         console.warn('[agent] failed to persist change snapshots:', error.message || error);
     }
+}
+
+/**
+ * 回退到某一轮之前：这一轮及之后各轮改过的文件恢复成这一轮开始前的样子（之后的改动一并丢弃）。
+ * 没保存快照的文件（过大、含凭据）跳过并列出。下一轮会告诉模型这些文件已回退。
+ */
+async function rewindToBefore(session, runId) {
+    if (session.activeRun) throw managerError('AGENT_RUN_BUSY', '任务进行中，暂不能回退', 409);
+    const plan = await changeRepo.checkpointsFrom(session.id, session.owner, runId);
+    if (!plan) throw managerError('AGENT_CHECKPOINT_NOT_FOUND', '这一轮没有可回退的文件改动', 404);
+    const restored = [];
+    const skipped = [];
+    for (const file of plan.files) {
+        let abs;
+        try { abs = guard.resolveInsideRoot(session.root, file.path); } catch (error) { skipped.push({ path: file.path, reason: error.message }); continue; }
+        if (!file.restorable) { skipped.push({ path: file.path, reason: '文件过大或含凭据，没有保存快照' }); continue; }
+        const stat = fs.lstatSync(abs, { throwIfNoEntry: false });
+        if (file.existed) {
+            if (stat && !stat.isFile()) { skipped.push({ path: file.path, reason: '现在是目录，未覆盖' }); continue; }
+            fs.mkdirSync(path.dirname(abs), { recursive: true });
+            fs.writeFileSync(abs, file.content || Buffer.alloc(0));
+        } else if (stat) {
+            if (!stat.isFile()) { skipped.push({ path: file.path, reason: '现在是目录，未删除' }); continue; }
+            fs.rmSync(abs, { force: true });
+        }
+        restored.push(file.path);
+    }
+    session.changeLog.reconcile(restored);
+    await changeRepo.dropCheckpointsFrom(session.id, plan.fromId);
+    await persistChanges(session);
+    if (restored.length) session.rewindNote = `用户刚把工作区回退到了之前某一轮开始前的状态，这些文件已恢复（之后对它们的修改都不存在了）：${restored.slice(0, 30).join('、')}${restored.length > 30 ? ` 等 ${restored.length} 个` : ''}。继续工作前以磁盘上的实际内容为准。`;
+    return { restored, skipped };
 }
 
 /**
@@ -486,13 +519,15 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         if (sessions.get(session.id) === session && !session.hydrated) sessions.delete(session.id);
         throw error;
     }
+    session.changeLog.beginTurn?.(run.id); // 本轮检查点：回退到这一轮之前
     // 持久的「不再询问」规则（这个工作目录 / 永久）每轮重新读取，设置页撤销后下一轮生效
     session.dangerRules = await dangerRules.list().catch(error => { console.warn('[agent] failed to load danger rules:', error.message || error); return []; });
     onRunStarted?.(run.id);
 
     const gitBranch = readGitBranch(session.root);
     const directoryContext = buildDirectoryContext(session.root);
-    const addendum = buildAgentAddendum(session, { gitBranch, directoryContext });
+    const addendum = `${buildAgentAddendum(session, { gitBranch, directoryContext })}${session.rewindNote ? `\n\n**注意**：${session.rewindNote}` : ''}`;
+    session.rewindNote = '';
     // 同一会话前几轮的工具转录（按轮保存、含用户消息）替换对应的文字历史，让模型记得自己做过什么，
     // 且工具调用始终紧跟用户消息或工具结果。
     const currentUser = historyMessages[historyMessages.length - 1];
@@ -673,6 +708,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         await persistTranscript(session);
         throw error;
     } finally {
+        session.changeLog.beginTurn?.(null);
         run.end();
     }
 }
@@ -695,6 +731,7 @@ module.exports = {
     findLatestSessionId,
     persistTranscript,
     persistChanges,
+    rewindToBefore,
     restoreSession,
     loadSessionState,
     beginRun,
