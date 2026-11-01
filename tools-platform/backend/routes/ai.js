@@ -593,11 +593,12 @@ async function handleChatRequest(req, res) {
     // 频道对话（WeLink 等）由桥接层在虚拟请求上挂 channelTurn；HTTP 请求无法设置该属性
     const channelTurn = req.channelTurn && typeof req.channelTurn === 'object' && req.channelTurn.conversation?.kind && req.channelTurn.conversation?.id ? req.channelTurn : null;
     const channelUserEvents = channelTurn ? [{ type: 'channel', channel: channelTurn.channel, kind: channelTurn.conversation.kind, sender: channelTurn.actor || '' }] : null;
-    const RECORDED_EVENT_TYPES = new Set(['tool_start', 'tool_result', 'approval', 'approval_result', 'plan', 'question', 'followup']);
+    const RECORDED_EVENT_TYPES = new Set(['tool_start', 'tool_result', 'approval', 'approval_result', 'plan', 'question', 'followup', 'subagent']);
     const recordEvent = payload => {
         if (!payload) return;
         if (payload.type === 'delta') streamedText += String(payload.delta || '');
-        else if (RECORDED_EVENT_TYPES.has(payload.type)) recordedEvents.push(compactRecordedEvent(payload));
+        // 子智能体：记开始、工具与结论，回看历史时还原卡片；进度提示不记
+        else if (RECORDED_EVENT_TYPES.has(payload.type) && !(payload.type === 'subagent' && payload.phase === 'status')) recordedEvents.push(compactRecordedEvent(payload));
     };
     const writeStreamEvent = payload => {
         payload = redactValue(payload, { secrets: sensitiveValues });

@@ -79,6 +79,8 @@ BUILTIN_DEFINITIONS.view_image = {
     parameters: { type: 'object', properties: { path: { type: 'string' }, question: { type: 'string', description: '想从图里了解什么（可选）' } }, required: ['path'] }
 };
 const BUILTINS = Object.keys(BUILTIN_DEFINITIONS);
+// 同一步里相邻的只读调用并行执行，最多同时跑这么多个（子智能体也算）
+const PARALLEL_LIMIT = 4;
 const KEEP_IMAGE_MESSAGES = 2; // 只保留最近两次工具取得的图片，较早的换成文字说明
 const PLAN_STATUS = new Set(['pending', 'in_progress', 'completed']);
 
@@ -163,13 +165,15 @@ async function compactMessages({ client, plan, task, windowTokens, sensitiveValu
  * @param {Function} [options.toolsUnsupported] () => { note } | { text }：模型不支持工具调用时的退路；不设则直接抛错
  * @param {Function} [options.onToolCalls] (modelMessage, toolMessage) 模型发出工具调用后、执行前
  * @param {Function} [options.afterCall] (call, outcome) 每个工具执行完、结果已记入后
+ * @param {Function} [options.parallelSafe] (call) => 该调用是否只读、可与相邻的只读调用并行执行；calculate、task 总是可以
+ * @param {object} [options.subagent] 提供 task 工具（子智能体）：{ tools(), executeCall, isReadOnly(name, args) }
  * @returns {{ text, usage, lastUsage, steps, toolCallCount, toolLog, messages, tools, compacted, toolsUnsupported? }}
  */
 async function runToolLoop({
     client, model = '', systemPrompt, messages: initialMessages, tools: toolSource = [], executeCall, write: emit,
     signal, maxOutputTokens, temperature, sensitiveValues = [], task = '', maxSteps = MAX_STEPS, callIdPrefix = 'call',
     eventFields = {}, artifactOwner = '', artifactSession = '', spillable = () => true, maxEmptyNudges = MAX_EMPTY_NUDGES, builtins = BUILTINS, extras = null, vision = null, root = '',
-    review, fallback, toolsUnsupported, onToolCalls, afterCall
+    review, fallback, toolsUnsupported, onToolCalls, afterCall, parallelSafe = () => false, subagent = null
 }) {
     const secrets = { secrets: sensitiveValues };
     if (extras?.prompt) systemPrompt = `${systemPrompt}${extras.prompt}`;
@@ -182,6 +186,8 @@ async function runToolLoop({
     const modelName = () => model || activeClient?.model;
     let readerEnabled = false;
     const builtinTools = builtins.filter(name => BUILTIN_DEFINITIONS[name] && (name !== 'view_image' || vision)).map(name => BUILTIN_DEFINITIONS[name]);
+    if (subagent) builtinTools.push(require('./agent-subagent').DEFINITION);
+    const nextIdentity = subagent ? require('./agent-subagent').roster() : null;
     const builtinNames = new Set(builtinTools.map(tool => tool.name));
     // 自带工具放最前面、固定不变，后面按需加载的工具往末尾追加，提示缓存才能继续命中
     const currentTools = () => {
@@ -210,6 +216,10 @@ async function runToolLoop({
             } catch (error) {
                 return { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: String(error.message || '').slice(0, 120), isError: true };
             }
+        }
+        if (call.name === 'task' && subagent) {
+            return require('./agent-subagent').run({ call, identity: nextIdentity(), client: activeClient, model: modelName(), tools: subagent.tools, executeCall: subagent.executeCall,
+                isReadOnly: subagent.isReadOnly, write, signal, maxOutputTokens, temperature, sensitiveValues, artifactOwner, artifactSession, root, eventFields });
         }
         if (call.name === 'calculate') {
             try { return toolkit.calculate(args); } catch (error) { return { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: error.message, isError: true }; }
@@ -372,7 +382,8 @@ async function runToolLoop({
         const toolResults = [];
         const toolMessage = { role: 'tool', toolResults };
         await onToolCalls?.(modelMessage, toolMessage);
-        for (const [index, call] of toolCalls.entries()) {
+        const resultIndex = new WeakMap(); // 并行批次按完成顺序写入，批次结束后按调用顺序排回
+        const runOne = async (call, index) => {
             toolCallCount += 1;
             const callId = call.id || `${callIdPrefix}-${steps}-${index}`;
             let startedAt = Date.now();
@@ -388,7 +399,8 @@ async function runToolLoop({
                 : ownReader(call.name) ? await readArtifact(call, { owner: artifactOwner, sensitiveValues, start })
                     : await executeCall(call, { callId, step: steps, start });
             outcome = outcome || { content: '工具没有返回结果', summary: '无结果', isError: true };
-            if (!outcome.declined && !outcome.silent) start();
+            if (outcome.usage) ['inputTokens', 'outputTokens', 'totalTokens', 'cachedTokens'].forEach(key => { usage[key] += Number(outcome.usage[key] || 0); }); // 子智能体的消耗计入本轮
+            if (!outcome.declined && !outcome.silent && !outcome.silentRow) start();
             if (outcome.images?.length) pendingImages.push(...outcome.images);
             // 浏览器截图等带图片文件的结果：能看图时一并附上，不能看图时提示可用 view_image 识别
             for (const file of outcome.imagePaths || []) {
@@ -424,7 +436,7 @@ async function runToolLoop({
                     readerEnabled = true;
                 }
             }
-            if (!outcome.declined && !outcome.silent) {
+            if (!outcome.declined && !outcome.silent && !outcome.silentRow) {
                 // 截图、看过的图片：界面在工具行下显示缩略图，点击看大图（随会话记录入库，历史里也能看）
                 const previews = [...(outcome.imagePaths || []), ...(outcome.previewPaths || [])].slice(0, 4);
                 write({ type: 'tool_result', ...eventFields, callId, tool: shown, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 200), truncated: Boolean(outcome.truncated), durationMs,
@@ -434,9 +446,26 @@ async function runToolLoop({
             if (outcome.silent) toolCallCount -= 1;
             else require('./agent-tool-usage').record(call.name, !outcome.isError); // 工具清单里的调用次数
             if (!outcome.silent) toolLog.push({ tool: call.name, ok: !outcome.isError, summary: String(outcome.summary || '').slice(0, 120) });
-            toolResults.push({ id: call.id, name: call.name, content: outcome.content, isError: Boolean(outcome.isError) });
+            const entry = { id: call.id, name: call.name, content: outcome.content, isError: Boolean(outcome.isError) };
+            resultIndex.set(entry, index);
+            toolResults.push(entry);
             await afterCall?.(call, outcome);
+        };
+        // 相邻的只读调用（含子智能体）分成一批并行执行，其余逐个执行；结果按模型给出的顺序交回
+        const canParallel = call => call.name === 'calculate' || (call.name === 'task' && subagent) || (!builtinNames.has(call.name) && Boolean(parallelSafe(call)));
+        for (let index = 0; index < toolCalls.length;) {
+            let end = index + 1;
+            if (canParallel(toolCalls[index])) while (end < toolCalls.length && end - index < PARALLEL_LIMIT && canParallel(toolCalls[end])) end += 1;
+            const batch = toolCalls.slice(index, end);
+            if (batch.length === 1) await runOne(batch[0], index);
+            else {
+                const settled = await Promise.allSettled(batch.map((call, offset) => runOne(call, index + offset)));
+                const failed = settled.find(item => item.status === 'rejected');
+                toolResults.sort((a, b) => resultIndex.get(a) - resultIndex.get(b));
+                if (failed) throw failed.reason;
+            }
             if (signal?.aborted) throw abortError();
+            index = end;
         }
         messages.push(toolMessage);
         // 工具取得的图片（view_image、浏览器截图）：模型能看图时作为下一条消息附上；只发给模型，不进转录

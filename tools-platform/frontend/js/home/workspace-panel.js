@@ -890,8 +890,169 @@
         button.setAttribute('aria-label', label);
     }
 
+    // ── 对话内：子智能体卡片（task 工具） ─────────────────
+    // 每个子智能体一张卡：头像（图标 + 它的颜色）、名字、任务、状态与用时；运行中在卡片下方滚动显示最近几次工具调用，
+    // 完成后显示结论摘要。点开看完整任务说明、全部工具调用和结论。同一步并行派出的卡片收在一组里。
+    const subagents = new Map(); // id → { card, tools: Map, started, toolCount }
+    const SUB_PEEK = 3;
+    let subTicker = null;
+
+    function formatElapsed(ms) {
+        const seconds = Math.max(0, Math.round(ms / 1000));
+        return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+    }
+
+    function formatTokens(count) {
+        const value = Number(count || 0);
+        return value >= 1000 ? `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k` : String(value);
+    }
+
+    function tickSubagents() {
+        let running = 0;
+        subagents.forEach(item => {
+            if (!item.card.classList.contains('is-running') || !item.started) return;
+            if (!item.card.isConnected) return;
+            running += 1;
+            updateSubStats(item, Date.now() - item.started);
+        });
+        if (!running && subTicker) { clearInterval(subTicker); subTicker = null; }
+    }
+
+    function updateSubStats(item, elapsed, tokens) {
+        const parts = [tx('subTools', { count: item.toolCount })];
+        if (elapsed !== undefined) parts.push(formatElapsed(elapsed));
+        if (tokens) parts.push(tx('subTokens', { count: formatTokens(tokens) }));
+        item.card.querySelector('.dc-sub-stats').textContent = parts.join(' · ');
+    }
+
+    function updateSubGroup(group) {
+        if (!group) return;
+        const cards = [...group.querySelectorAll(':scope > .dc-sub')];
+        const running = cards.filter(card => card.classList.contains('is-running')).length;
+        group.classList.toggle('is-single', cards.length < 2);
+        group.querySelector('.dc-sub-group-head b').textContent = tx('subGroup', { count: cards.length });
+        group.querySelector('.dc-sub-group-head span').textContent = running ? tx('subGroupRunning', { count: running }) : tx('subGroupDone');
+        group.classList.toggle('is-running', running > 0);
+    }
+
+    function renderSubTool(item, event) {
+        let line = item.tools.get(event.callId);
+        if (!line) {
+            line = document.createElement('li');
+            line.className = 'dc-sub-tool';
+            line.innerHTML = `<span class="dc-sub-tool-icon" aria-hidden="true">${toolIcon(event.tool)}</span><span class="dc-sub-tool-name">${escapeHtml(toolLabel(event.tool))}</span><span class="dc-sub-tool-args"></span><span class="dc-sub-tool-state"></span>`;
+            item.tools.set(event.callId, line);
+            item.card.querySelector('.dc-sub-tools').appendChild(line);
+        }
+        if (event.args !== undefined) {
+            const args = describeArgs(event.tool, event.args || {});
+            line.querySelector('.dc-sub-tool-args').textContent = args;
+            line.querySelector('.dc-sub-tool-args').title = args;
+        }
+        line.className = `dc-sub-tool is-${event.state === 'running' ? 'running' : event.state === 'done' ? 'ok' : 'fail'}`;
+        line.querySelector('.dc-sub-tool-state').innerHTML = event.state === 'running' ? '<i class="dc-tool-spin" aria-hidden="true"></i>'
+            : `${event.state === 'done' ? '✓' : '✗'}${event.summary ? ` <span>${escapeHtml(event.summary)}</span>` : ''}`;
+        // 卡片下方的「最近动态」：只留最近几条
+        const peek = item.card.querySelector('.dc-sub-peek');
+        if (item.card.classList.contains('is-running')) {
+            peek.innerHTML = [...item.tools.values()].slice(-SUB_PEEK).map(node => `<div class="dc-sub-peek-line ${node.classList.contains('is-running') ? 'is-running' : ''}">${node.querySelector('.dc-sub-tool-icon').outerHTML}<span>${escapeHtml(node.querySelector('.dc-sub-tool-name').textContent)}</span><em>${escapeHtml(node.querySelector('.dc-sub-tool-args').textContent)}</em></div>`).join('');
+            const hidden = item.tools.size - SUB_PEEK;
+            if (hidden > 0) peek.insertAdjacentHTML('afterbegin', `<div class="dc-sub-peek-more">${escapeHtml(tx('subMore', { count: hidden }))}</div>`);
+        }
+    }
+
+    function renderSubagent(messageEl, event) {
+        let item = subagents.get(event.id);
+        if (event.phase === 'start' || !item) {
+            if (item?.card.isConnected) return; // 重复的开始事件
+            const card = document.createElement('div');
+            card.className = 'dc-sub is-running';
+            card.dataset.subId = event.id;
+            if (/^#[0-9a-f]{6}$/i.test(event.color || '')) card.style.setProperty('--sub', event.color);
+            card.innerHTML = `
+                <button type="button" class="dc-sub-head" aria-expanded="false">
+                    <span class="dc-sub-avatar" aria-hidden="true">${escapeHtml(event.emoji || '🤖')}</span>
+                    <span class="dc-sub-title"><b class="dc-sub-name">${escapeHtml(event.name || tx('subDefaultName'))}</b><span class="dc-sub-desc">${escapeHtml(event.description || '')}</span></span>
+                    <span class="dc-sub-meta"><span class="dc-sub-status">${escapeHtml(tx('subRunning'))}</span><span class="dc-sub-stats"></span></span>
+                    <span class="dc-sub-caret" aria-hidden="true"></span>
+                </button>
+                <div class="dc-sub-peek"><div class="dc-sub-peek-line is-running"><span class="dc-sub-tool-icon" aria-hidden="true">🧭</span><span>${escapeHtml(tx('subWaiting'))}</span></div></div>
+                <div class="dc-sub-body" hidden>
+                    <div class="dc-sub-label">${escapeHtml(tx('subTask'))}</div>
+                    <div class="dc-sub-prompt">${escapeHtml(event.prompt || '')}</div>
+                    <div class="dc-sub-label">${escapeHtml(tx('subToolsTitle'))}</div>
+                    <ol class="dc-sub-tools"></ol>
+                    <div class="dc-sub-result-wrap" hidden><div class="dc-sub-label">${escapeHtml(tx('subResult'))}</div><div class="dc-sub-result"></div></div>
+                </div>`;
+            card.querySelector('.dc-sub-head').addEventListener('click', () => {
+                const body = card.querySelector('.dc-sub-body');
+                body.hidden = !body.hidden;
+                card.classList.toggle('is-open', !body.hidden);
+                card.querySelector('.dc-sub-head').setAttribute('aria-expanded', String(!body.hidden));
+            });
+            // 相邻派出的子智能体放进同一组
+            const log = toolLogFor(messageEl);
+            let group = log.lastElementChild?.classList.contains('dc-sub-group') ? log.lastElementChild : null;
+            if (!group) {
+                group = document.createElement('div');
+                group.className = 'dc-sub-group is-single';
+                group.innerHTML = `<div class="dc-sub-group-head"><span class="dc-sub-group-icon" aria-hidden="true">🚀</span><b></b><span></span></div>`;
+                log.appendChild(group);
+            }
+            group.appendChild(card);
+            item = { card, tools: new Map(), started: replaying ? 0 : Date.now(), toolCount: 0 };
+            subagents.set(event.id, item);
+            updateSubStats(item, replaying ? undefined : 0);
+            updateSubGroup(group);
+            messageEl.querySelector('.dc-thinking')?.remove();
+            if (!replaying && !subTicker) subTicker = setInterval(tickSubagents, 1000);
+            if (event.phase === 'start') return;
+        }
+        if (event.phase === 'tool') {
+            if (!item.tools.has(event.callId)) item.toolCount += 1;
+            renderSubTool(item, event);
+            updateSubStats(item, item.started ? Date.now() - item.started : undefined);
+        } else if (event.phase === 'status') {
+            item.card.querySelector('.dc-sub-status').textContent = tx('subRunning');
+        } else if (event.phase === 'done') {
+            settleSubagent(item, event);
+        }
+    }
+
+    function settleSubagent(item, event) {
+        const { card } = item;
+        const state = event.ok ? 'done' : event.aborted ? 'stopped' : 'failed';
+        card.classList.remove('is-running');
+        card.classList.add(`is-${state}`);
+        card.querySelector('.dc-sub-status').textContent = tx({ done: 'subDone', stopped: 'subStopped', failed: 'subFailed' }[state]);
+        if (event.toolCount !== undefined) item.toolCount = event.toolCount;
+        updateSubStats(item, event.durationMs, event.tokens);
+        const peek = card.querySelector('.dc-sub-peek');
+        if (event.ok && event.result) {
+            // 结论：卡片下方显示第一段，展开看完整 Markdown
+            const first = String(event.result).split('\n').map(line => line.replace(/^[#>*\-\s]+/, '').trim()).find(Boolean) || '';
+            peek.innerHTML = `<div class="dc-sub-peek-result">${escapeHtml(first)}</div>`;
+            const render = window.ToolsAIAssistant?.renderMarkdown;
+            const wrap = card.querySelector('.dc-sub-result-wrap');
+            wrap.hidden = false;
+            wrap.querySelector('.dc-sub-result').innerHTML = render ? render(String(event.result)) : `<pre>${escapeHtml(event.result)}</pre>`;
+        } else {
+            peek.innerHTML = event.error ? `<div class="dc-sub-peek-result is-error">${escapeHtml(event.error)}</div>` : '';
+        }
+        item.tools.forEach(line => {
+            if (!line.classList.contains('is-running')) return;
+            line.className = 'dc-sub-tool is-fail';
+            line.querySelector('.dc-sub-tool-state').textContent = '—';
+        });
+        updateSubGroup(card.closest('.dc-sub-group'));
+    }
+
     function handleEvent(messageEl, event, sourceWorkspace) {
         if (!messageEl || !event) return;
+        if (event.type === 'subagent') {
+            renderSubagent(messageEl, event);
+            return;
+        }
         if (event.type === 'tool_start') {
             const row = document.createElement('div');
             row.className = 'dc-tool-row is-running';
@@ -1028,6 +1189,10 @@
             row.querySelector('.dc-tool-state').innerHTML = `— <span>${escapeHtml(tx('toolInterrupted'))}</span>`;
         });
         messageEl?.querySelectorAll('.dc-approval:not(.is-settled)').forEach(card => settleCard(card, 'abort'));
+        messageEl?.querySelectorAll('.dc-sub.is-running').forEach(card => {
+            const item = subagents.get(card.dataset.subId);
+            if (item) settleSubagent(item, { ok: false, aborted: true });
+        });
     }
 
     function applyDone(data) {

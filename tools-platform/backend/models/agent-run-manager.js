@@ -574,6 +574,14 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
         return { ...outcome, output };
     };
 
+    // 只读调用：同一步里相邻的可以并行执行，子智能体也只能用这些
+    const kindFor = (name, args) => {
+        const toolset = registry.toolset(name);
+        if (toolset) return toolset.kindOf ? toolset.kindOf(name, args) : null; // 技能专用工具自带审批，不并行
+        return toolsService.kindOf(name, args);
+    };
+    const readOnlyCall = (name, args) => !registry.isMeta(name) && name !== 'run_command' && kindFor(name, args || {}) === 'read';
+
     try {
         await checkpoint('running');
         const loop = await agentLoop.runToolLoop({
@@ -582,6 +590,12 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
             eventFields: { runId: run.id }, artifactOwner: session.owner, artifactSession: session.id, vision, root: session.root,
             // 工具说明不存文件
             spillable: name => !registry.isMeta(name),
+            parallelSafe: call => readOnlyCall(call.name, call.args),
+            subagent: {
+                tools: () => [...registry.definitions(), ...registry.deferred()].filter(def => readOnlyCall(def.name, {})),
+                executeCall,
+                isReadOnly: readOnlyCall
+            },
             review: ({ text, toolLog }) => {
                 if (scriptNudged || session.readOnly || denied || !systemInstruction.includes('### @script-data')
                     || !scriptService.shouldContinue({ question: currentUser?.content, text, toolLog })) return null;

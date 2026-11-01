@@ -1,5 +1,7 @@
-const test=require('node:test'),assert=require('node:assert/strict');
-const models=[require('../frontend/js/ai-report/report-model'),require('../backend/data/hosted-apps/aiops-report/app/static/air/report-model')];
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const hostedPath=path.join(__dirname,'../backend/data/hosted-apps/aiops-report/app/static/air/report-model.js');
+const models=[require('../frontend/js/ai-report/report-model')];
+if(fs.existsSync(hostedPath)) models.push(require(hostedPath));
 for(const [i,M]of models.entries()){
  test('presentation '+i+': confirmed text-only requirement replaces old cards and survives exception confirmation',()=>{
   const chat=[{role:'user',text:'不需要图表，几句话总结就行'},{role:'ai',text:'是否仅这个格子例外？'},{role:'user',text:'只在这个格子例外'},{role:'user',text:'只呈现一句话'}];
