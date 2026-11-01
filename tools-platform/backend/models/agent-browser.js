@@ -527,25 +527,57 @@ async function execute(ctx, name, args = {}) {
                         summary: `隐身抓取：${res.title || res.url}`.slice(0, 120)
                     };
                 } catch (fetchErr) {
-                    const { page: fallbackPage } = await openPage(owner, targetUrl, false);
-                    const html = await fallbackPage.evaluate('document.documentElement.outerHTML');
-                    await fallbackPage.refreshInfo();
-                    const parsed = await scrapling.parseHtml({
-                        html,
-                        css: args.css,
-                        xpath: args.xpath,
-                        mode: args.mode,
-                        maxChars: args.maxChars
-                    });
-                    return {
-                        content: `[Scrapling 快速抓取遇到渲染限制，已自动回退至 Dragon 浏览器打开并提取]\n当前页面：${fallbackPage.title}\n网址：${fallbackPage.url}\n\n${parsed.text}`,
-                        summary: `回退浏览器提取：${fallbackPage.title}`.slice(0, 120)
-                    };
+                    // 快速抓取失败，后续回退浏览器
                 }
             }
 
-            const { page: directPage } = await openPage(owner, targetUrl, false);
+            // 当 Scrapling 未安装或快速抓取失败时，尝试内置 fetch 快速抓取静态内容
+            try {
+                const fetchRes = await fetch(targetUrl, {
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
+                    signal: AbortSignal.timeout(8000)
+                });
+                if (fetchRes.ok) {
+                    const html = await fetchRes.text();
+                    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+                    const title = titleMatch ? titleMatch[1].trim() : '';
+                    let matchedText = '';
+                    if (args.css) {
+                        const tagMatch = args.css.match(/^([a-z0-9_-]+)/i);
+                        if (tagMatch) {
+                            const re = new RegExp(`<${tagMatch[1]}[^>]*>([\\s\\S]*?)<\\/${tagMatch[1]}>`, 'gi');
+                            const matches = [];
+                            let m;
+                            while ((m = re.exec(html)) !== null) {
+                                const clean = m[1].replace(/<[^>]+>/g, '').trim();
+                                if (clean) matches.push(clean);
+                            }
+                            matchedText = matches.join('\n');
+                        }
+                    }
+                    if (!matchedText) {
+                        matchedText = html
+                            .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+                            .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+                            .replace(/<[^>]+>/g, ' ')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+                    }
+                    if (matchedText) {
+                        return {
+                            content: `[快速网页抓取] 状态：${fetchRes.status} · ${title || targetUrl}\n网址：${targetUrl}\n\n${matchedText.slice(0, args.maxChars || 40000)}`,
+                            summary: `抓取：${title || targetUrl}`.slice(0, 120)
+                        };
+                    }
+                }
+            } catch (_) {}
+
+            // 若需使用 Dragon 浏览器打开，开新标签页并保留原激活标签页
+            const state = stateFor(owner);
+            const prevActive = state.active;
+            const { page: directPage } = await openPage(owner, targetUrl, true);
             const snap = await directPage.snapshot(args.maxChars);
+            if (prevActive) state.active = prevActive;
             return {
                 content: `[Dragon 浏览器打开提取] 页面：${directPage.title}\n网址：${directPage.url}\n\n${snap.text}`,
                 summary: `打开并提取：${directPage.title}`.slice(0, 120)
