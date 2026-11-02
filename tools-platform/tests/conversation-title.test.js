@@ -19,7 +19,12 @@ test('titles extract a short subject, remove request boilerplate and preserve te
         ['本月哪些指标还没达标？', '本月未达标指标'],
         ['打开 https://example.com 截一张图', 'example.com 网页截图'],
         ['创建研究依据核对 Skill，检查结论与依据是否对应、口径是否一致', '研究依据核对 Skill'],
-        ['1+1', '计算 1+1'], ['请帮我修复登录失败的问题，谢谢', '修复登录失败的问题']
+        ['1+1', '计算 1+1'], ['请帮我修复登录失败的问题，谢谢', '修复登录失败的问题'],
+        ['用 read_file 分段读 app.log：每次只读 80 行（limit=80），从第 1 行一直读到第 2000 行，一段都不要跳过，也不要用 search 或命令。全部读完后告诉我：ERROR 在第几行、内容，以及你一共读了多少段。', '分段读取 app.log'],
+        ['帮我查一下 NetCare 业务库里和“整改”相关的表有哪些（只读）。另外告诉我 platform:report.db 的 ReportSnapshots 表有多少行。', 'NetCare 整改相关表查询'],
+        ['用一条命令 cat app.log 看完整内容（不要用 grep 或 search），然后告诉我日志里有没有 ERROR，在第几行、内容是什么。', '查看 app.log 完整内容'],
+        ['用子智能体分头调研这个https://github.com/fanxiaolongx-max/Dragon-Platform-online仓库，同时进行：① 完整查询业务和应用数据库流程是啥样的；② AI模型是怎么识别需要调用接口和工具的；③ ai对话数据分别存在哪里。最后汇总成一张表。', 'Dragon-Platform-online 调研'],
+        ['@debug 你能做啥', 'debug 智能体咨询']
     ]) assert.equal(conversationTitle(question), title);
     for (const question of ['请帮我优化首页输入框的布局并调整所有菜单及按钮之间的间距和展示效果', 'Please review the authentication middleware and fix the session expiry handling']) {
         const title = conversationTitle(question);

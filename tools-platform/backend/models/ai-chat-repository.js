@@ -259,8 +259,13 @@ async function listTitleCandidates({ owner, pagePath, limit = 8 } = {}) {
         FROM ai_chat_sessions s WHERE s.owner=? AND s.page_path=? AND s.auto_title_source<>'ai'
           AND EXISTS (SELECT 1 FROM ai_chat_messages e WHERE e.session_id = s.id)
         ORDER BY s.updated_at DESC, s.rowid DESC LIMIT 60`, [String(owner || ''), normalizePagePath(pagePath)]);
-    // 问题本身就很短（规则标题等于原句）时不必请求模型
-    return rows.filter(row => row.question && String(row.question).replace(/\s+/g, ' ').trim() !== row.auto_title).slice(0, limit);
+    // 还没有模型标题、且规则标题仍偏长的会话（最近的优先），供后台逐个精简
+    return rows.filter(row => {
+        if (!row.question) return false;
+        const currentTitle = String(row.auto_title || '').trim();
+        if (!currentTitle) return true;
+        return [...currentTitle].length > 16;
+    }).slice(0, limit);
 }
 
 const tokenCount = value => Math.max(0, Math.round(Number(value) || 0));
