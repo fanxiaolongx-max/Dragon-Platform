@@ -252,7 +252,7 @@ ${KIT_GUIDE}
 - 格子里不能出现滚动条或需要滑动的区域：不要写 overflow:auto/scroll、max-height 之类限制高度的样式，不要用 ECharts 的 dataZoom；放不下时精简内容、调小图表，长表格用 kit.datatable 分页。
 - 提示词要求了标题（如“标题为 X”）时，必须把这个标题显示出来：用 kit.layout(rows,{title:'X'}) 或 kit.chart(option,{title:'X'})，不要只写在 ECharts 配置以外的说明里，也不要漏掉。
 - 格子里有两个及以上的内容块（图表、表格、指标卡、文字总结）时，用 kit.layout 排版，不要自己写 flex/grid 的外层布局，也不要给小格子写宽高样式。
-- 提示词里有【格子内部布局】时，必须用 kit.layout 和其中列出的同样的小格子 id 与行内顺序（宽度可按其中的占比给 width），高度交给平台；图表放进小格子后不要再设 height。
+- 用户最新明确要求改变左右/上下布局时，旧的小格子行结构和尺寸不再约束新布局；必须按新要求重建 kit.layout 的行数组。未要求改变布局时，提示词里有【格子内部布局】则必须用 kit.layout 和其中列出的同样的小格子 id 与行内顺序（宽度可按其中的占比给 width），高度交给平台；图表放进小格子后不要再设 height。
 - 所有数字必须由 compute 从 input 里的真实数据算出：禁止 Math.random、示例数据或写死的数字；找不到数据就返回 {missing:true, message}。
 - 提示词要求的计算型指标（名称里带“增量、差值、变化、环比、同比、占比、达成率”等）本身就是要展示的数：在 compute 里算出来，作为这个指标的主数值 value。例如“事故增量”的 value 必须是 本月事故数 − 上月事故数（两个月都是 3 时 value 为 0），绝不能把本月事故数 3 放在 value、再把增量放进 delta；这类指标通常不需要再给 delta。普通指标（如“延期补授权”）的 value 才是本月原值，delta 是和上月的差值。
 - 提示词里的数据来源名称不一定和实际名称完全一样：导入表里找不到时，一定再查 list_metrics 和 list_datasets，按含义匹配（如“日志回传率”对应指标“日志回传”）；都找不到就回复 ask 说明，绝不能拿无关的数据代替。
@@ -441,6 +441,8 @@ function compileTurn(client, { month, prompt, recipe, error, style = '', outline
 }
 
 async function summarizePrompt(client, { month, prompt, chat, instruction = PROMPT_SUMMARY }) {
+    const reviseLayout=instruction===PROMPT_SUMMARY&&model.layoutRevision(chat);
+    if(reviseLayout){prompt=model.withoutLayout(prompt);chat=chat.map(item=>item.role==='ai'?{...item,text:model.withoutLayout(item.text)}:item);}
     const transcript = historyMessages(chat).map(item => `${item.role === 'user' ? '用户' : 'AI'}：${item.content}`).join('\n').slice(-30000);
     const content = [`报告月份：${month}`, prompt ? `之前的最终提示词：\n${prompt}` : '', `对话：\n${transcript}`].filter(Boolean).join('\n\n');
     const rule=instruction===PROMPT_SUMMARY?model.presentationOf(prompt,chat):null;
@@ -450,6 +452,7 @@ async function summarizePrompt(client, { month, prompt, chat, instruction = PROM
         const reply=parseReply(raw?.text);
         if(!reply?.prompt)throw Object.assign(new Error('AI 没有返回有效的提示词，请重试'),{status:502});
         const issue=reply?.prompt&&rule?model.presentationConflict(reply.prompt,rule):'';
+        if(reviseLayout)reply.prompt=model.withoutLayout(reply.prompt);
         if(reply?.prompt&&!issue)return (rule?model.withPresentation(String(reply.prompt).slice(0,rule.mode==='text'?3700:4000),rule):String(reply.prompt).slice(0,4000));
         const reason=issue||'AI 没有返回有效的提示词';
         trace({kind:'retry',text:reason});

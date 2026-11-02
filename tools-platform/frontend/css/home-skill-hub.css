@@ -1,0 +1,113 @@
+/* 新版首页「技能·插件·工具」中心（js/home/skill-hub.js）：打开时占据主区，隐藏对话/工具内容。颜色沿用 home-v2.css 的 --v2-* 变量（含深色）。 */
+html[data-ui="v2"] body.v2-hub-open .home-main > :not(#v2SkillHub) { display: none !important; }
+.v2-hub[hidden] { display: none; }
+.v2-hub { max-width: 1180px; margin: 0 auto; color: var(--v2-ink); }
+
+.v2-hub-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+.v2-hub-tabs { display: flex; gap: 22px; }
+.v2-hub-tabs button {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 0; border: 0; background: none; cursor: pointer;
+    color: var(--v2-ink3); font: inherit; font-size: 17px; transition: color var(--v2-ease);
+}
+.v2-hub-tabs button .v2-ico { width: 19px; height: 19px; }
+.v2-hub-tabs button:hover { color: var(--v2-ink2); }
+.v2-hub-tabs button[aria-selected="true"] { color: var(--v2-ink); font-weight: 650; }
+
+.v2-hub-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.v2-hub-search {
+    display: flex; align-items: center; gap: 7px; width: 220px; height: 34px; padding: 0 11px;
+    border: 1px solid var(--v2-line); border-radius: 9px; background: var(--v2-bg); color: var(--v2-ink3);
+}
+.v2-hub-search:focus-within { border-color: var(--v2-line-strong); box-shadow: 0 0 0 3px var(--v2-accent-soft); }
+.v2-hub-search .v2-ico { width: 15px; height: 15px; }
+.v2-hub-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--v2-ink); font: inherit; font-size: 13px; }
+.v2-hub-search input::placeholder { color: var(--v2-ink3); }
+
+.v2-hub-btn {
+    display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 13px;
+    border: 1px solid var(--v2-line-strong); border-radius: 9px; background: var(--v2-bg); color: var(--v2-ink);
+    font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap;
+    transition: background var(--v2-ease), border-color var(--v2-ease), box-shadow var(--v2-ease);
+}
+.v2-hub-btn .v2-ico { width: 15px; height: 15px; }
+.v2-hub-btn:hover { background: var(--v2-hover); }
+.v2-hub-btn.is-on { border-color: var(--v2-accent); background: var(--v2-accent-soft); color: var(--v2-accent); }
+.v2-hub-btn.is-primary { border-color: var(--v2-ink); background: var(--v2-ink); color: var(--v2-bg); }
+.v2-hub-btn.is-primary:hover { opacity: .88; }
+.v2-hub-plus { font-size: 17px; line-height: 1; margin-top: -1px; }
+
+.v2-hub-add { position: relative; }
+.v2-hub-menu {
+    position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; min-width: 190px; padding: 6px;
+    border: 1px solid var(--v2-line); border-radius: 12px; background: var(--v2-pop); box-shadow: var(--v2-shadow-pop);
+}
+.v2-hub-menu[hidden] { display: none; }
+.v2-hub-menu > button, .v2-hub-menu > a {
+    display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px;
+    background: none; color: var(--v2-ink); font: inherit; font-size: 13.5px; text-align: left; text-decoration: none; cursor: pointer;
+}
+.v2-hub-menu > :hover { background: var(--v2-hover); }
+.v2-hub-menu .v2-ico { width: 16px; height: 16px; color: var(--v2-ink2); }
+.v2-hub-menu-emoji { width: 16px; text-align: center; }
+
+.v2-hub-featured { margin-bottom: 26px; }
+.v2-hub-featured[hidden] { display: none; }
+.v2-hub-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.v2-hub-head h2 { margin: 0; font-size: 15px; font-weight: 650; color: var(--v2-ink); }
+.v2-hub-link { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: var(--v2-ink3); font: inherit; font-size: 12.5px; cursor: pointer; }
+.v2-hub-link:hover { color: var(--v2-ink); }
+.v2-hub-link .v2-ico { width: 13px; height: 13px; }
+
+.v2-hub-bar { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.v2-hub-chips { display: flex; gap: 6px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); padding-right: 24px; }
+.v2-hub-chips::-webkit-scrollbar { display: none; }
+.v2-hub-chips button {
+    flex: none; display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 12px;
+    border: 0; border-radius: 8px; background: none; color: var(--v2-ink2); font: inherit; font-size: 13px; cursor: pointer;
+}
+.v2-hub-chips button em { font-style: normal; font-size: 11px; color: var(--v2-ink3); }
+.v2-hub-chips button:hover { background: var(--v2-hover); }
+.v2-hub-chips button[aria-selected="true"] { background: var(--v2-chip); color: var(--v2-ink); font-weight: 600; }
+.v2-hub-sort { flex: none; display: flex; padding: 3px; border: 1px solid var(--v2-line); border-radius: 9px; background: var(--v2-side); }
+.v2-hub-sort button { height: 26px; padding: 0 12px; border: 0; border-radius: 6px; background: none; color: var(--v2-ink2); font: inherit; font-size: 12.5px; cursor: pointer; }
+.v2-hub-sort button[aria-pressed="true"] { background: var(--v2-bg); color: var(--v2-ink); font-weight: 600; box-shadow: 0 1px 2px rgba(15, 23, 42, .08); }
+
+.v2-hub-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.v2-hub-card {
+    position: relative; display: flex; gap: 13px; min-height: 104px; padding: 18px 18px 14px;
+    border: 1px solid var(--v2-line); border-radius: 14px; background: var(--v2-bg); color: inherit; text-decoration: none;
+    transition: border-color var(--v2-ease), box-shadow var(--v2-ease), transform var(--v2-ease);
+}
+.v2-hub-card:hover { border-color: var(--v2-line-strong); box-shadow: var(--v2-shadow-hover); }
+.v2-hub-cards.is-featured .v2-hub-card { min-height: 112px; }
+.v2-hub-icon {
+    flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 11px; font-size: 22px; overflow: hidden;
+    background: color-mix(in srgb, var(--hub-c, #64748b) 14%, var(--v2-bg));
+}
+.v2-hub-icon img { width: 100%; height: 100%; object-fit: cover; }
+.v2-hub-body { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1; padding-right: 34px; }
+.v2-hub-body strong { font-size: 14.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2-hub-body small { font-size: 12.5px; color: var(--v2-ink2); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.v2-hub-meta { display: flex; gap: 10px; margin-top: auto; padding-top: 4px; font-size: 11.5px; color: var(--v2-ink3); white-space: nowrap; overflow: hidden; }
+.v2-hub-meta span { overflow: hidden; text-overflow: ellipsis; }
+.v2-hub-use {
+    position: absolute; top: 14px; right: 14px; display: inline-flex; align-items: center; gap: 3px; height: 26px; min-width: 26px; padding: 0 7px;
+    justify-content: center; border: 1px solid var(--v2-line); border-radius: 7px; background: var(--v2-bg); color: var(--v2-ink2); font-size: 12px;
+    transition: background var(--v2-ease), color var(--v2-ease), border-color var(--v2-ease);
+}
+.v2-hub-use .v2-ico { width: 14px; height: 14px; }
+.v2-hub-card:hover .v2-hub-use { border-color: var(--v2-ink); background: var(--v2-ink); color: var(--v2-bg); }
+.v2-hub-more { position: absolute; right: 12px; bottom: 10px; display: flex; gap: 2px; opacity: 0; transition: opacity var(--v2-ease); }
+.v2-hub-card:hover .v2-hub-more, .v2-hub-card:focus-within .v2-hub-more { opacity: 1; }
+.v2-hub-more button { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 7px; background: none; color: var(--v2-ink3); cursor: pointer; }
+.v2-hub-more button:hover { background: var(--v2-hover); color: var(--v2-ink); }
+.v2-hub-more .v2-ico { width: 14px; height: 14px; }
+.v2-hub-empty { padding: 60px 0; text-align: center; color: var(--v2-ink3); font-size: 13px; }
+
+@media (max-width: 860px) {
+    .v2-hub-top { flex-direction: column; align-items: stretch; }
+    .v2-hub-search { flex: 1; width: auto; }
+    .v2-hub-bar { flex-direction: column; align-items: stretch; }
+    .v2-hub-sort { align-self: flex-end; }
+    .v2-hub-cards { grid-template-columns: 1fr; }
+}

@@ -44,8 +44,8 @@ app.whenReady().then(async () => {
     web.use(express.static(frontend));
     server = await new Promise(resolve => { const listener = web.listen(0, '127.0.0.1', () => resolve(listener)); });
     win = new BrowserWindow({ show: false, width: 1440, height: 1000, webPreferences: { contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
-    await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
-    await until(() => !!document.querySelector('#toolsGrid [data-tool-slug="fixture"]') && !!document.querySelector('.dc-spot-progress span'), 'home tool cards and spotlight');
+    await win.loadURL(`http://127.0.0.1:${server.address().port}/?ui=v1`);
+    await until(() => !!document.querySelector('#toolsGrid [data-tool-slug="fixture"]'), 'home tool cards');
     assert.equal(directoryRequests, 1, 'navbar, update metadata and home cards should share one directory request');
     await evaluate(() => checkBuiltinToolsSync());
     await evaluate(() => checkBuiltinToolsSync());
@@ -53,38 +53,6 @@ app.whenReady().then(async () => {
     await evaluate(() => API.get('/api/custom-tools'));
     assert.equal(directoryRequests, 2, 'explicit later directory refresh remains fresh');
 
-    // Use the real CSS animation clock; layout width must remain constant as visual progress grows.
-    const progress = await evaluate(() => {
-        const bar = document.querySelector('.dc-spot-progress span');
-        const animation = bar.getAnimations()[0];
-        animation.pause();
-        const samples = [0, 3250, 6400].map(time => {
-            animation.currentTime = time;
-            return { width: bar.offsetWidth, scale: new DOMMatrixReadOnly(getComputedStyle(bar).transform).a };
-        });
-        return { duration: animation.effect.getTiming().duration, samples };
-    });
-    assert.equal(progress.duration, 6500);
-    assert.equal(progress.samples[0].width, progress.samples[2].width);
-    assert.ok(progress.samples[0].scale < .01 && Math.abs(progress.samples[1].scale - .5) < .01 && progress.samples[2].scale > .98);
-    const rotated = await evaluate(async () => {
-        const card = document.querySelector('.dc-spot-card');
-        const before = card.innerHTML;
-        const animation = document.querySelector('.dc-spot-progress span').getAnimations()[0];
-        animation.finish();
-        await new Promise(resolve => setTimeout(resolve, 500));
-        return before !== document.querySelector('.dc-spot-card').innerHTML;
-    });
-    assert.equal(rotated, true, 'animationend must still advance the recommendation');
-    const pause = await evaluate(() => {
-        const button = document.querySelector('[data-spot-step]');
-        button.focus();
-        const paused = getComputedStyle(document.querySelector('.dc-spot-progress span')).animationPlayState;
-        button.blur();
-        const resumed = getComputedStyle(document.querySelector('.dc-spot-progress span')).animationPlayState;
-        return { paused, resumed };
-    });
-    assert.deepEqual(pause, { paused: 'paused', resumed: 'running' }, 'focus must pause and resume rotation');
     await evaluate(() => document.querySelector('[data-home-mode="tools"]').click());
     await wait(200);
     for (const language of ['zh-CN', 'en-US']) {
@@ -105,13 +73,15 @@ app.whenReady().then(async () => {
                 const titleRight = Math.max(...[...range.getClientRects()].map(rect => rect.right));
                 return { buttons, titleRight, descTop: card.querySelector('.card-desc').getBoundingClientRect().top };
             }, width);
-            assert.equal(layout.buttons.length, 4);
-            const [a, b, c, d] = layout.buttons;
-            assert.equal(a.y, b.y, 'first two actions share a row');
-            assert.equal(c.y, d.y, 'last two actions share a row');
-            assert.equal(a.x, c.x, 'two aligned columns');
-            assert.equal(b.x, d.x);
-            assert.ok(c.y > a.bottom && b.x > a.right, JSON.stringify(layout));
+            // Download, favorite, builtin, rename and delete use three columns.
+            assert.equal(layout.buttons.length, 5);
+            const [a, b, c, d, e] = layout.buttons;
+            assert.equal(a.y, b.y, 'first three actions share a row');
+            assert.equal(b.y, c.y);
+            assert.equal(d.y, e.y, 'last two actions share a row');
+            assert.equal(a.x, d.x, 'aligned first column');
+            assert.equal(b.x, e.x, 'aligned second column');
+            assert.ok(d.y > a.bottom && b.x > a.right && c.x > b.right, JSON.stringify(layout));
             assert.ok(layout.titleRight <= a.x, 'title does not overlap actions');
             assert.ok(layout.descTop >= d.bottom, 'description stays below actions');
         }
@@ -126,7 +96,7 @@ app.whenReady().then(async () => {
         assert.ok(sizes.scroll <= sizes.client + 1, JSON.stringify({ width, theme, sizes }));
         fs.writeFileSync(`/tmp/home-performance-${width}-${theme}.png`, (await win.webContents.capturePage()).toPNG());
     }
-    console.log('Full home: 3 tool-directory consumers share 1 request; clean checks reuse their result; explicit refresh, 6.5s visual progress, rotation and desktop/mobile languages pass.');
+    console.log('Full home: 3 tool-directory consumers share 1 request; clean checks reuse their result; explicit refresh, clean welcome and desktop/mobile languages pass.');
 }).catch(error => { console.error(error); process.exitCode = 1; }).finally(() => {
     win?.destroy(); server?.closeAllConnections(); server?.close();
     fs.rmSync(temp, { recursive: true, force: true });

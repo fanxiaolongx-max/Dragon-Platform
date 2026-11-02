@@ -78,7 +78,7 @@
     function open(row,config,item,x,y){
         close();anchor=row;row.classList.add('is-menu-open');
         const pref=get(config.source,config.id(item));menu=document.createElement('div');menu.className='conversation-context-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label',L('对话操作','Conversation actions'));
-        const actions=[['rename',L('重命名','Rename')],['pin',pref.pinned?L('取消置顶','Unpin'):L('置顶','Pin')],['archive',pref.archived?L('取消归档','Unarchive'):L('归档','Archive')],['remove',L('删除','Delete')]];
+        const actions=[['pin',pref.pinned?L('取消置顶','Unpin'):L('置顶','Pin')],['rename',L('重命名','Rename')],['archive',pref.archived?L('取消归档','Unarchive'):L('归档','Archive')],['remove',L('删除','Delete')]];
         menu.innerHTML=actions.map(([id,label])=>`<button type="button" role="menuitem" data-conversation-action="${id}"${id==='remove'?' class="is-danger"':''}>${icon(id)}<span>${label}</span></button>`).join('');
         menu.addEventListener('click',async event=>{const button=event.target.closest('[data-conversation-action]');if(!button)return;const operation=button.dataset.conversationAction;close();try{await action(config,item,operation);}catch(error){if(window.AppDialog)window.AppDialog.alert(error.message,{title:L('操作失败','Action failed'),tone:'error'});else window.alert(error.message);}});
         menu.addEventListener('keydown',event=>{const buttons=[...menu.querySelectorAll('button')],index=buttons.indexOf(document.activeElement);if(event.key==='Escape'){event.preventDefault();close(true);}else if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){event.preventDefault();buttons[event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length].focus();}else if(event.key==='Tab')close();});
@@ -96,6 +96,7 @@
         binding.config=config;
         let bar=binding.bar;if(!bar){bar=document.createElement('div');bar.className='conversation-list-toolbar';bar.setAttribute('role','group');binding.bar=bar;bar.addEventListener('click',event=>{const button=event.target.closest('[data-conversation-view]');if(!button)return;const source=bindings.get(list).config.source;views.set(source,button.dataset.conversationView);close();signal(source);});}
         list.before(bar);
+        bar.hidden=document.documentElement.dataset.ui==='v2';
         const count=config.items.filter(item=>{const p=get(config.source,config.id(item));return p.archived&&!p.hidden;}).length,archived=views.get(config.source)==='archived';
         bar.innerHTML=`<button type="button" data-conversation-view="active" aria-pressed="${!archived}">${L('对话','Chats')}</button><button type="button" data-conversation-view="archived" aria-pressed="${archived}">${L('已归档','Archived')}${count?' · '+count:''}</button>`;
         for(const main of list.querySelectorAll(config.selector)){
@@ -104,11 +105,51 @@
             row.before(wrapper);wrapper.append(row);const more=document.createElement('button');more.type='button';more.className='conversation-list-more';more.dataset.conversationMore='';more.textContent='···';more.title=L('对话操作','Conversation actions');more.setAttribute('aria-label',more.title);more.setAttribute('aria-haspopup','menu');wrapper.append(more);
             if(get(config.source,config.id(item)).pinned){const pin=document.createElement('span');pin.className='conversation-pin';pin.innerHTML=icon('pin');pin.title=L('已置顶','Pinned');wrapper.append(pin);}
         }
+        if(document.documentElement.dataset.ui==='v2')renderBatch(list);
+    }
+    function renderBatch(list){
+        const binding=bindings.get(list);if(!binding)return;
+        const signature=identity()+'|'+filter.status+'|'+filter.time+'|'+binding.config.source+'|'+(views.get(binding.config.source)||'active')+'|'+(binding.config.query||'');
+        if(binding.batchSignature!==signature){binding.batchSignature=signature;binding.limit=6;binding.limits=new Map();}
+        if(list.querySelector('[data-batch-scope]'))return renderScoped(list,binding);
+        const rows=[...list.querySelectorAll('.conversation-list-row')];
+        const limit=binding.config.query?rows.length:binding.limit;
+        rows.forEach((row,index)=>{if(row.hidden!==(index>=limit))row.hidden=index>=limit;});
+        for(const heading of list.querySelectorAll('.home-chat-group')){
+            let next=heading.nextElementSibling,visible=false;
+            while(next&&!next.classList.contains('home-chat-group')){if(next.classList.contains('conversation-list-row')&&!next.hidden)visible=true;next=next.nextElementSibling;}
+            if(heading.hidden===visible)heading.hidden=!visible;
+        }
+        list.querySelector('.v2-list-expand')?.remove();
+        const more=rows.length>limit,remote=binding.paging||{};
+        if(!more&&!remote.hasMore)return;
+        const button=document.createElement('button');button.type='button';button.className='v2-list-expand';
+        button.textContent=remote.loading?L('正在加载…','Loading…'):L('展开更多','Show more');button.disabled=!!remote.loading;
+        button.addEventListener('click',()=>{binding.limit=Math.min(binding.limit,rows.length)+6;if(!more&&remote.hasMore)remote.onMore?.();renderBatch(list);});list.append(button);
+    }
+    // 分区「展开更多」：任务 / 空间 / 每个项目文件夹各自计数（data-batch-scope；data-batch-unit="project" 按文件夹计；data-batch-remote 的分区用完后向服务端取下一页）
+    function renderScoped(list,binding){
+        list.querySelectorAll('.v2-list-expand').forEach(node=>node.remove());
+        binding.limits||=new Map();
+        const remote=binding.paging||{},query=binding.config.query;
+        for(const scope of list.querySelectorAll('[data-batch-scope]')){
+            const key=scope.dataset.batchScope,step=Number(scope.dataset.batchStep)||6;
+            const units=[...scope.querySelectorAll(scope.dataset.batchUnit==='project'?'.home-chat-project':'.conversation-list-row')].filter(unit=>unit.parentElement.closest('[data-batch-scope]')===scope);
+            const limit=query?units.length:(binding.limits.get(key)||step);
+            units.forEach((unit,index)=>{if(unit.hidden!==(index>=limit))unit.hidden=index>=limit;});
+            const more=units.length>limit,fetchMore='batchRemote' in scope.dataset&&remote.hasMore;
+            if(!more&&!fetchMore)continue;
+            const button=document.createElement('button');button.type='button';button.className='v2-list-expand';
+            button.textContent=!more&&remote.loading?L('正在加载…','Loading…'):L('展开更多','Show more');button.disabled=!more&&!!remote.loading;
+            button.addEventListener('click',()=>{binding.limits.set(key,Math.min(limit,units.length)+step);if(!more)remote.onMore?.();renderBatch(list);});
+            scope.append(button);
+        }
     }
     // 滚动懒加载：列表末尾放一个提示行，滚到离底部约 300px 时自动加载下一页（也可以点它）；没有更多时去掉
     const pagers=new WeakMap();
     function scroller(node){for(let el=node;el&&el!==document.body;el=el.parentElement){const y=getComputedStyle(el).overflowY;if((y==='auto'||y==='scroll')&&el.scrollHeight>el.clientHeight)return el;}return null;}
     function pager(list,{hasMore=false,loading=false,onMore}={}){
+        if(document.documentElement.dataset.ui==='v2'){const binding=bindings.get(list);if(binding){binding.paging={hasMore,loading,onMore};renderBatch(list);}return;}
         if(!list)return;const old=pagers.get(list);old?.observer?.disconnect();old?.node?.remove();pagers.delete(list);
         if(!hasMore)return;
         const node=document.createElement('button');node.type='button';node.className='conversation-list-pager';node.textContent=loading?L('正在加载…','Loading…'):L('加载更多','Load more');node.disabled=loading;
@@ -118,7 +159,9 @@
         entry.observer=new IntersectionObserver(items=>{if(items.some(item=>item.isIntersecting)){entry.observer.disconnect();onMore?.();}},{root:scroller(list),rootMargin:'0px 0px 300px 0px'});
         entry.observer.observe(node);
     }
-    window.HomeConversationList={sections,getFilter,setFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,isArchived:source=>views.get(source)==='archived'};
+    window.HomeConversationList={sections,getFilter,setFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,reset:list=>{const binding=bindings.get(list);if(binding){binding.limit=6;renderBatch(list);}},
+        // 分区「展开更多」计数清零：match(key) 为真的分区（如 'spaces' 及其下的 'project:…'）回到默认条数
+        resetScopes:(list,match)=>{const binding=bindings.get(list);if(binding?.limits)for(const key of [...binding.limits.keys()])if(match(key))binding.limits.delete(key);},toggleArchived:source=>{views.set(source,views.get(source)==='archived'?'active':'archived');signal(source);},isArchived:source=>views.get(source)==='archived'};
     document.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&!event.target.closest('[data-conversation-more]'))close();},true);
     window.addEventListener('scroll',()=>close(),true);
     window.addEventListener('resize',()=>close());window.addEventListener('blur',()=>close());

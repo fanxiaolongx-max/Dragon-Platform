@@ -425,7 +425,11 @@ router.get(`/${CH}/threads/:kind/:id/tac`, handle(async (req, res) => {
 
 router.get(`/${CH}/threads`, handle(async (req, res) => {
     // 分页：limit / offset，返回 hasMore 供左侧列表滚动加载
-    res.json(await followupsRepo.listThreadsPage(req.params.channel, { q: req.query.q, limit: req.query.limit, offset: req.query.offset }));
+    const page = await followupsRepo.listThreadsPage(req.params.channel, { q: req.query.q, limit: req.query.limit, offset: req.query.offset });
+    // 侧栏转圈：Dragon Claw 正在回复这个频道会话
+    const busy = require('../models/channels/dragon-claw-channel-bridge').busyThreads(req.params.channel);
+    if (busy.size && Array.isArray(page?.items)) page.items.forEach(item => { item.busy = busy.has(`${item.kind}:${item.id}`); });
+    res.json(page);
 }));
 
 router.get(`/${CH}/threads/:kind/:id/messages`, handle(async (req, res) => {

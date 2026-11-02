@@ -492,6 +492,7 @@ async function decideCall(run, call, { kind, preview, key = call.name }) {
  */
 /** 在会话上开始一次运行（工具循环或「创建 PR」流程共用）：占用会话、登记中止清理。 */
 function beginRun(session, write, signal) {
+    if(session.root && [...workspaceMutations].some(root => relatedRoots(root,session.root))) throw managerError('WORKSPACE_BUSY','工作空间正在切换分支或创建 Worktree，请稍后重试',409);
     if (session.activeRun) throw managerError('AGENT_RUN_BUSY', '该会话有正在进行的任务，请等待完成或先停止', 409);
     const run = { id: crypto.randomUUID(), session, write, signal, pending: new Map(), processes: new Set(), aborted: false };
     runs.set(run.id, run);
@@ -725,7 +726,23 @@ function stats() {
     return { sessions: sessions.size, runs: runs.size, pendingApprovals: pendingApprovals.size };
 }
 
+const workspaceMutations = new Set();
+const relatedRoots = (a,b) => guard.samePath(a,b) || guard.isInside(a,b) || guard.isInside(b,a);
+
+// Git operations must not replace files underneath an active workspace task.
+function hasActiveRunInDirectory(root) {
+    return [...sessions.values()].some(session => session.activeRun && relatedRoots(root,session.root));
+}
+
+function reserveWorkspaceMutation(root) {
+    if (hasActiveRunInDirectory(root) || [...workspaceMutations].some(other => relatedRoots(root,other))) throw managerError('WORKSPACE_BUSY','工作空间正在执行任务或 Git 操作，请稍后再试',409);
+    workspaceMutations.add(root);
+    return () => workspaceMutations.delete(root);
+}
+
 module.exports = {
+    reserveWorkspaceMutation,
+    hasActiveRunInDirectory,
     ensureScratchSession,
     ensureWeLinkSession,
     ownerKey,

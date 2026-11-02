@@ -186,6 +186,7 @@
     }
 
     function scrollToGroup(kind) {
+        if (document.documentElement.dataset.ui === 'v2' && window.HomeSkillHub) { window.HomeSkillHub.open('plugins'); return; }
         window.HomeMode?.set?.('tools');
         window.HomeWorkspace?.showAll?.();
         requestAnimationFrame(() => {

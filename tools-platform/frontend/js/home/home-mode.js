@@ -22,7 +22,7 @@
     const WORKSPACE_COLLAPSE = 1600; // 右侧工作区打开且窄于此宽度时，左侧自动收成图标栏
     const MOBILE = 860;
     const WIDTH_KEY = 'home_sidebar_width';
-    const MIN_WIDTH = 280;
+    const MIN_WIDTH = document.documentElement.dataset.ui === 'v2' ? 208 : 280;
     const MAX_WIDTH = 560;
 
     const el = {};
@@ -67,8 +67,9 @@
         el.layout.style.setProperty('--ws-side-max', `${bounds.max}px`);
         if (widths[mode] !== undefined) el.layout.style.setProperty('--ws-side-preferred', `${widths[mode]}px`);
         else el.layout.style.removeProperty('--ws-side-preferred');
+        if(document.documentElement.dataset.ui==='v2')document.documentElement.style.setProperty('--v2-side-width', `${Math.max(bounds.min,Math.min(bounds.max,widths[mode] || 240))}px`);
         if (!el.resizer) return;
-        el.resizer.hidden = isMobile() || isCollapsed();
+        el.resizer.hidden = isMobile() || (document.documentElement.dataset.ui==='v2' ? document.body.classList.contains('v2-side-collapsed') : isCollapsed());
         el.resizer.setAttribute('aria-valuemin', String(bounds.min));
         el.resizer.setAttribute('aria-valuemax', String(bounds.max));
         if (!el.resizer.hidden) el.resizer.setAttribute('aria-valuenow', String(Math.round(el.sidebar.getBoundingClientRect().width)));
@@ -113,7 +114,7 @@
             applySidebarWidth();
         };
         el.resizer.addEventListener('pointerdown', event => {
-            if (drag || event.button !== 0 || !event.isPrimary || isMobile() || isCollapsed()) return;
+            if (drag || event.button !== 0 || !event.isPrimary || isMobile() || (document.documentElement.dataset.ui==='v2' ? document.body.classList.contains('v2-side-collapsed') : isCollapsed())) return;
             event.preventDefault();
             loadWidths();
             drag = { pointerId: event.pointerId, x: event.clientX, width: el.sidebar.getBoundingClientRect().width, preferred: widths[mode], mode, scope: widthScope };
@@ -202,6 +203,13 @@
             try { localStorage.setItem(SIDEBAR_KEY, collapsed ? 'collapsed' : 'expanded'); } catch { /* 无痕模式下仅本次生效 */ }
         }
         applySidebarMode();
+    }
+
+    // 新版界面不再有旧的「工具」模式（左侧分类 + 卡片网格）：所有进入工具的入口都打开「技能·插件·工具」中心的工具页（js/home/skill-hub.js）
+    function openHubTools() {
+        const open = () => window.HomeSkillHub?.open?.('tools');
+        if (window.HomeSkillHub) open();
+        else window.addEventListener('home:skill-hub-ready', open, { once: true });
     }
 
     function setMode(next, { updateHash = true, focus = false } = {}) {

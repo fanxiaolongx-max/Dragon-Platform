@@ -51,19 +51,19 @@ html[data-ui="v2"] body { background: var(--v2-bg); color: var(--v2-ink); }
 html[data-ui="v2"] #app-navbar,
 html[data-ui="v2"] #navbar-container { display: none !important; }
 html[data-ui="v2"] .home-content.home-workspace {
-    --ws-side: 240px;
+    --ws-side: var(--v2-side-width, 240px);
     --ws-border: var(--v2-line);
     --ws-panel: var(--v2-side);
     --ws-text: var(--v2-ink);
     --ws-muted: var(--v2-ink2);
     --ws-faint: var(--v2-ink3);
     --ws-accent: var(--v2-accent);
-    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr);
     gap: 0;
     padding: 0;
     min-height: 100vh;
 }
-html[data-ui="v2"] body.dc-workspace-open .home-content.home-workspace { grid-template-columns: 240px minmax(0, 1fr) var(--ws-panel-w); }
+html[data-ui="v2"] body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr) var(--ws-panel-w); }
 html[data-ui="v2"] .home-main { padding: 28px clamp(20px, 3vw, 48px) 32px; min-height: 100vh; }
 
 /* ── 侧边栏 ── */
@@ -410,7 +410,7 @@ html[data-ui="v2"]:not([data-theme="dark"]) .stats-bar :is(.stat-label, .stat-no
 
 /* ── 消息中心：覆盖主区（侧边栏保留） ── */
 .v2-messages {
-    position: fixed; z-index: 1100; top: 0; right: 0; bottom: 0; left: 240px;
+    position: fixed; z-index: 1100; top: 0; right: 0; bottom: 0; left: var(--v2-side-width, 240px);
     display: flex; flex-direction: column; background: var(--v2-bg); color: var(--v2-ink);
     opacity: 0; transform: translateY(4px); pointer-events: none; transition: opacity 160ms ease, transform 160ms ease;
 }
@@ -462,7 +462,7 @@ html[data-ui="v2"] #nrvStack .nrv-float.nrv-swap { animation: v2-promo-in .35s e
 html[data-ui="v2"] body:is(.dc-chatting, .home-mode-tools, .v2-messages-open) #nrvStack { display: none; }
 /* 1440–1599 宽屏：欢迎页内容列让出右下角推广卡片的位置（卡片 248 + 边距，两侧对称留白） */
 @media (min-width: 1440px) and (max-width: 1599px) {
-    html[data-ui="v2"] body.home-mode-chat:not(.dc-chatting) .dc { --dc-col: min(800px, calc(100vw - 240px - 2 * 280px)); }
+    html[data-ui="v2"] body.home-mode-chat:not(.dc-chatting) .dc { --dc-col: min(800px, calc(100vw - var(--v2-side-width, 240px) - 2 * 280px)); }
     html[data-ui="v2"] body.home-mode-chat:not(.dc-chatting) .home-recommended-actions { max-width: var(--dc-col); margin-inline: auto; flex-wrap: wrap; justify-content: center; }
 }
 @media (max-width: 1439px) { html[data-ui="v2"] #nrvStack { display: none; } }
@@ -484,8 +484,8 @@ html[data-ui="v2"] body.home-mode-chat .home-panel-view[data-home-panel="chat"] 
 html[data-ui="v2"] .home-panel-view[data-home-panel="chat"] > :is(.home-search, .home-chat-tabs) { display: none !important; }
 html[data-ui="v2"] .home-panel-view[data-home-panel="tools"] > .home-search { display: none !important; }
 html[data-ui="v2"] .desktop-agents-controls .desktop-agent-providers { display: none; }
-html[data-ui="v2"] .home-panel-view[data-home-panel="chat"] > :is(.conversation-list-toolbar, #homeChatList, .desktop-agents-sidebar) { order: var(--v2-active-order, 20); }
-html[data-ui="v2"] .home-panel-view.v2-groups-collapsed > :is(.conversation-list-toolbar, #homeChatList, .desktop-agents-sidebar) { display: none !important; }
+html[data-ui="v2"] .home-panel-view[data-home-panel="chat"] > :is(.conversation-list-toolbar, #homeChatList, #homeWelinkList, .wl-list, .desktop-agents-sidebar) { order: var(--v2-active-order, 20); }
+html[data-ui="v2"] .home-panel-view.v2-groups-collapsed > :is(.conversation-list-toolbar, #homeChatList, #homeWelinkList, .wl-list, .desktop-agents-sidebar) { display: none !important; }
 .v2-group-head {
     display: flex; align-items: center; gap: 4px; width: 100%;
     margin-top: 10px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent;
@@ -560,8 +560,8 @@ html[data-ui="v2"] body.dc-chatting :is(.v2-scenes, .v2-suggest) { display: none
 .v2-avatar img { width: 100%; height: 150%; object-fit: cover; object-position: 50% 8%; }
 
 /* 旧版侧栏收起状态（home-sidebar-collapsed，home-mode.js 记在本机）在新版界面不生效；新版只认 v2-side-collapsed */
-html[data-ui="v2"] body:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)):not(.v2-side-collapsed) .home-content.home-workspace { grid-template-columns: 240px minmax(0, 1fr); }
-html[data-ui="v2"] body:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)):not(.v2-side-collapsed).dc-workspace-open .home-content.home-workspace { grid-template-columns: 240px minmax(0, 1fr) var(--ws-panel-w); }
+html[data-ui="v2"] body:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)):not(.v2-side-collapsed) .home-content.home-workspace { grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr); }
+html[data-ui="v2"] body:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)):not(.v2-side-collapsed).dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr) var(--ws-panel-w); }
 html[data-ui="v2"] body.v2-side-collapsed:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)) .home-content.home-workspace { grid-template-columns: 0 minmax(0, 1fr); }
 html[data-ui="v2"] body.v2-side-collapsed:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)).dc-workspace-open .home-content.home-workspace { grid-template-columns: 0 minmax(0, 1fr) var(--ws-panel-w); }
 html[data-ui="v2"] body.home-sidebar-collapsed:not(.v2-side-collapsed) .home-sidebar { width: auto; visibility: visible; }

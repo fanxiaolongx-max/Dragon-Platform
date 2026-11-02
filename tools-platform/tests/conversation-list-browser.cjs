@@ -7,7 +7,7 @@ const mine=dates.map((date,i)=>({id:'mine-'+i,discussionMode:i===0?'group':null,
 const threads=dates.map((date,i)=>({id:'channel-'+i,kind:'group',name:'Channel chat '+i,lastActiveAt:date,messageCount:2,tasks:{open:0},lastMessage:'Last message preview'}));
 const native=['codex','claudecode','antigravity'].flatMap((provider,p)=>dates.map((date,i)=>({provider,id:`11111111-1111-4111-8111-${String(p*10+i).padStart(12,'0')}`,title:provider+' chat '+i,updatedAt:date})));
 const preferences=[{source:'mine',id:'mine-1',pinned:1,archived:0,hidden:0,title:''}],mutations=[],deleted=[];
-const wait=ms=>new Promise(r=>setTimeout(r,ms)),ev=s=>win.webContents.executeJavaScript(s,true);
+const wait=ms=>new Promise(r=>setTimeout(r,ms)),ev=s=>win.webContents.executeJavaScript(s,true).catch(error=>{throw new Error("Renderer evaluation: "+s,{cause:error})});
 async function until(s){for(let n=0;n<180;n++){if(await ev(`Boolean(${s})`))return;await wait(20)}throw Error('Timeout: '+s)}
 async function context(selector){await ev(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).closest('.conversation-list-row');r.dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:1250,clientY:890}));})()`);await until('document.querySelector(".conversation-context-menu")');}
 async function choose(action){await ev(`document.querySelector('[data-conversation-action="${action}"]').click()`);await wait(100);}
@@ -21,7 +21,7 @@ app.whenReady().then(async()=>{
  web.get('/api/channels/available',(_,res)=>res.json({items:[{id:'welink',connected:true,health:{level:'ok',reason:'connected'}},{id:'weixin',connected:true,health:{level:'warning',reason:'delayed'}}]}));web.get('/api/channels/:channel/threads',(req,res)=>{const send=()=>res.json({items:threads.filter(i=>!req.query.q||i.name.includes(req.query.q))});if(req.params.channel===delayChannel)setTimeout(send,500);else send();});
  web.get('/api/ai/sessions/:id/messages',(req,res)=>res.json({items:[{id:'u1',role:'user',content:'Latest personal '+req.params.id},{id:'m1',role:'model',content:'Personal answer'}],hasMore:false}));
  web.get('/api/channels/:channel/threads/:kind/:id/messages',(req,res)=>res.json({thread:{name:'Channel '+req.params.id},items:[{id:'u1',direction:'inbound',content:'Latest channel '+req.params.channel+' '+req.params.id,createdAt:dates[0]}],segments:[],hasMore:false}));
- web.get('/api/desktop-agents/settings',(_,res)=>res.json({owned:true,settings:{enabled:true,allowSend:true,autoSync:false,syncSeconds:20}}));
+ web.get('/api/desktop-agents/settings',(_,res)=>res.json({owned:true,settings:{enabled:true,providers:{codex:true,claudecode:true,antigravity:true},allowSend:true,autoSync:false,syncSeconds:20}}));
  const providers=['codex','claudecode','antigravity'].map(id=>({id,enabled:true,connected:id!=='antigravity',canSend:id==='codex',reason:'Native fixture'}));
  web.get('/api/desktop-agents/sessions',(_,res)=>res.json({items:native,providers,syncedAt:new Date().toISOString()}));
  web.post('/api/desktop-agents/sync',(_,res)=>res.json({items:native,providers,syncedAt:new Date().toISOString()}));
@@ -81,7 +81,7 @@ app.whenReady().then(async()=>{
  await context('.desktop-agent-chat');await choose('archive');await until('document.querySelectorAll(".desktop-agent-list .conversation-list-row").length===3');assert.equal(mutations.at(-1).source,'desktop:codex');
  await ev('document.querySelector("[data-desktop-sync]").click()');await wait(100);assert.equal(await ev('document.querySelectorAll(".desktop-agent-list .conversation-list-row").length'),3,'sync does not resurrect archived entries');
  failSave=true;await context('.desktop-agent-chat');await choose('pin');await until('window.__error==="Save unavailable"');assert.equal(await ev('document.querySelector(".desktop-agent-list .home-chat-group").textContent'),'3 天前');failSave=false;
- await ev('ToolsI18n.setLanguage("en-US")');await until('document.querySelector(".desktop-agent-list .home-chat-group").textContent==="3+ days ago"');await context('.desktop-agent-chat');assert.match(await ev('document.querySelector(".conversation-context-menu").textContent'),/Rename.*Pin.*Archive.*Delete/);
+ await ev('ToolsI18n.setLanguage("en-US")');await until('document.querySelector(".desktop-agent-list .home-chat-group").textContent==="3+ days ago"');await context('.desktop-agent-chat');assert.match(await ev('document.querySelector(".conversation-context-menu").textContent'),/Pin.*Rename.*Archive.*Delete/);
  fs.writeFileSync(path.join(temp,'conversation-menu.png'),(await win.webContents.capturePage()).toPNG());await ev('HomeConversationList.close()');
  await ev('document.documentElement.dataset.theme="light";document.body.classList.add("light-theme")');await context('.desktop-agent-chat');
  assert.equal(await ev('getComputedStyle(document.querySelector(".conversation-context-menu")).backgroundColor'),'rgb(255, 255, 255)');

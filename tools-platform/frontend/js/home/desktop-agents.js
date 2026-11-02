@@ -72,6 +72,7 @@
         state.error = '';
         if(!state.drafting&&(!state.active||!state.items.some(item=>state.active&&key(item)===key(state.active))))autoSelect=true;
         render();
+        window.dispatchEvent(new CustomEvent('home:desktop-agents-updated', { detail: { items: state.items } }));
         openFirst();
     }
     catch (error) {
@@ -174,10 +175,12 @@
     function composer(session) { const k = key(session), unknown = state.unknown.has(k), canSend = Boolean(session.canSend) && !unknown, name = names[session.provider], working = state.detail?.busy || state.pending; return { canSend, send, draft: state.drafts.get(k) || '', onInput: value => { if (state.active && key(state.active) === k)
         state.drafts.set(k, value); }, placeholder: unknown ? L('上次提交结果未确认，请先核对桌面原会话；此处不会自动重发', 'Last delivery is unconfirmed. Check the desktop conversation first.') : canSend && working ? (busyMode() === 'steer' ? L(`引导 ${name}：消息并入当前这一轮`, `Steer ${name}: joins the current turn`) : L(`排队：${name} 本轮结束后自动发送`, `Queue: sends when ${name} finishes this turn`)) : canSend ? L('发送到', 'Send to') + ' ' + names[session.provider] + ' · ' + session.title : L(names[session.provider] + ' 桌面会话当前只读', names[session.provider] + ' desktop session is read-only') }; }
     // 「新对话」：在当前选中的桌面 Agent 里新建原生会话。第一条消息发出并确认后打开这个新会话。
-    function newChat() {
-        if (!state.visible || !state.settings?.enabled)
+    function newChat({provider: chosenProvider, force=false} = {}) {
+        if (chosenProvider && names[chosenProvider]) state.provider = chosenProvider;
+        if ((!force && !state.visible) || !state.settings?.enabled)
             return false;
         const provider = state.provider, name = names[provider], status = state.providers.find(p => p.id === provider), canSend = Boolean(status?.canSend);
+        if(force&&(!status?.enabled||!status.connected||!canSend||!state.settings.allowSend||!state.settings.providers?.[provider]||provider==='claudecode'&&!state.settings.claudeAutomation))return false;
         let api;
         const create = async text => {
             const epoch = state.viewEpoch, thread = api.thread;
@@ -210,8 +213,8 @@
             }
         };
         api = window.DragonClaw?.enterExternal?.({ onExit: exit, owner: 'desktop-agent', composer: { canSend, send: create, placeholder: canSend ? L(`新建 ${name} 会话：输入第一条消息`, `New ${name} session: type the first message`) : L(`${name} 当前不能从网页新建会话`, `${name} can't start sessions from the Web right now`) } });
-        if (!api)
-            return true;
+        if (!api) return false;
+        window.HomeAgentDiscussion?.bindExternal?.(provider);
         state.viewEpoch++;
         state.active = null;
         state.drafting = provider; // 新建草稿期间不触发「自动打开第一条」
@@ -229,6 +232,7 @@
         const api = window.DragonClaw?.enterExternal?.({ onExit: exit, owner: 'desktop-agent', composer: composer({ ...session, canSend: false }) });
         if (!api)
             return;
+        window.HomeAgentDiscussion?.bindExternal?.(session.provider);
         autoSelect=false;
         state.drafting = null;
         state.active = session;
@@ -491,6 +495,7 @@
             if ((data.busy || state.pending) && !state.tick)
                 state.tick = setInterval(tick, 1000);
             tick();
+            window.dispatchEvent(new Event('home:desktop-agents-busy'));
             if (!initial && Boolean(wasBusy) !== Boolean(data.busy))
                 schedule(epoch, session);
             if (initial && historyLoad?.status !== 'loading') // 淡入只在首次打开时做；轮询时做会让整个消息区每隔几秒闪一下
@@ -582,14 +587,45 @@
             refreshMessages(state.viewEpoch, state.active, true); });
         window.addEventListener('storage', e => { if (['tools_user', 'tools_tenant_id', 'tools_token'].includes(e.key))
             reset(); });
-        window.addEventListener('pagehide', () => { clearInterval(poll); clearInterval(state.timer); clearInterval(state.tick); });
+        // 侧栏转圈：不打开「桌面 Agent」分类也每 10 秒读一次会话列表的 busy；只有状态变了才通知（列表本身变了才整表重绘）
+        const busyPoll = setInterval(async () => {
+            if (!state.settings?.enabled || state.loading || document.visibilityState !== 'visible' || identity() !== state.identity) return;
+            const epoch = state.epoch;
+            try {
+                const data = await request('GET', '/sessions');
+                if (epoch !== state.epoch || identity() !== state.identity || !Array.isArray(data.items)) return;
+                const shape = list => JSON.stringify(list.map(item => [item.provider, item.id, item.title, item.updatedAt]));
+                const busy = list => list.filter(item => item.busy).map(key).sort().join(',');
+                const listChanged = shape(data.items) !== shape(state.items || []), busyChanged = busy(data.items) !== busy(state.items || []);
+                if (!listChanged && !busyChanged) return;
+                state.items = data.items;
+                if (listChanged) { render(); window.dispatchEvent(new CustomEvent('home:desktop-agents-updated', { detail: { items: state.items } })); }
+                else window.dispatchEvent(new Event('home:desktop-agents-busy'));
+            } catch { /* 下次再试 */ }
+        }, 10000);
+        window.addEventListener('pagehide', () => { clearInterval(poll); clearInterval(busyPoll); clearInterval(state.timer); clearInterval(state.tick); });
         window.dispatchEvent(new Event('home:desktop-agents-ready'));
     }
     // 对话列表的「桌面 Agent」分类：管理员、已连接本机桌面，且至少启用了一个客户端才显示（设置读取完成前不显示，避免闪现）
     const anyProviderEnabled = () => Boolean(state.settings?.enabled && Object.keys(names).some(id => state.settings.providers?.[id]));
-    window.HomeDesktopAgents = { available: () => localStorage.getItem('tools_role') === 'admin' && anyProviderEnabled(), show: visible => { if(visible)autoSelect=true;state.visible = visible; if (root)
+    window.HomeDesktopAgents = {
+        available: () => localStorage.getItem('tools_role') === 'admin' && anyProviderEnabled(),
+        getItems: () => (state.items || []).slice(),
+        // 侧栏转圈：打开中的会话用实时详情（含刚发送待响应），其他会话用列表接口的 busy
+        isBusy: (provider, id) => {
+            if (state.active && state.active.provider === provider && state.active.id === id) return Boolean(state.detail?.busy || state.pending);
+            return Boolean((state.items || []).find(item => item.provider === provider && item.id === id)?.busy);
+        },
+        activeSessionId: () => state.active ? key(state.active) : null,
+        activeSession: () => state.active ? { ...state.active } : null,
+        show: visible => { if(visible)autoSelect=true;state.visible = visible; if (root)
             root.hidden = !visible; if (visible && state.settings?.enabled)
-            {openFirst();sync();} }, search: render, refresh: () => sync(true), open, newChat };
+            {openFirst();sync();} },
+        search: render,
+        refresh: () => sync(true),
+        open,
+        newChat
+    };
     if (document.readyState === 'loading')
         document.addEventListener('DOMContentLoaded', init, { once: true });
     else

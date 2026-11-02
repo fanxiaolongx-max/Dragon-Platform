@@ -72,7 +72,21 @@ async function scan(owner, cfg) {
     return value;
 }
 function publicSession(row) { return { id: row.id, provider: row.provider, title: row.title, updatedAt: row.updatedAt, observedAt: row.observedAt, source: row.source }; }
-async function list(owner, { provider, q = '', force = false } = {}) { const state = await discover(owner, force, { allowStale: true }); return { items: state.rows.filter(r => (!provider || r.provider === provider) && r.title.toLowerCase().includes(String(q).slice(0, 200).toLowerCase())).map(publicSession), providers: state.providers, syncedAt: new Date(state.at).toISOString() }; }
+// 侧栏「运行中」转圈：最近 6 小时有活动的 Codex / Claude Code 会话（最多 12 个）读一次记录尾部判断是否还在这一轮里
+const BUSY_WINDOW_MS = 6 * 60 * 60 * 1000, BUSY_MAX = 12;
+async function list(owner, { provider, q = '', force = false } = {}) {
+    const state = await discover(owner, force, { allowStale: true });
+    const items = state.rows.filter(r => (!provider || r.provider === provider) && r.title.toLowerCase().includes(String(q).slice(0, 200).toLowerCase())).map(publicSession);
+    const recent = state.rows.filter(r => ['codex', 'claudecode'].includes(r.provider) && Date.now() - Date.parse(r.updatedAt) < BUSY_WINDOW_MS)
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, BUSY_MAX);
+    const busy = new Set((await Promise.all(recent.map(async r => (await catalog.busyState(r)) && `${r.provider}:${r.id}`))).filter(Boolean));
+    if (state.rows.some(r => r.provider === 'antigravity'))
+        for (const id of await ag.busyIds()) busy.add(`antigravity:${id}`);
+    items.forEach(item => { item.busy = busy.has(`${item.provider}:${item.id}`); });
+    // 客户端标题通常是第一句话：显示模型精简的短标题（缓存），完整原标题放 fullTitle
+    const titled = await require('../ai-title-generator').agentTitles(items).catch(() => items);
+    return { items: titled, providers: state.providers, syncedAt: new Date(state.at).toISOString() };
+}
 async function selected(owner, provider, id) { if (!providers.includes(provider) || typeof id !== 'string' || !/^(?:local_)?[a-f0-9-]{36}$/i.test(id))
     throw repo.error('会话标识无效', 400); const state = await discover(owner); let row = state.rows.find(s => s.provider === provider && s.id === id); if (!row) {
     const current = await discover(owner, true);

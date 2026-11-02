@@ -866,7 +866,6 @@ async function renderAiSettings(content) {
     content.innerHTML = `<div class="nav-settings-empty">${navEscape(navT('nav.ai.empty'))}</div>`;
     try {
         const settingsStore = await fetchAiSettingsForNav();
-        if (!aiModelAliasSaveTimer) navState.aiModelAliasDraft = null;
         const allProfiles = Array.isArray(settingsStore.profiles) ? settingsStore.profiles : [];
         // Two categories as tabs: 文心 (chat models) and 丹青 (image models); each lists, creates and activates its own.
         const picked = allProfiles.find(item => item.id === navState.aiSelectedProfileId);
@@ -925,7 +924,7 @@ async function renderAiSettings(content) {
                     </div>
                 </div>
             </section>
-            ${isImage ? '' : `<section class="nav-ai-profile-panel nav-ai-alias-panel" id="navAiAliasPanel">${renderAiModelAliasPanel()}</section>`}
+            ${isImage ? '' : `<p class="nav-settings-help">${navEscape(navT('nav.ai.modelIdentityHelp'))}</p>`}
             <div class="nav-ai-status">
                 <span>${isActiveProfile ? (isImage ? navT('nav.ai.imageStatus') : navT('nav.ai.chatStatus')) : navT('nav.ai.inactiveStatus')}</span>
                 <span>${navEscape(navT('nav.ai.sourcePrefix'))}${navEscape(sourceLabelForAiSettings(settings.apiKeySource))}</span>
@@ -1029,119 +1028,6 @@ async function renderAiSettings(content) {
     }
 }
 
-// ── 对话模型名称映射（Aragon 等自定义名称 → 实际配置方案）──────────
-function renderAiModelAliasPanel() {
-    const profiles = (Array.isArray(navState.aiSettings?.profiles) ? navState.aiSettings.profiles : []).filter(item => (item.category || 'chat') === 'chat');
-    if (!Array.isArray(navState.aiModelAliasDraft)) {
-        navState.aiModelAliasDraft = (navState.aiSettings?.modelAliases || []).map(item => ({ ...item }));
-    }
-    const aliases = navState.aiModelAliasDraft;
-    const profileOptions = selected => [
-        `<option value="" ${selected ? '' : 'selected'}>${navEscape(navT('nav.ai.aliasFollowActive'))}</option>`,
-        ...profiles.map(profile => `<option value="${navEscape(profile.id)}" ${profile.id === selected ? 'selected' : ''}>${navEscape(profile.name)} · ${navEscape(profile.model)}</option>`)
-    ].join('');
-    const rows = aliases.map((alias, index) => `
-        <div class="nav-ai-alias-row">
-            <label><span>${navEscape(navT('nav.ai.aliasName'))}${index === 0 ? ` <em>${navEscape(navT('nav.ai.aliasDefault'))}</em>` : ''}</span>
-                <input class="nav-settings-input" maxlength="40" value="${navEscape(alias.name)}" placeholder="${navEscape(navT('nav.ai.aliasNamePlh'))}" oninput="updateAiModelAlias(${index}, 'name', this.value)"></label>
-            <label><span>${navEscape(navT('nav.ai.aliasDesc'))}</span>
-                <input class="nav-settings-input" maxlength="120" value="${navEscape(alias.description || '')}" placeholder="${navEscape(navT('nav.ai.aliasDescPlh'))}" oninput="updateAiModelAlias(${index}, 'description', this.value)"></label>
-            <label><span>${navEscape(navT('nav.ai.aliasProfile'))}</span>
-                <select class="nav-settings-input" onchange="updateAiModelAlias(${index}, 'profileId', this.value)">${profileOptions(profiles.some(item => item.id === alias.profileId) ? alias.profileId : '')}</select></label>
-            <button type="button" class="nav-settings-add danger" onclick="removeAiModelAlias(${index})" aria-label="${navEscape(navT('nav.ai.aliasDelete'))} ${navEscape(alias.name)}">${navEscape(navT('nav.ai.aliasDelete'))}</button>
-        </div>`).join('');
-    const realModels = profiles.filter(item => item.keyLooksValid).map(item => item.model);
-    const fallbackModels = realModels.length ? realModels : profiles.filter(item => item.isActive).map(item => item.model);
-    return `
-        <div class="nav-ai-profile-head">
-            <div><strong>${navEscape(navT('nav.ai.aliasTitle'))}</strong><span>${navEscape(navT('nav.ai.aliasHelp'))}</span></div>
-            <div class="nav-ai-profile-head-actions">
-                <button type="button" class="nav-settings-add" onclick="addAiModelAlias()" ${aliases.length >= 20 ? 'disabled' : ''}>${navEscape(navT('nav.ai.aliasAdd'))}</button>
-                ${aliases.length
-                    ? `<button type="button" class="nav-settings-add secondary" onclick="clearAiModelAliases()">${navEscape(navT('nav.ai.aliasClear'))}</button>`
-                    : `<button type="button" class="nav-settings-add secondary" onclick="resetAiModelAliases()">${navEscape(navT('nav.ai.aliasReset'))}</button>`}
-            </div>
-        </div>
-        ${aliases.length
-            ? `<div class="nav-ai-alias-list">${rows}</div>`
-            : `<div class="nav-ai-alias-empty">${navEscape(navT('nav.ai.aliasEmpty'))}<b>${navEscape([...new Set(fallbackModels)].join(' · ') || '—')}</b></div>`}`;
-}
-
-function rerenderAiModelAliasPanel() {
-    const panel = document.getElementById('navAiAliasPanel');
-    if (panel) panel.innerHTML = renderAiModelAliasPanel();
-}
-
-function scheduleAiModelAliasSave(delay = 600) {
-    clearTimeout(aiModelAliasSaveTimer);
-    const indicator = document.getElementById('navSettingsSaveState');
-    if (indicator) indicator.textContent = navT('nav.ai.aliasSaving');
-    aiModelAliasSaveTimer = setTimeout(saveAiModelAliasesNow, delay);
-}
-
-async function saveAiModelAliasesNow() {
-    const indicator = document.getElementById('navSettingsSaveState');
-    aiModelAliasSaveTimer = null;
-    const aliases = navState.aiModelAliasDraft;
-    // 有名称为空的行时暂不提交，避免输入中途被服务端丢弃。
-    if (!Array.isArray(aliases) || aliases.some(item => !String(item.name || '').trim())) return;
-    try {
-        const res = await fetch('/api/ai-settings/model-aliases', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', ...getAuthHeaderForNav() },
-            body: JSON.stringify({ aliases })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-        navState.aiSettings = data;
-        // 回填服务端生成的 ID，后续保存保持稳定（用户已选的模型不会失效）。
-        const saved = Array.isArray(data.modelAliases) ? data.modelAliases : [];
-        aliases.forEach((item, index) => { if (saved[index] && saved[index].name === String(item.name).trim()) item.id = saved[index].id; });
-        if (indicator) indicator.textContent = navT('nav.ai.aliasSaved');
-    } catch (e) {
-        if (indicator) indicator.textContent = `${navT('nav.ai.aliasFail')}${e.message}`;
-    }
-}
-
-window.updateAiModelAlias = function (index, field, value) {
-    const alias = navState.aiModelAliasDraft?.[index];
-    if (!alias) return;
-    alias[field] = value;
-    scheduleAiModelAliasSave(field === 'profileId' ? 0 : 600);
-};
-
-window.addAiModelAlias = function () {
-    const draft = navState.aiModelAliasDraft || (navState.aiModelAliasDraft = []);
-    if (draft.length >= 20) return;
-    const used = new Set(draft.map(item => String(item.name).toLowerCase()));
-    let name = draft.length ? `Aragon ${draft.length + 1}` : 'Aragon';
-    for (let n = draft.length + 1; used.has(name.toLowerCase()); n += 1) name = `Aragon ${n + 1}`;
-    draft.push({ id: `m-${Date.now().toString(36)}`, name, description: '', profileId: '' });
-    rerenderAiModelAliasPanel();
-    scheduleAiModelAliasSave(0);
-};
-
-window.removeAiModelAlias = function (index) {
-    navState.aiModelAliasDraft?.splice(index, 1);
-    rerenderAiModelAliasPanel();
-    scheduleAiModelAliasSave(0);
-};
-
-window.clearAiModelAliases = function () {
-    return showNavbarConfirm({ title: navT('nav.dialog.warning'), message: navT('nav.ai.aliasClearConfirm'), tone: 'danger' }).then(confirmed => {
-        if (!confirmed) return;
-        navState.aiModelAliasDraft = [];
-        rerenderAiModelAliasPanel();
-        scheduleAiModelAliasSave(0);
-    });
-};
-
-window.resetAiModelAliases = function () {
-    navState.aiModelAliasDraft = [{ id: 'aragon', name: 'Aragon', description: '', profileId: '' }];
-    rerenderAiModelAliasPanel();
-    scheduleAiModelAliasSave(0);
-};
-
 function collectAiSettingsPayload(options = {}) {
     const tokenInput = document.getElementById('navAiApiKey');
     const authTypeSelect = document.getElementById('navAiAnthropicAuthType');
@@ -1185,6 +1071,7 @@ async function requestAiProfile(url, options = {}) {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    if (options.method && options.method !== 'GET') window.dispatchEvent(new Event('tools:ai-models-changed'));
     return data;
 }
 
@@ -1393,6 +1280,7 @@ async function saveAiSettingsNow(options = {}) {
         throw new Error(message);
     }
     navState.aiSettings = await res.json();
+    window.dispatchEvent(new Event('tools:ai-models-changed'));
     const savedProfile = currentAiProfile();
     const tokenInput = document.getElementById('navAiApiKey');
     if (tokenInput) {

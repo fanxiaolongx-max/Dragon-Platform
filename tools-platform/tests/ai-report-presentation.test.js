@@ -27,3 +27,25 @@ test('summary rejects stale KPI instructions then accepts the confirmed local ex
  const prompt=await route.summarizePrompt(client,{month:'2026-10',prompt:'指标卡展示：显示存量',chat:[{role:'user',text:'不要图表，只要一句话总结'},{role:'user',text:'只在这个格子例外'}]});
  assert.equal(calls,2);assert.match(prompt,/【展示约束】/);assert.equal(models[0].presentationOf(prompt).mode,'text');
 });
+
+test('layout revisions release stale slot constraints only for pending layout requests',()=>{
+ for(const M of models){
+  const old='按报告月份取指标。\n【尺寸约束】高 308px。\n【格子内部布局】chart 宽 100%；table 宽 100%。';
+  assert.equal(M.layoutRevision([{role:'user',text:'表格和柱状图左右分布'}]),true);
+  assert.equal(M.horizontalChartTable('图表与表格采用左右并排布局'),true);
+  assert.equal(M.horizontalChartTable('指标卡左右排列。下面放图表和表格。'),false);
+  assert.equal(M.layoutRevision([{role:'user',text:'表格和柱状图左右分布'},{kind:'prompt',text:old},{role:'user',text:'标题改为稽查率'}]),false);
+  assert.equal(M.withoutLayout(old),'按报告月份取指标。\n【尺寸约束】高 308px。');
+ }
+});
+test('summary removes obsolete layout markers on a new layout request while retaining data and cell size',async()=>{
+ const route=require('../backend/routes/ai-report');
+ const old='取指标稽查率。\n【尺寸约束】高 308px。\n【格子内部布局】chart 宽 100%；table 宽 100%。';
+ const client={generateChat:async options=>{
+  assert.doesNotMatch(options.messages[0].content,/【格子内部布局】/);
+  assert.match(options.messages[0].content,/高 308px/);
+  return {text:JSON.stringify({prompt:'取指标稽查率，图表和表格左右并排。\n【格子内部布局】chart 宽 100%；table 宽 100%。'})};
+ }};
+ const prompt=await route.summarizePrompt(client,{month:'2026-10',prompt:old,chat:[{role:'ai',kind:'prompt',text:old},{role:'user',text:'表格和柱状图左右分布'}]});
+ assert.match(prompt,/左右并排/);assert.doesNotMatch(prompt,/【格子内部布局】/);
+});

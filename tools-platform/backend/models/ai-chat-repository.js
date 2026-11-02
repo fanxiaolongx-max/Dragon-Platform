@@ -1,6 +1,7 @@
 const { run, get, all } = require('./app-db');
 const { v4: uuidv4 } = require('uuid');
 const { redactText, redactValue } = require('./ai-sensitive-data');
+const { conversationTitle } = require('./conversation-title');
 
 const RECENT_CONTEXT_MESSAGES = 8;
 const MAX_ACTIVE_SESSIONS_PER_PAGE = 30;
@@ -46,6 +47,9 @@ async function ensureReady() {
             await addColumnIfMissing('ai_chat_sessions', 'archived_at', 'DATETIME');
             // 会话归属与工作区：/session 只列出自己的会话，恢复时自动选回当时的目录
             await addColumnIfMissing('ai_chat_sessions', 'owner', "TEXT NOT NULL DEFAULT ''");
+            await addColumnIfMissing('ai_chat_sessions', 'auto_title', "TEXT NOT NULL DEFAULT ''");
+            // 'ai'：模型精简过的标题（js 规则标题不标记），用于判断是否还需要请求模型（ai-title-generator.js）
+            await addColumnIfMissing('ai_chat_sessions', 'auto_title_source', "TEXT NOT NULL DEFAULT ''");
             await addColumnIfMissing('ai_chat_sessions', 'agent_session_id', "TEXT NOT NULL DEFAULT ''");
             await addColumnIfMissing('ai_chat_sessions', 'agent_root', "TEXT NOT NULL DEFAULT ''");
             await run(`
@@ -189,18 +193,23 @@ async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offs
     await ensureReady();
     if (!owner) return [];
     const normalizedPath = normalizePagePath(pagePath);
+    // Backfill only this account's titles; manual list names remain independent.
+    const untitled = await all(`SELECT s.id,
+        (SELECT content FROM ai_chat_messages m WHERE m.session_id=s.id AND m.role='user' ORDER BY m.created_at,m.rowid LIMIT 1) AS question
+        FROM ai_chat_sessions s WHERE s.owner=? AND s.page_path=? AND s.auto_title=''`, [owner, normalizedPath]);
+    for (const row of untitled) if (row.question) await run("UPDATE ai_chat_sessions SET auto_title=? WHERE id=? AND owner=? AND auto_title=''", [conversationTitle(row.question), row.id, owner]);
     const safeLimit = Math.max(1, Math.min(Number(limit) || 30, 100));
     const safeOffset = Math.max(0, Number(offset) || 0);
     const keyword = String(query || '').trim().slice(0, 100);
     const params = [owner, normalizedPath];
     let filter = '';
     if (keyword) {
-        filter = 'AND EXISTS (SELECT 1 FROM ai_chat_messages q WHERE q.session_id = s.id AND q.content LIKE ?)';
-        params.push(`%${keyword.replace(/[%_\\]/g, '')}%`); // 去掉通配符，按普通文本匹配
+        filter = 'AND (s.auto_title LIKE ? OR EXISTS (SELECT 1 FROM ai_chat_messages q WHERE q.session_id = s.id AND q.content LIKE ?))';
+        params.push(...Array(2).fill(`%${keyword.replace(/[%_\\]/g, '')}%`)); // 去掉通配符，按普通文本匹配
     }
     params.push(safeLimit, safeOffset);
     const rows = await all(
-        `SELECT s.id, s.created_at, s.updated_at, s.is_archived, s.agent_session_id, s.agent_root,
+        `SELECT s.id, s.auto_title, s.created_at, s.updated_at, s.is_archived, s.agent_session_id, s.agent_root,
                 (SELECT COUNT(*) FROM ai_chat_messages m WHERE m.session_id = s.id) AS message_count,
                 (SELECT content FROM ai_chat_messages f WHERE f.session_id = s.id AND f.role = 'user' ORDER BY f.created_at ASC, f.rowid ASC LIMIT 1) AS first_question,
                 (SELECT content FROM ai_chat_messages l WHERE l.session_id = s.id AND l.role = 'user' ORDER BY l.created_at DESC, l.rowid DESC LIMIT 1) AS last_question
@@ -224,11 +233,34 @@ async function listOwnedSessions({ owner, pagePath, query = '', limit = 30, offs
         updatedAt: row.updated_at,
         archived: Boolean(row.is_archived),
         messageCount: Number(row.message_count) || 0,
+        title: row.auto_title || conversationTitle(row.first_question || row.last_question),
         firstQuestion: String(row.first_question || '').slice(0, 160),
         discussionMode: groupIds.has(row.id) ? 'group' : null,
         lastQuestion: String(row.last_question || '').slice(0, 160),
         agent: row.agent_session_id && row.agent_root ? { agentSessionId: row.agent_session_id, root: row.agent_root } : null
     }));
+}
+
+async function getTitleSource(sessionId, owner) {
+    await ensureReady();
+    return (await get('SELECT auto_title_source FROM ai_chat_sessions WHERE id=? AND owner=?', [sessionId, String(owner || '')]))?.auto_title_source || '';
+}
+
+async function setAiTitle({ sessionId, owner, title }) {
+    await ensureReady();
+    await run("UPDATE ai_chat_sessions SET auto_title=?, auto_title_source='ai' WHERE id=? AND owner=?", [String(title).slice(0, 80), sessionId, String(owner || '')]);
+}
+
+// 还没有模型标题、且规则标题仍偏长的会话（最近的优先），供后台逐个精简
+async function listTitleCandidates({ owner, pagePath, limit = 8 } = {}) {
+    await ensureReady();
+    const rows = await all(`SELECT s.id, s.auto_title,
+        (SELECT content FROM ai_chat_messages m WHERE m.session_id=s.id AND m.role='user' ORDER BY m.created_at,m.rowid LIMIT 1) AS question
+        FROM ai_chat_sessions s WHERE s.owner=? AND s.page_path=? AND s.auto_title_source<>'ai'
+          AND EXISTS (SELECT 1 FROM ai_chat_messages e WHERE e.session_id = s.id)
+        ORDER BY s.updated_at DESC, s.rowid DESC LIMIT 60`, [String(owner || ''), normalizePagePath(pagePath)]);
+    // 问题本身就很短（规则标题等于原句）时不必请求模型
+    return rows.filter(row => row.question && String(row.question).replace(/\s+/g, ' ').trim() !== row.auto_title).slice(0, limit);
 }
 
 const tokenCount = value => Math.max(0, Math.round(Number(value) || 0));
@@ -257,6 +289,11 @@ async function addMessage({ sessionId, pagePath, pageTitle, role, content, token
             String(modelName || '').slice(0, 120)
         ]
     );
+    if (role !== 'model') {
+        const untitled = await get(`SELECT (SELECT content FROM ai_chat_messages m WHERE m.session_id=s.id AND m.role='user' ORDER BY m.created_at,m.rowid LIMIT 1) AS question
+            FROM ai_chat_sessions s WHERE s.id=? AND s.owner=? AND s.auto_title=''`, [finalSessionId, String(owner || '')]);
+        if (untitled?.question) await run("UPDATE ai_chat_sessions SET auto_title=? WHERE id=? AND owner=? AND auto_title=''", [conversationTitle(untitled.question), finalSessionId, String(owner || '')]);
+    }
     await run('UPDATE ai_chat_sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [finalSessionId]);
     await autoArchiveSessions();
     return finalSessionId;
@@ -648,6 +685,9 @@ async function getRecentMessagesForContext(sessionId, limit = RECENT_CONTEXT_MES
 }
 
 module.exports = {
+    getTitleSource,
+    setAiTitle,
+    listTitleCandidates,
     listMessagesPage,
     ensureReady,
     getOrCreateSession,

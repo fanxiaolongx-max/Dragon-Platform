@@ -56,15 +56,20 @@
     function fitRows(root){
         for(const cell of root.querySelectorAll('[data-cell]')){
             const issues=[];
+            const output=cell.querySelector('.air-output[data-horizontal-pair="chart-table"]');
+            if(output?.querySelector('.kit-widget-chart')&&output.querySelector('table')&&
+                ![...output.querySelectorAll('.kit-row')].some(row=>[...row.children].filter(slot=>slot.matches('.kit-slot')).length>1&&row.querySelector('.kit-widget-chart')&&row.querySelector('table')))
+                issues.push('用户要求图表和表格左右并排，但生成结果没有把两者放在 kit.layout 的同一行');
             for(const row of cell.querySelectorAll('.kit-row')){
                 if(row.children.length<2||!row.offsetParent)continue;
                 let tight=crowded(row);if(!tight.length)continue;
-                issues.push(...tight.map(item=>`${item.slot.dataset.slot||'内容块'} 需要约 ${Math.round(item.need)}px，只分到 ${Math.round(item.have)}px`));
                 row.classList.add('is-compact');tight=crowded(row);if(!tight.length)continue;
+                issues.push(...tight.map(item=>`${item.slot.dataset.slot||'内容块'} 需要约 ${Math.round(item.need)}px，只分到 ${Math.round(item.have)}px`));
+                if(row.closest('[data-horizontal]'))continue;
                 const width=row.clientWidth;row.classList.add('is-wrapped');
                 for(const slot of row.children)if(slot.matches('.kit-slot'))slot.style.minWidth=Math.min(width,needs(slot))+'px';
             }
-            if(issues.length)cell.dataset.layoutIssue=`格子宽约 ${Math.round(cell.getBoundingClientRect().width)}px，同一行并排的内容放不下：${issues.join('；')}`;else delete cell.dataset.layoutIssue;
+            if(issues.length)cell.dataset.layoutIssue=`格子宽约 ${Math.round(cell.getBoundingClientRect().width)}px，内部布局未满足要求：${issues.join('；')}`;else delete cell.dataset.layoutIssue;
         }
     }
     const slotsIn=html=>[...String(html||'').matchAll(/data-slot="([^"]+)"/g)].map(match=>match[1]);

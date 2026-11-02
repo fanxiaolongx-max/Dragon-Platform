@@ -733,31 +733,32 @@ body.dc-chatting .dc-composer {
     border-left: 3px solid rgba(100, 255, 218, 0.5);
     color: var(--dc-muted);
 }
-/* ai-assistant.js 运行时注入的表格样式是浅色面板配色，这里用更高优先级改回深色 */
+/* 对话内表格：清爽通透的高质感亮色样式 */
 .dc-msg-body .ai-table-wrap {
-    margin: 0.7em 0;
+    margin: 12px 0;
     overflow-x: auto;
-    border: 1px solid rgba(148, 163, 184, 0.16);
+    border: 1px solid #e2e8f0;
     border-radius: 10px;
-    background: rgba(2, 6, 23, 0.45);
-    box-shadow: none;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
-.dc-msg-body .ai-markdown-table { width: 100%; border-collapse: collapse; background: transparent; font-size: 13px; }
+.dc-msg-body .ai-markdown-table { width: 100%; border-collapse: separate; border-spacing: 0; background: transparent; font-size: 13px; }
 .dc-msg-body .ai-markdown-table th,
 .dc-msg-body .ai-markdown-table td {
-    padding: 7px 10px;
+    padding: 9px 13px;
     border: 0;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    border-bottom: 1px solid #e2e8f0;
+    border-right: 1px solid #e2e8f0;
     background: transparent;
-    color: #dbe4f0;
+    color: #1e293b;
     text-align: left;
 }
+.dc-msg-body .ai-markdown-table th:last-child,
+.dc-msg-body .ai-markdown-table td:last-child { border-right: 0; }
 .dc-msg-body .ai-markdown-table tr:last-child td { border-bottom: 0; }
-.dc-msg-body .ai-markdown-table tr,
-.dc-msg-body .ai-markdown-table tbody tr:nth-child(n) td { background: transparent; }
-.dc-msg-body .ai-markdown-table tbody tr:nth-child(even) td { background: rgba(148, 163, 184, 0.05); }
-.dc-msg-body .ai-markdown-table tbody tr:hover td { background: rgba(100, 255, 218, 0.05); }
-.dc-msg-body .ai-markdown-table th { background: rgba(148, 163, 184, 0.08); color: #f1f5f9; font-weight: 700; }
+.dc-msg-body .ai-markdown-table tbody tr:nth-child(even) td { background: #fafbfc; }
+.dc-msg-body .ai-markdown-table tbody tr:hover td { background: #f0fdf9; }
+.dc-msg-body .ai-markdown-table th { background: #f8fafc; color: #0f172a; font-weight: 650; border-bottom: 2px solid #cbd5e1; }
 .dc-msg-body .ai-markdown-table td.numeric, .dc-msg-body .ai-markdown-table .align-right { text-align: right; font-variant-numeric: tabular-nums; }
 .dc-msg-body .ai-markdown-table .align-center { text-align: center; }
 .dc-msg-body a.ai-md-link { color: #7dd3fc; text-decoration: underline; text-underline-offset: 3px; }

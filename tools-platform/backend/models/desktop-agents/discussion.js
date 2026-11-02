@@ -27,13 +27,45 @@ function parse(row) { if (!row)
         } return job; }
 async function get(owner, id) { await ensure(); const row = await db.get('SELECT * FROM desktop_agent_discussion_runs WHERE id=? AND owner=?', [id, owner]); if (!row)
     throw error('讨论不存在或不属于当前账号', 404); return parse(row); }
-async function settings(owner, sessionId) { await ensure(); if (!await chat.assertSessionOwner(sessionId, owner))
-    throw error('对话不存在', 404); const row = await db.get('SELECT settings FROM desktop_agent_discussions WHERE session_id=? AND owner=?', [sessionId, owner]); return row ? JSON.parse(row.settings) : null; }
-function config(input={}) { return {mode:'group',version:2,bindings:{}}; }
+async function settings(owner, sessionId) {
+    await ensure();
+    if (!await chat.assertSessionOwner(sessionId, owner)) throw error('对话不存在', 404);
+    const row = await db.get('SELECT settings FROM desktop_agent_discussions WHERE session_id=? AND owner=?', [sessionId, owner]);
+    if (!row) return null;
+    const cfg = JSON.parse(row.settings);
+    if (!Array.isArray(cfg.providers)) {
+        const last = await db.get('SELECT payload FROM desktop_agent_discussion_runs WHERE session_id=? AND owner=? ORDER BY created_at DESC,rowid DESC LIMIT 1', [sessionId, owner]);
+        let payload = {};try { payload = JSON.parse(last?.payload || '{}'); } catch { /* Legacy metadata. */ }
+        const providers = payload.providers || payload.reports?.map(report => report.provider || Object.keys(names).find(id => names[id] === report.agent)) || Object.keys(cfg.bindings || {});
+        cfg.providers = Object.keys(names).filter(id => providers.includes(id));
+    }
+    return cfg;
+}
+function selectedProviders(input) {
+    if (input === undefined) return Object.keys(names);
+    if (!Array.isArray(input) || !input.length || input.some(id => !Object.hasOwn(names,id)) || new Set(input).size !== input.length) throw error('连接器选择无效');
+    return Object.keys(names).filter(id => input.includes(id));
+}
+function config(input={}) { return {mode:'group',version:2,bindings:{},providers:selectedProviders(input.providers)}; }
+async function assertUnstarted(owner,id) {
+    const message = await db.get('SELECT 1 FROM ai_chat_messages WHERE session_id=? LIMIT 1', [id]);
+    if(message)throw error('对话已开始，不能修改连接器；请新建对话',409);
+}
 async function current(owner, id) { if (!await chat.assertSessionOwner(id, owner))
     throw error('对话不存在', 404); await ensure(); return parse(await db.get("SELECT * FROM desktop_agent_discussion_runs WHERE session_id=? AND owner=? AND status IN ('queued','running') ORDER BY created_at DESC LIMIT 1", [id, owner])); }
-async function saveSettings(owner, id, input) { await ensure(); if (!await chat.assertSessionOwner(id, owner))
-    throw error('对话不存在', 404); const cfg = await settings(owner,id)||config(input); await db.run('INSERT INTO desktop_agent_discussions(session_id,owner,settings,cursor) VALUES(?,?,?,0) ON CONFLICT(session_id) DO UPDATE SET settings=excluded.settings WHERE owner=excluded.owner', [id, owner, JSON.stringify(cfg)]); return cfg; }
+async function saveSettings(owner, id, input) {
+    await ensure();if (!await chat.assertSessionOwner(id, owner)) throw error('对话不存在', 404);
+    const saved = await settings(owner,id);
+    if(saved){
+        if(input?.mode&&input.mode!=='group'||input?.providers!==undefined&&JSON.stringify(selectedProviders(input.providers))!==JSON.stringify(saved.providers))throw error('本对话已绑定连接器，不能修改；请新建对话',409);
+        return saved;
+    }
+    await assertUnstarted(owner,id);
+    const cfg=config(input);
+    await db.run('INSERT INTO desktop_agent_discussions(session_id,owner,settings,cursor) VALUES(?,?,?,0) ON CONFLICT(session_id) DO NOTHING', [id,owner,JSON.stringify(cfg)]);
+    return settings(owner,id);
+}
+
 async function saveBindings(owner,id,provider,nativeId){
     const cfg=await settings(owner,id)||config();cfg.bindings[provider]=nativeId;
     await db.run('UPDATE desktop_agent_discussions SET settings=? WHERE session_id=? AND owner=?',[JSON.stringify(cfg),id,owner]);
@@ -53,15 +85,19 @@ async function start(owner, input) {
     const host=await require('./repository').access(owner);
     if(!host.allowSend)throw error('管理员已关闭桌面消息发送',409);
     if(input.sessionId&&!await chat.assertSessionOwner(input.sessionId,owner))throw error('原对话不存在',404);
-    const sessionId=await chat.getOrCreateSession({owner,sessionId:input.sessionId,pagePath:'/',pageTitle:'DragonTAC · Agent 讨论组'});
-    const saved=await settings(owner,sessionId);
-    const cfg=saved?.version===2&&saved.mode==='group'?saved:config();
-    const reports=Object.entries(names).map(([provider,agent])=>({provider,agent,nativeId:cfg.bindings[provider]||'',round:1,status:'pending'}));
+    const saved=input.sessionId?await settings(owner,input.sessionId):null;
+    if(!saved&&input.sessionId)await assertUnstarted(owner,input.sessionId);
+    const cfg=saved?.version===2&&saved.mode==='group'?saved:config({providers:input.providers});
+    if(!cfg.providers.length)throw error('无法确认本对话绑定的连接器，请检查历史记录',409);
+    if(saved&&input.providers!==undefined&&JSON.stringify(selectedProviders(input.providers))!==JSON.stringify(cfg.providers))throw error('本对话已绑定连接器，不能更改成员；请新建对话',409);
+    const sessionId=input.sessionId||await chat.getOrCreateSession({owner,pagePath:'/',pageTitle:'连接器 · 智能体讨论'});
+    const providerList = cfg.providers;
+    const reports=providerList.filter(p=>names[p]).map(provider=>({provider,agent:names[provider],nativeId:cfg.bindings[provider]||'',round:1,status:'pending'}));
     for(const report of reports){
         if(!host.providers[report.provider]){report.status='unavailable';report.error='该成员已在全局设置中停用';}
         if(report.provider==='claudecode'&&!host.claudeAutomation){report.status='unavailable';report.error='请在全局设置开启 Claude 模拟操作发送，才能自动建立桌面会话';}
     }
-    const payload={mode:'group',settings:cfg,question:input.text.trim(),reports};
+    const payload={mode:'group',settings:cfg,question:input.text.trim(),reports,providers:providerList};
     const inserted = await db.run("INSERT OR IGNORE INTO desktop_agent_discussion_runs VALUES(?,?,?,'queued',?,?)", [input.requestId, sessionId, owner, JSON.stringify(payload), Date.now()]);
     if (!inserted.changes) {
         const duplicate = await db.get('SELECT * FROM desktop_agent_discussion_runs WHERE id=? AND owner=?', [input.requestId, owner]);
@@ -70,8 +106,10 @@ async function start(owner, input) {
         throw error('这条对话还有正在进行的桌面讨论，请等待或停止', 409);
     }
     try {
-        await db.run('INSERT INTO desktop_agent_discussions(session_id,owner,settings,cursor) VALUES(?,?,?,?) ON CONFLICT(session_id) DO UPDATE SET settings=excluded.settings,cursor=cursor+? WHERE owner=excluded.owner', [sessionId, owner, JSON.stringify(cfg), 0,0]);
-        await chat.addMessage({ sessionId, owner, pagePath: '/', pageTitle: 'DragonTAC · 桌面讨论', role: 'user', content: input.text });
+        await db.run('INSERT INTO desktop_agent_discussions(session_id,owner,settings,cursor) VALUES(?,?,?,0) ON CONFLICT(session_id) DO NOTHING', [sessionId, owner, JSON.stringify(cfg)]);
+        const bound=await settings(owner,sessionId);
+        if(JSON.stringify(bound.providers)!==JSON.stringify(providerList))throw error('本对话已绑定其他连接器；请新建对话',409);
+        await chat.addMessage({ sessionId, owner, pagePath: '/', pageTitle: '连接器 · 讨论', role: 'user', content: input.text });
         return get(owner, input.requestId);
     }
     catch (e) {

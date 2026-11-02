@@ -1,0 +1,95 @@
+// Run: node_modules/.bin/electron tests/home-theme-search-browser.cjs
+// Isolated real home markup/styles, no backend database or model calls.
+const { app, BrowserWindow } = require('electron');
+const assert = require('node:assert/strict');
+const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+const express = require('express');
+const root = path.join(__dirname, '..');
+const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'home-theme-search-'));
+app.setPath('userData', path.join(temp, 'profile'));
+app.disableHardwareAcceleration();
+let win, server;
+const evaluate = code => win.webContents.executeJavaScript(code, true);
+const until = expression => evaluate(`new Promise((resolve,reject)=>{let n=0;const poll=()=>{if(${expression})resolve();else if(++n>200)reject(new Error(${JSON.stringify(expression)}));else setTimeout(poll,20)};poll()})`);
+setTimeout(() => app.exit(1), 45000).unref();
+app.whenReady().then(async () => {
+    const web = express();
+    web.get('/', (_, res) => {
+        let html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8');
+        html = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, tag => /src="\/js\/(?:home\/(?:home-mode|dragon-claw|conversation-search)|shared\/i18n)\.js"/.test(tag) ? tag : '');
+        html = html.replace(/<body\b[^>]*>/, tag => `${tag}<script>
+            document.documentElement.dataset.ui='v2';document.documentElement.dataset.theme='light';
+            localStorage.setItem('tools_user','fixture');localStorage.setItem('tools_lang','zh-CN');
+            window.HomeWorkspace={getTools:()=>[]};
+            window.ToolsAIAssistant={requestStreamingChat:async(payload,handlers)=>{handlers.onEvent({type:'start',sessionId:'fixture'});handlers.onDelta('目标 **匹配** 与目标匹配。代码：\\n\\n\\x60\\x60\\x60js\\nconst value = "目标匹配";\\n\\x60\\x60\\x60');return {sessionId:'fixture',reply:'目标 **匹配** 与目标匹配。代码：\\n\\n\\x60\\x60\\x60js\\nconst value = "目标匹配";\\n\\x60\\x60\\x60'};}};
+        </script>`);
+        res.type('html').send(html);
+    });
+    web.get('/api/ai/models', (_, res) => res.json({ models: [] }));
+    web.get('/api/ai/sessions', (_, res) => res.json({ items: [] }));
+    web.use(express.static(path.join(root, 'frontend')));
+    server = await new Promise(resolve => { const listener = web.listen(0, '127.0.0.1', () => resolve(listener)); });
+    win = new BrowserWindow({ show: false, width: 1440, height: 950, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
+    await win.loadURL(`http://127.0.0.1:${server.address().port}`);
+    await evaluate(`document.getAnimations().forEach(animation => { try { animation.finish(); } catch {} });`);
+    await until('!!window.DragonClaw && !!document.querySelector(".dc-find-toggle")');
+    assert.equal(await evaluate('!!document.querySelector("#statsBar,.history-panel,#homePromotions")'), false);
+    // Representative real component classes to verify formerly white-on-white surfaces.
+    await evaluate(`document.querySelector('.home-panel').insertAdjacentHTML('beforeend','<button class="desktop-agent-chat"><b>外部对话标题</b></button>');
+        document.querySelector('.home-main').insertAdjacentHTML('beforeend','<section class="home-caps"><h2 class="home-caps-title">插件与脚本</h2><a class="home-cap-card"><span class="home-cap-card-name">浏览器插件</span><span class="home-cap-badge">F12 脚本</span></a></section>');
+        dcInput.value='首条消息';dcInput.dispatchEvent(new Event('input',{bubbles:true}));dcComposer.requestSubmit();`);
+    await until('document.querySelectorAll(".dc-msg-body").length===2&&!document.querySelector(".dc-composer.is-generating")');
+    await evaluate(`document.querySelector('.dc-msg--ai .dc-msg-body').innerHTML='<p>目标<strong>匹配</strong> 与目标匹配。</p><pre><code>const value = 目标匹配;</code></pre>';`);
+    const colors = await evaluate(`Object.fromEntries(['.home-cap-card-name','.home-caps-title','.desktop-agent-chat b','.dc-msg--ai .dc-msg-body'].map(s=>[s,getComputedStyle(document.querySelector(s)).color]))`);
+    Object.values(colors).forEach(color => assert.equal(color, 'rgb(31, 35, 40)'));
+    await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'f',ctrlKey:true,bubbles:true,cancelable:true}));`);
+    assert.equal(await evaluate('document.activeElement===document.querySelector(".dc-find input")'), true);
+    await evaluate(`document.querySelector('.dc-find input').value='目标匹配';document.querySelector('.dc-find input').dispatchEvent(new Event('input'));`);
+    assert.equal(await evaluate('document.querySelector(".dc-find-count").textContent'), '1/3');
+    assert.equal(await evaluate('CSS.highlights.get("dc-find-matches").size'), 3, 'find across Markdown inline nodes and code');
+    assert.equal(await evaluate('document.querySelectorAll(".dc-msg-body mark").length'), 0, 'search preserves message DOM');
+    await evaluate(`document.querySelector('[data-find-next]').click()`);
+    assert.equal(await evaluate('document.querySelector(".dc-find-count").textContent'), '2/3');
+    await evaluate(`document.querySelector('.dc-find input').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',shiftKey:true,bubbles:true}));`);
+    assert.equal(await evaluate('document.querySelector(".dc-find-count").textContent'), '1/3');
+    await evaluate(`document.querySelector('[data-find-prev]').click()`);
+    assert.equal(await evaluate('document.querySelector(".dc-find-count").textContent'), '3/3');
+    await evaluate(`document.getAnimations().forEach(animation => { try { animation.finish(); } catch {} });`);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    fs.writeFileSync(path.join(temp, 'search-light.png'), (await win.webContents.capturePage()).toPNG());
+    // Mutation during search updates ranges without stealing the scroll position.
+    await evaluate(`document.querySelector('.dc-msg--ai .dc-msg-body').append(document.createTextNode(' 新增目标匹配'));`);
+    await until('CSS.highlights.get("dc-find-matches").size===4');
+    await evaluate(`document.querySelector('.dc-find input').value='<script>';document.querySelector('.dc-find input').dispatchEvent(new Event('input'));`);
+    assert.equal(await evaluate('document.querySelector(".dc-find-count").textContent'), '无匹配');
+    assert.equal(await evaluate('document.querySelector("[data-find-next]").disabled'), true);
+    await evaluate(`document.querySelector('.dc-find input').value='目标匹配';document.querySelector('.dc-find input').dispatchEvent(new Event('input'));document.documentElement.dataset.theme='dark';`);
+    assert.equal(await evaluate('getComputedStyle(document.querySelector(".desktop-agent-chat b")).color'), 'rgb(230, 232, 235)');
+    fs.writeFileSync(path.join(temp, 'search-dark.png'), (await win.webContents.capturePage()).toPNG());
+    win.setContentSize(390, 844);
+    await evaluate(`document.body.classList.add('v2-side-collapsed');`);
+    await until('innerWidth===390');
+    assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'), true, 'mobile has no horizontal overflow');
+    assert.ok(await evaluate('dcThread.getBoundingClientRect().width>340'), 'mobile conversation uses full window');
+    fs.writeFileSync(path.join(temp, 'search-mobile.png'), (await win.webContents.capturePage()).toPNG());
+    await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));`);
+    assert.equal(await evaluate('CSS.highlights.has("dc-find-matches")'), false);
+    assert.equal(await evaluate('document.querySelector(".dc-find-bar").hidden'), true);
+    await evaluate(`document.querySelector('.dc-msg--ai .dc-msg-body').append(document.createTextNode(' İ [a+b]'));document.querySelector('.dc-find-toggle').click();document.querySelector('.dc-find input').value='[a+b]';document.querySelector('.dc-find input').dispatchEvent(new Event('input'));`);
+    assert.equal(await evaluate('document.querySelector(".dc-find-count").textContent'), '1/1', 'literal metacharacters and Unicode offsets');
+    await evaluate(`document.querySelector('[data-find-close]').click()`);
+    // Collapsed content can be located without losing the user’s fold preference.
+    await evaluate(`document.documentElement.dataset.theme='light';const msg=document.querySelector('.dc-msg--user');msg.classList.add('is-collapsed');msg.querySelector('.dc-msg-body').textContent='长消息\\n'.repeat(40)+'折叠命中';document.querySelector('.dc-find-toggle').click();document.querySelector('.dc-find input').value='折叠命中';document.querySelector('.dc-find input').dispatchEvent(new Event('input'));`);
+    assert.equal(await evaluate('document.querySelector(".dc-msg--user").classList.contains("dc-find-reveal")'), true);
+    await evaluate(`document.querySelector('[data-find-close]').click()`);
+    assert.equal(await evaluate('document.querySelector(".dc-msg--user").classList.contains("dc-find-reveal")'), false);
+    assert.equal(await evaluate('document.querySelector(".dc-msg--user").classList.contains("is-collapsed")'), true);
+    win.setContentSize(1440, 950);
+    await evaluate(`DragonClaw.newChat();document.getElementById('dcResume').hidden=false;document.getElementById('dcResume').innerHTML='<span class="dc-resume-icon">↺</span><span class="dc-resume-text"><b>继续上次对话</b><span class="dc-resume-question">修复亮色主题</span><small>今天 · 2 条消息</small></span><button class="dc-action dc-action--primary">继续对话</button>';`);
+    assert.equal(await evaluate('getComputedStyle(document.querySelector(".dc-resume-text b")).color'), 'rgb(31, 35, 40)');
+    await evaluate(`document.getAnimations().forEach(animation => { try { animation.finish(); } catch {} });`);
+    await new Promise(resolve => setTimeout(resolve, 300));
+    fs.writeFileSync(path.join(temp, 'landing-light.png'), (await win.webContents.capturePage()).toPNG());
+    console.log('PASS: theme contrast, removed sections, search across Markdown/code, ranges, navigation, dynamic messages, no-match, Escape, folded messages, dark theme and 390px layout. Screenshots: '+temp);
+    win.destroy(); server.close(); app.exit(0);
+}).catch(error => { console.error(error); win?.destroy(); server?.close(); app.exit(1); });

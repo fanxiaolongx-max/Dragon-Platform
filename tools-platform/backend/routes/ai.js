@@ -770,6 +770,10 @@ async function handleChatRequest(req, res) {
             activeChats.set(lockKey, (activeChats.get(lockKey) || 0) + 1);
             releaseChat = () => { const count = (activeChats.get(lockKey) || 1) - 1; if (count) activeChats.set(lockKey, count); else activeChats.delete(lockKey); };
             historyContext = { sessionId: savedSessionId, pagePath: normalizedPath, pageTitle, owner: req.user?.username || '', question: lastMessage.content };
+            // 对话名称：与回答并行请求模型精简第一个问题，生成后推给页面刷新侧栏（不记入对话事件）
+            if (!channelTurn) require('../models/ai-title-generator').titleForSession({ sessionId: savedSessionId, owner: req.user?.username || '', question: lastMessage.content })
+                .then(title => { if (title && streamStarted && !res.destroyed && !res.writableEnded) res.write(`${JSON.stringify({ type: 'title', sessionId: savedSessionId, title })}\n`); })
+                .catch(() => {});
         }
         const aiClient = aiProviderClient.createClient(aiSettings);
         if (streamRequested) {
@@ -1374,9 +1378,38 @@ router.post('/compact', checkAuth, async (req, res) => {
     }
 });
 
+// Draft-only rewrite: no conversation, workspace tools, files or business data are read or written.
+router.post('/enhance-prompt', checkAuth, async (req, res) => {
+    const enhancer = require('../models/ai-prompt-enhancer');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    timeout.unref?.();
+    const onClose = () => { if (!res.writableEnded) controller.abort(); };
+    res.on('close', onClose);
+    try {
+        enhancer.validatePrompt(req.body?.text);
+        const choice = await aiSettingsRepo.resolveModelChoice(req.body?.modelId);
+        const settings = await aiSettingsRepo.getRuntimeSettings({ profileId: choice?.profileId });
+        if (!settings.hasApiKey || !settings.keyLooksValid) return res.status(503).json({ code: 'AI_MODEL_NOT_CONFIGURED', error: '请先配置可用的 AI 模型' });
+        const secrets = await aiSettingsRepo.getRedactionSecrets();
+        const result = await enhancer.enhancePrompt({ text: req.body.text, language: req.body.uiLanguage,
+            client: aiProviderClient.createClient(settings), signal: controller.signal, secrets });
+        if (!res.destroyed) res.json(result);
+    } catch (error) {
+        if (res.destroyed) return;
+        const known = String(error.code || '').startsWith('AI_PROMPT_');
+        res.status(controller.signal.aborted ? 504 : known ? error.statusCode : 502).json({
+            code: controller.signal.aborted ? 'AI_PROMPT_TIMEOUT' : known ? error.code : 'AI_PROMPT_FAILED',
+            error: controller.signal.aborted ? '增强超时，请重试；原文已保留' : known ? error.message : '提示词增强失败，请稍后重试；原文已保留'
+        });
+    } finally {
+        clearTimeout(timeout); res.removeListener('close', onClose);
+    }
+});
+
 /**
  * GET /api/ai/models
- * 对话界面可选模型：管理员配置的自定义名称，未配置映射时为真实模型名。
+ * 对话界面可选模型：直接显示可用配置方案的真实模型名称。
  */
 router.get('/models', checkAuth, async (_req, res) => {
     try {
@@ -1624,6 +1657,10 @@ router.get('/sessions', checkAuth, async (req, res) => {
                 limit: req.query.limit,
                 offset: req.query.offset
             });
+            // 侧栏转圈：服务器上仍在生成回复的会话（其他标签页、定时任务、频道桥接等）
+            items.forEach(item => { if (activeChats.has(chatLockKey(item.id))) item.busy = true; });
+            // 旧对话的长标题在后台逐个交给模型精简，下次读取列表时生效
+            if (!req.query.query) require('../models/ai-title-generator').backfillSessions(req.user?.username || '', req.query.pagePath || '/');
             return res.json({ items });
         }
         const items = await aiChatRepo.listSessions({

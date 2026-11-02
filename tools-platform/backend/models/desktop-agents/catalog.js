@@ -99,7 +99,7 @@ async function claude(limit) {
     }
     return result.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, limit);
 }
-async function transcript(session) {
+async function transcriptFile(session) {
     let file = session.file;
     if (session.provider === 'claudecode') {
         for (const root of roots().projects) {
@@ -118,6 +118,10 @@ async function transcript(session) {
                 break;
         }
     }
+    return file || null;
+}
+async function transcript(session) {
+    const file = await transcriptFile(session);
     if (!file)
         return { items: [], available: false, reason: '桌面客户端尚未提供此会话的本地消息记录' };
     const allowed = session.provider === 'codex' ? [path.join(roots().codex, 'sessions')] : roots().projects;
@@ -199,6 +203,35 @@ async function transcript(session) {
     const busy = Boolean(busySince) && Date.now() - Date.parse(lastStamp || busySince) < STALE_MS && !(settling && Date.now() - Date.parse(settling) > 60000);
     return { items: items.slice(-200), available: true, busy, busySince: busy ? busySince : null };
 }
+// 会话列表的「运行中」标记：只看最近有活动的会话，按记录文件的修改时间与大小缓存，文件没变就不重读
+const busyCache = new Map();
+async function busyState(session) {
+    const id = `${session.provider}:${session.id}`;
+    try {
+        const cached = busyCache.get(id);
+        const file = cached?.file || await transcriptFile(session);
+        if (!file)
+            return false;
+        const stat = await fs.stat(file), stamp = `${stat.mtimeMs}:${stat.size}`;
+        // 超过 STALE_MS 没写入：transcript() 也会判为已停止，不必再读
+        if (Date.now() - stat.mtimeMs >= STALE_MS) {
+            busyCache.set(id, { file, stamp, busy: false, at: Date.now() });
+            return false;
+        }
+        // 文件没变：空闲直接沿用；运行中每 30 秒复核一次（Claude 无结束钩子时 end_turn 后 60 秒才算结束）
+        if (cached && cached.stamp === stamp && (!cached.busy || Date.now() - cached.at < 30000))
+            return cached.busy;
+        const { busy } = await transcript({ ...session, file });
+        busyCache.set(id, { file, stamp, busy, at: Date.now() });
+        if (busyCache.size > 200)
+            busyCache.delete(busyCache.keys().next().value);
+        return busy;
+    }
+    catch {
+        busyCache.delete(id);
+        return false;
+    }
+}
 async function antigravityTimestamps(ids = []) {
     const file = roots().antigravityDb;
     try {
@@ -224,4 +257,4 @@ async function antigravityTimestamps(ids = []) {
         return new Map();
     }
 }
-module.exports = { home, roots, entries, json, readDb, safe, userText, codex, claude, transcript, antigravityTimestamps };
+module.exports = { home, roots, entries, json, readDb, safe, userText, codex, claude, transcript, busyState, antigravityTimestamps };

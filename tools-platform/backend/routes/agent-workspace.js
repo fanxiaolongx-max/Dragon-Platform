@@ -11,6 +11,7 @@ const runManager = require('../models/agent-run-manager');
 const guard = require('../models/agent-path-guard');
 const prService = require('../models/agent-pr-service');
 const workspaceChanges = require('../models/agent-workspace-changes');
+const workspaceGit = require('../models/agent-workspace-git');
 const transcripts = require('../models/agent-transcript-repository');
 const { getTenantId } = require('../models/tenant-context');
 
@@ -170,13 +171,28 @@ router.put('/prefs', async (req, res) => {
     }
 });
 
+function workspaceMutation(handler) {
+    return async (req, res) => {
+        if (!runManager.isAdminUser(req.user)) return res.status(403).json({code:'AGENT_READ_ONLY',error:'当前账号只读，不能修改工作空间'});
+        try { res.json(await handler(req)); }
+        catch(error) { res.status(error.statusCode || 400).json({code:error.code || 'WORKSPACE_ERROR',error:error.message}); }
+    };
+}
+router.get('/git', async (req, res) => {
+    try { res.setHeader('Cache-Control','no-store');res.json(await workspaceGit.inspect(expandHome(req.query.root))); }
+    catch(error) { res.status(error.statusCode || 400).json({code:error.code,error:error.message}); }
+});
+router.post('/git/branch', workspaceMutation(req => workspaceGit.switchBranch(expandHome(req.body?.root), req.body?.branch, req.body?.create === true)));
+router.post('/git/worktree', workspaceMutation(req => workspaceGit.createWorktree(expandHome(req.body?.root), runManager.ownerKey(req.user,getTenantId()))));
+router.post('/create', workspaceMutation(req => workspaceGit.createDirectory(expandHome(req.body?.path))));
+
 router.post('/select', async (req, res) => {
     try {
         const root = guard.normalizeRoot(expandHome(req.body && req.body.path));
         const prefs = await prefsRepo.rememberDirectory(req.user.username, root);
         // 最近一次在该目录的会话 id：新标签页（sessionStorage 为空）重选同一目录时沿用，服务端转录才能接上
         const agentSessionId = await runManager.findLatestSessionId(req.user, getTenantId(), root);
-        res.json({ root, gitBranch: runManager.readGitBranch(root), name: path.basename(root) || root, prefs, agentSessionId });
+        res.json({ root, git: await workspaceGit.inspect(root), gitBranch: runManager.readGitBranch(root), name: path.basename(root) || root, prefs, agentSessionId });
     } catch (error) {
         const status = ['AGENT_ROOT_NOT_FOUND', 'AGENT_ROOT_NOT_DIR', 'AGENT_ROOT_REQUIRED'].includes(error.code) ? 400 : 500;
         res.status(status).json({ code: error.code, error: error.message || '选择目录失败' });

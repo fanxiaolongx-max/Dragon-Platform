@@ -12,7 +12,9 @@ test('selecting DragonTAC always means one group, with no manual binding or rout
  for(const mode of ['off','parallel','cycle','random','group']){const cfg=groups.config({mode,rounds:99,bindings:{codex:'an-existing-business-conversation'}});assert.equal(cfg.mode,'group');assert.equal(cfg.version,2);assert.deepEqual(cfg.bindings,{});}
 });
 test('the first message creates all three fresh desktop conversations and keeps the original platform conversation',async()=>{
- const sessionId=await chat.addMessage({owner:'alice',pagePath:'/',pageTitle:'Existing',role:'user',content:'Earlier constraints'}),requestId=crypto.randomUUID();
+ const sessionId=await chat.getOrCreateSession({owner:'alice',pagePath:'/',pageTitle:'Existing'}),requestId=crypto.randomUUID();
+ await groups.saveSettings('alice',sessionId,{mode:'group'});
+ await chat.addMessage({owner:'alice',sessionId,pagePath:'/',role:'user',content:'Earlier constraints'});
  const job=await start({sessionId,requestId,settings:{bindings:{codex:crypto.randomUUID()}}});assert.equal(job.sessionId,sessionId);assert.equal(job.reports.length,3);assert.ok(job.reports.every(r=>!r.nativeId));
  assert.equal((await start({sessionId,requestId})).id,job.id);assert.equal((await groups.current('alice',sessionId)).id,job.id);
  const before=created.length,done=await finish(job);assert.equal(done.status,'done');assert.equal(created.length-before,3);assert.ok(created.slice(before).every(r=>r.text.includes('Earlier constraints')));assert.ok(created[before+1].text.includes('codex native response'),'members see actual completed opinions');
@@ -22,14 +24,23 @@ test('the first message creates all three fresh desktop conversations and keeps 
  const history=await chat.listMessages(sessionId,{owner:'alice'});assert.equal(history.filter(m=>m.content==='Discuss the interface').length,1);for(const name of ['Codex','Claude Code','Antigravity'])assert.ok(history.some(m=>m.role==='model'&&m.content.includes(name)));
  assert.equal(await groups.current('alice',sessionId),null);await finish(job);assert.equal(created.length-before,3,'completed jobs are not dispatched again');
 });
-test('enabling an existing chat persists group mode and cannot be changed back through settings',async()=>{
+test('ordinary chats cannot gain connectors after starting, and group members remain fixed',async()=>{
  const id=await chat.addMessage({owner:'alice',role:'user',content:'Ordinary chat before enabling the group'});
- assert.equal((await chat.listOwnedSessions({owner:'alice',pagePath:'/'})).find(row=>row.id===id).discussionMode,null);
- await groups.saveSettings('alice',id,{mode:'group'});
- assert.equal((await chat.listOwnedSessions({owner:'alice',pagePath:'/'})).find(row=>row.id===id).discussionMode,'group');
- await groups.saveSettings('alice',id,{mode:'off'});
- assert.equal((await groups.settings('alice',id)).mode,'group');
- assert.equal((await chat.listMessages(id,{owner:'alice'})).length,1,'choosing a mode does not send or rewrite messages');
+ await assert.rejects(groups.saveSettings('alice',id,{mode:'group'}),e=>e.status===409);
+ await assert.rejects(start({sessionId:id,providers:['codex','claudecode']}),e=>e.status===409);
+ assert.equal((await chat.listMessages(id,{owner:'alice'})).length,1);
+ const job=await start({providers:['codex','antigravity']});
+ assert.deepEqual(job.reports.map(report=>report.provider),['codex','antigravity']);
+ await finish(job);
+ assert.deepEqual((await groups.settings('alice',job.sessionId)).providers,['codex','antigravity']);
+ await assert.rejects(groups.saveSettings('alice',job.sessionId,{mode:'off'}),e=>e.status===409);
+ await assert.rejects(groups.saveSettings('alice',job.sessionId,{providers:['claudecode','antigravity']}),e=>e.status===409);
+ await assert.rejects(start({sessionId:job.sessionId,providers:['codex','claudecode','antigravity']}),e=>e.status===409);
+ const next=await start({sessionId:job.sessionId});assert.deepEqual(next.reports.map(report=>report.provider),['codex','antigravity']);await finish(next);
+ // Existing records without the new providers field infer their selection from persisted reports.
+ const cfg=await groups.settings('alice',job.sessionId);delete cfg.providers;
+ await db.run('UPDATE desktop_agent_discussions SET settings=? WHERE session_id=?',[JSON.stringify(cfg),job.sessionId]);
+ assert.deepEqual((await groups.settings('alice',job.sessionId)).providers,['codex','antigravity']);
 });
 test('later turns reuse only the group-created native IDs; a new group creates new IDs',async()=>{
  const first=await start();await finish(first);const bindings=(await groups.settings('alice',first.sessionId)).bindings;

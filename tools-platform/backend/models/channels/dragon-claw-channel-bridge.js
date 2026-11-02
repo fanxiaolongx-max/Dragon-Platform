@@ -116,7 +116,25 @@ async function replyDirectly({ channel, user, sessionId, text, reply, account, c
  * @param {(event:object)=>void} options.onEvent delta / status / done / error / http-json / start
  * @returns {Promise<void>} 本轮结束（含出错）时 resolve
  */
-async function runTurn({ channel, account, conversation, toolSessionId, text, aiSessionId, modelId, contextNote, persist = true, signal, onEvent }) {
+// 正在回复的频道会话（channel:kind:id → 进行中的轮数），供侧栏对话列表显示转圈
+const activeTurns = new Map();
+function busyThreads(channel) {
+    const prefix = `${channel}:`;
+    return new Set([...activeTurns.keys()].filter(key => key.startsWith(prefix)).map(key => key.slice(prefix.length)));
+}
+async function runTurn(options) {
+    const { channel, conversation, persist = true } = options;
+    const key = persist !== false && conversation?.id ? `${channel}:${conversation.kind || 'user'}:${conversation.id}` : '';
+    if (!key) return runTurnInner(options);
+    activeTurns.set(key, (activeTurns.get(key) || 0) + 1);
+    try { return await runTurnInner(options); }
+    finally {
+        const left = (activeTurns.get(key) || 1) - 1;
+        if (left > 0) activeTurns.set(key, left);
+        else activeTurns.delete(key);
+    }
+}
+async function runTurnInner({ channel, account, conversation, toolSessionId, text, aiSessionId, modelId, contextNote, persist = true, signal, onEvent }) {
     const user = conversation ? conversationUser(channel, conversation, account) : channelUser(channel, account);
     let sessionId = await usableSessionId(aiSessionId, user.username);
     const fullAccess = channel === 'welink' && persist !== false && Boolean(conversation?.id);
@@ -175,4 +193,4 @@ async function runTurn({ channel, account, conversation, toolSessionId, text, ai
     await aiRouter.handleChatRequest(req, res);
 }
 
-module.exports = { runTurn, channelUser, conversationUser, createVirtualResponse };
+module.exports = { runTurn, busyThreads, channelUser, conversationUser, createVirtualResponse };

@@ -1340,6 +1340,7 @@
         async function loadOperationHistory(resetPage = true) {
             const listEl = document.getElementById('history-list');
             const countEl = document.getElementById('history-source');
+            if (!listEl) return;
 
             if (resetPage) historyState.page = 1;
             if (listEl) {
@@ -1421,11 +1422,12 @@
         }
 
         async function loadStats() {
+            if (!document.getElementById('statsBar')) return;
             try {
                 platformSummary = await API.get('/api/platform-metrics/summary');
                 renderPlatformStats(platformSummary);
             } catch (e) {
-                document.getElementById('stat-tools').textContent = String(11 + customToolsCount);
+                if (document.getElementById('stat-tools')) document.getElementById('stat-tools').textContent = String(11 + customToolsCount);
             }
         }
 
@@ -1486,10 +1488,10 @@
                 const tools = await API.get('/api/custom-tools');
                 customToolsCount = Array.isArray(tools) ? tools.length : 0;
                 renderCustomToolCards(tools);
-                document.getElementById('stat-tools').textContent = String(11 + customToolsCount);
+                if (document.getElementById('stat-tools')) document.getElementById('stat-tools').textContent = String(11 + customToolsCount);
             } catch (e) {
                 customToolsCount = 0;
-                document.getElementById('stat-tools').textContent = '11';
+                if (document.getElementById('stat-tools')) document.getElementById('stat-tools').textContent = '11';
             }
         }
 

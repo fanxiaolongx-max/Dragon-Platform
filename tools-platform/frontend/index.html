@@ -61,6 +61,8 @@
     <link rel="stylesheet" href="/css/home-mode.css">
     <link rel="stylesheet" href="/css/home-capabilities.css">
     <link rel="stylesheet" href="/css/home-v2.css">
+    <link rel="stylesheet" href="/css/home-theme.css">
+    <link rel="stylesheet" href="/css/home-skill-hub.css">
 </head>
 <body class="home-mode-chat home-booting">
     <script>
@@ -111,7 +113,7 @@
                 <nav class="v2-nav" aria-label="主导航">
                     <button type="button" class="v2-nav-item" data-v2-action="newChat"><span class="v2-ico" data-icon="chatPlus"></span><span data-v2-i18n="newChat">新建对话</span></button>
                     <button type="button" class="v2-nav-item" data-v2-action="channels"><span class="v2-ico" data-icon="channels"></span><span data-v2-i18n="channels">频道会话</span></button>
-                    <button type="button" class="v2-nav-item" data-v2-flyout="skills" aria-haspopup="menu" aria-expanded="false"><span class="v2-ico" data-icon="puzzle"></span><span data-v2-i18n="skills">技能·插件·工具</span></button>
+                    <button type="button" class="v2-nav-item" data-v2-action="skillHub"><span class="v2-ico" data-icon="puzzle"></span><span data-v2-i18n="skills">技能·插件·工具</span></button>
                     <button type="button" class="v2-nav-item" data-v2-action="schedule"><span class="v2-ico" data-icon="alarm"></span><span data-v2-i18n="schedule">定时任务</span></button>
                     <button type="button" class="v2-nav-item" data-v2-action="library"><span class="v2-ico" data-icon="book"></span><span data-v2-i18n="library">资料库</span></button>
                     <button type="button" class="v2-nav-item" data-v2-action="opsDrafts"><span class="v2-ico" data-icon="inbox"></span><span data-v2-i18n="opsDrafts">运维待办</span><span class="v2-nav-count" id="v2OpsCount" hidden></span></button>
@@ -234,6 +236,33 @@
                     </div>
                 </nav>
             </div>
+            <div class="home-sidebar-shortcuts" id="homeSidebarShortcuts" hidden><button type="button" class="home-graph-entry" id="homeKnowledgeGraphEntry" data-open-knowledge-graph>
+                <span class="home-graph-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="2.4"></circle><circle cx="5" cy="6" r="1.7"></circle><circle cx="19" cy="7" r="1.7"></circle><circle cx="6" cy="18" r="1.7"></circle><circle cx="18" cy="18" r="1.7"></circle>
+                        <path d="M10.2 10.4 6.3 7.2M13.9 10.6l3.7-2.4M10.1 13.5l-2.8 3M13.9 13.5l2.8 3M7.6 6.3l9.7.5"></path>
+                    </svg>
+                </span>
+                <span class="home-graph-copy">
+                    <span class="home-graph-title" data-home-i18n="home.graph.title">项目知识图谱</span>
+                    <span class="home-graph-divider" aria-hidden="true"></span>
+                    <span class="home-graph-subtitle" data-home-i18n="home.graph.subtitle">探索模块、工具、代码与数据关系</span>
+                </span>
+                <span class="home-graph-arrow" aria-hidden="true">›</span>
+            </button>
+            <button type="button" class="home-graph-entry home-caps-entry" id="homeCapsEntry" hidden>
+                <span class="home-graph-mark" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5h3.2a1.8 1.8 0 1 1 3.6 0H19v3.3a1.8 1.8 0 1 1 0 3.6V15h-3.2a1.8 1.8 0 1 0-3.6 0H9v-3.4a1.8 1.8 0 1 0 0-3.6Z"></path><path d="M5 9v10.5h10.5"></path></svg>
+                </span>
+                <span class="home-graph-copy">
+                    <span class="home-graph-title" data-caps-entry-title>插件与脚本</span>
+                    <span class="home-graph-divider" aria-hidden="true"></span>
+                    <span class="home-graph-subtitle" data-caps-entry-sub></span>
+                </span>
+                <span class="home-graph-arrow" aria-hidden="true">›</span>
+            </button>
+                <div id="homeF12QuickDownloads" class="home-f12-shortcuts"></div>
+            </div>
         </aside>
 
         <main class="home-main">
@@ -274,58 +303,34 @@
             </div>
             <div class="dc-thread" id="dcThread" role="log" aria-live="polite"></div>
             <form class="dc-composer" id="dcComposer" autocomplete="off">
+                <div class="dc-composer-surface">
                 <div class="dc-toast" id="dcToast" role="status" aria-live="polite"></div>
-                <!-- 工作区芯片：显示当前本地目录 / 选择目录入口（js/home/workspace-panel.js 渲染） -->
-                <div class="dc-workspace-chip" id="dcWorkspaceChip" hidden></div>
                 <!-- 对话附件：上传后显示在输入框上方，发送时把文件路径附在消息末尾（js/home/dragon-claw.js） -->
                 <div class="dc-attachments" id="dcAttachments" hidden></div>
                 <textarea id="dcInput" rows="1" placeholder="有什么我可以帮你？" aria-label="有什么我可以帮你？"></textarea>
                 <div class="dc-composer-bar">
                     <button type="button" class="dc-attach" id="dcAttach" data-dc-i18n-title="attach" title="添加附件" aria-label="添加附件"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M14.5 9.5 9.6 14.4a3.2 3.2 0 0 1-4.5-4.5l5.3-5.3a2.1 2.1 0 0 1 3 3l-5.2 5.2a1 1 0 0 1-1.5-1.5L11.5 6.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
                     <input type="file" id="dcAttachInput" multiple hidden accept=".xlsx,.xlsm,.csv,.tsv,.txt,.md,.json,.log,.xml,.yaml,.yml,.html,.htm,.docx,.pptx,.zip,.js,.ts,.py,.java,.go,.sql,.sh,.css,.ini,.conf,.png,.jpg,.jpeg,.gif,.webp">
+                    <button type="button" class="dc-composer-icon dc-enhance" id="dcEnhance" data-v2 aria-label="增强提示词" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12 2 1.7 4.3L18 8l-4.3 1.7L12 14l-1.7-4.3L6 8l4.3-1.7L12 2ZM4 11l1.1 2.9L8 15l-2.9 1.1L4 19l-1.1-2.9L0 15l2.9-1.1L4 11Z" fill="none" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg></button>
                     <div class="dc-model" id="dcModel" hidden>
-                        <button type="button" class="dc-model-btn" id="dcModelBtn" aria-haspopup="listbox" aria-expanded="false" aria-controls="dcModelMenu">
-                            <span class="dc-model-name" id="dcModelName">Aragon</span>
+                        <button type="button" class="dc-model-btn" id="dcModelBtn" aria-haspopup="dialog" aria-expanded="false" aria-controls="dcModelMenu">
+                            <span class="dc-model-name" id="dcModelName"></span>
                             <svg class="dc-model-caret" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5 6 7.5 9 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         </button>
-                        <div class="dc-model-menu" id="dcModelMenu" role="listbox" hidden></div>
+                        <div class="dc-model-menu" id="dcModelMenu" role="dialog" hidden></div>
                     </div>
                     <span class="dc-hint" data-dc-i18n="hint">Enter 发送 · Shift + Enter 换行</span>
+                    <button type="button" class="dc-composer-icon dc-voice" id="dcVoice" data-v2 aria-label="语音输入（即将支持）" aria-disabled="true"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="2.5" width="6" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4.5 9.5a5.5 5.5 0 0 0 11 0M10 15v3M7.5 18h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
                     <button type="submit" class="dc-send" id="dcSend" aria-label="发送">
-                        <svg class="dc-send-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 15.5V4.5M10 4.5 5.5 9M10 4.5 14.5 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        <svg class="dc-send-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3 17 16.2 10 13.2 3 16.2 10 3Z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></svg>
                         <svg class="dc-stop-icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="6" y="6" width="8" height="8" rx="1.5" fill="currentColor"/></svg>
                     </button>
                 </div>
+                </div>
+                <div class="dc-workspace-chip dc-composer-context" id="dcWorkspaceChip" hidden></div>
             </form>
             <div class="dc-prompts" id="dcPrompts"></div>
             <div class="dc-spotlight" id="dcSpotlight" hidden></div>
-            <div class="home-recommended-actions dc-quick"><button type="button" class="home-graph-entry" id="homeKnowledgeGraphEntry" data-open-knowledge-graph>
-                <span class="home-graph-mark" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="12" r="2.4"></circle><circle cx="5" cy="6" r="1.7"></circle><circle cx="19" cy="7" r="1.7"></circle><circle cx="6" cy="18" r="1.7"></circle><circle cx="18" cy="18" r="1.7"></circle>
-                        <path d="M10.2 10.4 6.3 7.2M13.9 10.6l3.7-2.4M10.1 13.5l-2.8 3M13.9 13.5l2.8 3M7.6 6.3l9.7.5"></path>
-                    </svg>
-                </span>
-                <span class="home-graph-copy">
-                    <span class="home-graph-title" data-home-i18n="home.graph.title">项目知识图谱</span>
-                    <span class="home-graph-divider" aria-hidden="true"></span>
-                    <span class="home-graph-subtitle" data-home-i18n="home.graph.subtitle">探索模块、工具、代码与数据关系</span>
-                </span>
-                <span class="home-graph-arrow" aria-hidden="true">›</span>
-            </button>
-            <button type="button" class="home-graph-entry home-caps-entry" id="homeCapsEntry" hidden>
-                <span class="home-graph-mark" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5h3.2a1.8 1.8 0 1 1 3.6 0H19v3.3a1.8 1.8 0 1 1 0 3.6V15h-3.2a1.8 1.8 0 1 0-3.6 0H9v-3.4a1.8 1.8 0 1 0 0-3.6Z"></path><path d="M5 9v10.5h10.5"></path></svg>
-                </span>
-                <span class="home-graph-copy">
-                    <span class="home-graph-title" data-caps-entry-title>插件与脚本</span>
-                    <span class="home-graph-divider" aria-hidden="true"></span>
-                    <span class="home-graph-subtitle" data-caps-entry-sub></span>
-                </span>
-                <span class="home-graph-arrow" aria-hidden="true">›</span>
-            </button>
-                <div id="homeF12QuickDownloads" class="home-f12-shortcuts"></div>
-            </div>
         </section>
 
         <!-- 工具模式标题（js/home/workspace.js 按视图更新） -->
@@ -507,138 +512,6 @@
             <div class="home-empty-text" id="homeToolsEmptyText">没有匹配的工具</div>
         </div>
 
-        <div class="stats-bar" id="statsBar">
-            <div class="stats-head">
-                <div class="stats-title">🚀 平台效能总览</div>
-                <div class="stats-subtitle">基于真实业务数据动态计算</div>
-            </div>
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <div class="stat-num" id="stat-checks">-</div>
-                    <div class="stat-label">已完成指标检查</div>
-                    <div class="stat-note">自动核对与评分</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-num" id="stat-service">-</div>
-                    <div class="stat-label">累计服务次数</div>
-                    <div class="stat-note">业务操作 + 工具访问</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-num" id="stat-manual">-</div>
-                    <div class="stat-label">等效人工工时</div>
-                    <div class="stat-note">按保守口径折算</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-num" id="stat-saved">-</div>
-                    <div class="stat-label">累计节约工时</div>
-                    <div class="stat-note" id="stat-efficiency">提效率 -</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-num" id="stat-tools">-</div>
-                    <div class="stat-label">在线工具模块</div>
-                    <div class="stat-note">统一入口稳定服务</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-num" id="stat-scripts">-</div>
-                    <div class="stat-label">自动化脚本沉淀</div>
-                    <div class="stat-note">可复用生产力资产</div>
-                </div>
-            </div>
-            <div class="ai-impact-row">
-                <div class="ai-impact-head">
-                    <div class="ai-impact-title">✨ AI 智能应用</div>
-                    <div class="ai-impact-badge">已融入核心业务流程</div>
-                </div>
-                <div class="ai-impact-grid">
-                    <div class="ai-metric">
-                        <div class="ai-metric-value" id="ai-scenarios">-</div>
-                        <div class="ai-metric-label">AI 应用场景</div>
-                        <div class="ai-metric-note">助手·适配·告警·PPT</div>
-                    </div>
-                    <div class="ai-metric">
-                        <div class="ai-metric-value" id="ai-tasks">-</div>
-                        <div class="ai-metric-label">智能任务完成</div>
-                        <div class="ai-metric-note" id="ai-task-note">含 AI 问答与告警研判</div>
-                    </div>
-                    <div class="ai-metric">
-                        <div class="ai-metric-value" id="ai-tokens">-</div>
-                        <div class="ai-metric-label">Token 处理量</div>
-                        <div class="ai-metric-note">大模型语义处理</div>
-                    </div>
-                    <div class="ai-metric">
-                        <div class="ai-metric-value" id="ai-alerts">-</div>
-                        <div class="ai-metric-label">告警智能研判</div>
-                        <div class="ai-metric-note">模型 + 智能规则兜底</div>
-                    </div>
-                    <div class="ai-metric">
-                        <div class="ai-metric-value" id="ai-pages">-</div>
-                        <div class="ai-metric-label">业务页面覆盖</div>
-                        <div class="ai-metric-note">已产生真实 AI 会话</div>
-                    </div>
-                    <div class="ai-metric">
-                        <div class="ai-metric-value" id="ai-saved">-</div>
-                        <div class="ai-metric-label">AI 节约分析时间</div>
-                        <div class="ai-metric-note">按保守人工分析口径</div>
-                    </div>
-                </div>
-            </div>
-            <details class="methodology">
-                <summary>查看效能估算口径</summary>
-                <p id="methodologyText">指标检查 2 分钟/项、脚本手工编制 90 分钟/个、数据导入整理 30 分钟/次、报表整理 45 分钟/份；AI 问答 8 分钟/次、告警研判 3 分钟/次。节约工时已扣除平台操作和人工复核时间，属管理口径估算值。</p>
-            </details>
-        </div>
-
-        <!-- 推广与资讯 + 最近操作历史：宽屏并排、紧凑展示（布局见 css/home-workspace.css） -->
-        <div class="home-info-row">
-        <section class="home-promotions" id="homePromotions" aria-labelledby="homePromotionsTitle">
-            <div class="home-promotions-head">
-                <h2 id="homePromotionsTitle" data-i18n="home.promotion.title">推广与资讯</h2>
-                <span data-i18n="home.promotion.hint">点击图片，查看大图</span>
-            </div>
-            <div class="home-promotions-stage">
-                <!-- 后续推广图片：在此追加相同结构的 button，脚本会自动启用多图轮播。 -->
-                <button type="button" class="home-promotion-slide" data-i18n-aria-label="home.promotion.open">
-                    <img src="/assets/promotions/autonomous-maintenance.jpg?v=20261007-01" width="1280" height="720" loading="lazy" decoding="async" alt="让维护责任回归一线，让自主履行成为常态" data-i18n-alt="home.promotion.maintenance">
-                </button>
-            </div>
-            <div class="home-promotions-controls" hidden>
-                <button type="button" data-promotion-action="previous" data-i18n-aria-label="home.promotion.previous">‹</button>
-                <div class="home-promotions-dots" aria-label="图片选择" data-i18n-aria-label="home.promotion.select"></div>
-                <button type="button" data-promotion-action="next" data-i18n-aria-label="home.promotion.next">›</button>
-                <button type="button" class="home-promotions-pause" data-promotion-action="pause" data-i18n="home.promotion.pause">暂停播放</button>
-            </div>
-        </section>
-
-        <section class="history-panel">
-            <div class="history-head">
-                <div class="history-title-wrap">
-                    <div class="history-title">最近操作历史</div>
-                    <div class="source-badge" id="history-source">-</div>
-                </div>
-                <div class="history-actions">
-                    <label class="history-search">
-                        <span class="history-search-icon" aria-hidden="true">⌕</span>
-                        <input type="search" id="history-search" placeholder="搜索操作、详情或工具" autocomplete="off" spellcheck="false">
-                    </label>
-                    <!-- 选项按实际记录动态生成（renderHistoryFilterOptions） -->
-                    <select id="history-filter" class="history-select">
-                        <option value="">全部工具</option>
-                    </select>
-                    <button id="history-refresh" class="history-refresh">刷新历史</button>
-                </div>
-            </div>
-            <div class="history-list" id="history-list">
-                <div class="history-empty">正在加载最近操作历史...</div>
-            </div>
-            <div class="history-footer">
-                <div class="history-page-info" id="history-page-info">默认显示最近 10 条</div>
-                <div class="history-pagination">
-                    <button id="history-prev" class="history-page-btn">上一页</button>
-                    <button id="history-next" class="history-page-btn">下一页</button>
-                </div>
-            </div>
-        </section>
-        </div>
         </main>
         <!-- Dragon Claw 工作区面板：环境 / 上下文 / 更改（js/home/workspace-panel.js） -->
         <aside class="home-workspace-panel" id="dcWorkspacePanel" aria-label="Dragon Claw 工作区" hidden>
@@ -926,11 +799,14 @@
     <script src="/js/home/workspace-panel.js"></script>
     <script src="/js/home/conversation-list.js"></script>
     <script src="/js/home/dragon-claw.js"></script>
+    <script src="/js/home/conversation-search.js"></script>
+    <script src="/js/home/composer-controls.js"></script>
     <script src="/js/home/welink-threads.js"></script>
     <script src="/js/home/desktop-agents.js"></script>
     <script src="/js/home/agent-discussion.js"></script>
     <script src="/js/home/dragon-claw-skills.js"></script>
     <script src="/js/home/home-page.js"></script>
     <script src="/js/home/home-v2.js"></script>
+    <script src="/js/home/skill-hub.js"></script>
 </body>
 </html>

@@ -19,6 +19,9 @@
         root: '',
         rootName: '',
         gitBranch: '',
+        gitInfo: null,
+        gitRequest: 0,
+        gitSaving: false,
         permissionMode: 'ask',
         agentSessionId: '',
         context: null,
@@ -107,12 +110,16 @@
         return Boolean(state.capability?.readOnly);
     }
 
+    // 线性文件夹图标（currentColor），替代 📁 / 📂 表情，跟随亮色 / 深色主题
+    const FOLDER_ICON = '<svg class="wsp-folder-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5Z"/></svg>';
+    const FOLDER_PLUS_ICON = '<svg class="wsp-folder-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5Z"/><path d="M8 7v4M6 9h4"/></svg>';
+
     // ── 环境卡 ──────────────────────────────────────────
     function renderEnv() {
         const dir = state.root
             ? `<div class="wsp-dir">
                     <div class="wsp-dir-main">
-                        <span class="wsp-dir-icon" aria-hidden="true">📁</span>
+                        <span class="wsp-dir-icon" aria-hidden="true">${FOLDER_ICON}</span>
                         <div class="wsp-dir-text">
                             <b title="${escapeHtml(state.root)}">${escapeHtml(state.rootName)}</b>
                             <small title="${escapeHtml(state.root)}">${escapeHtml(state.root)}</small>
@@ -125,7 +132,7 @@
                </div>
                <div class="wsp-row"><span class="wsp-row-label">${escapeHtml(tx('branch'))}</span><span class="wsp-branch">${state.gitBranch ? `<i aria-hidden="true">⎇</i> ${escapeHtml(state.gitBranch)}` : `<em>${escapeHtml(tx('noBranch'))}</em>`}</span></div>`
             : `<button type="button" class="wsp-dir-empty" data-wsp-action="change">
-                    <span aria-hidden="true">📂</span>
+                    <span class="wsp-dir-empty-icon" aria-hidden="true">${FOLDER_PLUS_ICON}</span>
                     <span><b>${escapeHtml(tx('chooseDir'))}</b><small>${escapeHtml(tx('chooseDirHint'))}</small></span>
                </button>`;
         const modes = MODES.map(mode => `
@@ -146,7 +153,7 @@
             </div>
             ${recent.length ? `<div class="wsp-row wsp-row-col">
                 <span class="wsp-row-label">${escapeHtml(tx('recentDirs'))}</span>
-                <div class="wsp-recent">${recent.map(item => `<button type="button" class="wsp-recent-item" data-wsp-select="${escapeHtml(item)}" title="${escapeHtml(item)}"><span>📁</span><span>${escapeHtml(baseName(item))}</span><i>${escapeHtml(shorten(item))}</i></button>`).join('')}</div>
+                <div class="wsp-recent">${recent.map(item => `<button type="button" class="wsp-recent-item" data-wsp-select="${escapeHtml(item)}" title="${escapeHtml(item)}"><span class="wsp-recent-icon" aria-hidden="true">${FOLDER_ICON}</span><span>${escapeHtml(baseName(item))}</span><i>${escapeHtml(shorten(item))}</i></button>`).join('')}</div>
             </div>` : ''}`;
     }
 
@@ -593,11 +600,127 @@
         decorateCheckpoints();
     }
 
+    const wsLabel = (zh, en) => window.ToolsI18n?.getLanguage?.() === 'en-US' ? en : zh;
+    const WS_ICONS = {
+        folder: '<path d="M2.5 6V5A1.5 1.5 0 0 1 4 3.5h4l2 2h6A1.5 1.5 0 0 1 17.5 7v8a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 15Z"/>',
+        branch: '<circle cx="6" cy="4" r="2"/><circle cx="6" cy="16" r="2"/><circle cx="15" cy="5" r="2"/><path d="M6 6v8m9-7c0 5-9 2-9 7"/>',
+        plus: '<path d="M10 3v14M3 10h14"/>',
+        none: '<path d="M3 8V5a1 1 0 0 1 1-1h4l2 2h6a1 1 0 0 1 1 1v3M3 10l7 7m0-7-7 7"/>',
+        search: '<circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/>',
+        check: '<path d="m4 10 4 4 8-8"/>',
+        details: '<rect x="3" y="3" width="14" height="14" rx="2"/><path d="M8 3v14m3-9h3m-3 4h3"/>'
+    };
+    const wsIcon = key => `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${WS_ICONS[key] || ''}</svg>`;
+    const workspaceBusy = () => state.gitSaving || state.pr?.phase === 'running' || document.querySelector('#dcComposer.is-generating');
+
+    async function refreshGit() {
+        if (!state.root) return;
+        const root = state.root, version = ++state.gitRequest;
+        try {
+            const data = await request('GET', `${API}/git?root=${encodeURIComponent(root)}`);
+            if (version !== state.gitRequest || root !== state.root || typeof data.git !== 'boolean') return;
+            if (JSON.stringify(state.gitInfo) === JSON.stringify(data)) return;
+            state.gitInfo = data;state.gitBranch = data.branch || '';
+            const open = el.chip?.querySelector('details[open]')?.dataset.wspPicker;
+            renderChip();renderEnv();
+            if (open) el.chip.querySelector(`[data-wsp-picker="${open}"]`)?.setAttribute('open', '');
+        } catch { /* A failed Git refresh never clears the selected workspace. */ }
+    }
+
+    function renderGitControls() {
+        const info = state.gitInfo;
+        if (!state.root || !info?.git) return '';
+        const unavailable = isReadOnly() || workspaceBusy();
+        const branchName = info.branch || (info.head ? wsLabel('分离的 HEAD', 'Detached HEAD') : wsLabel('尚无提交', 'No commits yet'));
+        return `<details class="dc-context-picker dc-branch-picker" data-wsp-picker="branch">
+            <summary title="${escapeHtml(branchName)}">${wsIcon('branch')}<span>${escapeHtml(branchName)}</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
+            <div class="dc-context-menu"><label class="dc-workspace-search">${wsIcon('search')}<input type="search" data-wsp-branch-search placeholder="${wsLabel('搜索分支', 'Search branches')}" aria-label="${wsLabel('搜索分支', 'Search branches')}"></label>
+                <div class="dc-context-branches">${(info.branches || []).map(branch => {
+                    const elsewhere = branch.worktreeRoot && branch.worktreeRoot !== info.repoRoot;
+                    return `<button type="button" data-wsp-branch="${escapeHtml(branch.name)}" title="${escapeHtml(elsewhere ? wsLabel('已在其他 worktree 使用：', 'Used in another worktree: ') + branch.worktreeRoot : branch.name)}" aria-current="${Boolean(branch.current)}" ${unavailable || elsewhere ? 'disabled' : ''}>${wsIcon('branch')}<span>${escapeHtml(branch.name)}</span>${branch.current ? wsIcon('check') : ''}</button>`;
+                }).join('')}</div><p class="dc-context-empty" data-wsp-branch-empty ${(info.branches || []).length ? 'hidden' : ''}>${wsLabel('没有匹配的分支', 'No matching branches')}</p>
+                <div class="dc-context-divider"></div><button type="button" data-wsp-action="new-branch" ${unavailable || !info.head ? 'disabled' : ''}>${wsIcon('plus')}<span>${wsLabel('新建分支', 'New branch')}</span></button>
+                <p class="dc-context-explanation">${wsLabel('切换前会检查未提交改动，不会自动丢弃或暂存。', 'Uncommitted changes block switching. Changes are never discarded or stashed automatically.')}</p>
+            </div></details>
+            <details class="dc-context-picker dc-worktree-picker" data-wsp-picker="worktree">
+                <summary><span class="dc-worktree-check${info.isWorktree ? ' is-checked' : ''}">${info.isWorktree ? wsIcon('check') : ''}</span><span>Worktree</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
+                <div class="dc-context-menu"><p class="dc-context-explanation">${wsLabel('基于当前已提交的代码创建独立目录，不带入未提交改动。', 'Create an isolated directory from the current commit. Uncommitted changes are kept in the original workspace.')}</p>
+                    <button type="button" data-wsp-action="new-worktree" ${unavailable || !info.head ? 'disabled' : ''}>${wsIcon('plus')}<span>${wsLabel('新建 Worktree', 'New worktree')}</span></button>
+                    ${(info.worktrees || []).length ? '<div class="dc-context-divider"></div>' : ''}
+                    ${(info.worktrees || []).map(item => `<button type="button" data-wsp-select="${escapeHtml(item.root)}" title="${escapeHtml(item.root)}" aria-current="${Boolean(item.current)}" ${!item.available || workspaceBusy() ? 'disabled' : ''}>${wsIcon('folder')}<span><b>${escapeHtml(baseName(item.root))}</b><small>${escapeHtml(item.branch || wsLabel('分离的 HEAD', 'Detached HEAD'))}</small></span>${item.current ? wsIcon('check') : ''}</button>`).join('')}
+                </div></details>`;
+    }
+
+    async function changeBranch(branch, create = false) {
+        if (!state.root || isReadOnly() || workspaceBusy()) return;
+        if (!create && branch === state.gitBranch) return;
+        const root = state.root, ticket = state.selectionEpoch;
+        state.gitSaving = true;renderChip();
+        try {
+            await request('POST', `${API}/git/branch`, {root,branch,create});
+            if (root !== state.root || ticket !== state.selectionEpoch) return;
+            window.DragonClawWorkspace.resetSession();
+            await selectDirectory(root);
+            toast(wsLabel('已切换到分支 ', 'Switched to branch ') + branch);
+        } catch(error) { toast(error.message); }
+        finally { state.gitSaving = false;renderChip(); }
+    }
+
+    async function createWorktree() {
+        if (!state.root || isReadOnly() || workspaceBusy()) return;
+        const root = state.root, ticket = state.selectionEpoch;
+        state.gitSaving = true;renderChip();
+        try {
+            const data = await request('POST', `${API}/git/worktree`, {root});
+            if (root !== state.root || ticket !== state.selectionEpoch) return;
+            await selectDirectory(data.root);
+            toast(wsLabel('已进入独立 Worktree', 'Opened the new worktree'));
+        } catch(error) { toast(error.message); }
+        finally { state.gitSaving = false;renderChip(); }
+    }
+
+    async function createWorkspace() {
+        if (isReadOnly() || workspaceBusy()) return;
+        const sep = state.capability?.sep || '/';
+        const directory = await window.AppDialog.prompt(wsLabel('输入新文件夹的完整路径。已有目录请使用“打开本地文件夹”。', 'Enter the full path for a new folder. To use an existing folder, choose Open local folder.'), {title:wsLabel('新建工作空间', 'New workspace'),defaultValue:(state.capability?.homeDir || '') + sep + 'workspace',maxLength:1024});
+        if (!directory?.trim()) return;
+        try { const data = await request('POST', `${API}/create`, {path:directory.trim()});await selectDirectory(data.root); }
+        catch(error) { toast(error.message); }
+    }
+
     // ── 输入框上方的工作区芯片 ───────────────────────────
     function renderChip() {
         if (!el.chip) return;
         el.chip.hidden = !state.enabled;
         if (!state.enabled) return;
+        if (document.documentElement.dataset.ui === 'v2') {
+            const en = window.ToolsI18n?.getLanguage?.() === 'en-US';
+            const label = (zh, english) => en ? english : zh;
+            const folder = wsIcon('folder');
+            const recent = [...new Set([state.root, state.prefs.lastDirectory, ...state.prefs.recentDirectories].filter(Boolean))].slice(0, 8);
+            const modeName = isReadOnly() ? tx('readOnlyMode') : tx(`mode${state.permissionMode[0].toUpperCase()}${state.permissionMode.slice(1)}`);
+            el.chip.innerHTML = `
+                <details class="dc-context-picker dc-directory-picker" data-wsp-picker="directory">
+                    <summary title="${escapeHtml(state.root || tx('chooseDirHint'))}">${folder}<span>${escapeHtml(state.rootName || label('选择工作空间', 'Choose workspace'))}</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
+                    <div class="dc-context-menu">
+                        <label class="dc-workspace-search">${wsIcon('search')}<input type="search" data-wsp-recent-search placeholder="${label('搜索工作空间', 'Search workspaces')}" aria-label="${label('搜索工作空间', 'Search workspaces')}" autocomplete="off"></label>
+                        <div class="dc-context-recents">${recent.map(path => `<button type="button" data-wsp-select="${escapeHtml(path)}" title="${escapeHtml(path)}" aria-current="${path === state.root}">${folder}<span>${escapeHtml(baseName(path))}</span>${path === state.root ? wsIcon('check') : ''}</button>`).join('')}</div>
+                        <p class="dc-context-empty" ${recent.length ? 'hidden' : ''}>${label('暂无最近工作空间', 'No recent workspaces')}</p>
+                        <div class="dc-context-divider"></div>
+                        ${!isReadOnly() ? `<button type="button" data-wsp-action="create-workspace">${wsIcon('plus')}<span>${label('新建工作空间', 'New workspace')}</span></button>` : ''}
+                        <button type="button" data-wsp-action="change">${folder}<span>${label('打开本地文件夹', 'Open local folder')}</span></button>
+                        ${state.root ? `<button type="button" data-wsp-action="clear">${wsIcon('none')}<span>${label('不使用工作空间', 'No workspace')}</span></button><div class="dc-context-divider"></div><button type="button" class="dc-workspace-details" data-wsp-action="panel">${wsIcon('details')}<span>${label('查看工作空间详情', 'Workspace details')}</span></button>` : ''}
+                    </div>
+                </details>
+                ${renderGitControls()}
+                ${isReadOnly() ? `<span class="dc-context-readonly" title="${escapeHtml(tx('readOnlyDesc'))}">♧ ${escapeHtml(modeName)}</span>` : `<details class="dc-context-picker dc-permission-picker${state.permissionMode === 'full' ? ' is-full' : ''}">
+                    <summary><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m10 2 6 2.5V9c0 4-2.5 6.5-6 8-3.5-1.5-6-4-6-8V4.5L10 2Z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg><span>${escapeHtml(modeName)}</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
+                    <div class="dc-context-menu"><p class="dc-context-explanation">${label('设置智能体在工作区中执行操作的权限。', 'Choose which workspace actions the agent may perform.')}</p>
+                        ${MODES.map(mode => `<button type="button" class="dc-permission-option" data-wsp-mode="${mode}" role="menuitemradio" aria-checked="${state.permissionMode === mode}"><span><b>${escapeHtml(tx(`mode${mode[0].toUpperCase()}${mode.slice(1)}`))}</b><small>${escapeHtml(tx(`mode${mode[0].toUpperCase()}${mode.slice(1)}Desc`))}</small></span><span class="dc-context-check" aria-hidden="true">${state.permissionMode === mode ? '✓' : ''}</span></button>`).join('')}
+                    </div>
+                </details>`}`;
+            return;
+        }
         if (!state.root) {
             const last = state.prefs.lastDirectory;
             el.chip.innerHTML = `
@@ -694,7 +817,7 @@
                 ? `<mark>${escapeHtml(item.name.slice(0, prefix.length))}</mark>${escapeHtml(item.name.slice(prefix.length))}`
                 : escapeHtml(item.name);
             html.push(`<button type="button" role="option" id="wspOpt${index}" aria-selected="${index === state.picker.active}" class="wsp-picker-item${index === state.picker.active ? ' is-active' : ''}" data-wsp-index="${index}" title="${escapeHtml(item.path)}">
-                <span class="wsp-picker-item-icon" aria-hidden="true">${item.isGit ? '⎇' : '📁'}</span>
+                <span class="wsp-picker-item-icon" aria-hidden="true">${item.isGit ? '⎇' : FOLDER_ICON}</span>
                 <span class="wsp-picker-item-name">${name}</span>
                 <span class="wsp-picker-item-path">${escapeHtml(shorten(item.path))}</span>
             </button>`);
@@ -748,6 +871,8 @@
         state.root = data.root;
         state.rootName = data.name || baseName(data.root);
         state.gitBranch = data.gitBranch || '';
+        state.gitInfo = data.git || null;
+        state.gitRequest++;
         if (data.prefs) state.prefs = data.prefs;
         state.context = null;
         state.changes = [];
@@ -763,7 +888,8 @@
         }
         try { sessionStorage.setItem(SESSION_ROOT_KEY, data.root); } catch { /* ignore */ }
         renderAll();
-        setOpen(true);
+        if (document.documentElement.dataset.ui !== 'v2') setOpen(true);
+        refreshGit();
         toast(tx('workspaceReady', { name: state.rootName }));
         window.dispatchEvent(new CustomEvent('dragon-claw:workspace-change', { detail: { root: state.root } }));
         restoreState();
@@ -774,6 +900,7 @@
         state.root = '';
         state.rootName = '';
         state.gitBranch = '';
+        state.gitInfo = null;state.gitRequest++;
         state.context = null;
         state.changes = [];
         state.openDiff = null;
@@ -786,15 +913,20 @@
     }
 
     async function setMode(mode) {
-        if (!MODES.includes(mode) || mode === state.permissionMode) return;
-        state.permissionMode = mode;
-        renderEnv();
-        renderChip();
-        toast(tx('modeChanged', { mode: tx(`mode${mode[0].toUpperCase()}${mode.slice(1)}`) }));
+        if (isReadOnly() || state.permissionSaving || !MODES.includes(mode) || mode === state.permissionMode) return;
+        state.permissionSaving = true;
+        el.chip?.setAttribute('aria-busy', 'true');
         try {
-            state.prefs = await request('PUT', `${API}/prefs`, { permissionMode: mode });
+            const saved = await request('PUT', `${API}/prefs`, { permissionMode: mode });
+            state.prefs = saved;
+            state.permissionMode = saved.permissionMode || mode;
+            renderEnv(); renderChip();
+            toast(tx('modeChanged', { mode: tx(`mode${state.permissionMode[0].toUpperCase()}${state.permissionMode.slice(1)}`) }));
         } catch (error) {
             toast(error.message);
+        } finally {
+            state.permissionSaving = false;
+            el.chip?.removeAttribute('aria-busy');
         }
     }
 
@@ -1316,16 +1448,59 @@
         renderContext();
         renderChanges();
         renderEnv();
+        refreshGit();
         refreshChanges(); // 合并 git 工作区里的其他改动
         decorateCheckpoints();
     }
 
     // ── 事件绑定 ────────────────────────────────────────
+    function positionContextMenu(details) {
+        const menu = details.querySelector('.dc-context-menu');
+        if (!menu || !details.open) return;
+        menu.style.transform = '';menu.style.left = '0';menu.style.right = 'auto';
+        const anchor = details.getBoundingClientRect(), above = anchor.top - 16, below = innerHeight - anchor.bottom - 16;
+        const down = above < 180 && below > above;
+        menu.style.top = down ? 'calc(100% + 10px)' : 'auto';
+        menu.style.bottom = down ? 'auto' : 'calc(100% + 10px)';
+        menu.style.maxHeight = `${Math.max(100, down ? below : above)}px`;
+        const rect = menu.getBoundingClientRect();
+        const offset = rect.left < 8 ? 8 - rect.left : rect.right > innerWidth - 8 ? innerWidth - 8 - rect.right : 0;
+        if (offset) menu.style.transform = `translateX(${offset}px)`;
+    }
+
     function bind() {
+        el.chip?.addEventListener('toggle', event => {
+            if (!event.target.open) return;
+            el.chip.querySelectorAll('details[open]').forEach(node => { if (node !== event.target) node.open = false; });
+            positionContextMenu(event.target);
+            event.target.querySelector('input[type=search]')?.focus({preventScroll:true});
+        }, true);
+        window.addEventListener('resize', () => el.chip?.querySelectorAll('details[open]').forEach(positionContextMenu));
+        el.chip?.addEventListener('input', event => {
+            if (!event.target.matches('[data-wsp-recent-search], [data-wsp-branch-search]')) return;
+            const menu = event.target.closest('.dc-context-menu'), query = event.target.value.trim().toLowerCase();
+            const options = [...menu.querySelectorAll(event.target.matches('[data-wsp-branch-search]') ? '[data-wsp-branch]' : '[data-wsp-select]')];
+            options.forEach(button => { button.hidden = !button.title.toLowerCase().includes(query); });
+            const empty = menu.querySelector('.dc-context-empty');
+            empty.hidden = options.some(button => !button.hidden);
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            el.chip?.querySelectorAll('details[open]').forEach(node => { node.open = false; node.querySelector('summary').focus(); });
+        });
         document.addEventListener('click', event => {
+            if (!el.chip?.contains(event.target) || event.target.closest('[data-wsp-action], [data-wsp-select], [data-wsp-mode]')) el.chip?.querySelectorAll('details[open]').forEach(node => { node.open = false; });
+            const branch = event.target.closest('[data-wsp-branch]');
+            if (branch && !branch.disabled && el.chip?.contains(branch)) { el.chip.querySelectorAll('details[open]').forEach(node => node.open = false);changeBranch(branch.dataset.wspBranch);return; }
             const action = event.target.closest('[data-wsp-action]');
             if (action && (el.panel.contains(action) || el.chip?.contains(action))) {
-                if (action.dataset.wspAction === 'change') openPicker();
+                if (action.dataset.wspAction === 'create-workspace') createWorkspace();
+                else if (action.dataset.wspAction === 'new-worktree') createWorktree();
+                else if (action.dataset.wspAction === 'new-branch') {
+                    if (isReadOnly() || workspaceBusy()) return;
+                    window.AppDialog.prompt(wsLabel('输入新的 Git 分支名称', 'Enter a new Git branch name'), {title:wsLabel('新建分支', 'New branch'),defaultValue:'codex/task',maxLength:160}).then(name => { if(name?.trim())changeBranch(name.trim(),true); });
+                }
+                else if (action.dataset.wspAction === 'change') openPicker();
                 else if (action.dataset.wspAction === 'clear') clearDirectory();
                 else if (action.dataset.wspAction === 'panel') setOpen(!state.open);
                 return;
@@ -1482,6 +1657,7 @@
         if (remembered && window.innerWidth > 860) setOpen(true);
         // 手动或其他程序改了文件也能看到：回到页面时、面板打开期间每 15 秒刷新一次
         window.addEventListener('focus', refreshChanges);
+        window.addEventListener('focus', refreshGit);
         document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshChanges(); });
         setInterval(() => { if (state.open && document.visibilityState === 'visible') refreshChanges(); }, 15000);
     }
@@ -1634,6 +1810,9 @@
         close: () => setOpen(false),
         toggle: () => setOpen(!state.open),
         openPicker,
+        selectDirectory: (path) => selectDirectory(path),
+        getRoot: () => state.root,
+        clearDirectory,
         refreshTexts: renderAll
     };
 

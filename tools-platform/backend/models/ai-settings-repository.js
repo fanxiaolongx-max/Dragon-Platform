@@ -5,8 +5,7 @@ const PROFILE_STORE_KEY = 'ai_settings_profiles';
 const LEGACY_SETTINGS_KEY = 'ai_settings';
 const MODEL_ALIAS_KEY = 'ai_model_aliases';
 const MAX_MODEL_ALIASES = 20;
-// 从未配置过映射时，对话界面只提供一个品牌模型 Aragon，跟随当前激活方案。
-const DEFAULT_MODEL_ALIASES = [{ id: 'aragon', name: 'Aragon', description: '', profileId: '' }];
+// Legacy aliases are read only to resolve requests from an already-open older client.
 
 const DEFAULT_SETTINGS = {
     provider: 'gemini',
@@ -316,11 +315,11 @@ async function getPublicSettings() {
         activeImageProfileId: store.activeImageProfileId || '',
         autoSwitchEnabled: store.autoSwitchEnabled === true,
         profiles: store.profiles.map(item => publicProfile(item, store.activeProfileId, store.activeImageProfileId)),
-        modelAliases: await getModelAliases()
+        modelAliases: [] // Deprecated response field retained for older clients.
     };
 }
 
-// ── 对话模型选择：自定义名称（如 Aragon）→ 实际配置方案 ─────────────
+// ── 对话模型选择：真实模型名；历史映射仅兼容旧客户端请求 ─────────────
 function cleanAliasText(value, max) {
     return String(value || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s{2,}/g, ' ').trim().slice(0, max);
 }
@@ -346,45 +345,12 @@ function normalizeModelAliases(list) {
 
 async function getModelAliases() {
     const raw = await readKV('sys', MODEL_ALIAS_KEY, null);
-    if (!raw || !Array.isArray(raw.aliases)) return DEFAULT_MODEL_ALIASES.map(item => ({ ...item }));
+    if (!raw || !Array.isArray(raw.aliases)) return [];
     return normalizeModelAliases(raw.aliases);
 }
 
-async function saveModelAliases(list) {
-    if (!Array.isArray(list)) {
-        const error = new Error('模型映射格式无效');
-        error.statusCode = 400;
-        throw error;
-    }
-    const store = await getProfileStore();
-    const aliases = normalizeModelAliases(list).map(item => ({
-        ...item,
-        profileId: item.profileId && findProfile(store, item.profileId) ? item.profileId : ''
-    }));
-    await writeKV('sys', MODEL_ALIAS_KEY, { version: 1, aliases });
-    return getPublicSettings();
-}
-
-/**
- * 对话界面可选模型（纯函数）。
- * - 有映射：只暴露自定义名称；未绑定或绑定方案已删除时跟随激活方案。
- * - 映射为空：直接暴露各方案的真实模型名，只列 Token 就绪的方案（都未就绪时列激活方案）。
- */
-function buildModelChoices(store, aliases) {
-    const byId = new Map(store.profiles.map(profile => [profile.id, profile]));
-    if (aliases.length) {
-        const models = aliases.map(alias => {
-            const bound = alias.profileId ? byId.get(alias.profileId) : null;
-            return {
-                id: alias.id,
-                name: alias.name,
-                description: alias.description,
-                profileId: bound ? bound.id : store.activeProfileId,
-                followsActive: !bound
-            };
-        });
-        return { mode: 'alias', defaultId: models[0].id, models };
-    }
+/** Chat always lists the real model ID of each ready chat profile. */
+function buildModelChoices(store) {
     const ready = store.profiles.filter(profile => profileCategory(profile) === 'chat').filter(profile => {
         const runtime = runtimeSettings(profileSettings(profile));
         return runtime.hasApiKey && runtime.keyLooksValid;
@@ -393,6 +359,7 @@ function buildModelChoices(store, aliases) {
     const models = visible.map(profile => ({
         id: `profile:${profile.id}`,
         name: profile.model,
+        provider: profile.provider,
         description: profile.name,
         profileId: profile.id,
         followsActive: false
@@ -410,11 +377,17 @@ function pickModelChoice(choices, modelId) {
 }
 
 async function getModelChoices() {
-    return buildModelChoices(await getProfileStore(), await getModelAliases());
+    return buildModelChoices(await getProfileStore());
 }
 
 async function resolveModelChoice(modelId) {
-    return pickModelChoice(await getModelChoices(), modelId);
+    const choices = await getModelChoices();
+    // Preserve the underlying profile for an old tab's alias selection; never expose the alias name.
+    if (modelId && !String(modelId).startsWith('profile:')) {
+        const alias = (await getModelAliases()).find(item => item.id === modelId);
+        if (alias?.profileId) return pickModelChoice(choices, `profile:${alias.profileId}`);
+    }
+    return pickModelChoice(choices, modelId);
 }
 
 // 对普通用户只暴露名称与说明，不暴露方案 ID。
@@ -422,7 +395,7 @@ function publicModelChoices(choices) {
     return {
         mode: choices.mode,
         defaultId: choices.defaultId,
-        models: choices.models.map(({ id, name, description }) => ({ id, name, description }))
+        models: choices.models.map(({ id, name, description, provider }) => ({ id, name, description, provider }))
     };
 }
 
@@ -515,7 +488,6 @@ module.exports = {
     getPublicSettings,
     saveSettings,
     getModelAliases,
-    saveModelAliases,
     getModelChoices,
     resolveModelChoice,
     buildModelChoices,

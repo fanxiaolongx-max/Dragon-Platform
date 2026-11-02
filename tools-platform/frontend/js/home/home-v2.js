@@ -6,6 +6,18 @@
     if (root.getAttribute('data-ui') !== 'v2') return;
 
     const ICONS = {
+        capture: '<path d="M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4"/><rect x="8" y="8" width="8" height="8" rx="1.5"/><path d="M8 12h8M12 8v8"/>',
+        importData: '<path d="M12 3v10m-3-3 3 3 3-3M5 12l-2 5v4h18v-4l-2-5"/><path d="M3 17h5l1.5 2h5l1.5-2h5"/>',
+        chart: '<rect x="3.5" y="4" width="17" height="16" rx="2"/><path d="M8 16v-3m4 3V8m4 8v-5"/>',
+        bolt: '<path d="m13.5 3-9 10H11l-.5 8 9-11H13l.5-7Z"/>',
+        calendar: '<rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4m8-4v4M4 10h16m-12 4h3m2 0h3m-8 3h3"/>',
+        dashboard: '<rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8m-4-4v4M7 13v-3m5 3V7m5 6V9"/>',
+        analytics: '<path d="M4 5v14h9M8 14v-4m4 2V6"/><circle cx="17" cy="14" r="3.5"/><path d="m19.5 16.5 2 2"/>',
+        presentation: '<path d="M3 4h18M5 4v12h14V4M12 16v5m-4 0 4-3 4 3M8 12l3-3 2 2 3-4"/>',
+        calculator: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h1m5 0h2m-8 4h1m5 0h2m-8 3h1m5 0h2"/>',
+        checklist: '<rect x="5" y="4" width="15" height="17" rx="2"/><path d="M9 4V2h7v2M8 10l1 1 2-2m2 1h4m-9 6 1 1 2-2m2 1h4"/>',
+        database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>',
+        server: '<rect x="4" y="3" width="16" height="7" rx="2"/><rect x="4" y="14" width="16" height="7" rx="2"/><path d="M8 6.5h.01M8 17.5h.01M12 6.5h4m-4 11h4"/>',
         compass: '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5 5-2Z"/>',
         chevron: '<path d="m7 10 5 5 5-5"/>',
         chatPlus: '<path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4 3.5V16h-.5A1.5 1.5 0 0 1 4 14.5v-9Z"/><path d="M12 7.5v5M9.5 10h5"/>',
@@ -49,6 +61,15 @@
     };
     const svg = name => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
     const fillIcons = scope => scope.querySelectorAll('.v2-ico[data-icon]').forEach(el => { if (!el.firstChild) el.innerHTML = svg(el.dataset.icon); });
+    // Route-based glyphs stay consistent across language changes and navbar markup.
+    function appGlyph(href) {
+        let path = '';
+        try { path = new URL(href, location.href).pathname.replace(/^\/pages\//, '/').replace(/\.html$/, '').replace(/\/$/, ''); } catch { /* Use a generic application glyph. */ }
+        const routes = { '/uivf12': 'capture', '/sla': 'importData', '/report': 'chart', '/custom-report': 'chart', '/expedite': 'bolt', '/monthly': 'calendar', '/ai-report': 'calendar', '/duty-roster': 'moon', '/bigscreen': 'dashboard', '/topic-analysis': 'analytics', '/topical-analysis': 'analytics', '/frt': 'calculator', '/praudit': 'checklist', '/storage': 'server', '/db-explorer': 'database', '/netcare-explorer': 'compass' };
+        if (routes[path]) return routes[path];
+        if (/network_safety_meeting_summary|nis_2026h1_summary|slide|presentation|ppt/i.test(path)) return 'presentation';
+        return path.startsWith('/custom-tools/') ? 'puzzle' : 'grid';
+    }
 
     const TEXT = {
         'zh-CN': {
@@ -108,12 +129,14 @@
     let openPop = null;
     function closePop() {
         if (!openPop) return;
+        const shortcuts = document.getElementById('homeSidebarShortcuts');
+        if (shortcuts && openPop.pop.contains(shortcuts)) shortcuts.hidden = true;
         openPop.pop.classList.remove('is-open');
         openPop.anchor?.setAttribute('aria-expanded', 'false');
         openPop = null;
     }
     function showPop(pop, anchor, place) {
-        if (openPop?.pop === pop) return;
+        if (openPop?.pop === pop && openPop?.anchor === anchor) return;
         closePop();
         const rect = anchor.getBoundingClientRect();
         if (place === 'right') { pop.style.left = `${rect.right + 6}px`; pop.style.top = `${rect.top - 6}px`; pop.style.bottom = ''; }
@@ -124,6 +147,7 @@
         openPop = { pop, anchor };
         // 超出视口底部时向上收
         const box = pop.getBoundingClientRect();
+        if (box.right > window.innerWidth - 8) pop.style.left = `${Math.max(8, window.innerWidth - box.width - 8)}px`;
         if (box.bottom > window.innerHeight - 8 && place !== 'up') pop.style.top = `${Math.max(8, window.innerHeight - box.height - 8)}px`;
     }
     function makePop(className = '') {
@@ -145,18 +169,34 @@
 
     // ── 主导航动作 ──
     const ACTIONS = {
-        newChat() { window.HomeMode?.set('chat'); window.HomeWelinkThreads?.setSource?.('mine'); click('homeChatNew'); $('dcInput')?.focus(); },
+        newChat() {
+            window.HomeMode?.set('chat');
+            if (location.hash === '#channels') {
+                try { history.replaceState(history.state, '', location.pathname + location.search); } catch { location.hash = ''; }
+            }
+            window.HomeWelinkThreads?.setSource?.('mine');
+            click('homeChatNew');
+            $('dcInput')?.focus();
+            renderModes();
+            queueGroups();
+        },
         channels() {
             window.HomeMode?.set('chat');
+            try { history.replaceState(history.state, '', location.pathname + location.search + '#channels'); } catch { location.hash = '#channels'; }
+            const available = (window.HomeWelinkThreads?.channels?.() || []).map(c => c.id);
             const tabs = [...document.querySelectorAll('.home-chat-tabs [data-chat-source]')].map(el => el.dataset.chatSource);
-            const channel = ['welink', 'weixin'].find(id => tabs.includes(id)) || 'welink';
+            const channel = ['welink', 'weixin'].find(id => available.includes(id) || tabs.includes(id)) || 'welink';
             window.HomeWelinkThreads?.setSource?.(channel, { openLatest: true });
+            renderModes();
+            queueGroups();
         },
         schedule() { window.HomeMode?.set('chat'); window.DragonClaw?.openSchedules?.(); },
         library() { window.openToolsKnowledgeGraph?.(); },
+        promotions() { window.HomePromoPlayer?.open?.(); },
         opsDrafts() { window.HomeMode?.set('chat'); if (location.hash !== '#ops-drafts') location.hash = '#ops-drafts'; else window.ToolsOpsInbox?.open?.(); },
-        skillList() { window.HomeMode?.set('tools'); window.HomeWorkspace?.setView?.('skills'); document.querySelector('#homeCategoryNav [data-view="skills"], #homeCategoryNav [data-group="技能"]')?.click(); },
-        plugins() { window.HomeMode?.set('tools'); click('homeCapsEntry'); },
+        skillHub() { window.HomeSkillHub?.open?.(); },
+        skillList() { window.HomeSkillHub?.open?.('skills'); },
+        plugins() { window.HomeSkillHub?.open?.('plugins'); },
         market() { click('toolMarketBtn'); },
         importTool() { click('customToolUploadBtn'); },
         compare() { click('builtinToolsCompareBtn'); },
@@ -181,31 +221,41 @@
 
     // ── 二级菜单：技能·插件·工具 / 更多（悬停或点击展开） ──
     const flyouts = {
-        skills: () => [
-            menuItem('sparkles', t('skillList'), 'skillList'),
-            menuItem('plug', t('plugins'), 'plugins'),
-            '<div class="v2-pop-sep"></div>',
-            menuItem('store', t('market'), 'market'),
-            menuItem('upload', t('importTool'), 'importTool'),
-            localStorage.getItem('tools_role') === 'admin' ? menuItem('compare', t('compare'), 'compare') : ''
-        ].join(''),
         more: () => {
             const links = [...document.querySelectorAll('#app-navbar .nav-links a[href]')]
                 .filter(a => a.getAttribute('href') !== '/' && !a.getAttribute('href').startsWith('#'))
-                .map(a => `<a class="v2-pop-item" role="menuitem" href="${esc(a.getAttribute('href'))}"><span class="v2-app-icon" style="width:20px;height:20px;font-size:13px;background:none">${esc((a.querySelector('.nav-icon, .nav-link-icon')?.textContent || '').trim())}</span><span>${esc((a.querySelector('.nav-text, .nav-link-text')?.textContent || a.textContent || '').trim().replace(/^\S+\s+/, m => (/^[\p{Extended_Pictographic}️]+\s+$/u.test(m) ? '' : m)))}</span></a>`);
+                .map(a => `<a class="v2-pop-item" role="menuitem" href="${esc(a.getAttribute('href'))}"><span class="v2-ico v2-app-glyph" data-icon="${appGlyph(a.getAttribute('href'))}"></span><span>${esc((a.querySelector('.nav-text, .nav-link-text')?.textContent || a.getAttribute('title') || a.textContent || '').trim().replace(/^\S+\s+/, m => (/^[\p{Extended_Pictographic}️]+\s+$/u.test(m) ? '' : m)))}</span></a>`);
             return [
                 links.length ? `<div class="v2-pop-cap">${esc(t('discover'))}</div>${links.join('')}<div class="v2-pop-sep"></div>` : '',
                 menuItem('link', t('links'), 'links'),
-                menuItem('target', t('requirements'), 'requirements')
+                menuItem('target', t('requirements'), 'requirements'),
+                menuItem('compass', lang() === 'en-US' ? 'Promotions' : '平台推广', 'promotions')
             ].join('');
         }
     };
     const flyPop = makePop('v2-flyout');
+    const sidebarShortcuts = $('homeSidebarShortcuts');
+    const shortcutHome = sidebarShortcuts?.parentElement;
+    sidebarShortcuts?.addEventListener('click', event => {
+        if (event.target.closest('#homeKnowledgeGraphEntry, #homeCapsEntry')) closePop();
+    }, true);
     let hoverTimer = 0;
     function openFlyout(anchor) {
+        closePop();
+        // Move the live controls instead of copying their handlers or download implementation.
+        if (sidebarShortcuts && shortcutHome) { sidebarShortcuts.hidden = true; shortcutHome.append(sidebarShortcuts); }
         flyPop.innerHTML = flyouts[anchor.dataset.v2Flyout]();
+        if (anchor.dataset.v2Flyout === 'more' && sidebarShortcuts) {
+            const caption = document.createElement('div');
+            caption.className = 'v2-pop-cap';
+            caption.textContent = lang() === 'en-US' ? 'Knowledge & extensions' : '知识与扩展';
+            flyPop.insertAdjacentHTML('beforeend', '<div class="v2-pop-sep"></div>');
+            flyPop.append(caption, sidebarShortcuts);
+            sidebarShortcuts.hidden = false;
+        }
         fillIcons(flyPop);
         showPop(flyPop, anchor, 'right');
+        if (anchor.dataset.v2Flyout === 'more' && sidebarShortcuts) sidebarShortcuts.hidden = false;
     }
     document.querySelectorAll('[data-v2-flyout]').forEach(anchor => {
         anchor.addEventListener('click', () => (openPop?.anchor === anchor ? closePop() : openFlyout(anchor)));
@@ -228,12 +278,7 @@
         const hrefs = ids.map(id => nav.find(item => item.id === id)?.href || id);
         return hrefs.map(href => all.find(app => app.href === href || app.id === href)).filter(Boolean).slice(0, 5);
     }
-    function appIcon(icon) {
-        const value = String(icon || '').trim();
-        if (/^(https?:|\/|data:image)/.test(value)) return `<img src="${esc(value)}" alt="" loading="lazy">`;
-        return esc(value.length <= 4 ? value : '') || '🧩';
-    }
-    const appRow = app => `<a class="v2-app" href="${esc(app.href)}"><span class="v2-app-icon">${appIcon(app.icon)}</span><span class="v2-app-text"><strong>${esc(app.title)}</strong><small>${esc(app.description || app.group || '')}</small></span><span class="v2-app-go">${esc(t('open'))}</span></a>`;
+    const appRow = app => `<a class="v2-app" href="${esc(app.href)}"><span class="v2-app-icon v2-app-glyph">${svg(appGlyph(app.href))}</span><span class="v2-app-text"><strong>${esc(app.title)}</strong><small>${esc(app.description || app.group || '')}</small></span><span class="v2-app-go">${esc(t('open'))}</span></a>`;
     const section = (title, list) => (list.length ? `<div class="v2-pop-cap">${esc(title)}</div>${list.map(appRow).join('')}` : '');
     function matches(app, query) {
         const text = `${app.title} ${app.description || ''} ${app.group || ''} ${(app.tags || []).join(' ')}`.toLowerCase();
@@ -533,7 +578,8 @@
         $('v2OpsCount').textContent = total > 99 ? '99+' : String(total);
     });
 
-    // ── 模式切换（对话 / 工具） ──
+    // ── 模式切换（对话 / 工具 / 频道会话） ──
+    const isChannelSource = s => ['welink', 'weixin'].includes(s);
     function renderModes() {
         const mode = window.HomeMode?.get?.() || (document.body.classList.contains('home-mode-tools') ? 'tools' : 'chat');
         document.querySelectorAll('[data-v2-modes]').forEach(seg => {
@@ -541,13 +587,18 @@
                 .map(([id, icon, label]) => `<button type="button" role="tab" aria-selected="${mode === id}" data-v2-mode="${id}"><span class="v2-ico" data-icon="${icon}"></span>${esc(label)}</button>`).join('');
             fillIcons(seg);
         });
-        document.querySelectorAll('.v2-nav-item[data-v2-action="newChat"]').forEach(el => el.classList.toggle('is-active', mode === 'chat'));
+        const hub = Boolean(window.HomeSkillHub?.isOpen?.());
+        const isChannel = !hub && mode === 'chat' && isChannelSource(activeChatSource());
+        document.querySelectorAll('.v2-nav-item[data-v2-action="newChat"]').forEach(el => el.classList.toggle('is-active', !hub && mode === 'chat' && !isChannel));
+        document.querySelectorAll('.v2-nav-item[data-v2-action="channels"]').forEach(el => el.classList.toggle('is-active', isChannel));
+        document.querySelectorAll('.v2-nav-item[data-v2-action="skillHub"]').forEach(el => el.classList.toggle('is-active', hub));
     }
     document.addEventListener('click', event => {
         const btn = event.target.closest('[data-v2-mode]');
         if (btn) window.HomeMode?.set(btn.dataset.v2Mode);
     });
     window.addEventListener('home:mode', () => { renderModes(); closeMessages(); });
+    window.addEventListener('home:hub', renderModes);
 
     // ── 侧边栏收起 ──
     const SIDE_KEY = 'tools_v2_side';
@@ -576,7 +627,7 @@
             ${[['all', 'statusAll'], ['pinned', 'statusPinned'], ['group', 'statusGroup'], ['workspace', 'statusWorkspace']].map(([id, key]) => option(t(key), `data-filter-status="${id}"`, filter.status === id)).join('')}
             <div class="v2-pop-sep"></div><div class="v2-pop-cap">${esc(t('filterTime'))}</div>
             ${[['all', 'timeAll'], ['today', 'timeToday'], ['7', 'time7'], ['30', 'time30']].map(([id, key]) => option(t(key), `data-filter-time="${id}"`, filter.time === id)).join('')}
-            <div class="v2-pop-sep"></div><button type="button" class="v2-pop-item v2-pop-reset" data-filter-reset${filter.status === 'all' && filter.time === 'all' ? ' disabled' : ''}>${esc(t('filterReset'))}</button>`;
+            <div class="v2-pop-sep"></div><button type="button" class="v2-pop-item" data-filter-archived>${lang() === 'en-US' ? 'Show / hide archived chats' : '查看 / 收起已归档对话'}</button><button type="button" class="v2-pop-item v2-pop-reset" data-filter-reset${filter.status === 'all' && filter.time === 'all' ? ' disabled' : ''}>${esc(t('filterReset'))}</button>`;
         fillIcons(sortPop);
         $('v2SortBtn')?.classList.toggle('is-on', filter.status !== 'all' || filter.time !== 'all');
     }
@@ -585,6 +636,7 @@
         const time = event.target.closest('[data-filter-time]');
         if (status) window.HomeConversationList?.setFilter?.({ status: status.dataset.filterStatus });
         else if (time) window.HomeConversationList?.setFilter?.({ time: time.dataset.filterTime });
+        else if (event.target.closest('[data-filter-archived]')) window.HomeConversationList?.toggleArchived?.(activeChatSource()==='agents' ? 'desktop:'+activeProvider() : activeChatSource());
         else if (event.target.closest('[data-filter-reset]')) window.HomeConversationList?.setFilter?.({ status: 'all', time: 'all' });
         else return;
         renderSortMenu();
@@ -596,39 +648,50 @@
         showPop(sortPop, anchor, 'down');
     });
 
-    // ── 对话分类：侧栏里可折叠的分组（对话 / 微信 / WeLink / 每家桌面 Agent），同一时间展开一组 ──
-    // 分组头只负责切换来源（沿用 HomeWelinkThreads.setSource 与桌面 Agent 的厂商按钮），列表本身仍由原模块渲染，
-    // 通过 CSS order 排到展开的分组头下面。
-    const AGENT_NAMES = { codex: 'Codex', claudecode: 'Claude Code', antigravity: 'Antigravity' };
-    const groups = { bound: false, agentProviders: null, collapsed: false };
+    // ── 对话分类：侧栏里可折叠的分组（对话 / 微信 / WeLink），同一时间展开一组 ──
+    // 桌面 Agent（Codex / Claude Code / Antigravity）的会话已合并进「对话」列表，不再单独分组。
+    // 分组头只负责切换来源（沿用 HomeWelinkThreads.setSource），列表本身仍由原模块渲染，通过 CSS order 排到展开的分组头下面。
+    const groups = { bound: false, collapsed: false, visualCollapsed: false, animations: [], animationVersion: 0 };
     const chatView = () => document.querySelector('.home-panel-view[data-home-panel="chat"]');
-    const activeChatSource = () => document.querySelector('.home-chat-tabs [data-chat-source].is-active')?.dataset.chatSource || 'mine';
+    const activeChatSource = () => window.HomeWelinkThreads?.source?.() || document.querySelector('.home-chat-tabs [data-chat-source].is-active')?.dataset.chatSource || 'mine';
     const activeProvider = () => document.querySelector('.desktop-agent-provider[aria-pressed="true"]')?.dataset.desktopProvider || '';
     function groupList() {
-        const sources = [...document.querySelectorAll('.home-chat-tabs [data-chat-source]')].map(btn => btn.dataset.chatSource);
-        const list = [{ id: 'mine', label: t('modeChat') }];
-        for (const id of ['weixin', 'welink']) if (sources.includes(id)) list.push({ id, label: id === 'weixin' ? t('scanWeixin') : 'WeLink' });
-        if (sources.includes('agents')) for (const provider of groups.agentProviders || []) list.push({ id: `agents:${provider}`, label: AGENT_NAMES[provider] || provider });
-        return list;
+        const source = activeChatSource();
+        if (isChannelSource(source)) {
+            // 频道会话视图：只出现微信或者 WeLink 对话
+            const tabs = [...document.querySelectorAll('.home-chat-tabs [data-chat-source]')].map(btn => btn.dataset.chatSource);
+            const available = (window.HomeWelinkThreads?.channels?.() || []).map(c => c.id);
+            const channelIds = ['weixin', 'welink'].filter(id => available.includes(id) || tabs.includes(id));
+            const list = [];
+            for (const id of (channelIds.length ? channelIds : [source])) {
+                list.push({ id, label: id === 'weixin' ? t('scanWeixin') : 'WeLink' });
+            }
+            return list;
+        }
+        // 普通对话视图：列表自带「任务」「空间」两个顶级分类（js/home/dragon-claw.js），不再显示「对话」分组头
+        return [];
     }
     function activeGroupId() {
         const source = activeChatSource();
-        return source === 'agents' ? `agents:${activeProvider() || (groups.agentProviders || [])[0] || ''}` : source;
+        return source === 'agents' ? 'mine' : source;
     }
     function visibleCount() {
         const source = activeChatSource();
-        const scope = source === 'agents' ? document.querySelector('.desktop-agent-list') : $('homeChatList');
-        return scope ? scope.querySelectorAll(source === 'agents' ? '[data-desktop-session]' : '.home-chat-item').length : 0;
+        const scope = source === 'agents' ? document.querySelector('.desktop-agent-list') : (isChannelSource(source) ? $('homeWelinkList') : $('homeChatList'));
+        return scope ? [...scope.querySelectorAll(source === 'agents' ? '[data-desktop-session]' : (source === 'mine' ? '.home-chat-item' : '[data-wl-thread], .home-chat-item'))].filter(row => !row.closest('.conversation-list-row[hidden]')).length : 0;
     }
     // 对话顶栏标题：显示当前打开的对话（侧栏里高亮的那一条），没有时显示 Dragon Claw
     function renderChatTitle() {
         const name = document.querySelector('.dc-chat-head .dc-chat-name');
         if (!name) return;
-        const active = document.querySelector('#homeChatList .home-chat-item.is-active .home-chat-title, .desktop-agent-list .is-active [class*="title"], #homeChatList .is-active [class*="title"]');
-        const title = active?.textContent.trim() || 'Dragon Claw';
+        const active = document.querySelector('#homeChatList .home-chat-item.is-active .home-chat-title, #homeWelinkList .home-chat-item.is-active .home-chat-title, .desktop-agent-list .is-active [class*="title"], #homeChatList .is-active [class*="title"]');
+        const channel = activeChatSource();
+        const fallback = isChannelSource(channel) ? (channel === 'weixin' ? t('scanWeixin') : 'WeLink') : 'Dragon Claw';
+        const title = active?.textContent.trim() || fallback;
         if (name.textContent !== title) name.textContent = title;
     }
     function renderGroups() {
+        clearHeads();
         renderChatTitle();
         const view = chatView();
         if (!view) return;
@@ -641,48 +704,74 @@
         }
         const active = activeGroupId();
         const list = groupList();
-        view.classList.toggle('v2-groups-collapsed', groups.collapsed);
+        view.classList.toggle('v2-groups-collapsed', groups.visualCollapsed);
         // 分组头按顺序占 order 10、30、50…；展开分组的工具栏和列表排在它后面（order +10）
         list.forEach((group, index) => {
             const isActive = group.id === active;
-            const head = document.createElement('button');
+            const head = [...view.querySelectorAll(':scope > .v2-group-head')].find(node => node.dataset.group === group.id) || document.createElement('button');
             head.type = 'button';
             head.className = 'v2-group-head';
             head.dataset.group = group.id;
             head.style.order = String(10 + index * 20);
             head.setAttribute('aria-expanded', String(isActive && !groups.collapsed));
-            head.innerHTML = `<span>${esc(group.label)}</span>${isActive && !groups.collapsed ? `<small>(${visibleCount()})</small>` : ''}<span class="v2-ico v2-group-chev" data-icon="chevron"></span>`;
-            view.appendChild(head);
+            const content = `<span class="v2-ico v2-group-chev" data-icon="chevron"></span><span>${esc(group.label)}</span>${isActive ? `<small>(${visibleCount()})</small>` : ''}`;
+            if (head.dataset.content !== content) { head.innerHTML = content; head.dataset.content = content; }
+            if (head.parentElement !== view) view.appendChild(head);
             if (isActive) view.style.setProperty('--v2-active-order', String(20 + index * 20));
         });
         fillIcons(view);
     }
-    // 旧的分组头在 renderGroups 里重建：先清掉上一轮的
-    function clearHeads() { chatView()?.querySelectorAll(':scope > .v2-group-head').forEach(el => el.remove()); }
-    function toggleGroup(id) {
-        if (id === activeGroupId()) { groups.collapsed = !groups.collapsed; clearHeads(); renderGroups(); return; }
-        groups.collapsed = false;
-        window.HomeMode?.set('chat');
-        if (id.startsWith('agents:')) {
-            const provider = id.slice(7);
-            if (activeChatSource() !== 'agents') window.HomeWelinkThreads?.setSource?.('agents');
-            setTimeout(() => document.querySelector(`.desktop-agent-provider[data-desktop-provider="${provider}"]`)?.click(), 0);
-        } else window.HomeWelinkThreads?.setSource?.(id);
-        setTimeout(() => { clearHeads(); renderGroups(); }, 30);
+    // 保留当前分组头，让箭头旋转可以连续过渡；只移除失效的分组。
+    function clearHeads() {
+        const ids = groupList().map(group => group.id);
+        chatView()?.querySelectorAll(':scope > .v2-group-head').forEach(el => { if (!ids.includes(el.dataset.group)) el.remove(); });
     }
-    async function loadAgentProviders() {
-        try {
-            const data = await getJson('/api/desktop-agents/settings');
-            const providers = data?.settings?.enabled ? Object.entries(data.settings.providers || {}).filter(([, on]) => on).map(([id]) => id) : [];
-            groups.agentProviders = providers.filter(id => AGENT_NAMES[id]);
-        } catch { groups.agentProviders = []; }
-        clearHeads(); renderGroups();
+    function animateGroup(collapsed) {
+        const view = chatView();
+        if (!view) return;
+        const nodes = [...view.querySelectorAll(':scope > .home-chat-list, :scope > .desktop-agents-sidebar')];
+        const heights = new Map(nodes.map(node => [node, node.getBoundingClientRect().height]));
+        groups.animations.forEach(animation => animation.cancel());
+        const version = ++groups.animationVersion;
+        groups.collapsed = collapsed;
+        if (!collapsed) nodes.forEach(node => {
+            window.HomeConversationList?.reset?.(node);
+            node.querySelectorAll('.home-chat-list').forEach(list => window.HomeConversationList?.reset?.(list));
+        });
+        groups.visualCollapsed = false;
+        clearHeads();renderGroups();
+        const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        groups.animations = nodes.filter(node => !node.hidden && getComputedStyle(node).display !== 'none').map(node => {
+            node.style.overflow = 'hidden';
+            return node.animate([
+                { height: `${heights.get(node)}px`, opacity: heights.get(node) ? 1 : 0 },
+                { height: `${collapsed ? 0 : node.scrollHeight}px`, opacity: collapsed ? 0 : 1 }
+            ], { duration: reduced ? 0 : 220, easing: 'cubic-bezier(.22, 1, .36, 1)', fill: 'both' });
+        });
+        Promise.all(groups.animations.map(animation => animation.finished)).then(() => {
+            if (version !== groups.animationVersion) return;
+            groups.visualCollapsed = collapsed;
+            groups.animations.forEach(animation => animation.cancel());groups.animations = [];
+            nodes.forEach(node => node.style.removeProperty('overflow'));
+            clearHeads();renderGroups();
+            if (collapsed) nodes.forEach(node => {
+                window.HomeConversationList?.reset?.(node);
+                node.querySelectorAll('.home-chat-list').forEach(list => window.HomeConversationList?.reset?.(list));
+            });
+        }).catch(() => { /* A second click reverses the current animation. */ });
+    }
+    function toggleGroup(id) {
+        if (id === activeGroupId()) { animateGroup(!groups.collapsed); return; }
+        groups.collapsed = false;groups.visualCollapsed = false;
+        window.HomeMode?.set('chat');
+        window.HomeWelinkThreads?.setSource?.(id);
+        setTimeout(() => { clearHeads(); renderGroups(); renderModes(); }, 30);
     }
     let groupsQueued = false;
     function queueGroups() {
         if (groupsQueued) return;
         groupsQueued = true;
-        requestAnimationFrame(() => { groupsQueued = false; clearHeads(); renderGroups(); });
+        requestAnimationFrame(() => { groupsQueued = false; renderModes(); clearHeads(); renderGroups(); });
     }
     // 来源切换、列表重绘、频道连接变化后刷新分组头
     const ownNode = node => node.nodeType !== 1 || node.classList.contains('v2-group-head') || Boolean(node.closest?.('.v2-group-head'));
@@ -839,7 +928,7 @@
         input.setSelectionRange(text.length, text.length);
     }
     function recentQuestions() {
-        const titles = [...document.querySelectorAll('#homeChatList .home-chat-owned .home-chat-title')].map(el => el.textContent.trim());
+        const titles = [...document.querySelectorAll('#homeChatList [data-question]')].map(el => el.dataset.question.trim());
         const list = titles.length ? titles : quick.recent;
         return [...new Set(list.filter(title => title.length >= 4 && !/^@/.test(title)))].slice(0, 4);
     }
@@ -852,6 +941,31 @@
             composer.before(quick.scenesEl);
             quick.suggestEl = document.createElement('div');
             quick.suggestEl.className = 'v2-suggest';
+            let preview = null;
+            const clearPreview = () => {
+                if (!preview) return;
+                const input = $('dcInput');
+                input.placeholder = preview.placeholder;
+                if (!input.value) input.style.height = preview.height;
+                input.classList.remove('is-prompt-preview');preview = null;
+            };
+            const showPreview = event => {
+                const item = event.target.closest('[data-fill]'), input = $('dcInput');
+                if (!item || !input || input.value || input.disabled) return;
+                clearPreview();preview = { placeholder: input.placeholder, height: input.style.height };
+                input.placeholder = item.dataset.fill;input.classList.add('is-prompt-preview');
+                input.style.height = 'auto';input.style.height = `${Math.min(220, input.scrollHeight)}px`;
+            };
+            quick.suggestEl.addEventListener('pointerover', showPreview);
+            quick.suggestEl.addEventListener('focusin', showPreview);
+            quick.suggestEl.addEventListener('pointerleave', clearPreview);
+            quick.suggestEl.addEventListener('focusout', clearPreview);
+            quick.suggestEl.addEventListener('click', clearPreview, true);
+            $('dcInput')?.addEventListener('focus', clearPreview);
+            $('dcInput')?.addEventListener('input', clearPreview);
+            window.addEventListener('home:mode', clearPreview);
+            window.addEventListener('tools:languagechange', clearPreview);
+
             composer.after(quick.suggestEl);
             const mascot = document.createElement('img');
             mascot.className = 'v2-mascot';
@@ -895,7 +1009,7 @@
         if (recentQuestions().length) return renderQuick();
         try {
             const data = await getJson('/api/ai/sessions?mine=1&pagePath=%2F&limit=40&query=');
-            quick.recent = (data?.items || []).map(item => String(item.title || '').trim()).filter(Boolean);
+            quick.recent = (data?.items || []).map(item => String(item.firstQuestion || item.lastQuestion || item.title || '').trim()).filter(Boolean);
         } catch { /* 没有历史时只显示场景标签 */ }
         renderQuick();
     }
@@ -909,18 +1023,28 @@
 
     function init() {
         fillIcons(document);
-        try { if (localStorage.getItem(SIDE_KEY) === 'collapsed') setSideCollapsed(true); } catch { /* 无痕模式 */ }
+        try { if (window.matchMedia('(max-width: 860px)').matches || localStorage.getItem(SIDE_KEY) === 'collapsed') setSideCollapsed(true); } catch { /* 无痕模式 */ }
         applyText();
         watchNavbar();
         mirrorNavbar();
-        loadAgentProviders();
+        renderModes();
+        if (activeChatSource() === 'agents') window.HomeWelinkThreads?.setSource?.('mine');
         renderQuick();
         loadRecentQuestions();
         if (window.ToolsOpsInbox?.total) window.dispatchEvent(new CustomEvent('tools:ops-inbox-total', { detail: { total: window.ToolsOpsInbox.total() } }));
     }
+    window.addEventListener('hashchange', () => {
+        if (location.hash === '#channels') {
+            const tabs = [...document.querySelectorAll('.home-chat-tabs [data-chat-source]')].map(el => el.dataset.chatSource);
+            const channel = ['welink', 'weixin'].find(id => tabs.includes(id)) || 'welink';
+            window.HomeWelinkThreads?.setSource?.(channel, { openLatest: true });
+        }
+        renderModes();
+        queueGroups();
+    });
     window.addEventListener('tools:languagechange', () => { applyText(); mirrorNavbar(); renderQuick(); if (openPop?.pop === discover.pop) renderDiscover(); });
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();
 
-    window.HomeV2 = { setTheme, closePop };
+    window.HomeV2 = { setTheme, closePop, fillIcons };
 })();

@@ -28,76 +28,70 @@ const store = {
     ]
 };
 
-test('aliases expose only custom names and fall back to the active profile', () => {
-    const aliases = repo.normalizeModelAliases([
-        { id: 'aragon', name: 'Aragon', profileId: '' },
-        { id: 'deep', name: 'Aragon Pro', description: 'Deeper reasoning', profileId: 'pro' },
-        { id: 'gone', name: 'Orphan', profileId: 'deleted-profile' },
-        { name: 'aragon' },
-        { name: '   ' }
-    ]);
-    assert.deepEqual(aliases.map(item => item.name), ['Aragon', 'Aragon Pro', 'Orphan'], 'blank and duplicate names are dropped');
-
-    const choices = repo.buildModelChoices(store, aliases);
-    assert.equal(choices.mode, 'alias');
-    assert.equal(choices.defaultId, 'aragon');
-    assert.equal(choices.models.find(item => item.id === 'aragon').profileId, 'main');
-    assert.equal(choices.models.find(item => item.id === 'deep').profileId, 'pro');
-    assert.equal(choices.models.find(item => item.id === 'gone').profileId, 'main', 'deleted profiles follow the active one');
-
-    assert.equal(repo.pickModelChoice(choices, 'deep').profileId, 'pro');
-    assert.equal(repo.pickModelChoice(choices, 'profile:pro').id, 'aragon', 'raw profile ids are not selectable in alias mode');
-    assert.equal(repo.pickModelChoice(choices, '<script>').id, 'aragon');
-    assert.equal(repo.pickModelChoice(choices, undefined).id, 'aragon');
-
-    const publicView = repo.publicModelChoices(choices);
-    assert.deepEqual(Object.keys(publicView.models[0]).sort(), ['description', 'id', 'name'], 'profile ids stay server-side');
-});
-
-test('empty mapping lists real model names of ready profiles', () => {
-    const choices = repo.buildModelChoices(store, []);
+test('chat choices always expose real model names, ignoring legacy aliases', () => {
+    const choices = repo.buildModelChoices(store, [{ id: 'aragon', name: 'Aragon', profileId: '' }]);
     assert.equal(choices.mode, 'direct');
     assert.deepEqual(choices.models.map(item => item.name), ['gemini-2.5-flash', 'deep-model']);
     assert.equal(choices.defaultId, 'profile:main');
     assert.equal(repo.pickModelChoice(choices, 'profile:pro').profileId, 'pro');
-    assert.equal(repo.pickModelChoice(choices, 'profile:empty').profileId, 'main', 'profiles without a token fall back to default');
+    assert.equal(repo.pickModelChoice(choices, 'profile:empty').profileId, 'main');
+    const publicView = repo.publicModelChoices(choices);
+    assert.equal(publicView.models[1].provider, 'openai-compatible');
+    assert.equal(publicView.models[1].description, 'Pro');
+    assert.ok(!JSON.stringify(publicView).includes('token-'));
+    assert.ok(!Object.hasOwn(publicView.models[0], 'apiKey'));
+    assert.ok(!Object.hasOwn(publicView.models[0], 'apiBaseUrl'));
 });
 
-test('stored aliases default to Aragon, persist edits and resolve chat runtime settings', async () => {
-    assert.deepEqual((await repo.getModelAliases()).map(item => item.name), ['Aragon']);
-    assert.equal((await repo.getModelChoices()).models[0].name, 'Aragon');
+test('unconfigured profiles still identify the real active model and never show image models', () => {
+    const choices = repo.buildModelChoices({ ...store, profiles: store.profiles.map(item => ({ ...item, apiKey: '' })) });
+    assert.equal(choices.models[0].name, 'gemini-2.5-flash');
+    const withImage = repo.buildModelChoices({ ...store, profiles: [...store.profiles, { id: 'image', category: 'image', model: 'gpt-image-1', apiKey: 'image-token-12345' }] });
+    assert.equal(withImage.models.some(item => item.profileId === 'image'), false);
+});
 
+test('legacy selections keep the underlying profile, while all public names are real', async () => {
+    const { writeKV } = require('../backend/models/kv-store');
+    assert.deepEqual(await repo.getModelAliases(), []);
+    assert.equal((await repo.getModelChoices()).models[0].name, 'gemini-2.5-flash');
     const created = await repo.createProfile({ name: 'Pro', provider: 'openai', model: 'gpt-4o', apiKey: 'pro-token-1234567890' });
     const proId = created.createdProfileId;
-    const saved = await repo.saveModelAliases([
-        { id: 'aragon', name: 'Aragon', profileId: '' },
-        { id: 'aragon-pro', name: 'Aragon Pro', profileId: proId },
-        { id: 'bad', name: 'Bad', profileId: 'missing' }
-    ]);
-    assert.deepEqual(saved.modelAliases.map(item => [item.name, item.profileId]), [['Aragon', ''], ['Aragon Pro', proId], ['Bad', '']]);
-
+    await writeKV('sys', 'ai_model_aliases', { aliases: [{ id: 'aragon-pro', name: 'Aragon Pro', profileId: proId }] });
     const choice = await repo.resolveModelChoice('aragon-pro');
-    const runtime = await repo.getRuntimeSettings({ profileId: choice.profileId });
-    assert.equal(runtime.model, 'gpt-4o');
-    assert.notEqual((await repo.getRuntimeSettings()).model, 'gpt-4o', 'without a selection the active profile is used');
-    assert.equal((await repo.resolveModelChoice('unknown')).id, 'aragon');
-
-    const cleared = await repo.saveModelAliases([]);
-    assert.deepEqual(cleared.modelAliases, [], 'an empty mapping is kept instead of reseeding Aragon');
-    const direct = await repo.getModelChoices();
-    assert.equal(direct.mode, 'direct');
-    assert.ok(direct.models.some(item => item.name === 'gpt-4o'));
-
-    await assert.rejects(repo.saveModelAliases('nope'), /格式无效/);
+    assert.equal(choice.id, `profile:${proId}`);
+    assert.equal(choice.name, 'gpt-4o');
+    assert.equal((await repo.getRuntimeSettings({ profileId: choice.profileId })).model, 'gpt-4o');
+    assert.deepEqual((await repo.getPublicSettings()).modelAliases, []);
+    assert.ok((await repo.getModelChoices()).models.every(item => !item.name.includes('Aragon')));
+    assert.equal((await repo.resolveModelChoice('unknown')).id, (await repo.getModelChoices()).defaultId);
 });
 
-test('chat route, model list API and admin mapping API are wired', () => {
+test('real model choices and legacy selection resolution remain tenant isolated', async () => {
+    const { runWithTenant } = require('../backend/models/tenant-context');
+    await runWithTenant('other-model-tenant', async () => {
+        const choices = await repo.getModelChoices();
+        assert.ok(choices.models.every(item => item.name !== 'gpt-4o'));
+        assert.equal((await repo.resolveModelChoice('aragon-pro')).id, choices.defaultId);
+    });
+});
+
+test('retired model mapping endpoint returns an explicit error without writing', async t => {
+    const express = require('express');
+    const app = express(); app.use(express.json());
+    app.use('/api/ai-settings', require('../backend/routes/ai-settings'));
+    const server = app.listen(0, '127.0.0.1');
+    await new Promise(resolve => server.once('listening', resolve));
+    t.after(() => new Promise(resolve => server.close(resolve)));
+    const response = await fetch(`http://127.0.0.1:${server.address().port}/api/ai-settings/model-aliases`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ aliases: [] }) });
+    assert.equal(response.status, 410);
+    assert.equal((await response.json()).code, 'MODEL_ALIASES_REMOVED');
+});
+
+test('chat route and model list use real model choices', () => {
     const ai = read('backend/routes/ai.js');
     assert.match(ai, /router\.get\('\/models', checkAuth/);
     assert.match(ai, /resolveModelChoice\(req\.body\.modelId\)/);
     assert.match(ai, /getRuntimeSettings\(\{ profileId: modelChoice\?\.profileId \}\)/);
-    assert.match(ai, /model: \{ id: modelChoice\.id, name: modelChoice\.name \}/);
-    assert.match(read('backend/routes/ai-settings.js'), /router\.put\('\/model-aliases'/);
 });
 
 test('Dragon Claw composer offers a remembered model picker that applies from the next message', () => {
@@ -112,13 +106,8 @@ test('Dragon Claw composer offers a remembered model picker that applies from th
     assert.match(agent, /modelNextMessage: 'Switched to \{name\}\. Applies from your next message\.'/);
 });
 
-test('global settings AI tab edits the model name mapping in both languages', () => {
+test('global settings removes editable model mappings in both languages', () => {
     const navbar = read('frontend/js/shared/navbar.js') + '\n' + read('frontend/js/shared/navbar-settings.js');
-    assert.match(navbar, /id="navAiAliasPanel"/);
-    assert.match(navbar, /\/api\/ai-settings\/model-aliases/);
-    ['addAiModelAlias', 'removeAiModelAlias', 'clearAiModelAliases', 'resetAiModelAliases', 'updateAiModelAlias']
-        .forEach(name => assert.match(navbar, new RegExp(`window\\.${name} = function`)));
-    const keys = navbar.match(/'nav\.ai\.alias[A-Za-z]+'/g) || [];
-    const counts = keys.reduce((map, key) => map.set(key, (map.get(key) || 0) + 1), new Map());
-    for (const [key, count] of counts) assert.ok(count >= 2, `${key} has zh and en text`);
+    assert.doesNotMatch(navbar, /navAiAliasPanel|addAiModelAlias|resetAiModelAliases/);
+    assert.equal((navbar.match(/'nav\.ai\.modelIdentityHelp':/g) || []).length, 2);
 });

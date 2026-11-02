@@ -182,8 +182,9 @@
     }
     async function writePrompt(cellId,cell){
         state.busy.set(cellId,t('正在总结对话，生成最终提示词…','Summarizing into the final prompt…'));render();
+        const reviseLayout=cellId!==REPORT&&!chapterOf(cellId)&&!fieldKeyOf(cellId)&&M.layoutRevision(cell.chat);
         const {prompt}=await AiReportTrace.post(cellId,t('生成最终提示词','Write the final prompt'),cellId===REPORT?'/api/ai-report/report/prompt':fieldKeyOf(cellId)?'/api/ai-report/template/field/prompt':chapterOf(cellId)?'/api/ai-report/chapter/prompt':'/api/ai-report/cell/prompt',{month:state.doc.reportMonth,prompt:cell.prompt,chat:cell.chat});
-        cell.prompt=prompt;if(M.presentationOf(prompt).mode==='text')cell.layout={};cell.chat.push({role:'ai',kind:'prompt',text:prompt});if(cellId!==REPORT&&!chapterOf(cellId)&&!fieldKeyOf(cellId))syncNarrowLayout(cell);
+        cell.prompt=reviseLayout?M.withoutLayout(prompt):prompt;if(reviseLayout||M.presentationOf(prompt).mode==='text')cell.layout={};cell.chat.push({role:'ai',kind:'prompt',text:cell.prompt});if(cellId!==REPORT&&!chapterOf(cellId)&&!fieldKeyOf(cellId))syncNarrowLayout(cell);
     }
     // A failed run goes back to the compiler once with the error, so most code slips fix themselves.
     async function compileAndRun(cellId,cell){
@@ -202,8 +203,8 @@
             cell.recipe=reply.recipe;cell.recipePrompt=cell.prompt;
             state.busy.set(cellId,t('正在计算本月数据…','Computing this month…'));render();
             try{await AiReportRunner.run(cell,month,{style:styleOf(cell)});AiReportTrace.note(cellId,t(`运行配方（第 ${attempt+1} 次）：成功`,`Run recipe (attempt ${attempt+1}): ok`),t('沙箱里计算和展示都完成了。','Compute and render finished in the sandbox.'));render();const crowdedRow=reportRoot.querySelector(`[data-cell="${CSS.escape(cellId)}"]`)?.dataset.layoutIssue;
-                // Blocks that did not fit side by side go back once to be laid out properly; the last try keeps the automatic fix.
-                if(crowdedRow&&attempt<2)throw new Error(`${crowdedRow}。页面已临时缩小字号并换行，但请重新排版：把放不下的内容块换到下一行（如文字总结放在顶部或底部、图表和表格上下排列），或减少表格列数，保证每块在分到的宽度里完整显示。`);const lost=AiReportRunner.missingTitle(cell);if(lost&&String(cell.output?.html||'').replace(/<[^>]*>/g,'').trim()){usable={recipe:cell.recipe,output:cell.output,missing:cell.missing};}if(lost)throw new Error(`提示词要求显示标题“${lost}”，但格子里没有这个标题。请用 kit.layout(rows,{title:'${lost}'}) 或 kit.chart(option,{title:'${lost}'}) 把它显示在最上方。`);reconcileLayout(cell);rememberResult(cell);return;}catch(problem){error=problem.message;AiReportTrace.note(cellId,t(`运行出错（第 ${attempt+1} 次），交回 AI 修正`,`Run failed (attempt ${attempt+1}), sent back to the AI`),error,{error:true});}
+                // Explicit side-by-side layouts must pass the final check; only default layouts may keep a wrapped fallback.
+                if(crowdedRow&&(attempt<2||M.horizontalLayout(cell.prompt)))throw new Error(`${crowdedRow}。${M.horizontalLayout(cell.prompt)?'用户明确要求左右并排，必须保留同一行的图表与表格；缩短表头、减少列数、收紧图表边距，文字总结可放在单独一行，不能改成图表和表格上下排列。':'请缩短表头、减少列数或把放不下的内容块换到下一行，保证内容完整显示。'}`);const lost=AiReportRunner.missingTitle(cell);if(lost&&String(cell.output?.html||'').replace(/<[^>]*>/g,'').trim()){usable={recipe:cell.recipe,output:cell.output,missing:cell.missing};}if(lost)throw new Error(`提示词要求显示标题“${lost}”，但格子里没有这个标题。请用 kit.layout(rows,{title:'${lost}'}) 或 kit.chart(option,{title:'${lost}'}) 把它显示在最上方。`);reconcileLayout(cell);rememberResult(cell);return;}catch(problem){error=problem.message;AiReportTrace.note(cellId,t(`运行出错（第 ${attempt+1} 次），交回 AI 修正`,`Run failed (attempt ${attempt+1}), sent back to the AI`),error,{error:true});}
         }
         if(usable){cell.recipe=usable.recipe;cell.recipePrompt=cell.prompt;cell.output=usable.output;cell.missing=usable.missing;reconcileLayout(cell);rememberResult(cell);}
         else if(before.output&&!before.output.error){cell.recipe=before.recipe;cell.recipePrompt=before.recipePrompt;cell.output=before.output;cell.missing=before.missing;}
@@ -394,11 +395,11 @@
         addEventListener('pointermove',move);addEventListener('pointerup',up);
     }
     function layoutLine(cell,cellNode){
-        const parts=[...cellNode.querySelectorAll('.kit-slot[data-slot]')].map(slot=>{
+        const parts=[...cellNode.querySelectorAll('.kit-row')].map((line,index)=>`第 ${index+1} 行：`+slotsOf(line).map(slot=>{
             const size=cell.layout[slot.dataset.slot]||{},row=slotsOf(slot.parentElement),weights=row.map(item=>parseFloat(getComputedStyle(item).flexGrow)||1);
             const width=size.width||Math.round((parseFloat(getComputedStyle(slot).flexGrow)||1)/weights.reduce((sum,value)=>sum+value,0)*100);
             return `${slot.dataset.slot}${slotTitle(slot)?'（'+slotTitle(slot)+'）':' '}宽 ${width}%、${size.height?`高 ${size.height}px`:'高度自动'}`;
-        });
+        }).join('；'));
         return `${LAYOUT_MARK}内容按命名小格子排版，尺寸由平台精确控制。重新生成时必须用 kit.layout 和同样的小格子 id（render 里不要再给它们写宽高）：${parts.join('；')}。`;
     }
     function syncLayoutPrompt(cell,cellNode){

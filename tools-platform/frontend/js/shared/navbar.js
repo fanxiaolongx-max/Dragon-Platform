@@ -637,24 +637,7 @@ function registerNavbarI18n() {
             'nav.ai.clearModelUsageConfirm': '确定清空该模型的历史 Token 用量与计费统计吗？',
             'nav.ai.clearAllModelUsage': '清空全部模型统计',
             'nav.ai.clearedSuccess': '统计信息已清空',
-            'nav.ai.aliasTitle': '对话模型名称映射',
-            'nav.ai.aliasHelp': '对话界面（如首页 Dragon Claw）显示的模型名称，以及它实际使用的配置方案。清空映射后，对话界面直接列出各方案的真实模型名。',
-            'nav.ai.aliasAdd': '＋ 添加模型',
-            'nav.ai.aliasClear': '清空映射',
-            'nav.ai.aliasClearConfirm': '清空后对话界面将直接显示真实模型名称，确定吗？',
-            'nav.ai.aliasReset': '恢复默认 Aragon',
-            'nav.ai.aliasName': '显示名称',
-            'nav.ai.aliasNamePlh': '例如 Aragon',
-            'nav.ai.aliasDesc': '简短说明',
-            'nav.ai.aliasDescPlh': '例如 均衡、响应快',
-            'nav.ai.aliasProfile': '实际配置',
-            'nav.ai.aliasFollowActive': '跟随激活方案',
-            'nav.ai.aliasDelete': '删除',
-            'nav.ai.aliasDefault': '默认',
-            'nav.ai.aliasEmpty': '未配置映射，对话界面将直接显示：',
-            'nav.ai.aliasSaving': '正在保存模型映射...',
-            'nav.ai.aliasSaved': '模型映射已自动保存',
-            'nav.ai.aliasFail': '模型映射保存失败：',
+            'nav.ai.modelIdentityHelp': '对话选择器直接显示真实模型名称；配置方案名称只用于区分连接。',
 
             'nav.up.help': '更新来源为 GitHub Releases。下载完成后可立即重启安装，也可以稍后手动重启。',
             'nav.up.current': '当前版本',
@@ -1198,24 +1181,7 @@ function registerNavbarI18n() {
             'nav.ai.clearModelUsageConfirm': 'Clear historical token usage and cost stats for this model?',
             'nav.ai.clearAllModelUsage': 'Clear all models stats',
             'nav.ai.clearedSuccess': 'Statistics cleared',
-            'nav.ai.aliasTitle': 'Chat model names',
-            'nav.ai.aliasHelp': 'Model names shown in chat (such as Dragon Claw on the home page) and the profile each one actually uses. With no mappings, chat lists the real model names of your profiles.',
-            'nav.ai.aliasAdd': '+ Add model',
-            'nav.ai.aliasClear': 'Clear mappings',
-            'nav.ai.aliasClearConfirm': 'Chat will show the real model names after clearing. Continue?',
-            'nav.ai.aliasReset': 'Restore default Aragon',
-            'nav.ai.aliasName': 'Display name',
-            'nav.ai.aliasNamePlh': 'e.g. Aragon',
-            'nav.ai.aliasDesc': 'Short description',
-            'nav.ai.aliasDescPlh': 'e.g. Balanced and fast',
-            'nav.ai.aliasProfile': 'Uses profile',
-            'nav.ai.aliasFollowActive': 'Follow active profile',
-            'nav.ai.aliasDelete': 'Delete',
-            'nav.ai.aliasDefault': 'Default',
-            'nav.ai.aliasEmpty': 'No mappings. Chat will list: ',
-            'nav.ai.aliasSaving': 'Saving model names...',
-            'nav.ai.aliasSaved': 'Model names saved automatically',
-            'nav.ai.aliasFail': 'Failed to save model names: ',
+            'nav.ai.modelIdentityHelp': 'Chat shows real model names. Profile names only distinguish connections.',
 
             'nav.up.help': 'Updates are delivered from GitHub Releases. After download, restart now to install or restart later manually.',
             'nav.up.current': 'Current Version',
@@ -2582,15 +2548,29 @@ function openNavSettingsModal() {
     }
     modal.style.display = 'flex';
     renderNavSettingsSidebar();
-    renderNavSettingsContent();
+    return renderNavSettingsContent();
 }
 
+let chatModelSettingsReturnTarget = null;
 function closeNavSettingsModal() {
     const modal = document.getElementById('navSettingsModal');
     if (modal) modal.style.display = 'none';
+    if (chatModelSettingsReturnTarget?.isConnected) chatModelSettingsReturnTarget.focus({ preventScroll: true });
+    chatModelSettingsReturnTarget = null;
 }
 
 window.openNavSettingsModal = openNavSettingsModal;
+window.openChatModelSettings = async function () {
+    if (localStorage.getItem('tools_role') !== 'admin') return;
+    chatModelSettingsReturnTarget = document.getElementById('dcModelBtn');
+    navState.settingsTab = 'ai';
+    navState.aiCategory = 'chat';
+    navState.aiSelectedProfileId = null;
+    await openNavSettingsModal();
+    const field = document.getElementById('navAiModel');
+    field?.scrollIntoView({ block: 'center' });
+    field?.focus({ preventScroll: true });
+};
 window.closeNavSettingsModal = closeNavSettingsModal;
 
 window.switchNavSettingsTab = function (tab) {
@@ -2733,7 +2713,6 @@ async function loadNavLazyScript(src, errorText) {
     });
 }
 
-let aiModelAliasSaveTimer = null;
 
 const SNAPSHOT_API = '/api/department-reward-penalty/snapshot';
 let snapshotProgressTimer = null;
@@ -5493,3 +5472,9 @@ if (!document.querySelector('script[data-first-run-onboarding]')) {
     document.head.appendChild(firstRunOnboardingScript);
 }
 
+
+// App surfaces keep custom context menus; editing and copying selected text retain native actions.
+document.addEventListener('contextmenu', event => {
+    if(event.defaultPrevented || event.target.closest('input, textarea, [contenteditable="true"]') || window.getSelection()?.toString().trim()) return;
+    event.preventDefault();
+});

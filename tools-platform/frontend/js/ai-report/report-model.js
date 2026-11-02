@@ -25,6 +25,13 @@
     // Presentation is a cell requirement; defaults and a previous recipe cannot add components to it.
     const PRESENTATION_MARK='【展示约束】';
     function horizontalLayout(prompt){return /左右|并排|横向排列|一行.{0,5}(?:两个|2个|三列|3列)/.test(String(prompt||'').replace(/【(?:窄格子布局|尺寸约束)】[^\n]*/g,'').replace(/(?:不要|不需要|禁止)[^。；;\n]*/g,''));}
+    const horizontalChartTable=prompt=>String(prompt||'').split(/[。；;\n]/).some(line=>horizontalLayout(line)&&/图表|柱状图|折线图|饼图/.test(line)&&/表格|右表|左表/.test(line));
+    // Only requirements since the last final prompt can release saved slot sizes.
+    function layoutRevision(chat=[]){
+        const start=chat.map(item=>item?.kind).lastIndexOf('prompt')+1;
+        return chat.slice(start).some(item=>item?.role==='user'&&/布局|排版|左右|并排|上下排列|上下分布|横向排列|side.by.side/i.test(item.text||''));
+    }
+    const withoutLayout=prompt=>String(prompt||'').replace(/\n*【(?:格子内部布局|窄格子布局)】[^\n]*/g,'').trim();
     function presentationOf(prompt='',chat=[]){
         let mode='auto',maxSentences=null,explicitVisual=false;
         const inspect=value=>{
@@ -251,5 +258,5 @@
     function text(value,language='zh'){return value?(value[language]||value.zh||value.en||''):'';}
     function cells(doc){return doc.chapters.flatMap(item=>item.cells);}
     function findCell(doc,cellId){for(const item of doc.chapters){const index=item.cells.findIndex(entry=>entry.id===cellId);if(index>=0)return {chapter:item,cell:item.cells[index],index};}return null;}
-    return {horizontalLayout,presentationOf,presentationConflict,withPresentation,presentationRecipe,summaryConflict,IMAGE_BASE,IMAGE_KEY,imageUrl,FIELD_KEY,FIXED_PREFIX,fixedText,LIMITS,DEFAULT_STYLE,structuredStyle,styleSections,applyStyleChanges,withStyleText,validMonth,uid,bilingual,cell,chapter,normalize,normalizeRecipe,normalizeOutput,normalizeTheme,fromLegacyTemplate,text,cells,findCell};
+    return {horizontalChartTable,layoutRevision,withoutLayout,horizontalLayout,presentationOf,presentationConflict,withPresentation,presentationRecipe,summaryConflict,IMAGE_BASE,IMAGE_KEY,imageUrl,FIELD_KEY,FIXED_PREFIX,fixedText,LIMITS,DEFAULT_STYLE,structuredStyle,styleSections,applyStyleChanges,withStyleText,validMonth,uid,bilingual,cell,chapter,normalize,normalizeRecipe,normalizeOutput,normalizeTheme,fromLegacyTemplate,text,cells,findCell};
 });

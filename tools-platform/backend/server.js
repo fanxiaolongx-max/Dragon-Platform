@@ -443,6 +443,7 @@ app.use('/api', (req, res, next) => {
     if (req.method === 'POST' && /^\/platform-promotions\/desktop\/(?:sync|open\/[^/]+|site-scripts(?:\/run)?)$/.test(req.path)) return next(); // 路由内限制本机登录用户，只操作本机桌面浏览器窗口（推广卡片、浮窗脚本）
     if (req.method === 'POST' && req.path === '/platform-promotions/clicks') return next(); // 登录用户上报推广点击，路由内校验推广项
     if (req.method === 'POST' && req.path === '/ai/proactive-alert-message') return next(); // 只读 KPI 提醒文案，不修改业务数据
+    if (req.method === 'POST' && req.path === '/ai/enhance-prompt') return next(); // 登录用户只改写自己的草稿；无会话、文件或工具操作，路由内鉴权
     if (req.method === 'POST' && req.path === '/ai/chat') return next(); // 登录用户都可对话；工作区内非管理员只拿到只读工具（路由与 agent-run-manager 内校验）
     if (req.method === 'POST' && req.path === '/ai/uploads') return next(); // 登录用户上传本人对话附件，只存进本人附件目录（路由内按 租户::账号 分目录）
     if (req.method === 'POST' && req.path === '/ai/compact') return next(); // 登录用户仅可压缩本人会话的模型上下文，路由内校验归属

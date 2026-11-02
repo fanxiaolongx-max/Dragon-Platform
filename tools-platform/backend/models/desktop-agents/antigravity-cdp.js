@@ -68,6 +68,17 @@ async function list(limit) {
         }));
     });
 }
+// 侧栏「运行中」转圈：Antigravity 侧栏里带「Stop execution」按钮的会话，加上当前页面正在运行的会话；5 秒内复用结果
+let busyMemo = { at: 0, ids: new Set(), pending: null };
+async function busyIds() {
+    if (Date.now() - busyMemo.at < 5000) return busyMemo.ids;
+    if (busyMemo.pending) return busyMemo.pending;
+    busyMemo.pending = using(c => c.evaluate(`(()=>{const ids=Array.from(document.querySelectorAll('[data-cascade-id]')).filter(e=>e.querySelector('button[aria-label="Stop execution"]')).map(e=>e.dataset.cascadeId);const m=location.pathname.match(/^\\/c\\/([a-f0-9-]{36})$/i);if(m&&document.querySelector('[data-testid="agent-input-box"] button[aria-label="Stop execution"]'))ids.push(m[1]);return ids;})()`))
+        .then(ids => new Set((Array.isArray(ids) ? ids : []).filter(id => /^[a-f0-9-]{36}$/i.test(id))))
+        .catch(() => new Set())
+        .then(ids => { busyMemo = { at: Date.now(), ids, pending: null }; return ids; });
+    return busyMemo.pending;
+}
 async function select(c, id) {
     const answer = await c.evaluate(`(()=>{if(location.pathname==='/c/'+${JSON.stringify(id)})return 'ready';const input=document.querySelector('[role=combobox][contenteditable=true]');if(input?.innerText.trim())return 'draft';const row=Array.from(document.querySelectorAll('[data-cascade-id]')).find(e=>e.dataset.cascadeId===${JSON.stringify(id)});if(!row)return 'missing';row.querySelector('a')?.click();return 'opening';})()`);
     if (answer === 'draft')
@@ -242,4 +253,4 @@ async function createAndSend(text) {
         throw fail('DELIVERY_UNKNOWN','Antigravity 已提交新建，但未确认新会话回执，请核对桌面，不会重复发送');
     });
 }
-module.exports = { connect, list, messages, send, createAndSend, sidebarTime };
+module.exports = { connect, list, busyIds, messages, send, createAndSend, sidebarTime };
