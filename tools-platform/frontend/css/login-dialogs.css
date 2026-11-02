@@ -1,0 +1,59 @@
+/* Login footer dialogs share the new platform surfaces and text hierarchy. */
+html[data-ui="v2"] .legal-modal {
+    padding: 24px; box-sizing: border-box;
+    background: rgba(15, 23, 42, .24); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+}
+html[data-ui="v2"][data-theme="dark"] .legal-modal { background: rgba(0, 0, 0, .58); }
+html[data-ui="v2"] .legal-dialog {
+    width: min(760px, 100%); max-height: min(780px, calc(100dvh - 48px));
+    border: 1px solid var(--lv-line); border-radius: 20px;
+    background: var(--lv-card); color: var(--lv-ink); box-shadow: var(--lv-shadow);
+    animation: login-dialog-in 160ms ease both;
+}
+html[data-ui="v2"] .legal-head { flex: none; padding: 18px 22px; border-color: var(--lv-line); }
+html[data-ui="v2"] .legal-head h3 {
+    margin: 0; background: none; color: var(--lv-ink); -webkit-text-fill-color: currentColor;
+    font-size: 17px; font-weight: 600; line-height: 1.5;
+}
+html[data-ui="v2"] .legal-close {
+    display: grid; place-items: center; flex: none; width: 32px; height: 32px;
+    padding: 0; border: 0; border-radius: 9px; background: transparent; color: var(--lv-ink2);
+    font: inherit; font-size: 24px; line-height: 1;
+}
+html[data-ui="v2"] .legal-close:hover { background: var(--lv-field); color: var(--lv-ink); }
+html[data-ui="v2"] .legal-modal :is(button, a, [tabindex="0"]):focus-visible { outline: 2px solid var(--lv-ink2); outline-offset: 3px; }
+html[data-ui="v2"] .legal-body {
+    min-height: 0; overscroll-behavior: contain; padding: 8px 26px 26px;
+    color: var(--lv-ink2); font-size: 14px; line-height: 1.85; scrollbar-width: thin;
+    scrollbar-color: var(--lv-line-strong) transparent;
+}
+html[data-ui="v2"] .legal-body > h1:first-child { display: none; }
+html[data-ui="v2"] .legal-body :is(h1, h2, strong) { color: var(--lv-ink); }
+html[data-ui="v2"] .legal-body h1 { margin: 24px 0 16px; padding: 0; border: 0; font-size: 20px; }
+html[data-ui="v2"] .legal-body h2 { margin: 22px 0 8px; font-size: 15px; font-weight: 600; }
+html[data-ui="v2"] .legal-body p { margin: 14px 0; }
+html[data-ui="v2"] .legal-body ul { padding-left: 22px; }
+html[data-ui="v2"] .legal-body li { margin-bottom: 6px; }
+html[data-ui="v2"] .legal-body code { padding: 3px 6px; background: var(--lv-field); color: var(--lv-ink); overflow-wrap: anywhere; font-size: 12px; }
+html[data-ui="v2"] .legal-divider { background: var(--lv-line); margin: 28px 0; }
+html[data-ui="v2"] .legal-modal.is-video .legal-dialog { width: min(1000px, 100%); }
+html[data-ui="v2"] .legal-modal.is-video .legal-body { padding: 20px 22px 18px; }
+.legal-video-description { margin: 0 0 16px !important; font-size: 13px; line-height: 1.65; }
+.legal-video-player { position: relative; border: 1px solid var(--lv-line, #334155); border-radius: 12px; overflow: hidden; background: #0b0d12; }
+.legal-video-player video { display: block; width: 100%; max-height: calc(100dvh - 280px); aspect-ratio: 16 / 9; object-fit: contain; background: #0b0d12; }
+.legal-video-status { position: absolute; inset: auto 12px 54px; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border: 1px solid var(--lv-line, #334155); border-radius: 10px; background: var(--lv-card, #15181d); color: var(--lv-ink, #e6e8eb); font-size: 12px; }
+.legal-video-status[hidden], .legal-video-status button[hidden] { display: none; }
+.legal-video-status button { flex: none; padding: 6px 12px; border: 0; border-radius: 7px; background: var(--lv-ink, #e6e8eb); color: var(--lv-card, #15181d); font: inherit; cursor: pointer; }
+.legal-video-caption { margin: 12px 0 0 !important; color: var(--lv-ink3, #94a3b8); font-size: 11px; text-align: center; }
+@keyframes login-dialog-in { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
+@media (max-width: 560px) {
+    html[data-ui="v2"] .legal-modal { padding: 12px; }
+    html[data-ui="v2"] .legal-dialog { max-height: calc(100dvh - 24px); border-radius: 16px; }
+    html[data-ui="v2"] .legal-head { padding: 14px 16px; }
+    html[data-ui="v2"] .legal-head h3 { font-size: 15px; }
+    html[data-ui="v2"] .legal-body { padding: 4px 18px 20px; font-size: 13px; }
+    html[data-ui="v2"] .legal-modal.is-video .legal-body { padding: 16px 12px; }
+    .legal-video-status { position: static; border: 0; border-radius: 0; }
+    .legal-video-player video { max-height: calc(100dvh - 240px); }
+}
+@media (prefers-reduced-motion: reduce) { html[data-ui="v2"] .legal-dialog { animation: none; } }

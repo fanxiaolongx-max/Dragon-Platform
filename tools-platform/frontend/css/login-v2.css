@@ -1,0 +1,107 @@
+/* 登录页新版样式（html[data-ui="v2"]，与首页 css/home-v2.css 同一套浅色极简风格，默认浅色，保留深色）。
+   旧版（?ui=v1）下隐藏新版元素，其余规则都限定在 html[data-ui="v2"] 下。 */
+html:not([data-ui="v2"]) [data-v2] { display: none !important; }
+
+html[data-ui="v2"] {
+    --lv-bg: #f7f7f8;
+    --lv-card: #ffffff;
+    --lv-line: #e7e7ea;
+    --lv-line-strong: #d6d6db;
+    --lv-ink: #1f2328;
+    --lv-ink2: #4b5563;
+    --lv-ink3: #8a9099;
+    --lv-field: #f6f6f7;
+    --lv-focus: #9fe3cc;
+    --lv-focus-soft: #e3f6ef;
+    --lv-danger: #dc2626;
+    --lv-shadow: 0 18px 48px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04);
+    color-scheme: light;
+}
+html[data-ui="v2"][data-theme="dark"] {
+    --lv-bg: #0f1115;
+    --lv-card: #15181d;
+    --lv-line: #262a31;
+    --lv-line-strong: #353a43;
+    --lv-ink: #e6e8eb;
+    --lv-ink2: #b3b9c2;
+    --lv-ink3: #7d8590;
+    --lv-field: #1b1f26;
+    --lv-focus: rgba(62, 207, 158, 0.55);
+    --lv-focus-soft: rgba(62, 207, 158, 0.14);
+    --lv-danger: #f87171;
+    --lv-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+}
+
+html[data-ui="v2"] body { background: var(--lv-bg); color: var(--lv-ink); }
+/* 星空、溶解特效、星尘标语、旧品牌头、休息一下与影视作品都不显示 */
+html[data-ui="v2"] :is(#spaceCanvas, #dissolveCanvas, #loginSloganSmoke, .login-brand-header, .btn-play-game, .btn-cinema) { display: none !important; }
+
+html[data-ui="v2"] .login-wrapper { gap: 18px; }
+html[data-ui="v2"] .glass-panel {
+    width: min(380px, calc(100vw - 32px)); box-sizing: border-box;
+    padding: 34px 32px 28px; border: 1px solid var(--lv-line); border-radius: 20px;
+    background: var(--lv-card); box-shadow: var(--lv-shadow);
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+    animation: lv-in .28s ease both;
+}
+html[data-ui="v2"] .glass-panel::before, html[data-ui="v2"] .glass-panel::after { display: none; }
+@keyframes lv-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+.v2-login-head { display: flex; flex-direction: column; align-items: center; margin-bottom: 22px; text-align: center; }
+.v2-login-mascot { width: 64px; height: auto; margin-bottom: 10px; filter: drop-shadow(0 6px 10px rgba(15, 23, 42, 0.12)); user-select: none; pointer-events: none; }
+.v2-login-head h1 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: 0.01em; color: var(--lv-ink); }
+.v2-login-head p { margin: 4px 0 0; font-size: 13px; color: var(--lv-ink3); }
+
+html[data-ui="v2"] .glass-panel > .subtitle { margin: 0 0 18px; font-size: 12px; color: var(--lv-ink3); text-align: center; letter-spacing: 0; }
+html[data-ui="v2"] .input-group { margin-bottom: 14px; }
+html[data-ui="v2"] .input-group label { margin-bottom: 6px; font-size: 12.5px; font-weight: 500; color: var(--lv-ink2); letter-spacing: 0; text-transform: none; }
+html[data-ui="v2"] .input-group input {
+    width: 100%; box-sizing: border-box; height: 42px; padding: 0 14px;
+    border: 1px solid var(--lv-line); border-radius: 11px; background: var(--lv-field);
+    color: var(--lv-ink); font-size: 14px; box-shadow: none;
+    transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+}
+html[data-ui="v2"] .input-group input::placeholder { color: var(--lv-ink3); }
+html[data-ui="v2"] .input-group input:hover { border-color: var(--lv-line-strong); }
+html[data-ui="v2"] .input-group input:focus { outline: none; border-color: var(--lv-focus); background: var(--lv-card); box-shadow: 0 0 0 3px var(--lv-focus-soft); }
+
+html[data-ui="v2"] .btn-login {
+    width: 100%; height: 42px; margin-top: 8px; border: 0; border-radius: 11px;
+    background: var(--lv-ink); color: var(--lv-card); font-size: 14px; font-weight: 600; letter-spacing: 0.04em;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
+    transition: transform 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+}
+html[data-ui="v2"] .btn-login:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(15, 23, 42, 0.18); background: var(--lv-ink); }
+html[data-ui="v2"] .btn-login:active { transform: none; box-shadow: 0 3px 8px rgba(15, 23, 42, 0.12); }
+html[data-ui="v2"] .btn-login:disabled { opacity: 0.85; cursor: progress; }
+html[data-ui="v2"] .btn-login:focus-visible { outline: 2px solid var(--lv-focus); outline-offset: 2px; }
+html[data-ui="v2"] .btn-login .loader { border-color: rgba(255, 255, 255, 0.35); border-top-color: currentColor; }
+html[data-ui="v2"] #error-msg { min-height: 18px; margin-top: 12px; font-size: 12.5px; color: var(--lv-danger); text-align: center; }
+
+/* 底部链接与标语：低调的灰色小字 */
+html[data-ui="v2"] .footer-links { gap: 10px; font-size: 12px; flex-wrap: wrap; justify-content: center; }
+html[data-ui="v2"] .footer-links a { color: var(--lv-ink3); text-decoration: none; transition: color 150ms ease; }
+html[data-ui="v2"] .footer-links a:hover { color: var(--lv-ink); }
+html[data-ui="v2"] .footer-links > span { color: var(--lv-line-strong) !important; }
+/* 桌面端完全隐藏“休息一下”与“影视作品”小链接（大按钮已隐藏） */
+html[data-desktop="true"] .footer-entertainment-item { display: none !important; }
+html[data-ui="v2"] .login-slogan-wrap { margin-top: 2px; }
+html[data-ui="v2"] .login-slogan-primary { color: var(--lv-ink3); font-size: 12.5px; text-shadow: none; opacity: 1; }
+html[data-ui="v2"] .login-slogan-secondary { display: none; }
+
+/* 右上角语言切换 */
+html[data-ui="v2"] .btn-lang-toggle {
+    border: 1px solid var(--lv-line); border-radius: 999px; background: var(--lv-card); color: var(--lv-ink2);
+    box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; transition: box-shadow 150ms ease, color 150ms ease;
+}
+html[data-ui="v2"] .btn-lang-toggle:hover { color: var(--lv-ink); box-shadow: 0 4px 12px rgba(15, 23, 42, 0.07); }
+
+/* 隐私政策 / 服务条款弹窗 */
+html[data-ui="v2"] .legal-dialog { background: var(--lv-card); color: var(--lv-ink); border: 1px solid var(--lv-line); border-radius: 16px; box-shadow: var(--lv-shadow); }
+html[data-ui="v2"] .legal-dialog :is(h3, h4, p, li) { color: inherit; }
+html[data-ui="v2"] .legal-close { color: var(--lv-ink2); background: transparent; }
+html[data-ui="v2"] .login-slogan-wrap { background: none !important; box-shadow: none !important; filter: none !important; mask: none !important; -webkit-mask: none !important; animation: none !important; opacity: 1 !important; }
+html[data-ui="v2"] .login-slogan-wrap::before, html[data-ui="v2"] .login-slogan-wrap::after { display: none !important; }
+html[data-ui="v2"] .glass-panel { padding-bottom: 20px; }
+html[data-ui="v2"] #error-msg:empty { min-height: 0; margin-top: 0; }

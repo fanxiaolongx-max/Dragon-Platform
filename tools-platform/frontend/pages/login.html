@@ -7,6 +7,38 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登录 - Dragon 工具平台</title>
     <script>
+        // 新版浅色样式（与首页一致，默认开启）；?ui=v1 或首页“切回旧版界面”后保留原星空登录页
+        (function () {
+            var root = document.documentElement;
+            try {
+                var query = new URLSearchParams(location.search).get('ui');
+                if (query === 'v2' || query === 'v1') localStorage.setItem('tools_home_ui', query);
+                if (localStorage.getItem('tools_home_ui') === 'v1') return;
+                root.setAttribute('data-ui', 'v2');
+                root.setAttribute('data-theme', localStorage.getItem('tools_theme') === 'dark' ? 'dark' : 'light');
+            } catch (e) { /* 读不到存储时保持原样式 */ }
+        })();
+    </script>
+    <script>
+        // 桌面端环境识别：隐藏“休息一下”与“影视作品”
+        (function () {
+            var root = document.documentElement;
+            function markDesktop() {
+                root.setAttribute('data-desktop', 'true');
+            }
+            if (window.ToolsDesktop || (typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent))) {
+                markDesktop();
+                return;
+            }
+            fetch('/api/desktop-license/status', { cache: 'no-store' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (data && data.enabled) markDesktop();
+                })
+                .catch(function () {});
+        })();
+    </script>
+    <script>
         (function () {
             try {
                 var lang = localStorage.getItem('tools_lang') || 'zh-CN';
@@ -25,6 +57,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icon.png?v=20261006">
     <link rel="apple-touch-icon" href="/assets/icon-mac.png?v=20261006">
     <script src="/js/shared/i18n.js"></script>
+    <link rel="stylesheet" href="/css/login-v2.css">
+    <link rel="stylesheet" href="/css/login-dialogs.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400;1,500;1,600;1,700&family=Playfair+Display:ital,wght@1,400;1,600&family=Inter:wght@300;400;600&display=swap');
 
@@ -350,6 +384,15 @@
             font-size: 11px;
             margin-top: 12px;
             min-height: 16px;
+        }
+
+        /* 桌面端隐藏“休息一下”与“影视作品”大按钮 */
+        html[data-desktop="true"] :is(.btn-play-game, .btn-cinema) {
+            display: none !important;
+        }
+        /* 旧版（v1）网页下已有大按钮，底部不重复显示小链接 */
+        html:not([data-ui="v2"]) .footer-entertainment-item {
+            display: none !important;
         }
 
         /* 登录卡片多级标题与下方神秘标语 */
@@ -834,6 +877,11 @@
 
     <div class="login-wrapper">
         <div class="glass-panel" id="loginPanel">
+            <div class="v2-login-head" data-v2>
+                <img class="v2-login-mascot" src="/assets/dragonclaw-mascot.png" alt="">
+                <h1>DragonClaw</h1>
+                <p data-i18n="login.v2Tagline">让想法落地</p>
+            </div>
             <div class="login-brand-header">
                 <h2 style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:3px;"><img id="loginBrandLogo" src="/assets/logo.png?v=20261006" alt="Dragon 工具平台" style="width:26px;height:26px;object-fit:contain;filter:drop-shadow(0 0 10px rgba(59,130,246,0.6));"><span data-platform-name id="loginBrandName">Dragon 工具平台</span> <span class="version-badge" id="appVersionBadge">v...</span></h2>
                 <div class="login-brand-sub" id="loginBrandSub">Dragon Platform</div>
@@ -861,7 +909,11 @@
             <span style="color:rgba(255,255,255,0.2);">|</span>
             <a href="/terms" data-i18n="login.terms" onclick="openLegalModal('terms'); return false;">服务条款</a>
             <span style="color:rgba(255,255,255,0.2);">|</span>
-            <a class="login-evolution-link" href="/project-evolution" target="_blank" rel="noopener noreferrer" data-i18n="login.evolutionTitle" data-i18n-aria-label="login.evolutionAria" aria-label="观看项目演进视频，在新窗口播放高清版">项目演进</a>
+            <a class="login-evolution-link" href="/project-evolution" onclick="openLegalModal('evolution'); return false;" data-i18n="login.evolutionTitle" data-i18n-aria-label="login.evolutionAria" aria-label="在弹窗中观看项目演进高清视频">项目演进</a>
+            <span class="footer-entertainment-item" style="color:rgba(255,255,255,0.2);">|</span>
+            <a class="footer-entertainment-item" href="#" data-i18n="login.playGame" onclick="toggleGame(true); return false;">♨️ 休息一下</a>
+            <span class="footer-entertainment-item" style="color:rgba(255,255,255,0.2);">|</span>
+            <a class="footer-entertainment-item" href="/cinema" data-i18n="login.cinema">🎬 影视作品</a>
         </div>
 
         <div class="login-slogan-wrap" id="loginSloganWrap">
@@ -878,7 +930,7 @@
                 <h3 id="legalModalTitle" data-i18n="login.privacyTitle">隐私政策</h3>
                 <button type="button" class="legal-close" onclick="closeLegalModal()" data-i18n-aria-label="login.close" aria-label="关闭">×</button>
             </div>
-            <div class="legal-body" id="legalModalBody"></div>
+            <div class="legal-body" id="legalModalBody" tabindex="0"></div>
         </div>
     </div>
 
@@ -994,30 +1046,56 @@
             }
         };
 
+        let legalModalTrigger = null;
+        let legalPreviousOverflow = '';
+        let legalWrapperWasInert = false;
+
         function openLegalModal(type) {
-            const item = LEGAL_CONTENT[type] || LEGAL_CONTENT.privacy;
             const modal = document.getElementById('legalModal');
             const title = document.getElementById('legalModalTitle');
             const body = document.getElementById('legalModalBody');
             if (!modal || !title || !body) return;
-            const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
-            title.textContent = lang === 'en-US'
-                ? (type === 'terms' ? 'Terms of Service (服务条款)' : 'Privacy Policy (隐私政策)')
-                : (type === 'terms' ? '服务条款 (Terms of Service)' : '隐私政策 (Privacy Policy)');
-            title.setAttribute('data-legal-type', type);
-            body.innerHTML = (currentPlatformName && currentPlatformName !== 'Tools Platform')
-                ? item.html.split('Tools Platform').join(currentPlatformName)
-                : item.html;
+            const wrapper = document.querySelector('.login-wrapper');
+            if (!modal.classList.contains('open')) {
+                legalModalTrigger = document.activeElement;
+                legalPreviousOverflow = document.body.style.overflow;
+                legalWrapperWasInert = wrapper?.inert || false;
+            }
+            window.ProjectEvolutionPlayer?.close?.();
+            const video = type === 'evolution';
+            const kind = video ? 'evolution' : type === 'terms' ? 'terms' : 'privacy';
+            const key = kind === 'evolution' ? 'login.evolutionTitle' : kind === 'terms' ? 'login.termsTitle' : 'login.privacyTitle';
+            title.dataset.i18n = key;
+            title.dataset.legalType = kind;
+            title.textContent = window.ToolsI18n?.t(key) || (video ? '项目演进' : LEGAL_CONTENT[kind].title);
+            modal.classList.toggle('is-video', video);
+            if (video) {
+                window.ProjectEvolutionPlayer?.mount(body);
+            } else {
+                const item = LEGAL_CONTENT[kind];
+                body.innerHTML = (currentPlatformName && currentPlatformName !== 'Tools Platform')
+                    ? item.html.split('Tools Platform').join(currentPlatformName)
+                    : item.html;
+            }
             body.scrollTop = 0;
             modal.classList.add('open');
             modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+            if (wrapper) wrapper.inert = true;
+            modal.querySelector('.legal-close').focus({ preventScroll: true });
         }
 
         function closeLegalModal() {
             const modal = document.getElementById('legalModal');
-            if (!modal) return;
-            modal.classList.remove('open');
+            if (!modal?.classList.contains('open')) return;
+            window.ProjectEvolutionPlayer?.close?.();
+            modal.classList.remove('open', 'is-video');
             modal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = legalPreviousOverflow;
+            const wrapper = document.querySelector('.login-wrapper');
+            if (wrapper) wrapper.inert = legalWrapperWasInert;
+            if (legalModalTrigger?.isConnected) legalModalTrigger.focus({ preventScroll: true });
+            legalModalTrigger = null;
         }
 
         function handleLegalBackdrop(event) {
@@ -1025,7 +1103,15 @@
         }
 
         document.addEventListener('keydown', event => {
-            if (event.key === 'Escape') closeLegalModal();
+            const modal = document.getElementById('legalModal');
+            if (!modal?.classList.contains('open')) return;
+            if (event.key === 'Escape') { event.preventDefault(); closeLegalModal(); }
+            if (event.key === 'Tab') {
+                const stops = [...modal.querySelectorAll('button, a[href], video, [tabindex="0"]')].filter(node => !node.hidden && node.getClientRects().length);
+                const index = stops.indexOf(document.activeElement);
+                if (event.shiftKey && index <= 0) { event.preventDefault(); stops.at(-1)?.focus(); }
+                else if (!event.shiftKey && (index === stops.length - 1 || index === -1)) { event.preventDefault(); stops[0]?.focus(); }
+            }
         });
 
         class Star {
@@ -1082,7 +1168,9 @@
             requestAnimationFrame(animate);
         }
 
-        animate();
+        // 新版浅色登录页不显示星空，不启动动画循环
+        const loginV2 = document.documentElement.getAttribute('data-ui') === 'v2';
+        if (!loginV2) animate();
 
         // --- 业务逻辑 ---
         let loginAppVersion = '';
@@ -1285,9 +1373,11 @@
             btn.disabled = true;
             btn.setAttribute('aria-busy', 'true');
             btn.innerHTML = `${window.ToolsI18n ? window.ToolsI18n.t('login.submitting') : '正在登录'} <span class="loader"></span>`;
-            btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-            btn.style.boxShadow = '0 10px 25px -5px rgba(16, 185, 129, 0.5)';
-            panel.style.transform = 'scale(0.95)';
+            if (!loginV2) {
+                btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                btn.style.boxShadow = '0 10px 25px -5px rgba(16, 185, 129, 0.5)';
+                panel.style.transform = 'scale(0.95)';
+            }
             targetSpeed = warpSpeed;
 
             try {
@@ -1310,12 +1400,12 @@
 
                 btn.innerHTML = window.ToolsI18n ? window.ToolsI18n.t('login.success') : '登录成功';
                 btn.removeAttribute('aria-busy');
-                playGaussianDissolve();
+                if (!loginV2) playGaussianDissolve();
 
-                // 让粒子完整融入星空后再进入平台
+                // 让粒子完整融入星空后再进入平台（新版没有粒子效果，直接进入）
                 setTimeout(() => {
                     window.location.href = '/';
-                }, prefersReducedMotion.matches ? 220 : 1080);
+                }, loginV2 ? 120 : prefersReducedMotion.matches ? 220 : 1080);
 
             } catch (e) {
                 // 恢复原状
@@ -1348,8 +1438,9 @@
                 'login.emptyFields': '用户名和密码不能为空',
                 'login.playGame': '♨️ 休息一下',
                 'login.cinema': '🎬 影视作品',
+                'login.v2Tagline': '让想法落地',
                 'login.evolutionTitle': '项目演进',
-                'login.evolutionAria': '观看项目演进视频，在新窗口播放高清版',
+                'login.evolutionAria': '在弹窗中观看项目演进高清视频',
                 'login.privacy': '隐私政策',
                 'login.terms': '服务条款',
                 'login.exitGame': '退出游戏',
@@ -1372,8 +1463,9 @@
                 'login.emptyFields': 'Username and password cannot be empty',
                 'login.playGame': '♨️ Take a Break',
                 'login.cinema': '🎬 Cinema & Films',
+                'login.v2Tagline': 'From idea to done',
                 'login.evolutionTitle': 'Project evolution',
-                'login.evolutionAria': 'Watch the project evolution video in HD in a new window',
+                'login.evolutionAria': 'Watch the project evolution video in an HD dialog',
                 'login.privacy': 'Privacy Policy',
                 'login.terms': 'Terms of Service',
                 'login.exitGame': 'Exit Game',
@@ -1595,7 +1687,7 @@
                 const title = document.getElementById('legalModalTitle');
                 if (title) {
                     const legalType = title.getAttribute('data-legal-type') || 'privacy';
-                    title.textContent = window.ToolsI18n?.t(legalType === 'terms' ? 'login.termsTitle' : 'login.privacyTitle');
+                    title.textContent = window.ToolsI18n?.t(legalType === 'evolution' ? 'login.evolutionTitle' : legalType === 'terms' ? 'login.termsTitle' : 'login.privacyTitle');
                 }
             }
         }
@@ -1616,6 +1708,7 @@
         }
         loadPlatformIdentity();
     </script>
+    <script src="/js/project-evolution.js"></script>
     <script src="/js/shared/login-slogan-smoke.js"></script>
     <script src="/js/shared/desktop-license-badge.js"></script>
 </body>

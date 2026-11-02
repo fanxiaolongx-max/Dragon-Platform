@@ -13,13 +13,15 @@ const serverSource = fs.readFileSync(path.join(root, 'backend/server.js'), 'utf8
 const guardSource = serverSource.slice(serverSource.indexOf('const PUBLIC_HTML_PATHS'), serverSource.indexOf('\napp.use((req, res, next) => {', serverSource.indexOf('const PUBLIC_HTML_PATHS')));
 const shouldProtectHtmlEntry = vm.runInNewContext(`${guardSource}\nshouldProtectHtmlEntry;`, { path });
 
-test('login opens the evolution player in a separate window without requesting the MP4', () => {
+test('login opens evolution in a dialog and does not preload the MP4', () => {
     const login = fs.readFileSync(path.join(frontend, 'pages/login.html'), 'utf8');
     const link = login.match(/<a class="login-evolution-link"[^>]+>/)?.[0];
     assert.ok(link);
     assert.match(link, /href="\/project-evolution"/);
-    assert.match(link, /target="_blank"/);
-    assert.match(link, /rel="noopener noreferrer"/);
+    assert.doesNotMatch(link, /target="_blank"/);
+    assert.match(link, /openLegalModal\('evolution'\)/);
+    assert.match(login, /src="\/js\/project-evolution\.js"/);
+    assert.match(login, /href="\/css\/login-dialogs\.css"/);
     assert.ok(login.indexOf('class="login-evolution-link"') > login.indexOf('id="loginPanel"'));
     assert.ok(login.indexOf('class="login-evolution-link"') > login.indexOf('class="footer-links"'));
     assert.doesNotMatch(login, /project-evolution-galaxy-hd\.mp4|<video\b/);
