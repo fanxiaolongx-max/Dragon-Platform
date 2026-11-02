@@ -310,7 +310,7 @@ body.air-printing,body.air-printing .air-layout,body.air-printing .air-report-pa
 .kit-row{display:flex;gap:12px;align-items:flex-start;min-width:0}
 .kit-slot{position:relative;min-width:0;box-sizing:border-box}
 .kit-slot.has-height{overflow:hidden auto}
-@media(max-width:700px){.kit-row{flex-direction:column}.kit-row>.kit-slot{flex:1 1 auto!important;width:100%}}
+@media(max-width:700px){.air-output:not([data-horizontal]) .kit-row{flex-direction:column}.air-output:not([data-horizontal]) .kit-row>.kit-slot{flex:1 1 auto!important;width:100%}}
 /* Editing affordances for layout slots (only added in edit mode): hover outline + name, edge handles, size badge. */
 .air-report:not(.is-preview) .air-cell .kit-slot{outline:1px dashed transparent;outline-offset:3px;border-radius:4px;transition:outline-color .15s}
 .air-report:not(.is-preview) .air-cell .kit-slot:hover,.air-cell .kit-slot.is-sizing{outline-color:#9ec0de}
@@ -392,9 +392,9 @@ body.air-export .air-chrome-toggle,.air-preview-print .air-chrome-toggle{display
 @media(prefers-reduced-motion:reduce){.air-chrome-toggle,.air-chrome-toggle svg,#app-navbar,.air-toolbar,.air-chat,.air-layout{transition:none}}
 /* Narrow cells stack their blocks top to bottom, whatever widths the recipe gave them (the cell is the container). */
 @container (max-width:480px){
-    .kit-row{flex-direction:column;align-items:stretch}
-    .kit-row>.kit-slot{flex:1 1 auto!important;width:100%}
-    .kit-slot-edge-x{display:none}
+    .air-output:not([data-horizontal]) .kit-row{flex-direction:column;align-items:stretch}
+    .air-output:not([data-horizontal]) .kit-row>.kit-slot{flex:1 1 auto!important;width:100%}
+    .air-output:not([data-horizontal]) .kit-slot-edge-x{display:none}
 }
 /* Troubleshooting details under a prompt: a quiet link until opened. */
 .air-msg-prompt .air-recipe{margin-top:6px;padding:0;border:0;background:transparent}
@@ -613,3 +613,11 @@ ol.kit-list{padding-left:2.6em}
 .air-img-pagination button:disabled{opacity:.4;cursor:default}.air-img-delete-review{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;font-size:12px}
 .air-img-delete-review .air-img-confirm-delete{color:#fff;background:#b42332;border-color:#b42332}.air-img-delete-review button:disabled{opacity:.5;cursor:wait}.air-img-empty{grid-column:1/-1;color:var(--air-muted);font-size:12px}
 @media(max-width:480px){.air-img-pagination{flex-wrap:wrap;justify-content:center}.air-img-pagination span{order:-1;flex-basis:100%;text-align:center}}
+
+/* Live stages stay compact beside the thinking label and wrap on narrow panels. */
+.air-msg-busy{flex-wrap:wrap}.air-msg-busy .air-spinner{flex:none}
+.air-live-progress{font-size:11px;font-weight:400;overflow-wrap:anywhere}
+.air-chat header .air-dev-export{flex:none;width:auto;height:24px;padding:0 9px;border:1px solid var(--air-line);border-radius:12px;background:var(--air-paper,#fff);color:var(--air-ink);font-size:11px;cursor:pointer}
+.air-chat header{flex-wrap:wrap}.air-chat header>div{min-width:0}
+.air-dev h5{margin:8px 8px 0;font-size:12px;color:var(--air-ink)}
+.air-dev-head{flex-wrap:wrap}.air-dev pre{tab-size:2}

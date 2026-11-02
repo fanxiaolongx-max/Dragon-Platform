@@ -152,13 +152,36 @@ const API = {
         // 调用方仍持有独立的数据副本，避免互相修改目录元数据。
         return JSON.parse(JSON.stringify(await pending));
     },
-    post: async function(path, body) {
+    post: async function(path, body, { onEvent } = {}) {
         const res = await fetch(`${API_BASE}${path}`, {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify(body)
         });
-        return handleResponse(res, { method: 'POST', path });
+        if (!res.ok || !res.headers.get('Content-Type')?.includes('application/x-ndjson')) return handleResponse(res, { method: 'POST', path });
+        const reader = res.body.getReader(), decoder = new TextDecoder();
+        let buffer = '', result, completed = false;
+        const consume = line => {
+            if (!line.trim()) return;
+            const event = JSON.parse(line);
+            if (event.type === 'result') { result = event; completed = true; }
+            else onEvent?.(event);
+        };
+        try {
+            while (true) {
+                const { value, done } = await reader.read();
+                buffer += decoder.decode(value, { stream: !done });
+                let end;
+                while ((end = buffer.indexOf('\n')) >= 0) { consume(buffer.slice(0, end)); buffer = buffer.slice(end + 1); }
+                if (done) break;
+            }
+            if (buffer.trim()) consume(buffer);
+            if (!completed) throw new Error('连接中断，未收到最终结果 / Connection closed before the final result');
+            // Reuse the existing auth/error contract for errors delivered after stream headers.
+            onEvent?.({ type: 'complete', requestId: result.requestId, status: result.status, ms: result.ms });
+            const reply = await handleResponse(new Response(JSON.stringify(result.body), { status: result.status, headers: { 'Content-Type': 'application/json' } }), { method: 'POST', path });
+            return reply;
+        } finally { reader.releaseLock(); }
     },
     put: async function(path, body) {
         const res = await fetch(`${API_BASE}${path}`, {

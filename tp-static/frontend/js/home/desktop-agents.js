@@ -9,11 +9,12 @@
     } })() };
     let root, list, poll;
     let autoSelect = false;
+    let historyLoad = null, historyTimer = null, readingEpoch = null;
     const L = (zh, en) => /^en/.test(window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || '') ? en : zh;
     const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const identity = () => ['tools_user', 'tools_tenant_id', 'tools_token'].map(k => localStorage.getItem(k) || sessionStorage.getItem(k) || '').join('|');
     const key = s => s.provider + ':' + s.id;
-    async function request(method, url, body) { const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token'); const response = await fetch(API + url, { method, credentials: 'same-origin', cache: 'no-store', headers: { Authorization: 'Bearer ' + token, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); const data = await response.json().catch(() => ({})); if (!response.ok)
+    async function request(method, url, body, signal) { const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token'); const response = await fetch(API + url, { method, signal, credentials: 'same-origin', cache: 'no-store', headers: { Authorization: 'Bearer ' + token, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); const data = await response.json().catch(() => ({})); if (!response.ok)
         throw Object.assign(new Error(data.error || `HTTP ${response.status}`), { status: response.status, code: data.code }); return data; }
     // 与后端上限一致：超长时不发请求，直接说明字数（保留输入框里的内容）
     const MAX_MESSAGE = 20000;
@@ -163,7 +164,7 @@
         hint.textContent=names[state.provider]+' · '+L('暂无可用对话，请打开客户端后同步。','No available conversations. Open the client and sync.')+' '+(state.providers.find(p=>p.id===state.provider)?.reason||'');
         api.thread.append(hint);api.finishLoading();
     }
-    function exit() { state.viewEpoch++; state.drafting = null; clearInterval(poll); poll = null; clearInterval(state.tick); state.tick = null; const body = document.querySelector('[data-wsp-ext-body]'); if (body) {
+    function exit() { clearInterval(historyTimer); historyTimer = null; historyLoad = null; state.viewEpoch++; state.drafting = null; clearInterval(poll); poll = null; clearInterval(state.tick); state.tick = null; const body = document.querySelector('[data-wsp-ext-body]'); if (body) {
         body.onclick = null;
         delete body.dataset.signature;
     } if (state.active)
@@ -241,8 +242,51 @@
         window.HomeMode?.set?.('chat');
         render();
         api.beginLoading();
+        historyLoad = { since: Date.now(), status: 'loading', error: '' };
+        renderThread({ items: [] }, true);
+        api.finishLoading();
+        renderHistoryLoad();
+        historyTimer = setInterval(renderHistoryLoad, 1000);
         await refreshMessages(epoch, session, true);
         schedule(epoch, session);
+    }
+    // 桌面接口没有字节进度：显示不定进度条，不伪造百分比。
+    function renderHistoryLoad() {
+        if (!historyLoad || !state.view || !state.active) return;
+        let panel = state.view.banner.parentNode.querySelector('.desktop-agent-history-load');
+        if (historyLoad.status === 'done') {
+            panel?.remove();
+            clearInterval(historyTimer); historyTimer = null;
+            state.api.thread.removeAttribute('aria-busy');
+            return;
+        }
+        const seconds = Math.floor((Date.now() - historyLoad.since) / 1000);
+        if (historyLoad.status === 'loading' && seconds >= 45) {
+            historyLoad.status = 'empty';
+        }
+        const loading = historyLoad.status === 'loading', failed = historyLoad.status === 'error';
+        state.api.thread.toggleAttribute('aria-busy', loading);
+        if (!panel) {
+            panel = document.createElement('div');
+            panel.className = 'desktop-agent-history-load';
+            state.view.banner.after(panel);
+        }
+        panel.dataset.status = historyLoad.status;
+        const title = loading ? L(`正在加载 ${names[state.active.provider]} 对话…`, `Loading ${names[state.active.provider]} conversation…`) : failed ? L('对话加载失败', 'Conversation failed to load') : L('暂未读取到对话内容', 'No conversation content received yet');
+        const hint = loading ? (seconds >= 10 ? L('桌面会话仍在加载，正在自动检查，请稍候。', 'The desktop conversation is still loading. Checking automatically, please wait.') : L('正在连接桌面并读取消息，请稍候。', 'Connecting to the desktop and reading messages, please wait.')) : failed ? historyLoad.error : L('会话可能为空或桌面尚未加载完成；将继续自动检查，也可重试。', 'The conversation may be empty or still loading on the desktop. Automatic checks continue; you can also retry.');
+        // 只在状态/语言变化时更新播报，秒数单独更新以免读屏每秒重复提示。
+        const signature = JSON.stringify([title, hint, loading]);
+        if (panel.dataset.signature !== signature) {
+            panel.dataset.signature = signature;
+            panel.innerHTML = `<div role="status"><b>${esc(title)}</b><p>${esc(hint)}</p></div>${loading ? `<div class="desktop-agent-history-progress" role="progressbar" aria-label="${esc(title)}"><i></i></div><small data-history-elapsed></small>` : `<button type="button" data-history-retry>${esc(L('重新加载', 'Retry loading'))}</button>`}`;
+            panel.querySelector('[data-history-retry]')?.addEventListener('click', () => open(state.active));
+        }
+        const time = panel.querySelector('[data-history-elapsed]');
+        if (time) time.textContent = L(`已等待 ${seconds} 秒`, `Waiting for ${seconds}s`);
+        if (state.view.hint) { state.view.hint.remove(); state.view.hint = null; }
+        const status = document.querySelector('[data-desktop-status]');
+        if (status) status.textContent = statusText();
+        if (!loading) { clearInterval(historyTimer); historyTimer = null; }
     }
     function schedule(epoch, session) { if (!current(epoch, session))
         return; clearInterval(poll); poll = setInterval(() => { if (document.visibilityState === 'visible')
@@ -255,7 +299,7 @@
         clearInterval(state.tick);
         state.tick = null;
     } }
-    function statusText() { const d = state.detail; if (!d)
+    function statusText() { if (historyLoad?.status === 'loading') return L('正在加载对话…', 'Loading conversation…'); if (historyLoad?.status === 'error') return L('对话加载失败 · 可重试', 'Loading failed · retry available'); const d = state.detail; if (!d)
         return L('读取中…', 'Loading…'); if (d.busy || state.pending)
         return busyText(); return state.active.canSend ? L('空闲 · 可发送', 'Idle · ready') : L('只读', 'Read-only'); }
     // 轮询只做增量更新：已显示的消息原地保留，新消息追加（自带淡入），内容有变化的只改正文，避免整屏重绘闪烁
@@ -414,9 +458,11 @@
     }
     function back() { window.DragonClaw?.newChat?.(); window.HomeWelinkThreads?.setSource?.('mine'); }
     async function refreshMessages(epoch, session, initial = false) {
+        if (readingEpoch === epoch) return;
+        readingEpoch = epoch;
         try {
             // 轮询只被动读取：Antigravity 桌面在别的会话时不切换它，正文保持上次内容
-            const data = await request('GET', `/${session.provider}/sessions/${encodeURIComponent(session.id)}/messages${initial ? '' : '?passive=1'}`);
+            const data = await request('GET', `/${session.provider}/sessions/${encodeURIComponent(session.id)}/messages${initial ? '' : '?passive=1'}`, undefined, AbortSignal.timeout(45000));
             if (!current(epoch, session))
                 return;
             if (data.stale)
@@ -432,6 +478,13 @@
                 renderThread(data, initial);
                 state.signature = signature;
             }
+            if (historyLoad) {
+                if (data.items?.length) historyLoad.status = 'done';
+                else if (data.stale) { historyLoad.status = 'error'; historyLoad.error = L('桌面已切换到其他会话，请重新加载此会话。', 'The desktop switched to another conversation. Reload this conversation.'); }
+                else if (session.provider !== 'antigravity') historyLoad.status = 'empty';
+                else if (historyLoad.status === 'error') historyLoad.status = 'empty';
+                renderHistoryLoad();
+            }
             state.api.setComposer(composer(state.active));
             renderDock();
             renderWorkspace(initial);
@@ -440,15 +493,22 @@
             tick();
             if (!initial && Boolean(wasBusy) !== Boolean(data.busy))
                 schedule(epoch, session);
-            if (initial) // 淡入只在首次打开时做；轮询时做会让整个消息区每隔几秒闪一下
+            if (initial && historyLoad?.status !== 'loading') // 淡入只在首次打开时做；轮询时做会让整个消息区每隔几秒闪一下
                 state.api.finishLoading();
         }
         catch (error) {
             if (current(epoch, session)) {
                 if (initial)
                     state.api.finishLoading();
-                state.api.toast(error.message);
+                if (historyLoad) {
+                    historyLoad.status = 'error';
+                    historyLoad.error = error.name === 'TimeoutError' ? L('读取超时，请确认桌面客户端已打开后重试。', 'Loading timed out. Check that the desktop client is open and retry.') : error.message;
+                    renderHistoryLoad();
+                }
             }
+        }
+        finally {
+            if (readingEpoch === epoch) readingEpoch = null;
         }
     }
     async function send(text) { const session = state.active; if (!session || !session.canSend || state.sending || state.unknown.has(key(session)))

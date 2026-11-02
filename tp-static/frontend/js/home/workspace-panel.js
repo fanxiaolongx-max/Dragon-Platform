@@ -24,6 +24,7 @@
         context: null,
         changes: [],
         openDiff: null,
+        expandChanges: false,
         pr: null, // { phase: 'checking'|'blocked'|'form'|'running'|'done'|'failed', preflight, steps, url, error, controller }
         open: false,
         filePreview: null,
@@ -189,6 +190,7 @@
     }
 
     // ── 更改卡 ──────────────────────────────────────────
+    const CHANGES_COLLAPSE_THRESHOLD = 8;
     function renderChanges() {
         const list = state.changes || [];
         const added = list.reduce((sum, item) => sum + (item.added || 0), 0);
@@ -198,10 +200,16 @@
             el.changesBody.innerHTML = `<div class="wsp-empty">${escapeHtml(tx('noChanges'))}</div>`;
             return;
         }
+        // 如果打开的 diff 在折叠范围之外，自动展开以保持 diff 可见
+        if (state.openDiff && list.findIndex(item => item.path === state.openDiff.path) >= CHANGES_COLLAPSE_THRESHOLD) {
+            state.expandChanges = true;
+        }
+        const isFolded = list.length > CHANGES_COLLAPSE_THRESHOLD && !state.expandChanges;
+        const visibleList = isFolded ? list.slice(0, CHANGES_COLLAPSE_THRESHOLD) : list;
         const kindLabel = { create: 'A', modify: 'M', delete: 'D', rename: 'R' };
         el.changesBody.innerHTML = `
             <ul class="wsp-changes">
-                ${list.map(item => `
+                ${visibleList.map(item => `
                     <li class="wsp-change${state.openDiff?.path === item.path ? ' is-open' : ''}">
                         <button type="button" class="wsp-change-main" data-wsp-diff="${escapeHtml(item.path)}" title="${escapeHtml(tx('viewDiff'))}">
                             <span class="wsp-change-kind wsp-change-kind--${item.kind}">${kindLabel[item.kind] || '?'}</span>
@@ -215,6 +223,13 @@
                             : `<button type="button" class="wsp-btn wsp-btn-quiet" data-wsp-revert="${escapeHtml(item.path)}" ${item.revertible === false ? 'disabled' : ''} title="${escapeHtml(tx('revert'))}">↶</button>`}
                         ${state.openDiff?.path === item.path ? `<pre class="wsp-diff">${renderDiff(state.openDiff.text)}</pre>` : ''}
                     </li>`).join('')}
+                ${list.length > CHANGES_COLLAPSE_THRESHOLD ? `
+                    <li class="wsp-changes-fold">
+                        <button type="button" class="wsp-changes-more" data-wsp-changes-toggle="${state.expandChanges ? 'collapse' : 'expand'}">
+                            <span class="wsp-changes-more-arrow">${state.expandChanges ? '▲' : '▼'}</span>
+                            <span>${escapeHtml(state.expandChanges ? tx('changesShowLess') : tx('changesShowMore', { count: list.length - CHANGES_COLLAPSE_THRESHOLD }))}</span>
+                        </button>
+                    </li>` : ''}
             </ul>
             ${!isReadOnly() && (list.some(item => item.source !== 'git') || state.pr) ? renderPr() : ''}`;
         mountPrLog();
@@ -484,6 +499,59 @@
         renderChanges();
     }
 
+    // ── 按轮回退：改过文件的回答下面显示「回退到这一轮之前」 ──────
+    let checkpointRequest = 0;
+    async function decorateCheckpoints() {
+        const thread = document.getElementById('dcThread');
+        if (!thread) return;
+        const clear = () => thread.querySelectorAll('.dc-rewind-btn').forEach(node => node.remove());
+        if (!state.enabled || !state.root || !state.agentSessionId || isReadOnly()) { clear(); return; }
+        const ticket = ++checkpointRequest;
+        const target = { root: state.root, id: state.agentSessionId };
+        let runs = [];
+        try {
+            runs = (await request('GET', `${API}/checkpoints/${encodeURIComponent(target.id)}?root=${encodeURIComponent(target.root)}`)).runs || [];
+        } catch { return; }
+        if (ticket !== checkpointRequest || state.root !== target.root || state.agentSessionId !== target.id) return;
+        const byRun = new Map(runs.map(item => [item.runId, item]));
+        thread.querySelectorAll('.dc-msg--ai[data-run-id]').forEach(message => {
+            const run = byRun.get(message.dataset.runId);
+            const existing = message.querySelector('.dc-rewind-btn');
+            if (!run) { existing?.remove(); return; }
+            if (existing) return;
+            const bar = message.querySelector('.dc-msg-tools');
+            if (!bar) return;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'dc-rewind-btn';
+            button.title = tx('rewindTitle', { count: run.files });
+            button.innerHTML = `<span aria-hidden="true">↶</span>${escapeHtml(tx('rewindAction'))}<small>${escapeHtml(tx('rewindFiles', { count: run.files }))}</small>`;
+            button.addEventListener('click', () => rewindTurn(run, target, message));
+            bar.appendChild(button);
+        });
+    }
+
+    async function rewindTurn(run, target, message) {
+        if (state.root !== target.root || state.agentSessionId !== target.id) return;
+        const later = [...document.querySelectorAll('#dcThread .dc-msg--ai[data-run-id]')];
+        const index = later.indexOf(message);
+        const laterCount = later.slice(index + 1).filter(node => node.querySelector('.dc-rewind-btn')).length;
+        const files = run.paths.slice(0, 8).join('\n') + (run.paths.length > 8 ? `\n${tx('rewindMoreFiles', { count: run.paths.length - 8 })}` : '');
+        const options = { title: tx('rewindConfirmTitle'), message: `${tx(laterCount ? 'rewindConfirmLater' : 'rewindConfirm', { count: laterCount })}\n\n${files}`, confirmText: tx('rewindAction'), tone: 'danger' };
+        const ok = typeof window.showNavbarConfirm === 'function' ? await window.showNavbarConfirm(options) : await window.AppDialog.confirm(options.message, options);
+        if (!ok) return;
+        try {
+            const data = await request('POST', `${API}/checkpoints/${encodeURIComponent(target.id)}/rewind`, { root: target.root, runId: run.runId });
+            if (state.root !== target.root || state.agentSessionId !== target.id) return;
+            applyChanges(data.changes);
+            message.querySelector('.dc-msg-main')?.insertAdjacentHTML('beforeend', `<div class="dc-rewound">↶ ${escapeHtml(tx('rewindDone', { count: data.restored.length }))}${data.skipped?.length ? ` · ${escapeHtml(tx('rewindSkipped', { count: data.skipped.length }))}` : ''}</div>`);
+            toast(tx('rewindDone', { count: data.restored.length }));
+        } catch (error) {
+            toast(error.message);
+        }
+        decorateCheckpoints();
+    }
+
     // ── 输入框上方的工作区芯片 ───────────────────────────
     function renderChip() {
         if (!el.chip) return;
@@ -643,6 +711,7 @@
         state.context = null;
         state.changes = [];
         state.openDiff = null;
+        state.expandChanges = false;
         state.pr?.controller?.abort();
         state.pr = null;
         let previousRoot = '';
@@ -667,6 +736,7 @@
         state.context = null;
         state.changes = [];
         state.openDiff = null;
+        state.expandChanges = false;
         state.pr?.controller?.abort();
         state.pr = null;
         setOpen(false);
@@ -890,8 +960,169 @@
         button.setAttribute('aria-label', label);
     }
 
+    // ── 对话内：子智能体卡片（task 工具） ─────────────────
+    // 每个子智能体一张卡：头像（图标 + 它的颜色）、名字、任务、状态与用时；运行中在卡片下方滚动显示最近几次工具调用，
+    // 完成后显示结论摘要。点开看完整任务说明、全部工具调用和结论。同一步并行派出的卡片收在一组里。
+    const subagents = new Map(); // id → { card, tools: Map, started, toolCount }
+    const SUB_PEEK = 3;
+    let subTicker = null;
+
+    function formatElapsed(ms) {
+        const seconds = Math.max(0, Math.round(ms / 1000));
+        return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+    }
+
+    function formatTokens(count) {
+        const value = Number(count || 0);
+        return value >= 1000 ? `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}k` : String(value);
+    }
+
+    function tickSubagents() {
+        let running = 0;
+        subagents.forEach(item => {
+            if (!item.card.classList.contains('is-running') || !item.started) return;
+            if (!item.card.isConnected) return;
+            running += 1;
+            updateSubStats(item, Date.now() - item.started);
+        });
+        if (!running && subTicker) { clearInterval(subTicker); subTicker = null; }
+    }
+
+    function updateSubStats(item, elapsed, tokens) {
+        const parts = [tx('subTools', { count: item.toolCount })];
+        if (elapsed !== undefined) parts.push(formatElapsed(elapsed));
+        if (tokens) parts.push(tx('subTokens', { count: formatTokens(tokens) }));
+        item.card.querySelector('.dc-sub-stats').textContent = parts.join(' · ');
+    }
+
+    function updateSubGroup(group) {
+        if (!group) return;
+        const cards = [...group.querySelectorAll(':scope > .dc-sub')];
+        const running = cards.filter(card => card.classList.contains('is-running')).length;
+        group.classList.toggle('is-single', cards.length < 2);
+        group.querySelector('.dc-sub-group-title').textContent = tx('subGroup', { count: cards.length });
+        group.querySelector('.dc-sub-group-state').textContent = running ? tx('subGroupRunning', { count: running }) : tx('subGroupDone');
+        group.classList.toggle('is-running', running > 0);
+    }
+
+    function renderSubTool(item, event) {
+        let line = item.tools.get(event.callId);
+        if (!line || (event.state === 'running' && !line.classList.contains('is-running'))) {
+            item.toolCount += 1;
+            line = document.createElement('li');
+            line.className = 'dc-sub-tool';
+            line.innerHTML = `<span class="dc-sub-tool-icon" aria-hidden="true">${toolIcon(event.tool)}</span><span class="dc-sub-tool-name">${escapeHtml(toolLabel(event.tool))}</span><span class="dc-sub-tool-args"></span><span class="dc-sub-tool-state"></span>`;
+            item.tools.set(event.callId, line);
+            item.card.querySelector('.dc-sub-tools').appendChild(line);
+        }
+        if (event.args !== undefined) {
+            const args = describeArgs(event.tool, event.args || {});
+            line.querySelector('.dc-sub-tool-args').textContent = args;
+            line.querySelector('.dc-sub-tool-args').title = args;
+        }
+        line.className = `dc-sub-tool is-${event.state === 'running' ? 'running' : event.state === 'done' ? 'ok' : 'fail'}`;
+        line.querySelector('.dc-sub-tool-state').innerHTML = event.state === 'running' ? '<i class="dc-tool-spin" aria-hidden="true"></i>'
+            : `${event.state === 'done' ? '✓' : '✗'}${event.summary ? ` <span>${escapeHtml(event.summary)}</span>` : ''}`;
+        // 卡片下方的「最近动态」：只留最近几条
+        const peek = item.card.querySelector('.dc-sub-peek');
+        if (item.card.classList.contains('is-running')) {
+            const lines = [...item.card.querySelectorAll('.dc-sub-tools > .dc-sub-tool')];
+            peek.innerHTML = lines.slice(-SUB_PEEK).map(node => `<div class="dc-sub-peek-line ${node.classList.contains('is-running') ? 'is-running' : ''}">${node.querySelector('.dc-sub-tool-icon').outerHTML}<span>${escapeHtml(node.querySelector('.dc-sub-tool-name').textContent)}</span><em>${escapeHtml(node.querySelector('.dc-sub-tool-args').textContent)}</em></div>`).join('');
+            const hidden = lines.length - SUB_PEEK;
+            if (hidden > 0) peek.insertAdjacentHTML('afterbegin', `<div class="dc-sub-peek-more">${escapeHtml(tx('subMore', { count: hidden }))}</div>`);
+        }
+    }
+
+    function renderSubagent(messageEl, event) {
+        let item = subagents.get(event.id);
+        if (event.phase === 'start' || !item) {
+            if (item?.card.isConnected && messageEl.contains(item.card) && item.card.classList.contains('is-running')) return; // 重复的开始事件
+            const card = document.createElement('div');
+            card.className = 'dc-sub is-running';
+            card.dataset.subId = event.id;
+            if (/^#[0-9a-f]{6}$/i.test(event.color || '')) card.style.setProperty('--sub', event.color);
+            card.innerHTML = `
+                <button type="button" class="dc-sub-head" aria-expanded="false">
+                    <span class="dc-sub-avatar" aria-hidden="true">${escapeHtml(event.emoji || '🤖')}</span>
+                    <span class="dc-sub-title"><b class="dc-sub-name">${escapeHtml(event.name || tx('subDefaultName'))}</b><span class="dc-sub-desc">${escapeHtml(event.description || '')}</span></span>
+                    <span class="dc-sub-meta"><span class="dc-sub-status">${escapeHtml(tx('subRunning'))}</span><span class="dc-sub-stats"></span></span>
+                    <span class="dc-sub-caret" aria-hidden="true"></span>
+                </button>
+                <div class="dc-sub-peek"><div class="dc-sub-peek-line is-running"><span class="dc-sub-tool-icon" aria-hidden="true">🧭</span><span>${escapeHtml(tx('subWaiting'))}</span></div></div>
+                <div class="dc-sub-body" hidden>
+                    <div class="dc-sub-label">${escapeHtml(tx('subTask'))}</div>
+                    <div class="dc-sub-prompt">${escapeHtml(event.prompt || '')}</div>
+                    <div class="dc-sub-label">${escapeHtml(tx('subToolsTitle'))}</div>
+                    <ol class="dc-sub-tools"></ol>
+                    <div class="dc-sub-result-wrap" hidden><div class="dc-sub-label">${escapeHtml(tx('subResult'))}</div><div class="dc-sub-result"></div></div>
+                </div>`;
+            card.querySelector('.dc-sub-head').addEventListener('click', () => {
+                const body = card.querySelector('.dc-sub-body');
+                body.hidden = !body.hidden;
+                card.classList.toggle('is-open', !body.hidden);
+                card.querySelector('.dc-sub-head').setAttribute('aria-expanded', String(!body.hidden));
+            });
+            // 相邻派出的子智能体放进同一组
+            const log = toolLogFor(messageEl);
+            let group = log.lastElementChild?.classList.contains('dc-sub-group') ? log.lastElementChild : null;
+            if (!group) {
+                group = document.createElement('div');
+                group.className = 'dc-sub-group is-single';
+                group.innerHTML = `<div class="dc-sub-group-head"><span class="dc-sub-group-icon" aria-hidden="true">🚀</span><b class="dc-sub-group-title"></b><span class="dc-sub-group-state"></span></div>`;
+                log.appendChild(group);
+            }
+            group.appendChild(card);
+            item = { card, tools: new Map(), started: replaying ? 0 : Date.now(), toolCount: 0 };
+            subagents.set(event.id, item);
+            updateSubStats(item, replaying ? undefined : 0);
+            updateSubGroup(group);
+            messageEl.querySelector('.dc-thinking')?.remove();
+            if (!replaying && !subTicker) subTicker = setInterval(tickSubagents, 1000);
+            if (event.phase === 'start') return;
+        }
+        if (event.phase === 'tool') {
+            renderSubTool(item, event);
+            updateSubStats(item, item.started ? Date.now() - item.started : undefined);
+        } else if (event.phase === 'status') {
+            item.card.querySelector('.dc-sub-status').textContent = tx('subRunning');
+        } else if (event.phase === 'done') {
+            settleSubagent(item, event);
+        }
+    }
+
+    function settleSubagent(item, event) {
+        const { card } = item;
+        const state = event.ok ? 'done' : event.aborted ? 'stopped' : 'failed';
+        card.classList.remove('is-running');
+        card.classList.add(`is-${state}`);
+        card.querySelector('.dc-sub-status').textContent = tx({ done: 'subDone', stopped: 'subStopped', failed: 'subFailed' }[state]);
+        if (event.toolCount !== undefined) item.toolCount = event.toolCount;
+        updateSubStats(item, event.durationMs, event.tokens);
+        const peek = card.querySelector('.dc-sub-peek');
+        if (event.ok && event.result) {
+            // 结论：卡片下方显示第一段，展开看完整 Markdown
+            const first = String(event.result).split('\n').map(line => line.replace(/^[#>*\-\s]+/, '').replace(/[`*_]/g, '').trim()).find(Boolean) || '';
+            peek.innerHTML = `<div class="dc-sub-peek-result">${escapeHtml(first)}</div>`;
+            const render = window.ToolsAIAssistant?.renderMarkdown;
+            const wrap = card.querySelector('.dc-sub-result-wrap');
+            wrap.hidden = false;
+            wrap.querySelector('.dc-sub-result').innerHTML = render ? render(String(event.result)) : `<pre>${escapeHtml(event.result)}</pre>`;
+        } else {
+            peek.innerHTML = event.error ? `<div class="dc-sub-peek-result is-error">${escapeHtml(event.error)}</div>` : '';
+        }
+        card.querySelectorAll('.dc-sub-tools > .dc-sub-tool.is-running').forEach(line => {
+            line.className = 'dc-sub-tool is-fail';
+            line.querySelector('.dc-sub-tool-state').textContent = '—';
+        });
+        updateSubGroup(card.closest('.dc-sub-group'));
+    }
+
     function handleEvent(messageEl, event, sourceWorkspace) {
         if (!messageEl || !event) return;
+        if (event.type === 'subagent') {
+            renderSubagent(messageEl, event);
+            return;
+        }
         if (event.type === 'tool_start') {
             const row = document.createElement('div');
             row.className = 'dc-tool-row is-running';
@@ -949,7 +1180,7 @@
             renderApproval(messageEl, event);
         } else if (event.type === 'approval_result') {
             const card = approvalCards.get(event.callId);
-            if (card) settleCard(card, event.decision);
+            if (card) settleCard(card, event.decision, event.scope);
         } else if (event.type === 'change') {
             if (sourceWorkspace === null || (sourceWorkspace && (sourceWorkspace.root !== state.root || sourceWorkspace.agentSessionId !== state.agentSessionId))) return;
             const index = state.changes.findIndex(item => item.path === event.path);
@@ -972,6 +1203,10 @@
         // 风险命令（访问目录外 / 主目录 / 密钥文件）：写明原因，且不提供「总是允许」
         const risk = Array.isArray(preview.risk) && preview.risk.length ? preview.risk : null;
         if (risk) detail += `<div class="dc-approval-risk"><b>⚠️ ${escapeHtml(tx('riskTitle'))}</b><ul>${risk.map(reason => `<li>${escapeHtml(reason)}</li>`).join('')}</ul></div>`;
+        // 危险类别（完全访问下也会询问）：可按类别选择不再询问的范围
+        const danger = Array.isArray(preview.danger) && preview.danger.length ? preview.danger : null;
+        const scopes = danger ? (Array.isArray(preview.dangerScopes) && preview.dangerScopes.length ? preview.dangerScopes : ['session']) : [];
+        if (danger) detail += `<div class="dc-approval-risk dc-approval-danger"><b>⛔ ${escapeHtml(tx('dangerTitle', { labels: danger.map(hit => hit.label).join('、') }))}</b><ul>${danger.map(hit => `<li>${escapeHtml(hit.reason)}</li>`).join('')}</ul></div>`;
         else if (preview.diff) detail = `<details class="dc-approval-diff" open><summary>${escapeHtml(preview.path || '')} <span class="wsp-add">+${preview.added || 0}</span> <span class="wsp-del">−${preview.removed || 0}</span></summary><pre class="wsp-diff">${renderDiff(preview.diff)}</pre></details>`;
         else if (preview.to) detail = `<div class="dc-approval-path">${escapeHtml(preview.path)} → ${escapeHtml(preview.to)}</div>`;
         else if (preview.path) detail = `<div class="dc-approval-path">${escapeHtml(preview.path)}${preview.recursive ? ` <em>(${escapeHtml(tx('recursive'))})</em>` : ''}</div>`;
@@ -981,7 +1216,8 @@
             ${detail}
             <div class="dc-approval-actions">
                 <button type="button" class="dc-action dc-action--primary" data-decision="allow">${escapeHtml(tx('allow'))}</button>
-                ${risk || event.noAlways ? '' : `<button type="button" class="dc-action" data-decision="always">${escapeHtml(tx('alwaysAllow'))}</button>`}
+                ${danger ? `<span class="dc-approval-never"><button type="button" class="dc-action" data-decision="always">${escapeHtml(tx('dangerNever'))}</button><select class="dc-approval-scope" aria-label="${escapeHtml(tx('dangerScope'))}">${scopes.map(scope => `<option value="${escapeHtml(scope)}">${escapeHtml(tx(`scope_${scope}`))}</option>`).join('')}</select></span>`
+                    : risk || event.noAlways ? '' : `<button type="button" class="dc-action" data-decision="always">${escapeHtml(tx('alwaysAllow'))}</button>`}
                 <button type="button" class="dc-action dc-action--danger" data-decision="deny">${escapeHtml(tx('deny'))}</button>
             </div>
             <div class="dc-approval-status" hidden></div>`;
@@ -989,11 +1225,12 @@
             const button = clickEvent.target.closest('[data-decision]');
             if (!button || card.classList.contains('is-settled')) return;
             card.querySelectorAll('[data-decision]').forEach(node => { node.disabled = true; });
+            const scope = danger && button.dataset.decision === 'always' ? card.querySelector('.dc-approval-scope')?.value || 'session' : '';
             try {
                 // 工作区审批走 agent-workspace；WeLink 写操作的审批卡带自己的地址（只接受该前缀）
                 const url = typeof event.approvalUrl === 'string' && event.approvalUrl.startsWith('/api/channels/welink-cli/approvals/') ? event.approvalUrl : `${API}/approvals/${encodeURIComponent(event.id)}`;
-                await request('POST', url, { decision: button.dataset.decision });
-                settleCard(card, button.dataset.decision);
+                await request('POST', url, { decision: button.dataset.decision, ...(scope ? { scope } : {}) });
+                settleCard(card, button.dataset.decision, scope);
             } catch (error) {
                 card.querySelectorAll('[data-decision]').forEach(node => { node.disabled = false; });
                 toast(error.message);
@@ -1006,11 +1243,12 @@
         card.querySelector('[data-decision="allow"]').focus({ preventScroll: true });
     }
 
-    function settleCard(card, decision) {
+    function settleCard(card, decision, scope = '') {
         card.classList.add('is-settled', `is-${decision}`);
         card.querySelector('.dc-approval-actions').hidden = true;
         const status = card.querySelector('.dc-approval-status');
         status.hidden = false;
+        if (decision === 'always' && scope) { status.textContent = tx('approvedDanger', { scope: tx(`scope_${scope}`) }); return; }
         status.textContent = { allow: tx('approved'), always: tx('approvedAlways'), deny: tx('denied'), timeout: tx('approvalTimeout'), abort: tx('approvalAborted') }[decision] || decision;
     }
 
@@ -1021,6 +1259,10 @@
             row.querySelector('.dc-tool-state').innerHTML = `— <span>${escapeHtml(tx('toolInterrupted'))}</span>`;
         });
         messageEl?.querySelectorAll('.dc-approval:not(.is-settled)').forEach(card => settleCard(card, 'abort'));
+        messageEl?.querySelectorAll('.dc-sub.is-running').forEach(card => {
+            const item = subagents.get(card.dataset.subId);
+            if (item) settleSubagent(item, { ok: false, aborted: true });
+        });
     }
 
     function applyDone(data) {
@@ -1034,6 +1276,7 @@
         renderChanges();
         renderEnv();
         refreshChanges(); // 合并 git 工作区里的其他改动
+        decorateCheckpoints();
     }
 
     // ── 事件绑定 ────────────────────────────────────────
@@ -1055,6 +1298,12 @@
             if (mode) return setMode(mode.dataset.wspMode);
             const diff = event.target.closest('[data-wsp-diff]');
             if (diff) return toggleDiff(diff.dataset.wspDiff);
+            const toggleChangesBtn = event.target.closest('[data-wsp-changes-toggle]');
+            if (toggleChangesBtn && el.panel.contains(toggleChangesBtn)) {
+                state.expandChanges = !state.expandChanges;
+                renderChanges();
+                return;
+            }
             const revertBtn = event.target.closest('[data-wsp-revert]');
             if (revertBtn) return revert(revertBtn.dataset.wspRevert);
             const prBtn = event.target.closest('[data-wsp-pr]');
@@ -1280,6 +1529,7 @@
             try { sessionStorage.setItem(SESSION_ROOT_KEY, root); } catch { /* ignore */ }
             state.changes = [];
             state.openDiff = null;
+            state.expandChanges = false;
             state.context = null;
             renderContext();
             renderChanges();
@@ -1294,6 +1544,7 @@
             state.agentSessionId = newSessionId();
             state.changes = [];
             state.openDiff = null;
+            state.expandChanges = false;
             state.context = null;
             approvalCards.clear();
             toolRows.clear();
@@ -1331,6 +1582,7 @@
             messageEl.querySelectorAll('.dc-approval').forEach(card => card.classList.add('is-history'));
         },
         applyDone,
+        decorateCheckpoints,
         applyCompaction(data) {
             if (data.agentSessionId !== state.agentSessionId || data.root !== state.root) return;
             state.context = null; // 下一轮请求按压缩后的实际内容重新计算，避免继续展示旧占用。
