@@ -387,6 +387,9 @@ app.get('/api/platform-identity', async (req, res) => {
 app.use('/api', checkAuth); // Protect all /api/* (except login, which is handled inside checkAuth)
 app.use('/api', tenantMiddleware);
 
+// 首页首屏接口合并：远程访问时一次回源取回对话区首屏的多个只读接口（models/home-bootstrap.js）
+app.post('/api/home/bootstrap', require('./models/home-bootstrap').createHomeBootstrapHandler(app));
+
 // 首页卡片「上次更新」时间（内置页面按 HTML 及专属 js/css 的最新修改时间）
 app.get('/api/home/page-updates', async (req, res, next) => {
     try {

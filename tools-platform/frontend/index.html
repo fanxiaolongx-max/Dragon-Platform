@@ -5,6 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-platform-page-title="工具中台" data-platform-page-title-en="Tool Hub">工具中台</title>
     <script src="/js/shared/fetch-dedupe.js"></script>
+    <script>
+        // 首屏预取：对话区首屏需要的只读接口一次取回（远程访问只回源一次），各模块随后的同名 GET 直接复用
+        (function () {
+            let token = '';
+            try { token = localStorage.getItem('tools_token') || ''; } catch { /* 无痕模式取不到时照常逐个请求 */ }
+            if (!token || !window.ToolsFetchPrefetch) return;
+            let lang = 'zh-CN';
+            try { lang = localStorage.getItem('tools_lang') === 'en-US' ? 'en-US' : 'zh-CN'; } catch { /* 默认中文 */ }
+            window.ToolsFetchPrefetch([
+                '/api/app-version', '/api/tenants', '/api/migration-status', '/api/nav-settings', '/api/auth/me',
+                '/api/custom-tools', '/api/alert-center/summary', '/api/builtin-promotion/status', '/api/desktop-license/status',
+                '/api/platform-promotions', '/api/platform-promotions/desktop',
+                '/api/home/capabilities?lang=' + lang, '/api/agent-skills?includeHidden=1',
+                '/api/agent-workspace/capability', '/api/agent-workspace/prefs',
+                '/api/ai/conversation-list', '/api/ai/schedules', '/api/ai/models',
+                '/api/ai/sessions?mine=1&pagePath=%2F&limit=40&query=',
+                '/api/channels/available', '/api/channels/ops/pending?limit=20&offset=0',
+                '/api/desktop-agents/settings', '/api/desktop-agents/sessions',
+                '/api/recent-nav', '/api/favorite-nav', '/api/onboarding/defaults/status',
+                '/api/custom-tools/f12-to-extension/scripts',
+                '/api/asset-version?path=%2Fjs%2Fshared%2Fops-inbox.js', '/api/asset-version?path=%2Fcss%2Fops-inbox.css'
+            ], { Authorization: 'Bearer ' + token });
+        })();
+    </script>
     <script src="/js/shared/platform-title.js"></script>
     <meta name="description" content="统一工具平台入口：UIVF12 抓取引擎 & Task SLA 风险监控台">
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261006">
