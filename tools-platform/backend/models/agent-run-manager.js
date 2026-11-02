@@ -371,6 +371,8 @@ function classifyDecision(session, toolName, args = null, kind = toolsService.ki
     if (session.readOnly) return 'readonly';
     // 危险类别在任何模式下都要审批（包括完全访问），除非用户已选择不再询问；无人值守的对话直接不执行
     if (dangerHits(session, toolName, args).length) return session.unattended ? 'unattended' : 'ask';
+    // 每次都要用户确认的操作（如保存技能）：完全访问也询问，可选本对话不再询问
+    if (kind === 'confirm') return session.alwaysAllow.has(toolName) ? 'allow' : session.unattended ? 'unattended' : 'ask';
     // 完全访问是管理员明确授权的自主执行模式；风险标记不再把它降级为逐项审批。
     if (session.permissionMode === 'full') return 'allow';
     // ask / auto 仍逐条确认风险命令，不受某类工具「总是允许」影响。
@@ -597,7 +599,7 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
             denied += 1;
             const labels = danger.map(hit => `「${hit.label}」`).join('');
             const reason = decision === 'readonly' ? '当前账号为只读权限（非管理员），不能修改文件或执行命令'
-                : decision === 'unattended' ? `该命令属于${labels}，这是无人值守的频道对话，没有人能审批，所以没有执行`
+                : decision === 'unattended' ? (labels ? `该命令属于${labels}，这是无人值守的频道对话，没有人能审批，所以没有执行` : '这个操作需要用户确认，这是无人值守的频道对话，没有人能审批，所以没有执行')
                     : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
             const hint = decision === 'unattended' ? '。不要换一种写法绕过；请告诉用户：可以到 Dragon Claw 网页端执行，或在「全局设置 › 智能体工具 › 危险操作」里把这一类设为永久不再询问。'
                 : decision === 'deny' || decision === 'timeout' ? '。不要换一种写法重试同样的操作；请用已经拿到的结果回答，或说明还需要用户做什么。' : '';

@@ -63,6 +63,7 @@ async function toolsets({ owner, readOnly }) {
     if (!owner) return [];
     const sets = [platformToolset()];
     if (readOnly) return sets;
+    sets.push(require('./agent-skill-tools').toolset({ owner })); // 技能自我进化：保存前用户审批
     const where = browser.available();
     if (where) {
         const ctx = { owner };
