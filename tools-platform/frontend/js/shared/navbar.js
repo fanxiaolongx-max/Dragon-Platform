@@ -3554,10 +3554,20 @@ function stopAlertCenterPolling() {
     }
 }
 
+// 后台标签页不轮询（19 个页面都带导航栏，开着几个标签时各自每分钟回源一次）；切回来时补刷一次
+let alertCenterVisibilityBound = false;
 function startAlertCenterPolling(intervalMs = 60000) {
     stopAlertCenterPolling();
     if (!hasNavAuthToken()) return;
-    alertCenterPollTimer = setInterval(refreshAlertCenterBadge, intervalMs);
+    alertCenterPollTimer = setInterval(() => {
+        if (document.visibilityState !== 'hidden') refreshAlertCenterBadge();
+    }, intervalMs);
+    if (!alertCenterVisibilityBound) {
+        alertCenterVisibilityBound = true;
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && alertCenterPollTimer) refreshAlertCenterBadge();
+        });
+    }
 }
 
 window.startAlertCenterPolling = startAlertCenterPolling;

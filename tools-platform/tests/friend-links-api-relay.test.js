@@ -39,7 +39,7 @@ test('Claude Code receives the verified Anthropic main and fast models', () => {
 });
 
 test('Gemini quick integration uses the working OpenAI-compatible REST route', () => {
-    const html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
+    const html = ['index.html', 'js/home/home-page.js'].map(file => fs.readFileSync(path.join(__dirname, '../frontend', file), 'utf8')).join('\n');
     assert.match(html, /Gemini · OpenAI REST/);
     assert.match(html, /"\$\{openAiBase\}\/chat\/completions"/);
     assert.doesNotMatch(html, /\/v1beta\/models\/\$\{config\.defaultModel\}:generateContent/);

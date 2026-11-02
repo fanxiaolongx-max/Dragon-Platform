@@ -117,7 +117,7 @@ test('routes, home page and chat are wired to the Skill catalog', () => {
     const read = rel => fs.readFileSync(path.join(__dirname, '..', rel), 'utf8');
     assert.match(read('backend/server.js'), /app\.use\('\/api\/agent-skills', require\('\.\/routes\/agent-skills'\)\)/);
     assert.match(read('backend/routes/ai.js'), /agentSkillsStore\.loadAll\(/);
-    const index = read('frontend/index.html');
+    const index = read('frontend/index.html') + read('frontend/js/home/home-page.js');
     assert.match(index, /\/js\/home\/skills-tools\.js/);
     assert.match(index, /accept="[^"]*\.md/);
     assert.match(index, /\/api\/agent-skills\/preview/);

@@ -53,7 +53,7 @@ test('shared navbar checks built-in tools after page load unless the market was 
     assert.match(navbarSource, /requestIdleCallback/);
     assert.match(navbarSource, /setTimeout\(checkBuiltinToolsSync, 8000\)/);
     assert.match(navbarSource, /toolMarketOpened\(\)/);
-    assert.match(read('frontend/index.html'), /button\.dataset\.opened = '1'/);
+    assert.match(read('frontend/js/home/home-page.js'), /button\.dataset\.opened = '1'/);
     assert.match(customToolsRouteSource, /new Worker\(/);
     assert.match(customToolsRouteSource, /previewBuiltinToolsOffMainThread/);
 

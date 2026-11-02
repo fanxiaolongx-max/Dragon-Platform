@@ -494,11 +494,13 @@
     async function exportChatHtml() {
         if (!state.sessionId || !el.thread.querySelector('.dc-msg')) { showToast(tx('exportLogEmpty')); return; }
         if (state.controller) { showToast(tx('exportLogBusy')); return; }
-        if (exportMenu.busy || !window.DragonClawExport) return;
+        if (exportMenu.busy) return;
         exportMenu.busy = true;
         exportMenu.button.disabled = true;
         showToast(tx('exportHtmlWorking'));
         try {
+            // 导出组件只在导出时才用到，首次导出时按需加载
+            if (!window.DragonClawExport) await loadLazyScript('/js/home/dragon-claw-export.js');
             const sessionId = state.sessionId;
             const range = await loadExportHistory();
             const { html, skipped, title } = await window.DragonClawExport.buildHtml({ thread: el.thread, range: { ...range, days: EXPORT_DAYS } });

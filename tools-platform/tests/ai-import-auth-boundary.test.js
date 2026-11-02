@@ -23,7 +23,7 @@ test('shared API client does not log out for an unmarked downstream 401', () => 
 
 test('AI metadata failures are isolated and import UI falls back to manual input', () => {
     const route = read('backend/routes/custom-tools.js');
-    const home = read('frontend/index.html');
+    const home = read('frontend/index.html') + read('frontend/js/home/home-page.js');
     assert.match(route, /res\.status\(503\)\.json\(\{/);
     assert.match(route, /code: 'AI_METADATA_UNAVAILABLE'/);
     assert.match(home, /AI 接口当前不可用，请手动填写下方工具信息；不影响继续导入。/);

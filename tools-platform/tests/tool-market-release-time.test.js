@@ -30,7 +30,7 @@ test('release stamping preserves metadata and distinguishes updates on the same 
 });
 
 test('market timestamps show seconds and timezone, and do not invent precision for old dates', () => {
-    const html = fs.readFileSync(path.join(__dirname, '../frontend/index.html'), 'utf8');
+    const html = fs.readFileSync(path.join(__dirname, '../frontend/js/home/home-page.js'), 'utf8');
     const start = html.indexOf('const formatMarketTime =');
     const end = html.indexOf('const labels =', start);
     for (const en of [false, true]) {
