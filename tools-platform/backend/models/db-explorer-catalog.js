@@ -60,9 +60,33 @@ const GROUPS = {
     "warehouse": [
         "仓储管理",
         "Warehouse"
+    ],
+    "netcare": [
+        "NetCare 数仓与业务资产",
+        "NetCare Data Warehouse Assets"
     ]
 };
 const DEFINITIONS = new Map([
+    ["common_data_rep", {"category": "netcare", "description": "地区部/代表处组织维表，维护地区部与代表处层级映射字典。", "descriptionEn": "Representative office and regional hierarchy mapping dimension.", "source": "netcare/common_data_rep"}],
+    ["common_data_product", {"category": "netcare", "description": "产品维表，维护产品基础信息、产品分类及EOS信息。", "descriptionEn": "Product dimension table with product families and EOS dates.", "source": "netcare/common_data_product"}],
+    ["common_data_customer_rel_country_relation", {"category": "netcare", "description": "国家地区关系维表，维护国家与大区对应关系。", "descriptionEn": "Country-region mapping dimension table.", "source": "netcare/common_data_customer_rel_country_relation"}],
+    ["common_data_customer_dlvy_org", {"category": "netcare", "description": "客户/交付主体维表，维护客户与交付组织对应关系。", "descriptionEn": "Customer delivery organization mapping dimension.", "source": "netcare/common_data_customer_dlvy_org"}],
+    ["cs_nc_comm_customer_d_list", {"category": "netcare", "description": "大T客户维表，维护Top客户与分支客户分类。", "descriptionEn": "Top customer classification dimension table.", "source": "netcare/cs_nc_comm_customer_d_list"}],
+    ["op_ioc_rfc_task_report_h_dws_0", {"category": "netcare", "description": "网络变更RFC任务汇总表(0号表)，T+1指标宽表，含变更总量、倒回数、成功率。", "descriptionEn": "RFC change task report summary DWS (slot 0), pre-aggregated success & rollback metrics.", "source": "netcare/op_ioc_rfc_task_report_h_dws_0"}],
+    ["op_ioc_rfc_task_report_dtl_m_dwd", {"category": "netcare", "description": "网络变更RFC月度明细表，实时指标与下钻穿透来源。", "descriptionEn": "Monthly RFC change task details DWD table.", "source": "netcare/op_ioc_rfc_task_report_dtl_m_dwd"}],
+    ["op_ioc_highrisk_commands_d_dws", {"category": "netcare", "description": "高危命令拦截统计表，按多维度汇总高危命令拦截指标。", "descriptionEn": "High-risk command interception statistics DWS table.", "source": "netcare/op_ioc_highrisk_commands_d_dws"}],
+    ["op_ioc_digital_cert_2026_d_dws", {"category": "netcare", "description": "2026年数字证书统计表，按组织汇总证书总数、有效数及30天内到期数。", "descriptionEn": "Digital certificate 2026 statistics DWS table.", "source": "netcare/op_ioc_digital_cert_2026_d_dws"}],
+    ["op_ioc_digital_cert_2026_d_dwd", {"category": "netcare", "description": "2026年数字证书明细表，记录数字证书实例明细(CNBG+EBG)。", "descriptionEn": "Digital certificate 2026 instance details DWD table.", "source": "netcare/op_ioc_digital_cert_2026_d_dwd"}],
+    ["nc_eos_risk_urgent_product_version_dws", {"category": "netcare", "description": "重急EOS产品及高风险EOS版本统计表，月报收编完成率主表。", "descriptionEn": "Urgent EOS product and high-risk version statistics DWS table.", "source": "netcare/nc_eos_risk_urgent_product_version_dws"}],
+    ["nc_eos_risk_management_dwd", {"category": "netcare", "description": "全产品&全版本&重急&高风险EOS明细表，关联湖表。", "descriptionEn": "Full product & version urgent EOS details DWD table.", "source": "netcare/nc_eos_risk_management_dwd"}],
+    ["op_ioc_escalation_d_dws", {"category": "netcare", "description": "管理升级统计表，多维汇总升级总数、级别分布及7天方案提供率。", "descriptionEn": "Management escalation statistics DWS table.", "source": "netcare/op_ioc_escalation_d_dws"}],
+    ["op_ioc_escalation_d_dwd", {"category": "netcare", "description": "管理升级明细表，记录管理升级任务明细(CNBG+EBG)。", "descriptionEn": "Management escalation task details DWD table.", "source": "netcare/op_ioc_escalation_d_dwd"}],
+    ["nc_op_sa_sr_problem_detail_all_bg_dwd", {"category": "netcare", "description": "网上问题明细表(全BG)，记录网上问题明细，关联湖表SR单。", "descriptionEn": "Online issue SR details DWD table across all BGs.", "source": "netcare/nc_op_sa_sr_problem_detail_all_bg_dwd"}],
+    ["op_ioc_incident_h_dwd", {"category": "netcare", "description": "事故明细表，记录CNBG与EBG事故单明细信息。", "descriptionEn": "Incident notification and major event details DWD table.", "source": "netcare/op_ioc_incident_h_dwd"}],
+    ["op_ioc_rectify_check_d_dws", {"category": "netcare", "description": "整改统计表，按多维度汇总整改任务与超期核查指标。", "descriptionEn": "Rectification check statistics DWS table.", "source": "netcare/op_ioc_rectify_check_d_dws"}],
+    ["op_ioc_license_data_stat_d_dws_0", {"category": "netcare", "description": "固定期限License统计表(0号表)，统计过期License与宽限期指标。", "descriptionEn": "Fixed-term license statistics DWS table.", "source": "netcare/op_ioc_license_data_stat_d_dws_0"}],
+    ["op_ioc_saca_card_new_dws", {"category": "netcare", "description": "维护作战地图红黄牌统计表，反映运维合规与扣分情况。", "descriptionEn": "Maintenance battle map red/yellow card statistics DWS table.", "source": "netcare/op_ioc_saca_card_new_dws"}],
+    ["spsa_2_access_monthly_ots_rate", {"category": "netcare", "description": "备件OTS月度达标率统计表。", "descriptionEn": "Spare parts monthly OTS compliance rate table.", "source": "netcare/spsa_2_access_monthly_ots_rate"}],
     ["sla_targets", {"category": "sla", "description": "指标目标、权重、达标条件及加分规则。", "descriptionEn": "Metric targets, weights, passing conditions and bonus rules.", "source": "backend/models/sla-targets-repository.js"}],
     ["sla_groups", {"category": "sla", "description": "指标分组名称及显示顺序。", "descriptionEn": "Metric group names and display order.", "source": "backend/models/sla-groups-repository.js"}],
     ["sla_group_items", {"category": "sla", "description": "每个指标分组包含的指标及组内排序。", "descriptionEn": "Group membership and metric order within groups.", "source": "backend/models/sla-groups-repository.js"}],

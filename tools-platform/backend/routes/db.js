@@ -302,13 +302,14 @@ router.post('/save', (req, res) => {
     });
 });
 
-router.get('/snapshots', (req, res) => {
+function readDashboardSnapshots(req, res) {
     db.all('SELECT snapshot_id, month, created_at, standard_total_score FROM ReportSnapshots ORDER BY id DESC', (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         markSqliteSource(res, 'GET /api/db/snapshots');
         res.json(rows);
     });
-});
+}
+router.get('/snapshots', readDashboardSnapshots);
 
 // Export only the Report Dashboard source history and saved report records.
 // This is intentionally separate from the full-tenant backup workflow so the
@@ -398,7 +399,7 @@ router.get('/failing/:snapshot_id', (req, res) => {
 });
 
 // Configuration Endpoints
-router.get('/config/:key', (req, res) => {
+function readDashboardConfig(req, res) {
     db.get('SELECT value_json FROM PlatformConfig WHERE key_name = ?', [req.params.key], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
         markSqliteSource(res, `GET /api/db/config/${req.params.key}`);
@@ -409,7 +410,8 @@ router.get('/config/:key', (req, res) => {
             res.json({});
         }
     });
-});
+}
+router.get('/config/:key', readDashboardConfig);
 
 router.post('/config/:key', (req, res) => {
     const publicEditableKeys = new Set(['bigscreen_contact_info', 'bigscreen_title', 'monthly_report_titles']);
@@ -495,7 +497,7 @@ function slimTrendSnapshot(raw) {
     }
 }
 
-router.get('/monthly_report_data', (req, res) => {
+function readDashboardMonthlyData(req, res) {
     const { startDate, endDate } = req.query;
     const whereParts = [];
     const params = [];
@@ -621,7 +623,8 @@ router.get('/monthly_report_data', (req, res) => {
             });
         });
     });
-});
+}
+router.get('/monthly_report_data', readDashboardMonthlyData);
 
 router.get('/metric_count_trends', (req, res) => {
     const daysRaw = parseInt(req.query.days, 10);
@@ -1065,3 +1068,5 @@ router.post('/bigscreen_owners', (req, res) => {
 router.closeDatabase = async function closeDatabase() {};
 
 module.exports = router;
+
+module.exports.dashboardReaders = { readDashboardSnapshots, readDashboardConfig, readDashboardMonthlyData };

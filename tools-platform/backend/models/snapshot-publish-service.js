@@ -242,6 +242,14 @@ function registerProvider(slug, provider) {
     providers.set(slug, { slug, ...provider });
 }
 
+registerProvider('bigscreen', {
+    name: '大屏看板',
+    description: '当前报表、趋势、负责人和中英文配置的只读大屏。',
+    defaultFile: 'bigscreen/index.html',
+    buildSnapshot: (...args) => require('./bigscreen-snapshot').buildSnapshot(...args),
+    buildPagesSnapshot: (...args) => require('./bigscreen-snapshot').buildPagesSnapshot(...args)
+});
+
 registerProvider('department-reward-penalty', {
     slug: 'department-reward-penalty',
     name: '负向事件管理',
@@ -391,6 +399,8 @@ async function ready() {
         commit_sha TEXT NOT NULL DEFAULT '', file_path TEXT NOT NULL DEFAULT '',
         created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     )`);
+    const toolColumns = await all('PRAGMA table_info(snapshot_tool_settings)');
+    if (!toolColumns.some(column => column.name === 'public_access')) await run('ALTER TABLE snapshot_tool_settings ADD COLUMN public_access INTEGER NOT NULL DEFAULT 0');
     const columns = await all('PRAGMA table_info(snapshot_publish_settings)');
     if (!columns.some(column => column.name === 'remote_url')) await run("ALTER TABLE snapshot_publish_settings ADD COLUMN remote_url TEXT NOT NULL DEFAULT ''");
     if (!columns.some(column => column.name === 'publish_mode')) await run("ALTER TABLE snapshot_publish_settings ADD COLUMN publish_mode TEXT NOT NULL DEFAULT 'single'");
@@ -459,6 +469,7 @@ async function getToolSettings(toolSlug, includeSecrets = false) {
         const res = {
             toolSlug,
             enabled: Boolean(row.enabled),
+            publicAccess: Boolean(row.public_access),
             encryptionEnabled: Boolean(row.encryption_enabled),
             hasPassword: Boolean(row.password_hash),
             updatedAt: row.updated_at
@@ -502,6 +513,7 @@ async function getToolSettings(toolSlug, includeSecrets = false) {
 }
 
 async function saveToolSettings(toolSlug, input) {
+    if (toolSlug === 'bigscreen' && input.publicAccess !== undefined && typeof input.publicAccess !== 'boolean') throw bad('免密码访问选项必须是布尔值');
     if (!providers.has(toolSlug)) throw bad('未知的工具标识：' + toolSlug);
     await ready();
     const current = await getToolSettings(toolSlug, true);
@@ -541,6 +553,9 @@ async function saveToolSettings(toolSlug, input) {
             [encryptionEnabled ? 1 : 0, hash, salt, DEFAULT_TOOL_SLUG]).catch(() => {});
     }
 
+    if (toolSlug === 'bigscreen' && input.publicAccess !== undefined) {
+        await run('UPDATE snapshot_tool_settings SET public_access=? WHERE tool_slug=?', [input.publicAccess ? 1 : 0, toolSlug]);
+    }
     return getToolSettings(toolSlug);
 }
 
@@ -1072,7 +1087,7 @@ async function publish(job, tenantId, settings, options = {}) {
                 ? await provider.buildPagesSnapshot(tenantId, snapshotOptions)
                 : { html: await provider.buildSnapshot(tenantId, snapshotOptions), files: new Map() };
             if (await skipHeavy(sizePolicy.measure(output))) continue;
-            const isPublic = Boolean(tool?.publicAccess);
+            const isPublic = slug === 'bigscreen' ? Boolean((await getToolSettings(slug)).publicAccess) : Boolean(tool?.publicAccess);
             publishedSlugs.push(slug);
             const fingerprint = fingerprintSnapshotBundle(output, config.publishMode, isPublic);
 

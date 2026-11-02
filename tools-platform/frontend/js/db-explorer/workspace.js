@@ -22,6 +22,17 @@ window.ExplorerWorkspace = (() => {
         }
     }
 
+    function inferGrainBadge(name) {
+        const lower = String(name || '').toLowerCase();
+        if (/_dws_snap|_dwd_snap|_snap/.test(lower)) return { type: 'snap', text: text('SNAP 快照', 'Snap'), tip: text('快照表：冻结历史月末/日终切片，用于趋势对比与历史复现', 'Snapshot: historical frozen state for trends') };
+        if (/_dws(_\d+)?$/.test(lower)) return { type: 'dws', text: text('DWS 汇总', 'DWS'), tip: text('汇总层：多维预聚合宽表，月报/看板/AI问答首选', 'Summary: pre-aggregated wide table, preferred for reports & AI') };
+        if (/_dwd(_\d+)?$/.test(lower)) return { type: 'dwd', text: text('DWD 明细', 'DWD'), tip: text('明细层：清洗后的单据事实表，适合下钻排查明细单', 'Detail: cleaned transaction facts, suitable for drilldown') };
+        if (/_ods(_\d+)?$/.test(lower)) return { type: 'ods', text: text('ODS 贴源', 'ODS'), tip: text('贴源层：上游原始同步数据，未经清洗', 'ODS: raw synced source data, uncleaned') };
+        if (/^common_data_|_dim$/.test(lower)) return { type: 'dim', text: text('DIM 维表', 'DIM'), tip: text('维表：公共代码与组织映射字典', 'Dimension: public dictionary and hierarchy') };
+        if (/^app_/.test(lower)) return { type: 'app', text: text('APP 专属', 'APP'), tip: text('应用库专属表', 'App schema dedicated table') };
+        return null;
+    }
+
     function renderHeading() {
         const metadata = tables.find(table => table.name === selectedTable);
         const names = { sql: text('SQL 终端', 'SQL Console'), tables: text('数据表查看', 'Tables'), logs: text('日志收集', 'Collect Logs') };
@@ -31,7 +42,13 @@ window.ExplorerWorkspace = (() => {
             ? metadata ? localized(metadata, 'description') : text('从左侧完整表目录中选择一张表，查看用途、字段结构或数据。', 'Choose a table from the complete catalog to inspect its purpose, columns and data.')
             : module === 'logs' ? text('按日期收集当前后端服务的运行与错误日志。', 'Collect runtime and error logs from the backend service by date.')
                 : text('从左侧选择常用示例，或在这里编写 SQL。查询在所选数据库中执行。', 'Choose an example on the left or write SQL here. Queries run in the selected database.');
-        byId('table-description').textContent = metadata ? localized(metadata, 'categoryLabel') + ' · ' + localized(metadata, 'description') : '';
+        if (metadata) {
+            const badgeInfo = inferGrainBadge(metadata.name);
+            const badgeText = badgeInfo ? ` [${badgeInfo.text}]` : '';
+            byId('table-description').textContent = localized(metadata, 'categoryLabel') + badgeText + ' · ' + localized(metadata, 'description');
+        } else {
+            byId('table-description').textContent = '';
+        }
     }
 
     function setModule(next) {
@@ -73,6 +90,14 @@ window.ExplorerWorkspace = (() => {
                 button.setAttribute('aria-current', table.name === selectedTable ? 'true' : 'false');
                 const name = document.createElement('strong');
                 name.textContent = table.name;
+                const badgeInfo = inferGrainBadge(table.name);
+                if (badgeInfo) {
+                    const badge = document.createElement('span');
+                    badge.className = `table-grain-badge badge-${badgeInfo.type}`;
+                    badge.textContent = badgeInfo.text;
+                    badge.title = badgeInfo.tip;
+                    name.append(' ', badge);
+                }
                 const description = document.createElement('small');
                 description.textContent = localized(table, 'description');
                 button.title = table.name + '\n' + description.textContent;

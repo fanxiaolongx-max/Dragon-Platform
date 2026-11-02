@@ -711,6 +711,24 @@
                     </button>
                 </div>
                 <div class="sql-presets-bar">
+                    <span class="presets-label" data-i18n="NetCare 业务资产速查">NetCare 业务资产速查</span>
+                    <button type="button" class="preset-pill" data-tables="op_ioc_rfc_task_report_h_dws_0 common_data_rep" disabled data-sql="SELECT r.rep_name_cn AS 代表处, SUM(c.operation_total) AS 变更总数, SUM(c.confirmed_rollback) AS 倒回数, ROUND(SUM(c.operation_total - c.confirmed_rollback) * 100.0 / NULLIF(SUM(c.operation_total), 0), 2) AS 成功率 FROM op_ioc_rfc_task_report_h_dws_0 c LEFT JOIN common_data_rep r ON c.repoffice_code = r.dept_code GROUP BY r.rep_name_cn ORDER BY 倒回数 DESC LIMIT 20;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        🔄 <span data-i18n="变更成功率统计">变更成功率统计 (RFC DWS)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="op_ioc_digital_cert_2026_d_dws common_data_rep" disabled data-sql="SELECT r.rep_name_cn AS 代表处, SUM(cert_total) AS 证书总数, SUM(expiring_30d_cnt) AS &quot;30天内到期数&quot;, SUM(expired_cnt) AS 已过期数 FROM op_ioc_digital_cert_2026_d_dws d LEFT JOIN common_data_rep r ON d.repoffice_code = r.dept_code GROUP BY r.rep_name_cn ORDER BY &quot;30天内到期数&quot; DESC LIMIT 20;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        🔒 <span data-i18n="数字证书预警">数字证书到期预警 (Cert DWS)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="nc_eos_risk_urgent_product_version_dws" disabled data-sql="SELECT product_line, COUNT(DISTINCT product_name) AS 重急产品数, SUM(urgent_eos_cnt) AS 设备总数, SUM(incorporated_cnt) AS 已收编数, SUM(pending_cnt) AS 待收编数 FROM nc_eos_risk_urgent_product_version_dws GROUP BY product_line ORDER BY 待收编数 DESC LIMIT 20;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        ⚠️ <span data-i18n="重急EOS收编">重急EOS产品收编 (EOS DWS)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="op_ioc_escalation_d_dws" disabled data-sql="SELECT region_name, SUM(escalation_total) AS 升级总数, SUM(level1_total) AS 一级升级数, SUM(plan_within_7d_cnt) AS 七天提供方案数, ROUND(SUM(plan_within_7d_cnt)*100.0/NULLIF(SUM(escalation_total),0),2) AS 提供率 FROM op_ioc_escalation_d_dws GROUP BY region_name ORDER BY 升级总数 DESC LIMIT 20;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        📈 <span data-i18n="管理升级7天方案率">管理升级7天方案率 (Esc DWS)</span>
+                    </button>
+                    <button type="button" class="preset-pill" data-tables="common_data_rep" disabled data-sql="SELECT dept_code, rep_name_cn, rep_short_name_cn, region_name_cn FROM common_data_rep ORDER BY dept_code LIMIT 50;" onclick="insertSqlPreset(this.dataset.sql, true)">
+                        🗺️ <span data-i18n="代表处维表映射">代表处维表映射 (common_data_rep)</span>
+                    </button>
+                </div>
+                <div class="sql-presets-bar">
                     <span class="presets-label" data-i18n="数据库结构">数据库结构</span>
                     <button type="button" class="preset-pill" data-sql="SELECT name FROM sqlite_master WHERE type=&#x27;table&#x27; AND name NOT LIKE &#x27;sqlite_%&#x27; ORDER BY name ASC;" onclick="insertSqlPreset(this.dataset.sql, true)">
                         📋 <span data-i18n="所有数据表 (sqlite_master)">所有数据表 (sqlite_master)</span>

@@ -137,6 +137,20 @@ test('db-explorer SQL query and execute endpoint supports arbitrary statements w
         { id: 'z-old', timestamp: '2026-09-01T00:00:00Z' },
         { id: 'a-new', timestamp: '2026-10-01T00:00:00Z' }
     ]);
+    // External NetCare tables are optional imports, so provide representative schemas.
+    const netcareFixture = await postQuery({ sql: `
+        CREATE TABLE common_data_rep (dept_code TEXT, rep_name_cn TEXT, rep_short_name_cn TEXT, region_name_cn TEXT);
+        INSERT INTO common_data_rep VALUES ('EG', '埃及', '埃及', '北非');
+        CREATE TABLE op_ioc_rfc_task_report_h_dws_0 (repoffice_code TEXT, operation_total INTEGER, confirmed_rollback INTEGER);
+        INSERT INTO op_ioc_rfc_task_report_h_dws_0 VALUES ('EG', 100, 2);
+        CREATE TABLE op_ioc_digital_cert_2026_d_dws (repoffice_code TEXT, cert_total INTEGER, expiring_30d_cnt INTEGER, expired_cnt INTEGER);
+        INSERT INTO op_ioc_digital_cert_2026_d_dws VALUES ('EG', 20, 3, 1);
+        CREATE TABLE nc_eos_risk_urgent_product_version_dws (product_line TEXT, product_name TEXT, urgent_eos_cnt INTEGER, incorporated_cnt INTEGER, pending_cnt INTEGER);
+        INSERT INTO nc_eos_risk_urgent_product_version_dws VALUES ('IP', 'Router', 10, 8, 2);
+        CREATE TABLE op_ioc_escalation_d_dws (region_name TEXT, escalation_total INTEGER, level1_total INTEGER, plan_within_7d_cnt INTEGER);
+        INSERT INTO op_ioc_escalation_d_dws VALUES ('北非', 4, 1, 3);
+    ` });
+    assert.equal(netcareFixture.status, 200);
     const page = fs.readFileSync(path.join(__dirname, '../frontend/pages/db-explorer.html'), 'utf8');
     const examples = [...page.matchAll(/class="preset-pill"[^>]*data-sql="([^"]+)"/g)];
     assert.ok(examples.length >= 18, 'common table queries are present');
@@ -146,6 +160,8 @@ test('db-explorer SQL query and execute endpoint supports arbitrary statements w
         const result = await response.json();
         assert.equal(response.status, 200, `${sql}: ${result.error || ''}`);
         assert.equal(result.results[0].type, 'query');
+        if (/SUM\(expiring_30d_cnt\)/.test(sql)) assert.equal(result.results[0].rows[0]['30天内到期数'], 3);
+        if (/SUM\(c.operation_total\)/.test(sql)) assert.equal(result.results[0].rows[0]['成功率'], 98);
         if (/FROM sla_snapshots\b/.test(sql)) {
             assert.deepEqual(result.results[0].rows.map(row => row.id), ['a-new', 'z-old']);
         }

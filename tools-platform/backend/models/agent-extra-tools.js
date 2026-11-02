@@ -58,10 +58,14 @@ const platformToolset = () => ({
     execute: call => executePlatformTool(call.name, call.args && typeof call.args === 'object' ? call.args : {})
 });
 
-/** 当前可用的附加工具组；owner 为 租户::账号 */
-async function toolsets({ owner, readOnly }) {
+/** 当前可用的附加工具组；owner 为 租户::账号。channel：无人值守的频道对话，只带只读的平台工具向导和受信任的 MCP 服务 */
+async function toolsets({ owner, readOnly, channel = false }) {
     if (!owner) return [];
     const sets = [platformToolset()];
+    if (channel) {
+        sets.push(...await require('./agent-mcp').toolsets({ readOnly, trustedOnly: true }).catch(error => { console.warn('[agent] MCP 工具不可用：', error.message || error); return []; }));
+        return sets;
+    }
     if (readOnly) return sets;
     sets.push(require('./agent-skill-tools').toolset({ owner })); // 技能自我进化：保存前用户审批
     const where = browser.available();
@@ -86,11 +90,13 @@ async function toolsets({ owner, readOnly }) {
  * 不选目录的对话：返回 { definitions(), prompt, handles(name), execute(call, { start }), end() }；没有可用工具组时返回 null。
  * 审批：读取类直接执行，其余弹审批卡（「总是允许」在本对话内有效）。
  */
-async function forChat({ owner, chatSessionId, readOnly, write, signal, sensitiveValues = [] }) {
-    const sets = await toolsets({ owner, readOnly });
+async function forChat({ owner, chatSessionId, readOnly, write, signal, sensitiveValues = [], channel = false }) {
+    const sets = await toolsets({ owner, readOnly, channel });
     if (!sets.length) return null;
     const manager = require('./agent-run-manager');
-    const registry = await require('./agent-tool-registry').create({ session: manager.chatSession(owner, chatSessionId), core: false, skillCatalog: true, extraToolsets: sets, sensitiveValues });
+    const session = manager.chatSession(owner, chatSessionId);
+    if (channel) session.unattended = true; // 频道里没人能点审批卡：需要审批的调用直接不执行
+    const registry = await require('./agent-tool-registry').create({ session, core: false, skillCatalog: true, extraToolsets: sets, sensitiveValues });
     const run = manager.beginChatRun({ owner, chatSessionId, write, signal });
     return {
         definitions: () => registry.definitions(),
@@ -109,4 +115,22 @@ async function forChat({ owner, chatSessionId, readOnly, write, signal, sensitiv
     };
 }
 
-module.exports = { toolsets, forChat };
+/**
+ * 频道对话（微信、WeLink 非完全访问）的一轮回复：只有附加工具（技能目录、平台工具向导、受信任的 MCP），没有文件和命令。
+ * bufferText：微信一次性发送正文，工具之间的过渡语不逐字下发，结束时只发最终回复。
+ */
+async function runChannelTurn({ extras, client, systemInstruction, messages, owner, chatSessionId, sensitiveValues = [], signal, onDelta, onEvent, maxOutputTokens, temperature, model, bufferText = false }) {
+    const result = await require('./agent-loop').runToolLoop({
+        extras, client, model, systemPrompt: systemInstruction, messages, tools: [],
+        builtins: ['calculate'], // 频道里没有任务清单和选项卡片
+        write: event => (event.type === 'delta' ? (bufferText ? undefined : onDelta?.(event.delta)) : onEvent?.(event)),
+        signal, maxOutputTokens, temperature, sensitiveValues, task: String(messages.at(-1)?.content || ''), callIdPrefix: 'channel',
+        artifactOwner: owner, artifactSession: chatSessionId || 'channel',
+        executeCall: async () => ({ content: '当前对话不提供该工具', summary: '工具不可用', isError: true }),
+        toolsUnsupported: () => ({ note: '（当前模型不支持工具调用，不能加载技能或联网搜索；如用户需要，请说明需要管理员切换支持函数调用的模型，不要编造结果。）' })
+    });
+    if (bufferText) onDelta?.(result.text || '');
+    return { text: result.text, usage: result.usage, toolLog: result.toolLog, ...(result.toolsUnsupported ? { toolsUnsupported: true } : {}) };
+}
+
+module.exports = { toolsets, forChat, runChannelTurn };

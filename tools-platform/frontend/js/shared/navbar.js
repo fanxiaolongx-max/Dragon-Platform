@@ -4641,6 +4641,7 @@ async function renderSnapshotPublishSettings(content) {
                                         <small class="snapshot-tool-slug">${navEscape(t.toolSlug)}</small>
                                     </label>
                                     <div class="snapshot-tool-meta-right">
+                                        ${t.toolSlug === 'bigscreen' ? `<label><input type="checkbox" id="snapshotToolPublic_bigscreen" ${t.publicAccess ? 'checked' : ''}> ${navEscape(snapshotText('免密码访问', 'Access without sign-in'))}</label><button type="button" onclick="startSnapshotPublish({ toolSlug: 'bigscreen', force: true })">${navEscape(snapshotText('强制推送大屏', 'Force publish dashboard'))}</button>` : ''}
                                         <button type="button" class="snapshot-tool-size-badge pending" id="snapshotToolSize_${navEscape(t.toolSlug)}" title="${navEscape(snapshotText('点击重新预估此工具大小', 'Click to re-estimate data volume'))}" onclick="estimateSingleSnapshotTool('${navEscape(t.toolSlug)}')">
                                             <span class="snapshot-size-loading-dot"></span>
                                             <span class="snapshot-size-text">${navEscape(snapshotText('待预估', 'Pending'))}</span>
@@ -4992,10 +4993,13 @@ window.saveSnapshotPublishSettings = async function (options = {}) {
     if (indicator && !options.silent) indicator.textContent = snapshotText('正在保存…', 'Saving…');
     const toolsList = [];
     document.querySelectorAll('.snapshot-tool-item[data-tool-slug]').forEach(el => {
-        if (el.dataset.estimateState !== 'ready') return;
         const slug = el.dataset.toolSlug;
+        if (el.dataset.estimateState !== 'ready') {
+            if (slug === 'bigscreen') toolsList.push({ toolSlug: slug, publicAccess: document.getElementById('snapshotToolPublic_bigscreen')?.checked === true });
+            return;
+        }
         const en = document.getElementById('snapshotToolEnabled_' + slug)?.checked !== false;
-        toolsList.push({ toolSlug: slug, enabled: en });
+        toolsList.push({ toolSlug: slug, enabled: en, ...(slug === 'bigscreen' ? { publicAccess: document.getElementById('snapshotToolPublic_bigscreen')?.checked === true } : {}) });
     });
     const newSettings = {
         remoteUrl: document.getElementById('snapshotRemoteUrl').value,

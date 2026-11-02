@@ -86,6 +86,40 @@ test('MCP tools join chats as an approval-gated group, pass only their own env, 
     assert.equal(failed.content, 'boom');
 });
 
+test('channel chats (WeChat users are not admins) get trusted MCP servers and skill loading, but nothing that needs approval', async () => {
+    await inDefault(() => mcp.saveServers([
+        { name: 'Echo Server', command: process.execPath, args: [fixture], trusted: true },
+        { name: 'Untrusted', command: process.execPath, args: [fixture] }
+    ]));
+    const ids = sets => sets.map(set => set.id);
+    assert.deepEqual(ids(await inDefault(() => extraTools.toolsets({ owner: 'default::weixin:bob', readOnly: true, channel: true }))), ['platform_tools', 'mcp_echo_server'],
+        'no untrusted MCP, browser or save_skill in channels');
+    assert.deepEqual(ids(await inDefault(() => extraTools.toolsets({ owner: 'default::weixin:bob', readOnly: true }))), ['platform_tools'], 'outside channels read-only accounts still get no MCP');
+
+    const events = [];
+    const deltas = [];
+    const out = await inDefault(async () => {
+        const extras = await extraTools.forChat({ owner: 'default::weixin:bob', chatSessionId: 'wx-chat', readOnly: true, channel: true, write: event => events.push(event), signal: new AbortController().signal });
+        const script = [
+            { text: '我先查一下', toolCalls: [{ id: 'l', name: 'load_skill', args: { id: 'web-scraper' } }] },
+            { toolCalls: [{ id: 'e', name: 'mcp__echo_server__echo', args: { text: 'cisco news' } }] },
+            { text: '思科新闻如下' }
+        ];
+        const requests = [];
+        const result = await extraTools.runChannelTurn({ extras, client: { generateText: async options => { requests.push({ ...options, messages: [...options.messages] }); return script.shift(); } },
+            systemInstruction: 'sys', messages: [{ role: 'user', content: '好整' }], owner: 'default::weixin:bob', chatSessionId: 'wx-chat',
+            onDelta: delta => deltas.push(delta), onEvent: event => events.push(event), bufferText: true });
+        extras.end();
+        return { result, requests };
+    });
+    assert.ok(out.requests[0].tools.some(def => def.name === 'load_skill'), 'the skill catalog can be loaded on demand');
+    assert.match(out.requests[1].messages.at(-1).toolResults[0].content, /web-scraper/);
+    assert.match(out.requests[2].messages.at(-1).toolResults[0].content, /echo: cisco news/);
+    assert.equal(events.some(event => event.type === 'approval'), false);
+    assert.equal(out.result.text, '思科新闻如下');
+    assert.deepEqual(deltas, ['思科新闻如下'], 'WeChat gets the final reply once, not the in-between text');
+});
+
 test('an unreachable server is skipped instead of blocking the chat', async () => {
     await inDefault(() => mcp.saveServers([{ name: 'Gone', command: path.join(sandbox, 'no-such-binary') }]));
     const started = Date.now();

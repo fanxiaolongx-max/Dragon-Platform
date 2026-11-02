@@ -203,11 +203,12 @@ function resultText(result) {
 
 /**
  * 首页对话的 MCP 工具组（每个已连接的服务一组）；只给默认租户的管理员。
+ * trustedOnly：频道对话（微信等，发言人不是管理员）只带管理员标为「只读，免审批」的服务。
  * 没连上的服务先等最多 5 秒，仍连不上就跳过这一轮。
  */
-async function toolsets({ readOnly }) {
-    if (readOnly || !tenantAllowed()) return [];
-    const servers = (await readServers()).filter(server => server.enabled);
+async function toolsets({ readOnly, trustedOnly = false }) {
+    if ((readOnly && !trustedOnly) || !tenantAllowed()) return [];
+    const servers = (await readServers()).filter(server => server.enabled && (!trustedOnly || server.trusted));
     if (!servers.length) return [];
     const ready = await Promise.all(servers.map(server => Promise.race([ensureConnected(server), new Promise(resolve => setTimeout(resolve, FIRST_USE_WAIT_MS))]).then(() => [server, connections.get(server.id)])));
     return ready.filter(([, conn]) => conn?.status === 'ready' && conn.tools.length).map(([server, conn]) => {

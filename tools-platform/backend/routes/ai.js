@@ -997,7 +997,13 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             ? await require('../models/agent-extra-tools').forChat({ owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', readOnly: false,
                 write: event => writeStreamEvent(event), signal: providerAbortController?.signal, sensitiveValues }).catch(error => { console.warn('[AI] extra tools unavailable:', error.message || error); return null; })
             : null;
+        // 频道对话（微信、WeLink 非完全访问）：没人能审批，只带只读的技能目录、平台工具向导和受信任的 MCP 服务，让模型能按技能目录加载技能并调用（如搜索新闻）
+        const channelExtras = !chatExtras && !agentMode && homeAgent && channelTurn && streamRequested && !analysisCode && !opsSetup && !welinkCliSetup && !netcareSetup
+            ? await require('../models/agent-extra-tools').forChat({ owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', readOnly: req.user?.role !== 'admin', channel: true,
+                write: event => writeStreamEvent(event), signal: providerAbortController?.signal, sensitiveValues }).catch(error => { console.warn('[AI] channel tools unavailable:', error.message || error); return null; })
+            : null;
         if (chatExtras) res.once('close', () => chatExtras.end());
+        if (channelExtras) res.once('close', () => channelExtras.end());
         const followupResult = !agentResult && !analysisResult && followupSetup
             ? await followupAgent.runTurn({
                 client: aiClient,
@@ -1005,6 +1011,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 messages: effectiveMessages,
                 ctx: followupSetup.ctx,
                 calendar: followupSetup.calendar,
+                extras: channelExtras,
                 signal: providerAbortController?.signal,
                 maxOutputTokens: aiSettings.maxOutputTokens,
                 temperature: aiSettings.temperature,
@@ -1108,7 +1115,19 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
                 } : undefined
             })
             : null;
-        const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || databaseResult || filesResult || (analysisResult ? analysisResult.result : await generateResponse());
+        const channelResult = !agentResult && !analysisResult && !followupResult && channelExtras
+            ? await require('../models/agent-extra-tools').runChannelTurn({
+                extras: channelExtras, bufferText: channelTurn.channel === 'weixin', client: aiClient, systemInstruction: redactText(systemInstruction, { secrets: sensitiveValues }), messages: effectiveMessages,
+                owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', sensitiveValues,
+                signal: providerAbortController?.signal, maxOutputTokens: aiSettings.maxOutputTokens, temperature: aiSettings.temperature, model: aiSettings.model,
+                onEvent: writeStreamEvent,
+                onDelta: streamRequested ? delta => {
+                    streamHasDelta = true;
+                    writeStreamEvent({ type: 'delta', delta });
+                } : undefined
+            })
+            : null;
+        const result = agentResult || followupResult || opsResult || welinkCliResult || netcareResult || databaseResult || filesResult || channelResult || (analysisResult ? analysisResult.result : await generateResponse());
         const skillReferenceAudit = homeAgent ? skillCatalogContract.guardReply(result.text, loadedSkills.catalog || [], {
             language: uiLanguage, loadedIds: loadedSkills.selected.map(item => item.id)
         }) : null;

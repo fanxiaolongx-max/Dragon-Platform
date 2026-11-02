@@ -24,12 +24,7 @@ icon: 🧭
 
 ## 通用流程与优化策略
 
-1. **查询前主动澄清**：若用户问题缺少必要关键信息，在执行多轮查询前先追问一次（合并问完，避免盲目搜索浪费步数）：
-   - 时间范围：哪个月/季度/年？最新快照还是历史区间？
-   - 组织范围：全部代表处还是特定代表处/地区部/BG？
-   - 指标维度：总体完成率、超期未完成、延期整改等细分？
-   - 粒度：各组织汇总统计还是明细列表？
-   *注：若用户已明确给出直接查；缺失但能合理推断（如“各代表处完成情况”默认全量+最新月末快照）可先查，并在回答中说明默认假设。*
+1. **先确认范围**：缺少时间、组织、指标或汇总/明细粒度时合并追问一次；已明确则直接查。可合理推断时先查并说明假设，例如“各代表处完成情况”默认全量代表处、最新月末快照。
 2. **防超时与查询优化**（基座单次请求有 15s 超时限制）：
    - **优先汇总表**：同主题有 DWS（汇总）与 DWD（明细）时，统计分析务必优先用 DWS，避免数十万行 DWD 扫表超时。
    - **拆分复杂关联**：跨表 JOIN 容易触发超时，推荐先在主表聚合，再查公共维度表取中文映射，在回答中合并。
@@ -40,12 +35,80 @@ icon: 🧭
 4. **口径与结果说明**：
    - 说明使用表名、过滤条件、统计日期/区间、是全量还是样本，附上 SQL 摘要便于复核。
 
-## 整改主题专属速查（仅限整改类查询）
+## 数仓分层与选表原则
 
-- **汇总表（优先）**：`netcare.op_ioc_rectify_check_d_dws`（粒度：代表处 × 日期快照）
-  - 核心字段：`repoffice_code`（代表处编码）、`check_cnt`（核查总数）、`check_complete_cnt`（核查完成数）、`check_uncomplete_cnt`（核查未完成数）、`overdue_ne_cnt`（超期未完成 NE 数）、`delay_rectify_cnt`（延期整改数）、`period_date`（统计日期，如 `YYYY-MM-DD`）。
-- **明细表**：`netcare.op_ioc_rectify_check_d_dwd`（单条整改工单，记录数大，仅查具体工单明细时使用）。
-- **推荐查询链路**：跳过 tables 搜索 → 直接查询 `op_ioc_rectify_check_d_dws` 按 `repoffice_code` 聚合汇总指标 → 单独查询 `common_data_rep` 获取编码到代表处中文名称映射 → 汇总生成分析表格。
+- **ODS（贴源层）**：未清洗原始数据，可能含脏数据与测试数据。仅用于溯源，**不要用于月报指标统计**。
+- **DWD（明细层）**：标准清洗后的事实明细（单笔 RFC/SR/证书/工单）。**适合查单号、下钻明细**。查统计时务必带时间/组织过滤。
+- **DWS（汇总层）**：按业务维度（年月/代表处/产品线）预聚合的指标宽表。**月报、看板、AI问答首选！** 毫秒级返回，避免超时。
+- **SNAP（快照表）**：历史切片（每日/每月冻结）。**历史月报复现与月度趋势专用**，查询必须限定 `target_month` 或 `period_date`。
+- **DIM（维表）**：`common_data_rep`（代表处/地区部）、`common_data_product`（产品）、`common_data_customer_rel_country_relation`（国家地区）。
+
+## 核心业务专题专属速查（跳过 search 直接使用）
+
+### 1. 整改核查（Rectify）
+- **汇总表（优先）**：`netcare.op_ioc_rectify_check_d_dws`（代表处 × 日期快照）
+  - 核心指标：`check_cnt`（核查总数）、`check_complete_cnt`（完成数）、`check_uncomplete_cnt`（未完成数）、`overdue_ne_cnt`（超期未完成 NE 数）、`delay_rectify_cnt`（延期数）
+- **明细表**：`netcare.op_ioc_rectify_check_d_dwd`（单条整改工单）
+- **历史快照**：`netcare.op_ioc_rectify_check_d_dws_snap`、`op_ioc_rectify_check_d_dwd_snap`
+
+### 2. 网络变更 RFC 与高危拦截（RFC & Change）
+- **汇总表（优先）**：`netcare.op_ioc_rfc_task_report_h_dws_0` / `netcare.op_ioc_rfc_task_report_h_dws_1`（T+1汇总，双表轮转）
+  - 核心指标：`operation_total`（操作总数）、`confirmed_rollback`（确认倒回数）、`success_rate`（变更成功率）、`high_risk_operation`（高危操作数）、`high_risk_rollback`（高危倒回数）、`urgent_operation`（紧急操作数）
+- **按变更维度汇总**：`netcare.op_ioc_rfc_task_report_by_change_h_dws_0` / `_1`
+- **高危拦截汇总**：`netcare.op_ioc_highrisk_commands_d_dws`（高危拦截量、规则分布）
+- **高危拦截明细**：`netcare.op_ioc_highrisk_commands_d_dwd`
+- **月度任务明细**：`netcare.op_ioc_rfc_task_report_dtl_m_dwd`（实时指标来源）
+
+### 3. EOS 产品与版本风险（EOS Lifecycle）
+- **汇总表（优先）**：`netcare.nc_eos_risk_product_version_dws`（产品EOS与版本EOS风险统计）、`netcare.nc_eos_risk_urgent_product_version_dws`（重急EOS产品及高风险版本统计）
+  - 核心指标：`eos_type`（1/2/4）、产品EOS总量、已收编、待收编、完成率
+- **全量概览**：`netcare.ibms_report_dws`、`netcare.nc_eos_risk_full_product_version_dws`
+- **明细表**：`netcare.nc_eos_risk_management_dwd`（全产品&全版本&重急&高风险明细，关联湖表）
+- **趋势快照**：`netcare.nc_eos_risk_full_product_version_dws_snap`、`netcare.ibms_report_dws_snap`
+
+### 4. 数字证书（Digital Certificate）
+- **汇总表（优先）**：`netcare.op_ioc_digital_cert_2026_d_dws`（多维度汇总统计）
+  - 核心指标：数字证书总数、有效证书数、过期证书数、30天内即将过期证书数
+- **明细表**：`netcare.op_ioc_digital_cert_2026_d_dwd`（CNBG+EBG 证书实例明细）
+- **趋势快照**：`netcare.op_ioc_digital_cert_2026_d_dws_snap`、`netcare.op_ioc_digital_cert_2026_d_dwd_snap`
+
+### 5. 网上问题 SR 与重大事故（Problems & Incidents）
+- **明细表**：`netcare.nc_op_sa_sr_problem_detail_all_bg_dwd`（全BG网上问题SR明细，关联湖表 `dwritr.dwr_itr_sr_2bg_d`）
+- **实时统计**：`netcare.nc_op_sa_sr_problem_realtime_stat_dws`（网上问题实时指标）
+- **事故明细**：`netcare.op_ioc_incident_h_dwd`（CNBG+EBG 事故单明细，含一二级事故）
+- **紧急恢复**：`netcare.nc_op_sr_emergency_recovery_d_dwd`（紧急恢复任务明细）
+
+### 6. 管理升级（Escalation）
+- **汇总表（优先）**：`netcare.op_ioc_escalation_d_dws`（管理升级多维度统计）
+  - 核心指标：管理升级总数、一级/二级/三级总数、7天方案提供率、平均方案提供时长(天)、方案未提供数、未闭环数、超60天未实施数
+- **明细表**：`netcare.op_ioc_escalation_d_dwd`（CNBG+EBG 任务明细）
+
+### 7. 网络巡检与健康检查（Health Check）
+- **汇总表（优先）**：`netcare.op_ioc_health_check_dws`（巡检任务统计指标）
+  - 核心指标：检查总数、已检查数、未检查数、检查率
+- **明细表**：`netcare.op_ioc_health_check_dwd`（运营商+政企巡检单明细）
+- **价值网络巡检**：`netcare.op_ioc_health_check_network_dwd`
+
+### 8. 固定期限 License 管理（License Monitor）
+- **汇总表（优先）**：`netcare.op_ioc_license_data_stat_d_dws_0` / `_1`（通过 `latest_table_name` 轮转）
+  - 核心指标：License过期总数、宽限期内过期数、宽限期外过期数、30天内即将到期数、过期率
+- **明细表**：`netcare.op_ioc_license_data_dtl_d_dwd_0` / `_1`
+
+### 9. 维护作战地图 SACA（Battle Map & Score）
+- **正式得分（月）**：`netcare.op_ioc_saca_date_dws`
+- **正式得分（日）**：`netcare.op_ioc_saca_level_dws`
+- **红黄牌统计**：`netcare.op_ioc_saca_card_new_dws`
+- **扣分汇总与明细**：`netcare.op_ioc_saca_score_dws`、`netcare.op_ioc_saca_result_details_dwd`、`netcare.op_ioc_saca_card_dwd`（红黄牌明细）
+
+### 10. 备件 OTS（Spare Parts OTS）
+- **月度达标率**：`netcare.spsa_2_access_monthly_ots_rate`
+- **超期考核明细**：`netcare.spsa_2_assess_overdue_detail`
+- **OTS明细与呆滞**：`netcare.spsa_2_ots_detail`、`netcare.spsa_2_hold_overdue_days`、`netcare.spsa_2_hold_overdue_amount`
+
+## 提问意图匹配
+
+按上述专题选表：回退/倒回→RFC；命令拦截→高危；重急/收编/生命周期→EOS；即将过期→先区分证书或 License；7天方案/未闭环→管理升级；SR/紧急恢复→网上问题；延期/核查→整改；预防性维护→巡检；红黄牌/扣分→SACA。
+组织与国家映射用 `common_data_rep`、`common_data_customer_rel_country_relation`，大T客户分类用 `cs_nc_comm_customer_d_list`；这些维表不能代替业务指标表。
 
 ## 口径注意
 

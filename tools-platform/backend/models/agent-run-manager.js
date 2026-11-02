@@ -379,7 +379,7 @@ function classifyDecision(session, toolName, args = null, kind = toolsService.ki
     if (toolName === 'run_command' && args && commandGuard.assessCommand(args.command, session.root).risky) return 'ask';
     if (session.alwaysAllow.has(toolName)) return 'allow';
     if (session.permissionMode === 'auto' && kind === 'write') return 'allow';
-    return 'ask';
+    return session.unattended ? 'unattended' : 'ask';
 }
 
 /** 危险类别选择「不再询问」：本对话记在内存；这个工作目录 / 永久写入规则 */
@@ -480,7 +480,7 @@ async function decideCall(run, call, { kind, preview, key = call.name }) {
         decision = answer === 'allow' || answer === 'always' ? 'allow' : answer;
     }
     if (decision === 'allow') return {};
-    const reason = decision === 'readonly' ? '当前账号为只读权限，不能执行该操作' : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
+    const reason = decision === 'readonly' ? '当前账号为只读权限，不能执行该操作' : decision === 'unattended' ? '这个操作需要用户确认，这是无人值守的频道对话，没有人能审批，所以没有执行' : decision === 'timeout' ? '审批超时，操作未执行' : decision === 'abort' ? '任务已中止' : '用户拒绝了该操作';
     // 被拒绝后不要换个写法再试同一件事：用已有结果回答，或说明需要用户做什么
     const hint = decision === 'deny' || decision === 'timeout' ? '。不要换一种写法重试同样的操作；请用已经拿到的结果回答，或说明还需要用户做什么。' : '';
     return { outcome: { content: `${reason}${hint}`, summary: reason, isError: true, denied: true } };

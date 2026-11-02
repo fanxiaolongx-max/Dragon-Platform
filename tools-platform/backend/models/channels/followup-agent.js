@@ -196,11 +196,12 @@ async function execute(ctx, name, args = {}, calendar) {
  * 带跟进工具的一轮回复：工具循环用 agent-loop（与工作区同一套引擎）。频道里没有审批卡，工具只能读写本会话的任务。
  * @returns {Promise<{text, usage, toolLog, events}>}
  */
-async function runTurn({ client, systemInstruction, messages, ctx, calendar, signal, onDelta, onEvent, maxOutputTokens, temperature, model }) {
+async function runTurn({ client, systemInstruction, messages, ctx, calendar, signal, onDelta, onEvent, maxOutputTokens, temperature, model, extras = null }) {
     const events = [];
     const isWeChat = ctx.channel === 'weixin';
     const wantsFollowup = /跟进|催办|记一下|记录|进展|暂停|恢复|关闭|取消|完成|follow.?up|progress|pause|resume/i.test(ctx.userText || '');
     const result = await agentLoop.runToolLoop({
+        extras, // 频道附加工具：技能目录（load_skill）、平台工具向导、受信任的 MCP 服务
         client, model, systemPrompt: systemInstruction, messages, tools: definitions(), maxSteps: MAX_STEPS,
         builtins: ['calculate'], // 频道里没有任务清单和选项卡片，只给精确计算（日期、工作日）
         // 微信一次性发送最终正文：工具未落库前不输出“已记录”等可能误导的中间文本。
