@@ -166,7 +166,7 @@
     function renderContext() {
         const ctx = state.context;
         if (!ctx) {
-            el.ctxMeta.textContent = '';
+            renderContextMini(null);
             el.ctxBody.innerHTML = `<div class="wsp-empty">${escapeHtml(tx(state.root ? 'ctxEmpty' : 'ctxNoWorkspace'))}</div>`;
             return;
         }
@@ -175,7 +175,7 @@
         const colors = { messages: '#60a5fa', toolResults: '#22d3ee', directory: '#64ffda', system: '#a78bfa', skills: '#f472b6', tools: '#f59e0b', reserve: 'rgba(148,163,184,0.42)', free: 'rgba(148,163,184,0.18)' };
         const total = Math.max(1, ctx.windowTokens || 1);
         const percent = Math.min(100, Math.round((ctx.usedTokens / total) * 100));
-        el.ctxMeta.textContent = `${percent}%`;
+        renderContextMini({ percent, label: `${tx('ctxUsed', { percent })} · ${formatTokens(ctx.usedTokens)} / ${formatTokens(ctx.windowTokens)}` });
         el.ctxBody.innerHTML = `
             <div class="wsp-ctx-head"><span>${escapeHtml(tx('ctxUsed', { percent }))}</span><span>${formatTokens(ctx.usedTokens)} / ${formatTokens(ctx.windowTokens)}</span></div>
             <div class="wsp-ctx-bar" role="img" aria-label="${escapeHtml(tx('ctxUsed', { percent }))}">
@@ -187,6 +187,47 @@
             ${ctx.tools?.deferred ? `<div class="wsp-ctx-cache">${escapeHtml(tx('ctxDeferredTools', { loaded: ctx.tools.loaded, count: ctx.tools.deferred, tokens: formatTokens(ctx.tools.deferredTokens) }))}</div>` : ''}
             ${ctx.cache ? `<div class="wsp-ctx-cache">${escapeHtml(ctx.cache.cachedTokens > 0 ? tx('ctxCache', { percent: Math.round(ctx.cache.hitRate * 100), tokens: formatTokens(ctx.cache.cachedTokens) }) : tx('ctxCacheNone'))}</div>` : ''}
             <div class="wsp-ctx-note">${escapeHtml(tx(ctx.source === 'provider' ? 'ctxSourceProvider' : 'ctxSourceEstimate'))}${ctx.windowSource ? ` · ${escapeHtml(tx(ctx.windowSource === 'configured' ? 'ctxWindowConfigured' : 'ctxWindowModel'))}` : ''}</div>`;
+    }
+
+    // 卡头上的占用：收起时显示迷你进度条 + 百分比，展开时只留百分比（明细条在卡内）。
+    // 元素常驻、只改宽度和数字，占用变化时进度条平滑过渡、数字滚动到新值；接近自动压缩线（80%）时变色。
+    let ctxMini = null;
+    function renderContextMini(info) {
+        if (!info) {
+            if (ctxMini) cancelAnimationFrame(ctxMini.frame);
+            ctxMini = null;
+            el.ctxMeta.textContent = '';
+            return;
+        }
+        if (!ctxMini || !el.ctxMeta.contains(ctxMini.root)) {
+            if (ctxMini) cancelAnimationFrame(ctxMini.frame);
+            el.ctxMeta.innerHTML = '<span class="wsp-ctx-mini"><span class="wsp-ctx-mini-track" aria-hidden="true"><i></i></span><b>0%</b></span>';
+            const root = el.ctxMeta.firstElementChild;
+            ctxMini = { root, fill: root.querySelector('i'), num: root.querySelector('b'), shown: 0, frame: 0 };
+        }
+        const mini = ctxMini;
+        const { root, fill, num } = mini;
+        const percent = Math.max(0, Math.min(100, info.percent));
+        root.dataset.level = percent >= 75 ? 'high' : percent >= 60 ? 'warn' : 'ok';
+        root.title = info.label;
+        root.setAttribute('aria-label', info.label);
+        requestAnimationFrame(() => { fill.style.width = `${percent}%`; });
+        cancelAnimationFrame(ctxMini.frame);
+        const from = ctxMini.shown;
+        if (from === percent || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            ctxMini.shown = percent;
+            num.textContent = `${percent}%`;
+            return;
+        }
+        const started = performance.now();
+        const step = now => {
+            if (ctxMini !== mini) return;
+            const t = Math.min(1, (now - started) / 450);
+            ctxMini.shown = Math.round(from + (percent - from) * (1 - (1 - t) ** 3));
+            num.textContent = `${ctxMini.shown}%`;
+            if (t < 1) ctxMini.frame = requestAnimationFrame(step);
+        };
+        ctxMini.frame = requestAnimationFrame(step);
     }
 
     // ── 更改卡 ──────────────────────────────────────────

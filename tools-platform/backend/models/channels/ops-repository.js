@@ -386,7 +386,7 @@ async function sentVideoIds(planId) {
 /** 该计划最近几次正式运行（含草稿）的素材标记，用于亮点与运营角度去重。 */
 async function recentRunMetas(planId, limit = 10) {
     await ensureSchema();
-    const rows = await all("SELECT meta_json FROM ops_runs WHERE plan_id = ? AND status IN ('draft', 'sent', 'partial') AND trigger != 'test' ORDER BY created_at DESC LIMIT ?", [planId, limit]);
+    const rows = await all("SELECT meta_json FROM ops_runs WHERE plan_id = ? AND status IN ('draft', 'sent', 'partial') AND trigger != 'test' ORDER BY created_at DESC, rowid DESC LIMIT ?", [planId, limit]);
     return rows.map(row => parseJson(row.meta_json, {}));
 }
 

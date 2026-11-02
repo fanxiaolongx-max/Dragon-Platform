@@ -595,6 +595,12 @@ async function runAgentTurn({ session, client, systemInstruction, historyMessage
             decision = answer === 'allow' || answer === 'always' ? 'allow' : answer;
             write({ type: 'approval_result', runId: run.id, callId: call.id, decision: answer, ...(danger.length && answer === 'always' ? { scope: scope || 'session' } : {}) });
         }
+        // 频道里显示不了审批卡：需要确认的附加工具操作（如保存技能）挂起，用户在频道里回复确认码后再执行
+        if (!outcome && decision === 'unattended' && toolset && toolsetKind === 'confirm' && !danger.length && session.channelContext) {
+            outcome = require('./channels/channel-pending-actions').defer({ ...session.channelContext, title: require('./agent-extra-tools').confirmTitle(call, preview), preview,
+                execute: () => toolset.execute(call, { opsCtx, signal: undefined, write: () => {} }) });
+            if (outcome) decision = 'allow';
+        }
         if (!outcome && decision !== 'allow') {
             denied += 1;
             const labels = danger.map(hit => `「${hit.label}」`).join('');

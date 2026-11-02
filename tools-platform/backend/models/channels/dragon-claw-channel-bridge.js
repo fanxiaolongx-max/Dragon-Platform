@@ -82,6 +82,24 @@ async function usableSessionId(aiSessionId, owner) {
     }
 }
 
+/** 不经 AI 直接回复一条（如确认挂起的操作），并记入该会话的聊天记录 */
+async function replyDirectly({ channel, user, sessionId, text, reply, account, conversation, onEvent }) {
+    const chat = require('../ai-chat-repository');
+    const pagePath = `/channels/${channel}`;
+    const pageTitle = `${CHANNEL_LABELS[channel] || channel} 频道`;
+    let savedId = sessionId;
+    try {
+        savedId = await chat.getOrCreateSession({ owner: user.username, sessionId: sessionId || undefined, pagePath, pageTitle });
+        await chat.addMessage({ owner: user.username, sessionId: savedId, pagePath, pageTitle, role: 'user', content: String(text), events: [{ type: 'channel', channel, kind: conversation.kind, sender: String(account || '') }] });
+        await chat.addMessage({ owner: user.username, sessionId: savedId, pagePath, pageTitle, role: 'model', content: reply });
+    } catch {
+        console.warn('[ChannelBridge] Failed to save the confirmation chat history');
+    }
+    onEvent({ type: 'start', sessionId: savedId });
+    onEvent({ type: 'delta', delta: reply });
+    onEvent({ type: 'done', reply, sessionId: savedId, tokens: 0, usage: { inputTokens: 0, outputTokens: 0 } });
+}
+
 /**
  * 执行一轮 Dragon Claw 对话。
  * @param {object} options
@@ -115,6 +133,12 @@ async function runTurn({ channel, account, conversation, toolSessionId, text, ai
         sessionId = await require('../ai-chat-repository').getOrCreateSession({ sessionId, owner: user.username, pagePath: '/channels/welink', pageTitle: 'WeLink 频道' });
     }
     if (persist !== false && conversation && !signal?.aborted) {
+        // 回复「确认 1234」/「取消」：执行或放弃上一轮挂起的操作（频道里显示不了审批卡）
+        const confirmed = await require('./channel-pending-actions').handleReply({ channel, conversation, actor: String(account || ''), text });
+        if (confirmed) {
+            await replyDirectly({ channel, user, sessionId, text, reply: confirmed, account, conversation, onEvent });
+            return;
+        }
         const handled = await require('./channel-schedule-commands').handle({ channel, conversation, actor: account, toolSessionId, text, aiSessionId: sessionId, modelId, onEvent });
         if (handled) return;
         const tacIntent = require('../dragon-tac/commands').intent(text);

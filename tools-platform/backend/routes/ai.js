@@ -45,6 +45,13 @@ const KNOWLEDGE_CONTEXT_MAX_CHARS = 17000;
 const DATA_CONTEXT_MAX_CHARS = 17000;
 const BUSINESS_CONFIG_CONTEXT_MAX_CHARS = 18000;
 
+/** 频道里谁能保存技能：微信机器人的主人（WeLink 完全访问对话走工作区会话，另行处理） */
+async function channelCanSaveSkills(channelTurn) {
+    if (channelTurn?.channel !== 'weixin' || channelTurn.conversation?.kind !== 'user' || !channelTurn.actor) return false;
+    const config = await require('../models/channels/weixin-config-repository').getConfig().catch(() => null);
+    return Boolean(config?.ownerUserId) && config.ownerUserId === channelTurn.actor;
+}
+
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -699,6 +706,7 @@ async function handleChatRequest(req, res) {
             return res.status(400).json({ error: '最后一条消息必须是用户发送的' });
         }
 
+        const channelSkillOwner = homeAgent && !fullWeLink ? await channelCanSaveSkills(channelTurn) : false;
         // Skill：本条消息里的 @id + 会话内保持的标签（req.body.skills，仅接受白名单标识）
         let loadedSkills = { selected: [], unknown: [], prompt: '' };
         if (homeAgent) {
@@ -716,6 +724,8 @@ async function handleChatRequest(req, res) {
                         ...(fullWeLink && agentSession.loadedSkills instanceof Set ? [...agentSession.loadedSkills] : []),
                         ...((!channelTurn || fullWeLink) && (agentMode || req.user?.role === 'admin')
                             ? require('../models/agent-skills').autoSelect(lastMessage.content, { pagePath, extraIds: req.body?.skills, contextMessages: skillContextMessages }) : []),
+                        // 微信机器人主人：「完善 / 创建技能」自动带上对应技能，保存时回复确认码
+                        ...(channelSkillOwner ? require('../models/agent-skills').autoSelect(lastMessage.content, { pagePath, contextMessages: skillContextMessages }).filter(id => ['improve-skill', 'create-skill'].includes(id)) : []),
                         ...(Array.isArray(req.body?.skills) ? req.body.skills.slice(0, 8) : [])
                     ]
                 });
@@ -997,9 +1007,11 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             ? await require('../models/agent-extra-tools').forChat({ owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', readOnly: false,
                 write: event => writeStreamEvent(event), signal: providerAbortController?.signal, sensitiveValues }).catch(error => { console.warn('[AI] extra tools unavailable:', error.message || error); return null; })
             : null;
+        const channelContext = channelTurn ? { channel: channelTurn.channel, conversation: channelTurn.conversation, actor: channelTurn.actor || '' } : null;
+        if (fullWeLink && agentSession) agentSession.channelContext = channelContext; // 完全访问的 WeLink 对话：保存技能等确认操作改为回复确认码
         // 频道对话（微信、WeLink 非完全访问）：没人能审批，只带只读的技能目录、平台工具向导和受信任的 MCP 服务，让模型能按技能目录加载技能并调用（如搜索新闻）
         const channelExtras = !chatExtras && !agentMode && homeAgent && channelTurn && streamRequested && !analysisCode && !opsSetup && !welinkCliSetup && !netcareSetup
-            ? await require('../models/agent-extra-tools').forChat({ owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', readOnly: req.user?.role !== 'admin', channel: true,
+            ? await require('../models/agent-extra-tools').forChat({ owner: agentRunManager.ownerKey(req.user, getTenantId()), chatSessionId: savedSessionId || '', readOnly: req.user?.role !== 'admin', channel: { ...channelContext, canSaveSkills: channelSkillOwner },
                 write: event => writeStreamEvent(event), signal: providerAbortController?.signal, sensitiveValues }).catch(error => { console.warn('[AI] channel tools unavailable:', error.message || error); return null; })
             : null;
         if (chatExtras) res.once('close', () => chatExtras.end());
@@ -1139,6 +1151,12 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
         }
         if (skillReferenceAudit?.unknownIds.length) {
             recordedEvents.push({ type: 'skill-reference-audit', unknownIds: skillReferenceAudit.unknownIds });
+        }
+        // 频道里挂起的确认操作（如保存技能）：回复末尾附上变更摘要和确认码
+        const pendingNote = channelContext ? require('../models/channels/channel-pending-actions').takeNote(channelContext.channel, channelContext.conversation, channelContext.actor) : '';
+        if (pendingNote) {
+            result.text = String(result.text || '') + pendingNote;
+            if (streamRequested) writeStreamEvent({ type: 'delta', delta: pendingNote });
         }
         const usageVideoFooter = analysisCode ? '' : await getUsageVideoFooter(lastMessage.content, uiLanguage);
         if (usageVideoFooter && !String(result.text || '').includes(usageVideoFooter.trim())) {

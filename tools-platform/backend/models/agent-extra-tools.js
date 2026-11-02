@@ -58,11 +58,16 @@ const platformToolset = () => ({
     execute: call => executePlatformTool(call.name, call.args && typeof call.args === 'object' ? call.args : {})
 });
 
-/** 当前可用的附加工具组；owner 为 租户::账号。channel：无人值守的频道对话，只带只读的平台工具向导和受信任的 MCP 服务 */
-async function toolsets({ owner, readOnly, channel = false }) {
+/**
+ * 当前可用的附加工具组；owner 为 租户::账号。
+ * channel：频道对话（{ channel, conversation, actor, canSaveSkills }），只带只读的平台工具向导和受信任的 MCP 服务；
+ * canSaveSkills（微信机器人主人、WeLink 管理员）再带技能自我进化，保存要用户在频道里回复确认码。
+ */
+async function toolsets({ owner, readOnly, channel = null }) {
     if (!owner) return [];
     const sets = [platformToolset()];
     if (channel) {
+        if (channel.canSaveSkills) sets.push(require('./agent-skill-tools').toolset({ owner }));
         sets.push(...await require('./agent-mcp').toolsets({ readOnly, trustedOnly: true }).catch(error => { console.warn('[agent] MCP 工具不可用：', error.message || error); return []; }));
         return sets;
     }
@@ -90,7 +95,7 @@ async function toolsets({ owner, readOnly, channel = false }) {
  * 不选目录的对话：返回 { definitions(), prompt, handles(name), execute(call, { start }), end() }；没有可用工具组时返回 null。
  * 审批：读取类直接执行，其余弹审批卡（「总是允许」在本对话内有效）。
  */
-async function forChat({ owner, chatSessionId, readOnly, write, signal, sensitiveValues = [], channel = false }) {
+async function forChat({ owner, chatSessionId, readOnly, write, signal, sensitiveValues = [], channel = null }) {
     const sets = await toolsets({ owner, readOnly, channel });
     if (!sets.length) return null;
     const manager = require('./agent-run-manager');
@@ -107,12 +112,28 @@ async function forChat({ owner, chatSessionId, readOnly, write, signal, sensitiv
             if (registry.isMeta(call.name)) return registry.runMeta(call);
             const set = registry.toolset(call.name);
             registry.noteCall(call.name);
-            const decision = await manager.decideCall(run, call, { kind: set.kindOf(call.name, call.args), preview: () => set.preview(call.name, call.args), key: set.alwaysKey?.(call.name, call.args) });
+            const kind = set.kindOf(call.name, call.args);
+            // 频道里显示不了审批卡：需要确认的操作挂起，用户回复确认码后再执行
+            if (channel && kind === 'confirm' && !session.alwaysAllow.has(set.alwaysKey?.(call.name, call.args) || call.name)) {
+                let preview;
+                try { preview = await set.preview(call.name, call.args); } catch (error) {
+                    return { content: `错误（${error.code || 'ERROR'}）：${error.message}`, summary: String(error.message || '').slice(0, 120), isError: true };
+                }
+                return require('./channels/channel-pending-actions').defer({ ...channel, title: confirmTitle(call, preview), preview, execute: () => set.execute(call) })
+                    || { content: '这个操作需要用户确认，当前频道会话无法确认，没有执行', summary: '需要确认，未执行', isError: true };
+            }
+            const decision = await manager.decideCall(run, call, { kind, preview: () => set.preview(call.name, call.args), key: set.alwaysKey?.(call.name, call.args) });
             if (decision.outcome) return decision.outcome;
             return set.execute(call);
         },
         end: () => run.end()
     };
+}
+
+/** 待确认操作的标题，如「保存技能 @industry-news-summary」 */
+function confirmTitle(call, preview = {}) {
+    if (call.name === 'save_skill') return `保存技能 ${String(preview.path || '').split(' · ')[0] || ''}`.trim();
+    return call.name;
 }
 
 /**
@@ -133,4 +154,4 @@ async function runChannelTurn({ extras, client, systemInstruction, messages, own
     return { text: result.text, usage: result.usage, toolLog: result.toolLog, ...(result.toolsUnsupported ? { toolsUnsupported: true } : {}) };
 }
 
-module.exports = { toolsets, forChat, runChannelTurn };
+module.exports = { toolsets, forChat, runChannelTurn, confirmTitle };
