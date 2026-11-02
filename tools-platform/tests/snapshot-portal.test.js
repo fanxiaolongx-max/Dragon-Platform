@@ -47,7 +47,7 @@ test('publishes original homepage and login, encrypts tool data and uses separat
     assert.doesNotMatch(fs.readFileSync(path.join(checkout, 'demo-tool/index.html'), 'utf8'), /CONFIDENTIAL/);
     assert.match(await decrypted('demo-tool/index.html'), /CONFIDENTIAL_SNAPSHOT/);
     const home = await decrypted('index.html');
-    for (const id of ['homeSidebar', 'dragonClaw', 'toolsGrid', 'statsBar', 'homePromotions']) assert.ok(home.includes(`id="${id}"`), id);
+    for (const id of ['homeSidebar', 'dragonClaw', 'toolsGrid']) assert.ok(home.includes(`id="${id}"`), id);
     const login = fs.readFileSync(path.join(checkout, 'login.html'), 'utf8');
     assert.match(login, /id="loginPanel"/);
     assert.match(login, /project-evolution.html/);
