@@ -620,7 +620,16 @@
         const scope = source === 'agents' ? document.querySelector('.desktop-agent-list') : $('homeChatList');
         return scope ? scope.querySelectorAll(source === 'agents' ? '[data-desktop-session]' : '.home-chat-item').length : 0;
     }
+    // 对话顶栏标题：显示当前打开的对话（侧栏里高亮的那一条），没有时显示 Dragon Claw
+    function renderChatTitle() {
+        const name = document.querySelector('.dc-chat-head .dc-chat-name');
+        if (!name) return;
+        const active = document.querySelector('#homeChatList .home-chat-item.is-active .home-chat-title, .desktop-agent-list .is-active [class*="title"], #homeChatList .is-active [class*="title"]');
+        const title = active?.textContent.trim() || 'Dragon Claw';
+        if (name.textContent !== title) name.textContent = title;
+    }
     function renderGroups() {
+        renderChatTitle();
         const view = chatView();
         if (!view) return;
         if (!groups.bound) {

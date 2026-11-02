@@ -568,3 +568,52 @@ html[data-ui="v2"] body.home-sidebar-collapsed:not(.v2-side-collapsed) .home-sid
 /* 旧版侧栏是“图标栏 + 面板”横排，新版改为纵向：品牌与导航 → 对话分组 → 用户栏 */
 html[data-ui="v2"] .home-content.home-workspace > .home-sidebar { flex-direction: column; align-items: stretch; }
 html[data-ui="v2"] .home-content.home-workspace > .home-sidebar > .home-panel { width: auto; }
+
+/* ── 右侧工作区：贴边全高、浅色列表风格（深色主题沿用原样式，只调整布局） ── */
+html[data-ui="v2"] .home-workspace-panel {
+    top: 0; height: 100vh; max-height: 100vh; margin: 0; border-radius: 0;
+    border: 0; border-left: 1px solid var(--v2-line); box-shadow: none;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+html[data-ui="v2"]:not([data-theme="dark"]) .home-workspace-panel {
+    --wsp-border: var(--v2-line); --wsp-panel: var(--v2-bg); --wsp-text: var(--v2-ink); --wsp-muted: var(--v2-ink2); --wsp-faint: var(--v2-ink3); --wsp-accent: var(--v2-accent);
+    --dc-text: var(--v2-ink); --dc-muted: var(--v2-ink2); --dc-faint: var(--v2-ink3); --dc-accent: var(--v2-accent); --dc-accent-2: #2563eb;
+    background: var(--v2-bg); color: var(--v2-ink);
+}
+html[data-ui="v2"] .wsp-head { height: 52px; box-sizing: border-box; padding: 0 12px 0 18px; border-bottom: 1px solid var(--v2-line); background: transparent; }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-head-title { color: var(--v2-ink); font-size: 13.5px; font-weight: 600; letter-spacing: 0; }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-icon-btn { background: transparent; border: 0; color: var(--v2-ink2); border-radius: 8px; }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-icon-btn:hover { background: var(--v2-hover); color: var(--v2-ink); }
+html[data-ui="v2"] .wsp-card { margin: 0; border: 0; border-radius: 0; border-bottom: 1px solid var(--v2-line); background: transparent; box-shadow: none; }
+html[data-ui="v2"] .wsp-card-head { padding: 12px 18px 8px; background: transparent; border: 0; }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-card-head { color: var(--v2-ink3); font-size: 12px; }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-card-head :is(span, b) { color: var(--v2-ink3); }
+html[data-ui="v2"] .wsp-card-body { padding: 0 10px 12px; }
+html[data-ui="v2"]:not([data-theme="dark"]) :is(.wsp-dir-empty, .wsp-recent-item) {
+    background: transparent; border: 0; border-radius: 10px; color: var(--v2-ink); box-shadow: none;
+    transition: background var(--v2-ease);
+}
+html[data-ui="v2"]:not([data-theme="dark"]) :is(.wsp-dir-empty, .wsp-recent-item):hover { background: var(--v2-side); }
+html[data-ui="v2"]:not([data-theme="dark"]) :is(.wsp-dir-empty, .wsp-recent-item) :is(b, strong) { color: var(--v2-ink); font-weight: 500; }
+html[data-ui="v2"]:not([data-theme="dark"]) :is(.wsp-dir-empty, .wsp-recent-item) small { color: var(--v2-ink3); }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-recent-item i { color: var(--v2-ink3); }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-mode { background: transparent; border: 0; padding: 0; gap: 2px; }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-mode-option { background: transparent; border: 0; border-radius: 10px; color: var(--v2-ink); box-shadow: none; transition: background var(--v2-ease); }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-mode-option:hover { background: var(--v2-side); }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-mode-option b { color: var(--v2-ink); font-weight: 500; }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-mode-option small { color: var(--v2-ink3); }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-mode-option.is-active { background: var(--v2-active); }
+html[data-ui="v2"]:not([data-theme="dark"]) .wsp-mode-option.is-active b { font-weight: 600; }
+html[data-ui="v2"]:not([data-theme="dark"]) :is(.wsp-row-label, .wsp-card-meta, .wsp-empty) { color: var(--v2-ink3); }
+
+/* ── 对话顶栏：左边当前对话标题，右边低调的无边框按钮 ── */
+html[data-ui="v2"] .dc-chat-head { min-height: 52px; padding: 0 16px 0 24px; border: 0; border-bottom: 1px solid transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-chat-head { background: rgba(255, 255, 255, 0.92); }
+html[data-ui="v2"] .dc-chat-head :is(.dc-chat-avatar, .dc-chat-badge) { display: none; }
+html[data-ui="v2"] .dc-chat-head .dc-chat-name { font-size: 14.5px; font-weight: 600; max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-chat-head .dc-chat-name { color: var(--v2-ink); }
+html[data-ui="v2"] .dc-chat-actions .dc-ghost-btn { border-color: transparent; background: transparent; box-shadow: none; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-chat-actions .dc-ghost-btn { color: var(--v2-ink2); }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-chat-actions .dc-ghost-btn:hover { background: var(--v2-hover); color: var(--v2-ink); }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-chat-actions .dc-workspace-toggle[aria-pressed="true"],
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-chat-actions .dc-workspace-toggle.is-active { background: var(--v2-active); color: var(--v2-ink); }
