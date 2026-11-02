@@ -5,13 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-platform-page-title="工具中台" data-platform-page-title-en="Tool Hub">工具中台</title>
     <script>
-        // 首页新版界面（浅色极简布局）：?ui=v2 / ?ui=v1 切换并记住；主题默认浅色，可在用户菜单里切到深色
+        // 首页默认新版界面（浅色极简布局）；?ui=v1 或账号菜单“切回旧版界面”改用旧版并记住，?ui=v2 切回新版。
+        // 主题默认浅色，可在账号菜单“外观”里切到深色
         (function () {
             var root = document.documentElement;
             try {
                 var query = new URLSearchParams(location.search).get('ui');
                 if (query === 'v2' || query === 'v1') localStorage.setItem('tools_home_ui', query);
-                if (localStorage.getItem('tools_home_ui') !== 'v2') return;
+                if (localStorage.getItem('tools_home_ui') === 'v1') return;
                 root.setAttribute('data-ui', 'v2');
                 root.setAttribute('data-theme', localStorage.getItem('tools_theme') === 'dark' ? 'dark' : 'light');
             } catch (e) { /* 读不到存储时保持旧版界面 */ }
