@@ -22,12 +22,27 @@
         const age=Math.floor((day(now)-day(date))/86400000);
         return age<3?'recent':age<7?'three':age<30?'week':'month';
     }
+    // 列表筛选（首页侧栏的筛选按钮）：状态 all / pinned / group（DragonTAC 讨论组）/ workspace（带工作区）；
+    // 时间 all / today / 7 / 30（天）。三个来源共用，只在本次页面有效。
+    const STATUSES=['all','pinned','group','workspace'],TIMES=['all','today','7','30'];
+    let filter={status:'all',time:'all'};
+    const getFilter=()=>({...filter});
+    function setFilter(next={}){filter={status:STATUSES.includes(next.status)?next.status:filter.status,time:TIMES.includes(next.time)?next.time:filter.time};signal('*');}
+    function passesFilter(item,pref,config){
+        if(filter.status==='pinned'&&!pref.pinned)return false;
+        if(filter.status==='group'&&item.discussionMode!=='group')return false;
+        if(filter.status==='workspace'&&!item.agent?.root)return false;
+        if(filter.time==='all')return true;
+        const time=stamp(config.date(item));if(Number.isNaN(time))return false;
+        const start=new Date();start.setHours(0,0,0,0);
+        return time>=(filter.time==='today'?start.getTime():start.getTime()-(Number(filter.time)-1)*86400000);
+    }
     const labels=()=>({pinned:L('置顶','Pinned'),recent:L('最近','Recent'),three:L('3 天前','3+ days ago'),week:L('7 天前','7+ days ago'),month:L('一个月前','A month ago'),unknown:L('时间未知','Date unavailable')});
     function sections(items,config){
         const archived=views.get(config.source)==='archived',groups=new Map(),names=labels(),query=(config.query||'').toLowerCase();
         const rows=items.map((item,index)=>({item,index,pref:get(config.source,config.id(item))})).filter(({item,pref})=>!pref.hidden&&Boolean(pref.archived)===archived&&(!query||[config.title(item),pref.title].some(t=>String(t||'').toLowerCase().includes(query))));
         rows.sort((a,b)=>Number(Boolean(b.pref.pinned))-Number(Boolean(a.pref.pinned))||((stamp(config.date(b.item))||0)-(stamp(config.date(a.item))||0))||a.index-b.index);
-        for(const row of rows){row.title=row.pref.title||config.title(row.item);const group=row.pref.pinned?'pinned':bucket(config.date(row.item));if(!groups.has(group))groups.set(group,[]);groups.get(group).push(row);}
+        for(const row of rows.filter(({item,pref})=>passesFilter(item,pref,config))){row.title=row.pref.title||config.title(row.item);const group=row.pref.pinned?'pinned':bucket(config.date(row.item));if(!groups.has(group))groups.set(group,[]);groups.get(group).push(row);}
         return ['pinned','recent','three','week','month','unknown'].filter(g=>groups.has(g)).map(g=>({key:g,label:names[g],entries:groups.get(g)}));
     }
     async function request(method,body){
@@ -103,7 +118,7 @@
         entry.observer=new IntersectionObserver(items=>{if(items.some(item=>item.isIntersecting)){entry.observer.disconnect();onMore?.();}},{root:scroller(list),rootMargin:'0px 0px 300px 0px'});
         entry.observer.observe(node);
     }
-    window.HomeConversationList={sections,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,isArchived:source=>views.get(source)==='archived'};
+    window.HomeConversationList={sections,getFilter,setFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,isArchived:source=>views.get(source)==='archived'};
     document.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&!event.target.closest('[data-conversation-more]'))close();},true);
     window.addEventListener('scroll',()=>close(),true);
     window.addEventListener('resize',()=>close());window.addEventListener('blur',()=>close());

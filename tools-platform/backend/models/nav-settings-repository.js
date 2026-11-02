@@ -64,6 +64,19 @@ function normalizeGuideVideoUrl(value) {
     } catch (_) { return ''; }
 }
 
+// 首页左下角扫码入口：微信 / WeLink 各一个 http(s) 链接，前端生成二维码；空字符串表示未配置
+function normalizeScanLinks(value) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    const link = raw => {
+        if (typeof raw !== 'string' || !raw.trim() || raw.length > 2048) return '';
+        try {
+            const url = new URL(raw.trim());
+            return /^https?:$/.test(url.protocol) && !url.username && !url.password ? url.href : '';
+        } catch (_) { return ''; }
+    };
+    return { weixin: link(source.weixin), welink: link(source.welink) };
+}
+
 const FALLBACK_NAV_LAYOUT = Object.freeze({
     primaryIds: [
         'home',
@@ -236,6 +249,7 @@ function normalizeSettings(input = {}) {
 
     return {
         platformGuideVideoUrl: normalizeGuideVideoUrl(input.platformGuideVideoUrl),
+        scanLinks: normalizeScanLinks(input.scanLinks),
         platformName,
         platformNameZh,
         platformNameEn,
@@ -332,6 +346,7 @@ async function saveSettings(settings) {
     const current = await getSettings();
     if (!Object.hasOwn(input, 'platformGuideVideoUrl')) input.platformGuideVideoUrl = current.platformGuideVideoUrl;
     if (!Object.hasOwn(input, 'f12QuickDownloads')) input.f12QuickDownloads = current.f12QuickDownloads;
+    if (!Object.hasOwn(input, 'scanLinks')) input.scanLinks = current.scanLinks;
     if (!Object.hasOwn(input, 'platformName')) input.platformName = current.platformName;
     if (!Object.hasOwn(input, 'platformNameZh')) input.platformNameZh = current.platformNameZh;
     if (!Object.hasOwn(input, 'platformNameEn')) input.platformNameEn = current.platformNameEn;

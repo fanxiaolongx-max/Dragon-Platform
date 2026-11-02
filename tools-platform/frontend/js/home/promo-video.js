@@ -178,6 +178,8 @@
 
     function init() {
         if (document.getElementById('nrvStack')) return;
+        // 首页新版界面：推广固定为右下角一张卡片，不收起成侧边标签、不自动播放视频，定时轮换下一条
+        const compactCard = document.documentElement.getAttribute('data-ui') === 'v2';
         const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const stack = document.createElement('div');
         stack.className = 'nrv-stack'; stack.id = 'nrvStack';
@@ -224,7 +226,7 @@
             const source = video.querySelector('source');
             if (url) source.setAttribute('src', url); else source.removeAttribute('src');
             // 收起时小窗不可见也不播放：不预下载（远程访问时会和首屏接口抢带宽），展开时再加载
-            if (video === mini) video.preload = tucked ? 'none' : 'auto';
+            if (video === mini) video.preload = tucked || compactCard ? 'none' : 'auto';
             video.load();
         }
         const ask = float.querySelector('.nrv-ask');
@@ -338,7 +340,7 @@
             renderBanners();
         }
         function playMini() {
-            if (isLink(current) || reviewPending || tucked) return;
+            if (isLink(current) || reviewPending || tucked || compactCard) return;
             if (reducedMotion && !soundUnlocked) return;
             mini.muted = !wantSound; renderSound();
             const attempt = mini.play();
@@ -441,7 +443,7 @@
         stack.addEventListener('focusin', cancelAutoTuck);
         // 抽屉：收起到右侧边缘标签 / 从标签抽出
         function tuck() {
-            if (tucked || reviewPending) return;
+            if (tucked || reviewPending || compactCard) return;
             cancelAutoTuck();
             tucked = true;
             resumeOnUntuck = !!current && !isLink(current) && !mini.paused && !ended;
@@ -600,6 +602,10 @@
             setCurrent(readDismissed() ? null : nextPromotion());
             scheduleRotation();
             connectDesktop();
+            if (compactCard) setInterval(() => {
+                if (document.hidden || readDismissed() || stack.matches(':hover') || dlg.open || !ask.hidden) return;
+                setCurrent(nextPromotion());
+            }, Math.max(10, Number(config.rotateSeconds) || 15) * 1000);
         });
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

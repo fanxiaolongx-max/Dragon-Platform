@@ -4,6 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-platform-page-title="工具中台" data-platform-page-title-en="Tool Hub">工具中台</title>
+    <script>
+        // 首页新版界面（浅色极简布局）：?ui=v2 / ?ui=v1 切换并记住；主题默认浅色，可在用户菜单里切到深色
+        (function () {
+            var root = document.documentElement;
+            try {
+                var query = new URLSearchParams(location.search).get('ui');
+                if (query === 'v2' || query === 'v1') localStorage.setItem('tools_home_ui', query);
+                if (localStorage.getItem('tools_home_ui') !== 'v2') return;
+                root.setAttribute('data-ui', 'v2');
+                root.setAttribute('data-theme', localStorage.getItem('tools_theme') === 'dark' ? 'dark' : 'light');
+            } catch (e) { /* 读不到存储时保持旧版界面 */ }
+        })();
+    </script>
     <script src="/js/shared/fetch-dedupe.js"></script>
     <script>
         // 首屏预取：对话区首屏需要的只读接口一次取回（远程访问只回源一次），各模块随后的同名 GET 直接复用
@@ -46,6 +59,7 @@
     <link rel="stylesheet" href="/css/desktop-agents.css">
     <link rel="stylesheet" href="/css/home-mode.css">
     <link rel="stylesheet" href="/css/home-capabilities.css">
+    <link rel="stylesheet" href="/css/home-v2.css">
 </head>
 <body class="home-mode-chat home-booting">
     <script>
@@ -82,6 +96,27 @@
     </script>
     <div class="home-content home-workspace">
         <aside class="home-sidebar" id="homeSidebar" aria-label="首页导航">
+            <!-- 新版界面侧边栏（js/home/home-v2.js），旧版界面隐藏 -->
+            <div class="v2-side-top" data-v2>
+                <div class="v2-side-tools">
+                    <button type="button" class="v2-icon-btn" id="v2SideToggle" data-v2-i18n-title="collapse"><span class="v2-ico" data-icon="sidebar"></span></button>
+                    <button type="button" class="v2-icon-btn" id="v2SearchBtn" data-v2-i18n-title="search"><span class="v2-ico" data-icon="search"></span></button>
+                    <button type="button" class="v2-icon-btn" id="v2SortBtn" data-v2-i18n-title="sortFilter" aria-haspopup="menu" aria-expanded="false"><span class="v2-ico" data-icon="filter"></span></button>
+                </div>
+                <div class="v2-brand">
+                    <div class="v2-brand-text"><strong>DragonClaw</strong><span id="v2Version"></span></div>
+                    <button type="button" class="v2-discover-btn" id="v2DiscoverBtn" aria-haspopup="dialog" aria-expanded="false"><span class="v2-ico" data-icon="compass"></span><span data-v2-i18n="discover">发现应用</span><span class="v2-ico v2-chev" data-icon="chevron"></span></button>
+                </div>
+                <nav class="v2-nav" aria-label="主导航">
+                    <button type="button" class="v2-nav-item" data-v2-action="newChat"><span class="v2-ico" data-icon="chatPlus"></span><span data-v2-i18n="newChat">新建对话</span></button>
+                    <button type="button" class="v2-nav-item" data-v2-action="channels"><span class="v2-ico" data-icon="channels"></span><span data-v2-i18n="channels">频道会话</span></button>
+                    <button type="button" class="v2-nav-item" data-v2-flyout="skills" aria-haspopup="menu" aria-expanded="false"><span class="v2-ico" data-icon="puzzle"></span><span data-v2-i18n="skills">技能·插件·工具</span></button>
+                    <button type="button" class="v2-nav-item" data-v2-action="schedule"><span class="v2-ico" data-icon="alarm"></span><span data-v2-i18n="schedule">定时任务</span></button>
+                    <button type="button" class="v2-nav-item" data-v2-action="library"><span class="v2-ico" data-icon="book"></span><span data-v2-i18n="library">资料库</span></button>
+                    <button type="button" class="v2-nav-item" data-v2-action="opsDrafts"><span class="v2-ico" data-icon="inbox"></span><span data-v2-i18n="opsDrafts">运维待办</span><span class="v2-nav-count" id="v2OpsCount" hidden></span></button>
+                    <button type="button" class="v2-nav-item" data-v2-flyout="more" aria-haspopup="menu" aria-expanded="false"><span class="v2-ico" data-icon="grid"></span><span data-v2-i18n="more">更多</span></button>
+                </nav>
+            </div>
             <!-- 图标栏：对话 / 工具两种模式互斥（js/home/home-mode.js），友情链接以弹层展示 -->
             <nav class="home-rail" aria-label="首页模式">
                 <button type="button" class="home-rail-btn" data-home-mode="chat" aria-pressed="true">
@@ -159,6 +194,15 @@
 
             <div class="home-sidebar-resizer" id="homeSidebarResizer" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="homeSidebar" aria-label="调整侧栏宽度" hidden></div>
 
+            <div class="v2-userbar" data-v2>
+                <button type="button" class="v2-user" id="v2UserBtn" aria-haspopup="menu" aria-expanded="false">
+                    <span class="v2-avatar" id="v2Avatar"></span>
+                    <span class="v2-user-text"><strong id="v2UserName"></strong><small><span class="v2-status-dot" id="v2StatusDot"></span><span id="v2UserMeta"></span></small></span>
+                </button>
+                <button type="button" class="v2-icon-btn" id="v2AlertBtn" data-v2-i18n-title="messages"><span class="v2-ico" data-icon="bell"></span><span class="v2-badge" id="v2AlertCount" hidden></span></button>
+                <button type="button" class="v2-icon-btn" id="v2ScanBtn" data-v2-i18n-title="scan" aria-haspopup="dialog" aria-expanded="false"><span class="v2-ico" data-icon="devices"></span></button>
+            </div>
+
             <!-- 友情链接弹层 -->
             <div class="home-links-pop" id="homeLinksPop" role="dialog" aria-label="友情链接" hidden>
                 <nav class="friend-links" aria-label="友情链接">
@@ -219,6 +263,10 @@
                 </div>
             </header>
             <div class="dc-landing">
+                <div class="v2-hero" data-v2>
+                    <h1 class="v2-hero-title" data-v2-i18n="heroTitle">Dragon Claw，让想法落地</h1>
+                    <div class="v2-seg" role="tablist" data-v2-modes></div>
+                </div>
                 <div class="dc-orb" aria-hidden="true"><span class="dc-orb-ring"></span><img src="/assets/dragon-claw-avatar.jpg" alt=""></div>
                 <h1 class="dc-greeting" id="dcGreeting">你好</h1>
                 <p class="dc-tagline" data-dc-i18n="tagline">我是 Dragon Claw，你的全能智能体。问我任何问题，或者让我带你用好平台里的工具。</p>
@@ -280,6 +328,7 @@
         </section>
 
         <!-- 工具模式标题（js/home/workspace.js 按视图更新） -->
+        <div class="v2-tools-modes" data-v2><div class="v2-seg" role="tablist" data-v2-modes></div></div>
         <header class="home-tools-head" id="homeToolsHead">
             <h1 class="home-tools-title" id="homeToolsTitle">全部工具</h1>
             <span class="home-tools-count" id="homeToolsCount"></span>
@@ -881,5 +930,6 @@
     <script src="/js/home/agent-discussion.js"></script>
     <script src="/js/home/dragon-claw-skills.js"></script>
     <script src="/js/home/home-page.js"></script>
+    <script src="/js/home/home-v2.js"></script>
 </body>
 </html>
