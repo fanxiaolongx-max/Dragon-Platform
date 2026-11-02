@@ -381,9 +381,28 @@
         requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.remove('home-booting')));
     }
 
+    // 只有工具区用到的数据（统计、操作历史、友链、页面更新时间）不和对话区抢首屏请求：
+    // 切到工具区时立即加载，否则等页面加载完、浏览器空闲后再补上。
+    function whenTools(task) {
+        let done = false;
+        const run = () => {
+            if (done) return;
+            done = true;
+            window.removeEventListener('home:mode', onMode);
+            task();
+        };
+        const onMode = event => { if (event.detail?.mode === 'tools') run(); };
+        if (document.body.classList.contains('home-mode-tools')) return run();
+        window.addEventListener('home:mode', onMode);
+        const idle = () => setTimeout(() => (window.requestIdleCallback || (cb => setTimeout(cb, 0)))(run, { timeout: 2000 }), 1500);
+        if (document.readyState === 'complete') idle();
+        else window.addEventListener('load', idle, { once: true });
+    }
+
     window.HomeMode = {
         get: () => mode,
-        set: (next, options) => setMode(next, options)
+        set: (next, options) => setMode(next, options),
+        whenTools
     };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });

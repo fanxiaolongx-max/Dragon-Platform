@@ -223,6 +223,8 @@
         function setSource(video, url) {
             const source = video.querySelector('source');
             if (url) source.setAttribute('src', url); else source.removeAttribute('src');
+            // 收起时小窗不可见也不播放：不预下载（远程访问时会和首屏接口抢带宽），展开时再加载
+            if (video === mini) video.preload = tucked ? 'none' : 'auto';
             video.load();
         }
         const ask = float.querySelector('.nrv-ask');
@@ -452,6 +454,7 @@
         function untuck() {
             if (!tucked || reviewPending) return;
             tucked = false;
+            mini.preload = 'auto';
             stack.classList.remove('is-tucked'); stack.removeAttribute('aria-hidden'); stack.inert = false;
             tab.classList.remove('is-shown'); tab.setAttribute('aria-hidden', 'true'); tab.tabIndex = -1;
             updateFrameLoop();

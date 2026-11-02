@@ -1012,7 +1012,7 @@
         document.documentElement.classList.add('home-workspace-ready');
         bindEvents();
         layout();
-        loadPageUpdates();
+        (window.HomeMode?.whenTools || (task => task()))(loadPageUpdates);
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });

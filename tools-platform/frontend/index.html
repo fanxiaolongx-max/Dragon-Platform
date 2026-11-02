@@ -2692,7 +2692,9 @@
             document.addEventListener('keydown', event => {
                 if (event.key === 'Escape' && modal?.classList.contains('open')) closeFriendLinksEditor();
             });
-            loadFriendLinks();
+            (window.HomeMode?.whenTools || (task => task()))(() => {
+                if (!friendLinksState.snapshot) loadFriendLinks();
+            });
         }
 
         function getApiRelayValues() {
@@ -4367,8 +4369,11 @@
             setupCustomToolUpload();
             setupToolMarket();
             loadCustomTools();
-            loadStats();
-            loadOperationHistory();
+            // 统计和操作历史只在工具区显示，不占首屏请求
+            (window.HomeMode?.whenTools || (task => task()))(() => {
+                loadStats();
+                loadOperationHistory();
+            });
 
             document.getElementById('history-filter')?.addEventListener('change', () => applyHistoryFilters(true));
             let historySearchTimer = 0;
