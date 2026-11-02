@@ -576,14 +576,18 @@ async function unavailableReason(id) {
     return config.enabled ? '' : 'NetCare 数据连接尚未启用；如需查询，请到「全局设置 › 频道对接 › 数字人」配置并启用。平台已入库的 SQLite 数据仍可正常查询。';
 }
 
-/** 模型在工作区里用 load_skill 自行加载：只接受当前租户目录中可见的技能 */
+/** 模型在工作区或对话里用 load_skill 自行加载：只接受当前租户目录中可见的技能 */
 async function loadSection(id) {
     const cleanId = String(id || '').toLowerCase();
     if (await unavailableReason(cleanId)) return null;
     const item = (await listAll()).find(entry => entry.id === cleanId);
     if (!item) return null;
-    const section = await skillSection(item);
-    return section ? { meta: { id: item.id, name: item.name, workspace: item.workspace }, section } : null;
+    const rawSection = await skillSection(item);
+    if (!rawSection) return null;
+    const section = /^### @(?:create-skill|improve-skill)\n/.test(rawSection)
+        ? builtinSkills.buildPrompt([rawSection]).trim()
+        : rawSection;
+    return { meta: { id: item.id, name: item.name, workspace: item.workspace }, section };
 }
 
 /** 对话加载：与 agent-skills.load 相同的规则，但白名单是当前租户可见的全部 Skill */

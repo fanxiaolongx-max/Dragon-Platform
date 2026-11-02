@@ -13,7 +13,7 @@ function parseNetcareRfcOrders(value) {
   return orders;
 }
 
-function netcareNativeOrder(value){try{const raw=String(value||'');let decoded=raw;for(let i=0;i<3;i++){try{const d=decodeURIComponent(decoded);if(d===decoded)break;decoded=d;}catch{break;}}const u=new URL(raw,typeof location!=='undefined'?location.href:undefined);const queries=[u.searchParams,new URLSearchParams(u.hash.replace(/^#/,'').split('?')[1]||''),new URLSearchParams(decoded.replace(/^[^?]*\?/,''))];const found=new Set();for(const q of queries)for(const [key,val] of q)if(['orderid','order_id','docid','id'].includes(key.toLowerCase())&&/^N[CE]\d{14}$/.test(val))found.add(val);for(const m of (raw+' '+decoded).matchAll(/(?:orderid|order_id|docid|id)=(N[CE]\d{14})/gi))found.add(m[1]);if(found.size>1)return '!ambiguous';if(found.size)return [...found][0];}catch{}return '';}
+function netcareNativeOrder(value){try{const raw=String(value||'');let decoded=raw;for(let i=0;i<3;i++){try{const d=decodeURIComponent(decoded);if(d===decoded)break;decoded=d;}catch{break;}}const u=new URL(raw,typeof location!=='undefined'?location.href:undefined);const queries=[u.searchParams,new URLSearchParams(u.hash.replace(/^#/,'').split('?')[1]||''),new URLSearchParams(decoded.replace(/^[^?]*\?/,''))];const found=new Set();for(const q of queries)for(const [key,val] of q){const normVal=/^D?N[CE]\d{14}$/i.test(val)?val.replace(/^D/i,'').toUpperCase():val;if(/^N[CE]\d{14}$/.test(normVal))found.add(normVal);}for(const m of (raw+' '+decoded).matchAll(/(?:[?&#=/_]|^)D?(N[CE]\d{14})(?:[?&#=/_\s]|$)/gi))found.add(m[1].toUpperCase());if(found.size>1)return '!ambiguous';if(found.size)return [...found][0];}catch{}return '';}
 
 // The export frame's URL is also its storage authorization identity. Never reuse
 // a first RFC's frame for another RFC, or replace a selected DNC document with NC.
@@ -48,22 +48,31 @@ function netcareCreateWordBridge(bridges,value,order,doc,signal){
   return connection;
 }
 
-var NETCARE_SEARCH_PLACEHOLDERS = ['请输入单号', 'Ticket No.', 'Ticket No', 'Please enter ticket number'];
+var NETCARE_SEARCH_PLACEHOLDERS = ['请输入单号', 'Ticket No.', 'Ticket No', 'Please enter ticket number', '请输入RFC单号', '请输入工单号', '请输入', 'Enter ticket number', 'Search'];
 
 function netcareFindOrderSearch(doc = (typeof document !== 'undefined' ? document : null)) {
   if (!doc?.querySelector) return null;
   for (const placeholder of NETCARE_SEARCH_PLACEHOLDERS) {
     const input = doc.querySelector(`input[placeholder="${placeholder}" i]`);
     const search = input?.closest('.search-input')?.querySelector('button.search-icon')
+      || input?.closest('.search-input')?.querySelector('button')
       || input?.parentElement?.querySelector('button.search-icon')
-      || input?.closest('.search-input')?.querySelector('button');
+      || input?.parentElement?.querySelector('button')
+      || input?.closest('.header-search, .search-box, .search-bar')?.querySelector('button.search-icon, button');
     if (input && search) return { input, search };
   }
-  const container = doc.querySelector('.search-input');
+  const container = doc.querySelector('.search-input') || doc.querySelector('.header-search, .search-box, .search-bar');
   if (container) {
     const input = container.querySelector('input');
     const search = container.querySelector('button.search-icon') || container.querySelector('button');
     if (input && search) return { input, search };
+  }
+  const fallbackInput = doc.querySelector('input[placeholder*="单号" i], input[placeholder*="Ticket" i]');
+  if (fallbackInput) {
+    const search = fallbackInput.closest('.search-input')?.querySelector('button.search-icon, button')
+      || fallbackInput.parentElement?.querySelector('button.search-icon, button')
+      || fallbackInput.parentElement?.parentElement?.querySelector('button');
+    if (search) return { input: fallbackInput, search };
   }
   return null;
 }
@@ -76,7 +85,7 @@ function netcareSearchRedirects(win,order,forward){
     let url;try{url=new URL(String(value||''),win.location.href);}catch{return original.call(this,value,...args);}
     const allowed=['https://netcare-ae.gts.huawei.com','https://netcare.huawei.com','https://netcare-de.gts.huawei.com'];
     if(url.protocol==='https:'&&!url.username&&!url.password&&!url.port&&allowed.includes(url.origin)&&url.origin!==win.location.origin
-      &&(url.pathname==='/p/netcare/index.html'||url.pathname.startsWith('/rfc/network_tuning/')||url.pathname.startsWith('/p/rfc/')||url.pathname.startsWith('/opcenter/'))&&netcareNativeOrder(url.href)===order){
+      &&(url.pathname==='/p/netcare/index.html'||url.pathname.includes('/network_tuning/')||url.pathname.startsWith('/p/rfc/')||url.pathname.startsWith('/p/rfc-ebg/')||url.pathname.startsWith('/opcenter/'))&&netcareNativeOrder(url.href)===order){
       if(!seen.has(url.href)){seen.add(url.href);forward(url.href);}return null;
     }
     return original.call(this,value,...args);
@@ -1435,22 +1444,35 @@ function mountNetcareCollector() {
   function promptAiRetry({ section, filename, error, attempt }) {
     return new Promise(resolve => {
       if (!aiRetryDialog) return resolve(false);
+      let countdownTimer = null, secondsLeft = 30;
       const promptEl = $('aiRetryPrompt');
-      promptEl.innerHTML = `<div><strong>章节 / Section:</strong> ${section} (${filename || ''})</div><div style="margin-top:6px;color:#d9534f"><strong>AI 错误 / Error:</strong> ${netcareRedactText(error)}</div><div style="margin-top:10px;font-size:11px;color:#64748b">已开启【禁用本地审计规则】，未回退到本地规则（当前已尝试 ${attempt} 次）。<br>点击<strong>“继续重试”</strong>将再次向 AI 接口发起请求，并在页面顶部实时滚动日志；点击<strong>“跳过此项”</strong>将标记该项为审计异常并继续后续章节。</div>`;
-      const onConfirm = () => { cleanup(); resolve(true); };
-      const onSkip = () => { cleanup(); resolve(false); };
+      const renderPrompt = () => {
+        promptEl.innerHTML = `<div><strong>章节 / Section:</strong> ${section} (${filename || ''})</div><div style="margin-top:6px;color:#d9534f"><strong>AI 错误 / Error:</strong> ${netcareRedactText(error)}</div><div style="margin-top:10px;font-size:11px;color:#64748b">已开启【禁用本地审计规则】，未回退到本地规则（当前已尝试 ${attempt} 次）。<br>点击<strong>“继续重试”</strong>将再次向 AI 接口发起请求，并在页面顶部实时滚动日志；点击<strong>“跳过此项”</strong>将标记该项为审计异常并继续后续章节。<br><span style="color:#e67e22">（若无操作，将在 <strong>${secondsLeft}</strong> 秒后自动跳过此项，防止批次超时挂起）</span></div>`;
+      };
+      renderPrompt();
       const cleanup = () => {
+        if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
         $('aiRetryConfirm').onclick = null;
         $('aiRetrySkip').onclick = null;
         $('aiRetryClose').onclick = () => aiRetryDialog.close();
         aiRetryDialog.oncancel = null;
         aiRetryDialog.close();
       };
+      const onConfirm = () => { cleanup(); resolve(true); };
+      const onSkip = () => { cleanup(); resolve(false); };
       $('aiRetryConfirm').onclick = onConfirm;
       $('aiRetrySkip').onclick = onSkip;
       $('aiRetryClose').onclick = onSkip;
       aiRetryDialog.oncancel = event => { event.preventDefault(); onSkip(); };
       aiRetryDialog.showModal();
+      countdownTimer = setInterval(() => {
+        secondsLeft--;
+        if (secondsLeft <= 0) {
+          onSkip();
+        } else {
+          renderPrompt();
+        }
+      }, 1000);
     });
   }
 
@@ -2941,15 +2963,24 @@ function mountNetcareCollector() {
     }
     throw new Error(failure);
   };
-  const detail = order => {const nativeOrder=netcareNativeOrder(location.href);if((location.pathname.startsWith('/rfc/network_tuning/')||location.pathname.startsWith('/p/rfc/'))&&(nativeOrder?nativeOrder===order:Array.from(document.querySelectorAll('input')).some(input=>input.value===order)))return {contentDocument:document};return Array.from(document.querySelectorAll('iframe')).find(frame => {
-    try {
-      const u = new URL(frame.src, location.href);
-      return visible(frame) && u.origin === location.origin && (u.pathname.includes('/rfc/network_tuning/') || u.pathname.startsWith('/p/rfc/'))
-        && (netcareNativeOrder(u.href) === order || nativeOrder === order)
-        && frame.contentDocument?.readyState === 'complete'
-        && (Array.from(frame.contentDocument.querySelectorAll('input')).some(input => input.value === order) || frame.contentDocument.body?.innerText?.includes(order));
-    } catch { return false; }
-  });
+  const detail = order => {
+    const nativeOrder = netcareNativeOrder(location.href);
+    const isDetailPath = p => p.includes('/network_tuning/') || p.startsWith('/p/rfc/') || p.startsWith('/p/rfc-ebg/') || p.startsWith('/opcenter/');
+    if (isDetailPath(location.pathname) && (nativeOrder ? nativeOrder === order : Array.from(document.querySelectorAll('input')).some(input => input.value === order))) return { contentDocument: document };
+    return Array.from(document.querySelectorAll('iframe')).find(frame => {
+      try {
+        const u = new URL(frame.src, location.href);
+        const pathOk = u.pathname.includes('/network_tuning/') || u.pathname.startsWith('/p/rfc/') || u.pathname.startsWith('/p/rfc-ebg/') || u.pathname.startsWith('/opcenter/');
+        const orderInUrl = netcareNativeOrder(u.href);
+        const doc = frame.contentDocument;
+        const docMatches = doc && (Array.from(doc.querySelectorAll('input')).some(input => input.value === order) || doc.body?.innerText?.includes(order));
+        const orderMatches = orderInUrl ? orderInUrl === order : (nativeOrder === order || docMatches);
+        return visible(frame) && u.origin === location.origin && pathOk
+          && orderMatches
+          && doc?.readyState === 'complete'
+          && docMatches;
+      } catch { return false; }
+    });
   };
   const rows = new Map(), onlineRequests = new Map();
   function routeSend(source,id,order,data={}){const requestId=crypto.randomUUID();return new Promise((resolve,reject)=>{const finish=(fn,value)=>{clearTimeout(timer);window.removeEventListener('message',receive);fn(value);};const receive=e=>{if(e.source===window&&e.origin===location.origin&&e.data?.source==='TP_RFC_ROUTE_REPLY'&&e.data.requestId===requestId)e.data.ok?finish(resolve,e.data.data):finish(reject,Error(e.data.error||'跨区域连接失败 / Region connection failed'));};const timer=setTimeout(()=>finish(reject,Error('跨区域连接超时，请更新扩展 / Region connection timed out; update extension')),12000);window.addEventListener('message',receive);window.postMessage({source,id,order,requestId,...data},location.origin);});}
@@ -3195,6 +3226,7 @@ function mountNetcareCollector() {
       const previous = input.value;
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, order);
       input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
       await Promise.resolve();
       const restoreRedirects=routeArmed?netcareSearchRedirects(window,order,url=>{netcareLog({order,batchId:currentBatch?.started,category:'system',action:'region.redirect.requested',message:'网站请求跨区域跳转 / Native cross-region redirect requested',data:{targetOrigin:new URL(url).origin}});routeSend('TP_RFC_ROUTE_OPEN',id,order,{url}).catch(error=>{entry.result={ok:false,error:error.message};});}):()=>{};
       try{search.click();frame=await wait(()=>{if(entry.result&&!entry.result.ok)throw Error(entry.result.error);return detail(order)||entry.assigned&&{routeId:id};},45000,signal,'未找到可访问的作业单或目标区域；请检查单号、登录及页面提示');}finally{restoreRedirects();if(input.isConnected){Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,previous);input.dispatchEvent(new Event('input',{bubbles:true}));}}
@@ -3203,7 +3235,7 @@ function mountNetcareCollector() {
     try{await routeSend('TP_RFC_ROUTE_LOCAL',id,order);}catch(_){}
     const doc = frame.contentDocument;
     const buttons = await wait(() => {
-      const found = Array.from(doc.querySelectorAll('.v-icon-dolwnload-1')).filter(visible);
+      const found = Array.from(doc.querySelectorAll('.v-icon-dolwnload-1, [class*="dolwnload"], [class*="download"], button[title*="下载"], a[title*="下载"]')).filter(visible);
       return found.length ? found : null;
     }, 30000, signal, '没有可下载的方案；请检查方案信息及权限');
     let button = buttons[0];

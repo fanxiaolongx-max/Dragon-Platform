@@ -39,7 +39,7 @@
         name: 'NetCare RFC 方案与 AI 审计',
         nameEn: 'NetCare RFC Plans and AI Audit',
         description: '批量下载 RFC 方案，提取章节与附件并执行 AI 审计；支持审计快照、Excel 和材料 ZIP 导出。',
-        matches: 'https://netcare-ae.gts.huawei.com/p/netcare/index.html*\nhttps://netcare-ae.gts.huawei.com/opcenter/*\nhttps://netcare.huawei.com/p/netcare/index.html*\nhttps://netcare.huawei.com/opcenter/*\nhttps://netcare-de.gts.huawei.com/p/netcare/index.html*\nhttps://netcare-de.gts.huawei.com/opcenter/*\nhttps://*.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*\nhttps://*.kdp.idp.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*',
+        matches: 'https://netcare-ae.gts.huawei.com/p/netcare/index.html*\nhttps://netcare-ae.gts.huawei.com/opcenter/*\nhttps://netcare-ae.gts.huawei.com/p/rfc-ebg/*\nhttps://netcare-ae.gts.huawei.com/p/rfc/*\nhttps://netcare.huawei.com/p/netcare/index.html*\nhttps://netcare.huawei.com/opcenter/*\nhttps://netcare.huawei.com/p/rfc-ebg/*\nhttps://netcare.huawei.com/p/rfc/*\nhttps://netcare-de.gts.huawei.com/p/netcare/index.html*\nhttps://netcare-de.gts.huawei.com/opcenter/*\nhttps://netcare-de.gts.huawei.com/p/rfc-ebg/*\nhttps://netcare-de.gts.huawei.com/p/rfc/*\nhttps://*.kdp.gts.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*\nhttps://*.kdp.idp.huawei.com/ows1/static/editor/IdpLiteView/PublishLiteView.html*',
         world: 'MAIN',
         allFrames: true,
         includePopup: true,

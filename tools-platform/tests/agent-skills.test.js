@@ -71,3 +71,15 @@ test('skill authoring keeps the platform save contract even with customized inst
     }
     assert.doesNotMatch(skills.load('@write-doc draft a document').prompt, /平台技能保存规则/);
 });
+
+test('natural language requests to create or improve a skill auto-select @create-skill or @improve-skill', () => {
+    assert.deepEqual(
+        skills.autoSelect('能否把刚才这些内容生成一个excel表格报告，然后把我们刚才这套打开网页 点击 获取数据的方法做成一个SKILL'),
+        ['create-skill']
+    );
+    assert.deepEqual(skills.autoSelect('帮我完善一下这个技能'), ['improve-skill']);
+    assert.deepEqual(
+        skills.autoSelect('确认', { contextMessages: [{ role: 'user', content: '把这套流程做成 skill' }] }),
+        ['create-skill']
+    );
+});

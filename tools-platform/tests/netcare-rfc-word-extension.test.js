@@ -2629,3 +2629,12 @@ test('bilingual NetCare English and Chinese support: ticket search placeholders,
     assert.ok(resolvedZh.length >= 3, 'Resolves chapters with Chinese titles matching English rules');
     assert.equal(resolvedZh.resolutionIssues?.length || 0, 0, 'No resolution mismatch issues');
 });
+
+test('EBG Enterprise NetCare RFC (NE) path and order parsing', () => {
+    const ctx = { URL, URLSearchParams, location: new URL('https://netcare.huawei.com/p/netcare/index.html'), window: {} };
+    vm.runInNewContext(pageCode, ctx);
+    const hashUrl = 'https://netcare.huawei.com/p/netcare/index.html#/iframe/iframe-page/%2Fp%2Frfc-ebg%2Fnetwork_tuning%2Fdist%2Findex.html%23%2Frfc%3Forderid=NE20261002000004&title=NE20261002000004&title_en=NE20261002000004';
+    const iframeUrl = 'https://netcare.huawei.com/p/rfc-ebg/network_tuning/dist/index.html#/rfc?orderid=NE20261002000004';
+    assert.equal(ctx.netcareNativeOrder(hashUrl), 'NE20261002000004');
+    assert.equal(ctx.netcareNativeOrder(iframeUrl), 'NE20261002000004');
+});

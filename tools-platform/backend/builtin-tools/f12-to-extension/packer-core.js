@@ -328,13 +328,60 @@ function netcareMatchesOrder(candidate, order) {
       }
     }
 
+    function safeParseAuditJson(answer) {
+      let cleaned = String(answer || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+      }
+      try {
+        return JSON.parse(cleaned);
+      } catch (e1) {
+        try {
+          let repaired = cleaned.replace(/("zh"\s*:\s*")([\s\S]*?)("(?:\s*,\s*"en"|\s*\}))/g, (m, p1, val, p3) => {
+            return p1 + val.replace(/(?<!\\)"/g, '\\"') + p3;
+          });
+          repaired = repaired.replace(/("en"\s*:\s*")([\s\S]*?)("(?:\s*,\s*"zh"|\s*\}))/g, (m, p1, val, p3) => {
+            return p1 + val.replace(/(?<!\\)"/g, '\\"') + p3;
+          });
+          repaired = repaired.replace(/,\s*([}\]])/g, '$1');
+          return JSON.parse(repaired);
+        } catch (_) {}
+
+        try {
+          const statusMatch = cleaned.match(/"status"\s*:\s*"(pass|fail|needs_review)"/i);
+          const zhSummaryMatch = cleaned.match(/"summary"[\s\S]*?"zh"\s*:\s*"([\s\S]*?)"(?:\s*,\s*"en"|\s*\})/);
+          const enSummaryMatch = cleaned.match(/"summary"[\s\S]*?"en"\s*:\s*"([\s\S]*?)"(?:\s*,\s*"zh"|\s*\})/);
+          if (statusMatch) {
+            const status = statusMatch[1].toLowerCase();
+            const zhSummary = zhSummaryMatch ? zhSummaryMatch[1].replace(/\\"/g, '"') : (status === 'pass' ? '符合要求' : '审计完成');
+            const enSummary = enSummaryMatch ? enSummaryMatch[1].replace(/\\"/g, '"') : (status === 'pass' ? 'Requirements met' : 'Audit completed');
+            const findings = [];
+            const findingRegex = /"zh"\s*:\s*"([\s\S]*?)"\s*,\s*"en"\s*:\s*"([\s\S]*?)"/g;
+            let fm;
+            while ((fm = findingRegex.exec(cleaned)) !== null) {
+              if (fm[1] === zhSummary && fm[2] === enSummary) continue;
+              findings.push({ zh: fm[1].replace(/\\"/g, '"'), en: fm[2].replace(/\\"/g, '"') });
+              if (findings.length >= 5) break;
+            }
+            return { status, summary: { zh: zhSummary, en: enSummary }, findings };
+          }
+        } catch (_) {}
+
+        throw e1;
+      }
+    }
+
     async function runJob(item) {
       const { id, message, reply, controller, configPage } = item;
-      let timer;
+      const JOB_TIMEOUT_MS = 240000;
+      const ATTEMPT_TIMEOUT_MS = 90000;
+      let jobTimer, timer;
       let diagnostics = {}, model, logScope = { order: configPage ? '' : message.order, category: 'audit' };
       const started = Date.now();
       try {
-        timer = setTimeout(() => controller.abort(), 60000);
+        jobTimer = setTimeout(() => controller.abort(), JOB_TIMEOUT_MS);
         const stored = await chrome.storage.local.get(['netcareAiModels', 'netcareAiSelectedModel', 'netcareExtractionSettings', 'f12PopupLanguage', 'netcareRunStarted:' + message.order, 'netcareCurrentBatch']);
         const availableModels = stored.netcareAiModels || [];
         model = configPage ? message.model : (availableModels.find(m => m.id === stored.netcareAiSelectedModel) || availableModels[0]);
@@ -375,7 +422,10 @@ function netcareMatchesOrder(candidate, order) {
         let result;
         for (let attempt = 0; attempt <= maxRetries; attempt++) {
           if (controller.signal.aborted) throw new Error('Aborted');
+          clearTimeout(timer);
+          timer = setTimeout(() => controller.abort(), ATTEMPT_TIMEOUT_MS);
           result = await tpFetchAi(request, controller.signal, true);
+          clearTimeout(timer);
           let raw = JSON.stringify(result.data ?? result.responseText ?? '');
           if (model.key) raw = raw.split(model.key).join('[REDACTED]');
           Object.assign(diagnostics, { httpStatus: result.status, elapsedMs: Date.now() - started, response: netcareRedactText(raw).slice(0, 20000) });
@@ -424,7 +474,7 @@ function netcareMatchesOrder(candidate, order) {
           return;
         }
 
-        const report = JSON.parse(answer.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
+        const report = safeParseAuditJson(answer);
         if (message.phase === 'conclusion' && report.status === 'pass') report.status = 'needs_review';
         const bilingual = value => value && typeof value.zh === 'string' && value.zh.trim() && typeof value.en === 'string' && value.en.trim();
         if (!['pass', 'fail', 'needs_review'].includes(report.status) || !bilingual(report.summary) || !Array.isArray(report.findings) || report.findings.length > 5 || report.findings.some(f => !bilingual(f))) throw new Error('模型需返回中英双语审计结果 / Bilingual audit result required');
@@ -443,6 +493,7 @@ function netcareMatchesOrder(candidate, order) {
         reply({ ok: false, error: netcareRedactText(errorText), diagnostics: { ...diagnostics, elapsedMs: Date.now() - started, error: netcareRedactText(errorText) } });
       } finally {
         clearTimeout(timer);
+        clearTimeout(jobTimer);
       }
     }
 
@@ -520,7 +571,7 @@ function netcareMatchesOrder(candidate, order) {
     const cache=tpArtifactFactory(typeof indexedDB==='undefined'?null:indexedDB);globalThis.tpNetcareArtifactCache=cache;
     chrome.storage?.onChanged?.addListener((d,a)=>{if(a==='local')for(const key of ['netcareAiModels','netcareAiSelectedModel','netcareExtractionSettings','f12PopupLanguage'])if(d[key])netcareBackgroundLog({category:'configuration',action:'configuration.saved',message:'配置已保存 / Configuration saved',data:{setting:key,value:d[key].newValue}});if(a==='local'&&d.netcareStorageSettings?.newValue)cache.configure(d.netcareStorageSettings.newValue.bytes).catch(()=>{});});
     chrome.runtime.onMessage.addListener((m,sender,reply)=>{if(m?.type!=='TP_RFC_ARTIFACT_REQUEST'||sender.id!==chrome.runtime.id)return;
-      try{const u=new URL(sender.url),main=sender.frameId===0&&['netcare-ae.gts.huawei.com','netcare.huawei.com','netcare-de.gts.huawei.com'].includes(u.hostname)&&(u.pathname==='/p/netcare/index.html'||u.pathname.startsWith('/rfc/network_tuning/')||u.pathname.startsWith('/p/rfc/')||u.pathname.startsWith('/opcenter/'));
+      try{const u=new URL(sender.url),main=sender.frameId===0&&['netcare-ae.gts.huawei.com','netcare.huawei.com','netcare-de.gts.huawei.com'].includes(u.hostname)&&(u.pathname==='/p/netcare/index.html'||u.pathname.includes('/network_tuning/')||u.pathname.startsWith('/p/rfc/')||u.pathname.startsWith('/p/rfc-ebg/')||u.pathname.startsWith('/opcenter/'));
         const online=/(^|\.)kdp\.(?:gts|idp)\.huawei\.com$/.test(u.hostname)&&u.pathname==='/ows1/static/editor/IdpLiteView/OwsPage.html'&&netcareMatchesOrder(u.searchParams.get('docId'),m.order)&&(!u.searchParams.get('order_id')||netcareMatchesOrder(u.searchParams.get('order_id'),m.order));
         const config=u.protocol==='chrome-extension:'&&u.hostname===chrome.runtime.id&&['/netcare-ai.html','/netcare-backup.html','/popup.html'].includes(u.pathname);
         const worker=/(^|\.)kdp\.(?:gts|idp)\.huawei\.com$/.test(u.hostname)&&u.pathname==='/ows1/static/editor/IdpLiteView/PublishLiteView.html'&&netcareMatchesOrder(u.searchParams.get('id'),m.order);
@@ -797,7 +848,7 @@ function netcareMatchesOrder(candidate, order) {
       if(message?.type!=='TP_RFC_PIP_REQUEST')return;
       (async()=>{let locked=false;try{
         const source=new URL(sender.url);
-        if(sender.id!==chrome.runtime.id||!sender.tab?.id||sender.frameId!==0||!origins.includes(source.origin)||!(source.pathname==='/p/netcare/index.html'||source.pathname.startsWith('/rfc/network_tuning/')||source.pathname.startsWith('/p/rfc/')||source.pathname.startsWith('/opcenter/'))||!/^[a-f0-9-]{36}$/.test(message.id||'')||!['list','frame','focus','panel','control'].includes(message.action))throw Error('预览来源无效 / Invalid preview source');
+        if(sender.id!==chrome.runtime.id||!sender.tab?.id||sender.frameId!==0||!origins.includes(source.origin)||!(source.pathname==='/p/netcare/index.html'||source.pathname.includes('/network_tuning/')||source.pathname.startsWith('/p/rfc/')||source.pathname.startsWith('/p/rfc-ebg/')||source.pathname.startsWith('/opcenter/'))||!/^[a-f0-9-]{36}$/.test(message.id||'')||!['list','frame','focus','panel','control'].includes(message.action))throw Error('预览来源无效 / Invalid preview source');
         const saved=await chrome.storage.local.get('netcareExtractionSettings');
         if(saved.netcareExtractionSettings?.pipBetaEnabled===false)throw Error('Beta 预览未开启 / Beta preview is disabled');
         if(message.action==='list'){
@@ -930,7 +981,7 @@ function netcareMatchesOrder(candidate, order) {
         const docMatches=netcareMatchesOrder(url.searchParams.get('docId'),message.order);
         const orderMatches=!url.searchParams.get('order_id')||netcareMatchesOrder(url.searchParams.get('order_id'),message.order);
         if (!sender.tab?.id || sender.frameId !== 0 || !origins.includes(source.origin)
-          || !(source.pathname === '/p/netcare/index.html' || source.pathname.startsWith('/rfc/network_tuning/') || source.pathname.startsWith('/p/rfc/') || source.pathname.startsWith('/opcenter/')) || !/^N[CE]\d{14}$/.test(message.order)
+          || !(source.pathname === '/p/netcare/index.html' || source.pathname.includes('/network_tuning/') || source.pathname.startsWith('/p/rfc/') || source.pathname.startsWith('/p/rfc-ebg/') || source.pathname.startsWith('/opcenter/')) || !/^N[CE]\d{14}$/.test(message.order)
           || url.protocol !== 'https:' || !/(^|\.)kdp\.(?:gts|idp)\.huawei\.com$/.test(url.hostname)
           || url.pathname !== '/ows1/static/editor/IdpLiteView/OwsPage.html'
           || url.username || url.password || url.port
@@ -940,7 +991,7 @@ function netcareMatchesOrder(candidate, order) {
         (async()=>{
           const context=await chrome.storage?.local?.get?.(['netcareRunStarted:'+message.order,'netcareCurrentBatch','netcareRouteTab:'+sender.tab.id])||{};
           const routing=context['netcareRouteTab:'+sender.tab.id];
-          if(source.pathname.startsWith('/rfc/network_tuning/')||source.pathname.startsWith('/p/rfc/')){
+          if(source.pathname.includes('/network_tuning/')||source.pathname.startsWith('/p/rfc/')||source.pathname.startsWith('/p/rfc-ebg/')){
             const explicit=tpRoutingFactory().urlOrder(source.href);
             if(explicit?explicit!==message.order:routing?.order!==message.order)throw Error('Invalid native detail RFC');
           }

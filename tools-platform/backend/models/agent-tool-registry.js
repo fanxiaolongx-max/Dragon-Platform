@@ -216,7 +216,7 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
             toolNames.length ? `已加载工具：${toolNames.join('、')}` : '',
             ...notes
         ].filter(Boolean);
-        return { content: redactText(parts.join('\n\n'), { secrets: sensitiveValues }), summary: `已加载 @${cleanId}` };
+        return { content: redactText(parts.join('\n\n'), { secrets: sensitiveValues }), summary: `已加载 @${cleanId}`, isError: false };
     };
 
     return {
@@ -231,12 +231,28 @@ async function create({ session, skillIds = [], messages = [], skillCatalog = fa
                 const args = call.args || {};
                 const select = (Array.isArray(args.select) ? args.select : args.select ? [args.select] : [])
                     .map(value => String(value || '').trim());
-                const isSkill = value => TOOLSET_OF_SKILL.has(value.replace(/^@/, '').toLowerCase());
+                const allSkills = skillCatalog ? await require('./agent-skills-store').listAll().catch(() => []) : [];
+                const catalogSkillIds = new Set(allSkills.map(item => item.id));
+                const isSkill = value => {
+                    const clean = String(value || '').replace(/^@/, '').toLowerCase();
+                    return TOOLSET_OF_SKILL.has(clean) || (skillCatalog && ( Boolean(builtinSkills.builtin(clean)) || catalogSkillIds.has(clean) ));
+                };
                 const query = String(args.query || '').trim();
                 const skillQuery = isSkill(query);
                 const ids = [...new Set([...select.filter(isSkill), ...(skillQuery ? [query] : [])])];
                 const rest = select.filter(value => !isSkill(value));
-                if (!ids.length) return search(args);
+                if (!ids.length) {
+                    const toolResult = search(args);
+                    if (toolResult.isError && skillCatalog && query && !rest.length) {
+                        const qTerms = query.toLowerCase().split(/[\s,，、]+/).filter(Boolean);
+                        const matchedSkills = allSkills.map(item => {
+                            const hay = `${item.id} ${item.name || ''} ${item.nameEn || ''} ${item.description || ''} ${item.descriptionEn || ''}`.toLowerCase();
+                            return { id: item.id, score: qTerms.filter(t => hay.includes(t)).length };
+                        }).filter(item => item.score > 0).sort((a, b) => b.score - a.score);
+                        if (matchedSkills.length) return loadSkill({ id: matchedSkills[0].id });
+                    }
+                    return toolResult;
+                }
                 const results = [];
                 for (const raw of ids) {
                     const id = raw.replace(/^@/, '').toLowerCase();

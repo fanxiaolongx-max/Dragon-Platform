@@ -73,18 +73,32 @@ function select(content) {
     return list().filter(item => known.includes(item.id));
 }
 
-// 只路由平台抓取脚本任务，避免把普通 Python/Shell 脚本需求误当作脚本仓库操作。
+// 自动路由平台抓取脚本任务与自然语言创建/完善技能请求，避免把普通 Python/Shell 脚本需求误当作脚本仓库操作。
 function autoSelect(content, { pagePath = '', extraIds = [], contextMessages = [] } = {}) {
     const text = String(content || '');
-    if ([...mentions(text).known, ...(Array.isArray(extraIds) ? extraIds : [])].some(id => ['ops-group', 'welink-office', 'netcare-data'].includes(id))) return [];
-    const scriptOperation = /(?:复制|删除|修改|新增|改名|重命名|保存|编辑|查询|查看).{0,30}脚本/.test(text)
-        && !/python|shell|bash|powershell|本地|\.py\b|\.sh\b|\.js\b/i.test(text);
-    const domain = scriptOperation || /脚本.{0,40}(?:分类|目录|挪|移动|站点|迁移)|(?:站点|分类|目录).{0,30}脚本|uiv(?:f12|ision)?|uiv_scripts|\bf12\b|脚本仓库|抓取脚本|采集脚本|数据抓取|targetRegion|targetOffice|generatorOffice|capture script|scraping script/i.test(text)
-        || (/uivf12/.test(pagePath) && /脚本|script|抓取|采集/i.test(text));
-    const followup = /继续|再试|不对|不用改|不要改|你做吧|就按|保存|写入|入库|复制|改名|改成|删除|执行吧|确认/.test(text)
-        && (Array.isArray(contextMessages) ? contextMessages : []).filter(item => item?.role === 'user').slice(-3)
-            .some(item => autoSelect(item.content, { pagePath }).includes('script-data'));
-    return (domain || followup) && byId.has('script-data') ? ['script-data'] : [];
+    const selected = [];
+    const knownIds = new Set([...mentions(text).known, ...(Array.isArray(extraIds) ? extraIds : [])]);
+    const recentUserMessages = (Array.isArray(contextMessages) ? contextMessages : []).filter(item => item?.role === 'user').slice(-3);
+
+    if (!['ops-group', 'welink-office', 'netcare-data'].some(id => knownIds.has(id))) {
+        const scriptOperation = /(?:复制|删除|修改|新增|改名|重命名|保存|编辑|查询|查看).{0,30}脚本/.test(text)
+            && !/python|shell|bash|powershell|本地|\.py\b|\.sh\b|\.js\b/i.test(text);
+        const domain = scriptOperation || /脚本.{0,40}(?:分类|目录|挪|移动|站点|迁移)|(?:站点|分类|目录).{0,30}脚本|uiv(?:f12|ision)?|uiv_scripts|\bf12\b|脚本仓库|抓取脚本|采集脚本|数据抓取|targetRegion|targetOffice|generatorOffice|capture script|scraping script/i.test(text)
+            || (/uivf12/.test(pagePath) && /脚本|script|抓取|采集/i.test(text));
+        const followup = /继续|再试|不对|不用改|不要改|你做吧|就按|保存|写入|入库|复制|改名|改成|删除|执行吧|确认/.test(text)
+            && recentUserMessages.some(item => autoSelect(item.content, { pagePath }).includes('script-data'));
+        if ((domain || followup) && byId.has('script-data')) selected.push('script-data');
+    }
+
+    const improveSkill = /(?:完善|优化|改进|升级).{0,20}(?:skill\b|技能)|(?:skill\b|技能).{0,16}(?:完善|优化|改进|升级)|\b(?:improve|refine|update)\s+(?:the\s+|this\s+|an?\s+)?skill\b/i.test(text);
+    const createSkill = !improveSkill && (/(?:做成|生成|创建|新建|制作|写(?:一?个|个|份)?|整理成|封装成|总结成|保存(?:成|为)|沉淀(?:成|为)|转(?:成|为)).{0,24}(?:skill\b|技能)|(?:skill\b|技能).{0,16}(?:草稿|模板|怎么写|如何写)|\b(?:create|make|build|draft|turn\b[\s\S]{0,40}\binto|save\s+as)\s+(?:a\s+|an\s+)?skill\b/i.test(text));
+    const skillFollowup = /^(?:确认|继续|好(?:的)?|可以|行|保存|按这个|就按这个|生成草稿|输出草稿)/i.test(text.trim());
+    if ((improveSkill || (skillFollowup && recentUserMessages.some(item => autoSelect(item.content, { pagePath }).includes('improve-skill')))) && byId.has('improve-skill')) {
+        selected.push('improve-skill');
+    } else if ((createSkill || (skillFollowup && recentUserMessages.some(item => autoSelect(item.content, { pagePath }).includes('create-skill')))) && byId.has('create-skill')) {
+        selected.push('create-skill');
+    }
+    return selected;
 }
 
 /**

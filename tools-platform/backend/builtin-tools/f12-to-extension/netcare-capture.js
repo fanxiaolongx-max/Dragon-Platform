@@ -7,7 +7,9 @@
     const expected=title(topic.title),matches=[...doc.querySelectorAll('article')].filter(el=>{
       const heading=el.querySelector('h1,h2,h3,h4,h5,h6');if(!heading)return false;
       const text=heading.textContent.trim(),number=text.match(/^\s*(\d+(?:\.\d+)*)(?=\s|[.、):]|[A-Za-z\u3400-\u9fff])/i)?.[1];
-      return title(text)===expected&&(!number||number===topic.number);
+      const t=title(text);
+      const titleMatch=t===expected || (number && number===topic.number && expected && (t.startsWith(expected)||expected.startsWith(t)||t.includes(expected)||expected.includes(t)));
+      return titleMatch&&(!number||number===topic.number);
     });
     if(matches.length>1)throw fail('AMBIGUOUS_REGION','原始章节区域不唯一，已拒绝截图 / Ambiguous original section; capture refused');return matches[0]||null;
   }
@@ -38,8 +40,13 @@
   }
   const numberOf=el=>String(el.textContent||'').trim().match(/^(\d+(?:\.\d+)*)(?=\s|[.、):]|[A-Za-z\u3400-\u9fff])/)?.[1]||'';
   function directoryTarget(nodes,topic){
-    const numbered=nodes.filter(el=>numberOf(el)===topic.number&&title(el.textContent)===title(topic.title));
-    const matches=numbered.length?numbered:nodes.filter(el=>!numberOf(el)&&title(el.textContent)===title(topic.title));
+    const tExpected=title(topic.title);
+    const numbered=nodes.filter(el=>{
+      if(numberOf(el)!==topic.number)return false;
+      const t=title(el.textContent);
+      return t===tExpected || (tExpected && (t.startsWith(tExpected)||tExpected.startsWith(t)||t.includes(tExpected)||tExpected.includes(t)));
+    });
+    const matches=numbered.length?numbered:nodes.filter(el=>!numberOf(el)&&title(el.textContent)===tExpected);
     return matches.length===1?matches[0]:null;
   }
   function navigate(doc,topic){
@@ -111,7 +118,9 @@
     if(!shot.topic.xml)throw fail('NO_NATIVE_XML','章节原始内容未保留，无法兜底 / Native section XML unavailable');
     const parsed=new DOMParser().parseFromString(shot.topic.xml,'text/html'),source=parsed.querySelector('article');if(!source)throw fail('INVALID_NATIVE_XML','原始章节内容无效 / Invalid native section XML');
     const heading=source.querySelector('h1,h2,h3,h4,h5,h6')?.textContent.trim(),number=heading?.match(/^\s*(\d+(?:\.\d+)*)(?=\s|[.、):]|[A-Za-z\u3400-\u9fff]|$)/i)?.[1];
-    if(heading&&(number&&number!==shot.topic.number||title(heading)&&title(heading)!==title(shot.topic.title)))throw fail('NATIVE_SECTION_MISMATCH','原始内容的章节序号或名称不符，已拒绝重建 / Native section number or title mismatch; reconstruction refused');
+    const tExpected=title(shot.topic.title),tHeading=title(heading);
+    const titleMatch=tHeading===tExpected || (number && number===shot.topic.number && tExpected && (tHeading.startsWith(tExpected)||tExpected.startsWith(tHeading)||tHeading.includes(tExpected)||tExpected.includes(tHeading)));
+    if(heading&&(number&&number!==shot.topic.number||!titleMatch))throw fail('NATIVE_SECTION_MISMATCH','原始内容的章节序号或名称不符，已拒绝重建 / Native section number or title mismatch; reconstruction refused');
     const clone=doc.importNode(source,true);
     // Resolve the region before sanitizing, so removed anchors cannot shift its index.
     let region=clone;if(shot.kind==='attachments'){

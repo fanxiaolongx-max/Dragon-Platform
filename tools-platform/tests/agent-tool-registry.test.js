@@ -53,6 +53,15 @@ test('tool_search accepts skill IDs, preserves mixed tool requests and keeps loa
         const hint = await chat.runMeta({ name: 'tool_search', args: { select: ['netcare-data'] } });
         assert.ok(!hint.isError);
         assert.match(hint.content, /输入框选择 @netcare-data/);
+
+        const createBySelect = await reg.runMeta({ name: 'tool_search', args: { select: ['create-skill'] } });
+        assert.equal(createBySelect.isError, false);
+        assert.match(createBySelect.content, /### @create-skill/);
+        assert.match(createBySelect.content, /平台技能保存规则/);
+
+        const createByQuery = await reg.runMeta({ name: 'tool_search', args: { query: '创建技能 skill' } });
+        assert.equal(createByQuery.isError, false);
+        assert.match(createByQuery.content, /### @create-skill/);
     } finally {
         await config.saveConfig({ enabled: false });
     }

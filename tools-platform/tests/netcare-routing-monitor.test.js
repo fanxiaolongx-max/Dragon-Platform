@@ -96,11 +96,15 @@ test('native detail parsing rejects conflicting URL orders and supports mixed-ca
  const context={URL,URLSearchParams,location:new URL('https://example.com'),window:{}};vm.runInNewContext(pageCode,context);
  assert.equal(context.netcareNativeOrder(origins[2]+'/rfc/network_tuning/view.html?Order_ID='+order),order);
  assert.equal(context.netcareNativeOrder(origins[2]+'/rfc/network_tuning/view.html?docId='+order+'#/rfc?orderid=NC20260910100018'),'!ambiguous');
+ const neEbgUrl = origins[1] + '/p/rfc-ebg/network_tuning/dist/index.html#/rfc?orderid=NE20261002000004';
+ assert.equal(route.urlOrder(neEbgUrl), 'NE20261002000004');
+ assert.equal(context.netcareNativeOrder(neEbgUrl), 'NE20261002000004');
 });
 
 test('routing and online relay support opcenter portal and forward TP_RFC_ROUTE_ARM',async()=>{
  for(const origin of origins){
   assert.equal(route.validPage(origin+'/opcenter/ioc/index.html#/'),true);
+  assert.equal(route.validPage(origin+'/p/rfc-ebg/network_tuning/dist/index.html#/rfc?orderid=NE20261002000004'),true);
  }
  const relayCode=pkg.files['netcare-online-relay.js'];
  assert.ok(relayCode,'netcare-online-relay.js must be present in package');

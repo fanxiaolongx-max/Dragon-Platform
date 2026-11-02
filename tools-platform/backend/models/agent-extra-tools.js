@@ -28,7 +28,17 @@ async function executePlatformTool(name, args = {}) {
             return { content: items.map(item => `- [${item.title}](${item.href})｜id: ${item.id}｜${item.summary}${item.hasGuide ? '' : '（还没有生成详细说明）'}`).join('\n'), summary: `找到 ${items.length} 个工具` };
         }
         const tool = await guides.toolGuide(args.tool);
-        if (!tool) return { content: `平台上没有找到「${args.tool}」这个工具，先用 find_platform_tools 搜一下。`, summary: '没有这个工具', isError: true };
+        if (!tool) {
+            const rawRef = String(args.tool || '').trim().replace(/^@|^\/\?skill=/i, '');
+            const skillStore = require('./agent-skills-store');
+            const allSkills = await skillStore.listAll().catch(() => []);
+            const matchedSkill = allSkills.find(item => item.id === rawRef.toLowerCase() || item.name === rawRef || item.nameEn === rawRef);
+            if (matchedSkill) {
+                const loaded = await skillStore.loadSection(matchedSkill.id);
+                if (loaded) return { content: loaded.section, summary: `@${matchedSkill.id} 技能说明` };
+            }
+            return { content: `平台上没有找到「${args.tool}」这个工具，先用 find_platform_tools 搜一下。`, summary: '没有这个工具', isError: true };
+        }
         const body = tool.guide
             ? `摘要：${tool.summary}\n\n${tool.guide}`
             : `（这个工具还没有生成使用说明，以下只有简介；需要更多细节时可结合项目知识检索结果，或请管理员在「全局设置 › 智能体工具」生成说明。）\n简介：${tool.description}\n标签：${tool.tags.join('、') || '无'}`;
@@ -79,7 +89,7 @@ async function forChat({ owner, chatSessionId, readOnly, write, signal, sensitiv
     const sets = await toolsets({ owner, readOnly });
     if (!sets.length) return null;
     const manager = require('./agent-run-manager');
-    const registry = await require('./agent-tool-registry').create({ session: manager.chatSession(owner, chatSessionId), core: false, extraToolsets: sets, sensitiveValues });
+    const registry = await require('./agent-tool-registry').create({ session: manager.chatSession(owner, chatSessionId), core: false, skillCatalog: true, extraToolsets: sets, sensitiveValues });
     const run = manager.beginChatRun({ owner, chatSessionId, write, signal });
     return {
         definitions: () => registry.definitions(),
