@@ -3,12 +3,30 @@ const {composerText}=require('./composer-text');
 const { getTenantId, runWithTenant } = require('../tenant-context');
 const { containsSensitiveText, redactText } = require('../ai-sensitive-data');
 const providers = ['codex', 'claudecode', 'antigravity'];
-const cache = new Map(), locks = new Set();
+const cache = new Map(), locks = new Set(), scanning = new Map(), invalidatedAt = new Map();
 function key(owner) { return getTenantId() + ':' + owner; }
-async function discover(owner, force = false) {
+function invalidate(owner) { cache.delete(key(owner)); invalidatedAt.set(key(owner), Date.now()); }
+// allowStale：列表读取在缓存过期时先返回上一份结果，后台重新扫描（扫描含桌面 IPC 探测，冷启动可达数百毫秒，
+// 会拖慢首页首屏）；发送等需要准确连接状态的调用仍同步扫描。同一账号同时只跑一次非强制扫描。
+async function discover(owner, force = false, { allowStale = false } = {}) {
     const cfg = await repo.access(owner), previous = cache.get(key(owner));
     if (!force && previous && Date.now() - previous.at < Math.min(cfg.syncSeconds * 1000, 15000))
         return previous;
+    if (force) return scan(owner, cfg);
+    const k = key(owner);
+    let pending = scanning.get(k);
+    if (!pending) {
+        pending = scan(owner, cfg).finally(() => { if (scanning.get(k) === pending) scanning.delete(k); });
+        scanning.set(k, pending);
+    }
+    if (allowStale && previous) {
+        pending.catch(() => {});
+        return previous;
+    }
+    return pending;
+}
+async function scan(owner, cfg) {
+    const startedAt = Date.now();
     const rows = [], states = [];
     await Promise.all(providers.map(async (provider) => {
         if (!cfg.providers[provider]) {
@@ -49,11 +67,12 @@ async function discover(owner, force = false) {
         }
     }));
     const value = { at: Date.now(), rows, providers: providers.map(id => states.find(s => s.id === id)), settings: cfg };
-    cache.set(key(owner), value);
+    // 扫描期间设置被修改或刚发送过消息：结果照常返回给本次调用，但不写回缓存，避免旧配置覆盖
+    if ((invalidatedAt.get(key(owner)) || 0) < startedAt) cache.set(key(owner), value);
     return value;
 }
 function publicSession(row) { return { id: row.id, provider: row.provider, title: row.title, updatedAt: row.updatedAt, observedAt: row.observedAt, source: row.source }; }
-async function list(owner, { provider, q = '', force = false } = {}) { const state = await discover(owner, force); return { items: state.rows.filter(r => (!provider || r.provider === provider) && r.title.toLowerCase().includes(String(q).slice(0, 200).toLowerCase())).map(publicSession), providers: state.providers, syncedAt: new Date(state.at).toISOString() }; }
+async function list(owner, { provider, q = '', force = false } = {}) { const state = await discover(owner, force, { allowStale: true }); return { items: state.rows.filter(r => (!provider || r.provider === provider) && r.title.toLowerCase().includes(String(q).slice(0, 200).toLowerCase())).map(publicSession), providers: state.providers, syncedAt: new Date(state.at).toISOString() }; }
 async function selected(owner, provider, id) { if (!providers.includes(provider) || typeof id !== 'string' || !/^(?:local_)?[a-f0-9-]{36}$/i.test(id))
     throw repo.error('会话标识无效', 400); const state = await discover(owner); let row = state.rows.find(s => s.provider === provider && s.id === id); if (!row) {
     const current = await discover(owner, true);
@@ -149,7 +168,7 @@ async function create(owner, provider, { text, requestId }, { createAndSend = re
     locks.add(provider);
     try {
         const result = await createAndSend(provider, text.trim());
-        cache.delete(key(owner));
+        invalidate(owner);
         return { ...await repo.settle(owner, requestId, 'accepted'), id: result.id };
     }
     catch (error) {
@@ -161,7 +180,7 @@ async function create(owner, provider, { text, requestId }, { createAndSend = re
         locks.delete(provider);
     }
 }
-async function save(owner, patch) { const cfg = await repo.save(owner, patch); cache.delete(key(owner)); return cfg; }
+async function save(owner, patch) { const cfg = await repo.save(owner, patch); invalidate(owner); return cfg; }
 async function waitForReply(owner,provider,id,prompt,{signal,timeoutMs=180000,read=messages,runtime=codex.read,pollDelay=1500}={}) {
     const deadline=Date.now()+timeoutMs;
     while(Date.now()<deadline){
