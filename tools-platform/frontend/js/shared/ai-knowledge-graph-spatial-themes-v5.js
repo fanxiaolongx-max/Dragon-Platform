@@ -19,20 +19,20 @@
         .ai-kg-overlay.open { display: flex; }
         body.ai-kg-open { overflow: hidden !important; }
         .ai-kg-header {
-            min-height: 66px;
+            min-height: 56px;
             box-sizing: border-box;
             display: flex;
             align-items: center;
-            gap: 18px;
-            padding: 10px 16px 10px 20px;
+            gap: 10px;
+            padding: 8px 14px;
             border-bottom: 1px solid rgba(148,163,184,0.15);
             background: rgba(9,14,25,0.8);
             -webkit-backdrop-filter: blur(18px);
             backdrop-filter: blur(18px);
         }
-        .ai-kg-brand { min-width: 210px; }
-        .ai-kg-title { font-size: 16px; font-weight: 750; letter-spacing: .02em; }
-        .ai-kg-subtitle { margin-top: 3px; font-size: 10px; color: #8390aa; }
+        .ai-kg-brand { min-width: 170px; flex-shrink: 0; }
+        .ai-kg-title { font-size: 15px; font-weight: 750; letter-spacing: .02em; white-space: nowrap; }
+        .ai-kg-subtitle { margin-top: 2px; font-size: 10px; color: #8390aa; }
         .ai-kg-view-switch { display:flex; padding:3px; border-radius:11px; background:rgba(31,40,66,.72); border:1px solid rgba(143,157,207,.16); }
         .ai-kg-view-btn { height:30px; padding:0 10px; border:0; border-radius:8px; background:transparent; color:#8491aa; font-size:11px; cursor:pointer; white-space:nowrap; }
         .ai-kg-view-btn.active { color:#fff; background:linear-gradient(135deg,rgba(83,105,217,.86),rgba(118,83,189,.82)); box-shadow:0 5px 14px rgba(34,43,93,.28); }
@@ -62,34 +62,36 @@
             white-space: nowrap;
         }
         .ai-kg-status strong { color: #f4f6fb; font-weight: 700; }
-        .ai-kg-search-wrap { position: relative; flex: 1; max-width: 430px; margin-left: auto; }
+        .ai-kg-search-wrap { position: relative; flex: 1 1 180px; max-width: 280px; min-width: 110px; margin-left: auto; }
         .ai-kg-search {
-            width: 100%; height: 38px; box-sizing: border-box;
-            padding: 0 76px 0 36px; border-radius: 11px;
+            width: 100%; height: 32px; box-sizing: border-box;
+            padding: 0 54px 0 28px; border-radius: 8px;
             border: 1px solid rgba(143,157,207,.22); outline: none;
-            background: rgba(31,40,66,.76); color: #f5f7ff; font-size: 12px;
+            background: rgba(31,40,66,.76); color: #f5f7ff; font-size: 11.5px;
         }
         .ai-kg-search:focus { border-color: #7081e4; box-shadow: 0 0 0 3px rgba(99,102,241,.14); }
-        .ai-kg-search-icon { position:absolute; left:12px; top:10px; color:#7886a4; pointer-events:none; }
-        .ai-kg-search-count { position:absolute; right:10px; top:11px; color:#8290ad; font-size:10px; }
-        .ai-kg-actions { display:flex; gap:6px; }
+        .ai-kg-search-icon { position:absolute; left:9px; top:8px; font-size:12px; color:#7886a4; pointer-events:none; }
+        .ai-kg-search-count { position:absolute; right:8px; top:8px; color:#8290ad; font-size:9.5px; }
+        .ai-kg-actions { display:flex; gap:5px; flex-shrink: 0; align-items: center; }
         .ai-kg-btn {
-            height: 36px; min-width: 36px; padding: 0 10px; border-radius: 10px;
+            height: 30px; min-width: 30px; padding: 0 8px; border-radius: 8px;
             border: 1px solid rgba(144,158,207,.2); background: rgba(52,63,98,.54);
-            color: #dce2f1; cursor: pointer; font-size: 12px;
+            color: #dce2f1; cursor: pointer; font-size: 11px; font-weight: 500;
             display:inline-flex; align-items:center; justify-content:center; line-height:1;
+            white-space: nowrap !important;
+            flex-shrink: 0;
             transition: background .16s, border-color .16s, transform .16s;
         }
         .ai-kg-btn:hover { background: rgba(76,90,141,.65); border-color: rgba(150,163,222,.42); transform: translateY(-1px); }
         .ai-kg-btn.primary { color:#fff; background:linear-gradient(135deg,#5369d9,#7653bd); border-color:transparent; }
         .ai-kg-btn.motion[aria-pressed="true"] { color:#fff; border-color:rgba(125,145,255,.42); background:rgba(82,101,190,.42); }
         .ai-kg-btn.motion[aria-pressed="true"]::before {
-            content:""; display:inline-block; width:6px; height:6px; margin-right:6px; border-radius:50%;
-            background:#8fa3ff; box-shadow:0 0 10px rgba(143,163,255,.9); vertical-align:1px;
+            content:""; display:inline-block; width:5px; height:5px; margin-right:5px; border-radius:50%;
+            background:#8fa3ff; box-shadow:0 0 8px rgba(143,163,255,.9); vertical-align:1px;
             animation:ai-kg-pulse 1.4s ease-in-out infinite;
         }
         .ai-kg-btn.tour { display:none; }
-        .ai-kg-btn.sound { display:none; width:36px; padding:0; font-size:16px; }
+        .ai-kg-btn.sound { display:none; width:30px; height:30px; padding:0; font-size:14px; }
         .ai-kg-overlay[data-dimension="3d"] .ai-kg-btn.tour,
         .ai-kg-overlay[data-dimension="3d"] .ai-kg-btn.sound { display:inline-flex; }
         .ai-kg-btn.tour[aria-pressed="true"] {
@@ -98,7 +100,7 @@
             box-shadow:0 0 20px rgba(101,116,231,.2);
         }
         @keyframes ai-kg-pulse { 50% { opacity:.42; transform:scale(.76); } }
-        .ai-kg-btn.icon { width:36px; padding:0; font-size:17px; }
+        .ai-kg-btn.icon { width:30px; height:30px; padding:0; font-size:15px; }
         .ai-kg-main { position:relative; flex:1; min-height:0; display:flex; }
         .ai-kg-stage { position:relative; flex:1; min-width:0; overflow:hidden; }
         .ai-kg-overlay[data-dimension="3d"] .ai-kg-stage::before {
@@ -117,10 +119,10 @@
         .ai-kg-canvas { position:relative; z-index:2; width:100%; height:100%; display:block; cursor:grab; touch-action:none; }
         .ai-kg-canvas.dragging { cursor:grabbing; }
         .ai-kg-hint {
-            position:absolute; z-index:3; left:18px; bottom:17px; display:flex; gap:7px; flex-wrap:wrap;
-            color:#6f7b94; font-size:10px; pointer-events:none;
+            position:absolute; z-index:3; left:14px; bottom:14px; display:flex; gap:5px; flex-wrap:wrap;
+            color:#8896b3; font-size:10px; pointer-events:none;
         }
-        .ai-kg-hint span { padding:4px 7px; border-radius:7px; background:rgba(17,24,40,.7); border:1px solid rgba(120,135,180,.12); }
+        .ai-kg-hint span { padding:3px 7px; border-radius:6px; background:rgba(17,24,40,.8); border:1px solid rgba(148,163,184,.2); color:#e2e8f0; font-size:10px; font-weight:500; white-space:nowrap; }
         .ai-kg-legend {
             position:absolute; z-index:3; top:16px; left:18px; display:flex; gap:12px; color:#7f8ba3; font-size:10px;
             padding:8px 10px; border-radius:10px; background:rgba(10,15,27,.72); border:1px solid rgba(126,141,184,.13);
@@ -208,23 +210,29 @@
             background: #ffffff;
             border-color: #cbd5e1;
             color: #0f172a;
+            font-size: 11px;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-search::placeholder {
+            color: #64748b;
         }
         .ai-kg-overlay[data-palette="light"] .ai-kg-search:focus {
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79,70,229,0.12);
         }
-        .ai-kg-overlay[data-palette="light"] .ai-kg-search-icon { color: #94a3b8; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-search-icon { color: #64748b; }
         .ai-kg-overlay[data-palette="light"] .ai-kg-search-count { color: #64748b; }
         .ai-kg-overlay[data-palette="light"] .ai-kg-btn {
             background: #ffffff;
             border-color: #cbd5e1;
-            color: #334155;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            color: #0f172a;
+            font-weight: 600;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            white-space: nowrap !important;
         }
         .ai-kg-overlay[data-palette="light"] .ai-kg-btn:hover {
             background: #f8fafc;
-            border-color: #94a3b8;
-            color: #0f172a;
+            border-color: #64748b;
+            color: #000000;
         }
         .ai-kg-overlay[data-palette="light"] .ai-kg-btn.primary {
             background: linear-gradient(135deg, #4f46e5, #7c3aed);
@@ -232,13 +240,22 @@
             border-color: transparent;
         }
         .ai-kg-overlay[data-palette="light"] .ai-kg-btn.motion[aria-pressed="true"] {
-            color: #4338ca;
+            color: #312e81;
+            font-weight: 650;
             border-color: #818cf8;
             background: #eef2ff;
+            box-shadow: 0 1px 3px rgba(99,102,241,0.15);
         }
         .ai-kg-overlay[data-palette="light"] .ai-kg-btn.motion[aria-pressed="true"]::before {
             background: #4f46e5;
-            box-shadow: 0 0 8px rgba(79,70,229,0.7);
+            box-shadow: 0 0 6px rgba(79,70,229,0.8);
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-btn.icon {
+            color: #334155;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-btn.icon:hover {
+            color: #0f172a;
+            background: #f1f5f9;
         }
         .ai-kg-overlay[data-palette="light"] .ai-kg-sidebar {
             background: rgba(255,255,255,0.95);
@@ -343,9 +360,16 @@
             color: #0f172a;
         }
         .ai-kg-overlay[data-palette="light"] .ai-kg-hint {
-            background: rgba(255,255,255,0.88);
-            border-color: #e2e8f0;
-            color: #64748b;
+            background: transparent;
+            border: none;
+            color: #334155;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-hint span {
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid #cbd5e1;
+            color: #0f172a;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            font-weight: 600;
         }
         .ai-kg-overlay[data-palette="light"] .ai-kg-legend {
             background: rgba(255,255,255,0.88);
@@ -533,12 +557,12 @@
             <div class="ai-kg-statuses" id="aiKgStatuses"></div>
             <div class="ai-kg-search-wrap">
                 <span class="ai-kg-search-icon">⌕</span>
-                <input class="ai-kg-search" id="aiKgSearch" placeholder="搜索 README、接口、报表、AI 助手…">
+                <input class="ai-kg-search" id="aiKgSearch" placeholder="搜索代码、表、文件…">
                 <span class="ai-kg-search-count" id="aiKgSearchCount"></span>
             </div>
             <div class="ai-kg-actions">
-                <button class="ai-kg-btn" id="aiKgRefresh" title="重建变化的知识文件">刷新知识库</button>
-                <button class="ai-kg-btn motion" id="aiKgMotion" type="button" aria-pressed="true" title="开启或暂停力导向仿真">动态仿真</button>
+                <button class="ai-kg-btn" id="aiKgRefresh" title="重建变化的知识文件">刷新</button>
+                <button class="ai-kg-btn motion" id="aiKgMotion" type="button" aria-pressed="true" title="开启或暂停力导向仿真">仿真</button>
                 <button class="ai-kg-btn tour" id="aiKgTour" type="button" aria-pressed="false" title="3D 演示巡航">演示巡航</button>
                 <button class="ai-kg-btn sound" id="aiKgSound" type="button" aria-pressed="true" title="关闭巡航音乐" aria-label="关闭巡航音乐">♫</button>
                 <button class="ai-kg-btn icon" id="aiKgThemeToggle" type="button" title="切换浅色/深色主题" aria-label="切换浅色/深色主题">☀️</button>
@@ -575,7 +599,7 @@
                         <button class="ai-kg-reset-controls" id="aiKgResetControls" type="button">恢复默认参数</button>
                     </div>
                 </div>
-                <div class="ai-kg-hint" id="aiKgHint"><span>拖动画布</span><span>滚轮缩放</span><span>放大显示文件名</span><span>点击节点查看</span><span>拖动节点可拉扯关系</span><span>松手保留惯性</span></div>
+                <div class="ai-kg-hint" id="aiKgHint"><span>平移</span><span>缩放</span><span>聚焦</span><span>查看</span><span>重置</span><span>拖拽</span></div>
                 <div class="ai-kg-loading" id="aiKgLoading"><div class="ai-kg-loading-card"><div class="ai-kg-loading-head"><strong data-loading-text>正在构建知识关系…</strong><span class="ai-kg-loading-percent" data-loading-percent></span></div><div class="ai-kg-loading-track" data-loading-track hidden><i class="ai-kg-loading-bar" data-loading-bar></i></div><div class="ai-kg-loading-log" data-loading-log></div></div></div>
             </div>
             <aside class="ai-kg-sidebar" id="aiKgSidebar"><div class="ai-kg-side-empty">点击图谱中的模块或文件，可查看索引时间、知识片段和文件关系。</div></aside>
@@ -738,18 +762,18 @@
 
     const KG_TEXT = {
         zh: {
-            view: '图谱视图', knowledge: '项目知识', metrics: '指标体系', chat: '聊天关系', ruleMonth: '规则月份', refreshKnowledge: '刷新知识库', refreshMetrics: '刷新指标', refreshChat: '刷新聊天关系',
-            refreshKnowledgeTitle: '重建变化的知识文件', refreshMetricsTitle: '重新读取指标规则与历史快照', motion: '动态仿真', motionPaused: '仿真已暂停', motionTitle: '开启或暂停力导向仿真', tour: '演示巡航', tourStop: '停止巡航', tourTitle: '自动巡航重要节点，任意操作即停止', soundOnTitle: '关闭巡航音乐', soundOffTitle: '开启巡航音乐', fit: '重置视图', fullscreen: '全屏', exitFullscreen: '退出全屏', sidebarCollapse: '收起详情栏', sidebarExpand: '展开详情栏', close: '关闭',
+            view: '图谱视图', knowledge: '项目知识', metrics: '指标体系', chat: '聊天关系', ruleMonth: '规则月份', refreshKnowledge: '刷新', refreshMetrics: '刷新', refreshChat: '刷新',
+            refreshKnowledgeTitle: '重建变化的知识文件', refreshMetricsTitle: '重新读取指标规则与历史快照', motion: '仿真', motionPaused: '暂停', motionTitle: '开启或暂停力导向仿真', tour: '演示巡航', tourStop: '停止巡航', tourTitle: '自动巡航重要节点，任意操作即停止', soundOnTitle: '关闭巡航音乐', soundOffTitle: '开启巡航音乐', fit: '重置视图', fullscreen: '全屏', exitFullscreen: '退出全屏', sidebarCollapse: '收起详情栏', sidebarExpand: '展开详情栏', close: '关闭',
             knowledgeTitle: '✦ 项目知识关系图谱', metricTitle: '◈ 运营指标体系图谱', chatTitle: '◉ 聊天关系图谱', knowledgeSubtitle: '项目 → 模块 / 工具 / 数据库 → 文件 / 表 · 细线为代码、查询和资源依赖', metricSubtitle: '月份规则 → 指标分类 → 指标 → 子指标 · 点击查看每日最新历史值', chatSubtitle: '我 → 单聊 / 群组 / 讨论组 → 参与人 · 节点、连线和光晕强度代表交流频度',
-            searchKnowledge: '搜索 README、工具、数据库表、接口、AI 助手…', searchMetrics: '搜索分类、指标、子指标…', searchChat: '搜索联系人、单聊、群组或讨论组…',
-            hints: ['拖动画布','滚轮缩放','放大显示文件名','点击节点查看','点击空白取消高亮','拖动节点可拉扯关系'],
-            hints3d: ['左键拖动空白处旋转','点击节点镜头聚焦','双击设为旋转中心','按住滚轮拖动平移','滚轮缩放','手动操作停止巡航'],
-            chatHints: ['默认展开全部群组与讨论组','点击会话聚焦其成员','点击人物进入人物视角','点击空白返回总览','右侧条目可查看聊天记录','滚轮缩放'],
+            searchKnowledge: '搜索代码、表、文件…', searchMetrics: '搜索分类、指标、子指标…', searchChat: '搜索联系人、单聊、群组…',
+            hints: ['平移','缩放','聚焦','查看','重置','拖拽'],
+            hints3d: ['旋转','聚焦','中心','平移','缩放','停止'],
+            chatHints: ['展开','成员','视角','总览','记录','缩放'],
             dimension: '图谱维度',
             project: '项目', module: '模块', knowledgeFile: '知识文件', toolData: '工具/数据资产', monthRules: '月份规则', category: '指标分类', metric: '指标', submetric: '子指标', self: '自己', contact: '联系人', singleChat: '单聊', groupChat: '群组', discussionChat: '讨论组', conversations: '会话', people: '人员', messages: '消息', communicationFrequency: '交流强度', viewRecords: '查看聊天记录', backOverview: '返回会话总览', loadingRecords: '正在加载聊天记录…', noRecords: '暂无聊天记录', latestRecords: '最多显示最近 200 条', configureMyId: '请先在“聊天记录中心 → 设置”中配置我的发送人工号，才能准确建立以自己为中心的关系图谱。',
             loadEarlier: '加载更早记录', searchRecords: '搜索', searchRecordsPlaceholder: '搜索全部聊天记录…', noSearchRecords: '未找到匹配的聊天记录', loadedRecords: n => `已加载 ${n} 条`, matchedRecords: n => `找到 ${n} 条`, loadingMoreRelations: '继续下滑加载更多…',
             files: '文件', chunks: '片段', dependencies: '依赖', recentUpdated: '最近更新', tools: '工具', databases: '数据库', tables: '数据表', tableRelations: '表关系', snapshots: '历史日期',
-            loadingKnowledge: '正在读取项目知识库…', loadingMetrics: '正在读取指标规则与历史快照…', loadingChat: '正在读取聊天关系…', refreshLoading: '正在刷新…', count: n => `${n} 个`, unknown: '未知',
+            loadingKnowledge: '正在读取项目知识库…', loadingMetrics: '正在读取指标规则与历史快照…', loadingChat: '正在读取聊天关系…', refreshLoading: '刷新中…', count: n => `${n} 个`, unknown: '未知',
             rootType: '项目根节点', businessModules: '业务模块', codeDependencies: '代码依赖', assetFiles: '资产文件', builtInTools: '自带工具', customTools: '自定义工具',
             assetCategory: '资产分类', htmlTool: 'HTML 工具', database: '数据库', table: '数据表', toolFile: '工具目录文件', related: '关联节点', contained: '下级节点', fileSize: '文件大小', updatedAt: '更新时间', publicAccess: '公开访问', yes: '是', no: '否', columns: '字段', schema: '表结构',
             empty: '点击图谱中的模块、工具、文件、数据库或表，可查看详细关系。', moduleFiles: '模块文件', indexTime: '索引时间', viewChunks: '可点击查看的知识片段', readingFile: '正在读取文件节点', unnamedChunk: '未命名片段', expandChunk: '展开全文', collapseChunk: '收起详情', aiAnalyze: 'AI 分析', analyzeFile: '分析代码文件', analyzeChunk: '分析代码片段', answerSources: '本次回答引用路径', citedChunk: '引用片段', citedFiles: '引用文件', answerMetrics: '本次回答引用指标', referencedMetrics: '个引用指标',
@@ -759,13 +783,13 @@
             density: '展示密度', densityAggregated: '📁 类型聚合', densityDetailed: '📄 全部展开', codeType: '代码类型', toolAssetType: '资产类型', tableCollection: '数据表集合', filterFiles: '过滤该分类下的文件…', backToType: '返回代码分类', backToParent: '返回上级'
         },
         en: {
-            view: 'Graph view', knowledge: 'Project Knowledge', metrics: 'Metric System', chat: 'Chat Relations', ruleMonth: 'Rule month', refreshKnowledge: 'Refresh Knowledge', refreshMetrics: 'Refresh Metrics', refreshChat: 'Refresh Chat Relations',
-            refreshKnowledgeTitle: 'Re-index changed knowledge files', refreshMetricsTitle: 'Reload metric rules and snapshots', motion: 'Live Simulation', motionPaused: 'Simulation Paused', motionTitle: 'Start or pause force simulation', tour: 'Guided Tour', tourStop: 'Stop Tour', tourTitle: 'Automatically tour important nodes; any interaction stops it', soundOnTitle: 'Mute tour music', soundOffTitle: 'Play tour music', fit: 'Reset view', fullscreen: 'Fullscreen', exitFullscreen: 'Exit fullscreen', sidebarCollapse: 'Collapse details', sidebarExpand: 'Expand details', close: 'Close',
+            view: 'Graph view', knowledge: 'Project Knowledge', metrics: 'Metric System', chat: 'Chat Relations', ruleMonth: 'Rule month', refreshKnowledge: 'Refresh', refreshMetrics: 'Refresh', refreshChat: 'Refresh',
+            refreshKnowledgeTitle: 'Re-index changed knowledge files', refreshMetricsTitle: 'Reload metric rules and snapshots', motion: 'Sim', motionPaused: 'Paused', motionTitle: 'Start or pause force simulation', tour: 'Guided Tour', tourStop: 'Stop Tour', tourTitle: 'Automatically tour important nodes; any interaction stops it', soundOnTitle: 'Mute tour music', soundOffTitle: 'Play tour music', fit: 'Reset view', fullscreen: 'Fullscreen', exitFullscreen: 'Exit fullscreen', sidebarCollapse: 'Collapse details', sidebarExpand: 'Expand details', close: 'Close',
             knowledgeTitle: '✦ Project Knowledge Graph', metricTitle: '◈ Operations Metric Graph', chatTitle: '◉ Chat Relationship Graph', knowledgeSubtitle: 'Project → modules / tools / databases → files / tables · thin lines show code, query, and asset dependencies', metricSubtitle: 'Monthly rules → categories → metrics → submetrics · click to inspect historical values', chatSubtitle: 'Me → direct chats / groups / discussions → participants · node, link, and halo strength reflect communication volume',
-            searchKnowledge: 'Search README, tools, database tables, APIs, AI assistant…', searchMetrics: 'Search categories, metrics, submetrics…', searchChat: 'Search contacts, direct chats, groups, or discussions…',
-            hints: ['Drag canvas','Wheel to zoom','Zoom in for filenames','Click a node for details','Click empty space to clear focus','Drag nodes to pull relations'],
-            hints3d: ['Left-drag empty space to orbit','Click a node to focus camera','Double-click to set orbit center','Middle-drag to pan','Wheel to zoom','Manual input stops the tour'],
-            chatHints: ['All groups and discussions expand by default','Click a conversation to focus its members','Click a person for person view','Click empty space to return to overview','Use sidebar items to view chat records','Wheel to zoom'],
+            searchKnowledge: 'Search code, tables, files…', searchMetrics: 'Search categories, metrics, submetrics…', searchChat: 'Search contacts, direct chats, groups, or discussions…',
+            hints: ['Pan','Zoom','Focus','Inspect','Reset','Drag'],
+            hints3d: ['Orbit','Focus','Center','Pan','Zoom','Stop'],
+            chatHints: ['Expand','Members','View','Overview','Records','Zoom'],
             dimension: 'Graph dimension',
             project: 'Project', module: 'Module', knowledgeFile: 'Knowledge File', toolData: 'Tool/Data Asset', monthRules: 'Monthly Rules', category: 'Metric Category', metric: 'Metric', submetric: 'Submetric', self: 'Me', contact: 'Contact', singleChat: 'Direct Chat', groupChat: 'Group', discussionChat: 'Discussion', conversations: 'conversations', people: 'people', messages: 'messages', communicationFrequency: 'Communication strength', viewRecords: 'View chat records', backOverview: 'Back to conversation overview', loadingRecords: 'Loading chat records…', noRecords: 'No chat records', latestRecords: 'Showing up to the latest 200 messages', configureMyId: 'Configure My Sender ID in Chat History Center settings to build an accurate relationship graph centered on you.',
             loadEarlier: 'Load earlier records', searchRecords: 'Search', searchRecordsPlaceholder: 'Search all chat records…', noSearchRecords: 'No matching chat records', loadedRecords: n => `${n} loaded`, matchedRecords: n => `${n} matches`, loadingMoreRelations: 'Scroll for more…',
