@@ -39,6 +39,11 @@
         .ai-kg-dimension-switch { display:flex; padding:3px; border-radius:11px; background:rgba(18,25,43,.72); border:1px solid rgba(143,157,207,.16); }
         .ai-kg-dimension-btn { width:36px; height:30px; padding:0; border:0; border-radius:8px; background:transparent; color:#8491aa; font-size:11px; font-weight:750; cursor:pointer; }
         .ai-kg-dimension-btn.active { color:#fff; background:rgba(91,108,204,.62); box-shadow:0 4px 12px rgba(24,31,72,.28); }
+        .ai-kg-density-switch { display:flex; padding:3px; border-radius:11px; background:rgba(31,40,66,.72); border:1px solid rgba(143,157,207,.16); }
+        .ai-kg-density-btn { height:30px; padding:0 10px; border:0; border-radius:8px; background:transparent; color:#8491aa; font-size:11px; cursor:pointer; white-space:nowrap; transition:background .16s, color .16s; }
+        .ai-kg-density-btn.active { color:#fff; background:linear-gradient(135deg,rgba(83,105,217,.86),rgba(118,83,189,.82)); box-shadow:0 5px 14px rgba(34,43,93,.28); }
+        .ai-kg-back-btn { display:inline-flex; align-items:center; gap:4px; padding:5px 11px; margin-bottom:12px; border-radius:8px; border:1px solid rgba(135,150,198,.24); background:rgba(43,53,83,.46); color:#9ba8c4; font-size:11px; cursor:pointer; transition:background .16s, color .16s, border-color .16s; }
+        .ai-kg-back-btn:hover { color:#fff; background:rgba(69,82,122,.68); border-color:rgba(147,163,222,.48); }
         .ai-kg-month-wrap { display:none; align-items:center; gap:6px; color:#8290aa; font-size:10px; white-space:nowrap; }
         .ai-kg-month-wrap.visible { display:flex; }
         .ai-kg-month { height:34px; padding:0 25px 0 9px; border-radius:9px; border:1px solid rgba(143,157,207,.2); outline:none; background:#1a2238; color:#e4e9f5; font-size:11px; }
@@ -144,6 +149,249 @@
         .ai-kg-overlay[data-palette="obsidian"] { background:#111; }
         .ai-kg-overlay[data-palette="aurora"] { background:radial-gradient(circle at 18% 18%,rgba(27,141,148,.18),transparent 34%),radial-gradient(circle at 78% 74%,rgba(118,62,168,.2),transparent 38%),#081116; }
         .ai-kg-overlay[data-palette="galaxy"] { background:radial-gradient(circle at 50% 50%,rgba(18,22,48,.5),transparent 60%),radial-gradient(circle at 80% 20%,rgba(45,20,55,.4),transparent 50%),#05050a; }
+        /* 亮色主题（默认） */
+        .ai-kg-overlay[data-palette="light"] {
+            color: #1e293b;
+            background:
+                radial-gradient(circle at 18% 15%, rgba(99,102,241,0.08), transparent 30%),
+                radial-gradient(circle at 78% 76%, rgba(168,85,247,0.06), transparent 34%),
+                #f8fafc;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-header {
+            border-bottom: 1px solid rgba(226,232,240,0.85);
+            background: rgba(255,255,255,0.88);
+            color: #0f172a;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-title { color: #0f172a; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-subtitle { color: #64748b; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-view-switch,
+        .ai-kg-overlay[data-palette="light"] .ai-kg-dimension-switch,
+        .ai-kg-overlay[data-palette="light"] .ai-kg-density-switch {
+            background: #f1f5f9;
+            border-color: #e2e8f0;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-view-btn,
+        .ai-kg-overlay[data-palette="light"] .ai-kg-dimension-btn,
+        .ai-kg-overlay[data-palette="light"] .ai-kg-density-btn {
+            color: #64748b;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-view-btn.active,
+        .ai-kg-overlay[data-palette="light"] .ai-kg-density-btn.active {
+            color: #fff;
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            box-shadow: 0 4px 12px rgba(79,70,229,0.25);
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-dimension-btn.active {
+            color: #fff;
+            background: #4f46e5;
+            box-shadow: 0 4px 12px rgba(79,70,229,0.25);
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-status {
+            background: #f1f5f9;
+            border-color: #e2e8f0;
+            color: #475569;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-status strong { color: #0f172a; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-month-wrap,
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chat-limit-wrap {
+            color: #64748b;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-month {
+            background: #ffffff;
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chat-limit-wrap output {
+            color: #0f172a;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-search {
+            background: #ffffff;
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-search:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-search-icon { color: #94a3b8; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-search-count { color: #64748b; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-btn {
+            background: #ffffff;
+            border-color: #cbd5e1;
+            color: #334155;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-btn:hover {
+            background: #f8fafc;
+            border-color: #94a3b8;
+            color: #0f172a;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-btn.primary {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            color: #fff;
+            border-color: transparent;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-btn.motion[aria-pressed="true"] {
+            color: #4338ca;
+            border-color: #818cf8;
+            background: #eef2ff;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-btn.motion[aria-pressed="true"]::before {
+            background: #4f46e5;
+            box-shadow: 0 0 8px rgba(79,70,229,0.7);
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-sidebar {
+            background: rgba(255,255,255,0.95);
+            border-left-color: #e2e8f0;
+            color: #1e293b;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-sidebar-toggle {
+            background: #ffffff;
+            border-color: #cbd5e1;
+            color: #475569;
+            box-shadow: -4px 0 12px rgba(0,0,0,0.06);
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-sidebar-toggle:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-side-empty { color: #64748b; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-node-type { color: #6366f1; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-node-title { color: #0f172a; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-node-path { color: #475569; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-stat-card {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-stat-card b { color: #0f172a; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-stat-card span { color: #64748b; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-section-title { color: #334155; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chunk {
+            background: #ffffff;
+            border-color: #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chunk:hover {
+            border-color: #a5b4fc;
+            background: #f8fafc;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chunk-title { color: #0f172a; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chunk-lines { color: #64748b; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chunk-preview {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+            color: #334155;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chunk[data-chunk-detail].expanded .ai-kg-chunk-preview {
+            color: #1e293b;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chunk-toggle { color: #6366f1; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-analyze-btn {
+            border-color: #c7d2fe;
+            background: #eef2ff;
+            color: #4338ca;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-analyze-btn:hover {
+            border-color: #818cf8;
+            background: #e0e7ff;
+            color: #312e81;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-rule {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-rule-main { color: #0f172a; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-rule-meta { color: #64748b; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-month-cell {
+            background: #f8fafc;
+            border-color: #e2e8f0;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-month-cell.active {
+            border-color: #818cf8;
+            background: #eef2ff;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-month-cell span { color: #64748b; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-month-cell b { color: #0f172a; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-trend {
+            background: #ffffff;
+            border-color: #e2e8f0;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-control-panel {
+            background: rgba(255,255,255,0.96);
+            border-color: #e2e8f0;
+            color: #1e293b;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.08);
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-control-head { color: #0f172a; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-control-close { color: #64748b; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-control-section { border-top-color: #e2e8f0; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-control-section-title { color: #475569; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-control-row { color: #475569; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-control-row output { color: #0f172a; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-control-select {
+            background: #ffffff;
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-reset-controls {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #475569;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-reset-controls:hover {
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-hint {
+            background: rgba(255,255,255,0.88);
+            border-color: #e2e8f0;
+            color: #64748b;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-legend {
+            background: rgba(255,255,255,0.88);
+            border-color: #e2e8f0;
+            color: #475569;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-legend i { border: 1px solid rgba(0,0,0,0.12); }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-loading { background: rgba(248,250,252,0.85); }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-loading-card {
+            background: #ffffff;
+            border-color: #e2e8f0;
+            color: #475569;
+            box-shadow: 0 16px 44px rgba(0,0,0,0.08);
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-loading-track { background: #e2e8f0; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chat-window {
+            background: #ffffff;
+            border-color: #cbd5e1;
+            box-shadow: 0 28px 80px rgba(0,0,0,0.15);
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chat-head {
+            background: #f8fafc;
+            border-bottom-color: #e2e8f0;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chat-title { color: #0f172a; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chat-meta { color: #64748b; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chat-close { background: #f1f5f9; color: #475569; }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chat-search {
+            background: #ffffff;
+            border-bottom-color: #e2e8f0;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chat-search input {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chat-bubble {
+            background: #f1f5f9;
+            border-color: #e2e8f0;
+            color: #1e293b;
+        }
+        .ai-kg-overlay[data-palette="light"] .ai-kg-chat-message.mine .ai-kg-chat-bubble {
+            background: #eef2ff;
+            border-color: #c7d2fe;
+            color: #312e81;
+        }
         .ai-kg-sidebar {
             width: 350px; flex: 0 0 350px; overflow:auto; box-sizing:border-box;
             border-left:1px solid rgba(134,148,189,.14); padding:18px;
@@ -276,6 +524,10 @@
                 <button class="ai-kg-dimension-btn active" type="button" data-kg-dimension="2d" aria-pressed="true">2D</button>
                 <button class="ai-kg-dimension-btn" type="button" data-kg-dimension="3d" aria-pressed="false">3D</button>
             </div>
+            <div class="ai-kg-density-switch" id="aiKgDensitySwitch" aria-label="展示密度">
+                <button class="ai-kg-density-btn active" type="button" data-kg-density="aggregated" title="合并底层代码文件为类型，大幅提高性能">📁 类型聚合</button>
+                <button class="ai-kg-density-btn" type="button" data-kg-density="detailed" title="展开所有底层文件与数据表">📄 全部展开</button>
+            </div>
             <label class="ai-kg-month-wrap" id="aiKgMonthWrap">规则月份<select class="ai-kg-month" id="aiKgMonth"></select></label>
             <label class="ai-kg-chat-limit-wrap" id="aiKgChatLimitWrap"><span id="aiKgChatLimitLabel">高频近期会话</span><output id="aiKgChatLimitOutput">Top 20</output><input id="aiKgChatLimit" type="range" min="5" max="120" step="5" value="20"></label>
             <div class="ai-kg-statuses" id="aiKgStatuses"></div>
@@ -289,6 +541,7 @@
                 <button class="ai-kg-btn motion" id="aiKgMotion" type="button" aria-pressed="true" title="开启或暂停力导向仿真">动态仿真</button>
                 <button class="ai-kg-btn tour" id="aiKgTour" type="button" aria-pressed="false" title="3D 演示巡航">演示巡航</button>
                 <button class="ai-kg-btn sound" id="aiKgSound" type="button" aria-pressed="true" title="关闭巡航音乐" aria-label="关闭巡航音乐">♫</button>
+                <button class="ai-kg-btn icon" id="aiKgThemeToggle" type="button" title="切换浅色/深色主题" aria-label="切换浅色/深色主题">☀️</button>
                 <button class="ai-kg-btn icon" id="aiKgControls" type="button" aria-pressed="false" title="外观与力度">☷</button>
                 <button class="ai-kg-btn icon" id="aiKgFit" title="重置视图">◎</button>
                 <button class="ai-kg-btn icon" id="aiKgFullscreen" type="button" aria-pressed="false" title="全屏">⛶</button>
@@ -303,7 +556,7 @@
                     <div class="ai-kg-control-head"><span data-kg-control-title>外观与力度</span><button class="ai-kg-control-close" type="button" aria-label="关闭">×</button></div>
                     <div class="ai-kg-control-section">
                         <div class="ai-kg-control-section-title" data-kg-appearance-title>外观</div>
-                        <label class="ai-kg-control-row"><span data-kg-palette-label>颜色主题</span><select class="ai-kg-control-select" data-setting="palette"><option value="galaxy">银河</option><option value="cosmic">星云</option><option value="obsidian">Obsidian</option><option value="aurora">极光</option></select></label>
+                        <label class="ai-kg-control-row"><span data-kg-palette-label>颜色主题</span><select class="ai-kg-control-select" data-setting="palette"><option value="light">亮色 (默认)</option><option value="galaxy">银河</option><option value="cosmic">星云</option><option value="obsidian">Obsidian</option><option value="aurora">极光</option></select></label>
                         <label class="ai-kg-control-row"><span data-kg-particle-density-label>背景粒子</span><output data-output="particleDensity"></output><input type="range" min="0" max="1" step="0.05" data-setting="particleDensity"></label>
                         <label class="ai-kg-control-row"><span data-kg-node-size-label>节点大小</span><output data-output="nodeScale"></output><input type="range" min="0.45" max="1.15" step="0.05" data-setting="nodeScale"></label>
                         <label class="ai-kg-control-row"><span data-kg-line-width-label>连线粗细</span><output data-output="lineScale"></output><input type="range" min="0.5" max="2" step="0.1" data-setting="lineScale"></label>
@@ -355,10 +608,12 @@
     const chatLimitWrap = overlay.querySelector('#aiKgChatLimitWrap');
     const chatLimitInput = overlay.querySelector('#aiKgChatLimit');
     const chatLimitOutput = overlay.querySelector('#aiKgChatLimitOutput');
+    const densitySwitch = overlay.querySelector('#aiKgDensitySwitch');
     const refreshButton = overlay.querySelector('#aiKgRefresh');
     const motionButton = overlay.querySelector('#aiKgMotion');
     const tourButton = overlay.querySelector('#aiKgTour');
     const soundButton = overlay.querySelector('#aiKgSound');
+    const themeToggleButton = overlay.querySelector('#aiKgThemeToggle');
     const controlsButton = overlay.querySelector('#aiKgControls');
     const fullscreenButton = overlay.querySelector('#aiKgFullscreen');
     const controlPanel = overlay.querySelector('#aiKgControlPanel');
@@ -373,10 +628,28 @@
     const chatLoadMoreButton = overlay.querySelector('#aiKgChatLoadMore');
     const chatMessages = overlay.querySelector('#aiKgChatMessages');
     const ctx = canvas.getContext('2d');
-    const DEFAULT_SETTINGS = Object.freeze({ palette:'galaxy', particleDensity:.2, nodeScale:0.72, lineScale:1, labelDensity:1, labelOpacity:1, growthSpeed:1, centerForce:1, repulsion:1, attraction:1, linkLength:1, drift:1, chatConversationLimit:20 });
+    const DEFAULT_SETTINGS = Object.freeze({ palette:'light', particleDensity:.2, nodeScale:0.72, lineScale:1, labelDensity:1, labelOpacity:1, growthSpeed:1, centerForce:1, repulsion:1, attraction:1, linkLength:1, drift:1, chatConversationLimit:20 });
     function loadSettings() {
-        try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem('ai_kg_preferences') || '{}') }; }
-        catch (_error) { return { ...DEFAULT_SETTINGS }; }
+        try {
+            const stored = JSON.parse(localStorage.getItem('ai_kg_preferences') || '{}');
+            const settings = { ...DEFAULT_SETTINGS, ...stored };
+            if (!localStorage.getItem('ai_kg_palette_migrated_v2')) {
+                settings.palette = 'light';
+                localStorage.setItem('ai_kg_palette_migrated_v2', '1');
+                try { localStorage.setItem('ai_kg_preferences', JSON.stringify(settings)); } catch (_) {}
+            }
+            return settings;
+        } catch (_error) {
+            return { ...DEFAULT_SETTINGS };
+        }
+    }
+    function loadDensity() {
+        try {
+            const density = localStorage.getItem('ai_kg_density');
+            return density === 'detailed' ? 'detailed' : 'aggregated';
+        } catch (_error) {
+            return 'aggregated';
+        }
     }
     function loadSidebarCollapsed() {
         try { return localStorage.getItem('ai_kg_sidebar_collapsed') === '1'; }
@@ -395,6 +668,8 @@
     const preferredMode = loadPreferredMode();
     const state = {
         data: null,
+        knowledgeFullData: null,
+        density: loadDensity(),
         mode: preferredMode,
         preferredMode,
         dimension: '2d',
@@ -448,6 +723,7 @@
     };
     const TOUR_AUDIO_VOLUME = 0.16;
     const SPACE_PARTICLE_THEMES = Object.freeze({
+        light: { stride:2, spin:.0001, drift:8, alpha:.24, size:0.95, colors:[[99,102,241],[79,70,229],[139,92,246],[59,130,246]], shape:'star' },
         galaxy: { stride:1, spin:.0003, drift:12, alpha:1.05, size:1.12, colors:[[255,255,255],[179,203,255],[222,190,255]], shape:'star' },
         cosmic: { stride:1, spin:.00017, drift:52, alpha:1.12, size:1.72, colors:[[186,126,255],[102,187,255],[255,119,190]], shape:'dust' },
         obsidian: { stride:2, spin:.00008, drift:12, alpha:.82, size:1.25, colors:[[238,244,255],[139,158,194],[190,215,255]], shape:'shard' },
@@ -479,7 +755,8 @@
             empty: '点击图谱中的模块、工具、文件、数据库或表，可查看详细关系。', moduleFiles: '模块文件', indexTime: '索引时间', viewChunks: '可点击查看的知识片段', readingFile: '正在读取文件节点', unnamedChunk: '未命名片段', expandChunk: '展开全文', collapseChunk: '收起详情', aiAnalyze: 'AI 分析', analyzeFile: '分析代码文件', analyzeChunk: '分析代码片段', answerSources: '本次回答引用路径', citedChunk: '引用片段', citedFiles: '引用文件', answerMetrics: '本次回答引用指标', referencedMetrics: '个引用指标',
             metricRootType: '指标体系根节点', dataMethod: '数据口径', categoryMetrics: '分类指标', weight: '权重', latest: '最新', valuedDays: '个有值日期', twelveMonthRules: '12个月规则', dailyLatestHistory: '历史有值日期（每日最新）', loadingSavedHistory: '正在读取已保存历史值…', standardScoring: '标准计分', proportionalScoring: '比例计分', noValue: '无值', failing: '未达标', passing: '达标', undetermined: '未判定', noSavedHistory: '这个月份还没有已保存的历史录入快照。', nonNumericHistory: '历史值不是连续数值，已在下方按快照列出。', noRule: '当前指标尚未配置月份目标规则。', bySubmetric: '分子指标', metricHelp: '点击分类、指标或子指标，可查看月份规则和历史录入快照。', metricHistoryRule: '历史值按有值日期读取 ReportMetricData 每天最后一次已保存入库；当前月份规则只用于展示，不重算历史结果。', metricHistoryLoadFailed: '历史快照读取失败', historyTrend: '历史快照趋势', monthRule: n => `${n}月规则`, monthLabel: n => `${n}月`, rootMetricRule: n => `${n}月指标规则`,
             graphLoadFailed: '知识图谱加载失败', metricLoadFailed: '指标图谱加载失败', refreshFailed: '刷新失败',
-            controls: '外观与力度', appearance: '外观', force: '力度', palette: '颜色主题', galaxy: '银河', cosmic: '星云', obsidian: 'Obsidian', aurora: '极光', particleDensity: '背景粒子', nodeSize: '节点大小', lineWidth: '连线粗细', labelDensity: '标签密度', labelOpacity: '文本透明度', growthSpeed: '生长速度', playGrowth: '播放生长动画', stopGrowth: '停止动画', centerForce: '图谱向心力', repulsion: '节点排斥力', attraction: '相连节点吸引力', linkLength: '连线长度', drift: '漂浮力度', resetControls: '恢复默认参数', chatConversationLimit: '高频近期会话'
+            controls: '外观与力度', appearance: '外观', force: '力度', palette: '颜色主题', light: '亮色 (默认)', galaxy: '银河', cosmic: '星云', obsidian: 'Obsidian', aurora: '极光', particleDensity: '背景粒子', nodeSize: '节点大小', lineWidth: '连线粗细', labelDensity: '标签密度', labelOpacity: '文本透明度', growthSpeed: '生长速度', playGrowth: '播放生长动画', stopGrowth: '停止动画', centerForce: '图谱向心力', repulsion: '节点排斥力', attraction: '相连节点吸引力', linkLength: '连线长度', drift: '漂浮力度', resetControls: '恢复默认参数', chatConversationLimit: '高频近期会话',
+            density: '展示密度', densityAggregated: '📁 类型聚合', densityDetailed: '📄 全部展开', codeType: '代码类型', toolAssetType: '资产类型', tableCollection: '数据表集合', filterFiles: '过滤该分类下的文件…', backToType: '返回代码分类', backToParent: '返回上级'
         },
         en: {
             view: 'Graph view', knowledge: 'Project Knowledge', metrics: 'Metric System', chat: 'Chat Relations', ruleMonth: 'Rule month', refreshKnowledge: 'Refresh Knowledge', refreshMetrics: 'Refresh Metrics', refreshChat: 'Refresh Chat Relations',
@@ -499,7 +776,8 @@
             empty: 'Click a module, tool, file, database, or table to inspect its relationships.', moduleFiles: 'Module Files', indexTime: 'Indexed At', viewChunks: 'Indexed Knowledge Chunks', readingFile: 'Loading File Node', unnamedChunk: 'Untitled Chunk', expandChunk: 'Expand full text', collapseChunk: 'Collapse details', aiAnalyze: 'AI Analyze', analyzeFile: 'Analyze code file', analyzeChunk: 'Analyze code chunk', answerSources: 'Sources used by this answer', citedChunk: 'Cited chunk', citedFiles: 'cited files', answerMetrics: 'Metrics used by this answer', referencedMetrics: 'referenced metrics',
             metricRootType: 'Metric System Root', dataMethod: 'Data Methodology', categoryMetrics: 'Category Metrics', weight: 'Weight', latest: 'Latest', valuedDays: 'valued days', twelveMonthRules: '12-Month Rules', dailyLatestHistory: 'Historical Values (Latest Saved per Day)', loadingSavedHistory: 'Loading saved historical values…', standardScoring: 'Standard Scoring', proportionalScoring: 'Proportional Scoring', noValue: 'No Value', failing: 'Below Target', passing: 'On Target', undetermined: 'Undetermined', noSavedHistory: 'No saved historical snapshots are available for this month.', nonNumericHistory: 'Historical values are not a continuous numeric series; snapshots are listed below.', noRule: 'No monthly target rule is configured for this metric.', bySubmetric: 'By Submetric', metricHelp: 'Click a category, metric, or submetric to inspect monthly rules and historical snapshots.', metricHistoryRule: 'Historical values use the last saved ReportMetricData entry for each day with data. Current monthly rules are display-only and do not recalculate historical results.', metricHistoryLoadFailed: 'Failed to load historical snapshots', historyTrend: 'Historical Snapshot Trend', monthRule: n => `Month ${n} rule`, monthLabel: n => `Month ${n}`, rootMetricRule: n => `Month ${n} Metric Rules`,
             graphLoadFailed: 'Failed to load the knowledge graph', metricLoadFailed: 'Failed to load the metric graph', refreshFailed: 'Refresh failed',
-            controls: 'Appearance & Forces', appearance: 'Appearance', force: 'Forces', palette: 'Color Theme', galaxy: 'Galaxy', cosmic: 'Cosmic', obsidian: 'Obsidian', aurora: 'Aurora', particleDensity: 'Background Particles', nodeSize: 'Node Size', lineWidth: 'Line Width', labelDensity: 'Label Density', labelOpacity: 'Text Opacity', growthSpeed: 'Growth Speed', playGrowth: 'Play Growth Animation', stopGrowth: 'Stop Animation', centerForce: 'Center Force', repulsion: 'Node Repulsion', attraction: 'Linked Attraction', linkLength: 'Link Length', drift: 'Drift Force', resetControls: 'Reset Defaults', chatConversationLimit: 'Frequent recent chats'
+            controls: 'Appearance & Forces', appearance: 'Appearance', force: 'Forces', palette: 'Color Theme', light: 'Light (Default)', galaxy: 'Galaxy', cosmic: 'Cosmic', obsidian: 'Obsidian', aurora: 'Aurora', particleDensity: 'Background Particles', nodeSize: 'Node Size', lineWidth: 'Line Width', labelDensity: 'Label Density', labelOpacity: 'Text Opacity', growthSpeed: 'Growth Speed', playGrowth: 'Play Growth Animation', stopGrowth: 'Stop Animation', centerForce: 'Center Force', repulsion: 'Node Repulsion', attraction: 'Linked Attraction', linkLength: 'Link Length', drift: 'Drift Force', resetControls: 'Reset Defaults', chatConversationLimit: 'Frequent recent chats',
+            density: 'Display Density', densityAggregated: '📁 Grouped Types', densityDetailed: '📄 Expanded Files', codeType: 'Code Type', toolAssetType: 'Asset Type', tableCollection: 'Table Collection', filterFiles: 'Filter files in this type…', backToType: 'Back to Code Type', backToParent: 'Back'
         }
     };
     function kgLang() {
@@ -524,6 +802,17 @@
 
     function syncControlPanel() {
         overlay.dataset.palette = state.settings.palette;
+        overlay.dataset.density = state.density;
+        if (themeToggleButton) {
+            const isLight = state.settings.palette === 'light';
+            themeToggleButton.textContent = isLight ? '☀️' : '🌙';
+            themeToggleButton.title = isLight ? (kgLang() === 'en' ? 'Switch to Dark Theme' : '切换为深色主题') : (kgLang() === 'en' ? 'Switch to Light Theme' : '切换为浅色主题');
+        }
+        if (densitySwitch) {
+            densitySwitch.querySelectorAll('.ai-kg-density-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.kgDensity === state.density);
+            });
+        }
         controlPanel.querySelectorAll('[data-setting]').forEach(input => {
             input.value = state.settings[input.dataset.setting];
         });
@@ -572,6 +861,10 @@
         let hash = 0;
         for (const char of String(group || 'other')) hash = ((hash << 5) - hash + char.charCodeAt(0)) | 0;
         const palette = state.settings.palette;
+        if (palette === 'light') {
+            const hue = ((Math.abs(hash) % 360) + 210) % 360;
+            return `hsla(${hue}, 76%, 42%, ${alpha})`;
+        }
         if (palette === 'obsidian') return `hsla(0, 0%, ${52 + Math.abs(hash) % 28}%, ${alpha})`;
         if (palette === 'galaxy') return `hsla(${((Math.abs(hash) % 160) + 220) % 360}, 85%, 72%, ${alpha})`;
         const hue = palette === 'aurora'
@@ -581,6 +874,7 @@
     }
 
     function accentColor(alpha = 1) {
+        if (state.settings.palette === 'light') return `rgba(79,70,229,${alpha})`;
         if (state.settings.palette === 'obsidian') return `rgba(226,226,226,${alpha})`;
         if (state.settings.palette === 'aurora') return `rgba(57,218,188,${alpha})`;
         if (state.settings.palette === 'galaxy') return `rgba(168,135,255,${alpha})`;
@@ -609,7 +903,7 @@
     }
 
     function isLeafNode(node) {
-        return ['document', 'citation', 'submetric', 'assetFile', 'table', 'chatPerson'].includes(node?.type);
+        return ['document', 'citation', 'submetric', 'assetFile', 'table', 'chatPerson', 'codeType', 'toolAssetType', 'tableCollection'].includes(node?.type);
     }
 
     function isMetricMode() {
@@ -796,6 +1090,276 @@
         return false;
     }
 
+    function classifyCodeType(filePath) {
+        const lower = String(filePath || '').toLowerCase();
+        const extMatch = lower.match(/\.[a-z0-9]+$/);
+        const ext = extMatch ? extMatch[0] : '';
+        if (lower.includes('.test.') || lower.includes('.spec.') || lower.startsWith('tests/') || lower.includes('/tests/')) {
+            return { key: 'test', label: '测试套件', labelEn: 'Test Suites', icon: '🧪' };
+        }
+        if (['.js', '.cjs', '.mjs', '.ts', '.jsx', '.tsx'].includes(ext)) {
+            return { key: 'js', label: 'JavaScript 逻辑', labelEn: 'JavaScript Logic', icon: '📜' };
+        }
+        if (['.css', '.scss', '.less'].includes(ext)) {
+            return { key: 'css', label: '前端样式', labelEn: 'Stylesheets', icon: '🎨' };
+        }
+        if (['.html', '.htm'].includes(ext)) {
+            return { key: 'html', label: '页面与模板', labelEn: 'HTML & Templates', icon: '🌐' };
+        }
+        if (['.py'].includes(ext)) {
+            return { key: 'py', label: 'Python 脚本', labelEn: 'Python Scripts', icon: '🐍' };
+        }
+        if (['.json', '.yaml', '.yml', '.xml', '.ini', '.env', '.toml'].includes(ext)) {
+            return { key: 'config', label: '配置与数据', labelEn: 'Configuration & Data', icon: '⚙️' };
+        }
+        if (['.md', '.txt', '.doc', '.docx'].includes(ext)) {
+            return { key: 'doc', label: '说明与文档', labelEn: 'Documentation', icon: '📘' };
+        }
+        if (['.sql'].includes(ext)) {
+            return { key: 'sql', label: 'SQL 脚本', labelEn: 'SQL Scripts', icon: '🗄️' };
+        }
+        return { key: 'other', label: '代码与资源', labelEn: 'Other Code & Assets', icon: '📦' };
+    }
+
+    function buildAggregatedKnowledgeGraph(raw) {
+        if (!raw || !Array.isArray(raw.nodes) || !Array.isArray(raw.edges)) return raw;
+
+        const docToAggregated = new Map();
+        const newNodes = [];
+        const newEdges = [];
+        const edgeSet = new Set();
+        const addEdge = (source, target, type) => {
+            const key = `${source}\0${target}\0${type}`;
+            if (!edgeSet.has(key)) {
+                edgeSet.add(key);
+                newEdges.push({ source, target, type });
+            }
+        };
+
+        const documentsByGroup = new Map();
+        const toolFilesByTool = new Map();
+        const tablesByDatabase = new Map();
+
+        raw.nodes.forEach(node => {
+            if (node.type === 'document') {
+                const groupKey = node.group || 'other';
+                if (!documentsByGroup.has(groupKey)) documentsByGroup.set(groupKey, []);
+                documentsByGroup.get(groupKey).push(node);
+            } else if (node.type === 'assetFile') {
+                const toolId = node.toolId || node.group || 'unknown-tool';
+                if (!toolFilesByTool.has(toolId)) toolFilesByTool.set(toolId, []);
+                toolFilesByTool.get(toolId).push(node);
+            } else if (node.type === 'table') {
+                const dbId = node.database || 'db';
+                if (!tablesByDatabase.has(dbId)) tablesByDatabase.set(dbId, []);
+                tablesByDatabase.get(dbId).push(node);
+            } else {
+                newNodes.push({ ...node });
+            }
+        });
+
+        for (const [groupKey, docs] of documentsByGroup.entries()) {
+            const groupNodeId = `group:${groupKey}`;
+            const typeBuckets = new Map();
+            docs.forEach(doc => {
+                const typeInfo = classifyCodeType(doc.path);
+                if (!typeBuckets.has(typeInfo.key)) {
+                    typeBuckets.set(typeInfo.key, { typeInfo, files: [], chunks: 0, bytes: 0 });
+                }
+                const bucket = typeBuckets.get(typeInfo.key);
+                bucket.files.push(doc);
+                bucket.chunks += Number(doc.chunks) || 0;
+                bucket.bytes += Number(doc.bytes) || 0;
+            });
+            for (const [typeKey, bucket] of typeBuckets.entries()) {
+                const typeNodeId = `code-type:${groupKey}:${typeKey}`;
+                const labelText = kgLang() === 'en' ? bucket.typeInfo.labelEn : bucket.typeInfo.label;
+                newNodes.push({
+                    id: typeNodeId,
+                    type: 'codeType',
+                    groupId: groupNodeId,
+                    group: groupKey,
+                    codeType: typeKey,
+                    label: `${bucket.typeInfo.icon} ${labelText} (${bucket.files.length})`,
+                    labelEn: `${bucket.typeInfo.icon} ${bucket.typeInfo.labelEn} (${bucket.files.length})`,
+                    fileCount: bucket.files.length,
+                    chunks: bucket.chunks,
+                    bytes: bucket.bytes,
+                    size: Math.max(8, Math.min(18, 7 + Math.log2(bucket.files.length + 1) * 2.5)),
+                    files: bucket.files
+                });
+                addEdge(groupNodeId, typeNodeId, 'contains');
+                bucket.files.forEach(f => docToAggregated.set(f.id, typeNodeId));
+            }
+        }
+
+        for (const [toolId, files] of toolFilesByTool.entries()) {
+            if (files.length <= 2) {
+                files.forEach(f => {
+                    newNodes.push(f);
+                    addEdge(toolId, f.id, 'contains');
+                    docToAggregated.set(f.id, f.id);
+                });
+            } else {
+                const typeBuckets = new Map();
+                files.forEach(f => {
+                    const typeInfo = classifyCodeType(f.path || f.relativePath);
+                    if (!typeBuckets.has(typeInfo.key)) {
+                        typeBuckets.set(typeInfo.key, { typeInfo, files: [], bytes: 0 });
+                    }
+                    const bucket = typeBuckets.get(typeInfo.key);
+                    bucket.files.push(f);
+                    bucket.bytes += Number(f.bytes) || 0;
+                });
+                for (const [typeKey, bucket] of typeBuckets.entries()) {
+                    const typeNodeId = `tool-type:${toolId}:${typeKey}`;
+                    const labelText = kgLang() === 'en' ? bucket.typeInfo.labelEn : bucket.typeInfo.label;
+                    newNodes.push({
+                        id: typeNodeId,
+                        type: 'toolAssetType',
+                        toolId,
+                        group: bucket.files[0]?.group || 'tool-data-assets',
+                        codeType: typeKey,
+                        label: `${bucket.typeInfo.icon} ${labelText} (${bucket.files.length})`,
+                        labelEn: `${bucket.typeInfo.icon} ${bucket.typeInfo.labelEn} (${bucket.files.length})`,
+                        fileCount: bucket.files.length,
+                        bytes: bucket.bytes,
+                        size: Math.max(7, Math.min(16, 6 + Math.log2(bucket.files.length + 1) * 2.2)),
+                        files: bucket.files
+                    });
+                    addEdge(toolId, typeNodeId, 'contains');
+                    bucket.files.forEach(f => docToAggregated.set(f.id, typeNodeId));
+                }
+            }
+        }
+
+        for (const [dbId, tables] of tablesByDatabase.entries()) {
+            const dbNode = raw.nodes.find(n => n.type === 'database' && (n.id === dbId || n.label === dbId));
+            const dbNodeId = dbNode ? dbNode.id : dbId;
+            if (tables.length <= 15) {
+                tables.forEach(t => {
+                    newNodes.push(t);
+                    addEdge(dbNodeId, t.id, 'contains');
+                    docToAggregated.set(t.id, t.id);
+                });
+            } else {
+                const prefixBuckets = new Map();
+                tables.forEach(table => {
+                    const tableName = table.label || '';
+                    const prefix = tableName.includes('_') ? tableName.split('_')[0] + '_*' : (kgLang() === 'en' ? 'other_tables' : '其他表');
+                    if (!prefixBuckets.has(prefix)) prefixBuckets.set(prefix, []);
+                    prefixBuckets.get(prefix).push(table);
+                });
+                for (const [prefix, pTables] of prefixBuckets.entries()) {
+                    const summaryId = `tables:${dbNodeId}:${prefix}`;
+                    newNodes.push({
+                        id: summaryId,
+                        type: 'tableCollection',
+                        database: dbId,
+                        databaseId: dbNodeId,
+                        group: 'tool-data-assets',
+                        prefix,
+                        label: `🗄️ ${prefix} (${pTables.length})`,
+                        labelEn: `🗄️ ${prefix} (${pTables.length})`,
+                        tableCount: pTables.length,
+                        tables: pTables,
+                        size: Math.max(8, Math.min(17, 7 + Math.log2(pTables.length + 1) * 2.3))
+                    });
+                    addEdge(dbNodeId, summaryId, 'contains');
+                    pTables.forEach(t => docToAggregated.set(t.id, summaryId));
+                }
+            }
+        }
+
+        const validNodeIds = new Set(newNodes.map(n => n.id));
+
+        raw.edges.forEach(edge => {
+            if (edge.type === 'contains') {
+                if (validNodeIds.has(edge.source) && validNodeIds.has(edge.target)) {
+                    addEdge(edge.source, edge.target, 'contains');
+                }
+            } else if (edge.type === 'depends') {
+                const aggSource = docToAggregated.get(edge.source) || edge.source;
+                const aggTarget = docToAggregated.get(edge.target) || edge.target;
+                if (aggSource && aggTarget && aggSource !== aggTarget) {
+                    if (validNodeIds.has(aggSource) && validNodeIds.has(aggTarget)) {
+                        addEdge(aggSource, aggTarget, 'depends');
+                    }
+                }
+            } else {
+                if (validNodeIds.has(edge.source) && validNodeIds.has(edge.target)) {
+                    addEdge(edge.source, edge.target, edge.type);
+                }
+            }
+        });
+
+        return {
+            ...raw,
+            nodes: newNodes,
+            edges: newEdges,
+            stats: raw.stats,
+            status: raw.status,
+            mode: raw.mode,
+            isAggregated: true
+        };
+    }
+
+    function applyKnowledgeData(data) {
+        state.knowledgeFullData = data;
+        const finalData = state.density === 'aggregated' ? buildAggregatedKnowledgeGraph(data) : data;
+        initializeLayout(finalData);
+        renderStatuses(finalData);
+        updateModeChrome(finalData);
+        const rootNode = state.nodeMap.get(graphRootId());
+        selectNode(rootNode);
+        state.selected = null;
+        reheat(0.85);
+        render();
+    }
+
+    async function inspectDocumentFile(filePath, parentNode = null) {
+        if (!filePath) return;
+        const fileName = filePath.split('/').pop() || filePath;
+        sidebar.innerHTML = `
+            ${parentNode ? `<button type="button" class="ai-kg-back-btn" id="aiKgBackToParent">← ${escapeHtml(nodeLabel(parentNode))}</button>` : ''}
+            <div class="ai-kg-node-type">${kgT('readingFile')}</div>
+            <div class="ai-kg-node-title">${escapeHtml(fileName)}</div>
+            <div class="ai-kg-node-path">${escapeHtml(filePath)}</div>
+            <div class="ai-kg-side-empty">${kgLang() === 'en' ? 'Loading file details…' : '正在读取文件知识与片段…'}</div>
+        `;
+        if (parentNode) {
+            sidebar.querySelector('#aiKgBackToParent')?.addEventListener('click', () => {
+                selectNode(parentNode);
+            });
+        }
+        try {
+            const response = await fetch(`/api/ai/knowledge/document?path=${encodeURIComponent(filePath)}`, { headers: authHeaders() });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || '读取失败');
+            state.sidebarDocument = data;
+            sidebar.innerHTML = `
+                ${parentNode ? `<button type="button" class="ai-kg-back-btn" id="aiKgBackToParent">← ${escapeHtml(nodeLabel(parentNode))}</button>` : ''}
+                <div class="ai-kg-node-type">${escapeHtml(data.group?.label || kgT('knowledgeFile'))}</div>
+                <div class="ai-kg-node-heading"><div class="ai-kg-node-title">${escapeHtml(fileName)}</div>${renderAnalyzeButton('file')}</div>
+                <div class="ai-kg-node-path">${escapeHtml(data.path)}</div>
+                <div class="ai-kg-node-stats">
+                    <div class="ai-kg-stat-card"><b>${data.chunk_count || 0}</b><span>${kgT('chunks')}</span></div>
+                    <div class="ai-kg-stat-card"><b>${formatBytes(data.size_bytes)}</b><span>${kgT('fileSize')}</span></div>
+                </div>
+                <div class="ai-kg-section-title">${kgT('indexTime')}</div><div class="ai-kg-node-path">${escapeHtml(formatTime(data.indexed_at))}</div>
+                <div class="ai-kg-section-title">${kgT('viewChunks')}</div>
+                ${(data.chunks || []).map(chunk => renderKnowledgeChunk(chunk, data.path)).join('')}
+            `;
+            if (parentNode) {
+                sidebar.querySelector('#aiKgBackToParent')?.addEventListener('click', () => {
+                    selectNode(parentNode);
+                });
+            }
+        } catch (error) {
+            sidebar.innerHTML += `<div class="ai-kg-side-empty">⚠️ ${escapeHtml(error.message)}</div>`;
+        }
+    }
+
     function initializeLayout(data) {
         state.data = data;
         state.nodes = data.nodes.map(item => ({
@@ -945,6 +1509,7 @@
         const scale = state.settings.nodeScale / DEFAULT_SETTINGS.nodeScale;
         if (isRootNode(node)) return 29 * scale;
         if (isGroupNode(node)) return Math.max(14, (Number(node.size || 12) * 0.78 + 9) * scale);
+        if (['codeType', 'toolAssetType', 'tableCollection'].includes(node?.type)) return Math.max(8.5, (Number(node.size || 10) * 0.72 + 4) * scale);
         if (node.type === 'metric') return Math.max(10, (Number(node.size || 10) * 0.78 + 5) * scale);
         return Math.max(4.5, (Number(node.size || 5) * 0.76 + 2.5) * scale);
     }
@@ -1113,8 +1678,29 @@
     }
 
     function nodeBaseColor(node, alpha = 1) {
-        if (isRootNode(node)) return state.settings.palette === 'galaxy' ? `rgba(255,255,255,${alpha})` : `rgba(247,248,255,${alpha})`;
+        if (isRootNode(node)) return state.settings.palette === 'light' ? `rgba(30,41,59,${alpha})` : state.settings.palette === 'galaxy' ? `rgba(255,255,255,${alpha})` : `rgba(247,248,255,${alpha})`;
         if (node?.type === 'citation') return accentColor(Math.min(alpha, 0.98));
+        if (node?.type === 'codeType') {
+            const isLight = state.settings.palette === 'light';
+            const codeTypeColors = {
+                js: isLight ? `rgba(217,119,6,${alpha})` : `rgba(251,191,36,${alpha})`,
+                css: isLight ? `rgba(37,99,235,${alpha})` : `rgba(96,165,250,${alpha})`,
+                html: isLight ? `rgba(220,38,38,${alpha})` : `rgba(248,113,113,${alpha})`,
+                py: isLight ? `rgba(5,150,105,${alpha})` : `rgba(52,211,153,${alpha})`,
+                config: isLight ? `rgba(124,58,237,${alpha})` : `rgba(167,139,250,${alpha})`,
+                doc: isLight ? `rgba(2,132,199,${alpha})` : `rgba(56,189,248,${alpha})`,
+                sql: isLight ? `rgba(219,39,119,${alpha})` : `rgba(244,114,182,${alpha})`,
+                test: isLight ? `rgba(13,148,136,${alpha})` : `rgba(45,212,191,${alpha})`,
+                other: isLight ? `rgba(71,85,105,${alpha})` : `rgba(148,163,184,${alpha})`
+            };
+            return codeTypeColors[node.codeType] || colorForGroup(node.group, alpha);
+        }
+        if (node?.type === 'toolAssetType') {
+            return state.settings.palette === 'light' ? `rgba(2,132,199,${alpha})` : `rgba(56,189,248,${alpha})`;
+        }
+        if (node?.type === 'tableCollection') {
+            return state.settings.palette === 'light' ? `rgba(217,119,6,${alpha})` : `rgba(251,146,60,${alpha})`;
+        }
         if (node?.type === 'chatConversation') {
             if (node.conversationType === 'single') return `rgba(56,189,248,${alpha})`;
             if (node.conversationType === 'group') return `rgba(52,211,153,${alpha})`;
@@ -1346,7 +1932,7 @@
     function nodeLabelTier(node) {
         if (isRootNode(node)) return 0;
         if (isGroupNode(node) || node?.type === 'assetCategory') return 1;
-        if (['metric', 'tool', 'database'].includes(node?.type)) return 2;
+        if (['metric', 'tool', 'database', 'codeType', 'toolAssetType', 'tableCollection'].includes(node?.type)) return 2;
         return 3;
     }
 
@@ -1524,15 +2110,29 @@
             ctx.globalAlpha = (dimmed ? normalAlpha * dimmedLabelAlpha : normalAlpha) * state.settings.labelOpacity;
             if (pill) {
                 roundedRectPath(placement.x, placement.y, width, height, 6);
-                ctx.fillStyle = node.id === focusNode?.id ? 'rgba(72,54,130,.94)' : 'rgba(10,16,29,.82)';
-                ctx.fill();
-                ctx.strokeStyle = node.id === focusNode?.id ? 'rgba(156,112,255,.85)' : colorForGroup(node.group, .24);
-                ctx.lineWidth = node.id === focusNode?.id ? 1 : 0.65;
-                ctx.stroke();
+                if (state.settings.palette === 'light') {
+                    ctx.fillStyle = node.id === focusNode?.id ? 'rgba(238,242,255,.98)' : 'rgba(255,255,255,.94)';
+                    ctx.fill();
+                    ctx.strokeStyle = node.id === focusNode?.id ? 'rgba(79,70,229,.85)' : 'rgba(203,213,225,.8)';
+                    ctx.lineWidth = node.id === focusNode?.id ? 1.2 : 0.75;
+                    ctx.stroke();
+                } else {
+                    ctx.fillStyle = node.id === focusNode?.id ? 'rgba(72,54,130,.94)' : 'rgba(10,16,29,.82)';
+                    ctx.fill();
+                    ctx.strokeStyle = node.id === focusNode?.id ? 'rgba(156,112,255,.85)' : colorForGroup(node.group, .24);
+                    ctx.lineWidth = node.id === focusNode?.id ? 1 : 0.65;
+                    ctx.stroke();
+                }
             }
-            ctx.fillStyle = '#e8edf8';
-            ctx.shadowColor = 'rgba(4,8,18,.9)';
-            ctx.shadowBlur = pill ? 0 : 4;
+            if (state.settings.palette === 'light') {
+                ctx.fillStyle = node.id === focusNode?.id ? '#4338ca' : '#0f172a';
+                ctx.shadowColor = 'rgba(255,255,255,.95)';
+                ctx.shadowBlur = pill ? 0 : 3;
+            } else {
+                ctx.fillStyle = '#e8edf8';
+                ctx.shadowColor = 'rgba(4,8,18,.9)';
+                ctx.shadowBlur = pill ? 0 : 4;
+            }
             ctx.textAlign = pill ? 'left' : 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(label, pill ? placement.x + 6 : placement.x + width / 2, placement.y + height / 2 + 0.5);
@@ -1727,7 +2327,9 @@
                 const chatActivity = isChatMode() ? Math.max(0, Math.min(1, Number(edge.activity) || 0)) : 0;
                 ctx.strokeStyle = isChatMode()
                     ? nodeBaseColor(edge.targetNode, (0.16 + chatActivity * 0.62) * depthOpacity)
-                    : edge.type !== 'contains' ? `rgba(117,132,173,${.11 * depthOpacity})` : `rgba(133,147,187,${.22 * depthOpacity})`;
+                    : state.settings.palette === 'light'
+                        ? (edge.type !== 'contains' ? `rgba(148,163,184,${.25 * depthOpacity})` : `rgba(100,116,139,${.38 * depthOpacity})`)
+                        : edge.type !== 'contains' ? `rgba(117,132,173,${.11 * depthOpacity})` : `rgba(133,147,187,${.22 * depthOpacity})`;
                 ctx.lineWidth = (isChatMode() ? 0.65 + chatActivity * 2.15 : edge.type !== 'contains' ? 0.65 : 0.9) * state.settings.lineScale * depthWidth;
                 ctx.shadowColor = isChatMode() && chatActivity > 0.55 ? nodeBaseColor(edge.targetNode, 0.7) : 'transparent';
                 ctx.shadowBlur = isChatMode() ? chatActivity * 8 : 0;
@@ -2204,10 +2806,113 @@
             sidebar.innerHTML = `<div class="ai-kg-node-type">${escapeHtml(typeLabel)}</div><div class="ai-kg-node-title">${escapeHtml(nodeLabel(node))}</div>${node.path ? `<div class="ai-kg-node-path">${escapeHtml(node.path)}</div>` : ''}${nodeDescription(node) ? `<div class="ai-kg-node-path">${escapeHtml(nodeDescription(node))}</div>` : ''}<div class="ai-kg-node-stats">${statCards.map(([value,label]) => `<div class="ai-kg-stat-card"><b>${escapeHtml(value)}</b><span>${escapeHtml(label)}</span></div>`).join('')}</div>${node.updatedAt ? `<div class="ai-kg-section-title">${kgT('updatedAt')}</div><div class="ai-kg-node-path">${escapeHtml(formatTime(node.updatedAt))}</div>` : ''}${node.type === 'tool' ? `<div class="ai-kg-section-title">${kgT('publicAccess')}</div><div class="ai-kg-node-path">${node.publicAccess ? kgT('yes') : kgT('no')}</div>` : ''}${node.columns?.length ? `<div class="ai-kg-section-title">${kgT('columns')}</div><div class="ai-kg-node-path">${escapeHtml(node.columns.join(' · '))}</div>` : ''}${node.schema ? `<div class="ai-kg-section-title">${kgT('schema')}</div><div class="ai-kg-chunk-preview">${escapeHtml(node.schema)}</div>` : ''}${childrenHtml ? `<div class="ai-kg-section-title">${kgT('contained')}</div>${childrenHtml}` : ''}${relatedHtml ? `<div class="ai-kg-section-title">${kgT('related')}</div>${relatedHtml}` : ''}`;
             return;
         }
+        if (node.type === 'codeType') {
+            const files = node.files || [];
+            sidebar.innerHTML = `
+                <div class="ai-kg-node-type">${escapeHtml(kgT('codeType'))} · ${escapeHtml(node.group || '')}</div>
+                <div class="ai-kg-node-title">${escapeHtml(nodeLabel(node))}</div>
+                <div class="ai-kg-node-stats">
+                    <div class="ai-kg-stat-card"><b>${node.fileCount || files.length}</b><span>${kgT('files')}</span></div>
+                    <div class="ai-kg-stat-card"><b>${node.chunks || 0}</b><span>${kgT('chunks')}</span></div>
+                    <div class="ai-kg-stat-card"><b>${formatBytes(node.bytes)}</b><span>${kgT('fileSize')}</span></div>
+                </div>
+                <div class="ai-kg-section-title">${kgLang() === 'en' ? 'Contained Files' : '包含代码文件'}</div>
+                <div style="margin-bottom:8px">
+                    <input class="ai-kg-search" id="aiKgTypeFileFilter" style="width:100%;height:32px;font-size:11px;padding:0 10px" placeholder="${escapeHtml(kgT('filterFiles'))}">
+                </div>
+                <div class="ai-kg-type-file-list" id="aiKgTypeFileList">
+                    ${files.map(file => `
+                        <div class="ai-kg-chunk" data-inspect-file="${escapeHtml(file.path)}" title="${escapeHtml(file.path)}">
+                            <div class="ai-kg-chunk-title">${escapeHtml(nodeLabel(file))}</div>
+                            <div class="ai-kg-chunk-lines">${escapeHtml(file.path)} · ${file.chunks || 0} ${kgT('chunks')} · ${formatBytes(file.bytes)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            const filterInput = sidebar.querySelector('#aiKgTypeFileFilter');
+            const fileList = sidebar.querySelector('#aiKgTypeFileList');
+            if (filterInput && fileList) {
+                filterInput.addEventListener('input', () => {
+                    const q = filterInput.value.trim().toLowerCase();
+                    fileList.querySelectorAll('[data-inspect-file]').forEach(el => {
+                        const path = el.getAttribute('data-inspect-file').toLowerCase();
+                        const title = el.querySelector('.ai-kg-chunk-title')?.textContent.toLowerCase() || '';
+                        el.style.display = (!q || path.includes(q) || title.includes(q)) ? '' : 'none';
+                    });
+                });
+            }
+            return;
+        }
+        if (node.type === 'toolAssetType') {
+            const files = node.files || [];
+            sidebar.innerHTML = `
+                <div class="ai-kg-node-type">${escapeHtml(kgT('toolAssetType'))} · ${escapeHtml(node.toolId || '')}</div>
+                <div class="ai-kg-node-title">${escapeHtml(nodeLabel(node))}</div>
+                <div class="ai-kg-node-stats">
+                    <div class="ai-kg-stat-card"><b>${node.fileCount || files.length}</b><span>${kgT('files')}</span></div>
+                    <div class="ai-kg-stat-card"><b>${formatBytes(node.bytes)}</b><span>${kgT('fileSize')}</span></div>
+                </div>
+                <div class="ai-kg-section-title">${kgLang() === 'en' ? 'Asset Files' : '包含资产文件'}</div>
+                <div class="ai-kg-type-file-list">
+                    ${files.map(file => `
+                        <div class="ai-kg-chunk" data-inspect-file="${escapeHtml(file.path || file.relativePath || '')}">
+                            <div class="ai-kg-chunk-title">${escapeHtml(nodeLabel(file))}</div>
+                            <div class="ai-kg-chunk-lines">${escapeHtml(file.path || file.relativePath || '')} · ${formatBytes(file.bytes)}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            return;
+        }
+        if (node.type === 'tableCollection') {
+            const tables = node.tables || [];
+            sidebar.innerHTML = `
+                <div class="ai-kg-node-type">${escapeHtml(kgT('tableCollection'))} · ${escapeHtml(node.database || '')}</div>
+                <div class="ai-kg-node-title">${escapeHtml(nodeLabel(node))}</div>
+                <div class="ai-kg-node-stats">
+                    <div class="ai-kg-stat-card"><b>${node.tableCount || tables.length}</b><span>${kgT('tables')}</span></div>
+                    <div class="ai-kg-stat-card"><b>${escapeHtml(node.prefix || '')}</b><span>前缀</span></div>
+                </div>
+                <div class="ai-kg-section-title">${kgLang() === 'en' ? 'Database Tables' : '包含数据表'}</div>
+                <div class="ai-kg-type-file-list">
+                    ${tables.map(table => `
+                        <div class="ai-kg-chunk">
+                            <div class="ai-kg-chunk-title">🗄️ ${escapeHtml(nodeLabel(table))}</div>
+                            <div class="ai-kg-chunk-lines">${table.columns?.length ? `${table.columns.length} ${kgT('columns')}: ${escapeHtml(table.columns.slice(0, 6).join(', '))}` : (table.schema || '')}</div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            return;
+        }
         if (node.type === 'group') {
             if (node.group === 'tool-data-assets') {
                 const children = state.edges.filter(edge => edge.type === 'contains' && edge.source === node.id).map(edge => edge.targetNode).filter(Boolean);
                 sidebar.innerHTML = `<div class="ai-kg-node-type">${kgT('toolData')}</div><div class="ai-kg-node-title">${escapeHtml(nodeLabel(node))}</div><div class="ai-kg-node-stats"><div class="ai-kg-stat-card"><b>${state.data?.stats?.builtInTools || 0}</b><span>${kgT('builtInTools')}</span></div><div class="ai-kg-stat-card"><b>${state.data?.stats?.customTools || 0}</b><span>${kgT('customTools')}</span></div><div class="ai-kg-stat-card"><b>${state.data?.stats?.databases || 0}</b><span>${kgT('databases')}</span></div><div class="ai-kg-stat-card"><b>${state.data?.stats?.tables || 0}</b><span>${kgT('tables')}</span></div><div class="ai-kg-stat-card"><b>${state.data?.stats?.tableRelations || 0}</b><span>${kgT('tableRelations')}</span></div></div><div class="ai-kg-section-title">${kgT('contained')}</div>${children.map(item => `<div class="ai-kg-chunk" data-node-id="${escapeHtml(item.id)}"><div class="ai-kg-chunk-title">${escapeHtml(nodeLabel(item))}</div></div>`).join('')}`;
+                return;
+            }
+            const codeTypes = state.nodes.filter(item => item.type === 'codeType' && item.group === node.group);
+            if (codeTypes.length) {
+                const totalFiles = codeTypes.reduce((sum, item) => sum + (item.fileCount || 0), 0);
+                const totalChunks = codeTypes.reduce((sum, item) => sum + (item.chunks || 0), 0);
+                const totalBytes = codeTypes.reduce((sum, item) => sum + (item.bytes || 0), 0);
+                sidebar.innerHTML = `
+                    <div class="ai-kg-node-type">${kgT('businessModules')}</div>
+                    <div class="ai-kg-node-title">${escapeHtml(nodeLabel(node))}</div>
+                    <div class="ai-kg-node-stats">
+                        <div class="ai-kg-stat-card"><b>${totalFiles}</b><span>${kgT('files')}</span></div>
+                        <div class="ai-kg-stat-card"><b>${totalChunks}</b><span>${kgT('chunks')}</span></div>
+                        <div class="ai-kg-stat-card"><b>${formatBytes(totalBytes)}</b><span>${kgT('fileSize')}</span></div>
+                        <div class="ai-kg-stat-card"><b>${codeTypes.length}</b><span>${kgLang() === 'en' ? 'Code Types' : '代码分类'}</span></div>
+                    </div>
+                    <div class="ai-kg-section-title">${kgLang() === 'en' ? 'Code Types' : '包含代码类型'}</div>
+                    ${codeTypes.map(item => `
+                        <div class="ai-kg-chunk" data-node-id="${escapeHtml(item.id)}">
+                            <div class="ai-kg-chunk-title">${escapeHtml(nodeLabel(item))}</div>
+                            <div class="ai-kg-chunk-lines">${item.fileCount || 0} ${kgT('files')} · ${item.chunks || 0} ${kgT('chunks')} · ${formatBytes(item.bytes)}</div>
+                        </div>
+                    `).join('')}
+                `;
                 return;
             }
             const docs = state.nodes.filter(item => item.type === 'document' && item.group === node.group);
@@ -2451,12 +3156,16 @@
     function updateModeChrome(data) {
         const metrics = data.mode === 'metrics';
         const chat = data.mode === 'chat';
+        const knowledge = !metrics && !chat;
+        if (densitySwitch) densitySwitch.style.display = knowledge ? 'flex' : 'none';
         titleEl.textContent = metrics ? kgT('metricTitle') : chat ? kgT('chatTitle') : kgT('knowledgeTitle');
         subtitleEl.textContent = metrics ? kgT('metricSubtitle') : chat ? kgT('chatSubtitle') : kgT('knowledgeSubtitle');
         legendEl.innerHTML = metrics
             ? `<span><i style="background:#f5f7ff"></i>${kgT('monthRules')}</span><span><i style="background:#8b9cff"></i>${kgT('category')}</span><span><i style="background:#cf7e9d"></i>${kgT('metric')}</span><span><i style="background:#64739a"></i>${kgT('submetric')}</span>`
             : chat
             ? `<span><i style="background:#f5f7ff"></i>${kgT('self')}</span><span><i style="background:#38bdf8"></i>${kgT('singleChat')}</span><span><i style="background:#34d399"></i>${kgT('groupChat')}</span><span><i style="background:#c084fc"></i>${kgT('discussionChat')}</span><span><i style="background:#fbbf24"></i>${kgT('contact')}</span>`
+            : state.density === 'aggregated'
+            ? `<span><i style="background:#f5f7ff"></i>${kgT('project')}</span><span><i style="background:#8b9cff"></i>${kgT('module')}</span><span><i style="background:#6fc4ee"></i>${kgT('toolData')}</span><span><i style="background:#f59e0b"></i>${kgT('codeType')}</span>`
             : `<span><i style="background:#f5f7ff"></i>${kgT('project')}</span><span><i style="background:#8b9cff"></i>${kgT('module')}</span><span><i style="background:#6fc4ee"></i>${kgT('toolData')}</span><span><i style="background:#64739a"></i>${kgT('knowledgeFile')}</span>`;
         monthWrap.classList.toggle('visible', metrics);
         chatLimitWrap.classList.toggle('visible', chat);
@@ -2475,6 +3184,11 @@
     function applyGraphLanguage() {
         overlay.querySelector('#aiKgViewSwitch').setAttribute('aria-label', kgT('view'));
         overlay.querySelector('#aiKgDimensionSwitch').setAttribute('aria-label', kgT('dimension'));
+        overlay.querySelector('#aiKgDensitySwitch')?.setAttribute('aria-label', kgT('density'));
+        overlay.querySelector('[data-kg-density="aggregated"]')?.setAttribute('title', kgLang() === 'en' ? 'Group low-level code files into types for high performance' : '合并底层代码文件为类型，大幅提高性能');
+        overlay.querySelector('[data-kg-density="aggregated"]')?.replaceChildren(document.createTextNode(kgT('densityAggregated')));
+        overlay.querySelector('[data-kg-density="detailed"]')?.setAttribute('title', kgLang() === 'en' ? 'Expand all underlying files and database tables' : '展开所有底层文件与数据表');
+        overlay.querySelector('[data-kg-density="detailed"]')?.replaceChildren(document.createTextNode(kgT('densityDetailed')));
         overlay.querySelector('[data-kg-mode="knowledge"]').textContent = kgT('knowledge');
         overlay.querySelector('[data-kg-mode="metrics"]').textContent = kgT('metrics');
         overlay.querySelector('[data-kg-mode="chat"]').textContent = kgT('chat');
@@ -2501,6 +3215,7 @@
         controlPanel.querySelector('[data-kg-attraction-label]').textContent = kgT('attraction');
         controlPanel.querySelector('[data-kg-link-length-label]').textContent = kgT('linkLength');
         controlPanel.querySelector('[data-kg-drift-label]').textContent = kgT('drift');
+        controlPanel.querySelector('option[value="light"]').textContent = kgT('light');
         controlPanel.querySelector('option[value="galaxy"]').textContent = kgT('galaxy');
         controlPanel.querySelector('option[value="cosmic"]').textContent = kgT('cosmic');
         controlPanel.querySelector('option[value="obsidian"]').textContent = kgT('obsidian');
@@ -2633,7 +3348,8 @@
             const path = normalizeKnowledgePath(source.path);
             const documentNode = state.nodeMap.get(`doc:${path}`)
                 || documentNodes.find(node => normalizeKnowledgePath(node.path) === path)
-                || documentNodes.find(node => path.endsWith(normalizeKnowledgePath(node.path)) || normalizeKnowledgePath(node.path).endsWith(path));
+                || documentNodes.find(node => path.endsWith(normalizeKnowledgePath(node.path)) || normalizeKnowledgePath(node.path).endsWith(path))
+                || state.nodes.find(node => (node.type === 'codeType' || node.type === 'toolAssetType') && (node.files || []).some(f => normalizeKnowledgePath(f.path) === path || path.endsWith(normalizeKnowledgePath(f.path))));
             if (!documentNode) return;
             const angle = (index * 2.399963229728653) + Number(documentNode.motionPhase || 0) * 0.01;
             const citationNode = {
@@ -2642,7 +3358,7 @@
                 label: source.startLine ? `L${source.startLine}${source.endLine && source.endLine !== source.startLine ? `–${source.endLine}` : ''}` : kgT('citedChunk'),
                 labelEn: source.startLine ? `L${source.startLine}${source.endLine && source.endLine !== source.startLine ? `–${source.endLine}` : ''}` : KG_TEXT.en.citedChunk,
                 title: source.title || '',
-                path: documentNode.path,
+                path: documentNode.path || path,
                 group: documentNode.group,
                 size: 4.8,
                 citation: source,
@@ -2781,6 +3497,7 @@
             }
             if (loadSequence !== state.loadSequence) return;
             state.chatFullData = isChatMode() ? data : null;
+            state.knowledgeFullData = (!isMetricMode() && !isChatMode()) ? data : null;
             updateModeChrome(data);
             renderStatuses(data);
             state.selected = null;
@@ -2793,6 +3510,10 @@
             if (isChatMode()) {
                 state.chatView = { mode:'overview', nodeId:null };
                 data = buildChatViewData(state.chatView);
+            } else if (!isMetricMode()) {
+                if (state.density === 'aggregated') {
+                    data = buildAggregatedKnowledgeGraph(data);
+                }
             }
             setLoading(kgLang() === 'en' ? 'Laying out graph nodes…' : '正在布局图谱节点…', true, 96, progressLog.slice(-3).join(' · '));
             await new Promise(resolve => requestAnimationFrame(resolve));
@@ -2995,7 +3716,7 @@
             applyChatView({ mode:'overview', nodeId:null }, 'chat-root');
         }
         const searchableNodes = state.nodes;
-        const matches = query ? searchableNodes.filter(node => `${node.label || ''} ${node.labelEn || ''} ${node.path || ''} ${node.group || ''} ${node.category || ''} ${node.metricLabel || ''} ${node.database || ''} ${node.slug || ''} ${node.senderId || ''} ${node.rule?.monthTarget || ''}`.toLowerCase().includes(query)) : [];
+        const matches = query ? searchableNodes.filter(node => `${node.label || ''} ${node.labelEn || ''} ${node.path || ''} ${node.group || ''} ${node.category || ''} ${node.metricLabel || ''} ${node.database || ''} ${node.slug || ''} ${node.senderId || ''} ${node.rule?.monthTarget || ''} ${(node.files || []).map(f => f.path || f.label || '').join(' ')} ${(node.tables || []).map(t => t.label || t.path || '').join(' ')}`.toLowerCase().includes(query)) : [];
         state.searchMatches = new Set(matches.map(node => node.id));
         searchCount.textContent = query ? kgT('count', matches.length) : '';
         if (matches.length === 1) focusNode(matches[0]);
@@ -3073,6 +3794,12 @@
             openChatRecordDialog(state.nodeMap.get(chatRecordItem.getAttribute('data-chat-record-node-id')));
             return;
         }
+        const inspectItem = event.target.closest('[data-inspect-file]');
+        if (inspectItem) {
+            const filePath = inspectItem.getAttribute('data-inspect-file');
+            inspectDocumentFile(filePath, state.selected);
+            return;
+        }
         const item = event.target.closest('[data-node-id]');
         if (item) {
             focusNode(state.nodeMap.get(item.getAttribute('data-node-id')));
@@ -3137,6 +3864,29 @@
         else startTour();
     };
     soundButton.onclick = () => setTourMuted(!state.tour.muted);
+    if (themeToggleButton) {
+        themeToggleButton.onclick = () => {
+            const next = state.settings.palette === 'light' ? 'galaxy' : 'light';
+            state.settings.palette = next;
+            saveSettings();
+            syncControlPanel();
+            render();
+        };
+    }
+    if (densitySwitch) {
+        densitySwitch.onclick = event => {
+            const btn = event.target.closest('.ai-kg-density-btn');
+            if (!btn) return;
+            const targetDensity = btn.dataset.kgDensity;
+            if (targetDensity === state.density) return;
+            state.density = targetDensity;
+            try { localStorage.setItem('ai_kg_density', targetDensity); } catch (_) {}
+            syncControlPanel();
+            if (state.mode === 'knowledge' && state.knowledgeFullData) {
+                applyKnowledgeData(state.knowledgeFullData);
+            }
+        };
+    }
     controlsButton.onclick = () => {
         const open = controlPanel.classList.toggle('open');
         controlsButton.setAttribute('aria-pressed', String(open));
