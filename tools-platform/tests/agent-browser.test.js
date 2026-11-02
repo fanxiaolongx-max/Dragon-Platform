@@ -74,7 +74,8 @@ test('browser tools open a page, read it, capture fetch responses and console, t
 });
 
 test('browser tools are an admin-only deferred group; navigate is approved per site in chats without a folder', { skip: !hasChrome && '本机没有 Chrome / Edge' }, async () => {
-    assert.deepEqual(await extraTools.toolsets({ owner: 'default::guest', readOnly: true }), [], 'read-only accounts get no browser');
+    // 只读账号只有平台工具向导（只读），没有浏览器
+    assert.deepEqual((await extraTools.toolsets({ owner: 'default::guest', readOnly: true })).map(set => set.id), ['platform_tools'], 'read-only accounts get no browser');
     const sets = await extraTools.toolsets({ owner: 'default::alice', readOnly: false });
     const reg = await registry.create({ session: { readOnly: false }, extraToolsets: sets });
     assert.ok(!reg.definitions().some(tool => tool.name.startsWith('browser_')), 'not sent up front');

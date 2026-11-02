@@ -5,10 +5,54 @@
 // 只给管理员（打开网址可访问服务端能访问的内网地址）。
 const browser = require('./agent-browser');
 
+// 平台工具向导：按需求找平台上的工具、读某个工具的使用说明（只读，所有账号可用）
+const PLATFORM_TOOL_DEFINITIONS = [
+    {
+        name: 'find_platform_tools',
+        description: '按用户的需求或关键词，在本平台的工具里找能解决问题的工具（含平台页面和自定义工具），返回名称、入口路径和一句话说明。用户描述一个需求、问「平台有没有能……的工具」、或工具目录里没找到合适的时候用。',
+        parameters: { type: 'object', properties: { query: { type: 'string', description: '用户的需求原话或关键词' }, limit: { type: 'integer', description: '最多返回几个，默认 6' } }, required: ['query'] }
+    },
+    {
+        name: 'read_tool_guide',
+        description: '读取平台上某个工具的使用说明：能做什么、什么时候用、操作步骤、工作原理、注意事项。用户问某个工具怎么用、怎么工作时用；tool 填工具名称、入口路径或 find_platform_tools 返回的 id。',
+        parameters: { type: 'object', properties: { tool: { type: 'string' } }, required: ['tool'] }
+    }
+];
+
+async function executePlatformTool(name, args = {}) {
+    const guides = require('./platform-tool-guides');
+    try {
+        if (name === 'find_platform_tools') {
+            const items = await guides.findTools(String(args.query || ''), { limit: Number(args.limit) || 6 });
+            if (!items.length) return { content: '没有找到相关的平台工具。可以换个说法，或参考系统提示里的平台工具目录。', summary: '没有找到' };
+            return { content: items.map(item => `- [${item.title}](${item.href})｜id: ${item.id}｜${item.summary}${item.hasGuide ? '' : '（还没有生成详细说明）'}`).join('\n'), summary: `找到 ${items.length} 个工具` };
+        }
+        const tool = await guides.toolGuide(args.tool);
+        if (!tool) return { content: `平台上没有找到「${args.tool}」这个工具，先用 find_platform_tools 搜一下。`, summary: '没有这个工具', isError: true };
+        const body = tool.guide
+            ? `摘要：${tool.summary}\n\n${tool.guide}`
+            : `（这个工具还没有生成使用说明，以下只有简介；需要更多细节时可结合项目知识检索结果，或请管理员在「全局设置 › 智能体工具」生成说明。）\n简介：${tool.description}\n标签：${tool.tags.join('、') || '无'}`;
+        return { content: `# ${tool.title}\n入口：${tool.href}\n\n${body}`, summary: `${tool.title} 的使用说明` };
+    } catch (error) {
+        return { content: `错误：${error.message}`, summary: String(error.message || '').slice(0, 120), isError: true };
+    }
+}
+
+const platformToolset = () => ({
+    id: 'platform_tools',
+    label: '平台工具向导：按需求找平台上的工具、读某个工具的使用说明（怎么用、原理）',
+    definitions: PLATFORM_TOOL_DEFINITIONS,
+    kindOf: () => 'read',
+    preview: async () => ({}),
+    alwaysKey: name => name,
+    execute: call => executePlatformTool(call.name, call.args && typeof call.args === 'object' ? call.args : {})
+});
+
 /** 当前可用的附加工具组；owner 为 租户::账号 */
 async function toolsets({ owner, readOnly }) {
-    if (readOnly || !owner) return [];
-    const sets = [];
+    if (!owner) return [];
+    const sets = [platformToolset()];
+    if (readOnly) return sets;
     const where = browser.available();
     if (where) {
         const ctx = { owner };

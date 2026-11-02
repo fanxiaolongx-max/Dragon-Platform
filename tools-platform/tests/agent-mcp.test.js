@@ -48,7 +48,8 @@ test('MCP tools join chats as an approval-gated group, pass only their own env, 
     const set = sets.find(item => item.id === 'mcp_echo_server');
     assert.deepEqual(set.definitions.map(def => def.name), ['mcp__echo_server__echo', 'mcp__echo_server__add', 'mcp__echo_server__fail']);
     assert.equal(set.kindOf('mcp__echo_server__echo'), 'external');
-    assert.deepEqual(await inDefault(() => extraTools.toolsets({ owner: 'default::guest', readOnly: true })), []);
+    // 只读账号只有平台工具向导（只读），没有 MCP
+    assert.deepEqual((await inDefault(() => extraTools.toolsets({ owner: 'default::guest', readOnly: true }))).map(set => set.id), ['platform_tools']);
 
     const events = [];
     const write = event => {

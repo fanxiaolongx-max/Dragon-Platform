@@ -256,8 +256,11 @@ async function ensureReady() {
 async function indexFile(filePath) {
     const stat = fs.statSync(filePath);
     if (!stat.isFile() || stat.size > MAX_FILE_BYTES) return { skipped: true };
-    const relativePath = toProjectPath(filePath);
-    const raw = fs.readFileSync(filePath, 'utf8');
+    return indexText(toProjectPath(filePath), fs.readFileSync(filePath, 'utf8'), { size: stat.size, mtimeMs: stat.mtimeMs });
+}
+
+/** 按内容建索引：文件，或数据库里的虚拟文档（如工具使用说明 tool-guides/*.md） */
+async function indexText(relativePath, raw, { size = Buffer.byteLength(raw), mtimeMs = Date.now() } = {}) {
     const hash = sha256(raw);
     const existing = await get('SELECT content_hash FROM ai_knowledge_documents WHERE path = ?', [relativePath]);
     if (existing && existing.content_hash === hash) return { unchanged: true };
@@ -272,7 +275,7 @@ async function indexFile(filePath) {
             mtime_ms = excluded.mtime_ms,
             chunk_count = excluded.chunk_count,
             indexed_at = CURRENT_TIMESTAMP`,
-        [relativePath, hash, stat.size, Math.round(stat.mtimeMs), chunks.length]
+        [relativePath, hash, size, Math.round(mtimeMs), chunks.length]
     );
     await run('DELETE FROM ai_knowledge_chunks WHERE document_path = ?', [relativePath]);
     for (const chunk of chunks) {
@@ -331,6 +334,21 @@ async function refreshIndex({ force = false, onProgress, signal } = {}) {
                 }
             } catch (error) {
                 errors.push({ path: toProjectPath(filePath), error: String(error.message || error).slice(0, 200) });
+            }
+        }
+
+        // 工具使用说明（存在租户库里，没有对应文件）：作为虚拟文档一起索引
+        const guideDocs = await require('./platform-tool-guides').documentsForIndex().catch(error => {
+            errors.push({ path: 'tool-guides', error: String(error.message || error).slice(0, 200) });
+            return [];
+        });
+        for (const doc of guideDocs) {
+            activePaths.add(doc.path);
+            try {
+                const result = await indexText(doc.path, doc.content);
+                if (result.indexed) { indexedFiles += 1; chunkCount += result.chunks || 0; } else unchangedFiles += 1;
+            } catch (error) {
+                errors.push({ path: doc.path, error: String(error.message || error).slice(0, 200) });
             }
         }
 

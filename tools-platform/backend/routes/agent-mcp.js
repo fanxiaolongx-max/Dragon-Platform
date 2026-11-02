@@ -44,4 +44,24 @@ router.delete('/danger-rules/:id', async (req, res) => {
     try { res.json(await require('../models/agent-danger-rules').remove(req.params.id)); } catch (error) { fail(res, error); }
 });
 
+// 工具使用说明：状态、生成（后台执行，轮询 GET 看进度）、查看单份
+router.get('/tool-guides', async (_req, res) => {
+    try { res.setHeader('Cache-Control', 'no-store'); res.json(await require('../models/platform-tool-guides').status()); } catch (error) { fail(res, error); }
+});
+
+router.post('/tool-guides/generate', async (req, res) => {
+    try {
+        const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(String).slice(0, 200) : null;
+        res.json({ job: await require('../models/platform-tool-guides').startGeneration({ force: req.body?.force === true, ids }) });
+    } catch (error) { fail(res, error); }
+});
+
+router.get('/tool-guides/item', async (req, res) => {
+    try {
+        const guide = await require('../models/platform-tool-guides').readGuide(String(req.query.id || ''));
+        if (!guide) return res.status(404).json({ code: 'TOOL_GUIDE_NOT_FOUND', error: '这个工具还没有生成说明' });
+        res.json(guide);
+    } catch (error) { fail(res, error); }
+});
+
 module.exports = router;
