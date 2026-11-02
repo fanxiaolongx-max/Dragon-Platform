@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-platform-page-title="工具中台" data-platform-page-title-en="Tool Hub">工具中台</title>
+    <script src="/js/shared/fetch-dedupe.js"></script>
     <script src="/js/shared/platform-title.js"></script>
     <meta name="description" content="统一工具平台入口：UIVF12 抓取引擎 & Task SLA 风险监控台">
     <link rel="icon" type="image/x-icon" href="/favicon.ico?v=20261006">
@@ -1799,7 +1800,6 @@
     <script src="/js/home/desktop-agents.js"></script>
     <script src="/js/home/agent-discussion.js"></script>
     <script src="/js/home/dragon-claw-skills.js"></script>
-    <script src="/js/shared/jszip.min.js"></script>
     <script>
         const historyState = {
             items: [],
@@ -3344,7 +3344,7 @@
             };
             const isSkillPackage = async file => {
                 if (/\.md$/i.test(file.name)) return true;
-                if (!/\.zip$/i.test(file.name) || !window.JSZip) return false;
+                if (!/\.zip$/i.test(file.name) || !await ensureJSZip()) return false;
                 const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
                 const names = Object.values(zip.files).filter(entry => !entry.dir).map(entry => entry.name.replace(/\\/g, '/'))
                     .filter(name => !name.split('/').some(part => part === '__MACOSX' || part.startsWith('._')));
@@ -3365,7 +3365,7 @@
                 return !html || depth(html) > depth(`${root}requirements.txt`);
             };
             const isPythonPackage = async file => {
-                if (!/\.zip$/i.test(file.name) || !window.JSZip) return false;
+                if (!/\.zip$/i.test(file.name) || !await ensureJSZip()) return false;
                 const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
                 return looksLikePythonApp(Object.values(zip.files).filter(entry => !entry.dir).map(entry => entry.name.replace(/\\/g, '/'))
                     .filter(name => !name.split('/').some(part => part === '__MACOSX' || part.startsWith('._'))));
@@ -3498,7 +3498,7 @@
             };
             const readToolHtml = async file => {
                 if (!/\.zip$/i.test(file.name)) return file.text();
-                if (!window.JSZip) throw new Error('ZIP 解析组件未加载');
+                if (!await ensureJSZip()) throw new Error('ZIP 解析组件未加载');
                 const zip = await window.JSZip.loadAsync(await file.arrayBuffer());
                 const htmlEntries = Object.values(zip.files)
                     .filter(entry => {

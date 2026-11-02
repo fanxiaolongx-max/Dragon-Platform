@@ -244,6 +244,21 @@ const API = {
 
 window.API = API;
 
+// JSZip 约 98KB，只在上传 zip 包时才用到，按需加载；加载失败返回 false，由调用方决定降级。
+let jsZipPromise = null;
+function ensureJSZip() {
+    if (window.JSZip) return Promise.resolve(true);
+    jsZipPromise ||= new Promise(resolve => {
+        const script = document.createElement('script');
+        script.src = '/js/shared/jszip.min.js';
+        script.onload = () => resolve(Boolean(window.JSZip));
+        script.onerror = () => { jsZipPromise = null; resolve(false); };
+        document.head.append(script);
+    });
+    return jsZipPromise;
+}
+window.ensureJSZip = ensureJSZip;
+
 // 页面版本徽标统一显示平台发布版本，资源 ?v= 现由服务端按内容哈希生成，不再代表版本。
 let toolsAppVersionPromise = null;
 window.ToolsAppVersion = {
