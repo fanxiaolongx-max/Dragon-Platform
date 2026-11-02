@@ -4,9 +4,10 @@ const path = require('path');
 
 const { run, get, all } = require('./app-db');
 const { ensureDataDir, getDataDir } = require('./store');
+const { getTenantId } = require('./tenant-context');
 
 function getLibraryDir() { return path.join(getDataDir(), 'slide-library'); }
-let readyPromise = null;
+const readyByTenant = new Map();
 
 function makeId(prefix) {
     return `${prefix}_${Date.now().toString(36)}${crypto.randomBytes(3).toString('hex')}`;
@@ -38,8 +39,9 @@ async function ensureColumn(table, column, definition) {
 }
 
 async function ensureReady() {
-    if (!readyPromise) {
-        readyPromise = (async () => {
+    const tenantId = getTenantId();
+    if (!readyByTenant.has(tenantId)) {
+        const readyPromise = (async () => {
             ensureDataDir();
             fs.mkdirSync(getLibraryDir(), { recursive: true });
             await run(`CREATE TABLE IF NOT EXISTS slide_design_projects (
@@ -77,11 +79,12 @@ async function ensureReady() {
             await run('CREATE INDEX IF NOT EXISTS idx_slide_library_assets_scenario ON slide_library_assets(usage_scenario)');
             await run('CREATE INDEX IF NOT EXISTS idx_slide_library_assets_page_type ON slide_library_assets(page_type)');
         })().catch(error => {
-            readyPromise = null;
+            readyByTenant.delete(tenantId);
             throw error;
         });
+        readyByTenant.set(tenantId, readyPromise);
     }
-    return readyPromise;
+    return readyByTenant.get(tenantId);
 }
 
 function rowToProject(row) {

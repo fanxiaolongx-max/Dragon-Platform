@@ -4613,13 +4613,13 @@ async function renderSnapshotPublishSettings(content) {
                     <label>${navEscape(snapshotText('远端仓库地址（推荐）', 'Remote Git URL (recommended)'))}<input id="snapshotRemoteUrl" class="nav-settings-input" value="${navEscape(settings.remoteUrl || '')}" placeholder="https://codehub.example.com/team/project.git" autocomplete="off"><small>${navEscape(snapshotText('HTTPS 或 SSH；不要在地址中包含密码或 Token。服务器需已配置 Git 认证。填写后优先使用此地址。', 'HTTPS or SSH; never put a password or token in the URL. Git authentication must be configured on the server. This takes priority when set.'))}</small></label>
                     <label>${navEscape(snapshotText('本地 Git 镜像仓库（可选）', 'Local Git mirror (optional)'))}<input id="snapshotRepoDir" class="nav-settings-input" value="${navEscape(settings.repoDir || '')}" placeholder="D:\\03-工具开发\\privacy-policy-main\\CNBG\\_CS\\_Tools\\_Platform" autocomplete="off"><small>${navEscape(snapshotText('远端地址留空时读取此目录的 origin；不覆盖镜像工作区。', 'When the remote URL is empty, its origin is used. The mirror checkout remains untouched.'))}</small></label>
                     <label>${navEscape(snapshotText('目标分支', 'Target branch'))}<input id="snapshotBranch" class="nav-settings-input" value="${navEscape(settings.branch || 'master')}" autocomplete="off"></label>
-                    <label>${navEscape(snapshotText('仓库内 HTML 路径模板', 'HTML path template in repository'))}<input id="snapshotFile" class="nav-settings-input" value="${navEscape(settings.file || '{toolSlug}/index.html')}" placeholder="{toolSlug}/index.html" autocomplete="off" oninput="updateSnapshotPublishPathPreview()"><small>${navEscape(snapshotText('{toolSlug} 使用工具市场的稳定标识。仓库根目录 index.html 将作为工具菜单；更改路径不会自动删除旧路径。', '{toolSlug} uses the stable marketplace identifier. Root index.html is reserved for the tool menu; changing paths does not delete old files.'))}</small><small id="snapshotPathPreview" class="snapshot-path-preview">${navEscape(snapshotText('实际页面：', 'Resolved page: '))}${navEscape(settings.resolvedFile || '{toolSlug}/index.html')}${settings.publishMode === 'pages' ? ` · ${navEscape(snapshotText('数据目录：', 'Data directory: '))}${navEscape((settings.resolvedFile || '{toolSlug}/index.html').replace(/[^/]+$/, 'data/'))}` : ''}</small></label>
+                    <label>${navEscape(snapshotText('仓库内 HTML 路径模板', 'HTML path template in repository'))}<input id="snapshotFile" class="nav-settings-input" value="${navEscape(settings.file || '{toolSlug}/index.html')}" placeholder="{toolSlug}/index.html" autocomplete="off" oninput="updateSnapshotPublishPathPreview()"><small>${navEscape(snapshotText('{toolSlug} 使用平台页面或工具的稳定标识。仓库根目录 index.html 将作为工具菜单；更改路径不会自动删除旧路径。', '{toolSlug} uses the stable platform page or tool identifier. Root index.html is reserved for the tool menu; changing paths does not delete old files.'))}</small><small id="snapshotPathPreview" class="snapshot-path-preview">${navEscape(snapshotText('实际页面：', 'Resolved page: '))}${navEscape(settings.resolvedFile || '{toolSlug}/index.html')}${settings.publishMode === 'pages' ? ` · ${navEscape(snapshotText('数据目录：', 'Data directory: '))}${navEscape((settings.resolvedFile || '{toolSlug}/index.html').replace(/[^/]+$/, 'data/'))}` : ''}</small></label>
                 </div>
                 <div class="snapshot-security">
                     <div class="snapshot-security-head">
                         <div>
                             <strong>${navEscape(snapshotText('已接入静态发布的工具', 'Tools with Snapshot Publishing'))}</strong>
-                            <p>${navEscape(snapshotText('勾选参与全量与定时推送的工具。首页和所有工具统一登录，无需单独密码；脚本与插件暂不发布。', 'Choose tools for full and scheduled publishing. The homepage and tools share one sign-in; individual passwords are no longer needed. Scripts and plugins are excluded.'))}</p>
+                            <p>${navEscape(snapshotText('勾选参与全量与定时推送的平台页面和工具。默认统一登录；勾选免密码可直接访问。数据抓取可展示脚本，浏览器插件安装包不发布。', 'Choose platform pages and tools for full and scheduled publishing. One sign-in covers private pages; public pages open directly. Capture scripts are included; browser extension packages are excluded.'))}</p>
                         </div>
                         <input type="search" id="snapshotToolsFilter" class="nav-settings-input" style="max-width: 170px; padding: 5px 10px; font-size: 12px; margin-left: auto;" placeholder="${navEscape(snapshotText('搜索工具…', 'Filter tools…'))}" oninput="filterSnapshotTools(this.value)">
                     </div>
@@ -4641,7 +4641,7 @@ async function renderSnapshotPublishSettings(content) {
                                         <small class="snapshot-tool-slug">${navEscape(t.toolSlug)}</small>
                                     </label>
                                     <div class="snapshot-tool-meta-right">
-                                        ${t.toolSlug === 'bigscreen' ? `<label><input type="checkbox" id="snapshotToolPublic_bigscreen" ${t.publicAccess ? 'checked' : ''}> ${navEscape(snapshotText('免密码访问', 'Access without sign-in'))}</label><button type="button" onclick="startSnapshotPublish({ toolSlug: 'bigscreen', force: true })">${navEscape(snapshotText('强制推送大屏', 'Force publish dashboard'))}</button>` : ''}
+                                        ${t.platformPage ? `<label><input type="checkbox" id="snapshotToolPublic_${navEscape(t.toolSlug)}" ${t.publicAccess ? 'checked' : ''}> ${navEscape(snapshotText('免密码访问', 'Access without sign-in'))}</label><button type="button" onclick="startSnapshotPublish({ toolSlug: '${navEscape(t.toolSlug)}', force: true })">${navEscape(snapshotText('单独强制推送', 'Force publish this page'))}</button>` : ''}
                                         <button type="button" class="snapshot-tool-size-badge pending" id="snapshotToolSize_${navEscape(t.toolSlug)}" title="${navEscape(snapshotText('点击重新预估此工具大小', 'Click to re-estimate data volume'))}" onclick="estimateSingleSnapshotTool('${navEscape(t.toolSlug)}')">
                                             <span class="snapshot-size-loading-dot"></span>
                                             <span class="snapshot-size-text">${navEscape(snapshotText('待预估', 'Pending'))}</span>
@@ -4995,11 +4995,11 @@ window.saveSnapshotPublishSettings = async function (options = {}) {
     document.querySelectorAll('.snapshot-tool-item[data-tool-slug]').forEach(el => {
         const slug = el.dataset.toolSlug;
         if (el.dataset.estimateState !== 'ready') {
-            if (slug === 'bigscreen') toolsList.push({ toolSlug: slug, publicAccess: document.getElementById('snapshotToolPublic_bigscreen')?.checked === true });
+            if (document.getElementById('snapshotToolPublic_' + slug)) toolsList.push({ toolSlug: slug, publicAccess: document.getElementById('snapshotToolPublic_' + slug).checked });
             return;
         }
         const en = document.getElementById('snapshotToolEnabled_' + slug)?.checked !== false;
-        toolsList.push({ toolSlug: slug, enabled: en, ...(slug === 'bigscreen' ? { publicAccess: document.getElementById('snapshotToolPublic_bigscreen')?.checked === true } : {}) });
+        toolsList.push({ toolSlug: slug, enabled: en, ...(document.getElementById('snapshotToolPublic_' + slug) ? { publicAccess: document.getElementById('snapshotToolPublic_' + slug).checked } : {}) });
     });
     const newSettings = {
         remoteUrl: document.getElementById('snapshotRemoteUrl').value,

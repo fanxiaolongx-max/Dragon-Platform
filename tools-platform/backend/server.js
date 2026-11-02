@@ -545,8 +545,9 @@ app.get('/expedite', (req, res) => {
 app.get('/monthly', (req, res) => {
     sendFrontendHtml(res, 'pages/ai-report.html'); // AI 月报编辑器（旧编辑器已归档于 backups/monthly-designer-classic-2026-10-21）
 });
-// 旧月报编辑器与旧月报页面的书签统一跳到 AI 月报
-app.get(['/ai-report', '/monthly/legacy', '/pages/monthly-designer.html', '/pages/monthly.html'], (req, res) => res.redirect(302, '/monthly'));
+app.get(['/monthly/legacy', '/pages/monthly.html'], (req, res) => sendFrontendHtml(res, 'pages/monthly.html'));
+// 旧三栏设计器已归档；固定版月报保留独立入口。
+app.get(['/ai-report', '/pages/monthly-designer.html'], (req, res) => res.redirect(302, '/monthly'));
 app.get(['/duty-roster', '/duty-roster.html'], (req, res) => {
     sendFrontendHtml(res, 'pages/duty-roster.html');
 });

@@ -164,3 +164,19 @@ test('toggling publicAccess state between public and private cleanly replaces fi
     assert.match(fs.readFileSync(path.join(checkout, 'switch-tool/index.html'), 'utf8'), /data-static-boot="1"/);
     assert.equal(fs.existsSync(path.join(checkout, 'switch-tool/data/stat.json')), false);
 });
+test('republishing migrates legacy per-tool password gates even for a retained public page', async () => {
+    const { injectGatekeeper } = require('../backend/models/snapshot-gatekeeper');
+    const root = path.join(temp, 'legacy-gate-site');
+    fs.mkdirSync(root);
+    const item = { slug: 'legacy-gate', name: 'Legacy gate', href: './legacy-gate/index.html', publicAccess: true };
+    const old = injectGatekeeper('<html><head></head><body><main>Saved business sample</main></body></html>', { enabled: true, passwordHash: 'obsolete-hash', passwordSalt: 'obsolete-salt' }, item.slug);
+    await portal.buildPortal(root, [item], new Map([['legacy-gate/index.html', old]]));
+    let html = fs.readFileSync(path.join(root, 'legacy-gate/index.html'), 'utf8');
+    assert.doesNotMatch(html, /tpGatekeeper|obsolete-hash|访问受限/);
+    // Simulate an older published file left on disk and publish a different tool.
+    fs.writeFileSync(path.join(root, 'legacy-gate/index.html'), old);
+    await portal.buildPortal(root, [item], new Map());
+    html = fs.readFileSync(path.join(root, 'legacy-gate/index.html'), 'utf8');
+    assert.doesNotMatch(html, /tpGatekeeper|obsolete-hash|访问受限/);
+    assert.match(html, /Saved business sample/);
+});

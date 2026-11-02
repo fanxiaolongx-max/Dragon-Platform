@@ -2,7 +2,7 @@
 
 AI 月报（`frontend/pages/ai-report.html`）是平台默认且唯一的月报编写与交付工作台。它的目标很简单：**让你第一次编月报时，像跟同事聊天、摆桌面卡片一样把月报搭出来；等到了下个月，只要切换一下月份，整份月报自己把新数据算好、把总结写好。**
 
-- **怎么进**：点击顶部导航栏「月报」或直接访问 `/monthly`（旧链接 `/ai-report`、`/monthly/legacy`、`/pages/monthly-designer.html`、`/pages/monthly.html` 都会自动跳转到这里）。
+- **怎么进**：点击顶部导航栏「月报」或直接访问 `/monthly`；工具栏“旧月报”进入 `/monthly/legacy`（兼容 `/pages/monthly.html`）的固定版月报，`/ai-report` 与 `/pages/monthly-designer.html` 仍跳转至 AI 月报。
 - **版本说明**：早期需要手工配置数据源与组件属性的三栏式「通用月报设计器」已退役并归档至 `tools-platform/backups/monthly-designer-classic-2026-10-21`。现在的 `/monthly` 采用全新的 **「五维 AI 对话 + 跨月配方 + 零网络沙箱 + 直接上手微调」** 体验。
 
 ---
@@ -246,3 +246,7 @@ AI 月报的做法是：**AI 不直接填数字，而是写一套“取数 + 计
 - **前端核心模块**：`frontend/js/ai-report/{app.js,cell-chat.js,export.js,layout.js,light-theme.js,render-kit.js,report-model.js,runner.js,sandbox.js,sanitize.js,splash.js,trace.js,trace-viewer.js,view.js,widgets.js}`
 - **后端路由与模型**：`backend/routes/ai-report.js`、`backend/models/{ai-report-repository.js,ai-report-data.js,ai-report-datasets.js,ai-report-images.js,source-sheet-parser.js}`
 - **自动化测试**：`tests/ai-report.test.js`、`tests/ai-report-browser.cjs`
+
+## 静态演示
+
+全局设置的静态发布中勾选“月报页面”，会同时发布 AI 月报最近保存的文档及旧版固定月报所需报表快照、指标规则和中英文配置。Pages 格式包含 `index.html` 与 `legacy.html`；单 HTML 下载将旧月报内嵌供离线打开。两者共用参与推送和免登录选项。需要重新生成 AI 内容或保存业务修改时请返回平台。

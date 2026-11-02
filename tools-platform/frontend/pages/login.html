@@ -115,8 +115,20 @@
             gap: 8px;
         }
 
+        .login-brand-header h2 { position: relative; padding-right: 80px; }
+        #loginBrandName { white-space: nowrap; font-size: clamp(18px, 4.5vw, 25px); }
         .version-badge {
-            font-size: 10px;
+            position: absolute;
+            right: -8px;
+            top: 2px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+            white-space: nowrap;
+            line-height: 1.3;
+            font-size: 9px;
+            -webkit-text-fill-color: #a5b4fc;
             background: rgba(255, 255, 255, 0.1);
             padding: 2px 7px;
             border-radius: 8px;
@@ -1078,7 +1090,15 @@
             const badge = document.getElementById('appVersionBadge');
             if (!badge || !loginAppVersion) return;
             const en = (window.ToolsI18n?.getLanguage?.() || document.documentElement.lang || '').startsWith('en');
-            badge.textContent = `v${loginAppVersion}${window.__TP_STATIC_BASE__ ? ' · ' + (en ? 'Online test version' : '在线测试版') : ''}`;
+            badge.replaceChildren();
+            const version = document.createElement('span');
+            version.textContent = `v${loginAppVersion}`;
+            badge.appendChild(version);
+            if (window.__TP_STATIC_BASE__) {
+                const channel = document.createElement('small');
+                channel.textContent = en ? 'Online test version' : '在线测试版';
+                badge.appendChild(channel);
+            }
         }
         async function loadAppVersion() {
             const badge = document.getElementById('appVersionBadge');

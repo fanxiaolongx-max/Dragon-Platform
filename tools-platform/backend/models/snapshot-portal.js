@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const security = require('./snapshot-portal-security');
+const { stripLegacyGatekeeper } = require('./snapshot-gatekeeper');
 const { PAYLOAD_CHUNK_BYTES } = require('./snapshot-size-policy');
 const { getTenantId } = require('./tenant-context');
 const { safeJson } = require('./static-snapshot-data');
@@ -59,7 +60,7 @@ async function collectHome(items) {
         const { slug, name, nameEn, description, descriptionEn, tags, icon, builtIn, createdAt, updatedAt } = tool;
         return {
             slug, name, nameEn, description, descriptionEn, tags, icon, builtIn, createdAt, updatedAt,
-            publicAccess: Boolean(tool.publicAccess || item?.publicAccess),
+            publicAccess: item ? Boolean(item.publicAccess) : Boolean(tool.publicAccess),
             href: item?.href || `/custom-tools/${slug}/index.html`
         };
     });
@@ -67,6 +68,8 @@ async function collectHome(items) {
         tools.push({
             slug: item.slug,
             name: item.name,
+            nameEn: item.nameEn,
+            descriptionEn: item.descriptionEn,
             description: item.description,
             icon: '🧩',
             publicAccess: Boolean(item.publicAccess),
@@ -226,6 +229,7 @@ async function buildPortal(checkout, items, changedFiles) {
     for (const [name, value] of files) {
         assertPath(checkout, name);
         let bytes = Buffer.isBuffer(value) ? value : Buffer.from(value);
+        if (/\.html$/i.test(name) && name !== 'index.html') bytes = Buffer.from(stripLegacyGatekeeper(bytes.toString()));
         if (/\.html$/i.test(name) && name !== 'index.html' && !bytes.includes(Buffer.from('/tp-static/session.js'))) {
             const depth = path.posix.relative(path.posix.dirname(name), '.') || '.';
             bytes = Buffer.from(bytes.toString().replace(/<head([^>]*)>/i, `<head$1><script src="${depth}/tp-static/session.js"></script>`));

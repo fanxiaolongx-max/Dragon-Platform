@@ -51,3 +51,14 @@ test('gatekeeper intercepts HTMLDialogElement showModal while locked to prevent 
     assert.ok(GATEKEEPER_STYLE.includes('html.tp-locked dialog'), 'Must hide dialogs while locked');
 });
 
+test('unified publication strips only the legacy tool gate and preserves nested page content', () => {
+    const { stripLegacyGatekeeper } = require('../backend/models/snapshot-gatekeeper');
+    const raw = '<html class="theme-dark tp-locked"><head></head><body class="tp-locked"><main><div><div>Business data</div></div></main><script>window.business=true;</script></body></html>';
+    const locked = injectGatekeeper(raw, { enabled: true, passwordHash: 'old-hash', passwordSalt: 'old-salt' }, 'old-tool');
+    const cleaned = stripLegacyGatekeeper(locked);
+    assert.doesNotMatch(cleaned, /tpGatekeeper|old-hash|old-salt|tp-locked|访问受限/);
+    assert.match(cleaned, /<main><div><div>Business data<\/div><\/div><\/main>/);
+    assert.match(cleaned, /window.business=true/);
+    assert.match(cleaned, /theme-dark/);
+    assert.equal(stripLegacyGatekeeper(cleaned), cleaned);
+});

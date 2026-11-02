@@ -83,6 +83,7 @@
         toolbar();status();
     }
     function toolbar(){
+        $('#airLegacyReport').textContent=t('旧月报','Classic report');
         $('#airMonth').value=state.doc.reportMonth;
         $('#airReportName').textContent=state.doc.name;
         $('#airReportList').innerHTML=state.reports.map(item=>`<button type="button" data-open="${esc(item.id)}" aria-current="${item.id===state.doc.id}"><span>${esc(item.name)}</span><small>${esc(item.reportMonth)}</small></button>`).join('')||`<p>${t('还没有保存的月报','No saved reports yet')}</p>`;

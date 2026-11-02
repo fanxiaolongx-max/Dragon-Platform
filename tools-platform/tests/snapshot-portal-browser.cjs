@@ -45,13 +45,15 @@ app.whenReady().then(async () => {
     await until(() => !!document.getElementById('loginBtn'));
     assert.equal(new URL(win.webContents.getURL()).pathname, '/project/login.html');
     await until(() => document.getElementById('appVersionBadge')?.textContent.includes('在线测试版'));
-    assert.equal(await evaluate(() => document.getElementById('appVersionBadge').textContent), `v${require('../package.json').version} · 在线测试版`);
+    assert.equal(await evaluate(() => document.getElementById('appVersionBadge').textContent), `v${require('../package.json').version}在线测试版`);
     assert.equal(await evaluate(async () => (await fetch('/api/app-version', { method: 'PUT', body: '{}' })).status), 403, 'the pre-login version endpoint stays read-only');
     await evaluate(() => window.ToolsI18n.setLanguage('en-US'));
     await until(() => document.getElementById('appVersionBadge')?.textContent.includes('Online test version'));
     win.setSize(390, 844);
     await evaluate(() => document.documentElement.dataset.theme = 'light');
     assert.equal(await evaluate(() => { const badge = document.getElementById('appVersionBadge'), rect = badge.getBoundingClientRect(); return rect.width > 0 && rect.left >= 0 && rect.right <= innerWidth && badge.scrollWidth <= badge.clientWidth + 1; }), true, 'the login version badge fits a narrow window');
+    assert.equal(await evaluate(() => { const name=document.getElementById('loginBrandName'), badge=document.getElementById('appVersionBadge'); return name.getClientRects().length===1 && badge.children.length===2 && badge.children[1].getBoundingClientRect().top>=badge.children[0].getBoundingClientRect().bottom; }), true, 'brand name stays on one line and test label sits below the version');
+    await win.webContents.capturePage().then(image=>fs.writeFileSync(path.join(os.tmpdir(),'platform-login-version.png'),image.toPNG()));
     win.setSize(1440, 1000);
     await evaluate(() => { document.documentElement.dataset.theme = 'dark'; window.ToolsI18n.setLanguage('zh-CN'); });
     await evaluate(() => { document.getElementById('username').value = 'portal-admin'; document.getElementById('password').value = 'wrong'; document.getElementById('loginBtn').click(); });
@@ -81,8 +83,13 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate(async () => (await fetch('/api/platform-promotions', { method: 'PUT', body: '{}' })).status), 403, 'promotion config stays read-only');
     await evaluate(() => document.getElementById('staticPermissionNotice')?.remove());
     await evaluate(() => document.querySelector('.nrv-banner[data-video="rfc"]').click());
-    const cycle = [await evaluate(() => JSON.parse(localStorage.getItem('tools.home.promotions.rotation')).last)];
-    for (let i = 0; i < 5; i++) {
+    // The video catalog grows over time; verify every current configured candidate exactly once.
+    const expectedCycle = await evaluate(() => JSON.parse(localStorage.getItem('tools.home.promotions.rotation')).signature.split('|'));
+    assert.ok(expectedCycle.includes('rfc') && expectedCycle.includes('link:portal-link'));
+    // Manual preview does not advance automatic rotation. Verify a fresh automatic cycle.
+    await evaluate(() => localStorage.removeItem('tools.home.promotions.rotation'));
+    const cycle = [];
+    for (let i = 0; i < expectedCycle.length; i++) {
         await win.loadURL(base + 'index.html');
         await until(() => !!document.querySelector('#nrvFloat') && !document.querySelector('#nrvFloat').hidden);
         const selected = await evaluate(() => {
@@ -93,7 +100,7 @@ app.whenReady().then(async () => {
         assert.equal(selected.inBanners, false, 'the automatically selected item is displayed in the floating window');
         cycle.push(selected.key);
     }
-    assert.deepEqual(cycle.sort(), ['rfc', 'incentive', 'eos', 'guide', 'link:netcare', 'link:portal-link'].sort(), 'static homepage refreshes cycle through links and videos without repeats');
+    assert.deepEqual(cycle.sort(), expectedCycle.sort(), 'static homepage refreshes cycle through links and videos without repeats: ' + JSON.stringify(cycle));
     assert.equal(await evaluate(() => !!document.getElementById('homeSidebar') && !!document.getElementById('statsBar') && !!document.getElementById('homePromotions')), true);
     assert.equal(await evaluate(() => document.querySelector('#dcDatacomPromo .dc-feature-new')?.textContent), 'NEW');
     await evaluate(() => document.getElementById('builtinToolsCompareBtn').click());

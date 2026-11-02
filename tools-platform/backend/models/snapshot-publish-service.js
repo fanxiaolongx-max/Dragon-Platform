@@ -35,7 +35,7 @@ const EVIDENCE_FILE = /^[a-f0-9-]{36}\.(?:pdf|png|jpg|jpeg|txt|zip|rar|7z|tar|gz
 const PAGES_MARKER = '{"toolId":"department-reward-penalty","format":1}\n';
 const bad = (message, status = 400) => Object.assign(new Error(message), { status });
 
-const { injectGatekeeper } = require('./snapshot-gatekeeper');
+const { injectGatekeeper, stripLegacyGatekeeper } = require('./snapshot-gatekeeper');
 
 const explicitProviders = new Map();
 
@@ -240,6 +240,18 @@ function fingerprintSnapshotBundle(output, mode, isPublic = false) {
 function registerProvider(slug, provider) {
     if (!slug || !provider) return;
     providers.set(slug, { slug, ...provider });
+}
+
+const platformPages = require('./platform-page-snapshot');
+const PLATFORM_PAGE_SLUGS = new Set(['bigscreen', ...Object.keys(platformPages.MODULES)]);
+for (const [slug, [name, nameEn]] of Object.entries(platformPages.MODULES)) {
+    registerProvider(slug, {
+        name, nameEn,
+        description: '平台页面与最近保存数据的只读演示 / Read-only platform demo with saved data',
+        defaultFile: `${slug}/index.html`,
+        buildSnapshot: (_tenantId, options) => platformPages.buildSnapshot(slug, options),
+        buildPagesSnapshot: (_tenantId, options) => platformPages.buildPagesSnapshot(slug, options)
+    });
 }
 
 registerProvider('bigscreen', {
@@ -513,7 +525,7 @@ async function getToolSettings(toolSlug, includeSecrets = false) {
 }
 
 async function saveToolSettings(toolSlug, input) {
-    if (toolSlug === 'bigscreen' && input.publicAccess !== undefined && typeof input.publicAccess !== 'boolean') throw bad('免密码访问选项必须是布尔值');
+    if (PLATFORM_PAGE_SLUGS.has(toolSlug) && input.publicAccess !== undefined && typeof input.publicAccess !== 'boolean') throw bad('免密码访问选项必须是布尔值');
     if (!providers.has(toolSlug)) throw bad('未知的工具标识：' + toolSlug);
     await ready();
     const current = await getToolSettings(toolSlug, true);
@@ -553,7 +565,7 @@ async function saveToolSettings(toolSlug, input) {
             [encryptionEnabled ? 1 : 0, hash, salt, DEFAULT_TOOL_SLUG]).catch(() => {});
     }
 
-    if (toolSlug === 'bigscreen' && input.publicAccess !== undefined) {
+    if (PLATFORM_PAGE_SLUGS.has(toolSlug) && input.publicAccess !== undefined) {
         await run('UPDATE snapshot_tool_settings SET public_access=? WHERE tool_slug=?', [input.publicAccess ? 1 : 0, toolSlug]);
     }
     return getToolSettings(toolSlug);
@@ -568,6 +580,7 @@ async function getSettings(includeSecrets = false) {
             const ts = await getToolSettings(slug, includeSecrets);
             return {
                 ...ts,
+                platformPage: PLATFORM_PAGE_SLUGS.has(slug),
                 name: tool?.name || providers.get(slug).name,
                 description: tool?.description || providers.get(slug).description
             };
@@ -1063,6 +1076,7 @@ async function publish(job, tenantId, settings, options = {}) {
             const toolName = tool?.name || provider.name;
             const toolResolvedFile = legacyPaths.get(slug) || resolvePublishPath(config.file, slug);
             const snapshotOptions = {
+                publishPath: toolResolvedFile,
                 encryption: {
                     enabled: false
                 }
@@ -1086,8 +1100,9 @@ async function publish(job, tenantId, settings, options = {}) {
             const output = config.publishMode === 'pages'
                 ? await provider.buildPagesSnapshot(tenantId, snapshotOptions)
                 : { html: await provider.buildSnapshot(tenantId, snapshotOptions), files: new Map() };
+            output.html = stripLegacyGatekeeper(output.html);
             if (await skipHeavy(sizePolicy.measure(output))) continue;
-            const isPublic = slug === 'bigscreen' ? Boolean((await getToolSettings(slug)).publicAccess) : Boolean(tool?.publicAccess);
+            const isPublic = PLATFORM_PAGE_SLUGS.has(slug) ? Boolean((await getToolSettings(slug)).publicAccess) : Boolean(tool?.publicAccess);
             publishedSlugs.push(slug);
             const fingerprint = fingerprintSnapshotBundle(output, config.publishMode, isPublic);
 
@@ -1165,6 +1180,7 @@ async function publish(job, tenantId, settings, options = {}) {
             const menuRes = updatePublishMenu(checkout, {
                 slug,
                 name: toolName,
+                ...(provider.nameEn ? { nameEn: provider.nameEn } : {}),
                 description: tool?.description || provider.description,
                 href: './' + toolResolvedFile,
                 encrypted: Boolean(snapshotOptions.encryption.enabled),

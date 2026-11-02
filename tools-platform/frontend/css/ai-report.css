@@ -621,3 +621,5 @@ ol.kit-list{padding-left:2.6em}
 .air-chat header{flex-wrap:wrap}.air-chat header>div{min-width:0}
 .air-dev h5{margin:8px 8px 0;font-size:12px;color:var(--air-ink)}
 .air-dev-head{flex-wrap:wrap}.air-dev pre{tab-size:2}
+
+.air-legacy-link{flex:none;color:inherit;text-decoration:none;font-size:12px;padding:7px 10px;border:1px solid var(--air-line,#cbd5e1);border-radius:7px;white-space:nowrap}.air-legacy-link:hover{background:var(--air-soft,#e8eef6)}

@@ -13,6 +13,8 @@ const escapeTable = value => String(value).replace(/\s+/g, ' ').replace(/\\/g, '
 function validateItem(item) {
     if (!item || !/^[a-z0-9][a-z0-9_-]{0,47}$/.test(item.slug)
         || typeof item.name !== 'string' || !item.name.trim() || item.name.length > 80
+        || (item.nameEn !== undefined && (typeof item.nameEn !== 'string' || item.nameEn.length > 100))
+        || (item.descriptionEn !== undefined && (typeof item.descriptionEn !== 'string' || item.descriptionEn.length > 400))
         || (item.description !== undefined && (typeof item.description !== 'string' || item.description.length > 300))
         || typeof item.href !== 'string' || !/^\.\/[\w./-]+\.html$/.test(item.href)
         || item.href.slice(2).split('/').some(part => !part || part === '.' || part === '..')
@@ -24,6 +26,8 @@ function validateItem(item) {
     return {
         slug: item.slug,
         name: item.name.trim(),
+        ...(item.nameEn ? { nameEn: item.nameEn } : {}),
+        ...(item.descriptionEn ? { descriptionEn: item.descriptionEn } : {}),
         description: String(item.description || '').replace(/\s+/g, ' ').trim(),
         href: item.href,
         encrypted: Boolean(item.encrypted),

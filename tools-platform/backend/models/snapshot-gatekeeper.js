@@ -426,5 +426,22 @@ function injectGatekeeper(html, encryption, toolSlug = 'department-reward-penalt
     return res;
 }
 
-module.exports = { injectGatekeeper, GATEKEEPER_STYLE };
+// Remove only the publisher's legacy plaintext password overlay. Unified portal
+// encryption remains responsible for private page access.
+function stripLegacyGatekeeper(html) {
+    let source = String(html);
+    const modal = /<div\b[^>]*\bid=["']tpGatekeeperModal["'][^>]*>/i.exec(source);
+    if (modal) {
+        const tags = /<\/?div\b[^>]*>/gi;
+        tags.lastIndex = modal.index;
+        let depth = 0, match;
+        while ((match = tags.exec(source))) {
+            depth += /^<\//.test(match[0]) ? -1 : 1;
+            if (!depth) { source = source.slice(0, modal.index) + source.slice(tags.lastIndex); break; }
+        }
+    }
+    source = source.replace(/<(script|style)\b[^>]*\bid=["']tpGatekeeper(?:Style|BootScript|Script)["'][^>]*>[\s\S]*?<\/\1\s*>/gi, '');
+    return source.replace(/<(html|body)\b[^>]*>/gi, tag => tag.replace(/class=(["'])(.*?)\1/gi, (_, quote, classes) => 'class=' + quote + classes.split(/\s+/).filter(name => name !== 'tp-locked').join(' ') + quote));
+}
+module.exports = { injectGatekeeper, stripLegacyGatekeeper, GATEKEEPER_STYLE };
 
