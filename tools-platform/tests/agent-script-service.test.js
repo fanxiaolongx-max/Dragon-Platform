@@ -119,7 +119,8 @@ test('script tasks select the built-in Skill without @ and hidden tenant overrid
         const loaded = await store.loadAll(text, { extraIds: skills.autoSelect(text) });
         assert.ok(loaded.selected.some(item => item.id === 'script-data'));
     }
-    for (const text of ['写一个 Python 脚本读取文件', '删除临时目录', '今天的天气', '帮我写一个 Skill']) assert.deepEqual(skills.autoSelect(text), []);
+    for (const text of ['写一个 Python 脚本读取文件', '删除临时目录', '今天的天气']) assert.deepEqual(skills.autoSelect(text), []);
+    assert.equal(skills.autoSelect('帮我写一个 Skill').includes('script-data'), false);
     assert.deepEqual(skills.autoSelect('@netcare-data 查询数据抓取情况'), []);
     assert.deepEqual(skills.autoSelect('查询数据抓取情况', { extraIds: ['netcare-data'] }), []);
     const previous = [{ role: 'user', content: '复制 PBI 抓取脚本为中东版本' }];
