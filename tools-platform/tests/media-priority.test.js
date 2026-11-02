@@ -59,7 +59,7 @@ test('分类按优先级升序排列且全部固定在最前', () => {
 });
 
 test('管理端可直接修改分类优先级', () => {
-    const navbarSource = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+    const navbarSource = ['navbar.js', 'navbar-settings.js'].map(file => fs.readFileSync(path.join(__dirname, '../frontend/js/shared', file), 'utf8')).join('\n');
 
     assert.match(navbarSource, /onchange="setMediaCategoryPriority\(/);
     assert.match(navbarSource, /body: JSON\.stringify\(\{ newName: category\.name, order \}\)/);
@@ -67,7 +67,7 @@ test('管理端可直接修改分类优先级', () => {
 });
 
 test('分类 PIN 输入框只在选择 PIN 保护时启用', () => {
-    const navbarSource = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+    const navbarSource = ['navbar.js', 'navbar-settings.js'].map(file => fs.readFileSync(path.join(__dirname, '../frontend/js/shared', file), 'utf8')).join('\n');
     const sharedCss = fs.readFileSync(path.join(__dirname, '../frontend/css/shared.css'), 'utf8');
 
     assert.match(navbarSource, /enabledWhen: \{ field: 'protected', value: 'true' \}/);
@@ -77,7 +77,7 @@ test('分类 PIN 输入框只在选择 PIN 保护时启用', () => {
 });
 
 test('管理端可修改优先级，影视展播使用服务端排序的第一项', () => {
-    const navbarSource = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+    const navbarSource = ['navbar.js', 'navbar-settings.js'].map(file => fs.readFileSync(path.join(__dirname, '../frontend/js/shared', file), 'utf8')).join('\n');
     const cinemaSource = fs.readFileSync(path.join(__dirname, '../frontend/pages/cinema.html'), 'utf8');
 
     assert.match(navbarSource, /onchange="setMediaPriority\(/);
@@ -87,7 +87,7 @@ test('管理端可修改优先级，影视展播使用服务端排序的第一�
 });
 
 test('媒体管理不重复渲染全部分类，根目录分类使用分类 ID 筛选', () => {
-    const navbarSource = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+    const navbarSource = ['navbar.js', 'navbar-settings.js'].map(file => fs.readFileSync(path.join(__dirname, '../frontend/js/shared', file), 'utf8')).join('\n');
 
     assert.match(navbarSource, /categories\.filter\(category => category\.id !== 'all'\)/);
     assert.match(navbarSource, /const filterValue = c\.folder \|\| c\.id/);
@@ -95,7 +95,7 @@ test('媒体管理不重复渲染全部分类，根目录分类使用分类 ID �
 });
 
 test('编辑媒体时可选择分类并提交到服务端', () => {
-    const navbarSource = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+    const navbarSource = ['navbar.js', 'navbar-settings.js'].map(file => fs.readFileSync(path.join(__dirname, '../frontend/js/shared', file), 'utf8')).join('\n');
 
     assert.match(navbarSource, /name: 'category', label: '所属分类'/);
     assert.match(navbarSource, /category: values\.category/);
@@ -180,7 +180,7 @@ test('全局设置影视作品支持飞牛影视对接配置且默认链接为 h
     const authx = signFeiniuAuthx('POST', '/v/api/v1/item/list', { page: 1 });
     assert.match(authx, /^nonce=\d{6}&timestamp=\d+&sign=[0-9a-f]{32}$/);
 
-    const navbarSource = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+    const navbarSource = ['navbar.js', 'navbar-settings.js'].map(file => fs.readFileSync(path.join(__dirname, '../frontend/js/shared', file), 'utf8')).join('\n');
     const mediaSource = fs.readFileSync(path.join(__dirname, '../backend/routes/media.js'), 'utf8');
     const cinemaSource = fs.readFileSync(path.join(__dirname, '../frontend/pages/cinema.html'), 'utf8');
 

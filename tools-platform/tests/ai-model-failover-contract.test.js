@@ -6,7 +6,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const settingsSource = fs.readFileSync(path.join(root, 'backend/models/ai-settings-repository.js'), 'utf8');
 const usageSource = fs.readFileSync(path.join(root, 'backend/models/ai-usage-repository.js'), 'utf8');
-const navbarSource = fs.readFileSync(path.join(root, 'frontend/js/shared/navbar.js'), 'utf8');
+const navbarSource = ['navbar.js', 'navbar-settings.js'].map(file => fs.readFileSync(path.join(root, 'frontend/js/shared', file), 'utf8')).join('\n');
 const { createClient, isAutoSwitchableError } = require('../backend/models/ai-provider-client');
 
 test('usage ledger records provider, model, and profile dimensions', () => {

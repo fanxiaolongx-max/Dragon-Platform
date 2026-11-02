@@ -78,7 +78,7 @@ test('nav-layout-defaults: setAsDefaultLayout writes defaults/nav-layout.json an
 });
 
 test('nav-layout-defaults: frontend navbar.js and shared.css contain set-as-default bindings', () => {
-    const navbarJs = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+    const navbarJs = ['navbar.js', 'navbar-settings.js'].map(file => fs.readFileSync(path.join(__dirname, '../frontend/js/shared', file), 'utf8')).join('\n');
     const sharedCss = fs.readFileSync(path.join(__dirname, '../frontend/css/shared.css'), 'utf8');
 
     // UI elements

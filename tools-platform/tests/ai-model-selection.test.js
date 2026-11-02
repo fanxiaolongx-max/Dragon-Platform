@@ -113,7 +113,7 @@ test('Dragon Claw composer offers a remembered model picker that applies from th
 });
 
 test('global settings AI tab edits the model name mapping in both languages', () => {
-    const navbar = read('frontend/js/shared/navbar.js');
+    const navbar = read('frontend/js/shared/navbar.js') + '\n' + read('frontend/js/shared/navbar-settings.js');
     assert.match(navbar, /id="navAiAliasPanel"/);
     assert.match(navbar, /\/api\/ai-settings\/model-aliases/);
     ['addAiModelAlias', 'removeAiModelAlias', 'clearAiModelAliases', 'resetAiModelAliases', 'updateAiModelAlias']

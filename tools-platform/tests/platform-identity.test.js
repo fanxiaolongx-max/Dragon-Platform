@@ -60,6 +60,8 @@ test('legacy, invalid, blank and oversized names have stable defaults and limits
 });
 
 const source = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar.js'), 'utf8');
+// 全局设置里的名称保存逻辑在按需加载的 navbar-settings.js
+const settingsSource = fs.readFileSync(path.join(__dirname, '../frontend/js/shared/navbar-settings.js'), 'utf8');
 function fixture() {
     const nodes = [{}, {}], images = new Map([['navBrandLogo', {}], ['homeHeroLogo', {}]]);
     const document = {
@@ -115,8 +117,8 @@ test('failed name saves keep the prior branding and release the save button', as
         window: {}, clearTimeout, navT: key => key, getAuthHeaderForNav: () => ({}),
         fetch: async () => ({ ok: false, status: 403, json: async () => ({ error: 'Admin required' }) })
     });
-    const start = source.indexOf('window.savePlatformName =');
-    vm.runInContext(source.slice(start, source.indexOf('window.handleLogoFileSelect =', start)), context);
+    const start = settingsSource.indexOf('window.savePlatformName =');
+    vm.runInContext(settingsSource.slice(start, settingsSource.indexOf('window.handleLogoFileSelect =', start)), context);
     await context.window.savePlatformName();
     assert.equal(context.navState.settings.platformName, '运营 <中心>');
     assert.equal(controls.platformNameSaveBtn.disabled, false);
@@ -142,8 +144,8 @@ test('successful name save applies canonical server value and keeps other settin
             return { ok: true, json: async () => payload };
         }
     });
-    const start = source.indexOf('window.savePlatformName =');
-    vm.runInContext(source.slice(start, source.indexOf('window.handleLogoFileSelect =', start)), context);
+    const start = settingsSource.indexOf('window.savePlatformName =');
+    vm.runInContext(settingsSource.slice(start, settingsSource.indexOf('window.handleLogoFileSelect =', start)), context);
     await context.window.savePlatformName();
     assert.equal(payload.platformName, 'New Name');
     assert.deepEqual(payload.primaryIds, ['home']);
