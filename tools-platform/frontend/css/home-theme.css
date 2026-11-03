@@ -42,7 +42,7 @@ html[data-ui="v2"]:not([data-theme="dark"]) :is(.dc-resume, .home-caps, .home-ca
 }
 html[data-ui="v2"]:not([data-theme="dark"]) .dc-resume { background: var(--v2-accent-soft); border-color: var(--v2-focus); }
 html[data-ui="v2"]:not([data-theme="dark"]) :is(.dc-resume-text b, .dc-resume-question, .home-caps-title, .home-cap-card-name, .dc-tool-name, .dc-approval-path, .dc-think-label, .dc-session-title, .skill-history-title, .skill-history-item-summary) { color: var(--v2-ink); }
-html[data-ui="v2"]:not([data-theme="dark"]) :is(.dc-resume-text small, .dc-spot-where, .home-caps-where, .home-caps-count, .home-cap-card-desc, .dc-tool-args, .dc-tool-state, .dc-session-meta, .dc-session-last, .dc-think-body, .dc-think-phase, .dc-think-time, .dc-history-divider, .dc-resume-banner) { color: var(--v2-ink2); }
+html[data-ui="v2"]:not([data-theme="dark"]) :is(.dc-resume-text small, .dc-spot-where, .home-caps-where, .home-caps-count, .home-cap-card-desc, .dc-tool-args, .dc-tool-state, .dc-session-meta, .dc-session-last, .dc-think-body, .dc-think-phase, .dc-think-time, .dc-history-divider, .dc-history-banner, .dc-resume-banner) { color: var(--v2-ink2); }
 html[data-ui="v2"]:not([data-theme="dark"]) .dc-spot-icon { background: var(--v2-chip); border-color: var(--v2-line); box-shadow: none; }
 html[data-ui="v2"]:not([data-theme="dark"]) :is(.home-cap-card:hover, .home-cap-card:focus-visible) { background: var(--v2-hover); border-color: var(--v2-line-strong); }
 html[data-ui="v2"]:not([data-theme="dark"]) :is(.home-cap-badge, .dc-spot-gem) { color: #36517c; background: #e9eff8; }

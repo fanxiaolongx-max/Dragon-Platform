@@ -93,6 +93,7 @@ test('desktop-download-manager.js creates floating banner and right-side collaps
 
 test('desktop-window.js implements Windows caption controls at top-right with standard order', () => {
     const desktopWinJs = read('frontend/js/shared/desktop-window.js');
+    assert.doesNotThrow(() => new (require('node:vm').Script)(desktopWinJs), 'caption/drag initialization script must parse');
     assert.match(desktopWinJs, /\.desktop-controls\s*\{[^}]*top:\s*0/);
     assert.match(desktopWinJs, /\.desktop-controls\s*\{[^}]*right:\s*0/);
     assert.match(desktopWinJs, /data-act="minimize"/);
@@ -122,4 +123,46 @@ test('home-v2 implements bottom-left direct channel QR login with black-white ri
     // welink-cli-runner 支持内置/vendor 候选路径，无需强制用户手动选 CLI 路径
     assert.match(welinkRunner, /localCandidates/);
     assert.match(welinkRunner, /vendor/);
+});
+
+test('dc-history-banner matches modern light theme with high contrast text and emerald icon', () => {
+    const homeV2Css = read('frontend/css/home-v2.css');
+    const homeThemeCss = read('frontend/css/home-theme.css');
+
+    // 历史恢复条在浅色主题下文字清晰高对比度，不泛白
+    assert.match(homeV2Css, /html\[data-ui="v2"\]\s*\.dc-history-banner\s*\{[^}]*background:\s*#f1f5f9/);
+    assert.match(homeV2Css, /html\[data-ui="v2"\]\s*\.dc-history-banner\s*\{[^}]*color:\s*#334155/);
+    assert.match(homeV2Css, /html\[data-ui="v2"\]\s*\.dc-history-banner\s+span\[aria-hidden="true"\]\s*\{[^}]*color:\s*#059669/);
+
+    // 深色主题下优雅融合
+    assert.match(homeV2Css, /html\[data-ui="v2"\]\[data-theme="dark"\]\s*\.dc-history-banner/);
+
+    // 历史分割线样式
+    assert.match(homeV2Css, /html\[data-ui="v2"\]\s*\.dc-history-divider/);
+    assert.match(homeThemeCss, /\.dc-history-banner/);
+});
+
+test('channels nav item disables when unconfigured or not enabled and shows tooltip explanation', () => {
+    const homeV2Js = read('frontend/js/home/home-v2.js');
+    const homeV2Css = read('frontend/css/home-v2.css');
+    const channelsRoute = read('backend/routes/channels.js');
+
+    // 后端 /available 返回 channels summary（区分未对接与已对接未启用）
+    assert.match(channelsRoute, /summary\[id\]\s*=\s*\{\s*configured:\s*Boolean\(status\.configured\),\s*enabled:\s*Boolean\(status\.enabled\)/);
+
+    // 前端多语言提示文本
+    assert.match(homeV2Js, /channelDisabledNoChannel:\s*'当前未对接任何频道（WeLink \/ 微信），可在全局设置中对接'/);
+    assert.match(homeV2Js, /channelDisabledNotEnabled:\s*'已配置频道凭据但尚未启用，请在全局设置中开启'/);
+    assert.match(homeV2Js, /channelDisabledNoChannel:\s*'No channels configured/);
+    assert.match(homeV2Js, /channelDisabledNotEnabled:\s*'Channels configured but not enabled/);
+
+    // 导航项禁用样式与悬停提示气泡
+    assert.match(homeV2Css, /\.v2-nav-item\.is-disabled\s*\{[^}]*cursor:\s*not-allowed\s*!important/);
+    assert.match(homeV2Css, /\.v2-nav-tip\s*\{[^}]*position:\s*fixed/);
+
+    // 状态更新与点击拦截
+    assert.match(homeV2Js, /function updateChannelsNavState/);
+    assert.match(homeV2Js, /navItem\.classList\.add\('is-disabled'\)/);
+    assert.match(homeV2Js, /navItem\.title\s*=\s*reason/);
+    assert.match(homeV2Js, /ACTIONS[\s\S]*channels\(\)[\s\S]*navItem\?\.classList\.contains\('is-disabled'\)/);
 });

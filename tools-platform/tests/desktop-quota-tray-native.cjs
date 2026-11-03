@@ -30,7 +30,7 @@ app.whenReady().then(async()=>{
     await until(()=>rail.isVisible(),'rail ready');
     await until(async()=>await rail.webContents.executeJavaScript('document.querySelector(".quota-value").textContent.includes("82")'),'cached quotas rendered');
     const full=rail.getBounds(),display=screen.getDisplayMatching(full);
-    assert.equal(full.height,64);assert.equal(full.y,process.platform==='darwin'?display.workArea.y:display.bounds.y);
+    assert.equal(full.height,64);assert.equal(full.y,display.bounds.y,'the notch sits on the physical top edge, above the macOS menu bar');
     // Force the leave event instead of depending on the user's physical pointer.
     await rail.webContents.executeJavaScript('document.body.dispatchEvent(new PointerEvent("pointerleave"));void 0');
     await until(()=>rail.getBounds().height===6,'native collapse');
@@ -48,6 +48,6 @@ app.whenReady().then(async()=>{
     await until(()=>!peek.isVisible(),'peek closes after pointer departure');
     manager.setQuotaPanelEnabled(false);assert.equal(rail.isVisible(),false);
     assert.equal(peek.isVisible(),false);
-    console.log('PASS: real Electron windows touch the system boundary; native auto-hide/reveal restores bounds; nonactivating hover peek keeps the rail stable and closes cleanly.');
+    console.log('PASS: real Electron windows touch the physical top edge; native auto-hide/reveal restores bounds; nonactivating hover peek keeps the rail stable and closes cleanly.');
     manager.cleanupDesktopPet();app.exit(0);
 }).catch(error=>{console.error(error);manager?.cleanupDesktopPet();app.exit(1);});

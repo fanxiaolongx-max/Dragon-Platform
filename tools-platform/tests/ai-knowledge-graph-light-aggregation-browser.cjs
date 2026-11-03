@@ -1,4 +1,5 @@
 // node_modules/.bin/electron tests/ai-knowledge-graph-light-aggregation-browser.cjs
+// Layout audit: GRAPH_LAYOUT_AUDIT=1 node_modules/.bin/electron tests/ai-knowledge-graph-light-aggregation-browser.cjs
 const { app, BrowserWindow } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -71,11 +72,13 @@ app.whenReady().then(async () => {
             { source: 'group:frontend-ui', target: 'doc:frontend/index.html', type: 'contains' },
             { source: 'doc:backend/models/agent.js', target: 'doc:backend/models/auth.js', type: 'depends' }
         ];
-        const stats = { documents: 5, chunks: 45, builtInTools: 2, customTools: 1, databases: 1, tables: 4, tableRelations: 2 };
+        const stats = { documents: 500, chunks: 15662, builtInTools: 2, customTools: 1, databases: 1, tables: 4, tableRelations: 2 };
         const status = { lastIndexedAt: new Date().toISOString() };
         res.write(JSON.stringify({ type: 'progress', progress: 50, message: '构建节点' }) + '\n');
-        res.write(JSON.stringify({ type: 'graph', data: { nodes, edges, stats, status, mode: 'knowledge' } }) + '\n');
-        res.end();
+        setTimeout(() => {
+            res.write(JSON.stringify({ type: 'result', data: { nodes, edges, stats, status, mode: 'knowledge' } }) + '\n');
+            res.end();
+        }, process.env.GRAPH_LAYOUT_AUDIT ? 500 : 0);
     });
 
     web.get('/api/ai/knowledge/document', (req, res) => {
@@ -108,6 +111,7 @@ app.whenReady().then(async () => {
             </head>
             <body>
                 <h1>Knowledge Graph Test Harness</h1>
+                ${process.env.GRAPH_LAYOUT_AUDIT ? '<script>window.DragonWindow={getState:async()=>({platform:"darwin"}),onState:()=>{}};</script><script src="/js/shared/desktop-window.js"></script>' : ''}
                 <script src="/js/shared/ai-knowledge-graph-spatial-themes-v5.js"></script>
             </body>
             </html>
@@ -130,6 +134,47 @@ app.whenReady().then(async () => {
 
         await win.loadURL(testUrl);
 
+        if (process.env.GRAPH_LAYOUT_AUDIT) {
+            const inspect = async (desktop, phase) => {
+                const result = await evaluate(`(()=>{
+                    const header=document.querySelector('.ai-kg-header'),h=header.getBoundingClientRect();
+                    const items=[...header.children].filter(el=>getComputedStyle(el).display!=='none').map(el=>({name:el.className,r:el.getBoundingClientRect()}));
+                    const overlap=[];
+                    for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){
+                        const a=items[i].r,b=items[j].r;
+                        if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>1 && Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>1)overlap.push([items[i].name,items[j].name]);
+                    }
+                    return {top:h.top,width:header.scrollWidth,client:header.clientWidth,height:h.height,stage:document.querySelector('#aiKgStage').getBoundingClientRect().height,overlap,
+                        out:items.filter(({r})=>r.left<0||r.right>innerWidth+1).map(({name})=>name),
+                        stats:document.querySelector('#aiKgStatuses').getBoundingClientRect().height};
+                })()`);
+                assert.ok(result.top >= (desktop ? 44 : 0), phase+' caption space: '+JSON.stringify(result));
+                assert.ok(result.width<=result.client+1, phase+' no horizontal overflow: '+JSON.stringify(result));
+                assert.deepEqual(result.overlap, [], phase+' controls do not overlap');
+                assert.deepEqual(result.out, [], phase+' controls fit the window');
+                assert.ok(result.stage>250, phase+' graph retains usable space');
+                assert.ok(result.stats<80, phase+' statistics remain horizontal');
+            };
+            for (const platform of ['darwin', 'win32', 'browser']) {
+                await evaluate(`document.documentElement.classList.toggle('is-desktop-app',${platform!=='browser'});document.documentElement.classList.toggle('desktop-mac',${platform==='darwin'});document.documentElement.classList.toggle('desktop-win',${platform==='win32'})`);
+                for (const width of [1440, 1000, 600, 390]) {
+                    win.setContentSize(width, 873);
+                    for (const language of ['zh-CN', 'en-US']) {
+                        await evaluate(`localStorage.setItem('tools_lang','${language}');window.dispatchEvent(new Event('tools:languagechange'));AIKnowledgeGraph.open({mode:'knowledge'})`);
+                        assert.equal(await evaluate(`document.querySelector('#aiKgLoading').hidden`), false);
+                        await inspect(platform!=='browser', platform+' loading '+width+' '+language);
+                        await until(`document.querySelector('#aiKgLoading').hidden`, 'graph loaded');
+                        assert.equal(await evaluate(`document.querySelector('#aiKgStatuses strong')?.textContent`), '500', 'loaded graph statistics rendered');
+                        await wait(100);
+                        await inspect(platform!=='browser', platform+' loaded '+width+' '+language);
+                        if(width===1440 && language==='zh-CN')fs.writeFileSync(path.join(temp,platform+'-layout.png'),(await win.webContents.capturePage()).toPNG());
+                        await evaluate('AIKnowledgeGraph.close()');
+                    }
+                }
+            }
+            console.log('PASS: graph header loading/loaded, macOS/Windows/browser, 1440/1000/600/390px, Chinese/English; no overlaps or horizontal overflow. '+temp);
+            win.destroy();server.close();app.exit(0);return;
+        }
         console.log('1. Checking initialization and opening graph...');
         await evaluate(`window.AIKnowledgeGraph.open()`);
         await until(`document.querySelector('.ai-kg-overlay.open')`, 'graph overlay opened');

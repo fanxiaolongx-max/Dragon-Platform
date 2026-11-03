@@ -1,7 +1,8 @@
 // node_modules/.bin/electron --disable-gpu tests/desktop-main-window-browser.cjs
+// Native mouse audit (macOS + Peekaboo): NATIVE_WINDOW_AUDIT=1 NATIVE_MAC=1 node_modules/.bin/electron tests/desktop-main-window-browser.cjs
 // 桌面端主窗口（desktop-main-window.js + frontend/js/shared/desktop-window.js）：Windows 外观（左上角三个按钮）、
 // 拖动区、最大化 / 还原 / 最小化、关闭隐藏到托盘、浏览器快捷键无效、站外链接不在窗口内打开。全部用临时配置与本地页面。
-process.env.TOOLS_DESKTOP_WIN_CHROME = '1';
+if (!process.env.NATIVE_MAC) process.env.TOOLS_DESKTOP_WIN_CHROME = '1';
 const electron = require('electron');
 const { app } = electron;
 const assert = require('node:assert/strict');
@@ -51,6 +52,29 @@ app.whenReady().then(async () => {
     const win = () => controller.window;
     await until(() => win() && win().isVisible() && !win().webContents.isLoading(), 'window shown');
     const js = code => win().webContents.executeJavaScript(code);
+    if (process.env.NATIVE_WINDOW_AUDIT) {
+        // Native mouse input is necessary: renderer-dispatched events cannot drag a native window.
+        const { promisify } = require('node:util');
+        const run = promisify(require('node:child_process').execFile);
+        await until(() => js('document.documentElement.classList.contains("is-desktop-app")'), 'desktop drag styles');
+        win().setBounds({ x: 100, y: 100, width: 1000, height: 700 });
+        win().show();win().focus();await wait(250);
+        const mouse = async (command, args) => { await run('peekaboo', [command, ...args, '--pid', String(process.pid), '--json']);await wait(350); };
+        for (const [context, y] of [['home',22], ['hub',22], ['graph',22]]) {
+            await js(`document.body.classList.toggle('v2-hub-open',${context==='hub'});document.querySelector('.ai-kg-overlay')?.remove();${context==='graph' ? "document.body.insertAdjacentHTML('beforeend','<div class=\"ai-kg-overlay\" style=\"position:fixed;inset:0\"></div>')" : ''}`);
+            const before = win().getBounds();
+            await mouse('drag', ['--from-coords', `${before.x+500},${before.y+y}`, '--to-coords', `${before.x+560},${before.y+y+40}`, '--duration', '600']);
+            const moved = win().getBounds();
+            assert.ok(Math.abs(moved.x-before.x)>20 || Math.abs(moved.y-before.y)>20, context+' native drag moves window');
+            await mouse('click', ['--coords', `${moved.x+500},${moved.y+y}`, '--double']);
+            await until(() => win().isMaximized(), context+' native double click maximizes');
+            const maximized=win().getBounds();
+            await mouse('click', ['--coords', `${maximized.x+500},${maximized.y+y}`, '--double']);
+            await until(() => !win().isMaximized(), context+' second native double click restores');
+        }
+        console.log('PASS: native top strip drag, double-click maximize, double-click restore; '+(process.env.NATIVE_MAC?'macOS':'Windows chrome on macOS'));
+        quitting=true;controller.destroy();server.close();clearTimeout(timeout);app.exit(0);return;
+    }
     await until(() => js('!!document.querySelector(".desktop-controls")'), 'controls rendered');
 
     // 外观：Windows 外观的右上角三个按钮、拖动区与可点区域

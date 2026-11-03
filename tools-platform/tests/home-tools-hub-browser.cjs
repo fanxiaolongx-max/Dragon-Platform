@@ -1,4 +1,7 @@
 // Run: node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Scan popup audit: HOME_SCAN_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Message navigation audit: HOME_MESSAGES_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Wheel audit: HOME_SCROLL_AUDIT=1 DESKTOP_DRAG_AUDIT=1 DRAG_PLATFORM=darwin node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Desktop drag audit: DESKTOP_DRAG_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Full home renderer, mocked APIs, isolated profile; no model calls or runtime data writes.
 const { app, BrowserWindow } = require('electron');
@@ -38,13 +41,136 @@ app.whenReady().then(async () => {
     web.get('/api/ai/sessions', (req, res) => { if(Number(req.query.offset)>0)sessionPages++;res.json({ items: Array.from({length:55},(_,index)=>({ id: 'recent-fixture-'+index, title: '研究依据核对 Skill', messageCount: 2, firstQuestion:'创建研究依据核对 Skill，检查结论与依据是否对应、口径是否一致，缺依据如何标注；交付一个含名称、说明、触发条件和步骤的 SKILL.md，不安装。',updatedAt:'2026-11-02T09:00:00Z' })).slice(Number(req.query.offset)||0,(Number(req.query.offset)||0)+(Number(req.query.limit)||40)) }); });
     web.get('/api/ai/skills', (_, res) => res.json({ items: [{ id: 'research-check', name: '研究依据核对', nameEn: 'Research check', description: '核对结论与依据', descriptionEn: 'Review research evidence' }] }));
     web.get(['/api/friend-links','/api/recent-nav','/api/upload/history'], (_, res) => res.json([]));
+    if (process.env.HOME_SCAN_AUDIT) {
+        web.get('/api/channels/welink-cli/status', (_, res) => res.json({ install: { available: true }, auth: { loggedIn: true } }));
+        web.get('/api/channels/weixin/status', (_, res) => res.json({ connected: true, bot: { id: 'fixture' } }));
+        web.post('/api/channels/welink-cli/login', (_, res) => res.type('application/x-ndjson').send(JSON.stringify({ type: 'event', event: { type: 'expired' } })+'\n'));
+        web.post('/api/channels/weixin/qrcode-auth', (_, res) => res.type('application/x-ndjson').send(JSON.stringify({ type: 'expired' })+'\n'));
+    }
+    web.get('/api/alert-center/events', (_, res) => setTimeout(() => res.json({ events: [] }), process.env.HOME_MESSAGES_AUDIT ? 200 : 0));
+    web.get('/scroll-fixture', (_, res) => res.send('<!doctype html><title>Scrollable tool</title><div style="height:4000px">Tool content</div>'));
     web.use('/api', (_, res) => res.json({ items: [] }));
     web.use(express.static(frontend));
     server = await new Promise(resolve => { const listener = web.listen(0, '127.0.0.1', () => resolve(listener)); });
     win = new BrowserWindow({ show: false, width: 1440, height: 1000, webPreferences: { sandbox: true, contextIsolation: true, nodeIntegration: false, backgroundThrottling: false } });
+    if (process.env.HOME_SCROLL_AUDIT) win.webContents.on('console-message', (_, level, message) => { if(level>=2)console.error(message); });
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
 
     await until('window.HomeSkillHub&&document.querySelector("[data-v2-mode=tools]")&&document.getElementById("v2SkillHub")');
+    if (process.env.HOME_SCAN_AUDIT) {
+        const isOpen = () => evaluate(`document.querySelector('.v2-scan').classList.contains('is-open') && document.getElementById('v2ScanBtn').getAttribute('aria-expanded')==='true'`);
+        await evaluate(`document.getElementById('v2ScanBtn').dispatchEvent(new MouseEvent('mouseenter'))`);
+        assert.equal(await isOpen(), true, 'hover opens scan dialog');
+        await until(`!!document.querySelector('[data-scan-action="relogin-welink"]')`);
+        await evaluate(`document.getElementById('v2ScanBtn').click()`);
+        assert.equal(await isOpen(), true, 'click after hover keeps dialog open');
+        for (const tab of ['weixin', 'welink', 'weixin']) {
+            await evaluate(`document.querySelector('[data-scan-tab="${tab}"]').click()`);
+            assert.equal(await isOpen(), true, tab+' tab remains open after synchronous DOM replacement');
+            await until(`!!document.querySelector('[data-scan-action="relogin-${tab}"]')`);
+            assert.equal(await evaluate(`document.querySelector('[data-scan-tab="${tab}"]').getAttribute('aria-selected')`), 'true');
+            await evaluate(`document.querySelector('[data-scan-action="relogin-${tab}"]').click()`);
+            assert.equal(await isOpen(), true, tab+' refresh keeps dialog open');
+            await wait(100);
+            assert.equal(await isOpen(), true, tab+' asynchronous response keeps dialog open');
+        }
+        await evaluate(`document.getElementById('v2ScanBtn').dispatchEvent(new MouseEvent('mouseleave'))`);
+        assert.equal(await isOpen(), true, 'moving away does not dismiss');
+        await evaluate('document.body.click()');assert.equal(await isOpen(), false, 'outside click closes');
+        await evaluate(`document.getElementById('v2ScanBtn').click()`);assert.equal(await isOpen(), true, 'click can reopen');
+        await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);assert.equal(await isOpen(), false, 'Escape closes');
+        await evaluate(`document.getElementById('v2ScanBtn').dispatchEvent(new MouseEvent('mouseenter'))`);assert.equal(await isOpen(), true, 'hover reopens');
+        await evaluate(`document.getElementById('v2DiscoverBtn').click()`);assert.equal(await isOpen(), false, 'another menu closes scan dialog');
+        await wait(150);
+        assert.deepEqual(await evaluate('fixtureErrors'), []);
+        console.log('PASS: scan hover opens; click, WeChat/WeLink tabs and refresh remain open; outside click, Escape and other menu dismiss.');
+        win.destroy();server.close();app.exit(0);return;
+    }
+    if (process.env.HOME_MESSAGES_AUDIT) {
+        const isOpen = () => evaluate(`document.body.classList.contains('v2-messages-open') || document.querySelector('.v2-messages')?.classList.contains('is-open')`);
+        const open = async () => {
+            await evaluate(`document.getElementById('v2AlertBtn').click()`);
+            assert.equal(await isOpen(), true, 'bell opens message center');
+        };
+        await open();
+        await evaluate(`document.querySelector('[data-msg-filter="unread"]').click()`);
+        assert.equal(await isOpen(), true, 'message filter keeps center open');
+        await evaluate(`document.getElementById('v2AlertBtn').click()`);
+        assert.equal(await isOpen(), true, 'bell remains usable while open');
+        for (const selector of ['[data-v2-action="newChat"]', '[data-v2-action="skillHub"]', '[data-v2-flyout="more"]', '#v2DiscoverBtn']) {
+            await open();
+            await evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+            assert.equal(await isOpen(), false, selector+' dismisses messages');
+        }
+        await evaluate(`window.fixtureLibraryCalls=0;window.openToolsKnowledgeGraph=()=>{fixtureLibraryCalls++;window.fixtureLibrarySawMessages=document.body.classList.contains('v2-messages-open')};void 0`);
+        await open();
+        await evaluate(`document.querySelector('[data-v2-action="library"]').click()`);
+        assert.equal(await isOpen(), false, 'library dismisses messages without a mode change');
+        assert.equal(await evaluate('fixtureLibraryCalls'), 1, 'library action still runs');
+        assert.equal(await evaluate('fixtureLibrarySawMessages'), false, 'messages close before destination opens');
+        await until(`!!document.querySelector('.home-chat-open')`);
+        await open();
+        await evaluate(`document.querySelector('.home-chat-open').addEventListener('click',e=>e.stopImmediatePropagation(),{once:true});document.querySelector('.home-chat-open').click()`);
+        assert.equal(await isOpen(), false, 'conversation click dismisses even when list stops bubbling');
+        for (const action of ["HomeSkillHub.open('tools')", "HomeToolFrame.open('/scroll-fixture')"]) {
+            await open();await evaluate(action);
+            assert.equal(await isOpen(), false, action+' dismisses messages via navigation event');
+        }
+        await open();await evaluate(`document.querySelector('[data-msg-close]').click()`);
+        assert.equal(await isOpen(), false, 'close button still works');
+        await wait(350);
+        assert.equal(await isOpen(), false, 'pending message fetch cannot reopen the center');
+        assert.deepEqual(await evaluate('fixtureErrors'), []);
+        console.log('PASS: message center closes on sidebar menus, library, conversations and hub/tool navigation; filters, bell and close button preserved.');
+        win.destroy();server.close();app.exit(0);return;
+    }
+    if (process.env.HOME_SCROLL_AUDIT) {
+        win.show();win.focus();
+        // Use Chromium wheel input, not dispatchEvent (which cannot trigger native scrolling).
+        async function wheelAt(x, y, deltaY) {
+            win.webContents.sendInputEvent({ type: 'mouseMove', x: Math.round(x), y: Math.round(y) });
+            await wait(50);
+            win.webContents.sendInputEvent({ type: 'mouseWheel', x: Math.round(x), y: Math.round(y), deltaX: 0, deltaY, canScroll: true });
+            await wait(650);
+        }
+        for (const [width, theme, language] of [[1440, 'light', 'zh-CN'], [600, 'dark', 'en-US']]) {
+            win.setContentSize(width, 800);
+            await evaluate(`document.documentElement.dataset.theme='${theme}';ToolsI18n.setLanguage('${language}');document.body.classList.add('v2-side-collapsed')`);
+            for (const chatting of [false, true]) {
+                await evaluate(`document.body.classList.toggle('dc-chatting',${chatting})`);
+                for (const tab of ['skills', 'plugins', 'tools']) {
+                    await evaluate(`HomeSkillHub.open('${tab}')`);
+                    await wait(250);
+                    await evaluate(`
+                        document.querySelector('#v2SkillHub').insertAdjacentHTML('beforeend','<div class="v2-hub-cards scroll-fixture">'+Array.from({length:60},(_,i)=>'<div class="v2-hub-card">Fixture '+i+'</div>').join('')+'</div>');`);
+                    await wait(80);
+                    const point = await evaluate(`(()=>{const r=document.querySelector('.home-main').getBoundingClientRect();return {x:r.right-20,y:400}})()`);
+                    await wheelAt(point.x, point.y, -560);
+                    assert.ok(await evaluate(`document.querySelector('.home-main').scrollTop>0 || document.scrollingElement.scrollTop>0`), `${tab} scrolls down: ${width}px, chatting=${chatting}`);
+                    // Scroll to the end with wheel input and verify the last card can be reached.
+                    await wheelAt(point.x, point.y, -50000);
+                    assert.ok(await evaluate(`(()=>{const r=document.querySelector('#v2SkillHub .scroll-fixture').lastElementChild.getBoundingClientRect();return r.bottom<=innerHeight && r.bottom>0})()`), `${tab} last card is visible`);
+                    await wheelAt(point.x, point.y, 50000);
+                    assert.equal(await evaluate(`document.querySelector('.home-main').scrollTop + document.scrollingElement.scrollTop`), 0);
+                    await evaluate('HomeSkillHub.close()');
+                }
+            }
+        }
+        // A tool iframe owns its scroll; the host remains fixed. Then return to chat.
+        await evaluate(`HomeToolFrame.open('/scroll-fixture')`);
+        await until(`document.querySelector('.v2-tool-frame-view')?.contentDocument?.title==='Scrollable tool'`);
+        const point = await evaluate(`(()=>{const r=document.querySelector('.v2-tool-frame-view').getBoundingClientRect();return {x:r.right-20,y:r.top+150}})()`);
+        await wheelAt(point.x, point.y, -600);
+        assert.ok(await evaluate(`document.querySelector('.v2-tool-frame-view').contentDocument.scrollingElement.scrollTop>0`), 'embedded tool scrolls');
+        assert.equal(await evaluate(`getComputedStyle(document.querySelector('.home-main')).overflowY`), 'hidden');
+        await evaluate(`HomeToolFrame.close();document.body.classList.add('dc-chatting');document.querySelector('.dc-thread').innerHTML='<div style="height:4000px">Messages</div>'`);
+        const threadPoint=await evaluate(`(()=>{const r=document.querySelector('.dc-thread').getBoundingClientRect();return {x:r.right-20,y:r.top+60}})()`);
+        await wheelAt(threadPoint.x, threadPoint.y, -600);
+        assert.ok(await evaluate(`document.querySelector('.dc-thread').scrollTop>0`), 'chat scrolls after closing hub/tool');
+        assert.deepEqual(await evaluate('fixtureErrors'), []);
+        console.log('PASS: wheel scrolling up/down to last card in all hub tabs, landing/chat states, wide/narrow, light/dark, Chinese/English; embedded tool and return to chat. '+temp);
+        win.destroy();server.close();app.exit(0);return;
+    }
     if (process.env.DESKTOP_DRAG_AUDIT) {
         await until('!!document.querySelector(".desktop-drag-hub")');
         const region = selector => evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).getPropertyValue('-webkit-app-region')`);

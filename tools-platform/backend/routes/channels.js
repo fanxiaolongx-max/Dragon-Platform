@@ -57,15 +57,17 @@ const ch = req => CHANNELS[req.params.channel];
 router.get('/available', handle(async (_req, res) => {
     res.setHeader('Cache-Control','no-store');
     const items = [];
+    const summary = {};
     for (const [id, { service, label }] of Object.entries(CHANNELS)) {
         try {
             const status = await service.getStatus(getTenantId());
+            summary[id] = { configured: Boolean(status.configured), enabled: Boolean(status.enabled), connected: Boolean(status.connected) };
             if (status.enabled && status.configured) items.push({ id, label, connected: Boolean(status.connected), health: require('../models/channels/connection-health').connectionHealth(status) });
         } catch {
             // 某个频道读取失败不影响其他频道
         }
     }
-    res.json({ items });
+    res.json({ items, summary });
 }));
 
 router.get(`/${CH}/status`, handle(async (req, res) => {

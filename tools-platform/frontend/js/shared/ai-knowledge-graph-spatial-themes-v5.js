@@ -19,6 +19,11 @@
         .ai-kg-overlay.open { display: flex; }
         body.ai-kg-open { overflow: hidden !important; }
         .ai-kg-header {
+            flex: none;
+            flex-wrap: wrap;
+            max-height: 50vh;
+            max-height: 50dvh;
+            overflow-y: auto;
             min-height: 56px;
             box-sizing: border-box;
             display: flex;
@@ -30,16 +35,16 @@
             -webkit-backdrop-filter: blur(18px);
             backdrop-filter: blur(18px);
         }
-        .ai-kg-brand { min-width: 170px; flex-shrink: 0; }
-        .ai-kg-title { font-size: 15px; font-weight: 750; letter-spacing: .02em; white-space: nowrap; }
+        .ai-kg-brand { min-width: 0; flex: 1 1 280px; }
+        .ai-kg-title { font-size: 15px; font-weight: 750; letter-spacing: .02em; overflow-wrap: anywhere; }
         .ai-kg-subtitle { margin-top: 2px; font-size: 10px; color: #8390aa; }
-        .ai-kg-view-switch { display:flex; padding:3px; border-radius:11px; background:rgba(31,40,66,.72); border:1px solid rgba(143,157,207,.16); }
+        .ai-kg-view-switch { display:flex; flex:none; max-width:100%; flex-wrap:wrap; padding:3px; border-radius:11px; background:rgba(31,40,66,.72); border:1px solid rgba(143,157,207,.16); }
         .ai-kg-view-btn { height:30px; padding:0 10px; border:0; border-radius:8px; background:transparent; color:#8491aa; font-size:11px; cursor:pointer; white-space:nowrap; }
         .ai-kg-view-btn.active { color:#fff; background:linear-gradient(135deg,rgba(83,105,217,.86),rgba(118,83,189,.82)); box-shadow:0 5px 14px rgba(34,43,93,.28); }
-        .ai-kg-dimension-switch { display:flex; padding:3px; border-radius:11px; background:rgba(18,25,43,.72); border:1px solid rgba(143,157,207,.16); }
+        .ai-kg-dimension-switch { display:flex; flex:none; padding:3px; border-radius:11px; background:rgba(18,25,43,.72); border:1px solid rgba(143,157,207,.16); }
         .ai-kg-dimension-btn { width:36px; height:30px; padding:0; border:0; border-radius:8px; background:transparent; color:#8491aa; font-size:11px; font-weight:750; cursor:pointer; }
         .ai-kg-dimension-btn.active { color:#fff; background:rgba(91,108,204,.62); box-shadow:0 4px 12px rgba(24,31,72,.28); }
-        .ai-kg-density-switch { display:flex; padding:3px; border-radius:11px; background:rgba(31,40,66,.72); border:1px solid rgba(143,157,207,.16); }
+        .ai-kg-density-switch { display:flex; flex:none; max-width:100%; flex-wrap:wrap; padding:3px; border-radius:11px; background:rgba(31,40,66,.72); border:1px solid rgba(143,157,207,.16); }
         .ai-kg-density-btn { height:30px; padding:0 10px; border:0; border-radius:8px; background:transparent; color:#8491aa; font-size:11px; cursor:pointer; white-space:nowrap; transition:background .16s, color .16s; }
         .ai-kg-density-btn.active { color:#fff; background:linear-gradient(135deg,rgba(83,105,217,.86),rgba(118,83,189,.82)); box-shadow:0 5px 14px rgba(34,43,93,.28); }
         .ai-kg-back-btn { display:inline-flex; align-items:center; gap:4px; padding:5px 11px; margin-bottom:12px; border-radius:8px; border:1px solid rgba(135,150,198,.24); background:rgba(43,53,83,.46); color:#9ba8c4; font-size:11px; cursor:pointer; transition:background .16s, color .16s, border-color .16s; }
@@ -51,7 +56,7 @@
         .ai-kg-chat-limit-wrap.visible { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; }
         .ai-kg-chat-limit-wrap output { color:#dce3f2; font-size:10px; font-variant-numeric:tabular-nums; }
         .ai-kg-chat-limit-wrap input { grid-column:1 / -1; width:100%; height:12px; margin:0; accent-color:#806ee8; cursor:pointer; }
-        .ai-kg-statuses { display: flex; gap: 7px; flex-wrap: wrap; }
+        .ai-kg-statuses { display: flex; gap: 7px; flex-wrap: wrap; flex: 0 0 100%; order: 10; min-width: 0; }
         .ai-kg-status {
             padding: 5px 9px;
             border-radius: 999px;
@@ -72,7 +77,7 @@
         .ai-kg-search:focus { border-color: #7081e4; box-shadow: 0 0 0 3px rgba(99,102,241,.14); }
         .ai-kg-search-icon { position:absolute; left:9px; top:8px; font-size:12px; color:#7886a4; pointer-events:none; }
         .ai-kg-search-count { position:absolute; right:8px; top:8px; color:#8290ad; font-size:9.5px; }
-        .ai-kg-actions { display:flex; gap:5px; flex-shrink: 0; align-items: center; }
+        .ai-kg-actions { display:flex; flex-wrap:wrap; max-width:100%; gap:5px; flex-shrink: 0; align-items: center; }
         .ai-kg-btn {
             height: 30px; min-width: 30px; padding: 0 8px; border-radius: 8px;
             border: 1px solid rgba(144,158,207,.2); background: rgba(52,63,98,.54);

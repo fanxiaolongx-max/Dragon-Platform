@@ -375,14 +375,10 @@ function sendQuotaPanelConfig() {
     }
 }
 function quotaDisplayArea(display) {
-    const area={...(display.bounds || display.workArea)};
-    // macOS constrains ordinary windows below its system menu bar. Use that
-    // boundary directly instead of repeatedly requesting an unreachable y.
-    if (process.platform==='darwin' && display.workArea.y>area.y) {
-        area.height-=display.workArea.y-area.y;
-        area.y=display.workArea.y;
-    }
-    return area;
+    // The notch hangs from the physical top edge on every platform, over the
+    // macOS menu bar or a top Windows taskbar (enableLargerThanScreen lets the
+    // frameless window sit there).
+    return {...(display.bounds || display.workArea)};
 }
 function hideQuotaPeek(immediate=true) {
     clearTimeout(quotaPeekTimer);quotaPeekTimer=null;
@@ -443,10 +439,11 @@ function saveQuotaPlacement(placement) {
     savePetConfig({quotaPanelPlacement});
     sendQuotaPanelConfig();
 }
-function dockQuotaPanel(mode='right') {
+function dockQuotaPanel() {
+    // Recentres the notch on the top edge of its current display.
     hideQuotaPeek();quotaPanelCollapsed=false;
     const area=quotaDisplayArea(quotaPanelWin && !quotaPanelWin.isDestroyed()?screen.getDisplayMatching(quotaPanelWin.getBounds()):screen.getPrimaryDisplay());
-    saveQuotaPlacement(sidebarBounds(area,{mode,x:quotaPanelWin?.getBounds().x,y:quotaPanelWin?.getBounds().y},loadPetConfig().quotaPanelExpanded === true));
+    saveQuotaPlacement(sidebarBounds(area,{},loadPetConfig().quotaPanelExpanded === true));
     syncQuotaPanel();
 }
 function setQuotaPanelExpanded(expanded) {
@@ -467,10 +464,7 @@ function showQuotaPanelMenu() {
         {label:t('精简额度栏','Compact quota bar'),type:'radio',checked:loadPetConfig().quotaPanelExpanded !== true,click:()=>setQuotaPanelExpanded(false)},
         {label:t('详细额度面板','Detailed quota panel'),type:'radio',checked:loadPetConfig().quotaPanelExpanded === true,click:()=>setQuotaPanelExpanded(true)},
         {type:'separator'},
-        {label:t('停靠屏幕顶部','Dock to top edge'),click:()=>dockQuotaPanel('top')},
-        {label:t('停靠屏幕底部','Dock to bottom edge'),click:()=>dockQuotaPanel('bottom')},
-        {label:t('停靠屏幕右侧','Dock to right edge'),click:()=>dockQuotaPanel('right')},
-        {label:t('停靠屏幕左侧','Dock to left edge'),click:()=>dockQuotaPanel('left')},
+        {label:t('居中到屏幕顶部','Center at top edge'),click:()=>dockQuotaPanel()},
         {type:'separator'},
         {label:t('立即刷新额度','Refresh quotas'),click:()=>refreshQuotas(true)},
         {label:t('贴边时自动收起','Auto-hide at screen edge'),type:'checkbox',checked:loadPetConfig().quotaPanelAutoHide !== false,click:item=>{
@@ -491,7 +485,7 @@ function syncQuotaPanel() {
         if (quotaPanelWin && !quotaPanelWin.isDestroyed()) quotaPanelWin.hide();
         return;
     }
-    if (!quotaPanelPlacement) quotaPanelPlacement=loadPetConfig().quotaPanelPlacement || {mode:'top'};
+    if (!quotaPanelPlacement) quotaPanelPlacement={...(loadPetConfig().quotaPanelPlacement || {}),mode:'top',orientation:'horizontal'};
     if(quotaPanelPlacement.mode==='free' || loadPetConfig().quotaPanelExpanded || loadPetConfig().quotaPanelAutoHide===false)quotaPanelCollapsed=false;
     if (!quotaPanelWin || quotaPanelWin.isDestroyed()) {
         quotaPanelReady = false;
@@ -499,10 +493,13 @@ function syncQuotaPanel() {
             width:SIDEBAR_SIZE.width,height:SIDEBAR_SIZE.height,
             frame:false,transparent:true,alwaysOnTop:true,resizable:false,skipTaskbar:true,
             hasShadow:false,show:false,focusable:false,backgroundColor:'#00000000',
+            enableLargerThanScreen:true,
             webPreferences:{nodeIntegration:true,contextIsolation:false}
         });
         quotaPanelWin.setIgnoreMouseEvents(false);
-        quotaPanelWin.setAlwaysOnTop(true,'pop-up-menu');
+        // Above the macOS menu bar and the Windows taskbar.
+        quotaPanelWin.setAlwaysOnTop(true,'screen-saver');
+        if (process.platform==='darwin' && quotaPanelWin.setVisibleOnAllWorkspaces) quotaPanelWin.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
         quotaPanelWin.webContents.on('context-menu',showQuotaPanelMenu);
         quotaPanelWin.on('closed',()=>{quotaPanelWin=null;quotaPanelReady=false;quotaPanelDrag=null;});
         quotaPanelWin.loadFile(path.join(__dirname,'quota-panel.html')).catch(()=>closeQuotaPanel());
@@ -784,7 +781,10 @@ function registerIpc() {
         if(phase==='start'){hideQuotaPeek();quotaPanelDrag={cursor,bounds:quotaPanelWin.getBounds()};return;}
         if(!quotaPanelDrag)return;
         const start=quotaPanelDrag;
-        const bounds={...start.bounds,x:Math.round(start.bounds.x+cursor.x-start.cursor.x),y:Math.round(start.bounds.y+cursor.y-start.cursor.y)};
+        // Horizontal only: the notch never leaves the top edge.
+        const area=quotaDisplayArea(screen.getDisplayNearestPoint?screen.getDisplayNearestPoint(cursor):screen.getDisplayMatching(start.bounds)||screen.getPrimaryDisplay());
+        const x=Math.round(Math.max(area.x,Math.min(area.x+area.width-start.bounds.width,start.bounds.x+cursor.x-start.cursor.x)));
+        const bounds={...start.bounds,x,y:area.y};
         quotaPanelWin.setBounds(bounds);
         if(phase==='end'){
             quotaPanelDrag=null;

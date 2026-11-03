@@ -93,7 +93,9 @@
             scanConnecting: '正在连接 WeLink PC…', scanConnectingWeixin: '正在生成微信登录二维码…',
             scanWaitWeLink: '请使用手机 WeLink 扫码登录', scanWaitWeixin: '请使用手机微信扫码并确认',
             scanLoggedInWelink: '已登录 WeLink 个人身份', scanConnectedWeixin: '微信助理已连接',
-            scanRelogin: '重新扫码', scanLogout: '退出登录', scanChannelSettings: '频道设置'
+            scanRelogin: '重新扫码', scanLogout: '退出登录', scanChannelSettings: '频道设置',
+            channelDisabledNoChannel: '当前未对接任何频道（WeLink / 微信），可在全局设置中对接',
+            channelDisabledNotEnabled: '已配置频道凭据但尚未启用，请在全局设置中开启'
         },
         'en-US': {
             discover: 'Discover', newChat: 'New chat', channels: 'Channels', skills: 'Skills · plugins', schedule: 'Scheduled', library: 'Library',
@@ -116,7 +118,9 @@
             scanConnecting: 'Connecting to WeLink PC…', scanConnectingWeixin: 'Generating WeChat QR code…',
             scanWaitWeLink: 'Scan with WeLink mobile to sign in', scanWaitWeixin: 'Scan with WeChat mobile and confirm',
             scanLoggedInWelink: 'Signed in to personal WeLink', scanConnectedWeixin: 'WeChat assistant connected',
-            scanRelogin: 'Re-scan', scanLogout: 'Sign out', scanChannelSettings: 'Channel settings'
+            scanRelogin: 'Re-scan', scanLogout: 'Sign out', scanChannelSettings: 'Channel settings',
+            channelDisabledNoChannel: 'No channels configured (WeLink / WeChat). Configure them in Global Settings.',
+            channelDisabledNotEnabled: 'Channels configured but not enabled. Please enable them in Global Settings.'
         }
     };
     const lang = () => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'en-US' : 'zh-CN');
@@ -168,13 +172,43 @@
     }
     document.addEventListener('click', event => {
         if (!openPop) return;
-        if (openPop.pop.contains(event.target) || openPop.anchor.contains(event.target) || linksPanel?.contains(event.target)) return;
+        // Tab/action handlers may replace their DOM before this click bubbles here.
+        // The event path still records that the click originated inside the popup.
+        const path = event.composedPath();
+        if (path.includes(openPop.pop) || path.includes(openPop.anchor) || path.includes(linksPanel)) return;
         closePop();
     });
     document.addEventListener('keydown', event => { if (event.key === 'Escape') closePop(); });
     window.addEventListener('resize', closePop);
 
     const menuItem = (icon, label, action, hint = '') => `<button type="button" class="v2-pop-item" role="menuitem" data-v2-do="${action}"><span class="v2-ico" data-icon="${icon}"></span><span>${esc(label)}</span>${hint ? `<span class="v2-pop-hint">${esc(hint)}</span>` : ''}</button>`;
+
+    // ── 侧栏导航项悬停提示 ──
+    const navTip = document.createElement('div');
+    navTip.className = 'v2-nav-tip';
+    navTip.setAttribute('role', 'tooltip');
+    document.body.appendChild(navTip);
+    let navTipTimer = 0;
+    function showNavTip(text, anchor) {
+        clearTimeout(navTipTimer);
+        navTip.textContent = text;
+        const rect = anchor.getBoundingClientRect();
+        navTip.style.left = `${rect.right + 8}px`;
+        navTip.style.top = `${rect.top + (rect.height / 2)}px`;
+        navTip.classList.add('is-open');
+    }
+    function hideNavTip() {
+        clearTimeout(navTipTimer);
+        navTip.classList.remove('is-open');
+    }
+    document.addEventListener('mouseover', event => {
+        const item = event.target.closest('.v2-nav-item.is-disabled');
+        if (item && item.dataset.disabledReason) showNavTip(item.dataset.disabledReason, item);
+    });
+    document.addEventListener('mouseout', event => {
+        const item = event.target.closest('.v2-nav-item.is-disabled');
+        if (item) hideNavTip();
+    });
 
     // ── 主导航动作 ──
     const ACTIONS = {
@@ -190,6 +224,14 @@
             queueGroups();
         },
         channels() {
+            const navItem = document.querySelector('.v2-nav-item[data-v2-action="channels"]');
+            if (navItem?.classList.contains('is-disabled')) {
+                const reason = navItem.dataset.disabledReason || navItem.title || t('channelDisabledNoChannel');
+                showNavTip(reason, navItem);
+                clearTimeout(navTipTimer);
+                navTipTimer = setTimeout(hideNavTip, 3000);
+                return;
+            }
             window.HomeMode?.set('chat');
             try { history.replaceState(history.state, '', location.pathname + location.search + '#channels'); } catch { location.hash = '#channels'; }
             const available = (window.HomeWelinkThreads?.channels?.() || []).map(c => c.id);
@@ -225,6 +267,17 @@
     document.addEventListener('click', event => {
         const el = event.target.closest('[data-v2-action], [data-v2-do]');
         if (!el) return;
+        if (el.classList.contains('is-disabled')) {
+            event.preventDefault();
+            event.stopPropagation();
+            const reason = el.dataset.disabledReason || el.title;
+            if (reason) {
+                showNavTip(reason, el);
+                clearTimeout(navTipTimer);
+                navTipTimer = setTimeout(hideNavTip, 3000);
+            }
+            return;
+        }
         const action = el.dataset.v2Action || el.dataset.v2Do;
         if (action === 'links') { openLinks(el); return; }
         run(action);
@@ -910,15 +963,18 @@
         }
     });
 
-    $('v2ScanBtn')?.addEventListener('click', async event => {
+    async function openScan(event) {
         const anchor = event.currentTarget;
-        if (openPop?.pop === scan.pop) return closePop();
+        if (openPop?.pop === scan.pop) return;
         renderScan();
         showPop(scan.pop, anchor, 'up');
         await ensureQrLib().catch(() => {});
+        if (openPop?.pop !== scan.pop) return;
         if (scan.tab === 'welink') loadWelinkStatus({ autoLogin: true });
         else loadWeixinStatus({ autoQr: true });
-    });
+    }
+    $('v2ScanBtn')?.addEventListener('mouseenter', openScan);
+    $('v2ScanBtn')?.addEventListener('click', openScan);
 
     // ── 消息中心：主区整页显示平台告警（沿用 /api/alert-center） ──
     const msg = { el: null, filter: 'all', events: [], error: '' };
@@ -1008,6 +1064,16 @@
         document.body.classList.remove('v2-messages-open');
     }
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && msg.el?.classList.contains('is-open') && !openPop) closeMessages(); });
+    // Dismiss before navigation handlers run: some menus keep the same home mode,
+    // and conversation buttons may stop bubbling at their list container.
+    document.addEventListener('click', event => {
+        if (!msg.el?.classList.contains('is-open')) return;
+        const target = event.target.closest('button, a[href], [role="button"], [role="menuitem"]');
+        if (!target || target.closest('#v2AlertBtn, [data-v2-action="alerts"], [data-v2-do="alerts"], .v2-side-tools')
+            || target.matches('.is-disabled, :disabled, [aria-disabled="true"]')) return;
+        if (target.closest('#homeSidebar') || target.matches('[data-v2-action], [data-v2-do]')) closeMessages();
+    }, true);
+
 
     // 告警数、服务状态、版本号沿用导航栏（导航栏隐藏但仍在运行），这里只做镜像
     function mirrorNavbar() {
@@ -1047,17 +1113,50 @@
             fillIcons(seg);
         });
         const hub = Boolean(window.HomeSkillHub?.isOpen?.());
-        const isChannel = !hub && mode === 'chat' && isChannelSource(activeChatSource());
+        const navItem = document.querySelector('.v2-nav-item[data-v2-action="channels"]');
+        const isChannelDisabled = Boolean(navItem?.classList.contains('is-disabled'));
+        const isChannel = !hub && !isChannelDisabled && mode === 'chat' && isChannelSource(activeChatSource());
         document.querySelectorAll('.v2-nav-item[data-v2-action="newChat"]').forEach(el => el.classList.toggle('is-active', !hub && mode === 'chat' && !isChannel));
         document.querySelectorAll('.v2-nav-item[data-v2-action="channels"]').forEach(el => el.classList.toggle('is-active', isChannel));
         document.querySelectorAll('.v2-nav-item[data-v2-action="skillHub"]').forEach(el => el.classList.toggle('is-active', hub));
     }
+
+    // ── 频道会话入口启用/禁用状态（无对接或未启用时灰色禁用并悬停说明） ──
+    let lastChannelsData = null;
+    function updateChannelsNavState(data) {
+        if (data) lastChannelsData = data;
+        const currentData = data || lastChannelsData || { items: window.HomeWelinkThreads?.channels?.() || [], summary: window.HomeWelinkThreads?.summary?.() || {} };
+        const navItem = document.querySelector('.v2-nav-item[data-v2-action="channels"]');
+        if (!navItem) return;
+        const items = Array.isArray(currentData.items) ? currentData.items : [];
+        const summary = currentData.summary || {};
+        const hasEnabled = items.length > 0;
+        const hasConfigured = Object.values(summary).some(s => s && s.configured);
+
+        if (hasEnabled) {
+            navItem.classList.remove('is-disabled');
+            navItem.removeAttribute('aria-disabled');
+            delete navItem.dataset.disabledReason;
+            navItem.title = t('channels');
+        } else {
+            navItem.classList.add('is-disabled');
+            navItem.setAttribute('aria-disabled', 'true');
+            navItem.classList.remove('is-active');
+            const reasonKey = hasConfigured ? 'channelDisabledNotEnabled' : 'channelDisabledNoChannel';
+            const reason = t(reasonKey);
+            navItem.title = reason;
+            navItem.dataset.disabledReason = reason;
+        }
+        renderModes();
+    }
+    window.addEventListener('tools:channels-updated', event => updateChannelsNavState(event.detail));
     document.addEventListener('click', event => {
         const btn = event.target.closest('[data-v2-mode]');
         if (btn) window.HomeMode?.set(btn.dataset.v2Mode);
     });
     window.addEventListener('home:mode', () => { renderModes(); closeMessages(); });
-    window.addEventListener('home:hub', renderModes);
+    window.addEventListener('home:hub', event => { renderModes(); if (event.detail?.open) closeMessages(); });
+    window.addEventListener('home:tool-frame', event => { if (event.detail?.open) closeMessages(); });
 
     // ── 侧边栏收起 ──
     const SIDE_KEY = 'tools_v2_side';
@@ -1491,6 +1590,8 @@
         watchNavbar();
         mirrorNavbar();
         renderModes();
+        updateChannelsNavState();
+        getJson('/api/channels/available').then(data => { if (data) updateChannelsNavState(data); }).catch(() => {});
         if (activeChatSource() === 'agents') window.HomeWelinkThreads?.setSource?.('mine');
         renderQuick();
         loadRecentQuestions();
@@ -1498,6 +1599,14 @@
     }
     window.addEventListener('hashchange', () => {
         if (location.hash === '#channels') {
+            const navItem = document.querySelector('.v2-nav-item[data-v2-action="channels"]');
+            if (navItem?.classList.contains('is-disabled')) {
+                try { history.replaceState(history.state, '', location.pathname + location.search); } catch { location.hash = ''; }
+                window.HomeWelinkThreads?.setSource?.('mine');
+                renderModes();
+                queueGroups();
+                return;
+            }
             const tabs = [...document.querySelectorAll('.home-chat-tabs [data-chat-source]')].map(el => el.dataset.chatSource);
             const channel = ['welink', 'weixin'].find(id => tabs.includes(id)) || 'welink';
             window.HomeWelinkThreads?.setSource?.(channel, { openLatest: true });
@@ -1505,9 +1614,15 @@
         renderModes();
         queueGroups();
     });
-    window.addEventListener('tools:languagechange', () => { applyText(); mirrorNavbar(); renderQuick(); if (openPop?.pop === discover.pop) renderDiscover(); });
+    window.addEventListener('tools:languagechange', () => {
+        applyText();
+        mirrorNavbar();
+        renderQuick();
+        updateChannelsNavState();
+        if (openPop?.pop === discover.pop) renderDiscover();
+    });
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();
 
-    window.HomeV2 = { setTheme, closePop, fillIcons, openLinks };
+    window.HomeV2 = { setTheme, closePop, fillIcons, openLinks, updateChannelsNavState };
 })();

@@ -72,35 +72,18 @@ footer { flex:none; text-align:center; color:var(--muted); font-size:9px; line-h
 .compact .quota-cell.warning .quota-value { color:#e8cc91; }
 .compact .quota-track { display:none; }
 .compact .quota-cell.unknown .quota-value { color:var(--muted); }
-.compact.vertical .quota-panel { padding:5px 6px 9px; }
-.compact.vertical header { min-height:25px; height:25px; justify-content:space-between; gap:0; }
-.compact.vertical #quotaRows { grid-template-rows:repeat(3,minmax(0,1fr)); }
-.compact.vertical .quota-row { grid-template-columns:1fr; gap:5px; padding:9px 2px; justify-items:center; border-radius:8px; border-bottom:0; }
-.compact.vertical .provider-heading { grid-column:1; justify-content:center; }
-.compact.vertical .quota-cell { grid-column:1; gap:2px; }
-.compact.vertical .quota-cell[data-window="weekly"] { display:none; }
-.compact.vertical .quota-window-label { display:none; }
-.compact.vertical .quota-value { font-size:14px; text-align:center; }
-/* Squared attachment edge; only the interior-facing corners are rounded. */
-body[data-mode="top"] .quota-panel { border-top:0; border-radius:0 0 20px 20px; }
-body[data-mode="bottom"] .quota-panel { border-bottom:0; border-radius:20px 20px 0 0; }
-body[data-mode="left"] .quota-panel { border-left:0; border-radius:0 20px 20px 0; }
-body[data-mode="right"] .quota-panel { border-right:0; border-radius:20px 0 0 20px; }
-body[data-mode="free"] .quota-panel { border-radius:20px; }
+/* Notch: flush with the screen's top edge, square on top, rounded below, with
+   concave shoulders (in the window's transparent --ear strips) meeting the edge. */
+body:not(.peek) { --ear:12px; padding:0 var(--ear); }
+body:not(.peek) .quota-panel { position:relative; border-top:0; border-radius:0 0 20px 20px; }
+.quota-panel::before,.quota-panel::after { content:''; position:absolute; top:0; width:var(--ear); height:var(--ear); pointer-events:none; }
+.quota-panel::before { left:calc(-1 * var(--ear) - 1px); background:radial-gradient(circle at 0 100%,transparent calc(var(--ear) - .5px),var(--surface) var(--ear)); }
+.quota-panel::after { right:calc(-1 * var(--ear) - 1px); background:radial-gradient(circle at 100% 100%,transparent calc(var(--ear) - .5px),var(--surface) var(--ear)); }
 body.is-dragging .quota-panel { cursor:grabbing; transition:none; }
-#edgeSensor { display:none; position:absolute; z-index:2; border:0; padding:0; background:var(--surface); cursor:pointer; }
-#edgeSensor span { position:absolute; background:var(--muted); border-radius:8px; opacity:.6; }
+#edgeSensor { display:none; position:absolute; z-index:2; top:0; left:var(--ear); right:var(--ear); height:6px; border:0; padding:0; border-radius:0 0 6px 6px; background:var(--surface); cursor:pointer; }
+#edgeSensor span { position:absolute; width:32px; height:2px; left:calc(50% - 16px); top:2px; background:var(--muted); border-radius:8px; opacity:.6; }
 body.tucking #edgeSensor,body.collapsed #edgeSensor { display:block; }
-body[data-mode="top"] #edgeSensor { top:0; left:0; right:0; height:6px; border-radius:0 0 6px 6px; }
-body[data-mode="bottom"] #edgeSensor { bottom:0; left:0; right:0; height:6px; border-radius:6px 6px 0 0; }
-body[data-mode="left"] #edgeSensor { top:0; left:0; bottom:0; width:6px; border-radius:0 6px 6px 0; }
-body[data-mode="right"] #edgeSensor { top:0; right:0; bottom:0; width:6px; border-radius:6px 0 0 6px; }
-body.horizontal #edgeSensor span { width:32px; height:2px; left:calc(50% - 16px); top:2px; }
-body.vertical #edgeSensor span { width:2px; height:32px; top:calc(50% - 16px); left:2px; }
-body[data-mode="top"].tucking .quota-panel { transform:translateY(calc(-100% + 6px)); }
-body[data-mode="bottom"].tucking .quota-panel { transform:translateY(calc(100% - 6px)); }
-body[data-mode="left"].tucking .quota-panel { transform:translateX(calc(-100% + 6px)); }
-body[data-mode="right"].tucking .quota-panel { transform:translateX(calc(100% - 6px)); }
+body.tucking .quota-panel { transform:translateY(calc(-100% + 6px)); }
 body.collapsed .quota-panel { visibility:hidden; }
 /* A separate, non-activating window keeps the rail stationary during a peek. */
 #quotaPeek { display:none; }

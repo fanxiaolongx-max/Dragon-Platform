@@ -75,6 +75,7 @@
         sourceRevision:0,
         openLatestSource:null,
         channels: [], // 已对接的频道：[{ id, label, connected }]
+        channelSummary: null,
         threads: [],
         loaded: false,
         failed: false,
@@ -288,9 +289,12 @@
         try {
             const data = await request('GET', `${API_BASE}/available`);
             state.channels = (Array.isArray(data.items) ? data.items : []).filter(item => CHANNEL_IDS.includes(item.id));
+            state.channelSummary = data.summary || null;
+            window.dispatchEvent(new CustomEvent('tools:channels-updated', { detail: { items: state.channels, summary: data.summary } }));
         } catch {
             state.channels=state.channels.map(item=>({...item,health:{level:'error',reason:'offline'}}));
             renderTabs();
+            window.dispatchEvent(new CustomEvent('tools:channels-updated', { detail: { items: state.channels, summary: state.channelSummary || null } }));
             return; // 读取失败保持现状
         }
         const isV2 = document.documentElement.dataset.ui === 'v2';
@@ -1154,6 +1158,7 @@
         composeNew,
         source: () => state.source,
         channels: () => (state.channels || []).slice(),
+        summary: () => state.channelSummary ? { ...state.channelSummary } : null,
         open: openThread,
         reload: loadThreads,
         active: () => state.active ? { ...state.active } : null,

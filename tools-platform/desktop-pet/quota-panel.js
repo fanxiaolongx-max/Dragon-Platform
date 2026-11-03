@@ -14,8 +14,8 @@
     function setText(node,value) { if(node.textContent!==value)node.textContent=value; }
     function english() { return window.PetI18n.getLanguage()==='en-US'; }
     function text() {
-        return english()?{title:'Account quota',five:'5 hours',week:'Weekly',remaining:'remaining',reset:'Resets ',hint:'Click quota to view history',updated:'Updated ',unknown:'Plan unavailable',expand:'Show quota tray',menu:'Quota tray menu',hide:'Hide quota tray',drag:'Drag to move · Snap to an edge',footer:'Hover for details · Drag to dock'}:
-            {title:'账户剩余额度',five:'5 小时',week:'每周',remaining:'剩余',reset:'重置于 ',hint:'点击额度查看历史',updated:'更新于 ',unknown:'未提供订阅信息',expand:'展开额度托盘',menu:'额度托盘菜单',hide:'隐藏额度托盘',drag:'拖动移动 · 四边贴边停靠',footer:'悬停查看详情 · 拖动贴边停靠'};
+        return english()?{title:'Account quota',five:'5 hours',week:'Weekly',remaining:'remaining',reset:'Resets ',hint:'Click quota to view history',updated:'Updated ',unknown:'Plan unavailable',expand:'Show quota tray',menu:'Quota tray menu',hide:'Hide quota tray',drag:'Drag to slide along the top edge',footer:'Hover for details · Drag to slide'}:
+            {title:'账户剩余额度',five:'5 小时',week:'每周',remaining:'剩余',reset:'重置于 ',hint:'点击额度查看历史',updated:'更新于 ',unknown:'未提供订阅信息',expand:'展开额度托盘',menu:'额度托盘菜单',hide:'隐藏额度托盘',drag:'拖动沿屏幕顶部左右移动',footer:'悬停查看详情 · 拖动左右移动'};
     }
     function createCell(id) {
         const cell=document.createElement('button');cell.type='button';cell.className='quota-cell';cell.dataset.window=id;
@@ -158,7 +158,7 @@
     surface.addEventListener('pointerdown',event=>{
         if(event.button!==0||event.target.closest('button')||config.collapsed)return;
         cancelHide();clearTimeout(hoverTimer);dragging=event.pointerId;surface.setPointerCapture(event.pointerId);
-        body.classList.add('is-dragging');body.dataset.mode='free';header.classList.add('is-dragging');
+        body.classList.add('is-dragging');header.classList.add('is-dragging');
         ipc.send('pet-quota-panel-drag','start');
     });
     surface.addEventListener('pointermove',event=>{

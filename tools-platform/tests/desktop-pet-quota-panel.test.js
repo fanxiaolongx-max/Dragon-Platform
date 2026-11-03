@@ -16,28 +16,21 @@ test('compact bar defaults to the top and clamps saved positions on negative-ori
         const moved=sidebarBounds(area,{mode:'free',x:-99999,y:99999});assert.ok(moved.x>=area.x);assert.ok(moved.y+moved.height<=area.y+area.height);
     }
 });
-test('compact placement rotates at all four edges, preserves free orientation and supports detailed panels',()=>{
+test('every placement is the top notch; only x is kept and detail panels stay on the top edge',()=>{
     const area={x:-1440,y:-100,width:1440,height:900};
-    for(const [mode,point] of [['top',{x:-800,y:-90}],['bottom',{x:-800,y:740}],['left',{x:-1430,y:180}],['right',{x:-430,y:180}]]){
-        const result=droppedSidebar({...point,width:416,height:58},area);
-        assert.equal(result.mode,mode);
-        assert.equal(result.orientation,['left','right'].includes(mode)?'vertical':'horizontal');
-        assert.equal(result.width,result.orientation==='vertical'?68:360);
+    for(const point of [{x:-800,y:-90},{x:-800,y:740},{x:-1430,y:180},{x:-430,y:180}]){
+        const result=droppedSidebar({...point,width:384,height:64},area);
+        assert.equal(result.mode,'top');assert.equal(result.orientation,'horizontal');
+        assert.equal(result.width,384);assert.equal(result.y,area.y);
         assert.ok(result.x>=area.x&&result.x+result.width<=area.x+area.width);
-        assert.ok(result.y>=area.y&&result.y+result.height<=area.y+area.height);
     }
-    const free=droppedSidebar({x:-800,y:180,width:152,height:184},area,{orientation:'vertical'});
-    assert.equal(free.mode,'free');assert.equal(free.orientation,'vertical');assert.equal(free.width,68);
+    assert.equal(droppedSidebar({x:-800,y:500,width:384,height:64},area).x,-800);
     const detail=sidebarBounds(area,{mode:'right',y:180},true);
-    assert.equal(detail.width,286);assert.equal(detail.height,426);assert.equal(detail.y,180);
-    assert.equal(sidebarBounds(area,{mode:'right',x:-286,y:180}).width,68,'old right-edge preferences become a compact side strip');
+    assert.equal(detail.width,310);assert.equal(detail.height,426);assert.equal(detail.y,area.y);assert.equal(detail.mode,'top');
+    assert.equal(sidebarBounds(area,{mode:'left',x:-286,y:180}).mode,'top','old side-edge preferences become the top notch');
 });
-test('drag release snaps either edge, keeps floating positions, and preserves the vertical position',()=>{
-    const area={x:-1440,y:40,width:1440,height:900};
-    assert.equal(droppedSidebar({x:-305,y:150,width:286,height:426},area).mode,'right');
-    assert.equal(droppedSidebar({x:-1420,y:150,width:286,height:426},area).mode,'left');
-    const free=droppedSidebar({x:-800,y:180,width:286,height:426},area);assert.equal(free.mode,'free');assert.equal(free.x,-800);assert.equal(free.y,180);
-});
+
+
 
 function manager(t,initialConfig,platform=process.platform){
     const root=fs.mkdtempSync(path.join(os.tmpdir(),'pet-panel-manager-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
@@ -146,88 +139,78 @@ test('quota clicks open only a validated trends window and disabling an opted-in
     f.api.setPetEnabled(false);assert.equal(trends.destroyed,true);
 });
 
-test('drag IPC uses native cursor coordinates, persists placement and rejects other windows',t=>{
+test('drag IPC slides horizontally along the top edge, persists placement and rejects other windows',t=>{
     const f=manager(t),pet=f.windows[0];pet.ready();const panel=f.windows[1];f.listeners['pet-quota-panel-ready']({sender:panel.webContents});
     const before=panel.getBounds(),event={sender:panel.webContents};
     f.listeners['pet-quota-panel-drag']({sender:pet.webContents},'start');f.cursor.x=500;f.listeners['pet-quota-panel-drag'](event,'move');assert.deepEqual(panel.getBounds(),before);
     f.listeners['pet-quota-panel-drag'](event,'start');f.cursor.x=100;f.cursor.y=200;f.listeners['pet-quota-panel-drag'](event,'move');
-    assert.equal(panel.bounds.x,before.x-400);pet.setPosition(0,0);assert.equal(panel.bounds.x,before.x-400,'pet ticks cannot reset a drag');
+    assert.equal(panel.bounds.x,before.x-400);assert.equal(panel.bounds.y,0,'vertical drag is ignored');
+    pet.setPosition(0,0);assert.equal(panel.bounds.x,before.x-400,'pet ticks cannot reset a drag');
     f.listeners['pet-quota-panel-drag'](event,'end');const saved=JSON.parse(fs.readFileSync(path.join(f.root,'desktop-pet-config.json'),'utf8')).quotaPanelPlacement;
-    assert.equal(saved.mode,'free');assert.equal(saved.x,before.x-400);
-    const restored=manager(t,{quotaPanelPlacement:saved});assert.equal(restored.windows[1].bounds.x,saved.x);assert.equal(restored.windows[1].bounds.y,saved.y);
-    pet.setPosition(100,100);assert.equal(panel.bounds.x,saved.x);
-    f.listeners['pet-quota-panel-dock']({sender:{}});assert.equal(panel.bounds.x,saved.x);
-    f.listeners['pet-quota-panel-dock']({sender:pet.webContents});assert.equal(panel.bounds.x+panel.bounds.width,1440);
-});
-test('menu changes orientation and detail size, persists preferences and restores compact mode',t=>{
-    const f=manager(t,{enabled:false,quotaStandalone:true}),panel=f.windows[0],event={sender:panel.webContents};
-    f.listeners['pet-quota-panel-ready'](event);
-    assert.equal(panel.bounds.width,360);assert.equal(panel.bounds.height,64);
-    f.listeners['pet-quota-panel-menu'](event);
-    const choose=label=>f.menus.at(-1).find(item=>item.label===label).click();
-    choose('停靠屏幕左侧');assert.equal(panel.bounds.width,68);assert.equal(panel.bounds.height,248);
-    assert.equal(panel.webContents.sent.filter(m=>m.name==='pet-quota-panel-config').at(-1).data.orientation,'vertical');
-    choose('详细额度面板');assert.equal(panel.bounds.width,286);assert.equal(panel.bounds.height,426);
-    const saved=JSON.parse(fs.readFileSync(path.join(f.root,'desktop-pet-config.json'),'utf8'));
-    assert.equal(saved.quotaPanelExpanded,true);assert.equal(saved.quotaPanelPlacement.mode,'left');
-    const restored=manager(t,saved);assert.equal(restored.windows[0].bounds.width,286);
-    choose('精简额度栏');assert.equal(panel.bounds.width,68);
-    choose('停靠屏幕顶部');assert.equal(panel.bounds.height,64);assert.equal(panel.bounds.y,0);
-    choose('停靠屏幕底部');assert.equal(panel.bounds.y+panel.bounds.height,900);
-});
-test('sidebar right-click menu can hide only the sidebar and docking restores remain on screen',t=>{
-    const f=manager(t,{quotaPanelPlacement:{mode:'free',x:99999,y:99999}}),pet=f.windows[0];pet.ready();const panel=f.windows[1];f.listeners['pet-quota-panel-ready']({sender:panel.webContents});
-    assert.ok(panel.bounds.x+panel.bounds.width<=1440&&panel.bounds.y+panel.bounds.height<=900);
-    f.listeners['pet-quota-panel-menu']({sender:{}});assert.equal(f.menus.length,0);
-    panel.webContents.emit('context-menu');assert.equal(f.menus.length,1);
-    f.menus[0].find(item=>item.label==='停靠屏幕左侧').click();assert.equal(panel.bounds.x,0);
-    f.menus[0].find(item=>item.label==='隐藏额度侧栏').click();assert.equal(panel.visible,false);assert.equal(pet.visible,true);
-    f.api.setQuotaPanelEnabled(true);assert.equal(panel.visible,true);assert.equal(panel.bounds.x,0);
+    assert.equal(saved.mode,'top');assert.equal(saved.x,before.x-400);assert.equal(saved.y,0);
+    f.listeners['pet-quota-panel-drag'](event,'start');f.cursor.x=-99999;f.listeners['pet-quota-panel-drag'](event,'end');assert.equal(panel.bounds.x,0,'clamped to the screen');
+    const restored=manager(t,{quotaPanelPlacement:saved});assert.equal(restored.windows[1].bounds.x,saved.x);assert.equal(restored.windows[1].bounds.y,0);
+    f.listeners['pet-quota-panel-dock']({sender:{}});assert.equal(panel.bounds.x,0);
+    f.listeners['pet-quota-panel-dock']({sender:pet.webContents});assert.equal(panel.bounds.x,Math.round((1440-384)/2));
 });
 
-test('all four dock surfaces touch the boundary and collapsed native windows occupy only six pixels',()=>{
+test('menu offers no side docks, changes detail size, persists preferences and restores compact mode',t=>{
+    const f=manager(t,{enabled:false,quotaStandalone:true}),panel=f.windows[0],event={sender:panel.webContents};
+    f.listeners['pet-quota-panel-ready'](event);
+    assert.equal(panel.bounds.width,384);assert.equal(panel.bounds.height,64);assert.equal(panel.bounds.y,0);
+    assert.equal(panel.options.enableLargerThanScreen,true);
+    f.listeners['pet-quota-panel-menu'](event);
+    const labels=f.menus.at(-1).map(item=>item.label);
+    for(const label of ['停靠屏幕左侧','停靠屏幕右侧','停靠屏幕底部'])assert.ok(!labels.includes(label));
+    const choose=label=>f.menus.at(-1).find(item=>item.label===label).click();
+    choose('详细额度面板');assert.equal(panel.bounds.width,310);assert.equal(panel.bounds.height,426);assert.equal(panel.bounds.y,0);
+    const saved=JSON.parse(fs.readFileSync(path.join(f.root,'desktop-pet-config.json'),'utf8'));
+    assert.equal(saved.quotaPanelExpanded,true);
+    const restored=manager(t,saved);assert.equal(restored.windows[0].bounds.width,310);
+    choose('精简额度栏');assert.equal(panel.bounds.width,384);
+    choose('居中到屏幕顶部');assert.equal(panel.bounds.y,0);assert.equal(panel.bounds.x,Math.round((1440-384)/2));
+});
+
+test('sidebar right-click menu can hide only the sidebar and stale placements are restored onto the top edge',t=>{
+    const f=manager(t,{quotaPanelPlacement:{mode:'free',x:99999,y:99999}}),pet=f.windows[0];pet.ready();const panel=f.windows[1];f.listeners['pet-quota-panel-ready']({sender:panel.webContents});
+    assert.equal(panel.bounds.x+panel.bounds.width,1440);assert.equal(panel.bounds.y,0);
+    f.listeners['pet-quota-panel-menu']({sender:{}});assert.equal(f.menus.length,0);
+    panel.webContents.emit('context-menu');assert.equal(f.menus.length,1);
+    f.menus[0].find(item=>item.label==='隐藏额度侧栏').click();assert.equal(panel.visible,false);assert.equal(pet.visible,true);
+    f.api.setQuotaPanelEnabled(true);assert.equal(panel.visible,true);assert.equal(panel.bounds.y,0);
+});
+
+test('the notch touches the top edge and its collapsed native window occupies only six pixels',()=>{
     const area={x:-1728,y:24,width:1728,height:1093};
-    for(const mode of ['left','right','top','bottom']) {
-        const rail=sidebarBounds(area,{mode,x:-900,y:300}),hidden=collapsedBounds(rail);
-        if(mode==='left')assert.equal(rail.x,area.x);
-        if(mode==='right')assert.equal(rail.x+rail.width,area.x+area.width);
-        if(mode==='top')assert.equal(rail.y,area.y);
-        if(mode==='bottom')assert.equal(rail.y+rail.height,area.y+area.height);
-        assert.equal(['top','bottom'].includes(mode)?hidden.height:hidden.width,6);
-        assert.ok(hidden.x>=area.x&&hidden.y>=area.y);
-        assert.ok(hidden.x+hidden.width<=area.x+area.width&&hidden.y+hidden.height<=area.y+area.height);
+    for(const x of [-99999,-900,99999]) {
+        const rail=sidebarBounds(area,{x}),hidden=collapsedBounds(rail);
+        assert.equal(rail.y,area.y);assert.equal(hidden.height,6);assert.equal(hidden.y,area.y);
+        assert.ok(hidden.x>=area.x&&hidden.x+hidden.width<=area.x+area.width);
         for(let index=0;index<3;index++) {
             const peek=peekBounds(area,rail,index);
-            assert.ok(peek.x>=area.x&&peek.y>=area.y);
-            assert.ok(peek.x+peek.width<=area.x+area.width&&peek.y+peek.height<=area.y+area.height);
+            assert.equal(peek.side,'top');assert.ok(peek.y>=rail.y+rail.height);
+            assert.ok(peek.x>=area.x&&peek.x+peek.width<=area.x+area.width&&peek.y+peek.height<=area.y+area.height);
             assert.ok(peek.pointer>=24);
         }
     }
-    const free=sidebarBounds(area,{mode:'free',x:-800,y:300});
-    assert.deepEqual(collapsedBounds(free),free);
-    for(const mode of ['left','right','top','bottom']) {
-        const rail=sidebarBounds({x:0,y:0,width:180,height:160},{mode});
-        const peek=peekBounds({x:0,y:0,width:180,height:160},rail,2);
-        assert.ok(peek.x>=0&&peek.y>=0&&peek.x+peek.width<=180&&peek.y+peek.height<=160);
-    }
+    const rail=sidebarBounds({x:0,y:0,width:180,height:160});
+    const peek=peekBounds({x:0,y:0,width:180,height:160},rail,2);
+    assert.ok(peek.x>=0&&peek.y>=0&&peek.x+peek.width<=180&&peek.y+peek.height<=160);
 });
 
 test('auto-hide resizes the native hit area, restores the rail, and leaves preferences intact',t=>{
     const f=manager(t,{quotaPanelPlacement:{mode:'right',y:260}}),panel=f.windows[1],event={sender:panel.webContents};
     f.listeners['pet-quota-panel-ready'](event);
-    const bounds=panel.getBounds();assert.equal(bounds.x+bounds.width,1440);
+    const bounds=panel.getBounds();assert.equal(bounds.y,0);
     f.listeners['pet-quota-panel-collapse']({sender:{}},true);assert.deepEqual(panel.getBounds(),bounds);
     f.listeners['pet-quota-panel-collapse'](event,true);
-    assert.equal(panel.bounds.width,6);assert.equal(panel.bounds.x+panel.bounds.width,1440);
+    assert.equal(panel.bounds.height,6);assert.equal(panel.bounds.y,0);assert.equal(panel.bounds.width,bounds.width);
     assert.equal(panel.webContents.sent.filter(m=>m.name==='pet-quota-panel-config').at(-1).data.collapsed,true);
     f.listeners['pet-quota-panel-collapse'](event,false);assert.deepEqual(panel.getBounds(),bounds);
     panel.webContents.emit('context-menu');
     f.menus.at(-1).find(item=>item.label==='贴边时自动收起').click({checked:false});
     f.listeners['pet-quota-panel-collapse'](event,true);assert.deepEqual(panel.getBounds(),bounds);
     assert.equal(JSON.parse(fs.readFileSync(path.join(f.root,'desktop-pet-config.json'),'utf8')).quotaPanelAutoHide,false);
-    const free=manager(t,{quotaPanelPlacement:{mode:'free',x:300,y:200}}),floating=free.windows[1];
-    const before=floating.getBounds();free.listeners['pet-quota-panel-collapse']({sender:floating.webContents},true);
-    assert.deepEqual(floating.getBounds(),before,'floating rails never hide themselves');
 });
 
 test('provider hover opens a separate nonactivating peek without resizing or moving the rail',async t=>{
@@ -251,16 +234,13 @@ test('provider hover opens a separate nonactivating peek without resizing or mov
     f.api.setQuotaPanelEnabled(false);assert.equal(peek.visible,false);
 });
 
-test('Windows uses physical screen edges while macOS respects only its native menu-bar floor',t=>{
+test('Windows and macOS both hang the notch from the physical top edge, above the menu bar or taskbar',t=>{
     for(const platform of ['win32','darwin']) {
         const f=manager(t,undefined,platform),panel=f.windows[1];
         f.layout.workArea={x:40,y:28,width:1400,height:832};
         panel.webContents.emit('context-menu');
-        const choose=label=>f.menus.at(-1).find(item=>item.label===label).click();
-        choose('停靠屏幕顶部');assert.equal(panel.bounds.y,platform==='darwin'?28:0);
-        choose('停靠屏幕底部');assert.equal(panel.bounds.y+panel.bounds.height,900);
-        choose('停靠屏幕左侧');assert.equal(panel.bounds.x,0);
-        choose('停靠屏幕右侧');assert.equal(panel.bounds.x+panel.bounds.width,1440);
+        f.menus.at(-1).find(item=>item.label==='居中到屏幕顶部').click();
+        assert.equal(panel.bounds.y,0);assert.equal(panel.bounds.x,Math.round((1440-384)/2));
     }
 });
 
