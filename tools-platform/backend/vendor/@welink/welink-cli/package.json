@@ -1,0 +1,29 @@
+{
+  "name": "@welink/welink-cli",
+  "version": "1.0.16",
+  "description": "WeLink CLI - WeLink platform authentication and IM tool",
+  "bin": {
+    "welink-cli": "./scripts/welink-cli-wrapper.js"
+  },
+  "files": [
+    "scripts/",
+    "welink-cli.exe"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/install.js",
+    "postuninstall": "node scripts/uninstall.js"
+  },
+  "keywords": [
+    "welink",
+    "cli",
+    "huawei"
+  ],
+  "author": "",
+  "license": "ISC",
+  "engines": {
+    "node": ">=14"
+  },
+  "os": [
+    "win32"
+  ]
+}

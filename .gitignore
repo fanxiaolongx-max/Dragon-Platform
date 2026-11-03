@@ -36,6 +36,8 @@ python-packager/backups/
 python-packager/data/
 build/
 dist/
+# 内置的 WeLink 助理 SDK 入口在 dist/ 下，需要随仓库分发
+!tools-platform/backend/vendor/@wecode/bridge-runtime-sdk/dist/
 .tmp/
 
 

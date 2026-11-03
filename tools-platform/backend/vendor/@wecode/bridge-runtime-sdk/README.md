@@ -1,22 +1,12 @@
 # WeLink SDK 本地集成（@wecode/bridge-runtime-sdk）
 
-本目录是「全局设置 → 频道对接 → WeLink」的内置 SDK 查找位置。**当前版本库仅保存本说明，不包含 SDK 的 `package.json` 或 `dist/` 文件**；是否可连接以页面检测结果为准。检测到可用 SDK 后，Bot 频道连接本身不需要另行调用 `welink-cli`。
+本目录是「全局设置 → 频道对接 → WeLink」和首页左下角「扫码使用 → WeLink 助理」使用的内置 SDK，**已随仓库内置官方包 1.0.7**（`package.json`、`dist/index.js`、`dist/index.d.ts`），无需另行导入或安装。根目录 `.gitignore` 忽略 `dist/`，这里单独放行了本目录的 `dist/`。
 
-当前查找、导入和连接行为以 [welink-sdk-loader.js](../../../models/channels/welink-sdk-loader.js)、[channels.js](../../../routes/channels.js) 及 [频道设置界面](../../../../frontend/js/shared/channel-settings.js) 为准，核对日期：2026-10-28。
+扫码授权（`qrcodeAuth.run`）默认使用 Channel `GDEClaw`；手机 WeLink 确认后，AK / SK、Channel、环境与助理信息一并保存并启用连接。授权服务位于 WeLink 内网，外网时后端拒绝扫码并提示连接内网。
 
-## 放置方式
+## 更新
 
-可从已有 `welink-cli` 安装目录或 Bot 工程的 `node_modules/@wecode/bridge-runtime-sdk/` 获取 SDK。管理员可以在频道设置中导入 `@wecode` / `bridge-runtime-sdk` 文件夹或单独选择 `dist/index.js`，也可以填写已有 SDK 路径。若需要随客户端分发，则把 SDK 包原样放入本目录，保留来源包的许可与版权文件：
-
-```
-backend/vendor/@wecode/bridge-runtime-sdk/
-├── package.json        # name 必须为 @wecode/bridge-runtime-sdk
-└── dist/
-    ├── index.js        # SDK 的完整打包入口
-    └── index.d.ts      # 类型声明（页面导入时可选）
-```
-
-页面导入要求入口导出 `createBridgeRuntime`；扫码授权还需要 SDK 提供 `qrcodeAuth.run`。版本号来自包信息或 SDK 自报值；仓库测试包含 1.0.7 的模拟包，不代表当前机器已经安装该版本。
+用新版官方包覆盖本目录下的 `package.json` 与 `dist/`（保留本说明），然后在频道设置点击「重新检测 SDK」；已建立的连接需「重启连接」才会使用新模块。管理员也可以在频道设置中导入其他版本，导入版本优先于内置版本。
 
 ## 加载顺序与运行边界
 

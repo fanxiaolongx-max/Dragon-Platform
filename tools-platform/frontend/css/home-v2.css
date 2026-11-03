@@ -454,7 +454,7 @@ html[data-ui="v2"]:not([data-theme="dark"]) .stats-bar :is(.stat-label, .stat-no
 /* ── 扫码使用：直连频道对接（WeLink 个人身份 / 微信助理） ── */
 .v2-scan { width: 310px; padding: 14px; display: flex; flex-direction: column; align-items: stretch; box-sizing: border-box; }
 .v2-scan-tabs { display: flex; width: 100%; box-sizing: border-box; margin-bottom: 12px; }
-.v2-scan-tabs button { flex: 1; justify-content: center; }
+.v2-scan-tabs button { flex: 1; justify-content: center; min-width: 0; padding: 0 8px; white-space: nowrap; }
 
 /* 黑白符合主题风格的圆环加载进度 */
 .v2-scan-loading-box {

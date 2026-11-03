@@ -88,11 +88,14 @@
             filterTime: '筛选时间', timeAll: '全部时间', timeToday: '今天', time7: '最近 7 天', time30: '最近 30 天', filterReset: '重置筛选条件',
             messages: '消息中心', scan: '扫码使用', appearance: '外观', light: '浅色', dark: '深色', version: '版本', service: '服务', checkUpdate: '检查更新',
             clearAll: '全部清除', markAllRead: '全部已读', filterAll: '全部', filterUnread: '未读', filterWarn: '警告', noMessages: '暂无消息', loadFailed: '读取失败：{e}',
-            view: '查看', markRead: '标为已读', today: '今天', yesterday: '昨天', scanWeixin: '微信助理', scanWelink: 'WeLink 个人身份',
+            view: '查看', markRead: '标为已读', today: '今天', yesterday: '昨天', scanWeixin: '微信助理', scanWelink: 'WeLink 本人',
             scanHintWeixin: '用微信扫码，接入微信助理与推送', scanHintWelink: '用 WeLink 扫码，以本人身份与 Dragon Claw 协同办公',
             scanConnecting: '正在连接 WeLink PC…', scanConnectingWeixin: '正在生成微信登录二维码…',
             scanWaitWeLink: '请使用手机 WeLink 扫码登录', scanWaitWeixin: '请使用手机微信扫码并确认',
             scanLoggedInWelink: '已登录 WeLink 个人身份', scanConnectedWeixin: '微信助理已连接',
+            scanIntranetOnly: '仅限内网使用', scanIntranetHint: 'WeLink 个人身份仅限华为内网使用。当前网络无法访问 WeLink 内网服务，请连接公司内网或 VPN 后重新检测。',
+            scanWelinkBot: 'WeLink 助理', scanWaitWelinkBot: '请使用手机 WeLink 扫码并确认授权', scanConnectedWelinkBot: 'WeLink 助理已对接',
+            scanRecheck: '重新检测', scanWindowsOnly: '仅支持 Windows', scanWindowsHint: '内置的 welink-cli 只能在 Windows 上运行，并需要本机登录 WeLink PC。',
             scanRelogin: '重新扫码', scanLogout: '退出登录', scanChannelSettings: '频道设置',
             channelDisabledNoChannel: '当前未对接任何频道（WeLink / 微信），可在全局设置中对接',
             channelDisabledNotEnabled: '已配置频道凭据但尚未启用，请在全局设置中开启'
@@ -113,11 +116,14 @@
             filterTime: 'Time', timeAll: 'Any time', timeToday: 'Today', time7: 'Last 7 days', time30: 'Last 30 days', filterReset: 'Reset filters',
             messages: 'Messages', scan: 'Scan to use', appearance: 'Appearance', light: 'Light', dark: 'Dark', version: 'Version', service: 'Service', checkUpdate: 'Check for updates',
             clearAll: 'Clear all', markAllRead: 'Mark all read', filterAll: 'All', filterUnread: 'Unread', filterWarn: 'Warnings', noMessages: 'No messages', loadFailed: 'Could not load: {e}',
-            view: 'View', markRead: 'Mark read', today: 'Today', yesterday: 'Yesterday', scanWeixin: 'WeChat Bot', scanWelink: 'WeLink Identity',
+            view: 'View', markRead: 'Mark read', today: 'Today', yesterday: 'Yesterday', scanWeixin: 'WeChat Bot', scanWelink: 'WeLink (Me)',
             scanHintWeixin: 'Scan with WeChat to connect the assistant and proactive push', scanHintWelink: 'Scan with WeLink to work with Dragon Claw as you',
             scanConnecting: 'Connecting to WeLink PC…', scanConnectingWeixin: 'Generating WeChat QR code…',
             scanWaitWeLink: 'Scan with WeLink mobile to sign in', scanWaitWeixin: 'Scan with WeChat mobile and confirm',
             scanLoggedInWelink: 'Signed in to personal WeLink', scanConnectedWeixin: 'WeChat assistant connected',
+            scanIntranetOnly: 'Intranet only', scanIntranetHint: 'WeLink personal identity works only on the Huawei intranet. This network cannot reach the WeLink intranet service. Connect to the intranet or VPN, then check again.',
+            scanWelinkBot: 'WeLink Bot', scanWaitWelinkBot: 'Scan with WeLink mobile and confirm', scanConnectedWelinkBot: 'WeLink assistant connected',
+            scanRecheck: 'Check again', scanWindowsOnly: 'Windows only', scanWindowsHint: 'The built-in welink-cli runs only on Windows, with WeLink PC signed in on this machine.',
             scanRelogin: 'Re-scan', scanLogout: 'Sign out', scanChannelSettings: 'Channel settings',
             channelDisabledNoChannel: 'No channels configured (WeLink / WeChat). Configure them in Global Settings.',
             channelDisabledNotEnabled: 'Channels configured but not enabled. Please enable them in Global Settings.'
@@ -533,6 +539,13 @@
             status: null,
             qr: null,
             controller: null
+        },
+        // WeLink 助理（Bot SDK 扫码授权）：Channel 默认 GDEClaw，确认后 AK/SK 等由后端保存并直接连接
+        welinkbot: {
+            checking: false,
+            status: null,
+            qr: null,
+            controller: null
         }
     };
     scan.pop.setAttribute('role', 'dialog');
@@ -549,7 +562,14 @@
     scan.abortAll = function () {
         if (scan.welink.controller) { scan.welink.controller.abort(); scan.welink.controller = null; }
         if (scan.weixin.controller) { scan.weixin.controller.abort(); scan.weixin.controller = null; }
+        if (scan.welinkbot.controller) { scan.welinkbot.controller.abort(); scan.welinkbot.controller = null; }
     };
+
+    function loadScanTab() {
+        if (scan.tab === 'welink') loadWelinkStatus({ autoLogin: true });
+        else if (scan.tab === 'welinkbot') loadWelinkBotStatus({ autoQr: true });
+        else loadWeixinStatus({ autoQr: true });
+    }
 
     function ensureQrLib() {
         if (window.ToolsQrCode) return Promise.resolve();
@@ -580,16 +600,16 @@
         return `<div class="v2-scan-qr-box">${content}</div>`;
     }
 
-    async function loadWelinkStatus({ autoLogin = true } = {}) {
+    async function loadWelinkStatus({ autoLogin = true, refresh = false } = {}) {
         scan.welink.checking = true;
         renderScan();
         try {
-            const res = await fetch('/api/channels/welink-cli/status?auth=1', { headers: scanHeaders() });
+            const res = await fetch(`/api/channels/welink-cli/status?auth=1${refresh ? '&refresh=1' : ''}`, { headers: scanHeaders() });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
             scan.welink.status = data;
             scan.welink.checking = false;
-            if (autoLogin && !data.auth?.loggedIn && data.install?.available) {
+            if (autoLogin && !data.auth?.loggedIn && data.install?.available && data.network?.intranet !== false) {
                 startWelinkLogin();
                 return;
             }
@@ -662,6 +682,12 @@
             return;
         }
         if (msg.type === 'error') {
+            if (msg.code === 'WELINK_CLI_EXTRANET') {
+                // 服务端发现已离开内网：回到「仅限内网」提示
+                scan.welink.status = { ...(scan.welink.status || {}), network: msg.network || { intranet: false } };
+                scan.welink.login = null;
+                return;
+            }
             l.phase = 'failed';
             l.error = msg.error;
             return;
@@ -766,6 +792,168 @@
         } catch (_) {}
     }
 
+    async function loadWelinkBotStatus({ autoQr = true } = {}) {
+        // 切换标签时二维码流已中止，旧二维码不再有效
+        if (!scan.welinkbot.controller) scan.welinkbot.qr = null;
+        scan.welinkbot.checking = true;
+        renderScan();
+        try {
+            const res = await fetch('/api/channels/welink/status', { headers: scanHeaders() });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            scan.welinkbot.status = data;
+            scan.welinkbot.checking = false;
+            if (autoQr && !(data.enabled && data.configured) && data.sdk?.available !== false) {
+                startWelinkBotQr();
+                return;
+            }
+        } catch (err) {
+            scan.welinkbot.checking = false;
+            scan.welinkbot.status = { error: err.message };
+        }
+        renderScan();
+    }
+
+    async function startWelinkBotQr() {
+        if (scan.welinkbot.controller) scan.welinkbot.controller.abort();
+        const controller = new AbortController();
+        scan.welinkbot.controller = controller;
+        scan.welinkbot.qr = { type: 'starting', running: true };
+        renderScan();
+        try {
+            const res = await fetch('/api/channels/welink/qrcode-auth', {
+                method: 'POST',
+                headers: scanHeaders(true),
+                body: JSON.stringify({}),
+                signal: controller.signal
+            });
+            if (!res.ok || !res.body) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    const event = JSON.parse(line);
+                    if (event.type === 'snapshot') {
+                        const snap = event.snapshot || {};
+                        const keepQr = snap.type === 'scanned' ? (scan.welinkbot.qr?.display || null) : (snap.display || null);
+                        scan.welinkbot.qr = { ...snap, display: keepQr, running: !['confirmed', 'cancelled', 'failed', 'expired'].includes(snap.type),
+                            error: snap.type === 'failed' ? (snap.serviceError?.message || snap.serviceError?.error || snap.reasonCode || '') : '' };
+                    }
+                    if (event.type === 'error') {
+                        scan.welinkbot.qr = event.code === 'WELINK_EXTRANET'
+                            ? { type: 'extranet', error: event.error, running: false }
+                            : { type: 'error', error: event.error, running: false };
+                    }
+                    if (event.type === 'done' && event.saved) {
+                        scan.welinkbot.qr = { type: 'confirmed', running: false };
+                        setTimeout(() => {
+                            if (openPop?.pop === scan.pop && scan.tab === 'welinkbot') loadWelinkBotStatus({ autoQr: false });
+                        }, 1200);
+                    }
+                }
+                renderScan();
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') scan.welinkbot.qr = { type: 'error', error: err.message, running: false };
+        }
+        scan.welinkbot.controller = null;
+        renderScan();
+    }
+
+    function renderWelinkBot() {
+        const wb = scan.welinkbot;
+        const settingsBtn = `<button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>`;
+        const qrVal = wb.qr?.display?.weUrl || wb.qr?.display?.qrcode || wb.qr?.qrcode;
+        const qrSvg = () => {
+            if (!qrVal || !window.ToolsQrCode) return '';
+            try { return window.ToolsQrCode.toSvg(qrVal, { scale: 4, border: 2 }); } catch (_) { return ''; }
+        };
+        if (wb.checking) return renderScanRing('正在检查 WeLink 助理状态…', '通过 WeLink 助理 SDK 扫码授权接入');
+        if (wb.qr?.type === 'extranet') {
+            return `<div class="v2-scan-connected">
+                <div class="v2-scan-connected-icon">🌐</div>
+                <div class="v2-scan-connected-title">${esc(t('scanIntranetOnly', '仅限内网使用'))}</div>
+                <div class="v2-scan-connected-meta">${esc(wb.qr.error || t('scanIntranetHint', ''))}</div>
+                <div class="v2-scan-actions">
+                    <button type="button" class="v2-account-btn is-primary" data-scan-action="relogin-welinkbot" style="margin-top:6px">${esc(t('scanRecheck', '重新检测'))}</button>
+                </div>
+            </div>`;
+        }
+        if (wb.qr?.type === 'qrcode_generated' || wb.qr?.type === 'scanned') {
+            const scanned = wb.qr.type === 'scanned';
+            return `
+                ${renderScanQrBox(qrSvg() || '<span class="v2-scan-loading"></span>')}
+                <div class="v2-scan-hint-lead">${esc(scanned ? '已扫码，请在手机 WeLink 上确认授权' : t('scanWaitWelinkBot', '请使用手机 WeLink 扫码并确认授权'))}</div>
+                <div class="v2-scan-hint-sub">Channel ${esc(wb.status?.channelName || 'GDEClaw')} · 确认后自动填入 AK/SK 并连接</div>
+                <div class="v2-scan-status-pill ${scanned ? 'is-pulsing' : ''}">
+                    <span class="v2-scan-dot"></span>
+                    <span>${esc(scanned ? '手机已扫码，正在等待确认授权…' : '等待 WeLink 扫码确认…')}</span>
+                </div>
+                <div class="v2-scan-actions">
+                    <button type="button" class="v2-pop-item" data-scan-action="relogin-welinkbot">${esc(t('scanRelogin', '刷新二维码'))}</button>
+                    ${settingsBtn}
+                </div>`;
+        }
+        if (wb.qr?.type === 'confirmed') {
+            return `<div class="v2-scan-connected">
+                <div class="v2-scan-connected-icon">✅</div>
+                <div class="v2-scan-connected-title">授权成功！</div>
+                <div class="v2-scan-connected-meta">AK/SK 已保存，WeLink 助理正在连接…</div>
+            </div>`;
+        }
+        if (wb.qr && ['error', 'failed', 'expired', 'cancelled'].includes(wb.qr.type)) {
+            const title = wb.qr.type === 'expired' ? '二维码已过期' : (wb.qr.type === 'cancelled' ? '已在手机上取消授权' : 'WeLink 助理接入失败');
+            return `<div class="v2-scan-connected">
+                <div class="v2-scan-connected-icon">⚠️</div>
+                <div class="v2-scan-connected-title">${esc(title)}</div>
+                <div class="v2-scan-connected-meta">${esc(wb.qr.error || '请刷新二维码重试')}</div>
+                <div class="v2-scan-actions">
+                    <button type="button" class="v2-account-btn is-primary" data-scan-action="relogin-welinkbot" style="margin-top:6px">重新获取二维码</button>
+                </div>
+            </div>`;
+        }
+        if (wb.status?.sdk && wb.status.sdk.available === false) {
+            return `<div class="v2-scan-connected">
+                <div class="v2-scan-connected-icon">📦</div>
+                <div class="v2-scan-connected-title">未检测到 WeLink 助理 SDK</div>
+                <div class="v2-scan-connected-meta">${esc(wb.status.sdk.hint || '内置 SDK 缺失，可在频道设置中导入。')}</div>
+                <div class="v2-scan-actions">${settingsBtn}</div>
+            </div>`;
+        }
+        if (wb.status?.enabled && wb.status?.configured && !wb.qr?.running) {
+            const info = wb.status.assistantInfo || {};
+            const state = wb.status.connected ? '在线' : (wb.status.lastError?.message ? `连接异常：${wb.status.lastError.message}` : '正在连接…');
+            return `<div class="v2-scan-connected">
+                <div class="v2-scan-connected-icon">🤖</div>
+                <div class="v2-scan-connected-title">${esc(t('scanConnectedWelinkBot', 'WeLink 助理已对接'))}</div>
+                <div class="v2-scan-connected-account">${esc(info.name || wb.status.channelName || 'GDEClaw')} · ${esc(state)}</div>
+                <div class="v2-scan-connected-meta">${esc(info.desc || '手机 WeLink 中的助理消息由 Dragon Claw 协同回复，可用于主动推送')}</div>
+                <div class="v2-scan-actions">
+                    <button type="button" class="v2-pop-item" data-scan-action="relogin-welinkbot">${esc(t('scanRelogin', '重新扫码'))}</button>
+                    ${settingsBtn}
+                </div>
+            </div>`;
+        }
+        if (wb.status?.error) {
+            return `<div class="v2-scan-connected">
+                <div class="v2-scan-connected-icon">⚠️</div>
+                <div class="v2-scan-connected-title">无法读取 WeLink 助理状态</div>
+                <div class="v2-scan-connected-meta">${esc(wb.status.error)}</div>
+                <div class="v2-scan-actions">
+                    <button type="button" class="v2-account-btn is-primary" data-scan-action="relogin-welinkbot" style="margin-top:6px">重新获取二维码</button>
+                </div>
+            </div>`;
+        }
+        return renderScanRing('正在生成 WeLink 助理授权二维码…', '通过 WeLink 助理 SDK 扫码授权接入');
+    }
+
     async function logoutWelink() {
         try {
             await fetch('/api/channels/welink-cli/logout', { method: 'POST', headers: scanHeaders() });
@@ -775,7 +963,8 @@
 
     function renderScan() {
         const tabs = `<div class="v2-seg v2-scan-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected="${scan.tab === 'welink'}" data-scan-tab="welink">${esc(t('scanWelink', 'WeLink 个人身份'))}</button>
+            <button type="button" role="tab" aria-selected="${scan.tab === 'welink'}" data-scan-tab="welink">${esc(t('scanWelink', 'WeLink 本人'))}</button>
+            <button type="button" role="tab" aria-selected="${scan.tab === 'welinkbot'}" data-scan-tab="welinkbot">${esc(t('scanWelinkBot', 'WeLink 助理'))}</button>
             <button type="button" role="tab" aria-selected="${scan.tab === 'weixin'}" data-scan-tab="weixin">${esc(t('scanWeixin', '微信助理'))}</button>
         </div>`;
 
@@ -793,11 +982,26 @@
                         <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
                     </div>
                 </div>`;
+            } else if (w.status?.install?.unsupported) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">🪟</div>
+                    <div class="v2-scan-connected-title">${esc(t('scanWindowsOnly', '仅支持 Windows'))}</div>
+                    <div class="v2-scan-connected-meta">${esc(t('scanWindowsHint', '内置的 welink-cli 只能在 Windows 上运行，并需要本机登录 WeLink PC。'))}</div>
+                </div>`;
+            } else if (w.status?.network?.intranet === false) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">🌐</div>
+                    <div class="v2-scan-connected-title">${esc(t('scanIntranetOnly', '仅限内网使用'))}</div>
+                    <div class="v2-scan-connected-meta">${esc(t('scanIntranetHint', 'WeLink 个人身份仅限华为内网使用。当前网络无法访问 WeLink 内网服务，请连接公司内网或 VPN 后重新检测。'))}</div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-account-btn is-primary" data-scan-action="recheck-welink" style="margin-top:6px">${esc(t('scanRecheck', '重新检测'))}</button>
+                    </div>
+                </div>`;
             } else if (w.status?.install && !w.status.install.available) {
                 body = `<div class="v2-scan-connected">
                     <div class="v2-scan-connected-icon">📦</div>
                     <div class="v2-scan-connected-title">未检测到 welink-cli</div>
-                    <div class="v2-scan-connected-meta">后续版本将提供项目内置；也可在全局设置中指定 CLI 路径。</div>
+                    <div class="v2-scan-connected-meta">内置的 welink-cli 缺失，可重新安装客户端，或在全局设置中指定 CLI 路径。</div>
                     <div class="v2-scan-actions">
                         <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
                     </div>
@@ -852,6 +1056,8 @@
             } else {
                 body = renderScanRing(w.login?.statusText || t('scanConnecting', '正在连接 WeLink PC…'), '请确保本机 WeLink 客户端处于运行登录状态');
             }
+        } else if (scan.tab === 'welinkbot') {
+            body = renderWelinkBot();
         } else {
             // 微信 (weixin) 标签
             const wx = scan.weixin;
@@ -937,8 +1143,7 @@
                 scan.abortAll();
                 scan.tab = nextTab;
                 renderScan();
-                if (scan.tab === 'welink') loadWelinkStatus({ autoLogin: true });
-                else loadWeixinStatus({ autoQr: true });
+                loadScanTab();
             }
             return;
         }
@@ -948,10 +1153,14 @@
         const act = actionBtn.dataset.scanAction;
         if (act === 'relogin-welink') {
             startWelinkLogin();
+        } else if (act === 'recheck-welink') {
+            loadWelinkStatus({ autoLogin: true, refresh: true });
         } else if (act === 'logout-welink') {
             logoutWelink();
         } else if (act === 'relogin-weixin') {
             startWeixinQr();
+        } else if (act === 'relogin-welinkbot') {
+            startWelinkBotQr();
         } else if (act === 'submit-weixin-verify') {
             const input = scan.pop.querySelector('[data-scan-verify-code]');
             if (input && input.value.trim()) submitWeixinVerify(input.value.trim());
@@ -969,8 +1178,7 @@
         showPop(scan.pop, anchor, 'up');
         await ensureQrLib().catch(() => {});
         if (openPop?.pop !== scan.pop) return;
-        if (scan.tab === 'welink') loadWelinkStatus({ autoLogin: true });
-        else loadWeixinStatus({ autoQr: true });
+        loadScanTab();
     }
     $('v2ScanBtn')?.addEventListener('mouseenter', openScan);
     $('v2ScanBtn')?.addEventListener('click', openScan);

@@ -1,0 +1,7 @@
+{
+  "name": "@wecode/bridge-runtime-sdk",
+  "version": "1.0.7",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts"
+}

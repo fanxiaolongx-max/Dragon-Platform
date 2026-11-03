@@ -196,15 +196,15 @@ async function openUivBatchCategoryFilter() {
                             </label>
                         `).join('')}
                     </div>
-                    <div style="margin-top:14px;padding:12px;border:1px solid rgba(103,232,249,.28);border-radius:10px;background:rgba(8,47,73,.24);">
+                    <div class="uiv-batch-schedule">
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-                            <div><strong style="color:#cffafe;">⏱️ 运行周期</strong><p style="margin:4px 0 0;color:#94a3b8;font-size:11px;">默认关闭。开启后需保持数据抓取页打开；每轮复用同一个启动页，避免窗口累积。</p></div>
-                            <label style="display:flex;align-items:center;gap:6px;color:#e2e8f0;font-size:12px;white-space:nowrap;"><input id="uiv-batch-schedule-enabled" type="checkbox"> 开启</label>
+                            <div><strong>⏱️ ${topicUploadText('运行周期', 'Schedule')}</strong><p>${topicUploadText('默认关闭。开启后需保持数据抓取页打开；上一轮未结束时不会重复启动。', 'Off by default. Keep this page open; an active desktop batch will not be started again.')}</p></div>
+                            <label><input id="uiv-batch-schedule-enabled" type="checkbox"> ${topicUploadText('开启', 'Enable')}</label>
                         </div>
-                        <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#cbd5e1;font-size:12px;">每隔
-                            <select id="uiv-batch-schedule-interval" style="flex:1;padding:6px;border-radius:7px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;">
-                                <option value="30">30 分钟</option><option value="60">1 小时</option><option value="120">2 小时</option><option value="240">4 小时</option><option value="480">8 小时</option><option value="720">12 小时</option><option value="1440">24 小时</option>
-                            </select>运行一次
+                        <label class="uiv-batch-schedule-interval">${topicUploadText('每隔', 'Every')}
+                            <select id="uiv-batch-schedule-interval">
+                                ${[30, 60, 120, 240, 480, 720, 1440].map(minutes => `<option value="${minutes}">${minutes < 60 ? topicUploadText('30 分钟', '30 minutes') : topicUploadText(`${minutes / 60} 小时`, `${minutes / 60} hours`)}</option>`).join('')}
+                            </select>${topicUploadText('运行一次', '')}
                         </label>
                     </div>
                 </div>
@@ -2569,6 +2569,13 @@ async function saveLocalUivRun(runId, macro) {
 }
 
 async function openLocalUivRunner(macro, options = {}) {
+    // Electron popup windows cannot run UI.Vision's full Chrome extension API.
+    // Use the existing sandboxed Dragon browser and its persistent site logins.
+    if (await isUivDesktopBrowserAvailable()) {
+        const result = await API.post('/api/uiv/run-uivision-macro', { ...(await buildUivRunPayload(macro)), desktopNative: true });
+        if (!result.success) throw new Error(result.error || '桌面批处理启动失败');
+        return 'desktop-native';
+    }
     const runId = makeRunnerId();
     await saveLocalUivRun(runId, macro);
     const runnerUrl = `${window.location.origin}/pages/uivision-runner-local.html#${runId}`;
@@ -2629,6 +2636,7 @@ async function runTestUivScriptsDirect() {
         registerUivAutoImportBridge(autoImport);
         const macro = buildUivBatchMacro(sampledScripts, '测试批脚本-每站点2个', { speed, autoImportSessionId, autoImportToken });
         const runnerUrl = await openLocalUivRunner(macro);
+        if (!runnerUrl) return false;
         showToast(`✅ 已打开 UI.Vision 测试批脚本：${sampledScripts.length} 个任务`, 'success');
         showToast(UIVT('uiv.repo.batchTenantWarning'), 'warning');
         console.info('[UIVF12 Direct Test Run]', { mode: 'local-runner', url: runnerUrl, commands: macro.Commands.length, speed, scripts: sampledScripts.map(s => s.name) });
@@ -2640,47 +2648,16 @@ async function runTestUivScriptsDirect() {
 }
 
 function showUiVisionSetupDialog(detail = {}) {
-    const old = document.getElementById('uivision-setup-dialog');
-    if (old) old.remove();
-    const overlay = document.createElement('div');
-    overlay.id = 'uivision-setup-dialog';
-    overlay.style.cssText = [
-        'position:fixed',
-        'inset:0',
-        'z-index:2147483000',
-        'display:grid',
-        'place-items:center',
-        'background:rgba(2,6,23,.66)',
-        'backdrop-filter:blur(8px)',
-        'padding:20px'
-    ].join(';');
-    overlay.innerHTML = `
-        <div style="width:min(560px,100%);background:#0f172a;border:1px solid rgba(96,165,250,.35);border-radius:14px;box-shadow:0 24px 80px rgba(0,0,0,.38);padding:22px;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
-            <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:12px;">
-                <div>
-                    <div style="font-size:18px;font-weight:800;color:#f8fafc;">需要启用 UI.Vision 环境</div>
-                    <div style="font-size:12px;color:#93c5fd;margin-top:4px;">直接运行依赖浏览器插件接管 embedded macro。</div>
-                </div>
-                <button type="button" onclick="document.getElementById('uivision-setup-dialog').remove()" style="border:0;background:transparent;color:#94a3b8;font-size:22px;cursor:pointer;line-height:1;">×</button>
-            </div>
-            ${detail.error ? `<div style="font-size:12px;color:#fecaca;background:rgba(239,68,68,.12);border:1px solid rgba(248,113,113,.25);border-radius:8px;padding:9px 10px;margin-bottom:12px;">${String(detail.error).replace(/[<>&]/g, s => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[s]))}</div>` : ''}
-            <ol style="margin:0;padding-left:20px;color:#cbd5e1;font-size:13px;line-height:1.75;">
-                <li>安装或启用浏览器插件：<a href="https://ui.vision/" target="_blank" rel="noopener" style="color:#67e8f9;font-weight:700;">https://ui.vision/</a></li>
-                <li>打开 UI.Vision 插件设置，开启 <b>Allow Command Line</b>。</li>
-                <li>开启 <b>Run embedded macros from public websites</b>，并把 <b>${window.location.origin}</b> 加入白名单。</li>
-                <li>如需下载后自动移动到指定目录，再在插件设置里安装并启用 <b>XModules</b>；没装也能继续下载到浏览器默认下载目录。</li>
-                <li>设置完成后回到本页面，再点一次“🚀 运行批脚本”。</li>
-            </ol>
-            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
-                <a href="https://ui.vision/" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;padding:9px 13px;border-radius:8px;background:#2563eb;color:white;text-decoration:none;font-size:13px;font-weight:700;">打开安装页面</a>
-                <button type="button" onclick="document.getElementById('uivision-setup-dialog').remove()" style="padding:9px 13px;border-radius:8px;border:1px solid #334155;background:#111827;color:#cbd5e1;cursor:pointer;font-size:13px;">我知道了</button>
-            </div>
-        </div>
-    `;
-    overlay.addEventListener('click', event => {
-        if (event.target === overlay) overlay.remove();
+    if (uivDesktopAvailable === true) {
+        AppDialog.alert(detail.error || topicUploadText('请检查 Dragon 浏览器运行标签。', 'Check the Dragon browser run tab.'), {
+            title: topicUploadText('脚本运行环境', 'Script runtime'), tone: 'error'
+        });
+        return;
+    }
+    if (window.UIVExtensionGuide) { window.UIVExtensionGuide.open(); return; }
+    AppDialog.alert(detail.error || topicUploadText('请安装 UI.Vision 并允许当前域名运行 embedded macros。', 'Install UI.Vision and allow embedded macros for this origin.'), {
+        title: topicUploadText('脚本运行环境', 'Script runtime'), tone: 'error'
     });
-    document.body.appendChild(overlay);
 }
 
 // Self-contained: copied F12 scripts run on the target site without platform assets.
@@ -2691,7 +2668,8 @@ function installFloatingCaptureTheme(root) {
     if (!actions) return;
     const existing = actions.querySelector('.capture-theme');
     if (existing) return;
-    let theme = document.documentElement.dataset.theme === 'light' ? 'light' : 'dark';
+    const platformTheme = document.documentElement.dataset.platformTheme || document.documentElement.dataset.theme;
+    let theme = platformTheme === 'dark' ? 'dark' : 'light';
     try {
         const saved = localStorage.getItem(storageKey);
         if (saved === 'light' || saved === 'dark') theme = saved;
@@ -4354,6 +4332,12 @@ window.UIVCopy = {
 window.UIVBatch = window.UIVCopy; // alias
 
 document.addEventListener('DOMContentLoaded', () => {
+    const syncTheme = () => {
+        const theme = document.documentElement.dataset.platformTheme;
+        if (theme) document.body.classList.toggle('uiv-light-theme', theme !== 'dark');
+    };
+    syncTheme();
+    new MutationObserver(syncTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-platform-theme'] });
     updateUivBatchSpeedButton();
     startUivBatchSchedule();
     // 首页「插件与脚本」入口：?siteScripts=1 直接打开浮窗脚本选择

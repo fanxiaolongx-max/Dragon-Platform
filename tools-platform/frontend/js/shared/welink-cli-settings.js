@@ -53,6 +53,7 @@
             const data = await request('GET', `/status${refresh ? '?refresh=1' : ''}`);
             state.config = data.config;
             state.install = data.install;
+            state.network = data.network || null;
             state.error = '';
             state.forbidden = false;
         } catch (error) {
@@ -62,7 +63,7 @@
         state.loading = false;
         state.loaded = true;
         render();
-        if (state.install?.available) loadAuth();
+        if (state.install?.available && state.network?.intranet !== false) loadAuth();
     }
 
     async function loadAuth() {
@@ -210,7 +211,9 @@
 
     // ── 渲染 ─────────────────────────────────────────────
     function authPill() {
+        if (state.install?.unsupported) return `<span class="nch-pill bad"><i></i>${esc(L('仅支持 Windows', 'Windows only'))}</span>`;
         if (!state.install?.available) return `<span class="nch-pill bad"><i></i>${esc(L('未安装', 'Not installed'))}</span>`;
+        if (state.network?.intranet === false) return `<span class="nch-pill warn"><i></i>${esc(L('外网环境 · 仅限内网使用', 'Off intranet · intranet only'))}</span>`;
         if (state.authLoading) return `<span class="nch-pill warn"><i></i>${esc(L('检查登录中…', 'Checking…'))}</span>`;
         const loggedIn = state.auth?.loggedIn;
         if (loggedIn === true) {
@@ -258,6 +261,7 @@
         const install = state.install || {};
         const busy = state.busy;
         const loginRunning = state.login?.phase === 'running';
+        const extranet = state.network?.intranet === false;
         const pathValue = state.draftPath ?? config.cliPath ?? '';
         const emailValue = state.draftEmail ?? config.email ?? '';
         el.innerHTML = `
@@ -267,6 +271,7 @@
                 ${authPill()}
                 ${install.available ? `<span class="nch-muted">welink-cli ${esc(install.version || '')} · ${esc(install.entry || '')}</span>` : `<span class="nch-muted">${esc(install.hint || '')}</span>`}
             </div>
+            ${extranet ? `<p class="nch-desc" style="background:#fef3c7;color:#92400e;padding:8px 10px;border-radius:8px">🌐 ${esc(L('WeLink 个人身份仅限华为内网使用。当前网络无法访问 WeLink 内网服务（' + (state.network.host || '') + '），请连接公司内网或 VPN 后点击「重新检测」。', 'WeLink personal identity works only on the Huawei intranet. This network cannot reach the WeLink intranet service (' + (state.network.host || '') + '). Connect to the intranet or VPN, then click Re-detect.'))}</p>` : ''}
             ${state.auth?.text || state.auth?.error ? `<details style="margin-bottom:10px"><summary class="nch-muted">${esc(L('auth status 原始输出', 'auth status output'))}</summary><pre style="white-space:pre-wrap;font-size:12px;margin:6px 0">${esc(state.auth.error || state.auth.text)}</pre></details>` : ''}
             <label class="nch-switch" style="margin-bottom:8px"><input type="checkbox" data-cli-field="enabled" ${config.enabled ? 'checked' : ''} ${busy ? 'disabled' : ''}> ${esc(L('允许 Dragon Claw 通过 @welink-office 以我的身份查询 WeLink（查询结果会发送给当前 AI 模型）', 'Allow Dragon Claw @welink-office to query WeLink as me (results are sent to the current AI model)'))}</label>
             <label class="nch-switch" style="margin-bottom:8px"><input type="checkbox" data-cli-field="allowWrite" ${config.allowWrite ? 'checked' : ''} ${busy || !config.enabled ? 'disabled' : ''}> ${esc(L('允许写操作：发消息、建群、撤回、建会/改会、云空间增删改、发/回/转邮件、建日程等（每一条都会在对话里弹出审批卡，点「允许」才执行）', 'Allow write actions: send messages, create groups, recall, create/update meetings, change cloud drive files, send/reply/forward mail, create events (each one shows an approval card in the chat and runs only after you allow it)'))}</label>
@@ -277,7 +282,7 @@
                 <label class="nch-field" style="grid-column:1/-1"><span>${esc(L('CLI 路径（可选）', 'CLI path (optional)'))}</span><input data-cli-field="cliPath" value="${esc(pathValue)}" maxlength="500" placeholder="${esc(L('留空自动查找 npm 全局目录；也可填 welink-cli.cmd 或安装目录', 'Blank = npm global; or welink-cli.cmd / install folder'))}"></label>
             </div>
             <div class="nch-row">
-                <button type="button" class="nch-btn primary" data-cli-action="login" ${!install.available || loginRunning || busy ? 'disabled' : ''}>📱 ${esc(loginRunning ? L('等待扫码…', 'Waiting for scan…') : L('扫码登录', 'Sign in with QR'))}</button>
+                <button type="button" class="nch-btn primary" data-cli-action="login" ${!install.available || extranet || loginRunning || busy ? 'disabled' : ''}>📱 ${esc(loginRunning ? L('等待扫码…', 'Waiting for scan…') : L('扫码登录', 'Sign in with QR'))}</button>
                 <button type="button" class="nch-btn" data-cli-action="recheck" ${busy || loginRunning ? 'disabled' : ''}>${esc(busy === 'recheck' ? L('检测中…', 'Checking…') : L('重新检测', 'Re-detect'))}</button>
                 <button type="button" class="nch-btn" data-cli-action="save-path" ${busy || loginRunning ? 'disabled' : ''}>${esc(L('保存路径', 'Save paths'))}</button>
                 ${install.available && state.auth?.loggedIn !== false ? `<button type="button" class="nch-btn danger" data-cli-action="logout" ${busy || loginRunning ? 'disabled' : ''}>${esc(L('注销', 'Sign out'))}</button>` : ''}

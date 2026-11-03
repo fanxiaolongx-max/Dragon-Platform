@@ -3662,8 +3662,9 @@ window.doLogout = async function () {
         if (val !== null) localStorage.setItem(key, val);
     }
     sessionStorage.clear();
+    try { sessionStorage.setItem('tools_manual_logout', '1'); } catch (_) {}
     document.cookie = 'tools_token=; path=/; max-age=0';
-    window.location.href = '/login.html?logout=1';
+    window.location.href = '/login.html';
 };
 
 // ==========================================

@@ -219,6 +219,7 @@ async function getStatus(tenantId = getTenantId()) {
             tenantId,
             enabled: config.enabled,
             configured: Boolean(config.channel && config.ak && config.sk),
+            channelName: config.channel,
             sdk,
             runtime,
             connected: runtime.state === 'ready',
@@ -322,7 +323,9 @@ async function runQrAuth(tenantId, { environment, channel } = {}, onSnapshot = (
         onSnapshot: snapshot => {
             if (snapshot?.type === 'confirmed') {
                 const credentials = snapshot.credentials || {};
+                // 扫码即完成对接：凭据、Channel、环境一并写入并启用，随后 applyConfig 直接连接
                 saved = runWithTenant(tenantId, () => configRepo.saveConfig({
+                    enabled: true,
                     ak: credentials.ak,
                     sk: credentials.sk,
                     channel: finalChannel,

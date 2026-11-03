@@ -409,7 +409,21 @@ test('扫码授权：快照不含凭据，确认后保存 AK/SK 与助理信息'
     assert.equal(config.ak, 'ak-from-qr');
     assert.equal(config.sk, 'sk-from-qr-secret-value');
     assert.equal(config.assistantInfo.name, '平台助理');
+    assert.equal(config.enabled, true, '扫码确认后直接启用连接');
+    assert.equal(result.status.enabled, true);
     assert.notEqual((await runWithTenant('default', () => configRepo.getConfig())).ak, 'ak-from-qr', '其他租户不受影响');
+});
+
+test('扫码授权：未填写 Channel 时默认使用 GDEClaw', async () => {
+    const sdk = createFakeSdk();
+    sdkLoader.setOverride(sdk);
+    service.resetForTests();
+    assert.equal((await runWithTenant('fresh-tenant', () => configRepo.getConfig())).channel, 'GDEClaw');
+    const result = await service.runQrAuth('fresh-tenant', {}, () => {});
+    assert.equal(result.saved, true);
+    assert.equal(sdk.qrInput.channel, 'GDEClaw');
+    assert.equal(sdk.qrInput.environment, 'prod');
+    assert.equal((await runWithTenant('fresh-tenant', () => configRepo.getConfig())).channel, 'GDEClaw');
 });
 
 test('推送 API：普通用户仅在开放后可推送到默认范围', async () => {

@@ -7,6 +7,8 @@
 // 浮窗脚本、推广链接和网站的新窗口链接共用同一个 Dragon 浏览器窗口。
 const { app, BrowserWindow, BrowserView, Menu, dialog, screen, session, shell } = require('electron');
 const { createExtensionManager } = require('./browser-extensions');
+const { createUivBatchRunner } = require('./uiv-batch-runner');
+const { createBrowserCredentials } = require('./browser-credentials');
 const { createSiteScriptStore } = require('./site-scripts');
 const { createPagePreview } = require('./page-preview');
 const { createDragonBrowser } = require('./dragon-browser');
@@ -40,7 +42,19 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     let sessionReady = false;
     let unregisterDownloads = null;
     let browserLibrary = null;
+    let browserCredentials = null;
     let state = readState();
+    const uivBatchRunner = createUivBatchRunner({
+        openPage: async options => {
+            ensureSession();
+            await extensions.whenReady();
+            return api.openAgentPage(options);
+        },
+        onError: () => dialog.showMessageBox({
+            type: 'error', title: 'UIVF12',
+            message: T('批脚本执行中断，请检查运行标签中的站点、登录状态和抓取进度后重新运行。', 'Batch interrupted. Check the site, login and capture progress in the run tab, then retry.')
+        }).catch(() => {})
+    });
 
     function readState() {
         try {
@@ -70,7 +84,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
     const isBig = card => !!card.inBrowser;
     const browser = createDragonBrowser({
         partition: PARTITION, whenReady: () => extensions.whenReady(), getLanguage, getWorkArea: workArea,
-        getLibrary: () => browserLibrary, getDownloads: () => unregisterDownloads,
+        getLibrary: () => browserLibrary, getDownloads: () => unregisterDownloads, getCredentialStore: () => browserCredentials,
         onPageCreated: tab => {
             tab.page.webContents.on('did-finish-load', () => { if (tab.tool?.autoRun) runToolScript(tab, { onlyOnOrigin: true }); });
         },
@@ -86,6 +100,10 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         if (sessionReady) return;
         sessionReady = true;
         const promoSession = session.fromPartition(PARTITION);
+        try {
+            browserCredentials = createBrowserCredentials(path.join(path.dirname(statePath), 'dragon-browser-credentials.db'), require('electron').safeStorage);
+            browserCredentials.ready.catch(() => {});
+        } catch (_) { /* Browsing still works when the local credential store is unavailable. */ }
         try {
             browserLibrary = createBrowserLibrary(path.join(path.dirname(statePath), 'dragon-browser.db'));
             browserLibrary.ready.then(() => browser.refreshLibrary()).catch(() => browser.libraryFailed());
@@ -595,6 +613,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
         },
         handleAction,
         init() { ensureSession(); return extensions.whenReady(); },
+        runUivMacro: macro => uivBatchRunner.start(macro),
         // 数据抓取页「🖥 Dragon 浏览器」：缓存脚本；run 为 true 时打开站点窗口，登录完成后自动运行
         putSiteScript(site, { run = true } = {}) {
             const saved = siteScripts.put(site);
@@ -616,6 +635,7 @@ function createPromoStack({ statePath, extensionsStatePath, siteScriptsPath, get
             unregisterDownloads?.();
             unregisterDownloads = null;
             browserLibrary?.close().catch(() => {});
+            browserCredentials?.close().catch(() => {});
             try { session.fromPartition(PARTITION).cookies.flushStore().catch(() => {}); } catch (_) { /* noop */ }
             clearInterval(rotateTimer);
             if (fullscreenWatcher) { fullscreenWatcher.kill(); fullscreenWatcher = null; }

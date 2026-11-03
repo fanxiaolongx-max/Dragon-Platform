@@ -2,6 +2,7 @@
 const { BrowserWindow, BrowserView, shell, Menu, clipboard, app } = require('electron');
 const path = require('path');
 const { savedUrl } = require('./browser-library');
+const { captureSite, loginOrigin, attachBrowserLogin } = require('./browser-credentials');
 const TAB_HEIGHT = 34;
 const TOOLBAR_HEIGHT = 40;
 const PANEL_HEIGHT = 240, FIND_HEIGHT = 38;
@@ -15,7 +16,7 @@ function webUrl(value) {
     } catch (_) { return null; }
 }
 
-function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, getLibrary = () => null, getDownloads = () => null, onPageCreated = () => {}, onAction = () => {}, onVisibilityChange = () => {} }) {
+function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, getLibrary = () => null, getDownloads = () => null, getCredentialStore = () => null, onPageCreated = () => {}, onAction = () => {}, onVisibilityChange = () => {} }) {
     let win = null, tabs = [], activeId = null, attached = null, shown = false, sequence = 0, ready = false;
     let windowDrag = null;
     let panel = '', bookmarks = [], history = [], libraryError = false;
@@ -23,6 +24,14 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
     let find = { open: false, text: '', matches: 0, activeMatch: 0 }, findRequest = null;
     const closedTabs = [];
     const active = () => tabs.find(tab => tab.id === activeId);
+    function loginContext(tab) {
+        const current = tab.page.webContents.getURL();
+        if (captureSite(tab.link.url) || captureSite(current)) tab.captureLogin = true;
+        const origin = loginOrigin(current);
+        if (!tab.captureLogin || !origin) return false;
+        const host = new URL(origin).hostname;
+        return host === 'huawei.com' || host.endsWith('.huawei.com');
+    }
     const T = (zh, en) => getLanguage() === 'en-US' ? en : zh;
 
     function pushState() {
@@ -113,7 +122,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         const [tab] = tabs.splice(index, 1);
         const url = webUrl(tab.page.webContents.getURL());
         if (url) {
-            closedTabs.push({ link: { ...tab.link, url }, tool: tab.tool ? { ...tab.tool, timer: undefined } : undefined });
+            closedTabs.push({ link: { ...tab.link, url }, captureLogin: tab.captureLogin, tool: tab.tool ? { ...tab.tool, timer: undefined } : undefined });
             if (closedTabs.length > 20) closedTabs.shift();
         }
         disposeTab(tab);
@@ -126,7 +135,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
     function duplicateTab(tab = active()) {
         if (!tab) return;
         const url = webUrl(tab.page.webContents.getURL());
-        if (url) open({ link: { ...tab.link, url }, tool: tab.tool ? { ...tab.tool, timer: undefined } : undefined });
+        if (url) open({ link: { ...tab.link, url }, captureLogin: tab.captureLogin, tool: tab.tool ? { ...tab.tool, timer: undefined } : undefined });
     }
     function zoom(direction) {
         const wc = active()?.page.webContents; if (!wc) return;
@@ -184,7 +193,11 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
             { label: T('恢复关闭的标签页', 'Reopen closed tab'), enabled: closedTabs.length > 0, click: reopenTab }
         ]);
     }
-    function browserMenu() {
+    async function browserMenu() {
+        const tab = active(), url = tab?.page.webContents.getURL();
+        const managed = tab && loginContext(tab), store = getCredentialStore();
+        let loginEnabled = false;
+        try { loginEnabled = managed && store ? await store.enabled(url) : false; } catch (_) {}
         popup([
             { label: T('新建标签页', 'New tab'), accelerator: 'CmdOrCtrl+T', click: () => open({ link: { name: T('新标签页', 'New tab'), url: 'about:blank' } }) },
             { label: T('恢复关闭的标签页', 'Reopen closed tab'), accelerator: 'CmdOrCtrl+Shift+T', enabled: closedTabs.length > 0, click: reopenTab },
@@ -193,6 +206,8 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
             { label: T('历史记录', 'History'), click: () => showPanel('history') },
             { label: T('下载内容', 'Downloads'), click: () => showPanel('downloads') },
             { label: T('打开下载文件夹', 'Open Downloads folder'), click: () => shell.openPath(app.getPath('downloads')).catch(() => {}) },
+            { label: T('此登录站点：记住密码并自动登录', 'This login site: remember password and sign in'), type: 'checkbox', checked: loginEnabled, enabled: !!(managed && store), click: () => store.toggle(url).catch(() => {}) },
+            { label: T('清除此登录站点的密码并关闭自动登录', 'Forget this login and disable auto sign-in'), enabled: !!(managed && store), click: () => store.remove(url).catch(() => {}) },
             { type: 'separator' },
             { label: T('放大', 'Zoom in'), click: () => zoom('in') },
             { label: T('缩小', 'Zoom out'), click: () => zoom('out') },
@@ -321,6 +336,20 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         tabs.push(tab);
         if (shown) tab.onModeChange?.(true);
         const wc = page.webContents;
+        const loginNavigation = (_event, url, _inPlace, isMainFrame) => {
+            if (isMainFrame && captureSite(url)) tab.captureLogin = true;
+        };
+        wc.on('did-start-navigation', loginNavigation);
+        let loginStorageWarned = false;
+        const detachLogin = attachBrowserLogin(wc, {
+            getStore: getCredentialStore, allowed: () => loginContext(tab),
+            notify: result => {
+                if (result !== 'unavailable' || loginStorageWarned) return;
+                loginStorageWarned = true;
+                // Never include a credential or raw storage error in UI/logs.
+                if (win && !win.isDestroyed()) require('electron').dialog.showMessageBox(win, { type: 'info', message: T('本机系统密码库暂不可用，密码未保存。请手动登录。', 'The system key store is unavailable. Password was not saved; sign in manually.') }).catch(() => {});
+            }
+        });
         const changed = () => { if (!tab.closed) pushState(); };
         const events = ['did-navigate', 'did-navigate-in-page', 'page-title-updated', 'did-start-loading', 'did-stop-loading'];
         events.forEach(event => wc.on(event, changed));
@@ -344,6 +373,8 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
         wc.on('did-finish-load', visited); wc.on('did-navigate-in-page', navigatedInPage);
         if (options.page && !wc.isLoading()) visited();
         tab.cleanup = () => {
+            detachLogin();
+            wc.removeListener('did-start-navigation', loginNavigation);
             events.forEach(event => wc.removeListener(event, changed)); wc.removeListener('before-input-event', keyboard);
             wc.removeListener('zoom-changed', wheelZoom); wc.removeListener('found-in-page', found); wc.removeListener('context-menu', contextMenu);
             wc.removeListener('ipc-message', pageMessage);
@@ -359,7 +390,7 @@ function createDragonBrowser({ partition, whenReady, getLanguage, getWorkArea, g
                     loadOptions.extraHeaders = `Content-Type: ${details.postBody.contentType}${details.postBody.boundary ? '; boundary=' + details.postBody.boundary : ''}`;
                 }
                 // 先让 Chromium 完成当前开窗回调，再切换 BrowserView，避免阻塞来源页面。
-                setImmediate(() => { if (!tab.closed) open({ link: { name: url, url }, loadOptions }); });
+                setImmediate(() => { if (!tab.closed) open({ link: { name: url, url }, captureLogin: tab.captureLogin || captureSite(wc.getURL()), loadOptions }); });
             }
             return { action: 'deny' };
         });

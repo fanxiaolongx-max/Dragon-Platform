@@ -13,6 +13,9 @@ const CONFIG_FILE = path.join(BASE_DATA_DIR, 'welink-cli.json');
 const COMMAND_TIMEOUT_MS = 60000;
 const LOGIN_TIMEOUT_MS = 5 * 60000;
 const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
+// 项目内置的 Windows 版（backend/vendor），桌面版经 asarUnpack 解包到 app.asar.unpacked
+const BUILTIN_DIR = path.join(__dirname, '../../vendor', PACKAGE_NAME);
+const UNSUPPORTED_PLATFORM_HINT = 'welink-cli 仅支持 Windows，并需要本机运行 WeLink PC；当前系统无法使用 WeLink 个人身份。';
 const INSTALL_HINT = `未检测到 welink-cli。请先安装：npm install -g ${PACKAGE_NAME} --registry=https://cmc.centralrepo.rnd.huawei.com/artifactory/api/npm/product_npm/ --strict-ssl=false，然后点击「重新检测」；也可以在「CLI 路径」里填写安装目录。`;
 const ANSI_RE = /\u001b\[[0-9;?]*[ -/]*[@-~]|\u001b\][^\u0007]*\u0007/g;
 const DEFAULT_CONFIG = { enabled: false, allowWrite: false, cliPath: '', env: '', email: '', verbose: false, downloadDir: '', updatedAt: null };
@@ -108,7 +111,10 @@ function entryFromPackage(dir) {
     const bin = typeof pkg.bin === 'string' ? pkg.bin : (pkg.bin && (pkg.bin['welink-cli'] || Object.values(pkg.bin)[0]));
     if (!bin) return null;
     const entry = path.resolve(dir, bin);
-    return fs.existsSync(entry) ? { entry, packageDir: dir, version: pkg.version || '' } : null;
+    if (!fs.existsSync(entry)) return null;
+    // package.json 的 os 字段：官方包只发布 win32
+    const platforms = Array.isArray(pkg.os) ? pkg.os : null;
+    return { entry, packageDir: dir, version: pkg.version || '', unsupported: Boolean(platforms && !platforms.includes(process.platform)) };
 }
 
 /** npm 在 Windows 生成的 welink-cli.cmd 里写着 "%dp0%\node_modules\...\bin\xxx.js"，从中取出真实入口。 */
@@ -185,6 +191,12 @@ async function resolveNode() {
     return { command: process.execPath, env: { ELECTRON_RUN_AS_NODE: '1' } };
 }
 
+/** 打包后 app.asar 内的路径换成解包目录：exe 与脚本必须在真实文件系统上才能被启动。 */
+function unpackedPath(dir) {
+    const marker = `app.asar${path.sep}`;
+    return dir.includes(marker) ? dir.replace(marker, `app.asar.unpacked${path.sep}`) : dir;
+}
+
 async function detect({ refresh = false } = {}) {
     if (overrides.install) return overrides.install;
     if (cachedInstall && !refresh) return cachedInstall;
@@ -196,17 +208,23 @@ async function detect({ refresh = false } = {}) {
         source = 'custom';
     }
     if (!found) {
-        // 内置或 vendor 候选目录（方便项目将来内置 welink-cli，无需用户手动选择路径）
+        // 内置或 vendor 候选目录：项目内置的 backend/vendor 优先，无需用户手动安装或选择路径
         const localCandidates = [
+            unpackedPath(BUILTIN_DIR),
             path.join(__dirname, '../../../../vendor', PACKAGE_NAME),
             path.join(__dirname, '../../../vendor', PACKAGE_NAME),
-            path.join(__dirname, '../../vendor', PACKAGE_NAME),
             path.join(__dirname, '../../../../node_modules', PACKAGE_NAME),
             path.join(__dirname, '../../../node_modules', PACKAGE_NAME)
         ];
         for (const dir of localCandidates) {
             found = entryFromPackage(dir);
-            if (found) { source = 'builtin'; break; }
+            if (found) {
+                source = 'builtin';
+                // 内置包直接启动 exe，不依赖系统 node
+                const exe = path.join(dir, 'welink-cli.exe');
+                if (process.platform === 'win32' && fs.existsSync(exe)) found = { ...found, entry: exe, direct: true };
+                break;
+            }
         }
     }
     if (!found) {
@@ -219,8 +237,10 @@ async function detect({ refresh = false } = {}) {
         found = await entryFromPath();
         source = 'path';
     }
-    cachedInstall = found
-        ? { available: true, source, entry: found.entry, packageDir: found.packageDir, version: found.version }
+    cachedInstall = found?.unsupported
+        ? { available: false, unsupported: true, source, version: found.version, platform: process.platform, hint: UNSUPPORTED_PLATFORM_HINT }
+        : found
+        ? { available: true, source, entry: found.entry, packageDir: found.packageDir, version: found.version, direct: Boolean(found.direct) }
         : { available: false, hint: config.cliPath ? `「${config.cliPath}」不是有效的 welink-cli 安装目录。${INSTALL_HINT}` : INSTALL_HINT };
     return cachedInstall;
 }
@@ -313,9 +333,9 @@ async function spawnCli(args, options = {}) {
 async function spawnCliRaw(args, { timeoutMs = COMMAND_TIMEOUT_MS, signal, onLine } = {}) {
     const install = await detect();
     if (!install.available) throw cliError('WELINK_CLI_NOT_FOUND', install.hint, 404);
-    const node = await resolveNode();
+    const node = install.direct ? { command: install.entry, env: {} } : await resolveNode();
     return new Promise((resolve, reject) => {
-        const child = spawn(node.command, [install.entry, ...args], {
+        const child = spawn(node.command, install.direct ? args : [install.entry, ...args], {
             cwd: os.homedir(),
             env: { ...process.env, ...node.env, NO_COLOR: '1', FORCE_COLOR: '0' },
             windowsHide: true,

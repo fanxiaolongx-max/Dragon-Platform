@@ -10,6 +10,7 @@ const targetsRepo = require('../models/channels/channel-targets-repository');
 const sdkLoader = require('../models/channels/welink-sdk-loader');
 const welinkCli = require('../models/channels/welink-cli-runner');
 const welinkCliAgent = require('../models/channels/welink-cli-agent');
+const welinkNetwork = require('../models/channels/welink-network');
 const welink = require('../models/channels/welink-bridge-service');
 const weixin = require('../models/channels/weixin-bridge-service');
 const followupsRepo = require('../models/channels/channel-followups-repository');
@@ -118,10 +119,13 @@ const welinkCliAdmin = [requireAdmin, (_req, res, next) => {
 
 router.get('/welink-cli/status', welinkCliAdmin, handle(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    const install = await welinkCli.detect({ refresh: req.query.refresh === '1' });
+    const refresh = req.query.refresh === '1';
+    const install = await welinkCli.detect({ refresh });
     const payload = { config: welinkCli.readConfig(), install };
+    // 仅限内网：外网时不再去连 WeLink PC，由前端提示
+    if (install.available) payload.network = await welinkNetwork.checkIntranet({ refresh });
     // auth status 要连本机 WeLink PC，可能要几秒，前端单独请求
-    if (install.available && req.query.auth === '1') {
+    if (install.available && payload.network.intranet && req.query.auth === '1') {
         try {
             payload.auth = await welinkCli.authStatus();
         } catch (error) {
@@ -167,6 +171,11 @@ router.post('/welink-cli/login', welinkCliAdmin, async (req, res) => {
     const controller = new AbortController();
     res.on('close', () => { if (!res.writableFinished) controller.abort(); });
     try {
+        const network = await welinkNetwork.checkIntranet({ refresh: true });
+        if (!network.intranet) {
+            write({ type: 'error', code: 'WELINK_CLI_EXTRANET', error: network.hint, network });
+            return res.end();
+        }
         await welinkCli.login({ env: req.body?.env, signal: controller.signal, onEvent: event => write({ type: 'event', event }) });
         write({ type: 'done', ok: true });
     } catch (error) {
@@ -211,6 +220,12 @@ router.post('/welink/qrcode-auth', async (req, res) => {
     const tenantId = getTenantId();
     const write = ndjson(res);
     try {
+        // SDK 的授权服务在 WeLink 内网（api.inner.welink.huawei.com），外网直接提示
+        const network = await welinkNetwork.checkIntranet({ refresh: true });
+        if (!network.intranet) {
+            write({ type: 'error', code: 'WELINK_EXTRANET', error: network.hint.replace('WeLink 个人身份', 'WeLink 助理扫码授权'), network });
+            return res.end();
+        }
         const result = await welink.runQrAuth(tenantId, { environment: req.body?.environment, channel: req.body?.channel }, snapshot => write({ type: 'snapshot', snapshot }));
         write({ type: 'done', ...result });
     } catch (error) {

@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../frontend/js/uivf12/copy.js'), 'utf8');
 const runtimeSource = source.slice(source.indexOf('function installFloatingCaptureTheme('), source.indexOf('function wrapMasterScriptWithFloatingLauncher('));
 
-function fixture({ saved, platformTheme = 'dark', language = 'zh-CN', shadow = true, denied = false } = {}) {
+function fixture({ saved, platformTheme = 'dark', actualPlatformTheme, language = 'zh-CN', shadow = true, denied = false } = {}) {
     const storage = new Map(saved ? [['uivf12-capture-theme-v1', saved]] : []);
     const host = { attrs: {}, style: {}, setAttribute(key, value) { this.attrs[key] = value; } };
     const nodes = [], handlers = {};
@@ -23,7 +23,7 @@ function fixture({ saved, platformTheme = 'dark', language = 'zh-CN', shadow = t
         addEventListener: (event, handler) => { handlers[event] = handler; }
     };
     const document = {
-        documentElement: { dataset: { theme: platformTheme }, lang: language },
+        documentElement: { dataset: { theme: platformTheme, platformTheme: actualPlatformTheme }, lang: language },
         createElement: () => ({ attrs: {}, events: {}, setAttribute(key, value) { this.attrs[key] = value; }, addEventListener(event, fn) { this.events[event] = fn; } })
     };
     const localStorage = {
@@ -51,6 +51,7 @@ test('floating theme toggles without changing the target site and restores the s
 });
 
 test('storage denial and invalid preferences retain a working toggle; simulator inherits the platform default', () => {
+    assert.equal(fixture({ actualPlatformTheme: 'light' }).host.attrs['data-uiv-capture-theme'], 'light', 'platform theme takes precedence over legacy data-theme');
     for (const shadow of [true, false]) {
         const f = fixture({ denied: true, platformTheme: 'light', shadow });
         assert.equal(f.host.attrs['data-uiv-capture-theme'], 'light');

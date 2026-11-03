@@ -283,8 +283,8 @@ test('electron-main.js, preload and login.html integrate desktop auto-login cred
     assert.match(loginHtml, /window\.ToolsDesktopAuth\?\.saveCredentials/);
     assert.match(loginHtml, /checkDesktopAutoLogin\(\);/);
 
-    // 4. 用户手动退出时携带 ?logout=1，避免陷入自动登录死循环
-    assert.match(navbarJs, /window\.location\.href\s*=\s*['"]\/login\.html\?logout=1['"]/);
+    // 4. 用户手动退出时标记登出，避免陷入自动登录死循环
+    assert.match(navbarJs, /tools_manual_logout/);
 });
 
 test('conversation-list and dragon-claw support status and time filtering', () => {

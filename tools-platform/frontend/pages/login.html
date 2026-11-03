@@ -1445,7 +1445,12 @@
                 if (passInput && !passInput.value) passInput.value = creds.password;
 
                 const params = new URLSearchParams(window.location.search);
-                const isExplicitLogout = params.get('logout') === '1' || params.get('manual') === '1';
+                let manualLogout = false;
+                try {
+                    manualLogout = sessionStorage.getItem('tools_manual_logout') === '1';
+                    if (manualLogout) sessionStorage.removeItem('tools_manual_logout');
+                } catch (_) {}
+                const isExplicitLogout = params.get('logout') === '1' || params.get('manual') === '1' || manualLogout;
                 if (isExplicitLogout) return;
 
                 const btn = document.getElementById('loginBtn');

@@ -93,6 +93,9 @@
     ],
     "mac": {
       "icon": "frontend/assets/icon-mac.png",
+      "files": [
+        "!backend/vendor/@welink/welink-cli/welink-cli.exe"
+      ],
       "category": "public.app-category.productivity",
       "hardenedRuntime": true,
       "forceCodeSigning": true,

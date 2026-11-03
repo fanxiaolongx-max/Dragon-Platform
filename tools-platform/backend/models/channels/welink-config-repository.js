@@ -14,7 +14,7 @@ const DEFAULT_CONFIG = {
     enabled: false,
     environment: 'prod',
     gatewayUrl: '',
-    channel: '',
+    channel: 'GDEClaw',
     toolVersion: '1.0.0',
     ak: '',
     sk: '',

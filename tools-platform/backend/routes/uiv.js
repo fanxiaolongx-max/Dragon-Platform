@@ -171,17 +171,17 @@ function makeUiVisionEmbeddedHtml(macro, allowedOrigin) {
 <head>
   <meta charset="utf-8">
   <title>UIVF12 Direct Runner</title>
-  <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:#08111f;color:#e2e8f0;margin:0;display:grid;place-items:center;min-height:100vh}
-    main{width:min(760px,calc(100vw - 40px));background:rgba(15,23,42,.92);border:1px solid rgba(56,189,248,.35);border-radius:16px;padding:24px;box-shadow:0 24px 80px rgba(0,0,0,.35)}
-    h1{font-size:22px;margin:0 0 8px}p{color:#94a3b8;line-height:1.6}.status{margin-top:16px;color:#67e8f9;font-weight:700}
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="/js/shared/platform-theme.js"></script>
+  <link rel="stylesheet" href="/css/uiv-runner.css">
+  <script src="/js/uivf12/runner.js"></script>
 </head>
 <body>
   <main>
     <h1>UIVF12 Direct Runner</h1>
     <p>正在通过 UI.Vision embedded macro 启动批量阵列。若没有自动运行，请确认 UI.Vision 已安装，并在插件设置中允许 embedded macros，把 ${originLabel.replace(/</g, '&lt;')} 加入白名单。</p>
-    <div class="status" id="status">Preparing macro...</div>
+    <div class="status" id="status" role="status">Preparing macro...</div>
+    <button type="button" id="retry" hidden>重新连接 / Retry</button>
   </main>
   <script id="macro-json" type="application/json">${macroJson.replace(/</g, '\\u003c')}</script>
   <script>
@@ -189,19 +189,7 @@ function makeUiVisionEmbeddedHtml(macro, allowedOrigin) {
       const status = document.getElementById('status');
       try {
         const macro = JSON.parse(document.getElementById('macro-json').textContent);
-        window.addEventListener('kantuInvokeSuccess', function () {
-          status.textContent = 'UI.Vision 已接收宏，正在执行...';
-        });
-        window.dispatchEvent(new CustomEvent('kantuSaveAndRunMacro', {
-          detail: {
-            json: macro,
-            direct: true,
-            storageMode: 'browser',
-            closeRPA: false,
-            loadmacrotree: '0'
-          }
-        }));
-        status.textContent = '已发送给 UI.Vision，等待扩展接管...';
+        window.UIVRunner.start(macro);
       } catch (error) {
         status.textContent = '启动失败: ' + error.message;
       }
@@ -328,6 +316,20 @@ router.get('/uivision-runner/:runId', (req, res) => {
 });
 
 router.post('/run-uivision-macro', async (req, res) => {
+    req.suppressBodyLog = true;
+    if (req.body && req.body.desktopNative === true) {
+        const peer = req.socket?.remoteAddress;
+        let sameOrigin = true;
+        if (req.headers.origin) {
+            try {
+                const origin = new URL(req.headers.origin);
+                sameOrigin = ['localhost', '127.0.0.1', '[::1]'].includes(origin.hostname) && origin.host === req.headers.host;
+            } catch (_) { sameOrigin = false; }
+        }
+        if (!req.user || process.env.TOOLS_DESKTOP_RUNTIME !== '1' || !sameOrigin || !['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(peer)) {
+            return res.status(403).json({ code: 'DESKTOP_LOCAL_ONLY', error: 'Local desktop access required' });
+        }
+    }
     let macro;
     try {
         macro = decodeMacroFromRequest(req.body);
@@ -339,6 +341,13 @@ router.post('/run-uivision-macro', async (req, res) => {
     }
 
     try {
+        const desktop = require('../models/platform-promotions-desktop').getDesktopPromotions();
+        if (req.body.desktopNative === true) {
+            if (!desktop || typeof desktop.runUivMacro !== 'function') {
+                return res.status(409).json({ error: '桌面浏览器不可用，请重新启动桌面应用 / Desktop browser unavailable' });
+            }
+            return res.json(await desktop.runUivMacro(macro));
+        }
         const runDir = getUiVisionRunDir();
         const runId = crypto.randomBytes(16).toString('hex');
         const ts = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);

@@ -14,7 +14,7 @@ const root = path.join(__dirname, '..'), frontend = path.join(root, 'frontend');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'home-composer-'));
 app.setPath('userData', path.join(temp, 'profile')); app.disableHardwareAcceleration();
 let win, server, prefs = { lastDirectory: '', recentDirectories: ['/fixture/privacy-policy', '/fixture/reports'], permissionMode: 'ask' };
-let rejectPermission = false, enhanceMode = 'normal', enhanceCalls = [], sessionPages = 0;
+let rejectPermission = false, enhanceMode = 'normal', enhanceCalls = [], sessionPages = 0, scanExtranet = false, welinkLogins = 0;
 const models = [{ id: 'profile:main', name: 'DeepSeek-V4.1-Flash', provider: 'openai-compatible', description: '主连接' }, { id: 'profile:other', name: 'claude-sonnet-4-20250514', provider: 'anthropic', description: '备用连接' }];
 const evaluate = code => win.webContents.executeJavaScript(code, true);
 const until = code => evaluate(`new Promise((resolve,reject)=>{let n=0;const poll=()=>{if(${code})resolve();else if(++n>250)reject(new Error(${JSON.stringify(code)}));else setTimeout(poll,20)};poll()})`);
@@ -47,9 +47,15 @@ app.whenReady().then(async () => {
     web.get('/api/ai/skills', (_, res) => res.json({ items: [{ id: 'research-check', name: '研究依据核对', nameEn: 'Research check', description: '核对结论与依据', descriptionEn: 'Review research evidence' }] }));
     web.get(['/api/friend-links','/api/recent-nav','/api/upload/history'], (_, res) => res.json([]));
     if (process.env.HOME_SCAN_AUDIT) {
-        web.get('/api/channels/welink-cli/status', (_, res) => res.json({ install: { available: true }, auth: { loggedIn: true } }));
+        web.get('/api/channels/welink-cli/status', (_, res) => res.json(scanExtranet
+            ? { install: { available: true }, network: { intranet: false, host: 'open.inner.welink.huawei.com' } }
+            : { install: { available: true }, network: { intranet: true }, auth: { loggedIn: true } }));
         web.get('/api/channels/weixin/status', (_, res) => res.json({ connected: true, bot: { id: 'fixture' } }));
-        web.post('/api/channels/welink-cli/login', (_, res) => res.type('application/x-ndjson').send(JSON.stringify({ type: 'event', event: { type: 'expired' } })+'\n'));
+        web.post('/api/channels/welink-cli/login', (_, res) => (welinkLogins++, res).type('application/x-ndjson').send(JSON.stringify({ type: 'event', event: { type: 'expired' } })+'\n'));
+        web.get('/api/channels/welink/status', (_, res) => res.json({ enabled: true, configured: true, connected: true, channelName: 'GDEClaw', sdk: { available: true }, assistantInfo: { name: '平台助理', desc: '运营助手' } }));
+        web.post('/api/channels/welink/qrcode-auth', (_, res) => res.type('application/x-ndjson').send(scanExtranet
+            ? JSON.stringify({ type: 'error', code: 'WELINK_EXTRANET', error: 'WeLink 助理扫码授权仅限华为内网使用。' })+'\n'
+            : JSON.stringify({ type: 'snapshot', snapshot: { type: 'qrcode_generated', qrcode: 'q1', display: { qrcode: 'q1', weUrl: 'https://welink.example/qr/q1', pcUrl: '' } } })+'\n'));
         web.post('/api/channels/weixin/qrcode-auth', (_, res) => res.type('application/x-ndjson').send(JSON.stringify({ type: 'expired' })+'\n'));
     }
     web.get('/api/alert-center/events', (_, res) => setTimeout(() => res.json({ events: [] }), process.env.HOME_MESSAGES_AUDIT ? 200 : 0));
@@ -138,7 +144,8 @@ app.whenReady().then(async () => {
         await until(`!!document.querySelector('[data-scan-action="relogin-welink"]')`);
         await evaluate(`document.getElementById('v2ScanBtn').click()`);
         assert.equal(await isOpen(), true, 'click after hover keeps dialog open');
-        for (const tab of ['weixin', 'welink', 'weixin']) {
+        assert.equal(await evaluate(`document.querySelectorAll('.v2-scan [data-scan-tab]').length`), 3, 'three scan entries');
+        for (const tab of ['weixin', 'welinkbot', 'welink', 'weixin']) {
             await evaluate(`document.querySelector('[data-scan-tab="${tab}"]').click()`);
             assert.equal(await isOpen(), true, tab+' tab remains open after synchronous DOM replacement');
             await until(`!!document.querySelector('[data-scan-action="relogin-${tab}"]')`);
@@ -155,9 +162,34 @@ app.whenReady().then(async () => {
         await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);assert.equal(await isOpen(), false, 'Escape closes');
         await evaluate(`document.getElementById('v2ScanBtn').dispatchEvent(new MouseEvent('mouseenter'))`);assert.equal(await isOpen(), true, 'hover reopens');
         await evaluate(`document.getElementById('v2DiscoverBtn').click()`);assert.equal(await isOpen(), false, 'another menu closes scan dialog');
+        // WeLink 助理：已对接时显示助理信息；刷新后出二维码
+        await evaluate(`document.getElementById('v2ScanBtn').click()`);
+        await evaluate(`document.querySelector('[data-scan-tab="welinkbot"]').click()`);
+        await until(`!!document.querySelector('[data-scan-action="relogin-welinkbot"]')`);
+        assert.match(await evaluate(`document.querySelector('.v2-scan').textContent`), /平台助理/);
+        await evaluate(`document.querySelector('[data-scan-action="relogin-welinkbot"]').click()`);
+        await until(`!!document.querySelector('.v2-scan .v2-scan-qr-box svg')`);
+        assert.match(await evaluate(`document.querySelector('.v2-scan').textContent`), /Channel GDEClaw/);
+        if (process.env.HOME_SCAN_SHOT) fs.writeFileSync(process.env.HOME_SCAN_SHOT.replace(/\.png$/, '-bot.png'), (await win.webContents.capturePage()).toPNG());
+        scanExtranet = true;
+        await evaluate(`document.querySelector('[data-scan-action="relogin-welinkbot"]').click()`);
+        await until(`!!document.querySelector('.v2-scan') && /仅限内网使用/.test(document.querySelector('.v2-scan').textContent)`);
+        scanExtranet = false;
+        await evaluate('document.body.click()');
+        // 外网：只显示「仅限内网使用」与重新检测，不自动发起扫码
+        scanExtranet = true;const loginsBefore = welinkLogins;
+        await evaluate(`document.querySelector('[data-scan-tab="welink"]').click()`);
+        await evaluate(`document.getElementById('v2ScanBtn').dispatchEvent(new MouseEvent('mouseenter'))`);
+        await until(`!!document.querySelector('[data-scan-action="recheck-welink"]')`);
+        assert.match(await evaluate(`document.querySelector('.v2-scan').textContent`), /仅限内网使用/);
+        assert.equal(await evaluate(`!!document.querySelector('.v2-scan [data-scan-action="relogin-welink"]')`), false);
+        await evaluate(`document.querySelector('[data-scan-action="recheck-welink"]').click()`);await wait(150);
+        await until(`!!document.querySelector('[data-scan-action="recheck-welink"]')`);
+        assert.equal(welinkLogins, loginsBefore, 'no QR login is attempted off the intranet');
+        if (process.env.HOME_SCAN_SHOT) fs.writeFileSync(process.env.HOME_SCAN_SHOT, (await win.webContents.capturePage()).toPNG());
         await wait(150);
         assert.deepEqual(await evaluate('fixtureErrors'), []);
-        console.log('PASS: scan hover opens; click, WeChat/WeLink tabs and refresh remain open; outside click, Escape and other menu dismiss.');
+        console.log('PASS: scan hover opens; click, WeChat/WeLink tabs and refresh remain open; outside click, Escape and other menu dismiss; WeLink assistant shows its bot, a GDEClaw QR and the intranet notice; off the intranet WeLink shows the intranet-only notice without starting a QR login.');
         win.destroy();server.close();app.exit(0);return;
     }
     if (process.env.HOME_MESSAGES_AUDIT) {
