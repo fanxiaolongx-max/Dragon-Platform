@@ -7,6 +7,10 @@
  * 所以在打包前把这一段改为：异步启动应用 → 等待应用写出 .startup-window-visible 标记（或进程退出 / 20 秒超时）
  * → 再撤下启动图 → 等待应用退出并透传退出码。阶段 2 窗口与启动图同尺寸同位置，两者重叠交接。
  *
+ * 另外：electron-builder 默认把绿色版解压到打包时固定的 %TEMP%\<ksuid>，每次启动先 RMDir 再复制。
+ * 同一版本已在运行（或退出后残留子进程锁住文件）时复制失败，弹出误导性的「Dragon Claw 无法关闭」。
+ * 补丁改为：主程序被占用 → 直接启动已解压的程序，由单实例锁唤起已有窗口；只是残留文件删不掉 → 换一个新目录解压。
+ *
  * 脚本可重复执行；若模板结构变化导致无法匹配会直接失败，避免悄悄打出一个衔接断档的包。
  */
 const fs = require('fs');
@@ -72,6 +76,36 @@ const TOPMOST = `    ${TOPMOST_MARKER}
     Pop $R8
     Pop $R7`;
 
+const REUSE_MARKER = '; dragon-platform: reuse running instance';
+const UNPACK = /^  RMDir \/r \$INSTDIR\r?\n  SetOutPath \$INSTDIR$/m;
+const REUSE = `  ${REUSE_MARKER}
+  \${If} \${FileExists} "$INSTDIR\\\${APP_EXECUTABLE_FILENAME}"
+    ClearErrors
+    FileOpen $9 "$INSTDIR\\\${APP_EXECUTABLE_FILENAME}" a
+    \${If} \${Errors}
+      ; 同一版本正在运行（主程序文件被占用）：不再解压，启动已解压的程序，单实例锁会唤起已有窗口
+      !ifdef SPLASH_IMAGE
+        BgImage::Destroy
+      !endif
+      System::Call 'Kernel32::SetEnvironmentVariable(t, t)i ("PORTABLE_EXECUTABLE_DIR", "$EXEDIR").r0'
+      System::Call 'Kernel32::SetEnvironmentVariable(t, t)i ("PORTABLE_EXECUTABLE_FILE", "$EXEPATH").r0'
+      System::Call 'Kernel32::SetEnvironmentVariable(t, t)i ("PORTABLE_EXECUTABLE_APP_FILENAME", "\${APP_FILENAME}").r0'
+      \${StdUtils.GetAllParameters} $R0 0
+      Exec '"$INSTDIR\\\${APP_EXECUTABLE_FILENAME}" $R0'
+      SetErrorLevel 0
+      Quit
+    \${EndIf}
+    FileClose $9
+  \${EndIf}
+  RMDir /r $INSTDIR
+  \${If} \${FileExists} "$INSTDIR\\*.*"
+    ; 上次退出后的残留进程仍锁着部分文件：换新目录解压，避免复制失败弹窗
+    System::Call 'kernel32::GetTickCount() i .r9'
+    StrCpy $INSTDIR "$INSTDIR-$9"
+    RMDir /r $INSTDIR
+  \${EndIf}
+  SetOutPath $INSTDIR`;
+
 function patchPortableScript(source) {
     const original = source;
     if (!source.includes(MARKER)) {
@@ -85,6 +119,12 @@ function patchPortableScript(source) {
             throw new Error('portable.nsi 缺少 BgImage::Redraw，无法应用启动置顶补丁');
         }
         source = source.replace(/(^[ \t]*BgImage::Redraw[ \t]*$)/m, '$1\n' + TOPMOST);
+    }
+    if (!source.includes(REUSE_MARKER)) {
+        if (!UNPACK.test(source)) {
+            throw new Error('portable.nsi 缺少「RMDir /r $INSTDIR / SetOutPath $INSTDIR」，无法应用运行中实例复用补丁');
+        }
+        source = source.replace(UNPACK, () => REUSE);
     }
     return { changed: source !== original, source };
 }
@@ -101,4 +141,4 @@ if (require.main === module) {
     console.log(`[portable-nsis] ${changed ? '已应用' : '已存在'}启动衔接补丁：${templatePath}`);
 }
 
-module.exports = { patchPortableScript, resolveTemplatePath, MARKER };
+module.exports = { patchPortableScript, resolveTemplatePath, MARKER, REUSE_MARKER };

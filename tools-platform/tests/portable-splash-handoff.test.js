@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { patchPortableScript, resolveTemplatePath, MARKER } = require('../scripts/patch-portable-nsis');
+const { patchPortableScript, resolveTemplatePath, MARKER, REUSE_MARKER } = require('../scripts/patch-portable-nsis');
 
 const root = path.join(__dirname, '..');
 const UPSTREAM_TAIL = [
@@ -12,6 +12,10 @@ const UPSTREAM_TAIL = [
     '    BgImage::Redraw',
     '  !endif',
     'FunctionEnd',
+    'Section',
+    '  StrCpy $INSTDIR "$TEMP\\${UNPACK_DIR_NAME}"',
+    '  RMDir /r $INSTDIR',
+    '  SetOutPath $INSTDIR',
     '  System::Call \'Kernel32::SetEnvironmentVariable(t, t)i ("PORTABLE_EXECUTABLE_FILE", "$EXEPATH").r0\'',
     '  ${StdUtils.GetAllParameters} $R0 0',
     '',
@@ -29,7 +33,7 @@ test('portable NSIS patch keeps the splash up until the startup window signals h
     const { changed, source } = patchPortableScript(UPSTREAM_TAIL);
     assert.equal(changed, true);
     assert.ok(source.includes(MARKER));
-    const destroyAt = source.indexOf('BgImage::Destroy');
+    const destroyAt = source.indexOf('BgImage::Destroy', source.indexOf(MARKER));
     assert.ok(source.indexOf('ExecShellWaitEx') < destroyAt, 'app is launched before the splash is destroyed');
     assert.ok(source.indexOf('.startup-window-visible') < destroyAt, 'splash waits for the handoff marker');
     assert.match(source, /WaitForSingleObject\(p r2, i 40\)/, 'loop also stops when the app exits');
@@ -37,6 +41,25 @@ test('portable NSIS patch keeps the splash up until the startup window signals h
     assert.match(source, /StdUtils\.WaitForProcEx\} \$0 \$2[\s\S]*SetErrorLevel \$0/, 'exit code is still propagated');
     assert.ok(source.includes('SetOutPath $EXEDIR'), 'cleanup after the app exits is untouched');
     assert.deepEqual(patchPortableScript(source), { changed: false, source }, 'patch is idempotent');
+});
+
+test('portable NSIS patch reuses a running copy of the same build instead of failing to overwrite it', () => {
+    const { source } = patchPortableScript(UPSTREAM_TAIL);
+    const reuseAt = source.indexOf(REUSE_MARKER);
+    assert.ok(reuseAt >= 0);
+    const block = source.slice(reuseAt, source.indexOf('SetOutPath $INSTDIR', reuseAt));
+    assert.match(block, /FileOpen \$9 "\$INSTDIR\\\$\{APP_EXECUTABLE_FILENAME\}" a/, 'probes whether the extracted exe is in use');
+    assert.match(block, /\$\{If\} \$\{Errors\}[\s\S]*Exec '"\$INSTDIR\\\$\{APP_EXECUTABLE_FILENAME\}" \$R0'[\s\S]*Quit/, 'in use: launch it so the single-instance lock focuses the window');
+    assert.ok(block.indexOf('Exec ') < block.indexOf('RMDir /r $INSTDIR'), 'a running copy is never deleted');
+    assert.match(block, /PORTABLE_EXECUTABLE_FILE/, 'the relaunched exe still knows it is portable');
+    assert.match(block, /RMDir \/r \$INSTDIR\n  \$\{If\} \$\{FileExists\} "\$INSTDIR\\\*\.\*"[\s\S]*StrCpy \$INSTDIR "\$INSTDIR-\$9"/, 'leftover locked files: extract to a fresh folder');
+    assert.equal((source.match(/SetOutPath \$INSTDIR/g) || []).length, 1);
+});
+
+test('the app forwards a second launch to the running window', () => {
+    const main = fs.readFileSync(path.join(root, 'electron-main.js'), 'utf8');
+    assert.match(main, /requestSingleInstanceLock\(\)/);
+    assert.match(main, /app\.on\('second-instance'/);
 });
 
 test('portable NSIS patch fails loudly on an unexpected template', () => {
