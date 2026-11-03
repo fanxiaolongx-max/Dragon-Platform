@@ -98,6 +98,17 @@ function queryText(event) {
     const queries = [...raw.matchAll(/<user_query>([\s\S]*?)<\/user_query>/g)].map(m => m[1].trim());
     return queries.length ? queries.join('\n\n') : userText(raw).trim();
 }
+// 附件仅来自结构化附件块或成功的 present_files 回执；不扫描工具输出/命令里的任意路径。
+function attachments(files) {
+    const result = new Map();
+    for (const file of files) {
+        const value = typeof file === 'string' ? file : file?.blob_path || file?.path;
+        if (typeof value !== 'string' || value.length > 4096 || /[\0\r\n]/.test(value) || !path.isAbsolute(value)) continue;
+        const normalized = path.normalize(value);
+        if (!result.has(normalized) && result.size < 30) result.set(normalized, { path: normalized, name: typeof file?.original_filename === 'string' ? file.original_filename : (typeof file?.name === 'string' ? file.name : path.basename(normalized)) });
+    }
+    return [...result.values()];
+}
 async function transcript(session) {
     const file = await transcriptFile(session);
     if (!file) return { items: [], available: false, reason: 'WorkBuddy 尚未写出此会话的本地消息记录' };
@@ -113,26 +124,41 @@ async function transcript(session) {
     }
     finally { await handle.close(); }
     const items = [];
-    let busySince = null, lastStamp = null;
+    let busySince = null, lastStamp = null, presented = [];
     for (const line of text.split('\n')) {
         let event;
         try { event = JSON.parse(line); } catch { continue; }
         const stamp = Number.isFinite(Number(event.timestamp)) && event.timestamp ? new Date(Number(event.timestamp)).toISOString() : null;
         if (stamp) lastStamp = stamp;
+        if (!event.isSidechain && event.type === 'function_call_result' && event.name === 'present_files' && event.status === 'completed') {
+            for (const block of Array.isArray(event.output) ? event.output : []) {
+                if (block.type !== 'input_text') continue;
+                try {
+                    const result = JSON.parse(block.text);
+                    if (result.type === 'present_files_result' && Array.isArray(result.files)) presented = attachments([...presented.map(f => f.path), ...result.files]);
+                } catch { /* 旧版或未完成的展示回执不转成附件 */ }
+            }
+        }
         if (event.isSidechain || event.type !== 'message') {
             if (['function_call', 'reasoning'].includes(event.type)) busySince ||= stamp;
             continue;
         }
         if (event.role === 'user') {
-            const content = queryText(event);
-            if (!content) continue;
+            presented = [];
+            const files = attachments((event.content || []).filter(block => ['image_blob_ref', 'file_blob_ref'].includes(block.type)));
+            let content = queryText(event);
+            if (files.length) content = content.replace(/@image#\d+:([^\s]+)/g, (marker, name) => files.some(file => file.name === name) ? '' : marker).trim();
+            if (!content && !files.length) continue;
             busySince = stamp || new Date().toISOString();
-            items.push({ id: event.id || String(items.length), role: 'user', content: safe(content, 40000), channel: null, createdAt: stamp });
+            items.push({ id: event.id || String(items.length), role: 'user', content: safe(content, 40000), ...(files.length ? { attachments: files } : {}), channel: null, createdAt: stamp });
         }
         else if (event.role === 'assistant') {
             const content = (event.content || []).filter(x => ['output_text', 'text'].includes(x.type)).map(x => x.text).join('\n').trim();
-            if (!content) continue;
-            items.push({ id: event.id || String(items.length), role: 'assistant', content: safe(content, 40000), channel: null, createdAt: stamp });
+            const direct = attachments((event.content || []).filter(block => ['image_blob_ref', 'file_blob_ref'].includes(block.type)));
+            const files = attachments([...presented.map(f => f.path), ...direct]);
+            if (!content && !files.length) continue;
+            presented = [];
+            items.push({ id: event.id || String(items.length), role: 'assistant', content: safe(content, 40000), ...(files.length ? { attachments: files } : {}), channel: null, createdAt: stamp });
         }
     }
     // jsonl 没有明确的轮次结束标记：以数据库状态为准，CLI 进程在跑也算运行中；最后一条是用户消息/工具调用且近期有写入时也算

@@ -1534,3 +1534,58 @@ html[data-ui="v2"]:not([data-theme="dark"]) .dc-msg-body blockquote { color: #3f
 
 /* 对话中整页正好一屏高：只有对话内容区自己滚动，窗口右侧不再常驻一条整页滚动条（原来对话卡片 + 上下留白比一屏多 24px） */
 html[data-ui="v2"] body.dc-chatting .home-main { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+
+/* 工具导入：跟随首页主题的紧凑玻璃面板，只调整导入窗口。 */
+html[data-ui="v2"] #customToolImportModal {
+    padding: 24px; align-items: center;
+    background: rgba(15, 23, 42, .16);
+    -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+}
+html[data-ui="v2"][data-theme="dark"] #customToolImportModal { background: rgba(0, 0, 0, .24); }
+html[data-ui="v2"] #customToolImportModal .tool-import-dialog {
+    display: flex; flex-direction: column; width: min(560px, 100%);
+    max-height: min(720px, calc(100dvh - 48px)); overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--v2-line) 80%, transparent);
+    border-radius: 18px; color: var(--v2-ink);
+    background: color-mix(in srgb, var(--v2-pop) 80%, transparent);
+    -webkit-backdrop-filter: blur(24px) saturate(135%); backdrop-filter: blur(24px) saturate(135%);
+    box-shadow: 0 20px 64px rgba(15, 23, 42, .18), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+html[data-ui="v2"] #customToolImportModal .tool-import-head { flex: none; padding: 18px 20px 14px; gap: 14px; border-color: var(--v2-line); }
+html[data-ui="v2"] #customToolImportModal .tool-import-title { color: var(--v2-ink); font-size: 19px; font-weight: 650; }
+html[data-ui="v2"] #customToolImportModal .tool-import-subtitle { color: var(--v2-ink2); font-size: 12px; line-height: 1.5; margin-top: 6px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-form { min-height: 0; padding: 16px 20px 20px; overflow-y: auto; scrollbar-width: thin; }
+html[data-ui="v2"] #customToolImportModal .tool-import-close { width: 28px; height: 28px; border-radius: 8px; border-color: var(--v2-line); background: transparent; color: var(--v2-ink2); font-size: 19px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-close:hover { color: var(--v2-ink); background: var(--v2-hover); }
+html[data-ui="v2"] #customToolImportModal .tool-import-file { gap: 12px; padding: 13px 14px; margin-bottom: 16px; border-radius: 12px; border-color: var(--v2-focus); background: color-mix(in srgb, var(--v2-pop) 92%, var(--v2-accent) 8%); }
+html[data-ui="v2"] #customToolImportModal .tool-import-file:is(:hover, .has-file) { border-color: var(--v2-accent); background: var(--v2-accent-soft); }
+html[data-ui="v2"] #customToolImportModal .tool-import-file-icon { font-size: 25px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-file-title { color: var(--v2-ink); font-size: 13px; font-weight: 600; }
+html[data-ui="v2"] #customToolImportModal .tool-import-file-hint { color: var(--v2-ink2); line-height: 1.5; }
+html[data-ui="v2"] #customToolImportModal .tool-import-file-name { color: var(--v2-accent); }
+html[data-ui="v2"] #customToolImportModal .tool-import-fields { grid-template-columns: 68px 1fr; gap: 12px 14px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-field { gap: 5px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-field label { color: var(--v2-ink2); font-weight: 550; }
+html[data-ui="v2"] #customToolImportModal .tool-import-field label span { color: var(--v2-danger); }
+html[data-ui="v2"] #customToolImportModal :is(.tool-import-input, .tool-import-textarea) {
+    border-color: var(--v2-line-strong); border-radius: 9px; padding: 8px 10px;
+    background: var(--v2-bg); color: var(--v2-ink);
+}
+html[data-ui="v2"] #customToolImportModal :is(.tool-import-input, .tool-import-textarea):focus { border-color: var(--v2-accent); box-shadow: 0 0 0 3px var(--v2-accent-soft); }
+html[data-ui="v2"] #customToolImportModal .tool-import-textarea { min-height: 56px; height: 56px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-actions { gap: 8px; margin-top: 16px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-btn { min-width: 80px; padding: 8px 14px; border-radius: 9px; border-color: var(--v2-line-strong); background: color-mix(in srgb, var(--v2-bg) 65%, transparent); color: var(--v2-ink2); }
+html[data-ui="v2"] #customToolImportModal .tool-import-btn.primary { border-color: var(--v2-accent); background: var(--v2-accent); color: var(--v2-bg); }
+html[data-ui="v2"] #customToolImportModal .tool-import-btn:hover:not(:disabled) { filter: none; box-shadow: var(--v2-shadow-hover); }
+html[data-ui="v2"] #customToolImportModal .tool-import-error { color: var(--v2-danger); border-color: color-mix(in srgb, var(--v2-danger) 30%, transparent); background: color-mix(in srgb, var(--v2-danger) 7%, transparent); }
+html[data-ui="v2"] #customToolImportModal :is(.tool-import-progress, .tool-import-ai-status) { color: var(--v2-ink2); }
+html[data-ui="v2"] #customToolImportModal .tool-import-ai-status.success { color: var(--v2-accent); }
+html[data-ui="v2"] #customToolImportModal .tool-import-ai-status.warning { color: #a16207; }
+html[data-ui="v2"][data-theme="dark"] #customToolImportModal .tool-import-ai-status.warning { color: #fbbf24; }
+html[data-ui="v2"] #customToolImportModal progress { accent-color: var(--v2-accent); }
+html[data-ui="v2"] #customToolImportModal :is(button, .tool-import-file):focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
+@media (max-width: 600px) {
+    html[data-ui="v2"] #customToolImportModal { padding: 12px; }
+    html[data-ui="v2"] #customToolImportModal .tool-import-dialog { max-height: calc(100dvh - 24px); border-radius: 16px; }
+    html[data-ui="v2"] #customToolImportModal :is(.tool-import-head, .tool-import-form) { padding-left: 16px; padding-right: 16px; }
+}

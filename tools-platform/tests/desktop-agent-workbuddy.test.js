@@ -89,3 +89,36 @@ test('status explains the send route and missing login', async () => {
     assert.equal(state.canSend, true);
     assert.match(state.reason, /未检测到 CLI 登录/);
 });
+
+test('syncs WorkBuddy upload blobs and explicitly presented artifacts, never arbitrary tool paths', async () => {
+    const file = path.join(dir, 'attachments.jsonl');
+    const image = path.join(home, '.workbuddy/blobs/ab/image.png');
+    const result = path.join(cwd, 'result.png'), report = path.join(cwd, 'report.pdf');
+    const present = (files, status = 'completed') => ({ type: 'function_call_result', name: 'present_files', status, output: [{ type: 'input_text', text: JSON.stringify({ type: 'present_files_result', files }) }] });
+    const blob = { type: 'image_blob_ref', blob_path: image, original_filename: 'Clipboard_Screenshot.png' };
+    const events = [
+        { type: 'message', role: 'user', content: [...query('@image#1:Clipboard_Screenshot.png 用这个改'), blob, blob] },
+        { type: 'function_call', name: 'ViewImage', arguments: { image_path: '/tmp/private-tool.png' } },
+        { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: '处理中' }] },
+        present([result, result, report, 'relative.png', 'https://example.com/x.png', '/tmp/bad\nfile.png']),
+        { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: '做好了' }] },
+        { type: 'message', role: 'user', content: [blob] },
+        present(['/tmp/failed.png'], 'failed'),
+        { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: '再看一下' }] },
+        present(['/tmp/stale.png']),
+        { type: 'message', role: 'user', content: query('换个话题') },
+        { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: '新回答' }] },
+        { type: 'message', isSidechain: true, role: 'assistant', content: [blob] }
+    ];
+    fs.writeFileSync(file, events.map(line).join(''));
+    const { items } = await wb.transcript({ id: GUI, file, status: 'completed' });
+    assert.equal(items.length, 7);
+    assert.equal(items[0].content, '用这个改');
+    assert.deepEqual(items[0].attachments, [{ path: image, name: 'Clipboard_Screenshot.png' }]);
+    assert.equal(items[1].attachments, undefined);
+    assert.deepEqual(items[2].attachments.map(f => f.path), [result, report]);
+    assert.equal(items[3].content, '');
+    assert.equal(items[3].attachments[0].name, 'Clipboard_Screenshot.png');
+    assert.equal(items[4].attachments, undefined);
+    assert.equal(items[6].attachments, undefined, 'presentation does not leak into another turn');
+});

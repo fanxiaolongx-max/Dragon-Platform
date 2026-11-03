@@ -13,8 +13,10 @@ const { getTenantId } = require('../models/tenant-context');
 
 const router = express.Router();
 const PLATFORM_ROOT = path.resolve(__dirname, '../..');
-// 隐藏目录里只放行 Agent 自己的生成物/附件目录（Codex 生图、粘贴的附件）
-const AGENT_MEDIA_DIRS = ['.codex/generated_images', '.codex/attachments'].map(dir => path.join(os.homedir(), dir));
+// 隐藏目录里只放行 Agent 明确的产出目录（生图、附件、页面截图/可视化），不开放整个 .codex。
+const AGENT_MEDIA_DIRS = ['.codex/generated_images', '.codex/attachments', '.codex/visualizations'].map(dir => path.join(os.homedir(), dir));
+const WORKBUDDY_MEDIA_ROOT = process.env.WORKBUDDY_CONFIG_DIR?.trim() || path.join(os.homedir(), '.workbuddy');
+AGENT_MEDIA_DIRS.push(...['blobs', 'clipboard-images'].map(dir => path.join(WORKBUDDY_MEDIA_ROOT, dir)));
 
 const IMAGE_TYPES = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp', '.avif': 'image/avif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 const TEXT_TYPES = new Set(['.txt', '.md', '.csv', '.tsv', '.json', '.log', '.yaml', '.yml', '.xml', '.sql', '.css', '.jsx', '.tsx', '.vue', '.svelte', '.toml', '.ini', '.cfg', '.conf', '.c', '.h', '.cpp', '.hpp', '.java', '.kt', '.kts', '.swift', '.rb', '.go', '.rs', '.r', '.lua', '.bash', '.zsh']);
@@ -58,8 +60,12 @@ async function resolveFile(req, raw) {
     const ext = path.extname(real).toLowerCase();
     if (!allowedExtension(ext)) throw fileError(415, 'AGENT_FILE_TYPE', `不支持预览或下载 ${ext || '无扩展名'} 文件`);
     // 隐藏目录（.ssh、.git、.aws…）和凭据文件一律不出
-    const agentMedia = AGENT_MEDIA_DIRS.some(dir => { try { return guard.isInside(fs.realpathSync(dir), real); } catch (_error) { return false; } });
-    if (!agentMedia && real.split(/[\\/]/).some(part => part.startsWith('.') && part !== '.' && part !== '..')) throw fileError(403, 'AGENT_FILE_HIDDEN', '不能读取隐藏目录中的文件');
+    const agentMediaRoot = AGENT_MEDIA_DIRS.map(dir => {
+        try { return fs.realpathSync(dir); } catch (_error) { return null; }
+    }).find(dir => dir && guard.isInside(dir, real));
+    // 只豁免可信产出目录自身的隐藏祖先；产出目录内的隐藏子目录仍禁止读取。
+    const inspectedPath = agentMediaRoot ? path.relative(agentMediaRoot, real) : real;
+    if (inspectedPath.split(/[\\/]/).some(part => part.startsWith('.') && part !== '.' && part !== '..')) throw fileError(403, 'AGENT_FILE_HIDDEN', '不能读取隐藏目录中的文件');
     try { guard.assertNotSecretFile(real); } catch (error) { throw fileError(403, error.code, error.message); }
     // Agent 的大结果文件和对话附件只给本人：管理员也不能读别人的
     const privateFile = artifacts.isUnderBase(real) || artifacts.isUnderUploads(real);
@@ -71,7 +77,7 @@ async function resolveFile(req, raw) {
     }
     const stat = await fsp.stat(real);
     if (!stat.isFile()) throw fileError(400, 'AGENT_FILE_NOT_FILE', '不是文件');
-    return { real, stat, ext, name: path.basename(real) };
+    return { real, stat, ext, name: path.basename(real), agentMedia: Boolean(agentMediaRoot) };
 }
 
 function sendError(res, error) {
@@ -99,7 +105,7 @@ router.get('/raw', async (req, res) => {
         if (file.ext !== '.pdf') res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'");
         const type = IMAGE_TYPES[file.ext] || (TEXT_TYPES.has(file.ext) ? 'text/plain; charset=utf-8' : file.ext === '.pdf' ? 'application/pdf' : 'application/octet-stream');
         res.setHeader('Content-Type', type);
-        res.sendFile(file.real, { headers: { 'Content-Type': type }, dotfiles: 'deny' }, error => {
+        res.sendFile(file.real, { headers: { 'Content-Type': type }, dotfiles: file.agentMedia ? 'allow' : 'deny' }, error => {
             if (error && !res.headersSent) sendError(res, fileError(500, 'AGENT_FILE_ERROR', '读取文件失败'));
         });
     } catch (error) { sendError(res, error); }

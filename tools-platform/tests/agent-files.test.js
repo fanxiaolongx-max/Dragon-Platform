@@ -11,7 +11,10 @@ process.env.TOOLS_AGENT_FILE_ROOTS = outputsRoot;
 process.env.TOOLS_DATA_DIR = path.join(sandbox, 'data');
 
 const express = require('../backend/node_modules/express');
+// Resolve trusted media roots under a disposable home; never touch the actual Codex files.
+const homeMock = test.mock.method(os, 'homedir', () => sandbox);
 const router = require('../backend/routes/agent-files');
+homeMock.mock.restore();
 
 fs.mkdirSync(path.join(sandbox, 'work', '.ssh'), { recursive: true });
 fs.mkdirSync(outputsRoot, { recursive: true });
@@ -25,6 +28,18 @@ fs.writeFileSync(path.join(sandbox, 'work', '.env'), 'SECRET=1');
 fs.writeFileSync(path.join(sandbox, 'work', '.ssh', 'config.txt'), 'Host x');
 fs.writeFileSync(path.join(sandbox, 'work', 'data.db'), 'sqlite');
 fs.writeFileSync(path.join(outputsRoot, 'shared.csv'), 'a,b\n1,2\n');
+
+const mediaFiles = [['.codex', 'generated_images'], ['.codex', 'attachments'], ['.codex', 'visualizations'], ['.workbuddy', 'blobs'], ['.workbuddy', 'clipboard-images']].map(([app, dir]) => {
+    const folder = path.join(sandbox, app, dir, 'thread');
+    fs.mkdirSync(folder, { recursive: true });
+    fs.writeFileSync(path.join(folder, 'image.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    fs.mkdirSync(path.join(folder, '.private'));
+    fs.writeFileSync(path.join(folder, '.private', 'hidden.txt'), 'hidden');
+    return path.join(folder, 'image.png');
+});
+fs.mkdirSync(path.join(sandbox, '.codex', 'sessions'), { recursive: true });
+fs.writeFileSync(path.join(sandbox, '.codex', 'sessions', 'history.txt'), 'private transcript');
+fs.symlinkSync(path.join(sandbox, '.codex', 'sessions', 'history.txt'), path.join(sandbox, '.codex', 'visualizations', 'linked.txt'));
 
 let server;
 let base;
@@ -93,6 +108,27 @@ test('secrets, hidden folders, databases, relative paths and missing files are r
     assert.equal((await get('/raw', 'work/notes.md', adminRemote)).status, 400);
     assert.equal((await get('/raw', path.join(sandbox, 'work', 'gone.xlsx'), adminRemote)).status, 404);
     assert.equal((await get('/raw', path.join(sandbox, 'work', '..', 'work', '.ssh', 'config.txt'), adminRemote)).status, 403);
+});
+
+test('trusted Agent output folders support stat, preview and download without opening other hidden paths', async () => {
+    for (const file of mediaFiles) {
+        for (const headers of [adminRemote, viewerLocal]) {
+            const stat = await get('/stat', file, headers);
+            assert.equal(stat.status, 200);
+            assert.equal((await stat.json()).kind, 'image');
+            const preview = await get('/raw', file, headers);
+            assert.equal(preview.status, 200, 'sendFile must serve trusted files inside .codex');
+            assert.equal(preview.headers.get('content-type'), 'image/png');
+            assert.deepEqual(Buffer.from(await preview.arrayBuffer()), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+            const download = await fetch(`${base}/raw?download=1&path=${encodeURIComponent(file)}`, { headers });
+            assert.equal(download.status, 200);
+            assert.match(download.headers.get('content-disposition'), /^attachment;/);
+        }
+        assert.equal((await get('/raw', file, viewerRemote)).status, 403);
+        assert.equal((await get('/raw', path.join(path.dirname(file), '.private', 'hidden.txt'), adminRemote)).status, 403);
+    }
+    assert.equal((await get('/raw', path.join(sandbox, '.codex', 'sessions', 'history.txt'), adminRemote)).status, 403);
+    assert.equal((await get('/raw', path.join(sandbox, '.codex', 'visualizations', 'linked.txt'), adminRemote)).status, 403);
 });
 
 test('remote non-admin viewers only reach the outputs roots', async () => {

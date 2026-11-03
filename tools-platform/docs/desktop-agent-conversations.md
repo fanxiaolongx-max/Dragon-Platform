@@ -133,3 +133,9 @@ node_modules/.bin/electron tests/desktop-agent-discussion-browser.cjs
 讨论组的实时结果、恢复的成员消息以及单家桌面时间线使用各自 logo；同一成员连续回复只显示首条头像，切换成员或出现用户消息后恢复头像。实时轮询更新保留已有成员 DOM；成员之间与连续段落采用紧凑间距。
 
 程序接口与原生桌面对话需区分：Codex 官方 app-server/SDK 可以创建、恢复线程和启动回合；本项目已有会话续聊使用桌面 IPC，新建仍经原生路由与 AX 确认提交。OpenClaw 的 Codex 插件使用 app-server，Claude Code 可由 ACP/运行时接入；这不自动等同于控制当前原生桌面窗口里选中的会话。Antigravity 的现有连接器使用 Chromium CDP，没有使用 macOS AX。本次未更换执行通道。
+
+### WorkBuddy 图片与文件同步
+
+会话同步保留用户消息里的 `image_blob_ref` / `file_blob_ref` 附件，以及成功的 `present_files_result` 回执中的产出路径；图片显示缩略图并支持点击放大，其他文件复用文件卡片。原始工具输出、命令参数和思考内容不会作为附件展示。
+
+附件读取仍经过 `/api/agent-files` 的权限检查；只为 WorkBuddy 的 `blobs/` 与 `clipboard-images/` 目录豁免隐藏祖先检查，不开放整个 `.workbuddy/`。已删除的临时附件无法恢复。

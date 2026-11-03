@@ -12,6 +12,7 @@ let busyNow = false, claudeWritable = true, win, server, config = { enabled: tru
 const calls = [], saves = [];let hiddenProvider='', manualRefreshes=0, historyMode='normal';
 const sessions = Object.entries(ids).map(([provider, id]) => ({ provider, id, title: provider + ' original desktop conversation', updatedAt: '2026-10-26T10:00:00Z', source: 'desktop-history' }));
 const histories = Object.fromEntries(Object.keys(ids).map(p => [p, [{ id: 'u1', role: 'user', content: p + ' original user message', attachments: [{ path: '/tmp/agent-fixture.png', name: 'agent-fixture.png' }, { path: '/tmp/agent-report.pdf', name: 'agent-report.pdf' }] }, { id: 'a1', role: 'assistant', content: p + ' original assistant reply' }]]));
+histories.workbuddy[1].attachments = [{ path: '/tmp/wb-result.png', name: 'wb-result.png' }, { path: '/tmp/wb-result-two.png', name: 'wb-result-two.png' }];
 histories.codex[0].attachments.push({ path: '/tmp/agent-second.png', name: 'agent-second.png' });
 const providers = () => Object.keys(ids).map(id => ({ id, enabled: true, connected: true, canRead: true, canSend: config.allowSend, count: 1, reason: 'Native desktop fixture' }));
 const evaluate = code => win.webContents.executeJavaScript(/^(let |const )/.test(code) ? `(()=>{${code}})()` : code, true), wait = ms => new Promise(r => setTimeout(r, ms));
@@ -113,6 +114,17 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('[...document.querySelectorAll("[data-desktop-provider] img")].every(i=>i.complete&&i.naturalWidth>0)'),true);
     const choose = async (provider) => { await evaluate(`document.querySelector('[data-desktop-provider="${provider}"]').click()`); await until(`dcThread.textContent.includes(${JSON.stringify(provider + ' original assistant reply')})`); assert.equal(await evaluate(`document.querySelector('[data-desktop-provider="${provider}"]').getAttribute('aria-pressed')`),'true'); };
     await choose('workbuddy');
+    const assertAgentAttachmentsLeft = async () => {
+        assert.equal(await evaluate(`getComputedStyle(dcThread.querySelector('.dc-msg--ai [data-desktop-attachments]')).justifyContent`),'flex-start');
+        assert.equal(await evaluate(`(()=>{const msg=dcThread.querySelector('.dc-msg--ai'),image=msg.querySelector('[data-desktop-attachments] img');return Math.abs(image.getBoundingClientRect().left-msg.querySelector('.dc-msg-body').getBoundingClientRect().left)<1})()`),true,'Agent image aligns with its own reply, not the user bubble');
+        assert.equal(await evaluate(`getComputedStyle(dcThread.querySelector('.dc-msg--user [data-desktop-attachments]')).justifyContent`),'flex-end','user uploads remain right aligned');
+    };
+    await assertAgentAttachmentsLeft();
+    histories.workbuddy[1].attachments.pop();
+    await evaluate('document.querySelector("[data-desktop-refresh]").click()');
+    await until(`dcThread.querySelectorAll('.dc-msg--ai [data-desktop-attachments] img').length===1`);
+    await assertAgentAttachmentsLeft();
+
     await choose('claudecode');
     assert.deepEqual(await evaluate('[...dcThread.querySelectorAll("[data-desktop-attachments] img")].map(i=>[Math.round(i.getBoundingClientRect().width),Math.round(i.getBoundingClientRect().height)])'), [[320,200]], 'one image uses a bounded larger preview');
     await evaluate('dcThread.querySelector("[data-desktop-attachments]").parentElement.style.width="120px"');

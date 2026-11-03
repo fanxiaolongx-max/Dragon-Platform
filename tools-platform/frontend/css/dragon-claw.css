@@ -236,6 +236,9 @@ body.dc-chatting .dc-feature-link { display: none; }
     max-width: 100%;
     margin-left: auto;
 }
+/* Agent 附件跟随左侧回复；用户上传的附件仍沿用右侧布局。 */
+.dc-msg--ai .dc-msg-attachments { justify-content: flex-start; }
+.dc-msg--ai .dc-msg-attachments:has(> .ai-md-image):not(:has(> .ai-md-image ~ .ai-md-image)) { margin-left: 0; }
 .dc-msg-attachments > .ai-md-image:not(.is-missing) {
     width: min(320px, 100%);
     aspect-ratio: 8 / 5;
