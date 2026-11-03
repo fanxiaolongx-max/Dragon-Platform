@@ -1353,14 +1353,14 @@
             requestAnimationFrame(renderDissolve);
         }
 
-        async function doLogin() {
+        async function doLogin(options = {}) {
             const u = document.getElementById('username').value.trim();
             const p = document.getElementById('password').value;
             const errDiv = document.getElementById('error-msg');
             const btn = document.getElementById('loginBtn');
             const panel = document.getElementById('loginPanel');
 
-            if (btn.disabled) return;
+            if (btn.disabled && !options.isAuto) return;
 
             if (!u || !p) {
                 errDiv.textContent = window.ToolsI18n ? window.ToolsI18n.t('login.emptyFields') : '用户名和密码不能为空';
@@ -1390,6 +1390,13 @@
                 const data = await res.json();
                 if (!res.ok) {
                     throw new Error(data.error || (window.ToolsI18n ? window.ToolsI18n.t('login.failed') : '登录失败'));
+                }
+
+                // 桌面端默认记住账号密码，无需额外勾选项
+                if (window.ToolsDesktopAuth?.saveCredentials) {
+                    try {
+                        await window.ToolsDesktopAuth.saveCredentials({ username: u, password: p });
+                    } catch (_) {}
                 }
 
                 localStorage.setItem('tools_token', data.token);
@@ -1423,6 +1430,33 @@
                     panel.style.transform = 'scale(1)';
                     errDiv.textContent = e.message;
                 }, 500);
+            }
+        }
+
+        async function checkDesktopAutoLogin() {
+            if (!window.ToolsDesktopAuth?.getSavedCredentials) return;
+            try {
+                const creds = await window.ToolsDesktopAuth.getSavedCredentials();
+                if (!creds || !creds.username || !creds.password) return;
+
+                const userInput = document.getElementById('username');
+                const passInput = document.getElementById('password');
+                if (userInput && !userInput.value) userInput.value = creds.username;
+                if (passInput && !passInput.value) passInput.value = creds.password;
+
+                const params = new URLSearchParams(window.location.search);
+                const isExplicitLogout = params.get('logout') === '1' || params.get('manual') === '1';
+                if (isExplicitLogout) return;
+
+                const btn = document.getElementById('loginBtn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.setAttribute('aria-busy', 'true');
+                    btn.innerHTML = `${window.ToolsI18n ? window.ToolsI18n.t('login.submitting') : '正在自动登录…'} <span class="loader"></span>`;
+                }
+                doLogin({ isAuto: true });
+            } catch (err) {
+                console.warn('[login] checkDesktopAutoLogin error:', err);
             }
         }
 
@@ -1711,6 +1745,7 @@
             updateLoginLanguageUI();
         }
         loadPlatformIdentity();
+        checkDesktopAutoLogin();
     </script>
     <script src="/js/project-evolution.js"></script>
     <script src="/js/shared/login-slogan-smoke.js"></script>

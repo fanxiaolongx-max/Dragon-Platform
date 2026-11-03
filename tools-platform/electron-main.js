@@ -61,6 +61,11 @@ const mainWindow = require('./desktop-main-window').createMainWindowController({
     isQuitting: () => isQuitting,
     preloadPath: path.join(__dirname, 'electron-preload.js')
 });
+const { createDesktopCredentialsManager } = require('./desktop-credentials');
+const desktopCredentialsPath = path.join(userDataPath, 'desktop-credentials.json');
+const desktopCredentialsManager = createDesktopCredentialsManager({
+    credentialsPath: desktopCredentialsPath
+});
 const { resolveLogoAsset } = require('./backend/models/platform-logo-runtime');
 require('./backend/models/desktop-language').events.on('change', () => { refreshTrayMenu(); desktopPromotions.languageChanged(); });
 // 首页推广链接：点击用系统浏览器打开；设置里打开卡片堆后（默认关闭），登录后在右下角以置顶小窗卡片堆显示（desktop-promo/promo-stack.js），首页读取实时画面
@@ -1013,6 +1018,11 @@ function registerDownloadIpcHandlers() {
         }
         return false;
     });
+
+    // 桌面端自动记住密码管理（默认保存账号与加密密码，跨端口与重启无缝自动登录）
+    ipcMain.handle('desktop-auth:get-credentials', () => desktopCredentialsManager.getCredentials());
+    ipcMain.handle('desktop-auth:save-credentials', (_event, creds) => desktopCredentialsManager.saveCredentials(creds));
+    ipcMain.handle('desktop-auth:clear-credentials', () => desktopCredentialsManager.clearCredentials());
 }
 
 function registerDownloadHandler() {

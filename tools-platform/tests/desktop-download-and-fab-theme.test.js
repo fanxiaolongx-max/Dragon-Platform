@@ -225,3 +225,81 @@ test('Dragon Claw floating avatar supports vertical edge dragging, position pers
     assert.match(dlManager, /tools:ai-fab-position/);
     assert.match(dlManager, /function syncFabPlacement/);
 });
+
+test('desktop-credentials.js manages encrypted credentials persistence and fallback cleanly', () => {
+    const os = require('node:os');
+    const { createDesktopCredentialsManager } = require('../desktop-credentials');
+    const tempFile = path.join(os.tmpdir(), `test-creds-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
+
+    try {
+        const mgr = createDesktopCredentialsManager({ credentialsPath: tempFile });
+        // 初始无凭据
+        assert.equal(mgr.getCredentials(), null);
+
+        // 保存凭据
+        const saved = mgr.saveCredentials({ username: 'admin', password: 'SecretPassword123!' });
+        assert.equal(saved, true);
+
+        // 验证文件持久化且明文不直接暴露
+        const rawContent = fs.readFileSync(tempFile, 'utf8');
+        assert.doesNotMatch(rawContent, /SecretPassword123!/);
+        assert.match(rawContent, /"username":\s*"admin"/);
+
+        // 解密读取
+        const loaded = mgr.getCredentials();
+        assert.ok(loaded);
+        assert.equal(loaded.username, 'admin');
+        assert.equal(loaded.password, 'SecretPassword123!');
+
+        // 清理凭据
+        const cleared = mgr.clearCredentials();
+        assert.equal(cleared, true);
+        assert.equal(fs.existsSync(tempFile), false);
+        assert.equal(mgr.getCredentials(), null);
+    } finally {
+        try { if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile); } catch (_) {}
+    }
+});
+
+test('electron-main.js, preload and login.html integrate desktop auto-login credentials', () => {
+    const electronMain = read('electron-main.js');
+    const preload = read('electron-preload.js');
+    const loginHtml = read('frontend/pages/login.html');
+    const navbarJs = read('frontend/js/shared/navbar.js');
+
+    // 1. electron-main 注册 desktop-auth IPC 处理程序
+    assert.match(electronMain, /ipcMain\.handle\('desktop-auth:get-credentials'/);
+    assert.match(electronMain, /ipcMain\.handle\('desktop-auth:save-credentials'/);
+    assert.match(electronMain, /ipcMain\.handle\('desktop-auth:clear-credentials'/);
+
+    // 2. preload 暴露 ToolsDesktopAuth
+    assert.match(preload, /contextBridge\.exposeInMainWorld\('ToolsDesktopAuth'/);
+    assert.match(preload, /getSavedCredentials/);
+    assert.match(preload, /saveCredentials/);
+    assert.match(preload, /clearCredentials/);
+
+    // 3. login.html 支持自动登录且登录成功后自动记住，无需显式勾选项
+    assert.match(loginHtml, /async function checkDesktopAutoLogin/);
+    assert.match(loginHtml, /window\.ToolsDesktopAuth\?\.saveCredentials/);
+    assert.match(loginHtml, /checkDesktopAutoLogin\(\);/);
+
+    // 4. 用户手动退出时携带 ?logout=1，避免陷入自动登录死循环
+    assert.match(navbarJs, /window\.location\.href\s*=\s*['"]\/login\.html\?logout=1['"]/);
+});
+
+test('conversation-list and dragon-claw support status and time filtering', () => {
+    const listJs = read('frontend/js/home/conversation-list.js');
+    const clawJs = read('frontend/js/home/dragon-claw.js');
+
+    // conversation-list.js 过滤支持置顶、讨论组、工作区，以及时间筛选
+    assert.match(listJs, /filter\.status==='group'/);
+    assert.match(listJs, /filter\.status==='workspace'/);
+    assert.match(listJs, /filter\.time==='today'/);
+    assert.match(listJs, /passesFilter/);
+
+    // dragon-claw.js 在 unified mode 下响应状态与时间过滤
+    assert.match(clawJs, /activeFilter\.status === 'pinned'/);
+    assert.match(clawJs, /activeFilter\.status === 'group'/);
+    assert.match(clawJs, /activeFilter\.status === 'workspace'/);
+    assert.match(clawJs, /activeFilter\.time === 'today'/);
+});

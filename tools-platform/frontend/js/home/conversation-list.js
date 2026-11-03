@@ -8,7 +8,7 @@
     const key=(source,id)=>JSON.stringify([source,String(id)]);
     const get=(source,id)=>prefs.get(key(source,id))||{};
     const signal=source=>window.dispatchEvent(new CustomEvent('home:conversation-list-changed',{detail:{source}}));
-    const stamp=value=>{if(!value)return NaN;const s=String(value);return Date.parse(/^\d{4}-\d\d-\d\d \d\d:/.test(s)?s.replace(' ','T')+'Z':s)};
+    const stamp=value=>{if(!value)return NaN;if(typeof value==='number')return value;const s=String(value).trim();if(/^\d+$/.test(s))return Number(s);return Date.parse(/Z$|[+-]\d{2}:?\d{2}$/.test(s)?s:(s.replace(' ','T')+'Z'))};
     function latest(items,config){return items.filter(item=>{const p=get(config.source,config.id(item));return !p.hidden&&!p.archived;}).map((item,index)=>({item,index})).sort((a,b)=>(stamp(config.date(b.item))||0)-(stamp(config.date(a.item))||0)||a.index-b.index)[0]?.item;}
     function healthDot(health={level:'warning',reason:'checking'}){
         const level=['ok','warning','error'].includes(health.level)?health.level:'warning';
@@ -29,11 +29,18 @@
     const getFilter=()=>({...filter});
     function setFilter(next={}){filter={status:STATUSES.includes(next.status)?next.status:filter.status,time:TIMES.includes(next.time)?next.time:filter.time};signal('*');}
     function passesFilter(item,pref,config){
-        if(filter.status==='pinned'&&!pref.pinned)return false;
-        if(filter.status==='group'&&item.discussionMode!=='group')return false;
-        if(filter.status==='workspace'&&!item.agent?.root)return false;
+        if(filter.status==='pinned'&&!pref?.pinned)return false;
+        if(filter.status==='group'){
+            const isGroup = Boolean(item?.discussionMode==='group'||item?.kind==='group'||item?.type==='group'||item?.isGroup||item?._raw?.discussionMode==='group'||item?._raw?.kind==='group');
+            if(!isGroup)return false;
+        }
+        if(filter.status==='workspace'){
+            const hasWs = Boolean(item?.agent?.root||item?._raw?.agent?.root||item?.cwd||item?._raw?.cwd||item?.workspaceDir||item?._raw?.workspaceDir);
+            if(!hasWs)return false;
+        }
         if(filter.time==='all')return true;
-        const time=stamp(config.date(item));if(Number.isNaN(time))return false;
+        const dateVal = config?.date ? config.date(item) : (item?.updatedAt||item?.updated_at||item?.lastActiveAt||item?.created_at||item?._raw?.updatedAt||item?._raw?.lastActiveAt);
+        const time=stamp(dateVal);if(Number.isNaN(time))return false;
         const start=new Date();start.setHours(0,0,0,0);
         return time>=(filter.time==='today'?start.getTime():start.getTime()-(Number(filter.time)-1)*86400000);
     }
@@ -159,7 +166,7 @@
         entry.observer=new IntersectionObserver(items=>{if(items.some(item=>item.isIntersecting)){entry.observer.disconnect();onMore?.();}},{root:scroller(list),rootMargin:'0px 0px 300px 0px'});
         entry.observer.observe(node);
     }
-    window.HomeConversationList={sections,getFilter,setFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,reset:list=>{const binding=bindings.get(list);if(binding){binding.limit=6;binding.limits?.clear();renderBatch(list);}},
+    window.HomeConversationList={sections,getFilter,setFilter,passesFilter,enhance,bucket,get,latest,healthDot,close,refresh:load,pager,reset:list=>{const binding=bindings.get(list);if(binding){binding.limit=6;binding.limits?.clear();renderBatch(list);}},
         // 分区「展开更多」计数清零：match(key) 为真的分区（如 'spaces' 及其下的 'project:…'）回到默认条数
         resetScopes:(list,match)=>{const binding=bindings.get(list);if(binding?.limits)for(const key of [...binding.limits.keys()])if(match(key))binding.limits.delete(key);},toggleArchived:source=>{views.set(source,views.get(source)==='archived'?'active':'archived');signal(source);},isArchived:source=>views.get(source)==='archived'};
     document.addEventListener('pointerdown',event=>{if(menu&&!menu.contains(event.target)&&!event.target.closest('[data-conversation-more]'))close();},true);

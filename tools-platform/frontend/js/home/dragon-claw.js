@@ -2672,12 +2672,40 @@
         if (isUnifiedMode()) {
             const query = el.chatSearch?.value.trim().toLowerCase() || '';
             const isArchived = window.HomeConversationList?.isArchived?.('mine') || false;
+            const activeFilter = window.HomeConversationList?.getFilter?.() || { status: 'all', time: 'all' };
 
             function passesFilter(item) {
                 const pref = window.HomeConversationList?.get?.('mine', item.id || item._id) || {};
                 if (pref.hidden) return false;
                 if (Boolean(pref.archived) !== isArchived) return false;
                 if (query && !String(item.title || '').toLowerCase().includes(query)) return false;
+
+                // 筛选状态：置顶、讨论组、带工作区
+                if (activeFilter.status === 'pinned' && !pref.pinned) return false;
+                if (activeFilter.status === 'group') {
+                    const isGroup = Boolean(item.discussionMode === 'group' || item.kind === 'group' || item.type === 'group' || item.isGroup || item._raw?.discussionMode === 'group' || item._raw?.kind === 'group');
+                    if (!isGroup) return false;
+                }
+                if (activeFilter.status === 'workspace') {
+                    const hasWs = Boolean(getChatDirectory(item));
+                    if (!hasWs) return false;
+                }
+
+                // 筛选时间：今天、最近 7 天、最近 30 天
+                if (activeFilter.time && activeFilter.time !== 'all') {
+                    const dateRaw = item.updatedAt || item.updated_at || item.lastActiveAt || item.created_at || item._raw?.updatedAt || item._raw?.lastActiveAt || item._raw?.created_at;
+                    const time = parseChatTime(dateRaw).getTime();
+                    if (Number.isNaN(time)) return false;
+                    const startOfToday = new Date();
+                    startOfToday.setHours(0, 0, 0, 0);
+                    if (activeFilter.time === 'today') {
+                        if (time < startOfToday.getTime()) return false;
+                    } else {
+                        const days = Number(activeFilter.time);
+                        if (Number.isFinite(days) && time < startOfToday.getTime() - (days - 1) * 86400000) return false;
+                    }
+                }
+
                 return true;
             }
 

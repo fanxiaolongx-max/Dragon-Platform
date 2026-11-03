@@ -47,3 +47,10 @@ contextBridge.exposeInMainWorld('DragonDownload', {
     showItemInFolder: (savePath) => ipcRenderer.invoke('desktop-download:show-item-in-folder', savePath),
     cancel: (id) => ipcRenderer.invoke('desktop-download:cancel', id)
 });
+
+// 桌面端自动记住密码管理：跨端口与重启无缝保存与读取凭据
+contextBridge.exposeInMainWorld('ToolsDesktopAuth', {
+    getSavedCredentials: () => ipcRenderer.invoke('desktop-auth:get-credentials'),
+    saveCredentials: (credentials) => ipcRenderer.invoke('desktop-auth:save-credentials', credentials),
+    clearCredentials: () => ipcRenderer.invoke('desktop-auth:clear-credentials')
+});

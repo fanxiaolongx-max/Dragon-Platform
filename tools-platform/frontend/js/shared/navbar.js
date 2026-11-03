@@ -3663,7 +3663,7 @@ window.doLogout = async function () {
     }
     sessionStorage.clear();
     document.cookie = 'tools_token=; path=/; max-age=0';
-    window.location.href = '/login.html';
+    window.location.href = '/login.html?logout=1';
 };
 
 // ==========================================
