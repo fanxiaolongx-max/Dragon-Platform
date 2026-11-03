@@ -493,7 +493,8 @@
             body.ai-file-preview-open.home-sidebar-collapsed.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
         }
         @media (max-width: 860px) {
-            .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h)); width: min(var(--ai-preview-width, 360px), calc(100vw - 32px)); }
+            .home-workspace-panel.has-file-preview,
+            html[data-ui="v2"] .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h)); width: min(var(--ai-preview-width, 360px), calc(100vw - 32px)); }
         }
         .ai-file-preview header { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid #94a3b844; }
         .ai-file-preview header strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }

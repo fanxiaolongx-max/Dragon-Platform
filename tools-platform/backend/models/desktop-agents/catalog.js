@@ -49,6 +49,31 @@ function userText(raw) {
     text = text.replace(/<image name=\[Image #(\d+)\][^>]*>\s*<\/image>/g, '[图片 #$1]').replace(/\[Image: source: [^\]\n]*\]/g, '[图片]').replace(/<\/?pasted_content\b[^>]*>/g, '');
     return text === original ? original : text.trim();
 }
+// 只提取客户端明确标注的附件；不把普通消息里的任意路径当附件。
+// 文件内容继续由 agent-files 的登录、租户和敏感文件门禁校验。
+function messageAttachments(message, raw) {
+    const files = new Map();
+    const add = value => {
+        if (typeof value !== 'string' || value.length > 4096 || /[\0\r\n]/.test(value)) return;
+        let file = unescapeXml(value);
+        if (file.startsWith('file://')) {
+            try { file = require('node:url').fileURLToPath(file); } catch { return; }
+        }
+        if (!path.isAbsolute(file) && !file.startsWith('~/')) return;
+        if (!files.has(file) && files.size < 30) files.set(file, { path: file, name: path.basename(file) });
+    };
+    for (const match of raw.matchAll(/<image\b[^>]*\bpath="([^"]+)"[^>]*>/g)) add(match[1]);
+    for (const match of raw.matchAll(/\[Image: source: ([^\]\n]+)\]/g)) add(match[1]);
+    // Codex 的文件清单位于用户请求之前；正文里相同格式的文本不解析。
+    const header = raw.match(/^\s*# Files mentioned by the user:([\s\S]*?)\n## My request:\n/);
+    if (header) for (const match of header[1].matchAll(/^## [^\n]+: ((?:\/|~\/)[^\n]+)$/gm)) add(match[1]);
+    for (const block of Array.isArray(message.content) ? message.content : []) {
+        if (['local_image', 'input_image', 'image', 'document', 'file'].includes(block.type)) {
+            add(block.path || block.image_url || block.source?.path || (block.source?.type === 'file' ? block.source.file_path : null));
+        }
+    }
+    return [...files.values()];
+}
 const SETTLED = ['end_turn', 'stop_sequence', 'max_tokens', 'refusal'];
 const STALE_MS = 20 * 60 * 1000; // 客户端崩溃时日志停在半轮：太久没有新事件就不再当作运行中
 async function codex(limit) {
@@ -247,10 +272,12 @@ async function transcript(session) {
         if (message.role === 'assistant' && message.channel && !['final', 'commentary'].includes(message.channel))
             continue;
         const raw = typeof message.content === 'string' ? message.content : (message.content || []).filter(x => ['text', 'input_text', 'output_text'].includes(x.type)).map(x => x.text).join('\n');
-        const content = message.role === 'user' ? userText(raw) : raw;
-        if (!content || /^\[Request interrupted/.test(content))
+        let content = message.role === 'user' ? userText(raw) : raw;
+        const attachments = messageAttachments(message, raw);
+        if (attachments.length && content) content = content.replace(/\[图片(?: #\d+)?\]/g, '').trim();
+        if ((!content && !attachments.length) || (!content && raw && !userText(raw)) || /^\[Request interrupted/.test(content))
             continue;
-        items.push({ id: event.uuid || event.payload?.id || String(items.length), role: message.role, content: safe(content, 40000), channel: message.channel || null, createdAt: stamp || null });
+        items.push({ id: event.uuid || event.payload?.id || String(items.length), role: message.role, content: safe(content, 40000), ...(attachments.length ? { attachments } : {}), channel: message.channel || null, createdAt: stamp || null });
         if (message.role === 'assistant')
             lastAssistant = items.length - 1;
     }

@@ -3424,6 +3424,37 @@
             }
         });
 
+        // 连续回复的消息工具条（模型 · tok/s · 轮次）浮在消息上：跟随鼠标放到所在行的正下方，
+        // 不遮住正在看的那一行；鼠标往下移就直接落到工具条上，工具条随即停住，方便点复制。
+        let toolsFrame = 0;
+        el.root.addEventListener('mousemove', event => {
+            const msg = event.target.closest?.('.dc-msg--ai.is-continued');
+            if (!msg || toolsFrame) return;
+            const { clientX, clientY, target } = event;
+            toolsFrame = requestAnimationFrame(() => {
+                toolsFrame = 0;
+                const tools = [...msg.children].find(node => node.classList.contains('dc-msg-tools')) || msg.querySelector('.dc-msg-tools');
+                if (!tools || tools.contains(target)) return;
+                const box = msg.getBoundingClientRect();
+                let lineBottom = clientY + 12;
+                // 取鼠标下那个字的框（插入点的框比整行文字矮，会压到本行下沿）
+                const caret = document.caretRangeFromPoint?.(clientX, clientY);
+                let line = null;
+                if (caret && caret.startContainer.nodeType === Node.TEXT_NODE && caret.startContainer.length) {
+                    const glyph = document.createRange();
+                    const offset = Math.min(caret.startOffset, caret.startContainer.length - 1);
+                    glyph.setStart(caret.startContainer, offset);
+                    glyph.setEnd(caret.startContainer, offset + 1);
+                    line = [...glyph.getClientRects()].find(rect => rect.height) || null;
+                }
+                if (line && clientY >= line.top - 4 && clientY <= line.bottom + 4) lineBottom = line.bottom;
+                const width = tools.offsetWidth;
+                tools.style.top = `${Math.round(lineBottom - box.top + 4)}px`;
+                tools.style.left = `${Math.round(Math.max(0, Math.min(box.width - width, clientX - box.left - width / 2)))}px`;
+                tools.style.right = 'auto';
+            });
+        });
+
         el.root.addEventListener('click', async event => {
             const target = event.target;
             const messageToggle = target.closest('[data-dc-message-toggle]');

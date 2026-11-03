@@ -11,7 +11,8 @@ const queuedFixture = [], created = [], newHistory = {};
 let busyNow = false, claudeWritable = true, win, server, config = { enabled: true, autoSync: true, allowSend: true, syncSeconds: 20, recentLimit: 60, providers: { codex: true, claudecode: true, antigravity: true } }, sendError = false, holdSend = false, releaseSend;
 const calls = [], saves = [];let hiddenProvider='', manualRefreshes=0, historyMode='normal';
 const sessions = Object.entries(ids).map(([provider, id]) => ({ provider, id, title: provider + ' original desktop conversation', updatedAt: '2026-10-26T10:00:00Z', source: 'desktop-history' }));
-const histories = Object.fromEntries(Object.keys(ids).map(p => [p, [{ id: 'u1', role: 'user', content: p + ' original user message' }, { id: 'a1', role: 'assistant', content: p + ' original assistant reply' }]]));
+const histories = Object.fromEntries(Object.keys(ids).map(p => [p, [{ id: 'u1', role: 'user', content: p + ' original user message', attachments: [{ path: '/tmp/agent-fixture.png', name: 'agent-fixture.png' }, { path: '/tmp/agent-report.pdf', name: 'agent-report.pdf' }] }, { id: 'a1', role: 'assistant', content: p + ' original assistant reply' }]]));
+histories.codex[0].attachments.push({ path: '/tmp/agent-second.png', name: 'agent-second.png' });
 const providers = () => Object.keys(ids).map(id => ({ id, enabled: true, connected: true, canRead: true, canSend: config.allowSend, count: 1, reason: 'Native desktop fixture' }));
 const evaluate = code => win.webContents.executeJavaScript(/^(let |const )/.test(code) ? `(()=>{${code}})()` : code, true), wait = ms => new Promise(r => setTimeout(r, ms));
 async function until(code) { for (let n = 0; n < 160; n++) {
@@ -22,8 +23,10 @@ async function until(code) { for (let n = 0; n < 160; n++) {
 app.whenReady().then(async () => {
     const web = express();
     web.use(express.json());
+    web.get('/api/agent-files/raw', (req, res) => res.type('png').send(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==', 'base64')));
+    web.get('/api/agent-files/meta', (req, res) => res.json({ name: 'agent-report.pdf', size: 20 }));
     const storage = `<script>localStorage.setItem('tools_user','admin');localStorage.setItem('tools_role','admin');localStorage.setItem('tools_tenant_id','default');localStorage.setItem('tools_token','test-only');</script>`;
-    web.get('/', (_req, res) => { let html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, ''); res.type('html').send(html.replace('</body>', storage + ['/js/shared/i18n.js', '/js/home/home-mode.js', '/js/home/dragon-claw.js', '/js/home/welink-threads.js', '/js/home/desktop-agents.js'].map(src => `<script src="${src}"></script>`).join('') + '</body>')); });
+    web.get('/', (_req, res) => { let html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, ''); res.type('html').send(html.replace('</body>', storage + ['/js/shared/i18n.js', '/js/shared/chat-files.js', '/js/home/home-mode.js', '/js/home/dragon-claw.js', '/js/home/welink-threads.js', '/js/home/desktop-agents.js'].map(src => `<script src="${src}"></script>`).join('') + '</body>')); });
     web.get('/settings', (_req, res) => res.type('html').send(`<!doctype html><html><head><link rel="stylesheet" href="/css/shared.css"><link rel="stylesheet" href="/css/desktop-agents.css"><style>body{margin:0;font:14px system-ui;background:#142435}.nav-settings-modal{display:flex}.nav-settings-window{height:min(760px,94vh)}body.test-dark .nav-settings-window{background:#172435;color:#e2e8f0}body.test-dark .nav-settings-heading{color:#e2e8f0}</style></head><body><div class="nav-settings-modal"><div class="nav-settings-window"><aside class="nav-settings-sidebar"><div class="nav-settings-title">全局设置</div><button class="nav-settings-tab active" data-tab="desktopAgents">🖥️ 桌面 Agent</button></aside><main class="nav-settings-main"><button class="nav-settings-close">×</button><header class="nav-settings-head"><div><div class="nav-settings-heading">桌面 Agent</div><div class="nav-settings-subtitle">连接本机原生桌面会话，在网页继续交流。</div></div></header><div id="navSettingsContent"><div id="settings"></div></div></main></div></div>${storage}<script src="/js/shared/i18n.js"></script><script src="/js/shared/desktop-agent-settings.js"></script><script>ToolsDesktopAgentSettings.render(document.getElementById('settings'));</script></body></html>`));
     web.get('/api/desktop-agents/settings', (_req, res) => res.json({ owned: true, settings: config }));
     web.put('/api/desktop-agents/settings', (req, res) => { saves.push(req.body); config = { ...config, ...req.body }; res.json({ settings: config }); });
@@ -55,6 +58,13 @@ app.whenReady().then(async () => {
     await until('document.querySelectorAll("[data-desktop-session]").length===1');
     assert.equal(await evaluate('document.getElementById("homeChatList").hidden'), true);
     await until('!dcInput.disabled');
+    await until('!!dcThread.querySelector("[data-desktop-attachments] img[data-ai-zoom]")');
+    assert.equal(await evaluate('dcThread.querySelector("[data-desktop-attachments] img").getAttribute("src")'), '/api/agent-files/raw?path=%2Ftmp%2Fagent-fixture.png');
+    assert.equal(await evaluate('dcThread.querySelector("[data-desktop-attachments] [data-ai-file]").dataset.aiFile'), '/tmp/agent-report.pdf');
+    assert.deepEqual(await evaluate('[...dcThread.querySelectorAll("[data-desktop-attachments] img")].map(i=>[Math.round(i.getBoundingClientRect().width),Math.round(i.getBoundingClientRect().height)])'), [[144,108],[144,108]], 'multiple attachments use equal thumbnails');
+    await evaluate('dcThread.querySelector("[data-desktop-attachments] img").click()');
+    await until('!!document.querySelector(".ai-lightbox:not([hidden])")');
+    await evaluate('document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}))');
     assert.equal(await evaluate('getComputedStyle(dcComposer).display'), 'block', 'native sessions use the regular composer');
     assert.equal(await evaluate('document.querySelector(".wl-readonly")'), null, 'channel controls never appear for desktop agents');
     assert.match(await evaluate('dcInput.placeholder'), /Codex/);
@@ -103,6 +113,10 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate('[...document.querySelectorAll("[data-desktop-provider] img")].every(i=>i.complete&&i.naturalWidth>0)'),true);
     const choose = async (provider) => { await evaluate(`document.querySelector('[data-desktop-provider="${provider}"]').click()`); await until(`dcThread.textContent.includes(${JSON.stringify(provider + ' original assistant reply')})`); assert.equal(await evaluate(`document.querySelector('[data-desktop-provider="${provider}"]').getAttribute('aria-pressed')`),'true'); };
     await choose('claudecode');
+    assert.deepEqual(await evaluate('[...dcThread.querySelectorAll("[data-desktop-attachments] img")].map(i=>[Math.round(i.getBoundingClientRect().width),Math.round(i.getBoundingClientRect().height)])'), [[320,200]], 'one image uses a bounded larger preview');
+    await evaluate('dcThread.querySelector("[data-desktop-attachments]").parentElement.style.width="120px"');
+    assert.equal(await evaluate('dcThread.querySelector("[data-desktop-attachments] img").getBoundingClientRect().width <= 120'), true, 'single image fits narrow containers');
+    await evaluate('dcThread.querySelector("[data-desktop-attachments]").parentElement.style.removeProperty("width")');
     await evaluate('dcInput.value="Claude draft";dcInput.dispatchEvent(new Event("input",{bubbles:true}));');
     historyMode='empty';
     await evaluate(`document.querySelector('[data-desktop-provider="antigravity"]').click()`);

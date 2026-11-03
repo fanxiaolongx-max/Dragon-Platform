@@ -24,7 +24,7 @@ body.dc-external-compose .dc-composer textarea:disabled{cursor:not-allowed;opaci
 .desktop-agent-facts{display:grid;gap:10px;margin:0}.desktop-agent-facts>div{display:grid;gap:3px}.desktop-agent-facts dt{font-size:11px;color:var(--text-secondary,#8291a5)}.desktop-agent-facts dd{margin:0;font-size:12.5px;line-height:1.6;color:var(--text-primary,#dbeafe);overflow-wrap:anywhere}.desktop-agent-facts dd[data-desktop-status]{color:#6ee7cf}
 .desktop-agent-ws-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}.desktop-agent-ws-actions button{font-size:11px;cursor:pointer;min-height:30px}
 .dc-msg--ai.desktop-agent-cont .dc-msg-avatar{visibility:hidden;height:0}.dc-msg--ai.desktop-agent-cont{animation-duration:.18s}
-.dc-msg--ai.is-continued{position:relative;margin-bottom:8px}.dc-msg--ai.is-continued .dc-msg-tools{position:absolute;top:0;right:0;margin:0;padding:2px;border-radius:8px;background:rgba(15,23,39,.92)}
+.dc-msg--ai.is-continued{position:relative;margin-bottom:8px}.dc-msg--ai.is-continued .dc-msg-tools{position:absolute;top:0;right:0;z-index:3;flex-wrap:nowrap;white-space:nowrap;margin:0;padding:2px 4px;border-radius:8px;background:rgba(15,23,39,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
 .dc-msg--ai.is-continued .dc-msg-body>:last-child,.dc-msg--ai.desktop-agent-cont .dc-msg-body>:first-child{margin-bottom:0;margin-top:0}
 body.dc-external-view .dc-agent-discussion{display:none}
 /* Global settings → desktop agents. Size against the panel, not the viewport. */

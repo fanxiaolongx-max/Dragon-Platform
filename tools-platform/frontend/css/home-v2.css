@@ -63,7 +63,7 @@ html[data-ui="v2"] .home-content.home-workspace {
     padding: 0;
     min-height: 100vh;
 }
-html[data-ui="v2"] body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr) var(--ws-panel-w); }
+html[data-ui="v2"] body.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
 html[data-ui="v2"] .home-main { padding: 28px clamp(20px, 3vw, 48px) 32px; min-height: 100vh; }
 
 /* ── 侧边栏 ── */
@@ -810,7 +810,7 @@ html[data-ui="v2"] body:is(.dc-chatting, .home-mode-tools, .v2-messages-open) #n
 .v2-side-tools .v2-icon-btn.is-on { color: var(--v2-accent); background: var(--v2-accent-soft); }
 /* 收起后侧栏是 fixed 浮层，不在网格里：去掉它的列，否则主区会被排进 0 宽的第一列 */
 html[data-ui="v2"] body.v2-side-collapsed .home-content.home-workspace { grid-template-columns: minmax(0, 1fr); }
-html[data-ui="v2"] body.v2-side-collapsed.dc-workspace-open .home-content.home-workspace { grid-template-columns: minmax(0, 1fr) var(--ws-panel-w); }
+html[data-ui="v2"] body.v2-side-collapsed.dc-workspace-open .home-content.home-workspace { grid-template-columns: minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
 html[data-ui="v2"] body.v2-side-collapsed .v2-messages { left: 0; }
 html:not([data-ui="v2"]) .v2-side-float { display: none !important; }
 
@@ -936,9 +936,9 @@ html[data-ui="v2"] body.dc-chatting :is(.v2-scenes, .v2-suggest) { display: none
 
 /* 旧版侧栏收起状态（home-sidebar-collapsed，home-mode.js 记在本机）在新版界面不生效；新版只认 v2-side-collapsed */
 html[data-ui="v2"] body:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)):not(.v2-side-collapsed) .home-content.home-workspace { grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr); }
-html[data-ui="v2"] body:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)):not(.v2-side-collapsed).dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr) var(--ws-panel-w); }
+html[data-ui="v2"] body:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)):not(.v2-side-collapsed).dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
 html[data-ui="v2"] body.v2-side-collapsed:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)) .home-content.home-workspace { grid-template-columns: minmax(0, 1fr); }
-html[data-ui="v2"] body.v2-side-collapsed:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)).dc-workspace-open .home-content.home-workspace { grid-template-columns: minmax(0, 1fr) var(--ws-panel-w); }
+html[data-ui="v2"] body.v2-side-collapsed:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)).dc-workspace-open .home-content.home-workspace { grid-template-columns: minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
 html[data-ui="v2"] body.home-sidebar-collapsed:not(.v2-side-collapsed) .home-sidebar { width: auto; visibility: visible; }
 /* 旧版侧栏是“图标栏 + 面板”横排，新版改为纵向：品牌与导航 → 对话分组 → 用户栏 */
 /* Keep the v2 sidebar full-height even when the legacy workspace-open selector applies. */

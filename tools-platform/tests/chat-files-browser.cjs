@@ -1,10 +1,12 @@
 // node_modules/.bin/electron tests/chat-files-browser.cjs
+// CHAT_FILES_UI=v2 node_modules/.bin/electron tests/chat-files-browser.cjs
 // Isolated browser fixtures; no runtime business data is read or changed.
 const { app, BrowserWindow } = require('electron');
 const express = require('../backend/node_modules/express');
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os');
 const assert = require('node:assert/strict');
 const root = path.join(__dirname, '..');
+const v2 = process.env.CHAT_FILES_UI === 'v2';
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'chat-file-preview-'));
 app.setPath('userData', path.join(temp, 'profile'));
 app.disableHardwareAcceleration();
@@ -20,7 +22,8 @@ async function until(code) {
 app.whenReady().then(async () => {
     const web = express();
     web.get('/', (_req, res) => {
-        const html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '');
+        let html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '');
+        if (v2) html = html.replace('<html ', '<html data-ui="v2" data-theme="light" ');
         res.send(html.replace('</body>', '<script src="/js/home/workspace-panel.js"></script><script src="/js/shared/chat-files.js"></script></body>'));
     });
     web.get('/api/agent-workspace/capability', (_req, res) => res.json({ enabled: false }));
@@ -37,7 +40,7 @@ app.whenReady().then(async () => {
     assert.equal(await evaluate(`(()=>{const p=fixture, c=p.querySelector('.ai-file-chip');const before=document.createRange();before.setStart(p.firstChild,0);before.setEnd(p.firstChild,6);const after=document.createRange();after.selectNodeContents(p.childNodes[2]);return c.getBoundingClientRect().top>=before.getBoundingClientRect().bottom && after.getBoundingClientRect().top>=c.getBoundingClientRect().bottom})()`), true, 'file occupies its own line between text');
     await evaluate(`fixture.querySelector('.ai-file-chip-name').click()`);
     await until(`document.querySelector('.ai-file-preview pre')?.textContent.includes('中文')`);
-    assert.equal(await evaluate(`Math.abs(dcWorkspacePanel.getBoundingClientRect().bottom-(innerHeight-18))<3`), true, 'preview fills visible height below navbar');
+    assert.equal(await evaluate(`Math.abs(dcWorkspacePanel.getBoundingClientRect().bottom-(innerHeight-${v2 ? 0 : 18}))<3`), true, 'preview fills visible height below navbar');
     const originalWidth = await evaluate(`dcWorkspacePanel.getBoundingClientRect().width`);
     await new Promise(resolve => setTimeout(resolve, 150));
     const handle = await evaluate(`(()=>{const r=document.querySelector('.ai-file-preview-resize').getBoundingClientRect();return {x:Math.round(r.left+4),y:Math.round(r.top+80)}})()`);
@@ -60,6 +63,15 @@ app.whenReady().then(async () => {
     await until(`!!document.querySelector('.ai-file-preview pre')`);
     assert.equal(await evaluate(`getComputedStyle(original.closest('section')).display`), 'none', 'preview replaces agent card');
     assert.equal(await evaluate(`dcWorkspacePanel.getBoundingClientRect().width>${originalWidth+80}`), true, 'last preview width reused');
+    if (v2) {
+        await evaluate(`document.body.classList.add('v2-side-collapsed','home-sidebar-collapsed')`);
+        const before = await evaluate(`dcWorkspacePanel.getBoundingClientRect().width`);
+        await evaluate(`document.querySelector('.ai-file-preview-resize').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}))`);
+        assert.ok(await evaluate(`dcWorkspacePanel.getBoundingClientRect().width>=${before+39}`), 'collapsed v2 sidebar respects preview width');
+        await evaluate(`document.documentElement.dataset.theme='dark';document.querySelector('.ai-file-preview-resize').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))`);
+        assert.ok(await evaluate(`Math.abs(dcWorkspacePanel.getBoundingClientRect().width-${before})<2`), 'dark theme supports shrinking preview');
+        await evaluate(`document.body.classList.remove('v2-side-collapsed','home-sidebar-collapsed');document.documentElement.dataset.theme='light'`);
+    }
     await evaluate(`ChatFiles.openPreview('/tmp/code.html')`);
     await until(`document.querySelector('.ai-file-preview pre')?.textContent.includes('<script>')`);
     assert.equal(await evaluate(`!!window.previewExecuted`), false, 'HTML is inert text');
@@ -75,10 +87,15 @@ app.whenReady().then(async () => {
     await evaluate(`dcWorkspaceClose.click()`);
     assert.equal(await evaluate(`!document.querySelector('.ai-file-preview') && !dcWorkspacePanel.hidden`), true, 'panel close restores original content');
     win.setSize(600, 900);
+    await until(`innerWidth<=600`);
     await evaluate(`ChatFiles.openPreview('/tmp/b.json')`);
     await until(`!!document.querySelector('.ai-file-preview pre')`);
     assert.equal(await evaluate(`document.querySelector('.ai-file-preview').getBoundingClientRect().right<=innerWidth`), true, 'narrow preview stays within viewport');
     assert.equal(await evaluate(`Math.abs(dcWorkspacePanel.getBoundingClientRect().bottom-innerHeight)<3`), true, 'narrow preview fills remaining viewport');
+    const narrowWidth = await evaluate(`dcWorkspacePanel.getBoundingClientRect().width`);
+    await evaluate(`document.querySelector('.ai-file-preview-resize').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}))`);
+    assert.ok(await evaluate(`dcWorkspacePanel.getBoundingClientRect().width<${narrowWidth-20}`), 'narrow preview can shrink');
+    assert.ok(await evaluate(`dcWorkspacePanel.getBoundingClientRect().left>=0`), 'narrow preview stays within left edge');
     await evaluate(`ChatFiles.closePreview();dcWorkspacePanel.remove();DragonClawWorkspace=null;ChatFiles.openPreview('/tmp/a.md')`);
     await until(`!!document.querySelector('.ai-file-preview--floating pre')`);
     assert.equal(await evaluate(`Math.abs(document.querySelector('.ai-file-preview').getBoundingClientRect().bottom-(innerHeight-18))<3`), true, 'floating preview fills remaining viewport');
