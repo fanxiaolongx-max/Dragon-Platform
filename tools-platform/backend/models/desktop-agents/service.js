@@ -1,8 +1,10 @@
-const repo = require('./repository'), catalog = require('./catalog'), codex = require('./codex-ipc'), ag = require('./antigravity-cdp'), claude = require('./claude-desktop');
+const repo = require('./repository'), catalog = require('./catalog'), codex = require('./codex-ipc'), ag = require('./antigravity-cdp'), claude = require('./claude-desktop'), wb = require('./workbuddy');
 const {composerText}=require('./composer-text');
 const { getTenantId, runWithTenant } = require('../tenant-context');
 const { containsSensitiveText, redactText } = require('../ai-sensitive-data');
-const providers = ['codex', 'claudecode', 'antigravity'];
+const providers = ['codex', 'claudecode', 'antigravity', 'workbuddy'];
+// WorkBuddy 的记录格式与 Codex / Claude 不同，由自己的模块解析
+const readTranscript = row => row.provider === 'workbuddy' ? wb.transcript(row) : catalog.transcript(row);
 const cache = new Map(), locks = new Set(), scanning = new Map(), invalidatedAt = new Map();
 function key(owner) { return getTenantId() + ':' + owner; }
 function invalidate(owner) { cache.delete(key(owner)); invalidatedAt.set(key(owner), Date.now()); }
@@ -35,7 +37,7 @@ async function scan(owner, cfg) {
         }
         try {
             const checkedAt = Date.now();
-            const items = await (provider === 'codex' ? catalog.codex(cfg.recentLimit) : provider === 'claudecode' ? catalog.claude(cfg.recentLimit) : ag.list(cfg.recentLimit));
+            const items = await (provider === 'codex' ? catalog.codex(cfg.recentLimit) : provider === 'claudecode' ? catalog.claude(cfg.recentLimit) : provider === 'workbuddy' ? wb.list(cfg.recentLimit) : ag.list(cfg.recentLimit));
             rows.push(...items);
             let canSend = false, reason = '';
             if (provider === 'codex') {
@@ -56,11 +58,15 @@ async function scan(owner, cfg) {
                 canSend = state.canSend;
                 reason = state.reason;
             }
+            let connected = provider === 'antigravity' || canSend || provider === 'claudecode' && items.length > 0;
+            if (provider === 'workbuddy') {
+                ({ canSend, reason, connected } = await wb.status(items));
+            }
             if (provider === 'antigravity') {
                 canSend = true;
                 reason = '原生桌面页面连接；打开记录会同步切换桌面会话';
             }
-            states.push({ id: provider, enabled: true, connected: provider === 'antigravity' || canSend || provider === 'claudecode' && items.length > 0, canRead: items.length > 0, canSend: cfg.allowSend && canSend, count: items.length, latencyMs: Date.now() - checkedAt, reason });
+            states.push({ id: provider, enabled: true, connected, canRead: items.length > 0, canSend: cfg.allowSend && canSend, count: items.length, latencyMs: Date.now() - checkedAt, reason });
         }
         catch {
             states.push({ id: provider, enabled: true, connected: false, canRead: false, canSend: false, count: 0, reason: '本机桌面连接不可用，请打开对应客户端后刷新' });
@@ -77,9 +83,9 @@ const BUSY_WINDOW_MS = 6 * 60 * 60 * 1000, BUSY_MAX = 12;
 async function list(owner, { provider, q = '', force = false } = {}) {
     const state = await discover(owner, force, { allowStale: true });
     const items = state.rows.filter(r => (!provider || r.provider === provider) && r.title.toLowerCase().includes(String(q).slice(0, 200).toLowerCase())).map(publicSession);
-    const recent = state.rows.filter(r => ['codex', 'claudecode'].includes(r.provider) && Date.now() - Date.parse(r.updatedAt) < BUSY_WINDOW_MS)
+    const recent = state.rows.filter(r => ['codex', 'claudecode', 'workbuddy'].includes(r.provider) && Date.now() - Date.parse(r.updatedAt) < BUSY_WINDOW_MS)
         .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)).slice(0, BUSY_MAX);
-    const busy = new Set((await Promise.all(recent.map(async r => (await catalog.busyState(r)) && `${r.provider}:${r.id}`))).filter(Boolean));
+    const busy = new Set((await Promise.all(recent.map(async r => (r.provider === 'workbuddy' ? (await wb.transcript(r).catch(() => ({}))).busy : await catalog.busyState(r)) && `${r.provider}:${r.id}`))).filter(Boolean));
     if (state.rows.some(r => r.provider === 'antigravity'))
         for (const id of await ag.busyIds()) busy.add(`antigravity:${id}`);
     items.forEach(item => { item.busy = busy.has(`${item.provider}:${item.id}`); });
@@ -93,7 +99,7 @@ async function selected(owner, provider, id) { if (!providers.includes(provider)
     row = current.rows.find(s => s.provider === provider && s.id === id);
 } if (!row)
     throw repo.error('会话已移除或不属于当前桌面连接', 404); return { state, row }; }
-async function messages(owner, provider, id, { passive = false } = {}) { const { state, row } = await selected(owner, provider, id), queue = queued(owner, provider, id); const content = provider === 'antigravity' ? await ag.messages(id, { passive }) : await catalog.transcript(row); const status = state.providers.find(p => p.id === provider); return { ...content, session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
+async function messages(owner, provider, id, { passive = false } = {}) { const { state, row } = await selected(owner, provider, id), queue = queued(owner, provider, id); const content = provider === 'antigravity' ? await ag.messages(id, { passive }) : await readTranscript(row); if (provider === 'workbuddy' && !passive) wb.open(id); const status = state.providers.find(p => p.id === provider); return { ...content, session: publicSession(row), canSend: status?.canSend || false, canSteer: provider === 'codex' && Boolean(status?.canSend), reason: content.reason || status?.reason || '', queue }; }
 // 空消息、超长、请求编号错误分别说明，避免长消息被误报成“编号无效”。
 const MAX_MESSAGE = 20000;
 function checkMessage(text, requestId) {
@@ -126,7 +132,7 @@ async function send(owner, provider, id, { text, requestId, mode = 'send' }) {
     }
     locks.add(lock);
     try {
-        const before = provider !== 'antigravity' ? (await catalog.transcript(row)).items : [];
+        const before = provider !== 'antigravity' ? (await readTranscript(row)).items : [];
         const started = Date.now();
         if (provider === 'codex')
             await (mode === 'steer' ? codex.steer(id, text, requestId, row.cwd) : codex.send(id, text, requestId));
@@ -138,10 +144,12 @@ async function send(owner, provider, id, { text, requestId, mode = 'send' }) {
                 throw Object.assign(new Error('Claude 有同名会话，无法确认发送目标；请先在桌面重命名'), { code: 'DESKTOP_TARGET_UNCONFIRMED' });
             await claude.send(row, text);
         }
+        if (provider === 'workbuddy')
+            await wb.send(row, text);
         if (provider !== 'antigravity') {
             let acknowledged = false;
             for (let n = 0; n < 40; n++) {
-                const after = (await catalog.transcript(row)).items;
+                const after = (await readTranscript(row)).items;
                 if (after.some(m => m.role === 'user' && composerText(m.content) === composerText(text) && Date.parse(m.createdAt) >= started - 1000 && !before.some(old => old.createdAt === m.createdAt && old.content === m.content))) {
                     acknowledged = true;
                     break;
@@ -251,7 +259,7 @@ function cancelQueued(owner, provider, id, requestId) {
     }
     return { queue: queued(owner, provider, id) };
 }
-async function drain(k, { read = (row) => row.provider === 'antigravity' ? ag.messages(row.id, { passive: true }) : catalog.transcript(row) } = {}) {
+async function drain(k, { read = (row) => row.provider === 'antigravity' ? ag.messages(row.id, { passive: true }) : readTranscript(row) } = {}) {
     const entry = queues.get(k), next = entry?.items[0];
     if (!next || next.status !== 'queued' || entry.draining || locks.has(entry.provider))
         return;

@@ -1,7 +1,7 @@
 const db = require('../app-db');
 const ready = new WeakMap();
 const binding = require('./binding');
-const defaults = () => ({ enabled: false, owner: '', autoSync: true, syncSeconds: 20, recentLimit: 60, providers: { codex: true, claudecode: true, antigravity: true }, allowSend: true, claudeAutomation: false });
+const defaults = () => ({ enabled: false, owner: '', autoSync: true, syncSeconds: 20, recentLimit: 60, providers: { codex: true, claudecode: true, antigravity: true, workbuddy: true }, allowSend: true, claudeAutomation: false });
 async function ensure() {
     const connection = db.getDatabase();
     if (!ready.has(connection)) {
@@ -14,7 +14,8 @@ async function ensure() {
     }
     return ready.get(connection);
 }
-async function settings() { await ensure(); const row = await db.get('SELECT * FROM desktop_agent_settings WHERE id=1'); return row ? { ...defaults(), ...JSON.parse(row.value), owner: row.owner } : defaults(); }
+async function settings() { await ensure(); const row = await db.get('SELECT * FROM desktop_agent_settings WHERE id=1'); if (!row) return defaults(); const value = JSON.parse(row.value); // 新增的桌面 Agent 在旧配置里没有开关，按默认值补上
+    return { ...defaults(), ...value, providers: { ...defaults().providers, ...value.providers }, owner: row.owner }; }
 function error(message, status = 403) { return Object.assign(new Error(message), { status }); }
 async function save(owner, patch) {
     const previous = await settings();

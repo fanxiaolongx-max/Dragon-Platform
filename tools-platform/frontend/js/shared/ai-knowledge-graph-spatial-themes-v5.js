@@ -4050,8 +4050,27 @@
     syncControlPanel();
     applyGraphLanguage();
 
+    // 首页内嵌图谱沿用主区导航生命周期，侧栏折叠与账号菜单不会关闭资料库。
+    const closeEmbedded = () => {
+        if (document.body.classList.contains('v2-library-open')) window.AIKnowledgeGraph?.close();
+    };
+    window.addEventListener('home:mode', closeEmbedded);
+    window.addEventListener('home:hub', event => { if (event.detail?.open) closeEmbedded(); });
+    window.addEventListener('home:tool-frame', event => { if (event.detail?.open) closeEmbedded(); });
+    document.getElementById('homeSidebar')?.addEventListener('click', event => {
+        if (event.target.closest('[data-v2-action="library"], .v2-userbar, .v2-side-tools, #v2DiscoverBtn')) return;
+        if (event.target.closest('button, a[href], [role="button"], [data-conversation-id]')) closeEmbedded();
+    });
     window.AIKnowledgeGraph = {
         open(options = {}) {
+            const host = document.documentElement.dataset.ui === 'v2' && document.querySelector('.home-main');
+            if (host) {
+                window.HomeToolFrame?.close?.();
+                window.HomeSkillHub?.close?.();
+                host.appendChild(overlay);
+                overlay.classList.add('ai-kg-embedded');
+                document.body.classList.add('v2-library-open');
+            }
             state.pendingFocus = options && typeof options === 'object' ? options : null;
             const requestedMode = options?.mode;
             if (requestedMode === 'metrics') {
@@ -4082,7 +4101,7 @@
             }
             overlay.classList.remove('open');
             closeChatRecordDialog();
-            document.body.classList.remove('ai-kg-open');
+            document.body.classList.remove('ai-kg-open', 'v2-library-open');
             stopTour({ keepView:true });
             state.cameraTransition = null;
             state.orbitTransition = null;

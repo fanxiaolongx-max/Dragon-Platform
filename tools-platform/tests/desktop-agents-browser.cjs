@@ -6,9 +6,9 @@ const root = path.join(__dirname, '..'), temp = fs.mkdtempSync(path.join(os.tmpd
 app.setPath('userData', path.join(temp, 'profile'));
 app.disableHardwareAcceleration();
 setTimeout(() => { console.error('Desktop agent UI timed out'); app.exit(1); }, 60000).unref();
-const ids = { codex: '11111111-1111-4111-8111-111111111111', claudecode: 'local_22222222-2222-4222-8222-222222222222', antigravity: '33333333-3333-4333-8333-333333333333' };
+const ids = { codex: '11111111-1111-4111-8111-111111111111', claudecode: 'local_22222222-2222-4222-8222-222222222222', antigravity: '33333333-3333-4333-8333-333333333333', workbuddy: '44444444-4444-4444-8444-444444444444' };
 const queuedFixture = [], created = [], newHistory = {};
-let busyNow = false, claudeWritable = true, win, server, config = { enabled: true, autoSync: true, allowSend: true, syncSeconds: 20, recentLimit: 60, providers: { codex: true, claudecode: true, antigravity: true } }, sendError = false, holdSend = false, releaseSend;
+let busyNow = false, claudeWritable = true, win, server, config = { enabled: true, autoSync: true, allowSend: true, syncSeconds: 20, recentLimit: 60, providers: Object.fromEntries(Object.keys(ids).map(id => [id, true])) }, sendError = false, holdSend = false, releaseSend;
 const calls = [], saves = [];let hiddenProvider='', manualRefreshes=0, historyMode='normal';
 const sessions = Object.entries(ids).map(([provider, id]) => ({ provider, id, title: provider + ' original desktop conversation', updatedAt: '2026-10-26T10:00:00Z', source: 'desktop-history' }));
 const histories = Object.fromEntries(Object.keys(ids).map(p => [p, [{ id: 'u1', role: 'user', content: p + ' original user message', attachments: [{ path: '/tmp/agent-fixture.png', name: 'agent-fixture.png' }, { path: '/tmp/agent-report.pdf', name: 'agent-report.pdf' }] }, { id: 'a1', role: 'assistant', content: p + ' original assistant reply' }]]));
@@ -108,10 +108,11 @@ app.whenReady().then(async () => {
     await evaluate('document.querySelector("[data-desktop-refresh]").click()');
     await until('!document.querySelector(".desktop-agent-thinking")');
     assert.equal(await evaluate('dcThread.querySelector(".dc-msg")===window.__first'), true);
-    assert.equal(await evaluate('document.querySelectorAll("button[data-desktop-provider]").length'),3);
+    assert.equal(await evaluate('document.querySelectorAll("button[data-desktop-provider]").length'),Object.keys(ids).length);
     assert.equal(await evaluate('document.querySelector("select[data-desktop-provider]")'),null);
     assert.equal(await evaluate('[...document.querySelectorAll("[data-desktop-provider] img")].every(i=>i.complete&&i.naturalWidth>0)'),true);
     const choose = async (provider) => { await evaluate(`document.querySelector('[data-desktop-provider="${provider}"]').click()`); await until(`dcThread.textContent.includes(${JSON.stringify(provider + ' original assistant reply')})`); assert.equal(await evaluate(`document.querySelector('[data-desktop-provider="${provider}"]').getAttribute('aria-pressed')`),'true'); };
+    await choose('workbuddy');
     await choose('claudecode');
     assert.deepEqual(await evaluate('[...dcThread.querySelectorAll("[data-desktop-attachments] img")].map(i=>[Math.round(i.getBoundingClientRect().width),Math.round(i.getBoundingClientRect().height)])'), [[320,200]], 'one image uses a bounded larger preview');
     await evaluate('dcThread.querySelector("[data-desktop-attachments]").parentElement.style.width="120px"');
@@ -200,7 +201,7 @@ app.whenReady().then(async () => {
     await until('window.__listTimers.includes(25000)');
     // 一个桌面客户端都没启用时，对话列表上方不显示「桌面 Agent」分类；重新启用后恢复
     const savedProviders = config.providers;
-    config = { ...config, providers: { codex: false, claudecode: false, antigravity: false } };
+    config = { ...config, providers: Object.fromEntries(Object.keys(ids).map(id => [id, false])) };
     await evaluate('window.dispatchEvent(new Event("tools:desktop-agent-settings-changed"))');
     await until('!document.querySelector("[data-chat-source=agents]")');
     config = { ...config, providers: savedProviders };
@@ -211,7 +212,7 @@ app.whenReady().then(async () => {
     await win.loadURL(base + '/settings');
     await until('document.querySelector("[name=enabled]")');
     await wait(100);
-    assert.equal(await evaluate('(()=>{const cards=[...document.querySelectorAll(".da-provider")].map(e=>e.getBoundingClientRect());return cards.length===3&&Math.abs(cards[0].top-cards[2].top)<2&&cards[2].right>document.querySelector(".desktop-agent-settings").getBoundingClientRect().right-2})()'),true,'provider cards use the full panel width');
+    assert.equal(await evaluate(`(()=>{const cards=[...document.querySelectorAll(".da-provider")].map(e=>e.getBoundingClientRect());return cards.length===${Object.keys(ids).length}&&cards.every(c=>Math.abs(c.top-cards[0].top)<2)&&cards.at(-1).right>document.querySelector(".desktop-agent-settings").getBoundingClientRect().right-2})()`),true,'all provider cards share one row at the full panel width');
     fs.writeFileSync(path.join(temp,'desktop-agent-settings-wide.png'),(await win.webContents.capturePage()).toPNG());
     await evaluate('document.body.classList.add("test-dark")');
     assert.equal(await evaluate('getComputedStyle(document.querySelector(".nav-settings-window")).backgroundColor'),'rgb(23, 36, 53)');
@@ -236,7 +237,7 @@ app.whenReady().then(async () => {
     assert.equal(saves[0].autoSync, false);
     await wait(100);
     fs.writeFileSync(path.join(temp, 'desktop-agent-settings.png'), (await win.webContents.capturePage()).toPNG());
-    console.log('PASS: desktop-agent tabs, three providers, original history/replies, drafts, duplicate sends, failures, switching races, search, mobile and settings. Screenshots: ' + temp);
+    console.log('PASS: desktop-agent tabs, all four providers (incl. WorkBuddy), original history/replies, drafts, duplicate sends, failures, switching races, search, mobile and settings. Screenshots: ' + temp);
     win.destroy();
     server.close();
     app.exit(0);

@@ -3677,18 +3677,7 @@ window.openToolsKnowledgeGraph = function (options = {}) {
         return Promise.resolve();
     }
     if (!toolsKnowledgeGraphLoader) {
-        toolsKnowledgeGraphLoader = new Promise((resolve, reject) => {
-            const existing = document.querySelector('script[src*="/js/shared/ai-knowledge-graph"]');
-            const script = existing || document.createElement('script');
-            const handleLoad = () => resolve();
-            const handleError = () => reject(new Error('知识图谱组件加载失败'));
-            script.addEventListener('load', handleLoad, { once: true });
-            script.addEventListener('error', handleError, { once: true });
-            if (!existing) {
-                script.src = '/js/shared/ai-knowledge-graph-spatial-themes-v5.js';
-                document.body.appendChild(script);
-            }
-        }).catch(error => {
+        toolsKnowledgeGraphLoader = loadNavLazyScript('/js/shared/ai-knowledge-graph-spatial-themes-v5.js', '知识图谱组件加载失败').catch(error => {
             toolsKnowledgeGraphLoader = null;
             throw error;
         });

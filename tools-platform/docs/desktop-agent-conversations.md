@@ -11,8 +11,11 @@
 | Codex 桌面 | 支持本地已保存文本记录 | 支持，原会话空闲时 | 原生桌面 Unix IPC，会话 UUID 不变 |
 | Claude Code 桌面 | 支持本地 Code 会话记录 | 默认只读；可开启「模拟操作发送」（macOS） | 元数据与 transcript；发送走辅助功能模拟操作 |
 | Antigravity 桌面 | 支持当前桌面侧栏可见会话与时间线 | 支持，原会话空闲且输入框没有草稿时 | 运行中桌面应用的本机 Chromium CDP |
+| WorkBuddy 桌面 | 支持 `~/.workbuddy/workbuddy.db` 会话与 `projects/` 记录，含 CLI 新建的会话 | 支持，需 CLI 登录一次 | 自带 CodeBuddy CLI 无头模式 `--resume <会话 id>`；打开记录用 `workbuddy://chat/<id>` 深链 |
 
 Codex 需要本机桌面 IPC 可连接。Antigravity 需要运行中的桌面应用提供 `DevToolsActivePort`，打开网页历史会同步切换其桌面会话；当前连接器面向 Antigravity 桌面应用，不将另一款 Antigravity IDE 的 CLI 当成桌面连接。客户端升级造成协议或页面变化时，发送会明确失败。
+
+WorkBuddy（5.9.3）的会话由桌面端内部 daemon 经 Electron 主进程 stdio 驱动，本机没有对外的发送接口；它的本地 IPC（`~/.workbuddy/wbipc`）只暴露 `wb.request`、`wb.entitlement`、`wb.wecom-a2a` 三个通道，均不能发消息。因此发送使用 WorkBuddy 自带的 CodeBuddy CLI 无头模式（`-p --output-format stream-json --resume <id>`），不使用辅助功能。CLI 不共用桌面端登录：连接器使用独立配置目录 `~/.workbuddy-connector`（可用 `TOOLS_WORKBUDDY_CLI_HOME` 改），其中 `projects` 软链到 `~/.workbuddy/projects`，使 `--resume` 能找到桌面会话；首次使用在终端运行 `CODEBUDDY_CONFIG_DIR=~/.workbuddy-connector codebuddy` 并 `/login`，或为平台服务设置 `CODEBUDDY_API_KEY`。`~/.codebuddy` 已有登录文件时会自动链接过去。CLI 优先级：`TOOLS_WORKBUDDY_CLI` → PATH 上的 `codebuddy` → WorkBuddy 自带精简版（只支持无头模式，不能交互登录）。权限沿用会话自己的模式（完全访问 → `bypassPermissions`，其余 `acceptEdits`）。新建会话放在 `~/WorkBuddy/<时间>`，与桌面端一致。尚未验证：桌面端正开着同一会话时是否实时显示 CLI 写入的回合。
 
 Claude 的深链可以打开右侧讨论串，但不能由“成功打开窗口”推断消息会发到指定会话，因此不使用深链发送。模拟操作发送改为核对窗口标题与唯一输入框后再发送，并以 transcript 回执确认（见下文）；该路径默认关闭。
 

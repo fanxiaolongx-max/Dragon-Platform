@@ -3,7 +3,7 @@ const db = require('../app-db'), chat = require('../ai-chat-repository'), deskto
 const { getTenantId, runWithTenant } = require('../tenant-context');
 const { containsSensitiveText, redactText } = require('../ai-sensitive-data');
 const crypto = require('node:crypto');
-const names = { codex: 'Codex', claudecode: 'Claude Code', antigravity: 'Antigravity' };
+const names = { codex: 'Codex', claudecode: 'Claude Code', antigravity: 'Antigravity', workbuddy: 'WorkBuddy' };
 const ready = new WeakMap(), active = new Map();
 const error = (text, status = 400) => Object.assign(new Error(text), { status });
 async function ensure() {
@@ -192,4 +192,5 @@ async function execute(owner, id, { send = desktop.send, wait = desktop.waitForR
 function schedule(owner, id) { const tenant = getTenantId(); setImmediate(() => runWithTenant(tenant, () => execute(owner, id)).catch(() => { })); }
 async function cancel(owner, id) { const job = await get(owner, id); const changed = await db.run("UPDATE desktop_agent_discussion_runs SET status='cancelled' WHERE id=? AND owner=? AND status IN ('queued','running')", [id, owner]); active.get(getTenantId() + ':' + id)?.abort(); if (changed.changes)
     await chat.addMessage({ sessionId: job.sessionId, owner, pagePath: '/', pageTitle: 'DragonTAC · 桌面讨论', role: 'model', content: 'DragonTAC 讨论已停止后续派发。已提交到桌面的任务可能仍在运行，请在原客户端停止。', modelName: 'DragonTAC Desktop' }); return get(owner, id); }
-module.exports = { start, get, settings, execute, schedule, cancel, config, saveSettings, current };
+// members：DragonTAC 的全部桌面成员；不选成员时默认全员，新增连接器自动加入
+module.exports = { start, get, settings, execute, schedule, cancel, config, saveSettings, current, members: names };

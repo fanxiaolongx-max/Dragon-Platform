@@ -1,7 +1,7 @@
 // Per-account presentation state, isolated by the tenant-aware SQLite connection.
 const db=require('./app-db'),chat=require('./ai-chat-repository');
 const {redactText}=require('./ai-sensitive-data');
-const ready=new WeakMap(),sources=new Set(['mine','welink','weixin','desktop:codex','desktop:claudecode','desktop:antigravity']);
+const ready=new WeakMap(),sources=new Set(['mine','welink','weixin','desktop:codex','desktop:claudecode','desktop:antigravity','desktop:workbuddy']);
 async function ensure(){const connection=db.getDatabase();if(!ready.has(connection))ready.set(connection,db.run(`CREATE TABLE IF NOT EXISTS conversation_list_preferences(
  owner TEXT NOT NULL,source TEXT NOT NULL,item_id TEXT NOT NULL,pinned INTEGER NOT NULL DEFAULT 0,archived INTEGER NOT NULL DEFAULT 0,hidden INTEGER NOT NULL DEFAULT 0,title TEXT NOT NULL DEFAULT '',updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(owner,source,item_id))`).catch(e=>{ready.delete(connection);throw e}));return ready.get(connection)}
 const invalid=()=>Object.assign(new Error('对话列表设置无效'),{statusCode:400});

@@ -1443,8 +1443,6 @@ html[data-ui="v2"] .wsp-picker .wsp-picker-actions .wsp-btn.wsp-btn-primary:hove
 html[data-ui="v2"] .wsp-picker .wsp-picker-actions .wsp-btn.wsp-btn-primary:disabled { opacity: .35; }
 
 /* ── 对话内的非纯文本内容（审批卡、文件卡、命令输出、文件下载卡、复制按钮…）：原样式为深色玻璃风，亮色主题改为淡雅浅底 ── */
-/* 消息悬停工具条（复制 / 重试）：桌面 Agent 连续消息的浮动工具条原为深色底 */
-html[data-ui="v2"] .dc-msg--ai.is-continued .dc-msg-tools { background: color-mix(in srgb, var(--v2-pop) 76%, transparent); border: 1px solid var(--v2-line); box-shadow: var(--v2-shadow-hover); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 html[data-ui="v2"] .dc-msg-icon { color: var(--v2-ink3); }
 html[data-ui="v2"] .dc-msg-icon:hover { background: var(--v2-hover); color: var(--v2-ink); }
 html[data-ui="v2"] .dc-msg-icon.is-done { color: var(--v2-accent); }

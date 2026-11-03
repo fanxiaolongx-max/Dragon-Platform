@@ -259,6 +259,37 @@ app.whenReady().then(async () => {
         const selectedPaletteOption = await evaluate(`document.querySelector('.ai-kg-control-select[data-setting="palette"]').value`);
         assert.equal(selectedPaletteOption, 'light', 'Control select value should be light');
 
+        console.log('10. Verifying embedded home library preserves navigation...');
+        await evaluate(`(async()=>{
+            AIKnowledgeGraph.close();
+            document.documentElement.dataset.ui='v2';
+            const css=document.createElement('link');css.rel='stylesheet';css.href='/css/home-v2.css';
+            await new Promise(resolve=>{css.onload=resolve;document.head.append(css)});
+            const host=document.createElement('main');host.className='home-main';
+            host.style.cssText='margin-left:240px;width:calc(100% - 240px);box-sizing:border-box';
+            host.innerHTML='<div id="homeFixtureContent">Home content</div>';
+            document.body.style.margin='0';document.body.append(host);
+            const nav=document.createElement('aside');nav.id='navFixture';nav.textContent='Navigation';
+            nav.style.cssText='position:fixed;left:0;top:0;width:240px;height:100vh';document.body.append(nav);
+            AIKnowledgeGraph.open({mode:'knowledge'});
+        })()`);
+        assert.equal(await evaluate(`document.querySelector('.ai-kg-overlay').parentElement.className`), 'home-main');
+        assert.equal(await evaluate(`document.querySelector('.ai-kg-overlay').getBoundingClientRect().left`), 240);
+        assert.equal(await evaluate(`getComputedStyle(document.querySelector('#homeFixtureContent')).display`), 'none');
+        assert.equal(await evaluate(`document.elementFromPoint(100,100).id`), 'navFixture', 'navigation remains reachable');
+        await evaluate(`window.dispatchEvent(new CustomEvent('home:mode'))`);
+        assert.equal(await evaluate(`document.body.classList.contains('v2-library-open')`), false);
+        assert.notEqual(await evaluate(`getComputedStyle(document.querySelector('#homeFixtureContent')).display`), 'none');
+        await evaluate(`(async()=>{
+            const main=document.querySelector('.home-main');
+            main.innerHTML='<div class="v2-agent-illustration"><img src="/assets/agent-collaboration.png" alt=""></div>';
+            const img=main.querySelector('img');await img.decode();
+        })()`);
+        assert.equal(await evaluate(`document.querySelector('.v2-agent-illustration img').naturalWidth > 0`), true);
+        await evaluate(`document.documentElement.dataset.theme='dark'`);
+        assert.match(await evaluate(`getComputedStyle(document.querySelector('.v2-agent-illustration img')).filter`), /invert\(1\)/);
+        await evaluate(`document.querySelector('.home-main').style.width='200px'`);
+        assert.equal(await evaluate(`document.querySelector('.v2-agent-illustration').getBoundingClientRect().width <= 200`), true);
         console.log('All Knowledge Graph Light Theme & Aggregation tests passed successfully!');
         server.close();
         app.quit();

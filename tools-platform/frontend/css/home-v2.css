@@ -282,6 +282,7 @@ html[data-ui="v2"] .v2-section-cap { padding: 12px 10px 4px; font-size: 11.5px; 
     font: inherit; font-size: 13px; cursor: pointer; transition: background var(--v2-ease), color var(--v2-ease), box-shadow var(--v2-ease);
 }
 .v2-seg button:hover { color: var(--v2-ink); }
+.v2-seg button[data-v2-mode][aria-selected="false"]:is(:hover, :focus-visible) { background: var(--v2-hover); }
 .v2-seg button[aria-selected="true"] { background: var(--v2-bg); color: var(--v2-ink); font-weight: 600; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1); }
 .v2-seg .v2-ico { width: 15px; height: 15px; }
 .v2-tools-modes { display: flex; justify-content: center; margin: 4px 0 18px; }
@@ -438,6 +439,15 @@ html[data-ui="v2"]:not([data-theme="dark"]) .stats-bar :is(.stat-label, .stat-no
 .v2-account-stats > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .v2-account-stats small { font-size: 11.5px; color: var(--v2-ink3); }
 .v2-account-stats strong { font-size: 14px; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.v2-account-service {
+    display: inline-flex; align-items: center; align-self: flex-start; gap: 6px;
+    margin: -3px -5px 3px; padding: 3px 5px; border: 0; border-radius: 7px;
+    background: transparent; color: var(--v2-ink); font: inherit; font-size: 14px;
+    font-weight: 600; white-space: nowrap; cursor: pointer;
+    transition: background var(--v2-ease);
+}
+.v2-account-service:is(:hover, :focus-visible) { background: var(--v2-hover); }
+.v2-account-service:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
 .v2-account-list { padding: 6px; }
 .v2-pop-arrow { width: 14px; height: 14px; margin-left: 2px; color: var(--v2-ink3); }
 .v2-account-btn {
@@ -918,7 +928,9 @@ html[data-ui="v2"] body.dc-chatting :is(.v2-scenes, .v2-suggest) { display: none
 .v2-scene:hover { background: var(--v2-chip); box-shadow: var(--v2-shadow-hover); transform: translateY(-1px); }
 .v2-scene:active { transform: none; box-shadow: none; }
 .v2-scene.is-active { background: var(--v2-ink); border-color: var(--v2-ink); color: var(--v2-bg); }
-.v2-mascot { position: absolute; right: 8px; bottom: -14px; width: 72px; height: auto; pointer-events: none; user-select: none; z-index: 2; filter: drop-shadow(0 6px 10px rgba(15, 23, 42, 0.12)); }
+.v2-mascot { position: absolute; right: 24px; bottom: calc(100% - 3px); width: 96px; height: auto; pointer-events: none; user-select: none; z-index: 2; filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.12)); }
+html[data-ui="v2"] body.dc-chatting .v2-mascot { display: none; }
+@media (max-width: 600px) { .v2-mascot { right: 20px; width: 80px; } }
 .v2-suggest { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; width: min(var(--dc-col, 760px), 100%); margin: 22px auto 6px; }
 .v2-suggest:empty { display: none; }
 .v2-suggest-cap { font-size: 12px; color: var(--v2-ink3); padding-left: 2px; }
@@ -928,11 +940,18 @@ html[data-ui="v2"] body.dc-chatting :is(.v2-scenes, .v2-suggest) { display: none
     color: var(--v2-ink); font: inherit; font-size: 13px; text-align: left; cursor: pointer;
     transition: background var(--v2-ease), box-shadow var(--v2-ease), transform var(--v2-ease);
 }
+/* 只有延伸到插画区域的长提示才淡出；短句保持完整对比度。 */
+.v2-suggest-item.is-fading {
+    -webkit-mask-image: linear-gradient(to right, #000 var(--suggest-fade-start, 40%), rgba(0,0,0,.55) 100%);
+    mask-image: linear-gradient(to right, #000 var(--suggest-fade-start, 40%), rgba(0,0,0,.55) 100%);
+}
+.v2-suggest-item.is-fading:is(:hover, :focus) { -webkit-mask-image: none; mask-image: none; }
+.v2-suggest-item:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 3px; }
 .v2-suggest-item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .v2-suggest-item .v2-ico { width: 14px; height: 14px; color: var(--v2-ink2); }
 .v2-suggest-item:hover { background: var(--v2-chip); box-shadow: var(--v2-shadow-hover); transform: translateY(-1px); }
 .v2-avatar { overflow: hidden; background: var(--v2-accent-soft); }
-.v2-avatar img { width: 100%; height: 150%; object-fit: cover; object-position: 50% 8%; }
+.v2-avatar img { width: 100%; height: 125%; align-self: flex-start; object-fit: cover; object-position: 50% 0; transform: translateY(2px); }
 
 /* 旧版侧栏收起状态（home-sidebar-collapsed，home-mode.js 记在本机）在新版界面不生效；新版只认 v2-side-collapsed */
 html[data-ui="v2"] body:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)):not(.v2-side-collapsed) .home-content.home-workspace { grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr); }
@@ -1065,3 +1084,33 @@ html[data-theme="dark"] html[data-ui="v2"] .dc-history-divider::before,
 html[data-theme="dark"] html[data-ui="v2"] .dc-history-divider::after {
     background: rgba(255, 255, 255, 0.1);
 }
+
+/* 资料库属于首页主区，保留外层导航；仅主动点全屏时覆盖窗口。 */
+html[data-ui="v2"] body.v2-library-open .home-main { position: relative; height: 100dvh; min-height: 0; padding: 0; overflow: hidden; }
+html[data-ui="v2"] body.v2-library-open .home-main > :not(.ai-kg-overlay) { display: none !important; }
+html[data-ui="v2"] .home-main > .ai-kg-overlay.ai-kg-embedded { position: absolute; inset: 0; z-index: 20; }
+html[data-ui="v2"] .ai-kg-overlay.ai-kg-embedded:fullscreen { position: fixed; }
+html[data-ui="v2"] body.v2-library-open.v2-side-collapsed .ai-kg-header { padding-left: calc(var(--v2-float-end) + 12px); }
+/* 快捷提问区的右侧背景，文字与操作始终在插画之上。 */
+.v2-agent-illustration { display: none; pointer-events: none; }
+html[data-ui="v2"] body:not(.dc-chatting) .v2-suggest:has(> .v2-agent-illustration) { position: relative; isolation: isolate; background: var(--v2-bg); min-height: 240px; }
+.v2-suggest > .v2-agent-illustration {
+    display: block;
+    position: absolute;
+    z-index: -1;
+    right: 0;
+    bottom: 0;
+    width: min(560px, 78%);
+    aspect-ratio: 12 / 5;
+    overflow: hidden;
+    opacity: .3;
+    mix-blend-mode: multiply;
+}
+.v2-agent-illustration img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; filter: grayscale(1) contrast(1.25) brightness(1.03); }
+html[data-theme="dark"] .v2-agent-illustration { mix-blend-mode: screen; }
+html[data-theme="dark"] .v2-agent-illustration img { filter: grayscale(1) contrast(1.25) brightness(1.03) invert(1); }
+@media (max-width: 600px) {
+    .v2-suggest > .v2-agent-illustration { width: 88%; opacity: .18; }
+    html[data-ui="v2"] body:not(.dc-chatting) .v2-suggest:has(> .v2-agent-illustration) { min-height: 160px; }
+}
+body.dc-chatting .v2-agent-illustration { display: none; }

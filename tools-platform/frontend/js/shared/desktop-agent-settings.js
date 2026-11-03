@@ -1,6 +1,6 @@
 (function () {
     const L = (zh, en) => /^en/.test(window.ToolsI18n?.getLanguage?.() || localStorage.getItem('tools_lang') || '') ? en : zh;
-    const names = { codex: 'Codex', claudecode: 'Claude Code', antigravity: 'Antigravity' };
+    const names = { codex: 'Codex', claudecode: 'Claude Code', antigravity: 'Antigravity', workbuddy: 'WorkBuddy' };
     const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     async function request(method, path, body) { const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token'); const r = await fetch('/api/desktop-agents' + path, { method, credentials: 'same-origin', cache: 'no-store', headers: { Authorization: 'Bearer ' + token, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) }); const d = await r.json().catch(() => ({})); if (!r.ok)
         throw Error(d.error || `HTTP ${r.status}`); return d; }
@@ -11,6 +11,8 @@
             style.href = '/css/desktop-agents.css';
             style.dataset.desktopAgentStyle = '';
             document.head.append(style);
+            // 首页已带版本号引入；其他页面按需引入时补上内容版本号，避免拿到缓存的旧样式
+            fetch('/api/asset-version?path=%2Fcss%2Fdesktop-agents.css', { cache: 'no-store' }).then(r => r.ok ? r.json() : null).then(d => { if (d?.version) style.href = '/css/desktop-agents.css?v=' + encodeURIComponent(d.version); }).catch(() => { });
         }
         content.textContent = L('正在读取桌面连接设置…', 'Loading desktop connection settings…');
         let config;
@@ -30,7 +32,7 @@
         }
         const cfg = config.settings;
         const toggle = (name, title, hint, on) => `<label class="da-row"><span><b>${title}</b>${hint ? `<small>${hint}</small>` : ''}</span><input type="checkbox" class="da-switch" name="${name}" ${on ? 'checked' : ''}></label>`;
-        const notes = { codex: L('原生桌面 IPC · 可发送、可读取运行状态', 'Native desktop IPC · send and live status'), claudecode: L('读取本机历史 · 可选模拟操作发送', 'Local history · optional UI automation sending'), antigravity: L('桌面页面连接 · 打开记录会切换桌面会话', 'Desktop page connection · opening a chat switches the desktop view') };
+        const notes = { codex: L('原生桌面 IPC · 可发送、可读取运行状态', 'Native desktop IPC · send and live status'), claudecode: L('读取本机历史 · 可选模拟操作发送', 'Local history · optional UI automation sending'), antigravity: L('桌面页面连接 · 打开记录会切换桌面会话', 'Desktop page connection · opening a chat switches the desktop view'), workbuddy: L('读取本机会话 · CLI 无头发送 · 深链切换桌面会话', 'Local sessions · headless CLI sending · deep link switches the desktop view') };
         content.innerHTML = `<section class="desktop-agent-settings">
             <form class="desktop-agent-setting-fields">
                 <div class="da-overview">
@@ -53,10 +55,11 @@
                         <label class="da-provider-head"><span class="da-provider-title"><img src="/assets/desktop-agents/${id}.png" width="24" height="24" alt="" class="da-agent-icon" onerror="this.style.display='none'"><b>${name}</b></span><input type="checkbox" class="da-switch" name="${id}" ${cfg.providers[id] ? 'checked' : ''}></label>
                         <small>${notes[id]}</small><span class="da-state" data-state="${id}"></span>
                         ${id === 'claudecode' ? `<div class="da-provider-extra"><label class="da-sub"><span><b>${L('模拟操作发送', 'Send by UI automation')}</b><small>${L('仅 macOS，需辅助功能权限', 'macOS only · Accessibility required')}</small></span><input type="checkbox" class="da-switch" name="claudeAutomation" ${cfg.claudeAutomation ? 'checked' : ''}></label><details class="da-notes"><summary>${L('发送时会发生什么？', 'What happens when sending?')}</summary><p>${L('Claude 会切到前台，打开并核对目标会话后发送，再切回原应用。请在 macOS 系统设置中为运行平台的程序授予辅助功能权限。', 'Claude comes to the front, opens and verifies the target conversation, sends, then returns to the previous app. Grant Accessibility permission to the program running this platform in macOS settings.')}</p></details></div>` : ''}
+                        ${id === 'workbuddy' ? `<div class="da-provider-extra"><details class="da-notes"><summary>${L('发送方式与首次登录', 'Sending & first sign-in')}</summary><p>${L('发送使用 WorkBuddy 自带的 CodeBuddy CLI 无头模式，继续同一会话编号，不模拟键鼠。CLI 不共用桌面端登录，首次使用需在终端登录一次：', 'Sending uses the CodeBuddy CLI bundled with WorkBuddy in headless mode on the same session ID, with no UI automation. The CLI does not share the desktop sign-in; sign in once in a terminal:')}</p><code>CODEBUDDY_CONFIG_DIR=~/.workbuddy-connector codebuddy</code><p>${L('进入后输入 /login；也可为平台服务设置 CODEBUDDY_API_KEY。桌面端正开着同一会话时，CLI 写入的新回合可能要重新打开会话才显示。', 'Then type /login, or set CODEBUDDY_API_KEY for the platform service. If the same session is open in the desktop app, turns written by the CLI may appear only after reopening it.')}</p></details></div>` : ''}
                     </div>`).join('')}
                 </div>
                 <div class="da-footer">
-                    <details class="da-notes"><summary>${L('连接说明与排障', 'Connection details & troubleshooting')}</summary><p>${esc(L('连接的是运行平台服务这台电脑上的客户端。Codex 使用桌面 IPC；Antigravity 使用桌面页面连接，打开记录会切换桌面会话；Claude Code 读取本机历史，可选模拟操作发送。未连接时请确认客户端已启动并登录。', 'Connects to desktop clients on the computer running this service. Codex uses desktop IPC; Antigravity uses a desktop page connection and opening a conversation switches its desktop view; Claude Code reads local history with optional UI automation. If offline, check the client is running and signed in.'))}</p><p>${esc(L('刷新列表会立即重新读取最近对话，不必等待自动刷新间隔。自动刷新关闭时仍可手动刷新；正文刷新不受列表开关影响。不会自动改用 CLI 或平台模型代答。', 'Refresh list immediately rereads recent conversations without waiting for the next interval. Manual refresh remains available when automatic list refresh is off; open conversations refresh separately. No CLI or platform-model fallback.'))}</p></details>
+                    <details class="da-notes"><summary>${L('连接说明与排障', 'Connection details & troubleshooting')}</summary><p>${esc(L('连接的是运行平台服务这台电脑上的客户端。Codex 使用桌面 IPC；Antigravity 使用桌面页面连接，打开记录会切换桌面会话；Claude Code 读取本机历史，可选模拟操作发送；WorkBuddy 读取本机会话、用自带 CLI 无头发送，打开记录会通过深链切换桌面会话。未连接时请确认客户端已启动并登录。', 'Connects to desktop clients on the computer running this service. Codex uses desktop IPC; Antigravity uses a desktop page connection and opening a conversation switches its desktop view; Claude Code reads local history with optional UI automation; WorkBuddy reads local sessions, sends through its bundled headless CLI, and opening a conversation switches its desktop view via a deep link. If offline, check the client is running and signed in.'))}</p><p>${esc(L('刷新列表会立即重新读取最近对话，不必等待自动刷新间隔。自动刷新关闭时仍可手动刷新；正文刷新不受列表开关影响。除 WorkBuddy 本身就走 CLI 外，不会自动改用 CLI 或平台模型代答。', 'Refresh list immediately rereads recent conversations without waiting for the next interval. Manual refresh remains available when automatic list refresh is off; open conversations refresh separately. Apart from WorkBuddy, which sends through its own CLI, there is no CLI or platform-model fallback.'))}</p></details>
                     <button type="submit" class="is-primary">${L('保存设置', 'Save settings')}</button>
                 </div>
                 <div class="desktop-agent-setting-result" role="status" aria-live="polite"></div>

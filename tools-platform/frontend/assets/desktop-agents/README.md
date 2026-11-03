@@ -1,6 +1,6 @@
 # Desktop agent icons
 
-Client identification icons extracted at 96 px from the locally installed macOS applications on 2026-10-26: Codex (`com.openai.codex`, installed as ChatGPT.app), Claude.app, and Antigravity.app. Used only to identify the corresponding connected clients; trademarks belong to their respective owners. No network request is needed when rendering the provider controls.
+Client identification icons extracted at 96 px from the locally installed macOS applications on 2026-10-26: Codex (`com.openai.codex`, installed as ChatGPT.app), Claude.app, and Antigravity.app; WorkBuddy (`com.tencent.workbuddy.mac`) was added on 2026-11-03. Used only to identify the corresponding connected clients; trademarks belong to their respective owners. No network request is needed when rendering the provider controls.
 
 The current files and their consumers were checked against the repository on 2026-10-28.
 
@@ -9,6 +9,7 @@ The current files and their consumers were checked against the repository on 202
 | `codex.png` | `codex` | Codex | 96 × 96 |
 | `claudecode.png` | `claudecode` | Claude Code | 96 × 96 |
 | `antigravity.png` | `antigravity` | Antigravity | 96 × 96 |
+| `workbuddy.png` | `workbuddy` | WorkBuddy | 96 × 96 |
 
 The filenames match the provider IDs used by the desktop Agent backend. They are served locally as `/assets/desktop-agents/<provider>.png` and appear in:
 

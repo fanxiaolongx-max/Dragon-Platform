@@ -1,9 +1,9 @@
 // Native desktop creation. Never resumes an unrelated recent conversation or
 // substitutes a CLI model. A new native UUID and its exact user receipt are required.
 const {execFile}=require('node:child_process');
-const catalog=require('./catalog'),claude=require('./claude-desktop'),ag=require('./antigravity-cdp');
+const catalog=require('./catalog'),claude=require('./claude-desktop'),ag=require('./antigravity-cdp'),wb=require('./workbuddy');
 const {composerText}=require('./composer-text');
-const names={codex:'Codex',claudecode:'Claude Code',antigravity:'Antigravity'};
+const names={codex:'Codex',claudecode:'Claude Code',antigravity:'Antigravity',workbuddy:'WorkBuddy'};
 const failure=(code,message)=>Object.assign(new Error(message),{code,status:code==='DELIVERY_UNKNOWN'?504:409});
 // Accessibility text can merge blank paragraphs; compare all actual lines and
 // characters while allowing only repeated blank-line presentation differences.
@@ -30,6 +30,7 @@ async function receipt(provider,before,text,{readRows=nativeRows,readTranscript=
 }
 async function createAndSend(provider,text,{driver=ui,readRows=nativeRows,readReceipt=receipt,open=uri=>exec('/usr/bin/open',['-g',uri]),wait=ms=>new Promise(r=>setTimeout(r,ms)),platform=process.platform}={}){
  if(provider==='antigravity')return ag.createAndSend(text);
+ if(provider==='workbuddy')return wb.createAndSend(text);
  if(!['codex','claudecode'].includes(provider))throw failure('DESKTOP_UNAVAILABLE','未知桌面成员');
  if(platform!=='darwin')throw failure('DESKTOP_UNAVAILABLE',names[provider]+' 自动建桌面对话目前需要 macOS 桌面连接器');
  return exclusive(async()=>{

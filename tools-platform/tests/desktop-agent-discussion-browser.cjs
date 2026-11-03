@@ -2,9 +2,11 @@
 const {app,BrowserWindow}=require('electron');const fs=require('fs'),path=require('path'),os=require('os'),assert=require('assert/strict'),express=require('express');
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),'tac-group-ui-')),root=path.join(__dirname,'..');app.setPath('userData',path.join(temp,'profile'));app.disableHardwareAcceleration();
 let win,server,hold=false,cancelled=0,nativeCalls=0,ordinaryCalls=0,historyEnabled=false,failNextRead=false;const requests=[],jobs=new Map(),jobReads=new Map();
-const capabilities={owned:true,settings:{enabled:false,allowSend:true,claudeAutomation:false,providers:{codex:true,claudecode:true,antigravity:true}}};
+// 全员 = 所有桌面成员（含 WorkBuddy）；新增成员时只改这里
+const MEMBERS={codex:'Codex',claudecode:'Claude Code',antigravity:'Antigravity',workbuddy:'WorkBuddy'},ALL=Object.keys(MEMBERS);
+const capabilities={owned:true,settings:{enabled:false,allowSend:true,claudeAutomation:false,providers:Object.fromEntries(ALL.map(id=>[id,true]))}};
 let providerStates=[{id:'codex',enabled:true,connected:false,canSend:false}];
-const savedModes=[],discussionModes=new Map([['chat_fresh_group',{mode:'group',version:2,bindings:{},providers:['codex','claudecode','antigravity']}]]);
+const savedModes=[],discussionModes=new Map([['chat_fresh_group',{mode:'group',version:2,bindings:{},providers:ALL}]]);
 const evaluate=s=>win.webContents.executeJavaScript(s,true),wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function until(s){for(let i=0;i<180;i++){if(await evaluate(`Boolean(${s})`))return;await wait(30);}throw Error(s);}
 setTimeout(()=>app.exit(1),45000).unref();
@@ -14,7 +16,7 @@ app.whenReady().then(async()=>{
  web.get('/api/channels/available',(_q,r)=>r.json({items:[]}));
  web.get('/api/desktop-agents/settings',(_q,r)=>r.json(capabilities));
  web.get('/api/desktop-agents/sessions',(_q,r)=>r.json({providers:providerStates,items:[]}));
- web.post('/api/desktop-agents/discussion-runs',(q,r)=>{requests.push(q.body);const job={id:q.body.requestId,sessionId:q.body.sessionId||'chat_fresh_group',status:'running',reports:['Codex','Claude Code','Antigravity'].map(agent=>({agent,round:1,status:'creating'}))};jobs.set(job.id,job);r.status(202).json(job);});
+ web.post('/api/desktop-agents/discussion-runs',(q,r)=>{requests.push(q.body);const job={id:q.body.requestId,sessionId:q.body.sessionId||'chat_fresh_group',status:'running',reports:ALL.map(provider=>({provider,agent:MEMBERS[provider],round:1,status:'creating'}))};jobs.set(job.id,job);r.status(202).json(job);});
  web.get('/api/desktop-agents/discussion-runs/:id',(q,r)=>{jobReads.set(q.params.id,(jobReads.get(q.params.id)||0)+1);if(failNextRead){failNextRead=false;return r.status(503).json({error:'Temporary progress connection failure'});}const job=jobs.get(q.params.id);if(!hold){job.status='done';for(const row of job.reports){row.status='done';row.text=row.agent+' group reply';}}r.json(job);});
  web.post('/api/desktop-agents/discussion-runs/:id/cancel',(q,r)=>{cancelled++;const job=jobs.get(q.params.id);job.status='cancelled';r.json(job);});
  web.get('/api/desktop-agents/discussions/:id',(q,r)=>r.json({settings:discussionModes.get(q.params.id)||null,activeRun:[...jobs.values()].find(job=>job.sessionId===q.params.id&&['queued','running'].includes(job.status))||null}));
@@ -33,6 +35,7 @@ app.whenReady().then(async()=>{
  assert.equal(await evaluate('document.querySelector("[data-connector=codex]").disabled'),false);
  assert.equal(await evaluate('document.querySelector("[data-connector=claudecode]").disabled'),true,'Claude automation permission is required');
  assert.equal(await evaluate('document.querySelector("[data-connector=antigravity]").disabled'),true,'each agent is gated independently');
+ assert.equal(await evaluate('document.querySelector("[data-connector=workbuddy]").disabled'),true,'WorkBuddy is listed and gated like the other members');
  await evaluate('dcInput.value="Keep my draft";dcInput.dispatchEvent(new Event("input",{bubbles:true}));document.querySelector("[data-tac-start]").click();document.querySelector("[data-connector=codex]").click()');
  assert.equal(await evaluate('HomeAgentDiscussion.getSelectedConnector()'),'desktop:codex');
  assert.equal(await evaluate('DragonClaw.isExternal()'),false,'selection never opens existing sessions');
@@ -46,15 +49,15 @@ app.whenReady().then(async()=>{
  assert.deepEqual(savedModes,[],'an ordinary conversation never converts to a group');
  await evaluate('DragonClaw.newChat()');
  capabilities.settings.claudeAutomation=true;
- providerStates=['codex','claudecode','antigravity'].map(id=>({id,enabled:true,connected:true,canSend:true}));
+ providerStates=ALL.map(id=>({id,enabled:true,connected:true,canSend:true}));
  await evaluate('HomeAgentDiscussion.refreshAvailability(true)');
- await evaluate('dcInput.value="Discuss this draft in a fresh group";dcInput.dispatchEvent(new Event("input",{bubbles:true}));[...document.querySelectorAll("[data-connector]")].filter(e=>["codex","claudecode","antigravity"].includes(e.dataset.connector)).forEach(e=>e.click())');
+ await evaluate(`dcInput.value="Discuss this draft in a fresh group";dcInput.dispatchEvent(new Event("input",{bubbles:true}));[...document.querySelectorAll("[data-connector]")].filter(e=>${JSON.stringify(ALL)}.includes(e.dataset.connector)).forEach(e=>e.click())`);
  assert.equal(await evaluate('HomeAgentDiscussion.handles()'),true);
  assert.equal(await evaluate('DragonClaw.isExternal()'),false);
  assert.equal(requests.length,0,'draft preselection never sends or creates anything');
- await evaluate('dcComposer.requestSubmit()');await until('dcThread.textContent.includes("Codex group reply")&&dcThread.textContent.includes("Claude Code group reply")&&dcThread.textContent.includes("Antigravity group reply")');await wait(60);
+ await evaluate('dcComposer.requestSubmit()');await until(ALL.map(id=>`dcThread.textContent.includes("${MEMBERS[id]} group reply")`).join('&&'));await wait(60);
  assert.equal(requests.length,1);assert.equal(requests[0].settings,undefined);assert.equal(requests[0].sessionId,null);assert.equal(await evaluate('window.__nativeCalls||0'),0);assert.equal(ordinaryCalls,0);
- assert.deepEqual(await evaluate('[...document.querySelectorAll(".dc-tac-report-avatar")].map(e=>e.getAttribute("src"))'),['/assets/desktop-agents/codex.png','/assets/desktop-agents/claudecode.png','/assets/desktop-agents/antigravity.png']);
+ assert.deepEqual(await evaluate('[...document.querySelectorAll(".dc-tac-report-avatar")].map(e=>e.getAttribute("src"))'),ALL.map(id=>`/assets/desktop-agents/${id}.png`),'every member, including WorkBuddy, shows its own logo');
  assert.equal(await evaluate('getComputedStyle(document.querySelector(".dc-tac-message>.dc-msg-avatar")).display'),'none','member logos replace the outer generic avatar');
  await until('[...document.querySelectorAll(".dc-tac-report-avatar")].every(img=>img.complete&&img.naturalWidth>0)');await wait(100);fs.writeFileSync(path.join(temp,'dragontac-member-avatars.png'),(await win.webContents.capturePage()).toPNG());
  await evaluate(`(()=>{const host=document.createElement('div');host.id='avatar-fixture';host.innerHTML='<div class="dc-msg dc-msg--ai"><img class="dc-msg-avatar"><div class="dc-msg-main"><div class="dc-msg-body"></div></div></div>';dcThread.append(host);const message=host.firstChild;const job={reports:[{provider:'codex',agent:'Codex',status:'done',text:'First paragraph'},{provider:'codex',agent:'Codex',status:'done',text:'Continuation'},{provider:'claudecode',agent:'Claude Code',status:'done',text:'Another member'}]};HomeAgentDiscussion.renderReports(message,job,text=>'<p>'+text+'</p>');window.__firstAvatarRow=message.querySelector('.dc-tac-report');HomeAgentDiscussion.renderReports(message,job,text=>'<p>'+text+'</p>');})()`);
@@ -113,5 +116,5 @@ app.whenReady().then(async()=>{
  await evaluate('ToolsI18n.setLanguage("en-US")');assert.match(await evaluate('document.querySelector("[data-tac-start]").textContent'),/Agent group/);
  win.setContentSize(390,844);await wait(100);assert.equal(await evaluate('document.documentElement.scrollWidth<=innerWidth'),true);
  fs.writeFileSync(path.join(temp,'dragontac-mobile.png'),(await win.webContents.capturePage()).toPNG());
- console.log('PASS: draft-only connector selection, independent readiness, binding locks, actual desktop capability gating, native-view handoff, three authors, continuation, stop, reload recovery, progress retry without resending, English and mobile. Screenshots: '+temp);win.destroy();server.close();app.exit(0);
+ console.log('PASS: draft-only connector selection, independent readiness, binding locks, actual desktop capability gating, native-view handoff, every member including WorkBuddy, continuation, stop, reload recovery, progress retry without resending, English and mobile. Screenshots: '+temp);win.destroy();server.close();app.exit(0);
 }).catch(async e=>{console.error(e);console.log(JSON.stringify({requests,view:await evaluate('({text:dcThread.textContent.slice(-600),input:dcInput.value,disabled:dcInput.disabled,connectors:HomeAgentDiscussion.getConnectors()})')}));win?.destroy();server?.close();app.exit(1);});

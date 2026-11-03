@@ -499,7 +499,7 @@
             <div class="v2-account-card v2-account-head"><span class="v2-avatar v2-avatar-lg"><img src="/assets/logo.png" alt=""></span><strong>${esc(name)}</strong></div>
             <div class="v2-account-card v2-account-stats">
                 <div><small>${esc(t('version'))}</small><strong>${esc(versionText() || '—')}</strong></div>
-                <div><small>${esc(t('service'))}</small><strong class="v2-account-service"><span class="v2-status-dot${serviceDown() ? ' is-down' : ''}"></span>${esc(serviceText())}</strong><button type="button" class="v2-account-btn" data-v2-do="serviceStatus">${esc(t('serviceStatus'))}</button></div>
+                <div><small>${esc(t('service'))}</small><button type="button" class="v2-account-service" data-v2-do="serviceStatus" title="${esc(t('serviceStatus'))}" aria-label="${esc(t('serviceStatus'))}"><span class="v2-status-dot${serviceDown() ? ' is-down' : ''}"></span>${esc(serviceText())}</button></div>
             </div>
             <div class="v2-account-card v2-account-list">
                 ${admin ? rowItem('settings', t('settings'), 'settings', mac ? '⌘,' : 'Ctrl+,') : ''}
@@ -1778,7 +1778,7 @@
             ['schedule', 'Scheduled', ['/schedule every weekday at 9am summarise yesterday’s alerts', '/schedule every Monday send last week’s metric report to WeChat', '/schedule on the 1st remind me to import last month’s data']]
         ]
     };
-    const quick = { scene: '', scenesEl: null, suggestEl: null, recent: [] };
+    const quick = { scene: '', scenesEl: null, suggestEl: null, illustration: null, recent: [] };
     function fillInput(text) {
         const input = $('dcInput');
         if (!input) return;
@@ -1789,8 +1789,21 @@
     }
     function recentQuestions() {
         const titles = [...document.querySelectorAll('#homeChatList [data-question]')].map(el => el.dataset.question.trim());
-        const list = titles.length ? titles : quick.recent;
-        return [...new Set(list.filter(title => title.length >= 4 && !/^@/.test(title)))].slice(0, 4);
+        const matchesLanguage = title => lang() === 'en-US'
+            ? /[A-Za-z]/.test(title) && !/[^\p{Script=Latin}\p{M}\p{N}\p{P}\p{S}\p{Z}\s]/u.test(title)
+            : /\p{Script=Han}/u.test(title);
+        return [...new Set([...titles, ...quick.recent].filter(title => title.length >= 4 && !/^@/.test(title) && matchesLanguage(title)))].slice(0, 4);
+    }
+    function updateSuggestionFade() {
+        if (!quick.suggestEl || !quick.illustration?.isConnected) return;
+        const art = quick.illustration.getBoundingClientRect();
+        for (const item of quick.suggestEl.querySelectorAll('.v2-suggest-item')) {
+            const box = item.getBoundingClientRect();
+            const fades = art.width > 0 && box.width > 240 && box.right > art.left + 40;
+            item.classList.toggle('is-fading', fades);
+            if (fades) item.style.setProperty('--suggest-fade-start', `${Math.max(100, Math.min(box.width - 80, art.left - box.left))}px`);
+            else item.style.removeProperty('--suggest-fade-start');
+        }
     }
     function renderQuick() {
         const composer = $('dcComposer');
@@ -1827,12 +1840,13 @@
             window.addEventListener('tools:languagechange', clearPreview);
 
             composer.after(quick.suggestEl);
+            new ResizeObserver(updateSuggestionFade).observe(quick.suggestEl);
             const mascot = document.createElement('img');
             mascot.className = 'v2-mascot';
-            mascot.src = '/assets/logo.png';
+            mascot.src = '/assets/mascot-perched.png';
             mascot.alt = '';
             mascot.setAttribute('aria-hidden', 'true');
-            quick.scenesEl.appendChild(mascot);
+            composer.appendChild(mascot);
             quick.scenesEl.addEventListener('click', event => {
                 const chip = event.target.closest('[data-scene]');
                 if (!chip) return;
@@ -1845,7 +1859,6 @@
             });
         }
         const scenes = SCENES[lang()];
-        const mascot = quick.scenesEl.querySelector('.v2-mascot');
         quick.scenesEl.replaceChildren(...scenes.map(([id, label]) => {
             const chip = document.createElement('button');
             chip.type = 'button';
@@ -1853,12 +1866,17 @@
             chip.dataset.scene = id;
             chip.textContent = label;
             return chip;
-        }), mascot);
+        }));
         const scene = scenes.find(([id]) => id === quick.scene);
-        const items = scene ? scene[2] : recentQuestions();
-        const title = scene ? t('suggested') : t('recentAsked');
+        const recent = recentQuestions();
+        const defaults = ['analysis', 'monthly', 'script', 'schedule'].map(id => scenes.find(scene => scene[0] === id)[2][0]);
+        const items = scene ? scene[2] : (recent.length ? recent : defaults);
+        const title = scene || !recent.length ? t('suggested') : t('recentAsked');
+        quick.illustration ||= document.querySelector('.v2-agent-illustration');
         quick.suggestEl.innerHTML = items.length ? `<div class="v2-suggest-cap">${esc(title)}</div>${items.map(text => `<button type="button" class="v2-suggest-item" data-fill="${esc(text)}"><span>${esc(text)}</span><span class="v2-ico" data-icon="arrowUpRight"></span></button>`).join('')}` : '';
+        if (items.length && quick.illustration) quick.suggestEl.appendChild(quick.illustration);
         fillIcons(quick.suggestEl);
+        requestAnimationFrame(updateSuggestionFade);
         const input = $('dcInput');
         if (input) {
             input.dataset.v2Placeholder ||= input.placeholder;
@@ -1870,7 +1888,7 @@
         try {
             const data = await getJson('/api/ai/sessions?mine=1&pagePath=%2F&limit=40&query=');
             quick.recent = (data?.items || []).map(item => String(item.firstQuestion || item.lastQuestion || item.title || '').trim()).filter(Boolean);
-        } catch { /* 没有历史时只显示场景标签 */ }
+        } catch { /* 没有匹配历史时使用当前语言的平台能力推荐 */ }
         renderQuick();
     }
     window.addEventListener('home:conversation-list-changed', () => { if (!quick.scene) renderQuick(); });
@@ -1916,6 +1934,7 @@
         applyText();
         mirrorNavbar();
         renderQuick();
+        if (!quick.scene) loadRecentQuestions();
         updateChannelsNavState();
         if (openPop?.pop === discover.pop) renderDiscover();
     });

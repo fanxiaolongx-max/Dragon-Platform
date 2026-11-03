@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-    const API = '/api/desktop-agents', names = { codex: 'Codex', claudecode: 'Claude Code', antigravity: 'Antigravity' };
+    const API = '/api/desktop-agents', names = { codex: 'Codex', claudecode: 'Claude Code', antigravity: 'Antigravity', workbuddy: 'WorkBuddy' };
     const state = { settings: null, items: [], providers: [], provider: 'codex', active: null, api: null, visible: false, loading: false, error: '', epoch: 0, viewEpoch: 0, identity: '', drafts: new Map(), notices: new Map(), unknown: new Set(), sending: false, lastSync: null, lastRefreshAt: 0, signature: '', timer: null, detail: null, pending: null, pendingCount: 0, tick: null, view: null, dock: null, mode: (() => { try {
         return localStorage.getItem('desktop_agent_busy_mode') === 'steer' ? 'steer' : 'queue';
     }
