@@ -38,7 +38,7 @@ function main() {
     }
     const result = spawnSync(process.execPath, [require.resolve('electron-builder/cli.js'), ...args], {
         cwd: path.resolve(__dirname, '..'),
-        env: process.env,
+        env: { ...process.env, USE_HARD_LINKS: 'false' },
         stdio: 'inherit'
     });
     if (result.error) throw result.error;

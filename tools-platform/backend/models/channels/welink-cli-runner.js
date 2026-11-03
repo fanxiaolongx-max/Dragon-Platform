@@ -47,10 +47,14 @@ function cliError(code, message, statusCode = 400) {
     return Object.assign(new Error(message), { code, statusCode });
 }
 
+const isMacDesktop = () => Boolean(process.versions.electron && process.platform === 'darwin');
+
 // ── 配置（本机级） ─────────────────────────────────────────
 function readConfig() {
     try {
-        return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(overrides.configFile || CONFIG_FILE, 'utf8')) };
+        const config = { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(overrides.configFile || CONFIG_FILE, 'utf8')) };
+        if (isMacDesktop()) config.enabled = false;
+        return config;
     } catch {
         return { ...DEFAULT_CONFIG };
     }
@@ -59,7 +63,7 @@ function readConfig() {
 function saveConfig(patch = {}) {
     const current = readConfig();
     const next = {
-        enabled: patch.enabled === undefined ? current.enabled : Boolean(patch.enabled),
+        enabled: isMacDesktop() ? false : (patch.enabled === undefined ? current.enabled : Boolean(patch.enabled)),
         cliPath: patch.cliPath === undefined ? current.cliPath : String(patch.cliPath || '').trim().slice(0, 500),
         env: patch.env === undefined ? current.env : (patch.env === 'pro' ? 'pro' : ''),
         email: patch.email === undefined ? current.email : String(patch.email || '').trim().slice(0, 200),
@@ -200,6 +204,10 @@ function unpackedPath(dir) {
 async function detect({ refresh = false } = {}) {
     if (overrides.install) return overrides.install;
     if (cachedInstall && !refresh) return cachedInstall;
+    if (isMacDesktop()) {
+        cachedInstall = { available: false, unsupported: true, platform: 'darwin', hint: UNSUPPORTED_PLATFORM_HINT };
+        return cachedInstall;
+    }
     const config = readConfig();
     let found = null;
     let source = '';
@@ -573,5 +581,5 @@ module.exports = {
     readConfig, saveConfig, downloadDir, tenantAllowed, assertTenant,
     detect, reset, run, version, authStatus, logout, autodiscover, login, logs, clearLogs,
     parseOutput, interpretAuthStatus, classifyLoginLine, entryFromCmdShim, entryFromCustomPath,
-    setOverridesForTest
+    setOverridesForTest, getOverridesForTest: () => overrides, isMacDesktop
 };

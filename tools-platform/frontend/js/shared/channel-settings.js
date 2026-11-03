@@ -426,21 +426,23 @@
         if (isWeixin()) return renderWeixinConnectionCard();
         const d = view.draft;
         const qr = view.qr;
+        const isUnsupported = Boolean(view.status?.sdk?.unsupported);
         return `
             <h4>🔌 ${esc(L('连接配置', 'Connection'))}</h4>
             <p class="nch-desc">${esc(L('平台作为第三方智能助理接入 WeLink 网关。推荐使用「扫码授权」自动创建助理并获取 AK/SK；也可手动填写。配置按数据空间隔离，与 AI 配置一致。', 'The platform registers as a third-party assistant on the WeLink gateway. Scan-to-authorize creates the assistant and fills AK/SK automatically, or enter them manually. Settings are for this platform, like AI settings.'))}</p>
-            <label class="nch-switch" style="margin-bottom:12px"><input type="checkbox" data-path="enabled" ${d.enabled ? 'checked' : ''}> ${esc(L('启用 WeLink 助理（保存后自动连接，平台重启后自动恢复）', 'Enable WeLink assistant (connects after saving and on platform start)'))}</label>
+            ${isUnsupported ? `<p class="nch-desc" style="background:#f1f5f9;color:#475569;padding:8px 10px;border-radius:8px;margin-bottom:12px">💻 ${esc(L('WeLink 频道对接仅支持 Windows 系统，在当前系统上已自动禁用。', 'WeLink channel is only supported on Windows and is automatically disabled on this system.'))}</p>` : ''}
+            <label class="nch-switch" style="margin-bottom:12px"><input type="checkbox" data-path="enabled" ${d.enabled && !isUnsupported ? 'checked' : ''} ${isUnsupported ? 'disabled' : ''}> ${esc(L('启用 WeLink 助理（保存后自动连接，平台重启后自动恢复）', 'Enable WeLink assistant (connects after saving and on platform start)'))}</label>
             <div class="nch-grid">
-                ${field(L('环境', 'Environment'), `<select data-path="environment"><option value="prod" ${d.environment === 'prod' ? 'selected' : ''}>${esc(L('生产 prod', 'Production (prod)'))}</option><option value="uat" ${d.environment === 'uat' ? 'selected' : ''}>${esc(L('测试 uat', 'Test (uat)'))}</option></select>`)}
-                ${field('Channel', input('channel', d.channel, 'maxlength="100" placeholder="GDEClaw"'), L('业务渠道标识，由 WeLink 侧分配', 'Business channel assigned by WeLink'))}
-                ${field('Tool Version', input('toolVersion', d.toolVersion, 'maxlength="40"'))}
-                ${field('AK', input('ak', d.ak, 'maxlength="200" autocomplete="off" spellcheck="false"'))}
-                ${field('SK', `<input type="password" data-path="sk" value="" maxlength="200" autocomplete="new-password" placeholder="${esc(view.config.hasSk ? L(`已保存 ${view.config.maskedSk}，留空不修改`, `Saved ${view.config.maskedSk}; leave blank to keep`) : L('未设置', 'Not set'))}">`, L('只在服务端保存，界面与日志只显示掩码', 'Stored server-side only; masked in UI and logs'))}
-                ${field(L('网关地址（可选）', 'Gateway URL (optional)'), input('gatewayUrl', d.gatewayUrl, 'maxlength="500" placeholder="默认使用 SDK 内置地址"'))}
-                ${field(L('SDK 路径（可选）', 'SDK path (optional)'), input('sdkPath', d.sdkPath, 'maxlength="500" placeholder="welink-cli 安装目录或 node_modules"'), L('留空时依次使用平台内置 SDK、项目依赖、npm 全局目录', 'Blank = built-in SDK, then project and npm global modules'), true)}
+                ${field(L('环境', 'Environment'), `<select data-path="environment" ${isUnsupported ? 'disabled' : ''}><option value="prod" ${d.environment === 'prod' ? 'selected' : ''}>${esc(L('生产 prod', 'Production (prod)'))}</option><option value="uat" ${d.environment === 'uat' ? 'selected' : ''}>${esc(L('测试 uat', 'Test (uat)'))}</option></select>`)}
+                ${field('Channel', input('channel', d.channel, `${isUnsupported ? 'disabled ' : ''}maxlength="100" placeholder="GDEClaw"`), L('业务渠道标识，由 WeLink 侧分配', 'Business channel assigned by WeLink'))}
+                ${field('Tool Version', input('toolVersion', d.toolVersion, `${isUnsupported ? 'disabled ' : ''}maxlength="40"`))}
+                ${field('AK', input('ak', d.ak, `${isUnsupported ? 'disabled ' : ''}maxlength="200" autocomplete="off" spellcheck="false"`))}
+                ${field('SK', `<input type="password" data-path="sk" value="" maxlength="200" autocomplete="new-password" ${isUnsupported ? 'disabled ' : ''}placeholder="${esc(view.config.hasSk ? L(`已保存 ${view.config.maskedSk}，留空不修改`, `Saved ${view.config.maskedSk}; leave blank to keep`) : L('未设置', 'Not set'))}">`, L('只在服务端保存，界面与日志只显示掩码', 'Stored server-side only; masked in UI and logs'))}
+                ${field(L('网关地址（可选）', 'Gateway URL (optional)'), input('gatewayUrl', d.gatewayUrl, `${isUnsupported ? 'disabled ' : ''}maxlength="500" placeholder="默认使用 SDK 内置地址"`))}
+                ${field(L('SDK 路径（可选）', 'SDK path (optional)'), input('sdkPath', d.sdkPath, `${isUnsupported ? 'disabled ' : ''}maxlength="500" placeholder="welink-cli 安装目录或 node_modules"`), L('留空时依次使用平台内置 SDK、项目依赖、npm 全局目录', 'Blank = built-in SDK, then project and npm global modules'), true)}
             </div>
             <div class="nch-row">
-                <button type="button" class="nch-btn primary" data-action="qr" ${qr && qr.running ? 'disabled' : ''}>📱 ${esc(qr && qr.running ? L('等待扫码…', 'Waiting for scan…') : L('扫码授权', 'Scan to authorize'))}</button>
+                <button type="button" class="nch-btn primary" data-action="qr" ${qr && qr.running || isUnsupported ? 'disabled' : ''}>📱 ${esc(qr && qr.running ? L('等待扫码…', 'Waiting for scan…') : L('扫码授权', 'Scan to authorize'))}</button>
                 ${view.config.hasSk ? `<button type="button" class="nch-btn danger" data-action="clear-sk">${esc(L('清除已保存 SK', 'Clear saved SK'))}</button>` : ''}
                 <span class="nch-muted">${esc(L('扫码使用上方填写的环境与 Channel，确认后自动保存凭据。', 'Uses the environment and Channel above; credentials are saved after confirmation.'))}</span>
             </div>

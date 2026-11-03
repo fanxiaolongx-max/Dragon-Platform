@@ -112,12 +112,24 @@ function describePackage(packageDir, source) {
     return { available: true, packageName: PACKAGE_NAME, version: String(pkg.version || ''), packageDir, entry, source };
 }
 
+const isMacDesktop = () => Boolean(process.versions.electron && process.platform === 'darwin');
+
 /**
  * 探测 SDK 安装位置；不加载模块。
  * @returns {Promise<{available:boolean, version?, packageDir?, entry?, source?, hint?, hintEn?}>}
  */
 async function detect({ sdkPath = '' } = {}) {
     if (override) return { available: true, packageName: PACKAGE_NAME, version: override.version || 'test', packageDir: '(override)', entry: '(override)', source: 'override' };
+    if (isMacDesktop()) {
+        return {
+            available: false,
+            unsupported: true,
+            packageName: PACKAGE_NAME,
+            platform: 'darwin',
+            hint: 'WeLink 频道对接仅支持 Windows 系统，macOS 桌面版已自动禁用。',
+            hintEn: 'WeLink channel is only supported on Windows and is automatically disabled on macOS desktop.'
+        };
+    }
     if (sdkPath) {
         const dir = packageDirFromCustomPath(sdkPath);
         const found = dir && describePackage(dir, 'custom');
@@ -154,6 +166,9 @@ function sdkError(code, message) {
 /** 加载 SDK 模块（按入口文件缓存）。 */
 async function load(options = {}) {
     if (override) return override;
+    if (isMacDesktop()) {
+        throw sdkError('WELINK_SDK_UNSUPPORTED', 'WeLink 频道对接仅支持 Windows 系统，macOS 桌面版已自动禁用。');
+    }
     const info = await detect(options);
     if (!info.available) throw sdkError('WELINK_SDK_MISSING', info.hint);
     return importEntry(info.entry);

@@ -163,6 +163,11 @@ async function connect(tenantId = getTenantId()) {
     const instance = getInstance(tenantId);
     return withLock(instance, () => runWithTenant(tenantId, async () => {
         const config = await configRepo.getConfig();
+        const sdk = await sdkLoader.detect({ sdkPath: config.sdkPath });
+        if (sdk.unsupported) {
+            instance.lastError = { code: 'WELINK_PLATFORM_UNSUPPORTED', message: sdk.hint || 'WeLink 频道对接仅支持 Windows 系统', at: new Date().toISOString() };
+            return getStatus(tenantId);
+        }
         if (instance.runtime && instance.fingerprint === configRepo.connectionFingerprint(config) && runtimeState(instance).state !== 'failed') return getStatus(tenantId);
         if (instance.runtime) await stopInstance(instance, 'reconnect');
         await startInstance(instance, config);

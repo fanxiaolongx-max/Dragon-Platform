@@ -405,6 +405,7 @@ const SHARED_PROPERTIES = {
 };
 
 function definitions({ write = false, permissionMode = 'ask' } = {}) {
+    if (runner.isMacDesktop?.()) return [];
     const tools = [{
         name: 'welink_query',
         description: [

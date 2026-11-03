@@ -27,7 +27,7 @@ test('the official Windows package is bundled in backend/vendor', () => {
     assert.ok(fs.existsSync(path.join(builtinDir, pkg.bin['welink-cli'])));
     const build = require('../package.json').build;
     assert.ok(build.files.includes('backend/**/*') && build.asarUnpack.includes('backend/vendor/**/*'), 'shipped unpacked so the exe can be spawned');
-    assert.ok(build.mac.files.includes('!backend/vendor/@welink/welink-cli/welink-cli.exe'), 'mac builds leave out the Windows exe');
+    assert.ok(build.mac.files.includes('!backend/vendor/**/*'), 'mac builds leave out the Windows vendor files');
 });
 
 test('Windows uses the bundled exe directly without a configured path or system node', async () => {
