@@ -260,12 +260,26 @@ function createServerBrowser(owner) {
         fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
         clearStaleProfile(dir);
         hookExitSignals();
-        const args = [`--user-data-dir=${dir}`, '--remote-debugging-port=0', '--remote-debugging-address=127.0.0.1', '--no-first-run', '--no-default-browser-check',
-            '--disable-sync', '--window-size=1366,900', ...(process.env.TOOLS_AGENT_BROWSER_HEADFUL === '1' ? [] : ['--headless=new']), 'about:blank'];
+        const isLinux = process.platform === 'linux';
+        const args = [
+            `--user-data-dir=${dir}`,
+            '--remote-debugging-port=0',
+            '--remote-debugging-address=127.0.0.1',
+            '--no-first-run',
+            '--no-default-browser-check',
+            '--disable-sync',
+            '--disable-background-networking',
+            '--disable-default-apps',
+            '--window-size=1366,900',
+            ...(process.env.TOOLS_AGENT_BROWSER_HEADFUL === '1' ? [] : ['--headless=new']),
+            ...(isLinux || process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] : []),
+            'about:blank'
+        ];
         child = spawn(exe, args, { stdio: ['ignore', 'ignore', 'pipe'], windowsHide: true });
+        const startTimeoutMs = process.env.CI ? 60000 : 30000;
         const wsUrl = await new Promise((resolve, reject) => {
             let buffer = '';
-            const timer = setTimeout(() => reject(browserError('BROWSER_START', '浏览器启动超时')), 20000);
+            const timer = setTimeout(() => reject(browserError('BROWSER_START', '浏览器启动超时')), startTimeoutMs);
             child.stderr.on('data', chunk => {
                 buffer += chunk;
                 const match = buffer.match(/DevTools listening on (ws:\/\/\S+)/);
