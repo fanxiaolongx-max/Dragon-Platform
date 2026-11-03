@@ -1,5 +1,7 @@
 # Dragon Claw
 
+[仓库首页与亮色界面预览](../README.md) · 本文为完整功能、部署与运维指南。
+
 本文按 **2026-11-03 当前工作区代码**核对，桌面版本为 **1.0.537**；发布版本以 [`package.json`](package.json) 和 `/api/app-version` 为准。
 
 > **把运营工作台装进口袋：通过 WeLink SDK 接入 Dragon Claw，出门也能用手机 WeLink 对话查指标、看风险进展、梳理待跟进事项。** [查看接入方法](#welink-sdk-频道对接手机上的运营助手)
@@ -71,7 +73,7 @@ Dragon Claw（项目目录与部分内部标识仍沿用 Tools Platform / Dragon
 
 ## 1. 系统架构与全景数据流
 
-![Tools Platform 全景技术架构与关键技术栈](docs/images/readme/technology-architecture.svg)
+![Dragon Claw 技术架构示意](docs/images/readme/technology-architecture.svg)
 
 ### 1.1 平台全景数据流转架构
 
