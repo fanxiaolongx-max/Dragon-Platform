@@ -30,7 +30,7 @@ router.use((req, res, next) => {
     if (!debug && !streaming) return next();
     const requestBody = debug ? redactValue(req.body) : null;
     delete req.body._debug; delete req.body._stream;
-    const store = { debug, steps: [], seq: 0 }, json = res.json.bind(res);
+    const store = { debug, steps: [], seq: 0, rounds: [] }, json = res.json.bind(res);
     const started = Date.now(), request = requestBody;
     let heartbeat;
     if (streaming) {
@@ -42,7 +42,8 @@ router.use((req, res, next) => {
         res.on('close', () => clearInterval(heartbeat));
     }
     res.json = body => {
-        const result = body && typeof body === 'object' && !Array.isArray(body) ? { ...body, ...(debug ? { _trace: redactValue(store.steps), _request: request } : {}) } : body;
+        // _rounds：本次请求里每轮模型调用的耗时与速度（models/ai-round-tracker.js），页面显示在 AI 回复下方
+        const result = body && typeof body === 'object' && !Array.isArray(body) ? { ...body, ...(store.rounds.length ? { _rounds: store.rounds } : {}), ...(debug ? { _trace: redactValue(store.steps), _request: request } : {}) } : body;
         if (!streaming) return json(result);
         clearInterval(heartbeat);
         store.emit({ type: 'result', status: res.statusCode, requestId: req.requestId || '', ms: Date.now() - started, body: result });
@@ -50,6 +51,8 @@ router.use((req, res, next) => {
     };
     traceStore.run(store, next);
 });
+const { trackRounds } = require('../models/ai-round-tracker');
+const pushRound = round => traceStore.getStore()?.rounds?.push(round);
 const traced = client => !client || client.__traced ? client : new Proxy(client, { get(target, key, receiver) {
     if (key === '__traced') return true;
     if (key === 'generateImage') return async options => {
@@ -66,7 +69,7 @@ const traced = client => !client || client.__traced ? client : new Proxy(client,
             const result = await target.generateChat(options);
             Object.assign(entry, { ms: Date.now() - started, reply: clip(result.text || ''), toolCalls: result.toolCalls?.length ? clip(result.toolCalls.map(call => ({ name: call.name, args: call.args }))) : '' });
             entry.status = 'success'; publishTrace(entry); progress('model_done');
-            if (result.providerClient) result.providerClient = traced(result.providerClient);
+            if (result.providerClient) result.providerClient = traced(trackRounds(result.providerClient, pushRound));
             return result;
         } catch (error) { Object.assign(entry, { status: 'error', ms: Date.now() - started, error: redactText(error.message) }); publishTrace(entry); throw error; }
     };
@@ -113,7 +116,7 @@ async function aiClient() {
         error.status = 503;
         throw error;
     }
-    return traced(aiProviderClient.createClient(settings));
+    return traced(trackRounds(aiProviderClient.createClient(settings), pushRound));
 }
 
 const KIT_GUIDE = `render(result, kit) 只能返回 HTML 字符串（不能有 <script>、事件属性或外部资源），可用 kit：

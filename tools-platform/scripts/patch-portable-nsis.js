@@ -46,12 +46,47 @@ const PATCHED = `  ${MARKER}
   !endif
   SetErrorLevel $0`;
 
+// BgImage creates its own top-level NSISBGImage window. Promote only this process's
+// image, not a splash belonging to another simultaneously launched portable app.
+const TOPMOST_MARKER = '; dragon-platform: topmost splash';
+const TOPMOST = `    ${TOPMOST_MARKER}
+    ; Keep the NSIS parent topmost too: BgImage follows its owner's z-order.
+    System::Call 'user32::SetWindowPos(p $HWNDPARENT, p -1, i 0, i 0, i 0, i 0, i 0x0013)'
+    Push $R7
+    Push $R8
+    Push $R9
+    System::Call 'kernel32::GetCurrentProcessId() i .R7'
+    StrCpy $R8 0
+    \${Do}
+      System::Call 'user32::FindWindowEx(p 0, p R8, t "NSISBGImage", p 0) p .R8'
+      \${If} $R8 == 0
+        \${ExitDo}
+      \${EndIf}
+      System::Call 'user32::GetWindowThreadProcessId(p R8, *i .R9)'
+      \${If} $R9 == $R7
+        System::Call 'user32::SetWindowPos(p R8, p -1, i 0, i 0, i 0, i 0, i 0x0013)'
+        \${ExitDo}
+      \${EndIf}
+    \${Loop}
+    Pop $R9
+    Pop $R8
+    Pop $R7`;
+
 function patchPortableScript(source) {
-    if (source.includes(MARKER)) return { changed: false, source };
-    if (!ORIGINAL.test(source)) {
-        throw new Error('portable.nsi 结构与预期不符，无法应用启动衔接补丁（electron-builder 版本是否已变化？）');
+    const original = source;
+    if (!source.includes(MARKER)) {
+        if (!ORIGINAL.test(source)) {
+            throw new Error('portable.nsi 结构与预期不符，无法应用启动衔接补丁（electron-builder 版本是否已变化？）');
+        }
+        source = source.replace(ORIGINAL, PATCHED);
     }
-    return { changed: true, source: source.replace(ORIGINAL, PATCHED) };
+    if (!source.includes(TOPMOST_MARKER)) {
+        if (!/^[ \t]*BgImage::Redraw[ \t]*$/m.test(source)) {
+            throw new Error('portable.nsi 缺少 BgImage::Redraw，无法应用启动置顶补丁');
+        }
+        source = source.replace(/(^[ \t]*BgImage::Redraw[ \t]*$)/m, '$1\n' + TOPMOST);
+    }
+    return { changed: source !== original, source };
 }
 
 function resolveTemplatePath() {

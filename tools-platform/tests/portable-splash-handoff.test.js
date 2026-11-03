@@ -6,6 +6,12 @@ const { patchPortableScript, resolveTemplatePath, MARKER } = require('../scripts
 
 const root = path.join(__dirname, '..');
 const UPSTREAM_TAIL = [
+    'Function .onGUIInit',
+    '  !ifdef SPLASH_IMAGE',
+    '    BgImage::SetBg $PLUGINSDIR\\splash.bmp',
+    '    BgImage::Redraw',
+    '  !endif',
+    'FunctionEnd',
     '  System::Call \'Kernel32::SetEnvironmentVariable(t, t)i ("PORTABLE_EXECUTABLE_FILE", "$EXEPATH").r0\'',
     '  ${StdUtils.GetAllParameters} $R0 0',
     '',
@@ -65,4 +71,18 @@ test('stage-2 startup window matches the stage-1 splash and writes the handoff m
     assert.match(page, /body:not\(\.is-live\)[^{]*\{ animation-play-state: paused/, 'first frame stays frozen until handoff');
     const generator = fs.readFileSync(path.join(root, 'scripts/generate-portable-splash.js'), 'utf8');
     assert.match(generator, /startup\.html'\), \{ query: \{ snapshot: '1' \} \}/, 'splash BMP is the startup page snapshot');
+});
+
+ test('stage-1 splash is topmost, process-scoped, and upgrades already-patched templates', () => {
+    const { source } = patchPortableScript(UPSTREAM_TAIL);
+    assert.match(source, /SetWindowPos\(p \$HWNDPARENT, p -1/);
+    assert.match(source, /FindWindowEx.*NSISBGImage/);
+    assert.match(source, /GetWindowThreadProcessId/);
+    assert.match(source, /\$R9 == \$R7/);
+    assert.match(source, /SetWindowPos\(p R8, p -1/);
+    const handoffOnly = source.replace(/    ; dragon-platform: topmost splash[\s\S]*?    Pop \$R7\n/, '');
+    const upgraded = patchPortableScript(handoffOnly);
+    assert.equal(upgraded.changed, true);
+    assert.equal(upgraded.source, source);
+    assert.equal(patchPortableScript(source).changed, false);
 });

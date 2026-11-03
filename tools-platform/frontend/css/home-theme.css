@@ -59,7 +59,7 @@ html[data-ui="v2"]:not([data-theme="dark"]) :is(.dc-session-item, .dc-slash-item
 html[data-ui="v2"]:not([data-theme="dark"]) :is(.dc-session-item:hover, .dc-session-item.is-active, .dc-slash-item.is-active, .wsp-picker-item:hover) { background: var(--v2-hover); }
 html[data-ui="v2"]:not([data-theme="dark"]) :is(.card-impact, .card-impact strong, .card-foot, .home-group-head .skill-restore, .skill-mention-badge) { color: var(--v2-ink2); }
 html[data-ui="v2"]:not([data-theme="dark"]) .tool-card.home-sort-ghost.is-lifted { background: var(--v2-bg); box-shadow: var(--v2-shadow-box); }
-html[data-ui="v2"]:not([data-theme="dark"]) .dc-msg--user.is-collapsed .dc-msg-body { mask-image: linear-gradient(#000 60%, transparent); }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-msg--user.is-collapsed .dc-msg-body { -webkit-mask-image: linear-gradient(#000 calc(100% - .6em), transparent); mask-image: linear-gradient(#000 calc(100% - .6em), transparent); }
 html[data-ui="v2"] :is(button, a, input, textarea):focus-visible { outline: 2px solid var(--v2-accent); outline-offset: 2px; }
 
 /* Compact in-conversation find, available in both home layouts. */
@@ -1513,3 +1513,10 @@ html[data-ui="v2"] .ai-file-preview { background: var(--v2-bg); color: var(--v2-
 html[data-ui="v2"] .ai-file-preview header { border-bottom-color: var(--v2-line); }
 html[data-ui="v2"] .ai-file-preview header :is(a, button):hover { background: var(--v2-hover); border-radius: 6px; }
 html[data-ui="v2"] .ai-file-preview--floating { border-color: var(--v2-line); box-shadow: var(--v2-shadow-pop); }
+
+/* Reading ink stays local to message content; navigation and metadata retain their hierarchy. */
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-msg-body { --v2-ink: #191d24; }
+html[data-ui="v2"]:not([data-theme="dark"]) .dc-msg-body blockquote { color: #3f4855; }
+
+/* 对话中整页正好一屏高：只有对话内容区自己滚动，窗口右侧不再常驻一条整页滚动条（原来对话卡片 + 上下留白比一屏多 24px） */
+html[data-ui="v2"] body.dc-chatting .home-main { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }

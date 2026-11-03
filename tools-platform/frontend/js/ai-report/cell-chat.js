@@ -82,7 +82,15 @@
         const copyButton=(index,role)=>`<button type="button" class="air-msg-copy air-msg-copy-${role}" data-copy-msg="${index}" data-msg-tail="${index}" title="${esc(t('复制这条内容','Copy this message'))}">⧉ ${t('复制','Copy')}</button>`;
         // Under the user's own words: copy, and retry (send the same words to the AI again).
         const userTail=(index,busy)=>`<div class="air-msg-tail air-msg-tail-user" data-msg-tail="${index}">${copyButton(index,'user').replace(` data-msg-tail="${index}"`,'')}<button type="button" class="air-msg-copy air-msg-retry" data-retry-msg="${index}" ${busy?'disabled':''} title="${esc(t('把这句话重新发给 AI','Send these words to the AI again'))}">↻ ${t('重试','Retry')}</button></div>`;
+        // AI 回复下方：复制按钮旁显示本次生成速度（最低/平均/最高 tok/s，悬停看轮次与 token）
+        const fmtTps=value=>String(value>=100?Math.round(value):Math.round(value*10)/10);
+        function speedTag(item){
+            const summary=Trace?.speedSummary?.(item.rounds);if(!summary)return '';
+            const title=t(`生成速度（每秒 token）：最低 ${fmtTps(summary.minTps)} / 平均 ${fmtTps(summary.avgTps)} / 最高 ${fmtTps(summary.maxTps)}；共 ${summary.rounds} 轮模型调用，输入 ${summary.inputTokens} / 输出 ${summary.outputTokens} token，用时 ${(summary.totalMs/1000).toFixed(1)} 秒`,`Generation speed (tokens/s): min ${fmtTps(summary.minTps)} / avg ${fmtTps(summary.avgTps)} / max ${fmtTps(summary.maxTps)}; ${summary.rounds} model calls, ${summary.inputTokens} in / ${summary.outputTokens} out tokens, ${(summary.totalMs/1000).toFixed(1)}s`);
+            return `<span class="air-msg-speed" title="${esc(title)}">${fmtTps(summary.minTps)}/${fmtTps(summary.avgTps)}/${fmtTps(summary.maxTps)} tok/s${summary.rounds>1?` · ${summary.rounds}${t(' 轮',' calls')}`:''}</span>`;
+        }
         function message(item,index,cell,busy,latestPrompt,report){
+            if(item.role!=='user'&&item.rounds?.length)return messageBody(item,index,cell,busy,latestPrompt,report)+`<div class="air-msg-tail air-msg-tail-ai" data-msg-tail="${index}">${copyButton(index,item.role).replace(` data-msg-tail="${index}"`,'')}${speedTag(item)}</div>`;
             return messageBody(item,index,cell,busy,latestPrompt,report)+(item.role==='user'?userTail(index,busy):copyButton(index,item.role));
         }
         function messageBody(item,index,cell,busy,latestPrompt,report){
@@ -171,7 +179,7 @@
             const deletion=event.target.closest('[data-image-deletion]');if(deletion&&cellId){imageDeletion(cellId,Number(deletion.closest('[data-msg]').dataset.msg),deletion.dataset.imageDeletion);return;}
             const picked=event.target.closest('[data-pick-image]');if(picked&&cellId){pickImage(cellId,picked.dataset.pickImage,Number(picked.closest('[data-msg]').dataset.msg));return;}
             if(event.target.closest('[data-dev-toggle]')){Trace.setEnabled(!Trace.enabled());return;}
-            if(event.target.closest('[data-dev-export]')){const found=find(cellId);Trace.exportLog(cellId,{title:AiReportModel.text(found?.chapter?.title,lang()),language:lang(),month:window.AiReportApp?.state?.doc?.reportMonth||'',prompt:found?.cell?.prompt||''});return;}
+            if(event.target.closest('[data-dev-export]')){const found=find(cellId);Trace.exportLog(cellId,{title:AiReportModel.text(found?.chapter?.title,lang()),language:lang(),month:window.AiReportApp?.state?.doc?.reportMonth||'',prompt:found?.cell?.prompt||'',chat:found?.cell?.chat||[]});return;}
             if(event.target.closest('[data-dev-clear]')){Trace.clear(cellId);return;}
             const devCopy=event.target.closest('[data-dev-copy]');if(devCopy){const item=traceKey(devCopy.dataset.devCopy);if(item)copyText(item.text,devCopy);return;}
             const devFull=event.target.closest('[data-dev-full]');if(devFull){const item=traceKey(devFull.dataset.devFull);if(item)AiReportTraceViewer.open(item);return;}

@@ -13,16 +13,16 @@
         badge = document.createElement('div');
         badge.id = 'desktop-license-badge';
         Object.assign(badge.style, {
-            position: 'fixed', left: '9px', bottom: '7px', zIndex: '2147483000',
-            maxWidth: '310px', padding: '4px 8px', borderRadius: '7px',
-            color: '#dcfce7', background: 'rgba(6,78,59,.58)',
-            border: '1px solid rgba(52,211,153,.35)', backdropFilter: 'blur(5px)',
-            font: '10px/1.35 Segoe UI,Microsoft YaHei,sans-serif', opacity: '.62',
-            boxShadow: '0 3px 12px rgba(0,0,0,.16)', transition: 'opacity .2s ease',
+            position: 'fixed', right: '9px', bottom: '7px', zIndex: '2147483000',
+            maxWidth: 'min(310px, calc(100vw - 18px))', padding: '4px 8px', borderRadius: '7px',
+            color: '#3f6259', background: 'rgba(241,247,244,.8)',
+            border: '1px solid rgba(82,125,109,.16)', backdropFilter: 'blur(5px)',
+            font: '10px/1.35 Segoe UI,Microsoft YaHei,sans-serif', opacity: '.9',
+            boxShadow: 'none', transition: 'opacity .2s ease',
             pointerEvents: 'auto', userSelect: 'text'
         });
         badge.onmouseenter = () => { badge.style.opacity = '.96'; };
-        badge.onmouseleave = () => { badge.style.opacity = '.62'; };
+        badge.onmouseleave = () => { badge.style.opacity = '.9'; };
         document.body.appendChild(badge);
         return badge;
     }
@@ -46,15 +46,15 @@
                 node.textContent = zh ? `License 已授权 · 至 ${date}` : `License active · until ${date}`;
                 const urgent = remaining <= 24 * 60 * 60 * 1000;
                 const warning = remaining <= 7 * 24 * 60 * 60 * 1000;
-                node.style.background = urgent ? 'rgba(127,29,29,.78)' : warning ? 'rgba(120,53,15,.72)' : 'rgba(6,78,59,.58)';
-                node.style.color = urgent ? '#fee2e2' : warning ? '#fef3c7' : '#dcfce7';
-                node.style.borderColor = urgent ? 'rgba(248,113,113,.58)' : warning ? 'rgba(251,191,36,.5)' : 'rgba(52,211,153,.35)';
+                node.style.background = urgent ? 'rgba(254,242,242,.9)' : warning ? 'rgba(255,251,235,.9)' : 'rgba(241,247,244,.8)';
+                node.style.color = urgent ? '#991b1b' : warning ? '#854d0e' : '#3f6259';
+                node.style.borderColor = urgent ? 'rgba(185,28,28,.2)' : warning ? 'rgba(161,98,7,.2)' : 'rgba(82,125,109,.16)';
                 node.title = `${zh ? '授权状态：有效' : 'Status: active'}\nLicense ID: ${state.licenseId || '--'}\n${zh ? '联网校验' : 'Online validation'}: ${state.online ? 'Yes' : 'No'}`;
             } else {
                 node.textContent = zh ? `License 已失效 · ${state.reasonCode || ''}` : `License invalid · ${state.reasonCode || ''}`;
-                node.style.background = 'rgba(127,29,29,.82)';
-                node.style.color = '#fee2e2';
-                node.style.borderColor = 'rgba(248,113,113,.6)';
+                node.style.background = 'rgba(254,242,242,.9)';
+                node.style.color = '#991b1b';
+                node.style.borderColor = 'rgba(185,28,28,.2)';
             }
         } catch (_) {}
     }

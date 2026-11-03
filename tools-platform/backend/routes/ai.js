@@ -812,7 +812,12 @@ async function handleChatRequest(req, res) {
                 .then(title => { if (title && streamStarted && !res.destroyed && !res.writableEnded) res.write(`${JSON.stringify({ type: 'title', sessionId: savedSessionId, title })}\n`); })
                 .catch(() => {});
         }
-        const aiClient = aiProviderClient.createClient(aiSettings);
+        // 每轮模型调用的耗时与速度（models/ai-round-tracker.js）：实时发给页面，并随本条回复的事件一起保存
+        const modelRounds = [];
+        const aiClient = require('../models/ai-round-tracker').trackRounds(aiProviderClient.createClient(aiSettings), round => {
+            modelRounds.push(round);
+            writeStreamEvent({ type: 'model_round', round });
+        });
         if (streamRequested) {
             res.status(200);
             res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
@@ -1292,6 +1297,7 @@ ${aiSettings.systemPrompt ? `\n**管理员补充要求**：\n${aiSettings.system
             ...(analysisResult ? { codeAnalysisAttempts: analysisResult.attempts } : {}),
             tokens: totalTokens,
             usage: { inputTokens, outputTokens },
+            ...(modelRounds.length ? { speed: require('../models/ai-round-tracker').summarizeRounds(modelRounds), rounds: modelRounds } : {}),
             cost: costMao,
             sessionId: savedSessionId,
             conversationCompression,

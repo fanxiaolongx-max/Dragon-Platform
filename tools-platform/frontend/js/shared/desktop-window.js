@@ -19,8 +19,7 @@
         html.is-desktop-app :is(button, a, input, select, textarea, label, summary, iframe, [role="button"], [role="tab"], [role="menuitem"], [contenteditable="true"], .v2-hub-card, .v2-hub-grid, .v2-hub-featured, .v2-hub-bar, .v2-hub-menu, .v2-pop, .dc-find) { -webkit-app-region: no-drag; }
         html.is-desktop-app .v2-side-tools { min-height: 28px; padding-left: var(--desktop-controls-w); }
         html.is-desktop-app .v2-side-expand { left: calc(var(--desktop-controls-w) + 10px) !important; }
-        .desktop-drag { position: fixed; top: 0; left: 0; right: 0; height: 34px; z-index: 1; }
-        html.is-desktop-app body:is(.dc-chatting, .v2-hub-open, .v2-tool-open) .desktop-drag-welcome { display: none; }
+        .desktop-drag { position: fixed; top: 0; left: 0; right: 0; height: 18px; z-index: 2147482000; }
         .desktop-controls { position: fixed; z-index: 2147483000; top: 24px; left: 18px; display: flex; gap: 8px; -webkit-app-region: no-drag; }
         html.desktop-mac .desktop-controls { display: none; }
         .desktop-controls button { position: relative; width: 12px; height: 12px; padding: 0; border: 0; border-radius: 50%; cursor: default;

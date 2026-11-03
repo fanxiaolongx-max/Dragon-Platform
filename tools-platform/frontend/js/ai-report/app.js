@@ -118,10 +118,17 @@
     // Chat only discusses the cell; a final prompt is made on request, and “试一下” compiles and runs it.
     async function aiStep(cellId,label,work){
         const found=find(cellId);if(!found||state.busy.has(cellId))return;
-        checkpoint();state.busy.set(cellId,label);state.selected=cellId;render();
+        checkpoint();state.busy.set(cellId,label);state.selected=cellId;
+        AiReportTrace.takeRounds?.(cellId);const chatStart=found.cell.chat.length;render();
         try{await work(found.cell);}
         catch(error){const live=find(cellId)?.cell;if(live)live.chat.push({role:'ai',kind:'note',text:t('出错了：','Error: ')+error.message});}
-        finally{state.busy.delete(cellId);render();}
+        finally{
+            // 这一步里所有模型调用的耗时与速度，挂到这一步的 AI 回复上（回复下方显示 最低/平均/最高 tok/s，导出日志开头有统计表）
+            const rounds=AiReportTrace.takeRounds?.(cellId)||[],live=find(cellId)?.cell;
+            const target=live?.chat.slice(chatStart).find(item=>item.role==='ai'&&['answer','ask','note'].includes(item.kind));
+            if(target&&rounds.length)target.rounds=rounds.map((round,index)=>({...round,index:index+1}));
+            state.busy.delete(cellId);render();
+        }
     }
     // When the AI says the need is settled, the prompt is written and run right away — no clicks.
     function converse(cellId,text){

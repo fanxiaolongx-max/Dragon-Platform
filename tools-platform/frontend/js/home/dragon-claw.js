@@ -33,7 +33,7 @@
             askHow: '「{name}」（{href}）应该怎么上手使用？请给出具体操作步骤和注意事项。',
             promptLogic: '解释「{name}」的代码逻辑', promptMetrics: '本月哪些指标还没达标？',
             promptMail: '帮我写一封礼貌的催办提醒邮件', promptCode: '用 Python 写一个 Excel 去重脚本',
-            stopped: '已停止生成', copy: '复制', copied: '已复制', retry: '重新发送', skillPickDir: '选择工作目录', usageText: '输入 {input} · 输出 {output} tokens', usageTitle: '本次回复消耗：输入 {input} tokens，输出 {output} tokens', historyMore: '加载更早的消息', historyLoading: '正在加载更早的消息…', historyFailed: '加载失败，点击重试', unavailable: '智能体组件尚未加载，请稍后重试或刷新页面。',
+            stopped: '已停止生成', copy: '复制', copied: '已复制', retry: '重新发送', skillPickDir: '选择工作目录', usageText: '输入 {input} · 输出 {output} tokens', speedTitle: '生成速度（每秒 token）：最低 {min} / 平均 {avg} / 最高 {max}，共 {rounds} 轮模型调用，首字 {ttft} 秒', speedEstimated: '（部分轮次的 token 数为估算）', speedRounds: '{n} 轮', usageTitle: '本次回复消耗：输入 {input} tokens，输出 {output} tokens', historyMore: '加载更早的消息', historyLoading: '正在加载更早的消息…', historyFailed: '加载失败，点击重试', unavailable: '智能体组件尚未加载，请稍后重试或刷新页面。',
             modelLabel: '选择模型', modelMenuTitle: '模型', modelMenuHint: '切换后从下一条消息开始生效',
             modelDefault: '默认模型', modelNextMessage: '已切换到 {name}，从下一条消息开始生效',
             modelSwitched: '已切换到 {name}', modelCurrent: '当前模型：{name}',
@@ -91,7 +91,7 @@
             askHow: 'How do I get started with “{name}” ({href})? Give concrete steps and caveats.',
             promptLogic: 'Explain the code behind “{name}”', promptMetrics: 'Which metrics missed target this month?',
             promptMail: 'Draft a polite follow-up reminder email', promptCode: 'Write a Python script to dedupe an Excel file',
-            stopped: 'Generation stopped', copy: 'Copy', copied: 'Copied', retry: 'Send again', skillPickDir: 'Choose a folder', usageText: 'In {input} · Out {output} tokens', usageTitle: 'This reply used {input} input tokens and {output} output tokens', historyMore: 'Load earlier messages', historyLoading: 'Loading earlier messages…', historyFailed: 'Could not load. Click to retry', unavailable: 'The agent is still loading. Please retry in a moment or refresh the page.',
+            stopped: 'Generation stopped', copy: 'Copy', copied: 'Copied', retry: 'Send again', skillPickDir: 'Choose a folder', usageText: 'In {input} · Out {output} tokens', speedTitle: 'Generation speed (tokens/s): min {min} / avg {avg} / max {max} over {rounds} model calls; first token {ttft}s', speedEstimated: ' (some token counts are estimated)', speedRounds: '{n} calls', usageTitle: 'This reply used {input} input tokens and {output} output tokens', historyMore: 'Load earlier messages', historyLoading: 'Loading earlier messages…', historyFailed: 'Could not load. Click to retry', unavailable: 'The agent is still loading. Please retry in a moment or refresh the page.',
             modelLabel: 'Choose model', modelMenuTitle: 'Model', modelMenuHint: 'Changes apply from your next message',
             modelDefault: 'Default model', modelNextMessage: 'Switched to {name}. Applies from your next message.',
             modelSwitched: 'Switched to {name}', modelCurrent: 'Current model: {name}',
@@ -1012,14 +1012,33 @@
         return `<button type="button" class="dc-msg-tool dc-msg-icon" ${attrs} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${ICONS[icon]}</button>`;
     }
 
-    function addMessageTools(message, text, { modelName = '', usage = null } = {}) {
+    // 每轮模型调用的速度汇总（与 backend/models/ai-round-tracker.js 的 summarizeRounds 一致）：平均 = 总输出 token ÷ 总生成时间
+    function speedSummary(rounds = []) {
+        const list = (Array.isArray(rounds) ? rounds : []).filter(round => round && Number(round.tps) > 0);
+        if (!list.length) return null;
+        const speeds = list.map(round => Number(round.tps));
+        const output = list.reduce((sum, round) => sum + (Number(round.outputTokens) || 0), 0);
+        const ms = list.reduce((sum, round) => sum + (Number(round.generationMs) || 0), 0);
+        const ttft = list.map(round => Number(round.ttftMs)).filter(value => Number.isFinite(value) && value >= 0);
+        return {
+            rounds: rounds.length, min: Math.min(...speeds), max: Math.max(...speeds),
+            avg: ms > 0 ? output / (ms / 1000) : speeds.reduce((a, b) => a + b, 0) / speeds.length,
+            ttft: ttft.length ? ttft[0] : null, estimated: list.some(round => round.estimated)
+        };
+    }
+    const fmtTps = value => (value >= 100 ? Math.round(value) : Math.round(value * 10) / 10).toString();
+
+    function addMessageTools(message, text, { modelName = '', usage = null, rounds = null } = {}) {
         const bar = document.createElement('div');
         bar.className = 'dc-msg-tools';
         const input = Number(usage?.inputTokens || 0);
         const output = Number(usage?.outputTokens || 0);
+        const speed = speedSummary(rounds);
+        if (Array.isArray(rounds) && rounds.length) message.dcRounds = rounds;
         bar.innerHTML = `${iconButton('copy', tx('copy'), 'data-dc-copy')}
             ${modelName ? `<span class="dc-msg-model" title="${escapeHtml(tx('modelCurrent', { name: modelName }))}">${escapeHtml(modelName)}</span>` : ''}
-            ${input || output ? `<span class="dc-msg-usage" title="${escapeHtml(tx('usageTitle', { input: input.toLocaleString(), output: output.toLocaleString() }))}">${escapeHtml(tx('usageText', { input: formatTokenCount(input), output: formatTokenCount(output) }))}</span>` : ''}`;
+            ${input || output ? `<span class="dc-msg-usage" title="${escapeHtml(tx('usageTitle', { input: input.toLocaleString(), output: output.toLocaleString() }))}">${escapeHtml(tx('usageText', { input: formatTokenCount(input), output: formatTokenCount(output) }))}</span>` : ''}
+            ${speed ? `<span class="dc-msg-speed" title="${escapeHtml(tx('speedTitle', { min: fmtTps(speed.min), avg: fmtTps(speed.avg), max: fmtTps(speed.max), rounds: speed.rounds, ttft: speed.ttft === null ? '-' : (speed.ttft / 1000).toFixed(1) }) + (speed.estimated ? tx('speedEstimated') : ''))}">${escapeHtml(`${fmtTps(speed.min)}/${fmtTps(speed.avg)}/${fmtTps(speed.max)} tok/s`)}${speed.rounds > 1 ? ` · ${escapeHtml(tx('speedRounds', { n: speed.rounds }))}` : ''}</span>` : ''}`;
         bar.querySelector('[data-dc-copy]').dataset.dcCopy = text;
         message.querySelector('.dc-msg-main').appendChild(bar);
     }
@@ -1953,6 +1972,7 @@
                         state.sessionId = event.sessionId;
                         rememberLastChat(event.sessionId, workspacePayload ? { agentSessionId: workspacePayload.agentSessionId, root: workspacePayload.root } : null);
                     }
+                    if (event.type === 'model_round' && event.round) (reply.dcLiveRounds ||= []).push(event.round);
                     if (event.type === 'tac' && event.status === 'queued') watchTac(event.id);
                     window.DragonClawSkills?.handleEvent(reply, event);
                     workspace()?.handleEvent(reply, event, workspacePayload);
@@ -1970,7 +1990,7 @@
             state.messages.push({ role: 'model', content: finalText });
             const grounding = api.renderGrounding ? api.renderGrounding(data.grounding) : '';
             if (grounding) reply.querySelector('.dc-msg-main').insertAdjacentHTML('beforeend', grounding);
-            addMessageTools(reply, finalText, { modelName: data.model?.name || model?.name || '', usage: data.usage });
+            addMessageTools(reply, finalText, { modelName: data.model?.name || model?.name || '', usage: data.usage, rounds: data.rounds || reply.dcLiveRounds });
             const skillCardScrollTop = nearBottom() ? el.thread.scrollTop : null;
             await window.DragonClawSkills?.offerSave?.(reply, finalText); // 等待保存/恢复卡片挂载，再结束生成
             if (skillCardScrollTop !== null && Math.abs(el.thread.scrollTop - skillCardScrollTop) < 2) scrollThread(true);
@@ -2118,7 +2138,8 @@
             if (Array.isArray(events) && events.length) workspace()?.replayEvents?.(message, events);
             const skillIds = (Array.isArray(events) ? events : []).find(event => event?.type === 'skills')?.skills;
             if (skillIds?.length) window.DragonClawSkills?.badge?.(message, skillIds);
-            addMessageTools(message, text, { modelName: item.model_name || '', usage: { inputTokens: item.input_tokens, outputTokens: item.output_tokens } });
+            const rounds = (Array.isArray(events) ? events : []).filter(event => event?.type === 'model_round' && event.round).map(event => event.round);
+            addMessageTools(message, text, { modelName: item.model_name || '', usage: { inputTokens: item.input_tokens, outputTokens: item.output_tokens }, rounds });
             window.DragonClawSkills?.offerSave?.(message, text);
         } else {
             addUserTools(message, text);
@@ -3100,7 +3121,7 @@
             renderMarkdown,
             avatar: AVATAR,
             addMessage: (role, text, options) => addMessage(role, text, options),
-            addCopy: (message, text) => addMessageTools(message, text),
+            addCopy: (message, text, options) => addMessageTools(message, text, options),
             scrollToBottom: () => scrollThread(true),
             isNearBottom: () => el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight < 90,
             setComposer: patch => { if (external.composer) setExternalComposer({ ...external.composer, ...patch }); },

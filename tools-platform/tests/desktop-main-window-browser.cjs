@@ -59,6 +59,15 @@ app.whenReady().then(async () => {
     assert.equal(await js('getComputedStyle(document.querySelector(".v2-side-tools")).webkitAppRegion || getComputedStyle(document.querySelector(".v2-side-tools")).getPropertyValue("-webkit-app-region")'), 'drag');
     assert.equal(await js('getComputedStyle(document.getElementById("sideBtn")).getPropertyValue("-webkit-app-region")'), 'no-drag');
     assert.equal(await js('getComputedStyle(document.querySelector(".desktop-controls")).getPropertyValue("-webkit-app-region")'), 'no-drag');
+    for (const mode of ['', 'dc-chatting', 'v2-hub-open', 'v2-tool-open']) {
+        const region = await js(`(() => { document.body.className=${JSON.stringify(mode)};
+            const strip=document.querySelector('.desktop-drag');
+            return {display:getComputedStyle(strip).display,region:getComputedStyle(strip).getPropertyValue('-webkit-app-region'),hit:document.elementFromPoint(innerWidth/2,8)===strip}; })()`);
+        assert.notEqual(region.display, 'none', mode+' keeps its top drag strip');
+        assert.equal(region.region,'drag');
+        assert.equal(region.hit,true,mode+' top strip stays above page content');
+    }
+    await js('document.body.className=""');
     const rect = await js('JSON.stringify(document.querySelector(".desktop-controls").getBoundingClientRect())');
     const box = JSON.parse(rect);
     assert.ok(box.left < 30 && box.top < 40, `controls at top-left: ${rect}`);

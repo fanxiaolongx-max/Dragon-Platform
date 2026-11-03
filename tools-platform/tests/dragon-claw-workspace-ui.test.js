@@ -131,7 +131,7 @@ test('home chat can resume the last conversation with its agent session, distinc
     }
     const css = read('frontend/css/dragon-claw.css');
     assert.match(css, /body\.dc-chatting \.dc-resume,/, 'the resume card only shows on the new-chat landing');
-    assert.match(css, /\.dc-msg--history \{ opacity: 0\.72;/);
+    assert.match(css, /\.dc-msg--history \{ opacity: 1;/);
     const panel = read('frontend/js/home/workspace-panel.js');
     // 正在用别的目录时不接回旧会话：带旧 id 换目录会让服务端作废旧转录
     assert.match(panel, /adoptSession\(\{ agentSessionId, root \} = \{\}\) \{\n\s+if \(!agentSessionId \|\| !root \|\| \(state\.root && state\.root !== root\)\) return false;/);
@@ -224,7 +224,7 @@ test('messages use icon actions: copy and resend on user messages, copy plus mod
     const js = read('frontend/js/home/dragon-claw.js');
     assert.match(js, /const userMessage = addMessage\('user', shownText\);\n        addUserTools\(userMessage, content, shownText\);/);
     assert.match(js, /iconButton\('retry', tx\('retry'\), 'data-dc-retry'\)/);
-    assert.match(js, /addMessageTools\(reply, finalText, \{ modelName: data\.model\?\.name \|\| model\?\.name \|\| '', usage: data\.usage \}\);/);
+    assert.match(js, /addMessageTools\(reply, finalText, \{ modelName: data\.model\?\.name \|\| model\?\.name \|\| '', usage: data\.usage, rounds: data\.rounds \|\| reply\.dcLiveRounds \}\);/);
     assert.match(js, /document\.execCommand\('copy'\)/, 'copy still works over plain http');
     const css = read('frontend/css/dragon-claw.css');
     assert.match(css, /\.dc-msg-icon \{/);

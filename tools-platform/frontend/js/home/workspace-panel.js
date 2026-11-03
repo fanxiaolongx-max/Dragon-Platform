@@ -90,14 +90,15 @@
     }
 
     // ── 面板开关 ──────────────────────────────────────────
-    function setOpen(open) {
+    // remember=false：自动收起 / 自动展开（打开工具、切到无关对话等），不改用户记住的开关
+    function setOpen(open, { remember = true } = {}) {
         if (!open && state.filePreview) { window.ChatFiles?.closePreview(); return; }
         state.open = Boolean(open) && (state.enabled || Boolean(state.external) || Boolean(state.filePreview));
         document.body.classList.toggle('dc-workspace-open', state.open);
         el.panel.hidden = !state.open;
         el.toggle?.setAttribute('aria-pressed', String(state.open));
         el.fab?.setAttribute('aria-pressed', String(state.open));
-        try { if (!state.filePreview) localStorage.setItem(PANEL_KEY, state.open ? '1' : '0'); } catch { /* ignore */ }
+        try { if (!state.filePreview && remember) localStorage.setItem(PANEL_KEY, state.open ? '1' : '0'); } catch { /* ignore */ }
         if (state.open) requestAnimationFrame(() => { if (state.open) el.panel.classList.add('is-drawer-open'); });
         else el.panel.classList.remove('is-drawer-open');
     }
@@ -1670,6 +1671,10 @@
         let remembered = false;
         try { remembered = localStorage.getItem(PANEL_KEY) === '1'; } catch { /* ignore */ }
         if (remembered && window.innerWidth > 860) setOpen(true);
+        // 打开工具、技能中心等非对话页面时自动收起工作区（不改用户记住的开关）
+        const autoClose = () => { if (state.open && !state.external && !state.filePreview) setOpen(false, { remember: false }); };
+        window.addEventListener('home:tool-frame', event => { if (event.detail?.open) autoClose(); });
+        window.addEventListener('home:hub', event => { if (event.detail?.open) autoClose(); });
         // 手动或其他程序改了文件也能看到：回到页面时、面板打开期间每 15 秒刷新一次
         window.addEventListener('focus', refreshChanges);
         window.addEventListener('focus', refreshGit);
@@ -1731,7 +1736,8 @@
         async resumeWorkspace({ agentSessionId, root } = {}) {
             if (state.pr?.phase === 'running') throw new Error(tx('prRunning'));
             const ticket = ++state.selectionEpoch;
-            if (!state.enabled || !agentSessionId || !root) { clearDirectory(); this.resetSession(); return false; }
+            // 切到没有关联目录的对话：工作区与这个对话无关，自动收起
+            if (!state.enabled || !agentSessionId || !root) { clearDirectory(); this.resetSession(); if (!state.external && !state.filePreview) setOpen(false, { remember: false }); return false; }
             if (state.root !== root) {
                 try {
                     await selectDirectory(root, ticket);

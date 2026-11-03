@@ -36,7 +36,9 @@
         try{
             const reply=await API.post(path,{...body,_stream:true,...(record?{_debug:true}:{})},{onEvent});
             const steps=reply?._trace,request=reply?._request;
-            if(reply&&typeof reply==='object'){delete reply._trace;delete reply._request;}
+            // 每轮模型调用的耗时与速度：攒到这个格子上，由 app.js 的 aiStep 挂到本次 AI 回复（回复下方显示 最低/平均/最高 tok/s）
+            if(Array.isArray(reply?._rounds)&&reply._rounds.length)pendingRounds.set(cellId,[...(pendingRounds.get(cellId)||[]),...reply._rounds]);
+            if(reply&&typeof reply==='object'){delete reply._trace;delete reply._request;delete reply._rounds;}
             if(entry)Object.assign(entry,{status:'success',ms:Date.now()-started,steps:Array.isArray(steps)?steps:entry.steps,request:request??entry.request,response:safe(reply),result:pretty(safe(reply))});
             return reply;
         }catch(error){
@@ -72,12 +74,32 @@
         const label=run.stage==='tool'?(toolNames[run.name]||[run.name,run.name]):(stages[run.stage]||[run.stage,run.stage]);
         return label[en?1:0];
     }
+    // 速度汇总：平均 = 总输出 token ÷ 总生成时间（与后端 models/ai-round-tracker.js 一致）
+    function speedSummary(rounds=[]){
+        const list=(rounds||[]).filter(round=>round&&Number(round.tps)>0);if(!list.length)return null;
+        const speeds=list.map(round=>Number(round.tps)),out=list.reduce((sum,round)=>sum+(Number(round.outputTokens)||0),0),gen=list.reduce((sum,round)=>sum+(Number(round.generationMs)||0),0);
+        const round1=value=>Math.round(value*10)/10;
+        return {rounds:rounds.length,minTps:round1(Math.min(...speeds)),avgTps:round1(gen>0?out/(gen/1000):speeds.reduce((a,b)=>a+b,0)/speeds.length),maxTps:round1(Math.max(...speeds)),inputTokens:rounds.reduce((sum,round)=>sum+(Number(round.inputTokens)||0),0),outputTokens:out,totalMs:rounds.reduce((sum,round)=>sum+(Number(round.ms)||0),0)};
+    }
+    // 导出开头的统计表：每条带速度的 AI 回复一行（问题、轮次、token、最低/平均/最高 tok/s、耗时），附每一轮明细
+    function modelStats(chat=[]){
+        const rows=[];let question='';
+        for(const item of chat||[]){
+            if(item?.role==='user'){question=String(item.text||'').slice(0,200);continue;}
+            const summary=speedSummary(item?.rounds);
+            if(summary)rows.push({question,...summary,calls:item.rounds.map(round=>({index:round.index,at:round.at,model:round.model,inputTokens:round.inputTokens,outputTokens:round.outputTokens,estimated:Boolean(round.estimated),ttftMs:round.ttftMs,ms:round.ms,tps:round.tps}))});
+        }
+        return rows.length?{replies:rows,total:speedSummary(rows.flatMap(row=>row.calls.map(call=>({...call,generationMs:call.tps>0?call.outputTokens/call.tps*1000:0}))))}:null;
+    }
     function exportLog(cellId,context={}){
         if(!enabled)return;
-        const content={format:'aiops-report-diagnostics',version:1,activeStage:active.get(cellId)?.stage||null,exportedAt:new Date().toISOString(),cellId,context:safe({page:window.location?.pathname||'',...context}),retention:{perCell:LIMIT,pageOnly:true},entries:safe(traces.get(cellId)||[])};
+        const {chat,...rest}=context;
+        const stats=modelStats(chat);
+        const content={format:'aiops-report-diagnostics',version:1,activeStage:active.get(cellId)?.stage||null,exportedAt:new Date().toISOString(),cellId,...(stats?{modelStats:stats}:{}),context:safe({page:window.location?.pathname||'',...rest}),retention:{perCell:LIMIT,pageOnly:true},entries:safe(traces.get(cellId)||[])};
         const blob=new Blob([JSON.stringify(content,null,2)],{type:'application/json;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
         link.href=url;link.download='aiops-report-'+String(cellId).replace(/[^a-z0-9_-]/gi,'_')+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
         return content;
     }
-    window.AiReportTrace={post,local,note,list:cellId=>traces.get(cellId)||[],enabled:()=>enabled,setEnabled,subscribe:fn=>{listeners.add(fn);return ()=>listeners.delete(fn);},subscribeProgress:fn=>{progressListeners.add(fn);return ()=>progressListeners.delete(fn);},progressText,exportLog,pretty,emptyResult,stepText,entryText,clear:cellId=>{traces.delete(cellId);changed(cellId);}};
+    const pendingRounds=new Map();
+    window.AiReportTrace={post,local,note,speedSummary,takeRounds:cellId=>{const rounds=pendingRounds.get(cellId)||[];pendingRounds.delete(cellId);return rounds;},list:cellId=>traces.get(cellId)||[],enabled:()=>enabled,setEnabled,subscribe:fn=>{listeners.add(fn);return ()=>listeners.delete(fn);},subscribeProgress:fn=>{progressListeners.add(fn);return ()=>progressListeners.delete(fn);},progressText,exportLog,pretty,emptyResult,stepText,entryText,clear:cellId=>{traces.delete(cellId);changed(cellId);}};
 })();

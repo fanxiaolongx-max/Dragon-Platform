@@ -362,8 +362,16 @@
         if (shift > 0)
             view.rows.splice(0, shift).forEach(row => row.node.remove());
         let same = 0;
-        while (same < view.rows.length && same < items.length && sameItem(view.rows[same].item, items[same]))
+        while (same < view.rows.length && same < items.length && sameItem(view.rows[same].item, items[same])) {
+            // 这一问结束后才算出各轮速度：已显示的回复补上 最低/平均/最高 tok/s
+            const rounds = items[same].rounds;
+            if (rounds?.length && JSON.stringify(rounds) !== JSON.stringify(view.rows[same].item.rounds)) {
+                view.rows[same].node.querySelector('.dc-msg-tools')?.remove();
+                api.addCopy(view.rows[same].node, items[same].content, { rounds, modelName: rounds.at(-1)?.model || '' });
+                view.rows[same].item = items[same];
+            }
             same++;
+        }
         // 正在生成的最后一条只是正文变长：原地更新，不重新插入
         while (same < view.rows.length && same < items.length && view.rows[same].item.role === items[same].role && same >= view.rows.length - 2) {
             fillMessage(view.rows[same].node, items[same]);
@@ -375,7 +383,7 @@
         const anchor = view.thinking, fresh = [];
         const add = () => { for (const item of items.slice(same)) {
             const node = api.addMessage(item.role === 'user' ? 'user' : 'ai', item.role === 'user' ? item.content : '', anchor ? { before: anchor } : undefined);
-            api.addCopy(node, item.content);
+            api.addCopy(node, item.content, item.rounds?.length ? { rounds: item.rounds, modelName: item.rounds.at(-1)?.model || '' } : undefined);
             fillMessage(node, item);
             fresh.push({ item, node });
         } };

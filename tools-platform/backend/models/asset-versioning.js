@@ -128,7 +128,8 @@ function versionAssetUrls(html, { publicDir, baseDir } = {}) {
 }
 
 // 工具页跟随平台亮 / 暗主题（frontend/js/shared/platform-theme.js），放在 <head> 最前面，先于页面样式生效
-const PLATFORM_THEME_TAG = '<script src="/js/shared/platform-theme.js"></script>';
+// 同时带上全平台统一的细滚动条（frontend/js/shared/elegant-scrollbars.js）
+const PLATFORM_THEME_TAG = '<script src="/js/shared/platform-theme.js"></script><script src="/js/shared/elegant-scrollbars.js"></script>';
 function injectPlatformTheme(html) {
     const source = String(html);
     if (source.includes('/js/shared/platform-theme.js')) return source;

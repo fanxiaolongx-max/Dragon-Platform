@@ -40,6 +40,8 @@ app.whenReady().then(async () => {
         let html = fs.readFileSync(path.join(root, 'frontend/index.html'), 'utf8');
         html = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, tag => tag.includes('id="homeModeBootstrap"') || /src="\/js\/(?:home\/(?:home-mode|dragon-claw|welink-threads)|shared\/i18n)\.js"/.test(tag) ? tag : '');
         html = html.replace(/<body\b[^>]*>/, tag => `${tag}<script>
+            document.documentElement.dataset.ui='v2';
+            document.documentElement.dataset.theme='light';
             localStorage.setItem('tools_user','scroll-test');
             localStorage.setItem('tools_lang','zh-CN');
             window.DragonClawWorkspace={resetSession(){},resumeWorkspace:async()=>{},hideExternal(){}};
@@ -84,6 +86,12 @@ app.whenReady().then(async () => {
     await until(() => evaluate("dcThread.querySelectorAll('.wl-msg').length===30&&!!document.querySelector('[data-wl-role=bot]')"), 'thread with role switch');
     await wait(100);
     assert.ok(await gap() < 5, 'Thread opens at the bottom');
+    const reading = await evaluate(`(()=>[...dcThread.querySelectorAll('.wl-msg')].map(message=>{
+        const body=message.querySelector('.dc-msg-body');return {opacity:getComputedStyle(message).opacity,color:getComputedStyle(body).color,filter:getComputedStyle(body).filter};
+    }))()`);
+    assert.ok(reading.length===30 && reading.every(row=>row.opacity==='1'), 'History content is fully opaque, not faded like disabled UI');
+    assert.ok(reading.every(row=>row.color==='rgb(25, 29, 36)'&&row.filter==='none'), 'User and assistant channel history use clear, slightly deeper reading ink');
+
 
     const toBot = await switchRole('bot');
     assert.ok(await evaluate("!!document.querySelector('[data-wl-compose]')"), 'Composer is shown');
