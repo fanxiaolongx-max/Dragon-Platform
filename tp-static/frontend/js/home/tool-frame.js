@@ -20,6 +20,8 @@
     }
     function isToolUrl(url) {
         if (url.origin !== location.origin || url.pathname === '/' || /^\/(api|login|downloads?)\b/.test(url.pathname)) return false;
+        // Requirements also has fixed menu/navbar entries outside the async tool catalog.
+        if (['/requirements', '/pages/requirements.html'].includes(url.pathname)) return true;
         if (/^\/(tools|custom-tools|apps)\//.test(url.pathname)) return true;
         return knownPaths().some(path => url.pathname === path || url.pathname.startsWith(path.replace(/\/$/, '') + '/'));
     }

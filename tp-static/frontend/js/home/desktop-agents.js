@@ -1,6 +1,6 @@
 (function () {
     'use strict';
-    const API = '/api/desktop-agents', names = { codex: 'Codex', claudecode: 'Claude Code', antigravity: 'Antigravity' };
+    const API = '/api/desktop-agents', names = { codex: 'Codex', claudecode: 'Claude Code', antigravity: 'Antigravity', workbuddy: 'WorkBuddy' };
     const state = { settings: null, items: [], providers: [], provider: 'codex', active: null, api: null, visible: false, loading: false, error: '', epoch: 0, viewEpoch: 0, identity: '', drafts: new Map(), notices: new Map(), unknown: new Set(), sending: false, lastSync: null, lastRefreshAt: 0, signature: '', timer: null, detail: null, pending: null, pendingCount: 0, tick: null, view: null, dock: null, mode: (() => { try {
         return localStorage.getItem('desktop_agent_busy_mode') === 'steer' ? 'steer' : 'queue';
     }
@@ -307,7 +307,7 @@
         return L('读取中…', 'Loading…'); if (d.busy || state.pending)
         return busyText(); return state.active.canSend ? L('空闲 · 可发送', 'Idle · ready') : L('只读', 'Read-only'); }
     // 轮询只做增量更新：已显示的消息原地保留，新消息追加（自带淡入），内容有变化的只改正文，避免整屏重绘闪烁
-    const sameItem = (a, b) => a && b && a.role === b.role && a.content === b.content && a.createdAt === b.createdAt;
+    const sameItem = (a, b) => a && b && a.role === b.role && a.content === b.content && JSON.stringify(a.attachments || []) === JSON.stringify(b.attachments || []) && a.createdAt === b.createdAt;
     // 只替换从第一个变化处开始的段落：前面的段落、代码块和选中的文字保持不动
     function morph(target, html) { const next = document.createElement('div'); next.innerHTML = html; const before = [...target.childNodes], after = [...next.childNodes]; let i = 0; while (i < before.length && i < after.length && before[i].isEqualNode(after[i]))
         i++; before.slice(i).forEach(n => n.remove()); target.append(...after.slice(i)); }
@@ -318,7 +318,21 @@
     }
     else
         node.querySelector('.dc-msg-body').textContent = item.content; const copy = node.querySelector('[data-dc-copy]'); if (copy)
-        copy.dataset.dcCopy = item.content; }
+        copy.dataset.dcCopy = item.content;
+        const main = node.querySelector('.dc-msg-main');
+        const files = (item.attachments || []).filter(file => window.ChatFiles?.isLocalFile(file.path));
+        let attachments = main.querySelector('[data-desktop-attachments]');
+        if (files.length) {
+            if (!attachments) {
+                attachments = document.createElement('div');
+                attachments.className = 'dc-msg-attachments';
+                attachments.dataset.desktopAttachments = '1';
+                node.querySelector('.dc-msg-body').after(attachments);
+            }
+            morph(attachments, files.map(file => window.ChatFiles.chipHtml(file.path, file.name)).join(''));
+            window.ChatFiles.hydrate(attachments);
+        } else attachments?.remove();
+    }
     function thinkingNode() {
         const message = state.api.addMessage('ai', '');
         const avatar=message.querySelector('.dc-msg-avatar');if(avatar){avatar.src=`./tp-static/frontend/assets/desktop-agents/${state.active.provider}.png`;avatar.alt=names[state.active.provider];}

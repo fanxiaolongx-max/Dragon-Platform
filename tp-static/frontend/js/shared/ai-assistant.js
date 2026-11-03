@@ -11,7 +11,8 @@
         /* 右侧停靠标签：符合主页氛围的现代明亮玻璃风格（翡翠绿/青碧主题色） */
         .ai-fab {
             position: fixed;
-            bottom: 270px;
+            bottom: var(--ai-fab-bottom, 270px);
+            top: var(--ai-fab-top, auto);
             right: 0;
             height: 48px;
             min-width: 54px;
@@ -30,14 +31,54 @@
                 inset 0 1px 0 #ffffff;
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            cursor: pointer;
+            cursor: grab;
             z-index: 100000;
-            transition: border-color 0.22s, box-shadow 0.22s, background 0.22s, opacity 0.2s, transform 0.2s;
+            opacity: 1;
+            transform: translateX(0);
+            transition:
+                opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+                transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.22s,
+                box-shadow 0.22s,
+                background 0.22s;
             user-select: none;
+            touch-action: none;
             isolation: isolate;
             outline: none;
             -webkit-tap-highlight-color: transparent;
             font-family: inherit;
+        }
+        .ai-fab.is-dragging {
+            cursor: grabbing !important;
+            user-select: none !important;
+            transition: none !important;
+            opacity: 1 !important;
+            transform: translateX(0) scale(1.02) !important;
+            box-shadow:
+                -10px 18px 36px rgba(16, 163, 127, 0.22),
+                0 4px 12px rgba(15, 23, 42, 0.1),
+                inset 0 1px 0 #ffffff !important;
+        }
+        .ai-fab.is-idle {
+            opacity: 0.42;
+            transform: translateX(8px);
+            box-shadow: -3px 4px 12px rgba(15, 23, 42, 0.05);
+        }
+        @media (hover: hover) {
+            .ai-fab.is-idle:hover {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .ai-fab.is-idle:focus-visible,
+        .ai-fab.is-idle[aria-expanded="true"],
+        .ai-fab.is-idle.is-dragging {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        body:has(.ai-proactive-alert.show) .ai-fab {
+            opacity: 1 !important;
+            transform: translateX(0) !important;
         }
         .ai-fab::before {
             content: "";
@@ -156,6 +197,18 @@
         html[data-theme="dark"] .ai-fab[aria-expanded="true"] {
             border-color: rgba(62, 207, 158, 0.6);
             background: linear-gradient(135deg, rgba(27, 34, 46, 0.98), rgba(21, 24, 29, 0.98));
+        }
+        html[data-theme="dark"] .ai-fab.is-idle {
+            opacity: 0.46;
+            transform: translateX(8px);
+            box-shadow: -4px 6px 16px rgba(0, 0, 0, 0.3);
+        }
+        html[data-theme="dark"] .ai-fab.is-idle:hover,
+        html[data-theme="dark"] .ai-fab.is-idle:focus-visible,
+        html[data-theme="dark"] .ai-fab.is-idle[aria-expanded="true"],
+        html[data-theme="dark"] .ai-fab.is-idle.is-dragging {
+            opacity: 1;
+            transform: translateX(0);
         }
         .ai-fab.is-pulse .ai-fab-orb { animation: ai-fab-pulse 0.6s cubic-bezier(.2,.8,.2,1); }
         @keyframes ai-fab-spin { to { transform: rotate(360deg); } }
@@ -1326,10 +1379,69 @@
         proactiveAlert.style.setProperty('--ai-alert-arrow-right', `${Math.round(arrowRight)}px`);
     }
 
+    // ── 悬浮客服助手（.ai-fab）纵向拖动、位置记忆与不活动淡出 ──
+    const FAB_STORAGE_KEY = 'tools_ai_fab_top';
+    const FAB_IDLE_DELAY_MS = 3500;
+    let fabDrag = null;
+    let suppressFabClickUntil = 0;
+    let fabIdleTimer = null;
+
+    function wakeFab() {
+        if (fabIdleTimer) {
+            clearTimeout(fabIdleTimer);
+            fabIdleTimer = null;
+        }
+        fab.classList.remove('is-idle');
+    }
+
+    function scheduleFabIdle(delay = FAB_IDLE_DELAY_MS) {
+        if (fabIdleTimer) clearTimeout(fabIdleTimer);
+        fabIdleTimer = null;
+        if (panel.classList.contains('open')) return;
+        if (proactiveAlert.classList.contains('show')) return;
+        if (fab.classList.contains('is-dragging')) return;
+        fabIdleTimer = setTimeout(() => {
+            if (!panel.classList.contains('open') &&
+                !proactiveAlert.classList.contains('show') &&
+                !fab.classList.contains('is-dragging')) {
+                fab.classList.add('is-idle');
+            }
+        }, delay);
+    }
+
+    function clampFabTop(topVal) {
+        const minTop = 56;
+        const maxTop = Math.max(minTop, (window.innerHeight || 800) - (fab.offsetHeight || 48) - 16);
+        return Math.max(minTop, Math.min(maxTop, topVal));
+    }
+
+    function applyFabTop(topVal) {
+        const clamped = clampFabTop(topVal);
+        fab.style.setProperty('top', `${clamped}px`, 'important');
+        fab.style.setProperty('bottom', 'auto', 'important');
+        document.documentElement.style.setProperty('--ai-fab-top', `${clamped}px`);
+        document.documentElement.style.setProperty('--ai-fab-bottom', 'auto');
+        return clamped;
+    }
+
+    function restoreFabPosition() {
+        try {
+            const saved = localStorage.getItem(FAB_STORAGE_KEY);
+            if (saved !== null && saved !== '') {
+                const parsed = parseFloat(saved);
+                if (Number.isFinite(parsed)) {
+                    applyFabTop(parsed);
+                }
+            }
+        } catch (_) {}
+    }
+
     function openOrClosePanel() {
         panel.classList.toggle('open');
-        fab.setAttribute('aria-expanded', panel.classList.contains('open') ? 'true' : 'false');
-        if (panel.classList.contains('open')) {
+        const isOpen = panel.classList.contains('open');
+        fab.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        if (isOpen) {
+            wakeFab();
             applyContextTheme();
             if (isFirstOpen) {
                 isFirstOpen = false;
@@ -1337,21 +1449,97 @@
             }
             loadSuggestions();
             setTimeout(() => input.focus(), 300);
+        } else {
+            scheduleFabIdle();
         }
     }
-    
-    fab.onclick = () => {
-        brandFab.pulse();
-        hideProactiveAlert();
-        openOrClosePanel();
-    };
+
+    fab.addEventListener('pointerdown', event => {
+        if (event.button !== 0 && event.pointerType === 'mouse') return;
+        wakeFab();
+        const rect = fab.getBoundingClientRect();
+        fabDrag = {
+            pointerId: event.pointerId,
+            startY: event.clientY,
+            startTop: rect.top,
+            hasMoved: false
+        };
+        try { fab.setPointerCapture(event.pointerId); } catch (_) {}
+    });
+
+    function onFabPointerMove(event) {
+        if (!fabDrag || event.pointerId !== fabDrag.pointerId) return;
+        const deltaY = event.clientY - fabDrag.startY;
+        if (!fabDrag.hasMoved) {
+            if (Math.abs(deltaY) < 4) return;
+            fabDrag.hasMoved = true;
+            fab.classList.add('is-dragging');
+        }
+        wakeFab();
+        applyFabTop(fabDrag.startTop + deltaY);
+        notifyFabPosition();
+    }
+
+    function finishFabDrag(event) {
+        if (!fabDrag || event.pointerId !== fabDrag.pointerId) return;
+        const hadMoved = fabDrag.hasMoved;
+        fab.classList.remove('is-dragging');
+        try { fab.releasePointerCapture(event.pointerId); } catch (_) {}
+        if (hadMoved) {
+            suppressFabClickUntil = Date.now() + 250;
+            const currentTop = fab.getBoundingClientRect().top;
+            try {
+                localStorage.setItem(FAB_STORAGE_KEY, String(Math.round(currentTop)));
+            } catch (_) {}
+            notifyFabPosition();
+        }
+        fabDrag = null;
+        scheduleFabIdle();
+    }
+
+    fab.addEventListener('pointermove', onFabPointerMove);
+    fab.addEventListener('pointerup', finishFabDrag);
+    fab.addEventListener('pointercancel', finishFabDrag);
+    window.addEventListener('pointermove', onFabPointerMove, { passive: true });
+    window.addEventListener('pointerup', finishFabDrag);
+    window.addEventListener('pointercancel', finishFabDrag);
 
     fab.addEventListener('pointerenter', () => {
+        wakeFab();
         const now = Date.now();
         if (now - lastProactiveHoverAt < PROACTIVE_HOVER_COOLDOWN_MS) return;
         lastProactiveHoverAt = now;
         loadProactiveAlert();
     });
+
+    fab.addEventListener('pointerleave', () => {
+        if (!fabDrag) scheduleFabIdle();
+    });
+
+    fab.addEventListener('focus', () => wakeFab());
+    fab.addEventListener('blur', () => scheduleFabIdle());
+
+    fab.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            brandFab.pulse();
+            hideProactiveAlert();
+            openOrClosePanel();
+        }
+    });
+
+    fab.onclick = (event) => {
+        if (Date.now() < suppressFabClickUntil) {
+            if (event) {
+                event.stopPropagation();
+                event.preventDefault();
+            }
+            return;
+        }
+        brandFab.pulse();
+        hideProactiveAlert();
+        openOrClosePanel();
+    };
 
     proactiveAlert.querySelector('.ai-proactive-alert-close').addEventListener('click', event => {
         event.stopPropagation();
@@ -1410,13 +1598,6 @@
         if (!document.hidden && !proactiveTimer && !proactiveAlert.classList.contains('show')) scheduleProactiveAlert();
     });
 
-    fab.onkeydown = (event) => {
-        if (event.key !== 'Enter' && event.key !== ' ') return;
-        event.preventDefault();
-        brandFab.pulse();
-        openOrClosePanel();
-    };
-
     function restorePanelDragPosition() {
         if (!panel.dataset.dragLeft) return;
         panel.style.left = panel.dataset.dragLeft;
@@ -1424,7 +1605,7 @@
         panel.style.right = panel.dataset.dragRight;
         panel.style.bottom = panel.dataset.dragBottom;
     }
-    
+
     panel.querySelector('.ai-close').onclick = () => {
         panel.classList.remove('open');
         panel.classList.remove('fullscreen');
@@ -1433,6 +1614,7 @@
         setActionText(fullscreenBtn, aiT('fullscreen'));
         restorePanelDragPosition();
         fab.setAttribute('aria-expanded', 'false');
+        scheduleFabIdle();
         fab.focus();
     };
     expandBtn.onclick = () => {
@@ -1527,6 +1709,12 @@
             panel.style.left = `${position.left}px`;
             panel.style.top = `${position.top}px`;
         }
+        if (fab.style.top && fab.style.top !== 'auto') {
+            const currentTop = parseFloat(fab.style.top);
+            if (Number.isFinite(currentTop)) {
+                applyFabTop(currentTop);
+            }
+        }
         notifyFabPosition();
     }, { passive: true });
 
@@ -1545,6 +1733,8 @@
         input.focus();
     });
     
+    restoreFabPosition();
+    scheduleFabIdle(FAB_IDLE_DELAY_MS);
     setTimeout(notifyFabPosition, 0);
     window.addEventListener('tools:languagechange', applyAiLanguage);
     applyAiLanguage();
@@ -2020,6 +2210,7 @@
         proactiveExitTimer = window.setTimeout(() => {
             proactiveAlert.classList.remove('show', 'is-leaving', 'is-closing');
             proactiveExitTimer = null;
+            scheduleFabIdle();
         }, reason === 'close' ? 340 : 280);
         if (reschedule) scheduleProactiveAlert();
     }
@@ -2064,6 +2255,7 @@
         proactiveAlert.dataset.prompt = buildProactivePrompt(items, snapshot);
         positionProactiveAlert();
         void proactiveAlert.offsetWidth;
+        wakeFab();
         proactiveAlert.classList.add('show');
         positionProactiveAlert();
         if (proactiveHideTimer) window.clearTimeout(proactiveHideTimer);

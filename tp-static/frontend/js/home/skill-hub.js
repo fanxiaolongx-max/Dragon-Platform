@@ -211,7 +211,9 @@
         root.querySelector('.v2-hub-chips').innerHTML = cats.map(c => `<button type="button" data-hub-cat="${esc(c.id)}" aria-selected="${state.cat === c.id}">${esc(c.label)}<em>${c.n}</em></button>`).join('');
 
         const feat = root.querySelector('.v2-hub-featured');
-        const showFeatured = !query && !state.mine && state.cat === 'all' && all.length > 3;
+        // Featured entries are shortcuts for this tab, independent of the results below.
+        // Keep their space stable while filtering so the category bar never jumps.
+        const showFeatured = all.length > 3;
         feat.hidden = !showFeatured;
         if (showFeatured) {
             const title = t(state.tab === 'skills' ? 'featuredSkills' : state.tab === 'plugins' ? 'featuredPlugins' : 'featuredTools');

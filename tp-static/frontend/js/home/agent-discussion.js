@@ -1,16 +1,16 @@
 (function(){
  'use strict';
  const API='/api/desktop-agents';
+ // 桌面 Agent 成员表：新增桌面连接器只需加在这里；DragonTAC 默认全员即这里的全部成员
+ const DESKTOP_AGENTS={codex:'Codex',claudecode:'Claude Code',antigravity:'Antigravity',workbuddy:'WorkBuddy'},DESKTOP_IDS=Object.keys(DESKTOP_AGENTS);
  let enabled=false,locked=false,modeSaving=false,root,epoch=0,currentSessionId=null,activeJob=null,tracking=null,identity='',availabilityRevision=0,availabilityRequest=null;
  let availability={available:false,reason:'checking'};
- const readiness=Object.fromEntries(['codex','claudecode','antigravity','weixin','welink-cli','welink','netcare'].map(id=>[id,{ready:false,reason:'checking'}]));
+ const readiness=Object.fromEntries([...DESKTOP_IDS,'weixin','welink-cli','welink','netcare'].map(id=>[id,{ready:false,reason:'checking'}]));
 
- // 连接器勾选状态：三家桌面 Agent 可多选（1 个为单聊，2 或 3 个为多 Agent 协同讨论）；
+ // 连接器勾选状态：桌面 Agent 可多选（1 个为单聊，2 个及以上为多 Agent 协同讨论）；
  // 微信、两类 WeLink 和 NetCare 各自为独立场景，与桌面 Agent 互斥。
  const connectors = {
-   codex: false,
-   claudecode: false,
-   antigravity: false,
+   ...Object.fromEntries(DESKTOP_IDS.map(id => [id, false])),
    weixin: false,
    welink: false,
    'welink-cli': false,
@@ -61,12 +61,12 @@
    ]);
    if(desktop.status==='fulfilled'){
     const {data,sessions}=desktop.value,cfg=data.settings;
-    for(const id of ['codex','claudecode','antigravity']){
+    for(const id of DESKTOP_IDS){
      const p=(sessions.providers||[]).find(item=>item.id===id);
      const reason=!data.owned||!cfg?.enabled||!cfg.providers?.[id]?'disabled':!cfg.allowSend||id==='claudecode'&&!cfg.claudeAutomation?'readonly':!p?.enabled||!p.connected?'offline':!p.canSend?'readonly':'';
      next[id]={ready:!reason,reason,detail:p?.reason||''};
     }
-   }else for(const id of ['codex','claudecode','antigravity'])next[id]={ready:false,reason:'error'};
+   }else for(const id of DESKTOP_IDS)next[id]={ready:false,reason:'error'};
    if(channels.status==='fulfilled')for(const id of ['weixin','welink']){
     const channel=(channels.value.items||[]).find(item=>item.id===id);
     const ready=channel?.connected===true&&channel.health?.reason!=='readonly'&&channel.health?.reason!=='disabled';
@@ -74,7 +74,7 @@
    }
    if(version===availabilityRevision&&account===who()){
     Object.assign(readiness,next);
-    availability={available:['codex','claudecode','antigravity'].some(id=>next[id].ready),reason:'offline'};
+    availability={available:DESKTOP_IDS.some(id=>next[id].ready),reason:'offline'};
     render();
    }
    await tools;
@@ -84,7 +84,7 @@
  }
 
  function getSelectedAgents(){
-   return ['codex','claudecode','antigravity'].filter(k => connectors[k]);
+   return DESKTOP_IDS.filter(k => connectors[k]);
  }
 
  function getSelectedConnector(){
@@ -122,7 +122,7 @@
   if(unavailable)throw Error(connectorName(unavailable)+' · '+L('连接器尚未就绪，请检查连接或取消勾选','Connector is unavailable. Check its connection or deselect it.'));
  }
 
- const providerNames={codex:'Codex',claudecode:'Claude Code',antigravity:'Antigravity'};
+ const providerNames=DESKTOP_AGENTS;
 
  const connectorName=key=>providerNames[key]||({weixin:L('微信','WeChat'),welink:L('WeLink 助手','WeLink Assistant'),'welink-cli':L('WeLink 官方','WeLink Official'),netcare:L('数字人 NetCare','NetCare Digital Human')})[key]||key;
 
@@ -378,36 +378,16 @@
      <button type="button" data-tac-resume hidden></button>
      <div class="dc-connector-popover" role="dialog" hidden>
        <div class="dc-connector-list">
-         <div class="dc-connector-item" data-key="codex">
+${DESKTOP_IDS.map(id=>`         <div class="dc-connector-item" data-key="${id}">
            <div class="dc-connector-item-main">
-             <img src="./tp-static/frontend/assets/desktop-agents/codex.png" class="dc-connector-item-ico" alt="Codex">
-             <span class="dc-connector-item-name">Codex</span>
+             <img src="./tp-static/frontend/assets/desktop-agents/${id}.png" class="dc-connector-item-ico" alt="${DESKTOP_AGENTS[id]}">
+             <span class="dc-connector-item-name">${DESKTOP_AGENTS[id]}</span>
            </div>
            <label class="dc-switch">
-             <input type="checkbox" data-connector="codex">
+             <input type="checkbox" data-connector="${id}">
              <span class="dc-switch-track"><span class="dc-switch-thumb"></span></span>
            </label>
-         </div>
-         <div class="dc-connector-item" data-key="claudecode">
-           <div class="dc-connector-item-main">
-             <img src="./tp-static/frontend/assets/desktop-agents/claudecode.png" class="dc-connector-item-ico" alt="Claude Code">
-             <span class="dc-connector-item-name">Claude Code</span>
-           </div>
-           <label class="dc-switch">
-             <input type="checkbox" data-connector="claudecode">
-             <span class="dc-switch-track"><span class="dc-switch-thumb"></span></span>
-           </label>
-         </div>
-         <div class="dc-connector-item" data-key="antigravity">
-           <div class="dc-connector-item-main">
-             <img src="./tp-static/frontend/assets/desktop-agents/antigravity.png" class="dc-connector-item-ico" alt="Antigravity">
-             <span class="dc-connector-item-name">Antigravity</span>
-           </div>
-           <label class="dc-switch">
-             <input type="checkbox" data-connector="antigravity">
-             <span class="dc-switch-track"><span class="dc-switch-thumb"></span></span>
-           </label>
-         </div>
+         </div>`).join('\n')}
          <div class="dc-connector-item" data-key="weixin">
            <div class="dc-connector-item-main">
              <span class="dc-connector-item-ico dc-circle-wx">${WX_SVG}</span>
@@ -524,7 +504,7 @@
    getConnectors: () => ({ ...connectors }),
    getSelectedConnector,
    homeConnector:()=>Object.hasOwn(TOOL_SKILLS,getSelectedConnector())?getSelectedConnector():'',
-   isAgentMention:id=>(enabled||getSelectedAgents().length>1)&&['codex','claude','claudecode','antigravity','connector','dragontac','tac'].includes(id.toLowerCase())
+   isAgentMention:id=>(enabled||getSelectedAgents().length>1)&&[...DESKTOP_IDS,'claude','connector','dragontac','tac'].includes(id.toLowerCase())
  };
 
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();

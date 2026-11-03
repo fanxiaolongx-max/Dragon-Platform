@@ -4104,3 +4104,70 @@ body.uiv-modal-open { overflow: hidden; }
         justify-content: center;
     }
 }
+
+/* Capture dialogs share the home page's restrained surfaces and readable type. */
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) {
+    --uiv-dialog-bg: #0f172a;
+    --uiv-dialog-soft: #172033;
+    --uiv-dialog-ink: #e2e8f0;
+    --uiv-dialog-muted: #a8b4c5;
+    --uiv-dialog-line: #334155;
+    --uiv-dialog-accent: #6ee7b7;
+}
+#uiv-page.uiv-light-theme {
+    --uiv-dialog-bg: #fff;
+    --uiv-dialog-soft: #f6f8f7;
+    --uiv-dialog-ink: #202a26;
+    --uiv-dialog-muted: #626e68;
+    --uiv-dialog-line: #dce4df;
+    --uiv-dialog-accent: #087f62;
+}
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-site-script-dialog,.uiv-topic-simulator-dialog,.uiv-batch-filter-dialog) {
+    background: var(--uiv-dialog-bg); color: var(--uiv-dialog-ink);
+    border: 1px solid var(--uiv-dialog-line); border-radius: 16px;
+    font-family: inherit; font-size: 14px; line-height: 1.6;
+    box-shadow: 0 24px 72px rgba(18, 32, 25, .18);
+}
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-site-script-header,.uiv-topic-simulator-header,.uiv-batch-filter-header) {
+    background: var(--uiv-dialog-soft); border-color: var(--uiv-dialog-line);
+}
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-site-script-header,.uiv-topic-simulator-header,.uiv-batch-filter-header) h3 {
+    color: var(--uiv-dialog-ink); font-size: 18px; font-weight: 650; letter-spacing: -.3px;
+}
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-site-script-header,.uiv-topic-simulator-header,.uiv-batch-filter-header) p,
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-site-script-origin,.uiv-site-script-empty,.uiv-topic-upload-progress) {
+    color: var(--uiv-dialog-muted); font-size: 13px; line-height: 1.7;
+}
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-site-script-close,.uiv-topic-simulator-close,.uiv-batch-filter-close) {
+    color: var(--uiv-dialog-muted); width: 32px; height: 32px; border-radius: 8px;
+}
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-site-script-close,.uiv-topic-simulator-close,.uiv-batch-filter-close):hover { background: var(--uiv-dialog-line); }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-dialog { width: min(800px, 100%); }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-item { background: var(--uiv-dialog-soft); border-color: var(--uiv-dialog-line); }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-name { color: var(--uiv-dialog-ink); font-size: 14px; font-weight: 600; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-site-script-count,.uiv-topic-analysis-link) { color: var(--uiv-dialog-accent); font-weight: 600; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-notice { background: var(--uiv-dialog-soft); border-color: var(--uiv-dialog-line); color: var(--uiv-dialog-muted); }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-site-script-copy,.uiv-site-script-simulate) {
+    min-width: 88px; min-height: 36px; font-weight: 600; font-size: 12px;
+    background: var(--uiv-dialog-bg); color: var(--uiv-dialog-ink); border-color: var(--uiv-dialog-line);
+}
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-desktop { background: #087f62; color: #fff; border-color: #087f62; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-topic-simulator-root { color: var(--uiv-dialog-ink); background: var(--uiv-dialog-bg); }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule { margin-top: 14px; padding: 14px; border: 1px solid var(--uiv-dialog-line); border-radius: 10px; background: var(--uiv-dialog-soft); }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule strong { color: var(--uiv-dialog-ink); font-size: 14px; font-weight: 600; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule p { margin: 5px 0 0; color: var(--uiv-dialog-muted); font-size: 12px; line-height: 1.65; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule label { display: flex; align-items: center; gap: 8px; color: var(--uiv-dialog-ink); font-size: 13px; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule-interval { margin-top: 12px; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-schedule select { flex: 1; min-width: 0; padding: 8px; border: 1px solid var(--uiv-dialog-line); border-radius: 8px; background: var(--uiv-dialog-bg); color: var(--uiv-dialog-ink); font: inherit; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-batch-filter-item,.uiv-batch-filter-footer) { background: var(--uiv-dialog-soft); border-color: var(--uiv-dialog-line); }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-batch-filter-tools,.uiv-batch-filter-footer) button { background: var(--uiv-dialog-bg); color: var(--uiv-dialog-ink); border-color: var(--uiv-dialog-line); font-weight: 600; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-batch-filter-footer .primary { background: #087f62; border-color: #087f62; color: #fff; }
+#uiv-page .uiv-batch-filter-dialog input { accent-color: #087f62; }
+#uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) :is(.uiv-site-script-dialog,.uiv-topic-simulator-dialog,.uiv-batch-filter-dialog) :is(button,a,input,select):focus-visible { outline: 2px solid var(--uiv-dialog-accent); outline-offset: 3px; }
+#uiv-page.uiv-light-theme :is(.uiv-site-script-overlay,.uiv-topic-simulator-overlay) { background: rgba(32, 42, 38, .28); }
+@media (max-width: 680px) {
+    #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-overlay { padding: 12px; }
+    #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-item { grid-template-columns: 1fr; gap: 10px; }
+    #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-buttons { flex-wrap: wrap; }
+    #uiv-page:is(.uiv-light-theme, :not(.uiv-light-theme)) .uiv-site-script-buttons button { flex: 1; }
+}

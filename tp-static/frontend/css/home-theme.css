@@ -42,7 +42,7 @@ html[data-ui="v2"]:not([data-theme="dark"]) :is(.dc-resume, .home-caps, .home-ca
 }
 html[data-ui="v2"]:not([data-theme="dark"]) .dc-resume { background: var(--v2-accent-soft); border-color: var(--v2-focus); }
 html[data-ui="v2"]:not([data-theme="dark"]) :is(.dc-resume-text b, .dc-resume-question, .home-caps-title, .home-cap-card-name, .dc-tool-name, .dc-approval-path, .dc-think-label, .dc-session-title, .skill-history-title, .skill-history-item-summary) { color: var(--v2-ink); }
-html[data-ui="v2"]:not([data-theme="dark"]) :is(.dc-resume-text small, .dc-spot-where, .home-caps-where, .home-caps-count, .home-cap-card-desc, .dc-tool-args, .dc-tool-state, .dc-session-meta, .dc-session-last, .dc-think-body, .dc-think-phase, .dc-think-time, .dc-history-divider, .dc-resume-banner) { color: var(--v2-ink2); }
+html[data-ui="v2"]:not([data-theme="dark"]) :is(.dc-resume-text small, .dc-spot-where, .home-caps-where, .home-caps-count, .home-cap-card-desc, .dc-tool-args, .dc-tool-state, .dc-session-meta, .dc-session-last, .dc-think-body, .dc-think-phase, .dc-think-time, .dc-history-divider, .dc-history-banner, .dc-resume-banner) { color: var(--v2-ink2); }
 html[data-ui="v2"]:not([data-theme="dark"]) .dc-spot-icon { background: var(--v2-chip); border-color: var(--v2-line); box-shadow: none; }
 html[data-ui="v2"]:not([data-theme="dark"]) :is(.home-cap-card:hover, .home-cap-card:focus-visible) { background: var(--v2-hover); border-color: var(--v2-line-strong); }
 html[data-ui="v2"]:not([data-theme="dark"]) :is(.home-cap-badge, .dc-spot-gem) { color: #36517c; background: #e9eff8; }
@@ -98,7 +98,7 @@ html[data-ui="v2"] :is(button, a, input, textarea):focus-visible { outline: 2px 
     html[data-ui="v2"] .home-main { min-width: 0; padding: 14px 12px; }
     html[data-ui="v2"] body.dc-chatting .home-main { padding: 0; }
     html[data-ui="v2"] body.dc-chatting .dc { margin: 0; border-radius: 0; width: 100%; }
-    html[data-ui="v2"] body.dc-chatting .dc-chat-head { padding-left: 52px; }
+    html[data-ui="v2"] body.dc-chatting .dc-chat-head { padding-left: calc(var(--v2-float-end, 70px) + 12px); }
     html[data-ui="v2"] .home-workspace-panel { position: fixed; inset: 0 0 0 auto; width: min(340px, 92vw); z-index: 1050; }
 }
 
@@ -1443,8 +1443,6 @@ html[data-ui="v2"] .wsp-picker .wsp-picker-actions .wsp-btn.wsp-btn-primary:hove
 html[data-ui="v2"] .wsp-picker .wsp-picker-actions .wsp-btn.wsp-btn-primary:disabled { opacity: .35; }
 
 /* ── 对话内的非纯文本内容（审批卡、文件卡、命令输出、文件下载卡、复制按钮…）：原样式为深色玻璃风，亮色主题改为淡雅浅底 ── */
-/* 消息悬停工具条（复制 / 重试）：桌面 Agent 连续消息的浮动工具条原为深色底 */
-html[data-ui="v2"] .dc-msg--ai.is-continued .dc-msg-tools { background: var(--v2-pop); border: 1px solid var(--v2-line); box-shadow: var(--v2-shadow-hover); }
 html[data-ui="v2"] .dc-msg-icon { color: var(--v2-ink3); }
 html[data-ui="v2"] .dc-msg-icon:hover { background: var(--v2-hover); color: var(--v2-ink); }
 html[data-ui="v2"] .dc-msg-icon.is-done { color: var(--v2-accent); }
@@ -1495,10 +1493,10 @@ html[data-ui="v2"]:not([data-theme="dark"]) :is(.dc-continue-text b, .dc-rewound
 html[data-ui="v2"]:not([data-theme="dark"]) .dc-rewind-btn { border-color: var(--v2-line); background: var(--v2-bg); color: var(--v2-ink2); }
 html[data-ui="v2"]:not([data-theme="dark"]) .dc-rewind-btn:hover { border-color: #f3c27a; color: #b45309; }
 
-/* 回答里的文件下载卡（js/shared/chat-files.js）：浅底细边，图标保留类型色 */
+/* 回答里的文件下载卡（js/shared/chat-files.js）：浅底细边，图标类型色柔和雅致 */
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip { border-color: var(--v2-line); background: var(--v2-bg); color: var(--v2-ink); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
-html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip:hover { border-color: var(--v2-line-strong); }
-html[data-ui="v2"] .ai-file-chip-icon { border-radius: 8px; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip:hover { border-color: var(--v2-line-strong); background: var(--v2-hover); }
+html[data-ui="v2"] .ai-file-chip-icon { border-radius: 8px; background: transparent !important; }
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip a.ai-file-chip-name { color: var(--v2-ink); }
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip-meta { color: var(--v2-ink3); opacity: 1; }
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip a.ai-file-chip-download { border: 1px solid var(--v2-line-strong); background: var(--v2-bg); color: var(--v2-ink); }
@@ -1507,6 +1505,22 @@ html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip.is-missing { opacity: 
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip.is-missing .ai-file-chip-icon { filter: grayscale(1); opacity: .45; }
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-chip.is-missing a.ai-file-chip-name { color: var(--v2-ink3); }
 html[data-ui="v2"]:not([data-theme="dark"]) .ai-md-image img { border-color: var(--v2-line); background: var(--v2-side); }
+
+/* 浅色主题下的 SVG 图标微色调适配 */
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg { color: #475569; --file-paper-bg: #f1f5f9; --file-fold-bg: #e2e8f0; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="sheet"] { color: #059669; --file-paper-bg: #ecfdf5; --file-fold-bg: #d1fae5; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="doc"]   { color: #2563eb; --file-paper-bg: #eff6ff; --file-fold-bg: #dbeafe; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="slide"] { color: #ea580c; --file-paper-bg: #fff7ed; --file-fold-bg: #ffedd5; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="pdf"]   { color: #e11d48; --file-paper-bg: #fff1f2; --file-fold-bg: #ffe4e6; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="md"]    { color: #0891b2; --file-paper-bg: #ecfeff; --file-fold-bg: #cffafe; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="code"]  { color: #7c3aed; --file-paper-bg: #f5f3ff; --file-fold-bg: #ede9fe; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="data"]  { color: #d97706; --file-paper-bg: #fffbeb; --file-fold-bg: #fef3c7; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="db"]    { color: #0d9488; --file-paper-bg: #f0fdfa; --file-fold-bg: #ccfbf1; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="zip"]   { color: #b45309; --file-paper-bg: #fefce8; --file-fold-bg: #fef9c3; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="image"] { color: #059669; --file-paper-bg: #ecfdf5; --file-fold-bg: #d1fae5; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="media"] { color: #db2777; --file-paper-bg: #fdf2f8; --file-fold-bg: #fce7f3; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="text"]  { color: #64748b; --file-paper-bg: #f8fafc; --file-fold-bg: #f1f5f9; }
+html[data-ui="v2"]:not([data-theme="dark"]) .ai-file-svg[data-file-cat="unknown"] { color: #64748b; --file-paper-bg: #f1f5f9; --file-fold-bg: #e2e8f0; }
 
 /* 文件预览面板（工作区内或浮动） */
 html[data-ui="v2"] .ai-file-preview { background: var(--v2-bg); color: var(--v2-ink); }
@@ -1520,3 +1534,82 @@ html[data-ui="v2"]:not([data-theme="dark"]) .dc-msg-body blockquote { color: #3f
 
 /* 对话中整页正好一屏高：只有对话内容区自己滚动，窗口右侧不再常驻一条整页滚动条（原来对话卡片 + 上下留白比一屏多 24px） */
 html[data-ui="v2"] body.dc-chatting .home-main { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+
+/* 工具导入：跟随首页主题的紧凑玻璃面板，只调整导入窗口。 */
+html[data-ui="v2"] #customToolImportModal {
+    padding: 24px; align-items: center;
+    background: rgba(15, 23, 42, .16);
+    -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px);
+}
+html[data-ui="v2"][data-theme="dark"] #customToolImportModal { background: rgba(0, 0, 0, .24); }
+html[data-ui="v2"] #customToolImportModal .tool-import-dialog {
+    display: flex; flex-direction: column; width: min(560px, 100%);
+    max-height: min(720px, calc(100dvh - 48px)); overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--v2-line) 80%, transparent);
+    border-radius: 18px; color: var(--v2-ink);
+    background: color-mix(in srgb, var(--v2-pop) 80%, transparent);
+    -webkit-backdrop-filter: blur(24px) saturate(135%); backdrop-filter: blur(24px) saturate(135%);
+    box-shadow: 0 20px 64px rgba(15, 23, 42, .18), inset 0 1px 0 rgba(255, 255, 255, .12);
+}
+html[data-ui="v2"] #customToolImportModal .tool-import-head { flex: none; padding: 18px 20px 14px; gap: 14px; border-color: var(--v2-line); }
+html[data-ui="v2"] #customToolImportModal .tool-import-title { color: var(--v2-ink); font-size: 19px; font-weight: 650; }
+html[data-ui="v2"] #customToolImportModal .tool-import-subtitle { color: var(--v2-ink2); font-size: 12px; line-height: 1.5; margin-top: 6px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-form { min-height: 0; padding: 16px 20px 20px; overflow-y: auto; scrollbar-width: thin; }
+html[data-ui="v2"] #customToolImportModal .tool-import-close { width: 28px; height: 28px; border-radius: 8px; border-color: var(--v2-line); background: transparent; color: var(--v2-ink2); font-size: 19px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-close:hover { color: var(--v2-ink); background: var(--v2-hover); }
+html[data-ui="v2"] #customToolImportModal .tool-import-file { gap: 12px; padding: 13px 14px; margin-bottom: 16px; border-radius: 12px; border-color: var(--v2-focus); background: color-mix(in srgb, var(--v2-pop) 92%, var(--v2-accent) 8%); }
+html[data-ui="v2"] #customToolImportModal .tool-import-file:is(:hover, .has-file) { border-color: var(--v2-accent); background: var(--v2-accent-soft); }
+html[data-ui="v2"] #customToolImportModal .tool-import-file-icon { font-size: 25px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-file-title { color: var(--v2-ink); font-size: 13px; font-weight: 600; }
+html[data-ui="v2"] #customToolImportModal .tool-import-file-hint { color: var(--v2-ink2); line-height: 1.5; }
+html[data-ui="v2"] #customToolImportModal .tool-import-file-name { color: var(--v2-accent); }
+html[data-ui="v2"] #customToolImportModal .tool-import-fields { grid-template-columns: 68px 1fr; gap: 12px 14px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-field { gap: 5px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-field label { color: var(--v2-ink2); font-weight: 550; }
+html[data-ui="v2"] #customToolImportModal .tool-import-field label span { color: var(--v2-danger); }
+html[data-ui="v2"] #customToolImportModal :is(.tool-import-input, .tool-import-textarea) {
+    border-color: var(--v2-line-strong); border-radius: 9px; padding: 8px 10px;
+    background: var(--v2-bg); color: var(--v2-ink);
+}
+html[data-ui="v2"] #customToolImportModal :is(.tool-import-input, .tool-import-textarea):focus { border-color: var(--v2-accent); box-shadow: 0 0 0 3px var(--v2-accent-soft); }
+html[data-ui="v2"] #customToolImportModal .tool-import-textarea { min-height: 56px; height: 56px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-actions { gap: 8px; margin-top: 16px; }
+html[data-ui="v2"] #customToolImportModal .tool-import-btn { min-width: 80px; padding: 8px 14px; border-radius: 9px; border-color: var(--v2-line-strong); background: color-mix(in srgb, var(--v2-bg) 65%, transparent); color: var(--v2-ink2); }
+html[data-ui="v2"] #customToolImportModal .tool-import-btn.primary { border-color: var(--v2-accent); background: var(--v2-accent); color: var(--v2-bg); }
+html[data-ui="v2"] #customToolImportModal .tool-import-btn:hover:not(:disabled) { filter: none; box-shadow: var(--v2-shadow-hover); }
+html[data-ui="v2"] #customToolImportModal .tool-import-error { color: var(--v2-danger); border-color: color-mix(in srgb, var(--v2-danger) 30%, transparent); background: color-mix(in srgb, var(--v2-danger) 7%, transparent); }
+html[data-ui="v2"] #customToolImportModal :is(.tool-import-progress, .tool-import-ai-status) { color: var(--v2-ink2); }
+html[data-ui="v2"] #customToolImportModal .tool-import-ai-status.success { color: var(--v2-accent); }
+html[data-ui="v2"] #customToolImportModal .tool-import-ai-status.warning { color: #a16207; }
+html[data-ui="v2"][data-theme="dark"] #customToolImportModal .tool-import-ai-status.warning { color: #fbbf24; }
+html[data-ui="v2"] #customToolImportModal progress { accent-color: var(--v2-accent); }
+html[data-ui="v2"] #customToolImportModal :is(button, .tool-import-file):focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
+@media (max-width: 600px) {
+    html[data-ui="v2"] #customToolImportModal { padding: 12px; }
+    html[data-ui="v2"] #customToolImportModal .tool-import-dialog { max-height: calc(100dvh - 24px); border-radius: 16px; }
+    html[data-ui="v2"] #customToolImportModal :is(.tool-import-head, .tool-import-form) { padding-left: 16px; padding-right: 16px; }
+}
+
+/* 新对话首页在深色模式同样使用平台底色，避免旧蓝色面板与插画区域形成色块。 */
+html[data-ui="v2"][data-theme="dark"] body:not(.dc-chatting) #dragonClaw.dc {
+    background: none; border: 0; box-shadow: none;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+
+/* 右侧会话任务：所有卡片和筛选控件使用当前主题，避免深色模式出现白底浅字。 */
+html[data-ui="v2"] .wl-scheduled { background: var(--v2-pop) !important; }
+html[data-ui="v2"] .wl-scheduled:hover { border-color: var(--v2-line-strong) !important; box-shadow: var(--v2-shadow-hover) !important; }
+html[data-ui="v2"] .wl-scheduled-copy small,
+html[data-ui="v2"] .wl-scheduled-hint { color: var(--v2-ink2) !important; }
+html[data-ui="v2"] .wl-schedule-filters button { background: var(--v2-side) !important; }
+html[data-ui="v2"] .wl-schedule-filters button:hover { background: var(--v2-hover) !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-schedule-filters button[aria-pressed="true"] {
+    background: var(--v2-accent-soft) !important; border-color: var(--v2-accent) !important; color: var(--v2-accent) !important;
+}
+html[data-ui="v2"][data-theme="dark"] .wl-scheduled-status { background: rgba(147,197,253,.1) !important; color: #93c5fd !important; border-color: rgba(147,197,253,.3) !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-scheduled-status.is-running { background: rgba(147,197,253,.1) !important; color: #93c5fd !important; border-color: rgba(147,197,253,.3) !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-scheduled-status.is-done { background: rgba(110,231,183,.1) !important; color: #6ee7b7 !important; border-color: rgba(110,231,183,.3) !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-scheduled-status.is-failed { background: rgba(253,164,175,.1) !important; color: #fda4af !important; border-color: rgba(253,164,175,.3) !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-scheduled-status.is-cancelled { background: var(--v2-chip) !important; color: var(--v2-ink2) !important; border-color: var(--v2-line-strong) !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-scheduled-copy .wl-scheduled-issue { color: #fda4af !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-task { background: var(--v2-pop); border-color: var(--v2-line); }

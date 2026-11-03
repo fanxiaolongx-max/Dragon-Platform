@@ -4765,7 +4765,8 @@ window.resetPwd = async function (u) {
 async function renderDesktopAgentSettings(content) {
     if (!window.ToolsDesktopAgentSettings) {
         try {
-            window.desktopAgentSettingsScript ||= new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='./tp-static/frontend/js/shared/desktop-agent-settings.js';script.onload=resolve;script.onerror=()=>{window.desktopAgentSettingsScript=null;reject(new Error('Desktop agent settings failed to load'));};document.head.append(script);});
+            // 带内容版本号加载：无版本号的地址会被浏览器/CDN 缓存数小时，更新后仍显示旧卡片
+            window.desktopAgentSettingsScript ||= loadNavLazyScript('./tp-static/frontend/js/shared/desktop-agent-settings.js','Desktop agent settings failed to load').catch(error=>{window.desktopAgentSettingsScript=null;throw error;});
             await window.desktopAgentSettingsScript;
         } catch(error) { if(content.isConnected)content.textContent=error.message;return; }
     }

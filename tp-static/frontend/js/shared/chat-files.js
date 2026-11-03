@@ -44,13 +44,78 @@
         return `/api/agent-files/raw?path=${encodeURIComponent(cleanPath(filePath))}${download ? '&download=1' : ''}`;
     }
 
+    function fileCategoryOf(ext) {
+        const e = String(ext || '').toLowerCase();
+        if (/^(xlsx?|csv|tsv|xlsm|ods|numbers)$/.test(e)) return 'sheet';
+        if (/^(docx?|wps|odt|rtf|pages)$/.test(e)) return 'doc';
+        if (/^(pptx?|key|odp)$/.test(e)) return 'slide';
+        if (e === 'pdf') return 'pdf';
+        if (/^(md|markdown|mdown)$/.test(e)) return 'md';
+        if (/^(py|js|ts|jsx|tsx|html|htm|css|scss|sass|less|vue|svelte|sh|bash|zsh|sql|java|c|cpp|h|hpp|cs|go|rs|php|rb|swift|kt|kts|lua|pl|r)$/.test(e)) return 'code';
+        if (/^(json|ya?ml|xml|toml|ini|cfg|conf|env|properties)$/.test(e)) return 'data';
+        if (/^(db|sqlite3?|parquet|duckdb)$/.test(e)) return 'db';
+        if (/^(zip|rar|7z|tar|gz|tgz|bz2|xz|iso)$/.test(e)) return 'zip';
+        if (/^(png|jpe?g|gif|webp|svg|ico|bmp|avif|tiff?)$/.test(e)) return 'image';
+        if (/^(mp4|mov|webm|mkv|avi|mp3|wav|flac|m4a|aac|ogg)$/.test(e)) return 'media';
+        if (/^(txt|log|out|err)$/.test(e)) return 'text';
+        return 'unknown';
+    }
+
+    function fileIconSvg(ext) {
+        const cat = fileCategoryOf(ext);
+        let glyph = '';
+        switch (cat) {
+            case 'sheet':
+                glyph = '<rect x="11" y="14" width="10" height="9" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M11 17H21M11 20H21" stroke="currentColor" stroke-width="1.1"/><path d="M15.5 14V23" stroke="currentColor" stroke-width="1.1"/>';
+                break;
+            case 'doc':
+                glyph = '<path d="M11 14H17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M11 17.5H21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M11 20.5H21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M11 23.5H16" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>';
+                break;
+            case 'slide':
+                glyph = '<rect x="10.5" y="13.5" width="11" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M13 19V17M16 19V15.5M19 19V16.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M13.5 24.5L16 21.5L18.5 24.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>';
+                break;
+            case 'pdf':
+                glyph = '<rect x="10.5" y="14.5" width="11" height="8.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><text x="16" y="21" font-family="-apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif" font-size="5.5" font-weight="900" text-anchor="middle" fill="currentColor">PDF</text>';
+                break;
+            case 'md':
+                glyph = '<path d="M10.5 21V15L12.5 17.5L14.5 15V21" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M18.5 15V21M16.5 19L18.5 21L20.5 19" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>';
+                break;
+            case 'code':
+                glyph = '<path d="M13.5 15L11 18.5L13.5 22" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.5 15L21 18.5L18.5 22" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 14L15 23" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>';
+                break;
+            case 'data':
+                glyph = '<path d="M13.5 14.5C12.5 14.5 12 15.3 12 16.5C12 17.5 11 18 10.5 18.5C11 19 12 19.5 12 20.5C12 21.7 12.5 22.5 13.5 22.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/><path d="M18.5 14.5C19.5 14.5 20 15.3 20 16.5C20 17.5 21 18 21.5 18.5C21 19 20 19.5 20 20.5C20 21.7 19.5 22.5 18.5 22.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/>';
+                break;
+            case 'db':
+                glyph = '<ellipse cx="16" cy="14.5" rx="5" ry="2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M11 14.5V18.5C11 19.6 13.2 20.5 16 20.5C18.8 20.5 21 19.6 21 18.5V14.5" stroke="currentColor" stroke-width="1.3"/><path d="M11 18.5V22.5C11 23.6 13.2 24.5 16 24.5C18.8 24.5 21 23.6 21 22.5V18.5" stroke="currentColor" stroke-width="1.3"/>';
+                break;
+            case 'zip':
+                glyph = '<path d="M14.5 13H17.5M14.5 15H17.5M14.5 17H17.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><rect x="14" y="18.5" width="4" height="4" rx="0.8" fill="currentColor"/><path d="M16 22.5V25" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>';
+                break;
+            case 'image':
+                glyph = '<circle cx="18.5" cy="15.5" r="1.3" fill="currentColor"/><path d="M11 22.5L14.5 18L16.8 20.5L18.5 19L21 22.5H11Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/>';
+                break;
+            case 'media':
+                glyph = '<circle cx="16" cy="18.5" r="4.8" fill="none" stroke="currentColor" stroke-width="1.3"/><polygon points="14.8,16.5 18.2,18.5 14.8,20.5" fill="currentColor"/>';
+                break;
+            case 'text':
+                glyph = '<path d="M11 15H21M11 18H21M11 21H18" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>';
+                break;
+            default:
+                glyph = '<path d="M14.2 16C14.2 14.9 15 14 16 14C17 14 17.8 14.8 17.8 15.8C17.8 17 16 17.4 16 19M16 21.8H16.02" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/>';
+                break;
+        }
+        return `<svg viewBox="0 0 32 32" width="34" height="34" class="ai-file-svg" data-file-cat="${cat}" aria-hidden="true"><path class="ai-file-svg-paper" d="M7 4.5C7 3.4 7.9 2.5 9 2.5H19.5L25.5 8.5V27.5C25.5 28.6 24.6 29.5 23.5 29.5H9C7.9 29.5 7 28.6 7 27.5V4.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path class="ai-file-svg-fold" d="M19.5 2.5V8.5H25.5" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>${glyph}</svg>`;
+    }
+
     function chipHtml(rawPath, label) {
         const filePath = cleanPath(unwrap(rawPath));
         if (isImage(filePath)) return imageHtml(fileUrl(filePath), label || baseName(filePath), fileUrl(filePath, true), baseName(filePath));
         const name = baseName(filePath);
         const ext = extOf(filePath);
+        const cat = fileCategoryOf(ext);
         const text = label && label !== filePath ? label : name;
-        return `<span class="ai-file-chip" data-ai-file="${esc(filePath)}" data-ext="${esc(ext)}"><span class="ai-file-chip-icon" aria-hidden="true">${esc((ext || 'file').slice(0, 4).toUpperCase())}</span><span class="ai-file-chip-text"><a class="ai-file-chip-name" href="${esc(fileUrl(filePath))}" title="${esc(String(rawPath))}">${esc(text)}</a><span class="ai-file-chip-meta">${esc(text === name ? '' : name)}</span></span><a class="ai-file-chip-download" href="${esc(fileUrl(filePath, true))}" download="${esc(name)}" title="${esc(t('download'))} ${esc(name)}" aria-label="${esc(t('download'))} ${esc(name)}"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg><span>${esc(t('download'))}</span></a></span>`;
+        return `<span class="ai-file-chip" data-ai-file="${esc(filePath)}" data-ext="${esc(ext)}" data-cat="${esc(cat)}"><span class="ai-file-chip-icon" aria-hidden="true">${fileIconSvg(ext)}</span><span class="ai-file-chip-text"><a class="ai-file-chip-name" href="${esc(fileUrl(filePath))}" title="${esc(String(rawPath))}">${esc(text)}</a><span class="ai-file-chip-meta">${esc(text === name ? '' : name)}</span></span><a class="ai-file-chip-download" href="${esc(fileUrl(filePath, true))}" download="${esc(name)}" title="${esc(t('download'))} ${esc(name)}" aria-label="${esc(t('download'))} ${esc(name)}"><svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 3a1 1 0 0 1 1 1v9.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1Zm-7 15a1 1 0 0 1 1 1v1h12v-1a1 1 0 1 1 2 0v2a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-2a1 1 0 0 1 1-1Z"/></svg><span>${esc(t('download'))}</span></a></span>`;
     }
 
     function imageHtml(src, alt, downloadHref, name) {
@@ -378,20 +443,36 @@
 
     const style = document.createElement('style');
     style.textContent = `
-        .ai-file-chip { display: flex; width: fit-content; align-items: center; gap: 10px; max-width: 100%; margin: 8px 0; padding: 8px 8px 8px 10px; border-radius: 12px; border: 1px solid rgba(125, 211, 252, 0.28); background: rgba(14, 165, 233, 0.08); vertical-align: middle; box-sizing: border-box; line-height: 1.3; }
-        .ai-file-chip-icon { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 9px; font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .02em; color: #fff; background: #64748b; }
-        .ai-file-chip[data-ext^="xls"] .ai-file-chip-icon, .ai-file-chip[data-ext="csv"] .ai-file-chip-icon, .ai-file-chip[data-ext="tsv"] .ai-file-chip-icon { background: #16a34a; }
-        .ai-file-chip[data-ext^="doc"] .ai-file-chip-icon, .ai-file-chip[data-ext="md"] .ai-file-chip-icon, .ai-file-chip[data-ext="txt"] .ai-file-chip-icon { background: #2563eb; }
-        .ai-file-chip[data-ext^="ppt"] .ai-file-chip-icon { background: #ea580c; }
-        .ai-file-chip[data-ext="pdf"] .ai-file-chip-icon { background: #dc2626; }
-        .ai-file-chip[data-ext="zip"] .ai-file-chip-icon, .ai-file-chip[data-ext="7z"] .ai-file-chip-icon, .ai-file-chip[data-ext="rar"] .ai-file-chip-icon, .ai-file-chip[data-ext="gz"] .ai-file-chip-icon { background: #a16207; }
+        .ai-file-chip { display: flex; width: fit-content; align-items: center; gap: 10px; max-width: 100%; margin: 8px 0; padding: 7px 10px 7px 8px; border-radius: 12px; border: 1px solid rgba(148, 163, 184, 0.22); background: rgba(15, 23, 42, 0.55); vertical-align: middle; box-sizing: border-box; line-height: 1.3; transition: border-color .15s, background .15s; }
+        .ai-file-chip:hover { border-color: rgba(148, 163, 184, 0.38); background: rgba(15, 23, 42, 0.75); }
+        .ai-file-chip-icon { flex: none; display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 8px; background: transparent !important; }
+        .ai-file-svg { display: block; width: 34px; height: 34px; overflow: visible; }
+        .ai-file-svg-paper { fill: var(--file-paper-bg, rgba(148, 163, 184, 0.1)); }
+        .ai-file-svg-fold { fill: var(--file-fold-bg, rgba(148, 163, 184, 0.22)); }
+
+        /* Dark Mode 类型微色调（契合深色主题、克制雅致） */
+        .ai-file-svg { color: #94a3b8; --file-paper-bg: rgba(148, 163, 184, 0.1); --file-fold-bg: rgba(148, 163, 184, 0.22); }
+        .ai-file-svg[data-file-cat="sheet"] { color: #34d399; --file-paper-bg: rgba(16, 185, 129, 0.14); --file-fold-bg: rgba(16, 185, 129, 0.26); }
+        .ai-file-svg[data-file-cat="doc"]   { color: #60a5fa; --file-paper-bg: rgba(59, 130, 246, 0.14); --file-fold-bg: rgba(59, 130, 246, 0.26); }
+        .ai-file-svg[data-file-cat="slide"] { color: #fb923c; --file-paper-bg: rgba(249, 115, 22, 0.14); --file-fold-bg: rgba(249, 115, 22, 0.26); }
+        .ai-file-svg[data-file-cat="pdf"]   { color: #f43f5e; --file-paper-bg: rgba(244, 63, 94, 0.14); --file-fold-bg: rgba(244, 63, 94, 0.26); }
+        .ai-file-svg[data-file-cat="md"]    { color: #22d3ee; --file-paper-bg: rgba(6, 182, 212, 0.14); --file-fold-bg: rgba(6, 182, 212, 0.26); }
+        .ai-file-svg[data-file-cat="code"]  { color: #a78bfa; --file-paper-bg: rgba(139, 92, 246, 0.14); --file-fold-bg: rgba(139, 92, 246, 0.26); }
+        .ai-file-svg[data-file-cat="data"]  { color: #fbbf24; --file-paper-bg: rgba(245, 158, 11, 0.14); --file-fold-bg: rgba(245, 158, 11, 0.26); }
+        .ai-file-svg[data-file-cat="db"]    { color: #2dd4bf; --file-paper-bg: rgba(20, 184, 166, 0.14); --file-fold-bg: rgba(20, 184, 166, 0.26); }
+        .ai-file-svg[data-file-cat="zip"]   { color: #f59e0b; --file-paper-bg: rgba(217, 119, 6, 0.14); --file-fold-bg: rgba(217, 119, 6, 0.26); }
+        .ai-file-svg[data-file-cat="image"] { color: #34d399; --file-paper-bg: rgba(16, 185, 129, 0.14); --file-fold-bg: rgba(16, 185, 129, 0.26); }
+        .ai-file-svg[data-file-cat="media"] { color: #f472b6; --file-paper-bg: rgba(236, 72, 153, 0.14); --file-fold-bg: rgba(236, 72, 153, 0.26); }
+        .ai-file-svg[data-file-cat="text"]  { color: #94a3b8; --file-paper-bg: rgba(148, 163, 184, 0.1); --file-fold-bg: rgba(148, 163, 184, 0.22); }
+        .ai-file-svg[data-file-cat="unknown"] { color: #94a3b8; --file-paper-bg: rgba(148, 163, 184, 0.08); --file-fold-bg: rgba(148, 163, 184, 0.2); }
+
         .ai-file-chip-text { display: flex; flex-direction: column; min-width: 0; }
-        .ai-file-chip a.ai-file-chip-name { color: inherit; font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
-        .ai-file-chip a.ai-file-chip-name:hover { text-decoration: underline; }
-        .ai-file-chip-meta { font-size: 12px; opacity: .65; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+        .ai-file-chip a.ai-file-chip-name { color: #f1f5f9; font-weight: 600; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
+        .ai-file-chip a.ai-file-chip-name:hover { text-decoration: underline; color: #38bdf8; }
+        .ai-file-chip-meta { font-size: 11.5px; opacity: .7; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 46ch; }
         .ai-file-chip-meta:empty { display: none; }
-        .ai-file-chip a.ai-file-chip-download { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 600; text-decoration: none; color: #0c4a6e; background: #7dd3fc; }
-        .ai-file-chip a.ai-file-chip-download:hover { background: #bae6fd; }
+        .ai-file-chip a.ai-file-chip-download { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 7px; font-size: 11.5px; font-weight: 600; text-decoration: none; color: #e2e8f0; background: rgba(148, 163, 184, 0.14); border: 1px solid rgba(148, 163, 184, 0.22); }
+        .ai-file-chip a.ai-file-chip-download:hover { background: rgba(148, 163, 184, 0.24); color: #fff; }
         .ai-file-chip.is-missing { opacity: .6; border-style: dashed; }
         .ai-file-chip.is-missing a.ai-file-chip-download { pointer-events: none; opacity: .5; }
         .ai-md-image { display: block; width: fit-content; max-width: 100%; margin: 6px 0; vertical-align: top; }
@@ -412,7 +493,8 @@
             body.ai-file-preview-open.home-sidebar-collapsed.home-mode-chat.dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--ws-rail) minmax(0, 1fr) var(--ai-preview-width, var(--ws-panel-w)); }
         }
         @media (max-width: 860px) {
-            .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h)); width: min(var(--ai-preview-width, 360px), calc(100vw - 32px)); }
+            .home-workspace-panel.has-file-preview,
+            html[data-ui="v2"] .home-workspace-panel.has-file-preview { height: calc(100dvh - var(--navbar-h)); width: min(var(--ai-preview-width, 360px), calc(100vw - 32px)); }
         }
         .ai-file-preview header { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid #94a3b844; }
         .ai-file-preview header strong { flex: 1; min-width: 0; overflow-wrap: anywhere; }

@@ -87,13 +87,18 @@
             filterStatus: '筛选状态', statusAll: '全部状态', statusPinned: '置顶', statusGroup: '讨论组', statusWorkspace: '带工作区',
             filterTime: '筛选时间', timeAll: '全部时间', timeToday: '今天', time7: '最近 7 天', time30: '最近 30 天', filterReset: '重置筛选条件',
             messages: '消息中心', scan: '扫码使用', appearance: '外观', light: '浅色', dark: '深色', version: '版本', service: '服务', checkUpdate: '检查更新',
-            fullAlerts: '完整告警台', markAllRead: '全部已读', filterAll: '全部', filterUnread: '未读', filterWarn: '警告', noMessages: '暂无消息', loadFailed: '读取失败：{e}',
-            view: '查看', markRead: '标为已读', today: '今天', yesterday: '昨天', scanWeixin: '微信助理', scanWelink: 'WeLink 个人身份',
+            clearAll: '全部清除', markAllRead: '全部已读', filterAll: '全部', filterUnread: '未读', filterWarn: '警告', noMessages: '暂无消息', loadFailed: '读取失败：{e}',
+            view: '查看', markRead: '标为已读', today: '今天', yesterday: '昨天', scanWeixin: '微信助理', scanWelink: 'WeLink 本人',
             scanHintWeixin: '用微信扫码，接入微信助理与推送', scanHintWelink: '用 WeLink 扫码，以本人身份与 Dragon Claw 协同办公',
             scanConnecting: '正在连接 WeLink PC…', scanConnectingWeixin: '正在生成微信登录二维码…',
             scanWaitWeLink: '请使用手机 WeLink 扫码登录', scanWaitWeixin: '请使用手机微信扫码并确认',
             scanLoggedInWelink: '已登录 WeLink 个人身份', scanConnectedWeixin: '微信助理已连接',
-            scanRelogin: '重新扫码', scanLogout: '退出登录', scanChannelSettings: '频道设置'
+            scanIntranetOnly: '仅限内网使用', scanIntranetHint: 'WeLink 个人身份仅限华为内网使用。当前网络无法访问 WeLink 内网服务，请连接公司内网或 VPN 后重新检测。',
+            scanWelinkBot: 'WeLink 助理', scanWaitWelinkBot: '请使用手机 WeLink 扫码并确认授权', scanConnectedWelinkBot: 'WeLink 助理已对接',
+            scanRecheck: '重新检测', scanWindowsOnly: '仅支持 Windows', scanWindowsHint: '内置的 welink-cli 只能在 Windows 上运行，并需要本机登录 WeLink PC。',
+            scanRelogin: '重新扫码', scanLogout: '退出登录', scanChannelSettings: '频道设置',
+            channelDisabledNoChannel: '当前未对接任何频道（WeLink / 微信），可在全局设置中对接',
+            channelDisabledNotEnabled: '已配置频道凭据但尚未启用，请在全局设置中开启'
         },
         'en-US': {
             discover: 'Discover', newChat: 'New chat', channels: 'Channels', skills: 'Skills · plugins', schedule: 'Scheduled', library: 'Library',
@@ -110,13 +115,18 @@
             filterStatus: 'Status', statusAll: 'All', statusPinned: 'Pinned', statusGroup: 'Agent group', statusWorkspace: 'With workspace',
             filterTime: 'Time', timeAll: 'Any time', timeToday: 'Today', time7: 'Last 7 days', time30: 'Last 30 days', filterReset: 'Reset filters',
             messages: 'Messages', scan: 'Scan to use', appearance: 'Appearance', light: 'Light', dark: 'Dark', version: 'Version', service: 'Service', checkUpdate: 'Check for updates',
-            fullAlerts: 'Full alert center', markAllRead: 'Mark all read', filterAll: 'All', filterUnread: 'Unread', filterWarn: 'Warnings', noMessages: 'No messages', loadFailed: 'Could not load: {e}',
-            view: 'View', markRead: 'Mark read', today: 'Today', yesterday: 'Yesterday', scanWeixin: 'WeChat Bot', scanWelink: 'WeLink Identity',
+            clearAll: 'Clear all', markAllRead: 'Mark all read', filterAll: 'All', filterUnread: 'Unread', filterWarn: 'Warnings', noMessages: 'No messages', loadFailed: 'Could not load: {e}',
+            view: 'View', markRead: 'Mark read', today: 'Today', yesterday: 'Yesterday', scanWeixin: 'WeChat Bot', scanWelink: 'WeLink (Me)',
             scanHintWeixin: 'Scan with WeChat to connect the assistant and proactive push', scanHintWelink: 'Scan with WeLink to work with Dragon Claw as you',
             scanConnecting: 'Connecting to WeLink PC…', scanConnectingWeixin: 'Generating WeChat QR code…',
             scanWaitWeLink: 'Scan with WeLink mobile to sign in', scanWaitWeixin: 'Scan with WeChat mobile and confirm',
             scanLoggedInWelink: 'Signed in to personal WeLink', scanConnectedWeixin: 'WeChat assistant connected',
-            scanRelogin: 'Re-scan', scanLogout: 'Sign out', scanChannelSettings: 'Channel settings'
+            scanIntranetOnly: 'Intranet only', scanIntranetHint: 'WeLink personal identity works only on the Huawei intranet. This network cannot reach the WeLink intranet service. Connect to the intranet or VPN, then check again.',
+            scanWelinkBot: 'WeLink Bot', scanWaitWelinkBot: 'Scan with WeLink mobile and confirm', scanConnectedWelinkBot: 'WeLink assistant connected',
+            scanRecheck: 'Check again', scanWindowsOnly: 'Windows only', scanWindowsHint: 'The built-in welink-cli runs only on Windows, with WeLink PC signed in on this machine.',
+            scanRelogin: 'Re-scan', scanLogout: 'Sign out', scanChannelSettings: 'Channel settings',
+            channelDisabledNoChannel: 'No channels configured (WeLink / WeChat). Configure them in Global Settings.',
+            channelDisabledNotEnabled: 'Channels configured but not enabled. Please enable them in Global Settings.'
         }
     };
     const lang = () => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'en-US' : 'zh-CN');
@@ -166,15 +176,52 @@
         document.body.appendChild(pop);
         return pop;
     }
-    document.addEventListener('click', event => {
+    function closeOutsidePop(event) {
         if (!openPop) return;
-        if (openPop.pop.contains(event.target) || openPop.anchor.contains(event.target) || linksPanel?.contains(event.target)) return;
+        // 捕获阶段处理，避免正文/工具自身的 stopPropagation 阻止菜单关闭。
+        const path = event.composedPath();
+        if (path.includes(openPop.pop) || path.includes(openPop.anchor) || path.includes(linksPanel)) return;
         closePop();
+    }
+    document.addEventListener('pointerdown', closeOutsidePop, true);
+    document.addEventListener('click', closeOutsidePop, true);
+    // 内嵌工具的点击不会冒泡到首页；焦点进入 iframe 时也收起菜单。
+    window.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (openPop && document.activeElement instanceof HTMLIFrameElement) closePop();
+        }, 0);
     });
     document.addEventListener('keydown', event => { if (event.key === 'Escape') closePop(); });
     window.addEventListener('resize', closePop);
 
     const menuItem = (icon, label, action, hint = '') => `<button type="button" class="v2-pop-item" role="menuitem" data-v2-do="${action}"><span class="v2-ico" data-icon="${icon}"></span><span>${esc(label)}</span>${hint ? `<span class="v2-pop-hint">${esc(hint)}</span>` : ''}</button>`;
+
+    // ── 侧栏导航项悬停提示 ──
+    const navTip = document.createElement('div');
+    navTip.className = 'v2-nav-tip';
+    navTip.setAttribute('role', 'tooltip');
+    document.body.appendChild(navTip);
+    let navTipTimer = 0;
+    function showNavTip(text, anchor) {
+        clearTimeout(navTipTimer);
+        navTip.textContent = text;
+        const rect = anchor.getBoundingClientRect();
+        navTip.style.left = `${rect.right + 8}px`;
+        navTip.style.top = `${rect.top + (rect.height / 2)}px`;
+        navTip.classList.add('is-open');
+    }
+    function hideNavTip() {
+        clearTimeout(navTipTimer);
+        navTip.classList.remove('is-open');
+    }
+    document.addEventListener('mouseover', event => {
+        const item = event.target.closest('.v2-nav-item.is-disabled');
+        if (item && item.dataset.disabledReason) showNavTip(item.dataset.disabledReason, item);
+    });
+    document.addEventListener('mouseout', event => {
+        const item = event.target.closest('.v2-nav-item.is-disabled');
+        if (item) hideNavTip();
+    });
 
     // ── 主导航动作 ──
     const ACTIONS = {
@@ -190,6 +237,14 @@
             queueGroups();
         },
         channels() {
+            const navItem = document.querySelector('.v2-nav-item[data-v2-action="channels"]');
+            if (navItem?.classList.contains('is-disabled')) {
+                const reason = navItem.dataset.disabledReason || navItem.title || t('channelDisabledNoChannel');
+                showNavTip(reason, navItem);
+                clearTimeout(navTipTimer);
+                navTipTimer = setTimeout(hideNavTip, 3000);
+                return;
+            }
             window.HomeMode?.set('chat');
             try { history.replaceState(history.state, '', location.pathname + location.search + '#channels'); } catch { location.hash = '#channels'; }
             const available = (window.HomeWelinkThreads?.channels?.() || []).map(c => c.id);
@@ -211,13 +266,13 @@
         compare() { click('builtinToolsCompareBtn'); },
         links() { openLinks(); },
         alerts() { openMessages(); },
-        fullAlerts() { closeMessages(); window.openAlertCenter?.(); },
-        checkUpdate() { window.openNavSettingsModal?.(); window.switchNavSettingsTab?.('update'); },
+        checkUpdate() { window.ToolsDialogs?.checkUpdate(); },
+        feedback() { window.ToolsDialogs?.feedback(); },
         settings() { window.openNavSettingsModal?.(); },
         language() { window.toggleAppLanguage?.(); },
         theme() { setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); },
         serviceStatus() { window.openServiceStatusModal?.(); },
-        requirements() { location.href = '/requirements'; },
+        requirements() { if (!window.HomeToolFrame?.open?.('/requirements')) location.href = '/requirements'; },
         classic() { try { localStorage.setItem('tools_home_ui', 'v1'); } catch { /* 无痕模式 */ } location.reload(); },
         logout() { window.doLogout?.(); }
     };
@@ -225,6 +280,17 @@
     document.addEventListener('click', event => {
         const el = event.target.closest('[data-v2-action], [data-v2-do]');
         if (!el) return;
+        if (el.classList.contains('is-disabled')) {
+            event.preventDefault();
+            event.stopPropagation();
+            const reason = el.dataset.disabledReason || el.title;
+            if (reason) {
+                showNavTip(reason, el);
+                clearTimeout(navTipTimer);
+                navTipTimer = setTimeout(hideNavTip, 3000);
+            }
+            return;
+        }
         const action = el.dataset.v2Action || el.dataset.v2Do;
         if (action === 'links') { openLinks(el); return; }
         run(action);
@@ -439,8 +505,8 @@
         userPop.innerHTML = `
             <div class="v2-account-card v2-account-head"><span class="v2-avatar v2-avatar-lg"><img src="./tp-static/frontend/assets/logo.png" alt=""></span><strong>${esc(name)}</strong></div>
             <div class="v2-account-card v2-account-stats">
-                <div><small>${esc(t('version'))}</small><strong>${esc(versionText() || '—')}</strong>${admin ? `<button type="button" class="v2-account-btn is-primary" data-v2-do="checkUpdate">${esc(t('checkUpdate'))}</button>` : ''}</div>
-                <div><small>${esc(t('service'))}</small><strong class="v2-account-service"><span class="v2-status-dot${serviceDown() ? ' is-down' : ''}"></span>${esc(serviceText())}</strong><button type="button" class="v2-account-btn" data-v2-do="serviceStatus">${esc(t('serviceStatus'))}</button></div>
+                <div><small>${esc(t('version'))}</small><strong>${esc(versionText() || '—')}</strong></div>
+                <div><small>${esc(t('service'))}</small><button type="button" class="v2-account-service" data-v2-do="serviceStatus" title="${esc(t('serviceStatus'))}" aria-label="${esc(t('serviceStatus'))}"><span class="v2-status-dot${serviceDown() ? ' is-down' : ''}"></span>${esc(serviceText())}</button></div>
             </div>
             <div class="v2-account-card v2-account-list">
                 ${admin ? rowItem('settings', t('settings'), 'settings', mac ? '⌘,' : 'Ctrl+,') : ''}
@@ -448,6 +514,8 @@
                 ${rowItem('language', t('language'), 'language')}
                 ${rowItem('target', t('requirements'), 'requirements')}
                 ${rowItem('compare', t('classic'), 'classic')}
+                ${rowItem('chat', lang() === 'en-US' ? 'Feedback' : '意见反馈', 'feedback')}
+                ${rowItem('refresh', t('checkUpdate'), 'checkUpdate')}
                 <div class="v2-pop-sep"></div>
                 ${rowItem('logout', t('logout'), 'logout')}
             </div>`;
@@ -481,6 +549,13 @@
             status: null,
             qr: null,
             controller: null
+        },
+        // WeLink 助理（Bot SDK 扫码授权）：Channel 默认 GDEClaw，确认后 AK/SK 等由后端保存并直接连接
+        welinkbot: {
+            checking: false,
+            status: null,
+            qr: null,
+            controller: null
         }
     };
     scan.pop.setAttribute('role', 'dialog');
@@ -497,7 +572,14 @@
     scan.abortAll = function () {
         if (scan.welink.controller) { scan.welink.controller.abort(); scan.welink.controller = null; }
         if (scan.weixin.controller) { scan.weixin.controller.abort(); scan.weixin.controller = null; }
+        if (scan.welinkbot.controller) { scan.welinkbot.controller.abort(); scan.welinkbot.controller = null; }
     };
+
+    function loadScanTab() {
+        if (scan.tab === 'welink') loadWelinkStatus({ autoLogin: true });
+        else if (scan.tab === 'welinkbot') loadWelinkBotStatus({ autoQr: true });
+        else loadWeixinStatus({ autoQr: true });
+    }
 
     function ensureQrLib() {
         if (window.ToolsQrCode) return Promise.resolve();
@@ -528,16 +610,16 @@
         return `<div class="v2-scan-qr-box">${content}</div>`;
     }
 
-    async function loadWelinkStatus({ autoLogin = true } = {}) {
+    async function loadWelinkStatus({ autoLogin = true, refresh = false } = {}) {
         scan.welink.checking = true;
         renderScan();
         try {
-            const res = await fetch('/api/channels/welink-cli/status?auth=1', { headers: scanHeaders() });
+            const res = await fetch(`/api/channels/welink-cli/status?auth=1${refresh ? '&refresh=1' : ''}`, { headers: scanHeaders() });
             const data = await res.json().catch(() => ({}));
             if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
             scan.welink.status = data;
             scan.welink.checking = false;
-            if (autoLogin && !data.auth?.loggedIn && data.install?.available) {
+            if (autoLogin && !data.auth?.loggedIn && data.install?.available && data.network?.intranet !== false) {
                 startWelinkLogin();
                 return;
             }
@@ -610,6 +692,12 @@
             return;
         }
         if (msg.type === 'error') {
+            if (msg.code === 'WELINK_CLI_EXTRANET') {
+                // 服务端发现已离开内网：回到「仅限内网」提示
+                scan.welink.status = { ...(scan.welink.status || {}), network: msg.network || { intranet: false } };
+                scan.welink.login = null;
+                return;
+            }
             l.phase = 'failed';
             l.error = msg.error;
             return;
@@ -714,6 +802,168 @@
         } catch (_) {}
     }
 
+    async function loadWelinkBotStatus({ autoQr = true } = {}) {
+        // 切换标签时二维码流已中止，旧二维码不再有效
+        if (!scan.welinkbot.controller) scan.welinkbot.qr = null;
+        scan.welinkbot.checking = true;
+        renderScan();
+        try {
+            const res = await fetch('/api/channels/welink/status', { headers: scanHeaders() });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            scan.welinkbot.status = data;
+            scan.welinkbot.checking = false;
+            if (autoQr && !(data.enabled && data.configured) && data.sdk?.available !== false) {
+                startWelinkBotQr();
+                return;
+            }
+        } catch (err) {
+            scan.welinkbot.checking = false;
+            scan.welinkbot.status = { error: err.message };
+        }
+        renderScan();
+    }
+
+    async function startWelinkBotQr() {
+        if (scan.welinkbot.controller) scan.welinkbot.controller.abort();
+        const controller = new AbortController();
+        scan.welinkbot.controller = controller;
+        scan.welinkbot.qr = { type: 'starting', running: true };
+        renderScan();
+        try {
+            const res = await fetch('/api/channels/welink/qrcode-auth', {
+                method: 'POST',
+                headers: scanHeaders(true),
+                body: JSON.stringify({}),
+                signal: controller.signal
+            });
+            if (!res.ok || !res.body) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    const event = JSON.parse(line);
+                    if (event.type === 'snapshot') {
+                        const snap = event.snapshot || {};
+                        const keepQr = snap.type === 'scanned' ? (scan.welinkbot.qr?.display || null) : (snap.display || null);
+                        scan.welinkbot.qr = { ...snap, display: keepQr, running: !['confirmed', 'cancelled', 'failed', 'expired'].includes(snap.type),
+                            error: snap.type === 'failed' ? (snap.serviceError?.message || snap.serviceError?.error || snap.reasonCode || '') : '' };
+                    }
+                    if (event.type === 'error') {
+                        scan.welinkbot.qr = event.code === 'WELINK_EXTRANET'
+                            ? { type: 'extranet', error: event.error, running: false }
+                            : { type: 'error', error: event.error, running: false };
+                    }
+                    if (event.type === 'done' && event.saved) {
+                        scan.welinkbot.qr = { type: 'confirmed', running: false };
+                        setTimeout(() => {
+                            if (openPop?.pop === scan.pop && scan.tab === 'welinkbot') loadWelinkBotStatus({ autoQr: false });
+                        }, 1200);
+                    }
+                }
+                renderScan();
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') scan.welinkbot.qr = { type: 'error', error: err.message, running: false };
+        }
+        scan.welinkbot.controller = null;
+        renderScan();
+    }
+
+    function renderWelinkBot() {
+        const wb = scan.welinkbot;
+        const settingsBtn = `<button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>`;
+        const qrVal = wb.qr?.display?.weUrl || wb.qr?.display?.qrcode || wb.qr?.qrcode;
+        const qrSvg = () => {
+            if (!qrVal || !window.ToolsQrCode) return '';
+            try { return window.ToolsQrCode.toSvg(qrVal, { scale: 4, border: 2 }); } catch (_) { return ''; }
+        };
+        if (wb.checking) return renderScanRing('正在检查 WeLink 助理状态…', '通过 WeLink 助理 SDK 扫码授权接入');
+        if (wb.qr?.type === 'extranet') {
+            return `<div class="v2-scan-connected">
+                <div class="v2-scan-connected-icon">🌐</div>
+                <div class="v2-scan-connected-title">${esc(t('scanIntranetOnly', '仅限内网使用'))}</div>
+                <div class="v2-scan-connected-meta">${esc(wb.qr.error || t('scanIntranetHint', ''))}</div>
+                <div class="v2-scan-actions">
+                    <button type="button" class="v2-account-btn is-primary" data-scan-action="relogin-welinkbot" style="margin-top:6px">${esc(t('scanRecheck', '重新检测'))}</button>
+                </div>
+            </div>`;
+        }
+        if (wb.qr?.type === 'qrcode_generated' || wb.qr?.type === 'scanned') {
+            const scanned = wb.qr.type === 'scanned';
+            return `
+                ${renderScanQrBox(qrSvg() || '<span class="v2-scan-loading"></span>')}
+                <div class="v2-scan-hint-lead">${esc(scanned ? '已扫码，请在手机 WeLink 上确认授权' : t('scanWaitWelinkBot', '请使用手机 WeLink 扫码并确认授权'))}</div>
+                <div class="v2-scan-hint-sub">Channel ${esc(wb.status?.channelName || 'GDEClaw')} · 确认后自动填入 AK/SK 并连接</div>
+                <div class="v2-scan-status-pill ${scanned ? 'is-pulsing' : ''}">
+                    <span class="v2-scan-dot"></span>
+                    <span>${esc(scanned ? '手机已扫码，正在等待确认授权…' : '等待 WeLink 扫码确认…')}</span>
+                </div>
+                <div class="v2-scan-actions">
+                    <button type="button" class="v2-pop-item" data-scan-action="relogin-welinkbot">${esc(t('scanRelogin', '刷新二维码'))}</button>
+                    ${settingsBtn}
+                </div>`;
+        }
+        if (wb.qr?.type === 'confirmed') {
+            return `<div class="v2-scan-connected">
+                <div class="v2-scan-connected-icon">✅</div>
+                <div class="v2-scan-connected-title">授权成功！</div>
+                <div class="v2-scan-connected-meta">AK/SK 已保存，WeLink 助理正在连接…</div>
+            </div>`;
+        }
+        if (wb.qr && ['error', 'failed', 'expired', 'cancelled'].includes(wb.qr.type)) {
+            const title = wb.qr.type === 'expired' ? '二维码已过期' : (wb.qr.type === 'cancelled' ? '已在手机上取消授权' : 'WeLink 助理接入失败');
+            return `<div class="v2-scan-connected">
+                <div class="v2-scan-connected-icon">⚠️</div>
+                <div class="v2-scan-connected-title">${esc(title)}</div>
+                <div class="v2-scan-connected-meta">${esc(wb.qr.error || '请刷新二维码重试')}</div>
+                <div class="v2-scan-actions">
+                    <button type="button" class="v2-account-btn is-primary" data-scan-action="relogin-welinkbot" style="margin-top:6px">重新获取二维码</button>
+                </div>
+            </div>`;
+        }
+        if (wb.status?.sdk && wb.status.sdk.available === false) {
+            return `<div class="v2-scan-connected">
+                <div class="v2-scan-connected-icon">📦</div>
+                <div class="v2-scan-connected-title">未检测到 WeLink 助理 SDK</div>
+                <div class="v2-scan-connected-meta">${esc(wb.status.sdk.hint || '内置 SDK 缺失，可在频道设置中导入。')}</div>
+                <div class="v2-scan-actions">${settingsBtn}</div>
+            </div>`;
+        }
+        if (wb.status?.enabled && wb.status?.configured && !wb.qr?.running) {
+            const info = wb.status.assistantInfo || {};
+            const state = wb.status.connected ? '在线' : (wb.status.lastError?.message ? `连接异常：${wb.status.lastError.message}` : '正在连接…');
+            return `<div class="v2-scan-connected">
+                <div class="v2-scan-connected-icon">🤖</div>
+                <div class="v2-scan-connected-title">${esc(t('scanConnectedWelinkBot', 'WeLink 助理已对接'))}</div>
+                <div class="v2-scan-connected-account">${esc(info.name || wb.status.channelName || 'GDEClaw')} · ${esc(state)}</div>
+                <div class="v2-scan-connected-meta">${esc(info.desc || '手机 WeLink 中的助理消息由 Dragon Claw 协同回复，可用于主动推送')}</div>
+                <div class="v2-scan-actions">
+                    <button type="button" class="v2-pop-item" data-scan-action="relogin-welinkbot">${esc(t('scanRelogin', '重新扫码'))}</button>
+                    ${settingsBtn}
+                </div>
+            </div>`;
+        }
+        if (wb.status?.error) {
+            return `<div class="v2-scan-connected">
+                <div class="v2-scan-connected-icon">⚠️</div>
+                <div class="v2-scan-connected-title">无法读取 WeLink 助理状态</div>
+                <div class="v2-scan-connected-meta">${esc(wb.status.error)}</div>
+                <div class="v2-scan-actions">
+                    <button type="button" class="v2-account-btn is-primary" data-scan-action="relogin-welinkbot" style="margin-top:6px">重新获取二维码</button>
+                </div>
+            </div>`;
+        }
+        return renderScanRing('正在生成 WeLink 助理授权二维码…', '通过 WeLink 助理 SDK 扫码授权接入');
+    }
+
     async function logoutWelink() {
         try {
             await fetch('/api/channels/welink-cli/logout', { method: 'POST', headers: scanHeaders() });
@@ -723,7 +973,8 @@
 
     function renderScan() {
         const tabs = `<div class="v2-seg v2-scan-tabs" role="tablist">
-            <button type="button" role="tab" aria-selected="${scan.tab === 'welink'}" data-scan-tab="welink">${esc(t('scanWelink', 'WeLink 个人身份'))}</button>
+            <button type="button" role="tab" aria-selected="${scan.tab === 'welink'}" data-scan-tab="welink">${esc(t('scanWelink', 'WeLink 本人'))}</button>
+            <button type="button" role="tab" aria-selected="${scan.tab === 'welinkbot'}" data-scan-tab="welinkbot">${esc(t('scanWelinkBot', 'WeLink 助理'))}</button>
             <button type="button" role="tab" aria-selected="${scan.tab === 'weixin'}" data-scan-tab="weixin">${esc(t('scanWeixin', '微信助理'))}</button>
         </div>`;
 
@@ -741,11 +992,26 @@
                         <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
                     </div>
                 </div>`;
+            } else if (w.status?.install?.unsupported) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">🪟</div>
+                    <div class="v2-scan-connected-title">${esc(t('scanWindowsOnly', '仅支持 Windows'))}</div>
+                    <div class="v2-scan-connected-meta">${esc(t('scanWindowsHint', '内置的 welink-cli 只能在 Windows 上运行，并需要本机登录 WeLink PC。'))}</div>
+                </div>`;
+            } else if (w.status?.network?.intranet === false) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">🌐</div>
+                    <div class="v2-scan-connected-title">${esc(t('scanIntranetOnly', '仅限内网使用'))}</div>
+                    <div class="v2-scan-connected-meta">${esc(t('scanIntranetHint', 'WeLink 个人身份仅限华为内网使用。当前网络无法访问 WeLink 内网服务，请连接公司内网或 VPN 后重新检测。'))}</div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-account-btn is-primary" data-scan-action="recheck-welink" style="margin-top:6px">${esc(t('scanRecheck', '重新检测'))}</button>
+                    </div>
+                </div>`;
             } else if (w.status?.install && !w.status.install.available) {
                 body = `<div class="v2-scan-connected">
                     <div class="v2-scan-connected-icon">📦</div>
                     <div class="v2-scan-connected-title">未检测到 welink-cli</div>
-                    <div class="v2-scan-connected-meta">后续版本将提供项目内置；也可在全局设置中指定 CLI 路径。</div>
+                    <div class="v2-scan-connected-meta">内置的 welink-cli 缺失，可重新安装客户端，或在全局设置中指定 CLI 路径。</div>
                     <div class="v2-scan-actions">
                         <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
                     </div>
@@ -800,6 +1066,8 @@
             } else {
                 body = renderScanRing(w.login?.statusText || t('scanConnecting', '正在连接 WeLink PC…'), '请确保本机 WeLink 客户端处于运行登录状态');
             }
+        } else if (scan.tab === 'welinkbot') {
+            body = renderWelinkBot();
         } else {
             // 微信 (weixin) 标签
             const wx = scan.weixin;
@@ -885,8 +1153,7 @@
                 scan.abortAll();
                 scan.tab = nextTab;
                 renderScan();
-                if (scan.tab === 'welink') loadWelinkStatus({ autoLogin: true });
-                else loadWeixinStatus({ autoQr: true });
+                loadScanTab();
             }
             return;
         }
@@ -896,10 +1163,14 @@
         const act = actionBtn.dataset.scanAction;
         if (act === 'relogin-welink') {
             startWelinkLogin();
+        } else if (act === 'recheck-welink') {
+            loadWelinkStatus({ autoLogin: true, refresh: true });
         } else if (act === 'logout-welink') {
             logoutWelink();
         } else if (act === 'relogin-weixin') {
             startWeixinQr();
+        } else if (act === 'relogin-welinkbot') {
+            startWelinkBotQr();
         } else if (act === 'submit-weixin-verify') {
             const input = scan.pop.querySelector('[data-scan-verify-code]');
             if (input && input.value.trim()) submitWeixinVerify(input.value.trim());
@@ -910,15 +1181,17 @@
         }
     });
 
-    $('v2ScanBtn')?.addEventListener('click', async event => {
+    async function openScan(event) {
         const anchor = event.currentTarget;
-        if (openPop?.pop === scan.pop) return closePop();
+        if (openPop?.pop === scan.pop) return;
         renderScan();
         showPop(scan.pop, anchor, 'up');
         await ensureQrLib().catch(() => {});
-        if (scan.tab === 'welink') loadWelinkStatus({ autoLogin: true });
-        else loadWeixinStatus({ autoQr: true });
-    });
+        if (openPop?.pop !== scan.pop) return;
+        loadScanTab();
+    }
+    $('v2ScanBtn')?.addEventListener('mouseenter', openScan);
+    $('v2ScanBtn')?.addEventListener('click', openScan);
 
     // ── 消息中心：主区整页显示平台告警（沿用 /api/alert-center） ──
     const msg = { el: null, filter: 'all', events: [], error: '' };
@@ -986,7 +1259,15 @@
                     await fetch('/api/alert-center/events/read-all', { method: 'PUT', headers: msgHeaders(true), body: '{}' }).catch(() => {});
                     window.refreshAlertCenterBadge?.(); loadMessages(); return;
                 }
-                if (event.target.closest('[data-msg-full]')) return run('fullAlerts');
+                if (event.target.closest('[data-msg-clear]')) {
+                    const confirmMsg = lang() === 'en-US' ? 'Clear all alert messages?' : '确定清空所有告警消息？';
+                    const ok = window.AppDialog
+                        ? await window.AppDialog.confirm(confirmMsg, { title: lang() === 'en-US' ? 'Clear all' : '全部清除', tone: 'danger', confirmText: lang() === 'en-US' ? 'Clear' : '清空', cancelText: lang() === 'en-US' ? 'Cancel' : '取消' })
+                        : confirm(confirmMsg);
+                    if (!ok) return;
+                    await fetch('/api/alert-center/events/clear-all', { method: 'POST', headers: msgHeaders(true), body: '{}' }).catch(() => {});
+                    window.refreshAlertCenterBadge?.(); loadMessages(); return;
+                }
                 const read = event.target.closest('[data-msg-read]');
                 if (read) {
                     const id = read.closest('[data-id]')?.dataset.id;
@@ -996,7 +1277,7 @@
             });
         }
         msg.el.innerHTML = `<header><span></span><h2>${esc(t('messages'))}</h2><button type="button" class="v2-icon-btn" data-msg-close aria-label="×"><span class="v2-ico" data-icon="close"></span></button></header>
-            <div class="v2-msg-toolbar"><div class="v2-seg">${[['all', t('filterAll')], ['unread', t('filterUnread')], ['warn', t('filterWarn')]].map(([id, label]) => `<button type="button" role="tab" data-msg-filter="${id}" aria-selected="${msg.filter === id}">${esc(label)}</button>`).join('')}</div><span></span><button type="button" class="v2-account-btn" data-msg-all>${esc(t('markAllRead'))}</button><button type="button" class="v2-account-btn" data-msg-full>${esc(t('fullAlerts'))}</button></div>
+            <div class="v2-msg-toolbar"><div class="v2-seg">${[['all', t('filterAll')], ['unread', t('filterUnread')], ['warn', t('filterWarn')]].map(([id, label]) => `<button type="button" role="tab" data-msg-filter="${id}" aria-selected="${msg.filter === id}">${esc(label)}</button>`).join('')}</div><span></span><button type="button" class="v2-account-btn" data-msg-all>${esc(t('markAllRead'))}</button><button type="button" class="v2-account-btn" data-msg-clear>${esc(t('clearAll'))}</button></div>
             <div class="v2-msg-list"><div class="v2-discover-empty">…</div></div>`;
         fillIcons(msg.el);
         msg.el.classList.add('is-open');
@@ -1008,6 +1289,16 @@
         document.body.classList.remove('v2-messages-open');
     }
     document.addEventListener('keydown', event => { if (event.key === 'Escape' && msg.el?.classList.contains('is-open') && !openPop) closeMessages(); });
+    // Dismiss before navigation handlers run: some menus keep the same home mode,
+    // and conversation buttons may stop bubbling at their list container.
+    document.addEventListener('click', event => {
+        if (!msg.el?.classList.contains('is-open')) return;
+        const target = event.target.closest('button, a[href], [role="button"], [role="menuitem"]');
+        if (!target || target.closest('#v2AlertBtn, [data-v2-action="alerts"], [data-v2-do="alerts"], .v2-side-tools')
+            || target.matches('.is-disabled, :disabled, [aria-disabled="true"]')) return;
+        if (target.closest('#homeSidebar') || target.matches('[data-v2-action], [data-v2-do]')) closeMessages();
+    }, true);
+
 
     // 告警数、服务状态、版本号沿用导航栏（导航栏隐藏但仍在运行），这里只做镜像
     function mirrorNavbar() {
@@ -1047,33 +1338,146 @@
             fillIcons(seg);
         });
         const hub = Boolean(window.HomeSkillHub?.isOpen?.());
-        const isChannel = !hub && mode === 'chat' && isChannelSource(activeChatSource());
+        const navItem = document.querySelector('.v2-nav-item[data-v2-action="channels"]');
+        const isChannelDisabled = Boolean(navItem?.classList.contains('is-disabled'));
+        const isChannel = !hub && !isChannelDisabled && mode === 'chat' && isChannelSource(activeChatSource());
         document.querySelectorAll('.v2-nav-item[data-v2-action="newChat"]').forEach(el => el.classList.toggle('is-active', !hub && mode === 'chat' && !isChannel));
         document.querySelectorAll('.v2-nav-item[data-v2-action="channels"]').forEach(el => el.classList.toggle('is-active', isChannel));
         document.querySelectorAll('.v2-nav-item[data-v2-action="skillHub"]').forEach(el => el.classList.toggle('is-active', hub));
     }
+
+    // ── 频道会话入口启用/禁用状态（无对接或未启用时灰色禁用并悬停说明） ──
+    let lastChannelsData = null;
+    function updateChannelsNavState(data) {
+        if (data) lastChannelsData = data;
+        const currentData = data || lastChannelsData || { items: window.HomeWelinkThreads?.channels?.() || [], summary: window.HomeWelinkThreads?.summary?.() || {} };
+        const navItem = document.querySelector('.v2-nav-item[data-v2-action="channels"]');
+        if (!navItem) return;
+        const items = Array.isArray(currentData.items) ? currentData.items : [];
+        const summary = currentData.summary || {};
+        const hasEnabled = items.length > 0;
+        const hasConfigured = Object.values(summary).some(s => s && s.configured);
+
+        if (hasEnabled) {
+            navItem.classList.remove('is-disabled');
+            navItem.removeAttribute('aria-disabled');
+            delete navItem.dataset.disabledReason;
+            navItem.title = t('channels');
+        } else {
+            navItem.classList.add('is-disabled');
+            navItem.setAttribute('aria-disabled', 'true');
+            navItem.classList.remove('is-active');
+            const reasonKey = hasConfigured ? 'channelDisabledNotEnabled' : 'channelDisabledNoChannel';
+            const reason = t(reasonKey);
+            navItem.title = reason;
+            navItem.dataset.disabledReason = reason;
+        }
+        renderModes();
+    }
+    window.addEventListener('tools:channels-updated', event => updateChannelsNavState(event.detail));
     document.addEventListener('click', event => {
         const btn = event.target.closest('[data-v2-mode]');
         if (btn) window.HomeMode?.set(btn.dataset.v2Mode);
     });
     window.addEventListener('home:mode', () => { renderModes(); closeMessages(); });
-    window.addEventListener('home:hub', renderModes);
+    window.addEventListener('home:hub', event => { renderModes(); if (event.detail?.open) closeMessages(); });
+    window.addEventListener('home:tool-frame', event => { if (event.detail?.open) closeMessages(); });
 
     // ── 侧边栏收起 ──
     const SIDE_KEY = 'tools_v2_side';
+    // 鼠标最后的位置：点击收起后浮动按钮正好出现在指针下，不能因此立刻又滑出侧栏
+    let lastPointer = null;
+    document.addEventListener('pointermove', event => { lastPointer = { x: event.clientX, y: event.clientY }; }, { passive: true });
+    let peekArmed = true;
     function setSideCollapsed(collapsed) {
         document.body.classList.toggle('v2-side-collapsed', collapsed);
         try { localStorage.setItem(SIDE_KEY, collapsed ? 'collapsed' : 'open'); } catch { /* 无痕模式 */ }
+        setSidePeek(false);
         const toggle = $('v2SideToggle');
-        if (toggle) { toggle.title = t(collapsed ? 'expand' : 'collapse'); toggle.setAttribute('aria-label', toggle.title); }
+        if (toggle) { toggle.removeAttribute('title'); toggle.setAttribute('aria-label', t(collapsed ? 'expand' : 'collapse')); }
+        floatToggle.setAttribute('aria-label', t('expand'));
+        hideFloatTip();
+        // 收起后指针若已在浮动按钮上：先不滑出，移开再悬停才滑出
+        peekArmed = true;
+        if (collapsed && lastPointer) {
+            const r = floatToggle.getBoundingClientRect();
+            if (lastPointer.x >= r.left && lastPointer.x <= r.right && lastPointer.y >= r.top && lastPointer.y <= r.bottom) peekArmed = false;
+        }
     }
-    const sideExpand = document.createElement('button');
-    sideExpand.type = 'button';
-    sideExpand.className = 'v2-icon-btn v2-side-expand';
-    sideExpand.innerHTML = '<span class="v2-ico" data-icon="sidebar"></span>';
-    sideExpand.addEventListener('click', () => setSideCollapsed(false));
-    document.body.appendChild(sideExpand);
-    $('v2SideToggle')?.addEventListener('click', () => setSideCollapsed(true));
+    const isSideCollapsed = () => document.body.classList.contains('v2-side-collapsed');
+    const shortcutKey = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘B' : 'Ctrl+B';
+
+    // 收起后左上角：侧边栏按钮（悬停临时滑出侧栏，点击恢复）+ 新建对话（任意界面一键新建）
+    const sideFloat = document.createElement('div');
+    sideFloat.className = 'v2-side-float';
+    sideFloat.innerHTML = '<button type="button" class="v2-icon-btn" data-v2-float="toggle"><span class="v2-ico" data-icon="sidebar"></span></button>'
+        + '<button type="button" class="v2-icon-btn" data-v2-float="newChat"><span class="v2-ico" data-icon="chatPlus"></span></button>';
+    document.body.appendChild(sideFloat);
+    fillIcons(sideFloat);
+    const floatToggle = sideFloat.querySelector('[data-v2-float="toggle"]');
+    const floatNew = sideFloat.querySelector('[data-v2-float="newChat"]');
+    floatNew.setAttribute('aria-label', t('newChat'));
+
+    // 深色提示气泡（按钮下方）：名称 + 快捷键
+    const floatTip = document.createElement('div');
+    floatTip.className = 'v2-float-tip';
+    floatTip.setAttribute('role', 'tooltip');
+    document.body.appendChild(floatTip);
+    let floatTipTimer = 0;
+    function showFloatTip(anchor, label, key = '') {
+        clearTimeout(floatTipTimer);
+        floatTipTimer = setTimeout(() => {
+            floatTip.innerHTML = `<span>${esc(label)}</span>${key ? `<kbd>${esc(key)}</kbd>` : ''}`;
+            const rect = anchor.getBoundingClientRect();
+            floatTip.style.top = `${rect.bottom + 6}px`;
+            floatTip.style.left = `${Math.max(6, rect.left + rect.width / 2 - floatTip.offsetWidth / 2)}px`;
+            floatTip.classList.add('is-open');
+        }, 350);
+    }
+    function hideFloatTip() { clearTimeout(floatTipTimer); floatTip.classList.remove('is-open'); }
+    const tipFor = el => el === floatNew ? [t('newChat'), '']
+        : [t(isSideCollapsed() ? 'expand' : 'collapse'), shortcutKey];
+    [floatToggle, floatNew, $('v2SideToggle')].filter(Boolean).forEach(el => {
+        el.addEventListener('mouseenter', () => showFloatTip(el, ...tipFor(el)));
+        el.addEventListener('mouseleave', hideFloatTip);
+        el.addEventListener('click', hideFloatTip);
+    });
+
+    // 悬停浮动的侧边栏按钮：侧栏从左侧滑出（浮层，不挤占内容），移开收回；点击恢复为常驻侧栏
+    const sidebarEl = $('homeSidebar');
+    const wideSide = () => window.matchMedia('(min-width: 861px)').matches;
+    let peekTimer = 0;
+    function setSidePeek(on) {
+        clearTimeout(peekTimer);
+        const next = Boolean(on) && isSideCollapsed() && wideSide();
+        document.body.classList.toggle('v2-side-peek', next);
+        floatToggle?.classList.toggle('is-on', next);
+    }
+    function schedulePeekEnd() {
+        clearTimeout(peekTimer);
+        peekTimer = setTimeout(() => {
+            if (!document.body.classList.contains('v2-side-peek')) return;
+            // 从滑出的侧栏里打开的菜单 / 弹层还在用时先不收
+            if (floatToggle.matches(':hover') || sidebarEl?.matches(':hover') || document.querySelector('.v2-pop.is-open, .home-links-pop:not([hidden])')) { schedulePeekEnd(); return; }
+            setSidePeek(false);
+        }, 280);
+    }
+    floatToggle.addEventListener('mouseenter', () => { if (isSideCollapsed() && peekArmed) setSidePeek(true); });
+    floatToggle.addEventListener('mouseleave', () => { peekArmed = true; schedulePeekEnd(); });
+    sidebarEl?.addEventListener('mouseenter', () => { if (document.body.classList.contains('v2-side-peek')) clearTimeout(peekTimer); });
+    sidebarEl?.addEventListener('mouseleave', () => { if (document.body.classList.contains('v2-side-peek')) schedulePeekEnd(); });
+    floatToggle.addEventListener('click', () => setSideCollapsed(false));
+    floatNew.addEventListener('click', () => { setSidePeek(false); run('newChat'); });
+    $('v2SideToggle')?.addEventListener('click', () => setSideCollapsed(!isSideCollapsed()));
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && document.body.classList.contains('v2-side-peek')) setSidePeek(false);
+        // ⌘B / Ctrl+B：收起或恢复侧栏
+        if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'b') {
+            event.preventDefault();
+            setSideCollapsed(!isSideCollapsed());
+        }
+    });
+    window.addEventListener('resize', () => { if (!wideSide()) setSidePeek(false); });
 
     const authHeaders = () => (typeof getAuthHeaderForNav === 'function' ? getAuthHeaderForNav() : { Authorization: `Bearer ${localStorage.getItem('tools_token') || ''}` });
     const getJson = async url => { const res = await fetch(url, { headers: authHeaders(), cache: 'no-store' }); return res.ok ? res.json() : null; };
@@ -1381,7 +1785,7 @@
             ['schedule', 'Scheduled', ['/schedule every weekday at 9am summarise yesterday’s alerts', '/schedule every Monday send last week’s metric report to WeChat', '/schedule on the 1st remind me to import last month’s data']]
         ]
     };
-    const quick = { scene: '', scenesEl: null, suggestEl: null, recent: [] };
+    const quick = { scene: '', scenesEl: null, suggestEl: null, illustration: null, recent: [] };
     function fillInput(text) {
         const input = $('dcInput');
         if (!input) return;
@@ -1392,8 +1796,21 @@
     }
     function recentQuestions() {
         const titles = [...document.querySelectorAll('#homeChatList [data-question]')].map(el => el.dataset.question.trim());
-        const list = titles.length ? titles : quick.recent;
-        return [...new Set(list.filter(title => title.length >= 4 && !/^@/.test(title)))].slice(0, 4);
+        const matchesLanguage = title => lang() === 'en-US'
+            ? /[A-Za-z]/.test(title) && !/[^\p{Script=Latin}\p{M}\p{N}\p{P}\p{S}\p{Z}\s]/u.test(title)
+            : /\p{Script=Han}/u.test(title);
+        return [...new Set([...titles, ...quick.recent].filter(title => title.length >= 4 && !/^@/.test(title) && matchesLanguage(title)))].slice(0, 4);
+    }
+    function updateSuggestionFade() {
+        if (!quick.suggestEl || !quick.illustration?.isConnected) return;
+        const art = quick.illustration.getBoundingClientRect();
+        for (const item of quick.suggestEl.querySelectorAll('.v2-suggest-item')) {
+            const box = item.getBoundingClientRect();
+            const fades = art.width > 0 && box.width > 240 && box.right > art.left + 40;
+            item.classList.toggle('is-fading', fades);
+            if (fades) item.style.setProperty('--suggest-fade-start', `${Math.max(100, Math.min(box.width - 80, art.left - box.left))}px`);
+            else item.style.removeProperty('--suggest-fade-start');
+        }
     }
     function renderQuick() {
         const composer = $('dcComposer');
@@ -1430,12 +1847,13 @@
             window.addEventListener('tools:languagechange', clearPreview);
 
             composer.after(quick.suggestEl);
+            new ResizeObserver(updateSuggestionFade).observe(quick.suggestEl);
             const mascot = document.createElement('img');
             mascot.className = 'v2-mascot';
-            mascot.src = './tp-static/frontend/assets/logo.png';
+            mascot.src = './tp-static/frontend/assets/mascot-perched.png';
             mascot.alt = '';
             mascot.setAttribute('aria-hidden', 'true');
-            quick.scenesEl.appendChild(mascot);
+            composer.appendChild(mascot);
             quick.scenesEl.addEventListener('click', event => {
                 const chip = event.target.closest('[data-scene]');
                 if (!chip) return;
@@ -1448,7 +1866,6 @@
             });
         }
         const scenes = SCENES[lang()];
-        const mascot = quick.scenesEl.querySelector('.v2-mascot');
         quick.scenesEl.replaceChildren(...scenes.map(([id, label]) => {
             const chip = document.createElement('button');
             chip.type = 'button';
@@ -1456,12 +1873,17 @@
             chip.dataset.scene = id;
             chip.textContent = label;
             return chip;
-        }), mascot);
+        }));
         const scene = scenes.find(([id]) => id === quick.scene);
-        const items = scene ? scene[2] : recentQuestions();
-        const title = scene ? t('suggested') : t('recentAsked');
+        const recent = recentQuestions();
+        const defaults = ['analysis', 'monthly', 'script', 'schedule'].map(id => scenes.find(scene => scene[0] === id)[2][0]);
+        const items = scene ? scene[2] : (recent.length ? recent : defaults);
+        const title = scene || !recent.length ? t('suggested') : t('recentAsked');
+        quick.illustration ||= document.querySelector('.v2-agent-illustration');
         quick.suggestEl.innerHTML = items.length ? `<div class="v2-suggest-cap">${esc(title)}</div>${items.map(text => `<button type="button" class="v2-suggest-item" data-fill="${esc(text)}"><span>${esc(text)}</span><span class="v2-ico" data-icon="arrowUpRight"></span></button>`).join('')}` : '';
+        if (items.length && quick.illustration) quick.suggestEl.appendChild(quick.illustration);
         fillIcons(quick.suggestEl);
+        requestAnimationFrame(updateSuggestionFade);
         const input = $('dcInput');
         if (input) {
             input.dataset.v2Placeholder ||= input.placeholder;
@@ -1473,7 +1895,7 @@
         try {
             const data = await getJson('/api/ai/sessions?mine=1&pagePath=%2F&limit=40&query=');
             quick.recent = (data?.items || []).map(item => String(item.firstQuestion || item.lastQuestion || item.title || '').trim()).filter(Boolean);
-        } catch { /* 没有历史时只显示场景标签 */ }
+        } catch { /* 没有匹配历史时使用当前语言的平台能力推荐 */ }
         renderQuick();
     }
     window.addEventListener('home:conversation-list-changed', () => { if (!quick.scene) renderQuick(); });
@@ -1491,6 +1913,8 @@
         watchNavbar();
         mirrorNavbar();
         renderModes();
+        updateChannelsNavState();
+        getJson('/api/channels/available').then(data => { if (data) updateChannelsNavState(data); }).catch(() => {});
         if (activeChatSource() === 'agents') window.HomeWelinkThreads?.setSource?.('mine');
         renderQuick();
         loadRecentQuestions();
@@ -1498,6 +1922,14 @@
     }
     window.addEventListener('hashchange', () => {
         if (location.hash === '#channels') {
+            const navItem = document.querySelector('.v2-nav-item[data-v2-action="channels"]');
+            if (navItem?.classList.contains('is-disabled')) {
+                try { history.replaceState(history.state, '', location.pathname + location.search); } catch { location.hash = ''; }
+                window.HomeWelinkThreads?.setSource?.('mine');
+                renderModes();
+                queueGroups();
+                return;
+            }
             const tabs = [...document.querySelectorAll('.home-chat-tabs [data-chat-source]')].map(el => el.dataset.chatSource);
             const channel = ['welink', 'weixin'].find(id => tabs.includes(id)) || 'welink';
             window.HomeWelinkThreads?.setSource?.(channel, { openLatest: true });
@@ -1505,9 +1937,16 @@
         renderModes();
         queueGroups();
     });
-    window.addEventListener('tools:languagechange', () => { applyText(); mirrorNavbar(); renderQuick(); if (openPop?.pop === discover.pop) renderDiscover(); });
+    window.addEventListener('tools:languagechange', () => {
+        applyText();
+        mirrorNavbar();
+        renderQuick();
+        if (!quick.scene) loadRecentQuestions();
+        updateChannelsNavState();
+        if (openPop?.pop === discover.pop) renderDiscover();
+    });
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();
 
-    window.HomeV2 = { setTheme, closePop, fillIcons, openLinks };
+    window.HomeV2 = { setTheme, closePop, fillIcons, openLinks, updateChannelsNavState };
 })();

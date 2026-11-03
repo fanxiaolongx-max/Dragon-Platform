@@ -230,6 +230,36 @@ body.dc-chatting .dc-feature-link { display: none; }
 .dc-attach:hover, .dc-attach:focus-visible { border-color: rgba(148, 163, 184, 0.22); color: var(--dc-text); }
 .dc-composer.is-dropping { border-color: var(--dc-accent); box-shadow: 0 0 0 3px rgba(100, 255, 218, 0.14); }
 .dc-msg-attachments { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+/* 同一条提问：单图用较大预览，多图统一成缩略图；留白保持原图完整。 */
+.dc-msg-attachments:has(> .ai-md-image):not(:has(> .ai-md-image ~ .ai-md-image)) {
+    width: 320px;
+    max-width: 100%;
+    margin-left: auto;
+}
+/* Agent 附件跟随左侧回复；用户上传的附件仍沿用右侧布局。 */
+.dc-msg--ai .dc-msg-attachments { justify-content: flex-start; }
+.dc-msg--ai .dc-msg-attachments:has(> .ai-md-image):not(:has(> .ai-md-image ~ .ai-md-image)) { margin-left: 0; }
+.dc-msg-attachments > .ai-md-image:not(.is-missing) {
+    width: min(320px, 100%);
+    aspect-ratio: 8 / 5;
+    margin: 0;
+    flex: 0 1 320px;
+    min-width: 0;
+}
+.dc-msg-attachments > .ai-md-image:not(.is-missing) img {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: none;
+    object-fit: contain;
+}
+.dc-msg-attachments:has(> .ai-md-image ~ .ai-md-image) > .ai-md-image:not(.is-missing) {
+    width: min(144px, 100%);
+    flex-basis: 144px;
+    aspect-ratio: 4 / 3;
+}
+
 .dc-model { position: relative; flex: none; }
 .dc-model[hidden], .dc-model-menu[hidden] { display: none; }
 .dc-model-btn {
@@ -867,6 +897,8 @@ body.dc-chatting .dc-composer {
 .dc-msg-speed { display: inline-flex; align-items: center; height: 24px; color: var(--dc-faint); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; cursor: help; }
 :is(.dc-msg-model, .dc-msg-usage) + .dc-msg-speed::before { content: '·'; margin-right: 6px; }
 .dc-msg-tools .dc-msg-model { padding-right: 0; }
+/* 连续回复的中间段落只保留复制，统计集中在完成后的最后一条回复。 */
+.dc-msg--ai:is(.is-continued, .is-writing) .dc-msg-tools :is(.dc-msg-model, .dc-msg-usage, .dc-msg-speed) { display: none; }
 @media (hover: none) { .dc-msg-tools { opacity: 1; } }
 /* 历史消息渐进加载：顶部哨兵 */
 .dc-history-more { display: block; margin: 0 auto 20px; padding: 5px 12px; border: 1px solid var(--dc-border); border-radius: 999px; background: transparent; color: var(--dc-faint); font: inherit; font-size: 11.5px; cursor: pointer; }
@@ -973,17 +1005,27 @@ body.dc-chatting .dc-composer {
 
 /* ── 接着上次对话 ─────────────────────────────── */
 .dc-resume {
+    position: relative;
     display: flex;
     align-items: center;
     gap: 12px;
     width: min(var(--dc-col, 760px), 100%);
     margin-top: 14px;
-    padding: 11px 12px 11px 14px;
+    padding: 11px 40px 11px 14px;
     border: 1px solid rgba(100, 255, 218, 0.22);
     border-radius: 14px;
     background: rgba(100, 255, 218, 0.045);
     text-align: left;
 }
+.dc-resume-dismiss {
+    position: absolute; top: 5px; right: 5px;
+    display: grid; place-items: center; width: 24px; height: 24px;
+    padding: 0; border: 0; border-radius: 7px;
+    background: transparent; color: inherit; font: inherit; font-size: 20px;
+    line-height: 1; opacity: .65; cursor: pointer;
+}
+.dc-resume-dismiss:hover { opacity: 1; background: rgba(148, 163, 184, .16); }
+.dc-resume-dismiss:focus-visible { opacity: 1; outline: 2px solid currentColor; outline-offset: 1px; }
 .dc-resume[hidden] { display: none; }
 .dc-resume-icon { display: grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 50%; background: rgba(100, 255, 218, 0.12); color: var(--dc-accent); font-size: 16px; }
 .dc-resume-text { display: grid; flex: 1; gap: 2px; min-width: 0; }
@@ -1035,6 +1077,9 @@ body.dc-chatting .dc-composer {
 .dc-slash-item.is-active, .dc-slash-item:focus-visible { background: rgba(100, 255, 218, 0.08); color: #e6fffa; outline: none; }
 .dc-slash-item.is-active { box-shadow: inset 2px 0 0 var(--dc-accent, #64ffda); }
 .dc-slash-item b { min-width: 74px; color: var(--dc-accent, #64ffda); font: 600 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.dc-recall-item { width: 100%; min-width: 0; }
+.dc-recall-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-recall-title { padding-top: 2px; padding-bottom: 4px; }
 .dc-slash-hint { padding: 4px 10px 2px; color: var(--dc-faint, #64748b); font-size: 11px; }
 
 /* ── /session 历史会话 ────────────────────────── */

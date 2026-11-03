@@ -50,26 +50,35 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
-            animation: desktopDlBannerIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+            animation: desktopDlBannerIn 0.5s linear both;
             transform-origin: top right;
             transition: opacity 0.24s ease, transform 0.24s ease, filter 0.24s ease;
             user-select: none;
             font-family: inherit;
         }
+        /* 作者样式里的 display:flex 会盖过 hidden 属性，隐藏时必须显式 display:none，否则淡出后又冒出来 */
+        .desktop-dl-banner[hidden], .desktop-dl-fab[hidden] { display: none !important; }
+        /* 消失：向右滑出，起步慢、越走越快（ease-in），快到终点才淡出 */
         .desktop-dl-banner.is-hiding {
+            animation: none; /* 入场动画 fill:both 会一直占住 transform，挡住滑出过渡 */
             opacity: 0;
-            transform: translateY(-10px) scale(0.96);
+            transform: translateX(calc(100% + 40px));
             pointer-events: none;
+            transition: transform 0.42s cubic-bezier(0.55, 0, 1, 0.45), opacity 0.42s cubic-bezier(0.7, 0, 1, 0.5);
         }
         .desktop-dl-banner.is-collapsing {
+            animation: none;
             opacity: 0;
             transform: translate(60px, 120px) scale(0.5);
             pointer-events: none;
             transition: opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1), transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
         }
+        /* 出现：从右侧向左滑入，逐渐加速，冲过一点点再落定 */
         @keyframes desktopDlBannerIn {
-            0% { opacity: 0; transform: translateY(-16px) scale(0.95); filter: blur(4px); }
-            100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+            0% { opacity: 0; transform: translateX(calc(100% + 40px)); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5); }
+            30% { opacity: 1; }
+            78% { transform: translateX(-6px); animation-timing-function: cubic-bezier(0.2, 0.6, 0.35, 1); }
+            100% { opacity: 1; transform: translateX(0); }
         }
 
         .desktop-dl-header {
@@ -598,8 +607,27 @@
 
         document.body.appendChild(div);
         fabEl = div;
+        syncFabPlacement();
         return div;
     }
+
+    function syncFabPlacement(rect) {
+        if (!fabEl) return;
+        const targetRect = rect || document.querySelector('.ai-fab')?.getBoundingClientRect();
+        if (targetRect) {
+            const h = fabEl.offsetHeight || 48;
+            let targetTop = Math.round(targetRect.top - h - 10);
+            if (targetTop < 56) {
+                targetTop = Math.round(targetRect.bottom + 10);
+            }
+            fabEl.style.setProperty('top', `${targetTop}px`, 'important');
+            fabEl.style.setProperty('bottom', 'auto', 'important');
+        }
+    }
+
+    window.addEventListener('tools:ai-fab-position', (e) => {
+        syncFabPlacement(e?.detail?.rect);
+    });
 
     function getCurrentDl() {
         if (!state.latestId) return null;
@@ -616,6 +644,7 @@
             }, 260);
         }
         createFab();
+        syncFabPlacement();
         fabEl.hidden = false;
         fabEl.classList.remove('is-hiding');
         render();
@@ -652,7 +681,7 @@
             setTimeout(() => {
                 bannerEl.hidden = true;
                 bannerEl.classList.remove('is-hiding');
-            }, 240);
+            }, 420);
         }
         if (fabEl) {
             fabEl.classList.add('is-hiding');
