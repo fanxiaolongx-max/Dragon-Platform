@@ -67,6 +67,7 @@ Tools Platform 是一个本地/内网质量运营工具中台：
 
 ## 前端规则
 
+- 工具主题与平台主题解耦：普通工具固定亮色，原生暗色展示工具固定暗色；统一由 `asset-versioning.js` 和 `platform-theme.js` 注入，输入框等原生控件同样固定。新增原生暗色工具可用 `tools-tool-theme` meta 明确声明；不要读取平台 `tools_theme` 来重染工具。
 - 保持原生多页结构；共享能力优先放在 `frontend/js/shared/` 或共享 CSS，业务逻辑留在对应模块。
 - 不要在 HTML 中手写 `?v=` 缓存版本：服务端 `backend/models/asset-versioning.js` 会按文件内容自动追加哈希（`tests/asset-versioning.test.js` 会拦截手写版本）。`/custom-tools/<slug>/` 下的内置工具页面同样如此，F12 打包器的 `index.html` 与 `builtin-catalog.js` 也受该测试约束。
 - 修改 shared 资源时，用 `rg` 找全部引用页，不要只更新当前页面。

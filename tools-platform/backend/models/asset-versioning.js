@@ -127,14 +127,31 @@ function versionAssetUrls(html, { publicDir, baseDir } = {}) {
     return versionModuleDependencies(versioned, { publicDir, baseDir });
 }
 
-// 工具页跟随平台亮 / 暗主题（frontend/js/shared/platform-theme.js），放在 <head> 最前面，先于页面样式生效
-// 同时带上全平台统一的细滚动条（frontend/js/shared/elegant-scrollbars.js）
-const PLATFORM_THEME_TAG = '<script src="/js/shared/platform-theme.js"></script><script src="/js/shared/elegant-scrollbars.js"></script>';
-function injectPlatformTheme(html) {
-    const source = String(html);
-    if (source.includes('/js/shared/platform-theme.js')) return source;
+// 工具采用固定主题，平台首页切换只影响外层。原生暗色展示页按设计保留暗色。
+const NATIVE_DARK_TOOL_PATHS = new Set([
+    'pages/bigscreen.html', 'pages/project-evolution.html', 'pages/storage.html',
+    'pages/desktop-license-admin.html', 'pages/privacy.html', 'pages/terms.html',
+    'custom-tools/particle-effects', 'custom-tools/tool-msh8aro4'
+]);
+function toolThemeForPath(toolPath = '', html = '') {
+    for (const [tag] of String(html).matchAll(/<meta\b[^>]*>/gi)) {
+        if (!/\bname\s*=\s*["']tools-tool-theme["']/i.test(tag)) continue;
+        const explicit = /\bcontent\s*=\s*["'](dark|light)["']/i.exec(tag);
+        if (explicit) return explicit[1].toLowerCase();
+    }
+    const key = String(toolPath).replace(/\\/g, '/').replace(/^\/+/, '');
+    return [...NATIVE_DARK_TOOL_PATHS].some(p => key === p || key.startsWith(p + '/')) ? 'dark' : 'light';
+}
+function injectPlatformTheme(html, { toolPath = '' } = {}) {
+    let source = String(html);
+    const theme = toolThemeForPath(toolPath, source);
+    // 已自行引用运行时的页面也要传入主题，并统一提前到 head 首部，避免旧偏好先影响首屏。
+    source = source.replace(/<script\b[^>]*src=["'][^"']*\/js\/shared\/platform-theme\.js(?:\?[^"']*)?["'][^>]*>\s*<\/script>/gi, '');
+    const tags = versionAssetUrls(`<script src="/js/shared/platform-theme.js" data-tool-theme="${theme}"></script>` +
+        (source.includes('/js/shared/elegant-scrollbars.js') ? '' : '<script src="/js/shared/elegant-scrollbars.js"></script>'),
+        { publicDir: path.join(__dirname, '../../frontend') });
     const head = /<head\b[^>]*>/i.exec(source);
-    return head ? source.slice(0, head.index + head[0].length) + PLATFORM_THEME_TAG + source.slice(head.index + head[0].length) : PLATFORM_THEME_TAG + source;
+    return head ? source.slice(0, head.index + head[0].length) + tags + source.slice(head.index + head[0].length) : tags + source;
 }
 // 首页与登录页自己管理主题
 const THEME_EXEMPT = new Set(['index.html', 'login.html', 'pages/login.html', 'pages/startup.html']);
@@ -149,7 +166,7 @@ function createFrontendHtmlSender(publicDir) {
             return res.status(404).send('Not found');
         }
         if (!res.getHeader('Cache-Control')) res.setHeader('Cache-Control', 'no-cache');
-        if (!THEME_EXEMPT.has(String(relPath).replace(/\\/g, '/').replace(/^\/+/, ''))) html = injectPlatformTheme(html);
+        if (!THEME_EXEMPT.has(String(relPath).replace(/\\/g, '/').replace(/^\/+/, ''))) html = injectPlatformTheme(html, { toolPath: relPath });
         return res.type('html').send(versionAssetUrls(html, { publicDir, baseDir: path.dirname(absPath) }));
     };
 }
@@ -187,6 +204,7 @@ function createImmutableAssetMiddleware(publicDir) {
 
 module.exports = {
     injectPlatformTheme,
+    toolThemeForPath,
     createFrontendHtmlMiddleware,
     createFrontendHtmlSender,
     createImmutableAssetMiddleware,

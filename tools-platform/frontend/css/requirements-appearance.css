@@ -1,0 +1,69 @@
+/* 需求广场的黑白灰视觉层；位于生成的亮色覆盖之后，保持布局和交互契约。 */
+:root { --req-page:#111111; --req-surface:#191919; --req-soft:#252525; --req-ink:#e8e8e8; --req-muted:#a6a6a6; --req-line:#393939; --req-bar:#b8b8b8; }
+:root[data-platform-theme="light"] { --req-page:#fafafa; --req-surface:#fff; --req-soft:#f3f3f3; --req-ink:#242424; --req-muted:#6b6b6b; --req-line:#dfdfdf; --req-bar:#7d7d7d; }
+html:root body { background:var(--req-page)!important; color:var(--req-ink)!important; }
+html:root :is(.req-header,.req-stat-card,.req-stats-rail,.req-card,.req-pagination,.modal-content) { background:var(--req-surface)!important; border:1px solid var(--req-line)!important; box-shadow:none!important; backdrop-filter:none; }
+html:root .req-header { padding:24px 28px; border-radius:14px; }
+html:root .req-header h1 { display:flex; align-items:center; gap:10px; background:none; -webkit-text-fill-color:var(--req-ink); color:var(--req-ink); font-size:25px; font-weight:650; }
+html:root .req-header h1 > span:last-child { color:var(--req-muted)!important; -webkit-text-fill-color:var(--req-muted); font-size:11px!important; }
+.req-line-icon { display:inline-block; width:18px; height:18px; flex:none; vertical-align:middle; }
+.req-header h1 > .req-line-icon { width:24px; height:24px; }
+html:root :is(.req-header p,.req-desc,.req-meta,.req-meta span,.req-footer,.stat-card-copy small,.stat-rail-heading small,.stat-flow-item em,.stat-category-item b,.stat-category-item em,.stat-rail-foot span,.stat-empty,.pagination-summary,.req-description-meta,.log-time,.log-remark,.log-content,.step-duration) { color:var(--req-muted)!important; }
+html:root :is(.stat-card-copy strong,.stat-rail-heading strong,.stat-flow-item b,.stat-category-item strong,.stat-rail-foot strong,.req-title,.modal-header h2,.log-operator,.log-action) { color:var(--req-ink)!important; }
+html:root .req-stat-card { --stat-accent:var(--req-ink); min-height:78px; border-radius:12px; animation:none; }
+html:root .stat-card-icon { border:1px solid var(--req-line); background:transparent; color:var(--req-ink); box-shadow:none; border-radius:9px; }
+html:root .stat-card-glow { display:none; }
+html:root .stat-live-dot { border:1px solid var(--req-muted); background:transparent; box-shadow:none!important; animation:none; }
+html:root .stat-orbit-icon { color:var(--req-ink)!important; text-shadow:none!important; animation:none; }
+html:root :is(.stat-flow-item > i,.stat-category-item > i) { background:var(--req-soft)!important; }
+html:root :is(.stat-flow-item u,.stat-category-item u) { background:var(--req-bar)!important; box-shadow:none; }
+html:root :is(.stat-rail-foot,.req-footer,.modal-header,.modal-footer,.timeline) { border-color:var(--req-line)!important; }
+html:root .req-card { border-radius:12px; transition:border-color .16s,background .16s; }
+html:root .req-card:hover { background:var(--req-soft)!important; border-color:var(--req-muted)!important; box-shadow:none!important; }
+html:root .req-card-urgent { border:1.5px solid var(--req-muted)!important; border-left:3px solid var(--req-ink)!important; }
+html:root .req-card-urgent::before { display:none; animation:none; }
+html:root .urgent-badge { display:inline-flex; align-items:center; gap:4px; background:transparent; color:var(--req-ink); border:1px solid var(--req-muted); border-radius:6px; box-shadow:none!important; }
+.urgent-badge .req-line-icon { width:13px; height:13px; }
+html:root .req-status-badge { background:var(--req-soft)!important; color:var(--req-muted)!important; border:1px solid var(--req-line); }
+html:root .status-已拒绝 { border-style:dashed; }
+html:root :is(.status-需求完成,.status-验收完成,.status-需求评价) { color:var(--req-ink)!important; }
+.req-mini-step { display:flex; flex-direction:column; align-items:center; gap:4px; position:relative; width:38px; }
+.req-mini-dot { width:11px; height:11px; border:1px solid var(--req-muted); border-radius:50%; background:var(--req-surface); z-index:2; }
+.req-mini-label { font-size:10px; white-space:nowrap; color:var(--req-muted); }
+.req-mini-step.is-complete .req-mini-dot { background:var(--req-bar); border-color:var(--req-bar); }
+.req-mini-step.is-active .req-mini-dot { background:var(--req-ink); border-color:var(--req-ink); outline:2px solid var(--req-line); outline-offset:2px; }
+.req-mini-step.is-active .req-mini-label { color:var(--req-ink); font-weight:650; }
+.req-mini-line { height:1px; flex:1; min-width:15px; max-width:25px; background:var(--req-line); margin:-16px -4px 0; }
+.req-mini-line.is-complete { background:var(--req-bar); }
+html:root :is(.req-container,.modal-content) :is(.btn,.pagination-btn) { border:1px solid var(--req-line)!important; background:var(--req-surface)!important; color:var(--req-ink)!important; box-shadow:none; }
+html:root :is(.req-container,.modal-content) .btn-primary,html:root .pagination-btn.active { background:var(--req-ink)!important; color:var(--req-surface)!important; border-color:var(--req-ink)!important; }
+html:root :is(.req-container,.modal-content) :is(.btn,.pagination-btn):hover { border-color:var(--req-muted)!important; }
+html:root :is(.req-container,.modal-content) .form-control { border-color:var(--req-line)!important; background:var(--req-surface)!important; color:var(--req-ink)!important; }
+html:root :is(.form-control:focus,.pagination-btn:focus-visible) { border-color:var(--req-muted)!important; box-shadow:0 0 0 3px var(--req-soft); outline:none; }
+html:root .form-group label { color:var(--req-ink)!important; }
+html:root .required { color:var(--req-ink)!important; }
+html:root .urgent-toggle { border-color:var(--req-line)!important; background:var(--req-soft); }
+html:root .urgent-toggle:has(input:checked) { border-color:var(--req-ink)!important; }
+html:root .urgent-toggle input { accent-color:var(--req-ink)!important; }
+html:root .urgent-toggle strong { color:var(--req-ink)!important; }
+html:root .urgent-toggle small { color:var(--req-muted)!important; }
+html:root .flow-step { color:var(--req-muted)!important; }
+html:root .step-circle { background:var(--req-surface)!important; color:var(--req-muted)!important; border-color:var(--req-line)!important; box-shadow:none!important; }
+html:root .flow-step.completed .step-circle { background:var(--req-soft)!important; color:var(--req-ink)!important; border-color:var(--req-muted)!important; }
+html:root .flow-step.active .step-circle { background:var(--req-ink)!important; color:var(--req-surface)!important; border-color:var(--req-ink)!important; }
+html:root .step-line { background:var(--req-line)!important; }
+html:root .step-line.completed { background:var(--req-bar)!important; }
+html:root .close-btn { color:var(--req-muted)!important; }
+html:root .modal-overlay { background:rgba(0,0,0,.25)!important; }
+@media(max-width:600px) { html:root .req-header { padding:18px; } html:root .req-header h1 { font-size:21px; flex-wrap:wrap; } }
+html:root .urgent-toggle { background:var(--req-soft)!important; }
+html:root .urgent-toggle-icon { color:var(--req-ink); background:transparent; box-shadow:none; }
+html:root .log-item { border-color:var(--req-line)!important; }
+html:root .log-content { background:var(--req-soft)!important; border-color:var(--req-line)!important; }
+html:root .log-item::before { background:var(--req-surface)!important; border-color:var(--req-muted)!important; box-shadow:none; }
+html:root .flow-step:is(.active,.completed) .step-label { color:var(--req-ink)!important; }
+html:root .req-card-urgent { animation:none; }
+html:root .req-card:hover { transform:none; }
+html:root .log-item { background:var(--req-soft)!important; }
+html:root .logs-section { border-color:var(--req-line)!important; }
+html:root .logs-section h3 { color:var(--req-muted)!important; }

@@ -11,6 +11,7 @@ const net = require('net');
 const path = require('path');
 const tenant = require('../tenant-context');
 const runtime = require('./runtime');
+const { injectPlatformTheme } = require('../asset-versioning');
 
 const TOKEN_TTL_SECONDS = 12 * 60 * 60;
 const MAX_HTML_BYTES = 10 * 1024 * 1024;
@@ -179,6 +180,11 @@ function injectShim(html, prefix) {
     return doctype ? html.slice(0, doctype.index + doctype[0].length) + tag + html.slice(doctype.index + doctype[0].length) : tag + html;
 }
 
+// 托管应用和静态工具共用固定主题；只改传输中的 HTML，不改用户应用包或沙箱权限。
+function injectAppRuntime(html, prefix, slug) {
+    return injectPlatformTheme(injectShim(html, prefix), { toolPath: `custom-tools/${slug}` });
+}
+
 function rewriteLocation(value, port, prefix, requestPath) {
     try {
         const resolved = new URL(value, `http://127.0.0.1:${port}${requestPath}`);
@@ -305,7 +311,7 @@ function handler(req, res) {
                 chunks.push(chunk);
             });
             response.on('end', () => {
-                const body = Buffer.from(injectShim(require('./adc-bridge').adaptHtml(Buffer.concat(chunks).toString('utf8'), prefix), prefix), 'utf8');
+                const body = Buffer.from(injectAppRuntime(require('./adc-bridge').adaptHtml(Buffer.concat(chunks).toString('utf8'), prefix), prefix, slug), 'utf8');
                 res.setHeader('Content-Length', body.length);
                 res.end(body);
             });
@@ -342,4 +348,4 @@ function handleUpgrade(req, socket, head) {
     });
 }
 
-module.exports = { handler, handleUpgrade, issueToken, verifyToken, entryUrl, injectShim, rewriteLocation, SHIM, SANDBOX };
+module.exports = { handler, handleUpgrade, issueToken, verifyToken, entryUrl, injectShim, injectAppRuntime, rewriteLocation, SHIM, SANDBOX };

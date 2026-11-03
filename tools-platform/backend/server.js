@@ -635,7 +635,7 @@ app.get('/custom-tools/:slug/index.html', async (req, res, next) => {
             mtime: stat ? stat.mtime : null,
             filePath,
             tool
-        })), { publicDir: FRONTEND_DIR, baseDir: path.dirname(filePath) }));
+        }), { toolPath: `custom-tools/${tool.slug}` }), { publicDir: FRONTEND_DIR, baseDir: path.dirname(filePath) }));
     } catch (err) {
         next(err);
     }
@@ -661,10 +661,10 @@ app.use('/custom-tools/:slug', async (req, res, next) => {
         try {
             const html = fs.readFileSync(assetPath, 'utf8');
             const stat = fs.existsSync(assetPath) ? fs.statSync(assetPath) : null;
-            return res.type('html').send(assetVersioning.versionAssetUrls(customToolI18nService.injectLanguageRuntime(html, req.params.slug, {
+            return res.type('html').send(assetVersioning.versionAssetUrls(assetVersioning.injectPlatformTheme(customToolI18nService.injectLanguageRuntime(html, req.params.slug, {
                 mtime: stat ? stat.mtime : null,
                 filePath: assetPath
-            }), { publicDir: FRONTEND_DIR, baseDir: path.dirname(assetPath) }));
+            }), { toolPath: `custom-tools/${req.params.slug}/${requestedPath.replace(/^\/+/, '')}` }), { publicDir: FRONTEND_DIR, baseDir: path.dirname(assetPath) }));
         } catch (error) {
             return next(error);
         }

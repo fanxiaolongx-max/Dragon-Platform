@@ -34,6 +34,7 @@ app.whenReady().then(async()=>{
    assert.ok(box.top>=box.suggestTop && box.bottom<=box.suggestBottom+1,'artwork stays inside suggestions');
    assert.ok(box.left>=0&&box.right<=box.width,'artwork fits viewport');
    assert.equal(await run(`(()=>{const m=document.querySelector('.v2-mascot'),a=m.getBoundingClientRect(),c=document.querySelector('#dcComposer').getBoundingClientRect();return m.parentElement.id==='dcComposer'&&Math.abs(a.bottom-c.top)<=4&&a.right<c.right-10&&a.top<c.top})()`),true,'mascot paws rest on input border');
+   if(theme==='dark')assert.equal(await run(`getComputedStyle(document.querySelector('#dragonClaw')).backgroundImage`),'none','dark welcome page uses platform background instead of legacy blue panel');
    const shot=await win.webContents.capturePage();
    // Compare both sides of the image's top-left edge (blank in this artwork).
    const bitmap=shot.toBitmap(),size=shot.getSize();

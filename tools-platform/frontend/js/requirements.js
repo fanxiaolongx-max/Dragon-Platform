@@ -1,7 +1,7 @@
 // ================== 双语切换引擎 ==================
 const REQ_I18N_DICT = {
     "需求管理 - Dragon Claw": "Requirements - Dragon Claw",
-    "🎯 需求管理广场": "🎯 Requirements Plaza",
+    "需求管理广场": "Requirements Plaza",
     "提交、追踪和管理平台新功能与优化需求": "Submit, track, and manage new features and optimizations",
     "默认排序：按进度优先": "Default: Sort by Progress",
     "排序：最近更新时间": "Sort by Recently Updated",
@@ -17,15 +17,15 @@ const REQ_I18N_DICT = {
     "需求标题": "Request Title",
     "页面分类": "Category",
     "请选择分类...": "Select Category...",
-    "🌐 全局通用": "🌐 General",
-    "✨ 新增页面": "✨ New Page",
-    "🏠 工具中台首页": "🏠 Home",
-    "🚀 数据抓取(UIVF12)": "🚀 Data Fetch (UIVF12)",
-    "📊 数据导入(SLA)": "📊 Data Import (SLA)",
-    "📈 报表看板": "📈 Dashboard",
-    "⚡ 一键催办": "⚡ Expedite",
-    "📅 月报页面": "📅 Monthly Report",
-    "🎯 需求管理": "🎯 Requirements",
+    "全局通用": "General",
+    "新增页面": "New Page",
+    "工具中台首页": "Home",
+    "数据抓取(UIVF12)": "Data Fetch (UIVF12)",
+    "数据导入(SLA)": "Data Import (SLA)",
+    "报表看板": "Dashboard",
+    "一键催办": "Expedite",
+    "月报页面": "Monthly Report",
+    "需求管理": "Requirements",
     "简短描述需求的核心目的": "Briefly describe the core purpose",
     "详细说明背景、期望效果等": "Detail the background, expected results, etc.",
     "留空或填写负责人": "Leave blank or enter assignee",
@@ -45,7 +45,7 @@ const REQ_I18N_DICT = {
     "4. 需求完成 (待上线)": "4. Done (Pending Release)",
     "5. 验收完成 (已上线)": "5. Verified (Released)",
     "6. 需求评价 (归档)": "6. Evaluated (Archived)",
-    "❌ 已拒绝 (暂不采纳)": "❌ Rejected",
+    "已拒绝 (暂不采纳)": "Rejected",
     "暂无需求，点击右上角提交一个吧！": "No requests, click top right to submit one!",
     "提交新需求": "Submit New Request",
     "需求详情与管理": "Request Details & Management",
@@ -98,6 +98,21 @@ window.addEventListener('tools:languagechange', (e) => {
 });
 // ==================================================
 
+// 原生线描图标，统一使用 currentColor 适配深浅主题。
+function reqIcon(name) {
+    const paths = {
+        list: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h8M8 17h4"/>',
+        search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>',
+        queue: '<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 4v16M12 9h4M12 13h4"/>',
+        alert: '<path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5M12 17h.01"/>',
+        check: '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+        user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',
+        calendar: '<rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4M17 3v4M3 11h18"/>',
+        tool: '<path d="M14 6a5 5 0 0 0-6 6L3 17a3 3 0 0 0 4 4l5-5a5 5 0 0 0 6-6l-3 3-4-4 3-3Z"/>'
+    };
+    return `<svg class="req-line-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.list}</svg>`;
+}
+
 const ReqApp = {
     requirements: [],
     currentReqId: null,
@@ -105,15 +120,15 @@ const ReqApp = {
     pageSize: 8,
 
     fallbackCategories: [
-        { value: '全局通用', label: '🌐 全局通用' },
-        { value: '新增页面', label: '✨ 新增页面' },
-        { value: '工具中台首页', label: '🏠 工具中台首页' },
-        { value: '数据抓取(UIVF12)', label: '🚀 数据抓取(UIVF12)' },
-        { value: '数据导入(SLA)', label: '📊 数据导入(SLA)' },
-        { value: '报表看板', label: '📈 报表看板' },
-        { value: '一键催办', label: '⚡ 一键催办' },
-        { value: '月报页面', label: '📅 月报页面' },
-        { value: '需求管理', label: '🎯 需求管理' }
+        { value: '全局通用', label: '全局通用' },
+        { value: '新增页面', label: '新增页面' },
+        { value: '工具中台首页', label: '工具中台首页' },
+        { value: '数据抓取(UIVF12)', label: '数据抓取(UIVF12)' },
+        { value: '数据导入(SLA)', label: '数据导入(SLA)' },
+        { value: '报表看板', label: '报表看板' },
+        { value: '一键催办', label: '一键催办' },
+        { value: '月报页面', label: '月报页面' },
+        { value: '需求管理', label: '需求管理' }
     ],
 
     init: async function() {
@@ -147,7 +162,7 @@ const ReqApp = {
             const value = String(category?.value || '').trim();
             if (!value || knownValues.has(value)) return;
             knownValues.add(value);
-            uniqueCategories.push({ value, label: String(category.label || value) });
+            uniqueCategories.push({ value, label: String(category.label || value).replace(/^[^\p{L}\p{N}]+/u, '') });
         });
 
         select.replaceChildren(new Option(tText('请选择分类...', 'Select category...'), '', true, true));
@@ -175,7 +190,7 @@ const ReqApp = {
         this.renderStats();
 
         if (this.requirements.length === 0) {
-            board.innerHTML = `<div style="color: #64748b; grid-column: 1 / -1; text-align: center; padding: 40px;">${tText('暂无需求，点击右上角提交一个吧！', 'No requests, click top right to submit one!')}</div>`;
+            board.innerHTML = `<div style="color: var(--req-muted); grid-column: 1 / -1; text-align: center; padding: 40px;">${tText('暂无需求，点击右上角提交一个吧！', 'No requests, click top right to submit one!')}</div>`;
             pagination.innerHTML = '';
             return;
         }
@@ -220,27 +235,18 @@ const ReqApp = {
 
             let miniFlowHtml = '';
             if (isRejected) {
-                miniFlowHtml = `<div style="color: #ef4444; font-size: 13px; font-weight: bold; border: 1px dashed #ef4444; padding: 4px 12px; border-radius: 12px; background: rgba(239, 68, 68, 0.1);">${tText('❌ 已拒绝采纳', '❌ Rejected')}</div>`;
+                miniFlowHtml = `<div style="color: var(--req-ink); font-size: 13px; font-weight: bold; border: 1px dashed var(--req-ink); padding: 4px 12px; border-radius: 12px; background: var(--req-soft);">${tText('已拒绝采纳', 'Rejected')}</div>`;
             } else {
                 miniFlowHtml = `<div style="display:flex; align-items:center;">`;
                 statuses.forEach((s, idx) => {
                     const isCompleted = idx < currentIndex;
                     const isActive = idx === currentIndex;
-                    let color = '#334155'; // default
-                    let fontColor = '#64748b';
-                    if (isCompleted) { color = '#10b981'; fontColor = '#cbd5e1'; }
-                    if (isActive) { color = '#3b82f6'; fontColor = '#f8fafc'; }
-                    
                     miniFlowHtml += `
-                        <div style="display:flex; flex-direction:column; align-items:center; gap:4px; position:relative; width: 38px;">
-                            <div style="width: 12px; height: 12px; border-radius: 50%; background: ${color}; z-index: 2; ${isActive ? 'box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);' : ''}"></div>
-                            <div style="font-size: 11px; color: ${fontColor}; white-space: nowrap; transform: scale(0.9); ${isActive ? 'font-weight:bold;' : ''}">${tText(s.replace('需求', ''), ['Submit', 'Accept', 'Progressing', 'Done', 'Verify', 'Evaluate'][idx] || s)}</div>
-                        </div>
-                    `;
-                    if (idx < statuses.length - 1) {
-                        const lineBg = idx < currentIndex ? '#10b981' : '#334155';
-                        miniFlowHtml += `<div style="height: 2px; flex: 1; min-width: 15px; max-width: 25px; background: ${lineBg}; margin-top: -16px; margin-left: -4px; margin-right: -4px; z-index: 1;"></div>`;
-                    }
+                        <div class="req-mini-step ${isActive ? 'is-active' : isCompleted ? 'is-complete' : ''}">
+                            <div class="req-mini-dot"></div>
+                            <div class="req-mini-label">${tText(s.replace('需求', ''), ['Submit', 'Accept', 'Progressing', 'Done', 'Verify', 'Evaluate'][idx] || s)}</div>
+                        </div>`;
+                    if (idx < statuses.length - 1) miniFlowHtml += `<div class="req-mini-line ${isCompleted ? 'is-complete' : ''}"></div>`;
                 });
                 miniFlowHtml += `</div>`;
             }
@@ -248,15 +254,15 @@ const ReqApp = {
             card.innerHTML = `
                 <div style="flex: 1; min-width: 0;">
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-                        ${req.urgent ? `<span class="urgent-badge">⚡ ${tText('紧急', 'Urgent')}</span>` : ''}
+                        ${req.urgent ? `<span class="urgent-badge">${reqIcon('alert')} ${tText('紧急', 'Urgent')}</span>` : ''}
                         <h3 class="req-title" style="margin:0; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${this.escapeHTML(req.title)}">${this.escapeHTML(req.title)}</h3>
-                        <span class="req-status-badge" style="background:rgba(255,255,255,0.1); color:#cbd5e1; margin:0;">${this.escapeHTML(req.category || tText('未分类', 'Uncategorized'))}</span>
+                        <span class="req-status-badge" style="background:rgba(255,255,255,0.1); color:var(--req-muted); margin:0;">${this.escapeHTML(req.category || tText('未分类', 'Uncategorized'))}</span>
                     </div>
                     <div class="req-desc" style="margin-bottom: 6px; -webkit-line-clamp: 1;" title="${this.escapeHTML(req.description || tText('无详细描述', 'No description'))}">${this.escapeHTML(req.description || tText('无详细描述', 'No description'))}</div>
-                    <div class="req-meta" style="font-size: 12px; color: #64748b;">
-                        <span>👤 ${this.escapeHTML(req.creator || 'Guest')}</span>
+                    <div class="req-meta" style="font-size: 12px; color: var(--req-muted);">
+                        <span>${reqIcon('user')} ${this.escapeHTML(req.creator || 'Guest')}</span>
                         <span style="margin: 0 6px;">|</span>
-                        <span>📅 ${timeStr}</span>
+                        <span>${reqIcon('calendar')} ${timeStr}</span>
                     </div>
                 </div>
 
@@ -266,7 +272,7 @@ const ReqApp = {
 
                 <div style="width: 130px; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; border-left: 1px dashed rgba(255,255,255,0.1); padding-left: 16px;">
                     <span class="req-status-badge ${statusClass}" style="margin: 0 0 8px 0; width: 100%; text-align: center; box-sizing: border-box;">${tText(req.status, { '提交': 'Submitted', '需求接受': 'Accepted', '需求实现中': 'In Progress', '需求完成': 'Completed', '验收完成': 'Verified', '需求评价': 'Evaluated', '已拒绝': 'Rejected' }[req.status] || req.status)}</span>
-                    ${req.assignee ? `<span style="font-size: 12px; color: #94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;" title="${this.escapeHTML(req.assignee)}">🛠️ ${this.escapeHTML(req.assignee)}</span>` : `<span style="font-size: 12px; color: #64748b; font-style: italic;">${tText('未分配', 'Unassigned')}</span>`}
+                    ${req.assignee ? `<span style="font-size: 12px; color: var(--req-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:110px;" title="${this.escapeHTML(req.assignee)}">${reqIcon('tool')} ${this.escapeHTML(req.assignee)}</span>` : `<span style="font-size: 12px; color: var(--req-muted); font-style: italic;">${tText('未分配', 'Unassigned')}</span>`}
                 </div>
             `;
             board.appendChild(card);
@@ -299,32 +305,32 @@ const ReqApp = {
         }).length;
 
         const topStats = [
-            { icon: '◈', value: total, label: tText('全部需求', 'All requests'), tone: 'blue' },
-            { icon: '⌕', value: submitted, label: tText('Codex 待确认', 'Codex review'), tone: 'violet' },
-            { icon: '◐', value: accepted + implementing, label: tText('实现队列', 'Build queue'), tone: 'cyan' },
-            { icon: '⚡', value: urgent, label: tText('紧急需求', 'Urgent'), tone: 'orange' },
-            { icon: '✓', value: `${completionRate}%`, label: tText('完成率', 'Completion'), tone: 'green' }
+            { icon: 'list', value: total, label: tText('全部需求', 'All requests'), tone: 'blue' },
+            { icon: 'search', value: submitted, label: tText('Codex 待确认', 'Codex review'), tone: 'violet' },
+            { icon: 'queue', value: accepted + implementing, label: tText('实现队列', 'Build queue'), tone: 'cyan' },
+            { icon: 'alert', value: urgent, label: tText('紧急需求', 'Urgent'), tone: 'orange' },
+            { icon: 'check', value: `${completionRate}%`, label: tText('完成率', 'Completion'), tone: 'green' }
         ];
         document.getElementById('reqStatsTop').innerHTML = topStats.map(stat => `
             <article class="req-stat-card stat-tone-${stat.tone}">
-                <span class="stat-card-icon">${stat.icon}</span>
+                <span class="stat-card-icon">${reqIcon(stat.icon)}</span>
                 <span class="stat-card-copy"><strong>${stat.value}</strong><small>${stat.label}</small></span>
                 <span class="stat-card-glow"></span>
             </article>
         `).join('');
 
         const flowGroups = [
-            { label: tText('待评估', 'Awaiting'), value: submitted, color: '#a78bfa' },
-            { label: tText('已接受', 'Accepted'), value: accepted, color: '#60a5fa' },
-            { label: tText('实现中', 'Building'), value: implementing, color: '#22d3ee' },
-            { label: tText('已完成', 'Completed'), value: completed, color: '#34d399' }
+            { label: tText('待评估', 'Awaiting'), value: submitted },
+            { label: tText('已接受', 'Accepted'), value: accepted },
+            { label: tText('实现中', 'Building'), value: implementing },
+            { label: tText('已完成', 'Completed'), value: completed }
         ];
         document.getElementById('reqStatsLeft').innerHTML = `
             <div class="stat-rail-heading"><span class="stat-live-dot"></span><div><small>${tText('实时流程', 'LIVE FLOW')}</small><strong>${tText('交付雷达', 'Delivery radar')}</strong></div></div>
             <div class="stat-flow-list">
                 ${flowGroups.map(group => {
                     const ratio = total ? Math.max(group.value ? 7 : 0, Math.round((group.value / total) * 100)) : 0;
-                    return `<div class="stat-flow-item"><span><em>${group.label}</em><b>${group.value}</b></span><i><u style="width:${ratio}%;background:${group.color}"></u></i></div>`;
+                    return `<div class="stat-flow-item"><span><em>${group.label}</em><b>${group.value}</b></span><i><u style="width:${ratio}%"></u></i></div>`;
                 }).join('')}
             </div>
             <div class="stat-rail-foot"><strong>+${recent}</strong><span>${tText('近 7 天新增', 'new in 7 days')}</span></div>
@@ -734,7 +740,7 @@ const ReqApp = {
 
                 const days = getDays(endTime - startTime);
                 // 确保至少显示0天，或者可以显示详细的停留天数
-                durationText = `<div class="step-duration" style="font-size:10px; color:#64748b; margin-top:2px;">${tText(`停 ${days} 天`, `Stop ${days} days`)}</div>`;
+                durationText = `<div class="step-duration" style="font-size:10px; color:var(--req-muted); margin-top:2px;">${tText(`停 ${days} 天`, `Stop ${days} days`)}</div>`;
             }
 
             let durEl = step.querySelector('.step-duration');
@@ -771,7 +777,7 @@ const ReqApp = {
         container.innerHTML = '';
         
         if (logs.length === 0) {
-            container.innerHTML = `<div style="color:#64748b; font-size:12px;">${tText('暂无日志', 'No logs')}</div>`;
+            container.innerHTML = `<div style="color:var(--req-muted); font-size:12px;">${tText('暂无日志', 'No logs')}</div>`;
             return;
         }
 
@@ -787,7 +793,7 @@ const ReqApp = {
             let actionText = '';
             if (log.old_status && log.new_status && log.old_status !== log.new_status) {
                 const mapEn = { '提交': 'Submitted', '需求接受': 'Accepted', '需求实现中': 'In Progress', '需求完成': 'Completed', '验收完成': 'Verified', '需求评价': 'Evaluated', '已拒绝': 'Rejected' };
-                actionText = `${tText('状态流转：', 'Status: ')}<span style="color:#94a3b8">${tText(log.old_status, mapEn[log.old_status]||log.old_status)}</span> ➔ <span style="color:#34d399">${tText(log.new_status, mapEn[log.new_status]||log.new_status)}</span>`;
+                actionText = `${tText('状态流转：', 'Status: ')}<span style="color:var(--req-muted)">${tText(log.old_status, mapEn[log.old_status]||log.old_status)}</span> ➔ <span style="color:var(--req-ink)">${tText(log.new_status, mapEn[log.new_status]||log.new_status)}</span>`;
             } else {
                 actionText = tText('更新了信息', 'Updated info');
             }

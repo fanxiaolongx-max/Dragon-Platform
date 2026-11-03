@@ -1589,3 +1589,27 @@ html[data-ui="v2"] #customToolImportModal :is(button, .tool-import-file):focus-v
     html[data-ui="v2"] #customToolImportModal .tool-import-dialog { max-height: calc(100dvh - 24px); border-radius: 16px; }
     html[data-ui="v2"] #customToolImportModal :is(.tool-import-head, .tool-import-form) { padding-left: 16px; padding-right: 16px; }
 }
+
+/* 新对话首页在深色模式同样使用平台底色，避免旧蓝色面板与插画区域形成色块。 */
+html[data-ui="v2"][data-theme="dark"] body:not(.dc-chatting) #dragonClaw.dc {
+    background: none; border: 0; box-shadow: none;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+
+/* 右侧会话任务：所有卡片和筛选控件使用当前主题，避免深色模式出现白底浅字。 */
+html[data-ui="v2"] .wl-scheduled { background: var(--v2-pop) !important; }
+html[data-ui="v2"] .wl-scheduled:hover { border-color: var(--v2-line-strong) !important; box-shadow: var(--v2-shadow-hover) !important; }
+html[data-ui="v2"] .wl-scheduled-copy small,
+html[data-ui="v2"] .wl-scheduled-hint { color: var(--v2-ink2) !important; }
+html[data-ui="v2"] .wl-schedule-filters button { background: var(--v2-side) !important; }
+html[data-ui="v2"] .wl-schedule-filters button:hover { background: var(--v2-hover) !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-schedule-filters button[aria-pressed="true"] {
+    background: var(--v2-accent-soft) !important; border-color: var(--v2-accent) !important; color: var(--v2-accent) !important;
+}
+html[data-ui="v2"][data-theme="dark"] .wl-scheduled-status { background: rgba(147,197,253,.1) !important; color: #93c5fd !important; border-color: rgba(147,197,253,.3) !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-scheduled-status.is-running { background: rgba(147,197,253,.1) !important; color: #93c5fd !important; border-color: rgba(147,197,253,.3) !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-scheduled-status.is-done { background: rgba(110,231,183,.1) !important; color: #6ee7b7 !important; border-color: rgba(110,231,183,.3) !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-scheduled-status.is-failed { background: rgba(253,164,175,.1) !important; color: #fda4af !important; border-color: rgba(253,164,175,.3) !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-scheduled-status.is-cancelled { background: var(--v2-chip) !important; color: var(--v2-ink2) !important; border-color: var(--v2-line-strong) !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-scheduled-copy .wl-scheduled-issue { color: #fda4af !important; }
+html[data-ui="v2"][data-theme="dark"] .wl-task { background: var(--v2-pop); border-color: var(--v2-line); }

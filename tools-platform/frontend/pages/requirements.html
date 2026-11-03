@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="/css/shared.css">
     <link rel="stylesheet" href="/css/requirements.css">
     <link rel="stylesheet" href="/css/light/requirements.css">
+    <link rel="stylesheet" href="/css/requirements-appearance.css">
 </head>
 <body>
     <div id="navbar-placeholder"></div>
@@ -17,7 +18,7 @@
     <div class="req-container">
         <header class="req-header">
             <div>
-                <h1><span data-i18n="🎯 需求管理广场">🎯 需求管理广场</span> <span style="font-size:14px;color:#94a3b8;font-weight:normal;margin-left:8px;">v1.3.0</span></h1>
+                <h1><svg class="req-line-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span data-i18n="需求管理广场">需求管理广场</span> <span style="font-size:14px;color:#94a3b8;font-weight:normal;margin-left:8px;">v1.3.0</span></h1>
                 <p data-i18n="提交、追踪和管理平台新功能与优化需求">提交、追踪和管理平台新功能与优化需求</p>
             </div>
             <div style="display: flex; gap: 12px; align-items: center;">
@@ -94,15 +95,15 @@
                         <label><span data-i18n="页面分类">页面分类</span> <span class="required">*</span></label>
                         <select id="reqCategorySelect" class="form-control">
                             <option value="" disabled selected data-i18n="请选择分类...">请选择分类...</option>
-                            <option value="全局通用" data-i18n="🌐 全局通用">🌐 全局通用</option>
-                            <option value="新增页面" data-i18n="✨ 新增页面">✨ 新增页面</option>
-                            <option value="工具中台首页" data-i18n="🏠 工具中台首页">🏠 工具中台首页</option>
-                            <option value="数据抓取(UIVF12)" data-i18n="🚀 数据抓取(UIVF12)">🚀 数据抓取(UIVF12)</option>
-                            <option value="数据导入(SLA)" data-i18n="📊 数据导入(SLA)">📊 数据导入(SLA)</option>
-                            <option value="报表看板" data-i18n="📈 报表看板">📈 报表看板</option>
-                            <option value="一键催办" data-i18n="⚡ 一键催办">⚡ 一键催办</option>
-                            <option value="月报页面" data-i18n="📅 月报页面">📅 月报页面</option>
-                            <option value="需求管理" data-i18n="🎯 需求管理">🎯 需求管理</option>
+                            <option value="全局通用" data-i18n="全局通用">全局通用</option>
+                            <option value="新增页面" data-i18n="新增页面">新增页面</option>
+                            <option value="工具中台首页" data-i18n="工具中台首页">工具中台首页</option>
+                            <option value="数据抓取(UIVF12)" data-i18n="数据抓取(UIVF12)">数据抓取(UIVF12)</option>
+                            <option value="数据导入(SLA)" data-i18n="数据导入(SLA)">数据导入(SLA)</option>
+                            <option value="报表看板" data-i18n="报表看板">报表看板</option>
+                            <option value="一键催办" data-i18n="一键催办">一键催办</option>
+                            <option value="月报页面" data-i18n="月报页面">月报页面</option>
+                            <option value="需求管理" data-i18n="需求管理">需求管理</option>
                         </select>
                     </div>
                 </div>
@@ -118,7 +119,7 @@
 
                 <label class="urgent-toggle" for="reqUrgentInput">
                     <input type="checkbox" id="reqUrgentInput">
-                    <span class="urgent-toggle-icon">⚡</span>
+                    <span class="urgent-toggle-icon"><svg class="req-line-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5M12 17h.01"/></svg></span>
                     <span>
                         <strong data-i18n="紧急需求">紧急需求</strong>
                         <small data-i18n="在需求广场中优先展示并高亮提醒">在需求广场中优先展示并高亮提醒</small>
@@ -135,7 +136,7 @@
                             <option value="需求完成" data-i18n="4. 需求完成 (待上线)">4. 需求完成 (待上线)</option>
                             <option value="验收完成" data-i18n="5. 验收完成 (已上线)">5. 验收完成 (已上线)</option>
                             <option value="需求评价" data-i18n="6. 需求评价 (归档)">6. 需求评价 (归档)</option>
-                            <option value="已拒绝" data-i18n="❌ 已拒绝 (暂不采纳)">❌ 已拒绝 (暂不采纳)</option>
+                            <option value="已拒绝" data-i18n="已拒绝 (暂不采纳)">已拒绝 (暂不采纳)</option>
                         </select>
                     </div>
                     <div class="form-group half">

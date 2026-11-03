@@ -176,13 +176,20 @@
         document.body.appendChild(pop);
         return pop;
     }
-    document.addEventListener('click', event => {
+    function closeOutsidePop(event) {
         if (!openPop) return;
-        // Tab/action handlers may replace their DOM before this click bubbles here.
-        // The event path still records that the click originated inside the popup.
+        // 捕获阶段处理，避免正文/工具自身的 stopPropagation 阻止菜单关闭。
         const path = event.composedPath();
         if (path.includes(openPop.pop) || path.includes(openPop.anchor) || path.includes(linksPanel)) return;
         closePop();
+    }
+    document.addEventListener('pointerdown', closeOutsidePop, true);
+    document.addEventListener('click', closeOutsidePop, true);
+    // 内嵌工具的点击不会冒泡到首页；焦点进入 iframe 时也收起菜单。
+    window.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (openPop && document.activeElement instanceof HTMLIFrameElement) closePop();
+        }, 0);
     });
     document.addEventListener('keydown', event => { if (event.key === 'Escape') closePop(); });
     window.addEventListener('resize', closePop);

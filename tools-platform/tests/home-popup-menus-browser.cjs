@@ -46,6 +46,25 @@ app.whenReady().then(async () => {
     await until('!!window.HomeComposer&&!!document.querySelector(".dc-permission-picker")&&!!document.querySelector(".v2-suggest-item")&&!!window.HomePromoPlayer');
 
     await evaluate(`document.getAnimations().forEach(a=>{try{a.finish()}catch{}})`);await wait(220);
+    await evaluate(`v2UserBtn.click();true`);
+    assert.equal(await evaluate(`document.querySelector('.v2-account').classList.contains('is-open')`),true);
+    await evaluate(`document.querySelector('.v2-account-head').click();true`);
+    assert.equal(await evaluate(`document.querySelector('.v2-account').classList.contains('is-open')`),true,'inside click keeps menu open');
+    await evaluate(`dcInput.addEventListener('click',e=>e.stopPropagation(),{once:true});dcInput.click();true`);
+    assert.equal(await evaluate(`document.querySelector('.v2-account').classList.contains('is-open')`),false,'outside click closes even if target stops propagation');
+    assert.equal(await evaluate(`v2UserBtn.getAttribute('aria-expanded')`),'false');
+    await evaluate(`v2UserBtn.click();v2UserBtn.click();true`);
+    assert.equal(await evaluate(`document.querySelector('.v2-account').classList.contains('is-open')`),false,'avatar still toggles menu');
+    await win.webContents.debugger.attach('1.3');
+    await win.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled',{enabled:true});
+    await evaluate(`new Promise(resolve=>{const f=document.createElement('iframe');f.id='outsideMenuFrame';f.style.cssText='position:fixed;right:20px;top:120px;width:240px;height:120px;z-index:100';f.srcdoc='<button style="width:200px;height:80px">Embedded tool</button>';f.onload=resolve;document.body.append(f)})`);
+    await evaluate(`v2UserBtn.focus();v2UserBtn.click();true`);
+    const framePoint=await evaluate(`(()=>{const r=outsideMenuFrame.getBoundingClientRect();return {x:Math.round(r.left+40),y:Math.round(r.top+40)}})()`);
+    await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...framePoint});
+    await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,...framePoint});
+    await until(`!document.querySelector('.v2-account').classList.contains('is-open')`);
+    await evaluate(`outsideMenuFrame.remove();true`);
+    win.webContents.debugger.detach();
     const visible=selector=>evaluate(`(()=>{const e=document.querySelector(${JSON.stringify(selector)}),r=e.getBoundingClientRect();return r.top>=0&&r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight&&e.contains(document.elementFromPoint(r.x+15,r.y+15))})()`);
     await evaluate(`dcInput.value='@';dcInput.dispatchEvent(new Event('input',{bubbles:true}));true`);
     await until('!dcSkillMenu.hidden');

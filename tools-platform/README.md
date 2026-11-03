@@ -2,7 +2,7 @@
 
 [仓库首页与亮色界面预览](../README.md) · 本文为完整功能、部署与运维指南。
 
-本文按 **2026-11-03 当前工作区代码**核对，桌面版本为 **1.0.537**；发布版本以 [`package.json`](package.json) 和 `/api/app-version` 为准。
+本文按 **2026-11-03 当前工作区代码**核对；源码版本以 [`package.json`](package.json) 为准，运行实例版本可通过 `/api/app-version` 查询。GitHub 下载包与本机源码可能处于不同版本。
 
 > **把运营工作台装进口袋：通过 WeLink SDK 接入 Dragon Claw，出门也能用手机 WeLink 对话查指标、看风险进展、梳理待跟进事项。** [查看接入方法](#welink-sdk-频道对接手机上的运营助手)
 
@@ -62,6 +62,7 @@ Dragon Claw（项目目录与部分内部标识仍沿用 Tools Platform / Dragon
     - [12.1 跨操作系统基础环境准备](#121-跨操作系统基础环境准备)
     - [12.2 生产环境 PM2 常驻部署指引](#122-生产环境-pm2-常驻部署指引)
     - [12.3 桌面客户端指引 (Windows 安装版/绿色版 vs macOS 签名公证版)](#123-桌面客户端指引-windows-安装版绿色版-vs-macos-签名公证版)
+      - [源码版与桌面版的数据共享关系](#源码版与桌面版的数据共享关系)
     - [12.4 桌面客户端本地生成文件与目录全景字典 (Windows vs macOS)](#124-桌面客户端本地生成文件与目录全景字典-windows-vs-macos)
     - [12.5 新手入门：安装登录后需要做啥 (Day 1 Checklist)](#125-新手入门安装登录后需要做啥-day-1-checklist)
     - [12.6 平台标识、品牌资产与使用视频](#126-平台标识品牌资产与使用视频)
@@ -512,7 +513,7 @@ flowchart TD
 
 下面按当前工作区的实现说明完整链路。两边共用“对话确认 → 最终提示词 → 可复用配方 → 取数与计算 → 展示”的设计，但 **AI 调用位置和数据入口不同**。
 
-| 环节 | 大平台 Dragon Platform `/monthly` | 小平台 AiOps-Report AI 月报 |
+| 环节 | 大平台 Dragon Claw `/monthly` | 小平台 AiOps-Report AI 月报 |
 | --- | --- | --- |
 | AI 调度 | Express 后端调用平台配置的模型客户端 | 浏览器 `ai-backend.js` 排队，经隐藏 ADC 原聊天页面发送与捕获响应 |
 | 模型工具协议 | 平台模型客户端返回工具调用，后端执行 | 模型输出 `{"tool":"…","args":{…}}`；页面解析并请求应用 API |
@@ -606,7 +607,7 @@ flowchart TD
     Execute -.-> SmallLog
 ```
 
-原生 ADC 每次模型提问都经内嵌原页面；一个月报 AI 操作可有多轮提问，同一次操作内部复用会话。托管在 Dragon Platform 时，兼容层可能将 ADC 客户端替换为平台桥接通道，此时不应把桥接请求误认为真实内网 ADC 页面操作。
+原生 ADC 每次模型提问都经内嵌原页面；一个月报 AI 操作可有多轮提问，同一次操作内部复用会话。托管在 Dragon Claw 时，兼容层可能将 ADC 客户端替换为平台桥接通道，此时不应把桥接请求误认为真实内网 ADC 页面操作。
 
 **4. 所有入口最终落到同一套格子约束**
 
@@ -1063,7 +1064,7 @@ sequenceDiagram
 ```mermaid
 graph TD
     subgraph 视图一["1. 项目知识图谱 (Project Graph)"]
-        R1["根节点 (Tools Platform)"] --> C1["功能分类 (数据抓取 / SLA / 报表 / 专项工具)"]
+        R1["根节点 (Dragon Claw)"] --> C1["功能分类 (数据抓取 / SLA / 报表 / 专项工具)"]
         C1 --> M1["业务工具与页面 (/sla, /report, /uivf12)"]
         M1 --> S1["源码依赖与服务路由 (routes/*.js, models/*.js)"]
         S1 --> T1["底层数据库与物理表 (tools.db, report.db)"]
@@ -1158,7 +1159,7 @@ flowchart TD
 - **个性化设置与托盘菜单集成**：
   - **默认启动尺寸自适应调整 (0.75x)**：桌面端（macOS DMG 与 Windows EXE/安装版）桌宠默认启动缩放比例设定为 **`0.75x`**（自适应主视窗尺寸 `218×293`），相比早期版本更加精致小巧，不遮挡日常编码与业务窗口；旧版本历史配置（如 1.2x 或无版本号）自动平滑治愈升级至 `0.75x`。
   - **右键悬浮控制面板**：右键点击小宠即可呼出轻量控制面板，支持体型缩放（0.6x~2.5x 自由滑动，精确至 0.05x 步长）、音量控制（0%~100%）、打字声音开启/关闭、动态气泡开关、打字动作开关及位置重置。
-  - **配置持久化**：所有个性化参数与最后停放位置自动持久化至用户数据目录下的 `desktop-pet-config.json`，版本升级与重启完全无缝保留。
+  - **配置持久化**：个性化参数与最后停放位置保存在用户数据目录下的 `desktop-pet-config.json`；重启或升级后使用相同目录时可继承配置。
   - **系统托盘一键调度**：系统托盘右键菜单提供专有“🐾 Dragon 桌面伙伴”子菜单，包含“开机/启动自动运行桌宠”、“本次隐藏/唤回显示桌宠”以及“呼出桌宠AI客服对话”。另有「显示 Agent 额度侧栏」和「隐藏桌宠时保留额度侧栏」开关：前者控制额度窗显示，后者控制隐藏或停用桌宠后是否保留额度窗；新配置默认保留，已有明确设置继续沿用。外部 Agent HUD 应用也可单独运行。
 
 ---
@@ -1306,6 +1307,8 @@ flowchart LR
 | **`images/`、`slide-library/`** | 按对应模块及租户路径解析 | 图片与胶片素材；日常轻量备份排除项须单独归档 |
 | **桌面配置与浏览器库** | Electron `app.getPath('userData')` | 桌宠配置、授权状态、`dragon-browser.db` 等本机状态 |
 
+上表中的 `backend/data/`、`data/` 均相对于本项目根目录，不随启动命令所在目录改变；环境变量使用相对路径时则按进程工作目录解析，部署时宜填写绝对路径。Electron 会在加载后端前把 `TOOLS_DATA_DIR` 设为 `<userData>/data/`，覆盖外部传入的同名变量；未显式设置 `TOOLS_REPORT_DATA_DIR` 时，报表也放在该目录。源码版与桌面版默认独立，详见[数据共享关系](#源码版与桌面版的数据共享关系)。命名租户的业务库（含报表）始终位于各自的 `tenants/<tenant-id>/` 下，上述报表环境变量决定的是默认租户的报表目录。
+
 管理员的“数据探索”默认使用当前租户的 `tools.db`，可在页首切换当前租户实际存在的 SQLite 运行库（报表、需求、AI 知识索引、聊天记录、数通知识库、仓储等）。报表库按 `TOOLS_REPORT_DATA_DIR` 解析，其余业务库按 `TOOLS_DATA_DIR`/当前租户目录解析；不会扫描备份、归档或其他租户目录。默认租户的 `tools.db` 同时包含平台控制面，命名租户可显式选择标有“全局”的平台账号与租户控制库。切换会重载表列表、清空旧结果，并按实际表生成查询示例；未初始化的库不显示。SQL 仍支持管理员执行增删改和 DDL，跨库文件操作须通过选择器完成，不支持 `ATTACH`/`DETACH`/`VACUUM INTO`。数据库查询正文和结果不写入请求或服务状态日志。
 
 探索页采用双列侧边栏与右侧工作区：最左侧窄列选择 SQL 终端、数据表查看或日志收集；第二列展示当前模块的常用示例、按业务分类的完整表目录或日志日期范围。目录支持搜索表名、业务分类和用途，不截断表数量。已登记的业务表提供中英文用途说明，历史或扩展表未登记时会明确提示；查看字段结构时不加载业务行，切到“表数据”后再分页读取。结构页同时展示字段类型、主键顺序、非空约束、默认值、索引、外键与建表语句。
@@ -1382,11 +1385,12 @@ flowchart TD
 
 当前界面没有“一键恢复全部租户”的高风险操作。需要整机迁移或灾难恢复时，应先停止 Dragon Claw 服务，再对以下路径做一次离线整体归档：
 
-- 默认租户及全局控制面：`backend/data/`（或 `TOOLS_DATA_DIR`）；
-- 新租户目录：`backend/data/tenants/`；
-- 分离部署的报表目录：`data/`（或 `TOOLS_REPORT_DATA_DIR`）；
+- 默认租户及全局控制面：实际 `TOOLS_DATA_DIR`（源码未配置时为 `backend/data/`，桌面为 `<userData>/data/`）；
+- 命名租户目录：上述数据目录中的 `tenants/`，应随数据目录一并归档；
+- 分离部署的报表目录：实际 `TOOLS_REPORT_DATA_DIR`；源码两个数据变量均未配置时为项目 `data/`，只设置 `TOOLS_DATA_DIR` 时跟随该目录；
 - 默认租户大素材：实际部署中的 `images/`、`slide-library/`；
-- 机器级远端连接配置：`backend/runtime/remote_backup_sync_settings.json`。
+- 机器级远端连接配置：数据目录同级的 `runtime/remote_backup_sync_settings.json`（源码默认在 `backend/runtime/`）；
+- 桌面本机配置：实际 `<userData>/` 中的窗口、桌宠、浏览器状态、品牌资源等；跨机器的授权状态不能视为可直接复用。
 
 整机恢复时应在服务停止状态下整体恢复上述目录，不能把某个租户 ZIP 当作全租户镜像。日常误操作恢复则优先使用界面中的当前租户备份，影响范围更小。
 
@@ -1394,7 +1398,7 @@ flowchart TD
 - **同租户映射**：远端自动同步按稳定 ID 映射，而不是按显示名称。本地 ID `acme` 只读取远端 ID `acme`，两边名称不同不影响同步；系统先登录远端，再调用租户切换接口，切换失败就终止同步。
 - **配置与状态边界**：远端域名和凭据属于机器级运维配置，不写入租户备份包；最近检查、最近恢复和下载临时文件按租户隔离，避免不同租户互相误判“已同步”。
 - **启动自动恢复**：当前只对 `default` 租户开放，避免一个进程启动时连续恢复多个 SQLite 工作区。其他租户可在切换后手动执行“测试连接/检查最新”或“按规则拉取恢复”。
-- **适用场景**：用于同一套租户结构的主站与分站/Windows 本地节点同步。远端与本地应预先创建相同租户 ID；系统不会根据相似名称猜测租户，也不会自动创建远端租户。如果确实需要把不同 ID 的远端租户复制到本地，应先下载其备份包，再在目标租户使用“上传备份包恢复”，核对弹窗后强制恢复。
+- **适用场景**：用于同一套租户结构的主站与分站/Windows 本地节点同步。远端与本地应预先创建相同租户 ID；系统不会根据相似名称猜测租户，也不会自动创建远端租户。当前前端不提供跨租户强制恢复入口，不应使用不同 ID 的备份包绕过此边界。这里的同步是按规则拉取备份并恢复，不是两个运行实例实时双向共享数据库。
 
 ---
 
@@ -1449,7 +1453,7 @@ PM2 当前配置为单实例、`max_memory_restart: '1G'`，达到阈值会重�
 
 ## 7. 常用页面入口清单
 
-默认服务端口为 `3030`。
+源码服务默认端口为 `3030`；桌面服务使用自动选择的实际端口，以下路径均相对于所访问的后端实例。
 
 | 页面名称 | 访问路径 | 访问权限 | 核心功能与业务场景 |
 | :--- | :--- | :--- | :--- |
@@ -1569,7 +1573,7 @@ privacy-policy/
 │   └── updater_config.json                # 在线热更新多源配置 (GitHub Raw/加速镜像/自定义源)
 │
 └── tools-platform/                        # 中台主工程根目录
-    ├── package.json                       # Electron 桌面端打包与根构建配置 (Dragon Platform)
+    ├── package.json                       # Electron 桌面端打包与根构建配置 (Dragon Claw)
     ├── electron-main.js                   # 桌面托盘壳主进程 (Windows / macOS)
     ├── electron-preload.js                # 桌面端 IPC 与日志桥接脚本
     ├── desktop-license-client.js          # 桌面端 License 离线/在线验签客户端
@@ -1626,11 +1630,12 @@ privacy-policy/
 
 | 环境变量名 | 默认值 | 说明与取值范围 |
 | :--- | :--- | :--- |
-| `PORT` | `3030` | HTTP 服务监听端口 |
-| `TOOLS_DATA_DIR` | `backend/data/` | 后端核心数据存储目录（桌面版自动重定向至系统用户数据目录） |
-| `TOOLS_REPORT_DATA_DIR` | 未设置 `TOOLS_DATA_DIR` 时为 `data/`，否则跟随该目录 | 报表核心数据存储目录 (`report.db`) |
+| `PORT` | 源码为 `3030` | 源码 HTTP 监听端口；Electron 启动时根据可用性选择端口并设置此变量。 |
+| `TOOLS_DATA_DIR` | 源码为项目 `backend/data/`；桌面为 `<userData>/data/` | 平台控制面与默认租户数据根目录；命名租户位于其 `tenants/<tenant-id>/`。Electron 启动时覆盖外部同名变量。 |
+| `TOOLS_REPORT_DATA_DIR` | 未设置 `TOOLS_DATA_DIR` 时为项目 `data/`，否则跟随该目录 | 默认租户报表目录 (`report.db`)，显式值优先；命名租户报表仍在对应租户目录。 |
+| `TOOLS_LOG_DIR` | 源码为 `backend/logs/`；桌面为 `<userData>/logs/` | 应用日志目录；按日文件是否写入由 `TOOLS_DAILY_LOGS` 控制。 |
 | `SLIDE_IMPORT_MAX_MB` | `200` | PPTX 胶片包上传大小上限（单位：MB，支持 10~2048） |
-| `TOOLS_DAILY_LOGS` | `1` (生产) / `0` (桌面) | 是否开启按日归档日志写入 |
+| `TOOLS_DAILY_LOGS` | 源码默认开启；桌面未显式设置时为 `0` | `0` 关闭按日文件日志；桌面实时日志与运行状态仍可查看。PM2 自身的输出日志独立于此开关。 |
 | `TOOLS_DESKTOP_RUNTIME` | `0` | 是否处于 Electron 桌面运行时（Windows / macOS） |
 | `GEMINI_API_KEY` | - | Google Gemini AI 默认 API Key（设置中心配置优先于此变量） |
 | `NODE_ENV` | `development` | 运行环境（`production` / `development`） |
@@ -1644,7 +1649,7 @@ privacy-policy/
 
 ### 12.1 跨操作系统基础环境准备
 
-仓库启动检查与 CI 以 **Node.js 20** 为主要环境；请先验证原生 `sqlite3` 依赖可加载。服务端可只安装 `backend/` 依赖，桌面开发需在根目录安装依赖。前端无需打包。
+当前桌面 CI 使用 **Node.js 22**；本地启动检查也兼容 Node.js 20，并保留相应提示。请先验证目标 Node 环境的原生 `sqlite3` 依赖可加载。服务端可只安装 `backend/` 依赖，桌面开发需在根目录安装依赖。前端无需打包。
 
 > [!IMPORTANT]
 > ### 华为内网源码安装特别强调 (Huawei Intranet Environment)
@@ -1717,7 +1722,7 @@ $env:PORT=3030; npm start
 
 ### 12.2 生产环境 PM2 常驻部署指引
 
-生产服务器强烈建议使用 **PM2** 进行进程守护、自动重启与集群监控。
+需要常驻运行的源码服务可使用 **PM2** 进行进程守护、自动重启与状态监控。当前配置为单实例；PM2 不改变数据目录，也不负责与桌面版同步数据。
 
 ```mermaid
 flowchart LR
@@ -1739,8 +1744,10 @@ module.exports = {
   apps: [{
     name: 'tools-platform',
     script: './server.js',
+    cwd: __dirname,
     instances: 1,
     autorestart: true,
+    watch: false,
     max_memory_restart: '1G', // 内存超过 1GB 自动重启
     env: {
       NODE_ENV: 'production',
@@ -1748,7 +1755,8 @@ module.exports = {
     },
     error_file: './logs/error.log',
     out_file: './logs/out.log',
-    time: true
+    log_date_format: 'YYYY-MM-DD HH:mm:ss',
+    merge_logs: true
   }]
 };
 ```
@@ -1764,6 +1772,8 @@ pm2 restart tools-platform      # 重启单实例服务，期间短暂不可用
 pm2 stop tools-platform         # 停止服务
 ```
 
+以上启动服务命令适用于安装了 PM2 的环境；`pm2 startup` 的系统服务集成需按操作系统配置，不能把该命令视为 Windows 开机自启的通用方案。
+
 ---
 
 ### 12.3 桌面客户端指引 (Windows 安装版/绿色版 vs macOS 签名公证版)
@@ -1776,10 +1786,10 @@ pm2 stop tools-platform         # 停止服务
 | **支持架构** | x64 (64位) | x64 (64位) | **Apple Silicon (arm64) & Intel (x64) 双原生** |
 | **安装方式** | 标准 Windows 安装向导，可自定义路径 | 单文件 EXE，双击直接运行，无需安装 | 挂载 DMG 拖入 `/Applications`，开箱即用 |
 | **快捷方式** | 自动创建桌面与开始菜单快捷方式 | 不创建快捷方式，可手动发送到桌面 | 自动集成于 macOS 启动台 (Launchpad) 与访达应用目录 |
-| **版本升级** | **支持应用内检测更新与静默自动升级** | 需从 GitHub Releases 手动下载新 EXE 替换 | **支持通过 ZIP 载荷进行应用内增量检测与升级** |
+| **版本升级** | 应用内检查、下载，确认后重启安装 | 应用内检查、下载新 EXE，重启替换；也可手动下载 | 应用内检查、下载对应架构 ZIP，确认后重启安装 |
 | **开机自启** | 托盘菜单可直接一键勾选开机自启动 | 不写注册表启动项，纯绿色便携 | 托盘/Dock 支持配置登录项自动启动 |
 | **系统级桌宠** | **支持Dragon 桌宠全功能与全局键盘监听** | **支持Dragon 桌宠全功能与全局键盘监听** | **支持Dragon 桌宠全功能（需系统辅助功能权限）** |
-| **数据存储** | `%APPDATA%\Dragon Platform\` | 共享相同目录，更换 EXE **数据不丢失** | `~/Library/Application Support/Dragon Platform/` |
+| **数据存储** | `<userData>/data/`（用户应用数据目录内） | 同一系统用户、相同 `userData` 时与安装版共用 | `<userData>/data/`（用户应用数据目录内） |
 | **安全机制** | 单实例锁 + SQLite 5s Busy Timeout | 单实例锁 + SQLite 5s Busy Timeout | **Apple Developer 签名 + Hardened Runtime + 官方公证** |
 
 Windows 安装版、绿色版和 macOS 客户端共用亮色启动与 License 激活风格。Windows 绿色版首阶段静态启动图与 Electron 后续启动页保持一致；修改启动页面后运行 `npm run splash:generate` 更新素材。品牌资源改变后，文件与安装包的固定图标需重新打包才生效，已安装客户端不会仅因源码修改而更新。
@@ -1791,9 +1801,31 @@ Windows 安装版、绿色版和 macOS 客户端共用亮色启动与 License �
    - 可提交在线授权申请，等待管理员审批并查询结果；也可直接输入管理员签发的授权码（以 `DSKL1-` 开头）。机器绑定授权需与本机机器码一致。
    - 客户端完成离线公钥验签与可信时间校验后，在后台自动启动本地服务并常驻系统托盘/状态栏。
 3. **打开主页与桌宠联动**：
-   - 双击托盘图标，程序将自动调用默认浏览器打开 `http://localhost:3030`。
+   - 程序在应用内主窗口打开主页；Windows 双击托盘图标可再次打开。托盘“在浏览器中打开”可用系统浏览器访问同一后端。
+   - 桌面服务优先复用上次端口，其次尝试 `3030`，均被占用时由系统分配可用端口，访问地址为 `http://127.0.0.1:<实际端口>/`。以托盘打开的地址、`local-port.json` 或启动日志为准。
    - 屏幕右下角自动唤起**Dragon 桌面宠物**。
    - **macOS 全局打字监听授权**：若要在敲击键盘时触发桌宠打字动画与小鸭叫声，请在系统弹窗中点击前往设置，或打开“系统设置 $\rightarrow$ 隐私与安全性 $\rightarrow$ 辅助功能 (Accessibility)”，为 `Dragon Claw` 勾选授权（旧安装可能仍显示历史名称）。未授权时桌宠其他功能与 AI 客服依然完全可用。
+
+#### 源码版与桌面版的数据共享关系
+
+**数据是否共用，取决于后端实际使用的数据目录和登录账号所属租户；PM2 或 Node 只是源码服务的启动方式。** 在没有额外配置数据环境变量时：
+
+| 同一台电脑上的两种运行方式 | 是否共用业务数据 | 条件与原因 |
+| --- | --- | --- |
+| Mac：PM2 源码版 ↔ Mac 桌面版 | 默认不共用 | 前者使用项目目录，后者使用 Electron 用户数据目录 |
+| Windows：Node 源码版 ↔ Windows 安装版或绿色版 | 默认不共用 | 源码服务不会自动查找桌面数据目录 |
+| Windows：安装版 ↔ 绿色版 | 通常共用 | 需为同一个 Windows 用户、相同应用数据目录和相同租户；退出旧版后再启动另一版 |
+| 同一份源码：PM2 ↔ 直接 Node | 共用 | 实际数据目录环境变量一致，访问同一租户；通常作为两种替代启动方式使用 |
+| 浏览器 ↔ 桌面主窗口，访问同一桌面服务 | 共用 | 使用桌面实际端口，并登录同一租户；浏览器与应用内窗口的登录态可分别保存 |
+| 不同电脑、不同系统用户或不同租户 | 默认不共用 | 不会因为使用同一安装包或相同账号名自动同步 |
+
+源码运行 `npm start`、`node backend/server.js` 或 PM2 默认使用项目 `backend/data/`，默认租户报表另在项目 `data/`。桌面版在本机启动独立后端，默认将两类数据都放在 `<userData>/data/`。绿色版的“便携”指免安装运行：**业务数据不保存在便携 EXE 旁边，拷走 EXE 不会带走数据**。
+
+例如，Mac 的 PM2 已占用 `3030` 时，桌面会选择其他可用端口；此时访问 `localhost:3030` 看到的是 PM2 数据，桌面窗口看到的是另一套数据。端口避让不会让桌面自动连接 PM2，也不会触发数据迁移。
+
+需要浏览器与桌面共用数据时，可从桌面托盘选择“在浏览器中打开”，连接同一个桌面后端。需要把已有源码业务迁移至桌面时，应先备份，使用相同租户 ID 的备份恢复，并单独归档轻量包排除的素材；这属于一次性迁移，不会持续同步。不要仅为共用数据而让两个独立运行的后端同时指向同一目录，桌面单实例锁不会约束另一个 PM2 / Node 进程。
+
+`<userData>` 的具体位置、旧名称和日志核验方法见 [12.4.3 持久化用户数据目录](#1243-持久化用户数据目录-windows-vs-macos)。
 
 ---
 
@@ -1807,7 +1839,7 @@ Windows 安装版、绿色版和 macOS 客户端共用亮色启动与 License �
 - 点击大窗才请求对应高清版。播放器通过本地服务分段读取 GitHub Releases 视频，首段到达即可播放，无需等待整个文件下载完成，并支持拖动进度。
 - 已请求的版本继续在后台补齐缓存；关闭后再次观看会复用已完成的片段。每段经过 SHA-256 校验，网络中断、超时、损坏片段可在重试时继续获取，不把未完成下载标记为有效缓存。
 - 完整缓存的版本可离线观看；首次观看和缺失片段需要联网。下载失败会保留封面，并显示重试入口。
-- 缓存在 Windows `%APPDATA%\Dragon Platform\cache\home-videos\` 或 macOS `~/Library/Application Support/Dragon Platform/cache/home-videos/`，独立于安装目录、绿色版临时解压目录及租户业务数据。退出程序不会清除完整片段；程序更新后仍可复用相同版本。
+- 桌面缓存在 `<userData>/cache/home-videos/`，独立于安装目录、绿色版临时解压目录及租户业务数据。实际系统路径见 [12.4.3](#1243-持久化用户数据目录-windows-vs-macos)。退出程序不会清除完整片段；使用相同缓存目录的新版程序可复用相同视频版本。
 - 服务器/源码运行时优先使用现有本地视频；文件不存在时同样可以从远端缓存加载。可用 `TOOLS_PROMO_CACHE_DIR` 指定缓存目录，默认位于 `TOOLS_DATA_DIR/cache/home-videos/`。
 
 媒体发布在独立的 [Dragon-Platform-Media 仓库](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/tag/home-videos-20261019)，EOS 中文版使用单独的 [EOS 媒体 Release](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/tag/eos-guide-20261019)，EOS 英文版使用 [EOS 英文媒体 Release](https://github.com/fanxiaolongx-max/Dragon-Platform-Media/releases/tag/eos-guide-en-20261019)，原来 12 个文件的地址和缓存标识保持不变。固定媒体 Release 与桌面应用自动更新分别管理。客户端只访问公开附件，不内置 GitHub Token。文件清单、大小及分段校验保存在版本控制的 `backend/home-promo-videos.json`，其中 `assets.<文件名>.url` 可指定独立的发布地址；未指定时使用清单的 `baseUrl`。运行时不依赖可变的 `latest` 链接。
@@ -1820,7 +1852,7 @@ Windows 安装版、绿色版和 macOS 客户端共用亮色启动与 License �
 
 ### 12.4 桌面客户端本地生成文件与目录全景字典 (Windows vs macOS)
 
-为方便运维审计、数据迁移、备份及排障分析，以下详细列出桌面客户端在 Windows 与 macOS 系统中落地生成的所有目录、文件及其具体用途。
+以下列出桌面客户端的主要程序目录、数据目录及用途；文件是否存在取决于版本、启用功能和日志开关，实际路径以运行实例为准。
 
 #### 12.4.1 安装版 / 绿色版 / macOS 落地特征概览
 
@@ -1834,11 +1866,11 @@ flowchart LR
 
     subgraph WinPortable["Windows Portable.exe (绿色便携版)"]
         P1["单文件便携运行 (支持 U 盘)"]
-        P2["运行临时解压目录:<br/>%TEMP%\electron-builder-portable\...<br/>(退出自动清理)"]
+        P2["运行临时解压目录:<br/>%TEMP% 下的打包器目录<br/>(正常退出时尝试清理)"]
     end
 
     subgraph MacApp["macOS DMG / ZIP (原生应用版)"]
-        M1["应用程序目录:<br/>/Applications/Dragon Platform.app"]
+        M1["应用程序目录:<br/>/Applications/Dragon Claw.app"]
         M2["Apple Gatekeeper 公证票据 (Stapled ticket)"]
     end
 
@@ -1846,7 +1878,7 @@ flowchart LR
         D1["核心 SQLite 数据库 (tools.db / report.db / requirements.db)"]
         D2["授权凭证 (desktop-license.json)"]
         D3["桌宠个性化配置 (desktop-pet-config.json)"]
-        D4["每日运行日志 (logs/YYYY-MM-DD/...)"]
+        D4["运行状态与实时日志<br/>(按日日志需启用)"]
         D5["自定义扩展工具生态 (custom-tools/)"]
     end
 
@@ -1859,45 +1891,57 @@ flowchart LR
 
 | 适用平台 / 版本 | 默认物理路径 | 生成文件清单 | 作用与生命周期说明 |
 | :--- | :--- | :--- | :--- |
-| **Windows 安装版 (Setup)** | `%LocalAppData%\Programs\tools-platform\` | • `Dragon Platform.exe`<br/>• `Uninstall Dragon Platform.exe`<br/>• `resources\app.asar`<br/>• 核心 DLLs 与运行环境 | **程序主程序与运行依赖库**。覆盖安装或卸载时变动。 |
-| **Windows 快捷方式** | `%USERPROFILE%\Desktop\`<br/>`%APPDATA%\Microsoft\Windows\Start Menu\Programs\` | • `Dragon Platform.lnk` | **桌面与开始菜单快捷方式**。卸载时自动移除。 |
-| **Windows 绿色版 (Portable)** | `%TEMP%\electron-builder-portable\tools-platform-*\` | • 临时解包的 EXE 运行载荷与 asar 资源 | **临时自解压运行目录**。客户端退出时自动清理，0 残留。 |
-| **macOS 客户端 (DMG/ZIP)** | `/Applications/Dragon Platform.app/` | • `Contents/MacOS/Dragon Platform`<br/>• `Contents/Resources/app.asar`<br/>• `Contents/Frameworks/...` | **macOS 签名公证独立包**。包含全部原生模块、前后端代码与运行时。 |
+| **Windows 安装版 (Setup)** | 通常 `%LOCALAPPDATA%\Programs\tools-platform\`；安装向导可修改 | • `Dragon Claw.exe`<br/>• `Uninstall Dragon Claw.exe`<br/>• `resources\app.asar`<br/>• 核心 DLLs 与运行环境 | 程序与依赖，独立于业务数据目录；旧安装可能保留历史程序名。 |
+| **Windows 快捷方式** | 系统桌面、开始菜单程序目录（可能被系统重定向） | • `Dragon Claw.lnk` | 安装版按安装选项创建，卸载时移除。 |
+| **Windows 绿色版 (Portable)** | `%TEMP%` 下由打包器分配的临时目录 | • 临时解包的 EXE 与 asar 资源 | 不是业务数据目录；正常退出尝试清理，异常退出或文件占用时可能残留。 |
+| **macOS 客户端 (DMG/ZIP)** | 通常 `/Applications/Dragon Claw.app/`，也可放在用户选择的位置 | • `Contents/MacOS/Dragon Claw`<br/>• `Contents/Resources/app.asar`<br/>• `Contents/Frameworks/...` | 签名公证应用包，含原生模块、前后端代码与运行时；旧包可能使用历史名称。 |
 
 #### 12.4.3 持久化用户数据目录 (Windows vs macOS)
 
 > [!IMPORTANT]
-> **所有业务数据、配置、授权凭证均统一持久化存储于操作系统的专用数据目录下：**
-> - **Windows**：`%APPDATA%\Dragon Platform\`（即 `C:\Users\<Username>\AppData\Roaming\Tools Platform\`）
-> - **macOS**：`~/Library/Application Support/Dragon Platform/`
-> 这意味着在安装版与绿色版之间互相切换、升级新版或更换客户端时，**使用相同用户数据目录时可继承业务数据与桌宠配置，迁移前仍应停机备份**。
+> 桌面代码通过 Electron `app.getPath('userData')` 取得用户数据根目录，本文记为 **`<userData>`**，业务数据根目录为 **`<userData>/data/`**。不能仅凭界面品牌或安装包文件名推断磁盘目录名。
+> - **Windows**：`%APPDATA%\<应用数据名>\`，一般在 `C:\Users\<用户名>\AppData\Roaming\` 下。
+> - **macOS**：`~/Library/Application Support/<应用数据名>/`。
+> - 当前 `package.json` 的包名为 `tools-platform`，打包显示名 `build.productName` 为 `Dragon Claw`；两者用途不同。历史包或运行方式还可能留下 `Tools Platform`、`Dragon Platform` 等目录，不能把它们当作同一个路径，也不能假定更换品牌后会自动迁移。
+> - 在桌面实时日志中查找 **`[Electron] User Data Path:`**，其值是实际的 **`<userData>/data/`**，取父目录才是 `<userData>`。排障和迁移以该输出为准。
+>
+> 安装版与绿色版只有使用相同用户数据目录时才继承同一套业务数据与桌宠配置。切换前停机备份。源码服务默认不使用此目录；显式设置 `TOOLS_REPORT_DATA_DIR` 时，桌面默认租户的报表也可能位于目录之外。
 
-##### 用户数据目录完整拓扑结构：
+##### 用户数据目录主要结构：
 ```text
-用户数据目录/ (Windows: %APPDATA%\Dragon Platform\ | macOS: ~/Library/Application Support/Dragon Platform/)
+<userData>/                             # 以启动日志中数据目录的父目录为准
 ├── desktop-license.json                 # [授权] 客户端本地离线激活状态与硬件签名凭证
 ├── desktop-license-public-status.json   # [授权] 授权只读状态镜像 (供前端安全调用展示)
 ├── desktop-pet-config.json              # [桌宠] Dragon 个性化配置 (缩放、音量、打字开关、气泡开关、记忆坐标)
-├── launch-state.json                    # [运行] 启动时间戳、窗口坐标与上次状态缓存
+├── launch-state.json                    # [运行] 上次版本、启动时间与升级提示状态
+├── main-window-state.json               # [窗口] 桌面主窗口位置与大小
+├── local-port.json                      # [端口] 上次本地服务端口，启动时优先尝试
+├── download-settings.json               # [下载] 用户选择的下载目录
+├── branding/                            # [品牌] 本机上传的图标与派生资源
+├── media/                               # [媒体] 打包桌面运行时的媒体目录
+├── cache/home-videos/                   # [缓存] 按需下载、校验的视频片段
+├── runtime/                             # [运维] 远端备份连接设置与默认租户同步状态
+├── backups/                             # [备份] 默认租户的平台备份 ZIP
 ├── tools-platform-runtime-monitor.ps1   # [监控] Windows 原生托盘状态探针脚本 (仅 Windows)
 ├── logs\                                # [日志] 系统运行日志与运行时进程监控
-│   ├── YYYY-MM-DD\                      #       按日期分目录归档
+│   ├── YYYY-MM-DD\                      #       TOOLS_DAILY_LOGS=1 时按日写入
 │   │   ├── out.log                      #       标准输出日志 (后端启动流水、API 访问日志)
 │   │   └── error.log                    #       异常报错日志 (崩溃堆栈、异常捕获、网络超时)
-│   ├── runtime-status.json              #       实时运行时快照 (PID、端口 3030、内存驻留、心跳)
+│   ├── runtime-status.json              #       实时运行时快照 (PID、实际端口、内存驻留、心跳)
 │   └── runtime-command.json             #       托盘控制与主服务双向 IPC 调度通信文件
 ├── data\                                # [核心数据] 平台核心数据目录 (TOOLS_DATA_DIR)
 │   ├── tools.db                         # [SQLite] 全局账号/租户控制面 + 默认租户原有业务库
-│   ├── report.db                        # [SQLite] 报表与月报库 (SLA 快照、指标明细、健康度计分)
+│   ├── report.db                        # [SQLite] 历史报表快照、指标明细与健康度计分
 │   ├── requirements.db                  # [SQLite] 需求广场库 (专项治理协作需求与工单流转)
 │   ├── ai-knowledge.db                  # [SQLite] AI 知识图谱向量库 (本地问答切片与检索索引)
 │   ├── chat-history.db                  # [SQLite] 租户隔离的聊天记录与全文检索库
 │   ├── *.db-wal / *.db-shm              # [SQLite] WAL 模式高并发读写临时预写日志与索引
 │   ├── custom-tools\                    # [生态] 自定义工具目录 (每个微工具的 HTML/JS/manifest/.i18n)
 │   ├── builtin-tools-sync-decisions.json# [生态] 内置工具升级冲突判定记录 (保护本地修改)
-│   ├── backups\                         # [备份] 升级安全备份与数据库全量快照
+│   ├── backups\                         # [备份] 工具升级、首次导入及数据库修复备份
 │   │   └── builtin-tools\               #       内置工具官方升级前的自动镜像归档 (支持一键回滚)
-│   ├── images\                          # [素材] 胶片 PPT 切图、报表配图、知识库附件图片
+│   ├── images\                          # [素材] 图片与附件（具体用途按模块解析）
+│   ├── slide-library\                   # [素材] 胶片库原文件与切图，轻量备份不包含
 │   ├── tmp\                             # [暂存] 临时中转目录 (解压、大文件上传、UIV 抓取中间数据)
 │   └── tenants\                         # [租户] 新租户独立业务空间（默认租户不搬迁）
 │       └── <tenant-id>\                 #       每个租户独立的 DB、附件、脚本和工具目录
@@ -1911,13 +1955,14 @@ flowchart LR
 | `desktop-license.json` | JSON | 存储客户端激活码（`DSKL1-` 开头）、机器指纹 Hash、签名认证及离线授权有效期。 | 需在下次启动时重新输入授权码激活。 |
 | `desktop-license-public-status.json` | JSON | 授权脱敏公开状态（有效期、授权状态、租户名），供前端安全展示。 | 重启后由主进程自动重新生成。 |
 | `desktop-pet-config.json` | JSON | Dragon 桌面宠物配置（enabled, visible, scale, soundVol, soundSet, bubbleOn, typingOn, position 坐标）。 | 重启后恢复默认桌宠大小与音量配置。 |
-| `launch-state.json` | JSON | 记录上次启动时间、端口分配、窗口尺寸与位置缓存。 | 重启后由程序重新生成默认窗口位置。 |
-| `logs/YYYY-MM-DD/out.log` / `error.log` | Log 文本 | 记录本地后台运行流水与异常报错堆栈，支持托盘右键一键打开分析。 | 无影响，日志按日自动归档。 |
-| `logs/runtime-status.json` | JSON | 实时运行时快照（进程 PID、本地服务端口 3030、心跳状态）。 | 由主进程定时刷新写入。 |
+| `launch-state.json` | JSON | 记录上次启动版本、时间与升级提示状态。 | 丢失后可能重新显示首次启动或升级提示。 |
+| `local-port.json` / `main-window-state.json` | JSON | 分别保存上次端口、主窗口位置与大小。 | 重新选择可用端口或恢复默认窗口；业务库不因此清空。 |
+| `logs/YYYY-MM-DD/out.log` / `error.log` | Log 文本 | 启用按日文件日志后保存运行流水与异常堆栈；桌面默认关闭该写入。 | 丢失影响历史排障，不影响业务数据；实时日志仍可从托盘查看。 |
+| `logs/runtime-status.json` | JSON | 实时运行时快照（进程 PID、本地服务实际端口、心跳状态）。 | 由主进程定时刷新写入。 |
 | `data/tools.db` | SQLite 数据库 | **全局控制面及默认租户兼容库**。账号、Session、租户清单保存在这里；升级前已有的导航、AI 配置、脚本、SLA 规则和自定义工具注册表继续作为默认租户数据原地使用。 | **极高**。丢失将影响登录、租户清单及默认租户业务。 |
-| `data/chat-history.db` | SQLite 数据库 | 租户共享的 TXT 聊天消息、全文索引、人员统计及用户个人状态。 | 丢失将需重新导入 TXT；该库不进入平台全局备份。 |
+| `data/chat-history.db` | SQLite 数据库 | 当前租户内共享的 TXT 聊天消息、全文索引、人员统计及用户个人状态，其他租户使用各自目录中的独立库。 | 丢失将需重新导入 TXT；该库不进入平台全局备份。 |
 | `data/tenants/<tenant-id>/` | 独立租户目录 | 新租户的独立业务空间，目录之间严格数据隔离。 | 仅影响对应租户；归档租户时目录会保留。 |
-| `data/report.db` | SQLite 数据库 | **报表看板与月报分析库**。包含历史月度快照、指标合控计算结果、各维度健康度计分、短板排名明细。 | **极高**。丢失将失去所有历史月报与数据看板记录。 |
+| `data/report.db` | SQLite 数据库 | **历史报表库**。包含月度快照、指标结果、健康度计分与排名；AI 月报文档另存于 `tools.db` 的 `ai_report_documents`。 | **极高**。丢失将失去该库中的历史快照与指标明细；不等同于删除 AI 月报文档。 |
 | `data/requirements.db` | SQLite 数据库 | **需求广场流转库**。包含专项治理需求提单、流转进度与反馈工单。 | **高**。丢失将清空需求广场数据。 |
 | `data/custom-tools/` | 文件夹 | 存放用户自行开发或导入的自定义小工具全部静态源码与多语言字典。 | 丢失将无法打开自建的扩展微工具。 |
 | `data/backups/builtin-tools/` | 文件夹 | 每次内置工具随版本升级前自动创建的安全备份副本。 | 无影响，仅在需要回滚旧版内置工具时使用。 |
@@ -1925,20 +1970,22 @@ flowchart LR
 
 #### 12.4.4 用户主动导出文件目录 (Downloads)
 
-- **默认导出路径**：`%USERPROFILE%\Downloads\`（即 Windows 系统的“下载”文件夹）。
+- **默认导出路径**：桌面使用 Electron 的系统下载目录 `app.getPath('downloads')`（Windows 通常为 `%USERPROFILE%\Downloads\`，macOS 通常为 `~/Downloads/`）；可由下载设置改写，并保存在 `<userData>/download-settings.json`。源码网页版遵循浏览器的下载设置。
 - **常见导出文件**：
-  - `月度运营报告_YYYY-MM.xlsx`：月报分析导出的多维度 Excel 表格。
-  - `SLA_催办提醒_*.html` / `*.txt`：一键催办生成的结构化邮件/即时通信模版。
-  - `tools-platform-backup-*.zip`：在“存储与备份”中导出的当前租户核心数据备份包。
-  - `custom-tool-*.zip`：在“自定义工具”中导出的独立微工具包。
+  - 报表 Excel、月报 HTML / PDF / MSG 等，文件名由对应页面按月份、快照或报告标题生成。
+  - `Report_<snapshot_id>.xlsx`：一键催办页下载的快照原始 Excel。
+  - `tools-platform-backup_<时间戳>_<原因>.zip`：备份恢复功能导出的当前租户核心数据包。
+  - `<工具名称>.html` / `<工具名称>.zip`：自定义工具导出；单文件工具生成 HTML，多文件工具生成 ZIP，名称中的非法文件字符会被替换。
 
 #### 12.4.5 客户端数据清理、迁移与出厂重置指引
 
 | 运维场景 | 推荐操作步骤 | 预期结果与注意事项 |
 | :--- | :--- | :--- |
-| **仅卸载主程序 (保留业务数据)** | 通过 Windows“设置 $\rightarrow$ 应用 $\rightarrow$ 卸载”运行卸载向导，或直接删除 Portable.exe。 | 仅清理安装目录和快捷方式，`%APPDATA%\Dragon Platform` 完整保留，后续重装可直接复用全部数据。 |
-| **全量迁移至新电脑** | 1. 退出旧电脑的 Tools Platform。<br/>2. 复制旧电脑的 `%APPDATA%\Dragon Platform\data\` 文件夹到新电脑的对应路径。<br/>3. 在新电脑安装启动客户端并输入授权码。 | 新电脑无缝恢复所有配置、账号、历史月报、自定义工具与媒体素材。 |
-| **彻底清除数据 / 恢复出厂设置** | 1. 退出托盘客户端进程。<br/>2. 直接删除整个 `%APPDATA%\Dragon Platform\` 文件夹。 | 清除所有本地数据与授权状态，下次启动时将进入全新首次初始化与激活向导。 |
+| **仅卸载主程序 (保留业务数据)** | 使用安装版卸载向导，或退出后删除便携 EXE / macOS 应用包；卸载前先备份实际数据目录。 | 程序目录与用户数据目录分开；保留原 `userData` 且新版使用该路径时可继承数据，不能仅凭重装成功判断已经连接旧库。 |
+| **迁移当前租户业务数据** | 在源实例生成备份，在目标实例登录相同租户 ID 后恢复；素材等排除项另行归档。 | 使用现有租户校验与恢复前备份；不会自动迁移所有租户、机器授权、桌宠或浏览器状态。 |
+| **全量迁移至新电脑** | 停止源和目标服务，核对两端实际目录；离线归档业务数据、分离报表目录、素材和所需桌面配置，保留原始备份后迁入目标对应路径。详见[整机归档](#整机归档与历史空间保全)。 | 不要只复制 `data/` 就认为全部文件已带走；桌宠、品牌、浏览器等状态在其外。机器绑定 License 需为新机器申请有效授权；系统凭据或登录态未必可跨机器复用。 |
+| **重置当前租户业务** | 优先使用“全局设置 → 初始化 → 彻底初始化当前租户”，按页面确认并保留自动安全备份。 | 保留账号、其他租户与机器授权；默认租户已有其他租户时禁止此操作。 |
+| **手动清除整个桌面用户目录** | 仅在确需丢弃该目录全部数据时，先退出服务、核对实际 `userData` 并离线备份，再清理。 | 影响目录内全部租户、账号、桌面配置与本地授权状态；与界面中的当前租户初始化范围不同。目录外的报表或源码数据不会因此清除。 |
 
 ---
 
@@ -1955,7 +2002,7 @@ flowchart TD
 ```
 
 1. **第一步：登录账号**
-   - 打开 `http://localhost:3030/login.html`。
+   - 源码服务默认打开 `http://localhost:3030/login.html`（自定义端口时替换）；桌面版直接使用应用主窗口，或从托盘在浏览器中打开实际服务地址。
    - 输入管理员账号登录（默认账号密码或联系运维管理员获取），登录后建议立即在“账号管理”中修改密码。
 2. **第二步：配置顶部导航与分类 (`/api/nav-settings`)**
    - 点击右上角设置菜单中的“全局设置” $\rightarrow$ “顶部导航配置”。
@@ -1974,7 +2021,7 @@ flowchart TD
 
 ### 12.6 平台标识、品牌资产与使用视频
 
-平台默认名称为 **Dragon Claw**，恐龙标识统一用于主页、登录、助手头像、页面加载与桌面启动界面。内部 appId、License 产品标识和历史数据目录保持兼容，安装包文件名也可能继续使用 `Dragon-Platform-*`，不要据此改名或搬动用户数据。
+平台默认名称为 **Dragon Claw**，恐龙标识统一用于主页、登录、助手头像、页面加载与桌面启动界面。内部 appId、License 产品标识和安装包文件名仍沿用部分历史标识，例如 `Dragon-Platform-*`。平台显示名称与 Electron 用户数据目录名不是同一配置，实际数据目录以启动日志为准；不要据此改名或搬动用户数据。
 
 全局设置 → **平台标识** 可修改平台显示名称（最多 80 字符，留空使用默认名称），同步应用到默认空间首页、顶部导航和页面标题。名称保存在现有 SQLite 配置中，旧客户端保存导航或恢复默认导航不会覆盖它。
 
@@ -1988,7 +2035,7 @@ flowchart TD
 
 ## 13. CI/CD 自动化发布与客户端平滑升级机制
 
-平台配置了工业级 **GitHub Actions 自动化流水线**，实现了“主分支代码推送 -> 自动打标/语义化升级 -> Windows/macOS 双端并行交叉编译与签名公证 -> 发布 GitHub Releases -> 客户端差量增量更新”的闭环发布生命周期：
+平台配置了工业级 **GitHub Actions 自动化流水线**，实现了“主分支代码推送 -> 自动打标/语义化升级 -> Windows/macOS 双端并行原生构建与 macOS 签名公证 -> 发布 GitHub Releases -> 客户端检查、下载与确认重启更新”的闭环发布生命周期：
 
 ```mermaid
 sequenceDiagram
@@ -2022,7 +2069,7 @@ sequenceDiagram
 1. **自动 Patch 版本递增 (`prepare-release`)**：
    - 开发者向 `main` 分支提交代码后，流水线在 `ubuntu-latest` 环境中自动在 `tools-platform/package.json` 中自增 patch 版本号。
    - 自动提交 `chore: release vX.Y.Z [skip ci]` 并打上对应 `vX.Y.Z` 的 Git Tag，随后推回 GitHub 仓库。
-2. **Windows 交叉编译 (`build-windows`)**：
+2. **Windows 原生构建 (`build-windows`)**：
    - 在 `windows-latest` 环境下拉取最新 Tag。
    - 执行 `npm run build:win`，同时构建 NSIS 安装包 (`Setup.exe`) 与绿色免安装单文件 (`Portable.exe`)。
    - 自动生成 `latest.yml` 校验清单与 `.blockmap` 增量索引。
@@ -2030,19 +2077,19 @@ sequenceDiagram
    - 在 `macos-latest` 环境下拉取最新 Tag。
    - **钥匙串安全注入**：将 Base64 编码的 Developer ID Application P12 证书解码并导入专用钥匙串，设置分区列表权限 (`set-key-partition-list`)。
    - **原生双架构构建**：执行 `npm run build:mac`，同时编译 `arm64` (Apple Silicon) 与 `x64` (Intel) 两套架构的 DMG 安装镜像与 ZIP 更新包。
-   - **官方公证 (Apple Notarization)**：集成 Apple `notarytool` 提交公证，公证成功后执行 `stapler` 将凭证票据压入 DMG 与 `.app`，完全杜绝 macOS Gatekeeper 拦截警告。
+   - **官方公证 (Apple Notarization)**：集成 Apple `notarytool` 提交公证，公证成功后执行 `stapler` 将凭证票据压入 DMG 与 `.app`，发布前仍需核验签名、公证结果及目标机器上的启动表现。
    - 自动生成 `latest-mac.yml` 跨版本更新索引。
 4. **Release 资产自动归档**：
    - 通过 `softprops/action-gh-release` 统一归档 Windows 与 macOS 全部安装包、更新包及元数据。
 
-### 13.2 客户端平滑增量更新机制 (Electron-Updater)
+### 13.2 客户端检查与更新机制
 1. **Windows Blockmap 差量增量下载**：
    - 安装版客户端内置 `electron-updater`，启动时或托盘右键手动“检查更新”时，自动向 GitHub Releases 拉取 `latest.yml`。
    - 比对本地版本号与远程版本号；若发现新版本，利用 `.blockmap` 索引仅下载变动的二进制 Block 数据，**实际节省量取决于版本差异与更新源是否支持差量下载**。
 2. **macOS 自动升级机制**：
    - macOS 客户端自动向 GitHub Releases 拉取 `latest-mac.yml`，检测到新版本后下载对应架构的 ZIP 载荷，在后台解压并于用户确认后静默重启覆盖应用。
 3. **简洁更新提示与反馈入口**：
-   - 桌面版每次启动检查更新，发现新版和升级完成均使用支持浅色/深色主题的小弹窗，展示旧版本 → 新版本及本次更新点；绿色版发现新版后仍跳转发行页手动下载。
+   - 桌面版每次启动检查更新，发现新版和升级完成均使用支持浅色/深色主题的小弹窗，展示旧版本 → 新版本及本次更新点；绿色版通过独立更新器下载新版 EXE 并在重启后替换原文件，也保留发行页手动下载入口。
    - 升级完成后 24 小时内静默检查，不自动弹出新版提醒；左下角头像菜单的“检查更新”不受静默期限制。
    - 新版提示读取发行版本的 release notes；升级完成提示读取随包的 `frontend/assets/release-notes.json`，发布时应同步维护中英文更新点。
    - 头像菜单提供“意见反馈”，支持填写内容和最多 6 张本地图片预览；目前不上传内容、图片或日志，提交仅提示服务器当前繁忙。
@@ -2080,11 +2127,15 @@ sequenceDiagram
 - **Q: 启动报端口已被占用 (`EADDRINUSE`)？**
   - A: 指定新端口启动即可：`PORT=3031 npm start`（PowerShell: `$env:PORT=3031; npm start`）。
 - **Q: 数据库出现死锁或损坏提示？**
-  - A: 服务在 `server.js` 启动时已集成 `repairStartupDatabases()` 自动检测与修复，可在 `backend/data/backups/` 中查看自动修复前后的 `.db` 副本。
+  - A: 服务在 `server.js` 启动时已集成 `repairStartupDatabases()` 自动检测与修复，修复副本位于对应数据库同级的 `backups/`：源码默认涉及 `backend/data/backups/` 和 `data/backups/`，桌面通常为 `<userData>/data/backups/`。以日志中的备份路径为准。
 - **Q: Windows 安装版无法启动本地服务？**
-  - A: 右键托盘图标打开“查看实时日志/更新进度”，检查系统用户数据目录下的 `logs/YYYY-MM-DD/error.log`。
+  - A: 右键托盘图标打开“查看实时日志/更新进度”，先查看实时日志与 `<userData>/logs/runtime-status.json`；启用 `TOOLS_DAILY_LOGS=1` 后才有 `logs/YYYY-MM-DD/error.log`。同时确认授权状态及日志中的实际数据目录。
 - **Q: 绿色版与安装版如何共存或迁移？**
-  - A: 两者数据均存储在当前用户的 Electron `app.getPath('userData')` 下的 `data/` 目录下，直接关闭旧版本运行新版本 EXE 即可，数据完全无缝继承。
+  - A: 同一个 Windows 用户、相同 `userData` 时共用业务数据。先备份并退出旧版，再启动另一版；历史包名称或版本不同需核对启动日志中的实际目录。便携 EXE 不携带业务数据，换电脑需另行迁移。
+- **Q: 为什么同一台电脑的 PM2 / Node 网页版与桌面版数据不同？**
+  - A: 默认指向两套目录，且桌面端口会自动避让。用桌面托盘“在浏览器中打开”可访问桌面同一后端；源码与桌面数据不会自动同步。对照[数据共享关系](#源码版与桌面版的数据共享关系)，并核验端口、数据路径和登录租户。
+- **Q: 数据目录到底叫 Dragon Claw、Dragon Platform 还是 tools-platform？**
+  - A: 页面品牌、包名与历史客户端名称不能互相替代。查桌面日志 `[Electron] User Data Path:` 得到实际业务目录，其父目录是 `userData`；不要根据 README 示例另建空目录或覆盖其他名称下的数据。
 
 ### 页面启动加载与 AI 月报保存机制
 
