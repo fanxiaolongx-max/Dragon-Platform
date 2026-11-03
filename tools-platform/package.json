@@ -53,6 +53,7 @@
       "scripts/generate-custom-tool-i18n.js",
       "electron-main.js",
       "electron-preload.js",
+      "desktop-credentials.js",
       "desktop-license-client.js",
       "desktop-machine-id.js",
       "desktop-license-preload.js",

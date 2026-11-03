@@ -285,6 +285,10 @@ test('electron-main.js, preload and login.html integrate desktop auto-login cred
 
     // 4. 用户手动退出时标记登出，避免陷入自动登录死循环
     assert.match(navbarJs, /tools_manual_logout/);
+
+    // 5. package.json 的 build.files 包含 desktop-credentials.js，确保打入 asar
+    const pkg = JSON.parse(read('package.json'));
+    assert.ok(pkg.build?.files?.includes('desktop-credentials.js'), 'desktop-credentials.js is included in build.files');
 });
 
 test('conversation-list and dragon-claw support status and time filtering', () => {
