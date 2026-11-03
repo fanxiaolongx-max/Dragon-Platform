@@ -86,3 +86,36 @@ test('all fingerprints are checked before any write, and failed workers release 
     assert.deepEqual(valid.installed, ['sample']);
     assert.equal(valid.preview.pending[0].slug, 'second', 'legacy callers retain the full preview');
 });
+
+test('recommendations compare full program sizes and release metadata without counting retained user files', t => {
+    const { options } = fixture(t);
+    const manifest = (directory, version, updatedAt) => {
+        const file = path.join(directory, 'sample/.tool-manifest.json');
+        const data = JSON.parse(fs.readFileSync(file));
+        data.tool.version = version; data.tool.updatedAt = updatedAt;
+        fs.writeFileSync(file, JSON.stringify(data));
+    };
+    manifest(options.sourceDir, '1.0.0', '2026-10-01T00:00:00Z');
+    options.expectedFingerprints.sample = previewBuiltinTools(options).pending[0].fingerprint;
+    applyBuiltinToolDecisions(options);
+    write(options.targetDir, 'sample/user-data.json', 'x'.repeat(20000));
+    write(options.sourceDir, 'sample/index.html', 'new code'.repeat(100));
+    manifest(options.sourceDir, '2.0.0', '2026-11-01T00:00:00Z');
+    let tool = previewBuiltinTools(options).pending[0];
+    assert.equal(tool.recommended, true);
+    assert.equal(tool.recommendation.reason, 'newer-larger');
+    assert.equal(tool.bundledReleaseBytes, 800);
+    assert.ok(tool.currentReleaseBytes < 100, 'extra user data is not misclassified as part of the program release');
+    write(options.targetDir, 'sample/index.html', 'local change');
+    tool = previewBuiltinTools(options).pending[0];
+    assert.equal(tool.localChanges, true); assert.equal(tool.recommended, true, 'newer metadata plus increased size informs an explicit selection');
+    manifest(options.targetDir, '3.0.0', '2026-12-01T00:00:00Z');
+    tool = previewBuiltinTools(options).pending[0];
+    assert.equal(tool.recommended, false, 'larger but explicitly older bundles do not recommend a downgrade');
+    manifest(options.targetDir, undefined, undefined); manifest(options.sourceDir, undefined, undefined);
+    tool = previewBuiltinTools(options).pending[0];
+    assert.equal(tool.recommended, true); assert.equal(tool.recommendation.reason, 'larger-release');
+    write(options.targetDir, 'sample/index.html', 'local change'.repeat(100));
+    tool = previewBuiltinTools(options).pending[0];
+    assert.equal(tool.recommended, false, 'unknown release metadata and smaller bundled code retain local changes for review');
+});

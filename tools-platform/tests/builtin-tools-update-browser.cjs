@@ -101,6 +101,7 @@ app.whenReady().then(async () => {
     // Includes local-change warnings, conflict cards, metadata and every file-change state.
     for (const [theme, width, language, manual] of [['light', 1200, 'zh-CN', false], ['dark', 1200, 'zh-CN', false], ['light', 390, 'en-US', true], ['dark', 390, 'en-US', true]]) {
         nativeTheme.themeSource = theme;
+        await win.webContents.executeJavaScript(`document.documentElement.dataset.theme=${JSON.stringify(theme)}`);
         win.setSize(width, 900);
         await evaluate(() => {
             window.language = 'zh-CN';
@@ -155,6 +156,7 @@ app.whenReady().then(async () => {
     await evaluate(() => { window.language = 'en-US'; renderBuiltinToolsSyncProgress(document.getElementById('builtinToolsSyncModal'), {}); });
     assert.match(await evaluate(() => document.querySelector('.builtin-sync-progress-label').textContent), /Copying application files/);
     nativeTheme.themeSource = 'dark';
+    await evaluate(() => { document.documentElement.dataset.theme='light'; });
     win.setSize(390, 760);
     await wait(150);
     const layout = await evaluate(() => {
@@ -166,7 +168,7 @@ app.whenReady().then(async () => {
     });
     assert.ok(layout.left >= 0 && layout.right <= layout.viewport && layout.footerBottom <= layout.height);
     assert.ok(layout.barWidth > 200);
-    assert.equal(layout.dark, 'rgb(24, 35, 53)');
+    assert.equal(layout.dark, 'rgba(248, 250, 252, 0.94)', 'OS dark mode does not override the light platform modal');
     fs.writeFileSync(path.join(temp, 'progress-dark-mobile.png'), (await win.webContents.capturePage()).toPNG());
     const errorBytes = Buffer.from(JSON.stringify({ type: 'error', error: 'Fixture failure 测试', status: 409 }));
     const split = errorBytes.indexOf(Buffer.from('测试')) + 1;

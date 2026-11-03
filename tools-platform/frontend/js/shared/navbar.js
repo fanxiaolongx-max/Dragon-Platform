@@ -4928,8 +4928,8 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
                 ? navLocaleText('仅版本标识不同', 'Only version metadata differs')
                 : navLocaleText('无文件差异', 'No file differences');
         const conflictNotice = tool.status === 'conflict'
-            ? `<div class="builtin-sync-conflict-note">${navEscape(navLocaleText('此目录不是系统管理版本，可能是您的同名自定义工具，已默认不覆盖。', 'This directory is not managed by the system and may be your custom tool with the same name. Overwrite is unchecked by default.'))}</div>`
-            : tool.localChanges ? `<div class="builtin-sync-conflict-note">${navEscape(navLocaleText('检测到本地修改或旧版校验信息不完整，已保留当前工具。确认后可手动勾选更新，旧目录会先备份。', 'Local changes or incomplete legacy verification data were detected. The current tool is preserved. Select it to update after review; the old folder will be backed up first.'))}</div>` : '';
+            ? `<div class="builtin-sync-conflict-note">${navEscape(navLocaleText('此目录不是系统管理版本，可能是同名自定义工具，请结合版本和大小确认是否替换。', 'This directory is not system-managed and may be a custom tool with the same name. Review its release information and size before replacing.'))}</div>`
+            : tool.localChanges ? `<div class="builtin-sync-conflict-note">${navEscape(navLocaleText('检测到本地修改或旧版校验信息不完整，请结合下方版本信息确认。处理前不会修改当前工具，旧目录会先备份。', 'Local changes or incomplete legacy verification data were detected. Review the release information below; applying a selection backs up the old folder first.'))}</div>` : '';
         const toolInfoDiff = tool.toolInfoChanged && tool.oldTool && tool.newTool
             ? `<div class="builtin-sync-info-diff">
                 <span>${navEscape(navLocaleText('旧信息', 'Old'))}：${navEscape(tool.oldTool.icon)} ${navEscape(tool.oldTool.name)}</span>
@@ -4950,12 +4950,24 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
                     <span class="builtin-sync-status is-${status.tone}">${navEscape(status.label)}</span>
                 </label>
                 ${conflictNotice}
+                ${tool.recommendation ? `<div class="builtin-sync-versions">${navEscape(navLocaleText('建议依据', 'Recommendation'))}：${navEscape(({
+                    'missing': navLocaleText('缺少内置工具或可接管的旧版', 'Missing tool or matching legacy version'),
+                    'current-newer': navLocaleText('当前版本号或更新时间更新，建议保留', 'Current version or timestamp is newer; keep current'),
+                    'custom-conflict': navLocaleText('同名自定义工具，需手动确认', 'Custom tool with the same name; review required'),
+                    'market-choice': navLocaleText('保留已选择的市场版本', 'Keep the selected market release'),
+                    'newer-larger': navLocaleText('内置版本更新，整体程序体积也有增加', 'Bundled release is newer and its program size increased'),
+                    'newer-release': navLocaleText('内置版本号或更新时间更新', 'Bundled version or timestamp is newer'),
+                    'larger-release': navLocaleText('版本信息未显示降级，内置整体程序体积增加', 'No older release metadata; bundled program size increased'),
+                    'current-larger': navLocaleText('当前程序体积更大，且内置版本信息未显示更新，建议保留', 'Current program size is larger with no newer bundled metadata; keep current'),
+                    'local-changes': navLocaleText('有本地修改，暂不建议覆盖', 'Local changes need review'),
+                    'content-update': navLocaleText('程序内容更新', 'Program contents changed')
+                })[tool.recommendation.reason] || '')}</div>` : ''}
                 ${toolInfoDiff}
-                ${manual ? `<div class="builtin-sync-versions">${navEscape(navLocaleText('当前来源', 'Current source'))}：${navEscape(tool.currentSource === 'market' ? navLocaleText('工具市场', 'Tool market') : navLocaleText('本地工具', 'Local tool'))} · ${navEscape(tool.currentVersion || '—')} → ${navEscape(navLocaleText('随包内置', 'Bundled'))} · ${navEscape(tool.bundledVersion || '—')}</div>` : ''}
+                ${`<div class="builtin-sync-versions">${navEscape(navLocaleText('当前来源', 'Current source'))}：${navEscape(tool.currentSource === 'market' ? navLocaleText('工具市场', 'Tool market') : navLocaleText('本地工具', 'Local tool'))} · ${navEscape(tool.currentReleaseVersion || '—')} · ${navEscape(tool.currentUpdatedAt || tool.currentVersion || '—')} → ${navEscape(navLocaleText('随包内置', 'Bundled'))} · ${navEscape(tool.bundledReleaseVersion || '—')} · ${navEscape(tool.bundledUpdatedAt || tool.bundledVersion || '—')}</div>`}
                 <div class="builtin-sync-metrics">
-                    <span>${navEscape(navLocaleText('当前使用', 'In use'))} <b>${formatBuiltinToolBytes(tool.oldBytes)}</b></span>
+                    <span>${navEscape(navLocaleText('当前使用', 'In use'))} <b>${formatBuiltinToolBytes(tool.currentReleaseBytes ?? tool.oldBytes)}</b></span>
                     <span class="builtin-sync-arrow">→</span>
-                    <span>${navEscape(navLocaleText('随包内置', 'Bundled'))} <b>${formatBuiltinToolBytes(tool.newBytes)}</b></span>
+                    <span>${navEscape(navLocaleText('随包内置', 'Bundled'))} <b>${formatBuiltinToolBytes(tool.bundledReleaseBytes ?? tool.newBytes)}</b></span>
                     <span class="builtin-sync-counts">+${counts.added || 0} / ~${counts.modified || 0} / −${counts.removed || 0} / ${navEscape(navLocaleText('保留', 'Preserved'))} ${counts.preserved || 0}</span>
                 </div>
                 <details class="builtin-sync-details" ${tool.status === 'conflict' ? 'open' : ''}>
@@ -4982,7 +4994,7 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
             </div>
             <div class="builtin-sync-toolbar">
                 <span>${navEscape(navLocaleText(`共 ${tools.length} 个待处理工具`, `${tools.length} pending tool(s)`))}</span>
-                <button type="button" data-sync-select="recommended">${navEscape(manual ? navLocaleText('全选差异', 'Select All Differences') : navLocaleText('选择建议项', 'Select Recommended'))}</button>
+                <button type="button" data-sync-select="recommended">${navEscape(navLocaleText('选择建议项', 'Select Recommended'))}</button>
                 <button type="button" data-sync-select="none">${navEscape(navLocaleText('全部取消', 'Deselect All'))}</button>
             </div>
             <div class="builtin-sync-list">${toolCards}</div>
@@ -5026,7 +5038,7 @@ function openBuiltinToolsSyncModal(preview, selectedSlugs) {
     });
     modal.querySelector('[data-sync-select="recommended"]').addEventListener('click', () => {
         modal.querySelectorAll('.builtin-sync-choice').forEach((input, index) => {
-            input.checked = manual || Boolean(tools[index] && tools[index].recommended);
+            input.checked = Boolean(tools[index] && tools[index].recommended);
         });
     });
     modal.querySelector('[data-sync-select="none"]').addEventListener('click', () => {

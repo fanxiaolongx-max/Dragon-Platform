@@ -13,6 +13,7 @@ const context = require('../backend/models/tenant-context');
 const repo = require('../backend/models/gallery-repository');
 const service = require('../backend/models/gallery-service');
 const app = express();
+let server;
 app.use(express.json());
 app.use((req, _res, next) => {
     const role = req.headers['x-role'] || 'admin';
@@ -27,11 +28,13 @@ function png(color = 180, width = 96, height = 64) {
     return PNG.sync.write(image);
 }
 const upload = (bytes, fields = {}, tenant = 'default') => {
-    let call = request(app).post('/api/gallery/upload').set('x-tenant', tenant);
+    let call = request(server).post('/api/gallery/upload').set('x-tenant', tenant);
     for (const [key, value] of Object.entries(fields)) call = call.field(key, value);
     return call.attach('file', bytes, 'poster.png');
 };
-test.after(async () => { await db.closeDatabase(); await require('../backend/models/tenant-sqlite-pool').closeAll(); fs.rmSync(sandbox, { recursive: true, force: true }); });
+// Keep a stable port for the suite instead of reusing recently closed HTTP ports.
+test.before(async () => { server = app.listen(0); await new Promise(resolve => server.once('listening', resolve)); });
+test.after(async () => { await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())); await db.closeDatabase(); await require('../backend/models/tenant-sqlite-pool').closeAll(); fs.rmSync(sandbox, { recursive: true, force: true }); });
 
 test('uploads keep exact originals, generate raster derivatives, group versions and deduplicate within a series', async () => {
     const original = png(), response = await upload(original, { title: 'Autumn poster', category: 'posters' }).expect(201);
@@ -53,7 +56,7 @@ test('uploads keep exact originals, generate raster derivatives, group versions 
     assert.equal(revised.body.item.versions.length, 2);
     assert.equal(revised.body.item.versions[0].version_no, 2);
     assert.equal(revised.body.item.versions[0].label, 'Approved');
-    const asset = await request(app).get(`/api/gallery/versions/${versionId}/original`).expect(200);
+    const asset = await request(server).get(`/api/gallery/versions/${versionId}/original`).expect(200);
     assert.match(asset.headers['content-disposition'], /attachment/);
     assert.match(asset.headers['cache-control'], /no-store/);
     assert.equal(asset.headers['x-content-type-options'], 'nosniff');
@@ -85,51 +88,51 @@ test('search includes older version text, literal wildcards, filters and stable 
     const item = (await upload(png(30), { title: 'Hidden restaurant', scope: 'life', category: 'menus' }).expect(201)).body;
     await repo.saveAnalysis(item.versionId, 'balanced', { title: 'Menu', tags: ['中文'], summary: 'A menu', text: 'Garden Bistro 100%_special' });
     await upload(png(31), { itemId: item.item.id }).expect(201);
-    const search = await request(app).get('/api/gallery/items').query({ q: '100%_special', scope: 'life', category: 'menus' }).expect(200);
+    const search = await request(server).get('/api/gallery/items').query({ q: '100%_special', scope: 'life', category: 'menus' }).expect(200);
     assert.equal(search.body.total, 1); assert.equal(search.body.items[0].id, item.item.id);
     assert.equal('original' in search.body.items[0], false);
-    assert.equal((await request(app).get('/api/gallery/items').query({ q: 'not-present' })).body.total, 0);
-    const page = (await request(app).get('/api/gallery/items').query({ page: 999 })).body;
+    assert.equal((await request(server).get('/api/gallery/items').query({ q: 'not-present' })).body.total, 0);
+    const page = (await request(server).get('/api/gallery/items').query({ page: 999 })).body;
     assert.equal(page.page, page.pages);
     assert.ok(page.items.length <= 36);
 });
 
 test('manual categories and metadata work without AI, prevent lost updates and archive reversibly', async () => {
-    const category = (await request(app).post('/api/gallery/categories').send({ name: '上海餐厅' }).expect(201)).body;
-    assert.equal((await request(app).post('/api/gallery/categories').send({ name: '上海餐厅' })).body.id, category.id);
+    const category = (await request(server).post('/api/gallery/categories').send({ name: '上海餐厅' }).expect(201)).body;
+    assert.equal((await request(server).post('/api/gallery/categories').send({ name: '上海餐厅' })).body.id, category.id);
     const uploaded = (await upload(png(40), { title: '菜单' }).expect(201)).body;
     const url = '/api/gallery/items/' + uploaded.item.id;
-    await request(app).patch(url).send({ revision: 0, category_id: 'absent' }).expect(400);
-    const updated = (await request(app).patch(url).send({ revision: 0, category_id: category.id, tags: '上海，中文,上海', note: 'Near hotel', favorite: true }).expect(200)).body;
+    await request(server).patch(url).send({ revision: 0, category_id: 'absent' }).expect(400);
+    const updated = (await request(server).patch(url).send({ revision: 0, category_id: category.id, tags: '上海，中文,上海', note: 'Near hotel', favorite: true }).expect(200)).body;
     assert.deepEqual(updated.tags, ['上海', '中文']); assert.equal(updated.favorite, true);
-    await request(app).patch(url).send({ revision: 0, title: 'Stale overwrite' }).expect(409);
-    const archived = (await request(app).patch(url).send({ revision: updated.revision, archived: true }).expect(200)).body;
+    await request(server).patch(url).send({ revision: 0, title: 'Stale overwrite' }).expect(409);
+    const archived = (await request(server).patch(url).send({ revision: updated.revision, archived: true }).expect(200)).body;
     assert.equal((await repo.list({ q: 'Near hotel' })).total, 0);
     assert.equal((await repo.list({ archived: '1', q: 'Near hotel' })).total, 1);
     await upload(png(41), { itemId: uploaded.item.id }).expect(409);
-    await request(app).patch(url).send({ revision: archived.revision, archived: false }).expect(200);
+    await request(server).patch(url).send({ revision: archived.revision, archived: false }).expect(200);
     assert.equal((await repo.list({ q: 'Near hotel', favorite: '1' })).total, 1);
 });
 
 test('all reads and writes are tenant isolated; readers cannot mutate or invoke AI', async () => {
     const original = (await upload(png(50), { title: 'Tenant secret' }).expect(201)).body;
     const { item, versionId } = original;
-    await request(app).get('/api/gallery/items/' + item.id).set('x-tenant', 'other').expect(404);
-    await request(app).get(`/api/gallery/versions/${versionId}/preview`).set('x-tenant', 'other').expect(404);
+    await request(server).get('/api/gallery/items/' + item.id).set('x-tenant', 'other').expect(404);
+    await request(server).get(`/api/gallery/versions/${versionId}/preview`).set('x-tenant', 'other').expect(404);
     await upload(png(51), { itemId: item.id }, 'other').expect(404);
-    assert.equal((await request(app).get('/api/gallery/items').set('x-tenant','other')).body.total, 0);
+    assert.equal((await request(server).get('/api/gallery/items').set('x-tenant','other')).body.total, 0);
     const other = (await upload(png(52), { title: 'Other tenant' }, 'other').expect(201)).body;
     assert.equal((await repo.list({ q: 'Other tenant' })).total, 0);
-    await request(app).get('/api/gallery/items/' + other.item.id).expect(404);
+    await request(server).get('/api/gallery/items/' + other.item.id).expect(404);
     for (const role of ['viewer', 'user']) {
-        await request(app).get('/api/gallery/items').set('x-role',role).expect(200);
-        assert.equal((await request(app).get('/api/gallery/capabilities').set('x-role',role)).body.canWrite, false);
-        await request(app).post('/api/gallery/categories').set('x-role',role).send({ name:'Forbidden' }).expect(403);
-        await request(app).patch('/api/gallery/items/' + item.id).set('x-role',role).send({ revision:0 }).expect(403);
-        await request(app).post('/api/gallery/upload').set('x-role',role).expect(403);
-        await request(app).post(`/api/gallery/versions/${versionId}/analyze`).set('x-role',role).send({ confirmed:true }).expect(403);
+        await request(server).get('/api/gallery/items').set('x-role',role).expect(200);
+        assert.equal((await request(server).get('/api/gallery/capabilities').set('x-role',role)).body.canWrite, false);
+        await request(server).post('/api/gallery/categories').set('x-role',role).send({ name:'Forbidden' }).expect(403);
+        await request(server).patch('/api/gallery/items/' + item.id).set('x-role',role).send({ revision:0 }).expect(403);
+        await request(server).post('/api/gallery/upload').set('x-role',role).expect(403);
+        await request(server).post(`/api/gallery/versions/${versionId}/analyze`).set('x-role',role).send({ confirmed:true }).expect(403);
     }
-    await request(app).get('/api/gallery/items').set('x-role','anonymous').expect(401);
+    await request(server).get('/api/gallery/items').set('x-role','anonymous').expect(401);
 });
 
 test('AI sees exactly one compressed image, caps output, reuses results and never overwrites manual metadata', async () => {
@@ -175,8 +178,8 @@ test('invalid uploads and unknown assets do not create incomplete groups', async
     await upload(Buffer.from('<svg onload="alert(1)"></svg>')).expect(400);
     await upload(Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),Buffer.alloc(20)])).expect(422);
     await upload(png(80), { category:'does-not-exist' }).expect(400);
-    await request(app).get('/api/gallery/versions/missing/preview').expect(404);
-    await request(app).get('/api/gallery/versions/missing/ai_balanced').expect(404);
+    await request(server).get('/api/gallery/versions/missing/preview').expect(404);
+    await request(server).get('/api/gallery/versions/missing/ai_balanced').expect(404);
     assert.equal((await repo.list()).total,before);
 });
 
@@ -184,11 +187,11 @@ test('albums collect independent pages, search by restaurant and keep each page 
     const first = (await upload(png(91),{title:'菜单_上',scope:'life'}).expect(201)).body;
     const second = (await upload(png(92),{title:'菜单_下',scope:'life'}).expect(201)).body;
     await upload(png(93),{itemId:first.item.id,label:'Updated prices'}).expect(201);
-    const album = (await request(app).post('/api/gallery/albums').send({name:'日秘料理'}).expect(201)).body;
-    assert.equal((await request(app).post('/api/gallery/albums').send({name:'日秘料理'})).body.id,album.id);
+    const album = (await request(server).post('/api/gallery/albums').send({name:'日秘料理'}).expect(201)).body;
+    assert.equal((await request(server).post('/api/gallery/albums').send({name:'日秘料理'})).body.id,album.id);
     const entries = [first,second].map(row=>({id:row.item.id,revision:row.item.revision}));
-    await request(app).post(`/api/gallery/albums/${album.id}/items`).send({items:entries}).expect(200);
-    const items = (await request(app).get('/api/gallery/items').query({album:album.id,sort:'title'}).expect(200)).body;
+    await request(server).post(`/api/gallery/albums/${album.id}/items`).send({items:entries}).expect(200);
+    const items = (await request(server).get('/api/gallery/items').query({album:album.id,sort:'title'}).expect(200)).body;
     assert.deepEqual(items.items.map(row=>row.title),['菜单_上','菜单_下']);
     const top = await repo.read(first.item.id), bottom = await repo.read(second.item.id);
     assert.equal(top.versions.length,2);assert.equal(bottom.versions.length,1);
@@ -198,14 +201,14 @@ test('albums collect independent pages, search by restaurant and keep each page 
     assert.deepEqual((await repo.asset(second.versionId,'original')).bytes,png(92));
     assert.equal((await repo.list({q:'日秘料理'})).total,2);
     assert.equal((await repo.albums()).find(row=>row.id===album.id).item_count,2);
-    await request(app).patch('/api/gallery/items/'+bottom.id).send({revision:bottom.revision,archived:true}).expect(200);
+    await request(server).patch('/api/gallery/items/'+bottom.id).send({revision:bottom.revision,archived:true}).expect(200);
     assert.equal((await repo.albums()).find(row=>row.id===album.id).item_count,1);
     assert.equal((await repo.read(top.id)).album_next,null);
-    await request(app).patch('/api/gallery/items/'+top.id).send({revision:top.revision,album_id:''}).expect(200);
+    await request(server).patch('/api/gallery/items/'+top.id).send({revision:top.revision,album_id:''}).expect(200);
     assert.equal((await repo.read(top.id)).album_id,'');assert.equal((await repo.read(top.id)).versions.length,2);
     const added = (await upload(png(94),{title:'New album page',album:album.id}).expect(201)).body;
     assert.equal(added.item.album_id,album.id);
-    await request(app).post('/api/gallery/albums/none/items').send({items:[{id:added.item.id,revision:added.item.revision}]}).expect(200);
+    await request(server).post('/api/gallery/albums/none/items').send({items:[{id:added.item.id,revision:added.item.revision}]}).expect(200);
     assert.equal((await repo.read(added.item.id)).album_id,'');
 });
 
@@ -215,22 +218,22 @@ test('album bulk moves are atomic, reject stale selections and enforce tenant an
     const album = await repo.addAlbum('Atomic album');
     const url = `/api/gallery/albums/${album.id}/items`, entries = [a,b].map(row=>({id:row.id,revision:row.revision}));
     await repo.update(a.id,{revision:a.revision,note:'Changed in another window'});
-    await request(app).post(url).send({items:entries}).expect(409);
+    await request(server).post(url).send({items:entries}).expect(409);
     assert.equal((await repo.read(a.id)).album_id,'');assert.equal((await repo.read(b.id)).album_id,'');
-    await request(app).post(url).send({items:[entries[1],{id:'missing',revision:0}]}).expect(404);
+    await request(server).post(url).send({items:[entries[1],{id:'missing',revision:0}]}).expect(404);
     assert.equal((await repo.read(b.id)).album_id,'');
-    await request(app).post(url).send({items:[entries[1],entries[1]]}).expect(400);
-    await request(app).post(url).set('x-tenant','album-other').send({items:[entries[1]]}).expect(404);
-    await request(app).get('/api/gallery/items').set('x-tenant','album-other').query({album:album.id}).expect(404);
-    const own = (await request(app).post('/api/gallery/albums').set('x-tenant','album-other').send({name:'Private album'}).expect(201)).body;
-    await request(app).post(`/api/gallery/albums/${own.id}/items`).set('x-tenant','album-other').send({items:[entries[1]]}).expect(404);
+    await request(server).post(url).send({items:[entries[1],entries[1]]}).expect(400);
+    await request(server).post(url).set('x-tenant','album-other').send({items:[entries[1]]}).expect(404);
+    await request(server).get('/api/gallery/items').set('x-tenant','album-other').query({album:album.id}).expect(404);
+    const own = (await request(server).post('/api/gallery/albums').set('x-tenant','album-other').send({name:'Private album'}).expect(201)).body;
+    await request(server).post(`/api/gallery/albums/${own.id}/items`).set('x-tenant','album-other').send({items:[entries[1]]}).expect(404);
     assert.ok(!(await repo.albums()).some(row=>row.id===own.id));
     for(const role of ['viewer','user']) {
-        await request(app).get('/api/gallery/albums').set('x-role',role).expect(200);
-        await request(app).post('/api/gallery/albums').set('x-role',role).send({name:'Forbidden'}).expect(403);
-        await request(app).post(url).set('x-role',role).send({items:[entries[1]]}).expect(403);
+        await request(server).get('/api/gallery/albums').set('x-role',role).expect(200);
+        await request(server).post('/api/gallery/albums').set('x-role',role).send({name:'Forbidden'}).expect(403);
+        await request(server).post(url).set('x-role',role).send({items:[entries[1]]}).expect(403);
     }
-    await request(app).get('/api/gallery/albums').set('x-role','anonymous').expect(401);
+    await request(server).get('/api/gallery/albums').set('x-role','anonymous').expect(401);
 });
 
 test('album schema migration is repeatable and preserves existing gallery rows',async()=>{
@@ -329,17 +332,17 @@ test('batch delete is confirmed, tenant isolated, atomic and reversible with all
     const a=(await upload(png(108),{title:'Trash A'},'trash-gallery').expect(201)).body;
     const b=(await upload(png(109),{title:'Trash B'},'trash-gallery').expect(201)).body;
     const entries=[a,b].map(row=>({id:row.item.id,revision:row.item.revision}));
-    await request(app).delete('/api/gallery/items').set('x-tenant','trash-gallery').send({items:entries}).expect(400);
-    await request(app).delete('/api/gallery/items').set('x-tenant','other-trash').send({items:entries,confirmed:true}).expect(404);
-    await request(app).delete('/api/gallery/items').set('x-tenant','trash-gallery').set('x-role','viewer').send({items:entries,confirmed:true}).expect(403);
-    await request(app).delete('/api/gallery/items').set('x-tenant','trash-gallery').send({items:[entries[0],{id:'missing',revision:0}],confirmed:true}).expect(404);
-    assert.equal((await request(app).get('/api/gallery/items').set('x-tenant','trash-gallery')).body.total,2);
-    await request(app).delete('/api/gallery/items').set('x-tenant','trash-gallery').send({items:entries,confirmed:true}).expect(200);
-    assert.equal((await request(app).get('/api/gallery/items').set('x-tenant','trash-gallery')).body.total,0);
-    const deleted=(await request(app).get('/api/gallery/items').set('x-tenant','trash-gallery').query({trash:'1'})).body.items;
+    await request(server).delete('/api/gallery/items').set('x-tenant','trash-gallery').send({items:entries}).expect(400);
+    await request(server).delete('/api/gallery/items').set('x-tenant','other-trash').send({items:entries,confirmed:true}).expect(404);
+    await request(server).delete('/api/gallery/items').set('x-tenant','trash-gallery').set('x-role','viewer').send({items:entries,confirmed:true}).expect(403);
+    await request(server).delete('/api/gallery/items').set('x-tenant','trash-gallery').send({items:[entries[0],{id:'missing',revision:0}],confirmed:true}).expect(404);
+    assert.equal((await request(server).get('/api/gallery/items').set('x-tenant','trash-gallery')).body.total,2);
+    await request(server).delete('/api/gallery/items').set('x-tenant','trash-gallery').send({items:entries,confirmed:true}).expect(200);
+    assert.equal((await request(server).get('/api/gallery/items').set('x-tenant','trash-gallery')).body.total,0);
+    const deleted=(await request(server).get('/api/gallery/items').set('x-tenant','trash-gallery').query({trash:'1'})).body.items;
     assert.equal(deleted.length,2);
-    await request(app).patch('/api/gallery/items/'+a.item.id).set('x-tenant','trash-gallery').send({revision:deleted[0].revision,title:'No resurrection'}).expect(409);
-    await request(app).post('/api/gallery/items/restore').set('x-tenant','trash-gallery').send({items:deleted.map(row=>({id:row.id,revision:row.revision}))}).expect(200);
-    assert.equal((await request(app).get('/api/gallery/items').set('x-tenant','trash-gallery')).body.total,2);
+    await request(server).patch('/api/gallery/items/'+a.item.id).set('x-tenant','trash-gallery').send({revision:deleted[0].revision,title:'No resurrection'}).expect(409);
+    await request(server).post('/api/gallery/items/restore').set('x-tenant','trash-gallery').send({items:deleted.map(row=>({id:row.id,revision:row.revision}))}).expect(200);
+    assert.equal((await request(server).get('/api/gallery/items').set('x-tenant','trash-gallery')).body.total,2);
     await context.runWithTenant('trash-gallery',async()=>assert.deepEqual((await repo.asset(a.versionId,'original')).bytes,png(108)));
 });

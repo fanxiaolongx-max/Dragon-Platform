@@ -273,7 +273,14 @@ function compareBundledTool(source, targetDir, { preserveInstalledRelease = true
         managed,
         localChanges: managed && !installedContentMatches,
         retainedRelease,
+        sameToolIdentity: targetManifest?.tool?.slug === source.slug,
         currentSource: targetManifest?.market ? 'market' : managed ? 'builtin' : 'custom',
+        currentReleaseVersion: targetManifest?.tool?.releaseVersion || targetManifest?.tool?.version || targetManifest?.market?.releaseVersion || null,
+        bundledReleaseVersion: source.manifest.tool.releaseVersion || source.manifest.tool.version || null,
+        currentUpdatedAt: targetManifest?.tool?.updatedAt || null,
+        bundledUpdatedAt: source.manifest.tool.updatedAt || null,
+        currentReleaseBytes: sumBytes(changes.filter(item => item.type !== 'added' && item.type !== 'preserved').map(item => ({ size: item.oldSize }))),
+        bundledReleaseBytes: sumBytes(changes.filter(item => item.type !== 'removed' && item.type !== 'preserved').map(item => ({ size: item.newSize }))),
         currentVersion: targetManifest?.tool?.updatedAt || targetManifest?.market?.releaseVersion || null,
         bundledVersion: source.manifest.tool.updatedAt || null,
         legacyMatch,
@@ -284,6 +291,35 @@ function compareBundledTool(source, targetDir, { preserveInstalledRelease = true
         counts,
         changes
     };
+}
+
+// Release evidence is independent of file-copy timestamps and manifest schema version.
+function recommendRelease(tool) {
+    const version = value => {
+        const match = /^v?(\d+(?:\.\d+){0,3})(?:-([\w.-]+))?$/.exec(String(value || '').trim());
+        return match ? { parts: match[1].split('.').map(Number), pre: match[2] || '' } : null;
+    };
+    const a = version(tool.bundledReleaseVersion), b = version(tool.currentReleaseVersion);
+    let versionOrder = null;
+    if (a && b) {
+        versionOrder = 0;
+        for (let i = 0; i < 4; i++) { const diff = (a.parts[i] || 0) - (b.parts[i] || 0); if (diff) { versionOrder = Math.sign(diff); break; } }
+        if (!versionOrder && a.pre !== b.pre) versionOrder = !a.pre ? 1 : !b.pre ? -1 : Math.sign(a.pre.localeCompare(b.pre, 'en', { numeric: true }));
+    }
+    const sourceTime = Date.parse(tool.bundledUpdatedAt), installedTime = Date.parse(tool.currentUpdatedAt);
+    const timeOrder = Number.isFinite(sourceTime) && Number.isFinite(installedTime) ? Math.sign(sourceTime - installedTime) : null;
+    const sizeOrder = Math.sign(tool.bundledReleaseBytes - tool.currentReleaseBytes);
+    let reason, recommended = false;
+    if (tool.status === 'missing' || tool.status === 'adopt') { reason = 'missing'; recommended = true; }
+    else if (versionOrder < 0 || timeOrder < 0) reason = 'current-newer';
+    else if (tool.status === 'conflict' && !(tool.sameToolIdentity && (versionOrder > 0 || timeOrder > 0) && sizeOrder >= 0)) reason = 'custom-conflict';
+    else if (tool.retainedRelease) reason = 'market-choice';
+    else if (versionOrder > 0 || timeOrder > 0) { reason = sizeOrder > 0 ? 'newer-larger' : 'newer-release'; recommended = true; }
+    else if (sizeOrder > 0) { reason = 'larger-release'; recommended = true; }
+    else if (sizeOrder < 0) reason = 'current-larger';
+    else if (tool.localChanges) reason = 'local-changes';
+    else { reason = 'content-update'; recommended = true; }
+    return { recommended, reason, versionOrder, timeOrder, sizeOrder };
 }
 
 function removeEmptyParents(startPath, stopDir) {
@@ -417,7 +453,8 @@ function previewBuiltinTools({ sourceDir, targetDir, stateFile, includeSkipped =
                 skippedDecision
                 && skippedDecision.fingerprint === source.fingerprint
             );
-            comparison.recommended = comparison.status !== 'conflict' && !comparison.localChanges;
+            comparison.recommendation = recommendRelease(comparison);
+            comparison.recommended = comparison.recommendation.recommended;
             result.tools.push(comparison);
             if (comparison.status === 'unchanged') result.unchanged.push(comparison.slug);
             else if (comparison.skipped) result.skipped.push(comparison);
@@ -598,6 +635,7 @@ function initializeBuiltinTools({ sourceDir, targetDir, stateFile, backupRoot, l
 }
 
 module.exports = {
+    recommendRelease,
     DECISION_STATE_VERSION,
     SYSTEM_MARKER,
     TOOL_MANIFEST_FILE,

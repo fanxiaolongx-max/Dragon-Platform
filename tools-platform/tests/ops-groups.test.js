@@ -121,6 +121,10 @@ test('AI 生成：带上运营规范、群画像与视频素材，正文缺链�
 });
 
 test('到点运行：自动发送模式直接推送，抢占后不会重复执行；部分失败记为 partial', async () => {
+    // Earlier scenarios leave an enabled daily plan. Its due time depends on the wall clock.
+    for (const existing of await inTenant(() => opsRepo.listPlans())) {
+        await inTenant(() => opsService.savePlan({ id: existing.id, enabled: false }));
+    }
     const plan = await inTenant(() => opsService.savePlan({ name: '自动推送', targets: [GROUP, { channel: 'welink', kind: 'group', id: 'bad-group' }], contentMode: 'template', template: '今日提醒 {{date}}', sendMode: 'auto', enabled: true, schedule: { type: 'daily', times: ['09:00'], workdaysOnly: false } }));
     const later = new Date(new Date(plan.nextRunAt).getTime() + 1000);
     const before = pushes.length;

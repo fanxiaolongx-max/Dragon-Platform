@@ -5660,56 +5660,28 @@ body.service-status-open { overflow: hidden; }
     cursor: wait;
 }
 
-@media (prefers-color-scheme: dark) {
-    .builtin-sync-window { color-scheme: dark; border-color: #334155; background: #182335; color: #e2e8f0; }
-    .builtin-sync-head, .builtin-sync-footer { background: #1e293b; border-color: #334155; }
-    .builtin-sync-head h2, .builtin-sync-tool-copy strong, .builtin-sync-metrics b { color: #e2e8f0; }
-    .builtin-sync-card { background: #1e293b; border-color: #475569; }
-    .builtin-sync-card.is-conflict { background: #322b21; }
-    .builtin-sync-kicker { color: #b8b1ff; }
-    .builtin-sync-tool-copy small, .builtin-sync-counts,
-    .builtin-sync-file-size, .builtin-sync-unchanged, .builtin-sync-empty-diff { color: #b8c4d6; }
-    .builtin-sync-arrow { color: #c4b5fd; }
-    .builtin-sync-conflict-note { padding: 8px 10px; border-left: 2px solid #d99a42; border-radius: 4px; background: #332818; color: #fbd38d; }
-    .builtin-sync-status.is-new, .builtin-sync-status.is-adopt,
-    .builtin-sync-change.is-added { background: #14382e; color: #a7f3d0; }
-    .builtin-sync-status.is-update { background: #30315b; color: #d9d6ff; }
-    .builtin-sync-status.is-conflict { background: #422e16; color: #fcd99d; }
-    .builtin-sync-change.is-modified { background: #173558; color: #bfdbfe; }
-    .builtin-sync-change.is-removed { background: #482329; color: #fecaca; }
-    .builtin-sync-change.is-preserved { background: #352958; color: #e9d5ff; }
-    .builtin-sync-toolbar button, .builtin-sync-footer button { background: #273449; border-color: #52637a; color: #e2e8f0; }
-    .builtin-sync-toolbar button:hover, .builtin-sync-footer button:hover { background: #34455d; }
-    .builtin-sync-footer .builtin-sync-apply { background: #4f46e5; border-color: #818cf8; color: #fff; }
-    .builtin-sync-footer .builtin-sync-apply:hover { background: #4338ca; }
-    .builtin-sync-footer .builtin-sync-today { background: #302e59; border-color: #7169b8; color: #e0dcff; }
-    .builtin-sync-footer .builtin-sync-today:hover { background: #403c72; }
-    .builtin-sync-close { background: #334155; color: #e2e8f0; }
-    .builtin-sync-close:hover { background: #475569; }
-    .builtin-sync-details summary, .builtin-sync-info-diff { background: #273449; color: #cbd5e1; }
-    .builtin-sync-file-row code { color: #cbd5e1; }
-    .builtin-sync-safe-note { background: #193b35; border-color: #2a6255; color: #b8d5ce; }
-    .builtin-sync-safe-note strong { color: #6ee7b7; }
-    .builtin-sync-head p, .builtin-sync-toolbar { color: #a6b6ca; }
-    .builtin-sync-progress-head { color: #a5b4fc; }
-    .builtin-sync-progress-track { background: #334155; }
-    .builtin-sync-progress-detail, .builtin-sync-result, .builtin-sync-metrics, .builtin-sync-versions { color: #a6b6ca; }
-    .builtin-sync-progress.is-error .builtin-sync-progress-head { color: #fca5a5; }
-    .builtin-sync-loading-card { background: linear-gradient(135deg, #1e293b, #172033); border-color: #334155; }
-    .builtin-sync-loading-title { color: #f1f5f9; }
-    .builtin-sync-loading-percent { color: #a5b4fc; }
-    .builtin-sync-loading-detail { color: #94a3b8; }
-    .builtin-sync-loading-bar { background: #334155; }
-    .builtin-sync-spinner { border-color: rgba(165, 180, 252, 0.2); border-top-color: #818cf8; }
-    .builtin-sync-skeleton-card {
+html[data-theme="dark"] .builtin-sync-window { color-scheme: dark; border-color: #334155; background: #182335; color: #e2e8f0; }html[data-theme="dark"] .builtin-sync-head,
+html[data-theme="dark"] .builtin-sync-footer { background: #1e293b; border-color: #334155; }html[data-theme="dark"] .builtin-sync-head h2,
+html[data-theme="dark"] .builtin-sync-tool-copy strong,
+html[data-theme="dark"] .builtin-sync-metrics b { color: #e2e8f0; }html[data-theme="dark"] .builtin-sync-card { background: #1e293b; border-color: #475569; }html[data-theme="dark"] .builtin-sync-card.is-conflict { background: #322b21; }html[data-theme="dark"] .builtin-sync-kicker { color: #b8b1ff; }html[data-theme="dark"] .builtin-sync-tool-copy small,
+html[data-theme="dark"] .builtin-sync-counts,
+html[data-theme="dark"] .builtin-sync-file-size,
+html[data-theme="dark"] .builtin-sync-unchanged,
+html[data-theme="dark"] .builtin-sync-empty-diff { color: #b8c4d6; }html[data-theme="dark"] .builtin-sync-arrow { color: #c4b5fd; }html[data-theme="dark"] .builtin-sync-conflict-note { padding: 8px 10px; border-left: 2px solid #d99a42; border-radius: 4px; background: #332818; color: #fbd38d; }html[data-theme="dark"] .builtin-sync-status.is-new,
+html[data-theme="dark"] .builtin-sync-status.is-adopt,
+html[data-theme="dark"] .builtin-sync-change.is-added { background: #14382e; color: #a7f3d0; }html[data-theme="dark"] .builtin-sync-status.is-update { background: #30315b; color: #d9d6ff; }html[data-theme="dark"] .builtin-sync-status.is-conflict { background: #422e16; color: #fcd99d; }html[data-theme="dark"] .builtin-sync-change.is-modified { background: #173558; color: #bfdbfe; }html[data-theme="dark"] .builtin-sync-change.is-removed { background: #482329; color: #fecaca; }html[data-theme="dark"] .builtin-sync-change.is-preserved { background: #352958; color: #e9d5ff; }html[data-theme="dark"] .builtin-sync-toolbar button,
+html[data-theme="dark"] .builtin-sync-footer button { background: #273449; border-color: #52637a; color: #e2e8f0; }html[data-theme="dark"] .builtin-sync-toolbar button:hover,
+html[data-theme="dark"] .builtin-sync-footer button:hover { background: #34455d; }html[data-theme="dark"] .builtin-sync-footer .builtin-sync-apply { background: #4f46e5; border-color: #818cf8; color: #fff; }html[data-theme="dark"] .builtin-sync-footer .builtin-sync-apply:hover { background: #4338ca; }html[data-theme="dark"] .builtin-sync-footer .builtin-sync-today { background: #302e59; border-color: #7169b8; color: #e0dcff; }html[data-theme="dark"] .builtin-sync-footer .builtin-sync-today:hover { background: #403c72; }html[data-theme="dark"] .builtin-sync-close { background: #334155; color: #e2e8f0; }html[data-theme="dark"] .builtin-sync-close:hover { background: #475569; }html[data-theme="dark"] .builtin-sync-details summary,
+html[data-theme="dark"] .builtin-sync-info-diff { background: #273449; color: #cbd5e1; }html[data-theme="dark"] .builtin-sync-file-row code { color: #cbd5e1; }html[data-theme="dark"] .builtin-sync-safe-note { background: #193b35; border-color: #2a6255; color: #b8d5ce; }html[data-theme="dark"] .builtin-sync-safe-note strong { color: #6ee7b7; }html[data-theme="dark"] .builtin-sync-head p,
+html[data-theme="dark"] .builtin-sync-toolbar { color: #a6b6ca; }html[data-theme="dark"] .builtin-sync-progress-head { color: #a5b4fc; }html[data-theme="dark"] .builtin-sync-progress-track { background: #334155; }html[data-theme="dark"] .builtin-sync-progress-detail,
+html[data-theme="dark"] .builtin-sync-result,
+html[data-theme="dark"] .builtin-sync-metrics,
+html[data-theme="dark"] .builtin-sync-versions { color: #a6b6ca; }html[data-theme="dark"] .builtin-sync-progress.is-error .builtin-sync-progress-head { color: #fca5a5; }html[data-theme="dark"] .builtin-sync-loading-card { background: linear-gradient(135deg, #1e293b, #172033); border-color: #334155; }html[data-theme="dark"] .builtin-sync-loading-title { color: #f1f5f9; }html[data-theme="dark"] .builtin-sync-loading-percent { color: #a5b4fc; }html[data-theme="dark"] .builtin-sync-loading-detail { color: #94a3b8; }html[data-theme="dark"] .builtin-sync-loading-bar { background: #334155; }html[data-theme="dark"] .builtin-sync-spinner { border-color: rgba(165, 180, 252, 0.2); border-top-color: #818cf8; }html[data-theme="dark"] .builtin-sync-skeleton-card {
         background: linear-gradient(90deg, rgba(30, 41, 59, 0.6) 25%, rgba(51, 65, 85, 0.85) 50%, rgba(30, 41, 59, 0.6) 75%);
         background-size: 200% 100%;
         border-color: #334155;
-    }
-    .builtin-sync-error-card { background: rgba(44, 26, 26, 0.88); border-color: #7f1d1d; color: #fca5a5; }
-    .builtin-sync-error-card strong { color: #f87171; }
-    .builtin-sync-error-card p { color: #fca5a5; }
-}
+    }html[data-theme="dark"] .builtin-sync-error-card { background: rgba(44, 26, 26, 0.88); border-color: #7f1d1d; color: #fca5a5; }html[data-theme="dark"] .builtin-sync-error-card strong { color: #f87171; }html[data-theme="dark"] .builtin-sync-error-card p { color: #fca5a5; }
+
 
 @media (max-width: 640px) {
     .builtin-sync-modal { padding: 10px; }

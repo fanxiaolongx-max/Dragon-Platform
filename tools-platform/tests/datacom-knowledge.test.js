@@ -24,16 +24,20 @@ const router = require('../backend/routes/datacom-knowledge');
 
 const endpoint = '/api/datacom-knowledge';
 const app = express();
+let server;
 app.use(express.json({ limit: '25mb' }));
 app.use('/api', checkAuth, tenantMiddleware);
 app.use(endpoint, router);
 app.use((error, _req, res, _next) => res.status(error.status || 500).json({ error: error.message, code: error.code }));
 
 function api(method, url = endpoint, token = 'dk-admin') {
-    return request(app)[method](url).set('Authorization', `Bearer ${token}`);
+    return request(server)[method](url).set('Authorization', `Bearer ${token}`);
 }
 
 test.before(async () => {
+    // Reuse one server: ephemeral per-request ports can collide with keep-alive sockets.
+    server = app.listen(0);
+    await new Promise(resolve => server.once('listening', resolve));
     const expiry = Date.now() + 600000;
     await sessions.saveSession('dk-admin', 'admin', 'admin', expiry);
     await sessions.saveSession('dk-viewer', 'viewer', 'user', expiry);
@@ -41,6 +45,7 @@ test.before(async () => {
 });
 
 test.after(async () => {
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
     await pool.closeAll();
     await appDb.closeDatabase();
     await platformDb.closeDatabase();
@@ -64,7 +69,7 @@ test('seed knowledge is consistent: categories, visuals and relations resolve', 
 });
 
 test('catalog requires login, seeds an independent database and hides writes from viewers', async () => {
-    await request(app).get(endpoint).expect(401);
+    await request(server).get(endpoint).expect(401);
     const viewer = await api('get', endpoint, 'dk-viewer').expect(200);
     assert.equal(viewer.body.canWrite, false);
     assert.equal(viewer.body.databaseFile, 'datacom-knowledge.db');
