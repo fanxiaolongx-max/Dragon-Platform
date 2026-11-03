@@ -89,8 +89,10 @@ async function main() {
     require('./prepare-home-promo-videos').checkManifest();
     require('./prepare-datacom-videos').checkManifest();
     assertReleaseFile(path.join(projectRoot,'backend/builtin-templates/monthly-report.json'));
-    const monthlyTemplate=await require('../backend/models/monthly-template-repository').readBundled();
-    const monthlyLogo=monthlyTemplate.document.logo;
+    const templates = require('../frontend/js/monthly-designer/templates');
+    const rawTemplate = JSON.parse(fs.readFileSync(path.join(projectRoot, 'backend/builtin-templates/monthly-report.json'), 'utf8'));
+    const monthlyTemplate = templates.normalize(rawTemplate);
+    const monthlyLogo = monthlyTemplate.document.logo;
     if(monthlyLogo&&!monthlyLogo.startsWith('/assets/'))throw new Error('Bundled monthly template logo must be included in frontend assets.');
     if(monthlyLogo)assertReleaseFile(path.join(projectRoot,'frontend',monthlyLogo.slice(1)));
     await assertZipHasFiles(offlinePackagePath);
