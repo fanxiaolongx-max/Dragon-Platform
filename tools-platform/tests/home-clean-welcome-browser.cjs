@@ -35,6 +35,10 @@ app.whenReady().then(async()=>{
  await until('!!window.HomeV2&&!!window.HomePromoPlayer&&!nrvFloat.hidden&&document.querySelectorAll("#homeF12QuickDownloads button").length===2');
  assert.equal(await evaluate('document.querySelector(".home-main #homeKnowledgeGraphEntry,.home-main #homeCapsEntry,.home-main #homeF12QuickDownloads")'),null);
  assert.equal(await evaluate('dcSpotlight.hidden&&dcSpotlight.childElementCount===0'),true);
+ assert.equal(await evaluate('Math.round(nrvFloat.getBoundingClientRect().width)'),280);
+ assert.equal(await evaluate('nrvFloat.querySelector("video").muted'),true);
+ await evaluate('document.body.dispatchEvent(new PointerEvent("pointerdown",{bubbles:true}));document.body.dispatchEvent(new KeyboardEvent("keydown",{key:"Tab",bubbles:true}))');
+ assert.equal(await evaluate('nrvFloat.querySelector("video").muted'),true,'page interactions keep promotion muted');
  assert.equal(await evaluate('getComputedStyle(nrvFloat.querySelector(".nrv-badge")).display'),'none');
  win.webContents.sendInputEvent({type:'mouseMove',x:2,y:2});
  await until('getComputedStyle(nrvFloat.querySelector(".nrv-close")).visibility==="hidden"');
@@ -47,6 +51,7 @@ app.whenReady().then(async()=>{
  await shot('video-hover');
  await evaluate('nrvFloat.querySelector(".nrv-expand").click()');
  await until('nrvDialog.open&&nrvDialog.querySelector("video").currentTime>0');
+ assert.equal(await evaluate('nrvDialog.querySelector("video").muted'),true,'expanded video starts muted');
  await evaluate('document.querySelector(".nrv-dialog-close").click()');
  assert.equal(await evaluate('nrvDialog.querySelector("video").paused'),true);
  win.webContents.sendInputEvent({type:'mouseMove',x:2,y:2});

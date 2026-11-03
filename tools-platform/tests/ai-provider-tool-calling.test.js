@@ -329,3 +329,17 @@ test('tool errors are classified precisely instead of always blaming tool suppor
         });
     }
 });
+
+test('fragmented file-write arguments unwrap strict JSON envelopes before reaching the tool runner', async () => {
+    const client=createClient({...baseSettings,provider:'openai-compatible',model:'mock',apiBaseUrl:'http://mock/v1'});
+    const args={path:'C:\\Users\\Admin\\项目\\report.html',content:'<html>中文\n"quote"\\literal</html>'};
+    const payload=JSON.stringify({_raw:JSON.stringify(args)}),cut=Math.floor(payload.length/2);
+    await withFetch(()=>sseResponse([
+        {choices:[{delta:{tool_calls:[{index:0,id:'write-1',type:'function',function:{name:'write_file',arguments:payload.slice(0,cut)}}]}}]},
+        {choices:[{delta:{tool_calls:[{index:0,function:{arguments:payload.slice(cut)}}]}}]},
+        {choices:[{delta:{},finish_reason:'tool_calls'}]},'[DONE]'
+    ]),async()=>{
+        const result=await client.generateText({messages:[{role:'user',content:'write'}],tools:[{name:'write_file',parameters:{type:'object',properties:{path:{type:'string'},content:{type:'string'}},required:['path','content']}}],onDelta() {}});
+        assert.deepEqual(result.toolCalls[0].args,args);
+    });
+});

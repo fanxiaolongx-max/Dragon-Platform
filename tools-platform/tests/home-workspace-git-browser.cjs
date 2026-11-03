@@ -27,7 +27,7 @@ app.whenReady().then(async () => {
     web.use('/api/agent-workspace',(req,res,next)=>{req.user={username:'fixture',role:'admin'};runWithTenant('default',next);},workspaceRouter);
     web.get('/', (_, res) => res.type('html').send(fs.readFileSync(path.join(frontend, 'index.html'), 'utf8').replace('<head>', `<head><script>
         localStorage.setItem('tools_tenant_id','default');localStorage.setItem('tools_role','admin');localStorage.setItem('tools_user','fixture');localStorage.setItem('tools_token','fixture-session');localStorage.setItem('tools_lang','zh-CN');
-        window.fixtureIntervals=[];const originalInterval=window.setInterval;window.setInterval=(fn,delay,...args)=>{if(delay>=10000)fixtureIntervals.push({fn,delay});return originalInterval(fn,delay,...args)};
+        localStorage.setItem('dragon_claw_workspace_open','1');window.fixtureIntervals=[];const originalInterval=window.setInterval;window.setInterval=(fn,delay,...args)=>{if(delay>=10000)fixtureIntervals.push({fn,delay});return originalInterval(fn,delay,...args)};
         window.fixtureErrors=[];window.addEventListener('error',e=>fixtureErrors.push(e.message));window.addEventListener('unhandledrejection',e=>fixtureErrors.push(String(e.reason)));
     </script>`)));
     web.get('/api/custom-tools', (_, res) => res.json([]));
@@ -53,10 +53,27 @@ app.whenReady().then(async () => {
 
     await until('window.DragonClawWorkspace&&document.querySelector(".dc-directory-picker")');
     assert.equal(await evaluate('DragonClawWorkspace.getRoot()'),'');
+    assert.equal(await evaluate('DragonClawWorkspace.isPanelOpen()'),false,'home starts closed despite remembered open state');
+    await evaluate('DragonClawWorkspace.openPanel();DragonClaw.newChat({clearWorkspace:false})');
+    assert.equal(await evaluate('DragonClawWorkspace.isPanelOpen()'),false,'new chat closes a manually opened workspace');
+
     await evaluate('document.querySelector(".dc-directory-picker summary").click()');
     assert.ok(await evaluate('document.querySelector("[data-wsp-action=create-workspace]").textContent.includes("新建工作空间")'));
     await evaluate(`DragonClawWorkspace.selectDirectory(${JSON.stringify(project)})`);
     await until('document.querySelector(".dc-branch-picker summary").textContent.includes("main")');
+    await evaluate('DragonClawWorkspace.openPanel();DragonClaw.newChat({clearWorkspace:false})');
+    assert.equal(await evaluate('DragonClawWorkspace.isPanelOpen()'),false,'new chat with an existing directory closes workspace');
+    if (process.env.WORKSPACE_DEFAULTS_ONLY === '1') {
+        await evaluate(`DragonClawWorkspace.openPanel();DragonClaw.newChat({root:${JSON.stringify(project)}})`);
+        await until(`DragonClawWorkspace.getRoot()===${JSON.stringify(project)}`);
+        assert.equal(await evaluate('DragonClawWorkspace.isPanelOpen()'),false,'new chat in a specified directory stays closed');
+        await evaluate('DragonClawWorkspace.openPanel();DragonClaw.newChat()');
+        assert.equal(await evaluate('DragonClawWorkspace.isPanelOpen()'),false,'ordinary new chat closes workspace');
+        console.log('PASS: remembered open state ignored on home; ordinary, retained-directory and specified-directory new chats keep workspace closed');
+        win.destroy();server.close();app.exit(0);return;
+    }
+
+
     assert.equal(await evaluate('document.body.classList.contains("dc-workspace-open")'),false,'selection does not automatically open the side panel');
     const initialSession=await evaluate('DragonClawWorkspace.getWorkspacePayload().agentSessionId');
     await evaluate('document.querySelector(".dc-directory-picker summary").click()');

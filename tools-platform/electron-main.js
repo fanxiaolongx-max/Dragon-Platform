@@ -882,6 +882,7 @@ function registerUpdaterIpcHandlers() {
 }
 
 function registerDesktopIpcHandlers() {
+    registerDownloadIpcHandlers();
     ipcMain.handle('desktop:get-runtime-snapshot', () => ({
         baseUrl: getAppBaseUrl(),
         version: app.getVersion(),
@@ -912,45 +913,202 @@ function scheduleStartupUpdateCheck() {
     }, 3500);
 }
 
+const downloadSettingsPath = path.join(userDataPath, 'download-settings.json');
+const activeDownloads = new Map();
+let downloadIpcRegistered = false;
+
+function getDownloadDirectory() {
+    try {
+        if (fs.existsSync(downloadSettingsPath)) {
+            const data = JSON.parse(fs.readFileSync(downloadSettingsPath, 'utf8'));
+            if (data && data.downloadDir && fs.existsSync(data.downloadDir)) {
+                return data.downloadDir;
+            }
+        }
+    } catch { /* use default */ }
+    return app.getPath('downloads');
+}
+
+function setDownloadDirectory(dir) {
+    try {
+        fs.mkdirSync(path.dirname(downloadSettingsPath), { recursive: true });
+        fs.writeFileSync(downloadSettingsPath, JSON.stringify({ downloadDir: dir }, null, 2));
+    } catch (e) {
+        console.warn('[Download] Failed to save download settings:', e);
+    }
+}
+
+function getUniqueSavePath(dir, filename) {
+    let target = path.join(dir, filename);
+    if (!fs.existsSync(target)) return target;
+    const ext = path.extname(filename);
+    const base = path.basename(filename, ext);
+    let counter = 1;
+    while (fs.existsSync(path.join(dir, `${base} (${counter})${ext}`))) {
+        counter++;
+    }
+    return path.join(dir, `${base} (${counter})${ext}`);
+}
+
+function broadcastDownloadEvent(payload) {
+    BrowserWindow.getAllWindows().forEach((win) => {
+        if (!win.isDestroyed()) {
+            win.webContents.send('desktop-download:event', payload);
+        }
+    });
+}
+
+function registerDownloadIpcHandlers() {
+    if (downloadIpcRegistered) return;
+    downloadIpcRegistered = true;
+
+    ipcMain.handle('desktop-download:change-directory', async (event) => {
+        const win = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow();
+        const currentDir = getDownloadDirectory();
+        const result = await dialog.showOpenDialog(win, {
+            title: '选择默认下载目录',
+            defaultPath: currentDir,
+            properties: ['openDirectory', 'createDirectory']
+        });
+        if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
+            const newDir = result.filePaths[0];
+            setDownloadDirectory(newDir);
+            for (const dl of activeDownloads.values()) {
+                dl.requestedNewDir = newDir;
+            }
+            broadcastDownloadEvent({
+                type: 'dir-changed',
+                downloadDir: newDir
+            });
+            return { success: true, downloadDir: newDir };
+        }
+        return { success: false, downloadDir: currentDir };
+    });
+
+    ipcMain.handle('desktop-download:get-directory', () => {
+        return getDownloadDirectory();
+    });
+
+    ipcMain.handle('desktop-download:open-file', async (_event, savePath) => {
+        if (!savePath || !fs.existsSync(savePath)) return false;
+        try {
+            await shell.openPath(savePath);
+            return true;
+        } catch {
+            return false;
+        }
+    });
+
+    ipcMain.handle('desktop-download:show-item-in-folder', (_event, savePath) => {
+        if (!savePath || !fs.existsSync(savePath)) return false;
+        shell.showItemInFolder(savePath);
+        return true;
+    });
+
+    ipcMain.handle('desktop-download:cancel', (_event, id) => {
+        const dl = activeDownloads.get(id);
+        if (dl && dl.item) {
+            dl.item.cancel();
+            return true;
+        }
+        return false;
+    });
+}
+
 function registerDownloadHandler() {
+    registerDownloadIpcHandlers();
     if (downloadHandlerRegistered) return;
     downloadHandlerRegistered = true;
 
     session.defaultSession.on('will-download', (event, item, webContents) => {
-        const ownerWindow = BrowserWindow.fromWebContents(webContents) || BrowserWindow.getFocusedWindow() || undefined;
+        const id = 'dl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
         const filename = item.getFilename();
-        const savePath = dialog.showSaveDialogSync(ownerWindow, {
-            title: '保存文件',
-            defaultPath: path.join(app.getPath('downloads'), filename),
-            buttonLabel: '保存'
+        const downloadDir = getDownloadDirectory();
+        const savePath = getUniqueSavePath(downloadDir, filename);
+
+        // 默认直接指定保存路径，Electron 不再弹出原生阻塞保存窗口
+        item.setSavePath(savePath);
+
+        const dlRecord = {
+            id,
+            item,
+            filename,
+            savePath,
+            downloadDir,
+            requestedNewDir: null
+        };
+        activeDownloads.set(id, dlRecord);
+
+        broadcastDownloadEvent({
+            type: 'started',
+            id,
+            filename,
+            savePath,
+            downloadDir,
+            totalBytes: item.getTotalBytes() || 0,
+            receivedBytes: 0,
+            percent: 0,
+            state: 'progressing'
         });
 
-        if (!savePath) {
-            event.preventDefault();
-            return;
-        }
+        item.on('updated', (_event, state) => {
+            const receivedBytes = item.getReceivedBytes();
+            const totalBytes = item.getTotalBytes();
+            const percent = totalBytes > 0 ? Math.min(100, Math.round((receivedBytes / totalBytes) * 100)) : 0;
+            broadcastDownloadEvent({
+                type: 'progress',
+                id,
+                filename,
+                savePath: dlRecord.savePath,
+                downloadDir: dlRecord.downloadDir,
+                totalBytes,
+                receivedBytes,
+                percent,
+                state: state === 'interrupted' ? 'interrupted' : (state === 'paused' ? 'paused' : 'progressing')
+            });
+        });
 
-        item.setSavePath(savePath);
         item.once('done', async (_event, state) => {
+            activeDownloads.delete(id);
             if (state === 'completed') {
-                const result = await dialog.showMessageBox(ownerWindow, {
-                    type: 'info',
-                    title: '下载完成',
-                    message: '文件已保存',
-                    detail: savePath,
-                    buttons: ['打开所在文件夹', '确定'],
-                    defaultId: 0,
-                    cancelId: 1
-                });
-
-                if (result.response === 0) {
-                    shell.showItemInFolder(savePath);
+                let finalPath = dlRecord.savePath;
+                if (dlRecord.requestedNewDir && dlRecord.requestedNewDir !== dlRecord.downloadDir && fs.existsSync(dlRecord.savePath)) {
+                    try {
+                        const newTarget = getUniqueSavePath(dlRecord.requestedNewDir, path.basename(dlRecord.savePath));
+                        fs.renameSync(dlRecord.savePath, newTarget);
+                        finalPath = newTarget;
+                    } catch (err) {
+                        console.warn('[Download] Failed to move completed file to new directory:', err);
+                    }
                 }
-                return;
-            }
 
-            if (state === 'interrupted') {
-                dialog.showErrorBox('下载失败', `文件下载中断：${filename}`);
+                broadcastDownloadEvent({
+                    type: 'completed',
+                    id,
+                    filename,
+                    savePath: finalPath,
+                    downloadDir: dlRecord.requestedNewDir || dlRecord.downloadDir,
+                    totalBytes: item.getTotalBytes() || item.getReceivedBytes(),
+                    receivedBytes: item.getReceivedBytes(),
+                    percent: 100,
+                    state: 'completed'
+                });
+            } else if (state === 'cancelled') {
+                broadcastDownloadEvent({
+                    type: 'cancelled',
+                    id,
+                    filename,
+                    state: 'cancelled'
+                });
+            } else {
+                broadcastDownloadEvent({
+                    type: 'failed',
+                    id,
+                    filename,
+                    savePath: dlRecord.savePath,
+                    state: 'interrupted',
+                    error: state
+                });
             }
         });
     });

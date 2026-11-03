@@ -2,6 +2,7 @@
 // 引擎负责：逐步调用模型、思考过程与工具事件、回答被截断时续写、空回复提示、自动压缩、上下文裁剪、大结果存文件、
 // 单轮步数用完时不带工具总结。各场景（预设）只提供系统提示、工具集合和 executeCall（含各自的审批规则）。
 const toolsService = require('./agent-tools-service');
+const { parseToolArgs, requireToolArgs } = require('./ai-tool-arguments');
 const artifacts = require('./agent-artifacts');
 const compaction = require('./ai-context-compaction');
 const contextStats = require('./agent-context-stats');
@@ -332,7 +333,8 @@ async function runToolLoop({
         if (result.providerClient) activeClient = result.providerClient;
         collect(result);
         toolChoice = undefined;
-        const toolCalls = Array.isArray(result.toolCalls) ? result.toolCalls : [];
+        // Canonicalize before parallel/read-only classification, previews and approvals.
+        const toolCalls = Array.isArray(result.toolCalls) ? result.toolCalls.map(call => ({ ...call, args: parseToolArgs(call.args) })) : [];
         if (!toolCalls.length) {
             const text = String(result.text || '');
             // 回答写到一半碰到输出上限：保留已写部分，请模型从断点接着写；推理就耗尽了上限、一个字没写时，调高上限再试
@@ -394,7 +396,10 @@ async function runToolLoop({
                 startedAt = Date.now();
                 write({ type: 'tool_start', ...eventFields, callId, tool: shown, args: args === undefined ? previewArgs(call.args) : args });
             };
-            let outcome = builtinNames.has(call.name) ? await runBuiltin(call)
+            let outcome;
+            try { requireToolArgs(call.args); }
+            catch (error) { outcome = { content: `错误（${error.code}）：${error.message}`, summary: error.message, isError: true }; }
+            if (!outcome) outcome = builtinNames.has(call.name) ? await runBuiltin(call)
                 : extras?.handles(call.name) ? await extras.execute(call, { callId, start })
                 : ownReader(call.name) ? await readArtifact(call, { owner: artifactOwner, sensitiveValues, start })
                     : await executeCall(call, { callId, step: steps, start });

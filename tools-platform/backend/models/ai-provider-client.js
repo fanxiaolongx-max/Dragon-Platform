@@ -1,3 +1,4 @@
+const { parseToolArgs } = require('./ai-tool-arguments');
 const DEFAULT_BASE_URLS = {
     gemini: 'https://generativelanguage.googleapis.com/v1beta',
     openai: 'https://api.openai.com/v1',
@@ -79,17 +80,6 @@ function normalizeTools(tools) {
         }));
 }
 
-function parseToolArgs(raw) {
-    if (raw && typeof raw === 'object') return raw;
-    const text = String(raw || '').trim();
-    if (!text) return {};
-    try {
-        const parsed = JSON.parse(text);
-        return parsed && typeof parsed === 'object' ? parsed : {};
-    } catch (_error) {
-        return { __raw: text };
-    }
-}
 
 function toOpenAiMessages(messages, systemInstruction, { model = '' } = {}) {
     const out = [];

@@ -7,6 +7,7 @@ const os = require('os');
 const { StringDecoder } = require('string_decoder');
 const { spawn } = require('child_process');
 const guard = require('./agent-path-guard');
+const { requireToolArgs } = require('./ai-tool-arguments');
 const { redactText, redactValue } = require('./ai-sensitive-data');
 const { unifiedDiff } = require('./agent-change-log');
 const commandGuard = require('./agent-command-guard');
@@ -70,7 +71,7 @@ const DEFINITIONS = [
         parameters: {
             type: 'object',
             properties: {
-                path: { type: 'string', description: '相对工作目录的文件路径' },
+                path: { type: 'string', description: '相对工作目录的文件路径，Windows/macOS 均推荐用 / 分隔，如 docs/result.html；直接提供 path 字段，不要使用 _raw 或 __raw 包装' },
                 startLine: { type: 'integer', description: '起始行（从 1 开始），默认 1' },
                 limit: { type: 'integer', description: '读取行数，默认 400，最多 2000' },
                 endLine: { type: 'integer', description: '结束行（包含）；与 limit 二选一' }
@@ -186,7 +187,7 @@ const DEFINITIONS = [
         parameters: {
             type: 'object',
             properties: {
-                path: { type: 'string', description: '相对工作目录的文件路径' },
+                path: { type: 'string', description: '相对工作目录的文件路径，Windows/macOS 均推荐用 / 分隔，如 docs/result.html；直接提供 path 字段，不要使用 _raw 或 __raw 包装' },
                 content: { type: 'string', description: '完整文件内容' }
             },
             required: ['path', 'content']
@@ -288,7 +289,7 @@ const DEFINITIONS = [
         parameters: {
             type: 'object',
             properties: {
-                path: { type: 'string', description: '相对工作目录的文件路径' },
+                path: { type: 'string', description: '相对工作目录的文件路径，Windows/macOS 均推荐用 / 分隔，如 docs/result.html；直接提供 path 字段，不要使用 _raw 或 __raw 包装' },
                 sheet: { type: 'string', description: 'Excel 工作表名，默认第一个有数据的工作表' },
                 startRow: { type: 'integer', description: '表格起始行（从 1 开始），默认 1' },
                 maxRows: { type: 'integer', description: '表格读取行数，默认 200，最多 2000' }
@@ -648,6 +649,7 @@ async function atomicWrite(abs, content) {
 }
 
 async function previewWrite(ctx, args = {}) {
+    if (typeof args.content !== 'string') throw toolError('AGENT_ARGS', 'write_file 缺少字符串类型的 content。请直接传入 path 和完整 content；写入空文件也必须显式提供 content: \"\"。本次未写入文件。');
     if (!args.path) throw toolError('AGENT_ARGS', '缺少 path');
     assertTextSize(args.content ?? '');
     const abs = guard.resolveInsideRoot(ctx.root, args.path);
@@ -1096,7 +1098,7 @@ function assertScriptTool(args) {
 }
 
 async function preview(ctx, name, args = {}) {
-    return redactValue(await buildPreview(ctx, name, args), { secrets: ctx.sensitiveValues });
+    return redactValue(await buildPreview(ctx, name, requireToolArgs(args)), { secrets: ctx.sensitiveValues });
 }
 
 function splitCount(text) {
@@ -1110,7 +1112,7 @@ async function execute(ctx, name, args = {}) {
     const executor = EXECUTORS[name];
     if (!executor) return { content: `未知工具：${name}`, summary: '未知工具', isError: true };
     try {
-        const result = await executor(ctx, args && typeof args === 'object' ? args : {});
+        const result = await executor(ctx, requireToolArgs(args));
         const safe = redactValue(result, { secrets: ctx.sensitiveValues });
         // fullResults：调用方（工作区循环）自己把大结果存成文件，这里不再掐头去尾；read_file 本身已按行分页
         if (ctx.fullResults && name !== 'read_file') return { ...safe, content: String(safe.content ?? ''), truncated: Boolean(result.truncated) };

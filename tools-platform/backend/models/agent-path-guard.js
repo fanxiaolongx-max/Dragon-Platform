@@ -44,8 +44,12 @@ function normalizeRoot(root) {
  * - 允许指向尚不存在的文件（用于新建），但其最深已存在的祖先必须在根内（防 symlink 逃逸）。
  */
 function resolveInsideRoot(root, input) {
-    const rel = String(input ?? '.');
-    if (rel.includes('\0')) throw pathError('AGENT_PATH_INVALID', '路径包含非法字符');
+    const rel = input ?? '.';
+    if (typeof rel !== 'string' || /[\x00-\x1f\x7f]/.test(rel)) throw pathError('AGENT_PATH_INVALID', '路径包含非法字符或不是字符串。请检查 JSON 转义，Windows/macOS 均推荐使用 / 分隔符');
+    if (/^[a-z]:($|[^\\/])/i.test(rel)) throw pathError('AGENT_PATH_INVALID', '不支持盘符相对路径，请使用工作目录内的相对路径或完整绝对路径');
+    if (process.platform !== 'win32' && (/^[a-z]:[\\/]/i.test(rel) || /^\\\\/.test(rel))) {
+        throw pathError('AGENT_PATH_INVALID', '当前系统不支持 Windows 盘符或 UNC 绝对路径，请使用相对工作目录的路径');
+    }
     const abs = path.resolve(root, rel);
     if (!samePath(abs, root) && !isInside(root, abs)) throw pathError('AGENT_PATH_OUTSIDE', `路径超出工作目录：${rel}`);
     let probe = abs;

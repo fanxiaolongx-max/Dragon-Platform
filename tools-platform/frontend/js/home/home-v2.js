@@ -88,9 +88,12 @@
             filterTime: '筛选时间', timeAll: '全部时间', timeToday: '今天', time7: '最近 7 天', time30: '最近 30 天', filterReset: '重置筛选条件',
             messages: '消息中心', scan: '扫码使用', appearance: '外观', light: '浅色', dark: '深色', version: '版本', service: '服务', checkUpdate: '检查更新',
             fullAlerts: '完整告警台', markAllRead: '全部已读', filterAll: '全部', filterUnread: '未读', filterWarn: '警告', noMessages: '暂无消息', loadFailed: '读取失败：{e}',
-            view: '查看', markRead: '标为已读', today: '今天', yesterday: '昨天', scanWeixin: '微信', scanWelink: 'WeLink',
-            scanHintWeixin: '用微信扫码，在微信里和 DragonClaw 对话', scanHintWelink: '用 WeLink 扫码，在 WeLink 里和 DragonClaw 对话',
-            scanEmpty: '还没有配置扫码链接', scanEmptyAdmin: '填入在{name}里打开 DragonClaw 的链接，保存后生成二维码', scanPlaceholder: 'https://…', save: '保存', saving: '正在保存…', saved: '已保存', invalidLink: '请填写 http 或 https 开头的链接', editLink: '修改链接', openLink: '打开链接'
+            view: '查看', markRead: '标为已读', today: '今天', yesterday: '昨天', scanWeixin: '微信助理', scanWelink: 'WeLink 个人身份',
+            scanHintWeixin: '用微信扫码，接入微信助理与推送', scanHintWelink: '用 WeLink 扫码，以本人身份与 Dragon Claw 协同办公',
+            scanConnecting: '正在连接 WeLink PC…', scanConnectingWeixin: '正在生成微信登录二维码…',
+            scanWaitWeLink: '请使用手机 WeLink 扫码登录', scanWaitWeixin: '请使用手机微信扫码并确认',
+            scanLoggedInWelink: '已登录 WeLink 个人身份', scanConnectedWeixin: '微信助理已连接',
+            scanRelogin: '重新扫码', scanLogout: '退出登录', scanChannelSettings: '频道设置'
         },
         'en-US': {
             discover: 'Discover', newChat: 'New chat', channels: 'Channels', skills: 'Skills · plugins', schedule: 'Scheduled', library: 'Library',
@@ -108,9 +111,12 @@
             filterTime: 'Time', timeAll: 'Any time', timeToday: 'Today', time7: 'Last 7 days', time30: 'Last 30 days', filterReset: 'Reset filters',
             messages: 'Messages', scan: 'Scan to use', appearance: 'Appearance', light: 'Light', dark: 'Dark', version: 'Version', service: 'Service', checkUpdate: 'Check for updates',
             fullAlerts: 'Full alert center', markAllRead: 'Mark all read', filterAll: 'All', filterUnread: 'Unread', filterWarn: 'Warnings', noMessages: 'No messages', loadFailed: 'Could not load: {e}',
-            view: 'View', markRead: 'Mark read', today: 'Today', yesterday: 'Yesterday', scanWeixin: 'WeChat', scanWelink: 'WeLink',
-            scanHintWeixin: 'Scan with WeChat to chat with DragonClaw there', scanHintWelink: 'Scan with WeLink to chat with DragonClaw there',
-            scanEmpty: 'No scan link yet', scanEmptyAdmin: 'Enter the link that opens DragonClaw in {name}; a QR code is generated after saving', scanPlaceholder: 'https://…', save: 'Save', saving: 'Saving…', saved: 'Saved', invalidLink: 'Enter a link starting with http or https', editLink: 'Edit link', openLink: 'Open link'
+            view: 'View', markRead: 'Mark read', today: 'Today', yesterday: 'Yesterday', scanWeixin: 'WeChat Bot', scanWelink: 'WeLink Identity',
+            scanHintWeixin: 'Scan with WeChat to connect the assistant and proactive push', scanHintWelink: 'Scan with WeLink to work with Dragon Claw as you',
+            scanConnecting: 'Connecting to WeLink PC…', scanConnectingWeixin: 'Generating WeChat QR code…',
+            scanWaitWeLink: 'Scan with WeLink mobile to sign in', scanWaitWeixin: 'Scan with WeChat mobile and confirm',
+            scanLoggedInWelink: 'Signed in to personal WeLink', scanConnectedWeixin: 'WeChat assistant connected',
+            scanRelogin: 'Re-scan', scanLogout: 'Sign out', scanChannelSettings: 'Channel settings'
         }
     };
     const lang = () => (window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'en-US' : 'zh-CN');
@@ -130,6 +136,7 @@
     function closePop() {
         clearTimeout(hoverTimer);
         closeLinks();
+        if (typeof scan !== 'undefined' && scan?.abortAll) scan.abortAll();
         if (!openPop) return;
         const shortcuts = document.getElementById('homeSidebarShortcuts');
         if (shortcuts && openPop.pop.contains(shortcuts)) shortcuts.hidden = true;
@@ -459,11 +466,39 @@
     });
     $('v2AlertBtn')?.addEventListener('click', () => run('alerts'));
 
-    // ── 扫码使用：微信 / WeLink 链接生成二维码（链接存在导航设置 scanLinks 里，管理员可直接填写） ──
-    const scan = { pop: makePop('v2-scan'), tab: 'weixin', editing: false, status: '' };
+    // ── 扫码使用：直接对接频道设置中的个人身份（welink-cli）与微信助理 ──
+    const scan = {
+        pop: makePop('v2-scan'),
+        tab: 'welink',
+        welink: {
+            checking: false,
+            status: null,
+            login: null,
+            controller: null
+        },
+        weixin: {
+            checking: false,
+            status: null,
+            qr: null,
+            controller: null
+        }
+    };
     scan.pop.setAttribute('role', 'dialog');
-    const navSettings = () => (typeof navState !== 'undefined' ? navState.settings : null);
-    const scanLinks = () => scan.links || navSettings()?.scanLinks || {};
+
+    function scanHeaders(json) {
+        const token = localStorage.getItem('tools_token') || sessionStorage.getItem('tools_token');
+        return {
+            ...(json ? { 'Content-Type': 'application/json' } : {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(typeof getAuthHeaderForNav === 'function' ? getAuthHeaderForNav() : {})
+        };
+    }
+
+    scan.abortAll = function () {
+        if (scan.welink.controller) { scan.welink.controller.abort(); scan.welink.controller = null; }
+        if (scan.weixin.controller) { scan.weixin.controller.abort(); scan.weixin.controller = null; }
+    };
+
     function ensureQrLib() {
         if (window.ToolsQrCode) return Promise.resolve();
         scan.qrLoading ||= new Promise((resolve, reject) => {
@@ -475,63 +510,414 @@
         });
         return scan.qrLoading;
     }
-    async function loadScanLinks() {
-        try {
-            const res = await fetch('/api/nav-settings', { headers: typeof getAuthHeaderForNav === 'function' ? getAuthHeaderForNav() : {} });
-            if (res.ok) scan.links = (await res.json()).scanLinks || {};
-        } catch { /* 读取失败时按未配置显示 */ }
+
+    function renderScanRing(title, subtitle) {
+        return `<div class="v2-scan-loading-box">
+            <div class="v2-scan-ring-spinner">
+                <svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true">
+                    <circle class="v2-scan-ring-bg" cx="22" cy="22" r="18" fill="none" stroke="currentColor" stroke-width="3"></circle>
+                    <circle class="v2-scan-ring-bar" cx="22" cy="22" r="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"></circle>
+                </svg>
+            </div>
+            <div class="v2-scan-status-main">${esc(title)}</div>
+            ${subtitle ? `<div class="v2-scan-status-sub">${esc(subtitle)}</div>` : ''}
+        </div>`;
     }
+
+    function renderScanQrBox(content) {
+        return `<div class="v2-scan-qr-box">${content}</div>`;
+    }
+
+    async function loadWelinkStatus({ autoLogin = true } = {}) {
+        scan.welink.checking = true;
+        renderScan();
+        try {
+            const res = await fetch('/api/channels/welink-cli/status?auth=1', { headers: scanHeaders() });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw Object.assign(new Error(data.error || `HTTP ${res.status}`), { status: res.status });
+            scan.welink.status = data;
+            scan.welink.checking = false;
+            if (autoLogin && !data.auth?.loggedIn && data.install?.available) {
+                startWelinkLogin();
+                return;
+            }
+        } catch (err) {
+            scan.welink.checking = false;
+            scan.welink.status = { error: err.message, status: err.status };
+        }
+        renderScan();
+    }
+
+    async function startWelinkLogin() {
+        if (scan.welink.controller) scan.welink.controller.abort();
+        const controller = new AbortController();
+        scan.welink.controller = controller;
+        scan.welink.login = {
+            phase: 'running',
+            statusText: t('scanConnecting', '正在连接 WeLink PC…'),
+            qrUrl: '',
+            qrText: '',
+            elapsed: null,
+            error: ''
+        };
+        renderScan();
+        try {
+            const env = scan.welink.status?.config?.env || '';
+            const res = await fetch('/api/channels/welink-cli/login', {
+                method: 'POST',
+                headers: scanHeaders(true),
+                body: JSON.stringify({ env }),
+                signal: controller.signal
+            });
+            if (!res.ok || !res.body) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    handleWelinkMsg(JSON.parse(line));
+                }
+                renderScan();
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                if (!scan.welink.login) scan.welink.login = {};
+                scan.welink.login.phase = 'failed';
+                scan.welink.login.error = err.message;
+            }
+        }
+        scan.welink.controller = null;
+        renderScan();
+        if (scan.welink.login?.phase === 'done') {
+            setTimeout(() => {
+                if (openPop?.pop === scan.pop && scan.tab === 'welink') loadWelinkStatus({ autoLogin: false });
+            }, 1200);
+        }
+    }
+
+    function handleWelinkMsg(msg) {
+        const l = scan.welink.login;
+        if (!l) return;
+        if (msg.type === 'done') {
+            l.phase = 'done';
+            l.statusText = '登录成功！凭据已缓存在本机';
+            return;
+        }
+        if (msg.type === 'error') {
+            l.phase = 'failed';
+            l.error = msg.error;
+            return;
+        }
+        const ev = msg.event || {};
+        if (ev.type === 'qrcode') {
+            l.phase = 'qrcode';
+            l.qrUrl = ev.url;
+            l.statusText = t('scanWaitWeLink', '请使用手机 WeLink 扫码登录');
+        } else if (ev.type === 'qrtext') {
+            l.phase = 'qrcode';
+            l.qrText = ev.text;
+            l.statusText = t('scanWaitWeLink', '请使用手机 WeLink 扫码登录');
+        } else if (ev.type === 'waiting') {
+            l.elapsed = ev.elapsed;
+            l.statusText = `等待扫码中 ${ev.elapsed ? `(${ev.elapsed}s)` : ''}`;
+        } else if (ev.type === 'scanned') {
+            l.statusText = '📱 手机已扫码，正在获取登录凭据…';
+        } else if (ev.type === 'expired') {
+            l.phase = 'expired';
+            l.statusText = '二维码已过期，请点击重新获取';
+        } else if (ev.type === 'success') {
+            l.phase = 'done';
+            l.statusText = '✅ 登录成功！';
+        }
+    }
+
+    async function loadWeixinStatus({ autoQr = true } = {}) {
+        scan.weixin.checking = true;
+        renderScan();
+        try {
+            const res = await fetch('/api/channels/weixin/status', { headers: scanHeaders() });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+            scan.weixin.status = data;
+            scan.weixin.checking = false;
+            if (autoQr && !data.connected && !data.bot?.id) {
+                startWeixinQr();
+                return;
+            }
+        } catch (err) {
+            scan.weixin.checking = false;
+            scan.weixin.status = { error: err.message };
+        }
+        renderScan();
+    }
+
+    async function startWeixinQr() {
+        if (scan.weixin.controller) scan.weixin.controller.abort();
+        const controller = new AbortController();
+        scan.weixin.controller = controller;
+        scan.weixin.qr = { type: 'starting', running: true };
+        renderScan();
+        try {
+            const res = await fetch('/api/channels/weixin/qrcode-auth', {
+                method: 'POST',
+                headers: scanHeaders(true),
+                body: JSON.stringify({}),
+                signal: controller.signal
+            });
+            if (!res.ok || !res.body) throw new Error((await res.json().catch(() => ({}))).error || `HTTP ${res.status}`);
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            for (;;) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    const event = JSON.parse(line);
+                    if (event.type === 'snapshot') {
+                        scan.weixin.qr = { ...event.snapshot, running: !['confirmed', 'cancelled', 'failed', 'expired'].includes(event.snapshot.type) };
+                    }
+                    if (event.type === 'error') scan.weixin.qr = { type: 'error', error: event.error, running: false };
+                    if (event.type === 'done' && event.saved) {
+                        scan.weixin.qr = { type: 'confirmed', running: false };
+                        setTimeout(() => {
+                            if (openPop?.pop === scan.pop && scan.tab === 'weixin') loadWeixinStatus({ autoQr: false });
+                        }, 1200);
+                    }
+                }
+                renderScan();
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') scan.weixin.qr = { type: 'error', error: err.message, running: false };
+        }
+        scan.weixin.controller = null;
+        renderScan();
+    }
+
+    async function submitWeixinVerify(code) {
+        if (!code) return;
+        try {
+            await fetch('/api/channels/weixin/qrcode-auth/verify', {
+                method: 'POST',
+                headers: scanHeaders(true),
+                body: JSON.stringify({ code })
+            });
+        } catch (_) {}
+    }
+
+    async function logoutWelink() {
+        try {
+            await fetch('/api/channels/welink-cli/logout', { method: 'POST', headers: scanHeaders() });
+        } catch (_) {}
+        loadWelinkStatus({ autoLogin: false });
+    }
+
     function renderScan() {
-        const admin = localStorage.getItem('tools_role') === 'admin';
-        const name = scan.tab === 'weixin' ? t('scanWeixin') : t('scanWelink');
-        const link = scanLinks()[scan.tab] || '';
-        let body;
-        if (link && !scan.editing) {
-            const svgCode = window.ToolsQrCode ? window.ToolsQrCode.toSvg(link, { scale: 5, border: 2 }) : '';
-            body = `<p class="v2-scan-hint">${esc(scan.tab === 'weixin' ? t('scanHintWeixin') : t('scanHintWelink'))}</p>
-                <div class="v2-scan-qr">${svgCode || '<span class="v2-scan-loading"></span>'}</div>
-                <div class="v2-scan-actions"><a class="v2-pop-item" href="${esc(link)}" target="_blank" rel="noopener"><span class="v2-ico" data-icon="external"></span>${esc(t('openLink'))}</a>${admin ? `<button type="button" class="v2-pop-item" data-scan-edit>${esc(t('editLink'))}</button>` : ''}</div>`;
-        } else if (admin) {
-            body = `<p class="v2-scan-hint">${esc(link ? t('editLink') : t('scanEmptyAdmin', { name }))}</p>
-                <form class="v2-scan-form" data-scan-form><input type="url" value="${esc(link)}" placeholder="${esc(t('scanPlaceholder'))}" required><button type="submit" class="v2-account-btn is-primary">${esc(t('save'))}</button></form>
-                <p class="v2-scan-status">${esc(scan.status)}</p>`;
-        } else body = `<div class="v2-discover-empty">${esc(t('scanEmpty'))}</div>`;
-        scan.pop.innerHTML = `<div class="v2-seg v2-scan-tabs" role="tablist">${['weixin', 'welink'].map(id => `<button type="button" role="tab" aria-selected="${scan.tab === id}" data-scan-tab="${id}">${esc(id === 'weixin' ? t('scanWeixin') : t('scanWelink'))}</button>`).join('')}</div>${body}`;
+        const tabs = `<div class="v2-seg v2-scan-tabs" role="tablist">
+            <button type="button" role="tab" aria-selected="${scan.tab === 'welink'}" data-scan-tab="welink">${esc(t('scanWelink', 'WeLink 个人身份'))}</button>
+            <button type="button" role="tab" aria-selected="${scan.tab === 'weixin'}" data-scan-tab="weixin">${esc(t('scanWeixin', '微信助理'))}</button>
+        </div>`;
+
+        let body = '';
+        if (scan.tab === 'welink') {
+            const w = scan.welink;
+            if (w.checking) {
+                body = renderScanRing('正在连接 WeLink…', '正在检查本机 WeLink PC 登录状态');
+            } else if (w.status?.status === 403) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">🔒</div>
+                    <div class="v2-scan-connected-title">仅系统管理员可用</div>
+                    <div class="v2-scan-connected-meta">WeLink 个人身份在当前机器以管理员身份登录后，Dragon Claw 可代为智能办公。</div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
+                    </div>
+                </div>`;
+            } else if (w.status?.install && !w.status.install.available) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">📦</div>
+                    <div class="v2-scan-connected-title">未检测到 welink-cli</div>
+                    <div class="v2-scan-connected-meta">后续版本将提供项目内置；也可在全局设置中指定 CLI 路径。</div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
+                    </div>
+                </div>`;
+            } else if (w.status?.auth?.loggedIn) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">👤</div>
+                    <div class="v2-scan-connected-title">${esc(t('scanLoggedInWelink', '已登录 WeLink 个人身份'))}</div>
+                    <div class="v2-scan-connected-account">${esc(w.status.auth.uid || '当前会话有效')}</div>
+                    <div class="v2-scan-connected-meta">Dragon Claw 已获授权，可通过 @welink-office 以你的身份协同办公（查联系人、日程、邮件等）</div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-pop-item" data-scan-action="relogin-welink">${esc(t('scanRelogin', '重新扫码'))}</button>
+                        <button type="button" class="v2-pop-item" data-scan-action="logout-welink">${esc(t('scanLogout', '退出登录'))}</button>
+                        <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
+                    </div>
+                </div>`;
+            } else if (w.login && (w.login.phase === 'qrcode' || w.login.qrUrl || w.login.qrText)) {
+                let qrImage = '';
+                if (w.login.qrUrl) {
+                    qrImage = `<img src="${esc(w.login.qrUrl)}" alt="WeLink QR" draggable="false">`;
+                } else if (w.login.qrText && window.ToolsQrCode) {
+                    try { qrImage = window.ToolsQrCode.toSvg(w.login.qrText, { scale: 4, border: 2 }); } catch (_) {}
+                }
+                const isPulse = w.login.statusText?.includes('已扫码');
+                body = `
+                    ${renderScanQrBox(qrImage || '<span class="v2-scan-loading"></span>')}
+                    <div class="v2-scan-hint-lead">${esc(t('scanWaitWeLink', '请使用手机 WeLink 扫码登录'))}</div>
+                    <div class="v2-scan-hint-sub">确认后凭据安全缓存在本机，供 Dragon Claw 协同办公</div>
+                    <div class="v2-scan-status-pill ${isPulse ? 'is-pulsing' : ''}">
+                        <span class="v2-scan-dot"></span>
+                        <span>${esc(w.login.statusText || '等待扫码…')}</span>
+                    </div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-pop-item" data-scan-action="relogin-welink">${esc(t('scanRelogin', '刷新二维码'))}</button>
+                        <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
+                    </div>`;
+            } else if (w.login && w.login.phase === 'done') {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">✅</div>
+                    <div class="v2-scan-connected-title">登录成功！</div>
+                    <div class="v2-scan-connected-meta">凭据已保存在本机，正在同步…</div>
+                </div>`;
+            } else if (w.login && (w.login.phase === 'failed' || w.login.phase === 'expired')) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">⚠️</div>
+                    <div class="v2-scan-connected-title">${esc(w.login.phase === 'expired' ? '二维码已过期' : '登录未完成')}</div>
+                    <div class="v2-scan-connected-meta">${esc(w.login.error || '连接超时或未检测到 WeLink PC 运行')}</div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-account-btn is-primary" data-scan-action="relogin-welink" style="margin-top:6px">重新获取二维码</button>
+                    </div>
+                </div>`;
+            } else {
+                body = renderScanRing(w.login?.statusText || t('scanConnecting', '正在连接 WeLink PC…'), '请确保本机 WeLink 客户端处于运行登录状态');
+            }
+        } else {
+            // 微信 (weixin) 标签
+            const wx = scan.weixin;
+            if (wx.checking) {
+                body = renderScanRing('正在检查微信连接状态…', '通过微信 ClawBot (iLink 协议) 接入');
+            } else if (wx.status?.connected || wx.status?.bot?.id) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">💬</div>
+                    <div class="v2-scan-connected-title">${esc(t('scanConnectedWeixin', '微信助理已连接'))}</div>
+                    <div class="v2-scan-connected-account">Bot: ${esc(wx.status.bot?.id || wx.status.bot?.ownerUserId || '在线')}</div>
+                    <div class="v2-scan-connected-meta">微信助理在线运行，可接收微信消息并由 Dragon Claw 协同回复与推送</div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-pop-item" data-scan-action="relogin-weixin">${esc(t('scanRelogin', '重新扫码'))}</button>
+                        <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
+                    </div>
+                </div>`;
+            } else if (wx.qr && wx.qr.type === 'qrcode_generated') {
+                const qrVal = wx.qr.display?.weUrl || wx.qr.display?.qrcode || wx.qr.qrcode;
+                let qrImage = '';
+                if (qrVal && window.ToolsQrCode) {
+                    try { qrImage = window.ToolsQrCode.toSvg(qrVal, { scale: 4, border: 2 }); } catch (_) {}
+                }
+                body = `
+                    ${renderScanQrBox(qrImage || '<span class="v2-scan-loading"></span>')}
+                    <div class="v2-scan-hint-lead">${esc(t('scanWaitWeixin', '请使用手机微信扫码并确认'))}</div>
+                    <div class="v2-scan-hint-sub">通过微信 ClawBot 接入个人微信助理</div>
+                    <div class="v2-scan-status-pill">
+                        <span class="v2-scan-dot"></span>
+                        <span>等待微信扫码确认…</span>
+                    </div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-pop-item" data-scan-action="relogin-weixin">${esc(t('scanRelogin', '刷新二维码'))}</button>
+                        <button type="button" class="v2-pop-item" data-scan-action="open-channel-settings">${esc(t('scanChannelSettings', '频道设置'))}</button>
+                    </div>`;
+            } else if (wx.qr && wx.qr.type === 'scanned') {
+                const qrVal = wx.qr.display?.weUrl || wx.qr.display?.qrcode || wx.qr.qrcode;
+                let qrImage = qrVal && window.ToolsQrCode ? window.ToolsQrCode.toSvg(qrVal, { scale: 4, border: 2 }) : '';
+                body = `
+                    ${renderScanQrBox(qrImage || '<span class="v2-scan-loading"></span>')}
+                    <div class="v2-scan-hint-lead">已扫码，请在手机微信上点击确认</div>
+                    <div class="v2-scan-status-pill is-pulsing">
+                        <span class="v2-scan-dot"></span>
+                        <span>手机已扫码，正在等待确认授权…</span>
+                    </div>`;
+            } else if (wx.qr && wx.qr.type === 'need_verifycode') {
+                body = `
+                    <div class="v2-scan-verify-box">
+                        <div style="font-weight:500;margin-bottom:4px">请输入手机微信上显示的数字以继续：</div>
+                        <div class="v2-scan-verify-row">
+                            <input type="text" data-scan-verify-code inputmode="numeric" maxlength="12" placeholder="数字验证码" autofocus>
+                            <button type="button" class="v2-account-btn is-primary" data-scan-action="submit-weixin-verify">提交</button>
+                        </div>
+                    </div>`;
+            } else if (wx.qr && wx.qr.type === 'confirmed') {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">✅</div>
+                    <div class="v2-scan-connected-title">微信登录成功！</div>
+                    <div class="v2-scan-connected-meta">微信助理已连接，正在同步状态…</div>
+                </div>`;
+            } else if (wx.qr && (wx.qr.type === 'error' || wx.qr.type === 'expired' || wx.qr.type === 'failed')) {
+                body = `<div class="v2-scan-connected">
+                    <div class="v2-scan-connected-icon">⚠️</div>
+                    <div class="v2-scan-connected-title">${esc(wx.qr.type === 'expired' ? '二维码已过期' : '微信接入失败')}</div>
+                    <div class="v2-scan-connected-meta">${esc(wx.qr.error || '请求超时，请刷新重试')}</div>
+                    <div class="v2-scan-actions">
+                        <button type="button" class="v2-account-btn is-primary" data-scan-action="relogin-weixin" style="margin-top:6px">重新获取二维码</button>
+                    </div>
+                </div>`;
+            } else {
+                body = renderScanRing(t('scanConnectingWeixin', '正在生成微信登录二维码…'), '通过微信 ClawBot (iLink 协议) 接入');
+            }
+        }
+
+        scan.pop.innerHTML = `${tabs}${body}`;
         fillIcons(scan.pop);
     }
+
     scan.pop.addEventListener('click', event => {
-        const tab = event.target.closest('[data-scan-tab]');
-        if (tab) { scan.tab = tab.dataset.scanTab; scan.editing = false; scan.status = ''; renderScan(); return; }
-        if (event.target.closest('[data-scan-edit]')) { scan.editing = true; renderScan(); scan.pop.querySelector('input')?.focus(); }
+        const tabBtn = event.target.closest('[data-scan-tab]');
+        if (tabBtn) {
+            const nextTab = tabBtn.dataset.scanTab;
+            if (nextTab !== scan.tab) {
+                scan.abortAll();
+                scan.tab = nextTab;
+                renderScan();
+                if (scan.tab === 'welink') loadWelinkStatus({ autoLogin: true });
+                else loadWeixinStatus({ autoQr: true });
+            }
+            return;
+        }
+
+        const actionBtn = event.target.closest('[data-scan-action]');
+        if (!actionBtn) return;
+        const act = actionBtn.dataset.scanAction;
+        if (act === 'relogin-welink') {
+            startWelinkLogin();
+        } else if (act === 'logout-welink') {
+            logoutWelink();
+        } else if (act === 'relogin-weixin') {
+            startWeixinQr();
+        } else if (act === 'submit-weixin-verify') {
+            const input = scan.pop.querySelector('[data-scan-verify-code]');
+            if (input && input.value.trim()) submitWeixinVerify(input.value.trim());
+        } else if (act === 'open-channel-settings') {
+            closePop();
+            window.openNavSettingsModal?.();
+            window.switchNavSettingsTab?.('channels');
+        }
     });
-    scan.pop.addEventListener('submit', async event => {
-        if (!event.target.matches('[data-scan-form]')) return;
-        event.preventDefault();
-        const value = event.target.querySelector('input').value.trim();
-        if (!/^https?:\/\//i.test(value)) { scan.status = t('invalidLink'); renderScan(); return; }
-        scan.status = t('saving'); renderScan();
-        try {
-            const headers = { 'Content-Type': 'application/json', ...(typeof getAuthHeaderForNav === 'function' ? getAuthHeaderForNav() : {}) };
-            // 导航设置整份保存：先取当前设置，只改扫码链接
-            const current = await (await fetch('/api/nav-settings', { headers, cache: 'no-store' })).json();
-            const next = { ...current, scanLinks: { ...(current.scanLinks || {}), [scan.tab]: value } };
-            const res = await fetch('/api/nav-settings', { method: 'PUT', headers, body: JSON.stringify(next) });
-            const saved = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(saved.error || `HTTP ${res.status}`);
-            scan.links = saved.scanLinks || next.scanLinks;
-            if (navSettings()) navSettings().scanLinks = scan.links;
-            scan.editing = false; scan.status = '';
-        } catch (error) { scan.status = t('loadFailed', { e: error.message }); }
-        renderScan();
-    });
+
     $('v2ScanBtn')?.addEventListener('click', async event => {
         const anchor = event.currentTarget;
         if (openPop?.pop === scan.pop) return closePop();
-        scan.editing = false; scan.status = '';
         renderScan();
         showPop(scan.pop, anchor, 'up');
-        await Promise.all([ensureQrLib().catch(() => {}), scan.links ? null : loadScanLinks()]);
-        if (openPop?.pop === scan.pop) renderScan();
+        await ensureQrLib().catch(() => {});
+        if (scan.tab === 'welink') loadWelinkStatus({ autoLogin: true });
+        else loadWeixinStatus({ autoQr: true });
     });
 
     // ── 消息中心：主区整页显示平台告警（沿用 /api/alert-center） ──

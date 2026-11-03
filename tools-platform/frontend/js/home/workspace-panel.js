@@ -866,7 +866,7 @@
         }
     }
 
-    async function selectDirectory(fullPath, ticket = ++state.selectionEpoch) {
+    async function selectDirectory(fullPath, ticket = ++state.selectionEpoch, { openPanel = true } = {}) {
         const data = await request('POST', `${API}/select`, { path: fullPath });
         if (ticket !== state.selectionEpoch) throw Object.assign(new Error('Directory selection superseded'), { name: 'AbortError' });
         state.root = data.root;
@@ -889,7 +889,7 @@
         }
         try { sessionStorage.setItem(SESSION_ROOT_KEY, data.root); } catch { /* ignore */ }
         renderAll();
-        if (document.documentElement.dataset.ui !== 'v2') setOpen(true);
+        if (openPanel && document.documentElement.dataset.ui !== 'v2') setOpen(true);
         refreshGit();
         toast(tx('workspaceReady', { name: state.rootName }));
         window.dispatchEvent(new CustomEvent('dragon-claw:workspace-change', { detail: { root: state.root } }));
@@ -1668,9 +1668,7 @@
         } catch { /* 偏好读取失败不影响使用 */ }
         state.agentSessionId = sessionStorage.getItem(SESSION_KEY) || newSessionId();
         renderAll();
-        let remembered = false;
-        try { remembered = localStorage.getItem(PANEL_KEY) === '1'; } catch { /* ignore */ }
-        if (remembered && window.innerWidth > 860) setOpen(true);
+        // 主页的新建对话始终保持收起，不恢复上次面板的展开状态。
         // 打开工具、技能中心等非对话页面时自动收起工作区（不改用户记住的开关）
         const autoClose = () => { if (state.open && !state.external && !state.filePreview) setOpen(false, { remember: false }); };
         window.addEventListener('home:tool-frame', event => { if (event.detail?.open) autoClose(); });
@@ -1774,6 +1772,7 @@
             return true;
         },
         resetSession({ clearWorkspace = false } = {}) {
+            setOpen(false, { remember: false });
             if (clearWorkspace) clearDirectory();
             state.selectionEpoch += 1;
             if (state.pr?.phase === 'running') state.pr.controller?.abort();
@@ -1831,7 +1830,7 @@
         close: () => setOpen(false),
         toggle: () => setOpen(!state.open),
         openPicker,
-        selectDirectory: (path) => selectDirectory(path),
+        selectDirectory: (path, options) => selectDirectory(path, undefined, options),
         getRoot: () => state.root,
         clearDirectory,
         refreshTexts: renderAll

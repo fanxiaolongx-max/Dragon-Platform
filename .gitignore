@@ -36,5 +36,6 @@ python-packager/backups/
 python-packager/data/
 build/
 dist/
+.tmp/
 
 

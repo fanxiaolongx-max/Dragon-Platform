@@ -3049,7 +3049,7 @@
         if (root) {
             // 先重置会话再选目录：resetSession 会让进行中的选择失效，顺序反过来目录就选不上
             workspace()?.resetSession?.({ clearWorkspace: false });
-            window.DragonClawWorkspace?.selectDirectory?.(root).catch(error => { if (error?.name !== 'AbortError') showToast(error.message); });
+            window.DragonClawWorkspace?.selectDirectory?.(root, { openPanel: false }).catch(error => { if (error?.name !== 'AbortError') showToast(error.message); });
         } else {
             workspace()?.resetSession?.({ clearWorkspace });
         }

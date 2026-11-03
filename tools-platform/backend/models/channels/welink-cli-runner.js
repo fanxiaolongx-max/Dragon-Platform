@@ -196,6 +196,20 @@ async function detect({ refresh = false } = {}) {
         source = 'custom';
     }
     if (!found) {
+        // 内置或 vendor 候选目录（方便项目将来内置 welink-cli，无需用户手动选择路径）
+        const localCandidates = [
+            path.join(__dirname, '../../../../vendor', PACKAGE_NAME),
+            path.join(__dirname, '../../../vendor', PACKAGE_NAME),
+            path.join(__dirname, '../../vendor', PACKAGE_NAME),
+            path.join(__dirname, '../../../../node_modules', PACKAGE_NAME),
+            path.join(__dirname, '../../../node_modules', PACKAGE_NAME)
+        ];
+        for (const dir of localCandidates) {
+            found = entryFromPackage(dir);
+            if (found) { source = 'builtin'; break; }
+        }
+    }
+    if (!found) {
         for (const root of await globalRoots()) {
             found = entryFromPackage(path.join(root, PACKAGE_NAME));
             if (found) { source = 'npm-global'; break; }

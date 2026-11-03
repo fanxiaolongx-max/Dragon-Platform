@@ -4533,9 +4533,9 @@ function initBackToTopButton() {
         button.classList.toggle('visible', getActiveScrollTop() > threshold);
     }
 
-    // 叠放在右侧停靠列（Dragon Claw、工作区标签）最上方，间距与停靠列一致
+    // 叠放在右侧停靠列（Dragon Claw、下载圆环、工作区标签）最上方，间距与停靠列一致
     function updateBackToTopPlacement() {
-        const docked = Array.from(document.querySelectorAll('.ai-fab, #dcWorkspaceFab')).filter(element => {
+        const docked = Array.from(document.querySelectorAll('.ai-fab, #dcWorkspaceFab, #desktopDlFab')).filter(element => {
             if (!element.getClientRects().length) return false;
             const style = getComputedStyle(element);
             return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) > 0.05;

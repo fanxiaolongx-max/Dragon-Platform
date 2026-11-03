@@ -207,7 +207,7 @@
             <div class="nrv-banners"></div>`;
         const dlg = document.createElement('dialog');
         dlg.className = 'nrv-dialog'; dlg.id = 'nrvDialog';
-        dlg.innerHTML = '<div class="nrv-dialog-head"><h2><b data-k="dBadge"></b><span data-k="dName"></span></h2><button type="button" class="nrv-dialog-close">×</button></div><video controls playsinline preload="metadata"><source type="video/mp4"></video>';
+        dlg.innerHTML = '<div class="nrv-dialog-head"><h2><b data-k="dBadge"></b><span data-k="dName"></span></h2><button type="button" class="nrv-dialog-close">×</button></div><video controls muted playsinline preload="metadata"><source type="video/mp4"></video>';
         const tab = document.createElement('button');
         tab.type = 'button'; tab.className = 'nrv-tab'; tab.id = 'nrvTab'; tab.tabIndex = -1;
         tab.setAttribute('aria-hidden', 'true');
@@ -237,7 +237,7 @@
         let closedForVisit = false;
         let current = null;   // 当前在小窗显示的推广项；null 表示小窗已关闭
         let bigKey = null;
-        let wantSound = true;
+        let wantSound = false;
         let ended = false;
         let soundUnlocked = false;
         let wasPlayingBeforeHide = false;
@@ -354,7 +354,7 @@
             if (!attempt || !attempt.catch) return;
             attempt.catch(() => {
                 if (reviewPending) return;
-                // 浏览器拦截带声音的自动播放：先静音播放，等用户首次与页面交互后恢复声音
+                // 播放被拦截时静音重试；声音仅由用户主动操作音量控件开启
                 mini.muted = true; renderSound();
                 soundBtn.classList.add('is-hint');
                 mini.play().catch(() => { /* 仍被拦截则停在封面 */ });
@@ -479,21 +479,12 @@
             if (event.type === 'keydown') {
                 lastKeyAt = performance.now();
                 if (!own && isEditable(event.target)) { soundUnlocked = true; tuck(); return; }
-                if (own || !tucked) unlockSound();
+                if (own || !tucked) soundUnlocked = true;
                 return;
             }
-            if (own) { if (!event.target.closest('[data-act="sound"]')) unlockSound(); return; }
+            if (own) { soundUnlocked = true; return; }
             soundUnlocked = true;
             tuck();
-        }
-        function unlockSound() {
-            if (reviewPending) return;
-            if (soundUnlocked && !mini.muted) return;
-            soundUnlocked = true;
-            if (current && !isLink(current) && !tucked && wantSound && mini.muted && !dlg.open && ask.hidden) {
-                mini.muted = false; soundBtn.classList.remove('is-hint'); renderSound();
-                if (mini.paused && !ended) mini.play().catch(() => {});
-            }
         }
         ['pointerdown', 'keydown', 'touchstart'].forEach(name => document.addEventListener(name, onInteract, true));
         // 只响应键盘 Tab 导航带来的焦点变化，避免页面自动聚焦输入框时误收起
@@ -538,7 +529,7 @@
             translate();
             previousOverflow = document.body.style.overflow;
             dlg.showModal(); document.body.style.overflow = 'hidden';
-            const start = () => { try { big.currentTime = 0; } catch (_) { /* noop */ } big.muted = false; big.play().catch(() => {}); };
+            const start = () => { try { big.currentTime = 0; } catch (_) { /* noop */ } big.muted = !wantSound; big.play().catch(() => {}); };
             if (big.readyState >= 1) start(); else big.addEventListener('loadedmetadata', start, { once: true });
         }
         function closeBig() { if (dlg.open) { big.pause(); dlg.close(); } }

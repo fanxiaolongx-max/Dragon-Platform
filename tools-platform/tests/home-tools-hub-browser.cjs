@@ -1,4 +1,5 @@
-// Run: node_modules/.bin/electron tests/home-composer-browser.cjs
+// Run: node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Desktop drag audit: DESKTOP_DRAG_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Full home renderer, mocked APIs, isolated profile; no model calls or runtime data writes.
 const { app, BrowserWindow } = require('electron');
 const assert = require('node:assert/strict');
@@ -17,6 +18,7 @@ setTimeout(() => app.exit(1), 60000).unref();
 app.whenReady().then(async () => {
     const web = express(); web.use(express.json());
     web.get('/', (_, res) => res.type('html').send(fs.readFileSync(path.join(frontend, 'index.html'), 'utf8').replace('<head>', `<head><script>
+        ${process.env.DESKTOP_DRAG_AUDIT ? `window.DragonWindow={getState:async()=>({platform:'${process.env.DRAG_PLATFORM || 'win32'}'}),onState:()=>{}};` : ''}
         localStorage.setItem('tools_tenant_id','default');localStorage.setItem('tools_role','admin');localStorage.setItem('tools_user','fixture');localStorage.setItem('tools_token','fixture-session');localStorage.setItem('tools_lang','zh-CN');
         window.fixtureIntervals=[];const originalInterval=window.setInterval;window.setInterval=(fn,delay,...args)=>{if(delay>=10000)fixtureIntervals.push({fn,delay});return originalInterval(fn,delay,...args)};
         window.fixtureErrors=[];window.addEventListener('error',e=>fixtureErrors.push(e.message));window.addEventListener('unhandledrejection',e=>fixtureErrors.push(String(e.reason)));
@@ -43,6 +45,39 @@ app.whenReady().then(async () => {
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
 
     await until('window.HomeSkillHub&&document.querySelector("[data-v2-mode=tools]")&&document.getElementById("v2SkillHub")');
+    if (process.env.DESKTOP_DRAG_AUDIT) {
+        await until('!!document.querySelector(".desktop-drag-hub")');
+        const region = selector => evaluate(`getComputedStyle(document.querySelector(${JSON.stringify(selector)})).getPropertyValue('-webkit-app-region')`);
+        for (const width of [1440, 1000, 600]) {
+            win.setSize(width,900);
+            for (const collapsed of [false,true]) {
+                await evaluate(`document.body.classList.toggle('v2-side-collapsed',${collapsed})`);
+                for (const tab of ['skills','plugins','tools']) {
+                    await evaluate(`HomeSkillHub.open('${tab}')`);
+                    await wait(50);
+                    assert.equal(await region('.desktop-drag-hub'),'drag');
+                    const bounds=await evaluate(`(()=>{const strip=document.querySelector('.desktop-drag-hub'),r=strip.getBoundingClientRect(),h=document.querySelector('.v2-hub-top').getBoundingClientRect();return {hit:document.elementFromPoint((r.left+r.right)/2,(r.top+r.bottom)/2)===strip,bottom:r.bottom,headerTop:h.top}})()`);
+                    assert.ok(bounds.hit,tab+' title gutter receives pointer at '+width);
+                    assert.ok(bounds.bottom<=bounds.headerTop,tab+' drag gutter does not cover the header');
+                    assert.equal(await region('.v2-hub-search input'),'no-drag');
+                    assert.equal(await region('[data-hub-tab]'),'no-drag');
+                    assert.equal(await region('[data-hub-do="addMenu"]'),'no-drag');
+                    if(!collapsed)assert.ok(await evaluate(`(()=>{const b=document.querySelector('#v2SideToggle'),r=b.getBoundingClientRect();return b.contains(document.elementFromPoint(r.x+r.width/2,r.top+1))})()`),'sidebar button upper edge remains clickable');
+                }
+            }
+        }
+        await evaluate('HomeSkillHub.close()');
+        assert.equal(await evaluate('getComputedStyle(document.querySelector(".desktop-drag-hub")).display'),'none');
+        await evaluate(`HomeToolFrame.open('/pages/sla.html')`);
+        await until('document.body.classList.contains("v2-tool-open")');
+        assert.equal(await region('.v2-tool-frame-bar'),'drag');
+        assert.equal(await region('.v2-tool-frame-btn'),'no-drag');
+        await evaluate('HomeToolFrame.close();document.body.classList.add("dc-chatting")');
+        assert.equal(await region('.dc-chat-head'),'drag');
+        await capture('desktop-drag');
+        console.log('PASS: desktop hub drag gutters for skills/plugins/tools at 1440/1000/600px, expanded/collapsed sidebar; controls excluded; tool and chat headers draggable. '+temp);
+        win.destroy();server.close();app.exit(0);return;
+    }
     const assertTools=async()=>{
         await until('HomeSkillHub.isOpen()&&HomeSkillHub.tab()==="tools"');
         assert.equal(await evaluate('document.body.classList.contains("home-mode-chat")'),true);

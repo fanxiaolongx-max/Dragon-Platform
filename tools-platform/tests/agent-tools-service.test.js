@@ -291,3 +291,21 @@ test('long command output retains the tail and exit status through both output l
     assert.match(result.content, /退出码 0/);
     fs.rmSync(file);
 });
+
+test('wrapped file arguments share preview/execution validation and malformed calls cannot erase files', async () => {
+    const context=ctx(), filename='wrapped-output.html';
+    const args={path:filename,content:'<html>中文\nC:\\temp\\report</html>'};
+    const preview=await tools.preview(context,'write_file',{__raw:JSON.stringify(args)});
+    assert.equal(preview.path,filename);
+    const result=await tools.execute(context,'write_file',{_raw:JSON.stringify(args)});
+    assert.ok(!result.isError);assert.equal(fs.readFileSync(path.join(ROOT,filename),'utf8'),args.content);
+    for(const bad of [{path:filename},{path:filename,content:null},{__raw:'{"path":"broken'}, {__raw:JSON.stringify(args),path:'different.html'}]){
+        await assert.rejects(tools.preview(context,'write_file',bad));
+        const failed=await tools.execute(context,'write_file',bad);assert.equal(failed.isError,true);
+        assert.equal(fs.readFileSync(path.join(ROOT,filename),'utf8'),args.content,'failed calls never truncate the existing file');
+    }
+    const outsideCall=await tools.execute(context,'write_file',{__raw:JSON.stringify({path:'../outside-wrapper.txt',content:'x'})});
+    assert.equal(outsideCall.isError,true);assert.match(outsideCall.content,/超出工作目录/);
+    const empty=await tools.execute(context,'write_file',{path:filename,content:''});
+    assert.ok(!empty.isError);assert.equal(fs.readFileSync(path.join(ROOT,filename),'utf8'),'','intentional empty content remains supported');
+});

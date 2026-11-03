@@ -53,8 +53,8 @@ app.whenReady().then(async () => {
     const js = code => win().webContents.executeJavaScript(code);
     await until(() => js('!!document.querySelector(".desktop-controls")'), 'controls rendered');
 
-    // 外观：Windows 外观的三个按钮、拖动区与可点区域
-    assert.deepEqual(await js('[...document.querySelectorAll(".desktop-controls button")].map(b => b.dataset.act)'), ['close', 'minimize', 'maximize']);
+    // 外观：Windows 外观的右上角三个按钮、拖动区与可点区域
+    assert.deepEqual(await js('[...document.querySelectorAll(".desktop-controls button")].map(b => b.dataset.act)'), ['minimize', 'maximize', 'close']);
     assert.equal(await js('document.documentElement.classList.contains("desktop-win")'), true);
     assert.equal(await js('getComputedStyle(document.querySelector(".v2-side-tools")).webkitAppRegion || getComputedStyle(document.querySelector(".v2-side-tools")).getPropertyValue("-webkit-app-region")'), 'drag');
     assert.equal(await js('getComputedStyle(document.getElementById("sideBtn")).getPropertyValue("-webkit-app-region")'), 'no-drag');
@@ -62,16 +62,19 @@ app.whenReady().then(async () => {
     for (const mode of ['', 'dc-chatting', 'v2-hub-open', 'v2-tool-open']) {
         const region = await js(`(() => { document.body.className=${JSON.stringify(mode)};
             const strip=document.querySelector('.desktop-drag');
-            return {display:getComputedStyle(strip).display,region:getComputedStyle(strip).getPropertyValue('-webkit-app-region'),hit:document.elementFromPoint(innerWidth/2,8)===strip}; })()`);
+            return {display:getComputedStyle(strip).display,region:getComputedStyle(strip).getPropertyValue('-webkit-app-region'),hit:document.elementFromPoint(innerWidth/2,4)===strip}; })()`);
         assert.notEqual(region.display, 'none', mode+' keeps its top drag strip');
         assert.equal(region.region,'drag');
         assert.equal(region.hit,true,mode+' top strip stays above page content');
     }
     await js('document.body.className=""');
+    const hit = await js(`(() => { const b=document.getElementById('sideBtn'),r=b.getBoundingClientRect();return [r.top+1,r.top+r.height/2,r.bottom-1].every(y=>b.contains(document.elementFromPoint(r.x+r.width/2,y))); })()`);
+    assert.equal(hit,true,'the entire sidebar button is clickable, including its top edge');
+
     const rect = await js('JSON.stringify(document.querySelector(".desktop-controls").getBoundingClientRect())');
     const box = JSON.parse(rect);
-    assert.ok(box.left < 30 && box.top < 40, `controls at top-left: ${rect}`);
-    assert.ok(await js('document.querySelector(".v2-side-tools").getBoundingClientRect().left + parseFloat(getComputedStyle(document.querySelector(".v2-side-tools")).paddingLeft) > document.querySelector(".desktop-controls").getBoundingClientRect().right'), 'sidebar tools leave room for the buttons');
+    const winW = await js('window.innerWidth');
+    assert.ok(box.right >= winW - 5 && box.top < 40, `controls at top-right: ${rect}, innerWidth: ${winW}`);
     const shot = await win().webContents.capturePage();
     fs.writeFileSync(path.join(temp, 'main-window.png'), shot.toPNG());
 

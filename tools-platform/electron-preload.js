@@ -32,3 +32,18 @@ contextBridge.exposeInMainWorld('DragonWindow', {
         return () => ipcRenderer.removeListener('desktop-window:state', listener);
     }
 });
+
+// 桌面端全局下载管理：静默下载至默认目录、右上角进度浮动条、折叠右侧圆环
+contextBridge.exposeInMainWorld('DragonDownload', {
+    onEvent: (callback) => {
+        if (typeof callback !== 'function') return () => {};
+        const listener = (_event, payload) => callback(payload);
+        ipcRenderer.on('desktop-download:event', listener);
+        return () => ipcRenderer.removeListener('desktop-download:event', listener);
+    },
+    changeDirectory: () => ipcRenderer.invoke('desktop-download:change-directory'),
+    getDirectory: () => ipcRenderer.invoke('desktop-download:get-directory'),
+    openFile: (savePath) => ipcRenderer.invoke('desktop-download:open-file', savePath),
+    showItemInFolder: (savePath) => ipcRenderer.invoke('desktop-download:show-item-in-folder', savePath),
+    cancel: (id) => ipcRenderer.invoke('desktop-download:cancel', id)
+});

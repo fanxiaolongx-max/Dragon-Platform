@@ -755,3 +755,22 @@ test('the summary input lists every parallel tool result and pulls error lines o
     for (let index = 0; index < 5; index++) assert.match(prompt, new RegExp(`工具结果 read_file#r${index} 成功`));
     assert.match(prompt, /关键行：\n {2}! ERROR order-sync: upstream timeout \(batch=7731\)/);
 });
+
+test('wrapped arguments are canonical before approval; malformed calls never reach a write', async () => {
+    const target='wrapped-approval.html';
+    const session=manager.ensureSession({agentSessionId:newSessionId(),user,tenantId:'default',root,permissionMode:'ask'});
+    const args={path:target,content:'<html>approval required</html>'};
+    const client=scriptedClient([{toolCalls:[{id:'wrapped',name:'write_file',args:{__raw:JSON.stringify(args)}}]},{text:'done'}]);
+    const {events,write}=collector();
+    const turn=manager.runAgentTurn({session,client,systemInstruction:'S',historyMessages:[{role:'user',content:'write'}],write,signal:new AbortController().signal});
+    const approval=await waitFor(()=>events.find(e=>e.type==='approval'));
+    assert.deepEqual(approval.args,args);assert.equal(approval.preview.path,target);
+    assert.equal(fs.existsSync(path.join(root,target)),false,'decoding does not bypass approval');
+    manager.resolveApproval(approval.id,'deny',user,'default');await turn;
+    assert.equal(fs.existsSync(path.join(root,target)),false);
+    const malformed=scriptedClient([{toolCalls:[{id:'broken',name:'write_file',args:{__raw:'{"path":"broken'}}]},{text:'corrected next turn'}]);
+    const bad=collector();
+    await manager.runAgentTurn({session,client:malformed,systemInstruction:'S',historyMessages:[{role:'user',content:'write'}],write:bad.write,signal:new AbortController().signal});
+    assert.equal(bad.events.some(e=>e.type==='approval'),false);
+    assert.match(malformed.calls[1].messages.at(-1).toolResults[0].content,/AGENT_TOOL_ARGS_PARSE/);
+});

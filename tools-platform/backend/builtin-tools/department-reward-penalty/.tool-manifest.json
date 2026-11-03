@@ -7,12 +7,17 @@
     "icon": "⚖️",
     "description": "用于维护部门负向事件与违规记录、扣罚规则、人员名册与操作审计日志，支持草稿发布、规则分类筛选和人员 CSV 导入导出。",
     "descriptionEn": "Manage department negative event records, penalty rules, personnel rosters, and audit logs with draft publishing, rule filtering, and CSV roster import/export.",
-    "tags": ["质量管理", "负向事件", "规则", "人员"],
+    "tags": [
+      "质量管理",
+      "负向事件",
+      "规则",
+      "人员"
+    ],
     "href": "/tools/department-reward-penalty",
     "filePath": "/custom-tools/department-reward-penalty/index.html",
     "publicAccess": false,
     "createdAt": "2026-09-17T00:00:00.000Z",
-    "updatedAt": "2026-09-18T00:00:00.000Z"
+    "updatedAt": "2026-11-03T09:17:27.312Z"
   },
   "history": null
 }
