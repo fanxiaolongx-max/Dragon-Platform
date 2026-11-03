@@ -1,0 +1,68 @@
+// Isolated renderer, fake updater, no runtime databases or network update requests.
+const { app, BrowserWindow } = require('electron');
+const fs = require('node:fs'), os = require('node:os'), path = require('node:path'), assert = require('node:assert/strict'), express = require('express');
+const root = path.join(__dirname, '..'), temp = fs.mkdtempSync(path.join(os.tmpdir(), 'update-dialog-'));
+app.setPath('userData', path.join(temp, 'profile')); app.disableHardwareAcceleration();
+let win, server;
+const run = code => win.webContents.executeJavaScript(code, true);
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const until = code => run(`new Promise((resolve,reject)=>{let count=0;const poll=()=>{if(${code})resolve();else if(++count>200)reject(Error(${JSON.stringify(code)}));else setTimeout(poll,20)};poll()})`);
+async function capture(name) { await wait(60); fs.writeFileSync(path.join(temp, name + '.png'), (await win.webContents.capturePage()).toPNG()); }
+app.whenReady().then(async () => {
+    const web = express();
+    web.get('/', (_, res) => res.send(`<!doctype html><html lang="zh-CN"><head><script>
+    localStorage.setItem('tools_lang','zh-CN');window.fixtureErrors=[];addEventListener('error',e=>fixtureErrors.push(e.message));
+    window.fixtureStatus={state:'idle',version:'1.0.0'};window.fixtureChecks=0;window.fixtureDownloads=0;window.fixtureInstalls=0;
+    window.ToolsUpdater={onStatus:cb=>{window.emit=next=>{fixtureStatus={...fixtureStatus,...next};cb(fixtureStatus)}},getStatus:async()=>fixtureStatus,check:async()=>{fixtureChecks++;emit({state:'available',latestVersion:'2.0.0',releaseNotes:'<ul><li>更新体验</li><li><img src=x onerror="window.injected=1">安全文本</li></ul>',suppressPrompt:true});return fixtureStatus},download:async()=>{fixtureDownloads++;emit({state:'downloading',message:'正在下载更新 25%',progress:25});return fixtureStatus},install:async()=>{fixtureInstalls++;emit({state:'installing',message:'正在重启并安装更新…'});return fixtureStatus}};
+    </script></head><body style="background:#f3f4f6"><button id="anchor">Workspace</button><script src="/js/shared/api.js"></script></body></html>`));
+    web.use(express.static(path.join(root, 'frontend')));
+    server = await new Promise(resolve => { const s = web.listen(0, '127.0.0.1', () => resolve(s)); });
+    win = new BrowserWindow({ show: false, width: 1100, height: 800, webPreferences: { sandbox: true, contextIsolation: true } });
+    const url = `http://127.0.0.1:${server.address().port}/`;
+    await win.loadURL(url + '?welcome=updated&version=2.0.0&from=1.0.0');
+    await until(`document.querySelector('#tools-dialog-title')?.textContent==='更新已完成'`);
+    assert.ok(await run(`document.querySelector('.tools-dialog-version').textContent.includes('v1.0.0')`));
+    assert.equal(await run(`getComputedStyle(document.querySelector('.tools-dialog')).backgroundColor`), 'rgb(255, 255, 255)');
+    assert.ok(await run(`document.querySelector('.tools-dialog').offsetWidth<=480`));
+    assert.equal(await run(`location.search`), ''); await capture('updated-light');
+    await run(`document.querySelector('[data-update]').click();emit({state:'available',latestVersion:'2.0.1',suppressPrompt:true});true`);
+    assert.equal(await run(`!!document.querySelector('.tools-dialog')`), false, 'automatic reminders suppressed');
+    await run(`emit({state:'available',version:'1.0.0',latestVersion:'2.0.2',releaseNotes:'自动检查发现新版',suppressPrompt:false});true`);
+    assert.equal(await run(`document.querySelector('#tools-dialog-title').textContent`),'发现新版本');
+    await run(`document.querySelector('[data-later]').click();emit({state:'available',latestVersion:'2.0.2',suppressPrompt:false});true`);
+    assert.equal(await run(`!!document.querySelector('.tools-dialog')`),false,'Later avoids repeated reminders in the same page');
+    await run(`ToolsDialogs.checkUpdate();true`); await until(`!!document.querySelector('[data-update]')`);
+    assert.equal(await run(`fixtureChecks`), 1); assert.equal(await run(`!!window.injected`), false);
+    await capture('available-light');
+    await run(`document.querySelector('[data-update]').click();true`); await wait(30);
+    assert.equal(await run('fixtureDownloads'), 1); assert.equal(await run(`document.querySelector('[data-update]').disabled`), true);
+    await run(`emit({state:'downloaded',message:'更新已下载，重启后生效'});true`);
+    assert.equal(await run(`document.querySelector('[data-update]').textContent`), '重启并安装');
+    await run(`document.querySelector('.tools-dialog-close').click();ToolsUpdater.check=async()=>fixtureStatus;ToolsDialogs.checkUpdate();true`); await until(`!!document.querySelector('[data-update]')`);
+    assert.equal(await run(`document.querySelector('[data-update]').textContent`),'重启并安装','manual checks retain the ready-to-install action');
+    await run(`document.querySelector('[data-update]').click();true`); assert.equal(await run('fixtureInstalls'), 1);
+    await run(`ToolsDialogs.feedback();true`);
+    assert.equal(await run(`document.querySelector('[data-submit]').disabled`), true);
+    await run(`document.querySelector('textarea').value='测试反馈';document.querySelector('textarea').dispatchEvent(new Event('input'));document.querySelector('[data-submit]').click();true`);
+    assert.ok(await run(`document.querySelector('[role="status"]').textContent.includes('服务器当前繁忙')`));
+    await run(`(()=>{const dt=new DataTransfer();for(let i=0;i<7;i++)dt.items.add(new File([Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII='),c=>c.charCodeAt(0))],'image'+i+'.png',{type:'image/png'}));const input=document.querySelector('[type=file]');input.files=dt.files;input.dispatchEvent(new Event('change'))})()`);
+    assert.equal(await run(`document.querySelectorAll('.tools-feedback-image').length`), 6);
+    await run(`document.querySelector('[data-remove]').click();true`); assert.equal(await run(`document.querySelector('[data-count]').textContent`), '5');
+    // Focus: no square outline on the textarea; the rounded editor shows the focus ring instead.
+    await run(`document.querySelector('.tools-feedback textarea').focus();true`);await wait(200);
+    const focus = await run(`(()=>{const t=getComputedStyle(document.querySelector('.tools-feedback textarea')),e=getComputedStyle(document.querySelector('.tools-feedback-editor'));return {outline:t.outlineStyle,border:t.borderTopWidth,shadow:t.boxShadow,editorRadius:e.borderTopLeftRadius,editorShadow:e.boxShadow}})()`);
+    assert.equal(focus.outline,'none');assert.equal(focus.border,'0px');assert.equal(focus.shadow,'none');
+    assert.equal(focus.editorRadius,'13px');assert.notEqual(focus.editorShadow,'none','rounded editor shows the focus ring '+JSON.stringify(focus));
+    await capture('feedback-focus');
+    await capture('feedback-light');
+    await run(`document.documentElement.dataset.theme='dark';true`); await capture('feedback-dark');
+    assert.equal(await run(`getComputedStyle(document.querySelector('.tools-dialog')).backgroundColor`), 'rgb(32, 36, 44)');
+    win.setContentSize(360, 640); await capture('feedback-narrow');
+    assert.ok(await run(`(()=>{const r=document.querySelector('.tools-dialog').getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight})()`));
+    await run(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));localStorage.setItem('tools_lang','en-US');ToolsDialogs.feedback();true`);
+    assert.equal(await run(`document.querySelector('#tools-dialog-title').textContent`), 'Feedback');
+    assert.deepEqual(await run('fixtureErrors'), []);
+    console.log('PASS update/feedback light, dark, narrow, bilingual, quiet/manual checks, safe notes, download/install and image limits. Screenshots: ' + temp);
+    win.destroy(); server.close(); app.exit(0);
+}).catch(e => { console.error(e); win?.destroy(); server?.close(); app.exit(1); });
+setTimeout(() => app.exit(1), 30000).unref();

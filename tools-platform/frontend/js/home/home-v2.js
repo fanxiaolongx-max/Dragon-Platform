@@ -259,7 +259,8 @@
         compare() { click('builtinToolsCompareBtn'); },
         links() { openLinks(); },
         alerts() { openMessages(); },
-        checkUpdate() { window.openNavSettingsModal?.(); window.switchNavSettingsTab?.('update'); },
+        checkUpdate() { window.ToolsDialogs?.checkUpdate(); },
+        feedback() { window.ToolsDialogs?.feedback(); },
         settings() { window.openNavSettingsModal?.(); },
         language() { window.toggleAppLanguage?.(); },
         theme() { setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); },
@@ -497,7 +498,7 @@
         userPop.innerHTML = `
             <div class="v2-account-card v2-account-head"><span class="v2-avatar v2-avatar-lg"><img src="/assets/logo.png" alt=""></span><strong>${esc(name)}</strong></div>
             <div class="v2-account-card v2-account-stats">
-                <div><small>${esc(t('version'))}</small><strong>${esc(versionText() || '—')}</strong>${admin ? `<button type="button" class="v2-account-btn is-primary" data-v2-do="checkUpdate">${esc(t('checkUpdate'))}</button>` : ''}</div>
+                <div><small>${esc(t('version'))}</small><strong>${esc(versionText() || '—')}</strong></div>
                 <div><small>${esc(t('service'))}</small><strong class="v2-account-service"><span class="v2-status-dot${serviceDown() ? ' is-down' : ''}"></span>${esc(serviceText())}</strong><button type="button" class="v2-account-btn" data-v2-do="serviceStatus">${esc(t('serviceStatus'))}</button></div>
             </div>
             <div class="v2-account-card v2-account-list">
@@ -506,6 +507,8 @@
                 ${rowItem('language', t('language'), 'language')}
                 ${rowItem('target', t('requirements'), 'requirements')}
                 ${rowItem('compare', t('classic'), 'classic')}
+                ${rowItem('chat', lang() === 'en-US' ? 'Feedback' : '意见反馈', 'feedback')}
+                ${rowItem('refresh', t('checkUpdate'), 'checkUpdate')}
                 <div class="v2-pop-sep"></div>
                 ${rowItem('logout', t('logout'), 'logout')}
             </div>`;
@@ -1375,19 +1378,99 @@
 
     // ── 侧边栏收起 ──
     const SIDE_KEY = 'tools_v2_side';
+    // 鼠标最后的位置：点击收起后浮动按钮正好出现在指针下，不能因此立刻又滑出侧栏
+    let lastPointer = null;
+    document.addEventListener('pointermove', event => { lastPointer = { x: event.clientX, y: event.clientY }; }, { passive: true });
+    let peekArmed = true;
     function setSideCollapsed(collapsed) {
         document.body.classList.toggle('v2-side-collapsed', collapsed);
         try { localStorage.setItem(SIDE_KEY, collapsed ? 'collapsed' : 'open'); } catch { /* 无痕模式 */ }
+        setSidePeek(false);
         const toggle = $('v2SideToggle');
-        if (toggle) { toggle.title = t(collapsed ? 'expand' : 'collapse'); toggle.setAttribute('aria-label', toggle.title); }
+        if (toggle) { toggle.removeAttribute('title'); toggle.setAttribute('aria-label', t(collapsed ? 'expand' : 'collapse')); }
+        floatToggle.setAttribute('aria-label', t('expand'));
+        hideFloatTip();
+        // 收起后指针若已在浮动按钮上：先不滑出，移开再悬停才滑出
+        peekArmed = true;
+        if (collapsed && lastPointer) {
+            const r = floatToggle.getBoundingClientRect();
+            if (lastPointer.x >= r.left && lastPointer.x <= r.right && lastPointer.y >= r.top && lastPointer.y <= r.bottom) peekArmed = false;
+        }
     }
-    const sideExpand = document.createElement('button');
-    sideExpand.type = 'button';
-    sideExpand.className = 'v2-icon-btn v2-side-expand';
-    sideExpand.innerHTML = '<span class="v2-ico" data-icon="sidebar"></span>';
-    sideExpand.addEventListener('click', () => setSideCollapsed(false));
-    document.body.appendChild(sideExpand);
-    $('v2SideToggle')?.addEventListener('click', () => setSideCollapsed(true));
+    const isSideCollapsed = () => document.body.classList.contains('v2-side-collapsed');
+    const shortcutKey = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent) ? '⌘B' : 'Ctrl+B';
+
+    // 收起后左上角：侧边栏按钮（悬停临时滑出侧栏，点击恢复）+ 新建对话（任意界面一键新建）
+    const sideFloat = document.createElement('div');
+    sideFloat.className = 'v2-side-float';
+    sideFloat.innerHTML = '<button type="button" class="v2-icon-btn" data-v2-float="toggle"><span class="v2-ico" data-icon="sidebar"></span></button>'
+        + '<button type="button" class="v2-icon-btn" data-v2-float="newChat"><span class="v2-ico" data-icon="chatPlus"></span></button>';
+    document.body.appendChild(sideFloat);
+    fillIcons(sideFloat);
+    const floatToggle = sideFloat.querySelector('[data-v2-float="toggle"]');
+    const floatNew = sideFloat.querySelector('[data-v2-float="newChat"]');
+    floatNew.setAttribute('aria-label', t('newChat'));
+
+    // 深色提示气泡（按钮下方）：名称 + 快捷键
+    const floatTip = document.createElement('div');
+    floatTip.className = 'v2-float-tip';
+    floatTip.setAttribute('role', 'tooltip');
+    document.body.appendChild(floatTip);
+    let floatTipTimer = 0;
+    function showFloatTip(anchor, label, key = '') {
+        clearTimeout(floatTipTimer);
+        floatTipTimer = setTimeout(() => {
+            floatTip.innerHTML = `<span>${esc(label)}</span>${key ? `<kbd>${esc(key)}</kbd>` : ''}`;
+            const rect = anchor.getBoundingClientRect();
+            floatTip.style.top = `${rect.bottom + 6}px`;
+            floatTip.style.left = `${Math.max(6, rect.left + rect.width / 2 - floatTip.offsetWidth / 2)}px`;
+            floatTip.classList.add('is-open');
+        }, 350);
+    }
+    function hideFloatTip() { clearTimeout(floatTipTimer); floatTip.classList.remove('is-open'); }
+    const tipFor = el => el === floatNew ? [t('newChat'), '']
+        : [t(isSideCollapsed() ? 'expand' : 'collapse'), shortcutKey];
+    [floatToggle, floatNew, $('v2SideToggle')].filter(Boolean).forEach(el => {
+        el.addEventListener('mouseenter', () => showFloatTip(el, ...tipFor(el)));
+        el.addEventListener('mouseleave', hideFloatTip);
+        el.addEventListener('click', hideFloatTip);
+    });
+
+    // 悬停浮动的侧边栏按钮：侧栏从左侧滑出（浮层，不挤占内容），移开收回；点击恢复为常驻侧栏
+    const sidebarEl = $('homeSidebar');
+    const wideSide = () => window.matchMedia('(min-width: 861px)').matches;
+    let peekTimer = 0;
+    function setSidePeek(on) {
+        clearTimeout(peekTimer);
+        const next = Boolean(on) && isSideCollapsed() && wideSide();
+        document.body.classList.toggle('v2-side-peek', next);
+        floatToggle?.classList.toggle('is-on', next);
+    }
+    function schedulePeekEnd() {
+        clearTimeout(peekTimer);
+        peekTimer = setTimeout(() => {
+            if (!document.body.classList.contains('v2-side-peek')) return;
+            // 从滑出的侧栏里打开的菜单 / 弹层还在用时先不收
+            if (floatToggle.matches(':hover') || sidebarEl?.matches(':hover') || document.querySelector('.v2-pop.is-open, .home-links-pop:not([hidden])')) { schedulePeekEnd(); return; }
+            setSidePeek(false);
+        }, 280);
+    }
+    floatToggle.addEventListener('mouseenter', () => { if (isSideCollapsed() && peekArmed) setSidePeek(true); });
+    floatToggle.addEventListener('mouseleave', () => { peekArmed = true; schedulePeekEnd(); });
+    sidebarEl?.addEventListener('mouseenter', () => { if (document.body.classList.contains('v2-side-peek')) clearTimeout(peekTimer); });
+    sidebarEl?.addEventListener('mouseleave', () => { if (document.body.classList.contains('v2-side-peek')) schedulePeekEnd(); });
+    floatToggle.addEventListener('click', () => setSideCollapsed(false));
+    floatNew.addEventListener('click', () => { setSidePeek(false); run('newChat'); });
+    $('v2SideToggle')?.addEventListener('click', () => setSideCollapsed(!isSideCollapsed()));
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && document.body.classList.contains('v2-side-peek')) setSidePeek(false);
+        // ⌘B / Ctrl+B：收起或恢复侧栏
+        if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === 'b') {
+            event.preventDefault();
+            setSideCollapsed(!isSideCollapsed());
+        }
+    });
+    window.addEventListener('resize', () => { if (!wideSide()) setSidePeek(false); });
 
     const authHeaders = () => (typeof getAuthHeaderForNav === 'function' ? getAuthHeaderForNav() : { Authorization: `Bearer ${localStorage.getItem('tools_token') || ''}` });
     const getJson = async url => { const res = await fetch(url, { headers: authHeaders(), cache: 'no-store' }); return res.ok ? res.json() : null; };

@@ -58,6 +58,7 @@
       "desktop-machine-id.js",
       "desktop-license-preload.js",
       "desktop-local-port.js",
+      "desktop-portable-updater.js",
       "desktop-main-window.js",
       "README.md",
       "!backend/{data,backups,factory-reset-archives,logs,tmp,runtime,node_modules}/**/*",

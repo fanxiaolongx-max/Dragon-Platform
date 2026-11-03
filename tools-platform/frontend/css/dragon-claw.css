@@ -1035,6 +1035,9 @@ body.dc-chatting .dc-composer {
 .dc-slash-item.is-active, .dc-slash-item:focus-visible { background: rgba(100, 255, 218, 0.08); color: #e6fffa; outline: none; }
 .dc-slash-item.is-active { box-shadow: inset 2px 0 0 var(--dc-accent, #64ffda); }
 .dc-slash-item b { min-width: 74px; color: var(--dc-accent, #64ffda); font: 600 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; }
+.dc-recall-item { width: 100%; min-width: 0; }
+.dc-recall-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dc-recall-title { padding-top: 2px; padding-bottom: 4px; }
 .dc-slash-hint { padding: 4px 10px 2px; color: var(--dc-faint, #64748b); font-size: 11px; }
 
 /* ── /session 历史会话 ────────────────────────── */

@@ -1,0 +1,12 @@
+{
+  "zh": [
+    "更新提示改为简洁弹窗，支持浅色与深色主题。",
+    "桌面版启动自动检查更新；升级完成后 24 小时内暂停自动更新提醒。",
+    "头像菜单新增检查更新和意见反馈入口。"
+  ],
+  "en": [
+    "Compact update dialogs with light and dark theme support.",
+    "Desktop startup checks for updates, with automatic reminders muted for 24 hours after an upgrade.",
+    "Check for updates and send feedback from the account menu."
+  ]
+}

@@ -2,6 +2,8 @@
 // Requirements embed audit: HOME_REQUIREMENTS_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Featured stability audit: HOME_FEATURED_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Sidebar height audit: HOME_SIDEBAR_HEIGHT_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Workspace scope audit: HOME_WORKSPACE_SCOPE_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Collapsed sidebar peek audit: HOME_SIDE_PEEK_AUDIT=1 [HOME_SIDE_PEEK_SHOT=/path/prefix] [DESKTOP_DRAG_AUDIT=1 DRAG_PLATFORM=darwin|win32] node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Scan popup audit: HOME_SCAN_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Message navigation audit: HOME_MESSAGES_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Wheel audit: HOME_SCROLL_AUDIT=1 DESKTOP_DRAG_AUDIT=1 DRAG_PLATFORM=darwin node_modules/.bin/electron tests/home-tools-hub-browser.cjs
@@ -135,6 +137,140 @@ app.whenReady().then(async () => {
             }
         }
         console.log('PASS: sidebar covers viewport bottom at 1920/1000/600px, desktop user bar stays at bottom, workspace open/closed, light/dark.');
+        win.destroy();server.close();app.exit(0);return;
+    }
+    if (process.env.HOME_WORKSPACE_SCOPE_AUDIT) {
+        // The right workspace belongs to the conversation: hidden on the skills hub / tool pages
+        // (including a channel card borrowing the panel), back with the same content in chat.
+        win.setContentSize(1440, 900);await wait(60);
+        await until('window.DragonClawWorkspace && document.getElementById("dcWorkspacePanel")');
+        await evaluate(`document.body.classList.add('dc-chatting');(()=>{const body=DragonClawWorkspace.showExternal({title:'会话任务',meta:'3',open:true});body.innerHTML='<p id="fixtureExternal">定时任务</p>'})();void 0`);
+        await wait(120);
+        const state = () => evaluate(`(()=>{const p=document.getElementById('dcWorkspacePanel');const cols=getComputedStyle(document.querySelector('.home-content.home-workspace')).gridTemplateColumns.split(' ').length;return {open:document.body.classList.contains('dc-workspace-open'),hidden:p.hidden,visible:p.getClientRects().length>0,cols,external:!!document.getElementById('fixtureExternal')}})()`);
+        let ws = await state();
+        assert.ok(ws.open && ws.visible && ws.cols === 3 && ws.external, 'chat shows the borrowed workspace '+JSON.stringify(ws));
+        await evaluate(`HomeSkillHub.open('tools')`);await wait(200);
+        ws = await state();
+        assert.ok(!ws.open && ws.hidden && !ws.visible && ws.cols === 2, 'skills hub hides the workspace '+JSON.stringify(ws));
+        if (process.env.HOME_WORKSPACE_SCOPE_SHOT) fs.writeFileSync(process.env.HOME_WORKSPACE_SCOPE_SHOT, (await win.webContents.capturePage()).toPNG());
+        await evaluate('HomeSkillHub.close()');await wait(200);
+        ws = await state();
+        assert.ok(ws.open && ws.visible && ws.cols === 3 && ws.external, 'back in chat the same workspace returns '+JSON.stringify(ws));
+        // Tool pages behave the same way.
+        await evaluate(`window.dispatchEvent(new CustomEvent('home:tool-frame',{detail:{open:true}}))`);await wait(80);
+        assert.equal((await state()).visible, false, 'tool page hides the workspace');
+        await evaluate(`window.dispatchEvent(new CustomEvent('home:tool-frame',{detail:{open:false}}))`);await wait(80);
+        assert.equal((await state()).visible, true, 'closing the tool brings it back');
+        // Toggling while hidden keeps the user's state: closing in chat stays closed after the hub.
+        await evaluate(`DragonClawWorkspace.hideExternal();void 0`);await wait(80);
+        assert.equal((await state()).visible, false, 'releasing the borrowed card closes it');
+        assert.deepEqual(await evaluate('fixtureErrors'), []);
+        console.log('PASS: the right workspace shows only in conversation: hidden on the skills hub and tool pages (even when a channel card borrows it), restored with the same content in chat.');
+        win.destroy();server.close();app.exit(0);return;
+    }
+    if (process.env.HOME_SIDE_PEEK_AUDIT) {
+        const shot = async name => { if (process.env.HOME_SIDE_PEEK_SHOT) fs.writeFileSync(`${process.env.HOME_SIDE_PEEK_SHOT}-${name}.png`, (await win.webContents.capturePage()).toPNG()); };
+        const macDesktop = Boolean(process.env.DESKTOP_DRAG_AUDIT) && process.env.DRAG_PLATFORM === 'darwin';
+        const winDesktop = Boolean(process.env.DESKTOP_DRAG_AUDIT) && !macDesktop;
+        if (process.env.DESKTOP_DRAG_AUDIT) await until(`document.documentElement.classList.contains('${macDesktop ? 'desktop-mac' : 'desktop-win'}')`);
+        win.setContentSize(1280, 820);await wait(60);
+        const rect = sel => evaluate(`(()=>{const r=document.querySelector('${sel}').getBoundingClientRect();return {left:Math.round(r.left),top:Math.round(r.top),width:Math.round(r.width),right:Math.round(r.right)}})()`);
+        const geo = () => evaluate(`(()=>{const side=document.getElementById('homeSidebar'),s=getComputedStyle(side),r=side.getBoundingClientRect(),f=document.querySelector('.v2-side-float');
+            return {peek:document.body.classList.contains('v2-side-peek'),collapsed:document.body.classList.contains('v2-side-collapsed'),sideVisible:s.visibility==='visible'&&s.display!=='none',sideLeft:Math.round(r.left),sideWidth:Math.round(r.width),
+                mainLeft:Math.round(document.querySelector('.home-main').getBoundingClientRect().left),mainWidth:Math.round(document.querySelector('.home-main').getBoundingClientRect().width),float:getComputedStyle(f).display!=='none',floatButtons:f.querySelectorAll('button').length,
+                newChatOpacity:+getComputedStyle(f.querySelector('[data-v2-float="newChat"]')).opacity}})()`);
+        // The expanded sidebar's own toggle sits first in its top row.
+        const expandedToggle = await rect('#v2SideToggle');
+        // Click collapse with the real mouse and keep the pointer there: the floating toggle appears
+        // under it, but the sidebar must disappear right away (no accidental peek).
+        await win.webContents.debugger.attach('1.3');
+        const mouse = async (type, x, y) => win.webContents.debugger.sendCommand('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1, ...(type === 'mouseMoved' ? { button: 'none' } : {}) });
+        const cx = expandedToggle.left + 14, cy = expandedToggle.top + 14;
+        await mouse('mouseMoved', cx, cy);await wait(80);
+        await mouse('mousePressed', cx, cy);await mouse('mouseReleased', cx, cy);
+        await wait(80);await mouse('mouseMoved', cx + 1, cy);await wait(500);
+        let g = await geo();
+        assert.ok(g.collapsed && !g.peek && !g.sideVisible, 'clicking collapse hides the sidebar immediately '+JSON.stringify(g));
+        // Moving away and back onto the button peeks as usual.
+        await mouse('mouseMoved', 600, 400);await wait(450);
+        await mouse('mouseMoved', cx, cy);await wait(420);
+        assert.equal((await geo()).peek, true, 'hovering again slides it in');
+        await mouse('mouseMoved', 900, 500);await wait(700);
+        assert.equal((await geo()).peek, false, 'and out again');
+        await win.webContents.debugger.detach();
+        g = await geo();
+        assert.ok(g.collapsed && !g.sideVisible && g.mainLeft === 0 && g.mainWidth >= 1270 && g.float && g.floatButtons === 2, 'collapsed: sidebar fully hidden, content full width, two floating buttons '+JSON.stringify(g));
+        const floatToggle = await rect('.v2-side-float [data-v2-float="toggle"]');
+        const floatNewRect = await rect('.v2-side-float [data-v2-float="newChat"]');
+        assert.equal(floatToggle.width, 32, 'comfortable 32px targets');
+        assert.ok(floatNewRect.left - floatToggle.right >= 8, 'buttons spaced apart to avoid mis-clicks '+JSON.stringify({floatToggle,floatNewRect}));
+        assert.deepEqual([floatToggle.left, floatToggle.top], [expandedToggle.left, expandedToggle.top], 'floating toggle sits exactly where the sidebar toggle was');
+        if (macDesktop) assert.ok(floatToggle.left >= 76, 'clear of the traffic lights');
+        if (winDesktop) assert.equal(floatToggle.left, 10);
+        await shot('collapsed');
+        // Hover: the sidebar slides in as an overlay; content does not move.
+        await evaluate(`document.querySelector('.v2-side-float [data-v2-float="toggle"]').dispatchEvent(new MouseEvent('mouseenter'))`);
+        await wait(420);
+        g = await geo();
+        assert.ok(g.peek && g.sideVisible && g.sideLeft === 0 && g.sideWidth > 200 && g.mainLeft === 0 && g.mainWidth >= 1270 && g.newChatOpacity === 0, 'peek overlay '+JSON.stringify(g));
+        const peekToggle = await rect('#v2SideToggle');
+        assert.deepEqual([peekToggle.left, peekToggle.top], [floatToggle.left, floatToggle.top], 'peeked sidebar toggle lines up under the floating one');
+        assert.equal(await evaluate(`document.querySelector('.v2-float-tip').classList.contains('is-open')`), true, 'tooltip shows on hover');
+        assert.match(await evaluate(`document.querySelector('.v2-float-tip').textContent`), /展开侧栏(⌘B|Ctrl\+B)/);
+        await shot('peek');
+        // Leaving the button (not onto the sidebar) slides it back.
+        await evaluate(`document.querySelector('.v2-side-float [data-v2-float="toggle"]').dispatchEvent(new MouseEvent('mouseleave'))`);
+        await wait(700);
+        g = await geo();
+        assert.ok(!g.peek && !g.sideVisible, 'peek ends after the pointer leaves '+JSON.stringify(g));
+        // A menu opened from the peeked sidebar keeps it out until the menu closes.
+        await evaluate(`document.querySelector('.v2-side-float [data-v2-float="toggle"]').dispatchEvent(new MouseEvent('mouseenter'))`);await wait(400);
+        await evaluate(`document.getElementById('v2UserBtn').click()`);await wait(60);
+        await evaluate(`document.getElementById('homeSidebar').dispatchEvent(new MouseEvent('mouseleave'))`);await wait(700);
+        assert.equal((await geo()).peek, true, 'kept while a menu from the sidebar is open');
+        await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}))`);await wait(700);
+        assert.equal((await geo()).peek, false, 'Escape closes the menu and the peek');
+        await evaluate(`document.body.classList.add('dc-chatting');void 0`);await wait(80);
+        const head = await evaluate(`(()=>{const h=document.querySelector('.dc-chat-head');const first=[...h.children].find(c=>c.getClientRects().length);const f=document.querySelector('.v2-side-float').getBoundingClientRect();return {headLeft:first?first.getBoundingClientRect().left:null,floatRight:f.right}})()`);
+        assert.ok(head.headLeft >= head.floatRight + 8, 'chat title starts after the buttons '+JSON.stringify(head));
+        await shot('chat');
+        await evaluate(`document.body.classList.remove('dc-chatting');void 0`);
+        // New chat from any screen.
+        await evaluate(`document.querySelector('.v2-nav-item[data-v2-action="skillHub"]').click()`);await wait(400);
+        await shot('hub');
+        // Headers clear the floating buttons: the hub starts below them, the chat title to their right.
+        const clear = await evaluate(`(()=>{const f=document.querySelector('.v2-side-float').getBoundingClientRect();const tabs=document.querySelector('.v2-hub-top').getBoundingClientRect();return {floatBottom:f.bottom,floatRight:f.right,hubTop:tabs.top}})()`);
+        assert.ok(clear.hubTop >= clear.floatBottom + 8, 'hub content below the buttons '+JSON.stringify(clear));
+        await evaluate(`document.querySelector('.v2-side-float [data-v2-float="newChat"]').click()`);await wait(150);
+        assert.equal(await evaluate(`document.querySelector('.v2-nav-item[data-v2-action="newChat"]').classList.contains('is-active')`), true, 'new chat from the floating button');
+        // Clicking the floating toggle restores the docked sidebar.
+        await evaluate(`document.querySelector('.v2-side-float [data-v2-float="toggle"]').click()`);await wait(350);
+        g = await geo();
+        assert.ok(!g.collapsed && g.sideVisible && g.mainLeft >= 200 && !g.float, 'restored '+JSON.stringify(g));
+        // ⌘B / Ctrl+B toggles.
+        const key = `new KeyboardEvent('keydown',{key:'b',metaKey:true,bubbles:true})`;
+        await evaluate(`document.dispatchEvent(${key})`);await wait(80);
+        assert.equal((await geo()).collapsed, true, 'shortcut collapses');
+        await evaluate(`document.dispatchEvent(${key})`);await wait(80);
+        assert.equal((await geo()).collapsed, false, 'shortcut restores');
+        if (process.env.DESKTOP_DRAG_AUDIT) {
+            // Global settings clears the window controls (Mac traffic lights / Windows caption buttons).
+            await evaluate(`window.openNavSettingsModal?.();void 0`);
+            await until(`getComputedStyle(document.getElementById('navSettingsModal')||document.body).display==='flex'`);
+            const box = await evaluate(`(()=>{const r=document.querySelector('.nav-settings-window').getBoundingClientRect();return {top:r.top,bottom:r.bottom,viewport:innerHeight}})()`);
+            assert.ok(box.top >= 40 && box.bottom <= box.viewport - 20, 'settings window below the window controls '+JSON.stringify(box));
+            await evaluate(`document.getElementById('navSettingsModal').style.display='none';void 0`);
+        }
+        // Narrow windows: collapsed sidebar is hidden, buttons remain, no hover peek.
+        await evaluate(`document.dispatchEvent(${key})`);
+        win.setContentSize(700, 820);await wait(150);
+        await evaluate(`document.querySelector('.v2-side-float [data-v2-float="toggle"]').dispatchEvent(new MouseEvent('mouseenter'))`);await wait(200);
+        g = await geo();
+        assert.ok(g.float && !g.peek && !g.sideVisible, 'narrow: no peek '+JSON.stringify(g));
+        win.setContentSize(1280, 820);await wait(100);
+        await evaluate(`document.dispatchEvent(${key})`);
+        assert.deepEqual(await evaluate('fixtureErrors'), []);
+        console.log('PASS: collapsing hides the sidebar behind two top-left buttons (toggle aligned with the docked toggle'+(macDesktop?', clear of Mac traffic lights':'')+'); hovering slides it in as an overlay with a tooltip and shortcut, leaving slides it out, open menus keep it, click or the shortcut restores it, new chat works anywhere, narrow windows do not peek.');
         win.destroy();server.close();app.exit(0);return;
     }
     if (process.env.HOME_SCAN_AUDIT) {

@@ -98,7 +98,7 @@ html[data-ui="v2"] :is(button, a, input, textarea):focus-visible { outline: 2px 
     html[data-ui="v2"] .home-main { min-width: 0; padding: 14px 12px; }
     html[data-ui="v2"] body.dc-chatting .home-main { padding: 0; }
     html[data-ui="v2"] body.dc-chatting .dc { margin: 0; border-radius: 0; width: 100%; }
-    html[data-ui="v2"] body.dc-chatting .dc-chat-head { padding-left: 52px; }
+    html[data-ui="v2"] body.dc-chatting .dc-chat-head { padding-left: calc(var(--v2-float-end, 70px) + 12px); }
     html[data-ui="v2"] .home-workspace-panel { position: fixed; inset: 0 0 0 auto; width: min(340px, 92vw); z-index: 1050; }
 }
 

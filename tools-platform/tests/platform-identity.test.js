@@ -235,7 +235,8 @@ test('three-tier platform names and login slogan persist, normalize and flip ord
     const defaultIdentity = repo.getDefaultPlatformIdentity();
     assert.equal(defaultIdentity.platformNameZh, 'Dragon Claw');
     assert.equal(defaultIdentity.platformNameEn, 'Dragon Claw');
-    assert.equal(defaultIdentity.platformSubtitle, '埃及 CS 工具与知识中心');
+    assert.equal(defaultIdentity.platformSubtitle, '工具与知识中心');
+    assert.equal(defaultIdentity.platformSubtitleEn, 'Tools & Knowledge Center');
     assert.equal(defaultIdentity.platformSlogan, '“认真做好每一个工具。”');
     assert.equal(defaultIdentity.platformSloganEn, '“Build every tool with care. Make everyday work easier.”');
     const legacyDefaults = repo.normalizeSettings({

@@ -11,6 +11,7 @@
     let config={mode:'top',orientation:'horizontal',expanded:false,autoHide:true,collapsed:false};
     let inside=false,engaged=false,dragging=null,dragFrame=0,hideTimer=0,collapseTimer=0,hoverTimer=0;
     if(peek)body.className='peek';
+    function applyTheme(theme) { document.documentElement.dataset.theme=['light','dark'].includes(theme)?theme:'auto'; }
     function setText(node,value) { if(node.textContent!==value)node.textContent=value; }
     function english() { return window.PetI18n.getLanguage()==='en-US'; }
     function text() {
@@ -127,6 +128,7 @@
         body.classList.toggle('expanded',config.expanded===true);body.classList.toggle('compact',!config.expanded);
         body.classList.toggle('vertical',config.orientation==='vertical');body.classList.toggle('horizontal',config.orientation!=='vertical');
         body.dataset.mode=config.mode;
+        applyTheme(config.theme);
         body.classList.toggle('collapsed',config.collapsed===true);
         if(wasCollapsed&&!config.collapsed) {
             body.classList.add('tucking');
@@ -138,9 +140,10 @@
     ipc.on('pet-quota-peek-config',(_event,next)=>{
         if(!peek)return;
         selection=providers.some(([id])=>id===next?.provider)?next.provider:'codex';
-        group=next?.group==='third-party'?'third-party':'gemini';body.dataset.side=next.side;
+        group=next?.group==='third-party'?'third-party':'gemini';body.dataset.side=next.side;applyTheme(next.theme);
         body.style.setProperty('--pointer',next.pointer+'px');render();
     });
+    ipc.on('pet-quota-peek-theme',(_event,theme)=>{if(peek)applyTheme(theme);});
     ipc.on('pet-quota-peek-visible',(_event,visible)=>{
         if(!peek)return;
         if(visible)requestAnimationFrame(()=>body.classList.add('peek-visible'));else body.classList.remove('peek-visible');
@@ -151,8 +154,14 @@
         document.getElementById('quotaPeek').addEventListener('pointerleave',()=>ipc.send('pet-quota-peek-hold',false));
         render();ipc.send('pet-quota-peek-ready');return;
     }
-    body.addEventListener('pointerenter',reveal);
-    body.addEventListener('pointerleave',()=>{inside=false;clearTimeout(hoverTimer);ipc.send('pet-quota-panel-peek',null);scheduleHide();});
+    // Only the notch is interactive: the halo margin around it lets clicks fall through
+    // (the main process ignores mouse events there and forwards moves so we can tell).
+    let hit=false;
+    function setHit(next) { if(next!==hit){hit=next;ipc.send('pet-quota-panel-hit',next);} }
+    document.addEventListener('mousemove',event=>{if(dragging===null)setHit(Boolean(event.target.closest?.('.quota-panel,#edgeSensor')));});
+    document.addEventListener('mouseleave',()=>{if(dragging===null)setHit(false);});
+    surface.addEventListener('pointerenter',reveal);
+    surface.addEventListener('pointerleave',()=>{if(dragging!==null)return;inside=false;clearTimeout(hoverTimer);ipc.send('pet-quota-panel-peek',null);scheduleHide();});
     document.getElementById('edgeSensor').addEventListener('pointerenter',reveal);
     document.getElementById('edgeSensor').addEventListener('click',reveal);
     surface.addEventListener('pointerdown',event=>{

@@ -273,428 +273,152 @@ window.ToolsAppVersion = {
     }
 };
 
-function initToolsWelcomeExperience() {
-    const params = new URLSearchParams(window.location.search);
-    const mode = params.get('welcome');
-    if (!['first', 'updated'].includes(mode)) return;
-
-    const version = params.get('version') || '';
-    const fromVersion = params.get('from') || '';
-    const isUpdated = mode === 'updated';
-    const title = isUpdated ? 'Dragon Claw 已焕新' : '欢迎来到 Dragon Claw';
-    const subtitle = isUpdated && fromVersion
-        ? `已从 v${fromVersion.replace(/^v/i, '')} 升级到 v${version.replace(/^v/i, '')}`
-        : '桌面窗口与系统浏览器已同步就绪';
-
-    const style = document.createElement('style');
-    style.textContent = `
-        .tools-welcome-overlay {
-            position: fixed;
-            inset: 0;
-            z-index: 2147483000;
-            display: grid;
-            place-items: center;
-            overflow: hidden;
-            background:
-                radial-gradient(circle at 18% 22%, rgba(100,255,218,0.18), transparent 28%),
-                radial-gradient(circle at 82% 28%, rgba(74,144,226,0.22), transparent 30%),
-                radial-gradient(circle at 50% 86%, rgba(168,85,247,0.18), transparent 34%),
-                linear-gradient(135deg, #08111f 0%, #0f172a 46%, #111827 100%);
-            color: #e2e8f0;
-            font-family: 'Segoe UI', Tahoma, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-            opacity: 1;
-            transition: opacity 0.65s ease, visibility 0.65s ease;
-        }
-        .tools-welcome-overlay.hide {
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
-        .tools-welcome-grid {
-            position: absolute;
-            inset: -40%;
-            background-image:
-                linear-gradient(rgba(148,163,184,0.09) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(148,163,184,0.09) 1px, transparent 1px);
-            background-size: 46px 46px;
-            transform: perspective(800px) rotateX(62deg) translateY(12%);
-            animation: toolsWelcomeGrid 5.6s linear infinite;
-            mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 72%, transparent);
-        }
-        .tools-welcome-aurora {
-            position: absolute;
-            width: 78vmin;
-            height: 78vmin;
-            border-radius: 50%;
-            background: conic-gradient(from 180deg, rgba(100,255,218,0), rgba(100,255,218,0.28), rgba(59,130,246,0.26), rgba(168,85,247,0.24), rgba(100,255,218,0));
-            filter: blur(28px);
-            opacity: 0.72;
-            animation: toolsWelcomeSpin 8s linear infinite;
-        }
-        .tools-welcome-card {
-            position: relative;
-            width: min(840px, calc(100vw - 36px));
-            max-height: calc(100vh - 48px);
-            overflow-y: auto;
-            overflow-x: hidden;
-            display: grid;
-            place-items: center;
-            text-align: center;
-            padding: 36px 30px 28px;
-            border: 1px solid rgba(255,255,255,0.18);
-            border-radius: 24px;
-            background: linear-gradient(145deg, rgba(15,23,42,0.86), rgba(15,23,42,0.56));
-            box-shadow: 0 38px 110px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.16);
-            backdrop-filter: blur(24px);
-            animation: toolsWelcomeRise 0.82s cubic-bezier(.2,.8,.2,1) both;
-        }
-        .tools-welcome-card::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,0.2) 45%, transparent 58%);
-            transform: translateX(-120%);
-            animation: toolsWelcomeSweep 2.4s ease 0.35s both;
-        }
-        .tools-welcome-mark {
-            width: 82px;
-            height: 82px;
-            margin: 0 auto 18px;
-            display: grid;
-            place-items: center;
-            border-radius: 26px;
-            background: linear-gradient(135deg, rgba(100,255,218,0.22), rgba(74,144,226,0.22));
-            border: 1px solid rgba(125,211,252,0.32);
-            box-shadow: 0 0 50px rgba(100,255,218,0.28);
-            font-size: 40px;
-            animation: toolsWelcomePulse 1.8s ease-in-out infinite;
-        }
-        .tools-welcome-title {
-            margin: 0;
-            font-size: clamp(30px, 5.5vw, 56px);
-            line-height: 1.1;
-            font-weight: 950;
-            letter-spacing: 0;
-            background: linear-gradient(90deg, #e0f2fe, #64ffda 34%, #93c5fd 68%, #c4b5fd);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .tools-welcome-subtitle {
-            margin: 14px auto 0;
-            max-width: 560px;
-            color: #cbd5e1;
-            font-size: clamp(14px, 2vw, 18px);
-            line-height: 1.6;
-        }
-        .tools-welcome-meta-row {
-            margin-top: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .tools-welcome-version {
-            display: inline-flex;
-            align-items: center;
-            min-height: 28px;
-            padding: 0 12px;
-            border-radius: 999px;
-            background: rgba(100,255,218,0.12);
-            border: 1px solid rgba(100,255,218,0.28);
-            color: #99f6e4;
-            font-size: 12px;
-            font-weight: 900;
-        }
-        .tools-welcome-tag {
-            display: inline-flex;
-            align-items: center;
-            min-height: 28px;
-            padding: 0 11px;
-            border-radius: 999px;
-            background: rgba(148, 163, 184, 0.12);
-            border: 1px solid rgba(148, 163, 184, 0.22);
-            color: #cbd5e1;
-            font-size: 11px;
-            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-        }
-        .tools-welcome-points {
-            margin-top: 24px;
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 10px;
-        }
-        .tools-welcome-point {
-            min-height: 78px;
-            display: grid;
-            align-content: center;
-            gap: 5px;
-            padding: 12px;
-            border-radius: 14px;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
-            text-align: left;
-        }
-        .tools-welcome-point b {
-            color: #f8fafc;
-            font-size: 13px;
-        }
-        .tools-welcome-point span {
-            color: #94a3b8;
-            font-size: 11px;
-            line-height: 1.45;
-        }
-        .tools-welcome-deps-panel {
-            margin-top: 18px;
-            text-align: left;
-            padding: 14px 16px;
-            border-radius: 16px;
-            background: rgba(15, 23, 42, 0.65);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .tools-welcome-deps-head {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 10px;
-        }
-        .tools-welcome-deps-title {
-            color: #94a3b8;
-            font-size: 11px;
-            font-weight: 800;
-            letter-spacing: .04em;
-        }
-        .tools-welcome-deps-badge {
-            color: #38bdf8;
-            font-size: 10px;
-            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-            background: rgba(56, 189, 248, 0.12);
-            padding: 2px 7px;
-            border-radius: 999px;
-            border: 1px solid rgba(56, 189, 248, 0.22);
-        }
-        .tools-welcome-deps-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-            gap: 8px;
-        }
-        .tools-welcome-dep-item {
-            padding: 7px 10px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.07);
-            transition: all .18s ease;
-        }
-        .tools-welcome-dep-item:hover {
-            border-color: rgba(56, 189, 248, 0.35);
-            background: rgba(56, 189, 248, 0.08);
-        }
-        .tools-welcome-dep-name {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 6px;
-            color: #f1f5f9;
-            font-size: 11px;
-            font-weight: 700;
-            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-        }
-        .tools-welcome-dep-ver {
-            color: #38bdf8;
-            font-size: 10px;
-        }
-        .tools-welcome-dep-role {
-            margin-top: 3px;
-            color: #94a3b8;
-            font-size: 10px;
-            line-height: 1.35;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .tools-welcome-enter-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            height: 38px;
-            padding: 0 24px;
-            border-radius: 999px;
-            background: linear-gradient(135deg, #10b981, #06b6d4);
-            color: #fff;
-            border: none;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 800;
-            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
-            transition: transform .15s ease, box-shadow .15s ease;
-        }
-        .tools-welcome-enter-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
-        }
-        .tools-welcome-skip {
-            position: absolute;
-            top: 18px;
-            right: 18px;
-            height: 34px;
-            padding: 0 13px;
-            border: 1px solid rgba(255,255,255,0.16);
-            border-radius: 999px;
-            background: rgba(15,23,42,0.38);
-            color: #cbd5e1;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 850;
-        }
-        .tools-welcome-skip:hover {
-            color: #fff;
-            border-color: rgba(100,255,218,0.38);
-            background: rgba(100,255,218,0.12);
-        }
-        @keyframes toolsWelcomeGrid {
-            from { transform: perspective(800px) rotateX(62deg) translateY(12%); }
-            to { transform: perspective(800px) rotateX(62deg) translateY(calc(12% + 46px)); }
-        }
-        @keyframes toolsWelcomeSpin {
-            to { transform: rotate(360deg); }
-        }
-        @keyframes toolsWelcomeRise {
-            from { opacity: 0; transform: translateY(28px) scale(0.96); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes toolsWelcomeSweep {
-            to { transform: translateX(120%); }
-        }
-        @keyframes toolsWelcomePulse {
-            0%, 100% { transform: translateY(0) scale(1); }
-            50% { transform: translateY(-4px) scale(1.04); }
-        }
-        @media (max-width: 680px) {
-            .tools-welcome-card { min-height: 0; padding: 28px 16px; }
-            .tools-welcome-points { grid-template-columns: 1fr; }
-            .tools-welcome-mark { width: 68px; height: 68px; border-radius: 20px; font-size: 32px; }
-            .tools-welcome-deps-grid { grid-template-columns: 1fr; }
-        }
-    `;
-    document.head.appendChild(style);
-
-    const overlay = document.createElement('div');
-    overlay.className = 'tools-welcome-overlay';
-    overlay.innerHTML = `
-        <div class="tools-welcome-grid"></div>
-        <div class="tools-welcome-aurora"></div>
-        <button type="button" class="tools-welcome-skip">跳过</button>
-        <section class="tools-welcome-card" role="dialog" aria-label="${title}">
-            <div style="width: 100%;">
-                <div class="tools-welcome-mark"><img src="/assets/logo.png" alt="Dragon Claw" style="width:54px;height:54px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(59,130,246,0.6));"></div>
-                <h1 class="tools-welcome-title">${title}</h1>
-                <p class="tools-welcome-subtitle">${subtitle}</p>
-                <div class="tools-welcome-meta-row">
-                    ${version ? `<div class="tools-welcome-version">v${version.replace(/^v/i, '')}</div>` : ''}
-                    <span class="tools-welcome-tag" id="toolsWelcomeBuiltAt" style="display:none"></span>
-                    <span class="tools-welcome-tag" id="toolsWelcomePlatform" style="display:none"></span>
-                </div>
-                <div class="tools-welcome-points">
-                    <div class="tools-welcome-point"><b>双入口已就绪</b><span>内置窗口与系统浏览器可同时进入工具页面</span></div>
-                    <div class="tools-welcome-point"><b>本地数据留存</b><span>配置、数据库和备份继续保存在用户目录</span></div>
-                    <div class="tools-welcome-point"><b>自动更新在线</b><span>后续版本可在全局设置中检查并重启安装</span></div>
-                </div>
-                <div class="tools-welcome-deps-panel" id="toolsWelcomeDepsPanel" style="display:none">
-                    <div class="tools-welcome-deps-head">
-                        <span class="tools-welcome-deps-title">📦 内置核心三方依赖与运行组件</span>
-                        <span class="tools-welcome-deps-badge" id="toolsWelcomeDepsCount"></span>
-                    </div>
-                    <div class="tools-welcome-deps-grid" id="toolsWelcomeDepsGrid"></div>
-                </div>
-                <div style="margin-top: 22px; display: flex; justify-content: center; gap: 12px;">
-                    <button type="button" class="tools-welcome-enter-btn">进入工作空间</button>
-                </div>
-            </div>
-        </section>
-    `;
-    document.body.appendChild(overlay);
-
-    fetch('/api/app-version')
-        .then(res => res.json())
-        .then(data => {
-            const b = data && data.build;
-            if (!b) return;
-            const builtAtEl = overlay.querySelector('#toolsWelcomeBuiltAt');
-            if (builtAtEl && b.builtAt) {
-                try {
-                    const d = new Date(b.builtAt);
-                    const pad = n => String(n).padStart(2, '0');
-                    builtAtEl.textContent = `构建: ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-                    builtAtEl.style.display = 'inline-flex';
-                } catch (_) {}
-            }
-            const platformEl = overlay.querySelector('#toolsWelcomePlatform');
-            if (platformEl && (b.platformLabel || b.nodeVersion)) {
-                platformEl.textContent = `${b.platformLabel || ''}${b.nodeVersion ? ` · Node ${b.nodeVersion}` : ''}`;
-                platformEl.style.display = 'inline-flex';
-            }
-            const depsPanel = overlay.querySelector('#toolsWelcomeDepsPanel');
-            const depsGrid = overlay.querySelector('#toolsWelcomeDepsGrid');
-            const depsCount = overlay.querySelector('#toolsWelcomeDepsCount');
-            if (Array.isArray(b.dependencies) && b.dependencies.length && depsPanel && depsGrid) {
-                depsCount.textContent = `${b.dependencies.length} 项`;
-                depsGrid.innerHTML = b.dependencies.map(dep => `
-                    <div class="tools-welcome-dep-item" title="${dep.role || ''}">
-                        <div class="tools-welcome-dep-name">
-                            <span>${dep.name}</span>
-                            <span class="tools-welcome-dep-ver">${dep.version}</span>
-                        </div>
-                        <div class="tools-welcome-dep-role">${dep.role || ''}</div>
-                    </div>
-                `).join('');
-                depsPanel.style.display = 'block';
-            }
-        })
-        .catch(() => {});
-
-    const cleanUrl = () => {
-        const next = new URL(window.location.href);
-        ['welcome', 'version', 'from'].forEach(key => next.searchParams.delete(key));
-        window.history.replaceState({}, '', `${next.pathname}${next.search}${next.hash}`);
-    };
-    const close = () => {
-        overlay.classList.add('hide');
-        cleanUrl();
-        setTimeout(() => {
-            overlay.remove();
-            style.remove();
-        }, 700);
-    };
-
-    let closeTimer = null;
-    const startCloseTimer = (delayMs) => {
-        if (closeTimer) clearTimeout(closeTimer);
-        closeTimer = setTimeout(close, delayMs);
-    };
-    startCloseTimer(isUpdated ? 9500 : 8000);
-
-    const card = overlay.querySelector('.tools-welcome-card');
-    if (card) {
-        card.addEventListener('mouseenter', () => {
-            if (closeTimer) {
-                clearTimeout(closeTimer);
-                closeTimer = null;
-            }
-        });
-        card.addEventListener('mouseleave', () => {
-            startCloseTimer(4500);
-        });
+// Desktop notices share one compact, theme-aware dialog on every page.
+(() => {
+    const en = () => (localStorage.getItem('tools_lang') || document.documentElement.lang).startsWith('en');
+    const tr = (zh, english) => en() ? english : zh;
+    const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const version = value => value ? `v${String(value).replace(/^v/i, '')}` : '—';
+    let active, status = {}, manual = false, dismissed = '';
+    function styles() {
+        if (document.getElementById('tools-dialog-style')) return;
+        const style = document.createElement('style'); style.id = 'tools-dialog-style';
+        style.textContent = `
+.tools-dialog-overlay{position:fixed;inset:0;z-index:2147483000;display:grid;place-items:center;padding:20px;background:rgba(26,32,44,.22);backdrop-filter:blur(6px);-webkit-app-region:no-drag}
+.tools-dialog{--td-bg:#fff;--td-ink:#111827;--td-muted:#6b7280;--td-line:#e8eaee;--td-soft:#f5f6f8;box-sizing:border-box;position:relative;width:min(480px,100%);max-height:calc(100dvh - 40px);overflow:auto;padding:36px;color:var(--td-ink);background:var(--td-bg);border:1px solid var(--td-line);border-radius:24px;box-shadow:0 24px 64px -16px #10182840;font:14px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC',sans-serif;text-align:left}
+html[data-theme="dark"] .tools-dialog{--td-bg:#20242c;--td-ink:#f3f4f6;--td-muted:#a8b0bd;--td-line:#393f4a;--td-soft:#2c323c;color-scheme:dark}
+.tools-dialog *{box-sizing:border-box}.tools-dialog h2{font-size:25px;line-height:1.3;margin:18px 0 8px;color:var(--td-ink)}
+.tools-dialog-close{position:absolute;right:18px;top:18px;border:0;border-radius:50%;width:30px;height:30px;background:var(--td-soft);color:var(--td-muted);cursor:pointer;font-size:20px}
+.tools-dialog-badge{display:flex;gap:12px;align-items:center;color:var(--td-muted);font-size:11px;letter-spacing:.12em}.tools-dialog-badge img{width:44px;height:44px;object-fit:contain;padding:6px;border:1px solid var(--td-line);border-radius:14px;background:var(--td-soft)}
+.tools-dialog-version{display:flex;gap:10px;align-items:center;flex-wrap:wrap;color:var(--td-muted);font-variant-numeric:tabular-nums}.tools-dialog-version b{color:var(--td-ink)}
+.tools-dialog-section{margin-top:24px;padding-top:20px;border-top:1px solid var(--td-line)}.tools-dialog-label{font-size:12px;color:var(--td-muted)}
+.tools-dialog-notes{padding-left:18px;margin:12px 0 26px;max-height:220px;overflow:auto;overflow-wrap:anywhere}.tools-dialog-notes li{padding:5px 0}.tools-dialog-notes li::marker{color:var(--td-muted)}
+.tools-dialog-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:20px}.tools-dialog button:focus-visible,.tools-dialog textarea:focus-visible{outline:2px solid #588cef;outline-offset:3px}.tools-dialog-btn{border:1px solid var(--td-line);background:var(--td-soft);color:var(--td-ink);padding:10px 20px;min-height:42px;border-radius:12px;cursor:pointer;font:inherit}.tools-dialog-btn.primary{background:var(--td-ink);color:var(--td-bg);border-color:transparent;flex:1}.tools-dialog-btn:disabled{opacity:.45;cursor:default}
+.tools-dialog-status{color:var(--td-muted);font-size:13px;margin-top:14px;overflow-wrap:anywhere}.tools-dialog-progress{height:6px;margin-top:16px;border-radius:999px;background:var(--td-soft);overflow:hidden}.tools-dialog-progress[hidden]{display:none}.tools-dialog-progress i{display:block;height:100%;width:0;border-radius:inherit;background:var(--td-ink);transition:width .3s ease}.tools-feedback{width:min(560px,100%);padding:24px}.tools-feedback h2{font-size:17px;margin:0 0 18px}.tools-feedback-editor{border:1px solid var(--td-line);border-radius:13px;padding:10px;transition:border-color .15s ease,box-shadow .15s ease}.tools-feedback-editor:focus-within{border-color:var(--td-muted);box-shadow:0 0 0 3px var(--td-soft)}.tools-feedback textarea{display:block;width:100%;height:190px;resize:vertical;max-height:35vh;background:transparent;color:var(--td-ink);border:0;border-radius:8px;padding:4px;outline:none;font:inherit}.tools-feedback textarea:is(:focus,:focus-visible){outline:none!important;border:0!important;box-shadow:none!important}.tools-feedback-toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;color:var(--td-muted);font-size:12px}.tools-feedback-toolbar button{min-height:32px;padding:4px 10px;border-radius:8px}.tools-feedback-previews{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}.tools-feedback-image{position:relative}.tools-feedback-image img{display:block;width:58px;height:58px;object-fit:cover;border-radius:8px}.tools-feedback-image button{position:absolute;right:-4px;top:-6px;border:0;border-radius:50%;cursor:pointer}.tools-feedback-privacy{display:flex;gap:8px;color:var(--td-muted);font-size:12px;margin-top:18px}.tools-feedback .primary{flex:0 1 auto}
+@media(max-width:540px){.tools-dialog-overlay{padding:12px}.tools-dialog{padding:28px 22px;border-radius:20px}.tools-feedback{padding:22px}.tools-dialog h2{font-size:22px}}
+`;
+        document.head.append(style);
     }
-
-    overlay.querySelector('.tools-welcome-skip')?.addEventListener('click', close);
-    overlay.querySelector('.tools-welcome-enter-btn')?.addEventListener('click', close);
-    window.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') close();
-    }, { once: true });
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initToolsWelcomeExperience, { once: true });
-} else {
-    initToolsWelcomeExperience();
-}
+    function open(content, feedback = false) {
+        active?.close(); styles();
+        const previous = document.activeElement;
+        const overlay = document.createElement('div'); overlay.className = 'tools-dialog-overlay';
+        overlay.innerHTML = `<section class="tools-dialog${feedback ? ' tools-feedback' : ''}" role="dialog" aria-modal="true" aria-labelledby="tools-dialog-title" tabindex="-1"><button class="tools-dialog-close" aria-label="${tr('关闭', 'Close')}">×</button>${content}</section>`;
+        const close = () => { document.removeEventListener('keydown', keydown); overlay.remove(); if (active?.overlay === overlay) active = null; previous?.isConnected && previous.focus(); };
+        const keydown = event => {
+            if (event.key === 'Escape') { event.preventDefault(); close(); }
+            if (event.key !== 'Tab') return;
+            const nodes = [...overlay.querySelectorAll('button:not(:disabled),textarea,input:not([hidden])')].filter(n => n.getClientRects().length);
+            const first = nodes[0], last = nodes.at(-1);
+            if (event.shiftKey && (document.activeElement === first || document.activeElement === overlay.firstChild)) { event.preventDefault(); last?.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+        };
+        overlay.querySelector('.tools-dialog-close').onclick = close;
+        document.addEventListener('keydown', keydown); document.body.append(overlay);
+        overlay.querySelector('section').focus(); active = { overlay, close }; return active;
+    }
+    // Release metadata is untrusted; render only plain text, never publisher HTML.
+    function notes(raw) {
+        const values = Array.isArray(raw) ? raw.map(n => typeof n === 'string' ? n : n.note || '') : [raw || ''];
+        const text = values.join('\n').replace(/<\/(?:p|li|div)>|<br\s*\/?\s*>/gi, '\n').replace(/<[^>]*>/g, '');
+        return text.split(/\r?\n/).map(s => s.replace(/^\s*(?:[-*•]|\d+\.)\s*/, '').trim()).filter(Boolean).slice(0, 30);
+    }
+    function updateDialog(next, completed = false, from = '') {
+        if (active?.kind === 'feedback') return;
+        const items = notes(next.releaseNotes);
+        const dialog = open(`<div class="tools-dialog-badge"><img src="/assets/logo.png" alt=""><span>VERSION UPDATE</span></div><h2 id="tools-dialog-title">${tr(completed ? '更新已完成' : '发现新版本', completed ? 'Update complete' : 'New version available')}</h2><div class="tools-dialog-version"><span>${escape(version(from || next.version))}</span><span aria-label="${tr('升级至', 'to')}">→</span><b>${escape(version(next.latestVersion))}</b></div><div class="tools-dialog-section"><div class="tools-dialog-label">${tr('本次更新', 'What’s new')}</div><ul class="tools-dialog-notes">${(items.length ? items : [tr('此版本未提供更新说明。', 'No release notes provided for this version.')]).map(n => `<li>${escape(n)}</li>`).join('')}</ul></div><div class="tools-dialog-actions">${completed ? '' : `<button class="tools-dialog-btn" data-later>${tr('稍后提醒', 'Later')}</button>`}<button class="tools-dialog-btn primary" data-update>${tr(completed ? '开始使用' : '立即更新', completed ? 'Continue' : 'Update now')}</button></div><div class="tools-dialog-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" hidden><i></i></div><div class="tools-dialog-status" role="status"></div>`);
+        dialog.kind = completed ? 'completed' : 'update';
+        dialog.overlay.querySelector('[data-later]')?.addEventListener('click', () => { dismissed = next.latestVersion; dialog.close(); });
+        const button = dialog.overlay.querySelector('[data-update]');
+        button.onclick = async () => {
+            if (completed) return dialog.close();
+            button.disabled = true;
+            try { handleStatus(await (status.state === 'downloaded' ? window.ToolsUpdater.install() : status.state === 'available' ? window.ToolsUpdater.download() : window.ToolsUpdater.check()), true); }
+            catch { dialog.overlay.querySelector('[role="status"]').textContent = tr('更新失败，请稍后重试。', 'Update failed. Please try again.'); button.disabled = false; }
+        };
+        const closeButton = dialog.overlay.querySelector('.tools-dialog-close');
+        closeButton.addEventListener('click', () => { dismissed = next.latestVersion; });
+        return dialog;
+    }
+    function statusMessage(next) {
+        if (!en()) return next.message || '';
+        return ({ checking: 'Checking for updates…', 'not-available': 'You are up to date.',
+            downloading: `Downloading update ${Math.max(0, Math.min(100, Number(next.progress) || 0))}%`,
+            downloaded: 'Update downloaded. Restart to install.', installing: 'Restarting to install the update…',
+            error: 'Unable to update. Please try again later.', 'dev-unavailable': 'Automatic updates are unavailable in development mode.',
+            'portable-manual': 'Download the new portable version from GitHub Releases.' })[next.state] || '';
+    }
+    function handleStatus(next, force = false) {
+        if (!next) return; status = next;
+        if (force && ['downloaded', 'downloading'].includes(next.state) && active?.kind !== 'update') updateDialog(next);
+        if (next.state === 'available' && (force || manual || (!next.suppressPrompt && dismissed !== next.latestVersion))) updateDialog(next);
+        else if (active?.kind === 'update') {
+            const message = active.overlay.querySelector('[role="status"]');
+            message.textContent = statusMessage(next);
+            // 下载进度条：下载中实时推进，下载完成 / 安装中保持满格
+            const bar = active.overlay.querySelector('.tools-dialog-progress');
+            if (bar) {
+                const percent = next.state === 'downloading' ? Math.max(0, Math.min(100, Number(next.progress) || 0)) : 100;
+                bar.hidden = !['downloading', 'downloaded', 'installing'].includes(next.state);
+                bar.setAttribute('aria-valuenow', String(percent));
+                bar.firstElementChild.style.width = `${percent}%`;
+            }
+            const button = active.overlay.querySelector('[data-update]');
+            button.disabled = ['checking', 'downloading', 'installing'].includes(next.state);
+            if (next.state === 'downloaded') button.textContent = tr('重启并安装', 'Restart and install');
+            if (next.state === 'error') button.textContent = tr('重试', 'Retry');
+        } else if (manual && !['checking', 'available'].includes(next.state)) {
+            open(`<h2 id="tools-dialog-title">${tr('检查更新', 'Check for updates')}</h2><p role="status">${escape(statusMessage(next))}</p>`);
+        }
+        if (next.state !== 'checking') manual = false;
+    }
+    async function checkUpdate() {
+        if (!window.ToolsUpdater) { open(`<h2 id="tools-dialog-title">${tr('检查更新', 'Check for updates')}</h2><p>${tr('请在桌面版中检查应用更新。', 'Open the desktop app to check for updates.')}</p>`); return; }
+        manual = true;
+        const dialog = open(`<h2 id="tools-dialog-title">${tr('检查更新', 'Check for updates')}</h2><p role="status">${tr('正在检查更新…', 'Checking for updates…')}</p>`);
+        try { handleStatus(await window.ToolsUpdater.check(), true); }
+        catch { manual = false; if (dialog.overlay.isConnected) dialog.overlay.querySelector('[role="status"]').textContent = tr('检查失败，请稍后重试。', 'Check failed. Please try again.'); }
+    }
+    function feedback() {
+        const dialog = open(`<h2 id="tools-dialog-title">${tr('意见反馈', 'Feedback')}</h2><div class="tools-feedback-editor"><textarea maxlength="10000" aria-label="${tr('描述你遇到的问题', 'Describe the problem')}" placeholder="${tr('描述你遇到的问题', 'Describe the problem')}"></textarea><div class="tools-feedback-previews"></div><div class="tools-feedback-toolbar"><button class="tools-dialog-btn" data-images>${tr('上传图片', 'Add images')} (<span data-count>0</span>/6)</button><span><span data-length>0</span>/10000</span></div><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden></div><label class="tools-feedback-privacy"><input type="checkbox" disabled><span>${tr('日志上传暂未开放。你填写的内容和图片暂不会上传。', 'Log upload is not available yet. Your text and images will not be uploaded.')}</span></label><div class="tools-dialog-status" role="status"></div><div class="tools-dialog-actions"><button class="tools-dialog-btn primary" data-submit disabled>${tr('提交反馈', 'Submit feedback')}</button></div>`, true);
+        dialog.kind = 'feedback';
+        const area = dialog.overlay.querySelector('textarea'), input = dialog.overlay.querySelector('[type=file]'), submit = dialog.overlay.querySelector('[data-submit]'), previews = dialog.overlay.querySelector('.tools-feedback-previews');
+        let images = [];
+        const render = () => {
+            previews.innerHTML = images.map((item, i) => `<div class="tools-feedback-image"><img src="${item.url}" alt="${escape(item.name)}"><button data-remove="${i}" aria-label="${tr('移除图片', 'Remove image')}">×</button></div>`).join('');
+            dialog.overlay.querySelector('[data-count]').textContent = images.length;
+        };
+        // DOM removal also covers Escape, switching dialogs and the close button.
+        const observer = new MutationObserver(() => { if (!dialog.overlay.isConnected) { images.forEach(i => URL.revokeObjectURL(i.url)); observer.disconnect(); } });
+        observer.observe(document.body, { childList: true });
+        area.oninput = () => { dialog.overlay.querySelector('[data-length]').textContent = area.value.length; submit.disabled = !area.value.trim(); };
+        dialog.overlay.querySelector('[data-images]').onclick = () => input.click();
+        input.onchange = () => {
+            const files = [...input.files];
+            const invalid = files.some(f => !/^image\/(png|jpeg|webp|gif)$/.test(f.type) || f.size > 10 * 1024 * 1024);
+            dialog.overlay.querySelector('[role="status"]').textContent = invalid || files.length + images.length > 6 ? tr('最多选择 6 张图片，每张不超过 10 MB（PNG、JPG、WebP、GIF）。', 'Choose up to 6 images, 10 MB each (PNG, JPG, WebP, GIF).') : '';
+            files.filter(f => /^image\/(png|jpeg|webp|gif)$/.test(f.type) && f.size <= 10 * 1024 * 1024).slice(0, 6 - images.length).forEach(f => images.push({ name: f.name, url: URL.createObjectURL(f) })); input.value = ''; render();
+        };
+        previews.onclick = event => { const button = event.target.closest('[data-remove]'); if (button) { URL.revokeObjectURL(images.splice(Number(button.dataset.remove), 1)[0].url); render(); } };
+        submit.onclick = () => { dialog.overlay.querySelector('[role="status"]').textContent = tr('服务器当前繁忙，请稍后重试。', 'The server is currently busy. Please try again later.'); };
+        area.focus();
+    }
+    window.ToolsDialogs = { checkUpdate, feedback };
+    async function init() {
+        const params = new URLSearchParams(location.search), mode = params.get('welcome');
+        if (mode === 'updated' || mode === 'first') {
+            const next = new URL(location.href); ['welcome', 'version', 'from'].forEach(k => next.searchParams.delete(k));
+            history.replaceState({}, '', next.pathname + next.search + next.hash);
+            if (mode === 'updated') {
+                let releaseNotes = [];
+                try { const res = await fetch('/assets/release-notes.json', { cache: 'no-store' }); if (res.ok) { const data = await res.json(); releaseNotes = en() ? data.en : data.zh; } } catch { /* no notes available */ }
+                updateDialog({ latestVersion: params.get('version'), releaseNotes }, true, params.get('from'));
+            }
+        }
+        if (window.ToolsUpdater) {
+            window.ToolsUpdater.onStatus(next => handleStatus(next));
+            try { handleStatus(await window.ToolsUpdater.getStatus()); } catch { /* startup check will broadcast later */ }
+        }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
+})();

@@ -371,14 +371,25 @@ function openQuotaTrends(selection) {
 function sendQuotaPanelConfig() {
     if (quotaPanelWin && !quotaPanelWin.isDestroyed() && quotaPanelReady) {
         const config=loadPetConfig();
-        quotaPanelWin.webContents.send('pet-quota-panel-config', {group:quotaPanelOptions.group,mode:quotaPanelPlacement?.mode || 'top',orientation:quotaPanelPlacement?.orientation || 'horizontal',expanded:config.quotaPanelExpanded === true,autoHide:config.quotaPanelAutoHide !== false,collapsed:quotaPanelCollapsed});
+        quotaPanelWin.webContents.send('pet-quota-panel-config', {group:quotaPanelOptions.group,mode:quotaPanelPlacement?.mode || 'top',orientation:quotaPanelPlacement?.orientation || 'horizontal',expanded:config.quotaPanelExpanded === true,autoHide:config.quotaPanelAutoHide !== false,collapsed:quotaPanelCollapsed,theme:quotaPanelTheme(config)});
     }
+}
+function quotaPanelTheme(config=loadPetConfig()) {
+    return ['light','dark'].includes(config.quotaPanelTheme)?config.quotaPanelTheme:'auto';
+}
+function setQuotaPanelTheme(theme) {
+    savePetConfig({quotaPanelTheme:['light','dark'].includes(theme)?theme:'auto'});
+    sendQuotaPanelConfig();
+    if (quotaPeekWin && !quotaPeekWin.isDestroyed()) quotaPeekWin.webContents.send('pet-quota-peek-theme',quotaPanelTheme());
 }
 function quotaDisplayArea(display) {
     // The notch hangs from the physical top edge on every platform, over the
     // macOS menu bar or a top Windows taskbar (enableLargerThanScreen lets the
-    // frameless window sit there).
-    return {...(display.bounds || display.workArea)};
+    // frameless window sit there). The compact notch is as tall as a top bar
+    // (the macOS menu bar or a top taskbar) when there is one.
+    const bounds=display.bounds || display.workArea;
+    const top=display.workArea && bounds && display.workArea.y>bounds.y ? display.workArea.y-bounds.y : undefined;
+    return {...bounds,barHeight:top};
 }
 function hideQuotaPeek(immediate=true) {
     clearTimeout(quotaPeekTimer);quotaPeekTimer=null;
@@ -416,7 +427,7 @@ function showQuotaPeek(provider) {
     const rail={...quotaPanelWin.getBounds(),...quotaPanelPlacement};
     const {side,pointer,...bounds}=peekBounds(quotaDisplayArea(screen.getDisplayMatching(rail)||screen.getPrimaryDisplay()),rail,index);
     quotaPeekWin.setBounds(bounds);
-    quotaPeekWin.webContents.send('pet-quota-peek-config',{provider,group:quotaPanelOptions.group,side,pointer});
+    quotaPeekWin.webContents.send('pet-quota-peek-config',{provider,group:quotaPanelOptions.group,side,pointer,theme:quotaPanelTheme()});
     if (lastQuotaData) quotaPeekWin.webContents.send('pet-quota-update',lastQuotaData);
     quotaPeekWin.showInactive();
     quotaPeekWin.webContents.send('pet-quota-peek-visible',true);
@@ -464,6 +475,9 @@ function showQuotaPanelMenu() {
         {label:t('精简额度栏','Compact quota bar'),type:'radio',checked:loadPetConfig().quotaPanelExpanded !== true,click:()=>setQuotaPanelExpanded(false)},
         {label:t('详细额度面板','Detailed quota panel'),type:'radio',checked:loadPetConfig().quotaPanelExpanded === true,click:()=>setQuotaPanelExpanded(true)},
         {type:'separator'},
+        {label:t('外观','Appearance'),submenu:[
+            ['auto',t('跟随系统','Match system')],['light',t('浅色','Light')],['dark',t('深色','Dark')]
+        ].map(([theme,label])=>({label,type:'radio',checked:quotaPanelTheme()===theme,click:()=>setQuotaPanelTheme(theme)}))},
         {label:t('居中到屏幕顶部','Center at top edge'),click:()=>dockQuotaPanel()},
         {type:'separator'},
         {label:t('立即刷新额度','Refresh quotas'),click:()=>refreshQuotas(true)},
@@ -496,7 +510,9 @@ function syncQuotaPanel() {
             enableLargerThanScreen:true,
             webPreferences:{nodeIntegration:true,contextIsolation:false}
         });
-        quotaPanelWin.setIgnoreMouseEvents(false);
+        // The halo margin is transparent: clicks there reach the menu bar / apps underneath.
+        // The renderer reports when the pointer is over the notch itself (pet-quota-panel-hit).
+        quotaPanelWin.setIgnoreMouseEvents(true,{forward:true});
         // Above the macOS menu bar and the Windows taskbar.
         quotaPanelWin.setAlwaysOnTop(true,'screen-saver');
         if (process.platform==='darwin' && quotaPanelWin.setVisibleOnAllWorkspaces) quotaPanelWin.setVisibleOnAllWorkspaces(true,{visibleOnFullScreen:true});
@@ -743,7 +759,7 @@ function registerIpc() {
     const isChatSender = event => chatWin && !chatWin.isDestroyed() && event.sender === chatWin.webContents;
     const isTrendsSender = event => quotaTrendsWin && !quotaTrendsWin.isDestroyed() && event.sender === quotaTrendsWin.webContents;
     ipcMain.on('pet-quota-panel-hit', (event, active) => {
-        if (isQuotaPanelSender(event)) quotaPanelWin.setIgnoreMouseEvents(false);
+        if (isQuotaPanelSender(event)) quotaPanelWin.setIgnoreMouseEvents(active!==true,{forward:true});
     });
     ipcMain.on('pet-quota-panel-collapse',(event,collapsed)=>{
         if (!isQuotaPanelSender(event) || typeof collapsed!=='boolean' || quotaPanelDrag) return;

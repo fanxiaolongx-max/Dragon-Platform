@@ -802,16 +802,57 @@ html[data-ui="v2"] body:is(.dc-chatting, .home-mode-tools, .v2-messages-open) #n
 @media (max-width: 1439px) { html[data-ui="v2"] #nrvStack { display: none; } }
 
 /* ── 侧栏顶部工具行 + 收起 ── */
+/* 收起按钮在最左（Mac 紧跟红绿灯），搜索与筛选靠右；收起后的浮动按钮与它在同一位置 */
 .v2-side-tools { display: flex; justify-content: flex-end; gap: 2px; padding: 0 2px 10px; }
-.v2-side-tools .v2-icon-btn { width: 28px; height: 28px; }
+.v2-side-tools #v2SideToggle { margin-right: auto; }
+.v2-side-tools .v2-icon-btn { width: 32px; height: 32px; }
+.v2-side-tools .v2-icon-btn .v2-ico { width: 19px; height: 19px; }
 .v2-side-tools .v2-icon-btn.is-on { color: var(--v2-accent); background: var(--v2-accent-soft); }
-.v2-side-expand { display: none; position: fixed; z-index: 900; top: 14px; left: 14px; background: var(--v2-bg); border: 1px solid var(--v2-line); box-shadow: var(--v2-shadow-hover); }
-html[data-ui="v2"] body.v2-side-collapsed .v2-side-expand { display: inline-flex; }
-html[data-ui="v2"] body.v2-side-collapsed .home-content.home-workspace { grid-template-columns: 0 minmax(0, 1fr); }
-html[data-ui="v2"] body.v2-side-collapsed.dc-workspace-open .home-content.home-workspace { grid-template-columns: 0 minmax(0, 1fr) var(--ws-panel-w); }
-html[data-ui="v2"] body.v2-side-collapsed .home-sidebar { visibility: hidden; border: 0; }
+/* 收起后侧栏是 fixed 浮层，不在网格里：去掉它的列，否则主区会被排进 0 宽的第一列 */
+html[data-ui="v2"] body.v2-side-collapsed .home-content.home-workspace { grid-template-columns: minmax(0, 1fr); }
+html[data-ui="v2"] body.v2-side-collapsed.dc-workspace-open .home-content.home-workspace { grid-template-columns: minmax(0, 1fr) var(--ws-panel-w); }
 html[data-ui="v2"] body.v2-side-collapsed .v2-messages { left: 0; }
-html:not([data-ui="v2"]) .v2-side-expand { display: none !important; }
+html:not([data-ui="v2"]) .v2-side-float { display: none !important; }
+
+/* 收起后左上角的浮动按钮：侧边栏（悬停临时滑出，点击恢复）+ 新建对话 */
+.v2-side-float { display: none; position: fixed; z-index: 1002; top: 16px; left: 12px; gap: 10px; align-items: center; }
+html[data-ui="v2"] body.v2-side-collapsed .v2-side-float { display: flex; animation: v2-float-in 220ms cubic-bezier(.22,1,.36,1) both; }
+@keyframes v2-float-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+.v2-side-float .v2-icon-btn { width: 32px; height: 32px; background: transparent; }
+.v2-side-float .v2-icon-btn .v2-ico { width: 19px; height: 19px; }
+.v2-side-float .v2-icon-btn:hover, .v2-side-float .v2-icon-btn.is-on { background: var(--v2-hover); color: var(--v2-ink); }
+.v2-side-float [data-v2-float="newChat"] { transition: opacity 160ms ease, transform 160ms ease; }
+html[data-ui="v2"] body.v2-side-peek .v2-side-float [data-v2-float="newChat"] { opacity: 0; transform: translateX(-4px); pointer-events: none; }
+/* 按钮下方的深色提示气泡：名称 + 快捷键 */
+.v2-float-tip {
+    position: fixed; z-index: 10001; pointer-events: none; opacity: 0; transform: translateY(-3px);
+    display: flex; align-items: center; gap: 8px; padding: 5px 9px; border-radius: 7px;
+    background: #2b2d31; color: #f5f5f6; font-size: 12px; line-height: 1.35; white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0,0,0,.2); transition: opacity 120ms ease, transform 120ms ease;
+}
+.v2-float-tip.is-open { opacity: 1; transform: none; }
+.v2-float-tip kbd { font: inherit; color: #a6a8ad; }
+
+/* 收起后让出左上角两个浮动按钮：标题栏从按钮右侧开始，技能中心整体下移 */
+:root { --v2-float-end: 86px; }
+html[data-ui="v2"] body.v2-side-collapsed :is(.dc-chat-head, .v2-tool-frame-bar) { padding-left: calc(var(--v2-float-end) + 12px); }
+html[data-ui="v2"] body.v2-side-collapsed.v2-hub-open .home-main { padding-top: 56px; }
+
+/* 宽屏：收起后侧栏不占位；悬停浮动按钮时从左侧滑出为浮层，移开收回 */
+@media (min-width: 861px) {
+    html[data-ui="v2"] body.v2-side-collapsed .home-content.home-workspace > .home-sidebar {
+        position: fixed; top: 0; left: 0; bottom: 0; width: var(--v2-side-width, 240px); height: 100vh; z-index: 1001;
+        visibility: hidden; transform: translateX(-104%); border-radius: 0 14px 14px 0; box-shadow: none;
+        transition: transform 280ms cubic-bezier(.32,.72,0,1), box-shadow 280ms ease, visibility 0s linear 280ms;
+    }
+    html[data-ui="v2"] body.v2-side-collapsed.v2-side-peek .home-content.home-workspace > .home-sidebar {
+        visibility: visible; transform: none; box-shadow: var(--v2-shadow-pop, 0 18px 50px rgba(15,23,42,.18));
+        transition: transform 300ms cubic-bezier(.32,.72,0,1), box-shadow 300ms ease, visibility 0s;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    html[data-ui="v2"] body.v2-side-collapsed .home-content.home-workspace > .home-sidebar { transition: none !important; }
+}
 
 /* ── 侧栏对话分组：搜索框和来源标签移走，改为可折叠分组头 ── */
 html[data-ui="v2"] body.home-mode-chat .home-panel-view[data-home-panel="chat"] { display: flex; flex-direction: column; }
@@ -896,8 +937,8 @@ html[data-ui="v2"] body.dc-chatting :is(.v2-scenes, .v2-suggest) { display: none
 /* 旧版侧栏收起状态（home-sidebar-collapsed，home-mode.js 记在本机）在新版界面不生效；新版只认 v2-side-collapsed */
 html[data-ui="v2"] body:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)):not(.v2-side-collapsed) .home-content.home-workspace { grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr); }
 html[data-ui="v2"] body:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)):not(.v2-side-collapsed).dc-workspace-open .home-content.home-workspace { grid-template-columns: var(--v2-side-width, 240px) minmax(0, 1fr) var(--ws-panel-w); }
-html[data-ui="v2"] body.v2-side-collapsed:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)) .home-content.home-workspace { grid-template-columns: 0 minmax(0, 1fr); }
-html[data-ui="v2"] body.v2-side-collapsed:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)).dc-workspace-open .home-content.home-workspace { grid-template-columns: 0 minmax(0, 1fr) var(--ws-panel-w); }
+html[data-ui="v2"] body.v2-side-collapsed:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)) .home-content.home-workspace { grid-template-columns: minmax(0, 1fr); }
+html[data-ui="v2"] body.v2-side-collapsed:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)).dc-workspace-open .home-content.home-workspace { grid-template-columns: minmax(0, 1fr) var(--ws-panel-w); }
 html[data-ui="v2"] body.home-sidebar-collapsed:not(.v2-side-collapsed) .home-sidebar { width: auto; visibility: visible; }
 /* 旧版侧栏是“图标栏 + 面板”横排，新版改为纵向：品牌与导航 → 对话分组 → 用户栏 */
 /* Keep the v2 sidebar full-height even when the legacy workspace-open selector applies. */

@@ -30,13 +30,14 @@ app.whenReady().then(async()=>{
     await until(()=>rail.isVisible(),'rail ready');
     await until(async()=>await rail.webContents.executeJavaScript('document.querySelector(".quota-value").textContent.includes("82")'),'cached quotas rendered');
     const full=rail.getBounds(),display=screen.getDisplayMatching(full);
-    assert.equal(full.height,64);assert.equal(full.y,display.bounds.y,'the notch sits on the physical top edge, above the macOS menu bar');
+    const bar=display.workArea.y>display.bounds.y?display.workArea.y-display.bounds.y:32;
+    assert.equal(full.height,bar+10,'as tall as the menu bar, plus the halo margin');assert.equal(full.y,display.bounds.y,'the notch sits on the physical top edge, above the macOS menu bar');
     // Force the leave event instead of depending on the user's physical pointer.
-    await rail.webContents.executeJavaScript('document.body.dispatchEvent(new PointerEvent("pointerleave"));void 0');
+    await rail.webContents.executeJavaScript('document.querySelector(".quota-panel").dispatchEvent(new PointerEvent("pointerleave"));void 0');
     await until(()=>rail.getBounds().height===6,'native collapse');
     assert.equal(rail.getBounds().y,full.y);
     await rail.webContents.executeJavaScript('document.getElementById("edgeSensor").dispatchEvent(new PointerEvent("pointerenter"));void 0');
-    await until(()=>rail.getBounds().height===64,'native reveal');
+    await until(()=>rail.getBounds().height===full.height,'native reveal');
     assert.deepEqual(rail.getBounds(),full);
     await rail.webContents.executeJavaScript('document.querySelector(".codex").dispatchEvent(new PointerEvent("pointerenter"));void 0');
     await until(()=>BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().includes('peek=1')&&w.isVisible()),'native hover peek');

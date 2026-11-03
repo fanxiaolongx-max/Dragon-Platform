@@ -13,6 +13,7 @@
 
     const state = {
         enabled: false,
+        suspendedBy: new Set(),   // 正在显示的非对话页面（hub / tool），期间工作区隐藏
         selectionEpoch: 0,
         capability: null,
         prefs: { lastDirectory: '', recentDirectories: [], permissionMode: 'ask' },
@@ -94,13 +95,24 @@
     function setOpen(open, { remember = true } = {}) {
         if (!open && state.filePreview) { window.ChatFiles?.closePreview(); return; }
         state.open = Boolean(open) && (state.enabled || Boolean(state.external) || Boolean(state.filePreview));
-        document.body.classList.toggle('dc-workspace-open', state.open);
-        el.panel.hidden = !state.open;
         el.toggle?.setAttribute('aria-pressed', String(state.open));
         el.fab?.setAttribute('aria-pressed', String(state.open));
         try { if (!state.filePreview && remember) localStorage.setItem(PANEL_KEY, state.open ? '1' : '0'); } catch { /* ignore */ }
-        if (state.open) requestAnimationFrame(() => { if (state.open) el.panel.classList.add('is-drawer-open'); });
+        applyVisibility();
+    }
+
+    // 工作区只属于对话：技能中心、工具页等非对话页面打开期间整块隐藏（连同借用面板的频道卡片），
+    // 开关与内容原样保留，回到对话时显示该对话自己的工作区。
+    function applyVisibility() {
+        const visible = state.open && state.suspendedBy.size === 0;
+        document.body.classList.toggle('dc-workspace-open', visible);
+        el.panel.hidden = !visible;
+        if (visible) requestAnimationFrame(() => { if (el.panel && !el.panel.hidden) el.panel.classList.add('is-drawer-open'); });
         else el.panel.classList.remove('is-drawer-open');
+    }
+    function suspendFor(view, active) {
+        if (active) state.suspendedBy.add(view); else state.suspendedBy.delete(view);
+        applyVisibility();
     }
 
     function isDrawerMode() {
@@ -1649,6 +1661,11 @@
         el.extCard.innerHTML = '<button type="button" class="wsp-card-head" aria-expanded="true"><span data-wsp-ext-title></span><span class="wsp-card-meta" data-wsp-ext-meta></span><i class="wsp-caret" aria-hidden="true"></i></button><div class="wsp-card-body" data-wsp-ext-body></div>';
         el.panel.appendChild(el.extCard);
         bind();
+        // 非对话页面期间隐藏工作区；未启用工作区时频道卡片也借用面板，所以在能力检测之前就挂上
+        window.addEventListener('home:hub', event => suspendFor('hub', Boolean(event.detail?.open)));
+        window.addEventListener('home:tool-frame', event => suspendFor('tool', Boolean(event.detail?.open)));
+        if (document.body.classList.contains('v2-hub-open')) state.suspendedBy.add('hub');
+        if (document.body.classList.contains('v2-tool-open')) state.suspendedBy.add('tool');
         try {
             state.capability = await request('GET', `${API}/capability`);
             state.enabled = state.capability.enabled === true;
@@ -1669,10 +1686,6 @@
         state.agentSessionId = sessionStorage.getItem(SESSION_KEY) || newSessionId();
         renderAll();
         // 主页的新建对话始终保持收起，不恢复上次面板的展开状态。
-        // 打开工具、技能中心等非对话页面时自动收起工作区（不改用户记住的开关）
-        const autoClose = () => { if (state.open && !state.external && !state.filePreview) setOpen(false, { remember: false }); };
-        window.addEventListener('home:tool-frame', event => { if (event.detail?.open) autoClose(); });
-        window.addEventListener('home:hub', event => { if (event.detail?.open) autoClose(); });
         // 手动或其他程序改了文件也能看到：回到页面时、面板打开期间每 15 秒刷新一次
         window.addEventListener('focus', refreshChanges);
         window.addEventListener('focus', refreshGit);

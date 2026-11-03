@@ -19,7 +19,7 @@
             badge: '全能智能体', newChat: '新对话', history: '历史', attach: '添加附件（Excel、CSV、Word、PPT、文本等，单个不超过 20MB）', attachLabel: '附件', attachUploading: '上传中…', attachFailed: '上传失败', attachRemove: '移除', attachTooMany: '一次最多 5 个附件', attachPending: '附件还在上传，请稍候', attachDrop: '松开即可添加附件', exportLog: '导出日志', exportLogEmpty: '当前对话还没有保存的记录，发送一条消息后再导出', exportLogDone: '对话日志已导出', exportLogFailed: '导出失败', exportLogBusy: '回复完成后再导出，日志才完整', exportMenu: '导出方式', exportHtml: '网页快照（HTML）', exportHtmlDesc: '最近 {days} 天、最多 {count} 条消息；与聊天界面一致，含表格、图片和文件，可直接转发', exportJson: '研发日志（JSON）', exportJsonDesc: '完整的工具过程与模型配置，便于研发定位问题', exportHtmlWorking: '正在打包网页快照…', exportHtmlDone: '网页快照已导出', exportHtmlSkipped: '网页快照已导出，{count} 个大文件未打包',
             chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}', chatRunning: '正在回答', chatDelete: '删除对话', chatDeleteConfirm: '删除「{title}」及其聊天记录？此操作无法撤销。', chatDeleteFailed: '删除失败，请稍后重试', chatDeleted: '对话已删除',
             activityThinking: '正在思考…', activityCompacting: '上下文快满了，正在把较早内容整理成摘要…', compactDone: '已自动压缩上下文：较早的 {count} 条记录整理成摘要（约 {before} → {after} tokens），完整过程仍保留在会话档案中', compactFailed: '自动压缩没有成功（{error}），改为移出较早的轮次', thinkLabel: '思考过程', thinkDone: '已思考', thinkPhase_ponder: '构思', thinkPhase_plan: '规划', thinkPhase_search: '检索', thinkPhase_analyze: '分析', thinkPhase_calc: '计算', thinkPhase_verify: '核对', thinkPhase_code: '推敲代码', thinkPhase_conclude: '归纳', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
-            resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolArtifact: '完整结果（{lines} 行）', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
+            resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolArtifact: '完整结果（{lines} 行）', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全', recallTitle: '最近的问题', recallHint: '↑↓ 选择 · Enter 填入 · Esc 关闭', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
             tagline: '我是 Dragon Claw，你的全能智能体。问我任何问题，或者让我带你用好平台里的工具。',
             hint: 'Enter 发送 · Shift + Enter 换行', placeholder: '有什么我可以帮你？',
             send: '发送', stop: '停止生成', you: '你',
@@ -77,7 +77,7 @@
             badge: 'All-round agent', newChat: 'New chat', history: 'History', attach: 'Attach files (Excel, CSV, Word, PowerPoint, text…, up to 20 MB each)', attachLabel: 'Attachments', attachUploading: 'Uploading…', attachFailed: 'Upload failed', attachRemove: 'Remove', attachTooMany: 'Up to 5 attachments at a time', attachPending: 'Attachments are still uploading', attachDrop: 'Drop to attach', exportLog: 'Export log', exportLogEmpty: 'Nothing saved in this chat yet. Send a message first.', exportLogDone: 'Chat log exported', exportLogFailed: 'Export failed', exportLogBusy: 'Export after the reply finishes so the log is complete', exportMenu: 'Export as', exportHtml: 'Web page (HTML)', exportHtmlDesc: 'Last {days} days, up to {count} messages. Looks like this chat, with tables, images and files', exportJson: 'Debug log (JSON)', exportJsonDesc: 'Full tool steps and model settings for troubleshooting', exportHtmlWorking: 'Packing the web page…', exportHtmlDone: 'Web page exported', exportHtmlSkipped: 'Web page exported; {count} large file(s) left out',
             chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}', chatRunning: 'Working', chatDelete: 'Delete chat', chatDeleteConfirm: 'Delete “{title}” and its messages? This cannot be undone.', chatDeleteFailed: 'Could not delete this chat. Try again later.', chatDeleted: 'Chat deleted',
             activityThinking: 'Thinking…', activityCompacting: 'Context is nearly full; summarizing earlier steps…', compactDone: 'Context compacted automatically: {count} earlier entries were summarized (about {before} → {after} tokens). The full record stays in the session archive.', compactFailed: 'Automatic compaction failed ({error}); dropping the earliest turns instead', thinkLabel: 'Thinking', thinkDone: 'Thought for', thinkPhase_ponder: 'Pondering', thinkPhase_plan: 'Planning', thinkPhase_search: 'Searching', thinkPhase_analyze: 'Analyzing', thinkPhase_calc: 'Calculating', thinkPhase_verify: 'Verifying', thinkPhase_code: 'Coding', thinkPhase_conclude: 'Concluding', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
-            resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolArtifact: 'Full result ({lines} lines)', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: '↑↓ to choose · Enter to run · Tab to complete', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
+            resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolArtifact: 'Full result ({lines} lines)', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: '↑↓ to choose · Enter to run · Tab to complete', recallTitle: 'Recent questions', recallHint: '↑↓ to choose · Enter to fill in · Esc to close', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
             tagline: 'I’m Dragon Claw, your all-round agent. Ask me anything, or let me show you around the tools on this platform.',
             hint: 'Enter to send · Shift + Enter for a new line', placeholder: 'How can I help you?',
             send: 'Send', stop: 'Stop generating', you: 'You',
@@ -2324,6 +2324,89 @@
         el.input.setAttribute('aria-activedescendant', `dcSlashOpt${slashMenu.active}`);
     }
 
+    // ── 输入框为空时按 ↑ / ↓：最近的问题快速填入 ────────────────────────
+    // 对话中：本对话最近最多 5 个用户问题；新建对话：最近一次普通对话（不带连接器、不是多智能体讨论）的最近 5 个问题。
+    const recall = { items: [], active: 0, open: false, newChatCache: null, seq: 0 };
+    const RECALL_MAX = 5;
+    const usedConnector = item => (Array.isArray(item.events) ? item.events : []).some(event => event?.type === 'connector' || event?.type === 'desktop-discussion');
+    function latestQuestions(messages) {
+        const out = [];
+        for (let i = messages.length - 1; i >= 0 && out.length < RECALL_MAX; i -= 1) {
+            const text = String(messages[i].content || '').trim();
+            if (messages[i].role === 'user' && text && !out.includes(text)) out.push(text);
+        }
+        return out;
+    }
+    async function newChatQuestions() {
+        let sessions = chatList.items;
+        // 侧栏列表还没加载（或不在首页）时直接取最近的会话
+        if (!sessions.length) {
+            try {
+                const res = await fetch('/api/ai/sessions?mine=1&pagePath=%2F&limit=10', { headers: authHeaders() });
+                if (res.ok) sessions = (await res.json()).items || [];
+            } catch { sessions = []; }
+        }
+        const candidates = sessions.filter(item => item?.id && item.discussionMode !== 'group').slice(0, 6);
+        // 侧栏列表变了（新对话、对话有新消息）就重新取
+        const key = candidates.map(item => `${item.id}:${item.updatedAt || item.updated_at || ''}:${item.messageCount ?? ''}`).join('|');
+        if (recall.newChatCache && recall.cacheKey === key) return recall.newChatCache;
+        recall.cacheKey = key;
+        recall.newChatCache = null;
+        for (const item of candidates) {
+            try {
+                const res = await fetch(`/api/ai/sessions/${encodeURIComponent(item.id)}/messages?limit=40`, { headers: authHeaders() });
+                if (!res.ok) continue;
+                const items = (await res.json()).items || [];
+                if (!items.length || items.some(usedConnector)) continue;
+                recall.newChatCache = latestQuestions(items);
+                if (recall.newChatCache.length) return recall.newChatCache;
+            } catch { /* 读不到就看下一个 */ }
+        }
+        recall.newChatCache = [];
+        return recall.newChatCache;
+    }
+    function closeRecall() {
+        if (!recall.open) return;
+        recall.open = false;
+        recall.items = [];
+        hideSlashHints();
+    }
+    function setRecallActive(index) {
+        const count = recall.items.length;
+        if (!count) return;
+        recall.active = (index + count) % count;
+        el.slash.querySelectorAll('[data-dc-recall]').forEach(node => {
+            const active = Number(node.dataset.dcRecall) === recall.active;
+            node.classList.toggle('is-active', active);
+            node.setAttribute('aria-selected', String(active));
+            if (active) node.scrollIntoView({ block: 'nearest' });
+        });
+        el.input.setAttribute('aria-activedescendant', `dcRecallOpt${recall.active}`);
+    }
+    async function openRecall(direction) {
+        const seq = ++recall.seq;
+        const inConversation = Boolean(state.sessionId || state.messages.length);
+        const items = inConversation ? latestQuestions(state.messages) : await newChatQuestions();
+        // 等待期间用户可能已经开始输入或切换了对话
+        if (seq !== recall.seq || el.input.value.trim() || !items.length) return;
+        recall.items = items;
+        recall.open = true;
+        el.slash.innerHTML = `<div class="dc-slash-hint dc-recall-title">${escapeHtml(tx('recallTitle'))}</div>${items.map((text, index) => `<button type="button" class="dc-slash-item dc-recall-item" role="option" id="dcRecallOpt${index}" data-dc-recall="${index}" tabindex="-1" title="${escapeHtml(text)}"><span>${escapeHtml(text.replace(/\s+/g, ' '))}</span></button>`).join('')}<div class="dc-slash-hint">${escapeHtml(tx('recallHint'))}</div>`;
+        el.slash.hidden = false;
+        el.input.setAttribute('aria-expanded', 'true');
+        // ↑ 从最近一条开始；↓ 从最早一条开始
+        setRecallActive(direction === 'up' ? 0 : items.length - 1);
+    }
+    function fillRecall(index) {
+        const text = recall.items[index];
+        closeRecall();
+        if (text === undefined) return;
+        el.input.value = text;
+        el.input.dispatchEvent(new Event('input'));
+        el.input.focus({ preventScroll: true });
+        el.input.setSelectionRange(text.length, text.length);
+    }
+
     // ── /session 历史会话 ────────────────────────
     const sessionPicker = { el: null, items: [], active: 0, timer: null, seq: 0 };
 
@@ -3292,6 +3375,22 @@
         });
         el.input.addEventListener('keydown', event => {
             if(external.active&&event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();sendExternal(el.input.value.trim());return;}
+            if (recall.open && el.slash.hidden) { recall.open = false; recall.items = []; }
+            if (recall.open && !event.isComposing) {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    setRecallActive(recall.active + (event.key === 'ArrowDown' ? 1 : -1));
+                    return;
+                }
+                if ((event.key === 'Enter' && !event.shiftKey) || event.key === 'Tab') { event.preventDefault(); fillRecall(recall.active); return; }
+                if (event.key === 'Escape') { event.preventDefault(); closeRecall(); return; }
+                closeRecall();
+            } else if ((event.key === 'ArrowUp' || event.key === 'ArrowDown') && !event.isComposing && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey
+                && !external.active && !slashMenuOpen() && !el.input.value.trim()) {
+                event.preventDefault();
+                openRecall(event.key === 'ArrowUp' ? 'up' : 'down');
+                return;
+            }
             if (slashMenuOpen() && !event.isComposing) {
                 if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                     event.preventDefault();
@@ -3350,6 +3449,8 @@
             if (target.closest('[data-dc-resume]')) return resumeChat();
             const slash = target.closest('[data-dc-slash]');
             if (slash) return runSlashCommand(slash.dataset.dcSlash);
+            const recalled = target.closest('[data-dc-recall]');
+            if (recalled) return fillRecall(Number(recalled.dataset.dcRecall));
             if (target.closest('[data-dc-schedules]')) return openSchedulePanel();
             if (target.closest('[data-dc-push-pick]')) return openPushPicker();
             const pushRemove = target.closest('[data-dc-push-remove]');
@@ -3468,6 +3569,8 @@
         el.slash.addEventListener('pointermove', event => {
             const option = event.target.closest('[data-dc-slash-index]');
             if (option && Number(option.dataset.dcSlashIndex) !== slashMenu.active) setSlashActive(Number(option.dataset.dcSlashIndex));
+            const recallOption = event.target.closest('[data-dc-recall]');
+            if (recallOption && Number(recallOption.dataset.dcRecall) !== recall.active) setRecallActive(Number(recallOption.dataset.dcRecall));
         });
         el.slash.addEventListener('mousedown', event => event.preventDefault()); // 点选时输入框不失焦
         el.form.appendChild(el.slash);

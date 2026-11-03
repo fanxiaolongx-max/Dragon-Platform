@@ -256,6 +256,9 @@ test('slash menu supports arrow-key selection; Enter runs and Tab completes the 
         const askBtw = arg => calls.push(['btw', arg]);
         const external = { active: false };
         const sendExternal = () => {};
+        // ↑↓ 最近问题填入：菜单开着时只走斜杠命令分支
+        const recall = { open: false, items: [], active: 0 };
+        const setRecallActive = () => {}, fillRecall = () => {}, closeRecall = () => {}, openRecall = () => calls.push(['recall']);
         ${commands}
         return ${keydown};
     `)(state, el, slashMenu, calls);
