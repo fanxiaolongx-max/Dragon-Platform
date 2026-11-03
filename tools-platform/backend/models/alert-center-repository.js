@@ -309,6 +309,12 @@ async function archiveAllEvents() {
     return { changed: result.changes || 0 };
 }
 
+async function clearAllEvents() {
+    await ensureReady();
+    const result = await run(`DELETE FROM alert_center_events`);
+    return { changed: result.changes || 0 };
+}
+
 async function updateAiSummary(id, { summary = '', status = 'done' } = {}) {
     await ensureReady();
     const result = await run(
@@ -329,5 +335,6 @@ module.exports = {
     markAllRead,
     archiveEvent,
     archiveAllEvents,
+    clearAllEvents,
     updateAiSummary
 };

@@ -166,3 +166,24 @@ test('channels nav item disables when unconfigured or not enabled and shows tool
     assert.match(homeV2Js, /navItem\.title\s*=\s*reason/);
     assert.match(homeV2Js, /ACTIONS[\s\S]*channels\(\)[\s\S]*navItem\?\.classList\.contains\('is-disabled'\)/);
 });
+
+test('alert center popup replaces fullAlerts button with clearAll button and API', () => {
+    const homeV2Js = read('frontend/js/home/home-v2.js');
+    const alertRoutes = read('backend/routes/alert-center.js');
+    const alertRepo = read('backend/models/alert-center-repository.js');
+
+    // 不再包含完整告警台按钮
+    assert.doesNotMatch(homeV2Js, /data-msg-full/);
+    assert.doesNotMatch(homeV2Js, /fullAlerts:\s*'完整告警台'/);
+
+    // 换成全部清除功能与按钮
+    assert.match(homeV2Js, /clearAll:\s*'全部清除'/);
+    assert.match(homeV2Js, /clearAll:\s*'Clear all'/);
+    assert.match(homeV2Js, /data-msg-clear/);
+    assert.match(homeV2Js, /\/api\/alert-center\/events\/clear-all/);
+
+    // 后端仓库与路由支持清空告警
+    assert.match(alertRepo, /async function clearAllEvents\(\)/);
+    assert.match(alertRepo, /DELETE FROM alert_center_events/);
+    assert.match(alertRoutes, /\/events\/clear-all/);
+});

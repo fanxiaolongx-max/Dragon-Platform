@@ -899,7 +899,15 @@ html[data-ui="v2"] body.v2-side-collapsed:is(.home-sidebar-collapsed, :not(.home
 html[data-ui="v2"] body.v2-side-collapsed:is(.home-sidebar-collapsed, :not(.home-sidebar-collapsed)).dc-workspace-open .home-content.home-workspace { grid-template-columns: 0 minmax(0, 1fr) var(--ws-panel-w); }
 html[data-ui="v2"] body.home-sidebar-collapsed:not(.v2-side-collapsed) .home-sidebar { width: auto; visibility: visible; }
 /* 旧版侧栏是“图标栏 + 面板”横排，新版改为纵向：品牌与导航 → 对话分组 → 用户栏 */
-html[data-ui="v2"] .home-content.home-workspace > .home-sidebar { flex-direction: column; align-items: stretch; }
+/* Keep the v2 sidebar full-height even when the legacy workspace-open selector applies. */
+html[data-ui="v2"] .home-content.home-workspace > .home-sidebar {
+    flex-direction: column;
+    align-items: stretch;
+    height: 100vh;
+    height: 100dvh;
+    max-height: 100vh;
+    max-height: 100dvh;
+}
 html[data-ui="v2"] .home-content.home-workspace > .home-sidebar > .home-panel { width: auto; }
 
 /* ── 右侧工作区：贴边全高、浅色列表风格（深色主题沿用原样式，只调整布局） ── */

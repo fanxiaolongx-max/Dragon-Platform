@@ -76,6 +76,22 @@ router.put('/events/archive-all', async (req, res, next) => {
     }
 });
 
+router.post('/events/clear-all', async (req, res, next) => {
+    try {
+        res.json(await repo.clearAllEvents());
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.delete('/events/clear-all', async (req, res, next) => {
+    try {
+        res.json(await repo.clearAllEvents());
+    } catch (err) {
+        next(err);
+    }
+});
+
 router.post('/ai/backfill', async (req, res, next) => {
     try {
         const limit = req.body && req.body.limit;

@@ -1,4 +1,6 @@
 // Run: node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Featured stability audit: HOME_FEATURED_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
+// Sidebar height audit: HOME_SIDEBAR_HEIGHT_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Scan popup audit: HOME_SCAN_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Message navigation audit: HOME_MESSAGES_AUDIT=1 node_modules/.bin/electron tests/home-tools-hub-browser.cjs
 // Wheel audit: HOME_SCROLL_AUDIT=1 DESKTOP_DRAG_AUDIT=1 DRAG_PLATFORM=darwin node_modules/.bin/electron tests/home-tools-hub-browser.cjs
@@ -57,6 +59,50 @@ app.whenReady().then(async () => {
     await win.loadURL(`http://127.0.0.1:${server.address().port}/`);
 
     await until('window.HomeSkillHub&&document.querySelector("[data-v2-mode=tools]")&&document.getElementById("v2SkillHub")');
+    if (process.env.HOME_FEATURED_AUDIT) {
+        await evaluate(`window.HomeWorkspace.getTools=()=>Array.from({length:6},(_,i)=>({id:'fixture-'+i,title:'Fixture '+i,href:'/fixture/'+i,group:i<3?'A':'B'}));void 0`);
+        for (const width of [1440,600]) {
+            win.setContentSize(width,1000);
+            await evaluate(`document.body.classList.add('v2-side-collapsed');HomeSkillHub.open('tools')`);
+            await wait(200);
+            const snapshot=()=>evaluate(`(()=>{const f=document.querySelector('.v2-hub-featured');return {hidden:f.hidden,keys:[...f.querySelectorAll('[data-hub-key]')].map(el=>el.dataset.hubKey),top:document.querySelector('.v2-hub-bar').getBoundingClientRect().top}})()`);
+            const initial=await snapshot();assert.equal(initial.hidden,false);
+            const check=async()=>assert.deepEqual(await snapshot(),initial,'shortcuts and category position remain stable at '+width+'px');
+            for(const category of ['A','B','all']) {
+                await evaluate(`document.querySelector('[data-hub-cat="${category}"]').click()`);
+                await check();
+                assert.equal(await evaluate(`document.querySelectorAll('.v2-hub-grid [data-hub-key]').length`), category==='all'?6:3, 'category still filters results');
+            }
+            await evaluate(`document.querySelector('[data-hub-do="mine"]').click()`);
+            await check();assert.equal(await evaluate(`document.querySelectorAll('.v2-hub-grid [data-hub-key]').length`),0,'favorites only changes results');
+            await evaluate(`document.querySelector('[data-hub-do="mine"]').click();document.querySelector('.v2-hub-search input').value='unmatched fixture';document.querySelector('.v2-hub-search input').dispatchEvent(new Event('input',{bubbles:true}))`);
+            await check();assert.equal(await evaluate(`document.querySelectorAll('.v2-hub-grid [data-hub-key]').length`),0,'empty search only changes results');
+            await evaluate('HomeSkillHub.close()');
+        }
+        assert.deepEqual(await evaluate('fixtureErrors'),[]);
+        console.log('PASS: featured shortcuts and category bar remain stable across category/favorites/empty search filters at 1440/600px; result filtering preserved.');
+        win.destroy();server.close();app.exit(0);return;
+    }
+    if (process.env.HOME_SIDEBAR_HEIGHT_AUDIT) {
+        for (const width of [1920, 1000, 600]) {
+            win.setContentSize(width, 883);
+            for (const theme of ['light', 'dark']) {
+                for (const workspace of [false, true]) {
+                    await evaluate(`document.documentElement.dataset.theme='${theme}';document.body.classList.remove('v2-side-collapsed');document.body.classList.toggle('dc-chatting',${width>860});document.body.classList.toggle('dc-workspace-open',${workspace});window.scrollTo(0,0)`);
+                    await wait(50);
+                    const geometry=await evaluate(`(()=>{
+                        const side=document.getElementById('homeSidebar'),r=side.getBoundingClientRect(),u=document.querySelector('.v2-userbar').getBoundingClientRect();
+                        return {top:r.top,bottom:r.bottom,userBottom:u.bottom,viewport:innerHeight,height:getComputedStyle(side).height,hit:!!document.elementFromPoint(r.left+10,innerHeight-2)?.closest('#homeSidebar')};
+                    })()`);
+                    assert.ok(Math.abs(geometry.bottom-geometry.viewport)<1, `sidebar fills viewport, width=${width}, workspace=${workspace}, theme=${theme}: `+JSON.stringify(geometry));
+                    if(width>860)assert.ok(Math.abs(geometry.userBottom-geometry.viewport)<1, 'user bar stays at viewport bottom: '+JSON.stringify({width,workspace,theme,...geometry}));
+                    if(width>860)assert.equal(geometry.hit,true,'bottom-left pixel belongs to sidebar');
+                }
+            }
+        }
+        console.log('PASS: sidebar covers viewport bottom at 1920/1000/600px, desktop user bar stays at bottom, workspace open/closed, light/dark.');
+        win.destroy();server.close();app.exit(0);return;
+    }
     if (process.env.HOME_SCAN_AUDIT) {
         const isOpen = () => evaluate(`document.querySelector('.v2-scan').classList.contains('is-open') && document.getElementById('v2ScanBtn').getAttribute('aria-expanded')==='true'`);
         await evaluate(`document.getElementById('v2ScanBtn').dispatchEvent(new MouseEvent('mouseenter'))`);
