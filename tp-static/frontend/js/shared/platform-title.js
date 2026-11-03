@@ -16,8 +16,8 @@
         const clean = value => typeof value === 'string' ? value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80) : '';
         let name = clean(language === 'en-US' ? identity?.platformNameEn : identity?.platformNameZh)
             || clean(identity?.platformName) || clean(legacyName);
-        if (name === '图特工具平台' || name === 'Thoth Platform') {
-            name = language === 'en-US' ? 'Dragon Platform' : 'Dragon 工具平台';
+        if (['图特工具平台', 'Thoth Platform', 'Dragon 工具平台', 'Dragon Platform', 'Tools Platform', 'DragonClaw'].includes(name)) {
+            name = 'Dragon Claw';
         }
         const pageName = (language === 'en-US' ? title.dataset.platformPageTitleEn : title.dataset.platformPageTitle)
             || title.dataset.platformPageTitle;

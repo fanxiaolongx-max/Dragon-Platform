@@ -17,7 +17,7 @@
             scheduleNew: '新建定时任务', pushTo: '推送到', pushAdd: '+ 选择 WeLink/微信 的人或群（可选）', pushAddMore: '+ 添加', pushRemove: '移除', pushTitle: '推送到', pushSearch: '搜索名称或账号，支持拼音…', pushGroup: '群', pushUser: '联系人', pushSelected: '已选 {count} 个', pushHint: '执行完成后把结果推送给所选对象', pushDone: '完成', pushEmpty: '还没有可推送的对象（联系人需先与助理单聊过，群需在群里用过助理）', pushNoMatch: '没有匹配的对象', pushNoChannel: '还没有对接 WeLink 或微信', pushLimit: '最多选择 10 个对象', scheduleCreatedPush: '，完成后推送给 {names}', schedulePushTo: '推送给 {names}', schedulePushResult: '上次推送：成功 {sent}，失败 {failed}',
             datacomTitle: '数通协议专家', datacomDescription: '协议图解 · 交互实验 · 视频讲解',
             badge: '全能智能体', newChat: '新对话', history: '历史', attach: '添加附件（Excel、CSV、Word、PPT、文本等，单个不超过 20MB）', attachLabel: '附件', attachUploading: '上传中…', attachFailed: '上传失败', attachRemove: '移除', attachTooMany: '一次最多 5 个附件', attachPending: '附件还在上传，请稍候', attachDrop: '松开即可添加附件', exportLog: '导出日志', exportLogEmpty: '当前对话还没有保存的记录，发送一条消息后再导出', exportLogDone: '对话日志已导出', exportLogFailed: '导出失败', exportLogBusy: '回复完成后再导出，日志才完整', exportMenu: '导出方式', exportHtml: '网页快照（HTML）', exportHtmlDesc: '最近 {days} 天、最多 {count} 条消息；与聊天界面一致，含表格、图片和文件，可直接转发', exportJson: '研发日志（JSON）', exportJsonDesc: '完整的工具过程与模型配置，便于研发定位问题', exportHtmlWorking: '正在打包网页快照…', exportHtmlDone: '网页快照已导出', exportHtmlSkipped: '网页快照已导出，{count} 个大文件未打包',
-            chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}', chatDelete: '删除对话', chatDeleteConfirm: '删除「{title}」及其聊天记录？此操作无法撤销。', chatDeleteFailed: '删除失败，请稍后重试', chatDeleted: '对话已删除',
+            chatToday: '今天', chatYesterday: '昨天', chatWeek: '7 天内', chatMonth: '30 天内', chatOlder: '更早', chatEmpty: '还没有对话，发一条消息开始吧', chatNoMatch: '没有匹配的对话', chatLoadFailed: '历史对话加载失败', chatRetry: '重试', chatBusy: '正在回复中，请先停止当前回复再切换对话', chatCount: '{count} 条', chatFolderTitle: '本地目录：{root}', chatRunning: '正在回答', chatDelete: '删除对话', chatDeleteConfirm: '删除「{title}」及其聊天记录？此操作无法撤销。', chatDeleteFailed: '删除失败，请稍后重试', chatDeleted: '对话已删除',
             activityThinking: '正在思考…', activityCompacting: '上下文快满了，正在把较早内容整理成摘要…', compactDone: '已自动压缩上下文：较早的 {count} 条记录整理成摘要（约 {before} → {after} tokens），完整过程仍保留在会话档案中', compactFailed: '自动压缩没有成功（{error}），改为移出较早的轮次', thinkLabel: '思考过程', thinkDone: '已思考', thinkPhase_ponder: '构思', thinkPhase_plan: '规划', thinkPhase_search: '检索', thinkPhase_analyze: '分析', thinkPhase_calc: '计算', thinkPhase_verify: '核对', thinkPhase_code: '推敲代码', thinkPhase_conclude: '归纳', activityTool: '正在{tool}…', activityOrganizing: '正在整理结果…', activityResponding: '正在生成回复…', activityApproval: '等待你的批准…',
             resumeTitle: '继续上次对话', resumeMeta: '{time} · {count} 条消息', resumeAction: '继续对话', resumeBanner: '已恢复上次对话 · {time}', resumeDivider: '以上是历史记录，继续输入即可接着聊', resumeFailed: '上次对话加载失败，请稍后再试', toolOutput: '查看输出', toolArtifact: '完整结果（{lines} 行）', toolInterrupted: '未完成', sessionTitle: '历史会话', sessionSearch: '搜索会话内容…', sessionEmpty: '还没有历史会话', sessionNoMatch: '没有匹配的会话', sessionLoading: '正在加载…', sessionMeta: '{time} · {count} 条消息', sessionArchived: '已归档', sessionCurrent: '当前', sessionHint: '↑↓ 选择 · Enter 打开 · Esc 关闭', sessionLoadFailed: '历史会话加载失败，请稍后再试', slashSession: '查看并恢复历史会话', slashNew: '开始新对话', slashHint: '↑↓ 选择 · Enter 执行 · Tab 补全', resumeDirMissing: '上次的目录「{name}」无法打开，对话已恢复，请重新选择目录', externalTag: '外部', commandTag: '命令', commandChangeHint: '由智能体执行的命令产生的改动，可撤销', riskTitle: '此命令可能访问工作目录之外或敏感文件，当前审批模式需要你确认', revertConflictTitle: '文件已被再次修改', revertConflictMessage: '{path} 在这次改动之后又被修改过（手动或其他程序）。撤销会把文件恢复到改动前，后续修改将一起丢失。', revertConflictConfirm: '仍然撤销', binaryChange: '二进制', binaryChangeHint: '二进制文件（如数据库、图片）内容有变化，没有可比较的文本行', externalChange: '工作区里的其他改动（手动或其他程序修改），可查看差异，不能在这里撤销', backToTools: '浏览工具', browseTools: '浏览全部工具',
             tagline: '我是 Dragon Claw，你的全能智能体。问我任何问题，或者让我带你用好平台里的工具。',
@@ -33,7 +33,7 @@
             askHow: '「{name}」（{href}）应该怎么上手使用？请给出具体操作步骤和注意事项。',
             promptLogic: '解释「{name}」的代码逻辑', promptMetrics: '本月哪些指标还没达标？',
             promptMail: '帮我写一封礼貌的催办提醒邮件', promptCode: '用 Python 写一个 Excel 去重脚本',
-            stopped: '已停止生成', copy: '复制', copied: '已复制', retry: '重新发送', skillPickDir: '选择工作目录', usageText: '输入 {input} · 输出 {output} tokens', usageTitle: '本次回复消耗：输入 {input} tokens，输出 {output} tokens', historyMore: '加载更早的消息', historyLoading: '正在加载更早的消息…', historyFailed: '加载失败，点击重试', unavailable: '智能体组件尚未加载，请稍后重试或刷新页面。',
+            stopped: '已停止生成', copy: '复制', copied: '已复制', retry: '重新发送', skillPickDir: '选择工作目录', usageText: '输入 {input} · 输出 {output} tokens', speedTitle: '生成速度（每秒 token）：最低 {min} / 平均 {avg} / 最高 {max}，共 {rounds} 轮模型调用，首字 {ttft} 秒', speedEstimated: '（部分轮次的 token 数为估算）', speedRounds: '{n} 轮', usageTitle: '本次回复消耗：输入 {input} tokens，输出 {output} tokens', historyMore: '加载更早的消息', historyLoading: '正在加载更早的消息…', historyFailed: '加载失败，点击重试', unavailable: '智能体组件尚未加载，请稍后重试或刷新页面。',
             modelLabel: '选择模型', modelMenuTitle: '模型', modelMenuHint: '切换后从下一条消息开始生效',
             modelDefault: '默认模型', modelNextMessage: '已切换到 {name}，从下一条消息开始生效',
             modelSwitched: '已切换到 {name}', modelCurrent: '当前模型：{name}',
@@ -47,10 +47,10 @@
             dirReady: '目录存在，可以选择', notDir: '这是文件，不是目录', dirNotFound: '目录不存在，继续输入或从联想中选择',
             groupHome: '家目录', groupRoot: '根目录', recentDirs: '最近使用', workspaceReady: '已切换到工作区 {name}',
             branch: '分支', noBranch: '非 Git 仓库', permission: '权限模式',
-            modeAsk: '请求批准', modeAskDesc: '写入、删除、重命名和命令都先征求你的同意', modeAuto: '帮我批准', modeAutoDesc: '读写文件自动执行；删除、重命名和命令仍需确认', modeFull: '完全访问', modeFullDesc: '全部自动执行，不再询问；命令以本机账号权限运行，不限于工作目录', readOnlyMode: '只读', readOnlyDesc: '当前账号不是管理员：可以查看和搜索文件，不能修改、删除、重命名或执行命令',
+            modeAsk: '请求批准', modeAskDesc: '写入、删除、重命名和命令都先征求你的同意', modeAuto: '自动批准', modeAutoDesc: '读写文件自动执行；删除、重命名和命令仍需确认', modeFull: '完全访问', modeFullDesc: '全部自动执行，不再询问；命令以本机账号权限运行，不限于工作目录', readOnlyMode: '只读', readOnlyDesc: '当前账号不是管理员：可以查看和搜索文件，不能修改、删除、重命名或执行命令',
             modeChanged: '权限模式已切换为「{mode}」', approvalTitle: 'Dragon Claw 请求：{tool}', allow: '允许', deny: '拒绝', alwaysAllow: '本次会话总是允许',
             approved: '已允许', approvedAlways: '已允许（本次会话不再询问）', dangerTitle: '危险操作：{labels}（完全访问下也会询问）', dangerNever: '不再询问此类', dangerScope: '不再询问的范围', scope_session: '本对话', scope_workspace: '这个工作目录', scope_global: '永久（含频道）', approvedDanger: '已允许，{scope}不再询问此类', subRunning: '调研中', subDone: '已完成', subFailed: '失败', subStopped: '已中断', subWaiting: '正在出发…', subTools: '{count} 次工具', subTokens: '{count} tokens', subMore: '…还有 {count} 次更早的调用', subTask: '任务说明', subToolsTitle: '工具调用', subResult: '结论', subGroup: '派出 {count} 个子智能体', subGroupRunning: '{count} 个正在调研', subGroupDone: '全部回来了', subDefaultName: '子智能体', tool_task: '子智能体', continueTitle: '上一轮没有做完', continueHint: '服务重启或异常退出时中断了，已完成的步骤都保存着', continueAction: '继续执行', rewindAction: '回退到这一轮之前', rewindFiles: '{count} 个文件', rewindTitle: '把这一轮及之后改过的 {count} 个以上文件恢复成这一轮开始前的样子', rewindConfirmTitle: '回退到这一轮之前？', rewindConfirm: '这一轮改过的文件会恢复成这一轮开始前的样子：', rewindConfirmLater: '这一轮以及之后 {count} 轮改过的文件，都会恢复成这一轮开始前的样子，之后的改动会一起丢掉：', rewindMoreFiles: '…等另外 {count} 个文件', rewindDone: '已回退 {count} 个文件', rewindSkipped: '{count} 个文件没有快照，未能恢复', continuePrompt: '继续完成上一轮被中断的任务：先核实那些没有结果的操作的实际状态，已经完成的写入不要重复，再接着做剩下的步骤。', denied: '已拒绝', approvalTimeout: '审批超时，未执行', approvalAborted: '任务已中止', inDir: '目录：', recursive: '递归删除',
-            tool_list_directory: '列出目录', tool_read_file: '读取文件', tool_search: '搜索', tool_list_databases: '列出数据库', tool_database_schema: '查看数据库结构', tool_read_database_table: '读取业务表', tool_insert_database_row: '新增业务数据', tool_update_database_rows: '更新业务数据', tool_delete_database_rows: '删除业务数据', tool_write_file: '写入文件', tool_edit_file: '编辑文件', tool_delete_path: '删除', tool_rename_path: '移动/重命名', tool_run_command: '执行命令', tool_welink_list_targets: '查看 WeLink 联系人', tool_welink_send_message: '发送 WeLink 消息', tool_welink_query: 'WeLink 查询', tool_welink_action: 'WeLink 操作', tool_netcare_tables: 'NetCare 找表', tool_netcare_describe: 'NetCare 表结构', tool_netcare_query: 'NetCare 查询', tool_netcare_sql: 'NetCare SQL', tool_tool_search: '加载工具', tool_ops_overview: '查看运营概况', tool_ops_list_targets: '查看可推送对象', tool_ops_save_group: '保存运营群组', tool_ops_list_presets: '查看运营模板', tool_ops_remove_group: '取消运营群组', tool_ops_save_plan: '保存运营计划', tool_ops_delete_plan: '删除运营计划', tool_ops_preview: '生成运营草稿', tool_ops_test_send: '运营测试推送', tool_ops_update_draft: '修改运营草稿', tool_ops_send_draft: '推送运营草稿', tool_ops_discard_draft: '作废运营草稿', tool_ops_list_runs: '查看推送记录', tool_ops_materials: '查看运营素材', tool_ops_save_settings: '保存运营规范', tool_load_skill: '加载技能', tool_calculate: '计算', tool_read_document: '读取文档', tool_query_data: '表格查询', tool_diff_files: '比较差异', tool_multi_edit: '批量修改', tool_zip_files: '打包', tool_unzip_file: '解压', tool_memory: '长期记忆', tool_view_image: '看图', tool_browser_navigate: '打开网页', tool_browser_snapshot: '读取网页', tool_browser_click: '点击网页', tool_browser_type: '网页输入', tool_browser_scroll: '滚动网页', tool_browser_wait: '等待网页', tool_browser_network: '网络请求', tool_browser_network_body: '请求内容', tool_browser_console: '网页控制台', tool_browser_screenshot: '网页截图', tool_browser_tabs: '浏览器标签页', tool_browser_evaluate: '网页脚本', todoTitle: '任务清单', questionHint: '点选一个回答，或直接在输入框里回复', approvalCommand: '查看完整命令',
+            tool_list_directory: '列出目录', tool_save_skill: '保存技能', tool_read_skill: '读取技能', tool_find_platform_tools: '查找平台工具', tool_read_tool_guide: '工具说明', tool_read_file: '读取文件', tool_search: '搜索', tool_list_databases: '列出数据库', tool_database_schema: '查看数据库结构', tool_read_database_table: '读取业务表', tool_insert_database_row: '新增业务数据', tool_update_database_rows: '更新业务数据', tool_delete_database_rows: '删除业务数据', tool_write_file: '写入文件', tool_edit_file: '编辑文件', tool_delete_path: '删除', tool_rename_path: '移动/重命名', tool_run_command: '执行命令', tool_welink_list_targets: '查看 WeLink 联系人', tool_welink_send_message: '发送 WeLink 消息', tool_welink_query: 'WeLink 查询', tool_welink_action: 'WeLink 操作', tool_netcare_tables: 'NetCare 找表', tool_netcare_describe: 'NetCare 表结构', tool_netcare_query: 'NetCare 查询', tool_netcare_sql: 'NetCare SQL', tool_tool_search: '加载工具', tool_ops_overview: '查看运营概况', tool_ops_list_targets: '查看可推送对象', tool_ops_save_group: '保存运营群组', tool_ops_list_presets: '查看运营模板', tool_ops_remove_group: '取消运营群组', tool_ops_save_plan: '保存运营计划', tool_ops_delete_plan: '删除运营计划', tool_ops_preview: '生成运营草稿', tool_ops_test_send: '运营测试推送', tool_ops_update_draft: '修改运营草稿', tool_ops_send_draft: '推送运营草稿', tool_ops_discard_draft: '作废运营草稿', tool_ops_list_runs: '查看推送记录', tool_ops_materials: '查看运营素材', tool_ops_save_settings: '保存运营规范', tool_load_skill: '加载技能', tool_calculate: '计算', tool_read_document: '读取文档', tool_query_data: '表格查询', tool_diff_files: '比较差异', tool_multi_edit: '批量修改', tool_zip_files: '打包', tool_unzip_file: '解压', tool_memory: '长期记忆', tool_view_image: '看图', tool_browser_navigate: '打开网页', tool_browser_snapshot: '读取网页', tool_browser_click: '点击网页', tool_browser_type: '网页输入', tool_browser_scroll: '滚动网页', tool_browser_wait: '等待网页', tool_browser_network: '网络请求', tool_browser_network_body: '请求内容', tool_browser_console: '网页控制台', tool_browser_screenshot: '网页截图', tool_browser_tabs: '浏览器标签页', tool_browser_evaluate: '网页脚本', todoTitle: '任务清单', questionHint: '点选一个回答，或直接在输入框里回复', approvalCommand: '查看完整命令',
             ctxUsed: '已使用 {percent}%', ctxMessages: '对话消息', ctxToolResults: '工具结果', ctxDirectory: '目录上下文', ctxSystem: '系统提示', ctxSkills: 'Skill', ctxTools: '工具定义', ctxReserve: '压缩预留', ctxFree: '剩余空间', ctxCache: '缓存命中 {percent}% · {tokens}', ctxCacheNone: '本次未命中缓存', ctxDeferredTools: '已加载 {loaded} 个工具，另有 {count} 个按需加载（约 {tokens}，未计入）', ctxWindowConfigured: '窗口来自模型配置', ctxWindowModel: '窗口按模型名自动识别，可在 AI 模型配置中填写准确值',
             ctxEmpty: '发送第一条消息后显示上下文占用', ctxNoWorkspace: '选择目录后，这里显示上下文占用明细', ctxSourceProvider: '以模型返回的实际用量为准，分项按估算比例折算', ctxSourceEstimate: '按字符数估算（约 3.5 字符 / Token）',
             filePreview: '预览', fileCode: '代码', fileExpand: '放大', fileCollapse: '还原', fileDownload: '下载', fileLoading: '正在读取文件…', fileLines: '{count} 行', fileSandboxHint: '预览在隔离沙箱中运行，无法访问平台登录信息；同目录的相对资源不会加载', fileShowHint: '查看 {path}', noChanges: '本次会话尚未修改文件', changesShowMore: '展开其余 {count} 个更改', changesShowLess: '收起多余更改', viewDiff: '查看差异', revert: '撤销', reverted: '已撤销 {path}', diffEmpty: '（无文本差异）', createPr: '创建 PR',
@@ -60,10 +60,12 @@
             prRunning: '正在创建 PR…', prDone: 'PR 已创建', prOpen: '打开 PR', prFailedAt: '「{step}」失败，流程已停止', prDeniedAt: '「{step}」被拒绝，流程已停止', prAborted: '创建 PR 已中止', prRetry: '重试', prClose: '关闭',
             tool_list_uiv_scripts: '查找抓取脚本', tool_read_uiv_script: '读取抓取脚本', tool_save_uiv_script: '保存抓取脚本', tool_delete_uiv_script: '删除抓取脚本',
             tool_list_uiv_categories: '查看脚本分类与站点', tool_move_uiv_script: '移动脚本分类', tool_manage_uiv_category: '管理脚本分类',
+            categoryTasks: '任务', categorySpaces: '空间', newChatInWorkspace: '新建任务',
             workspaceDisabled: '工作区仅在本机或管理员账号下可用'
         },
         'en-US': {
             messageExpand: 'Show more', messageCollapse: 'Show less',
+            categoryTasks: 'Tasks', categorySpaces: 'Workspaces', newChatInWorkspace: 'New task',
             ctxCompacted: 'Context compacted. Usage updates after the next reply.',
             slashCompact: 'Compact context while keeping the full history', compactRunning: 'Compacting context…', compactEmpty: 'Start a conversation before compacting its context', compactSmall: 'The context is already compact', compactDone: 'Context compacted. Full chat and tool history kept.', compactFailed: 'Could not compact context. History was not deleted.',
             slashSchedule: 'Run an instruction later or on a schedule (no args: list tasks)', slashPlan: 'Draft a step plan first, run it after you confirm', slashBtw: 'Quick side question that stays out of this chat',
@@ -73,7 +75,7 @@
             scheduleNew: 'New task', pushTo: 'Push to', pushAdd: '+ Pick WeLink/WeChat people or groups (optional)', pushAddMore: '+ Add', pushRemove: 'Remove', pushTitle: 'Push to', pushSearch: 'Search name or account (pinyin works)…', pushGroup: ' group', pushUser: ' contact', pushSelected: '{count} selected', pushHint: 'The result is pushed to them after it runs', pushDone: 'Done', pushEmpty: 'Nobody can be pushed to yet (contacts must chat with the assistant first; groups must have used it)', pushNoMatch: 'No matches', pushNoChannel: 'WeLink or WeChat is not connected yet', pushLimit: 'Pick up to 10', scheduleCreatedPush: ', then push to {names}', schedulePushTo: 'Push to {names}', schedulePushResult: 'Last push: {sent} sent, {failed} failed',
             datacomTitle: 'Datacom Protocol Expert', datacomDescription: 'Visual guides · Interactive labs · Videos',
             badge: 'All-round agent', newChat: 'New chat', history: 'History', attach: 'Attach files (Excel, CSV, Word, PowerPoint, text…, up to 20 MB each)', attachLabel: 'Attachments', attachUploading: 'Uploading…', attachFailed: 'Upload failed', attachRemove: 'Remove', attachTooMany: 'Up to 5 attachments at a time', attachPending: 'Attachments are still uploading', attachDrop: 'Drop to attach', exportLog: 'Export log', exportLogEmpty: 'Nothing saved in this chat yet. Send a message first.', exportLogDone: 'Chat log exported', exportLogFailed: 'Export failed', exportLogBusy: 'Export after the reply finishes so the log is complete', exportMenu: 'Export as', exportHtml: 'Web page (HTML)', exportHtmlDesc: 'Last {days} days, up to {count} messages. Looks like this chat, with tables, images and files', exportJson: 'Debug log (JSON)', exportJsonDesc: 'Full tool steps and model settings for troubleshooting', exportHtmlWorking: 'Packing the web page…', exportHtmlDone: 'Web page exported', exportHtmlSkipped: 'Web page exported; {count} large file(s) left out',
-            chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}', chatDelete: 'Delete chat', chatDeleteConfirm: 'Delete “{title}” and its messages? This cannot be undone.', chatDeleteFailed: 'Could not delete this chat. Try again later.', chatDeleted: 'Chat deleted',
+            chatToday: 'Today', chatYesterday: 'Yesterday', chatWeek: 'Previous 7 days', chatMonth: 'Previous 30 days', chatOlder: 'Older', chatEmpty: 'No chats yet. Send a message to start.', chatNoMatch: 'No matching chats', chatLoadFailed: 'Could not load chats', chatRetry: 'Retry', chatBusy: 'A reply is still being generated. Stop it before switching chats.', chatCount: '{count}', chatFolderTitle: 'Local folder: {root}', chatRunning: 'Working', chatDelete: 'Delete chat', chatDeleteConfirm: 'Delete “{title}” and its messages? This cannot be undone.', chatDeleteFailed: 'Could not delete this chat. Try again later.', chatDeleted: 'Chat deleted',
             activityThinking: 'Thinking…', activityCompacting: 'Context is nearly full; summarizing earlier steps…', compactDone: 'Context compacted automatically: {count} earlier entries were summarized (about {before} → {after} tokens). The full record stays in the session archive.', compactFailed: 'Automatic compaction failed ({error}); dropping the earliest turns instead', thinkLabel: 'Thinking', thinkDone: 'Thought for', thinkPhase_ponder: 'Pondering', thinkPhase_plan: 'Planning', thinkPhase_search: 'Searching', thinkPhase_analyze: 'Analyzing', thinkPhase_calc: 'Calculating', thinkPhase_verify: 'Verifying', thinkPhase_code: 'Coding', thinkPhase_conclude: 'Concluding', activityTool: 'Working: {tool}…', activityOrganizing: 'Putting results together…', activityResponding: 'Composing a reply…', activityApproval: 'Waiting for your approval…',
             resumeTitle: 'Continue last chat', resumeMeta: '{time} · {count} messages', resumeAction: 'Continue', resumeBanner: 'Resumed your last chat · {time}', resumeDivider: 'Earlier messages above. Keep typing to continue.', resumeFailed: 'Could not load the last chat. Try again later.', toolOutput: 'Show output', toolArtifact: 'Full result ({lines} lines)', toolInterrupted: 'Not finished', sessionTitle: 'Chat history', sessionSearch: 'Search conversations…', sessionEmpty: 'No previous chats yet', sessionNoMatch: 'No matching chats', sessionLoading: 'Loading…', sessionMeta: '{time} · {count} messages', sessionArchived: 'Archived', sessionCurrent: 'Current', sessionHint: '↑↓ to move · Enter to open · Esc to close', sessionLoadFailed: 'Could not load chat history. Try again later.', slashSession: 'Browse and resume previous chats', slashNew: 'Start a new chat', slashHint: '↑↓ to choose · Enter to run · Tab to complete', resumeDirMissing: 'The previous folder "{name}" could not be opened. The chat is restored; choose a folder again.', externalTag: 'External', commandTag: 'Command', commandChangeHint: 'Changed by a command the agent ran; can be undone', riskTitle: 'This command may reach outside the folder or touch sensitive files; your current approval mode requires confirmation', revertConflictTitle: 'File changed again', revertConflictMessage: '{path} was modified again after this change (by hand or another program). Undoing restores the earlier version and discards those later edits.', revertConflictConfirm: 'Undo anyway', binaryChange: 'Binary', binaryChangeHint: 'A binary file (such as a database or image) changed; there are no text lines to compare', externalChange: 'Other changes in the working tree (manual or by other programs). You can view the diff but not undo it here.', backToTools: 'Browse tools', browseTools: 'Browse all tools',
             tagline: 'I’m Dragon Claw, your all-round agent. Ask me anything, or let me show you around the tools on this platform.',
@@ -89,7 +91,7 @@
             askHow: 'How do I get started with “{name}” ({href})? Give concrete steps and caveats.',
             promptLogic: 'Explain the code behind “{name}”', promptMetrics: 'Which metrics missed target this month?',
             promptMail: 'Draft a polite follow-up reminder email', promptCode: 'Write a Python script to dedupe an Excel file',
-            stopped: 'Generation stopped', copy: 'Copy', copied: 'Copied', retry: 'Send again', skillPickDir: 'Choose a folder', usageText: 'In {input} · Out {output} tokens', usageTitle: 'This reply used {input} input tokens and {output} output tokens', historyMore: 'Load earlier messages', historyLoading: 'Loading earlier messages…', historyFailed: 'Could not load. Click to retry', unavailable: 'The agent is still loading. Please retry in a moment or refresh the page.',
+            stopped: 'Generation stopped', copy: 'Copy', copied: 'Copied', retry: 'Send again', skillPickDir: 'Choose a folder', usageText: 'In {input} · Out {output} tokens', speedTitle: 'Generation speed (tokens/s): min {min} / avg {avg} / max {max} over {rounds} model calls; first token {ttft}s', speedEstimated: ' (some token counts are estimated)', speedRounds: '{n} calls', usageTitle: 'This reply used {input} input tokens and {output} output tokens', historyMore: 'Load earlier messages', historyLoading: 'Loading earlier messages…', historyFailed: 'Could not load. Click to retry', unavailable: 'The agent is still loading. Please retry in a moment or refresh the page.',
             modelLabel: 'Choose model', modelMenuTitle: 'Model', modelMenuHint: 'Changes apply from your next message',
             modelDefault: 'Default model', modelNextMessage: 'Switched to {name}. Applies from your next message.',
             modelSwitched: 'Switched to {name}', modelCurrent: 'Current model: {name}',
@@ -102,10 +104,10 @@
             dirReady: 'Directory exists and can be selected', notDir: 'This is a file, not a directory', dirNotFound: 'Directory not found; keep typing or pick a suggestion',
             groupHome: 'Home', groupRoot: 'Root', recentDirs: 'Recent', workspaceReady: 'Workspace switched to {name}',
             branch: 'Branch', noBranch: 'Not a Git repository', permission: 'Permissions',
-            modeAsk: 'Ask to approve', modeAskDesc: 'Writes, deletes, renames and commands always ask first', modeAuto: 'Approve for me', modeAutoDesc: 'Reads and writes run automatically; deletes, renames and commands still ask', modeFull: 'Full access', modeFullDesc: 'Everything runs without asking; commands run with this computer account\'s permissions, not limited to the folder', readOnlyMode: 'Read-only', readOnlyDesc: 'This account is not an administrator: you can view and search files, but not edit, delete, rename or run commands',
+            modeAsk: 'Ask to approve', modeAskDesc: 'Writes, deletes, renames and commands always ask first', modeAuto: 'Auto approve', modeAutoDesc: 'Reads and writes run automatically; deletes, renames and commands still ask', modeFull: 'Full access', modeFullDesc: 'Everything runs without asking; commands run with this computer account\'s permissions, not limited to the folder', readOnlyMode: 'Read-only', readOnlyDesc: 'This account is not an administrator: you can view and search files, but not edit, delete, rename or run commands',
             modeChanged: 'Permission mode set to "{mode}"', approvalTitle: 'Dragon Claw wants to {tool}', allow: 'Allow', deny: 'Deny', alwaysAllow: 'Always allow this session',
             approved: 'Allowed', approvedAlways: 'Allowed (no more prompts this session)', dangerTitle: 'Dangerous action: {labels} (asked even with full access)', dangerNever: "Don't ask again", dangerScope: 'Where to stop asking', scope_session: 'This chat', scope_workspace: 'This folder', scope_global: 'Always (incl. channels)', approvedDanger: 'Allowed; no more prompts for this kind ({scope})', subRunning: 'Researching', subDone: 'Done', subFailed: 'Failed', subStopped: 'Stopped', subWaiting: 'Heading out…', subTools: '{count} tool calls', subTokens: '{count} tokens', subMore: '…{count} earlier calls', subTask: 'Brief', subToolsTitle: 'Tool calls', subResult: 'Findings', subGroup: 'Sent {count} subagents', subGroupRunning: '{count} still researching', subGroupDone: 'All back', subDefaultName: 'Subagent', tool_task: 'Subagent', continueTitle: 'The last turn did not finish', continueHint: 'It stopped when the server restarted or crashed; the finished steps are saved', continueAction: 'Continue', rewindAction: 'Rewind to before this turn', rewindFiles: '{count} files', rewindTitle: 'Restore the {count}+ files changed in this and later turns to how they were before this turn', rewindConfirmTitle: 'Rewind to before this turn?', rewindConfirm: 'Files changed in this turn go back to how they were before it:', rewindConfirmLater: 'Files changed in this turn and the {count} turns after it go back to how they were before this turn; later edits are discarded:', rewindMoreFiles: '…and {count} more files', rewindDone: 'Rewound {count} files', rewindSkipped: '{count} files had no snapshot and were not restored', continuePrompt: 'Continue the interrupted task from the last turn: first check the actual state of any step without a result, do not repeat writes that already happened, then carry on with the remaining steps.', denied: 'Denied', approvalTimeout: 'Approval timed out, not executed', approvalAborted: 'Task stopped', inDir: 'in', recursive: 'recursive',
-            tool_list_directory: 'list directory', tool_read_file: 'read file', tool_search: 'search', tool_list_databases: 'list databases', tool_database_schema: 'inspect database schema', tool_read_database_table: 'read business table', tool_insert_database_row: 'insert business data', tool_update_database_rows: 'update business data', tool_delete_database_rows: 'delete business data', tool_write_file: 'write file', tool_edit_file: 'edit file', tool_delete_path: 'delete', tool_rename_path: 'move/rename', tool_run_command: 'run command', tool_welink_list_targets: 'list WeLink contacts', tool_welink_send_message: 'send a WeLink message', tool_welink_query: 'WeLink query', tool_welink_action: 'WeLink action', tool_netcare_tables: 'NetCare tables', tool_netcare_describe: 'NetCare schema', tool_netcare_query: 'NetCare query', tool_netcare_sql: 'NetCare SQL', tool_tool_search: 'load tools', tool_ops_overview: 'ops overview', tool_ops_list_targets: 'list push targets', tool_ops_save_group: 'save ops group', tool_ops_list_presets: 'list ops templates', tool_ops_remove_group: 'remove ops group', tool_ops_save_plan: 'save ops plan', tool_ops_delete_plan: 'delete ops plan', tool_ops_preview: 'draft ops message', tool_ops_test_send: 'ops test push', tool_ops_update_draft: 'edit ops draft', tool_ops_send_draft: 'push ops draft', tool_ops_discard_draft: 'discard ops draft', tool_ops_list_runs: 'list push records', tool_ops_materials: 'list ops materials', tool_ops_save_settings: 'save ops style guide', tool_load_skill: 'load skill', tool_calculate: 'calculate', tool_read_document: 'read document', tool_query_data: 'query table', tool_diff_files: 'compare', tool_multi_edit: 'multi edit', tool_zip_files: 'zip', tool_unzip_file: 'unzip', tool_memory: 'memory', tool_view_image: 'view image', tool_browser_navigate: 'open page', tool_browser_snapshot: 'read page', tool_browser_click: 'click', tool_browser_type: 'type', tool_browser_scroll: 'scroll', tool_browser_wait: 'wait', tool_browser_network: 'network requests', tool_browser_network_body: 'response body', tool_browser_console: 'page console', tool_browser_screenshot: 'screenshot', tool_browser_tabs: 'browser tabs', tool_browser_evaluate: 'page script', todoTitle: 'Tasks', questionHint: 'Pick an answer, or reply in the input box', approvalCommand: 'Show full command',
+            tool_list_directory: 'list directory', tool_save_skill: 'save skill', tool_read_skill: 'read skill', tool_find_platform_tools: 'find platform tools', tool_read_tool_guide: 'tool guide', tool_read_file: 'read file', tool_search: 'search', tool_list_databases: 'list databases', tool_database_schema: 'inspect database schema', tool_read_database_table: 'read business table', tool_insert_database_row: 'insert business data', tool_update_database_rows: 'update business data', tool_delete_database_rows: 'delete business data', tool_write_file: 'write file', tool_edit_file: 'edit file', tool_delete_path: 'delete', tool_rename_path: 'move/rename', tool_run_command: 'run command', tool_welink_list_targets: 'list WeLink contacts', tool_welink_send_message: 'send a WeLink message', tool_welink_query: 'WeLink query', tool_welink_action: 'WeLink action', tool_netcare_tables: 'NetCare tables', tool_netcare_describe: 'NetCare schema', tool_netcare_query: 'NetCare query', tool_netcare_sql: 'NetCare SQL', tool_tool_search: 'load tools', tool_ops_overview: 'ops overview', tool_ops_list_targets: 'list push targets', tool_ops_save_group: 'save ops group', tool_ops_list_presets: 'list ops templates', tool_ops_remove_group: 'remove ops group', tool_ops_save_plan: 'save ops plan', tool_ops_delete_plan: 'delete ops plan', tool_ops_preview: 'draft ops message', tool_ops_test_send: 'ops test push', tool_ops_update_draft: 'edit ops draft', tool_ops_send_draft: 'push ops draft', tool_ops_discard_draft: 'discard ops draft', tool_ops_list_runs: 'list push records', tool_ops_materials: 'list ops materials', tool_ops_save_settings: 'save ops style guide', tool_load_skill: 'load skill', tool_calculate: 'calculate', tool_read_document: 'read document', tool_query_data: 'query table', tool_diff_files: 'compare', tool_multi_edit: 'multi edit', tool_zip_files: 'zip', tool_unzip_file: 'unzip', tool_memory: 'memory', tool_view_image: 'view image', tool_browser_navigate: 'open page', tool_browser_snapshot: 'read page', tool_browser_click: 'click', tool_browser_type: 'type', tool_browser_scroll: 'scroll', tool_browser_wait: 'wait', tool_browser_network: 'network requests', tool_browser_network_body: 'response body', tool_browser_console: 'page console', tool_browser_screenshot: 'screenshot', tool_browser_tabs: 'browser tabs', tool_browser_evaluate: 'page script', todoTitle: 'Tasks', questionHint: 'Pick an answer, or reply in the input box', approvalCommand: 'Show full command',
             ctxUsed: '{percent}% used', ctxMessages: 'Messages', ctxToolResults: 'Tool results', ctxDirectory: 'Directory context', ctxSystem: 'System prompt', ctxSkills: 'Skills', ctxTools: 'Tool definitions', ctxReserve: 'Compaction reserve', ctxFree: 'Free space', ctxCache: 'Cache hit {percent}% · {tokens}', ctxCacheNone: 'No cache hit this time', ctxDeferredTools: '{loaded} tools loaded, {count} more load on demand (about {tokens}, not counted)', ctxWindowConfigured: 'Window size from the model settings', ctxWindowModel: 'Window size guessed from the model name; set the exact value in AI model settings',
             ctxEmpty: 'Context usage appears after your first message', ctxNoWorkspace: 'Pick a directory to see the context breakdown here', ctxSourceProvider: 'Based on the model’s reported usage; parts scaled from estimates', ctxSourceEstimate: 'Estimated from characters (≈3.5 chars per token)',
             filePreview: 'Preview', fileCode: 'Code', fileExpand: 'Expand', fileCollapse: 'Restore', fileDownload: 'Download', fileLoading: 'Reading file…', fileLines: '{count} lines', fileSandboxHint: 'The preview runs in an isolated sandbox without access to your sign-in; relative assets next to the file are not loaded', fileShowHint: 'View {path}', noChanges: 'No files changed in this session', changesShowMore: 'Show {count} more changes', changesShowLess: 'Show fewer changes', viewDiff: 'View diff', revert: 'Revert', reverted: 'Reverted {path}', diffEmpty: '(no text difference)', createPr: 'Create PR',
@@ -118,7 +120,7 @@
             workspaceDisabled: 'Workspace is available on this machine or for admins only'
         }
     };
-    const AVATAR = './tp-static/frontend/assets/dragon-claw-avatar.jpg';
+    const AVATAR = './tp-static/frontend/assets/logo.png';
     const SPOTLIGHT_SIZE = 8;
     const CONTEXT_MAX_CHARS = 11000;
     const MODEL_STORAGE_KEY = 'dragon_claw_model';
@@ -276,6 +278,7 @@
     }
 
     function buildSpotlight() {
+        if (document.documentElement.dataset.ui === 'v2') { renderSpotlight(); return; }
         const all = tools().filter(tool => tool.href && tool.title);
         const caps = capabilityTools().filter(tool => tool.href && tool.title);
         const signature = [...all, ...caps].map(tool => tool.id).sort().join('|');
@@ -310,7 +313,7 @@
 
     function renderSpotlight() {
         const items = state.spotlight;
-        if (!items.length || isSpotlightDismissed()) {
+        if (document.documentElement.dataset.ui === 'v2' || !items.length || isSpotlightDismissed()) {
             el.spotlight.hidden = true;
             el.spotlight.replaceChildren(); // 同时停止轮播动画，避免关闭后继续切换。
             return;
@@ -403,25 +406,44 @@
         renderModelPicker();
     }
 
+    // Monochrome family symbols inherit the current theme, with no external image requests.
+    function modelSymbol(model) {
+        const name = `${model?.name || ''} ${model?.provider === 'openai-compatible' ? '' : model?.provider || ''}`.toLowerCase();
+        let family = 'generic', shape = '<path d="m10 2 7 4v8l-7 4-7-4V6l7-4Z"/><path d="m3 6 7 4 7-4M10 10v8"/>';
+        if (/deepseek/.test(name)) { family = 'deepseek'; shape = '<path d="M3 9c2-3 8-4 12-1l3-3v6c0 5-7 7-11 4-3-2-4-4-4-6Z"/><path d="m7 7-2-3M12 10h.1M5 14l-3 2"/>'; }
+        else if (/claude|anthropic/.test(name)) { family = 'claude'; shape = '<path d="m10 2 1 5 4-4-2 5 5-1-5 3 5 2-5 1 2 4-4-3-1 4-2-5-4 3 2-5-4-1 5-2-3-4 5 2-1-5Z"/>'; }
+        else if (/gemini|google/.test(name)) { family = 'gemini'; shape = '<path d="M10 1c0 5-4 9-9 9 5 0 9 4 9 9 0-5 4-9 9-9-5 0-9-4-9-9Z"/>'; }
+        else if (/qwen|通义/.test(name)) { family = 'qwen'; shape = '<path d="m10 2 3 5 5 1-4 4 .5 6-4.5-3L5.5 18 6 12 2 8l5-1 3-5Z"/>'; }
+        else if (/glm|chatglm/.test(name)) { family = 'glm'; shape = '<path d="M4 4h12L5 16h12M3 8h8M9 12h8"/>'; }
+        else if (/kimi|moonshot/.test(name)) { family = 'kimi'; shape = '<path d="M5 3v14M15 3l-8 7 8 7"/>'; }
+        else if (/minimax/.test(name)) { family = 'minimax'; shape = '<path d="M2 15V5l4 7 4-7v10M12 15V5l3 5 3-5v10"/>'; }
+        else if (/gpt|openai/.test(name)) { family = 'openai'; shape = '<path d="m10 2 5 3v6l-5 3-5-3V5l5-3Z"/><path d="m5 6-3 5 3 6h6l5-3 2-6-4-4M5 11l5-3 5 3M10 8v6"/>'; }
+        return `<span class="dc-model-icon" data-model-family="${family}" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round">${shape}</svg></span>`;
+    }
+
     function renderModelPicker() {
         const model = currentModel();
-        el.model.hidden = !model;
-        if (!model) return;
-        el.modelName.textContent = model.name;
-        el.modelBtn.title = tx('modelCurrent', { name: model.name });
-        el.modelBtn.setAttribute('aria-label', `${tx('modelLabel')} · ${model.name}`);
-        el.modelBtn.disabled = state.models.length < 2;
+        const admin = localStorage.getItem('tools_role') === 'admin';
+        el.model.hidden = !model && !admin;
+        el.model.dataset.modelId = model?.id || '';
+        el.modelName.textContent = model?.name || (lang() === 'en-US' ? 'Configure model' : '配置模型');
+        el.modelBtn.querySelector('.dc-model-icon')?.remove();
+        el.modelBtn.insertAdjacentHTML('afterbegin', modelSymbol(model));
+        el.modelBtn.title = model ? tx('modelCurrent', { name: model.name }) : el.modelName.textContent;
+        el.modelBtn.setAttribute('aria-label', `${tx('modelLabel')} · ${el.modelName.textContent}`);
+        el.modelBtn.disabled = false;
         el.modelMenu.setAttribute('aria-label', tx('modelLabel'));
         el.modelMenu.innerHTML = `
             <div class="dc-model-menu-head"><b>${escapeHtml(tx('modelMenuTitle'))}</b><span>${escapeHtml(tx('modelMenuHint'))}</span></div>
-            ${state.models.map(item => {
-                const selected = item.id === model.id;
-                const description = item.description || (item.id === state.defaultModelId ? tx('modelDefault') : '');
+            <div class="dc-model-options" role="listbox" aria-label="${escapeHtml(tx('modelLabel'))}">${state.models.map(item => {
+                const selected = item.id === model?.id;
+                const description = [item.provider, item.description, item.id === state.defaultModelId ? tx('modelDefault') : ''].filter(Boolean).join(' · ');
                 return `<button type="button" class="dc-model-option${selected ? ' is-selected' : ''}" role="option" aria-selected="${selected}" data-dc-model="${escapeHtml(item.id)}">
-                    <span class="dc-model-option-text"><span class="dc-model-option-name">${escapeHtml(item.name)}</span>${description ? `<span class="dc-model-option-desc">${escapeHtml(description)}</span>` : ''}</span>
+                    ${modelSymbol(item)}<span class="dc-model-option-text"><span class="dc-model-option-name">${escapeHtml(item.name)}</span>${description ? `<span class="dc-model-option-desc">${escapeHtml(description)}</span>` : ''}</span>
                     <svg class="dc-model-check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5 6.5 11.5 12.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
                 </button>`;
-            }).join('')}`;
+            }).join('') || `<p class="dc-model-empty">${lang() === 'en-US' ? 'No available models' : '暂无可用模型'}</p>`}</div>
+            ${admin ? `<div class="dc-model-menu-footer"><button type="button" data-dc-configure-model><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m12 4 4 4M4 12l9-9 4 4-9 9-5 1 1-5Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg><span>${lang() === 'en-US' ? 'Configure custom models' : '配置自定义模型'}</span></button></div>` : ''}`;
     }
 
     function modelMenuOpen() {
@@ -494,11 +516,13 @@
     async function exportChatHtml() {
         if (!state.sessionId || !el.thread.querySelector('.dc-msg')) { showToast(tx('exportLogEmpty')); return; }
         if (state.controller) { showToast(tx('exportLogBusy')); return; }
-        if (exportMenu.busy || !window.DragonClawExport) return;
+        if (exportMenu.busy) return;
         exportMenu.busy = true;
         exportMenu.button.disabled = true;
         showToast(tx('exportHtmlWorking'));
         try {
+            // 导出组件只在导出时才用到，首次导出时按需加载
+            if (!window.DragonClawExport) await loadLazyScript('./tp-static/frontend/js/home/dragon-claw-export.js');
             const sessionId = state.sessionId;
             const range = await loadExportHistory();
             const { html, skipped, title } = await window.DragonClawExport.buildHtml({ thread: el.thread, range: { ...range, days: EXPORT_DAYS } });
@@ -586,9 +610,13 @@
         el.modelMenu.addEventListener('click', event => {
             const option = event.target.closest('[data-dc-model]');
             if (option) selectModel(option.dataset.dcModel);
+            if (event.target.closest('[data-dc-configure-model]')) {
+                toggleModelMenu(false);
+                window.openChatModelSettings?.().catch(error => showToast(error.message));
+            }
         });
         el.modelMenu.addEventListener('keydown', event => {
-            const options = [...el.modelMenu.querySelectorAll('[data-dc-model]')];
+            const options = [...el.modelMenu.querySelectorAll('[data-dc-model], [data-dc-configure-model]')];
             const index = options.indexOf(document.activeElement);
             if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                 event.preventDefault();
@@ -984,14 +1012,33 @@
         return `<button type="button" class="dc-msg-tool dc-msg-icon" ${attrs} title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">${ICONS[icon]}</button>`;
     }
 
-    function addMessageTools(message, text, { modelName = '', usage = null } = {}) {
+    // 每轮模型调用的速度汇总（与 backend/models/ai-round-tracker.js 的 summarizeRounds 一致）：平均 = 总输出 token ÷ 总生成时间
+    function speedSummary(rounds = []) {
+        const list = (Array.isArray(rounds) ? rounds : []).filter(round => round && Number(round.tps) > 0);
+        if (!list.length) return null;
+        const speeds = list.map(round => Number(round.tps));
+        const output = list.reduce((sum, round) => sum + (Number(round.outputTokens) || 0), 0);
+        const ms = list.reduce((sum, round) => sum + (Number(round.generationMs) || 0), 0);
+        const ttft = list.map(round => Number(round.ttftMs)).filter(value => Number.isFinite(value) && value >= 0);
+        return {
+            rounds: rounds.length, min: Math.min(...speeds), max: Math.max(...speeds),
+            avg: ms > 0 ? output / (ms / 1000) : speeds.reduce((a, b) => a + b, 0) / speeds.length,
+            ttft: ttft.length ? ttft[0] : null, estimated: list.some(round => round.estimated)
+        };
+    }
+    const fmtTps = value => (value >= 100 ? Math.round(value) : Math.round(value * 10) / 10).toString();
+
+    function addMessageTools(message, text, { modelName = '', usage = null, rounds = null } = {}) {
         const bar = document.createElement('div');
         bar.className = 'dc-msg-tools';
         const input = Number(usage?.inputTokens || 0);
         const output = Number(usage?.outputTokens || 0);
+        const speed = speedSummary(rounds);
+        if (Array.isArray(rounds) && rounds.length) message.dcRounds = rounds;
         bar.innerHTML = `${iconButton('copy', tx('copy'), 'data-dc-copy')}
             ${modelName ? `<span class="dc-msg-model" title="${escapeHtml(tx('modelCurrent', { name: modelName }))}">${escapeHtml(modelName)}</span>` : ''}
-            ${input || output ? `<span class="dc-msg-usage" title="${escapeHtml(tx('usageTitle', { input: input.toLocaleString(), output: output.toLocaleString() }))}">${escapeHtml(tx('usageText', { input: formatTokenCount(input), output: formatTokenCount(output) }))}</span>` : ''}`;
+            ${input || output ? `<span class="dc-msg-usage" title="${escapeHtml(tx('usageTitle', { input: input.toLocaleString(), output: output.toLocaleString() }))}">${escapeHtml(tx('usageText', { input: formatTokenCount(input), output: formatTokenCount(output) }))}</span>` : ''}
+            ${speed ? `<span class="dc-msg-speed" title="${escapeHtml(tx('speedTitle', { min: fmtTps(speed.min), avg: fmtTps(speed.avg), max: fmtTps(speed.max), rounds: speed.rounds, ttft: speed.ttft === null ? '-' : (speed.ttft / 1000).toFixed(1) }) + (speed.estimated ? tx('speedEstimated') : ''))}">${escapeHtml(`${fmtTps(speed.min)}/${fmtTps(speed.avg)}/${fmtTps(speed.max)} tok/s`)}${speed.rounds > 1 ? ` · ${escapeHtml(tx('speedRounds', { n: speed.rounds }))}` : ''}</span>` : ''}`;
         bar.querySelector('[data-dc-copy]').dataset.dcCopy = text;
         message.querySelector('.dc-msg-main').appendChild(bar);
     }
@@ -1158,6 +1205,7 @@
         // 生成中输入了 /btw、/schedule：按钮恢复为发送（这类命令不打断当前回复）
         const generating = Boolean(state.controller) && !isSideCommand(el.input.value);
         el.form.classList.toggle('is-generating', generating);
+        markRunningChats();
         el.send.setAttribute('aria-label', generating ? tx('stop') : tx('send'));
         el.send.title = generating ? tx('stop') : tx('send');
         const readyAttachments = !external.active && state.attachments.some(item => item.status === 'ready');
@@ -1741,6 +1789,7 @@
     async function sendDesktopDiscussion(content,resumeJob=null) {
         const plugin=window.HomeAgentDiscussion;
         try{if(!resumeJob)plugin.validate(content);}catch(error){showToast(error.message);return;}
+        plugin.lock?.();
         const epoch=resumeEpoch,controller=new AbortController();state.controller=controller;
         setChatting(true);if(!resumeJob){addMessage('user',content);state.messages.push({role:'user',content});}
         const reply=addMessage('ai'),activity=showThinking(reply);let started=false;
@@ -1833,6 +1882,22 @@
         if (state.controller || state.restoring) return;
         if (runSlashCommand(content)) return;
         if (window.HomeAgentDiscussion?.handles(content)) return sendDesktopDiscussion(content);
+        const connector = window.HomeAgentDiscussion;
+        const activeConn = connector?.getSelectedConnector?.();
+        try { connector?.validateSelection?.(); } catch(error) { showToast(error.message);return; }
+        if (activeConn?.startsWith('desktop:')) {
+            const provider = activeConn.slice(8);
+            if (!window.HomeDesktopAgents?.newChat?.({provider,force:true})) { showToast(lang()==='en-US'?'The agent is unavailable. Check its connection.':'智能体尚未就绪，请检查连接');return; }
+            return sendExternal(content);
+        }
+        if (activeConn === 'weixin' || activeConn === 'welink') {
+            return window.HomeWelinkThreads?.composeNew?.(activeConn, content);
+        }
+        const homeConnector = connector?.homeConnector?.() || '';
+        if (homeConnector && workspace()?.getWorkspacePayload?.()) {
+            showToast(lang() === 'en-US' ? 'This connector uses a regular chat. Deselect the local workspace first.' : '此连接器用于普通对话，请先取消本地工作区'); return;
+        }
+        connector?.lock?.();
         el.thread.querySelectorAll('.dc-plan-actions').forEach(node => node.remove()); // 计划确认按钮只对最新一条计划有效
         el.thread.querySelectorAll('.dc-question:not(.is-history)').forEach(card => { card.classList.add('is-history'); card.querySelectorAll('[data-answer]').forEach(node => { node.disabled = true; }); }); // 用户自己回复后，旧问题的选项失效
         setChatting(true);
@@ -1885,6 +1950,7 @@
                 uiLanguage: lang() === 'en-US' ? 'en' : 'zh',
                 sessionId: state.sessionId,
                 agent: 'dragon-claw-home',
+                ...(homeConnector ? { homeConnector } : {}),
                 // 会话内保持的 Skill（输入框上方标签）；本条消息里的 @id 由后端直接解析
                 ...(keptSkills.length ? { skills: keptSkills } : {}),
                 ...(model ? { modelId: model.id } : {}),
@@ -1899,11 +1965,14 @@
                 },
                 onStatus: status => activity.status(status),
                 onEvent: event => {
+                    // 模型精简好的对话名称：刷新侧栏（切走了也照样更新）
+                    if (event.type === 'title') { scheduleChatListRefresh(100); return; }
                     if (controller.signal.aborted || !reply.isConnected) return;
                     if (event.type === 'start' && event.sessionId) {
                         state.sessionId = event.sessionId;
                         rememberLastChat(event.sessionId, workspacePayload ? { agentSessionId: workspacePayload.agentSessionId, root: workspacePayload.root } : null);
                     }
+                    if (event.type === 'model_round' && event.round) (reply.dcLiveRounds ||= []).push(event.round);
                     if (event.type === 'tac' && event.status === 'queued') watchTac(event.id);
                     window.DragonClawSkills?.handleEvent(reply, event);
                     workspace()?.handleEvent(reply, event, workspacePayload);
@@ -1921,7 +1990,7 @@
             state.messages.push({ role: 'model', content: finalText });
             const grounding = api.renderGrounding ? api.renderGrounding(data.grounding) : '';
             if (grounding) reply.querySelector('.dc-msg-main').insertAdjacentHTML('beforeend', grounding);
-            addMessageTools(reply, finalText, { modelName: data.model?.name || model?.name || '', usage: data.usage });
+            addMessageTools(reply, finalText, { modelName: data.model?.name || model?.name || '', usage: data.usage, rounds: data.rounds || reply.dcLiveRounds });
             const skillCardScrollTop = nearBottom() ? el.thread.scrollTop : null;
             await window.DragonClawSkills?.offerSave?.(reply, finalText); // 等待保存/恢复卡片挂载，再结束生成
             if (skillCardScrollTop !== null && Math.abs(el.thread.scrollTop - skillCardScrollTop) < 2) scrollThread(true);
@@ -2069,7 +2138,8 @@
             if (Array.isArray(events) && events.length) workspace()?.replayEvents?.(message, events);
             const skillIds = (Array.isArray(events) ? events : []).find(event => event?.type === 'skills')?.skills;
             if (skillIds?.length) window.DragonClawSkills?.badge?.(message, skillIds);
-            addMessageTools(message, text, { modelName: item.model_name || '', usage: { inputTokens: item.input_tokens, outputTokens: item.output_tokens } });
+            const rounds = (Array.isArray(events) ? events : []).filter(event => event?.type === 'model_round' && event.round).map(event => event.round);
+            addMessageTools(message, text, { modelName: item.model_name || '', usage: { inputTokens: item.input_tokens, outputTokens: item.output_tokens }, rounds });
             window.DragonClawSkills?.offerSave?.(message, text);
         } else {
             addUserTools(message, text);
@@ -2173,7 +2243,8 @@
             state.messages = resume.items.map(item => ({ role: item.role === 'model' ? 'model' : 'user', content: String(item.content) }));
             state.sessionId = resume.sessionId;
             const knownGroup=resume.discussionMode==='group'||chatList.items.some(item=>item.id===resume.sessionId&&item.discussionMode==='group')||resume.items.some(item=>item.events?.some(event=>event.type==='desktop-discussion'));
-            await window.HomeAgentDiscussion?.activateSession?.(resume.sessionId,{group:knownGroup});
+            const boundConnector = resume.items.flatMap(item => item.events || []).filter(event => event.type === 'connector').at(-1)?.id || '';
+            await window.HomeAgentDiscussion?.activateSession?.(resume.sessionId,{group:knownGroup,connector:boundConnector});
             if(epoch!==resumeEpoch)return;
             state.focusedTool = null;
             resetHistoryPaging();
@@ -2272,7 +2343,7 @@
             return;
         }
         list.innerHTML = sessionPicker.items.map((item, index) => {
-            const title = item.firstQuestion || item.lastQuestion || item.id;
+            const title = item.title || item.firstQuestion || item.lastQuestion || item.id;
             const folder = item.agent?.root ? item.agent.root.split(/[\\/]/).filter(Boolean).pop() : '';
             return `<button type="button" class="dc-session-item${index === sessionPicker.active ? ' is-active' : ''}" role="option" aria-selected="${index === sessionPicker.active}" data-dc-session="${index}">
                 <span class="dc-session-title">${escapeHtml(title)}${item.id === state.sessionId ? `<em class="dc-session-tag is-current">${escapeHtml(tx('sessionCurrent'))}</em>` : ''}${item.archived ? `<em class="dc-session-tag">${escapeHtml(tx('sessionArchived'))}</em>` : ''}</span>
@@ -2303,6 +2374,7 @@
     async function openSession(item) {
         if (!item || state.controller) return;
         const epoch = ++resumeEpoch;
+        window.HomeAgentDiscussion?.activateSession?.(item.id,{group:item.discussionMode==='group'});
         closeSessionPicker();
         exitExternal();
         workspace()?.resetSession?.();
@@ -2395,7 +2467,157 @@
         return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
     }
 
-    function ownedListConfig() { return {source:'mine',items:chatList.items,id:item=>item.id,date:item=>item.updatedAt,title:item=>String(item.firstQuestion||item.lastQuestion||item.id).replace(/\s+/g,' ').trim(),selector:'[data-chat-index]',index:'chatIndex',onDelete:deleteChatFromList}; }
+    const WX_ICON_SVG = '<svg viewBox="0 0 24 24"><path d="M9.5 4C5.36 4 2 6.91 2 10.5c0 1.93.9 3.68 2.34 4.88-.13.62-.51 2.05-.62 2.45-.16.58.26.47.53.33.45-.24 2.1-1.39 2.53-1.68.73.22 1.48.32 2.22.32h.5c-.13-.42-.2-.86-.2-1.3 0-3.31 3.13-6 7-6 .17 0 .33 0 .5.02C16.14 6.27 13.06 4 9.5 4zm-2.25 4a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5zm5 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5zm3.75 3.5c-3.31 0-6 2.24-6 5s2.69 5 6 5c.61 0 1.22-.08 1.8-.25.35.24 1.7 1.17 2.07 1.36.22.11.56.2.43-.27-.09-.33-.4-1.48-.5-1.98 1.18-.97 1.9-2.39 1.9-3.86 0-2.76-2.69-5-6-5zm-1.75 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3.75 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg>';
+    const WL_ICON_SVG = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 14.93V19h-2v-2.07c-2.83-.48-5-2.94-5-5.93 0-3.31 2.69-6 6-6s6 2.69 6 6c0 2.99-2.17 5.45-5 5.93zM12 8c-2.21 0-4 1.79-4 4 0 1.86 1.28 3.41 3 3.86V8.14C11.67 8.05 11.83 8 12 8zm1 7.86c1.72-.45 3-2 3-3.86 0-2.21-1.79-4-4-4-.17 0-.33.05-.5.09v7.72c.17.03.33.05.5.05z"/></svg>';
+    const TAC_ICON_SVG = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3" r="2"/><circle cx="3" cy="12" r="2"/><circle cx="13" cy="12" r="2"/><path d="M7 5 4 10m5-5 3 5M5 12h6" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>';
+
+    function isUnifiedMode() {
+        if (document.documentElement.dataset.ui === 'v2') return true;
+        const tabs = document.querySelector('.home-chat-tabs');
+        if (tabs && !tabs.hidden && getComputedStyle(tabs).display !== 'none') return false;
+        return true;
+    }
+
+    function buildUnifiedChatItems() {
+        const unified = [];
+        // 1. 本地 Dragon Claw 对话
+        for (const item of chatList.items) {
+            unified.push({
+                id: item.id,
+                _id: item.id,
+                _sourceType: 'mine',
+                _raw: item,
+                title: String(item.title || item.firstQuestion || item.lastQuestion || item.id).replace(/\s+/g, ' ').trim(),
+                updatedAt: item.updatedAt,
+                discussionMode: item.discussionMode,
+                agent: item.agent
+            });
+        }
+        if (!isUnifiedMode()) return unified;
+        // 2. 桌面 Agent 会话 (Codex, Claude Code, Antigravity)
+        const desktopItems = window.HomeDesktopAgents?.getItems?.() || [];
+        for (const item of desktopItems) {
+            unified.push({
+                _id: 'desktop:' + item.provider + ':' + item.id,
+                _sourceType: item.provider, // 'codex', 'claudecode', 'antigravity'
+                _raw: item,
+                title: item.title || item.id,
+                updatedAt: item.updatedAt,
+                provider: item.provider,
+                cwd: item.cwd
+            });
+        }
+        // 3. 频道会话 (微信、WeLink)
+        const channelThreads = window.HomeWelinkThreads?.getAllThreads?.() || [];
+        for (const thread of channelThreads) {
+            const ch = thread.channel || 'welink';
+            unified.push({
+                _id: ch + ':' + thread.kind + ':' + thread.id,
+                _sourceType: ch, // 'weixin', 'welink'
+                _raw: thread,
+                title: thread.name || thread.id,
+                updatedAt: thread.lastActiveAt || thread.updatedAt,
+                channel: ch
+            });
+        }
+        return unified;
+    }
+
+    function isItemActive(entry) {
+        if (!entry) return false;
+        if (!entry._sourceType || entry._sourceType === 'mine') {
+            const id = entry._raw?.id || entry.id || entry._id;
+            return !external.active && id === state.sessionId;
+        }
+        if (['codex', 'claudecode', 'antigravity'].includes(entry._sourceType)) {
+            const activeSession = window.HomeDesktopAgents?.activeSession?.();
+            return Boolean(activeSession && activeSession.provider === entry.provider && activeSession.id === (entry._raw?.id || entry.id));
+        }
+        if (['weixin', 'welink'].includes(entry._sourceType)) {
+            const activeThread = window.HomeWelinkThreads?.active?.();
+            return Boolean(activeThread && activeThread.channel === entry.channel && activeThread.id === (entry._raw?.id || entry.id));
+        }
+        return false;
+    }
+
+    // 侧栏「正在回答」转圈：本页正在生成的 Dragon Claw 对话，以及仍在这一轮里的桌面 Agent 会话
+    function isItemRunning(entry) {
+        if (!entry) return false;
+        if (!entry._sourceType || entry._sourceType === 'mine') {
+            const id = entry._raw?.id || entry.id;
+            return Boolean(entry._raw?.busy || entry.busy) || (Boolean(state.controller) && !external.active && Boolean(state.sessionId) && id === state.sessionId);
+        }
+        if (['codex', 'claudecode', 'antigravity'].includes(entry._sourceType)) return Boolean(window.HomeDesktopAgents?.isBusy?.(entry.provider, entry._raw?.id || entry.id));
+        if (['weixin', 'welink'].includes(entry._sourceType)) return Boolean(entry._raw?.busy || entry.busy);
+        return false;
+    }
+
+    function markRunningChats() {
+        el.chatList?.querySelectorAll('[data-chat-index]').forEach(button => {
+            const running = isItemRunning(chatList.renderedItems?.[Number(button.dataset.chatIndex)]);
+            const row = button.closest('.home-chat-item') || button;
+            if (row.classList.contains('is-running') !== running) row.classList.toggle('is-running', running);
+        });
+    }
+
+    async function handleUnifiedDelete(entry) {
+        if (!entry) return;
+        if (entry._sourceType === 'mine') {
+            await deleteChatFromList(entry._raw);
+        } else {
+            const p = window.HomeConversationList?.get?.('mine', entry._id);
+            if (p) p.hidden = true;
+            renderChatList();
+        }
+    }
+
+    function ownedListConfig(items = (isUnifiedMode() ? buildUnifiedChatItems() : chatList.items)) {
+        return {
+            source: 'mine',
+            items: items,
+            query: el.chatSearch?.value.trim() || '',
+            id: item => item.id || item._id,
+            date: item => item.updated_at || item.created_at || item.updatedAt,
+            title: item => {
+                const pref = window.HomeConversationList?.get?.('mine', item.id || item._id);
+                if (pref?.title) return pref.title;
+                if (item.title) return item.title;
+                return String(item.firstQuestion || item.lastQuestion || item.id || '').replace(/\s+/g, ' ').trim().slice(0, 100);
+            },
+            selector: '[data-chat-index]',
+            index: 'chatIndex',
+            onDelete: isUnifiedMode() ? handleUnifiedDelete : deleteChatFromList
+        };
+    }
+
+    const collapsedProjects = new Set();
+    // 侧栏顶级分类「任务」「空间」各自折叠，记在本机
+    const SECTION_KEY = 'dc_sidebar_sections_collapsed';
+    const collapsedSections = new Set((() => { try { return JSON.parse(localStorage.getItem(SECTION_KEY) || '[]'); } catch { return []; } })());
+    function toggleSection(id) {
+        if (collapsedSections.has(id)) collapsedSections.delete(id);
+        else collapsedSections.add(id);
+        // 两个方向都回到初始深度，避免收起期间的异步刷新保留旧展开状态。
+        window.HomeConversationList?.resetScopes?.(el.chatList, key => key === id || (id === 'spaces' && key.startsWith('project:')));
+        if (id === 'spaces') collapsedProjects.clear();
+        try { localStorage.setItem(SECTION_KEY, JSON.stringify([...collapsedSections])); } catch { /* 无痕模式 */ }
+        renderChatList();
+    }
+    function sectionHead(id, label, count) {
+        const collapsed = collapsedSections.has(id);
+        return `<button type="button" class="home-chat-category" data-chat-section="${id}" aria-expanded="${!collapsed}"><span class="home-chat-category-chevron" aria-hidden="true"></span><span class="home-chat-category-title">${escapeHtml(label)}</span><span class="home-chat-category-count">(${count})</span></button>`;
+    }
+
+    function getChatDirectory(item) {
+        const root = item?.agent?.root || item?._raw?.agent?.root || item?.cwd || item?._raw?.cwd || '';
+        return typeof root === 'string' ? root.trim() : '';
+    }
+
+    function getDirectoryBaseName(fullPath) {
+        if (!fullPath) return '';
+        const parts = String(fullPath).replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean);
+        return parts[parts.length - 1] || fullPath;
+    }
 
     function renderChatList() {
         if (!el.chatList) return;
@@ -2407,38 +2629,185 @@
             el.chatList.innerHTML = `<div class="home-chat-empty">${escapeHtml(tx('chatLoadFailed'))}<button type="button" class="home-chat-retry" data-chat-retry>${escapeHtml(tx('chatRetry'))}</button></div>`;
             return;
         }
-        if (!chatList.items.length) {
+        const allItems = isUnifiedMode() ? buildUnifiedChatItems() : chatList.items;
+        if (!allItems.length) {
             el.chatList.innerHTML = `<div class="home-chat-empty">${escapeHtml(tx(el.chatSearch?.value.trim() ? 'chatNoMatch' : 'chatEmpty'))}</div>`;
-            window.HomeConversationList?.enhance(el.chatList,ownedListConfig());
+            window.HomeConversationList?.enhance(el.chatList, ownedListConfig(allItems));
             return;
         }
-        const config=ownedListConfig(),html=[];
-        const sections=window.HomeConversationList?.sections(chatList.items,config)||[{label:tx('chatToday'),entries:chatList.items.map((item,index)=>({item,index,title:config.title(item)}))}];
-        for(const section of sections){
-            html.push(`<div class="home-chat-group">${escapeHtml(section.label)}</div>`);
-            for(const {item,index,title} of section.entries){
-            const date=parseChatTime(item.updatedAt),valid=!Number.isNaN(date.getTime()),group=valid?chatGroupKey(date):'chatOlder';
-            const root = item.agent?.root || '';
-            const folder = root ? `<svg class="home-chat-folder" viewBox="0 0 16 16" aria-label="${escapeHtml(tx('chatFolderTitle', { root }))}"><title>${escapeHtml(tx('chatFolderTitle', { root }))}</title><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>` : '';
-            const tac = item.discussionMode === 'group' ? `<span class="home-chat-tac" role="img" aria-label="DragonTAC" title="DragonTAC"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="3" r="2"/><circle cx="3" cy="12" r="2"/><circle cx="13" cy="12" r="2"/><path d="M7 5 4 10m5-5 3 5M5 12h6" fill="none" stroke="currentColor" stroke-width="1.2"/></svg></span>` : '';
-            html.push(`<div class="home-chat-item home-chat-owned${item.id === state.sessionId ? ' is-active' : ''}" role="listitem">
-                <button type="button" class="home-chat-open" data-chat-index="${index}" title="${escapeHtml(title)}"${item.id === state.sessionId ? ' aria-current="true"' : ''}>${tac}<span class="home-chat-title">${escapeHtml(title)}</span></button>
-                <span class="home-chat-actions"><span class="home-chat-meta">${folder}<span>${valid ? escapeHtml(chatItemTime(date, group)) : ''}</span></span>
+        const config = ownedListConfig(allItems), html = [];
+
+        function renderItemHtml(item, index, isIndented = false) {
+            chatList.renderedItems[index] = item;
+            const active = isItemActive(item);
+            const date = parseChatTime(item.updatedAt || item.updated_at || item.created_at), valid = !Number.isNaN(date.getTime()), group = valid ? chatGroupKey(date) : 'chatOlder';
+            const pref = window.HomeConversationList?.get?.('mine', item.id || item._id);
+            const title = pref?.title || item.title || (config.title ? config.title(item) : String(item.firstQuestion || item.lastQuestion || item.id || '').replace(/\s+/g, ' ').trim().slice(0, 100));
+
+            // 黑白版本的对应 Agent/渠道 Logo
+            let logoHtml = '';
+            if (item._sourceType === 'codex') {
+                logoHtml = `<img src="./tp-static/frontend/assets/desktop-agents/codex.png" class="home-chat-agent-ico" alt="Codex" title="Codex">`;
+            } else if (item._sourceType === 'claudecode') {
+                logoHtml = `<img src="./tp-static/frontend/assets/desktop-agents/claudecode.png" class="home-chat-agent-ico" alt="Claude Code" title="Claude Code">`;
+            } else if (item._sourceType === 'antigravity') {
+                logoHtml = `<img src="./tp-static/frontend/assets/desktop-agents/antigravity.png" class="home-chat-agent-ico" alt="Antigravity" title="Antigravity">`;
+            } else if (item._sourceType === 'weixin') {
+                logoHtml = `<span class="home-chat-agent-ico home-chat-agent-svg" title="微信">${WX_ICON_SVG}</span>`;
+            } else if (item._sourceType === 'welink') {
+                logoHtml = `<span class="home-chat-agent-ico home-chat-agent-svg" title="WeLink">${WL_ICON_SVG}</span>`;
+            } else if (item.discussionMode === 'group') {
+                logoHtml = `<span class="home-chat-tac" role="img" aria-label="连接器" title="连接器">${TAC_ICON_SVG}</span>`;
+            }
+
+            return `<div class="home-chat-item home-chat-owned${active ? ' is-active' : ''}${isIndented ? ' is-indented' : ''}${isItemRunning(item) ? ' is-running' : ''}" role="listitem">
+                <button type="button" class="home-chat-open" data-chat-index="${index}" data-question="${escapeHtml(item._sourceType === 'mine' ? item._raw?.firstQuestion || item._raw?.lastQuestion || '' : '')}" title="${escapeHtml(item._raw?.fullTitle || title)}"${active ? ' aria-current="true"' : ''}>${logoHtml}<span class="home-chat-title">${escapeHtml(title)}</span></button>
+                <span class="home-chat-actions"><span class="home-chat-meta"><span>${valid ? escapeHtml(chatItemTime(date, group)) : ''}</span></span><span class="home-chat-spinner" role="img" aria-label="${escapeHtml(tx('chatRunning'))}" title="${escapeHtml(tx('chatRunning'))}"></span>
                 </span>
-            </div>`);
-        }}
+            </div>`;
+        }
+
+        chatList.renderedItems = [];
+
+        if (isUnifiedMode()) {
+            const query = el.chatSearch?.value.trim().toLowerCase() || '';
+            const isArchived = window.HomeConversationList?.isArchived?.('mine') || false;
+
+            function passesFilter(item) {
+                const pref = window.HomeConversationList?.get?.('mine', item.id || item._id) || {};
+                if (pref.hidden) return false;
+                if (Boolean(pref.archived) !== isArchived) return false;
+                if (query && !String(item.title || '').toLowerCase().includes(query)) return false;
+                return true;
+            }
+
+            function sortEntries(a, b) {
+                const prefA = window.HomeConversationList?.get?.('mine', a.item.id || a.item._id) || {};
+                const prefB = window.HomeConversationList?.get?.('mine', b.item.id || b.item._id) || {};
+                const pinA = Number(Boolean(prefA.pinned));
+                const pinB = Number(Boolean(prefB.pinned));
+                if (pinB !== pinA) return pinB - pinA;
+                const timeA = Date.parse(a.item.updatedAt || 0) || 0;
+                const timeB = Date.parse(b.item.updatedAt || 0) || 0;
+                return timeB - timeA || a.index - b.index;
+            }
+
+            const taskEntries = [];
+            const projectMap = new Map();
+
+            for (let i = 0; i < allItems.length; i++) {
+                const item = allItems[i];
+                if (!passesFilter(item)) continue;
+                const root = getChatDirectory(item);
+                if (root) {
+                    if (!projectMap.has(root)) projectMap.set(root, []);
+                    projectMap.get(root).push({ item, index: i });
+                } else {
+                    taskEntries.push({ item, index: i });
+                }
+            }
+
+            taskEntries.sort(sortEntries);
+            for (const entries of projectMap.values()) {
+                entries.sort(sortEntries);
+            }
+
+            const sortedProjects = [...projectMap.entries()].sort((a, b) => {
+                const timeA = Math.max(...a[1].map(e => Date.parse(e.item.updatedAt || 0) || 0));
+                const timeB = Math.max(...b[1].map(e => Date.parse(e.item.updatedAt || 0) || 0));
+                return timeB - timeA;
+            });
+
+            if (query) {
+                for (const root of projectMap.keys()) collapsedProjects.delete(root);
+            } else {
+                for (const [root, entries] of sortedProjects) {
+                    if (entries.some(e => isItemActive(e.item))) {
+                        collapsedProjects.delete(root);
+                    }
+                }
+            }
+
+            if (taskEntries.length === 0 && sortedProjects.length === 0) {
+                el.chatList.innerHTML = `<div class="home-chat-empty">${escapeHtml(tx('chatNoMatch'))}</div>`;
+                window.HomeConversationList?.enhance(el.chatList, config);
+                return;
+            }
+
+            // 保持一个隐藏的 .home-chat-group 占位，供自动化测试与样式选择器向下兼容
+            html.push('<div class="home-chat-group" hidden style="display:none;" aria-hidden="true"></div>');
+
+            // 1. 任务 (未选目录)：顶级分类，可折叠，「展开更多」只作用于本分类（conversation-list.js 按 data-batch-scope 分别计数）
+            const searching = Boolean(query);
+            if (taskEntries.length > 0 || sortedProjects.length === 0) {
+                const open = searching || !collapsedSections.has('tasks');
+                html.push(`<section class="home-chat-section" data-section="tasks">${sectionHead('tasks', tx('categoryTasks'), taskEntries.length)}
+                    <div class="home-chat-section-body" data-batch-scope="tasks" data-batch-remote${open ? '' : ' hidden'}>
+                        ${taskEntries.map(({ item, index }) => renderItemHtml(item, index, false)).join('')}
+                    </div></section>`);
+            }
+
+            // 2. 空间 (已选目录)：每个项目文件夹下是该目录的对话，文件夹数量与每个文件夹里的对话各自「展开更多」
+            if (sortedProjects.length > 0) {
+                const open = searching || !collapsedSections.has('spaces');
+                html.push(`<section class="home-chat-section" data-section="spaces">${sectionHead('spaces', tx('categorySpaces'), sortedProjects.length)}
+                    <div class="home-chat-section-body" data-batch-scope="spaces" data-batch-unit="project" data-batch-step="5"${open ? '' : ' hidden'}>`);
+                for (const [root, entries] of sortedProjects) {
+                    const projectName = getDirectoryBaseName(root);
+                    const isCollapsed = collapsedProjects.has(root);
+                    const hasActive = entries.some(e => isItemActive(e.item));
+                    html.push(`
+                        <div class="home-chat-project${isCollapsed ? ' is-collapsed' : ''}${hasActive ? ' is-active-project' : ''}" data-project-root="${escapeHtml(root)}">
+                            <div class="home-chat-project-head" role="button" tabindex="0" title="${escapeHtml(root)}" data-project-toggle>
+                                <span class="home-chat-project-chevron" aria-hidden="true">${isCollapsed ? '›' : '⌄'}</span>
+                                <span class="home-chat-project-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6V5a1.5 1.5 0 0 1 1.5-1.5h4l2 2h6A1.5 1.5 0 0 1 17.5 7v8a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 15V6Z"/></svg>
+                                </span>
+                                <span class="home-chat-project-name">${escapeHtml(projectName)}</span>
+                                <div class="home-chat-project-actions">
+                                    <button type="button" class="home-chat-project-add" data-project-add="${escapeHtml(root)}" title="${escapeHtml(tx('newChatInWorkspace'))}" aria-label="${escapeHtml(tx('newChatInWorkspace'))}">
+                                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M3.5 10c0-3.3 2.9-6 6.5-6s6.5 2.7 6.5 6-2.9 6-6.5 6c-1.1 0-2.1-.25-3-.7L3.5 16l.9-2.7c-.6-.9-.9-2.1-.9-3.3Z"/>
+                                            <path d="M10 7.5v5M7.5 10h5"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="home-chat-project-items" data-batch-scope="project:${escapeHtml(root)}"${isCollapsed ? ' hidden' : ''}>
+                                ${entries.map(({ item, index }) => renderItemHtml(item, index, true)).join('')}
+                            </div>
+                        </div>
+                    `);
+                }
+                html.push('</div></section>');
+            }
+        } else {
+            // 非 v2 模式（如独立列表单元测试），保持原有的日期分组结构
+            const sections = window.HomeConversationList?.sections(allItems, config) || [
+                { label: tx('chatToday'), entries: allItems.map((item, index) => ({ item, index, title: config.title(item) })) }
+            ];
+            for (const section of sections) {
+                if (section.label) html.push(`<div class="home-chat-group">${escapeHtml(section.label)}</div>`);
+                for (const { item, index, title } of section.entries) {
+                    html.push(renderItemHtml(item, index, false));
+                }
+            }
+        }
+
         el.chatList.innerHTML = html.join('') || `<div class="home-chat-empty">${escapeHtml(tx('chatEmpty'))}</div>`;
-        window.HomeConversationList?.enhance(el.chatList,config);
-        window.HomeConversationList?.pager(el.chatList,{hasMore:chatList.hasMore,loading:chatList.loadingMore,onMore:loadMoreChats});
+        window.HomeConversationList?.enhance(el.chatList, config);
+        window.HomeConversationList?.pager(el.chatList, { hasMore: chatList.hasMore, loading: chatList.loadingMore, onMore: loadMoreChats });
     }
 
     function markActiveChat() {
         el.chatList?.querySelectorAll('[data-chat-index]').forEach(button => {
-            const active = chatList.items[Number(button.dataset.chatIndex)]?.id === state.sessionId;
+            const item = chatList.renderedItems?.[Number(button.dataset.chatIndex)];
+            const active = isItemActive(item);
             (button.closest('.home-chat-item') || button).classList.toggle('is-active', active);
             if (active) button.setAttribute('aria-current', 'true');
             else button.removeAttribute('aria-current');
         });
+        markRunningChats();
     }
 
     async function loadChatList() {
@@ -2562,13 +2931,78 @@
                 renderChatList();
                 return loadChatList();
             }
+            const addBtn = event.target.closest('[data-project-add]');
+            if (addBtn) {
+                event.preventDefault();
+                event.stopPropagation();
+                const root = addBtn.dataset.projectAdd;
+                window.HomeMode?.set?.('chat');
+                newChat({ clearWorkspace: false, root });
+                return;
+            }
+            const sectionBtn = event.target.closest('[data-chat-section]');
+            if (sectionBtn) {
+                event.preventDefault();
+                toggleSection(sectionBtn.dataset.chatSection);
+                return;
+            }
+            const toggleBtn = event.target.closest('[data-project-toggle]');
+            if (toggleBtn) {
+                event.preventDefault();
+                event.stopPropagation();
+                const projectEl = toggleBtn.closest('.home-chat-project');
+                const root = projectEl?.dataset?.projectRoot;
+                if (root) {
+                    if (collapsedProjects.has(root)) collapsedProjects.delete(root);
+                    else collapsedProjects.add(root);
+                    renderChatList();
+                }
+                return;
+            }
             const button = event.target.closest('[data-chat-index]');
-            if (button) openChatFromList(chatList.items[Number(button.dataset.chatIndex)]);
+            if (button) {
+                const item = chatList.renderedItems?.[Number(button.dataset.chatIndex)];
+                if (!item) return;
+                if (['codex', 'claudecode', 'antigravity'].includes(item._sourceType)) {
+                    window.HomeDesktopAgents?.open?.(item._raw);
+                } else if (['weixin', 'welink'].includes(item._sourceType)) {
+                    window.HomeWelinkThreads?.open?.(item._raw);
+                } else {
+                    openChatFromList(item._raw || item);
+                }
+            }
         });
+        window.addEventListener('home:desktop-agents-updated', () => renderChatList());
+        window.addEventListener('home:desktop-agents-busy', markRunningChats);
+        // 服务器上正在生成的对话（其他标签页、定时任务等）每 10 秒核对一次，只更新转圈不重绘列表
+        setInterval(async () => {
+            if (document.visibilityState !== 'visible' || !chatList.loaded || chatList.query || !chatList.items.length) return;
+            const seq = chatList.seq;
+            try {
+                const res = await fetch(`/api/ai/sessions?mine=1&pagePath=%2F&limit=${Math.min(100, Math.max(CHAT_PAGE, chatList.serverCount))}`, { headers: authHeaders() });
+                if (!res.ok || seq !== chatList.seq) return;
+                const busy = new Set((await res.json()).items?.filter(item => item.busy).map(item => item.id) || []);
+                let changed = false;
+                chatList.items.forEach(item => { const next = busy.has(item.id); if (Boolean(item.busy) !== next) { item.busy = next; changed = true; } });
+                if (changed) markRunningChats();
+            } catch { /* 下次再试 */ }
+        }, 10000);
+        window.addEventListener('home:channel-threads-updated', () => renderChatList());
         // ↑↓ 在列表中移动焦点
         el.chatList.addEventListener('keydown', event => {
+            if ((event.key === 'Enter' || event.key === ' ') && document.activeElement?.hasAttribute('data-project-toggle')) {
+                event.preventDefault();
+                const projectEl = document.activeElement.closest('.home-chat-project');
+                const root = projectEl?.dataset?.projectRoot;
+                if (root) {
+                    if (collapsedProjects.has(root)) collapsedProjects.delete(root);
+                    else collapsedProjects.add(root);
+                    renderChatList();
+                }
+                return;
+            }
             if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-            const buttons = [...el.chatList.querySelectorAll('[data-chat-index]')];
+            const buttons = [...el.chatList.querySelectorAll('[data-chat-index], [data-project-toggle]')].filter(button=>!button.closest('.conversation-list-row[hidden]'));
             const index = buttons.indexOf(document.activeElement);
             if (index < 0) return;
             event.preventDefault();
@@ -2584,7 +3018,7 @@
                 loadChatList();
                 el.chatSearch.blur();
             } else if (event.key === 'ArrowDown') {
-                const first = el.chatList.querySelector('[data-chat-index]');
+                const first = el.chatList.querySelector('[data-chat-index], [data-project-toggle]');
                 if (first) {
                     event.preventDefault();
                     first.focus();
@@ -2593,25 +3027,32 @@
         });
         document.getElementById('homeChatNew')?.addEventListener('click', () => {
             window.HomeMode?.set?.('chat');
-            if (window.HomeDesktopAgents?.newChat?.()) return; // 「桌面 Agent」分类下：在选中的那家新建原生会话
+            if (document.documentElement.dataset.ui !== 'v2' && window.HomeDesktopAgents?.newChat?.()) return; // 「桌面 Agent」分类下：在选中的那家新建原生会话
             newChat();
         });
         renderChatList();
         loadChatList();
     }
 
-    function newChat() {
+    function newChat({ clearWorkspace = true, root = null } = {}) {
         chatList.latestSeq++;
         state.attachments = [];
         renderAttachments();
         window.HomeAgentDiscussion?.activateSession?.(null);
         exitExternal();
+        window.HomeWelinkThreads?.setSource?.('mine', {remember:false});
         resumeEpoch += 1;
         finishHistoryLoading(false);
         state.restoring = false;
         el.input.disabled = false;
         state.controller?.abort();
-        workspace()?.resetSession?.({ clearWorkspace: true });
+        if (root) {
+            // 先重置会话再选目录：resetSession 会让进行中的选择失效，顺序反过来目录就选不上
+            workspace()?.resetSession?.({ clearWorkspace: false });
+            window.DragonClawWorkspace?.selectDirectory?.(root, { openPanel: false }).catch(error => { if (error?.name !== 'AbortError') showToast(error.message); });
+        } else {
+            workspace()?.resetSession?.({ clearWorkspace });
+        }
         state.messages = [];
         state.sessionId = null;
         state.focusedTool = null;
@@ -2680,7 +3121,7 @@
             renderMarkdown,
             avatar: AVATAR,
             addMessage: (role, text, options) => addMessage(role, text, options),
-            addCopy: (message, text) => addMessageTools(message, text),
+            addCopy: (message, text, options) => addMessageTools(message, text, options),
             scrollToBottom: () => scrollThread(true),
             isNearBottom: () => el.thread.scrollHeight - el.thread.scrollTop - el.thread.clientHeight < 90,
             setComposer: patch => { if (external.composer) setExternalComposer({ ...external.composer, ...patch }); },
@@ -2700,6 +3141,7 @@
     async function sendExternal(content) {
         const composer = external.composer, entry = external.entry;
         if (!composer?.canSend || external.sending) return;
+        window.HomeAgentDiscussion?.lock?.();
         external.sending = true;
         el.input.disabled = true;
         updateSendButton();
@@ -2749,6 +3191,13 @@
     }
 
     function autoResize() {
+        if (document.documentElement.dataset.ui === 'v2' && !document.body.classList.contains('dc-chatting')) {
+            // The welcome composer has a fixed editing area; long drafts scroll inside it.
+            el.input.style.removeProperty('height');
+            if (!el.input.value) el.input.scrollTop = 0;
+            updateSendButton();
+            return;
+        }
         el.input.style.height = 'auto';
         el.input.style.height = `${Math.min(el.input.scrollHeight, 220)}px`;
         updateSendButton();
@@ -2778,7 +3227,10 @@
             else send(el.input.value, undefined, { fromComposer: true });
         });
         // 附件：按钮选择、拖到输入框、粘贴文件
-        el.attach?.addEventListener('click', () => el.attachInput.click());
+        el.attach?.addEventListener('click', () => {
+            if (window.HomeComposer) window.HomeComposer.toggle();
+            else el.attachInput.click();
+        });
         el.attachInput?.addEventListener('change', () => { addAttachments(el.attachInput.files); el.attachInput.value = ''; });
         el.attachments?.addEventListener('click', event => {
             const id = event.target.closest('[data-attachment-remove]')?.dataset.attachmentRemove;
@@ -3012,7 +3464,7 @@
         });
         window.addEventListener('home:resume-agent-discussion',event=>{if(!state.controller&&!state.restoring&&event.detail?.sessionId===state.sessionId)sendDesktopDiscussion('',event.detail);});
         watchSchedules();
-        window.DragonClaw = { startWithSkill, enterExternal, exitExternal, newChat, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active };
+        window.DragonClaw = { startWithSkill, enterExternal, exitExternal, newChat, openSchedules: openSchedulePanel, openChat: openChatFromList, openLatest:openLatestChat, currentSessionId:()=>state.sessionId, lang, isExternal: () => external.active };
         // 其他页面或新标签打开的 /?skill=<id>：直接进入该技能的新对话
         const linkedSkill = new URLSearchParams(location.search).get('skill');
         if (linkedSkill) {
@@ -3022,6 +3474,7 @@
             setTimeout(() => startWithSkill(linkedSkill));
         }
         bindModelPicker();
+        window.addEventListener('tools:ai-models-changed', loadModels);
         loadModels();
         applyTexts();
         buildSpotlight();

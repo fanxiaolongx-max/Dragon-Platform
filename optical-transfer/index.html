@@ -39,7 +39,12 @@
     <link rel="modulepreload" crossorigin href="./assets/dialog-Cf_qYgrT.js">
     <link rel="modulepreload" crossorigin href="./assets/share-dialog-BHRwTNEG.js">
     <link rel="stylesheet" crossorigin href="./assets/dialog-VZ1XWX8i.css">
-  <link rel="manifest" href="./manifest.webmanifest"></head>
+  <link rel="manifest" href="./manifest.webmanifest"><script>/* 静态子页面没有服务端注入的 platform-theme.js：按平台主题补上标记 */ (function () { var r = document.documentElement; if (r.dataset.platformTheme) return; try { if (localStorage.getItem('tools_home_ui') === 'v1') return; r.dataset.platformTheme = localStorage.getItem('tools_theme') === 'dark' ? 'dark' : 'light'; } catch (e) { r.dataset.platformTheme = 'light'; } })();</script>
+<style id="platform-light-theme">
+/* 平台亮色主题（frontend/js/shared/platform-theme.js 标记 data-platform-theme）：换一套浅色变量；摄像头取景区保持深色 */
+html[data-platform-theme="light"] { color-scheme: light; --bg: #f6f8fb; --panel: #ffffff; --panel-strong: #f1f4f9; --line: #e3e8f0; --line-bright: #c7d2e3; --text: #1b2433; --text-dim: #3b475b; --muted: #66748b; --muted-dim: #8a96a9; --accent: #0a84c6; --accent-hi: #0b74ad; --accent-ink: #ffffff; --green: #12976a; --red: #d63c33; --viewport-bg: #0b0f17; --accent-rgb: 10, 132, 198; --bg-rgb: 246, 248, 251; }
+</style>
+</head>
   <body class="home-page">
     <header class="site-header">
       <a class="brand" href="./"><svg class="brand-logo" viewBox="0 0 543 554.1" fill="currentColor" aria-hidden="true"><g transform="translate(-241,789) scale(0.1,-0.1)"><path d="M2410 6513 l0 -1378 103 101 c540 531 1324 986 1984 1153 402 102 850 95 1268 -21 529 -146 1300 -581 1860 -1050 175 -146 212 -184 199 -205 -37 -63 -502 -432 -754 -600 -969 -644 -1785 -844 -2590 -634 -667 174 -1376 581 -1947 1118 l-123 115 0 -1382 0 -1381 1478 4 c1291 3 1491 5 1588 20 1345 194 2240 1124 2355 2446 17 195 7 620 -19 786 -192 1236 -1030 2069 -2262 2249 -217 32 -411 36 -1772 36 l-1368 0 0 -1377z"/><path d="M4945 5906 c-300 -68 -532 -287 -611 -577 -25 -89 -25 -289 0 -378 141 -513 724 -749 1179 -477 405 242 503 778 209 1148 -100 125 -258 229 -417 273 -82 22 -282 29 -360 11z"/></g></svg>Decimen Optical Transfer</a>

@@ -75,6 +75,13 @@
 .nat-rule span{overflow-wrap:anywhere}
 .nat-rule button{border:0;background:transparent;color:#c2410c;font-size:11.5px;font-weight:800;cursor:pointer;padding:2px 6px;border-radius:999px}
 .nat-rule button:hover{background:#ffedd5}
+.nat-progress{height:6px;border-radius:999px;background:#e2e8f0;overflow:hidden;margin:8px 0 4px}
+.nat-progress>span{display:block;height:100%;background:linear-gradient(90deg,#0f766e,#14b8a6);transition:width .4s ease}
+.nat-guide-state{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+.nat-guide-state.is-ready{background:#dcfce7;color:#15803d}.nat-guide-state.is-stale{background:#fef3c7;color:#b45309}.nat-guide-state.is-missing{background:#f1f5f9;color:#64748b}
+.nat-guide-body{grid-column:1/-1;margin:4px 0 8px;padding:10px 12px;border-radius:8px;background:#f8fafc;color:#334155;font-size:12px;line-height:1.65;white-space:pre-wrap;max-height:360px;overflow:auto}
+.nat-link{border:0;background:none;color:#0f766e;font-size:12px;font-weight:700;cursor:pointer;padding:0 4px}
+.nat-link:disabled{color:#94a3b8;cursor:not-allowed}
 `;
         document.head.appendChild(style);
     }
@@ -158,6 +165,51 @@
         }).join('');
     }
 
+    const guideStateLabel = state => ({ ready: L('已生成', 'Ready'), stale: L('待更新', 'Outdated'), missing: L('未生成', 'Missing') }[state] || state);
+
+    function renderGuides() {
+        const data = view.guides;
+        if (!data) return `<p class="nat-desc">${esc(L('正在加载…', 'Loading…'))}</p>`;
+        const job = data.job;
+        const pending = data.stale + data.missing;
+        const running = Boolean(job?.running);
+        const progress = running ? `<div class="nat-progress"><span style="width:${job.total ? Math.round(job.done / job.total * 100) : 0}%"></span></div>
+            <p class="nat-desc">${esc(L(`正在生成 ${job.done}/${job.total}${job.current ? `：${job.current}` : ''}`, `Generating ${job.done}/${job.total}${job.current ? `: ${job.current}` : ''}`))}</p>`
+            : job?.finishedAt && job.total ? `<p class="nat-desc">${esc(L(`上次生成：${job.total - job.failed.length}/${job.total} 成功`, `Last run: ${job.total - job.failed.length}/${job.total} succeeded`))}${job.failed.length ? ` · <span style="color:#b91c1c">${esc(job.failed.map(item => `${item.title}：${item.error}`).join('；'))}</span>` : ''}</p>` : '';
+        const rows = data.items.map(item => `<tr data-guide-id="${esc(item.id)}">
+            <td><a href="${esc(item.href)}" target="_blank" rel="noopener">${esc(item.title)}</a></td>
+            <td><span class="nat-guide-state is-${esc(item.state)}">${esc(guideStateLabel(item.state))}</span></td>
+            <td>${esc(item.summary || '—')}</td>
+            <td class="nat-num">${item.state !== 'missing' ? `<button type="button" class="nat-link" data-action="guide-view">${esc(L('查看', 'View'))}</button>` : ''}<button type="button" class="nat-link" data-action="guide-one" ${running ? 'disabled' : ''}>${esc(item.state === 'missing' ? L('生成', 'Generate') : L('重新生成', 'Redo'))}</button></td>
+        </tr>${view.openGuide?.id === item.id ? `<tr><td colspan="4"><div class="nat-guide-body">${esc(view.openGuide.text)}</div></td></tr>` : ''}`).join('');
+        return `<div class="nat-summary"><span>${esc(L('工具', 'Tools'))} <b>${data.total}</b></span><span>${esc(L('已生成', 'Ready'))} <b>${data.ready}</b></span><span>${esc(L('待更新', 'Outdated'))} <b>${data.stale}</b></span><span>${esc(L('未生成', 'Missing'))} <b>${data.missing}</b></span></div>
+            ${progress}
+            <div class="nat-actions" style="justify-content:flex-start;margin:8px 0">
+                <button type="button" class="nat-btn is-primary" data-action="guide-generate" ${running || !pending ? 'disabled' : ''}>${esc(L(`生成缺失和过期的（${pending} 个）`, `Generate missing and outdated (${pending})`))}</button>
+                <button type="button" class="nat-btn" data-action="guide-regenerate" ${running ? 'disabled' : ''}>${esc(L('全部重新生成', 'Regenerate all'))}</button>
+            </div>
+            <div class="nat-table-wrap"><table class="nat-table"><thead><tr><th>${esc(L('工具', 'Tool'))}</th><th>${esc(L('状态', 'State'))}</th><th>${esc(L('摘要', 'Summary'))}</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+
+    let guideTimer = null;
+    async function loadGuides() {
+        try { view.guides = await api('GET', '/tool-guides'); } catch (error) { view.guides = { items: [], total: 0, ready: 0, stale: 0, missing: 0 }; view.notice = { type: 'error', text: error.message }; }
+        render();
+        clearTimeout(guideTimer);
+        // 生成中每 2 秒刷新进度；设置页关掉后停止
+        if (view.guides?.job?.running && view.content?.isConnected) guideTimer = setTimeout(loadGuides, 2000);
+    }
+
+    async function generateGuides(body) {
+        view.busy = true; render();
+        try {
+            await api('POST', '/tool-guides/generate', body);
+            view.notice = { type: 'ok', text: L('已开始生成，可以关闭设置页，生成在后台进行', 'Started; it keeps running in the background') };
+        } catch (error) { view.notice = { type: 'error', text: error.message }; }
+        view.busy = false;
+        await loadGuides();
+    }
+
     function render() {
         const content = view.content;
         if (!content) return;
@@ -167,12 +219,13 @@
                 <h4>🔌 ${esc(L('MCP 服务', 'MCP servers'))}</h4>
                 <p class="nat-desc">${esc(view.mcp
                     ? L('服务的工具会接进首页对话（选不选目录都能用），按需加载；默认每次调用都要用户在对话里批准。连不上的服务会自动跳过，换到能连上的网络后自动恢复。', 'Server tools join home chats (with or without a folder), loaded on demand; every call needs approval by default. Unreachable servers are skipped and come back automatically.')
-                    : L('MCP 服务只在默认租户里配置和使用。', 'MCP servers are configured and used in the default tenant only.'))}</p>
+                    : L('MCP 服务只在默认工作区里配置和使用。', 'MCP servers are configured and used in the default workspace only.'))}</p>
                 ${view.mcp ? `${view.servers.map(renderServer).join('') || `<p class="nat-desc">${esc(L('还没有 MCP 服务。', 'No MCP servers yet.'))}</p>`}
                 ${view.editing && !view.editing.id ? renderForm(view.editing) : ''}
                 ${view.editing ? '' : `<div class="nat-actions" style="justify-content:flex-start;margin-top:8px"><button type="button" class="nat-btn is-primary" data-action="add">${esc(L('添加服务', 'Add server'))}</button></div>`}` : ''}
             </section>
             <section class="nat-card" data-section="danger"><h4>⛔ ${esc(L('危险操作', 'Dangerous actions'))}</h4><p class="nat-desc">${esc(L('智能体执行的命令命中下面几类时，即使选了「完全访问」也会弹审批卡；可以在审批卡上按类别选择本对话、这个工作目录或永久不再询问。WeLink 频道等无人值守的对话没人审批，这几类命令不会执行，除非在这里设为永久不再询问。识别靠检查命令文本，写在脚本里的操作识别不到；命令里的 rm 会移到废纸篓，智能体改平台数据库前会自动备份。', 'Agent commands in these categories ask for approval even with full access; on the card you can stop asking for this chat, this folder or always. Unattended chats such as WeLink channels skip them unless set to never ask here. Detection reads the command text and cannot see inside scripts; rm moves files to the Trash and platform databases are backed up before the agent changes them.'))}</p>${renderDanger()}</section>
+            <section class="nat-card" data-section="guides"><h4>📘 ${esc(L('工具使用说明', 'Tool guides'))}</h4><p class="nat-desc">${esc(L('用当前配置的模型读每个工具的页面和代码，生成一份面向用户的说明（能做什么、什么时候用、怎么用、工作原理）。Dragon Claw 按需求找工具、回答「怎么用」时会参考它，也会进入项目知识库检索。每个工具调用一次模型、读取约 1 万多 token 的源码；只生成缺失的和源码变了的。', 'The current model reads each tool\'s page and code and writes a user guide (what it does, when to use it, how to use it, how it works). Dragon Claw uses these to match needs to tools and explain usage, and they join the knowledge search. Each tool costs one model call reading about 10k+ tokens of source; only missing and changed tools are generated.'))}</p>${renderGuides()}</section>
             <section class="nat-card"><h4>🧰 ${esc(L('工具清单', 'Tool catalog'))}</h4><p class="nat-desc">${esc(L('Dragon Claw 首页对话能用的工具，按来源分组；token 是工具说明占用的上下文，按需加载的工具只在用到时才占用。', 'Tools Dragon Claw home chats can use, grouped by source; tokens are the context each description takes, and deferred tools only count once loaded.'))}</p>${renderCatalog()}</section>
         </div>`;
     }
@@ -219,6 +272,23 @@
             const action = button.dataset.action;
             const id = button.closest('[data-id]')?.dataset.id;
             const server = view.servers.find(item => item.id === id);
+            if (action === 'guide-generate') { generateGuides({}); return; }
+            if (action === 'guide-regenerate') {
+                const ok = window.AppDialog ? await window.AppDialog.confirm(L(`重新生成全部 ${view.guides?.total || 0} 个工具的说明？每个工具会调用一次模型。`, `Regenerate guides for all ${view.guides?.total || 0} tools? Each tool costs one model call.`), { cancelText: L('取消', 'Cancel') }) : window.confirm('?');
+                if (ok) generateGuides({ force: true });
+                return;
+            }
+            const guideId = button.closest('[data-guide-id]')?.dataset.guideId;
+            if (action === 'guide-one' && guideId) { generateGuides({ ids: [guideId] }); return; }
+            if (action === 'guide-view' && guideId) {
+                if (view.openGuide?.id === guideId) { view.openGuide = null; render(); return; }
+                try {
+                    const guide = await api('GET', `/tool-guides/item?id=${encodeURIComponent(guideId)}`);
+                    view.openGuide = { id: guideId, text: `${L('摘要', 'Summary')}：${guide.summary}\n\n${guide.guide}\n\n— ${guide.model || ''} · ${guide.generatedAt || ''}` };
+                } catch (error) { view.notice = { type: 'error', text: error.message }; }
+                render();
+                return;
+            }
             if (action === 'danger-allow' || action === 'danger-revoke') {
                 view.busy = true; render();
                 try {
@@ -283,6 +353,7 @@
         }
         render();
         loadDanger();
+        loadGuides();
         loadCatalog();
     }
 

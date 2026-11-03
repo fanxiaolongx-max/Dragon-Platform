@@ -186,6 +186,8 @@
     }
 
     function scrollToGroup(kind) {
+        document.body.classList.add('home-mode-tools');
+        if (document.documentElement.dataset.ui === 'v2' && window.HomeSkillHub) { window.HomeSkillHub.open('plugins'); return; }
         window.HomeMode?.set?.('tools');
         window.HomeWorkspace?.showAll?.();
         requestAnimationFrame(() => {

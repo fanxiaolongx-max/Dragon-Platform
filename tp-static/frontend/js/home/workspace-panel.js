@@ -19,6 +19,9 @@
         root: '',
         rootName: '',
         gitBranch: '',
+        gitInfo: null,
+        gitRequest: 0,
+        gitSaving: false,
         permissionMode: 'ask',
         agentSessionId: '',
         context: null,
@@ -87,14 +90,15 @@
     }
 
     // ── 面板开关 ──────────────────────────────────────────
-    function setOpen(open) {
+    // remember=false：自动收起 / 自动展开（打开工具、切到无关对话等），不改用户记住的开关
+    function setOpen(open, { remember = true } = {}) {
         if (!open && state.filePreview) { window.ChatFiles?.closePreview(); return; }
         state.open = Boolean(open) && (state.enabled || Boolean(state.external) || Boolean(state.filePreview));
         document.body.classList.toggle('dc-workspace-open', state.open);
         el.panel.hidden = !state.open;
         el.toggle?.setAttribute('aria-pressed', String(state.open));
         el.fab?.setAttribute('aria-pressed', String(state.open));
-        try { if (!state.filePreview) localStorage.setItem(PANEL_KEY, state.open ? '1' : '0'); } catch { /* ignore */ }
+        try { if (!state.filePreview && remember) localStorage.setItem(PANEL_KEY, state.open ? '1' : '0'); } catch { /* ignore */ }
         if (state.open) requestAnimationFrame(() => { if (state.open) el.panel.classList.add('is-drawer-open'); });
         else el.panel.classList.remove('is-drawer-open');
     }
@@ -107,12 +111,16 @@
         return Boolean(state.capability?.readOnly);
     }
 
+    // 线性文件夹图标（currentColor），替代 📁 / 📂 表情，跟随亮色 / 深色主题
+    const FOLDER_ICON = '<svg class="wsp-folder-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5Z"/></svg>';
+    const FOLDER_PLUS_ICON = '<svg class="wsp-folder-svg" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.6l1.4 1.5h5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5Z"/><path d="M8 7v4M6 9h4"/></svg>';
+
     // ── 环境卡 ──────────────────────────────────────────
     function renderEnv() {
         const dir = state.root
             ? `<div class="wsp-dir">
                     <div class="wsp-dir-main">
-                        <span class="wsp-dir-icon" aria-hidden="true">📁</span>
+                        <span class="wsp-dir-icon" aria-hidden="true">${FOLDER_ICON}</span>
                         <div class="wsp-dir-text">
                             <b title="${escapeHtml(state.root)}">${escapeHtml(state.rootName)}</b>
                             <small title="${escapeHtml(state.root)}">${escapeHtml(state.root)}</small>
@@ -125,7 +133,7 @@
                </div>
                <div class="wsp-row"><span class="wsp-row-label">${escapeHtml(tx('branch'))}</span><span class="wsp-branch">${state.gitBranch ? `<i aria-hidden="true">⎇</i> ${escapeHtml(state.gitBranch)}` : `<em>${escapeHtml(tx('noBranch'))}</em>`}</span></div>`
             : `<button type="button" class="wsp-dir-empty" data-wsp-action="change">
-                    <span aria-hidden="true">📂</span>
+                    <span class="wsp-dir-empty-icon" aria-hidden="true">${FOLDER_PLUS_ICON}</span>
                     <span><b>${escapeHtml(tx('chooseDir'))}</b><small>${escapeHtml(tx('chooseDirHint'))}</small></span>
                </button>`;
         const modes = MODES.map(mode => `
@@ -146,7 +154,7 @@
             </div>
             ${recent.length ? `<div class="wsp-row wsp-row-col">
                 <span class="wsp-row-label">${escapeHtml(tx('recentDirs'))}</span>
-                <div class="wsp-recent">${recent.map(item => `<button type="button" class="wsp-recent-item" data-wsp-select="${escapeHtml(item)}" title="${escapeHtml(item)}"><span>📁</span><span>${escapeHtml(baseName(item))}</span><i>${escapeHtml(shorten(item))}</i></button>`).join('')}</div>
+                <div class="wsp-recent">${recent.map(item => `<button type="button" class="wsp-recent-item" data-wsp-select="${escapeHtml(item)}" title="${escapeHtml(item)}"><span class="wsp-recent-icon" aria-hidden="true">${FOLDER_ICON}</span><span>${escapeHtml(baseName(item))}</span><i>${escapeHtml(shorten(item))}</i></button>`).join('')}</div>
             </div>` : ''}`;
     }
 
@@ -166,7 +174,7 @@
     function renderContext() {
         const ctx = state.context;
         if (!ctx) {
-            el.ctxMeta.textContent = '';
+            renderContextMini(null);
             el.ctxBody.innerHTML = `<div class="wsp-empty">${escapeHtml(tx(state.root ? 'ctxEmpty' : 'ctxNoWorkspace'))}</div>`;
             return;
         }
@@ -175,7 +183,7 @@
         const colors = { messages: '#60a5fa', toolResults: '#22d3ee', directory: '#64ffda', system: '#a78bfa', skills: '#f472b6', tools: '#f59e0b', reserve: 'rgba(148,163,184,0.42)', free: 'rgba(148,163,184,0.18)' };
         const total = Math.max(1, ctx.windowTokens || 1);
         const percent = Math.min(100, Math.round((ctx.usedTokens / total) * 100));
-        el.ctxMeta.textContent = `${percent}%`;
+        renderContextMini({ percent, label: `${tx('ctxUsed', { percent })} · ${formatTokens(ctx.usedTokens)} / ${formatTokens(ctx.windowTokens)}` });
         el.ctxBody.innerHTML = `
             <div class="wsp-ctx-head"><span>${escapeHtml(tx('ctxUsed', { percent }))}</span><span>${formatTokens(ctx.usedTokens)} / ${formatTokens(ctx.windowTokens)}</span></div>
             <div class="wsp-ctx-bar" role="img" aria-label="${escapeHtml(tx('ctxUsed', { percent }))}">
@@ -187,6 +195,47 @@
             ${ctx.tools?.deferred ? `<div class="wsp-ctx-cache">${escapeHtml(tx('ctxDeferredTools', { loaded: ctx.tools.loaded, count: ctx.tools.deferred, tokens: formatTokens(ctx.tools.deferredTokens) }))}</div>` : ''}
             ${ctx.cache ? `<div class="wsp-ctx-cache">${escapeHtml(ctx.cache.cachedTokens > 0 ? tx('ctxCache', { percent: Math.round(ctx.cache.hitRate * 100), tokens: formatTokens(ctx.cache.cachedTokens) }) : tx('ctxCacheNone'))}</div>` : ''}
             <div class="wsp-ctx-note">${escapeHtml(tx(ctx.source === 'provider' ? 'ctxSourceProvider' : 'ctxSourceEstimate'))}${ctx.windowSource ? ` · ${escapeHtml(tx(ctx.windowSource === 'configured' ? 'ctxWindowConfigured' : 'ctxWindowModel'))}` : ''}</div>`;
+    }
+
+    // 卡头上的占用：收起时显示迷你进度条 + 百分比，展开时只留百分比（明细条在卡内）。
+    // 元素常驻、只改宽度和数字，占用变化时进度条平滑过渡、数字滚动到新值；接近自动压缩线（80%）时变色。
+    let ctxMini = null;
+    function renderContextMini(info) {
+        if (!info) {
+            if (ctxMini) cancelAnimationFrame(ctxMini.frame);
+            ctxMini = null;
+            el.ctxMeta.textContent = '';
+            return;
+        }
+        if (!ctxMini || !el.ctxMeta.contains(ctxMini.root)) {
+            if (ctxMini) cancelAnimationFrame(ctxMini.frame);
+            el.ctxMeta.innerHTML = '<span class="wsp-ctx-mini"><span class="wsp-ctx-mini-track" aria-hidden="true"><i></i></span><b>0%</b></span>';
+            const root = el.ctxMeta.firstElementChild;
+            ctxMini = { root, fill: root.querySelector('i'), num: root.querySelector('b'), shown: 0, frame: 0 };
+        }
+        const mini = ctxMini;
+        const { root, fill, num } = mini;
+        const percent = Math.max(0, Math.min(100, info.percent));
+        root.dataset.level = percent >= 75 ? 'high' : percent >= 60 ? 'warn' : 'ok';
+        root.title = info.label;
+        root.setAttribute('aria-label', info.label);
+        requestAnimationFrame(() => { fill.style.width = `${percent}%`; });
+        cancelAnimationFrame(ctxMini.frame);
+        const from = ctxMini.shown;
+        if (from === percent || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            ctxMini.shown = percent;
+            num.textContent = `${percent}%`;
+            return;
+        }
+        const started = performance.now();
+        const step = now => {
+            if (ctxMini !== mini) return;
+            const t = Math.min(1, (now - started) / 450);
+            ctxMini.shown = Math.round(from + (percent - from) * (1 - (1 - t) ** 3));
+            num.textContent = `${ctxMini.shown}%`;
+            if (t < 1) ctxMini.frame = requestAnimationFrame(step);
+        };
+        ctxMini.frame = requestAnimationFrame(step);
     }
 
     // ── 更改卡 ──────────────────────────────────────────
@@ -552,11 +601,127 @@
         decorateCheckpoints();
     }
 
+    const wsLabel = (zh, en) => window.ToolsI18n?.getLanguage?.() === 'en-US' ? en : zh;
+    const WS_ICONS = {
+        folder: '<path d="M2.5 6V5A1.5 1.5 0 0 1 4 3.5h4l2 2h6A1.5 1.5 0 0 1 17.5 7v8a1.5 1.5 0 0 1-1.5 1.5H4A1.5 1.5 0 0 1 2.5 15Z"/>',
+        branch: '<circle cx="6" cy="4" r="2"/><circle cx="6" cy="16" r="2"/><circle cx="15" cy="5" r="2"/><path d="M6 6v8m9-7c0 5-9 2-9 7"/>',
+        plus: '<path d="M10 3v14M3 10h14"/>',
+        none: '<path d="M3 8V5a1 1 0 0 1 1-1h4l2 2h6a1 1 0 0 1 1 1v3M3 10l7 7m0-7-7 7"/>',
+        search: '<circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/>',
+        check: '<path d="m4 10 4 4 8-8"/>',
+        details: '<rect x="3" y="3" width="14" height="14" rx="2"/><path d="M8 3v14m3-9h3m-3 4h3"/>'
+    };
+    const wsIcon = key => `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${WS_ICONS[key] || ''}</svg>`;
+    const workspaceBusy = () => state.gitSaving || state.pr?.phase === 'running' || document.querySelector('#dcComposer.is-generating');
+
+    async function refreshGit() {
+        if (!state.root) return;
+        const root = state.root, version = ++state.gitRequest;
+        try {
+            const data = await request('GET', `${API}/git?root=${encodeURIComponent(root)}`);
+            if (version !== state.gitRequest || root !== state.root || typeof data.git !== 'boolean') return;
+            if (JSON.stringify(state.gitInfo) === JSON.stringify(data)) return;
+            state.gitInfo = data;state.gitBranch = data.branch || '';
+            const open = el.chip?.querySelector('details[open]')?.dataset.wspPicker;
+            renderChip();renderEnv();
+            if (open) el.chip.querySelector(`[data-wsp-picker="${open}"]`)?.setAttribute('open', '');
+        } catch { /* A failed Git refresh never clears the selected workspace. */ }
+    }
+
+    function renderGitControls() {
+        const info = state.gitInfo;
+        if (!state.root || !info?.git) return '';
+        const unavailable = isReadOnly() || workspaceBusy();
+        const branchName = info.branch || (info.head ? wsLabel('分离的 HEAD', 'Detached HEAD') : wsLabel('尚无提交', 'No commits yet'));
+        return `<details class="dc-context-picker dc-branch-picker" data-wsp-picker="branch">
+            <summary title="${escapeHtml(branchName)}">${wsIcon('branch')}<span>${escapeHtml(branchName)}</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
+            <div class="dc-context-menu"><label class="dc-workspace-search">${wsIcon('search')}<input type="search" data-wsp-branch-search placeholder="${wsLabel('搜索分支', 'Search branches')}" aria-label="${wsLabel('搜索分支', 'Search branches')}"></label>
+                <div class="dc-context-branches">${(info.branches || []).map(branch => {
+                    const elsewhere = branch.worktreeRoot && branch.worktreeRoot !== info.repoRoot;
+                    return `<button type="button" data-wsp-branch="${escapeHtml(branch.name)}" title="${escapeHtml(elsewhere ? wsLabel('已在其他 worktree 使用：', 'Used in another worktree: ') + branch.worktreeRoot : branch.name)}" aria-current="${Boolean(branch.current)}" ${unavailable || elsewhere ? 'disabled' : ''}>${wsIcon('branch')}<span>${escapeHtml(branch.name)}</span>${branch.current ? wsIcon('check') : ''}</button>`;
+                }).join('')}</div><p class="dc-context-empty" data-wsp-branch-empty ${(info.branches || []).length ? 'hidden' : ''}>${wsLabel('没有匹配的分支', 'No matching branches')}</p>
+                <div class="dc-context-divider"></div><button type="button" data-wsp-action="new-branch" ${unavailable || !info.head ? 'disabled' : ''}>${wsIcon('plus')}<span>${wsLabel('新建分支', 'New branch')}</span></button>
+                <p class="dc-context-explanation">${wsLabel('切换前会检查未提交改动，不会自动丢弃或暂存。', 'Uncommitted changes block switching. Changes are never discarded or stashed automatically.')}</p>
+            </div></details>
+            <details class="dc-context-picker dc-worktree-picker" data-wsp-picker="worktree">
+                <summary><span class="dc-worktree-check${info.isWorktree ? ' is-checked' : ''}">${info.isWorktree ? wsIcon('check') : ''}</span><span>Worktree</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
+                <div class="dc-context-menu"><p class="dc-context-explanation">${wsLabel('基于当前已提交的代码创建独立目录，不带入未提交改动。', 'Create an isolated directory from the current commit. Uncommitted changes are kept in the original workspace.')}</p>
+                    <button type="button" data-wsp-action="new-worktree" ${unavailable || !info.head ? 'disabled' : ''}>${wsIcon('plus')}<span>${wsLabel('新建 Worktree', 'New worktree')}</span></button>
+                    ${(info.worktrees || []).length ? '<div class="dc-context-divider"></div>' : ''}
+                    ${(info.worktrees || []).map(item => `<button type="button" data-wsp-select="${escapeHtml(item.root)}" title="${escapeHtml(item.root)}" aria-current="${Boolean(item.current)}" ${!item.available || workspaceBusy() ? 'disabled' : ''}>${wsIcon('folder')}<span><b>${escapeHtml(baseName(item.root))}</b><small>${escapeHtml(item.branch || wsLabel('分离的 HEAD', 'Detached HEAD'))}</small></span>${item.current ? wsIcon('check') : ''}</button>`).join('')}
+                </div></details>`;
+    }
+
+    async function changeBranch(branch, create = false) {
+        if (!state.root || isReadOnly() || workspaceBusy()) return;
+        if (!create && branch === state.gitBranch) return;
+        const root = state.root, ticket = state.selectionEpoch;
+        state.gitSaving = true;renderChip();
+        try {
+            await request('POST', `${API}/git/branch`, {root,branch,create});
+            if (root !== state.root || ticket !== state.selectionEpoch) return;
+            window.DragonClawWorkspace.resetSession();
+            await selectDirectory(root);
+            toast(wsLabel('已切换到分支 ', 'Switched to branch ') + branch);
+        } catch(error) { toast(error.message); }
+        finally { state.gitSaving = false;renderChip(); }
+    }
+
+    async function createWorktree() {
+        if (!state.root || isReadOnly() || workspaceBusy()) return;
+        const root = state.root, ticket = state.selectionEpoch;
+        state.gitSaving = true;renderChip();
+        try {
+            const data = await request('POST', `${API}/git/worktree`, {root});
+            if (root !== state.root || ticket !== state.selectionEpoch) return;
+            await selectDirectory(data.root);
+            toast(wsLabel('已进入独立 Worktree', 'Opened the new worktree'));
+        } catch(error) { toast(error.message); }
+        finally { state.gitSaving = false;renderChip(); }
+    }
+
+    async function createWorkspace() {
+        if (isReadOnly() || workspaceBusy()) return;
+        const sep = state.capability?.sep || '/';
+        const directory = await window.AppDialog.prompt(wsLabel('输入新文件夹的完整路径。已有目录请使用“打开本地文件夹”。', 'Enter the full path for a new folder. To use an existing folder, choose Open local folder.'), {title:wsLabel('新建工作空间', 'New workspace'),defaultValue:(state.capability?.homeDir || '') + sep + 'workspace',maxLength:1024});
+        if (!directory?.trim()) return;
+        try { const data = await request('POST', `${API}/create`, {path:directory.trim()});await selectDirectory(data.root); }
+        catch(error) { toast(error.message); }
+    }
+
     // ── 输入框上方的工作区芯片 ───────────────────────────
     function renderChip() {
         if (!el.chip) return;
         el.chip.hidden = !state.enabled;
         if (!state.enabled) return;
+        if (document.documentElement.dataset.ui === 'v2') {
+            const en = window.ToolsI18n?.getLanguage?.() === 'en-US';
+            const label = (zh, english) => en ? english : zh;
+            const folder = wsIcon('folder');
+            const recent = [...new Set([state.root, state.prefs.lastDirectory, ...state.prefs.recentDirectories].filter(Boolean))].slice(0, 8);
+            const modeName = isReadOnly() ? tx('readOnlyMode') : tx(`mode${state.permissionMode[0].toUpperCase()}${state.permissionMode.slice(1)}`);
+            el.chip.innerHTML = `
+                <details class="dc-context-picker dc-directory-picker" data-wsp-picker="directory">
+                    <summary title="${escapeHtml(state.root || tx('chooseDirHint'))}">${folder}<span>${escapeHtml(state.rootName || label('选择工作空间', 'Choose workspace'))}</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
+                    <div class="dc-context-menu">
+                        <label class="dc-workspace-search">${wsIcon('search')}<input type="search" data-wsp-recent-search placeholder="${label('搜索最近工作空间', 'Search recent workspaces')}" aria-label="${label('搜索最近工作空间', 'Search recent workspaces')}" autocomplete="off"></label>
+                        <div class="dc-context-recents">${recent.map((path, index) => `<button type="button"${index >= 4 ? ' hidden' : ''} data-wsp-select="${escapeHtml(path)}" title="${escapeHtml(path)}" aria-current="${path === state.root}">${folder}<span>${escapeHtml(baseName(path))}</span>${path === state.root ? wsIcon('check') : ''}</button>`).join('')}</div>
+                        <p class="dc-context-empty" ${recent.length ? 'hidden' : ''}>${label('暂无最近工作空间', 'No recent workspaces')}</p>
+                        <div class="dc-context-divider"></div>
+                        ${!isReadOnly() ? `<button type="button" data-wsp-action="create-workspace">${wsIcon('plus')}<span>${label('新建工作空间', 'New workspace')}</span></button>` : ''}
+                        <button type="button" data-wsp-action="change">${folder}<span>${label('打开本地文件夹', 'Open local folder')}</span></button>
+                        ${state.root ? `<button type="button" data-wsp-action="clear">${wsIcon('none')}<span>${label('不使用工作空间', 'No workspace')}</span></button><div class="dc-context-divider"></div><button type="button" class="dc-workspace-details" data-wsp-action="panel">${wsIcon('details')}<span>${label('查看工作空间详情', 'Workspace details')}</span></button>` : ''}
+                    </div>
+                </details>
+                ${renderGitControls()}
+                ${isReadOnly() ? `<span class="dc-context-readonly" title="${escapeHtml(tx('readOnlyDesc'))}">♧ ${escapeHtml(modeName)}</span>` : `<details class="dc-context-picker dc-permission-picker${state.permissionMode === 'full' ? ' is-full' : ''}">
+                    <summary><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m10 2 6 2.5V9c0 4-2.5 6.5-6 8-3.5-1.5-6-4-6-8V4.5L10 2Z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg><span>${escapeHtml(modeName)}</span><span class="dc-context-caret" aria-hidden="true">⌄</span></summary>
+                    <div class="dc-context-menu"><p class="dc-context-explanation">${label('设置智能体在工作区中执行操作的权限。', 'Choose which workspace actions the agent may perform.')}</p>
+                        ${MODES.map(mode => `<button type="button" class="dc-permission-option" data-wsp-mode="${mode}" role="menuitemradio" aria-checked="${state.permissionMode === mode}"><span><b>${escapeHtml(tx(`mode${mode[0].toUpperCase()}${mode.slice(1)}`))}</b><small>${escapeHtml(tx(`mode${mode[0].toUpperCase()}${mode.slice(1)}Desc`))}</small></span><span class="dc-context-check" aria-hidden="true">${state.permissionMode === mode ? '✓' : ''}</span></button>`).join('')}
+                    </div>
+                </details>`}`;
+            return;
+        }
         if (!state.root) {
             const last = state.prefs.lastDirectory;
             el.chip.innerHTML = `
@@ -653,7 +818,7 @@
                 ? `<mark>${escapeHtml(item.name.slice(0, prefix.length))}</mark>${escapeHtml(item.name.slice(prefix.length))}`
                 : escapeHtml(item.name);
             html.push(`<button type="button" role="option" id="wspOpt${index}" aria-selected="${index === state.picker.active}" class="wsp-picker-item${index === state.picker.active ? ' is-active' : ''}" data-wsp-index="${index}" title="${escapeHtml(item.path)}">
-                <span class="wsp-picker-item-icon" aria-hidden="true">${item.isGit ? '⎇' : '📁'}</span>
+                <span class="wsp-picker-item-icon" aria-hidden="true">${item.isGit ? '⎇' : FOLDER_ICON}</span>
                 <span class="wsp-picker-item-name">${name}</span>
                 <span class="wsp-picker-item-path">${escapeHtml(shorten(item.path))}</span>
             </button>`);
@@ -701,12 +866,14 @@
         }
     }
 
-    async function selectDirectory(fullPath, ticket = ++state.selectionEpoch) {
+    async function selectDirectory(fullPath, ticket = ++state.selectionEpoch, { openPanel = true } = {}) {
         const data = await request('POST', `${API}/select`, { path: fullPath });
         if (ticket !== state.selectionEpoch) throw Object.assign(new Error('Directory selection superseded'), { name: 'AbortError' });
         state.root = data.root;
         state.rootName = data.name || baseName(data.root);
         state.gitBranch = data.gitBranch || '';
+        state.gitInfo = data.git || null;
+        state.gitRequest++;
         if (data.prefs) state.prefs = data.prefs;
         state.context = null;
         state.changes = [];
@@ -722,7 +889,8 @@
         }
         try { sessionStorage.setItem(SESSION_ROOT_KEY, data.root); } catch { /* ignore */ }
         renderAll();
-        setOpen(true);
+        if (openPanel && document.documentElement.dataset.ui !== 'v2') setOpen(true);
+        refreshGit();
         toast(tx('workspaceReady', { name: state.rootName }));
         window.dispatchEvent(new CustomEvent('dragon-claw:workspace-change', { detail: { root: state.root } }));
         restoreState();
@@ -733,6 +901,7 @@
         state.root = '';
         state.rootName = '';
         state.gitBranch = '';
+        state.gitInfo = null;state.gitRequest++;
         state.context = null;
         state.changes = [];
         state.openDiff = null;
@@ -745,15 +914,20 @@
     }
 
     async function setMode(mode) {
-        if (!MODES.includes(mode) || mode === state.permissionMode) return;
-        state.permissionMode = mode;
-        renderEnv();
-        renderChip();
-        toast(tx('modeChanged', { mode: tx(`mode${mode[0].toUpperCase()}${mode.slice(1)}`) }));
+        if (isReadOnly() || state.permissionSaving || !MODES.includes(mode) || mode === state.permissionMode) return;
+        state.permissionSaving = true;
+        el.chip?.setAttribute('aria-busy', 'true');
         try {
-            state.prefs = await request('PUT', `${API}/prefs`, { permissionMode: mode });
+            const saved = await request('PUT', `${API}/prefs`, { permissionMode: mode });
+            state.prefs = saved;
+            state.permissionMode = saved.permissionMode || mode;
+            renderEnv(); renderChip();
+            toast(tx('modeChanged', { mode: tx(`mode${state.permissionMode[0].toUpperCase()}${state.permissionMode.slice(1)}`) }));
         } catch (error) {
             toast(error.message);
+        } finally {
+            state.permissionSaving = false;
+            el.chip?.removeAttribute('aria-busy');
         }
     }
 
@@ -811,7 +985,7 @@
     }
 
     function toolIcon(tool) {
-        return { list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', calculate: '🧮', read_document: '📑', query_data: '📊', diff_files: '⇄', multi_edit: '✏️', zip_files: '🗜', unzip_file: '🗜', memory: '🧠', view_image: '🖼', browser_navigate: '🌐', browser_snapshot: '🌐', browser_click: '🖱', browser_type: '⌨️', browser_scroll: '🌐', browser_wait: '⏳', browser_network: '📡', browser_network_body: '📡', browser_console: '🧾', browser_screenshot: '📸', browser_tabs: '🗂', browser_evaluate: '⚡', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
+        return { save_skill: '🧬', read_skill: '📜', find_platform_tools: '🧭', read_tool_guide: '📘', list_directory: '📂', read_file: '📄', search: '🔍', list_databases: '🗄', database_schema: '🗄', read_database_table: '🗄', write_file: '✏️', edit_file: '✏️', delete_path: '🗑', rename_path: '↪', run_command: '⌘', welink_list_targets: '👥', welink_send_message: '📨', welink_query: '💼', welink_action: '📤', tool_search: '🧰', calculate: '🧮', read_document: '📑', query_data: '📊', diff_files: '⇄', multi_edit: '✏️', zip_files: '🗜', unzip_file: '🗜', memory: '🧠', view_image: '🖼', browser_navigate: '🌐', browser_snapshot: '🌐', browser_click: '🖱', browser_type: '⌨️', browser_scroll: '🌐', browser_wait: '⏳', browser_network: '📡', browser_network_body: '📡', browser_console: '🧾', browser_screenshot: '📸', browser_tabs: '🗂', browser_evaluate: '⚡', load_skill: '✨', ops_send_draft: '📣', ops_test_send: '📣', netcare_tables: '🧭', netcare_describe: '🧭', netcare_query: '🧭', netcare_sql: '🧭' }[tool] || '⚙';
     }
 
     // ── 对话内：写入 / 编辑后的文件卡片（预览 / 代码） ─────
@@ -1275,16 +1449,74 @@
         renderContext();
         renderChanges();
         renderEnv();
+        refreshGit();
         refreshChanges(); // 合并 git 工作区里的其他改动
         decorateCheckpoints();
     }
 
     // ── 事件绑定 ────────────────────────────────────────
+    function positionContextMenu(details) {
+        const menu = details.querySelector('.dc-context-menu');
+        if (!menu || !details.open) return;
+        const pad = 12, gap = 8, anchor = details.querySelector('summary').getBoundingClientRect();
+        // Measure the real content instead of deciding from a fixed 180px threshold.
+        menu.style.transform = 'none'; menu.style.right = menu.style.bottom = 'auto';
+        menu.style.maxHeight = `${Math.max(0, Math.min(440, innerHeight - pad * 2))}px`;
+        const above = Math.max(0, anchor.top - gap - pad), below = Math.max(0, innerHeight - anchor.bottom - gap - pad);
+        const desired = menu.offsetHeight;
+        const down = desired > above && below > above;
+        menu.dataset.placement = down ? 'below' : 'above';
+        menu.style.maxHeight = `${Math.floor(Math.min(440, down ? below : above))}px`;
+        const parent = menu.offsetParent;
+        if (!parent) return;
+        const origin = parent.getBoundingClientRect();
+        const x = Math.max(pad, Math.min(anchor.left, innerWidth - menu.offsetWidth - pad));
+        const y = Math.max(pad, Math.min(down ? anchor.bottom + gap : anchor.top - gap - menu.offsetHeight, innerHeight - menu.offsetHeight - pad));
+        menu.style.left = `${x - origin.left - parent.clientLeft + parent.scrollLeft}px`;
+        menu.style.top = `${y - origin.top - parent.clientTop + parent.scrollTop}px`;
+        menu.style.transformOrigin = down ? 'top left' : 'bottom left';
+    }
+
     function bind() {
+        el.chip?.addEventListener('toggle', event => {
+            if (!event.target.open) return;
+            window.HomeComposer?.close?.();window.HomeAgentDiscussion?.closePicker?.();window.DragonClawSkills?.closeSuggestions?.();
+            el.chip.querySelectorAll('details[open]').forEach(node => { if (node !== event.target) node.open = false; });
+            positionContextMenu(event.target);
+            event.target.querySelector('input[type=search]')?.focus({preventScroll:true});
+        }, true);
+        const positionOpenMenus = () => el.chip?.querySelectorAll('details[open]').forEach(positionContextMenu);
+        window.addEventListener('resize', positionOpenMenus);
+        document.addEventListener('scroll', event => { if (!event.target.closest?.('.dc-context-menu')) positionOpenMenus(); }, true);
+        el.chip?.addEventListener('input', event => {
+            if (!event.target.matches('[data-wsp-recent-search], [data-wsp-branch-search]')) return;
+            const menu = event.target.closest('.dc-context-menu'), query = event.target.value.trim().toLowerCase();
+            const branchSearch = event.target.matches('[data-wsp-branch-search]');
+            const options = [...menu.querySelectorAll(branchSearch ? '[data-wsp-branch]' : '[data-wsp-select]')];
+            options.forEach((button, index) => { button.hidden = !button.title.toLowerCase().includes(query) || (!branchSearch && !query && index >= 4); });
+            const empty = menu.querySelector('.dc-context-empty');
+            empty.hidden = options.some(button => !button.hidden);
+            if (!branchSearch) empty.textContent = query ? wsLabel('未找到匹配的工作空间', 'No matching workspaces') : wsLabel('暂无最近工作空间', 'No recent workspaces');
+            positionContextMenu(event.target.closest('details'));
+
+        });
+        document.addEventListener('keydown', event => {
+            if (event.key !== 'Escape') return;
+            el.chip?.querySelectorAll('details[open]').forEach(node => { node.open = false; node.querySelector('summary').focus(); });
+        });
         document.addEventListener('click', event => {
+            if (!el.chip?.contains(event.target) || event.target.closest('[data-wsp-action], [data-wsp-select], [data-wsp-mode]')) el.chip?.querySelectorAll('details[open]').forEach(node => { node.open = false; });
+            const branch = event.target.closest('[data-wsp-branch]');
+            if (branch && !branch.disabled && el.chip?.contains(branch)) { el.chip.querySelectorAll('details[open]').forEach(node => node.open = false);changeBranch(branch.dataset.wspBranch);return; }
             const action = event.target.closest('[data-wsp-action]');
             if (action && (el.panel.contains(action) || el.chip?.contains(action))) {
-                if (action.dataset.wspAction === 'change') openPicker();
+                if (action.dataset.wspAction === 'create-workspace') createWorkspace();
+                else if (action.dataset.wspAction === 'new-worktree') createWorktree();
+                else if (action.dataset.wspAction === 'new-branch') {
+                    if (isReadOnly() || workspaceBusy()) return;
+                    window.AppDialog.prompt(wsLabel('输入新的 Git 分支名称', 'Enter a new Git branch name'), {title:wsLabel('新建分支', 'New branch'),defaultValue:'codex/task',maxLength:160}).then(name => { if(name?.trim())changeBranch(name.trim(),true); });
+                }
+                else if (action.dataset.wspAction === 'change') openPicker();
                 else if (action.dataset.wspAction === 'clear') clearDirectory();
                 else if (action.dataset.wspAction === 'panel') setOpen(!state.open);
                 return;
@@ -1436,11 +1668,14 @@
         } catch { /* 偏好读取失败不影响使用 */ }
         state.agentSessionId = sessionStorage.getItem(SESSION_KEY) || newSessionId();
         renderAll();
-        let remembered = false;
-        try { remembered = localStorage.getItem(PANEL_KEY) === '1'; } catch { /* ignore */ }
-        if (remembered && window.innerWidth > 860) setOpen(true);
+        // 主页的新建对话始终保持收起，不恢复上次面板的展开状态。
+        // 打开工具、技能中心等非对话页面时自动收起工作区（不改用户记住的开关）
+        const autoClose = () => { if (state.open && !state.external && !state.filePreview) setOpen(false, { remember: false }); };
+        window.addEventListener('home:tool-frame', event => { if (event.detail?.open) autoClose(); });
+        window.addEventListener('home:hub', event => { if (event.detail?.open) autoClose(); });
         // 手动或其他程序改了文件也能看到：回到页面时、面板打开期间每 15 秒刷新一次
         window.addEventListener('focus', refreshChanges);
+        window.addEventListener('focus', refreshGit);
         document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshChanges(); });
         setInterval(() => { if (state.open && document.visibilityState === 'visible') refreshChanges(); }, 15000);
     }
@@ -1499,7 +1734,8 @@
         async resumeWorkspace({ agentSessionId, root } = {}) {
             if (state.pr?.phase === 'running') throw new Error(tx('prRunning'));
             const ticket = ++state.selectionEpoch;
-            if (!state.enabled || !agentSessionId || !root) { clearDirectory(); this.resetSession(); return false; }
+            // 切到没有关联目录的对话：工作区与这个对话无关，自动收起
+            if (!state.enabled || !agentSessionId || !root) { clearDirectory(); this.resetSession(); if (!state.external && !state.filePreview) setOpen(false, { remember: false }); return false; }
             if (state.root !== root) {
                 try {
                     await selectDirectory(root, ticket);
@@ -1536,6 +1772,7 @@
             return true;
         },
         resetSession({ clearWorkspace = false } = {}) {
+            setOpen(false, { remember: false });
             if (clearWorkspace) clearDirectory();
             state.selectionEpoch += 1;
             if (state.pr?.phase === 'running') state.pr.controller?.abort();
@@ -1593,6 +1830,9 @@
         close: () => setOpen(false),
         toggle: () => setOpen(!state.open),
         openPicker,
+        selectDirectory: (path, options) => selectDirectory(path, undefined, options),
+        getRoot: () => state.root,
+        clearDirectory,
         refreshTexts: renderAll
     };
 

@@ -293,7 +293,7 @@
 
     async function saveDefaults(links, message) {
         const config = await api('PUT', { links }, '/defaults');
-        // 默认链接写入源码后重新读取，保留未保存的租户修改以外的最新状态
+        // 默认链接写入源码后重新读取，保留未保存的数据空间修改以外的最新状态
         view.config = config;
         if (!view.dirty) view.draft = clone(config);
         else view.draft.links = view.draft.links.map(link => (link.builtin || config.links.some(item => item.builtin && item.id === link.id)) ? { ...(config.links.find(item => item.id === link.id) || link), enabled: link.enabled } : link);

@@ -35,7 +35,7 @@
             <form class="desktop-agent-setting-fields">
                 <div class="da-overview">
                     <div class="da-card"><h4>${L('连接与发送', 'Connection & replies')}</h4>
-                        ${toggle('enabled', L('连接本机桌面 Agent', 'Connect local desktop agents'), L('仅当前账号和租户可见', 'Visible only to this account and tenant'), cfg.enabled)}
+                        ${toggle('enabled', L('连接本机桌面 Agent', 'Connect local desktop agents'), L('仅当前账号和数据空间可见', 'Visible only to this account and tenant'), cfg.enabled)}
                         ${toggle('allowSend', L('允许网页发送消息', 'Allow replies from the Web'), L('关闭后仍可查看会话', 'Turn off for read-only conversations'), cfg.allowSend)}
                     </div>
                     <div class="da-card"><h4>${L('最近对话列表', 'Recent conversation list')}</h4>

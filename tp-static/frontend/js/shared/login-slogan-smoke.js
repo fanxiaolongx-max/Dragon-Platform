@@ -2,6 +2,7 @@
  * blue-white sparks trace the text left to right over a faint, still nebula halo. */
 (function () {
     'use strict';
+    if (document.documentElement.getAttribute('data-ui') === 'v2') return; // 新版浅色登录页不显示星尘标语
     const wrap = document.getElementById('loginSloganWrap');
     const canvas = document.getElementById('loginSloganSmoke');
     if (!wrap || !canvas) return;

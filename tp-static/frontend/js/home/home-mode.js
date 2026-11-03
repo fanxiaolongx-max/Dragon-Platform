@@ -22,7 +22,7 @@
     const WORKSPACE_COLLAPSE = 1600; // 右侧工作区打开且窄于此宽度时，左侧自动收成图标栏
     const MOBILE = 860;
     const WIDTH_KEY = 'home_sidebar_width';
-    const MIN_WIDTH = 280;
+    const MIN_WIDTH = document.documentElement.dataset.ui === 'v2' ? 208 : 280;
     const MAX_WIDTH = 560;
 
     const el = {};
@@ -67,8 +67,9 @@
         el.layout.style.setProperty('--ws-side-max', `${bounds.max}px`);
         if (widths[mode] !== undefined) el.layout.style.setProperty('--ws-side-preferred', `${widths[mode]}px`);
         else el.layout.style.removeProperty('--ws-side-preferred');
+        if(document.documentElement.dataset.ui==='v2')document.documentElement.style.setProperty('--v2-side-width', `${Math.max(bounds.min,Math.min(bounds.max,widths[mode] || 240))}px`);
         if (!el.resizer) return;
-        el.resizer.hidden = isMobile() || isCollapsed();
+        el.resizer.hidden = isMobile() || (document.documentElement.dataset.ui==='v2' ? document.body.classList.contains('v2-side-collapsed') : isCollapsed());
         el.resizer.setAttribute('aria-valuemin', String(bounds.min));
         el.resizer.setAttribute('aria-valuemax', String(bounds.max));
         if (!el.resizer.hidden) el.resizer.setAttribute('aria-valuenow', String(Math.round(el.sidebar.getBoundingClientRect().width)));
@@ -113,7 +114,7 @@
             applySidebarWidth();
         };
         el.resizer.addEventListener('pointerdown', event => {
-            if (drag || event.button !== 0 || !event.isPrimary || isMobile() || isCollapsed()) return;
+            if (drag || event.button !== 0 || !event.isPrimary || isMobile() || (document.documentElement.dataset.ui==='v2' ? document.body.classList.contains('v2-side-collapsed') : isCollapsed())) return;
             event.preventDefault();
             loadWidths();
             drag = { pointerId: event.pointerId, x: event.clientX, width: el.sidebar.getBoundingClientRect().width, preferred: widths[mode], mode, scope: widthScope };
@@ -204,10 +205,23 @@
         applySidebarMode();
     }
 
+    // 新版界面不再有旧的「工具」模式（左侧分类 + 卡片网格）：所有进入工具的入口都打开「技能·插件·工具」中心的工具页（js/home/skill-hub.js）
+    let hubToolsRequest = 0;
+    function openHubTools() {
+        const version = ++hubToolsRequest;
+        const open = () => { if (version === hubToolsRequest) window.HomeSkillHub?.open?.('tools'); };
+        if (document.getElementById('v2SkillHub')) open();
+        else window.addEventListener('home:skill-hub-ready', open, { once: true });
+    }
+
     function setMode(next, { updateHash = true, focus = false } = {}) {
         finishResize(false);
         if (!MODES.includes(next)) next = 'chat';
         if (!document.getElementById('dragonClaw')) next = 'tools'; // 没有智能体区域时只有工具
+        const hubTools = document.documentElement.dataset.ui === 'v2' && next === 'tools' && Boolean(document.getElementById('dragonClaw'));
+        // 工具中心复用主区，侧栏继续保留对话列表，不激活旧版工具分类。
+        if (hubTools) next = 'chat';
+        else if (document.documentElement.dataset.ui === 'v2') { ++hubToolsRequest; window.HomeSkillHub?.close?.(); }
         const changed = next !== mode || !document.body.classList.contains(`home-mode-${next}`);
         mode = next;
         document.body.classList.toggle('home-mode-chat', mode === 'chat');
@@ -219,7 +233,7 @@
         });
         el.panels.forEach(panel => { panel.hidden = panel.dataset.homePanel !== mode; });
         if (updateHash) {
-            const url = `${location.pathname}${location.search}${mode === 'tools' ? '#tools' : ''}`;
+            const url = `${location.pathname}${location.search}${hubTools || mode === 'tools' ? '#tools' : ''}`;
             if (url !== `${location.pathname}${location.search}${location.hash}`) history.replaceState(history.state, '', url);
         }
         applySidebarMode();
@@ -227,8 +241,9 @@
             window.scrollTo({ top: 0, behavior: 'auto' });
             window.dispatchEvent(new CustomEvent('home:mode', { detail: { mode } }));
         }
+        if (hubTools) openHubTools();
         if (focus) {
-            const target = mode === 'tools' ? document.getElementById('homeToolSearch') : document.getElementById('dcInput');
+            const target = hubTools ? document.querySelector('#v2SkillHub .v2-hub-search input') : mode === 'tools' ? document.getElementById('homeToolSearch') : document.getElementById('dcInput');
             target?.focus({ preventScroll: true });
         }
     }
@@ -253,6 +268,7 @@
     }
 
     function toggleLinks(open = !linksOpen(), { focus = true } = {}) {
+        if (document.documentElement.dataset.ui === 'v2') { if (open) window.HomeV2?.openLinks?.(null, focus); else if (el.linksPop) el.linksPop.hidden = true; return; }
         if (!el.linksPop) return;
         clearTimeout(hoverTimer);
         el.linksPop.hidden = !open;
@@ -381,9 +397,28 @@
         requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.remove('home-booting')));
     }
 
+    // 只有工具区用到的数据（统计、操作历史、友链、页面更新时间）不和对话区抢首屏请求：
+    // 切到工具区时立即加载，否则等页面加载完、浏览器空闲后再补上。
+    function whenTools(task) {
+        let done = false;
+        const run = () => {
+            if (done) return;
+            done = true;
+            window.removeEventListener('home:mode', onMode);
+            task();
+        };
+        const onMode = event => { if (event.detail?.mode === 'tools') run(); };
+        if (document.body.classList.contains('home-mode-tools')) return run();
+        window.addEventListener('home:mode', onMode);
+        const idle = () => setTimeout(() => (window.requestIdleCallback || (cb => setTimeout(cb, 0)))(run, { timeout: 2000 }), 1500);
+        if (document.readyState === 'complete') idle();
+        else window.addEventListener('load', idle, { once: true });
+    }
+
     window.HomeMode = {
         get: () => mode,
-        set: (next, options) => setMode(next, options)
+        set: (next, options) => setMode(next, options),
+        whenTools
     };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });

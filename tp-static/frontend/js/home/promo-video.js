@@ -78,7 +78,7 @@
             'home.nrv.incentive.badge': '核算', 'home.nrv.incentive.name': '操作激励统计：怎么算准每一笔', 'home.nrv.incentive.banner': '核算指南 · 操作激励统计，算得准、对得上',
             'home.nrv.eos.badge': '月报', 'home.nrv.eos.name': 'EOS 风险收编：一键取数，自动成月报', 'home.nrv.eos.banner': '月报指南 · EOS 取数、测算目标、一键成月报',
             'home.nrv.guide.badge': '指南', 'home.nrv.guide.name': 'Dragon 平台五站使用指南', 'home.nrv.guide.banner': '使用指南 · 数据抓取到月报，五站通关',
-            'home.nrv.hint': '点击放大高清观看', 'home.nrv.close': '关闭', 'home.nrv.mute': '静音', 'home.nrv.unmute': '开启声音', 'home.nrv.replay': '重新播放',
+            'home.nrv.expand': '放大观看', 'home.nrv.hint': '点击放大高清观看', 'home.nrv.close': '关闭', 'home.nrv.mute': '静音', 'home.nrv.unmute': '开启声音', 'home.nrv.replay': '重新播放',
             'home.nrv.askTitle': '关闭推广小窗？', 'home.nrv.askBody': '仅本次关闭：下次打开首页还会出现；永久关闭：只保留右上角的推广横幅，点击即可观看或打开。',
             'home.nrv.once': '仅本次关闭', 'home.nrv.forever': '永久关闭', 'home.nrv.cancel': '取消',
             'home.nrv.bannerLabel': '观看视频：{name}', 'home.nrv.dialogClose': '关闭视频',
@@ -95,8 +95,8 @@
             'home.nrv.rfc.badge': 'NEW', 'home.nrv.rfc.name': 'NetCare RFC Plans and AI Audit', 'home.nrv.rfc.banner': 'New · NetCare RFC Plans and AI Audit intro',
             'home.nrv.incentive.badge': 'PAYOUT', 'home.nrv.incentive.name': 'Operation Incentive Statistics: getting every payout right', 'home.nrv.incentive.banner': 'Guide · Operation incentive statistics, accurate and verifiable',
             'home.nrv.eos.badge': 'REPORT', 'home.nrv.eos.name': 'EOS incorporation: one-click data, automatic monthly report', 'home.nrv.eos.banner': 'Guide · EOS data capture, target forecast, one-click report',
-            'home.nrv.guide.badge': 'GUIDE', 'home.nrv.guide.name': 'Dragon Platform five-step guide', 'home.nrv.guide.banner': 'Guide · From data capture to monthly reports',
-            'home.nrv.hint': 'Click to watch in HD', 'home.nrv.close': 'Close', 'home.nrv.mute': 'Mute', 'home.nrv.unmute': 'Turn sound on', 'home.nrv.replay': 'Replay',
+            'home.nrv.guide.badge': 'GUIDE', 'home.nrv.guide.name': 'Dragon Claw five-step guide', 'home.nrv.guide.banner': 'Guide · From data capture to monthly reports',
+            'home.nrv.expand': 'Watch larger', 'home.nrv.hint': 'Click to watch in HD', 'home.nrv.close': 'Close', 'home.nrv.mute': 'Mute', 'home.nrv.unmute': 'Turn sound on', 'home.nrv.replay': 'Replay',
             'home.nrv.askTitle': 'Close the promo window?', 'home.nrv.askBody': 'Close for now: it returns next time you open the home page. Close permanently: only the promo banners stay at the top right.',
             'home.nrv.once': 'Just this time', 'home.nrv.forever': 'Close permanently', 'home.nrv.cancel': 'Cancel',
             'home.nrv.bannerLabel': 'Watch video: {name}', 'home.nrv.dialogClose': 'Close video',
@@ -179,11 +179,13 @@
 
     function init() {
         if (document.getElementById('nrvStack')) return;
+        // 首页新版界面：推广固定为右下角一张卡片，不收起成侧边标签、不自动播放视频，定时轮换下一条
+        const compactCard = document.documentElement.getAttribute('data-ui') === 'v2';
         const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         const stack = document.createElement('div');
         stack.className = 'nrv-stack'; stack.id = 'nrvStack';
         stack.innerHTML = `
-            <div class="nrv-float" id="nrvFloat" hidden>
+            <div class="nrv-float" id="nrvFloat" tabindex="0" role="group" hidden>
                 <video muted playsinline preload="auto"><source type="video/mp4"></video>
                 <div class="nrv-link" hidden>
                     <img class="nrv-link-image" alt="" referrerpolicy="no-referrer" hidden>
@@ -196,16 +198,17 @@
                 <button type="button" class="nrv-btn nrv-sound" data-act="sound"></button>
                 <button type="button" class="nrv-btn nrv-replay" data-act="replay" hidden>${ICON.replay}</button>
                 <span class="nrv-hint" data-k="hint"></span>
+                <button type="button" class="nrv-expand" data-act="expand"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3H3v4M13 3h4v4M17 13v4h-4M7 17H3v-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-k="expand"></span></button>
                 <div class="nrv-progress"><i></i></div>
-                <div class="nrv-ask" hidden role="alertdialog" aria-labelledby="nrvAskTitle">
-                    <strong id="nrvAskTitle" data-k="askTitle"></strong><p data-k="askBody"></p>
+                <div class="nrv-ask" hidden role="alertdialog" aria-labelledby="nrvAskTitle" aria-describedby="nrvAskBody">
+                    <strong id="nrvAskTitle" data-k="askTitle"></strong><p id="nrvAskBody" data-k="askBody"></p>
                     <div class="nrv-ask-actions"><button type="button" data-act="once"></button><button type="button" class="primary" data-act="forever"></button><button type="button" data-act="cancel"></button></div>
                 </div>
             </div>
             <div class="nrv-banners"></div>`;
         const dlg = document.createElement('dialog');
         dlg.className = 'nrv-dialog'; dlg.id = 'nrvDialog';
-        dlg.innerHTML = '<div class="nrv-dialog-head"><h2><b data-k="dBadge"></b><span data-k="dName"></span></h2><button type="button" class="nrv-dialog-close">×</button></div><video controls playsinline preload="metadata"><source type="video/mp4"></video>';
+        dlg.innerHTML = '<div class="nrv-dialog-head"><h2><b data-k="dBadge"></b><span data-k="dName"></span></h2><button type="button" class="nrv-dialog-close">×</button></div><video controls muted playsinline preload="metadata"><source type="video/mp4"></video>';
         const tab = document.createElement('button');
         tab.type = 'button'; tab.className = 'nrv-tab'; tab.id = 'nrvTab'; tab.tabIndex = -1;
         tab.setAttribute('aria-hidden', 'true');
@@ -224,15 +227,18 @@
         function setSource(video, url) {
             const source = video.querySelector('source');
             if (url) source.setAttribute('src', url); else source.removeAttribute('src');
+            // 收起时小窗不可见也不播放：不预下载（远程访问时会和首屏接口抢带宽），展开时再加载
+            if (video === mini) video.preload = tucked || compactCard ? 'none' : 'auto';
             video.load();
         }
         const ask = float.querySelector('.nrv-ask');
         const soundBtn = float.querySelector('[data-act="sound"]');
         const replayBtn = float.querySelector('[data-act="replay"]');
         const bar = float.querySelector('.nrv-progress i');
+        let closedForVisit = false;
         let current = null;   // 当前在小窗显示的推广项；null 表示小窗已关闭
         let bigKey = null;
-        let wantSound = true;
+        let wantSound = false;
         let ended = false;
         let soundUnlocked = false;
         let wasPlayingBeforeHide = false;
@@ -306,13 +312,18 @@
                 badge: link ? (linkText(link, 'badge') || t('home.nrv.link.badge', '推广')) : t('home.nrv.' + key + '.badge', ''),
                 name: link && linkText(link, 'badge') === linkText(link, 'name') ? '' : nameOf(key),
                 hint: link ? (desktop ? t('home.nrv.link.hintDesktop', '点击在系统浏览器打开') : t('home.nrv.link.hintTab', '点击在新标签页打开')) : t('home.nrv.hint', '点击放大高清观看'),
-                askTitle: t('home.nrv.askTitle', '关闭推广小窗？'), askBody: t('home.nrv.askBody', ''),
+                expand: t('home.nrv.expand', '放大观看'),
+                askTitle: t('home.nrv.askTitle', '关闭推广小窗？'), askBody: compactCard
+                    ? (i18n?.getLanguage?.() === 'en-US' ? 'Close for now: hidden until the next visit. Close permanently: stop automatic displays. You can reopen it from More → Promotions.' : '仅本次关闭：本次访问不再显示。永久关闭：以后不再自动展示，可从「更多 → 平台推广」重新打开。')
+                    : t('home.nrv.askBody', ''),
                 dBadge: bigKey ? t('home.nrv.' + bigKey + '.badge', '') : '', dName: bigKey ? nameOf(bigKey) : '',
                 tab: t('home.nrv.tab', '平台推广'),
                 host: link ? linkHost(link) : '', linkName: link ? linkText(link, 'name') : '', linkDesc: link ? linkText(link, 'description') : '',
                 linkOpen: t('home.nrv.link.open', '打开'), live: t('home.nrv.link.live', '实时画面')
             };
             document.querySelectorAll('#nrvStack [data-k], #nrvDialog [data-k], #nrvTab [data-k]').forEach(el => { el.textContent = map[el.dataset.k] || ''; });
+            float.setAttribute('aria-label', nameOf(key));
+            float.querySelector('.nrv-expand').setAttribute('aria-label', `${t('home.nrv.expand', '放大观看')} · ${nameOf(key)}`);
             float.dataset.video = link ? '' : key;
             float.dataset.kind = link ? 'link' : 'video';
             float.dataset.color = link ? (link.color || 'teal') : '';
@@ -337,14 +348,14 @@
             renderBanners();
         }
         function playMini() {
-            if (isLink(current) || reviewPending || tucked) return;
+            if (isLink(current) || reviewPending || tucked || compactCard) return;
             if (reducedMotion && !soundUnlocked) return;
             mini.muted = !wantSound; renderSound();
             const attempt = mini.play();
             if (!attempt || !attempt.catch) return;
             attempt.catch(() => {
                 if (reviewPending) return;
-                // 浏览器拦截带声音的自动播放：先静音播放，等用户首次与页面交互后恢复声音
+                // 播放被拦截时静音重试；声音仅由用户主动操作音量控件开启
                 mini.muted = true; renderSound();
                 soundBtn.classList.add('is-hint');
                 mini.play().catch(() => { /* 仍被拦截则停在封面 */ });
@@ -440,7 +451,7 @@
         stack.addEventListener('focusin', cancelAutoTuck);
         // 抽屉：收起到右侧边缘标签 / 从标签抽出
         function tuck() {
-            if (tucked || reviewPending) return;
+            if (tucked || reviewPending || compactCard) return;
             cancelAutoTuck();
             tucked = true;
             resumeOnUntuck = !!current && !isLink(current) && !mini.paused && !ended;
@@ -453,6 +464,7 @@
         function untuck() {
             if (!tucked || reviewPending) return;
             tucked = false;
+            mini.preload = 'auto';
             stack.classList.remove('is-tucked'); stack.removeAttribute('aria-hidden'); stack.inert = false;
             tab.classList.remove('is-shown'); tab.setAttribute('aria-hidden', 'true'); tab.tabIndex = -1;
             updateFrameLoop();
@@ -468,21 +480,12 @@
             if (event.type === 'keydown') {
                 lastKeyAt = performance.now();
                 if (!own && isEditable(event.target)) { soundUnlocked = true; tuck(); return; }
-                if (own || !tucked) unlockSound();
+                if (own || !tucked) soundUnlocked = true;
                 return;
             }
-            if (own) { if (!event.target.closest('[data-act="sound"]')) unlockSound(); return; }
+            if (own) { soundUnlocked = true; return; }
             soundUnlocked = true;
             tuck();
-        }
-        function unlockSound() {
-            if (reviewPending) return;
-            if (soundUnlocked && !mini.muted) return;
-            soundUnlocked = true;
-            if (current && !isLink(current) && !tucked && wantSound && mini.muted && !dlg.open && ask.hidden) {
-                mini.muted = false; soundBtn.classList.remove('is-hint'); renderSound();
-                if (mini.paused && !ended) mini.play().catch(() => {});
-            }
         }
         ['pointerdown', 'keydown', 'touchstart'].forEach(name => document.addEventListener(name, onInteract, true));
         // 只响应键盘 Tab 导航带来的焦点变化，避免页面自动聚焦输入框时误收起
@@ -527,10 +530,10 @@
             translate();
             previousOverflow = document.body.style.overflow;
             dlg.showModal(); document.body.style.overflow = 'hidden';
-            const start = () => { try { big.currentTime = 0; } catch (_) { /* noop */ } big.muted = false; big.play().catch(() => {}); };
+            const start = () => { try { big.currentTime = 0; } catch (_) { /* noop */ } big.muted = !wantSound; big.play().catch(() => {}); };
             if (big.readyState >= 1) start(); else big.addEventListener('loadedmetadata', start, { once: true });
         }
-        function closeBig() { if (dlg.open) dlg.close(); }
+        function closeBig() { if (dlg.open) { big.pause(); dlg.close(); } }
 
         mini.addEventListener('click', () => openBig(current));
         linkBox.addEventListener('click', () => openLink(current));
@@ -546,13 +549,25 @@
             if (!act) return;
             event.stopPropagation();
             if (act === 'close') { try { mini.pause(); } catch (_) { /* noop */ } ask.hidden = false; ask.querySelector('[data-act="once"]').focus(); }
-            else if (act === 'cancel') { ask.hidden = true; if (!isLink(current) && !ended && mini.paused) mini.play().catch(() => {}); }
-            else if (act === 'once') { setCurrent(null); }
-            else if (act === 'forever') { writeDismissed(); setCurrent(null); }
+            else if (act === 'cancel') { ask.hidden = true; float.querySelector('[data-act="close"]').focus(); if (!isLink(current) && !ended && mini.paused) mini.play().catch(() => {}); }
+            else if (act === 'once') { closedForVisit = true; setCurrent(null); stack.classList.remove('is-manually-open'); document.querySelector('[data-v2-flyout="more"]')?.focus(); }
+            else if (act === 'forever') { closedForVisit = true; writeDismissed(); setCurrent(null); stack.classList.remove('is-manually-open'); document.querySelector('[data-v2-flyout="more"]')?.focus(); }
+            else if (act === 'expand') { openBig(current); }
             else if (act === 'sound') { mini.muted = !mini.muted; wantSound = !mini.muted; soundBtn.classList.remove('is-hint'); renderSound(); if (mini.paused && !ended && ask.hidden) mini.play().catch(() => {}); }
             else if (act === 'replay') { ended = false; replayBtn.hidden = true; mini.currentTime = 0; mini.play().catch(() => {}); }
         });
-        float.addEventListener('keydown', event => { if (event.key === 'Escape' && !ask.hidden) { ask.hidden = true; if (!isLink(current) && !ended) mini.play().catch(() => {}); } });
+        float.addEventListener('keydown', event => {
+            if (ask.hidden) return;
+            if (event.key === 'Escape') {
+                event.preventDefault(); ask.hidden = true; float.querySelector('[data-act="close"]').focus();
+                if (!compactCard && !isLink(current) && !ended) mini.play().catch(() => {});
+            }
+            if (event.key === 'Tab') {
+                const buttons = [...ask.querySelectorAll('button')], index = buttons.indexOf(document.activeElement);
+                if (event.shiftKey && index <= 0) { event.preventDefault(); buttons.at(-1).focus(); }
+                else if (!event.shiftKey && index === buttons.length - 1) { event.preventDefault(); buttons[0].focus(); }
+            }
+        });
         mini.addEventListener('timeupdate', () => { if (mini.duration) bar.style.width = (mini.currentTime / mini.duration * 100) + '%'; });
         mini.addEventListener('ended', () => { ended = true; replayBtn.hidden = false; });
         mini.addEventListener('error', () => { if (mini.querySelector('source').getAttribute('src') && !float.querySelector('.nrv-load-status')) float.hidden = true; }, true);
@@ -584,20 +599,30 @@
         // 全局设置保存后即时生效
         window.addEventListener('tools:platform-promotions-changed', event => {
             if (event.detail && Array.isArray(event.detail.links)) config = event.detail;
-            if (current && !allKeys().includes(current)) setCurrent(readDismissed() ? null : nextPromotion());
+            if (current && !allKeys().includes(current)) setCurrent(closedForVisit || readDismissed() ? null : nextPromotion());
             else translate();
             scheduleRotation();
             preconnect();
         });
 
+        window.HomePromoPlayer = { open() {
+            closedForVisit = false;
+            // Explicitly opening does not clear the persistent preference.
+            setCurrent(nextPromotion());
+            stack.classList.add('is-manually-open');
+        } };
         translate();
         syncInboxPriority();
         // 当天已经展示过：首帧前就收起到右侧标签（与创建在同一任务内，不会先弹出再收起）
         if (!firstShowToday()) tuck();
         loadConfig().then(() => {
-            setCurrent(readDismissed() ? null : nextPromotion());
+            setCurrent(closedForVisit || readDismissed() ? null : nextPromotion());
             scheduleRotation();
             connectDesktop();
+            if (compactCard) setInterval(() => {
+                if (closedForVisit || document.hidden || readDismissed() || stack.matches(':hover') || dlg.open || !ask.hidden) return;
+                setCurrent(nextPromotion());
+            }, Math.max(10, Number(config.rotateSeconds) || 15) * 1000);
         });
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

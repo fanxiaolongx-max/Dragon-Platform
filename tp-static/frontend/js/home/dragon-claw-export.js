@@ -258,15 +258,28 @@
 
     // 快照页的布局覆盖：对话不再限高滚动，铺满整页
     const OVERRIDES = `
-html, body { margin: 0; min-height: 100%; background: #0a0f1e; }
+html, body { margin: 0; min-height: 100%; background: var(--v2-bg, #ffffff); color: var(--v2-ink, #1f2328); }
+html { color-scheme: light; }
+html[data-theme="dark"] { color-scheme: dark; }
+html[data-theme="dark"], html[data-theme="dark"] body { background: var(--v2-bg, #0a0f1e); color: var(--v2-ink, #e2e8f0); }
 body.dc-export { overflow: auto !important; }
 .dc-export-shell { display: block !important; position: static !important; width: auto !important; max-width: none !important; height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; overflow: visible !important; transform: none !important; grid-template-columns: none !important; }
 body.dc-export .dc { height: auto !important; min-height: 100vh !important; max-height: none !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; overflow: visible !important; }
 body.dc-export .dc-thread { flex: none !important; overflow: visible !important; height: auto !important; max-height: none !important; }
-body.dc-export .dc-chat-head { position: sticky; top: 0; z-index: 5; backdrop-filter: blur(12px); animation: none; }
+body.dc-export .dc-chat-head { position: sticky; top: 0; z-index: 5; background: var(--v2-bg, #ffffff); backdrop-filter: none; animation: none; }
 body.dc-export .dc-msg, body.dc-export .dc-ambient span { animation: none !important; }
 .dc-export-meta { display: grid; gap: 2px; min-width: 0; text-align: right; color: var(--dc-muted, #8b9ab3); font-size: 12px; }
 .dc-export-meta b { overflow: hidden; color: var(--dc-text, #e2e8f0); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.dc-export-stats { margin: 0 auto 26px; padding: 14px 16px; border: 1px solid var(--v2-line, rgba(148, 163, 184, 0.25)); border-radius: 14px; background: var(--v2-bg, transparent); color: var(--dc-text, inherit); font-size: 12.5px; overflow-x: auto; }
+.dc-export-stats h2 { margin: 0 0 10px; font-size: 14px; font-weight: 650; }
+.dc-export-stats table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.dc-export-stats th, .dc-export-stats td { padding: 6px 8px; border-bottom: 1px solid var(--v2-line, rgba(148, 163, 184, 0.2)); text-align: left; white-space: nowrap; }
+.dc-export-stats td:nth-child(2) { white-space: normal; min-width: 160px; }
+.dc-export-stats th { color: var(--dc-muted, #64748b); font-weight: 600; }
+.dc-export-stats tfoot td { font-weight: 650; border-bottom: 0; }
+.dc-export-stats .dc-export-stats-detail td { padding-top: 0; border-bottom-style: dashed; }
+.dc-export-stats details summary { cursor: pointer; color: var(--dc-muted, #64748b); }
+.dc-export-stats details table { margin: 6px 0 4px; font-size: 12px; }
 .dc-export-trimmed { width: fit-content; max-width: 100%; margin: 0 auto 22px; padding: 5px 12px; border: 1px dashed rgba(148, 163, 184, 0.3); border-radius: 999px; color: var(--dc-muted, #8b9ab3); font-size: 12px; text-align: center; }
 .dc-export-foot { padding: 8px 20px 28px; color: var(--dc-faint, #64748b); font-size: 12px; text-align: center; }
 .dc-export-file-view { border-top: 1px solid rgba(148, 163, 184, 0.14); }
@@ -310,12 +323,54 @@ button:disabled { cursor: default; }
         let outer = null;
         for (let node = section.parentElement; node && node !== document.body; node = node.parentElement) {
             const copy = doc.createElement(node.tagName.toLowerCase());
+            if (node.id) copy.id = node.id;
             if (node.className) copy.className = node.className;
             copy.classList.add('dc-export-shell');
             if (inner) copy.appendChild(outer); else inner = copy;
             outer = copy;
         }
         return { inner, outer };
+    }
+
+    // 导出开头的模型速度统计：每条回复一行（最低 / 平均 / 最高 tok/s、轮次、token、耗时），展开看每一轮的明细
+    const ST = {
+        zh: { title: '模型调用统计', reply: '回复', question: '问题', model: '模型', rounds: '轮次', tokens: '输入 / 输出 token', speed: '最低 / 平均 / 最高 tok/s', time: '耗时', round: '轮', start: '开始', ttft: '首字', duration: '耗时', tps: 'tok/s', total: '合计', est: '估算', detail: '每轮明细' },
+        en: { title: 'Model call statistics', reply: 'Reply', question: 'Question', model: 'Model', rounds: 'Calls', tokens: 'In / out tokens', speed: 'Min / avg / max tok/s', time: 'Time', round: 'Call', start: 'Start', ttft: 'First token', duration: 'Duration', tps: 'tok/s', total: 'Total', est: 'est.', detail: 'Per-call details' }
+    };
+    const st = key => ST[lang()][key];
+    const fmt1 = value => (Number.isFinite(value) ? (value >= 100 ? Math.round(value) : Math.round(value * 10) / 10) : '-');
+    const secs = ms => (Number.isFinite(ms) && ms >= 0 ? `${(ms / 1000).toFixed(1)}s` : '-');
+    function speedStats(thread, keep) {
+        const rows = [];
+        let lastQuestion = '';
+        for (const message of thread.querySelectorAll('.dc-msg')) {
+            if (message.classList.contains('dc-msg--user')) { lastQuestion = message.querySelector('.dc-msg-body')?.textContent.replace(/\s+/g, ' ').trim() || ''; continue; }
+            const rounds = (message.dcRounds || []).filter(Boolean);
+            if (rounds.length) rows.push({ question: lastQuestion, rounds });
+        }
+        const list = keep >= 0 ? rows.slice(-keep || rows.length) : rows;
+        if (!list.length) return '';
+        const sum = (items, key) => items.reduce((total, item) => total + (Number(item[key]) || 0), 0);
+        const summary = rounds => {
+            const speeds = rounds.map(r => Number(r.tps)).filter(v => v > 0);
+            const gen = sum(rounds, 'generationMs');
+            return { min: speeds.length ? Math.min(...speeds) : NaN, max: speeds.length ? Math.max(...speeds) : NaN, avg: gen > 0 ? sum(rounds, 'outputTokens') / (gen / 1000) : NaN };
+        };
+        const all = list.flatMap(row => row.rounds);
+        const total = summary(all);
+        const body = list.map((row, index) => {
+            const s = summary(row.rounds);
+            const models = [...new Set(row.rounds.map(r => r.model).filter(Boolean))].join(', ');
+            const q = row.question.length > 48 ? `${row.question.slice(0, 48)}…` : row.question;
+            const detail = row.rounds.map(r => `<tr><td>${esc(r.index)}</td><td>${esc(r.at ? new Date(r.at).toLocaleTimeString(lang() === 'en' ? 'en-US' : 'zh-CN', { hour12: false }) : '-')}</td><td>${esc(r.model || '-')}</td><td>${esc(r.inputTokens || 0)} / ${esc(r.outputTokens || 0)}${r.estimated ? ` (${esc(st('est'))})` : ''}</td><td>${esc(secs(r.ttftMs))}</td><td>${esc(secs(r.ms))}</td><td>${esc(fmt1(Number(r.tps)))}</td></tr>`).join('');
+            return `<tr><td>${index + 1}</td><td title="${esc(row.question)}">${esc(q)}</td><td>${esc(models || '-')}</td><td>${row.rounds.length}</td><td>${sum(row.rounds, 'inputTokens')} / ${sum(row.rounds, 'outputTokens')}</td><td>${esc(fmt1(s.min))} / ${esc(fmt1(s.avg))} / ${esc(fmt1(s.max))}</td><td>${esc(secs(sum(row.rounds, 'ms')))}</td></tr>
+                <tr class="dc-export-stats-detail"><td></td><td colspan="6"><details><summary>${esc(st('detail'))}</summary><table><thead><tr><th>${esc(st('round'))}</th><th>${esc(st('start'))}</th><th>${esc(st('model'))}</th><th>${esc(st('tokens'))}</th><th>${esc(st('ttft'))}</th><th>${esc(st('duration'))}</th><th>${esc(st('tps'))}</th></tr></thead><tbody>${detail}</tbody></table></details></td></tr>`;
+        }).join('');
+        return `<section class="dc-export-stats"><h2>${esc(st('title'))}</h2><table>
+            <thead><tr><th>${esc(st('reply'))}</th><th>${esc(st('question'))}</th><th>${esc(st('model'))}</th><th>${esc(st('rounds'))}</th><th>${esc(st('tokens'))}</th><th>${esc(st('speed'))}</th><th>${esc(st('time'))}</th></tr></thead>
+            <tbody>${body}</tbody>
+            <tfoot><tr><td></td><td>${esc(st('total'))}</td><td></td><td>${all.length}</td><td>${sum(all, 'inputTokens')} / ${sum(all, 'outputTokens')}</td><td>${esc(fmt1(total.min))} / ${esc(fmt1(total.avg))} / ${esc(fmt1(total.max))}</td><td>${esc(secs(sum(all, 'ms')))}</td></tr></tfoot>
+        </table></section>`;
     }
 
     async function buildHtml({ thread, range = {}, onProgress = () => {} }) {
@@ -339,13 +394,18 @@ button:disabled { cursor: default; }
         const doc = document.implementation.createHTMLDocument(title || 'Dragon Claw');
         doc.documentElement.lang = document.documentElement.lang || (lang() === 'en' ? 'en' : 'zh-CN');
         doc.documentElement.className = document.documentElement.className;
-        if (document.documentElement.dataset.theme) doc.documentElement.dataset.theme = document.documentElement.dataset.theme;
+        // Preserve selector context before collectCss prunes unused rules. Without data-ui
+        // and #dragonClaw, the v2 theme bridge is discarded and legacy dark rules win.
+        for (const name of ['data-ui', 'data-theme']) {
+            if (document.documentElement.hasAttribute(name)) doc.documentElement.setAttribute(name, document.documentElement.getAttribute(name));
+        }
         doc.body.className = document.body.className;
         doc.body.classList.remove('ai-file-preview-open', 'ai-preview-resizing', 'dc-file-expanded');
         doc.body.classList.add('dc-chatting', 'dc-export');
 
         const box = doc.createElement('section');
         box.className = section.className;
+        if (section.id) box.id = section.id;
         const avatar = section.querySelector('.dc-chat-avatar');
         const avatarSrc = avatar ? (await inliner.inline(avatar.getAttribute('src'))).dataUrl || absolute(avatar.getAttribute('src')) : '';
         const time = new Date().toLocaleString(lang() === 'en' ? 'en-US' : 'zh-CN', { hour12: false });
@@ -361,6 +421,9 @@ button:disabled { cursor: default; }
             </header>`;
         const threadBox = doc.importNode(content, true);
         threadBox.removeAttribute('aria-live');
+        // 统计表放在对话最前面；只截取了最近一段时只统计导出范围内的回复
+        const stats = speedStats(thread, trimmed ? content.querySelectorAll('.dc-msg--ai .dc-msg-speed').length : -1);
+        if (stats) threadBox.insertAdjacentHTML('afterbegin', stats);
         if (trimmed) threadBox.insertAdjacentHTML('afterbegin', `<div class="dc-export-trimmed">${esc(t('trimmed', { days: range.days ?? '', count: range.maxMessages ?? '' }))}</div>`);
         box.appendChild(threadBox);
         const foot = doc.createElement('div');

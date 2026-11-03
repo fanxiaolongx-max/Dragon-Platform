@@ -293,10 +293,40 @@
             renderTabs();
             return; // 读取失败保持现状
         }
+        const isV2 = document.documentElement.dataset.ui === 'v2';
+        const hashChannel = ['#channels', '#welink', '#weixin'].includes(location.hash);
         const stored = storeGet(SOURCE_KEY);
-        if (state.source === 'mine' && stored && stored !== 'mine' && sources().includes(stored)) setSource(stored);
-        else if (!sources().includes(state.source)) setSource('mine', { remember: false });
-        else renderTabs();
+        if (isV2) {
+            if (hashChannel && sources().includes('welink')) setSource('welink');
+            else if (location.hash === '#weixin' && sources().includes('weixin')) setSource('weixin');
+            else setSource('mine', { remember: false });
+        } else {
+            if (state.source === 'mine' && stored && stored !== 'mine' && sources().includes(stored)) setSource(stored);
+            else if (!sources().includes(state.source)) setSource('mine', { remember: false });
+            else renderTabs();
+        }
+        loadAllChannelThreads();
+    }
+
+    async function loadAllChannelThreads() {
+        const results = [];
+        for (const ch of CHANNEL_IDS) {
+            try {
+                if (state.channels.length && !state.channels.some(item => item.id === ch)) continue;
+            const data = await request('GET', `${API_BASE}/${ch}/threads?limit=100`);
+                if (data && Array.isArray(data.items)) {
+                    data.items.forEach(item => { item.channel = ch; });
+                    results.push(...data.items);
+                }
+            } catch {}
+        }
+        state.allChannelThreads = results;
+        // 15 秒轮询时列表没变（含「正在回复」状态）就不重绘侧栏，避免打断悬停和菜单
+        const signature = JSON.stringify(results.map(item => [item.channel, item.kind, item.id, item.name, item.lastActiveAt, item.updatedAt, Boolean(item.busy)]));
+        if (signature === state.allChannelSignature) return results;
+        state.allChannelSignature = signature;
+        window.dispatchEvent(new CustomEvent('home:channel-threads-updated', { detail: { threads: results } }));
+        return results;
     }
 
     async function loadThreads() {
@@ -399,6 +429,7 @@
         const channel = CHANNEL_IDS.includes(thread.channel) ? thread.channel : (state.source !== 'mine' ? state.source : 'welink');
         const api = window.DragonClaw?.enterExternal?.({ onExit: ({ switching } = {}) => leaveThread(switching) });
         if (!api) return false;
+        window.HomeAgentDiscussion?.bindExternal?.(channel);
         const seq = ++state.openSeq;
         state.api = api;
         state.active = { channel, kind: thread.kind, id: thread.id, name: thread.name };
@@ -454,6 +485,46 @@
         clearInterval(state.liveTimer);
         state.liveTimer = setInterval(pollNewMessages, LIVE_MS);
         return true;
+    }
+
+    // A channel needs an explicit recipient; choosing a connector never opens the latest thread.
+    let draftPicker = null;
+    async function composeNew(channel, text) {
+        if (!CHANNEL_IDS.includes(channel) || draftPicker) return;
+        const account = identity();
+        const dialog = document.createElement('dialog');
+        draftPicker = dialog;dialog.className = 'dc-channel-recipient';
+        dialog.innerHTML = `<header><strong>${escapeHtml(lang() === 'en-US' ? 'Choose a recipient' : '选择接收方')}</strong><button type="button" data-recipient-close aria-label="${escapeHtml(lang() === 'en-US' ? 'Cancel' : '取消')}">×</button></header><p>${escapeHtml(lang() === 'en-US' ? 'Your message will be sent only to the recipient you choose.' : '选择接收方后发送这条消息。')}</p><input type="search" data-recipient-search placeholder="${escapeHtml(lang() === 'en-US' ? 'Search contacts or groups' : '搜索联系人或群聊')}" aria-label="${escapeHtml(lang() === 'en-US' ? 'Search recipients' : '搜索接收方')}"><div data-recipient-list role="list"><p role="status">${escapeHtml(tx('loading'))}</p></div>`;
+        const close = () => { dialog.close();dialog.remove();if (draftPicker === dialog) draftPicker = null; };
+        dialog.querySelector('[data-recipient-close]').onclick = close;
+        dialog.addEventListener('cancel', event => { event.preventDefault();close(); });
+        document.body.append(dialog);dialog.showModal();
+        try {
+            const data = await request('GET', `${API_BASE}/${channel}/targets?pushable=1&limit=500`);
+            if (draftPicker !== dialog || account !== identity()) { close();return; }
+            const targets = (data.items || []).filter(item => item.canPush !== false && !(channel === 'weixin' && item.kind === 'group'));
+            const list = dialog.querySelector('[data-recipient-list]');
+            const render = () => {
+                const query = dialog.querySelector('[data-recipient-search]').value.trim().toLowerCase();
+                const rows = targets.map((item,index) => ({item,index})).filter(({item}) => (item.name || item.id).toLowerCase().includes(query));
+                list.innerHTML = rows.length ? rows.map(({item,index}) => `<button type="button" data-recipient="${index}">${escapeHtml((lang() === 'en-US' ? 'Send to ' : '发送给 ') + (item.name || item.id))}</button>`).join('') : `<p role="status">${escapeHtml(lang() === 'en-US' ? 'No available recipients. Check channel permissions and contacts.' : '暂无可发送的接收方，请检查渠道权限和联系人。')}</p>`;
+            };
+            render();dialog.querySelector('[data-recipient-search]').addEventListener('input', render);
+            list.addEventListener('click', async event => {
+                const button = event.target.closest('[data-recipient]');if (!button || button.disabled) return;
+                if (account !== identity() || window.HomeAgentDiscussion?.getSelectedConnector?.() !== channel || window.HomeAgentDiscussion?.isLocked?.()) { close();return; }
+                const target = targets[Number(button.dataset.recipient)];
+                list.querySelectorAll('button').forEach(item => item.disabled = true);
+                close();
+                await openThread({...target,channel});
+                if (account !== identity() || state.active?.id !== target.id || state.active?.channel !== channel) return;
+                state.drafts.set(threadKey(state.active), text);
+                state.botMode = state.canSend;renderReadonly();
+                if (state.canSend) await sendManual();
+            });
+        } catch (error) {
+            if (draftPicker === dialog) dialog.querySelector('[data-recipient-list]').textContent = error.message;
+        }
     }
 
     /** 频道里有新对话时追加到打开的时间线：停在底部则跟随到最新，往上翻看时保持位置。 */
@@ -1067,6 +1138,10 @@
         window.addEventListener('storage', event => {
             if (['tools_user', 'tools_tenant_id', 'tools_token'].includes(event.key) && state.active && state.identity !== identity()) { state.drafts.clear(); window.DragonClaw?.newChat?.(); }
         });
+        // 侧栏对话里的频道会话转圈：已连接频道时每 15 秒刷新一次会话列表（busy = Dragon Claw 正在回复）
+        setInterval(() => {
+            if (document.visibilityState === 'visible' && state.channels.length) loadAllChannelThreads();
+        }, 15000);
         setInterval(() => {
             if (document.visibilityState !== 'visible') return;
             loadChannels();
@@ -1074,7 +1149,19 @@
         }, 60000);
     }
 
-    window.HomeWelinkThreads = { setSource, open: openThread, reload: loadThreads, active: () => state.active ? { ...state.active } : null, refresh: pollNewMessages };
+    window.HomeWelinkThreads = {
+        setSource,
+        composeNew,
+        source: () => state.source,
+        channels: () => (state.channels || []).slice(),
+        open: openThread,
+        reload: loadThreads,
+        active: () => state.active ? { ...state.active } : null,
+        activeId: () => state.active ? `${state.active.channel}:${state.active.kind}:${state.active.id}` : null,
+        getAllThreads: () => (state.allChannelThreads || state.allThreads || state.threads || []).slice(),
+        loadAllChannelThreads,
+        refresh: pollNewMessages
+    };
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();

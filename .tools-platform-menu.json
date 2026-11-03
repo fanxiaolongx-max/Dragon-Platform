@@ -8,8 +8,8 @@
       "href": "./optical-transfer/index.html",
       "encrypted": false,
       "publicAccess": true,
-      "fingerprint": "9e3e60aa2bc90c1291fa9ac1350fc49e7e8c1e6e7b477e13f758008b3f9c517e",
-      "updatedAt": "2026-10-25T15:10:46.272Z"
+      "fingerprint": "4577f00f338997fa8997b8b8b3b253797060e1f0155617967d32e4cd8d0a73cf",
+      "updatedAt": "2026-11-03T10:49:03.332Z"
     },
     {
       "slug": "particle-effects",
@@ -17,8 +17,8 @@
       "description": "可跟随内置音乐、音频文件或麦克风实时变化的 3D Chladni 粒子视觉特效。",
       "href": "./particle-effects/index.html",
       "encrypted": false,
-      "fingerprint": "5a2689cac70af2ef867f5dbec6fb6e7300a3875d888cda327978762da1850c0d",
-      "updatedAt": "2026-10-25T15:10:46.311Z"
+      "fingerprint": "de0fd996a5b0892536bd349953b6c4854b75eaadd7fbb0fd5f3e3196a9999e77",
+      "updatedAt": "2026-11-03T10:49:03.428Z"
     },
     {
       "slug": "tool-mrrgpqy4",
@@ -62,8 +62,8 @@
       "description": "数通协议知识库：OSPF、Juniper 跨厂商策略等知识的分类整理，配合二维拓扑、报文时序、按位图解与分步实验，理解复杂协议机制。",
       "href": "./datacom-protocol-expert/index.html",
       "encrypted": false,
-      "fingerprint": "40313b7b3be58d1aff18caf623910010d4ddd41b3d808fe701cb2b555203db3e",
-      "updatedAt": "2026-11-02T04:48:49.464Z"
+      "fingerprint": "eb628f228d91d0de8f13719b58fb1f50e6c77c5a6870cde0adc62e731bfc6831",
+      "updatedAt": "2026-11-03T10:49:03.158Z"
     },
     {
       "slug": "department-reward-penalty",
@@ -89,8 +89,8 @@
       "description": "批量导入QR、RFC、WFM名单及线上线下签到表，合并去重参会人员，按最早签到时间判定准时、迟到、虚假签到或缺席，并支持检索与导出。",
       "href": "./tool-msf5b7nn/index.html",
       "encrypted": false,
-      "fingerprint": "0c03942fdf72751c967d577f2f0f9327f656211751525e0ac674cb0f3049aff1",
-      "updatedAt": "2026-10-25T15:10:45.904Z"
+      "fingerprint": "7f084bdd087f5fd5be5180f7a47c10dfe09a085fd7dcad40e645d25686465763",
+      "updatedAt": "2026-11-03T10:49:03.012Z"
     },
     {
       "slug": "tool-ms4xb66s",
@@ -107,8 +107,8 @@
       "description": "查询产品是否属于强控业务比对范围，支持产品数据导入导出、服务器保存、模糊检索和静态快照同步。",
       "href": "./tool-mumxi3px/index.html",
       "encrypted": false,
-      "fingerprint": "8309e09899ec9cde5bc444f34ca6d86dc677fd3fcff15f5065c0a6658ff5343a",
-      "updatedAt": "2026-11-02T04:48:49.361Z"
+      "fingerprint": "f56c66ac57bec0deab528ebff34e1d3d1b50ba193465822ebfb2308348ff536e",
+      "updatedAt": "2026-11-03T10:49:03.043Z"
     },
     {
       "slug": "tool-mqp55fna",
@@ -125,8 +125,8 @@
       "description": "纯浏览器验收填报：验收结果下拉、多图证明、本地自动保存、含图片 Excel 导出与备份恢复。",
       "href": "./acceptance-checklist/index.html",
       "encrypted": false,
-      "fingerprint": "612fab5685a5f64d330362e44a4c5b046ccee6daf3c3d670a88bf3fd8b66ebe1",
-      "updatedAt": "2026-10-29T00:48:50.474Z"
+      "fingerprint": "4a93da695b047d3af16e59bc22fa7ee36126d2a6c0e7a57f79b69521b541198e",
+      "updatedAt": "2026-11-03T10:49:03.184Z"
     },
     {
       "slug": "chat-history-center",
@@ -161,8 +161,8 @@
       "description": "输入表1在网运行的临时license，表2全量license-2年，输出临时lic申请次数统计",
       "href": "./esn-check/index.html",
       "encrypted": false,
-      "fingerprint": "6b67a1d5300c80ac23affce4d08268f45c0f13b8f85fe60fe503775b3f49336a",
-      "updatedAt": "2026-10-25T15:10:46.154Z"
+      "fingerprint": "707ea58e0a448447354fb4a1d289d8cd82dc51cc0f7632e7fe9fd7c78194c760",
+      "updatedAt": "2026-11-03T10:49:03.223Z"
     },
     {
       "slug": "mayrig",
@@ -188,8 +188,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./nis_2026h1_summary/index.html",
       "encrypted": false,
-      "fingerprint": "2df5fad562e6f8bf4a9696f42e1c525a6593a84916fe344dc2668caded686bd1",
-      "updatedAt": "2026-10-25T15:10:46.174Z"
+      "fingerprint": "626fe9a97d21eef70c22fd6ae2e4f5ac2b07d42f18b545690bf004cd96163a0e",
+      "updatedAt": "2026-11-03T10:49:03.240Z"
     },
     {
       "slug": "parkst",
@@ -252,8 +252,8 @@
       "description": "支持同时导入营业流水刷卡 Excel 与微信账单，单独深度分析并智能合并到营业流水总盘；自动按餐别价格档位识别【自有-微信】与【非自有-微信】，支持历史数据快照保存与一键载入。",
       "href": "./tool-dining-card-wechat/index.html",
       "encrypted": false,
-      "fingerprint": "7ede0e172b9599af25f84bc175a81b3ebebb44855ccb83cf86ccdd26b8f5c90f",
-      "updatedAt": "2026-10-25T15:10:46.386Z"
+      "fingerprint": "fda06bfae9fe01fde977c4e69aa59ae4b70789b712decb83739e038f32451827",
+      "updatedAt": "2026-11-03T10:49:03.634Z"
     },
     {
       "slug": "tool-mqtlwcrv",
@@ -261,8 +261,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-mqtlwcrv/index.html",
       "encrypted": false,
-      "fingerprint": "40ed0a3bb862d8d7a341fc81730ea2b2ebe79647d6c7193eb57d320ea248c530",
-      "updatedAt": "2026-10-25T15:10:46.399Z"
+      "fingerprint": "cdaffedd5f09f2cb83f81049564ac0521babac6ded0e28023681f6ac43c569cd",
+      "updatedAt": "2026-11-03T10:49:03.643Z"
     },
     {
       "slug": "tool-mr0vvmyi",
@@ -288,8 +288,8 @@
       "description": "CS质量运营工具平台的能力、流程与应用场景介绍。",
       "href": "./tool-mr88gv9x/index.html",
       "encrypted": false,
-      "fingerprint": "04c00cfdacebc43735d6c1e747e35f576bbc7a91518553c2fdb43982140c1b39",
-      "updatedAt": "2026-10-25T15:10:46.447Z"
+      "fingerprint": "02d08516902597fe945b05d6f33eedfb2d53bc1fa9924a71929b8254b6fe6305",
+      "updatedAt": "2026-11-03T10:49:03.678Z"
     },
     {
       "slug": "tool-mrhqjeya",
@@ -306,8 +306,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-mrlpwjk3/index.html",
       "encrypted": false,
-      "fingerprint": "d026250d4952e9ef9fc7af20cdd1d182fa524f430f4e7f3c79a72c285958a24f",
-      "updatedAt": "2026-10-25T15:10:46.491Z"
+      "fingerprint": "8d33e04ba0a0db991184490be4296d68e577622139d15fbc1bff548b16446ac9",
+      "updatedAt": "2026-11-03T10:49:03.952Z"
     },
     {
       "slug": "tool-mro1gt5o",
@@ -315,8 +315,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-mro1gt5o/index.html",
       "encrypted": false,
-      "fingerprint": "5e8f8037f4a9b0c410d37397ff21f7144552506d69727e0b9428561cdeb58a60",
-      "updatedAt": "2026-10-25T15:10:46.505Z"
+      "fingerprint": "2dc21307c0707ff0467c1156e7e5730a78cd304d5a4fe5caad3474b29a332ade",
+      "updatedAt": "2026-11-03T10:49:04.030Z"
     },
     {
       "slug": "tool-mrsw86w8",
@@ -324,8 +324,8 @@
       "description": "由独立 HTML 导入的平台工具，可在统一入口和顶部导航中访问。",
       "href": "./tool-mrsw86w8/index.html",
       "encrypted": false,
-      "fingerprint": "b7dd3189ff9d8374c54751bbb93583450c46175e3a37fccf9d0af6e3c7f1b9f9",
-      "updatedAt": "2026-10-25T15:10:46.637Z"
+      "fingerprint": "4d9cdaca0e2d442002c50c418dfdc042157e3c8e9f6f513611447c8f89bdbee8",
+      "updatedAt": "2026-11-03T10:49:04.087Z"
     },
     {
       "slug": "tool-ms1saxuh",
@@ -379,8 +379,8 @@
       "description": "用于餐厅采购订单数据清洗与核对，支持Excel导入、文本解析、数量单位纠错及多表差异比对。",
       "href": "./tool-mtpx4vtr/index.html",
       "encrypted": false,
-      "fingerprint": "f45249e83448d67d0292c7e69c6e5008a97e357a3e9620b36a00bc67e2fad0c6",
-      "updatedAt": "2026-10-25T15:10:46.831Z"
+      "fingerprint": "086fcb4ef536c76296280e4c7c2a0a6a58d820b0e9f569484817e2167756afc3",
+      "updatedAt": "2026-11-03T10:49:04.313Z"
     },
     {
       "slug": "tool-mttuw8kn",
@@ -415,8 +415,8 @@
       "description": "译维仓储管理工具，支持货品档案、出入库、库存盘点、条码与资金账单。业务数据按租户保存到独立服务器 SQLite 数据库，支持 JSON 备份、旧浏览器数据迁移和数据库下载。",
       "href": "./tool-mv9strpn/index.html",
       "encrypted": false,
-      "fingerprint": "6587444e9074548cb63c956d53130b3b6ed8dd093d90ed6f61d811ffde65c13f",
-      "updatedAt": "2026-10-25T15:10:46.885Z"
+      "fingerprint": "780c4ed056dda390dea8ad4eda5cfb6f7d656ae370a88fab7ba2c3eb93a2ebfe",
+      "updatedAt": "2026-11-03T10:49:04.352Z"
     }
   ]
 }

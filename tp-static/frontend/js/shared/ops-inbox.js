@@ -81,6 +81,7 @@
             state.items = data.items || [];
             state.total = data.total || 0;
             state.hasMore = Boolean(data.hasMore);
+            window.dispatchEvent(new CustomEvent('tools:ops-inbox-total', { detail: { total: state.canManage ? state.total : 0 } }));
             for (const item of state.items) {
                 const edit = state.edits.get(item.id);
                 if (edit && edit.base !== item.content && edit.text === edit.base) state.edits.delete(item.id);
@@ -364,7 +365,7 @@
         });
     }
 
-    window.ToolsOpsInbox = { refresh: () => refresh({ force: true }), open: review };
+    window.ToolsOpsInbox = { refresh: () => refresh({ force: true }), open: review, total: () => (state.canManage ? state.total : 0) };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();
 })();

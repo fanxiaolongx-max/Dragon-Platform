@@ -407,7 +407,7 @@
         const qr = view.qr;
         return `
             <h4>🔌 ${esc(L('连接配置', 'Connection'))}</h4>
-            <p class="nch-desc">${esc(L('平台通过微信 ClawBot（iLink 协议，与 OpenClaw 微信插件同一套接口）接入个人微信：可直接导入本机 OpenClaw 已登录的 bot，或在这里扫码登录一个。配置按租户隔离。', 'The platform connects to personal WeChat via ClawBot (iLink, the same API as the OpenClaw WeChat plugin): import the bot already linked in local OpenClaw, or scan to link one here. Settings are per tenant.'))}</p>
+            <p class="nch-desc">${esc(L('平台通过微信 ClawBot（iLink 协议，与 OpenClaw 微信插件同一套接口）接入个人微信：可直接导入本机 OpenClaw 已登录的 bot，或在这里扫码登录一个。配置按数据空间隔离。', 'The platform connects to personal WeChat via ClawBot (iLink, the same API as the OpenClaw WeChat plugin): import the bot already linked in local OpenClaw, or scan to link one here. Settings are for this platform.'))}</p>
             <label class="nch-switch" style="margin-bottom:12px"><input type="checkbox" data-path="enabled" ${d.enabled ? 'checked' : ''}> ${esc(L('启用微信助理（保存后自动连接，平台重启后自动恢复）', 'Enable WeChat assistant (connects after saving and on platform start)'))}</label>
             <div class="nch-grid">
                 ${field('Bot Token', `<input type="password" data-path="token" value="" maxlength="500" autocomplete="new-password" placeholder="${esc(view.config.hasToken ? L(`已保存 ${view.config.maskedToken}，留空不修改`, `Saved ${view.config.maskedToken}; leave blank to keep`) : L('未设置，建议扫码或从 OpenClaw 导入', 'Not set; scan or import from OpenClaw'))}">`, L('只在服务端保存，界面与日志只显示掩码', 'Stored server-side only; masked in UI and logs'))}
@@ -428,7 +428,7 @@
         const qr = view.qr;
         return `
             <h4>🔌 ${esc(L('连接配置', 'Connection'))}</h4>
-            <p class="nch-desc">${esc(L('平台作为第三方智能助理接入 WeLink 网关。推荐使用「扫码授权」自动创建助理并获取 AK/SK；也可手动填写。配置按租户隔离，与 AI 配置一致。', 'The platform registers as a third-party assistant on the WeLink gateway. Scan-to-authorize creates the assistant and fills AK/SK automatically, or enter them manually. Settings are per tenant, like AI settings.'))}</p>
+            <p class="nch-desc">${esc(L('平台作为第三方智能助理接入 WeLink 网关。推荐使用「扫码授权」自动创建助理并获取 AK/SK；也可手动填写。配置按数据空间隔离，与 AI 配置一致。', 'The platform registers as a third-party assistant on the WeLink gateway. Scan-to-authorize creates the assistant and fills AK/SK automatically, or enter them manually. Settings are for this platform, like AI settings.'))}</p>
             <label class="nch-switch" style="margin-bottom:12px"><input type="checkbox" data-path="enabled" ${d.enabled ? 'checked' : ''}> ${esc(L('启用 WeLink 助理（保存后自动连接，平台重启后自动恢复）', 'Enable WeLink assistant (connects after saving and on platform start)'))}</label>
             <div class="nch-grid">
                 ${field(L('环境', 'Environment'), `<select data-path="environment"><option value="prod" ${d.environment === 'prod' ? 'selected' : ''}>${esc(L('生产 prod', 'Production (prod)'))}</option><option value="uat" ${d.environment === 'uat' ? 'selected' : ''}>${esc(L('测试 uat', 'Test (uat)'))}</option></select>`)}
@@ -485,7 +485,7 @@
         const modelOptions = view.models.map(model => `<option value="${esc(model.id)}" ${d.modelId === model.id ? 'selected' : ''}>${esc(model.name || model.id)}</option>`).join('');
         return `
             <h4>🧠 ${esc(L('助理行为', 'Assistant behavior'))}</h4>
-            <p class="nch-desc">${esc(view.channel === 'welink' ? L('通过人员和群组访问名单校验后，WeLink 对话以完全访问模式使用 Dragon Claw 的工具、Skill 和 Dragon 浏览器。系统自动分配按租户与会话归属隔离的 welink-sdk 工作目录；工具操作无需逐项审批。', 'After user and group access checks, WeLink conversations use Dragon Claw tools, Skills and the Dragon browser in full access mode, without per-action approval. A dedicated welink-sdk workspace is isolated by tenant and conversation owner.') : L(`${channelLabel()} 用户的消息默认交给 Dragon Claw 回答（只读平台知识与数据，不开放工作区与写操作），对话记录按「${view.channel}:账号」保存在聊天记录中心。`, `Messages are answered by Dragon Claw by default (read-only platform knowledge and data, no workspace or write tools). Conversations are saved in the chat history center as "${view.channel}:<account>".`))}</p>
+            <p class="nch-desc">${esc(view.channel === 'welink' ? L('通过人员和群组访问名单校验后，WeLink 对话以完全访问模式使用 Dragon Claw 的工具、Skill 和 Dragon 浏览器。系统自动分配按会话归属隔离的 welink-sdk 工作目录；工具操作无需逐项审批。', 'After user and group access checks, WeLink conversations use Dragon Claw tools, Skills and the Dragon browser in full access mode, without per-action approval. A dedicated welink-sdk workspace is isolated by conversation owner.') : L(`${channelLabel()} 用户的消息默认交给 Dragon Claw 回答（只读平台知识与数据，不开放工作区与写操作），对话记录按「${view.channel}:账号」保存在聊天记录中心。`, `Messages are answered by Dragon Claw by default (read-only platform knowledge and data, no workspace or write tools). Conversations are saved in the chat history center as "${view.channel}:<account>".`))}</p>
             <div class="nch-grid">
                 ${field(L('回复引擎', 'Reply engine'), `<select data-path="replyEngine"><option value="dragon-claw" ${d.replyEngine === 'dragon-claw' ? 'selected' : ''}>Dragon Claw ${esc(L('智能回复', 'AI reply'))}</option><option value="rule" ${d.replyEngine === 'rule' ? 'selected' : ''}>${esc(L('规则回复（不调用模型）', 'Rule reply (no model)'))}</option></select>`)}
                 ${field(L('对话模型', 'Model'), `<select data-path="modelId"><option value="">${esc(L('跟随当前激活方案', 'Follow active profile'))}</option>${modelOptions}</select>`, L('来自「AI 助手」中的模型映射', 'From model aliases in AI settings'))}

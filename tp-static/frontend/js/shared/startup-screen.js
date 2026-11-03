@@ -2,11 +2,11 @@
 (function(){
  'use strict';
  function feather(screen){
-
- const body='M45 157 C3 128 14 58 62 35 C85 24 117 12 146 13 C155 44 142 83 114 112 C95 133 72 146 45 157Z';
- const barbs=Array.from({length:36},(_,i)=>{const f=i/35,x=46+99*f,y=153-139*f,w=Math.sin(Math.PI*f)*40,j=Math.sin(i*1.7)*2;return `<path d="M${x} ${y} Q${x-w*.6} ${y-7} ${x-w} ${y-24+j} M${x} ${y} Q${x+w*.55} ${y+2} ${x+w*.78} ${y+16+j}"/>`;}).join('');
- screen.querySelector('[data-startup-feather]').innerHTML=`<svg viewBox="0 0 180 205" aria-hidden="true"><defs><linearGradient id="bootFeather" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff"/><stop offset=".48" stop-color="#ecf3f8"/><stop offset="1" stop-color="#9db5c9"/></linearGradient><linearGradient id="bootQuill"><stop stop-color="#d8c6a1"/><stop offset="1" stop-color="#fffdf5"/></linearGradient><clipPath id="bootFeatherClip"><path d="${body}"/></clipPath></defs><path d="${body}" fill="url(#bootFeather)" stroke="#a9bccb" stroke-width=".65"/><g clip-path="url(#bootFeatherClip)" stroke="#708da5" stroke-opacity=".42" stroke-width=".55" fill="none">${barbs}</g><path d="M29 189 Q76 91 146 13" fill="none" stroke="url(#bootQuill)" stroke-width="2.3" stroke-linecap="round"/><path d="M46 156 Q93 120 121 95" fill="none" stroke="#fff" stroke-opacity=".8" stroke-width=".7"/></svg>`;
+  // Keep the shared loader hook; every page uses the same uploadable platform mark.
+  const mark=document.createElement('img');mark.src='./tp-static/frontend/assets/logo.png';mark.alt='';mark.style.cssText='width:100%;height:100%;object-fit:contain';
+  screen.querySelector('[data-startup-feather]').replaceChildren(mark);
  }
+
  const pages={
   uivf12:{title:['数据抓取','Data capture'],tasks:[['repository','加载脚本仓库','Load script repository']]},
   sla:{title:['数据导入','Data import'],tasks:[['meta','读取数据来源','Read data sources'],['rules','加载指标规则','Load metric rules'],['targets','加载预警目标','Load warning targets'],['categories','加载业务分类','Load categories'],['workspace','恢复数据工作区','Restore workspace']]},
@@ -18,7 +18,7 @@
  function create(page){
   const config=pages[page];if(!config)return;
   const screen=document.createElement('section');screen.id='platformStartup';screen.className='startup-screen';screen.setAttribute('aria-labelledby','platformStartupTitle');
-  screen.innerHTML='<div class="startup-card"><div class="startup-art" aria-hidden="true"><div class="startup-halo"></div><div class="startup-feather" data-startup-feather></div></div><p class="startup-eyebrow">TOOLS PLATFORM</p><h2 id="platformStartupTitle"></h2><p class="startup-message" role="status" aria-live="polite"></p><div class="startup-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div><div class="startup-progress-label"><span></span><strong>0%</strong></div><details class="startup-details"><summary></summary><ul></ul></details><div class="startup-actions"><button type="button" data-startup-continue></button><button type="button" data-startup-retry hidden></button></div></div>';
+  screen.innerHTML='<div class="startup-card"><div class="startup-art" aria-hidden="true"><div class="startup-halo"></div><div class="startup-feather" data-startup-feather></div></div><p class="startup-eyebrow">DRAGON CLAW</p><h2 id="platformStartupTitle"></h2><p class="startup-message" role="status" aria-live="polite"></p><div class="startup-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span></span></div><div class="startup-progress-label"><span></span><strong>0%</strong></div><details class="startup-details"><summary></summary><ul></ul></details><div class="startup-actions"><button type="button" data-startup-continue></button><button type="button" data-startup-retry hidden></button></div></div>';
   document.body.classList.add('platform-booting');document.body.prepend(screen);feather(screen);
   const tasks=new Map([...config.tasks,['render','整理页面与字体','Prepare layout and fonts']].map(([key,zh,en])=>[key,{zh,en,state:'waiting',error:''}]));
   const tr=(zh,en)=>window.ToolsI18n?.getLanguage()==='en-US'?en:zh;

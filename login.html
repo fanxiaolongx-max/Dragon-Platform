@@ -5,7 +5,39 @@
     <meta name="google-site-verification" content="Bkzm4lbFEHnJEXGJ3bIb5QLbY1uR1ecQa7JLa8vM0cw" />
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>登录 - Dragon 工具平台</title>
+    <title>登录 - Dragon Claw</title>
+    <script>
+        // 新版浅色样式（与首页一致，默认开启）；?ui=v1 或首页“切回旧版界面”后保留原星空登录页
+        (function () {
+            var root = document.documentElement;
+            try {
+                var query = new URLSearchParams(location.search).get('ui');
+                if (query === 'v2' || query === 'v1') localStorage.setItem('tools_home_ui', query);
+                if (localStorage.getItem('tools_home_ui') === 'v1') return;
+                root.setAttribute('data-ui', 'v2');
+                root.setAttribute('data-theme', localStorage.getItem('tools_theme') === 'dark' ? 'dark' : 'light');
+            } catch (e) { /* 读不到存储时保持原样式 */ }
+        })();
+    </script>
+    <script>
+        // 桌面端环境识别：隐藏“休息一下”与“影视作品”
+        (function () {
+            var root = document.documentElement;
+            function markDesktop() {
+                root.setAttribute('data-desktop', 'true');
+            }
+            if (window.ToolsDesktop || (typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent))) {
+                markDesktop();
+                return;
+            }
+            fetch('/api/desktop-license/status', { cache: 'no-store' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (data && data.enabled) markDesktop();
+                })
+                .catch(function () {});
+        })();
+    </script>
     <script>
         (function () {
             try {
@@ -16,15 +48,17 @@
                 var rawName = (isEn ? ident?.platformNameEn : (ident?.platformNameZh || ident?.platformName))
                     || localStorage.getItem('tools_platform_name');
                 if (rawName === '图特工具平台' || rawName === 'Thoth Platform') rawName = '';
-                var name = rawName || (isEn ? 'Dragon Platform' : 'Dragon 工具平台');
+                var name = rawName || (isEn ? 'Dragon Claw' : 'Dragon Claw');
                 document.title = (isEn ? 'Sign In - ' : '登录 - ') + name;
             } catch (_) {}
         })();
     </script>
     <link rel="icon" type="image/x-icon" href="./tp-static/frontend/favicon.ico?v=20261006">
-    <link rel="icon" type="image/png" sizes="32x32" href="./tp-static/frontend/assets/icon.png?v=c5e64e34f5a1">
-    <link rel="apple-touch-icon" href="./tp-static/frontend/assets/icon-mac.png?v=13b87776e9ef">
+    <link rel="icon" type="image/png" sizes="32x32" href="./tp-static/frontend/assets/icon.png?v=9d2ed0a10d14">
+    <link rel="apple-touch-icon" href="./tp-static/frontend/assets/icon-mac.png?v=af5f221ec34b">
     <script src="./tp-static/frontend/js/shared/i18n.js?v=a3bbf96d630f"></script>
+    <link rel="stylesheet" href="./tp-static/frontend/css/login-v2.css?v=dbdca09a0988">
+    <link rel="stylesheet" href="./tp-static/frontend/css/login-dialogs.css?v=c3c30825931a">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,400;1,500;1,600;1,700&family=Playfair+Display:ital,wght@1,400;1,600&family=Inter:wght@300;400;600&display=swap');
 
@@ -115,8 +149,20 @@
             gap: 8px;
         }
 
+        .login-brand-header h2 { position: relative; padding-right: 80px; }
+        #loginBrandName { white-space: nowrap; font-size: clamp(18px, 4.5vw, 25px); }
         .version-badge {
-            font-size: 10px;
+            position: absolute;
+            right: -8px;
+            top: 2px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+            white-space: nowrap;
+            line-height: 1.3;
+            font-size: 9px;
+            -webkit-text-fill-color: #a5b4fc;
             background: rgba(255, 255, 255, 0.1);
             padding: 2px 7px;
             border-radius: 8px;
@@ -338,6 +384,15 @@
             font-size: 11px;
             margin-top: 12px;
             min-height: 16px;
+        }
+
+        /* 桌面端隐藏“休息一下”与“影视作品”大按钮 */
+        html[data-desktop="true"] :is(.btn-play-game, .btn-cinema) {
+            display: none !important;
+        }
+        /* 旧版（v1）网页下已有大按钮，底部不重复显示小链接 */
+        html:not([data-ui="v2"]) .footer-entertainment-item {
+            display: none !important;
         }
 
         /* 登录卡片多级标题与下方神秘标语 */
@@ -822,9 +877,14 @@
 
     <div class="login-wrapper">
         <div class="glass-panel" id="loginPanel">
+            <div class="v2-login-head" data-v2>
+                <img class="v2-login-mascot" src="./tp-static/frontend/assets/logo.png?v=af5f221ec34b" alt="">
+                <h1>DragonClaw</h1>
+                <p data-i18n="login.v2Tagline">让想法落地</p>
+            </div>
             <div class="login-brand-header">
-                <h2 style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:3px;"><img id="loginBrandLogo" src="./tp-static/frontend/assets/logo.png?v=13b87776e9ef" alt="Dragon 工具平台" style="width:26px;height:26px;object-fit:contain;filter:drop-shadow(0 0 10px rgba(59,130,246,0.6));"><span data-platform-name id="loginBrandName">Dragon 工具平台</span> <span class="version-badge" id="appVersionBadge">v...</span></h2>
-                <div class="login-brand-sub" id="loginBrandSub">Dragon Platform</div>
+                <h2 style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:3px;"><img id="loginBrandLogo" src="./tp-static/frontend/assets/logo.png?v=af5f221ec34b" alt="Dragon Claw" style="width:26px;height:26px;object-fit:contain;filter:drop-shadow(0 0 10px rgba(59,130,246,0.6));"><span data-platform-name id="loginBrandName">Dragon Claw</span> <span class="version-badge" id="appVersionBadge">v...</span></h2>
+                <div class="login-brand-sub" id="loginBrandSub">Dragon Claw</div>
                 <div class="login-brand-subtitle" id="loginBrandSubtitle">埃及 CS 工具与知识中心</div>
             </div>
             <div class="subtitle" data-i18n="login.subtitle">默认账号：admin / admin123</div>
@@ -849,7 +909,11 @@
             <span style="color:rgba(255,255,255,0.2);">|</span>
             <a href="/terms" data-i18n="login.terms" onclick="openLegalModal('terms'); return false;">服务条款</a>
             <span style="color:rgba(255,255,255,0.2);">|</span>
-            <a class="login-evolution-link" href="./project-evolution.html" target="_blank" rel="noopener noreferrer" data-i18n="login.evolutionTitle" data-i18n-aria-label="login.evolutionAria" aria-label="观看项目演进视频，在新窗口播放高清版">项目演进</a>
+            <a class="login-evolution-link" href="./project-evolution.html" onclick="openLegalModal('evolution'); return false;" data-i18n="login.evolutionTitle" data-i18n-aria-label="login.evolutionAria" aria-label="在弹窗中观看项目演进高清视频">项目演进</a>
+            <span class="footer-entertainment-item" style="color:rgba(255,255,255,0.2);">|</span>
+            <a class="footer-entertainment-item" href="#" data-i18n="login.playGame" onclick="toggleGame(true); return false;">♨️ 休息一下</a>
+            <span class="footer-entertainment-item" style="color:rgba(255,255,255,0.2);">|</span>
+            <a class="footer-entertainment-item" href="/cinema" data-i18n="login.cinema">🎬 影视作品</a>
         </div>
 
         <div class="login-slogan-wrap" id="loginSloganWrap">
@@ -866,7 +930,7 @@
                 <h3 id="legalModalTitle" data-i18n="login.privacyTitle">隐私政策</h3>
                 <button type="button" class="legal-close" onclick="closeLegalModal()" data-i18n-aria-label="login.close" aria-label="关闭">×</button>
             </div>
-            <div class="legal-body" id="legalModalBody"></div>
+            <div class="legal-body" id="legalModalBody" tabindex="0"></div>
         </div>
     </div>
 
@@ -876,7 +940,7 @@
         <iframe id="gameIframe" src="" frameborder="0" style="width: 100%; height: 100%; display: block;"></iframe>
     </div>
 
-    <script src="./tp-static/frontend/js/shared/api.js?v=2e1a282962d7"></script>
+    <script src="./tp-static/frontend/js/shared/api.js?v=478a9b5909f5"></script>
     <script src="./tp-static/frontend/js/shared/migration-status.js?v=77d85f62cd84"></script>
     <script>
         // --- 星空动画逻辑 ---
@@ -906,7 +970,7 @@
                 title: '隐私政策 (Privacy Policy)',
                 html: `
                     <h1>隐私政策 (Privacy Policy)</h1>
-                    <p>欢迎使用工具中台 (Tools Platform)。本隐私政策旨在说明您在使用我们服务时，我们如何收集、使用和保护您的信息。</p>
+                    <p>欢迎使用工具中台 (Dragon Claw)。本隐私政策旨在说明您在使用我们服务时，我们如何收集、使用和保护您的信息。</p>
                     <h2>收集的信息</h2>
                     <ul>
                         <li><strong>账户与认证数据：</strong>登录时使用的用户凭证或相关授权令牌。</li>
@@ -926,7 +990,7 @@
                     <p>如果您对本隐私政策有任何疑问，请通过以下方式联系管理员：<code>fanxiaolongx@gmail.com</code></p>
                     <div class="legal-divider"></div>
                     <h1>Privacy Policy</h1>
-                    <p>Welcome to the Tools Platform (工具中台). This Privacy Policy explains how we collect, use, and protect your information when you use our services.</p>
+                    <p>Welcome to the Dragon Claw (工具中台). This Privacy Policy explains how we collect, use, and protect your information when you use our services.</p>
                     <h2>Information Collected</h2>
                     <ul>
                         <li><strong>Account and Authentication Data:</strong> User credentials or authorization tokens used when logging in.</li>
@@ -950,7 +1014,7 @@
                 title: '服务条款 (Terms of Service)',
                 html: `
                     <h1>服务条款 (Terms of Service)</h1>
-                    <p>访问和使用工具中台 (Tools Platform) 即表示您同意遵守以下服务条款。</p>
+                    <p>访问和使用工具中台 (Dragon Claw) 即表示您同意遵守以下服务条款。</p>
                     <h2>服务的使用</h2>
                     <ul>
                         <li>您同意仅出于合法和经授权的业务目的使用本平台及其工具（包括但不限于数据抓取、SLA导入、PR稽查和报表工具）。</li>
@@ -965,7 +1029,7 @@
                     <p>我们保留随时修改、暂停或终止本平台部分或全部服务的权利，恕不另行通知。继续使用本平台即表示您接受修改后的服务条款。</p>
                     <div class="legal-divider"></div>
                     <h1>Terms of Service</h1>
-                    <p>By accessing and using the Tools Platform (工具中台), you agree to comply with and be bound by the following terms of service.</p>
+                    <p>By accessing and using the Dragon Claw (工具中台), you agree to comply with and be bound by the following terms of service.</p>
                     <h2>Use of Service</h2>
                     <ul>
                         <li>You agree to use the platform and its tools (including but not limited to data scraping, SLA imports, PR audit, and reporting tools) only for lawful and authorized business purposes.</li>
@@ -973,7 +1037,7 @@
                         <li>When using data scraping or macro engines, you must comply with the target system/website's terms of service and applicable laws. Malicious scraping, unauthorized data extraction, or abuse of platform computing resources is strictly prohibited.</li>
                     </ul>
                     <h2>Disclaimer of Warranties</h2>
-                    <p>The Tools Platform and all included sub-tools are provided on an "as is" and "as available" basis. We make no warranties, express or implied, regarding the stability, accuracy, or absolute security of the platform's features or data.</p>
+                    <p>The Dragon Claw and all included sub-tools are provided on an "as is" and "as available" basis. We make no warranties, express or implied, regarding the stability, accuracy, or absolute security of the platform's features or data.</p>
                     <h2>Limitation of Liability</h2>
                     <p>In no event shall we be liable for any direct, indirect, incidental, special, or consequential damages (including but not limited to business interruption or data loss) arising out of the use or inability to use the platform and its tools.</p>
                     <h2>Modifications</h2>
@@ -982,30 +1046,56 @@
             }
         };
 
+        let legalModalTrigger = null;
+        let legalPreviousOverflow = '';
+        let legalWrapperWasInert = false;
+
         function openLegalModal(type) {
-            const item = LEGAL_CONTENT[type] || LEGAL_CONTENT.privacy;
             const modal = document.getElementById('legalModal');
             const title = document.getElementById('legalModalTitle');
             const body = document.getElementById('legalModalBody');
             if (!modal || !title || !body) return;
-            const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
-            title.textContent = lang === 'en-US'
-                ? (type === 'terms' ? 'Terms of Service (服务条款)' : 'Privacy Policy (隐私政策)')
-                : (type === 'terms' ? '服务条款 (Terms of Service)' : '隐私政策 (Privacy Policy)');
-            title.setAttribute('data-legal-type', type);
-            body.innerHTML = (currentPlatformName && currentPlatformName !== 'Tools Platform')
-                ? item.html.split('Tools Platform').join(currentPlatformName)
-                : item.html;
+            const wrapper = document.querySelector('.login-wrapper');
+            if (!modal.classList.contains('open')) {
+                legalModalTrigger = document.activeElement;
+                legalPreviousOverflow = document.body.style.overflow;
+                legalWrapperWasInert = wrapper?.inert || false;
+            }
+            window.ProjectEvolutionPlayer?.close?.();
+            const video = type === 'evolution';
+            const kind = video ? 'evolution' : type === 'terms' ? 'terms' : 'privacy';
+            const key = kind === 'evolution' ? 'login.evolutionTitle' : kind === 'terms' ? 'login.termsTitle' : 'login.privacyTitle';
+            title.dataset.i18n = key;
+            title.dataset.legalType = kind;
+            title.textContent = window.ToolsI18n?.t(key) || (video ? '项目演进' : LEGAL_CONTENT[kind].title);
+            modal.classList.toggle('is-video', video);
+            if (video) {
+                window.ProjectEvolutionPlayer?.mount(body);
+            } else {
+                const item = LEGAL_CONTENT[kind];
+                body.innerHTML = (currentPlatformName && currentPlatformName !== 'Dragon Claw')
+                    ? item.html.split('Dragon Claw').join(currentPlatformName)
+                    : item.html;
+            }
             body.scrollTop = 0;
             modal.classList.add('open');
             modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+            if (wrapper) wrapper.inert = true;
+            modal.querySelector('.legal-close').focus({ preventScroll: true });
         }
 
         function closeLegalModal() {
             const modal = document.getElementById('legalModal');
-            if (!modal) return;
-            modal.classList.remove('open');
+            if (!modal?.classList.contains('open')) return;
+            window.ProjectEvolutionPlayer?.close?.();
+            modal.classList.remove('open', 'is-video');
             modal.setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = legalPreviousOverflow;
+            const wrapper = document.querySelector('.login-wrapper');
+            if (wrapper) wrapper.inert = legalWrapperWasInert;
+            if (legalModalTrigger?.isConnected) legalModalTrigger.focus({ preventScroll: true });
+            legalModalTrigger = null;
         }
 
         function handleLegalBackdrop(event) {
@@ -1013,7 +1103,15 @@
         }
 
         document.addEventListener('keydown', event => {
-            if (event.key === 'Escape') closeLegalModal();
+            const modal = document.getElementById('legalModal');
+            if (!modal?.classList.contains('open')) return;
+            if (event.key === 'Escape') { event.preventDefault(); closeLegalModal(); }
+            if (event.key === 'Tab') {
+                const stops = [...modal.querySelectorAll('button, a[href], video, [tabindex="0"]')].filter(node => !node.hidden && node.getClientRects().length);
+                const index = stops.indexOf(document.activeElement);
+                if (event.shiftKey && index <= 0) { event.preventDefault(); stops.at(-1)?.focus(); }
+                else if (!event.shiftKey && (index === stops.length - 1 || index === -1)) { event.preventDefault(); stops[0]?.focus(); }
+            }
         });
 
         class Star {
@@ -1070,7 +1168,9 @@
             requestAnimationFrame(animate);
         }
 
-        animate();
+        // 新版浅色登录页不显示星空，不启动动画循环
+        const loginV2 = document.documentElement.getAttribute('data-ui') === 'v2';
+        if (!loginV2) animate();
 
         // --- 业务逻辑 ---
         let loginAppVersion = '';
@@ -1078,7 +1178,15 @@
             const badge = document.getElementById('appVersionBadge');
             if (!badge || !loginAppVersion) return;
             const en = (window.ToolsI18n?.getLanguage?.() || document.documentElement.lang || '').startsWith('en');
-            badge.textContent = `v${loginAppVersion}${window.__TP_STATIC_BASE__ ? ' · ' + (en ? 'Online test version' : '在线测试版') : ''}`;
+            badge.replaceChildren();
+            const version = document.createElement('span');
+            version.textContent = `v${loginAppVersion}`;
+            badge.appendChild(version);
+            if (window.__TP_STATIC_BASE__) {
+                const channel = document.createElement('small');
+                channel.textContent = en ? 'Online test version' : '在线测试版';
+                badge.appendChild(channel);
+            }
         }
         async function loadAppVersion() {
             const badge = document.getElementById('appVersionBadge');
@@ -1265,9 +1373,11 @@
             btn.disabled = true;
             btn.setAttribute('aria-busy', 'true');
             btn.innerHTML = `${window.ToolsI18n ? window.ToolsI18n.t('login.submitting') : '正在登录'} <span class="loader"></span>`;
-            btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
-            btn.style.boxShadow = '0 10px 25px -5px rgba(16, 185, 129, 0.5)';
-            panel.style.transform = 'scale(0.95)';
+            if (!loginV2) {
+                btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                btn.style.boxShadow = '0 10px 25px -5px rgba(16, 185, 129, 0.5)';
+                panel.style.transform = 'scale(0.95)';
+            }
             targetSpeed = warpSpeed;
 
             try {
@@ -1285,17 +1395,21 @@
                 localStorage.setItem('tools_token', data.token);
                 localStorage.setItem('tools_user', data.username);
                 localStorage.setItem('tools_role', data.role);
-                localStorage.setItem('tools_tenant_id', data.tenantId || 'default');
+                if (data.tenantId && data.tenantId !== 'default') {
+                    const opened = await fetch('/api/tenants/switch', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.token}` }, body: JSON.stringify({ tenantId: 'default' }) });
+                    if (!opened.ok) throw new Error(window.ToolsI18n?.getLanguage?.() === 'en-US' ? 'Unable to open the default workspace' : '无法打开默认工作区');
+                }
+                localStorage.setItem('tools_tenant_id', 'default');
                 localStorage.removeItem('dragon_claw_spotlight_dismissed');
 
                 btn.innerHTML = window.ToolsI18n ? window.ToolsI18n.t('login.success') : '登录成功';
                 btn.removeAttribute('aria-busy');
-                playGaussianDissolve();
+                if (!loginV2) playGaussianDissolve();
 
-                // 让粒子完整融入星空后再进入平台
+                // 让粒子完整融入星空后再进入平台（新版没有粒子效果，直接进入）
                 setTimeout(() => {
                     window.location.href = window.__TP_LOGIN_DESTINATION__ || './index.html';
-                }, prefersReducedMotion.matches ? 220 : 1080);
+                }, loginV2 ? 120 : prefersReducedMotion.matches ? 220 : 1080);
 
             } catch (e) {
                 // 恢复原状
@@ -1315,7 +1429,7 @@
         // --- 多语言国际化 (i18n) ---
         const LOGIN_I18N = {
             'zh-CN': {
-                'login.pageTitle': '登录 - Dragon 工具平台',
+                'login.pageTitle': '登录 - Dragon Claw',
                 'login.subtitle': '默认账号：admin / admin123',
                 'login.usernameLabel': '用户名',
                 'login.usernamePlaceholder': '请输入账号',
@@ -1328,8 +1442,9 @@
                 'login.emptyFields': '用户名和密码不能为空',
                 'login.playGame': '♨️ 休息一下',
                 'login.cinema': '🎬 影视作品',
+                'login.v2Tagline': '让想法落地',
                 'login.evolutionTitle': '项目演进',
-                'login.evolutionAria': '观看项目演进视频，在新窗口播放高清版',
+                'login.evolutionAria': '在弹窗中观看项目演进高清视频',
                 'login.privacy': '隐私政策',
                 'login.terms': '服务条款',
                 'login.exitGame': '退出游戏',
@@ -1339,7 +1454,7 @@
                 'login.termsTitle': '服务条款 (Terms of Service)'
             },
             'en-US': {
-                'login.pageTitle': 'Sign In - Dragon Platform',
+                'login.pageTitle': 'Sign In - Dragon Claw',
                 'login.subtitle': 'Default credentials: admin / admin123',
                 'login.usernameLabel': 'Username',
                 'login.usernamePlaceholder': 'Enter username',
@@ -1352,8 +1467,9 @@
                 'login.emptyFields': 'Username and password cannot be empty',
                 'login.playGame': '♨️ Take a Break',
                 'login.cinema': '🎬 Cinema & Films',
+                'login.v2Tagline': 'From idea to done',
                 'login.evolutionTitle': 'Project evolution',
-                'login.evolutionAria': 'Watch the project evolution video in HD in a new window',
+                'login.evolutionAria': 'Watch the project evolution video in an HD dialog',
                 'login.privacy': 'Privacy Policy',
                 'login.terms': 'Terms of Service',
                 'login.exitGame': 'Exit Game',
@@ -1364,11 +1480,11 @@
             }
         };
 
-        let currentPlatformName = 'Dragon 工具平台';
+        let currentPlatformName = 'Dragon Claw';
         let currentPlatformIdentity = {
-            platformName: 'Dragon 工具平台',
-            platformNameZh: 'Dragon 工具平台',
-            platformNameEn: 'Dragon Platform',
+            platformName: 'Dragon Claw',
+            platformNameZh: 'Dragon Claw',
+            platformNameEn: 'Dragon Claw',
             platformSubtitle: '埃及 CS 工具与知识中心',
             platformSubtitleEn: 'Egypt CS Tools & Knowledge Center',
             platformSlogan: '“认真做好每一个工具，让日常工作更省心。”',
@@ -1378,15 +1494,15 @@
         function updateLoginTitle() {
             const lang = window.ToolsI18n?.getLanguage?.() || 'zh-CN';
             const defaultPrefix = lang === 'en-US' ? 'Sign In' : '登录';
-            const rawTitle = window.ToolsI18n?.t('login.pageTitle') || `${defaultPrefix} - Tools Platform`;
-            if (rawTitle.includes('Tools Platform')) {
-                document.title = rawTitle.split('Tools Platform').join(currentPlatformName);
+            const rawTitle = window.ToolsI18n?.t('login.pageTitle') || `${defaultPrefix} - Dragon Claw`;
+            if (rawTitle.includes('Dragon Claw')) {
+                document.title = rawTitle.split('Dragon Claw').join(currentPlatformName);
             } else if (rawTitle.includes('图特工具平台')) {
                 document.title = rawTitle.split('图特工具平台').join(currentPlatformName);
-            } else if (rawTitle.includes('Dragon 工具平台')) {
-                document.title = rawTitle.split('Dragon 工具平台').join(currentPlatformName);
-            } else if (rawTitle.includes('Dragon Platform')) {
-                document.title = rawTitle.split('Dragon Platform').join(currentPlatformName);
+            } else if (rawTitle.includes('Dragon Claw')) {
+                document.title = rawTitle.split('Dragon Claw').join(currentPlatformName);
+            } else if (rawTitle.includes('Dragon Claw')) {
+                document.title = rawTitle.split('Dragon Claw').join(currentPlatformName);
             } else {
                 document.title = `${defaultPrefix} - ${currentPlatformName}`;
             }
@@ -1403,11 +1519,11 @@
             let enName = currentPlatformIdentity.platformNameEn;
 
             if (zhName && enName && zhName.toLowerCase() === enName.toLowerCase() && !/[^\x00-\x7F]/.test(zhName) && (enName.toLowerCase() === 'thoth platform' || enName.toLowerCase() === 'dragon platform' || enName.toLowerCase() === 'tools platform' || enName.toLowerCase() === 'eg cs hub')) {
-                zhName = 'Dragon 工具平台';
+                zhName = 'Dragon Claw';
             }
 
-            zhName = zhName || (rawHasChinese ? rawName : 'Dragon 工具平台');
-            enName = enName || (!rawHasChinese && rawName ? rawName : 'Dragon Platform');
+            zhName = zhName || (rawHasChinese ? rawName : 'Dragon Claw');
+            enName = enName || (!rawHasChinese && rawName ? rawName : 'Dragon Claw');
 
             const zhSub = currentPlatformIdentity.platformSubtitle || '埃及 CS 工具与知识中心';
             const enSub = currentPlatformIdentity.platformSubtitleEn || 'Egypt CS Tools & Knowledge Center';
@@ -1468,7 +1584,7 @@
             if (!data) return;
             if (typeof data === 'string') {
                 let cleaned = data.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80);
-                if (cleaned === '图特工具平台' || cleaned === 'Thoth Platform') cleaned = 'Dragon 工具平台';
+                if (cleaned === '图特工具平台' || cleaned === 'Thoth Platform') cleaned = 'Dragon Claw';
                 if (cleaned) {
                     currentPlatformIdentity.platformName = cleaned;
                     const hasChinese = /[^\x00-\x7F]/.test(cleaned);
@@ -1490,17 +1606,17 @@
                 let en = data.platformNameEn ? String(data.platformNameEn).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 80) : '';
 
                 if (zh && en && zh.toLowerCase() === en.toLowerCase() && !/[^\x00-\x7F]/.test(zh) && (en.toLowerCase() === 'thoth platform' || en.toLowerCase() === 'dragon platform' || en.toLowerCase() === 'tools platform' || en.toLowerCase() === 'eg cs hub')) {
-                    zh = 'Dragon 工具平台';
+                    zh = 'Dragon Claw';
                 }
 
-                currentPlatformIdentity.platformNameZh = zh || (rawHasChinese ? rawName : 'Dragon 工具平台');
-                currentPlatformIdentity.platformNameEn = en || (!rawHasChinese && rawName ? rawName : 'Dragon Platform');
+                currentPlatformIdentity.platformNameZh = zh || (rawHasChinese ? rawName : 'Dragon Claw');
+                currentPlatformIdentity.platformNameEn = en || (!rawHasChinese && rawName ? rawName : 'Dragon Claw');
 
                 if (data.platformSubtitle) currentPlatformIdentity.platformSubtitle = String(data.platformSubtitle).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 120);
                 if (data.platformSubtitleEn) currentPlatformIdentity.platformSubtitleEn = String(data.platformSubtitleEn).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 120);
                 if (data.platformSlogan) currentPlatformIdentity.platformSlogan = String(data.platformSlogan).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 200);
                 if (data.platformSloganEn) currentPlatformIdentity.platformSloganEn = String(data.platformSloganEn).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 200);
-                currentPlatformName = currentPlatformIdentity.platformNameZh || currentPlatformIdentity.platformName || 'Dragon 工具平台';
+                currentPlatformName = currentPlatformIdentity.platformNameZh || currentPlatformIdentity.platformName || 'Dragon Claw';
             }
             renderLoginIdentityUI();
         }
@@ -1575,7 +1691,7 @@
                 const title = document.getElementById('legalModalTitle');
                 if (title) {
                     const legalType = title.getAttribute('data-legal-type') || 'privacy';
-                    title.textContent = window.ToolsI18n?.t(legalType === 'terms' ? 'login.termsTitle' : 'login.privacyTitle');
+                    title.textContent = window.ToolsI18n?.t(legalType === 'evolution' ? 'login.evolutionTitle' : legalType === 'terms' ? 'login.termsTitle' : 'login.privacyTitle');
                 }
             }
         }
@@ -1596,8 +1712,11 @@
         }
         loadPlatformIdentity();
     </script>
-    <script src="./tp-static/frontend/js/shared/login-slogan-smoke.js?v=dde301fa053f"></script>
-    <script src="./tp-static/frontend/js/shared/desktop-license-badge.js?v=31d510877026"></script>
+    <script src="./tp-static/frontend/js/project-evolution.js?v=78e78a7932ff"></script>
+    <script src="./tp-static/frontend/js/shared/login-slogan-smoke.js?v=c34e8b679907"></script>
+    <script src="./tp-static/frontend/js/shared/desktop-license-badge.js?v=7d4f63a3dc22"></script>
+    <script src="./tp-static/frontend/js/shared/desktop-window.js?v=48602fedb007"></script>
+    <script src="./tp-static/frontend/js/shared/elegant-scrollbars.js?v=f1a6f4e36db3"></script>
 </body>
 
 </html>

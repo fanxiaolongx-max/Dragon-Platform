@@ -48,7 +48,7 @@
     }
     function render() {
         const current = token();
-        if (composing || input.disabled || !current) return close();
+        if (composing || input.disabled || !current || window.HomeComposer?.isOpen?.() || window.HomeAgentDiscussion?.isPickerOpen?.() || document.querySelector('#dcWorkspaceChip details[open]')) return close();
         const previous = matches[active]?.id;
         matches = items.filter(item => [item.id, item.name, item.nameEn, item.description, item.descriptionEn].some(text => String(text).toLowerCase().includes(current.query)));
         menu.replaceChildren();
@@ -429,6 +429,6 @@
     }
 
     window.addEventListener('skills:changed', refresh);
-    window.DragonClawSkills = { handleEvent, activeIds: () => kept.slice(), restore, reset, badge, decorateUser, refresh, offerSave, use: useSkillNow };
+    window.DragonClawSkills = { closeSuggestions: close, handleEvent, activeIds: () => kept.slice(), restore, reset, badge, decorateUser, refresh, offerSave, use: useSkillNow, catalog: async () => { await load(); if (!loaded) throw new Error("Skills unavailable"); return items.slice(); } };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
 })();
